@@ -43,7 +43,7 @@ static int generate_parameters_file(const char *fname)
 	if (ftruncate(fd, 0) < 0)
 		i_fatal("ftruncate(%s) failed: %m", temp_fname);
 
-	_ssl_generate_parameters(fd, temp_fname);
+	ssl_generate_parameters(fd, temp_fname);
 
 	if (rename(temp_fname, fname) < 0)
 		i_fatal("rename(%s, %s) failed: %m", temp_fname, fname);

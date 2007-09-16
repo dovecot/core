@@ -4,7 +4,7 @@
 #include "commands.h"
 #include "mail-namespace.h"
 
-bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
+bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
 	struct mail_namespace *ns;
         struct mail_storage *storage;
@@ -46,5 +46,5 @@ bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 
 bool cmd_subscribe(struct client_command_context *cmd)
 {
-	return _cmd_subscribe_full(cmd, TRUE);
+	return cmd_subscribe_full(cmd, TRUE);
 }

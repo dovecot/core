@@ -162,7 +162,7 @@ static int chr_16bit_cmp(const void *_key, const void *_chr)
 	return *key - *chr;
 }
 
-void _squat_trie_pack_num(buffer_t *buffer, uint32_t num)
+void squat_trie_pack_num(buffer_t *buffer, uint32_t num)
 {
 	uint8_t c;
 
@@ -178,7 +178,7 @@ void _squat_trie_pack_num(buffer_t *buffer, uint32_t num)
 	buffer_append(buffer, &c, 1);
 }
 
-uint32_t _squat_trie_unpack_num(const uint8_t **p, const uint8_t *end)
+uint32_t squat_trie_unpack_num(const uint8_t **p, const uint8_t *end)
 {
 	const uint8_t *c = *p;
 	uint32_t value = 0;
@@ -375,7 +375,7 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 	end = trie->const_mmap_base + trie->mmap_size;
 
 	/* get 8bit char count and check that it's valid */
-	num = _squat_trie_unpack_num(&p, end);
+	num = squat_trie_unpack_num(&p, end);
 	chars8_count = num >> 1;
 
 	chars8_offset = p - trie->const_mmap_base;
@@ -408,7 +408,7 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 		p = trie->const_mmap_base + chars8_offset + chars8_size;
 		end = trie->const_mmap_base + trie->mmap_size;
 
-		chars16_count = _squat_trie_unpack_num(&p, end);
+		chars16_count = squat_trie_unpack_num(&p, end);
 		if (chars16_count > 65536) {
 			squat_trie_set_corrupted(trie, "trie offset broken");
 			return -1;
@@ -1329,13 +1329,13 @@ static void node_pack(buffer_t *buf, struct trie_node *node)
 	struct trie_node **children16 = NODE_CHILDREN16(node, 0);
 
 	buffer_set_used_size(buf, 0);
-	_squat_trie_pack_num(buf, (node->chars_8bit_count << 1) |
-			     (node->chars_16bit_count > 0 ? 1 : 0));
+	squat_trie_pack_num(buf, (node->chars_8bit_count << 1) |
+			    (node->chars_16bit_count > 0 ? 1 : 0));
 	buffer_append(buf, chars8, node->chars_8bit_count);
 	node_pack_children(buf, children8, node->chars_8bit_count);
 
 	if (node->chars_16bit_count > 0) {
-		_squat_trie_pack_num(buf, node->chars_16bit_count);
+		squat_trie_pack_num(buf, node->chars_16bit_count);
 		buffer_append(buf, chars16,
 			      sizeof(*chars16) * node->chars_16bit_count);
 		node_pack_children(buf, children16, node->chars_16bit_count);
@@ -1367,13 +1367,13 @@ static void node_pack_leaf(buffer_t *buf, struct trie_node *node)
 	uint32_t *idx16 = (uint32_t *)NODE_CHILDREN16(node, BLOCK_SIZE);
 
 	buffer_set_used_size(buf, 0);
-	_squat_trie_pack_num(buf, (node->chars_8bit_count << 1) |
-			     (node->chars_16bit_count > 0 ? 1 : 0));
+	squat_trie_pack_num(buf, (node->chars_8bit_count << 1) |
+			    (node->chars_16bit_count > 0 ? 1 : 0));
 	buffer_append(buf, chars8, node->chars_8bit_count);
 	buffer_append(buf, idx8, sizeof(*idx8) * node->chars_8bit_count);
 
 	if (node->chars_16bit_count > 0) {
-		_squat_trie_pack_num(buf, node->chars_16bit_count);
+		squat_trie_pack_num(buf, node->chars_16bit_count);
 		buffer_append(buf, chars16,
 			      sizeof(*chars16) * node->chars_16bit_count);
 		buffer_append(buf, idx16,
@@ -2025,7 +2025,7 @@ int squat_trie_filter(struct squat_trie *trie, ARRAY_TYPE(seq_range) *result,
 	return ret;
 }
 
-struct squat_uidlist *_squat_trie_get_uidlist(struct squat_trie *trie)
+struct squat_uidlist *squat_trie_get_uidlist(struct squat_trie *trie)
 {
 	return trie->uidlist;
 }

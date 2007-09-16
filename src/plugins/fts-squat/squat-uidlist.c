@@ -443,7 +443,7 @@ squat_uidlist_map_list(struct squat_uidlist *uidlist, size_t offset,
 	data = uidlist->const_mmap_base + offset;
 	end = uidlist->const_mmap_base + uidlist->mmap_size;
 
-	size = _squat_trie_unpack_num(&data, end);
+	size = squat_trie_unpack_num(&data, end);
 	data_offset = data - uidlist->const_mmap_base;
 
 	if (squat_uidlist_map_area(uidlist, data_offset, size) < 0)
@@ -469,10 +469,10 @@ squat_uidlist_copy_existing(struct squat_uidlist *uidlist, size_t offset,
 	data_start = data;
 	end = data + size;
 
-	prev_uid = next_uid = _squat_trie_unpack_num(&data, end);
+	prev_uid = next_uid = squat_trie_unpack_num(&data, end);
 	p = data;
 	while (data != end) {
-		num = _squat_trie_unpack_num(&data, end);
+		num = squat_trie_unpack_num(&data, end);
 		next_uid = prev_uid + (num >> 1) + 1;
 
 		if ((num & 1) != 0) {
@@ -483,7 +483,7 @@ squat_uidlist_copy_existing(struct squat_uidlist *uidlist, size_t offset,
 			}
 
 			/* beginning a new uid/range */
-			num = _squat_trie_unpack_num(&data, end);
+			num = squat_trie_unpack_num(&data, end);
 			next_uid += num + 1;
 
 			prev_uid = next_uid;
@@ -518,7 +518,7 @@ squat_uidlist_write_range(struct squat_uidlist *uidlist,
 
 	if (node->prev == NULL) {
 		/* first UID */
-		_squat_trie_pack_num(buffer, node->uid);
+		squat_trie_pack_num(buffer, node->uid);
 	} else {
 		if ((prev_idx & UID_NODE_PREV_FLAG_OLD) != 0) {
 			prev_idx >>= 1;
@@ -546,7 +546,7 @@ squat_uidlist_write_range(struct squat_uidlist *uidlist,
 				return 0;
 			} else {
 				/* finishing range */
-				_squat_trie_pack_num(buffer, 1 |
+				squat_trie_pack_num(buffer, 1 |
 					((node->uid - written_uid - 1) << 1));
 				return 0;
 			}
@@ -556,13 +556,13 @@ squat_uidlist_write_range(struct squat_uidlist *uidlist,
 			i_assert(written_uid < prev_uid);
 
 			/* range ends at prev_uid */
-			_squat_trie_pack_num(buffer, 1 |
+			squat_trie_pack_num(buffer, 1 |
 				((prev_uid - written_uid - 1) << 1));
 			/* next uid/range */
-			_squat_trie_pack_num(buffer, node->uid - prev_uid - 1);
+			squat_trie_pack_num(buffer, node->uid - prev_uid - 1);
 		} else {
 			/* no range */
-			_squat_trie_pack_num(buffer,
+			squat_trie_pack_num(buffer,
 					     ((node->uid - prev_uid - 1) << 1));
 		}
 	}
@@ -600,7 +600,7 @@ static int squat_uidlist_write_listbuf(struct squat_uidlist *uidlist,
 {
 	/* write size + buffer */
 	buffer_set_used_size(uidlist->tmp_buf, 0);
-	_squat_trie_pack_num(uidlist->tmp_buf, uidlist->list_buf->used);
+	squat_trie_pack_num(uidlist->tmp_buf, uidlist->list_buf->used);
 
 	if (o_stream_send(output, uidlist->tmp_buf->data,
 			  uidlist->tmp_buf->used) < 0 ||
@@ -818,11 +818,11 @@ squat_uidlist_remove_expunged(struct squat_uidlist_compress_ctx *ctx,
 	ctx->seen_expunged = FALSE;
 	ctx->last_node = NULL;
 
-	prev_uid = _squat_trie_unpack_num(&data, end);
+	prev_uid = squat_trie_unpack_num(&data, end);
 	squat_uidlist_compress_add_uid(ctx, prev_uid);
 
 	while (data != end) {
-		num = _squat_trie_unpack_num(&data, end);
+		num = squat_trie_unpack_num(&data, end);
 		next_uid = prev_uid + (num >> 1) + 1;
 		if ((num & 1) != 0) {
 			for (prev_uid++; prev_uid <= next_uid; prev_uid++)
@@ -830,7 +830,7 @@ squat_uidlist_remove_expunged(struct squat_uidlist_compress_ctx *ctx,
 
 			if (data == end)
 				break;
-			num = _squat_trie_unpack_num(&data, end);
+			num = squat_trie_unpack_num(&data, end);
 			next_uid += num + 1;
 		}
 		squat_uidlist_compress_add_uid(ctx, next_uid);
@@ -905,7 +905,7 @@ int squat_uidlist_compress_next(struct squat_uidlist_compress_ctx *ctx,
 
 	if (ret == 0) {
 		data_start = data = uidlist->const_mmap_base + old_offset;
-		(void)_squat_trie_unpack_num(&data, NULL);
+		(void)squat_trie_unpack_num(&data, NULL);
 
 		if (o_stream_send(ctx->output, data_start,
 				  data - data_start + size) < 0) {
@@ -1006,11 +1006,11 @@ squat_uidlist_get_range_list(struct squat_uidlist_get_context *ctx,
 		return -1;
 	end = data + size;
 
-	prev_uid = _squat_trie_unpack_num(&data, end);
+	prev_uid = squat_trie_unpack_num(&data, end);
 	squat_uidlist_get_add_uid(ctx, prev_uid);
 
 	while (data != end) {
-		num = _squat_trie_unpack_num(&data, end);
+		num = squat_trie_unpack_num(&data, end);
 		next_uid = prev_uid + (num >> 1) + 1;
 		if ((num & 1) != 0) {
 			for (prev_uid++; prev_uid <= next_uid; prev_uid++)
@@ -1018,7 +1018,7 @@ squat_uidlist_get_range_list(struct squat_uidlist_get_context *ctx,
 
 			if (data == end)
 				break;
-			num = _squat_trie_unpack_num(&data, end);
+			num = squat_trie_unpack_num(&data, end);
 			next_uid += num + 1;
 		}
 		squat_uidlist_get_add_uid(ctx, next_uid);

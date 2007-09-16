@@ -68,7 +68,7 @@ static void generate_rsa_parameters(int fd, const char *fname)
 	write_datum(fd, fname, &u);
 }
 
-void _ssl_generate_parameters(int fd, const char *fname)
+void ssl_generate_parameters(int fd, const char *fname)
 {
 	int ret;
 

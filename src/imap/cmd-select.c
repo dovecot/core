@@ -4,7 +4,7 @@
 #include "commands.h"
 #include "imap-sync.h"
 
-bool _cmd_select_full(struct client_command_context *cmd, bool readonly)
+bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 {
 	struct client *client = cmd->client;
 	struct mail_storage *storage;
@@ -84,5 +84,5 @@ bool _cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 bool cmd_select(struct client_command_context *cmd)
 {
-	return _cmd_select_full(cmd, FALSE);
+	return cmd_select_full(cmd, FALSE);
 }

@@ -5,5 +5,5 @@
 
 bool cmd_lsub(struct client_command_context *cmd)
 {
-	return _cmd_list_full(cmd, TRUE);
+	return cmd_list_full(cmd, TRUE);
 }

@@ -624,7 +624,7 @@ const char *imap_arg_string(const struct imap_arg *arg)
 	}
 }
 
-char *_imap_arg_str_error(const struct imap_arg *arg)
+char *imap_arg_str_error(const struct imap_arg *arg)
 {
 	i_panic("Tried to access imap_arg type %d as string", arg->type);
 #ifndef ATTRS_DEFINED
@@ -632,7 +632,7 @@ char *_imap_arg_str_error(const struct imap_arg *arg)
 #endif
 }
 
-uoff_t _imap_arg_literal_size_error(const struct imap_arg *arg)
+uoff_t imap_arg_literal_size_error(const struct imap_arg *arg)
 {
 	i_panic("Tried to access imap_arg type %d as literal size", arg->type);
 #ifndef ATTRS_DEFINED
@@ -640,7 +640,7 @@ uoff_t _imap_arg_literal_size_error(const struct imap_arg *arg)
 #endif
 }
 
-ARRAY_TYPE(imap_arg_list) *_imap_arg_list_error(const struct imap_arg *arg)
+ARRAY_TYPE(imap_arg_list) *imap_arg_list_error(const struct imap_arg *arg)
 {
 	i_panic("Tried to access imap_arg type %d as list", arg->type);
 #ifndef ATTRS_DEFINED

@@ -35,7 +35,7 @@ static void cmd_append_finish(struct cmd_append_context *ctx);
 static bool cmd_append_continue_message(struct client_command_context *cmd);
 static bool cmd_append_continue_parsing(struct client_command_context *cmd);
 
-static void client_input(struct client_command_context *cmd)
+static void client_input_append(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
 	struct client *client = cmd->client;
@@ -125,7 +125,7 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 	/* we must put back the original flush callback before beginning to
 	   sync (the command is still unfinished at that point) */
 	o_stream_set_flush_callback(ctx->client->output,
-				    _client_output, ctx->client);
+				    client_output, ctx->client);
 
 	if (ctx->input != NULL)
 		i_stream_unref(&ctx->input);
@@ -497,7 +497,7 @@ bool cmd_append(struct client_command_context *cmd)
 
 	io_remove(&client->io);
 	client->io = io_add(i_stream_get_fd(client->input), IO_READ,
-			    client_input, cmd);
+			    client_input_append, cmd);
 	/* append is special because we're only waiting on client input, not
 	   client output, so disable the standard output handler until we're
 	   finished */

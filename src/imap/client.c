@@ -33,9 +33,9 @@ struct client *client_create(int fd_in, int fd_out,
 	client->input = i_stream_create_fd(fd_in, imap_max_line_length, FALSE);
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
 
-	o_stream_set_flush_callback(client->output, _client_output, client);
+	o_stream_set_flush_callback(client->output, client_output, client);
 
-	client->io = io_add(fd_in, IO_READ, _client_input, client);
+	client->io = io_add(fd_in, IO_READ, client_input, client);
         client->last_input = ioloop_time;
 
 	client->command_pool = pool_alloconly_create("client command", 8192);
@@ -437,7 +437,7 @@ static void client_add_missing_io(struct client *client)
 {
 	if (client->io == NULL && !client->disconnected) {
 		client->io = io_add(client->fd_in,
-				    IO_READ, _client_input, client);
+				    IO_READ, client_input, client);
 	}
 }
 
@@ -467,7 +467,7 @@ void client_continue_pending_input(struct client *client)
 	/* if there's unread data in buffer, handle it. */
 	(void)i_stream_get_data(client->input, &size);
 	if (size > 0)
-		_client_input(client);
+		client_input(client);
 }
 
 /* Skip incoming data until newline is found,
@@ -593,7 +593,7 @@ static bool client_handle_next_command(struct client *client)
 	return client_command_input(client->input_lock);
 }
 
-void _client_input(struct client *client)
+void client_input(struct client *client)
 {
 	struct client_command_context *cmd;
 	int ret;
@@ -654,7 +654,7 @@ static void client_output_cmd(struct client_command_context *cmd)
 	}
 }
 
-int _client_output(struct client *client)
+int client_output(struct client *client)
 {
 	struct client_command_context *cmd, *next;
 	int ret;

@@ -64,21 +64,21 @@ struct imap_arg {
 #define IMAP_ARG_STR(arg) \
 	((arg)->type == IMAP_ARG_NIL ? NULL : \
 	 IMAP_ARG_TYPE_IS_STRING((arg)->type) ? \
-	 (arg)->_data.str : _imap_arg_str_error(arg))
+	 (arg)->_data.str : imap_arg_str_error(arg))
 
 #define IMAP_ARG_STR_NONULL(arg) \
 	((arg)->type == IMAP_ARG_ATOM || (arg)->type == IMAP_ARG_STRING || \
 	 (arg)->type == IMAP_ARG_LITERAL ? \
-	 (arg)->_data.str : _imap_arg_str_error(arg))
+	 (arg)->_data.str : imap_arg_str_error(arg))
 
 #define IMAP_ARG_LITERAL_SIZE(arg) \
 	(((arg)->type == IMAP_ARG_LITERAL_SIZE || \
 	 (arg)->type == IMAP_ARG_LITERAL_SIZE_NONSYNC) ? \
-	 (arg)->_data.literal_size : _imap_arg_literal_size_error(arg))
+	 (arg)->_data.literal_size : imap_arg_literal_size_error(arg))
 
 #define IMAP_ARG_LIST(arg) \
 	((arg)->type == IMAP_ARG_LIST ? \
-	 &(arg)->_data.list : _imap_arg_list_error(arg))
+	 &(arg)->_data.list : imap_arg_list_error(arg))
 #define IMAP_ARG_LIST_ARGS(arg) \
 	array_idx(IMAP_ARG_LIST(arg), 0)
 #define IMAP_ARG_LIST_COUNT(arg) \
@@ -134,10 +134,10 @@ const char *imap_parser_read_word(struct imap_parser *parser);
 const char *imap_arg_string(const struct imap_arg *arg);
 
 /* Error functions */
-char *_imap_arg_str_error(const struct imap_arg *arg) ATTR_NORETURN;
-uoff_t _imap_arg_literal_size_error(const struct imap_arg *arg)
+char *imap_arg_str_error(const struct imap_arg *arg) ATTR_NORETURN;
+uoff_t imap_arg_literal_size_error(const struct imap_arg *arg)
 	ATTR_NORETURN;
-ARRAY_TYPE(imap_arg_list) *_imap_arg_list_error(const struct imap_arg *arg)
+ARRAY_TYPE(imap_arg_list) *imap_arg_list_error(const struct imap_arg *arg)
 	ATTR_NORETURN;
 
 #endif

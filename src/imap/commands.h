@@ -86,8 +86,8 @@ bool cmd_unselect(struct client_command_context *cmd);
 bool cmd_x_cancel(struct client_command_context *cmd);
 
 /* private: */
-bool _cmd_list_full(struct client_command_context *cmd, bool lsub);
-bool _cmd_select_full(struct client_command_context *cmd, bool readonly);
-bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe);
+bool cmd_list_full(struct client_command_context *cmd, bool lsub);
+bool cmd_select_full(struct client_command_context *cmd, bool readonly);
+bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe);
 
 #endif

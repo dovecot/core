@@ -5,5 +5,5 @@
 
 bool cmd_unsubscribe(struct client_command_context *cmd)
 {
-	return _cmd_subscribe_full(cmd, FALSE);
+	return cmd_subscribe_full(cmd, FALSE);
 }

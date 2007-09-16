@@ -5,5 +5,5 @@
 
 bool cmd_examine(struct client_command_context *cmd)
 {
-	return _cmd_select_full(cmd, TRUE);
+	return cmd_select_full(cmd, TRUE);
 }

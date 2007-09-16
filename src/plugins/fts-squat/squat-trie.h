@@ -35,10 +35,10 @@ int squat_trie_filter(struct squat_trie *trie, ARRAY_TYPE(seq_range) *result,
 
 size_t squat_trie_mem_used(struct squat_trie *trie, unsigned int *count_r);
 
-struct squat_uidlist *_squat_trie_get_uidlist(struct squat_trie *trie);
+struct squat_uidlist *squat_trie_get_uidlist(struct squat_trie *trie);
 
-void _squat_trie_pack_num(buffer_t *buffer, uint32_t num);
-uint32_t _squat_trie_unpack_num(const uint8_t **p, const uint8_t *end);
+void squat_trie_pack_num(buffer_t *buffer, uint32_t num);
+uint32_t squat_trie_unpack_num(const uint8_t **p, const uint8_t *end);
 
 void squat_trie_set_corrupted(struct squat_trie *trie, const char *reason);
 

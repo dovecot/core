@@ -147,7 +147,7 @@ char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
 	}
 }
 
-char *_vstrconcat(const char *str1, va_list args, size_t *ret_len)
+char *vstrconcat(const char *str1, va_list args, size_t *ret_len)
 {
 	const char *str;
         char *temp;
@@ -194,7 +194,7 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 	if (!pool->datastack_pool)
 		t_push();
 
-	temp = _vstrconcat(str1, args, &len);
+	temp = vstrconcat(str1, args, &len);
 	if (temp == NULL)
 		ret = NULL;
 	else {
@@ -264,7 +264,7 @@ const char *t_strconcat(const char *str1, ...)
 
 	va_start(args, str1);
 
-	ret = _vstrconcat(str1, args, &len);
+	ret = vstrconcat(str1, args, &len);
 	if (ret != NULL)
 		t_buffer_alloc(len);
 

@@ -88,7 +88,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		input->v_offset / cputime / (1024*1024));
 
 	mem = squat_trie_mem_used(trie, &leaves);
-	uid_lists_mem = squat_uidlist_mem_used(_squat_trie_get_uidlist(trie),
+	uid_lists_mem = squat_uidlist_mem_used(squat_trie_get_uidlist(trie),
 					       &uid_lists_count);
 	fprintf(stderr, " - %u bytes in %u nodes (%.02f%%)\n"
 		" - %u bytes in %u uid_lists (%.02f%%)\n"

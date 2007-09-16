@@ -94,7 +94,6 @@ bool strarray_remove(const char **arr, const char *value);
 /* INTERNAL */
 char *t_noalloc_strdup_vprintf(const char *format, va_list args,
 			       unsigned int *size_r);
-char *_vstrconcat(const char *str1, va_list args, size_t *ret_len)
-	ATTR_MALLOC;
+char *vstrconcat(const char *str1, va_list args, size_t *ret_len) ATTR_MALLOC;
 
 #endif

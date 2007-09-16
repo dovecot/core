@@ -60,7 +60,7 @@ char *i_strconcat(const char *str1, ...)
 	va_start(args, str1);
 
 	t_push();
-	temp = _vstrconcat(str1, args, &len);
+	temp = vstrconcat(str1, args, &len);
 	if (temp == NULL)
 		ret = NULL;
 	else {

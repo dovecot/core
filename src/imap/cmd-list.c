@@ -711,7 +711,7 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 	client_send_line(client, str_c(str));
 }
 
-bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
+bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 {
 	struct client *client = cmd->client;
 	const struct imap_arg *args, *arg;
@@ -829,5 +829,5 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 
 bool cmd_list(struct client_command_context *cmd)
 {
-	return _cmd_list_full(cmd, FALSE);
+	return cmd_list_full(cmd, FALSE);
 }

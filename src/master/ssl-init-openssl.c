@@ -58,7 +58,7 @@ static void generate_dh_parameters(int bitsize, int fd, const char *fname)
 	i_free(buf);
 }
 
-void _ssl_generate_parameters(int fd, const char *fname)
+void ssl_generate_parameters(int fd, const char *fname)
 {
 	unsigned int i;
 	int bits;
