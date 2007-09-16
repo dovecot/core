@@ -22,10 +22,6 @@ struct raw_mbox_istream {
 	unsigned int eof:1;
 };
 
-static void _close(struct iostream_private *stream ATTR_UNUSED)
-{
-}
-
 static void _destroy(struct iostream_private *stream)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
@@ -360,7 +356,6 @@ struct istream *i_stream_create_raw_mbox(struct istream *input,
 	rstream->received_time = (time_t)-1;
 	rstream->next_received_time = (time_t)-1;
 
-	rstream->istream.iostream.close = _close;
 	rstream->istream.iostream.destroy = _destroy;
 	rstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
 

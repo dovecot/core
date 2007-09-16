@@ -3,14 +3,6 @@
 #include "lib.h"
 #include "istream-internal.h"
 
-static void _close(struct iostream_private *stream ATTR_UNUSED)
-{
-}
-
-static void _destroy(struct iostream_private *stream ATTR_UNUSED)
-{
-}
-
 static ssize_t _read(struct istream_private *stream ATTR_UNUSED)
 {
 	stream->istream.eof = TRUE;
@@ -31,9 +23,6 @@ struct istream *i_stream_create_from_data(const void *data, size_t size)
 	stream = i_new(struct istream_private, 1);
 	stream->buffer = data;
 	stream->pos = size;
-
-	stream->iostream.close = _close;
-	stream->iostream.destroy = _destroy;
 
 	stream->read = _read;
 	stream->seek = _seek;

@@ -3,8 +3,18 @@
 #include "lib.h"
 #include "iostream-internal.h"
 
+static void
+io_stream_default_close_destroy(struct iostream_private *stream ATTR_UNUSED)
+{
+}
+
 void io_stream_init(struct iostream_private *stream)
 {
+	if (stream->close == NULL)
+		stream->close = io_stream_default_close_destroy;
+	if (stream->destroy == NULL)
+		stream->destroy = io_stream_default_close_destroy;
+
 	stream->refcount = 1;
 }
 

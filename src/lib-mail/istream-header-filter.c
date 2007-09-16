@@ -37,10 +37,6 @@ struct header_filter_istream {
 
 header_filter_callback *null_header_filter_callback = NULL;
 
-static void _close(struct iostream_private *stream ATTR_UNUSED)
-{
-}
-
 static void _destroy(struct iostream_private *stream)
 {
 	struct header_filter_istream *mstream =
@@ -354,7 +350,6 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->hide_body = (flags & HEADER_FILTER_HIDE_BODY) != 0;
 	mstream->start_offset = input->v_offset;
 
-	mstream->istream.iostream.close = _close;
 	mstream->istream.iostream.destroy = _destroy;
 	mstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
 

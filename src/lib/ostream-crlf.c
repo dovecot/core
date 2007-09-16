@@ -20,10 +20,6 @@ struct crlf_ostream {
 
 static const struct const_iovec cr_iov = { "\r", 1 };
 
-static void _close(struct iostream_private *stream ATTR_UNUSED)
-{
-}
-
 static void _destroy(struct iostream_private *stream)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
@@ -356,7 +352,6 @@ static struct crlf_ostream *o_stream_create_common(struct ostream *output)
 	cstream->output = output;
 	o_stream_ref(output);
 
-	cstream->ostream.iostream.close = _close;
 	cstream->ostream.iostream.destroy = _destroy;
 	cstream->ostream.iostream.set_max_buffer_size = _set_max_buffer_size;
 

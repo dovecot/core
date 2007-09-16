@@ -10,10 +10,6 @@ struct limit_istream {
 	uoff_t v_start_offset, v_size;
 };
 
-static void _close(struct iostream_private *stream ATTR_UNUSED)
-{
-}
-
 static void _destroy(struct iostream_private *stream)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
@@ -126,7 +122,6 @@ struct istream *i_stream_create_limit(struct istream *input,
 		input->v_offset - v_start_offset > v_size ? v_size :
 		input->v_offset - v_start_offset;
 
-	lstream->istream.iostream.close = _close;
 	lstream->istream.iostream.destroy = _destroy;
 	lstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
 
