@@ -7,8 +7,7 @@ See INSTALL file.
 Configuration
 -------------
 
-http://wiki.dovecot.org/ contains the most up-to-date documentation.
-Most of the files in doc/ are currently out of date.
+See doc/documentation.txt or http://wiki.dovecot.org/
 
 
 RFCs conformed
@@ -41,4 +40,6 @@ Contact info
 Timo Sirainen <tss at iki.fi>, http://www.dovecot.org/
 
 Please use the Dovecot mailing list <dovecot at dovecot.org> for questions
-about Dovecot.
+about Dovecot. You can post to the list without subscribing, the mail then
+waits in a moderator queue for a while. See
+http://dovecot.org/mailinglists.html
