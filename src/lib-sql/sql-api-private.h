@@ -1,5 +1,5 @@
-#ifndef __SQL_API_PRIVATE_H
-#define __SQL_API_PRIVATE_H
+#ifndef SQL_API_PRIVATE_H
+#define SQL_API_PRIVATE_H
 
 #include "sql-api.h"
 

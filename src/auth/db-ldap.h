@@ -1,5 +1,5 @@
-#ifndef __DB_LDAP_H
-#define __DB_LDAP_H
+#ifndef DB_LDAP_H
+#define DB_LDAP_H
 
 /* Functions like ldap_bind() have been deprecated in OpenLDAP 2.3
    This define enables them until the code here can be refactored */

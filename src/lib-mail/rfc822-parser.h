@@ -1,5 +1,5 @@
-#ifndef __RFC822_PARSER_H
-#define __RFC822_PARSER_H
+#ifndef RFC822_PARSER_H
+#define RFC822_PARSER_H
 
 struct rfc822_parser_context {
 	const unsigned char *data, *end;

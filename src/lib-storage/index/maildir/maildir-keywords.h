@@ -1,5 +1,5 @@
-#ifndef __MAILDIR_KEYWORDS_H
-#define __MAILDIR_KEYWORDS_H
+#ifndef MAILDIR_KEYWORDS_H
+#define MAILDIR_KEYWORDS_H
 
 #define MAILDIR_KEYWORDS_NAME "dovecot-keywords"
 

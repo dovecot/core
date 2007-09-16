@@ -1,5 +1,5 @@
-#ifndef __HEX_DEC_H
-#define __HEX_DEC_H
+#ifndef HEX_DEC_H
+#define HEX_DEC_H
 
 #define DEC2HEX(hexstr, str) \
 	dec2hex(hexstr, str, sizeof(hexstr))

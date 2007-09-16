@@ -1,5 +1,5 @@
-#ifndef __BSEARCH_INSERT_POS
-#define __BSEARCH_INSERT_POS
+#ifndef BSEARCH_INSERT_POS_H
+#define BSEARCH_INSERT_POS_H
 
 /* Binary search template */
 #define BINARY_NUMBER_SEARCH(data, count, value, idx_r) \

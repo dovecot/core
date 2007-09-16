@@ -1,5 +1,5 @@
-#ifndef __CAPABILITIES_H__
-#define __CAPABILITIES_H__
+#ifndef CAPABILITIES_H
+#define CAPABILITIES_H
 
 #if defined(HAVE_LIBCAP)
 
@@ -11,4 +11,4 @@ static inline void drop_capabilities(void) {}
 
 #endif
 
-#endif	/* __CAPABILITIES_H__ */
+#endif

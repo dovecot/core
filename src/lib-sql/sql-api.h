@@ -1,5 +1,5 @@
-#ifndef __SQL_API_H
-#define __SQL_API_H
+#ifndef SQL_API_H
+#define SQL_API_H
 
 /* This SQL API is designed to work asynchronously. The underlying drivers
    however may not. */

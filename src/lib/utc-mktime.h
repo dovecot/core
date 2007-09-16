@@ -1,5 +1,5 @@
-#ifndef __UTC_MKTIME_H
-#define __UTC_MKTIME_H
+#ifndef UTC_MKTIME_H
+#define UTC_MKTIME_H
 
 #include <time.h>
 

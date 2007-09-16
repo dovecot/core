@@ -1,5 +1,5 @@
-#ifndef __IMAP_MATCH_H
-#define __IMAP_MATCH_H
+#ifndef IMAP_MATCH_H
+#define IMAP_MATCH_H
 
 enum imap_match_result {
 	IMAP_MATCH_NO 		= 0x00, /* definite non-match */

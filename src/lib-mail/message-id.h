@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_ID_H
-#define __MESSAGE_ID_H
+#ifndef MESSAGE_ID_H
+#define MESSAGE_ID_H
 
 /* Returns the next valid message ID from a given Message-ID header.
    The return value is allocated from data stack. */

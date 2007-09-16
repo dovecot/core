@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_SEARCH_H
-#define __MESSAGE_SEARCH_H
+#ifndef MESSAGE_SEARCH_H
+#define MESSAGE_SEARCH_H
 
 struct message_block;
 struct message_part;

@@ -1,5 +1,5 @@
-#ifndef __DUP2_ARRAY_H
-#define __DUP2_ARRAY_H
+#ifndef DUP2_ARRAY_H
+#define DUP2_ARRAY_H
 
 struct dup2 {
 	int fd_src, fd_dest;

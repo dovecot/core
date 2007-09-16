@@ -1,5 +1,5 @@
-#ifndef __MAIL_INDEX_VIEW_PRIVATE_H
-#define __MAIL_INDEX_VIEW_PRIVATE_H
+#ifndef MAIL_INDEX_VIEW_PRIVATE_H
+#define MAIL_INDEX_VIEW_PRIVATE_H
 
 #include "mail-index-private.h"
 

@@ -1,5 +1,5 @@
-#ifndef __UNLINK_LOCKFILES_H
-#define __UNLINK_LOCKFILES_H
+#ifndef UNLINK_LOCKFILES_H
+#define UNLINK_LOCKFILES_H
 
 /* Delete stale lock files. Filenames beginning with pidprefix<PID> are
    deleted immediately if PID doesn't exist. Filenames beginning with

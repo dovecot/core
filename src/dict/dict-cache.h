@@ -1,5 +1,5 @@
-#ifndef __DICT_CACHE_H
-#define __DICT_CACHE_H
+#ifndef DICT_CACHE_H
+#define DICT_CACHE_H
 
 struct dict_cache *dict_cache_init(void);
 void dict_cache_deinit(struct dict_cache *cache);

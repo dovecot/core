@@ -1,5 +1,5 @@
-#ifndef __MEMPOOL_H
-#define __MEMPOOL_H
+#ifndef MEMPOOL_H
+#define MEMPOOL_H
 
 #include "macros.h"
 

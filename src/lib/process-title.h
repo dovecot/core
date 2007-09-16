@@ -1,5 +1,5 @@
-#ifndef __PROCESS_TITLE_H
-#define __PROCESS_TITLE_H
+#ifndef PROCESS_TITLE_H
+#define PROCESS_TITLE_H
 
 /* Initialize title changing. */
 void process_title_init(char *argv[], char *envp[]);

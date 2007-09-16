@@ -1,5 +1,5 @@
-#ifndef __EXPIRE_ENV_H
-#define __EXPIRE_ENV_H
+#ifndef EXPIRE_ENV_H
+#define EXPIRE_ENV_H
 
 struct expire_env;
 

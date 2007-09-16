@@ -1,5 +1,5 @@
-#ifndef __FD_CLOSE_ON_EXEC_H
-#define __FD_CLOSE_ON_EXEC_H
+#ifndef FD_CLOSE_ON_EXEC_H
+#define FD_CLOSE_ON_EXEC_H
 
 /* Change close-on-exec flag of fd. */
 void fd_close_on_exec(int fd, bool set);

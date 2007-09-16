@@ -1,5 +1,5 @@
-#ifndef __MAIL_NAMESPACE_H
-#define __MAIL_NAMESPACE_H
+#ifndef MAIL_NAMESPACE_H
+#define MAIL_NAMESPACE_H
 
 enum namespace_type {
 	NAMESPACE_PRIVATE,

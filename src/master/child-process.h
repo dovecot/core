@@ -1,5 +1,5 @@
-#ifndef __CHILD_PROCESS_H
-#define __CHILD_PROCESS_H
+#ifndef CHILD_PROCESS_H
+#define CHILD_PROCESS_H
 
 enum process_type {
 	PROCESS_TYPE_UNKNOWN,

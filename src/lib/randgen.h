@@ -1,5 +1,5 @@
-#ifndef __RANDGEN_H
-#define __RANDGEN_H
+#ifndef RANDGEN_H
+#define RANDGEN_H
 
 /* Fill given buffer with semi-strong randomness, usually from /dev/urandom. */
 void random_fill(void *buf, size_t size);

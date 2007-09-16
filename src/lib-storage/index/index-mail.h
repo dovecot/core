@@ -1,5 +1,5 @@
-#ifndef __INDEX_MAIL_H
-#define __INDEX_MAIL_H
+#ifndef INDEX_MAIL_H
+#define INDEX_MAIL_H
 
 #include "message-size.h"
 #include "mail-cache.h"

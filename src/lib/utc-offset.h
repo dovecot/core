@@ -1,5 +1,5 @@
-#ifndef __UTC_OFFSET_H
-#define __UTC_OFFSET_H
+#ifndef UTC_OFFSET_H
+#define UTC_OFFSET_H
 
 #include <time.h>
 

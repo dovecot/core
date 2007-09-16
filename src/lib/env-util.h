@@ -1,5 +1,5 @@
-#ifndef __ENV_UTIL_H
-#define __ENV_UTIL_H
+#ifndef ENV_UTIL_H
+#define ENV_UTIL_H
 
 /* Add new environment variable. Wrapper to putenv(). Note that calls to this
    function allocates memory which isn't free'd until env_clean() is called. */

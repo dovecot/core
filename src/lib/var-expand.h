@@ -1,5 +1,5 @@
-#ifndef __VAR_EXPAND_H
-#define __VAR_EXPAND_H
+#ifndef VAR_EXPAND_H
+#define VAR_EXPAND_H
 
 struct var_expand_table {
 	char key;

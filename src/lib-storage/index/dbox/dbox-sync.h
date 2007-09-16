@@ -1,5 +1,5 @@
-#ifndef __DBOX_SYNC_H
-#define __DBOX_SYNC_H
+#ifndef DBOX_SYNC_H
+#define DBOX_SYNC_H
 
 enum mailbox_sync_flags;
 struct mailbox;

@@ -1,5 +1,5 @@
-#ifndef __AUTH_CLIENT_INTERFACE_H
-#define __AUTH_CLIENT_INTERFACE_H
+#ifndef AUTH_CLIENT_INTERFACE_H
+#define AUTH_CLIENT_INTERFACE_H
 
 /* Major version changes are not backwards compatible,
    minor version numbers can be ignored. */

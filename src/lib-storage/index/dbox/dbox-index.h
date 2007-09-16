@@ -1,5 +1,5 @@
-#ifndef __DBOX_INDEX_H
-#define __DBOX_INDEX_H
+#ifndef DBOX_INDEX_H
+#define DBOX_INDEX_H
 
 /* The file begins with a header followed by zero or more records:
 

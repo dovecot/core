@@ -1,5 +1,5 @@
-#ifndef __IMAP_FETCH_H
-#define __IMAP_FETCH_H
+#ifndef IMAP_FETCH_H
+#define IMAP_FETCH_H
 
 struct imap_fetch_context;
 

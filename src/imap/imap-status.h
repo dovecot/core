@@ -1,5 +1,5 @@
-#ifndef __IMAP_STATUS_H
-#define __IMAP_STATUS_H
+#ifndef IMAP_STATUS_H
+#define IMAP_STATUS_H
 
 int imap_status_parse_items(struct client_command_context *cmd,
 			    const struct imap_arg *args,

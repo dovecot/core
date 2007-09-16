@@ -1,5 +1,5 @@
-#ifndef __FAILURES_H
-#define __FAILURES_H
+#ifndef FAILURES_H
+#define FAILURES_H
 
 /* Default exit status codes that we could use. */
 enum fatal_exit_status {

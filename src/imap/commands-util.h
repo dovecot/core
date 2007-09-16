@@ -1,5 +1,5 @@
-#ifndef __COMMANDS_UTIL_H
-#define __COMMANDS_UTIL_H
+#ifndef COMMANDS_UTIL_H
+#define COMMANDS_UTIL_H
 
 struct msgset_generator_context {
 	string_t *str;

@@ -1,5 +1,5 @@
-#ifndef __FTS_API_H
-#define __FTS_API_H
+#ifndef FTS_API_H
+#define FTS_API_H
 
 struct mail;
 struct mailbox;

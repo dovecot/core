@@ -1,5 +1,5 @@
-#ifndef __OTP_SKEY_COMMON_H__
-#define __OTP_SKEY_COMMON_H__
+#ifndef OTP_SKEY_COMMON_H
+#define OTP_SKEY_COMMON_H
 
 struct otp_auth_request {
 	struct auth_request auth_request;
@@ -19,4 +19,4 @@ void otp_set_credentials_callback(bool success,
 				  struct auth_request *auth_request);
 void mech_otp_skey_auth_free(struct auth_request *auth_request);
 
-#endif	/* __OTP_SKEY_COMMON_H__ */
+#endif

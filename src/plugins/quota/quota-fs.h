@@ -1,5 +1,5 @@
-#ifndef __QUOTA_FS_H
-#define __QUOTA_FS_H
+#ifndef QUOTA_FS_H
+#define QUOTA_FS_H
 
 #if defined (HAVE_STRUCT_DQBLK_CURBLOCKS) || \
 	defined (HAVE_STRUCT_DQBLK_CURSPACE)

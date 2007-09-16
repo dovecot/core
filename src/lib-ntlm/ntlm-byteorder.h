@@ -6,8 +6,8 @@
  * This software is released under the MIT license.
  */
 
-#ifndef __NTLM_BYTEORDER_H__
-#define __NTLM_BYTEORDER_H__
+#ifndef NTLM_BYTEORDER_H
+#define NTLM_BYTEORDER_H
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__vax__)
 
@@ -105,4 +105,4 @@ static inline void write_le64(void *addr, const uint64_t value)
 
 #endif
 
-#endif	/* __NTLM_BYTEORDER_H__ */
+#endif

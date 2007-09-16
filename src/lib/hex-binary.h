@@ -1,5 +1,5 @@
-#ifndef __HEX_BINARY_H
-#define __HEX_BINARY_H
+#ifndef HEX_BINARY_H
+#define HEX_BINARY_H
 
 /* Convert binary to hex digits allocating return value from data stack */
 const char *binary_to_hex(const unsigned char *data, size_t size);

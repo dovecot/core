@@ -1,5 +1,5 @@
-#ifndef __QUOTED_PRINTABLE_H
-#define __QUOTED_PRINTABLE_H
+#ifndef QUOTED_PRINTABLE_H
+#define QUOTED_PRINTABLE_H
 
 /* Translates quoted printable data into binary. dest must be at least the
    size of src, and may be same as src. Decoding errors are ignored.

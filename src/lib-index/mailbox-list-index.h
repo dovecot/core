@@ -1,5 +1,5 @@
-#ifndef __MAILBOX_LIST_INDEX_H
-#define __MAILBOX_LIST_INDEX_H
+#ifndef MAILBOX_LIST_INDEX_H
+#define MAILBOX_LIST_INDEX_H
 
 struct mailbox_list_index_view;
 struct mailbox_list_index_sync_ctx;

@@ -1,5 +1,5 @@
-#ifndef __QUOTA_PRIVATE_H
-#define __QUOTA_PRIVATE_H
+#ifndef QUOTA_PRIVATE_H
+#define QUOTA_PRIVATE_H
 
 #include "mail-storage-private.h"
 #include "quota.h"

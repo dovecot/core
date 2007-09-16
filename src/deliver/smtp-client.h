@@ -1,5 +1,5 @@
-#ifndef __SMTP_CLIENT_H
-#define __SMTP_CLIENT_H
+#ifndef SMTP_CLIENT_H
+#define SMTP_CLIENT_H
 
 #include <stdio.h>
 

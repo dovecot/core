@@ -1,5 +1,5 @@
-#ifndef __ISTREAM_H
-#define __ISTREAM_H
+#ifndef ISTREAM_H
+#define ISTREAM_H
 
 /* Note that some systems (Solaris) may use a macro to redefine struct stat */
 #include <sys/stat.h>

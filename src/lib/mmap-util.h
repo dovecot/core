@@ -1,5 +1,5 @@
-#ifndef __MMAP_UTIL_H
-#define __MMAP_UTIL_H
+#ifndef MMAP_UTIL_H
+#define MMAP_UTIL_H
 
 #include <unistd.h>
 

@@ -6,8 +6,8 @@
  * This software is released under the MIT license.
  */
 
-#ifndef __NTLM_FLAGS_H__
-#define __NTLM_FLAGS_H__
+#ifndef NTLM_FLAGS_H
+#define NTLM_FLAGS_H
 
 /*
  * Indicates that Unicode strings are supported for use in security
@@ -134,4 +134,4 @@
  */
 #define NTLMSSP_NEGOTIATE_56 0x80000000 
 
-#endif	/* __NTLM_FLAGS_H__ */
+#endif

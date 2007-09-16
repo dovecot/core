@@ -1,5 +1,5 @@
-#ifndef __PRINTF_FORMAT_FIX_H
-#define __PRINTF_FORMAT_FIX_H
+#ifndef PRINTF_FORMAT_FIX_H
+#define PRINTF_FORMAT_FIX_H
 
 /* Replaces %m in format with strerror(errno) and panics if %n modifier is
    used. If the format string was modified, it's returned from data stack. */

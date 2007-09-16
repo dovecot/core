@@ -1,5 +1,5 @@
-#ifndef __DICT_SERVER_H
-#define __DICT_SERVER_H
+#ifndef DICT_SERVER_H
+#define DICT_SERVER_H
 
 struct dict;
 

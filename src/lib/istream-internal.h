@@ -1,5 +1,5 @@
-#ifndef __ISTREAM_INTERNAL_H
-#define __ISTREAM_INTERNAL_H
+#ifndef ISTREAM_INTERNAL_H
+#define ISTREAM_INTERNAL_H
 
 #include "istream.h"
 #include "iostream-internal.h"

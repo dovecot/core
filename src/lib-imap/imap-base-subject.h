@@ -1,5 +1,5 @@
-#ifndef __IMAP_BASE_SUBJECT_H
-#define __IMAP_BASE_SUBJECT_H
+#ifndef IMAP_BASE_SUBJECT_H
+#define IMAP_BASE_SUBJECT_H
 
 /* Returns the base subject of the given string, according to
    draft-ietf-imapext-sort-10. String is returned so that it's suitable for

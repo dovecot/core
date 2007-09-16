@@ -1,5 +1,5 @@
-#ifndef __SYSLOG_UTIL_H
-#define __SYSLOG_UTIL_H
+#ifndef SYSLOG_UTIL_H
+#define SYSLOG_UTIL_H
 
 struct syslog_facility_list {
 	const char *name;

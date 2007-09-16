@@ -1,5 +1,5 @@
-#ifndef __MBOX_LOCK_H
-#define __MBOX_LOCK_H
+#ifndef MBOX_LOCK_H
+#define MBOX_LOCK_H
 
 /* NOTE: if mbox file is not open, it's opened. if it is open but file has
    been overwritten (ie. inode has changed), it's reopened. */

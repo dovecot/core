@@ -1,5 +1,5 @@
-#ifndef __AUTH_WORKER_SERVER_H
-#define __AUTH_WORKER_SERVER_H
+#ifndef AUTH_WORKER_SERVER_H
+#define AUTH_WORKER_SERVER_H
 
 struct auth_request;
 

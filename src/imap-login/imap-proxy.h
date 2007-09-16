@@ -1,5 +1,5 @@
-#ifndef __IMAP_PROXY_H
-#define __IMAP_PROXY_H
+#ifndef IMAP_PROXY_H
+#define IMAP_PROXY_H
 
 #include "login-proxy.h"
 

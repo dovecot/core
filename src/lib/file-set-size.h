@@ -1,5 +1,5 @@
-#ifndef __FILE_SET_SIZE_H
-#define __FILE_SET_SIZE_H
+#ifndef FILE_SET_SIZE_H
+#define FILE_SET_SIZE_H
 
 /* Shrink/grow file. If file is grown, the new data is guaranteed to
    be zeros. The file offset may be anywhere after this call.

@@ -6,8 +6,8 @@
  * the public domain.  See md5.c for more information.
  */
 
-#ifndef __MD5_H
-#define __MD5_H
+#ifndef MD5_H
+#define MD5_H
 
 #define	MD5_RESULTLEN (128/8)
 

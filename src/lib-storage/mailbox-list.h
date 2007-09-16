@@ -1,5 +1,5 @@
-#ifndef __MAILBOX_LIST_H
-#define __MAILBOX_LIST_H
+#ifndef MAILBOX_LIST_H
+#define MAILBOX_LIST_H
 
 #include "mail-error.h"
 

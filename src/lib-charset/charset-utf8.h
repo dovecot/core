@@ -1,5 +1,5 @@
-#ifndef __CHARSET_UTF8_H
-#define __CHARSET_UTF8_H
+#ifndef CHARSET_UTF8_H
+#define CHARSET_UTF8_H
 
 struct charset_translation;
 

@@ -1,5 +1,5 @@
-#ifndef __MAIL_SEARCH_H
-#define __MAIL_SEARCH_H
+#ifndef MAIL_SEARCH_H
+#define MAIL_SEARCH_H
 
 enum mail_search_arg_type {
 	SEARCH_OR,

@@ -1,5 +1,5 @@
-#ifndef __MBOX_MD5_H
-#define __MBOX_MD5_H
+#ifndef MBOX_MD5_H
+#define MBOX_MD5_H
 
 struct mbox_md5_context *mbox_md5_init(void);
 void mbox_md5_continue(struct mbox_md5_context *ctx,

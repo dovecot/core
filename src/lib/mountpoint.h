@@ -1,5 +1,5 @@
-#ifndef __MOUNTPOINT_H
-#define __MOUNTPOINT_H
+#ifndef MOUNTPOINT_H
+#define MOUNTPOINT_H
 
 struct mountpoint {
 	char *device_path;

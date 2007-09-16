@@ -1,5 +1,5 @@
-#ifndef __MAIL_CACHE_PRIVATE_H
-#define __MAIL_CACHE_PRIVATE_H
+#ifndef MAIL_CACHE_PRIVATE_H
+#define MAIL_CACHE_PRIVATE_H
 
 #include "file-dotlock.h"
 #include "mail-index-private.h"

@@ -1,5 +1,5 @@
-#ifndef __DUPLICATE_H
-#define __DUPLICATE_H
+#ifndef DUPLICATE_H
+#define DUPLICATE_H
 
 #define DUPLICATE_DEFAULT_KEEP (3600 * 24)
 

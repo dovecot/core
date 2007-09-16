@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_SEND_H
-#define __MESSAGE_SEND_H
+#ifndef MESSAGE_SEND_H
+#define MESSAGE_SEND_H
 
 struct message_size;
 

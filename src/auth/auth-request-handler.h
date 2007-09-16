@@ -1,5 +1,5 @@
-#ifndef __AUTH_REQUEST_HANDLER_H
-#define __AUTH_REQUEST_HANDLER_H
+#ifndef AUTH_REQUEST_HANDLER_H
+#define AUTH_REQUEST_HANDLER_H
 
 struct auth_request;
 struct auth_master_connection;

@@ -1,5 +1,5 @@
-#ifndef __STRFUNC_H
-#define __STRFUNC_H
+#ifndef STRFUNC_H
+#define STRFUNC_H
 
 #define is_empty_str(str) \
         ((str) == NULL || (str)[0] == '\0')

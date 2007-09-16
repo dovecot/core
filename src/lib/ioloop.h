@@ -1,5 +1,5 @@
-#ifndef __IOLOOP_H
-#define __IOLOOP_H
+#ifndef IOLOOP_H
+#define IOLOOP_H
 
 #include <sys/time.h>
 #include <time.h>

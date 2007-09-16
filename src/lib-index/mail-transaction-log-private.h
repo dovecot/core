@@ -1,5 +1,5 @@
-#ifndef __MAIL_TRANSACTION_LOG_VIEW_H
-#define __MAIL_TRANSACTION_LOG_VIEW_H
+#ifndef MAIL_TRANSACTION_LOG_VIEW_H
+#define MAIL_TRANSACTION_LOG_VIEW_H
 
 #include "file-dotlock.h"
 #include "mail-transaction-log.h"

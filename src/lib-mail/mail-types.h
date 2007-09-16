@@ -1,5 +1,5 @@
-#ifndef __MAIL_TYPES_H
-#define __MAIL_TYPES_H
+#ifndef MAIL_TYPES_H
+#define MAIL_TYPES_H
 
 enum mail_flags {
 	MAIL_ANSWERED	= 0x01,

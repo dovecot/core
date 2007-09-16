@@ -1,5 +1,5 @@
-#ifndef __ISTREAM_RAW_MBOX_H
-#define __ISTREAM_RAW_MBOX_H
+#ifndef ISTREAM_RAW_MBOX_H
+#define ISTREAM_RAW_MBOX_H
 
 /* Create a mbox stream for parsing mbox. Reading stops before From-line,
    you'll have to call istream_raw_mbox_next() to get to next message. */

@@ -1,5 +1,5 @@
-#ifndef __AUTH_CLIENT_CONNECTION_H
-#define __AUTH_CLIENT_CONNECTION_H
+#ifndef AUTH_CLIENT_CONNECTION_H
+#define AUTH_CLIENT_CONNECTION_H
 
 struct auth_client_connection {
 	struct auth *auth;

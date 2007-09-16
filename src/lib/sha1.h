@@ -35,8 +35,8 @@
  * implemented by Jun-ichiro itojun Itoh <itojun@itojun.org>
  */
 
-#ifndef __SHA1_H
-#define __SHA1_H
+#ifndef SHA1_H
+#define SHA1_H
 
 /* libmysqlclient really should try to keep its internal stuff internal so
    they won't conflict with the actual programs that are trying to use it.
@@ -77,4 +77,4 @@ typedef struct sha1_ctxt SHA1_CTX;
 extern void sha1_get_digest(const void *, size_t,
 	unsigned char [SHA1_RESULTLEN]);
 
-#endif /*__SHA1_H*/
+#endif

@@ -1,5 +1,5 @@
-#ifndef __AUTH_STREAM_H
-#define __AUTH_STREAM_H
+#ifndef AUTH_STREAM_H
+#define AUTH_STREAM_H
 
 struct auth_request;
 

@@ -1,5 +1,5 @@
-#ifndef __CLIENT_AUTHENTICATE_H
-#define __CLIENT_AUTHENTICATE_H
+#ifndef CLIENT_AUTHENTICATE_H
+#define CLIENT_AUTHENTICATE_H
 
 const char *client_authenticate_get_capabilities(bool secured);
 

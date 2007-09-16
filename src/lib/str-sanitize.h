@@ -1,5 +1,5 @@
-#ifndef __STR_SANITIZE_H
-#define __STR_SANITIZE_H
+#ifndef STR_SANITIZE_H
+#define STR_SANITIZE_H
 
 /* All control characters in src will be appended as '?'. If src is longer
    than max_len, it's truncated with "..." appended to the end. */

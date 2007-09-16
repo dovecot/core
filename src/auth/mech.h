@@ -1,5 +1,5 @@
-#ifndef __MECH_H
-#define __MECH_H
+#ifndef MECH_H
+#define MECH_H
 
 #include "auth-client-interface.h"
 

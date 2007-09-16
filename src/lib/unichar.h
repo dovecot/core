@@ -1,5 +1,5 @@
-#ifndef __UNICHAR_H
-#define __UNICHAR_H
+#ifndef UNICHAR_H
+#define UNICHAR_H
 
 typedef uint32_t unichar_t;
 

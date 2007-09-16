@@ -1,5 +1,5 @@
-#ifndef __WRITE_FULL_H
-#define __WRITE_FULL_H
+#ifndef WRITE_FULL_H
+#define WRITE_FULL_H
 
 /* Write data into file. Returns -1 if error occurred, or 0 if all was ok.
    If there's not enough space in device, -1 with ENOSPC is returned, and

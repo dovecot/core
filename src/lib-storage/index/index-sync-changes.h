@@ -1,5 +1,5 @@
-#ifndef __INDEX_SYNC_CHANGES_H
-#define __INDEX_SYNC_CHANGES_H
+#ifndef INDEX_SYNC_CHANGES_H
+#define INDEX_SYNC_CHANGES_H
 
 struct index_sync_changes_context *
 index_sync_changes_init(struct index_mailbox *ibox,

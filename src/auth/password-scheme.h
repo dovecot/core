@@ -1,5 +1,5 @@
-#ifndef __PASSWORD_SCHEME_H
-#define __PASSWORD_SCHEME_H
+#ifndef PASSWORD_SCHEME_H
+#define PASSWORD_SCHEME_H
 
 enum password_encoding {
 	PW_ENCODING_NONE,

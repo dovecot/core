@@ -1,5 +1,5 @@
-#ifndef __ACL_API_PRIVATE_H
-#define __ACL_API_PRIVATE_H
+#ifndef ACL_API_PRIVATE_H
+#define ACL_API_PRIVATE_H
 
 #include "acl-api.h"
 

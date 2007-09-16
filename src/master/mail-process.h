@@ -1,5 +1,5 @@
-#ifndef __MAIL_PROCESS_H
-#define __MAIL_PROCESS_H
+#ifndef MAIL_PROCESS_H
+#define MAIL_PROCESS_H
 
 #include "child-process.h"
 

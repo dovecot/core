@@ -1,5 +1,5 @@
-#ifndef __NTLM_ENCRYPT__
-#define __NTLM_ENCRYPT__
+#ifndef NTLM_ENCRYPT_H
+#define NTLM_ENCRYPT_H
 
 const unsigned char *
 lm_hash(const char *passwd, unsigned char hash[LM_HASH_SIZE]);
@@ -22,4 +22,4 @@ void ntlmssp_v2_response(const char *user, const char *target,
 			 const unsigned char *blob, size_t blob_size,
 			 unsigned char response[NTLMSSP_V2_RESPONSE_SIZE]);
 
-#endif	/* __NTLM_ENCRYPT__ */
+#endif

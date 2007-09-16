@@ -1,5 +1,5 @@
-#ifndef __IOSTREAM_INTERNAL_H
-#define __IOSTREAM_INTERNAL_H
+#ifndef IOSTREAM_INTERNAL_H
+#define IOSTREAM_INTERNAL_H
 
 /* This file is private to input stream and output stream implementations */
 

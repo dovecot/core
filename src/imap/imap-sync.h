@@ -1,5 +1,5 @@
-#ifndef __IMAP_SYNC_H
-#define __IMAP_SYNC_H
+#ifndef IMAP_SYNC_H
+#define IMAP_SYNC_H
 
 enum imap_sync_flags {
 	IMAP_SYNC_FLAG_SEND_UID	= 0x01

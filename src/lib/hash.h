@@ -1,5 +1,5 @@
-#ifndef __HASH_H
-#define __HASH_H
+#ifndef HASH_H
+#define HASH_H
 
 /* Returns hash code. */
 typedef unsigned int hash_callback_t(const void *p);

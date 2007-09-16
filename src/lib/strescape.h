@@ -1,5 +1,5 @@
-#ifndef __STRESCAPE_H
-#define __STRESCAPE_H
+#ifndef STRESCAPE_H
+#define STRESCAPE_H
 
 #define IS_ESCAPED_CHAR(c) ((c) == '"' || (c) == '\\' || (c) == '\'')
 

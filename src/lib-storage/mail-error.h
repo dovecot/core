@@ -1,5 +1,5 @@
-#ifndef __MAIL_ERROR_H
-#define __MAIL_ERROR_H
+#ifndef MAIL_ERROR_H
+#define MAIL_ERROR_H
 
 /* Some error strings that should be used everywhere to avoid
    permissions checks from revealing mailbox's existence */

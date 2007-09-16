@@ -1,5 +1,5 @@
-#ifndef __ISTREAM_TEE_H
-#define __ISTREAM_TEE_H
+#ifndef ISTREAM_TEE_H
+#define ISTREAM_TEE_H
 
 /* Tee can be used to create multiple child input streams which can access
    a single non-blocking input stream in a way that data isn't removed from

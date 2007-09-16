@@ -1,5 +1,5 @@
-#ifndef __OSTREAM_H
-#define __OSTREAM_H
+#ifndef OSTREAM_H
+#define OSTREAM_H
 
 #include "ioloop.h"
 

@@ -1,5 +1,5 @@
-#ifndef __LIB_SIGNALS_H
-#define __LIB_SIGNALS_H
+#ifndef LIB_SIGNALS_H
+#define LIB_SIGNALS_H
 
 #include <signal.h>
 

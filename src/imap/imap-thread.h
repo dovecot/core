@@ -1,5 +1,5 @@
-#ifndef __IMAP_THREAD_H
-#define __IMAP_THREAD_H
+#ifndef IMAP_THREAD_H
+#define IMAP_THREAD_H
 
 enum mail_thread_type {
 	MAIL_THREAD_NONE,

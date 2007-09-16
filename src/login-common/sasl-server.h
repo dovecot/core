@@ -1,5 +1,5 @@
-#ifndef __SASL_SERVER_H
-#define __SASL_SERVER_H
+#ifndef SASL_SERVER_H
+#define SASL_SERVER_H
 
 enum sasl_server_reply {
 	SASL_SERVER_REPLY_SUCCESS,

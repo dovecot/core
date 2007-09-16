@@ -1,5 +1,5 @@
-#ifndef __MAIL_HASH_H
-#define __MAIL_HASH_H
+#ifndef MAIL_HASH_H
+#define MAIL_HASH_H
 
 #include "hash.h"
 

@@ -1,5 +1,5 @@
-#ifndef __MBOX_SYNC_PRIVATE_H
-#define __MBOX_SYNC_PRIVATE_H
+#ifndef MBOX_SYNC_PRIVATE_H
+#define MBOX_SYNC_PRIVATE_H
 
 #include "md5.h"
 #include "mail-index.h"

@@ -1,5 +1,5 @@
-#ifndef __MAILDIR_SYNC_H
-#define __MAILDIR_SYNC_H
+#ifndef MAILDIR_SYNC_H
+#define MAILDIR_SYNC_H
 
 /* All systems accessing the filesystem must have their clock less than this
    many seconds apart from each others. 0 works only for local filesystems. */

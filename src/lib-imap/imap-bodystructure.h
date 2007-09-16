@@ -1,5 +1,5 @@
-#ifndef __IMAP_BODYSTRUCTURE_H
-#define __IMAP_BODYSTRUCTURE_H
+#ifndef IMAP_BODYSTRUCTURE_H
+#define IMAP_BODYSTRUCTURE_H
 
 struct message_part;
 struct message_header_line;

@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_PARSER_H
-#define __MESSAGE_PARSER_H
+#ifndef MESSAGE_PARSER_H
+#define MESSAGE_PARSER_H
 
 #include "message-header-parser.h"
 #include "message-size.h"

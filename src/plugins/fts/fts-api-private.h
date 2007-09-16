@@ -1,5 +1,5 @@
-#ifndef __FTS_API_PRIVATE_H
-#define __FTS_API_PRIVATE_H
+#ifndef FTS_API_PRIVATE_H
+#define FTS_API_PRIVATE_H
 
 #include "fts-api.h"
 

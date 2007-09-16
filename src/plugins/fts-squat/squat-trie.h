@@ -1,5 +1,5 @@
-#ifndef __SQUAT_TRIE_H
-#define __SQUAT_TRIE_H
+#ifndef SQUAT_TRIE_H
+#define SQUAT_TRIE_H
 
 enum file_lock_method;
 

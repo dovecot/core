@@ -1,5 +1,5 @@
-#ifndef __AUTH_REQUEST_H
-#define __AUTH_REQUEST_H
+#ifndef AUTH_REQUEST_H
+#define AUTH_REQUEST_H
 
 #include "network.h"
 #include "mech.h"

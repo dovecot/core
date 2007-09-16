@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_ADDRESS_H
-#define __MESSAGE_ADDRESS_H
+#ifndef MESSAGE_ADDRESS_H
+#define MESSAGE_ADDRESS_H
 
 /* group: ... ; will be stored like:
    {name = NULL, NULL, "group", NULL}, ..., {NULL, NULL, NULL, NULL}

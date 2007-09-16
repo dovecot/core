@@ -1,5 +1,5 @@
-#ifndef __ACL_CACHE_H
-#define __ACL_CACHE_H
+#ifndef ACL_CACHE_H
+#define ACL_CACHE_H
 
 struct acl_backend;
 struct acl_rights_update;

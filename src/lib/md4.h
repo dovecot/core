@@ -6,8 +6,8 @@
  * the public domain.  See md4.c for more information.
  */
 
-#ifndef __MD4_H
-#define __MD4_H
+#ifndef MD4_H
+#define MD4_H
 
 #define	MD4_RESULTLEN (128/8)
 

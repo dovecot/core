@@ -1,5 +1,5 @@
-#ifndef __AUTH_MASTER_INTERFACE_H
-#define __AUTH_MASTER_INTERFACE_H
+#ifndef AUTH_MASTER_INTERFACE_H
+#define AUTH_MASTER_INTERFACE_H
 
 /* Major version changes are not backwards compatible,
    minor version numbers can be ignored. */

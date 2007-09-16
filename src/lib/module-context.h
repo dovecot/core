@@ -1,5 +1,5 @@
-#ifndef __MODULE_CONTEXT_H
-#define __MODULE_CONTEXT_H
+#ifndef MODULE_CONTEXT_H
+#define MODULE_CONTEXT_H
 
 /*
    This is a bit complex to use, but it prevents using wrong module IDs

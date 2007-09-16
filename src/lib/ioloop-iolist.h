@@ -1,5 +1,5 @@
-#ifndef __IOLOOP_IOLIST_H
-#define __IOLOOP_IOLIST_H
+#ifndef IOLOOP_IOLIST_H
+#define IOLOOP_IOLIST_H
 
 enum {
 	IOLOOP_IOLIST_INPUT,

@@ -1,5 +1,5 @@
-#ifndef __CYDIR_STORAGE_H
-#define __CYDIR_STORAGE_H
+#ifndef CYDIR_STORAGE_H
+#define CYDIR_STORAGE_H
 
 #include "index-storage.h"
 #include "mailbox-list-private.h"

@@ -1,5 +1,5 @@
-#ifndef __LOG_H
-#define __LOG_H
+#ifndef LOG_H
+#define LOG_H
 
 struct log_io;
 

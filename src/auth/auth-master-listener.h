@@ -1,5 +1,5 @@
-#ifndef __AUTH_MASTER_LISTENER_H
-#define __AUTH_MASTER_LISTENER_H
+#ifndef AUTH_MASTER_LISTENER_H
+#define AUTH_MASTER_LISTENER_H
 
 enum listener_type {
 	LISTENER_MASTER,

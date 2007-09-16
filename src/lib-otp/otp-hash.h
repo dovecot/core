@@ -1,5 +1,5 @@
-#ifndef __OTP_HASH_H__
-#define __OTP_HASH_H__
+#ifndef OTP_HASH_H
+#define OTP_HASH_H
 
 struct digest_context;
 
@@ -23,4 +23,4 @@ void otp_hash(unsigned int algo, const char *seed, const char *passphrase,
 void otp_next_hash(unsigned int algo, const unsigned char *prev,
 		   unsigned char *result);
 
-#endif	/* __OTP_HASH_H__ */
+#endif

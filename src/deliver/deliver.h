@@ -1,5 +1,5 @@
-#ifndef __DELIVER_H
-#define __DELIVER_H
+#ifndef DELIVER_H
+#define DELIVER_H
 
 #include <sysexits.h>
 

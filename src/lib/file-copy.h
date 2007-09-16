@@ -1,5 +1,5 @@
-#ifndef __FILE_COPY_H
-#define __FILE_COPY_H
+#ifndef FILE_COPY_H
+#define FILE_COPY_H
 
 /* Copy file atomically. First try hardlinking, then fallback to creating
    a temporary file (destpath.tmp) and rename()ing it over srcpath.

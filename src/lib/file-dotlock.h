@@ -1,5 +1,5 @@
-#ifndef __FILE_DOTLOCK_H
-#define __FILE_DOTLOCK_H
+#ifndef FILE_DOTLOCK_H
+#define FILE_DOTLOCK_H
 
 #include <unistd.h>
 #include <fcntl.h>

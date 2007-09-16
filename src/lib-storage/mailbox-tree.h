@@ -1,5 +1,5 @@
-#ifndef __MAILBOX_TREE_H
-#define __MAILBOX_TREE_H
+#ifndef MAILBOX_TREE_H
+#define MAILBOX_TREE_H
 
 #include "mailbox-list.h"
 

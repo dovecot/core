@@ -1,5 +1,5 @@
-#ifndef __SUBSCRIPTION_FILE_H
-#define __SUBSCRIPTION_FILE_H
+#ifndef SUBSCRIPTION_FILE_H
+#define SUBSCRIPTION_FILE_H
 
 struct mailbox_list;
 

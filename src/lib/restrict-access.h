@@ -1,5 +1,5 @@
-#ifndef __RESTRICT_ACCESS_H
-#define __RESTRICT_ACCESS_H
+#ifndef RESTRICT_ACCESS_H
+#define RESTRICT_ACCESS_H
 
 /* set environment variables so they can be read with
    restrict_access_by_env() */

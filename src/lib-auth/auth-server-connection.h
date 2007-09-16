@@ -1,5 +1,5 @@
-#ifndef __AUTH_SERVER_CONNECTION_H
-#define __AUTH_SERVER_CONNECTION_H
+#ifndef AUTH_SERVER_CONNECTION_H
+#define AUTH_SERVER_CONNECTION_H
 
 struct auth_client {
 	unsigned int pid;

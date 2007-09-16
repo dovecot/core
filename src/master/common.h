@@ -1,5 +1,5 @@
-#ifndef __COMMON_H
-#define __COMMON_H
+#ifndef COMMON_H
+#define COMMON_H
 
 struct ip_addr;
 

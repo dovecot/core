@@ -1,5 +1,5 @@
-#ifndef __LIB_H
-#define __LIB_H
+#ifndef LIB_H
+#define LIB_H
 
 /* default lib includes */
 #ifdef HAVE_CONFIG_H

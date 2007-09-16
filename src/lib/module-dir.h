@@ -1,5 +1,5 @@
-#ifndef __MODULE_DIR_H
-#define __MODULE_DIR_H
+#ifndef MODULE_DIR_H
+#define MODULE_DIR_H
 
 struct module {
 	char *path, *name;

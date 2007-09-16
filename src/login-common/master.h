@@ -1,5 +1,5 @@
-#ifndef __MASTER_H
-#define __MASTER_H
+#ifndef MASTER_H
+#define MASTER_H
 
 struct client;
 

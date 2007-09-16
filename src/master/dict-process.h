@@ -1,5 +1,5 @@
-#ifndef __DICT_PROCESS_H
-#define __DICT_PROCESS_H
+#ifndef DICT_PROCESS_H
+#define DICT_PROCESS_H
 
 void dict_process_init(void);
 void dict_process_deinit(void);

@@ -1,5 +1,5 @@
-#ifndef __MAIL_STORAGE_H
-#define __MAIL_STORAGE_H
+#ifndef MAIL_STORAGE_H
+#define MAIL_STORAGE_H
 
 struct message_size;
 

@@ -1,5 +1,5 @@
-#ifndef __DATA_STACK_H
-#define __DATA_STACK_H
+#ifndef DATA_STACK_H
+#define DATA_STACK_H
 
 /* Data stack makes it very easy to implement functions returning dynamic data
    but without having to worry much about memory management like freeing the

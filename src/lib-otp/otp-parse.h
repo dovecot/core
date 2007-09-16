@@ -1,5 +1,5 @@
-#ifndef __OTP_PARSE_H__
-#define __OTP_PARSE_H__
+#ifndef OTP_PARSE_H
+#define OTP_PARSE_H
 
 int otp_read_hex(const char *data, const char **endptr, unsigned char *hash);
 int otp_read_words(const char *data, const char **endptr, unsigned char *hash);
@@ -13,4 +13,4 @@ int otp_parse_init_response(const char *data, struct otp_state *new_state,
 int otp_parse_dbentry(const char *text, struct otp_state *state);
 const char *otp_print_dbentry(const struct otp_state *state);
 
-#endif	/* __OTP_PARSE_H__ */
+#endif

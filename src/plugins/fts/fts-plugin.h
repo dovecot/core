@@ -1,5 +1,5 @@
-#ifndef __FTS_PLUGIN_H
-#define __FTS_PLUGIN_H
+#ifndef FTS_PLUGIN_H
+#define FTS_PLUGIN_H
 
 extern void (*fts_next_hook_mailbox_opened)(struct mailbox *box);
 

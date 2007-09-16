@@ -1,5 +1,5 @@
-#ifndef __DICT_H
-#define __DICT_H
+#ifndef DICT_H
+#define DICT_H
 
 #define DICT_PATH_PRIVATE "priv/"
 #define DICT_PATH_SHARED "shared/"

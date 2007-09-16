@@ -1,5 +1,5 @@
-#ifndef __INDEX_STORAGE_H
-#define __INDEX_STORAGE_H
+#ifndef INDEX_STORAGE_H
+#define INDEX_STORAGE_H
 
 #include "file-dotlock.h"
 #include "mail-storage-private.h"

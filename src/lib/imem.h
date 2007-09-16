@@ -1,5 +1,5 @@
-#ifndef __IMEM_H
-#define __IMEM_H
+#ifndef IMEM_H
+#define IMEM_H
 
 /* For easy allocation of memory from default memory pool. */
 

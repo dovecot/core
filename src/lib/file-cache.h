@@ -1,5 +1,5 @@
-#ifndef __FILE_CACHE_H
-#define __FILE_CACHE_H
+#ifndef FILE_CACHE_H
+#define FILE_CACHE_H
 
 /* Create a new file cache. It works very much like file-backed mmap()ed
    memory, but it works more nicely with remote filesystems (no SIGBUS). */

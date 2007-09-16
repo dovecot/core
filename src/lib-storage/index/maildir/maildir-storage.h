@@ -1,5 +1,5 @@
-#ifndef __MAILDIR_STORAGE_H
-#define __MAILDIR_STORAGE_H
+#ifndef MAILDIR_STORAGE_H
+#define MAILDIR_STORAGE_H
 
 #define MAILDIR_STORAGE_NAME "maildir"
 #define MAILDIR_SUBSCRIPTION_FILE_NAME "subscriptions"

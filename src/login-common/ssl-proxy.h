@@ -1,5 +1,5 @@
-#ifndef __SSL_PROXY_H
-#define __SSL_PROXY_H
+#ifndef SSL_PROXY_H
+#define SSL_PROXY_H
 
 struct ip_addr;
 struct ssl_proxy;

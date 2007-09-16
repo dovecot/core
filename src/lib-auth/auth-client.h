@@ -1,5 +1,5 @@
-#ifndef __AUTH_CLIENT_H
-#define __AUTH_CLIENT_H
+#ifndef AUTH_CLIENT_H
+#define AUTH_CLIENT_H
 
 #include "network.h"
 #include "../auth/auth-client-interface.h"

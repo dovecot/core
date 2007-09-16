@@ -1,5 +1,5 @@
-#ifndef __HMAC_MD5_H__
-#define __HMAC_MD5_H__
+#ifndef HMAC_MD5_H
+#define HMAC_MD5_H
 
 #include "md5.h"
 
@@ -26,4 +26,4 @@ hmac_md5_update(struct hmac_md5_context *ctx, const void *data, size_t size)
 	md5_update(&ctx->ctx, data, size);
 }
 
-#endif /* __HMAC_MD5_H__ */
+#endif

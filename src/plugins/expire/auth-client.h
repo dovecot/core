@@ -1,5 +1,5 @@
-#ifndef __AUTH_CLIENT_H
-#define __AUTH_CLIENT_H
+#ifndef AUTH_CLIENT_H
+#define AUTH_CLIENT_H
 
 struct auth_connection *auth_connection_init(const char *auth_socket);
 void auth_connection_deinit(struct auth_connection *conn);

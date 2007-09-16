@@ -1,5 +1,5 @@
-#ifndef __SENDFILE_UTIL_H
-#define __SENDFILE_UTIL_H
+#ifndef SENDFILE_UTIL_H
+#define SENDFILE_UTIL_H
 
 /* Wrapper for various sendfile()-like calls. Returns -1 and errno=EINVAL if
    it isn't supported for some reason (out_fd isn't a socket, offset is too

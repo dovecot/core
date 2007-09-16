@@ -1,5 +1,5 @@
-#ifndef __IOLOOP_NOTIFY_FD_H
-#define __IOLOOP_NOTIFY_FD_H
+#ifndef IOLOOP_NOTIFY_FD_H
+#define IOLOOP_NOTIFY_FD_H
 
 /* common notify code for fd-based notifications (dnotify, inotify) */
 

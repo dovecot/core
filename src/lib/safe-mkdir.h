@@ -1,5 +1,5 @@
-#ifndef __SAFE_MKDIR
-#define __SAFE_MKDIR
+#ifndef SAFE_MKDIR_H
+#define SAFE_MKDIR_H
 
 /* Either create a directory or make sure that it already exists with given
    permissions. If anything fails, the i_fatal() is called. Returns 1 if

@@ -1,5 +1,5 @@
-#ifndef __PASSDB_CACHE_H
-#define __PASSDB_CACHE_H
+#ifndef PASSDB_CACHE_H
+#define PASSDB_CACHE_H
 
 #include "auth-cache.h"
 

@@ -1,5 +1,5 @@
-#ifndef __MASTER_LOGIN_INTERFACE_H
-#define __MASTER_LOGIN_INTERFACE_H
+#ifndef MASTER_LOGIN_INTERFACE_H
+#define MASTER_LOGIN_INTERFACE_H
 
 #include "network.h"
 

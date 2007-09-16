@@ -1,5 +1,5 @@
-#ifndef __OTP_H__
-#define __OTP_H__
+#ifndef OTP_H
+#define OTP_H
 
 #define OTP_MAX_SEED_LEN	16
 #define OTP_MAX_WORD_LEN	4
@@ -19,4 +19,4 @@ struct otp_state {
 #include "otp-parity.h"
 #include "otp-parse.h"
 
-#endif	/* __OTP_H__ */
+#endif

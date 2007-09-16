@@ -1,5 +1,5 @@
-#ifndef __STR_H
-#define __STR_H
+#ifndef STR_H
+#define STR_H
 
 string_t *str_new(pool_t pool, size_t initial_size);
 string_t *t_str_new(size_t initial_size);

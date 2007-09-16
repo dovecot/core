@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_SIZE_H
-#define __MESSAGE_SIZE_H
+#ifndef MESSAGE_SIZE_H
+#define MESSAGE_SIZE_H
 
 struct message_size {
 	uoff_t physical_size;

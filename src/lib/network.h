@@ -1,5 +1,5 @@
-#ifndef __NETWORK_H
-#define __NETWORK_H
+#ifndef NETWORK_H
+#define NETWORK_H
 
 #ifndef WIN32
 #  include <sys/socket.h>

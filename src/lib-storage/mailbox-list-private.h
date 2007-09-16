@@ -1,5 +1,5 @@
-#ifndef __MAILBOX_LIST_PRIVATE_H
-#define __MAILBOX_LIST_PRIVATE_H
+#ifndef MAILBOX_LIST_PRIVATE_H
+#define MAILBOX_LIST_PRIVATE_H
 
 #include "mail-namespace.h"
 #include "mailbox-list.h"

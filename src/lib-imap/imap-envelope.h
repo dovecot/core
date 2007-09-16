@@ -1,5 +1,5 @@
-#ifndef __IMAP_ENVELOPE_H
-#define __IMAP_ENVELOPE_H
+#ifndef IMAP_ENVELOPE_H
+#define IMAP_ENVELOPE_H
 
 struct message_header_line;
 

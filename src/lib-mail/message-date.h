@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_DATE
-#define __MESSAGE_DATE
+#ifndef MESSAGE_DATE_H
+#define MESSAGE_DATE_H
 
 /* Parses RFC2822 date/time string. timezone_offset is filled with the
    timezone's difference to UTC in minutes. */

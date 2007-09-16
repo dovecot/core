@@ -1,5 +1,5 @@
-#ifndef __LOGIN_PROXY_H
-#define __LOGIN_PROXY_H
+#ifndef LOGIN_PROXY_H
+#define LOGIN_PROXY_H
 
 struct login_proxy;
 

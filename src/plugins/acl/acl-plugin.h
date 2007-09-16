@@ -1,5 +1,5 @@
-#ifndef __ACL_PLUGIN_H
-#define __ACL_PLUGIN_H
+#ifndef ACL_PLUGIN_H
+#define ACL_PLUGIN_H
 
 #include "mail-storage-private.h"
 

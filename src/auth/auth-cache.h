@@ -1,5 +1,5 @@
-#ifndef __AUTH_CACHE_H
-#define __AUTH_CACHE_H
+#ifndef AUTH_CACHE_H
+#define AUTH_CACHE_H
 
 struct auth_cache_node {
 	struct auth_cache_node *prev, *next;

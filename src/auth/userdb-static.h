@@ -1,5 +1,5 @@
-#ifndef __USERDB_STATIC_H
-#define __USERDB_STATIC_H
+#ifndef USERDB_STATIC_H
+#define USERDB_STATIC_H
 
 struct userdb_static_template *
 userdb_static_template_build(pool_t pool, const char *userdb_name,

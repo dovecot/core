@@ -1,5 +1,5 @@
-#ifndef __IOLOOP_INTERNAL_H
-#define __IOLOOP_INTERNAL_H
+#ifndef IOLOOP_INTERNAL_H
+#define IOLOOP_INTERNAL_H
 
 #include "ioloop.h"
 

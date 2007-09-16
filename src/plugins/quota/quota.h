@@ -1,5 +1,5 @@
-#ifndef __QUOTA_H
-#define __QUOTA_H
+#ifndef QUOTA_H
+#define QUOTA_H
 
 struct mail;
 struct mailbox;

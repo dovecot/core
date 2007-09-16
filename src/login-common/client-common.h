@@ -1,5 +1,5 @@
-#ifndef __CLIENT_COMMON_H
-#define __CLIENT_COMMON_H
+#ifndef CLIENT_COMMON_H
+#define CLIENT_COMMON_H
 
 #include "network.h"
 #include "master.h"

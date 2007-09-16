@@ -1,5 +1,5 @@
-#ifndef __MAILDIR_UIDLI3ST_H
-#define __MAILDIR_UIDLIST_H
+#ifndef MAILDIR_UIDLI3ST_H
+#define MAILDIR_UIDLIST_H
 
 #define MAILDIR_UIDLIST_NAME "dovecot-uidlist"
 

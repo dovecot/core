@@ -1,5 +1,5 @@
-#ifndef __MASTER_SETTINGS_H
-#define __MASTER_SETTINGS_H
+#ifndef MASTER_SETTINGS_H
+#define MASTER_SETTINGS_H
 
 #include "network.h"
 

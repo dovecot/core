@@ -1,5 +1,5 @@
-#ifndef __POP3_PROXY_H
-#define __POP3_PROXY_H
+#ifndef POP3_PROXY_H
+#define POP3_PROXY_H
 
 #include "login-proxy.h"
 

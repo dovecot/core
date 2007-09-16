@@ -1,5 +1,5 @@
-#ifndef __CLIENT_AUTHENTICATE_H
-#define __CLIENT_AUTHENTICATE_H
+#ifndef CLIENT_AUTHENTICATE_H
+#define CLIENT_AUTHENTICATE_H
 
 bool cmd_capa(struct pop3_client *client, const char *args);
 bool cmd_user(struct pop3_client *client, const char *args);

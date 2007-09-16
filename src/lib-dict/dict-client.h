@@ -1,5 +1,5 @@
-#ifndef __DICT_CLIENT_H
-#define __DICT_CLIENT_H
+#ifndef DICT_CLIENT_H
+#define DICT_CLIENT_H
 
 #include "dict.h"
 

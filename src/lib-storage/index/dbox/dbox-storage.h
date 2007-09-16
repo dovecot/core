@@ -1,5 +1,5 @@
-#ifndef __DBOX_STORAGE_H
-#define __DBOX_STORAGE_H
+#ifndef DBOX_STORAGE_H
+#define DBOX_STORAGE_H
 
 #include "index-storage.h"
 #include "mailbox-list-private.h"

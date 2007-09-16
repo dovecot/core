@@ -1,5 +1,5 @@
-#ifndef __ARRAY_H
-#define __ARRAY_H
+#ifndef ARRAY_H
+#define ARRAY_H
 
 /* Array is a buffer accessible using fixed size elements. As long as the
    compiler provides typeof() function, the array provides type safety. If

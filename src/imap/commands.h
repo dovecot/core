@@ -1,5 +1,5 @@
-#ifndef __COMMANDS_H
-#define __COMMANDS_H
+#ifndef COMMANDS_H
+#define COMMANDS_H
 
 struct client_command_context;
 

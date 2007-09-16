@@ -1,5 +1,5 @@
-#ifndef __INDEX_MAILBOX_LIST_H
-#define __INDEX_MAILBOX_LIST_H
+#ifndef INDEX_MAILBOX_LIST_H
+#define INDEX_MAILBOX_LIST_H
 
 #include "module-context.h"
 #include "mailbox-list-private.h"

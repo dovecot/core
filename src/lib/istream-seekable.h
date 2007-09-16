@@ -1,5 +1,5 @@
-#ifndef __ISTREAM_SEEKABLE_H
-#define __ISTREAM_SEEKABLE_H
+#ifndef ISTREAM_SEEKABLE_H
+#define ISTREAM_SEEKABLE_H
 
 /* Create a seekable stream from given NULL-terminated list of input streams.
    Try to keep it in memory, but use a temporary file if it's too large.

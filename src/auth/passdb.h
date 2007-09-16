@@ -1,5 +1,5 @@
-#ifndef __PASSDB_H
-#define __PASSDB_H
+#ifndef PASSDB_H
+#define PASSDB_H
 
 #define IS_VALID_PASSWD(pass) \
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')

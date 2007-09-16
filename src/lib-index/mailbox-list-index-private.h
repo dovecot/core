@@ -1,5 +1,5 @@
-#ifndef __MAILBOX_LIST_INDEX_PRIVATE_H
-#define __MAILBOX_LIST_INDEX_PRIVATE_H
+#ifndef MAILBOX_LIST_INDEX_PRIVATE_H
+#define MAILBOX_LIST_INDEX_PRIVATE_H
 
 #include "file-dotlock.h"
 #include "mailbox-list-index.h"

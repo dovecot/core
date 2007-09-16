@@ -1,5 +1,5 @@
-#ifndef __BASE64_H
-#define __BASE64_H
+#ifndef BASE64_H
+#define BASE64_H
 
 /* Translates binary data into base64. The src must not point to dest buffer. */
 void base64_encode(const void *src, size_t src_size, buffer_t *dest);

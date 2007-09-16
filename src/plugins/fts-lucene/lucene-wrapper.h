@@ -1,5 +1,5 @@
-#ifndef __LUCENE_WRAPPER_H
-#define __LUCENE_WRAPPER_H
+#ifndef LUCENE_WRAPPER_H
+#define LUCENE_WRAPPER_H
 
 #include "fts-api-private.h"
 

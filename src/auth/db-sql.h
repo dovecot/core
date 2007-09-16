@@ -1,5 +1,5 @@
-#ifndef __DB_SQL_H
-#define __DB_SQL_H
+#ifndef DB_SQL_H
+#define DB_SQL_H
 
 #include "sql-api.h"
 

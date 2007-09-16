@@ -1,5 +1,5 @@
-#ifndef __AUTH_SERVER_REQUEST_H
-#define __AUTH_SERVER_REQUEST_H
+#ifndef AUTH_SERVER_REQUEST_H
+#define AUTH_SERVER_REQUEST_H
 
 bool auth_client_input_ok(struct auth_server_connection *conn,
 			  const char *args);

@@ -1,5 +1,5 @@
-#ifndef __STR_FIND_H
-#define __STR_FIND_H
+#ifndef STR_FIND_H
+#define STR_FIND_H
 
 struct str_find_context;
 

@@ -1,5 +1,5 @@
-#ifndef __READ_FULL_H
-#define __READ_FULL_H
+#ifndef READ_FULL_H
+#define READ_FULL_H
 
 /* Read data from file. Returns -1 if error occurred, or 0 if EOF came before
    everything was read, or 1 if all was ok. */

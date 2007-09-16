@@ -1,5 +1,5 @@
-#ifndef __USERDB_VPOPMAIL_H
-#define __USERDB_VPOPMAIL_H
+#ifndef USERDB_VPOPMAIL_H
+#define USERDB_VPOPMAIL_H
 
 #include <stdio.h>
 #include <vpopmail.h>

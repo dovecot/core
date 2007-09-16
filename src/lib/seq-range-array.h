@@ -1,5 +1,5 @@
-#ifndef __SEQ_RANGE_ARRAY_H
-#define __SEQ_RANGE_ARRAY_H
+#ifndef SEQ_RANGE_ARRAY_H
+#define SEQ_RANGE_ARRAY_H
 
 struct seq_range {
 	uint32_t seq1, seq2;

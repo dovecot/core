@@ -1,5 +1,5 @@
-#ifndef __COMPAT_H
-#define __COMPAT_H
+#ifndef COMPAT_H
+#define COMPAT_H
 
 #if defined (HAVE_INTTYPES_H) && defined(__osf__)
 #  include <inttypes.h>

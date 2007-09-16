@@ -1,5 +1,5 @@
-#ifndef __NTLM_H__
-#define __NTLM_H__
+#ifndef NTLM_H
+#define NTLM_H
 
 #include <stddef.h>
 

@@ -1,5 +1,5 @@
-#ifndef __OTP_PARITY_H__
-#define __OTP_PARITY_H__
+#ifndef OTP_PARITY_H
+#define OTP_PARITY_H
 
 const unsigned char parity_table[256];
 
@@ -13,4 +13,4 @@ static inline unsigned int otp_parity(unsigned char *data)
 	return parity & 3;
 }
 
-#endif	/* __OTP_PARITY_H__ */
+#endif

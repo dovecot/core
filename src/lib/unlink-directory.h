@@ -1,5 +1,5 @@
-#ifndef __UNLINK_DIRECTORY_H
-#define __UNLINK_DIRECTORY_H
+#ifndef UNLINK_DIRECTORY_H
+#define UNLINK_DIRECTORY_H
 
 /* Unlink directory and/or everything under it.
    Returns 0 if successful, -1 if error. */

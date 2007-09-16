@@ -1,5 +1,5 @@
-#ifndef __MACROS_H
-#define __MACROS_H
+#ifndef MACROS_H
+#define MACROS_H
 
 /* several useful macros, mostly from glib.h */
 

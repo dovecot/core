@@ -1,5 +1,5 @@
-#ifndef __IMAP_PARSER_H
-#define __IMAP_PARSER_H
+#ifndef IMAP_PARSER_H
+#define IMAP_PARSER_H
 
 #include "array.h"
 

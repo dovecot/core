@@ -1,5 +1,5 @@
-#ifndef __SSL_INIT_H
-#define __SSL_INIT_H
+#ifndef SSL_INIT_H
+#define SSL_INIT_H
 
 #define SSL_PARAMETERS_FILENAME "ssl-parameters.dat"
 

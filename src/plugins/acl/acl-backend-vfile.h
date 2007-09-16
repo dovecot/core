@@ -1,5 +1,5 @@
-#ifndef __ACL_BACKEND_VFILE_H
-#define __ACL_BACKEND_VFILE_H
+#ifndef ACL_BACKEND_VFILE_H
+#define ACL_BACKEND_VFILE_H
 
 #include "acl-api-private.h"
 

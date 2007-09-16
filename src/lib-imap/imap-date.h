@@ -1,5 +1,5 @@
-#ifndef __IMAP_DATE_H
-#define __IMAP_DATE_H
+#ifndef IMAP_DATE_H
+#define IMAP_DATE_H
 
 /* Parses IMAP date/time string and returns TRUE if the string is valid.
    time_t is filled with UTC date. timezone_offset is filled with parsed

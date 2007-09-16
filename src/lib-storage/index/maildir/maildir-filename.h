@@ -1,5 +1,5 @@
-#ifndef __MAILDIR_FILENAME_H
-#define __MAILDIR_FILENAME_H
+#ifndef MAILDIR_FILENAME_H
+#define MAILDIR_FILENAME_H
 
 struct maildir_keywords_sync_ctx;
 

@@ -1,5 +1,5 @@
-#ifndef __FTS_SQUAT_PLUGIN_H
-#define __FTS_SQUAT_PLUGIN_H
+#ifndef FTS_SQUAT_PLUGIN_H
+#define FTS_SQUAT_PLUGIN_H
 
 #include "fts-api-private.h"
 

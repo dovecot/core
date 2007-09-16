@@ -1,5 +1,5 @@
-#ifndef __MAIL_INDEX_SYNC_PRIVATE_H
-#define __MAIL_INDEX_SYNC_PRIVATE_H
+#ifndef MAIL_INDEX_SYNC_PRIVATE_H
+#define MAIL_INDEX_SYNC_PRIVATE_H
 
 #include "mail-transaction-log.h"
 

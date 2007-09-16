@@ -1,5 +1,5 @@
-#ifndef __QUOTA_PLUGIN_H
-#define __QUOTA_PLUGIN_H
+#ifndef QUOTA_PLUGIN_H
+#define QUOTA_PLUGIN_H
 
 struct mail_storage;
 

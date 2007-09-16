@@ -1,5 +1,5 @@
-#ifndef __SETTINGS_H
-#define __SETTINGS_H
+#ifndef SETTINGS_H
+#define SETTINGS_H
 
 enum setting_type {
 	SET_STR,

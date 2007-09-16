@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_HEADER_PARSER_H
-#define __MESSAGE_HEADER_PARSER_H
+#ifndef MESSAGE_HEADER_PARSER_H
+#define MESSAGE_HEADER_PARSER_H
 
 #define IS_LWSP(c) \
 	((c) == ' ' || (c) == '\t')

@@ -1,5 +1,5 @@
-#ifndef __INDEX_SORT_H
-#define __INDEX_SORT_H
+#ifndef INDEX_SORT_H
+#define INDEX_SORT_H
 
 struct mail_search_sort_program;
 

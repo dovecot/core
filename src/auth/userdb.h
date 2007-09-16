@@ -1,5 +1,5 @@
-#ifndef __USERDB_H
-#define __USERDB_H
+#ifndef USERDB_H
+#define USERDB_H
 
 #include "auth-stream.h"
 

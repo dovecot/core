@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_DECODER_H
-#define __MESSAGE_DECODER_H
+#ifndef MESSAGE_DECODER_H
+#define MESSAGE_DECODER_H
 
 struct message_block;
 

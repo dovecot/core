@@ -1,5 +1,5 @@
-#ifndef __MAILBOX_LIST_SUBSCRIPTIONS_H
-#define __MAILBOX_LIST_SUBSCRIPTIONS_H
+#ifndef MAILBOX_LIST_SUBSCRIPTIONS_H
+#define MAILBOX_LIST_SUBSCRIPTIONS_H
 
 struct mailbox_list_iterate_context;
 struct mailbox_tree_context;

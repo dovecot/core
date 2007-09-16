@@ -1,5 +1,5 @@
-#ifndef __ACL_API_H
-#define __ACL_API_H
+#ifndef ACL_API_H
+#define ACL_API_H
 
 struct mailbox_list;
 struct mail_storage;

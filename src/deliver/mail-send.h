@@ -1,5 +1,5 @@
-#ifndef __MAIL_SEND_H
-#define __MAIL_SEND_H
+#ifndef MAIL_SEND_H
+#define MAIL_SEND_H
 
 struct mail;
 

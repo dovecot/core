@@ -1,5 +1,5 @@
-#ifndef __MAIL_STORAGE_PRIVATE_H
-#define __MAIL_STORAGE_PRIVATE_H
+#ifndef MAIL_STORAGE_PRIVATE_H
+#define MAIL_STORAGE_PRIVATE_H
 
 #include "module-context.h"
 #include "file-lock.h"

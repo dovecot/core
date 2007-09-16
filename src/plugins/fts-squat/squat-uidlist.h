@@ -1,5 +1,5 @@
-#ifndef __SQUAT_UIDLIST_H
-#define __SQUAT_UIDLIST_H
+#ifndef SQUAT_UIDLIST_H
+#define SQUAT_UIDLIST_H
 
 #include "seq-range-array.h"
 

@@ -1,5 +1,5 @@
-#ifndef __BUFFER_H
-#define __BUFFER_H
+#ifndef BUFFER_H
+#define BUFFER_H
 
 /* May be used in calculations of how much memory buffer_t will allocate
    for itself, but this isn't necessary precise. */

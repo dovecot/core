@@ -6,8 +6,8 @@
  * This software is released under the MIT license.
  */
 
-#ifndef __NTLM_TYPES_H__
-#define __NTLM_TYPES_H__
+#ifndef NTLM_TYPES_H
+#define NTLM_TYPES_H
 
 #define NTLMSSP_MAGIC			0x005053534d4c544eULL
 
@@ -127,4 +127,4 @@ struct ntlmssp_v2_blob {
 	/* Target Information Block */
 };
 
-#endif	/* __NTLM_TYPES_H__ */
+#endif

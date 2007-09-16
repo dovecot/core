@@ -1,5 +1,5 @@
-#ifndef __ARRAY_DECL_H
-#define __ARRAY_DECL_H
+#ifndef ARRAY_DECL_H
+#define ARRAY_DECL_H
 
 #define ARRAY_DEFINE(name, array_type) union { struct array arr; array_type const *const *v; array_type **v_modifiable; } name
 #define ARRAY_INIT { { 0, 0 } }

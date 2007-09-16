@@ -1,5 +1,5 @@
-#ifndef __MAIL_INDEX_PRIVATE_H
-#define __MAIL_INDEX_PRIVATE_H
+#ifndef MAIL_INDEX_PRIVATE_H
+#define MAIL_INDEX_PRIVATE_H
 
 #include "file-lock.h"
 #include "mail-index.h"

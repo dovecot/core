@@ -1,5 +1,5 @@
-#ifndef __AUTH_PROCESS_H
-#define __AUTH_PROCESS_H
+#ifndef AUTH_PROCESS_H
+#define AUTH_PROCESS_H
 
 struct login_auth_request;
 

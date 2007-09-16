@@ -1,5 +1,5 @@
-#ifndef __MAIL_INDEX_H
-#define __MAIL_INDEX_H
+#ifndef MAIL_INDEX_H
+#define MAIL_INDEX_H
 
 #include "mail-types.h"
 #include "seq-range-array.h"

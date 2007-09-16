@@ -1,5 +1,5 @@
-#ifndef __LOGIN_PROCESS_H
-#define __LOGIN_PROCESS_H
+#ifndef LOGIN_PROCESS_H
+#define LOGIN_PROCESS_H
 
 #include "child-process.h"
 

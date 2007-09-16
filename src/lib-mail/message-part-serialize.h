@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_PART_SERIALIZE_H
-#define __MESSAGE_PART_SERIALIZE_H
+#ifndef MESSAGE_PART_SERIALIZE_H
+#define MESSAGE_PART_SERIALIZE_H
 
 struct message_part;
 struct message_size;

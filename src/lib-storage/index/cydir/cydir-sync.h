@@ -1,5 +1,5 @@
-#ifndef __CYDIR_SYNC_H
-#define __CYDIR_SYNC_H
+#ifndef CYDIR_SYNC_H
+#define CYDIR_SYNC_H
 
 enum mailbox_sync_flags;
 struct mailbox;

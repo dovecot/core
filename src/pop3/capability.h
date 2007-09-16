@@ -1,5 +1,5 @@
-#ifndef __POP3_CAPABILITY_H
-#define __POP3_CAPABILITY_H
+#ifndef POP3_CAPABILITY_H
+#define POP3_CAPABILITY_H
 
 #define POP3_CAPABILITY_REPLY \
 	"CAPA\r\n" \

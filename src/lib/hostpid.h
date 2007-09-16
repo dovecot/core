@@ -1,5 +1,5 @@
-#ifndef __HOSTPID_H
-#define __HOSTPID_H
+#ifndef HOSTPID_H
+#define HOSTPID_H
 
 extern const char *my_hostname;
 extern const char *my_pid;

@@ -1,5 +1,5 @@
-#ifndef __FDPASS_H
-#define __FDPASS_H
+#ifndef FDPASS_H
+#define FDPASS_H
 
 /* Returns number of bytes sent, -1 if error. send_fd can be -1 if we just
    want to send the data with sendmsg(). */

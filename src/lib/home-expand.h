@@ -1,5 +1,5 @@
-#ifndef __HOME_EXPAND_H
-#define __HOME_EXPAND_H
+#ifndef HOME_EXPAND_H
+#define HOME_EXPAND_H
 
 /* expand ~/ or ~user/ in beginning of path. If user is unknown, the original
    path is returned without modification. */

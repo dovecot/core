@@ -1,5 +1,5 @@
-#ifndef __DBOX_FILE_H
-#define __DBOX_FILE_H
+#ifndef DBOX_FILE_H
+#define DBOX_FILE_H
 
 /* The file begins with a header followed by zero or more messages:
 

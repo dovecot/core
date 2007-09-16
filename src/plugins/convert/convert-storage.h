@@ -1,5 +1,5 @@
-#ifndef __CONVERT_STORAGE_H
-#define __CONVERT_STORAGE_H
+#ifndef CONVERT_STORAGE_H
+#define CONVERT_STORAGE_H
 
 struct convert_settings {
 	const char *user;

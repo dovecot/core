@@ -1,5 +1,5 @@
-#ifndef __MBOX_STORAGE_H
-#define __MBOX_STORAGE_H
+#ifndef MBOX_STORAGE_H
+#define MBOX_STORAGE_H
 
 /* Padding to leave in X-Keywords header when rewriting mbox */
 #define MBOX_HEADER_PADDING 50

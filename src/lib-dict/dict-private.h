@@ -1,5 +1,5 @@
-#ifndef __DICT_PRIVATE_H
-#define __DICT_PRIVATE_H
+#ifndef DICT_PRIVATE_H
+#define DICT_PRIVATE_H
 
 #include "dict.h"
 

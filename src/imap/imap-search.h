@@ -1,5 +1,5 @@
-#ifndef __IMAP_SEARCH_H
-#define __IMAP_SEARCH_H
+#ifndef IMAP_SEARCH_H
+#define IMAP_SEARCH_H
 
 struct imap_arg;
 struct mailbox;

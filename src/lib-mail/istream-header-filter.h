@@ -1,5 +1,5 @@
-#ifndef __ISTREAM_HEADER_FILTER_H
-#define __ISTREAM_HEADER_FILTER_H
+#ifndef ISTREAM_HEADER_FILTER_H
+#define ISTREAM_HEADER_FILTER_H
 
 enum header_filter_flags {
 	/* Include only specified headers in output.*/

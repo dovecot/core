@@ -1,5 +1,5 @@
-#ifndef __AUTH_MASTER_CONNECTION_H
-#define __AUTH_MASTER_CONNECTION_H
+#ifndef AUTH_MASTER_CONNECTION_H
+#define AUTH_MASTER_CONNECTION_H
 
 struct auth_master_connection {
 	struct auth_master_listener *listener;

@@ -1,5 +1,5 @@
-#ifndef __SQUAT_TRIE_PRIVATE_H
-#define __SQUAT_TRIE_PRIVATE_H
+#ifndef SQUAT_TRIE_PRIVATE_H
+#define SQUAT_TRIE_PRIVATE_H
 
 struct squat_trie_header {
 	uint8_t version;
