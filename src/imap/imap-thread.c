@@ -93,9 +93,9 @@ static void mail_thread_finish(struct thread_context *ctx);
 static void mail_thread_deinit(struct thread_context *ctx)
 {
 	if (ctx->msgid_hash != NULL)
-		hash_destroy(ctx->msgid_hash);
+		hash_destroy(&ctx->msgid_hash);
 	if (ctx->subject_hash != NULL)
-		hash_destroy(ctx->subject_hash);
+		hash_destroy(&ctx->subject_hash);
 
 	pool_unref(ctx->temp_pool);
 	pool_unref(ctx->pool);
@@ -940,13 +940,11 @@ static void mail_thread_finish(struct thread_context *ctx)
 		if (node->parent == NULL)
 			add_root(ctx, node);
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 
 	/* drop the memory allocated for message-IDs and msgid_hash,
 	   reuse their memory for base subjects */
-	hash_destroy(ctx->msgid_hash);
-	ctx->msgid_hash = NULL;
-
+	hash_destroy(&ctx->msgid_hash);
 	p_clear(ctx->temp_pool);
 
 	if (ctx->root_node.first_child == NULL) {

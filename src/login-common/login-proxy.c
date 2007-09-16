@@ -285,6 +285,6 @@ void login_proxy_deinit(void)
 	iter = hash_iterate_init(login_proxies);
 	while (hash_iterate(iter, &key, &value))
 		login_proxy_free(value);
-	hash_iterate_deinit(iter);
-	hash_destroy(login_proxies);
+	hash_iterate_deinit(&iter);
+	hash_destroy(&login_proxies);
 }

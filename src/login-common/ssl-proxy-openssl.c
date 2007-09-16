@@ -793,8 +793,8 @@ void ssl_proxy_deinit(void)
 	iter = hash_iterate_init(ssl_proxies);
 	while (hash_iterate(iter, &key, &value))
 		ssl_proxy_destroy(value);
-	hash_iterate_deinit(iter);
-	hash_destroy(ssl_proxies);
+	hash_iterate_deinit(&iter);
+	hash_destroy(&ssl_proxies);
 
 	ssl_free_parameters(&ssl_params);
 	SSL_CTX_free(ssl_ctx);

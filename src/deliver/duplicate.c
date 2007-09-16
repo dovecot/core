@@ -168,7 +168,7 @@ static void duplicate_free(struct duplicate_file *file)
 	if (file->dotlock != NULL)
 		file_dotlock_delete(&file->dotlock);
 
-	hash_destroy(file->hash);
+	hash_destroy(&file->hash);
 	pool_unref(file->pool);
 }
 
@@ -230,7 +230,7 @@ void duplicate_flush(void)
 		o_stream_send(output, d->id, d->id_size);
 		o_stream_send(output, d->user, user_size);
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 	o_stream_unref(&output);
 
 	file->changed = FALSE;

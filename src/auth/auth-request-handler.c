@@ -69,12 +69,12 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 
 		auth_request_unref(&auth_request);
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 
 	/* notify parent that we're done with all requests */
 	handler->callback(NULL, handler->context);
 
-	hash_destroy(handler->requests);
+	hash_destroy(&handler->requests);
 	pool_unref(handler->pool);
 }
 
@@ -105,7 +105,7 @@ void auth_request_handler_check_timeouts(struct auth_request_handler *handler)
 		if (request->last_access + AUTH_REQUEST_TIMEOUT < ioloop_time)
 			auth_request_handler_remove(handler, request);
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 }
 
 static const char *get_client_extra_fields(struct auth_request *request)

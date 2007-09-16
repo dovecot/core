@@ -455,8 +455,8 @@ static void checkpassword_deinit(struct passdb_module *_module)
 		checkpassword_request_finish(value,
 					     PASSDB_RESULT_INTERNAL_FAILURE);
 	}
-	hash_iterate_deinit(iter);
-	hash_destroy(module->clients);
+	hash_iterate_deinit(&iter);
+	hash_destroy(&module->clients);
 }
 
 struct passdb_module_interface passdb_checkpassword = {

@@ -310,7 +310,7 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 			db_ldap_search(conn, request, conn->set.ldap_scope);
 		}
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 
 	/* then delayed search requests */
 	p = &conn->delayed_requests_head;
@@ -338,7 +338,7 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 			if (request->filter == NULL)
 				request->callback(conn, request, NULL);
 		}
-		hash_iterate_deinit(iter);
+		hash_iterate_deinit(&iter);
 	}
 	if (conn->delayed_requests_head != NULL && conn->set.auth_bind) {
 		request = conn->delayed_requests_head;
@@ -350,7 +350,7 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 		}
 		conn->delayed_requests_head = NULL;
 	}
-	hash_destroy(old_requests);
+	hash_destroy(&old_requests);
 
 	i_assert(conn->delayed_requests_head == NULL);
 	conn->delayed_requests_tail = NULL;
@@ -632,7 +632,7 @@ static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests)
 
 			request->callback(conn, request, NULL);
 		}
-		hash_iterate_deinit(iter);
+		hash_iterate_deinit(&iter);
 		hash_clear(conn->requests, FALSE);
 
 		request = conn->delayed_requests_head;
@@ -1006,11 +1006,11 @@ void db_ldap_unref(struct ldap_connection **_conn)
 
 	ldap_conn_close(conn, TRUE);
 
-	hash_destroy(conn->requests);
+	hash_destroy(&conn->requests);
 	if (conn->pass_attr_map != NULL)
-		hash_destroy(conn->pass_attr_map);
+		hash_destroy(&conn->pass_attr_map);
 	if (conn->user_attr_map != NULL)
-		hash_destroy(conn->user_attr_map);
+		hash_destroy(&conn->user_attr_map);
 	pool_unref(conn->pool);
 }
 

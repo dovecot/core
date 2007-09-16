@@ -15,8 +15,7 @@ typedef int hash_cmp_callback_t(const void *p1, const void *p2);
 struct hash_table *
 hash_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
 	    hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb);
-void _hash_destroy(struct hash_table **table);
-#define hash_destroy(table) _hash_destroy(&(table))
+void hash_destroy(struct hash_table **table);
 /* Remove all nodes from hash table. If free_collisions is TRUE, the
    memory allocated from node_pool is freed, or discarded with
    alloconly pools. */
@@ -40,7 +39,7 @@ unsigned int hash_size(const struct hash_table *table);
 struct hash_iterate_context *hash_iterate_init(struct hash_table *table);
 bool hash_iterate(struct hash_iterate_context *ctx,
 		  void **key_r, void **value_r);
-void hash_iterate_deinit(struct hash_iterate_context *ctx);
+void hash_iterate_deinit(struct hash_iterate_context **ctx);
 
 /* Hash table isn't resized, and removed nodes aren't removed from
    the list while hash table is freezed. Supports nesting. */

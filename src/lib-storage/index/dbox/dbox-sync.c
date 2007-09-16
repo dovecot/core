@@ -211,7 +211,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 			if ((ret = dbox_sync_file(ctx, entry)) <= 0)
 				break;
 		}
-		hash_iterate_deinit(iter);
+		hash_iterate_deinit(&iter);
 	}
 
 	if (ret > 0)
@@ -221,7 +221,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 		box->v.sync_notify(box, 0, 0);
 
 	dbox_sync_unlock_files(ctx);
-	hash_destroy(ctx->syncs);
+	hash_destroy(&ctx->syncs);
 	pool_unref(ctx->pool);
 	return ret;
 }

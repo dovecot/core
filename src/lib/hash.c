@@ -101,7 +101,7 @@ static void hash_destroy_nodes(struct hash_table *table)
 	}
 }
 
-void _hash_destroy(struct hash_table **_table)
+void hash_destroy(struct hash_table **_table)
 {
 	struct hash_table *table = *_table;
 
@@ -376,8 +376,11 @@ bool hash_iterate(struct hash_iterate_context *ctx,
 	return TRUE;
 }
 
-void hash_iterate_deinit(struct hash_iterate_context *ctx)
+void hash_iterate_deinit(struct hash_iterate_context **_ctx)
 {
+	struct hash_iterate_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	hash_thaw(ctx->table);
 	i_free(ctx);
 }
@@ -463,7 +466,7 @@ void hash_copy(struct hash_table *dest, struct hash_table *src)
 	iter = hash_iterate_init(src);
 	while (hash_iterate(iter, &key, &value))
 		hash_insert(dest, key, value);
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 
 	hash_thaw(dest);
 }

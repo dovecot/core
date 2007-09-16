@@ -363,8 +363,8 @@ static void auth_process_destroy(struct auth_process *p)
 	iter = hash_iterate_init(p->requests);
 	while (hash_iterate(iter, &key, &value))
 		auth_master_callback(NULL, NULL, value);
-	hash_iterate_deinit(iter);
-	hash_destroy(p->requests);
+	hash_iterate_deinit(&iter);
+	hash_destroy(&p->requests);
 
 	i_stream_destroy(&p->input);
 	o_stream_destroy(&p->output);

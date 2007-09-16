@@ -139,7 +139,7 @@ void auth_cache_free(struct auth_cache **_cache)
 	lib_signals_unset_handler(SIGUSR2, sig_auth_cache_stats, cache);
 
 	auth_cache_clear(cache);
-	hash_destroy(cache->hash);
+	hash_destroy(&cache->hash);
 	i_free(cache);
 }
 

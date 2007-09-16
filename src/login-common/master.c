@@ -265,7 +265,7 @@ void master_init(int fd)
 
 void master_deinit(void)
 {
-	hash_destroy(master_requests);
+	hash_destroy(&master_requests);
 
 	if (io_master != NULL)
 		io_remove(&io_master);

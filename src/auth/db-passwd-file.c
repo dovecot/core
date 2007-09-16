@@ -216,10 +216,8 @@ static void passwd_file_close(struct passwd_file *pw)
 		pw->fd = -1;
 	}
 
-	if (pw->users != NULL) {
-		hash_destroy(pw->users);
-		pw->users = NULL;
-	}
+	if (pw->users != NULL)
+		hash_destroy(&pw->users);
 	if (pw->pool != NULL) {
 		pool_unref(pw->pool);
 		pw->pool = NULL;
@@ -362,8 +360,8 @@ void db_passwd_file_unref(struct db_passwd_file **_db)
 
 			passwd_file_free(file);
 		}
-		hash_iterate_deinit(iter);
-		hash_destroy(db->files);
+		hash_iterate_deinit(&iter);
+		hash_destroy(&db->files);
 	}
 	i_free(db->path);
 	i_free(db);

@@ -881,7 +881,7 @@ void mail_processes_deinit(void)
 		struct mail_process_group *group = value;
 		mail_process_group_free(group);
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 
-	hash_destroy(mail_process_groups);
+	hash_destroy(&mail_process_groups);
 }

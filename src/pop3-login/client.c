@@ -257,7 +257,7 @@ void client_destroy_oldest(void)
 			}
 		}
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 
 	/* then kill them */
 	for (i = 0; i < destroy_count; i++) {
@@ -475,7 +475,7 @@ static void idle_timeout(void *context ATTR_UNUSED)
 
 		client_check_idle(client);
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 }
 
 unsigned int clients_get_count(void)
@@ -497,7 +497,7 @@ void clients_notify_auth_connected(void)
 			client_auth_ready(client);
 		}
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 }
 
 void clients_destroy_all(void)
@@ -511,7 +511,7 @@ void clients_destroy_all(void)
 
 		client_destroy(client, "Disconnected: Shutting down");
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 }
 
 void clients_init(void)
@@ -522,7 +522,7 @@ void clients_init(void)
 void clients_deinit(void)
 {
 	clients_destroy_all();
-	hash_destroy(clients);
+	hash_destroy(&clients);
 
 	i_assert(to_idle == NULL);
 }

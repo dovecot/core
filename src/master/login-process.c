@@ -735,7 +735,7 @@ void login_processes_destroy_all(void)
 		if (p->process.type == PROCESS_TYPE_LOGIN)
 			login_process_destroy(p);
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 
 	while (login_groups != NULL) {
 		struct login_group *group = login_groups;
@@ -760,7 +760,7 @@ static void login_processes_notify_group(struct login_group *group)
 		if (p->process.type == PROCESS_TYPE_LOGIN && p->group == group)
 			(void)o_stream_send(p->output, &reply, sizeof(reply));
 	}
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 }
 
 static int login_group_start_missings(struct login_group *group)

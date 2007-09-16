@@ -239,7 +239,7 @@ void maildir_uidlist_deinit(struct maildir_uidlist **_uidlist)
 	*_uidlist = NULL;
 	maildir_uidlist_close(uidlist);
 
-	hash_destroy(uidlist->files);
+	hash_destroy(&uidlist->files);
 	if (uidlist->record_pool != NULL)
 		pool_unref(uidlist->record_pool);
 
@@ -1242,7 +1242,7 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	uidlist->records = ctx->records;
 	ctx->records.arr.buffer = NULL;
 
-	hash_destroy(uidlist->files);
+	hash_destroy(&uidlist->files);
 	uidlist->files = ctx->files;
 	ctx->files = NULL;
 
@@ -1295,7 +1295,7 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 	maildir_uidlist_unlock(ctx->uidlist);
 
 	if (ctx->files != NULL)
-		hash_destroy(ctx->files);
+		hash_destroy(&ctx->files);
 	if (ctx->record_pool != NULL)
 		pool_unref(ctx->record_pool);
 	if (array_is_created(&ctx->records))

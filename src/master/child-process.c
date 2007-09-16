@@ -182,5 +182,5 @@ void child_processes_deinit(void)
 	/* make sure we log if child processes died unexpectedly */
 	sigchld_handler(SIGCHLD, NULL);
 	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
-	hash_destroy(processes);
+	hash_destroy(&processes);
 }

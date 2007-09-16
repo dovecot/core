@@ -27,7 +27,7 @@ struct dict_cache *dict_cache_init(void)
 
 void dict_cache_deinit(struct dict_cache *cache)
 {
-	hash_destroy(cache->dicts);
+	hash_destroy(&cache->dicts);
 	i_free(cache);
 }
 

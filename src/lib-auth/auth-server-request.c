@@ -314,7 +314,7 @@ void auth_server_requests_remove_all(struct auth_server_connection *conn)
 	iter = hash_iterate_init(conn->requests);
 	while (hash_iterate(iter, &key, &value))
 		request_hash_remove(conn, value);
-	hash_iterate_deinit(iter);
+	hash_iterate_deinit(&iter);
 }
 
 struct auth_request *

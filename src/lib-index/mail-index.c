@@ -61,7 +61,7 @@ void mail_index_free(struct mail_index **_index)
 	mail_index_close(index);
 
 	mail_transaction_log_free(&index->log);
-	hash_destroy(index->keywords_hash);
+	hash_destroy(&index->keywords_hash);
 	pool_unref(index->extension_pool);
 	pool_unref(index->keywords_pool);
 
