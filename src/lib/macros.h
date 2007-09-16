@@ -96,34 +96,34 @@
 
 /* Provide macros to feature the GCC function attribute. */
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
-#  define __attrs_used__
-#  define __attr_format__(format_idx, arg_idx) \
+#  define ATTRS_DEFINED
+#  define ATTR_FORMAT(format_idx, arg_idx) \
 	__attribute__((format (printf, format_idx, arg_idx)))
-#  define __attr_format_arg__(arg_idx) \
+#  define ATTR_FORMAT_ARG(arg_idx) \
 	__attribute__((format_arg (arg_idx)))
-#  define __attr_scanf__(format_idx, arg_idx) \
+#  define ATTR_SCANF(format_idx, arg_idx) \
 	__attribute__((format (scanf, format_idx, arg_idx)))
-#  define __attr_unused__ __attribute__((unused))
-#  define __attr_noreturn__ __attribute__((noreturn))
-#  define __attr_const__ __attribute__((const))
-#  define __attr_malloc__ __attribute__((malloc))
+#  define ATTR_UNUSED __attribute__((unused))
+#  define ATTR_NORETURN __attribute__((noreturn))
+#  define ATTR_CONST __attribute__((const))
+#  define ATTR_MALLOC __attribute__((malloc))
 #else
-#  define __attr_format__(format_idx, arg_idx)
-#  define __attr_format_arg__(arg_idx)
-#  define __attr_scanf__
-#  define __attr_unused__
-#  define __attr_noreturn__
-#  define __attr_const__
-#  define __attr_unused__
-#  define __attr_malloc__
+#  define ATTR_FORMAT(format_idx, arg_idx)
+#  define ATTR_FORMAT_ARG(arg_idx)
+#  define ATTR_SCANF
+#  define ATTR_UNUSED
+#  define ATTR_NORETURN
+#  define ATTR_CONST
+#  define ATTR_UNUSED
+#  define ATTR_MALLOC
 #endif
 #if __GNUC__ > 3
 /* GCC 4.0 and later */
-#  define __attr_warn_unused_result__ __attribute__((warn_unused_result))
-#  define __attr_sentinel__ __attribute__((sentinel))
+#  define ATTR_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+#  define ATTR_SENTINEL __attribute__((sentinel))
 #else
-#  define __attr_warn_unused_result__
-#  define __attr_sentinel__
+#  define ATTR_WARN_UNUSED_RESULT
+#  define ATTR_SENTINEL
 #endif
 
 /* C99-style struct member definitions */

@@ -105,8 +105,8 @@ static const char *get_exit_status_message(enum fatal_exit_status status)
 	return NULL;
 }
 
-static void sigchld_handler(int signo __attr_unused__,
-			    void *context __attr_unused__)
+static void sigchld_handler(int signo ATTR_UNUSED,
+			    void *context ATTR_UNUSED)
 {
 	struct child_process *process;
 	const char *process_type_name, *msg;

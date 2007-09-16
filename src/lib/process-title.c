@@ -55,8 +55,8 @@ static void linux_proctitle_set(const char *title)
 
 #endif
 
-void process_title_init(char *argv[] __attr_unused__,
-			char *envp[] __attr_unused__)
+void process_title_init(char *argv[] ATTR_UNUSED,
+			char *envp[] ATTR_UNUSED)
 {
 #ifdef LINUX_PROCTITLE_HACK
 	linux_proctitle_init(argv, envp);
@@ -64,7 +64,7 @@ void process_title_init(char *argv[] __attr_unused__,
 	process_name = argv[0];
 }
 
-void process_title_set(const char *title __attr_unused__)
+void process_title_set(const char *title ATTR_UNUSED)
 {
 	i_assert(process_name != NULL);
 

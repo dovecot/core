@@ -18,7 +18,7 @@
 
 #define DEFAULT_SCHEME "HMAC-MD5"
 
-static void __attr_noreturn__
+static void ATTR_NORETURN
 usage(const char *s)
 {
 	fprintf(stderr,

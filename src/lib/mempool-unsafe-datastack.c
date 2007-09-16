@@ -39,20 +39,20 @@ static struct pool static_unsafe_data_stack_pool = {
 
 pool_t unsafe_data_stack_pool = &static_unsafe_data_stack_pool;
 
-static const char *pool_unsafe_data_stack_get_name(pool_t pool __attr_unused__)
+static const char *pool_unsafe_data_stack_get_name(pool_t pool ATTR_UNUSED)
 {
 	return "unsafe data stack";
 }
 
-static void pool_unsafe_data_stack_ref(pool_t pool __attr_unused__)
+static void pool_unsafe_data_stack_ref(pool_t pool ATTR_UNUSED)
 {
 }
 
-static void pool_unsafe_data_stack_unref(pool_t *pool __attr_unused__)
+static void pool_unsafe_data_stack_unref(pool_t *pool ATTR_UNUSED)
 {
 }
 
-static void *pool_unsafe_data_stack_malloc(pool_t pool __attr_unused__,
+static void *pool_unsafe_data_stack_malloc(pool_t pool ATTR_UNUSED,
 					   size_t size)
 {
 	if (size == 0 || size > SSIZE_T_MAX)
@@ -61,12 +61,12 @@ static void *pool_unsafe_data_stack_malloc(pool_t pool __attr_unused__,
 	return t_malloc0(size);
 }
 
-static void pool_unsafe_data_stack_free(pool_t pool __attr_unused__,
-					void *mem __attr_unused__)
+static void pool_unsafe_data_stack_free(pool_t pool ATTR_UNUSED,
+					void *mem ATTR_UNUSED)
 {
 }
 
-static void *pool_unsafe_data_stack_realloc(pool_t pool __attr_unused__,
+static void *pool_unsafe_data_stack_realloc(pool_t pool ATTR_UNUSED,
 					    void *mem,
 					    size_t old_size, size_t new_size)
 {
@@ -92,12 +92,12 @@ static void *pool_unsafe_data_stack_realloc(pool_t pool __attr_unused__,
 	return mem;
 }
 
-static void pool_unsafe_data_stack_clear(pool_t pool __attr_unused__)
+static void pool_unsafe_data_stack_clear(pool_t pool ATTR_UNUSED)
 {
 }
 
 static size_t
-pool_unsafe_data_stack_get_max_easy_alloc_size(pool_t pool __attr_unused__)
+pool_unsafe_data_stack_get_max_easy_alloc_size(pool_t pool ATTR_UNUSED)
 {
 	return t_get_bytes_available();
 }

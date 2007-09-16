@@ -29,8 +29,8 @@ static int sigrt_refcount = 0;
 
 static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void);
 
-static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
-			  void *data __attr_unused__)
+static void sigrt_handler(int signo ATTR_UNUSED, siginfo_t *si,
+			  void *data ATTR_UNUSED)
 {
 	struct ioloop_notify_handler_context *ctx =
 		current_ioloop->notify_handler_context;

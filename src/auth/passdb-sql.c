@@ -158,7 +158,7 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 }
 
 static void sql_verify_plain(struct auth_request *request,
-			     const char *password __attr_unused__,
+			     const char *password ATTR_UNUSED,
 			     verify_plain_callback_t *callback)
 {
 	struct passdb_sql_request *sql_request;
@@ -245,7 +245,7 @@ passdb_sql_preinit(struct auth_passdb *auth_passdb, const char *args)
 }
 
 static void passdb_sql_init(struct passdb_module *_module,
-			    const char *args __attr_unused__)
+			    const char *args ATTR_UNUSED)
 {
 	struct sql_passdb_module *module =
 		(struct sql_passdb_module *)_module;

@@ -223,8 +223,8 @@ void nfs_flush_attr_cache_fd(const char *path, int fd)
 }
 
 void nfs_flush_read_cache(const char *path, int fd,
-			  int lock_type __attr_unused__,
-			  bool just_locked __attr_unused__)
+			  int lock_type ATTR_UNUSED,
+			  bool just_locked ATTR_UNUSED)
 {
 #ifdef READ_CACHE_FLUSH_FCNTL
 	if (!just_locked)

@@ -325,7 +325,7 @@ void auth_worker_call(struct auth_request *auth_request, const char *data,
 		idle_count--;
 }
 
-static void auth_worker_timeout(void *context __attr_unused__)
+static void auth_worker_timeout(void *context ATTR_UNUSED)
 {
 	struct auth_worker_connection **conn;
 	size_t i, size;

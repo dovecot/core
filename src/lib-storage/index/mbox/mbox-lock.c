@@ -286,13 +286,13 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 }
 
 static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
-			     time_t max_wait_time __attr_unused__)
+			     time_t max_wait_time ATTR_UNUSED)
 {
 	return mbox_lock_dotlock_int(ctx, lock_type, FALSE);
 }
 
 static int mbox_lock_dotlock_try(struct mbox_lock_context *ctx, int lock_type,
-				 time_t max_wait_time __attr_unused__)
+				 time_t max_wait_time ATTR_UNUSED)
 {
 	return mbox_lock_dotlock_int(ctx, lock_type, TRUE);
 }

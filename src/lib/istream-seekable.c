@@ -29,7 +29,7 @@ struct seekable_istream {
 	int fd;
 };
 
-static void _close(struct _iostream *stream __attr_unused__)
+static void _close(struct _iostream *stream ATTR_UNUSED)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	unsigned int i;
@@ -252,7 +252,7 @@ static ssize_t _read(struct _istream *stream)
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset,
-		  bool mark __attr_unused__)
+		  bool mark ATTR_UNUSED)
 {
 	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;

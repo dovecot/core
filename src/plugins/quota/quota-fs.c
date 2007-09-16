@@ -583,8 +583,8 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 }
 
 static int 
-fs_quota_update(struct quota_root *root __attr_unused__,
-		struct quota_transaction_context *ctx __attr_unused__)
+fs_quota_update(struct quota_root *root ATTR_UNUSED,
+		struct quota_transaction_context *ctx ATTR_UNUSED)
 {
 	return 0;
 }

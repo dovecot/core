@@ -835,7 +835,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 static void
 mail_process_destroyed(struct child_process *process,
-		       pid_t pid, bool abnormal_exit __attr_unused__)
+		       pid_t pid, bool abnormal_exit ATTR_UNUSED)
 {
 	struct mail_process_group *group = (struct mail_process_group *)process;
 	const pid_t *pids;

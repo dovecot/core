@@ -105,6 +105,6 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 
 /* "Error in index cache file %s: ...". */
 void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
-	__attr_format__(2, 3);
+	ATTR_FORMAT(2, 3);
 
 #endif

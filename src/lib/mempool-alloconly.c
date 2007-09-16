@@ -93,7 +93,7 @@ static void check_nuls(struct pool_block *block)
 }
 #endif
 
-pool_t pool_alloconly_create(const char *name __attr_unused__, size_t size)
+pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 {
 	struct alloconly_pool apool, *new_apool;
 	size_t min_alloc = sizeof(struct alloconly_pool) + SIZEOF_POOLBLOCK;
@@ -161,7 +161,7 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 #endif
 }
 
-static const char *pool_alloconly_get_name(pool_t pool __attr_unused__)
+static const char *pool_alloconly_get_name(pool_t pool ATTR_UNUSED)
 {
 #ifdef DEBUG
 	struct alloconly_pool *apool = (struct alloconly_pool *)pool;

@@ -344,19 +344,19 @@ void module_dir_unload(struct module **modules)
 
 #else
 
-struct module *module_dir_load(const char *dir __attr_unused__,
-			       const char *module_names __attr_unused__,
-			       bool require_init_funcs __attr_unused__)
+struct module *module_dir_load(const char *dir ATTR_UNUSED,
+			       const char *module_names ATTR_UNUSED,
+			       bool require_init_funcs ATTR_UNUSED)
 {
 	i_error("Dynamically loadable module support not built in");
 	return NULL;
 }
 
-void module_dir_deinit(struct module *modules __attr_unused__)
+void module_dir_deinit(struct module *modules ATTR_UNUSED)
 {
 }
 
-void module_dir_unload(struct module **modules __attr_unused__)
+void module_dir_unload(struct module **modules ATTR_UNUSED)
 {
 }
 

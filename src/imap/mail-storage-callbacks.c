@@ -5,7 +5,7 @@
 #include "mail-storage.h"
 #include "commands-util.h"
 
-static void notify_ok(struct mailbox *mailbox __attr_unused__,
+static void notify_ok(struct mailbox *mailbox ATTR_UNUSED,
 		      const char *text, void *context)
 {
 	struct client *client = context;
@@ -21,7 +21,7 @@ static void notify_ok(struct mailbox *mailbox __attr_unused__,
         t_pop();
 }
 
-static void notify_no(struct mailbox *mailbox __attr_unused__,
+static void notify_no(struct mailbox *mailbox ATTR_UNUSED,
 		      const char *text, void *context)
 {
 	struct client *client = context;

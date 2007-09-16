@@ -32,7 +32,7 @@ static void dirsize_quota_deinit(struct quota_root *_root)
 }
 
 static const char *const *
-dirsize_quota_root_get_resources(struct quota_root *root __attr_unused__)
+dirsize_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 {
 	static const char *resources[] = { QUOTA_NAME_STORAGE_KILOBYTES, NULL };
 
@@ -185,7 +185,7 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 
 static int
 dirsize_quota_get_resource(struct quota_root *_root, const char *name,
-			   uint64_t *value_r, uint64_t *limit __attr_unused__)
+			   uint64_t *value_r, uint64_t *limit ATTR_UNUSED)
 {
 	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0)
 		return 0;
@@ -197,8 +197,8 @@ dirsize_quota_get_resource(struct quota_root *_root, const char *name,
 }
 
 static int 
-dirsize_quota_update(struct quota_root *root __attr_unused__, 
-		     struct quota_transaction_context *ctx __attr_unused__)
+dirsize_quota_update(struct quota_root *root ATTR_UNUSED, 
+		     struct quota_transaction_context *ctx ATTR_UNUSED)
 {
 	return 0;
 }

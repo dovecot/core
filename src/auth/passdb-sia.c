@@ -13,10 +13,10 @@
 #include <siad.h>
 #include <sys/security.h>
 
-static int checkpw_collect(int timeout __attr_unused__, int rendition,
-			   uchar_t *title __attr_unused__,
-			   int nprompts __attr_unused__,
-			   prompt_t *prompts __attr_unused__)
+static int checkpw_collect(int timeout ATTR_UNUSED, int rendition,
+			   uchar_t *title ATTR_UNUSED,
+			   int nprompts ATTR_UNUSED,
+			   prompt_t *prompts ATTR_UNUSED)
 {
 	switch (rendition) {
 	case SIAONELINER:

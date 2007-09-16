@@ -38,8 +38,8 @@ void *mmap_rw_file(int fd, size_t *length)
 }
 
 #ifndef HAVE_MADVISE
-int my_madvise(void *start __attr_unused__, size_t length __attr_unused__,
-	       int advice __attr_unused__)
+int my_madvise(void *start ATTR_UNUSED, size_t length ATTR_UNUSED,
+	       int advice ATTR_UNUSED)
 {
 	return 0;
 }

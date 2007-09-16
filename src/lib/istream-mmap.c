@@ -131,7 +131,7 @@ static ssize_t _read(struct _istream *stream)
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset,
-		  bool mark __attr_unused__)
+		  bool mark ATTR_UNUSED)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
@@ -175,7 +175,7 @@ static int fstat_cached(struct mmap_istream *mstream)
 }
 
 static const struct stat *
-_stat(struct _istream *stream, bool exact __attr_unused__)
+_stat(struct _istream *stream, bool exact ATTR_UNUSED)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 

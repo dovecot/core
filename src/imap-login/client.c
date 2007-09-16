@@ -579,7 +579,7 @@ static void client_check_idle(struct imap_client *client)
 	}
 }
 
-static void idle_timeout(void *context __attr_unused__)
+static void idle_timeout(void *context ATTR_UNUSED)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;

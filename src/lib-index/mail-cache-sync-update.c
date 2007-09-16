@@ -60,7 +60,7 @@ static int get_cache_file_seq(struct mail_index_view *view,
 }
 
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
-			       uint32_t seq __attr_unused__, const void *data,
+			       uint32_t seq ATTR_UNUSED, const void *data,
 			       void **sync_context, void *context)
 {
 	struct mail_cache *cache = context;
@@ -96,7 +96,7 @@ int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 }
 
 int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
-			    uint32_t seq __attr_unused__,
+			    uint32_t seq ATTR_UNUSED,
 			    void *old_data, const void *new_data,
 			    void **context)
 {

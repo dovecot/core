@@ -37,7 +37,7 @@ struct header_filter_istream {
 
 header_filter_callback *null_header_filter_callback = NULL;
 
-static void _close(struct _iostream *stream __attr_unused__)
+static void _close(struct _iostream *stream ATTR_UNUSED)
 {
 }
 
@@ -264,7 +264,7 @@ static void parse_header(struct header_filter_istream *mstream)
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset,
-		  bool mark __attr_unused__)
+		  bool mark ATTR_UNUSED)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -294,8 +294,8 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	}
 }
 
-static void __attr_noreturn__
-_sync(struct _istream *stream __attr_unused__)
+static void ATTR_NORETURN
+_sync(struct _istream *stream ATTR_UNUSED)
 {
 	i_panic("istream-header-filter sync() not implemented");
 }

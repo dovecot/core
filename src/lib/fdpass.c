@@ -195,15 +195,15 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 #  ifdef __GNUC__
 #    warning SCM_RIGHTS not supported, privilege separation not possible
 #  endif
-ssize_t fd_send(int handle __attr_unused__, int send_fd __attr_unused__,
-		const void *data __attr_unused__, size_t size __attr_unused__)
+ssize_t fd_send(int handle ATTR_UNUSED, int send_fd ATTR_UNUSED,
+		const void *data ATTR_UNUSED, size_t size ATTR_UNUSED)
 {
 	errno = ENOSYS;
 	return -1;
 }
 
-ssize_t fd_read(int handle __attr_unused__, void *data __attr_unused__,
-		size_t size __attr_unused__, int *fd __attr_unused__)
+ssize_t fd_read(int handle ATTR_UNUSED, void *data ATTR_UNUSED,
+		size_t size ATTR_UNUSED, int *fd ATTR_UNUSED)
 {
 	errno = ENOSYS;
 	return -1;

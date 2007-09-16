@@ -13,24 +13,24 @@
 #include <syslog.h>
 #include <time.h>
 
-static void failure_exit(int status) __attr_noreturn__;
+static void failure_exit(int status) ATTR_NORETURN;
 
 static void default_panic_handler(const char *format, va_list args)
-	__attr_noreturn__ __attr_format__(1, 0);
+	ATTR_NORETURN ATTR_FORMAT(1, 0);
 static void default_fatal_handler(int status, const char *format, va_list args)
-	__attr_noreturn__ __attr_format__(2, 0);
+	ATTR_NORETURN ATTR_FORMAT(2, 0);
 
 static void default_error_handler(const char *format, va_list args)
-	__attr_format__(1, 0);
+	ATTR_FORMAT(1, 0);
 static void default_warning_handler(const char *format, va_list args)
-	__attr_format__(1, 0);
+	ATTR_FORMAT(1, 0);
 static void default_info_handler(const char *format, va_list args)
-	__attr_format__(1, 0);
+	ATTR_FORMAT(1, 0);
 
 /* Initialize working defaults */
-static failure_callback_t *panic_handler __attr_noreturn__ =
+static failure_callback_t *panic_handler ATTR_NORETURN =
 	default_panic_handler;
-static fatal_failure_callback_t *fatal_handler __attr_noreturn__ =
+static fatal_failure_callback_t *fatal_handler ATTR_NORETURN =
 	default_fatal_handler;
 static failure_callback_t *error_handler = default_error_handler;
 static failure_callback_t *warning_handler = default_warning_handler;
@@ -42,9 +42,9 @@ static char *log_prefix = NULL, *log_stamp_format = NULL;
 
 /* kludgy .. we want to trust log_stamp_format with -Wformat-nonliteral */
 static const char *get_log_stamp_format(const char *unused)
-	__attr_format_arg__(1);
+	ATTR_FORMAT_ARG(1);
 
-static const char *get_log_stamp_format(const char *unused __attr_unused__)
+static const char *get_log_stamp_format(const char *unused ATTR_UNUSED)
 {
 	return log_stamp_format;
 }
@@ -75,7 +75,7 @@ static void write_prefix(FILE *f)
 	}
 }
 
-static int __attr_format__(3, 0)
+static int ATTR_FORMAT(3, 0)
 default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 {
 	static int recursed = 0;
@@ -125,7 +125,7 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 	return 0;
 }
 
-static void __attr_format__(1, 0)
+static void ATTR_FORMAT(1, 0)
 default_panic_handler(const char *format, va_list args)
 {
 	const char *backtrace;
@@ -164,7 +164,7 @@ static int log_fd_flush(FILE *fd)
 	return 0;
 }
 
-static void __attr_format__(2, 0)
+static void ATTR_FORMAT(2, 0)
 default_fatal_handler(int status, const char *format, va_list args)
 {
 	if (default_handler("Fatal: ", log_fd, format, args) < 0 &&
@@ -177,7 +177,7 @@ default_fatal_handler(int status, const char *format, va_list args)
 	failure_exit(status);
 }
 
-static void __attr_format__(1, 0)
+static void ATTR_FORMAT(1, 0)
 default_error_handler(const char *format, va_list args)
 {
 	if (default_handler("Error: ", log_fd, format, args) < 0)
@@ -187,7 +187,7 @@ default_error_handler(const char *format, va_list args)
 		failure_exit(FATAL_LOGWRITE);
 }
 
-static void __attr_format__(1, 0)
+static void ATTR_FORMAT(1, 0)
 default_warning_handler(const char *format, va_list args)
 {
 	(void)default_handler("Warning: ", log_fd, format, args);
@@ -196,7 +196,7 @@ default_warning_handler(const char *format, va_list args)
 		failure_exit(FATAL_LOGWRITE);
 }
 
-static void __attr_format__(1, 0)
+static void ATTR_FORMAT(1, 0)
 default_info_handler(const char *format, va_list args)
 {
 	(void)default_handler("Info: ", log_info_fd, format, args);
@@ -268,14 +268,14 @@ void i_info(const char *format, ...)
 	errno = old_errno;
 }
 
-void i_set_panic_handler(failure_callback_t *callback __attr_noreturn__)
+void i_set_panic_handler(failure_callback_t *callback ATTR_NORETURN)
 {
 	if (callback == NULL)
 		callback = default_panic_handler;
         panic_handler = callback;
 }
 
-void i_set_fatal_handler(fatal_failure_callback_t *callback __attr_noreturn__)
+void i_set_fatal_handler(fatal_failure_callback_t *callback ATTR_NORETURN)
 {
 	if (callback == NULL)
 		callback = default_fatal_handler;
@@ -303,7 +303,7 @@ void i_set_info_handler(failure_callback_t *callback)
         info_handler = callback;
 }
 
-static int __attr_format__(2, 0)
+static int ATTR_FORMAT(2, 0)
 syslog_handler(int level, const char *format, va_list args)
 {
 	static int recursed = 0;
@@ -406,7 +406,7 @@ void i_set_failure_prefix(const char *prefix)
 	log_prefix = i_strdup(prefix);
 }
 
-static int __attr_format__(2, 0)
+static int ATTR_FORMAT(2, 0)
 internal_handler(char log_type, const char *format, va_list args)
 {
 	string_t *str;
@@ -424,7 +424,7 @@ internal_handler(char log_type, const char *format, va_list args)
 	return ret;
 }
 
-static void __attr_noreturn__ __attr_format__(1, 0)
+static void ATTR_NORETURN ATTR_FORMAT(1, 0)
 i_internal_panic_handler(const char *fmt, va_list args)
 {
 	const char *backtrace;
@@ -435,7 +435,7 @@ i_internal_panic_handler(const char *fmt, va_list args)
         abort();
 }
 
-static void __attr_noreturn__ __attr_format__(2, 0)
+static void ATTR_NORETURN ATTR_FORMAT(2, 0)
 i_internal_fatal_handler(int status, const char *fmt, va_list args)
 {
 	if (internal_handler('F', fmt, args) < 0 && status == FATAL_DEFAULT)
@@ -443,20 +443,20 @@ i_internal_fatal_handler(int status, const char *fmt, va_list args)
 	failure_exit(status);
 }
 
-static void __attr_format__(1, 0)
+static void ATTR_FORMAT(1, 0)
 i_internal_error_handler(const char *fmt, va_list args)
 {
 	if (internal_handler('E', fmt, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 }
 
-static void __attr_format__(1, 0)
+static void ATTR_FORMAT(1, 0)
 i_internal_warning_handler(const char *fmt, va_list args)
 {
 	(void)internal_handler('W', fmt, args);
 }
 
-static void __attr_format__(1, 0)
+static void ATTR_FORMAT(1, 0)
 i_internal_info_handler(const char *fmt, va_list args)
 {
 	(void)internal_handler('I', fmt, args);

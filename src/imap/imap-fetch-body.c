@@ -356,7 +356,7 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 static void header_filter_eoh(struct message_header_line *hdr,
-			      bool *matched __attr_unused__,
+			      bool *matched ATTR_UNUSED,
 			      struct imap_fetch_context *ctx)
 {
 	if (hdr != NULL && hdr->eoh)
@@ -852,7 +852,7 @@ bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 }
 
 static int fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail,
-			     void *context __attr_unused__)
+			     void *context ATTR_UNUSED)
 {
 	uoff_t size;
 
@@ -864,7 +864,7 @@ static int fetch_rfc822_size(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 static int fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
-			void *context __attr_unused__)
+			void *context ATTR_UNUSED)
 {
 	struct message_size hdr_size, body_size;
 	const char *str;
@@ -892,7 +892,7 @@ static int fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 static int fetch_rfc822_header(struct imap_fetch_context *ctx,
-			       struct mail *mail, void *context __attr_unused__)
+			       struct mail *mail, void *context ATTR_UNUSED)
 {
 	struct message_size hdr_size;
 	const char *str;
@@ -916,7 +916,7 @@ static int fetch_rfc822_header(struct imap_fetch_context *ctx,
 }
 
 static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
-			     void *context __attr_unused__)
+			     void *context ATTR_UNUSED)
 {
 	struct message_size hdr_size, body_size;
 	const char *str;
@@ -941,7 +941,7 @@ static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 bool fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
-		       const struct imap_arg **args __attr_unused__)
+		       const struct imap_arg **args ATTR_UNUSED)
 {
 	if (name[6] == '\0') {
 		ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |

@@ -115,12 +115,12 @@ static bool maildir_list_is_valid_common_nonfs(const char *name)
 	return TRUE;
 }
 
-static bool __attr_noreturn__
-maildir_is_valid_pattern(struct mailbox_list *list __attr_unused__,
-			 const char *pattern __attr_unused__)
+static bool ATTR_NORETURN
+maildir_is_valid_pattern(struct mailbox_list *list ATTR_UNUSED,
+			 const char *pattern ATTR_UNUSED)
 {
 	i_unreached();
-#ifndef __attrs_used__
+#ifndef ATTRS_DEFINED
 	return FALSE;
 #endif
 }

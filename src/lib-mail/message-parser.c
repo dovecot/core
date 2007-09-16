@@ -543,8 +543,8 @@ static int parse_next_header_init(struct message_parser_ctx *ctx,
 	return parse_next_header(ctx, block_r);
 }
 
-static int preparsed_parse_eof(struct message_parser_ctx *ctx __attr_unused__,
-			       struct message_block *block_r __attr_unused__)
+static int preparsed_parse_eof(struct message_parser_ctx *ctx ATTR_UNUSED,
+			       struct message_block *block_r ATTR_UNUSED)
 {
 	return -1;
 }

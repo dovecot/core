@@ -103,7 +103,7 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 
 static struct dict *
 sql_dict_init(struct dict *driver, const char *uri,
-	      enum dict_data_type value_type __attr_unused__,
+	      enum dict_data_type value_type ATTR_UNUSED,
 	      const char *username)
 {
 	struct sql_dict *dict;

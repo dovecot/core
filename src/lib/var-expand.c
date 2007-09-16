@@ -23,25 +23,25 @@ struct var_expand_modifier {
 };
 
 static const char *
-m_str_lcase(const char *str, struct var_expand_context *ctx __attr_unused__)
+m_str_lcase(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	return t_str_lcase(str);
 }
 
 static const char *
-m_str_ucase(const char *str, struct var_expand_context *ctx __attr_unused__)
+m_str_ucase(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	return t_str_ucase(str);
 }
 
 static const char *
-m_str_escape(const char *str, struct var_expand_context *ctx __attr_unused__)
+m_str_escape(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	return str_escape(str);
 }
 
 static const char *
-m_str_hex(const char *str, struct var_expand_context *ctx __attr_unused__)
+m_str_hex(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	unsigned long long l;
 
@@ -50,7 +50,7 @@ m_str_hex(const char *str, struct var_expand_context *ctx __attr_unused__)
 }
 
 static const char *
-m_str_reverse(const char *str, struct var_expand_context *ctx __attr_unused__)
+m_str_reverse(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	size_t len = strlen(str);
 	char *p, *rev;
@@ -81,7 +81,7 @@ static const char *m_str_hash(const char *str, struct var_expand_context *ctx)
 	return str_c(hash);
 }
 
-static const char *m_str_md5(const char *str, struct var_expand_context *ctx __attr_unused__)
+static const char *m_str_md5(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	unsigned char digest[16];
 
@@ -90,7 +90,7 @@ static const char *m_str_md5(const char *str, struct var_expand_context *ctx __a
 	return binary_to_hex(digest, sizeof(digest));
 }
 
-static const char *m_str_ldap_dn(const char *str, struct var_expand_context *ctx __attr_unused__)
+static const char *m_str_ldap_dn(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	string_t *ret = t_str_new(256);
 

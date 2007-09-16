@@ -579,13 +579,13 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 	main_listen_start();
 }
 
-static RSA *ssl_gen_rsa_key(SSL *ssl __attr_unused__,
-			    int is_export __attr_unused__, int keylength)
+static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
+			    int is_export ATTR_UNUSED, int keylength)
 {
 	return RSA_generate_key(keylength, RSA_F4, NULL, NULL);
 }
 
-static DH *ssl_tmp_dh_callback(SSL *ssl __attr_unused__,
+static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
 			       int is_export, int keylength)
 {
 	/* Well, I'm not exactly sure why the logic in here is this.
@@ -645,7 +645,7 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 }
 
 static int
-pem_password_callback(char *buf, int size, int rwflag __attr_unused__,
+pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
 		      void *userdata)
 {
 	if (userdata == NULL) {

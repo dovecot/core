@@ -9,8 +9,8 @@
 #  include <sys/resource.h>
 #endif
 
-void restrict_process_size(unsigned int size __attr_unused__,
-			   unsigned int max_processes __attr_unused__)
+void restrict_process_size(unsigned int size ATTR_UNUSED,
+			   unsigned int max_processes ATTR_UNUSED)
 {
 #ifdef HAVE_SETRLIMIT
 	struct rlimit rlim;

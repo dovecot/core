@@ -104,7 +104,7 @@ void mailbox_list_clear_error(struct mailbox_list *list);
 void mailbox_list_set_error(struct mailbox_list *list,
 			    enum mail_error error, const char *string);
 void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
-	__attr_format__(2, 3);
+	ATTR_FORMAT(2, 3);
 void mailbox_list_set_internal_error(struct mailbox_list *list);
 bool mailbox_list_set_error_from_errno(struct mailbox_list *list);
 

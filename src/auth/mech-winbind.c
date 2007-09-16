@@ -87,8 +87,8 @@ static void winbind_wait_pid(struct winbind_helper *winbind)
 	winbind->pid = -1;
 }
 
-static void sigchld_handler(int signo __attr_unused__,
-			    void *context __attr_unused__)
+static void sigchld_handler(int signo ATTR_UNUSED,
+			    void *context ATTR_UNUSED)
 {
 	winbind_wait_pid(&winbind_ntlm_context);
 	winbind_wait_pid(&winbind_spnego_context);

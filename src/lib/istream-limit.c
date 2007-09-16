@@ -10,7 +10,7 @@ struct limit_istream {
 	uoff_t v_start_offset, v_size;
 };
 
-static void _close(struct _iostream *stream __attr_unused__)
+static void _close(struct _iostream *stream ATTR_UNUSED)
 {
 }
 
@@ -82,7 +82,7 @@ static ssize_t _read(struct _istream *stream)
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset,
-		  bool mark __attr_unused__)
+		  bool mark ATTR_UNUSED)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 

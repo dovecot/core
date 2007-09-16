@@ -87,7 +87,7 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 			       const struct mail_transaction_keyword_reset *r);
 
 void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
-				   const char *fmt, ...) __attr_format__(2, 3);
+				   const char *fmt, ...) ATTR_FORMAT(2, 3);
 
 #ifdef DEBUG
 void mail_index_map_check(struct mail_index_map *map);

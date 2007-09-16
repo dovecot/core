@@ -83,13 +83,13 @@ static void _driver_sqlite_deinit(struct sql_db *_db)
 }
 
 static enum sql_db_flags
-driver_sqlite_get_flags(struct sql_db *db __attr_unused__)
+driver_sqlite_get_flags(struct sql_db *db ATTR_UNUSED)
 {
 	return SQL_DB_FLAG_BLOCKING;
 }
 
 static const char *
-driver_sqlite_escape_string(struct sql_db *_db __attr_unused__,
+driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
 			    const char *string)
 {
 	const char *p;
@@ -406,7 +406,7 @@ struct sql_result driver_sqlite_result = {
 };
 
 static int
-driver_sqlite_result_error_next_row(struct sql_result *result __attr_unused__)
+driver_sqlite_result_error_next_row(struct sql_result *result ATTR_UNUSED)
 {
 	return -1;
 }

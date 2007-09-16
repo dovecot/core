@@ -53,8 +53,8 @@ unsigned int t_pop(void);
 
    t_malloc() calls never fail, but return NULL if size == 0. If there's
    not enough memory left, i_panic() will be called. */
-void *t_malloc(size_t size) __attr_malloc__;
-void *t_malloc0(size_t size) __attr_malloc__;
+void *t_malloc(size_t size) ATTR_MALLOC;
+void *t_malloc0(size_t size) ATTR_MALLOC;
 
 /* Try growing allocated memory. Returns TRUE if successful. Works only
    for last allocated memory in current stack frame. */

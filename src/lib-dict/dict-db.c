@@ -41,8 +41,8 @@ struct db_dict_transaction_context {
 
 static void db_dict_deinit(struct dict *_dict);
 
-static int associate_key(DB *pdb __attr_unused__,
-			 const DBT *pkey __attr_unused__,
+static int associate_key(DB *pdb ATTR_UNUSED,
+			 const DBT *pkey ATTR_UNUSED,
 			 const DBT *pdata, DBT *skey)
 {
 	memset(skey, 0, sizeof(*skey));
@@ -51,7 +51,7 @@ static int associate_key(DB *pdb __attr_unused__,
 	return 0;
 }
 
-static int uint32_t_compare(DB *db __attr_unused__,
+static int uint32_t_compare(DB *db ATTR_UNUSED,
 			    const DBT *keya, const DBT *keyb)
 {
 	const uint32_t *ua = keya->data, *ub = keyb->data;
@@ -62,7 +62,7 @@ static int uint32_t_compare(DB *db __attr_unused__,
 
 static struct dict *db_dict_init(struct dict *driver, const char *uri,
 				 enum dict_data_type value_type,
-				 const char *username __attr_unused__)
+				 const char *username ATTR_UNUSED)
 {
 	struct db_dict *dict;
 	const char *hdir;

@@ -66,7 +66,7 @@ static void passwd_init(struct passdb_module *module, const char *args)
 	module->default_pass_scheme = PASSWD_PASS_SCHEME;
 }
 
-static void passwd_deinit(struct passdb_module *module __attr_unused__)
+static void passwd_deinit(struct passdb_module *module ATTR_UNUSED)
 {
 	endpwent();
 }

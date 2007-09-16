@@ -46,7 +46,7 @@ struct walk_context {
 	unsigned int pos;
 };
 
-static int walk_callback(uintptr_t ptr, int signo __attr_unused__,
+static int walk_callback(uintptr_t ptr, int signo ATTR_UNUSED,
 			 void *context)
 {
 	struct walk_context *ctx = context;
@@ -74,7 +74,7 @@ int backtrace_append(string_t *str)
 	return 0;
 }
 #else
-int backtrace_append(string_t *str __attr_unused__)
+int backtrace_append(string_t *str ATTR_UNUSED)
 {
 	return -1;
 }

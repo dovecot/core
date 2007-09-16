@@ -42,7 +42,7 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 }
 
 static int do_racecheck(struct maildir_mailbox *mbox, const char *path,
-			void *context __attr_unused__)
+			void *context ATTR_UNUSED)
 {
 	struct stat st;
 

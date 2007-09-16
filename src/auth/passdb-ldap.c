@@ -380,7 +380,7 @@ ldap_verify_plain_authbind(struct auth_request *auth_request,
 
 static void
 ldap_verify_plain(struct auth_request *request,
-		  const char *password __attr_unused__,
+		  const char *password ATTR_UNUSED,
 		  verify_plain_callback_t *callback)
 {
 	struct passdb_module *_module = request->passdb->passdb;
@@ -443,7 +443,7 @@ passdb_ldap_preinit(struct auth_passdb *auth_passdb, const char *args)
 }
 
 static void passdb_ldap_init(struct passdb_module *_module,
-			     const char *args __attr_unused__)
+			     const char *args ATTR_UNUSED)
 {
 	struct ldap_passdb_module *module =
 		(struct ldap_passdb_module *)_module;

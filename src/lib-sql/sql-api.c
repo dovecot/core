@@ -38,7 +38,7 @@ void sql_driver_unregister(const struct sql_db *driver)
 }
 
 struct sql_db *sql_init(const char *db_driver,
-			const char *connect_string __attr_unused__)
+			const char *connect_string ATTR_UNUSED)
 {
 	const struct sql_db *const *drivers;
 	unsigned int i, count;
@@ -259,18 +259,18 @@ const char *sql_result_get_error(struct sql_result *result)
 }
 
 static void
-sql_result_not_connected_free(struct sql_result *result __attr_unused__)
+sql_result_not_connected_free(struct sql_result *result ATTR_UNUSED)
 {
 }
 
 static int
-sql_result_not_connected_next_row(struct sql_result *result __attr_unused__)
+sql_result_not_connected_next_row(struct sql_result *result ATTR_UNUSED)
 {
 	return -1;
 }
 
 static const char *
-sql_result_not_connected_get_error(struct sql_result *result __attr_unused__)
+sql_result_not_connected_get_error(struct sql_result *result ATTR_UNUSED)
 {
 	return "Not connected to database";
 }

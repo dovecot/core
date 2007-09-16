@@ -549,9 +549,9 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		(*limit_r == 0 ? 0 : 1);
 }
 
-int quota_set_resource(struct quota_root *root __attr_unused__,
-		       const char *name __attr_unused__,
-		       uint64_t value __attr_unused__, const char **error_r)
+int quota_set_resource(struct quota_root *root ATTR_UNUSED,
+		       const char *name ATTR_UNUSED,
+		       uint64_t value ATTR_UNUSED, const char **error_r)
 {
 	/* the quota information comes from userdb (or even config file),
 	   so there's really no way to support this until some major changes

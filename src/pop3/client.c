@@ -452,7 +452,7 @@ static int client_output(struct client *client)
 	return client->cmd == NULL;
 }
 
-static void idle_timeout(void *context __attr_unused__)
+static void idle_timeout(void *context ATTR_UNUSED)
 {
 	if (my_client == NULL)
 		return;

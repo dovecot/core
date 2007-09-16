@@ -62,7 +62,7 @@ static void dict_quota_deinit(struct quota_root *_root)
 }
 
 static const char *const *
-dict_quota_root_get_resources(struct quota_root *root __attr_unused__)
+dict_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 {
 	static const char *resources[] = {
 		QUOTA_NAME_STORAGE_KILOBYTES, QUOTA_NAME_MESSAGES, NULL
@@ -96,7 +96,7 @@ dict_quota_count(struct dict_quota_root *root,
 
 static int
 dict_quota_get_resource(struct quota_root *_root, const char *name,
-			uint64_t *value_r, uint64_t *limit __attr_unused__)
+			uint64_t *value_r, uint64_t *limit ATTR_UNUSED)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 	const char *value;

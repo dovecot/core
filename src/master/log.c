@@ -254,7 +254,7 @@ void log_unref(struct log_io *log_io)
 	i_free(log_io);
 }
 
-static void log_throttle_timeout(void *context __attr_unused__)
+static void log_throttle_timeout(void *context ATTR_UNUSED)
 {
 	struct log_io *log, *next;
 	unsigned int left = throttle_count;

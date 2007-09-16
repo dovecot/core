@@ -41,11 +41,11 @@ int charset_to_utf8_begin(const char *charset, enum charset_flags flags,
 	return -1;
 }
 
-void charset_to_utf8_end(struct charset_translation **t __attr_unused__)
+void charset_to_utf8_end(struct charset_translation **t ATTR_UNUSED)
 {
 }
 
-void charset_to_utf8_reset(struct charset_translation *t __attr_unused__)
+void charset_to_utf8_reset(struct charset_translation *t ATTR_UNUSED)
 {
 }
 

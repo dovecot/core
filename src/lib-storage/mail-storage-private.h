@@ -308,7 +308,7 @@ void mail_storage_clear_error(struct mail_storage *storage);
 void mail_storage_set_error(struct mail_storage *storage,
 			    enum mail_error error, const char *string);
 void mail_storage_set_critical(struct mail_storage *storage,
-			       const char *fmt, ...) __attr_format__(2, 3);
+			       const char *fmt, ...) ATTR_FORMAT(2, 3);
 void mail_storage_set_internal_error(struct mail_storage *storage);
 bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 

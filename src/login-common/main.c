@@ -65,7 +65,7 @@ void main_unref(void)
 	}
 }
 
-static void sig_die(int signo, void *context __attr_unused__)
+static void sig_die(int signo, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
 	   which is too common at least while testing :) */
@@ -241,8 +241,8 @@ void connection_queue_add(unsigned int connection_count)
 	}
 }
 
-static void auth_connect_notify(struct auth_client *client __attr_unused__,
-				bool connected, void *context __attr_unused__)
+static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
+				bool connected, void *context ATTR_UNUSED)
 {
 	if (connected)
                 clients_notify_auth_connected();
@@ -375,7 +375,7 @@ static void main_deinit(void)
 	closelog();
 }
 
-int main(int argc __attr_unused__, char *argv[], char *envp[])
+int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 {
 	const char *group_name;
 	struct ip_addr remote_ip, local_ip;

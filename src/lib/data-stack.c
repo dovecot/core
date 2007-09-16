@@ -502,7 +502,7 @@ void *t_malloc0(size_t size)
 	return mem;
 }
 
-bool t_try_realloc(void *mem __attr_unused__, size_t size __attr_unused__)
+bool t_try_realloc(void *mem ATTR_UNUSED, size_t size ATTR_UNUSED)
 {
 	return FALSE;
 }

@@ -142,7 +142,7 @@ vpopmail_preinit(struct auth_passdb *auth_passdb, const char *args)
 	return module;
 }
 
-static void vpopmail_deinit(struct passdb_module *module __attr_unused__)
+static void vpopmail_deinit(struct passdb_module *module ATTR_UNUSED)
 {
 	vclose();
 }

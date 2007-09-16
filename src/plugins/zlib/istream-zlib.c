@@ -31,7 +31,7 @@ static void _close(struct _iostream *stream)
 	}
 }
 
-static void _destroy(struct _iostream *stream __attr_unused__)
+static void _destroy(struct _iostream *stream ATTR_UNUSED)
 {
 	struct _istream *_stream = (struct _istream *) stream;
 

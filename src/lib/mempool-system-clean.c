@@ -60,16 +60,16 @@ static struct pool static_system_clean_pool = {
 
 pool_t system_clean_pool = &static_system_clean_pool;
 
-static const char *pool_system_clean_get_name(pool_t pool __attr_unused__)
+static const char *pool_system_clean_get_name(pool_t pool ATTR_UNUSED)
 {
 	return "system clean";
 }
 
-static void pool_system_clean_ref(pool_t pool __attr_unused__)
+static void pool_system_clean_ref(pool_t pool ATTR_UNUSED)
 {
 }
 
-static void pool_system_clean_unref(pool_t *pool __attr_unused__)
+static void pool_system_clean_unref(pool_t *pool ATTR_UNUSED)
 {
 }
 
@@ -84,7 +84,7 @@ static size_t mem_get_size(void *mem)
 #endif
 }
 
-static void *pool_system_clean_malloc(pool_t pool __attr_unused__, size_t size)
+static void *pool_system_clean_malloc(pool_t pool ATTR_UNUSED, size_t size)
 {
 	void *mem;
 
@@ -114,7 +114,7 @@ static void *pool_system_clean_malloc(pool_t pool __attr_unused__, size_t size)
 	return mem;
 }
 
-static void pool_system_clean_free(pool_t pool __attr_unused__, void *mem)
+static void pool_system_clean_free(pool_t pool ATTR_UNUSED, void *mem)
 {
 	if (mem != NULL) {
 		safe_memset(mem, 0, mem_get_size(mem));
@@ -127,7 +127,7 @@ static void pool_system_clean_free(pool_t pool __attr_unused__, void *mem)
 	}
 }
 
-static void *pool_system_clean_realloc(pool_t pool __attr_unused__, void *mem,
+static void *pool_system_clean_realloc(pool_t pool ATTR_UNUSED, void *mem,
 				       size_t old_size, size_t new_size)
 {
 	void *new_mem;
@@ -154,14 +154,14 @@ static void *pool_system_clean_realloc(pool_t pool __attr_unused__, void *mem,
         return new_mem;
 }
 
-static void __attr_noreturn__
-pool_system_clean_clear(pool_t pool __attr_unused__)
+static void ATTR_NORETURN
+pool_system_clean_clear(pool_t pool ATTR_UNUSED)
 {
 	i_panic("pool_system_clean_clear() must not be called");
 }
 
 static size_t
-pool_system_clean_get_max_easy_alloc_size(pool_t pool __attr_unused__)
+pool_system_clean_get_max_easy_alloc_size(pool_t pool ATTR_UNUSED)
 {
 	return 0;
 }

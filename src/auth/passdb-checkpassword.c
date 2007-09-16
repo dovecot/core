@@ -142,7 +142,7 @@ checkpassword_request_half_finish(struct chkpw_auth_request *request)
 	}
 }
 
-static void sigchld_handler(int signo __attr_unused__, void *context)
+static void sigchld_handler(int signo ATTR_UNUSED, void *context)
 {
 	struct checkpassword_passdb_module *module = context;
 	struct chkpw_auth_request *request;
@@ -210,7 +210,7 @@ static void env_put_extra_fields(const char *extra_fields)
 	}
 }
 
-static void __attr_noreturn__
+static void ATTR_NORETURN
 checkpassword_verify_plain_child(struct auth_request *request,
 				 struct checkpassword_passdb_module *module,
 				 int fd_in, int fd_out)
@@ -436,7 +436,7 @@ checkpassword_preinit(struct auth_passdb *auth_passdb, const char *args)
 }
 
 static void checkpassword_init(struct passdb_module *module,
-			       const char *args __attr_unused__)
+			       const char *args ATTR_UNUSED)
 {
 	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, module);
 }

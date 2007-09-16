@@ -52,13 +52,13 @@ static void sig_handler(int signo)
 	}
 }
 
-static void sig_ignore(int signo __attr_unused__)
+static void sig_ignore(int signo ATTR_UNUSED)
 {
 	/* if we used SIG_IGN instead of this function,
 	   the system call might be restarted */
 }
 
-static void signal_read(void *context __attr_unused__)
+static void signal_read(void *context ATTR_UNUSED)
 {
 	unsigned char signal_buf[512];
 	unsigned char signal_mask[MAX_SIGNAL_VALUE+1];

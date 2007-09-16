@@ -37,7 +37,7 @@ static struct module *modules = NULL;
 static struct auth *auth;
 static struct auth_worker_client *worker_client;
 
-static void sig_die(int signo, void *context __attr_unused__)
+static void sig_die(int signo, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
 	   which is too common at least while testing :) */
@@ -305,7 +305,7 @@ static void main_deinit(void)
 	closelog();
 }
 
-int main(int argc __attr_unused__, char *argv[])
+int main(int argc ATTR_UNUSED, char *argv[])
 {
 	bool foreground = FALSE;
 

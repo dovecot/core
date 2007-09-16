@@ -1382,7 +1382,7 @@ static bool parse_section(const char *type, const char *name,
 }
 
 static void
-settings_warn_needed_fds(struct server_settings *server __attr_unused__)
+settings_warn_needed_fds(struct server_settings *server ATTR_UNUSED)
 {
 #ifdef HAVE_SETRLIMIT
 	struct rlimit rlim;

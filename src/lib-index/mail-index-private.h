@@ -305,7 +305,7 @@ void mail_index_view_transaction_unref(struct mail_index_view *view);
 void mail_index_fsck_locked(struct mail_index *index);
 
 int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
-	__attr_format__(2, 3);
+	ATTR_FORMAT(2, 3);
 /* "%s failed with index file %s: %m" */
 int mail_index_set_syscall_error(struct mail_index *index,
 				 const char *function);

@@ -23,7 +23,7 @@
 
 const char *capability_string = POP3_CAPABILITY_REPLY;
 
-bool cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
+bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 {
 	const struct auth_mech_desc *mech;
 	unsigned int i, count;

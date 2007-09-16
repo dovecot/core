@@ -406,7 +406,7 @@ bool mailbox_list_name_is_too_large(const char *name, char sep)
 }
 
 enum mailbox_list_file_type
-mailbox_list_get_file_type(const struct dirent *d __attr_unused__)
+mailbox_list_get_file_type(const struct dirent *d ATTR_UNUSED)
 {
 	enum mailbox_list_file_type type;
 

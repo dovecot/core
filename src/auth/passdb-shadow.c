@@ -66,7 +66,7 @@ static void shadow_init(struct passdb_module *module, const char *args)
 	module->default_pass_scheme = SHADOW_PASS_SCHEME;
 }
 
-static void shadow_deinit(struct passdb_module *module __attr_unused__)
+static void shadow_deinit(struct passdb_module *module ATTR_UNUSED)
 {
         endspent();
 }

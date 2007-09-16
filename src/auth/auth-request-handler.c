@@ -499,7 +499,7 @@ void auth_request_handler_flush_failures(void)
 	buffer_set_used_size(auth_failures_buf, 0);
 }
 
-static void auth_failure_timeout(void *context __attr_unused__)
+static void auth_failure_timeout(void *context ATTR_UNUSED)
 {
 	auth_request_handler_flush_failures();
 }

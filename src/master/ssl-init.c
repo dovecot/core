@@ -66,8 +66,8 @@ static void start_generate_process(const char *fname)
 }
 
 static void
-ssl_parameter_process_destroyed(struct child_process *process __attr_unused__,
-				pid_t pid __attr_unused__, bool abnormal_exit)
+ssl_parameter_process_destroyed(struct child_process *process ATTR_UNUSED,
+				pid_t pid ATTR_UNUSED, bool abnormal_exit)
 {
 	if (!abnormal_exit) {
 		if (file_copy(SSL_PARAMETERS_PERM_PATH,
@@ -152,7 +152,7 @@ void ssl_check_parameters_file(void)
 	}
 }
 
-static void check_parameters_file_timeout(void *context __attr_unused__)
+static void check_parameters_file_timeout(void *context ATTR_UNUSED)
 {
 	ssl_check_parameters_file();
 }
@@ -177,7 +177,7 @@ void ssl_deinit(void)
 
 #else
 
-void ssl_parameter_process_destroyed(bool abnormal_exit __attr_unused__) {}
+void ssl_parameter_process_destroyed(bool abnormal_exit ATTR_UNUSED) {}
 void ssl_check_parameters_file(void) {}
 void ssl_init(void) {}
 void ssl_deinit(void) {}

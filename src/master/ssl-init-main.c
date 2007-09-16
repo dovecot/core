@@ -55,7 +55,7 @@ static int generate_parameters_file(const char *fname)
 	return 0;
 }
 #else
-static int generate_parameters_file(const char *fname __attr_unused__)
+static int generate_parameters_file(const char *fname ATTR_UNUSED)
 {
 	i_fatal("Dovecot built without SSL support");
 	return -1;

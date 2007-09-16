@@ -84,7 +84,7 @@ static void settings_reload(void)
 	}
 }
 
-static void sig_die(int signo, void *context __attr_unused__)
+static void sig_die(int signo, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
 	   which is too common at least while testing :) */
@@ -93,14 +93,14 @@ static void sig_die(int signo, void *context __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void sig_reload_settings(int signo __attr_unused__,
-				void *context __attr_unused__)
+static void sig_reload_settings(int signo ATTR_UNUSED,
+				void *context ATTR_UNUSED)
 {
 	settings_reload();
 }
 
-static void sig_reopen_logs(int signo __attr_unused__,
-			    void *context __attr_unused__)
+static void sig_reopen_logs(int signo ATTR_UNUSED,
+			    void *context ATTR_UNUSED)
 {
 	set_logfile(settings_root->defaults);
 }

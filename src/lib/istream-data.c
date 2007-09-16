@@ -3,22 +3,22 @@
 #include "lib.h"
 #include "istream-internal.h"
 
-static void _close(struct _iostream *stream __attr_unused__)
+static void _close(struct _iostream *stream ATTR_UNUSED)
 {
 }
 
-static void _destroy(struct _iostream *stream __attr_unused__)
+static void _destroy(struct _iostream *stream ATTR_UNUSED)
 {
 }
 
-static ssize_t _read(struct _istream *stream __attr_unused__)
+static ssize_t _read(struct _istream *stream ATTR_UNUSED)
 {
 	stream->istream.eof = TRUE;
 	return -1;
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset,
-		  bool mark __attr_unused__)
+		  bool mark ATTR_UNUSED)
 {
 	stream->skip = v_offset;
 	stream->istream.v_offset = v_offset;

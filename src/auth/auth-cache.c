@@ -90,7 +90,7 @@ auth_cache_node_destroy(struct auth_cache *cache, struct auth_cache_node *node)
 	i_free(node);
 }
 
-static void sig_auth_cache_clear(int signo __attr_unused__, void *context)
+static void sig_auth_cache_clear(int signo ATTR_UNUSED, void *context)
 {
 	struct auth_cache *cache = context;
 
@@ -98,7 +98,7 @@ static void sig_auth_cache_clear(int signo __attr_unused__, void *context)
 	auth_cache_clear(cache);
 }
 
-static void sig_auth_cache_stats(int signo __attr_unused__, void *context)
+static void sig_auth_cache_stats(int signo ATTR_UNUSED, void *context)
 {
 	struct auth_cache *cache = context;
 	unsigned int total_count;

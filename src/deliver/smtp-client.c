@@ -24,7 +24,7 @@ static struct smtp_client *smtp_client_devnull(FILE **file_r)
 	return client;
 }
 
-static void __attr_noreturn__
+static void ATTR_NORETURN
 smtp_client_run_sendmail(const char *destination,
 			 const char *return_path, int fd)
 {

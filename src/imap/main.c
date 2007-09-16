@@ -52,7 +52,7 @@ void (*hook_client_created)(struct client **client) = NULL;
 
 string_t *capability_string;
 
-static void sig_die(int signo, void *context __attr_unused__)
+static void sig_die(int signo, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
 	   which is too common at least while testing :) */
@@ -61,7 +61,7 @@ static void sig_die(int signo, void *context __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void log_error_callback(void *context __attr_unused__)
+static void log_error_callback(void *context ATTR_UNUSED)
 {
 	io_loop_stop(ioloop);
 }
@@ -268,7 +268,7 @@ static void main_deinit(void)
 	closelog();
 }
 
-int main(int argc __attr_unused__, char *argv[], char *envp[])
+int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 {
 #ifdef DEBUG
 	if (getenv("LOGGED_IN") != NULL && getenv("GDB") == NULL)

@@ -404,7 +404,7 @@ static void ldap_input(struct ldap_connection *conn)
 
 #ifdef HAVE_LDAP_SASL
 static int
-sasl_interact(LDAP *ld __attr_unused__, unsigned flags __attr_unused__,
+sasl_interact(LDAP *ld ATTR_UNUSED, unsigned flags ATTR_UNUSED,
 	      void *defaults, void *interact)
 {
 	struct ldap_sasl_bind_context *context = defaults;
@@ -731,7 +731,7 @@ db_ldap_value_get_var_expand_table(struct auth_request *auth_request)
 	((c) == '*' || (c) == '(' || (c) == ')' || (c) == '\\')
 
 const char *ldap_escape(const char *str,
-			const struct auth_request *auth_request __attr_unused__)
+			const struct auth_request *auth_request ATTR_UNUSED)
 {
 	const char *p;
 	string_t *ret;

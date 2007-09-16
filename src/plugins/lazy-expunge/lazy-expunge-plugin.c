@@ -134,7 +134,7 @@ struct lazy_expunge_move_context {
 	unsigned int dir_len;
 };
 
-static int lazy_expunge_move(struct maildir_mailbox *mbox __attr_unused__,
+static int lazy_expunge_move(struct maildir_mailbox *mbox ATTR_UNUSED,
 			     const char *path, void *context)
 {
 	struct lazy_expunge_move_context *ctx = context;

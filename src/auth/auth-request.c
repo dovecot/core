@@ -1247,14 +1247,14 @@ int auth_request_password_verify(struct auth_request *request,
 
 static const char *
 escape_none(const char *string,
-	    const struct auth_request *request __attr_unused__)
+	    const struct auth_request *request ATTR_UNUSED)
 {
 	return string;
 }
 
 const char *
 auth_request_str_escape(const char *string,
-			const struct auth_request *request __attr_unused__)
+			const struct auth_request *request ATTR_UNUSED)
 {
 	return str_escape(string);
 }
@@ -1320,7 +1320,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	return tab;
 }
 
-static const char * __attr_format__(3, 0)
+static const char * ATTR_FORMAT(3, 0)
 get_log_str(struct auth_request *auth_request, const char *subsystem,
 	    const char *format, va_list va)
 {

@@ -114,7 +114,7 @@ passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 }
 
 static void passwd_file_init(struct userdb_module *_module,
-			     const char *args __attr_unused__)
+			     const char *args ATTR_UNUSED)
 {
 	struct passwd_file_userdb_module *module =
 		(struct passwd_file_userdb_module *)_module;

@@ -231,7 +231,7 @@ void net_set_nonblock(int fd, bool nonblock)
 		i_fatal("fd_set_nonblock(%d) failed: %m", fd);
 }
 
-int net_set_cork(int fd __attr_unused__, bool cork __attr_unused__)
+int net_set_cork(int fd ATTR_UNUSED, bool cork ATTR_UNUSED)
 {
 #ifdef TCP_CORK
 	int val = cork;

@@ -248,7 +248,7 @@ bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 }
 
 static bool
-crypt_verify(const char *plaintext, const char *user __attr_unused__,
+crypt_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	     const unsigned char *raw_password, size_t size)
 {
 	const char *password;
@@ -263,7 +263,7 @@ crypt_verify(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-crypt_generate(const char *plaintext, const char *user __attr_unused__,
+crypt_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	       const unsigned char **raw_password_r, size_t *size_r)
 {
 	char salt[3];
@@ -280,7 +280,7 @@ crypt_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static bool
-md5_crypt_verify(const char *plaintext, const char *user __attr_unused__,
+md5_crypt_verify(const char *plaintext, const char *user ATTR_UNUSED,
 		 const unsigned char *raw_password, size_t size)
 {
 	const char *password, *str;
@@ -291,7 +291,7 @@ md5_crypt_verify(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-md5_crypt_generate(const char *plaintext, const char *user __attr_unused__,
+md5_crypt_generate(const char *plaintext, const char *user ATTR_UNUSED,
 		   const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password;
@@ -309,7 +309,7 @@ md5_crypt_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-sha1_generate(const char *plaintext, const char *user __attr_unused__,
+sha1_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	      const unsigned char **raw_password_r, size_t *size_r)
 {
 	unsigned char *digest;
@@ -322,7 +322,7 @@ sha1_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-sha256_generate(const char *plaintext, const char *user __attr_unused__,
+sha256_generate(const char *plaintext, const char *user ATTR_UNUSED,
 		const unsigned char **raw_password_r, size_t *size_r)
 {
 	unsigned char *digest;
@@ -335,7 +335,7 @@ sha256_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-ssha_generate(const char *plaintext, const char *user __attr_unused__,
+ssha_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	      const unsigned char **raw_password_r, size_t *size_r)
 {
 #define SSHA_SALT_LEN 4
@@ -375,7 +375,7 @@ static bool ssha_verify(const char *plaintext, const char *user,
 }
 
 static void
-smd5_generate(const char *plaintext, const char *user __attr_unused__,
+smd5_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	      const unsigned char **raw_password_r, size_t *size_r)
 {
 #define SMD5_SALT_LEN 4
@@ -415,7 +415,7 @@ static bool smd5_verify(const char *plaintext, const char *user,
 }
 
 static void
-plain_generate(const char *plaintext, const char *user __attr_unused__,
+plain_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	       const unsigned char **raw_password_r, size_t *size_r)
 {
 	*raw_password_r = (const unsigned char *)plaintext,
@@ -423,7 +423,7 @@ plain_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-cram_md5_generate(const char *plaintext, const char *user __attr_unused__,
+cram_md5_generate(const char *plaintext, const char *user ATTR_UNUSED,
 		  const unsigned char **raw_password_r, size_t *size_r)
 {
 	struct hmac_md5_context ctx;
@@ -462,7 +462,7 @@ digest_md5_generate(const char *plaintext, const char *user,
 }
 
 static void
-plain_md4_generate(const char *plaintext, const char *user __attr_unused__,
+plain_md4_generate(const char *plaintext, const char *user ATTR_UNUSED,
 		   const unsigned char **raw_password_r, size_t *size_r)
 {
 	unsigned char *digest;
@@ -475,7 +475,7 @@ plain_md4_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-plain_md5_generate(const char *plaintext, const char *user __attr_unused__,
+plain_md5_generate(const char *plaintext, const char *user ATTR_UNUSED,
 		   const unsigned char **raw_password_r, size_t *size_r)
 {
 	unsigned char *digest;
@@ -488,7 +488,7 @@ plain_md5_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-lm_generate(const char *plaintext, const char *user __attr_unused__,
+lm_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	    const unsigned char **raw_password_r, size_t *size_r)
 {
 	unsigned char *digest;
@@ -501,7 +501,7 @@ lm_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-ntlm_generate(const char *plaintext, const char *user __attr_unused__,
+ntlm_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	      const unsigned char **raw_password_r, size_t *size_r)
 {
 	unsigned char *digest;
@@ -513,7 +513,7 @@ ntlm_generate(const char *plaintext, const char *user __attr_unused__,
 	*size_r = NTLMSSP_HASH_SIZE;
 }
 
-static bool otp_verify(const char *plaintext, const char *user __attr_unused__,
+static bool otp_verify(const char *plaintext, const char *user ATTR_UNUSED,
 		       const unsigned char *raw_password, size_t size)
 {
 	const char *password;
@@ -524,7 +524,7 @@ static bool otp_verify(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-otp_generate(const char *plaintext, const char *user __attr_unused__,
+otp_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	     const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password;
@@ -535,7 +535,7 @@ otp_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-skey_generate(const char *plaintext, const char *user __attr_unused__,
+skey_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	      const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password;
@@ -546,7 +546,7 @@ skey_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
-rpa_generate(const char *plaintext, const char *user __attr_unused__,
+rpa_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	     const unsigned char **raw_password_r, size_t *size_r)
 {
 	unsigned char *digest;

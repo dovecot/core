@@ -225,7 +225,7 @@ cydir_mailbox_open(struct mail_storage *_storage, const char *name,
 
 static int cydir_mailbox_create(struct mail_storage *_storage,
 				const char *name,
-				bool directory __attr_unused__)
+				bool directory ATTR_UNUSED)
 {
 	const char *path;
 	struct stat st;
@@ -350,7 +350,7 @@ static void cydir_notify_changes(struct mailbox *box)
 }
 
 static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
-				      			__attr_unused__,
+				      			ATTR_UNUSED,
 				      const char *dir, const char *fname,
 				      enum mailbox_list_file_type type,
 				      enum mailbox_info_flags *flags)

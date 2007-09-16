@@ -60,7 +60,7 @@ static struct ioloop *ioloop;
 static pool_t plugin_pool;
 static ARRAY_DEFINE(plugin_envs, const char *);
 
-static void sig_die(int signo, void *context __attr_unused__)
+static void sig_die(int signo, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
 	   which is too common at least while testing :) */

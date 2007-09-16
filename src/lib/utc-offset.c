@@ -5,7 +5,7 @@
 
 #include <sys/time.h>
 
-int utc_offset(struct tm *tm, time_t t __attr_unused__)
+int utc_offset(struct tm *tm, time_t t ATTR_UNUSED)
 {
 #ifdef HAVE_TM_GMTOFF
 	return (int) (tm->tm_gmtoff/60);

@@ -29,7 +29,7 @@ static void result_print(ARRAY_TYPE(seq_range) *result)
 	printf("\n");
 }
 
-int main(int argc __attr_unused__, char *argv[])
+int main(int argc ATTR_UNUSED, char *argv[])
 {
 	struct squat_trie *trie;
 	struct squat_trie_build_context *build_ctx;

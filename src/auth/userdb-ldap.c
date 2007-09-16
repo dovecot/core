@@ -145,7 +145,7 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 }
 
 static void userdb_ldap_init(struct userdb_module *_module,
-			     const char *args __attr_unused__)
+			     const char *args ATTR_UNUSED)
 {
 	struct ldap_userdb_module *module =
 		(struct ldap_userdb_module *)_module;

@@ -121,7 +121,7 @@ userdb_sql_preinit(struct auth_userdb *auth_userdb, const char *args)
 }
 
 static void userdb_sql_init(struct userdb_module *_module,
-			    const char *args __attr_unused__)
+			    const char *args ATTR_UNUSED)
 {
 	struct sql_userdb_module *module =
 		(struct sql_userdb_module *)_module;

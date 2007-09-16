@@ -217,7 +217,7 @@ static void _driver_pgsql_deinit(struct sql_db *_db)
 }
 
 static enum sql_db_flags
-driver_pgsql_get_flags(struct sql_db *db __attr_unused__)
+driver_pgsql_get_flags(struct sql_db *db ATTR_UNUSED)
 {
 	return 0;
 }
@@ -482,7 +482,7 @@ static void do_query(struct pgsql_result *result, const char *query)
 }
 
 static void exec_callback(struct sql_result *result,
-			  void *context __attr_unused__)
+			  void *context ATTR_UNUSED)
 {
         struct pgsql_db *db = (struct pgsql_db *)result->db;
 

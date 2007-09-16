@@ -24,7 +24,7 @@ static struct io *log_io;
 static struct module *modules;
 static struct dict_server *dict_server;
 
-static void sig_die(int signo, void *context __attr_unused__)
+static void sig_die(int signo, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
 	   which is too common at least while testing :) */
@@ -33,7 +33,7 @@ static void sig_die(int signo, void *context __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void log_error_callback(void *context __attr_unused__)
+static void log_error_callback(void *context ATTR_UNUSED)
 {
 	io_loop_stop(ioloop);
 }

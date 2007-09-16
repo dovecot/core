@@ -131,9 +131,9 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 }
 
 #else
-ssize_t safe_sendfile(int out_fd __attr_unused__, int in_fd __attr_unused__,
-		      uoff_t *offset __attr_unused__,
-		      size_t count __attr_unused__)
+ssize_t safe_sendfile(int out_fd ATTR_UNUSED, int in_fd ATTR_UNUSED,
+		      uoff_t *offset ATTR_UNUSED,
+		      size_t count ATTR_UNUSED)
 {
 	errno = EINVAL;
 	return -1;

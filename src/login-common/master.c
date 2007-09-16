@@ -230,7 +230,7 @@ int master_connect(const char *group_name)
 	return fd;
 }
 
-static void master_input(void *context __attr_unused__)
+static void master_input(void *context ATTR_UNUSED)
 {
 	int ret;
 

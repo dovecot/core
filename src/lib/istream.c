@@ -298,7 +298,7 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 }
 
 static const struct stat *
-_stat(struct _istream *stream, bool exact __attr_unused__)
+_stat(struct _istream *stream, bool exact ATTR_UNUSED)
 {
 	return &stream->statbuf;
 }

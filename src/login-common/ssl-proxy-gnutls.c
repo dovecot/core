@@ -466,7 +466,7 @@ static void read_parameters(const char *fname)
 	(void)close(fd);
 }
 
-static void gcrypt_log_handler(void *context __attr_unused__, int level,
+static void gcrypt_log_handler(void *context ATTR_UNUSED, int level,
 			       const char *fmt, va_list args)
 {
 	if (level == GCRY_LOG_FATAL) {

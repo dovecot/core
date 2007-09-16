@@ -49,7 +49,7 @@ maildir_list_rename_mailbox(struct mailbox_list *list,
 			    const char *oldname, const char *newname);
 static int
 maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
-			     	__attr_unused__,
+			     	ATTR_UNUSED,
 			     const char *dir, const char *fname,
 			     enum mailbox_list_file_type type,
 			     enum mailbox_info_flags *flags_r);
@@ -592,7 +592,7 @@ static int maildir_create_shared(struct mail_storage *storage,
 
 static int maildir_mailbox_create(struct mail_storage *_storage,
 				  const char *name,
-				  bool directory __attr_unused__)
+				  bool directory ATTR_UNUSED)
 {
 	struct stat st;
 	const char *path, *root_dir, *shared_path;
@@ -874,7 +874,7 @@ static void maildir_notify_changes(struct mailbox *box)
 
 static int
 maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
-			     	__attr_unused__,
+			     	ATTR_UNUSED,
 			     const char *dir, const char *fname,
 			     enum mailbox_list_file_type type,
 			     enum mailbox_info_flags *flags_r)

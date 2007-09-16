@@ -62,7 +62,7 @@ bsdauth_preinit(struct auth_passdb *auth_passdb, const char *args)
 	return module;
 }
 
-static void bsdauth_deinit(struct passdb_module *module __attr_unused__)
+static void bsdauth_deinit(struct passdb_module *module ATTR_UNUSED)
 {
 	endpwent();
 }

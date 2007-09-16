@@ -57,7 +57,7 @@ void client_disconnect(struct client *client, const char *reason);
 
 /* Send a line of data to client */
 int client_send_line(struct client *client, const char *fmt, ...)
-	__attr_format__(2, 3);
+	ATTR_FORMAT(2, 3);
 void client_send_storage_error(struct client *client);
 
 void clients_init(void);

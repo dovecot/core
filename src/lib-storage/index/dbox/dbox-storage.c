@@ -275,7 +275,7 @@ static int dbox_storage_mailbox_close(struct mailbox *box)
 }
 
 static int dbox_mailbox_create(struct mail_storage *_storage,
-			       const char *name, bool directory __attr_unused__)
+			       const char *name, bool directory ATTR_UNUSED)
 {
 	const char *path;
 	struct stat st;
@@ -400,7 +400,7 @@ static void dbox_notify_changes(struct mailbox *box)
 }
 
 static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
-				      			__attr_unused__,
+				      			ATTR_UNUSED,
 				     const char *dir, const char *fname,
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags)

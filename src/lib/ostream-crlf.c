@@ -20,7 +20,7 @@ struct crlf_ostream {
 
 static const struct const_iovec cr_iov = { "\r", 1 };
 
-static void _close(struct _iostream *stream __attr_unused__)
+static void _close(struct _iostream *stream ATTR_UNUSED)
 {
 }
 

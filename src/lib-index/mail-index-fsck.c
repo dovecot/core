@@ -7,7 +7,7 @@
 #include "mail-transaction-log.h"
 
 static void mail_index_fsck_error(struct mail_index *index,
-				  const char *fmt, ...) __attr_format__(2, 3);
+				  const char *fmt, ...) ATTR_FORMAT(2, 3);
 static void mail_index_fsck_error(struct mail_index *index,
 				  const char *fmt, ...)
 {

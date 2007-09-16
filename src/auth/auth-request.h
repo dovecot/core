@@ -157,13 +157,13 @@ const char *auth_request_str_escape(const char *string,
 
 void auth_request_log_debug(struct auth_request *auth_request,
 			    const char *subsystem,
-			    const char *format, ...) __attr_format__(3, 4);
+			    const char *format, ...) ATTR_FORMAT(3, 4);
 void auth_request_log_info(struct auth_request *auth_request,
 			   const char *subsystem,
-			   const char *format, ...) __attr_format__(3, 4);
+			   const char *format, ...) ATTR_FORMAT(3, 4);
 void auth_request_log_error(struct auth_request *auth_request,
 			    const char *subsystem,
-			    const char *format, ...) __attr_format__(3, 4);
+			    const char *format, ...) ATTR_FORMAT(3, 4);
 
 void auth_request_verify_plain_callback(enum passdb_result result,
 					struct auth_request *request);

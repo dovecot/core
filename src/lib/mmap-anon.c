@@ -108,7 +108,7 @@ static void *mremap_move(struct anon_header *hdr, size_t new_size)
 	return new_base;
 }
 
-void *mremap_anon(void *old_address, size_t old_size  __attr_unused__,
+void *mremap_anon(void *old_address, size_t old_size  ATTR_UNUSED,
 		  size_t new_size, unsigned long flags)
 {
 	struct anon_header *hdr;
@@ -145,7 +145,7 @@ void *mremap_anon(void *old_address, size_t old_size  __attr_unused__,
 	return old_address;
 }
 
-int munmap_anon(void *start, size_t length __attr_unused__)
+int munmap_anon(void *start, size_t length ATTR_UNUSED)
 {
 	struct anon_header *hdr;
 

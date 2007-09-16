@@ -87,7 +87,7 @@ static const char *get_size(struct client *client, const char *args,
 	return args;
 }
 
-static int cmd_capa(struct client *client, const char *args __attr_unused__)
+static int cmd_capa(struct client *client, const char *args ATTR_UNUSED)
 {
 	client_send_line(client, "+OK\r\n"POP3_CAPABILITY_REPLY".");
 	return 1;
@@ -170,13 +170,13 @@ static int cmd_list(struct client *client, const char *args)
 	return 1;
 }
 
-static int cmd_last(struct client *client, const char *args __attr_unused__)
+static int cmd_last(struct client *client, const char *args ATTR_UNUSED)
 {
 	client_send_line(client, "+OK %u", client->last_seen);
 	return 1;
 }
 
-static int cmd_noop(struct client *client, const char *args __attr_unused__)
+static int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 {
 	client_send_line(client, "+OK");
 	return 1;
@@ -220,7 +220,7 @@ static bool expunge_mails(struct client *client)
 	return mailbox_search_deinit(&ctx) == 0;
 }
 
-static int cmd_quit(struct client *client, const char *args __attr_unused__)
+static int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 {
 	if (client->deleted) {
 		if (!expunge_mails(client)) {
@@ -426,7 +426,7 @@ static int cmd_retr(struct client *client, const char *args)
 	return 1;
 }
 
-static int cmd_rset(struct client *client, const char *args __attr_unused__)
+static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 {
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
@@ -469,7 +469,7 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 	return 1;
 }
 
-static int cmd_stat(struct client *client, const char *args __attr_unused__)
+static int cmd_stat(struct client *client, const char *args ATTR_UNUSED)
 {
 	client_send_line(client, "+OK %u %"PRIuUOFF_T, client->
 			 messages_count - client->deleted_count,

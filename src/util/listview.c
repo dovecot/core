@@ -123,7 +123,7 @@ static void dump_dir(int fd, unsigned int show_offset, const char *path)
 	}
 }
 
-int main(int argc __attr_unused__, const char *argv[])
+int main(int argc ATTR_UNUSED, const char *argv[])
 {
 	int fd;
 

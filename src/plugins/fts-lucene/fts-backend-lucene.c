@@ -157,20 +157,20 @@ fts_backend_lucene_expunge(struct fts_backend *_backend, struct mail *mail)
 }
 
 static void
-fts_backend_lucene_expunge_finish(struct fts_backend *_backend __attr_unused__,
-				  struct mailbox *box __attr_unused__,
-				  bool committed __attr_unused__)
+fts_backend_lucene_expunge_finish(struct fts_backend *_backend ATTR_UNUSED,
+				  struct mailbox *box ATTR_UNUSED,
+				  bool committed ATTR_UNUSED)
 {
 }
 
 static int
-fts_backend_lucene_lock(struct fts_backend *_backend __attr_unused__)
+fts_backend_lucene_lock(struct fts_backend *_backend ATTR_UNUSED)
 {
 	return 1;
 }
 
 static void
-fts_backend_lucene_unlock(struct fts_backend *_backend __attr_unused__)
+fts_backend_lucene_unlock(struct fts_backend *_backend ATTR_UNUSED)
 {
 }
 

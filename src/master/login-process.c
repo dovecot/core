@@ -707,7 +707,7 @@ static pid_t create_login_process(struct login_group *group)
 
 static void
 login_process_destroyed(struct child_process *process,
-			pid_t pid __attr_unused__, bool abnormal_exit)
+			pid_t pid ATTR_UNUSED, bool abnormal_exit)
 {
 	struct login_process *p = (struct login_process *)process;
 
@@ -822,7 +822,7 @@ static void login_processes_stall(void)
 }
 
 static void
-login_processes_start_missing(void *context __attr_unused__)
+login_processes_start_missing(void *context ATTR_UNUSED)
 {
 	struct login_group *group;
 
@@ -894,7 +894,7 @@ static bool login_process_init_group(struct login_process *p)
 	return TRUE;
 }
 
-static void inetd_login_accept(void *context __attr_unused__)
+static void inetd_login_accept(void *context ATTR_UNUSED)
 {
         struct login_process *p;
 	int fd;

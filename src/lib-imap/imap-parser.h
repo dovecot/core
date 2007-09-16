@@ -134,10 +134,10 @@ const char *imap_parser_read_word(struct imap_parser *parser);
 const char *imap_arg_string(const struct imap_arg *arg);
 
 /* Error functions */
-char *_imap_arg_str_error(const struct imap_arg *arg) __attr_noreturn__;
+char *_imap_arg_str_error(const struct imap_arg *arg) ATTR_NORETURN;
 uoff_t _imap_arg_literal_size_error(const struct imap_arg *arg)
-	__attr_noreturn__;
+	ATTR_NORETURN;
 ARRAY_TYPE(imap_arg_list) *_imap_arg_list_error(const struct imap_arg *arg)
-	__attr_noreturn__;
+	ATTR_NORETURN;
 
 #endif

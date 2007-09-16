@@ -401,7 +401,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 }
 
 static void search_header_unmatch(struct mail_search_arg *arg,
-				  void *context __attr_unused__)
+				  void *context ATTR_UNUSED)
 {
 	switch (arg->type) {
 	case SEARCH_SENTBEFORE:
@@ -842,7 +842,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 }
 
 static void search_arg_deinit(struct mail_search_arg *arg,
-			      void *context __attr_unused__)
+			      void *context ATTR_UNUSED)
 {
 	struct message_search_context *search_ctx = arg->context;
 

@@ -693,7 +693,7 @@ int _client_output(struct client *client)
 	return ret;
 }
 
-static void idle_timeout(void *context __attr_unused__)
+static void idle_timeout(void *context ATTR_UNUSED)
 {
 	time_t idle_time, last_change;
 

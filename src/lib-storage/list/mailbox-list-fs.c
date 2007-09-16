@@ -246,7 +246,7 @@ fs_list_get_temp_prefix(struct mailbox_list *_list)
 }
 
 static const char *
-fs_list_join_refpattern(struct mailbox_list *_list __attr_unused__,
+fs_list_join_refpattern(struct mailbox_list *_list ATTR_UNUSED,
 			const char *ref, const char *pattern)
 {
 	if (*pattern == '/' || *pattern == '~') {

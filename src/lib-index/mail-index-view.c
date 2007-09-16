@@ -383,7 +383,7 @@ static void _view_get_header_ext(struct mail_index_view *view,
 	*data_size_r = ext->hdr_size;
 }
 
-static bool _view_ext_get_reset_id(struct mail_index_view *view __attr_unused__,
+static bool _view_ext_get_reset_id(struct mail_index_view *view ATTR_UNUSED,
 				   struct mail_index_map *map,
 				   uint32_t ext_id, uint32_t *reset_id_r)
 {
@@ -562,7 +562,7 @@ bool mail_index_ext_get_reset_id(struct mail_index_view *view,
 	return view->v.ext_get_reset_id(view, map, ext_id, reset_id_r);
 }
 
-void mail_index_ext_get_size(struct mail_index_view *view __attr_unused__,
+void mail_index_ext_get_size(struct mail_index_view *view ATTR_UNUSED,
 			     uint32_t ext_id, struct mail_index_map *map,
 			     uint32_t *hdr_size_r, uint16_t *record_size_r,
 			     uint16_t *record_align_r)

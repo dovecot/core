@@ -760,7 +760,7 @@ static void auth_processes_stall(void)
 }
 
 static void
-auth_processes_start_missing(void *context __attr_unused__)
+auth_processes_start_missing(void *context ATTR_UNUSED)
 {
 	struct auth_process_group *group;
 	unsigned int count;

@@ -154,8 +154,8 @@ static void static_lookup_real(struct auth_request *auth_request,
 
 static void
 static_credentials_callback(enum passdb_result result,
-			    const unsigned char *credentials __attr_unused__,
-			    size_t size __attr_unused__,
+			    const unsigned char *credentials ATTR_UNUSED,
+			    size_t size ATTR_UNUSED,
 			    struct auth_request *auth_request)
 {
 	struct static_context *ctx = auth_request->context;

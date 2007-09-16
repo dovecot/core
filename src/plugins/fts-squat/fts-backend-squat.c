@@ -83,7 +83,7 @@ fts_backend_squat_build_init(struct fts_backend *_backend, uint32_t *last_uid_r)
 static int
 fts_backend_squat_build_more(struct fts_backend_build_context *_ctx,
 			     uint32_t uid, const unsigned char *data,
-			     size_t size, bool headers __attr_unused__)
+			     size_t size, bool headers ATTR_UNUSED)
 {
 	struct squat_fts_backend_build_context *ctx =
 		(struct squat_fts_backend_build_context *)_ctx;
@@ -104,8 +104,8 @@ fts_backend_squat_build_deinit(struct fts_backend_build_context *_ctx)
 }
 
 static void
-fts_backend_squat_expunge(struct fts_backend *_backend __attr_unused__,
-			  struct mail *mail __attr_unused__)
+fts_backend_squat_expunge(struct fts_backend *_backend ATTR_UNUSED,
+			  struct mail *mail ATTR_UNUSED)
 {
 }
 
@@ -178,7 +178,7 @@ static void fts_backend_squat_unlock(struct fts_backend *_backend)
 
 static int
 fts_backend_squat_lookup(struct fts_backend *_backend,
-			 enum fts_lookup_flags flags __attr_unused__,
+			 enum fts_lookup_flags flags ATTR_UNUSED,
 			 const char *key, ARRAY_TYPE(seq_range) *result)
 {
 	struct squat_fts_backend *backend =
@@ -189,7 +189,7 @@ fts_backend_squat_lookup(struct fts_backend *_backend,
 
 static int
 fts_backend_squat_filter(struct fts_backend *_backend,
-			 enum fts_lookup_flags flags __attr_unused__,
+			 enum fts_lookup_flags flags ATTR_UNUSED,
 			 const char *key, ARRAY_TYPE(seq_range) *result)
 {
 	struct squat_fts_backend *backend =

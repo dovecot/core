@@ -55,7 +55,7 @@ pool_t pool_datastack_create(void)
 	return &dpool->pool;
 }
 
-static const char *pool_data_stack_get_name(pool_t pool __attr_unused__)
+static const char *pool_data_stack_get_name(pool_t pool ATTR_UNUSED)
 {
 	return "data stack";
 }
@@ -83,7 +83,7 @@ static void pool_data_stack_unref(pool_t *pool)
 	*pool = NULL;
 }
 
-static void *pool_data_stack_malloc(pool_t pool __attr_unused__, size_t size)
+static void *pool_data_stack_malloc(pool_t pool ATTR_UNUSED, size_t size)
 {
 	struct datastack_pool *dpool = (struct datastack_pool *) pool;
 
@@ -96,7 +96,7 @@ static void *pool_data_stack_malloc(pool_t pool __attr_unused__, size_t size)
 	return t_malloc0(size);
 }
 
-static void pool_data_stack_free(pool_t pool, void *mem __attr_unused__)
+static void pool_data_stack_free(pool_t pool, void *mem ATTR_UNUSED)
 {
 	struct datastack_pool *dpool = (struct datastack_pool *) pool;
 
@@ -133,12 +133,12 @@ static void *pool_data_stack_realloc(pool_t pool, void *mem,
 	return mem;
 }
 
-static void pool_data_stack_clear(pool_t pool __attr_unused__)
+static void pool_data_stack_clear(pool_t pool ATTR_UNUSED)
 {
 }
 
 static size_t
-pool_data_stack_get_max_easy_alloc_size(pool_t pool __attr_unused__)
+pool_data_stack_get_max_easy_alloc_size(pool_t pool ATTR_UNUSED)
 {
 	return t_get_bytes_available();
 }

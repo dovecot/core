@@ -9,29 +9,29 @@ bool ssl_initialized = FALSE;
 
 /* no SSL support */
 
-int ssl_proxy_new(int fd __attr_unused__, struct ip_addr *ip __attr_unused__,
-		  struct ssl_proxy **proxy_r __attr_unused__)
+int ssl_proxy_new(int fd ATTR_UNUSED, struct ip_addr *ip ATTR_UNUSED,
+		  struct ssl_proxy **proxy_r ATTR_UNUSED)
 {
 	i_error("Dovecot wasn't built with SSL support");
 	return -1;
 }
 
-bool ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy __attr_unused__)
+bool ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy ATTR_UNUSED)
 {
 	return FALSE;
 }
 
-const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy __attr_unused__)
+const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy ATTR_UNUSED)
 {
 	return NULL;
 }
 
-bool ssl_proxy_is_handshaked(struct ssl_proxy *proxy __attr_unused__)
+bool ssl_proxy_is_handshaked(struct ssl_proxy *proxy ATTR_UNUSED)
 {
 	return FALSE;
 }
 
-void ssl_proxy_free(struct ssl_proxy *proxy __attr_unused__) {}
+void ssl_proxy_free(struct ssl_proxy *proxy ATTR_UNUSED) {}
 
 unsigned int ssl_proxy_get_count(void)
 {

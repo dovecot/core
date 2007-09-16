@@ -19,9 +19,9 @@ void str_append_str(string_t *dest, const string_t *src);
 
 /* Append printf()-like data */
 void str_printfa(string_t *str, const char *fmt, ...)
-	__attr_format__(2, 3);
+	ATTR_FORMAT(2, 3);
 void str_vprintfa(string_t *str, const char *fmt, va_list args)
-	__attr_format__(2, 0);
+	ATTR_FORMAT(2, 0);
 
 void str_insert(string_t *str, size_t pos, const char *cstr);
 void str_delete(string_t *str, size_t pos, size_t len);

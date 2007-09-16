@@ -345,8 +345,8 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 
 int maildir_save_init(struct mailbox_transaction_context *_t,
 		      enum mail_flags flags, struct mail_keywords *keywords,
-		      time_t received_date, int timezone_offset __attr_unused__,
-		      const char *from_envelope __attr_unused__,
+		      time_t received_date, int timezone_offset ATTR_UNUSED,
+		      const char *from_envelope ATTR_UNUSED,
 		      struct istream *input, struct mail *dest_mail,
 		      struct mail_save_context **ctx_r)
 {

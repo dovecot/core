@@ -7,7 +7,7 @@ struct login_group;
 struct auth_master_reply;
 
 void mail_process_exec(const char *protocol, const char *section)
-	__attr_noreturn__;
+	ATTR_NORETURN;
 
 
 enum master_login_status

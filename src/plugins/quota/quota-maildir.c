@@ -604,7 +604,7 @@ static void maildir_quota_deinit(struct quota_root *_root)
 }
 
 static bool
-maildir_quota_parse_rule(struct quota_root *root __attr_unused__,
+maildir_quota_parse_rule(struct quota_root *root ATTR_UNUSED,
 			 struct quota_rule *rule,
 			 const char *str, const char **error_r)
 {
@@ -659,7 +659,7 @@ maildir_quota_storage_added(struct quota *quota,
 }
 
 static const char *const *
-maildir_quota_root_get_resources(struct quota_root *root __attr_unused__)
+maildir_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 {
 	static const char *resources_both[] = {
 		QUOTA_NAME_STORAGE_KILOBYTES,
@@ -672,7 +672,7 @@ maildir_quota_root_get_resources(struct quota_root *root __attr_unused__)
 
 static int
 maildir_quota_get_resource(struct quota_root *_root, const char *name,
-			   uint64_t *value_r, uint64_t *limit  __attr_unused__)
+			   uint64_t *value_r, uint64_t *limit  ATTR_UNUSED)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 

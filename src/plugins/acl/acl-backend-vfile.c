@@ -535,9 +535,9 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 }
 
 static int
-acl_backend_vfile_object_update(struct acl_object *aclobj __attr_unused__,
+acl_backend_vfile_object_update(struct acl_object *aclobj ATTR_UNUSED,
 				const struct acl_rights_update *rights
-					__attr_unused__)
+					ATTR_UNUSED)
 {
 	/* FIXME */
 	return -1;

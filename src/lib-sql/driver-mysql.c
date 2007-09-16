@@ -272,7 +272,7 @@ static void _driver_mysql_deinit(struct sql_db *_db)
 }
 
 static enum sql_db_flags
-driver_mysql_get_flags(struct sql_db *db __attr_unused__)
+driver_mysql_get_flags(struct sql_db *db ATTR_UNUSED)
 {
 	return SQL_DB_FLAG_BLOCKING;
 }
@@ -690,7 +690,7 @@ struct sql_result driver_mysql_result = {
 };
 
 static int
-driver_mysql_result_error_next_row(struct sql_result *result __attr_unused__)
+driver_mysql_result_error_next_row(struct sql_result *result ATTR_UNUSED)
 {
 	return -1;
 }
