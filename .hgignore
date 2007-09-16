@@ -1,6 +1,7 @@
 syntax: glob
 aclocal.m4
 autom4te.cache
+compile
 config.cache
 config.guess
 config.h
