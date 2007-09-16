@@ -245,7 +245,7 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 	/* keywords changed unexpectedly, so all views are broken now */
 	index->inconsistency_id++;
 
-	buffer_free(dest);
+	buffer_free(&dest);
 	t_pop();
 }
 

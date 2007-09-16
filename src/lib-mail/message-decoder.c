@@ -66,8 +66,8 @@ void message_decoder_deinit(struct message_decoder_context **_ctx)
 	if (ctx->charset_trans != NULL)
 		charset_to_utf8_end(&ctx->charset_trans);
 
-	buffer_free(ctx->buf);
-	buffer_free(ctx->buf2);
+	buffer_free(&ctx->buf);
+	buffer_free(&ctx->buf2);
 	i_free(ctx->content_charset);
 	i_free(ctx);
 }

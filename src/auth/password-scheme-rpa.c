@@ -21,7 +21,7 @@ void *ucs2be_str(pool_t pool, const char *str, size_t *size)
 	}
 
 	*size = buffer_get_used_size(buf);
-	return buffer_free_without_data(buf);
+	return buffer_free_without_data(&buf);
 }
 
 void password_generate_rpa(const char *pw, unsigned char result[])

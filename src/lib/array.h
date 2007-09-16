@@ -78,8 +78,7 @@ _array_create(struct array *array, pool_t pool,
 static inline void
 _array_free(struct array *array)
 {
-	buffer_free(array->buffer);
-	array->buffer = NULL;
+	buffer_free(&array->buffer);
 }
 #define array_free(array) \
 	_array_free(&(array)->arr)

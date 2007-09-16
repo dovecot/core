@@ -513,6 +513,6 @@ void auth_request_handler_init(void)
 void auth_request_handler_deinit(void)
 {
 	auth_request_handler_flush_failures();
-	buffer_free(auth_failures_buf);
+	buffer_free(&auth_failures_buf);
 	timeout_remove(&to_auth_failures);
 }

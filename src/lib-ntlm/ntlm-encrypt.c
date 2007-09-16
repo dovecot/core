@@ -29,7 +29,7 @@ t_unicode_str(const char *src, bool ucase, size_t *size)
 	}
 
 	*size = buffer_get_used_size(wstr);
-	return buffer_free_without_data(wstr);
+	return buffer_free_without_data(&wstr);
 }
 
 const unsigned char *

@@ -128,7 +128,7 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 	}
 
 
-	buffer_free(conn->requests);
+	buffer_free(&conn->requests);
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
@@ -393,8 +393,7 @@ void auth_worker_server_deinit(void)
 		connp = buffer_get_modifiable_data(connections, NULL);
 		auth_worker_destroy(*connp);
 	}
-	buffer_free(connections);
-	connections = NULL;
+	buffer_free(&connections);
 
 	timeout_remove(&to);
 	i_free(worker_socket_path);

@@ -116,7 +116,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 		if (!failed) {
 			client->trans = t;
 			client->message_sizes =
-				buffer_free_without_data(message_sizes_buf);
+				buffer_free_without_data(&message_sizes_buf);
 			return TRUE;
 		}
 
@@ -135,7 +135,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 
 		*error_r = mail_storage_get_last_error(storage, &error);
 	}
-	buffer_free(message_sizes_buf);
+	buffer_free(&message_sizes_buf);
 	return FALSE;
 }
 

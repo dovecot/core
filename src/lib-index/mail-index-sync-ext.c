@@ -245,7 +245,7 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 		buffer_append_zero(new_buffer, space);
 	}
 
-	buffer_free(map->rec_map->buffer);
+	buffer_free(&map->rec_map->buffer);
 	map->rec_map->buffer = new_buffer;
 	map->rec_map->records =
 		buffer_get_modifiable_data(map->rec_map->buffer, NULL);

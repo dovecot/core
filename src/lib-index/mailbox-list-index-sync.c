@@ -888,7 +888,7 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 	}
 	if (ctx->index->mmap_base == NULL) {
 		o_stream_destroy(&ctx->output);
-		buffer_free(ctx->output_buf);
+		buffer_free(&ctx->output_buf);
 	}
 	return ret;
 }

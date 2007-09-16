@@ -36,7 +36,7 @@ void file_cache_free(struct file_cache **_cache)
 		if (munmap_anon(cache->mmap_base, cache->mmap_length) < 0)
 			i_error("munmap_anon() failed: %m");
 	}
-	buffer_free(cache->page_bitmask);
+	buffer_free(&cache->page_bitmask);
 	i_free(cache);
 }
 

@@ -47,7 +47,7 @@ static void _destroy(struct _iostream *stream)
 	unsigned int i;
 
 	if (sstream->buffer != NULL)
-		buffer_free(sstream->buffer);
+		buffer_free(&sstream->buffer);
 	if (sstream->fd_input != NULL)
 		i_stream_unref(&sstream->fd_input);
 	for (i = 0; sstream->input[i] != NULL; i++)
@@ -117,8 +117,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	}
 	sstream->write_peak = sstream->buffer->used;
 
-	buffer_free(sstream->buffer);
-	sstream->buffer = NULL;
+	buffer_free(&sstream->buffer);
 
 	sstream->fd = fd;
 	sstream->fd_input =

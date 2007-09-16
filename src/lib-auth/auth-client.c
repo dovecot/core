@@ -37,7 +37,7 @@ void auth_client_free(struct auth_client **_client)
 	size /= sizeof(*mech);
 	for (i = 0; i < size; i++)
 		i_free(mech[i].name);
-	buffer_free(client->available_auth_mechs);
+	buffer_free(&client->available_auth_mechs);
 
 	while (client->connections != NULL) {
 		next = client->connections->next;

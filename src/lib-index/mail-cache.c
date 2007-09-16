@@ -619,6 +619,6 @@ void mail_cache_view_close(struct mail_cache_view *view)
 		mail_index_view_close(&view->trans_view);
 
 	array_free(&view->looping_offsets);
-	buffer_free(view->cached_exists_buf);
+	buffer_free(&view->cached_exists_buf);
 	i_free(view);
 }

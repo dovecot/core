@@ -1101,7 +1101,7 @@ void index_mail_free(struct mail *_mail)
 	mail->mail.v.close(_mail);
 
 	if (mail->header_data != NULL)
-		buffer_free(mail->header_data);
+		buffer_free(&mail->header_data);
 	if (array_is_created(&mail->header_lines))
 		array_free(&mail->header_lines);
 	if (array_is_created(&mail->header_match))

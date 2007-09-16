@@ -95,7 +95,7 @@ static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
 	ctx->view->trans_seq1 = ctx->view->trans_seq2 = 0;
 
 	if (ctx->cache_data != NULL)
-		buffer_free(ctx->cache_data);
+		buffer_free(&ctx->cache_data);
 	if (array_is_created(&ctx->cache_data_seq))
 		array_free(&ctx->cache_data_seq);
 	array_free(&ctx->reservations);

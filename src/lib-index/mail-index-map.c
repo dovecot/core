@@ -485,9 +485,7 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 
 	i_assert(rec_map->mmap_base == NULL);
 
-	buffer_free(rec_map->buffer);
-	rec_map->buffer = NULL;
-
+	buffer_free(&rec_map->buffer);
 	if (file_size > SSIZE_T_MAX) {
 		/* too large file to map into memory */
 		mail_index_set_error(index, "Index file too large: %s",
@@ -925,8 +923,7 @@ static void mail_index_record_map_free(struct mail_index_map *map,
 
 	if (rec_map->buffer != NULL) {
 		i_assert(rec_map->mmap_base == NULL);
-		buffer_free(rec_map->buffer);
-		rec_map->buffer = NULL;
+		buffer_free(&rec_map->buffer);
 	} else if (rec_map->mmap_base != NULL) {
 		i_assert(rec_map->buffer == NULL);
 		if (munmap(rec_map->mmap_base, rec_map->mmap_size) < 0)
@@ -969,7 +966,7 @@ void mail_index_unmap(struct mail_index_map **_map)
 		pool_unref(map->extension_pool);
 	if (array_is_created(&map->keyword_idx_map))
 		array_free(&map->keyword_idx_map);
-	buffer_free(map->hdr_copy_buf);
+	buffer_free(&map->hdr_copy_buf);
 	i_free(map);
 }
 

@@ -76,7 +76,7 @@ void mail_transaction_log_file_free(struct mail_transaction_log_file **_file)
 		file->log->head = NULL;
 
 	if (file->buffer != NULL) 
-		buffer_free(file->buffer);
+		buffer_free(&file->buffer);
 
 	if (file->mmap_base != NULL) {
 		if (munmap(file->mmap_base, file->mmap_size) < 0) {
@@ -956,7 +956,7 @@ mail_transaction_log_file_mmap(struct mail_transaction_log_file *file)
 {
 	if (file->buffer != NULL) {
 		/* in case we just switched to mmaping */
-		buffer_free(file->buffer);
+		buffer_free(&file->buffer);
 	}
 	file->mmap_size = file->last_size;
 	file->mmap_base = mmap(NULL, file->mmap_size, PROT_READ, MAP_SHARED,
@@ -996,7 +996,7 @@ mail_transaction_log_file_munmap(struct mail_transaction_log_file *file)
 	}
 	file->mmap_base = NULL;
 	file->mmap_size = 0;
-	buffer_free(file->buffer);
+	buffer_free(&file->buffer);
 }
 
 int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
@@ -1111,7 +1111,7 @@ void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
 
 		buf = buffer_create_dynamic(default_pool, file->mmap_size);
 		buffer_append(buf, file->mmap_base, file->mmap_size);
-		buffer_free(file->buffer);
+		buffer_free(&file->buffer);
 		file->buffer = buf;
 
 		/* and lose the mmap */

@@ -27,12 +27,10 @@ void buffer_update_const_data(buffer_t *buffer, const void *data, size_t size);
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);
 /* Free the memory used by buffer. Not needed if the memory is free'd
    directly from the memory pool. */
-void _buffer_free(buffer_t **buf);
-#define buffer_free(buf) _buffer_free(&(buf))
+void buffer_free(buffer_t **buf);
 /* Free the memory used by buffer structure, but return the buffer data
    unfree'd. */
-void *_buffer_free_without_data(buffer_t **buf);
-#define buffer_free_without_data(buf) _buffer_free_without_data(&(buf))
+void *buffer_free_without_data(buffer_t **buf);
 
 /* Returns the pool buffer was created with. */
 pool_t buffer_get_pool(buffer_t *buf);

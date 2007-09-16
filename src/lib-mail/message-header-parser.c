@@ -45,7 +45,7 @@ void message_parse_header_deinit(struct message_header_parser_ctx **_ctx)
 
 	i_stream_skip(ctx->input, ctx->skip);
 	if (ctx->value_buf != NULL)
-		buffer_free(ctx->value_buf);
+		buffer_free(&ctx->value_buf);
 	str_free(&ctx->name);
 	i_free(ctx);
 

@@ -302,7 +302,7 @@ static void auth_server_connection_unref(struct auth_server_connection *conn)
 	i_assert(conn->refcount == 0);
 
 	hash_destroy(conn->requests);
-	buffer_free(conn->auth_mechs_buf);
+	buffer_free(&conn->auth_mechs_buf);
 
 	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);

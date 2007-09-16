@@ -559,10 +559,10 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 
 	append_offset = file->sync_offset;
 	if (log_buffer_write(&ctx) < 0) {
-		buffer_free(ctx.output);
+		buffer_free(&ctx.output);
 		return -1;
 	}
-	buffer_free(ctx.output);
+	buffer_free(&ctx.output);
 
 	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_HIDE) != 0) {
 		/* mark the area covered by this transaction hidden */

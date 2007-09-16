@@ -401,7 +401,7 @@ mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
 	buffer_append(buf, str_c(realms), realms_len);
 
 	*size = buffer_get_used_size(buf);
-	return buffer_free_without_data(buf);
+	return buffer_free_without_data(&buf);
 }
 
 static const unsigned char *
@@ -434,7 +434,7 @@ mech_rpa_build_token4(struct rpa_auth_request *request, size_t *size)
 	buffer_append_c(buf, 0);
 
 	*size = buffer_get_used_size(buf);
-	return buffer_free_without_data(buf);
+	return buffer_free_without_data(&buf);
 }
 
 static bool verify_credentials(struct rpa_auth_request *request,

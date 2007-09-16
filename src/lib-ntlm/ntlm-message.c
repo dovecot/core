@@ -170,7 +170,7 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 				   NTPLMSSP_V2_TARGET_END);
 
 	*size = buffer_get_used_size(buf);
-	return buffer_free_without_data(buf);
+	return buffer_free_without_data(&buf);
 }
 
 static int ntlmssp_check_buffer(const struct ntlmssp_buffer *buffer,

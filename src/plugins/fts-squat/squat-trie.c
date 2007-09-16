@@ -737,7 +737,7 @@ squat_trie_open(const char *path, uint32_t uidvalidity,
 void squat_trie_close(struct squat_trie *trie)
 {
 	squat_trie_unmap(trie);
-	buffer_free(trie->buf);
+	buffer_free(&trie->buf);
 	squat_uidlist_deinit(trie->uidlist);
 	i_free(trie->uidlist_filepath);
 	i_free(trie->filepath);
