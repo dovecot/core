@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
 #include "unlink-lockfiles.h"
 
 #include <stdlib.h>
@@ -15,7 +16,7 @@ int unlink_lockfiles(const char *dir, const char *pidprefix,
 	DIR *dirp;
 	struct dirent *d;
 	struct stat st;
-	char path[PATH_MAX];
+	string_t *path;
 	unsigned int pidlen, otherlen;
 	int ret = 1;
 
@@ -24,6 +25,8 @@ int unlink_lockfiles(const char *dir, const char *pidprefix,
 	if (dirp == NULL)
 		return -1;
 
+	t_push();
+	path = t_str_new(512);
 	pidlen = pidprefix == NULL ? 0 : strlen(pidprefix);
 	otherlen = otherprefix == NULL ? 0 : strlen(otherprefix);
 
@@ -39,20 +42,23 @@ int unlink_lockfiles(const char *dir, const char *pidprefix,
 			if (kill(atol(fname+pidlen), 0) == 0 || errno != ESRCH)
 				continue; /* valid */
 
-			if (str_path(path, sizeof(path), dir, fname) == 0) {
-				if (unlink(path) < 0 && errno != ENOENT) {
-					i_error("unlink(%s) failed: %m", path);
-					ret = 0;
-				}
+			str_truncate(path, 0);
+			str_printfa(path, "%s/%s", dir, fname);
+			if (unlink(str_c(path)) < 0 && errno != ENOENT) {
+				i_error("unlink(%s) failed: %m", str_c(path));
+				ret = 0;
 			}
 		} else if (otherprefix != NULL &&
 			   strncmp(fname, otherprefix, otherlen) == 0) {
-			if (str_path(path, sizeof(path), dir, fname) == 0 &&
-			    stat(path, &st) == 0 &&
+			str_truncate(path, 0);
+			str_printfa(path, "%s/%s", dir, fname);
+			if (stat(str_c(path), &st) == 0 &&
 			    st.st_mtime < other_min_time &&
 			    st.st_ctime < other_min_time)
-				if (unlink(path) < 0 && errno != ENOENT) {
-					i_error("unlink(%s) failed: %m", path);
+				if (unlink(str_c(path)) < 0 &&
+				    errno != ENOENT) {
+					i_error("unlink(%s) failed: %m",
+						str_c(path));
 					ret = 0;
 				}
 		}
@@ -61,5 +67,6 @@ int unlink_lockfiles(const char *dir, const char *pidprefix,
 	if (closedir(dirp) < 0)
 		i_error("closedir(%s) failed: %m", dir);
 
+	t_pop();
 	return ret;
 }
