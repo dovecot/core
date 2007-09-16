@@ -9,6 +9,12 @@ struct maildir_keywords_sync_ctx;
 struct maildir_keywords *maildir_keywords_init(struct maildir_mailbox *mbox);
 void maildir_keywords_deinit(struct maildir_keywords *mk);
 
+/* Initialize a read-only maildir_keywords instance. Mailbox needs to contain
+   the dovecot-keywords file, but otherwise it doesn't have to be in maildir
+   format. */
+struct maildir_keywords *
+maildir_keywords_init_readonly(struct mailbox *box);
+
 struct maildir_keywords_sync_ctx *
 maildir_keywords_sync_init(struct maildir_keywords *mk,
 			   struct mail_index *index);

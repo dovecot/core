@@ -468,7 +468,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	mbox->control_dir = p_strdup(pool, control_dir);
 
 	mbox->uidlist = maildir_uidlist_init(mbox);
-	mbox->keywords = maildir_keywords_init(mbox);
 
 	mbox->maildir_ext_id =
 		mail_index_ext_register(index, "maildir",
@@ -501,6 +500,8 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	if (access(t_strconcat(path, "/cur", NULL), W_OK) < 0 &&
 	    errno == EACCES)
 		mbox->ibox.readonly = TRUE;
+
+	mbox->keywords = maildir_keywords_init(mbox);
 	t_pop();
 	return &mbox->ibox.box;
 }
@@ -851,7 +852,8 @@ static int maildir_storage_mailbox_close(struct mailbox *box)
 		timeout_remove(&mbox->keep_lock_to);
 	}
 
-	maildir_keywords_deinit(mbox->keywords);
+	if (mbox->keywords != NULL)
+		maildir_keywords_deinit(mbox->keywords);
 	maildir_uidlist_deinit(mbox->uidlist);
 	return index_storage_mailbox_close(box);
 }
