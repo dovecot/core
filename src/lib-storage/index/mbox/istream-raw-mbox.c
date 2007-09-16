@@ -7,7 +7,7 @@
 #include "mbox-from.h"
 
 struct raw_mbox_istream {
-	struct _istream istream;
+	struct istream_private istream;
 
 	time_t received_time, next_received_time;
 	char *sender, *next_sender;
@@ -22,11 +22,11 @@ struct raw_mbox_istream {
 	unsigned int eof:1;
 };
 
-static void _close(struct _iostream *stream ATTR_UNUSED)
+static void _close(struct iostream_private *stream ATTR_UNUSED)
 {
 }
 
-static void _destroy(struct _iostream *stream)
+static void _destroy(struct iostream_private *stream)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -37,7 +37,8 @@ static void _destroy(struct _iostream *stream)
 	i_stream_unref(&rstream->input);
 }
 
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
+static void
+_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -121,7 +122,7 @@ static void handle_end_of_mail(struct raw_mbox_istream *rstream, size_t pos)
 	}
 }
 
-static ssize_t _read(struct _istream *stream)
+static ssize_t _read(struct istream_private *stream)
 {
 	static const char *mbox_from = "\nFrom ";
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
@@ -306,7 +307,7 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset,
+static void _seek(struct istream_private *stream, uoff_t v_offset,
 		  bool mark ATTR_UNUSED)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
@@ -319,7 +320,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	rstream->eof = FALSE;
 }
 
-static void _sync(struct _istream *stream)
+static void _sync(struct istream_private *stream)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -329,7 +330,7 @@ static void _sync(struct _istream *stream)
 	rstream->istream.pos = 0;
 }
 
-static const struct stat *_stat(struct _istream *stream, bool exact)
+static const struct stat *_stat(struct istream_private *stream, bool exact)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 	const struct stat *st;
@@ -370,8 +371,8 @@ struct istream *i_stream_create_raw_mbox(struct istream *input,
 
 	rstream->istream.istream.blocking = input->blocking;
 	rstream->istream.istream.seekable = input->seekable;
-	return _i_stream_create(&rstream->istream, -1,
-				input->real_stream->abs_start_offset);
+	return i_stream_create(&rstream->istream, -1,
+			       input->real_stream->abs_start_offset);
 }
 
 static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)

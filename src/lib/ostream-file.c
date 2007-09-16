@@ -29,7 +29,7 @@
 	((size) < SSIZE_T_MAX ? (size_t)(size) : SSIZE_T_MAX)
 
 struct file_ostream {
-	struct _ostream ostream;
+	struct ostream_private ostream;
 
 	int fd;
 	struct io *io;
@@ -66,7 +66,7 @@ static void stream_closed(struct file_ostream *fstream)
 	fstream->ostream.ostream.closed = TRUE;
 }
 
-static void _close(struct _iostream *stream)
+static void _close(struct iostream_private *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
@@ -76,14 +76,15 @@ static void _close(struct _iostream *stream)
 	stream_closed(fstream);
 }
 
-static void _destroy(struct _iostream *stream)
+static void _destroy(struct iostream_private *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
 	i_free(fstream->buffer);
 }
 
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
+static void
+_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
@@ -262,7 +263,7 @@ static int buffer_flush(struct file_ostream *fstream)
 	return IS_STREAM_EMPTY(fstream) ? 1 : 0;
 }
 
-static void _cork(struct _ostream *stream, bool set)
+static void _cork(struct ostream_private *stream, bool set)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 	int ret;
@@ -291,14 +292,14 @@ static void _cork(struct _ostream *stream, bool set)
 	}
 }
 
-static int _flush(struct _ostream *stream)
+static int _flush(struct ostream_private *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	return buffer_flush(fstream);
 }
 
-static void _flush_pending(struct _ostream *stream, bool set)
+static void _flush_pending(struct ostream_private *stream, bool set)
 {
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 
@@ -323,14 +324,14 @@ static size_t get_unused_space(struct file_ostream *fstream)
 	}
 }
 
-static size_t _get_used_size(struct _ostream *stream)
+static size_t _get_used_size(struct ostream_private *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
 	return fstream->buffer_size - get_unused_space(fstream);
 }
 
-static int _seek(struct _ostream *stream, uoff_t offset)
+static int _seek(struct ostream_private *stream, uoff_t offset)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
@@ -459,7 +460,8 @@ static size_t o_stream_add(struct file_ostream *fstream,
 	return sent;
 }
 
-static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
+static ssize_t _sendv(struct ostream_private *stream,
+		      const struct const_iovec *iov,
 		      unsigned int iov_count)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
@@ -525,7 +527,7 @@ static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
 	return ret;
 }
 
-static off_t io_stream_sendfile(struct _ostream *outstream,
+static off_t io_stream_sendfile(struct ostream_private *outstream,
 				struct istream *instream,
 				int in_fd, uoff_t in_size)
 {
@@ -575,7 +577,7 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 	return ret < 0 ? -1 : (off_t)(instream->v_offset - start_offset);
 }
 
-static off_t io_stream_copy(struct _ostream *outstream,
+static off_t io_stream_copy(struct ostream_private *outstream,
 			    struct istream *instream, uoff_t in_size)
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
@@ -637,7 +639,7 @@ static off_t io_stream_copy(struct _ostream *outstream,
 	return (off_t) (instream->v_offset - start_offset);
 }
 
-static off_t io_stream_copy_backwards(struct _ostream *outstream,
+static off_t io_stream_copy_backwards(struct ostream_private *outstream,
 				      struct istream *instream, uoff_t in_size)
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
@@ -712,7 +714,8 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 	return (off_t) (in_size - in_start_offset);
 }
 
-static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
+static off_t _send_istream(struct ostream_private *outstream,
+			   struct istream *instream)
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	const struct stat *st;
@@ -823,7 +826,7 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
 
 	fstream = o_stream_create_fd_common(fd, autoclose_fd);
 	fstream->max_buffer_size = max_buffer_size;
-	ostream = _o_stream_create(&fstream->ostream);
+	ostream = o_stream_create(&fstream->ostream);
 
 	offset = lseek(fd, 0, SEEK_CUR);
 	if (offset >= 0) {
@@ -859,7 +862,7 @@ o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
 	fstream->real_offset = offset;
 	fstream->buffer_offset = offset;
 
-	ostream = _o_stream_create(&fstream->ostream);
+	ostream = o_stream_create(&fstream->ostream);
 	ostream->offset = offset;
 	return ostream;
 }

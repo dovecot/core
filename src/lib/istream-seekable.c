@@ -16,7 +16,7 @@
 #define BUF_INITIAL_SIZE (1024*32)
 
 struct seekable_istream {
-	struct _istream istream;
+	struct istream_private istream;
 
 	size_t max_buffer_size;
 	char *temp_prefix;
@@ -29,7 +29,7 @@ struct seekable_istream {
 	int fd;
 };
 
-static void _close(struct _iostream *stream ATTR_UNUSED)
+static void _close(struct iostream_private *stream ATTR_UNUSED)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	unsigned int i;
@@ -41,7 +41,7 @@ static void _close(struct _iostream *stream ATTR_UNUSED)
 		i_stream_close(sstream->input[i]);
 }
 
-static void _destroy(struct _iostream *stream)
+static void _destroy(struct iostream_private *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	unsigned int i;
@@ -56,7 +56,8 @@ static void _destroy(struct _iostream *stream)
 	i_free(sstream->temp_prefix);
 }
 
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
+static void
+_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	unsigned int i;
@@ -161,7 +162,7 @@ static ssize_t read_more(struct seekable_istream *sstream)
 
 static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret)
 {
-	struct _istream *stream = &sstream->istream;
+	struct istream_private *stream = &sstream->istream;
 	const unsigned char *data;
 	size_t size, pos, offset;
 
@@ -191,7 +192,7 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret)
 	return TRUE;
 }
 
-static ssize_t _read(struct _istream *stream)
+static ssize_t _read(struct istream_private *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	const unsigned char *data;
@@ -250,7 +251,7 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset,
+static void _seek(struct istream_private *stream, uoff_t v_offset,
 		  bool mark ATTR_UNUSED)
 {
 	stream->istream.stream_errno = 0;
@@ -258,7 +259,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	stream->skip = stream->pos = 0;
 }
 
-static const struct stat *_stat(struct _istream *stream, bool exact)
+static const struct stat *_stat(struct istream_private *stream, bool exact)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	uoff_t old_offset;
@@ -326,5 +327,5 @@ i_stream_create_seekable(struct istream *input[],
 	sstream->istream.seek = _seek;
 	sstream->istream.stat = _stat;
 
-	return _i_stream_create(&sstream->istream, -1, 0);
+	return i_stream_create(&sstream->istream, -1, 0);
 }

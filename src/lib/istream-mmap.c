@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 
 struct mmap_istream {
-	struct _istream istream;
+	struct istream_private istream;
 
         struct timeval fstat_cache_stamp;
 
@@ -22,7 +22,7 @@ struct mmap_istream {
 
 static size_t mmap_pagemask = 0;
 
-static void _close(struct _iostream *stream)
+static void _close(struct iostream_private *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
@@ -35,7 +35,7 @@ static void _close(struct _iostream *stream)
 
 static void i_stream_munmap(struct mmap_istream *mstream)
 {
-	struct _istream *_stream = &mstream->istream;
+	struct istream_private *_stream = &mstream->istream;
 
 	if (_stream->buffer != NULL) {
 		if (munmap(mstream->mmap_base, _stream->buffer_size) < 0)
@@ -47,20 +47,20 @@ static void i_stream_munmap(struct mmap_istream *mstream)
 	}
 }
 
-static void _destroy(struct _iostream *stream)
+static void _destroy(struct iostream_private *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
 	i_stream_munmap(mstream);
 }
 
-static size_t mstream_get_mmap_block_size(struct _istream *stream)
+static size_t mstream_get_mmap_block_size(struct istream_private *stream)
 {
 	return (stream->max_buffer_size + mmap_get_page_size() - 1) & ~
 		(mmap_get_page_size() - 1);
 }
 
-static ssize_t _read(struct _istream *stream)
+static ssize_t _read(struct istream_private *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 	size_t aligned_skip;
@@ -130,7 +130,7 @@ static ssize_t _read(struct _istream *stream)
 	return stream->pos - stream->skip;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset,
+static void _seek(struct istream_private *stream, uoff_t v_offset,
 		  bool mark ATTR_UNUSED)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
@@ -149,7 +149,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	stream->istream.v_offset = v_offset;
 }
 
-static void _sync(struct _istream *stream)
+static void _sync(struct istream_private *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
@@ -175,7 +175,7 @@ static int fstat_cached(struct mmap_istream *mstream)
 }
 
 static const struct stat *
-_stat(struct _istream *stream, bool exact ATTR_UNUSED)
+_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
@@ -220,7 +220,7 @@ struct istream *i_stream_create_mmap(int fd, size_t block_size,
 	mstream->istream.sync = _sync;
 	mstream->istream.stat = _stat;
 
-	istream = _i_stream_create(&mstream->istream, fd, start_offset);
+	istream = i_stream_create(&mstream->istream, fd, start_offset);
 	istream->mmaped = TRUE;
 	istream->blocking = TRUE;
 	istream->seekable = TRUE;

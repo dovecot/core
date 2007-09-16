@@ -12,7 +12,7 @@ struct tee_istream {
 };
 
 struct tee_child_istream {
-	struct _istream istream;
+	struct istream_private istream;
 
 	struct tee_istream *tee;
 	struct tee_child_istream *next;
@@ -58,14 +58,14 @@ static void tee_streams_skip(struct tee_istream *tee)
 	}
 }
 
-static void _close(struct _iostream *stream)
+static void _close(struct iostream_private *stream)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 
 	tee_streams_skip(tstream->tee);
 }
 
-static void _destroy(struct _iostream *stream)
+static void _destroy(struct iostream_private *stream)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 	struct tee_istream *tee = tstream->tee;
@@ -93,14 +93,15 @@ static void _destroy(struct _iostream *stream)
 	}
 }
 
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
+static void
+_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 
 	return i_stream_set_max_buffer_size(tstream->tee->input, max_size);
 }
 
-static ssize_t _read(struct _istream *stream)
+static ssize_t _read(struct istream_private *stream)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 	struct istream *input = tstream->tee->input;
@@ -142,20 +143,20 @@ static ssize_t _read(struct _istream *stream)
 }
 
 static void ATTR_NORETURN
-_seek(struct _istream *stream ATTR_UNUSED,
+_seek(struct istream_private *stream ATTR_UNUSED,
       uoff_t v_offset ATTR_UNUSED, bool mark ATTR_UNUSED)
 {
 	i_panic("tee-istream: seeking unsupported currently");
 }
 
-static const struct stat *_stat(struct _istream *stream, bool exact)
+static const struct stat *_stat(struct istream_private *stream, bool exact)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 
 	return i_stream_stat(tstream->tee->input, exact);
 }
 
-static void _sync(struct _istream *stream)
+static void _sync(struct istream_private *stream)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 	size_t size;
@@ -199,6 +200,6 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 	tstream->next = tee->children;
 	tee->children = tstream;
 
-	return _i_stream_create(&tstream->istream,
-				i_stream_get_fd(tee->input), 0);
+	return i_stream_create(&tstream->istream,
+			       i_stream_get_fd(tee->input), 0);
 }

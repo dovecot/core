@@ -3,18 +3,20 @@
 
 /* This file is private to input stream and output stream implementations */
 
-struct _iostream {
+struct iostream_private {
 	int refcount;
 
-	void (*close)(struct _iostream *stream);
-	void (*destroy)(struct _iostream *stream);
-	void (*set_max_buffer_size)(struct _iostream *stream, size_t max_size);
+	void (*close)(struct iostream_private *stream);
+	void (*destroy)(struct iostream_private *stream);
+	void (*set_max_buffer_size)(struct iostream_private *stream,
+				    size_t max_size);
 };
 
-void _io_stream_init(struct _iostream *stream);
-void _io_stream_ref(struct _iostream *stream);
-void _io_stream_unref(struct _iostream *stream);
-void _io_stream_close(struct _iostream *stream);
-void _io_stream_set_max_buffer_size(struct _iostream *stream, size_t max_size);
+void io_stream_init(struct iostream_private *stream);
+void io_stream_ref(struct iostream_private *stream);
+void io_stream_unref(struct iostream_private *stream);
+void io_stream_close(struct iostream_private *stream);
+void io_stream_set_max_buffer_size(struct iostream_private *stream,
+				   size_t max_size);
 
 #endif

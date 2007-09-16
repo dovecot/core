@@ -13,7 +13,7 @@ struct ostream {
 	unsigned int overflow:1;
 	unsigned int closed:1;
 
-	struct _ostream *real_stream;
+	struct ostream_private *real_stream;
 };
 
 /* Returns 1 if all data is sent (not necessarily flushed), 0 if not.

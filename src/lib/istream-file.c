@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 
 struct file_istream {
-	struct _istream istream;
+	struct istream_private istream;
 
 	uoff_t skip_left;
 
@@ -20,10 +20,10 @@ struct file_istream {
 	unsigned int autoclose_fd:1;
 };
 
-static void _close(struct _iostream *stream)
+static void _close(struct iostream_private *stream)
 {
-	struct file_istream *fstream = (struct file_istream *) stream;
-	struct _istream *_stream = (struct _istream *) stream;
+	struct file_istream *fstream = (struct file_istream *)stream;
+	struct istream_private *_stream = (struct istream_private *)stream;
 
 	if (fstream->autoclose_fd && _stream->fd != -1) {
 		if (close(_stream->fd) < 0)
@@ -32,14 +32,14 @@ static void _close(struct _iostream *stream)
 	_stream->fd = -1;
 }
 
-static void _destroy(struct _iostream *stream)
+static void _destroy(struct iostream_private *stream)
 {
-	struct _istream *_stream = (struct _istream *) stream;
+	struct istream_private *_stream = (struct istream_private *)stream;
 
 	i_free(_stream->w_buffer);
 }
 
-static ssize_t _read(struct _istream *stream)
+static ssize_t _read(struct istream_private *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 	size_t size;
@@ -53,11 +53,11 @@ static ssize_t _read(struct _istream *stream)
 	if (stream->pos == stream->buffer_size) {
 		if (stream->skip > 0) {
 			/* remove the unused bytes from beginning of buffer */
-                        _i_stream_compress(stream);
+                        i_stream_compress(stream);
 		} else if (stream->max_buffer_size == 0 ||
 			   stream->buffer_size < stream->max_buffer_size) {
 			/* buffer is full - grow it */
-			_i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
+			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
 		}
 
 		if (stream->pos == stream->buffer_size)
@@ -116,7 +116,7 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset,
+static void _seek(struct istream_private *stream, uoff_t v_offset,
 		  bool mark ATTR_UNUSED)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
@@ -134,7 +134,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	stream->skip = stream->pos = 0;
 }
 
-static void _sync(struct _istream *stream)
+static void _sync(struct istream_private *stream)
 {
 	if (!stream->istream.seekable) {
 		/* can't do anything or data would be lost */
@@ -145,7 +145,7 @@ static void _sync(struct _istream *stream)
 }
 
 static const struct stat *
-_stat(struct _istream *stream, bool exact ATTR_UNUSED)
+_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
@@ -184,5 +184,5 @@ struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 		fstream->istream.istream.seekable = TRUE;
 	}
 
-	return _i_stream_create(&fstream->istream, fd, 0);
+	return i_stream_create(&fstream->istream, fd, 0);
 }

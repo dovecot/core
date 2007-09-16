@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 struct header_filter_istream {
-	struct _istream istream;
+	struct istream_private istream;
 	pool_t pool;
 
 	struct istream *input;
@@ -37,11 +37,11 @@ struct header_filter_istream {
 
 header_filter_callback *null_header_filter_callback = NULL;
 
-static void _close(struct _iostream *stream ATTR_UNUSED)
+static void _close(struct iostream_private *stream ATTR_UNUSED)
 {
 }
 
-static void _destroy(struct _iostream *stream)
+static void _destroy(struct iostream_private *stream)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -52,7 +52,8 @@ static void _destroy(struct _iostream *stream)
 	pool_unref(mstream->pool);
 }
 
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
+static void
+_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -204,7 +205,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	return ret;
 }
 
-static ssize_t _read(struct _istream *stream)
+static ssize_t _read(struct istream_private *stream)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -263,7 +264,7 @@ static void parse_header(struct header_filter_istream *mstream)
 	}
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset,
+static void _seek(struct istream_private *stream, uoff_t v_offset,
 		  bool mark ATTR_UNUSED)
 {
 	struct header_filter_istream *mstream =
@@ -295,13 +296,13 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 }
 
 static void ATTR_NORETURN
-_sync(struct _istream *stream ATTR_UNUSED)
+_sync(struct istream_private *stream ATTR_UNUSED)
 {
 	i_panic("istream-header-filter sync() not implemented");
 }
 
 static const struct stat *
-_stat(struct _istream *stream, bool exact)
+_stat(struct istream_private *stream, bool exact)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -364,5 +365,5 @@ i_stream_create_header_filter(struct istream *input,
 
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
-	return _i_stream_create(&mstream->istream, -1, 0);
+	return i_stream_create(&mstream->istream, -1, 0);
 }

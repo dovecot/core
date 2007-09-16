@@ -12,18 +12,18 @@ void o_stream_destroy(struct ostream **stream)
 
 void o_stream_ref(struct ostream *stream)
 {
-	_io_stream_ref(&stream->real_stream->iostream);
+	io_stream_ref(&stream->real_stream->iostream);
 }
 
 void o_stream_unref(struct ostream **stream)
 {
-	_io_stream_unref(&(*stream)->real_stream->iostream);
+	io_stream_unref(&(*stream)->real_stream->iostream);
 	*stream = NULL;
 }
 
 void o_stream_close(struct ostream *stream)
 {
-	_io_stream_close(&stream->real_stream->iostream);
+	io_stream_close(&stream->real_stream->iostream);
 	stream->closed = TRUE;
 }
 
@@ -32,7 +32,7 @@ void o_stream_set_flush_callback(struct ostream *stream,
 				 stream_flush_callback_t *callback,
 				 void *context)
 {
-	struct _ostream *_stream = stream->real_stream;
+	struct ostream_private *_stream = stream->real_stream;
 
 	_stream->callback = callback;
 	_stream->context = context;
@@ -40,7 +40,7 @@ void o_stream_set_flush_callback(struct ostream *stream,
 
 void o_stream_unset_flush_callback(struct ostream *stream)
 {
-	struct _ostream *_stream = stream->real_stream;
+	struct ostream_private *_stream = stream->real_stream;
 
 	_stream->callback = NULL;
 	_stream->context = NULL;
@@ -48,13 +48,12 @@ void o_stream_unset_flush_callback(struct ostream *stream)
 
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size)
 {
-	_io_stream_set_max_buffer_size(&stream->real_stream->iostream,
-				       max_size);
+	io_stream_set_max_buffer_size(&stream->real_stream->iostream, max_size);
 }
 
 void o_stream_cork(struct ostream *stream)
 {
-	struct _ostream *_stream = stream->real_stream;
+	struct ostream_private *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return;
@@ -64,7 +63,7 @@ void o_stream_cork(struct ostream *stream)
 
 void o_stream_uncork(struct ostream *stream)
 {
-	struct _ostream *_stream = stream->real_stream;
+	struct ostream_private *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return;
@@ -74,7 +73,7 @@ void o_stream_uncork(struct ostream *stream)
 
 int o_stream_flush(struct ostream *stream)
 {
-	struct _ostream *_stream = stream->real_stream;
+	struct ostream_private *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return -1;
@@ -84,7 +83,7 @@ int o_stream_flush(struct ostream *stream)
 
 void o_stream_set_flush_pending(struct ostream *stream, bool set)
 {
-	struct _ostream *_stream = stream->real_stream;
+	struct ostream_private *_stream = stream->real_stream;
 
 	if (!stream->closed)
 		_stream->flush_pending(_stream, set);
@@ -92,14 +91,14 @@ void o_stream_set_flush_pending(struct ostream *stream, bool set)
 
 size_t o_stream_get_buffer_used_size(struct ostream *stream)
 {
-	struct _ostream *_stream = stream->real_stream;
+	struct ostream_private *_stream = stream->real_stream;
 
 	return _stream->get_used_size(_stream);
 }
 
 int o_stream_seek(struct ostream *stream, uoff_t offset)
 {
-	struct _ostream *_stream = stream->real_stream;
+	struct ostream_private *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return -1;
@@ -120,7 +119,7 @@ ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size)
 ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 		       unsigned int iov_count)
 {
-	struct _ostream *_stream = stream->real_stream;
+	struct ostream_private *_stream = stream->real_stream;
 	unsigned int i;
 	size_t total_size;
 	ssize_t ret;
@@ -145,7 +144,7 @@ ssize_t o_stream_send_str(struct ostream *stream, const char *str)
 off_t o_stream_send_istream(struct ostream *outstream,
 			    struct istream *instream)
 {
-	struct _ostream *_outstream = outstream->real_stream;
+	struct ostream_private *_outstream = outstream->real_stream;
 	off_t ret;
 
 	if (outstream->closed || instream->closed)
@@ -157,10 +156,10 @@ off_t o_stream_send_istream(struct ostream *outstream,
 	return ret;
 }
 
-struct ostream *_o_stream_create(struct _ostream *_stream)
+struct ostream *o_stream_create(struct ostream_private *_stream)
 {
 	_stream->ostream.real_stream = _stream;
 
-	_io_stream_init(&_stream->iostream);
+	io_stream_init(&_stream->iostream);
 	return &_stream->ostream;
 }

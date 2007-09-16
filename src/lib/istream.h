@@ -15,7 +15,7 @@ struct istream {
 	unsigned int eof:1; /* read() has reached to end of file
 	                       (but may still be data available in buffer) */
 
-	struct _istream *real_stream;
+	struct istream_private *real_stream;
 };
 
 struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,

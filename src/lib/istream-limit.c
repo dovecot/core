@@ -4,17 +4,17 @@
 #include "istream-internal.h"
 
 struct limit_istream {
-	struct _istream istream;
+	struct istream_private istream;
 
 	struct istream *input;
 	uoff_t v_start_offset, v_size;
 };
 
-static void _close(struct _iostream *stream ATTR_UNUSED)
+static void _close(struct iostream_private *stream ATTR_UNUSED)
 {
 }
 
-static void _destroy(struct _iostream *stream)
+static void _destroy(struct iostream_private *stream)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
@@ -24,14 +24,15 @@ static void _destroy(struct _iostream *stream)
 	i_stream_unref(&lstream->input);
 }
 
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
+static void
+_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
 	i_stream_set_max_buffer_size(lstream->input, max_size);
 }
 
-static ssize_t _read(struct _istream *stream)
+static ssize_t _read(struct istream_private *stream)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	uoff_t left;
@@ -81,7 +82,7 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset,
+static void _seek(struct istream_private *stream, uoff_t v_offset,
 		  bool mark ATTR_UNUSED)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
@@ -93,7 +94,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	stream->skip = stream->pos = 0;
 }
 
-static const struct stat *_stat(struct _istream *stream, bool exact)
+static const struct stat *_stat(struct istream_private *stream, bool exact)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	const struct stat *st;
@@ -135,7 +136,7 @@ struct istream *i_stream_create_limit(struct istream *input,
 
 	lstream->istream.istream.blocking = input->blocking;
 	lstream->istream.istream.seekable = input->seekable;
-	return _i_stream_create(&lstream->istream, i_stream_get_fd(input),
-				input->real_stream->abs_start_offset +
-				v_start_offset);
+	return i_stream_create(&lstream->istream, i_stream_get_fd(input),
+			       input->real_stream->abs_start_offset +
+			       v_start_offset);
 }

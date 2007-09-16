@@ -4,19 +4,20 @@
 #include "ostream.h"
 #include "iostream-internal.h"
 
-struct _ostream {
+struct ostream_private {
 /* inheritance: */
-	struct _iostream iostream;
+	struct iostream_private iostream;
 
 /* methods: */
-	void (*cork)(struct _ostream *stream, bool set);
-	int (*flush)(struct _ostream *stream);
-	void (*flush_pending)(struct _ostream *stream, bool set);
-	size_t (*get_used_size)(struct _ostream *stream);
-	int (*seek)(struct _ostream *stream, uoff_t offset);
-	ssize_t (*sendv)(struct _ostream *stream, const struct const_iovec *iov,
+	void (*cork)(struct ostream_private *stream, bool set);
+	int (*flush)(struct ostream_private *stream);
+	void (*flush_pending)(struct ostream_private *stream, bool set);
+	size_t (*get_used_size)(struct ostream_private *stream);
+	int (*seek)(struct ostream_private *stream, uoff_t offset);
+	ssize_t (*sendv)(struct ostream_private *stream,
+			 const struct const_iovec *iov,
 			 unsigned int iov_count);
-	off_t (*send_istream)(struct _ostream *outstream,
+	off_t (*send_istream)(struct ostream_private *outstream,
 			      struct istream *instream);
 
 /* data: */
@@ -26,6 +27,6 @@ struct _ostream {
 	void *context;
 };
 
-struct ostream *_o_stream_create(struct _ostream *_stream);
+struct ostream *o_stream_create(struct ostream_private *_stream);
 
 #endif

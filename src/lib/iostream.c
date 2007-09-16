@@ -3,17 +3,17 @@
 #include "lib.h"
 #include "iostream-internal.h"
 
-void _io_stream_init(struct _iostream *stream)
+void io_stream_init(struct iostream_private *stream)
 {
 	stream->refcount = 1;
 }
 
-void _io_stream_ref(struct _iostream *stream)
+void io_stream_ref(struct iostream_private *stream)
 {
 	stream->refcount++;
 }
 
-void _io_stream_unref(struct _iostream *stream)
+void io_stream_unref(struct iostream_private *stream)
 {
 	i_assert(stream->refcount > 0);
 	if (--stream->refcount != 0)
@@ -25,12 +25,13 @@ void _io_stream_unref(struct _iostream *stream)
         i_free(stream);
 }
 
-void _io_stream_close(struct _iostream *stream)
+void io_stream_close(struct iostream_private *stream)
 {
 	stream->close(stream);
 }
 
-void _io_stream_set_max_buffer_size(struct _iostream *stream, size_t max_size)
+void io_stream_set_max_buffer_size(struct iostream_private *stream,
+				   size_t max_size)
 {
 	stream->set_max_buffer_size(stream, max_size);
 }

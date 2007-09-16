@@ -13,43 +13,42 @@ void i_stream_destroy(struct istream **stream)
 
 void i_stream_ref(struct istream *stream)
 {
-	_io_stream_ref(&stream->real_stream->iostream);
+	io_stream_ref(&stream->real_stream->iostream);
 }
 
 void i_stream_unref(struct istream **stream)
 {
-	struct _istream *_stream = (*stream)->real_stream;
+	struct istream_private *_stream = (*stream)->real_stream;
 
 	if (_stream->iostream.refcount == 1) {
 		if (_stream->line_str != NULL)
 			str_free(&_stream->line_str);
 	}
-	_io_stream_unref(&(*stream)->real_stream->iostream);
+	io_stream_unref(&(*stream)->real_stream->iostream);
 	*stream = NULL;
 }
 
 int i_stream_get_fd(struct istream *stream)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	return _stream->fd;
 }
 
 void i_stream_close(struct istream *stream)
 {
-	_io_stream_close(&stream->real_stream->iostream);
+	io_stream_close(&stream->real_stream->iostream);
 	stream->closed = TRUE;
 }
 
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
 {
-	_io_stream_set_max_buffer_size(&stream->real_stream->iostream,
-				       max_size);
+	io_stream_set_max_buffer_size(&stream->real_stream->iostream, max_size);
 }
 
 ssize_t i_stream_read(struct istream *stream)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return -1;
@@ -60,7 +59,7 @@ ssize_t i_stream_read(struct istream *stream)
 
 void i_stream_skip(struct istream *stream, uoff_t count)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 	size_t data_size;
 
 	data_size = _stream->pos - _stream->skip;
@@ -84,7 +83,7 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 
 void i_stream_seek(struct istream *stream, uoff_t v_offset)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	if (v_offset >= stream->v_offset) {
 		i_stream_skip(stream, v_offset - stream->v_offset);
@@ -100,7 +99,7 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 
 void i_stream_seek_mark(struct istream *stream, uoff_t v_offset)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return;
@@ -111,7 +110,7 @@ void i_stream_seek_mark(struct istream *stream, uoff_t v_offset)
 
 void i_stream_sync(struct istream *stream)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	if (!stream->closed && _stream->sync != NULL)
 		_stream->sync(_stream);
@@ -119,7 +118,7 @@ void i_stream_sync(struct istream *stream)
 
 const struct stat *i_stream_stat(struct istream *stream, bool exact)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return NULL;
@@ -129,12 +128,12 @@ const struct stat *i_stream_stat(struct istream *stream, bool exact)
 
 bool i_stream_have_bytes_left(struct istream *stream)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	return !stream->eof || _stream->skip != _stream->pos;
 }
 
-static char *i_stream_next_line_finish(struct _istream *stream, size_t i)
+static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 {
 	char *ret;
 	size_t end;
@@ -166,7 +165,7 @@ static char *i_stream_next_line_finish(struct _istream *stream, size_t i)
 
 char *i_stream_next_line(struct istream *stream)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 	char *ret_buf;
         size_t i;
 
@@ -208,7 +207,7 @@ char *i_stream_read_next_line(struct istream *stream)
 
 const unsigned char *i_stream_get_data(struct istream *stream, size_t *size_r)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos) {
 		*size_r = 0;
@@ -222,7 +221,7 @@ const unsigned char *i_stream_get_data(struct istream *stream, size_t *size_r)
 unsigned char *i_stream_get_modifiable_data(struct istream *stream,
 					    size_t *size_r)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct istream_private *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos || _stream->w_buffer == NULL) {
 		*size_r = 0;
@@ -261,7 +260,7 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 	return -1;
 }
 
-void _i_stream_compress(struct _istream *stream)
+void i_stream_compress(struct istream_private *stream)
 {
 	memmove(stream->w_buffer, stream->w_buffer + stream->skip,
 		stream->pos - stream->skip);
@@ -270,7 +269,7 @@ void _i_stream_compress(struct _istream *stream)
 	stream->skip = 0;
 }
 
-void _i_stream_grow_buffer(struct _istream *stream, size_t bytes)
+void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 {
 	size_t old_size;
 
@@ -290,21 +289,23 @@ void _i_stream_grow_buffer(struct _istream *stream, size_t bytes)
 		i_realloc(stream->w_buffer, old_size, stream->buffer_size);
 }
 
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
+static void
+_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
 {
-	struct _istream *_stream = (struct _istream *) stream;
+	struct istream_private *_stream = (struct istream_private *)stream;
 
 	_stream->max_buffer_size = max_size;
 }
 
 static const struct stat *
-_stat(struct _istream *stream, bool exact ATTR_UNUSED)
+_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	return &stream->statbuf;
 }
 
 struct istream *
-_i_stream_create(struct _istream *_stream, int fd, uoff_t abs_start_offset)
+i_stream_create(struct istream_private *_stream,
+		int fd, uoff_t abs_start_offset)
 {
 	_stream->fd = fd;
 	_stream->abs_start_offset = abs_start_offset;
@@ -321,7 +322,7 @@ _i_stream_create(struct _istream *_stream, int fd, uoff_t abs_start_offset)
 		_stream->statbuf.st_mtime =
 		_stream->statbuf.st_ctime = ioloop_time;
 
-	_io_stream_init(&_stream->iostream);
+	io_stream_init(&_stream->iostream);
 	return &_stream->istream;
 }
 

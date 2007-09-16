@@ -6,15 +6,16 @@
 
 #define I_STREAM_MIN_SIZE 4096
 
-struct _istream {
+struct istream_private {
 /* inheritance: */
-	struct _iostream iostream;
+	struct iostream_private iostream;
 
 /* methods: */
-	ssize_t (*read)(struct _istream *stream);
-	void (*seek)(struct _istream *stream, uoff_t v_offset, bool mark);
-	void (*sync)(struct _istream *stream);
-	const struct stat *(*stat)(struct _istream *stream, bool exact);
+	ssize_t (*read)(struct istream_private *stream);
+	void (*seek)(struct istream_private *stream,
+		     uoff_t v_offset, bool mark);
+	void (*sync)(struct istream_private *stream);
+	const struct stat *(*stat)(struct istream_private *stream, bool exact);
 
 /* data: */
 	struct istream istream;
@@ -33,9 +34,10 @@ struct _istream {
 };
 
 struct istream *
-_i_stream_create(struct _istream *_buf, int fd, uoff_t abs_start_offset);
+i_stream_create(struct istream_private *stream,
+		int fd, uoff_t abs_start_offset);
 
-void _i_stream_compress(struct _istream *stream);
-void _i_stream_grow_buffer(struct _istream *stream, size_t bytes);
+void i_stream_compress(struct istream_private *stream);
+void i_stream_grow_buffer(struct istream_private *stream, size_t bytes);
 
 #endif
