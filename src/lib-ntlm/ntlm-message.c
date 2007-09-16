@@ -18,8 +18,8 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-const char * __ntlmssp_t_str(const void *message, struct ntlmssp_buffer *buffer,
-			     bool unicode)
+const char *ntlmssp_t_str_i(const void *message, struct ntlmssp_buffer *buffer,
+			    bool unicode)
 {
 	unsigned int len = read_le16(&buffer->length);
 	const char *p = ((const char *) message) + read_le32(&buffer->offset);

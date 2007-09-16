@@ -136,7 +136,7 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 			ret = trash_clean_mailbox_get_next(&trashes[j],
 							   &received);
 			if (ret < 0)
-				goto __err;
+				goto err;
 			if (ret > 0) {
 				if (oldest == (time_t)-1 || received < oldest) {
 					oldest = received;
@@ -165,7 +165,7 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 		}
 	}
 
-__err:
+err:
 	for (i = 0; i < count; i++) {
 		struct trash_mailbox *trash = &trashes[i];
 

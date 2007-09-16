@@ -310,7 +310,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		   at all even for newly seen mails */
 		ctx->flags &= ~mbox->ibox.box.private_flags_mask;
 
-	__again:
+	again:
 		ctx->seq = ++seq;
 		ctx->uid = uid;
 
@@ -350,7 +350,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		if (uid > rec->uid) {
 			/* expunged */
 			mail_index_expunge(trans, seq);
-			goto __again;
+			goto again;
 		}
 
 		if (uid < rec->uid) {

@@ -1583,7 +1583,7 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	/* reopen input stream to make sure it has nothing buffered */
         mbox_file_close_stream(mbox);
 
-__again:
+again:
 	if (changed) {
 		/* we're most likely modifying the mbox while syncing, just
 		   lock it for writing immediately. the mbox must be locked
@@ -1637,7 +1637,7 @@ __again:
 
 	if (!changed && !mail_index_sync_have_more(index_sync_ctx)) {
 		/* nothing to do */
-	__nothing_to_do:
+	nothing_to_do:
 		if (lock_id != 0)
 			(void)mbox_unlock(mbox, lock_id);
 
@@ -1690,7 +1690,7 @@ __again:
 		if (uid == 0) {
 			sync_ctx.index_sync_ctx = NULL;
 			mbox_sync_context_free(&sync_ctx);
-			goto __nothing_to_do;
+			goto nothing_to_do;
 		}
 	}
 
@@ -1699,7 +1699,7 @@ __again:
 		   restart syncing to avoid deadlocking. */
 		mbox_sync_context_free(&sync_ctx);
 		changed = 1;
-		goto __again;
+		goto again;
 	}
 
 	if (mbox_file_open_stream(mbox) < 0) {

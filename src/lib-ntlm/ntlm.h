@@ -10,27 +10,27 @@
 #include "ntlm-message.h"
 
 #define ntlmssp_buffer_data(message, buffer) \
-	__ntlmssp_buffer_data((message), &message->buffer)
+	ntlmssp_buffer_data_i((message), &message->buffer)
 
 static inline const void *
-__ntlmssp_buffer_data(void * message, struct ntlmssp_buffer *buffer)
+ntlmssp_buffer_data_i(void *message, struct ntlmssp_buffer *buffer)
 {
 	return ((char *) message) + read_le32(&buffer->offset);
 }
 
 #define ntlmssp_buffer_length(message, buffer) \
-	__ntlmssp_buffer_length(&message->buffer)
+	ntlmssp_buffer_length_i(&message->buffer)
 
-static inline unsigned int __ntlmssp_buffer_length(struct ntlmssp_buffer *buffer)
+static inline unsigned int
+ntlmssp_buffer_length_i(struct ntlmssp_buffer *buffer)
 {
 	return read_le16(&buffer->length);
 }
 
 #define ntlmssp_t_str(message, buffer, unicode) \
-	__ntlmssp_t_str((message), &(message)->buffer, (unicode))
+	ntlmssp_t_str_i((message), &(message)->buffer, (unicode))
 
-const char * __ntlmssp_t_str(const void *message,
-			     struct ntlmssp_buffer *buffer,
-			     bool unicode);
+const char *ntlmssp_t_str_i(const void *message, struct ntlmssp_buffer *buffer,
+			    bool unicode);
 
 #endif
