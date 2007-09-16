@@ -529,7 +529,7 @@ void p_strsplit_free(pool_t pool, char **arr)
 	p_free(pool, arr);
 }
 
-unsigned int strarray_length(const char *const *arr)
+unsigned int str_array_length(const char *const *arr)
 {
 	unsigned int count;
 
@@ -572,7 +572,7 @@ const char *t_strarray_join(const char *const *arr, const char *separator)
 	return str;
 }
 
-bool strarray_remove(const char **arr, const char *value)
+bool str_array_remove(const char **arr, const char *value)
 {
 	const char **dest;
 

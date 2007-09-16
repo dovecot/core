@@ -24,7 +24,7 @@ struct expire_env *expire_env_init(const char *str)
 	env->pool = pool;
 
 	names = p_strsplit(pool, str, " ");
-	len = strarray_length((const char *const *)names);
+	len = str_array_length((const char *const *)names);
 
 	p_array_init(&env->expire_boxes, pool, len / 2);
 	for (; *names != NULL; names += 2) {

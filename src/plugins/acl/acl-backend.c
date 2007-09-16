@@ -41,7 +41,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 		i_info("acl: owner = %d", owner);
 	}
 
-	group_count = strarray_length(groups);
+	group_count = str_array_length(groups);
 
 	if (strncmp(data, "vfile:", 6) == 0)
 		data += 6;

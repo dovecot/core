@@ -81,12 +81,12 @@ void p_strsplit_free(pool_t pool, char **arr);
 const char *dec2str(uintmax_t number);
 
 /* Return length of NULL-terminated list string array */
-unsigned int strarray_length(const char *const *arr);
+unsigned int str_array_length(const char *const *arr);
 /* Return all strings from array joined into one string. */
 const char *t_strarray_join(const char *const *arr, const char *separator)
 	ATTR_MALLOC;
 /* Removes a value from NULL-terminated string array. Returns TRUE if found. */
-bool strarray_remove(const char **arr, const char *value);
+bool str_array_remove(const char **arr, const char *value);
 
 /* INTERNAL */
 char *t_noalloc_strdup_vprintf(const char *format, va_list args,

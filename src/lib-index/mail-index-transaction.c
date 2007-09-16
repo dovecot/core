@@ -1137,7 +1137,7 @@ mail_index_keywords_create(struct mail_index *index,
 	struct mail_keywords *k;
 	unsigned int src, dest, i, count;
 
-	count = strarray_length(keywords);
+	count = str_array_length(keywords);
 	if (count == 0) {
 		k = i_new(struct mail_keywords, 1);
 		k->index = index;

@@ -633,7 +633,7 @@ index_mail_headers_decode(struct index_mail *mail, const char *const *list,
 	unsigned int i, count;
 	buffer_t *buf;
 
-	count = strarray_length(list);
+	count = str_array_length(list);
 	if (count > max_count)
 		count = max_count;
 	decoded_list = p_new(mail->data_pool, const char *, count + 1);

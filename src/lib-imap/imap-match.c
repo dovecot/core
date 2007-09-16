@@ -119,7 +119,7 @@ imap_match_init_multiple(pool_t pool, const char *const *patterns,
 	if (!pool->datastack_pool)
 		t_push();
 
-	patterns_count = strarray_length(patterns);
+	patterns_count = str_array_length(patterns);
 	match_patterns = p_new(pool, struct imap_match_pattern,
 			       patterns_count + 1);
 

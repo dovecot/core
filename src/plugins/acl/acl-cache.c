@@ -95,7 +95,7 @@ struct acl_mask *acl_cache_mask_init(struct acl_cache *cache, pool_t pool,
 	buffer_t *bitmask;
 
 	t_push();
-	rights_count = strarray_length(rights);
+	rights_count = str_array_length(rights);
 	bitmask = buffer_create_dynamic(pool_datastack_create(),
 					DEFAULT_ACL_RIGHTS_COUNT / CHAR_BIT);
 	for (i = 0; i < rights_count; i++) {

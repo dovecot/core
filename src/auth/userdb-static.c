@@ -27,7 +27,7 @@ userdb_static_template_build(pool_t pool, const char *userdb_name,
 	tmpl = p_new(pool, struct userdb_static_template, 1);
 
 	tmp = t_strsplit_spaces(args, " ");
-	p_array_init(&tmpl->args, pool, strarray_length(tmp));
+	p_array_init(&tmpl->args, pool, str_array_length(tmp));
 
 	for (; *tmp != NULL; tmp++) {
 		value = strchr(*tmp, '=');
