@@ -89,7 +89,7 @@ static inline unsigned int module_get_context_id(struct module_context_id *id)
 		COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(module_ctx, \
 			(**(obj)->module_contexts.v)) + \
 		OBJ_REGISTER_COMPATIBLE(obj, id_ctx); \
-	_array_idx_set(&(obj)->module_contexts.arr, \
+	array_idx_set_i(&(obj)->module_contexts.arr, \
 		module_get_context_id(&(id_ctx).id), &_module_tmp); \
 	} STMT_END
 

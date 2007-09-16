@@ -54,121 +54,121 @@
 #endif
 
 static inline void
-_array_create_from_buffer(struct array *array, buffer_t *buffer,
-			  size_t element_size)
+array_create_from_buffer_i(struct array *array, buffer_t *buffer,
+			   size_t element_size)
 {
 	array->buffer = buffer;
 	array->element_size = element_size;
 }
 #define array_create_from_buffer(array, buffer, element_size) \
-	_array_create_from_buffer(&(array)->arr, buffer, element_size)
+	array_create_from_buffer_i(&(array)->arr, buffer, element_size)
 
 static inline void
-_array_create(struct array *array, pool_t pool,
-	      size_t element_size, unsigned int init_count)
+array_create_i(struct array *array, pool_t pool,
+	       size_t element_size, unsigned int init_count)
 {
 	buffer_t *buffer;
 
         buffer = buffer_create_dynamic(pool, init_count * element_size);
-	_array_create_from_buffer(array, buffer, element_size);
+	array_create_from_buffer_i(array, buffer, element_size);
 }
 #define array_create(array, pool, element_size, init_count) \
-	_array_create(&(array)->arr, pool, element_size, init_count)
+	array_create_i(&(array)->arr, pool, element_size, init_count)
 
 static inline void
-_array_free(struct array *array)
+array_free_i(struct array *array)
 {
 	buffer_free(&array->buffer);
 }
 #define array_free(array) \
-	_array_free(&(array)->arr)
+	array_free_i(&(array)->arr)
 
 static inline bool
-_array_is_created(const struct array *array)
+array_is_created_i(const struct array *array)
 {
 	return array->buffer != NULL;
 }
 #define array_is_created(array) \
-	_array_is_created(&(array)->arr)
+	array_is_created_i(&(array)->arr)
 
 static inline void
-_array_clear(struct array *array)
+array_clear_i(struct array *array)
 {
 	buffer_set_used_size(array->buffer, 0);
 }
 #define array_clear(array) \
-	_array_clear(&(array)->arr)
+	array_clear_i(&(array)->arr)
 
 static inline void
-_array_append(struct array *array, const void *data, unsigned int count)
+array_append_i(struct array *array, const void *data, unsigned int count)
 {
 	buffer_append(array->buffer, data, count * array->element_size);
 }
 
 #define array_append(array, data, count) \
-	_array_append(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
+	array_append_i(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
 		data, count)
 
 static inline void
-_array_append_array(struct array *dest_array, const struct array *src_array)
+array_append_array_i(struct array *dest_array, const struct array *src_array)
 {
 	i_assert(dest_array->element_size == src_array->element_size);
 	buffer_append_buf(dest_array->buffer, src_array->buffer, 0, (size_t)-1);
 }
 #define array_append_array(dest_array, src_array) \
-	_array_append_array(&(dest_array)->arr, &(src_array)->arr)
+	array_append_array_i(&(dest_array)->arr, &(src_array)->arr)
 
 static inline void
-_array_insert(struct array *array, unsigned int idx,
-	      const void *data, unsigned int count)
+array_insert_i(struct array *array, unsigned int idx,
+	       const void *data, unsigned int count)
 {
 	buffer_insert(array->buffer, idx * array->element_size,
 		      data, count * array->element_size);
 }
 
 #define array_insert(array, idx, data, count) \
-	_array_insert(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
+	array_insert_i(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
 		idx, data, count)
 
 static inline void
-_array_delete(struct array *array, unsigned int idx, unsigned int count)
+array_delete_i(struct array *array, unsigned int idx, unsigned int count)
 {
 	buffer_delete(array->buffer, idx * array->element_size,
 		      count * array->element_size);
 }
 #define array_delete(array, idx, count) \
-	_array_delete(&(array)->arr, idx, count)
+	array_delete_i(&(array)->arr, idx, count)
 
 static inline const void *
-_array_get(const struct array *array, unsigned int *count_r)
+array_get_i(const struct array *array, unsigned int *count_r)
 {
 	*count_r = array->buffer->used / array->element_size;
 	return array->buffer->data;
 }
 #define array_get(array, count) \
-	ARRAY_TYPE_CAST_CONST(array)_array_get(&(array)->arr, count)
+	ARRAY_TYPE_CAST_CONST(array)array_get_i(&(array)->arr, count)
 
 static inline const void *
-_array_idx(const struct array *array, unsigned int idx)
+array_idx_i(const struct array *array, unsigned int idx)
 {
 	i_assert(idx * array->element_size < array->buffer->used);
 	return CONST_PTR_OFFSET(array->buffer->data, idx * array->element_size);
 }
 #define array_idx(array, idx) \
-	ARRAY_TYPE_CAST_CONST(array)_array_idx(&(array)->arr, idx)
+	ARRAY_TYPE_CAST_CONST(array)array_idx_i(&(array)->arr, idx)
 
 static inline void *
-_array_get_modifiable(struct array *array, unsigned int *count_r)
+array_get_modifiable_i(struct array *array, unsigned int *count_r)
 {
 	*count_r = array->buffer->used / array->element_size;
 	return buffer_get_modifiable_data(array->buffer, NULL);
 }
 #define array_get_modifiable(array, count) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
-		_array_get_modifiable(&(array)->arr, count)
+		array_get_modifiable_i(&(array)->arr, count)
 
 static inline void *
-_array_idx_modifiable(struct array *array, unsigned int idx)
+array_idx_modifiable_i(struct array *array, unsigned int idx)
 {
 	size_t pos;
 
@@ -182,10 +182,10 @@ _array_idx_modifiable(struct array *array, unsigned int idx)
 }
 #define array_idx_modifiable(array, idx) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
-		_array_idx_modifiable(&(array)->arr, idx)
+		array_idx_modifiable_i(&(array)->arr, idx)
 
 static inline void
-_array_idx_set(struct array *array, unsigned int idx, const void *data)
+array_idx_set_i(struct array *array, unsigned int idx, const void *data)
 {
 	size_t pos;
 
@@ -197,10 +197,11 @@ _array_idx_set(struct array *array, unsigned int idx, const void *data)
 	buffer_write(array->buffer, pos, data, array->element_size);
 }
 #define array_idx_set(array, idx, data) \
-	_array_idx_set(&(array)->arr + ARRAY_TYPE_CHECK(array, data), idx, data)
+	array_idx_set_i(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
+		idx, data)
 
 static inline void
-_array_idx_clear(struct array *array, unsigned int idx)
+array_idx_clear_i(struct array *array, unsigned int idx)
 {
 	size_t pos;
 
@@ -213,10 +214,10 @@ _array_idx_clear(struct array *array, unsigned int idx)
 	}
 }
 #define array_idx_clear(array, idx) \
-	_array_idx_clear(&(array)->arr, idx)
+	array_idx_clear_i(&(array)->arr, idx)
 
 static inline void *
-_array_append_space(struct array *array)
+array_append_space_i(struct array *array)
 {
 	void *data;
 
@@ -225,10 +226,10 @@ _array_append_space(struct array *array)
 	return data;
 }
 #define array_append_space(array) \
-	ARRAY_TYPE_CAST_MODIFIABLE(array)_array_append_space(&(array)->arr)
+	ARRAY_TYPE_CAST_MODIFIABLE(array)array_append_space_i(&(array)->arr)
 
 static inline void *
-_array_insert_space(struct array *array, unsigned int idx)
+array_insert_space_i(struct array *array, unsigned int idx)
 {
 	void *data;
 	size_t pos;
@@ -243,28 +244,28 @@ _array_insert_space(struct array *array, unsigned int idx)
 }
 #define array_insert_space(array, idx) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
-		_array_insert_space(&(array)->arr, idx)
+		array_insert_space_i(&(array)->arr, idx)
 
 static inline unsigned int
-_array_count(const struct array *array)
+array_count_i(const struct array *array)
 {
 	return array->buffer->used / array->element_size;
 }
 #define array_count(array) \
-	_array_count(&(array)->arr)
+	array_count_i(&(array)->arr)
 
 static inline bool
-_array_cmp(const struct array *array1, const struct array *array2)
+array_cmp_i(const struct array *array1, const struct array *array2)
 {
-	if (!_array_is_created(array1) || array1->buffer->used == 0)
-		return !_array_is_created(array2) || array2->buffer->used == 0;
+	if (!array_is_created_i(array1) || array1->buffer->used == 0)
+		return !array_is_created_i(array2) || array2->buffer->used == 0;
 
-	if (!_array_is_created(array2))
+	if (!array_is_created_i(array2))
 		return FALSE;
 
 	return buffer_cmp(array1->buffer, array2->buffer);
 }
 #define array_cmp(array1, array2) \
-	_array_cmp(&(array1)->arr, &(array2)->arr)
+	array_cmp_i(&(array1)->arr, &(array2)->arr)
 
 #endif
