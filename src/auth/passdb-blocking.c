@@ -39,11 +39,17 @@ auth_worker_reply_parse(struct auth_request *request, const char *reply)
 		return PASSDB_RESULT_OK;
 	}
 
-	if (strcmp(*args, "FAIL") == 0 && args[1] != NULL && args[2] != NULL) {
-		/* FAIL \t result \t password [\t extra] */
+	if (strcmp(*args, "FAIL") == 0 && args[1] != NULL) {
+		/* FAIL \t result [\t user \t password [\t extra]] */
 		ret = atoi(args[1]);
-		if (ret != PASSDB_RESULT_OK) {
-			auth_worker_reply_parse_args(request, args + 2);
+		if (ret == PASSDB_RESULT_OK) {
+			/* shouldn't happen */
+		} else if (args[2] == NULL) {
+			/* internal failure most likely */
+			return ret;
+		} else if (args[3] != NULL) {
+			auth_request_set_field(request, "user", args[2], NULL);
+			auth_worker_reply_parse_args(request, args + 3);
 			return ret;
 		}
 	}

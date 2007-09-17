@@ -93,12 +93,13 @@ static void verify_plain_callback(enum passdb_result result,
 	str = t_str_new(64);
 	str_printfa(str, "%u\t", request->id);
 
-	if (result != PASSDB_RESULT_OK) {
-		str_printfa(str, "FAIL\t%d\t", result);
-		if (request->passdb_password != NULL)
-			str_append(str, request->passdb_password);
-	} else {
-		str_append(str, "OK\t");
+	if (result == PASSDB_RESULT_INTERNAL_FAILURE)
+		str_printfa(str, "FAIL\t%d", result);
+	else {
+		if (result != PASSDB_RESULT_OK)
+			str_printfa(str, "FAIL\t%d\t", result);
+		else
+			str_append(str, "OK\t");
 		str_append(str, request->user);
 		str_append_c(str, '\t');
 		if (request->passdb_password != NULL)
@@ -110,13 +111,13 @@ static void verify_plain_callback(enum passdb_result result,
 				auth_stream_reply_export(request->userdb_reply);
 			add_userdb_replies(str, data);
 		}
-	}
-	if (request->extra_fields != NULL) {
-		const char *field =
-			auth_stream_reply_export(request->extra_fields);
+		if (request->extra_fields != NULL) {
+			const char *field =
+				auth_stream_reply_export(request->extra_fields);
 
-		str_append_c(str, '\t');
-		str_append(str, field);
+			str_append_c(str, '\t');
+			str_append(str, field);
+		}
 	}
 	str_append_c(str, '\n');
 	o_stream_send(client->output, str_data(str), str_len(str));
