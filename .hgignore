@@ -74,3 +74,4 @@ src/util/listview
 src/util/logview
 src/util/rawlog
 src/plugins/quota/rquota_xdr.c
+src/plugins/quota/rquota_xdr.h
