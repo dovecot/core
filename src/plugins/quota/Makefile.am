@@ -32,14 +32,14 @@ lib10_quota_plugin_la_DEPENDENCIES = \
 	rquota_xdr.c
 
 RQUOTA_X = /usr/include/rpcsvc/rquota.x
-rquota_xdr.c: Makefile rquota_xdr.h $(RQUOTA_X)
+rquota_xdr.c: Makefile rquota.h $(RQUOTA_X)
 	$(RPCGEN) -c $(RQUOTA_X) | \
 	  sed -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
 	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' > rquota_xdr.c
 
 # BSD rpcgen wants to include the .h from current directory, so generate it
-rquota_xdr.h:
-	$(RPCGEN) -h $(RQUOTA_X) > rquota_xdr.h
+rquota.h:
+	$(RPCGEN) -h $(RQUOTA_X) > rquota.h
 endif
 
 noinst_HEADERS = \
