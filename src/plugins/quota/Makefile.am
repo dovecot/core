@@ -28,7 +28,8 @@ lib10_quota_plugin_la_SOURCES = \
 	quota-storage.c
 
 if HAVE_RQUOTA
-$(srcdir)/quota-fs.c: rquota_xdr.c
+lib10_quota_plugin_la_DEPENDENCIES = \
+	rquota_xdr.c
 
 rquota_xdr.c: Makefile
 	$(RPCGEN) -c /usr/include/rpcsvc/rquota.x | \
