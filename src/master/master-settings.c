@@ -23,6 +23,9 @@
 #include <sys/wait.h>
 #include <pwd.h>
 #include <grp.h>
+#ifdef HAVE_SYS_RESOURCE_H
+#  include <sys/resource.h>
+#endif
 
 enum settings_type {
 	SETTINGS_TYPE_ROOT,
