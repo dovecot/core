@@ -59,28 +59,13 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				enum mailbox_list_file_type type,
 				enum mailbox_info_flags *flags_r);
 
-static const char *strip_tail_slash(const char *path)
-{
-	size_t len = strlen(path);
-
-	if (len > 1 && path[len-1] == '/')
-		return t_strndup(path, len-1);
-	else
-		return path;
-}
-
-static const char *strip_tail_slash_and_cut(const char *path)
-{
-	return strip_tail_slash(t_strcut(path, ':'));
-}
-
 static int
 maildir_get_list_settings(struct mailbox_list_settings *list_set,
 			  const char *data, enum mail_storage_flags flags,
 			  const char **layout_r, const char **error_r)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
-	const char *home, *path, *p;
+	const char *home, *path;
 
 	*layout_r = MAILDIR_PLUSPLUS_DRIVER_NAME;
 
@@ -121,33 +106,11 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 			list_set->root_dir = "/";
 		}
 	} else {
-		/* <Maildir> [:INBOX=<dir>] [:INDEX=<dir>] [:CONTROL=<dir>] */
 		if (debug)
 			i_info("maildir: data=%s", data);
-		p = strchr(data, ':');
-		if (p == NULL)
-			list_set->root_dir = data;
-		else {
-			list_set->root_dir = t_strdup_until(data, p);
-
-			do {
-				p++;
-				if (strncmp(p, "INBOX=", 6) == 0) {
-					list_set->inbox_path =
-						strip_tail_slash_and_cut(p+6);
-				} else if (strncmp(p, "INDEX=", 6) == 0) {
-					list_set->index_dir =
-						strip_tail_slash_and_cut(p+6);
-				} else if (strncmp(p, "CONTROL=", 8) == 0) {
-					list_set->control_dir =
-						strip_tail_slash_and_cut(p+8);
-				} else if (strncmp(p, "LAYOUT=", 7) == 0) {
-					*layout_r =
-						strip_tail_slash_and_cut(p+7);
-				}
-				p = strchr(p, ':');
-			} while (p != NULL);
-		}
+		if (mailbox_list_settings_parse(data, list_set, layout_r,
+						error_r) < 0)
+			return -1;
 	}
 
 	if (list_set->root_dir == NULL || *list_set->root_dir == '\0') {
@@ -156,13 +119,8 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 		*error_r = "Root mail directory not given";
 		return -1;
 	}
-	list_set->root_dir = strip_tail_slash(list_set->root_dir);
 	if (list_set->inbox_path == NULL)
 		list_set->inbox_path = list_set->root_dir;
-
-	if (list_set->index_dir != NULL &&
-	    strcmp(list_set->index_dir, "MEMORY") == 0)
-		list_set->index_dir = "";
 	return 0;
 }
 

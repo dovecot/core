@@ -38,11 +38,11 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 static int
 cydir_get_list_settings(struct mailbox_list_settings *list_set,
 			const char *data, enum mail_storage_flags flags,
-			const char **error_r)
+			const char **layout_r, const char **error_r)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
-	const char *p;
-	size_t len;
+
+	*layout_r = "fs";
 
 	memset(list_set, 0, sizeof(*list_set));
 	list_set->subscription_fname = CYDIR_SUBSCRIPTION_FILE_NAME;
@@ -56,32 +56,9 @@ cydir_get_list_settings(struct mailbox_list_settings *list_set,
 		return -1;
 	}
 
-	/* <root dir> [:INDEX=<dir>] */
 	if (debug)
 		i_info("cydir: data=%s", data);
-	p = strchr(data, ':');
-	if (p == NULL)
-		list_set->root_dir = data;
-	else {
-		list_set->root_dir = t_strdup_until(data, p);
-
-		do {
-			p++;
-			if (strncmp(p, "INDEX=", 6) == 0)
-				list_set->index_dir = t_strcut(p+6, ':');
-			p = strchr(p, ':');
-		} while (p != NULL);
-	}
-
-	/* strip trailing '/' */
-	len = strlen(list_set->root_dir);
-	if (len > 1 && list_set->root_dir[len-1] == '/')
-		list_set->root_dir = t_strndup(list_set->root_dir, len-1);
-
-	if (list_set->index_dir != NULL &&
-	    strcmp(list_set->index_dir, "MEMORY") == 0)
-		list_set->index_dir = "";
-	return 0;
+	return mailbox_list_settings_parse(data, list_set, layout_r, error_r);
 }
 
 static struct mail_storage *cydir_alloc(void)
@@ -103,9 +80,10 @@ static int cydir_create(struct mail_storage *_storage, const char *data,
 	struct cydir_storage *storage = (struct cydir_storage *)_storage;
 	struct mailbox_list_settings list_set;
 	struct stat st;
+	const char *layout;
 
 	if (cydir_get_list_settings(&list_set, data, _storage->flags,
-				    error_r) < 0)
+				    &layout, error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;
@@ -132,7 +110,7 @@ static int cydir_create(struct mail_storage *_storage, const char *data,
 		}
 	}
 
-	if (mailbox_list_alloc("fs", &_storage->list, error_r) < 0)
+	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
 		return -1;
 	storage->list_module_ctx.super = _storage->list->v;
 	_storage->list->v.iter_is_mailbox = cydir_list_iter_is_mailbox;

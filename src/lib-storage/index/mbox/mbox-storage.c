@@ -303,35 +303,23 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		   either $HOME/mail or $HOME/Mail */
 		list_set->root_dir = get_root_dir(flags);
 	} else {
-		/* <root mail directory> | <INBOX path>
-		   [:INBOX=<path>] [:INDEX=<dir>] */
 		if (debug)
 			i_info("mbox: data=%s", data);
 		p = strchr(data, ':');
-		if (p == NULL) {
+		if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) == 0 &&
+		    p == NULL && data[strlen(data)-1] != '/') {
 			/* if the data points to a file, treat it as an INBOX */
-			if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0 ||
-			    stat(data, &st) < 0 || S_ISDIR(st.st_mode))
+			data = home_expand(data);
+			if (stat(data, &st) < 0 || S_ISDIR(st.st_mode))
 				list_set->root_dir = data;
 			else {
 				list_set->root_dir = get_root_dir(flags);
 				list_set->inbox_path = data;
 			}
 		} else {
-			list_set->root_dir = t_strdup_until(data, p);
-			do {
-				p++;
-				if (strncmp(p, "INBOX=", 6) == 0) {
-					list_set->inbox_path =
-						t_strcut(p+6, ':');
-				} else if (strncmp(p, "INDEX=", 6) == 0) {
-					list_set->index_dir =
-						t_strcut(p+6, ':');
-				} else if (strncmp(p, "LAYOUT=", 7) == 0) {
-					*layout_r = t_strcut(p+7, ':');
-				}
-				p = strchr(p, ':');
-			} while (p != NULL);
+			if (mailbox_list_settings_parse(data, list_set,
+							layout_r, error_r) < 0)
+				return -1;
 		}
 	}
 
@@ -345,18 +333,8 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		if (list_set->root_dir == NULL)
 			return -1;
 	} else {
-		/* strip trailing '/' */
-		size_t len = strlen(list_set->root_dir);
-
-		if (len > 1 && list_set->root_dir[len-1] == '/') {
-			list_set->root_dir =
-				t_strndup(list_set->root_dir, len-1);
-		}
-		list_set->root_dir = home_expand(list_set->root_dir);
-
 		/* make sure the directory exists */
-		if (*list_set->root_dir == '\0' ||
-		    lstat(list_set->root_dir, &st) == 0) {
+		if (lstat(list_set->root_dir, &st) == 0) {
 			/* yep, go ahead */
 		} else if (errno != ENOENT && errno != ENOTDIR) {
 			*error_r = t_strdup_printf("lstat(%s) failed: %m",
@@ -379,10 +357,6 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		list_set->inbox_path =
 			get_inbox_file(list_set->root_dir, !autodetect, debug);
 	}
-
-	if (list_set->index_dir != NULL &&
-	    strcmp(list_set->index_dir, "MEMORY") == 0)
-		list_set->index_dir = "";
 	return 0;
 }
 

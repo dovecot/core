@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "home-expand.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "mailbox-list-private.h"
@@ -92,6 +93,63 @@ int mailbox_list_alloc(const char *driver, struct mailbox_list **list_r,
 	class_p = array_idx(&mailbox_list_drivers, idx);
 	list = *list_r = (*class_p)->v.alloc();
 	array_create(&list->module_contexts, list->pool, sizeof(void *), 5);
+	return 0;
+}
+
+static const char *fix_path(const char *path)
+{
+	size_t len = strlen(path);
+
+	if (len > 1 && path[len-1] == '/')
+		path = t_strndup(path, len-1);
+	return home_expand(path);
+}
+
+int mailbox_list_settings_parse(const char *data,
+				struct mailbox_list_settings *set,
+				const char **layout, const char **error_r)
+{
+	const char *const *tmp, *key, *value;
+
+	i_assert(*data != '\0');
+
+	*error_r = NULL;
+
+	/* <root dir> */
+	tmp = t_strsplit(data, ":");
+	set->root_dir = fix_path(*tmp);
+	tmp++;
+
+	for (; *tmp != NULL; tmp++) {
+		value = strchr(*tmp, '=');
+		if (value == NULL) {
+			key = *tmp;
+			value = "";
+		} else {
+			key = t_strdup_until(*tmp, value);
+			value++;
+		}
+
+		if (strcmp(key, "INBOX") == 0)
+			set->inbox_path = fix_path(value);
+		else if (strcmp(key, "INDEX") == 0)
+			set->index_dir = fix_path(value);
+		else if (strcmp(key, "CONTROL") == 0)
+			set->control_dir = fix_path(value);
+		else if (strcmp(key, "LAYOUT") == 0)
+			*layout = value;
+		else if (strcmp(key, "SUBSCRIPTIONS") == 0)
+			set->subscription_fname = fix_path(value);
+		else if (strcmp(key, "DIRNAME") == 0)
+			set->maildir_name = value;
+		else {
+			*error_r = t_strdup_printf("Unknown setting: %s", key);
+			return -1;
+		}
+	}
+
+	if (set->index_dir != NULL && strcmp(set->index_dir, "MEMORY") == 0)
+		set->index_dir = "";
 	return 0;
 }
 

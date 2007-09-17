@@ -94,6 +94,10 @@ extern struct mailbox_list_module_register mailbox_list_module_register;
 
 extern void (*hook_mailbox_list_created)(struct mailbox_list *list);
 
+int mailbox_list_settings_parse(const char *data,
+				struct mailbox_list_settings *set,
+				const char **layout, const char **error_r);
+
 int mailbox_list_delete_index_control(struct mailbox_list *list,
 				      const char *name);
 
