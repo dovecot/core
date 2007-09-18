@@ -17,7 +17,7 @@ lib10_quota_plugin_la_LIBADD = \
 	-lrpcsvc
 endif
 
-lib10_quota_plugin_la_SOURCES = \
+quota_dist_sources = \
 	quota.c \
 	quota-count.c \
 	quota-fs.c \
@@ -27,19 +27,23 @@ lib10_quota_plugin_la_SOURCES = \
         quota-plugin.c \
 	quota-storage.c
 
+lib10_quota_plugin_la_SOURCES = \
+	$(quota_dist_sources) \
+	$(RQUOTA_XDR)
+
 if HAVE_RQUOTA
-lib10_quota_plugin_la_DEPENDENCIES = \
-	rquota_xdr.c
-
+RQUOTA_XDR = rquota_xdr.c
 RQUOTA_X = /usr/include/rpcsvc/rquota.x
-rquota_xdr.c: Makefile rquota.h $(RQUOTA_X)
-	$(RPCGEN) -c $(RQUOTA_X) | \
+rquota_xdr.c: Makefile $(RQUOTA_X)
+	(printf '#include "lib.h"'; $(RPCGEN) -c $(RQUOTA_X) | \
 	  sed -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
-	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' > rquota_xdr.c
+	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' ) > rquota_xdr.c
 
-# BSD rpcgen wants to include the .h from current directory, so generate it
-rquota.h:
+rquota.h: Makefile $(RQUOTA_X)
 	$(RPCGEN) -h $(RQUOTA_X) > rquota.h
+
+quota-fs.lo: rquota.h
+
 endif
 
 noinst_HEADERS = \
@@ -55,5 +59,7 @@ install-exec-local:
 	  $(LN_S) ../lib10_quota_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done
 
-distclean-generic:
-	rm -f Makefile rquota_xdr.c
+DISTFILES = $(DIST_COMMON) $(quota_dist_sources) $(TEXINFOS) $(EXTRA_DIST)
+
+clean-generic:
+	rm -f rquota_xdr.c rquota.h

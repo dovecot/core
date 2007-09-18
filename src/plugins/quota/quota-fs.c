@@ -25,7 +25,7 @@
 #endif
 
 #ifdef HAVE_RQUOTA
-#  include "rquota_xdr.c"
+#  include "rquota.h"
 #  define RQUOTA_GETQUOTA_TIMEOUT_SECS 10
 #endif
 
