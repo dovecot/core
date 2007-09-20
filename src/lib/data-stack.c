@@ -200,9 +200,8 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	block = GC_malloc(SIZEOF_MEMBLOCK + alloc_size);
 #endif
 	if (block == NULL) {
-		i_fatal_status(FATAL_OUTOFMEM, "mem_block_alloc(): "
-			       "Out of memory when allocating %"PRIuSIZE_T
-			       " bytes", alloc_size + SIZEOF_MEMBLOCK);
+		i_panic("data stack: Out of memory when allocating %"
+			PRIuSIZE_T" bytes", alloc_size + SIZEOF_MEMBLOCK);
 	}
 	block->size = alloc_size;
 	block->next = NULL;
