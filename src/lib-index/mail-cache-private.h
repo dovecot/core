@@ -230,9 +230,6 @@ void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
 				struct mail_cache_iterate_field *field_r);
 
-int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx);
-void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx);
-
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size);
 void mail_cache_file_close(struct mail_cache *cache);
 int mail_cache_reopen(struct mail_cache *cache);

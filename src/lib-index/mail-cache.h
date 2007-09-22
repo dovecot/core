@@ -71,6 +71,9 @@ struct mail_cache_transaction_ctx *
 mail_cache_get_transaction(struct mail_cache_view *view,
 			   struct mail_index_transaction *t);
 
+int mail_cache_transaction_commit(struct mail_cache_transaction_ctx **ctx);
+void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **ctx);
+
 /* Add new field to given record. Updates are not allowed. Fixed size fields
    must be exactly the expected size. */
 void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,

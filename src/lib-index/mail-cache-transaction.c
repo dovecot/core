@@ -89,11 +89,18 @@ static void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
 	ctx->changes = FALSE;
 }
 
-static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
+static void
+mail_cache_transaction_free(struct mail_cache_transaction_ctx **_ctx)
 {
+	struct mail_cache_transaction_ctx *ctx = *_ctx;
+
+	*_ctx = NULL;
+
+	ctx->trans->cache_trans_ctx = NULL;
 	ctx->view->transaction = NULL;
 	ctx->view->trans_seq1 = ctx->view->trans_seq2 = 0;
 
+	mail_index_view_close(&ctx->view->trans_view);
 	if (ctx->cache_data != NULL)
 		buffer_free(&ctx->cache_data);
 	if (array_is_created(&ctx->cache_data_seq))
@@ -603,18 +610,19 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 	ctx->changes = TRUE;
 }
 
-int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
+int mail_cache_transaction_commit(struct mail_cache_transaction_ctx **_ctx)
 {
+	struct mail_cache_transaction_ctx *ctx = *_ctx;
 	struct mail_cache *cache = ctx->cache;
 	int ret = 0;
 
 	if (!ctx->changes || MAIL_CACHE_IS_UNUSABLE(cache)) {
-		mail_cache_transaction_free(ctx);
+		mail_cache_transaction_free(_ctx);
 		return 0;
 	}
 
 	if (mail_cache_transaction_lock(ctx) <= 0) {
-		mail_cache_transaction_rollback(ctx);
+		mail_cache_transaction_rollback(_ctx);
 		return -1;
 	}
 
@@ -631,12 +639,13 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 
 	if (mail_cache_unlock(cache) < 0)
 		ret = -1;
-	mail_cache_transaction_free(ctx);
+	mail_cache_transaction_free(_ctx);
 	return ret;
 }
 
-void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
+void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **_ctx)
 {
+	struct mail_cache_transaction_ctx *ctx = *_ctx;
 	struct mail_cache *cache = ctx->cache;
 	const struct mail_cache_reservation *reservations;
 	unsigned int count;
@@ -660,7 +669,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 		}
 	}
 
-	mail_cache_transaction_free(ctx);
+	mail_cache_transaction_free(_ctx);
 }
 
 static int

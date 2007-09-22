@@ -81,10 +81,8 @@ void mail_index_transaction_reset(struct mail_index_transaction *t)
 	memset(t->pre_hdr_mask, 0, sizeof(t->pre_hdr_mask));
 	memset(t->post_hdr_mask, 0, sizeof(t->post_hdr_mask));
 
-	if (t->cache_trans_ctx != NULL) {
-		mail_cache_transaction_rollback(t->cache_trans_ctx);
-                t->cache_trans_ctx = NULL;
-	}
+	if (t->cache_trans_ctx != NULL)
+		mail_cache_transaction_rollback(&t->cache_trans_ctx);
 
 	t->appends_nonsorted = FALSE;
 	t->pre_hdr_changed = FALSE;
@@ -534,10 +532,8 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 	i_assert(t->first_new_seq >
 		 mail_index_view_get_messages_count(t->view));
 
-	if (t->cache_trans_ctx != NULL) {
-		mail_cache_transaction_commit(t->cache_trans_ctx);
-                t->cache_trans_ctx = NULL;
-	}
+	if (t->cache_trans_ctx != NULL)
+		mail_cache_transaction_commit(&t->cache_trans_ctx);
 
 	if (array_is_created(&t->appends)) {
 		mail_index_transaction_sort_appends(t);
@@ -557,10 +553,8 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 
 static void mail_index_transaction_rollback_v(struct mail_index_transaction *t)
 {
-	if (t->cache_trans_ctx != NULL) {
-		mail_cache_transaction_rollback(t->cache_trans_ctx);
-                t->cache_trans_ctx = NULL;
-	}
+	if (t->cache_trans_ctx != NULL)
+		mail_cache_transaction_rollback(&t->cache_trans_ctx);
         mail_index_transaction_unref(&t);
 }
 
