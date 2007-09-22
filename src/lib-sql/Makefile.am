@@ -32,7 +32,8 @@ AM_CPPFLAGS = \
 	$(SQL_CFLAGS)
 
 dist_sources = \
-	sql-api.c
+	sql-api.c \
+	sql-pool.c
 
 if ! SQL_PLUGINS
 driver_sources = \
@@ -65,7 +66,8 @@ endif
 
 headers = \
 	sql-api.h \
-	sql-api-private.h
+	sql-api-private.h \
+	sql-pool.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/lib-sql
