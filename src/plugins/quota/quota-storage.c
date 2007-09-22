@@ -403,6 +403,11 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	if (box == NULL)
 		return -1;
 
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0) {
+		mailbox_close(&box);
+		return -1;
+	}
+
 	memset(&search_arg, 0, sizeof(search_arg));
 	search_arg.type = SEARCH_ALL;
 
