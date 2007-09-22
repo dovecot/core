@@ -55,8 +55,8 @@ static void check_timeout(struct index_mailbox *ibox)
 static void notify_callback(struct index_mailbox *ibox)
 {
 	ibox->notify_last_check = ioloop_time;
-	if ((unsigned int)(ioloop_time - ibox->notify_last_sent) >=
-	    ibox->box.notify_min_interval) {
+	/* don't notify more often than once a second */
+	if ((unsigned int)(ioloop_time - ibox->notify_last_sent) > 0) {
 		ibox->notify_last_sent = ioloop_time;
                 ibox->notify_pending = FALSE;
 		ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
