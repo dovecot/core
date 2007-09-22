@@ -627,13 +627,16 @@ static void search_msgset_fix(const struct mail_index_header *hdr,
 			min_seq = set->seq1;
 		if (set->seq2 > max_seq)
 			max_seq = set->seq2;
+		if (not)
+			update_seqs(set, hdr, seq1_r, seq2_r, TRUE);
 	}
 
-	full_set.seq1 = min_seq;
-	full_set.seq2 = max_seq;
-	full_set.next = NULL;
-	update_seqs(&full_set, hdr, seq1_r, seq2_r, not);
-	return;
+	if (!not) {
+		full_set.seq1 = min_seq;
+		full_set.seq2 = max_seq;
+		full_set.next = NULL;
+		update_seqs(&full_set, hdr, seq1_r, seq2_r, not);
+	}
 }
 
 static void search_or_parse_msgset_args(const struct mail_index_header *hdr,
