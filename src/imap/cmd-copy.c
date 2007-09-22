@@ -92,7 +92,8 @@ bool cmd_copy(struct client_command_context *cmd)
 	struct mailbox_transaction_context *t;
         struct mail_search_arg *search_arg;
 	const char *messageset, *mailbox, *src_uidset, *msg = NULL;
-        enum mailbox_sync_flags sync_flags = 0;
+	enum mailbox_sync_flags sync_flags = 0;
+	enum imap_sync_flags imap_flags = 0;
 	unsigned int copy_count;
 	uint32_t uid_validity, uid1, uid2;
 	int ret;
@@ -159,11 +160,12 @@ bool cmd_copy(struct client_command_context *cmd)
 
 	if (destbox != client->mailbox) {
 		sync_flags |= MAILBOX_SYNC_FLAG_FAST;
+		imap_flags |= IMAP_SYNC_FLAG_SAFE;
 		mailbox_close(&destbox);
 	}
 
 	if (ret > 0)
-		return cmd_sync(cmd, sync_flags, 0, msg);
+		return cmd_sync(cmd, sync_flags, imap_flags, msg);
 	else if (ret == 0) {
 		/* some messages were expunged, sync them */
 		return cmd_sync(cmd, 0, 0,

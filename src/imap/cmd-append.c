@@ -235,6 +235,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	if (args->type == IMAP_ARG_EOL) {
 		/* last message */
 		enum mailbox_sync_flags sync_flags;
+		enum imap_sync_flags imap_flags;
 		uint32_t uid_validity, uid1, uid2;
 		const char *msg;
 
@@ -267,11 +268,16 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 					      uid_validity, uid1, uid2);
 		}
 
-		sync_flags = ctx->box == cmd->client->mailbox ?
-			0 : MAILBOX_SYNC_FLAG_FAST;
+		if (ctx->box == cmd->client->mailbox) {
+			sync_flags = 0;
+			imap_flags = IMAP_SYNC_FLAG_SAFE;
+		} else {
+			sync_flags = MAILBOX_SYNC_FLAG_FAST;
+			imap_flags = 0;
+		}
 
 		cmd_append_finish(ctx);
-		return cmd_sync(cmd, sync_flags, 0, msg);
+		return cmd_sync(cmd, sync_flags, imap_flags, msg);
 	}
 
 	if (!validate_args(args, &flags_list, &internal_date_str,

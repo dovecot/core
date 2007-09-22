@@ -2,7 +2,8 @@
 #define IMAP_SYNC_H
 
 enum imap_sync_flags {
-	IMAP_SYNC_FLAG_SEND_UID	= 0x01
+	IMAP_SYNC_FLAG_SEND_UID	= 0x01,
+	IMAP_SYNC_FLAG_SAFE	= 0x02
 };
 
 struct client;

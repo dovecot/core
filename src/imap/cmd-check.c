@@ -9,5 +9,6 @@ bool cmd_check(struct client_command_context *cmd)
 		return TRUE;
 
 	return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FULL_READ |
-			MAILBOX_SYNC_FLAG_FULL_WRITE, 0, "OK Check completed.");
+			MAILBOX_SYNC_FLAG_FULL_WRITE, IMAP_SYNC_FLAG_SAFE,
+			"OK Check completed.");
 }

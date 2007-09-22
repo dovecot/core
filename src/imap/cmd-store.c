@@ -123,7 +123,7 @@ bool cmd_store(struct client_command_context *cmd)
 		   flag changes that were caused by UID STORE and those that
 		   came externally, so we'll just send the UID for all flag
 		   changes that we see. */
-		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+		return cmd_sync(cmd,
 				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
 				cmd->uid && !silent ?
 				IMAP_SYNC_FLAG_SEND_UID : 0,

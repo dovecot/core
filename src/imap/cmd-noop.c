@@ -5,5 +5,5 @@
 
 bool cmd_noop(struct client_command_context *cmd)
 {
-	return cmd_sync(cmd, 0, 0, "OK NOOP completed.");
+	return cmd_sync(cmd, 0, IMAP_SYNC_FLAG_SAFE, "OK NOOP completed.");
 }

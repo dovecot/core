@@ -244,7 +244,7 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	}
 
 	no_newmail = (client_workarounds & WORKAROUND_DELAY_NEWMAIL) != 0 &&
-		(flags & MAILBOX_SYNC_FLAG_FAST) != 0;
+		(imap_flags & IMAP_SYNC_FLAG_SAFE) == 0;
 	if (no_newmail) {
 		/* expunges might break the client just as badly as new mail
 		   notifications. */
