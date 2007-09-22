@@ -475,6 +475,8 @@ static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
 	struct lazy_expunge_mailbox_list *llist =
 		LAZY_EXPUNGE_LIST_CONTEXT(storage->list);
 	struct lazy_expunge_mail_storage *lstorage;
+	const char *const *p;
+	unsigned int i;
 
 	if (lazy_expunge_next_hook_mail_storage_created != NULL)
 		lazy_expunge_next_hook_mail_storage_created(storage);
@@ -482,6 +484,18 @@ static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
 	/* only maildir supported for now */
 	if (strcmp(storage->name, "maildir") != 0)
 		return;
+
+	/* if this is one of our internal storages, mark it as such before
+	   quota plugin sees it */
+	t_push();
+	p = t_strsplit_spaces(getenv("LAZY_EXPUNGE"), " ");
+	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
+		if (strcmp(storage->ns->prefix, *p) == 0) {
+			lazy_namespaces[i]->flags |= NAMESPACE_FLAG_INTERNAL;
+			break;
+		}
+	}
+	t_pop();
 
 	llist->storage = storage;
 
@@ -517,7 +531,7 @@ lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 		lazy_expunge_next_hook_mail_namespaces_created(namespaces);
 
 	t_push();
-	p = t_strsplit(getenv("LAZY_EXPUNGE"), " ");
+	p = t_strsplit_spaces(getenv("LAZY_EXPUNGE"), " ");
 	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
 		const char *name = *p;
 
@@ -551,8 +565,7 @@ void lazy_expunge_plugin_init(void)
 	hook_mail_namespaces_created =
 		lazy_expunge_hook_mail_namespaces_created;
 
-	lazy_expunge_next_hook_mail_storage_created =
-		hook_mail_storage_created;
+	lazy_expunge_next_hook_mail_storage_created = hook_mail_storage_created;
 	hook_mail_storage_created = lazy_expunge_mail_storage_created;
 
 	lazy_expunge_next_hook_mailbox_list_created = hook_mailbox_list_created;
