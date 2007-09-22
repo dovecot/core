@@ -40,9 +40,6 @@ static int maildir_transaction_commit(struct mail_index_transaction *t,
 
 	if (save_ctx != NULL)
 		maildir_transaction_save_commit_post(save_ctx);
-
-	if (ret == 0 && !syncing)
-		ret = maildir_sync_last_commit(mbox);
 	return ret;
 }
 

@@ -659,27 +659,43 @@ static bool move_recent_messages(struct maildir_sync_context *ctx)
 		maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
 }
 
-static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
-				bool sync_last_commit)
+static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
+				    bool *new_changed_r, bool *cur_changed_r)
 {
-	bool new_changed, cur_changed, full_rescan = FALSE;
+	enum mail_index_sync_flags flags = 0;
+
+	if (maildir_sync_quick_check(ctx->mbox, ctx->new_dir, ctx->cur_dir,
+				     new_changed_r, cur_changed_r) < 0)
+		return -1;
+
+	if (*new_changed_r || *cur_changed_r)
+		return 1;
+
+	if (move_recent_messages(ctx)) {
+		*new_changed_r = TRUE;
+		return 1;
+	}
+
+	if (!ctx->mbox->ibox.keep_recent)
+		flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
+
+	return mail_index_sync_have_any(ctx->mbox->ibox.index, flags) ? 1 : 0;
+}
+
+static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
+				bool *lost_files_r)
+{
+	bool new_changed, cur_changed;
 	int ret;
 
-	if (sync_last_commit) {
-		new_changed = cur_changed = FALSE;
-	} else if (!forced) {
-		if (maildir_sync_quick_check(ctx->mbox,
-					     ctx->new_dir, ctx->cur_dir,
-					     &new_changed, &cur_changed) < 0)
-			return -1;
+	*lost_files_r = FALSE;
 
-		if (!new_changed && !cur_changed) {
-			if (!move_recent_messages(ctx))
-				return 1;
-			new_changed = TRUE;
-		}
-	} else {
+	if (forced)
 		new_changed = cur_changed = TRUE;
+	else {
+		ret = maildir_sync_get_changes(ctx, &new_changed, &cur_changed);
+		if (ret <= 0)
+			return ret;
 	}
 
 	/*
@@ -781,42 +797,24 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		if (ret < 0)
 			return -1;
 		if (ret == 0)
-			full_rescan = TRUE;
+			*lost_files_r = TRUE;
 
 		i_assert(maildir_uidlist_is_locked(ctx->mbox->uidlist));
 	}
 
-	ret = maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
-	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
+	return maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
 }
 
 int maildir_storage_sync_force(struct maildir_mailbox *mbox)
 {
         struct maildir_sync_context *ctx;
+	bool lost_files;
 	int ret;
 
 	ctx = maildir_sync_context_new(mbox);
-	ret = maildir_sync_context(ctx, TRUE, FALSE);
+	ret = maildir_sync_context(ctx, TRUE, &lost_files);
 	maildir_sync_deinit(ctx);
-	return ret < 0 ? -1 : 0;
-}
-
-int maildir_sync_last_commit(struct maildir_mailbox *mbox)
-{
-        struct maildir_sync_context *ctx;
-	int ret = 0;
-
-	if (mbox->ibox.commit_log_file_seq != 0) {
-		ctx = maildir_sync_context_new(mbox);
-		ret = maildir_sync_context(ctx, FALSE, TRUE);
-		maildir_sync_deinit(ctx);
-	}
-
-	if (ret == 0) {
-		if (maildir_uidlist_update(mbox->uidlist) < 0)
-			ret = -1;
-	}
-	return ret < 0 ? -1 : 0;
+	return ret;
 }
 
 struct mailbox_sync_context *
@@ -824,6 +822,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	struct maildir_sync_context *ctx;
+	bool lost_files;
 	int ret = 0;
 
 	if (!box->opened)
@@ -835,13 +834,13 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		mbox->ibox.sync_last_check = ioloop_time;
 
 		ctx = maildir_sync_context_new(mbox);
-		ret = maildir_sync_context(ctx, FALSE, FALSE);
+		ret = maildir_sync_context(ctx, FALSE, &lost_files);
 		maildir_sync_deinit(ctx);
 
 		i_assert(!maildir_uidlist_is_locked(mbox->uidlist) ||
 			 mbox->ibox.keep_locked);
 
-		if (ret == 0) {
+		if (lost_files) {
 			/* lost some files from new/, see if thery're in cur/ */
 			ret = maildir_storage_sync_force(mbox);
 		}
