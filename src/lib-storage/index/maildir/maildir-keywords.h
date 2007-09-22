@@ -3,6 +3,7 @@
 
 #define MAILDIR_KEYWORDS_NAME "dovecot-keywords"
 
+struct maildir_mailbox;
 struct maildir_keywords;
 struct maildir_keywords_sync_ctx;
 
