@@ -38,17 +38,6 @@ static struct timeout *to_idle;
 static void client_input(struct client *client);
 static int client_output(struct client *client);
 
-static int sync_mailbox(struct mailbox *box, struct mailbox_status *status)
-{
-	struct mailbox_sync_context *ctx;
-        struct mailbox_sync_rec sync_rec;
-
-	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL_READ);
-	while (mailbox_sync_next(ctx, &sync_rec))
-		;
-	return mailbox_sync_deinit(&ctx, STATUS_UIDVALIDITY, status);
-}
-
 static bool init_mailbox(struct client *client, const char **error_r)
 {
 	struct mail_search_arg search_arg;
@@ -68,7 +57,8 @@ static bool init_mailbox(struct client *client, const char **error_r)
 	search_arg.type = SEARCH_ALL;
 
 	for (i = 0; i < 2; i++) {
-		if (sync_mailbox(client->mailbox, &status) < 0) {
+		if (mailbox_sync(client->mailbox, MAILBOX_SYNC_FLAG_FULL_READ,
+				 STATUS_UIDVALIDITY, &status) < 0) {
 			client_send_storage_error(client);
 			break;
 		}

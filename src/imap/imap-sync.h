@@ -14,8 +14,6 @@ imap_sync_init(struct client *client, struct mailbox *box,
 int imap_sync_deinit(struct imap_sync_context *ctx);
 int imap_sync_more(struct imap_sync_context *ctx);
 
-int imap_sync_nonselected(struct mailbox *box, enum mailbox_sync_flags flags);
-
 bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	      enum imap_sync_flags imap_flags, const char *tagline);
 

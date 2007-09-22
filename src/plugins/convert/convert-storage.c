@@ -25,17 +25,6 @@ struct dotlock_settings dotlock_settings = {
 	MEMBER(use_excl_lock) FALSE
 };
 
-static int sync_mailbox(struct mailbox *box)
-{
-	struct mailbox_sync_context *ctx;
-        struct mailbox_sync_rec sync_rec;
-
-	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL_READ);
-	while (mailbox_sync_next(ctx, &sync_rec))
-		;
-	return mailbox_sync_deinit(&ctx, 0, NULL);
-}
-
 static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 			      struct dotlock *dotlock)
 {
@@ -45,7 +34,7 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 	struct mail_search_arg search_arg;
 	int ret = 0;
 
-	if (sync_mailbox(srcbox) < 0)
+	if (mailbox_sync(srcbox, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
 		return -1;
 
 	memset(&search_arg, 0, sizeof(search_arg));

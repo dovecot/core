@@ -191,17 +191,6 @@ int imap_sync_more(struct imap_sync_context *ctx)
 	return ret;
 }
 
-int imap_sync_nonselected(struct mailbox *box, enum mailbox_sync_flags flags)
-{
-	struct mailbox_sync_context *ctx;
-        struct mailbox_sync_rec sync_rec;
-
-	ctx = mailbox_sync_init(box, flags);
-	while (mailbox_sync_next(ctx, &sync_rec))
-		;
-	return mailbox_sync_deinit(&ctx, 0, NULL);
-}
-
 static bool cmd_sync_continue(struct client_command_context *cmd)
 {
 	struct cmd_sync_context *ctx = cmd->context;

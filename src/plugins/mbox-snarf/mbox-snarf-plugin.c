@@ -35,17 +35,6 @@ static void (*mbox_snarf_next_hook_mail_storage_created)
 static MODULE_CONTEXT_DEFINE_INIT(mbox_snarf_storage_module,
 				  &mail_storage_module_register);
 
-static int sync_mailbox(struct mailbox *box)
-{
-	struct mailbox_sync_context *ctx;
-        struct mailbox_sync_rec sync_rec;
-
-	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL_READ);
-	while (mailbox_sync_next(ctx, &sync_rec))
-		;
-	return mailbox_sync_deinit(&ctx, 0, NULL);
-}
-
 static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 {
 	struct mail_search_arg search_arg;
@@ -54,7 +43,7 @@ static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 	struct mail *mail;
 	int ret;
 
-	if (sync_mailbox(srcbox) < 0)
+	if (mailbox_sync(srcbox, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
 		return -1;
 
 	memset(&search_arg, 0, sizeof(search_arg));

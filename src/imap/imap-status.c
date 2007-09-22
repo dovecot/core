@@ -49,31 +49,25 @@ bool imap_status_get(struct client *client, struct mail_storage *storage,
 		     struct mailbox_status *status_r)
 {
 	struct mailbox *box;
-	bool failed = FALSE;
+	int ret;
 
 	if (client->mailbox != NULL &&
 	    mailbox_equals(client->mailbox, storage, mailbox)) {
 		/* this mailbox is selected */
 		box = client->mailbox;
-	} else {
-		/* open the mailbox */
-		box = mailbox_open(storage, mailbox, NULL, MAILBOX_OPEN_FAST |
-				   MAILBOX_OPEN_READONLY |
-				   MAILBOX_OPEN_KEEP_RECENT);
-		if (box == NULL)
-			return FALSE;
-
-		if (imap_sync_nonselected(box, 0) < 0)
-			failed = TRUE;
+		mailbox_get_status(box, items, status_r);
+		return TRUE;
 	}
 
-	if (!failed)
-		mailbox_get_status(box, items, status_r);
+	/* open the mailbox */
+	box = mailbox_open(storage, mailbox, NULL, MAILBOX_OPEN_FAST |
+			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
+	if (box == NULL)
+		return FALSE;
 
-	if (box != client->mailbox)
-		mailbox_close(&box);
-
-	return !failed;
+	ret = mailbox_sync(box, 0, items, status_r);
+	mailbox_close(&box);
+	return ret == 0;
 }
 
 void imap_status_send(struct client *client, const char *mailbox,

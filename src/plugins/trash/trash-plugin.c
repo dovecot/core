@@ -42,17 +42,6 @@ static pool_t config_pool;
 /* trash_boxes ordered by priority, highest first */
 static ARRAY_DEFINE(trash_boxes, struct trash_mailbox);
 
-static int sync_mailbox(struct mailbox *box)
-{
-	struct mailbox_sync_context *ctx;
-        struct mailbox_sync_rec sync_rec;
-
-	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL_READ);
-	while (mailbox_sync_next(ctx, &sync_rec))
-		;
-	return mailbox_sync_deinit(&ctx, 0, NULL);
-}
-
 static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
 	trash->box = mailbox_open(trash->storage, trash->name, NULL,
@@ -60,7 +49,7 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 	if (trash->box == NULL)
 		return 0;
 
-	if (sync_mailbox(trash->box) < 0)
+	if (mailbox_sync(trash->box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
 		return -1;
 
 	trash->trans = mailbox_transaction_begin(trash->box, 0);
