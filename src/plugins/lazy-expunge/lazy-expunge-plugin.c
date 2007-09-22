@@ -491,7 +491,7 @@ static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
 	p = t_strsplit_spaces(getenv("LAZY_EXPUNGE"), " ");
 	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
 		if (strcmp(storage->ns->prefix, *p) == 0) {
-			lazy_namespaces[i]->flags |= NAMESPACE_FLAG_INTERNAL;
+			storage->ns->flags |= NAMESPACE_FLAG_INTERNAL;
 			break;
 		}
 	}
