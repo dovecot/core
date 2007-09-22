@@ -574,7 +574,9 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 				      mail->data.seq, &field_idx, 1) <= 0) {
 		/* not in cache / error - first see if it's already parsed */
 		p_free(mail->data_pool, dest);
-		if (mail->header_seq != mail->data.seq) {
+
+		if (mail->header_seq != mail->data.seq ||
+		    index_mail_header_is_parsed(mail, field_idx) < 0) {
 			/* parse */
 			headers[0] = field; headers[1] = NULL;
 			headers_ctx = mailbox_header_lookup_init(
