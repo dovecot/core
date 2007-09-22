@@ -21,6 +21,9 @@
 void (*hook_mail_index_transaction_created)
 		(struct mail_index_transaction *t) = NULL;
 
+static bool
+mail_index_transaction_has_ext_changes(struct mail_index_transaction *t);
+
 void mail_index_transaction_reset(struct mail_index_transaction *t)
 {
 	ARRAY_TYPE(seq_array) *recs;
@@ -89,6 +92,16 @@ void mail_index_transaction_reset(struct mail_index_transaction *t)
 	t->reset = FALSE;
 	t->log_updates = FALSE;
 	t->log_ext_updates = FALSE;
+}
+
+static bool mail_index_transaction_has_changes(struct mail_index_transaction *t)
+{
+	/* flag updates aren't included in log_updates */
+	return array_is_created(&t->appends) ||
+		array_is_created(&t->expunges) ||
+		array_is_created(&t->keyword_resets) ||
+		array_is_created(&t->keyword_updates) ||
+		t->pre_hdr_changed || t->post_hdr_changed;
 }
 
 static void mail_index_transaction_free(struct mail_index_transaction *t)
@@ -642,14 +655,68 @@ void mail_index_append_assign_uids(struct mail_index_transaction *t,
 	*next_uid_r = first_uid;
 }
 
+static void
+mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
+{
+	ARRAY_TYPE(seq_array) *seqs;
+	struct mail_index_transaction_keyword_update *kw_updates;
+	unsigned int i, idx, count;
+
+	i_assert(seq == t->last_new_seq);
+
+	/* remove extension updates */
+	if (array_is_created(&t->ext_rec_updates)) {
+		seqs = array_get_modifiable(&t->ext_rec_updates, &count);
+		for (i = 0; i < count; i++) {
+			if (array_is_created(&seqs[i]) &&
+			    mail_index_seq_array_lookup(&seqs[i], seq, &idx))
+				array_delete(&seqs[i], idx, 1);
+		}
+		t->log_ext_updates = mail_index_transaction_has_ext_changes(t);
+	}
+	/* remove keywords */
+	if (array_is_created(&t->keyword_resets))
+		seq_range_array_remove(&t->keyword_resets, seq);
+	if (array_is_created(&t->keyword_updates)) {
+		kw_updates = array_get_modifiable(&t->keyword_updates, &count);
+		for (i = 0; i < count; i++) {
+			if (array_is_created(&kw_updates[i].add_seq)) {
+				seq_range_array_remove(&kw_updates[i].add_seq,
+						       seq);
+			}
+			if (array_is_created(&kw_updates[i].remove_seq)) {
+				seq_range_array_remove(
+					&kw_updates[i].remove_seq, seq);
+			}
+		}
+	}
+
+	/* and finally remove the append itself */
+	array_delete(&t->appends, seq - t->first_new_seq, 1);
+	t->last_new_seq--;
+	if (t->first_new_seq > t->last_new_seq) {
+		t->last_new_seq = 0;
+		t->appends_nonsorted = FALSE;
+		array_free(&t->appends);
+	}
+	t->log_updates = mail_index_transaction_has_changes(t);
+}
+
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 {
-	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
+	i_assert(seq > 0);
+	if (seq >= t->first_new_seq) {
+		/* we can handle only the last append. otherwise we'd have to
+		   renumber sequences and that gets tricky. for now this is
+		   enough, since we typically want to expunge all the
+		   appends. */
+		mail_index_expunge_last_append(t, seq);
+	} else {
+		t->log_updates = TRUE;
 
-	t->log_updates = TRUE;
-
-	/* expunges is a sorted array of {seq1, seq2, ..}, .. */
-	seq_range_array_add(&t->expunges, 128, seq);
+		/* expunges is a sorted array of {seq1, seq2, ..}, .. */
+		seq_range_array_add(&t->expunges, 128, seq);
+	}
 }
 
 static bool
