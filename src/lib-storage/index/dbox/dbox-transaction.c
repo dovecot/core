@@ -13,9 +13,7 @@ static int dbox_transaction_commit(struct mail_index_transaction *t,
 				   uoff_t *log_file_offset_r)
 {
 	struct dbox_transaction_context *dt = MAIL_STORAGE_CONTEXT(t);
-	struct dbox_mailbox *mbox = (struct dbox_mailbox *)dt->ictx.ibox;
 	struct dbox_save_context *save_ctx;
-	bool syncing = t->sync_transaction;
 	int ret = 0;
 
 	if (dt->save_ctx != NULL) {
@@ -43,12 +41,6 @@ static int dbox_transaction_commit(struct mail_index_transaction *t,
 		   to make sure we don't write uids in wrong order. */
 		dbox_transaction_save_commit_post(save_ctx);
 	}
-
-	if (ret == 0 && !syncing) {
-		if (dbox_sync(mbox, FALSE) < 0)
-			ret = -1;
-	}
-
 	return ret;
 }
 

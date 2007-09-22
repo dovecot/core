@@ -18,7 +18,6 @@ struct cydir_sync_context {
 int cydir_sync_begin(struct cydir_mailbox *mbox,
 		     struct cydir_sync_context **ctx_r);
 int cydir_sync_finish(struct cydir_sync_context **ctx, bool success);
-int cydir_sync(struct cydir_mailbox *mbox);
 
 struct mailbox_sync_context *
 cydir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);

@@ -155,7 +155,7 @@ int cydir_sync_finish(struct cydir_sync_context **_ctx, bool success)
 	return 0;
 }
 
-int cydir_sync(struct cydir_mailbox *mbox)
+static int cydir_sync(struct cydir_mailbox *mbox)
 {
 	struct cydir_sync_context *sync_ctx;
 

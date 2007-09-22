@@ -13,9 +13,7 @@ static int cydir_transaction_commit(struct mail_index_transaction *t,
 				    uoff_t *log_file_offset_r)
 {
 	struct cydir_transaction_context *dt = MAIL_STORAGE_CONTEXT(t);
-	struct cydir_mailbox *mbox = (struct cydir_mailbox *)dt->ictx.ibox;
 	struct cydir_save_context *save_ctx;
-	bool syncing = t->sync_transaction;
 	int ret = 0;
 
 	if (dt->save_ctx != NULL) {
@@ -43,12 +41,6 @@ static int cydir_transaction_commit(struct mail_index_transaction *t,
 		   to make sure we don't write uids in wrong order. */
 		cydir_transaction_save_commit_post(save_ctx);
 	}
-
-	if (ret == 0 && !syncing) {
-		if (cydir_sync(mbox) < 0)
-			ret = -1;
-	}
-
 	return ret;
 }
 
