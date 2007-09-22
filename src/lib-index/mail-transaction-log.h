@@ -153,8 +153,10 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				  uint32_t min_file_seq, uoff_t min_file_offset,
 				  uint32_t max_file_seq, uoff_t max_file_offset,
 				  bool *reset_r);
-/* Clear the view. */
-void mail_transaction_log_view_clear(struct mail_transaction_log_view *view);
+/* Clear the view. Keep oldest_file_seq log referenced so we don't get
+   desynced. */
+void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
+				     uint32_t oldest_file_seq);
 
 /* Read next transaction record from current position. The position is updated.
    Returns -1 if error, 0 if we're at end of the view, 1 if ok. */

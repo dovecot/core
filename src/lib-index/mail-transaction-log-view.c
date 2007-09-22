@@ -278,9 +278,17 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	return 1;
 }
 
-void mail_transaction_log_view_clear(struct mail_transaction_log_view *view)
+void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
+				     uint32_t oldest_file_seq)
 {
+	struct mail_transaction_log_file *file;
+
 	mail_transaction_log_view_unref_all(view);
+	if (mail_transaction_log_find_file(view->log, oldest_file_seq,
+					   &file) > 0) {
+		array_append(&view->file_refs, &file, 1);
+		file->refcount++;
+	}
 
 	view->cur = view->head = view->tail = NULL;
 

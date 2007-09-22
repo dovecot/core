@@ -132,7 +132,8 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges)
 		end_seq--; end_offset = (uoff_t)-1;
 		if (end_seq < start_seq) {
 			/* we have only this reset log */
-			mail_transaction_log_view_clear(view->log_view);
+			mail_transaction_log_view_clear(view->log_view,
+				view->log_file_expunge_seq);
 			break;
 		}
 	}
@@ -657,7 +658,8 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx)
 #endif
 
 	/* set log view to empty range so unneeded memory gets freed */
-	mail_transaction_log_view_clear(view->log_view);
+	mail_transaction_log_view_clear(view->log_view,
+					view->log_file_expunge_seq);
 
 	if (array_is_created(&ctx->expunges))
 		array_free(&ctx->expunges);

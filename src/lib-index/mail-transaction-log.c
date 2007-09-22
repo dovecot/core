@@ -188,12 +188,17 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file, *next;
 
+	/* remove only files from the beginning. this way if a view has
+	   referenced an old file, it can still find the new files even if
+	   there aren't any references to it currently. */
 	for (file = log->files; file != NULL; file = next) {
 		next = file->next;
 
 		i_assert(file->refcount >= 0);
-		if (file->refcount == 0)
-			mail_transaction_log_file_free(&file);
+		if (file->refcount > 0)
+			break;
+
+		mail_transaction_log_file_free(&file);
 	}
 	i_assert(log->head == NULL || log->files != NULL);
 }
