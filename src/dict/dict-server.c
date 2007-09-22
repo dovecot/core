@@ -7,7 +7,6 @@
 #include "istream.h"
 #include "ostream.h"
 #include "dict.h"
-#include "dict-cache.h"
 #include "dict-client.h"
 #include "dict-server.h"
 
@@ -23,7 +22,7 @@ struct dict_client_connection {
 	struct dict_server *server;
 
 	char *username;
-	char *name, *uri;
+	char *name;
 	struct dict *dict;
 	enum dict_data_type value_type;
 
@@ -41,8 +40,6 @@ struct dict_server {
 	char *path;
 	int fd;
 	struct io *io;
-
-	struct dict_cache *cache;
 };
 
 struct dict_client_cmd {
@@ -347,9 +344,7 @@ static int dict_client_dict_init(struct dict_client_connection *conn)
 		return -1;
 	}
 
-	conn->uri = i_strdup(uri);
-	conn->dict = dict_cache_get(conn->server->cache, conn->uri,
-				    conn->value_type, conn->username);
+	conn->dict = dict_init(uri, conn->value_type, conn->username);
 	if (conn->dict == NULL) {
 		/* dictionary initialization failed */
 		i_error("Failed to initialize dictionary '%s'", conn->name);
@@ -430,12 +425,9 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn)
 	if (close(conn->fd) < 0)
 		i_error("close(dict client) failed: %m");
 
-	if (conn->dict != NULL) {
-		dict_cache_unref(conn->server->cache, conn->uri,
-				 conn->username);
-	}
+	if (conn->dict != NULL)
+		dict_deinit(&conn->dict);
 	i_free(conn->name);
-	i_free(conn->uri);
 	i_free(conn->username);
 	i_free(conn);
 }
@@ -497,13 +489,11 @@ struct dict_server *dict_server_init(const char *path, int fd)
 
 	server->io = io_add(server->fd, IO_READ,
 			    dict_server_listener_accept, server);
-	server->cache = dict_cache_init();
 	return server;
 }
 
 void dict_server_deinit(struct dict_server *server)
 {
-	dict_cache_deinit(server->cache);
 	io_remove(&server->io);
 	if (close(server->fd) < 0)
 		i_error("close(%s) failed: %m", server->path);
