@@ -17,6 +17,7 @@
 #include "strescape.h"
 #include "var-expand.h"
 #include "message-address.h"
+#include "message-header-parser.h"
 #include "istream-header-filter.h"
 #include "mbox-storage.h"
 #include "mail-namespace.h"
@@ -409,10 +410,22 @@ static const char *address_sanitize(const char *address)
 	return ret;
 }
 
+
+static void save_header_callback(struct message_header_line *hdr,
+				 bool *matched, bool *first)
+{
+	if (*first) {
+		*first = FALSE;
+		if (hdr != NULL && strncmp(hdr->name, "From ", 5) == 0)
+			*matched = TRUE;
+	}
+}
+
 static struct istream *create_mbox_stream(int fd, const char *envelope_sender)
 {
 	const char *mbox_hdr;
 	struct istream *input_list[4], *input, *input_filter;
+	bool first = TRUE;
 
 	fd_set_nonblock(fd, FALSE);
 
@@ -426,8 +439,8 @@ static struct istream *create_mbox_stream(int fd, const char *envelope_sender)
 					      HEADER_FILTER_NO_CR,
 					      mbox_hide_headers,
 					      mbox_hide_headers_count,
-					      null_header_filter_callback,
-					      NULL);
+					      save_header_callback,
+					      &first);
 	i_stream_unref(&input);
 
 	input_list[0] = i_stream_create_from_data(mbox_hdr, strlen(mbox_hdr));
