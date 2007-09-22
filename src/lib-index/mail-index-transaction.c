@@ -416,20 +416,24 @@ mail_index_transaction_sort_appends_keywords(struct mail_index_transaction *t,
 	struct mail_index_transaction_keyword_update *updates;
 	unsigned int i, count;
 
-	/* fix the order in keywords */
-	if (!array_is_created(&t->keyword_updates))
-		return;
+	if (array_is_created(&t->keyword_updates)) {
+		updates = array_get_modifiable(&t->keyword_updates, &count);
+		for (i = 0; i < count; i++) {
+			if (array_is_created(&updates->add_seq)) {
+				sort_appends_seq_range(t, &updates[i].add_seq,
+						       old_to_newseq_map);
+			}
+			if (array_is_created(&updates->remove_seq)) {
+				sort_appends_seq_range(t,
+						       &updates[i].remove_seq,
+						       old_to_newseq_map);
+			}
+		}
+	}
 
-	updates = array_get_modifiable(&t->keyword_updates, &count);
-	for (i = 0; i < count; i++) {
-		if (array_is_created(&updates->add_seq)) {
-			sort_appends_seq_range(t, &updates[i].add_seq,
-					      old_to_newseq_map);
-		}
-		if (array_is_created(&updates->remove_seq)) {
-			sort_appends_seq_range(t, &updates[i].remove_seq,
-					      old_to_newseq_map);
-		}
+	if (array_is_created(&t->keyword_resets)) {
+		sort_appends_seq_range(t, &t->keyword_resets,
+				       old_to_newseq_map);
 	}
 }
 
