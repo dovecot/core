@@ -505,10 +505,10 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 	struct index_mailbox_list *ilist = NULL;
 	const char *dir;
 
-	/* FIXME: for now we only work with maildir++ */
+	/* FIXME: always disabled for now */
 	dir = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (*dir == '\0' || getenv("MAILBOX_LIST_INDEX_DISABLE") != NULL ||
-	    strcmp(list->name, "maildir++") != 0) {
+	    strcmp(list->name, "maildir++") != 0 || 1) {
 		/* reserve the module context anyway, so syncing code knows
 		   that the index is disabled */
 		MODULE_CONTEXT_SET(list, index_mailbox_list_module, ilist);
