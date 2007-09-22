@@ -23,7 +23,10 @@ bool cmd_create(struct client_command_context *cmd)
 	len = strlen(full_mailbox);
 	if (len == 0 || full_mailbox[len-1] != ns->sep)
 		directory = FALSE;
-	else {
+	else if (*mailbox == '\0') {
+		client_send_tagline(cmd, "NO Namespace already exists.");
+		return TRUE;
+	} else {
 		/* name ends with hierarchy separator - client is just
 		   informing us that it wants to create children under this
 		   mailbox. */
