@@ -60,13 +60,11 @@ static int driver_sqlite_connect(struct sql_db *_db)
 static struct sql_db *driver_sqlite_init_v(const char *connect_string)
 {
 	struct sqlite_db *db;
-	pool_t pool;
 
 	i_assert(connect_string != NULL);
 
-	pool = pool_alloconly_create("sqlite driver", 512);
-	db = p_new(pool, struct sqlite_db, 1);
-	db->pool = pool;
+	db = i_new(struct sqlite_db, 1);
+	db->pool = pool_alloconly_create("sqlite driver", 512);;
 	db->api = driver_sqlite_db;
 	db->dbfile = p_strdup(db->pool, connect_string);
 	db->connected = FALSE;
@@ -374,20 +372,22 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query)
 struct sql_db driver_sqlite_db = {
 	"sqlite",
 
-	driver_sqlite_init_v,
-	driver_sqlite_deinit_v,
-	driver_sqlite_get_flags,
-	driver_sqlite_connect,
-	driver_sqlite_escape_string,
-	driver_sqlite_exec,
-	driver_sqlite_query,
-	driver_sqlite_query_s,
+	MEMBER(v) {
+		driver_sqlite_init_v,
+		driver_sqlite_deinit_v,
+		driver_sqlite_get_flags,
+		driver_sqlite_connect,
+		driver_sqlite_escape_string,
+		driver_sqlite_exec,
+		driver_sqlite_query,
+		driver_sqlite_query_s,
 
-	driver_sqlite_transaction_begin,
-	driver_sqlite_transaction_commit,
-	driver_sqlite_transaction_commit_s,
-	driver_sqlite_transaction_rollback,
-	driver_sqlite_update
+		driver_sqlite_transaction_begin,
+		driver_sqlite_transaction_commit,
+		driver_sqlite_transaction_commit_s,
+		driver_sqlite_transaction_rollback,
+		driver_sqlite_update
+	}
 };
 
 struct sql_result driver_sqlite_result = {

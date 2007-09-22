@@ -2,10 +2,19 @@
 #define SQL_API_PRIVATE_H
 
 #include "sql-api.h"
+#include "module-context.h"
 
-struct sql_db {
-	const char *name;
+struct sql_db_module_register {
+	unsigned int id;
+};
 
+union sql_db_module_context {
+	struct sql_db_module_register *reg;
+};
+
+extern struct sql_db_module_register sql_db_module_register;
+
+struct sql_db_vfuncs {
 	struct sql_db *(*init)(const char *connect_string);
 	void (*deinit)(struct sql_db *db);
 
@@ -27,6 +36,12 @@ struct sql_db {
 	void (*transaction_rollback)(struct sql_transaction_context *ctx);
 
 	void (*update)(struct sql_transaction_context *ctx, const char *query);
+};
+
+struct sql_db {
+	const char *name;
+	struct sql_db_vfuncs v;
+	ARRAY_DEFINE(module_contexts, union sql_db_module_context *);
 };
 
 struct sql_result_vfuncs {

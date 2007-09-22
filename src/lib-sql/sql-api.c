@@ -42,52 +42,60 @@ struct sql_db *sql_init(const char *db_driver,
 {
 	const struct sql_db *const *drivers;
 	unsigned int i, count;
+	struct sql_db *db;
 
 	drivers = array_get(&sql_drivers, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(db_driver, drivers[i]->name) == 0)
-			return drivers[i]->init(connect_string);
+		if (strcmp(db_driver, drivers[i]->name) == 0) {
+			db = drivers[i]->v.init(connect_string);
+			i_array_init(&db->module_contexts, 5);
+			return db;
+		}
 	}
 
 	i_fatal("Unknown database driver '%s'", db_driver);
 }
 
-void sql_deinit(struct sql_db **db)
+void sql_deinit(struct sql_db **_db)
 {
-	(*db)->deinit(*db);
-	*db = NULL;
+	struct sql_db *db = *_db;
+
+	*_db = NULL;
+	db->v.deinit(db);
+	array_free(&db->module_contexts);
+	i_free(db);
 }
 
 enum sql_db_flags sql_get_flags(struct sql_db *db)
 {
-	return db->get_flags(db);
+	return db->v.get_flags(db);
 }
 
 int sql_connect(struct sql_db *db)
 {
-	return db->connect(db);
+	return db->v.connect(db);
 }
 
 const char *sql_escape_string(struct sql_db *db, const char *string)
 {
-	return db->escape_string(db, string);
+	return db->v.escape_string(db, string);
 }
 
 void sql_exec(struct sql_db *db, const char *query)
 {
-	db->exec(db, query);
+	db->v.exec(db, query);
 }
 
 #undef sql_query
 void sql_query(struct sql_db *db, const char *query,
 	       sql_query_callback_t *callback, void *context)
 {
-	db->query(db, query, callback, context);
+	db->v.query(db, query, callback, context);
 }
 
 struct sql_result *sql_query_s(struct sql_db *db, const char *query)
 {
-	return db->query_s(db, query);
+	return db->v.query_s(db, query);
 }
 
 void sql_result_free(struct sql_result *result)
@@ -277,7 +285,7 @@ sql_result_not_connected_get_error(struct sql_result *result ATTR_UNUSED)
 
 struct sql_transaction_context *sql_transaction_begin(struct sql_db *db)
 {
-	return db->transaction_begin(db);
+	return db->v.transaction_begin(db);
 }
 
 #undef sql_transaction_commit
@@ -287,7 +295,7 @@ void sql_transaction_commit(struct sql_transaction_context **_ctx,
 	struct sql_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	ctx->db->transaction_commit(ctx, callback, context);
+	ctx->db->v.transaction_commit(ctx, callback, context);
 }
 
 int sql_transaction_commit_s(struct sql_transaction_context **_ctx,
@@ -296,7 +304,7 @@ int sql_transaction_commit_s(struct sql_transaction_context **_ctx,
 	struct sql_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	return ctx->db->transaction_commit_s(ctx, error_r);
+	return ctx->db->v.transaction_commit_s(ctx, error_r);
 }
 
 void sql_transaction_rollback(struct sql_transaction_context **_ctx)
@@ -304,12 +312,12 @@ void sql_transaction_rollback(struct sql_transaction_context **_ctx)
 	struct sql_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	ctx->db->transaction_rollback(ctx);
+	ctx->db->v.transaction_rollback(ctx);
 }
 
 void sql_update(struct sql_transaction_context *ctx, const char *query)
 {
-	ctx->db->update(ctx, query);
+	ctx->db->v.update(ctx, query);
 }
 
 struct sql_result sql_not_connected_result = {

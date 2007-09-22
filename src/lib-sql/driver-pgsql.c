@@ -213,7 +213,6 @@ static void driver_pgsql_deinit_v(struct sql_db *_db)
         driver_pgsql_close(db);
 	i_free(db->error);
 	i_free(db->connect_string);
-	i_free(db);
 }
 
 static enum sql_db_flags
@@ -864,21 +863,23 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query)
 struct sql_db driver_pgsql_db = {
 	"pgsql",
 
-	driver_pgsql_init_v,
-	driver_pgsql_deinit_v,
-        driver_pgsql_get_flags,
-	driver_pgsql_connect,
-	driver_pgsql_escape_string,
-	driver_pgsql_exec,
-	driver_pgsql_query,
-	driver_pgsql_query_s,
+	MEMBER(v) {
+		driver_pgsql_init_v,
+		driver_pgsql_deinit_v,
+		driver_pgsql_get_flags,
+		driver_pgsql_connect,
+		driver_pgsql_escape_string,
+		driver_pgsql_exec,
+		driver_pgsql_query,
+		driver_pgsql_query_s,
 
-	driver_pgsql_transaction_begin,
-	driver_pgsql_transaction_commit,
-	driver_pgsql_transaction_commit_s,
-	driver_pgsql_transaction_rollback,
+		driver_pgsql_transaction_begin,
+		driver_pgsql_transaction_commit,
+		driver_pgsql_transaction_commit_s,
+		driver_pgsql_transaction_rollback,
 
-	driver_pgsql_update
+		driver_pgsql_update
+	}
 };
 
 struct sql_result driver_pgsql_result = {

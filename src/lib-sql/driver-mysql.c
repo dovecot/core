@@ -245,14 +245,11 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 static struct sql_db *driver_mysql_init_v(const char *connect_string)
 {
 	struct mysql_db *db;
-	pool_t pool;
 
-	pool = pool_alloconly_create("mysql driver", 512);
-
-	db = p_new(pool, struct mysql_db, 1);
-	db->pool = pool;
+	db = i_new(struct mysql_db, 1);
+	db->pool = pool_alloconly_create("mysql driver", 512);;
 	db->api = driver_mysql_db;
-	p_array_init(&db->connections, pool, 6);
+	p_array_init(&db->connections, db->pool, 6);
 
 	driver_mysql_parse_connect_string(db, connect_string);
 	return &db->api;
@@ -657,21 +654,23 @@ driver_mysql_update(struct sql_transaction_context *_ctx, const char *query)
 struct sql_db driver_mysql_db = {
 	"mysql",
 
-	driver_mysql_init_v,
-	driver_mysql_deinit_v,
-	driver_mysql_get_flags,
-        driver_mysql_connect_all,
-        driver_mysql_escape_string,
-	driver_mysql_exec,
-	driver_mysql_query,
-	driver_mysql_query_s,
+	MEMBER(v) {
+		driver_mysql_init_v,
+		driver_mysql_deinit_v,
+		driver_mysql_get_flags,
+		driver_mysql_connect_all,
+		driver_mysql_escape_string,
+		driver_mysql_exec,
+		driver_mysql_query,
+		driver_mysql_query_s,
 
-	driver_mysql_transaction_begin,
-	driver_mysql_transaction_commit,
-	driver_mysql_transaction_commit_s,
-	driver_mysql_transaction_rollback,
+		driver_mysql_transaction_begin,
+		driver_mysql_transaction_commit,
+		driver_mysql_transaction_commit_s,
+		driver_mysql_transaction_rollback,
 
-	driver_mysql_update
+		driver_mysql_update
+	}
 };
 
 struct sql_result driver_mysql_result = {
