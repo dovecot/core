@@ -13,7 +13,9 @@ enum namespace_flags {
 	/* Namespace is visible only by explicitly using its full prefix */
 	NAMESPACE_FLAG_HIDDEN	= 0x02,
 	/* Namespace is visible with LIST */
-	NAMESPACE_FLAG_LIST	= 0x04
+	NAMESPACE_FLAG_LIST	= 0x04,
+	/* Namespace is created for internal use only. */
+	NAMESPACE_FLAG_INTERNAL	= 0x10
 };
 
 struct mail_namespace {

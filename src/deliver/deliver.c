@@ -760,6 +760,7 @@ int main(int argc, char *argv[])
 		exit(EX_TEMPFAIL);
 
 	mbox_ns = mail_namespaces_init_empty(namespace_pool);
+	mbox_ns->flags |= NAMESPACE_FLAG_INTERNAL;
 	if (mail_storage_create(mbox_ns, "mbox", "/tmp", destination,
 				0, FILE_LOCK_METHOD_FCNTL, &error) < 0)
 		i_fatal("Couldn't create internal mbox storage: %s", error);
