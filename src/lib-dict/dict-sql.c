@@ -5,11 +5,14 @@
 #include "istream.h"
 #include "str.h"
 #include "sql-api-private.h"
+#include "sql-pool.h"
 #include "dict-private.h"
 #include "dict-sql.h"
 
 #include <unistd.h>
 #include <fcntl.h>
+
+#define DICT_SQL_MAX_UNUSED_CONNECTIONS 10
 
 struct sql_dict {
 	struct dict dict;
@@ -35,6 +38,8 @@ struct sql_dict_transaction_context {
 	unsigned int failed:1;
 	unsigned int changed:1;
 };
+
+static struct sql_pool *dict_sql_pool;
 
 static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 {
@@ -121,7 +126,8 @@ sql_dict_init(struct dict *driver, const char *uri,
 	}
 
 	t_push();
-	dict->db = sql_init(driver->name, dict->connect_string);
+	dict->db = sql_pool_new(dict_sql_pool, driver->name,
+				dict->connect_string);
 	t_pop();
 	return &dict->dict;
 }
@@ -447,6 +453,8 @@ void dict_sql_register(void)
         const struct sql_db *const *drivers;
 	unsigned int i, count;
 
+	dict_sql_pool = sql_pool_init(DICT_SQL_MAX_UNUSED_CONNECTIONS);
+
 	/* @UNSAFE */
 	drivers = array_get(&sql_drivers, &count);
 	dict_sql_drivers = i_new(struct dict, count + 1);
@@ -466,4 +474,5 @@ void dict_sql_unregister(void)
 	for (i = 0; dict_sql_drivers[i].name != NULL; i++)
 		dict_driver_unregister(&dict_sql_drivers[i]);
 	i_free(dict_sql_drivers);
+	sql_pool_deinit(&dict_sql_pool);
 }
