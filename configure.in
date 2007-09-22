@@ -927,9 +927,9 @@ AC_CACHE_CHECK([how large time_t values gmtime() accepts],gmtime_max_time_t,[
     int main() {
       FILE *f;
       int bits;
-      time_t t;
   
-      for (bits = 1, t = 1; t > 0; ++bits, t <<= 1) {
+      for (bits = 1; bits < 64; bits++) {
+	time_t t = ((time_t)1 << bits) - 1;
 	if (gmtime(&t) == NULL) {
 	  bits--;
 	  break;
@@ -959,6 +959,23 @@ AC_CACHE_CHECK([how large time_t values gmtime() accepts],gmtime_max_time_t,[
   ],[])
 ])
 AC_DEFINE_UNQUOTED(TIME_T_MAX_BITS, $gmtime_max_time_t, max. time_t bits gmtime() can handle)
+
+AC_CACHE_CHECK([whether time_t is signed],signed_time_t,[
+  AC_RUN_IFELSE([AC_LANG_SOURCE([[
+    #include <sys/types.h>
+    int main() {
+      /* return 0 if we're signed */
+      exit((time_t)(int)-1 <= 0 ? 0 : 1);
+    }
+  ]])],[
+    signed_time_t=yes
+  ], [
+    signed_time_t=no
+  ])
+])
+if test $signed_time_t = yes; then
+  AC_DEFINE(TIME_T_SIGNED,, Define if your time_t is signed)
+fi
 
 dnl * do we have struct iovec
 AC_MSG_CHECKING([for struct iovec])
