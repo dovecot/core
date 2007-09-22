@@ -572,7 +572,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)ctx->ctx.transaction;
 	struct maildir_filename *mf;
-	uint32_t first_uid, next_uid;
+	uint32_t seq, first_uid, next_uid;
 	enum maildir_uidlist_rec_flag flags;
 	const char *dest;
 	bool newdir, sync_commit = FALSE;
@@ -627,6 +627,11 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		/* this will work even if index isn't updated */
 		*t->ictx.first_saved_uid = first_uid;
 		*t->ictx.last_saved_uid = first_uid + ctx->files_count - 1;
+	} else {
+		/* since we couldn't lock uidlist, we'll have to drop the
+		   appends to index. */
+		for (seq = ctx->seq; seq >= ctx->first_seq; seq--)
+			mail_index_expunge(ctx->trans, seq);
 	}
 
 	/* move them into new/ and/or cur/ */
