@@ -140,6 +140,8 @@ bool cmd_copy(struct client_command_context *cmd)
 	else if (mailbox_transaction_commit_get_uids(&t, 0, &uid_validity,
 						     &uid1, &uid2) < 0)
 		ret = -1;
+	else if (copy_count == 0)
+		msg = "OK No messages copied.";
 	else {
 		i_assert(copy_count == uid2 - uid1 + 1);
 
