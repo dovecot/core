@@ -1126,9 +1126,11 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 
 		rec = p_new(ctx->record_pool, struct maildir_uidlist_rec, 1);
 
-		if (old_rec != NULL)
+		if (old_rec != NULL) {
 			*rec = *old_rec;
-		else {
+			rec->extensions =
+				p_strdup(ctx->record_pool, rec->extensions);
+		} else {
 			rec->uid = (uint32_t)-1;
 			ctx->new_files_count++;
 			ctx->changed = TRUE;
