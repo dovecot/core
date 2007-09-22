@@ -29,6 +29,7 @@ struct auth_connection {
 
 	struct ioloop *ioloop;
 	uid_t euid;
+	const char *auth_socket;
 	const char *user;
 	ARRAY_TYPE(string) *extra_fields;
 
@@ -164,7 +165,11 @@ static void auth_input(struct auth_connection *conn)
 			return_value = EX_NOUSER;
 		else if (strncmp(line, "FAIL\t1", 6) == 0)
 			return_value = EX_TEMPFAIL;
-		else {
+		else if (strncmp(line, "CUID\t", 5) == 0) {
+			i_error("%s is an auth client socket. "
+				"It should be a master socket.",
+				conn->auth_socket);
+		} else {
 			i_error("BUG: Unexpected input from auth master: %s",
 				line);
 		}
@@ -214,6 +219,7 @@ int auth_client_lookup_and_restrict(struct ioloop *ioloop,
 	conn->ioloop = ioloop;
 	conn->euid = euid;
 	conn->user = user;
+	conn->auth_socket = auth_socket;
 	conn->to = timeout_add(1000*AUTH_REQUEST_TIMEOUT,
 			       auth_client_timeout, conn);
 	conn->extra_fields = extra_fields_r;
