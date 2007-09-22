@@ -461,7 +461,7 @@ void client_destroy(struct imap_client *client, const char *reason)
 		client_syslog(&client->common, reason);
 
 	hash_remove(clients, client);
-	if (hash_size(clients) == 0)
+	if (hash_count(clients) == 0)
 		timeout_remove(&to_idle);
 
 	if (client->input != NULL)
@@ -595,7 +595,7 @@ static void idle_timeout(void *context ATTR_UNUSED)
 
 unsigned int clients_get_count(void)
 {
-	return hash_size(clients);
+	return hash_count(clients);
 }
 
 void clients_notify_auth_connected(void)

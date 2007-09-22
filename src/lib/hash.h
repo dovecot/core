@@ -31,7 +31,7 @@ void hash_insert(struct hash_table *table, void *key, void *value);
 void hash_update(struct hash_table *table, void *key, void *value);
 
 void hash_remove(struct hash_table *table, const void *key);
-unsigned int hash_size(const struct hash_table *table);
+unsigned int hash_count(const struct hash_table *table);
 
 /* Iterates through all nodes in hash table. You may safely call hash_*()
    functions while iterating, but if you add any new nodes, they may or may

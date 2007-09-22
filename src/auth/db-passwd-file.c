@@ -203,7 +203,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 
 	if (pw->db->debug) {
 		i_info("passwd-file %s: Read %u users",
-		       pw->path, hash_size(pw->users));
+		       pw->path, hash_count(pw->users));
 	}
 	return TRUE;
 }

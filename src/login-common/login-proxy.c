@@ -246,7 +246,7 @@ unsigned int login_proxy_get_port(struct login_proxy *proxy)
 
 unsigned int login_proxy_get_count(void)
 {
-	return login_proxies == NULL ? 0 : hash_size(login_proxies);
+	return login_proxies == NULL ? 0 : hash_count(login_proxies);
 }
 
 void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,

@@ -323,7 +323,7 @@ void hash_remove(struct hash_table *table, const void *key)
 		hash_compress(table, &table->nodes[hash % table->size]);
 }
 
-unsigned int hash_size(const struct hash_table *table)
+unsigned int hash_count(const struct hash_table *table)
 {
 	return table->nodes_count;
 }

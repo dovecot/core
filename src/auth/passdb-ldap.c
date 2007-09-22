@@ -182,7 +182,7 @@ static void authbind_start(struct ldap_connection *conn,
 		return;
 	}
 
-	if (conn->connected && hash_size(conn->requests) == 0) {
+	if (conn->connected && hash_count(conn->requests) == 0) {
 		/* switch back to the default dn before doing the next search
 		   request */
 		conn->last_auth_bind = TRUE;

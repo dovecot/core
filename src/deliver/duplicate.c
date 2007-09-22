@@ -147,7 +147,7 @@ static int duplicate_read(struct duplicate_file *file)
 		i_stream_skip(input, id_size + user_size);
 	}
 
-	if (hash_size(file->hash) * COMPRESS_PERCENTAGE / 100 > change_count)
+	if (hash_count(file->hash) * COMPRESS_PERCENTAGE / 100 > change_count)
 		file->changed = TRUE;
 
 	i_stream_unref(&input);

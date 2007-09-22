@@ -289,7 +289,7 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 
 	i_assert(conn->connected);
 
-	if (hash_size(conn->requests) == 0 &&
+	if (hash_count(conn->requests) == 0 &&
 	    conn->delayed_requests_head == NULL)
 		return;
 

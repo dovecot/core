@@ -661,7 +661,7 @@ pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
 
 unsigned int ssl_proxy_get_count(void)
 {
-	return ssl_proxies == NULL ? 0 : hash_size(ssl_proxies);
+	return ssl_proxies == NULL ? 0 : hash_count(ssl_proxies);
 }
 
 static void *ssl_clean_malloc(size_t size)
