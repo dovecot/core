@@ -663,18 +663,58 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 	mail_cache_transaction_free(ctx);
 }
 
+static int
+mail_cache_header_fields_write(struct mail_cache_transaction_ctx *ctx,
+			       const buffer_t *buffer)
+{
+	struct mail_cache *cache = ctx->cache;
+	size_t size = buffer->used;
+	uint32_t offset, hdr_offset;
+
+	if (mail_cache_transaction_get_space(ctx, size, size,
+					     &offset, NULL, TRUE) <= 0)
+		return -1;
+
+	if (mail_cache_write(cache, buffer->data, size, offset) < 0)
+		return -1;
+
+	if (!cache->index->fsync_disable) {
+		if (fdatasync(cache->fd) < 0) {
+			mail_cache_set_syscall_error(cache, "fdatasync()");
+			return -1;
+		}
+	}
+	if (mail_cache_header_fields_get_next_offset(cache, &hdr_offset) < 0)
+		return -1;
+
+	/* if we rollback the transaction, we must not overwrite this
+	   area because it's already committed after updating the
+	   header offset */
+	mail_cache_transaction_partial_commit(ctx, offset, size);
+
+	/* after it's guaranteed to be in disk, update header offset */
+	offset = mail_index_uint32_to_offset(offset);
+	if (mail_cache_write(cache, &offset, sizeof(offset), hdr_offset) < 0)
+		return -1;
+
+	if (hdr_offset == offsetof(struct mail_cache_header,
+				   field_header_offset)) {
+		/* we're adding the first field. hdr_copy needs to be kept
+		   in sync so unlocking won't overwrite it. */
+		cache->hdr_copy.field_header_offset = hdr_offset;
+	}
+	return 0;
+}
+
 static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 				       unsigned int field_idx)
 {
 	struct mail_cache *cache = ctx->cache;
 	buffer_t *buffer;
-	const void *data;
-	size_t size;
-	uint32_t offset, hdr_offset;
-	int ret = 0;
+	int ret;
 
-	ctx->cache->fields[field_idx].last_used = ioloop_time;
-	ctx->cache->fields[field_idx].used = TRUE;
+	cache->fields[field_idx].last_used = ioloop_time;
+	cache->fields[field_idx].used = TRUE;
 
 	if ((ret = mail_cache_transaction_lock(ctx)) <= 0) {
 		/* create the cache file if it doesn't exist yet */
@@ -694,7 +734,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		return -1;
 	}
 
-	if (ctx->cache->field_file_map[field_idx] != (uint32_t)-1) {
+	if (cache->field_file_map[field_idx] != (uint32_t)-1) {
 		/* it was already added */
 		if (mail_cache_unlock(cache) < 0)
 			return -1;
@@ -704,37 +744,20 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	t_push();
 	buffer = buffer_create_dynamic(pool_datastack_create(), 256);
 	mail_cache_header_fields_get(cache, buffer);
-	data = buffer_get_data(buffer, &size);
-
-	if (mail_cache_transaction_get_space(ctx, size, size,
-					     &offset, NULL, TRUE) <= 0)
-		ret = -1;
-	else if (mail_cache_write(cache, data, size, offset) < 0)
-		ret = -1;
-	else if (!cache->index->fsync_disable && fdatasync(cache->fd) < 0) {
-		mail_cache_set_syscall_error(cache, "fdatasync()");
-		ret = -1;
-	} else if (mail_cache_header_fields_get_next_offset(cache,
-							    &hdr_offset) < 0)
-		ret = -1;
-	else {
-		/* if we rollback the transaction, we must not overwrite this
-		   area because it's already committed after updating the
-		   header offset */
-		mail_cache_transaction_partial_commit(ctx, offset, size);
-
-		/* after it's guaranteed to be in disk, update header offset */
-		offset = mail_index_uint32_to_offset(offset);
-		if (mail_cache_write(cache, &offset, sizeof(offset),
-				     hdr_offset) < 0)
-			ret = -1;
-		else {
-			/* we'll need to fix mappings. */
-			if (mail_cache_header_fields_read(cache) < 0)
-				ret = -1;
-		}
-	}
+	ret = mail_cache_header_fields_write(ctx, buffer);
 	t_pop();
+
+	if (ret == 0) {
+		/* we wrote all the headers, so there are no pending changes */
+		cache->field_header_write_pending = FALSE;
+		ret = mail_cache_header_fields_read(cache);
+	}
+	if (ret == 0 && cache->field_file_map[field_idx] == (uint32_t)-1) {
+		mail_index_set_error(cache->index,
+				     "Cache file %s: Newly added field got "
+				     "lost unexpectedly", cache->filepath);
+		ret = -1;
+	}
 
 	if (mail_cache_unlock(cache) < 0)
 		ret = -1;
