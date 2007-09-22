@@ -26,6 +26,11 @@ login_proxy_new(struct client *client, const char *host, unsigned int port,
 /* Free the proxy. This should be called if authentication fails. */
 void login_proxy_free(struct login_proxy *proxy);
 
+/* Return TRUE if host/port/destuser combination points to same as current
+   connection. */
+bool login_proxy_is_ourself(struct client *client, const char *host,
+			    unsigned int port, const char *destuser);
+
 /* Detach proxy from client. This is done after the authentication is
    successful and all that is left is the dummy proxying. */
 void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,

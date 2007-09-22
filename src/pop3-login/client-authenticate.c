@@ -115,7 +115,8 @@ static bool client_handle_args(struct pop3_client *client,
 	if (destuser == NULL)
 		destuser = client->common.virtual_user;
 
-	if (proxy) {
+	if (proxy &&
+	    !login_proxy_is_ourself(&client->common, host, port, destuser)) {
 		/* we want to proxy the connection to another server.
 		   don't do this unless authentication succeeded. with
 		   master user proxying we can get FAIL with proxy still set.

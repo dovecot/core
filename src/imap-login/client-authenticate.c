@@ -108,7 +108,8 @@ static bool client_handle_args(struct imap_client *client,
 	if (destuser == NULL)
 		destuser = client->common.virtual_user;
 
-	if (proxy) {
+	if (proxy &&
+	    !login_proxy_is_ourself(&client->common, host, port, destuser)) {
 		/* we want to proxy the connection to another server.
 		   don't do this unless authentication succeeded. with
 		   master user proxying we can get FAIL with proxy still set.
@@ -121,7 +122,7 @@ static bool client_handle_args(struct imap_client *client,
 		return TRUE;
 	}
 
-	if (host != NULL) {
+	if (!proxy && host != NULL) {
 		/* IMAP referral
 
 		   [nologin] referral host=.. [port=..] [destuser=..]
