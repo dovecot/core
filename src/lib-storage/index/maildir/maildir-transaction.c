@@ -13,9 +13,7 @@ static int maildir_transaction_commit(struct mail_index_transaction *t,
 				      uoff_t *log_file_offset_r)
 {
 	struct maildir_transaction_context *mt = MAIL_STORAGE_CONTEXT(t);
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mt->ictx.ibox;
 	struct maildir_save_context *save_ctx;
-	bool syncing = t->sync_transaction;
 	int ret = 0;
 
 	if (mt->save_ctx != NULL) {
