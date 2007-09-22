@@ -62,8 +62,6 @@ void sql_deinit(struct sql_db **_db)
 
 	*_db = NULL;
 	db->v.deinit(db);
-	array_free(&db->module_contexts);
-	i_free(db);
 }
 
 enum sql_db_flags sql_get_flags(struct sql_db *db)

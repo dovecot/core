@@ -1,6 +1,7 @@
 /* Copyright (C) 2006 Jakob Hirsch */
 
 #include "lib.h"
+#include "array.h"
 #include "str.h"
 #include "sql-api-private.h"
 
@@ -60,11 +61,13 @@ static int driver_sqlite_connect(struct sql_db *_db)
 static struct sql_db *driver_sqlite_init_v(const char *connect_string)
 {
 	struct sqlite_db *db;
+	pool_t pool;
 
 	i_assert(connect_string != NULL);
 
-	db = i_new(struct sqlite_db, 1);
-	db->pool = pool_alloconly_create("sqlite driver", 512);;
+	pool = pool_alloconly_create("sqlite driver", 512);
+	db = p_new(pool, struct sqlite_db, 1);
+	db->pool = pool;
 	db->api = driver_sqlite_db;
 	db->dbfile = p_strdup(db->pool, connect_string);
 	db->connected = FALSE;
@@ -77,6 +80,7 @@ static void driver_sqlite_deinit_v(struct sql_db *_db)
 	struct sqlite_db *db = (struct sqlite_db *)_db;
 
 	sqlite3_close(db->sqlite);
+	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);
 }
 

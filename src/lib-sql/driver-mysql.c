@@ -245,9 +245,11 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 static struct sql_db *driver_mysql_init_v(const char *connect_string)
 {
 	struct mysql_db *db;
+	pool_t pool;
 
-	db = i_new(struct mysql_db, 1);
-	db->pool = pool_alloconly_create("mysql driver", 512);;
+	pool = pool_alloconly_create("mysql driver", 512);
+	db = p_new(pool, struct mysql_db, 1);
+	db->pool = pool;
 	db->api = driver_mysql_db;
 	p_array_init(&db->connections, db->pool, 6);
 
@@ -265,6 +267,7 @@ static void driver_mysql_deinit_v(struct sql_db *_db)
 	for (i = 0; i < count; i++)
 		(void)driver_mysql_connection_free(&conn[i]);
 
+	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);
 }
 

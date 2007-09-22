@@ -213,6 +213,8 @@ static void driver_pgsql_deinit_v(struct sql_db *_db)
         driver_pgsql_close(db);
 	i_free(db->error);
 	i_free(db->connect_string);
+	array_free(&_db->module_contexts);
+	i_free(db);
 }
 
 static enum sql_db_flags
