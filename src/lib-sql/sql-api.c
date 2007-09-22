@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 
+struct sql_db_module_register sql_db_module_register = { 0 };
 ARRAY_TYPE(sql_drivers) sql_drivers;
 
 void sql_drivers_init(void)
