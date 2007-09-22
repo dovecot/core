@@ -446,8 +446,6 @@ void mail_transaction_log_sync_unlock(struct mail_transaction_log *log)
 void mail_transaction_log_get_head(struct mail_transaction_log *log,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r)
 {
-	i_assert(log->index->log_locked);
-
 	*file_seq_r = log->head->hdr.file_seq;
 	*file_offset_r = log->head->sync_offset;
 }

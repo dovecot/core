@@ -260,6 +260,9 @@ int mail_index_sync_begin_to(struct mail_index *index,
 			     struct mail_index_transaction **trans_r,
 			     uint32_t log_file_seq, uoff_t log_file_offset,
 			     enum mail_index_sync_flags flags);
+/* Returns TRUE if it currently looks like syncing would return changes. */
+bool mail_index_sync_have_any(struct mail_index *index,
+			      enum mail_index_sync_flags flags);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			  struct mail_index_sync_rec *sync_rec);

@@ -412,6 +412,63 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	return 1;
 }
 
+static bool mail_index_sync_view_have_any(struct mail_index_view *view,
+					  enum mail_index_sync_flags flags)
+{
+	const struct mail_transaction_header *hdr;
+	const void *data;
+	uint32_t log_seq;
+	uoff_t log_offset;
+	bool reset;
+	int ret;
+
+	if (view->map->hdr.first_recent_uid < view->map->hdr.next_uid &&
+	    (flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0)
+		return TRUE;
+
+	if ((view->map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
+	    (flags & MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY) != 0)
+		return TRUE;
+
+	mail_transaction_log_get_head(view->index->log, &log_seq, &log_offset);
+	if (mail_transaction_log_view_set(view->log_view,
+					  view->map->hdr.log_file_seq,
+					  view->map->hdr.log_file_tail_offset,
+					  log_seq, log_offset, &reset) <= 0) {
+		/* let the actual syncing handle the error */
+		return TRUE;
+	}
+
+	while ((ret = mail_transaction_log_view_next(view->log_view,
+						     &hdr, &data)) > 0) {
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0)
+			continue;
+
+		switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+		case MAIL_TRANSACTION_EXPUNGE:
+		case MAIL_TRANSACTION_FLAG_UPDATE:
+		case MAIL_TRANSACTION_KEYWORD_UPDATE:
+		case MAIL_TRANSACTION_KEYWORD_RESET:
+			return TRUE;
+		default:
+			break;
+		}
+	}
+	return ret < 0;
+}
+
+bool mail_index_sync_have_any(struct mail_index *index,
+			      enum mail_index_sync_flags flags)
+{
+	struct mail_index_view *view;
+	bool ret;
+
+	view = mail_index_view_open(index);
+	ret = mail_index_sync_view_have_any(view, flags);
+	mail_index_view_close(&view);
+	return ret;
+}
+
 static void
 mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 			    const struct mail_transaction_expunge *exp)
