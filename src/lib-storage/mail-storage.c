@@ -520,6 +520,19 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 	return ctx->box->v.sync_deinit(ctx, status_items, status_r);
 }
 
+int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags,
+		 enum mailbox_status_items status_items,
+		 struct mailbox_status *status_r)
+{
+	struct mailbox_sync_context *ctx;
+        struct mailbox_sync_rec sync_rec;
+
+	ctx = mailbox_sync_init(box, flags);
+	while (mailbox_sync_next(ctx, &sync_rec))
+		;
+	return mailbox_sync_deinit(&ctx, status_items, status_r);
+}
+
 #undef mailbox_notify_changes
 void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 			    mailbox_notify_callback_t *callback, void *context)

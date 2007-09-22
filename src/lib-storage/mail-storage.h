@@ -291,6 +291,11 @@ bool mailbox_sync_next(struct mailbox_sync_context *ctx,
 int mailbox_sync_deinit(struct mailbox_sync_context **ctx,
 			enum mailbox_status_items status_items,
 			struct mailbox_status *status_r);
+/* One-step mailbox synchronization. Use this if you don't care about
+   changes. */
+int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags,
+		 enum mailbox_status_items status_items,
+		 struct mailbox_status *status_r);
 
 /* Call given callback function when something changes in the mailbox. */
 void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
