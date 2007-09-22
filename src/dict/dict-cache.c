@@ -7,7 +7,7 @@
 
 struct dict_entry {
 	int refcount;
-	char *uri;
+	char *user_uri;
 	struct dict *dict;
 };
 
@@ -36,30 +36,37 @@ struct dict *dict_cache_get(struct dict_cache *cache, const char *uri,
 			    const char *username)
 {
 	struct dict_entry *entry;
+	char *user_uri;
 
-	entry = hash_lookup(cache->dicts, uri);
+	user_uri = i_strdup_printf("%s\t%s", username, uri);
+	entry = hash_lookup(cache->dicts, user_uri);
 	if (entry == NULL) {
 		entry = i_new(struct dict_entry, 1);
 		entry->dict = dict_init(uri, value_type, username);
-		entry->uri = i_strdup(uri);
-		hash_insert(cache->dicts, entry->uri, entry);
+		entry->user_uri = user_uri;
+		hash_insert(cache->dicts, entry->user_uri, entry);
+	} else {
+		i_free(user_uri);
 	}
 	entry->refcount++;
 	return entry->dict;
 }
 
-void dict_cache_unref(struct dict_cache *cache, const char *uri)
+void dict_cache_unref(struct dict_cache *cache, const char *uri,
+		      const char *username)
 {
 	struct dict_entry *entry;
 
-	entry = hash_lookup(cache->dicts, uri);
+	t_push();
+	entry = hash_lookup(cache->dicts,
+			    t_strdup_printf("%s\t%s", username, uri));
 	i_assert(entry != NULL && entry->refcount > 0);
 
-	if (--entry->refcount > 0)
-		return;
-
-	hash_remove(cache->dicts, uri);
-	dict_deinit(&entry->dict);
-	i_free(entry->uri);
-	i_free(entry);
+	if (--entry->refcount == 0) {
+		hash_remove(cache->dicts, entry->user_uri);
+		dict_deinit(&entry->dict);
+		i_free(entry->user_uri);
+		i_free(entry);
+	}
+	t_pop();
 }

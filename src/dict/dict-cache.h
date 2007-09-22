@@ -7,6 +7,7 @@ void dict_cache_deinit(struct dict_cache *cache);
 struct dict *dict_cache_get(struct dict_cache *cache, const char *uri,
 			    enum dict_data_type value_type,
 			    const char *username);
-void dict_cache_unref(struct dict_cache *cache, const char *uri);
+void dict_cache_unref(struct dict_cache *cache, const char *uri,
+		      const char *username);
 
 #endif

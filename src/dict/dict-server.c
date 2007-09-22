@@ -430,8 +430,10 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn)
 	if (close(conn->fd) < 0)
 		i_error("close(dict client) failed: %m");
 
-	if (conn->dict != NULL)
-		dict_cache_unref(conn->server->cache, conn->uri);
+	if (conn->dict != NULL) {
+		dict_cache_unref(conn->server->cache, conn->uri,
+				 conn->username);
+	}
 	i_free(conn->name);
 	i_free(conn->uri);
 	i_free(conn->username);
