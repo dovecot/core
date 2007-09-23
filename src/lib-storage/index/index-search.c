@@ -807,16 +807,12 @@ static void search_args_fix_subs(struct mail_search_arg *args, bool parent_and)
 	struct mail_search_arg *sub;
 
 	for (; args != NULL;) {
-		if (args->not && args->type == SEARCH_SUB) {
-			/* neg(p and q and ..) == neg(p) or neg(q) or .. */
-			args->type = SEARCH_OR;
-			args->not = FALSE;
-			sub = args->value.subargs;
-			for (; sub != NULL; sub = sub->next)
-				sub->not = !sub->not;
-		} else if (args->not && args->type == SEARCH_OR) {
-			/* neg(p or q or ..) == neg(p) and neg(q) and .. */
-			args->type = SEARCH_SUB;
+		if (args->not && (args->type == SEARCH_SUB ||
+				  args->type == SEARCH_OR)) {
+			/* neg(p and q and ..) == neg(p) or neg(q) or ..
+			   neg(p or q or ..) == neg(p) and neg(q) and .. */
+			args->type = args->type == SEARCH_SUB ?
+				SEARCH_OR : SEARCH_SUB;
 			args->not = FALSE;
 			sub = args->value.subargs;
 			for (; sub != NULL; sub = sub->next)
