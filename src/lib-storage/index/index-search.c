@@ -64,8 +64,7 @@ static const enum message_header_parser_flags hdr_parser_flags =
 
 static void search_parse_msgset_args(const struct mail_index_header *hdr,
 				     struct mail_search_arg *args,
-				     uint32_t *seq1_r, uint32_t *seq2_r,
-				     bool not);
+				     uint32_t *seq1_r, uint32_t *seq2_r);
 
 static int seqset_contains(struct mail_search_seqset *set, uint32_t seq)
 {
@@ -560,54 +559,18 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 	return TRUE;
 }
 
-static void update_seqs(const struct mail_search_seqset *set,
-			const struct mail_index_header *hdr,
-			uint32_t *seq1_r, uint32_t *seq2_r, bool not)
+static bool search_msgset_fix_limits(const struct mail_index_header *hdr,
+				     struct mail_search_seqset *set, bool not)
 {
-	if (!not) {
-		/* seq1..seq2 */
-		if (*seq1_r < set->seq1 || *seq1_r == 0)
-			*seq1_r = set->seq1;
-		if (*seq2_r > set->seq2)
-			*seq2_r = set->seq2;
-	} else {
-		if (set->seq1 == 1) {
-			/* seq2+1..count */
-			if (set->seq2 == hdr->messages_count) {
-				/* completely outside our range */
-				*seq1_r = (uint32_t)-1;
-				*seq2_r = 0;
-			} else {
-				if (*seq1_r < set->seq2 + 1)
-					*seq1_r = set->seq2 + 1;
-			}
-		} else if (set->seq2 == hdr->messages_count) {
-			/* 1..seq1-1 */
-			if (*seq2_r > set->seq1 - 1)
-				*seq2_r = set->seq1 - 1;
-		}
-	}
-}
-
-static void search_msgset_fix(const struct mail_index_header *hdr,
-			      struct mail_search_seqset *set,
-			      uint32_t *seq1_r, uint32_t *seq2_r, bool not)
-{
-	struct mail_search_seqset full_set;
-	uint32_t min_seq = (uint32_t)-1, max_seq = 0;
-
 	for (; set != NULL; set = set->next) {
 		if (set->seq1 > hdr->messages_count) {
 			if (set->seq1 != (uint32_t)-1 &&
 			    set->seq2 != (uint32_t)-1) {
-				set->seq1 = set->seq2 = 0;
 				if (not)
 					continue;
 
 				/* completely outside our range */
-				*seq1_r = (uint32_t)-1;
-				*seq2_r = 0;
-				return;
+				return FALSE;
 			}
 			/* either seq1 or seq2 is '*', so the last message is
 			   in range. */
@@ -618,50 +581,115 @@ static void search_msgset_fix(const struct mail_index_header *hdr,
 
 		if (set->seq1 == 0 || set->seq2 == 0) {
 			/* this shouldn't happen. treat as nonexisting. */
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+static int mail_search_seqset_cmp(const void *p1, const void *p2)
+{
+	struct mail_search_seqset *const *set1 = p1, *const *set2 = p2;
+
+	return (*set1)->seq1 < (*set2)->seq2 ? -1 :
+		((*set1)->seq1 > (*set2)->seq2 ? 1 : 0);
+}
+
+static struct mail_search_seqset *
+search_msgset_sort(struct mail_search_seqset *set)
+{
+	struct mail_search_seqset **sets, *cur;
+	unsigned int i, count;
+
+	for (cur = set, count = 0; cur != NULL; cur = cur->next)
+		count++;
+
+	/* @UNSAFE */
+	sets = i_new(struct mail_search_seqset *, count);
+	for (i = 0, cur = set; i < count; i++, cur = cur->next)
+		sets[i] = cur;
+	qsort(sets, count, sizeof(*sets), mail_search_seqset_cmp);
+	for (i = 0; i < count-1; i++)
+		sets[i]->next = sets[i+1];
+	sets[i]->next = NULL;
+	set = sets[0];
+	i_free(sets);
+	return set;
+}
+
+static void search_msgset_compress(struct mail_search_seqset *set,
+				   struct mail_search_seqset **last_r)
+{
+	struct mail_search_seqset *cur;
+
+	for (cur = set; cur->next != NULL; ) {
+		if (cur->seq2 + 1 >= cur->next->seq1) {
+			if (cur->seq2 < cur->next->seq2)
+				cur->seq2 = cur->next->seq2;
+			cur->next = cur->next->next;
+		} else {
+			cur = cur->next;
+		}
+	}
+	*last_r = cur;
+}
+
+static void search_msgset_fix(const struct mail_index_header *hdr,
+			      struct mail_search_seqset **set_p,
+			      uint32_t *seq1_r, uint32_t *seq2_r, bool not)
+{
+	struct mail_search_seqset *set = *set_p;
+	struct mail_search_seqset *last;
+	uint32_t min_seq, max_seq;
+
+	if (!search_msgset_fix_limits(hdr, set, not)) {
+		*seq1_r = (uint32_t)-1;
+		*seq2_r = 0;
+		return;
+	}
+	set = *set_p = search_msgset_sort(set);
+	search_msgset_compress(set, &last);
+
+	if (!not) {
+		min_seq = set->seq1;
+		max_seq = last->seq2;
+	} else {
+		min_seq = set->seq1 > 1 ? 1 : set->seq2 + 1;
+		max_seq = last->seq2 < hdr->messages_count ?
+			hdr->messages_count : last->seq1 - 1;
+		if (min_seq > max_seq) {
 			*seq1_r = (uint32_t)-1;
 			*seq2_r = 0;
 			return;
 		}
-
-		if (set->seq1 < min_seq)
-			min_seq = set->seq1;
-		if (set->seq2 > max_seq)
-			max_seq = set->seq2;
-		if (not)
-			update_seqs(set, hdr, seq1_r, seq2_r, TRUE);
 	}
 
-	if (!not) {
-		full_set.seq1 = min_seq;
-		full_set.seq2 = max_seq;
-		full_set.next = NULL;
-		update_seqs(&full_set, hdr, seq1_r, seq2_r, not);
-	}
+	if (*seq1_r < min_seq || *seq1_r == 0)
+		*seq1_r = min_seq;
+	if (*seq2_r > max_seq)
+		*seq2_r = max_seq;
 }
 
 static void search_or_parse_msgset_args(const struct mail_index_header *hdr,
 					struct mail_search_arg *args,
-					uint32_t *seq1_r, uint32_t *seq2_r,
-					bool not)
+					uint32_t *seq1_r, uint32_t *seq2_r)
 {
 	uint32_t seq1, seq2, min_seq1 = 0, max_seq2 = 0;
 
 	for (; args != NULL; args = args->next) {
-		bool cur_not = args->not;
-
-		if (not)
-			cur_not = !cur_not;
 		seq1 = 1; seq2 = hdr->messages_count;
 
 		if (args->type == SEARCH_SUB) {
+			i_assert(!args->not);
 			search_parse_msgset_args(hdr, args->value.subargs,
-						 &seq1, &seq2, cur_not);
+						 &seq1, &seq2);
 		} else if (args->type == SEARCH_OR) {
+			i_assert(!args->not);
 			search_or_parse_msgset_args(hdr, args->value.subargs,
-						    &seq1, &seq2, cur_not);
+						    &seq1, &seq2);
 		} else if (args->type == SEARCH_SEQSET) {
-			search_msgset_fix(hdr, args->value.seqset,
-					  &seq1, &seq2, cur_not);
+			search_msgset_fix(hdr, &args->value.seqset,
+					  &seq1, &seq2, args->not);
 		}
 
 		if (min_seq1 == 0) {
@@ -684,26 +712,22 @@ static void search_or_parse_msgset_args(const struct mail_index_header *hdr,
 
 static void search_parse_msgset_args(const struct mail_index_header *hdr,
 				     struct mail_search_arg *args,
-				     uint32_t *seq1_r, uint32_t *seq2_r,
-				     bool not)
+				     uint32_t *seq1_r, uint32_t *seq2_r)
 {
 	for (; args != NULL; args = args->next) {
-		bool cur_not = args->not;
-
-		if (not)
-			cur_not = !cur_not;
-
 		if (args->type == SEARCH_SUB) {
+			i_assert(!args->not);
 			search_parse_msgset_args(hdr, args->value.subargs,
-						 seq1_r, seq2_r, cur_not);
+						 seq1_r, seq2_r);
 		} else if (args->type == SEARCH_OR) {
 			/* go through our children and use the widest seqset
 			   range */
+			i_assert(!args->not);
 			search_or_parse_msgset_args(hdr, args->value.subargs,
-						    seq1_r, seq2_r, cur_not);
+						    seq1_r, seq2_r);
 		} else if (args->type == SEARCH_SEQSET) {
-			search_msgset_fix(hdr, args->value.seqset,
-					  seq1_r, seq2_r, cur_not);
+			search_msgset_fix(hdr, &args->value.seqset,
+					  seq1_r, seq2_r, args->not);
 		}
 	}
 }
@@ -778,6 +802,44 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 	return *seq1 <= *seq2;
 }
 
+static void search_args_fix_subs(struct mail_search_arg *args, bool parent_and)
+{
+	struct mail_search_arg *sub;
+
+	for (; args != NULL;) {
+		if (args->not && args->type == SEARCH_SUB) {
+			/* neg(p and q and ..) == neg(p) or neg(q) or .. */
+			args->type = SEARCH_OR;
+			args->not = FALSE;
+			sub = args->value.subargs;
+			for (; sub != NULL; sub = sub->next)
+				sub->not = !sub->not;
+		} else if (args->not && args->type == SEARCH_OR) {
+			/* neg(p or q or ..) == neg(p) and neg(q) and .. */
+			args->type = SEARCH_SUB;
+			args->not = FALSE;
+			sub = args->value.subargs;
+			for (; sub != NULL; sub = sub->next)
+				sub->not = !sub->not;
+		}
+
+		if (args->type == SEARCH_SUB && parent_and) {
+			/* p and (q and ..) == p and q and .. */
+			sub = args->value.subargs;
+			for (; sub->next != NULL; sub = sub->next) ;
+			sub->next = args->next;
+			*args = *args->value.subargs;
+			continue;
+		}
+
+		if (args->type == SEARCH_SUB || args->type == SEARCH_OR) {
+			search_args_fix_subs(args->value.subargs,
+					     args->type == SEARCH_SUB);
+		}
+		args = args->next;
+	}
+}
+
 static void search_get_seqset(struct index_search_context *ctx,
 			      struct mail_search_arg *args)
 {
@@ -796,7 +858,8 @@ static void search_get_seqset(struct index_search_context *ctx,
 	ctx->seq1 = 1;
 	ctx->seq2 = hdr->messages_count;
 
-	search_parse_msgset_args(hdr, args, &ctx->seq1, &ctx->seq2, FALSE);
+	search_args_fix_subs(args, TRUE);
+	search_parse_msgset_args(hdr, args, &ctx->seq1, &ctx->seq2);
 	if (ctx->seq1 == 0) {
 		ctx->seq1 = 1;
 		ctx->seq2 = hdr->messages_count;
