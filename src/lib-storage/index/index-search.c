@@ -823,8 +823,10 @@ static void search_args_fix_subs(struct mail_search_arg *args, bool parent_and)
 				sub->not = !sub->not;
 		}
 
-		if (args->type == SEARCH_SUB && parent_and) {
-			/* p and (q and ..) == p and q and .. */
+		if ((args->type == SEARCH_SUB && parent_and) ||
+		    (args->type == SEARCH_OR && !parent_and)) {
+			/* p and (q and ..) == p and q and ..
+			   p or (q or ..) == p or q or .. */
 			sub = args->value.subargs;
 			for (; sub->next != NULL; sub = sub->next) ;
 			sub->next = args->next;
