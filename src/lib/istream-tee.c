@@ -99,7 +99,7 @@ i_stream_tee_set_max_buffer_size(struct iostream_private *stream,
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 
-	return i_stream_set_max_buffer_size(tstream->tee->input, max_size);
+	i_stream_set_max_buffer_size(tstream->tee->input, max_size);
 }
 
 static ssize_t i_stream_tee_read(struct istream_private *stream)
@@ -169,7 +169,7 @@ static void i_stream_tee_sync(struct istream_private *stream)
 		i_panic("tee-istream: i_stream_sync() called "
 			"with data still buffered");
 	}
-	return i_stream_sync(tstream->tee->input);
+	i_stream_sync(tstream->tee->input);
 }
 
 struct tee_istream *tee_i_stream_create(struct istream *input)
