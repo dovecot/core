@@ -421,17 +421,22 @@ static void save_header_callback(struct message_header_line *hdr,
 	}
 }
 
-static struct istream *create_mbox_stream(int fd, const char *envelope_sender)
+static struct istream *
+create_mbox_stream(int fd, const char *envelope_sender, bool **first_r)
 {
 	const char *mbox_hdr;
 	struct istream *input_list[4], *input, *input_filter;
-	bool first = TRUE;
 
 	fd_set_nonblock(fd, FALSE);
 
 	envelope_sender = address_sanitize(envelope_sender);
 	mbox_hdr = mbox_from_create(envelope_sender, ioloop_time);
 
+	/* kind of kludgy to allocate memory just for this, but since this
+	   has to live as long as the input stream itself, this is the safest
+	   way to do it without it breaking accidentally. */
+	*first_r = i_new(bool, 1);
+	**first_r = TRUE;
 	input = i_stream_create_fd(fd, 4096, FALSE);
 	input_filter =
 		i_stream_create_header_filter(input,
@@ -440,7 +445,7 @@ static struct istream *create_mbox_stream(int fd, const char *envelope_sender)
 					      mbox_hide_headers,
 					      mbox_hide_headers_count,
 					      save_header_callback,
-					      &first);
+					      *first_r);
 	i_stream_unref(&input);
 
 	input_list[0] = i_stream_create_from_data(mbox_hdr, strlen(mbox_hdr));
@@ -593,6 +598,7 @@ int main(int argc, char *argv[])
 	pool_t namespace_pool;
 	bool stderr_rejection = FALSE;
 	bool keep_environment = FALSE;
+	bool *input_first;
 	int i, ret;
 
 	i_set_failure_exit_callback(failure_exit_callback);
@@ -777,7 +783,7 @@ int main(int argc, char *argv[])
 	if (mail_storage_create(mbox_ns, "mbox", "/tmp", destination,
 				0, FILE_LOCK_METHOD_FCNTL, &error) < 0)
 		i_fatal("Couldn't create internal mbox storage: %s", error);
-	input = create_mbox_stream(0, envelope_sender);
+	input = create_mbox_stream(0, envelope_sender, &input_first);
 	box = mailbox_open(mbox_ns->storage, "Dovecot Delivery Mail", input,
 			   MAILBOX_OPEN_NO_INDEX_FILES |
 			   MAILBOX_OPEN_MBOX_ONE_MSG_ONLY);
@@ -854,6 +860,7 @@ int main(int argc, char *argv[])
 		/* ok, rejection sent */
 	}
 	i_stream_unref(&input);
+	i_free(input_first);
 
 	mail_free(&mail);
 	mailbox_transaction_rollback(&t);
