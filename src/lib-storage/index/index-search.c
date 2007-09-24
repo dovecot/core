@@ -562,6 +562,9 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 static bool search_msgset_fix_limits(const struct mail_index_header *hdr,
 				     struct mail_search_seqset *set, bool not)
 {
+	if (set == NULL)
+		return FALSE;
+
 	for (; set != NULL; set = set->next) {
 		if (set->seq1 > hdr->messages_count) {
 			if (set->seq1 != (uint32_t)-1 &&
