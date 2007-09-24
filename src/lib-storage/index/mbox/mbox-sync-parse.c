@@ -427,7 +427,6 @@ static struct mbox_sync_header_func header_funcs[] = {
 	{ "X-Status", parse_x_status },
 	{ "X-UID", parse_x_uid }
 };
-#define HEADER_FUNCS_COUNT (sizeof(header_funcs) / sizeof(*header_funcs))
 
 static int mbox_sync_bsearch_header_func_cmp(const void *p1, const void *p2)
 {
@@ -477,7 +476,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 		}
 
 		func = bsearch(hdr->name, header_funcs,
-			       HEADER_FUNCS_COUNT, sizeof(*header_funcs),
+			       N_ELEMENTS(header_funcs), sizeof(*header_funcs),
 			       mbox_sync_bsearch_header_func_cmp);
 
 		if (func != NULL) {
@@ -559,7 +558,7 @@ bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 			break;
 
 		func = bsearch(hdr->name, header_funcs,
-			       HEADER_FUNCS_COUNT, sizeof(*header_funcs),
+			       N_ELEMENTS(header_funcs), sizeof(*header_funcs),
 			       mbox_sync_bsearch_header_func_cmp);
 		if (func != NULL) {
 			if (strcasecmp(hdr->name, "X-UID") == 0) {

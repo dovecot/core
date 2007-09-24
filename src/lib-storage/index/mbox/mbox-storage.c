@@ -47,8 +47,7 @@ const char *mbox_hide_headers[] = {
 	"X-Status",
 	"X-UID"
 };
-unsigned int mbox_hide_headers_count =
-	sizeof(mbox_hide_headers) / sizeof(mbox_hide_headers[0]);
+unsigned int mbox_hide_headers_count = N_ELEMENTS(mbox_hide_headers);
 
 /* A bit ugly duplification of the above list. It's safe to modify this list
    without bad side effects, just keep the list sorted. */
@@ -62,8 +61,7 @@ const char *mbox_save_drop_headers[] = {
 	"X-Status",
 	"X-UID"
 };
-unsigned int mbox_save_drop_headers_count =
-	sizeof(mbox_save_drop_headers) / sizeof(mbox_save_drop_headers[0]);
+unsigned int mbox_save_drop_headers_count = N_ELEMENTS(mbox_save_drop_headers);
 
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;

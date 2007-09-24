@@ -35,7 +35,6 @@ static const struct quota_backend *quota_backends[] = {
 	&quota_backend_dirsize,
 	&quota_backend_maildir
 };
-#define QUOTA_CLASS_COUNT (sizeof(quota_backends)/sizeof(quota_backends[0]))
 
 static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 				    uoff_t size, bool *too_large_r);
@@ -74,7 +73,7 @@ static const struct quota_backend *quota_backend_find(const char *name)
 {
 	unsigned int i;
 
-	for (i = 0; i < QUOTA_CLASS_COUNT; i++) {
+	for (i = 0; i < N_ELEMENTS(quota_backends); i++) {
 		if (strcmp(quota_backends[i]->name, name) == 0)
 			return quota_backends[i];
 	}

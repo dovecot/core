@@ -38,8 +38,7 @@ const struct command imap4rev1_commands[] = {
 	{ "UID SEARCH",		cmd_search,      COMMAND_FLAG_BREAKS_SEQS },
 	{ "UID STORE",		cmd_store,       COMMAND_FLAG_BREAKS_SEQS }
 };
-#define IMAP4REV1_COMMANDS_COUNT \
-	(sizeof(imap4rev1_commands) / sizeof(imap4rev1_commands[0]))
+#define IMAP4REV1_COMMANDS_COUNT N_ELEMENTS(imap4rev1_commands)
 
 const struct command imap_ext_commands[] = {
 	{ "IDLE",		cmd_idle,        COMMAND_FLAG_BREAKS_SEQS },
@@ -52,8 +51,7 @@ const struct command imap_ext_commands[] = {
 	{ "UNSELECT",		cmd_unselect,    COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "X-CANCEL",		cmd_x_cancel,    0 }
 };
-#define IMAP_EXT_COMMANDS_COUNT \
-	(sizeof(imap_ext_commands) / sizeof(imap_ext_commands[0]))
+#define IMAP_EXT_COMMANDS_COUNT N_ELEMENTS(imap_ext_commands)
 
 static ARRAY_DEFINE(commands, struct command);
 static bool commands_unsorted;

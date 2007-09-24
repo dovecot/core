@@ -38,7 +38,7 @@ static const unsigned int primes[] = {
 	13845163
 };
 
-static const unsigned int primes_count = sizeof(primes) / sizeof(primes[0]);
+static const unsigned int primes_count = N_ELEMENTS(primes);
 
 unsigned int primes_closest(unsigned int num)
 {

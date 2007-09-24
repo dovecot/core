@@ -86,8 +86,7 @@ struct imap_fetch_context *imap_fetch_init(struct client_command_context *cmd)
 
 	if (fetch_handlers == NULL) {
 		imap_fetch_handlers_register(default_handlers,
-					     sizeof(default_handlers) /
-					     sizeof(default_handlers[0]));
+					     N_ELEMENTS(default_handlers));
 	}
 
 	ctx = p_new(cmd->pool, struct imap_fetch_context, 1);

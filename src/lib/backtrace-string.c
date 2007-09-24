@@ -18,7 +18,7 @@ int backtrace_append(string_t *str)
 	char **strings;
 	int ret, i;
 
-	ret = backtrace(stack, sizeof(stack)/sizeof(stack[0]));
+	ret = backtrace(stack, N_ELEMENTS(stack));
 	if (ret <= STACK_SKIP_COUNT)
 		return -1;
 

@@ -49,8 +49,7 @@ static void event_callback(struct ioloop_notify_handler_context *ctx)
 	ts.tv_sec = 0;
 	ts.tv_nsec = 0;
 
-	ret = kevent(ctx->kq, NULL, 0, events,
-		     sizeof(events)/sizeof(events[0]), &ts);
+	ret = kevent(ctx->kq, NULL, 0, events, N_ELEMENTS(events), &ts);
 	if (ret <= 0) {
 		if (ret == 0 || errno == EINTR)
 			return;

@@ -14,8 +14,6 @@
 #define DH_GENERATOR 2
 
 static int dh_param_bitsizes[] = { 512, 1024 };
-#define DH_PARAM_BITSIZE_COUNT \
-        (sizeof(dh_param_bitsizes)/sizeof(dh_param_bitsizes[0]))
 
 static const char *ssl_last_error(void)
 {
@@ -63,7 +61,7 @@ void ssl_generate_parameters(int fd, const char *fname)
 	unsigned int i;
 	int bits;
 
-	for (i = 0; i < DH_PARAM_BITSIZE_COUNT; i++)
+	for (i = 0; i < N_ELEMENTS(dh_param_bitsizes); i++)
 		generate_dh_parameters(dh_param_bitsizes[i], fd, fname);
 	bits = 0;
 	if (write_full(fd, &bits, sizeof(bits)) < 0)

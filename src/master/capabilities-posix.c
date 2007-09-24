@@ -22,9 +22,9 @@ void drop_capabilities(void)
 	caps = cap_init();
 	cap_clear(caps);
 	cap_set_flag(caps, CAP_PERMITTED,
-		     sizeof(suidcaps) / sizeof(cap_value_t), suidcaps, CAP_SET);
+		     N_ELEMENTS(suidcaps), suidcaps, CAP_SET);
 	cap_set_flag(caps, CAP_EFFECTIVE,
-		     sizeof(suidcaps) / sizeof(cap_value_t), suidcaps, CAP_SET);
+		     N_ELEMENTS(suidcaps), suidcaps, CAP_SET);
 	cap_set_proc(caps);
 	cap_free(caps);
 }

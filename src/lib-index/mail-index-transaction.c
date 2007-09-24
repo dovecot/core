@@ -299,8 +299,7 @@ mail_index_update_day_headers(struct mail_index_transaction *t)
 {
 	struct mail_index_header hdr;
 	const struct mail_index_record *rec;
-	const int max_days =
-		sizeof(hdr.day_first_uid) / sizeof(hdr.day_first_uid[0]);
+	const int max_days = N_ELEMENTS(hdr.day_first_uid);
 	struct tm tm;
 	time_t stamp;
 	int i, days;

@@ -87,22 +87,20 @@ static const struct digest digests[] = {
 	{ "sha1", F(sha1_init), F(sha1_loop),  F(sha1_result), F(sha1_fold) },
 };
 
-#define N_DIGESTS (int)(sizeof(digests) / sizeof(digests[0]))
-
 #undef F
 
 const char *digest_name(unsigned int algo)
 {
-	i_assert(algo < N_DIGESTS);
+	i_assert(algo < N_ELEMENTS(digests));
 
 	return digests[algo].name;
 }
 
 int digest_find(const char *name)
 {
-	int i;
+	unsigned int i;
 
-	for (i = 0; i < N_DIGESTS; i++)
+	for (i = 0; i < N_ELEMENTS(digests); i++)
 		if (strcmp(name, digests[i].name) == 0)
 			return i;
 
@@ -111,7 +109,7 @@ int digest_find(const char *name)
 
 int digest_init(struct digest_context *ctx, const unsigned int algo)
 {
-	i_assert(algo < N_DIGESTS);
+	i_assert(algo < N_ELEMENTS(digests));
 
 	ctx->digest = digests + algo;
 	ctx->digest->init((void *) &ctx->ctx);

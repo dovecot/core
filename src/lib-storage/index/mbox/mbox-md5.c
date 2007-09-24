@@ -76,8 +76,6 @@ static struct mbox_md5_header_func md5_header_funcs[] = {
 	{ "Received", parse_received },
 	{ "X-Delivery-ID", parse_x_delivery_id }
 };
-#define MD5_HEADER_FUNCS_COUNT \
-	(sizeof(md5_header_funcs) / sizeof(*md5_header_funcs))
 
 static int bsearch_header_func_cmp(const void *p1, const void *p2)
 {
@@ -102,7 +100,7 @@ void mbox_md5_continue(struct mbox_md5_context *ctx,
 	struct mbox_md5_header_func *func;
 
 	func = bsearch(hdr->name, md5_header_funcs,
-		       MD5_HEADER_FUNCS_COUNT, sizeof(*md5_header_funcs),
+		       N_ELEMENTS(md5_header_funcs), sizeof(*md5_header_funcs),
 		       bsearch_header_func_cmp);
 	if (func != NULL)
 		(void)func->func(ctx, hdr);
