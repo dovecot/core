@@ -3,6 +3,7 @@
 
 struct message_size;
 
+#include "file-lock.h"
 #include "mail-types.h"
 #include "mail-error.h"
 #include "mailbox-list.h"
