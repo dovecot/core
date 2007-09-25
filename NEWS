@@ -3,11 +3,9 @@ v1.1.UNSTABLE
 	* After Dovecot v1.1 has modified index or dovecot-uidlist files,
 	  they can't be opened anymore with Dovecot versions earlier than
 	  v1.0.2.
-	* Empty passwords in passdb doesn't allow user to log in with any
-	  password anymore. To do that you'll also need to set nopassword
-	  extra field.
-	* PAM always works in blocking=yes mode now. If you have problems
-	  with memory leaks, change auth_worker_max_request_count setting.
+	* See doc/wiki/Upgrading.1.1.txt (or for latest changes,
+	  http://wiki.dovecot.org/Upgrading/1.1) for list of changes since
+	  v1.0 that you should be aware of when upgrading.
 
 	+ IMAP: Added support for UIDPLUS and LIST-EXTENDED extensions.
 	+ IMAP SORT: Sort keys are indexed, which makes SORT commands faster.
