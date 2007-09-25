@@ -41,7 +41,8 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 	}
 
 	o_stream_cork(client->output);
-	io_remove(&client->io);
+	if (client->io != NULL)
+		io_remove(&client->io);
 
 	if (client->mailbox != NULL)
 		mailbox_notify_changes_stop(client->mailbox);
