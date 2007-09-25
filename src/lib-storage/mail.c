@@ -155,7 +155,7 @@ void mail_update_flags(struct mail *mail, enum modify_type modify_type,
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.update_flags(mail, modify_type, flags);
+	p->v.update_flags(mail, modify_type, flags);
 }
 
 void mail_update_keywords(struct mail *mail, enum modify_type modify_type,

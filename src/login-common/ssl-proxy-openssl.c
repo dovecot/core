@@ -676,7 +676,7 @@ static void *ssl_clean_realloc(void *ptr, size_t size)
 
 static void ssl_clean_free(void *ptr)
 {
-	return p_free(system_clean_pool, ptr);
+	p_free(system_clean_pool, ptr);
 }
 
 void ssl_proxy_init(void)
