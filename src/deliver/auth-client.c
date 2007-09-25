@@ -12,6 +12,8 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <pwd.h>
+#include <grp.h>
 #include <sysexits.h>
 
 #define AUTH_REQUEST_TIMEOUT 60
@@ -50,6 +52,43 @@ static void auth_connection_destroy(struct auth_connection *conn)
 	i_free(conn);
 }
 
+static bool parse_uid(const char *str, uid_t *uid_r)
+{
+	struct passwd *pw;
+	char *p;
+
+	if (*str >= '0' && *str <= '9') {
+		*uid_r = (uid_t)strtoul(str, &p, 10);
+		if (*p == '\0')
+			return TRUE;
+	}
+
+	pw = getpwnam(str);
+	if (pw == NULL)
+		return FALSE;
+
+	*uid_r = pw->pw_uid;
+	return TRUE;
+}
+
+static bool parse_gid(const char *str, gid_t *gid_r)
+{
+	struct group *gr;
+	char *p;
+
+	if (*str >= '0' && *str <= '9') {
+		*gid_r = (gid_t)strtoul(str, &p, 10);
+		if (*p == '\0')
+			return TRUE;
+	}
+
+	gr = getgrnam(str);
+	if (gr == NULL)
+		return FALSE;
+
+	*gid_r = gr->gr_gid;
+	return TRUE;
+}
 static void auth_parse_input(struct auth_connection *conn, const char *args)
 {
 	const char *const *tmp, *extra_groups;
@@ -99,13 +138,27 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 		}
 	}
 
+	if (uid == 0 && getenv("MAIL_UID")) {
+		if (!parse_uid(getenv("MAIL_UID"), &uid) || uid == 0) {
+			i_error("mail_uid setting is invalid");
+			return_value = EX_TEMPFAIL;
+			return;
+		}
+	}
 	if (uid == 0) {
-		i_error("userdb(%s) didn't return uid", conn->user);
+		i_error("User %s is missing UID (set mail_uid)", conn->user);
 		return_value = EX_TEMPFAIL;
 		return;
 	}
+	if (gid == 0 && getenv("MAIL_GID")) {
+		if (!parse_gid(getenv("MAIL_GID"), &gid) || gid == 0) {
+			i_error("mail_gid setting is invalid");
+			return_value = EX_TEMPFAIL;
+			return;
+		}
+	}
 	if (gid == 0) {
-		i_error("userdb(%s) didn't return gid", conn->user);
+		i_error("User %s is missing GID (set mail_gid)", conn->user);
 		return_value = EX_TEMPFAIL;
 		return;
 	}
