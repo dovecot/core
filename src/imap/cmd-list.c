@@ -14,7 +14,7 @@ struct cmd_list_context {
 	struct client_command_context *cmd;
 	const char *ref;
 	const char *const *patterns;
-	enum mailbox_list_flags list_flags;
+	enum mailbox_list_iter_flags list_flags;
 	enum mailbox_status_items status_items;
 
 	struct mail_namespace *ns;
@@ -91,7 +91,7 @@ mailbox_childinfo2str(struct cmd_list_context *ctx, string_t *str,
 static bool
 parse_select_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 {
-	enum mailbox_list_flags list_flags = 0;
+	enum mailbox_list_iter_flags list_flags = 0;
 	const char *atom;
 
 	while (args->type != IMAP_ARG_EOL) {
@@ -130,7 +130,7 @@ parse_select_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 static bool
 parse_return_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 {
-	enum mailbox_list_flags list_flags = 0;
+	enum mailbox_list_iter_flags list_flags = 0;
 	const char *atom;
 
 	while (args->type != IMAP_ARG_EOL) {

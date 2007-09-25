@@ -260,6 +260,7 @@ mailbox_list_index_sync_int(struct mailbox_list_index_sync_ctx *ctx,
 						MODIFY_ADD, rec_flags);
 			mail_index_update_flags(ctx->trans, rec->seq,
 					MODIFY_REMOVE,
+					(enum mail_flags)
 					MAILBOX_LIST_INDEX_FLAG_NOCHILDREN);
 		}
 
@@ -290,6 +291,7 @@ mailbox_list_index_sync_int(struct mailbox_list_index_sync_ctx *ctx,
 			rec->exists = TRUE;
 			mail_index_update_flags(ctx->trans, rec->seq,
 				MODIFY_REMOVE,
+				(enum mail_flags)
 				MAILBOX_LIST_INDEX_FLAG_NONEXISTENT);
 			break;
 		}
@@ -300,6 +302,7 @@ mailbox_list_index_sync_int(struct mailbox_list_index_sync_ctx *ctx,
 			   exists, this flag is removed later. */
 			mail_index_update_flags(ctx->trans, rec->seq,
 				MODIFY_ADD,
+				(enum mail_flags)
 				MAILBOX_LIST_INDEX_FLAG_NONEXISTENT);
 		}
 

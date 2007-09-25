@@ -79,7 +79,7 @@ static void sha1_fold(struct sha1_ctxt *ctx, void *res)
 }
 
 
-#define F(name) ((void *) (name))
+#define F(name) ((void (*)()) (name))
 
 static const struct digest digests[] = {
 	{ "md4", F(md4_init), F(md4_update), F(md4_final), F(md4_fold) },
@@ -112,7 +112,7 @@ int digest_init(struct digest_context *ctx, const unsigned int algo)
 	i_assert(algo < N_ELEMENTS(digests));
 
 	ctx->digest = digests + algo;
-	ctx->digest->init((void *) &ctx->ctx);
+	ctx->digest->init(&ctx->ctx);
 
 	return 0;
 }
@@ -120,17 +120,17 @@ int digest_init(struct digest_context *ctx, const unsigned int algo)
 void digest_update(struct digest_context *ctx, const void *data,
 		 const size_t size)
 {
-	ctx->digest->update((void *) &ctx->ctx, data, size);
+	ctx->digest->update(&ctx->ctx, data, size);
 }
 
 void digest_final(struct digest_context *ctx, unsigned char *result)
 {
-	ctx->digest->final((void *) &ctx->ctx, result);
+	ctx->digest->final(&ctx->ctx, result);
 }
 
 void digest_otp_final(struct digest_context *ctx, unsigned char *result)
 {
-	ctx->digest->otp_final((void *) &ctx->ctx, result);
+	ctx->digest->otp_final(&ctx->ctx, result);
 }
 
 void otp_hash(unsigned int algo, const char *seed, const char *passphrase,
