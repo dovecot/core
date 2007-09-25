@@ -20,7 +20,8 @@ lib21_fts_lucene_plugin_la_SOURCES = \
 	lucene-wrapper.cc
 
 noinst_HEADERS = \
-	fts-lucene-plugin.h
+	fts-lucene-plugin.h \
+	lucene-wrapper.h
 
 install-exec-local:
 	for d in imap lda; do \
