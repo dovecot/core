@@ -1,7 +1,6 @@
 #ifndef CYDIR_SYNC_H
 #define CYDIR_SYNC_H
 
-enum mailbox_sync_flags;
 struct mailbox;
 
 struct cydir_sync_context {

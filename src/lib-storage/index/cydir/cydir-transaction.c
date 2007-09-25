@@ -2,8 +2,8 @@
 
 #include "lib.h"
 #include "array.h"
-#include "cydir-sync.h"
 #include "cydir-storage.h"
+#include "cydir-sync.h"
 
 static void (*next_hook_mail_index_transaction_created)
 	(struct mail_index_transaction *t) = NULL;

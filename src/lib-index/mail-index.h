@@ -1,6 +1,7 @@
 #ifndef MAIL_INDEX_H
 #define MAIL_INDEX_H
 
+#include "file-lock.h"
 #include "mail-types.h"
 #include "seq-range-array.h"
 
@@ -8,8 +9,6 @@
 #define MAIL_INDEX_MINOR_VERSION 1
 
 #define MAIL_INDEX_HEADER_MIN_SIZE 120
-
-enum file_lock_method;
 
 enum mail_index_open_flags {
 	/* Create index if it doesn't exist */

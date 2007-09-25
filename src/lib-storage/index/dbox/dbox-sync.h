@@ -1,7 +1,6 @@
 #ifndef DBOX_SYNC_H
 #define DBOX_SYNC_H
 
-enum mailbox_sync_flags;
 struct mailbox;
 
 struct dbox_sync_file_entry {

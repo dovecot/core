@@ -1,8 +1,7 @@
 #ifndef SQUAT_TRIE_H
 #define SQUAT_TRIE_H
 
-enum file_lock_method;
-
+#include "file-lock.h"
 #include "seq-range-array.h"
 
 struct squat_trie *
