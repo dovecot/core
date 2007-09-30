@@ -511,8 +511,8 @@ static void open_logfile(const char *username)
 static void print_help(void)
 {
 	printf(
-"Usage: deliver [-c <config file>] [-d <destination user>] [-m <mailbox>]\n"
-"               [-n] [-e] [-f <envelope sender>]\n");
+"Usage: deliver [-c <config file>] [-a <username>] [-d <destination address>]\n"
+"               [-f <envelope sender>] [-m <mailbox>] [-n] [-e] [-k]\n");
 }
 
 void deliver_env_clean(void)
