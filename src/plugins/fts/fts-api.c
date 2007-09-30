@@ -52,7 +52,7 @@ fts_backend_init(const char *backend_name, struct mailbox *box)
 
 void fts_backend_deinit(struct fts_backend *backend)
 {
-	return backend->v.deinit(backend);
+	backend->v.deinit(backend);
 }
 
 int fts_backend_get_last_uid(struct fts_backend *backend, uint32_t *last_uid_r)
