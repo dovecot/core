@@ -54,6 +54,7 @@ static const char *default_mailbox_name = NULL;
 static bool saved_mail = FALSE;
 static bool tried_default_save = FALSE;
 static bool no_mailbox_autocreate = FALSE;
+static const char *explicit_envelope_sender = NULL;
 
 static struct module *modules;
 static struct ioloop *ioloop;
@@ -177,6 +178,9 @@ const char *deliver_get_return_address(struct mail *mail)
 {
 	struct message_address *addr;
 	const char *str;
+
+	if (explicit_envelope_sender != NULL)
+		return explicit_envelope_sender;
 
 	if (mail_get_first_header(mail, "Return-Path", &str) <= 0)
 		return NULL;
@@ -659,6 +663,7 @@ int main(int argc, char *argv[])
 					       "Missing envelope argument");
 			}
 			envelope_sender = argv[i];
+			explicit_envelope_sender = argv[i];
 		} else if (argv[i][0] != '\0') {
 			print_help();
 			i_fatal_status(EX_USAGE,
