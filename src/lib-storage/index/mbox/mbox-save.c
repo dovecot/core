@@ -199,7 +199,7 @@ static void mbox_save_init_sync(struct mbox_transaction_context *t)
 	ctx->first_saved_uid = ctx->next_uid;
 	ctx->uid_validity = hdr->uid_validity;
 	ctx->synced = TRUE;
-	t->mbox_modified = TRUE;
+	t->mails_saved = TRUE;
 
 	mail_index_view_close(&view);
 }

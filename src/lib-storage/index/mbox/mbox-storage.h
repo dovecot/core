@@ -56,7 +56,7 @@ struct mbox_transaction_context {
 
 	struct mbox_save_context *save_ctx;
 	unsigned int mbox_lock_id;
-	unsigned int mbox_modified:1;
+	unsigned int mails_saved:1;
 };
 
 extern struct mail_vfuncs mbox_mail_vfuncs;

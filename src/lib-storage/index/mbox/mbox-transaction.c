@@ -16,14 +16,12 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 	struct mbox_transaction_context *mt = MAIL_STORAGE_CONTEXT(t);
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mt->ictx.ibox;
 	unsigned int lock_id = mt->mbox_lock_id;
-	enum mailbox_sync_flags flags = mt->ictx.commit_flags;
-	bool mbox_modified;
-	bool syncing = t->sync_transaction;
+	bool mails_saved;
 	int ret = 0;
 
 	if (mt->save_ctx != NULL)
 		ret = mbox_transaction_save_commit(mt->save_ctx);
-	mbox_modified = mt->mbox_modified;
+	mails_saved = mt->mails_saved;
 
 	if (ret < 0)
 		index_transaction_finish_rollback(&mt->ictx);
@@ -42,18 +40,9 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 		lock_id = 0;
 	}
 
-	if (ret == 0 && !syncing) {
-		enum mbox_sync_flags mbox_sync_flags = MBOX_SYNC_LAST_COMMIT;
-		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
-		    !mbox->mbox_very_dirty_syncs)
-			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
-		if ((flags & MAILBOX_SYNC_FLAG_FULL_WRITE) != 0)
-			mbox_sync_flags |= MBOX_SYNC_REWRITE;
-		if (mbox_modified) {
-			/* after saving mails we want to update the last-uid */
-			mbox_sync_flags |= MBOX_SYNC_HEADER | MBOX_SYNC_REWRITE;
-		}
-		if (mbox_sync(mbox, mbox_sync_flags) < 0)
+	if (ret == 0 && mails_saved) {
+		/* after saving mails we want to update the last-uid */
+		if (mbox_sync(mbox, MBOX_SYNC_HEADER | MBOX_SYNC_REWRITE) < 0)
 			ret = -1;
 	}
 
