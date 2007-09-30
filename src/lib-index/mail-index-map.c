@@ -441,6 +441,10 @@ int mail_index_map_check_header(struct mail_index_map *map)
 	if (hdr->seen_messages_count > hdr->messages_count ||
 	    hdr->deleted_messages_count > hdr->messages_count)
 		return 0;
+	if (hdr->first_recent_uid == 0 && hdr->minor_version == 0) {
+		/* upgrade silently from v1.0 */
+		map->hdr.first_recent_uid = 1;
+	}
 	if (hdr->first_recent_uid == 0 ||
 	    hdr->first_recent_uid > hdr->next_uid ||
 	    hdr->first_unseen_uid_lowwater > hdr->next_uid ||
