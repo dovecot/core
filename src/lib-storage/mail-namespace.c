@@ -232,7 +232,7 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	*namespaces_r = ns;
 
 	if (hook_mail_namespaces_created != NULL)
-		hook_mail_namespaces_created(namespaces);
+		hook_mail_namespaces_created(ns);
 	return 0;
 }
 
