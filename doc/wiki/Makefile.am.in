@@ -1,4 +1,4 @@
-wikidir = $(datadir)/doc/dovecot/wiki
+wikidir = $(docdir)/wiki
 
 EXTRA_DIST = \
 	$(wiki_DATA)
