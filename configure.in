@@ -928,7 +928,7 @@ AC_CACHE_CHECK([how large time_t values gmtime() accepts],gmtime_max_time_t,[
       FILE *f;
       int bits;
   
-      for (bits = 1; bits < 64; bits++) {
+      for (bits = 1; bits < sizeof(time_t)*8; bits++) {
 	time_t t = ((time_t)1 << bits) - 1;
 	if (gmtime(&t) == NULL) {
 	  bits--;
