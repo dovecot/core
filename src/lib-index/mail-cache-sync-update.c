@@ -159,6 +159,7 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 
 void mail_cache_sync_lost_handler(struct mail_index *index)
 {
-	mail_cache_flush_read_cache(index->cache, FALSE);
+	if (!MAIL_CACHE_IS_UNUSABLE(index->cache))
+		mail_cache_flush_read_cache(index->cache, FALSE);
 	file_cache_invalidate(index->cache->file_cache, 0, (uoff_t)-1);
 }
