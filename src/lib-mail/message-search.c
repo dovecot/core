@@ -39,8 +39,8 @@ int message_search_init(pool_t pool, const char *key, const char *charset,
 		return 0;
 
 	t_push();
-	key_utf8 = t_str_new(I_MAX(128, key_len*2));
 	key_len = strlen(key);
+	key_utf8 = t_str_new(I_MAX(128, key_len*2));
 	if (charset_to_utf8(t, (const unsigned char *)key, &key_len,
 			    key_utf8) != CHARSET_RET_OK) {
 		t_pop();
