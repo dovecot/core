@@ -231,7 +231,9 @@ static int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 		}
 	}
 
-	if (mailbox_transaction_commit(&client->trans) < 0) {
+	if (mailbox_transaction_commit(&client->trans) < 0 ||
+	    mailbox_sync(client->mailbox, MAILBOX_SYNC_FLAG_FULL_WRITE,
+			 0, NULL) < 0) {
 		client_send_storage_error(client);
 		client_disconnect(client, "Storage error during logout.");
 		return 1;
