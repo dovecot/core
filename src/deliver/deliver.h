@@ -21,7 +21,7 @@ extern struct deliver_settings *deliver_set;
 typedef int deliver_mail_func_t(struct mail_namespace *namespaces,
 				struct mail_storage **storage_r,
 				struct mail *mail,
-				const char *username, const char *mailbox);
+				const char *destaddr, const char *mailbox);
 
 extern deliver_mail_func_t *deliver_mail;
 

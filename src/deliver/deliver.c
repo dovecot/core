@@ -535,7 +535,7 @@ void deliver_env_clean(void)
 	if (home != NULL) env_put(home);
 }
 
-static void expand_envs(const char *destination)
+static void expand_envs(const char *user)
 {
         const struct var_expand_table *table;
 	const char *mail_env, *const *envs, *home;
@@ -545,7 +545,7 @@ static void expand_envs(const char *destination)
 	home = getenv("HOME");
 
 	str = t_str_new(256);
-	table = get_var_expand_table(destination, home);
+	table = get_var_expand_table(user, home);
 	envs = array_get(&plugin_envs, &count);
 	for (i = 0; i < count; i++) {
 		str_truncate(str, 0);
@@ -559,7 +559,7 @@ static void expand_envs(const char *destination)
 		   directory (yea, kludgy) */
 		if (home == NULL)
 			home = getenv("HOME");
-		table = get_var_expand_table(destination, home);
+		table = get_var_expand_table(user, home);
 		mail_env = expand_mail_env(mail_env, table);
 	}
 	env_put(t_strconcat("MAIL=", mail_env, NULL));
@@ -590,7 +590,7 @@ int main(int argc, char *argv[])
 	const char *envelope_sender = DEFAULT_ENVELOPE_SENDER;
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
-	const char *home, *destination, *user, *value, *error;
+	const char *home, *destaddr, *authuser, *value, *error;
 	ARRAY_TYPE(string) extra_fields;
 	struct mail_namespace *ns, *mbox_ns;
 	struct mail_storage *storage;
@@ -619,16 +619,24 @@ int main(int argc, char *argv[])
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 
-	destination = NULL;
+	destaddr = authuser = NULL;
 	for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-d") == 0) {
-			/* destination user */
+		if (strcmp(argv[i], "-a") == 0) {
+			/* destination auth user */
+			i++;
+			if (i == argc) {
+				i_fatal_status(EX_USAGE,
+					       "Missing auth user argument");
+			}
+			authuser = argv[i];
+		} else if (strcmp(argv[i], "-d") == 0) {
+			/* destination address */
 			i++;
 			if (i == argc) {
 				i_fatal_status(EX_USAGE,
 					       "Missing destination argument");
 			}
-			destination = argv[i];
+			destaddr = argv[i];
 		} else if (strcmp(argv[i], "-e") == 0) {
 			stderr_rejection = TRUE;
 		} else if (strcmp(argv[i], "-c") == 0) {
@@ -675,15 +683,16 @@ int main(int argc, char *argv[])
 		deliver_env_clean();
 
 	process_euid = geteuid();
-	if (destination != NULL)
-		user = destination;
-	else if (process_euid != 0) {
+	if (destaddr != NULL) {
+		if (authuser == NULL)
+			authuser = destaddr;
+	} else if (process_euid != 0) {
 		/* we're non-root. get our username and possibly our home. */
 		struct passwd *pw;
 
 		pw = getpwuid(process_euid);
 		if (pw != NULL) {
-			user = t_strdup(pw->pw_name);
+			authuser = t_strdup(pw->pw_name);
 			if (getenv("HOME") == NULL)
 				env_put(t_strconcat("HOME=", pw->pw_dir, NULL));
 		} else {
@@ -696,7 +705,7 @@ int main(int argc, char *argv[])
 	}
 
 	config_file_init(config_path);
-	open_logfile(user);
+	open_logfile(authuser);
 
 	if (getenv("MAIL_DEBUG") != NULL)
 		env_put("DEBUG=1");
@@ -717,21 +726,21 @@ int main(int argc, char *argv[])
 	}
 
 	t_array_init(&extra_fields, 64);
-	if (destination != NULL) {
+	if (authuser != NULL) {
 		auth_socket = getenv("AUTH_SOCKET_PATH");
 		if (auth_socket == NULL)
 			auth_socket = DEFAULT_AUTH_SOCKET_PATH;
 
 		ret = auth_client_lookup_and_restrict(ioloop, auth_socket,
-						      destination, process_euid,
+						      authuser, process_euid,
 						      &extra_fields);
 		if (ret != 0)
 			return ret;
 	} else {
-		destination = user;
+		destaddr = authuser;
 	}
 
-	expand_envs(destination);
+	expand_envs(authuser);
 	putenv_extra_fields(&extra_fields);
 
 	/* If possible chdir to home directory, so that core file
@@ -746,7 +755,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	env_put(t_strconcat("USER=", destination, NULL));
+	env_put(t_strconcat("USER=", authuser, NULL));
 
 	value = getenv("UMASK");
 	if (value == NULL || sscanf(value, "%i", &i) != 1 || i < 0)
@@ -780,12 +789,12 @@ int main(int argc, char *argv[])
 	module_dir_init(modules);
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
-	if (mail_namespaces_init(namespace_pool, destination, &ns) < 0)
+	if (mail_namespaces_init(namespace_pool, authuser, &ns) < 0)
 		exit(EX_TEMPFAIL);
 
 	mbox_ns = mail_namespaces_init_empty(namespace_pool);
 	mbox_ns->flags |= NAMESPACE_FLAG_INTERNAL;
-	if (mail_storage_create(mbox_ns, "mbox", "/tmp", destination,
+	if (mail_storage_create(mbox_ns, "mbox", "/tmp", authuser,
 				0, FILE_LOCK_METHOD_FCNTL, &error) < 0)
 		i_fatal("Couldn't create internal mbox storage: %s", error);
 	input = create_mbox_stream(0, envelope_sender, &input_first);
@@ -806,8 +815,7 @@ int main(int argc, char *argv[])
 	if (deliver_mail == NULL)
 		ret = -1;
 	else {
-		if (deliver_mail(ns, &storage, mail,
-				 destination, mailbox) <= 0) {
+		if (deliver_mail(ns, &storage, mail, authuser, mailbox) <= 0) {
 			/* if message was saved, don't bounce it even though
 			   the script failed later. */
 			ret = saved_mail ? 0 : -1;
@@ -859,7 +867,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "%s\n", error_string);
 			return EX_NOPERM;
 		}
-		ret = mail_send_rejection(mail, destination, error_string);
+		ret = mail_send_rejection(mail, authuser, error_string);
 		if (ret != 0)
 			return ret < 0 ? EX_TEMPFAIL : ret;
 		/* ok, rejection sent */
