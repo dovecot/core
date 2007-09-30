@@ -815,7 +815,7 @@ int main(int argc, char *argv[])
 	if (deliver_mail == NULL)
 		ret = -1;
 	else {
-		if (deliver_mail(ns, &storage, mail, authuser, mailbox) <= 0) {
+		if (deliver_mail(ns, &storage, mail, destaddr, mailbox) <= 0) {
 			/* if message was saved, don't bounce it even though
 			   the script failed later. */
 			ret = saved_mail ? 0 : -1;
