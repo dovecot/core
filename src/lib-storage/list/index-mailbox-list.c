@@ -160,7 +160,8 @@ index_mailbox_list_sync(struct index_mailbox_list_iterate_context *ctx)
 		}
 
 		flags = index_mailbox_list_info_flags_translate(info->flags);
-		mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE, flags);
+		mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE,
+					(enum mail_flags)flags);
 	}
 	if (ilist->module_ctx.super.iter_deinit(iter) < 0)
 		ret = -1;
