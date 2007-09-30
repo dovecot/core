@@ -82,8 +82,10 @@ static void drop_restricted_groups(bool *have_root_group)
 
 	if (used != gid_count) {
 		/* it did contain restricted groups, remove it */
-		if (setgroups(used, gid_list) < 0)
-			i_fatal("setgroups() failed: %m");
+		if (setgroups(used, gid_list) < 0) {
+			i_fatal("Couldn't drop restricted groups: "
+				"setgroups() failed: %m");
+		}
 	}
 	t_pop();
 }
@@ -119,8 +121,10 @@ static void grant_extra_groups(const char *groups)
 		gid_list[gid_count++] = get_group_id(*tmp);
 	}
 
-	if (setgroups(gid_count, gid_list) < 0)
-		i_fatal("setgroups() failed: %m");
+	if (setgroups(gid_count, gid_list) < 0) {
+		i_fatal("Couldn't set mail_extra_groups: "
+			"setgroups(%s) failed: %m", groups);
+	}
 
 	t_pop();
 }
