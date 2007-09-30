@@ -78,13 +78,13 @@ static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 	   mailbox, we're left with duplicates. */
 	if (ret < 0)
 		mailbox_transaction_rollback(&dest_trans);
-	else if (mailbox_transaction_commit(&dest_trans, 0) < 0)
+	else if (mailbox_transaction_commit(&dest_trans) < 0)
 		ret = -1;
 
 	if (ret < 0)
 		mailbox_transaction_rollback(&src_trans);
 	else {
-		if (mailbox_transaction_commit(&src_trans, 0) < 0)
+		if (mailbox_transaction_commit(&src_trans) < 0)
 			ret = -1;
 	}
 	return ret;

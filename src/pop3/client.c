@@ -99,7 +99,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 		mail_free(&mail);
 		if (mailbox_search_deinit(&ctx) < 0 || (failed && !expunged)) {
 			client_send_storage_error(client);
-			(void)mailbox_transaction_commit(&t, 0);
+			(void)mailbox_transaction_commit(&t);
 			break;
 		}
 
@@ -112,7 +112,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 
 		/* well, sync and try again. we might have cached virtual
 		   sizes, make sure they get committed. */
-		(void)mailbox_transaction_commit(&t, 0);
+		(void)mailbox_transaction_commit(&t);
 	}
 
 	if (expunged) {
@@ -249,7 +249,7 @@ void client_destroy(struct client *client, const char *reason)
 		/* client didn't QUIT, but we still want to save any changes
 		   done in this transaction. especially the cached virtual
 		   message sizes. */
-		(void)mailbox_transaction_commit(&client->trans, 0);
+		(void)mailbox_transaction_commit(&client->trans);
 	}
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);

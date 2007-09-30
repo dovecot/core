@@ -76,7 +76,7 @@ static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
 
-	if (mailbox_transaction_commit(&src_trans, 0) < 0)
+	if (mailbox_transaction_commit(&src_trans) < 0)
 		ret = -1;
 
 	*src_uidset_r = str_c(src_uidset);
@@ -138,7 +138,7 @@ bool cmd_copy(struct client_command_context *cmd)
 
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
-	else if (mailbox_transaction_commit_get_uids(&t, 0, &uid_validity,
+	else if (mailbox_transaction_commit_get_uids(&t, &uid_validity,
 						     &uid1, &uid2) < 0)
 		ret = -1;
 	else if (copy_count == 0)

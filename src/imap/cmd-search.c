@@ -43,7 +43,7 @@ static int imap_search_deinit(struct client_command_context *cmd,
 	mail_free(&ctx->mail);
 	ret = mailbox_search_deinit(&ctx->search_ctx);
 
-	if (mailbox_transaction_commit(&ctx->trans, 0) < 0)
+	if (mailbox_transaction_commit(&ctx->trans) < 0)
 		ret = -1;
 
 	if (ctx->output_sent || (ret == 0 && !cmd->cancel)) {

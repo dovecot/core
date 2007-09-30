@@ -77,14 +77,14 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 	if (ret < 0)
 		mailbox_transaction_rollback(&dest_trans);
 	else
-		ret = mailbox_transaction_commit(&dest_trans, 0);
+		ret = mailbox_transaction_commit(&dest_trans);
 
 	/* source transaction committing isn't all that important.
 	   ignore if it fails. */
 	if (ret < 0)
 		mailbox_transaction_rollback(&src_trans);
 	else
-		(void)mailbox_transaction_commit(&src_trans, 0);
+		(void)mailbox_transaction_commit(&src_trans);
 	return ret;
 }
 

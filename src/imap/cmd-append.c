@@ -248,7 +248,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 			return TRUE;
 		}
 
-		ret = mailbox_transaction_commit_get_uids(&ctx->t, 0,
+		ret = mailbox_transaction_commit_get_uids(&ctx->t,
 							  &uid_validity,
 							  &uid1, &uid2);
 		if (ret < 0) {

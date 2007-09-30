@@ -109,8 +109,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
-	if (mailbox_transaction_commit(&t, MAILBOX_SYNC_FLAG_FULL_READ |
-				       MAILBOX_SYNC_FLAG_FULL_WRITE) < 0)
+	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;
 	mailbox_close(&box);
 	return ret < 0 ? -1 : 0;

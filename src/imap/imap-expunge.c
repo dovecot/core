@@ -11,7 +11,6 @@ bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
         struct mailbox_transaction_context *t;
 	struct mail *mail;
 	struct mail_search_arg search_arg;
-        enum mailbox_sync_flags flags;
 	bool failed;
 
 	if (mailbox_is_readonly(box)) {
@@ -35,9 +34,7 @@ bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 		failed = TRUE;
 		mailbox_transaction_rollback(&t);
 	} else {
-		flags = MAILBOX_SYNC_FLAG_FULL_READ |
-			MAILBOX_SYNC_FLAG_FULL_WRITE;
-		failed = mailbox_transaction_commit(&t, flags) < 0;
+		failed = mailbox_transaction_commit(&t) < 0;
 	}
 
 	return !failed;

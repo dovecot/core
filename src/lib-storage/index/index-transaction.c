@@ -81,7 +81,6 @@ index_transaction_begin(struct mailbox *box,
 }
 
 int index_transaction_commit(struct mailbox_transaction_context *_t,
-			     enum mailbox_sync_flags flags,
 			     uint32_t *uid_validity_r,
 			     uint32_t *first_saved_uid_r,
 			     uint32_t *last_saved_uid_r)
@@ -95,7 +94,6 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 	*uid_validity_r = 0;
 	*first_saved_uid_r = *last_saved_uid_r = 0;
 
-	t->commit_flags = flags;
 	t->saved_uid_validity = uid_validity_r;
 	t->first_saved_uid = first_saved_uid_r;
 	t->last_saved_uid = last_saved_uid_r;

@@ -398,7 +398,6 @@ mail_log_copy(struct mailbox_transaction_context *t, struct mail *mail,
 
 static int
 mail_log_transaction_commit(struct mailbox_transaction_context *t,
-			    enum mailbox_sync_flags flags,
 			    uint32_t *uid_validity_r,
 			    uint32_t *first_saved_uid_r,
 			    uint32_t *last_saved_uid_r)
@@ -412,7 +411,7 @@ mail_log_transaction_commit(struct mailbox_transaction_context *t,
 		pool_unref(&lt->pool);
 	}
 
-	return lbox->super.transaction_commit(t, flags, uid_validity_r,
+	return lbox->super.transaction_commit(t, uid_validity_r,
 					      first_saved_uid_r,
 					      last_saved_uid_r);
 }

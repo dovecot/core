@@ -45,7 +45,7 @@ static int quota_count_mailbox(struct mail_storage *storage, const char *name,
 	if (ret < 0)
 		mailbox_transaction_rollback(&trans);
 	else
-		(void)mailbox_transaction_commit(&trans, 0);
+		(void)mailbox_transaction_commit(&trans);
 
 	mailbox_close(&box);
 	return ret;

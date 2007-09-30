@@ -82,7 +82,6 @@ quota_mailbox_transaction_begin(struct mailbox *box,
 
 static int
 quota_mailbox_transaction_commit(struct mailbox_transaction_context *ctx,
-				 enum mailbox_sync_flags flags,
 				 uint32_t *uid_validity_r,
 				 uint32_t *first_saved_uid_r,
 				 uint32_t *last_saved_uid_r)
@@ -90,7 +89,7 @@ quota_mailbox_transaction_commit(struct mailbox_transaction_context *ctx,
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx);
 
-	if (qbox->module_ctx.super.transaction_commit(ctx, flags,
+	if (qbox->module_ctx.super.transaction_commit(ctx,
 						      uid_validity_r,
 						      first_saved_uid_r,
 						      last_saved_uid_r) < 0) {
@@ -424,7 +423,7 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	if (ret < 0)
 		mailbox_transaction_rollback(&t);
 	else
-		ret = mailbox_transaction_commit(&t, 0);
+		ret = mailbox_transaction_commit(&t);
 	mailbox_close(&box);
 	/* FIXME: here's an unfortunate race condition */
 	return ret < 0 ? -1 :

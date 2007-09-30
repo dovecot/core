@@ -73,7 +73,6 @@ struct index_transaction_context {
 
 	struct index_mailbox *ibox;
 	enum mailbox_transaction_flags flags;
-	enum mailbox_sync_flags commit_flags;
 
 	struct mail_index_transaction *trans;
 	struct mail_index_view *trans_view;
@@ -169,7 +168,6 @@ struct mailbox_transaction_context *
 index_transaction_begin(struct mailbox *box,
 			enum mailbox_transaction_flags flags);
 int index_transaction_commit(struct mailbox_transaction_context *t,
-			     enum mailbox_sync_flags flags,
 			     uint32_t *uid_validity_r,
 			     uint32_t *first_saved_uid_r,
 			     uint32_t *last_saved_uid_r);

@@ -165,10 +165,9 @@ err:
 		mail_free(&trash->mail);
 		(void)mailbox_search_deinit(&trash->search_ctx);
 
-		if (size_expunged >= size_needed) {
-			(void)mailbox_transaction_commit(&trash->trans,
-				MAILBOX_SYNC_FLAG_FULL_WRITE);
-		} else {
+		if (size_expunged >= size_needed)
+			(void)mailbox_transaction_commit(&trash->trans);
+		else {
 			/* couldn't get enough space, don't expunge anything */
                         mailbox_transaction_rollback(&trash->trans);
 		}

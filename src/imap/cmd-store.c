@@ -114,7 +114,7 @@ bool cmd_store(struct client_command_context *cmd)
 		failed = TRUE;
 		mailbox_transaction_rollback(&t);
 	} else {
-		failed = mailbox_transaction_commit(&t, 0) < 0;
+		failed = mailbox_transaction_commit(&t) < 0;
 	}
 
 	if (!failed) {

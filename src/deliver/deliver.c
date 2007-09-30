@@ -152,7 +152,7 @@ int deliver_save(struct mail_namespace *namespaces,
 	if (ret < 0)
 		mailbox_transaction_rollback(&t);
 	else
-		ret = mailbox_transaction_commit(&t, 0);
+		ret = mailbox_transaction_commit(&t);
 
 	if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
 		msgid = "";

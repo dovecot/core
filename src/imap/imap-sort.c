@@ -100,7 +100,7 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 	ret = mailbox_search_deinit(&search_ctx);
 	mail_free(&mail);
 
-	if (mailbox_transaction_commit(&t, 0) < 0)
+	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;
 
 	if (written || ret == 0) {

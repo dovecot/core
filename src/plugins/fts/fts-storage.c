@@ -794,7 +794,6 @@ static void fts_transaction_rollback(struct mailbox_transaction_context *t)
 }
 
 static int fts_transaction_commit(struct mailbox_transaction_context *t,
-				  enum mailbox_sync_flags flags,
 				  uint32_t *uid_validity_r,
 				  uint32_t *first_saved_uid_r,
 				  uint32_t *last_saved_uid_r)
@@ -804,7 +803,7 @@ static int fts_transaction_commit(struct mailbox_transaction_context *t,
 	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 	int ret;
 
-	ret = fbox->module_ctx.super.transaction_commit(t, flags,
+	ret = fbox->module_ctx.super.transaction_commit(t,
 							uid_validity_r,
 							first_saved_uid_r,
 							last_saved_uid_r);

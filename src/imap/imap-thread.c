@@ -149,7 +149,7 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 	o_stream_send_str(client->output, "\r\n");
 
 	ret = mailbox_search_deinit(&ctx->search_ctx);
-	if (mailbox_transaction_commit(&ctx->t, 0) < 0)
+	if (mailbox_transaction_commit(&ctx->t) < 0)
 		ret = -1;
 
 	mailbox_header_lookup_deinit(&headers_ctx);

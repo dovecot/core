@@ -111,7 +111,6 @@ struct mailbox_vfuncs {
 		(*transaction_begin)(struct mailbox *box,
 				     enum mailbox_transaction_flags flags);
 	int (*transaction_commit)(struct mailbox_transaction_context *t,
-				  enum mailbox_sync_flags flags,
 				  uint32_t *uid_validity_r,
 				  uint32_t *first_saved_uid_r,
 				  uint32_t *last_saved_uid_r);

@@ -316,11 +316,9 @@ void mailbox_notify_changes_stop(struct mailbox *box);
 struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags);
-int mailbox_transaction_commit(struct mailbox_transaction_context **t,
-			       enum mailbox_sync_flags flags);
+int mailbox_transaction_commit(struct mailbox_transaction_context **t);
 /* If no messages were saved/copied, first/last_saved_uid_r are 0. */
 int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **t,
-					enum mailbox_sync_flags flags,
 					uint32_t *uid_validity_r,
 					uint32_t *first_saved_uid_r,
 					uint32_t *last_saved_uid_r);
