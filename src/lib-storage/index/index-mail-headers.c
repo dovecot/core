@@ -350,6 +350,12 @@ index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 
 	i_assert(mail->data.parser_ctx == NULL);
 
+	/* we're doing everything for now, figure out later if we want to
+	   save them. */
+	mail->data.save_sent_date = TRUE;
+	mail->data.save_bodystructure_header = TRUE;
+	mail->data.save_bodystructure_body = TRUE;
+
 	tee = tee_i_stream_create(input);
 	input = tee_i_stream_create_child(tee);
 	input2 = tee_i_stream_create_child(tee);
