@@ -73,7 +73,6 @@ liblib_a_SOURCES = \
 	nfs-workarounds.c \
 	ostream.c \
 	ostream-file.c \
-	ostream-crlf.c \
 	primes.c \
 	printf-format-fix.c \
 	process-title.c \
@@ -154,7 +153,6 @@ headers = \
 	network.h \
 	nfs-workarounds.h \
 	ostream.h \
-	ostream-crlf.h \
 	ostream-internal.h \
 	primes.h \
 	printf-format-fix.h \
