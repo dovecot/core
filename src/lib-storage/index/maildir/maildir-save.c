@@ -5,8 +5,8 @@
 #include "array.h"
 #include "buffer.h"
 #include "istream.h"
+#include "istream-crlf.h"
 #include "ostream.h"
-#include "ostream-crlf.h"
 #include "str.h"
 #include "index-mail.h"
 #include "maildir-storage.h"
@@ -143,6 +143,7 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 {
 	struct maildir_save_context *ctx = t->save_ctx;
 	struct maildir_filename *mf;
+	struct istream *input;
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
@@ -201,7 +202,9 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 		   cached data directly */
 		ctx->cur_dest_mail = NULL;
 	} else {
-		ctx->input = index_mail_cache_parse_init(dest_mail, ctx->input);
+		input = index_mail_cache_parse_init(dest_mail, ctx->input);
+		i_stream_unref(&ctx->input);
+		ctx->input = input;
 		ctx->cur_dest_mail = dest_mail;
 	}
 	return ctx->seq;
@@ -354,7 +357,6 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 		(struct maildir_transaction_context *)_t;
 	struct maildir_save_context *ctx;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
-	struct ostream *output;
 	const char *fname;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -374,13 +376,11 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 	}
 
 	ctx->received_date = received_date;
-	ctx->input = input;
+	ctx->input = (ctx->mbox->storage->storage.flags &
+		      MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
+		i_stream_create_crlf(input) : i_stream_create_lf(input);
 
-	output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
-	ctx->output = (ctx->mbox->storage->storage.flags &
-		       MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
-		o_stream_create_crlf(output) : o_stream_create_lf(output);
-	o_stream_unref(&output);
+	ctx->output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
 	o_stream_cork(ctx->output);
 
 	flags &= ~MAIL_RECENT;
@@ -479,8 +479,8 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 	if (ctx->cur_dest_mail != NULL) {
 		index_mail_cache_parse_deinit(ctx->cur_dest_mail,
 					      ctx->received_date);
-		i_stream_unref(&ctx->input);
 	}
+	i_stream_unref(&ctx->input);
 
 	/* remember the size in case we want to add it to filename */
 	ctx->file_last->size = ctx->output->offset;

@@ -11,7 +11,7 @@
 #include "str.h"
 #include "write-full.h"
 #include "istream-header-filter.h"
-#include "ostream-crlf.h"
+#include "istream-crlf.h"
 #include "message-parser.h"
 #include "index-mail.h"
 #include "mbox-storage.h"
@@ -46,7 +46,7 @@ struct mbox_save_context {
 	uint32_t seq, next_uid, uid_validity, first_saved_uid;
 
 	struct istream *input;
-	struct ostream *output, *body_output;
+	struct ostream *output;
 	uoff_t extra_hdr_offset, eoh_offset;
 	char last_char;
 
@@ -465,17 +465,18 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 	if (write_from_line(ctx, received_date, from_envelope) < 0)
 		ctx->failed = TRUE;
 	else {
-		ctx->input = i_stream_create_header_filter(input,
+		input = i_stream_create_header_filter(input,
 						HEADER_FILTER_EXCLUDE |
 						HEADER_FILTER_NO_CR,
 						mbox_save_drop_headers,
 						mbox_save_drop_headers_count,
 						save_header_callback, ctx);
-		ctx->body_output =
-			(mbox->storage->storage.flags &
-			 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
-			o_stream_create_crlf(ctx->output) :
-			o_stream_create_lf(ctx->output);
+		ctx->input = (mbox->storage->storage.flags &
+			      MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
+			i_stream_create_crlf(input) :
+			i_stream_create_lf(input);
+		i_stream_unref(&input);
+
 		if (ctx->mail != NULL) {
 			input = index_mail_cache_parse_init(ctx->mail,
 							    ctx->input);
@@ -510,7 +511,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 				return 0;
 
 			data = i_stream_get_data(ctx->input, &size);
-			if (o_stream_send(ctx->body_output, data, size) < 0)
+			if (o_stream_send(ctx->output, data, size) < 0)
 				return write_error(ctx);
 			ctx->last_char = data[size-1];
 			i_stream_skip(ctx->input, size);
@@ -521,7 +522,11 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 			   otherwise some mbox parsers don't like the result.
 			   this makes it impossible to save a mail that doesn't
 			   end with LF though. */
-			if (o_stream_send(ctx->body_output, "\n", 1) < 0)
+			const char *linefeed =
+				(ctx->mbox->storage->storage.flags &
+				 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
+				"\r\n" : "\n";
+			if (o_stream_send_str(ctx->output, linefeed) < 0)
 				return write_error(ctx);
 		}
 		return 0;
@@ -618,8 +623,6 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 		index_mail_cache_parse_deinit(ctx->mail, ctx->received_date);
 	if (ctx->input != NULL)
 		i_stream_destroy(&ctx->input);
-	if (ctx->body_output != NULL)
-		o_stream_destroy(&ctx->body_output);
 
 	if (ctx->failed && ctx->mail_offset != (uoff_t)-1) {
 		/* saving this mail failed - truncate back to beginning of it */
@@ -641,8 +644,6 @@ void mbox_save_cancel(struct mail_save_context *_ctx)
 
 static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 {
-	i_assert(ctx->body_output == NULL);
-
 	if (ctx->output != NULL)
 		o_stream_destroy(&ctx->output);
 	if (ctx->mail != NULL)

@@ -3,8 +3,8 @@
 #include "lib.h"
 #include "hostpid.h"
 #include "istream.h"
+#include "istream-crlf.h"
 #include "ostream.h"
-#include "ostream-crlf.h"
 #include "str.h"
 #include "index-mail.h"
 #include "cydir-storage.h"
@@ -69,7 +69,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	struct cydir_mailbox *mbox = (struct cydir_mailbox *)t->ictx.ibox;
 	struct cydir_save_context *ctx = t->save_ctx;
 	enum mail_flags save_flags;
-	struct ostream *output;
+	struct istream *crlf_input;
 	const char *path;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -86,9 +86,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	path = cydir_get_save_path(ctx, ctx->mail_count);
 	ctx->fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);
 	if (ctx->fd != -1) {
-		output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
-		ctx->output = o_stream_create_crlf(output);
-		o_stream_unref(&output);
+		ctx->output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
 		o_stream_cork(ctx->output);
 	} else {
 		mail_storage_set_critical(_t->box->storage,
@@ -116,8 +114,11 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	}
 	mail_set_seq(dest_mail, ctx->seq);
 
+	crlf_input = i_stream_create_crlf(input);
+	ctx->input = index_mail_cache_parse_init(dest_mail, crlf_input);
+	i_stream_unref(&crlf_input);
+
 	ctx->cur_dest_mail = dest_mail;
-	ctx->input = index_mail_cache_parse_init(dest_mail, input);
 	ctx->cur_received_date = received_date;
 
 	*ctx_r = &ctx->ctx;

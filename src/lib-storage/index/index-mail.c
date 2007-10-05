@@ -584,16 +584,9 @@ static void index_mail_body_parsed_cache_sizes(struct index_mail *mail)
 }
 
 static void index_mail_parse_body_finish(struct index_mail *mail,
-					 enum index_cache_field field,
-					 bool appended_mail)
+					 enum index_cache_field field)
 {
 	mail->data.parts = message_parser_deinit(&mail->data.parser_ctx);
-
-	if (appended_mail) {
-		bool use_crlf = (mail->ibox->box.storage->flags &
-				 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0;
-		message_parser_set_crlfs(mail->data.parts, use_crlf);
-	}
 
 	(void)get_cached_msgpart_sizes(mail);
 
@@ -640,7 +633,7 @@ static int index_mail_parse_body(struct index_mail *mail,
 			null_message_part_header_callback, NULL);
 	}
 	ret = index_mail_stream_check_failure(mail);
-	index_mail_parse_body_finish(mail, field, FALSE);
+	index_mail_parse_body_finish(mail, field);
 
 	i_stream_seek(data->stream, old_offset);
 	return ret;
@@ -1181,7 +1174,7 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date)
 
 	mail->data.save_bodystructure_body = FALSE;
 	mail->data.parsed_bodystructure = TRUE;
-	index_mail_parse_body_finish(mail, 0, TRUE);
+	index_mail_parse_body_finish(mail, 0);
 	index_mail_cache_dates(mail);
 }
 

@@ -5,8 +5,8 @@
 #include "hex-dec.h"
 #include "str.h"
 #include "istream.h"
+#include "istream-crlf.h"
 #include "ostream.h"
-#include "ostream-crlf.h"
 #include "write-full.h"
 #include "index-mail.h"
 #include "dbox-storage.h"
@@ -71,9 +71,9 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 		(struct dbox_transaction_context *)_t;
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)t->ictx.ibox;
 	struct dbox_save_context *ctx = t->save_ctx;
-	struct ostream *output;
 	struct dbox_message_header dbox_msg_hdr;
 	struct dbox_save_mail *save_mail;
+	struct istream *crlf_input;
 	enum mail_flags save_flags;
 	const struct stat *st;
 	uoff_t mail_size;
@@ -117,7 +117,10 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	mail_set_seq(dest_mail, ctx->seq);
 
 	ctx->cur_dest_mail = dest_mail;
-	ctx->input = index_mail_cache_parse_init(dest_mail, input);
+
+	crlf_input = i_stream_create_lf(input);
+	ctx->input = index_mail_cache_parse_init(dest_mail, crlf_input);
+	i_stream_unref(&crlf_input);
 
 	save_mail = array_append_space(&ctx->mails);
 	save_mail->file = ctx->cur_file;
@@ -129,10 +132,6 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	memset(&dbox_msg_hdr, 0, sizeof(dbox_msg_hdr));
 	o_stream_cork(ctx->cur_output);
 	o_stream_send(ctx->cur_output, &dbox_msg_hdr, sizeof(dbox_msg_hdr));
-
-	output = o_stream_create_lf(ctx->cur_output);
-	o_stream_unref(&ctx->cur_output);
-	ctx->cur_output = output;
 
 	ctx->cur_received_date = received_date != (time_t)-1 ?
 		received_date : ioloop_time;
