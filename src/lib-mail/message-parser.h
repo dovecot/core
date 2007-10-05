@@ -121,9 +121,4 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
 		(message_part_header_callback_t *)callback, context)
 #endif
 
-/* Update the physical_size of all parts. If use_crlf is TRUE, they're set
-   to same as virtual_size. If use_crlf is FALSE, they're set to
-   virtual_size - lines. physical_pos fields are also updated. */
-void message_parser_set_crlfs(struct message_part *parts, bool use_crlf);
-
 #endif
