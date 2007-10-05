@@ -36,6 +36,7 @@ liblib_a_SOURCES = \
 	imem.c \
 	iostream.c \
 	istream.c \
+	istream-crlf.c \
 	istream-data.c \
 	istream-file.c \
 	istream-limit.c \
@@ -131,6 +132,7 @@ headers = \
 	imem.h \
 	iostream-internal.h \
 	istream.h \
+	istream-crlf.h \
 	istream-internal.h \
 	istream-seekable.h \
 	istream-tee.h \
