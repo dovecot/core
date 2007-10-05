@@ -667,6 +667,7 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 	const struct mail_index_header *hdr;
 	const void *data;
 	struct mail_sort_node node;
+	uint32_t last_seq;
 
 	i_assert(mail->transaction == program->t);
 
@@ -708,7 +709,8 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 
 	/* add the nodes in the middle */
 	node.seq = program->last_sorted_seq + 1;
-	for (; node.seq <= program->prev_seq; node.seq++) {
+	last_seq = program->prev_seq;
+	for (; node.seq <= last_seq; node.seq++) {
 		mail_index_lookup_ext(t->trans_view, mail->seq, program->ext_id,
 				      &data, NULL);
 
