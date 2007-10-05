@@ -114,7 +114,7 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 
 	if (finished) {
 		client_command_free(cmd);
-		client_continue_pending_input(client);
+		client_continue_pending_input(&client);
 	} else {
 		if (cmd->output_pending)
 			o_stream_set_flush_pending(client->output, TRUE);

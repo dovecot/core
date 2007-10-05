@@ -76,7 +76,7 @@ static void client_input_append(struct client_command_context *cmd)
 	if (cmd->func(cmd)) {
 		o_stream_uncork(client->output);
 		client_command_free(cmd);
-		client_continue_pending_input(client);
+		client_continue_pending_input(&client);
 	}
 }
 

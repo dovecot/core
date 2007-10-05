@@ -441,14 +441,18 @@ static void client_add_missing_io(struct client *client)
 	}
 }
 
-void client_continue_pending_input(struct client *client)
+void client_continue_pending_input(struct client **_client)
 {
+	struct client *client = *_client;
 	size_t size;
 
 	i_assert(!client->handling_input);
 
-	if (client->disconnected)
+	if (client->disconnected) {
+		client_destroy(client, NULL);
+		*_client = NULL;
 		return;
+	}
 
 	if (client->input_lock != NULL) {
 		/* there's a command that has locked the input */
@@ -688,7 +692,7 @@ int client_output(struct client *client)
 		client_destroy(client, NULL);
 		return 1;
 	} else {
-		client_continue_pending_input(client);
+		client_continue_pending_input(&client);
 	}
 	return ret;
 }

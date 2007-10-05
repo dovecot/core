@@ -106,7 +106,7 @@ void clients_deinit(void);
 void client_command_cancel(struct client_command_context *cmd);
 void client_command_free(struct client_command_context *cmd);
 
-void client_continue_pending_input(struct client *client);
+void client_continue_pending_input(struct client **_client);
 
 void client_input(struct client *client);
 int client_output(struct client *client);
