@@ -121,6 +121,12 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 				return FALSE;
 			}
 		}
+		if (*ns->prefix == '\0' &&
+		    (ns->flags & NAMESPACE_FLAG_LIST) == 0) {
+			i_error("namespace configuration error: "
+				"Empty prefix requires list=yes");
+			return FALSE;
+		}
 	}
 
 	if (inbox_ns == NULL) {
