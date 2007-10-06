@@ -322,10 +322,14 @@ static int rename_children(struct mailbox_list *list,
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		const char *name;
 
-		i_assert(oldnamelen <= strlen(info->name));
-
-		name = p_strdup(pool, info->name + oldnamelen);
-		array_append(&names_arr, &name, 1);
+		/* verify that the prefix matches, otherwise we could have
+		   problems with mailbox names containing '%' and '*' chars */
+		if (strncmp(info->name, oldname, oldnamelen) == 0 &&
+		    info->name[oldnamelen] ==
+		    mailbox_list_get_hierarchy_sep(list)) {
+			name = p_strdup(pool, info->name + oldnamelen);
+			array_append(&names_arr, &name, 1);
+		}
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		ret = -1;
