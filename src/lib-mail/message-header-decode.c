@@ -65,7 +65,6 @@ void message_header_decode(const unsigned char *data, size_t size,
 	size_t pos, start_pos;
 
 	/* =?charset?Q|B?text?= */
-	t_push();
 	start_pos = pos = 0;
 	for (pos = 0; pos + 1 < size; ) {
 		if (data[pos] != '=' || data[pos+1] != '?') {
@@ -84,9 +83,8 @@ void message_header_decode(const unsigned char *data, size_t size,
 		}
 
 		if (decodebuf == NULL) {
-			decodebuf =
-				buffer_create_dynamic(pool_datastack_create(),
-						      size - pos);
+			decodebuf = buffer_create_dynamic(default_pool,
+							  size - pos);
 		} else {
 			buffer_set_used_size(decodebuf, 0);
 		}
@@ -113,7 +111,7 @@ void message_header_decode(const unsigned char *data, size_t size,
 		(void)callback(data + start_pos, size - start_pos,
 			       NULL, context);
 	}
-	t_pop();
+	buffer_free(&decodebuf);
 }
 
 struct decode_utf8_context {
