@@ -37,6 +37,7 @@ enum mail_log_event {
 	MAIL_LOG_EVENT_EXPUNGE		= 0x04,
 	MAIL_LOG_EVENT_COPY		= 0x08,
 	MAIL_LOG_EVENT_MAILBOX_DELETE	= 0x10,
+	MAIL_LOG_EVENT_MAILBOX_RENAME	= 0x20,
 
 	MAIL_LOG_EVENT_MASK_ALL		= 0x1f
 };
@@ -471,6 +472,24 @@ mail_log_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	return 0;
 }
 
+static int
+mail_log_mailbox_list_rename(struct mailbox_list *list, const char *oldname,
+			     const char *newname)
+{
+	union mailbox_list_module_context *llist = MAIL_LOG_LIST_CONTEXT(list);
+
+	if (llist->super.rename_mailbox(list, oldname, newname) < 0)
+		return -1;
+
+	if ((mail_log_set.events & MAIL_LOG_EVENT_MAILBOX_RENAME) == 0)
+		return 0;
+
+	i_info("Mailbox renamed: %s -> %s",
+	       str_sanitize(oldname, MAILBOX_NAME_LOG_LEN),
+	       str_sanitize(newname, MAILBOX_NAME_LOG_LEN));
+	return 0;
+}
+
 static void mail_log_mail_storage_created(struct mail_storage *storage)
 {
 	union mail_storage_module_context *lstorage;
@@ -495,6 +514,7 @@ static void mail_log_mailbox_list_created(struct mailbox_list *list)
 	llist = p_new(list->pool, union mailbox_list_module_context, 1);
 	llist->super = list->v;
 	list->v.delete_mailbox = mail_log_mailbox_list_delete;
+	list->v.rename_mailbox = mail_log_mailbox_list_rename;
 
 	MODULE_CONTEXT_SET_SELF(list, mail_log_mailbox_list_module, llist);
 }
