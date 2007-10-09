@@ -232,7 +232,7 @@ static void main_init(void)
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
 	if (mail_namespaces_init(namespace_pool, user, &ns) < 0)
-		exit(FATAL_DEFAULT);
+		i_fatal("Namespace initialization failed");
 	client = client_create(0, 1, ns);
 
         o_stream_cork(client->output);

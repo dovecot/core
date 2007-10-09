@@ -231,7 +231,7 @@ static int main_init(void)
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
 	if (mail_namespaces_init(namespace_pool, getenv("USER"), &ns) < 0)
-		exit(FATAL_DEFAULT);
+		i_fatal("Namespace initialization failed");
 	return client_create(0, 1, ns) != NULL;
 }
 

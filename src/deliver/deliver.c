@@ -783,7 +783,7 @@ int main(int argc, char *argv[])
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
 	if (mail_namespaces_init(namespace_pool, user, &ns) < 0)
-		exit(EX_TEMPFAIL);
+		i_fatal("Namespace initialization failed");
 
 	mbox_ns = mail_namespaces_init_empty(namespace_pool);
 	mbox_ns->flags |= NAMESPACE_FLAG_INTERNAL;
