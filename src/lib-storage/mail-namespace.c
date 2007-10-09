@@ -43,8 +43,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		ns->flags |= NAMESPACE_FLAG_INBOX;
 	if (getenv(t_strdup_printf("NAMESPACE_%u_HIDDEN", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_HIDDEN;
-	if ((ns->flags & NAMESPACE_FLAG_HIDDEN) == 0 &&
-	    getenv(t_strdup_printf("NAMESPACE_%u_LIST", num)) != NULL)
+	if (getenv(t_strdup_printf("NAMESPACE_%u_LIST", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_LIST;
 
 	if (type == NULL || *type == '\0' || strncmp(type, "private", 7) == 0)
