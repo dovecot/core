@@ -35,11 +35,15 @@ static ssize_t i_stream_crlf_read(struct istream_private *stream)
 	size_t i, dest, size;
 	ssize_t ret;
 
-	ret = i_stream_read(cstream->input);
-	if (ret <= 0 && ret != -2) {
-		stream->istream.stream_errno = cstream->input->stream_errno;
-		stream->istream.eof = cstream->input->eof;
-		return ret;
+	data = i_stream_get_data(cstream->input, &size);
+	if (size <= stream->pos) {
+		ret = i_stream_read(cstream->input);
+		if (ret <= 0 && (ret != -2 || stream->skip == 0)) {
+			stream->istream.stream_errno =
+				cstream->input->stream_errno;
+			stream->istream.eof = cstream->input->eof;
+			return ret;
+		}
 	}
 
 	data = i_stream_get_data(cstream->input, &size);
