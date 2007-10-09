@@ -55,6 +55,7 @@ static int dict_process_start(struct dict_process *process)
 		/* master */
 		child_process_add(pid, &process->process);
 		log_set_prefix(log, "dict: ");
+		log_set_pid(log, pid);
 		(void)close(log_fd);
 
 		process->log = log;

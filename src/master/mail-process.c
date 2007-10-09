@@ -672,6 +672,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 		if (!dump_capability) {
 			log_set_prefix(log, str_c(str));
+			log_set_pid(log, pid);
 			if (process_group == NULL) {
 				process_group =
 					mail_process_group_create(process_type,

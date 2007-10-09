@@ -99,7 +99,7 @@ static const char *get_exit_status_message(enum fatal_exit_status status)
 		return "exec() failed";
 
 	case FATAL_DEFAULT:
-		return NULL;
+		return "Fatal failure";
 	}
 
 	return NULL;
@@ -139,6 +139,9 @@ static void sigchld_handler(int signo ATTR_UNUSED,
 			} else if (status == 1 &&
 				   process_type == PROCESS_TYPE_SSL_PARAM) {
 				/* kludgy. hide this failure. */
+			} else if (status == FATAL_DEFAULT &&
+				   process->seen_fatal) {
+				/* the error was already logged. */
 			} else {
 				msg = get_exit_status_message(status);
 				msg = msg == NULL ? "" :

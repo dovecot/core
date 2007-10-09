@@ -627,6 +627,7 @@ static pid_t create_login_process(struct login_group *group)
 		prefix = t_strdup_printf("%s-login: ",
 				process_names[group->mail_process_type]);
 		log_set_prefix(log, prefix);
+		log_set_pid(log, pid);
 
 		net_set_nonblock(fd[0], TRUE);
 		fd_close_on_exec(fd[0], TRUE);

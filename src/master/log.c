@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "fd-set-nonblock.h"
 #include "fd-close-on-exec.h"
+#include "child-process.h"
 #include "log.h"
 
 #include <unistd.h>
@@ -15,6 +16,7 @@ struct log_io {
 
 	struct io *io;
 	struct istream *stream;
+	pid_t pid;
 
 	time_t log_stamp;
 	unsigned int log_counter;
@@ -89,6 +91,7 @@ static void log_unthrottle(struct log_io *log_io)
 
 static int log_it(struct log_io *log_io, const char *line, bool continues)
 {
+	struct child_process *process;
 	const char *prefix;
 	enum log_type log_type;
 
@@ -116,10 +119,12 @@ static int log_it(struct log_io *log_io, const char *line, bool continues)
 		log_type = LOG_TYPE_ERROR;
 		break;
 	case 'F':
-		log_type = LOG_TYPE_FATAL;
-		break;
 	case 'P':
-		log_type = LOG_TYPE_PANIC;
+		log_type = log_io->next_log_type == 'F' ?
+			LOG_TYPE_FATAL : LOG_TYPE_PANIC;
+		process = child_process_lookup(log_io->pid);
+		if (process != NULL)
+			process->seen_fatal = TRUE;
 		break;
 	default:
 		log_type = LOG_TYPE_ERROR;
@@ -190,6 +195,7 @@ int log_create_pipe(struct log_io **log_r, unsigned int max_lines_per_sec)
 
 	log_io = i_new(struct log_io, 1);
 	log_io->refcount = 1;
+	log_io->pid = (pid_t)-1;
 	log_io->stream = i_stream_create_fd(fd[0], 1024, TRUE);
 	log_io->max_lines_per_sec =
 		max_lines_per_sec != 0 ? max_lines_per_sec : (unsigned int)-1;
@@ -211,6 +217,11 @@ void log_set_prefix(struct log_io *log, const char *prefix)
 {
 	i_free(log->prefix);
 	log->prefix = i_strdup(prefix);
+}
+
+void log_set_pid(struct log_io *log, pid_t pid)
+{
+	log->pid = pid;
 }
 
 void log_ref(struct log_io *log_io)

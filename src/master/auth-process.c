@@ -59,9 +59,9 @@ struct auth_process {
 bool have_initialized_auth_processes = FALSE;
 
 static struct child_process auth_child_process =
-	{ PROCESS_TYPE_AUTH };
+	{ PROCESS_TYPE_AUTH, 0 };
 static struct child_process auth_worker_child_process =
-	{ PROCESS_TYPE_AUTH_WORKER };
+	{ PROCESS_TYPE_AUTH_WORKER, 0 };
 
 static struct timeout *to;
 static unsigned int auth_tag;
@@ -535,6 +535,7 @@ static int create_auth_process(struct auth_process_group *group)
 		/* master */
 		prefix = t_strdup_printf("auth(%s): ", group->set->name);
 		log_set_prefix(log, prefix);
+		log_set_pid(log, pid);
 
 		net_set_nonblock(fd[0], TRUE);
 		fd_close_on_exec(fd[0], TRUE);
