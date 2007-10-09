@@ -90,6 +90,7 @@ static void log_unthrottle(struct log_io *log_io)
 static int log_it(struct log_io *log_io, const char *line, bool continues)
 {
 	const char *prefix;
+	enum log_type log_type;
 
 	if (log_io->next_log_type == '\0') {
 		if (line[0] == 1 && line[1] != '\0') {
@@ -106,15 +107,25 @@ static int log_it(struct log_io *log_io, const char *line, bool continues)
 	prefix = log_io->prefix != NULL ? log_io->prefix : "";
 	switch (log_io->next_log_type) {
 	case 'I':
-		i_info("%s%s", prefix, line);
+		log_type = LOG_TYPE_INFO;
 		break;
 	case 'W':
-		i_warning("%s%s", prefix, line);
+		log_type = LOG_TYPE_WARNING;
+		break;
+	case 'E':
+		log_type = LOG_TYPE_ERROR;
+		break;
+	case 'F':
+		log_type = LOG_TYPE_FATAL;
+		break;
+	case 'P':
+		log_type = LOG_TYPE_PANIC;
 		break;
 	default:
-		i_error("%s%s", prefix, line);
+		log_type = LOG_TYPE_ERROR;
 		break;
 	}
+	i_log_type(log_type, "%s%s", prefix, line);
 	t_pop();
 
 	if (!continues)
