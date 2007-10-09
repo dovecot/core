@@ -13,28 +13,30 @@
 #include <syslog.h>
 #include <time.h>
 
+static const char *log_type_prefixes[] = {
+	"Info: ",
+	"Warning: ",
+	"Error: ",
+	"Fatal: ",
+	"Panic: "
+};
+static char log_type_internal_chars[] = {
+	'I', 'W', 'E', 'F', 'P'
+};
+
 static void failure_exit(int status) ATTR_NORETURN;
 
-static void default_panic_handler(const char *format, va_list args)
-	ATTR_NORETURN ATTR_FORMAT(1, 0);
-static void default_fatal_handler(int status, const char *format, va_list args)
-	ATTR_NORETURN ATTR_FORMAT(2, 0);
-
-static void default_error_handler(const char *format, va_list args)
-	ATTR_FORMAT(1, 0);
-static void default_warning_handler(const char *format, va_list args)
-	ATTR_FORMAT(1, 0);
-static void default_info_handler(const char *format, va_list args)
-	ATTR_FORMAT(1, 0);
+static void default_fatal_handler(enum log_type type, int status,
+				  const char *format, va_list args)
+	ATTR_NORETURN ATTR_FORMAT(3, 0);
+static void default_error_handler(enum log_type type, const char *format,
+				  va_list args) ATTR_FORMAT(2, 0);
 
 /* Initialize working defaults */
-static failure_callback_t *panic_handler ATTR_NORETURN =
-	default_panic_handler;
 static fatal_failure_callback_t *fatal_handler ATTR_NORETURN =
 	default_fatal_handler;
 static failure_callback_t *error_handler = default_error_handler;
-static failure_callback_t *warning_handler = default_warning_handler;
-static failure_callback_t *info_handler = default_info_handler;
+static failure_callback_t *info_handler = default_error_handler;
 static void (*failure_exit_callback)(int *) = NULL;
 
 static FILE *log_fd = NULL, *log_info_fd = NULL;
@@ -125,17 +127,6 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 	return 0;
 }
 
-static void ATTR_FORMAT(1, 0)
-default_panic_handler(const char *format, va_list args)
-{
-	const char *backtrace;
-
-	(void)default_handler("Panic: ", log_fd, format, args);
-	if (backtrace_get(&backtrace) == 0)
-		i_error("Raw backtrace: %s", backtrace);
-	abort();
-}
-
 static void log_fd_flush_stop(struct ioloop *ioloop)
 {
 	io_loop_stop(ioloop);
@@ -155,7 +146,7 @@ static int log_fd_flush(FILE *fd)
 		/* wait until we can write more. this can happen at least
 		   when writing to terminal, even if fd is blocking. */
 		ioloop = io_loop_create();
-		io = io_add(IO_WRITE, fileno(log_fd),
+		io = io_add(IO_WRITE, fileno(fd),
 			    log_fd_flush_stop, ioloop);
 		io_loop_run(ioloop);
 		io_remove(&io);
@@ -164,45 +155,52 @@ static int log_fd_flush(FILE *fd)
 	return 0;
 }
 
-static void ATTR_FORMAT(2, 0)
-default_fatal_handler(int status, const char *format, va_list args)
+static void ATTR_FORMAT(3, 0)
+default_fatal_handler(enum log_type type, int status,
+		      const char *format, va_list args)
 {
-	if (default_handler("Fatal: ", log_fd, format, args) < 0 &&
-	    status == FATAL_DEFAULT)
+	const char *backtrace;
+
+	if (default_handler(log_type_prefixes[type], log_fd, format,
+			    args) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
+
+	if (type == LOG_TYPE_PANIC) {
+		if (backtrace_get(&backtrace) == 0)
+			i_error("Raw backtrace: %s", backtrace);
+	}
 
 	if (log_fd_flush(log_fd) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
 
-	failure_exit(status);
+	if (type == LOG_TYPE_PANIC)
+		abort();
+	else
+		failure_exit(status);
 }
 
-static void ATTR_FORMAT(1, 0)
-default_error_handler(const char *format, va_list args)
+static void ATTR_FORMAT(2, 0)
+default_error_handler(enum log_type type, const char *format, va_list args)
 {
-	if (default_handler("Error: ", log_fd, format, args) < 0)
+	FILE *fd = type == LOG_TYPE_INFO ? log_info_fd : log_fd;
+
+	if (default_handler(log_type_prefixes[type], fd, format, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 
-	if (log_fd_flush(log_fd) < 0)
+	if (log_fd_flush(fd) < 0)
 		failure_exit(FATAL_LOGWRITE);
 }
 
-static void ATTR_FORMAT(1, 0)
-default_warning_handler(const char *format, va_list args)
+void i_log_type(enum log_type type, const char *format, ...)
 {
-	(void)default_handler("Warning: ", log_fd, format, args);
+	va_list args;
 
-	if (log_fd_flush(log_fd) < 0)
-		failure_exit(FATAL_LOGWRITE);
-}
-
-static void ATTR_FORMAT(1, 0)
-default_info_handler(const char *format, va_list args)
-{
-	(void)default_handler("Info: ", log_info_fd, format, args);
-
-	if (log_fd_flush(log_info_fd) < 0)
-		failure_exit(FATAL_LOGWRITE);
+	va_start(args, format);
+	if (type == LOG_TYPE_INFO)
+		info_handler(type, format, args);
+	else
+		error_handler(type, format, args);
+	va_end(args);
 }
 
 void i_panic(const char *format, ...)
@@ -210,7 +208,7 @@ void i_panic(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	panic_handler(format, args);
+	fatal_handler(LOG_TYPE_PANIC, 0, format, args);
 	va_end(args);
 }
 
@@ -219,7 +217,7 @@ void i_fatal(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	fatal_handler(FATAL_DEFAULT, format, args);
+	fatal_handler(LOG_TYPE_FATAL, FATAL_DEFAULT, format, args);
 	va_end(args);
 }
 
@@ -228,7 +226,7 @@ void i_fatal_status(int status, const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	fatal_handler(status, format, args);
+	fatal_handler(LOG_TYPE_FATAL, status, format, args);
 	va_end(args);
 }
 
@@ -238,7 +236,7 @@ void i_error(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	error_handler(format, args);
+	error_handler(LOG_TYPE_ERROR, format, args);
 	va_end(args);
 
 	errno = old_errno;
@@ -250,7 +248,7 @@ void i_warning(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	warning_handler(format, args);
+	error_handler(LOG_TYPE_WARNING, format, args);
 	va_end(args);
 
 	errno = old_errno;
@@ -262,17 +260,10 @@ void i_info(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	info_handler(format, args);
+	info_handler(LOG_TYPE_INFO, format, args);
 	va_end(args);
 
 	errno = old_errno;
-}
-
-void i_set_panic_handler(failure_callback_t *callback ATTR_NORETURN)
-{
-	if (callback == NULL)
-		callback = default_panic_handler;
-        panic_handler = callback;
 }
 
 void i_set_fatal_handler(fatal_failure_callback_t *callback ATTR_NORETURN)
@@ -286,21 +277,14 @@ void i_set_error_handler(failure_callback_t *callback)
 {
 	if (callback == NULL)
 		callback = default_error_handler;
-        error_handler = callback;
-}
-
-void i_set_warning_handler(failure_callback_t *callback)
-{
-	if (callback == NULL)
-		callback = default_warning_handler;
-        warning_handler = callback;
+	error_handler = callback;
 }
 
 void i_set_info_handler(failure_callback_t *callback)
 {
 	if (callback == NULL)
-		callback = default_info_handler;
-        info_handler = callback;
+		callback = default_error_handler;
+	info_handler = callback;
 }
 
 static int ATTR_FORMAT(2, 0)
@@ -321,48 +305,53 @@ syslog_handler(int level, const char *format, va_list args)
 	return 0;
 }
 
-void i_syslog_panic_handler(const char *fmt, va_list args)
+void i_syslog_fatal_handler(enum log_type type, int status,
+			    const char *fmt, va_list args)
 {
 	const char *backtrace;
-
-	(void)syslog_handler(LOG_CRIT, fmt, args);
-	if (backtrace_get(&backtrace) == 0)
-		i_error("Raw backtrace: %s", backtrace);
-	abort();
-}
-
-void i_syslog_fatal_handler(int status, const char *fmt, va_list args)
-{
 	if (syslog_handler(LOG_CRIT, fmt, args) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
-	failure_exit(status);
+
+	if (type == LOG_TYPE_PANIC) {
+		if (backtrace_get(&backtrace) == 0)
+			i_error("Raw backtrace: %s", backtrace);
+		abort();
+	} else {
+		failure_exit(status);
+	}
 }
 
-void i_syslog_error_handler(const char *fmt, va_list args)
+void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
 {
-	if (syslog_handler(LOG_ERR, fmt, args) < 0)
+	int level = LOG_ERR;
+
+	switch (type) {
+	case LOG_TYPE_INFO:
+		level = LOG_INFO;
+		break;
+	case LOG_TYPE_WARNING:
+		level = LOG_WARNING;
+		break;
+	case LOG_TYPE_ERROR:
+		level = LOG_ERR;
+		break;
+	case LOG_TYPE_FATAL:
+	case LOG_TYPE_PANIC:
+		level = LOG_CRIT;
+		break;
+	}
+
+	if (syslog_handler(level, fmt, args) < 0)
 		failure_exit(FATAL_LOGERROR);
-}
-
-void i_syslog_warning_handler(const char *fmt, va_list args)
-{
-	(void)syslog_handler(LOG_WARNING, fmt, args);
-}
-
-void i_syslog_info_handler(const char *fmt, va_list args)
-{
-	(void)syslog_handler(LOG_INFO, fmt, args);
 }
 
 void i_set_failure_syslog(const char *ident, int options, int facility)
 {
 	openlog(ident, options, facility);
 
-	i_set_panic_handler(i_syslog_panic_handler);
 	i_set_fatal_handler(i_syslog_fatal_handler);
 	i_set_error_handler(i_syslog_error_handler);
-	i_set_warning_handler(i_syslog_warning_handler);
-	i_set_info_handler(i_syslog_info_handler);
+	i_set_info_handler(i_syslog_error_handler);
 }
 
 static void open_log_file(FILE **file, const char *path)
@@ -394,10 +383,9 @@ void i_set_failure_file(const char *path, const char *prefix)
 	open_log_file(&log_fd, path);
 	log_info_fd = log_fd;
 
-	i_set_panic_handler(NULL);
 	i_set_fatal_handler(NULL);
 	i_set_error_handler(NULL);
-	i_set_warning_handler(NULL);
+	i_set_info_handler(NULL);
 }
 
 void i_set_failure_prefix(const char *prefix)
@@ -424,51 +412,37 @@ internal_handler(char log_type, const char *format, va_list args)
 	return ret;
 }
 
-static void ATTR_NORETURN ATTR_FORMAT(1, 0)
-i_internal_panic_handler(const char *fmt, va_list args)
+static void ATTR_NORETURN ATTR_FORMAT(3, 0)
+i_internal_fatal_handler(enum log_type type, int status,
+			 const char *fmt, va_list args)
 {
 	const char *backtrace;
 
-	(void)internal_handler('F', fmt, args);
-	if (backtrace_get(&backtrace) == 0)
-		i_error("Raw backtrace: %s", backtrace);
-        abort();
-}
-
-static void ATTR_NORETURN ATTR_FORMAT(2, 0)
-i_internal_fatal_handler(int status, const char *fmt, va_list args)
-{
-	if (internal_handler('F', fmt, args) < 0 && status == FATAL_DEFAULT)
+	if (internal_handler(log_type_internal_chars[type], fmt, args) < 0 &&
+	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
-	failure_exit(status);
+
+	if (type == LOG_TYPE_PANIC) {
+		if (backtrace_get(&backtrace) == 0)
+			i_error("Raw backtrace: %s", backtrace);
+		abort();
+	} else {
+		failure_exit(status);
+	}
 }
 
-static void ATTR_FORMAT(1, 0)
-i_internal_error_handler(const char *fmt, va_list args)
+static void ATTR_FORMAT(2, 0)
+i_internal_error_handler(enum log_type type, const char *fmt, va_list args)
 {
-	if (internal_handler('E', fmt, args) < 0)
+	if (internal_handler(log_type_internal_chars[type], fmt, args) < 0)
 		failure_exit(FATAL_LOGERROR);
-}
-
-static void ATTR_FORMAT(1, 0)
-i_internal_warning_handler(const char *fmt, va_list args)
-{
-	(void)internal_handler('W', fmt, args);
-}
-
-static void ATTR_FORMAT(1, 0)
-i_internal_info_handler(const char *fmt, va_list args)
-{
-	(void)internal_handler('I', fmt, args);
 }
 
 void i_set_failure_internal(void)
 {
-	i_set_panic_handler(i_internal_panic_handler);
 	i_set_fatal_handler(i_internal_fatal_handler);
 	i_set_error_handler(i_internal_error_handler);
-	i_set_warning_handler(i_internal_warning_handler);
-	i_set_info_handler(i_internal_info_handler);
+	i_set_info_handler(i_internal_error_handler);
 }
 
 void i_set_info_file(const char *path)
@@ -477,7 +451,7 @@ void i_set_info_file(const char *path)
 		log_info_fd = NULL;
 
 	open_log_file(&log_info_fd, path);
-        info_handler = default_info_handler;
+        info_handler = default_error_handler;
 }
 
 void i_set_failure_timestamp_format(const char *fmt)

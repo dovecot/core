@@ -12,10 +12,21 @@ enum fatal_exit_status {
 	FATAL_DEFAULT	= 89
 };
 
+enum log_type {
+	LOG_TYPE_INFO,
+	LOG_TYPE_WARNING,
+	LOG_TYPE_ERROR,
+	LOG_TYPE_FATAL,
+	LOG_TYPE_PANIC
+};
+
 #define DEFAULT_FAILURE_STAMP_FORMAT "%b %d %H:%M:%S "
 
-typedef void failure_callback_t(const char *, va_list);
-typedef void fatal_failure_callback_t(int status, const char *, va_list);
+typedef void failure_callback_t(enum log_type type, const char *, va_list);
+typedef void fatal_failure_callback_t(enum log_type type, int status,
+				      const char *, va_list);
+
+void i_log_type(enum log_type type, const char *format, ...) ATTR_FORMAT(2, 3);
 
 void i_panic(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN;
 void i_fatal(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN;
@@ -26,24 +37,17 @@ void i_info(const char *format, ...) ATTR_FORMAT(1, 2);
 void i_fatal_status(int status, const char *format, ...)
 	ATTR_FORMAT(2, 3) ATTR_NORETURN;
 
-/* Change failure handlers. Make sure they don't modify errno. */
-void i_set_panic_handler(failure_callback_t *callback ATTR_NORETURN);
+/* Change failure handlers. */
 void i_set_fatal_handler(fatal_failure_callback_t *callback ATTR_NORETURN);
 void i_set_error_handler(failure_callback_t *callback);
-void i_set_warning_handler(failure_callback_t *callback);
 void i_set_info_handler(failure_callback_t *callback);
 
 /* Send failures to syslog() */
-void i_syslog_panic_handler(const char *fmt, va_list args)
-	ATTR_NORETURN ATTR_FORMAT(1, 0);
-void i_syslog_fatal_handler(int status, const char *fmt, va_list args)
-	ATTR_NORETURN ATTR_FORMAT(2, 0);
-void i_syslog_error_handler(const char *fmt, va_list args)
-	ATTR_FORMAT(1, 0);
-void i_syslog_warning_handler(const char *fmt, va_list args)
-	ATTR_FORMAT(1, 0);
-void i_syslog_info_handler(const char *fmt, va_list args)
-	ATTR_FORMAT(1, 0);
+void i_syslog_fatal_handler(enum log_type type, int status,
+			    const char *fmt, va_list args)
+	ATTR_NORETURN ATTR_FORMAT(3, 0);
+void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
+	ATTR_FORMAT(2, 0);
 
 /* Open syslog and set failure/info handlers to use it. */
 void i_set_failure_syslog(const char *ident, int options, int facility);
