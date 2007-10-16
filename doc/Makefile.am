@@ -1,5 +1,7 @@
 SUBDIRS = wiki
 
+docdir = $(datadir)/doc/dovecot
+
 confdir = $(sysconfdir)
 conf_DATA = \
 	dovecot-ldap-example.conf \
