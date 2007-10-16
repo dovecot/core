@@ -198,6 +198,19 @@ sort_header_get(enum mail_sort_type sort_type, struct mail *mail, uint32_t seq)
 	return str_c(buf);
 }
 
+static time_t sort_get_date(struct mail *mail)
+{
+	time_t t;
+
+	if (mail_get_date(mail, &t, NULL) < 0)
+		return 0;
+	if (t == 0) {
+		if (mail_get_received_date(mail, &t) < 0)
+			return 0;
+	}
+	return t;
+}
+
 static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			      const enum mail_sort_type *sort_program,
 			      const struct mail_sort_node *n1,
@@ -245,13 +258,11 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			time1 = ctx->cache_time;
 		else {
 			mail_set_seq(ctx->mail, n1->seq);
-			if (mail_get_date(ctx->mail, &time1, NULL) < 0)
-				time1 = 0;
+			time1 = sort_get_date(ctx->mail);
 		}
 
 		mail_set_seq(ctx->mail, n2->seq);
-		if (mail_get_date(ctx->mail, &time2, NULL) < 0)
-			time2 = 0;
+		time2 = sort_get_date(ctx->mail);
 
 		ret = time1 < time2 ? -1 :
 			(time1 > time2 ? 1 : 0);
@@ -477,9 +488,9 @@ static uint32_t get_sort_id_date(struct mail *mail)
 {
 	time_t time;
 
-	if (mail_get_date(mail, &time, NULL) < 0)
-		return 0;
-	return time;
+	time = sort_get_date(mail);
+	/* FIXME: truncation is bad.. */
+	return time < 0 ? 0 : (time > (uint32_t)-1 ? (uint32_t)-1 : time);
 }
 
 static uint32_t get_sort_id_size(struct mail *mail)
