@@ -226,10 +226,11 @@ static int index_mail_cache_sent_date(struct index_mail *mail)
 	if (data->sent_date.time != (uint32_t)-1)
 		return 0;
 
-	if ((ret = mail_get_first_header(&mail->mail.mail, "Date", &str)) <= 0)
+	if ((ret = mail_get_first_header(&mail->mail.mail, "Date", &str)) < 0)
 		return ret;
 
-	if (!message_date_parse((const unsigned char *)str,
+	if (ret == 0 ||
+	    !message_date_parse((const unsigned char *)str,
 				strlen(str), &t, &tz)) {
 		/* 0 = not found / invalid */
 		t = 0;
