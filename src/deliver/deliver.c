@@ -1,5 +1,9 @@
 /* Copyright (c) 2005-2007 Dovecot authors, see the included COPYING file */
 
+/* This is getting pretty horrible. Especially the config file parsing.
+   Dovecot v2.0 should have a config file handling process which should help
+   with this.. */
+
 #include "lib.h"
 #include "lib-signals.h"
 #include "file-lock.h"
@@ -216,6 +220,11 @@ static bool setting_is_bool(const char *name)
 		if (strcmp(def->name, name) == 0)
 			return def->type == SET_BOOL;
 	}
+	if (strncmp(name, "NAMESPACE_", 10) == 0) {
+		return strstr(name, "_list") != NULL ||
+			strstr(name, "_inbox") != NULL ||
+			strstr(name, "_hidden") != NULL;
+	}
 	return FALSE;
 }
 
@@ -226,6 +235,8 @@ static void config_file_init(const char *path)
 	char *line, *p, quote;
 	int fd, sections = 0;
 	bool lda_section = FALSE, pop3_section = FALSE, plugin_section = FALSE;
+	bool ns_section = FALSE, ns_location = FALSE;
+	unsigned int ns_idx = 0;
 	size_t len;
 
 	plugin_pool = pool_alloconly_create("Plugin strings", 512);
@@ -280,6 +291,14 @@ static void config_file_init(const char *path)
 					lda_section = TRUE;
 				} else if (strcmp(line, "protocol pop3 {") == 0)
 					pop3_section = TRUE;
+				else if (strncmp(line, "namespace ", 10) == 0) {
+					ns_section = TRUE;
+					ns_idx++;
+					line += 10;
+					env_put(t_strdup_printf(
+						"NAMESPACE_%u_TYPE=%s", ns_idx,
+						t_strcut(line, ' ')));
+				}
 				sections++;
 			}
 			if (*line == '}') {
@@ -287,6 +306,13 @@ static void config_file_init(const char *path)
 				lda_section = FALSE;
 				plugin_section = FALSE;
 				pop3_section = FALSE;
+				ns_section = FALSE;
+				if (ns_location)
+					ns_location = FALSE;
+				else {
+					env_put(t_strdup_printf(
+						"NAMESPACE_%u=", ns_idx));
+				}
 			}
 			continue;
 		}
@@ -295,9 +321,22 @@ static void config_file_init(const char *path)
 		key = t_strdup_until(line, p);
 
 		if (sections > 0 && !lda_section) {
-			if (!pop3_section ||
-			    strcmp(key, "pop3_uidl_format") != 0)
-				continue;
+			if (pop3_section) {
+				if (strcmp(key, "pop3_uidl_format") != 0)
+					continue;
+			} else if (ns_section) {
+				if (strcmp(key, "separator") == 0) {
+					key = t_strdup_printf(
+						"NAMESPACE_%u_SEP", ns_idx);
+				} else if (strcmp(key, "location") == 0) {
+					ns_location = TRUE;
+					key = t_strdup_printf("NAMESPACE_%u",
+							      ns_idx);
+				} else {
+					key = t_strdup_printf("NAMESPACE_%u_%s",
+							      ns_idx, key);
+				}
+			}
 		}
 
 		do {
@@ -735,6 +774,18 @@ int main(int argc, char *argv[])
 
 	expand_envs(user);
 	putenv_extra_fields(&extra_fields);
+
+	/* Fix namespaces with empty locations */
+	for (i = 1;; i++) {
+		value = getenv(t_strdup_printf("NAMESPACE_%u", i));
+		if (value == NULL)
+			break;
+
+		if (*value == '\0') {
+			env_put(t_strdup_printf("NAMESPACE_%u=%s", i,
+						getenv("MAIL")));
+		}
+	}
 
 	/* If possible chdir to home directory, so that core file
 	   could be written in case we crash. */
