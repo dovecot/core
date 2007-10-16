@@ -108,9 +108,11 @@ static ssize_t i_stream_crlf_read(struct istream_private *stream)
 		stream->w_buffer[dest++] = data[i];
 	}
 	i_stream_skip(cstream->input, i);
-	stream->pos = dest;
 
-	return dest - stream->pos;
+	ret = dest - stream->pos;
+	i_assert(ret > 0);
+	stream->pos = dest;
+	return ret;
 }
 
 static void ATTR_NORETURN
