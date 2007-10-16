@@ -287,7 +287,9 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		new_pos = from_start_pos;
 	} else {
 		/* leave out the beginnings of potential From-line + CR */
-		new_pos = i - (fromp - mbox_from) - 1;
+		new_pos = i - (fromp - mbox_from);
+		if (new_pos > 0)
+			new_pos--;
 	}
 
 	stream->buffer = buf;
@@ -481,6 +483,8 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 	i_assert(rstream->body_offset != (uoff_t)-1);
 
 	if (rstream->mail_size != (uoff_t)-1) {
+		i_assert(rstream->mail_size >
+			 rstream->body_offset - rstream->hdr_offset);
 		return rstream->mail_size -
 			(rstream->body_offset - rstream->hdr_offset);
 	}
@@ -499,6 +503,8 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 		i_stream_skip(stream, size);
 
 	i_assert(rstream->mail_size != (uoff_t)-1);
+	i_assert(rstream->mail_size >
+		 rstream->body_offset - rstream->hdr_offset);
 	return rstream->mail_size -
 		(rstream->body_offset - rstream->hdr_offset);
 }
