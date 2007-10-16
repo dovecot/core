@@ -73,8 +73,7 @@ struct sort_cmp_context {
 
 	uint32_t cache_seq;
 	enum mail_sort_type cache_type;
-	time_t cache_time;
-	uoff_t cache_size;
+	uint32_t cache_value;
 	const char *cache_str;
 };
 
@@ -198,17 +197,48 @@ sort_header_get(enum mail_sort_type sort_type, struct mail *mail, uint32_t seq)
 	return str_c(buf);
 }
 
-static time_t sort_get_date(struct mail *mail)
+static uint32_t sort_get_arrival(struct mail *mail)
+{
+	time_t t;
+
+	if (mail_get_received_date(mail, &t) < 0)
+		t = 0;
+
+	i_assert(t != (time_t)-1);
+	/* FIXME: truncation isn't good.. */
+	return t <= 0 ? 1 :
+		(t >= (uint32_t)-1 ? (uint32_t)-1 : t + 1);
+}
+
+static uint32_t sort_get_date(struct mail *mail)
 {
 	time_t t;
 
 	if (mail_get_date(mail, &t, NULL) < 0)
-		return 0;
+		t = 0;
 	if (t == 0) {
 		if (mail_get_received_date(mail, &t) < 0)
-			return 0;
+			return 1;
 	}
-	return t;
+	i_assert(t != (time_t)-1);
+	/* FIXME: truncation isn't good.. */
+	return t <= 0 ? 1 :
+		(t >= (uint32_t)-1 ? (uint32_t)-1 : t + 1);
+}
+
+static uint32_t sort_get_size(struct mail *mail)
+{
+	uoff_t size;
+
+	if (mail_get_virtual_size(mail, &size) < 0)
+		return 1;
+
+	/* FIXME: elsewhere we support 64bit message sizes, but here
+	   we support only 32bit sizes.. It's a bit too much trouble
+	   to support 64bit here currently, so until such messages
+	   actually start showing up somewhere, 32bit is enough */
+	i_assert(size < (uint32_t)-1);
+	return size + 1;
 }
 
 static int sort_node_cmp_type(struct sort_cmp_context *ctx,
@@ -218,8 +248,7 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 {
 	enum mail_sort_type sort_type;
 	const char *str1, *str2;
-	time_t time1, time2;
-	uoff_t size1, size2;
+	uint32_t time1, time2, size1, size2;
 	int ret = 0;
 
 	sort_type = *sort_program & MAIL_SORT_MASK;
@@ -239,23 +268,21 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 		break;
 	case MAIL_SORT_ARRIVAL:
 		if (n1->seq == ctx->cache_seq && ctx->cache_type == sort_type)
-			time1 = ctx->cache_time;
+			time1 = ctx->cache_value;
 		else {
 			mail_set_seq(ctx->mail, n1->seq);
-			if (mail_get_received_date(ctx->mail, &time1) < 0)
-				time1 = 0;
+			time1 = sort_get_arrival(ctx->mail);
 		}
 
 		mail_set_seq(ctx->mail, n2->seq);
-		if (mail_get_received_date(ctx->mail, &time2) < 0)
-			time2 = 0;
+		time2 = sort_get_arrival(ctx->mail);
 
 		ret = time1 < time2 ? -1 :
 			(time1 > time2 ? 1 : 0);
 		break;
 	case MAIL_SORT_DATE:
 		if (n1->seq == ctx->cache_seq && ctx->cache_type == sort_type)
-			time1 = ctx->cache_time;
+			time1 = ctx->cache_value;
 		else {
 			mail_set_seq(ctx->mail, n1->seq);
 			time1 = sort_get_date(ctx->mail);
@@ -269,16 +296,14 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 		break;
 	case MAIL_SORT_SIZE:
 		if (n1->seq == ctx->cache_seq && ctx->cache_type == sort_type)
-			size1 = ctx->cache_size;
+			size1 = ctx->cache_value;
 		else {
 			mail_set_seq(ctx->mail, n1->seq);
-			if (mail_get_virtual_size(ctx->mail, &size1) < 0)
-				size1 = 0;
+			size1 = sort_get_size(ctx->mail);
 		}
 
 		mail_set_seq(ctx->mail, n2->seq);
-		if (mail_get_virtual_size(ctx->mail, &size2) < 0)
-			size2 = 0;
+		size2 = sort_get_size(ctx->mail);
 
 		ret = size1 < size2 ? -1 :
 			(size1 > size2 ? 1 : 0);
@@ -333,6 +358,7 @@ index_sort_save_ids(struct mail_search_sort_program *program,
 		if (nodes[i].seq < first_seq)
 			continue;
 
+		i_assert(nodes[i].sort_id != 0);
 		mail_index_update_ext(t->trans, nodes[i].seq,
 				      program->ext_id, &nodes[i].sort_id, NULL);
 	}
@@ -429,6 +455,7 @@ index_sort_renumber_ids(struct mail_search_sort_program *program,
 				sort_id += skip;
 			prev_sort_id = nodes[i].sort_id;
 
+			i_assert(sort_id != 0);
 			nodes[i].sort_id = sort_id;
 			mail_index_update_ext(t->trans, nodes[i].seq,
 					      program->ext_id,
@@ -445,6 +472,7 @@ index_sort_renumber_ids(struct mail_search_sort_program *program,
 		}
 		prev_sort_id = nodes[i].sort_id;
 
+		i_assert(sort_id != 0);
 		if (nodes[i].sort_id != 0) {
 			nodes[i].sort_id = sort_id;
 			mail_index_update_ext(t->trans, nodes[i].seq,
@@ -475,39 +503,6 @@ index_sort_add_ids(struct mail_search_sort_program *program, struct mail *mail)
 	}
 }
 
-static uint32_t get_sort_id_arrival(struct mail *mail)
-{
-	time_t time;
-
-	if (mail_get_received_date(mail, &time) < 0)
-		return 0;
-	return time;
-}
-
-static uint32_t get_sort_id_date(struct mail *mail)
-{
-	time_t time;
-
-	time = sort_get_date(mail);
-	/* FIXME: truncation is bad.. */
-	return time < 0 ? 0 : (time > (uint32_t)-1 ? (uint32_t)-1 : time);
-}
-
-static uint32_t get_sort_id_size(struct mail *mail)
-{
-	uoff_t size;
-
-	if (mail_get_virtual_size(mail, &size) < 0)
-		return 0;
-
-	/* FIXME: elsewhere we support 64bit message sizes, but here
-	   we support only 32bit sizes.. It's a bit too much trouble
-	   to support 64bit here currently, so until such messages
-	   actually start showing up somewhere, 32bit is enough */
-	i_assert(size <= (uint32_t)-1);
-	return size;
-}
-
 static void index_sort_preset_sort_ids(struct mail_search_sort_program *program,
 				       uint32_t last_seq)
 {
@@ -517,13 +512,13 @@ static void index_sort_preset_sort_ids(struct mail_search_sort_program *program,
 
 	switch (program->sort_program[0] & MAIL_SORT_MASK) {
 	case MAIL_SORT_ARRIVAL:
-		get_sort_id = get_sort_id_arrival;
+		get_sort_id = sort_get_arrival;
 		break;
 	case MAIL_SORT_DATE:
-		get_sort_id = get_sort_id_date;
+		get_sort_id = sort_get_date;
 		break;
 	case MAIL_SORT_SIZE:
-		get_sort_id = get_sort_id_size;
+		get_sort_id = sort_get_size;
 		break;
 	default:
 		i_unreached();
@@ -535,6 +530,7 @@ static void index_sort_preset_sort_ids(struct mail_search_sort_program *program,
 	for (; node.seq <= last_seq; node.seq++) {
 		mail_set_seq(mail, node.seq);
 		node.sort_id = get_sort_id(mail);
+		i_assert(node.sort_id != 0);
 		array_append(&program->all_nodes, &node, 1);
 	}
 
@@ -556,13 +552,13 @@ static void index_sort_cache_seq(struct sort_cmp_context *ctx,
 	mail_set_seq(ctx->mail, seq);
 	switch (ctx->cache_type) {
 	case MAIL_SORT_ARRIVAL:
-		ctx->cache_time = get_sort_id_arrival(ctx->mail);
+		ctx->cache_value = sort_get_arrival(ctx->mail);
 		break;
 	case MAIL_SORT_DATE:
-		ctx->cache_time = get_sort_id_date(ctx->mail);
+		ctx->cache_value = sort_get_date(ctx->mail);
 		break;
 	case MAIL_SORT_SIZE:
-		ctx->cache_size = get_sort_id_size(ctx->mail);
+		ctx->cache_value = sort_get_size(ctx->mail);
 		break;
 	default:
 		ctx->cache_str = sort_header_get(sort_type, ctx->mail, seq);
