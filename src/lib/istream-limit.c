@@ -51,10 +51,9 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 
 	stream->buffer = i_stream_get_data(lstream->input, &pos);
 	if (pos <= stream->pos) {
-		if ((ret = i_stream_read(lstream->input)) == -2) {
-			if (stream->skip == 0)
-				return -2;
-		}
+		if ((ret = i_stream_read(lstream->input)) == -2)
+			return -2;
+
 		stream->istream.stream_errno = lstream->input->stream_errno;
 		stream->istream.eof = lstream->input->eof;
 		stream->buffer = i_stream_get_data(lstream->input, &pos);
