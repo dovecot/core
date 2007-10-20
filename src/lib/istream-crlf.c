@@ -100,7 +100,10 @@ static ssize_t i_stream_crlf_read(struct istream_private *stream)
 	i_stream_skip(cstream->input, i);
 
 	ret = dest - stream->pos;
-	i_assert(ret > 0);
+	if (ret == 0) {
+		i_assert(cstream->last_char == '\r' && size == 1);
+		return i_stream_crlf_read(stream);
+	}
 	stream->pos = dest;
 	return ret;
 }
