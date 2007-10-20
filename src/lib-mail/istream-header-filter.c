@@ -59,6 +59,32 @@ i_stream_header_filter_set_max_buffer_size(struct iostream_private *stream,
 	i_stream_set_max_buffer_size(mstream->input, max_size);
 }
 
+static ssize_t read_mixed(struct header_filter_istream *mstream)
+{
+	const unsigned char *data;
+	size_t pos;
+	ssize_t ret;
+
+	data = i_stream_get_data(mstream->input, &pos);
+	if (pos == 0) {
+		ret = i_stream_read(mstream->input);
+		mstream->istream.istream.stream_errno =
+			mstream->input->stream_errno;
+		mstream->istream.istream.eof = mstream->input->eof;
+
+		if (ret <= 0)
+			return ret;
+
+		data = i_stream_get_data(mstream->input, &pos);
+	}
+	buffer_append(mstream->hdr_buf, data, pos);
+
+	mstream->istream.buffer = buffer_get_data(mstream->hdr_buf, &pos);
+	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
+	mstream->istream.pos = pos;
+	return ret;
+}
+
 static ssize_t read_header(struct header_filter_istream *mstream)
 {
 	struct message_header_line *hdr;
@@ -67,37 +93,26 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	bool matched;
 	int hdr_ret;
 
-	if (mstream->header_read &&
-	    mstream->istream.istream.v_offset +
-	    (mstream->istream.pos - mstream->istream.skip) ==
-	    mstream->header_size.virtual_size) {
-		/* if there's no body at all, return EOF */
-		(void)i_stream_get_data(mstream->input, &pos);
-		if (pos == 0) {
-			ret = i_stream_read(mstream->input);
-			if (ret == -1) {
-				/* EOF */
-				mstream->istream.istream.eof = TRUE;
-				return -1;
-			}
-		}
-		/* we don't support mixing headers and body.
-		   it shouldn't be needed. */
-		return -2;
-	}
-
 	if (mstream->hdr_ctx == NULL) {
 		mstream->hdr_ctx =
 			message_parse_header_init(mstream->input, NULL, 0);
 	}
 
+	/* remove skipped data from hdr_buf */
 	buffer_copy(mstream->hdr_buf, 0,
 		    mstream->hdr_buf, mstream->istream.skip, (size_t)-1);
 
         mstream->istream.pos -= mstream->istream.skip;
 	mstream->istream.skip = 0;
-
 	buffer_set_used_size(mstream->hdr_buf, mstream->istream.pos);
+
+	if (mstream->header_read &&
+	    mstream->istream.istream.v_offset +
+	    (mstream->istream.pos - mstream->istream.skip) >=
+	    mstream->header_size.virtual_size) {
+		/* we want to return mixed headers and body */
+		return read_mixed(mstream);
+	}
 
 	while ((hdr_ret = message_parse_header_next(mstream->hdr_ctx,
 						    &hdr)) > 0) {
