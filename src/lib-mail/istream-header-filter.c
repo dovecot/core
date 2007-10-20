@@ -65,6 +65,11 @@ static ssize_t read_mixed(struct header_filter_istream *mstream)
 	size_t pos;
 	ssize_t ret;
 
+	if (mstream->hide_body) {
+		mstream->istream.istream.eof = TRUE;
+		return -1;
+	}
+
 	data = i_stream_get_data(mstream->input, &pos);
 	if (pos == 0) {
 		ret = i_stream_read(mstream->input);
