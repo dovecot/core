@@ -449,7 +449,8 @@ void client_continue_pending_input(struct client **_client)
 	i_assert(!client->handling_input);
 
 	if (client->disconnected) {
-		client_destroy(client, NULL);
+		if (!client->destroyed)
+			client_destroy(client, NULL);
 		*_client = NULL;
 		return;
 	}
