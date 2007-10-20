@@ -19,16 +19,27 @@ int file_set_size(int fd, off_t size)
 
 	i_assert(size >= 0);
 
-	if (fstat(fd, &st) < 0)
+	if (fstat(fd, &st) < 0) {
+		i_error("fstat() failed: %m");
 		return -1;
+	}
 
-	if (size < st.st_size)
-		return ftruncate(fd, size);
+	if (size < st.st_size) {
+		if (ftruncate(fd, size) < 0) {
+			i_error("ftruncate() failed: %m");
+			return -1;
+		}
+		return 0;
+	}
 	if (size == st.st_size)
 		return 0;
 
 #ifdef HAVE_POSIX_FALLOCATE
-	return posix_fallocate(fd, st.st_size, size - st.st_size);
+	if (posix_fallocate(fd, st.st_size, size - st.st_size) < 0) {
+		if (!ENOSPACE(errno))
+			i_error("posix_fallocate() failed: %m");
+		return -1;
+	}
 #else
 	/* start growing the file */
 	offset = st.st_size;
@@ -38,10 +49,13 @@ int file_set_size(int fd, off_t size)
 		ret = pwrite(fd, block,
 			     I_MIN((ssize_t)sizeof(block), size - offset),
 			     offset);
-		if (ret < 0)
+		if (ret < 0) {
+			if (!ENOSPACE(errno))
+				i_error("pwrite() failed: %m");
 			return -1;
+		}
 		offset += size;
 	}
-	return 0;
 #endif
+	return 0;
 }
