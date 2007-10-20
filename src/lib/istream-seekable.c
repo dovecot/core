@@ -301,9 +301,14 @@ i_stream_create_seekable(struct istream *input[],
 	const unsigned char *data;
 	unsigned int count;
 	size_t size;
+	bool blocking = TRUE;
 
-	for (count = 0; input[count] != NULL; count++)
+	/* if any of the streams isn't blocking, set ourself also nonblocking */
+	for (count = 0; input[count] != NULL; count++) {
+		if (!input[count]->blocking)
+			blocking = FALSE;
 		i_stream_ref(input[count]);
+	}
 	i_assert(count != 0);
 
 	sstream = i_new(struct seekable_istream, 1);
@@ -329,5 +334,7 @@ i_stream_create_seekable(struct istream *input[],
 	sstream->istream.seek = i_stream_seekable_seek;
 	sstream->istream.stat = i_stream_seekable_stat;
 
+	sstream->istream.istream.blocking = blocking;
+	sstream->istream.istream.seekable = TRUE;
 	return i_stream_create(&sstream->istream, -1, 0);
 }
