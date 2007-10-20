@@ -299,7 +299,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		if (ctx->dtcase) {
 			buffer_set_used_size(ctx->buf2, 0);
 			(void)uni_utf8_to_decomposed_titlecase(data, size,
-							       ctx->buf);
+							       ctx->buf2);
 			output->data = ctx->buf2->data;
 			output->size = ctx->buf2->used;
 		} else {
