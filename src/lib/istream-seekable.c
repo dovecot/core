@@ -6,6 +6,7 @@
 #include "randgen.h"
 #include "write-full.h"
 #include "istream-internal.h"
+#include "istream-concat.h"
 #include "istream-seekable.h"
 
 #include <sys/stat.h>
@@ -302,6 +303,14 @@ i_stream_create_seekable(struct istream *input[],
 	unsigned int count;
 	size_t size;
 	bool blocking = TRUE;
+
+	/* If all input streams are seekable, use concat istream instead */
+	for (count = 0; input[count] != NULL; count++) {
+		if (!input[count]->seekable)
+			break;
+	}
+	if (input[count] == NULL)
+		return i_stream_create_concat(input);
 
 	/* if any of the streams isn't blocking, set ourself also nonblocking */
 	for (count = 0; input[count] != NULL; count++) {
