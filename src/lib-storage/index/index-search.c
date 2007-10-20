@@ -323,6 +323,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 {
         struct message_search_context *msg_search_ctx;
 	struct message_block block;
+	struct message_header_line hdr;
 	int ret;
 
 	/* first check that the field name matches to argument. */
@@ -381,14 +382,15 @@ static void search_header_arg(struct mail_search_arg *arg,
 					     (unsigned int)-1, TRUE);
 		str = t_str_new(ctx->hdr->value_len);
 		message_address_write(str, addr);
-		block.data = str_data(str);
-		block.size = str_len(str);
-		ret = message_search_more_decoded(msg_search_ctx, &block);
+		hdr = *ctx->hdr;
+		hdr.value = hdr.full_value = str_data(str);
+		hdr.value_len = hdr.full_value_len = str_len(str);
+		block.hdr = &hdr;
+		ret = message_search_more(msg_search_ctx, &block);
 		t_pop();
 	} else {
-		block.data = ctx->hdr->full_value;
-		block.size = ctx->hdr->full_value_len;
-		ret = message_search_more_decoded(msg_search_ctx, &block);
+		block.hdr = ctx->hdr;
+		ret = message_search_more(msg_search_ctx, &block);
 	}
 
 	if (ret > 0 ||
