@@ -499,7 +499,10 @@ static int db_ldap_bind(struct ldap_connection *conn)
 	msgid = ldap_bind(conn->ld, conn->set.dn, conn->set.dnpass,
 			  LDAP_AUTH_SIMPLE);
 	if (msgid == -1) {
-		db_ldap_connect_finish(conn, ldap_get_errno(conn));
+		if (db_ldap_connect_finish(conn, ldap_get_errno(conn)) < 0) {
+			/* lost connection, close it */
+			ldap_conn_close(conn, TRUE);
+		}
 		i_free(ldap_request);
 		return -1;
 	}
