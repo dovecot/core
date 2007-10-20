@@ -291,7 +291,7 @@ int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
 	}
 
 	data = view->cached_exists_buf->data;
-	return (field <= view->cached_exists_buf->used &&
+	return (field < view->cached_exists_buf->used &&
 		data[field] == view->cached_exists_value) ? 1 : 0;
 }
 
