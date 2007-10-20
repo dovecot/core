@@ -25,6 +25,7 @@ i_stream_crlf_set_max_buffer_size(struct iostream_private *stream,
 {
 	struct crlf_istream *cstream = (struct crlf_istream *)stream;
 
+	cstream->istream.max_buffer_size = max_size;
 	i_stream_set_max_buffer_size(cstream->input, max_size);
 }
 
@@ -129,6 +130,7 @@ i_stream_create_crlf_full(struct istream *input, bool crlf)
 	cstream = i_new(struct crlf_istream, 1);
 	cstream->input = input;
 	cstream->crlf = crlf;
+	cstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	cstream->istream.iostream.destroy = i_stream_crlf_destroy;
 	cstream->istream.iostream.set_max_buffer_size =

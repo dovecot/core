@@ -39,6 +39,7 @@ i_stream_raw_mbox_set_max_buffer_size(struct iostream_private *stream,
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
+	rstream->istream.max_buffer_size = max_size;
 	i_stream_set_max_buffer_size(rstream->input, max_size);
 }
 
@@ -360,6 +361,7 @@ struct istream *i_stream_create_raw_mbox(struct istream *input,
 	rstream->received_time = (time_t)-1;
 	rstream->next_received_time = (time_t)-1;
 
+	rstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	rstream->istream.iostream.destroy = i_stream_raw_mbox_destroy;
 	rstream->istream.iostream.set_max_buffer_size =
 		i_stream_raw_mbox_set_max_buffer_size;

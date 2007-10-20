@@ -99,6 +99,7 @@ i_stream_tee_set_max_buffer_size(struct iostream_private *stream,
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 
+	tstream->istream.max_buffer_size = max_size;
 	i_stream_set_max_buffer_size(tstream->tee->input, max_size);
 }
 
@@ -190,6 +191,8 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 	tstream = i_new(struct tee_child_istream, 1);
 	tstream->tee = tee;
 
+	tstream->istream.max_buffer_size =
+		tee->input->real_stream->max_buffer_size;
 	tstream->istream.iostream.close = i_stream_tee_close;
 	tstream->istream.iostream.destroy = i_stream_tee_destroy;
 	tstream->istream.iostream.set_max_buffer_size =

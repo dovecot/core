@@ -18,7 +18,6 @@
 struct seekable_istream {
 	struct istream_private istream;
 
-	size_t max_buffer_size;
 	char *temp_prefix;
 	uoff_t write_peak;
 
@@ -63,7 +62,7 @@ i_stream_seekable_set_max_buffer_size(struct iostream_private *stream,
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	unsigned int i;
 
-	sstream->max_buffer_size = max_size;
+	sstream->istream.max_buffer_size = max_size;
 	if (sstream->fd_input != NULL)
 		i_stream_set_max_buffer_size(sstream->fd_input, max_size);
 	for (i = 0; sstream->input[i] != NULL; i++)
@@ -123,7 +122,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 
 	sstream->fd = fd;
 	sstream->fd_input =
-		i_stream_create_fd(fd, sstream->max_buffer_size, TRUE);
+		i_stream_create_fd(fd, sstream->istream.max_buffer_size, TRUE);
 	return 0;
 }
 
@@ -170,7 +169,7 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret)
 	if (stream->istream.v_offset +
 	    (stream->pos - stream->skip) >= sstream->buffer->used) {
 		/* need to read more */
-		if (sstream->buffer->used >= sstream->max_buffer_size)
+		if (sstream->buffer->used >= stream->max_buffer_size)
 			return FALSE;
 
 		/* read more to buffer */
@@ -310,7 +309,7 @@ i_stream_create_seekable(struct istream *input[],
 	sstream = i_new(struct seekable_istream, 1);
 	sstream->temp_prefix = i_strdup(temp_prefix);
 	sstream->buffer = buffer_create_dynamic(default_pool, BUF_INITIAL_SIZE);
-        sstream->max_buffer_size = max_buffer_size;
+        sstream->istream.max_buffer_size = max_buffer_size;
 
 	sstream->input = i_new(struct istream *, count + 1);
 	memcpy(sstream->input, input, sizeof(*input) * count);

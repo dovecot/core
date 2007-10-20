@@ -26,6 +26,7 @@ i_stream_limit_set_max_buffer_size(struct iostream_private *stream,
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
+	lstream->istream.max_buffer_size = max_size;
 	i_stream_set_max_buffer_size(lstream->input, max_size);
 }
 
@@ -117,6 +118,7 @@ struct istream *i_stream_create_limit(struct istream *input,
 	lstream->input = input;
 	lstream->v_start_offset = v_start_offset;
 	lstream->v_size = v_size;
+	lstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	lstream->istream.istream.v_offset =
 		input->v_offset < v_start_offset ? 0 :

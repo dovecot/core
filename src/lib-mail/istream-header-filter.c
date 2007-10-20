@@ -55,6 +55,7 @@ i_stream_header_filter_set_max_buffer_size(struct iostream_private *stream,
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
 
+	mstream->istream.max_buffer_size = max_size;
 	i_stream_set_max_buffer_size(mstream->input, max_size);
 }
 
@@ -333,6 +334,7 @@ i_stream_create_header_filter(struct istream *input,
 
 	mstream = i_new(struct header_filter_istream, 1);
 	mstream->pool = pool_alloconly_create("header filter stream", 4096);
+	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	mstream->input = input;
 	i_stream_ref(mstream->input);
