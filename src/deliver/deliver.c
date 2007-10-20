@@ -235,7 +235,7 @@ static void config_file_init(const char *path)
 	char *line, *p, quote;
 	int fd, sections = 0;
 	bool lda_section = FALSE, pop3_section = FALSE, plugin_section = FALSE;
-	bool ns_section = FALSE, ns_location = FALSE;
+	bool ns_section = FALSE, ns_location = FALSE, ns_list = FALSE;
 	unsigned int ns_idx = 0;
 	size_t len;
 
@@ -313,6 +313,12 @@ static void config_file_init(const char *path)
 					env_put(t_strdup_printf(
 						"NAMESPACE_%u=", ns_idx));
 				}
+				if (ns_list)
+					ns_list = FALSE;
+				else {
+					env_put(t_strdup_printf(
+						"NAMESPACE_%u_LIST=1", ns_idx));
+				}
 			}
 			continue;
 		}
@@ -333,6 +339,8 @@ static void config_file_init(const char *path)
 					key = t_strdup_printf("NAMESPACE_%u",
 							      ns_idx);
 				} else {
+					if (strcmp(key, "list") == 0)
+						ns_list = TRUE;
 					key = t_strdup_printf("NAMESPACE_%u_%s",
 							      ns_idx, key);
 				}
