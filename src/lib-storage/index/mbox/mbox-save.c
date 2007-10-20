@@ -12,6 +12,7 @@
 #include "write-full.h"
 #include "istream-header-filter.h"
 #include "istream-crlf.h"
+#include "istream-concat.h"
 #include "message-parser.h"
 #include "index-mail.h"
 #include "mbox-storage.h"
@@ -51,7 +52,7 @@ struct mbox_save_context {
 	char last_char;
 
 	struct mbox_md5_context *mbox_md5_ctx;
-	unsigned int x_delivery_id_pos;
+	char *x_delivery_id_header;
 
 	unsigned int synced:1;
 	unsigned int failed:1;
@@ -350,6 +351,7 @@ static void mbox_save_x_delivery_id(struct mbox_save_context *ctx)
 {
 	unsigned char md5_result[MD5_RESULTLEN];
 	buffer_t *buf;
+	string_t *str;
 	void *randbuf;
 
 	t_push();
@@ -363,11 +365,59 @@ static void mbox_save_x_delivery_id(struct mbox_save_context *ctx)
 
 	md5_get_digest(buf->data, buf->used, md5_result);
 
-	str_append(ctx->headers, "X-Delivery-ID: ");
-	ctx->x_delivery_id_pos = str_len(ctx->headers);
-	base64_encode(md5_result, sizeof(md5_result), ctx->headers);
-	str_append_c(ctx->headers, '\n');
+	str = t_str_new(128);
+	str_append(str, "X-Delivery-ID: ");
+	base64_encode(md5_result, sizeof(md5_result), str);
+	str_append_c(str, '\n');
+
+	ctx->x_delivery_id_header = i_strdup(str_c(str));
 	t_pop();
+}
+
+static struct istream *
+mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
+{
+	struct istream *filter, *ret, *cache_input, *streams[3];
+
+	/* filter out unwanted headers and keep track of headers' MD5 sum */
+	filter = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
+					       HEADER_FILTER_NO_CR,
+					       mbox_save_drop_headers,
+					       mbox_save_drop_headers_count,
+					       save_header_callback, ctx);
+
+	if ((ctx->mbox->storage->storage.flags &
+	     MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0) {
+		/* we're using MD5 sums to generate POP3 UIDLs.
+		   clients don't like it much if there are duplicates,
+		   so make sure that there can't be any by appending
+		   our own X-Delivery-ID header. */
+		const char *hdr;
+
+		mbox_save_x_delivery_id(ctx);
+		hdr = ctx->x_delivery_id_header;
+
+		streams[0] = i_stream_create_from_data(hdr, strlen(hdr));
+		streams[1] = filter;
+		streams[2] = NULL;
+		ret = i_stream_create_concat(streams);
+		i_stream_unref(&filter);
+		filter = ret;
+	}
+
+	/* convert linefeeds to wanted format */
+	ret = (ctx->mbox->storage->storage.flags &
+	       MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
+		i_stream_create_crlf(filter) : i_stream_create_lf(filter);
+	i_stream_unref(&filter);
+
+	if (ctx->mail != NULL) {
+		/* caching creates a tee stream */
+		cache_input = index_mail_cache_parse_init(ctx->mail, ret);
+		i_stream_unref(&ret);
+		ret = cache_input;
+	}
+	return ret;
 }
 
 int mbox_save_init(struct mailbox_transaction_context *_t,
@@ -417,14 +467,6 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 			str_printfa(ctx->headers, "X-IMAPbase: %u %010u\n",
 				    ctx->uid_validity, ctx->next_uid);
 		}
-		if ((mbox->storage->storage.flags &
-		     MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0) {
-			/* we're using MD5 sums to generate POP3 UIDLs.
-			   clients don't like it much if there are duplicates,
-			   so make sure that there can't be any by appending
-			   our own X-Delivery-ID header. */
-			mbox_save_x_delivery_id(ctx);
-		}
 		str_printfa(ctx->headers, "X-UID: %u\n", ctx->next_uid);
 		if (!mbox->ibox.keep_recent)
 			save_flags &= ~MAIL_RECENT;
@@ -464,26 +506,8 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 
 	if (write_from_line(ctx, received_date, from_envelope) < 0)
 		ctx->failed = TRUE;
-	else {
-		input = i_stream_create_header_filter(input,
-						HEADER_FILTER_EXCLUDE |
-						HEADER_FILTER_NO_CR,
-						mbox_save_drop_headers,
-						mbox_save_drop_headers_count,
-						save_header_callback, ctx);
-		ctx->input = (mbox->storage->storage.flags &
-			      MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
-			i_stream_create_crlf(input) :
-			i_stream_create_lf(input);
-		i_stream_unref(&input);
-
-		if (ctx->mail != NULL) {
-			input = index_mail_cache_parse_init(ctx->mail,
-							    ctx->input);
-			i_stream_unref(&ctx->input);
-			ctx->input = input;
-		}
-	}
+	else
+		ctx->input = mbox_save_get_input_stream(ctx, input);
 
 	*ctx_r = &ctx->ctx;
 	return ctx->failed ? -1 : 0;
@@ -495,10 +519,12 @@ static int mbox_save_body_input(struct mbox_save_context *ctx)
 	size_t size;
 
 	data = i_stream_get_data(ctx->input, &size);
-	if (o_stream_send(ctx->output, data, size) < 0)
-		return write_error(ctx);
-	ctx->last_char = data[size-1];
-	i_stream_skip(ctx->input, size);
+	if (size > 0) {
+		if (o_stream_send(ctx->output, data, size) < 0)
+			return write_error(ctx);
+		ctx->last_char = data[size-1];
+		i_stream_skip(ctx->input, size);
+	}
 	return 0;
 }
 
@@ -589,20 +615,18 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	if (ctx->mbox_md5_ctx) {
 		unsigned char hdr_md5_sum[16];
 
-		if (ctx->x_delivery_id_pos != 0) {
+		if (ctx->x_delivery_id_header != NULL) {
 			struct message_header_line hdr;
-			const unsigned char *p;
 
 			memset(&hdr, 0, sizeof(hdr));
-			hdr.name = "X-Delivery-ID";
-			hdr.name_len = strlen(hdr.name);
-			hdr.middle = (const unsigned char *)": ";
+			hdr.name = ctx->x_delivery_id_header;
+			hdr.name_len = sizeof("X-Delivery-ID")-1;
+			hdr.middle = (const unsigned char *)hdr.name +
+				hdr.name_len;
 			hdr.middle_len = 2;
-			hdr.value = hdr.full_value = str_data(ctx->headers) +
-				ctx->x_delivery_id_pos;
-
-			for (p = hdr.value; *p != '\n'; p++) ;
-			hdr.value_len = hdr.full_value_len = p - hdr.value;
+			hdr.value = hdr.full_value =
+				hdr.middle + hdr.middle_len;
+			hdr.value_len = strlen((const char *)hdr.value);
 			mbox_md5_continue(ctx->mbox_md5_ctx, &hdr);
 		}
 		mbox_md5_finish(ctx->mbox_md5_ctx, hdr_md5_sum);
