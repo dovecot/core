@@ -489,6 +489,51 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 	return ctx->failed ? -1 : 0;
 }
 
+static int mbox_save_body_input(struct mbox_save_context *ctx)
+{
+	const unsigned char *data;
+	size_t size;
+
+	data = i_stream_get_data(ctx->input, &size);
+	if (o_stream_send(ctx->output, data, size) < 0)
+		return write_error(ctx);
+	ctx->last_char = data[size-1];
+	i_stream_skip(ctx->input, size);
+	return 0;
+}
+
+static int mbox_save_body(struct mbox_save_context *ctx)
+{
+	ssize_t ret;
+
+	while ((ret = i_stream_read(ctx->input)) != -1) {
+		if (ctx->mail != NULL) {
+			/* i_stream_read() may have returned 0 at EOF
+			   because of this parser */
+			index_mail_cache_parse_continue(ctx->mail);
+		}
+		if (ret == 0)
+			return 0;
+
+		if (mbox_save_body_input(ctx) < 0)
+			return -1;
+	}
+
+	if (ctx->last_char != '\n') {
+		/* if mail doesn't end with LF, we'll do that.
+		   otherwise some mbox parsers don't like the result.
+		   this makes it impossible to save a mail that doesn't
+		   end with LF though. */
+		const char *linefeed =
+			(ctx->mbox->storage->storage.flags &
+			 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
+			"\r\n" : "\n";
+		if (o_stream_send_str(ctx->output, linefeed) < 0)
+			return write_error(ctx);
+	}
+	return 0;
+}
+
 int mbox_save_continue(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
@@ -501,35 +546,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 
 	if (ctx->eoh_offset != (uoff_t)-1) {
 		/* writing body */
-		while ((ret = i_stream_read(ctx->input)) != -1) {
-			if (ctx->mail != NULL) {
-				/* i_stream_read() may have returned 0 at EOF
-				   because of this parser */
-				index_mail_cache_parse_continue(ctx->mail);
-			}
-			if (ret == 0)
-				return 0;
-
-			data = i_stream_get_data(ctx->input, &size);
-			if (o_stream_send(ctx->output, data, size) < 0)
-				return write_error(ctx);
-			ctx->last_char = data[size-1];
-			i_stream_skip(ctx->input, size);
-		}
-
-		if (ctx->last_char != '\n') {
-			/* if mail doesn't end with LF, we'll do that.
-			   otherwise some mbox parsers don't like the result.
-			   this makes it impossible to save a mail that doesn't
-			   end with LF though. */
-			const char *linefeed =
-				(ctx->mbox->storage->storage.flags &
-				 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
-				"\r\n" : "\n";
-			if (o_stream_send_str(ctx->output, linefeed) < 0)
-				return write_error(ctx);
-		}
-		return 0;
+		return mbox_save_body(ctx);
 	}
 
 	while ((ret = i_stream_read(ctx->input)) != -1) {
@@ -602,8 +619,9 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	ctx->eoh_offset = ctx->output->offset;
 
 	/* write body */
-	(void)i_stream_get_data(ctx->input, &size);
-	return ctx->input->eof && size == 0 ? 0 : mbox_save_continue(_ctx);
+	if (mbox_save_body_input(ctx) < 0)
+		return -1;
+	return ctx->input->eof ? 0 : mbox_save_body(ctx);
 }
 
 int mbox_save_finish(struct mail_save_context *_ctx)
