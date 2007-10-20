@@ -242,7 +242,8 @@ static void listen_parse_and_close_unneeded(struct settings *set)
 		listener_close_fds(&set->ssl_listens);
 	else {
 		default_port = set->protocol == MAIL_PROTOCOL_IMAP ? 993 : 995;
-		listener_init("ssl_listen", set->ssl_listen, default_port,
+		listener_init("ssl_listen", *set->ssl_listen != '\0' ?
+			      set->ssl_listen : set->listen, default_port,
 			      &set->ssl_listens);
 	}
 }
