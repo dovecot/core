@@ -54,13 +54,20 @@ static void i_stream_concat_read_next(struct concat_istream *cstream)
 
 	cstream->cur_idx++;
 	cstream->cur_input = cstream->input[cstream->cur_idx];
+	i_stream_seek(cstream->cur_input, 0);
 
-	if (cstream->istream.pos == cstream->istream.skip)
+	if (cstream->istream.pos == cstream->istream.skip) {
+		i_assert(cstream->prev_size == 0);
+		cstream->istream.skip = 0;
+		cstream->istream.pos = 0;
 		return;
+	}
 
 	/* we need to keep the current data */
 	data = cstream->istream.buffer + cstream->istream.skip;
 	data_size = cstream->istream.pos - cstream->istream.skip;
+
+	cstream->istream.skip = cstream->istream.pos = 0;
 
 	/* we already verified that the data size is less than the
 	   maximum buffer size */
@@ -70,6 +77,7 @@ static void i_stream_concat_read_next(struct concat_istream *cstream)
 
 	cstream->prev_size = data_size;
 	memcpy(cstream->istream.w_buffer, data, data_size);
+	cstream->istream.pos = data_size;
 }
 
 static ssize_t i_stream_concat_read(struct istream_private *stream)
@@ -124,8 +132,7 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 				return -2;
 
 			i_stream_concat_read_next(cstream);
-			last_stream =
-				cstream->input[cstream->cur_idx+1] == NULL;
+			return i_stream_concat_read(stream);
 		}
 
 		stream->istream.eof = cstream->cur_input->eof && last_stream;
@@ -139,9 +146,13 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	} else {
 		if (!i_stream_get_buffer_space(stream, pos, &size))
 			return -2;
-		memcpy(stream->w_buffer + stream->pos, data, I_MIN(size, pos));
+
+		if (pos > size)
+			pos = size;
+		memcpy(stream->w_buffer + stream->pos, data, pos);
 	}
 
+	pos += cstream->prev_size;
 	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
 		(ret == 0 ? 0 : -1);
 	stream->pos = pos;
@@ -188,6 +199,7 @@ static void i_stream_concat_seek(struct istream_private *stream,
 	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
+	cstream->prev_size = 0;
 
 	cstream->cur_idx = find_v_offset(cstream, &v_offset);
 	if (cstream->cur_idx == (unsigned int)-1) {
@@ -242,6 +254,7 @@ struct istream *i_stream_create_concat(struct istream *input[])
 
 	memcpy(cstream->input, input, sizeof(*input) * count);
 	cstream->cur_input = cstream->input[0];
+	i_stream_seek(cstream->cur_input, 0);
 
 	cstream->istream.iostream.close = i_stream_concat_close;
 	cstream->istream.iostream.destroy = i_stream_concat_destroy;
