@@ -49,19 +49,8 @@ static ssize_t i_stream_crlf_read(struct istream_private *stream)
 	data = i_stream_get_data(cstream->input, &size);
 	i_assert(size != 0);
 
-	if (size > stream->buffer_size - stream->pos) {
-		if (stream->skip > 0) {
-			/* remove the unused bytes from beginning of buffer */
-                        i_stream_compress(stream);
-		} else if (stream->max_buffer_size == 0 ||
-			   stream->buffer_size < stream->max_buffer_size) {
-			/* buffer is full - grow it */
-			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
-		}
-
-		if (stream->pos == stream->buffer_size)
-			return -2;
-	}
+	if (!i_stream_get_buffer_space(stream, size, NULL))
+		return -2;
 
 	/* @UNSAFE */
 	dest = stream->pos;

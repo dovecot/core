@@ -289,6 +289,27 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 		i_realloc(stream->w_buffer, old_size, stream->buffer_size);
 }
 
+bool i_stream_get_buffer_space(struct istream_private *stream,
+			       size_t wanted_size, size_t *size_r)
+{
+	i_assert(wanted_size > 0);
+
+	if (wanted_size > stream->buffer_size - stream->pos) {
+		if (stream->skip > 0) {
+			/* remove the unused bytes from beginning of buffer */
+                        i_stream_compress(stream);
+		} else if (stream->max_buffer_size == 0 ||
+			   stream->buffer_size < stream->max_buffer_size) {
+			/* buffer is full - grow it */
+			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
+		}
+	}
+
+	if (size_r != NULL)
+		*size_r = stream->buffer_size - stream->pos;
+	return stream->pos != stream->buffer_size;
+}
+
 static void
 i_stream_default_set_max_buffer_size(struct iostream_private *stream,
 				     size_t max_size)

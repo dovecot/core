@@ -45,28 +45,9 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 	size_t size;
 	ssize_t ret;
 
-	if (stream->istream.closed)
-		return -1;
-
 	stream->istream.stream_errno = 0;
-
-	if (stream->pos == stream->buffer_size) {
-		if (stream->skip > 0) {
-			/* remove the unused bytes from beginning of buffer */
-                        i_stream_compress(stream);
-		} else if (stream->max_buffer_size == 0 ||
-			   stream->buffer_size < stream->max_buffer_size) {
-			/* buffer is full - grow it */
-			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
-		}
-
-		if (stream->pos == stream->buffer_size)
-			return -2; /* buffer full */
-	}
-
-	size = stream->buffer_size - stream->pos;
-
-	ret = -1;
+	if (!i_stream_get_buffer_space(stream, 1, &size))
+		return -2;
 
 	do {
 		if (fstream->file) {
