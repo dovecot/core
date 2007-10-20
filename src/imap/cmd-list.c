@@ -508,6 +508,26 @@ list_use_inboxcase(struct cmd_list_context *ctx)
 }
 
 static bool
+list_want_send_prefix(struct cmd_list_context *ctx, const char *pattern)
+{
+	/* don't send the prefix if we're listing subscribed mailboxes */
+	if ((ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
+		return FALSE;
+
+	/* send the prefix if namespace is listable.. */
+	if ((ctx->ns->flags & NAMESPACE_FLAG_LIST) != 0)
+		return TRUE;
+
+	/* ..or if pattern is exactly the same as namespace prefix.
+	   some clients (mutt) want to do LIST "" prefix. */
+	for (; *pattern != '\0'; pattern++) {
+		if (*pattern == '*' || *pattern == '%')
+			break;
+	}
+	return *pattern == '\0';
+}
+
+static bool
 list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 			     const char *cur_ref, const char *cur_ns_prefix,
 			     const char *cur_pattern)
@@ -549,12 +569,9 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 				   inboxcase, ns->sep);
 	match = imap_match(pat_glob, cur_ns_prefix);
 	if (match == IMAP_MATCH_YES) {
-		if ((ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
-		    (ctx->list_flags &
-		     MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
-			/* the namespace prefix itself matches too. send it. */
+		if (list_want_send_prefix(ctx, orig_cur_pattern))
 			ctx->cur_ns_send_prefix = TRUE;
-		}
+
 		/* if the pattern contains '*' characters, we'll need to
 		   check our children too */
 		for (p = orig_cur_pattern; *p != '\0'; p++) {
