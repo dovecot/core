@@ -516,6 +516,7 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 	struct mail_namespace *ns = ctx->ns;
 	struct imap_match_glob *pat_glob;
 	enum imap_match_result match;
+	const char *p;
 	size_t len;
 
 	skip_namespace_prefix_pattern(ctx, &cur_ns_prefix,
@@ -547,15 +548,22 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 	pat_glob = imap_match_init(pool_datastack_create(), orig_cur_pattern,
 				   inboxcase, ns->sep);
 	match = imap_match(pat_glob, cur_ns_prefix);
-	if ((match & (IMAP_MATCH_YES | IMAP_MATCH_CHILDREN)) == 0)
-		return FALSE;
-
-	if (match == IMAP_MATCH_YES && (ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
-	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
-		/* the namespace prefix itself matches too. send it. */
-		ctx->cur_ns_send_prefix = TRUE;
+	if (match == IMAP_MATCH_YES) {
+		if ((ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
+		    (ctx->list_flags &
+		     MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
+			/* the namespace prefix itself matches too. send it. */
+			ctx->cur_ns_send_prefix = TRUE;
+		}
+		/* if the pattern contains '*' characters, we'll need to
+		   check our children too */
+		for (p = orig_cur_pattern; *p != '\0'; p++) {
+			if (*p == '*')
+				return TRUE;
+		}
 	}
-	return TRUE;
+
+	return (match & IMAP_MATCH_CHILDREN) != 0;
 }
 
 static void list_namespace_init(struct cmd_list_context *ctx)
@@ -598,13 +606,18 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 		if (list_namespace_match_pattern(ctx, inboxcase, cur_ref,
 						 cur_ns_prefix, pattern)) {
 			pattern = mailbox_list_join_refpattern(ns->list,
-				ctx->ref, mail_namespace_fix_sep(ns, pattern));
+							ctx->ref, pattern);
 			array_append(&used_patterns, &pattern, 1);
 		}
 	}
 
-	if (array_count(&used_patterns) == 0)
+	if (array_count(&used_patterns) == 0) {
+		/* it's possible that the namespace prefix matched,
+		   even though its children didn't */
+		if (ctx->cur_ns_send_prefix)
+			list_namespace_send_prefix(ctx, TRUE);
 		return;
+	}
 	(void)array_append_space(&used_patterns); /* NULL-terminate */
 	pat = array_idx(&used_patterns, 0);
 
