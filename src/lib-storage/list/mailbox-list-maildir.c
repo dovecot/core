@@ -342,6 +342,13 @@ static int rename_children(struct mailbox_list *list,
 		t_push();
 
 		old_listname = t_strconcat(oldname, names[i], NULL);
+		if (strcmp(old_listname, newname) == 0) {
+			/* When doing RENAME "a" "a.b" we see "a.b" here.
+			   We don't want to rename it anymore to "a.b.b". */
+			t_pop();
+			continue;
+		}
+
 		new_listname = t_strconcat(newname, names[i], NULL);
 		oldpath = mailbox_list_get_path(list, old_listname,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
