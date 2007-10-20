@@ -944,6 +944,8 @@ void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
 {
+	const char *p;
+
 	i_assert(*name != '\0');
 	i_assert(value != NULL);
 
@@ -967,8 +969,27 @@ void auth_request_set_field(struct auth_request *request,
 		return;
 	}
 
-	if (strcmp(name, "user") == 0) {
-		/* update username to be exactly as it's in database */
+	if (strcmp(name, "user") == 0 ||
+	    strcmp(name, "username") == 0 || strcmp(name, "domain") == 0) {
+		/* update username */
+		if (strcmp(name, "username") == 0 &&
+		    strchr(value, '@') == NULL &&
+		    (p = strchr(request->user, '@')) != NULL) {
+			/* preserve the current @domain */
+			value = t_strconcat(value, p, NULL);
+		} else if (strcmp(name, "domain") == 0) {
+			p = strchr(request->user, '@');
+			if (p == NULL) {
+				/* add the domain */
+				value = t_strconcat(request->user, "@",
+						    value, NULL);
+			} else {
+				/* replace the existing domain */
+				p = t_strdup_until(request->user, p + 1);
+				value = t_strconcat(p, value, NULL);
+			}
+		}
+
 		if (strcmp(request->user, value) != 0) {
 			/* remember the original username for cache */
 			if (request->original_username == NULL) {
