@@ -45,6 +45,8 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		ns->flags |= NAMESPACE_FLAG_HIDDEN;
 	if (getenv(t_strdup_printf("NAMESPACE_%u_LIST", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_LIST;
+	if (getenv(t_strdup_printf("NAMESPACE_%u_SUBSCRIPTIONS", num)) != NULL)
+		ns->flags |= NAMESPACE_FLAG_SUBSCRIPTIONS;
 
 	if (type == NULL || *type == '\0' || strncmp(type, "private", 7) == 0)
 		ns->type = NAMESPACE_PRIVATE;
@@ -62,11 +64,13 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 
 	if ((flags & MAIL_STORAGE_FLAG_DEBUG) != 0) {
 		i_info("Namespace: type=%s, prefix=%s, sep=%s, "
-		       "inbox=%s, hidden=%s, list=%s",
+		       "inbox=%s, hidden=%s, list=%s, subscriptions=%s",
 		       type == NULL ? "" : type, prefix, sep == NULL ? "" : sep,
 		       (ns->flags & NAMESPACE_FLAG_INBOX) ? "yes" : "no",
 		       (ns->flags & NAMESPACE_FLAG_HIDDEN) ? "yes" : "no",
-		       (ns->flags & NAMESPACE_FLAG_LIST) ? "yes" : "no");
+		       (ns->flags & NAMESPACE_FLAG_LIST) ? "yes" : "no",
+		       (ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) ?
+		       "yes" : "no");
 	}
 
 	ns->prefix = p_strdup(pool, prefix);
@@ -86,6 +90,7 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 {
 	struct mail_namespace *ns, *inbox_ns = NULL, *private_ns = NULL;
 	unsigned int private_ns_count = 0;
+	unsigned int subscriptions_count = 0;
 	char list_sep = '\0';
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
@@ -126,6 +131,8 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 				"Empty prefix requires list=yes");
 			return FALSE;
 		}
+		if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0)
+			subscriptions_count++;
 	}
 
 	if (inbox_ns == NULL) {
@@ -142,6 +149,11 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 	if (list_sep == '\0') {
 		i_error("namespace configuration error: "
 			"no list=yes namespaces");
+		return FALSE;
+	}
+	if (subscriptions_count == 0) {
+		i_error("namespace configuration error: "
+			"no subscriptions=yes namespaces");
 		return FALSE;
 	}
 	return TRUE;
@@ -219,7 +231,8 @@ int mail_namespaces_init(pool_t pool, const char *user,
 
 	ns = p_new(pool, struct mail_namespace, 1);
 	ns->type = NAMESPACE_PRIVATE;
-	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST;
+	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |
+		NAMESPACE_FLAG_SUBSCRIPTIONS;
 	ns->prefix = "";
 
 	if (mail_storage_create(ns, NULL, mail, user, flags, lock_method,
@@ -247,7 +260,8 @@ struct mail_namespace *mail_namespaces_init_empty(pool_t pool)
 
 	ns = p_new(pool, struct mail_namespace, 1);
 	ns->prefix = "";
-	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST;
+	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |
+		NAMESPACE_FLAG_SUBSCRIPTIONS;
 	return ns;
 }
 
@@ -286,11 +300,11 @@ char mail_namespace_get_root_sep(struct mail_namespace *namespaces)
 }
 
 static struct mail_namespace *
-mail_namespace_find_int(struct mail_namespace *namespaces, const char **mailbox,
-			bool show_hidden)
+mail_namespace_find_mask(struct mail_namespace *namespaces,
+			 const char **mailbox,
+			 enum namespace_flags flags,
+			 enum namespace_flags mask)
 {
-#define CHECK_VISIBILITY(ns, show_hidden) \
-	(((ns)->flags & NAMESPACE_FLAG_HIDDEN) == 0 || (show_hidden))
         struct mail_namespace *ns = namespaces;
 	const char *box = *mailbox;
 	struct mail_namespace *best = NULL;
@@ -303,7 +317,7 @@ mail_namespace_find_int(struct mail_namespace *namespaces, const char **mailbox,
 		*mailbox = "INBOX";
 		while (ns != NULL) {
 			if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
-			    CHECK_VISIBILITY(ns, show_hidden))
+			    (ns->flags & mask) == flags)
 				return ns;
 			if (*ns->prefix == '\0')
 				best = ns;
@@ -317,7 +331,7 @@ mail_namespace_find_int(struct mail_namespace *namespaces, const char **mailbox,
 		    (strncmp(ns->prefix, box, ns->prefix_len) == 0 ||
 		     (inbox && strncmp(ns->prefix, "INBOX", 5) == 0 &&
 		      strncmp(ns->prefix+5, box+5, ns->prefix_len-5) == 0)) &&
-		    CHECK_VISIBILITY(ns, show_hidden)) {
+		    (ns->flags & mask) == flags) {
 			best = ns;
 			best_len = ns->prefix_len;
 		}
@@ -338,14 +352,24 @@ mail_namespace_find_int(struct mail_namespace *namespaces, const char **mailbox,
 struct mail_namespace *
 mail_namespace_find(struct mail_namespace *namespaces, const char **mailbox)
 {
-	return mail_namespace_find_int(namespaces, mailbox, TRUE);
+	return mail_namespace_find_mask(namespaces, mailbox, 0, 0);
 }
 
 struct mail_namespace *
 mail_namespace_find_visible(struct mail_namespace *namespaces,
 			    const char **mailbox)
 {
-	return mail_namespace_find_int(namespaces, mailbox, FALSE);
+	return mail_namespace_find_mask(namespaces, mailbox, 0,
+					NAMESPACE_FLAG_HIDDEN);
+}
+
+struct mail_namespace *
+mail_namespace_find_subscribable(struct mail_namespace *namespaces,
+				 const char **mailbox)
+{
+	return mail_namespace_find_mask(namespaces, mailbox,
+					NAMESPACE_FLAG_SUBSCRIPTIONS,
+					 NAMESPACE_FLAG_SUBSCRIPTIONS);
 }
 
 struct mail_namespace *
@@ -363,7 +387,7 @@ bool mail_namespace_update_name(struct mail_namespace *ns,
 
 	/* FIXME: a bit kludgy.. */
 	tmp_ns.next = NULL;
-	return mail_namespace_find_int(&tmp_ns, mailbox, TRUE) != NULL;
+	return mail_namespace_find_mask(&tmp_ns, mailbox, 0, 0) != NULL;
 }
 
 struct mail_namespace *

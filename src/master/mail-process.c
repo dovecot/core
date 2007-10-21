@@ -275,6 +275,9 @@ env_put_namespace(struct namespace_settings *ns, const char *default_location,
 			env_put(t_strdup_printf("NAMESPACE_%u_HIDDEN=1", i));
 		if (ns->list)
 			env_put(t_strdup_printf("NAMESPACE_%u_LIST=1", i));
+		if (ns->subscriptions)
+			env_put(t_strdup_printf("NAMESPACE_%u_SUBSCRIPTIONS=1",
+						i));
 		t_pop();
 	}
 }

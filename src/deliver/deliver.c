@@ -223,7 +223,8 @@ static bool setting_is_bool(const char *name)
 	if (strncmp(name, "NAMESPACE_", 10) == 0) {
 		return strstr(name, "_list") != NULL ||
 			strstr(name, "_inbox") != NULL ||
-			strstr(name, "_hidden") != NULL;
+			strstr(name, "_hidden") != NULL ||
+			strstr(name, "_subscriptions") != NULL;
 	}
 	return FALSE;
 }
@@ -236,6 +237,7 @@ static void config_file_init(const char *path)
 	int fd, sections = 0;
 	bool lda_section = FALSE, pop3_section = FALSE, plugin_section = FALSE;
 	bool ns_section = FALSE, ns_location = FALSE, ns_list = FALSE;
+	bool ns_subscriptions = FALSE;
 	unsigned int ns_idx = 0;
 	size_t len;
 
@@ -319,6 +321,13 @@ static void config_file_init(const char *path)
 					env_put(t_strdup_printf(
 						"NAMESPACE_%u_LIST=1", ns_idx));
 				}
+				if (ns_subscriptions)
+					ns_subscriptions = FALSE;
+				else {
+					env_put(t_strdup_printf(
+						"NAMESPACE_%u_SUBSCRIPTIONS=1",
+						ns_idx));
+				}
 			}
 			continue;
 		}
@@ -341,6 +350,8 @@ static void config_file_init(const char *path)
 				} else {
 					if (strcmp(key, "list") == 0)
 						ns_list = TRUE;
+					if (strcmp(key, "subscriptions") == 0)
+						ns_subscriptions = TRUE;
 					key = t_strdup_printf("NAMESPACE_%u_%s",
 							      ns_idx, key);
 				}

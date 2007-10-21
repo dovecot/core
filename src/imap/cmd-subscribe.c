@@ -16,7 +16,8 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		return FALSE;
 
 	verify_name = mailbox;
-	ns = mail_namespace_find_visible(cmd->client->namespaces, &mailbox);
+	ns = mail_namespace_find_subscribable(cmd->client->namespaces,
+					      &mailbox);
 	if (ns == NULL) {
 		client_send_tagline(cmd, "NO Unknown namespace.");
 		return TRUE;

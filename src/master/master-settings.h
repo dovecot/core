@@ -236,6 +236,7 @@ struct namespace_settings {
 	bool inbox;
 	bool hidden;
 	bool list;
+	bool subscriptions;
 };
 
 struct server_settings {

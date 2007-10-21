@@ -160,6 +160,7 @@ static struct setting_def namespace_setting_defs[] = {
 	DEF_BOOL(inbox),
 	DEF_BOOL(hidden),
 	DEF_BOOL(list),
+	DEF_BOOL(subscriptions),
 
 	{ 0, NULL, 0 }
 };
@@ -352,7 +353,8 @@ struct namespace_settings default_namespace_settings = {
 
 	MEMBER(inbox) FALSE,
 	MEMBER(hidden) FALSE,
-	MEMBER(list) TRUE
+	MEMBER(list) TRUE,
+	MEMBER(subscriptions) TRUE
 };
 
 static pool_t settings_pool, settings2_pool;

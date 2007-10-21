@@ -594,9 +594,9 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 	cur_ns_prefix = ns->prefix;
 	cur_ref = ctx->ref;
 
-	if ((ns->flags & NAMESPACE_FLAG_HIDDEN) != 0 &&
+	if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0 &&
 	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
-		/* ignore hidden namespaces */
+		/* ignore namespaces which don't have subscriptions */
 		return;
 	}
 
