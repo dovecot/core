@@ -3,6 +3,8 @@
 
 #define MAILDIR_UIDLIST_NAME "dovecot-uidlist"
 
+struct maildir_mailbox;
+struct maildir_uidlist;
 struct maildir_uidlist_sync_ctx;
 
 enum maildir_uidlist_sync_flags {
@@ -40,6 +42,8 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist);
 bool maildir_uidlist_is_locked(struct maildir_uidlist *uidlist);
 
 struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox);
+struct maildir_uidlist *
+maildir_uidlist_init_readonly(struct index_mailbox *ibox);
 void maildir_uidlist_deinit(struct maildir_uidlist **uidlist);
 
 /* Returns -1 if error, 0 if file is broken or lost, 1 if ok. */
@@ -89,6 +93,8 @@ maildir_uidlist_sync_get_full_filename(struct maildir_uidlist_sync_ctx *ctx,
 void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx);
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **ctx);
 
+bool maildir_uidlist_get_uid(struct maildir_uidlist *uidlist,
+			     const char *filename, uint32_t *uid_r);
 const char *
 maildir_uidlist_get_full_filename(struct maildir_uidlist *uidlist,
 				  const char *filename);
