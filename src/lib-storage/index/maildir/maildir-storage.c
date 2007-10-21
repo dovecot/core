@@ -348,7 +348,7 @@ static int create_maildir(struct mail_storage *storage,
 
 static int create_control_dir(struct mail_storage *storage, const char *name)
 {
-	const char *control_dir, *root_dir, *dir;
+	const char *control_dir, *root_dir;
 
 	control_dir = mailbox_list_get_path(storage->list, name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
@@ -357,12 +357,9 @@ static int create_control_dir(struct mail_storage *storage, const char *name)
 	if (strcmp(control_dir, root_dir) == 0)
 		return 0;
 
-	dir = t_strdup_printf("%s/%c%s", control_dir,
-			      mailbox_list_get_hierarchy_sep(storage->list),
-			      name);
-	if (mkdir_parents(dir, CREATE_MODE) < 0 && errno != EEXIST) {
+	if (mkdir_parents(control_dir, CREATE_MODE) < 0 && errno != EEXIST) {
 		mail_storage_set_critical(storage,
-					  "mkdir(%s) failed: %m", dir);
+					  "mkdir(%s) failed: %m", control_dir);
 		return -1;
 	}
 
