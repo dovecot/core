@@ -134,7 +134,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	}
 
 	path = t_strconcat(mbox->control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
-        old_mask = umask(0777 & ~mbox->mail_create_mode);
+        old_mask = umask(0777 & ~mbox->ibox.box.file_create_mode);
 	ret = file_dotlock_create(&uidlist->dotlock_settings, path,
 				  nonblock ? DOTLOCK_CREATE_FLAG_NONBLOCK : 0,
 				  &uidlist->dotlock);
@@ -885,7 +885,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 	temp_path = t_strconcat(mbox->control_dir,
 				"/" MAILDIR_UIDLIST_NAME ".tmp", NULL);
 
-	old_mask = umask(0777 & ~mbox->mail_create_mode);
+	old_mask = umask(0777 & ~mbox->ibox.box.file_create_mode);
 	fd = open(temp_path, O_RDWR | O_CREAT | O_TRUNC, 0777);
 	umask(old_mask);
 
@@ -895,8 +895,8 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		return -1;
 	}
 
-	if (mbox->mail_create_gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
+	if (mbox->ibox.box.file_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, mbox->ibox.box.file_create_gid) < 0) {
 			mail_storage_set_critical(&mbox->storage->storage,
 				"fchown(%s) failed: %m", temp_path);
 		}

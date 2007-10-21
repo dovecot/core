@@ -288,6 +288,7 @@ const char *maildir_save_file_get_path(struct mailbox_transaction_context *_t,
 static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 			      const char **fname_r)
 {
+	struct mailbox *box = &mbox->ibox.box;
 	struct stat st;
 	unsigned int prefix_len;
 	const char *tmp_fname = NULL;
@@ -310,12 +311,12 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		if (stat(str_c(path), &st) == 0) {
 			/* try another file name */
 		} else if (errno != ENOENT) {
-			mail_storage_set_critical(&mbox->storage->storage,
+			mail_storage_set_critical(box->storage,
 				"stat(%s) failed: %m", str_c(path));
 			return -1;
 		} else {
 			/* doesn't exist */
-			mode_t old_mask = umask(0777 & ~mbox->mail_create_mode);
+			mode_t old_mask = umask(0777 & ~box->file_create_mode);
 			fd = open(str_c(path),
 				  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, 0777);
 			umask(old_mask);
@@ -330,15 +331,15 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	*fname_r = tmp_fname;
 	if (fd == -1) {
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(&mbox->storage->storage,
+			mail_storage_set_error(box->storage,
 				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 		} else {
-			mail_storage_set_critical(&mbox->storage->storage,
+			mail_storage_set_critical(box->storage,
 				"open(%s) failed: %m", str_c(path));
 		}
-	} else if (mbox->mail_create_gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
-			mail_storage_set_critical(&mbox->storage->storage,
+	} else if (box->file_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
+			mail_storage_set_critical(box->storage,
 				"fchown(%s) failed: %m", str_c(path));
 		}
 	}

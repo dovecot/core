@@ -306,9 +306,9 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 		return -1;
 	}
 
-	if (st.st_gid != mbox->mail_create_gid &&
-	    mbox->mail_create_gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
+	if (st.st_gid != mbox->ibox.box.file_create_gid &&
+	    mbox->ibox.box.file_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, mbox->ibox.box.file_create_gid) < 0) {
 			mail_storage_set_critical(mk->storage,
 				"fchown(%s) failed: %m", path);
 		}
@@ -354,7 +354,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 	   malicious symlinks */
 	lock_path = t_strconcat(mk->path, ".lock", NULL);
 	(void)unlink(lock_path);
-        old_mask = umask(0777 & ~mk->mbox->mail_create_mode);
+        old_mask = umask(0777 & ~mk->mbox->ibox.box.file_create_mode);
 	fd = file_dotlock_open(&mk->dotlock_settings, mk->path,
 			       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
 	umask(old_mask);

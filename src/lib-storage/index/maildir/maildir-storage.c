@@ -428,12 +428,9 @@ maildir_open(struct maildir_storage *storage, const char *name,
 		mail_index_ext_register(index, "maildir",
 					sizeof(mbox->maildir_hdr), 0, 0);
 
-	if (!shared) {
-		mbox->mail_create_mode = 0600;
-		mbox->mail_create_gid = (gid_t)-1;
-	} else {
-		mbox->mail_create_mode = st.st_mode & 0666;
-		mbox->mail_create_gid = st.st_gid;
+	if (shared) {
+		mbox->ibox.box.file_create_mode = st.st_mode & 0666;
+		mbox->ibox.box.file_create_gid = st.st_gid;
 		mbox->ibox.box.private_flags_mask = MAIL_SEEN;
 	}
 
