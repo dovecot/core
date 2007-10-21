@@ -722,9 +722,6 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	buffer_t *buffer;
 	int ret;
 
-	cache->fields[field_idx].last_used = ioloop_time;
-	cache->fields[field_idx].used = TRUE;
-
 	if ((ret = mail_cache_transaction_lock(ctx)) <= 0) {
 		/* create the cache file if it doesn't exist yet */
 		if (ctx->tried_compression)
@@ -742,6 +739,10 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		(void)mail_cache_unlock(cache);
 		return -1;
 	}
+
+	/* update these only after reading */
+	cache->fields[field_idx].last_used = ioloop_time;
+	cache->fields[field_idx].used = TRUE;
 
 	if (cache->field_file_map[field_idx] != (uint32_t)-1) {
 		/* it was already added */
