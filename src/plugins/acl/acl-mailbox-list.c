@@ -161,7 +161,12 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(_ctx->list);
 	const struct mailbox_info *info;
 	struct mailbox_node *node;
+	const char *ns_prefix, *acl_name;
+	unsigned int ns_prefix_len;
 	int ret;
+
+	ns_prefix = _ctx->list->ns->prefix;
+	ns_prefix_len = strlen(ns_prefix);
 
 	for (;;) {
 		if (ctx->tree_iter != NULL) {
@@ -183,7 +188,13 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 			return info;
 		}
 
-		ret = acl_mailbox_list_have_right(alist, info->name,
+		/* Mailbox names contain namespace prefix, except when listing
+		   INBOX. */
+		acl_name = info->name;
+		if (strncmp(acl_name, ns_prefix, ns_prefix_len) == 0)
+			acl_name += ns_prefix_len;
+
+		ret = acl_mailbox_list_have_right(alist, acl_name,
 						  ACL_STORAGE_RIGHT_LOOKUP,
 						  NULL);
 		if (ret > 0)
