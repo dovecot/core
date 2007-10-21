@@ -68,6 +68,8 @@ void io_remove(struct io **_io)
 {
 	struct io *io = *_io;
 
+	i_assert(io->callback != NULL);
+
 	*_io = NULL;
 
 	/* make sure the callback doesn't get called anymore.
