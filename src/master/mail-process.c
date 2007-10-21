@@ -308,6 +308,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		}
 		env_put(t_strconcat("IMAP_CLIENT_WORKAROUNDS=",
 				    set->imap_client_workarounds, NULL));
+		env_put(t_strconcat("IMAP_LOGOUT_FORMAT=",
+				    set->imap_logout_format, NULL));
 	}
 	if (set->protocol == MAIL_PROTOCOL_POP3) {
 		env_put(t_strconcat("POP3_CLIENT_WORKAROUNDS=",
