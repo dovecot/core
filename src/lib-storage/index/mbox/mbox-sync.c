@@ -1483,6 +1483,14 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 
 int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 {
+	bool empty;
+
+	return mbox_sync_has_changed_full(mbox, leave_dirty, &empty);
+}
+
+int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
+			       bool *empty_r)
+{
 	const struct mail_index_header *hdr;
 	const struct stat *st;
 	struct stat statbuf;
@@ -1501,6 +1509,7 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 		}
 		st = &statbuf;
 	}
+	*empty_r = st->st_size == 0;
 
 	hdr = mail_index_get_header(mbox->ibox.view);
 

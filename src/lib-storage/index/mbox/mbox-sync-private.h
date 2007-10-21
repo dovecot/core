@@ -147,6 +147,8 @@ struct mbox_sync_context {
 
 int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags);
 int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty);
+int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
+			       bool *empty_r);
 void mbox_sync_set_critical(struct mbox_sync_context *sync_ctx,
 			    const char *fmt, ...) ATTR_FORMAT(2, 3);
 

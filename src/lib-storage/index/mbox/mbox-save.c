@@ -267,6 +267,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 {
 	struct mbox_mailbox *mbox = ctx->mbox;
 	struct mail_storage *storage = &mbox->storage->storage;
+	bool empty = FALSE;
 	int ret;
 
 	if (ctx->mbox->mbox_readonly) {
@@ -300,7 +301,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		}
 
 		/* update mbox_sync_dirty state */
-		ret = mbox_sync_has_changed(mbox, TRUE);
+		ret = mbox_sync_has_changed_full(mbox, TRUE, &empty);
 		if (ret < 0)
 			return -1;
 		if (!want_mail && ret == 0) {
@@ -311,7 +312,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		}
 	}
 
-	if (!ctx->synced && want_mail) {
+	if (!ctx->synced && (want_mail || empty)) {
 		/* we'll need to assign UID for the mail immediately. */
 		if (mbox_sync(mbox, 0) < 0)
 			return -1;
