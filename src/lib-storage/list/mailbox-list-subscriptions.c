@@ -24,16 +24,17 @@ mailbox_list_subscription_add(struct mailbox_list_iterate_context *ctx,
 			      struct imap_match_glob *glob,
 			      bool update_only, const char *name)
 {
+	struct mail_namespace *ns = ctx->list->ns;
 	struct mailbox_node *node;
 	enum mailbox_info_flags create_flags, always_flags;
 	enum imap_match_result match;
 	const char *p;
 	bool created, add_matched;
 
-	if ((ctx->list->ns->flags & NAMESPACE_FLAG_INBOX) == 0 ||
+	if ((ns->flags & NAMESPACE_FLAG_INBOX) == 0 ||
 	    strcasecmp(name, "INBOX") != 0) {
 		/* add namespace prefix to all but INBOX */
-		name = t_strconcat(ctx->list->ns->prefix, name, NULL);
+		name = t_strconcat(ns->prefix, name, NULL);
 	}
 
 	create_flags = (update_only ||
@@ -76,7 +77,7 @@ mailbox_list_subscription_add(struct mailbox_list_iterate_context *ctx,
 			break;
 
 		/* see if parent matches */
-		p = strrchr(name, ctx->list->hierarchy_sep);
+		p = strrchr(name, ns->sep);
 		if (p == NULL)
 			break;
 
@@ -92,8 +93,10 @@ int mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 				    struct imap_match_glob *glob,
 				    bool update_only)
 {
+	struct mail_namespace *ns = ctx->list->ns;
 	struct subsfile_list_context *subsfile_ctx;
 	const char *path, *name;
+	char *p;
 
 	path = t_strconcat(ctx->list->set.control_dir != NULL ?
 			   ctx->list->set.control_dir :
@@ -103,6 +106,13 @@ int mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 
 	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) {
 		t_push();
+		if (ns->real_sep != ns->sep) {
+			name = p = t_strdup_noconst(name);
+			for (; *p != '\0'; p++) {
+				if (*p == ns->real_sep)
+					*p = ns->sep;
+			}
+		}
 		mailbox_list_subscription_add(ctx, tree_ctx, glob, update_only,
 					      name);
 		t_pop();
