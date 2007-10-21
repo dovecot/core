@@ -49,7 +49,7 @@ struct file_change_info {
 	dev_t dev;
 	ino_t ino;
 	off_t size;
-	time_t ctime, mtime;
+	time_t mtime;
 };
 
 struct lock_info {
@@ -119,24 +119,22 @@ static bool
 update_change_info(const struct stat *st, struct file_change_info *change,
 		   time_t *last_change_r, time_t now)
 {
+	/* we don't check ctime because nfs_flush_attr_cache() changes it */
 	if (change->ino != st->st_ino || !CMP_DEV_T(change->dev, st->st_dev) ||
-	    change->ctime != st->st_ctime || change->mtime != st->st_mtime ||
-	    change->size != st->st_size) {
+	    change->mtime != st->st_mtime || change->size != st->st_size) {
 		time_t change_time = now;
 
-		if (change->ctime == 0) {
-			/* First check, set last_change to file's change time.
-			   Use mtime instead if it's higher, but only if it's
-			   not higher than current time, because the mtime
-			   can also be used for keeping metadata. */
-			change_time = st->st_mtime > now ? st->st_ctime :
-				I_MAX(st->st_ctime, st->st_mtime);
+		if (change->mtime == 0) {
+			/* First check, set last_change to file's mtime.
+			   If mtime is higher than current time it's probably
+			   used for metadata, so use ctime instead then. */
+			change_time = st->st_mtime <= now ?
+				st->st_mtime : st->st_ctime;
 		}
 		if (*last_change_r < change_time)
 			*last_change_r = change_time;
 		change->ino = st->st_ino;
 		change->dev = st->st_dev;
-		change->ctime = st->st_ctime;
 		change->mtime = st->st_mtime;
 		change->size = st->st_size;
 		return TRUE;
@@ -158,6 +156,7 @@ static int update_lock_info(time_t now, struct lock_info *lock_info,
 		return 1;
 	}
 
+	/* don't check ctime changes. nfs_flush_attr_cache() changes it. */
 	*changed_r = update_change_info(&st, &lock_info->lock_info,
 					&lock_info->last_change, now);
 	return 0;
