@@ -113,10 +113,10 @@ static int message_parser_read_more(struct message_parser_ctx *ctx,
 
 	ret = i_stream_read_data(ctx->input, &block_r->data,
 				 &block_r->size, ctx->want_count);
-	if (ret == -1)
-		return -1;
+	if (ret <= 0) {
+		if (ret < 0)
+			return ret;
 
-	if (ret == 0) {
 		if (!ctx->input->eof) {
 			i_assert(!ctx->input->blocking);
 			return 0;
@@ -340,6 +340,10 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 		if (boundary_start != 0) {
 			/* we can skip the first lines. input buffer can't be
 			   full anymore. */
+			full = FALSE;
+		} else if (next_line_idx == block_r->size) {
+			/* no linefeeds in this block. we can just skip it. */
+			boundary_start = block_r->size;
 			full = FALSE;
 		}
 
@@ -716,17 +720,13 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 
 	while ((ret = ctx->parse_next_block(ctx, block_r)) == 0) {
 		ret = message_parser_read_more(ctx, block_r);
-		if (ret <= 0) {
-			i_assert(ret != -2);
-
-			if (ret == 0) {
-				i_assert(!ctx->input->blocking);
-				return 0;
-			}
-			if (ret < 0) {
-				i_assert(!eof);
-				eof = TRUE;
-			}
+		if (ret == 0) {
+			i_assert(!ctx->input->blocking);
+			return 0;
+		}
+		if (ret == -1) {
+			i_assert(!eof);
+			eof = TRUE;
 		}
 	}
 
