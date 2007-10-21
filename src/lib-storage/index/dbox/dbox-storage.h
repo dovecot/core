@@ -43,6 +43,8 @@ struct dbox_mailbox {
 	uint32_t dbox_ext_id, dbox_hdr_ext_id;
 	/* timestamp when the mailbox was last modified interactively */
 	time_t last_interactive_change;
+	/* set while rebuilding indexes with converted maildir files */
+	struct maildir_keywords_sync_ctx *maildir_sync_keywords;
 
 	uoff_t rotate_size, rotate_min_size;
 	unsigned int rotate_days;

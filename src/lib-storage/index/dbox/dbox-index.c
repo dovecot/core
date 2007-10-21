@@ -28,6 +28,7 @@ struct dbox_index {
 	uint32_t uid_validity, next_uid;
 	unsigned int next_file_id;
 
+	pool_t record_data_pool;
 	ARRAY_DEFINE(records, struct dbox_index_record);
 };
 
@@ -55,6 +56,8 @@ struct dbox_index *dbox_index_init(struct dbox_mailbox *mbox)
 	index->next_uid = 1;
 	index->next_file_id = 1;
 	i_array_init(&index->records, 128);
+	index->record_data_pool =
+		pool_alloconly_create("dbox index record data", 256);
 	return index;
 }
 
@@ -77,8 +80,23 @@ void dbox_index_deinit(struct dbox_index **_index)
 
 	dbox_index_close(index);
 	array_free(&index->records);
+	pool_unref(&index->record_data_pool);
 	i_free(index->path);
 	i_free(index);
+}
+
+static int dbox_index_parse_maildir(struct dbox_index *index, const char *line,
+				    struct dbox_index_record *rec)
+{
+	char *p;
+	unsigned long uid;
+
+	uid = strtoul(line, &p, 10);
+	if (*p++ != ' ' || *p == '\0' || uid == 0 || uid >= (uint32_t)-1)
+		return -1;
+
+	rec->data = p_strdup(index->record_data_pool, p);
+	return 0;
 }
 
 static int dbox_index_parse_line(struct dbox_index *index, const char *line,
@@ -109,6 +127,10 @@ static int dbox_index_parse_line(struct dbox_index *index, const char *line,
 	rec.dirty = line[2] != '0';
 
 	line += 3;
+	if (rec.status == DBOX_INDEX_FILE_STATUS_MAILDIR) {
+		if (dbox_index_parse_maildir(index, line, &rec) < 0)
+			return -1;
+	}
 	array_append(&index->records, &rec, 1);
 	return 0;
 }
@@ -201,6 +223,7 @@ static int dbox_index_read(struct dbox_index *index)
 		return -1;
 	}
 
+	p_clear(index->record_data_pool);
 	array_clear(&index->records);
 	input = index->input = i_stream_create_fd(index->fd, 1024, FALSE);
 
@@ -479,7 +502,8 @@ dbox_index_append_record(const struct dbox_index_record *rec, string_t *str)
 	case DBOX_INDEX_FILE_STATUS_SINGLE_MESSAGE:
 		break;
 	case DBOX_INDEX_FILE_STATUS_MAILDIR:
-		/* FIXME */
+		str_append_c(str, ' ');
+		str_append(str, rec->data);
 		break;
 	}
 	str_append_c(str, '\n');
@@ -697,6 +721,13 @@ int dbox_index_append_next(struct dbox_index_append_context *ctx,
 	return 0;
 }
 
+void dbox_index_append_file(struct dbox_index_append_context *ctx,
+			    struct dbox_file *file)
+{
+	file->refcount++;
+	array_append(&ctx->files, &file, 1);
+}
+
 static int dbox_index_append_commit_new(struct dbox_index_append_context *ctx,
 					struct dbox_file *file, string_t *str)
 {
@@ -707,7 +738,8 @@ static int dbox_index_append_commit_new(struct dbox_index_append_context *ctx,
 
 	i_assert(file->append_count > 0);
 
-	if (file->append_count == 1 && !dbox_file_can_append(file, 0)) {
+	if (file->append_count == 1 && !file->maildir_file &&
+	    !dbox_file_can_append(file, 0)) {
 		/* single UID message file */
 		i_assert(file->last_append_uid != 0);
 		file_id = file->last_append_uid | DBOX_FILE_ID_FLAG_UID;
@@ -740,9 +772,17 @@ static int dbox_index_append_commit_new(struct dbox_index_append_context *ctx,
 	memset(&rec, 0, sizeof(rec));
 	rec.file_id = file_id;
 	rec.file_offset = ctx->output_offset + str_len(str);
-	rec.status = dbox_file_can_append(file, 0) ?
-		DBOX_INDEX_FILE_STATUS_APPENDABLE :
-		DBOX_INDEX_FILE_STATUS_NONAPPENDABLE;
+	if (file->maildir_file) {
+		rec.status = DBOX_INDEX_FILE_STATUS_MAILDIR;
+		rec.data = p_strdup_printf(ctx->index->record_data_pool,
+					   "%u %s", file->last_append_uid,
+					   strrchr(file->path, '/') + 1);
+
+	} else {
+		rec.status = dbox_file_can_append(file, 0) ?
+			DBOX_INDEX_FILE_STATUS_APPENDABLE :
+			DBOX_INDEX_FILE_STATUS_NONAPPENDABLE;
+	}
 
 	array_append(&ctx->index->records, &rec, 1);
 	dbox_index_append_record(&rec, str);
@@ -791,7 +831,7 @@ dbox_index_append_write_records(struct dbox_index_append_context *ctx,
 		ret = -1;
 	}
 	dbox_index_unlock_range(ctx->index, ctx->output_offset, str_len(str));
-	return ret;
+	return ret < 0 ? -1 : 0;
 }
 
 static int dbox_index_write_header(struct dbox_index *index)

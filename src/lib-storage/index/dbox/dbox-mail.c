@@ -187,7 +187,7 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
 	struct index_mail_data *data = &mail->imail.data;
 	struct istream *input;
-	uoff_t offset;
+	uoff_t offset, size;
 	uint32_t uid;
 	bool expunged;
 	int ret;
@@ -197,8 +197,7 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			return -1;
 
 		ret = dbox_file_get_mail_stream(mail->open_file, offset, &uid,
-						&data->physical_size, &input,
-						&expunged);
+						&size, &input, &expunged);
 		if (ret < 0)
 			return -1;
 		if (ret > 0 && expunged) {
@@ -211,6 +210,7 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 				i_stream_unref(&input);
 			return -1;
 		}
+		data->physical_size = size;
 		data->stream = input;
 	}
 

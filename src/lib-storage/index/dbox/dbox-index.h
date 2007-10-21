@@ -80,6 +80,8 @@ struct dbox_index_record {
 	unsigned int file_offset;
 
 	enum dbox_index_file_status status;
+	const char *data;
+
 	unsigned int expunges:1;
 	unsigned int dirty:1;
 	unsigned int locked:1;
@@ -105,8 +107,6 @@ void dbox_index_unlock_file(struct dbox_index *index, unsigned int file_id);
 /* Try to lock index file for recreating. Returns 1 if ok, 0 if file already
    contains locks, -1 if error. */
 int dbox_index_try_lock_recreate(struct dbox_index *index);
-/* Lock index file for syncing. Returns 0 if ok, -1 if error. */
-int dbox_index_lock_sync(struct dbox_index *index);
 
 struct dbox_index_append_context *
 dbox_index_append_begin(struct dbox_index *index);
@@ -117,6 +117,8 @@ int dbox_index_append_next(struct dbox_index_append_context *ctx,
 			   uoff_t mail_size,
 			   struct dbox_file **file_r,
 			   struct ostream **output_r);
+void dbox_index_append_file(struct dbox_index_append_context *ctx,
+			    struct dbox_file *file);
 /* Assign file_ids to all appended files. */
 int dbox_index_append_assign_file_ids(struct dbox_index_append_context *ctx);
 /* Returns 0 if ok, -1 if error. */

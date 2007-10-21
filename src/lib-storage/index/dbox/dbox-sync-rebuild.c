@@ -1,7 +1,10 @@
 /* Copyright (c) 2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "dbox-storage.h"
+#include "../maildir/maildir-uidlist.h"
+#include "../maildir/maildir-keywords.h"
 #include "dbox-index.h"
 #include "dbox-file.h"
 #include "dbox-sync.h"
@@ -11,7 +14,11 @@
 
 struct dbox_sync_rebuild_context {
 	struct dbox_mailbox *mbox;
+	struct dbox_index_append_context *append_ctx;
 	struct mail_index_transaction *trans;
+
+	struct maildir_uidlist *maildir_uidlist;
+	struct maildir_keywords *mk;
 };
 
 static int dbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
@@ -62,6 +69,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 {
 	uint32_t seq, uid;
 	uoff_t metadata_offset, physical_size;
+	const char *fname;
 	bool expunged;
 	int ret;
 
@@ -83,6 +91,18 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 		i_warning("%s: Header contains wrong UID %u", file->path, uid);
 		return 0;
 	}
+	if (file->maildir_file) {
+		i_assert(uid == 0);
+		fname = strrchr(file->path, '/');
+		i_assert(fname != NULL);
+		if (!maildir_uidlist_get_uid(ctx->maildir_uidlist, fname + 1,
+					     &uid)) {
+			/* FIXME: not in uidlist, give it an uid */
+			return 0;
+		}
+		file->append_count = 1;
+		file->last_append_uid = uid;
+	}
 
 	metadata_offset =
 		dbox_file_get_metadata_offset(file, *offset, physical_size);
@@ -95,6 +115,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 	}
 	if (!expunged) {
 		mail_index_append(ctx->trans, uid, &seq);
+		file->maildir_append_seq = seq;
 		dbox_sync_index_metadata(ctx, file, seq);
 	}
 	return 1;
@@ -132,12 +153,39 @@ dbox_sync_index_multi_file(struct dbox_sync_rebuild_context *ctx,
 	return 0;
 }
 
+static int
+dbox_sync_index_maildir_file(struct dbox_sync_rebuild_context *ctx,
+			     const char *fname)
+{
+	struct dbox_file *file;
+	uoff_t offset = 0;
+	int ret;
+
+	if (ctx->mbox->maildir_sync_keywords == NULL) {
+		ctx->maildir_uidlist =
+			maildir_uidlist_init_readonly(&ctx->mbox->ibox);
+		ctx->mk = maildir_keywords_init_readonly(&ctx->mbox->ibox.box);
+		ctx->mbox->maildir_sync_keywords =
+			maildir_keywords_sync_init(ctx->mk,
+						   ctx->mbox->ibox.index);
+
+		if (maildir_uidlist_refresh(ctx->maildir_uidlist) < 0)
+			return -1;
+	}
+
+	file = dbox_file_init_new_maildir(ctx->mbox, fname);
+	if ((ret = dbox_sync_index_file_next(ctx, file, &offset)) > 0)
+		dbox_index_append_file(ctx->append_ctx, file);
+	dbox_file_unref(&file);
+	return ret;
+}
+
 static int dbox_sync_index_rebuild_ctx(struct dbox_sync_rebuild_context *ctx)
 {
 	struct mail_storage *storage = ctx->mbox->ibox.box.storage;
 	DIR *dir;
 	struct dirent *d;
-	int ret = 0;
+	int ret = 1;
 
 	if (dbox_sync_set_uidvalidity(ctx) < 0)
 		return -1;
@@ -153,13 +201,15 @@ static int dbox_sync_index_rebuild_ctx(struct dbox_sync_rebuild_context *ctx)
 		return -1;
 	}
 	errno = 0;
-	for (; ret == 0 && (d = readdir(dir)) != NULL; errno = 0) {
+	for (; ret > 0 && (d = readdir(dir)) != NULL; errno = 0) {
 		if (strncmp(d->d_name, DBOX_MAIL_FILE_UID_PREFIX,
 			    sizeof(DBOX_MAIL_FILE_UID_PREFIX)-1) == 0)
 			ret = dbox_sync_index_uid_file(ctx, d->d_name);
 		else if (strncmp(d->d_name, DBOX_MAIL_FILE_MULTI_PREFIX,
 				 sizeof(DBOX_MAIL_FILE_MULTI_PREFIX)-1) == 0)
 			ret = dbox_sync_index_multi_file(ctx, d->d_name);
+		else if (strstr(d->d_name, ":2,") != NULL)
+			ret = dbox_sync_index_maildir_file(ctx, d->d_name);
 	}
 	if (errno != 0) {
 		mail_storage_set_critical(storage,
@@ -175,6 +225,25 @@ static int dbox_sync_index_rebuild_ctx(struct dbox_sync_rebuild_context *ctx)
 	return ret;
 }
 
+static void dbox_sync_update_maildir_ids(struct dbox_sync_rebuild_context *ctx)
+{
+	struct dbox_mail_index_record rec;
+	struct dbox_file *const *files;
+	unsigned int i, count;
+
+	memset(&rec, 0, sizeof(rec));
+	files = array_get(&ctx->mbox->open_files, &count);
+	for (i = 0; i < count; i++) {
+		if (!files[i]->maildir_file)
+			continue;
+
+		i_assert(files[i]->file_id != 0);
+		rec.file_id = files[i]->file_id;
+		mail_index_update_ext(ctx->trans, files[i]->maildir_append_seq,
+				      ctx->mbox->dbox_ext_id, &rec, NULL);
+	}
+}
+
 int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 {
 	struct dbox_sync_rebuild_context ctx;
@@ -185,6 +254,7 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.mbox = mbox;
+	ctx.append_ctx = dbox_index_append_begin(mbox->dbox_index);
 	view = mail_index_view_open(mbox->ibox.index);
 	ctx.trans = mail_index_transaction_begin(view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
@@ -192,8 +262,26 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 
 	if ((ret = dbox_sync_index_rebuild_ctx(&ctx)) < 0)
 		mail_index_transaction_rollback(&ctx.trans);
-	else
-		ret = mail_index_transaction_commit(&ctx.trans, &seq, &offset);
+	else {
+		ret = dbox_index_append_assign_file_ids(ctx.append_ctx);
+		if (ret == 0) {
+			dbox_sync_update_maildir_ids(&ctx);
+			ret = mail_index_transaction_commit(&ctx.trans,
+							    &seq, &offset);
+		}
+	}
 	mail_index_view_close(&view);
+
+	if (ret == 0)
+		ret = dbox_index_append_commit(&ctx.append_ctx);
+	else
+		dbox_index_append_rollback(&ctx.append_ctx);
+
+	if (mbox->maildir_sync_keywords != NULL)
+		maildir_keywords_sync_deinit(&mbox->maildir_sync_keywords);
+	if (ctx.mk != NULL)
+		maildir_keywords_deinit(&ctx.mk);
+	if (ctx.maildir_uidlist != NULL)
+		maildir_uidlist_deinit(&ctx.maildir_uidlist);
 	return ret;
 }

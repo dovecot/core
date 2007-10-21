@@ -102,7 +102,7 @@ struct dbox_file {
 	unsigned int append_offset_header_pos;
 
 	unsigned int append_count;
-	uint32_t last_append_uid;
+	uint32_t last_append_uid, maildir_append_seq;
 
 	uoff_t append_offset;
 	time_t create_time;
@@ -122,6 +122,7 @@ struct dbox_file {
 	/* Includes the trailing LF that shouldn't be used */
 	unsigned int metadata_len;
 
+	unsigned int maildir_file:1;
 	unsigned int nonappendable:1;
 	unsigned int deleted:1;
 };
@@ -131,6 +132,8 @@ extern char dbox_mail_flag_chars[DBOX_METADATA_FLAGS_COUNT];
 
 struct dbox_file *
 dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id);
+struct dbox_file *
+dbox_file_init_new_maildir(struct dbox_mailbox *mbox, const char *fname);
 void dbox_file_unref(struct dbox_file **file);
 
 /* Free all currently opened files. */

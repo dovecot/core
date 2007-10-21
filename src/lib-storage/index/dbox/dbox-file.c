@@ -12,6 +12,7 @@
 #include "dbox-storage.h"
 #include "dbox-index.h"
 #include "dbox-file.h"
+#include "dbox-file-maildir.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -128,16 +129,29 @@ dbox_close_open_files(struct dbox_mailbox *mbox, unsigned int close_count)
 }
 
 static char *
-dbox_file_id_get_path(struct dbox_mailbox *mbox, unsigned int file_id)
+dbox_file_id_get_path(struct dbox_mailbox *mbox, unsigned int file_id,
+		      bool *maildir_file_r)
 {
+	struct dbox_index_record *rec;
+	const char *p;
+
+	*maildir_file_r = FALSE;
 	if ((file_id & DBOX_FILE_ID_FLAG_UID) != 0) {
 		file_id &= ~DBOX_FILE_ID_FLAG_UID;
 		return i_strdup_printf("%s/"DBOX_MAIL_FILE_UID_FORMAT,
 				       mbox->path, file_id);
-	} else {
-		return i_strdup_printf("%s/"DBOX_MAIL_FILE_MULTI_FORMAT,
-				       mbox->path, file_id);
 	}
+
+	rec = dbox_index_record_lookup(mbox->dbox_index, file_id);
+	if (rec != NULL && rec->status == DBOX_INDEX_FILE_STATUS_MAILDIR) {
+		/* data contains <uid> <filename> */
+		*maildir_file_r = TRUE;
+		p = strchr(rec->data, ' ');
+		return i_strdup_printf("%s/%s", mbox->path, p + 1);
+	}
+
+	return i_strdup_printf("%s/"DBOX_MAIL_FILE_MULTI_FORMAT,
+			       mbox->path, file_id);
 }
 
 struct dbox_file *
@@ -145,6 +159,7 @@ dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id)
 {
 	struct dbox_file *file;
 	unsigned int count;
+	bool maildir;
 
 	file = file_id == 0 ? NULL :
 		dbox_find_and_move_open_file(mbox, file_id);
@@ -162,7 +177,8 @@ dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id)
 	file->mbox = mbox;
 	if (file_id != 0) {
 		file->file_id = file_id;
-		file->path = dbox_file_id_get_path(mbox, file_id);
+		file->path = dbox_file_id_get_path(mbox, file_id, &maildir);
+		file->maildir_file = maildir;
 	} else {
 		file->path = dbox_generate_tmp_filename(mbox->path);
 	}
@@ -173,23 +189,37 @@ dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id)
 	return file;
 }
 
+struct dbox_file *
+dbox_file_init_new_maildir(struct dbox_mailbox *mbox, const char *fname)
+{
+	struct dbox_file *file;
+
+	file = dbox_file_init(mbox, 0);
+	file->maildir_file = TRUE;
+	file->path = i_strdup_printf("%s/%s", mbox->path, fname);
+	return file;
+}
+
 int dbox_file_assign_id(struct dbox_file *file, unsigned int file_id)
 {
 	char *new_path;
+	bool maildir;
 
 	i_assert(file->file_id == 0);
 	i_assert(file_id != 0);
 
-	new_path = dbox_file_id_get_path(file->mbox, file_id);
-	if (rename(file->path, new_path) < 0) {
-		mail_storage_set_critical(file->mbox->ibox.box.storage,
-			"rename(%s, %s) failed: %m", file->path, new_path);
-		i_free(new_path);
-		return -1;
+	if (!file->maildir_file) {
+		new_path = dbox_file_id_get_path(file->mbox, file_id, &maildir);
+		if (rename(file->path, new_path) < 0) {
+			mail_storage_set_critical(file->mbox->ibox.box.storage,
+						  "rename(%s, %s) failed: %m",
+						  file->path, new_path);
+			i_free(new_path);
+			return -1;
+		}
+		i_free(file->path);
+		file->path = new_path;
 	}
-
-	i_free(file->path);
-	file->path = new_path;
 
 	file->file_id = file_id;
 	array_append(&file->mbox->open_files, &file, 1);
@@ -252,7 +282,7 @@ static time_t day_begin_stamp(unsigned int days)
 bool dbox_file_can_append(struct dbox_file *file, uoff_t mail_size)
 {
 	if (file->nonappendable)
-		return 0;
+		return FALSE;
 
 	if (file->append_offset == 0) {
 		/* messages have been expunged */
@@ -352,7 +382,8 @@ static int dbox_file_open(struct dbox_file *file, bool read_header,
 	}
 
 	file->input = i_stream_create_fd(file->fd, MAIL_READ_BLOCK_SIZE, FALSE);
-	return !read_header ? 1 : dbox_file_read_header(file);
+	return !read_header || file->maildir_file ? 1 :
+		dbox_file_read_header(file);
 }
 
 static int dbox_file_create(struct dbox_file *file)
@@ -406,6 +437,30 @@ int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
 		return dbox_file_open(file, read_header, deleted_r);
 }
 
+static int
+dbox_file_get_maildir_data(struct dbox_file *file, uint32_t *uid_r,
+			   uoff_t *physical_size_r)
+{
+	struct dbox_index_record *rec;
+	struct stat st;
+
+	if (fstat(file->fd, &st) < 0) {
+		dbox_file_set_syscall_error(file, "fstat");
+		return -1;
+	}
+
+	rec = dbox_index_record_lookup(file->mbox->dbox_index, file->file_id);
+	if (rec == NULL) {
+		/* should happen only when we're rebuilding the index */
+		*uid_r = 0;
+	} else {
+		i_assert(rec->status == DBOX_INDEX_FILE_STATUS_MAILDIR);
+		*uid_r = strtoul(rec->data, NULL, 10);
+	}
+	*physical_size_r = st.st_size;
+	return 1;
+}
+
 static int dbox_file_read_mail_header(struct dbox_file *file, uint32_t *uid_r,
 				      uoff_t *physical_size_r)
 {
@@ -413,6 +468,9 @@ static int dbox_file_read_mail_header(struct dbox_file *file, uint32_t *uid_r,
 	const unsigned char *data;
 	size_t size;
 	int ret;
+
+	if (file->maildir_file)
+		return dbox_file_get_maildir_data(file, uid_r, physical_size_r);
 
 	ret = i_stream_read_data(file->input, &data, &size,
 				 file->msg_header_size - 1);
@@ -627,6 +685,9 @@ uoff_t dbox_file_get_metadata_offset(struct dbox_file *file, uoff_t offset,
 				     uoff_t physical_size)
 {
 	if (offset == 0) {
+		if (file->maildir_file)
+			return 0;
+
 		i_assert(file->file_header_size != 0);
 		offset = file->file_header_size;
 	}
@@ -682,6 +743,12 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 			pool_alloconly_create("dbox metadata", 512);
 	}
 	file->metadata_read_offset = 0;
+
+	if (file->maildir_file) {
+		/* no metadata in maildir files, but we do later some kludging
+		   to return metadata when needed. */
+		return 0;
+	}
 
 	if (file->input == NULL) {
 		if ((ret = dbox_file_open(file, TRUE, &deleted)) <= 0)
@@ -748,6 +815,9 @@ const char *dbox_file_metadata_get(struct dbox_file *file,
 {
 	const char *const *metadata;
 	unsigned int i, count;
+
+	if (file->maildir_file)
+		return dbox_file_maildir_metadata_get(file, key);
 
 	metadata = array_get(&file->metadata, &count);
 	for (i = 0; i < count; i++) {
