@@ -23,8 +23,7 @@ static int tm_cmp(const struct tm *tm1, const struct tm *tm2)
 time_t utc_mktime(const struct tm *tm)
 {
 	const struct tm *try_tm;
-	struct tm nosec_tm;
-	time_t t;
+	int t;
 	int bits, dir;
 
 	/* we'll do a binary search across the entire valid time_t range.
@@ -33,21 +32,14 @@ time_t utc_mktime(const struct tm *tm)
 	   values, -1 is returned. */
 #ifdef TIME_T_SIGNED
 	t = 0;
-	bits = TIME_T_MAX_BITS - 1;
 #else
 	t = 1 << (TIME_T_MAX_BITS - 1);
-	bits = TIME_T_MAX_BITS - 2;
 #endif
-
-	/* we can ignore seconds in checks and add them back when returning */
-	nosec_tm = *tm;
-	nosec_tm.tm_sec = 0;
-
-	for (;; bits--) {
+	for (bits = TIME_T_MAX_BITS - 2;; bits--) {
 		try_tm = gmtime(&t);
-		dir = tm_cmp(&nosec_tm, try_tm);
+		dir = tm_cmp(tm, try_tm);
 		if (dir == 0)
-			return t + tm->tm_sec;
+			return t;
 		if (bits < 0)
 			break;
 
