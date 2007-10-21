@@ -16,6 +16,7 @@
 #define DUPLICATE_PATH "~/.dovecot.lda-dupes"
 #define COMPRESS_PERCENTAGE 10
 #define DUPLICATE_BUFSIZE 4096
+#define DUPLICATE_VERSION 2
 
 struct duplicate {
 	const void *id;
@@ -23,6 +24,16 @@ struct duplicate {
 
 	const char *user;
 	time_t time;
+};
+
+struct duplicate_file_header {
+	uint32_t version;
+};
+
+struct duplicate_record_header {
+	uint32_t stamp;
+	uint32_t id_size;
+	uint32_t user_size;
 };
 
 struct duplicate_file {
@@ -39,8 +50,8 @@ static struct dotlock_settings duplicate_dotlock_set = {
 	MEMBER(temp_prefix) NULL,
 	MEMBER(lock_suffix) NULL,
 
-	MEMBER(timeout) 10,
-	MEMBER(stale_timeout) 60,
+	MEMBER(timeout) 20,
+	MEMBER(stale_timeout) 10,
 
 	MEMBER(callback) NULL,
 	MEMBER(context) NULL,
@@ -77,15 +88,82 @@ static unsigned int duplicate_hash(const void *p)
 	return h ^ strcase_hash(d->user);
 }
 
+static int
+duplicate_read_records(struct duplicate_file *file, struct istream *input,
+		       unsigned int record_size)
+{
+	const unsigned char *data;
+	struct duplicate_record_header hdr;
+	size_t size;
+	unsigned int change_count;
+
+	change_count = 0;
+	while (i_stream_read_data(input, &data, &size, record_size) > 0) {
+		if (record_size == sizeof(hdr))
+			memcpy(&hdr, data, sizeof(hdr));
+		else {
+			/* FIXME: backwards compatibility with v1.0 */
+			time_t stamp;
+
+			i_assert(record_size ==
+				 sizeof(time_t) + sizeof(uint32_t)*2);
+			memcpy(&stamp, data, sizeof(stamp));
+			hdr.stamp = stamp;
+			memcpy(&hdr.id_size, data + sizeof(time_t),
+			       sizeof(hdr.id_size));
+			memcpy(&hdr.user_size,
+			       data + sizeof(time_t) + sizeof(uint32_t),
+			       sizeof(hdr.user_size));
+		}
+		i_stream_skip(input, record_size);
+
+		if (hdr.id_size == 0 || hdr.user_size == 0 ||
+		    hdr.id_size > DUPLICATE_BUFSIZE ||
+		    hdr.user_size > DUPLICATE_BUFSIZE) {
+			i_error("broken duplicate file %s", file->path);
+			return -1;
+		}
+
+		if (i_stream_read_data(input, &data, &size,
+				       hdr.id_size + hdr.user_size - 1) <= 0) {
+			i_error("unexpected end of file in %s", file->path);
+			return -1;
+		}
+
+		if (hdr.stamp >= ioloop_time) {
+			/* still valid, save it */
+			struct duplicate *d;
+			void *new_id;
+
+			new_id = p_malloc(file->pool, hdr.id_size);
+			memcpy(new_id, data, hdr.id_size);
+
+			d = p_new(file->pool, struct duplicate, 1);
+			d->id = new_id;
+			d->id_size = hdr.id_size;
+			d->user = p_strndup(file->pool,
+					    data + hdr.id_size, hdr.user_size);
+			d->time = hdr.stamp;
+			hash_insert(file->hash, d, d);
+		} else {
+                        change_count++;
+		}
+		i_stream_skip(input, hdr.id_size + hdr.user_size);
+	}
+
+	if (hash_count(file->hash) * COMPRESS_PERCENTAGE / 100 > change_count)
+		file->changed = TRUE;
+	return 0;
+}
+
 static int duplicate_read(struct duplicate_file *file)
 {
-	int fd;
 	struct istream *input;
+	struct duplicate_file_header hdr;
 	const unsigned char *data;
 	size_t size;
-	time_t stamp;
-	unsigned int offset, id_size, user_size, change_count;
-	bool broken = FALSE;
+	int fd;
+	unsigned int record_size = 0;
 
 	fd = open(file->path, O_RDONLY);
 	if (fd == -1) {
@@ -97,66 +175,26 @@ static int duplicate_read(struct duplicate_file *file)
 
 	/* <timestamp> <id_size> <user_size> <id> <user> */
 	input = i_stream_create_fd(fd, DUPLICATE_BUFSIZE, FALSE);
-
-	change_count = 0;
-	while (i_stream_read_data(input, &data, &size, sizeof(stamp) +
-				  sizeof(id_size) + sizeof(user_size)) > 0) {
-		offset = 0;
-		memcpy(&stamp, data, sizeof(stamp));
-		offset += sizeof(stamp);
-		memcpy(&id_size, data + offset, sizeof(id_size));
-		offset += sizeof(id_size);
-		memcpy(&user_size, data + offset, sizeof(user_size));
-		offset += sizeof(user_size);
-
-		i_stream_skip(input, offset);
-
-		if (id_size == 0 || user_size == 0 ||
-		    id_size > DUPLICATE_BUFSIZE ||
-		    user_size > DUPLICATE_BUFSIZE) {
-			i_error("broken duplicate file %s", file->path);
-			broken = TRUE;
-			break;
+	if (i_stream_read_data(input, &data, &size, sizeof(hdr)) > 0) {
+		memcpy(&hdr, data, sizeof(hdr));
+		if (hdr.version == 0 || hdr.version > DUPLICATE_VERSION + 10) {
+			/* FIXME: backwards compatibility with v1.0 */
+			record_size = sizeof(time_t) + sizeof(uint32_t)*2;
+		} else if (hdr.version == DUPLICATE_VERSION) {
+			record_size = sizeof(struct duplicate_record_header);
+			i_stream_skip(input, sizeof(hdr));
 		}
-
-		if (i_stream_read_data(input, &data, &size,
-				       id_size + user_size - 1) <= 0) {
-			i_error("unexpected end of file in %s", file->path);
-			broken = TRUE;
-			break;
-		}
-
-		if (stamp >= ioloop_time) {
-			/* still valid, save it */
-			struct duplicate *d;
-			void *new_id;
-
-			new_id = p_malloc(file->pool, id_size);
-			memcpy(new_id, data, id_size);
-
-			d = p_new(file->pool, struct duplicate, 1);
-			d->id = new_id;
-			d->id_size = id_size;
-			d->user = p_strndup(file->pool,
-					    data + id_size, user_size);
-			d->time = stamp;
-			hash_insert(file->hash, d, d);
-		} else {
-                        change_count++;
-		}
-		i_stream_skip(input, id_size + user_size);
 	}
 
-	if (hash_count(file->hash) * COMPRESS_PERCENTAGE / 100 > change_count)
-		file->changed = TRUE;
+	if (record_size == 0 ||
+	    duplicate_read_records(file, input, record_size) < 0) {
+		if (unlink(file->path) < 0 && errno != ENOENT)
+			i_error("unlink(%s) failed: %m", file->path);
+	}
 
 	i_stream_unref(&input);
 	if (close(fd) < 0)
 		i_error("close(%s) failed: %m", file->path);
-	if (broken) {
-		if (unlink(file->path) < 0 && errno != ENOENT)
-			i_error("unlink(%s) failed: %m", file->path);
-	}
 	return 0;
 }
 
@@ -178,8 +216,11 @@ static struct duplicate_file *duplicate_new(const char *path)
 	return file;
 }
 
-static void duplicate_free(struct duplicate_file *file)
+static void duplicate_free(struct duplicate_file **_file)
 {
+	struct duplicate_file *file = *_file;
+
+	*_file = NULL;
 	if (file->dotlock != NULL)
 		file_dotlock_delete(&file->dotlock);
 
@@ -226,6 +267,8 @@ void duplicate_mark(const void *id, size_t id_size,
 void duplicate_flush(void)
 {
 	struct duplicate_file *file = duplicate_file;
+	struct duplicate_file_header hdr;
+	struct duplicate_record_header rec;
 	struct ostream *output;
         struct hash_iterate_context *iter;
 	void *key, *value;
@@ -233,17 +276,24 @@ void duplicate_flush(void)
 	if (duplicate_file == NULL || !file->changed || file->new_fd == -1)
 		return;
 
+	memset(&hdr, 0, sizeof(hdr));
+	hdr.version = DUPLICATE_VERSION;
+
 	output = o_stream_create_fd_file(file->new_fd, 0, FALSE);
+	o_stream_send(output, &hdr, sizeof(hdr));
+
+	memset(&rec, 0, sizeof(rec));
 	iter = hash_iterate_init(file->hash);
 	while (hash_iterate(iter, &key, &value)) {
 		struct duplicate *d = value;
-		unsigned int user_size = strlen(d->user);
 
-		o_stream_send(output, &d->time, sizeof(d->time));
-		o_stream_send(output, &d->id_size, sizeof(d->id_size));
-		o_stream_send(output, &user_size, sizeof(user_size));
-		o_stream_send(output, d->id, d->id_size);
-		o_stream_send(output, d->user, user_size);
+		rec.stamp = d->time;
+		rec.id_size = d->id_size;
+		rec.user_size = strlen(d->user);
+
+		o_stream_send(output, &rec, sizeof(rec));
+		o_stream_send(output, d->id, rec.id_size);
+		o_stream_send(output, d->user, rec.user_size);
 	}
 	hash_iterate_deinit(&iter);
 	o_stream_unref(&output);
@@ -264,6 +314,6 @@ void duplicate_deinit(void)
 {
 	if (duplicate_file != NULL) {
 		duplicate_flush();
-		duplicate_free(duplicate_file);
+		duplicate_free(&duplicate_file);
 	}
 }
