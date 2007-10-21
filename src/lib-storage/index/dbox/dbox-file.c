@@ -942,6 +942,8 @@ int dbox_file_metadata_write(struct dbox_file *file)
 		/* nothing to write */
 		return 1;
 	}
+	if (file->maildir_file)
+		return 0;
 
 	offset = file->metadata_read_offset +
 		sizeof(struct dbox_metadata_header);

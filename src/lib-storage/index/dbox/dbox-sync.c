@@ -233,8 +233,8 @@ static bool dbox_sync_want_flush_dirty(struct dbox_mailbox *mbox,
 	const void *data;
 	size_t data_size;
 
-	if (mbox->last_interactive_change <
-	    ioloop_time - DBOX_FLUSH_SECS_INTERACTIVE)
+	/*if (mbox->last_interactive_change <
+	    ioloop_time - DBOX_FLUSH_SECS_INTERACTIVE)*/
 		return TRUE;
 
 	mail_index_get_header_ext(mbox->ibox.view, mbox->dbox_hdr_ext_id,

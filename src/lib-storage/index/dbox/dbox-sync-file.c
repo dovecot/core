@@ -193,8 +193,11 @@ dbox_sync_file_changes(struct dbox_sync_context *ctx, struct dbox_file *file,
 	dbox_sync_update_metadata(ctx, file, entry, seq);
 	ret = dbox_file_metadata_write(file);
 	if (ret <= 0) {
-		/* FIXME: handle ret=0 case by splitting the file */
-		return ret;
+		if (ret < 0)
+			return -1;
+		/* FIXME: handle ret=0 case by splitting the file
+		   (or converting maildir file to dbox) */
+		return 1;
 	}
 
 	mail_index_update_flags(ctx->trans, seq, MODIFY_REMOVE,

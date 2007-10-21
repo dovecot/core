@@ -91,11 +91,14 @@ static int dbox_index_parse_maildir(struct dbox_index *index, const char *line,
 	char *p;
 	unsigned long uid;
 
+	if (*line++ != ' ')
+		return -1;
+
 	uid = strtoul(line, &p, 10);
 	if (*p++ != ' ' || *p == '\0' || uid == 0 || uid >= (uint32_t)-1)
 		return -1;
 
-	rec->data = p_strdup(index->record_data_pool, p);
+	rec->data = p_strdup(index->record_data_pool, line);
 	return 0;
 }
 
@@ -323,6 +326,11 @@ dbox_index_record_lookup(struct dbox_index *index, unsigned int file_id)
 
 	if ((file_id & DBOX_FILE_ID_FLAG_UID) != 0)
 		return NULL;
+
+	if (index->fd == -1) {
+		if (dbox_index_refresh(index) < 0)
+			return NULL;
+	}
 
 	records = array_get_modifiable(&index->records, &count);
 	return bsearch(&file_id, records, count, sizeof(*records),
