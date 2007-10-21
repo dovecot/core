@@ -23,7 +23,7 @@ static int tm_cmp(const struct tm *tm1, const struct tm *tm2)
 time_t utc_mktime(const struct tm *tm)
 {
 	const struct tm *try_tm;
-	int t;
+	time_t t;
 	int bits, dir;
 
 	/* we'll do a binary search across the entire valid time_t range.
