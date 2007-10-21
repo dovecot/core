@@ -422,8 +422,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	mbox->path = p_strdup(pool, path);
 	mbox->control_dir = p_strdup(pool, control_dir);
 
-	mbox->uidlist = maildir_uidlist_init(mbox);
-
 	mbox->maildir_ext_id =
 		mail_index_ext_register(index, "maildir",
 					sizeof(mbox->maildir_hdr), 0, 0);
@@ -434,6 +432,8 @@ maildir_open(struct maildir_storage *storage, const char *name,
 		mbox->ibox.box.private_flags_mask = MAIL_SEEN;
 	}
 
+	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
+	mbox->uidlist = maildir_uidlist_init(mbox);
 	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {
 		if (maildir_uidlist_lock(mbox->uidlist) <= 0) {
 			struct mailbox *box = &mbox->ibox.box;
@@ -446,8 +446,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 						 maildir_lock_touch_timeout,
 						 mbox);
 	}
-
-	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 
 	if (access(t_strconcat(path, "/cur", NULL), W_OK) < 0 &&
 	    errno == EACCES)
