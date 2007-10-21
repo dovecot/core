@@ -537,8 +537,17 @@ static int maildirquota_refresh(struct maildir_quota_root *root)
 {
 	int ret;
 
-	if (!root->limits_initialized)
+	if (!root->limits_initialized) {
 		maildirquota_init_limits(root);
+		if (root->maildirsize_path == NULL) {
+			i_warning("quota maildir: No maildir storages, "
+				  "ignoring quota.");
+			return 0;
+		}
+	} else {
+		if (root->maildirsize_path == NULL)
+			return 0;
+	}
 
 	ret = maildirsize_read(root);
 	if (ret == 0) {
