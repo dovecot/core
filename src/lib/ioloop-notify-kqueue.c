@@ -125,6 +125,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 	fd_close_on_exec(fd, TRUE);
 
 	io = i_new(struct io_notify, 1);
+	io->io.condition = IO_NOTIFY;
 	io->io.callback = callback;
 	io->io.context = context;
 	io->refcount = 1;
