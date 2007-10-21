@@ -52,12 +52,7 @@ struct dotlock_settings dotlock_settings = {
 	MEMBER(lock_suffix) NULL,
 
 	MEMBER(timeout) 0,
-	MEMBER(stale_timeout) 30,
-
-	MEMBER(callback) NULL,
-	MEMBER(context) NULL,
-
-	MEMBER(use_excl_lock) FALSE
+	MEMBER(stale_timeout) 30
 };
 
 static int maildir_sum_dir(const char *dir, uint64_t *total_bytes,
@@ -217,6 +212,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	i_assert(root->fd == -1);
 
 	dotlock_settings.use_excl_lock = getenv("DOTLOCK_USE_EXCL") != NULL;
+	dotlock_settings.nfs_flush = getenv("MAIL_NFS_STORAGE") != NULL;
 	fd = file_dotlock_open(&dotlock_settings, path,
 			       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
 	if (fd == -1) {

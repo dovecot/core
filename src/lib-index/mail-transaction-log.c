@@ -39,6 +39,7 @@ mail_transaction_log_alloc(struct mail_index *index)
 	log->index = index;
 
 	log->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
+	log->dotlock_settings.nfs_flush = index->nfs_flush;
 	log->dotlock_settings.timeout = MAIL_TRANSCATION_LOG_LOCK_TIMEOUT;
 	log->dotlock_settings.stale_timeout =
 		MAIL_TRANSCATION_LOG_LOCK_CHANGE_TIMEOUT;

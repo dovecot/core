@@ -308,6 +308,8 @@ void duplicate_init(void)
 {
 	duplicate_dotlock_set.use_excl_lock =
 		getenv("DOTLOCK_USE_EXCL") != NULL;
+	duplicate_dotlock_set.nfs_flush =
+		getenv("MAIL_NFS_STORAGE") != NULL;
 }
 
 void duplicate_deinit(void)

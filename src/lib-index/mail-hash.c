@@ -78,12 +78,7 @@ const struct dotlock_settings default_dotlock_settings = {
 	MEMBER(lock_suffix) NULL,
 
 	MEMBER(timeout) 10,
-	MEMBER(stale_timeout) 30,
-
-	MEMBER(callback) NULL,
-	MEMBER(context) NULL,
-
-	MEMBER(use_excl_lock) FALSE
+	MEMBER(stale_timeout) 30
 };
 
 static void mail_hash_set_syscall_error(struct mail_hash *hash,
@@ -570,6 +565,7 @@ mail_hash_open(struct mail_index *index, const char *suffix,
 	hash->fd = -1;
 	hash->dotlock_settings = default_dotlock_settings;
 	hash->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
+	hash->dotlock_settings.nfs_flush = index->nfs_flush;
 
 	hash->key_hash_cb = key_hash_cb;
 	hash->rec_hash_cb = rec_hash_cb;

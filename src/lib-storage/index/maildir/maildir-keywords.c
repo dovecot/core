@@ -76,6 +76,9 @@ maildir_keywords_init_readonly(struct mailbox *box)
 
 	mk->dotlock_settings.use_excl_lock =
 		(box->storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
+	mk->dotlock_settings.nfs_flush =
+		(box->storage->flags &
+		 MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0;
 	mk->dotlock_settings.timeout = KEYWORDS_LOCK_STALE_TIMEOUT + 2;
 	mk->dotlock_settings.stale_timeout = KEYWORDS_LOCK_STALE_TIMEOUT;
 	mk->dotlock_settings.temp_prefix =

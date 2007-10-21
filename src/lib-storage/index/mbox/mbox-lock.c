@@ -260,6 +260,8 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 	memset(&set, 0, sizeof(set));
 	set.use_excl_lock = (mbox->storage->storage.flags &
 			     MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
+	set.nfs_flush = (mbox->storage->storage.flags &
+			 MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0;
 	set.timeout = lock_timeout;
 	set.stale_timeout = dotlock_change_timeout;
 	set.callback = dotlock_callback;

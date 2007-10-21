@@ -328,6 +328,7 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 
 	cache->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
+	cache->dotlock_settings.nfs_flush = index->nfs_flush;
 	cache->dotlock_settings.timeout = MAIL_CACHE_LOCK_TIMEOUT;
 	cache->dotlock_settings.stale_timeout = MAIL_CACHE_LOCK_CHANGE_TIMEOUT;
 

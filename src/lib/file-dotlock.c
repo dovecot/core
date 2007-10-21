@@ -147,7 +147,8 @@ static int update_lock_info(time_t now, struct lock_info *lock_info,
 {
 	struct stat st;
 
-	nfs_flush_attr_cache(lock_info->lock_path);
+	if (lock_info->set->nfs_flush)
+		nfs_flush_attr_cache(lock_info->lock_path);
 	if (nfs_safe_lstat(lock_info->lock_path, &st) < 0) {
 		if (errno != ENOENT) {
 			i_error("lstat(%s) failed: %m", lock_info->lock_path);
@@ -232,7 +233,8 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 
 		/* possibly stale lock file. check also the timestamp of the
 		   file we're protecting. */
-		nfs_flush_attr_cache(lock_info->path);
+		if (lock_info->set->nfs_flush)
+			nfs_flush_attr_cache(lock_info->path);
 		if (nfs_safe_stat(lock_info->path, &st) < 0) {
 			if (errno == ENOENT) {
 				/* file doesn't exist. treat it as if

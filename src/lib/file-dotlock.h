@@ -30,6 +30,8 @@ struct dotlock_settings {
 	/* Rely on O_EXCL locking to work instead of using hardlinks.
 	   It's faster, but doesn't work with all NFS implementations. */
 	unsigned int use_excl_lock:1;
+	/* Flush NFS attribute cache before stating files. */
+	unsigned int nfs_flush:1;
 	/* Use io_add_notify() to speed up finding out when an existing
 	   dotlock is deleted */
 	unsigned int use_io_notify:1;

@@ -46,12 +46,7 @@ const struct dotlock_settings default_dotlock_set = {
 	MEMBER(lock_suffix) NULL,
 
 	MEMBER(timeout) 60,
-	MEMBER(stale_timeout) 30,
-
-	MEMBER(callback) NULL,
-	MEMBER(context) NULL,
-
-	MEMBER(use_excl_lock) FALSE
+	MEMBER(stale_timeout) 30
 };
 
 int mailbox_list_index_set_syscall_error(struct mailbox_list_index *index,
@@ -363,6 +358,7 @@ mailbox_list_index_alloc(const char *path, char separator,
 	index->mmap_disable = mail_index->mmap_disable;
 	index->dotlock_set = default_dotlock_set;
 	index->dotlock_set.use_excl_lock = mail_index->use_excl_dotlocks;
+	index->dotlock_set.nfs_flush = mail_index->nfs_flush;
 	return index;
 }
 

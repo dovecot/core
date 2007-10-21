@@ -17,12 +17,7 @@ struct dotlock_settings dotlock_settings = {
 	MEMBER(lock_suffix) NULL,
 
 	MEMBER(timeout) 60*5,
-	MEMBER(stale_timeout) 60*5,
-
-	MEMBER(callback) NULL,
-	MEMBER(context) NULL,
-
-	MEMBER(use_excl_lock) FALSE
+	MEMBER(stale_timeout) 60*5
 };
 
 static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
@@ -287,6 +282,9 @@ int convert_storage(const char *source_data, const char *dest_data,
 	dotlock_settings.use_excl_lock =
 		(source_ns->storage->flags &
 		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
+	dotlock_settings.nfs_flush =
+		(source_ns->storage->flags &
+		 MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0;
 	ret = file_dotlock_create(&dotlock_settings, path, 0, &dotlock);
 	if (ret <= 0) {
 		if (ret == 0)

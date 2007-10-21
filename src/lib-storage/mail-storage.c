@@ -421,6 +421,8 @@ mail_storage_get_list_flags(enum mail_storage_flags storage_flags)
 		list_flags |= MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
 	if ((storage_flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0)
 		list_flags |= MAILBOX_LIST_FLAG_DOTLOCK_USE_EXCL;
+	if ((storage_flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
+		list_flags |= MAILBOX_LIST_FLAG_NFS_FLUSH;
 	return list_flags;
 }
 

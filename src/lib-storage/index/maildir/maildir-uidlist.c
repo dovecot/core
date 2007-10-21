@@ -212,6 +212,9 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 	uidlist->dotlock_settings.use_excl_lock =
 		(mbox->storage->storage.flags &
 		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
+	uidlist->dotlock_settings.nfs_flush =
+		(mbox->storage->storage.flags &
+		 MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0;
 	uidlist->dotlock_settings.timeout = UIDLIST_LOCK_STALE_TIMEOUT + 2;
 	uidlist->dotlock_settings.stale_timeout = UIDLIST_LOCK_STALE_TIMEOUT;
 	uidlist->dotlock_settings.temp_prefix = mbox->storage->temp_prefix;

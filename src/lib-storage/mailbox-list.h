@@ -15,7 +15,9 @@ enum mailbox_list_flags {
 	/* Rely on O_EXCL when creating dotlocks */
 	MAILBOX_LIST_FLAG_DOTLOCK_USE_EXCL	= 0x08,
 	/* Mailboxes are files, not directories. */
-	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x10
+	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x10,
+	/* Flush NFS attribute cache when needed */
+	MAILBOX_LIST_FLAG_NFS_FLUSH		= 0x20
 };
 
 enum mailbox_info_flags {
