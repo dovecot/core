@@ -90,7 +90,7 @@ int base64_decode(const void *src, size_t src_size,
 	unsigned char input[4], output[3];
 	int ret = 1;
 
-	for (src_pos = 0; src_pos+3 < src_size; src_pos += 4) {
+	for (src_pos = 0; src_pos+3 < src_size; ) {
 		input[0] = b64dec[src_c[src_pos]];
 		if (input[0] == 0xff) {
 			if (IS_EMPTY(src_c[src_pos++]))
@@ -126,6 +126,7 @@ int base64_decode(const void *src, size_t src_size,
 
 		output[2] = ((input[2] << 6) & 0xc0) | input[3];
 		buffer_append(dest, output, 3);
+		src_pos += 4;
 	}
 
 	for (; src_pos < src_size; src_pos++) {
