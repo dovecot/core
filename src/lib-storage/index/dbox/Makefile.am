@@ -22,6 +22,7 @@ libstorage_dbox_a_SOURCES = \
 
 headers = \
 	dbox-file.h \
+	dbox-file-maildir.h \
 	dbox-index.h \
 	dbox-storage.h \
 	dbox-sync.h
