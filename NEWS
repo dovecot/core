@@ -24,6 +24,7 @@ v1.1.UNSTABLE
 	  messages from the mailboxes that have them. The tracking is done
 	  using lib-dict, so you can use either Berkeley DB or SQL database.
 	+ Namespaces are supported everywhere now.
+	+ Namespaces have new list and subscriptions settings.
 	+ Full text search indexing support with Lucene and Squat backends.
 	+ OTP and S/KEY authentication mechanisms (by Andrey Panin).
 	+ mbox and Maildir works with both Maildir++ and FS layouts. You can
