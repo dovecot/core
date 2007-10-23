@@ -1,3 +1,9 @@
+ - search: flag searching is too slow with huge mailboxes. at least optimize
+   deleted search.
+ - group privilege handling is ugly/broken. if gid+egid == wanted gid, no
+   checking is done if there are extra groups that should be dropped. otherwise
+   if we're not root, setgroups() will fail with EPERM, and the error message
+   is difficult to understand.
  - message-header-decode.c: handle decoding errors by fallbacking to simply
    returning the data as ASCII (the whole thing, beginning from =?)
  - dbox: clean up temp.* files once in a while
@@ -6,7 +12,6 @@
    - after index reset
  - cache compressions aren't handled exactly right. especially when creating
    the initial cache file other processes seem to give cache corruption errors.
- - don't delay IDLE changes too long?
  - expunged messages' flags may get updated in views where they're not yet
    expunged (e.g. "expunge uid 2", "+flags \seen uid 1:3")
  - POP3 UIDL caching
