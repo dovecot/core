@@ -221,7 +221,7 @@ static int mbox_mail_get_stream(struct mail *_mail,
 						   offset, (uoff_t)-1);
 		data->stream =
 			i_stream_create_header_filter(raw_stream,
-				HEADER_FILTER_EXCLUDE,
+				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
 				mbox_hide_headers, mbox_hide_headers_count,
 				null_header_filter_callback, NULL);
 		i_stream_unref(&raw_stream);
