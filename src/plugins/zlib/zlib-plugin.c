@@ -5,13 +5,17 @@
 #include "istream-zlib.h"
 #include "home-expand.h"
 #include "istream.h"
-#include "mail-storage-private.h"
+#include "maildir/maildir-storage.h"
+#include "maildir/maildir-uidlist.h"
+#include "index-mail.h"
 #include "zlib-plugin.h"
 
 #include <fcntl.h>
 
 #define ZLIB_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, zlib_storage_module)
+#define ZLIB_MAIL_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, zlib_mail_module)
 
 const char *zlib_plugin_version = PACKAGE_VERSION;
 
@@ -20,6 +24,78 @@ static void (*zlib_next_hook_mail_storage_created)
 
 static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
 				  &mail_storage_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
+
+static int zlib_maildir_get_stream(struct mail *_mail,
+				   struct message_size *hdr_size,
+				   struct message_size *body_size,
+				   struct istream **stream_r)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct index_mail *imail = (struct index_mail *)mail;
+	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
+	struct istream *input;
+	const char *fname, *p;
+        enum maildir_uidlist_rec_flag flags;
+	int fd;
+
+	if (imail->data.stream != NULL) {
+		return zmail->super.get_stream(_mail, hdr_size, body_size,
+					       stream_r);
+	}
+
+	if (zmail->super.get_stream(_mail, NULL, NULL, &input) < 0)
+		return -1;
+
+	fname = maildir_uidlist_lookup(mbox->uidlist, _mail->uid, &flags);
+	i_assert(fname != NULL);
+	p = strstr(fname, ":2,");
+	if (p != NULL && strchr(p + 3, 'Z') != NULL) {
+		/* has a Z flag - it's compressed */
+		fd = dup(i_stream_get_fd(input));
+		if (fd == -1)
+			i_error("zlib plugin: dup() failed: %m");
+		i_stream_unref(&input);
+
+		if (fd == -1)
+			return -1;
+		imail->data.stream = i_stream_create_zlib(fd);
+	}
+	return index_mail_init_stream(imail, hdr_size, body_size, stream_r);
+}
+
+static struct mail *
+zlib_maildir_mail_alloc(struct mailbox_transaction_context *t,
+			enum mail_fetch_field wanted_fields,
+			struct mailbox_header_lookup_ctx *wanted_headers)
+{
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(t->box);
+	union mail_module_context *zmail;
+	struct mail *_mail;
+	struct mail_private *mail;
+
+	_mail = zbox->super.mail_alloc(t, wanted_fields, wanted_headers);
+	mail = (struct mail_private *)_mail;
+
+	zmail = p_new(mail->pool, union mail_module_context, 1);
+	zmail->super = mail->v;
+
+	mail->v.get_stream = zlib_maildir_get_stream;
+	MODULE_CONTEXT_SET_SELF(mail, zlib_mail_module, zmail);
+	return _mail;
+}
+
+static void zlib_maildir_open_init(struct mailbox *box)
+{
+	union mailbox_module_context *zbox;
+
+	zbox = p_new(box->pool, union mailbox_module_context, 1);
+	zbox->super = box->v;
+	box->v.mail_alloc = zlib_maildir_mail_alloc;
+
+	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
+}
 
 static struct mailbox *
 zlib_mailbox_open(struct mail_storage *storage, const char *name,
@@ -30,8 +106,9 @@ zlib_mailbox_open(struct mail_storage *storage, const char *name,
 	struct istream *zlib_input = NULL;
 	size_t len = strlen(name);
 
-	if (input == NULL && len > 3 && strcmp(name + len - 3, ".gz") == 0) {
-		/* Looks like a .gz file */
+	if (input == NULL && len > 3 && strcmp(name + len - 3, ".gz") == 0 &&
+	    strcmp(storage->name, "mbox") == 0) {
+		/* Looks like a .gz mbox file */
 		const char *path;
 		bool is_file;
 
@@ -51,6 +128,8 @@ zlib_mailbox_open(struct mail_storage *storage, const char *name,
 	if (zlib_input != NULL)
 		i_stream_unref(&zlib_input);
 
+	if (strcmp(storage->name, "maildir") == 0) 
+		zlib_maildir_open_init(box);
 	return box;
 }
 
