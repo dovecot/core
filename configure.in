@@ -42,12 +42,6 @@ AC_ARG_ENABLE(asserts,
 		AC_DEFINE(DISABLE_ASSERTS,, Disable asserts)
 	fi)
 
-AC_ARG_WITH(file-offset-size,
-[  --with-file-offset-size=BITS  Set size of file offsets. Usually 32 or 64.
-                          (default: 64 if available)],
-	preferred_off_t_bits=$withval,
-	preferred_off_t_bits=64)
-
 AC_ARG_WITH(mem-align,
 [  --with-mem-align=BYTES  Set the memory alignment (default: 8)],
 	mem_align=$withval,
@@ -734,10 +728,7 @@ AC_DEFUN([AC_TYPEOF], [
   AC_MSG_RESULT($visible)
 ])
 
-dnl * off_t checks, try to make it 64bit
-AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits,
-  [If set to 64, enables 64bit off_t for some systems (eg. Linux, Solaris)])
-
+AC_SYS_LARGEFILE
 AC_CHECK_TYPES(_Bool)
 
 AC_CHECK_TYPE(uoff_t, [
