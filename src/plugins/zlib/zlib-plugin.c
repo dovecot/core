@@ -47,16 +47,17 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 
 	if (zmail->super.get_stream(_mail, NULL, NULL, &input) < 0)
 		return -1;
+	i_assert(input == imail->data.stream);
 
 	fname = maildir_uidlist_lookup(mbox->uidlist, _mail->uid, &flags);
 	i_assert(fname != NULL);
 	p = strstr(fname, ":2,");
 	if (p != NULL && strchr(p + 3, 'Z') != NULL) {
 		/* has a Z flag - it's compressed */
-		fd = dup(i_stream_get_fd(input));
+		fd = dup(i_stream_get_fd(imail->data.stream));
 		if (fd == -1)
 			i_error("zlib plugin: dup() failed: %m");
-		i_stream_unref(&input);
+		i_stream_unref(&imail->data.stream);
 
 		if (fd == -1)
 			return -1;
