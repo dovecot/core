@@ -34,7 +34,8 @@ struct auth_request {
         char *user, *requested_login_user, *master_user;
 	/* original_username contains the username exactly as given by the
 	   client. this is needed at least with DIGEST-MD5 for password
-	   verification */
+	   verification. however with master logins the master username has
+	   been dropped from it. */
 	const char *original_username;
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
