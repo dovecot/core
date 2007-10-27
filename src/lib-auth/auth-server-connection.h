@@ -31,6 +31,7 @@ struct auth_server_connection {
 	int fd;
 
 	struct io *io;
+	struct timeout *to;
 	struct istream *input;
 	struct ostream *output;
 
