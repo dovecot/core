@@ -118,6 +118,8 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	auth_request_handler_set(conn->request_handler, conn->connect_uid, pid);
 
 	conn->pid = pid;
+	if (conn->auth->verbose_debug)
+		i_info("new auth connection: pid=%u", conn->pid);
 	return TRUE;
 }
 
