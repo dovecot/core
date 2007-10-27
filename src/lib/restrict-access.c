@@ -147,7 +147,7 @@ void restrict_access_by_env(bool disallow_root)
 			i_fatal("setgid(%s) failed: %m", dec2str(gid));
 
 		env = getenv("RESTRICT_USER");
-		if (env == NULL) {
+		if (env == NULL || *env == '\0') {
 			/* user not known, use only this one group */
 			if (setgroups(1, &gid) < 0) {
 				i_fatal("setgroups(%s) failed: %m",
