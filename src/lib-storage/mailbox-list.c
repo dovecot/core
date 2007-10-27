@@ -6,6 +6,8 @@
 #include "home-expand.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
+#include "imap-match.h"
+#include "mailbox-tree.h"
 #include "mailbox-list-private.h"
 
 #include <time.h>
@@ -439,6 +441,80 @@ int mailbox_list_delete_index_control(struct mailbox_list *list,
 		}
 	}
 	return 0;
+}
+
+static void node_fix_parents(struct mailbox_node *node)
+{
+	/* If we happened to create any of the parents, we need to mark them
+	   nonexistent. */
+	node = node->parent;
+	for (; node != NULL; node = node->parent) {
+		if ((node->flags & MAILBOX_MATCHED) == 0)
+			node->flags |= MAILBOX_NONEXISTENT;
+	}
+}
+
+void mailbox_list_iter_update(struct mailbox_list_iterate_context *ctx,
+			      struct mailbox_tree_context *tree_ctx,
+			      struct imap_match_glob *glob, bool update_only,
+			      bool match_parents, const char *name)
+{
+	struct mail_namespace *ns = ctx->list->ns;
+	struct mailbox_node *node;
+	enum mailbox_info_flags create_flags, always_flags;
+	enum imap_match_result match;
+	const char *p;
+	bool created, add_matched;
+
+	create_flags = (update_only ||
+			(ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0) ?
+		(MAILBOX_NONEXISTENT | MAILBOX_NOCHILDREN) : 0;
+	always_flags = MAILBOX_SUBSCRIBED;
+	add_matched = TRUE;
+
+	t_push();
+	for (;;) {
+		created = FALSE;
+		match = imap_match(glob, name);
+		if (match == IMAP_MATCH_YES) {
+			node = update_only ?
+				mailbox_tree_lookup(tree_ctx, name) :
+				mailbox_tree_get(tree_ctx, name, &created);
+			if (created) {
+				node->flags = create_flags;
+				if (create_flags != 0)
+					node_fix_parents(node);
+			}
+			if (node != NULL) {
+				if (!update_only && add_matched)
+					node->flags |= MAILBOX_MATCHED;
+				node->flags |= always_flags;
+			}
+			/* We don't want to show the parent mailboxes unless
+			   something else matches them, but if they are matched
+			   we want to show them having child subscriptions */
+			add_matched = FALSE;
+		} else {
+			if ((match & IMAP_MATCH_PARENT) == 0)
+				break;
+			/* We've a (possibly) non-subscribed parent mailbox
+			   which has a subscribed child mailbox. Make sure we
+			   return the parent mailbox. */
+		}
+
+		if (!match_parents)
+			break;
+
+		/* see if parent matches */
+		p = strrchr(name, ns->sep);
+		if (p == NULL)
+			break;
+
+		name = t_strdup_until(name, p);
+		create_flags &= ~MAILBOX_NOCHILDREN;
+		always_flags = MAILBOX_CHILDREN | MAILBOX_CHILD_SUBSCRIBED;
+	}
+	t_pop();
 }
 
 bool mailbox_list_name_is_too_large(const char *name, char sep)

@@ -45,6 +45,9 @@ enum mailbox_name_status {
 enum mailbox_list_iter_flags {
 	/* Ignore index file and ACLs (used by ACL plugin internally) */
 	MAILBOX_LIST_ITER_RAW_LIST		= 0x000001,
+	/* Use virtual mailbox names (virtual separators and namespace
+	   prefixes) for patterns and for returned mailbox names. */
+	MAILBOX_LIST_ITER_VIRTUAL_NAMES		= 0x000002,
 
 	/* List only subscribed mailboxes */
 	MAILBOX_LIST_ITER_SELECT_SUBSCRIBED	= 0x000010,

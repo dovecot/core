@@ -47,6 +47,11 @@ void mail_namespaces_deinit(struct mail_namespace **namespaces);
 
 /* Update hierarchy separators in given name to real_sep characters. */
 const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name);
+/* Write virtual mailbox name to dest and return it. Separators are changed to
+   virtual ones and namespace prefix is inserted except for INBOX. */
+const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
+				     const char *name);
+
 /* Returns the hierarchy separator for mailboxes that are listed at root. */
 char mail_namespace_get_root_sep(struct mail_namespace *namespaces);
 

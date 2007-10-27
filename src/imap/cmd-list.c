@@ -819,14 +819,15 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		args += 2;
 	}
 
+	ctx->list_flags = MAILBOX_LIST_ITER_VIRTUAL_NAMES;
 	if (lsub) {
 		/* LSUB - we don't care about flags */
-		ctx->list_flags = MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+		ctx->list_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 			MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH |
 			MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	} else if (!ctx->used_listext) {
 		/* non-extended LIST - return children flags always */
-		ctx->list_flags = MAILBOX_LIST_ITER_RETURN_CHILDREN;
+		ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;
 	}
 
 	if (args[0].type != IMAP_ARG_EOL) {

@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "file-lock.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
@@ -290,6 +291,23 @@ const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name)
 			*p = ns->real_sep;
 	}
 	return ret;
+}
+
+const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
+				     const char *name)
+{
+	str_truncate(dest, 0);
+	if ((ns->flags & NAMESPACE_FLAG_INBOX) == 0 ||
+	    strcasecmp(name, "INBOX") != 0)
+		str_append(dest, ns->prefix);
+
+	for (; *name != '\0'; name++) {
+		if (*name == ns->real_sep)
+			str_append_c(dest, ns->sep);
+		else
+			str_append_c(dest, *name);
+	}
+	return str_c(dest);
 }
 
 char mail_namespace_get_root_sep(struct mail_namespace *namespaces)

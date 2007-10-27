@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "imap-match.h"
 #include "mailbox-tree.h"
 #include "mail-namespace.h"
@@ -73,12 +74,11 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 	const struct acl_mask *acl_mask;
 	struct acl_mailbox_list_context *nonowner_list_ctx;
 	struct imap_match_glob *glob;
-	enum imap_match_result match;
-	struct mailbox_node *node;
+	struct mail_namespace *ns = ctx->ctx.list->ns;
 	const char *name;
+	string_t *vname;
 	char sep;
 	int try, ret;
-	bool created;
 
 	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RAW_LIST) != 0)
 		return FALSE;
@@ -89,7 +89,13 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 
 	/* default is to not list mailboxes. we can optimize this. */
 	t_push();
-	sep = mailbox_list_get_hierarchy_sep(ctx->ctx.list);
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
+		sep = ns->sep;
+		vname = t_str_new(256);
+	} else {
+		sep = ns->real_sep;
+		vname = NULL;
+	}
 	glob = imap_match_init_multiple(pool_datastack_create(), patterns,
 					TRUE, sep);
 
@@ -100,23 +106,12 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 
 		while ((ret = acl_backend_nonowner_lookups_iter_next(
 					nonowner_list_ctx, &name)) > 0) {
-			match = imap_match(glob, name);
-			if (match == IMAP_MATCH_YES) {
-				node = mailbox_tree_get(ctx->tree, name,
-							&created);
-				if (created)
-					node->flags |= MAILBOX_NOCHILDREN;
-				node->flags |= MAILBOX_FLAG_MATCHED;
-				node->flags &= ~MAILBOX_NONEXISTENT;
-			} else if ((match & IMAP_MATCH_PARENT) != 0) {
-				node = mailbox_tree_get(ctx->tree, name,
-							&created);
-				if (created)
-					node->flags |= MAILBOX_NONEXISTENT;
-				node->flags |= MAILBOX_FLAG_MATCHED |
-					MAILBOX_CHILDREN;
-				node->flags &= ~MAILBOX_NOCHILDREN;
+			if (vname != NULL) {
+				name = mail_namespace_get_vname(ns, vname,
+								name);
 			}
+			mailbox_list_iter_update(&ctx->ctx, ctx->tree,
+						 glob, FALSE, TRUE, name);
 		}
 		if (ret == 0)
 			break;
@@ -159,14 +154,11 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	struct acl_mailbox_list_iterate_context *ctx =
 		(struct acl_mailbox_list_iterate_context *)_ctx;
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(_ctx->list);
+	struct mail_namespace *ns = _ctx->list->ns;
 	const struct mailbox_info *info;
 	struct mailbox_node *node;
-	const char *ns_prefix, *acl_name;
-	unsigned int ns_prefix_len;
+	const char *acl_name;
 	int ret;
-
-	ns_prefix = _ctx->list->ns->prefix;
-	ns_prefix_len = strlen(ns_prefix);
 
 	for (;;) {
 		if (ctx->tree_iter != NULL) {
@@ -188,15 +180,20 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 			return info;
 		}
 
-		/* Mailbox names contain namespace prefix, except when listing
-		   INBOX. */
+		t_push();
 		acl_name = info->name;
-		if (strncmp(acl_name, ns_prefix, ns_prefix_len) == 0)
-			acl_name += ns_prefix_len;
+		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
+			/* Mailbox names contain namespace prefix,
+			   except when listing INBOX. */
+			if (strncmp(acl_name, ns->prefix, ns->prefix_len) == 0)
+				acl_name += ns->prefix_len;
+			acl_name = mail_namespace_fix_sep(ns, acl_name);
+		}
 
 		ret = acl_mailbox_list_have_right(alist, acl_name,
 						  ACL_STORAGE_RIGHT_LOOKUP,
 						  NULL);
+		t_pop();
 		if (ret > 0)
 			return info;
 		if (ret < 0) {

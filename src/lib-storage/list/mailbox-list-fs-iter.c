@@ -30,6 +30,7 @@ struct fs_list_iterate_context {
 	struct imap_match_glob *glob;
 	struct mailbox_tree_context *subs_tree;
 	struct mailbox_tree_iterate_context *tree_iter;
+	char sep;
 
 	enum mailbox_info_flags inbox_flags;
 
@@ -50,19 +51,19 @@ static const struct mailbox_info *
 fs_list_next(struct fs_list_iterate_context *ctx);
 
 static int
-pattern_get_path_pos(struct mail_namespace *ns, const char *pattern,
+pattern_get_path_pos(struct fs_list_iterate_context *ctx, const char *pattern,
 		     const char *path, unsigned int *pos_r)
 {
 	unsigned int i, j;
 
-	if (strncasecmp(path, "INBOX", 5) == 0 && path[5] == ns->sep) {
+	if (strncasecmp(path, "INBOX", 5) == 0 && path[5] == ctx->sep) {
 		/* make sure INBOX prefix is matched case-insensitively */
 		char *tmp = t_strdup_noconst(pattern);
 
 		if (strncmp(path, "INBOX", 5) != 0)
-			path = t_strdup_printf("INBOX%c%s", ns->sep, path + 6);
+			path = t_strdup_printf("INBOX%c%s", ctx->sep, path + 6);
 
-		for (i = 0; tmp[i] != ns->sep && tmp[i] != '\0'; i++)
+		for (i = 0; tmp[i] != ctx->sep && tmp[i] != '\0'; i++)
 			tmp[i] = i_toupper(tmp[i]);
 		pattern = tmp;
 	}
@@ -73,13 +74,13 @@ pattern_get_path_pos(struct mail_namespace *ns, const char *pattern,
 
 		if (pattern[j] == '%') {
 			/* skip until we're at the next hierarchy separator */
-			if (path[i] == ns->sep) {
+			if (path[i] == ctx->sep) {
 				/* assume that pattern matches. we can't be
 				   sure, but it'll be checked later. */
 				for (j++; pattern[j] != '\0'; j++) {
 					if (pattern[j] == '*')
 						return -1;
-					if (pattern[j] == ns->sep) {
+					if (pattern[j] == ctx->sep) {
 						j++;
 						break;
 					}
@@ -98,18 +99,18 @@ pattern_get_path_pos(struct mail_namespace *ns, const char *pattern,
 }
 
 static bool
-pattern_has_wildcard_at(struct mail_namespace *ns, const char *pattern,
-			const char *path)
+pattern_has_wildcard_at(struct fs_list_iterate_context *ctx,
+			const char *pattern, const char *path)
 {
 	unsigned int pos;
 	int ret;
 
-	if ((ret = pattern_get_path_pos(ns, pattern, path, &pos)) < 0)
+	if ((ret = pattern_get_path_pos(ctx, pattern, path, &pos)) < 0)
 		return TRUE;
 	if (ret == 0)
 		return FALSE;
 
-	for (; pattern[pos] != '\0' && pattern[pos] != ns->sep; pos++) {
+	for (; pattern[pos] != '\0' && pattern[pos] != ctx->sep; pos++) {
 		if (pattern[pos] == '%' || pattern[pos] == '*')
 			return TRUE;
 	}
@@ -128,8 +129,7 @@ static int list_opendir(struct fs_list_iterate_context *ctx,
 	t_push();
 	patterns = array_idx(&ctx->valid_patterns, 0);
 	for (i = 0; patterns[i] != NULL; i++) {
-		if (pattern_has_wildcard_at(ctx->ctx.list->ns,
-					    patterns[i], list_path))
+		if (pattern_has_wildcard_at(ctx, patterns[i], list_path))
 			break;
 	}
 	t_pop();
@@ -164,7 +164,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		  enum mailbox_list_iter_flags flags)
 {
 	struct fs_list_iterate_context *ctx;
-	const char *path;
+	const char *path, *vpath;
 	char *pattern;
 	DIR *dirp;
 	int ret;
@@ -174,6 +174,8 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->ctx.flags = flags;
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
 	ctx->next = fs_list_next;
+	ctx->sep = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
+		_list->ns->sep : _list->ns->real_sep;
 
 	i_array_init(&ctx->valid_patterns, 8);
 	for (; *patterns != NULL; patterns++) {
@@ -195,15 +197,14 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	}
 	patterns = (const void *)array_idx(&ctx->valid_patterns, 0);
 	ctx->glob = imap_match_init_multiple(default_pool, patterns, TRUE,
-					     _list->ns->sep);
+					     ctx->sep);
 
 	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
 		/* we want to return MAILBOX_SUBSCRIBED flags, possibly for all
 		   mailboxes. Build a mailbox tree of all the subscriptions. */
-		ctx->subs_tree = mailbox_tree_init(_list->ns->sep);
-		if (mailbox_list_subscriptions_fill(&ctx->ctx,
-						    ctx->subs_tree,
+		ctx->subs_tree = mailbox_tree_init(ctx->sep);
+		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->subs_tree,
 						    ctx->glob, FALSE) < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
@@ -217,15 +218,17 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		return &ctx->ctx;
 	}
 
+	vpath = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
+		_list->ns->prefix : "";
 	path = mailbox_list_get_path(_list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
-	if ((ret = list_opendir(ctx, path, _list->ns->prefix, &dirp)) < 0)
+	if ((ret = list_opendir(ctx, path, vpath, &dirp)) < 0)
 		return &ctx->ctx;
 
 	if (ret > 0) {
 		ctx->dir = i_new(struct list_dir_context, 1);
 		ctx->dir->dirp = dirp;
 		ctx->dir->real_path = i_strdup(path);
-		ctx->dir->virtual_path = i_strdup(_list->ns->prefix);
+		ctx->dir->virtual_path = i_strdup(vpath);
 	}
 	return &ctx->ctx;
 }
@@ -411,7 +414,7 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 
 	if ((ctx->info.flags & MAILBOX_NOINFERIORS) == 0) {
 		/* subdirectory. scan inside it. */
-		vpath = t_strdup_printf("%s%c", list_path, ns->sep);
+		vpath = t_strdup_printf("%s%c", list_path, ctx->sep);
 		match2 = imap_match(ctx->glob, vpath);
 
 		if (match == IMAP_MATCH_YES)
@@ -428,7 +431,7 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 			dir->dirp = dirp;
 			dir->real_path = i_strdup(real_path);
 			dir->virtual_path =
-				i_strdup_printf("%s%c", list_path, ns->sep);
+				i_strdup_printf("%s%c", list_path, ctx->sep);
 
 			dir->prev = ctx->dir;
 			ctx->dir = dir;
@@ -480,7 +483,6 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 static struct dirent *fs_list_dir_next(struct fs_list_iterate_context *ctx)
 {
 	struct list_dir_context *dir = ctx->dir;
-	struct mail_namespace *ns = ctx->ctx.list->ns;
 	char *const *patterns;
 	const char *fname, *path, *p;
 	unsigned int pos;
@@ -501,14 +503,14 @@ static struct dirent *fs_list_dir_next(struct fs_list_iterate_context *ctx)
 		patterns += dir->pattern_pos;
 		dir->pattern_pos++;
 
-		ret = pattern_get_path_pos(ns, *patterns, dir->virtual_path,
+		ret = pattern_get_path_pos(ctx, *patterns, dir->virtual_path,
 					   &pos);
 		if (ret == 0)
 			continue;
 		i_assert(ret > 0);
 
 		/* get the filename from the pattern */
-		p = strchr(*patterns + pos, ns->sep);
+		p = strchr(*patterns + pos, ctx->sep);
 		fname = p == NULL ? *patterns + pos :
 			t_strdup_until(*patterns + pos, p);
 

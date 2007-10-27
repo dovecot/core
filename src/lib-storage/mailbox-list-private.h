@@ -5,6 +5,8 @@
 #include "mailbox-list.h"
 
 struct dirent;
+struct imap_match_glob;
+struct mailbox_tree_context;
 
 struct mailbox_list_vfuncs {
 	struct mailbox_list *(*alloc)(void);
@@ -100,6 +102,11 @@ int mailbox_list_settings_parse(const char *data,
 
 int mailbox_list_delete_index_control(struct mailbox_list *list,
 				      const char *name);
+
+void mailbox_list_iter_update(struct mailbox_list_iterate_context *ctx,
+			      struct mailbox_tree_context *tree_ctx,
+			      struct imap_match_glob *glob, bool update_only,
+			      bool match_parents, const char *name);
 
 bool mailbox_list_name_is_too_large(const char *name, char sep);
 enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);
