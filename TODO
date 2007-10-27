@@ -1,3 +1,4 @@
+ - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"
  - search: flag searching is too slow with huge mailboxes. at least optimize
    deleted search.
  - group privilege handling is ugly/broken. if gid+egid == wanted gid, no
@@ -142,11 +143,7 @@
     - namespaces: add new "auto_disable" flag so if the mailbox can't be opened
       (eg. file doesn't exist), just ignore the problem and disable the
       namespace
-    - namespaces don't work in plugins: convert
-    - subscriptions file should contain namespace prefixes. at least optionally.
-      there's the subscriptions = yes setting now for namespaces.. do it so that
-      if prefix = "" has subscriptions, it contains prefixes. otherwise not.
-       - for shared/public namespaces default to "no"
+    - convert plugin doesn't support namespaces
 
  - lib-storage
     - rename: allow moving between storages, as long as they're of same type
