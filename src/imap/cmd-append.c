@@ -320,7 +320,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 
 	if (ctx->msg_size == 0) {
 		/* no message data, abort */
-		client_send_tagline(cmd, "NO Append aborted.");
+		client_send_tagline(cmd, "NO Can't save a zero byte message.");
 		return cmd_append_cancel(ctx, nonsync);
 	}
 
