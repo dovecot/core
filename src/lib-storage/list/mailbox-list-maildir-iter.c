@@ -57,8 +57,9 @@ static void maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 		if (imap_match(glob, mailbox_c) != IMAP_MATCH_YES)
 			continue;
 
-		if (*ns_prefix != '\0' &&
-		    strncmp(mailbox_c, ns_prefix, ns_prefix_len - 1) == 0) {
+		if (*ns_prefix != '\0' && str_len(mailbox) == ns_prefix_len-1 &&
+		    strncmp(mailbox_c, ns_prefix, ns_prefix_len - 1) == 0 &&
+		    mailbox_c[ns_prefix_len-1] == hierarchy_sep) {
 			/* don't return matches to namespace prefix itself */
 			continue;
 		}
