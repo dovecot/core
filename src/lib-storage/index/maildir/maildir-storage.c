@@ -407,8 +407,11 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	/* for shared mailboxes get the create mode from the
 	   permissions of dovecot-shared file. */
 	shared = stat(t_strconcat(path, "/dovecot-shared", NULL), &st) == 0;
-	if (shared)
-		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
+	if (shared) {
+		mail_index_set_permissions(index, st.st_mode & 0666,
+					   (st.st_mode & S_ISGID) != 0 ?
+					   (gid_t)-1 : st.st_gid);
+	}
 
 	pool = pool_alloconly_create("maildir mailbox", 1024+512);
 	mbox = p_new(pool, struct maildir_mailbox, 1);
