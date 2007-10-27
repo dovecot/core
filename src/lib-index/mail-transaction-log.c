@@ -159,8 +159,14 @@ void mail_transaction_log_free(struct mail_transaction_log **_log)
 
 void mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
 {
+	struct mail_transaction_log_file *file;
+
 	if (log->head != NULL)
 		mail_transaction_log_file_move_to_memory(log->head);
+	else {
+		file = mail_transaction_log_file_alloc_in_memory(log);
+		mail_transaction_log_set_head(log, file);
+	}
 }
 
 void mail_transaction_log_indexid_changed(struct mail_transaction_log *log)
