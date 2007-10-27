@@ -866,8 +866,12 @@ int main(int argc, char *argv[])
 			   MAILBOX_OPEN_MBOX_ONE_MSG_ONLY);
 	if (box == NULL)
 		i_fatal("Can't open delivery mail as mbox");
-        if (sync_quick(box) < 0)
-		i_fatal("Can't sync delivery mail");
+	if (sync_quick(box) < 0) {
+		enum mail_error error;
+
+		i_fatal("Can't sync delivery mail: %s",
+			mail_storage_get_last_error(storage, &error));
+	}
 
 	t = mailbox_transaction_begin(box, 0);
 	mail = mail_alloc(t, 0, NULL);
