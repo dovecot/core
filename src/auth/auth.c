@@ -61,8 +61,14 @@ struct auth *auth_preinit(void)
 			masterdb_p = &auth_passdb->next;
 		}
 	}
-	if (auth_passdb != NULL && auth_passdb->pass)
-		i_fatal("Last passdb can't have pass=yes");
+	if (auth_passdb != NULL && auth_passdb->pass) {
+		if (masterdb_p != &auth_passdb->next)
+			i_fatal("Last passdb can't have pass=yes");
+		else if (auth->passdbs == NULL) {
+			i_fatal("Master passdb can't have pass=yes "
+				"if there are no passdbs");
+		}
+	}
 	t_pop();
 
 	t_push();
