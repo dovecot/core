@@ -896,7 +896,7 @@ int dbox_index_append_commit(struct dbox_index_append_context **_ctx)
 	files = array_get_modifiable(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
 		if (files[i]->file_id < ctx->first_new_file_id) {
-			// FIXME: update status
+			/* FIXME: update status */
 			dbox_index_unlock_file(ctx->index, files[i]->file_id);
 		}
 		dbox_file_unref(&files[i]);
