@@ -38,7 +38,12 @@ void i_fatal_status(int status, const char *format, ...)
 	ATTR_FORMAT(2, 3) ATTR_NORETURN;
 
 /* Change failure handlers. */
+#ifndef __cplusplus
 void i_set_fatal_handler(fatal_failure_callback_t *callback ATTR_NORETURN);
+#else
+/* Older g++ doesn't like attributes in parameters */
+void i_set_fatal_handler(fatal_failure_callback_t *callback);
+#endif
 void i_set_error_handler(failure_callback_t *callback);
 void i_set_info_handler(failure_callback_t *callback);
 
