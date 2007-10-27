@@ -731,9 +731,6 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 
 	*expunged_r = FALSE;
 
-	if (file->metadata_read_offset == metadata_offset)
-		return 1;
-
 	if (file->metadata_pool != NULL) {
 		if (array_is_created(&file->metadata_changes))
 			array_free(&file->metadata_changes);
@@ -743,12 +740,11 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 			pool_alloconly_create("dbox metadata", 512);
 	}
 	file->metadata_read_offset = 0;
+	p_array_init(&file->metadata, file->metadata_pool, 16);
 
-	if (file->maildir_file) {
-		/* no metadata in maildir files, but we do later some kludging
-		   to return metadata when needed. */
-		return 0;
-	}
+	if (file->metadata_read_offset == metadata_offset)
+		return 1;
+	i_assert(!file->maildir_file); /* previous check should catch this */
 
 	if (file->input == NULL) {
 		if ((ret = dbox_file_open(file, TRUE, &deleted)) <= 0)
@@ -765,7 +761,6 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 	metadata_data_offset = file->input->v_offset;
 
 	*expunged_r = TRUE;
-	p_array_init(&file->metadata, file->metadata_pool, 16);
 	for (;;) {
 		prev_offset = file->input->v_offset;
 		if ((line = i_stream_read_next_line(file->input)) == NULL)
@@ -839,10 +834,6 @@ void dbox_file_metadata_set(struct dbox_file *file, enum dbox_metadata_key key,
 		return;
 	}
 
-	if (file->metadata_pool == NULL) {
-		file->metadata_pool =
-			pool_alloconly_create("dbox metadata", 512);
-	}
 	data = p_strdup_printf(file->metadata_pool, "%c%s", (char)key, value);
 
 	if (!array_is_created(&file->metadata_changes))
@@ -1019,7 +1010,7 @@ int dbox_file_metadata_write(struct dbox_file *file)
 	return ret < 0 ? -1 : 1;
 }
 
-void dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output)
+int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output)
 {
 	struct dbox_metadata_header metadata_hdr;
 	char space[DBOX_EXTRA_SPACE];
@@ -1029,13 +1020,15 @@ void dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output)
 	memset(&metadata_hdr, 0, sizeof(metadata_hdr));
 	memcpy(metadata_hdr.magic_post, DBOX_MAGIC_POST,
 	       sizeof(metadata_hdr.magic_post));
-	o_stream_send(output, &metadata_hdr, sizeof(metadata_hdr));
+	if (o_stream_send(output, &metadata_hdr, sizeof(metadata_hdr)) < 0)
+		return -1;
 
 	metadata = array_get(&file->metadata, &count);
 	if (!array_is_created(&file->metadata_changes)) {
 		for (i = 0; i < count; i++) {
-			o_stream_send_str(output, metadata[i]);
-			o_stream_send(output, "\n", 1);
+			if (o_stream_send_str(output, metadata[i]) < 0 ||
+			    o_stream_send(output, "\n", 1) < 0)
+				return -1;
 		}
 	} else {
 		changes = array_get(&file->metadata_changes, &changes_count);
@@ -1046,20 +1039,25 @@ void dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output)
 					break;
 			}
 			if (j == changes_count) {
-				o_stream_send_str(output, metadata[i]);
-				o_stream_send(output, "\n", 1);
+				if (o_stream_send_str(output, metadata[i]) < 0)
+					return -1;
+				if (o_stream_send(output, "\n", 1) < 0)
+					return -1;
 			}
 		}
 		/* write modified metadata */
 		for (i = 0; i < changes_count; i++) {
-			o_stream_send_str(output, metadata[i]);
-			o_stream_send(output, "\n", 1);
+			if (o_stream_send_str(output, changes[j]) < 0 ||
+			    o_stream_send(output, "\n", 1) < 0)
+				return -1;
 		}
 	}
 
 	memset(space, ' ', sizeof(space));
-	o_stream_send(output, space, sizeof(space));
-	o_stream_send(output, "\n", 1);
+	if (o_stream_send(output, space, sizeof(space)) < 0 ||
+	    o_stream_send(output, "\n", 1) < 0)
+		return -1;
+	return 0;
 }
 
 bool dbox_file_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
@@ -1122,4 +1120,17 @@ void dbox_mail_metadata_keywords_append(struct dbox_mailbox *mbox,
 		str_append_c(str, ' ');
 	}
 	str_truncate(str, str_len(str)-1);
+}
+
+void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
+			  uint32_t uid, uoff_t message_size)
+{
+	memset(dbox_msg_hdr, ' ', sizeof(*dbox_msg_hdr));
+	memcpy(dbox_msg_hdr->magic_pre, DBOX_MAGIC_PRE,
+	       sizeof(dbox_msg_hdr->magic_pre));
+	dbox_msg_hdr->type = DBOX_MESSAGE_TYPE_NORMAL;
+	dec2hex(dbox_msg_hdr->uid_hex, uid, sizeof(dbox_msg_hdr->uid_hex));
+	dec2hex(dbox_msg_hdr->message_size_hex, message_size,
+		sizeof(dbox_msg_hdr->message_size_hex));
+	dbox_msg_hdr->save_lf = '\n';
 }

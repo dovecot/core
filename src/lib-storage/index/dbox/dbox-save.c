@@ -131,7 +131,13 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	/* write a dummy header. it'll get rewritten when we're finished */
 	memset(&dbox_msg_hdr, 0, sizeof(dbox_msg_hdr));
 	o_stream_cork(ctx->cur_output);
-	o_stream_send(ctx->cur_output, &dbox_msg_hdr, sizeof(dbox_msg_hdr));
+	if (o_stream_send(ctx->cur_output, &dbox_msg_hdr,
+			  sizeof(dbox_msg_hdr)) < 0) {
+		mail_storage_set_critical(_t->box->storage,
+			"o_stream_send(%s) failed: %m",
+			ctx->cur_file->path);
+		ctx->failed = TRUE;
+	}
 
 	ctx->cur_received_date = received_date != (time_t)-1 ?
 		received_date : ioloop_time;
@@ -274,15 +280,7 @@ dbox_save_mail_write_header(struct dbox_save_mail *mail, uint32_t uid)
 	i_assert(mail->file->msg_header_size == sizeof(dbox_msg_hdr));
 
 	mail->file->last_append_uid = uid;
-
-	memset(&dbox_msg_hdr, ' ', sizeof(dbox_msg_hdr));
-	memcpy(dbox_msg_hdr.magic_pre, DBOX_MAGIC_PRE,
-	       sizeof(dbox_msg_hdr.magic_pre));
-	dbox_msg_hdr.type = DBOX_MESSAGE_TYPE_NORMAL;
-	dec2hex(dbox_msg_hdr.uid_hex, uid, sizeof(dbox_msg_hdr.uid_hex));
-	dec2hex(dbox_msg_hdr.message_size_hex, mail->message_size,
-		sizeof(dbox_msg_hdr.message_size_hex));
-	dbox_msg_hdr.save_lf = '\n';
+	dbox_msg_header_fill(&dbox_msg_hdr, uid, mail->message_size);
 
 	orig_offset = output->offset;
 	o_stream_seek(output, mail->append_offset);

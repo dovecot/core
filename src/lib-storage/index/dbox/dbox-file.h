@@ -200,8 +200,7 @@ void dbox_file_metadata_set(struct dbox_file *file, enum dbox_metadata_key key,
    fit to its reserved space and message isn't last in file, -1 if I/O error. */
 int dbox_file_metadata_write(struct dbox_file *file);
 /* Write all metadata to output stream. Returns 0 if ok, -1 if I/O error. */
-void dbox_file_metadata_write_to(struct dbox_file *file,
-				 struct ostream *output);
+int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output);
 
 /* Get file/offset for wanted message. Returns TRUE if found. */
 bool dbox_file_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
@@ -213,6 +212,10 @@ void dbox_mail_metadata_flags_append(string_t *str, enum mail_flags flags);
 void dbox_mail_metadata_keywords_append(struct dbox_mailbox *mbox,
 					string_t *str,
 					const struct mail_keywords *keywords);
+
+/* Fill dbox_message_header with given uid/size. */
+void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
+			  uint32_t uid, uoff_t message_size);
 
 void dbox_file_set_syscall_error(struct dbox_file *file, const char *function);
 
