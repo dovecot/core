@@ -391,6 +391,7 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	struct quota_transaction_context *qt;
 	struct mail *mail;
 	struct mail_search_arg search_arg;
+	enum mail_error error;
 	int ret;
 
 	/* This is a bit annoying to handle. We'll have to open the mailbox
@@ -399,8 +400,14 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	   calculations by adding/removing mails while we're doing this. */
 	box = mailbox_open(qlist->storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_KEEP_LOCKED);
-	if (box == NULL)
-		return -1;
+	if (box == NULL) {
+		(void)mail_storage_get_last_error(qlist->storage, &error);
+		if (error != MAIL_ERROR_NOTPOSSIBLE)
+			return -1;
+
+		/* mailbox isn't selectable */
+		return qlist->module_ctx.super.delete_mailbox(list, name);
+	}
 
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0) {
 		mailbox_close(&box);
