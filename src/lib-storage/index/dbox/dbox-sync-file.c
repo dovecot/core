@@ -87,7 +87,7 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 	mail_index_expunge(ctx->trans, expunges[0].seq1);
 
 	offset = first_offset;
-	for (;;) {
+	for (i = 0;;) {
 		if ((ret = dbox_file_seek_next(file, &offset, &uid,
 					       &physical_size)) <= 0)
 			break;
