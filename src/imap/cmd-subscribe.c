@@ -6,7 +6,7 @@
 
 bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns, *ns2;
         struct mail_storage *storage;
 	struct mailbox_list *list;
 	const char *mailbox, *verify_name;
@@ -31,8 +31,15 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		verify_name = t_strndup(verify_name, strlen(verify_name)-1);
 	}
 
-	if (!client_verify_mailbox_name(cmd, verify_name, subscribe, FALSE))
-		return TRUE;
+	ns2 = mail_namespace_find_prefix_nosep(cmd->client->namespaces,
+					       mailbox);
+	if (ns2 != NULL && (ns2->flags & NAMESPACE_FLAG_LIST) != 0) {
+		/* subscribing to a listable namespace prefix, allow it. */
+	} else {
+		if (!client_verify_mailbox_name(cmd, verify_name,
+						subscribe, FALSE))
+			return TRUE;
+	}
 
 	list = mail_storage_get_list(storage);
 	if (mailbox_list_set_subscribed(list, mailbox, subscribe) < 0)
