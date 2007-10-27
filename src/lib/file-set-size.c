@@ -1,6 +1,8 @@
 /* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
-#define _XOPEN_SOURCE 600 /* Required by glibc */
+#ifdef HAVE_POSIX_FALLOCATE
+#  define _XOPEN_SOURCE 600 /* Required by glibc, breaks Solaris 9 */
+#endif
 #include "lib.h"
 #include "file-set-size.h"
 
