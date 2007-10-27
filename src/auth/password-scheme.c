@@ -446,7 +446,7 @@ digest_md5_generate(const char *plaintext, const char *user,
 	unsigned char *digest;
 
 	if (user == NULL)
-		i_panic("digest_md5_generate(): username not given");
+		i_fatal("digest_md5_generate(): username not given");
 
 	/* user:realm:passwd */
 	realm = strchr(user, '@');
