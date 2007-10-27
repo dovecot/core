@@ -39,6 +39,10 @@
    client hash, it's faster if we disconnect multiple clients. */
 #define CLIENT_DESTROY_OLDEST_COUNT 16
 
+/* If we've been waiting auth server to respond for over this many seconds,
+   send a "waiting" message. */
+#define AUTH_WAITING_TIMEOUT 30
+
 #if CLIENT_LOGIN_IDLE_TIMEOUT >= AUTH_REQUEST_TIMEOUT
 #  error client idle timeout must be smaller than authentication timeout
 #endif
@@ -344,10 +348,12 @@ void client_input(struct imap_client *client)
 	if (!auth_client_is_connected(auth_client)) {
 		/* we're not yet connected to auth process -
 		   don't allow any commands */
+		client->waiting_sent = TRUE;
 		client_send_line(client,
 			"* OK Waiting for authentication process to respond..");
 		client->input_blocked = TRUE;
 	} else {
+		client->waiting_sent = FALSE;
 		o_stream_cork(client->output);
 		while (client_handle_input(client)) ;
 		o_stream_uncork(client->output);
@@ -576,6 +582,12 @@ static void client_check_idle(struct imap_client *client)
 	if (ioloop_time - client->last_input >= CLIENT_LOGIN_IDLE_TIMEOUT) {
 		client_send_line(client, "* BYE Disconnected for inactivity.");
 		client_destroy(client, "Disconnected: Inactivity");
+	} else if (!client->waiting_sent &&
+		   ioloop_time - client->last_input > AUTH_WAITING_TIMEOUT &&
+		   (client->common.authenticating || !client->greeting_sent)) {
+		client->waiting_sent = TRUE;
+		client_send_line(client,
+			"* OK Waiting for authentication process to respond..");
 	}
 }
 
