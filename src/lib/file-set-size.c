@@ -1,5 +1,9 @@
 /* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
+
 #ifdef HAVE_POSIX_FALLOCATE
 #  define _XOPEN_SOURCE 600 /* Required by glibc, breaks Solaris 9 */
 #endif
