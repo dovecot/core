@@ -1940,6 +1940,7 @@ for storage in $mail_storages; do
 done
 STORAGE_LIBS="$STORAGE_LIBS $index_libs"
 AC_SUBST(STORAGE_LIBS)
+AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
 
 if test -n "$deliver_storage" && test "$want_deliver" = yes; then
   AC_ERROR([If you remove mbox from storages, you need to build --without-deliver])

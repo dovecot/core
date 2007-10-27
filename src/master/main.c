@@ -301,7 +301,8 @@ static void print_build_options(void)
 #ifdef HAVE_OPENSSL
 		" openssl"
 #endif
-	"\nSQL drivers:"
+	"\nMail storages: "MAIL_STORAGES"\n"
+	"SQL drivers:"
 #ifdef BUILD_MYSQL
 		" mysql"
 #endif
