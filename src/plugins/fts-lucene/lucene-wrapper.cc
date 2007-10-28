@@ -197,8 +197,8 @@ void lucene_index_deinit(struct lucene_index *index)
 	i_free(index);
 }
 
-int lucene_index_select_mailbox(struct lucene_index *index,
-				const char *mailbox_name)
+void lucene_index_select_mailbox(struct lucene_index *index,
+				 const char *mailbox_name)
 {
 	size_t len;
 
@@ -359,8 +359,6 @@ int lucene_index_get_last_uid(struct lucene_index *index, uint32_t *last_uid_r)
 
 int lucene_index_build_init(struct lucene_index *index, uint32_t *last_uid_r)
 {
-	uint32_t last_uid = 0;
-
 	i_assert(index->mailbox_name != NULL);
 
 	/* set this even if we fail so fts-storage won't crash */
@@ -409,7 +407,6 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 			    bool headers)
 {
 	unsigned int len;
-	char id[MAX_INT_STRLEN];
 
 	i_assert(uid > index->last_uid);
 	i_assert(size > 0);
