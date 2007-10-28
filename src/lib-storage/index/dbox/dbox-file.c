@@ -1047,7 +1047,7 @@ int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output)
 		}
 		/* write modified metadata */
 		for (i = 0; i < changes_count; i++) {
-			if (o_stream_send_str(output, changes[j]) < 0 ||
+			if (o_stream_send_str(output, changes[i]) < 0 ||
 			    o_stream_send(output, "\n", 1) < 0)
 				return -1;
 		}
