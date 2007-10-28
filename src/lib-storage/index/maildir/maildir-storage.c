@@ -408,9 +408,11 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	   permissions of dovecot-shared file. */
 	shared = stat(t_strconcat(path, "/dovecot-shared", NULL), &st) == 0;
 	if (shared) {
-		mail_index_set_permissions(index, st.st_mode & 0666,
-					   (st.st_mode & S_ISGID) != 0 ?
-					   (gid_t)-1 : st.st_gid);
+		if ((st.st_mode & S_ISGID) != 0) {
+			/* Ignore GID */
+			st.st_gid = (gid_t)-1;
+		}
+		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
 	}
 
 	pool = pool_alloconly_create("maildir mailbox", 1024+512);
