@@ -74,7 +74,7 @@ static void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
 	mail_index_ext_set_reset_id(ctx->trans, ctx->cache->ext_id,
 				    ctx->cache_file_seq);
 
-	if (ctx->cache_data)
+	if (ctx->cache_data != NULL)
 		buffer_set_used_size(ctx->cache_data, 0);
 	if (array_is_created(&ctx->cache_data_seq))
 		array_clear(&ctx->cache_data_seq);
@@ -116,8 +116,11 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 	if (ctx->cache_file_seq == 0) {
 		if (!ctx->cache->opened)
 			(void)mail_cache_open_and_verify(ctx->cache);
-		if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
+		if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache)) {
+			i_assert(ctx->cache_data == NULL ||
+				 ctx->cache_data->used == 0);
 			ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+		}
 	}
 
 	if ((ret = mail_cache_lock(ctx->cache, FALSE)) <= 0)
@@ -507,15 +510,6 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		buffer_set_used_size(ctx->cache_data, ctx->prev_pos);
 	}
 
-	if (ctx->cache_file_seq == 0) {
-		if (!ctx->cache->opened)
-			(void)mail_cache_open_and_verify(ctx->cache);
-		if (MAIL_CACHE_IS_UNUSABLE(ctx->cache))
-			return -1;
-
-		ctx->cache_file_seq = ctx->cache->hdr->file_seq;
-	}
-
 	if (ctx->cache_file_seq != ctx->cache->hdr->file_seq) {
 		/* cache file reopened - need to abort */
 		mail_cache_transaction_reset(ctx);
@@ -787,6 +781,15 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	if (ctx->cache->fields[field_idx].field.decision ==
 	    (MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED))
 		return;
+
+	if (ctx->cache_file_seq == 0) {
+		if (!ctx->cache->opened)
+			(void)mail_cache_open_and_verify(ctx->cache);
+		if (MAIL_CACHE_IS_UNUSABLE(ctx->cache))
+			return;
+
+		ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+	}
 
 	file_field = ctx->cache->field_file_map[field_idx];
 	if (file_field == (uint32_t)-1) {
