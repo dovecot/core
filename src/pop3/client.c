@@ -57,6 +57,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 	search_arg.type = SEARCH_ALL;
 
 	for (i = 0; i < 2; i++) {
+		expunged = FALSE;
 		if (mailbox_sync(client->mailbox, MAILBOX_SYNC_FLAG_FULL_READ,
 				 STATUS_UIDVALIDITY, &status) < 0) {
 			client_send_storage_error(client);
@@ -71,7 +72,6 @@ static bool init_mailbox(struct client *client, const char **error_r)
 		client->total_size = 0;
 		buffer_set_used_size(message_sizes_buf, 0);
 
-		expunged = FALSE;
 		failed = FALSE;
 		mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
 		while (mailbox_search_next(ctx, mail) > 0) {
