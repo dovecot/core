@@ -392,7 +392,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	struct mail_index *index;
 	const char *path, *control_dir;
 	struct stat st;
-	int shared;
 	pool_t pool;
 
 	t_push();
@@ -401,41 +400,38 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	control_dir = mailbox_list_get_path(storage->storage.list, name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 
-	index = index_storage_alloc(&storage->storage, name, flags,
-				    MAILDIR_INDEX_PREFIX);
-
-	/* for shared mailboxes get the create mode from the
-	   permissions of dovecot-shared file. */
-	shared = stat(t_strconcat(path, "/dovecot-shared", NULL), &st) == 0;
-	if (shared) {
-		if ((st.st_mode & S_ISGID) != 0) {
-			/* Ignore GID */
-			st.st_gid = (gid_t)-1;
-		}
-		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
-	}
-
 	pool = pool_alloconly_create("maildir mailbox", 1024+512);
 	mbox = p_new(pool, struct maildir_mailbox, 1);
 	mbox->ibox.box = maildir_mailbox;
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.storage = &storage->storage;
 	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
-	mbox->ibox.index = index;
 
 	mbox->storage = storage;
 	mbox->path = p_strdup(pool, path);
 	mbox->control_dir = p_strdup(pool, control_dir);
 
-	mbox->maildir_ext_id =
-		mail_index_ext_register(index, "maildir",
-					sizeof(mbox->maildir_hdr), 0, 0);
+	index = index_storage_alloc(&storage->storage, name, flags,
+				    MAILDIR_INDEX_PREFIX);
+	mbox->ibox.index = index;
 
-	if (shared) {
+	/* for shared mailboxes get the create mode from the
+	   permissions of dovecot-shared file. */
+	if (stat(t_strconcat(path, "/dovecot-shared", NULL), &st) == 0) {
+		if ((st.st_mode & S_ISGID) != 0) {
+			/* Ignore GID */
+			st.st_gid = (gid_t)-1;
+		}
+		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
+
 		mbox->ibox.box.file_create_mode = st.st_mode & 0666;
 		mbox->ibox.box.file_create_gid = st.st_gid;
 		mbox->ibox.box.private_flags_mask = MAIL_SEEN;
 	}
+
+	mbox->maildir_ext_id =
+		mail_index_ext_register(index, "maildir",
+					sizeof(mbox->maildir_hdr), 0, 0);
 
 	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	mbox->uidlist = maildir_uidlist_init(mbox);
