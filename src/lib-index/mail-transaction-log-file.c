@@ -675,7 +675,7 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 
 		if (sync_offset < file->saved_tail_offset) {
 			mail_transaction_log_file_set_corrupted(file,
-				"log_file_tail_offset shrinked");
+				"log_file_tail_offset shrank");
 			return -1;
 		}
 		file->saved_tail_offset = sync_offset;
@@ -841,7 +841,7 @@ mail_transaction_log_file_insert_read(struct mail_transaction_log_file *file,
 	buffer_set_used_size(file->buffer, file->buffer->used - size);
 
 	if (ret == 0) {
-		mail_transaction_log_file_set_corrupted(file, "file shrinked");
+		mail_transaction_log_file_set_corrupted(file, "file shrank");
 		return 0;
 	} else if (errno == ESTALE) {
 		/* log file was deleted in NFS server, fail silently */
@@ -1060,7 +1060,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 		if ((uoff_t)st.st_size < file->sync_offset) {
 			mail_transaction_log_file_set_corrupted(file,
-				"file size shrinked");
+				"file size shrank");
 			return 0;
 		}
 

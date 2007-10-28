@@ -1186,7 +1186,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	file_size = st->st_size;
 	if (file_size < sync_ctx->file_input->v_offset) {
 		mbox_sync_set_critical(sync_ctx,
-			"file size unexpectedly shrinked in mbox file %s "
+			"file size unexpectedly shrank in mbox file %s "
 			"(%"PRIuUOFF_T" vs %"PRIuUOFF_T")",
 			sync_ctx->mbox->path, file_size,
 			sync_ctx->file_input->v_offset);
