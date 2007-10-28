@@ -416,7 +416,7 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 			   also between the first and the last messages */
 			skip = (last_id - prev_id) / (idx2 - i + 2);
 			nodes[i].sort_id = prev_id + skip;
-			if (nodes[i].sort_id == prev_id)
+			if (nodes[i].sort_id == prev_id && prev_id != last_id)
 				nodes[i].sort_id++;
 			if (nodes[i].sort_id == last_id) {
 				/* we ran out of ID space. have to renumber
@@ -442,12 +442,16 @@ index_sort_renumber_ids(struct mail_search_sort_program *program,
 		(struct index_transaction_context *)program->t;
 	struct mail_sort_node *nodes;
 	unsigned int i, count;
-	uint32_t sort_id, prev_sort_id, skip;
+	uint32_t sort_id = 0, prev_sort_id, skip;
 
 	nodes = array_get_modifiable(&program->all_nodes, &count);
 	prev_sort_id = (uint32_t)-1;
-	sort_id = nodes[idx].sort_id;
-	i_assert(sort_id == nodes[idx + 1].sort_id);
+	for (; idx < count; idx++) {
+		sort_id = nodes[idx].sort_id;
+		if (sort_id == nodes[idx+1].sort_id)
+			break;
+	}
+	i_assert(idx != count);
 
 	if (((uint32_t)-1 - sort_id) / (count - idx + 1) < RENUMBER_SPACE) {
 		/* space is running out, lets just renumber everything */
@@ -501,7 +505,7 @@ index_sort_add_ids(struct mail_search_sort_program *program, struct mail *mail)
 			if (index_sort_add_ids_range(program, mail,
 						     i == 0 ? 0 : i-1,
 						     I_MIN(j, count-1)) == 0)
-				index_sort_renumber_ids(program, i);
+				index_sort_renumber_ids(program, i-1);
 		}
 	}
 }
