@@ -60,9 +60,12 @@ struct lock_info {
 	struct file_change_info lock_info;
 	struct file_change_info file_info;
 
-	bool have_pid, use_io_notify;
 	time_t last_pid_check;
 	time_t last_change;
+
+	unsigned int have_pid:1;
+	unsigned int pid_read:1;
+	unsigned int use_io_notify:1;
 };
 
 static struct dotlock *
@@ -171,23 +174,25 @@ static int update_lock_info(time_t now, struct lock_info *lock_info,
 static int check_lock(time_t now, struct lock_info *lock_info)
 {
 	time_t stale_timeout = lock_info->set->stale_timeout;
-	pid_t pid;
+	pid_t pid = -1;
 	bool changed;
 	int ret;
 
 	if ((ret = update_lock_info(now, lock_info, &changed)) != 0)
 		return ret;
-	if (changed) {
+	if (changed || !lock_info->pid_read) {
 		/* either our first check or someone else got the lock file.
 		   if the dotlock was created only a couple of seconds ago,
 		   don't bother to read its PID. */
-		pid = lock_info->lock_info.mtime >=
-			now - STALE_PID_CHECK_SECS ? -1 :
-			read_local_pid(lock_info->lock_path);
+		if (lock_info->lock_info.mtime >= now - STALE_PID_CHECK_SECS)
+			lock_info->pid_read = FALSE;
+		else {
+			pid = read_local_pid(lock_info->lock_path);
+			lock_info->pid_read = TRUE;
+		}
 		lock_info->have_pid = pid != -1;
 	} else if (!lock_info->have_pid) {
 		/* no pid checking */
-		pid = -1;
 	} else {
 		if (lock_info->last_pid_check == now) {
 			/* we just checked the pid */
