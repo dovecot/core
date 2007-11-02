@@ -209,12 +209,12 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 		return;
 	}
 
-	/* store into cache using the original username, except if we're doing
+	/* store into cache using the translated username, except if we're doing
 	   a master user login */
 	current_username = request->user;
-	if (request->original_username != NULL &&
+	if (request->translated_username != NULL &&
 	    request->requested_login_user == NULL)
-		request->user = t_strdup_noconst(request->original_username);
+		request->user = t_strdup_noconst(request->translated_username);
 
 	/* %! is prepended automatically. it contains the db ID number. */
 	str = t_str_new(256);

@@ -804,6 +804,10 @@ bool auth_request_set_username(struct auth_request *request,
 			"Invalid username: %s", str_sanitize(username, 128));
 		return FALSE;
 	}
+	if (request->translated_username == NULL) {
+		/* similar to original_username, but after translations */
+		request->translated_username = request->user;
+	}
 
 	if (login_username != NULL) {
 		if (!auth_request_set_login_username(request,

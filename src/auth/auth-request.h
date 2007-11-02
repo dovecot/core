@@ -37,6 +37,9 @@ struct auth_request {
 	   verification. however with master logins the master username has
 	   been dropped from it. */
 	const char *original_username;
+	/* the username after doing all internal translations, but before
+	   being changed by a db lookup */
+	const char *translated_username;
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
         /* extra_fields are returned in authentication reply. Fields prefixed
