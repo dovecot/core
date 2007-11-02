@@ -257,6 +257,7 @@ void maildir_uidlist_deinit(struct maildir_uidlist **_uidlist)
 	i_assert(!UIDLIST_IS_LOCKED(uidlist));
 
 	*_uidlist = NULL;
+	maildir_uidlist_update(uidlist);
 	maildir_uidlist_close(uidlist);
 
 	hash_destroy(&uidlist->files);
