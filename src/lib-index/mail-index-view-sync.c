@@ -91,12 +91,12 @@ mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
 }
 
 static int
-view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges)
+view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
+			     bool *reset_r)
 {
 	const struct mail_index_header *hdr = &view->index->map->hdr;
 	uint32_t start_seq, end_seq;
 	uoff_t start_offset, end_offset;
-	bool reset;
 	int ret;
 
 	start_seq = view->log_file_expunge_seq;
@@ -109,7 +109,7 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges)
 		ret = mail_transaction_log_view_set(view->log_view,
 						    start_seq, start_offset,
 						    end_seq, end_offset,
-						    &reset);
+						    reset_r);
 		if (ret <= 0) {
 			if (ret < 0)
 				return -1;
@@ -123,7 +123,7 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges)
 			return -1;
 		}
 
-		if (!reset || sync_expunges)
+		if (!*reset_r || sync_expunges)
 			break;
 
 		/* we can't do this. sync only up to reset. */
@@ -151,9 +151,10 @@ view_sync_get_expunges(struct mail_index_view *view,
 	const void *data;
 	unsigned int count, expunge_count = 0;
 	uint32_t prev_seq = 0;
+	bool reset;
 	int ret;
 
-	if (view_sync_set_log_view_range(view, TRUE) < 0)
+	if (view_sync_set_log_view_range(view, TRUE, &reset) < 0)
 		return -1;
 
 	/* get a list of expunge transactions. there may be some that we have
@@ -263,7 +264,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_map *map;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
 	unsigned int expunge_count = 0;
-	bool sync_expunges;
+	bool reset, sync_expunges;
 
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
@@ -282,7 +283,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			return -1;
 	}
 
-	if (view_sync_set_log_view_range(view, sync_expunges) < 0) {
+	if (view_sync_set_log_view_range(view, sync_expunges, &reset) < 0) {
 		if (array_is_created(&expunges))
 			array_free(&expunges);
 		return -1;
@@ -301,7 +302,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		view->sync_new_map = view->index->map;
 		view->sync_new_map->refcount++;
 		i_assert(view->index->map->hdr.messages_count >=
-			 ctx->finish_min_msg_count);
+			 ctx->finish_min_msg_count || reset);
 
 		/* keep the old mapping without expunges until we're
 		   fully synced */
