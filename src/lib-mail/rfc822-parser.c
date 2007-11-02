@@ -31,7 +31,7 @@
 
 /* atext chars are marked with 1, alpha and digits with 2,
    atext-but-mime-tspecials with 4 */
-static unsigned char atext_chars[256] = {
+unsigned char rfc822_atext_chars[256] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0-15 */
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 16-31 */
 	0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 4, /* 32-47 */
@@ -50,10 +50,6 @@ static unsigned char atext_chars[256] = {
 	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
 	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 };
-#define IS_ATEXT(c) \
-	(atext_chars[(int)(unsigned char)(c)] != 0)
-#define IS_ATEXT_NON_TSPECIAL(c) \
-	((atext_chars[(int)(unsigned char)(c)] & 3) != 0)
 
 void rfc822_parser_init(struct rfc822_parser_context *ctx,
 			const unsigned char *data, size_t size,

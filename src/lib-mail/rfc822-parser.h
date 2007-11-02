@@ -6,6 +6,12 @@ struct rfc822_parser_context {
 	string_t *last_comment;
 };
 
+#define IS_ATEXT(c) \
+	(rfc822_atext_chars[(int)(unsigned char)(c)] != 0)
+#define IS_ATEXT_NON_TSPECIAL(c) \
+	((rfc822_atext_chars[(int)(unsigned char)(c)] & 3) != 0)
+extern unsigned char rfc822_atext_chars[256];
+
 /* Parse given data using RFC 822 token parser. */
 void rfc822_parser_init(struct rfc822_parser_context *ctx,
 			const unsigned char *data, size_t size,
