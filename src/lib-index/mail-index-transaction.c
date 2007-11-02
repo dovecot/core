@@ -546,6 +546,11 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 						  log_file_offset_r);
 	}
 
+	if (ret == 0) {
+		/* we always want to have the latest changes in index map */
+		(void)mail_index_refresh(t->view->index);
+	}
+
 	mail_index_transaction_unref(&t);
 	return ret;
 }
