@@ -196,8 +196,10 @@ void restrict_access_by_env(bool disallow_root)
 	env = getenv("RESTRICT_SETUID");
 	uid = env == NULL ? 0 : (uid_t)strtoul(env, NULL, 10);
 	if (uid != 0) {
-		if (setuid(uid) != 0)
-			i_fatal("setuid(%s) failed: %m", dec2str(uid));
+		if (setuid(uid) != 0) {
+			i_fatal("setuid(%s) failed with euid=%s: %m",
+				dec2str(uid), dec2str(geteuid()));
+		}
 	}
 
 	/* verify that we actually dropped the privileges */
