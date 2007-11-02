@@ -10,6 +10,9 @@
 #define LUCENE_INDEX_DIR_NAME "lucene-indexes"
 #define LUCENE_LOCK_SUBDIR_NAME "locks"
 
+#define LUCENE_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, fts_lucene_storage_module)
+
 struct lucene_mail_storage {
 	union mail_storage_module_context module_ctx;
 	struct lucene_index *index;
@@ -24,6 +27,9 @@ struct lucene_fts_backend {
 
 	uint32_t last_uid;
 };
+
+static MODULE_CONTEXT_DEFINE(fts_lucene_storage_module,
+			     &mail_storage_module_register);
 
 static void fts_backend_select(struct lucene_fts_backend *backend)
 {
