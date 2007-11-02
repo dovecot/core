@@ -20,6 +20,7 @@
 #include "str-sanitize.h"
 #include "strescape.h"
 #include "var-expand.h"
+#include "rfc822-parser.h"
 #include "message-address.h"
 #include "message-header-parser.h"
 #include "istream-header-filter.h"
@@ -451,10 +452,24 @@ expand_mail_env(const char *env, const struct var_expand_table *table)
 	return str_c(str);
 }
 
+static const char *escape_local_part(const char *local_part)
+{
+	const char *p;
+
+	/* if there are non-atext chars, we need to return quoted-string */
+	for (p = local_part; *p != '\0'; p++) {
+		if (!IS_ATEXT(*p)) {
+			return t_strdup_printf("\"%s\"",
+					       str_escape(local_part));
+		}
+	}
+	return local_part;
+}
+
 static const char *address_sanitize(const char *address)
 {
 	struct message_address *addr;
-	const char *ret;
+	const char *ret, *mailbox;
 	pool_t pool;
 
 	pool = pool_alloconly_create("address sanitizer", 256);
@@ -464,10 +479,13 @@ static const char *address_sanitize(const char *address)
 	if (addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
 	    *addr->mailbox == '\0')
 		ret = DEFAULT_ENVELOPE_SENDER;
-	else if (*addr->domain == '\0')
-		ret = t_strdup(addr->mailbox);
-	else
-		ret = t_strdup_printf("%s@%s", addr->mailbox, addr->domain);
+	else {
+		mailbox = escape_local_part(addr->mailbox);
+		if (*addr->domain == '\0')
+			ret = t_strdup(mailbox);
+		else
+			ret = t_strdup_printf("%s@%s", mailbox, addr->domain);
+	}
 	pool_unref(&pool);
 	return ret;
 }
