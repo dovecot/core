@@ -785,10 +785,9 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	if (ctx->cache_file_seq == 0) {
 		if (!ctx->cache->opened)
 			(void)mail_cache_open_and_verify(ctx->cache);
-		if (MAIL_CACHE_IS_UNUSABLE(ctx->cache))
-			return;
 
-		ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+		if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
+			ctx->cache_file_seq = ctx->cache->hdr->file_seq;
 	}
 
 	file_field = ctx->cache->field_file_map[field_idx];
