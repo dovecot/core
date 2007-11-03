@@ -108,7 +108,9 @@ struct dbox_file {
 	time_t create_time;
 	uoff_t output_stream_offset;
 
-	char *path;
+	char *fname;
+	char *current_path;
+
 	int fd;
 	struct istream *input;
 	struct ostream *output;
@@ -147,6 +149,10 @@ int dbox_file_assign_id(struct dbox_file *file, unsigned int file_id);
    deleted, deleted_r=TRUE and 1 is returned. */
 int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
 			     bool *deleted_r);
+
+/* Returns the current fulle path for an opened/created file. It's an error to
+   call this function for a non-opened file. */
+const char *dbox_file_get_path(struct dbox_file *file);
 
 /* Seek to given offset in file and return the message's input stream, UID
    and physical size. Returns 1 if ok, 0 if file/offset is corrupted,

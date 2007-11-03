@@ -69,10 +69,11 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 {
 	uint32_t seq, uid;
 	uoff_t metadata_offset, physical_size;
-	const char *fname;
+	const char *path;
 	bool expunged;
 	int ret;
 
+	path = dbox_file_get_path(file);
 	ret = dbox_file_seek_next(file, offset, &uid, &physical_size);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -83,19 +84,17 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 			return 0;
 		}
 
-		i_warning("%s: Ignoring broken file (header)", file->path);
+		i_warning("%s: Ignoring broken file (header)", path);
 		return 0;
 	}
 	if ((file->file_id & DBOX_FILE_ID_FLAG_UID) != 0 &&
 	    uid != (file->file_id & ~DBOX_FILE_ID_FLAG_UID)) {
-		i_warning("%s: Header contains wrong UID %u", file->path, uid);
+		i_warning("%s: Header contains wrong UID %u", path, uid);
 		return 0;
 	}
 	if (file->maildir_file) {
 		i_assert(uid == 0);
-		fname = strrchr(file->path, '/');
-		i_assert(fname != NULL);
-		if (!maildir_uidlist_get_uid(ctx->maildir_uidlist, fname + 1,
+		if (!maildir_uidlist_get_uid(ctx->maildir_uidlist, file->fname,
 					     &uid)) {
 			/* FIXME: not in uidlist, give it an uid */
 			return 0;
@@ -110,7 +109,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
-		i_warning("%s: Ignoring broken file (metadata)", file->path);
+		i_warning("%s: Ignoring broken file (metadata)", path);
 		return 0;
 	}
 	if (!expunged) {

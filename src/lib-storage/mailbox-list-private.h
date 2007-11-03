@@ -98,7 +98,8 @@ extern void (*hook_mailbox_list_created)(struct mailbox_list *list);
 
 int mailbox_list_settings_parse(const char *data,
 				struct mailbox_list_settings *set,
-				const char **layout, const char **error_r);
+				const char **layout, const char **alt_dir_r,
+				const char **error_r);
 
 int mailbox_list_delete_index_control(struct mailbox_list *list,
 				      const char *name);

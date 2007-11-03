@@ -109,13 +109,16 @@ static const char *fix_path(const char *path)
 
 int mailbox_list_settings_parse(const char *data,
 				struct mailbox_list_settings *set,
-				const char **layout, const char **error_r)
+				const char **layout, const char **alt_dir_r,
+				const char **error_r)
 {
 	const char *const *tmp, *key, *value;
 
 	i_assert(*data != '\0');
 
 	*error_r = NULL;
+	if (alt_dir_r != NULL)
+		*alt_dir_r = NULL;
 
 	/* <root dir> */
 	tmp = t_strsplit(data, ":");
@@ -138,6 +141,8 @@ int mailbox_list_settings_parse(const char *data,
 			set->index_dir = fix_path(value);
 		else if (strcmp(key, "CONTROL") == 0)
 			set->control_dir = fix_path(value);
+		else if (strcmp(key, "ALT") == 0 && alt_dir_r != NULL)
+			*alt_dir_r = fix_path(value);
 		else if (strcmp(key, "LAYOUT") == 0)
 			*layout = value;
 		else if (strcmp(key, "SUBSCRIPTIONS") == 0)

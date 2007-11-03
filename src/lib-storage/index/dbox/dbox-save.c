@@ -74,6 +74,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	struct dbox_message_header dbox_msg_hdr;
 	struct dbox_save_mail *save_mail;
 	struct istream *crlf_input;
+	const char *cur_path;
 	enum mail_flags save_flags;
 	const struct stat *st;
 	uoff_t mail_size;
@@ -98,6 +99,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 		ctx->failed = TRUE;
 		return -1;
 	}
+	cur_path = dbox_file_get_path(ctx->cur_file);
 
 	/* add to index */
 	save_flags = flags & ~MAIL_RECENT;
@@ -134,8 +136,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	if (o_stream_send(ctx->cur_output, &dbox_msg_hdr,
 			  sizeof(dbox_msg_hdr)) < 0) {
 		mail_storage_set_critical(_t->box->storage,
-			"o_stream_send(%s) failed: %m",
-			ctx->cur_file->path);
+			"o_stream_send(%s) failed: %m", cur_path);
 		ctx->failed = TRUE;
 	}
 
@@ -152,16 +153,18 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
+	const char *cur_path;
 
 	if (ctx->failed)
 		return -1;
 
+	cur_path = dbox_file_get_path(ctx->cur_file);
 	do {
 		if (o_stream_send_istream(ctx->cur_output, ctx->input) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
 					"o_stream_send_istream(%s) failed: %m",
-					ctx->cur_file->path);
+					cur_path);
 			}
 			ctx->failed = TRUE;
 			return -1;
@@ -221,6 +224,7 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	struct dbox_save_mail *save_mail;
+	const char *cur_path;
 	uoff_t offset = 0;
 	unsigned int count;
 
@@ -232,17 +236,17 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 				      ctx->cur_received_date);
 
 	if (!ctx->failed) {
+		cur_path = dbox_file_get_path(ctx->cur_file);
 		offset = ctx->cur_output->offset;
 		dbox_save_write_metadata(ctx);
 		if (o_stream_flush(ctx->cur_output) < 0) {
 			mail_storage_set_critical(storage,
-				"o_stream_flush(%s) failed: %m",
-				ctx->cur_file->path);
+				"o_stream_flush(%s) failed: %m", cur_path);
 			ctx->failed = TRUE;
 		}
 	}
 
-	o_stream_destroy(&ctx->cur_output);
+	o_stream_unref(&ctx->cur_output);
 	i_stream_unref(&ctx->input);
 
 	count = array_count(&ctx->mails);
@@ -332,7 +336,7 @@ static int dbox_save_mail_file_cmp(const void *p1, const void *p2)
 	const struct dbox_save_mail *m1 = p1, *m2 = p2;
 	int ret;
 
-	ret = strcmp(m1->file->path, m2->file->path);
+	ret = strcmp(m1->file->fname, m2->file->fname);
 	if (ret == 0) {
 		/* the oldest sequence is first. this is needed for uncommit
 		   to work right. */

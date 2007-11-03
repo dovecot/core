@@ -12,10 +12,29 @@
 
 static int dbox_sync_file_unlink(struct dbox_file *file)
 {
-	if (unlink(file->path) < 0) {
-		dbox_file_set_syscall_error(file, "unlink");
-		if (errno != ENOENT)
+	const char *path;
+	int i;
+
+	path = t_strdup_printf("%s/%s", file->mbox->path, file->fname);
+	for (i = 0;; i++) {
+		if (unlink(path) == 0)
+			break;
+
+		if (errno != ENOENT) {
+			mail_storage_set_critical(file->mbox->ibox.box.storage,
+				"unlink(%s) failed: %m", path);
 			return -1;
+		}
+		if (file->mbox->alt_path == NULL || i == 1) {
+			/* not found */
+			i_warning("dbox: File unexpectedly lost: %s/%s",
+				  file->mbox->path, file->fname);
+			break;
+		}
+
+		/* try the alternative path */
+		path = t_strdup_printf("%s/%s", file->mbox->alt_path,
+				       file->fname);
 	}
 	return 0;
 }
@@ -76,6 +95,7 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 	struct ostream *output;
 	uint32_t file_id, seq, uid;
 	uoff_t first_offset, offset, physical_size, metadata_offset;
+	const char *out_path;
 	unsigned int i, count;
 	bool expunged;
 	int ret;
@@ -143,12 +163,12 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 			(enum mail_flags)MAIL_INDEX_MAIL_FLAG_DIRTY);
 	}
 
+	out_path = out_file == NULL ? NULL :
+		dbox_file_get_path(out_file);
 	if (ret <= 0) {
 		if (out_file != NULL) {
-			if (unlink(out_file->path) < 0) {
-				i_error("unlink(%s) failed: %m",
-					out_file->path);
-			}
+			if (unlink(out_path) < 0)
+				i_error("unlink(%s) failed: %m", out_path);
 			o_stream_unref(&output);
 		}
 	} else if (out_file != NULL) {
@@ -183,6 +203,7 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 	struct ostream *output;
 	struct dbox_message_header dbox_msg_hdr;
 	struct dbox_mail_index_record rec;
+	const char *out_path;
 	uint32_t uid;
 	uoff_t size, append_offset;
 	int ret;
@@ -212,13 +233,14 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 	dbox_sync_update_metadata(ctx, out_file, NULL, seq);
 
 	/* copy the message */
+	out_path = dbox_file_get_path(out_file);
 	o_stream_cork(output);
 	if (o_stream_send(output, &dbox_msg_hdr, sizeof(dbox_msg_hdr)) < 0 ||
 	    o_stream_send_istream(output, input) < 0 ||
 	    dbox_file_metadata_write_to(out_file, output) < 0 ||
 	    o_stream_flush(output) < 0) {
 		mail_storage_set_critical(&ctx->mbox->storage->storage,
-			"write(%s) failed: %m", out_file->path);
+			"write(%s) failed: %m", out_path);
 		ret = -1;
 	} else {
 		dbox_file_finish_append(out_file);

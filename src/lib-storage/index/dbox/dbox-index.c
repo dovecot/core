@@ -718,7 +718,7 @@ int dbox_index_append_next(struct dbox_index_append_context *ctx,
 		if ((ret = dbox_file_get_append_stream(file, mail_size,
 						       output_r)) <= 0) {
 			i_assert(ret < 0);
-			(void)unlink(file->path);
+			(void)unlink(dbox_file_get_path(file));
 			dbox_file_unref(&file);
 			return -1;
 		}
@@ -784,7 +784,7 @@ static int dbox_index_append_commit_new(struct dbox_index_append_context *ctx,
 		rec.status = DBOX_INDEX_FILE_STATUS_MAILDIR;
 		rec.data = p_strdup_printf(ctx->index->record_data_pool,
 					   "%u %s", file->last_append_uid,
-					   strrchr(file->path, '/') + 1);
+					   file->fname);
 
 	} else {
 		rec.status = dbox_file_can_append(file, 0) ?
@@ -806,9 +806,9 @@ dbox_index_append_rollback_commit(struct dbox_index_append_context *ctx)
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
 		if (files[i]->file_id >= ctx->first_new_file_id) {
-			if (unlink(files[i]->path) < 0) {
+			if (unlink(dbox_file_get_path(files[i])) < 0) {
 				i_error("unlink(%s) failed: %m",
-					files[i]->path);
+					dbox_file_get_path(files[i]));
 			}
 			files[i]->deleted = TRUE;
 		} else {
@@ -928,8 +928,10 @@ void dbox_index_append_rollback(struct dbox_index_append_context **_ctx)
 		if (file->file_id != 0)
 			dbox_index_unlock_file(ctx->index, file->file_id);
 		else {
-			if (unlink(file->path) < 0)
-				i_error("unlink(%s) failed: %m", file->path);
+			if (unlink(dbox_file_get_path(file)) < 0) {
+				i_error("unlink(%s) failed: %m",
+					dbox_file_get_path(file));
+			}
 		}
 		dbox_file_unref(&file);
 	}

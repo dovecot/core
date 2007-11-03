@@ -108,7 +108,7 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 	} else {
 		if (debug)
 			i_info("maildir: data=%s", data);
-		if (mailbox_list_settings_parse(data, list_set, layout_r,
+		if (mailbox_list_settings_parse(data, list_set, layout_r, NULL,
 						error_r) < 0)
 			return -1;
 	}

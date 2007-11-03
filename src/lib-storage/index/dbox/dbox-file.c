@@ -33,12 +33,12 @@ char dbox_mail_flag_chars[DBOX_METADATA_FLAGS_COUNT] = {
 
 static int dbox_file_metadata_skip_header(struct dbox_file *file);
 
-static char *dbox_generate_tmp_filename(const char *path)
+static char *dbox_generate_tmp_filename(void)
 {
 	static unsigned int create_count = 0;
 
-	return i_strdup_printf("%s/temp.%s.P%sQ%uM%s.%s",
-			       path, dec2str(ioloop_timeval.tv_sec), my_pid,
+	return i_strdup_printf("temp.%s.P%sQ%uM%s.%s",
+			       dec2str(ioloop_timeval.tv_sec), my_pid,
 			       create_count++,
 			       dec2str(ioloop_timeval.tv_usec), my_hostname);
 }
@@ -46,14 +46,16 @@ static char *dbox_generate_tmp_filename(const char *path)
 void dbox_file_set_syscall_error(struct dbox_file *file, const char *function)
 {
 	mail_storage_set_critical(file->mbox->ibox.box.storage,
-				  "%s(%s) failed: %m", function, file->path);
+				  "%s(%s) failed: %m", function,
+				  dbox_file_get_path(file));
 }
 
 static void
 dbox_file_set_corrupted(struct dbox_file *file, const char *reason)
 {
 	mail_storage_set_critical(file->mbox->ibox.box.storage,
-				  "%s corrupted: %s", file->path, reason);
+				  "%s corrupted: %s", dbox_file_get_path(file),
+				  reason);
 }
 
 
@@ -91,7 +93,8 @@ static void dbox_file_free(struct dbox_file *file)
 			dbox_file_set_syscall_error(file, "close");
 		file->fd = -1;
 	}
-	i_free(file->path);
+	i_free(file->current_path);
+	i_free(file->fname);
 	i_free(file);
 }
 
@@ -129,8 +132,8 @@ dbox_close_open_files(struct dbox_mailbox *mbox, unsigned int close_count)
 }
 
 static char *
-dbox_file_id_get_path(struct dbox_mailbox *mbox, unsigned int file_id,
-		      bool *maildir_file_r)
+dbox_file_id_get_fname(struct dbox_mailbox *mbox, unsigned int file_id,
+		       bool *maildir_file_r)
 {
 	struct dbox_index_record *rec;
 	const char *p;
@@ -138,8 +141,7 @@ dbox_file_id_get_path(struct dbox_mailbox *mbox, unsigned int file_id,
 	*maildir_file_r = FALSE;
 	if ((file_id & DBOX_FILE_ID_FLAG_UID) != 0) {
 		file_id &= ~DBOX_FILE_ID_FLAG_UID;
-		return i_strdup_printf("%s/"DBOX_MAIL_FILE_UID_FORMAT,
-				       mbox->path, file_id);
+		return i_strdup_printf(DBOX_MAIL_FILE_UID_FORMAT, file_id);
 	}
 
 	rec = dbox_index_record_lookup(mbox->dbox_index, file_id);
@@ -147,11 +149,10 @@ dbox_file_id_get_path(struct dbox_mailbox *mbox, unsigned int file_id,
 		/* data contains <uid> <filename> */
 		*maildir_file_r = TRUE;
 		p = strchr(rec->data, ' ');
-		return i_strdup_printf("%s/%s", mbox->path, p + 1);
+		return i_strdup_printf("%s", p + 1);
 	}
 
-	return i_strdup_printf("%s/"DBOX_MAIL_FILE_MULTI_FORMAT,
-			       mbox->path, file_id);
+	return i_strdup_printf(DBOX_MAIL_FILE_MULTI_FORMAT, file_id);
 }
 
 struct dbox_file *
@@ -177,10 +178,16 @@ dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id)
 	file->mbox = mbox;
 	if (file_id != 0) {
 		file->file_id = file_id;
-		file->path = dbox_file_id_get_path(mbox, file_id, &maildir);
+		file->fname = dbox_file_id_get_fname(mbox, file_id, &maildir);
 		file->maildir_file = maildir;
 	} else {
-		file->path = dbox_generate_tmp_filename(mbox->path);
+		file->fname = dbox_generate_tmp_filename();
+	}
+	if (file->maildir_file || file_id == 0) {
+		/* newly created files and maildir files always exist in the
+		   primary path */
+		file->current_path =
+			i_strdup_printf("%s/%s", mbox->path, file->fname);
 	}
 	file->fd = -1;
 
@@ -196,33 +203,41 @@ dbox_file_init_new_maildir(struct dbox_mailbox *mbox, const char *fname)
 
 	file = dbox_file_init(mbox, 0);
 	file->maildir_file = TRUE;
-	file->path = i_strdup_printf("%s/%s", mbox->path, fname);
+	file->fname = i_strdup(fname);
 	return file;
 }
 
 int dbox_file_assign_id(struct dbox_file *file, unsigned int file_id)
 {
-	char *new_path;
+	struct dbox_mailbox *mbox = file->mbox;
+	const char *old_path;
+	char *new_fname, *new_path;
 	bool maildir;
 
 	i_assert(file->file_id == 0);
 	i_assert(file_id != 0);
 
 	if (!file->maildir_file) {
-		new_path = dbox_file_id_get_path(file->mbox, file_id, &maildir);
-		if (rename(file->path, new_path) < 0) {
-			mail_storage_set_critical(file->mbox->ibox.box.storage,
+		old_path = dbox_file_get_path(file);
+		new_fname = dbox_file_id_get_fname(mbox, file_id, &maildir);
+		new_path = i_strdup_printf("%s/%s", mbox->path, new_fname);
+
+		if (rename(old_path, new_path) < 0) {
+			mail_storage_set_critical(mbox->ibox.box.storage,
 						  "rename(%s, %s) failed: %m",
-						  file->path, new_path);
+						  old_path, new_path);
+			i_free(new_fname);
 			i_free(new_path);
 			return -1;
 		}
-		i_free(file->path);
-		file->path = new_path;
+		i_free(file->fname);
+		i_free(file->current_path);
+		file->fname = new_fname;
+		file->current_path = new_path;
 	}
 
 	file->file_id = file_id;
-	array_append(&file->mbox->open_files, &file, 1);
+	array_append(&mbox->open_files, &file, 1);
 	return 0;
 }
 
@@ -362,23 +377,53 @@ static int dbox_file_read_header(struct dbox_file *file)
 	return dbox_file_parse_header(file, line) < 0 ? 0 : 1;
 }
 
+static int dbox_file_open_fd(struct dbox_file *file)
+{
+	const char *path;
+	int i;
+
+	/* try the primary path first */
+	path = t_strdup_printf("%s/%s", file->mbox->path, file->fname);
+	for (i = 0;; i++) {
+		file->fd = open(path, O_RDWR);
+		if (file->fd != -1)
+			break;
+
+		if (errno != ENOENT) {
+			mail_storage_set_critical(file->mbox->ibox.box.storage,
+						  "open(%s) failed: %m", path);
+			return -1;
+		}
+
+		if (file->mbox->alt_path == NULL || i == 1) {
+			/* file doesn't exist */
+			return 0;
+		}
+
+		/* try the alternative path */
+		path = t_strdup_printf("%s/%s", file->mbox->alt_path,
+				       file->fname);
+	}
+	return 1;
+}
+
 static int dbox_file_open(struct dbox_file *file, bool read_header,
 			  bool *deleted_r)
 {
+	int ret;
+
 	i_assert(file->input == NULL);
 
 	*deleted_r = FALSE;
 
-	if (file->fd == -1)
-		file->fd = open(file->path, O_RDWR);
 	if (file->fd == -1) {
-		if (errno == ENOENT) {
+		ret = dbox_file_open_fd(file);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
 			*deleted_r = TRUE;
 			return 1;
 		}
-
-		dbox_file_set_syscall_error(file, "open");
-		return -1;
 	}
 
 	file->input = i_stream_create_fd(file->fd, MAIL_READ_BLOCK_SIZE, FALSE);
@@ -393,10 +438,14 @@ static int dbox_file_create(struct dbox_file *file)
 
 	i_assert(file->fd == -1);
 
-	file->fd = open(file->path, O_RDWR | O_CREAT | O_TRUNC, 0600);
+	if (file->current_path == NULL) {
+		file->current_path =
+			i_strdup_printf("%s/%s", file->mbox->path, file->fname);
+	}
+	file->fd = open(file->current_path, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (file->fd == -1) {
 		mail_storage_set_critical(file->mbox->ibox.box.storage,
-			"open(%s, O_CREAT) failed: %m", file->path);
+			"open(%s, O_CREAT) failed: %m", file->current_path);
 		return -1;
 	}
 	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
@@ -435,6 +484,13 @@ int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
 		return 1;
 	else
 		return dbox_file_open(file, read_header, deleted_r);
+}
+
+const char *dbox_file_get_path(struct dbox_file *file)
+{
+	i_assert(file->current_path != NULL);
+
+	return file->current_path;
 }
 
 static int
@@ -911,7 +967,8 @@ static int dbox_file_grow_metadata(struct dbox_file *file, unsigned int len)
 		len = len - file->metadata_len + DBOX_EXTRA_SPACE;
 		ret = dbox_file_write_empty_block(file, offset, len);
 	} else {
-		i_error("%s: Metadata changed unexpectedly", file->path);
+		i_error("%s: Metadata changed unexpectedly",
+			dbox_file_get_path(file));
 		ret = 0;
 	}
 

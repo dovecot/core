@@ -28,6 +28,7 @@ struct dbox_index_header {
 struct dbox_storage {
 	struct mail_storage storage;
 	union mailbox_list_module_context list_module_ctx;
+	const char *alt_dir;
 };
 
 struct dbox_mail_index_record {
@@ -52,7 +53,7 @@ struct dbox_mailbox {
 	ARRAY_DEFINE(open_files, struct dbox_file *);
 	unsigned int max_open_files;
 
-	const char *path;
+	const char *path, *alt_path;
 };
 
 struct dbox_transaction_context {

@@ -40,7 +40,8 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 static int
 dbox_get_list_settings(struct mailbox_list_settings *list_set,
 		       const char *data, enum mail_storage_flags flags,
-		       const char **layout_r, const char **error_r)
+		       const char **layout_r, const char **alt_dir_r,
+		       const char **error_r)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 
@@ -60,7 +61,8 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 
 	if (debug)
 		i_info("dbox: data=%s", data);
-	return mailbox_list_settings_parse(data, list_set, layout_r, error_r);
+	return mailbox_list_settings_parse(data, list_set, layout_r, alt_dir_r,
+					   error_r);
 }
 
 static struct mail_storage *dbox_alloc(void)
@@ -82,10 +84,10 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	struct mailbox_list_settings list_set;
 	struct stat st;
-	const char *layout;
+	const char *layout, *alt_dir;
 
 	if (dbox_get_list_settings(&list_set, data, _storage->flags,
-				   &layout, error_r) < 0)
+				   &layout, &alt_dir, error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;
@@ -115,6 +117,7 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
 		return -1;
 	storage->list_module_ctx.super = _storage->list->v;
+	storage->alt_dir = p_strdup(_storage->pool, alt_dir);
 	_storage->list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
 	_storage->list->v.delete_mailbox = dbox_list_delete_mailbox;
 
@@ -137,6 +140,21 @@ static int create_dbox(struct mail_storage *storage, const char *path)
 		return -1;
 	}
 	return 0;
+}
+
+static const char *
+dbox_get_alt_path(struct dbox_storage *storage, const char *path)
+{
+	unsigned int len;
+
+	if (storage->alt_dir == NULL)
+		return NULL;
+
+	len = strlen(storage->alt_dir);
+	if (strncmp(path, storage->alt_dir, len) != 0)
+		return t_strconcat(storage->alt_dir, path + len, NULL);
+	else
+		return NULL;
 }
 
 static struct mailbox *
@@ -164,6 +182,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
 	mbox->ibox.index = index;
 	mbox->path = p_strdup(pool, path);
+	mbox->alt_path = p_strdup(pool, dbox_get_alt_path(storage, path));
 	mbox->storage = storage;
 	mbox->last_interactive_change = ioloop_time;
 
@@ -344,7 +363,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
 	struct stat st;
-	const char *src;
+	const char *path, *alt_path;
 
 	/* Make sure the indexes are closed before trying to delete the
 	   directory that contains them. It can still fail with some NFS
@@ -357,14 +376,23 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		return -1;
 
 	/* check if the mailbox actually exists */
-	src = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(src, &st) != 0 && errno == ENOENT) {
+	path = mailbox_list_get_path(list, name,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (stat(path, &st) != 0 && errno == ENOENT) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return -1;
 	}
 
-	return dbox_delete_nonrecursive(list, src, name);
+	if (dbox_delete_nonrecursive(list, path, name) < 0)
+		return -1;
+
+	alt_path = dbox_get_alt_path(storage, path);
+	if (alt_path != NULL) {
+		if (dbox_delete_nonrecursive(list, alt_path, name) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static void dbox_notify_changes(struct mailbox *box)

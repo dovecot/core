@@ -316,7 +316,8 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 			}
 		} else {
 			if (mailbox_list_settings_parse(data, list_set,
-							layout_r, error_r) < 0)
+							layout_r, NULL,
+							error_r) < 0)
 				return -1;
 		}
 	}

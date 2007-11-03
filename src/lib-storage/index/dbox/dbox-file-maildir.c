@@ -16,18 +16,13 @@ dbox_file_maildir_get_flags(struct dbox_file *file, enum dbox_metadata_key key)
 	struct mail_keywords *keywords;
 	enum mail_flags flags;
 	string_t *str;
-	const char *fname;
 
 	if (file->mbox->maildir_sync_keywords == NULL)
 		return NULL;
 
-	fname = strrchr(file->path, '/');
-	i_assert(fname != NULL);
-	fname++;
-
 	t_array_init(&keyword_indexes, 32);
 	maildir_filename_get_flags(file->mbox->maildir_sync_keywords,
-				   fname, &flags, &keyword_indexes);
+				   file->fname, &flags, &keyword_indexes);
 	str = t_str_new(64);
 	if (key == DBOX_METADATA_FLAGS)
 		dbox_mail_metadata_flags_append(str, flags);
@@ -43,7 +38,6 @@ dbox_file_maildir_get_flags(struct dbox_file *file, enum dbox_metadata_key key)
 const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 					   enum dbox_metadata_key key)
 {
-	const char *fname;
 	struct stat st;
 	uoff_t size;
 
@@ -59,7 +53,7 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 				return NULL;
 			}
 		} else {
-			if (stat(file->path, &st) < 0) {
+			if (stat(dbox_file_get_path(file), &st) < 0) {
 				if (errno == ENOENT)
 					return NULL;
 				dbox_file_set_syscall_error(file, "stat");
@@ -71,10 +65,8 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 		else
 			return dec2str(st.st_ctime);
 	case DBOX_METADATA_VIRTUAL_SIZE:
-		fname = strrchr(file->path, '/');
-		i_assert(fname != NULL);
-		maildir_filename_get_size(fname + 1, MAILDIR_EXTRA_VIRTUAL_SIZE,
-					  &size);
+		maildir_filename_get_size(file->fname,
+					  MAILDIR_EXTRA_VIRTUAL_SIZE, &size);
 		return dec2str(size);
 	case DBOX_METADATA_EXPUNGED:
 	case DBOX_METADATA_EXT_REF:

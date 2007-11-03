@@ -58,7 +58,8 @@ cydir_get_list_settings(struct mailbox_list_settings *list_set,
 
 	if (debug)
 		i_info("cydir: data=%s", data);
-	return mailbox_list_settings_parse(data, list_set, layout_r, error_r);
+	return mailbox_list_settings_parse(data, list_set, layout_r, NULL,
+					   error_r);
 }
 
 static struct mail_storage *cydir_alloc(void)
