@@ -87,30 +87,42 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 				 uint16_t default_record_size,
 				 uint16_t default_record_align)
 {
-        const struct mail_index_registered_ext *extensions;
 	struct mail_index_registered_ext rext;
-	unsigned int i, ext_count;
+	uint32_t ext_id;
 
 	if (strcmp(name, str_sanitize(name, -1)) != 0)
 		i_panic("mail_index_ext_register(%s): Invalid name", name);
 
-	extensions = array_get(&index->extensions, &ext_count);
-
-	/* see if it's already there */
-	for (i = 0; i < ext_count; i++) {
-		if (strcmp(extensions[i].name, name) == 0)
-			return i;
-	}
+	if (mail_index_ext_lookup(index, name, &ext_id))
+		return ext_id;
 
 	memset(&rext, 0, sizeof(rext));
 	rext.name = p_strdup(index->extension_pool, name);
-	rext.index_idx = ext_count;
+	rext.index_idx = array_count(&index->extensions);
 	rext.hdr_size = default_hdr_size;
 	rext.record_size = default_record_size;
 	rext.record_align = default_record_align;
 
 	array_append(&index->extensions, &rext, 1);
-	return ext_count;
+	return rext.index_idx;
+}
+
+bool mail_index_ext_lookup(struct mail_index *index, const char *name,
+			   uint32_t *ext_id_r)
+{
+        const struct mail_index_registered_ext *extensions;
+	unsigned int i, count;
+
+	extensions = array_get(&index->extensions, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(extensions[i].name, name) == 0) {
+			*ext_id_r = i;
+			return TRUE;
+		}
+	}
+
+	*ext_id_r = (uint32_t)-1;
+	return FALSE;
 }
 
 void mail_index_register_expunge_handler(struct mail_index *index,

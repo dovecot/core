@@ -407,6 +407,9 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 				 uint32_t default_hdr_size,
 				 uint16_t default_record_size,
 				 uint16_t default_record_align);
+/* Returns TRUE and sets ext_id_r if extension with given name is registered. */
+bool mail_index_ext_lookup(struct mail_index *index, const char *name,
+			   uint32_t *ext_id_r);
 /* Resize existing extension data. If size is grown, the new data will be
    zero-filled. If size is shrinked, the data is simply dropped. */
 void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
