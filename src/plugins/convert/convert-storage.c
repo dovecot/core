@@ -1,6 +1,7 @@
 /* Copyright (c) 2006-2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "file-lock.h"
 #include "file-dotlock.h"
 #include "mail-storage-private.h"
@@ -9,6 +10,7 @@
 #include "convert-storage.h"
 
 #include <stdio.h>
+#include <dirent.h>
 
 #define CONVERT_LOCK_FILENAME ".dovecot.convert"
 
@@ -113,6 +115,106 @@ mailbox_name_convert(struct mail_storage *dest_storage,
 	return dest_name;
 }
 
+static int mailbox_convert_maildir_to_dbox(struct mail_storage *src_storage,
+					   struct mail_storage *dest_storage,
+					   const char *src_name,
+					   const char *dest_name)
+{
+	static const char *maildir_files[] = {
+		"dovecot-uidlist",
+		"dovecot-keywords",
+		"dovecot.index",
+		"dovecot.index.log",
+		"dovecot.index.cache"
+	};
+	string_t *src, *dest;
+	DIR *dir;
+	struct dirent *dp;
+	const char *src_path, *dest_path, *new_path, *cur_path;
+	unsigned int i, src_dir_len, dest_dir_len;
+	bool t;
+	int ret;
+
+	src_path = mail_storage_get_mailbox_path(src_storage, src_name, &t);
+	dest_path = mail_storage_get_mailbox_path(dest_storage, dest_name, &t);
+
+	/* rename cur/ directory as the destination directory */
+	cur_path = t_strconcat(src_path, "/cur", NULL);
+
+	if (rename(cur_path, dest_path) < 0) {
+		i_error("rename(%s, %s) failed: %m", cur_path, dest_path);
+		return -1;
+	}
+
+	/* move metadata files */
+	src = t_str_new(256);
+	str_printfa(src, "%s/", src_path);
+	src_dir_len = str_len(src);
+
+	dest = t_str_new(256);
+	str_printfa(dest, "%s/", dest_path);
+	dest_dir_len = str_len(dest);
+
+	for (i = 0; i < N_ELEMENTS(maildir_files); i++) {
+		str_truncate(src, src_dir_len);
+		str_truncate(dest, dest_dir_len);
+		str_append(src, maildir_files[i]);
+		str_append(dest, maildir_files[i]);
+
+		if (rename(str_c(src), str_c(dest)) < 0 && errno != ENOENT) {
+			i_error("rename(%s, %s) failed: %m",
+				str_c(src), str_c(dest));
+		}
+	}
+
+	/* move files in new/ */
+	new_path = t_strconcat(src_path, "/new", NULL);
+	str_truncate(src, src_dir_len);
+	str_append(src, "new/");
+	src_dir_len = str_len(src);
+
+	dir = opendir(new_path);
+	if (dir == NULL) {
+		if (errno == ENOENT)
+			return 0;
+
+		i_error("opendir(%s) failed: %m", new_path);
+		return -1;
+	}
+	ret = 0;
+	errno = 0;
+	while ((dp = readdir(dir)) != NULL) {
+		if (dp->d_name[0] == '.' &&
+		    (dp->d_name[1] == '\0' ||
+		     (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
+			continue;
+
+		str_truncate(src, src_dir_len);
+		str_truncate(dest, dest_dir_len);
+		str_append(src, dp->d_name);
+		str_append(dest, dp->d_name);
+
+		if (strstr(dp->d_name, ":2,") == NULL)
+			str_append(dest, ":2,");
+
+		if (rename(str_c(src), str_c(dest)) < 0) {
+			i_error("rename(%s, %s) failed: %m",
+				str_c(src), str_c(dest));
+			ret = -1;
+			errno = 0;
+		}
+	}
+	if (errno != 0) {
+		i_error("readdir(%s) failed: %m", new_path);
+		ret = -1;
+	}
+	if (closedir(dir) < 0) {
+		i_error("closedir(%s) failed: %m", new_path);
+		ret = -1;
+	}
+	return ret;
+}
+
 static int mailbox_convert_list_item(struct mail_storage *source_storage,
 				     struct mail_storage *dest_storage,
 				     const struct mailbox_info *info,
@@ -127,17 +229,30 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 		return 0;
 
 	name = strcasecmp(info->name, "INBOX") == 0 ? "INBOX" : info->name;
+	dest_name = mailbox_name_convert(dest_storage, source_storage,
+					 set, name);
+
 	if ((info->flags & MAILBOX_NOSELECT) != 0) {
 		/* \NoSelect mailbox, so it's probably a "directory" */
 		if (*info->name == '.' && set->skip_dotdirs)
 			return 0;
 
-		dest_name = mailbox_name_convert(dest_storage, source_storage,
-						 set, name);
 		if (mail_storage_mailbox_create(dest_storage, dest_name,
 						TRUE) < 0) {
 			i_error("Mailbox conversion: Couldn't create mailbox "
 				"directory %s", dest_name);
+			return -1;
+		}
+		return 0;
+	}
+
+	if (strcmp(source_storage->name, "maildir") == 0 &&
+	    strcmp(dest_storage->name, "dbox") == 0) {
+		if (mailbox_convert_maildir_to_dbox(source_storage,
+						    dest_storage,
+						    name, dest_name) < 0) {
+			i_error("Mailbox conversion failed for mailbox %s",
+				name);
 			return -1;
 		}
 		return 0;
@@ -158,8 +273,6 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 	}
 
 	/* Create and open the destination mailbox. */
-	dest_name = mailbox_name_convert(dest_storage, source_storage,
-					 set, name);
 	if (strcmp(dest_name, "INBOX") != 0) {
 		if (mail_storage_mailbox_create(dest_storage, dest_name,
 						FALSE) < 0) {
@@ -202,11 +315,12 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 	iter = mailbox_list_iter_init(mail_storage_get_list(source_storage),
 				      "*", MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (mailbox_convert_list_item(source_storage, dest_storage,
-					      info, dotlock, set) < 0) {
-			ret = -1;
+		t_push();
+		ret = mailbox_convert_list_item(source_storage, dest_storage,
+						info, dotlock, set);
+		t_pop();
+		if (ret < 0)
 			break;
-		}
 
 		/* In case there are lots of mailboxes. Also the other touch
 		   is done only after 100 mails. */
