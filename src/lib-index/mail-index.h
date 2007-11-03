@@ -130,7 +130,11 @@ enum mail_index_sync_flags {
 
 enum mail_index_view_sync_flags {
 	/* Don't sync expunges */
-	MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES	= 0x01
+	MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES		= 0x01,
+	/* Make sure view isn't inconsistent after syncing. This also means
+	   that you don't care about view_sync_next()'s output, so it won't
+	   return anything. */
+	MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT	= 0x02
 };
 
 struct mail_index_sync_rec {

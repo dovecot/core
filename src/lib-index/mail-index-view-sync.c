@@ -92,17 +92,22 @@ mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
 
 static int
 view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
-			     bool *reset_r)
+			     bool quick_sync, bool *reset_r)
 {
 	const struct mail_index_header *hdr = &view->index->map->hdr;
 	uint32_t start_seq, end_seq;
 	uoff_t start_offset, end_offset;
 	int ret;
 
-	start_seq = view->log_file_expunge_seq;
-	start_offset = view->log_file_expunge_offset;
 	end_seq = hdr->log_file_seq;
 	end_offset = hdr->log_file_head_offset;
+	if (quick_sync) {
+		start_seq = end_seq;
+		start_offset = end_offset;
+	} else {
+		start_seq = view->log_file_expunge_seq;
+		start_offset = view->log_file_expunge_offset;
+	}
 
 	for (;;) {
 		/* the view begins from the first non-synced transaction */
@@ -154,7 +159,7 @@ view_sync_get_expunges(struct mail_index_view *view,
 	bool reset;
 	int ret;
 
-	if (view_sync_set_log_view_range(view, TRUE, &reset) < 0)
+	if (view_sync_set_log_view_range(view, TRUE, FALSE, &reset) < 0)
 		return -1;
 
 	/* get a list of expunge transactions. there may be some that we have
@@ -264,26 +269,36 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_map *map;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
 	unsigned int expunge_count = 0;
-	bool reset, sync_expunges;
+	bool reset, sync_expunges, quick_sync;
 
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
 
+	quick_sync = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT) != 0;
 	if (mail_index_view_is_inconsistent(view)) {
-		mail_index_set_error(view->index, "%s view is inconsistent",
-				     view->index->filepath);
-		return -1;
+		if ((flags & MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT) == 0) {
+			mail_index_set_error(view->index,
+					     "%s view is inconsistent",
+					     view->index->filepath);
+			return -1;
+		}
+		view->inconsistent = FALSE;
 	}
 
 	sync_expunges = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0;
 	if (sync_expunges) {
-		/* get list of all expunges first */
-		if (view_sync_get_expunges(view, &expunges,
-					   &expunge_count) < 0)
-			return -1;
+		if (quick_sync)
+			i_array_init(&expunges, 1);
+		else {
+			/* get list of all expunges first */
+			if (view_sync_get_expunges(view, &expunges,
+						   &expunge_count) < 0)
+				return -1;
+		}
 	}
 
-	if (view_sync_set_log_view_range(view, sync_expunges, &reset) < 0) {
+	if (view_sync_set_log_view_range(view, sync_expunges, quick_sync,
+					 &reset) < 0) {
 		if (array_is_created(&expunges))
 			array_free(&expunges);
 		return -1;
@@ -298,7 +313,8 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
-	if (reset && view->map->hdr.messages_count > 0) {
+	if (reset && view->map->hdr.messages_count > 0 &&
+	    (flags & MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT) == 0) {
 		view->inconsistent = TRUE;
 		mail_index_set_error(view->index,
 				     "%s reset, view is now inconsistent",
@@ -625,13 +641,14 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx)
 {
         struct mail_index_view_sync_ctx *ctx = *_ctx;
         struct mail_index_view *view = ctx->view;
-	int ret = ctx->failed || view->inconsistent ? -1 : 0;
+	int ret = ctx->failed ? -1 : 0;
 
 	i_assert(view->syncing);
 
 	*_ctx = NULL;
 
-	if (!ctx->last_read) {
+	if ((!ctx->last_read || view->inconsistent) &&
+	    (ctx->flags & MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT) == 0) {
 		/* we didn't sync everything */
 		view->inconsistent = TRUE;
 		ret = -1;
