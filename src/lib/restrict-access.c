@@ -143,8 +143,11 @@ void restrict_access_by_env(bool disallow_root)
 	gid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
 	have_root_group = gid == 0;
 	if (gid != 0 && (gid != getgid() || gid != getegid())) {
-		if (setgid(gid) != 0)
-			i_fatal("setgid(%s) failed: %m", dec2str(gid));
+		if (setgid(gid) != 0) {
+			i_fatal("setgid(%s) failed with euid=%s, egid=%s: %m",
+				dec2str(gid), dec2str(geteuid()),
+				dec2str(getegid()));
+		}
 
 		env = getenv("RESTRICT_USER");
 		if (env == NULL || *env == '\0') {
