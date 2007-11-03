@@ -33,7 +33,7 @@ void convert_plugin_init(void)
 	set.skip_dotdirs = getenv("CONVERT_SKIP_DOTDIRS") != NULL;
 
 	str = getenv("CONVERT_ALT_HIERARCHY_CHAR");
-	set.alt_hierarchy_char = *str != '\0' ? *str : '_';
+	set.alt_hierarchy_char = str != NULL && *str != '\0' ? *str : '_';
 
 	if (convert_storage(convert_mail, mail, &set) < 0)
 		exit(FATAL_DEFAULT);
