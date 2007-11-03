@@ -791,7 +791,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	}
 
 	file_field = ctx->cache->field_file_map[field_idx];
-	if (file_field == (uint32_t)-1) {
+	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache) || file_field == (uint32_t)-1) {
 		/* we'll have to add this field to headers */
 		if (mail_cache_header_add_field(ctx, field_idx) < 0)
 			return;
@@ -799,6 +799,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		file_field = ctx->cache->field_file_map[field_idx];
 		i_assert(file_field != (uint32_t)-1);
 	}
+	i_assert(ctx->cache_file_seq != 0);
 
 	mail_cache_decision_add(ctx->view, seq, field_idx);
 
