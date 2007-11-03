@@ -330,17 +330,6 @@ static void dbox_sync_update_maildir_ids(struct dbox_sync_rebuild_context *ctx)
 	}
 }
 
-static void
-dbox_index_update_cache_header(struct dbox_sync_rebuild_context *ctx)
-{
-	const void *data;
-	size_t size;
-
-	mail_index_get_header_ext(ctx->view, ctx->cache_ext_id, &data, &size);
-	mail_index_update_header_ext(ctx->trans, ctx->cache_ext_id,
-				     0, data, size);
-}
-
 int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 {
 	struct dbox_sync_rebuild_context ctx;
@@ -360,8 +349,6 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 	if ((ret = dbox_sync_index_rebuild_ctx(&ctx)) < 0)
 		mail_index_transaction_rollback(&ctx.trans);
 	else {
-		if (ctx.cache_used)
-			dbox_index_update_cache_header(&ctx);
 		ret = dbox_index_append_assign_file_ids(ctx.append_ctx);
 		if (ret == 0) {
 			dbox_sync_update_maildir_ids(&ctx);
