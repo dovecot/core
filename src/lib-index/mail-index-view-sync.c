@@ -193,9 +193,8 @@ view_sync_get_expunges(struct mail_index_view *view,
 	src = dest = array_get_modifiable(expunges_r, &count);
 	src_end = src + count;
 	for (; src != src_end; src++) {
-		mail_index_lookup_uid_range(view, src->seq1, src->seq2,
-					    &dest->seq1, &dest->seq2);
-		if (dest->seq1 == 0)
+		if (!mail_index_lookup_seq_range(view, src->seq1, src->seq2,
+						 &dest->seq1, &dest->seq2))
 			count--;
 		else {
 			i_assert(dest->seq1 > prev_seq);
@@ -218,9 +217,8 @@ static bool have_existing_expunges(struct mail_index_view *view,
 
 	range_end = CONST_PTR_OFFSET(range, size);
 	for (; range < range_end; range++) {
-		mail_index_lookup_uid_range(view, range->seq1, range->seq2,
-					    &seq1, &seq2);
-		if (seq1 != 0)
+		if (mail_index_lookup_seq_range(view, range->seq1, range->seq2,
+						&seq1, &seq2))
 			return TRUE;
 	}
 	return FALSE;

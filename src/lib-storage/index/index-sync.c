@@ -208,7 +208,7 @@ bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			/* FIXME: hide the flag updates for expunged messages */
-			mail_index_lookup_uid_range(ctx->ibox->view,
+			mail_index_lookup_seq_range(ctx->ibox->view,
 						    sync.uid1, sync.uid2,
 						    &sync_rec_r->seq1,
 						    &sync_rec_r->seq2);
@@ -301,8 +301,7 @@ index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 			for (uid = range[i].seq1; uid <= range[i].seq2; uid++) {
 				if (uid >= hdr->next_uid)
 					break;
-				mail_index_lookup_uid_range(ibox->view, uid, uid,
-							    &seq, &seq);
+				mail_index_lookup_seq(ibox->view, uid, &seq);
 				i_assert(seq != 0);
 			}
 		}
@@ -333,7 +332,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 		/* mailbox syncing didn't necessarily update our recent state */
 		hdr = mail_index_get_header(ibox->view);
 		if (hdr->first_recent_uid > ibox->recent_flags_prev_uid) {
-			mail_index_lookup_uid_range(ibox->view,
+			mail_index_lookup_seq_range(ibox->view,
 						    hdr->first_recent_uid,
 						    hdr->next_uid,
 						    &seq1, &seq2);

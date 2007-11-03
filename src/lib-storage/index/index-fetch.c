@@ -10,5 +10,5 @@ void index_storage_get_uids(struct mailbox *box,
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 
-	mail_index_lookup_uid_range(ibox->view, uid1, uid2, seq1_r, seq2_r);
+	mail_index_lookup_seq_range(ibox->view, uid1, uid2, seq1_r, seq2_r);
 }

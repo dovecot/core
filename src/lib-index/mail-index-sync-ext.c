@@ -561,8 +561,7 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	i_assert(ctx->cur_ext_map_idx != (uint32_t)-1);
 	i_assert(!ctx->cur_ext_ignore);
 
-	mail_index_lookup_uid_range(view, u->uid, u->uid, &seq, &seq);
-	if (seq == 0)
+	if (!mail_index_lookup_seq(view, u->uid, &seq))
 		return 1;
 
 	ext = array_idx(&view->map->extensions, ctx->cur_ext_map_idx);

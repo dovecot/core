@@ -1076,8 +1076,7 @@ bool index_mail_set_uid(struct mail *_mail, uint32_t uid)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	uint32_t seq;
 
-	mail_index_lookup_uid_range(mail->ibox->view, uid, uid, &seq, &seq);
-	if (seq != 0) {
+	if (mail_index_lookup_seq(mail->ibox->view, uid, &seq)) {
 		index_mail_set_seq(_mail, seq);
 		return TRUE;
 	} else {

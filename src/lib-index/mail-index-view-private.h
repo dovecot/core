@@ -20,7 +20,7 @@ struct mail_index_view_vfuncs {
 			       struct mail_index_map **map_r, bool *expunged_r);
 	void (*lookup_uid)(struct mail_index_view *view, uint32_t seq,
 			   uint32_t *uid_r);
-	void (*lookup_uid_range)(struct mail_index_view *view,
+	void (*lookup_seq_range)(struct mail_index_view *view,
 				 uint32_t first_uid, uint32_t last_uid,
 				 uint32_t *first_seq_r, uint32_t *last_seq_r);
 	void (*lookup_first)(struct mail_index_view *view,

@@ -230,9 +230,8 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 	unsigned int i;
 
 	for (i = 0; i < count; i++, e++) {
-		mail_index_lookup_uid_range(ctx->view, e->uid1, e->uid2,
-					    &seq1, &seq2);
-		if (seq1 == 0) {
+		if (!mail_index_lookup_seq_range(ctx->view, e->uid1, e->uid2,
+						 &seq1, &seq2)) {
 			/* everything expunged already */
 			continue;
 		}
@@ -343,8 +342,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	uint8_t flag_mask, old_flags;
 	uint32_t idx, seq1, seq2;
 
-	mail_index_lookup_uid_range(view, u->uid1, u->uid2, &seq1, &seq2);
-	if (seq1 == 0)
+	if (!mail_index_lookup_seq_range(view, u->uid1, u->uid2, &seq1, &seq2))
 		return 1;
 
 	mail_index_sync_write_seq_update(ctx, seq1, seq2);

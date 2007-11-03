@@ -261,7 +261,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	return idx+1;
 }
 
-static void view_lookup_uid_range(struct mail_index_view *view,
+static void view_lookup_seq_range(struct mail_index_view *view,
 				  uint32_t first_uid, uint32_t last_uid,
 				  uint32_t *first_seq_r, uint32_t *last_seq_r)
 {
@@ -321,9 +321,7 @@ static void view_lookup_first(struct mail_index_view *view,
 	if (low_uid == 1)
 		seq = 1;
 	else {
-		mail_index_lookup_uid_range(view, low_uid, low_uid,
-					    &seq, &seq);
-		if (seq == 0)
+		if (!mail_index_lookup_seq(view, low_uid, &seq))
 			return;
 	}
 
@@ -506,12 +504,20 @@ void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 	view->v.lookup_uid(view, seq, uid_r);
 }
 
-void mail_index_lookup_uid_range(struct mail_index_view *view,
+bool mail_index_lookup_seq_range(struct mail_index_view *view,
 				 uint32_t first_uid, uint32_t last_uid,
 				 uint32_t *first_seq_r, uint32_t *last_seq_r)
 {
-	view->v.lookup_uid_range(view, first_uid, last_uid,
+	view->v.lookup_seq_range(view, first_uid, last_uid,
 				 first_seq_r, last_seq_r);
+	return *first_seq_r != 0;
+}
+
+bool mail_index_lookup_seq(struct mail_index_view *view,
+			   uint32_t uid, uint32_t *seq_r)
+{
+	view->v.lookup_seq_range(view, uid, uid, seq_r, seq_r);
+	return *seq_r != 0;
 }
 
 void mail_index_lookup_first(struct mail_index_view *view,
@@ -598,7 +604,7 @@ static struct mail_index_view_vfuncs view_vfuncs = {
 	view_get_header,
 	view_lookup_full,
 	view_lookup_uid,
-	view_lookup_uid_range,
+	view_lookup_seq_range,
 	view_lookup_first,
 	view_lookup_ext_full,
 	view_get_header_ext,

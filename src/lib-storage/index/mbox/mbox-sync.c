@@ -825,9 +825,8 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 
 	i_assert(!sync_ctx->index_reset);
 
-	mail_index_lookup_uid_range(sync_view, uid, (uint32_t)-1,
-				    &seq1, &seq2);
-	if (seq1 == 0) {
+	if (!mail_index_lookup_seq_range(sync_view, uid, (uint32_t)-1,
+					 &seq1, &seq2)) {
 		/* doesn't exist anymore, seek to end of file */
 		st = i_stream_stat(sync_ctx->file_input, TRUE);
 		if (st == NULL) {

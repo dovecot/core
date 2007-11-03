@@ -317,12 +317,14 @@ void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
    mail_index_lookup()->uid. */
 void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 			   uint32_t *uid_r);
-/* Convert UID range to sequence range. If no UIDs are found, sequences are
-   set to 0. Note that any of the returned sequences may have been expunged
-   already. */
-void mail_index_lookup_uid_range(struct mail_index_view *view,
+/* Convert UID range to sequence range. If no UIDs are found, returns FALSE and
+   sequences are set to 0. Note that any of the returned sequences may have
+   been expunged already. */
+bool mail_index_lookup_seq_range(struct mail_index_view *view,
 				 uint32_t first_uid, uint32_t last_uid,
 				 uint32_t *first_seq_r, uint32_t *last_seq_r);
+bool mail_index_lookup_seq(struct mail_index_view *view,
+			   uint32_t uid, uint32_t *seq_r);
 /* Find first mail with (mail->flags & flags_mask) == flags. Useful mostly for
    taking advantage of lowwater-fields in headers. */
 void mail_index_lookup_first(struct mail_index_view *view,

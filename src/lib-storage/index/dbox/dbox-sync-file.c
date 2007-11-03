@@ -118,8 +118,7 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 		}
 
 		if (i < count) {
-			mail_index_lookup_uid_range(ctx->sync_view, uid, uid,
-						    &seq, &seq);
+			mail_index_lookup_seq(ctx->sync_view, uid, &seq);
 			while (seq > expunges[i].seq2) {
 				if (++i == count)
 					break;

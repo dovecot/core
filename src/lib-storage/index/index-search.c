@@ -745,7 +745,7 @@ static void search_limit_lowwater(struct index_search_context *ctx,
 	if (uid_lowwater == 0)
 		return;
 
-	mail_index_lookup_uid_range(ctx->view, uid_lowwater, (uint32_t)-1,
+	mail_index_lookup_seq_range(ctx->view, uid_lowwater, (uint32_t)-1,
 				    &seq1, &seq2);
 	if (*first_seq < seq1)
 		*first_seq = seq1;

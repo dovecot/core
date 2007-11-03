@@ -127,7 +127,7 @@ void index_sync_changes_read(struct index_sync_changes_context *ctx,
 				break;
 
 			/* mark the changes as dirty */
-			mail_index_lookup_uid_range(ctx->sync_view,
+			mail_index_lookup_seq_range(ctx->sync_view,
 						    sync_rec->uid1,
 						    sync_rec->uid2,
 						    &seq1, &seq2);

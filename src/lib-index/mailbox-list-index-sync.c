@@ -204,9 +204,7 @@ mailbox_list_index_sync_get_seq(struct mailbox_list_index_sync_ctx *ctx,
 		return mailbox_list_index_set_corrupted(ctx->index,
 							"Record with UID=0");
 	}
-	mail_index_lookup_uid_range(ctx->mail_view, rec->uid, rec->uid,
-				    &rec->seq, &rec->seq);
-	if (rec->seq == 0) {
+	if (!mail_index_lookup_seq(ctx->mail_view, rec->uid, &rec->seq)) {
 		mail_hdr = mail_index_get_header(ctx->mail_view);
 		if (rec->uid < mail_hdr->next_uid) {
 			i_warning("%s: Desync: Record uid=%u "
@@ -594,11 +592,8 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 			/* expunge from mail index */
 			uint32_t seq;
 
-			mail_index_lookup_uid_range(ctx->mail_view,
-						    sync_recs[src].uid,
-						    sync_recs[src].uid,
-						    &seq, &seq);
-			if (seq != 0)
+			if (mail_index_lookup_seq(ctx->mail_view,
+						  sync_recs[src].uid, &seq))
 				mail_index_expunge(ctx->trans, seq);
 			// FIXME: expunge also NONEXISTENT parents
 
@@ -724,11 +719,8 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 			recs[j].deleted = TRUE;
 
 			/* expunge from mail index */
-			mail_index_lookup_uid_range(ctx->mail_view,
-						    sync_recs[i].uid,
-						    sync_recs[i].uid,
-						    &seq, &seq);
-			if (seq != 0)
+			if (mail_index_lookup_seq(ctx->mail_view,
+						  sync_recs[i].uid, &seq))
 				mail_index_expunge(ctx->trans, seq);
 
 			/* If we compress the file, the record must be removed

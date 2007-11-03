@@ -110,8 +110,7 @@ index_list_mailbox_open_unchanged_view(struct mailbox *box,
 
 	/* found from list index. lookup the mail index record for it */
 	view = mail_index_view_open(ilist->mail_index);
-	mail_index_lookup_uid_range(view, uid, uid, &seq, &seq);
-	if (seq == 0) {
+	if (!mail_index_lookup_seq(view, uid, &seq)) {
 		mail_index_view_close(&view);
 		return 0;
 	}
@@ -353,8 +352,7 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 	}
 
 	view = mail_index_view_open(ilist->mail_index);
-	mail_index_lookup_uid_range(view, uid, uid, &seq, &seq);
-	if (seq != 0)
+	if (mail_index_lookup_seq(view, uid, &seq))
 		(void)index_list_update(ilist, box, view, seq, status);
 	mail_index_view_close(&view);
 	return 0;

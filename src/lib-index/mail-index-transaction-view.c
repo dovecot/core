@@ -97,7 +97,7 @@ tview_lookup_uid(struct mail_index_view *view, uint32_t seq, uint32_t *uid_r)
 		tview->super->lookup_uid(view, seq, uid_r);
 }
 
-static void tview_lookup_uid_range(struct mail_index_view *view,
+static void tview_lookup_seq_range(struct mail_index_view *view,
 				   uint32_t first_uid, uint32_t last_uid,
 				   uint32_t *first_seq_r, uint32_t *last_seq_r)
 {
@@ -106,7 +106,7 @@ static void tview_lookup_uid_range(struct mail_index_view *view,
 	const struct mail_index_record *rec;
 	uint32_t seq;
 
-	tview->super->lookup_uid_range(view, first_uid, last_uid,
+	tview->super->lookup_seq_range(view, first_uid, last_uid,
 				       first_seq_r, last_seq_r);
 	if (tview->t->last_new_seq == 0) {
 		/* no new messages, the results are final. */
@@ -250,7 +250,7 @@ static struct mail_index_view_vfuncs trans_view_vfuncs = {
 	tview_get_header,
 	tview_lookup_full,
 	tview_lookup_uid,
-	tview_lookup_uid_range,
+	tview_lookup_seq_range,
 	tview_lookup_first,
 	tview_lookup_ext_full,
 	tview_get_header_ext,
