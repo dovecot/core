@@ -202,7 +202,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 	/* @UNSAFE: drop unused fields and create a field mapping for
 	   used fields */
-	max_drop_time = idx_hdr->day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
+	max_drop_time = idx_hdr->day_stamp == 0 ? 0 :
+		idx_hdr->day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
 	orig_fields_count = cache->fields_count;
 	for (i = used_fields_count = 0; i < orig_fields_count; i++) {
 		if (cache->fields[i].last_used < max_drop_time)
