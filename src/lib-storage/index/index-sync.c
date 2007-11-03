@@ -100,7 +100,6 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
         struct index_mailbox_sync_context *ctx;
 	enum mail_index_view_sync_flags sync_flags = 0;
-	int i;
 
 	ctx = i_new(struct index_mailbox_sync_context, 1);
 	ctx->ctx.box = box;
@@ -111,36 +110,22 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 		return &ctx->ctx;
 	}
 
-	if ((flags & MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) != 0 &&
-	    mail_index_view_is_inconsistent(ibox->view)) {
-		mail_index_view_close(&ibox->view);
-		ibox->view = mail_index_view_open(ibox->index);
-	}
-
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
-		sync_flags = MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES;
+		sync_flags |= MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES;
 
-	for (i = 0;; i++) {
+	if ((flags & MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) != 0) {
+		sync_flags |= MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT;
+		ctx->messages_count = 0;
+	} else {
 		ctx->messages_count =
 			mail_index_view_get_messages_count(ibox->view);
+	}
 
-		if (mail_index_view_sync_begin(ibox->view, sync_flags,
-					       &ctx->sync_ctx) < 0) {
-			mail_storage_set_index_error(ibox);
-			ctx->failed = TRUE;
-			return &ctx->ctx;
-		}
-
-		if (i == 0 &&
-		    (flags & MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) != 0 &&
-		    mail_index_view_is_inconsistent(ibox->view)) {
-			/* index was just reset */
-			(void)mail_index_view_sync_commit(&ctx->sync_ctx);
-			mail_index_view_close(&ibox->view);
-			ibox->view = mail_index_view_open(ibox->index);
-		} else {
-			break;
-		}
+	if (mail_index_view_sync_begin(ibox->view, sync_flags,
+				       &ctx->sync_ctx) < 0) {
+		mail_storage_set_index_error(ibox);
+		ctx->failed = TRUE;
+		return &ctx->ctx;
 	}
 
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0) {
