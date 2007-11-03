@@ -104,6 +104,9 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 	if (quick_sync) {
 		start_seq = end_seq;
 		start_offset = end_offset;
+		/* we'll just directly to the end */
+		view->log_file_head_seq = end_seq;
+		view->log_file_head_offset = end_offset;
 	} else {
 		start_seq = view->log_file_expunge_seq;
 		start_offset = view->log_file_expunge_offset;
@@ -284,15 +287,13 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	}
 
 	sync_expunges = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0;
-	if (sync_expunges) {
-		if (quick_sync)
-			i_array_init(&expunges, 1);
-		else {
-			/* get list of all expunges first */
-			if (view_sync_get_expunges(view, &expunges,
-						   &expunge_count) < 0)
-				return -1;
-		}
+	if (quick_sync) {
+		i_assert(sync_expunges);
+		i_array_init(&expunges, 1);
+	} else if (sync_expunges) {
+		/* get list of all expunges first */
+		if (view_sync_get_expunges(view, &expunges, &expunge_count) < 0)
+			return -1;
 	}
 
 	if (view_sync_set_log_view_range(view, sync_expunges, quick_sync,
