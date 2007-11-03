@@ -621,7 +621,7 @@ const char *net_gethosterror(int error)
 	case NO_ADDRESS:
 		return "No IP address found for name";
 	case NO_RECOVERY:
-		return "A non-recovable name server error occurred";
+		return "A non-recoverable name server error occurred";
 	case TRY_AGAIN:
 		return "A temporary error on an authoritative name server";
 	}
