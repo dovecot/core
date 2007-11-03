@@ -529,6 +529,10 @@ int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags,
 	struct mailbox_sync_context *ctx;
         struct mailbox_sync_rec sync_rec;
 
+	/* we don't care about mailbox's current state, so we might as well
+	   fix inconsistency state */
+	flags |= MAILBOX_SYNC_FLAG_FIX_INCONSISTENT;
+
 	ctx = mailbox_sync_init(box, flags);
 	while (mailbox_sync_next(ctx, &sync_rec))
 		;

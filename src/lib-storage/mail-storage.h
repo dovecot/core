@@ -126,16 +126,18 @@ enum mailbox_transaction_flags {
 
 enum mailbox_sync_flags {
 	/* Make sure we sync all external changes done to mailbox */
-	MAILBOX_SYNC_FLAG_FULL_READ	= 0x01,
+	MAILBOX_SYNC_FLAG_FULL_READ		= 0x01,
 	/* Make sure we write all our internal changes into the mailbox */
-	MAILBOX_SYNC_FLAG_FULL_WRITE	= 0x02,
+	MAILBOX_SYNC_FLAG_FULL_WRITE		= 0x02,
 	/* If it's not too much trouble, check if there are some changes */
-	MAILBOX_SYNC_FLAG_FAST		= 0x04,
+	MAILBOX_SYNC_FLAG_FAST			= 0x04,
 
 	/* Don't sync expunges from our view */
-	MAILBOX_SYNC_FLAG_NO_EXPUNGES	= 0x08,
+	MAILBOX_SYNC_FLAG_NO_EXPUNGES		= 0x08,
 	/* Stop auto syncing */
-	MAILBOX_SYNC_AUTO_STOP		= 0x20
+	MAILBOX_SYNC_AUTO_STOP			= 0x20,
+	/* If mailbox is currently inconsistent, fix it instead of failing. */
+	MAILBOX_SYNC_FLAG_FIX_INCONSISTENT	= 0x40
 };
 
 enum mailbox_sync_type {
