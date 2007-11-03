@@ -293,10 +293,17 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	ctx->view = view;
 	ctx->flags = flags;
 	ctx->expunges = expunges;
-	ctx->finish_min_msg_count =
+	ctx->finish_min_msg_count = reset ? 0 :
 		view->map->hdr.messages_count - expunge_count;
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
+
+	if (reset && view->map->hdr.messages_count > 0) {
+		view->inconsistent = TRUE;
+		mail_index_set_error(view->index,
+				     "%s reset, view is now inconsistent",
+				     view->index->filepath);
+	}
 
 	if (sync_expunges || !view_sync_have_expunges(view)) {
 		view->sync_new_map = view->index->map;
@@ -618,7 +625,7 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx)
 {
         struct mail_index_view_sync_ctx *ctx = *_ctx;
         struct mail_index_view *view = ctx->view;
-	int ret = ctx->failed ? -1 : 0;
+	int ret = ctx->failed || view->inconsistent ? -1 : 0;
 
 	i_assert(view->syncing);
 

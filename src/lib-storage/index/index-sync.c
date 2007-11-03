@@ -261,8 +261,12 @@ index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 	hdr = mail_index_get_header(ibox->view);
 	if (ctx->messages_count == 0)
 		uid = 0;
-	else
+	else if (ctx->messages_count <= hdr->messages_count)
 		mail_index_lookup_uid(ibox->view, ctx->messages_count, &uid);
+	else {
+		i_assert(mail_index_view_is_inconsistent(ibox->view));
+		return;
+	}
 
 	for (seq = ctx->messages_count + 1; seq <= hdr->messages_count; seq++) {
 		start_uid = uid;
@@ -312,8 +316,10 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	int ret = ctx->failed ? -1 : 0;
 
 	if (ctx->sync_ctx != NULL) {
-		if (mail_index_view_sync_commit(&ctx->sync_ctx) < 0)
+		if (mail_index_view_sync_commit(&ctx->sync_ctx) < 0) {
+			mail_storage_set_index_error(ibox);
 			ret = -1;
+		}
 	}
 	index_mailbox_expunge_unseen_recent(ctx);
 
