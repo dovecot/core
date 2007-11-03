@@ -15,10 +15,16 @@
 struct dbox_sync_rebuild_context {
 	struct dbox_mailbox *mbox;
 	struct dbox_index_append_context *append_ctx;
+
+	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
+	uint32_t cache_ext_id;
+	uint32_t cache_reset_id;
 
 	struct maildir_uidlist *maildir_uidlist;
 	struct maildir_keywords *mk;
+
+	unsigned int cache_used:1;
 };
 
 static int dbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
@@ -35,13 +41,80 @@ static int dbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
 	return 0;
 }
 
-static void dbox_sync_index_metadata(struct dbox_sync_rebuild_context *ctx,
-				     struct dbox_file *file, uint32_t seq)
+static void
+dbox_sync_index_copy_cache(struct dbox_sync_rebuild_context *ctx,
+			   uint32_t old_seq, uint32_t new_seq)
+{
+	struct mail_index_map *map;
+	const void *data;
+	uint32_t reset_id;
+	bool expunged;
+
+	if (ctx->cache_ext_id == (uint32_t)-1)
+		return;
+
+	mail_index_lookup_ext_full(ctx->view, old_seq, ctx->cache_ext_id,
+				   &map, &data, &expunged);
+	if (expunged)
+		return;
+
+	if (!mail_index_ext_get_reset_id(ctx->view, map, ctx->cache_ext_id,
+					 &reset_id))
+		return;
+
+	if (!ctx->cache_used) {
+		/* set reset id */
+		ctx->cache_used = TRUE;
+		ctx->cache_reset_id = reset_id;
+		mail_index_ext_reset(ctx->trans, ctx->cache_ext_id,
+				     ctx->cache_reset_id);
+	}
+	if (ctx->cache_reset_id == reset_id) {
+		mail_index_update_ext(ctx->trans, new_seq,
+				      ctx->cache_ext_id, data, NULL);
+	}
+}
+
+static void
+dbox_sync_index_copy_from_old(struct dbox_sync_rebuild_context *ctx,
+			      uint32_t old_seq, uint32_t new_seq)
+{
+	struct mail_index *index = mail_index_view_get_index(ctx->view);
+	const struct mail_index_record *rec;
+	ARRAY_TYPE(keyword_indexes) old_keywords;
+	struct mail_keywords *kw;
+
+	/* copy flags */
+	rec = mail_index_lookup(ctx->view, old_seq);
+	mail_index_update_flags(ctx->trans, new_seq,
+				MODIFY_REPLACE, rec->flags);
+
+	/* copy keywords */
+	t_array_init(&old_keywords, 32);
+	mail_index_lookup_keywords(ctx->view, old_seq, &old_keywords);
+	kw = mail_index_keywords_create_from_indexes(index, &old_keywords);
+	mail_index_update_keywords(ctx->trans, new_seq, MODIFY_REPLACE, kw);
+	mail_index_keywords_free(&kw);
+
+	dbox_sync_index_copy_cache(ctx, old_seq, new_seq);
+}
+
+static void
+dbox_sync_index_metadata(struct dbox_sync_rebuild_context *ctx,
+			 struct dbox_file *file, uint32_t seq, uint32_t uid)
 {
 	const char *value;
 	struct mail_keywords *keywords;
 	enum mail_flags flags = 0;
+	uint32_t old_seq;
 	unsigned int i;
+
+	if (mail_index_lookup_seq(ctx->view, uid, &old_seq)) {
+		/* the message exists in the old index.
+		   copy the metadata from it. */
+		dbox_sync_index_copy_from_old(ctx, old_seq, seq);
+		return;
+	}
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_FLAGS);
 	if (value != NULL) {
@@ -115,7 +188,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 	if (!expunged) {
 		mail_index_append(ctx->trans, uid, &seq);
 		file->maildir_append_seq = seq;
-		dbox_sync_index_metadata(ctx, file, seq);
+		dbox_sync_index_metadata(ctx, file, seq, uid);
 	}
 	return 1;
 }
@@ -257,10 +330,20 @@ static void dbox_sync_update_maildir_ids(struct dbox_sync_rebuild_context *ctx)
 	}
 }
 
+static void
+dbox_index_update_cache_header(struct dbox_sync_rebuild_context *ctx)
+{
+	const void *data;
+	size_t size;
+
+	mail_index_get_header_ext(ctx->view, ctx->cache_ext_id, &data, &size);
+	mail_index_update_header_ext(ctx->trans, ctx->cache_ext_id,
+				     0, data, size);
+}
+
 int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 {
 	struct dbox_sync_rebuild_context ctx;
-	struct mail_index_view *view;
 	uint32_t seq;
 	uoff_t offset;
 	int ret;
@@ -268,14 +351,17 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.mbox = mbox;
 	ctx.append_ctx = dbox_index_append_begin(mbox->dbox_index);
-	view = mail_index_view_open(mbox->ibox.index);
-	ctx.trans = mail_index_transaction_begin(view,
+	ctx.view = mail_index_view_open(mbox->ibox.index);
+	ctx.trans = mail_index_transaction_begin(ctx.view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	mail_index_reset(ctx.trans);
+	mail_index_ext_lookup(mbox->ibox.index, "cache", &ctx.cache_ext_id);
 
 	if ((ret = dbox_sync_index_rebuild_ctx(&ctx)) < 0)
 		mail_index_transaction_rollback(&ctx.trans);
 	else {
+		if (ctx.cache_used)
+			dbox_index_update_cache_header(&ctx);
 		ret = dbox_index_append_assign_file_ids(ctx.append_ctx);
 		if (ret == 0) {
 			dbox_sync_update_maildir_ids(&ctx);
@@ -283,7 +369,7 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 							    &seq, &offset);
 		}
 	}
-	mail_index_view_close(&view);
+	mail_index_view_close(&ctx.view);
 
 	if (ret == 0)
 		ret = dbox_index_append_commit(&ctx.append_ctx);

@@ -147,9 +147,17 @@ static void dbox_sync_unlock_files(struct dbox_sync_context *ctx)
 static void dbox_sync_update_header(struct dbox_sync_context *ctx)
 {
 	struct dbox_index_header hdr;
+	const void *data;
+	size_t data_size;
 
-	if (!ctx->flush_dirty_flags)
-		return;
+	if (!ctx->flush_dirty_flags) {
+		/* write the header if it doesn't exist yet */
+		mail_index_get_header_ext(ctx->mbox->ibox.view,
+					  ctx->mbox->dbox_hdr_ext_id,
+					  &data, &data_size);
+		if (data_size != 0)
+			return;
+	}
 
 	hdr.last_dirty_flush_stamp = ioloop_time;
 	mail_index_update_header_ext(ctx->trans, ctx->mbox->dbox_hdr_ext_id, 0,
@@ -224,8 +232,8 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	return ret;
 }
 
-static bool dbox_sync_want_flush_dirty(struct dbox_mailbox *mbox,
-				       bool close_flush_dirty_flags)
+static int dbox_sync_want_flush_dirty(struct dbox_mailbox *mbox,
+				      bool close_flush_dirty_flags)
 {
 	const struct dbox_index_header *hdr;
 	const void *data;
@@ -233,29 +241,30 @@ static bool dbox_sync_want_flush_dirty(struct dbox_mailbox *mbox,
 
 	if (mbox->last_interactive_change <
 	    ioloop_time - DBOX_FLUSH_SECS_INTERACTIVE)
-		return TRUE;
+		return 1;
 
 	mail_index_get_header_ext(mbox->ibox.view, mbox->dbox_hdr_ext_id,
 				  &data, &data_size);
-	if (data_size == 0 || data_size != sizeof(*hdr)) {
+	if (data_size != sizeof(*hdr)) {
+		/* data_size=0 means it's never been synced as dbox */
 		if (data_size != 0) {
 			i_warning("dbox %s: Invalid dbox header size",
 				  mbox->path);
 		}
-		return TRUE;
+		return -1;
 	}
 	hdr = data;
 
 	if (!close_flush_dirty_flags) {
 		if (hdr->last_dirty_flush_stamp <
 		    ioloop_time - DBOX_FLUSH_SECS_IMMEDIATE)
-			return TRUE;
+			return 1;
 	} else {
 		if (hdr->last_dirty_flush_stamp <
 		    ioloop_time - DBOX_FLUSH_SECS_CLOSE)
-			return TRUE;
+			return 1;
 	}
-	return FALSE;
+	return 0;
 }
 
 int dbox_sync_begin(struct dbox_mailbox *mbox,
@@ -267,9 +276,13 @@ int dbox_sync_begin(struct dbox_mailbox *mbox,
 	enum mail_index_sync_flags sync_flags = 0;
 	unsigned int i;
 	int ret;
+	bool rebuild = FALSE;
 
-	if (dbox_sync_want_flush_dirty(mbox, close_flush_dirty_flags))
+	ret = dbox_sync_want_flush_dirty(mbox, close_flush_dirty_flags);
+	if (ret > 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
+	else if (ret < 0)
+		rebuild = TRUE;
 	else {
 		if (close_flush_dirty_flags) {
 			/* no need to sync */
@@ -298,8 +311,13 @@ int dbox_sync_begin(struct dbox_mailbox *mbox,
 			return -1;
 		}
 
-		if ((ret = dbox_sync_index(ctx)) > 0)
-			break;
+		if (rebuild) {
+			ret = 0;
+			rebuild = FALSE;
+		} else {
+			if ((ret = dbox_sync_index(ctx)) > 0)
+				break;
+		}
 
 		/* failure. keep the index locked while we're doing a
 		   rebuild. */
