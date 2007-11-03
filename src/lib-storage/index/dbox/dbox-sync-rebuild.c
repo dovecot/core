@@ -122,7 +122,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 
 static int
 dbox_sync_index_uid_file(struct dbox_sync_rebuild_context *ctx,
-			 const char *fname)
+			 const char *dir, const char *fname)
 {
 	struct dbox_file *file;
 	unsigned long uid;
@@ -139,6 +139,8 @@ dbox_sync_index_uid_file(struct dbox_sync_rebuild_context *ctx,
 	}
 
 	file = dbox_file_init(ctx->mbox, uid | DBOX_FILE_ID_FLAG_UID);
+	file->current_path = i_strdup_printf("%s/%s", dir, fname);
+
 	ret = dbox_sync_index_file_next(ctx, file, &offset) < 0 ? -1 : 0;
 	dbox_file_unref(&file);
 	return ret;
@@ -146,7 +148,7 @@ dbox_sync_index_uid_file(struct dbox_sync_rebuild_context *ctx,
 
 static int
 dbox_sync_index_multi_file(struct dbox_sync_rebuild_context *ctx,
-			   const char *fname)
+			   const char *dir, const char *fname)
 {
 	/* FIXME */
 	return 0;
@@ -176,52 +178,64 @@ dbox_sync_index_maildir_file(struct dbox_sync_rebuild_context *ctx,
 	if ((ret = dbox_sync_index_file_next(ctx, file, &offset)) > 0)
 		dbox_index_append_file(ctx->append_ctx, file);
 	dbox_file_unref(&file);
-	return ret;
+	return ret < 0 ? -1 : 0;
 }
 
-static int dbox_sync_index_rebuild_ctx(struct dbox_sync_rebuild_context *ctx)
+static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
+				       const char *path, bool primary)
 {
 	struct mail_storage *storage = ctx->mbox->ibox.box.storage;
 	DIR *dir;
 	struct dirent *d;
-	int ret = 1;
+	int ret = 0;
 
-	if (dbox_sync_set_uidvalidity(ctx) < 0)
-		return -1;
-
-	dir = opendir(ctx->mbox->path);
+	dir = opendir(path);
 	if (dir == NULL) {
 		if (errno == ENOENT) {
 			ctx->mbox->ibox.mailbox_deleted = TRUE;
 			return -1;
 		}
 		mail_storage_set_critical(storage,
-			"opendir(%s) failed: %m", ctx->mbox->path);
+			"opendir(%s) failed: %m", path);
 		return -1;
 	}
 	errno = 0;
-	for (; ret > 0 && (d = readdir(dir)) != NULL; errno = 0) {
+	for (; ret == 0 && (d = readdir(dir)) != NULL; errno = 0) {
 		if (strncmp(d->d_name, DBOX_MAIL_FILE_UID_PREFIX,
 			    sizeof(DBOX_MAIL_FILE_UID_PREFIX)-1) == 0)
-			ret = dbox_sync_index_uid_file(ctx, d->d_name);
+			ret = dbox_sync_index_uid_file(ctx, path, d->d_name);
 		else if (strncmp(d->d_name, DBOX_MAIL_FILE_MULTI_PREFIX,
 				 sizeof(DBOX_MAIL_FILE_MULTI_PREFIX)-1) == 0)
-			ret = dbox_sync_index_multi_file(ctx, d->d_name);
-		else if (strstr(d->d_name, ":2,") != NULL)
+			ret = dbox_sync_index_multi_file(ctx, path, d->d_name);
+		else if (primary && strstr(d->d_name, ":2,") != NULL)
 			ret = dbox_sync_index_maildir_file(ctx, d->d_name);
 	}
 	if (errno != 0) {
 		mail_storage_set_critical(storage,
-			"readdir(%s) failed: %m", ctx->mbox->path);
+			"readdir(%s) failed: %m", path);
 		ret = -1;
 	}
 
 	if (closedir(dir) < 0) {
 		mail_storage_set_critical(storage,
-			"closedir(%s) failed: %m", ctx->mbox->path);
+			"closedir(%s) failed: %m", path);
 		ret = -1;
 	}
 	return ret;
+}
+
+static int dbox_sync_index_rebuild_ctx(struct dbox_sync_rebuild_context *ctx)
+{
+	int ret;
+
+	if (dbox_sync_set_uidvalidity(ctx) < 0)
+		return -1;
+
+	ret = dbox_sync_index_rebuild_dir(ctx, ctx->mbox->path, TRUE);
+	if (ret < 0 || ctx->mbox->alt_path == NULL)
+		return ret;
+
+	return dbox_sync_index_rebuild_dir(ctx, ctx->mbox->alt_path, FALSE);
 }
 
 static void dbox_sync_update_maildir_ids(struct dbox_sync_rebuild_context *ctx)
