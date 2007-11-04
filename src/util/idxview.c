@@ -345,8 +345,8 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 	string_t *str;
 	bool expunged;
 
-	rec = MAIL_INDEX_MAP_IDX(index->map, seq-1);
-	printf("\nRECORD: seq=%u, uid=%u, flags=0x%02x %s\n",
+	rec = mail_index_lookup(view, seq);
+	printf("RECORD: seq=%u, uid=%u, flags=0x%02x %s\n",
 	       seq, rec->uid, rec->flags, flags2str(rec->flags));
 
 	str = t_str_new(256);
@@ -379,35 +379,42 @@ int main(int argc, const char *argv[])
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache_view *cache_view;
-	unsigned int seq;
+	unsigned int seq, uid = 0;
 
 	lib_init();
 
 	if (argc < 2)
-		i_fatal("Usage: idxview <index dir>");
+		i_fatal("Usage: idxview <index dir> [<uid>]");
 
 	index = mail_index_alloc(argv[1], "dovecot.index");
 	if (mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
 			    FILE_LOCK_METHOD_FCNTL) <= 0)
 		i_fatal("Couldn't open index %s", argv[1]);
+	if (argv[2] != NULL)
+		uid = atoi(argv[2]);
 
 	view = mail_index_view_open(index);
 	cache_view = mail_cache_view_open(index->cache, view);
 
-	printf("-- INDEX: %s\n", index->filepath);
-	dump_hdr(index);
-	dump_extensions(index);
-	dump_keywords(index);
+	if (uid == 0) {
+		printf("-- INDEX: %s\n", index->filepath);
+		dump_hdr(index);
+		dump_extensions(index);
+		dump_keywords(index);
 
-	printf("\n-- CACHE: %s\n", index->cache->filepath);
-	dump_cache_hdr(index->cache);
+		printf("\n-- CACHE: %s\n", index->cache->filepath);
+		dump_cache_hdr(index->cache);
 
-	printf("\n-- RECORDS: %u\n", index->map->hdr.messages_count);
+		printf("\n-- RECORDS: %u\n", index->map->hdr.messages_count);
+	}
 	for (seq = 1; seq <= index->map->hdr.messages_count; seq++) {
-		t_push();
-		dump_record(view, seq);
-		dump_cache(cache_view, seq);
-		t_pop();
+		if (uid == 0 || mail_index_lookup(view, seq)->uid == uid) {
+			t_push();
+			dump_record(view, seq);
+			dump_cache(cache_view, seq);
+			printf("\n");
+			t_pop();
+		}
 	}
 	mail_cache_view_close(cache_view);
 	mail_index_view_close(&view);
