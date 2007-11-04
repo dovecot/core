@@ -22,6 +22,7 @@ gdbhelper_SOURCES = \
 	gdbhelper.c
 
 idxview_LDADD = \
+	../lib-index/libindex.a \
 	../lib/liblib.a
 
 idxview_SOURCES = \

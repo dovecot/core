@@ -4,173 +4,13 @@
 #include "array.h"
 #include "str.h"
 #include "hex-binary.h"
+#include "file-lock.h"
 #include "mail-index-private.h"
 #include "mail-cache-private.h"
-#include "mail-transaction-log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-
-static struct mail_index_header hdr;
-static ARRAY_DEFINE(extensions, struct mail_index_ext);
-static struct mail_cache_header cache_hdr;
-static ARRAY_DEFINE(cache_fields, struct mail_cache_field);
-static unsigned int cache_ext = (unsigned int)-1;
-static unsigned int cache_search_offset = 0;
-static int cache_fd = -1;
-
-uint32_t mail_index_offset_to_uint32(uint32_t offset)
-{
-	const unsigned char *buf = (const unsigned char *) &offset;
-
-	if ((offset & 0x80808080) != 0x80808080)
-		return 0;
-
-	return (((uint32_t)buf[3] & 0x7f) << 2) |
-		(((uint32_t)buf[2] & 0x7f) << 9) |
-		(((uint32_t)buf[1] & 0x7f) << 16) |
-		(((uint32_t)buf[0] & 0x7f) << 23);
-}
-
-static size_t get_align(size_t name_len)
-{
-	size_t size = sizeof(struct mail_index_ext_header) + name_len;
-	return MAIL_INDEX_HEADER_SIZE_ALIGN(size) - size;
-}
-
-static void dump_hdr(int fd)
-{
-	const struct mail_index_ext_header *ext_hdr;
-	struct mail_index_ext ext;
-	char *base;
-	ssize_t ret;
-	unsigned int i, offset, name_offset;
-
-	ret = read(fd, &hdr, sizeof(hdr));
-	if (ret != sizeof(hdr)) {
-		i_fatal("file hdr read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
-			ret, sizeof(hdr));
-	}
-
-	printf("version = %u.%u\n", hdr.major_version, hdr.minor_version);
-	printf("base header size = %u\n", hdr.base_header_size);
-	printf("header size = %u\n", hdr.header_size);
-	printf("record size = %u\n", hdr.record_size);
-	printf("compat flags = %u\n", hdr.compat_flags);
-	printf("index id = %u\n", hdr.indexid);
-	printf("flags = %u\n", hdr.flags);
-	printf("uid validity = %u\n", hdr.uid_validity);
-	printf("next uid = %u\n", hdr.next_uid);
-	printf("messages count = %u\n", hdr.messages_count);
-	printf("seen messages count = %u\n", hdr.seen_messages_count);
-	printf("deleted messages count = %u\n", hdr.deleted_messages_count);
-	printf("first recent uid = %u\n", hdr.first_recent_uid);
-	printf("first unseen uid lowwater = %u\n", hdr.first_unseen_uid_lowwater);
-	printf("first deleted uid lowwater = %u\n", hdr.first_deleted_uid_lowwater);
-	printf("log file seq = %u\n", hdr.log_file_seq);
-	if (hdr.minor_version == 0) {
-		printf("log file int offset = %u\n", hdr.log_file_tail_offset);
-		printf("log file ext offset = %u\n", hdr.log_file_head_offset);
-	} else {
-		printf("log file tail offset = %u\n", hdr.log_file_tail_offset);
-		printf("log file head offset = %u\n", hdr.log_file_head_offset);
-	}
-	printf("sync size = %llu\n", (unsigned long long)hdr.sync_size);
-	printf("sync stamp = %u\n", hdr.sync_stamp);
-	printf("day stamp = %u\n", hdr.day_stamp);
-	for (i = 0; i < 8; i++)
-		printf("day first uid[%u] = %u\n", i, hdr.day_first_uid[i]);
-
-	i_array_init(&extensions, 16);
-	offset = MAIL_INDEX_HEADER_SIZE_ALIGN(hdr.base_header_size);
-	if (offset >= hdr.header_size) {
-		printf("no extensions\n");
-		return;
-	}
-
-	base = i_malloc(hdr.header_size);
-	ret = pread(fd, base, hdr.header_size, 0);
-	if (ret != (ssize_t)hdr.header_size) {
-		i_fatal("file hdr read() %"PRIuSIZE_T" != %u",
-			ret, hdr.header_size);
-	}
-
-	memset(&ext, 0, sizeof(ext)); i = 0;
-	while (offset < hdr.header_size) {
-		ext_hdr = CONST_PTR_OFFSET(base, offset);
-
-		offset += sizeof(*ext_hdr);
-		name_offset = offset;
-		offset += ext_hdr->name_size + get_align(ext_hdr->name_size);
-
-		ext.name = i_strndup(CONST_PTR_OFFSET(base, name_offset),
-				     ext_hdr->name_size);
-		ext.record_offset = ext_hdr->record_offset;
-		ext.record_size = ext_hdr->record_size;
-		ext.record_align = ext_hdr->record_align;
-
-		if (strcmp(ext.name, "cache") == 0)
-                        cache_ext = i;
-
-		printf("-- Extension %u --\n", i);
-		printf("name: %s\n", ext.name);
-		printf("hdr_size: %u\n", ext_hdr->hdr_size);
-		printf("reset_id: %u\n", ext_hdr->reset_id);
-		printf("record_offset: %u\n", ext_hdr->record_offset);
-		printf("record_size: %u\n", ext_hdr->record_size);
-		printf("record_align: %u\n", ext_hdr->record_align);
-		printf("name_size: %u\n", ext_hdr->name_size);
-
-		offset += MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size);
-		array_append(&extensions, &ext, 1);
-		i++;
-	}
-}
-
-static const char *cache_decision2str(enum mail_cache_decision_type type)
-{
-	const char *str;
-
-	switch (type & ~MAIL_CACHE_DECISION_FORCED) {
-	case MAIL_CACHE_DECISION_NO:
-		str = "no";
-		break;
-	case MAIL_CACHE_DECISION_TEMP:
-		str = "temp";
-		break;
-	case MAIL_CACHE_DECISION_YES:
-		str = "yes";
-		break;
-	default:
-		return t_strdup_printf("0x%x", type);
-	}
-
-	if ((type & MAIL_CACHE_DECISION_FORCED) != 0)
-		str = t_strconcat(str, " (forced)", NULL);
-	return str;
-}
-
-#define CACHE_TYPE_IS_FIXED_SIZE(type) \
-	((type) == MAIL_CACHE_FIELD_FIXED_SIZE || \
-	 (type) == MAIL_CACHE_FIELD_BITMASK)
-static const char *cache_type2str(enum mail_cache_field_type type)
-{
-	switch (type) {
-	case MAIL_CACHE_FIELD_FIXED_SIZE:
-		return "fixed";
-	case MAIL_CACHE_FIELD_VARIABLE_SIZE:
-		return "variable";
-	case MAIL_CACHE_FIELD_STRING:
-		return "string";
-	case MAIL_CACHE_FIELD_BITMASK:
-		return "bitmask";
-	case MAIL_CACHE_FIELD_HEADER:
-		return "header";
-	default:
-		return t_strdup_printf("0x%x", type);
-	}
-}
 
 static const char *unixdate2str(time_t time)
 {
@@ -182,175 +22,213 @@ static const char *unixdate2str(time_t time)
 	return buf;
 }
 
-static void dump_cache_hdr(int fd)
+static void dump_hdr(struct mail_index *index)
 {
-        struct mail_cache_header_fields fields;
-	struct mail_cache_field field;
-	uint32_t field_offset, next_offset;
-	char *buf;
-	ssize_t ret;
-	const uint32_t *last_used, *size;
-	const uint8_t *type, *decision;
-	const char *names;
+	const struct mail_index_header *hdr = &index->map->hdr;
 	unsigned int i;
 
-	ret = read(fd, &cache_hdr, sizeof(cache_hdr));
-	if (ret != sizeof(cache_hdr)) {
-		i_fatal("cache file hdr read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
-			ret, sizeof(cache_hdr));
+	printf("version .................. = %u.%u\n", hdr->major_version, hdr->minor_version);
+	printf("base header size ......... = %u\n", hdr->base_header_size);
+	printf("header size .............. = %u\n", hdr->header_size);
+	printf("record size .............. = %u\n", hdr->record_size);
+	printf("compat flags ............. = %u\n", hdr->compat_flags);
+	printf("index id ................. = %u (%s)\n", hdr->indexid, unixdate2str(hdr->indexid));
+	printf("flags .................... = %u\n", hdr->flags);
+	printf("uid validity ............. = %u (%s)\n", hdr->uid_validity, unixdate2str(hdr->uid_validity));
+	printf("next uid ................. = %u\n", hdr->next_uid);
+	printf("messages count ........... = %u\n", hdr->messages_count);
+	printf("seen messages count ...... = %u\n", hdr->seen_messages_count);
+	printf("deleted messages count ... = %u\n", hdr->deleted_messages_count);
+	printf("first recent uid ......... = %u\n", hdr->first_recent_uid);
+	printf("first unseen uid lowwater  = %u\n", hdr->first_unseen_uid_lowwater);
+	printf("first deleted uid lowwater = %u\n", hdr->first_deleted_uid_lowwater);
+	printf("log file seq ............. = %u\n", hdr->log_file_seq);
+	if (hdr->minor_version == 0) {
+		printf("log file int offset ...... = %u\n", hdr->log_file_tail_offset);
+		printf("log file ext offset ...... = %u\n", hdr->log_file_head_offset);
+	} else {
+		printf("log file tail offset ..... = %u\n", hdr->log_file_tail_offset);
+		printf("log file head offset ..... = %u\n", hdr->log_file_head_offset);
+	}
+	printf("sync size ................ = %llu\n", (unsigned long long)hdr->sync_size);
+	printf("sync stamp ............... = %u (%s)\n", hdr->sync_stamp, unixdate2str(hdr->sync_stamp));
+	printf("day stamp ................ = %u (%s)\n", hdr->day_stamp, unixdate2str(hdr->day_stamp));
+	for (i = 0; i < N_ELEMENTS(hdr->day_first_uid); i++)
+		printf("day first uid[%u] ......... = %u\n", i, hdr->day_first_uid[i]);
+}
+
+static void dump_extensions(struct mail_index *index)
+{
+	const struct mail_index_ext *extensions;
+	unsigned int i, count;
+
+	extensions = array_get(&index->map->extensions, &count);
+	if (count == 0) {
+		printf("no extensions\n");
+		return;
 	}
 
-	field_offset =
-		mail_index_offset_to_uint32(cache_hdr.field_header_offset);
+	for (i = 0; i < count; i++) {
+		const struct mail_index_ext *ext = &extensions[i];
 
-	printf("Cache header:\n");
-	printf("version: %u\n", cache_hdr.version);
-	printf("indexid: %u\n", cache_hdr.indexid);
-	printf("file_seq: %u\n", cache_hdr.file_seq);
-	printf("continued_record_count: %u\n", cache_hdr.continued_record_count);
-	printf("hole_offset: %u\n", cache_hdr.hole_offset);
-	printf("used_file_size: %u\n", cache_hdr.used_file_size);
-	printf("deleted_space: %u\n", cache_hdr.deleted_space);
-	printf("field_header_offset: %u / %u\n",
-	       cache_hdr.field_header_offset, field_offset);
-
-	for (;;) {
-		ret = pread(fd, &fields, sizeof(fields), field_offset);
-		if (ret != sizeof(fields)) {
-			i_fatal("cache file fields read() %"
-				PRIuSIZE_T" != %"PRIuSIZE_T,
-				ret, sizeof(fields));
-		}
-
-		next_offset =
-			mail_index_offset_to_uint32(fields.next_offset);
-		if (next_offset == 0)
-			break;
-
-		field_offset = next_offset;
-	}
-
-	printf("-- Cache fields: --\n");
-	printf("actual used header offset: %u\n", field_offset);
-
-	buf = i_malloc(fields.size);
-	ret = pread(fd, buf, fields.size, field_offset);
-	if (ret != (ssize_t)fields.size) {
-		i_fatal("cache file fields read() %"PRIuSIZE_T" != %u",
-			ret, fields.size);
-	}
-	printf("fields_count: %u\n", fields.fields_count);
-
-	if (fields.fields_count > 10000)
-		i_fatal("Broken fields_count");
-
-	last_used = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_LAST_USED());
-	size = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_SIZE(fields.fields_count));
-	type = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_TYPE(fields.fields_count));
-	decision = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_DECISION(fields.fields_count));
-	names = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_NAMES(fields.fields_count));
-
-	if ((unsigned int)(names - (const char *)buf) >= fields.size)
-		i_fatal("Fields go outside allocated size");
-
-	i_array_init(&cache_fields, 64);
-	memset(&field, 0, sizeof(field));
-	for (i = 0; i < fields.fields_count; i++) {
-		field.name = names;
-
-		field.field_size = size[i];
-		field.type = type[i];
-		field.decision = decision[i];
-		array_append(&cache_fields, &field, 1);
-
-		printf("#%u %s: type=%s ", i, names, cache_type2str(type[i]));
-		if (size[i] != (uint32_t)-1 ||
-		    CACHE_TYPE_IS_FIXED_SIZE(type[i]))
-			printf("size=%u ", size[i]);
-		printf("decision=%s last_used=%s\n",
-		       cache_decision2str(decision[i]),
-		       unixdate2str(last_used[i]));
-		names += strlen(names) + 1;
+		printf("-- Extension %u --\n", i);
+		printf("name ........ = %s\n", ext->name);
+		printf("hdr_size .... = %u\n", ext->hdr_size);
+		printf("reset_id .... = %u\n", ext->reset_id);
+		printf("record_offset = %u\n", ext->record_offset);
+		printf("record_size . = %u\n", ext->record_size);
+		printf("record_align  = %u\n", ext->record_align);
 	}
 }
 
-static void dump_cache(uint32_t offset)
+static void dump_keywords(struct mail_index *index)
 {
-	const struct mail_cache_field *fields;
-	struct mail_cache_record rec;
-	ssize_t ret;
-	char *buf;
-	unsigned int idx, size, pos, next_pos, cache_fields_count;
+	const unsigned int *kw_indexes;
+	const char *const *keywords;
+	unsigned int i, count;
+
+	printf("-- Keywords --\n");
+
+	kw_indexes = array_get(&index->map->keyword_idx_map, &count);
+	if (count == 0)
+		return;
+
+	keywords = array_idx(&index->keywords, 0);
+	for (i = 0; i < count; i++)
+		printf("%3u = %s\n", i, keywords[kw_indexes[i]]);
+}
+
+static const char *cache_decision2str(enum mail_cache_decision_type type)
+{
+	const char *str;
+
+	switch (type & ~MAIL_CACHE_DECISION_FORCED) {
+	case MAIL_CACHE_DECISION_NO:
+		str = "no";
+		break;
+	case MAIL_CACHE_DECISION_TEMP:
+		str = "tmp";
+		break;
+	case MAIL_CACHE_DECISION_YES:
+		str = "yes";
+		break;
+	default:
+		return t_strdup_printf("0x%x", type);
+	}
+
+	if ((type & MAIL_CACHE_DECISION_FORCED) != 0)
+		str = t_strconcat(str, "!", NULL);
+	return str;
+}
+
+#define CACHE_TYPE_IS_FIXED_SIZE(type) \
+	((type) == MAIL_CACHE_FIELD_FIXED_SIZE || \
+	 (type) == MAIL_CACHE_FIELD_BITMASK)
+static const char *cache_type2str(enum mail_cache_field_type type)
+{
+	switch (type) {
+	case MAIL_CACHE_FIELD_FIXED_SIZE:
+		return "fix";
+	case MAIL_CACHE_FIELD_VARIABLE_SIZE:
+		return "var";
+	case MAIL_CACHE_FIELD_STRING:
+		return "str";
+	case MAIL_CACHE_FIELD_BITMASK:
+		return "bit";
+	case MAIL_CACHE_FIELD_HEADER:
+		return "hdr";
+	default:
+		return t_strdup_printf("0x%x", type);
+	}
+}
+
+static void dump_cache_hdr(struct mail_cache *cache)
+{
+	const struct mail_cache_header *hdr;
+	const struct mail_cache_field *fields, *field;
+	unsigned int i, count, cache_idx;
+
+	(void)mail_cache_open_and_verify(cache);
+	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
+		printf("cache is unusable\n");
+		return;
+	}
+
+	hdr = cache->hdr;
+	printf("version .............. = %u\n", hdr->version);
+	printf("indexid .............. = %u (%s)\n", hdr->indexid, unixdate2str(hdr->indexid));
+	printf("file_seq ............. = %u (%s)\n", hdr->file_seq, unixdate2str(hdr->file_seq));
+	printf("continued_record_count = %u\n", hdr->continued_record_count);
+	printf("hole_offset .......... = %u\n", hdr->hole_offset);
+	printf("used_file_size ....... = %u\n", hdr->used_file_size);
+	printf("deleted_space ........ = %u\n", hdr->deleted_space);
+	printf("field_header_offset .. = %u (0x%08x nontranslated)\n",
+	       mail_index_offset_to_uint32(hdr->field_header_offset),
+	       hdr->field_header_offset);
+
+	printf("-- Cache fields --\n");
+	fields = mail_cache_register_get_list(cache, pool_datastack_create(),
+					      &count);
+	printf(
+" #  Name                                         Type Size Dec  Last used\n");
+	for (i = 0; i < cache->file_fields_count; i++) {
+		cache_idx = cache->file_field_map[i];
+		field = &fields[cache_idx];
+
+		printf("%2u: %-44s %-4s ", i, field->name,
+		       cache_type2str(field->type));
+		if (field->field_size != (uint32_t)-1 ||
+		    CACHE_TYPE_IS_FIXED_SIZE(field->type))
+			printf("%4u ", field->field_size);
+		else
+			printf("   - ");
+		printf("%-4s %s\n",
+		       cache_decision2str(field->decision),
+		       unixdate2str(cache->fields[cache_idx].last_used));
+	}
+}
+
+static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
+{
+	struct mail_cache_lookup_iterate_ctx iter;
+	const struct mail_cache_record *prev_rec = NULL;
+	const struct mail_cache_field *field;
+	struct mail_cache_iterate_field iter_field;
+	const void *data;
+	unsigned int size;
 	string_t *str;
+	int ret;
 
-	if (offset == 0 || cache_fd == -1)
-		return;
-
-	ret = pread(cache_fd, &rec, sizeof(rec), offset);
-	if (ret != sizeof(rec)) {
-		printf(" - cache at %u BROKEN: points outside file\n", offset);
-		return;
-	}
-
-	if (rec.size == 0 || rec.size > 1000000) {
-		printf(" - cache at %u BROKEN: rec.size = %u\n",
-		       offset, rec.size);
-		return;
-	}
-
-	if (offset <= cache_search_offset &&
-	    offset + rec.size > cache_search_offset)
-		printf(" - SEARCH MATCH\n");
-
-	buf = t_malloc(rec.size);
-	ret = pread(cache_fd, buf, rec.size, offset);
-	if (ret != (ssize_t)rec.size)
-		i_fatal("cache rec read() %"PRIuSIZE_T" != %u", ret, rec.size);
-	printf(" - cache at %u + %u (prev_offset = %u)\n",
-	       offset, rec.size, rec.prev_offset);
-
-	fields = array_get(&cache_fields, &cache_fields_count);
 	str = t_str_new(512);
-	for (pos = sizeof(rec); pos < rec.size; ) {
-		idx = *((const uint32_t *)(buf+pos));
-		pos += sizeof(uint32_t);
-
-		if (idx >= cache_fields_count) {
-			printf("BROKEN: file_field = %u > %u\n",
-			       idx, cache_fields_count);
-			return;
+	mail_cache_lookup_iter_init(cache_view, seq, &iter);
+	while ((ret = mail_cache_lookup_iter_next(&iter, &iter_field)) > 0) {
+		if (iter.rec != prev_rec) {
+			printf(" - cache offset=%u size=%u, prev_offset = %u\n",
+			       iter.offset, iter.rec->size,
+			       iter.rec->prev_offset);
+			prev_rec = iter.rec;
 		}
 
-		size = fields[idx].field_size;
-		if (size == (unsigned int)-1) {
-			size = *((const uint32_t *)(buf+pos));
-			pos += sizeof(uint32_t);
-		}
-
-		next_pos = pos + ((size + 3) & ~3);
-		if (size > rec.size || next_pos > rec.size) {
-			printf("BROKEN: record continues outside its allocated size\n");
-			return;
-		}
+		field = &cache_view->cache->fields[iter_field.field_idx].field;
+		data = iter_field.data;
+		size = iter_field.size;
 
 		str_truncate(str, 0);
-		str_printfa(str, "    - %s: ", fields[idx].name);
-		switch (fields[idx].type) {
+		str_printfa(str, "    - %s: ", field->name);
+		switch (field->type) {
 		case MAIL_CACHE_FIELD_FIXED_SIZE:
-			if (size == sizeof(uint32_t)) {
-				str_printfa(str, "%u", *((const uint32_t *)(buf+pos)));
-				break;
-			}
+			if (size == sizeof(uint32_t))
+				str_printfa(str, "%u ", *((const uint32_t *)data));
 		case MAIL_CACHE_FIELD_VARIABLE_SIZE:
 		case MAIL_CACHE_FIELD_BITMASK:
-			str_printfa(str, " (%s)", binary_to_hex((const unsigned char *)buf+pos, size));
+			str_printfa(str, "(%s)", binary_to_hex(data, size));
 			break;
 		case MAIL_CACHE_FIELD_STRING:
 			if (size > 0)
-				str_printfa(str, "%.*s", (int)size, buf+pos);
+				str_printfa(str, "%.*s", (int)size, (const char *)data);
 			break;
 		case MAIL_CACHE_FIELD_HEADER: {
-			const uint32_t *lines = (void *)(buf + pos);
+			const uint32_t *lines = data;
 			int i;
 
 			for (i = 0;; i++) {
@@ -366,7 +244,7 @@ static void dump_cache(uint32_t offset)
 				}
 
 				size -= sizeof(uint32_t);
-				pos += sizeof(uint32_t);
+				data = CONST_PTR_OFFSET(data, sizeof(uint32_t));
 				if (lines[i] == 0)
 					break;
 
@@ -375,9 +253,11 @@ static void dump_cache(uint32_t offset)
 				str_printfa(str, "%u", lines[i]);
 			}
 
-			if (i == 1 && size > 0 && buf[pos+size-1] == '\n') size--;
+			if (i == 1 && size > 0 &&
+			    ((const char *)data)[size-1] == '\n')
+				size--;
 			if (size > 0)
-				str_printfa(str, ": %.*s", (int)size, buf+pos);
+				str_printfa(str, ": %.*s", (int)size, (const char *)data);
 			break;
 		}
 		case MAIL_CACHE_FIELD_COUNT:
@@ -386,107 +266,111 @@ static void dump_cache(uint32_t offset)
 		}
 
 		printf("%s\n", str_c(str));
-		pos = next_pos;
 	}
-
-	dump_cache(rec.prev_offset);
+	if (ret < 0)
+		printf(" - broken cache\n");
 }
 
-static int dump_record(int fd, void *buf, unsigned int seq)
+static const char *flags2str(enum mail_flags flags)
 {
-	off_t offset;
-	ssize_t ret;
-	const struct mail_index_record *rec = buf;
-	const struct mail_index_ext *ext;
-	const void *ptr;
-	unsigned int i, ext_count;
 	string_t *str;
 
-	ret = read(fd, buf, hdr.record_size);
-	if (ret == 0)
-		return 0;
+	str = t_str_new(64);
+	str_append_c(str, '(');
+	if ((flags & MAIL_SEEN) != 0)
+		str_append(str, "Seen ");
+	if ((flags & MAIL_ANSWERED) != 0)
+		str_append(str, "Answered ");
+	if ((flags & MAIL_FLAGGED) != 0)
+		str_append(str, "Flagged ");
+	if ((flags & MAIL_DELETED) != 0)
+		str_append(str, "Deleted ");
+	if ((flags & MAIL_DRAFT) != 0)
+		str_append(str, "Draft ");
+	if (str_len(str) == 1)
+		return "";
 
-	if (ret != (ssize_t)hdr.record_size) {
-		i_fatal("rec hdr read() %"PRIuSIZE_T" != %u",
-			ret, hdr.record_size);
-	}
+	str_truncate(str, str_len(str)-1);
+	str_append_c(str, ')');
+	return str_c(str);
+}
 
-	offset = lseek(fd, 0, SEEK_CUR);
+static void dump_record(struct mail_index_view *view, unsigned int seq)
+{
+	struct mail_index *index = mail_index_view_get_index(view);
+	const struct mail_index_record *rec;
+	const struct mail_index_ext *ext;
+	const void *data;
+	unsigned int i, ext_count;
+	string_t *str;
+	bool expunged;
 
-	printf("RECORD: offset=%"PRIuUOFF_T", seq=%u, uid=%u, flags=%x\n",
-	       offset, seq, rec->uid, rec->flags);
+	rec = MAIL_INDEX_MAP_IDX(index->map, seq-1);
+	printf("RECORD: seq=%u, uid=%u, flags=0x%02x %s\n",
+	       seq, rec->uid, rec->flags, flags2str(rec->flags));
+
 	str = t_str_new(256);
-	ext = array_get(&extensions, &ext_count);
+	ext = array_get(&index->map->extensions, &ext_count);
 	for (i = 0; i < ext_count; i++) {
-		if (ext[i].record_size == 0)
+		mail_index_lookup_ext(view, seq, i, &data, &expunged);
+		if (data == NULL || ext[i].record_size == 0)
 			continue;
-		str_truncate(str, 0);
-		str_printfa(str, " - ext %s(%u): ", ext[i].name, i);
 
-		ptr = CONST_PTR_OFFSET(buf, ext[i].record_offset);
+		str_truncate(str, 0);
+		str_printfa(str, " - ext %d %s: ", i, ext[i].name);
 		if (ext[i].record_size == sizeof(uint32_t) &&
 		    ext[i].record_align == sizeof(uint32_t))
-			str_printfa(str, "%u", *((const uint32_t *)ptr));
+			str_printfa(str, "%u", *((const uint32_t *)data));
 		else if (ext[i].record_size == sizeof(uint64_t) &&
 			 ext[i].record_align == sizeof(uint64_t)) {
-			uint64_t value = *((const uint64_t *)ptr);
+			uint64_t value = *((const uint64_t *)data);
 			str_printfa(str, "%llu", (unsigned long long)value);
 		}
-		str_printfa(str, " (%s)", binary_to_hex(ptr, ext[i].record_size));
+		str_printfa(str, " (%s)",
+			    binary_to_hex(data, ext[i].record_size));
 		printf("%s\n", str_c(str));
-
-		if (i == cache_ext)
-			dump_cache(*((const uint32_t *)ptr));
 	}
-	return 1;
 }
 
 int main(int argc, const char *argv[])
 {
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_cache_view *cache_view;
 	unsigned int seq;
-	void *buf;
-	int fd, ret;
 
 	lib_init();
 
 	if (argc < 2)
-		i_fatal("Usage: idxview dovecot.index [dovecot.index.cache]");
+		i_fatal("Usage: idxview <index dir>");
 
-	fd = open(argv[1], O_RDONLY);
-	if (fd < 0) {
-		i_error("open(): %m");
-		return 1;
+	index = mail_index_alloc(argv[1], "dovecot.index");
+	if (mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
+			    FILE_LOCK_METHOD_FCNTL) <= 0) {
+		i_fatal("Couldn't open index %s: %s", argv[1],
+			mail_index_get_error_message(index));
 	}
+	view = mail_index_view_open(index);
+	cache_view = mail_cache_view_open(index->cache, view);
 
-	printf("-- INDEX: %s\n", argv[1]);
+	printf("-- INDEX: %s\n", index->filepath);
+	dump_hdr(index);
+	dump_extensions(index);
+	dump_keywords(index);
 
-	dump_hdr(fd);
-	lseek(fd, hdr.header_size, SEEK_SET);
+	printf("\n-- CACHE: %s\n", index->cache->filepath);
+	dump_cache_hdr(index->cache);
 
-	printf("---------------\n");
-
-	if (argv[2] != NULL) {
-		cache_fd = open(argv[2], O_RDONLY);
-		if (cache_fd < 0) {
-			i_error("open(): %m");
-			return 1;
-		}
-
-		dump_cache_hdr(cache_fd);
-
-		printf("---------------\n");
-
-		if (argv[3] != NULL)
-			cache_search_offset = atoi(argv[3]);
-	}
-
-	buf = i_malloc(hdr.record_size);
-	seq = 1;
-	do {
+	printf("\n-- RECORDS: %u\n", index->map->hdr.messages_count);
+	for (seq = 1; seq <= index->map->hdr.messages_count; seq++) {
 		t_push();
-		ret = dump_record(fd, buf, seq);
+		dump_record(view, seq);
+		dump_cache(cache_view, seq);
 		t_pop();
-		seq++;
-	} while (ret);
+	}
+	mail_cache_view_close(cache_view);
+	mail_index_view_close(&view);
+	mail_index_close(index);
+	mail_index_free(&index);
 	return 0;
 }
