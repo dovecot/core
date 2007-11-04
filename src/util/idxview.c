@@ -12,6 +12,14 @@
 #include <stdlib.h>
 #include <time.h>
 
+struct maildir_index_header {
+	uint32_t new_check_time, new_mtime, new_mtime_nsecs;
+	uint32_t cur_check_time, cur_mtime, cur_mtime_nsecs;
+};
+struct dbox_index_header {
+	uint32_t last_dirty_flush_stamp;
+};
+
 static const char *unixdate2str(time_t time)
 {
 	static char buf[64];
@@ -57,6 +65,36 @@ static void dump_hdr(struct mail_index *index)
 		printf("day first uid[%u] ......... = %u\n", i, hdr->day_first_uid[i]);
 }
 
+static void dump_extension_header(struct mail_index *index,
+				  const struct mail_index_ext *ext)
+{
+	const void *data;
+
+	if (strcmp(ext->name, "keywords") == 0)
+		return;
+
+	data = CONST_PTR_OFFSET(index->map->hdr_base, ext->hdr_offset);
+	if (strcmp(ext->name, "maildir") == 0) {
+		const struct maildir_index_header *hdr = data;
+
+		printf("header\n");
+		printf(" - new_check_time  = %s\n", unixdate2str(hdr->new_check_time));
+		printf(" - new_mtime ..... = %s\n", unixdate2str(hdr->new_mtime));
+		printf(" - new_mtime_nsecs = %s\n", unixdate2str(hdr->new_mtime_nsecs));
+		printf(" - cur_check_time  = %s\n", unixdate2str(hdr->cur_check_time));
+		printf(" - cur_mtime ..... = %s\n", unixdate2str(hdr->cur_mtime));
+		printf(" - cur_mtime_nsecs = %s\n", unixdate2str(hdr->cur_mtime_nsecs));
+	} else if (strcmp(ext->name, "dbox-hdr") == 0) {
+		const struct dbox_index_header *hdr = data;
+
+		printf("header\n");
+		printf(" - last_dirty_flush_stamp = %s\n", unixdate2str(hdr->last_dirty_flush_stamp));
+	} else {
+		printf("header ........ = %s\n",
+		       binary_to_hex(data, ext->hdr_size));
+	}
+}
+
 static void dump_extensions(struct mail_index *index)
 {
 	const struct mail_index_ext *extensions;
@@ -78,6 +116,8 @@ static void dump_extensions(struct mail_index *index)
 		printf("record_offset = %u\n", ext->record_offset);
 		printf("record_size . = %u\n", ext->record_size);
 		printf("record_align  = %u\n", ext->record_align);
+		if (ext->hdr_size > 0)
+			dump_extension_header(index, ext);
 	}
 }
 
@@ -348,10 +388,9 @@ int main(int argc, const char *argv[])
 
 	index = mail_index_alloc(argv[1], "dovecot.index");
 	if (mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
-			    FILE_LOCK_METHOD_FCNTL) <= 0) {
-		i_fatal("Couldn't open index %s: %s", argv[1],
-			mail_index_get_error_message(index));
-	}
+			    FILE_LOCK_METHOD_FCNTL) <= 0)
+		i_fatal("Couldn't open index %s", argv[1]);
+
 	view = mail_index_view_open(index);
 	cache_view = mail_cache_view_open(index->cache, view);
 
