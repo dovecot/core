@@ -104,7 +104,8 @@ int mail_cache_reopen(struct mail_cache *cache)
 
 	mail_cache_file_close(cache);
 
-	cache->fd = nfs_safe_open(cache->filepath, O_RDWR);
+	cache->fd = nfs_safe_open(cache->filepath,
+				  cache->index->readonly ? O_RDONLY : O_RDWR);
 	if (cache->fd == -1) {
 		if (errno == ENOENT)
 			cache->need_compress_file_seq = 0;
@@ -279,7 +280,8 @@ static int mail_cache_try_open(struct mail_cache *cache)
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
 		return 0;
 
-	cache->fd = nfs_safe_open(cache->filepath, O_RDWR);
+	cache->fd = nfs_safe_open(cache->filepath,
+				  cache->index->readonly ? O_RDONLY : O_RDWR);
 	if (cache->fd == -1) {
 		if (errno == ENOENT) {
 			cache->need_compress_file_seq = 0;

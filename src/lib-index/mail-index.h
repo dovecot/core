@@ -21,6 +21,8 @@ enum mail_index_open_flags {
 	MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE	= 0x20,
 	/* Flush NFS attr/data/write cache when necessary */
 	MAIL_INDEX_OPEN_FLAG_NFS_FLUSH		= 0x40,
+	/* Open the index read-only */
+	MAIL_INDEX_OPEN_FLAG_READONLY		= 0x80
 };
 
 enum mail_index_header_compat_flags {

@@ -430,7 +430,7 @@ int mail_cache_compress(struct mail_cache *cache,
 	bool unlock = FALSE;
 	int ret;
 
-	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
+	if (MAIL_INDEX_IS_IN_MEMORY(cache->index) || cache->index->readonly)
 		return 0;
 
 	if (cache->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
@@ -460,5 +460,6 @@ int mail_cache_compress(struct mail_cache *cache,
 
 bool mail_cache_need_compress(struct mail_cache *cache)
 {
-	return cache->need_compress_file_seq != 0;
+	return cache->need_compress_file_seq != 0 &&
+		!cache->index->readonly;
 }

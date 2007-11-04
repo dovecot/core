@@ -243,8 +243,12 @@ int mail_index_try_open_only(struct mail_index *index)
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 
         /* Note that our caller must close index->fd by itself. */
-	index->fd = nfs_safe_open(index->filepath, O_RDWR);
-	index->readonly = FALSE;
+	if (index->readonly)
+		errno = EACCES;
+	else {
+		index->fd = nfs_safe_open(index->filepath, O_RDWR);
+		index->readonly = FALSE;
+	}
 
 	if (index->fd == -1 && errno == EACCES) {
 		index->fd = open(index->filepath, O_RDONLY);
@@ -396,6 +400,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 	index->fsync_disable =
 		(flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0;
 	index->nfs_flush = (flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
+	index->readonly = (flags & MAIL_INDEX_OPEN_FLAG_READONLY) != 0;
 	index->lock_method = lock_method;
 
 	if (index->nfs_flush && index->fsync_disable)
