@@ -306,7 +306,7 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 	bool expunged;
 
 	rec = MAIL_INDEX_MAP_IDX(index->map, seq-1);
-	printf("RECORD: seq=%u, uid=%u, flags=0x%02x %s\n",
+	printf("\nRECORD: seq=%u, uid=%u, flags=0x%02x %s\n",
 	       seq, rec->uid, rec->flags, flags2str(rec->flags));
 
 	str = t_str_new(256);
@@ -317,14 +317,16 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			continue;
 
 		str_truncate(str, 0);
-		str_printfa(str, " - ext %d %s: ", i, ext[i].name);
+		str_printfa(str, " - ext %d %-10s: ", i, ext[i].name);
 		if (ext[i].record_size == sizeof(uint32_t) &&
 		    ext[i].record_align == sizeof(uint32_t))
-			str_printfa(str, "%u", *((const uint32_t *)data));
+			str_printfa(str, "%10u", *((const uint32_t *)data));
 		else if (ext[i].record_size == sizeof(uint64_t) &&
 			 ext[i].record_align == sizeof(uint64_t)) {
 			uint64_t value = *((const uint64_t *)data);
-			str_printfa(str, "%llu", (unsigned long long)value);
+			str_printfa(str, "%10llu", (unsigned long long)value);
+		} else {
+			str_append(str, "          ");
 		}
 		str_printfa(str, " (%s)",
 			    binary_to_hex(data, ext[i].record_size));
