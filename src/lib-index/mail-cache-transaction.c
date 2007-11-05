@@ -713,8 +713,15 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 				       unsigned int field_idx)
 {
 	struct mail_cache *cache = ctx->cache;
+	unsigned int i;
 	buffer_t *buffer;
 	int ret;
+
+	/* we want to avoid adding all the fields one by one to the cache file,
+	   so just add all of them at once in here. the unused ones get dropped
+	   later when compressing. */
+	for (i = 0; i < cache->fields_count; i++)
+		cache->fields[i].used = TRUE;
 
 	if ((ret = mail_cache_transaction_lock(ctx)) <= 0) {
 		/* create the cache file if it doesn't exist yet */
@@ -724,8 +731,10 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 
 		if (mail_cache_compress(cache, ctx->trans) < 0)
 			return -1;
-		if ((ret = mail_cache_transaction_lock(ctx)) <= 0)
-			return -1;
+
+		/* compression should have added it */
+		i_assert(cache->field_file_map[field_idx] != (uint32_t)-1);
+		return 0;
 	}
 
 	/* re-read header to make sure we don't lose any fields. */
@@ -733,10 +742,6 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		(void)mail_cache_unlock(cache);
 		return -1;
 	}
-
-	/* update these only after reading */
-	cache->fields[field_idx].last_used = ioloop_time;
-	cache->fields[field_idx].used = TRUE;
 
 	if (cache->field_file_map[field_idx] != (uint32_t)-1) {
 		/* it was already added */
@@ -795,6 +800,9 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		/* we'll have to add this field to headers */
 		if (mail_cache_header_add_field(ctx, field_idx) < 0)
 			return;
+
+		if (ctx->cache_file_seq == 0)
+			ctx->cache_file_seq = ctx->cache->hdr->file_seq;
 
 		file_field = ctx->cache->field_file_map[field_idx];
 		i_assert(file_field != (uint32_t)-1);

@@ -205,12 +205,19 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	max_drop_time = idx_hdr->day_stamp == 0 ? 0 :
 		idx_hdr->day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
 	orig_fields_count = cache->fields_count;
-	for (i = used_fields_count = 0; i < orig_fields_count; i++) {
-		if (cache->fields[i].last_used < max_drop_time)
-			cache->fields[i].used = FALSE;
+	if (cache->file_fields_count == 0) {
+		/* creating the initial cache file. add all fields. */
+		for (i = 0; i < orig_fields_count; i++)
+			ctx.field_file_map[i] = i;
+		used_fields_count = i;
+	} else {
+		for (i = used_fields_count = 0; i < orig_fields_count; i++) {
+			if (cache->fields[i].last_used < max_drop_time)
+				cache->fields[i].used = FALSE;
 
-		ctx.field_file_map[i] = !cache->fields[i].used ? (uint32_t)-1 :
-			used_fields_count++;
+			ctx.field_file_map[i] = !cache->fields[i].used ?
+				(uint32_t)-1 : used_fields_count++;
+		}
 	}
 
 	i_array_init(ext_offsets, message_count);
