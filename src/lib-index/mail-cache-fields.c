@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "file-cache.h"
 #include "write-full.h"
+#include "mmap-util.h"
 #include "mail-cache-private.h"
 
 #include <stddef.h>
@@ -167,8 +168,11 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 					       uint32_t *offset_r)
 {
+	const size_t page_size = mmap_get_page_size();
 	const struct mail_cache_header_fields *field_hdr;
+	const unsigned int size = sizeof(*field_hdr) + CACHE_HDR_PREFETCH;
 	uint32_t offset, next_offset;
+	uoff_t invalid_start = 0, invalid_end = 0;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
 		*offset_r = 0;
@@ -187,14 +191,24 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 		}
 		offset = next_offset;
 
-		if (cache->file_cache != NULL) {
-			/* we can't trust that the cached data is valid */
-			file_cache_invalidate(cache->file_cache, offset,
-					      sizeof(*field_hdr) +
-					      CACHE_HDR_PREFETCH);
+		if (offset < invalid_start && cache->file_cache != NULL) {
+			uoff_t new_start = offset;
+
+			new_start &= ~(page_size-1);
+			file_cache_invalidate(cache->file_cache,
+					      new_start, invalid_start);
+			invalid_start = new_start;
 		}
-		if (mail_cache_map(cache, offset,
-				   sizeof(*field_hdr) + CACHE_HDR_PREFETCH) < 0)
+		if (offset + size > invalid_end && cache->file_cache != NULL) {
+			uoff_t new_size = invalid_end - invalid_start + size;
+
+			new_size = (new_size + page_size-1) & ~(page_size - 1);
+			file_cache_invalidate(cache->file_cache,
+					      invalid_end, new_size);
+			invalid_end = offset + new_size;
+		}
+
+		if (mail_cache_map(cache, offset, size) < 0)
 			return -1;
 
 		field_hdr = CONST_PTR_OFFSET(cache->data, offset);
