@@ -173,6 +173,7 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 	const unsigned int size = sizeof(*field_hdr) + CACHE_HDR_PREFETCH;
 	uint32_t offset, next_offset;
 	uoff_t invalid_start = 0, invalid_end = 0;
+	unsigned int next_count = 0;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
 		*offset_r = 0;
@@ -214,7 +215,11 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 		field_hdr = CONST_PTR_OFFSET(cache->data, offset);
 		next_offset =
 			mail_index_offset_to_uint32(field_hdr->next_offset);
+		next_count++;
 	}
+
+	if (next_count > MAIL_CACHE_HEADER_FIELD_CONTINUE_COUNT)
+		cache->need_compress_file_seq = cache->hdr->file_seq;
 
 	*offset_r = offset;
 	return 0;

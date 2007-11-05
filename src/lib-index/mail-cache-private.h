@@ -23,6 +23,10 @@
    200% means that there's 2 continued rows per record. */
 #define MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE 200
 
+/* Compress the file when we need to follow more than n next_offsets to find
+   the latest cache header. */
+#define MAIL_CACHE_HEADER_FIELD_CONTINUE_COUNT 4
+
 /* Initial size for the file */
 #define MAIL_CACHE_INITIAL_SIZE (sizeof(struct mail_cache_header) + 10240)
 
