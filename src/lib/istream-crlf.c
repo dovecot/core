@@ -16,6 +16,7 @@ static void i_stream_crlf_destroy(struct iostream_private *stream)
 {
 	struct crlf_istream *cstream = (struct crlf_istream *)stream;
 
+	i_free(cstream->istream.w_buffer);
 	i_stream_unref(&cstream->input);
 }
 
