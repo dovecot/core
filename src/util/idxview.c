@@ -128,6 +128,8 @@ static void dump_keywords(struct mail_index *index)
 	unsigned int i, count;
 
 	printf("-- Keywords --\n");
+	if (!array_is_created(&index->map->keyword_idx_map))
+		return;
 
 	kw_indexes = array_get(&index->map->keyword_idx_map, &count);
 	if (count == 0)
