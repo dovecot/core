@@ -195,6 +195,9 @@ static int imap_fetch_flush_buffer(struct imap_fetch_context *ctx)
 	data = str_data(ctx->cur_str);
 	len = str_len(ctx->cur_str);
 
+	if (len == 0)
+		return 0;
+
 	/* there's an extra space at the end if we added any fetch items
 	   to buffer */
 	if (data[len-1] == ' ') {
