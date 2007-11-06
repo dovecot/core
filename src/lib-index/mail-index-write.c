@@ -42,8 +42,8 @@ static int mail_index_recreate(struct mail_index *index)
 	if (ret < 0)
 		mail_index_file_set_syscall_error(index, path, "write_full()");
 
-	if (ret == 0 && !index->fsync_disable && fsync(fd) < 0) {
-		mail_index_file_set_syscall_error(index, path, "fsync()");
+	if (ret == 0 && !index->fsync_disable && fdatasync(fd) < 0) {
+		mail_index_file_set_syscall_error(index, path, "fdatasync()");
 		ret = -1;
 	}
 
