@@ -97,18 +97,24 @@ int base64_decode(const void *src, size_t src_size,
 				src_pos++;
 				continue;
 			}
-			return -1;
+			ret = -1;
+			break;
 		}
 
 		input[1] = b64dec[src_c[src_pos+1]];
-		if (input[1] == 0xff)
-			return -1;
+		if (input[1] == 0xff) {
+			ret = -1;
+			break;
+		}
 		output[0] = (input[0] << 2) | (input[1] >> 4);
 
 		input[2] = b64dec[src_c[src_pos+2]];
 		if (input[2] == 0xff) {
-			if (src_c[src_pos+2] != '=' || src_c[src_pos+3] != '=')
-				return -1;
+			if (src_c[src_pos+2] != '=' ||
+			    src_c[src_pos+3] != '=') {
+				ret = -1;
+				break;
+			}
 			buffer_append(dest, output, 1);
 			ret = 0;
 			src_pos += 4;
@@ -118,8 +124,10 @@ int base64_decode(const void *src, size_t src_size,
 		output[1] = (input[1] << 4) | (input[2] >> 2);
 		input[3] = b64dec[src_c[src_pos+3]];
 		if (input[3] == 0xff) {
-			if (src_c[src_pos+3] != '=')
-				return -1;
+			if (src_c[src_pos+3] != '=') {
+				ret = -1;
+				break;
+			}
 			buffer_append(dest, output, 2);
 			ret = 0;
 			src_pos += 4;
