@@ -77,8 +77,11 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 	if (cache->file_cache == NULL)
 		return;
 
-	nfs_flush_attr_cache_fd(cache->filepath, cache->fd);
-	nfs_flush_read_cache(cache->filepath, cache->fd, F_UNLCK, FALSE);
+	if (cache->index->nfs_flush) {
+		nfs_flush_attr_cache_fd(cache->filepath, cache->fd);
+		nfs_flush_read_cache(cache->filepath, cache->fd,
+				     F_UNLCK, FALSE);
+	}
 
 	file_cache_set_fd(cache->file_cache, cache->fd);
 
