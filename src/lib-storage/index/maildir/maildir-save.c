@@ -219,13 +219,14 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 
 	if (ctx->mbox->storage->save_size_in_filename &&
 	    mf->size != (uoff_t)-1) {
-		basename = t_strdup_printf("%s,S=%"PRIuUOFF_T,
-					   basename, mf->size);
+		basename = t_strdup_printf("%s,%c=%"PRIuUOFF_T, basename,
+					   MAILDIR_EXTRA_FILE_SIZE, mf->size);
 	}
 
 	if (mf->vsize != (uoff_t)-1) {
-		basename = t_strdup_printf("%s,W=%"PRIuUOFF_T,
-					   basename, mf->vsize);
+		basename = t_strdup_printf("%s,%c=%"PRIuUOFF_T, basename,
+					   MAILDIR_EXTRA_VIRTUAL_SIZE,
+					   mf->vsize);
 	}
 
 	if (mf->keywords_count == 0) {
