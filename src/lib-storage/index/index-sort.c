@@ -600,11 +600,11 @@ static void index_sort_headers(struct mail_search_sort_program *program,
 		index_sort_cache_seq(&static_node_cmp_context,
 				     program->sort_program[0], node.seq);
 
-		cnodes = array_get_modifiable(&program->nodes, &count);
+		cnodes = array_get_modifiable(&program->all_nodes, &count);
 		bsearch_insert_pos(&node, cnodes, count, sizeof(*cnodes),
 				   sort_node_cmp_no_sort_id,
 				   &idx);
-		array_insert(&program->nodes, idx, &node, 1);
+		array_insert(&program->all_nodes, idx, &node, 1);
 	}
 
 	index_sort_add_ids(program, static_node_cmp_context.mail);
