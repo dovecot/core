@@ -58,6 +58,7 @@ void mail_cache_file_close(struct mail_cache *cache)
 	cache->data = NULL;
 	cache->hdr = NULL;
 	cache->mmap_length = 0;
+	cache->last_field_header_offset = 0;
 
 	if (cache->file_lock != NULL)
 		file_lock_free(&cache->file_lock);

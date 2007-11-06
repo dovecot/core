@@ -169,7 +169,7 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 {
 	const struct mail_cache_header_fields *field_hdr;
 	struct mail_cache_header_fields tmp_field_hdr;
-	uint32_t offset, next_offset;
+	uint32_t offset = 0, next_offset;
 	unsigned int next_count = 0;
 	int ret;
 
@@ -180,7 +180,8 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 
 	/* find the latest header */
 	offset = 0;
-	next_offset =
+	next_offset = cache->last_field_header_offset != 0 ?
+		cache->last_field_header_offset :
 		mail_index_offset_to_uint32(cache->hdr->field_header_offset);
 	while (next_offset != 0) {
 		if (next_offset == offset) {
@@ -218,6 +219,12 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 			mail_index_offset_to_uint32(field_hdr->next_offset);
 		next_count++;
 	}
+
+	if (offset == 0) {
+		mail_cache_set_corrupted(cache, "missing header fields");
+		return -1;
+	}
+	cache->last_field_header_offset = offset;
 
 	if (next_count > MAIL_CACHE_HEADER_FIELD_CONTINUE_COUNT)
 		cache->need_compress_file_seq = cache->hdr->file_seq;
