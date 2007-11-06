@@ -93,8 +93,10 @@ int base64_decode(const void *src, size_t src_size,
 	for (src_pos = 0; src_pos+3 < src_size; ) {
 		input[0] = b64dec[src_c[src_pos]];
 		if (input[0] == 0xff) {
-			if (IS_EMPTY(src_c[src_pos++]))
+			if (IS_EMPTY(src_c[src_pos])) {
+				src_pos++;
 				continue;
+			}
 			return -1;
 		}
 
