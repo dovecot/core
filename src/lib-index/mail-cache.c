@@ -515,14 +515,15 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 		return 0;
 	}
 
-	if (cache->hdr->file_seq != reset_id) {
-		/* we want the latest cache file */
-		ret = mail_cache_reopen(cache);
-		if (ret < 0 || (ret == 0 && require_same_reset_id))
-			return ret;
-	}
-
 	for (i = 0; i < 3; i++) {
+		if (cache->hdr->file_seq != reset_id &&
+		    (require_same_reset_id || i == 0)) {
+			/* we want the latest cache file */
+			ret = mail_cache_reopen(cache);
+			if (ret <= 0)
+				break;
+		}
+
 		ret = mail_cache_lock_file(cache);
 		if (ret <= 0)
 			break;
@@ -536,8 +537,6 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 
 		/* okay, so it was just compressed. try again. */
 		(void)mail_cache_unlock(cache);
-		if ((ret = mail_cache_reopen(cache)) <= 0)
-			break;
 		ret = 0;
 	}
 
