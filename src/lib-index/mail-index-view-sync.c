@@ -321,10 +321,19 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	}
 
 	if (sync_expunges || !view_sync_have_expunges(view)) {
+		if (view->index->map->hdr.messages_count <
+		    ctx->finish_min_msg_count) {
+			mail_index_set_error(view->index,
+				"Index %s lost messages without expunging "
+				"(%u -> %u)", view->index->filepath,
+				view->map->hdr.messages_count,
+				view->index->map->hdr.messages_count);
+			ctx->finish_min_msg_count = 0;
+			view->inconsistent = TRUE;
+		}
+
 		view->sync_new_map = view->index->map;
 		view->sync_new_map->refcount++;
-		i_assert(view->index->map->hdr.messages_count >=
-			 ctx->finish_min_msg_count);
 
 		/* keep the old mapping without expunges until we're
 		   fully synced */
