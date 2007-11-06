@@ -91,6 +91,37 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 		file_cache_set_size(cache->file_cache, st.st_size);
 }
 
+static bool mail_cache_need_reopen(struct mail_cache *cache)
+{
+	struct stat st1, st2;
+
+	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
+		if (cache->need_compress_file_seq != 0) {
+			/* we're waiting for compression */
+			return FALSE;
+		}
+		if (MAIL_INDEX_IS_IN_MEMORY(cache->index)) {
+			/* disabled */
+			return FALSE;
+		}
+	}
+
+	if (cache->fd == -1)
+		return TRUE;
+
+	/* see if the file has changed */
+	if (fstat(cache->fd, &st1) < 0) {
+		mail_cache_set_syscall_error(cache, "fstat()");
+		return TRUE;
+	}
+	if (stat(cache->filepath, &st2) < 0) {
+		mail_cache_set_syscall_error(cache, "stat()");
+		return TRUE;
+	}
+	return st1.st_ino != st2.st_ino ||
+		!CMP_DEV_T(st1.st_dev, st2.st_dev);
+}
+
 int mail_cache_reopen(struct mail_cache *cache)
 {
 	struct mail_index_view *view;
@@ -98,9 +129,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 
 	i_assert(!cache->locked);
 
-	if (MAIL_CACHE_IS_UNUSABLE(cache) &&
-	    (cache->need_compress_file_seq != 0 ||
-	     MAIL_INDEX_IS_IN_MEMORY(cache->index))) {
+	if (!mail_cache_need_reopen(cache)) {
 		/* reopening does no good */
 		return 0;
 	}
