@@ -256,6 +256,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 				!MAIL_CACHE_IS_UNUSABLE(cache) &&
 				cache->hdr->file_seq != 0 ?
 				cache->hdr->file_seq : 0;
+			cache->hdr = NULL;
 			return -1;
 		}
 		return 0;
@@ -299,6 +300,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 			!MAIL_CACHE_IS_UNUSABLE(cache) &&
 			cache->hdr->file_seq != 0 ?
 			cache->hdr->file_seq : 0;
+		cache->hdr = NULL;
 		return -1;
 	}
 
