@@ -181,7 +181,7 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 		return FALSE;
 	}
 
-	if (cache->hdr->version != MAIL_CACHE_VERSION) {
+	if (hdr->version != MAIL_CACHE_VERSION) {
 		/* version changed - upgrade silently */
 		return FALSE;
 	}
@@ -190,11 +190,11 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 		return FALSE;
 	}
 
-	if (cache->hdr->indexid != cache->index->indexid) {
+	if (hdr->indexid != cache->index->indexid) {
 		/* index id changed - handle silently */
 		return FALSE;
 	}
-	if (cache->hdr->file_seq == 0) {
+	if (hdr->file_seq == 0) {
 		mail_cache_set_corrupted(cache, "file_seq is 0");
 		return FALSE;
 	}
@@ -249,16 +249,19 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 
 		cache->data = file_cache_get_map(cache->file_cache,
 						 &cache->mmap_length);
-		cache->hdr = cache->data;
 
-		if (offset == 0 && !mail_cache_verify_header(cache)) {
-			cache->need_compress_file_seq =
-				!MAIL_CACHE_IS_UNUSABLE(cache) &&
-				cache->hdr->file_seq != 0 ?
-				cache->hdr->file_seq : 0;
-			cache->hdr = NULL;
-			return -1;
+		if (offset == 0) {
+			if (!mail_cache_verify_header(cache)) {
+				cache->need_compress_file_seq =
+					!MAIL_CACHE_IS_UNUSABLE(cache) &&
+					cache->hdr->file_seq != 0 ?
+					cache->hdr->file_seq : 0;
+				return -1;
+			}
+			memcpy(&cache->hdr_ro_copy, cache->data,
+			       sizeof(cache->hdr_ro_copy));
 		}
+		cache->hdr = &cache->hdr_ro_copy;
 		return 0;
 	}
 
@@ -293,17 +296,16 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 		return -1;
 	}
 	cache->data = cache->mmap_base;
-	cache->hdr = cache->mmap_base;
 
 	if (!mail_cache_verify_header(cache)) {
 		cache->need_compress_file_seq =
 			!MAIL_CACHE_IS_UNUSABLE(cache) &&
 			cache->hdr->file_seq != 0 ?
 			cache->hdr->file_seq : 0;
-		cache->hdr = NULL;
 		return -1;
 	}
 
+	cache->hdr = cache->data;
 	return 0;
 }
 
@@ -601,6 +603,7 @@ int mail_cache_unlock(struct mail_cache *cache)
 		if (mail_cache_write(cache, &cache->hdr_copy,
 				     sizeof(cache->hdr_copy), 0) < 0)
 			ret = -1;
+		cache->hdr_ro_copy = cache->hdr_copy;
 		mail_cache_update_need_compress(cache);
 	}
 
@@ -624,10 +627,9 @@ int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 	if (cache->file_cache != NULL) {
 		file_cache_write(cache->file_cache, data, size, offset);
 
-		/* data/hdr pointers may change if file cache was grown */
+		/* data pointer may change if file cache was grown */
 		cache->data = file_cache_get_map(cache->file_cache,
 						 &cache->mmap_length);
-		cache->hdr = cache->data;
 	}
 	return 0;
 }

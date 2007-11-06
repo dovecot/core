@@ -142,7 +142,13 @@ struct mail_cache {
 	struct dotlock *dotlock;
 	struct file_lock *file_lock;
 
+	/* mmap_disable=no: hdr points to data / NULL when cache is invalid.
+	   mmap_disable=yes: hdr points to hdr_ro_copy. this is needed because
+	   cache invalidation can zero the data any time */
 	const struct mail_cache_header *hdr;
+	struct mail_cache_header hdr_ro_copy;
+	/* hdr_copy gets updated when cache is locked and written when
+	   unlocking and hdr_modified=TRUE */
 	struct mail_cache_header hdr_copy;
 
 	pool_t field_pool;

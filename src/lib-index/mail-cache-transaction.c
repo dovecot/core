@@ -705,6 +705,7 @@ mail_cache_header_fields_write(struct mail_cache_transaction_ctx *ctx,
 		/* we're adding the first field. hdr_copy needs to be kept
 		   in sync so unlocking won't overwrite it. */
 		cache->hdr_copy.field_header_offset = hdr_offset;
+		cache->hdr_ro_copy.field_header_offset = hdr_offset;
 	}
 	return 0;
 }
