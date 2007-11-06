@@ -361,8 +361,10 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		if (last_used[i] > cache->fields[field.idx].last_used)
 			cache->fields[field.idx].last_used = last_used[i];
 
-		if (cache->fields[field.idx].last_used < max_drop_time) {
-			/* time to drop this field */
+		if (cache->fields[field.idx].last_used < max_drop_time &&
+		    cache->fields[field.idx].last_used != 0) {
+			/* time to drop this field. don't bother dropping
+			   fields that have never been used. */
 			cache->need_compress_file_seq = cache->hdr->file_seq;
 		}
 
