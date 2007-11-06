@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "read-full.h"
 #include "write-full.h"
+#include "ostream.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
 
@@ -15,9 +16,10 @@
 static int mail_index_recreate(struct mail_index *index)
 {
 	struct mail_index_map *map = index->map;
+	struct ostream *output;
 	unsigned int base_size;
 	const char *path;
-	int ret, fd;
+	int ret = 0, fd;
 
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 	i_assert(map->hdr.indexid == index->indexid);
@@ -26,21 +28,21 @@ static int mail_index_recreate(struct mail_index *index)
 	if (fd == -1)
 		return -1;
 
-	/* write base header */
+	output = o_stream_create_fd_file(fd, 0, FALSE);
+	o_stream_cork(output);
+
 	base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
-	ret = write_full(fd, &map->hdr, base_size);
-	if (ret == 0) {
-		/* write extended headers */
-		ret = write_full(fd, CONST_PTR_OFFSET(map->hdr_base, base_size),
-				 map->hdr.header_size - base_size);
+	if (o_stream_send(output, &map->hdr, base_size) < 0 ||
+	    o_stream_send(output, CONST_PTR_OFFSET(map->hdr_base, base_size),
+			  map->hdr.header_size - base_size) < 0 ||
+	    o_stream_send(output, map->rec_map->records,
+			  map->rec_map->records_count *
+			  map->hdr.record_size) < 0 ||
+	    o_stream_flush(output) < 0) {
+		mail_index_file_set_syscall_error(index, path, "write()");
+		ret = -1;
 	}
-	if (ret == 0) {
-		ret = write_full(fd, map->rec_map->records,
-				 map->rec_map->records_count *
-				 map->hdr.record_size);
-	}
-	if (ret < 0)
-		mail_index_file_set_syscall_error(index, path, "write_full()");
+	o_stream_destroy(&output);
 
 	if (ret == 0 && !index->fsync_disable && fdatasync(fd) < 0) {
 		mail_index_file_set_syscall_error(index, path, "fdatasync()");
