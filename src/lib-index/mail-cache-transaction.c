@@ -732,9 +732,15 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		if (mail_cache_compress(cache, ctx->trans) < 0)
 			return -1;
 
-		/* compression should have added it */
-		i_assert(cache->field_file_map[field_idx] != (uint32_t)-1);
-		return 0;
+		/* if we compressed the cache, the field should be there now.
+		   it's however possible that someone else just compressed it
+		   and we only reopened the cache file. */
+		if (cache->field_file_map[field_idx] != (uint32_t)-1)
+			return 0;
+
+		/* need to add it */
+		if ((ret = mail_cache_transaction_lock(ctx)) <= 0)
+			return -1;
 	}
 
 	/* re-read header to make sure we don't lose any fields. */
