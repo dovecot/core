@@ -4,13 +4,12 @@
 #include "buffer.h"
 #include "hash.h"
 #include "file-cache.h"
+#include "read-full.h"
 #include "write-full.h"
 #include "mmap-util.h"
 #include "mail-cache-private.h"
 
 #include <stddef.h>
-
-#define CACHE_HDR_PREFETCH 1024
 
 #define CACHE_FIELD_IS_NEWLY_WANTED(cache, field_idx) \
 	((cache)->field_file_map[field_idx] == (uint32_t)-1 && \
@@ -166,14 +165,13 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 }
 
 static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
-					       uint32_t *offset_r)
+					       uint32_t *offset_r, bool map)
 {
-	const size_t page_size = mmap_get_page_size();
 	const struct mail_cache_header_fields *field_hdr;
-	const unsigned int size = sizeof(*field_hdr) + CACHE_HDR_PREFETCH;
+	struct mail_cache_header_fields tmp_field_hdr;
 	uint32_t offset, next_offset;
-	uoff_t invalid_start = 0, invalid_end = 0;
 	unsigned int next_count = 0;
+	int ret;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
 		*offset_r = 0;
@@ -192,27 +190,30 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 		}
 		offset = next_offset;
 
-		if (offset < invalid_start && cache->file_cache != NULL) {
-			uoff_t new_start = offset;
+		if (cache->mmap_base != NULL) {
+			if (mail_cache_map(cache, offset,
+					   sizeof(*field_hdr)) < 0)
+				return -1;
 
-			new_start &= ~(page_size-1);
-			file_cache_invalidate(cache->file_cache,
-					      new_start, invalid_start);
-			invalid_start = new_start;
+			field_hdr = CONST_PTR_OFFSET(cache->data, offset);
+		} else {
+			/* if we need to follow multiple offsets to get to
+			   the last one, it's faster to just pread() the file
+			   instead of going through cache */
+			ret = pread_full(cache->fd, &tmp_field_hdr,
+					 sizeof(tmp_field_hdr), offset);
+			if (ret < 0) {
+				mail_cache_set_syscall_error(cache, "pread()");
+				return -1;
+			}
+			if (ret == 0) {
+				mail_cache_set_corrupted(cache,
+					"next_offset points outside file");
+				return -1;
+			}
+			field_hdr = &tmp_field_hdr;
 		}
-		if (offset + size > invalid_end && cache->file_cache != NULL) {
-			uoff_t new_size = invalid_end - invalid_start + size;
 
-			new_size = (new_size + page_size-1) & ~(page_size - 1);
-			file_cache_invalidate(cache->file_cache,
-					      invalid_end, new_size);
-			invalid_end = offset + new_size;
-		}
-
-		if (mail_cache_map(cache, offset, size) < 0)
-			return -1;
-
-		field_hdr = CONST_PTR_OFFSET(cache->data, offset);
 		next_offset =
 			mail_index_offset_to_uint32(field_hdr->next_offset);
 		next_count++;
@@ -220,6 +221,16 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 
 	if (next_count > MAIL_CACHE_HEADER_FIELD_CONTINUE_COUNT)
 		cache->need_compress_file_seq = cache->hdr->file_seq;
+
+	if (map) {
+		if (cache->file_cache != NULL) {
+			/* we can't trust that the cached data is valid */
+			file_cache_invalidate(cache->file_cache, offset,
+					      field_hdr->size);
+		}
+		if (mail_cache_map(cache, offset, field_hdr->size) < 0)
+			return -1;
+	}
 
 	*offset_r = offset;
 	return 0;
@@ -237,7 +248,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	time_t max_drop_time;
 	uint32_t offset, i;
 
-	if (mail_cache_header_fields_get_offset(cache, &offset) < 0)
+	if (mail_cache_header_fields_get_offset(cache, &offset, TRUE) < 0)
 		return -1;
 
 	if (offset == 0) {
@@ -260,16 +271,6 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		return -1;
 	}
 
-	if (field_hdr->size > sizeof(*field_hdr) + CACHE_HDR_PREFETCH) {
-		if (cache->file_cache != NULL) {
-			/* we can't trust that the cached data is valid */
-			file_cache_invalidate(cache->file_cache, offset,
-					      sizeof(*field_hdr) +
-					      CACHE_HDR_PREFETCH);
-		}
-		if (mail_cache_map(cache, offset, field_hdr->size) < 0)
-			return -1;
-	}
 	field_hdr = CONST_PTR_OFFSET(cache->data, offset);
 	new_fields_count = field_hdr->fields_count;
 
@@ -421,7 +422,7 @@ static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 	int ret = 0;
 
 	if (mail_cache_header_fields_read(cache) < 0 ||
-	    mail_cache_header_fields_get_offset(cache, &offset) < 0)
+	    mail_cache_header_fields_get_offset(cache, &offset, FALSE) < 0)
 		return -1;
 
 	t_push();
@@ -524,7 +525,7 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 int mail_cache_header_fields_get_next_offset(struct mail_cache *cache,
 					     uint32_t *offset_r)
 {
-	if (mail_cache_header_fields_get_offset(cache, offset_r) < 0)
+	if (mail_cache_header_fields_get_offset(cache, offset_r, FALSE) < 0)
 		return -1;
 
 	if (*offset_r == 0) {
