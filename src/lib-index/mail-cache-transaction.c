@@ -109,25 +109,60 @@ mail_cache_transaction_free(struct mail_cache_transaction_ctx **_ctx)
 	i_free(ctx);
 }
 
+static void
+mail_cache_transaction_open_if_needed(struct mail_cache_transaction_ctx *ctx)
+{
+	struct mail_cache *cache = ctx->cache;
+	const struct mail_index_ext *ext;
+	uint32_t idx;
+
+	if (!cache->opened) {
+		(void)mail_cache_open_and_verify(cache);
+		return;
+	}
+	if (MAIL_CACHE_IS_UNUSABLE(cache))
+		return;
+
+	/* see if we should try to reopen the cache file */
+	if (!mail_index_map_get_ext_idx(cache->index->map, cache->ext_id, &idx))
+		return;
+
+	ext = array_idx(&cache->index->map->extensions, idx);
+	if (ext->reset_id != cache->hdr->file_seq)
+		(void)mail_cache_reopen(cache);
+}
+
 static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 {
+	struct mail_cache *cache = ctx->cache;
 	int ret;
 
-	if (ctx->cache_file_seq == 0) {
-		if (!ctx->cache->opened)
-			(void)mail_cache_open_and_verify(ctx->cache);
-		if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache)) {
-			i_assert(ctx->cache_data == NULL ||
-				 ctx->cache_data->used == 0);
-			ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+	mail_cache_transaction_open_if_needed(ctx);
+
+	if ((ret = mail_cache_lock(cache, FALSE)) <= 0) {
+		if (ret < 0)
+			return -1;
+
+		if (!ctx->tried_compression && MAIL_CACHE_IS_UNUSABLE(cache)) {
+			ctx->tried_compression = TRUE;
+			if (mail_cache_compress(cache, ctx->trans) < 0)
+				return -1;
+			return mail_cache_transaction_lock(ctx);
+		} else {
+			return 0;
 		}
 	}
 
-	if ((ret = mail_cache_lock(ctx->cache, FALSE)) <= 0)
-		return ret;
-
-	if (ctx->cache_file_seq != ctx->cache->hdr->file_seq)
+	if (!MAIL_CACHE_IS_UNUSABLE(cache) && ctx->cache_file_seq == 0) {
+		i_assert(ctx->cache_data == NULL ||
+			 ctx->cache_data->used == 0);
+		ctx->cache_file_seq = cache->hdr->file_seq;
+	} else if (ctx->cache_file_seq != cache->hdr->file_seq) {
+		if (mail_cache_unlock(cache) < 0)
+			return -1;
 		mail_cache_transaction_reset(ctx);
+		return 0;
+	}
 	return 1;
 }
 
@@ -725,14 +760,6 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		cache->fields[i].used = TRUE;
 
 	if ((ret = mail_cache_transaction_lock(ctx)) <= 0) {
-		/* create the cache file if it doesn't exist yet */
-		if (ctx->tried_compression)
-			return -1;
-		ctx->tried_compression = TRUE;
-
-		if (mail_cache_compress(cache, ctx->trans) < 0)
-			return -1;
-
 		/* if we compressed the cache, the field should be there now.
 		   it's however possible that someone else just compressed it
 		   and we only reopened the cache file. */
@@ -795,11 +822,12 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		return;
 
 	if (ctx->cache_file_seq == 0) {
-		if (!ctx->cache->opened)
-			(void)mail_cache_open_and_verify(ctx->cache);
-
+		mail_cache_transaction_open_if_needed(ctx);
 		if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
 			ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+	} else if (ctx->cache_file_seq != ctx->cache->hdr->file_seq) {
+		/* cache was compressed within this transaction */
+		mail_cache_transaction_reset(ctx);
 	}
 
 	file_field = ctx->cache->field_file_map[field_idx];
@@ -874,8 +902,7 @@ bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
 {
 	enum mail_cache_decision_type decision;
 
-	if (!ctx->cache->opened)
-		(void)mail_cache_open_and_verify(ctx->cache);
+	mail_cache_transaction_open_if_needed(ctx);
 
 	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
 	if ((decision & ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO)
@@ -889,8 +916,7 @@ bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 {
 	enum mail_cache_decision_type decision;
 
-	if (!ctx->cache->opened)
-		(void)mail_cache_open_and_verify(ctx->cache);
+	mail_cache_transaction_open_if_needed(ctx);
 
 	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
 	if (decision == (MAIL_CACHE_DECISION_FORCED | MAIL_CACHE_DECISION_NO))
