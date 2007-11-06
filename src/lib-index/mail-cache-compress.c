@@ -204,6 +204,14 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	   used fields */
 	max_drop_time = idx_hdr->day_stamp == 0 ? 0 :
 		idx_hdr->day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
+
+	/* if some fields' "last used" time is zero, they were probably just
+	   added by us. change them to the current time. */
+	for (i = 0; i < cache->fields_count; i++) {
+		if (cache->fields[i].last_used == 0)
+			cache->fields[i].last_used = ioloop_time;
+	}
+
 	orig_fields_count = cache->fields_count;
 	if (cache->file_fields_count == 0) {
 		/* creating the initial cache file. add all fields. */
