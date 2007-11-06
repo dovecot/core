@@ -520,7 +520,7 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 		    (require_same_reset_id || i == 0)) {
 			/* we want the latest cache file */
 			ret = mail_cache_reopen(cache);
-			if (ret <= 0)
+			if (ret < 0 || (ret == 0 && require_same_reset_id))
 				break;
 		}
 
