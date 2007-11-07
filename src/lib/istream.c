@@ -196,12 +196,14 @@ char *i_stream_read_next_line(struct istream *stream)
 {
 	char *line;
 
-	line = i_stream_next_line(stream);
-	if (line != NULL)
-		return line;
-
-	if (i_stream_read(stream) > 0)
+	for (;;) {
 		line = i_stream_next_line(stream);
+		if (line != NULL)
+			break;
+
+		if (i_stream_read(stream) <= 0)
+			return NULL;
+	}
 	return line;
 }
 
