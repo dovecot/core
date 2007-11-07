@@ -1,10 +1,9 @@
 /* Copyright (c) 2007 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "test-lib.h"
 #include "str.h"
 #include "base64.h"
 #include "bsearch-insert-pos.h"
-#include "test-common.h"
 
 static void test_base64_encode(void)
 {
@@ -128,5 +127,6 @@ int main(void)
 	test_base64_encode();
 	test_base64_decode();
 	test_bsearch_insert_pos();
+	test_istreams();
 	return test_deinit();
 }

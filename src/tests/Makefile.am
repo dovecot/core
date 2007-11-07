@@ -12,6 +12,7 @@ libtest_a_SOURCES = \
 	test-common.c
 
 test_lib_SOURCES = \
+	test-istream.c \
 	test-lib.c
 
 test_lib_LDADD = \
@@ -20,6 +21,10 @@ test_lib_LDADD = \
 
 test_mail_SOURCES = \
 	test-mail.c
+
+noinst_HEADERS = \
+	test-common.h \
+	test-lib.h
 
 test_mail_LDADD = \
 	libtest.a \
