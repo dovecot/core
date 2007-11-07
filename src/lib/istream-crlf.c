@@ -8,8 +8,8 @@ struct crlf_istream {
 	struct istream_private istream;
 
 	struct istream *input;
-	char last_char;
-	unsigned int crlf:1;
+	unsigned int pending_cr:1;
+	unsigned int last_cr:1;
 };
 
 static void i_stream_crlf_destroy(struct iostream_private *stream)
@@ -30,11 +30,11 @@ i_stream_crlf_set_max_buffer_size(struct iostream_private *stream,
 	i_stream_set_max_buffer_size(cstream->input, max_size);
 }
 
-static ssize_t i_stream_crlf_read(struct istream_private *stream)
+static int i_stream_crlf_read_common(struct crlf_istream *cstream)
 {
-	struct crlf_istream *cstream = (struct crlf_istream *)stream;
+	struct istream_private *stream = &cstream->istream;
 	const unsigned char *data;
-	size_t i, dest, size;
+	size_t size;
 	ssize_t ret;
 
 	data = i_stream_get_data(cstream->input, &size);
@@ -52,57 +52,91 @@ static ssize_t i_stream_crlf_read(struct istream_private *stream)
 
 	if (!i_stream_get_buffer_space(stream, size, NULL))
 		return -2;
+	return 1;
+}
+
+static ssize_t i_stream_crlf_read_crlf(struct istream_private *stream)
+{
+	struct crlf_istream *cstream = (struct crlf_istream *)stream;
+	const unsigned char *data;
+	size_t i, dest, size;
+	ssize_t ret;
+
+	ret = i_stream_crlf_read_common(cstream);
+	if (ret <= 0)
+		return ret;
+
+	data = i_stream_get_data(cstream->input, &size);
+
+	/* @UNSAFE: add missing CRs */
+	dest = stream->pos;
+	for (i = 0; i < size && dest < stream->buffer_size; i++) {
+		if (data[i] == '\n') {
+			if (i == 0) {
+				if (!cstream->last_cr)
+					stream->w_buffer[dest++] = '\r';
+			} else {
+				if (data[i-1] != '\r')
+					stream->w_buffer[dest++] = '\r';
+			}
+			if (dest == stream->buffer_size)
+				break;
+		}
+		stream->w_buffer[dest++] = data[i];
+	}
+	cstream->last_cr = stream->w_buffer[dest-1] == '\r';
+	i_stream_skip(cstream->input, i);
+
+	ret = dest - stream->pos;
+	i_assert(ret != 0);
+	stream->pos = dest;
+	return ret;
+}
+
+static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
+{
+	struct crlf_istream *cstream = (struct crlf_istream *)stream;
+	const unsigned char *data;
+	size_t i, dest, size;
+	ssize_t ret;
+
+	ret = i_stream_crlf_read_common(cstream);
+	if (ret <= 0)
+		return ret;
+
+	data = i_stream_get_data(cstream->input, &size);
 
 	/* @UNSAFE */
 	dest = stream->pos;
-	if (data[0] == '\n')
-		i = 0;
-	else {
-		if (cstream->last_char == '\r') {
+	if (data[0] == '\n') {
+		stream->w_buffer[dest++] = '\n';
+		cstream->pending_cr = FALSE;
+	} else {
+		if (cstream->pending_cr) {
 			/* CR without LF */
 			stream->w_buffer[dest++] = '\r';
 			if (dest == stream->buffer_size) {
-				cstream->last_char = 0;
+				cstream->pending_cr = FALSE;
 				return 1;
 			}
 		}
 		if (data[0] != '\r')
 			stream->w_buffer[dest++] = data[0];
-		i = 1;
 	}
-	cstream->last_char = data[size-1];
-	for (; i < size && dest < stream->buffer_size; i++) {
-		if (data[i] <= '\r') {
-			if (data[i] == '\n') {
-				if (cstream->crlf) {
-					if (dest + 1 == stream->buffer_size)
-						break;
-					stream->w_buffer[dest++] = '\r';
-				}
-				stream->w_buffer[dest++] = '\n';
-				continue;
-			}
-			if (data[i] == '\r' && data[i-1] != '\r')
-				continue;
-		}
-		if (data[i-1] == '\r') {
-			/* CR without LF */
-			stream->w_buffer[dest++] = '\r';
-			if (dest == stream->buffer_size) {
-				cstream->last_char = 0;
-				break;
-			}
-			if (data[i] == '\r')
-				continue;
-		}
+
+	for (i = 1; i < size && dest < stream->buffer_size; i++) {
+		if (data[i] == '\r' && data[i-1] != '\r')
+			continue;
+
 		stream->w_buffer[dest++] = data[i];
 	}
+	cstream->pending_cr = data[i-1] == '\r';
 	i_stream_skip(cstream->input, i);
 
 	ret = dest - stream->pos;
 	if (ret == 0) {
-		i_assert(cstream->last_char == '\r' && size == 1);
-		return i_stream_crlf_read(stream);
+		i_assert(cstream->pending_cr && size == 1);
+		return i_stream_crlf_read_lf(stream);
 	}
 	stream->pos = dest;
 	return ret;
@@ -132,14 +166,14 @@ i_stream_create_crlf_full(struct istream *input, bool crlf)
 
 	cstream = i_new(struct crlf_istream, 1);
 	cstream->input = input;
-	cstream->crlf = crlf;
 	cstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	cstream->istream.iostream.destroy = i_stream_crlf_destroy;
 	cstream->istream.iostream.set_max_buffer_size =
 		i_stream_crlf_set_max_buffer_size;
 
-	cstream->istream.read = i_stream_crlf_read;
+	cstream->istream.read = crlf ? i_stream_crlf_read_crlf :
+		i_stream_crlf_read_lf;
 	cstream->istream.seek = i_stream_crlf_seek;
 	cstream->istream.stat = i_stream_crlf_stat;
 
