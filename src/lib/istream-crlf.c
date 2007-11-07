@@ -46,10 +46,9 @@ static ssize_t i_stream_crlf_read(struct istream_private *stream)
 			stream->istream.eof = cstream->input->eof;
 			return ret;
 		}
+		data = i_stream_get_data(cstream->input, &size);
+		i_assert(size != 0);
 	}
-
-	data = i_stream_get_data(cstream->input, &size);
-	i_assert(size != 0);
 
 	if (!i_stream_get_buffer_space(stream, size, NULL))
 		return -2;
