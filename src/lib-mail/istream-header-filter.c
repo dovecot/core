@@ -1,7 +1,7 @@
 /* Copyright (c) 2003-2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "message-parser.h"
 #include "istream-internal.h"
 #include "istream-header-filter.h"
@@ -27,6 +27,7 @@ struct header_filter_istream {
 	uoff_t skip_count;
 
 	unsigned int cur_line, parsed_lines;
+	ARRAY_DEFINE(match_change_lines, unsigned int);
 
 	unsigned int header_read:1;
 	unsigned int header_parsed:1;
@@ -45,6 +46,8 @@ static void i_stream_header_filter_destroy(struct iostream_private *stream)
 	if (mstream->hdr_ctx != NULL)
 		message_parse_header_deinit(&mstream->hdr_ctx);
 	i_stream_unref(&mstream->input);
+	if (array_is_created(&mstream->match_change_lines))
+		array_free(&mstream->match_change_lines);
 	pool_unref(&mstream->pool);
 }
 
@@ -59,7 +62,8 @@ i_stream_header_filter_set_max_buffer_size(struct iostream_private *stream,
 	i_stream_set_max_buffer_size(mstream->input, max_size);
 }
 
-static ssize_t read_mixed(struct header_filter_istream *mstream)
+static ssize_t
+read_mixed(struct header_filter_istream *mstream, size_t body_highwater_size)
 {
 	const unsigned char *data;
 	size_t pos;
@@ -71,7 +75,7 @@ static ssize_t read_mixed(struct header_filter_istream *mstream)
 	}
 
 	data = i_stream_get_data(mstream->input, &pos);
-	if (pos == 0) {
+	if (pos == body_highwater_size) {
 		ret = i_stream_read(mstream->input);
 		mstream->istream.istream.stream_errno =
 			mstream->input->stream_errno;
@@ -82,7 +86,9 @@ static ssize_t read_mixed(struct header_filter_istream *mstream)
 
 		data = i_stream_get_data(mstream->input, &pos);
 	}
-	buffer_append(mstream->hdr_buf, data, pos);
+	i_assert(pos > body_highwater_size);
+	buffer_append(mstream->hdr_buf, data + body_highwater_size,
+		      pos - body_highwater_size);
 
 	mstream->istream.buffer = buffer_get_data(mstream->hdr_buf, &pos);
 	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
@@ -90,9 +96,31 @@ static ssize_t read_mixed(struct header_filter_istream *mstream)
 	return ret;
 }
 
+static int cmp_uint(const void *p1, const void *p2)
+{
+	const unsigned int *i1 = p1, *i2 = p2;
+
+	return *i1 < *i2 ? -1 :
+		(*i1 > *i2 ? 1 : 0);
+}
+
+static bool match_line_changed(struct header_filter_istream *mstream)
+{
+	const unsigned int *lines;
+	unsigned int count;
+
+	if (!array_is_created(&mstream->match_change_lines))
+		return FALSE;
+
+	lines = array_get(&mstream->match_change_lines, &count);
+	return bsearch(&mstream->cur_line, lines, count, sizeof(*lines),
+		       cmp_uint) != NULL;
+}
+
 static ssize_t read_header(struct header_filter_istream *mstream)
 {
 	struct message_header_line *hdr;
+	uoff_t highwater_offset;
 	size_t pos;
 	ssize_t ret;
 	bool matched;
@@ -111,12 +139,15 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	mstream->istream.skip = 0;
 	buffer_set_used_size(mstream->hdr_buf, mstream->istream.pos);
 
-	if (mstream->header_read &&
-	    mstream->istream.istream.v_offset +
-	    (mstream->istream.pos - mstream->istream.skip) >=
-	    mstream->header_size.virtual_size) {
-		/* we want to return mixed headers and body */
-		return read_mixed(mstream);
+	if (mstream->header_read) {
+		highwater_offset = mstream->istream.istream.v_offset +
+			(mstream->istream.pos - mstream->istream.skip);
+		if (highwater_offset >= mstream->header_size.virtual_size) {
+			/* we want to return mixed headers and body */
+			size_t body_highwater_size = highwater_offset -
+				mstream->header_size.virtual_size;
+			return read_mixed(mstream, body_highwater_size);
+		}
 	}
 
 	while ((hdr_ret = message_parse_header_next(mstream->hdr_ctx,
@@ -146,10 +177,24 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 				mstream->headers_count,
 				sizeof(*mstream->headers),
 				bsearch_strcasecmp) != NULL;
-		if (mstream->cur_line > mstream->parsed_lines &&
-		    mstream->callback != NULL) {
-                        mstream->parsed_lines = mstream->cur_line;
+		if (mstream->callback == NULL) {
+			/* nothing gets excluded */
+		} else if (mstream->cur_line > mstream->parsed_lines) {
+			/* first time in this line */
+			bool orig_matched = matched;
+
+			mstream->parsed_lines = mstream->cur_line;
 			mstream->callback(hdr, &matched, mstream->context);
+			if (matched != orig_matched) {
+				i_array_init(&mstream->match_change_lines, 8);
+				array_append(&mstream->match_change_lines,
+					     &mstream->cur_line, 1);
+			}
+		} else {
+			/* second time in this line. was it excluded by the
+			   callback the first time? */
+			if (match_line_changed(mstream))
+				matched = !matched;
 		}
 
 		if (matched == mstream->exclude) {
@@ -290,6 +335,7 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 	stream->buffer = NULL;
+	buffer_set_used_size(mstream->hdr_buf, 0);
 
 	if (mstream->hdr_ctx != NULL) {
 		message_parse_header_deinit(&mstream->hdr_ctx);
