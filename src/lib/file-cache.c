@@ -269,8 +269,15 @@ void file_cache_invalidate(struct file_cache *cache, uoff_t offset, uoff_t size)
 	if (offset >= cache->read_highwater || size == 0)
 		return;
 
-	if (size > cache->read_highwater - offset)
+	if (size > cache->read_highwater - offset) {
+		/* ignore anything after read highwater */
 		size = cache->read_highwater - offset;
+	}
+	if (size >= cache->read_highwater) {
+		/* we're invalidating everything up to read highwater.
+		   drop the highwater position. */
+		cache->read_highwater = offset & ~(page_size-1);
+	}
 
 	size = (offset + size + page_size-1) / page_size;
 	offset /= page_size;
