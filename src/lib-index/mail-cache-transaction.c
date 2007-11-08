@@ -828,7 +828,8 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		mail_cache_transaction_open_if_needed(ctx);
 		if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
 			ctx->cache_file_seq = ctx->cache->hdr->file_seq;
-	} else if (ctx->cache_file_seq != ctx->cache->hdr->file_seq) {
+	} else if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache) &&
+		   ctx->cache_file_seq != ctx->cache->hdr->file_seq) {
 		/* cache was compressed within this transaction */
 		mail_cache_transaction_reset(ctx);
 	}
