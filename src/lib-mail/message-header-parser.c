@@ -60,6 +60,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 	size_t i, size, startpos, colon_pos, parse_size;
 	int ret;
 	bool continued, continues, last_no_newline, last_crlf;
+	bool no_newline, crlf_newline;
 
 	*hdr_r = NULL;
 	if (line->eoh)
@@ -69,15 +70,6 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		i_stream_skip(ctx->input, ctx->skip);
 		ctx->skip = 0;
 	}
-
-	startpos = 0; colon_pos = UINT_MAX;
-
-	last_crlf = line->crlf_newline &&
-		(ctx->flags & MESSAGE_HEADER_PARSER_FLAG_DROP_CR) == 0;
-	last_no_newline = line->no_newline ||
-		(ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) != 0;
-	line->no_newline = FALSE;
-	line->crlf_newline = FALSE;
 
 	if (line->continues) {
 		if (line->use_full_value && !line->continued) {
@@ -91,24 +83,27 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			}
 			buffer_append(ctx->value_buf,
 				      line->value, line->value_len);
-			line->value_len = 0;
 		}
 
 		colon_pos = 0;
 	} else {
 		/* new header line */
-                line->name_offset = ctx->input->v_offset;
+		line->name_offset = ctx->input->v_offset;
+		colon_pos = UINT_MAX;
 	}
 
+	no_newline = FALSE;
+	crlf_newline = FALSE;
 	continued = line->continues;
 	continues = FALSE;
-	for (;;) {
+
+	for (startpos = 0;;) {
 		ret = i_stream_read_data(ctx->input, &msg, &size, startpos+1);
 
 		if (ret >= 0) {
 			/* we want to know one byte in advance to find out
 			   if it's multiline header */
-			parse_size = size-1;
+			parse_size = size == 0 ? 0 : size-1;
 		} else {
 			parse_size = size;
 		}
@@ -117,7 +112,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			if (ret == -1) {
 				if (startpos > 0) {
 					/* header ended unexpectedly. */
-					line->no_newline = TRUE;
+					no_newline = TRUE;
 					ctx->skip = startpos;
 					break;
 				}
@@ -139,7 +134,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 					ctx->hdr_size->lines++;
 				if (msg[0] == '\r') {
 					ctx->skip = 2;
-					line->crlf_newline = TRUE;
+					crlf_newline = TRUE;
 				} else {
 					ctx->skip = 1;
 					if (ctx->hdr_size != NULL)
@@ -177,7 +172,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 				continues = TRUE;
 			}
-			line->no_newline = TRUE;
+			no_newline = TRUE;
 			ctx->skip = size;
 			break;
 		}
@@ -230,7 +225,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 					if (ctx->hdr_size != NULL)
 						ctx->hdr_size->virtual_size++;
 				} else {
-					line->crlf_newline = TRUE;
+					crlf_newline = TRUE;
 				}
 				i_stream_skip(ctx->input, i);
 				startpos = 0;
@@ -248,7 +243,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				size = i;
 			} else {
 				size = i-1;
-				line->crlf_newline = TRUE;
+				crlf_newline = TRUE;
 			}
 
 			ctx->skip = i+1;
@@ -258,7 +253,15 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		startpos = i;
 	}
 
+	last_crlf = line->crlf_newline &&
+		(ctx->flags & MESSAGE_HEADER_PARSER_FLAG_DROP_CR) == 0;
+	last_no_newline = line->no_newline ||
+		(ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) != 0;
+
 	line->continues = continues;
+	line->continued = continued;
+	line->crlf_newline = crlf_newline;
+	line->no_newline = no_newline;
 	if (size == 0) {
 		/* end of headers */
 		line->eoh = TRUE;
