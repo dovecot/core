@@ -24,10 +24,9 @@
 #include "message-address.h"
 #include "message-header-parser.h"
 #include "istream-header-filter.h"
-#include "mbox-storage.h"
 #include "mail-namespace.h"
+#include "raw-storage.h"
 #include "dict-client.h"
-#include "mbox-from.h"
 #include "auth-client.h"
 #include "mail-send.h"
 #include "duplicate.h"
@@ -76,17 +75,6 @@ static void sig_die(int signo, void *context ATTR_UNUSED)
 	io_loop_stop(ioloop);
 }
 
-static int sync_quick(struct mailbox *box)
-{
-	struct mailbox_sync_context *ctx;
-        struct mailbox_sync_rec sync_rec;
-
-	ctx = mailbox_sync_init(box, 0);
-	while (mailbox_sync_next(ctx, &sync_rec))
-		;
-	return mailbox_sync_deinit(&ctx, 0, NULL);
-}
-
 static struct mailbox *
 mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 			      struct mail_storage **storage_r, const char *name)
@@ -121,7 +109,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	if (box == NULL)
 		return NULL;
 
-	if (sync_quick(box) < 0) {
+	if (mailbox_sync(box, 0, 0, NULL) < 0) {
 		mailbox_close(&box);
 		return NULL;
 	}
@@ -491,49 +479,48 @@ static const char *address_sanitize(const char *address)
 }
 
 
-static void save_header_callback(struct message_header_line *hdr,
-				 bool *matched, void *context ATTR_UNUSED)
+static struct istream *create_raw_stream(int fd)
 {
-	if (hdr != NULL && hdr->name_offset == 0 &&
-	    strncmp(hdr->name, "From ", 5) == 0)
-		*matched = TRUE;
-}
-
-static struct istream *
-create_mbox_stream(int fd, const char *envelope_sender)
-{
-	const char *mbox_hdr;
-	struct istream *input_list[4], *input, *input_filter;
+	struct istream *input, *input2, *input_list[2];
+	const unsigned char *data;
+	size_t i, size;
+	int ret;
 
 	fd_set_nonblock(fd, FALSE);
 
-	envelope_sender = address_sanitize(envelope_sender);
-	mbox_hdr = mbox_from_create(envelope_sender, ioloop_time);
-
-	/* kind of kludgy to allocate memory just for this, but since this
-	   has to live as long as the input stream itself, this is the safest
-	   way to do it without it breaking accidentally. */
 	input = i_stream_create_fd(fd, 4096, FALSE);
 	input->blocking = TRUE;
-	input_filter =
-		i_stream_create_header_filter(input,
-					      HEADER_FILTER_EXCLUDE |
-					      HEADER_FILTER_NO_CR,
-					      mbox_hide_headers,
-					      mbox_hide_headers_count,
-					      save_header_callback, NULL);
+	/* If input begins with a From-line, drop it */
+	ret = i_stream_read_data(input, &data, &size, 5);
+	if (ret > 0 && size >= 5 && memcmp(data, "From ", 5) == 0) {
+		/* skip until the first LF */
+		i_stream_skip(input, 5);
+		while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
+			for (i = 0; i < size; i++) {
+				if (data[i] == '\n')
+					break;
+			}
+			if (i != size) {
+				i_stream_skip(input, i + 1);
+				break;
+			}
+			i_stream_skip(input, size);
+		}
+	}
+
+	if (input->v_offset == 0) {
+		input2 = input;
+		i_stream_ref(input2);
+	} else {
+		input2 = i_stream_create_limit(input, input->v_offset,
+					       (uoff_t)-1);
+	}
 	i_stream_unref(&input);
 
-	input_list[0] = i_stream_create_from_data(mbox_hdr, strlen(mbox_hdr));
-	input_list[1] = input_filter;
-	input_list[2] = i_stream_create_from_data("\n", 1);
-	input_list[3] = NULL;
-
+	input_list[0] = input2; input_list[1] = NULL;
 	input = i_stream_create_seekable(input_list, MAIL_MAX_MEMORY_BUFFER,
 					 "/tmp/dovecot.deliver.");
-	i_stream_unref(&input_list[0]);
-	i_stream_unref(&input_list[1]);
-	i_stream_unref(&input_list[2]);
+	i_stream_unref(&input2);
 	return input;
 }
 
@@ -664,9 +651,10 @@ int main(int argc, char *argv[])
 	const char *auth_socket;
 	const char *home, *destaddr, *user, *value, *error;
 	ARRAY_TYPE(string) extra_fields;
-	struct mail_namespace *ns, *mbox_ns;
+	struct mail_namespace *ns, *raw_ns;
 	struct mail_storage *storage;
 	struct mailbox *box;
+	struct raw_mailbox *raw_box;
 	struct istream *input;
 	struct mailbox_transaction_context *t;
 	struct mail *mail;
@@ -735,7 +723,7 @@ int main(int argc, char *argv[])
 			i++;
 			if (i == argc)
 				i_fatal_status(EX_USAGE, "Missing -f argument");
-			envelope_sender = argv[i];
+			envelope_sender = address_sanitize(argv[i]);
 			explicit_envelope_sender = argv[i];
 		} else if (argv[i][0] != '\0') {
 			print_help();
@@ -868,23 +856,24 @@ int main(int argc, char *argv[])
 	if (mail_namespaces_init(namespace_pool, user, &ns) < 0)
 		i_fatal("Namespace initialization failed");
 
-	mbox_ns = mail_namespaces_init_empty(namespace_pool);
-	mbox_ns->flags |= NAMESPACE_FLAG_INTERNAL;
-	if (mail_storage_create(mbox_ns, "mbox", "/tmp", user,
+	raw_ns = mail_namespaces_init_empty(namespace_pool);
+	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
+	if (mail_storage_create(raw_ns, "raw", "/tmp", user,
 				0, FILE_LOCK_METHOD_FCNTL, &error) < 0)
-		i_fatal("Couldn't create internal mbox storage: %s", error);
-	input = create_mbox_stream(0, envelope_sender);
-	box = mailbox_open(mbox_ns->storage, "Dovecot Delivery Mail", input,
-			   MAILBOX_OPEN_NO_INDEX_FILES |
-			   MAILBOX_OPEN_MBOX_ONE_MSG_ONLY);
+		i_fatal("Couldn't create internal raw storage: %s", error);
+	input = create_raw_stream(0);
+	box = mailbox_open(raw_ns->storage, "Dovecot Delivery Mail", input,
+			   MAILBOX_OPEN_NO_INDEX_FILES);
 	if (box == NULL)
-		i_fatal("Can't open delivery mail as mbox");
-	if (sync_quick(box) < 0) {
+		i_fatal("Can't open delivery mail as raw");
+	if (mailbox_sync(box, 0, 0, NULL) < 0) {
 		enum mail_error error;
 
 		i_fatal("Can't sync delivery mail: %s",
 			mail_storage_get_last_error(storage, &error));
 	}
+	raw_box = (struct raw_mailbox *)box;
+	raw_box->envelope_sender = envelope_sender;
 
 	t = mailbox_transaction_begin(box, 0);
 	mail = mail_alloc(t, 0, NULL);
@@ -958,7 +947,7 @@ int main(int argc, char *argv[])
 	mailbox_transaction_rollback(&t);
 	mailbox_close(&box);
 
-	mail_namespaces_deinit(&mbox_ns);
+	mail_namespaces_deinit(&raw_ns);
 	mail_namespaces_deinit(&ns);
 
 	module_dir_unload(&modules);
