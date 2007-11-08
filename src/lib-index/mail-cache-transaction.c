@@ -760,6 +760,9 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		cache->fields[i].used = TRUE;
 
 	if ((ret = mail_cache_transaction_lock(ctx)) <= 0) {
+		if (MAIL_CACHE_IS_UNUSABLE(cache))
+			return -1;
+
 		/* if we compressed the cache, the field should be there now.
 		   it's however possible that someone else just compressed it
 		   and we only reopened the cache file. */
