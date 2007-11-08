@@ -21,8 +21,10 @@ static int raw_mail_stat(struct mail *mail)
 		return -1;
 	}
 
-	mbox->mtime = st->st_mtime;
-	mbox->ctime = st->st_ctime;
+	if (mbox->mtime != (time_t)-1)
+		mbox->mtime = st->st_mtime;
+	if (mbox->ctime != (time_t)-1)
+		mbox->ctime = st->st_ctime;
 	mbox->size = st->st_size;
 	return 0;
 }
