@@ -518,6 +518,7 @@ create_mbox_stream(int fd, const char *envelope_sender, bool **first_r)
 	*first_r = i_new(bool, 1);
 	**first_r = TRUE;
 	input = i_stream_create_fd(fd, 4096, FALSE);
+	input->blocking = TRUE;
 	input_filter =
 		i_stream_create_header_filter(input,
 					      HEADER_FILTER_EXCLUDE |
