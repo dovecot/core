@@ -16,7 +16,8 @@ enum arg_parse_type {
 	ARG_PARSE_ATOM,
 	ARG_PARSE_STRING,
 	ARG_PARSE_LITERAL,
-	ARG_PARSE_LITERAL_DATA
+	ARG_PARSE_LITERAL_DATA,
+	ARG_PARSE_LITERAL_DATA_FORCED
 };
 
 struct imap_parser {
@@ -43,6 +44,7 @@ struct imap_parser {
 
 	unsigned int literal_skip_crlf:1;
 	unsigned int literal_nonsync:1;
+	unsigned int literal_size_return:1;
 	unsigned int eol:1;
 	unsigned int fatal_error:1;
 };
@@ -54,7 +56,8 @@ imap_parser_create(struct istream *input, struct ostream *output,
 	struct imap_parser *parser;
 
 	parser = i_new(struct imap_parser, 1);
-        parser->pool = pool_alloconly_create("IMAP parser", 1024*10);
+	parser->pool = pool_alloconly_create(MEMPOOL_GROWING"IMAP parser",
+					     1024*10);
 	parser->input = input;
 	parser->output = output;
 	parser->max_line_size = max_line_size;
@@ -91,6 +94,7 @@ void imap_parser_reset(struct imap_parser *parser)
 
 	parser->literal_skip_crlf = FALSE;
 	parser->eol = FALSE;
+	parser->literal_size_return = FALSE;
 }
 
 const char *imap_parser_get_error(struct imap_parser *parser, bool *fatal)
@@ -205,7 +209,11 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 				IMAP_ARG_LITERAL_SIZE_NONSYNC :
 				IMAP_ARG_LITERAL_SIZE;
 			arg->_data.literal_size = parser->literal_size;
-		} else if ((parser->flags &
+			break;
+		}
+		/* fall through */
+	case ARG_PARSE_LITERAL_DATA_FORCED:
+		if ((parser->flags &
 			    IMAP_PARSE_FLAG_LITERAL_TYPE) != 0) {
 			arg->type = IMAP_ARG_LITERAL;
 			arg->_data.str = p_strndup(parser->pool, data, size);
@@ -395,7 +403,8 @@ static int imap_parser_read_literal_data(struct imap_parser *parser,
 		i_assert(parser->cur_pos == 0);
 	}
 
-	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
+	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0 ||
+	    parser->cur_type == ARG_PARSE_LITERAL_DATA_FORCED) {
 		/* now we just wait until we've read enough data */
 		if (data_size < parser->literal_size)
 			return FALSE;
@@ -407,9 +416,9 @@ static int imap_parser_read_literal_data(struct imap_parser *parser,
 		}
 	} else {
 		/* we want to save only literal size, not the literal itself. */
-		parser->eol = TRUE;
+		parser->literal_size_return = TRUE;
 		imap_parser_save_arg(parser, NULL, 0);
-		return TRUE;
+		return FALSE;
 	}
 }
 
@@ -489,6 +498,7 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 
 		/* fall through */
 	case ARG_PARSE_LITERAL_DATA:
+	case ARG_PARSE_LITERAL_DATA_FORCED:
 		if (!imap_parser_read_literal_data(parser, data, data_size))
 			return FALSE;
 		break;
@@ -514,7 +524,7 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 	i_stream_skip(parser->input, parser->cur_pos);
 	parser->cur_pos = 0;
 
-	if (parser->list_arg != NULL) {
+	if (parser->list_arg != NULL && !parser->literal_size_return) {
 		parser->error = "Missing ')'";
 		*args_r = NULL;
 		return -1;
@@ -538,6 +548,13 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 {
 	parser->flags = flags;
 
+	if (parser->literal_size_return) {
+		/* delete EOL */
+		array_delete(&parser->root_list,
+			     array_count(&parser->root_list)-1, 1);
+		parser->literal_size_return = FALSE;
+	}
+
 	while (!parser->eol && (count == 0 || IS_UNFINISHED(parser) ||
 				array_count(&parser->root_list) < count)) {
 		if (!imap_parser_read_arg(parser))
@@ -557,7 +574,8 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 		*args_r = NULL;
 		return -1;
 	} else if ((!IS_UNFINISHED(parser) && count > 0 &&
-		    array_count(&parser->root_list) >= count) || parser->eol) {
+		    array_count(&parser->root_list) >= count) ||
+		   parser->eol || parser->literal_size_return) {
 		/* all arguments read / end of line. */
                 return finish_line(parser, count, args_r);
 	} else {
@@ -565,6 +583,69 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 		*args_r = NULL;
 		return -2;
 	}
+}
+
+static struct imap_arg *
+imap_parser_get_last_literal_size(struct imap_parser *parser,
+				  ARRAY_TYPE(imap_arg_list) **list_r)
+{
+	ARRAY_TYPE(imap_arg_list) *list;
+	struct imap_arg *args;
+	unsigned int count;
+
+	list = &parser->root_list;
+	args = array_get_modifiable(&parser->root_list, &count);
+	i_assert(count > 1 && args[count-1].type == IMAP_ARG_EOL);
+	count--;
+
+	while (args[count-1].type != IMAP_ARG_LITERAL_SIZE &&
+	       args[count-1].type != IMAP_ARG_LITERAL_SIZE_NONSYNC) {
+		if (args[count-1].type != IMAP_ARG_LIST)
+			return NULL;
+
+		/* maybe the list ends with literal size */
+		list = &args[count-1]._data.list;
+		args = array_get_modifiable(list, &count);
+		if (count == 0)
+			return NULL;
+	}
+
+	*list_r = list;
+	return &args[count-1];
+}
+
+bool imap_parser_get_literal_size(struct imap_parser *parser, uoff_t *size_r)
+{
+	ARRAY_TYPE(imap_arg_list) *list;
+	struct imap_arg *last_arg;
+
+	last_arg = imap_parser_get_last_literal_size(parser, &list);
+	if (last_arg == NULL)
+		return FALSE;
+
+	*size_r = IMAP_ARG_LITERAL_SIZE(last_arg);
+	return TRUE;
+}
+
+void imap_parser_read_last_literal(struct imap_parser *parser)
+{
+	ARRAY_TYPE(imap_arg_list) *list;
+	struct imap_arg *last_arg;
+
+	i_assert(parser->literal_size_return);
+
+	last_arg = imap_parser_get_last_literal_size(parser, &list);
+	i_assert(last_arg != NULL);
+
+	parser->cur_type = ARG_PARSE_LITERAL_DATA_FORCED;
+	i_assert(parser->literal_size == last_arg->_data.literal_size);
+
+	/* delete EOL */
+	array_delete(&parser->root_list, array_count(&parser->root_list)-1, 1);
+
+	/* delete literal size */
+	array_delete(list, array_count(list)-1, 1);
+	parser->literal_size_return = FALSE;
 }
 
 int imap_parser_finish_line(struct imap_parser *parser, unsigned int count,

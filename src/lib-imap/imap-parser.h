@@ -119,6 +119,12 @@ const char *imap_parser_get_error(struct imap_parser *parser, bool *fatal);
 int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 			  enum imap_parser_flags flags,
 			  const struct imap_arg **args_r);
+/* If parsing ended with literal size, return it. */
+bool imap_parser_get_literal_size(struct imap_parser *parser, uoff_t *size_r);
+/* IMAP_PARSE_FLAG_LITERAL_SIZE is set and last read argument was a literal.
+   Calling this function causes the literal size to be replaced with the actual
+   literal data when continuing argument parsing. */
+void imap_parser_read_last_literal(struct imap_parser *parser);
 
 /* just like imap_parser_read_args(), but assume \n at end of data in
    input stream. */
