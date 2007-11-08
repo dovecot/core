@@ -1,3 +1,12 @@
+ - imap-login: file client-authenticate.c: line 193 (sasl_callback): assertion failed: (!client->destroyed || reply == SASL_SERVER_REPLY_CLIENT_ERROR || reply == SASL_SERVER_REPLY_MASTER_FAILED)
+  - login_process_per_connection=yes, HUP
+ - data is never deleted from cache file
+ - index-sync.c: line 273 (index_mailbox_expunge_unseen_recent): assertion failed: (mail_index_view_is_inconsistent(ibox->view))
+  - ^ imaptest -> ctrl-c
+ - mailbox_list_get_permissions() and dovecot-shared file are both used to
+   figure out permissions. probably make it use only dovecot-shared or
+   ignore gid change errors
+ - dbox: inotify should wait on .log
  - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"
  - search: flag searching is too slow with huge mailboxes. at least optimize
    deleted search.
@@ -9,10 +18,6 @@
    returning the data as ASCII (the whole thing, beginning from =?)
  - dbox: clean up temp.* files once in a while
  - write first extension intros in dovecot.index.log always with names
- - Panic: file mail-index-view-sync.c: line 297 (mail_index_view_sync_begin): assertion failed: (view->index->map->hdr.messages_count >= ctx->finish_min_msg_count)
-   - after index reset
- - cache compressions aren't handled exactly right. especially when creating
-   the initial cache file other processes seem to give cache corruption errors.
  - expunged messages' flags may get updated in views where they're not yet
    expunged (e.g. "expunge uid 2", "+flags \seen uid 1:3")
  - POP3 UIDL caching
@@ -40,6 +45,7 @@
      then rename()ing. This wouldn't be necessary if uidlist syncing noticed
      that someone else already had added them to uidlist, and the existing UIDs
      could be assigned to them in the index.
+       - copying should copy already-cached data
    - maildir_copy_preserve_filename=yes has a race condition causing "Append with
      UID n, but next_uid = y" errors when quota plugin is loaded. Practically
      won't happen except in stress testing.
@@ -123,14 +129,6 @@
     - COPY doesn't work to itself (lock assert crash, for now just disallowed)
     - if we can't create dotlock file for mbox, make sure it still can be
       selected in read-only state
-
- - dbox
-   - keyword list header locking isn't correct now. saving uses file's
-     dotlock, sync uses sync lock. and what about reading?... (I think this
-     is fixed?)
-   - append_offset in header shouldn't be trusted
-   - show in index if there are expunge-flagged mails in the mailbox
-   - pop3_lock_session doesn't work
 
  - index
     - if log file is lost, generate it from old and new index
