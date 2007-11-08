@@ -21,6 +21,7 @@ struct raw_mailbox {
 
 	time_t mtime, ctime;
 	uoff_t size;
+	const char *envelope_sender;
 
 	unsigned int synced:1;
 };

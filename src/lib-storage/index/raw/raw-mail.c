@@ -84,6 +84,21 @@ raw_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
+static int
+raw_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
+		     const char **value_r)
+{
+	struct raw_mailbox *mbox = (struct raw_mailbox *)_mail->box;
+
+	switch (field) {
+	case MAIL_FETCH_FROM_ENVELOPE:
+		*value_r = mbox->envelope_sender;
+		return 0;
+	default:
+		return index_mail_get_special(_mail, field, value_r);
+	}
+}
+
 struct mail_vfuncs raw_mail_vfuncs = {
 	index_mail_close,
 	index_mail_free,
@@ -102,7 +117,7 @@ struct mail_vfuncs raw_mail_vfuncs = {
 	index_mail_get_headers,
 	index_mail_get_header_stream,
 	raw_mail_get_stream,
-	index_mail_get_special,
+	raw_mail_get_special,
 	index_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_expunge
