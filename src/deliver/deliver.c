@@ -492,17 +492,16 @@ static const char *address_sanitize(const char *address)
 
 
 static void save_header_callback(struct message_header_line *hdr,
-				 bool *matched, bool *first)
+				 bool *matched, struct istream *input)
 {
-	if (*first) {
-		*first = FALSE;
+	if (input->v_offset == 0) {
 		if (hdr != NULL && strncmp(hdr->name, "From ", 5) == 0)
 			*matched = TRUE;
 	}
 }
 
 static struct istream *
-create_mbox_stream(int fd, const char *envelope_sender, bool **first_r)
+create_mbox_stream(int fd, const char *envelope_sender)
 {
 	const char *mbox_hdr;
 	struct istream *input_list[4], *input, *input_filter;
@@ -515,8 +514,6 @@ create_mbox_stream(int fd, const char *envelope_sender, bool **first_r)
 	/* kind of kludgy to allocate memory just for this, but since this
 	   has to live as long as the input stream itself, this is the safest
 	   way to do it without it breaking accidentally. */
-	*first_r = i_new(bool, 1);
-	**first_r = TRUE;
 	input = i_stream_create_fd(fd, 4096, FALSE);
 	input->blocking = TRUE;
 	input_filter =
@@ -525,8 +522,7 @@ create_mbox_stream(int fd, const char *envelope_sender, bool **first_r)
 					      HEADER_FILTER_NO_CR,
 					      mbox_hide_headers,
 					      mbox_hide_headers_count,
-					      save_header_callback,
-					      *first_r);
+					      save_header_callback, input);
 	i_stream_unref(&input);
 
 	input_list[0] = i_stream_create_from_data(mbox_hdr, strlen(mbox_hdr));
@@ -680,7 +676,6 @@ int main(int argc, char *argv[])
 	bool stderr_rejection = FALSE;
 	bool keep_environment = FALSE;
 	bool user_auth = FALSE;
-	bool *input_first;
 	int i, ret;
 
 	i_set_failure_exit_callback(failure_exit_callback);
@@ -879,7 +874,7 @@ int main(int argc, char *argv[])
 	if (mail_storage_create(mbox_ns, "mbox", "/tmp", user,
 				0, FILE_LOCK_METHOD_FCNTL, &error) < 0)
 		i_fatal("Couldn't create internal mbox storage: %s", error);
-	input = create_mbox_stream(0, envelope_sender, &input_first);
+	input = create_mbox_stream(0, envelope_sender);
 	box = mailbox_open(mbox_ns->storage, "Dovecot Delivery Mail", input,
 			   MAILBOX_OPEN_NO_INDEX_FILES |
 			   MAILBOX_OPEN_MBOX_ONE_MSG_ONLY);
@@ -959,7 +954,6 @@ int main(int argc, char *argv[])
 		/* ok, rejection sent */
 	}
 	i_stream_unref(&input);
-	i_free(input_first);
 
 	mail_free(&mail);
 	mailbox_transaction_rollback(&t);
