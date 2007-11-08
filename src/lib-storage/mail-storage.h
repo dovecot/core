@@ -54,9 +54,7 @@ enum mailbox_open_flags {
 	/* Don't create index files for the mailbox */
 	MAILBOX_OPEN_NO_INDEX_FILES	= 0x10,
 	/* Keep mailbox exclusively locked all the time while it's open */
-	MAILBOX_OPEN_KEEP_LOCKED	= 0x20,
-	/* FIXME: Kludge for deliver: Ignore all but the first From-line */
-	MAILBOX_OPEN_MBOX_ONE_MSG_ONLY	= 0x40
+	MAILBOX_OPEN_KEEP_LOCKED	= 0x20
 };
 
 enum mailbox_status_items {

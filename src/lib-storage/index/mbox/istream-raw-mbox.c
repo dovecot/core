@@ -16,7 +16,6 @@ struct raw_mbox_istream {
 	struct istream *input;
 	uoff_t input_peak_offset;
 
-	unsigned int one_mail_only:1;
 	unsigned int crlf_ending:1;
 	unsigned int corrupted:1;
 	unsigned int eof:1;
@@ -238,18 +237,16 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 				   rest of the line buffered.
 				   FIXME: if From-line is longer than input
 				   buffer, we break. probably irrelevant.. */
-				if (!rstream->one_mail_only) {
-					i++;
-					from_after_pos = i;
-					from_start_pos = i - 6;
-					if (from_start_pos > 0 &&
-					    buf[from_start_pos-1] == '\r') {
-						/* CR also belongs to it. */
-						crlf_ending = TRUE;
-						from_start_pos--;
-					} else {
-						crlf_ending = FALSE;
-					}
+				i++;
+				from_after_pos = i;
+				from_start_pos = i - 6;
+				if (from_start_pos > 0 &&
+				    buf[from_start_pos-1] == '\r') {
+					/* CR also belongs to it. */
+					crlf_ending = TRUE;
+					from_start_pos--;
+				} else {
+					crlf_ending = FALSE;
 				}
 				fromp = mbox_from;
 			} else if (from_start_pos != (size_t)-1) {
@@ -345,8 +342,7 @@ i_stream_raw_mbox_stat(struct istream_private *stream, bool exact)
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_raw_mbox(struct istream *input,
-					 bool kludge_one_mail_only)
+struct istream *i_stream_create_raw_mbox(struct istream *input)
 {
 	struct raw_mbox_istream *rstream;
 
@@ -354,7 +350,6 @@ struct istream *i_stream_create_raw_mbox(struct istream *input,
 
 	rstream = i_new(struct raw_mbox_istream, 1);
 
-	rstream->one_mail_only = kludge_one_mail_only;
 	rstream->input = input;
 	rstream->body_offset = (uoff_t)-1;
 	rstream->mail_size = (uoff_t)-1;

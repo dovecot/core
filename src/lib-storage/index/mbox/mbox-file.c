@@ -60,21 +60,15 @@ void mbox_file_close(struct mbox_mailbox *mbox)
 
 int mbox_file_open_stream(struct mbox_mailbox *mbox)
 {
-	bool one_mail_only;
-
 	if (mbox->mbox_stream != NULL)
 		return 0;
-
-	one_mail_only =
-		(mbox->ibox.open_flags & MAILBOX_OPEN_MBOX_ONE_MSG_ONLY) != 0;
 
 	if (mbox->mbox_file_stream != NULL) {
 		/* read-only mbox stream */
 		i_assert(mbox->mbox_fd == -1 && mbox->mbox_readonly);
 
 		mbox->mbox_stream =
-			i_stream_create_raw_mbox(mbox->mbox_file_stream,
-						 one_mail_only);
+			i_stream_create_raw_mbox(mbox->mbox_file_stream);
 		return 0;
 	}
 
@@ -91,8 +85,7 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 					   MAIL_READ_BLOCK_SIZE, FALSE);
 	}
 
-	mbox->mbox_stream =
-		i_stream_create_raw_mbox(mbox->mbox_file_stream, one_mail_only);
+	mbox->mbox_stream = i_stream_create_raw_mbox(mbox->mbox_file_stream);
 	return 0;
 }
 
