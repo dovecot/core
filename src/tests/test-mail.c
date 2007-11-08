@@ -6,6 +6,7 @@
 #include "message-address.h"
 #include "message-date.h"
 #include "message-parser.h"
+#include "istream-header-filter.h"
 #include "test-common.h"
 
 static const char test_msg[] =
@@ -201,15 +202,6 @@ static bool msg_parts_cmp(struct message_part *p1, struct message_part *p2)
 	return TRUE;
 }
 
-static ssize_t test_read(struct istream_private *stream)
-{
-	if (stream->pos < TEST_MSG_LEN)
-		return 0;
-
-	stream->istream.eof = TRUE;
-	return -1;
-}
-
 static void test_message_parser(void)
 {
 	struct message_parser_ctx *parser;
@@ -230,9 +222,7 @@ static void test_message_parser(void)
 	parts = message_parser_deinit(&parser);
 	i_stream_unref(&input);
 
-	input = i_stream_create_from_data(test_msg, TEST_MSG_LEN);
-	input->blocking = FALSE;
-	input->real_stream->read = test_read;
+	input = test_istream_create(test_msg);
 
 	parser = message_parser_init(pool, input, 0, 0);
 	for (i = 1; i <= TEST_MSG_LEN; i++) {
@@ -254,6 +244,59 @@ static void test_message_parser(void)
 	test_out("message_parser()", success);
 }
 
+static void filter_callback(struct message_header_line *hdr,
+			    bool *matched, void *context ATTR_UNUSED)
+{
+	if (hdr != NULL && hdr->name_offset == 0) {
+		/* drop first header */
+		*matched = TRUE;
+	}
+}
+
+static void test_istream_filter(void)
+{
+	static const char *exclude_headers[] = { "To", NULL };
+	const char *input = "From: foo\nFrom: abc\nTo: bar\n\nhello world\n";
+	const char *output = "From: abc\n\nhello world\n";
+	struct istream *istream, *filter;
+	unsigned int i, input_len = strlen(input);
+	unsigned int output_len = strlen(output);
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
+	bool success = TRUE;
+
+	istream = test_istream_create(input);
+	filter = i_stream_create_header_filter(istream,
+					       HEADER_FILTER_EXCLUDE |
+					       HEADER_FILTER_NO_CR,
+					       exclude_headers, 1,
+					       filter_callback, NULL);
+	for (i = 1; i <= input_len; i++) {
+		istream->real_stream->pos = i;
+		ret = i_stream_read(filter);
+		if (ret < 0) {
+			success = FALSE;
+			break;
+		}
+	}
+	data = i_stream_get_data(filter, &size);
+	if (size != output_len || memcmp(data, output, size) != 0)
+		success = FALSE;
+
+	i_stream_skip(filter, size);
+	i_stream_seek(filter, 0);
+	while ((ret = i_stream_read(filter)) > 0) ;
+	data = i_stream_get_data(filter, &size);
+	if (size != output_len || memcmp(data, output, size) != 0)
+		success = FALSE;
+
+	i_stream_unref(&filter);
+	i_stream_unref(&istream);
+
+	test_out("i_stream_create_header_filter()", success);
+}
+
 int main(void)
 {
 	test_init();
@@ -261,5 +304,6 @@ int main(void)
 	test_message_address();
 	test_message_date_parse();
 	test_message_parser();
+	test_istream_filter();
 	return test_deinit();
 }

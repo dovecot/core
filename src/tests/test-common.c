@@ -1,6 +1,7 @@
 /* Copyright (c) 2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "istream-internal.h"
 #include "test-common.h"
 
 #include <stdio.h>
@@ -9,6 +10,27 @@
 
 static unsigned int failure_count;
 static unsigned int total_count;
+
+static ssize_t test_read(struct istream_private *stream)
+{
+	if (stream->pos < (uoff_t)stream->statbuf.st_size)
+		return 0;
+
+	stream->istream.eof = TRUE;
+	return -1;
+}
+
+struct istream *test_istream_create(const char *data)
+{
+	struct istream *input;
+	unsigned int len = strlen(data);
+
+	input = i_stream_create_from_data(data, len);
+	input->blocking = FALSE;
+	input->real_stream->statbuf.st_size = len;
+	input->real_stream->read = test_read;
+	return input;
+}
 
 void test_out(const char *name, bool success)
 {
