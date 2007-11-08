@@ -883,7 +883,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	if (!uidlist->ibox->fsync_disable) {
 		if (fdatasync(fd) < 0) {
 			mail_storage_set_critical(storage,
-				"fsync(%s) failed: %m", path);
+				"fdatasync(%s) failed: %m", path);
 			(void)close(fd);
 			return -1;
 		}
