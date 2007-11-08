@@ -99,6 +99,7 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 	const unsigned char *data;
 	size_t i, dest, size;
 	ssize_t ret;
+	int diff;
 
 	ret = i_stream_crlf_read_common(cstream);
 	if (ret <= 0)
@@ -124,13 +125,22 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 			stream->w_buffer[dest++] = data[0];
 	}
 
+	diff = -1;
 	for (i = 1; i < size && dest < stream->buffer_size; i++) {
-		if (data[i] == '\r' && data[i-1] != '\r')
-			continue;
+		if (data[i] == '\r') {
+			if (data[i-1] != '\r')
+				continue;
+		} else if (data[i-1] == '\r' && data[i] != '\n') {
+			stream->w_buffer[dest++] = '\r';
+			if (dest == stream->buffer_size) {
+				diff = 0;
+				break;
+			}
+		}
 
 		stream->w_buffer[dest++] = data[i];
 	}
-	cstream->pending_cr = data[i-1] == '\r';
+	cstream->pending_cr = data[i+diff] == '\r';
 	i_stream_skip(cstream->input, i);
 
 	ret = dest - stream->pos;

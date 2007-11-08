@@ -17,11 +17,11 @@ static void test_istream_crlf_input(const char *input, unsigned int num)
 
 	output = t_str_new(256);
 
-	for (j = 0; j < 2; j++) {
+	for (j = 0; j < 4; j++) {
 		istream = i_stream_create_from_data(input, input_len);
 		success = TRUE;
 		str_truncate(output, 0);
-		if (j == 0) {
+		if (j%2 == 0) {
 			/* drop CRs */
 			crlf_istream = i_stream_create_lf(istream);
 			for (i = 0; i < input_len; i++) {
@@ -44,6 +44,16 @@ static void test_istream_crlf_input(const char *input, unsigned int num)
 
 		pos = 0;
 		for (i = 1; i <= input_len; i++) {
+			if (j >= 2) {
+				i_stream_unref(&istream);
+				i_stream_unref(&crlf_istream);
+				istream = i_stream_create_from_data(input,
+								    input_len);
+				crlf_istream = j%2 == 0 ?
+					i_stream_create_lf(istream) :
+					i_stream_create_crlf(istream);
+				pos = 0;
+			}
 			istream->real_stream->pos = i;
 			if (crlf_istream->real_stream->buffer_size != 0) {
 				/* this is pretty evil */
@@ -69,7 +79,7 @@ static void test_istream_crlf_input(const char *input, unsigned int num)
 		i_stream_unref(&crlf_istream);
 		i_stream_unref(&istream);
 
-		test_out(t_strdup_printf("test_istream_crlf(%d)", num*2+j),
+		test_out(t_strdup_printf("test_istream_crlf(%d)", num*4+j),
 			 success);
 	}
 }
@@ -77,8 +87,8 @@ static void test_istream_crlf_input(const char *input, unsigned int num)
 static void test_istream_crlf(void)
 {
 	const char *input[] = {
-		"foo\nbar\r\nbaz\r\r\n",
 		"\rfoo",
+		"foo\nbar\r\nbaz\r\r\n",
 		"\r\nfoo",
 		"\r\r\n",
 		"\nfoo"
