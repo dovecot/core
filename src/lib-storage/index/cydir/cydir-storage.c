@@ -154,6 +154,8 @@ cydir_open(struct cydir_storage *storage, const char *name,
 		return NULL;
 
 	index = index_storage_alloc(_storage, name, flags, CYDIR_INDEX_PREFIX);
+	mail_index_set_fsync_types(index, MAIL_INDEX_SYNC_TYPE_APPEND |
+				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
 	pool = pool_alloconly_create("cydir mailbox", 1024+512);
 	mbox = p_new(pool, struct cydir_mailbox, 1);
