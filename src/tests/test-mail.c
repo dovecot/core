@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
-#include "istream-internal.h"
+#include "istream.h"
 #include "message-address.h"
 #include "message-date.h"
 #include "message-parser.h"
@@ -226,7 +226,7 @@ static void test_message_parser(void)
 
 	parser = message_parser_init(pool, input, 0, 0);
 	for (i = 1; i <= TEST_MSG_LEN; i++) {
-		input->real_stream->pos = i;
+		test_istream_set_size(input, i);
 		while ((ret = message_parser_parse_next_block(parser,
 							      &block)) > 0) ;
 		if (ret < 0 && i < TEST_MSG_LEN) {
@@ -273,7 +273,7 @@ static void test_istream_filter(void)
 					       exclude_headers, 1,
 					       filter_callback, NULL);
 	for (i = 1; i <= input_len; i++) {
-		istream->real_stream->pos = i;
+		test_istream_set_size(istream, i);
 		ret = i_stream_read(filter);
 		if (ret < 0) {
 			success = FALSE;

@@ -32,6 +32,11 @@ struct istream *test_istream_create(const char *data)
 	return input;
 }
 
+void test_istream_set_size(struct istream *input, uoff_t size)
+{
+	input->real_stream->pos = size;
+}
+
 void test_out(const char *name, bool success)
 {
 	int i;
