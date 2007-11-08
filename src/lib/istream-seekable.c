@@ -272,13 +272,15 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 		   we're finished */
 		old_offset = stream->istream.v_offset;
 		do {
-			i_stream_skip(&stream->istream, stream->skip);
+			i_stream_skip(&stream->istream,
+				      stream->pos - stream->skip);
 		} while ((ret = i_stream_seekable_read(stream)) > 0);
 
 		if (ret == 0) {
 			i_panic("i_stream_stat() used for non-blocking "
 				"seekable stream");
 		}
+		i_stream_skip(&stream->istream, stream->pos - stream->skip);
 		i_stream_seek(&stream->istream, old_offset);
 	}
 
