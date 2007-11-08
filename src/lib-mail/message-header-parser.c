@@ -59,7 +59,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 	const unsigned char *msg;
 	size_t i, size, startpos, colon_pos, parse_size;
 	int ret;
-	bool last_no_newline, last_crlf;
+	bool continued, continues, last_no_newline, last_crlf;
 
 	*hdr_r = NULL;
 	if (line->eoh)
@@ -91,21 +91,21 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			}
 			buffer_append(ctx->value_buf,
 				      line->value, line->value_len);
+			line->value_len = 0;
 		}
 
-		line->continued = TRUE;
-		line->continues = FALSE;
 		colon_pos = 0;
 	} else {
 		/* new header line */
-		line->continued = FALSE;
                 line->name_offset = ctx->input->v_offset;
 	}
 
+	continued = line->continues;
+	continues = FALSE;
 	for (;;) {
 		ret = i_stream_read_data(ctx->input, &msg, &size, startpos+1);
 
-		if (ret > 0) {
+		if (ret >= 0) {
 			/* we want to know one byte in advance to find out
 			   if it's multiline header */
 			parse_size = size-1;
@@ -113,7 +113,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			parse_size = size;
 		}
 
-		if (ret <= 0 && startpos == size) {
+		if (ret <= 0 && startpos == parse_size) {
 			if (ret == -1) {
 				if (startpos > 0) {
 					/* header ended unexpectedly. */
@@ -150,8 +150,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 			/* a) line is larger than input buffer
 			   b) header ended unexpectedly */
-			if (colon_pos == UINT_MAX && ret == -2 &&
-			    !line->continued) {
+			if (colon_pos == UINT_MAX && ret == -2 && !continued) {
 				/* header name is huge. just skip it. */
 				if (msg[size-1] == '\r')
 					size--;
@@ -168,8 +167,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 			if (ret == -2) {
 				/* go back to last LWSP if found. */
-				size_t min_pos =
-					!line->continued ? colon_pos : 0;
+				size_t min_pos = !continued ? colon_pos : 0;
 				for (i = size-1; i > min_pos; i--) {
 					if (IS_LWSP(msg[i])) {
 						size = i;
@@ -177,7 +175,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 					}
 				}
 
-				line->continues = TRUE;
+				continues = TRUE;
 			}
 			line->no_newline = TRUE;
 			ctx->skip = size;
@@ -239,7 +237,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				ctx->skip_line = FALSE;
 				continue;
 			}
-			line->continues = i+1 < size && IS_LWSP(msg[i+1]);
+			continues = i+1 < size && IS_LWSP(msg[i+1]);
 
 			if (ctx->hdr_size != NULL)
 				ctx->hdr_size->lines++;
@@ -260,6 +258,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		startpos = i;
 	}
 
+	line->continues = continues;
 	if (size == 0) {
 		/* end of headers */
 		line->eoh = TRUE;
