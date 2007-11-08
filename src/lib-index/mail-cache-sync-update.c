@@ -7,8 +7,11 @@
 #include "mail-index-sync-private.h"
 
 struct mail_cache_sync_context {
+	uoff_t invalidate_highwater;
+
 	unsigned int locked:1;
 	unsigned int lock_failed:1;
+	unsigned int nfs_attr_cache_flushed:1;
 };
 
 static void mail_cache_handler_deinit(struct mail_index_sync_map_ctx *sync_ctx,
@@ -22,14 +25,24 @@ static void mail_cache_handler_deinit(struct mail_index_sync_map_ctx *sync_ctx,
 	i_free(ctx);
 }
 
-static int mail_cache_handler_init(struct mail_cache_sync_context **ctx_r,
+static struct mail_cache_sync_context *mail_cache_handler_init(void **context)
+{
+	struct mail_cache_sync_context *ctx;
+
+	if (*context != NULL)
+		ctx = *context;
+	else {
+		*context = i_new(struct mail_cache_sync_context, 1);
+		ctx = *context;
+		ctx->invalidate_highwater = (uoff_t)-1;
+	}
+	return ctx;
+}
+
+static int mail_cache_handler_lock(struct mail_cache_sync_context *ctx,
 				   struct mail_cache *cache)
 {
-	struct mail_cache_sync_context *ctx = *ctx_r;
 	int ret;
-
-	if (ctx == NULL)
-		ctx = *ctx_r = i_new(struct mail_cache_sync_context, 1);
 
 	if (ctx->locked)
 		return 1;
@@ -81,8 +94,8 @@ int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return 0;
 
-	ret = mail_cache_handler_init(&ctx, cache);
-	*sync_context = ctx;
+	ctx = mail_cache_handler_init(context);
+	ret = mail_cache_handler_lock(ctx, cache);
 	if (ret <= 0)
 		return ret;
 
@@ -118,10 +131,22 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return 1;
 
+	ctx = mail_cache_handler_init(context);
 	if (cache->file_cache != NULL) {
-		mail_cache_flush_read_cache(cache, FALSE);
-		file_cache_invalidate(cache->file_cache, *new_cache_offset,
-				      (uoff_t)-1);
+		/* flush attribute cache only once per sync */
+		if (!ctx->nfs_attr_cache_flushed && cache->index->nfs_flush) {
+			ctx->nfs_attr_cache_flushed = TRUE;
+			mail_cache_flush_read_cache(cache, FALSE);
+		}
+		/* don't invalidate anything that's already been invalidated
+		   within this sync. */
+		if (*new_cache_offset < ctx->invalidate_highwater) {
+			file_cache_invalidate(cache->file_cache,
+					      *new_cache_offset,
+					      ctx->invalidate_highwater -
+					      *new_cache_offset);
+			ctx->invalidate_highwater = *new_cache_offset;
+		}
 	}
 
 	if (*old_cache_offset == 0 || *old_cache_offset == *new_cache_offset ||
@@ -138,8 +163,7 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	}
 
 	/* we'll need to link the old and new cache records */
-	ret = mail_cache_handler_init(&ctx, cache);
-	*context = ctx;
+	ret = mail_cache_handler_lock(ctx, cache);
 	if (ret <= 0)
 		return ret < 0 ? -1 : 1;
 
