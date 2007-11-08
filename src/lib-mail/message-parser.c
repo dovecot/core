@@ -114,6 +114,10 @@ static int message_parser_read_more(struct message_parser_ctx *ctx,
 	ret = i_stream_read_data(ctx->input, &block_r->data,
 				 &block_r->size, ctx->want_count);
 	if (ret <= 0) {
+		if (ret == -1 && block_r->size != 0) {
+			/* EOF, but we still have some data. return it. */
+			return 1;
+		}
 		if (ret < 0)
 			return ret;
 
@@ -303,8 +307,7 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	int ret;
 	bool eof, full;
 
-	if ((ret = message_parser_read_more(ctx, block_r)) == 0 ||
-	    block_r->size == 0)
+	if ((ret = message_parser_read_more(ctx, block_r)) <= 0)
 		return ret;
 	eof = ret == -1;
 	full = ret == -2;
@@ -589,8 +592,7 @@ static int preparsed_parse_body_more(struct message_parser_ctx *ctx,
 		ctx->part->body_size.physical_size;
 	int ret;
 
-	ret = message_parser_read_more(ctx, block_r);
-	if (ret <= 0)
+	if ((ret = message_parser_read_more(ctx, block_r)) <= 0)
 		return ret;
 
 	if (ctx->input->v_offset + block_r->size >= end_offset) {
