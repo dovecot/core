@@ -156,6 +156,7 @@ struct mail_index {
 	struct mail_cache *cache;
 	struct mail_transaction_log *log;
 
+	enum mail_index_sync_type fsync_mask;
 	mode_t mode;
 	gid_t gid;
 

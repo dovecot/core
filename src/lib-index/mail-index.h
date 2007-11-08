@@ -170,6 +170,10 @@ struct mail_index_view_sync_ctx;
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix);
 void mail_index_free(struct mail_index **index);
 
+/* Specify the transaction types that are fsynced after writing.
+   Default is to fsync nothing. */
+void mail_index_set_fsync_types(struct mail_index *index,
+				enum mail_index_sync_type fsync_mask);
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid);
 

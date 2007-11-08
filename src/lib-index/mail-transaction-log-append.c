@@ -80,7 +80,7 @@ static int log_buffer_move_to_memory(struct log_append_context *ctx)
 	return 0;
 }
 
-static int log_buffer_write(struct log_append_context *ctx)
+static int log_buffer_write(struct log_append_context *ctx, bool want_fsync)
 {
 	struct mail_transaction_log_file *file = ctx->file;
 
@@ -104,10 +104,11 @@ static int log_buffer_write(struct log_append_context *ctx)
 		 file->sync_offset + ctx->output->used ==
 		 file->max_tail_offset);
 
-	if (!file->log->index->fsync_disable && fdatasync(file->fd) < 0) {
+	if (want_fsync && !file->log->index->fsync_disable &&
+	    fdatasync(file->fd) < 0) {
 		mail_index_file_set_syscall_error(file->log->index,
 						  file->filepath,
-						  "fsync()");
+						  "fdatasync()");
 		return log_buffer_move_to_memory(ctx);
 	}
 
@@ -389,11 +390,13 @@ log_append_keyword_update(struct log_append_context *ctx,
 			  MAIL_TRANSACTION_KEYWORD_UPDATE);
 }
 
-static void log_append_keyword_updates(struct log_append_context *ctx)
+static enum mail_index_sync_type
+log_append_keyword_updates(struct log_append_context *ctx)
 {
         const struct mail_index_transaction_keyword_update *updates;
 	const char *const *keywords;
 	buffer_t *hdr_buf;
+	enum mail_index_sync_type change_mask = 0;
 	unsigned int i, count, keywords_count;
 
 	hdr_buf = buffer_create_dynamic(pool_datastack_create(), 64);
@@ -405,16 +408,19 @@ static void log_append_keyword_updates(struct log_append_context *ctx)
 
 	for (i = 0; i < count; i++) {
 		if (array_is_created(&updates[i].add_seq)) {
+			change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD;
 			log_append_keyword_update(ctx, hdr_buf,
 					MODIFY_ADD, keywords[i],
 					updates[i].add_seq.arr.buffer);
 		}
 		if (array_is_created(&updates[i].remove_seq)) {
+			change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE;
 			log_append_keyword_update(ctx, hdr_buf,
 					MODIFY_REMOVE, keywords[i],
 					updates[i].remove_seq.arr.buffer);
 		}
 	}
+	return change_mask;
 }
 
 static void log_append_sync_offset_if_needed(struct log_append_context *ctx)
@@ -457,12 +463,14 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 				   uint32_t *log_file_seq_r,
 				   uoff_t *log_file_offset_r)
 {
+	enum mail_index_sync_type change_mask = 0;
 	struct mail_index_view *view = t->view;
 	struct mail_index *index;
 	struct mail_transaction_log *log;
 	struct mail_transaction_log_file *file;
 	struct log_append_context ctx;
 	uoff_t append_offset;
+	bool want_fsync;
 
 	index = mail_index_view_get_index(view);
 	log = index->log;
@@ -508,10 +516,12 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 				  NULL, MAIL_TRANSACTION_HEADER_UPDATE);
 	}
 	if (array_is_created(&t->appends)) {
+		change_mask |= MAIL_INDEX_SYNC_TYPE_APPEND;
 		log_append_buffer(&ctx, t->appends.arr.buffer, NULL,
 				  MAIL_TRANSACTION_APPEND);
 	}
 	if (array_is_created(&t->updates)) {
+		change_mask |= MAIL_INDEX_SYNC_TYPE_FLAGS;
 		log_append_buffer(&ctx, t->updates.arr.buffer, NULL,
 				  MAIL_TRANSACTION_FLAG_UPDATE);
 	}
@@ -521,13 +531,18 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 
 	/* keyword resets before updates */
 	if (array_is_created(&t->keyword_resets)) {
+		change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET;
 		log_append_buffer(&ctx, t->keyword_resets.arr.buffer,
 				  NULL, MAIL_TRANSACTION_KEYWORD_RESET);
 	}
 	if (array_is_created(&t->keyword_updates))
-		log_append_keyword_updates(&ctx);
+		change_mask |= log_append_keyword_updates(&ctx);
 
 	if (array_is_created(&t->expunges)) {
+		/* non-external expunges are only requests, ignore them when
+		   checking fsync_mask */
+		if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
+			change_mask |= MAIL_INDEX_SYNC_TYPE_EXPUNGE;
 		log_append_buffer(&ctx, t->expunges.arr.buffer, NULL,
 				  MAIL_TRANSACTION_EXPUNGE);
 	}
@@ -557,8 +572,9 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		}
 	}
 
+	want_fsync = (view->index->fsync_mask & change_mask) != 0;
 	append_offset = file->sync_offset;
-	if (log_buffer_write(&ctx) < 0) {
+	if (log_buffer_write(&ctx, want_fsync) < 0) {
 		buffer_free(&ctx.output);
 		return -1;
 	}
