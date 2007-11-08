@@ -492,12 +492,11 @@ static const char *address_sanitize(const char *address)
 
 
 static void save_header_callback(struct message_header_line *hdr,
-				 bool *matched, struct istream *input)
+				 bool *matched, void *context ATTR_UNUSED)
 {
-	if (input->v_offset == 0) {
-		if (hdr != NULL && strncmp(hdr->name, "From ", 5) == 0)
-			*matched = TRUE;
-	}
+	if (hdr != NULL && hdr->name_offset == 0 &&
+	    strncmp(hdr->name, "From ", 5) == 0)
+		*matched = TRUE;
 }
 
 static struct istream *
@@ -522,7 +521,7 @@ create_mbox_stream(int fd, const char *envelope_sender)
 					      HEADER_FILTER_NO_CR,
 					      mbox_hide_headers,
 					      mbox_hide_headers_count,
-					      save_header_callback, input);
+					      save_header_callback, NULL);
 	i_stream_unref(&input);
 
 	input_list[0] = i_stream_create_from_data(mbox_hdr, strlen(mbox_hdr));
