@@ -697,6 +697,11 @@ int mailbox_save_init(struct mailbox_transaction_context *t,
 		      const char *from_envelope, struct istream *input,
 		      struct mail *dest_mail, struct mail_save_context **ctx_r)
 {
+	if (t->box->v.save_init == NULL) {
+		mail_storage_set_error(t->box->storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Saving messages not supported");
+		return -1;
+	}
 	if (t->box->v.save_init(t, flags, keywords,
 				received_date, timezone_offset,
 				from_envelope, input, dest_mail, ctx_r) < 0)
