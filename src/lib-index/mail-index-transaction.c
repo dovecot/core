@@ -459,6 +459,8 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 
 	/* first make a copy of the UIDs and map them to sequences */
 	recs = array_get_modifiable(&t->appends, &count);
+	i_assert(count > 0);
+
 	new_uid_map = i_new(struct uid_map, count);
 	for (i = 0; i < count; i++) {
 		new_uid_map[i].idx = i;
@@ -470,8 +472,12 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 
 	/* sort mail records */
 	sorted_recs = i_new(struct mail_index_record, count);
-	for (i = 0; i < count; i++)
+	sorted_recs[0] = recs[new_uid_map[0].idx];
+	for (i = 1; i < count; i++) {
 		sorted_recs[i] = recs[new_uid_map[i].idx];
+		if (sorted_recs[i].uid == sorted_recs[i-1].uid)
+			i_panic("Duplicate UIDs added in transaction");
+	}
 	buffer_write(t->appends.arr.buffer, 0, sorted_recs,
 		     sizeof(*sorted_recs) * count);
 	i_free(sorted_recs);
@@ -630,6 +636,8 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 			rec = mail_index_transaction_lookup(t, *seq_r - 1);
 			if (rec->uid > uid)
 				t->appends_nonsorted = TRUE;
+			else if (rec->uid == uid)
+				i_panic("Duplicate UIDs added in transaction");
 		}
 	}
 }
