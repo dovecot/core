@@ -320,7 +320,12 @@ dbox_sync_file_int(struct dbox_sync_context *ctx, struct dbox_file *file,
 		first_expunge_seq = (uint32_t)-1;
 	}
 
-	seqs = array_get(&entry->changes, &count);
+	if (array_is_created(&entry->changes))
+		seqs = array_get(&entry->changes, &count);
+	else {
+		seqs = NULL;
+		count = 0;
+	}
 	for (i = 0; i < count; ) {
 		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
 			if (seq >= first_expunge_seq)
