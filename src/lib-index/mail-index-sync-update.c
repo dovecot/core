@@ -594,7 +594,11 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		break;
 	}
 	default:
-		i_unreached();
+		mail_index_sync_set_corrupted(ctx,
+			"Unknown transaction record type 0x%x",
+			(hdr->type & MAIL_TRANSACTION_TYPE_MASK));
+		ret = -1;
+		break;
 	}
 	t_pop();
 	return ret;
