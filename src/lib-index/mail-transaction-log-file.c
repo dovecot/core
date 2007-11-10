@@ -781,19 +781,16 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 	if (avail != size) {
 		/* There's more data than we could sync at the moment. If the
 		   last record's size wasn't valid, we can't know if it will
-		   be updated unless we've locked the log.
-
-		   If the record size was valid, this is an error because the
-		   pread()s or the above fstat() check for mmaps should have
-		   guaranteed that this doesn't happen. */
-		if (file->locked || trans_size != 0) {
-			if (trans_size != 0) {
-				mail_transaction_log_file_set_corrupted(file,
-					"hdr.size too large (%u)", trans_size);
-			} else {
-				mail_transaction_log_file_set_corrupted(file,
-					"Unexpected garbage at EOF");
-			}
+		   be updated unless we've locked the log. */
+		if (trans_size != 0) {
+			/* pread()s or the above fstat() check for mmaps should
+			   have guaranteed that this doesn't happen */
+			mail_transaction_log_file_set_corrupted(file,
+				"hdr.size too large (%u)", trans_size);
+			return -1;
+		} else if (file->locked) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Unexpected garbage at EOF");
 			return -1;
 		}
 
