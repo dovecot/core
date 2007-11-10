@@ -862,14 +862,16 @@ int dbox_index_append_assign_file_ids(struct dbox_index_append_context *ctx)
 	unsigned int i, count;
 	int ret = 0;
 
-	str = t_str_new(1024);
+	str = str_new(default_pool, 1024);
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
 		file = files[i];
 
 		if (file->file_id == 0) {
+			t_push();
 			if (dbox_index_append_commit_new(ctx, file, str) < 0)
 				ret = -1;
+			t_pop();
 		}
 	}
 
@@ -881,6 +883,7 @@ int dbox_index_append_assign_file_ids(struct dbox_index_append_context *ctx)
 		/* we have to rollback changes we made */
 		dbox_index_append_rollback_commit(ctx);
 	}
+	str_free(&str);
 	return ret;
 }
 

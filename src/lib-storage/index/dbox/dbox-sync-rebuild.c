@@ -283,6 +283,7 @@ static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 	}
 	errno = 0;
 	for (; ret == 0 && (d = readdir(dir)) != NULL; errno = 0) {
+		t_push();
 		if (strncmp(d->d_name, DBOX_MAIL_FILE_UID_PREFIX,
 			    sizeof(DBOX_MAIL_FILE_UID_PREFIX)-1) == 0)
 			ret = dbox_sync_index_uid_file(ctx, path, d->d_name);
@@ -291,6 +292,7 @@ static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 			ret = dbox_sync_index_multi_file(ctx, path, d->d_name);
 		else if (primary && strstr(d->d_name, ":2,") != NULL)
 			ret = dbox_sync_index_maildir_file(ctx, d->d_name);
+		t_pop();
 	}
 	if (errno != 0) {
 		mail_storage_set_critical(storage,
@@ -331,9 +333,10 @@ static int dbox_sync_new_maildir(struct dbox_sync_rebuild_context *ctx)
 		hdr = mail_index_get_header(trans_view);
 		ctx->maildir_new_uid = hdr->next_uid;
 	}
-	for (i = 0; i < count; i++) {
-		if (dbox_sync_index_maildir_file(ctx, fnames[i]) < 0)
-			ret = -1;
+	for (i = 0; i < count && ret == 0; i++) {
+		t_push();
+		ret = dbox_sync_index_maildir_file(ctx, fnames[i]);
+		t_pop();
 	}
 	return ret;
 }
