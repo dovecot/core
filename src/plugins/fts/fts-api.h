@@ -8,7 +8,8 @@ struct mailbox;
 
 enum fts_lookup_flags {
 	FTS_LOOKUP_FLAG_HEADERS	= 0x01,
-	FTS_LOOKUP_FLAG_BODY	= 0x02
+	FTS_LOOKUP_FLAG_BODY	= 0x02,
+	FTS_LOOKUP_FLAG_INVERT	= 0x04
 };
 
 struct fts_backend *

@@ -188,6 +188,8 @@ fts_backend_lucene_lookup(struct fts_backend *_backend,
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 
+	i_assert((flags & FTS_LOOKUP_FLAG_INVERT) == 0);
+
 	fts_backend_select(backend);
 	return lucene_index_lookup(backend->lstorage->index,
 				   flags, key, result);

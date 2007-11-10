@@ -111,7 +111,12 @@ void fts_backend_unlock(struct fts_backend *backend)
 int fts_backend_lookup(struct fts_backend *backend, enum fts_lookup_flags flags,
 		       const char *key, ARRAY_TYPE(seq_range) *result)
 {
-	return backend->v.lookup(backend, flags, key, result);
+	if (backend->v.lookup(backend, flags & ~FTS_LOOKUP_FLAG_INVERT,
+			      key, result) < 0)
+		return -1;
+	if ((flags & FTS_LOOKUP_FLAG_INVERT) != 0)
+		seq_range_array_invert(result, 1, (uint32_t)-1);
+	return 0;
 }
 
 int fts_backend_filter(struct fts_backend *backend, enum fts_lookup_flags flags,
@@ -131,6 +136,13 @@ int fts_backend_filter(struct fts_backend *backend, enum fts_lookup_flags flags,
 		unsigned int i, count;
 		uint32_t next_seq = 1;
 
+		if ((flags & FTS_LOOKUP_FLAG_INVERT) != 0) {
+			/* if the lookups aren't definite, we can't just
+			   invert the result. */
+			i_assert((backend->flags &
+				  FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) != 0);
+			seq_range_array_invert(&tmp_result, 1, (uint32_t)-1);
+		}
 		range = array_get(&tmp_result, &count);
 		for (i = 0; i < count; i++) {
 			if (next_seq != range[i].seq1) {

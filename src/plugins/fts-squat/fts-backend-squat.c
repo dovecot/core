@@ -178,22 +178,25 @@ static void fts_backend_squat_unlock(struct fts_backend *_backend)
 
 static int
 fts_backend_squat_lookup(struct fts_backend *_backend,
-			 enum fts_lookup_flags flags ATTR_UNUSED,
+			 enum fts_lookup_flags flags,
 			 const char *key, ARRAY_TYPE(seq_range) *result)
 {
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
 
+	i_assert((flags & FTS_LOOKUP_FLAG_INVERT) == 0);
 	return squat_trie_lookup(backend->trie, result, key);
 }
 
 static int
 fts_backend_squat_filter(struct fts_backend *_backend,
-			 enum fts_lookup_flags flags ATTR_UNUSED,
+			 enum fts_lookup_flags flags,
 			 const char *key, ARRAY_TYPE(seq_range) *result)
 {
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
+
+	i_assert((flags & FTS_LOOKUP_FLAG_INVERT) == 0);
 
 	return squat_trie_filter(backend->trie, result, key);
 }

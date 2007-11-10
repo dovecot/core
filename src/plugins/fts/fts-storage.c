@@ -378,6 +378,12 @@ static void fts_search_filter_args(struct fts_search_context *fctx,
 				/* already handled this one */
 				break;
 			}
+			if (args->not &&
+			    (fctx->backend->flags &
+			     FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) == 0) {
+				/* can't optimize this */
+				break;
+			}
 
 			key = args->value.str;
 			if (*key == '\0') {
@@ -392,6 +398,8 @@ static void fts_search_filter_args(struct fts_search_context *fctx,
 			if (args->type == SEARCH_TEXT_FAST ||
 			    args->type == SEARCH_TEXT)
 				flags |= FTS_LOOKUP_FLAG_HEADERS;
+			if (args->not)
+				flags |= FTS_LOOKUP_FLAG_INVERT;
 			if (fts_backend_filter(fctx->backend, flags, key,
 					       uid_result) < 0) {
 				/* failed, but we already have limited
@@ -442,6 +450,8 @@ static void fts_search_init(struct mailbox *box,
 		    fctx->best_arg->type == SEARCH_TEXT)
 			flags |= FTS_LOOKUP_FLAG_HEADERS;
 	}
+	if (fctx->best_arg->not)
+		flags |= FTS_LOOKUP_FLAG_INVERT;
 
 	i_array_init(&uid_result, 64);
 	if (fts_backend_lookup(backend, flags, key, &uid_result) < 0) {
@@ -467,6 +477,11 @@ static bool arg_is_better(const struct mail_search_arg *new_arg,
 	if (old_arg == NULL)
 		return TRUE;
 	if (new_arg == NULL)
+		return FALSE;
+
+	if (old_arg->not && !new_arg->not)
+		return TRUE;
+	if (!old_arg->not && new_arg->not)
 		return FALSE;
 
 	/* prefer not to use headers. they have a larger possibility of
@@ -579,6 +594,13 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 		fctx->backend = fbox->backend_exact;
 		fctx->best_arg = arg_is_better(best_exact_arg, best_fast_arg) ?
 			best_exact_arg : best_fast_arg;
+	}
+
+	if (fctx->best_arg != NULL && fctx->best_arg->not &&
+	    (fctx->backend->flags & FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) == 0) {
+		/* NOTs can't be handled without definite lookups */
+		fctx->backend = NULL;
+		fctx->best_arg = NULL;
 	}
 
 	fts_try_build_init(fctx);
