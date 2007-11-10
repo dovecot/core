@@ -341,7 +341,7 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 {
 	struct mail_index *index = mail_index_view_get_index(view);
 	const struct mail_index_record *rec;
-	const struct mail_index_ext *ext;
+	const struct mail_index_registered_ext *ext;
 	const void *data;
 	unsigned int i, ext_count;
 	string_t *str;
@@ -352,7 +352,7 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 	       seq, rec->uid, rec->flags, flags2str(rec->flags));
 
 	str = t_str_new(256);
-	ext = array_get(&index->map->extensions, &ext_count);
+	ext = array_get(&index->extensions, &ext_count);
 	for (i = 0; i < ext_count; i++) {
 		mail_index_lookup_ext(view, seq, i, &data, &expunged);
 		if (data == NULL || ext[i].record_size == 0)
