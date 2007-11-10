@@ -324,6 +324,8 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	uoff_t offset;
 	int ret;
 
+	i_assert(!index->syncing);
+
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
 		return -1;
 
@@ -405,6 +407,8 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) != 0)
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES;
 	ctx->ext_trans = mail_index_transaction_begin(ctx->view, trans_flags);
+
+	index->syncing = TRUE;
 
 	*ctx_r = ctx;
 	*view_r = ctx->view;
@@ -609,8 +613,11 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
 
+	i_assert(ctx->index->syncing);
+
 	*_ctx = NULL;
 
+	ctx->index->syncing = FALSE;
 	mail_transaction_log_sync_unlock(ctx->index->log);
 
 	mail_index_view_close(&ctx->view);

@@ -91,10 +91,7 @@ int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	if (*cache_offset == 0)
 		return 0;
 
-	if (MAIL_CACHE_IS_UNUSABLE(cache))
-		return 0;
-
-	ctx = mail_cache_handler_init(context);
+	ctx = mail_cache_handler_init(sync_context);
 	ret = mail_cache_handler_lock(ctx, cache);
 	if (ret <= 0)
 		return ret;
@@ -128,11 +125,8 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		return 1;
 	}
 
-	if (MAIL_CACHE_IS_UNUSABLE(cache))
-		return 1;
-
 	ctx = mail_cache_handler_init(context);
-	if (cache->file_cache != NULL) {
+	if (cache->file_cache != NULL && !MAIL_CACHE_IS_UNUSABLE(cache)) {
 		/* flush attribute cache only once per sync */
 		if (!ctx->nfs_attr_cache_flushed && cache->index->nfs_flush) {
 			ctx->nfs_attr_cache_flushed = TRUE;

@@ -546,8 +546,16 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 						  log_file_offset_r);
 	}
 
-	if (ret == 0) {
-		/* we always want to have the latest changes in index map */
+	if (ret == 0 && !t->view->index->syncing) {
+		/* if we're committing a normal transaction, we want to
+		   have those changes in the index mapping immediately. this
+		   is especially important when committing cache offset
+		   updates.
+
+		   however if we're syncing the index now, the mapping must
+		   be done later as MAIL_INDEX_SYNC_HANDLER_FILE so that
+		   expunge handlers get run for the newly expunged messages
+		   (and sync handlers that require HANDLER_FILE as well). */
 		(void)mail_index_refresh(t->view->index);
 	}
 
