@@ -346,7 +346,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 
 	mk->synced = FALSE;
 
-	if (!mk->changed)
+	if (!mk->changed || mk->mbox == NULL)
 		return 0;
 
 	/* we could just create the temp file directly, but doing it this

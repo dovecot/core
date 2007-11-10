@@ -94,7 +94,7 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 	struct istream *input;
 	struct ostream *output;
 	uint32_t file_id, seq, uid;
-	uoff_t first_offset, offset, physical_size, metadata_offset;
+	uoff_t first_offset, offset, physical_size;
 	const char *out_path;
 	unsigned int i, count;
 	bool expunged;
@@ -151,9 +151,8 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 			break;
 
 		/* write metadata */
-		metadata_offset = dbox_file_get_metadata_offset(file, offset,
-								physical_size);
-		(void)dbox_file_metadata_seek(file, metadata_offset, &expunged);
+		(void)dbox_file_metadata_seek_mail_offset(file, offset,
+							  &expunged);
 		dbox_sync_update_metadata(ctx, file, entry, seq);
 		if ((ret = dbox_file_metadata_write_to(file, output)) < 0)
 			break;

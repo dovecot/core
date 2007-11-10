@@ -144,7 +144,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 				     struct dbox_file *file, uoff_t *offset)
 {
 	uint32_t seq, uid;
-	uoff_t metadata_offset, physical_size;
+	uoff_t physical_size;
 	const char *path;
 	bool expunged;
 	int ret;
@@ -185,9 +185,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 		file->last_append_uid = uid;
 	}
 
-	metadata_offset =
-		dbox_file_get_metadata_offset(file, *offset, physical_size);
-	ret = dbox_file_metadata_seek(file, metadata_offset, &expunged);
+	ret = dbox_file_metadata_seek_mail_offset(file, *offset, &expunged);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
@@ -318,6 +316,8 @@ static int dbox_sync_new_maildir(struct dbox_sync_rebuild_context *ctx)
 	int ret = 0;
 
 	fnames = array_get(&ctx->maildir_new_files, &count);
+	if (count == 0)
+		return 0;
 
 	/* try to give them UIDs beginning from uidlist's next_uid */
 	next_uid = maildir_uidlist_get_next_uid(ctx->maildir_uidlist);

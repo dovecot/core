@@ -108,6 +108,10 @@ struct dbox_file {
 	time_t create_time;
 	uoff_t output_stream_offset;
 
+	uoff_t cur_offset;
+	uint32_t cur_uid;
+	uoff_t cur_physical_size;
+
 	char *fname;
 	char *current_path;
 
@@ -181,9 +185,6 @@ void dbox_file_cancel_append(struct dbox_file *file, uoff_t append_offset);
 /* Finish appending the current mail. */
 void dbox_file_finish_append(struct dbox_file *file);
 
-/* Calculate offset to message's metadata. */
-uoff_t dbox_file_get_metadata_offset(struct dbox_file *file, uoff_t offset,
-				     uoff_t physical_size);
 /* Seek to given metadata block. Returns 1 if ok, 0 if file/offset is
    corrupted, -1 if I/O error. If message has already been expunged,
    expunged_r=TRUE and 1 is returned. */

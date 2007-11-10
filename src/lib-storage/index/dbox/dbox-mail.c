@@ -64,20 +64,14 @@ static int dbox_mail_lookup(struct dbox_mail *mail,
 static int
 dbox_mail_metadata_seek(struct dbox_mail *mail, struct dbox_file **file_r)
 {
-	struct mail *_mail = &mail->imail.mail.mail;
-	uoff_t offset, metadata_offset, physical_size;
+	uoff_t offset;
 	bool expunged;
 	int ret;
 
 	if (dbox_mail_lookup(mail, &offset, file_r) < 0)
 		return -1;
 
-	if (mail_get_physical_size(_mail, &physical_size) < 0)
-		return -1;
-
-	metadata_offset =
-		dbox_file_get_metadata_offset(*file_r, offset, physical_size);
-	ret = dbox_file_metadata_seek(*file_r, metadata_offset, &expunged);
+	ret = dbox_file_metadata_seek_mail_offset(*file_r, offset, &expunged);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;

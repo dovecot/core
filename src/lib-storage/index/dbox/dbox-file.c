@@ -570,17 +570,22 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 	if (offset == 0)
 		offset = file->file_header_size;
 
-	i_stream_seek(file->input, offset);
-	ret = dbox_file_read_mail_header(file, uid_r, physical_size_r);
-	if (ret <= 0)
-		return ret;
-
-	i_stream_skip(file->input, file->msg_header_size);
+	if (offset != file->cur_offset) {
+		file->cur_offset = offset;
+		i_stream_seek(file->input, offset);
+		ret = dbox_file_read_mail_header(file, &file->cur_uid,
+						 &file->cur_physical_size);
+		if (ret <= 0)
+			return ret;
+	}
 	if (stream_r != NULL) {
+		i_stream_seek(file->input, offset + file->msg_header_size);
 		*stream_r = i_stream_create_limit(file->input,
 						  file->input->v_offset,
-						  *physical_size_r);
+						  file->cur_physical_size);
 	}
+	*uid_r = file->cur_uid;
+	*physical_size_r = file->cur_physical_size;
 	return 1;
 }
 
@@ -737,8 +742,9 @@ void dbox_file_finish_append(struct dbox_file *file)
 	file->append_count++;
 }
 
-uoff_t dbox_file_get_metadata_offset(struct dbox_file *file, uoff_t offset,
-				     uoff_t physical_size)
+static uoff_t
+dbox_file_get_metadata_offset(struct dbox_file *file, uoff_t offset,
+			      uoff_t physical_size)
 {
 	if (offset == 0) {
 		if (file->maildir_file)
@@ -844,21 +850,16 @@ int dbox_file_metadata_seek_mail_offset(struct dbox_file *file, uoff_t offset,
 {
 	uoff_t physical_size, metadata_offset;
 	uint32_t uid;
-	bool expunged1, expunged2;
 	int ret;
 
 	ret = dbox_file_get_mail_stream(file, offset, &uid, &physical_size,
-					NULL, &expunged1);
-	if (ret <= 0)
+					NULL, expunged_r);
+	if (ret <= 0 || *expunged_r)
 		return ret;
 
 	metadata_offset =
 		dbox_file_get_metadata_offset(file, offset, physical_size);
-	ret = dbox_file_metadata_seek(file, metadata_offset, &expunged2);
-	if (ret <= 0)
-		return ret;
-	*expunged_r = expunged1 || expunged2;
-	return 1;
+	return dbox_file_metadata_seek(file, metadata_offset, expunged_r);
 }
 
 const char *dbox_file_metadata_get(struct dbox_file *file,
@@ -1128,7 +1129,9 @@ bool dbox_file_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 	mail_index_lookup_ext(view, seq, mbox->dbox_ext_id, &data, &expunged);
 	if (expunged)
 		return FALSE;
-	if (data == NULL) {
+	dbox_rec = data;
+
+	if (dbox_rec == NULL || dbox_rec->file_id == 0) {
 		mail_index_lookup_uid(view, seq, &uid);
 		if ((uid & DBOX_FILE_ID_FLAG_UID) != 0) {
 			/* something's broken, we can't handle this high UIDs */
@@ -1137,7 +1140,6 @@ bool dbox_file_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		*file_id_r = DBOX_FILE_ID_FLAG_UID | uid;
 		*offset_r = 0;
 	} else {
-		dbox_rec = data;
 		*file_id_r = dbox_rec->file_id;
 		*offset_r = dbox_rec->offset;
 	}
