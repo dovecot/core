@@ -503,15 +503,6 @@ int mail_index_refresh(struct mail_index *index)
 {
 	int ret;
 
-	if (MAIL_INDEX_IS_IN_MEMORY(index))
-		return 0;
-
-	if (index->excl_lock_count > 0) {
-		/* we have index exclusively locked, nothing could
-		   have changed. */
-		return 0;
-	}
-
 	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD);
 	return ret <= 0 ? -1 : 0;
 }
