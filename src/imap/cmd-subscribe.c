@@ -4,9 +4,30 @@
 #include "commands.h"
 #include "mail-namespace.h"
 
+static bool have_listable_namespace_prefix(struct mail_namespace *ns,
+					   const char *name)
+{
+	unsigned int name_len = strlen(name);
+
+	for (; ns != NULL; ns = ns->next) {
+		if ((ns->flags & NAMESPACE_FLAG_LIST) == 0)
+			continue;
+
+		if (ns->prefix_len <= name_len)
+			continue;
+
+		/* if prefix has multiple hierarchies, allow subscribing to
+		   any of the hierarchies */
+		if (strncmp(ns->prefix, name, name_len) == 0 &&
+		    ns->prefix[name_len] == ns->sep)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
-	struct mail_namespace *ns, *ns2;
+	struct mail_namespace *ns;
         struct mail_storage *storage;
 	struct mailbox_list *list;
 	const char *mailbox, *verify_name;
@@ -31,9 +52,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		verify_name = t_strndup(verify_name, strlen(verify_name)-1);
 	}
 
-	ns2 = mail_namespace_find_prefix_nosep(cmd->client->namespaces,
-					       mailbox);
-	if (ns2 != NULL && (ns2->flags & NAMESPACE_FLAG_LIST) != 0) {
+	if (have_listable_namespace_prefix(cmd->client->namespaces, mailbox)) {
 		/* subscribing to a listable namespace prefix, allow it. */
 	} else {
 		if (!client_verify_mailbox_name(cmd, verify_name,
