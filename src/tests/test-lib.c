@@ -1,9 +1,11 @@
 /* Copyright (c) 2007 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "array.h"
 #include "str.h"
 #include "base64.h"
 #include "bsearch-insert-pos.h"
+#include "seq-range-array.h"
 
 static void test_base64_encode(void)
 {
@@ -120,6 +122,49 @@ static void test_bsearch_insert_pos(void)
 	}
 }
 
+static void test_seq_range_array(void)
+{
+	static const unsigned int input_min = 1, input_max = 5;
+	static const unsigned int input[] = {
+		1, 2, 3, 4, 5, -1U,
+		2, 3, 4, -1U,
+		1, 2, 4, 5, -1U,
+		1, 3, 5, -1U,
+		1, -1U,
+		5, -1U,
+		-1U
+	};
+	ARRAY_TYPE(seq_range) range = ARRAY_INIT;
+	unsigned int i, j, seq, start, num;
+	bool old_exists, success;
+
+	for (i = num = 0; input[i] != -1U; num++, i++) {
+		success = TRUE;
+		start = i;
+		for (; input[i] != -1U; i++) {
+			seq_range_array_add(&range, 32, input[i]);
+			for (j = start; j < i; j++) {
+				if (!seq_range_exists(&range, input[j]))
+					success = FALSE;
+			}
+		}
+
+		seq_range_array_invert(&range, input_min, input_max);
+		for (seq = input_min; seq <= input_max; seq++) {
+			for (j = start; input[j] != -1U; j++) {
+				if (input[j] == seq)
+					break;
+			}
+			old_exists = input[j] != -1U;
+			if (seq_range_exists(&range, seq) == old_exists)
+				success = FALSE;
+		}
+		test_out(t_strdup_printf("seq_range_array_invert(%u)", num),
+			 success);
+		array_free(&range);
+	}
+}
+
 int main(void)
 {
 	test_init();
@@ -127,6 +172,7 @@ int main(void)
 	test_base64_encode();
 	test_base64_decode();
 	test_bsearch_insert_pos();
+	test_seq_range_array();
 	test_istreams();
 	return test_deinit();
 }

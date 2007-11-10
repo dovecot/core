@@ -19,4 +19,8 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 /* Returns TRUE if sequence exists in the range. */
 bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq);
 
+/* Invert the sequence range. For example 5:6 -> min_seq:4,7:max_seq. */
+void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,
+			    uint32_t min_seq, uint32_t max_seq);
+
 #endif

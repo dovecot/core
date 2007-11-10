@@ -218,3 +218,53 @@ bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq)
 
 	return seq_range_lookup(array, seq, &idx);
 }
+
+void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,
+			    uint32_t min_seq, uint32_t max_seq)
+{
+	struct seq_range *range, value;
+	unsigned int i, count;
+	uint32_t next_min_seq;
+
+	if (array_is_created(array))
+		range = array_get_modifiable(array, &count);
+	else {
+		range = NULL;
+		count = 0;
+	} 
+	if (count == 0) {
+		/* empty -> full */
+		if (!array_is_created(array))
+			i_array_init(array, 4);
+		value.seq1 = min_seq;
+		value.seq2 = max_seq;
+		array_append(array, &value, 1);
+		return;
+	}
+	i_assert(range[0].seq1 >= min_seq);
+	i_assert(range[count-1].seq2 <= max_seq);
+
+	if (range[0].seq1 == min_seq && range[0].seq2 == max_seq) {
+		/* full -> empty */
+		array_clear(array);
+		return;
+	}
+
+	for (i = 0; i < count; ) {
+		next_min_seq = range[i].seq2 + 1;
+		if (range[i].seq1 == min_seq) {
+			array_delete(array, i, 1);
+			range = array_get_modifiable(array, &count);
+		} else {
+			range[i].seq2 = range[i].seq1 - 1;
+			range[i].seq1 = min_seq;
+			i++;
+		}
+		min_seq = next_min_seq;
+	}
+	if (min_seq <= max_seq) {
+		value.seq1 = min_seq;
+		value.seq2 = max_seq;
+		array_append(array, &value, 1);
+	}
+}
