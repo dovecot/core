@@ -52,7 +52,8 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		verify_name = t_strndup(verify_name, strlen(verify_name)-1);
 	}
 
-	if (have_listable_namespace_prefix(cmd->client->namespaces, mailbox)) {
+	if (have_listable_namespace_prefix(cmd->client->namespaces,
+					   verify_name)) {
 		/* subscribing to a listable namespace prefix, allow it. */
 	} else {
 		if (!client_verify_mailbox_name(cmd, verify_name,
