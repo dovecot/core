@@ -321,7 +321,7 @@ static int dbox_sync_new_maildir(struct dbox_sync_rebuild_context *ctx)
 
 	/* try to give them UIDs beginning from uidlist's next_uid */
 	next_uid = maildir_uidlist_get_next_uid(ctx->maildir_uidlist);
-	trans_view = mail_index_transaction_get_view(ctx->trans);
+	trans_view = mail_index_transaction_open_updated_view(ctx->trans);
 	for (i = 0; i < count; i++) {
 		if (mail_index_lookup_seq(trans_view, next_uid, &seq))
 			break;
@@ -333,6 +333,8 @@ static int dbox_sync_new_maildir(struct dbox_sync_rebuild_context *ctx)
 		hdr = mail_index_get_header(trans_view);
 		ctx->maildir_new_uid = hdr->next_uid;
 	}
+	mail_index_view_close(&trans_view);
+
 	for (i = 0; i < count && ret == 0; i++) {
 		t_push();
 		ret = dbox_sync_index_maildir_file(ctx, fnames[i]);
