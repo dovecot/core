@@ -22,8 +22,6 @@
 #include "var-expand.h"
 #include "rfc822-parser.h"
 #include "message-address.h"
-#include "message-header-parser.h"
-#include "istream-header-filter.h"
 #include "mail-namespace.h"
 #include "raw-storage.h"
 #include "dict-client.h"
