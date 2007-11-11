@@ -64,7 +64,6 @@ struct index_mailbox {
 	unsigned int notify_pending:1;
 	unsigned int move_to_memory:1;
 	unsigned int fsync_disable:1;
-	unsigned int mailbox_deleted:1;
 };
 
 struct index_transaction_context {

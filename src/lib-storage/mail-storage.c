@@ -741,5 +741,12 @@ int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
 
 bool mailbox_is_inconsistent(struct mailbox *box)
 {
-	return box->v.is_inconsistent(box);
+	return box->mailbox_deleted || box->v.is_inconsistent(box);
+}
+
+void mailbox_set_deleted(struct mailbox *box)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			       "Mailbox was deleted under us");
+	box->mailbox_deleted = TRUE;
 }

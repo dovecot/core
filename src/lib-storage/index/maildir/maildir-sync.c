@@ -342,7 +342,7 @@ maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
 		return 0;
 	if (errno == ENOENT) {
 		/* if mailbox gets deleted under us, don't log an error */
-		mbox->ibox.mailbox_deleted = TRUE;
+		mailbox_set_deleted(&mbox->ibox.box);
 		return -1;
 	}
 
@@ -369,7 +369,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	dirp = opendir(path);
 	if (dirp == NULL) {
 		if (errno == ENOENT) {
-			ctx->mbox->ibox.mailbox_deleted = TRUE;
+			mailbox_set_deleted(&ctx->mbox->ibox.box);
 			return -1;
 		}
 		mail_storage_set_critical(storage,

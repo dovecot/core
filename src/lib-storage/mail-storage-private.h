@@ -196,6 +196,8 @@ struct mailbox {
 	/* When FAST open flag is used, the mailbox isn't actually opened until
 	   it's synced for the first time. */
 	unsigned int opened:1;
+	/* Mailbox was deleted while we had it open. */
+	unsigned int mailbox_deleted:1;
 };
 
 struct mail_vfuncs {
@@ -316,6 +318,7 @@ void mail_storage_set_internal_error(struct mail_storage *storage);
 bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 
 void mail_set_expunged(struct mail *mail);
+void mailbox_set_deleted(struct mailbox *box);
 
 enum mailbox_list_flags
 mail_storage_get_list_flags(enum mail_storage_flags storage_flags);

@@ -272,7 +272,7 @@ static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 	dir = opendir(path);
 	if (dir == NULL) {
 		if (errno == ENOENT) {
-			ctx->mbox->ibox.mailbox_deleted = TRUE;
+			mailbox_set_deleted(&ctx->mbox->ibox.box);
 			return -1;
 		}
 		mail_storage_set_critical(storage,
