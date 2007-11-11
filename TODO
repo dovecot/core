@@ -1,11 +1,9 @@
+ - proxying should support connecting to multiple IPs or if nothing works
+   fallbacking to logging in normally (optionally).
  - imap-login: file client-authenticate.c: line 193 (sasl_callback): assertion failed: (!client->destroyed || reply == SASL_SERVER_REPLY_CLIENT_ERROR || reply == SASL_SERVER_REPLY_MASTER_FAILED)
   - login_process_per_connection=yes, HUP
- - data is never deleted from cache file
  - index-sync.c: line 273 (index_mailbox_expunge_unseen_recent): assertion failed: (mail_index_view_is_inconsistent(ibox->view))
   - ^ imaptest -> ctrl-c
- - mailbox_list_get_permissions() and dovecot-shared file are both used to
-   figure out permissions. probably make it use only dovecot-shared or
-   ignore gid change errors
  - dbox: inotify should wait on .log
  - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"
  - search: flag searching is too slow with huge mailboxes. at least optimize
@@ -17,14 +15,12 @@
  - message-header-decode.c: handle decoding errors by fallbacking to simply
    returning the data as ASCII (the whole thing, beginning from =?)
  - dbox: clean up temp.* files once in a while
- - write first extension intros in dovecot.index.log always with names
  - expunged messages' flags may get updated in views where they're not yet
    expunged (e.g. "expunge uid 2", "+flags \seen uid 1:3")
  - POP3 UIDL caching
  - Cydir/dbox doesn't respect LIST RETURN (CHILDREN)
  - SORT: Invalid input is supposed to be sorted last.
  - indexes: are cache prev_offsets updated right?
- - mmap_disable: updated cache header doesn't invalidate other processes' cache?
 
  - maildir+pop3/deliver fast updates:
    - with locking enabled, pop3 could just keep the one and same sync lock and
@@ -136,6 +132,12 @@
     - index file format changes:
 	- pack UIDs to beginning of file with UID ranges
 	- use squat-like compressed uid ranges everywhere
+        - write first extension intros in dovecot.index.log always with names
+	   - or better yet, drop the intro concept completely as it is now
+	- add "transaction boundaries" so we know which records belong to a
+	  single transaction.
+	   - only after that we can remove the transaction log offset
+	     overwriting (otherwise we can get partial transactions in views)
 
  - namespaces
     - namespaces: add new "auto_disable" flag so if the mailbox can't be opened
