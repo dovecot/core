@@ -868,7 +868,7 @@ int main(int argc, char *argv[])
 		enum mail_error error;
 
 		i_fatal("Can't sync delivery mail: %s",
-			mail_storage_get_last_error(storage, &error));
+			mail_storage_get_last_error(raw_ns->storage, &error));
 	}
 	raw_box = (struct raw_mailbox *)box;
 	raw_box->envelope_sender = envelope_sender;
