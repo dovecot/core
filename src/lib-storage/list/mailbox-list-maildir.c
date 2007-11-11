@@ -183,8 +183,6 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		i_unreached();
 	}
 
-	i_assert(mailbox_list_is_valid_existing_name(_list, name));
-
 	if ((list->list.flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~'))
 		return maildir_list_get_absolute_path(_list, name);
