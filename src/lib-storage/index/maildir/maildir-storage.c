@@ -407,7 +407,8 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	/* for shared mailboxes get the create mode from the
 	   permissions of dovecot-shared file. */
 	if (stat(t_strconcat(path, "/dovecot-shared", NULL), &st) == 0) {
-		if ((st.st_mode & S_ISGID) != 0) {
+		if ((st.st_mode & S_ISGID) != 0 ||
+		    (st.st_mode & 0060) == 0) {
 			/* Ignore GID */
 			st.st_gid = (gid_t)-1;
 		}
