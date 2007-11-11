@@ -8,8 +8,9 @@
 #include "write-full.h"
 #include "fd-close-on-exec.h"
 
-#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <syslog.h>
 #include <time.h>
 
@@ -39,7 +40,7 @@ static failure_callback_t *error_handler = default_error_handler;
 static failure_callback_t *info_handler = default_error_handler;
 static void (*failure_exit_callback)(int *) = NULL;
 
-static FILE *log_fd = NULL, *log_info_fd = NULL;
+static int log_fd = STDERR_FILENO, log_info_fd = STDERR_FILENO;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
 
 /* kludgy .. we want to trust log_stamp_format with -Wformat-nonliteral */
@@ -58,73 +59,23 @@ static void failure_exit(int status)
 	exit(status);
 }
 
-static void write_prefix(FILE *f)
+static void log_prefix_add(string_t *str)
 {
 	struct tm *tm;
-	char str[256];
+	char buf[256];
 	time_t now;
 
 	if (log_prefix != NULL)
-		fputs(log_prefix, f);
+		str_append(str, log_prefix);
 
 	if (log_stamp_format != NULL) {
 		now = time(NULL);
 		tm = localtime(&now);
 
-		if (strftime(str, sizeof(str),
+		if (strftime(buf, sizeof(buf),
 			     get_log_stamp_format("unused"), tm) > 0)
-			fputs(str, f);
+			str_append(str, buf);
 	}
-}
-
-static int ATTR_FORMAT(3, 0)
-default_handler(const char *prefix, FILE *f, const char *format, va_list args)
-{
-	static int recursed = 0;
-	va_list args2;
-	int old_errno = errno;
-
-	if (recursed == 2) {
-		/* we're being called from some signal handler, or
-		   printf_format_fix_unsafe() killed us again */
-		return -1;
-	}
-
-	recursed++;
-
-	if (f == NULL) {
-		f = stderr;
-
-		if (log_fd == NULL)
-			log_fd = stderr;
-	}
-
-	VA_COPY(args2, args);
-
-	if (recursed == 2) {
-		/* printf_format_fix_unsafe() probably killed us last time,
-		   just write the format now. */
-
-		fputs("recursed: ", f);
-		fputs(format, f);
-	} else {
-		write_prefix(f);
-		fputs(prefix, f);
-
-		/* write may have failed, restore errno so %m works. although
-		   it probably can't write the error then anyway. */
-		errno = old_errno;
-
-		/* make sure there's no %n in there and fix %m */
-		vfprintf(f, printf_format_fix_unsafe(format), args2);
-	}
-
-	fputc('\n', f);
-
-	errno = old_errno;
-	recursed--;
-
-	return 0;
 }
 
 static void log_fd_flush_stop(struct ioloop *ioloop)
@@ -132,27 +83,68 @@ static void log_fd_flush_stop(struct ioloop *ioloop)
 	io_loop_stop(ioloop);
 }
 
-static int log_fd_flush(FILE *fd)
+static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
 {
 	struct ioloop *ioloop;
 	struct io *io;
+	ssize_t ret;
 
-	while (fflush(fd) < 0) {
-		if (errno == EINTR)
+	while ((ret = write(fd, data, len)) != len) {
+		if (ret > 0) {
+			/* some was written, continue.. */
+			data += ret;
+			len -= ret;
 			continue;
+		}
+		if (ret == 0) {
+			/* out of disk space? */
+			return -1;
+		}
 		if (errno != EAGAIN)
 			return -1;
 
 		/* wait until we can write more. this can happen at least
 		   when writing to terminal, even if fd is blocking. */
 		ioloop = io_loop_create();
-		io = io_add(IO_WRITE, fileno(fd),
-			    log_fd_flush_stop, ioloop);
+		io = io_add(IO_WRITE, fd, log_fd_flush_stop, ioloop);
 		io_loop_run(ioloop);
 		io_remove(&io);
 		io_loop_destroy(&ioloop);
 	}
 	return 0;
+}
+
+static int ATTR_FORMAT(3, 0)
+default_handler(const char *prefix, int fd, const char *format, va_list args)
+{
+	static int recursed = 0;
+	string_t *str;
+	int ret, old_errno = errno;
+
+	if (recursed >= 2) {
+		/* we're being called from some signal handler or we ran
+		   out of memory */
+		return 0;
+	}
+
+	recursed++;
+
+	t_push();
+	str = t_str_new(256);
+	log_prefix_add(str);
+	str_append(str, prefix);
+
+	/* make sure there's no %n in there and fix %m */
+	str_vprintfa(str, printf_format_fix_unsafe(format), args);
+	str_append_c(str, '\n');
+
+	ret = log_fd_write(fd, str_data(str), str_len(str));
+	t_pop();
+
+	errno = old_errno;
+	recursed--;
+
+	return ret;
 }
 
 static void ATTR_FORMAT(3, 0)
@@ -163,15 +155,12 @@ default_fatal_handler(enum log_type type, int status,
 
 	if (default_handler(log_type_prefixes[type], log_fd, format,
 			    args) < 0 && status == FATAL_DEFAULT)
-		status = FATAL_LOGERROR;
+		status = FATAL_LOGWRITE;
 
 	if (type == LOG_TYPE_PANIC) {
 		if (backtrace_get(&backtrace) == 0)
 			i_error("Raw backtrace: %s", backtrace);
 	}
-
-	if (log_fd_flush(log_fd) < 0 && status == FATAL_DEFAULT)
-		status = FATAL_LOGWRITE;
 
 	if (type == LOG_TYPE_PANIC)
 		abort();
@@ -182,12 +171,9 @@ default_fatal_handler(enum log_type type, int status,
 static void ATTR_FORMAT(2, 0)
 default_error_handler(enum log_type type, const char *format, va_list args)
 {
-	FILE *fd = type == LOG_TYPE_INFO ? log_info_fd : log_fd;
+	int fd = type == LOG_TYPE_INFO ? log_info_fd : log_fd;
 
 	if (default_handler(log_type_prefixes[type], fd, format, args) < 0)
-		failure_exit(FATAL_LOGERROR);
-
-	if (log_fd_flush(fd) < 0)
 		failure_exit(FATAL_LOGWRITE);
 }
 
@@ -354,21 +340,30 @@ void i_set_failure_syslog(const char *ident, int options, int facility)
 	i_set_info_handler(i_syslog_error_handler);
 }
 
-static void open_log_file(FILE **file, const char *path)
+static void open_log_file(int *fd, const char *path)
 {
-	if (*file != NULL && *file != stderr)
-		(void)fclose(*file);
+	char buf[PATH_MAX];
+
+	if (*fd != STDERR_FILENO) {
+		if (close(*fd) < 0) {
+			i_snprintf(buf, sizeof(buf),
+				   "close(%d) failed: %m", *fd);
+			(void)write_full(STDERR_FILENO, buf, strlen(buf));
+		}
+	}
 
 	if (path == NULL || strcmp(path, "/dev/stderr") == 0)
-		*file = stderr;
+		*fd = STDERR_FILENO;
 	else {
-		*file = fopen(path, "a");
-		if (*file == NULL) {
-			fprintf(stderr, "Can't open log file %s: %s\n",
-				path, strerror(errno));
+		*fd = open(path, O_CREAT | O_APPEND | O_WRONLY, 0600);
+		if (*fd == -1) {
+			*fd = STDERR_FILENO;
+			i_snprintf(buf, sizeof(buf),
+				   "Can't open log file %s: %m", path);
+			(void)write_full(STDERR_FILENO, buf, strlen(buf));
 			failure_exit(FATAL_LOGOPEN);
 		}
-		fd_close_on_exec(fileno(*file), TRUE);
+		fd_close_on_exec(*fd, TRUE);
 	}
 }
 
@@ -376,9 +371,10 @@ void i_set_failure_file(const char *path, const char *prefix)
 {
 	i_set_failure_prefix(prefix);
 
-	if (log_info_fd != NULL && log_info_fd != log_fd &&
-	    log_info_fd != stderr)
-		(void)fclose(log_info_fd);
+	if (log_info_fd != STDERR_FILENO && log_info_fd != log_fd) {
+		if (close(log_info_fd) < 0)
+			i_error("close(%d) failed: %m", log_info_fd);
+	}
 
 	open_log_file(&log_fd, path);
 	log_info_fd = log_fd;
@@ -448,7 +444,7 @@ void i_set_failure_internal(void)
 void i_set_info_file(const char *path)
 {
 	if (log_info_fd == log_fd)
-		log_info_fd = NULL;
+		log_info_fd = STDERR_FILENO;
 
 	open_log_file(&log_info_fd, path);
         info_handler = default_error_handler;
@@ -468,16 +464,16 @@ void i_set_failure_exit_callback(void (*callback)(int *status))
 void failures_deinit(void)
 {
 	if (log_info_fd == log_fd)
-		log_info_fd = NULL;
+		log_info_fd = STDERR_FILENO;
 
-	if (log_fd != NULL && log_fd != stderr) {
-		(void)fclose(log_fd);
-		log_fd = stderr;
+	if (log_fd != STDERR_FILENO) {
+		(void)close(log_fd);
+		log_fd = STDERR_FILENO;
 	}
 
-	if (log_info_fd != NULL && log_info_fd != stderr) {
-		(void)fclose(log_info_fd);
-		log_info_fd = stderr;
+	if (log_info_fd != STDERR_FILENO) {
+		(void)close(log_info_fd);
+		log_info_fd = STDERR_FILENO;
 	}
 
 	i_free_and_null(log_prefix);
