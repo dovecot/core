@@ -201,8 +201,10 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	   to use locking, because even if multiple processes are rebuilding
 	   the file at the same time the result should be the same. */
 	fd = safe_mkstemp(path, mode, (uid_t)-1, gid);
-	if (fd == -1)
+	if (fd == -1) {
+		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;
+	}
 	output = o_stream_create_fd_file(fd, 0, FALSE);
 
 	ret = 0;
