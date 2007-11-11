@@ -517,6 +517,30 @@ dbox_index_append_record(const struct dbox_index_record *rec, string_t *str)
 	str_append_c(str, '\n');
 }
 
+static int dbox_index_create_fd(struct dbox_mailbox *mbox, string_t *temp_path,
+				bool locked)
+{
+	mode_t old_mask;
+	int fd;
+
+	if (locked) {
+		str_append(temp_path, ".tmp");
+		return dbox_create_fd(mbox, str_c(temp_path));
+	}
+
+	str_append_c(temp_path, '.');
+	old_mask = umask(0777 & ~mbox->ibox.box.file_create_mode);
+	fd = safe_mkstemp_hostpid(temp_path, 0777, (uid_t)-1, (gid_t)-1);
+	umask(old_mask);
+
+	if (fd == -1) {
+		mail_storage_set_critical(mbox->ibox.box.storage,
+					  "safe_mkstemp_hostpid(%s) failed: %m",
+					  str_c(temp_path));
+	}
+	return fd;
+}
+
 static int dbox_index_recreate(struct dbox_index *index, bool locked)
 {
 	struct mail_storage *storage = &index->mbox->storage->storage;
@@ -530,27 +554,11 @@ static int dbox_index_recreate(struct dbox_index *index, bool locked)
 	t_push();
 	temp_path = t_str_new(256);
 	str_append(temp_path, index->path);
-	if (locked) {
-		str_append(temp_path, ".tmp");
-		fd = open(str_c(temp_path), O_RDWR | O_CREAT | O_TRUNC, 0600);
-		if (fd == -1) {
-			mail_storage_set_critical(storage,
-				"open(%s, O_CREAT) failed: %m",
-				str_c(temp_path));
-			t_pop();
-			return -1;
-		}
-	} else {
-		str_append_c(temp_path, '.');
-		fd = safe_mkstemp_hostpid(temp_path, 0600,
-					  (uid_t)-1, (gid_t)-1);
-		if (fd == -1) {
-			mail_storage_set_critical(storage,
-				"safe_mkstemp_hostpid(%s) failed: %m",
-				str_c(temp_path));
-			t_pop();
-			return -1;
-		}
+
+	fd = dbox_index_create_fd(index->mbox, temp_path, locked);
+	if (fd == -1) {
+		t_pop();
+		return -1;
 	}
 
 	str = t_str_new(256);

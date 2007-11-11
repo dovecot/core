@@ -224,6 +224,7 @@ void dbox_mail_metadata_keywords_append(struct dbox_mailbox *mbox,
 void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
 			  uint32_t uid, uoff_t message_size);
 
+int dbox_create_fd(struct dbox_mailbox *mbox, const char *path);
 void dbox_file_set_syscall_error(struct dbox_file *file, const char *function);
 
 #endif

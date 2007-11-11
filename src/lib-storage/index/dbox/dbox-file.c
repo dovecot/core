@@ -431,6 +431,21 @@ static int dbox_file_open(struct dbox_file *file, bool read_header,
 		dbox_file_read_header(file);
 }
 
+int dbox_create_fd(struct dbox_mailbox *mbox, const char *path)
+{
+	mode_t old_mask;
+	int fd;
+
+	old_mask = umask(0777 & ~mbox->ibox.box.file_create_mode);
+	fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0777);
+	umask(old_mask);
+	if (fd == -1) {
+		mail_storage_set_critical(mbox->ibox.box.storage,
+			"open(%s, O_CREAT) failed: %m", path);
+	}
+	return fd;
+}
+
 static int dbox_file_create(struct dbox_file *file)
 {
 	string_t *hdr;
@@ -442,12 +457,9 @@ static int dbox_file_create(struct dbox_file *file)
 		file->current_path =
 			i_strdup_printf("%s/%s", file->mbox->path, file->fname);
 	}
-	file->fd = open(file->current_path, O_RDWR | O_CREAT | O_TRUNC, 0600);
-	if (file->fd == -1) {
-		mail_storage_set_critical(file->mbox->ibox.box.storage,
-			"open(%s, O_CREAT) failed: %m", file->current_path);
+	file->fd = dbox_create_fd(file->mbox, file->current_path);
+	if (file->fd == -1)
 		return -1;
-	}
 	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
 
 	hdr = t_str_new(128);
