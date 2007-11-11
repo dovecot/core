@@ -417,8 +417,13 @@ static int mail_hash_file_lock(struct mail_hash *hash, int lock_type)
 					  &hash->file_lock);
 	} else {
 		i_assert(hash->dotlock == NULL);
-		return file_dotlock_create(&hash->dotlock_settings,
-					   hash->filepath, 0, &hash->dotlock);
+		if (file_dotlock_create(&hash->dotlock_settings,
+					hash->filepath, 0,
+					&hash->dotlock) < 0) {
+			mail_hash_set_syscall_error(hash, "open()");
+			return -1;
+		}
+		return 0;
 	}
 }
 

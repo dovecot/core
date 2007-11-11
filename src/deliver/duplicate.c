@@ -210,6 +210,8 @@ static struct duplicate_file *duplicate_new(const char *path)
 	file->path = p_strdup(pool, path);
 	file->new_fd = file_dotlock_open(&duplicate_dotlock_set, path, 0,
 					 &file->dotlock);
+	if (file->new_fd == -1)
+		i_error("file_dotlock_create(%s) failed: %m", path);
 	file->hash = hash_create(default_pool, pool, 0,
 				 duplicate_hash, duplicate_cmp);
 	(void)duplicate_read(file);

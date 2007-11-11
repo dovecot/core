@@ -472,6 +472,10 @@ static int mail_cache_lock_file(struct mail_cache *cache)
 		i_assert(cache->dotlock == NULL);
 		ret = file_dotlock_create(&cache->dotlock_settings,
 					  cache->filepath, 0, &cache->dotlock);
+		if (ret < 0) {
+			mail_cache_set_syscall_error(cache,
+						     "file_dotlock_create()");
+		}
 	}
 
 	if (ret <= 0)

@@ -403,6 +403,8 @@ int convert_storage(const char *source_data, const char *dest_data,
 	if (ret <= 0) {
 		if (ret == 0)
 			i_error("Mailbox conversion: Lock creation timeouted");
+		else
+			i_error("file_dotlock_create(%s) failed: %m", path);
 		return -1;
 	}
 
