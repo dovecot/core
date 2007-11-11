@@ -73,9 +73,9 @@ struct mailbox_list {
 	struct mailbox_list_settings set;
 	enum mailbox_list_flags flags;
 
-	/* -1 if unset: */
-	uid_t cached_uid;
-	gid_t cached_gid;
+	/* -1 if not set yet. use mailbox_list_get_permissions() to set them */
+	mode_t file_create_mode;
+	gid_t file_create_gid;
 
 	char *error_string;
 	enum mail_error error;

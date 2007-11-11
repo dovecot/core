@@ -187,11 +187,10 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	struct stat st;
 	string_t *path;
 	mode_t mode;
-	uid_t uid;
 	gid_t gid;
 	int fd, ret;
 
-	ret = mailbox_list_get_permissions(list, NULL, &mode, &uid, &gid);
+	ret = mailbox_list_get_permissions(list, NULL, &mode, &gid);
 	if (ret <= 0) {
 		/* Return success if the whole root directory was lost */
 		return ret;
@@ -205,7 +204,7 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	/* Build it into a temporary file and rename() over. There's no need
 	   to use locking, because even if multiple processes are rebuilding
 	   the file at the same time the result should be the same. */
-	fd = safe_mkstemp(path, mode, uid, gid);
+	fd = safe_mkstemp(path, mode, (uid_t)-1, gid);
 	if (fd == -1)
 		return -1;
 	output = o_stream_create_fd_file(fd, 0, FALSE);

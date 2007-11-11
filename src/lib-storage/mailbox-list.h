@@ -133,6 +133,12 @@ char mailbox_list_get_hierarchy_sep(struct mailbox_list *list);
 enum mailbox_list_flags mailbox_list_get_flags(struct mailbox_list *list);
 struct mail_namespace *mailbox_list_get_namespace(struct mailbox_list *list);
 
+/* Returns the mode and GID that should be used when creating new global files
+   to the mailbox list root directories. (gid_t)-1 is returned if it's not
+   necessary to change the default */
+void mailbox_list_get_permissions(struct mailbox_list *list,
+				  mode_t *mode_r, gid_t *gid_r);
+
 /* Returns TRUE if the name doesn't contain any invalid characters.
    The create name check can be more strict. */
 bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
@@ -147,13 +153,6 @@ bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
    For INDEX=MEMORY it returns "" as the path. */
 const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 				  enum mailbox_list_path_type type);
-/* Returns the mode, UID and GID that should be used when creating new files
-   to the given mailbox. (uid_t)-1 and (gid_t)-1 is returned if it's not
-   necessary to change the default UID or GID. The name must be a valid
-   existing mailbox name, or NULL to get global permissions.
-   Returns -1 if error, 0 if mailbox not found, 1 if ok. */
-int mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
-				 mode_t *mode_r, uid_t *uid_r, gid_t *gid_r);
 /* Returns mailbox name status */
 int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 					 const char *name,

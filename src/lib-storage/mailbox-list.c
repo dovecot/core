@@ -170,8 +170,8 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 
 	list->ns = ns;
 	list->flags = flags;
-	list->cached_uid = (uid_t)-1;
-	list->cached_gid = (gid_t)-1;
+	list->file_create_mode = (mode_t)-1;
+	list->file_create_gid = (gid_t)-1;
 
 	/* copy settings */
 	list->set.root_dir = p_strdup(list->pool, set->root_dir);
@@ -246,6 +246,44 @@ struct mail_namespace *mailbox_list_get_namespace(struct mailbox_list *list)
 	return list->ns;
 }
 
+void mailbox_list_get_permissions(struct mailbox_list *list,
+				  mode_t *mode_r, gid_t *gid_r)
+{
+	const char *path;
+	struct stat st;
+
+	if (list->file_create_mode != (mode_t)-1) {
+		*mode_r = list->file_create_mode;
+		*gid_r = list->file_create_gid;
+	}
+
+	path = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (stat(path, &st) < 0) {
+		if (!ENOTFOUND(errno)) {
+			mailbox_list_set_critical(list, "stat(%s) failed: %m",
+						  path);
+		}
+		/* return safe defaults */
+		*mode_r = 0600;
+		*gid_r = (gid_t)-1;
+		return;
+	}
+
+	list->file_create_mode = st.st_mode & 0666;
+	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
+		/* directory's GID is used automatically for new files */
+		list->file_create_gid = (gid_t)-1;
+	} else if (getegid() == st.st_gid) {
+		/* using our own gid, no need to change it */
+		list->file_create_gid = (gid_t)-1;
+	} else {
+		list->file_create_gid = st.st_gid;
+	}
+
+	*mode_r = list->file_create_mode;
+	*gid_r = list->file_create_gid;
+}
+
 bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
 				   const char *pattern)
 {
@@ -270,43 +308,6 @@ const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 	mailbox_list_clear_error(list);
 
 	return list->v.get_path(list, name, type);
-}
-
-int mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
-				 mode_t *mode_r, uid_t *uid_r, gid_t *gid_r)
-{
-	const char *path;
-	struct stat st;
-
-	mailbox_list_clear_error(list);
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (*path == '\0')
-		return -1;
-
-	if (stat(path, &st) < 0) {
-		if (ENOTFOUND(errno))
-			return 0;
-		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
-		return -1;
-	}
-
-	*mode_r = st.st_mode & 0666;
-
-	if (list->cached_uid == (uid_t)-1)
-		list->cached_uid = geteuid();
-	*uid_r = list->cached_uid == st.st_uid ? (uid_t)-1 : st.st_uid;
-
-	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
-		/* directory's GID is used automatically for new files */
-		*gid_r = (gid_t)-1;
-	} else {
-		if (list->cached_gid == (gid_t)-1)
-			list->cached_gid = getegid();
-		*gid_r = list->cached_gid == st.st_gid ? (gid_t)-1 : st.st_gid;
-	}
-	return 1;
 }
 
 const char *mailbox_list_get_temp_prefix(struct mailbox_list *list)
