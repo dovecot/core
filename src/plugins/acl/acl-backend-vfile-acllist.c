@@ -190,11 +190,7 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	gid_t gid;
 	int fd, ret;
 
-	ret = mailbox_list_get_permissions(list, NULL, &mode, &gid);
-	if (ret <= 0) {
-		/* Return success if the whole root directory was lost */
-		return ret;
-	}
+	mailbox_list_get_permissions(list, &mode, &gid);
 
 	path = t_str_new(256);
 	rootdir = mailbox_list_get_path(list, NULL,
