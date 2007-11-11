@@ -364,7 +364,8 @@ static int try_create_lock_excl(struct lock_info *lock_info, bool write_pid)
 		if (errno == EEXIST)
 			return 0;
 
-		i_error("open(%s) failed: %m", lock_info->lock_path);
+		if (errno != ENOENT)
+			i_error("open(%s) failed: %m", lock_info->lock_path);
 		return -1;
 	}
 

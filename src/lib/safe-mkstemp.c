@@ -37,7 +37,8 @@ int safe_mkstemp(string_t *prefix, mode_t mode, uid_t uid, gid_t gid)
 			break;
 
 		if (errno != EEXIST) {
-			i_error("open(%s) failed: %m", str_c(prefix));
+			if (errno != ENOENT)
+				i_error("open(%s) failed: %m", str_c(prefix));
 			return -1;
 		}
 	}
