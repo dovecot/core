@@ -168,23 +168,31 @@
 #  define GNUC_PRETTY_FUNCTION ""
 #endif
 
+#ifdef __GNUC__
+#  define unlikely(expr) __builtin_expect(!!(expr), 0)
+#  define likely(expr) __builtin_expect(!!(expr), 1)
+#else
+#  define unlikely(expr)
+#  define likely(expr)
+#endif
+
 /* Provide macros for error handling. */
 #ifdef DISABLE_ASSERTS
 #  define i_assert(expr)
 #elif defined (__GNUC__) && !defined (__STRICT_ANSI__)
 
 #define i_assert(expr)			STMT_START{			\
-     if (!(expr))							\
+     if (unlikely(!(expr)))						\
        i_panic("file %s: line %d (%s): assertion failed: (%s)",		\
-		__FILE__,							\
-		__LINE__,							\
+		__FILE__,						\
+		__LINE__,						\
 		__PRETTY_FUNCTION__,					\
 		#expr);			}STMT_END
 
 #else /* !__GNUC__ */
 
 #define i_assert(expr)			STMT_START{		\
-     if (!(expr))						\
+     if (unlikely(!(expr)))					\
        i_panic("file %s: line %d: assertion failed: (%s)",	\
 	      __FILE__,						\
 	      __LINE__,						\
