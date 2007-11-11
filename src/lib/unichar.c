@@ -125,7 +125,7 @@ void uni_ucs4_to_utf8_c(unichar_t chr, buffer_t *output)
 		return;
 	}
 
-	i_assert(chr <= 0x40000000); /* 1 << (5 * 6) */
+	i_assert(chr < 0x80000000); /* 1 << (5*6 + 1) */
 
 	if (chr < (1 << (6 + 5))) {
 		/* 110xxxxx */
