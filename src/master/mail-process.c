@@ -116,30 +116,30 @@ static bool validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
 			     const char *user)
 {
 	if (uid == 0) {
-		i_error("Logins with UID 0 not permitted (user %s)", user);
+		i_error("user %s: Logins with UID 0 not permitted", user);
 		return FALSE;
 	}
 
 	if (set->login_uid == uid && master_uid != uid) {
-		i_error("Logins with login process UID %s (user %s) "
-			"not permitted (see login_user in config file).",
-			dec2str(uid), user);
+		i_error("user %s: Logins with login_user's UID %s "
+			"not permitted (see http://wiki.dovecot.org/UserIds).",
+			user, dec2str(uid));
 		return FALSE;
 	}
 
 	if (uid < (uid_t)set->first_valid_uid ||
 	    (set->last_valid_uid != 0 && uid > (uid_t)set->last_valid_uid)) {
-		i_error("Logins with UID %s (user %s) not permitted "
-			"(see first_valid_uid in config file)",
-			dec2str(uid), user);
+		i_error("user %s: Logins with UID %s not permitted "
+			"(see first_valid_uid in config file).",
+			user, dec2str(uid));
 		return FALSE;
 	}
 
 	if (gid < (gid_t)set->first_valid_gid ||
 	    (set->last_valid_gid != 0 && gid > (gid_t)set->last_valid_gid)) {
-		i_error("Logins for users with primary group ID %s (user %s) "
+		i_error("user %s: Logins for users with primary group ID %s "
 			"not permitted (see first_valid_gid in config file).",
-			dec2str(gid), user);
+			user, dec2str(gid));
 		return FALSE;
 	}
 
