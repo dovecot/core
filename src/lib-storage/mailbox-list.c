@@ -260,6 +260,10 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
 		/* directory's GID is used automatically for new files */
 		list->file_create_gid = (gid_t)-1;
+	} else if ((st.st_mode & 0060) == 0) {
+		/* group doesn't have any permissions, so don't bother
+		   changing it */
+		list->file_create_gid = (gid_t)-1;
 	} else if (getegid() == st.st_gid) {
 		/* using our own gid, no need to change it */
 		list->file_create_gid = (gid_t)-1;
