@@ -342,26 +342,36 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 	struct dotlock *dotlock;
 	const char *lock_path;
 	mode_t old_mask;
-	int fd;
+	int i, fd;
 
 	mk->synced = FALSE;
 
 	if (!mk->changed || mk->mbox == NULL)
 		return 0;
 
-	/* we could just create the temp file directly, but doing it this
-	   ways avoids potential problems with overwriting contents in
-	   malicious symlinks */
 	lock_path = t_strconcat(mk->path, ".lock", NULL);
 	(void)unlink(lock_path);
-        old_mask = umask(0777 & ~mk->mbox->ibox.box.file_create_mode);
-	fd = file_dotlock_open(&mk->dotlock_settings, mk->path,
-			       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
-	umask(old_mask);
-	if (fd == -1) {
-		mail_storage_set_critical(mk->storage,
-			"file_dotlock_open(%s) failed: %m", mk->path);
-		return -1;
+
+	for (i = 0;; i++) {
+		/* we could just create the temp file directly, but doing it
+		   this ways avoids potential problems with overwriting
+		   contents in malicious symlinks */
+		old_mask = umask(0777 & ~mk->mbox->ibox.box.file_create_mode);
+		fd = file_dotlock_open(&mk->dotlock_settings, mk->path,
+				       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
+		umask(old_mask);
+		if (fd != -1)
+			break;
+
+		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT) {
+			mail_storage_set_critical(mk->storage,
+				"file_dotlock_open(%s) failed: %m", mk->path);
+			return -1;
+		}
+		/* the control dir doesn't exist. create it unless the whole
+		   mailbox was just deleted. */
+		if (maildir_set_deleted(mk->mbox))
+			return -1;
 	}
 
 	if (maildir_keywords_write_fd(mk, lock_path, fd) < 0) {

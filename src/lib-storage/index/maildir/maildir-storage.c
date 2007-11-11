@@ -41,7 +41,6 @@ static MODULE_CONTEXT_DEFINE_INIT(maildir_mailbox_list_module,
 				  &mailbox_list_module_register);
 static const char *maildir_subdirs[] = { "cur", "new", "tmp" };
 
-static int verify_inbox(struct mail_storage *storage);
 static int
 maildir_list_delete_mailbox(struct mailbox_list *list, const char *name);
 static int
@@ -249,9 +248,6 @@ maildir_create(struct mail_storage *_storage, const char *data,
 			p_strconcat(_storage->pool,
 				    "tmp/", storage->temp_prefix, NULL);
 	}
-
-	if ((_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0)
-		(void)verify_inbox(_storage);
 	return 0;
 }
 
@@ -312,69 +308,54 @@ static int mkdir_verify(struct mail_storage *storage,
 	return -1;
 }
 
-/* create or fix maildir, ignore if it already exists */
-static int create_maildir(struct mail_storage *storage,
-			  const char *dir, bool verify)
+static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 {
 	const char *path;
 	struct stat st;
 
-	if (mkdir_verify(storage, t_strconcat(dir, "/cur", NULL), verify) < 0)
-		return -1;
-	if (mkdir_verify(storage, t_strconcat(dir, "/new", NULL), verify) < 0)
-		return -1;
-
 	/* if tmp/ directory exists, we need to clean it up once in a while */
 	path = t_strconcat(dir, "/tmp", NULL);
-	if (stat(path, &st) == 0) {
-		if (st.st_atime >
-		    st.st_ctime + MAILDIR_TMP_DELETE_SECS) {
-			/* the directory should be empty. we won't do anything
-			   until ctime changes. */
-		} else if (st.st_atime < ioloop_time - MAILDIR_TMP_SCAN_SECS) {
-			/* time to scan */
-			(void)maildir_tmp_cleanup(storage, path);
-		}
-	} else if (errno == ENOENT) {
-		if (mkdir_verify(storage, path, verify) < 0)
-			return -1;
-	} else {
+	if (stat(path, &st) < 0) {
+		if (errno == ENOENT)
+			return 0;
 		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
 		return -1;
 	}
 
-	return 0;
-}
-
-static int create_control_dir(struct mail_storage *storage, const char *name)
-{
-	const char *control_dir, *root_dir;
-
-	control_dir = mailbox_list_get_path(storage->list, name,
-					    MAILBOX_LIST_PATH_TYPE_CONTROL);
-	root_dir = mailbox_list_get_path(storage->list, name,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (strcmp(control_dir, root_dir) == 0)
-		return 0;
-
-	if (mkdir_parents(control_dir, CREATE_MODE) < 0 && errno != EEXIST) {
-		mail_storage_set_critical(storage,
-					  "mkdir(%s) failed: %m", control_dir);
-		return -1;
+	if (st.st_atime > st.st_ctime + MAILDIR_TMP_DELETE_SECS) {
+		/* the directory should be empty. we won't do anything
+		   until ctime changes. */
+	} else if (st.st_atime < ioloop_time - MAILDIR_TMP_SCAN_SECS) {
+		/* time to scan */
+		(void)maildir_tmp_cleanup(storage, path);
 	}
-
-	return 0;
+	return 1;
 }
 
-static int verify_inbox(struct mail_storage *storage)
+/* create or fix maildir, ignore if it already exists */
+static int create_maildir(struct mail_storage *storage,
+			  const char *dir, bool verify)
 {
-	const char *path;
+	int ret;
 
-	path = mailbox_list_get_path(storage->list, "INBOX",
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (create_maildir(storage, path, TRUE) < 0)
+	ret = maildir_check_tmp(storage, dir);
+	if (ret > 0) {
+		if (!verify) {
+			mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
+					       "Mailbox already exists");
+			return -1;
+		}
+		return 1;
+	}
+	if (ret < 0)
 		return -1;
-	if (create_control_dir(storage, "INBOX") < 0)
+
+	/* doesn't exist, create */
+	if (mkdir_verify(storage, t_strconcat(dir, "/cur", NULL), verify) < 0)
+		return -1;
+	if (mkdir_verify(storage, t_strconcat(dir, "/new", NULL), verify) < 0)
+		return -1;
+	if (mkdir_verify(storage, t_strconcat(dir, "/tmp", NULL), verify) < 0)
 		return -1;
 	return 0;
 }
@@ -382,6 +363,15 @@ static int verify_inbox(struct mail_storage *storage)
 static void maildir_lock_touch_timeout(struct maildir_mailbox *mbox)
 {
 	(void)maildir_uidlist_lock_touch(mbox->uidlist);
+}
+
+static mode_t get_dir_mode(mode_t mode)
+{
+	/* add the execute bit if either read or write bit is set */
+	if ((mode & 0600) != 0) mode |= 0100;
+	if ((mode & 0060) != 0) mode |= 0010;
+	if ((mode & 0006) != 0) mode |= 0001;
+	return mode;
 }
 
 static struct mailbox *
@@ -409,7 +399,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 
 	mbox->storage = storage;
 	mbox->path = p_strdup(pool, path);
-	mbox->control_dir = p_strdup(pool, control_dir);
 
 	index = index_storage_alloc(&storage->storage, name, flags,
 				    MAILDIR_INDEX_PREFIX);
@@ -425,6 +414,8 @@ maildir_open(struct maildir_storage *storage, const char *name,
 		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
 
 		mbox->ibox.box.file_create_mode = st.st_mode & 0666;
+		mbox->ibox.box.dir_create_mode =
+			get_dir_mode(st.st_mode & 0666);
 		mbox->ibox.box.file_create_gid = st.st_gid;
 		mbox->ibox.box.private_flags_mask = MAIL_SEEN;
 	}
@@ -464,6 +455,7 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	struct maildir_storage *storage = (struct maildir_storage *)_storage;
 	const char *path;
 	struct stat st;
+	int ret;
 
 	if (input != NULL) {
 		mail_storage_set_critical(_storage,
@@ -471,19 +463,31 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		return NULL;
 	}
 
+	path = mailbox_list_get_path(_storage->list, name,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+
 	if (strcmp(name, "INBOX") == 0 &&
 	    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
-		if (verify_inbox(_storage) < 0)
+		/* INBOX always exists */
+		if (create_maildir(_storage, path, TRUE) < 0)
 			return NULL;
 		return maildir_open(storage, "INBOX", flags);
 	}
 
-	path = mailbox_list_get_path(_storage->list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	/* begin by checking if tmp/ directory exists and if it should be
+	   cleaned up. */
+	ret = maildir_check_tmp(_storage, path);
+	if (ret > 0) {
+		/* exists */
+		return maildir_open(storage, name, flags);
+	}
+	if (ret < 0)
+		return NULL;
+
+	/* tmp/ directory doesn't exist. does the maildir? */
 	if (stat(path, &st) == 0) {
-		/* exists - make sure the required directories are also there */
-		if (create_maildir(_storage, path, TRUE) < 0 ||
-		    create_control_dir(_storage, name) < 0)
+		/* yes, we'll need to create the missing dirs */
+		if (create_maildir(_storage, path, TRUE) < 0)
 			return NULL;
 
 		return maildir_open(storage, name, flags);

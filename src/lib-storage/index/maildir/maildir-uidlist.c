@@ -127,7 +127,9 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	struct mailbox *box = &uidlist->ibox->box;
 	const char *control_dir, *path;
 	mode_t old_mask;
-	int ret;
+	const enum dotlock_create_flags dotlock_flags =
+		nonblock ? DOTLOCK_CREATE_FLAG_NONBLOCK : 0;
+	int i, ret;
 
 	if (uidlist->lock_count > 0) {
 		uidlist->lock_count++;
@@ -136,22 +138,32 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 
 	control_dir = mailbox_list_get_path(box->storage->list, box->name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
-
 	path = t_strconcat(control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
-        old_mask = umask(0777 & ~box->file_create_mode);
-	ret = file_dotlock_create(&uidlist->dotlock_settings, path,
-				  nonblock ? DOTLOCK_CREATE_FLAG_NONBLOCK : 0,
-				  &uidlist->dotlock);
-	umask(old_mask);
-	if (ret <= 0) {
+
+	for (i = 0;; i++) {
+		old_mask = umask(0777 & ~box->file_create_mode);
+		ret = file_dotlock_create(&uidlist->dotlock_settings, path,
+					  dotlock_flags, &uidlist->dotlock);
+		umask(old_mask);
+		if (ret > 0)
+			break;
+
+		/* failure */
 		if (ret == 0) {
 			mail_storage_set_error(box->storage,
 				MAIL_ERROR_TEMP, MAIL_ERRSTR_LOCK_TIMEOUT);
 			return 0;
 		}
-		mail_storage_set_critical(box->storage,
-			"file_dotlock_open(%s) failed: %m", path);
-		return -1;
+		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT ||
+		    uidlist->mbox == NULL) {
+			mail_storage_set_critical(box->storage,
+				"file_dotlock_create(%s) failed: %m", path);
+			return -1;
+		}
+		/* the control dir doesn't exist. create it unless the whole
+		   mailbox was just deleted. */
+		if (maildir_set_deleted(uidlist->mbox))
+			return -1;
 	}
 
 	uidlist->lock_count++;
@@ -898,21 +910,30 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 	struct stat st;
 	mode_t old_mask;
 	uoff_t file_size;
-	int fd, ret;
+	int i, fd, ret;
 
 	control_dir = mailbox_list_get_path(box->storage->list, box->name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 	temp_path = t_strconcat(control_dir,
 				"/" MAILDIR_UIDLIST_NAME ".tmp", NULL);
 
-	old_mask = umask(0777 & ~box->file_create_mode);
-	fd = open(temp_path, O_RDWR | O_CREAT | O_TRUNC, 0777);
-	umask(old_mask);
+	for (i = 0;; i++) {
+		old_mask = umask(0777 & ~box->file_create_mode);
+		fd = open(temp_path, O_RDWR | O_CREAT | O_TRUNC, 0777);
+		umask(old_mask);
+		if (fd != -1)
+			break;
 
-	if (fd == -1) {
-		mail_storage_set_critical(box->storage,
-			"open(%s, O_CREAT) failed: %m", temp_path);
-		return -1;
+		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT ||
+		    uidlist->mbox == NULL) {
+			mail_storage_set_critical(box->storage,
+				"open(%s, O_CREAT) failed: %m", temp_path);
+			return -1;
+		}
+		/* the control dir doesn't exist. create it unless the whole
+		   mailbox was just deleted. */
+		if (maildir_set_deleted(uidlist->mbox))
+			return -1;
 	}
 
 	if (box->file_create_gid != (gid_t)-1) {

@@ -338,12 +338,17 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 static int
 maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
 {
-	if (nfs_safe_stat(path, st_r) == 0)
-		return 0;
-	if (errno == ENOENT) {
-		/* if mailbox gets deleted under us, don't log an error */
-		mailbox_set_deleted(&mbox->ibox.box);
-		return -1;
+	int i;
+
+	for (i = 0;; i++) {
+		if (nfs_safe_stat(path, st_r) == 0)
+			return 0;
+		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT)
+			break;
+
+		if (maildir_set_deleted(mbox))
+			return -1;
+		/* try again */
 	}
 
 	mail_storage_set_critical(mbox->ibox.box.storage,
@@ -366,15 +371,20 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	bool move_new, check_touch, dir_changed = FALSE;
 
 	path = new_dir ? ctx->new_dir : ctx->cur_dir;
-	dirp = opendir(path);
-	if (dirp == NULL) {
-		if (errno == ENOENT) {
-			mailbox_set_deleted(&ctx->mbox->ibox.box);
+	for (i = 0;; i++) {
+		dirp = opendir(path);
+		if (dirp != NULL)
+			break;
+
+		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT) {
+			mail_storage_set_critical(storage,
+				"opendir(%s) failed: %m", path);
 			return -1;
 		}
-		mail_storage_set_critical(storage,
-					  "opendir(%s) failed: %m", path);
-		return -1;
+
+		if (maildir_set_deleted(ctx->mbox))
+			return -1;
+		/* try again */
 	}
 
 #ifdef HAVE_DIRFD

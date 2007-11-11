@@ -181,8 +181,8 @@ struct mailbox {
 	/* User's private flags if this is a shared mailbox */
 	enum mail_flags private_flags_mask;
 
-	/* mode and GID to use for newly created files */
-	mode_t file_create_mode;
+	/* mode and GID to use for newly created files/dirs */
+	mode_t file_create_mode, dir_create_mode;
 	gid_t file_create_gid;
 
 	/* Mailbox notification settings: */

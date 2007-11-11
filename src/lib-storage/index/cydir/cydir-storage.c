@@ -150,9 +150,6 @@ cydir_open(struct cydir_storage *storage, const char *name,
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (create_cydir(_storage, path) < 0)
-		return NULL;
-
 	index = index_storage_alloc(_storage, name, flags, CYDIR_INDEX_PREFIX);
 	mail_index_set_fsync_types(index, MAIL_INDEX_SYNC_TYPE_APPEND |
 				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
@@ -186,14 +183,17 @@ cydir_mailbox_open(struct mail_storage *_storage, const char *name,
 		return NULL;
 	}
 
-	if (strcmp(name, "INBOX") == 0)
-		return cydir_open(storage, "INBOX", flags);
-
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0) {
+	if (stat(path, &st) == 0)
 		return cydir_open(storage, name, flags);
-	} else if (errno == ENOENT) {
+	else if (errno == ENOENT) {
+		if (strcmp(name, "INBOX") == 0) {
+			/* INBOX always exists, create it */
+			if (create_cydir(_storage, path) < 0)
+				return NULL;
+			return cydir_open(storage, "INBOX", flags);
+		}
 		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return NULL;

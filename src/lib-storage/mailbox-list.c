@@ -4,7 +4,6 @@
 #include "array.h"
 #include "ioloop.h"
 #include "home-expand.h"
-#include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "imap-match.h"
 #include "mailbox-tree.h"
@@ -181,18 +180,6 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 	list->set.control_dir = set->control_dir == NULL ||
 		strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
 		p_strdup(list->pool, set->control_dir);
-
-	if (list->set.index_dir != NULL &&
-	   *list->set.index_dir != '\0') {
-		if (mkdir_parents(list->set.index_dir, 0700) < 0 &&
-		    errno != EEXIST)
-			i_error("mkdir(%s) failed: %m", list->set.index_dir);
-	}
-	if (list->set.control_dir != NULL) {
-		if (mkdir_parents(list->set.control_dir, 0700) < 0 &&
-		    errno != EEXIST)
-			i_error("mkdir(%s) failed: %m", list->set.control_dir);
-	}
 
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.subscription_fname =

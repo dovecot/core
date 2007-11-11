@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "mkdir-parents.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-sync.h"
@@ -151,4 +152,67 @@ void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir)
 		mail_storage_set_critical(storage,
 			"closedir(%s) failed: %m", dir);
 	}
+}
+
+static int maildir_create_subdirs(struct maildir_mailbox *mbox)
+{
+	static const char *subdirs[] = { "cur", "new", "tmp" };
+	const char *dirs[N_ELEMENTS(subdirs) + 2];
+	struct mailbox *box = &mbox->ibox.box;
+	struct stat st;
+	const char *path;
+	unsigned int i;
+
+	t_push();
+	/* @UNSAFE: get a list of directories we want to create */
+	for (i = 0; i < N_ELEMENTS(subdirs); i++)
+		dirs[i] = t_strconcat(mbox->path, "/", subdirs[i], NULL);
+	dirs[i++] = mail_storage_get_mailbox_control_dir(box->storage,
+							 box->name);
+	dirs[i++] = mail_storage_get_mailbox_index_dir(box->storage,
+						       box->name);
+	i_assert(i == N_ELEMENTS(dirs));
+
+	for (i = 0; i < N_ELEMENTS(dirs); i++) {
+		path = dirs[i];
+		if (path == NULL || stat(path, &st) == 0)
+			continue;
+		if (errno != ENOENT) {
+			mail_storage_set_critical(box->storage,
+						  "stat(%s) failed: %m", path);
+			break;
+		}
+		if (mkdir_parents(path, box->dir_create_mode) < 0 &&
+		    errno != EEXIST) {
+			if (errno == ENOENT) {
+				/* mailbox was being deleted just now */
+				mailbox_set_deleted(box);
+				break;
+			}
+			mail_storage_set_critical(box->storage,
+						  "mkdir(%s) failed: %m", path);
+			break;
+		}
+	}
+	t_pop();
+	return i == N_ELEMENTS(dirs) ? 0 : -1;
+}
+
+bool maildir_set_deleted(struct maildir_mailbox *mbox)
+{
+	struct mailbox *box = &mbox->ibox.box;
+	struct stat st;
+
+	if (stat(mbox->path, &st) < 0) {
+		if (errno == ENOENT)
+			mailbox_set_deleted(box);
+		else {
+			mail_storage_set_critical(box->storage,
+				"stat(%s) failed: %m", mbox->path);
+		}
+		return TRUE;
+	}
+	/* maildir itself exists. create all of its subdirectories in case
+	   they got lost. */
+	return maildir_create_subdirs(mbox) < 0 ? TRUE : FALSE;
 }

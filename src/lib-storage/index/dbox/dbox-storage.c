@@ -169,8 +169,6 @@ dbox_open(struct dbox_storage *storage, const char *name,
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (create_dbox(_storage, path) < 0)
-		return NULL;
 
 	index = index_storage_alloc(_storage, name, flags, DBOX_INDEX_PREFIX);
 	mail_index_set_fsync_types(index, MAIL_INDEX_SYNC_TYPE_APPEND |
@@ -241,14 +239,18 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 		return NULL;
 	}
 
-	if (strcmp(name, "INBOX") == 0)
-		return dbox_open(storage, "INBOX", flags);
-
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0) {
+	if (stat(path, &st) == 0)
 		return dbox_open(storage, name, flags);
-	} else if (errno == ENOENT) {
+	else if (errno == ENOENT) {
+		if (strcmp(name, "INBOX") == 0) {
+			/* INBOX always exists, create it */
+			if (create_dbox(_storage, path) < 0)
+				return NULL;
+			return dbox_open(storage, name, flags);
+		}
+
 		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return NULL;

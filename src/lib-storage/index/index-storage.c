@@ -406,6 +406,7 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 	ibox->box.name = p_strdup(ibox->box.pool, name);
 	if (ibox->box.file_create_mode == 0) {
 		ibox->box.file_create_mode = 0600;
+		ibox->box.dir_create_mode = 0700;
 		ibox->box.file_create_gid = (gid_t)-1;
 	}
 

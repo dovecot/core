@@ -42,6 +42,11 @@
 #define MAILDIR_SAVE_FLAG_HARDLINK 0x10000000
 #define MAILDIR_SAVE_FLAG_DELETED  0x20000000
 
+/* If an operation fails with ENOENT, we'll check if the mailbox is deleted
+   or if some directory is just missing. If it's missing, we'll create the
+   directories and try again this many times before failing. */
+#define MAILDIR_DELETE_RETRY_COUNT 3
+
 #include "index-storage.h"
 #include "mailbox-list-private.h"
 
@@ -76,7 +81,7 @@ struct maildir_mailbox {
 	struct index_mailbox ibox;
 	struct maildir_storage *storage;
 
-	const char *path, *control_dir;
+	const char *path;
 	struct timeout *keep_lock_to;
 
 	/* maildir sync: */
@@ -116,6 +121,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 #endif
 
 void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir);
+bool maildir_set_deleted(struct maildir_mailbox *mbox);
 
 void maildir_transaction_class_init(void);
 void maildir_transaction_class_deinit(void);
