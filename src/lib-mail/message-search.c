@@ -118,16 +118,35 @@ static bool search_header(struct message_search_context *ctx,
 		 str_find_more(ctx->str_find_ctx, crlf, 2));
 }
 
+static int message_search_more_decoded2(struct message_search_context *ctx,
+					struct message_block *block)
+{
+	if (block->hdr != NULL) {
+		if (search_header(ctx, block->hdr))
+			return 1;
+	} else {
+		if (str_find_more(ctx->str_find_ctx, block->data, block->size))
+			return 1;
+	}
+	return 0;
+}
+
 int message_search_more(struct message_search_context *ctx,
 			struct message_block *raw_block)
 {
 	struct message_block block;
 
-	if (raw_block->hdr != NULL) {
-		if (ctx->flags & MESSAGE_SEARCH_FLAG_SKIP_HEADERS)
-			return 0;
+	if (raw_block->part != ctx->prev_part) {
+		/* part changes. we must change this before looking at
+		   content type */
+		message_search_reset(ctx);
+		ctx->prev_part = raw_block->part;
+	}
 
+	if (raw_block->hdr != NULL) {
 		handle_header(ctx, raw_block->hdr);
+		if ((ctx->flags & MESSAGE_SEARCH_FLAG_SKIP_HEADERS) != 0)
+			return 0;
 	} else {
 		/* body */
 		if (!ctx->content_type_text)
@@ -136,7 +155,7 @@ int message_search_more(struct message_search_context *ctx,
 	if (!message_decoder_decode_next_block(ctx->decoder, raw_block, &block))
 		return 0;
 
-	return message_search_more_decoded(ctx, &block);
+	return message_search_more_decoded2(ctx, &block);
 }
 
 int message_search_more_decoded(struct message_search_context *ctx,
@@ -148,14 +167,7 @@ int message_search_more_decoded(struct message_search_context *ctx,
 		ctx->prev_part = block->part;
 	}
 
-	if (block->hdr != NULL) {
-		if (search_header(ctx, block->hdr))
-			return 1;
-	} else {
-		if (str_find_more(ctx->str_find_ctx, block->data, block->size))
-			return 1;
-	}
-	return 0;
+	return message_search_more_decoded2(ctx, block);
 }
 
 void message_search_reset(struct message_search_context *ctx)
