@@ -208,7 +208,7 @@ struct settings default_settings = {
 	MEMBER(login_chroot) TRUE,
 	MEMBER(login_greeting_capability) FALSE,
 
-	MEMBER(login_process_size) 32,
+	MEMBER(login_process_size) 64,
 	MEMBER(login_processes_count) 3,
 	MEMBER(login_max_processes_count) 128,
 	MEMBER(login_max_connections) 256,
