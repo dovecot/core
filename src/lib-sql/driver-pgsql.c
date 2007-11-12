@@ -403,21 +403,25 @@ static void queue_send_next(struct pgsql_db *db)
 	i_free(queue);
 }
 
-static void queue_drop_timed_out_queries(struct pgsql_db *db)
+static void queue_abort_next(struct pgsql_db *db)
 {
 	struct pgsql_queue *queue;
 
-	while (db->queue != NULL &&
-	       db->queue->created + QUERY_TIMEOUT_SECS < ioloop_time) {
-		queue = queue_unlink_first(db);
+	queue = queue_unlink_first(db);
 
-		queue->result->api = sql_not_connected_result;
-		queue->result->callback(&queue->result->api,
-					queue->result->context);
-		i_free(queue->result);
-		i_free(queue->query);
-		i_free(queue);
-	}
+	queue->result->callback(&sql_not_connected_result,
+				queue->result->context);
+	i_free(queue->result);
+	i_free(queue->query);
+	i_free(queue);
+}
+
+static void queue_drop_timed_out_queries(struct pgsql_db *db)
+{
+	while (db->queue != NULL &&
+	       db->queue->created + QUERY_TIMEOUT_SECS < ioloop_time)
+		queue_abort_next(db);
+
 }
 
 static void queue_timeout(struct pgsql_db *db)
@@ -569,8 +573,15 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 	db->query_finished = FALSE;
 	driver_pgsql_query(_db, query, pgsql_query_s_callback, db);
 
-	if (!db->query_finished)
-		io_loop_run(db->ioloop);
+	if (!db->query_finished) {
+		if (db->connected)
+			io_loop_run(db->ioloop);
+		else {
+			if (db->queue_to != NULL)
+				timeout_remove(&db->queue_to);
+			queue_abort_next(db);
+		}
+	}
 	io_loop_destroy(&db->ioloop);
 
 	i_assert(db->io == NULL);
