@@ -248,6 +248,9 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 	if (result->api.callback)
 		return;
 
+	if (_result == db->sync_result)
+		db->sync_result = NULL;
+
 	if (result->pgres != NULL) {
 		PQclear(result->pgres);
 
@@ -464,6 +467,8 @@ static void do_query(struct pgsql_result *result, const char *query)
 {
         struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 
+	i_assert(db->sync_result == NULL);
+
 	if (db->querying) {
 		/* only one query at a time */
 		driver_pgsql_queue_query(result, query);
@@ -568,6 +573,12 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 
 		db->io = io_add(PQsocket(db->pg), old_io.condition,
 				old_io.callback, old_io.context);
+	}
+
+	if (db->queue_to != NULL) {
+		/* we're creating a new ioloop, make sure the timeout gets
+		   added there. */
+		timeout_remove(&db->queue_to);
 	}
 
 	db->query_finished = FALSE;
@@ -829,7 +840,9 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 		*error_r = NULL;
 	else {
 		result = sql_query_s(_ctx->db, "COMMIT");
-		if (sql_result_next_row(result) < 0)
+		if (ctx->failed)
+			*error_r = ctx->error;
+		else if (sql_result_next_row(result) < 0)
 			*error_r = sql_result_get_error(result);
 		else
 			*error_r = NULL;
