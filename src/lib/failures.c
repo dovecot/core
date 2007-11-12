@@ -135,7 +135,7 @@ default_handler(const char *prefix, int fd, const char *format, va_list args)
 	str_append(str, prefix);
 
 	/* make sure there's no %n in there and fix %m */
-	str_vprintfa(str, printf_format_fix_unsafe(format), args);
+	str_vprintfa(str, printf_format_fix(format), args);
 	str_append_c(str, '\n');
 
 	ret = log_fd_write(fd, str_data(str), str_len(str));
