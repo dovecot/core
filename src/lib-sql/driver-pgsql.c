@@ -574,13 +574,17 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 	driver_pgsql_query(_db, query, pgsql_query_s_callback, db);
 
 	if (!db->query_finished) {
-		if (db->connected)
+		if (db->connected || db->connecting)
 			io_loop_run(db->ioloop);
-		else {
-			if (db->queue_to != NULL)
-				timeout_remove(&db->queue_to);
+		else
 			queue_abort_next(db);
+
+		if (db->io != NULL) {
+			i_assert(db->sync_result == &sql_not_connected_result);
+			io_remove(&db->io);
 		}
+		if (db->queue_to != NULL)
+			timeout_remove(&db->queue_to);
 	}
 	io_loop_destroy(&db->ioloop);
 
