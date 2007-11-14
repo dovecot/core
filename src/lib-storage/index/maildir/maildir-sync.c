@@ -660,7 +660,7 @@ static bool move_recent_messages(struct maildir_sync_context *ctx)
 	if (ctx->mbox->ibox.keep_recent)
 		return FALSE;
 
-	(void)maildir_uidlist_refresh(ctx->mbox->uidlist);
+	(void)maildir_uidlist_refresh(ctx->mbox->uidlist, FALSE);
 
 	/* if there are files in new/, we'll need to move them. we'll check
 	   this by checking if we have any recent messages */

@@ -250,7 +250,7 @@ dbox_sync_index_maildir_file(struct dbox_sync_rebuild_context *ctx,
 			maildir_keywords_sync_init(ctx->mk,
 						   ctx->mbox->ibox.index);
 
-		if (maildir_uidlist_refresh(ctx->maildir_uidlist) < 0)
+		if (maildir_uidlist_refresh(ctx->maildir_uidlist, FALSE) < 0)
 			return -1;
 	}
 
