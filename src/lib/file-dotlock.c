@@ -66,6 +66,7 @@ struct lock_info {
 	unsigned int have_pid:1;
 	unsigned int pid_read:1;
 	unsigned int use_io_notify:1;
+	unsigned int lock_stated:1;
 };
 
 static struct dotlock *
@@ -155,8 +156,12 @@ static int update_lock_info(time_t now, struct lock_info *lock_info,
 {
 	struct stat st;
 
-	if (lock_info->set->nfs_flush)
+	/* don't waste time flushing attribute cache the first time we're here.
+	   if it's stale we'll get back here soon. */
+	if (lock_info->set->nfs_flush && lock_info->lock_stated)
 		nfs_flush_attr_cache(lock_info->lock_path, TRUE);
+
+	lock_info->lock_stated = TRUE;
 	if (nfs_safe_lstat(lock_info->lock_path, &st) < 0) {
 		if (errno != ENOENT) {
 			i_error("lstat(%s) failed: %m", lock_info->lock_path);
@@ -448,7 +453,7 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 	lock_info.lock_path = lock_path;
 	lock_info.fd = -1;
 	lock_info.use_io_notify = set->use_io_notify;
-;
+
 	last_notify = 0; do_wait = FALSE;
 
 	do {
