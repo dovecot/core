@@ -15,11 +15,12 @@ int nfs_safe_open(const char *path, int flags);
 int nfs_safe_stat(const char *path, struct stat *buf);
 int nfs_safe_lstat(const char *path, struct stat *buf);
 
-/* Flush attribute cache for given path */
-void nfs_flush_attr_cache(const char *path);
+/* Flush attribute cache for given path. If flush_dir is TRUE, also the
+   directory's cache is flushed. */
+void nfs_flush_attr_cache(const char *path, bool flush_dir);
 /* Flush attribute cache for given file descriptor.
    The given path is used only for logging. */
-void nfs_flush_attr_cache_fd(const char *path, int fd);
+bool nfs_flush_attr_cache_fd(const char *path, int fd);
 /* Flush read cache for given fd. lock_type must be set to the file's current
    fcntl locking state (F_UNLCK, F_RDLCK, F_WRLCK). Set just_locked=TRUE if the
    file was locked at the same time as read cache flush was wanted (to avoid

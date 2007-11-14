@@ -229,7 +229,7 @@ static int mailbox_list_index_is_recreated(struct mailbox_list_index *index)
 		return 1;
 
 	if (index->mail_index->nfs_flush)
-		nfs_flush_attr_cache(index->filepath);
+		nfs_flush_attr_cache(index->filepath, TRUE);
 
 	if (nfs_safe_stat(index->filepath, &st1) < 0) {
 		if (errno == ENOENT)

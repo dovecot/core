@@ -248,6 +248,9 @@ int mail_index_try_open_only(struct mail_index *index)
 	i_assert(index->fd == -1);
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 
+	if (index->nfs_flush)
+		nfs_flush_attr_cache(index->filepath, TRUE);
+
         /* Note that our caller must close index->fd by itself. */
 	if (index->readonly)
 		errno = EACCES;
@@ -470,21 +473,28 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 	if (index->fd == -1)
 		return mail_index_try_open_only(index);
 
+	if (index->nfs_flush)
+		nfs_flush_attr_cache(index->filepath, TRUE);
+	if (nfs_safe_stat(index->filepath, &st2) < 0) {
+		if (errno == ENOENT)
+			return 0;
+
+		return mail_index_set_syscall_error(index, "stat()");
+	}
+
+	if (index->nfs_flush) {
+		if (!nfs_flush_attr_cache_fd(index->filepath, index->fd)) {
+			/* deleted/recreated, reopen */
+			mail_index_close_file(index);
+			return mail_index_try_open_only(index);
+		}
+	}
 	if (fstat(index->fd, &st1) < 0) {
 		if (errno != ESTALE)
 			return mail_index_set_syscall_error(index, "fstat()");
 		/* deleted/recreated, reopen */
 		mail_index_close_file(index);
 		return mail_index_try_open_only(index);
-	}
-
-	if (index->nfs_flush)
-		nfs_flush_attr_cache(index->filepath);
-	if (nfs_safe_stat(index->filepath, &st2) < 0) {
-		if (errno == ENOENT)
-			return 0;
-
-		return mail_index_set_syscall_error(index, "stat()");
 	}
 
 	if (st1.st_ino == st2.st_ino && CMP_DEV_T(st1.st_dev, st2.st_dev)) {

@@ -631,7 +631,7 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 	*recreated_r = FALSE;
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
-		nfs_flush_attr_cache(uidlist->path);
+		nfs_flush_attr_cache(uidlist->path, TRUE);
 
 	if (nfs_safe_stat(uidlist->path, &st) < 0) {
 		if (errno != ENOENT) {
@@ -647,7 +647,17 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 		/* file recreated */
 		*recreated_r = TRUE;
 		return 1;
-	} else if (st.st_size != uidlist->fd_size) {
+	}
+
+	/* either the file hasn't been changed, or it has already been deleted
+	   and the inodes just happen to be the same. check if the fd is still
+	   valid. */
+	if (!nfs_flush_attr_cache_fd(uidlist->path, uidlist->fd)) {
+		*recreated_r = TRUE;
+		return 1;
+	}
+
+	if (st.st_size != uidlist->fd_size) {
 		/* file modified but not recreated */
 		return 1;
 	} else {
@@ -658,6 +668,7 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 
 int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 {
+	struct mail_storage *storage = uidlist->ibox->box.storage;
         unsigned int i;
         bool retry, recreated;
         int ret;
@@ -669,6 +680,9 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 
 		if (recreated)
 			maildir_uidlist_close(uidlist);
+	} else {
+		if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
+			nfs_flush_attr_cache(uidlist->path, TRUE);
 	}
 
         for (i = 0; ; i++) {
@@ -676,7 +690,9 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 						i < UIDLIST_ESTALE_RETRY_COUNT);
 		if (!retry)
 			break;
-                /* ESTALE - try reopening and rereading */
+		/* ESTALE - try reopening and rereading */
+		maildir_uidlist_close(uidlist);
+		nfs_flush_attr_cache(uidlist->path, TRUE);
         }
 	if (ret >= 0)
 		uidlist->initial_read = TRUE;

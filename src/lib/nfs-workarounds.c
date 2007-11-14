@@ -62,7 +62,8 @@ nfs_safe_do(const char *path, int (*callback)(const char *path, void *context),
                         if (dir == NULL)
                                 break;
                         dir = t_strdup_until(path, dir);
-                }
+		}
+		nfs_flush_attr_cache(dir, FALSE);
                 if (stat(dir, &st) < 0) {
                         /* maybe it's gone or something else bad happened to
                            it. in any case we can't open the file, so fail
@@ -128,26 +129,30 @@ int nfs_safe_lstat(const char *path, struct stat *buf)
 	return nfs_safe_do(path, nfs_safe_lstat_callback, buf);
 }
 
-static void nfs_flush_fchown_uid(const char *path, int fd)
+static bool nfs_flush_fchown_uid(const char *path, int fd)
 {
 	struct stat st;
 
 	if (fstat(fd, &st) < 0) {
 		if (errno == ESTALE) {
 			/* ESTALE causes the OS to flush the attr cache */
-			return;
+			return FALSE;
 		}
 		i_error("nfs_flush_fchown_uid: fstat(%s) failed: %m", path);
-		return;
+		return TRUE;
 	}
 	if (fchown(fd, st.st_uid, (gid_t)-1) < 0) {
-		if (errno == ESTALE || errno == EACCES || errno == EPERM) {
+		if (errno == ESTALE) {
+			return FALSE;
+		}
+		if (errno == EACCES || errno == EPERM) {
 			/* attr cache is flushed */
-			return;
+			return TRUE;
 		}
 
 		i_error("nfs_flush_fchown_uid: fchown(%s) failed: %m", path);
 	}
+	return TRUE;
 }
 
 static void nfs_flush_chown_uid(const char *path)
@@ -212,14 +217,26 @@ static void nfs_flush_fcntl(const char *path, int fd, int old_lock_type)
 }
 #endif
 
-void nfs_flush_attr_cache(const char *path)
+void nfs_flush_attr_cache(const char *path, bool flush_dir)
 {
+	const char *p;
+
+	if (flush_dir) {
+		p = strrchr(path, '/');
+		if (p == NULL)
+			nfs_flush_chown_uid(".");
+		else {
+			t_push();
+			nfs_flush_chown_uid(t_strdup_until(path, p));
+			t_pop();
+		}
+	}
 	nfs_flush_chown_uid(path);
 }
 
-void nfs_flush_attr_cache_fd(const char *path, int fd)
+bool nfs_flush_attr_cache_fd(const char *path, int fd)
 {
-	nfs_flush_fchown_uid(path, fd);
+	return nfs_flush_fchown_uid(path, fd);
 }
 
 void nfs_flush_read_cache(const char *path, int fd,
