@@ -104,14 +104,6 @@ static int log_buffer_write(struct log_append_context *ctx, bool want_fsync)
 		 file->sync_offset + ctx->output->used ==
 		 file->max_tail_offset);
 
-	if (want_fsync && !file->log->index->fsync_disable &&
-	    fdatasync(file->fd) < 0) {
-		mail_index_file_set_syscall_error(file->log->index,
-						  file->filepath,
-						  "fdatasync()");
-		return log_buffer_move_to_memory(ctx);
-	}
-
 	/* now that the whole transaction has been written, rewrite the first
 	   record's size so the transaction becomes visible */
 	if (pwrite_full(file->fd, &ctx->first_append_size,
@@ -120,6 +112,16 @@ static int log_buffer_write(struct log_append_context *ctx, bool want_fsync)
 						  file->filepath,
 						  "pwrite_full()");
 		return log_buffer_move_to_memory(ctx);
+	}
+
+	if ((want_fsync && !file->log->index->fsync_disable) ||
+	    file->log->index->nfs_flush) {
+		if (fdatasync(file->fd) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "fdatasync()");
+			return log_buffer_move_to_memory(ctx);
+		}
 	}
 
 	/* FIXME: when we're relying on O_APPEND and someone else wrote a
