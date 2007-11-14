@@ -630,7 +630,9 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 
 	*recreated_r = FALSE;
 
-	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
+	/* don't bother flushing attribute caches unless uidlist is locked */
+	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0 &&
+	    UIDLIST_IS_LOCKED(uidlist))
 		nfs_flush_attr_cache(uidlist->path, TRUE);
 
 	if (nfs_safe_stat(uidlist->path, &st) < 0) {
@@ -649,12 +651,15 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 		return 1;
 	}
 
-	/* either the file hasn't been changed, or it has already been deleted
-	   and the inodes just happen to be the same. check if the fd is still
-	   valid. */
-	if (!nfs_flush_attr_cache_fd(uidlist->path, uidlist->fd)) {
-		*recreated_r = TRUE;
-		return 1;
+	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0 &&
+	    UIDLIST_IS_LOCKED(uidlist)) {
+		/* NFS: either the file hasn't been changed, or it has already
+		   been deleted and the inodes just happen to be the same.
+		   check if the fd is still valid. */
+		if (!nfs_flush_attr_cache_fd(uidlist->path, uidlist->fd)) {
+			*recreated_r = TRUE;
+			return 1;
+		}
 	}
 
 	if (st.st_size != uidlist->fd_size) {
@@ -681,7 +686,8 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 		if (recreated)
 			maildir_uidlist_close(uidlist);
 	} else {
-		if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
+		if (UIDLIST_IS_LOCKED(uidlist) &&
+		    (storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
 			nfs_flush_attr_cache(uidlist->path, TRUE);
 	}
 

@@ -893,7 +893,7 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	i_assert(file->mmap_base == NULL);
 
-	if (file->log->index->nfs_flush) {
+	if (file->log->index->nfs_flush && file->locked) {
 		/* Make sure we know the latest file size */
 		nfs_flush_attr_cache_fd(file->filepath, file->fd);
 	}

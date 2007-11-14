@@ -278,7 +278,7 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 
 	path = t_strconcat(log->index->filepath,
 			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
-	if (log->index->nfs_flush)
+	if (log->index->nfs_flush && log->head->locked)
 		nfs_flush_attr_cache(path, TRUE);
 	if (nfs_safe_stat(path, &st) < 0) {
 		if (errno != ENOENT) {
@@ -300,6 +300,10 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 		if (log->head->st_ino == st.st_ino &&
 		    CMP_DEV_T(log->head->st_dev, st.st_dev)) {
 			/* same file? */
+			if (!log->head->locked) {
+				/* we don't care that much, it most likely is */
+				return 0;
+			}
 			if (nfs_flush_attr_cache_fd(log->head->filepath,
 						    log->head->fd))
 				return 0;
