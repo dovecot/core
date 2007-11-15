@@ -252,11 +252,10 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 }
 
 static bool
-mail_index_need_sync(struct mail_index *index,
-		     const struct mail_index_header *hdr,
-		     enum mail_index_sync_flags flags,
+mail_index_need_sync(struct mail_index *index, enum mail_index_sync_flags flags,
 		     uint32_t log_file_seq, uoff_t log_file_offset)
 {
+	const struct mail_index_header *hdr = &index->map->hdr;
 	if ((flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) == 0)
 		return TRUE;
 
@@ -323,6 +322,76 @@ int mail_index_sync_begin(struct mail_index *index,
 	return ret;
 }
 
+static int
+mail_index_sync_begin_init(struct mail_index *index,
+			   enum mail_index_sync_flags flags,
+			   uint32_t log_file_seq, uoff_t log_file_offset)
+{
+	const struct mail_index_header *hdr;
+	uint32_t seq;
+	uoff_t offset;
+	bool locked = FALSE;
+	int ret;
+
+	/* if we require changes, don't lock transaction log yet. first check
+	   if there's anything to sync. */
+	if ((flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) == 0) {
+		if (mail_transaction_log_sync_lock(index->log,
+						   &seq, &offset) < 0)
+			return -1;
+		locked = TRUE;
+	}
+
+	/* The view must contain what we expect the mailbox to look like
+	   currently. That allows the backend to update external flag
+	   changes (etc.) if the view doesn't match the mailbox.
+
+	   We'll update the view to contain everything that exist in the
+	   transaction log except for expunges. They're synced in
+	   mail_index_sync_commit(). */
+	if ((ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD)) <= 0) {
+		if (ret == 0) {
+			if (locked)
+				mail_transaction_log_sync_unlock(index->log);
+			return -1;
+		}
+
+		/* let's try again */
+		if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0) {
+			if (locked)
+				mail_transaction_log_sync_unlock(index->log);
+			return -1;
+		}
+	}
+
+	if (!mail_index_need_sync(index, flags,
+				  log_file_seq, log_file_offset)) {
+		if (locked)
+			mail_transaction_log_sync_unlock(index->log);
+		return 0;
+	}
+
+	if (!locked) {
+		/* it looks like we have something to sync. lock the file and
+		   check again. */
+		flags &= ~MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
+		return mail_index_sync_begin_init(index, flags, log_file_seq,
+						  log_file_offset);
+	}
+
+	hdr = &index->map->hdr;
+	if (hdr->log_file_tail_offset > hdr->log_file_head_offset ||
+	    hdr->log_file_seq > seq ||
+	    (hdr->log_file_seq == seq && hdr->log_file_tail_offset > offset)) {
+		/* broken sync positions. fix them. */
+		mail_index_set_error(index,
+			"broken sync positions in index file %s",
+			index->filepath);
+		mail_index_fsck_locked(index);
+	}
+	return 1;
+}
+
 int mail_index_sync_begin_to(struct mail_index *index,
 			     struct mail_index_sync_ctx **ctx_r,
 			     struct mail_index_view **view_r,
@@ -334,8 +403,6 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	struct mail_index_sync_ctx *ctx;
 	struct mail_index_view *sync_view;
 	enum mail_index_transaction_flags trans_flags;
-	uint32_t seq;
-	uoff_t offset;
 	int ret;
 
 	i_assert(!index->syncing);
@@ -343,45 +410,12 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	if (log_file_seq != (uint32_t)-1)
 		flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 
-	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
-		return -1;
+	ret = mail_index_sync_begin_init(index, flags, log_file_seq,
+					 log_file_offset);
+	if (ret <= 0)
+		return ret;
 
-	/* The view must contain what we expect the mailbox to look like
-	   currently. That allows the backend to update external flag
-	   changes (etc.) if the view doesn't match the mailbox.
-
-	   We'll update the view to contain everything that exist in the
-	   transaction log except for expunges. They're synced in
-	   mail_index_sync_commit(). */
-	if ((ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD)) <= 0) {
-		if (ret == 0) {
-			mail_transaction_log_sync_unlock(index->log);
-			return -1;
-		}
-
-		/* let's try again */
-		if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0) {
-			mail_transaction_log_sync_unlock(index->log);
-			return -1;
-		}
-	}
 	hdr = &index->map->hdr;
-
-	if (!mail_index_need_sync(index, hdr, flags,
-				  log_file_seq, log_file_offset)) {
-		mail_transaction_log_sync_unlock(index->log);
-		return 0;
-	}
-
-	if (hdr->log_file_tail_offset > hdr->log_file_head_offset ||
-	    hdr->log_file_seq > seq ||
-	    (hdr->log_file_seq == seq && hdr->log_file_tail_offset > offset)) {
-		/* broken sync positions. fix them. */
-		mail_index_set_error(index,
-			"broken sync positions in index file %s",
-			index->filepath);
-		mail_index_fsck_locked(index);
-	}
 
 	ctx = i_new(struct mail_index_sync_ctx, 1);
 	ctx->index = index;
