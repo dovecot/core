@@ -93,7 +93,7 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 int mail_transaction_log_file_lock(struct mail_transaction_log_file *file);
 
 int mail_transaction_log_find_file(struct mail_transaction_log *log,
-				   uint32_t file_seq,
+				   uint32_t file_seq, bool nfs_flush,
 				   struct mail_transaction_log_file **file_r);
 
 /* Returns 1 if ok, 0 if file is corrupted or offset range is invalid,

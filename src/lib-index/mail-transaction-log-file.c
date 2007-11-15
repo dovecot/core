@@ -885,6 +885,29 @@ mail_transaction_log_file_read_more(struct mail_transaction_log_file *file)
 	return 1;
 }
 
+static bool
+mail_transaction_log_file_need_nfs_flush(struct mail_transaction_log_file *file)
+{
+	const struct mail_index_header *hdr = &file->log->index->map->hdr;
+
+	if (file->locked)
+		return TRUE;
+
+	if (file->next != NULL &&
+	    file->hdr.file_seq == file->next->hdr.prev_file_seq &&
+	    file->next->hdr.prev_file_offset != file->sync_offset) {
+		/* we already have a newer log file which says that we haven't
+		   synced the entire file. */
+		return TRUE;
+	}
+
+	if (file->hdr.file_seq == hdr->log_file_seq &&
+	    file->sync_offset < hdr->log_file_head_offset)
+		return TRUE;
+
+	return FALSE;
+}
+
 static int
 mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 			       uoff_t start_offset)
@@ -893,7 +916,8 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	i_assert(file->mmap_base == NULL);
 
-	if (file->log->index->nfs_flush && file->locked) {
+	if (file->log->index->nfs_flush &&
+	    mail_transaction_log_file_need_nfs_flush(file)) {
 		/* Make sure we know the latest file size */
 		nfs_flush_attr_cache_fd(file->filepath, file->fd);
 	}
