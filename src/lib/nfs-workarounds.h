@@ -14,6 +14,9 @@ int nfs_safe_open(const char *path, int flags);
    Doesn't flush attribute cache. */
 int nfs_safe_stat(const char *path, struct stat *buf);
 int nfs_safe_lstat(const char *path, struct stat *buf);
+/* Same as link(), but handle UDP retries by stat()ing to see if the success
+   reply just got lost. Assumes that oldpath's link count is initially 1. */
+int nfs_safe_link(const char *oldpath, const char *newpath);
 
 /* Flush attribute cache for given path. If flush_dir is TRUE, also the
    directory's cache is flushed. */

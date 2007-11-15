@@ -129,6 +129,35 @@ int nfs_safe_lstat(const char *path, struct stat *buf)
 	return nfs_safe_do(path, nfs_safe_lstat_callback, buf);
 }
 
+int nfs_safe_link(const char *oldpath, const char *newpath)
+{
+	struct stat st;
+
+#ifdef DEBUG
+	if (stat(oldpath, &st) == 0 && st.st_nlink != 1) {
+		i_panic("nfs_safe_link(): %s link count = %d",
+			oldpath, (int)st.st_nlink);
+	}
+#endif
+	if (link(oldpath, newpath) == 0) {
+#ifndef __FreeBSD__
+		return 0;
+#endif
+		/* FreeBSD at least up to v6.2 converts EEXIST errors to
+		   success. */
+	} else if (errno != EEXIST)
+		return -1;
+
+	/* We don't know if it succeeded or failed. stat() to make sure. */
+	if (stat(oldpath, &st) < 0)
+		return -1;
+	if (st.st_nlink < 2) {
+		errno = EEXIST;
+		return -1;
+	}
+	return 0;
+}
+
 static bool nfs_flush_fchown_uid(const char *path, int fd)
 {
 	struct stat st;
