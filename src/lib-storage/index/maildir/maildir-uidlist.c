@@ -624,7 +624,8 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 }
 
 static int
-maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
+maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool nfs_flush,
+			    bool *recreated_r)
 {
 	struct mail_storage *storage = uidlist->ibox->box.storage;
         struct stat st;
@@ -648,7 +649,7 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 	}
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0 &&
-	    UIDLIST_IS_LOCKED(uidlist)) {
+	    nfs_flush) {
 		/* NFS: either the file hasn't been changed, or it has already
 		   been deleted and the inodes just happen to be the same.
 		   check if the fd is still valid. */
@@ -687,7 +688,8 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist, bool nfs_flush)
 	}
 
 	if (uidlist->fd != -1) {
-		ret = maildir_uidlist_has_changed(uidlist, &recreated);
+		ret = maildir_uidlist_has_changed(uidlist, nfs_flush,
+						  &recreated);
 		if (ret <= 0)
 			return ret;
 
