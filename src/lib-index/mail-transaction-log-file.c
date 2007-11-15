@@ -914,11 +914,13 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	i_assert(file->mmap_base == NULL);
 
-	if (file->log->index->nfs_flush && (file->locked || nfs_flush)) {
-		/* Make sure we know the latest file size */
+	/* NFS: if file isn't locked, we're optimistic that we can read enough
+	   data without flushing attribute cache. if after reading we notice
+	   that we really should have read more, flush the cache and try again.
+	   if file is locked, the attribute cache was already flushed when
+	   refreshing the log. */
+	if (file->log->index->nfs_flush && nfs_flush)
 		nfs_flush_attr_cache_fd(file->filepath, file->fd);
-		nfs_flush = TRUE;
-	}
 
 	if (file->buffer != NULL && file->buffer_offset > start_offset) {
 		/* we have to insert missing data to beginning of buffer */

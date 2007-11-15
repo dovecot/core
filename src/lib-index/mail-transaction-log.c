@@ -297,19 +297,14 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 		file->refcount--;
 		log->index->need_recreate = TRUE;
 		return 0;
-	} else {
-		if (log->head->st_ino == st.st_ino &&
-		    CMP_DEV_T(log->head->st_dev, st.st_dev)) {
-			/* same file? */
-			if (!log->head->locked) {
-				/* we don't care that much, it most likely is */
-				return 0;
-			}
-			if (nfs_flush_attr_cache_fd(log->head->filepath,
-						    log->head->fd))
-				return 0;
-			/* nope */
-		}
+	} else if (log->head->st_ino == st.st_ino &&
+		   CMP_DEV_T(log->head->st_dev, st.st_dev)) {
+		/* NFS: log files get rotated to .log.2 files instead
+		   of being unlinked, so we don't bother checking if
+		   the existing file has already been unlinked here
+		   (in which case inodes could match but point to
+		   different files) */
+		return 0;
 	}
 
 	file = mail_transaction_log_file_alloc(log, path);
