@@ -29,7 +29,7 @@ struct dbox_sync_context {
 
 int dbox_sync_begin(struct dbox_mailbox *mbox,
 		    struct dbox_sync_context **ctx_r,
-		    bool close_flush_dirty_flags);
+		    bool close_flush_dirty_flags, bool force);
 int dbox_sync_finish(struct dbox_sync_context **ctx, bool success);
 int dbox_sync(struct dbox_mailbox *mbox, bool close_flush_dirty_flags);
 

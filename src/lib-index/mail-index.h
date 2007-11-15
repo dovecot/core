@@ -128,6 +128,9 @@ enum mail_index_sync_flags {
 	MAIL_INDEX_SYNC_FLAG_DROP_RECENT	= 0x02,
 	/* Create the transaction with AVOID_FLAG_UPDATES flag */
 	MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES	= 0x04,
+	/* If there are no new transactions and nothing else to do,
+	   return 0 in mail_index_sync_begin() */
+	MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES	= 0x08
 };
 
 enum mail_index_view_sync_flags {
@@ -231,7 +234,9 @@ bool mail_index_transaction_is_expunged(struct mail_index_transaction *t,
 struct mail_index_view *
 mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
 
-/* Begin synchronizing mailbox with index file. Returns 0 if ok, -1 if error.
+/* Begin synchronizing mailbox with index file. Returns 1 if ok,
+   0 if MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES is set and there's nothing to
+   sync, -1 if error.
 
    mail_index_sync_next() returns all changes from previously committed
    transactions which haven't yet been committed to the actual mailbox.

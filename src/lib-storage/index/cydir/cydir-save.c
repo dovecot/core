@@ -239,7 +239,7 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 
 	i_assert(ctx->finished);
 
-	if (cydir_sync_begin(ctx->mbox, &ctx->sync_ctx) < 0) {
+	if (cydir_sync_begin(ctx->mbox, &ctx->sync_ctx, TRUE) < 0) {
 		ctx->failed = TRUE;
 		cydir_transaction_save_rollback(ctx);
 		return -1;

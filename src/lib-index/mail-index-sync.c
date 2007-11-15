@@ -257,13 +257,26 @@ mail_index_need_sync(struct mail_index *index,
 		     enum mail_index_sync_flags flags,
 		     uint32_t log_file_seq, uoff_t log_file_offset)
 {
+	if ((flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) == 0)
+		return TRUE;
+
+	/* sync only if there's something to do */
 	if (hdr->first_recent_uid < hdr->next_uid &&
 	    (flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0)
 		return TRUE;
 
-	if (hdr->log_file_seq < log_file_seq ||
-	     (hdr->log_file_seq == log_file_seq &&
-	      hdr->log_file_tail_offset < log_file_offset))
+	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
+	    (flags & MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY) != 0)
+		return TRUE;
+
+	if (log_file_seq == (uint32_t)-1) {
+		/* we want to sync up to transaction log's head */
+		mail_transaction_log_get_head(index->log,
+					      &log_file_seq, &log_file_offset);
+	}
+	if ((hdr->log_file_tail_offset < log_file_offset &&
+	     hdr->log_file_seq == log_file_seq) ||
+	    hdr->log_file_seq < log_file_seq)
 		return TRUE;
 
 	/* already synced */
@@ -305,8 +318,9 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	ret = mail_index_sync_begin_to(index, ctx_r, view_r, trans_r,
 				       (uint32_t)-1, (uoff_t)-1, flags);
-	i_assert(ret != 0);
-	return ret <= 0 ? -1 : 0;
+	i_assert(ret != 0 ||
+		 (flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) != 0);
+	return ret;
 }
 
 int mail_index_sync_begin_to(struct mail_index *index,
@@ -325,6 +339,9 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	int ret;
 
 	i_assert(!index->syncing);
+
+	if (log_file_seq != (uint32_t)-1)
+		flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
 		return -1;

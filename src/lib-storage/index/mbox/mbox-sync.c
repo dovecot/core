@@ -1624,8 +1624,7 @@ again:
 				mbox->ibox.commit_log_file_offset, sync_flags);
 	} else {
 		ret = mail_index_sync_begin(mbox->ibox.index, &index_sync_ctx,
-					    &sync_view, &trans,
-					    sync_flags) < 0 ? -1 : 1;
+					    &sync_view, &trans, sync_flags);
 	}
 
 	if (ret <= 0) {

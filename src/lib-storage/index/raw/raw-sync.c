@@ -12,17 +12,21 @@ static int raw_sync(struct raw_mailbox *mbox)
 	struct mail_index_transaction *trans;
 	uint32_t seq, uid_validity = ioloop_time;
 	enum mail_index_sync_flags sync_flags;
+	int ret;
 
 	i_assert(!mbox->synced);
 
-	sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
+	sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY |
+		MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 	if (!mbox->ibox.keep_recent)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
-	if (mail_index_sync_begin(mbox->ibox.index, &index_sync_ctx,
-				  &sync_view, &trans, sync_flags) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
-		return -1;
+	ret = mail_index_sync_begin(mbox->ibox.index, &index_sync_ctx,
+				    &sync_view, &trans, sync_flags);
+	if (ret <= 0) {
+		if (ret < 0)
+			mail_storage_set_index_error(&mbox->ibox);
+		return ret;
 	}
 
 	/* set our uidvalidity */

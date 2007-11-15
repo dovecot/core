@@ -269,7 +269,7 @@ static int dbox_sync_want_flush_dirty(struct dbox_mailbox *mbox,
 
 int dbox_sync_begin(struct dbox_mailbox *mbox,
 		    struct dbox_sync_context **ctx_r,
-		    bool close_flush_dirty_flags)
+		    bool close_flush_dirty_flags, bool force)
 {
 	struct mail_storage *storage = mbox->ibox.box.storage;
 	struct dbox_sync_context *ctx;
@@ -298,17 +298,22 @@ int dbox_sync_begin(struct dbox_mailbox *mbox,
 
 	if (!mbox->ibox.keep_recent)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
+	if (!rebuild && !force)
+		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 	/* don't write unnecessary dirty flag updates */
 	sync_flags |= MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
 
 	for (i = 0;; i++) {
-		if (mail_index_sync_begin(mbox->ibox.index,
-					  &ctx->index_sync_ctx,
-					  &ctx->sync_view, &ctx->trans,
-					  sync_flags) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
+		ret = mail_index_sync_begin(mbox->ibox.index,
+					    &ctx->index_sync_ctx,
+					    &ctx->sync_view, &ctx->trans,
+					    sync_flags);
+		if (ret <= 0) {
+			if (ret < 0)
+				mail_storage_set_index_error(&mbox->ibox);
 			i_free(ctx);
-			return -1;
+			*ctx_r = NULL;
+			return ret;
 		}
 
 		if (rebuild) {
@@ -368,13 +373,12 @@ int dbox_sync(struct dbox_mailbox *mbox, bool close_flush_dirty_flags)
 {
 	struct dbox_sync_context *sync_ctx;
 
-	if (dbox_sync_begin(mbox, &sync_ctx, close_flush_dirty_flags) < 0)
+	if (dbox_sync_begin(mbox, &sync_ctx,
+			    close_flush_dirty_flags, FALSE) < 0)
 		return -1;
 
-	if (sync_ctx == NULL) {
-		i_assert(close_flush_dirty_flags);
+	if (sync_ctx == NULL)
 		return 0;
-	}
 	return dbox_sync_finish(&sync_ctx, TRUE);
 }
 

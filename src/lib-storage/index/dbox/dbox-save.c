@@ -405,7 +405,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 
 	i_assert(ctx->finished);
 
-	if (dbox_sync_begin(ctx->mbox, &ctx->sync_ctx, FALSE) < 0) {
+	if (dbox_sync_begin(ctx->mbox, &ctx->sync_ctx, FALSE, TRUE) < 0) {
 		ctx->failed = TRUE;
 		dbox_transaction_save_rollback(ctx);
 		return -1;
