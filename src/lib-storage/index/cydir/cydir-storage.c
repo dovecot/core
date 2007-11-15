@@ -358,6 +358,21 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 			/* non-directory */
 			*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
 			ret = 0;
+		} else if (st.st_nlink == 2) {
+			/* no subdirectories */
+			*flags |= MAILBOX_NOCHILDREN;
+		} else if (*ctx->list->set.maildir_name != '\0') {
+			/* non-default configuration: we have one directory
+			   containing the mailboxes. if there are 3 links,
+			   either this is a selectable mailbox without children
+			   or non-selectable mailbox with children */
+			if (st.st_nlink > 3)
+				*flags |= MAILBOX_CHILDREN;
+		} else {
+			/* default configuration: all subdirectories are
+			   child mailboxes. */
+			if (st.st_nlink > 2)
+				*flags |= MAILBOX_CHILDREN;
 		}
 	} else {
 		/* non-selectable. probably either access denied, or symlink
