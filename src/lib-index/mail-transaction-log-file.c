@@ -889,20 +889,18 @@ static bool
 mail_transaction_log_file_need_nfs_flush(struct mail_transaction_log_file *file)
 {
 	const struct mail_index_header *hdr = &file->log->index->map->hdr;
-
-	if (file->locked)
-		return TRUE;
+	uoff_t max_offset = file->last_size;
 
 	if (file->next != NULL &&
 	    file->hdr.file_seq == file->next->hdr.prev_file_seq &&
-	    file->next->hdr.prev_file_offset != file->sync_offset) {
+	    file->next->hdr.prev_file_offset != max_offset) {
 		/* we already have a newer log file which says that we haven't
 		   synced the entire file. */
 		return TRUE;
 	}
 
 	if (file->hdr.file_seq == hdr->log_file_seq &&
-	    file->sync_offset < hdr->log_file_head_offset)
+	    max_offset < hdr->log_file_head_offset)
 		return TRUE;
 
 	return FALSE;
@@ -910,16 +908,16 @@ mail_transaction_log_file_need_nfs_flush(struct mail_transaction_log_file *file)
 
 static int
 mail_transaction_log_file_read(struct mail_transaction_log_file *file,
-			       uoff_t start_offset)
+			       uoff_t start_offset, bool nfs_flush)
 {
 	int ret;
 
 	i_assert(file->mmap_base == NULL);
 
-	if (file->log->index->nfs_flush &&
-	    mail_transaction_log_file_need_nfs_flush(file)) {
+	if (file->log->index->nfs_flush && (file->locked || nfs_flush)) {
 		/* Make sure we know the latest file size */
 		nfs_flush_attr_cache_fd(file->filepath, file->fd);
+		nfs_flush = TRUE;
 	}
 
 	if (file->buffer != NULL && file->buffer_offset > start_offset) {
@@ -937,6 +935,12 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	if ((ret = mail_transaction_log_file_read_more(file)) <= 0)
 		return ret;
+
+	if (file->log->index->nfs_flush && !nfs_flush &&
+	    mail_transaction_log_file_need_nfs_flush(file)) {
+		/* we didn't read enough data. flush and try again. */
+		return mail_transaction_log_file_read(file, start_offset, TRUE);
+	}
 
 	if ((ret = mail_transaction_log_file_sync(file)) <= 0) {
 		i_assert(ret != 0); /* happens only with mmap */
@@ -1101,7 +1105,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	if (index->mmap_disable) {
 		mail_transaction_log_file_munmap(file);
 
-		ret = mail_transaction_log_file_read(file, start_offset);
+		ret = mail_transaction_log_file_read(file, start_offset, FALSE);
 		if (ret <= 0)
 			return ret;
 	} else {
@@ -1144,7 +1148,7 @@ void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
 		file->mmap_base = NULL;
 	} else if (file->buffer_offset != 0) {
 		/* we don't have the full log in the memory. read it. */
-		(void)mail_transaction_log_file_read(file, 0);
+		(void)mail_transaction_log_file_read(file, 0, FALSE);
 	}
 
 	if (close(file->fd) < 0) {
