@@ -19,8 +19,13 @@ struct list_dir_context {
 	DIR *dirp;
 	char *real_path, *virtual_path;
 
+	const struct dirent *next_dirent;
+	struct mailbox_info info;
+
 	unsigned int pattern_pos;
 	struct dirent dirent;
+
+	unsigned int delayed_send:1;
 };
 
 struct fs_list_iterate_context {
@@ -109,6 +114,9 @@ pattern_has_wildcard_at(struct fs_list_iterate_context *ctx,
 		return TRUE;
 	if (ret == 0)
 		return FALSE;
+
+	if (pattern[pos] == '\0')
+		return TRUE;
 
 	for (; pattern[pos] != '\0' && pattern[pos] != ctx->sep; pos++) {
 		if (pattern[pos] == '%' || pattern[pos] == '*')
@@ -339,15 +347,114 @@ static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 	return &ctx->info;
 }
 
+static bool
+list_file_inbox(struct fs_list_iterate_context *ctx, const char *fname)
+{
+	const char *real_path, *inbox_path;
+
+	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
+	if (ctx->inbox_listed) {
+		/* already listed the INBOX */
+		return FALSE;
+	}
+
+	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
+					   MAILBOX_LIST_PATH_TYPE_DIR);
+	if (strcmp(real_path, inbox_path) == 0 &&
+	    (ctx->info.flags & MAILBOX_NOINFERIORS) != 0) {
+		/* delay listing in case there's a INBOX/ directory */
+		ctx->inbox_found = TRUE;
+		ctx->inbox_flags = ctx->info.flags;
+		return FALSE;
+	}
+	if (strcmp(fname, "INBOX") != 0 ||
+	    (ctx->info.flags & MAILBOX_NOINFERIORS) != 0) {
+		/* duplicate INBOX, can't show this */
+		return FALSE;
+	}
+
+	/* INBOX/ directory. show the INBOX list now */
+	if ((ctx->ctx.list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
+		/* this directory is the INBOX */
+	} else if (!ctx->inbox_found) {
+		enum mailbox_info_flags dir_flags = ctx->info.flags;
+
+		(void)fs_list_inbox(ctx);
+		ctx->info.flags &= ~(MAILBOX_NOINFERIORS |
+				     MAILBOX_NOCHILDREN);
+		ctx->info.flags |= dir_flags;
+		ctx->inbox_found = TRUE;
+	} else {
+		ctx->info.flags &= ~MAILBOX_NOSELECT;
+		ctx->info.flags |= ctx->inbox_flags;
+	}
+	ctx->inbox_listed = TRUE;
+	return TRUE;
+}
+
+static int
+list_file_subdir(struct fs_list_iterate_context *ctx,
+		 enum imap_match_result match, const char *list_path,
+		 const char *fname)
+{
+	struct list_dir_context *dir;
+	DIR *dirp;
+	enum imap_match_result match2;
+	const char *vpath, *real_path;
+	bool scan_subdir, delayed_send = FALSE;
+	int ret;
+
+	vpath = t_strdup_printf("%s%c", list_path, ctx->sep);
+	match2 = imap_match(ctx->glob, vpath);
+
+	if (match == IMAP_MATCH_YES)
+		ctx->info.name = p_strdup(ctx->info_pool, list_path);
+	else if (match2 == IMAP_MATCH_YES)
+		ctx->info.name = p_strdup(ctx->info_pool, vpath);
+	else
+		ctx->info.name = NULL;
+
+	scan_subdir = (match2 & (IMAP_MATCH_YES | IMAP_MATCH_CHILDREN)) != 0;
+	if ((match == IMAP_MATCH_YES || scan_subdir) &&
+	    (ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) != 0 &&
+	    (ctx->info.flags & (MAILBOX_CHILDREN | MAILBOX_NOCHILDREN)) == 0) {
+		scan_subdir = TRUE;
+		delayed_send = TRUE;
+	}
+
+	if (scan_subdir) {
+		real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
+		ret = list_opendir(ctx, real_path, vpath, &dirp);
+	} else {
+		ret = 0;
+	}
+	if (ret > 0) {
+		dir = i_new(struct list_dir_context, 1);
+		dir->dirp = dirp;
+		dir->real_path = i_strdup(real_path);
+		dir->virtual_path =
+			i_strdup_printf("%s%c", list_path, ctx->sep);
+
+		dir->prev = ctx->dir;
+		ctx->dir = dir;
+
+		if (delayed_send) {
+			dir->delayed_send = TRUE;
+			dir->info = ctx->info;
+			return 0;
+		}
+	} else if (ret < 0)
+		return -1;
+	return match == IMAP_MATCH_YES || match2 == IMAP_MATCH_YES;
+}
+
 static int
 list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 {
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 	const char *fname = d->d_name;
-	struct list_dir_context *dir;
-	const char *list_path, *real_path, *vpath, *inbox_path;
-	DIR *dirp;
-	enum imap_match_result match, match2;
+	const char *list_path;
+	enum imap_match_result match;
 	int ret;
 
 	/* skip . and .. */
@@ -359,8 +466,14 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 	/* check the pattern */
 	list_path = t_strconcat(ctx->dir->virtual_path, fname, NULL);
 	match = imap_match(ctx->glob, list_path);
-	if (match != IMAP_MATCH_YES && (match & IMAP_MATCH_CHILDREN) == 0)
+	if (match != IMAP_MATCH_YES && (match & IMAP_MATCH_CHILDREN) == 0 &&
+	    !ctx->dir->delayed_send)
 		return 0;
+
+	if (strcmp(fname, ctx->ctx.list->set.maildir_name) == 0) {
+		/* mail storage's internal directory */
+		return 0;
+	}
 
 	/* get the info.flags using callback */
 	ctx->info.flags = 0;
@@ -371,78 +484,34 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 	if (ret <= 0)
 		return ret;
 
-	ctx->info.flags |= fs_list_get_subscription_flags(ctx, list_path);
-
-	/* make sure we give only one correct INBOX */
-	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
-	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
-	    strcasecmp(list_path, "INBOX") == 0) {
-		if (ctx->inbox_listed) {
-			/* already listed the INBOX */
-			return 0;
-		}
-
-		inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
-						   MAILBOX_LIST_PATH_TYPE_DIR);
-		if (strcmp(real_path, inbox_path) == 0) {
-			/* delay listing in case there's a INBOX/ directory */
-			ctx->inbox_found = TRUE;
-			ctx->inbox_flags = ctx->info.flags;
-			return 0;
-		}
-		if (strcmp(fname, "INBOX") != 0 ||
-		    (ctx->info.flags & MAILBOX_NOINFERIORS) != 0) {
-			/* duplicate INBOX, can't show this */
-			return 0;
-		}
-
-		/* INBOX/ directory. show the INBOX list now */
-		if (!ctx->inbox_found) {
-			enum mailbox_info_flags dir_flags = ctx->info.flags;
-
-			(void)fs_list_inbox(ctx);
-			ctx->info.flags &= ~(MAILBOX_NOINFERIORS |
-					     MAILBOX_NOCHILDREN);
-			ctx->info.flags |= dir_flags;
-			ctx->inbox_found = TRUE;
-		} else {
-			ctx->info.flags &= ~MAILBOX_NOSELECT;
-			ctx->info.flags |= ctx->inbox_flags;
-		}
-		ctx->inbox_listed = TRUE;
-	}
-
-	if ((ctx->info.flags & MAILBOX_NOINFERIORS) == 0) {
-		/* subdirectory. scan inside it. */
-		vpath = t_strdup_printf("%s%c", list_path, ctx->sep);
-		match2 = imap_match(ctx->glob, vpath);
-
-		if (match == IMAP_MATCH_YES)
-			ctx->info.name = p_strdup(ctx->info_pool, list_path);
-		else if (match2 == IMAP_MATCH_YES)
-			ctx->info.name = p_strdup(ctx->info_pool, vpath);
-		else
-			ctx->info.name = NULL;
-
-		ret = (match2 & (IMAP_MATCH_YES | IMAP_MATCH_CHILDREN)) == 0 ?
-			0 : list_opendir(ctx, real_path, vpath, &dirp);
-		if (ret > 0) {
-			dir = i_new(struct list_dir_context, 1);
-			dir->dirp = dirp;
-			dir->real_path = i_strdup(real_path);
-			dir->virtual_path =
-				i_strdup_printf("%s%c", list_path, ctx->sep);
-
-			dir->prev = ctx->dir;
-			ctx->dir = dir;
-		} else if (ret < 0)
-			return -1;
-		return match == IMAP_MATCH_YES || match2 == IMAP_MATCH_YES;
-	} else if (match == IMAP_MATCH_YES) {
-		ctx->info.name = p_strdup(ctx->info_pool, list_path);
+	if (ctx->dir->delayed_send) {
+		/* send the parent directory first, then handle this
+		   file again if needed */
+		ctx->dir->delayed_send = FALSE;
+		if (match == IMAP_MATCH_YES ||
+		    (match & IMAP_MATCH_CHILDREN) != 0)
+			ctx->dir->next_dirent = d;
+		ctx->info = ctx->dir->info;
+		ctx->info.flags |= MAILBOX_CHILDREN;
 		return 1;
 	}
 
+	ctx->info.flags |= fs_list_get_subscription_flags(ctx, list_path);
+
+	/* make sure we give only one correct INBOX */
+	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
+	    strcasecmp(list_path, "INBOX") == 0) {
+		if (!list_file_inbox(ctx, fname))
+			return 0;
+	}
+
+	if ((ctx->info.flags & MAILBOX_NOINFERIORS) == 0)
+		return list_file_subdir(ctx, match, list_path, fname);
+
+	if (match == IMAP_MATCH_YES) {
+		ctx->info.name = p_strdup(ctx->info_pool, list_path);
+		return 1;
+	}
 	return 0;
 }
 
@@ -480,7 +549,8 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 	return &ctx->info;
 }
 
-static struct dirent *fs_list_dir_next(struct fs_list_iterate_context *ctx)
+static const struct dirent *
+fs_list_dir_next(struct fs_list_iterate_context *ctx)
 {
 	struct list_dir_context *dir = ctx->dir;
 	char *const *patterns;
@@ -489,8 +559,14 @@ static struct dirent *fs_list_dir_next(struct fs_list_iterate_context *ctx)
 	struct stat st;
 	int ret;
 
-	if (dir->dirp != NULL)
+	if (dir->dirp != NULL) {
+		if (dir->next_dirent != NULL) {
+			const struct dirent *ret = dir->next_dirent;
+			dir->next_dirent = NULL;
+			return ret;
+		}
 		return readdir(dir->dirp);
+	}
 
 	t_push();
 	for (;;) {
@@ -549,10 +625,11 @@ static const struct mailbox_info *
 fs_list_next(struct fs_list_iterate_context *ctx)
 {
 	struct list_dir_context *dir;
-	struct dirent *d;
+	const struct dirent *d;
 	int ret;
 
-	p_clear(ctx->info_pool);
+	if (ctx->dir == NULL || !ctx->dir->delayed_send)
+		p_clear(ctx->info_pool);
 
 	while (ctx->dir != NULL) {
 		/* NOTE: list_file() may change ctx->dir */
@@ -570,6 +647,15 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 		}
 
 		dir = ctx->dir;
+		if (dir->delayed_send) {
+			/* wanted to know if the mailbox had children.
+			   it didn't. */
+			dir->delayed_send = FALSE;
+			ctx->info = dir->info;
+			ctx->info.flags |= MAILBOX_NOCHILDREN;
+			return &ctx->info;
+		}
+
 		ctx->dir = dir->prev;
 		list_dir_context_free(dir);
 	}
