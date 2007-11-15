@@ -611,6 +611,7 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 	}
 	/* extra sanity check won't hurt.. */
 	if (st.st_dev != dotlock->dev || st.st_ino != dotlock->ino) {
+		errno = ENOENT;
 		i_error("dotlock %s was immediately recreated under us",
 			lock_path);
                 file_dotlock_free(dotlock);
