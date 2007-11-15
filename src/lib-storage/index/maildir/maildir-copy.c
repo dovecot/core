@@ -67,7 +67,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 			return ret;
 	}
 
-	if (link(path, str_c(ctx->dest_path)) < 0) {
+	if (nfs_safe_link(path, str_c(ctx->dest_path)) < 0) {
 		if (errno == ENOENT)
 			return 0;
 

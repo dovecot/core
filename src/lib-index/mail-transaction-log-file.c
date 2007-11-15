@@ -532,7 +532,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 					     path2);
 			/* try to link() anyway */
 		}
-		if (link(file->filepath, path2) < 0 &&
+		if (nfs_safe_link(file->filepath, path2) < 0 &&
 		    errno != ENOENT && errno != EEXIST) {
                         mail_index_set_error(index, "link(%s, %s) failed: %m",
 					     file->filepath, path2);
