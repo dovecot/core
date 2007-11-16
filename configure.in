@@ -2078,6 +2078,3 @@ echo "Building with GSSAPI support ........ : $have_gssapi"
 echo "Building with user database modules . :$userdb"
 echo "Building with password lookup modules :$passdb"
 echo "Building with SQL drivers ............:$sql_drivers"
-
-echo
-echo "NOTE: This is the UNSTABLE development branch of Dovecot."
