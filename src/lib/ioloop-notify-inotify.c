@@ -101,13 +101,11 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 			       IN_CREATE | IN_DELETE | IN_DELETE_SELF |
 			       IN_MOVE | IN_CLOSE | IN_MODIFY);
 	if (wd < 0) {
-		if (errno == ENOENT)
-			return IO_NOTIFY_NOTFOUND;
-
 		/* ESTALE could happen with NFS. Don't bother giving an error
 		   message then. */
-		if (errno != ESTALE)
-			i_error("inotify_add_watch(%s) failed: %m", path);
+		if (errno == ENOENT || errno == ESTALE)
+			return IO_NOTIFY_NOTFOUND;
+
 		ctx->disabled = TRUE;
 		return IO_NOTIFY_DISABLED;
 	}
