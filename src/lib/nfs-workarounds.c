@@ -38,6 +38,10 @@
 #  define READ_CACHE_FLUSH_FCNTL
 #endif
 
+#if defined(__FreeBSD__) || defined(__sun)
+#  define ATTRCACHE_FLUSH_CHOWN_UID_1
+#endif
+
 static int
 nfs_safe_do(const char *path, int (*callback)(const char *path, void *context),
 	    void *context)
@@ -162,6 +166,7 @@ int nfs_safe_link(const char *oldpath, const char *newpath, bool links1)
 static bool nfs_flush_fchown_uid(const char *path, int fd)
 {
 	struct stat st;
+	uid_t uid;
 
 	if (fstat(fd, &st) < 0) {
 		if (errno == ESTALE) {
@@ -171,7 +176,12 @@ static bool nfs_flush_fchown_uid(const char *path, int fd)
 		i_error("nfs_flush_fchown_uid: fstat(%s) failed: %m", path);
 		return TRUE;
 	}
-	if (fchown(fd, st.st_uid, (gid_t)-1) < 0) {
+#ifdef ATTRCACHE_FLUSH_CHOWN_UID_1
+	uid = (uid_t)-1;
+#else
+	uid = st.st_uid;
+#endif
+	if (fchown(fd, uid, (gid_t)-1) < 0) {
 		if (errno == ESTALE) {
 			return FALSE;
 		}
@@ -188,9 +198,16 @@ static bool nfs_flush_fchown_uid(const char *path, int fd)
 #ifndef __FreeBSD__
 static void nfs_flush_chown_uid(const char *path)
 {
+	uid_t uid;
+
+#ifdef ATTRCACHE_FLUSH_CHOWN_UID_1
+	uid = (uid_t)-1;
+#else
 	struct stat st;
 
-	if (stat(path, &st) < 0) {
+	if (stat(path, &st) == 0)
+		uid = st.st_uid;
+	else {
 		if (errno == ESTALE) {
 			/* ESTALE causes the OS to flush the attr cache */
 			return;
@@ -205,10 +222,10 @@ static void nfs_flush_chown_uid(const char *path)
 		   it probably doesn't really matter what UID is used, because
 		   as long as we're not root we don't have permission to really
 		   change it anyway */
-		st.st_uid = geteuid();
+		uid = geteuid();
 	}
-
-	if (chown(path, st.st_uid, (gid_t)-1) < 0) {
+#endif
+	if (chown(path, uid, (gid_t)-1) < 0) {
 		if (errno == ESTALE || errno == EACCES ||
 		    errno == EPERM || errno == ENOENT) {
 			/* attr cache is flushed */
