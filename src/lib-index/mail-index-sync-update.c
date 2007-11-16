@@ -811,11 +811,6 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		       map->hdr_copy_buf->used);
 	}
 
-	if (sync_map_ctx.errors) {
-		/* avoid the same syncing errors the next time */
-		mail_index_write(index, FALSE);
-	}
-
 	/* restore refcount before closing the view. this is necessary also
 	   if map got cloned, because view closing would otherwise destroy it */
 	map->refcount++;
@@ -828,6 +823,10 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		mail_index_set_error(index,
 			"Synchronization corrupted index header: %s",
 			index->filepath);
+		(void)mail_index_fsck(index);
+		map = index->map;
+	} else if (sync_map_ctx.errors) {
+		/* make sure the index looks valid now */
 		(void)mail_index_fsck(index);
 		map = index->map;
 	}
