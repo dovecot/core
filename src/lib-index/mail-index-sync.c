@@ -278,6 +278,9 @@ mail_index_need_sync(struct mail_index *index, enum mail_index_sync_flags flags,
 	    hdr->log_file_seq < log_file_seq)
 		return TRUE;
 
+	if (index->need_recreate)
+		return TRUE;
+
 	/* already synced */
 	return mail_cache_need_compress(index->cache);
 }
