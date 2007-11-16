@@ -653,7 +653,7 @@ static int mail_hash_reopen_if_needed(struct mail_hash *hash)
 		return mail_hash_reopen(hash);
 
 	if (hash->index->nfs_flush)
-		nfs_flush_attr_cache(hash->filepath, TRUE);
+		nfs_flush_attr_cache(hash->filepath);
 
 	if (nfs_safe_stat(hash->filepath, &st) < 0) {
 		if (errno == ENOENT)

@@ -19,9 +19,10 @@ int nfs_safe_lstat(const char *path, struct stat *buf);
    is 1, otherwise stat() first to find it out. */
 int nfs_safe_link(const char *oldpath, const char *newpath, bool links1);
 
-/* Flush attribute cache for given path. If flush_dir is TRUE, also the
-   directory's cache is flushed. */
-void nfs_flush_attr_cache(const char *path, bool flush_dir);
+/* Flush attribute cache for given path. This actually flushes the parent
+   directory's attribute cache to make sure that the file handle also gets
+   refreshed. */
+void nfs_flush_attr_cache(const char *path);
 /* Flush attribute cache for given file descriptor.
    The given path is used only for logging. */
 bool nfs_flush_attr_cache_fd(const char *path, int fd);

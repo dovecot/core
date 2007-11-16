@@ -435,7 +435,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	bool rename_existing;
 
 	if (index->nfs_flush)
-		nfs_flush_attr_cache(file->filepath, TRUE);
+		nfs_flush_attr_cache(file->filepath);
 
 	/* log creation is locked now - see if someone already created it.
 	   note that if we're rotating, we need to keep the log locked until

@@ -682,7 +682,7 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist, bool nfs_flush)
 		if (!nfs_flush)
 			uidlist->nfs_dirty_refresh = TRUE;
 		else {
-			nfs_flush_attr_cache(uidlist->path, TRUE);
+			nfs_flush_attr_cache(uidlist->path);
 			uidlist->nfs_dirty_refresh = FALSE;
 		}
 	}
@@ -704,7 +704,7 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist, bool nfs_flush)
 			break;
 		/* ESTALE - try reopening and rereading */
 		maildir_uidlist_close(uidlist);
-		nfs_flush_attr_cache(uidlist->path, TRUE);
+		nfs_flush_attr_cache(uidlist->path);
         }
 	if (ret >= 0)
 		uidlist->initial_read = TRUE;

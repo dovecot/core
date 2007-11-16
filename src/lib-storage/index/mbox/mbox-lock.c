@@ -173,7 +173,7 @@ static int mbox_file_open_latest(struct mbox_lock_context *ctx, int lock_type)
 	if (mbox->mbox_fd != -1) {
 		if ((mbox->storage->storage.flags &
 		     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
-			nfs_flush_attr_cache(mbox->path, TRUE);
+			nfs_flush_attr_cache(mbox->path);
 		if (nfs_safe_stat(mbox->path, &st) < 0) {
 			mbox_set_syscall_error(mbox, "stat()");
 			return -1;
