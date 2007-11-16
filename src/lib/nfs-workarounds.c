@@ -38,6 +38,8 @@
 #  define READ_CACHE_FLUSH_FCNTL
 #endif
 
+static void nfs_flush_chown_uid(const char *path);
+
 static int
 nfs_safe_do(const char *path, int (*callback)(const char *path, void *context),
 	    void *context)
@@ -185,6 +187,29 @@ static bool nfs_flush_fchown_uid(const char *path, int fd)
 	return TRUE;
 }
 
+static void nfs_flush_dir(const char *path)
+{
+#ifdef __FreeBSD__
+	/* Unfortunately rmdir() seems to be the only way to flush a
+	   directory's attribute cache. */
+	if (rmdir(path) == 0) {
+		if (mkdir(path, 0600) == 0) {
+			i_warning("nfs_flush_dir: rmdir(%s) unexpectedly "
+				  "removed the dir. recreated.", path);
+		} else {
+			i_error("nfs_flush_dir: rmdir(%s) unexpectedly "
+				"removed the dir. mkdir() failed: %m", path);
+		}
+	} else if (errno == ESTALE || errno == ENOENT || errno == ENOTEMPTY) {
+		/* expected failures */
+	} else {
+		i_error("nfs_flush_dir: rmdir(%s) failed: %m", path);
+	}
+#else
+	nfs_flush_chown_uid(path);
+#endif
+}
+
 static void nfs_flush_chown_uid(const char *path)
 {
 	struct stat st;
@@ -206,6 +231,14 @@ static void nfs_flush_chown_uid(const char *path)
 		   change it anyway */
 		st.st_uid = geteuid();
 	}
+#ifdef __FreeBSD__
+	if (S_ISDIR(st.st_mode)) {
+		nfs_flush_dir(path);
+		return;
+	}
+#endif
+
+
 	if (chown(path, st.st_uid, (gid_t)-1) < 0) {
 		if (errno == ESTALE || errno == EACCES ||
 		    errno == EPERM || errno == ENOENT) {
@@ -254,10 +287,10 @@ void nfs_flush_attr_cache(const char *path, bool flush_dir)
 	if (flush_dir) {
 		p = strrchr(path, '/');
 		if (p == NULL)
-			nfs_flush_chown_uid(".");
+			nfs_flush_dir(".");
 		else {
 			t_push();
-			nfs_flush_chown_uid(t_strdup_until(path, p));
+			nfs_flush_dir(t_strdup_until(path, p));
 			t_pop();
 		}
 	}
