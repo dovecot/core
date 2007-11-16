@@ -342,7 +342,8 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
                 lock_info->temp_path = str_c(tmp_path);
 	}
 
-	if (nfs_safe_link(lock_info->temp_path, lock_info->lock_path) < 0) {
+	if (nfs_safe_link(lock_info->temp_path,
+			  lock_info->lock_path, TRUE) < 0) {
 		if (errno == EEXIST)
 			return 0;
 
