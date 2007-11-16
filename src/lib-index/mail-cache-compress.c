@@ -346,7 +346,8 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 				      bool *unlock)
 {
 	struct dotlock *dotlock;
-        mode_t old_mask;
+	struct stat st;
+	mode_t old_mask;
 	uint32_t file_seq, old_offset;
 	ARRAY_TYPE(uint32_t) ext_offsets;
 	const uint32_t *offsets;
@@ -398,6 +399,12 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		return -1;
 	}
 
+	if (fstat(fd, &st) < 0) {
+		mail_cache_set_syscall_error(cache, "fstat()");
+		(void)file_dotlock_delete(&dotlock);
+		return -1;
+	}
+
 	if (file_dotlock_replace(&dotlock,
 				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
 		mail_cache_set_syscall_error(cache,
@@ -426,6 +433,8 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 
 	mail_cache_file_close(cache);
 	cache->fd = fd;
+	cache->st_ino = st.st_ino;
+	cache->st_dev = st.st_dev;
 
 	if (cache->file_cache != NULL)
 		file_cache_set_fd(cache->file_cache, cache->fd);
