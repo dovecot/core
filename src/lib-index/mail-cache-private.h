@@ -131,6 +131,9 @@ struct mail_cache {
 	char *filepath;
 	int fd;
 
+	ino_t st_ino;
+	dev_t st_dev;
+
 	void *mmap_base;
 	const void *data;
 	size_t mmap_length;

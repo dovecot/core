@@ -86,15 +86,18 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 
 	file_cache_set_fd(cache->file_cache, cache->fd);
 
-	if (fstat(cache->fd, &st) < 0)
-		mail_cache_set_syscall_error(cache, "fstat()");
-	else
+	if (fstat(cache->fd, &st) == 0)
 		file_cache_set_size(cache->file_cache, st.st_size);
+	else if (errno != ESTALE)
+		mail_cache_set_syscall_error(cache, "fstat()");
+
+	cache->st_ino = st.st_ino;
+	cache->st_dev = st.st_dev;
 }
 
 static bool mail_cache_need_reopen(struct mail_cache *cache)
 {
-	struct stat st1, st2;
+	struct stat st;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
 		if (cache->need_compress_file_seq != 0) {
@@ -111,16 +114,22 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 		return TRUE;
 
 	/* see if the file has changed */
-	if (fstat(cache->fd, &st1) < 0) {
-		mail_cache_set_syscall_error(cache, "fstat()");
-		return TRUE;
-	}
-	if (stat(cache->filepath, &st2) < 0) {
+	if (cache->index->nfs_flush)
+		nfs_flush_attr_cache(cache->filepath, TRUE);
+	if (nfs_safe_stat(cache->filepath, &st) < 0) {
 		mail_cache_set_syscall_error(cache, "stat()");
 		return TRUE;
 	}
-	return st1.st_ino != st2.st_ino ||
-		!CMP_DEV_T(st1.st_dev, st2.st_dev);
+	if (cache->index->nfs_flush) {
+		/* if the old file has been deleted, the new file may have
+		   the same inode as the old one, but we'll catch this by
+		   flushing attribute cache and seeing if it fails with
+		   ESTALE */
+		if (!nfs_flush_attr_cache_fd(cache->filepath, cache->fd))
+			return TRUE;
+	}
+	return st.st_ino != cache->st_ino ||
+		!CMP_DEV_T(st.st_dev, cache->st_dev);
 }
 
 int mail_cache_reopen(struct mail_cache *cache)
@@ -481,6 +490,8 @@ static int mail_cache_lock_file(struct mail_cache *cache)
 	if (ret <= 0)
 		return ret;
 
+	if (cache->index->nfs_flush)
+		nfs_flush_attr_cache_fd(cache->filepath, cache->fd);
 	mail_cache_flush_read_cache(cache, TRUE);
 	return 1;
 }
