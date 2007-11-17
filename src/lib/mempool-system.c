@@ -86,8 +86,7 @@ static void pool_system_free(pool_t pool ATTR_UNUSED,
 			     void *mem ATTR_UNUSED)
 {
 #ifndef USE_GC
-	if (mem != NULL)
-		free(mem);
+	free(mem);
 #endif
 }
 
