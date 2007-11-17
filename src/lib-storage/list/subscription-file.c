@@ -4,6 +4,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "nfs-workarounds.h"
+#include "mkdir-parents.h"
 #include "file-dotlock.h"
 #include "mailbox-list-private.h"
 #include "subscription-file.h"
@@ -77,7 +78,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 {
 	struct dotlock_settings dotlock_set;
 	struct dotlock *dotlock;
-	const char *line;
+	const char *line, *p, *dir;
 	struct istream *input;
 	struct ostream *output;
 	int fd_in, fd_out;
@@ -96,6 +97,16 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	dotlock_set.stale_timeout = SUBSCRIPTION_FILE_CHANGE_TIMEOUT;
 
 	fd_out = file_dotlock_open(&dotlock_set, path, 0, &dotlock);
+	if (fd_out == -1 && errno == ENOENT) {
+		/* directory hasn't been created yet. */
+		p = strrchr(path, '/');
+		dir = p == NULL ? NULL : t_strdup_until(path, p);
+		if (dir != NULL && mkdir_parents(dir, 0700) < 0) {
+			subsfile_set_syscall_error(list, "mkdir()", dir);
+			return -1;
+		}
+		fd_out = file_dotlock_open(&dotlock_set, path, 0, &dotlock);
+	}
 	if (fd_out == -1) {
 		if (errno == EAGAIN) {
 			mailbox_list_set_error(list, MAIL_ERROR_TEMP,
