@@ -490,7 +490,8 @@ static int mail_cache_lock_file(struct mail_cache *cache)
 	if (ret <= 0)
 		return ret;
 
-	if (cache->index->nfs_flush)
+	if (cache->index->nfs_flush &&
+	    cache->index->lock_method != FILE_LOCK_METHOD_FCNTL)
 		nfs_flush_attr_cache_fd(cache->filepath, cache->fd);
 	mail_cache_flush_read_cache(cache, TRUE);
 	return 1;
