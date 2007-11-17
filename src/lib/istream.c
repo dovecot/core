@@ -50,7 +50,7 @@ ssize_t i_stream_read(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return -1;
 
 	stream->eof = FALSE;
@@ -75,7 +75,7 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	_stream->skip = _stream->pos;
 	stream->v_offset += data_size;
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return;
 
 	_stream->seek(_stream, stream->v_offset + count, FALSE);
@@ -90,7 +90,7 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 		return;
 	}
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return;
 
 	stream->eof = FALSE;
@@ -101,7 +101,7 @@ void i_stream_seek_mark(struct istream *stream, uoff_t v_offset)
 {
 	struct istream_private *_stream = stream->real_stream;
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return;
 
 	stream->eof = FALSE;
@@ -112,7 +112,10 @@ void i_stream_sync(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
 
-	if (!stream->closed && _stream->sync != NULL)
+	if (unlikely(stream->closed))
+		return;
+
+	if (_stream->sync != NULL)
 		_stream->sync(_stream);
 }
 
@@ -120,7 +123,7 @@ const struct stat *i_stream_stat(struct istream *stream, bool exact)
 {
 	struct istream_private *_stream = stream->real_stream;
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return NULL;
 
 	return _stream->stat(_stream, exact);
@@ -174,7 +177,7 @@ char *i_stream_next_line(struct istream *stream)
 		return NULL;
 	}
 
-	if (_stream->w_buffer == NULL) {
+	if (unlikely(_stream->w_buffer == NULL)) {
 		i_error("i_stream_next_line() called for unmodifiable stream");
 		return NULL;
 	}

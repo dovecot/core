@@ -311,7 +311,7 @@ void hash_remove(struct hash_table *table, const void *key)
 	hash = table->hash_cb(key);
 
 	node = hash_lookup_node(table, key, hash);
-	if (node == NULL)
+	if (unlikely(node == NULL))
 		i_panic("key not found from hash");
 
 	node->key = NULL;

@@ -169,7 +169,7 @@ static bool nfs_flush_fchown_uid(const char *path, int fd)
 	uid_t uid;
 
 	if (fstat(fd, &st) < 0) {
-		if (errno == ESTALE) {
+		if (likely(errno == ESTALE)) {
 			/* ESTALE causes the OS to flush the attr cache */
 			return FALSE;
 		}
@@ -182,10 +182,9 @@ static bool nfs_flush_fchown_uid(const char *path, int fd)
 	uid = st.st_uid;
 #endif
 	if (fchown(fd, uid, (gid_t)-1) < 0) {
-		if (errno == ESTALE) {
+		if (errno == ESTALE)
 			return FALSE;
-		}
-		if (errno == EACCES || errno == EPERM) {
+		if (likely(errno == EACCES || errno == EPERM)) {
 			/* attr cache is flushed */
 			return TRUE;
 		}
@@ -212,7 +211,7 @@ static void nfs_flush_chown_uid(const char *path)
 			/* ESTALE causes the OS to flush the attr cache */
 			return;
 		}
-		if (errno != ENOENT) {
+		if (unlikely(errno != ENOENT)) {
 			i_error("nfs_flush_chown_uid: stat(%s) failed: %m",
 				path);
 			return;
@@ -226,8 +225,8 @@ static void nfs_flush_chown_uid(const char *path)
 	}
 #endif
 	if (chown(path, uid, (gid_t)-1) < 0) {
-		if (errno == ESTALE || errno == EACCES ||
-		    errno == EPERM || errno == ENOENT) {
+		if (likely(errno == ESTALE || errno == EACCES ||
+			   errno == EPERM || errno == ENOENT)) {
 			/* attr cache is flushed */
 			return;
 		}
@@ -255,7 +254,7 @@ static void nfs_flush_fcntl(const char *path, int fd, int old_lock_type)
 	ret = fcntl(fd, F_SETLKW, &fl);
 	alarm(0);
 
-	if (ret < 0) {
+	if (unlikely(ret < 0)) {
 		i_error("nfs_flush_fcntl: fcntl(%s, F_RDLCK) failed: %m", path);
 		return;
 	}
@@ -272,7 +271,7 @@ static void nfs_flush_attr_cache_dir(const char *path)
 #ifdef __FreeBSD__
 	/* Unfortunately rmdir() seems to be the only way to flush a
 	   directory's attribute cache. */
-	if (rmdir(path) == 0) {
+	if (unlikely(rmdir(path) == 0)) {
 		if (mkdir(path, 0600) == 0) {
 			i_warning("nfs_flush_dir: rmdir(%s) unexpectedly "
 				  "removed the dir. recreated.", path);
@@ -280,7 +279,8 @@ static void nfs_flush_attr_cache_dir(const char *path)
 			i_error("nfs_flush_dir: rmdir(%s) unexpectedly "
 				"removed the dir. mkdir() failed: %m", path);
 		}
-	} else if (errno == ESTALE || errno == ENOENT || errno == ENOTEMPTY) {
+	} else if (likely(errno == ESTALE || errno == ENOENT ||
+			  errno == ENOTEMPTY)) {
 		/* expected failures */
 	} else {
 		i_error("nfs_flush_dir: rmdir(%s) failed: %m", path);

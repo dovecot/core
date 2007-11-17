@@ -41,14 +41,14 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 {
 	size_t new_size;
 
-	if ((size_t)-1 - pos < data_size) {
+	if (unlikely((size_t)-1 - pos < data_size)) {
 		i_panic("Buffer write out of range (%"PRIuSIZE_T
 			" + %"PRIuSIZE_T")", pos, data_size);
 	}
 	new_size = pos + data_size;
 
 	if (new_size > buf->alloc) {
-		if (!buf->dynamic) {
+		if (unlikely(!buf->dynamic)) {
 			i_panic("Buffer full (%"PRIuSIZE_T" > %"PRIuSIZE_T", "
 				"pool %s)", pos + data_size, buf->alloc,
 				pool_get_name(buf->pool));

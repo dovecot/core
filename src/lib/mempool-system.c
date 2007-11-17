@@ -67,7 +67,7 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 {
 	void *mem;
 
-	if (size == 0 || size > SSIZE_T_MAX)
+	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 #ifndef USE_GC
@@ -75,7 +75,7 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 #else
 	mem = GC_malloc(size);
 #endif
-	if (mem == NULL) {
+	if (unlikely(mem == NULL)) {
 		i_fatal_status(FATAL_OUTOFMEM,
 			       "pool_system_malloc(): Out of memory");
 	}
@@ -94,7 +94,7 @@ static void pool_system_free(pool_t pool ATTR_UNUSED,
 static void *pool_system_realloc(pool_t pool ATTR_UNUSED, void *mem,
 				 size_t old_size, size_t new_size)
 {
-	if (new_size == 0 || new_size > SSIZE_T_MAX)
+	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 #if !defined(USE_GC) && defined(HAVE_MALLOC_USABLE_SIZE)
@@ -107,7 +107,7 @@ static void *pool_system_realloc(pool_t pool ATTR_UNUSED, void *mem,
 #else
 	mem = GC_realloc(mem, new_size);
 #endif
-	if (mem == NULL) {
+	if (unlikely(mem == NULL)) {
 		i_fatal_status(FATAL_OUTOFMEM,
 			       "pool_system_realloc(): Out of memory");
 	}

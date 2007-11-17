@@ -152,7 +152,7 @@ unsigned int t_pop(void)
 	struct stack_frame_block *frame_block;
 	int popped_frame_pos;
 
-	if (frame_pos < 0)
+	if (unlikely(frame_pos < 0))
 		i_panic("t_pop() called with empty stack");
 
 	/* update the current block */
@@ -199,7 +199,7 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 #else
 	block = GC_malloc(SIZEOF_MEMBLOCK + alloc_size);
 #endif
-	if (block == NULL) {
+	if (unlikely(block == NULL)) {
 		i_panic("data stack: Out of memory when allocating %"
 			PRIuSIZE_T" bytes", alloc_size + SIZEOF_MEMBLOCK);
 	}
@@ -217,10 +217,10 @@ static void *t_malloc_real(size_t size, bool permanent)
 	bool warn = FALSE;
 #endif
 
-	if (size == 0 || size > SSIZE_T_MAX)
+	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
-	if (data_stack_frame == 0) {
+	if (unlikely(data_stack_frame == 0)) {
 		/* kludgy, but allow this before initialization */
 		data_stack_init();
 	}
@@ -295,7 +295,7 @@ bool t_try_realloc(void *mem, size_t size)
 {
 	size_t last_alloc_size;
 
-	if (size == 0 || size > SSIZE_T_MAX)
+	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	last_alloc_size = current_frame_block->last_alloc_size[frame_pos];

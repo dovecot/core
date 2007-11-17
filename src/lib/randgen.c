@@ -24,7 +24,7 @@ void random_fill(void *buf, size_t size)
 
 	for (pos = 0; pos < size; pos += ret) {
 		ret = read(urandom_fd, (char *) buf + pos, size - pos);
-		if (ret < 0 && errno != EINTR)
+		if (unlikely(ret < 0 && errno != EINTR))
 			i_fatal("Error reading from /dev/urandom: %m");
 	}
 }

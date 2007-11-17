@@ -58,7 +58,8 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 			ret = read(stream->fd, stream->w_buffer + stream->pos,
 				   size);
 		}
-	} while (ret < 0 && errno == EINTR && stream->istream.blocking);
+	} while (unlikely(ret < 0 && errno == EINTR &&
+			  stream->istream.blocking));
 
 	if (ret == 0) {
 		/* EOF */
@@ -66,7 +67,7 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 		return -1;
 	}
 
-	if (ret < 0) {
+	if (unlikely(ret < 0)) {
 		if (errno == EINTR || errno == EAGAIN) {
 			i_assert(!stream->istream.blocking);
 			ret = 0;

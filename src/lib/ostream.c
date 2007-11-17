@@ -55,7 +55,7 @@ void o_stream_cork(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return;
 
 	_stream->cork(_stream, TRUE);
@@ -65,7 +65,7 @@ void o_stream_uncork(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return;
 
 	_stream->cork(_stream, FALSE);
@@ -75,7 +75,7 @@ int o_stream_flush(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return -1;
 
 	return _stream->flush(_stream);
@@ -85,8 +85,10 @@ void o_stream_set_flush_pending(struct ostream *stream, bool set)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (!stream->closed)
-		_stream->flush_pending(_stream, set);
+	if (unlikely(stream->closed))
+		return;
+
+	_stream->flush_pending(_stream, set);
 }
 
 size_t o_stream_get_buffer_used_size(struct ostream *stream)
@@ -100,7 +102,7 @@ int o_stream_seek(struct ostream *stream, uoff_t offset)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return -1;
 
 	return _stream->seek(_stream, offset);
@@ -124,14 +126,14 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 	size_t total_size;
 	ssize_t ret;
 
-	if (stream->closed)
+	if (unlikely(stream->closed))
 		return -1;
 
 	for (i = 0, total_size = 0; i < iov_count; i++)
 		total_size += iov[i].iov_len;
 
 	ret = _stream->sendv(_stream, iov, iov_count);
-	if (ret != (ssize_t)total_size)
+	if (unlikely(ret != (ssize_t)total_size))
 		stream->overflow = TRUE;
 	return ret;
 }
@@ -147,11 +149,11 @@ off_t o_stream_send_istream(struct ostream *outstream,
 	struct ostream_private *_outstream = outstream->real_stream;
 	off_t ret;
 
-	if (outstream->closed || instream->closed)
+	if (unlikely(outstream->closed || instream->closed))
 		return -1;
 
 	ret = _outstream->send_istream(_outstream, instream);
-	if (ret < 0)
+	if (unlikely(ret < 0))
 		errno = outstream->stream_errno;
 	return ret;
 }

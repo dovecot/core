@@ -218,7 +218,7 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 #else
 	block = GC_malloc(size);
 #endif
-	if (block == NULL)
+	if (unlikely(block == NULL))
 		i_fatal_status(FATAL_OUTOFMEM, "block_alloc(): Out of memory");
 	block->prev = apool->block;
 	apool->block = block;
@@ -232,7 +232,7 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 	void *mem;
 
-	if (size == 0 || size > SSIZE_T_MAX)
+	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	size = MEM_ALIGN(size);
@@ -289,7 +289,7 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 	unsigned char *new_mem;
 
-	if (new_size == 0 || new_size > SSIZE_T_MAX)
+	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)
