@@ -113,13 +113,30 @@ static int
 mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	uint32_t log_file_seq;
+	uoff_t log_file_offset;
+	int ret;
 
 	ctx->tried_compression = TRUE;
 
 	cache->need_compress_file_seq =
 		MAIL_CACHE_IS_UNUSABLE(cache) ? 0 : cache->hdr->file_seq;
 
-	return mail_cache_compress(cache, ctx->trans);
+	view = mail_index_view_open(cache->index);
+	trans = mail_index_transaction_begin(view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	if (mail_cache_compress(cache, trans) < 0) {
+		mail_index_transaction_rollback(&trans);
+		ret = -1;
+	} else {
+		ret = mail_index_transaction_commit(&trans, &log_file_seq,
+						    &log_file_offset);
+	}
+	mail_index_view_close(&view);
+	mail_cache_transaction_reset(ctx);
+	return ret;
 }
 
 static void
