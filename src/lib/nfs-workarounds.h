@@ -19,18 +19,22 @@ int nfs_safe_lstat(const char *path, struct stat *buf);
    is 1, otherwise stat() first to find it out. */
 int nfs_safe_link(const char *oldpath, const char *newpath, bool links1);
 
-/* Flush attribute cache for given path. This actually flushes the parent
-   directory's attribute cache to make sure that the file handle also gets
-   refreshed. */
-void nfs_flush_attr_cache(const char *path);
-/* Flush attribute cache for given file descriptor.
+/* Flush attribute cache for given path. The file must not be fcntl locked or
+   the locks may get dropped. */
+void nfs_flush_attr_cache_unlocked(const char *path);
+/* Flush attribute cache for given path. The file may be fcntl locked. */
+void nfs_flush_attr_cache_maybe_locked(const char *path);
+/* Flush attribute cache for a fcntl locked file descriptor. If locking flushes
+   the attribute cache with the running OS, this function does nothing.
    The given path is used only for logging. */
-bool nfs_flush_attr_cache_fd(const char *path, int fd);
-/* Flush read cache for given fd. lock_type must be set to the file's current
-   fcntl locking state (F_UNLCK, F_RDLCK, F_WRLCK). Set just_locked=TRUE if the
-   file was locked at the same time as read cache flush was wanted (to avoid
-   re-locking the file unneededly). */
-void nfs_flush_read_cache(const char *path, int fd,
-			  int lock_type, bool just_locked);
+bool nfs_flush_attr_cache_fd_locked(const char *path, int fd);
+/* Flush a directory's attribute cache. */
+void nfs_flush_attr_cache_dir(const char *path);
+
+/* Flush read cache for fd that was just fcntl locked. If the OS flushes
+   read cache when fcntl locking file, this function does nothing. */
+void nfs_flush_read_cache_locked(const char *path, int fd);
+/* Flush read cache for fd that doesn't have fcntl locks. */
+void nfs_flush_read_cache_unlocked(const char *path, int fd);
 
 #endif

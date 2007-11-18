@@ -435,7 +435,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	bool rename_existing;
 
 	if (index->nfs_flush)
-		nfs_flush_attr_cache(file->filepath);
+		nfs_flush_attr_cache_unlocked(file->filepath);
 
 	/* log creation is locked now - see if someone already created it.
 	   note that if we're rotating, we need to keep the log locked until
@@ -794,11 +794,9 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 			return -1;
 		}
 
-		if (file->log->index->nfs_flush) {
-			/* The size field will be updated soon */
-			nfs_flush_read_cache(file->filepath, file->fd,
-					     F_UNLCK, FALSE);
-		}
+		/* The size field will be updated soon */
+		mail_index_flush_read_cache(file->log->index, file->filepath,
+					    file->fd, file->locked);
 	}
 
 	if (file->next != NULL &&
@@ -920,7 +918,7 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 	   if file is locked, the attribute cache was already flushed when
 	   refreshing the log. */
 	if (file->log->index->nfs_flush && nfs_flush)
-		nfs_flush_attr_cache_fd(file->filepath, file->fd);
+		nfs_flush_attr_cache_fd_locked(file->filepath, file->fd);
 
 	if (file->buffer != NULL && file->buffer_offset > start_offset) {
 		/* we have to insert missing data to beginning of buffer */

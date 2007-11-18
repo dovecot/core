@@ -244,6 +244,9 @@ int mail_index_reopen_if_changed(struct mail_index *index);
 /* Update/rewrite the main index file from index->map */
 void mail_index_write(struct mail_index *index, bool want_rotate);
 
+void mail_index_flush_read_cache(struct mail_index *index, const char *path,
+				 int fd, bool locked);
+
 /* Returns 0 = ok, -1 = error. */
 int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r);
 /* Returns 1 = ok, 0 = already locked, -1 = error. */

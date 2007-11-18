@@ -365,10 +365,8 @@ static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
 				  MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) < 0)
 		return -1;
 
-	if (ctx->index->mail_index->nfs_flush) {
-		nfs_flush_read_cache(ctx->index->filepath, ctx->index->fd,
-				     F_UNLCK, FALSE);
-	}
+	mail_index_flush_read_cache(ctx->index->mail_index, ctx->index->filepath,
+				    ctx->index->fd, FALSE);
 
 	/* we should have only external transactions in here, for which we
 	   don't need to do anything but write them to the index */

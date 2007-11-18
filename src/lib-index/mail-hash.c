@@ -242,6 +242,8 @@ static int mail_hash_file_read(struct mail_hash *hash,
 {
 	int ret;
 
+	i_assert(hash->locked);
+
 	if (hash->mmap_base == NULL) {
 		if (file_size < size)
 			file_size = size;
@@ -268,9 +270,6 @@ static int mail_hash_file_read(struct mail_hash *hash,
 		}
 		hash->mmap_size = size;
 	}
-
-	if (hash->index->nfs_flush)
-		nfs_flush_read_cache(hash->filepath, hash->fd, F_UNLCK, FALSE);
 
 	ret = pread_full(hash->fd, hash->mmap_base, size, 0);
 	if (ret < 0) {
@@ -356,8 +355,7 @@ static int mail_hash_file_map(struct mail_hash *hash, bool full)
 	struct stat st;
 	size_t size;
 
-	if (hash->index->nfs_flush)
-		nfs_flush_attr_cache_fd(hash->filepath, hash->fd);
+	i_assert(hash->locked);
 
 	if (fstat(hash->fd, &st) < 0) {
 		mail_hash_set_syscall_error(hash, "fstat()");
@@ -408,23 +406,29 @@ static int mail_hash_file_map(struct mail_hash *hash, bool full)
 
 static int mail_hash_file_lock(struct mail_hash *hash, int lock_type)
 {
+	int ret;
+
 	i_assert(hash->fd != -1);
 
 	if (hash->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 		i_assert(hash->file_lock == NULL);
-		return mail_index_lock_fd(hash->index, hash->filepath, hash->fd,
-					  lock_type, MAIL_HASH_TIMEOUT_SECS,
-					  &hash->file_lock);
+		ret = mail_index_lock_fd(hash->index, hash->filepath, hash->fd,
+					 lock_type, MAIL_HASH_TIMEOUT_SECS,
+					 &hash->file_lock);
 	} else {
 		i_assert(hash->dotlock == NULL);
-		if (file_dotlock_create(&hash->dotlock_settings,
-					hash->filepath, 0,
-					&hash->dotlock) < 0) {
-			mail_hash_set_syscall_error(hash, "open()");
-			return -1;
+		ret = file_dotlock_create(&hash->dotlock_settings,
+					  hash->filepath, 0, &hash->dotlock);
+		if (ret < 0) {
+			mail_hash_set_syscall_error(hash,
+						    "file_dotlock_create()");
 		}
-		return 0;
 	}
+	if (ret > 0) {
+		mail_index_flush_read_cache(hash->index, hash->filepath,
+					    hash->fd, TRUE);
+	}
+	return ret;
 }
 
 static void mail_hash_file_unlock(struct mail_hash *hash)
@@ -653,20 +657,25 @@ static int mail_hash_reopen_if_needed(struct mail_hash *hash)
 		return mail_hash_reopen(hash);
 
 	if (hash->index->nfs_flush)
-		nfs_flush_attr_cache(hash->filepath);
+		nfs_flush_attr_cache_unlocked(hash->filepath);
 
 	if (nfs_safe_stat(hash->filepath, &st) < 0) {
-		if (errno == ENOENT)
-			return mail_hash_reopen(hash);
-
-		if (errno != ESTALE) {
+		if (errno != ENOENT) {
 			mail_hash_set_syscall_error(hash, "stat()");
 			return -1;
 		}
-		/* if ESTALE is returned, it most likely means it was rebuilt */
-	} else {
-		if (st.st_ino == hash->ino && CMP_DEV_T(st.st_dev, hash->dev))
+	} else if (st.st_ino == hash->ino &&
+		   CMP_DEV_T(st.st_dev, hash->dev)) {
+		/* the file looks the same */
+		if (!hash->index->nfs_flush)
 			return 0;
+
+		if (fstat(hash->fd, &st) == 0)
+			return 0;
+		if (errno != ESTALE) {
+			mail_hash_set_syscall_error(hash, "fstat()");
+			return -1;
+		}
 	}
 	return mail_hash_reopen(hash);
 }
@@ -894,6 +903,7 @@ int mail_hash_insert(struct mail_hash *hash, const void *key,
 {
 	uint32_t hash_key = key == NULL ? 0 : hash->key_hash_cb(key);
 
+	i_assert(hash->locked);
 	i_assert((key == NULL && hash->rec_hash_cb(value) == 0) ||
 		 (key != NULL && hash_key != 0 &&
 		  hash->rec_hash_cb(value) != 0));

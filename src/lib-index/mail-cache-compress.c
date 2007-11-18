@@ -354,9 +354,6 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	unsigned int i, count;
 	int fd, ret;
 
-	if (!MAIL_CACHE_IS_UNUSABLE(cache))
-		mail_cache_flush_read_cache(cache, TRUE);
-
 	/* get the latest info on fields */
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
@@ -460,6 +457,11 @@ int mail_cache_compress(struct mail_cache *cache,
 	if (cache->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
 		/* we're using dotlocking, cache file creation itself creates
 		   the dotlock file we need. */
+		if (!MAIL_CACHE_IS_UNUSABLE(cache)) {
+			mail_index_flush_read_cache(cache->index,
+						    cache->filepath, cache->fd,
+						    FALSE);
+		}
 		return mail_cache_compress_locked(cache, trans, &unlock);
 	}
 

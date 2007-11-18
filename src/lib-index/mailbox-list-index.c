@@ -58,11 +58,6 @@ int mailbox_list_index_set_syscall_error(struct mailbox_list_index *index,
 
 static void mailbox_list_index_unmap(struct mailbox_list_index *index)
 {
-	if (index->mail_index->nfs_flush && index->fd != -1) {
-		nfs_flush_read_cache(index->filepath, index->fd,
-				     F_UNLCK, FALSE);
-	}
-
 	if (index->file_cache != NULL)
 		file_cache_invalidate(index->file_cache, 0, (uoff_t)-1);
 
@@ -229,16 +224,18 @@ static int mailbox_list_index_is_recreated(struct mailbox_list_index *index)
 		return 1;
 
 	if (index->mail_index->nfs_flush)
-		nfs_flush_attr_cache(index->filepath);
+		nfs_flush_attr_cache_unlocked(index->filepath);
 
 	if (nfs_safe_stat(index->filepath, &st1) < 0) {
-		if (errno == ENOENT)
+		if (errno == ENOENT || errno == ESTALE)
 			return 1;
 
 		mailbox_list_index_set_syscall_error(index, "stat()");
 		return -1;
 	}
 	if (fstat(index->fd, &st2) < 0) {
+		if (errno == ESTALE)
+			return 1;
 		mailbox_list_index_set_syscall_error(index, "fstat()");
 		return -1;
 	}

@@ -242,6 +242,7 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 	if (list->file_create_mode != (mode_t)-1) {
 		*mode_r = list->file_create_mode;
 		*gid_r = list->file_create_gid;
+		return;
 	}
 
 	path = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);

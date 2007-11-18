@@ -653,9 +653,14 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool nfs_flush,
 		/* NFS: either the file hasn't been changed, or it has already
 		   been deleted and the inodes just happen to be the same.
 		   check if the fd is still valid. */
-		if (!nfs_flush_attr_cache_fd(uidlist->path, uidlist->fd)) {
-			*recreated_r = TRUE;
-			return 1;
+		if (fstat(uidlist->fd, &st) < 0) {
+			if (errno == ESTALE) {
+				*recreated_r = TRUE;
+				return 1;
+			}
+			mail_storage_set_critical(storage,
+				"fstat(%s) failed: %m", uidlist->path);
+			return -1;
 		}
 	}
 
@@ -682,7 +687,7 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist, bool nfs_flush)
 		if (!nfs_flush)
 			uidlist->nfs_dirty_refresh = TRUE;
 		else {
-			nfs_flush_attr_cache(uidlist->path);
+			nfs_flush_attr_cache_unlocked(uidlist->path);
 			uidlist->nfs_dirty_refresh = FALSE;
 		}
 	}
@@ -704,7 +709,6 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist, bool nfs_flush)
 			break;
 		/* ESTALE - try reopening and rereading */
 		maildir_uidlist_close(uidlist);
-		nfs_flush_attr_cache(uidlist->path);
         }
 	if (ret >= 0)
 		uidlist->initial_read = TRUE;

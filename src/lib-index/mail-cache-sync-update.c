@@ -11,7 +11,7 @@ struct mail_cache_sync_context {
 
 	unsigned int locked:1;
 	unsigned int lock_failed:1;
-	unsigned int nfs_attr_cache_flushed:1;
+	unsigned int nfs_read_cache_flushed:1;
 };
 
 static void mail_cache_handler_deinit(struct mail_index_sync_map_ctx *sync_ctx,
@@ -127,10 +127,12 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 
 	ctx = mail_cache_handler_init(context);
 	if (cache->file_cache != NULL && !MAIL_CACHE_IS_UNUSABLE(cache)) {
-		/* flush attribute cache only once per sync */
-		if (!ctx->nfs_attr_cache_flushed && cache->index->nfs_flush) {
-			ctx->nfs_attr_cache_flushed = TRUE;
-			mail_cache_flush_read_cache(cache, FALSE);
+		/* flush read cache only once per sync */
+		if (!ctx->nfs_read_cache_flushed && cache->index->nfs_flush) {
+			ctx->nfs_read_cache_flushed = TRUE;
+			mail_index_flush_read_cache(cache->index,
+						    cache->filepath, cache->fd,
+						    cache->locked);
 		}
 		/* don't invalidate anything that's already been invalidated
 		   within this sync. */
@@ -177,7 +179,11 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 
 void mail_cache_sync_lost_handler(struct mail_index *index)
 {
-	if (!MAIL_CACHE_IS_UNUSABLE(index->cache))
-		mail_cache_flush_read_cache(index->cache, FALSE);
-	file_cache_invalidate(index->cache->file_cache, 0, (uoff_t)-1);
+	struct mail_cache *cache = index->cache;
+
+	if (!MAIL_CACHE_IS_UNUSABLE(cache)) {
+		mail_index_flush_read_cache(cache->index, cache->filepath,
+					    cache->fd, cache->locked);
+	}
+	file_cache_invalidate(cache->file_cache, 0, (uoff_t)-1);
 }

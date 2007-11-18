@@ -120,19 +120,20 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	return 1;
 }
 
-static void mail_index_flush_read_cache(struct mail_index *index)
+void mail_index_flush_read_cache(struct mail_index *index, const char *path,
+				 int fd, bool locked)
 {
 	if (!index->nfs_flush)
 		return;
 
-	/* Assume flock() is independent of fcntl() locks. This isn't true
-	   with Linux 2.6 NFS, but with it there's no point in using flock() */
-	if (index->lock_method == FILE_LOCK_METHOD_FCNTL) {
-		nfs_flush_read_cache(index->filepath, index->fd,
-				     index->lock_type, TRUE);
+	/* Assume flock() is emulated with fcntl(), because that's how most
+	   OSes work nowadays. */
+	if (locked &&
+	    (index->lock_method == FILE_LOCK_METHOD_FCNTL ||
+	     index->lock_method == FILE_LOCK_METHOD_FLOCK)) {
+		nfs_flush_read_cache_locked(path, fd);
 	} else {
-		nfs_flush_read_cache(index->filepath, index->fd,
-				     F_UNLCK, FALSE);
+		nfs_flush_read_cache_unlocked(path, fd);
 	}
 }
 
@@ -143,7 +144,8 @@ int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r)
 	ret = mail_index_lock(index, F_RDLCK, MAIL_INDEX_SHARED_LOCK_TIMEOUT,
 			      lock_id_r);
 	if (ret > 0) {
-		mail_index_flush_read_cache(index);
+		mail_index_flush_read_cache(index, index->filepath,
+					    index->fd, TRUE);
 		return 0;
 	}
 	if (ret < 0)
@@ -161,8 +163,10 @@ int mail_index_try_lock_exclusive(struct mail_index *index,
 {
 	int ret;
 
-	if ((ret = mail_index_lock(index, F_WRLCK, 0, lock_id_r)) > 0)
-		mail_index_flush_read_cache(index);
+	if ((ret = mail_index_lock(index, F_WRLCK, 0, lock_id_r)) > 0) {
+		mail_index_flush_read_cache(index, index->filepath,
+					    index->fd, TRUE);
+	}
 	return ret;
 }
 

@@ -34,10 +34,9 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#ifdef __linux__
+#if defined (__linux__) || defined(__sun)
 #  define READ_CACHE_FLUSH_FCNTL
 #endif
-
 #if defined(__FreeBSD__) || defined(__sun)
 #  define ATTRCACHE_FLUSH_CHOWN_UID_1
 #endif
@@ -67,7 +66,7 @@ nfs_safe_do(const char *path, int (*callback)(const char *path, void *context),
                                 break;
                         dir = t_strdup_until(path, dir);
 		}
-		nfs_flush_attr_cache(path);
+		nfs_flush_attr_cache_dir(path);
                 if (stat(dir, &st) < 0) {
                         /* maybe it's gone or something else bad happened to
                            it. in any case we can't open the file, so fail
@@ -163,38 +162,6 @@ int nfs_safe_link(const char *oldpath, const char *newpath, bool links1)
 	return 0;
 }
 
-static bool nfs_flush_fchown_uid(const char *path, int fd)
-{
-	struct stat st;
-	uid_t uid;
-
-	if (fstat(fd, &st) < 0) {
-		if (likely(errno == ESTALE)) {
-			/* ESTALE causes the OS to flush the attr cache */
-			return FALSE;
-		}
-		i_error("nfs_flush_fchown_uid: fstat(%s) failed: %m", path);
-		return TRUE;
-	}
-#ifdef ATTRCACHE_FLUSH_CHOWN_UID_1
-	uid = (uid_t)-1;
-#else
-	uid = st.st_uid;
-#endif
-	if (fchown(fd, uid, (gid_t)-1) < 0) {
-		if (errno == ESTALE)
-			return FALSE;
-		if (likely(errno == EACCES || errno == EPERM)) {
-			/* attr cache is flushed */
-			return TRUE;
-		}
-
-		i_error("nfs_flush_fchown_uid: fchown(%s) failed: %m", path);
-	}
-	return TRUE;
-}
-
-#ifndef __FreeBSD__
 static void nfs_flush_chown_uid(const char *path)
 {
 	uid_t uid;
@@ -211,7 +178,7 @@ static void nfs_flush_chown_uid(const char *path)
 			/* ESTALE causes the OS to flush the attr cache */
 			return;
 		}
-		if (unlikely(errno != ENOENT)) {
+		if (errno != ENOENT) {
 			i_error("nfs_flush_chown_uid: stat(%s) failed: %m",
 				path);
 			return;
@@ -225,18 +192,17 @@ static void nfs_flush_chown_uid(const char *path)
 	}
 #endif
 	if (chown(path, uid, (gid_t)-1) < 0) {
-		if (likely(errno == ESTALE || errno == EACCES ||
-			   errno == EPERM || errno == ENOENT)) {
+		if (errno == ESTALE || errno == EACCES ||
+		    errno == EPERM || errno == ENOENT) {
 			/* attr cache is flushed */
 			return;
 		}
 		i_error("nfs_flush_chown_uid: chown(%s) failed: %m", path);
 	}
 }
-#endif
 
 #ifdef READ_CACHE_FLUSH_FCNTL
-static void nfs_flush_fcntl(const char *path, int fd, int old_lock_type)
+static void nfs_flush_fcntl(const char *path, int fd)
 {
 	struct flock fl;
 	int ret;
@@ -245,7 +211,7 @@ static void nfs_flush_fcntl(const char *path, int fd, int old_lock_type)
 	   again. It should succeed just fine. If was was unlocked, we'll
 	   have to get a lock and then unlock it. Linux 2.6 flushes read cache
 	   only when read/write locking succeeded. */
-	fl.l_type = old_lock_type != F_UNLCK ? old_lock_type : F_RDLCK;
+	fl.l_type = F_RDLCK;
 	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;
 	fl.l_len = 0;
@@ -259,14 +225,77 @@ static void nfs_flush_fcntl(const char *path, int fd, int old_lock_type)
 		return;
 	}
 
-	if (old_lock_type == F_UNLCK) {
-		fl.l_type = F_UNLCK;
-		(void)fcntl(fd, F_SETLKW, &fl);
-	}
+	fl.l_type = F_UNLCK;
+	(void)fcntl(fd, F_SETLKW, &fl);
 }
 #endif
 
-static void nfs_flush_attr_cache_dir(const char *path)
+static void nfs_flush_attr_cache_parent_dir(const char *path)
+{
+	const char *p;
+
+	p = strrchr(path, '/');
+	if (p == NULL)
+		nfs_flush_attr_cache_dir(".");
+	else {
+		t_push();
+		nfs_flush_attr_cache_dir(t_strdup_until(path, p));
+		t_pop();
+	}
+}
+
+void nfs_flush_attr_cache_unlocked(const char *path)
+{
+#ifndef __FreeBSD__
+	int fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd != -1)
+		(void)close(fd);
+	else if (errno == ESTALE) {
+		/* this already flushed the cache */
+	} else
+#endif
+	{
+		/* most likely ENOENT, which means a negative cache hit.
+		   flush the parent directory's attribute cache. */
+		nfs_flush_attr_cache_parent_dir(path);
+	}
+}
+
+void nfs_flush_attr_cache_maybe_locked(const char *path)
+{
+	/* first we'll flush the parent directory to get the file handle
+	   cache flushed */
+	nfs_flush_attr_cache_parent_dir(path);
+
+	/* after we now know the latest file handle, flush its attribute
+	   cache */
+	nfs_flush_chown_uid(path);
+}
+
+bool nfs_flush_attr_cache_fd_locked(const char *path ATTR_UNUSED,
+				    int fd ATTR_UNUSED)
+{
+#ifdef __FreeBSD__
+	if (fchown(fd, (uid_t)-1, (gid_t)-1) < 0) {
+		if (errno == ESTALE)
+			return FALSE;
+		if (likely(errno == EACCES || errno == EPERM)) {
+			/* attr cache is flushed */
+			return TRUE;
+		}
+
+		i_error("nfs_flush_attr_cache_fd_locked: fchown(%s) failed: %m",
+			path);
+	}
+	return TRUE;
+#else
+	return TRUE;
+#endif
+}
+
+void nfs_flush_attr_cache_dir(const char *path)
 {
 #ifdef __FreeBSD__
 	/* Unfortunately rmdir() seems to be the only way to flush a
@@ -286,38 +315,31 @@ static void nfs_flush_attr_cache_dir(const char *path)
 		i_error("nfs_flush_dir: rmdir(%s) failed: %m", path);
 	}
 #else
-	nfs_flush_chown_uid(path);
+	int fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd != -1)
+		(void)close(fd);
 #endif
 }
 
-void nfs_flush_attr_cache(const char *path)
-{
-	const char *p;
-
-	p = strrchr(path, '/');
-	if (p == NULL)
-		nfs_flush_attr_cache_dir(".");
-	else {
-		t_push();
-		nfs_flush_attr_cache_dir(t_strdup_until(path, p));
-		t_pop();
-	}
-}
-
-bool nfs_flush_attr_cache_fd(const char *path, int fd)
-{
-	return nfs_flush_fchown_uid(path, fd);
-}
-
-void nfs_flush_read_cache(const char *path, int fd,
-			  int lock_type ATTR_UNUSED,
-			  bool just_locked ATTR_UNUSED)
+void nfs_flush_read_cache_locked(const char *path ATTR_UNUSED,
+				 int fd ATTR_UNUSED)
 {
 #ifdef READ_CACHE_FLUSH_FCNTL
-	if (!just_locked)
-		nfs_flush_fcntl(path, fd, lock_type);
+	/* already flushed when fcntl() was called */
 #else
-	/* FreeBSD, Solaris */
-	nfs_flush_fchown_uid(path, fd);
+	/* we can only hope that underlying filesystem uses micro/nanosecond
+	   resolution so that attribute cache flushing notices mtime changes */
+	nfs_flush_attr_cache_fd_locked(path, fd);
+#endif
+}
+
+void nfs_flush_read_cache_unlocked(const char *path, int fd)
+{
+#ifdef READ_CACHE_FLUSH_FCNTL
+	nfs_flush_fcntl(path, fd);
+#else
+	nfs_flush_read_cache_locked(path, fd);
 #endif
 }

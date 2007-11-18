@@ -78,12 +78,6 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 	if (cache->file_cache == NULL)
 		return;
 
-	if (cache->index->nfs_flush) {
-		nfs_flush_attr_cache_fd(cache->filepath, cache->fd);
-		nfs_flush_read_cache(cache->filepath, cache->fd,
-				     F_UNLCK, FALSE);
-	}
-
 	file_cache_set_fd(cache->file_cache, cache->fd);
 
 	if (fstat(cache->fd, &st) == 0)
@@ -114,22 +108,33 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 		return TRUE;
 
 	/* see if the file has changed */
-	if (cache->index->nfs_flush)
-		nfs_flush_attr_cache(cache->filepath);
+	if (cache->index->nfs_flush) {
+		i_assert(!cache->locked);
+		nfs_flush_attr_cache_unlocked(cache->filepath);
+	}
 	if (nfs_safe_stat(cache->filepath, &st) < 0) {
 		mail_cache_set_syscall_error(cache, "stat()");
 		return TRUE;
 	}
+
+	if (st.st_ino != cache->st_ino ||
+	    !CMP_DEV_T(st.st_dev, cache->st_dev)) {
+		/* file changed */
+		return TRUE;
+	}
+
 	if (cache->index->nfs_flush) {
 		/* if the old file has been deleted, the new file may have
-		   the same inode as the old one, but we'll catch this by
-		   flushing attribute cache and seeing if it fails with
-		   ESTALE */
-		if (!nfs_flush_attr_cache_fd(cache->filepath, cache->fd))
-			return TRUE;
+		   the same inode as the old one. we'll catch this here by
+		   checking if fstat() fails with ESTALE */
+		if (fstat(cache->fd, &st) < 0) {
+			if (errno == ESTALE)
+				return TRUE;
+			mail_cache_set_syscall_error(cache, "fstat()");
+			return FALSE;
+		}
 	}
-	return st.st_ino != cache->st_ino ||
-		!CMP_DEV_T(st.st_dev, cache->st_dev);
+	return FALSE;
 }
 
 int mail_cache_reopen(struct mail_cache *cache)
@@ -450,23 +455,6 @@ void mail_cache_free(struct mail_cache **_cache)
 	i_free(cache);
 }
 
-void mail_cache_flush_read_cache(struct mail_cache *cache, bool just_locked)
-{
-	if (!cache->index->nfs_flush)
-		return;
-
-	/* Assume flock() is independent of fcntl() locks. This isn't true
-	   with Linux 2.6 NFS, but with it there's no point in using flock() */
-	if (cache->locked &&
-	    cache->index->lock_method == FILE_LOCK_METHOD_FCNTL) {
-		nfs_flush_read_cache(cache->filepath, cache->fd,
-				     F_WRLCK, just_locked);
-	} else {
-		nfs_flush_read_cache(cache->filepath, cache->fd,
-				     F_UNLCK, FALSE);
-	}
-}
-
 static int mail_cache_lock_file(struct mail_cache *cache)
 {
 	int ret;
@@ -490,10 +478,8 @@ static int mail_cache_lock_file(struct mail_cache *cache)
 	if (ret <= 0)
 		return ret;
 
-	if (cache->index->nfs_flush &&
-	    cache->index->lock_method != FILE_LOCK_METHOD_FCNTL)
-		nfs_flush_attr_cache_fd(cache->filepath, cache->fd);
-	mail_cache_flush_read_cache(cache, TRUE);
+	mail_index_flush_read_cache(cache->index, cache->filepath, cache->fd,
+				    TRUE);
 	return 1;
 }
 

@@ -811,8 +811,8 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	if (mail_index_lock_shared(index, &lock_id) < 0)
 		return -1;
 
-	if (index->nfs_flush && index->lock_method != FILE_LOCK_METHOD_FCNTL)
-		nfs_flush_attr_cache_fd(index->filepath, index->fd);
+	if (index->nfs_flush)
+		nfs_flush_attr_cache_fd_locked(index->filepath, index->fd);
 
 	if (fstat(index->fd, &st) == 0)
 		file_size = st.st_size;
