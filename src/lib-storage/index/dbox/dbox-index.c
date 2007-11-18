@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "write-full.h"
+#include "nfs-workarounds.h"
 #include "safe-mkstemp.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
@@ -611,7 +612,8 @@ static int dbox_index_recreate(struct dbox_index *index, bool locked)
 				ret = -1;
 			}
 		} else {
-			if (nfs_safe_link(str_c(temp_path), index->path) < 0 &&
+			if (nfs_safe_link(str_c(temp_path), index->path,
+					  TRUE) < 0 &&
 			    errno != EEXIST) {
 				mail_storage_set_critical(storage,
 					"link(%s, %s) failed: %m",
