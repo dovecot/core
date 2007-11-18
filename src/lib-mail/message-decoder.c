@@ -183,20 +183,24 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 				   const unsigned char **data, size_t *size)
 {
 	unsigned char trans_buf[MAX_TRANSLATION_BUF_SIZE+1];
-	size_t pos, skip;
+	unsigned int data_wanted, skip;
+	size_t trans_size;
 
-	/* @UNSAFE */
+	/* @UNSAFE: move the previously untranslated bytes to trans_buf
+	   and see if we have now enough data to get the next character
+	   translated */
 	memcpy(trans_buf, ctx->translation_buf, ctx->translation_size);
-	skip = sizeof(trans_buf) - ctx->translation_size;
-	if (skip > *size)
-		skip = *size;
-	memcpy(trans_buf + ctx->translation_size, data, skip);
+	data_wanted = sizeof(trans_buf) - ctx->translation_size;
+	if (data_wanted > *size)
+		data_wanted = *size;
+	memcpy(trans_buf + ctx->translation_size, *data, data_wanted);
 
-	pos = *size;
-	(void)charset_to_utf8(ctx->charset_trans, *data, &pos, ctx->buf2);
+	trans_size = ctx->translation_size + data_wanted;
+	(void)charset_to_utf8(ctx->charset_trans, trans_buf,
+			      &trans_size, ctx->buf2);
 
-	i_assert(pos > ctx->translation_size);
-	skip = (ctx->translation_size + skip) - pos;
+	i_assert(trans_size > ctx->translation_size);
+	skip = trans_size - ctx->translation_size;
 
 	i_assert(*size >= skip);
 	*data += skip;
