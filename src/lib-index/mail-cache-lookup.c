@@ -72,7 +72,7 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 	   it was probably for an old cache file that's already lost by now. */
 	i = 0;
 	while (cache->hdr->file_seq != reset_id) {
-		if (++i == 2)
+		if (++i == 2 || reset_id < cache->hdr->file_seq)
 			return 0;
 
 		if (cache->locked) {

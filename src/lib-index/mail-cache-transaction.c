@@ -109,12 +109,26 @@ mail_cache_transaction_free(struct mail_cache_transaction_ctx **_ctx)
 	i_free(ctx);
 }
 
+static int
+mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
+{
+	struct mail_cache *cache = ctx->cache;
+
+	ctx->tried_compression = TRUE;
+
+	cache->need_compress_file_seq =
+		MAIL_CACHE_IS_UNUSABLE(cache) ? 0 : cache->hdr->file_seq;
+
+	return mail_cache_compress(cache, ctx->trans);
+}
+
 static void
 mail_cache_transaction_open_if_needed(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
 	const struct mail_index_ext *ext;
 	uint32_t idx;
+	int i;
 
 	if (!cache->opened) {
 		(void)mail_cache_open_and_verify(cache);
@@ -124,12 +138,38 @@ mail_cache_transaction_open_if_needed(struct mail_cache_transaction_ctx *ctx)
 		return;
 
 	/* see if we should try to reopen the cache file */
-	if (!mail_index_map_get_ext_idx(cache->index->map, cache->ext_id, &idx))
-		return;
+	for (i = 0;; i++) {
+		if (!mail_index_map_get_ext_idx(cache->index->map,
+						cache->ext_id, &idx))
+			return;
 
-	ext = array_idx(&cache->index->map->extensions, idx);
-	if (ext->reset_id != cache->hdr->file_seq)
-		(void)mail_cache_reopen(cache);
+		ext = array_idx(&cache->index->map->extensions, idx);
+		if (ext->reset_id == cache->hdr->file_seq || i == 2)
+			break;
+
+		/* index offsets don't match the cache file */
+		if (ext->reset_id > cache->hdr->file_seq) {
+			/* the cache file appears to be too old.
+			   reopening should help. */
+			if (mail_cache_reopen(cache) != 0)
+				break;
+		}
+
+		/* cache file sequence might be broken. it's also possible
+		   that it was just compressed and we just haven't yet seen
+		   the changes in index. try if refreshing index helps.
+		   if not, compress the cache file. */
+		if (i == 0) {
+			if (ctx->tried_compression)
+				break;
+			/* get the latest reset ID */
+			if (mail_index_refresh(ctx->cache->index) < 0)
+				return;
+		} else {
+			i_assert(i == 1);
+			(void)mail_cache_transaction_compress(ctx);
+		}
+	}
 }
 
 static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
@@ -144,8 +184,7 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 			return -1;
 
 		if (!ctx->tried_compression && MAIL_CACHE_IS_UNUSABLE(cache)) {
-			ctx->tried_compression = TRUE;
-			if (mail_cache_compress(cache, ctx->trans) < 0)
+			if (mail_cache_transaction_compress(ctx) < 0)
 				return -1;
 			return mail_cache_transaction_lock(ctx);
 		} else {

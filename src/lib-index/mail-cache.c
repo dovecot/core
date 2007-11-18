@@ -521,6 +521,13 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 		if (cache->hdr->file_seq != reset_id &&
 		    (require_same_reset_id || i == 0)) {
 			/* we want the latest cache file */
+			if (reset_id < cache->hdr->file_seq) {
+				/* either we're still waiting for index to
+				   catch up with a cache compression, or
+				   that catching up is never going to happen */
+				ret = 0;
+				break;
+			}
 			ret = mail_cache_reopen(cache);
 			if (ret < 0 || (ret == 0 && require_same_reset_id))
 				break;
