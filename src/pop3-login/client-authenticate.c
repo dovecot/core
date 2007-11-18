@@ -73,12 +73,9 @@ static void client_auth_input(struct pop3_client *client)
 	if (strcmp(line, "*") == 0) {
 		sasl_server_auth_client_error(&client->common,
 					      "Authentication aborted");
-	} else if (client->common.waiting_auth_reply) {
-		sasl_server_auth_client_error(&client->common,
-					      "Don't send unrequested data");
 	} else {
 		auth_client_request_continue(client->common.auth_request, line);
-		client->common.waiting_auth_reply = TRUE;
+		io_remove(&client->io);
 
 		/* clear sensitive data */
 		safe_memset(line, 0, strlen(line));
@@ -215,6 +212,11 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		/* don't check return value here. it gets tricky if we try
 		   to call client_destroy() in here. */
 		(void)o_stream_sendv(client->output, iov, 3);
+
+		i_assert(client->io == NULL);
+		client->io = io_add(client->common.fd, IO_READ,
+				    client_auth_input, client);
+		client_auth_input(client);
 		return;
 	}
 
@@ -258,11 +260,9 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 	if (!client->common.authenticating)
 		return TRUE;
 
-	/* following input data will go to authentication */
+	/* don't handle input until we get the initial auth reply */
 	if (client->io != NULL)
 		io_remove(&client->io);
-	client->io = io_add(client->common.fd, IO_READ,
-			    client_auth_input, client);
 	return TRUE;
 }
 
