@@ -408,6 +408,24 @@ int mailbox_list_rename_mailbox(struct mailbox_list *list,
 	return list->v.rename_mailbox(list, oldname, newname);
 }
 
+static int mailbox_list_try_delete(struct mailbox_list *list, const char *dir)
+{
+	if (unlink_directory(dir, TRUE) == 0 || errno == ENOENT)
+		return 0;
+
+	if (errno == ENOTEMPTY) {
+		/* We're most likely using NFS and we can't delete
+		   .nfs* files. */
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			"Mailbox is still open in another session, "
+			"can't delete it.");
+	} else {
+		mailbox_list_set_critical(list,
+			"unlink_directory(%s) failed: %m", dir);
+	}
+	return -1;
+}
+
 int mailbox_list_delete_index_control(struct mailbox_list *list,
 				      const char *name)
 {
@@ -421,22 +439,16 @@ int mailbox_list_delete_index_control(struct mailbox_list *list,
 	index_dir = mailbox_list_get_path(list, name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (*index_dir != '\0' && strcmp(index_dir, path) != 0) {
-		if (unlink_directory(index_dir, TRUE) < 0 && errno != ENOENT) {
-			mailbox_list_set_critical(list,
-				"unlink_directory(%s) failed: %m", index_dir);
+		if (mailbox_list_try_delete(list, index_dir) < 0)
 			return -1;
-		}
 	}
 
 	/* control directory next */
 	dir = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	if (*dir != '\0' && strcmp(dir, path) != 0 &&
 	    strcmp(dir, index_dir) != 0) {
-		if (unlink_directory(dir, TRUE) < 0 && errno != ENOENT) {
-			mailbox_list_set_critical(list,
-				"unlink_directory(%s) failed: %m", dir);
+		if (mailbox_list_try_delete(list, index_dir) < 0)
 			return -1;
-		}
 	}
 	return 0;
 }
