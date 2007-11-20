@@ -16,6 +16,7 @@ test_lib_SOURCES = \
 	test-lib.c
 
 test_lib_LDADD = \
+	$(RAND_LIBS) \
 	libtest.a \
 	../lib/liblib.a
 
@@ -27,6 +28,8 @@ noinst_HEADERS = \
 	test-lib.h
 
 test_mail_LDADD = \
+	$(LIBICONV) \
+	$(RAND_LIBS) \
 	libtest.a \
 	../lib-mail/libmail.a \
 	../lib-charset/libcharset.a \
