@@ -553,8 +553,7 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 		}
 	}
 
-	value = NULL;
-	array_append(&header_values, &value, sizeof(value));
+	(void)array_append_space(&header_values);
 	return array_idx(&header_values, 0);
 }
 
@@ -623,12 +622,11 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 			value = (const char *)data + i;
 			i += len + 1;
 
-			array_append(&header_values, &value, sizeof(value));
+			array_append(&header_values, &value, 1);
 		}
 	}
 
-	value = NULL;
-	array_append(&header_values, &value, sizeof(value));
+	(void)array_append_space(&header_values);
 	*value_r = array_idx(&header_values, 0);
 	return 0;
 }
