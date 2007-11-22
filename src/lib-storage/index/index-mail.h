@@ -62,7 +62,6 @@ struct index_mail_line {
 	unsigned int field_idx;
 	uint32_t start_pos, end_pos;
 	uint32_t line_num;
-	unsigned int cache:1;
 };
 
 struct message_header_line;
@@ -120,6 +119,10 @@ struct index_mail {
 	uint32_t header_seq;
 	string_t *header_data;
 	ARRAY_DEFINE(header_lines, struct index_mail_line);
+#define HEADER_MATCH_FLAG_FOUND 1
+#define HEADER_MATCH_SKIP_COUNT 2
+#define HEADER_MATCH_USABLE(mail, num) \
+	((num & ~1) == (mail)->header_match_value)
 	ARRAY_DEFINE(header_match, uint8_t);
 	ARRAY_DEFINE(header_match_lines, unsigned int);
 	uint8_t header_match_value;

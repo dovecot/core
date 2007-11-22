@@ -70,16 +70,13 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 		   until lines[i] weren't found */
 		while (match_idx < lines[i].field_idx &&
 		       match_idx < match_count) {
-			/* if match[] doesn't have header_match_value,
-			   it belongs to some older header parsing and we
-			   just want to ignore it. */
-			i_assert(match[match_idx] !=
-				 mail->header_match_value + 1);
-			if (match[match_idx] == mail->header_match_value &&
-			    mail_cache_field_exists(mail->trans->cache_view,
-						    mail->data.seq,
-						    match_idx) == 0) {
+			if (HEADER_MATCH_USABLE(mail, match[match_idx]) &&
+			    mail_cache_field_can_add(mail->trans->cache_trans,
+						     mail->data.seq,
+						     match_idx)) {
 				/* this header doesn't exist. remember that. */
+				i_assert((match[match_idx] &
+					  HEADER_MATCH_FLAG_FOUND) == 0);
 				index_mail_cache_add_idx(mail, match_idx,
 							 NULL, 0);
 			}
@@ -93,7 +90,9 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 			match_idx++;
 		}
 
-		if (!lines[i].cache) {
+		if (!mail_cache_field_can_add(mail->trans->cache_trans,
+					      mail->data.seq,
+					      lines[i].field_idx)) {
 			/* header is already cached */
 			j = i + 1;
 			continue;
@@ -135,10 +134,13 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	}
 
 	for (; match_idx < match_count; match_idx++) {
-		if (match[match_idx] == mail->header_match_value &&
-		    mail_cache_field_exists(mail->trans->cache_view,
-					    mail->data.seq, match_idx) == 0) {
+		if (HEADER_MATCH_USABLE(mail, match[match_idx]) &&
+		    mail_cache_field_can_add(mail->trans->cache_trans,
+					     mail->data.seq,
+					     match_idx)) {
 			/* this header doesn't exist. remember that. */
+			i_assert((match[match_idx] &
+				  HEADER_MATCH_FLAG_FOUND) == 0);
 			index_mail_cache_add_idx(mail, match_idx, NULL, 0);
 		}
 	}
@@ -180,17 +182,20 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		i_array_init(&mail->header_lines, 32);
 		i_array_init(&mail->header_match, 32);
 		i_array_init(&mail->header_match_lines, 32);
+		mail->header_match_value = HEADER_MATCH_SKIP_COUNT;
 	} else {
 		buffer_set_used_size(mail->header_data, 0);
 		array_clear(&mail->header_lines);
 		array_clear(&mail->header_match_lines);
-	}
 
-        mail->header_match_value += 2;
-	if (mail->header_match_value == 0) {
-		/* wrapped, we'll have to clear the buffer */
-		array_clear(&mail->header_match);
-		mail->header_match_value = 2;
+		mail->header_match_value += HEADER_MATCH_SKIP_COUNT;
+		i_assert((mail->header_match_value &
+			  (HEADER_MATCH_SKIP_COUNT-1)) == 0);
+		if (mail->header_match_value == 0) {
+			/* wrapped, we'll have to clear the buffer */
+			array_clear(&mail->header_match);
+			mail->header_match_value = HEADER_MATCH_SKIP_COUNT;
+		}
 	}
 
 	if (headers != NULL) {
@@ -222,11 +227,14 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		mail_cache_register_get_list(mail->ibox->cache,
 					     pool_datastack_create(), &count);
 	for (i = 0; i < count; i++) {
-		if (strncasecmp(all_cache_fields[i].name, "hdr.", 4) == 0) {
-			array_idx_set(&mail->header_match,
-				      all_cache_fields[i].idx,
-				      &mail->header_match_value);
-		}
+		if (strncasecmp(all_cache_fields[i].name, "hdr.", 4) != 0)
+			continue;
+		if (!mail_cache_field_want_add(mail->trans->cache_trans,
+					       mail->data.seq, i))
+			continue;
+
+		array_idx_set(&mail->header_match, all_cache_fields[i].idx,
+			      &mail->header_match_value);
 	}
 	t_pop();
 }
@@ -288,34 +296,23 @@ void index_mail_parse_header(struct message_part *part,
 		t_pop();
 	}
 	field_idx = data->parse_line.field_idx;
-
-	if (field_idx == (unsigned int)-1) {
-		/* we don't want this field */
-		return;
-	}
-
-	if (!hdr->continued) {
-		data->parse_line.cache =
-			mail_cache_field_want_add(mail->trans->cache_trans,
-						  data->seq, field_idx);
-	}
-
 	match = array_get_modifiable(&mail->header_match, &count);
-	if (field_idx < count && match[field_idx] == mail->header_match_value) {
-		/* first header */
-		match[field_idx]++;
-	} else if (!data->parse_line.cache &&
-		   (field_idx >= count ||
-		    (match[field_idx] & ~1) != mail->header_match_value)) {
-		/* we don't need to do anything with this header */
+	if (field_idx >= count ||
+	    !HEADER_MATCH_USABLE(mail, match[field_idx])) {
+		/* we don't want this header. */
 		return;
 	}
 
 	if (!hdr->continued) {
+		/* beginning of a line. add the header name. */
 		data->parse_line.start_pos = str_len(mail->header_data);
 		data->parse_line.line_num = data->parse_line_num;
 		str_append(mail->header_data, hdr->name);
 		str_append_n(mail->header_data, hdr->middle, hdr->middle_len);
+
+		/* remember that we saw this header so we don't add it to
+		   cache as nonexisting. */
+		match[field_idx] |= HEADER_MATCH_FLAG_FOUND;
 	}
 	str_append_n(mail->header_data, hdr->value, hdr->value_len);
 	if (!hdr->no_newline)
@@ -488,13 +485,8 @@ static int index_mail_header_is_parsed(struct index_mail *mail,
 	unsigned int count;
 
 	match = array_get(&mail->header_match, &count);
-	if (field_idx >= count)
-		return -1;
-
-	if (match[field_idx] == mail->header_match_value)
-		return 0;
-	else if (match[field_idx] == mail->header_match_value + 1)
-		return 1;
+	if (field_idx < count && HEADER_MATCH_USABLE(mail, match[field_idx]))
+		return (match[field_idx] & HEADER_MATCH_FLAG_FOUND) != 0;
 	return -1;
 }
 
