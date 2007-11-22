@@ -96,10 +96,8 @@ static int mbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
-	uint32_t t;
 
-	(void)index_mail_get_received_date(_mail, date_r);
-	if (*date_r != (time_t)-1)
+	if (index_mail_get_received_date(_mail, date_r) == 0)
 		return 0;
 
 	if (mbox_mail_seek(mail) < 0)
@@ -112,8 +110,6 @@ static int mbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 		data->received_date = 0;
 	}
 
-	t = data->received_date;
-	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE, &t, sizeof(t));
 	*date_r = data->received_date;
 	return 0;
 }
@@ -123,16 +119,13 @@ static int mbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 
-	(void)index_mail_get_save_date(_mail, date_r);
-	if (*date_r != (time_t)-1)
+	if (index_mail_get_save_date(_mail, date_r) == 0)
 		return 0;
 
 	/* no way to know this. save the current time into cache and use
 	   that from now on. this works only as long as the index files
 	   are permanent */
 	data->save_date = ioloop_time;
-	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE,
-			     &data->save_date, sizeof(data->save_date));
 	*date_r = data->save_date;
 	return 0;
 }
@@ -230,11 +223,29 @@ static int mbox_mail_get_stream(struct mail *_mail,
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
+static void mbox_mail_set_seq(struct mail *_mail, uint32_t seq)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+
+	index_mail_set_seq(_mail, seq);
+	mail->data.dont_cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
+}
+
+static bool mbox_mail_set_uid(struct mail *_mail, uint32_t uid)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	bool ret;
+
+	ret = index_mail_set_uid(_mail, uid);
+	mail->data.dont_cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
+	return ret;
+}
+
 struct mail_vfuncs mbox_mail_vfuncs = {
 	index_mail_close,
 	index_mail_free,
-	index_mail_set_seq,
-	index_mail_set_uid,
+	mbox_mail_set_seq,
+	mbox_mail_set_uid,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

@@ -91,19 +91,15 @@ static int dbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 	struct index_mail_data *data = &mail->imail.data;
 	struct dbox_file *file;
 	const char *value;
-	uint32_t t;
 
-	(void)index_mail_get_received_date(_mail, date_r);
-	if (*date_r != (time_t)-1)
+	if (index_mail_get_received_date(_mail, date_r) == 0)
 		return 0;
 
 	if (dbox_mail_metadata_seek(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_RECEIVED_TIME);
-	data->received_date = t = value == NULL ? 0 : strtoul(value, NULL, 16);
-	index_mail_cache_add(&mail->imail, MAIL_CACHE_RECEIVED_DATE,
-			     &t, sizeof(t));
+	data->received_date = value == NULL ? 0 : strtoul(value, NULL, 16);
 	*date_r = data->received_date;
 	return 0;
 }
@@ -114,18 +110,15 @@ static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct index_mail_data *data = &mail->imail.data;
 	struct dbox_file *file;
 	const char *value;
-	uint32_t t;
 
-	(void)index_mail_get_save_date(_mail, date_r);
-	if (*date_r != (time_t)-1)
+	if (index_mail_get_save_date(_mail, date_r) == 0)
 		return 0;
 
 	if (dbox_mail_metadata_seek(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_SAVE_TIME);
-	data->save_date = t = value == NULL ? 0 : strtoul(value, NULL, 16);
-	index_mail_cache_add(&mail->imail, MAIL_CACHE_SAVE_DATE, &t, sizeof(t));
+	data->save_date = value == NULL ? 0 : strtoul(value, NULL, 16);
 	*date_r = data->save_date;
 	return 0;
 }
@@ -148,8 +141,6 @@ static int dbox_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 		return index_mail_get_virtual_size(_mail, size_r);
 
 	data->virtual_size = strtoul(value, NULL, 16);
-	index_mail_cache_add(&mail->imail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
-			     &data->virtual_size, sizeof(data->virtual_size));
 	*size_r = data->virtual_size;
 	return 0;
 }
@@ -160,16 +151,13 @@ static int dbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct index_mail_data *data = &mail->data;
 	struct istream *input;
 
-	(void)index_mail_get_physical_size(_mail, size_r);
-	if (*size_r != (uoff_t)-1)
+	if (index_mail_get_physical_size(_mail, size_r) == 0)
 		return 0;
 
 	if (mail_get_stream(_mail, NULL, NULL, &input) < 0)
 		return -1;
 
 	i_assert(data->physical_size != (uoff_t)-1);
-	index_mail_cache_add(mail, MAIL_CACHE_PHYSICAL_FULL_SIZE,
-			     &data->physical_size, sizeof(data->physical_size));
 	*size_r = data->physical_size;
 	return 0;
 }

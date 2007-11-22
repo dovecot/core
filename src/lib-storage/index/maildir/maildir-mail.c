@@ -111,17 +111,14 @@ static int maildir_mail_get_received_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
-	uint32_t t;
 
-	(void)index_mail_get_received_date(_mail, date_r);
-	if (*date_r != (time_t)-1)
+	if (index_mail_get_received_date(_mail, date_r) == 0)
 		return 0;
 
 	if (maildir_mail_stat(_mail, &st) < 0)
 		return -1;
 
-	*date_r = data->received_date = t = st.st_mtime;
-	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE, &t, sizeof(t));
+	*date_r = data->received_date = st.st_mtime;
 	return 0;
 }
 
@@ -130,17 +127,14 @@ static int maildir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
-	uint32_t t;
 
-	(void)index_mail_get_save_date(_mail, date_r);
-	if (*date_r != (time_t)-1)
+	if (index_mail_get_save_date(_mail, date_r) == 0)
 		return 0;
 
 	if (maildir_mail_stat(_mail, &st) < 0)
 		return -1;
 
-	*date_r = data->save_date = t = st.st_ctime;
-	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE, &t, sizeof(t));
+	*date_r = data->save_date = st.st_ctime;
 	return data->save_date;
 }
 
@@ -215,19 +209,14 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 	return mail->pop3_state;
 }
 
-static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
+static int maildir_quick_virtual_size_lookup(struct index_mail *mail)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct mail *_mail = &mail->mail.mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
-	struct message_size hdr_size, body_size;
-	struct istream *input;
 	const char *path, *fname, *value;
-	uoff_t old_offset, size;
-	int pop3_state;
-
-	if (index_mail_get_cached_virtual_size(mail, size_r))
-		return 0;
+	uoff_t size;
+	char *p;
 
 	if (_mail->uid != 0) {
 		if (!maildir_mail_get_fname(mbox, _mail, &fname))
@@ -241,24 +230,69 @@ static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 
 	/* size can be included in filename */
 	if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
-				      &data->virtual_size)) {
-		*size_r = data->virtual_size;
-		return 0;
-	}
+				      &data->virtual_size))
+		return 1;
 
 	/* size can be included in uidlist entry */
 	if (_mail->uid != 0) {
 		value = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 						MAILDIR_UIDLIST_REC_EXT_VSIZE);
 		if (value != NULL) {
-			char *p;
-
 			size = strtoull(value, &p, 10);
 			if (*p == '\0') {
-				data->virtual_size = *size_r = size;
-				return 0;
+				data->virtual_size = size;
+				return 1;
 			}
 		}
+	}
+	return 0;
+}
+
+static void
+maildir_handle_virtual_size_caching(struct index_mail *mail, bool quick_check)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
+	int pop3_state;
+
+	i_assert(mail->data.virtual_size != (uoff_t)-1);
+
+	if ((mail->data.dont_cache_fetch_fields & MAIL_FETCH_VIRTUAL_SIZE) != 0)
+		return;
+
+	if (quick_check && maildir_quick_virtual_size_lookup(mail) > 0)
+		mail->data.dont_cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
+
+	/* 1 = pop3-only, 0 = mixed, -1 = no pop3 */
+	pop3_state = maildir_get_pop3_state(mail);
+	if (pop3_state >= 0) {
+		/* if virtual size is wanted permanently, store it to uidlist
+		   so that in case cache file gets lost we can get it quickly */
+		mail->data.dont_cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
+		maildir_uidlist_set_ext(mbox->uidlist, mail->mail.mail.uid,
+					MAILDIR_UIDLIST_REC_EXT_VSIZE,
+					dec2str(mail->data.virtual_size));
+	}
+}
+
+static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+	struct message_size hdr_size, body_size;
+	struct istream *input;
+	uoff_t old_offset;
+
+	if (index_mail_get_cached_virtual_size(mail, size_r)) {
+		maildir_handle_virtual_size_caching(mail, TRUE);
+		return 0;
+	}
+
+	if (maildir_quick_virtual_size_lookup(mail) < 0)
+		return -1;
+	if (data->virtual_size != (uoff_t)-1) {
+		data->dont_cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
+		*size_r = data->virtual_size;
+		return 0;
 	}
 
 	/* fallback to reading the file */
@@ -266,22 +300,8 @@ static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 	if (mail_get_stream(_mail, &hdr_size, &body_size, &input) < 0)
 		return -1;
 	i_stream_seek(data->stream, old_offset);
-	i_assert(data->virtual_size != (uoff_t)-1);
 
-	/* 1 = pop3-only, 0 = mixed, -1 = no pop3 */
-	pop3_state = maildir_get_pop3_state(mail);
-	if (pop3_state <= 0) {
-		index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
-				     &data->virtual_size,
-				     sizeof(data->virtual_size));
-	}
-	if (pop3_state >= 0) {
-		/* if virtual size is wanted permanently, store it to uidlist
-		   so that in case cache file gets lost we can get it quickly */
-		maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
-					MAILDIR_UIDLIST_REC_EXT_VSIZE,
-					dec2str(data->virtual_size));
-	}
+	maildir_handle_virtual_size_caching(mail, FALSE);
 	*size_r = data->virtual_size;
 	return 0;
 }
@@ -322,8 +342,7 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	uoff_t size;
 	int ret;
 
-	(void)index_mail_get_physical_size(_mail, size_r);
-	if (*size_r != (uoff_t)-1)
+	if (index_mail_get_physical_size(_mail, size_r) == 0)
 		return 0;
 
 	if (_mail->uid != 0) {
@@ -338,7 +357,11 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	}
 
 	/* size can be included in filename */
-	if (!maildir_filename_get_size(fname, MAILDIR_EXTRA_FILE_SIZE, &size)) {
+	if (maildir_filename_get_size(fname, MAILDIR_EXTRA_FILE_SIZE, &size)) {
+		/* since the size is already in the file name, don't bother
+		   adding it to cache file */
+		data->dont_cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
+	} else {
 		if (_mail->uid != 0) {
 			ret = maildir_file_do(mbox, _mail->uid, do_stat, &st);
 			if (ret <= 0) {
@@ -357,8 +380,6 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		size = st.st_size;
 	}
 
-	index_mail_cache_add(mail, MAIL_CACHE_PHYSICAL_FULL_SIZE,
-			     &size, sizeof(size));
 	data->physical_size = size;
 	*size_r = size;
 	return 0;

@@ -40,17 +40,14 @@ static int cydir_mail_get_received_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
-	uint32_t t;
 
-	(void)index_mail_get_received_date(_mail, date_r);
-	if (*date_r != (time_t)-1)
+	if (index_mail_get_received_date(_mail, date_r) == 0)
 		return 0;
 
 	if (cydir_mail_stat(_mail, &st) < 0)
 		return -1;
 
-	data->received_date = t = st.st_mtime;
-	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE, &t, sizeof(t));
+	data->received_date = st.st_mtime;
 	*date_r = data->received_date;
 	return 0;
 }
@@ -60,17 +57,14 @@ static int cydir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
-	uint32_t t;
 
-	(void)index_mail_get_save_date(_mail, date_r);
-	if (*date_r != (time_t)-1)
+	if (index_mail_get_save_date(_mail, date_r) == 0)
 		return 0;
 
 	if (cydir_mail_stat(_mail, &st) < 0)
 		return (time_t)-1;
 
-	data->save_date = t = st.st_ctime;
-	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE, &t, sizeof(t));
+	data->save_date = st.st_ctime;
 	*date_r = data->save_date;
 	return 0;
 }
@@ -81,16 +75,13 @@ static int cydir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 
-	(void)index_mail_get_physical_size(_mail, size_r);
-	if (*size_r != (uoff_t)-1)
+	if (index_mail_get_physical_size(_mail, size_r) == 0)
 		return 0;
 
 	if (cydir_mail_stat(_mail, &st) < 0)
 		return -1;
 
 	data->physical_size = data->virtual_size = st.st_size;
-	index_mail_cache_add(mail, MAIL_CACHE_PHYSICAL_FULL_SIZE,
-			     &data->physical_size, sizeof(data->physical_size));
 	*size_r = data->physical_size;
 	return 0;
 }

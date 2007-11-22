@@ -81,7 +81,9 @@ struct index_mail_data {
 
 	uint32_t seq;
 	uint32_t cache_flags;
-        enum index_mail_access_part access_part;
+	enum index_mail_access_part access_part;
+	/* dont_cache_fields overrides cache_fields */
+	enum mail_fetch_field cache_fetch_fields, dont_cache_fetch_fields;
 
 	struct istream *stream, *filter_stream;
 	struct message_size hdr_size, body_size;
@@ -90,6 +92,7 @@ struct index_mail_data {
 	ARRAY_TYPE(keywords) keywords;
 
 	unsigned int save_sent_date:1;
+	unsigned int sent_date_parsed:1;
 	unsigned int save_envelope:1;
 	unsigned int save_bodystructure_header:1;
 	unsigned int save_bodystructure_body:1;

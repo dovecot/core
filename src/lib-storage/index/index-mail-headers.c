@@ -164,8 +164,14 @@ get_header_field_idx(struct index_mailbox *ibox, const char *field)
 
 bool index_mail_want_parse_headers(struct index_mail *mail)
 {
-	return mail->wanted_headers != NULL || mail->data.save_sent_date ||
-		mail->data.save_bodystructure_header;
+	if (mail->wanted_headers != NULL ||
+	    mail->data.save_bodystructure_header)
+		return TRUE;
+
+	if ((mail->data.cache_fetch_fields & MAIL_FETCH_DATE) != 0 &&
+	    !mail->data.sent_date_parsed)
+		return TRUE;
+	return FALSE;
 }
 
 void index_mail_parse_header_init(struct index_mail *mail,
@@ -213,9 +219,7 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		}
 	}
 
-	if (mail->data.save_sent_date) {
-                mail->data.save_sent_date = FALSE;
-
+	if ((mail->data.cache_fetch_fields & MAIL_FETCH_DATE) != 0) {
 		array_idx_set(&mail->header_match,
 			      get_header_field_idx(mail->ibox, "Date"),
 			      &mail->header_match_value);
@@ -242,13 +246,18 @@ void index_mail_parse_header_init(struct index_mail *mail,
 static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
 {
 	string_t *str;
+	unsigned int cache_field;
 
 	str = str_new(mail->data_pool, 256);
 	imap_envelope_write_part_data(mail->data.envelope_data, str);
 	mail->data.envelope = str_c(str);
 
-	index_mail_cache_add(mail, MAIL_CACHE_IMAP_ENVELOPE,
-			     str_data(str), str_len(str));
+	cache_field = mail->ibox->cache_fields[MAIL_CACHE_IMAP_ENVELOPE].idx;
+	if (mail_cache_field_want_add(mail->trans->cache_trans,
+				      mail->data.seq, cache_field)) {
+		index_mail_cache_add_idx(mail, cache_field,
+					 str_data(str), str_len(str));
+	}
 }
 
 void index_mail_parse_header(struct message_part *part,
@@ -277,11 +286,8 @@ void index_mail_parse_header(struct message_part *part,
 
 	if (hdr == NULL) {
 		/* end of headers */
-		if (data->sent_date.time != (uint32_t)-1) {
-			index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
-					     &data->sent_date,
-					     sizeof(data->sent_date));
-		}
+		if (mail->data.save_sent_date)
+			mail->data.sent_date_parsed = TRUE;
 		index_mail_parse_header_finish(mail);
                 data->save_bodystructure_header = FALSE;
 		return;
