@@ -27,6 +27,7 @@ struct mail_cache_transaction_ctx {
 	struct mail_index_transaction *trans;
 
 	uint32_t cache_file_seq;
+	uint32_t first_new_seq;
 
 	buffer_t *cache_data;
 	ARRAY_DEFINE(cache_data_seq, uint32_t);
@@ -965,8 +966,23 @@ bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
 	mail_cache_transaction_open_if_needed(ctx);
 
 	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
-	if ((decision & ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO)
+	decision &= ~MAIL_CACHE_DECISION_FORCED;
+	switch (decision) {
+	case MAIL_CACHE_DECISION_NO:
 		return FALSE;
+	case MAIL_CACHE_DECISION_TEMP:
+		/* add it only if it's newer than what we would drop when
+		   compressing */
+		if (ctx->first_new_seq == 0) {
+			ctx->first_new_seq =
+				mail_cache_get_first_new_seq(ctx->view->view);
+		}
+		if (seq < ctx->first_new_seq)
+			return FALSE;
+		break;
+	default:
+		break;
+	}
 
 	return mail_cache_field_exists(ctx->view, seq, field_idx) == 0;
 }

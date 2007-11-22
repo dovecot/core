@@ -167,21 +167,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	time_t max_drop_time;
 
 	view = mail_index_transaction_get_view(trans);
-
-	/* get sequence of first message which doesn't need its temp fields
-	   removed. */
-	idx_hdr = mail_index_get_header(view);
-	if (idx_hdr->day_first_uid[7] == 0) {
-		first_new_seq = 1;
-		message_count = mail_index_view_get_messages_count(view);
-	} else {
-		if (!mail_index_lookup_seq_range(view,
-						 idx_hdr->day_first_uid[7],
-						 (uint32_t)-1, &first_new_seq,
-						 &message_count))
-			first_new_seq = message_count+1;
-	}
-
 	cache_view = mail_cache_view_open(cache, view);
 	output = o_stream_create_fd_file(fd, 0, FALSE);
 
@@ -202,6 +187,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 	/* @UNSAFE: drop unused fields and create a field mapping for
 	   used fields */
+	idx_hdr = mail_index_get_header(view);
 	max_drop_time = idx_hdr->day_stamp == 0 ? 0 :
 		idx_hdr->day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
 
@@ -227,6 +213,11 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 				(uint32_t)-1 : used_fields_count++;
 		}
 	}
+
+	/* get sequence of first message which doesn't need its temp fields
+	   removed. */
+	first_new_seq = mail_cache_get_first_new_seq(view);
+	message_count = mail_index_view_get_messages_count(view);
 
 	i_array_init(ext_offsets, message_count);
 	for (seq = 1; seq <= message_count; seq++) {

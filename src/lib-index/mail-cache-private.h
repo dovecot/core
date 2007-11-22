@@ -231,6 +231,7 @@ int mail_cache_header_fields_get_next_offset(struct mail_cache *cache,
 
 int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 			  const struct mail_cache_record **rec_r);
+uint32_t mail_cache_get_first_new_seq(struct mail_index_view *view);
 
 /* Returns TRUE if offset is already in given array. Otherwise return FALSE
    and add the offset to the array. */

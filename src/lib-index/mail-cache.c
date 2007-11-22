@@ -669,3 +669,21 @@ void mail_cache_view_close(struct mail_cache_view *view)
 	buffer_free(&view->cached_exists_buf);
 	i_free(view);
 }
+
+uint32_t mail_cache_get_first_new_seq(struct mail_index_view *view)
+{
+	const struct mail_index_header *idx_hdr;
+	uint32_t first_new_seq, message_count;
+
+	idx_hdr = mail_index_get_header(view);
+	if (idx_hdr->day_first_uid[7] == 0)
+		return 1;
+
+	if (!mail_index_lookup_seq_range(view, idx_hdr->day_first_uid[7],
+					 (uint32_t)-1, &first_new_seq,
+					 &message_count)) {
+		/* all messages are too old */
+		return message_count+1;
+	}
+	return first_new_seq;
+}
