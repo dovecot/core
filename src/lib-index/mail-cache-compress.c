@@ -264,7 +264,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 		array_append(ext_offsets, &ext_offset, 1);
 	}
-	i_assert(array_count(ext_offsets) == message_count);
 	i_assert(orig_fields_count == cache->fields_count);
 
 	hdr.field_header_offset = mail_index_uint32_to_offset(output->offset);
