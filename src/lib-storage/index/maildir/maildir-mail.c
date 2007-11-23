@@ -170,7 +170,7 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 		MAIL_FETCH_VIRTUAL_SIZE;
 
 	if (mail->wanted_headers != NULL ||
-	    (mail->wanted_fields & allowed_pop3_fields) == 0)
+	    (mail->wanted_fields & ~allowed_pop3_fields) != 0)
 		not_pop3_only = TRUE;
 
 	/* get vsize decision */
