@@ -264,7 +264,7 @@ maildir_handle_virtual_size_caching(struct index_mail *mail, bool quick_check)
 
 	/* 1 = pop3-only, 0 = mixed, -1 = no pop3 */
 	pop3_state = maildir_get_pop3_state(mail);
-	if (pop3_state >= 0) {
+	if (pop3_state >= 0 && mail->mail.mail.uid != 0) {
 		/* if virtual size is wanted permanently, store it to uidlist
 		   so that in case cache file gets lost we can get it quickly */
 		mail->data.dont_cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
