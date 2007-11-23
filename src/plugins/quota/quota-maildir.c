@@ -416,10 +416,6 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 		total_bytes += bytes_diff;
 		total_count += count_diff;
 	}
-	/* we end always with LF, which shows up as empty last line. there
-	   should be no other empty lines */
-	if (lines[1] != NULL)
-		return -1;
 
 	if (total_bytes < 0 || total_count < 0) {
 		/* corrupted */
