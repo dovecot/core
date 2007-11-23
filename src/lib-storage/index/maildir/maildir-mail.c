@@ -259,8 +259,12 @@ maildir_handle_virtual_size_caching(struct index_mail *mail, bool quick_check)
 	if ((mail->data.dont_cache_fetch_fields & MAIL_FETCH_VIRTUAL_SIZE) != 0)
 		return;
 
-	if (quick_check && maildir_quick_virtual_size_lookup(mail) > 0)
+	if (quick_check && maildir_quick_virtual_size_lookup(mail) > 0) {
+		/* already in filename / uidlist. don't add it anywhere,
+		   including to the uidlist if it's already in filename. */
 		mail->data.dont_cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
+		return;
+	}
 
 	/* 1 = pop3-only, 0 = mixed, -1 = no pop3 */
 	pop3_state = maildir_get_pop3_state(mail);
