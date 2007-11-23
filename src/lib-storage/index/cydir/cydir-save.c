@@ -282,6 +282,8 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 		}
 	}
 
+	if (ctx->mail != NULL)
+		mail_free(&ctx->mail);
 	return 0;
 }
 

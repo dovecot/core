@@ -706,6 +706,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		maildir_transaction_save_rollback(ctx);
 	}
 
+	if (ctx->mail != NULL)
+		mail_free(&ctx->mail);
 	return ret;
 }
 
@@ -715,9 +717,6 @@ void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->mbox->uidlist);
-
-	if (ctx->mail != NULL)
-		mail_free(&ctx->mail);
 	pool_unref(&ctx->pool);
 }
 

@@ -426,6 +426,9 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	*t->ictx.last_saved_uid = next_uid - 1;
 
 	dbox_index_append_commit(&ctx->append_ctx);
+
+	if (ctx->mail != NULL)
+		mail_free(&ctx->mail);
 	return 0;
 }
 
