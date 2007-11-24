@@ -143,6 +143,8 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 	stream->stream_errno = 0;
 	for (i = 0, total_size = 0; i < iov_count; i++)
 		total_size += iov[i].iov_len;
+	if (total_size == 0)
+		return 0;
 
 	ret = _stream->sendv(_stream, iov, iov_count);
 	if (unlikely(ret != (ssize_t)total_size)) {
