@@ -78,6 +78,7 @@ int o_stream_flush(struct ostream *stream)
 	if (unlikely(stream->closed))
 		return -1;
 
+	stream->stream_errno = 0;
 	return _stream->flush(_stream);
 }
 
@@ -105,6 +106,7 @@ int o_stream_seek(struct ostream *stream, uoff_t offset)
 	if (unlikely(stream->closed))
 		return -1;
 
+	stream->stream_errno = 0;
 	return _stream->seek(_stream, offset);
 }
 
@@ -129,6 +131,7 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 	if (unlikely(stream->closed))
 		return -1;
 
+	stream->stream_errno = 0;
 	for (i = 0, total_size = 0; i < iov_count; i++)
 		total_size += iov[i].iov_len;
 
@@ -152,6 +155,7 @@ off_t o_stream_send_istream(struct ostream *outstream,
 	if (unlikely(outstream->closed || instream->closed))
 		return -1;
 
+	outstream->stream_errno = 0;
 	ret = _outstream->send_istream(_outstream, instream);
 	if (unlikely(ret < 0))
 		errno = outstream->stream_errno;

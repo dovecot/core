@@ -345,7 +345,6 @@ static int o_stream_file_seek(struct ostream_private *stream, uoff_t offset)
 	if (buffer_flush(fstream) < 0)
 		return -1;
 
-	stream->ostream.stream_errno = 0;
 	stream->ostream.offset = offset;
 	fstream->buffer_offset = offset;
 	return 1;
@@ -470,8 +469,6 @@ static ssize_t o_stream_file_sendv(struct ostream_private *stream,
 	size_t size, total_size, added, optimal_size;
 	unsigned int i;
 	ssize_t ret = 0;
-
-	stream->ostream.stream_errno = 0;
 
 	for (i = 0, size = 0; i < iov_count; i++)
 		size += iov[i].iov_len;
@@ -731,7 +728,6 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 
 	in_fd = i_stream_get_fd(instream);
 
-	outstream->ostream.stream_errno = 0;
 	if (in_fd == foutstream->fd) {
 		/* copying data within same fd. we'll have to be careful with
 		   seeks and overlapping writes. */
