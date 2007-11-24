@@ -183,10 +183,11 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 
 	   FIXME: it would be faster if we did only one binary lookup here
 	   and handled the splitting ourself.. */
-	if (seq_range_array_remove(array, seq1++))
+	if (seq_range_array_remove(array, seq1))
 		remove_count++;
-	if (seq1 > seq2)
+	if (seq1 == seq2)
 		return remove_count;
+	seq1++;
 
 	if (seq_range_array_remove(array, seq2--))
 		remove_count++;
