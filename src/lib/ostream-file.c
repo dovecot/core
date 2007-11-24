@@ -525,7 +525,8 @@ static ssize_t o_stream_file_sendv(struct ostream_private *stream,
 			break;
 	}
 	stream->ostream.offset += ret;
-	i_assert(ret <= (ssize_t)total_size);
+	i_assert((size_t)ret <= total_size);
+	i_assert((size_t)ret == total_size || !fstream->file);
 	return ret;
 }
 
