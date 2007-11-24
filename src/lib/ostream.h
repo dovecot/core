@@ -6,7 +6,12 @@
 struct ostream {
 	uoff_t offset;
 
+	/* errno for the last operation send/seek operation. cleared before
+	   each call. */
 	int stream_errno;
+	/* errno of the last failed send/seek. never cleared. */
+	int last_failed_errno;
+
 	/* overflow is set when some of the data given to send()
 	   functions was neither sent nor buffered. It's never unset inside
 	   ostream code. */

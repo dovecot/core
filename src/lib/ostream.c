@@ -74,12 +74,17 @@ void o_stream_uncork(struct ostream *stream)
 int o_stream_flush(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;
+	int ret;
 
 	if (unlikely(stream->closed))
 		return -1;
 
 	stream->stream_errno = 0;
-	return _stream->flush(_stream);
+	if (unlikely((ret = _stream->flush(_stream)) < 0)) {
+		i_assert(stream->stream_errno != 0);
+		stream->last_failed_errno = stream->stream_errno;
+	}
+	return ret;
 }
 
 void o_stream_set_flush_pending(struct ostream *stream, bool set)
@@ -107,7 +112,11 @@ int o_stream_seek(struct ostream *stream, uoff_t offset)
 		return -1;
 
 	stream->stream_errno = 0;
-	return _stream->seek(_stream, offset);
+	if (unlikely(_stream->seek(_stream, offset) < 0)) {
+		i_assert(stream->stream_errno != 0);
+		stream->last_failed_errno = stream->stream_errno;
+	}
+	return 1;
 }
 
 ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size)
@@ -136,8 +145,14 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 		total_size += iov[i].iov_len;
 
 	ret = _stream->sendv(_stream, iov, iov_count);
-	if (unlikely(ret != (ssize_t)total_size))
-		stream->overflow = TRUE;
+	if (unlikely(ret != (ssize_t)total_size)) {
+		if (ret < 0) {
+			i_assert(stream->stream_errno != 0);
+			stream->last_failed_errno = stream->stream_errno;
+		} else {
+			stream->overflow = TRUE;
+		}
+	}
 	return ret;
 }
 
