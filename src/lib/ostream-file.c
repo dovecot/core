@@ -205,7 +205,8 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		if (ret > 0) {
 			fstream->real_offset += ret;
 			ret += sent;
-		} else {
+		} else if (!fstream->file) {
+			/* return what we managed to get sent */
 			ret = sent;
 		}
 	}
@@ -214,6 +215,12 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		if (errno == EAGAIN || errno == EINTR)
 			return 0;
 		fstream->ostream.ostream.stream_errno = errno;
+		stream_closed(fstream);
+		return -1;
+	}
+	if (unlikely(ret == 0 && fstream->file)) {
+		/* assume out of disk space */
+		fstream->ostream.ostream.stream_errno = ENOSPC;
 		stream_closed(fstream);
 		return -1;
 	}
