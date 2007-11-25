@@ -279,12 +279,8 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 
 	path = t_strconcat(log->index->filepath,
 			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
-	if (log->index->nfs_flush && nfs_flush) {
-		if (!log->head->locked)
-			nfs_flush_attr_cache_unlocked(path);
-		else
-			nfs_flush_attr_cache_dir(log->index->dir);
-	}
+	if (log->index->nfs_flush && nfs_flush)
+		nfs_flush_file_handle_cache(path);
 	if (nfs_safe_stat(path, &st) < 0) {
 		if (errno != ENOENT) {
 			mail_index_file_set_syscall_error(log->index, path,

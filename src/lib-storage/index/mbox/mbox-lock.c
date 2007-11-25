@@ -173,7 +173,7 @@ static int mbox_file_open_latest(struct mbox_lock_context *ctx, int lock_type)
 	if (mbox->mbox_fd != -1) {
 		if ((mbox->storage->storage.flags &
 		     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
-			nfs_flush_attr_cache_maybe_locked(mbox->path);
+			nfs_flush_file_handle_cache(mbox->path);
 		if (nfs_safe_stat(mbox->path, &st) < 0) {
 			mbox_set_syscall_error(mbox, "stat()");
 			return -1;
@@ -568,9 +568,12 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 		if ((mbox->storage->storage.flags &
 		     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
 			if (fcntl_locked) {
+				nfs_flush_attr_cache_fd_locked(mbox->path,
+							       mbox->mbox_fd);
 				nfs_flush_read_cache_locked(mbox->path,
 							    mbox->mbox_fd);
 			} else {
+				nfs_flush_attr_cache_unlocked(mbox->path);
 				nfs_flush_read_cache_unlocked(mbox->path,
 							      mbox->mbox_fd);
 			}

@@ -687,6 +687,7 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist, bool nfs_flush)
 		if (!nfs_flush)
 			uidlist->nfs_dirty_refresh = TRUE;
 		else {
+			nfs_flush_file_handle_cache(uidlist->path);
 			nfs_flush_attr_cache_unlocked(uidlist->path);
 			uidlist->nfs_dirty_refresh = FALSE;
 		}

@@ -117,8 +117,11 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
            we rely on stat()'s timestamp and don't bother handling ESTALE
            errors. */
 
-	if ((mk->storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
-		nfs_flush_attr_cache_unlocked(mk->path);
+	if ((mk->storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
+		/* file is updated only by replacing it, no need to flush
+		   attribute cache */
+		nfs_flush_file_handle_cache(mk->path);
+	}
 
 	if (nfs_safe_stat(mk->path, &st) < 0) {
 		if (errno == ENOENT) {

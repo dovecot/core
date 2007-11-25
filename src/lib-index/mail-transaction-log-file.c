@@ -434,8 +434,12 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	int fd, ret;
 	bool rename_existing;
 
-	if (index->nfs_flush)
-		nfs_flush_attr_cache_unlocked(file->filepath);
+	if (index->nfs_flush) {
+		/* although we check also mtime and file size below, it's done
+		   only to fix broken log files. we don't bother flushing
+		   attribute cache just for that. */
+		nfs_flush_file_handle_cache(file->filepath);
+	}
 
 	/* log creation is locked now - see if someone already created it.
 	   note that if we're rotating, we need to keep the log locked until

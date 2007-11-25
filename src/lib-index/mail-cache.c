@@ -110,7 +110,7 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 	/* see if the file has changed */
 	if (cache->index->nfs_flush) {
 		i_assert(!cache->locked);
-		nfs_flush_attr_cache_unlocked(cache->filepath);
+		nfs_flush_file_handle_cache(cache->filepath);
 	}
 	if (nfs_safe_stat(cache->filepath, &st) < 0) {
 		mail_cache_set_syscall_error(cache, "stat()");

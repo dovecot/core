@@ -472,7 +472,7 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 		return mail_index_try_open_only(index);
 
 	if (index->nfs_flush)
-		nfs_flush_attr_cache_unlocked(index->filepath);
+		nfs_flush_file_handle_cache(index->filepath);
 	if (nfs_safe_stat(index->filepath, &st2) < 0) {
 		if (errno == ENOENT)
 			return 0;

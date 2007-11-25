@@ -41,12 +41,12 @@
 #  define ATTRCACHE_FLUSH_CHOWN_UID_1
 #endif
 
+static void nfs_flush_file_handle_cache_parent_dir(const char *path);
+
 static int
 nfs_safe_do(const char *path, int (*callback)(const char *path, void *context),
 	    void *context)
 {
-        const char *dir = NULL;
-        struct stat st;
         unsigned int i;
 	int ret;
 
@@ -57,26 +57,9 @@ nfs_safe_do(const char *path, int (*callback)(const char *path, void *context),
                         break;
 
                 /* ESTALE: Some operating systems may fail with this if they
-                   can't internally revalidating the NFS handle. It may also
-                   happen if the parent directory has been deleted. If the
-                   directory still exists, try reopening the file. */
-                if (dir == NULL) {
-                        dir = strrchr(path, '/');
-                        if (dir == NULL)
-                                break;
-                        dir = t_strdup_until(path, dir);
-		}
-		nfs_flush_attr_cache_dir(path);
-                if (stat(dir, &st) < 0) {
-                        /* maybe it's gone or something else bad happened to
-                           it. in any case we can't open the file, so fail
-                           with the original ESTALE error and let our caller
-                           handle it. */
-                        errno = ESTALE;
-                        break;
-                }
-
-                /* directory still exists, try reopening */
+		   can't internally revalidate the NFS file handle. Flush the
+		   file handle and try again */
+		nfs_flush_file_handle_cache(path);
         }
         t_pop();
         return ret;
@@ -178,28 +161,57 @@ static void nfs_flush_chown_uid(const char *path)
 			/* ESTALE causes the OS to flush the attr cache */
 			return;
 		}
-		if (errno != ENOENT) {
-			i_error("nfs_flush_chown_uid: stat(%s) failed: %m",
-				path);
+		if (likely(errno == ENOENT)) {
+			nfs_flush_file_handle_cache_parent_dir(path);
 			return;
 		}
-
-		/* flush a negative cache entry. use effective UID to chown.
-		   it probably doesn't really matter what UID is used, because
-		   as long as we're not root we don't have permission to really
-		   change it anyway */
-		uid = geteuid();
+		i_error("nfs_flush_chown_uid: stat(%s) failed: %m", path);
+		return;
 	}
 #endif
 	if (chown(path, uid, (gid_t)-1) < 0) {
-		if (errno == ESTALE || errno == EACCES ||
-		    errno == EPERM || errno == ENOENT) {
+		if (errno == ESTALE || errno == EPERM || errno == ENOENT) {
 			/* attr cache is flushed */
+			return;
+		}
+		if (likely(errno == ENOENT)) {
+			nfs_flush_file_handle_cache_parent_dir(path);
 			return;
 		}
 		i_error("nfs_flush_chown_uid: chown(%s) failed: %m", path);
 	}
 }
+
+#ifdef __FreeBSD__
+static bool nfs_flush_fchown_uid(const char *path, int fd)
+{
+	uid_t uid;
+#ifndef ATTRCACHE_FLUSH_CHOWN_UID_1
+	struct stat st;
+
+	if (fstat(fd, &st) < 0) {
+		if (likely(errno == ESTALE))
+			return FALSE;
+		i_error("nfs_flush_attr_cache_fchown: fstat(%s) failed: %m",
+			path);
+		return TRUE;
+	}
+	uid = st.st_uid;
+#endif
+	if (fchown(fd, uid, (gid_t)-1) < 0) {
+		if (errno == ESTALE)
+			return FALSE;
+		if (likely(errno == EACCES || errno == EPERM)) {
+			/* attr cache is flushed */
+			return TRUE;
+		}
+
+		i_error("nfs_flush_attr_cache_fd_locked: fchown(%s) failed: %m",
+			path);
+	}
+	return TRUE;
+}
+#endif
 
 #ifdef READ_CACHE_FLUSH_FCNTL
 static void nfs_flush_fcntl(const char *path, int fd)
@@ -230,47 +242,25 @@ static void nfs_flush_fcntl(const char *path, int fd)
 }
 #endif
 
-static void nfs_flush_attr_cache_parent_dir(const char *path)
-{
-	const char *p;
-
-	p = strrchr(path, '/');
-	if (p == NULL)
-		nfs_flush_attr_cache_dir(".");
-	else {
-		t_push();
-		nfs_flush_attr_cache_dir(t_strdup_until(path, p));
-		t_pop();
-	}
-}
-
 void nfs_flush_attr_cache_unlocked(const char *path)
 {
-#ifndef __FreeBSD__
 	int fd;
 
+	/* Try to flush the attribute cache the nice way first. */
 	fd = open(path, O_RDONLY);
 	if (fd != -1)
 		(void)close(fd);
 	else if (errno == ESTALE) {
 		/* this already flushed the cache */
-	} else
-#endif
-	{
+	} else {
 		/* most likely ENOENT, which means a negative cache hit.
-		   flush the parent directory's attribute cache. */
-		nfs_flush_attr_cache_parent_dir(path);
+		   flush the file handles for its parent directory. */
+		nfs_flush_file_handle_cache_parent_dir(path);
 	}
 }
 
 void nfs_flush_attr_cache_maybe_locked(const char *path)
 {
-	/* first we'll flush the parent directory to get the file handle
-	   cache flushed */
-	nfs_flush_attr_cache_parent_dir(path);
-
-	/* after we now know the latest file handle, flush its attribute
-	   cache */
 	nfs_flush_chown_uid(path);
 }
 
@@ -278,49 +268,66 @@ bool nfs_flush_attr_cache_fd_locked(const char *path ATTR_UNUSED,
 				    int fd ATTR_UNUSED)
 {
 #ifdef __FreeBSD__
-	if (fchown(fd, (uid_t)-1, (gid_t)-1) < 0) {
-		if (errno == ESTALE)
-			return FALSE;
-		if (likely(errno == EACCES || errno == EPERM)) {
-			/* attr cache is flushed */
-			return TRUE;
-		}
-
-		i_error("nfs_flush_attr_cache_fd_locked: fchown(%s) failed: %m",
-			path);
-	}
-	return TRUE;
+	/* FreeBSD doesn't flush attribute cache with fcntl(), so we have
+	   to do it ourself. */
+	return nfs_flush_fchown_uid(path, fd);
 #else
+	/* Linux and Solaris are fine. */
 	return TRUE;
 #endif
 }
 
-void nfs_flush_attr_cache_dir(const char *path)
+static bool nfs_flush_file_handle_cache_dir(const char *path)
 {
-#ifdef __FreeBSD__
-	/* Unfortunately rmdir() seems to be the only way to flush a
-	   directory's attribute cache. */
+#ifdef __linux__
+	/* chown()ing parent is the safest way to handle this */
+	nfs_flush_chown_uid(path);
+#else
+	/* rmdir() is the only choice with FreeBSD and Solaris */
 	if (unlikely(rmdir(path) == 0)) {
-		if (mkdir(path, 0600) == 0) {
-			i_warning("nfs_flush_dir: rmdir(%s) unexpectedly "
+		if (mkdir(path, 0700) == 0) {
+			i_warning("nfs_flush_file_handle_cache_dir: "
+				  "rmdir(%s) unexpectedly "
 				  "removed the dir. recreated.", path);
 		} else {
-			i_error("nfs_flush_dir: rmdir(%s) unexpectedly "
-				"removed the dir. mkdir() failed: %m", path);
+			i_warning("nfs_flush_file_handle_cache_dir: "
+				  "rmdir(%s) unexpectedly "
+				  "removed the dir. mkdir() failed: %m", path);
 		}
-	} else if (likely(errno == ESTALE || errno == ENOENT ||
-			  errno == ENOTEMPTY)) {
+	} else if (errno == ESTALE || errno == ENOTDIR || errno == ENOTEMPTY) {
 		/* expected failures */
+	} else if (errno == ENOENT) {
+		return FALSE;
 	} else {
-		i_error("nfs_flush_dir: rmdir(%s) failed: %m", path);
+		i_error("nfs_flush_file_handle_cache_dir: "
+			"rmdir(%s) failed: %m", path);
 	}
-#else
-	int fd;
-
-	fd = open(path, O_RDONLY);
-	if (fd != -1)
-		(void)close(fd);
 #endif
+	return TRUE;
+}
+
+static void nfs_flush_file_handle_cache_parent_dir(const char *path)
+{
+	const char *p;
+
+	p = strrchr(path, '/');
+	if (p == NULL)
+		nfs_flush_file_handle_cache_dir(".");
+	else {
+		t_push();
+		nfs_flush_file_handle_cache_dir(t_strdup_until(path, p));
+		t_pop();
+	}
+}
+
+void nfs_flush_file_handle_cache(const char *path)
+{
+#ifdef __FreeBSD__
+	/* Try to handle this more safely by rmdir()ing the file itself */
+	if (nfs_flush_file_handle_cache_dir(path))
+		return;
+#endif
+	nfs_flush_file_handle_cache_parent_dir(path);
 }
 
 void nfs_flush_read_cache_locked(const char *path ATTR_UNUSED,

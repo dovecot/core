@@ -158,8 +158,10 @@ static int update_lock_info(time_t now, struct lock_info *lock_info,
 
 	/* don't waste time flushing attribute cache the first time we're here.
 	   if it's stale we'll get back here soon. */
-	if (lock_info->set->nfs_flush && lock_info->lock_stated)
+	if (lock_info->set->nfs_flush && lock_info->lock_stated) {
+		nfs_flush_file_handle_cache(lock_info->lock_path);
 		nfs_flush_attr_cache_unlocked(lock_info->lock_path);
+	}
 
 	lock_info->lock_stated = TRUE;
 	if (nfs_safe_lstat(lock_info->lock_path, &st) < 0) {
@@ -248,8 +250,10 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 
 		/* possibly stale lock file. check also the timestamp of the
 		   file we're protecting. */
-		if (lock_info->set->nfs_flush)
+		if (lock_info->set->nfs_flush) {
+			nfs_flush_file_handle_cache(lock_info->path);
 			nfs_flush_attr_cache_maybe_locked(lock_info->path);
+		}
 		if (nfs_safe_stat(lock_info->path, &st) < 0) {
 			if (errno == ENOENT) {
 				/* file doesn't exist. treat it as if
