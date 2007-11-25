@@ -944,6 +944,31 @@ static void auth_request_validate_networks(struct auth_request *request,
 	request->passdb_failure = !found;
 }
 
+static void
+auth_request_set_password(struct auth_request *request, const char *value,
+			  const char *default_scheme, bool noscheme)
+{
+	if (request->passdb_password != NULL) {
+		auth_request_log_error(request,
+			request->passdb->passdb->iface.name,
+			"Multiple password values not supported");
+		return;
+	}
+
+	/* if the password starts with '{' it most likely contains
+	   also '}'. check it anyway to make sure, because we
+	   assert-crash later if it doesn't exist. this could happen
+	   if plaintext passwords are used. */
+	if (*value == '{' && !noscheme && strchr(value, '}') != NULL)
+		request->passdb_password = p_strdup(request->pool, value);
+	else {
+		i_assert(default_scheme != NULL);
+		request->passdb_password =
+			p_strdup_printf(request->pool, "{%s}%s",
+					default_scheme, value);
+	}
+}
+
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
@@ -954,26 +979,12 @@ void auth_request_set_field(struct auth_request *request,
 	i_assert(value != NULL);
 
 	if (strcmp(name, "password") == 0) {
-		if (request->passdb_password != NULL) {
-			auth_request_log_error(request,
-				request->passdb->passdb->iface.name,
-				"Multiple password values not supported");
-			return;
-		}
-
-		/* if the password starts with '{' it most likely contains
-		   also '}'. check it anyway to make sure, because we
-		   assert-crash later if it doesn't exist. this could happen
-		   if plaintext passwords are used. */
-		if (*value == '{' && strchr(value, '}') != NULL) {
-			request->passdb_password =
-				p_strdup(request->pool, value);
-		} else {
-			i_assert(default_scheme != NULL);
-			request->passdb_password =
-				p_strdup_printf(request->pool, "{%s}%s",
-						default_scheme, value);
-		}
+		auth_request_set_password(request, value,
+					  default_scheme, FALSE);
+		return;
+	}
+	if (strcmp(name, "password_noscheme") == 0) {
+		auth_request_set_password(request, value, default_scheme, TRUE);
 		return;
 	}
 
