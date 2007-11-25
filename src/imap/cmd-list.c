@@ -108,10 +108,13 @@ parse_select_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 				MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		} else if (strcasecmp(atom, "RECURSIVEMATCH") == 0)
 			list_flags |= MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH;
-		else {
+		else if (strcasecmp(atom, "REMOTE") == 0) {
+			/* not supported, ignore */
+		} else {
 			/* skip also optional list value */
-			if (args[1].type == IMAP_ARG_LIST)
-				args++;
+			client_send_command_error(ctx->cmd,
+						  "Unknown select options");
+			return FALSE;
 		}
 		args++;
 	}
@@ -156,8 +159,9 @@ parse_return_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 			args++;
 		} else {
 			/* skip also optional list value */
-			if (args[1].type == IMAP_ARG_LIST)
-				args++;
+			client_send_command_error(ctx->cmd,
+						  "Unknown return options");
+			return FALSE;
 		}
 		args++;
 	}
