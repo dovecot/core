@@ -961,7 +961,11 @@ void auth_request_set_field(struct auth_request *request,
 			return;
 		}
 
-		if (*value == '{') {
+		/* if the password starts with '{' it most likely contains
+		   also '}'. check it anyway to make sure, because we
+		   assert-crash later if it doesn't exist. this could happen
+		   if plaintext passwords are used. */
+		if (*value == '{' && strchr(value, '}') != NULL) {
 			request->passdb_password =
 				p_strdup(request->pool, value);
 		} else {
