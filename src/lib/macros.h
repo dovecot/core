@@ -172,8 +172,8 @@
 #  define unlikely(expr) __builtin_expect(!!(expr), 0)
 #  define likely(expr) __builtin_expect(!!(expr), 1)
 #else
-#  define unlikely(expr)
-#  define likely(expr)
+#  define unlikely(expr) expr
+#  define likely(expr) expr
 #endif
 
 /* Provide macros for error handling. */
