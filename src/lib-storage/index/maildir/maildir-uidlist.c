@@ -91,7 +91,6 @@ struct maildir_uidlist {
 	unsigned int recreate:1;
 	unsigned int initial_read:1;
 	unsigned int initial_sync:1;
-	unsigned int nfs_dirty_refresh:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -170,7 +169,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	uidlist->lock_count++;
 
 	/* make sure we have the latest changes before changing anything */
-	if (maildir_uidlist_refresh(uidlist, FALSE) < 0) {
+	if (maildir_uidlist_refresh(uidlist) < 0) {
 		maildir_uidlist_unlock(uidlist);
 		return -1;
 	}
@@ -624,14 +623,17 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 }
 
 static int
-maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool nfs_flush,
-			    bool *recreated_r)
+maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 {
 	struct mail_storage *storage = uidlist->ibox->box.storage;
         struct stat st;
 
 	*recreated_r = FALSE;
 
+	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
+		nfs_flush_file_handle_cache(uidlist->path);
+		nfs_flush_attr_cache_unlocked(uidlist->path);
+	}
 	if (nfs_safe_stat(uidlist->path, &st) < 0) {
 		if (errno != ENOENT) {
 			mail_storage_set_critical(storage,
@@ -648,8 +650,7 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool nfs_flush,
 		return 1;
 	}
 
-	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0 &&
-	    nfs_flush) {
+	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
 		/* NFS: either the file hasn't been changed, or it has already
 		   been deleted and the inodes just happen to be the same.
 		   check if the fd is still valid. */
@@ -673,29 +674,14 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool nfs_flush,
 	}
 }
 
-int maildir_uidlist_refresh(struct maildir_uidlist *uidlist, bool nfs_flush)
+int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 {
-	struct mail_storage *storage = uidlist->ibox->box.storage;
         unsigned int i;
         bool retry, recreated;
         int ret;
 
-	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
-		/* delay flushing attribute cache until we find a file that
-		   doesn't exist in the uidlist. only then we really must have
-		   the latest uidlist. */
-		if (!nfs_flush)
-			uidlist->nfs_dirty_refresh = TRUE;
-		else {
-			nfs_flush_file_handle_cache(uidlist->path);
-			nfs_flush_attr_cache_unlocked(uidlist->path);
-			uidlist->nfs_dirty_refresh = FALSE;
-		}
-	}
-
 	if (uidlist->fd != -1) {
-		ret = maildir_uidlist_has_changed(uidlist, nfs_flush,
-						  &recreated);
+		ret = maildir_uidlist_has_changed(uidlist, &recreated);
 		if (ret <= 0)
 			return ret;
 
@@ -725,7 +711,7 @@ maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
 
 	if (!uidlist->initial_read) {
 		/* first time we need to read uidlist */
-		if (maildir_uidlist_refresh(uidlist, FALSE) < 0)
+		if (maildir_uidlist_refresh(uidlist) < 0)
 			return NULL;
 	}
 
@@ -742,14 +728,6 @@ maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
 			*idx_r = idx;
 			return recs[idx];
 		}
-	}
-
-	if (uidlist->nfs_dirty_refresh) {
-		/* We haven't flushed NFS attribute cache yet, do that
-		   to make sure the UID really doesn't exist */
-		if (maildir_uidlist_refresh(uidlist, TRUE) < 0)
-			return NULL;
-		return maildir_uidlist_lookup_rec(uidlist, uid, idx_r);
 	}
 
 	if (idx > 0) idx--;
@@ -1131,17 +1109,6 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 
 	if (rec == NULL) {
 		/* doesn't exist in uidlist */
-		if (uidlist->nfs_dirty_refresh) {
-			/* We haven't flushed NFS attribute cache yet, do that
-			   to make sure the file doesn't exist */
-			if (maildir_uidlist_refresh(uidlist, TRUE) < 0) {
-				ctx->failed = TRUE;
-				return;
-			}
-			i_assert(!uidlist->nfs_dirty_refresh);
-			return maildir_uidlist_sync_next_partial(ctx, filename,
-								 flags);
-		}
 		if (ctx->first_nouid_pos == (unsigned int)-1)
 			ctx->first_nouid_pos = array_count(&uidlist->records);
 		ctx->new_files_count++;
@@ -1176,7 +1143,7 @@ int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,
 	    (ctx->partial || hash_lookup(ctx->files, filename) == NULL)) {
 		if (!ctx->uidlist->initial_read) {
 			/* first time reading the uidlist */
-			if (maildir_uidlist_refresh(ctx->uidlist, FALSE) < 0) {
+			if (maildir_uidlist_refresh(ctx->uidlist) < 0) {
 				ctx->failed = TRUE;
 				return -1;
 			}
@@ -1220,17 +1187,6 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 	} else {
 		old_rec = hash_lookup(uidlist->files, filename);
 		i_assert(old_rec != NULL || UIDLIST_IS_LOCKED(uidlist));
-
-		if (old_rec == NULL && uidlist->nfs_dirty_refresh) {
-			/* We haven't flushed NFS attribute cache yet, do that
-			   to make sure the file doesn't exist */
-			if (maildir_uidlist_refresh(uidlist, TRUE) < 0) {
-				ctx->failed = TRUE;
-				return -1;
-			}
-			i_assert(!uidlist->nfs_dirty_refresh);
-			return maildir_uidlist_sync_next(ctx, filename, flags);
-		}
 
 		rec = p_new(ctx->record_pool, struct maildir_uidlist_rec, 1);
 

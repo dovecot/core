@@ -49,7 +49,7 @@ void maildir_uidlist_deinit(struct maildir_uidlist **uidlist);
 /* Returns -1 if error, 0 if file is broken or lost, 1 if ok. If nfs_flush=TRUE
    and storage has NFS_FLUSH flag set, the NFS attribute cache is flushed to
    make sure that we see the latest uidlist file. */
-int maildir_uidlist_refresh(struct maildir_uidlist *uidlist, bool nfs_flush);
+int maildir_uidlist_refresh(struct maildir_uidlist *uidlist);
 
 /* Returns uidlist record for given filename, or NULL if not found. */
 const char *
