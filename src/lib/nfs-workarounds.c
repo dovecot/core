@@ -322,11 +322,6 @@ static void nfs_flush_file_handle_cache_parent_dir(const char *path)
 
 void nfs_flush_file_handle_cache(const char *path)
 {
-#ifdef __FreeBSD__
-	/* Try to handle this more safely by rmdir()ing the file itself */
-	if (nfs_flush_file_handle_cache_dir(path))
-		return;
-#endif
 	nfs_flush_file_handle_cache_parent_dir(path);
 }
 
