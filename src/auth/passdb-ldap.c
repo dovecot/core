@@ -399,12 +399,12 @@ ldap_verify_plain(struct auth_request *request,
 	ldap_request = p_new(request->pool, struct passdb_ldap_request, 1);
 	ldap_request->callback.verify_plain = callback;
 
-	if (conn->set.auth_bind_userdn != NULL)
-		ldap_verify_plain_auth_bind_userdn(request, &ldap_request->request);
-	else if (conn->set.auth_bind)
+	if (!conn->set.auth_bind)
+		ldap_lookup_pass(request, &ldap_request->request);
+	else if (conn->set.auth_bind_userdn == NULL)
 		ldap_verify_plain_authbind(request, &ldap_request->request);
 	else
-		ldap_lookup_pass(request, &ldap_request->request);
+		ldap_verify_plain_auth_bind_userdn(request, &ldap_request->request);
 }
 
 static void ldap_lookup_credentials(struct auth_request *request,
@@ -430,8 +430,6 @@ passdb_ldap_preinit(struct auth_passdb *auth_passdb, const char *args)
 		hash_create(default_pool, conn->pool, 0, str_hash,
 			    (hash_cmp_callback_t *)strcmp);
 
-	if (conn->set.auth_bind_userdn != NULL)
-		conn->set.auth_bind = TRUE;
 	db_ldap_set_attrs(conn, conn->set.pass_attrs, &conn->pass_attr_names,
 			  conn->pass_attr_map,
 			  conn->set.auth_bind ? "password" : NULL);
