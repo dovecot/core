@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libdict.a
+noinst_LIBRARIES = libdict.a libdict_backend.a
 
 dict_drivers = @dict_drivers@
 
@@ -8,14 +8,19 @@ AM_CPPFLAGS = \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	$(SQL_CFLAGS)
 
-dist_sources = \
+base_sources = \
 	dict.c \
-	dict-client.c \
+	dict-client.c
+
+backend_sources = \
 	dict-db.c \
 	dict-sql.c
 
 libdict_a_SOURCES = \
-	$(dist_sources) \
+	$(base_sources)
+
+libdict_backend_a_SOURCES = \
+	$(backend_sources) \
 	dict-drivers-register.c
 
 headers = \
@@ -59,7 +64,7 @@ dict-drivers-register.c: Makefile
 	done
 	echo '}' >>$@
 
-DISTFILES = $(DIST_COMMON) $(dist_sources) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+DISTFILES = $(DIST_COMMON) $(base_sources) $(backend_sources) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 distclean-generic:
 	rm -f Makefile dict-drivers-register.c

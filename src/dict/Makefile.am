@@ -12,6 +12,7 @@ AM_CPPFLAGS = \
 dict_LDFLAGS = -export-dynamic
 
 libs = \
+	../lib-dict/libdict_backend.a \
 	../lib-dict/libdict.a \
 	../lib-sql/libsql.a \
 	../lib/liblib.a
