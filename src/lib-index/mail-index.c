@@ -96,8 +96,14 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	struct mail_index_registered_ext rext;
 	uint32_t ext_id;
 
-	if (strcmp(name, str_sanitize(name, -1)) != 0)
+	if (*name == '\0' || strcmp(name, str_sanitize(name, -1)) != 0)
 		i_panic("mail_index_ext_register(%s): Invalid name", name);
+
+	if ((default_record_size == 0 && default_hdr_size == 0) ||
+	    (default_record_size != 0 && default_record_align == 0)) {
+		i_panic("mail_index_ext_register(%s): "
+			"Invalid record parameters", name);
+	}
 
 	if (mail_index_ext_lookup(index, name, &ext_id))
 		return ext_id;
