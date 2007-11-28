@@ -19,6 +19,7 @@ struct dict_server_transaction {
 };
 
 struct dict_client_connection {
+	struct dict_client_connection *prev, *next;
 	struct dict_server *server;
 
 	char *username;
@@ -40,6 +41,8 @@ struct dict_server {
 	char *path;
 	int fd;
 	struct io *io;
+
+	struct dict_client_connection *connections;
 };
 
 struct dict_client_cmd {
@@ -412,6 +415,13 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn)
 	const struct dict_server_transaction *transactions;
 	unsigned int i, count;
 
+	if (conn->prev == NULL)
+		conn->server->connections = conn->next;
+	else
+		conn->prev->next = conn->next;
+	if (conn->next != NULL)
+		conn->next->prev = conn->prev;
+
 	if (array_is_created(&conn->transactions)) {
 		transactions = array_get(&conn->transactions, &count);
 		for (i = 0; i < count; i++)
@@ -444,6 +454,12 @@ dict_client_connection_init(struct dict_server *server, int fd)
 					 FALSE);
 	conn->output = o_stream_create_fd(fd, 128*1024, FALSE);
 	conn->io = io_add(fd, IO_READ, dict_client_connection_input, conn);
+
+	if (server->connections != NULL) {
+		conn->next = server->connections;
+		server->connections->prev = conn;
+	}
+	server->connections = conn;
 	return conn;
 }
 
@@ -494,6 +510,9 @@ struct dict_server *dict_server_init(const char *path, int fd)
 
 void dict_server_deinit(struct dict_server *server)
 {
+	while (server->connections != NULL)
+		dict_client_connection_deinit(server->connections);
+
 	io_remove(&server->io);
 	if (close(server->fd) < 0)
 		i_error("close(%s) failed: %m", server->path);
