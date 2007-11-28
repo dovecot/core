@@ -69,10 +69,9 @@ unsigned int mail_index_map_ext_hdr_offset(unsigned int name_len)
 }
 
 uint32_t
-mail_index_map_register_ext(struct mail_index_map *map, const char *name,
-			    uint32_t ext_offset, uint32_t hdr_size,
-			    uint32_t record_offset, uint32_t record_size,
-			    uint32_t record_align, uint32_t reset_id)
+mail_index_map_register_ext(struct mail_index_map *map,
+			    const char *name, uint32_t ext_offset,
+			    const struct mail_index_ext_header *ext_hdr)
 {
 	struct mail_index_ext *ext;
 	uint32_t idx, empty_idx = (uint32_t)-1;
@@ -90,14 +89,16 @@ mail_index_map_register_ext(struct mail_index_map *map, const char *name,
 	ext->ext_offset = ext_offset;
 	ext->hdr_offset = ext_offset +
 		mail_index_map_ext_hdr_offset(strlen(name));
-	ext->hdr_size = hdr_size;
-	ext->record_offset = record_offset;
-	ext->record_size = record_size;
-	ext->record_align = record_align;
-	ext->reset_id = reset_id;
+	ext->hdr_size = ext_hdr->hdr_size;
+	ext->record_offset = ext_hdr->record_offset;
+	ext->record_size = ext_hdr->record_size;
+	ext->record_align = ext_hdr->record_align;
+	ext->reset_id = ext_hdr->reset_id;
 
-	ext->index_idx = mail_index_ext_register(map->index, name, hdr_size,
-						 record_size, record_align);
+	ext->index_idx = mail_index_ext_register(map->index, name,
+						 ext_hdr->hdr_size,
+						 ext_hdr->record_size,
+						 ext_hdr->record_align);
 
 	/* Update index ext_id -> map ext_id mapping. Fill non-used
 	   ext_ids with (uint32_t)-1 */
@@ -238,12 +239,7 @@ static int mail_index_map_parse_extensions(struct mail_index_map *map)
 			return -1;
 		}
 
-		mail_index_map_register_ext(map, name, ext_offset,
-					    ext_hdr->hdr_size,
-					    ext_hdr->record_offset,
-					    ext_hdr->record_size,
-					    ext_hdr->record_align,
-					    ext_hdr->reset_id);
+		mail_index_map_register_ext(map, name, ext_offset, ext_hdr);
 		t_pop();
 	}
 	return 0;

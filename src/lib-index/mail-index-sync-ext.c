@@ -357,7 +357,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_map *map = ctx->view->map;
 	struct mail_index_ext_header ext_hdr;
 	const struct mail_index_ext *ext;
-	const char *name;
+	const char *name, *error;
 	buffer_t *hdr_buf;
 	uint32_t ext_map_idx;
 
@@ -438,23 +438,28 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 				   hdr_buf->used);
 	}
 
+	memset(&ext_hdr, 0, sizeof(ext_hdr));
+	ext_hdr.name_size = strlen(name);
+	ext_hdr.reset_id = u->reset_id;
+	ext_hdr.hdr_size = u->hdr_size;
+	ext_hdr.record_size = u->record_size;
+	ext_hdr.record_align = u->record_align;
+
+	if (mail_index_map_ext_hdr_check(&map->hdr, &ext_hdr,
+					 name, &error) < 0) {
+		mail_index_sync_set_corrupted(ctx,
+			"Broken extension introduction: %s", error);
+		t_pop();
+		return -1;
+	}
+
 	/* register record offset initially using zero,
 	   sync_ext_reorder() will fix it. */
 	ext_map_idx = mail_index_map_register_ext(map, name, hdr_buf->used,
-						  u->hdr_size, 0,
-						  u->record_size,
-						  u->record_align, u->reset_id);
-
+						  &ext_hdr);
 	ext = array_idx(&map->extensions, ext_map_idx);
 
 	/* <ext_hdr> <name> [padding] [header data] */
-	memset(&ext_hdr, 0, sizeof(ext_hdr));
-	ext_hdr.name_size = strlen(name);
-	ext_hdr.reset_id = ext->reset_id;
-	ext_hdr.hdr_size = ext->hdr_size;
-	ext_hdr.record_offset = ext->record_offset;
-	ext_hdr.record_size = ext->record_size;
-	ext_hdr.record_align = ext->record_align;
 	buffer_append(hdr_buf, &ext_hdr, sizeof(ext_hdr));
 	buffer_append(hdr_buf, name, strlen(name));
 	/* header must begin and end in correct alignment */

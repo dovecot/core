@@ -283,10 +283,9 @@ void mail_index_map_move_to_memory(struct mail_index_map *map);
 bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,
 			       uint32_t *idx_r);
 uint32_t
-mail_index_map_register_ext(struct mail_index_map *map, const char *name,
-			    uint32_t ext_offset, uint32_t hdr_size,
-			    uint32_t record_offset, uint32_t record_size,
-			    uint32_t record_align, uint32_t reset_id);
+mail_index_map_register_ext(struct mail_index_map *map,
+			    const char *name, uint32_t ext_offset,
+			    const struct mail_index_ext_header *ext_hdr);
 bool mail_index_map_get_ext_idx(struct mail_index_map *map,
 				uint32_t ext_id, uint32_t *idx_r);
 const struct mail_index_ext *
