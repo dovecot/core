@@ -527,6 +527,11 @@ static void db_ldap_get_fd(struct ldap_connection *conn)
 		i_fatal("LDAP: Can't get connection fd: %s",
 			ldap_err2string(ret));
 	}
+	if (conn->fd <= CLIENT_LISTEN_FD) {
+		/* Solaris LDAP library seems to be broken */
+		i_fatal("LDAP: Buggy LDAP library returned wrong fd: %d",
+			conn->fd);
+	}
 	i_assert(conn->fd != -1);
 	net_set_nonblock(conn->fd, TRUE);
 }
