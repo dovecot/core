@@ -97,6 +97,8 @@ static int fs_quota_init(struct quota_root *_root, const char *args)
 			root->user_disabled = TRUE;
 		else if (strcmp(*tmp, "inode_per_mail") == 0)
 			root->inode_per_mail = TRUE;
+		else if (strcmp(*tmp, "noenforcing") == 0)
+			_root->no_enforcing = TRUE;
 		else if (strncmp(*tmp, "mount=", 6) == 0) {
 			i_free(root->storage_mount_path);
 			root->storage_mount_path = i_strdup(*tmp + 6);

@@ -586,6 +586,11 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
+		if (roots[i]->no_enforcing) {
+			/* we don't care what the current quota is */
+			continue;
+		}
+
 		ret = quota_get_resource(roots[i], mailbox_name,
 					 QUOTA_NAME_STORAGE_BYTES,
 					 &current, &limit);

@@ -75,6 +75,9 @@ struct quota_root {
 
 	/* Module-specific contexts. See quota_module_id. */
 	ARRAY_DEFINE(quota_module_contexts, void);
+
+	/* don't enforce quota when saving */
+	unsigned int no_enforcing:1;
 };
 
 struct quota_transaction_context {
