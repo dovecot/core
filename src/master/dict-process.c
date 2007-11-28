@@ -165,8 +165,11 @@ dict_process_destroyed(struct child_process *process,
 {
 	struct dict_process *p = (struct dict_process *)process;
 
-	log_unref(p->log);
-	p->log = NULL;
+	if (p->log != NULL) {
+		/* not killed by ourself */
+		log_unref(p->log);
+		p->log = NULL;
+	}
 	(void)dict_process_listen(p);
 }
 
