@@ -292,17 +292,45 @@ static bool get_cached_msgpart_sizes(struct index_mail *mail)
 
 bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 {
-	mail->data.cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
-	if (mail->data.virtual_size == (uoff_t)-1) {
+	struct index_mail_data *data = &mail->data;
+
+	data->cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
+	if (data->virtual_size == (uoff_t)-1) {
 		if (!index_mail_get_cached_uoff_t(mail,
 						  MAIL_CACHE_VIRTUAL_FULL_SIZE,
-						  &mail->data.virtual_size)) {
+						  &data->virtual_size)) {
 			if (!get_cached_msgpart_sizes(mail))
 				return FALSE;
 		}
 	}
-	*size_r = mail->data.virtual_size;
+	if (data->hdr_size_set && data->physical_size != (uoff_t)-1) {
+		data->body_size.physical_size = data->physical_size -
+			data->hdr_size.physical_size;
+		data->body_size.virtual_size = data->virtual_size -
+			data->hdr_size.virtual_size;
+		data->body_size_set = TRUE;
+	}
+	*size_r = data->virtual_size;
 	return TRUE;
+}
+
+static void index_mail_get_cached_body_size(struct index_mail *mail)
+{
+	struct index_mail_data *data = &mail->data;
+	uoff_t tmp;
+
+	if (!data->hdr_size_set)
+		return;
+
+	if (!index_mail_get_cached_virtual_size(mail, &tmp))
+		return;
+
+	if (!data->body_size_set) {
+		if (mail_get_physical_size(&mail->mail.mail, &tmp) < 0)
+			return;
+		/* we should have everything now. try again. */
+		(void)index_mail_get_cached_virtual_size(mail, &tmp);
+	}
 }
 
 int index_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
@@ -707,12 +735,11 @@ static int index_mail_parse_body(struct index_mail *mail,
 	return ret;
 }
 
-int index_mail_init_stream(struct index_mail *_mail,
+int index_mail_init_stream(struct index_mail *mail,
 			   struct message_size *hdr_size,
 			   struct message_size *body_size,
 			   struct istream **stream_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 
 	if (hdr_size != NULL || body_size != NULL)
@@ -737,8 +764,11 @@ int index_mail_init_stream(struct index_mail *_mail,
 	}
 
 	if (body_size != NULL) {
-		i_stream_seek(data->stream, data->hdr_size.physical_size);
+		if (!data->body_size_set)
+			index_mail_get_cached_body_size(mail);
 		if (!data->body_size_set) {
+			i_stream_seek(data->stream,
+				      data->hdr_size.physical_size);
 			if ((data->access_part & PARSE_BODY) != 0) {
 				if (index_mail_parse_body(mail, 0) < 0)
 					return -1;
