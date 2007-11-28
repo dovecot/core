@@ -33,6 +33,8 @@ int index_transaction_finish_commit(struct index_transaction_context *t,
 {
 	int ret;
 
+	i_assert(t->mail_ref_count == 0);
+
 	ret = t->super.commit(t->trans, log_file_seq_r, log_file_offset_r);
 	if (ret < 0)
 		mail_storage_set_index_error(t->ibox);
@@ -49,6 +51,8 @@ int index_transaction_finish_commit(struct index_transaction_context *t,
 
 void index_transaction_finish_rollback(struct index_transaction_context *t)
 {
+	i_assert(t->mail_ref_count == 0);
+
 	t->super.rollback(t->trans);
 	index_transaction_free(t);
 }

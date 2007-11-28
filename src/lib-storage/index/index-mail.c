@@ -986,6 +986,7 @@ void index_mail_init(struct index_mail *mail,
 	hdr = mail_index_get_header(t->ibox->view);
 	mail->uid_validity = hdr->uid_validity;
 
+	t->mail_ref_count++;
 	mail->data_pool = pool_alloconly_create("index_mail", 16384);
 	mail->ibox = t->ibox;
 	mail->trans = t;
@@ -1194,6 +1195,9 @@ void index_mail_free(struct mail *_mail)
 	struct index_mail *mail = (struct index_mail *)_mail;
 
 	mail->mail.v.close(_mail);
+
+	i_assert(mail->trans->mail_ref_count > 0);
+	mail->trans->mail_ref_count--;
 
 	if (mail->header_data != NULL)
 		buffer_free(&mail->header_data);
