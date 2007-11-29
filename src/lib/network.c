@@ -129,6 +129,35 @@ static inline unsigned int sin_get_port(union sockaddr_union *so)
 	return 0;
 }
 
+#ifdef __FreeBSD__
+static int net_connect_ip_freebsd(const struct ip_addr *ip, unsigned int port,
+				  const struct ip_addr *my_ip);
+
+int net_connect_ip(const struct ip_addr *ip, unsigned int port,
+		   const struct ip_addr *my_ip)
+{
+	int fd, try;
+
+	for (try = 0;;) {
+		fd = net_connect_ip_freebsd(ip, port, my_ip);
+		if (fd != -1 || ++try == 5 ||
+		    (errno != EADDRINUSE && errno != EACCES))
+			break;
+		/*
+		   This may be just a temporary problem:
+
+		   EADDRINUSE: busy
+		   EACCES: pf may cause this if another connection used
+		           the same port recently
+		*/
+	}
+	return fd;
+}
+/* then some kludging: */
+#define net_connect_ip net_connect_ip_freebsd
+static
+#endif
+
 int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		   const struct ip_addr *my_ip)
 {
