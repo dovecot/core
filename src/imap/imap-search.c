@@ -178,6 +178,11 @@ static bool search_arg_build(struct search_build_data *data,
 	case 'B':
 		if (strcmp(str, "BODY") == 0) {
 			/* <string> */
+			if (IMAP_ARG_TYPE_IS_STRING((*args)->type) &&
+			    *IMAP_ARG_STR(*args) == '\0') {
+				*args += 1;
+				return ARG_NEW_FLAG(SEARCH_ALL);
+			}
 			return ARG_NEW(SEARCH_BODY);
 		} else if (strcmp(str, "BEFORE") == 0) {
 			/* <date> */
@@ -327,6 +332,11 @@ static bool search_arg_build(struct search_build_data *data,
 	case 'T':
 		if (strcmp(str, "TEXT") == 0) {
 			/* <string> */
+			if (IMAP_ARG_TYPE_IS_STRING((*args)->type) &&
+			    *IMAP_ARG_STR(*args) == '\0') {
+				*args += 1;
+				return ARG_NEW_FLAG(SEARCH_ALL);
+			}
 			return ARG_NEW(SEARCH_TEXT);
 		} else if (strcmp(str, "TO") == 0) {
 			/* <string> */
@@ -379,9 +389,19 @@ static bool search_arg_build(struct search_build_data *data,
 	case 'X':
 		if (strcmp(str, "X-BODY-FAST") == 0) {
 			/* <string> */
+			if (IMAP_ARG_TYPE_IS_STRING((*args)->type) &&
+			    *IMAP_ARG_STR(*args) == '\0') {
+				*args += 1;
+				return ARG_NEW_FLAG(SEARCH_ALL);
+			}
 			return ARG_NEW(SEARCH_BODY_FAST);
 		} else if (strcmp(str, "X-TEXT-FAST") == 0) {
 			/* <string> */
+			if (IMAP_ARG_TYPE_IS_STRING((*args)->type) &&
+			    *IMAP_ARG_STR(*args) == '\0') {
+				*args += 1;
+				return ARG_NEW_FLAG(SEARCH_ALL);
+			}
 			return ARG_NEW(SEARCH_TEXT_FAST);
 		}
 		break;
