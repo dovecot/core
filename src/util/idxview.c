@@ -80,10 +80,10 @@ static void dump_extension_header(struct mail_index *index,
 		printf("header\n");
 		printf(" - new_check_time  = %s\n", unixdate2str(hdr->new_check_time));
 		printf(" - new_mtime ..... = %s\n", unixdate2str(hdr->new_mtime));
-		printf(" - new_mtime_nsecs = %s\n", unixdate2str(hdr->new_mtime_nsecs));
+		printf(" - new_mtime_nsecs = %u\n", hdr->new_mtime_nsecs);
 		printf(" - cur_check_time  = %s\n", unixdate2str(hdr->cur_check_time));
 		printf(" - cur_mtime ..... = %s\n", unixdate2str(hdr->cur_mtime));
-		printf(" - cur_mtime_nsecs = %s\n", unixdate2str(hdr->cur_mtime_nsecs));
+		printf(" - cur_mtime_nsecs = %u\n", hdr->cur_mtime_nsecs);
 	} else if (strcmp(ext->name, "dbox-hdr") == 0) {
 		const struct dbox_index_header *hdr = data;
 
