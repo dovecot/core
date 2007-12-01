@@ -17,6 +17,8 @@
 
 #define BODY_NIL_REPLY \
 	"\"text\" \"plain\" NIL NIL NIL \"7bit\" 0 0 NIL NIL NIL"
+#define ENVELOPE_NIL_REPLY \
+	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
 const struct imap_fetch_handler default_handlers[7];
 static buffer_t *fetch_handlers = NULL;
@@ -496,8 +498,7 @@ fetch_envelope_init(struct imap_fetch_context *ctx, const char *name,
 		    const struct imap_arg **args ATTR_UNUSED)
 {
 	ctx->fetch_data |= MAIL_FETCH_IMAP_ENVELOPE;
-	imap_fetch_add_handler(ctx, FALSE, FALSE, name,
-			       "(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)",
+	imap_fetch_add_handler(ctx, FALSE, FALSE, name, ENVELOPE_NIL_REPLY,
 			       fetch_envelope, NULL);
 	return TRUE;
 }
