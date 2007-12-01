@@ -687,9 +687,10 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 }
 
 static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
-				bool *lost_files_r)
+				uint32_t *find_uid, bool *lost_files_r)
 {
 	enum maildir_uidlist_sync_flags sync_flags;
+	enum maildir_uidlist_rec_flag flags;
 	bool new_changed, cur_changed;
 	int ret;
 
@@ -748,14 +749,14 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	   problem rarely happens except under high amount of modifications.
 	*/
 
-	if (!cur_changed || forced) {
+	if (!cur_changed) {
 		ctx->partial = TRUE;
 		sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL;
-		if (forced)
-			sync_flags |= MAILDIR_UIDLIST_SYNC_FORCE;
 	} else {
 		ctx->partial = FALSE;
 		sync_flags = 0;
+		if (forced)
+			sync_flags |= MAILDIR_UIDLIST_SYNC_FORCE;
 		if ((ctx->flags & MAILBOX_SYNC_FLAG_FAST) != 0)
 			sync_flags |= MAILDIR_UIDLIST_SYNC_TRYLOCK;
 	}
@@ -767,6 +768,8 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		return ret;
 	}
 	ctx->locked = maildir_uidlist_is_locked(ctx->mbox->uidlist);
+	if (!ctx->locked)
+		ctx->partial = TRUE;
 
 	if (!ctx->mbox->syncing_commit && ctx->locked) {
 		if (maildir_sync_index_begin(ctx->mbox, ctx,
@@ -823,18 +826,40 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		i_assert(maildir_uidlist_is_locked(ctx->mbox->uidlist));
 	}
 
+	if (find_uid != NULL && *find_uid != 0) {
+		if (maildir_uidlist_lookup(ctx->mbox->uidlist, *find_uid,
+					   &flags) == NULL) {
+			/* UID is expunged */
+			*find_uid = 0;
+		} else if ((flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) == 0) {
+			/* we didn't find it, possibly expunged? */
+			*find_uid = 0;
+		}
+	}
+
 	return maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
 }
 
-int maildir_storage_sync_force(struct maildir_mailbox *mbox)
+int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)
 {
         struct maildir_sync_context *ctx;
 	bool lost_files;
 	int ret;
 
-	ctx = maildir_sync_context_new(mbox, 0);
-	ret = maildir_sync_context(ctx, TRUE, &lost_files);
+	t_push();
+	ctx = maildir_sync_context_new(mbox, MAILBOX_SYNC_FLAG_FAST);
+	ret = maildir_sync_context(ctx, TRUE, &uid, &lost_files);
 	maildir_sync_deinit(ctx);
+	t_pop();
+
+	if (uid != 0) {
+		/* maybe it's expunged. check again. */
+		t_push();
+		ctx = maildir_sync_context_new(mbox, 0);
+		ret = maildir_sync_context(ctx, TRUE, NULL, &lost_files);
+		maildir_sync_deinit(ctx);
+		t_pop();
+	}
 	return ret;
 }
 
@@ -854,16 +879,18 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	    ioloop_time) {
 		mbox->ibox.sync_last_check = ioloop_time;
 
+		t_push();
 		ctx = maildir_sync_context_new(mbox, flags);
-		ret = maildir_sync_context(ctx, FALSE, &lost_files);
+		ret = maildir_sync_context(ctx, FALSE, NULL, &lost_files);
 		maildir_sync_deinit(ctx);
+		t_pop();
 
 		i_assert(!maildir_uidlist_is_locked(mbox->uidlist) ||
 			 mbox->ibox.keep_locked);
 
 		if (lost_files) {
 			/* lost some files from new/, see if thery're in cur/ */
-			ret = maildir_storage_sync_force(mbox);
+			ret = maildir_storage_sync_force(mbox, 0);
 		}
 	}
 

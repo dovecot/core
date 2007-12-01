@@ -749,7 +749,7 @@ maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 			return NULL;
 
 		/* the uidlist doesn't exist. */
-		if (maildir_storage_sync_force(uidlist->mbox) < 0)
+		if (maildir_storage_sync_force(uidlist->mbox, uid) < 0)
 			return NULL;
 
 		/* try again */
@@ -1066,24 +1066,35 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 			      struct maildir_uidlist_sync_ctx **sync_ctx_r)
 {
 	struct maildir_uidlist_sync_ctx *ctx;
+	bool locked;
 	int ret;
 
-	if ((sync_flags & (MAILDIR_UIDLIST_SYNC_TRYLOCK |
-			   MAILDIR_UIDLIST_SYNC_FORCE)) == 0) {
+	if ((sync_flags & MAILDIR_UIDLIST_SYNC_TRYLOCK) == 0) {
 		if ((ret = maildir_uidlist_lock(uidlist)) <= 0)
 			return ret;
 	} else {
 		if ((ret = maildir_uidlist_try_lock(uidlist)) < 0)
 			return -1;
-		if (ret == 0 && (sync_flags & MAILDIR_UIDLIST_SYNC_FORCE) == 0)
-			return 0;
+		if (ret == 0) {
+			/* couldn't lock it */
+			if ((sync_flags & MAILDIR_UIDLIST_SYNC_FORCE) == 0)
+				return 0;
+			/* forcing the lock */
+		}
+	}
+	locked = ret > 0;
+
+	if (!locked) {
+		if (maildir_uidlist_refresh(uidlist) < 0)
+			return -1;
 	}
 
 	*sync_ctx_r = ctx = i_new(struct maildir_uidlist_sync_ctx, 1);
 	ctx->uidlist = uidlist;
 	ctx->sync_flags = sync_flags;
-	ctx->partial = (sync_flags & MAILDIR_UIDLIST_SYNC_PARTIAL) != 0;
-	ctx->locked = ret > 0;
+	ctx->partial = !locked ||
+		(sync_flags & MAILDIR_UIDLIST_SYNC_PARTIAL) != 0;
+	ctx->locked = locked;
 	ctx->first_unwritten_pos = (unsigned int)-1;
 	ctx->first_nouid_pos = (unsigned int)-1;
 
@@ -1115,8 +1126,6 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 
 	/* we'll update uidlist directly */
 	rec = hash_lookup(uidlist->files, filename);
-	i_assert(rec != NULL || UIDLIST_IS_LOCKED(uidlist));
-
 	if (rec == NULL) {
 		/* doesn't exist in uidlist */
 		if (!ctx->locked) {

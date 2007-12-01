@@ -22,7 +22,7 @@ int maildir_sync_is_synced(struct maildir_mailbox *mbox);
 
 struct mailbox_sync_context *
 maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
-int maildir_storage_sync_force(struct maildir_mailbox *mbox);
+int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid);
 
 int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 			     struct maildir_sync_context *maildir_sync_ctx,
