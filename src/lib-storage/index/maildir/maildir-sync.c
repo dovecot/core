@@ -208,12 +208,14 @@
 struct maildir_sync_context {
         struct maildir_mailbox *mbox;
 	const char *new_dir, *cur_dir;
-	bool partial;
 
 	time_t last_touch, last_notify;
 
 	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
-        struct maildir_index_sync_context *index_sync_ctx;
+	struct maildir_index_sync_context *index_sync_ctx;
+
+	unsigned int partial:1;
+	unsigned int locked:1;
 };
 
 void maildir_sync_notify(struct maildir_sync_context *ctx)
@@ -425,7 +427,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	dest = t_str_new(1024);
 
 	move_new = new_dir && !mailbox_is_readonly(&ctx->mbox->ibox.box) &&
-		!ctx->mbox->ibox.keep_recent;
+		!ctx->mbox->ibox.keep_recent && ctx->locked;
 
 	errno = 0;
 	for (; (dp = readdir(dirp)) != NULL; errno = 0) {
@@ -754,18 +756,25 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	   problem rarely happens except under high amount of modifications.
 	*/
 
-	ctx->partial = !cur_changed;
-	sync_flags = ctx->partial ? MAILDIR_UIDLIST_SYNC_PARTIAL : 0;
+	if (!cur_changed || forced) {
+		ctx->partial = TRUE;
+		sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL;
+		if (forced)
+			sync_flags |= MAILDIR_UIDLIST_SYNC_FORCE;
+	} else {
+		ctx->partial = FALSE;
+		sync_flags = 0;
+	}
 	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags,
 					&ctx->uidlist_sync_ctx);
 	if (ret <= 0) {
-		/* failure / timeout. if forced is TRUE, we could still go
-		   forward and check only for renamed files, but is it worth
-		   the trouble? .. */
+		/* failure / timeout */
+		i_assert(ret < 0 || !forced);
 		return ret;
 	}
+	ctx->locked = maildir_uidlist_is_locked(ctx->mbox->uidlist);
 
-	if (!ctx->mbox->syncing_commit) {
+	if (!ctx->mbox->syncing_commit && ctx->locked) {
 		if (maildir_sync_index_begin(ctx->mbox, ctx,
 					     &ctx->index_sync_ctx) < 0)
 			return -1;
@@ -797,7 +806,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 	}
 
-	if (!ctx->mbox->syncing_commit) {
+	if (!ctx->mbox->syncing_commit && ctx->locked) {
 		/* NOTE: index syncing here might cause a re-sync due to
 		   files getting lost, so this function might be called
 		   re-entrantly. */

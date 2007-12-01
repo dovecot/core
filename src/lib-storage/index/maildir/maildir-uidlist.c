@@ -108,6 +108,7 @@ struct maildir_uidlist_sync_ctx {
 	unsigned int finished:1;
 	unsigned int changed:1;
 	unsigned int failed:1;
+	unsigned int locked:1;
 };
 
 struct maildir_uidlist_iter_ctx {
@@ -1067,13 +1068,19 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 	struct maildir_uidlist_sync_ctx *ctx;
 	int ret;
 
-	if ((ret = maildir_uidlist_lock(uidlist)) <= 0)
-		return ret;
+	if ((sync_flags & MAILDIR_UIDLIST_SYNC_FORCE) == 0) {
+		if ((ret = maildir_uidlist_lock(uidlist)) <= 0)
+			return ret;
+	} else {
+		if ((ret = maildir_uidlist_try_lock(uidlist)) < 0)
+			return -1;
+	}
 
 	*sync_ctx_r = ctx = i_new(struct maildir_uidlist_sync_ctx, 1);
 	ctx->uidlist = uidlist;
 	ctx->sync_flags = sync_flags;
 	ctx->partial = (sync_flags & MAILDIR_UIDLIST_SYNC_PARTIAL) != 0;
+	ctx->locked = ret > 0;
 	ctx->first_unwritten_pos = (unsigned int)-1;
 	ctx->first_nouid_pos = (unsigned int)-1;
 
@@ -1109,6 +1116,10 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 
 	if (rec == NULL) {
 		/* doesn't exist in uidlist */
+		if (!ctx->locked) {
+			/* we can't add it, so just ignore it */
+			return;
+		}
 		if (ctx->first_nouid_pos == (unsigned int)-1)
 			ctx->first_nouid_pos = array_count(&uidlist->records);
 		ctx->new_files_count++;
@@ -1371,7 +1382,8 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 		t_pop();
 	}
 
-	maildir_uidlist_unlock(ctx->uidlist);
+	if (ctx->locked)
+		maildir_uidlist_unlock(ctx->uidlist);
 
 	if (ctx->files != NULL)
 		hash_destroy(&ctx->files);
