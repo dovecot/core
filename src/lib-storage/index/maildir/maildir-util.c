@@ -14,6 +14,8 @@
 #include <utime.h>
 #include <sys/stat.h>
 
+#define MAILDIR_RESYNC_RETRY_COUNT 10
+
 static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 			       maildir_file_do_func *callback, void *context)
 {
@@ -66,7 +68,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	int i, ret;
 
 	ret = maildir_file_do_try(mbox, uid, callback, context);
-	for (i = 0; i < 10 && ret == 0; i++) {
+	for (i = 0; i < MAILDIR_RESYNC_RETRY_COUNT && ret == 0; i++) {
 		/* file is either renamed or deleted. sync the maildir and
 		   see which one. if file appears to be renamed constantly,
 		   don't try to open it more than 10 times. */
@@ -76,7 +78,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		ret = maildir_file_do_try(mbox, uid, callback, context);
 	}
 
-	if (i == 10)
+	if (i == MAILDIR_RESYNC_RETRY_COUNT)
 		ret = maildir_file_do_try(mbox, uid, do_racecheck, context);
 
 	return ret == -2 ? 0 : ret;
