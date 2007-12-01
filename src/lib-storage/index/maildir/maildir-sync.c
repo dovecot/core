@@ -811,6 +811,12 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 	}
 
+	if (!ctx->locked) {
+		/* make sure we sync the maildir later */
+		ctx->mbox->maildir_hdr.new_mtime = 0;
+		ctx->mbox->maildir_hdr.cur_mtime = 0;
+	}
+
 	if (!ctx->mbox->syncing_commit && ctx->locked) {
 		/* NOTE: index syncing here might cause a re-sync due to
 		   files getting lost, so this function might be called
