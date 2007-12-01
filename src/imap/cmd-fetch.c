@@ -96,7 +96,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 	}
 
 	return cmd_sync(cmd,
-			(ctx->seen_flags_changed ? MAILBOX_SYNC_FLAG_FAST : 0) |
+			(ctx->seen_flags_changed ? 0 : MAILBOX_SYNC_FLAG_FAST) |
 			(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES), 0,
 			ok_message);
 }
