@@ -702,9 +702,11 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		   Dovecot instances haven't yet seen the files. */
 		maildir_transaction_unlink_copied_files(ctx, mf);
 
-		maildir_keywords_sync_deinit(&ctx->keywords_sync_ctx);
+		if (ctx->keywords_sync_ctx != NULL)
+			maildir_keywords_sync_deinit(&ctx->keywords_sync_ctx);
 		/* returning failure finishes the save_context */
 		maildir_transaction_save_rollback(ctx);
+		return -1;
 	}
 
 	if (ctx->mail != NULL)
@@ -755,10 +757,10 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 	if (hardlinks)
 		maildir_transaction_unlink_copied_files(ctx, NULL);
 
-	if (ctx->locked) {
+	if (ctx->uidlist_sync_ctx != NULL)
 		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
+	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->mbox->uidlist);
-	}
 	if (ctx->sync_ctx != NULL)
 		(void)maildir_sync_index_finish(&ctx->sync_ctx, TRUE, FALSE);
 
