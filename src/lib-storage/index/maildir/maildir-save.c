@@ -598,7 +598,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	}
 
 	if (ctx->locked) {
-		ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, TRUE,
+		ret = maildir_uidlist_sync_init(ctx->mbox->uidlist,
+						MAILDIR_UIDLIST_SYNC_PARTIAL,
 						&ctx->uidlist_sync_ctx);
 		i_assert(ret > 0); /* already locked, shouldn't fail */
 

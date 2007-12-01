@@ -695,6 +695,7 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 				bool *lost_files_r)
 {
+	enum maildir_uidlist_sync_flags sync_flags;
 	bool new_changed, cur_changed;
 	int ret;
 
@@ -754,7 +755,8 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	*/
 
 	ctx->partial = !cur_changed;
-	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, ctx->partial,
+	sync_flags = ctx->partial ? MAILDIR_UIDLIST_SYNC_PARTIAL : 0;
+	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags,
 					&ctx->uidlist_sync_ctx);
 	if (ret <= 0) {
 		/* failure / timeout. if forced is TRUE, we could still go
