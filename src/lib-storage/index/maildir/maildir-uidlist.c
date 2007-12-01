@@ -1068,12 +1068,15 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 	struct maildir_uidlist_sync_ctx *ctx;
 	int ret;
 
-	if ((sync_flags & MAILDIR_UIDLIST_SYNC_FORCE) == 0) {
+	if ((sync_flags & (MAILDIR_UIDLIST_SYNC_TRYLOCK |
+			   MAILDIR_UIDLIST_SYNC_FORCE)) == 0) {
 		if ((ret = maildir_uidlist_lock(uidlist)) <= 0)
 			return ret;
 	} else {
 		if ((ret = maildir_uidlist_try_lock(uidlist)) < 0)
 			return -1;
+		if (ret == 0 && (sync_flags & MAILDIR_UIDLIST_SYNC_FORCE) == 0)
+			return 0;
 	}
 
 	*sync_ctx_r = ctx = i_new(struct maildir_uidlist_sync_ctx, 1);

@@ -209,6 +209,7 @@ struct maildir_sync_context {
         struct maildir_mailbox *mbox;
 	const char *new_dir, *cur_dir;
 
+	enum mailbox_sync_flags flags;
 	time_t last_touch, last_notify;
 
 	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
@@ -246,7 +247,8 @@ void maildir_sync_notify(struct maildir_sync_context *ctx)
 }
 
 static struct maildir_sync_context *
-maildir_sync_context_new(struct maildir_mailbox *mbox)
+maildir_sync_context_new(struct maildir_mailbox *mbox,
+			 enum mailbox_sync_flags flags)
 {
         struct maildir_sync_context *ctx;
 
@@ -256,6 +258,7 @@ maildir_sync_context_new(struct maildir_mailbox *mbox)
 	ctx->cur_dir = t_strconcat(mbox->path, "/cur", NULL);
 	ctx->last_touch = ioloop_time;
 	ctx->last_notify = ioloop_time;
+	ctx->flags = flags;
 	return ctx;
 }
 
@@ -764,6 +767,8 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	} else {
 		ctx->partial = FALSE;
 		sync_flags = 0;
+		if ((ctx->flags & MAILBOX_SYNC_FLAG_FAST) != 0)
+			sync_flags |= MAILDIR_UIDLIST_SYNC_TRYLOCK;
 	}
 	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags,
 					&ctx->uidlist_sync_ctx);
@@ -832,7 +837,7 @@ int maildir_storage_sync_force(struct maildir_mailbox *mbox)
 	bool lost_files;
 	int ret;
 
-	ctx = maildir_sync_context_new(mbox);
+	ctx = maildir_sync_context_new(mbox, 0);
 	ret = maildir_sync_context(ctx, TRUE, &lost_files);
 	maildir_sync_deinit(ctx);
 	return ret;
@@ -854,7 +859,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	    ioloop_time) {
 		mbox->ibox.sync_last_check = ioloop_time;
 
-		ctx = maildir_sync_context_new(mbox);
+		ctx = maildir_sync_context_new(mbox, flags);
 		ret = maildir_sync_context(ctx, FALSE, &lost_files);
 		maildir_sync_deinit(ctx);
 
