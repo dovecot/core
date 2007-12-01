@@ -83,9 +83,6 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist);
 int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 			      enum maildir_uidlist_sync_flags sync_flags,
 			      struct maildir_uidlist_sync_ctx **sync_ctx_r);
-/* Returns 1 = ok, -1 = error, 0 = new file and dovecot-uidlist is locked */
-int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,
-				  const char *filename);
 int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags);

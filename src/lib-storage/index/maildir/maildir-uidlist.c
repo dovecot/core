@@ -1149,27 +1149,6 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 	ctx->finished = FALSE;
 }
 
-int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,
-				  const char *filename)
-{
-	if (!UIDLIST_IS_LOCKED(ctx->uidlist) &&
-	    hash_lookup(ctx->uidlist->files, filename) == NULL &&
-	    (ctx->partial || hash_lookup(ctx->files, filename) == NULL)) {
-		if (!ctx->uidlist->initial_read) {
-			/* first time reading the uidlist */
-			if (maildir_uidlist_refresh(ctx->uidlist) < 0) {
-				ctx->failed = TRUE;
-				return -1;
-			}
-			return maildir_uidlist_sync_next_pre(ctx, filename);
-		}
-
-		return 0;
-	}
-
-	return 1;
-}
-
 int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags)

@@ -437,17 +437,6 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 		if (dp->d_name[0] == '.')
 			continue;
 
-		ret = maildir_uidlist_sync_next_pre(ctx->uidlist_sync_ctx,
-						    dp->d_name);
-		if (ret == 0) {
-			/* new file and we couldn't lock uidlist, check this
-			   later in next sync. */
-			dir_changed = TRUE;
-			continue;
-		}
-		if (ret < 0)
-			break;
-
 		check_touch = FALSE;
 		flags = 0;
 		if (move_new) {
