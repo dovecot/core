@@ -242,7 +242,7 @@ struct settings default_settings = {
 #else
 	MEMBER(mmap_disable) FALSE,
 #endif
-	MEMBER(dotlock_use_excl) FALSE,
+	MEMBER(dotlock_use_excl) TRUE,
 	MEMBER(fsync_disable) FALSE,
 	MEMBER(mail_nfs_storage) FALSE,
 	MEMBER(mail_nfs_index) FALSE,
