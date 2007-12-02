@@ -334,7 +334,8 @@ AC_ARG_WITH(deliver,
 AM_CONDITIONAL(BUILD_DELIVER, test "$want_deliver" = "yes")
 
 AC_ARG_WITH(storages,
-[  --with-storages         Build with specified mail storage formats (maildir,mbox)], [
+[  --with-storages         Build with specified mail storage formats
+                          (maildir mbox dbox cydir raw)], [
 	if test "$withval" = "yes" -o "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
@@ -1931,7 +1932,7 @@ cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.a'
 raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.a'
 index_libs='$(top_builddir)/src/lib-storage/index/libstorage_index.a $(top_builddir)/src/lib-index/libindex.a'
 
-deliver_storage="mbox"
+deliver_storage="raw"
 STORAGE_LIBS=
 for storage in $mail_storages; do
   if test "$storage" = "$deliver_storage"; then
@@ -1944,7 +1945,7 @@ AC_SUBST(STORAGE_LIBS)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
 
 if test -n "$deliver_storage" && test "$want_deliver" = yes; then
-  AC_ERROR([If you remove mbox from storages, you need to build --without-deliver])
+  AC_ERROR([If you remove raw from storages, you need to build --without-deliver])
 fi
 
 dnl **
