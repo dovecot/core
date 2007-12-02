@@ -556,7 +556,7 @@ fetch_internaldate_init(struct imap_fetch_context *ctx, const char *name,
 {
 	ctx->fetch_data |= MAIL_FETCH_RECEIVED_DATE;
 	imap_fetch_add_handler(ctx, TRUE, FALSE, name,
-			       "\"01-01-1970 00:00:00 +0000\"",
+			       "\"01-Jan-1970 00:00:00 +0000\"",
 			       fetch_internaldate, NULL);
 	return TRUE;
 }
