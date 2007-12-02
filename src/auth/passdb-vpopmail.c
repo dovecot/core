@@ -24,10 +24,6 @@ vpopmail_password_lookup(struct auth_request *auth_request, bool cleartext,
 	struct vqpasswd *vpw;
 	char *password;
 
-	auth_request_log_debug(auth_request, "vpopmail",
-			       "lookup user=%s domain=%s",
-			       vpop_user, vpop_domain);
-
 	vpw = vpopmail_lookup_vqp(auth_request, vpop_user, vpop_domain);
 	if (vpw == NULL) {
 		*result_r = PASSDB_RESULT_USER_UNKNOWN;
