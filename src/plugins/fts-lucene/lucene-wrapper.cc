@@ -549,7 +549,7 @@ int lucene_index_lookup(struct lucene_index *index, enum fts_lookup_flags flags,
 	const char *quoted_key;
 	int ret = 0;
 
-	i_assert((flags & (FTS_LOOKUP_FLAG_HEADERS|FTS_LOOKUP_FLAG_BODY)) != 0);
+	i_assert((flags & (FTS_LOOKUP_FLAG_HEADER|FTS_LOOKUP_FLAG_BODY)) != 0);
 
 	if (lucene_index_open_search(index) <= 0)
 		return -1;
@@ -567,7 +567,7 @@ int lucene_index_lookup(struct lucene_index *index, enum fts_lookup_flags flags,
 	BooleanQuery lookup_query;
 	Query *content_query1 = NULL, *content_query2 = NULL;
 	try {
-		if ((flags & FTS_LOOKUP_FLAG_HEADERS) != 0) {
+		if ((flags & FTS_LOOKUP_FLAG_HEADER) != 0) {
 			content_query1 = QueryParser::parse(tkey, _T("headers"),
 							    index->analyzer);
 			lookup_query.add(content_query1, false, false);

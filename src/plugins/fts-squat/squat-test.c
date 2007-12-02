@@ -31,24 +31,29 @@ static void result_print(ARRAY_TYPE(seq_range) *result)
 
 int main(int argc ATTR_UNUSED, char *argv[])
 {
+	const char *trie_path = "/tmp/squat-test-index.search";
+	const char *uidlist_path = "/tmp/squat-test-index.search.uids";
 	struct squat_trie *trie;
 	struct squat_trie_build_context *build_ctx;
 	struct istream *input;
-	ARRAY_TYPE(seq_range) result;
+	struct stat trie_st, uidlist_st;
+	ARRAY_TYPE(seq_range) definite_uids, maybe_uids;
 	char *line, *str, buf[4096];
-	int fd;
-	ssize_t ret;
-	unsigned int last = 0, seq = 0, leaves, uid_lists_mem, uid_lists_count;
+	int ret, fd;
+	unsigned int last = 0, seq = 1, node_count, uidlist_count;
+	enum squat_index_type index_type;
+	bool data_header = TRUE, first = TRUE, skip_body = FALSE;
+	bool mime_header = TRUE;
 	uint32_t last_uid;
-	size_t mem;
+	size_t trie_mem, uidlist_mem;
 	clock_t clock_start, clock_end;
 	struct timeval tv_start, tv_end;
 	double cputime;
 
 	lib_init();
-	(void)unlink("/tmp/squat-test-index.search");
-	(void)unlink("/tmp/squat-test-index.search.uids");
-	trie = squat_trie_open("/tmp/squat-test-index.search", time(NULL),
+	(void)unlink(trie_path);
+	(void)unlink(uidlist_path);
+	trie = squat_trie_init(trie_path, time(NULL),
 			       FILE_LOCK_METHOD_FCNTL, FALSE);
 
 	clock_start = clock();
@@ -58,24 +63,63 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	if (fd == -1)
 		return 1;
 
-	build_ctx = squat_trie_build_init(trie, &last_uid);
+	if (squat_trie_build_init(trie, &last_uid, &build_ctx) < 0)
+		return 1;
+
 	input = i_stream_create_fd(fd, 0, FALSE);
-	while ((line = i_stream_read_next_line(input)) != NULL) {
+	ret = 0;
+	while (ret == 0 && (line = i_stream_read_next_line(input)) != NULL) {
 		if (last != input->v_offset/(1024*100)) {
 			fprintf(stderr, "\r%ukB", (unsigned)(input->v_offset/1024));
 			fflush(stderr);
 			last = input->v_offset/(1024*100);
 		}
 		if (strncmp(line, "From ", 5) == 0) {
-			seq++;
+			if (!first)
+				seq++;
+			data_header = TRUE;
+			skip_body = FALSE;
+			mime_header = TRUE;
 			continue;
 		}
+		first = FALSE;
 
-		if (squat_trie_build_more(build_ctx, seq,
-					  (const void *)line, strlen(line)) < 0)
-			break;
+		if (strncmp(line, "--", 2) == 0) {
+			skip_body = FALSE;
+			mime_header = TRUE;
+		}
+
+		if (mime_header) {
+			if (*line == '\0') {
+				if (data_header)
+					seq++;
+				data_header = FALSE;
+				mime_header = FALSE;
+				continue;
+			}
+
+			if (strncasecmp(line, "Content-Type:", 13) == 0 &&
+			    strncasecmp(line, "Content-Type: text/", 19) != 0 &&
+			    strncasecmp(line, "Content-Type: message/", 22) != 0)
+				skip_body = TRUE;
+			else if (strncasecmp(line, "Content-Transfer-Encoding: base64", 33) == 0)
+				skip_body = TRUE;
+		} else if (skip_body)
+			continue;
+		if (*line == '\0')
+			continue;
+
+		index_type = data_header ? SQUAT_INDEX_TYPE_HEADER :
+			SQUAT_INDEX_TYPE_BODY;
+		ret = squat_trie_build_more(build_ctx, seq, index_type,
+					    (const void *)line, strlen(line));
 	}
-	squat_trie_build_deinit(build_ctx);
+	if (squat_trie_build_deinit(&build_ctx) < 0)
+		ret = -1;
+	if (ret < 0) {
+		printf("build broken\n");
+		return 1;
+	}
 
 	clock_end = clock();
 	gettimeofday(&tv_end, NULL);
@@ -87,37 +131,54 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		(tv_end.tv_usec - tv_start.tv_usec)/1000000.0,
 		input->v_offset / cputime / (1024*1024));
 
-	mem = squat_trie_mem_used(trie, &leaves);
-	uid_lists_mem = squat_uidlist_mem_used(squat_trie_get_uidlist(trie),
-					       &uid_lists_count);
-	fprintf(stderr, " - %u bytes in %u nodes (%.02f%%)\n"
-		" - %u bytes in %u uid_lists (%.02f%%)\n"
-		" - %u bytes total of %"PRIuUOFF_T" (%.02f%%)\n",
-		(unsigned)mem, leaves, mem / (float)input->v_offset * 100.0,
-		uid_lists_mem, uid_lists_count,
-		uid_lists_mem / (float)input->v_offset * 100.0,
-		(unsigned)(uid_lists_mem + mem), input->v_offset,
-		(uid_lists_mem + mem) / (float)input->v_offset * 100.0);
+	if (stat(trie_path, &trie_st) < 0)
+		i_error("stat(%s) failed: %m", trie_path);
+	if (stat(uidlist_path, &uidlist_st) < 0)
+		i_error("stat(%s) failed: %m", uidlist_path);
+
+	trie_mem = squat_trie_mem_used(trie, &node_count);
+	uidlist_mem = squat_uidlist_mem_used(squat_trie_get_uidlist(trie),
+					     &uidlist_count);
+	fprintf(stderr, " - memory: %uk for trie, %uk for uidlist\n",
+		(unsigned)(trie_mem/1024), (unsigned)(uidlist_mem/1024));
+	fprintf(stderr, " - %"PRIuUOFF_T" bytes in %u nodes (%.02f%%)\n",
+		trie_st.st_size, node_count,
+		trie_st.st_size / (float)input->v_offset * 100.0);
+	fprintf(stderr, " - %"PRIuUOFF_T" bytes in %u UID lists (%.02f%%)\n",
+		uidlist_st.st_size, uidlist_count,
+		uidlist_st.st_size / (float)input->v_offset * 100.0);
+	fprintf(stderr, " - %"PRIuUOFF_T" bytes total of %"
+		PRIuUOFF_T" (%.02f%%)\n",
+		(trie_st.st_size + uidlist_st.st_size), input->v_offset,
+		(trie_st.st_size + uidlist_st.st_size) /
+		(float)input->v_offset * 100.0);
 
 	i_stream_unref(&input);
 	close(fd);
 
-	i_array_init(&result, 128);
+	i_array_init(&definite_uids, 128);
+	i_array_init(&maybe_uids, 128);
 	while ((str = fgets(buf, sizeof(buf), stdin)) != NULL) {
 		ret = strlen(str)-1;
 		str[ret] = 0;
 
-		array_clear(&result);
 		gettimeofday(&tv_start, NULL);
-		if (!squat_trie_lookup(trie, &result, str))
-			printf("No matches\n");
-		else {
+		ret = squat_trie_lookup(trie, str, SQUAT_INDEX_TYPE_HEADER |
+					SQUAT_INDEX_TYPE_BODY,
+					&definite_uids, &maybe_uids);
+		if (ret > 0) {
 			gettimeofday(&tv_end, NULL);
 			printf(" - Search took %.05f CPU seconds\n",
 			       (tv_end.tv_sec - tv_start.tv_sec) +
 			       (tv_end.tv_usec - tv_start.tv_usec)/1000000.0);
-			result_print(&result);
-		}
+			printf(" - definite uids: ");
+			result_print(&definite_uids);
+			printf(" - maybe uids: ");
+			result_print(&maybe_uids);
+		} else if (ret == 0)
+			printf("not found\n");
+		else
+			printf("error\n");
 	}
 	return 0;
 }

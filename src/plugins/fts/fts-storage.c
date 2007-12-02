@@ -10,6 +10,7 @@
 #include "mail-search.h"
 #include "mail-storage-private.h"
 #include "fts-api-private.h"
+#include "fts-storage.h"
 #include "fts-plugin.h"
 
 #include <stdlib.h>
@@ -22,30 +23,6 @@
 #define FTS_SEARCH_NONBLOCK_COUNT 10
 #define FTS_BUILD_NOTIFY_INTERVAL_SECS 10
 
-struct fts_mailbox {
-	union mailbox_module_context module_ctx;
-	struct fts_backend *backend_exact;
-	struct fts_backend *backend_fast;
-
-	const char *env;
-	unsigned int backend_set:1;
-};
-
-struct fts_search_context {
-	union mail_search_module_context module_ctx;
-
-	ARRAY_TYPE(seq_range) result;
-	unsigned int result_pos;
-
-	struct mail_search_arg *args, *best_arg;
-	struct fts_backend *backend;
-	struct fts_storage_build_context *build_ctx;
-	struct mailbox_transaction_context *t;
-
-	unsigned int build_initialized:1;
-	unsigned int locked:1;
-};
-
 struct fts_storage_build_context {
 	struct mail_search_context *search_ctx;
 	struct mail_search_seqset seqset;
@@ -57,12 +34,20 @@ struct fts_storage_build_context {
 
 	uint32_t uid;
 	string_t *headers;
-	bool save_part;
+
+	unsigned int save_part:1;
 };
 
 struct fts_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
-	bool expunges;
+
+	struct fts_storage_build_context *build_ctx;
+	struct mail *mail;
+
+	uint32_t last_uid;
+
+	unsigned int free_mail:1;
+	unsigned int expunges:1;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_storage_module,
@@ -74,32 +59,14 @@ static int fts_mailbox_close(struct mailbox *box)
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
 	int ret;
 
-	if (fbox->backend_exact != NULL)
-		fts_backend_deinit(fbox->backend_exact);
+	if (fbox->backend_substr != NULL)
+		fts_backend_deinit(&fbox->backend_substr);
 	if (fbox->backend_fast != NULL)
-		fts_backend_deinit(fbox->backend_fast);
+		fts_backend_deinit(&fbox->backend_fast);
 
 	ret = fbox->module_ctx.super.close(box);
 	i_free(fbox);
 	return ret;
-}
-
-static void uid_range_to_seq(struct mailbox *box,
-			     ARRAY_TYPE(seq_range) *uid_range,
-			     ARRAY_TYPE(seq_range) *seq_range)
-{
-	const struct seq_range *range;
-	struct seq_range new_range;
-	unsigned int i, count;
-
-	range = array_get(uid_range, &count);
-	i_array_init(seq_range, count);
-	for (i = 0; i < count; i++) {
-		mailbox_get_uids(box, range[i].seq1, range[i].seq2,
-				 &new_range.seq1, &new_range.seq2);
-		if (new_range.seq1 != 0)
-			array_append(seq_range, &new_range, 1);
-	}
 }
 
 static int fts_build_mail_flush(struct fts_storage_build_context *ctx)
@@ -152,7 +119,7 @@ static int fts_build_mail_header(struct fts_storage_build_context *ctx,
 	return fts_build_mail_flush(ctx);
 }
 
-static int fts_build_mail(struct fts_storage_build_context *ctx)
+static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 {
 	struct istream *input;
 	struct message_parser_ctx *parser;
@@ -161,7 +128,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx)
 	struct message_part *prev_part, *skip_part;
 	int ret;
 
-	ctx->uid = ctx->mail->uid;
+	ctx->uid = uid;
 
 	if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
 		return -1;
@@ -208,7 +175,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx)
 					break;
 			}
 		} else {
-			if (fts_backend_build_more(ctx->build, ctx->mail->uid,
+			if (fts_backend_build_more(ctx->build, ctx->uid,
 						   block.data, block.size,
 						   FALSE) < 0) {
 				ret = -1;
@@ -224,7 +191,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx)
 static int fts_build_init(struct fts_search_context *fctx)
 {
 	struct mailbox_transaction_context *t = fctx->t;
-	struct fts_backend *backend = fctx->backend;
+	struct fts_backend *backend = fctx->build_backend;
 	struct fts_storage_build_context *ctx;
 	struct fts_backend_build_context *build;
 	struct mail_search_seqset seqset;
@@ -233,12 +200,6 @@ static int fts_build_init(struct fts_search_context *fctx)
 	if (fts_backend_get_last_uid(backend, &last_uid) < 0)
 		return -1;
 
-	if (last_uid == 0 && fctx->best_arg->type == SEARCH_HEADER) {
-		/* index doesn't exist. we're not creating it just for
-		   header lookups. */
-		return -1;
-	}
-
 	memset(&seqset, 0, sizeof(seqset));
 	mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
 			 &seqset.seq1, &seqset.seq2);
@@ -246,8 +207,15 @@ static int fts_build_init(struct fts_search_context *fctx)
 		/* no new messages */
 		return 0;
 	}
+	fctx->first_nonindexed_seq = seqset.seq1;
 
-	build = fts_backend_build_init(backend, &last_uid_locked);
+	if (fctx->best_arg->type == SEARCH_HEADER) {
+		/* we're not updating the index just for header lookups */
+		return 0;
+	}
+
+	if (fts_backend_build_init(backend, &last_uid_locked, &build) < 0)
+		return -1;
 	if (last_uid != last_uid_locked) {
 		/* changed, need to get again the sequences */
 		i_assert(last_uid < last_uid_locked);
@@ -257,7 +225,7 @@ static int fts_build_init(struct fts_search_context *fctx)
 				 &seqset.seq1, &seqset.seq2);
 		if (seqset.seq1 == 0) {
 			/* no new messages */
-			(void)fts_backend_build_deinit(build);
+			(void)fts_backend_build_deinit(&build);
 			return 0;
 		}
 	}
@@ -276,16 +244,19 @@ static int fts_build_init(struct fts_search_context *fctx)
 	return 0;
 }
 
-static int fts_build_deinit(struct fts_storage_build_context *ctx)
+static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 {
+	struct fts_storage_build_context *ctx = *_ctx;
 	struct mailbox *box = ctx->mail->transaction->box;
 	int ret = 0;
+
+	*_ctx = NULL;
 
 	if (mailbox_search_deinit(&ctx->search_ctx) < 0)
 		ret = -1;
 	mail_free(&ctx->mail);
 
-	if (fts_backend_build_deinit(ctx->build) < 0)
+	if (fts_backend_build_deinit(&ctx->build) < 0)
 		ret = -1;
 
 	if (ioloop_time - ctx->search_start_time.tv_sec >=
@@ -343,7 +314,7 @@ static int fts_build_more(struct fts_storage_build_context *ctx)
 
 	while (mailbox_search_next(ctx->search_ctx, ctx->mail) > 0) {
 		t_push();
-		ret = fts_build_mail(ctx);
+		ret = fts_build_mail(ctx, ctx->mail->uid);
 		t_pop();
 
 		if (ret < 0)
@@ -356,206 +327,27 @@ static int fts_build_more(struct fts_storage_build_context *ctx)
 	return 1;
 }
 
-static void fts_search_filter_args(struct fts_search_context *fctx,
-				   struct mail_search_arg *args,
-				   ARRAY_TYPE(seq_range) *uid_result)
-{
-	const char *key;
-	enum fts_lookup_flags flags;
-
-	for (; args != NULL; args = args->next) {
-		switch (args->type) {
-		case SEARCH_BODY_FAST:
-		case SEARCH_TEXT_FAST:
-			if ((fctx->backend->flags &
-			     FTS_BACKEND_FLAG_EXACT_LOOKUPS) == 0)
-				break;
-			/* fall through */
-		case SEARCH_BODY:
-		case SEARCH_TEXT:
-		case SEARCH_HEADER:
-			if (args == fctx->best_arg) {
-				/* already handled this one */
-				break;
-			}
-			if (args->not &&
-			    (fctx->backend->flags &
-			     FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) == 0) {
-				/* can't optimize this */
-				break;
-			}
-
-			key = args->value.str;
-			if (*key == '\0') {
-				i_assert(args->type == SEARCH_HEADER);
-
-				/* we're only checking the existence
-				   of the header. */
-				key = args->hdr_field_name;
-			}
-
-			flags = FTS_LOOKUP_FLAG_BODY;
-			if (args->type == SEARCH_TEXT_FAST ||
-			    args->type == SEARCH_TEXT)
-				flags |= FTS_LOOKUP_FLAG_HEADERS;
-			if (args->not)
-				flags |= FTS_LOOKUP_FLAG_INVERT;
-			if (fts_backend_filter(fctx->backend, flags, key,
-					       uid_result) < 0) {
-				/* failed, but we already have limited
-				   the search, so just ignore this */
-				break;
-			}
-			if (args->type != SEARCH_HEADER &&
-			    (fctx->backend->flags &
-			     FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) != 0) {
-				args->match_always = TRUE;
-				args->result = 1;
-			}
-			break;
-		case SEARCH_OR:
-		case SEARCH_SUB:
-			fts_search_filter_args(fctx, args->value.subargs,
-					       uid_result);
-			break;
-		default:
-			break;
-		}
-	}
-}
-
-static void fts_search_init(struct mailbox *box,
-			    struct fts_search_context *fctx)
-{
-	struct fts_backend *backend = fctx->backend;
-	enum fts_lookup_flags flags;
-	const char *key;
-	ARRAY_TYPE(seq_range) uid_result;
-
-	if (fts_backend_lock(backend) <= 0)
-		return;
-	fctx->locked = TRUE;
-
-	key = fctx->best_arg->value.str;
-	if (*key == '\0') {
-		i_assert(fctx->best_arg->type == SEARCH_HEADER);
-
-		/* we're only checking the existence
-		   of the header. */
-		flags = FTS_LOOKUP_FLAG_HEADERS;
-		key = fctx->best_arg->hdr_field_name;
-	} else {
-		flags = FTS_LOOKUP_FLAG_BODY;
-		if (fctx->best_arg->type == SEARCH_TEXT_FAST ||
-		    fctx->best_arg->type == SEARCH_TEXT)
-			flags |= FTS_LOOKUP_FLAG_HEADERS;
-	}
-	if (fctx->best_arg->not)
-		flags |= FTS_LOOKUP_FLAG_INVERT;
-
-	i_array_init(&uid_result, 64);
-	if (fts_backend_lookup(backend, flags, key, &uid_result) < 0) {
-		/* failed, fallback to reading everything */
-		array_free(&uid_result);
-		return;
-	}
-
-	if ((backend->flags & FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) != 0) {
-		fctx->best_arg->match_always = TRUE;
-		fctx->best_arg->result = 1;
-	}
-
-	fts_search_filter_args(fctx, fctx->args, &uid_result);
-
-	uid_range_to_seq(box, &uid_result, &fctx->result);
-	array_free(&uid_result);
-}
-
-static bool arg_is_better(const struct mail_search_arg *new_arg,
-			  const struct mail_search_arg *old_arg)
-{
-	if (old_arg == NULL)
-		return TRUE;
-	if (new_arg == NULL)
-		return FALSE;
-
-	if (old_arg->not && !new_arg->not)
-		return TRUE;
-	if (!old_arg->not && new_arg->not)
-		return FALSE;
-
-	/* prefer not to use headers. they have a larger possibility of
-	   having lots of identical strings */
-	if (old_arg->type == SEARCH_HEADER)
-		return TRUE;
-	else if (new_arg->type == SEARCH_HEADER)
-		return FALSE;
-
-	return strlen(new_arg->value.str) > strlen(old_arg->value.str);
-}
-
-static void fts_search_args_check(struct mail_search_arg *args,
-				  bool *have_fast_r, bool *have_exact_r,
-				  struct mail_search_arg **best_fast_arg,
-				  struct mail_search_arg **best_exact_arg)
-{
-	for (; args != NULL; args = args->next) {
-		switch (args->type) {
-		case SEARCH_BODY_FAST:
-		case SEARCH_TEXT_FAST:
-			if (*args->value.str == '\0') {
-				/* this matches everything */
-				args->match_always = TRUE;
-				args->result = 1;
-				break;
-			}
-			if (arg_is_better(args, *best_fast_arg)) {
-				*best_fast_arg = args;
-				*have_fast_r = TRUE;
-			}
-			break;
-		case SEARCH_BODY:
-		case SEARCH_TEXT:
-			if (*args->value.str == '\0') {
-				/* this matches everything */
-				args->match_always = TRUE;
-				args->result = 1;
-				break;
-			}
-		case SEARCH_HEADER:
-			if (arg_is_better(args, *best_exact_arg)) {
-				*best_exact_arg = args;
-				*have_exact_r = TRUE;
-			}
-			break;
-		case SEARCH_OR:
-		case SEARCH_SUB:
-			fts_search_args_check(args->value.subargs,
-					      have_fast_r, have_exact_r,
-					      best_fast_arg, best_exact_arg);
-			break;
-		default:
-			break;
-		}
-	}
-}
-
 static bool fts_try_build_init(struct fts_search_context *fctx)
 {
-	if (fctx->backend == NULL) {
+	if (fctx->build_backend == NULL) {
 		fctx->build_initialized = TRUE;
 		return TRUE;
 	}
 
-	if (fts_backend_is_building(fctx->backend))
+	if (fts_backend_is_building(fctx->build_backend)) {
+		/* this process is already building the indexes */
 		return FALSE;
+	}
 	fctx->build_initialized = TRUE;
 
-	if (fts_build_init(fctx) < 0)
-		fctx->backend = NULL;
-	else if (fctx->build_ctx == NULL) {
+	if (fts_build_init(fctx) < 0) {
+		fctx->build_backend = NULL;
+		return TRUE;
+	}
+
+	if (fctx->build_ctx == NULL) {
 		/* the index was up to date */
-		fts_search_init(fctx->t->box, fctx);
+		fts_search_lookup(fctx);
 	}
 	return TRUE;
 }
@@ -568,42 +360,21 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
 	struct mail_search_context *ctx;
 	struct fts_search_context *fctx;
-	struct mail_search_arg *best_fast_arg, *best_exact_arg;
-	bool have_fast, have_exact;
 
 	ctx = fbox->module_ctx.super.
 		search_init(t, charset, args, sort_program);
 
 	fctx = i_new(struct fts_search_context, 1);
+	fctx->fbox = fbox;
 	fctx->t = t;
 	fctx->args = args;
 	MODULE_CONTEXT_SET(ctx, fts_storage_module, fctx);
 
-	if (fbox->backend_exact == NULL && fbox->backend_fast == NULL)
+	if (fbox->backend_substr == NULL && fbox->backend_fast == NULL)
 		return ctx;
 
-	have_fast = have_exact = FALSE;
-	best_fast_arg = best_exact_arg = NULL;
-	fts_search_args_check(args, &have_fast, &have_exact,
-			      &best_fast_arg, &best_exact_arg);
-	if (have_fast && fbox->backend_fast != NULL) {
-		/* use fast backend whenever possible */
-		fctx->backend = fbox->backend_fast;
-		fctx->best_arg = best_fast_arg;
-	} else if (have_exact || have_fast) {
-		fctx->backend = fbox->backend_exact;
-		fctx->best_arg = arg_is_better(best_exact_arg, best_fast_arg) ?
-			best_exact_arg : best_fast_arg;
-	}
-
-	if (fctx->best_arg != NULL && fctx->best_arg->not &&
-	    (fctx->backend->flags & FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) == 0) {
-		/* NOTs can't be handled without definite lookups */
-		fctx->backend = NULL;
-		fctx->best_arg = NULL;
-	}
-
-	fts_try_build_init(fctx);
+	fts_search_analyze(fctx);
+	(void)fts_try_build_init(fctx);
 	return ctx;
 }
 
@@ -615,6 +386,8 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	int ret;
 
 	if (!fctx->build_initialized) {
+		/* we're still waiting for this process (but another command)
+		   to finish building the indexes */
 		if (!fts_try_build_init(fctx)) {
 			*tryagain_r = TRUE;
 			return 0;
@@ -622,7 +395,7 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	}
 
 	if (fctx->build_ctx != NULL) {
-		/* still building the index */
+		/* this command is still building the indexes */
 		ret = fts_build_more(fctx->build_ctx);
 		if (ret == 0) {
 			*tryagain_r = TRUE;
@@ -630,53 +403,117 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		}
 
 		/* finished / error */
-		fts_build_deinit(fctx->build_ctx);
-		fctx->build_ctx = NULL;
-
+		fts_build_deinit(&fctx->build_ctx);
 		if (ret > 0)
-			fts_search_init(ctx->transaction->box, fctx);
+			fts_search_lookup(fctx);
 	}
+
+	/* if we're here, the indexes are either built or they're not used */
 	return fbox->module_ctx.super.
 		search_next_nonblock(ctx, mail, tryagain_r);
+}
 
+static void
+fts_mailbox_search_args_definite_set(struct fts_search_context *fctx)
+{
+	struct mail_search_arg *arg;
+
+	for (arg = fctx->args; arg != NULL; arg = arg->next) {
+		switch (arg->type) {
+		case SEARCH_TEXT:
+		case SEARCH_BODY:
+		case SEARCH_BODY_FAST:
+		case SEARCH_TEXT_FAST:
+			arg->result = 1;
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+static int
+search_next_update_seq_finish(struct mail_search_context *ctx,
+			      struct fts_search_context *fctx)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
+
+	if (fctx->first_nonindexed_seq == 0) {
+		/* everything was indexed. we're done */
+		return 0;
+	}
+	if (ctx->seq < fctx->first_nonindexed_seq) {
+		/* scan the non-indexed messages */
+		fctx->seqs_set = FALSE;
+		ctx->seq = fctx->first_nonindexed_seq - 1;
+	}
+	return fbox->module_ctx.super.search_next_update_seq(ctx);
 }
 
 static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
-	struct seq_range *range;
-	unsigned int count;
+	struct seq_range *def_range, *maybe_range, *range;
+	unsigned int def_count, maybe_count;
 	uint32_t wanted_seq;
+	bool use_maybe;
 	int ret;
 
-	if (!array_is_created(&fctx->result))
+	if (!fctx->seqs_set)
 		return fbox->module_ctx.super.search_next_update_seq(ctx);
 
+	/* fts_search_lookup() was called successfully */
 	do {
-		range = array_get_modifiable(&fctx->result, &count);
-		while (fctx->result_pos < count &&
-		       ctx->seq > range[fctx->result_pos].seq2)
-			fctx->result_pos++;
+		def_range = array_get_modifiable(&fctx->definite_seqs,
+						 &def_count);
+		maybe_range = array_get_modifiable(&fctx->maybe_seqs,
+						   &maybe_count);
+		/* if we're ahead of current positions, skip them */
+		while (fctx->definite_idx < def_count &&
+		       ctx->seq > def_range[fctx->definite_idx].seq2)
+			fctx->definite_idx++;
+		while (fctx->maybe_idx < maybe_count &&
+		       ctx->seq > maybe_range[fctx->maybe_idx].seq2)
+			fctx->maybe_idx++;
 
-		if (fctx->result_pos == count)
-			return 0;
-
-		if (ctx->seq > range[fctx->result_pos].seq1)
-			range[fctx->result_pos].seq1 = ctx->seq+1;
-		else {
-			ctx->seq = range[fctx->result_pos].seq1 - 1;
-
-			if (fctx->result_pos < count &&
-			    ctx->seq + 1 == range[fctx->result_pos].seq2)
-				fctx->result_pos++;
-			else
-				range[fctx->result_pos].seq1++;
+		/* use whichever is lower of definite/maybe */
+		if (fctx->definite_idx == def_count) {
+			if (fctx->maybe_idx == maybe_count)
+				return search_next_update_seq_finish(ctx, fctx);
+			use_maybe = TRUE;
+		} else if (fctx->maybe_idx == maybe_count) {
+			use_maybe = FALSE;
+		} else {
+			use_maybe = maybe_range[fctx->maybe_idx].seq1 <
+				def_range[fctx->definite_idx].seq2;
 		}
 
+		if (use_maybe)
+			range = maybe_range + fctx->maybe_idx;
+		else
+			range = def_range + fctx->definite_idx;
+
+		i_assert(range->seq1 <= range->seq2);
+		if (ctx->seq > range->seq1) {
+			/* current sequence is already larger than where
+			   range begins, so use the current sequence. */
+			range->seq1 = ctx->seq+1;
+		} else {
+			ctx->seq = range->seq1 - 1;
+			if (++range->seq1 > range->seq2)
+				range->seq2 = 0;
+		}
+
+		/* ctx->seq points to previous sequence we want */
 		wanted_seq = ctx->seq + 1;
 		ret = fbox->module_ctx.super.search_next_update_seq(ctx);
 	} while (ret > 0 && wanted_seq != ctx->seq);
+
+	if (!use_maybe) {
+		/* we have definite results, update args */
+		fts_mailbox_search_args_definite_set(fctx);
+	}
 
 	return ret;
 }
@@ -688,14 +525,13 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 
 	if (fctx->build_ctx != NULL) {
 		/* the search was cancelled */
-		fts_build_deinit(fctx->build_ctx);
+		fts_build_deinit(&fctx->build_ctx);
 	}
 
-	if (fctx->locked)
-		fts_backend_unlock(fctx->backend);
-
-	if (array_is_created(&fctx->result))
-		array_free(&fctx->result);
+	if (array_is_created(&fctx->definite_seqs))
+		array_free(&fctx->definite_seqs);
+	if (array_is_created(&fctx->maybe_seqs))
+		array_free(&fctx->maybe_seqs);
 	i_free(fctx);
 	return fbox->module_ctx.super.search_deinit(ctx);
 }
@@ -708,8 +544,8 @@ static void fts_mail_expunge(struct mail *_mail)
 	struct fts_transaction_context *ft = FTS_CONTEXT(_mail->transaction);
 
 	ft->expunges = TRUE;
-	if (fbox->backend_exact != NULL)
-		fts_backend_expunge(fbox->backend_exact, _mail);
+	if (fbox->backend_substr != NULL)
+		fts_backend_expunge(fbox->backend_substr, _mail);
 	if (fbox->backend_fast != NULL)
 		fts_backend_expunge(fbox->backend_fast, _mail);
 
@@ -728,7 +564,7 @@ fts_mail_alloc(struct mailbox_transaction_context *t,
 
 	_mail = fbox->module_ctx.super.
 		mail_alloc(t, wanted_fields, wanted_headers);
-	if (fbox->backend_exact != NULL || fbox->backend_fast != NULL) {
+	if (fbox->backend_substr != NULL || fbox->backend_fast != NULL) {
 		mail = (struct mail_private *)_mail;
 
 		fmail = p_new(mail->pool, union mail_module_context, 1);
@@ -752,12 +588,12 @@ static void fts_box_backends_init(struct mailbox *box)
 			continue;
 
 		if ((backend->flags &
-		     FTS_BACKEND_FLAG_EXACT_LOOKUPS) != 0) {
-			if (fbox->backend_exact != NULL) {
-				i_fatal("fts: duplicate exact backend: %s",
+		     FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS) != 0) {
+			if (fbox->backend_substr != NULL) {
+				i_fatal("fts: duplicate substring backend: %s",
 					*tmp);
 			}
-			fbox->backend_exact = backend;
+			fbox->backend_substr = backend;
 		} else {
 			if (fbox->backend_fast != NULL) {
 				i_fatal("fts: duplicate fast backend: %s",
@@ -791,6 +627,14 @@ fts_transaction_begin(struct mailbox *box,
 }
 
 static void
+fts_storage_build_context_deinit(struct fts_storage_build_context *build_ctx)
+{
+	(void)fts_backend_build_deinit(&build_ctx->build);
+	str_free(&build_ctx->headers);
+	i_free(build_ctx);
+}
+
+static void
 fts_transaction_finish(struct mailbox *box, struct fts_transaction_context *ft,
 		       bool committed)
 {
@@ -811,6 +655,13 @@ static void fts_transaction_rollback(struct mailbox_transaction_context *t)
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
 	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 
+	if (ft->build_ctx != NULL) {
+		fts_storage_build_context_deinit(ft->build_ctx);
+		ft->build_ctx = NULL;
+	}
+	if (ft->free_mail)
+		mail_free(&ft->mail);
+
 	fbox->module_ctx.super.transaction_rollback(t);
 	fts_transaction_finish(box, ft, FALSE);
 }
@@ -824,6 +675,13 @@ static int fts_transaction_commit(struct mailbox_transaction_context *t,
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
 	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 	int ret;
+
+	if (ft->build_ctx != NULL) {
+		fts_storage_build_context_deinit(ft->build_ctx);
+		ft->build_ctx = NULL;
+	}
+	if (ft->free_mail)
+		mail_free(&ft->mail);
 
 	ret = fbox->module_ctx.super.transaction_commit(t,
 							uid_validity_r,

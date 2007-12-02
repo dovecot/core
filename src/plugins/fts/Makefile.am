@@ -12,12 +12,14 @@ module_LTLIBRARIES = \
 lib20_fts_plugin_la_SOURCES = \
 	fts-api.c \
 	fts-plugin.c \
+	fts-search.c \
 	fts-storage.c
 
 noinst_HEADERS = \
 	fts-api.h \
 	fts-api-private.h \
-	fts-plugin.h
+	fts-plugin.h \
+	fts-storage.h
 
 install-exec-local:
 	for d in imap lda; do \

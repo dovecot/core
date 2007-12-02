@@ -9,9 +9,8 @@ struct fts_backend_vfuncs {
 
 	int (*get_last_uid)(struct fts_backend *backend, uint32_t *last_uid_r);
 
-	struct fts_backend_build_context *
-		(*build_init)(struct fts_backend *backend,
-			      uint32_t *last_uid_r);
+	int (*build_init)(struct fts_backend *backend, uint32_t *last_uid_r,
+			  struct fts_backend_build_context **ctx_r);
 	int (*build_more)(struct fts_backend_build_context *ctx, uint32_t uid,
 			  const unsigned char *data, size_t size, bool headers);
 	int (*build_deinit)(struct fts_backend_build_context *ctx);
@@ -23,21 +22,21 @@ struct fts_backend_vfuncs {
 	int (*lock)(struct fts_backend *backend);
 	void (*unlock)(struct fts_backend *backend);
 
-	int (*lookup)(struct fts_backend *backend, enum fts_lookup_flags flags,
-		      const char *key, ARRAY_TYPE(seq_range) *result);
-	int (*filter)(struct fts_backend *backend, enum fts_lookup_flags flags,
-		      const char *key, ARRAY_TYPE(seq_range) *result);
+	int (*lookup)(struct fts_backend *backend, const char *key, 
+		      enum fts_lookup_flags flags,
+		      ARRAY_TYPE(seq_range) *definite_uids,
+		      ARRAY_TYPE(seq_range) *maybe_uids);
+	int (*filter)(struct fts_backend *backend, const char *key,
+		      enum fts_lookup_flags flags,
+		      ARRAY_TYPE(seq_range) *definite_uids,
+		      ARRAY_TYPE(seq_range) *maybe_uids);
 };
 
 enum fts_backend_flags {
-	/* If set, lookup() and filter() are trusted to return only
-	   actual matches. Otherwise the returned mails are opened and
-	   searched. */
-	FTS_BACKEND_FLAG_DEFINITE_LOOKUPS	= 0x01,
-	/* If set, the backend is used also for TEXT and BODY search
+	/* If set, the backend is used for TEXT and BODY search
 	   optimizations. Otherwise only TEXT_FAST and BODY_FAST are
 	   optimized. */
-	FTS_BACKEND_FLAG_EXACT_LOOKUPS		= 0x02
+	FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS	= 0x01
 };
 
 struct fts_backend {
@@ -46,6 +45,7 @@ struct fts_backend {
 
 	struct fts_backend_vfuncs v;
 
+	unsigned int locked:1;
 	unsigned int building:1;
 };
 

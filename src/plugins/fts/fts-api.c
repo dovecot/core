@@ -50,8 +50,11 @@ fts_backend_init(const char *backend_name, struct mailbox *box)
 	return NULL;
 }
 
-void fts_backend_deinit(struct fts_backend *backend)
+void fts_backend_deinit(struct fts_backend **_backend)
 {
+	struct fts_backend *backend = *_backend;
+
+	*_backend = NULL;
 	backend->v.deinit(backend);
 }
 
@@ -60,14 +63,14 @@ int fts_backend_get_last_uid(struct fts_backend *backend, uint32_t *last_uid_r)
 	return backend->v.get_last_uid(backend, last_uid_r);
 }
 
-struct fts_backend_build_context *
-fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r)
+int fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
+			   struct fts_backend_build_context **ctx_r)
 {
 	i_assert(!backend->building);
 
 	backend->building = TRUE;
 
-	return backend->v.build_init(backend, last_uid_r);
+	return backend->v.build_init(backend, last_uid_r, ctx_r);
 }
 
 int fts_backend_build_more(struct fts_backend_build_context *ctx, uint32_t uid,
@@ -76,8 +79,11 @@ int fts_backend_build_more(struct fts_backend_build_context *ctx, uint32_t uid,
 	return ctx->backend->v.build_more(ctx, uid, data, size, headers);
 }
 
-int fts_backend_build_deinit(struct fts_backend_build_context *ctx)
+int fts_backend_build_deinit(struct fts_backend_build_context **_ctx)
 {
+	struct fts_backend_build_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	ctx->backend->building = FALSE;
 	return ctx->backend->v.build_deinit(ctx);
 }
@@ -100,64 +106,129 @@ void fts_backend_expunge_finish(struct fts_backend *backend,
 
 int fts_backend_lock(struct fts_backend *backend)
 {
-	return backend->v.lock(backend);
+	int ret;
+
+	i_assert(!backend->locked);
+
+	ret = backend->v.lock(backend);
+	if (ret > 0)
+		backend->locked = TRUE;
+	return ret;
 }
 
 void fts_backend_unlock(struct fts_backend *backend)
 {
+	i_assert(backend->locked);
+
+	backend->locked = FALSE;
 	backend->v.unlock(backend);
 }
 
-int fts_backend_lookup(struct fts_backend *backend, enum fts_lookup_flags flags,
-		       const char *key, ARRAY_TYPE(seq_range) *result)
+static void fts_lookup_invert(ARRAY_TYPE(seq_range) *definite_uids,
+			      const ARRAY_TYPE(seq_range) *maybe_uids)
 {
-	if (backend->v.lookup(backend, flags & ~FTS_LOOKUP_FLAG_INVERT,
-			      key, result) < 0)
-		return -1;
+	/* we'll begin by inverting definite UIDs */
+	seq_range_array_invert(definite_uids, 1, (uint32_t)-1);
+
+	/* from that list remove UIDs in the maybe list.
+	   the maybe list itself isn't touched. */
+	(void)seq_range_array_remove_seq_range(definite_uids, maybe_uids);
+}
+
+int fts_backend_lookup(struct fts_backend *backend, const char *key,
+		       enum fts_lookup_flags flags,
+		       ARRAY_TYPE(seq_range) *definite_uids,
+		       ARRAY_TYPE(seq_range) *maybe_uids)
+{
+	int ret;
+
+	ret = backend->v.lookup(backend, key, flags & ~FTS_LOOKUP_FLAG_INVERT,
+				definite_uids, maybe_uids);
+	if (ret <= 0) {
+		if (unlikely(ret < 0))
+			return -1;
+		i_assert(array_count(definite_uids) == 0 &&
+			 array_count(maybe_uids) == 0);
+	} else {
+		i_assert(array_count(definite_uids) > 0 ||
+			 array_count(maybe_uids) > 0);
+	}
+
 	if ((flags & FTS_LOOKUP_FLAG_INVERT) != 0)
-		seq_range_array_invert(result, 1, (uint32_t)-1);
+		fts_lookup_invert(definite_uids, maybe_uids);
 	return 0;
 }
 
-int fts_backend_filter(struct fts_backend *backend, enum fts_lookup_flags flags,
-		       const char *key, ARRAY_TYPE(seq_range) *result)
+static void
+fts_merge_maybies(ARRAY_TYPE(seq_range) *dest_maybe,
+		  const ARRAY_TYPE(seq_range) *dest_definite,
+		  const ARRAY_TYPE(seq_range) *src_maybe,
+		  const ARRAY_TYPE(seq_range) *src_definite)
 {
-	ARRAY_TYPE(seq_range) tmp_result;
-	int ret;
+	const struct seq_range *dest, *src;
+	unsigned int i, dest_count, src_count;
+	uint32_t seq, seq2;
+	bool removals;
 
-	if (backend->v.filter != NULL)
-		return backend->v.filter(backend, flags, key, result);
+	/* add/leave to dest_maybe if at least one list has maybe,
+	   and no lists have none */
+	dest = array_get(dest_maybe, &dest_count);
+	src = array_get(dest_maybe, &src_count);
 
-	/* do this ourself */
-	i_array_init(&tmp_result, 64);
-	ret = fts_backend_lookup(backend, flags, key, &tmp_result);
-	if (ret == 0) {
-		const struct seq_range *range;
-		unsigned int i, count;
-		uint32_t next_seq = 1;
-
-		if ((flags & FTS_LOOKUP_FLAG_INVERT) != 0) {
-			/* if the lookups aren't definite, we can't just
-			   invert the result. */
-			i_assert((backend->flags &
-				  FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) != 0);
-			seq_range_array_invert(&tmp_result, 1, (uint32_t)-1);
-		}
-		range = array_get(&tmp_result, &count);
-		for (i = 0; i < count; i++) {
-			if (next_seq != range[i].seq1) {
-				seq_range_array_remove_range(result, next_seq,
-							     range[i].seq1 - 1);
+	/* drop unwanted uids */
+	for (i = 0; i < dest_count; ) {
+		seq2 = dest[i].seq2;
+		removals = FALSE;
+		for (seq = dest[i].seq1; seq <= seq2; seq++) {
+			if (!seq_range_exists(src_definite, seq) &&
+			    !seq_range_exists(src_maybe, seq)) {
+				if (seq_range_array_remove(dest_maybe, seq))
+					removals = TRUE;
 			}
-			next_seq = range[i].seq2 + 1;
 		}
+		if (!removals)
+			i++;
+	}
 
-		range = array_get(result, &count);
-		if (count > 0) {
-			seq_range_array_remove_range(result, next_seq,
-						     range[count-1].seq2);
+	/* add new uids */
+	for (i = 0; i < src_count; i++) {
+		for (seq = src[i].seq1; seq <= src[i].seq2; seq++) {
+			if (seq_range_exists(dest_definite, seq))
+				seq_range_array_add(dest_maybe, 0, seq);
 		}
 	}
-	array_free(&tmp_result);
+}
+
+int fts_backend_filter(struct fts_backend *backend, const char *key,
+		       enum fts_lookup_flags flags,
+		       ARRAY_TYPE(seq_range) *definite_uids,
+		       ARRAY_TYPE(seq_range) *maybe_uids)
+{
+	ARRAY_TYPE(seq_range) tmp_definite, tmp_maybe;
+	int ret;
+
+	if (backend->v.filter != NULL) {
+		return backend->v.filter(backend, key, flags,
+					 definite_uids, maybe_uids);
+	}
+
+	/* do this ourself */
+	i_array_init(&tmp_definite, 64);
+	i_array_init(&tmp_maybe, 64);
+	ret = fts_backend_lookup(backend, key, flags,
+				 &tmp_definite, &tmp_maybe);
+	if (ret < 0) {
+		array_clear(definite_uids);
+		array_clear(maybe_uids);
+	} else {
+		fts_merge_maybies(maybe_uids, definite_uids,
+				  &tmp_maybe, &tmp_definite);
+		/* keep only what exists in both lists. the rest is in
+		   maybies or not wanted */
+		seq_range_array_remove_invert_range(definite_uids,
+						    &tmp_definite);
+	}
+	array_free(&tmp_maybe);
+	array_free(&tmp_definite);
 	return ret;
 }

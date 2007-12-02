@@ -1,63 +1,64 @@
 #ifndef SQUAT_UIDLIST_H
 #define SQUAT_UIDLIST_H
 
-#include "seq-range-array.h"
-
 struct squat_trie;
-struct squat_uidlist;
+struct squat_uidlist_rebuild_context;
 
-struct squat_uidlist *
-squat_uidlist_init(struct squat_trie *trie, const char *path,
-		   uint32_t uidvalidity, bool mmap_disable);
+struct squat_uidlist_file_header {
+	uint32_t indexid;
+	uint32_t used_file_size;
+	uint32_t block_list_offset;
+	uint32_t count, link_count;
+};
+
+/*
+   uidlist file:
+
+   struct uidlist_header;
+
+   // size includes both prev_offset and uidlist
+   packed (size << 2) | packed_flags; // UIDLIST_PACKED_FLAG_*
+   [packed prev_offset;] // If UIDLIST_PACKED_FLAG_BEGINS_WITH_OFFSET is set
+   if (UIDLIST_PACKED_FLAG_BITMASK) {
+     packed base_uid; // first UID in uidlist
+     uint8_t bitmask[]; // first bit is base_uid+1
+   } else {
+     // FIXME: packed range
+   }
+*/
+
+#define UIDLIST_IS_SINGLETON(idx) \
+	(((idx) & 1) != 0 || (idx) < (0x100 << 1))
+
+struct squat_uidlist *squat_uidlist_init(struct squat_trie *trie);
 void squat_uidlist_deinit(struct squat_uidlist *uidlist);
 
-/* Make sure that we've the latest uidlist file fully mapped. */
-int squat_uidlist_refresh(struct squat_uidlist *uidlist);
+int squat_uidlist_open(struct squat_uidlist *uidlist);
+void squat_uidlist_close(struct squat_uidlist *uidlist);
 
-/* Get the last UID added to the file. */
-int squat_uidlist_get_last_uid(struct squat_uidlist *uidlist, uint32_t *uid_r);
+int squat_uidlist_build_init(struct squat_uidlist *uidlist);
+uint32_t squat_uidlist_build_add_uid(struct squat_uidlist *uidlist,
+				     uint32_t uid_list_idx, uint32_t uid);
+int squat_uidlist_build_deinit(struct squat_uidlist *uidlist);
 
-/* Add new UID to given UID list. The uid_list_idx is updated to contain the
-   new list index. It must be put through _finish_list() before it's actually
-   written to disk. */
-int squat_uidlist_add(struct squat_uidlist *uidlist, uint32_t *uid_list_idx,
-		      uint32_t uid);
-/* Write UID list into disk. The uid_list_idx is updated to contain the new
-   permanent index for it. */
-int squat_uidlist_finish_list(struct squat_uidlist *uidlist,
-			      uint32_t *uid_list_idx);
-int squat_uidlist_flush(struct squat_uidlist *uidlist, uint32_t uid_validity);
-/* Returns TRUE if uidlist should be compressed. current_message_count can be
-   (unsigned int)-1 if you don't want include it in the check. */
-bool squat_uidlist_need_compress(struct squat_uidlist *uidlist,
-				 unsigned int current_message_count);
-/* Mark the uidlist containing expunged messages. update_disk=FALSE should be
-   done when the uidlist is going to be compressed and this function only tells
-   the compression to check for the expunged messages. */
-int squat_uidlist_mark_having_expunges(struct squat_uidlist *uidlist,
-				       bool update_disk);
+int squat_uidlist_rebuild_init(struct squat_uidlist *uidlist, bool finish,
+			       struct squat_uidlist_rebuild_context **ctx_r);
+void squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
+				const ARRAY_TYPE(uint32_t) *uids);
+int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
+				 bool cancel);
 
-/* Compress the uidlist file. existing_uids may be NULL if they're not known. */
-struct squat_uidlist_compress_ctx *
-squat_uidlist_compress_begin(struct squat_uidlist *uidlist,
-			     const ARRAY_TYPE(seq_range) *existing_uids);
-int squat_uidlist_compress_next(struct squat_uidlist_compress_ctx *ctx,
-				uint32_t *uid_list_idx);
-void squat_uidlist_compress_rollback(struct squat_uidlist_compress_ctx **ctx);
-int squat_uidlist_compress_commit(struct squat_uidlist_compress_ctx **ctx);
-
-/* Returns UIDs for a given UID list index. */
 int squat_uidlist_get(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
-		      ARRAY_TYPE(seq_range) *result);
-/* Filter out UIDs which don't appear in the given UID list from the given
-   result array */
+		      ARRAY_TYPE(uint32_t) *uids);
+uint32_t squat_uidlist_singleton_last_uid(uint32_t uid_list_idx);
+
+int squat_uidlist_get_seqrange(struct squat_uidlist *uidlist,
+			       uint32_t uid_list_idx,
+			       ARRAY_TYPE(seq_range) *seq_range_arr);
 int squat_uidlist_filter(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
-			 ARRAY_TYPE(seq_range) *result);
+			 ARRAY_TYPE(seq_range) *uids);
 
-/* Returns TRUE when uidlist has used so much memory that it'd prefer to
-   get flushed. */
-bool squat_uidlist_want_flush(struct squat_uidlist *uidlist);
-
+void squat_uidlist_delete(struct squat_uidlist *uidlist);
 size_t squat_uidlist_mem_used(struct squat_uidlist *uidlist,
 			      unsigned int *count_r);
 

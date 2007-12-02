@@ -101,23 +101,26 @@ fts_backend_lucene_get_last_uid(struct fts_backend *_backend,
 	return lucene_index_get_last_uid(backend->lstorage->index, last_uid_r);
 }
 
-static struct fts_backend_build_context *
-fts_backend_lucene_build_init(struct fts_backend *_backend, uint32_t *last_uid_r)
+static int
+fts_backend_lucene_build_init(struct fts_backend *_backend,
+			      uint32_t *last_uid_r,
+			      struct fts_backend_build_context **ctx_r)
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 	struct fts_backend_build_context *ctx;
 
 	fts_backend_select(backend);
+	if (lucene_index_build_init(backend->lstorage->index,
+				    &backend->last_uid) < 0)
+		return -1;
 
 	ctx = i_new(struct fts_backend_build_context, 1);
 	ctx->backend = _backend;
-	if (lucene_index_build_init(backend->lstorage->index,
-				    &backend->last_uid) < 0)
-		ctx->failed = TRUE;
 
 	*last_uid_r = backend->last_uid;
-	return ctx;
+	*ctx_r = ctx;
+	return 0;
 }
 
 static int
@@ -182,22 +185,24 @@ fts_backend_lucene_unlock(struct fts_backend *_backend ATTR_UNUSED)
 
 static int
 fts_backend_lucene_lookup(struct fts_backend *_backend,
-			  enum fts_lookup_flags flags,
-			  const char *key, ARRAY_TYPE(seq_range) *result)
+			  const char *key, enum fts_lookup_flags flags,
+			  ARRAY_TYPE(seq_range) *definite_uids,
+			  ARRAY_TYPE(seq_range) *maybe_uids)
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 
 	i_assert((flags & FTS_LOOKUP_FLAG_INVERT) == 0);
 
+	array_clear(maybe_uids);
 	fts_backend_select(backend);
 	return lucene_index_lookup(backend->lstorage->index,
-				   flags, key, result);
+				   flags, key, definite_uids);
 }
 
 struct fts_backend fts_backend_lucene = {
 	MEMBER(name) "lucene",
-	MEMBER(flags) FTS_BACKEND_FLAG_DEFINITE_LOOKUPS,
+	MEMBER(flags) 0,
 
 	{
 		fts_backend_lucene_init,
