@@ -294,7 +294,8 @@ static bool nfs_flush_file_handle_cache_dir(const char *path)
 				  "rmdir(%s) unexpectedly "
 				  "removed the dir. mkdir() failed: %m", path);
 		}
-	} else if (errno == ESTALE || errno == ENOTDIR || errno == ENOTEMPTY) {
+	} else if (errno == ESTALE || errno == ENOTDIR ||
+		   errno == ENOTEMPTY || errno == EEXIST) {
 		/* expected failures */
 	} else if (errno == ENOENT) {
 		return FALSE;
