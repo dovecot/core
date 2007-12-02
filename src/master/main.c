@@ -334,6 +334,9 @@ static void print_build_options(void)
 #ifdef PASSDB_SHADOW 
 		" shadow"
 #endif
+#ifdef PASSDB_SIA
+		" sia"
+#endif
 #ifdef PASSDB_SQL 
 		" sql"
 #endif
