@@ -8,7 +8,7 @@ void str_sanitize_append(string_t *dest, const char *src, size_t max_len)
 {
 	const char *p;
 
-	for (p = src; *p != '\0'; p++) {
+	for (p = src; *p != '\0' && max_len > 0; p++, max_len--) {
 		if (((unsigned char)*p & 0x7f) < 32)
 			break;
 	}
