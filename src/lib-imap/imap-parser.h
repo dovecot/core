@@ -26,7 +26,9 @@ enum imap_parser_flags {
 	/* Don't remove '\' chars from string arguments */
 	IMAP_PARSE_FLAG_NO_UNESCAPE	= 0x02,
 	/* Return literals as IMAP_ARG_LITERAL instead of IMAP_ARG_STRING */
-	IMAP_PARSE_FLAG_LITERAL_TYPE	= 0x04
+	IMAP_PARSE_FLAG_LITERAL_TYPE	= 0x04,
+	/* Don't check if atom contains invalid characters */
+	IMAP_PARSE_FLAG_ATOM_ALLCHARS	= 0x08
 };
 
 enum imap_arg_type {

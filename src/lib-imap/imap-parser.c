@@ -231,15 +231,22 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 
 static int is_valid_atom_char(struct imap_parser *parser, char chr)
 {
+	const char *error;
+
 	if (IS_ATOM_SPECIAL_INPUT((unsigned char)chr)) {
-		parser->error = "Invalid characters in atom";
+		error = "Invalid characters in atom";
 		return FALSE;
 	} else if ((chr & 0x80) != 0) {
-		parser->error = "8bit data in atom";
+		error = "8bit data in atom";
 		return FALSE;
+	} else {
+		return TRUE;
 	}
 
-	return TRUE;
+	if ((parser->flags & IMAP_PARSE_FLAG_ATOM_ALLCHARS) != 0)
+		return TRUE;
+	parser->error = error;
+	return FALSE;
 }
 
 static int imap_parser_read_atom(struct imap_parser *parser,
