@@ -213,6 +213,44 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 	return remove_count;
 }
 
+unsigned int seq_range_array_remove_seq_range(ARRAY_TYPE(seq_range) *dest,
+					      const ARRAY_TYPE(seq_range) *src)
+{
+	unsigned int ret = 0;
+	const struct seq_range *src_range;
+	unsigned int i, count;
+
+	src_range = array_get(src, &count);
+	for (i = 0; i < count; i++) {
+		ret += seq_range_array_remove_range(dest, src_range[i].seq1,
+						    src_range[i].seq2);
+	}
+	return ret;
+}
+
+unsigned int
+seq_range_array_remove_invert_range(ARRAY_TYPE(seq_range) *dest,
+				    const ARRAY_TYPE(seq_range) *src)
+{
+	const struct seq_range *src_range;
+	unsigned int i, count, ret = 0;
+	uint32_t last_seq = 0;
+
+	src_range = array_get(src, &count);
+	for (i = 0; i < count; i++) {
+		if (last_seq + 1 < src_range[i].seq1) {
+			ret += seq_range_array_remove_range(dest, last_seq + 1,
+							src_range[i].seq1 - 1);
+		}
+		last_seq = src_range[i].seq2;
+	}
+	if (last_seq != (uint32_t)-1) {
+		ret += seq_range_array_remove_range(dest, last_seq + 1,
+						    (uint32_t)-1);
+	}
+	return ret;
+}
+
 bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	unsigned int idx;
