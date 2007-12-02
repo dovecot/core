@@ -8,6 +8,7 @@
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
+#include "mail-search.h"
 #include "index/index-storage.h"
 
 #include <stdlib.h>
@@ -614,6 +615,7 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 		    const char *charset, struct mail_search_arg *args,
 		    const enum mail_sort_type *sort_program)
 {
+	mail_search_args_simplify(args);
 	return t->box->v.search_init(t, charset, args, sort_program);
 }
 

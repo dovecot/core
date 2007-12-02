@@ -807,42 +807,6 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 	return *seq1 <= *seq2;
 }
 
-static void search_args_fix_subs(struct mail_search_arg *args, bool parent_and)
-{
-	struct mail_search_arg *sub;
-
-	for (; args != NULL;) {
-		if (args->not && (args->type == SEARCH_SUB ||
-				  args->type == SEARCH_OR)) {
-			/* neg(p and q and ..) == neg(p) or neg(q) or ..
-			   neg(p or q or ..) == neg(p) and neg(q) and .. */
-			args->type = args->type == SEARCH_SUB ?
-				SEARCH_OR : SEARCH_SUB;
-			args->not = FALSE;
-			sub = args->value.subargs;
-			for (; sub != NULL; sub = sub->next)
-				sub->not = !sub->not;
-		}
-
-		if ((args->type == SEARCH_SUB && parent_and) ||
-		    (args->type == SEARCH_OR && !parent_and)) {
-			/* p and (q and ..) == p and q and ..
-			   p or (q or ..) == p or q or .. */
-			sub = args->value.subargs;
-			for (; sub->next != NULL; sub = sub->next) ;
-			sub->next = args->next;
-			*args = *args->value.subargs;
-			continue;
-		}
-
-		if (args->type == SEARCH_SUB || args->type == SEARCH_OR) {
-			search_args_fix_subs(args->value.subargs,
-					     args->type == SEARCH_SUB);
-		}
-		args = args->next;
-	}
-}
-
 static void search_get_seqset(struct index_search_context *ctx,
 			      struct mail_search_arg *args)
 {
@@ -861,7 +825,6 @@ static void search_get_seqset(struct index_search_context *ctx,
 	ctx->seq1 = 1;
 	ctx->seq2 = hdr->messages_count;
 
-	search_args_fix_subs(args, TRUE);
 	search_parse_msgset_args(hdr, args, &ctx->seq1, &ctx->seq2);
 	if (ctx->seq1 == 0) {
 		ctx->seq1 = 1;

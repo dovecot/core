@@ -176,3 +176,45 @@ mail_search_args_analyze(struct mail_search_arg *args,
 	buffer_append(headers, &null, sizeof(const char *));
 	return buffer_get_data(headers, NULL);
 }
+
+static void
+mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
+{
+	struct mail_search_arg *sub;
+
+	for (; args != NULL;) {
+		if (args->not && (args->type == SEARCH_SUB ||
+				  args->type == SEARCH_OR)) {
+			/* neg(p and q and ..) == neg(p) or neg(q) or ..
+			   neg(p or q or ..) == neg(p) and neg(q) and .. */
+			args->type = args->type == SEARCH_SUB ?
+				SEARCH_OR : SEARCH_SUB;
+			args->not = FALSE;
+			sub = args->value.subargs;
+			for (; sub != NULL; sub = sub->next)
+				sub->not = !sub->not;
+		}
+
+		if ((args->type == SEARCH_SUB && parent_and) ||
+		    (args->type == SEARCH_OR && !parent_and)) {
+			/* p and (q and ..) == p and q and ..
+			   p or (q or ..) == p or q or .. */
+			sub = args->value.subargs;
+			for (; sub->next != NULL; sub = sub->next) ;
+			sub->next = args->next;
+			*args = *args->value.subargs;
+			continue;
+		}
+
+		if (args->type == SEARCH_SUB || args->type == SEARCH_OR) {
+			mail_search_args_simplify_sub(args->value.subargs,
+						      args->type == SEARCH_SUB);
+		}
+		args = args->next;
+	}
+}
+
+void mail_search_args_simplify(struct mail_search_arg *args)
+{
+	mail_search_args_simplify_sub(args, TRUE);
+}

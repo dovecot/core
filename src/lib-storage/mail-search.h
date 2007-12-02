@@ -101,4 +101,8 @@ const char *const *
 mail_search_args_analyze(struct mail_search_arg *args,
 			 bool *have_headers, bool *have_body);
 
+/* 1) Change args so that SEARCH_SUB and SEARCH_OR will never have "not" set
+   2) Drop unnecessary nested SEARCH_SUB and SEARCH_ORs */
+void mail_search_args_simplify(struct mail_search_arg *args);
+
 #endif
