@@ -2,7 +2,9 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "seq-range-array.h"
+#include "charset-utf8.h"
 #include "mail-search.h"
 #include "mail-storage-private.h"
 #include "fts-api-private.h"
@@ -47,6 +49,9 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 	struct fts_backend *backend;
 	enum fts_lookup_flags flags = 0;
 	const char *key;
+	string_t *key_utf8;
+	enum charset_result result;
+	int ret;
 
 	switch (arg->type) {
 	case SEARCH_HEADER:
@@ -81,20 +86,29 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 	if (arg->not)
 		flags |= FTS_LOOKUP_FLAG_INVERT;
 
-	if (!backend->locked) {
-		if (fts_backend_lock(backend) <= 0)
-			return -1;
-	}
-
-	if (!filter) {
-		return fts_backend_lookup(backend, key, flags,
-					  &fctx->definite_seqs,
-					  &fctx->maybe_seqs);
+	/* convert key to titlecase */
+	t_push();
+	key_utf8 = t_str_new(128);
+	if (charset_to_utf8_str(fctx->charset, CHARSET_FLAG_DECOMP_TITLECASE,
+				key, key_utf8, &result) < 0) {
+		/* unknown charset, can't handle this */
+		ret = 0;
+	} else if (result != CHARSET_RET_OK) {
+		/* let the core code handle this error */
+		ret = 0;
+	} else if (!backend->locked && fts_backend_lock(backend) <= 0)
+		ret = -1;
+	else if (!filter) {
+		ret = fts_backend_lookup(backend, str_c(key_utf8), flags,
+					 &fctx->definite_seqs,
+					 &fctx->maybe_seqs);
 	} else {
-		return fts_backend_filter(backend, key, flags,
-					  &fctx->definite_seqs,
-					  &fctx->maybe_seqs);
+		ret = fts_backend_filter(backend, str_c(key_utf8), flags,
+					 &fctx->definite_seqs,
+					 &fctx->maybe_seqs);
 	}
+	t_pop();
+	return ret;
 }
 
 void fts_search_lookup(struct fts_search_context *fctx)

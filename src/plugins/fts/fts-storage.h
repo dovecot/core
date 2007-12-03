@@ -17,6 +17,7 @@ struct fts_search_context {
 	struct mailbox_transaction_context *t;
 	struct mail_search_arg *args;
 	struct mail_search_arg *best_arg;
+	const char *charset;
 
 	ARRAY_TYPE(seq_range) definite_seqs, maybe_seqs;
 	unsigned int definite_idx, maybe_idx;

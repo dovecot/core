@@ -340,6 +340,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	fctx->fbox = fbox;
 	fctx->t = t;
 	fctx->args = args;
+	fctx->charset = ctx->charset;
 	MODULE_CONTEXT_SET(ctx, fts_storage_module, fctx);
 
 	if (fbox->backend_substr == NULL && fbox->backend_fast == NULL)

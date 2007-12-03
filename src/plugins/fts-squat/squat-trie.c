@@ -5,6 +5,7 @@
 #include "str.h"
 #include "istream.h"
 #include "ostream.h"
+#include "unichar.h"
 #include "seq-range-array.h"
 #include "squat-uidlist.h"
 #include "squat-trie-private.h"
@@ -702,18 +703,65 @@ static int squat_build_add(struct squat_trie *trie, uint32_t uid,
 }
 
 static int
-squat_build_word(struct squat_trie *trie, uint32_t uid,
-		 const unsigned char *data, unsigned int size)
+squat_build_word_bytes(struct squat_trie *trie, uint32_t uid,
+		       const unsigned char *data, unsigned int size)
 {
 	unsigned int i;
 
-	for (i = size - 1; i > 0; i--) {
+	if (trie->hdr.full_len <= trie->hdr.partial_len)
+		i = 0;
+	else {
+		/* the first word is longer than others */
+		if (squat_build_add(trie, uid, data,
+				    I_MIN(size, trie->hdr.full_len)) < 0)
+			return -1;
+		i = 1;
+	}
+
+	for (; i < size; i++) {
 		if (squat_build_add(trie, uid, data + i,
-				    I_MIN(trie->hdr.partial_len, size - i)) < 0)
+				    I_MIN(trie->hdr.partial_len, size-i)) < 0)
 			return -1;
 	}
-	return squat_build_add(trie, uid, data,
-			       I_MIN(size, trie->hdr.full_len));
+	return 0;
+}
+
+static int
+squat_build_word(struct squat_trie *trie, uint32_t uid,
+		 const unsigned char *data, const uint8_t *char_lengths,
+		 unsigned int size)
+{
+	unsigned int i, j, bytelen;
+
+	if (char_lengths == NULL) {
+		/* optimization path: all characters are bytes */
+		return squat_build_word_bytes(trie, uid, data, size);
+	}
+
+	if (trie->hdr.full_len <= trie->hdr.partial_len)
+		i = 0;
+	else {
+		/* the first word is longer than others */
+		bytelen = 0;
+		for (j = 0; j < trie->hdr.full_len && bytelen < size; j++)
+			bytelen += char_lengths[bytelen];
+		i_assert(bytelen <= size);
+
+		if (squat_build_add(trie, uid, data, bytelen) < 0)
+			return -1;
+		i = char_lengths[0];
+	}
+
+	for (; i < size; i += char_lengths[i]) {
+		bytelen = 0;
+		for (j = 0; j < trie->hdr.partial_len && i+bytelen < size; j++)
+			bytelen += char_lengths[i + bytelen];
+		i_assert(i + bytelen <= size);
+
+		if (squat_build_add(trie, uid, data + i, bytelen) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static unsigned char *
@@ -731,17 +779,24 @@ squat_data_normalize(struct squat_trie *trie, const unsigned char *data,
 
 int squat_trie_build_more(struct squat_trie_build_context *ctx,
 			  uint32_t uid, enum squat_index_type type,
-			  const unsigned char *data, unsigned int size)
+			  const unsigned char *input, unsigned int size)
 {
 	struct squat_trie *trie = ctx->trie;
+	const unsigned char *data;
+	uint8_t *char_lengths;
 	unsigned int i, start = 0;
+	bool multibyte_chars = FALSE;
 	int ret = 0;
 
 	uid = uid * 2 + (type == SQUAT_INDEX_TYPE_HEADER ? 0 : 1);
 
 	t_push();
-	data = squat_data_normalize(trie, data, size);
+	char_lengths = t_malloc(size);
+	data = squat_data_normalize(trie, input, size);
 	for (i = 0; i < size; i++) {
+		char_lengths[i] = uni_utf8_char_bytes(input[i]);
+		if (char_lengths[i] != 1)
+			multibyte_chars = TRUE;
 		if (data[i] != '\0')
 			continue;
 
@@ -749,6 +804,8 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 			start++;
 		if (i != start) {
 			if (squat_build_word(trie, uid, data + start,
+					     !multibyte_chars ? NULL :
+					     char_lengths + start,
 					     i - start) < 0) {
 				ret = -1;
 				start = i;
@@ -760,7 +817,9 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 	while (start < i && data[start] == '\0')
 		start++;
 	if (i != start) {
-		if (squat_build_word(trie, uid, data + start, i - start) < 0)
+		if (squat_build_word(trie, uid, data + start,
+				     !multibyte_chars ? NULL :
+				     char_lengths + start, i - start) < 0)
 			ret = -1;
 	}
 	t_pop();
@@ -1355,20 +1414,23 @@ struct squat_trie_lookup_context {
 
 static int
 squat_trie_lookup_partial(struct squat_trie_lookup_context *ctx,
-			  const unsigned char *data, unsigned int size)
+			  const unsigned char *data, uint8_t *char_lengths,
+			  unsigned int size)
 {
-	const unsigned char *block;
-	unsigned int block_len;
+	const unsigned int partial_len = ctx->trie->hdr.partial_len;
+	unsigned int char_idx, max_chars, i, j, bytelen;
 	int ret;
 
-	do {
-		if (size <= ctx->trie->hdr.partial_len)
-			block_len = size;
-		else
-			block_len = ctx->trie->hdr.partial_len;
-		block = data + size - block_len;
+	max_chars = uni_utf8_strlen_n(data, size);
+	if (max_chars > ctx->trie->hdr.partial_len)
+		max_chars = partial_len;
 
-		ret = squat_trie_lookup_data(ctx->trie, block, block_len,
+	for (i = 0, char_idx = 0; char_idx < max_chars; char_idx++) {
+		bytelen = 0;
+		for (j = 0; j < partial_len && i+bytelen < size; j++)
+			bytelen += char_lengths[i + bytelen];
+
+		ret = squat_trie_lookup_data(ctx->trie, data + i, bytelen,
 					     &ctx->tmp_uids);
 		if (ret <= 0) {
 			array_clear(ctx->maybe_uids);
@@ -1385,7 +1447,9 @@ squat_trie_lookup_partial(struct squat_trie_lookup_context *ctx,
 			seq_range_array_remove_invert_range(ctx->maybe_uids,
 							    &ctx->tmp_uids2);
 		}
-	} while (--size >= ctx->trie->hdr.partial_len);
+
+		i += char_lengths[i];
+	}
 	return 1;
 }
 
@@ -1416,7 +1480,8 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 {
 	struct squat_trie_lookup_context ctx;
 	unsigned char *data;
-	unsigned int i, start, size;
+	uint8_t *char_lengths;
+	unsigned int i, start, bytes, str_bytelen, str_charlen;
 	int ret = 0;
 
 	t_push();
@@ -1429,12 +1494,17 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 	t_array_init(&ctx.tmp_uids2, 128);
 	ctx.first = TRUE;
 
-	size = strlen(str);
-	data = t_malloc(size);
-	memcpy(data, str, size);
-	data = squat_data_normalize(trie, data, size);
+	str_bytelen = strlen(str);
+	char_lengths = t_malloc0(str_bytelen);
+	for (i = 0; i < str_bytelen; ) {
+		bytes = uni_utf8_char_bytes(str[i]);
+		char_lengths[i] = bytes;
+		i += bytes;
+	}
+	data = squat_data_normalize(trie, (const unsigned char *)str,
+				    str_bytelen);
 
-	for (i = start = 0; i < size && ret >= 0; i++) {
+	for (i = start = 0; i < str_bytelen && ret >= 0; i += char_lengths[i]) {
 		if (data[i] != '\0')
 			continue;
 
@@ -1442,9 +1512,10 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 		   search it in parts. */
 		if (i != start) {
 			ret = squat_trie_lookup_partial(&ctx, data + start,
+							char_lengths,
 							i - start);
 		}
-		start = i + 1;
+		start = i + char_lengths[i];
 	}
 
 	if (start != 0) {
@@ -1452,6 +1523,7 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 		array_clear(definite_uids);
 		if (i != start && ret >= 0) {
 			ret = squat_trie_lookup_partial(&ctx, data + start,
+							char_lengths,
 							i - start);
 		}
 		t_pop();
@@ -1459,9 +1531,10 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 		return ret < 0 ? -1 : 0;
 	}
 
-	if (size <= trie->hdr.partial_len ||
+	if (str_charlen <= trie->hdr.partial_len ||
 	    trie->hdr.full_len > trie->hdr.partial_len) {
-		ret = squat_trie_lookup_data(trie, data, size, &ctx.tmp_uids);
+		ret = squat_trie_lookup_data(trie, data, str_bytelen,
+					     &ctx.tmp_uids);
 		if (ret > 0) {
 			squat_trie_filter_type(type, &ctx.tmp_uids,
 					       definite_uids);
@@ -1470,12 +1543,13 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 		array_clear(definite_uids);
 	}
 
-	if (size <= trie->hdr.partial_len || trie->hdr.partial_len == 0) {
+	if (str_charlen <= trie->hdr.partial_len ||
+	    trie->hdr.partial_len == 0) {
 		/* we have the result */
 		array_clear(maybe_uids);
 	} else {
 		ret = squat_trie_lookup_partial(&ctx, data + start,
-						i - start);
+						char_lengths, i - start);
 	}
 	t_pop();
 	squat_trie_add_unknown(trie, maybe_uids);
