@@ -132,6 +132,7 @@ static int message_search_more_decoded2(struct message_search_context *ctx,
 int message_search_more(struct message_search_context *ctx,
 			struct message_block *raw_block)
 {
+	struct message_header_line *hdr = raw_block->hdr;
 	struct message_block block;
 
 	if (raw_block->part != ctx->prev_part) {
@@ -141,10 +142,19 @@ int message_search_more(struct message_search_context *ctx,
 		ctx->prev_part = raw_block->part;
 	}
 
-	if (raw_block->hdr != NULL) {
-		handle_header(ctx, raw_block->hdr);
-		if ((ctx->flags & MESSAGE_SEARCH_FLAG_SKIP_HEADERS) != 0)
-			return 0;
+	if (hdr != NULL) {
+		handle_header(ctx, hdr);
+		if ((ctx->flags & MESSAGE_SEARCH_FLAG_SKIP_HEADERS) != 0) {
+			/* we want to search only message bodies, but
+			   but decoder needs some headers so that it can
+			   decode the body properly. */
+			if (hdr->name_len != 12 && hdr->name_len != 25)
+				return 0;
+			if (strcasecmp(hdr->name, "Content-Type") != 0 &&
+			    strcasecmp(hdr->name,
+				       "Content-Transfer-Encoding") != 0)
+				return 0;
+		}
 	} else {
 		/* body */
 		if (!ctx->content_type_text)
@@ -152,6 +162,12 @@ int message_search_more(struct message_search_context *ctx,
 	}
 	if (!message_decoder_decode_next_block(ctx->decoder, raw_block, &block))
 		return 0;
+
+	if (block.hdr != NULL &&
+	    (ctx->flags & MESSAGE_SEARCH_FLAG_SKIP_HEADERS) != 0) {
+		/* Content-* header */
+		return 0;
+	}
 
 	return message_search_more_decoded2(ctx, &block);
 }
