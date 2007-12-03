@@ -221,6 +221,15 @@ boundary_line_find(struct message_parser_ctx *ctx,
 	return 1;
 }
 
+static int parse_next_mime_header_init(struct message_parser_ctx *ctx,
+				       struct message_block *block_r)
+{
+	ctx->part = message_part_append(ctx->part_pool, ctx->part);
+	ctx->part->flags |= MESSAGE_PART_FLAG_IS_MIME;
+
+	return parse_next_header_init(ctx, block_r);
+}
+
 static int parse_next_body_skip_boundary_line(struct message_parser_ctx *ctx,
 					      struct message_block *block_r)
 {
@@ -245,11 +254,8 @@ static int parse_next_body_skip_boundary_line(struct message_parser_ctx *ctx,
 	parse_body_add_block(ctx, block_r);
 
 	/* a new MIME part begins */
-	ctx->part = message_part_append(ctx->part_pool, ctx->part);
-	ctx->part->flags |= MESSAGE_PART_FLAG_IS_MIME;
-
-	ctx->parse_next_block = parse_next_header_init;
-	return parse_next_header_init(ctx, block_r);
+	ctx->parse_next_block = parse_next_mime_header_init;
+	return 1;
 }
 
 static int parse_part_finish(struct message_parser_ctx *ctx,
@@ -379,7 +385,7 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	}
 	if (block_r->size != 0)
 		parse_body_add_block(ctx, block_r);
-	return ret <= 0 ? ret :
+	return ret <= 0 || block_r->size != 0 ? ret :
 		parse_part_finish(ctx, boundary, block_r, FALSE);
 }
 
