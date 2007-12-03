@@ -19,4 +19,7 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 				       struct message_block *input,
 				       struct message_block *output);
 
+/* Call whenever message changes */
+void message_decoder_decode_reset(struct message_decoder_context *ctx);
+
 #endif

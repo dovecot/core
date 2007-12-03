@@ -32,6 +32,7 @@ struct message_decoder_context {
 	struct message_header_line hdr;
 	buffer_t *buf, *buf2;
 
+	char *charset_trans_charset;
 	struct charset_translation *charset_trans;
 	char translation_buf[MAX_TRANSLATION_BUF_SIZE];
 	unsigned int translation_size;
@@ -68,6 +69,7 @@ void message_decoder_deinit(struct message_decoder_context **_ctx)
 
 	buffer_free(&ctx->buf);
 	buffer_free(&ctx->buf2);
+	i_free(ctx->charset_trans_charset);
 	i_free(ctx->content_charset);
 	i_free(ctx);
 }
@@ -268,23 +270,39 @@ broken:
 	return tmpbuf->data;
 }
 
+static void message_decode_body_init_charset(struct message_decoder_context *ctx)
+{
+	enum charset_flags flags;
+
+	if (ctx->charset_utf8)
+		return;
+
+	if (ctx->charset_trans != NULL &&
+	    strcasecmp(ctx->content_charset, ctx->charset_trans_charset) == 0) {
+		/* already have the correct translation selected */
+		return;
+	}
+
+	if (ctx->charset_trans != NULL)
+		charset_to_utf8_end(&ctx->charset_trans);
+	i_free(ctx->charset_trans_charset);
+
+	flags = ctx->dtcase ? CHARSET_FLAG_DECOMP_TITLECASE : 0;
+	ctx->charset_trans_charset = i_strdup(ctx->content_charset != NULL ?
+					      ctx->content_charset : "UTF-8");
+	if (charset_to_utf8_begin(ctx->charset_trans_charset,
+				  flags, &ctx->charset_trans) < 0)
+		ctx->charset_trans = NULL;
+}
+
 static bool message_decode_body(struct message_decoder_context *ctx,
 				struct message_block *input,
 				struct message_block *output)
 {
 	unsigned char new_buf[MAX_ENCODING_BUF_SIZE+1];
-	enum charset_flags flags;
 	const unsigned char *data = NULL;
 	size_t pos, size = 0, skip = 0;
 	int ret;
-
-	if (ctx->charset_trans == NULL && !ctx->charset_utf8) {
-		flags = ctx->dtcase ? CHARSET_FLAG_DECOMP_TITLECASE : 0;
-		if (charset_to_utf8_begin(ctx->content_charset != NULL ?
-					  ctx->content_charset : "UTF-8",
-					  flags, &ctx->charset_trans) < 0)
-			ctx->charset_trans = NULL;
-	}
 
 	if (ctx->encoding_size != 0) {
 		/* @UNSAFE */
@@ -404,10 +422,7 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 {
 	if (input->part != ctx->prev_part) {
 		/* MIME part changed. */
-		i_free_and_null(ctx->content_charset);
-		ctx->content_type = CONTENT_TYPE_BINARY;
-		ctx->charset_utf8 = TRUE;
-		ctx->encoding_size = 0;
+		message_decoder_decode_reset(ctx);
 	}
 
 	output->part = input->part;
@@ -415,6 +430,18 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 
 	if (input->hdr != NULL)
 		return message_decode_header(ctx, input->hdr, output);
-	else
+	else if (input->size != 0)
 		return message_decode_body(ctx, input, output);
+	else {
+		message_decode_body_init_charset(ctx);
+		return TRUE;
+	}
+}
+
+void message_decoder_decode_reset(struct message_decoder_context *ctx)
+{
+	i_free_and_null(ctx->content_charset);
+	ctx->content_type = CONTENT_TYPE_BINARY;
+	ctx->charset_utf8 = TRUE;
+	ctx->encoding_size = 0;
 }
