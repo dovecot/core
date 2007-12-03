@@ -201,7 +201,6 @@ bool settings_read(const char *path, const char *section,
 			if (*line != '{')
 				errormsg = "Expecting '='";
 			else {
-				last_section_line = linenum;
 				sections++;
 				if (next_section != NULL &&
 				    strcmp(next_section, name) == 0) {
@@ -229,9 +228,11 @@ bool settings_read(const char *path, const char *section,
 					    last_section_line != 0) {
 						errormsg = t_strdup_printf(
 							SECTION_ERRORMSG,
-							errormsg, linenum);
+							errormsg,
+							last_section_line);
 					}
 				}
+				last_section_line = linenum;
 			}
 		} else {
 			/* c) */
