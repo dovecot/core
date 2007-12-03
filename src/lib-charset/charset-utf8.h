@@ -29,4 +29,9 @@ enum charset_result
 charset_to_utf8(struct charset_translation *t,
 		const unsigned char *src, size_t *src_size, buffer_t *dest);
 
+/* Translate a single string to UTF8. */
+int charset_to_utf8_str(const char *charset, enum charset_flags flags,
+			const char *input, string_t *output,
+			enum charset_result *result_r);
+
 #endif

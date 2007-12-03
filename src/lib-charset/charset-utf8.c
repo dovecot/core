@@ -1,7 +1,7 @@
 /* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
+#include "str.h"
 #include "unichar.h"
 #include "charset-utf8.h"
 
@@ -13,6 +13,22 @@ bool charset_is_utf8(const char *charset)
 		strcasecmp(charset, "ascii") == 0 ||
 		strcasecmp(charset, "UTF-8") == 0 ||
 		strcasecmp(charset, "UTF8") == 0;
+}
+
+int charset_to_utf8_str(const char *charset, enum charset_flags flags,
+			const char *input, string_t *output,
+			enum charset_result *result_r)
+{
+	struct charset_translation *t;
+	size_t len = strlen(input);
+
+	if (charset_to_utf8_begin(charset, flags, &t) < 0)
+		return -1;
+
+	*result_r = charset_to_utf8(t, (const unsigned char *)input,
+				    &len, output);
+	charset_to_utf8_end(&t);
+	return 0;
 }
 
 #ifndef HAVE_ICONV
