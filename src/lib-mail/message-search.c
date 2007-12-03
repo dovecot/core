@@ -31,32 +31,30 @@ int message_search_init(pool_t pool, const char *key, const char *charset,
 			struct message_search_context **ctx_r)
 {
 	struct message_search_context *ctx;
-	struct charset_translation *t;
 	string_t *key_utf8;
-	size_t key_len;
-
-	if (charset_to_utf8_begin(charset, TRUE, &t) < 0)
-		return 0;
+	enum charset_result result;
+	int ret;
 
 	t_push();
-	key_len = strlen(key);
-	key_utf8 = t_str_new(I_MAX(128, key_len*2));
-	if (charset_to_utf8(t, (const unsigned char *)key, &key_len,
-			    key_utf8) != CHARSET_RET_OK) {
-		t_pop();
-		return -1;
+	key_utf8 = t_str_new(128);
+	if (charset_to_utf8_str(charset, CHARSET_FLAG_DECOMP_TITLECASE,
+				key, key_utf8, &result) < 0)
+		ret = 0;
+	else if (result != CHARSET_RET_OK)
+		ret = -1;
+	else {
+		ctx = *ctx_r = p_new(pool, struct message_search_context, 1);
+		ctx->pool = pool;
+		ctx->key = p_strdup(pool, str_c(key_utf8));
+		ctx->key_len = str_len(key_utf8);
+		ctx->key_charset = p_strdup(pool, charset);
+		ctx->flags = flags;
+		ctx->decoder = message_decoder_init(TRUE);
+		ctx->str_find_ctx = str_find_init(pool, ctx->key);
+		ret = 1;
 	}
-
-	ctx = *ctx_r = p_new(pool, struct message_search_context, 1);
-	ctx->pool = pool;
-	ctx->key = p_strdup(pool, str_c(key_utf8));
-	ctx->key_len = str_len(key_utf8);
-	ctx->key_charset = p_strdup(pool, charset);
-	ctx->flags = flags;
-	ctx->decoder = message_decoder_init(TRUE);
-	ctx->str_find_ctx = str_find_init(pool, ctx->key);
 	t_pop();
-	return 1;
+	return ret;
 }
 
 void message_search_deinit(struct message_search_context **_ctx)
