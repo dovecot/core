@@ -122,15 +122,25 @@ int deliver_save(struct mail_namespace *namespaces,
 	struct mailbox *box;
 	struct mailbox_transaction_context *t;
 	struct mail_keywords *kw;
+	enum mail_error error;
 	const char *msgid, *mailbox_name;
 	int ret = 0;
 
 	if (strcmp(mailbox, default_mailbox_name) == 0)
 		tried_default_save = TRUE;
 
+	if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
+		msgid = "";
+	else
+		msgid = str_sanitize(msgid, 80);
+	mailbox_name = str_sanitize(mailbox, 80);
+
 	box = mailbox_open_or_create_synced(namespaces, storage_r, mailbox);
-	if (box == NULL)
+	if (box == NULL) {
+		i_info("msgid=%s: save failed to %s: %s", msgid, mailbox_name,
+		       mail_storage_get_last_error(*storage_r, &error));
 		return -1;
+	}
 
 	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 
@@ -145,18 +155,10 @@ int deliver_save(struct mail_namespace *namespaces,
 	else
 		ret = mailbox_transaction_commit(&t);
 
-	if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
-		msgid = "";
-	else
-		msgid = str_sanitize(msgid, 80);
-	mailbox_name = str_sanitize(mailbox_get_name(box), 80);
-
 	if (ret == 0) {
 		saved_mail = TRUE;
 		i_info("msgid=%s: saved mail to %s", msgid, mailbox_name);
 	} else {
-		enum mail_error error;
-
 		i_info("msgid=%s: save failed to %s: %s", msgid, mailbox_name,
 		       mail_storage_get_last_error(*storage_r, &error));
 	}
