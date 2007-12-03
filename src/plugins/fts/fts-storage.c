@@ -34,8 +34,6 @@ struct fts_storage_build_context {
 
 	uint32_t uid;
 	string_t *headers;
-
-	unsigned int save_part:1;
 };
 
 struct fts_transaction_context {
@@ -69,34 +67,29 @@ static int fts_mailbox_close(struct mailbox *box)
 	return ret;
 }
 
-static int fts_build_mail_flush(struct fts_storage_build_context *ctx)
+static int fts_build_mail_flush_headers(struct fts_storage_build_context *ctx)
 {
 	if (str_len(ctx->headers) == 0)
-		return 1;
+		return 0;
 
 	if (fts_backend_build_more(ctx->build, ctx->uid, str_data(ctx->headers),
 				   str_len(ctx->headers), TRUE) < 0)
 		return -1;
 
 	str_truncate(ctx->headers, 0);
-	return 1;
+	return 0;
 }
 
-static bool fts_build_update_save_part(struct fts_storage_build_context *ctx,
-				       const struct message_block *block)
+static bool fts_build_want_index_part(const struct message_block *block)
 {
 	/* we'll index only text/xxx and message/rfc822 parts for now */
-	if ((block->part->flags &
-	     (MESSAGE_PART_FLAG_TEXT |
-	      MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0)
-		return FALSE;
-
-	ctx->save_part = TRUE;
-	return TRUE;
+	return (block->part->flags &
+		(MESSAGE_PART_FLAG_TEXT |
+		 MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0;
 }
 
-static int fts_build_mail_header(struct fts_storage_build_context *ctx,
-				 const struct message_block *block)
+static void fts_build_mail_header(struct fts_storage_build_context *ctx,
+				  const struct message_block *block)
 {
 	const struct message_header_line *hdr = block->hdr;
 
@@ -107,16 +100,6 @@ static int fts_build_mail_header(struct fts_storage_build_context *ctx,
 	str_append_n(ctx->headers, hdr->full_value, hdr->full_value_len);
 	if (!hdr->no_newline)
 		str_append_c(ctx->headers, '\n');
-
-	if (!ctx->save_part) {
-		if (strcasecmp(hdr->name, "Content-Type") == 0) {
-			if (!fts_build_update_save_part(ctx, block))
-				return 0;
-		}
-		return 1;
-	}
-
-	return fts_build_mail_flush(ctx);
 }
 
 static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
@@ -125,7 +108,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 	struct message_parser_ctx *parser;
 	struct message_decoder_context *decoder;
 	struct message_block raw_block, block;
-	struct message_part *prev_part, *skip_part;
+	struct message_part *prev_part;
 	int ret;
 
 	ctx->uid = uid;
@@ -133,7 +116,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 	if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
 		return -1;
 
-	prev_part = skip_part = NULL;
+	prev_part = NULL;
 	parser = message_parser_init(pool_datastack_create(), input,
 				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
 				     0);
@@ -146,34 +129,23 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 				ret = 0;
 			break;
 		}
-		if (raw_block.part == skip_part)
+		if (raw_block.hdr == NULL && raw_block.size != 0 &&
+		    !fts_build_want_index_part(&raw_block)) {
+			/* skipping this body */
 			continue;
+		}
 
 		if (!message_decoder_decode_next_block(decoder, &raw_block,
 						       &block))
 			continue;
 
-		if (block.part != prev_part &&
-		    (block.hdr != NULL || block.size != 0)) {
-			str_truncate(ctx->headers, 0);
-			ctx->save_part = FALSE;
-			prev_part = block.part;
-			skip_part = NULL;
-		}
-
-		if (block.hdr != NULL) {
-			ret = fts_build_mail_header(ctx, &block);
+		if (block.hdr != NULL)
+			fts_build_mail_header(ctx, &block);
+		else if (block.size == 0) {
+			/* end of headers */
+			ret = fts_build_mail_flush_headers(ctx);
 			if (ret < 0)
 				break;
-			if (ret == 0)
-				skip_part = raw_block.part;
-		} else if (block.size == 0) {
-			/* end of headers */
-			if (fts_build_update_save_part(ctx, &block)) {
-				ret = fts_build_mail_flush(ctx);
-				if (ret < 0)
-					break;
-			}
 		} else {
 			if (fts_backend_build_more(ctx->build, ctx->uid,
 						   block.data, block.size,
