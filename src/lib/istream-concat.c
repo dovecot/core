@@ -88,8 +88,10 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	ssize_t ret;
 	bool last_stream;
 
-	if (cstream->cur_input == NULL)
+	if (cstream->cur_input == NULL) {
+		stream->istream.eof = TRUE;
 		return -1;
+	}
 
 	skip = stream->skip;
 	if (cstream->prev_size > 0) {
@@ -207,7 +209,8 @@ static void i_stream_concat_seek(struct istream_private *stream,
 		return;
 	}
 	cstream->cur_input = cstream->input[cstream->cur_idx];
-	i_stream_seek(cstream->cur_input, v_offset);
+	if (cstream->cur_input != NULL)
+		i_stream_seek(cstream->cur_input, v_offset);
 }
 
 static const struct stat *
