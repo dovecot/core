@@ -1187,7 +1187,6 @@ int squat_uidlist_get_seqrange(struct squat_uidlist *uidlist,
 	const uint32_t *tmp_uids;
 	unsigned int i, count;
 
-	t_push();
 	t_array_init(&tmp_uid_arr, 128);
 	if (squat_uidlist_get(uidlist, uid_list_idx, &tmp_uid_arr) < 0) {
 		t_pop();
@@ -1204,7 +1203,6 @@ int squat_uidlist_get_seqrange(struct squat_uidlist *uidlist,
 		}
 		array_append(seq_range_arr, &range, 1);
 	}
-	t_pop();
 	return 0;
 }
 
