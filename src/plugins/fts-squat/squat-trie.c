@@ -1496,7 +1496,7 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 
 	str_bytelen = strlen(str);
 	char_lengths = t_malloc0(str_bytelen);
-	for (i = 0; i < str_bytelen; ) {
+	for (i = 0, str_charlen = 0; i < str_bytelen; str_charlen++) {
 		bytes = uni_utf8_char_bytes(str[i]);
 		char_lengths[i] = bytes;
 		i += bytes;
