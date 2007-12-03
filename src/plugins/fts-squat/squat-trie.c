@@ -1316,29 +1316,107 @@ squat_trie_filter_type(enum squat_index_type type,
 	}
 }
 
+struct squat_trie_lookup_context {
+	struct squat_trie *trie;
+	enum squat_index_type type;
+
+	ARRAY_TYPE(seq_range) *definite_uids, *maybe_uids;
+	ARRAY_TYPE(seq_range) tmp_uids, tmp_uids2;
+	bool first;
+};
+
+static int
+squat_trie_lookup_partial(struct squat_trie_lookup_context *ctx,
+			  const unsigned char *data, unsigned int size)
+{
+	const unsigned char *block;
+	unsigned int block_len;
+	int ret;
+
+	do {
+		if (size <= MAX_PARTIAL_LEN)
+			block_len = size;
+		else
+			block_len = MAX_PARTIAL_LEN;
+		block = data + size - block_len;
+
+		ret = squat_trie_lookup_data(ctx->trie, block, block_len,
+					     &ctx->tmp_uids);
+		if (ret <= 0) {
+			array_clear(ctx->maybe_uids);
+			return ret;
+		}
+
+		if (ctx->first) {
+			squat_trie_filter_type(ctx->type, &ctx->tmp_uids,
+					       ctx->maybe_uids);
+			ctx->first = FALSE;
+		} else {
+			squat_trie_filter_type(ctx->type, &ctx->tmp_uids,
+					       &ctx->tmp_uids2);
+			seq_range_array_remove_invert_range(ctx->maybe_uids,
+							    &ctx->tmp_uids2);
+		}
+	} while (--size >= MAX_PARTIAL_LEN);
+	return 1;
+}
+
 int squat_trie_lookup(struct squat_trie *trie, const char *str,
 		      enum squat_index_type type,
 		      ARRAY_TYPE(seq_range) *definite_uids,
 		      ARRAY_TYPE(seq_range) *maybe_uids)
 {
-	ARRAY_TYPE(seq_range) tmp_uids, tmp_uids2;
-	unsigned char *data, *block;
-	unsigned int size;
-	bool first;
+	struct squat_trie_lookup_context ctx;
+	unsigned char *data;
+	unsigned int i, start, size;
 	int ret = 0;
 
 	t_push();
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.trie = trie;
+	ctx.type = type;
+	ctx.definite_uids = definite_uids;
+	ctx.maybe_uids = maybe_uids;
+	t_array_init(&ctx.tmp_uids, 128);
+	t_array_init(&ctx.tmp_uids2, 128);
+	ctx.first = TRUE;
+
 	size = strlen(str);
 	data = t_malloc(size);
 	memcpy(data, str, size);
 	data = squat_data_normalize(trie, data, size);
-	t_array_init(&tmp_uids, 128);
-	t_array_init(&tmp_uids2, 128);
+
+	for (i = start = 0; i < size && ret >= 0; i++) {
+		if (data[i] != '\0')
+			continue;
+
+		/* string has nonindexed characters.
+		   search it in parts. */
+		if (i != start) {
+			ret = squat_trie_lookup_partial(&ctx, data + start,
+							i - start);
+		}
+		start = i + 1;
+	}
+
+	if (start != 0) {
+		/* string has nonindexed characters. finish the search. */
+		array_clear(definite_uids);
+		if (i != start && ret >= 0) {
+			ret = squat_trie_lookup_partial(&ctx, data + start,
+							i - start);
+		}
+		t_pop();
+		return ret < 0 ? -1 :
+			(array_count(maybe_uids) > 0 ? 1 : 0);
+	}
 
 	if (MAX_FULL_LEN > MAX_PARTIAL_LEN || size <= MAX_PARTIAL_LEN) {
-		ret = squat_trie_lookup_data(trie, data, size, &tmp_uids);
-		if (ret > 0)
-			squat_trie_filter_type(type, &tmp_uids, definite_uids);
+		ret = squat_trie_lookup_data(trie, data, size, &ctx.tmp_uids);
+		if (ret > 0) {
+			squat_trie_filter_type(type, &ctx.tmp_uids,
+					       definite_uids);
+		}
 	} else {
 		array_clear(definite_uids);
 	}
@@ -1347,27 +1425,8 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 		/* we have the result */
 		array_clear(maybe_uids);
 	} else {
-		first = TRUE;
-		do {
-			block = data + size - MAX_PARTIAL_LEN;
-			ret = squat_trie_lookup_data(trie, block,
-						     MAX_PARTIAL_LEN,
-						     &tmp_uids);
-			if (ret <= 0) {
-				array_clear(maybe_uids);
-				break;
-			}
-			if (first) {
-				squat_trie_filter_type(type, &tmp_uids,
-						       maybe_uids);
-				first = FALSE;
-			} else {
-				squat_trie_filter_type(type, &tmp_uids,
-						       &tmp_uids2);
-				seq_range_array_remove_invert_range(maybe_uids,
-								    &tmp_uids2);
-			}
-		} while (--size >= MAX_PARTIAL_LEN);
+		ret = squat_trie_lookup_partial(&ctx, data + start,
+						i - start);
 	}
 	t_pop();
 	return ret < 0 ? -1 :
