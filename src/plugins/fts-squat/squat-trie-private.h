@@ -20,6 +20,10 @@ struct squat_file_header {
 	uint32_t root_unused_uids;
 	uint32_t root_next_uid;
 	uint32_t root_uidlist_idx;
+
+	uint8_t partial_len;
+	uint8_t full_len;
+	uint8_t normalize_map[256];
 };
 
 /*
@@ -119,7 +123,7 @@ struct squat_trie {
 	void *mmap_base;
 	size_t mmap_size;
 
-	unsigned char normalize_map[256];
+	unsigned char default_normalize_map[256];
 
 	unsigned int corrupted:1;
 };

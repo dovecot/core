@@ -144,16 +144,8 @@ int fts_backend_lookup(struct fts_backend *backend, const char *key,
 
 	ret = backend->v.lookup(backend, key, flags & ~FTS_LOOKUP_FLAG_INVERT,
 				definite_uids, maybe_uids);
-	if (ret <= 0) {
-		if (unlikely(ret < 0))
-			return -1;
-		i_assert(array_count(definite_uids) == 0 &&
-			 array_count(maybe_uids) == 0);
-	} else {
-		i_assert(array_count(definite_uids) > 0 ||
-			 array_count(maybe_uids) > 0);
-	}
-
+	if (unlikely(ret < 0))
+		return -1;
 	if ((flags & FTS_LOOKUP_FLAG_INVERT) != 0)
 		fts_lookup_invert(definite_uids, maybe_uids);
 	return 0;
@@ -165,38 +157,35 @@ fts_merge_maybies(ARRAY_TYPE(seq_range) *dest_maybe,
 		  const ARRAY_TYPE(seq_range) *src_maybe,
 		  const ARRAY_TYPE(seq_range) *src_definite)
 {
-	const struct seq_range *dest, *src;
-	unsigned int i, dest_count, src_count;
-	uint32_t seq, seq2;
-	bool removals;
+	ARRAY_TYPE(seq_range) src_unwanted;
+	const struct seq_range *range;
+	struct seq_range new_range;
+	unsigned int i, count;
+	uint32_t seq;
 
 	/* add/leave to dest_maybe if at least one list has maybe,
 	   and no lists have none */
-	dest = array_get(dest_maybe, &dest_count);
-	src = array_get(dest_maybe, &src_count);
+
+	t_push();
+	/* create unwanted sequences list from both sources */
+	t_array_init(&src_unwanted, 128);
+	new_range.seq1 = 0; new_range.seq2 = (uint32_t)-1;
+	array_append(&src_unwanted, &new_range, 1);
+	seq_range_array_remove_seq_range(&src_unwanted, src_maybe);
+	seq_range_array_remove_seq_range(&src_unwanted, src_definite);
 
 	/* drop unwanted uids */
-	for (i = 0; i < dest_count; ) {
-		seq2 = dest[i].seq2;
-		removals = FALSE;
-		for (seq = dest[i].seq1; seq <= seq2; seq++) {
-			if (!seq_range_exists(src_definite, seq) &&
-			    !seq_range_exists(src_maybe, seq)) {
-				if (seq_range_array_remove(dest_maybe, seq))
-					removals = TRUE;
-			}
-		}
-		if (!removals)
-			i++;
-	}
+	seq_range_array_remove_seq_range(dest_maybe, &src_unwanted);
 
-	/* add new uids */
-	for (i = 0; i < src_count; i++) {
-		for (seq = src[i].seq1; seq <= src[i].seq2; seq++) {
-			if (seq_range_exists(dest_definite, seq))
+	/* add uids that are in dest_definite and src_maybe lists */
+	range = array_get(dest_definite, &count);
+	for (i = 0; i < count; i++) {
+		for (seq = range[i].seq1; seq <= range[i].seq2; seq++) {
+			if (seq_range_exists(src_maybe, seq))
 				seq_range_array_add(dest_maybe, 0, seq);
 		}
 	}
+	t_pop();
 }
 
 int fts_backend_filter(struct fts_backend *backend, const char *key,

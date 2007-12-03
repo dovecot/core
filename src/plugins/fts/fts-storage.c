@@ -67,13 +67,14 @@ static int fts_mailbox_close(struct mailbox *box)
 	return ret;
 }
 
-static int fts_build_mail_flush_headers(struct fts_storage_build_context *ctx)
+static int fts_build_mail_flush_headers(struct fts_storage_build_context *ctx,
+					bool root)
 {
 	if (str_len(ctx->headers) == 0)
 		return 0;
 
 	if (fts_backend_build_more(ctx->build, ctx->uid, str_data(ctx->headers),
-				   str_len(ctx->headers), TRUE) < 0)
+				   str_len(ctx->headers), root) < 0)
 		return -1;
 
 	str_truncate(ctx->headers, 0);
@@ -143,7 +144,8 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 			fts_build_mail_header(ctx, &block);
 		else if (block.size == 0) {
 			/* end of headers */
-			ret = fts_build_mail_flush_headers(ctx);
+			bool root = raw_block.part->parent == NULL;
+			ret = fts_build_mail_flush_headers(ctx, root);
 			if (ret < 0)
 				break;
 		} else {
@@ -179,8 +181,6 @@ static int fts_build_init(struct fts_search_context *fctx)
 		/* no new messages */
 		return 0;
 	}
-	fctx->first_nonindexed_seq = seqset.seq1;
-
 	if (fctx->best_arg->type == SEARCH_HEADER) {
 		/* we're not updating the index just for header lookups */
 		return 0;
@@ -404,24 +404,6 @@ fts_mailbox_search_args_definite_set(struct fts_search_context *fctx)
 	}
 }
 
-static int
-search_next_update_seq_finish(struct mail_search_context *ctx,
-			      struct fts_search_context *fctx)
-{
-	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
-
-	if (fctx->first_nonindexed_seq == 0) {
-		/* everything was indexed. we're done */
-		return 0;
-	}
-	if (ctx->seq < fctx->first_nonindexed_seq) {
-		/* scan the non-indexed messages */
-		fctx->seqs_set = FALSE;
-		ctx->seq = fctx->first_nonindexed_seq - 1;
-	}
-	return fbox->module_ctx.super.search_next_update_seq(ctx);
-}
-
 static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
@@ -451,8 +433,10 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 
 		/* use whichever is lower of definite/maybe */
 		if (fctx->definite_idx == def_count) {
-			if (fctx->maybe_idx == maybe_count)
-				return search_next_update_seq_finish(ctx, fctx);
+			if (fctx->maybe_idx == maybe_count) {
+				/* we're finished */
+				return 0;
+			}
 			use_maybe = TRUE;
 		} else if (fctx->maybe_idx == maybe_count) {
 			use_maybe = FALSE;

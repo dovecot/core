@@ -17,10 +17,12 @@
 #include <time.h>
 #include <sys/mman.h>
 
-#define MAX_FAST_LEVEL 3
-#define MAX_PARTIAL_LEN 4
-#define MAX_FULL_LEN 4
+#define DEFAULT_NORMALIZE_MAP_CHARS \
+	"EOTIRSACDNLMVUGPHBFWYXKJQZ0123456789@.-+#$%_&"
+#define DEFAULT_PARTIAL_LEN 4
+#define DEFAULT_FULL_LEN 4
 
+#define MAX_FAST_LEVEL 3
 #define SEQUENTIAL_COUNT 46
 
 struct squat_trie_build_context {
@@ -62,33 +64,34 @@ static void squat_trie_set_corrupted(struct squat_trie *trie)
 static void squat_trie_normalize_map_build(struct squat_trie *trie)
 {
 	static unsigned char valid_chars[] =
-		"EOTIRSACDNLMVUGPHBFWYXKJQZ0123456789@.-+#$%_&";
+		DEFAULT_NORMALIZE_MAP_CHARS;
 	unsigned int i, j;
 
-	memset(trie->normalize_map, 0, sizeof(trie->normalize_map));
+	memset(trie->default_normalize_map, 0,
+	       sizeof(trie->default_normalize_map));
 
 #if 1
 	for (i = 0, j = 1; i < sizeof(valid_chars)-1; i++) {
 		unsigned char chr = valid_chars[i];
 
 		if (chr >= 'A' && chr <= 'Z')
-			trie->normalize_map[chr-'A'+'a'] = j;
-		trie->normalize_map[chr] = j++;
+			trie->default_normalize_map[chr-'A'+'a'] = j;
+		trie->default_normalize_map[chr] = j++;
 	}
 	i_assert(j <= SEQUENTIAL_COUNT);
 
 	for (i = 128; i < 256; i++)
-		trie->normalize_map[i] = j++;
+		trie->default_normalize_map[i] = j++;
 #else
 	for (i = 0; i < sizeof(valid_chars)-1; i++) {
 		unsigned char chr = valid_chars[i];
 
 		if (chr >= 'A' && chr <= 'Z')
-			trie->normalize_map[chr-'A'+'a'] = chr;
-		trie->normalize_map[chr] = chr;
+			trie->default_normalize_map[chr-'A'+'a'] = chr;
+		trie->default_normalize_map[chr] = chr;
 	}
 	for (i = 128; i < 256; i++)
-		trie->normalize_map[i] = i_toupper(i);
+		trie->default_normalize_map[i] = i_toupper(i);
 #endif
 }
 
@@ -113,6 +116,7 @@ static void node_free(struct squat_trie *trie, struct squat_node *node)
 
 static void squat_trie_clear(struct squat_trie *trie)
 {
+	trie->corrupted = FALSE;
 	node_free(trie, &trie->root);
 	memset(&trie->root, 0, sizeof(trie->root));
 	memset(&trie->hdr, 0, sizeof(trie->hdr));
@@ -166,6 +170,13 @@ static void squat_trie_header_init(struct squat_trie *trie)
 	trie->hdr.version = SQUAT_TRIE_VERSION;
 	trie->hdr.indexid = ioloop_time;
 	trie->hdr.uidvalidity = trie->uidvalidity;
+	trie->hdr.partial_len = DEFAULT_PARTIAL_LEN;
+	trie->hdr.full_len = DEFAULT_FULL_LEN;
+
+	i_assert(sizeof(trie->hdr.normalize_map) ==
+		 sizeof(trie->default_normalize_map));
+	memcpy(trie->hdr.normalize_map, trie->default_normalize_map,
+	       sizeof(trie->hdr.normalize_map));
 }
 
 static int squat_trie_open_fd(struct squat_trie *trie)
@@ -694,16 +705,15 @@ static int
 squat_build_word(struct squat_trie *trie, uint32_t uid,
 		 const unsigned char *data, unsigned int size)
 {
-#if MAX_PARTIAL_LEN > 0
 	unsigned int i;
 
 	for (i = size - 1; i > 0; i--) {
 		if (squat_build_add(trie, uid, data + i,
-				    I_MIN(MAX_PARTIAL_LEN, size - i)) < 0)
+				    I_MIN(trie->hdr.partial_len, size - i)) < 0)
 			return -1;
 	}
-#endif
-	return squat_build_add(trie, uid, data, I_MIN(size, MAX_FULL_LEN));
+	return squat_build_add(trie, uid, data,
+			       I_MIN(size, trie->hdr.full_len));
 }
 
 static unsigned char *
@@ -715,7 +725,7 @@ squat_data_normalize(struct squat_trie *trie, const unsigned char *data,
 
 	dest = t_malloc(size);
 	for (i = 0; i < size; i++)
-		dest[i] = trie->normalize_map[data[i]];
+		dest[i] = trie->hdr.normalize_map[data[i]];
 	return dest;
 }
 
@@ -862,7 +872,7 @@ squat_trie_iterate_uidlist_init(struct squat_trie *trie)
 	ctx = i_new(struct squat_trie_iterate_context, 1);
 	ctx->trie = trie;
 	ctx->cur.node = &trie->root;
-	i_array_init(&ctx->parents, MAX_FULL_LEN*2);
+	i_array_init(&ctx->parents, trie->hdr.partial_len*2);
 	return ctx;
 }
 
@@ -981,6 +991,23 @@ static int squat_trie_renumber_uidlists(struct squat_trie *trie, bool finish)
 	return squat_uidlist_rebuild_finish(ctx, ret < 0);
 }
 
+static bool squat_trie_check_header(struct squat_trie *trie)
+{
+	if (trie->hdr.version != SQUAT_TRIE_VERSION ||
+	    trie->hdr.uidvalidity != trie->uidvalidity)
+		return FALSE;
+
+	if (trie->hdr.partial_len > trie->hdr.full_len) {
+		i_error("Corrupted %s: partial len > full len", trie->path);
+		return FALSE;
+	}
+	if (trie->hdr.full_len == 0) {
+		i_error("Corrupted %s: full len=0", trie->path);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static int squat_trie_map_header(struct squat_trie *trie)
 {
 	if (trie->locked_file_size == 0) {
@@ -1008,8 +1035,7 @@ static int squat_trie_map_header(struct squat_trie *trie)
 
 	if (trie->hdr.root_offset == 0)
 		return 0;
-	if (trie->hdr.version != SQUAT_TRIE_VERSION ||
-	    trie->hdr.uidvalidity != trie->uidvalidity) {
+	if (!squat_trie_check_header(trie)) {
 		squat_trie_delete(trie);
 		squat_trie_close(trie);
 		squat_trie_header_init(trie);
@@ -1082,7 +1108,7 @@ int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
 	ctx->trie = trie;
 	ctx->first_uid = trie->root.next_uid;
 
-	*last_uid_r = I_MAX(trie->root.next_uid/2, 1) - 1;
+	*last_uid_r = I_MAX((trie->root.next_uid+1)/2, 1) - 1;
 	*ctx_r = ctx;
 	return 0;
 }
@@ -1131,6 +1157,8 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 	ret = squat_write_nodes(ctx);
 	ctx->output = NULL;
 
+	if (trie->corrupted)
+		ret = -1;
 	if (ret == 0) {
 		trie->hdr.used_file_size = output->offset;
 		o_stream_seek(output, 0);
@@ -1194,7 +1222,7 @@ int squat_trie_get_last_uid(struct squat_trie *trie, uint32_t *last_uid_r)
 			return -1;
 	}
 
-	*last_uid_r = I_MAX(trie->root.next_uid/2, 1) - 1;
+	*last_uid_r = I_MAX((trie->root.next_uid+1)/2, 1) - 1;
 	return 0;
 }
 
@@ -1334,10 +1362,10 @@ squat_trie_lookup_partial(struct squat_trie_lookup_context *ctx,
 	int ret;
 
 	do {
-		if (size <= MAX_PARTIAL_LEN)
+		if (size <= ctx->trie->hdr.partial_len)
 			block_len = size;
 		else
-			block_len = MAX_PARTIAL_LEN;
+			block_len = ctx->trie->hdr.partial_len;
 		block = data + size - block_len;
 
 		ret = squat_trie_lookup_data(ctx->trie, block, block_len,
@@ -1357,8 +1385,28 @@ squat_trie_lookup_partial(struct squat_trie_lookup_context *ctx,
 			seq_range_array_remove_invert_range(ctx->maybe_uids,
 							    &ctx->tmp_uids2);
 		}
-	} while (--size >= MAX_PARTIAL_LEN);
+	} while (--size >= ctx->trie->hdr.partial_len);
 	return 1;
+}
+
+static void squat_trie_add_unknown(struct squat_trie *trie,
+				   ARRAY_TYPE(seq_range) *maybe_uids)
+{
+	struct seq_range *range, new_range;
+	unsigned int count;
+	uint32_t last_uid;
+
+	last_uid = I_MAX((trie->root.next_uid+1)/2, 1) - 1;
+
+	range = array_get_modifiable(maybe_uids, &count);
+	if (count > 0 && range[count-1].seq2 == last_uid) {
+		/* increase the range */
+		range[count-1].seq2 = (uint32_t)-1;
+	} else {
+		new_range.seq1 = last_uid + 1;
+		new_range.seq2 = (uint32_t)-1;
+		array_append(maybe_uids, &new_range, 1);
+	}
 }
 
 int squat_trie_lookup(struct squat_trie *trie, const char *str,
@@ -1407,11 +1455,12 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 							i - start);
 		}
 		t_pop();
-		return ret < 0 ? -1 :
-			(array_count(maybe_uids) > 0 ? 1 : 0);
+		squat_trie_add_unknown(trie, maybe_uids);
+		return ret < 0 ? -1 : 0;
 	}
 
-	if (MAX_FULL_LEN > MAX_PARTIAL_LEN || size <= MAX_PARTIAL_LEN) {
+	if (size <= trie->hdr.partial_len ||
+	    trie->hdr.full_len > trie->hdr.partial_len) {
 		ret = squat_trie_lookup_data(trie, data, size, &ctx.tmp_uids);
 		if (ret > 0) {
 			squat_trie_filter_type(type, &ctx.tmp_uids,
@@ -1421,7 +1470,7 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 		array_clear(definite_uids);
 	}
 
-	if (size <= MAX_PARTIAL_LEN || MAX_PARTIAL_LEN == 0) {
+	if (size <= trie->hdr.partial_len || trie->hdr.partial_len == 0) {
 		/* we have the result */
 		array_clear(maybe_uids);
 	} else {
@@ -1429,9 +1478,8 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 						i - start);
 	}
 	t_pop();
-	return ret < 0 ? -1 :
-		(array_count(maybe_uids) > 0 ||
-		 array_count(definite_uids) > 0 ? 1 : 0);
+	squat_trie_add_unknown(trie, maybe_uids);
+	return ret < 0 ? -1 : 0;
 }
 
 struct squat_uidlist *squat_trie_get_uidlist(struct squat_trie *trie)
