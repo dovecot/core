@@ -214,14 +214,16 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 				struct message_block *output)
 {
 	unsigned char new_buf[MAX_ENCODING_BUF_SIZE+1];
+	enum charset_flags flags;
 	const unsigned char *data = NULL;
 	size_t pos, size = 0, skip = 0;
 	int ret;
 
 	if (ctx->charset_trans == NULL && !ctx->charset_utf8) {
+		flags = ctx->dtcase ? CHARSET_FLAG_DECOMP_TITLECASE : 0;
 		if (charset_to_utf8_begin(ctx->content_charset != NULL ?
 					  ctx->content_charset : "UTF-8",
-					  ctx->dtcase, &ctx->charset_trans) < 0)
+					  flags, &ctx->charset_trans) < 0)
 			ctx->charset_trans = NULL;
 	}
 

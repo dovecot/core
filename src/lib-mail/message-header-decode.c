@@ -128,6 +128,7 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 {
 	struct decode_utf8_context *ctx = context;
 	struct charset_translation *t;
+	enum charset_flags flags;
 
 	/* one call with charset=NULL means nothing changed */
 	if (!ctx->called && charset == NULL)
@@ -146,7 +147,8 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 		return TRUE;
 	}
 
-	if (charset_to_utf8_begin(charset, ctx->dtcase, &t) < 0) {
+	flags = ctx->dtcase ? CHARSET_FLAG_DECOMP_TITLECASE : 0;
+	if (charset_to_utf8_begin(charset, flags, &t) < 0) {
 		/* let's just ignore this part */
 		return TRUE;
 	}
