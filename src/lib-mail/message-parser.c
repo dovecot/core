@@ -383,9 +383,11 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 		/* leave CR+LF + last line to buffer */
 		block_r->size = boundary_start;
 	}
-	if (block_r->size != 0)
+	if (block_r->size != 0) {
 		parse_body_add_block(ctx, block_r);
-	return ret <= 0 || block_r->size != 0 ? ret :
+		return 1;
+	}
+	return ret <= 0 ? ret :
 		parse_part_finish(ctx, boundary, block_r, FALSE);
 }
 
