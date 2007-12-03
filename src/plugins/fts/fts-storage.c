@@ -67,14 +67,13 @@ static int fts_mailbox_close(struct mailbox *box)
 	return ret;
 }
 
-static int fts_build_mail_flush_headers(struct fts_storage_build_context *ctx,
-					bool root)
+static int fts_build_mail_flush_headers(struct fts_storage_build_context *ctx)
 {
 	if (str_len(ctx->headers) == 0)
 		return 0;
 
 	if (fts_backend_build_more(ctx->build, ctx->uid, str_data(ctx->headers),
-				   str_len(ctx->headers), root) < 0)
+				   str_len(ctx->headers), TRUE) < 0)
 		return -1;
 
 	str_truncate(ctx->headers, 0);
@@ -144,10 +143,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 			fts_build_mail_header(ctx, &block);
 		else if (block.size == 0) {
 			/* end of headers */
-			bool root = raw_block.part->parent == NULL;
-			ret = fts_build_mail_flush_headers(ctx, root);
-			if (ret < 0)
-				break;
+			str_append_c(ctx->headers, '\n');
 		} else {
 			if (fts_backend_build_more(ctx->build, ctx->uid,
 						   block.data, block.size,
@@ -159,6 +155,12 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 	}
 	(void)message_parser_deinit(&parser);
 	message_decoder_deinit(&decoder);
+
+	if (ret == 0) {
+		/* Index all headers at the end. This is required for Squat,
+		   because it can handle only incremental UIDs. */
+		ret = fts_build_mail_flush_headers(ctx);
+	}
 	return ret;
 }
 

@@ -788,7 +788,7 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 	bool multibyte_chars = FALSE;
 	int ret = 0;
 
-	uid = uid * 2 + (type == SQUAT_INDEX_TYPE_HEADER ? 0 : 1);
+	uid = uid * 2 + (type == SQUAT_INDEX_TYPE_HEADER ? 1 : 0);
 
 	t_push();
 	char_lengths = t_malloc(size);
@@ -1394,7 +1394,7 @@ squat_trie_filter_type(enum squat_index_type type,
 	}
 
 	/* we'll have to drop either header or body UIDs */
-	mask = (type & SQUAT_INDEX_TYPE_HEADER) != 0 ? 0 : 1;
+	mask = (type & SQUAT_INDEX_TYPE_HEADER) != 0 ? 1 : 0;
 	for (i = 0; i < count; i++) {
 		for (uid = src_range[i].seq1; uid <= src_range[i].seq2; uid++) {
 			if ((uid & 1) == mask)
