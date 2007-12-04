@@ -803,7 +803,11 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	   besides using header updates, it also updates the offset to skip
 	   over following external transactions to avoid extra unneeded log
 	   reading. */
-	map->hdr.log_file_tail_offset = index->log->head->max_tail_offset;
+	i_assert(map->hdr.log_file_seq == index->log->head->hdr.file_seq);
+	if (map->hdr.log_file_tail_offset < index->log->head->max_tail_offset) {
+		map->hdr.log_file_tail_offset =
+			index->log->head->max_tail_offset;
+	}
 
 	buffer_write(map->hdr_copy_buf, 0, &map->hdr, sizeof(map->hdr));
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
