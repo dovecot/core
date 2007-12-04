@@ -921,8 +921,14 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 	   that we really should have read more, flush the cache and try again.
 	   if file is locked, the attribute cache was already flushed when
 	   refreshing the log. */
-	if (file->log->index->nfs_flush && nfs_flush)
-		nfs_flush_attr_cache_fd_locked(file->filepath, file->fd);
+	if (file->log->index->nfs_flush && nfs_flush) {
+		if (!file->locked)
+			nfs_flush_attr_cache_unlocked(file->filepath);
+		else {
+			nfs_flush_attr_cache_fd_locked(file->filepath,
+						       file->fd);
+		}
+	}
 
 	if (file->buffer != NULL && file->buffer_offset > start_offset) {
 		/* we have to insert missing data to beginning of buffer */
