@@ -1028,12 +1028,56 @@ mail_transaction_log_file_munmap(struct mail_transaction_log_file *file)
 	buffer_free(&file->buffer);
 }
 
+static int
+mail_transaction_log_file_map_mmap(struct mail_transaction_log_file *file)
+{
+	struct stat st;
+	int ret;
+
+	/* we are going to mmap() this file, but it's not necessarily
+	   mmaped currently. */
+	i_assert(file->buffer_offset == 0 || file->mmap_base == NULL);
+	i_assert(file->mmap_size == 0 || file->mmap_base != NULL);
+
+	if (fstat(file->fd, &st) < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath, "fstat()");
+		return -1;
+	}
+	file->last_size = st.st_size;
+
+	if ((uoff_t)st.st_size < file->sync_offset) {
+		mail_transaction_log_file_set_corrupted(file,
+							"file size shrank");
+		return 0;
+	}
+
+	if ((uoff_t)st.st_size == file->mmap_size) {
+		/* we already have the whole file mmaped */
+		if ((ret = mail_transaction_log_file_sync(file)) < 0)
+			return 0;
+		if (ret > 0)
+			return 1;
+		/* size changed, re-mmap */
+	}
+
+	do {
+		mail_transaction_log_file_munmap(file);
+
+		if (mail_transaction_log_file_mmap(file) < 0)
+			return -1;
+		if ((ret = mail_transaction_log_file_sync(file)) < 0)
+			return 0;
+	} while (ret == 0);
+
+	return 1;
+}
+
 int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 				  uoff_t start_offset, uoff_t end_offset)
 {
 	struct mail_index *index = file->log->index;
 	size_t size;
-	struct stat st;
 	int ret;
 
 	if (file->hdr.indexid == 0) {
@@ -1074,56 +1118,15 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 						  end_offset);
 	}
 
-	if (!index->mmap_disable) {
-		/* we are going to mmap() this file, but it's not necessarily
-		   mmaped currently. */
-		i_assert(file->buffer_offset == 0 || file->mmap_base == NULL);
-		i_assert(file->mmap_size == 0 || file->mmap_base != NULL);
-
-		if (fstat(file->fd, &st) < 0) {
-			mail_index_file_set_syscall_error(index, file->filepath,
-							  "fstat()");
-			return -1;
-		}
-		file->last_size = st.st_size;
-
-		if ((uoff_t)st.st_size < file->sync_offset) {
-			mail_transaction_log_file_set_corrupted(file,
-				"file size shrank");
-			return 0;
-		}
-
-		if ((uoff_t)st.st_size == file->mmap_size) {
-			/* we already have the whole file mmaped */
-			if ((ret = mail_transaction_log_file_sync(file)) < 0)
-				return 0;
-			if (ret > 0) {
-				return log_file_map_check_offsets(file,
-								  start_offset,
-								  end_offset);
-			}
-			/* size changed, re-mmap */
-		}
-	}
-
-	if (index->mmap_disable) {
+	if (!index->mmap_disable)
+		ret = mail_transaction_log_file_map_mmap(file);
+	else {
 		mail_transaction_log_file_munmap(file);
-
 		ret = mail_transaction_log_file_read(file, start_offset, FALSE);
-		if (ret <= 0)
-			return ret;
-	} else {
-		do {
-			mail_transaction_log_file_munmap(file);
-
-			if (mail_transaction_log_file_mmap(file) < 0)
-				return -1;
-			if ((ret = mail_transaction_log_file_sync(file)) < 0)
-				return 0;
-		} while (ret == 0);
 	}
 
-	return log_file_map_check_offsets(file, start_offset, end_offset);
+	return ret <= 0 ? ret :
+		log_file_map_check_offsets(file, start_offset, end_offset);
 }
 
 void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
