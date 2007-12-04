@@ -2,6 +2,7 @@
 #define SQUAT_UIDLIST_H
 
 struct squat_trie;
+struct squat_uidlist_build_context;
 struct squat_uidlist_rebuild_context;
 
 struct squat_uidlist_file_header {
@@ -33,15 +34,18 @@ struct squat_uidlist_file_header {
 struct squat_uidlist *squat_uidlist_init(struct squat_trie *trie);
 void squat_uidlist_deinit(struct squat_uidlist *uidlist);
 
-int squat_uidlist_open(struct squat_uidlist *uidlist);
-void squat_uidlist_close(struct squat_uidlist *uidlist);
+int squat_uidlist_refresh(struct squat_uidlist *uidlist);
 
-int squat_uidlist_build_init(struct squat_uidlist *uidlist);
-uint32_t squat_uidlist_build_add_uid(struct squat_uidlist *uidlist,
+int squat_uidlist_build_init(struct squat_uidlist *uidlist,
+			     struct squat_uidlist_build_context **ctx_r);
+uint32_t squat_uidlist_build_add_uid(struct squat_uidlist_build_context *ctx,
 				     uint32_t uid_list_idx, uint32_t uid);
-int squat_uidlist_build_deinit(struct squat_uidlist *uidlist);
+void squat_uidlist_build_flush(struct squat_uidlist_build_context *ctx);
+int squat_uidlist_build_finish(struct squat_uidlist_build_context *ctx);
+void squat_uidlist_build_deinit(struct squat_uidlist_build_context **ctx);
 
-int squat_uidlist_rebuild_init(struct squat_uidlist *uidlist, bool finish,
+int squat_uidlist_rebuild_init(struct squat_uidlist_build_context *build_ctx,
+			       bool compress,
 			       struct squat_uidlist_rebuild_context **ctx_r);
 void squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
 				const ARRAY_TYPE(uint32_t) *uids);

@@ -33,21 +33,14 @@ struct squat_uidlist {
 	struct squat_trie *trie;
 
 	char *path;
-	struct ostream *output;
 	int fd;
 
 	struct file_lock *file_lock;
 	uoff_t locked_file_size;
 
-	ARRAY_DEFINE(lists, struct uidlist_list);
-	ARRAY_TYPE(uint32_t) block_offsets;
-	ARRAY_TYPE(uint32_t) block_end_indexes;
-	uint32_t list_start_idx;
-
 	void *mmap_base;
 	size_t mmap_size;
 	struct squat_uidlist_file_header hdr;
-	struct squat_uidlist_file_header build_hdr;
 
 	unsigned int cur_block_count;
 	const uint32_t *cur_block_offsets;
@@ -55,10 +48,27 @@ struct squat_uidlist {
 
 	size_t max_size;
 	unsigned int corrupted:1;
+	unsigned int building:1;
+};
+
+struct squat_uidlist_build_context {
+	struct squat_uidlist *uidlist;
+	struct ostream *output;
+
+	ARRAY_TYPE(uint32_t) block_offsets;
+	ARRAY_TYPE(uint32_t) block_end_indexes;
+
+	ARRAY_DEFINE(lists, struct uidlist_list);
+	uint32_t list_start_idx;
+
+	struct squat_uidlist_file_header build_hdr;
+	unsigned int need_reopen:1;
 };
 
 struct squat_uidlist_rebuild_context {
 	struct squat_uidlist *uidlist;
+	struct squat_uidlist_build_context *build_ctx;
+
 	int fd;
 	struct ostream *output;
 
@@ -69,6 +79,8 @@ struct squat_uidlist_rebuild_context {
 	unsigned int list_idx;
 	unsigned int new_count;
 };
+
+static void squat_uidlist_close(struct squat_uidlist *uidlist);
 
 void squat_uidlist_delete(struct squat_uidlist *uidlist)
 {
@@ -87,10 +99,10 @@ static void squat_uidlist_set_corrupted(struct squat_uidlist *uidlist,
 	squat_trie_delete(uidlist->trie);
 }
 
-static uint32_t
+static int
 uidlist_write_array(struct ostream *output, const uint32_t *uid_list,
 		    unsigned int uid_count, uint32_t packed_flags,
-		    uint32_t offset, bool write_size)
+		    uint32_t offset, bool write_size, uint32_t *size_r)
 {
 	uint8_t *uidbuf, *bufp, sizebuf[SQUAT_PACK_MAX_SIZE], *sizebufp;
 	uint8_t listbuf[SQUAT_PACK_MAX_SIZE], *listbufp = listbuf;
@@ -175,7 +187,8 @@ uidlist_write_array(struct ostream *output, const uint32_t *uid_list,
 		prev = 0;
 		for (i = 0; i < uid_count; i++) {
 			uid = uid_list[i];
-			i_assert((uid & ~UID_LIST_MASK_RANGE) >= prev);
+			if (unlikely((uid & ~UID_LIST_MASK_RANGE) < prev))
+				return -1;
 			if ((uid & UID_LIST_MASK_RANGE) == 0) {
 				squat_pack_num(&bufp, (uid - prev) << 1);
 				prev = uid + 1;
@@ -208,12 +221,13 @@ uidlist_write_array(struct ostream *output, const uint32_t *uid_list,
 		i_free(uidbuf);
 	t_pop();
 
-	return size_value;
+	*size_r = size_value;
+	return 0;
 }
 
-static uint32_t
+static int
 uidlist_write(struct ostream *output, const struct uidlist_list *list,
-	      bool write_size)
+	      bool write_size, uint32_t *size_r)
 {
 	const uint32_t *uid_list = list->uid_list;
 	uint8_t buf[SQUAT_PACK_MAX_SIZE], *bufp;
@@ -230,7 +244,8 @@ uidlist_write(struct ostream *output, const struct uidlist_list *list,
 				bufp = buf;
 				squat_pack_num(&bufp, offset);
 				o_stream_send(output, buf, bufp - buf);
-				return (bufp - buf) << 2 | packed_flags;
+				*size_r = (bufp - buf) << 2 | packed_flags;
+				return 0;
 			}
 		} else {
 			i_assert(list->uid_count > 1);
@@ -242,7 +257,7 @@ uidlist_write(struct ostream *output, const struct uidlist_list *list,
 	}
 
 	return uidlist_write_array(output, uid_list, uid_count,
-				   packed_flags, offset, write_size);
+				   packed_flags, offset, write_size, size_r);
 }
 
 static int node_uidlist_map_blocks(struct squat_uidlist *uidlist)
@@ -286,24 +301,42 @@ static int node_uidlist_map_blocks(struct squat_uidlist *uidlist)
 	return 0;
 }
 
-static int squat_uidlist_map(struct squat_uidlist *uidlist, uoff_t offset)
+static int squat_uidlist_map_header(struct squat_uidlist *uidlist)
+{
+	if (uidlist->hdr.indexid == 0) {
+		/* still being built */
+		return 0;
+	}
+	if (uidlist->hdr.indexid != uidlist->trie->hdr.indexid) {
+		/* see if trie was recreated */
+		squat_trie_refresh(uidlist->trie);
+	}
+	if (uidlist->hdr.indexid != uidlist->trie->hdr.indexid) {
+		squat_uidlist_set_corrupted(uidlist, "wrong indexid");
+		return -1;
+	}
+	if (uidlist->hdr.used_file_size < sizeof(uidlist->hdr) ||
+	    uidlist->hdr.used_file_size > uidlist->mmap_size) {
+		squat_uidlist_set_corrupted(uidlist, "broken used_file_size");
+		return -1;
+	}
+	if (node_uidlist_map_blocks(uidlist) < 0)
+		return -1;
+	return 0;
+}
+
+static int squat_uidlist_mmap(struct squat_uidlist *uidlist)
 {
 	struct stat st;
-
-	if (uidlist->mmap_size > offset)
-		return 0;
 
 	if (fstat(uidlist->fd, &st) < 0) {
 		i_error("fstat(%s) failed: %m", uidlist->path);
 		return -1;
 	}
 	if (st.st_size < (off_t)sizeof(uidlist->hdr)) {
+		if (st.st_size == 0)
+			return 0;
 		squat_uidlist_set_corrupted(uidlist, "File too small");
-		return -1;
-	}
-	if (offset >= (uoff_t)st.st_size && offset != (uoff_t)-1) {
-		squat_uidlist_set_corrupted(uidlist,
-					    "Offset points outside file");
 		return -1;
 	}
 
@@ -321,20 +354,29 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist, uoff_t offset)
 		i_error("mmap(%s) failed: %m", uidlist->path);
 		return -1;
 	}
-	memcpy(&uidlist->hdr, uidlist->mmap_base, sizeof(uidlist->hdr));
-
-	if (uidlist->hdr.indexid != uidlist->trie->hdr.indexid) {
-		squat_uidlist_set_corrupted(uidlist, "wrong indexid");
-		return -1;
-	}
-	if (uidlist->hdr.used_file_size < sizeof(uidlist->hdr) ||
-	    uidlist->hdr.used_file_size > uidlist->mmap_size) {
-		squat_uidlist_set_corrupted(uidlist, "broken used_file_size");
-		return -1;
-	}
-	if (node_uidlist_map_blocks(uidlist) < 0)
-		return -1;
 	return 0;
+}
+
+static int squat_uidlist_map(struct squat_uidlist *uidlist)
+{
+	const struct squat_uidlist_file_header *mmap_hdr = uidlist->mmap_base;
+
+	if (mmap_hdr != NULL && !uidlist->building &&
+	    uidlist->hdr.block_list_offset == mmap_hdr->block_list_offset) {
+		/* file hasn't changed */
+		return 0;
+	}
+
+	if (mmap_hdr == NULL || uidlist->building ||
+	    uidlist->mmap_size < mmap_hdr->used_file_size) {
+		if (squat_uidlist_mmap(uidlist) < 0)
+			return -1;
+	}
+
+	if (!uidlist->building)
+		memcpy(&uidlist->hdr, uidlist->mmap_base, sizeof(uidlist->hdr));
+
+	return squat_uidlist_map_header(uidlist);
 }
 
 struct squat_uidlist *squat_uidlist_init(struct squat_trie *trie)
@@ -353,17 +395,11 @@ void squat_uidlist_deinit(struct squat_uidlist *uidlist)
 {
 	squat_uidlist_close(uidlist);
 
-	if (array_is_created(&uidlist->block_offsets))
-		array_free(&uidlist->block_offsets);
-	if (array_is_created(&uidlist->block_end_indexes))
-		array_free(&uidlist->block_end_indexes);
-	if (array_is_created(&uidlist->lists))
-		array_free(&uidlist->lists);
 	i_free(uidlist->path);
 	i_free(uidlist);
 }
 
-int squat_uidlist_open(struct squat_uidlist *uidlist)
+static int squat_uidlist_open(struct squat_uidlist *uidlist)
 {
 	squat_uidlist_close(uidlist);
 
@@ -376,12 +412,49 @@ int squat_uidlist_open(struct squat_uidlist *uidlist)
 		i_error("open(%s) failed: %m", uidlist->path);
 		return -1;
 	}
-	return squat_uidlist_map(uidlist, 0);
+	return squat_uidlist_map(uidlist);
+}
+
+static void squat_uidlist_close(struct squat_uidlist *uidlist)
+{
+	i_assert(!uidlist->building);
+
+	if (uidlist->file_lock != NULL)
+		file_lock_free(&uidlist->file_lock);
+	if (uidlist->mmap_size != 0) {
+		if (munmap(uidlist->mmap_base, uidlist->mmap_size) < 0)
+			i_error("munmap(%s) failed: %m", uidlist->path);
+		uidlist->mmap_base = NULL;
+		uidlist->mmap_size = 0;
+	}
+	if (uidlist->fd != -1) {
+		if (close(uidlist->fd) < 0)
+			i_error("close(%s) failed: %m", uidlist->path);
+		uidlist->fd = -1;
+	}
+	uidlist->cur_block_end_indexes = NULL;
+	uidlist->cur_block_offsets = NULL;
+	uidlist->corrupted = FALSE;
+}
+
+int squat_uidlist_refresh(struct squat_uidlist *uidlist)
+{
+	if (uidlist->fd == -1 ||
+	    uidlist->hdr.indexid != uidlist->trie->hdr.indexid) {
+		if (squat_uidlist_open(uidlist) < 0)
+			return -1;
+	} else {
+		if (squat_uidlist_map(uidlist) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static int squat_uidlist_is_file_stale(struct squat_uidlist *uidlist)
 {
 	struct stat st, st2;
+
+	i_assert(uidlist->fd != -1);
 
 	if (stat(uidlist->path, &st) < 0) {
 		if (errno == ENOENT)
@@ -405,6 +478,7 @@ static int squat_uidlist_lock(struct squat_uidlist *uidlist)
 	int ret;
 
 	for (;;) {
+		i_assert(uidlist->fd != -1);
 		i_assert(uidlist->file_lock == NULL);
 
 		ret = file_wait_lock(uidlist->fd, uidlist->path, F_WRLCK,
@@ -449,7 +523,7 @@ static int squat_uidlist_open_or_create(struct squat_uidlist *uidlist)
 		return -1;
 
 	if (uidlist->locked_file_size != 0) {
-		if (squat_uidlist_map(uidlist, 0) < 0) {
+		if (squat_uidlist_map(uidlist) < 0) {
 			/* broken file, truncate */
 			if (ftruncate(uidlist->fd, 0) < 0) {
 				i_error("ftruncate(%s) failed: %m",
@@ -461,8 +535,7 @@ static int squat_uidlist_open_or_create(struct squat_uidlist *uidlist)
 	}
 	if (uidlist->locked_file_size == 0) {
 		/* write using 0 until we're finished */
-		uidlist->hdr.indexid = 0;
-		uidlist->hdr.used_file_size = sizeof(uidlist->hdr);
+		memset(&uidlist->hdr, 0, sizeof(uidlist->hdr));
 		if (write_full(uidlist->fd, &uidlist->hdr,
 			       sizeof(uidlist->hdr)) < 0) {
 			i_error("write(%s) failed: %m", uidlist->path);
@@ -472,27 +545,13 @@ static int squat_uidlist_open_or_create(struct squat_uidlist *uidlist)
 	return 0;
 }
 
-void squat_uidlist_close(struct squat_uidlist *uidlist)
+int squat_uidlist_build_init(struct squat_uidlist *uidlist,
+			     struct squat_uidlist_build_context **ctx_r)
 {
-	if (uidlist->file_lock != NULL)
-		file_lock_free(&uidlist->file_lock);
-	if (uidlist->mmap_size != 0) {
-		if (munmap(uidlist->mmap_base, uidlist->mmap_size) < 0)
-			i_error("munmap(%s) failed: %m", uidlist->path);
-		uidlist->mmap_size = 0;
-	}
-	if (uidlist->output != NULL)
-		o_stream_unref(&uidlist->output);
-	if (uidlist->fd != -1) {
-		if (close(uidlist->fd) < 0)
-			i_error("close(%s) failed: %m", uidlist->path);
-		uidlist->fd = -1;
-	}
-	uidlist->corrupted = FALSE;
-}
+	struct squat_uidlist_build_context *ctx;
 
-int squat_uidlist_build_init(struct squat_uidlist *uidlist)
-{
+	i_assert(!uidlist->building);
+
 	if (squat_uidlist_open_or_create(uidlist) < 0) {
 		if (uidlist->file_lock != NULL)
 			file_unlock(&uidlist->file_lock);
@@ -505,29 +564,35 @@ int squat_uidlist_build_init(struct squat_uidlist *uidlist)
 		return -1;
 	}
 
-	uidlist->output = o_stream_create_fd(uidlist->fd, 0, FALSE);
-	if (uidlist->output->offset == 0) {
+	ctx = i_new(struct squat_uidlist_build_context, 1);
+	ctx->uidlist = uidlist;
+	ctx->output = o_stream_create_fd(uidlist->fd, 0, FALSE);
+	if (ctx->output->offset == 0) {
 		struct squat_uidlist_file_header hdr;
 
 		memset(&hdr, 0, sizeof(hdr));
-		o_stream_send(uidlist->output, &hdr, sizeof(hdr));
+		o_stream_send(ctx->output, &hdr, sizeof(hdr));
 	}
-	o_stream_cork(uidlist->output);
-	i_array_init(&uidlist->lists, 10240);
-	i_array_init(&uidlist->block_offsets, 128);
-	i_array_init(&uidlist->block_end_indexes, 128);
-	uidlist->list_start_idx = uidlist->hdr.count;
-	uidlist->build_hdr = uidlist->hdr;
+	o_stream_cork(ctx->output);
+	i_array_init(&ctx->lists, 10240);
+	i_array_init(&ctx->block_offsets, 128);
+	i_array_init(&ctx->block_end_indexes, 128);
+	ctx->list_start_idx = uidlist->hdr.count;
+	ctx->build_hdr = uidlist->hdr;
+
+	uidlist->building = TRUE;
+	*ctx_r = ctx;
 	return 0;
 }
 
-static int
-uidlist_write_block_list_and_header(struct squat_uidlist *uidlist,
+static void
+uidlist_write_block_list_and_header(struct squat_uidlist_build_context *ctx,
 				    struct ostream *output,
 				    ARRAY_TYPE(uint32_t) *block_offsets,
 				    ARRAY_TYPE(uint32_t) *block_end_indexes,
 				    bool write_old_blocks)
 {
+	struct squat_uidlist *uidlist = ctx->uidlist;
 	unsigned int align, old_block_count, new_block_count;
 	uint32_t block_offset_count;
 	uoff_t block_list_offset;
@@ -555,21 +620,17 @@ uidlist_write_block_list_and_header(struct squat_uidlist *uidlist,
 		      old_block_count * sizeof(uint32_t));
 	o_stream_send(output, array_idx(block_offsets, 0),
 		      new_block_count * sizeof(uint32_t));
-
-	/* write header */
-	uidlist->build_hdr.indexid = uidlist->trie->hdr.indexid;
-	uidlist->build_hdr.block_list_offset = block_list_offset;
-	uidlist->build_hdr.used_file_size = output->offset;
-	uidlist->hdr = uidlist->build_hdr;
-
-	o_stream_seek(output, 0);
-	o_stream_send(output, &uidlist->build_hdr, sizeof(uidlist->build_hdr));
-	o_stream_seek(output, uidlist->build_hdr.used_file_size);
 	o_stream_flush(output);
-	return 0;
+
+	/* update header - it's written later when trie is locked */
+	i_assert(uidlist->trie->hdr.indexid != 0);
+	ctx->build_hdr.indexid = uidlist->trie->hdr.indexid;
+	ctx->build_hdr.block_list_offset = block_list_offset;
+	ctx->build_hdr.used_file_size = output->offset;
+	uidlist->hdr = ctx->build_hdr;
 }
 
-static int squat_uidlist_build_flush(struct squat_uidlist *uidlist)
+void squat_uidlist_build_flush(struct squat_uidlist_build_context *ctx)
 {
 	struct uidlist_list *lists;
 	uint8_t buf[SQUAT_PACK_MAX_SIZE], *bufp;
@@ -578,77 +639,105 @@ static int squat_uidlist_build_flush(struct squat_uidlist *uidlist)
 	uint32_t list_sizes[UIDLIST_BLOCK_LIST_COUNT];
 	size_t mem_size;
 
-	if (uidlist->corrupted)
-		return -1;
+	if (ctx->uidlist->corrupted)
+		return;
 
-	lists = array_get_modifiable(&uidlist->lists, &count);
+	lists = array_get_modifiable(&ctx->lists, &count);
 	if (count == 0)
-		return 0;
+		return;
 
 	/* write the lists and save the written sizes to uid_list[0] */
 	for (i = 0; i < count; i += UIDLIST_BLOCK_LIST_COUNT) {
-		start_offset = uidlist->output->offset;
+		start_offset = ctx->output->offset;
 		max = I_MIN(count - i, UIDLIST_BLOCK_LIST_COUNT);
 		for (j = 0; j < max; j++) {
-			list_sizes[j] = uidlist_write(uidlist->output,
-						      &lists[i+j], FALSE);
+			if (uidlist_write(ctx->output, &lists[i+j],
+					  FALSE, &list_sizes[j]) < 0) {
+				squat_uidlist_set_corrupted(ctx->uidlist,
+							    "Broken uidlists");
+				return;
+			}
 		}
 
-		block_offset = uidlist->output->offset;
-		block_end_idx = uidlist->list_start_idx + i + max;
-		array_append(&uidlist->block_offsets, &block_offset, 1);
-		array_append(&uidlist->block_end_indexes, &block_end_idx, 1);
+		block_offset = ctx->output->offset;
+		block_end_idx = ctx->list_start_idx + i + max;
+		array_append(&ctx->block_offsets, &block_offset, 1);
+		array_append(&ctx->block_end_indexes, &block_end_idx, 1);
 
 		/* write the full size of the uidlists */
 		bufp = buf;
 		squat_pack_num(&bufp, block_offset - start_offset);
-		o_stream_send(uidlist->output, buf, bufp - buf);
+		o_stream_send(ctx->output, buf, bufp - buf);
 
 		/* write the sizes/flags */
 		for (j = 0; j < max; j++) {
 			bufp = buf;
 			squat_pack_num(&bufp, list_sizes[j]);
-			o_stream_send(uidlist->output, buf, bufp - buf);
+			o_stream_send(ctx->output, buf, bufp - buf);
 		}
 	}
 
-	mem_size = uidlist->lists.arr.buffer->used +
-		uidlist->block_offsets.arr.buffer->used +
-		uidlist->block_end_indexes.arr.buffer->used;
-	if (uidlist->max_size < mem_size)
-		uidlist->max_size = mem_size;
+	mem_size = ctx->lists.arr.buffer->used +
+		ctx->block_offsets.arr.buffer->used +
+		ctx->block_end_indexes.arr.buffer->used;
+	if (ctx->uidlist->max_size < mem_size)
+		ctx->uidlist->max_size = mem_size;
 
-	uidlist->list_start_idx += count;
-	array_clear(&uidlist->lists);
+	ctx->list_start_idx += count;
+	array_clear(&ctx->lists);
 
-	if (uidlist_write_block_list_and_header(uidlist, uidlist->output,
-						&uidlist->block_offsets,
-						&uidlist->block_end_indexes,
-						TRUE) < 0)
+	uidlist_write_block_list_and_header(ctx, ctx->output,
+					    &ctx->block_offsets,
+					    &ctx->block_end_indexes, TRUE);
+
+	(void)squat_uidlist_map(ctx->uidlist);
+
+	array_clear(&ctx->block_offsets);
+	array_clear(&ctx->block_end_indexes);
+}
+
+int squat_uidlist_build_finish(struct squat_uidlist_build_context *ctx)
+{
+	if (ctx->uidlist->corrupted)
 		return -1;
-	if (uidlist->output->last_failed_errno != 0) {
-		errno = uidlist->output->last_failed_errno;
-		i_error("write() to %s failed: %m", uidlist->path);
+
+	o_stream_seek(ctx->output, 0);
+	o_stream_send(ctx->output, &ctx->build_hdr, sizeof(ctx->build_hdr));
+	o_stream_seek(ctx->output, ctx->build_hdr.used_file_size);
+	o_stream_flush(ctx->output);
+
+	if (ctx->output->last_failed_errno != 0) {
+		errno = ctx->output->last_failed_errno;
+		i_error("write() to %s failed: %m", ctx->uidlist->path);
 		return -1;
 	}
-
-	(void)squat_uidlist_map(uidlist, (uoff_t)-1);
-
-	array_clear(&uidlist->block_offsets);
-	array_clear(&uidlist->block_end_indexes);
 	return 0;
 }
 
-int squat_uidlist_build_deinit(struct squat_uidlist *uidlist)
+void squat_uidlist_build_deinit(struct squat_uidlist_build_context **_ctx)
 {
-	int ret;
+	struct squat_uidlist_build_context *ctx = *_ctx;
 
-	ret = squat_uidlist_build_flush(uidlist);
-	file_unlock(&uidlist->file_lock);
-	return ret;
+	*_ctx = NULL;
+
+	i_assert(array_count(&ctx->lists) == 0 || ctx->uidlist->corrupted);
+	i_assert(ctx->uidlist->building);
+	ctx->uidlist->building = FALSE;
+
+	file_unlock(&ctx->uidlist->file_lock);
+
+	if (ctx->need_reopen)
+		(void)squat_uidlist_open(ctx->uidlist);
+
+	array_free(&ctx->block_offsets);
+	array_free(&ctx->block_end_indexes);
+	array_free(&ctx->lists);
+	o_stream_unref(&ctx->output);
+	i_free(ctx);
 }
 
-int squat_uidlist_rebuild_init(struct squat_uidlist *uidlist, bool finish,
+int squat_uidlist_rebuild_init(struct squat_uidlist_build_context *build_ctx,
+			       bool compress,
 			       struct squat_uidlist_rebuild_context **ctx_r)
 {
 	struct squat_uidlist_rebuild_context *ctx;
@@ -656,15 +745,16 @@ int squat_uidlist_rebuild_init(struct squat_uidlist *uidlist, bool finish,
 	const char *temp_path;
 	int fd;
 
-	if (uidlist->hdr.link_count == 0)
+	if (build_ctx->build_hdr.link_count == 0)
 		return 0;
 
-	if (!finish) {
-		if (uidlist->hdr.link_count < uidlist->hdr.count*2/3)
+	if (!compress) {
+		if (build_ctx->build_hdr.link_count <
+		    build_ctx->build_hdr.count*2/3)
 			return 0;
 	}
 
-	temp_path = t_strconcat(uidlist->path, ".tmp", NULL);
+	temp_path = t_strconcat(build_ctx->uidlist->path, ".tmp", NULL);
 	fd = open(temp_path, O_RDWR | O_TRUNC | O_CREAT, 0600);
 	if (fd < 0) {
 		i_error("open(%s) failed: %m", temp_path);
@@ -672,7 +762,8 @@ int squat_uidlist_rebuild_init(struct squat_uidlist *uidlist, bool finish,
 	}
 
 	ctx = i_new(struct squat_uidlist_rebuild_context, 1);
-	ctx->uidlist = uidlist;
+	ctx->uidlist = build_ctx->uidlist;
+	ctx->build_ctx = build_ctx;
 	ctx->fd = fd;
 	ctx->output = o_stream_create_fd(ctx->fd, 0, FALSE);
 	o_stream_cork(ctx->output);
@@ -682,9 +773,9 @@ int squat_uidlist_rebuild_init(struct squat_uidlist *uidlist, bool finish,
 
 	ctx->cur_block_start_offset = ctx->output->offset;
 	i_array_init(&ctx->new_block_offsets,
-		     uidlist->build_hdr.count / UIDLIST_BLOCK_LIST_COUNT);
+		     build_ctx->build_hdr.count / UIDLIST_BLOCK_LIST_COUNT);
 	i_array_init(&ctx->new_block_end_indexes,
-		     uidlist->build_hdr.count / UIDLIST_BLOCK_LIST_COUNT);
+		     build_ctx->build_hdr.count / UIDLIST_BLOCK_LIST_COUNT);
 	*ctx_r = ctx;
 	return 1;
 }
@@ -721,9 +812,11 @@ uidlist_rebuild_flush_block(struct squat_uidlist_rebuild_context *ctx)
 void squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
 				const ARRAY_TYPE(uint32_t) *uids)
 {
-	ctx->list_sizes[ctx->list_idx] =
-		uidlist_write_array(ctx->output, array_idx(uids, 0),
-				    array_count(uids), 0, 0, FALSE);
+	if (uidlist_write_array(ctx->output, array_idx(uids, 0),
+				array_count(uids), 0, 0, FALSE,
+				&ctx->list_sizes[ctx->list_idx]) < 0)
+		squat_uidlist_set_corrupted(ctx->uidlist, "Broken uidlists");
+
 	if (++ctx->list_idx == UIDLIST_BLOCK_LIST_COUNT) {
 		uidlist_rebuild_flush_block(ctx);
 		ctx->list_idx = 0;
@@ -733,53 +826,53 @@ void squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
 int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 				 bool cancel)
 {
-	struct squat_uidlist *uidlist = ctx->uidlist;
 	const char *temp_path;
 	int ret = 1;
 
 	if (ctx->list_idx != 0)
 		uidlist_rebuild_flush_block(ctx);
-	if (array_count(&ctx->new_block_end_indexes) == 0 || cancel)
+	if (array_count(&ctx->new_block_end_indexes) == 0 ||
+	    cancel || ctx->uidlist->corrupted)
 		ret = 0;
 
 	temp_path = t_strconcat(ctx->uidlist->path, ".tmp", NULL);
-	squat_uidlist_close(ctx->uidlist);
-
 	if (ret > 0) {
-		uidlist->build_hdr.count = ctx->new_count;
-		uidlist->build_hdr.link_count = 0;
-		uidlist_write_block_list_and_header(uidlist, ctx->output,
+		ctx->build_ctx->build_hdr.indexid =
+			ctx->uidlist->trie->hdr.indexid;
+		ctx->build_ctx->build_hdr.count = ctx->new_count;
+		ctx->build_ctx->build_hdr.link_count = 0;
+		uidlist_write_block_list_and_header(ctx->build_ctx, ctx->output,
 						    &ctx->new_block_offsets,
 						    &ctx->new_block_end_indexes,
 						    FALSE);
-		if (ctx->output->last_failed_errno != 0) {
+		o_stream_seek(ctx->output, 0);
+		o_stream_send(ctx->output, &ctx->build_ctx->build_hdr,
+			      sizeof(ctx->build_ctx->build_hdr));
+		o_stream_seek(ctx->output,
+			      ctx->build_ctx->build_hdr.used_file_size);
+		o_stream_flush(ctx->output);
+
+		if (ctx->uidlist->corrupted)
+			ret = -1;
+		else if (ctx->output->last_failed_errno != 0) {
 			errno = ctx->output->last_failed_errno;
 			i_error("write() to %s failed: %m", temp_path);
 			ret = -1;
-		} else if (rename(temp_path, uidlist->path) < 0) {
+		} else if (rename(temp_path, ctx->uidlist->path) < 0) {
 			i_error("rename(%s, %s) failed: %m",
-				temp_path, uidlist->path);
+				temp_path, ctx->uidlist->path);
 			ret = -1;
 		}
+		ctx->build_ctx->need_reopen = TRUE;
 	}
 
+	o_stream_unref(&ctx->output);
+	if (close(ctx->fd) < 0)
+		i_error("close(%s) failed: %m", temp_path);
+
 	if (ret <= 0) {
-		o_stream_unref(&ctx->output);
-		if (close(ctx->fd) < 0)
-			i_error("close(%s) failed: %m", temp_path);
 		if (unlink(temp_path) < 0)
 			i_error("unlink(%s) failed: %m", temp_path);
-	} else {
-		array_clear(&uidlist->block_offsets);
-		array_clear(&uidlist->block_end_indexes);
-		uidlist->fd = ctx->fd;
-		uidlist->output = ctx->output;
-		uidlist->list_start_idx = ctx->new_count;
-
-		i_assert(array_count(&uidlist->lists) == 0);
-		i_assert(uidlist->mmap_size == 0);
-
-		(void)squat_uidlist_map(uidlist, (uoff_t)-1);
 	}
 	array_free(&ctx->new_block_offsets);
 	array_free(&ctx->new_block_end_indexes);
@@ -787,41 +880,15 @@ int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 	return ret < 0 ? -1 : 0;
 }
 
-static int uidlist_rebuild(struct squat_uidlist *uidlist)
-{
-	struct squat_uidlist_rebuild_context *ctx;
-	unsigned int i;
-	ARRAY_TYPE(uint32_t) uids;
-	int ret = 0;
-
-	if (uidlist->hdr.link_count == 0)
-		return 0;
-
-	if (squat_uidlist_rebuild_init(uidlist, TRUE, &ctx) < 0)
-		return -1;
-
-	i_array_init(&uids, 1024);
-	for (i = 0; i < uidlist->hdr.count; i++) {
-		array_clear(&uids);
-		if (squat_uidlist_get(uidlist, (i + 0x100) << 1, &uids) < 0) {
-			ret = -1;
-			break;
-		}
-		squat_uidlist_rebuild_next(ctx, &uids);
-	}
-	array_free(&uids);
-
-	return squat_uidlist_rebuild_finish(ctx, ret < 0);
-}
-
 static void
-uidlist_flush(struct squat_uidlist *uidlist, struct uidlist_list *list,
-	      uint32_t uid)
+uidlist_flush(struct squat_uidlist_build_context *ctx,
+	      struct uidlist_list *list, uint32_t uid)
 {
-	uint32_t offset = uidlist->output->offset;
+	uint32_t size, offset = ctx->output->offset;
 
-	uidlist->build_hdr.link_count++;
-	uidlist_write(uidlist->output, list, TRUE);
+	ctx->build_hdr.link_count++;
+	if (uidlist_write(ctx->output, list, TRUE, &size) < 0)
+		squat_uidlist_set_corrupted(ctx->uidlist, "Broken uidlists");
 
 	list->uid_count = 2;
 	list->uid_begins_with_pointer = TRUE;
@@ -831,22 +898,22 @@ uidlist_flush(struct squat_uidlist *uidlist, struct uidlist_list *list,
 }
 
 static struct uidlist_list *
-uidlist_add_new(struct squat_uidlist *uidlist, unsigned int count,
+uidlist_add_new(struct squat_uidlist_build_context *ctx, unsigned int count,
 		uint32_t *uid_list_idx_r)
 {
 	struct uidlist_list *list;
 
-	i_assert(array_count(&uidlist->lists) +
-		 uidlist->list_start_idx == uidlist->build_hdr.count);
-	*uid_list_idx_r = (uidlist->build_hdr.count + 0x100) << 1;
-	list = array_append_space(&uidlist->lists);
-	uidlist->build_hdr.count++;
+	i_assert(array_count(&ctx->lists) +
+		 ctx->list_start_idx == ctx->build_hdr.count);
+	*uid_list_idx_r = (ctx->build_hdr.count + 0x100) << 1;
+	list = array_append_space(&ctx->lists);
+	ctx->build_hdr.count++;
 
 	list->uid_count = count;
 	return list;
 }
 
-uint32_t squat_uidlist_build_add_uid(struct squat_uidlist *uidlist,
+uint32_t squat_uidlist_build_add_uid(struct squat_uidlist_build_context *ctx,
 				     uint32_t uid_list_idx, uint32_t uid)
 {
 	struct uidlist_list *list;
@@ -858,7 +925,7 @@ uint32_t squat_uidlist_build_add_uid(struct squat_uidlist *uidlist,
 		uint32_t prev_uid = uid_list_idx >> 1;
 
 		i_assert(prev_uid != uid);
-		list = uidlist_add_new(uidlist, 2, &uid_list_idx);
+		list = uidlist_add_new(ctx, 2, &uid_list_idx);
 		list->uid_list[0] = prev_uid;
 		if (prev_uid + 1 == uid)
 			list->uid_list[0] |= UID_LIST_MASK_RANGE;
@@ -882,7 +949,7 @@ uint32_t squat_uidlist_build_add_uid(struct squat_uidlist *uidlist,
 
 		/* create a new list */
 		old_list_idx = uid_list_idx >> 1;
-		list = uidlist_add_new(uidlist, 1, &uid_list_idx);
+		list = uidlist_add_new(ctx, 1, &uid_list_idx);
 		/* add the first UID ourself */
 		idx = 0;
 		i_assert((old_list_idx & 0xff) != 0);
@@ -895,7 +962,7 @@ uint32_t squat_uidlist_build_add_uid(struct squat_uidlist *uidlist,
 		}
 		for (; mask <= 128; mask <<= 1, idx++) {
 			if ((old_list_idx & mask) != 0) {
-				squat_uidlist_build_add_uid(uidlist,
+				squat_uidlist_build_add_uid(ctx,
 							    uid_list_idx, idx);
 			}
 		}
@@ -903,25 +970,26 @@ uint32_t squat_uidlist_build_add_uid(struct squat_uidlist *uidlist,
 
 	/* add to existing list */
 	idx = (uid_list_idx >> 1) - 0x100;
-	if (idx < uidlist->list_start_idx) {
-		list = uidlist_add_new(uidlist, 2, &uid_list_idx);
+	if (idx < ctx->list_start_idx) {
+		list = uidlist_add_new(ctx, 2, &uid_list_idx);
 		list->uid_list[0] = UID_LIST_POINTER_MASK_LIST_IDX | idx;
 		list->uid_list[1] = uid;
 		list->uid_begins_with_pointer = TRUE;
-		uidlist->build_hdr.link_count++;
+		ctx->build_hdr.link_count++;
 		return uid_list_idx;
 	}
 
-	idx -= uidlist->list_start_idx;
-	if (idx >= array_count(&uidlist->lists)) {
-		squat_uidlist_set_corrupted(uidlist, "missing/broken uidlist");
+	idx -= ctx->list_start_idx;
+	if (idx >= array_count(&ctx->lists)) {
+		squat_uidlist_set_corrupted(ctx->uidlist,
+					    "missing/broken uidlist");
 		return 0;
 	}
-	list = array_idx_modifiable(&uidlist->lists, idx);
+	list = array_idx_modifiable(&ctx->lists, idx);
 	i_assert(list->uid_count > 0);
 
 	p = &list->uid_list[list->uid_count-1];
-	i_assert(uid != *p || uidlist->corrupted ||
+	i_assert(uid != *p || ctx->uidlist->corrupted ||
 		 (list->uid_count == 1 && list->uid_begins_with_pointer));
 	if (uid == *p + 1 &&
 	    (list->uid_count > 1 || !list->uid_begins_with_pointer)) {
@@ -934,7 +1002,7 @@ uint32_t squat_uidlist_build_add_uid(struct squat_uidlist *uidlist,
 		}
 
 		if (list->uid_count == UIDLIST_LIST_SIZE) {
-			uidlist_flush(uidlist, list, uid);
+			uidlist_flush(ctx, list, uid);
 			return uid_list_idx;
 		}
 		/* create a new range */
@@ -942,7 +1010,7 @@ uint32_t squat_uidlist_build_add_uid(struct squat_uidlist *uidlist,
 	}
 
 	if (list->uid_count == UIDLIST_LIST_SIZE) {
-		uidlist_flush(uidlist, list, uid);
+		uidlist_flush(ctx, list, uid);
 		return uid_list_idx;
 	}
 
@@ -1011,8 +1079,6 @@ node_uidlist_get_at_offset(struct squat_uidlist *uidlist, uoff_t offset,
 	uint32_t size, base_uid;
 	unsigned int i, j, extra = 0;
 
-	if (squat_uidlist_map(uidlist, offset) < 0)
-		return -1;
 	p = CONST_PTR_OFFSET(uidlist->mmap_base, offset);
 	end = CONST_PTR_OFFSET(uidlist->mmap_base, uidlist->mmap_size);
 
@@ -1092,6 +1158,11 @@ node_uidlist_get_offset(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 	const uint8_t *p, *end;
 	unsigned int idx;
 	uint32_t num, skip_bytes, uidlists_offset;
+
+	if (uidlist->fd == -1) {
+		squat_uidlist_set_corrupted(uidlist, "no uidlists");
+		return -1;
+	}
 
 	if (bsearch_insert_pos(&uid_list_idx, uidlist->cur_block_end_indexes,
 			       uidlist->cur_block_count,
@@ -1188,10 +1259,8 @@ int squat_uidlist_get_seqrange(struct squat_uidlist *uidlist,
 	unsigned int i, count;
 
 	t_array_init(&tmp_uid_arr, 128);
-	if (squat_uidlist_get(uidlist, uid_list_idx, &tmp_uid_arr) < 0) {
-		t_pop();
+	if (squat_uidlist_get(uidlist, uid_list_idx, &tmp_uid_arr) < 0)
 		return -1;
-	}
 
 	tmp_uids = array_get(&tmp_uid_arr, &count);
 	for (i = 0; i < count; i++) {

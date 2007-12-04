@@ -29,6 +29,9 @@
 struct squat_trie_build_context {
 	struct squat_trie *trie;
 	struct ostream *output;
+	struct squat_uidlist_build_context *uidlist_build_ctx;
+
+	struct file_lock *file_lock;
 
 	uint32_t first_uid;
 	unsigned int compress_nodes:1;
@@ -46,7 +49,7 @@ struct squat_trie_iterate_context {
 	bool failed;
 };
 
-static int squat_trie_map(struct squat_trie *trie);
+static int squat_trie_map(struct squat_trie *trie, bool building);
 
 void squat_trie_delete(struct squat_trie *trie)
 {
@@ -115,14 +118,6 @@ static void node_free(struct squat_trie *trie, struct squat_node *node)
 	}
 }
 
-static void squat_trie_clear(struct squat_trie *trie)
-{
-	trie->corrupted = FALSE;
-	node_free(trie, &trie->root);
-	memset(&trie->root, 0, sizeof(trie->root));
-	memset(&trie->hdr, 0, sizeof(trie->hdr));
-}
-
 struct squat_trie *
 squat_trie_init(const char *path, uint32_t uidvalidity,
 		enum file_lock_method lock_method, bool mmap_disable)
@@ -139,19 +134,13 @@ squat_trie_init(const char *path, uint32_t uidvalidity,
 	return trie;
 }
 
-void squat_trie_deinit(struct squat_trie **_trie)
-{
-	struct squat_trie *trie = *_trie;
-
-	*_trie = NULL;
-	squat_trie_clear(trie);
-	squat_uidlist_deinit(trie->uidlist);
-	i_free(trie->path);
-	i_free(trie);
-}
-
 static void squat_trie_close(struct squat_trie *trie)
 {
+	trie->corrupted = FALSE;
+	node_free(trie, &trie->root);
+	memset(&trie->root, 0, sizeof(trie->root));
+	memset(&trie->hdr, 0, sizeof(trie->hdr));
+
 	if (trie->mmap_size != 0) {
 		if (munmap(trie->mmap_base, trie->mmap_size) < 0)
 			i_error("munmap(%s) failed: %m", trie->path);
@@ -162,7 +151,17 @@ static void squat_trie_close(struct squat_trie *trie)
 		trie->fd = -1;
 	}
 	trie->locked_file_size = 0;
-	squat_uidlist_close(trie->uidlist);
+}
+
+void squat_trie_deinit(struct squat_trie **_trie)
+{
+	struct squat_trie *trie = *_trie;
+
+	*_trie = NULL;
+	squat_trie_close(trie);
+	squat_uidlist_deinit(trie->uidlist);
+	i_free(trie->path);
+	i_free(trie);
 }
 
 static void squat_trie_header_init(struct squat_trie *trie)
@@ -197,14 +196,10 @@ static int squat_trie_open_fd(struct squat_trie *trie)
 static int squat_trie_open(struct squat_trie *trie)
 {
 	squat_trie_close(trie);
-	squat_trie_clear(trie);
 
 	if (squat_trie_open_fd(trie) < 0)
 		return -1;
-	if (squat_trie_map(trie) < 0)
-		return -1;
-
-	return squat_uidlist_open(trie->uidlist);
+	return squat_trie_map(trie, FALSE);
 }
 
 static int squat_trie_is_file_stale(struct squat_trie *trie)
@@ -522,7 +517,8 @@ node_write_children(struct squat_trie_build_context *ctx,
 }
 
 static inline void
-node_add_uid(struct squat_trie *trie, uint32_t uid, struct squat_node *node)
+node_add_uid(struct squat_trie_build_context *ctx, uint32_t uid,
+	     struct squat_node *node)
 {
 	if (uid < node->next_uid) {
 		/* duplicate */
@@ -532,11 +528,12 @@ node_add_uid(struct squat_trie *trie, uint32_t uid, struct squat_node *node)
 	node->next_uid = uid + 1;
 
 	node->uid_list_idx =
-		squat_uidlist_build_add_uid(trie->uidlist,
+		squat_uidlist_build_add_uid(ctx->uidlist_build_ctx,
 					    node->uid_list_idx, uid);
 }
 
-static void node_split_string(struct squat_trie *trie, struct squat_node *node)
+static void
+node_split_string(struct squat_trie_build_context *ctx, struct squat_node *node)
 {
 	struct squat_node *child;
 	unsigned char *str;
@@ -557,14 +554,14 @@ static void node_split_string(struct squat_trie *trie, struct squat_node *node)
 	node->leaf_string_length = 0;
 
 	/* create a new child node for the rest of the string */
-	idx = node_add_child(trie, node, str[0], MAX_FAST_LEVEL);
+	idx = node_add_child(ctx->trie, node, str[0], MAX_FAST_LEVEL);
 	child = NODE_CHILDREN_NODES(node) + idx;
 
 	/* update uidlist to contain all of parent's UIDs */
 	child->next_uid =  node->next_uid - node->unused_uids;
 	for (uid = 0; uid < child->next_uid; uid++) {
 		child->uid_list_idx =
-			squat_uidlist_build_add_uid(trie->uidlist,
+			squat_uidlist_build_add_uid(ctx->uidlist_build_ctx,
 						    child->uid_list_idx, uid);
 	}
 
@@ -585,7 +582,8 @@ static void node_split_string(struct squat_trie *trie, struct squat_node *node)
 }
 
 static bool
-node_leaf_string_add_or_split(struct squat_trie *trie, struct squat_node *node,
+node_leaf_string_add_or_split(struct squat_trie_build_context *ctx,
+			      struct squat_node *node,
 			      const unsigned char *data, unsigned int data_len)
 {
 	const unsigned char *str = NODE_LEAF_STRING(node);
@@ -594,23 +592,24 @@ node_leaf_string_add_or_split(struct squat_trie *trie, struct squat_node *node,
 
 	if (data_len != str_len) {
 		/* different lengths, can't match */
-		node_split_string(trie, node);
+		node_split_string(ctx, node);
 		return FALSE;
 	}
 
 	for (i = 0; i < data_len; i++) {
 		if (data[i] != str[i]) {
 			/* non-match */
-			node_split_string(trie, node);
+			node_split_string(ctx, node);
 			return FALSE;
 		}
 	}
 	return TRUE;
 }
 
-static int squat_build_add(struct squat_trie *trie, uint32_t uid,
+static int squat_build_add(struct squat_trie_build_context *ctx, uint32_t uid,
 			   const unsigned char *data, unsigned int size)
 {
+	struct squat_trie *trie = ctx->trie;
 	struct squat_node *node = &trie->root;
 	const unsigned char *end = data + size;
 	unsigned char *chars;
@@ -626,14 +625,14 @@ static int squat_build_add(struct squat_trie *trie, uint32_t uid,
 		if (node->leaf_string_length != 0) {
 			/* the whole string must match or we need to split
 			   the node */
-			if (node_leaf_string_add_or_split(trie, node, data,
+			if (node_leaf_string_add_or_split(ctx, node, data,
 							  end - data)) {
-				node_add_uid(trie, uid, node);
+				node_add_uid(ctx, uid, node);
 				return 0;
 			}
 		}
 
-		node_add_uid(trie, uid, node);
+		node_add_uid(ctx, uid, node);
 
 		if (unlikely(uid < node->unused_uids)) {
 			squat_trie_set_corrupted(trie);
@@ -677,7 +676,7 @@ static int squat_build_add(struct squat_trie *trie, uint32_t uid,
 				     size - (end - data) + 1);
 		node = NODE_CHILDREN_NODES(node) + idx;
 
-		node_add_uid(trie, uid, node);
+		node_add_uid(ctx, uid, node);
 		uid = 0;
 
 		if (++data == end)
@@ -703,23 +702,24 @@ static int squat_build_add(struct squat_trie *trie, uint32_t uid,
 }
 
 static int
-squat_build_word_bytes(struct squat_trie *trie, uint32_t uid,
+squat_build_word_bytes(struct squat_trie_build_context *ctx, uint32_t uid,
 		       const unsigned char *data, unsigned int size)
 {
+	struct squat_trie *trie = ctx->trie;
 	unsigned int i;
 
 	if (trie->hdr.full_len <= trie->hdr.partial_len)
 		i = 0;
 	else {
 		/* the first word is longer than others */
-		if (squat_build_add(trie, uid, data,
+		if (squat_build_add(ctx, uid, data,
 				    I_MIN(size, trie->hdr.full_len)) < 0)
 			return -1;
 		i = 1;
 	}
 
 	for (; i < size; i++) {
-		if (squat_build_add(trie, uid, data + i,
+		if (squat_build_add(ctx, uid, data + i,
 				    I_MIN(trie->hdr.partial_len, size-i)) < 0)
 			return -1;
 	}
@@ -727,15 +727,16 @@ squat_build_word_bytes(struct squat_trie *trie, uint32_t uid,
 }
 
 static int
-squat_build_word(struct squat_trie *trie, uint32_t uid,
+squat_build_word(struct squat_trie_build_context *ctx, uint32_t uid,
 		 const unsigned char *data, const uint8_t *char_lengths,
 		 unsigned int size)
 {
+	struct squat_trie *trie = ctx->trie;
 	unsigned int i, j, bytelen;
 
 	if (char_lengths == NULL) {
 		/* optimization path: all characters are bytes */
-		return squat_build_word_bytes(trie, uid, data, size);
+		return squat_build_word_bytes(ctx, uid, data, size);
 	}
 
 	if (trie->hdr.full_len <= trie->hdr.partial_len)
@@ -747,7 +748,7 @@ squat_build_word(struct squat_trie *trie, uint32_t uid,
 			bytelen += char_lengths[bytelen];
 		i_assert(bytelen <= size);
 
-		if (squat_build_add(trie, uid, data, bytelen) < 0)
+		if (squat_build_add(ctx, uid, data, bytelen) < 0)
 			return -1;
 		i = char_lengths[0];
 	}
@@ -758,7 +759,7 @@ squat_build_word(struct squat_trie *trie, uint32_t uid,
 			bytelen += char_lengths[i + bytelen];
 		i_assert(i + bytelen <= size);
 
-		if (squat_build_add(trie, uid, data + i, bytelen) < 0)
+		if (squat_build_add(ctx, uid, data + i, bytelen) < 0)
 			return -1;
 	}
 	return 0;
@@ -803,7 +804,7 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 		while (start < i && data[start] == '\0')
 			start++;
 		if (i != start) {
-			if (squat_build_word(trie, uid, data + start,
+			if (squat_build_word(ctx, uid, data + start,
 					     !multibyte_chars ? NULL :
 					     char_lengths + start,
 					     i - start) < 0) {
@@ -817,7 +818,7 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 	while (start < i && data[start] == '\0')
 		start++;
 	if (i != start) {
-		if (squat_build_word(trie, uid, data + start,
+		if (squat_build_word(ctx, uid, data + start,
 				     !multibyte_chars ? NULL :
 				     char_lengths + start, i - start) < 0)
 			ret = -1;
@@ -1014,31 +1015,37 @@ squat_trie_iterate_uidlist_next(struct squat_trie_iterate_context *ctx)
 	}
 }
 
-static int squat_trie_renumber_uidlists(struct squat_trie *trie, bool finish)
+static int
+squat_trie_renumber_uidlists(struct squat_trie_build_context *ctx,
+			     bool compress)
 {
 	struct squat_trie_iterate_context *iter;
 	struct squat_node *node;
-	struct squat_uidlist *uidlist = trie->uidlist;
-	struct squat_uidlist_rebuild_context *ctx;
+	struct squat_uidlist_rebuild_context *rebuild_ctx;
 	ARRAY_TYPE(uint32_t) uids;
 	uint32_t new_uid_list_idx, max_count=0;
 	int ret = 0;
 
-	if ((ret = squat_uidlist_rebuild_init(uidlist, finish, &ctx)) <= 0)
+	/* FIXME: update indexid */
+	if ((ret = squat_uidlist_rebuild_init(ctx->uidlist_build_ctx,
+					      compress, &rebuild_ctx)) <= 0)
 		return ret;
 
+	ctx->trie->hdr.indexid = I_MAX(ioloop_time, ctx->trie->hdr.indexid + 1);
+
 	i_array_init(&uids, 1024);
-	iter = squat_trie_iterate_uidlist_init(trie);
+	iter = squat_trie_iterate_uidlist_init(ctx->trie);
 	node = squat_trie_iterate_uidlist_first(iter);
 	new_uid_list_idx = 0x100;
 	while (node != NULL) {
 		array_clear(&uids);
-		if (squat_uidlist_get(uidlist, node->uid_list_idx, &uids) < 0) {
+		if (squat_uidlist_get(ctx->trie->uidlist, node->uid_list_idx,
+				      &uids) < 0) {
 			ret = -1;
 			break;
 		}
 		max_count = I_MAX(max_count, array_count(&uids));
-		squat_uidlist_rebuild_next(ctx, &uids);
+		squat_uidlist_rebuild_next(rebuild_ctx, &uids);
 		node->uid_list_idx = new_uid_list_idx << 1;
 		new_uid_list_idx++;
 
@@ -1047,7 +1054,10 @@ static int squat_trie_renumber_uidlists(struct squat_trie *trie, bool finish)
 	squat_trie_iterate_uidlist_deinit(iter);
 	array_free(&uids);
 
-	return squat_uidlist_rebuild_finish(ctx, ret < 0);
+	/* lock the trie before we rename uidlist */
+	if (squat_trie_lock(ctx->trie, F_WRLCK, &ctx->file_lock) <= 0)
+		ret = -1;
+	return squat_uidlist_rebuild_finish(rebuild_ctx, ret < 0);
 }
 
 static bool squat_trie_check_header(struct squat_trie *trie)
@@ -1103,7 +1113,7 @@ static int squat_trie_map_header(struct squat_trie *trie)
 	return 0;
 }
 
-static int squat_trie_map(struct squat_trie *trie)
+static int squat_trie_map(struct squat_trie *trie, bool building)
 {
 	struct file_lock *file_lock = NULL;
 	bool changed;
@@ -1134,6 +1144,11 @@ static int squat_trie_map(struct squat_trie *trie)
 		}
 	}
 
+	if (ret == 0 && !building) {
+		/* do this while we're still locked */
+		ret = squat_uidlist_refresh(trie->uidlist);
+	}
+
 	if (file_lock != NULL)
 		file_unlock(&file_lock);
 	if (ret < 0)
@@ -1147,6 +1162,7 @@ int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
 			  struct squat_trie_build_context **ctx_r)
 {
 	struct squat_trie_build_context *ctx;
+	struct squat_uidlist_build_context *uidlist_build_ctx;
 
 	if (trie->fd == -1) {
 		trie->fd = open(trie->path, O_RDWR | O_CREAT, 0600);
@@ -1157,14 +1173,17 @@ int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
 	}
 
 	/* uidlist locks building */
-	if (squat_uidlist_build_init(trie->uidlist) < 0)
+	if (squat_uidlist_build_init(trie->uidlist, &uidlist_build_ctx) < 0)
 		return -1;
 
-	if (squat_trie_map(trie) < 0)
+	if (squat_trie_map(trie, TRUE) < 0) {
+		squat_uidlist_build_deinit(&uidlist_build_ctx);
 		return -1;
+	}
 
 	ctx = i_new(struct squat_trie_build_context, 1);
 	ctx->trie = trie;
+	ctx->uidlist_build_ctx = uidlist_build_ctx;
 	ctx->first_uid = trie->root.next_uid;
 
 	*last_uid_r = I_MAX((trie->root.next_uid+1)/2, 1) - 1;
@@ -1172,10 +1191,19 @@ int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
 	return 0;
 }
 
+static int squat_trie_write_lock(struct squat_trie_build_context *ctx)
+{
+	if (ctx->file_lock != NULL)
+		return 0;
+
+	if (squat_trie_lock(ctx->trie, F_WRLCK, &ctx->file_lock) <= 0)
+		return -1;
+	return 0;
+}
+
 static int squat_trie_write(struct squat_trie_build_context *ctx)
 {
 	struct squat_trie *trie = ctx->trie;
-	struct file_lock *file_lock;
 	struct ostream *output;
 	const char *path;
 	int fd = -1, ret = 0;
@@ -1191,25 +1219,35 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 			i_error("creat(%s) failed: %m", path);
 			return -1;
 		}
+		ret = file_wait_lock(fd, path, F_WRLCK, trie->lock_method,
+				     SQUAT_TRIE_LOCK_TIMEOUT, &ctx->file_lock);
+		if (ret <= 0) {
+			if (ret == 0)
+				i_error("file_wait_lock(%s) failed: %m", path);
+			(void)close(fd);
+			return -1;
+		}
+
 		output = o_stream_create_fd(fd, 0, FALSE);
 		o_stream_cork(output);
 		o_stream_send(output, &trie->hdr, sizeof(trie->hdr));
-		file_lock = NULL;
 	} else {
-		/* we need to lock only the header update */
-		if (squat_trie_lock(trie, F_WRLCK, &file_lock) <= 0)
-			return -1;
-
+		/* we need to lock only while header is being written */
 		path = trie->path;
 		ctx->compress_nodes =
 			trie->hdr.used_file_size == sizeof(trie->hdr);
 		output = o_stream_create_fd(trie->fd, 0, FALSE);
 		o_stream_cork(output);
 
-		if (trie->hdr.used_file_size == 0)
-			o_stream_send(output, &trie->hdr, sizeof(trie->hdr));
-		else
+		if (trie->hdr.used_file_size != 0)
 			o_stream_seek(output, trie->hdr.used_file_size);
+		else {
+			if (squat_trie_write_lock(ctx) < 0) {
+				o_stream_unref(&output);
+				return -1;
+			}
+			o_stream_send(output, &trie->hdr, sizeof(trie->hdr));
+		}
 	}
 
 	ctx->output = output;
@@ -1218,38 +1256,44 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 
 	if (trie->corrupted)
 		ret = -1;
+	if (ret == 0)
+		ret = squat_trie_write_lock(ctx);
 	if (ret == 0) {
 		trie->hdr.used_file_size = output->offset;
 		o_stream_seek(output, 0);
 		o_stream_send(output, &trie->hdr, sizeof(trie->hdr));
-		o_stream_flush(output);
 	}
-	if (file_lock != NULL)
-		file_unlock(&file_lock);
-
 	if (output->last_failed_errno != 0) {
 		errno = output->last_failed_errno;
 		i_error("write() to %s failed: %m", path);
 		ret = -1;
 	}
-	o_stream_unref(&output);
-	if (fd != -1) {
-		if (ret < 0) {
-			if (close(fd) < 0)
-				i_error("close(%s) failed: %m", path);
-		} else if (rename(path, trie->path) < 0) {
-			i_error("rename(%s, %s) failed: %m", path, trie->path);
-			ret = -1;
-		}
+	o_stream_destroy(&output);
 
-		if (ret < 0) {
-			if (unlink(path) < 0 && errno != ENOENT)
-				i_error("unlink(%s) failed: %m", path);
-		} else {
+	if (fd == -1) {
+		/* appended to the existing file */
+		return ret;
+	}
+
+	/* recreating the trie file */
+	if (ret < 0) {
+		if (close(fd) < 0)
+			i_error("close(%s) failed: %m", path);
+		fd = -1;
+	} else if (rename(path, trie->path) < 0) {
+		i_error("rename(%s, %s) failed: %m", path, trie->path);
+		ret = -1;
+	}
+
+	if (ret < 0) {
+		if (unlink(path) < 0 && errno != ENOENT)
+			i_error("unlink(%s) failed: %m", path);
+	} else {
+		if (trie->fd != -1) {
 			if (close(trie->fd) < 0)
 				i_error("close(%s) failed: %m", trie->path);
-			trie->fd = fd;
 		}
+		trie->fd = fd;
 	}
 	return ret;
 }
@@ -1264,11 +1308,19 @@ int squat_trie_build_deinit(struct squat_trie_build_context **_ctx)
 
 	compress = (ctx->trie->root.next_uid - ctx->first_uid) > 10;
 
-	ret = squat_uidlist_build_deinit(ctx->trie->uidlist);
-	if (squat_trie_renumber_uidlists(ctx->trie, compress) < 0)
-		ret = -1;
-	else
+	/* keep trie locked while header is being written and when files are
+	   being renamed, so that while trie is read locked, uidlist can't
+	   change under. */
+	squat_uidlist_build_flush(ctx->uidlist_build_ctx);
+	ret = squat_trie_renumber_uidlists(ctx, compress);
+	if (ret == 0)
 		ret = squat_trie_write(ctx);
+
+	if (ret == 0)
+		ret = squat_uidlist_build_finish(ctx->uidlist_build_ctx);
+	if (ctx->file_lock != NULL)
+		file_unlock(&ctx->file_lock);
+	squat_uidlist_build_deinit(&ctx->uidlist_build_ctx);
 
 	i_free(ctx);
 	return ret;
