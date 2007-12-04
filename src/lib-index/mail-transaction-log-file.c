@@ -1035,7 +1035,8 @@ mail_transaction_log_file_munmap(struct mail_transaction_log_file *file)
 }
 
 static int
-mail_transaction_log_file_map_mmap(struct mail_transaction_log_file *file)
+mail_transaction_log_file_map_mmap(struct mail_transaction_log_file *file,
+				   uoff_t start_offset)
 {
 	struct stat st;
 	int ret;
@@ -1069,6 +1070,13 @@ mail_transaction_log_file_map_mmap(struct mail_transaction_log_file *file)
 
 	do {
 		mail_transaction_log_file_munmap(file);
+
+		if (file->last_size - start_offset < mmap_get_page_size()) {
+			/* just reading the file is probably faster */
+			return mail_transaction_log_file_read(file,
+							      start_offset,
+							      FALSE);
+		}
 
 		if (mail_transaction_log_file_mmap(file) < 0)
 			return -1;
@@ -1125,7 +1133,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	}
 
 	if (!index->mmap_disable)
-		ret = mail_transaction_log_file_map_mmap(file);
+		ret = mail_transaction_log_file_map_mmap(file, start_offset);
 	else {
 		mail_transaction_log_file_munmap(file);
 		ret = mail_transaction_log_file_read(file, start_offset, FALSE);
