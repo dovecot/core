@@ -171,8 +171,10 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
+	const struct mail_index_header *hdr;
 	struct istream *stream;
 	uoff_t hdr_offset, body_offset, body_size;
+	uoff_t next_offset;
 
 	if (mbox_mail_seek(mail) < 0)
 		return -1;
@@ -186,7 +188,27 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 					  "Couldn't get mbox size");
 		return -1;
 	}
-	body_size = istream_raw_mbox_get_body_size(stream, (uoff_t)-1);
+
+	/* use the next message's offset to avoid reading through the entire
+	   message body to find out its size */
+	hdr = mail_index_get_header(mail->trans->trans_view);
+	if (_mail->seq == hdr->messages_count) {
+		/* last message, use the synced mbox size */
+		int trailer_size;
+
+		trailer_size = (mbox->storage->storage.flags &
+				MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ? 2 : 1;
+
+		body_size = hdr->sync_size - body_offset - trailer_size;
+	} else if (mbox_file_lookup_offset(mbox, mail->trans->trans_view,
+					   _mail->seq + 1, &next_offset) > 0) {
+		body_size = next_offset - body_offset;
+	} else {
+		body_size = (uoff_t)-1;
+	}
+
+	/* verify that the calculated body size is correct */
+	body_size = istream_raw_mbox_get_body_size(stream, body_size);
 
 	data->physical_size = (body_offset - hdr_offset) + body_size;
 	*size_r = data->physical_size;

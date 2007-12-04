@@ -131,17 +131,15 @@ void mbox_file_close_stream(struct mbox_mailbox *mbox)
 	}
 }
 
-int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
-		   uint32_t seq, bool *deleted_r)
+int mbox_file_lookup_offset(struct mbox_mailbox *mbox,
+			    struct mail_index_view *view,
+			    uint32_t seq, uoff_t *offset_r)
 {
 	const void *data;
-	uint64_t offset;
-	int ret;
+	bool deleted;
 
-	*deleted_r = FALSE;
-
-	mail_index_lookup_ext(view, seq, mbox->mbox_ext_idx, &data, deleted_r);
-	if (*deleted_r)
+	mail_index_lookup_ext(view, seq, mbox->mbox_ext_idx, &data, &deleted);
+	if (deleted)
 		return -1;
 
 	if (data == NULL) {
@@ -152,7 +150,23 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 		return 0;
 	}
 
-	offset = *((const uint64_t *)data);
+	*offset_r = *((const uint64_t *)data);
+	return 1;
+}
+
+int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
+		   uint32_t seq, bool *deleted_r)
+{
+	uoff_t offset;
+	int ret;
+
+	ret = mbox_file_lookup_offset(mbox, view, seq, &offset);
+	if (ret <= 0) {
+		*deleted_r = ret < 0;
+		return ret;
+	}
+	*deleted_r = FALSE;
+
 	if (istream_raw_mbox_seek(mbox->mbox_stream, offset) < 0) {
 		if (offset == 0) {
 			mail_storage_set_error(&mbox->storage->storage,
