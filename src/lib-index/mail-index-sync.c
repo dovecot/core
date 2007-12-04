@@ -698,11 +698,25 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 		ctx->ext_trans->log_updates = TRUE;
 }
 
+static bool mail_index_sync_want_index_write(struct mail_index *index)
+{
+	uint32_t log_diff;
+
+	log_diff = index->map->hdr.log_file_tail_offset -
+		index->last_read_log_file_tail_offset;
+	if (log_diff > 1024)
+		return TRUE;
+
+	if (index->need_recreate)
+		return TRUE;
+	return FALSE;
+}
+
 int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
-	uint32_t seq, diff, next_uid;
+	uint32_t seq, next_uid;
 	uoff_t offset;
 	bool want_rotate;
 	int ret = 0;
@@ -736,11 +750,9 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	if (mail_index_map(ctx->index, MAIL_INDEX_SYNC_HANDLER_FILE) <= 0)
 		ret = -1;
 
-	/* FIXME: create a better rule? */
 	want_rotate = mail_transaction_log_want_rotate(index->log);
-	diff = index->map->hdr.log_file_tail_offset -
-		index->last_read_log_file_tail_offset;
-	if (ret == 0 && (diff > 1024 || want_rotate || index->need_recreate)) {
+	if (ret == 0 &&
+	    (want_rotate || mail_index_sync_want_index_write(index))) {
 		index->need_recreate = FALSE;
 		mail_index_write(index, want_rotate);
 	}
