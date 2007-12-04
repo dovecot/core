@@ -199,7 +199,9 @@ static void dump_cache_hdr(struct mail_cache *cache)
 	hdr = cache->hdr;
 	printf("version .............. = %u\n", hdr->version);
 	printf("indexid .............. = %u (%s)\n", hdr->indexid, unixdate2str(hdr->indexid));
-	printf("file_seq ............. = %u (%s)\n", hdr->file_seq, unixdate2str(hdr->file_seq));
+	printf("file_seq ............. = %u (%s) (%d compressions)\n",
+	       hdr->file_seq, unixdate2str(hdr->file_seq),
+	       hdr->file_seq - hdr->indexid);
 	printf("continued_record_count = %u\n", hdr->continued_record_count);
 	printf("hole_offset .......... = %u\n", hdr->hole_offset);
 	printf("used_file_size ....... = %u\n", hdr->used_file_size);
