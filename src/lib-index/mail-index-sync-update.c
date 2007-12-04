@@ -39,7 +39,10 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 		}
 	} else {
 		i_assert(ctx->view->index->log->head->hdr.file_seq == prev_seq);
-		map->hdr.log_file_seq = prev_seq;
+		if (map->hdr.log_file_seq != prev_seq) {
+			map->hdr.log_file_seq = prev_seq;
+			map->hdr.log_file_tail_offset = 0;
+		}
 	}
 	map->hdr.log_file_head_offset = prev_offset;
 }
@@ -757,6 +760,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 						       &prev_seq, &prev_offset);
 		map = mail_index_map_alloc(index);
 		map->hdr.log_file_seq = prev_seq;
+		map->hdr.log_file_tail_offset = 0;
 		mail_index_sync_replace_map(&sync_map_ctx, map);
 	}
 	map = NULL;
