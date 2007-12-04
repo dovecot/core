@@ -139,6 +139,13 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_HEADER_UPDATE: {
 		const struct mail_transaction_header_update *u = data;
 
+		if (u->offset == offsetof(struct mail_index_header,
+					  log_file_tail_offset) &&
+		    u->size == sizeof(uint32_t)) {
+			printf(" - log_file_tail_offset = %u\n",
+			       *(const uint32_t *)(u + 1));
+			break;
+		}
 		printf(" - offset = %u, size = %u: ", u->offset, u->size);
 		print_data(u + 1, u->size);
 		printf("\n");
