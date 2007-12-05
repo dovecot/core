@@ -149,72 +149,85 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 }
 
 static const struct mailbox_info *
+acl_mailbox_list_iter_next_info(struct acl_mailbox_list_iterate_context *ctx)
+{
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ctx->ctx.list);
+	struct mailbox_node *node;
+
+	if (ctx->tree_iter == NULL)
+		return alist->module_ctx.super.iter_next(ctx->super_ctx);
+
+	node = mailbox_tree_iterate_next(ctx->tree_iter, &ctx->info.name);
+	if (node == NULL)
+		return NULL;
+	ctx->info.flags = node->flags;
+	return &ctx->info;
+}
+
+static int
+acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx,
+				 const struct mailbox_info *info)
+{
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ctx->ctx.list);
+	struct mail_namespace *ns = ctx->ctx.list->ns;
+	const char *acl_name;
+	int ret;
+
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RAW_LIST) != 0) {
+		/* skip ACL checks. */
+		return 1;
+	}
+
+	acl_name = info->name;
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
+		/* Mailbox names contain namespace prefix,
+		   except when listing INBOX. */
+		if (strncmp(acl_name, ns->prefix, ns->prefix_len) == 0)
+			acl_name += ns->prefix_len;
+		acl_name = mail_namespace_fix_sep(ns, acl_name);
+	}
+
+	ret = acl_mailbox_list_have_right(alist, acl_name,
+					  ACL_STORAGE_RIGHT_LOOKUP,
+					  NULL);
+	if (ret != 0)
+		return ret;
+
+	/* no permission to see this mailbox */
+	if ((ctx->info.flags & MAILBOX_SUBSCRIBED) != 0) {
+		/* it's subscribed, show it as non-existent */
+		if (info != &ctx->info) {
+			ctx->info = *info;
+			info = &ctx->info;
+		}
+		ctx->info.flags = MAILBOX_NONEXISTENT |
+			MAILBOX_SUBSCRIBED;
+		return 1;
+	}
+	return 0;
+}
+
+static const struct mailbox_info *
 acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
 	struct acl_mailbox_list_iterate_context *ctx =
 		(struct acl_mailbox_list_iterate_context *)_ctx;
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(_ctx->list);
-	struct mail_namespace *ns = _ctx->list->ns;
 	const struct mailbox_info *info;
-	struct mailbox_node *node;
-	const char *acl_name;
 	int ret;
 
-	for (;;) {
-		if (ctx->tree_iter != NULL) {
-			node = mailbox_tree_iterate_next(ctx->tree_iter,
-							 &ctx->info.name);
-			if (node == NULL)
-				return NULL;
-			ctx->info.flags = node->flags;
-			info = &ctx->info;
-		} else {
-			info = alist->module_ctx.super.
-				iter_next(ctx->super_ctx);
-			if (info == NULL)
-				return NULL;
-		}
-
-		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RAW_LIST) != 0) {
-			/* skip ACL checks. */
-			return info;
-		}
-
+	while ((info = acl_mailbox_list_iter_next_info(ctx)) != NULL) {
 		t_push();
-		acl_name = info->name;
-		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
-			/* Mailbox names contain namespace prefix,
-			   except when listing INBOX. */
-			if (strncmp(acl_name, ns->prefix, ns->prefix_len) == 0)
-				acl_name += ns->prefix_len;
-			acl_name = mail_namespace_fix_sep(ns, acl_name);
-		}
-
-		ret = acl_mailbox_list_have_right(alist, acl_name,
-						  ACL_STORAGE_RIGHT_LOOKUP,
-						  NULL);
+		ret = acl_mailbox_list_info_is_visible(ctx, info);
 		t_pop();
 		if (ret > 0)
-			return info;
+			break;
 		if (ret < 0) {
 			ctx->ctx.failed = TRUE;
 			return NULL;
 		}
-
-		/* no permission to see this mailbox */
-		if ((ctx->info.flags & MAILBOX_SUBSCRIBED) != 0) {
-			/* it's subscribed, show it as non-existent */
-			if (info != &ctx->info) {
-				ctx->info = *info;
-				info = &ctx->info;
-			}
-			ctx->info.flags = MAILBOX_NONEXISTENT |
-				MAILBOX_SUBSCRIBED;
-			return info;
-		}
-
 		/* skip to next one */
 	}
+	return info;
 }
 
 static int
