@@ -70,6 +70,12 @@ static struct stack_block *unused_block; /* largest unused block is kept here */
 static struct stack_block *last_buffer_block;
 static size_t last_buffer_size;
 static bool clean_after_pop = FALSE;
+static bool outofmem = FALSE;
+
+union {
+	struct stack_block block;
+	unsigned char data[128];
+} outofmem_area;
 
 unsigned int t_push(void)
 {
@@ -200,6 +206,12 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	block = GC_malloc(SIZEOF_MEMBLOCK + alloc_size);
 #endif
 	if (unlikely(block == NULL)) {
+		if (outofmem) {
+			if (min_size > outofmem_area.block.left)
+				abort();
+			return &outofmem_area.block;
+		}
+		outofmem = TRUE;
 		i_panic("data stack: Out of memory when allocating %"
 			PRIuSIZE_T" bytes", alloc_size + SIZEOF_MEMBLOCK);
 	}
@@ -368,6 +380,9 @@ void data_stack_init(void)
 {
 	if (data_stack_frame == 0) {
 		data_stack_frame = 1;
+
+		outofmem_area.block.size = outofmem_area.block.left =
+			sizeof(outofmem_area) - sizeof(outofmem_area.block);
 
 		current_block = mem_block_alloc(INITIAL_STACK_SIZE);
 		current_block->left = current_block->size;
