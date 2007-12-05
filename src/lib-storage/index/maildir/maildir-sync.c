@@ -827,8 +827,8 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	}
 
 	if (find_uid != NULL && *find_uid != 0) {
-		if (maildir_uidlist_lookup(ctx->mbox->uidlist, *find_uid,
-					   &flags) == NULL) {
+		if (maildir_uidlist_lookup_nosync(ctx->mbox->uidlist, *find_uid,
+						  &flags) == NULL) {
 			/* UID is expunged */
 			*find_uid = 0;
 		} else if ((flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) == 0) {

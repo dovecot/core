@@ -57,6 +57,9 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist);
 const char *
 maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 		       enum maildir_uidlist_rec_flag *flags_r);
+const char *
+maildir_uidlist_lookup_nosync(struct maildir_uidlist *uidlist, uint32_t uid,
+			      enum maildir_uidlist_rec_flag *flags_r);
 /* Returns extension's value or NULL if it doesn't exist. */
 const char *
 maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,

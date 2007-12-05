@@ -740,11 +740,10 @@ const char *
 maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 		       enum maildir_uidlist_rec_flag *flags_r)
 {
-	const struct maildir_uidlist_rec *rec;
-	unsigned int idx;
+	const char *fname;
 
-	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
-	if (rec == NULL) {
+	fname = maildir_uidlist_lookup_nosync(uidlist, uid, flags_r);
+	if (fname == NULL) {
 		if (uidlist->fd != -1 || uidlist->mbox == NULL)
 			return NULL;
 
@@ -753,10 +752,22 @@ maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 			return NULL;
 
 		/* try again */
-		rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
-		if (rec == NULL)
-			return NULL;
+		fname = maildir_uidlist_lookup_nosync(uidlist, uid, flags_r);
 	}
+
+	return fname;
+}
+
+const char *
+maildir_uidlist_lookup_nosync(struct maildir_uidlist *uidlist, uint32_t uid,
+			      enum maildir_uidlist_rec_flag *flags_r)
+{
+	const struct maildir_uidlist_rec *rec;
+	unsigned int idx;
+
+	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
+	if (rec == NULL)
+		return NULL;
 
 	*flags_r = rec->flags;
 	return rec->filename;
