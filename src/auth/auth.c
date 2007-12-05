@@ -239,13 +239,10 @@ void auth_init(struct auth *auth)
 		i_fatal("No authentication mechanisms configured");
 	auth_mech_list_verify_passdb(auth);
 
-	/* get our realm - note that we allocate from data stack so
-	   this function should never be called inside I/O loop or anywhere
-	   else where t_pop() is called */
 	env = getenv("REALMS");
 	if (env == NULL)
 		env = "";
-	auth->auth_realms = t_strsplit_spaces(env, " ");
+	auth->auth_realms = p_strsplit_spaces(auth->pool, env, " ");
 
 	env = getenv("DEFAULT_REALM");
 	if (env != NULL && *env != '\0')

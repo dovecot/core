@@ -60,7 +60,7 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	struct auth *auth = request->auth_request.auth;
 	buffer_t *buf;
 	string_t *str;
-	const char *const *tmp;
+	char *const *tmp;
 	unsigned char nonce[16];
 	int i;
 	bool first_qop;
@@ -223,7 +223,7 @@ static bool verify_credentials(struct digest_auth_request *request,
 
 static bool verify_realm(struct digest_auth_request *request, const char *realm)
 {
-	const char *const *tmp;
+	char *const *tmp;
 
 	if (*realm == '\0')
 		return TRUE;

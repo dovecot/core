@@ -37,7 +37,7 @@ struct auth {
 	struct auth_passdb *passdbs;
 	struct auth_userdb *userdbs;
 
-	const char *const *auth_realms;
+	char *const *auth_realms;
 	const char *default_realm;
 	const char *anonymous_username;
 	const char *username_format;

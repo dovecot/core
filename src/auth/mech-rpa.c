@@ -239,7 +239,7 @@ static bool
 rpa_verify_realm(struct rpa_auth_request *request, const char *realm)
 {
 	const char *default_realm;
-	const char *const *tmp;
+	char *const *tmp;
 
 	tmp = request->auth_request.auth->auth_realms;
 	for (; *tmp != NULL; tmp++) {
@@ -353,7 +353,7 @@ mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
 	string_t *realms;
 	buffer_t *buf;
 	unsigned char timestamp[RPA_TIMESTAMP_LEN / 2];
-	const char *const *tmp;
+	char *const *tmp;
 
 	realms = t_str_new(64);
 	for (tmp = auth->auth_realms; *tmp != NULL; tmp++) {
