@@ -430,7 +430,8 @@ static void dotlock_wait(struct lock_info *lock_info)
 }
 
 static int dotlock_create(const char *path, struct dotlock *dotlock,
-			  enum dotlock_create_flags flags, bool write_pid)
+			  enum dotlock_create_flags flags, bool write_pid,
+			  const char **lock_path_r)
 {
 	const struct dotlock_settings *set = &dotlock->settings;
 	const char *lock_path;
@@ -445,7 +446,7 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 
 	now = time(NULL);
 
-	lock_path = t_strconcat(path, set->lock_suffix, NULL);
+	lock_path = *lock_path_r = t_strconcat(path, set->lock_suffix, NULL);
 	stale_notify_threshold = set->stale_timeout / 2;
 	max_wait_time = (flags & DOTLOCK_CREATE_FLAG_NONBLOCK) != 0 ? 0 :
 		now + set->timeout;
@@ -488,7 +489,6 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 			change_secs = now - lock_info.last_change;
 			wait_left = max_wait_time - now;
 
-			t_push();
 			if (change_secs >= stale_notify_threshold &&
 			    change_secs <= wait_left) {
 				unsigned int secs_left =
@@ -503,7 +503,6 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 				(void)set->callback(wait_left, FALSE,
 						    set->context);
 			}
-			t_pop();
 		}
 
 		now = time(NULL);
@@ -550,9 +549,12 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 	return ret;
 }
 
-static void file_dotlock_free(struct dotlock *dotlock)
+static void file_dotlock_free(struct dotlock **_dotlock)
 {
+	struct dotlock *dotlock = *_dotlock;
 	int old_errno;
+
+	*_dotlock = NULL;
 
 	if (dotlock->fd != -1) {
 		old_errno = errno;
@@ -567,35 +569,22 @@ static void file_dotlock_free(struct dotlock *dotlock)
 	i_free(dotlock);
 }
 
-int file_dotlock_create(const struct dotlock_settings *set, const char *path,
-			enum dotlock_create_flags flags,
-			struct dotlock **dotlock_r)
+static int file_dotlock_create_real(struct dotlock *dotlock, const char *path,
+				    enum dotlock_create_flags flags)
 {
-	struct dotlock *dotlock;
 	const char *lock_path;
 	struct stat st;
 	int fd, ret;
 
-	*dotlock_r = NULL;
-
-	t_push();
-	dotlock = file_dotlock_alloc(set);
-	lock_path = t_strconcat(path, dotlock->settings.lock_suffix, NULL);
-
-	ret = dotlock_create(path, dotlock, flags, TRUE);
-	if (ret <= 0 || (flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0) {
-		file_dotlock_free(dotlock);
-		t_pop();
+	ret = dotlock_create(path, dotlock, flags, TRUE, &lock_path);
+	if (ret <= 0 || (flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0)
 		return ret;
-	}
 
 	fd = dotlock->fd;
 	dotlock->fd = -1;
 
 	if (close(fd) < 0) {
 		i_error("close(%s) failed: %m", lock_path);
-		file_dotlock_free(dotlock);
-		t_pop();
 		return -1;
 	}
 
@@ -609,8 +598,6 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 			i_error("dotlock %s was immediately deleted under us",
 				lock_path);
 		}
-                file_dotlock_free(dotlock);
-		t_pop();
 		return -1;
 	}
 	/* extra sanity check won't hurt.. */
@@ -618,15 +605,28 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 		errno = ENOENT;
 		i_error("dotlock %s was immediately recreated under us",
 			lock_path);
-                file_dotlock_free(dotlock);
-		t_pop();
 		return -1;
 	}
 	dotlock->mtime = st.st_mtime;
+	return 1;
+}
+
+int file_dotlock_create(const struct dotlock_settings *set, const char *path,
+			enum dotlock_create_flags flags,
+			struct dotlock **dotlock_r)
+{
+	struct dotlock *dotlock;
+	int ret;
+
+	dotlock = file_dotlock_alloc(set);
+	t_push();
+	ret = file_dotlock_create_real(dotlock, path, flags);
+	t_pop();
+	if (ret <= 0 || (flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0)
+		file_dotlock_free(&dotlock);
 
 	*dotlock_r = dotlock;
-	t_pop();
-	return 1;
+	return ret;
 }
 
 int file_dotlock_delete(struct dotlock **dotlock_p)
@@ -644,12 +644,12 @@ int file_dotlock_delete(struct dotlock **dotlock_p)
 			i_warning("Our dotlock file %s was deleted "
 				  "(kept it %d secs)", lock_path,
 				  (int)(time(NULL) - dotlock->lock_time));
-			file_dotlock_free(dotlock);
+			file_dotlock_free(&dotlock);
 			return 0;
 		}
 
 		i_error("lstat(%s) failed: %m", lock_path);
-		file_dotlock_free(dotlock);
+		file_dotlock_free(&dotlock);
 		return -1;
 	}
 
@@ -659,7 +659,7 @@ int file_dotlock_delete(struct dotlock **dotlock_p)
 			  "(kept it %d secs)", lock_path,
 			  (int)(dotlock->lock_time - time(NULL)));
 		errno = EEXIST;
-		file_dotlock_free(dotlock);
+		file_dotlock_free(&dotlock);
 		return 0;
 	}
 
@@ -676,16 +676,16 @@ int file_dotlock_delete(struct dotlock **dotlock_p)
 			i_warning("Our dotlock file %s was deleted "
 				  "(kept it %d secs)", lock_path,
 				  (int)(time(NULL) - dotlock->lock_time));
-			file_dotlock_free(dotlock);
+			file_dotlock_free(&dotlock);
 			return 0;
 		}
 
 		i_error("unlink(%s) failed: %m", lock_path);
-		file_dotlock_free(dotlock);
+		file_dotlock_free(&dotlock);
 		return -1;
 	}
 
-	file_dotlock_free(dotlock);
+	file_dotlock_free(&dotlock);
 	return 1;
 }
 
@@ -694,16 +694,15 @@ int file_dotlock_open(const struct dotlock_settings *set, const char *path,
 		      struct dotlock **dotlock_r)
 {
 	struct dotlock *dotlock;
+	const char *lock_path;
 	int ret;
 
 	dotlock = file_dotlock_alloc(set);
-
 	t_push();
-	ret = dotlock_create(path, dotlock, flags, FALSE);
+	ret = dotlock_create(path, dotlock, flags, FALSE, &lock_path);
 	t_pop();
-
 	if (ret <= 0) {
-		file_dotlock_free(dotlock);
+		file_dotlock_free(&dotlock);
 		*dotlock_r = NULL;
 		return -1;
 	}
@@ -731,13 +730,13 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 	if ((flags & DOTLOCK_REPLACE_FLAG_VERIFY_OWNER) != 0) {
 		if (fstat(fd, &st) < 0) {
 			i_error("fstat(%s) failed: %m", lock_path);
-			file_dotlock_free(dotlock);
+			file_dotlock_free(&dotlock);
 			return -1;
 		}
 
 		if (nfs_safe_lstat(lock_path, &st2) < 0) {
 			i_error("lstat(%s) failed: %m", lock_path);
-			file_dotlock_free(dotlock);
+			file_dotlock_free(&dotlock);
 			return -1;
 		}
 
@@ -747,17 +746,17 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 				  "(kept it %d secs)", lock_path,
 				  (int)(time(NULL) - dotlock->lock_time));
 			errno = EEXIST;
-			file_dotlock_free(dotlock);
+			file_dotlock_free(&dotlock);
 			return 0;
 		}
 	}
 
 	if (rename(lock_path, dotlock->path) < 0) {
 		i_error("rename(%s, %s) failed: %m", lock_path, dotlock->path);
-		file_dotlock_free(dotlock);
+		file_dotlock_free(&dotlock);
 		return -1;
 	}
-	file_dotlock_free(dotlock);
+	file_dotlock_free(&dotlock);
 	return 1;
 }
 
