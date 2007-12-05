@@ -2,13 +2,13 @@
 #define DATA_STACK_H
 
 /* Data stack makes it very easy to implement functions returning dynamic data
-   but without having to worry much about memory management like freeing the
-   result or having large enough buffers for result.
+   without having to worry much about memory management like freeing the
+   result or having large enough buffers for the result.
 
    t_ prefix was chosen to describe functions allocating memory from data
    stack. "t" meaning temporary.
 
-   Advantages over control stack:
+   Advantages over control stack and alloca():
     - Functions can return a value allocated from data stack
     - We can portably specify how much data we want to allocate at runtime
 
@@ -24,7 +24,7 @@
     - Allocating memory inside loops can accidentally allocate a lot of memory
       if the loops are long and you forgot to place t_push() and t_pop() there.
     - t_malloc()ed data could be accidentally stored into permanent location
-      and accessed after it's already been free'd. const'ing the return values
+      and accessed after it's already been freed. const'ing the return values
       helps for most uses though (see the t_malloc() description).
     - Debugging invalid memory usage requires recompilation with
       -DDISABLE_DATA_STACK which then uses malloc() and free() for all
@@ -34,8 +34,8 @@
 
 extern unsigned int data_stack_frame;
 
-/* All t_..() allocations between t_push() and t_pop() are free'd
-   after t_pop() is called. Returns stack frame number which can be used
+/* All t_..() allocations between t_push() and t_pop() are freed after t_pop()
+   is called. Returns the current stack frame number, which can be used
    to detect missing t_pop() calls:
 
    x = t_push(); .. if (t_pop() != x) abort();
@@ -43,16 +43,16 @@ extern unsigned int data_stack_frame;
 unsigned int t_push(void);
 unsigned int t_pop(void);
 
-/* WARNING: Be careful when using this functions, it's too easy to
+/* WARNING: Be careful when using these functions, it's too easy to
    accidentally save the returned value somewhere permanently.
 
-   You probably should never use this function directly, rather
+   You probably should never use these functions directly, rather
    create functions that return 'const xxx*' types and use t_malloc()
    internally in them. This is a lot safer, since usually compiler
    warns if you try to place them in xxx*. See strfuncs.c for examples.
 
-   t_malloc() calls never fail, but return NULL if size == 0. If there's
-   not enough memory left, i_panic() will be called. */
+   t_malloc() calls never fail. If there's not enough memory left,
+   i_panic() will be called. */
 void *t_malloc(size_t size) ATTR_MALLOC;
 void *t_malloc0(size_t size) ATTR_MALLOC;
 
@@ -67,12 +67,12 @@ size_t t_get_bytes_available(void);
 #define t_new(type, count) \
 	((type *) t_malloc0(sizeof(type) * (count)))
 
-/* Returns pointer to temporary buffer you can use. The buffer will be
+/* Returns pointer to a temporary buffer you can use. The buffer will be
    invalid as soon as next t_malloc() is called!
 
    If you wish to grow the buffer, you must give the full wanted size
    in the size parameter. If return value doesn't point to the same value
-   as last time, you need to memcpy() the data from old buffer the this
+   as last time, you need to memcpy() data from the old buffer to the
    new one (or do some other trickery). See t_buffer_reget(). */
 #define t_buffer_get_type(type, size) \
 	t_buffer_get(sizeof(type) * (size))
@@ -83,7 +83,7 @@ void *t_buffer_get(size_t size);
 	t_buffer_reget(buffer, sizeof(type) * (size))
 void *t_buffer_reget(void *buffer, size_t size);
 
-/* Make given t_buffer_get()ed buffer permanent. Note that size MUST be
+/* Make the last t_buffer_get()ed buffer permanent. Note that size MUST be
    less or equal than the size you gave with last t_buffer_get() or the
    result will be undefined. */
 #define t_buffer_alloc_type(type, size) \
