@@ -192,6 +192,13 @@ unsigned int t_pop(void)
         return --data_stack_frame;
 }
 
+void t_pop_check(unsigned int *id)
+{
+	if (unlikely(t_pop() != *id))
+		i_panic("Leaked t_pop() call");
+	*id = 0;
+}
+
 static struct stack_block *mem_block_alloc(size_t min_size)
 {
 	struct stack_block *block;

@@ -42,6 +42,22 @@ extern unsigned int data_stack_frame;
 */
 unsigned int t_push(void);
 unsigned int t_pop(void);
+/* Simplifies the if (t_pop() != x) check by comparing it internally and
+   panicking if it doesn't match. */
+void t_pop_check(unsigned int *id);
+
+/* Usage: T_FRAME_BEGIN { code } T_FRAME_END */
+#define T_FRAME_BEGIN \
+	STMT_START { unsigned int _data_stack_cur_id = t_push();
+#define T_FRAME_END \
+	t_pop_check(&_data_stack_cur_id); } STMT_END
+
+/* Usage: T_FRAME(code). This doesn't work if there are commas within the code
+   outside function parameters. */
+#define T_FRAME(_data_stack_code) \
+	T_FRAME_BEGIN { \
+		_data_stack_code; \
+	} T_FRAME_END
 
 /* WARNING: Be careful when using these functions, it's too easy to
    accidentally save the returned value somewhere permanently.
