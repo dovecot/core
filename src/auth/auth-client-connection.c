@@ -41,19 +41,13 @@ static const char *reply_line_hide_pass(const char *line)
 static void auth_client_send(struct auth_client_connection *conn,
 			     const char *cmd)
 {
-	string_t *str;
+	struct const_iovec iov[2];
 
-	t_push();
-	str = t_str_new(256);
-	str_append(str, cmd);
-	str_append_c(str, '\n');
-
-	if (conn->auth->verbose_debug) {
-		i_info("client out: %s", conn->auth->verbose_debug_passwords ?
-		       cmd : reply_line_hide_pass(cmd));
-	}
-
-	(void)o_stream_send(conn->output, str_data(str), str_len(str));
+	iov[0].iov_base = cmd;
+	iov[0].iov_len = strlen(cmd);
+	iov[1].iov_base = "\n";
+	iov[1].iov_len = 1;
+	(void)o_stream_sendv(conn->output, iov, 2);
 
 	if (o_stream_get_buffer_used_size(conn->output) >=
 	    OUTBUF_THROTTLE_SIZE) {
@@ -62,7 +56,11 @@ static void auth_client_send(struct auth_client_connection *conn,
 		if (conn->io != NULL)
 			io_remove(&conn->io);
 	}
-	t_pop();
+
+	if (conn->auth->verbose_debug) {
+		i_info("client out: %s", conn->auth->verbose_debug_passwords ?
+		       cmd : reply_line_hide_pass(cmd));
+	}
 }
 
 static void auth_callback(const char *reply,
