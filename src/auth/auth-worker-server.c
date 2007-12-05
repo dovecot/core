@@ -122,7 +122,10 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 	reply = t_strdup_printf("FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE);
 	for (i = 0; i < size; i++) {
 		if (request[i].id != 0) {
-			request[i].callback(request[i].auth_request, reply);
+			T_FRAME(
+				request[i].callback(request[i].auth_request,
+						    reply);
+			);
 			auth_request_unref(&request[i].auth_request);
 		}
 	}
@@ -230,10 +233,11 @@ static void worker_input(struct auth_worker_connection *conn)
 		if (line == NULL)
 			continue;
 
-		t_push();
-		id = (unsigned int)strtoul(t_strcut(id_str, '\t'), NULL, 10);
-		request = auth_worker_request_lookup(conn, id);
-		t_pop();
+		T_FRAME(
+			id = (unsigned int)strtoul(t_strcut(id_str, '\t'),
+						   NULL, 10);
+			request = auth_worker_request_lookup(conn, id);
+		);
 
 		if (request != NULL)
 			auth_worker_handle_request(conn, request, line + 1);

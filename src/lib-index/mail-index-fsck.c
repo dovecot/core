@@ -156,7 +156,6 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 		name_size = ext_hdr->hdr_size - name_pos;
 	}
 
-	t_push();
 	/* create keyword name array. invalid keywords are added as
 	   empty strings */
 	t_array_init(&names, keywords_count);
@@ -191,7 +190,6 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 
 	if (!changed) {
 		/* nothing was broken */
-		t_pop();
 		return;
 	}
 
@@ -246,7 +244,6 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 	index->inconsistency_id++;
 
 	buffer_free(&dest);
-	t_pop();
 }
 
 static void
@@ -258,7 +255,6 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 	const char *name, *error;
 	unsigned int offset, ext_offset, i;
 
-	t_push();
 	t_array_init(&names, 64);
 	offset = MAIL_INDEX_HEADER_SIZE_ALIGN(hdr->base_header_size);
 	for (i = 0; offset < hdr->header_size; i++) {
@@ -301,7 +297,6 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 		map->hdr_base = map->hdr_copy_buf->data;
 		offset = ext_offset;
 	}
-	t_pop();
 }
 
 static void
@@ -435,7 +430,9 @@ int mail_index_fsck(struct mail_index *index)
 	mail_index_unmap(&index->map);
 	index->map = map;
 
-	mail_index_fsck_map(index, map);
+	T_FRAME(
+		mail_index_fsck_map(index, map);
+	);
 
 	map->write_base_header = TRUE;
 	map->write_atomic = TRUE;

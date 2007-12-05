@@ -87,10 +87,9 @@ struct sql_db *sql_pool_new(struct sql_pool *pool,
 {
 	struct sql_pool_context *ctx;
 	struct sql_db *db;
-	const char *key;
+	char *key;
 
-	t_push();
-	key = t_strdup_printf("%s\t%s", db_driver, connect_string);
+	key = i_strdup_printf("%s\t%s", db_driver, connect_string);
 	db = hash_lookup(pool->dbs, key);
 	if (db != NULL) {
 		ctx = SQL_POOL_CONTEXT(db);
@@ -98,12 +97,13 @@ struct sql_db *sql_pool_new(struct sql_pool *pool,
 			sql_pool_unlink(ctx);
 			ctx->prev = ctx->next = NULL;
 		}
+		i_free(key);
 	} else {
 		sql_pool_drop_oldest(pool);
 
 		ctx = i_new(struct sql_pool_context, 1);
 		ctx->pool = pool;
-		ctx->key = i_strdup(key);
+		ctx->key = key;
 
 		db = sql_init(db_driver, connect_string);
 		ctx->orig_deinit = db->v.deinit;
@@ -112,7 +112,6 @@ struct sql_db *sql_pool_new(struct sql_pool *pool,
 		MODULE_CONTEXT_SET(db, sql_pool_module, ctx);
 		hash_insert(pool->dbs, ctx->key, db);
 	}
-	t_pop();
 
 	ctx->refcount++;
 	return db;

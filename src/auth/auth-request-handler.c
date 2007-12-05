@@ -155,8 +155,6 @@ static void auth_callback(struct auth_request *request,
 	string_t *str;
 	const char *fields;
 
-	t_push();
-
 	str = t_str_new(128 + MAX_BASE64_ENCODED_SIZE(reply_size));
 	switch (result) {
 	case AUTH_CLIENT_RESULT_CONTINUE:
@@ -224,8 +222,6 @@ static void auth_callback(struct auth_request *request,
 	/* NOTE: request may be destroyed now */
 
         auth_request_handler_unref(&handler);
-
-	t_pop();
 }
 
 static void auth_request_handler_auth_fail(struct auth_request_handler *handler,

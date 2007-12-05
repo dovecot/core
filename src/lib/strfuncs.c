@@ -191,24 +191,22 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 
 	va_start(args, str1);
 
-	if (!pool->datastack_pool)
-		t_push();
-
-	temp = vstrconcat(str1, args, &len);
-	if (temp == NULL)
-		ret = NULL;
-	else {
-		t_buffer_alloc(len);
-		if (pool->datastack_pool)
-			ret = temp;
-		else {
-			ret = p_malloc(pool, len);
-			memcpy(ret, temp, len);
-		}
+	if (pool->datastack_pool) {
+		ret = vstrconcat(str1, args, &len);
+		if (ret != NULL)
+			t_buffer_alloc(len);
+	} else {
+		T_FRAME(
+			temp = vstrconcat(str1, args, &len);
+			if (temp == NULL)
+				ret = NULL;
+			else {
+				t_buffer_alloc(len);
+				ret = p_malloc(pool, len);
+				memcpy(ret, temp, len);
+			}
+		);
 	}
-
-	if (!pool->datastack_pool)
-		t_pop();
 
 	va_end(args);
         return ret;

@@ -439,7 +439,6 @@ static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 	    mail_cache_header_fields_get_offset(cache, &offset, FALSE) < 0)
 		return -1;
 
-	t_push();
 	buffer = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	copy_to_buf(cache, buffer, FALSE,
@@ -461,11 +460,9 @@ static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 				cache->fields[i].decision_dirty = FALSE;
 		}
 	}
-	t_pop();
 
 	if (ret == 0)
 		cache->field_header_write_pending = FALSE;
-
 	return ret;
 }
 
@@ -473,13 +470,19 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 {
 	int ret;
 
-	if (cache->locked)
-		return mail_cache_header_fields_update_locked(cache);
+	if (cache->locked) {
+		T_FRAME(
+			ret = mail_cache_header_fields_update_locked(cache);
+		);
+		return ret;
+	}
 
 	if (mail_cache_lock(cache, NULL) <= 0)
 		return -1;
 
-	ret = mail_cache_header_fields_update_locked(cache);
+	T_FRAME(
+		ret = mail_cache_header_fields_update_locked(cache);
+	);
 	if (mail_cache_unlock(cache) < 0)
 		ret = -1;
 	return ret;

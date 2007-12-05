@@ -8,6 +8,7 @@
 int mkdir_parents(const char *path, mode_t mode)
 {
 	const char *p;
+	int ret;
 
 	/* EISDIR check is for BSD/OS which returns it if path contains '/'
 	   at the end and it exists.
@@ -23,12 +24,11 @@ int mkdir_parents(const char *path, mode_t mode)
 		if (p == NULL || p == path)
 			return -1; /* shouldn't happen */
 
-		t_push();
-		if (mkdir_parents(t_strdup_until(path, p), mode) < 0) {
-			t_pop();
+		T_FRAME(
+			ret = mkdir_parents(t_strdup_until(path, p), mode);
+		);
+		if (ret < 0)
 			return -1;
-		}
-		t_pop();
 
 		/* should work now */
 		if (mkdir(path, mode) < 0 && errno != EEXIST && errno != EISDIR)

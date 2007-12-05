@@ -155,13 +155,10 @@ static void add_extra_listeners(void)
 	unsigned int i;
 
 	for (i = 1;; i++) {
-		t_push();
 		client_path = getenv(t_strdup_printf("AUTH_%u", i));
 		master_path = getenv(t_strdup_printf("AUTH_%u_MASTER", i));
-		if (client_path == NULL && master_path == NULL) {
-			t_pop();
+		if (client_path == NULL && master_path == NULL)
 			break;
-		}
 
 		str = t_strdup_printf("AUTH_%u", i);
 		client_fd = create_unix_listener(str, 64);
@@ -177,7 +174,6 @@ static void add_extra_listeners(void)
 			auth_master_listener_add(listener, client_fd,
 						 client_path, LISTENER_CLIENT);
 		}
-		t_pop();
 	}
 }
 
@@ -208,7 +204,6 @@ static void drop_privileges(void)
 	modules = module_dir_load(AUTH_MODULE_DIR, NULL, TRUE, version);
 	module_dir_init(modules);
 	auth = auth_preinit();
-
 	auth_master_listeners_init();
 	if (!worker)
 		add_extra_listeners();
@@ -234,7 +229,7 @@ static void main_init(bool nodaemon)
 	lib_signals_ignore(SIGUSR2, TRUE);
 
 	mech_init();
-        password_schemes_init();
+	password_schemes_init();
 	auth_init(auth);
 	auth_request_handler_init();
 
@@ -326,9 +321,10 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		argv++;
 	}
 
-	drop_privileges();
-
-	main_init(foreground);
+	T_FRAME(
+		drop_privileges();
+		main_init(foreground);
+	);
         io_loop_run(ioloop);
 	main_deinit();
 

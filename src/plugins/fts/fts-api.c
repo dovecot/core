@@ -166,7 +166,6 @@ fts_merge_maybies(ARRAY_TYPE(seq_range) *dest_maybe,
 	/* add/leave to dest_maybe if at least one list has maybe,
 	   and no lists have none */
 
-	t_push();
 	/* create unwanted sequences list from both sources */
 	t_array_init(&src_unwanted, 128);
 	new_range.seq1 = 0; new_range.seq2 = (uint32_t)-1;
@@ -185,7 +184,6 @@ fts_merge_maybies(ARRAY_TYPE(seq_range) *dest_maybe,
 				seq_range_array_add(dest_maybe, 0, seq);
 		}
 	}
-	t_pop();
 }
 
 int fts_backend_filter(struct fts_backend *backend, const char *key,
@@ -210,8 +208,10 @@ int fts_backend_filter(struct fts_backend *backend, const char *key,
 		array_clear(definite_uids);
 		array_clear(maybe_uids);
 	} else {
-		fts_merge_maybies(maybe_uids, definite_uids,
-				  &tmp_maybe, &tmp_definite);
+		T_FRAME(
+			fts_merge_maybies(maybe_uids, definite_uids,
+					  &tmp_maybe, &tmp_definite);
+		);
 		/* keep only what exists in both lists. the rest is in
 		   maybies or not wanted */
 		seq_range_array_remove_invert_range(definite_uids,

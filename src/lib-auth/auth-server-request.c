@@ -89,9 +89,7 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 					const char **error_r)
 {
 	string_t *str;
-	ssize_t ret;
 
-	t_push();
 	str = t_str_new(512);
 
 	str_printfa(str, "AUTH\t%u\t%s\tservice=%s",
@@ -103,7 +101,6 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 
 	if (request->cert_username != NULL) {
 		if (!is_valid_string(request->cert_username)) {
-			t_pop();
 			*error_r = "Invalid username in SSL certificate";
 			return -1;
 		}
@@ -119,7 +116,6 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 		str_printfa(str, "\trport=%u", request->remote_port);
 	if (request->initial_resp_base64 != NULL) {
 		/*if (!is_valid_string(request->initial_resp_base64)) {
-			t_pop();
 			*error_r = "Invalid base64 data in initial response";
 			return -1;
 		}*/
@@ -127,10 +123,7 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 	}
 	str_append_c(str, '\n');
 
-	ret = o_stream_send(conn->output, str_data(str), str_len(str));
-	t_pop();
-
-	if (ret < 0) {
+	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0) {
 		errno = conn->output->stream_errno;
 		i_warning("Error sending request to auth server: %m");
 		auth_server_connection_destroy(&conn, TRUE);
@@ -276,8 +269,11 @@ bool auth_client_input_fail(struct auth_server_connection *conn,
 				    request);
 			request->next_conn = next;
 
-			(void)auth_server_send_new_request(next, request,
-							   &error);
+			T_FRAME(
+				(void)auth_server_send_new_request(next,
+								   request,
+								   &error);
+			);
 			return TRUE;
 		}
 	}
@@ -367,12 +363,15 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 	request->callback = callback;
 	request->context = context;
 
-	if (auth_server_send_new_request(conn, request, error_r) == 0)
-		hash_insert(conn->requests, POINTER_CAST(request->id), request);
-	else {
-		auth_client_request_free(request);
-		request = NULL;
-	}
+	T_FRAME(
+		if (auth_server_send_new_request(conn, request, error_r) == 0) {
+			hash_insert(conn->requests, POINTER_CAST(request->id),
+				    request);
+		} else {
+			auth_client_request_free(request);
+			request = NULL;
+		}
+	);
 	return request;
 }
 

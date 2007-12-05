@@ -10,22 +10,16 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-int unlink_lockfiles(const char *dir, const char *pidprefix,
+static int
+unlink_lockfiles_dir(DIR *dirp, const char *dir, const char *pidprefix,
 		     const char *otherprefix, time_t other_min_time)
 {
-	DIR *dirp;
 	struct dirent *d;
 	struct stat st;
 	string_t *path;
 	unsigned int pidlen, otherlen;
 	int ret = 1;
 
-	/* check for any invalid access files */
-	dirp = opendir(dir);
-	if (dirp == NULL)
-		return -1;
-
-	t_push();
 	path = t_str_new(512);
 	pidlen = pidprefix == NULL ? 0 : strlen(pidprefix);
 	otherlen = otherprefix == NULL ? 0 : strlen(otherprefix);
@@ -63,10 +57,26 @@ int unlink_lockfiles(const char *dir, const char *pidprefix,
 				}
 		}
 	}
+	return ret;
+}
+
+int unlink_lockfiles(const char *dir, const char *pidprefix,
+		     const char *otherprefix, time_t other_min_time)
+{
+	DIR *dirp;
+	int ret;
+
+	/* check for any invalid access files */
+	dirp = opendir(dir);
+	if (dirp == NULL)
+		return -1;
+
+	T_FRAME(
+		ret = unlink_lockfiles_dir(dirp, dir, pidprefix,
+					   otherprefix, other_min_time);
+	);
 
 	if (closedir(dirp) < 0)
 		i_error("closedir(%s) failed: %m", dir);
-
-	t_pop();
 	return ret;
 }

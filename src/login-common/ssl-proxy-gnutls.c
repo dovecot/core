@@ -469,11 +469,12 @@ static void read_parameters(const char *fname)
 static void gcrypt_log_handler(void *context ATTR_UNUSED, int level,
 			       const char *fmt, va_list args)
 {
-	if (level == GCRY_LOG_FATAL) {
-		t_push();
+	if (level != GCRY_LOG_FATAL)
+		return;
+
+	T_FRAME(
 		i_error("gcrypt fatal: %s", t_strdup_vprintf(fmt, args));
-		t_pop();
-	}
+	);
 }
 
 void ssl_proxy_init(void)

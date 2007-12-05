@@ -95,48 +95,50 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 {
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
-	const char *key, *value;
+	const char *mailbox_name = t->box->name;
 	time_t new_stamp;
-	bool update_dict;
+	bool update_dict = FALSE;
 	int ret;
-
-	t_push();
-	key = t_strconcat(DICT_PATH_SHARED, expire.username, "/",
-			  t->box->name, NULL);
 
 	if (xt->first_expunged) {
 		/* first mail expunged. dict needs updating. */
 		first_nonexpunged_timestamp(t, &new_stamp);
 		update_dict = TRUE;
-	} else {
-		/* saved new mails. dict needs to be updated only if this is
-		   the first mail in the database */
-		ret = dict_lookup(expire.db, pool_datastack_create(),
-				  key, &value);
-		update_dict = ret == 0 || strtoul(value, NULL, 10) == 0;
-		new_stamp = xt->first_save_time;
 	}
 
 	mail_free(&xt->mail);
-	i_free(xt);
-
 	if (xpr_box->module_ctx.super.
 	    	transaction_commit(t, uid_validity_r,
 				   first_saved_uid_r, last_saved_uid_r) < 0) {
-		t_pop();
+		i_free(xt);
 		return -1;
 	}
 
-	if (update_dict) {
-		struct dict_transaction_context *dctx;
+	T_FRAME_BEGIN {
+		const char *key, *value;
 
-		new_stamp += xpr_box->expire_secs;
+		key = t_strconcat(DICT_PATH_SHARED, expire.username, "/",
+				  mailbox_name, NULL);
+		if (!xt->first_expunged) {
+			/* saved new mails. dict needs to be updated only if
+			   this is the first mail in the database */
+			ret = dict_lookup(expire.db, pool_datastack_create(),
+					  key, &value);
+			update_dict = ret == 0 || strtoul(value, NULL, 10) == 0;
+			new_stamp = xt->first_save_time;
+		}
 
-		dctx = dict_transaction_begin(expire.db);
-		dict_set(dctx, key, dec2str(new_stamp));
-		dict_transaction_commit(dctx);
-	}
-	t_pop();
+		if (update_dict) {
+			struct dict_transaction_context *dctx;
+
+			new_stamp += xpr_box->expire_secs;
+
+			dctx = dict_transaction_begin(expire.db);
+			dict_set(dctx, key, dec2str(new_stamp));
+			dict_transaction_commit(dctx);
+		}
+	} T_FRAME_END;
+	i_free(xt);
 	return 0;
 }
 

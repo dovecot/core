@@ -81,7 +81,6 @@ parse_content_transfer_encoding(struct message_decoder_context *ctx,
 	struct rfc822_parser_context parser;
 	string_t *value;
 
-	t_push();
 	value = t_str_new(64);
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
 
@@ -105,7 +104,6 @@ parse_content_transfer_encoding(struct message_decoder_context *ctx,
 			ctx->content_type = CONTENT_TYPE_QP;
 		break;
 	}
-	t_pop();
 }
 
 static void
@@ -121,12 +119,9 @@ parse_content_type(struct message_decoder_context *ctx,
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
 	(void)rfc822_skip_lwsp(&parser);
-	t_push();
 	str = t_str_new(64);
-	if (rfc822_parse_content_type(&parser, str) <= 0) {
-		t_pop();
+	if (rfc822_parse_content_type(&parser, str) <= 0)
 		return;
-	}
 
 	while (rfc822_parse_content_param(&parser, &key, &value) > 0) {
 		if (strcasecmp(key, "charset") == 0) {
@@ -135,7 +130,6 @@ parse_content_type(struct message_decoder_context *ctx,
 			break;
 		}
 	}
-	t_pop();
 }
 
 static bool message_decode_header(struct message_decoder_context *ctx,
@@ -149,12 +143,14 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 		return FALSE;
 	}
 
-	if (hdr->name_len == 12 &&
-	    strcasecmp(hdr->name, "Content-Type") == 0)
-		parse_content_type(ctx, hdr);
-	if (hdr->name_len == 25 &&
-	    strcasecmp(hdr->name, "Content-Transfer-Encoding") == 0)
-		parse_content_transfer_encoding(ctx, hdr);
+	T_FRAME(
+		if (hdr->name_len == 12 &&
+		    strcasecmp(hdr->name, "Content-Type") == 0)
+			parse_content_type(ctx, hdr);
+		if (hdr->name_len == 25 &&
+		    strcasecmp(hdr->name, "Content-Transfer-Encoding") == 0)
+			parse_content_transfer_encoding(ctx, hdr);
+	);
 
 	buffer_set_used_size(ctx->buf, 0);
 	message_header_decode_utf8(hdr->full_value, hdr->full_value_len,

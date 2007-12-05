@@ -87,8 +87,6 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 	const struct quota_backend *backend;
 	const char *p, *args, *backend_name;
 
-	t_push();
-
 	/* <backend>[:<quota root name>[:<backend args>]] */
 	p = strchr(root_def, ':');
 	if (p == NULL) {
@@ -103,8 +101,6 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 	if (backend == NULL)
 		i_fatal("Unknown quota backend: %s", backend_name);
 	
-	t_pop();
-
 	root = backend->v.alloc();
 	root->quota = quota;
 	root->backend = *backend;
@@ -288,7 +284,6 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 	}
 
 	/* <mailbox name>:<quota limits> */
-	t_push();
 	mailbox_name = t_strdup_until(rule_def, p++);
 
 	rule = quota_root_rule_find(root, mailbox_name);
@@ -316,8 +311,6 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 		       (long long)rule->bytes_limit / 1024,
 		       (long long)rule->count_limit);
 	}
-
-	t_pop();
 	return ret;
 }
 
@@ -423,10 +416,8 @@ int quota_root_add_warning_rule(struct quota_root *root, const char *rule_def,
 	}
 
 	memset(&rule, 0, sizeof(rule));
-	t_push();
 	ret = quota_rule_parse_limits(root, &rule, t_strdup_until(rule_def, p),
 				      error_r);
-	t_pop();
 	if (ret < 0)
 		return -1;
 

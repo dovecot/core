@@ -129,15 +129,13 @@ dbox_sync_index_metadata(struct dbox_sync_rebuild_context *ctx,
 	}
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_KEYWORDS);
-	if (value != NULL) {
-		t_push();
+	if (value != NULL) T_FRAME_BEGIN {
 		keywords = mail_index_keywords_create(ctx->mbox->ibox.index,
 						t_strsplit_spaces(value, " "));
 		mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE,
 					   keywords);
 		mail_index_keywords_free(&keywords);
-		t_pop();
-	}
+	} T_FRAME_END;
 }
 
 static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
@@ -261,6 +259,23 @@ dbox_sync_index_maildir_file(struct dbox_sync_rebuild_context *ctx,
 	return ret < 0 ? -1 : 0;
 }
 
+static int
+dbox_sync_index_file(struct dbox_sync_rebuild_context *ctx,
+		     const char *path, const char *fname, bool primary)
+{
+	if (strncmp(fname, DBOX_MAIL_FILE_UID_PREFIX,
+		    sizeof(DBOX_MAIL_FILE_UID_PREFIX)-1) == 0)
+		return dbox_sync_index_uid_file(ctx, path, fname);
+
+	if (strncmp(fname, DBOX_MAIL_FILE_MULTI_PREFIX,
+		    sizeof(DBOX_MAIL_FILE_MULTI_PREFIX)-1) == 0)
+		return dbox_sync_index_multi_file(ctx, path, fname);
+
+	if (primary && strstr(fname, ":2,") != NULL)
+		return dbox_sync_index_maildir_file(ctx, fname);
+	return 0;
+}
+
 static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 				       const char *path, bool primary)
 {
@@ -279,18 +294,15 @@ static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 			"opendir(%s) failed: %m", path);
 		return -1;
 	}
-	errno = 0;
-	for (; ret == 0 && (d = readdir(dir)) != NULL; errno = 0) {
-		t_push();
-		if (strncmp(d->d_name, DBOX_MAIL_FILE_UID_PREFIX,
-			    sizeof(DBOX_MAIL_FILE_UID_PREFIX)-1) == 0)
-			ret = dbox_sync_index_uid_file(ctx, path, d->d_name);
-		else if (strncmp(d->d_name, DBOX_MAIL_FILE_MULTI_PREFIX,
-				 sizeof(DBOX_MAIL_FILE_MULTI_PREFIX)-1) == 0)
-			ret = dbox_sync_index_multi_file(ctx, path, d->d_name);
-		else if (primary && strstr(d->d_name, ":2,") != NULL)
-			ret = dbox_sync_index_maildir_file(ctx, d->d_name);
-		t_pop();
+	for (;;) {
+		errno = 0;
+		if ((d = readdir(dir)) == NULL)
+			break;
+
+		T_FRAME(
+			ret = dbox_sync_index_file(ctx, path, d->d_name,
+						   primary);
+		);
 	}
 	if (errno != 0) {
 		mail_storage_set_critical(storage,
@@ -336,9 +348,9 @@ static int dbox_sync_new_maildir(struct dbox_sync_rebuild_context *ctx)
 	mail_index_view_close(&trans_view);
 
 	for (i = 0; i < count && ret == 0; i++) {
-		t_push();
-		ret = dbox_sync_index_maildir_file(ctx, fnames[i]);
-		t_pop();
+		T_FRAME(
+			ret = dbox_sync_index_maildir_file(ctx, fnames[i]);
+		);
 	}
 	return ret;
 }

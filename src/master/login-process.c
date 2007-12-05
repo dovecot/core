@@ -97,18 +97,16 @@ void auth_master_callback(const char *user, const char *const *args,
 	memset(&master_reply, 0, sizeof(master_reply));
 	if (user == NULL)
 		master_reply.status = MASTER_LOGIN_STATUS_INTERNAL_ERROR;
-	else {
+	else T_FRAME_BEGIN {
 		struct login_group *group = request->process->group;
 
-		t_push();
 		master_reply.status =
 			create_mail_process(group->mail_process_type,
 					    group->set,
 					    request->fd, &request->local_ip,
 					    &request->remote_ip, user, args,
 					    FALSE);
-		t_pop();
-	}
+	} T_FRAME_END;
 
 	/* reply to login */
 	master_reply.tag = request->login_tag;

@@ -192,17 +192,17 @@ int mail_namespaces_init(pool_t pool, const char *user,
 
 	/* first try NAMESPACE_* environments */
 	for (i = 1; ; i++) {
-		t_push();
-		data = getenv(t_strdup_printf("NAMESPACE_%u", i));
-		t_pop();
+		T_FRAME(
+			data = getenv(t_strdup_printf("NAMESPACE_%u", i));
+		);
 
 		if (data == NULL)
 			break;
 
-		t_push();
-		*ns_p = namespace_add_env(pool, data, i, user, flags,
-					  lock_method);
-		t_pop();
+		T_FRAME(
+			*ns_p = namespace_add_env(pool, data, i, user, flags,
+						  lock_method);
+		);
 
 		if (*ns_p == NULL)
 			return -1;
@@ -216,8 +216,11 @@ int mail_namespaces_init(pool_t pool, const char *user,
 		namespaces = namespaces_sort(namespaces);
 		*namespaces_r = namespaces;
 
-		if (hook_mail_namespaces_created != NULL)
-			hook_mail_namespaces_created(namespaces);
+		if (hook_mail_namespaces_created != NULL) {
+			T_FRAME(
+				hook_mail_namespaces_created(namespaces);
+			);
+		}
 		return 0;
 	}
 
@@ -250,8 +253,11 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	namespace_init_storage(ns);
 	*namespaces_r = ns;
 
-	if (hook_mail_namespaces_created != NULL)
-		hook_mail_namespaces_created(ns);
+	if (hook_mail_namespaces_created != NULL) {
+		T_FRAME(
+			hook_mail_namespaces_created(ns);
+		);
+	}
 	return 0;
 }
 

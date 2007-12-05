@@ -76,7 +76,6 @@ static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
 		uidset_offset += 4 - (uidset_offset % 4);
 	uids = CONST_PTR_OFFSET(u, uidset_offset);
 
-	t_push();
 	keyword_names[0] = t_strndup(u + 1, u->name_size);
 	keyword_names[1] = NULL;
 	keywords = mail_index_keywords_create(ctx->index, keyword_names);
@@ -91,7 +90,6 @@ static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
 	}
 
 	mail_index_keywords_free(&keywords);
-	t_pop();
 }
 
 static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
@@ -205,8 +203,10 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0)
 			continue;
 
-		if (mail_index_sync_add_transaction(ctx))
-			mail_index_sync_update_mailbox_pos(ctx);
+		T_FRAME(
+			if (mail_index_sync_add_transaction(ctx))
+				mail_index_sync_update_mailbox_pos(ctx);
+		);
 	}
 
 	/* create an array containing all expunge, flag and keyword update
@@ -832,12 +832,12 @@ void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 	}
 
 	va_start(va, fmt);
-	t_push();
-	mail_index_set_error(ctx->view->index,
-			     "Log synchronization error at "
-			     "seq=%u,offset=%"PRIuUOFF_T" for %s: %s",
-			     seq, offset, ctx->view->index->filepath,
-			     t_strdup_vprintf(fmt, va));
-	t_pop();
+	T_FRAME(
+		mail_index_set_error(ctx->view->index,
+				     "Log synchronization error at "
+				     "seq=%u,offset=%"PRIuUOFF_T" for %s: %s",
+				     seq, offset, ctx->view->index->filepath,
+				     t_strdup_vprintf(fmt, va));
+	);
 	va_end(va);
 }

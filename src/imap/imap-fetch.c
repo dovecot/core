@@ -310,11 +310,13 @@ int imap_fetch(struct imap_fetch_context *ctx)
 					return -1;
 			}
 
-			t_push();
-			ret = handlers[ctx->cur_handler].
-				handler(ctx, ctx->cur_mail,
-					handlers[ctx->cur_handler].context);
-			t_pop();
+			T_FRAME(
+				const struct imap_fetch_context_handler *h =
+					&handlers[ctx->cur_handler];
+
+				ret = h->handler(ctx, ctx->cur_mail,
+						 h->context);
+			);
 
 			if (ret == 0) {
 				if (!ctx->line_partial) {

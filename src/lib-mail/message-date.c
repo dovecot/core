@@ -231,14 +231,16 @@ static bool message_date_parser_tokens(struct message_date_parser_context *ctx,
 bool message_date_parse(const unsigned char *data, size_t size,
 		       time_t *time, int *timezone_offset)
 {
-	struct message_date_parser_context ctx;
 	bool success;
 
-	t_push();
-	rfc822_parser_init(&ctx.parser, data, size, NULL);
-	ctx.str = t_str_new(128);
-	success = message_date_parser_tokens(&ctx, time, timezone_offset);
-	t_pop();
+	T_FRAME(
+		struct message_date_parser_context ctx;
+
+		rfc822_parser_init(&ctx.parser, data, size, NULL);
+		ctx.str = t_str_new(128);
+		success = message_date_parser_tokens(&ctx, time,
+						     timezone_offset);
+	);
 
 	return success;
 }

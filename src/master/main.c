@@ -150,8 +150,11 @@ static void open_fds(void)
 		fd_close_on_exec(null_fd, TRUE);
 	}
 
-	if (!IS_INETD())
-		listeners_open_fds(NULL, FALSE);
+	if (!IS_INETD()) {
+		T_FRAME(
+			listeners_open_fds(NULL, FALSE);
+		);
+	}
 
 	/* close stdin and stdout. */
 	if (dup2(null_fd, 0) < 0)
@@ -444,29 +447,27 @@ int main(int argc, char *argv[])
 	}
 
 	/* read and verify settings before forking */
-	t_push();
-	master_settings_init();
-	if (!master_settings_read(configfile, exec_protocol != NULL,
-				  dump_config || log_error))
-		i_fatal("Invalid configuration in %s", configfile);
-	t_pop();
+	T_FRAME(
+		master_settings_init();
+		if (!master_settings_read(configfile, exec_protocol != NULL,
+					  dump_config || log_error))
+			i_fatal("Invalid configuration in %s", configfile);
+	);
 
 	if (dump_config) {
 		master_settings_dump(settings_root, dump_config_nondefaults);
 		return 0;
 	}
 
-	if (ask_key_pass) {
+	if (ask_key_pass) T_FRAME_BEGIN {
 		const char *prompt;
 
-		t_push();
 		prompt = t_strdup_printf("Give the password for SSL key file "
 					 "%s: ",
 					 settings_root->defaults->ssl_key_file);
 		askpass(prompt, ssl_manual_key_password,
 			sizeof(ssl_manual_key_password));
-		t_pop();
-	}
+	} T_FRAME_END;
 
 	/* save TZ environment. AIX depends on it to get the timezone
 	   correctly. */

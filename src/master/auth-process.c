@@ -79,7 +79,6 @@ void auth_process_request(struct auth_process *process, unsigned int login_pid,
 	string_t *str;
 	ssize_t ret;
 
-	t_push();
 	str = t_str_new(256);
 	str_printfa(str, "REQUEST\t%u\t%u\t%u\n",
 		    ++auth_tag, login_pid, login_id);
@@ -100,7 +99,6 @@ void auth_process_request(struct auth_process *process, unsigned int login_pid,
 	} else {
 		hash_insert(process->requests, POINTER_CAST(auth_tag), request);
 	}
-	t_pop();
 }
 
 static bool
@@ -206,6 +204,21 @@ auth_process_input_fail(struct auth_process *process, const char *args)
 	return TRUE;
 }
 
+static bool
+auth_process_input_line(struct auth_process *process, const char *line)
+{
+	if (strncmp(line, "USER\t", 5) == 0)
+		return auth_process_input_user(process, line + 5);
+	else if (strncmp(line, "NOTFOUND\t", 9) == 0)
+		return auth_process_input_notfound(process, line + 9);
+	else if (strncmp(line, "FAIL\t", 5) == 0)
+		return auth_process_input_fail(process, line + 5);
+	else if (strncmp(line, "SPID\t", 5) == 0)
+		return auth_process_input_spid(process, line + 5);
+	else
+		return TRUE;
+}
+
 static void auth_process_input(struct auth_process *process)
 {
 	const char *line;
@@ -246,19 +259,9 @@ static void auth_process_input(struct auth_process *process)
 	}
 
 	while ((line = i_stream_next_line(process->input)) != NULL) {
-		t_push();
-		if (strncmp(line, "USER\t", 5) == 0)
-			ret = auth_process_input_user(process, line + 5);
-		else if (strncmp(line, "NOTFOUND\t", 9) == 0)
-			ret = auth_process_input_notfound(process, line + 9);
-		else if (strncmp(line, "FAIL\t", 5) == 0)
-			ret = auth_process_input_fail(process, line + 5);
-		else if (strncmp(line, "SPID\t", 5) == 0)
-			ret = auth_process_input_spid(process, line + 5);
-		else
-			ret = TRUE;
-		t_pop();
-
+		T_FRAME(
+			ret = auth_process_input_line(process, line);
+		);
 		if (!ret) {
 			auth_process_destroy(process);
 			break;

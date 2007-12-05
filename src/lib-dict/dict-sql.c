@@ -41,10 +41,36 @@ struct sql_dict_transaction_context {
 
 static struct sql_pool *dict_sql_pool;
 
+static void sql_dict_config_parse_line(struct sql_dict *dict, const char *line)
+{
+	const char *p, *value;
+
+	while (*line == ' ') line++;
+	value = strchr(line, '=');
+	if (value == NULL)
+		return;
+
+	for (p = value; p[-1] == ' ' && p != line; p--) ;
+	line = t_strdup_until(line, p);
+	value++;
+	while (*value == ' ') value++;
+
+	if (strcmp(line, "connect") == 0)
+		dict->connect_string = p_strdup(dict->pool, value);
+	else if (strcmp(line, "table") == 0)
+		dict->table = p_strdup(dict->pool, value);
+	else if (strcmp(line, "select_field") == 0)
+		dict->select_field = p_strdup(dict->pool, value);
+	else if (strcmp(line, "where_field") == 0)
+		dict->where_field = p_strdup(dict->pool, value);
+	else if (strcmp(line, "username_field") == 0)
+		dict->username_field = p_strdup(dict->pool, value);
+}
+
 static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 {
 	struct istream *input;
-	const char *line, *value, *p;
+	const char *line;
 	int fd;
 
 	fd = open(path, O_RDONLY);
@@ -55,29 +81,9 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 
 	input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
-		while (*line == ' ') line++;
-		value = strchr(line, '=');
-		if (value == NULL)
-			continue;
-
-		t_push();
-		for (p = value; p[-1] == ' ' && p != line; p--) ;
-		line = t_strdup_until(line, p);
-		value++;
-		while (*value == ' ') value++;
-
-		if (strcmp(line, "connect") == 0)
-			dict->connect_string = p_strdup(dict->pool, value);
-		else if (strcmp(line, "table") == 0)
-			dict->table = p_strdup(dict->pool, value);
-		else if (strcmp(line, "select_field") == 0)
-			dict->select_field = p_strdup(dict->pool, value);
-		else if (strcmp(line, "where_field") == 0)
-			dict->where_field = p_strdup(dict->pool, value);
-		else if (strcmp(line, "username_field") == 0)
-			dict->username_field = p_strdup(dict->pool, value);
-
-		t_pop();
+		T_FRAME(
+			sql_dict_config_parse_line(dict, line);
+		);
 	}
 	i_stream_destroy(&input);
 	(void)close(fd);
@@ -125,10 +131,8 @@ sql_dict_init(struct dict *driver, const char *uri,
 		return NULL;
 	}
 
-	t_push();
 	dict->db = sql_pool_new(dict_sql_pool, driver->name,
 				dict->connect_string);
-	t_pop();
 	return &dict->dict;
 }
 
@@ -166,7 +170,6 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 	struct sql_result *result;
-	string_t *query;
 	int ret;
 	bool priv;
 
@@ -175,18 +178,19 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 		return -1;
 	}
 
-	t_push();
-	query = t_str_new(256);
-	str_printfa(query, "SELECT %s FROM %s WHERE %s = '%s'",
-		    dict->select_field, dict->table,
-		    dict->where_field, sql_escape_string(dict->db, key));
-	if (priv) {
-		str_printfa(query, " AND %s = '%s'",
-			    dict->username_field,
-			    sql_escape_string(dict->db, dict->username));
-	}
-	result = sql_query_s(dict->db, str_c(query));
-	t_pop();
+	T_FRAME(
+		string_t *query = t_str_new(256);
+		str_printfa(query, "SELECT %s FROM %s WHERE %s = '%s'",
+			    dict->select_field, dict->table,
+			    dict->where_field,
+			    sql_escape_string(dict->db, key));
+		if (priv) {
+			str_printfa(query, " AND %s = '%s'",
+				    dict->username_field,
+				    sql_escape_string(dict->db, dict->username));
+		}
+		result = sql_query_s(dict->db, str_c(query));
+	);
 
 	ret = sql_result_next_row(result);
 	if (ret <= 0)
@@ -206,17 +210,17 @@ sql_dict_iterate_init(struct dict *_dict, const char *path,
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
         struct sql_dict_iterate_context *ctx;
-	string_t *query;
 	bool priv;
 
 	ctx = i_new(struct sql_dict_iterate_context, 1);
 	ctx->ctx.dict = _dict;
 
-	if (sql_path_fix(&path, &priv) < 0)
+	if (sql_path_fix(&path, &priv) < 0) {
 		ctx->result = NULL;
-	else {
-		t_push();
-		query = t_str_new(256);
+		return &ctx->ctx;
+	}
+	T_FRAME(
+		string_t *query = t_str_new(256);
 		str_printfa(query, "SELECT %s, %s FROM %s "
 			    "WHERE %s LIKE '%s/%%'",
 			    dict->where_field, dict->select_field,
@@ -238,8 +242,7 @@ sql_dict_iterate_init(struct dict *_dict, const char *path,
 		else if ((flags & DICT_ITERATE_FLAG_SORT_BY_VALUE) != 0)
 			str_printfa(query, " ORDER BY %s", dict->select_field);
 		ctx->result = sql_query_s(dict->db, str_c(query));
-		t_pop();
-	}
+	);
 
 	return &ctx->ctx;
 }
@@ -316,24 +319,12 @@ static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	i_free(ctx);
 }
 
-static void sql_dict_set(struct dict_transaction_context *_ctx,
-			 const char *key, const char *value)
+static const char *
+sql_dict_set_query(struct sql_dict *dict, const char *key, const char *value,
+		   bool priv)
 {
-	struct sql_dict_transaction_context *ctx =
-		(struct sql_dict_transaction_context *)_ctx;
-	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
-	const char *query;
-	bool priv;
-
-	if (sql_path_fix(&key, &priv) < 0) {
-		i_error("sql dict: Invalid key: %s", key);
-		ctx->failed = TRUE;
-		return;
-	}
-
-	t_push();
 	if (priv) {
-		query = t_strdup_printf(
+		return t_strdup_printf(
 			"INSERT INTO %s (%s, %s, %s) VALUES ('%s', '%s', '%s') "
 			"ON DUPLICATE KEY UPDATE %s = '%s'",
 			dict->table, dict->select_field, dict->where_field,
@@ -344,7 +335,7 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 			dict->select_field,
 			sql_escape_string(dict->db, value));
 	} else {
-		query = t_strdup_printf(
+		return t_strdup_printf(
 			"INSERT INTO %s (%s, %s) VALUES ('%s', '%s') "
 			"ON DUPLICATE KEY UPDATE %s = '%s'",
 			dict->table, dict->select_field, dict->where_field,
@@ -353,8 +344,46 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
                         dict->select_field,
 			sql_escape_string(dict->db, value));
 	}
-	sql_update(ctx->sql_ctx, query);
-	t_pop();
+}
+
+static void sql_dict_set(struct dict_transaction_context *_ctx,
+			 const char *key, const char *value)
+{
+	struct sql_dict_transaction_context *ctx =
+		(struct sql_dict_transaction_context *)_ctx;
+	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
+	bool priv;
+
+	if (sql_path_fix(&key, &priv) < 0) {
+		i_error("sql dict: Invalid key: %s", key);
+		ctx->failed = TRUE;
+		return;
+	}
+
+	T_FRAME(
+		const char *query;
+
+		query = sql_dict_set_query(dict, key, value, priv);
+		sql_update(ctx->sql_ctx, query);
+	);
+}
+
+static const char *
+sql_dict_unset_query(struct sql_dict *dict, const char *key, bool priv)
+{
+	if (priv) {
+		return t_strdup_printf(
+			"DELETE FROM %s WHERE %s = '%s' AND %s = '%s'",
+			dict->table, dict->where_field,
+			sql_escape_string(dict->db, key),
+			dict->username_field,
+			sql_escape_string(dict->db, dict->username));
+	} else {
+		return t_strdup_printf(
+			"DELETE FROM %s WHERE %s = '%s'",
+			dict->table, dict->where_field,
+			sql_escape_string(dict->db, key));
+	}
 }
 
 static void sql_dict_unset(struct dict_transaction_context *_ctx,
@@ -363,7 +392,6 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;
 	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
-	const char *query;
 	bool priv;
 
 	if (sql_path_fix(&key, &priv) < 0) {
@@ -372,42 +400,20 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	t_push();
-	if (priv) {
-		query = t_strdup_printf(
-			"DELETE FROM %s WHERE %s = '%s' AND %s = '%s'",
-			dict->table, dict->where_field,
-			sql_escape_string(dict->db, key),
-			dict->username_field,
-			sql_escape_string(dict->db, dict->username));
-	} else {
-		query = t_strdup_printf(
-			"DELETE FROM %s WHERE %s = '%s'",
-			dict->table, dict->where_field,
-			sql_escape_string(dict->db, key));
-	}
-	sql_update(ctx->sql_ctx, query);
-	t_pop();
+	T_FRAME(
+		const char *query;
+
+		query = sql_dict_unset_query(dict, key, priv);
+		sql_update(ctx->sql_ctx, query);
+	);
 }
 
-static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
-				const char *key, long long diff)
+static const char *
+sql_dict_atomic_inc_query(struct sql_dict *dict, const char *key,
+			  long long diff, bool priv)
 {
-	struct sql_dict_transaction_context *ctx =
-		(struct sql_dict_transaction_context *)_ctx;
-	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
-	const char *query;
-	bool priv;
-
-	if (sql_path_fix(&key, &priv) < 0) {
-		i_error("sql dict: Invalid key: %s", key);
-		ctx->failed = TRUE;
-		return;
-	}
-
-	t_push();
 	if (priv) {
-		query = t_strdup_printf(
+		return t_strdup_printf(
 			"INSERT INTO %s (%s, %s, %s) VALUES (%lld, '%s', '%s') "
 			"ON DUPLICATE KEY UPDATE %s = %s + %lld",
 			dict->table, dict->select_field, dict->where_field,
@@ -416,15 +422,35 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 			sql_escape_string(dict->db, dict->username),
                         dict->select_field, dict->select_field, diff);
 	} else {
-		query = t_strdup_printf(
+		return t_strdup_printf(
 			"INSERT INTO %s (%s, %s) VALUES (%lld, '%s') "
 			"ON DUPLICATE KEY UPDATE %s = %s + %lld",
 			dict->table, dict->select_field, dict->where_field,
                         diff, sql_escape_string(dict->db, key),
                         dict->select_field, dict->select_field, diff);
 	}
-	sql_update(ctx->sql_ctx, query);
-	t_pop();
+}
+
+static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
+				const char *key, long long diff)
+{
+	struct sql_dict_transaction_context *ctx =
+		(struct sql_dict_transaction_context *)_ctx;
+	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
+	bool priv;
+
+	if (sql_path_fix(&key, &priv) < 0) {
+		i_error("sql dict: Invalid key: %s", key);
+		ctx->failed = TRUE;
+		return;
+	}
+
+	T_FRAME(
+		const char *query;
+
+		query = sql_dict_atomic_inc_query(dict, key, diff, priv);
+		sql_update(ctx->sql_ctx, query);
+	);
 }
 
 static struct dict sql_dict = {

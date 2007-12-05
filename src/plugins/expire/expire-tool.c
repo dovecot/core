@@ -125,7 +125,8 @@ static void expire_run(void)
 	const struct expire_box *expire_box;
 	time_t oldest;
 	const char *auth_socket, *p, *key, *value;
-	const char *username, *mailbox;
+	const char *userp, *mailbox;
+	int ret;
 
 	dict_driver_register(&dict_driver_client);
 	mail_storage_init();
@@ -153,19 +154,16 @@ static void expire_run(void)
 	/* We'll get the oldest values (timestamps) first */
 	while (dict_iterate(iter, &key, &value) > 0) {
 		/* key = DICT_PATH_SHARED<user>/<mailbox> */
-		username = key + strlen(DICT_PATH_SHARED);
+		userp = key + strlen(DICT_PATH_SHARED);
 
-		p = strchr(username, '/');
+		p = strchr(userp, '/');
 		if (p == NULL) {
 			i_error("Expire dictionary contains invalid key: %s",
 				key);
 			continue;
 		}
 
-		t_push();
-		username = t_strdup_until(username, p);
 		mailbox = p + 1;
-
 		expire_box = expire_box_find(env, mailbox);
 		if (expire_box == NULL) {
 			/* we're no longer expunging old messages from here */
@@ -173,28 +171,33 @@ static void expire_run(void)
 		} else if (time(NULL) < (time_t)strtoul(value, NULL, 10)) {
 			/* this and the rest of the timestamps are in future,
 			   so stop processing */
-			t_pop();
 			break;
 		} else {
-			if (mailbox_delete_old_mails(&ctx, username, mailbox,
-						     expire_box->expire_secs,
-						     &oldest) == 0) {
-				/* successful update */
-				if (oldest == 0) {
-					/* no more messages or we're no longer
-					   expunging messages from here */
-					dict_unset(trans, key);
-				} else {
-					const char *new_value;
+			T_FRAME(
+				const char *username;
 
-					oldest += expire_box->expire_secs;
-					new_value = dec2str(oldest);
-					if (strcmp(value, new_value) != 0)
-						dict_set(trans, key, new_value);
-				}
+				username = t_strdup_until(userp, p);
+				ret = mailbox_delete_old_mails(&ctx, username,
+						mailbox,
+						expire_box->expire_secs,
+						&oldest);
+			);
+			if (ret < 0) {
+				/* failed to update */
+			} else if (oldest == 0) {
+				/* no more messages or we're no longer
+				   expunging messages from here */
+				dict_unset(trans, key);
+			} else {
+				char new_value[MAX_INT_STRLEN];
+
+				oldest += expire_box->expire_secs;
+				i_snprintf(new_value, sizeof(new_value), "%lu",
+					   (unsigned long)oldest);
+				if (strcmp(value, new_value) != 0)
+					dict_set(trans, key, new_value);
 			}
 		}
-		t_pop();
 	}
 	dict_iterate_deinit(iter);
 	dict_transaction_commit(trans);

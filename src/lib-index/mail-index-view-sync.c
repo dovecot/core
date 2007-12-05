@@ -483,8 +483,11 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 			i_assert((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0 ||
 				 (hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0);
 
-			if (mail_index_sync_record(&ctx->sync_map_ctx,
-						   hdr, ctx->data) < 0)
+			T_FRAME(
+				ret = mail_index_sync_record(&ctx->sync_map_ctx,
+							     hdr, ctx->data);
+			);
+			if (ret < 0)
 				return -1;
 		}
 

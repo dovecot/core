@@ -429,9 +429,7 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	}
 
 	/* need to stat() then */
-	t_push();
 	mail_path = t_strconcat(dir, "/", fname, NULL);
-
 	if (stat(mail_path, &st) == 0) {
 		if (!S_ISDIR(st.st_mode)) {
 			/* non-directory */
@@ -458,8 +456,6 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 		   destination not found. don't bother logging errors. */
 		*flags |= MAILBOX_NOSELECT;
 	}
-	t_pop();
-
 	return ret;
 }
 

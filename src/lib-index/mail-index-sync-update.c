@@ -419,7 +419,6 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 {
 	int ret = 0;
 
-	t_push();
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_APPEND: {
 		const struct mail_index_record *rec, *end;
@@ -603,7 +602,6 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		ret = -1;
 		break;
 	}
-	t_pop();
 	return ret;
 }
 
@@ -789,7 +787,10 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		}
 
 		/* we'll just skip over broken entries */
-		(void)mail_index_sync_record(&sync_map_ctx, thdr, tdata);
+		T_FRAME(
+			(void)mail_index_sync_record(&sync_map_ctx,
+						     thdr, tdata);
+		);
 	}
 	map = view->map;
 

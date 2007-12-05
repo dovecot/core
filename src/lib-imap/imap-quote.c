@@ -89,17 +89,18 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 const char *imap_quote(pool_t pool, const unsigned char *value,
 		       size_t value_len)
 {
-	string_t *str;
 	char *ret;
 
 	if (value == NULL)
 		return "NIL";
 
-	t_push();
-	str = t_str_new(value_len + MAX_INT_STRLEN + 5);
-	imap_quote_append(str, value, value_len, TRUE);
-	ret = p_strndup(pool, str_data(str), str_len(str));
-	t_pop();
+	T_FRAME(
+		   string_t *str;
+
+		   str = t_str_new(value_len + MAX_INT_STRLEN + 5);
+		   imap_quote_append(str, value, value_len, TRUE);
+		   ret = p_strndup(pool, str_data(str), str_len(str));
+	);
 
 	return ret;
 }

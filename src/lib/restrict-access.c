@@ -68,7 +68,6 @@ static void drop_restricted_groups(bool *have_root_group)
 	if (first_valid_gid == 0 && last_valid_gid == 0)
 		return;
 
-	t_push();
 	gid_list = get_groups_list(&gid_count);
 
 	for (i = 0, used = 0; i < gid_count; i++) {
@@ -87,7 +86,6 @@ static void drop_restricted_groups(bool *have_root_group)
 				"setgroups() failed: %m");
 		}
 	}
-	t_pop();
 }
 
 static gid_t get_group_id(const char *name)
@@ -109,7 +107,6 @@ static void grant_extra_groups(const char *groups)
 	gid_t *gid_list;
 	int gid_count;
 
-	t_push();
 	tmp = t_strsplit(groups, ", ");
 	gid_list = get_groups_list(&gid_count);
 	for (; *tmp != NULL; tmp++) {
@@ -125,8 +122,6 @@ static void grant_extra_groups(const char *groups)
 		i_fatal("Couldn't set mail_extra_groups: "
 			"setgroups(%s) failed: %m", groups);
 	}
-
-	t_pop();
 }
 
 void restrict_access_by_env(bool disallow_root)
@@ -162,14 +157,19 @@ void restrict_access_by_env(bool disallow_root)
 					env, dec2str(gid));
 			}
 
-                        drop_restricted_groups(&have_root_group);
+			T_FRAME(
+				drop_restricted_groups(&have_root_group);
+			);
 		}
 	}
 
 	/* grant additional groups to process */
 	env = getenv("RESTRICT_SETEXTRAGROUPS");
-	if (env != NULL && *env != '\0')
-		grant_extra_groups(env);
+	if (env != NULL && *env != '\0') {
+		T_FRAME(
+			grant_extra_groups(env);
+		);
+	}
 
 	/* chrooting */
 	env = getenv("RESTRICT_CHROOT");

@@ -295,23 +295,25 @@ void client_disconnect(struct client *client, const char *reason)
 int client_send_line(struct client *client, const char *fmt, ...)
 {
 	va_list va;
-	string_t *str;
 	ssize_t ret;
 
 	if (client->output->closed)
 		return -1;
 
-	t_push();
 	va_start(va, fmt);
 
-	str = t_str_new(256);
-	str_vprintfa(str, fmt, va);
-	str_append(str, "\r\n");
+	T_FRAME(
+		string_t *str;
 
-	ret = o_stream_send(client->output, str_data(str), str_len(str));
+		str = t_str_new(256);
+		str_vprintfa(str, fmt, va);
+		str_append(str, "\r\n");
+
+		ret = o_stream_send(client->output,
+				    str_data(str), str_len(str));
+		i_assert(ret < 0 || (size_t)ret == str_len(str));
+	);
 	if (ret >= 0) {
-		i_assert((size_t)ret == str_len(str));
-
 		if (o_stream_get_buffer_used_size(client->output) <
 		    OUTBUF_THROTTLE_SIZE) {
 			ret = 1;
@@ -333,7 +335,6 @@ int client_send_line(struct client *client, const char *fmt, ...)
 	}
 
 	va_end(va);
-	t_pop();
 	return (int)ret;
 }
 
@@ -388,10 +389,10 @@ static void client_input(struct client *client)
 		if (args != NULL)
 			*args++ = '\0';
 
-		t_push();
-		ret = client_command_execute(client, line,
-					     args != NULL ? args : "");
-		t_pop();
+		T_FRAME(
+			ret = client_command_execute(client, line,
+						     args != NULL ? args : "");
+		);
 		if (ret >= 0) {
 			client->bad_counter = 0;
 			if (client->cmd != NULL) {

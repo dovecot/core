@@ -421,9 +421,10 @@ static int header_lookup_line_cmp(const void *p1, const void *p2)
 	return (int)l1->line_num - (int)l2->line_num;
 }
 
-int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
-			      uint32_t seq, unsigned int field_idxs[],
-			      unsigned int fields_count)
+static int
+mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
+			       uint32_t seq, unsigned int field_idxs[],
+			       unsigned int fields_count)
 {
 	struct mail_cache *cache = view->cache;
 	struct mail_cache_lookup_iterate_ctx iter;
@@ -444,15 +445,11 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	if (!view->cache->opened)
 		(void)mail_cache_open_and_verify(view->cache);
 
-	t_push();
-
 	/* mark all the fields we want to find. */
 	buf = buffer_create_dynamic(pool_datastack_create(), 32);
 	for (i = 0; i < fields_count; i++) {
-		if (!mail_cache_file_has_field(cache, field_idxs[i])) {
-			t_pop();
+		if (!mail_cache_file_has_field(cache, field_idxs[i]))
 			return 0;
-		}
 
 		if (field_idxs[i] > max_field)
 			max_field = field_idxs[i];
@@ -477,17 +474,13 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 		}
 
 	}
-	if (ret < 0) {
-		t_pop();
+	if (ret < 0)
 		return -1;
-	}
 
 	/* check that all fields were found */
 	for (i = 0; i <= max_field; i++) {
-		if (field_state[i] == HDR_FIELD_STATE_WANT) {
-			t_pop();
+		if (field_state[i] == HDR_FIELD_STATE_WANT)
 			return 0;
-		}
 	}
 
 	for (i = 0; i < fields_count; i++)
@@ -519,7 +512,18 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 		lines[i].data->offset += hdr_size;
 		lines[i].data->data_size -= hdr_size;
 	}
-
-	t_pop();
 	return 1;
+}
+
+int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
+			      uint32_t seq, unsigned int field_idxs[],
+			      unsigned int fields_count)
+{
+	int ret;
+
+	T_FRAME(
+		ret = mail_cache_lookup_headers_real(view, dest, seq,
+						     field_idxs, fields_count);
+	);
+	return ret;
 }

@@ -23,8 +23,6 @@ static void quota_root_add_rules(const char *root_name,
 	const char *rule_name, *rule, *error;
 	unsigned int i;
 
-	t_push();
-
 	rule_name = t_strconcat(root_name, "_RULE", NULL);
 	for (i = 2;; i++) {
 		rule = getenv(rule_name);
@@ -38,8 +36,6 @@ static void quota_root_add_rules(const char *root_name,
 		}
 		rule_name = t_strdup_printf("%s_RULE%d", root_name, i);
 	}
-
-	t_pop();
 }
 
 static void quota_root_add_warning_rules(const char *root_name,
@@ -47,8 +43,6 @@ static void quota_root_add_warning_rules(const char *root_name,
 {
 	const char *rule_name, *rule, *error;
 	unsigned int i;
-
-	t_push();
 
 	rule_name = t_strconcat(root_name, "_WARNING", NULL);
 	for (i = 2;; i++) {
@@ -63,8 +57,6 @@ static void quota_root_add_warning_rules(const char *root_name,
 		}
 		rule_name = t_strdup_printf("%s_WARNING%d", root_name, i);
 	}
-
-	t_pop();
 }
 
 void quota_plugin_init(void)
@@ -85,7 +77,6 @@ void quota_plugin_init(void)
 	quota_root_add_rules("QUOTA", root);
 	quota_root_add_warning_rules("QUOTA", root);
 
-	t_push();
 	for (i = 2;; i++) {
 		const char *root_name;
 
@@ -101,7 +92,6 @@ void quota_plugin_init(void)
 		quota_root_add_rules(root_name, root);
 		quota_root_add_warning_rules(root_name, root);
 	}
-	t_pop();
 
 	quota_next_hook_mail_storage_created = hook_mail_storage_created;
 	hook_mail_storage_created = quota_mail_storage_created;

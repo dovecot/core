@@ -87,7 +87,6 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 		flags |= FTS_LOOKUP_FLAG_INVERT;
 
 	/* convert key to titlecase */
-	t_push();
 	key_utf8 = t_str_new(128);
 	if (charset_to_utf8_str(fctx->charset, CHARSET_FLAG_DECOMP_TITLECASE,
 				key, key_utf8, &result) < 0) {
@@ -107,7 +106,6 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 					 &fctx->definite_seqs,
 					 &fctx->maybe_seqs);
 	}
-	t_pop();
 	return ret;
 }
 
@@ -123,11 +121,16 @@ void fts_search_lookup(struct fts_search_context *fctx)
 	i_array_init(&fctx->maybe_seqs, 64);
 
 	/* start filtering with the best arg */
-	ret = fts_search_lookup_arg(fctx, fctx->best_arg, FALSE);
+	T_FRAME(
+		ret = fts_search_lookup_arg(fctx, fctx->best_arg, FALSE);
+	);
 	/* filter the rest */
 	for (arg = fctx->args; arg != NULL && ret == 0; arg = arg->next) {
-		if (arg != fctx->best_arg)
-			ret = fts_search_lookup_arg(fctx, arg, TRUE);
+		if (arg != fctx->best_arg) {
+			T_FRAME(
+				ret = fts_search_lookup_arg(fctx, arg, TRUE);
+			);
+		}
 	}
 
 	if (fctx->fbox->backend_fast != NULL &&

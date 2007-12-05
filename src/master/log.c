@@ -39,6 +39,7 @@ static void log_throttle_timeout(void *context);
 static bool log_write_pending(struct log_io *log_io)
 {
 	const char *line;
+	bool ret;
 
 	if (log_io->log_stamp != ioloop_time) {
 		log_io->log_stamp = ioloop_time;
@@ -46,7 +47,10 @@ static bool log_write_pending(struct log_io *log_io)
 	}
 
 	while ((line = i_stream_next_line(log_io->stream)) != NULL) {
-		if (!log_it(log_io, line, FALSE))
+		T_FRAME(
+			ret = log_it(log_io, line, FALSE);
+		);
+		if (!ret)
 			return FALSE;
 	}
 
@@ -106,7 +110,6 @@ static int log_it(struct log_io *log_io, const char *line, bool continues)
 		}
 	}
 
-	t_push();
 	prefix = log_io->prefix != NULL ? log_io->prefix : "";
 	switch (log_io->next_log_type) {
 	case 'I':
@@ -131,7 +134,6 @@ static int log_it(struct log_io *log_io, const char *line, bool continues)
 		break;
 	}
 	i_log_type(log_type, "%s%s", prefix, line);
-	t_pop();
 
 	if (!continues)
 		log_io->next_log_type = '\0';
@@ -244,9 +246,9 @@ static void log_close(struct log_io *log_io)
 	/* write partial data as well */
 	data = i_stream_get_data(log_io->stream, &size);
 	if (size != 0) {
-		t_push();
-		log_it(log_io, t_strndup(data, size), TRUE);
-		t_pop();
+		T_FRAME(
+			log_it(log_io, t_strndup(data, size), TRUE);
+		);
 	}
 
 	if (log_io == log_ios)

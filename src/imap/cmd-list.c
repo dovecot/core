@@ -299,7 +299,6 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 	const char *name;
 	int ret = 0;
 
-	t_push();
 	str = t_str_new(256);
 	name_str = t_str_new(256);
 	while ((info = mailbox_list_iter_next(ctx->list_iter)) != NULL) {
@@ -361,12 +360,14 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		mailbox_childinfo2str(ctx, str, flags);
 
 		if (ctx->status_items != 0 &&
-		    (flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) == 0)
-			list_send_status(ctx, name);
+		    (flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) == 0) {
+			T_FRAME(
+				list_send_status(ctx, name);
+			);
+		}
 
 		if (client_send_line(ctx->cmd->client, str_c(str)) == 0) {
 			/* buffer is full, continue later */
-			t_pop();
 			return 0;
 		}
 	}
@@ -374,7 +375,6 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 	if (mailbox_list_iter_deinit(&ctx->list_iter) < 0)
 		ret = -1;
 
-	t_pop();
 	return ret < 0 ? -1 : 1;
 }
 
@@ -495,13 +495,11 @@ list_use_inboxcase(struct cmd_list_context *ctx)
 	   that matches INBOX, the INBOX casing is on. */
 	ret = IMAP_MATCH_NO;
 	for (pat = ctx->patterns; *pat != NULL; pat++) {
-		t_push();
 		inbox_glob =
 			imap_match_init(pool_datastack_create(),
 					t_strconcat(ctx->ref, *pat, NULL),
 					TRUE, ctx->ns->sep);
 		match = imap_match(inbox_glob, "INBOX");
-		t_pop();
 
 		if (match == IMAP_MATCH_YES)
 			return IMAP_MATCH_YES;
@@ -673,14 +671,17 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 	}
 	for (; ctx->ns != NULL; ctx->ns = ctx->ns->next) {
 		if (ctx->list_iter == NULL) {
-			t_push();
-			list_namespace_init(ctx);
-			t_pop();
+			T_FRAME(
+				list_namespace_init(ctx);
+			);
 			if (ctx->list_iter == NULL)
 				continue;
 		}
 
-		if ((ret = list_namespace_mailboxes(ctx)) < 0) {
+		T_FRAME(
+			ret = list_namespace_mailboxes(ctx);
+		);
+		if (ret < 0) {
 			client_send_list_error(cmd, ctx->ns->list);
 			return TRUE;
 		}

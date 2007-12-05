@@ -313,7 +313,6 @@ maildir_uidlist_read_extended(struct maildir_uidlist *uidlist,
 	const char *start, *line = *line_p;
 	buffer_t *buf;
 
-	t_push();
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
 	while (*line != '\0' && *line != ':') {
 		/* skip over an extension field */
@@ -330,7 +329,6 @@ maildir_uidlist_read_extended(struct maildir_uidlist *uidlist,
 		rec->extensions = p_malloc(uidlist->record_pool, buf->used);
 		memcpy(rec->extensions, buf->data, buf->used);
 	}
-	t_pop();
 
 	if (*line == ':')
 		line++;
@@ -389,7 +387,13 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 
 	if (uidlist->version == 3) {
 		/* read extended fields */
-		if (!maildir_uidlist_read_extended(uidlist, &line, rec)) {
+		bool ret;
+
+		T_FRAME(
+			ret = maildir_uidlist_read_extended(uidlist, &line,
+							    rec);
+		);
+		if (!ret) {
 			mail_storage_set_critical(storage,
 				"Invalid data in file %s", uidlist->path);
 			return 0;
@@ -421,7 +425,7 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 	struct mail_storage *storage = uidlist->ibox->box.storage;
 	unsigned int uid_validity, next_uid;
 	string_t *ext_hdr;
-	const char *line, *value;
+	const char *line;
 	char key;
 
 	line = i_stream_read_next_line(input);
@@ -459,8 +463,9 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 	case 3:
 		ext_hdr = uidlist->hdr_extensions;
 		str_truncate(ext_hdr, 0);
-		while (*line != '\0') {
-			t_push();
+		while (*line != '\0') T_FRAME_BEGIN {
+			const char *value;
+
 			key = *line;
 			value = ++line;
 			while (*line != '\0' && *line != ' ') line++;
@@ -481,8 +486,7 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 			}
 
 			while (*line == ' ') line++;
-			t_pop();
-		}
+		} T_FRAME_END;
 		break;
 	default:
 		mail_storage_set_critical(storage, "%s: Unsupported version %u",
@@ -821,7 +825,8 @@ void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
 		uidlist->next_uid = next_uid;
 }
 
-void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
+static void
+maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 			     enum maildir_uidlist_rec_ext_key key,
 			     const char *value)
 {
@@ -834,7 +839,6 @@ void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
 	i_assert(rec != NULL);
 
-	t_push();
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
 
 	/* copy existing extensions, except for the one we're updating */
@@ -856,7 +860,15 @@ void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 	memcpy(rec->extensions, buf->data, buf->used);
 
 	uidlist->recreate = TRUE;
-	t_pop();
+}
+
+void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
+			     enum maildir_uidlist_rec_ext_key key,
+			     const char *value)
+{
+	T_FRAME(
+		maildir_uidlist_set_ext_real(uidlist, uid, key, value);
+	);
 }
 
 static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
@@ -1379,9 +1391,9 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 		maildir_uidlist_mark_all(ctx->uidlist, FALSE);
 
 	if ((ctx->changed || ctx->uidlist->recreate) && !ctx->failed) {
-		t_push();
-		ret = maildir_uidlist_sync_update(ctx);
-		t_pop();
+		T_FRAME(
+			ret = maildir_uidlist_sync_update(ctx);
+		);
 	}
 
 	if (ctx->locked)

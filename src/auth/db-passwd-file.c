@@ -158,7 +158,6 @@ static bool passwd_file_open(struct passwd_file *pw)
 {
 	const char *no_args = NULL;
 	struct istream *input;
-	const char *const *args;
 	const char *line;
 	struct stat st;
 	int fd;
@@ -188,16 +187,16 @@ static bool passwd_file_open(struct passwd_file *pw)
 		if (*line == '\0' || *line == ':' || *line == '#')
 			continue; /* no username or comment */
 
-		t_push();
-		args = t_strsplit(line, ":");
-		if (args[1] != NULL) {
-			/* at least username+password */
-			passwd_file_add(pw, args[0], args[1], args+2);
-		} else {
-			/* only username */
-			passwd_file_add(pw, args[0], NULL, &no_args);
-		}
-		t_pop();
+		T_FRAME(
+			const char *const *args = t_strsplit(line, ":");
+			if (args[1] != NULL) {
+				/* at least username+password */
+				passwd_file_add(pw, args[0], args[1], args+2);
+			} else {
+				/* only username */
+				passwd_file_add(pw, args[0], NULL, &no_args);
+			}
+		);
 	}
 	i_stream_destroy(&input);
 
@@ -395,8 +394,6 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 		const struct var_expand_table *table;
 		string_t *dest;
 
-		t_push();
-
 		table = auth_request_get_var_expand_table(request, path_fix);
 		dest = t_str_new(256);
 		var_expand(dest, db->path, table);
@@ -406,17 +403,13 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 			/* doesn't exist yet. create lookup for it. */
 			pw = passwd_file_new(db, str_c(dest));
 		}
-
-		t_pop();
 	}
 
-	t_push();
 	path = t_strdup(pw->path);
 	if (!passwd_file_sync(pw)) {
 		/* pw may be freed now */
 		auth_request_log_info(request, "passwd-file",
 				      "no passwd file: %s", path);
-		t_pop();
 		return NULL;
 	}
 
@@ -432,8 +425,6 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 	pu = hash_lookup(pw->users, str_c(username));
 	if (pu == NULL)
                 auth_request_log_info(request, "passwd-file", "unknown user");
-	t_pop();
-
 	return pu;
 }
 

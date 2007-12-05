@@ -277,14 +277,12 @@ static void parse_address_list(struct message_address_parser_context *ctx,
 	}
 }
 
-struct message_address *
-message_address_parse(pool_t pool, const unsigned char *data, size_t size,
-		      unsigned int max_addresses, bool fill_missing)
+static struct message_address *
+message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
+			   unsigned int max_addresses, bool fill_missing)
 {
 	struct message_address_parser_context ctx;
 
-	if (!pool->datastack_pool)
-		t_push();
 	memset(&ctx, 0, sizeof(ctx));
 
 	rfc822_parser_init(&ctx.parser, data, size, t_str_new(128));
@@ -295,9 +293,24 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 	rfc822_skip_lwsp(&ctx.parser);
 
 	(void)parse_address_list(&ctx, max_addresses);
-	if (!pool->datastack_pool)
-		t_pop();
 	return ctx.first_addr;
+}
+
+struct message_address *
+message_address_parse(pool_t pool, const unsigned char *data, size_t size,
+		      unsigned int max_addresses, bool fill_missing)
+{
+	struct message_address *addr;
+
+	if (pool->datastack_pool) {
+		return message_address_parse_real(pool, data, size,
+						  max_addresses, fill_missing);
+	}
+	T_FRAME(
+		addr = message_address_parse_real(pool, data, size,
+						  max_addresses, fill_missing);
+	);
+	return addr;
 }
 
 void message_address_write(string_t *str, const struct message_address *addr)

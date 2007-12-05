@@ -249,7 +249,6 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			      const struct mail_sort_node *n2)
 {
 	enum mail_sort_type sort_type;
-	const char *str1, *str2;
 	uint32_t time1, time2, size1, size2;
 	int ret = 0;
 
@@ -259,14 +258,16 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 	case MAIL_SORT_FROM:
 	case MAIL_SORT_TO:
 	case MAIL_SORT_SUBJECT:
-		t_push();
-		str1 = n1->seq == ctx->cache_seq &&
-			ctx->cache_type == sort_type ? ctx->cache_str :
-			sort_header_get(sort_type, ctx->mail, n1->seq);
-		str2 = sort_header_get(sort_type, ctx->mail, n2->seq);
+		T_FRAME_BEGIN {
+			const char *str1, *str2;
 
-		ret = strcmp(str1, str2);
-		t_pop();
+			str1 = n1->seq == ctx->cache_seq &&
+				ctx->cache_type == sort_type ? ctx->cache_str :
+				sort_header_get(sort_type, ctx->mail, n1->seq);
+			str2 = sort_header_get(sort_type, ctx->mail, n2->seq);
+
+			ret = strcmp(str1, str2);
+		} T_FRAME_END;
 		break;
 	case MAIL_SORT_ARRIVAL:
 		if (n1->seq == ctx->cache_seq && ctx->cache_type == sort_type)
@@ -367,7 +368,7 @@ index_sort_save_ids(struct mail_search_sort_program *program,
 	}
 }
 
-static int
+static bool
 index_sort_add_ids_range(struct mail_search_sort_program *program,
 			 struct mail *mail, unsigned int idx1,
 			 unsigned int idx2)
@@ -379,9 +380,7 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 	string_t *prev_str;
 	const char *str;
 	unsigned int skip;
-	int ret = 1;
 
-	t_push();
 	nodes = array_get_modifiable(&program->all_nodes, &count);
 	if (nodes[idx2].sort_id != 0) {
 		i_assert(idx1 != idx2);
@@ -421,8 +420,7 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 			if (nodes[i].sort_id == last_id) {
 				/* we ran out of ID space. have to renumber
 				   the IDs. */
-				ret = 0;
-				break;
+				return FALSE;
 			}
 
 			prev_id = nodes[i].sort_id;
@@ -430,8 +428,7 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 			str_append(prev_str, str);
 		}
 	}
-	t_pop();
-	return ret;
+	return TRUE;
 }
 
 static void
@@ -494,19 +491,24 @@ index_sort_add_ids(struct mail_search_sort_program *program, struct mail *mail)
 {
 	const struct mail_sort_node *nodes;
 	unsigned int i, j, count;
+	bool ret;
 
 	nodes = array_get(&program->all_nodes, &count);
 	for (i = 0; i < count; i++) {
-		if (nodes[i].sort_id == 0) {
-			for (j = i + 1; j < count; j++) {
-				if (nodes[j].sort_id != 0)
-					break;
-			}
-			if (index_sort_add_ids_range(program, mail,
-						     i == 0 ? 0 : i-1,
-						     I_MIN(j, count-1)) == 0)
-				index_sort_renumber_ids(program, i-1);
+		if (nodes[i].sort_id != 0)
+			continue;
+
+		for (j = i + 1; j < count; j++) {
+			if (nodes[j].sort_id != 0)
+				break;
 		}
+		T_FRAME(
+			ret = index_sort_add_ids_range(program, mail,
+						       I_MAX(i, 1)-1,
+						       I_MIN(j, count-1));
+		);
+		if (!ret)
+			index_sort_renumber_ids(program, i-1);
 	}
 }
 

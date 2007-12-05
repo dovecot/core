@@ -274,24 +274,20 @@ static char *get_apop_challenge(struct pop3_client *client)
 	struct auth_connect_id *id = &client->auth_id;
 	unsigned char buffer[16];
         buffer_t *buf;
-	char *ret;
 
 	if (!auth_client_reserve_connection(auth_client, "APOP", id))
 		return NULL;
 
-	t_push();
 	random_fill(buffer, sizeof(buffer));
 	buf = buffer_create_static_hard(pool_datastack_create(),
 			MAX_BASE64_ENCODED_SIZE(sizeof(buffer)) + 1);
 	base64_encode(buffer, sizeof(buffer), buf);
 	buffer_append_c(buf, '\0');
 
-	ret = i_strdup_printf("<%x.%x.%lx.%s@%s>",
-			      id->server_pid, id->connect_uid,
-			      (unsigned long)ioloop_time,
-			      (const char *)buf->data, my_hostname);
-	t_pop();
-	return ret;
+	return i_strdup_printf("<%x.%x.%lx.%s@%s>",
+			       id->server_pid, id->connect_uid,
+			       (unsigned long)ioloop_time,
+			       (const char *)buf->data, my_hostname);
 }
 
 static void client_auth_ready(struct pop3_client *client)

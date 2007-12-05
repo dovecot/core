@@ -50,7 +50,6 @@ nfs_safe_do(const char *path, int (*callback)(const char *path, void *context),
         unsigned int i;
 	int ret;
 
-        t_push();
         for (i = 1;; i++) {
 		ret = callback(path, context);
                 if (ret == 0 || errno != ESTALE || i == NFS_ESTALE_RETRY_COUNT)
@@ -61,7 +60,6 @@ nfs_safe_do(const char *path, int (*callback)(const char *path, void *context),
 		   file handle and try again */
 		nfs_flush_file_handle_cache(path);
         }
-        t_pop();
         return ret;
 }
 
@@ -314,11 +312,9 @@ static void nfs_flush_file_handle_cache_parent_dir(const char *path)
 	p = strrchr(path, '/');
 	if (p == NULL)
 		nfs_flush_file_handle_cache_dir(".");
-	else {
-		t_push();
+	else T_FRAME(
 		nfs_flush_file_handle_cache_dir(t_strdup_until(path, p));
-		t_pop();
-	}
+	);
 }
 
 void nfs_flush_file_handle_cache(const char *path)

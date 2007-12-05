@@ -34,11 +34,11 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 	}
 
 	va_start(va, fmt);
-	t_push();
-	mail_index_set_error(file->log->index,
-			     "Corrupted transaction log file %s: %s",
-			     file->filepath, t_strdup_vprintf(fmt, va));
-	t_pop();
+	T_FRAME(
+		mail_index_set_error(file->log->index,
+				     "Corrupted transaction log file %s: %s",
+				     file->filepath, t_strdup_vprintf(fmt, va));
+	);
 	va_end(va);
 }
 

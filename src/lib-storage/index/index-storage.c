@@ -513,19 +513,15 @@ index_keywords_create_skip(struct index_mailbox *ibox,
 			   const char *const keywords[])
 {
 	ARRAY_DEFINE(valid_keywords, const char *);
-	struct mail_keywords *kw;
 	const char *error;
 
-	t_push();
 	t_array_init(&valid_keywords, 32);
 	for (; *keywords != NULL; keywords++) {
 		if (index_mailbox_keyword_is_valid(ibox, *keywords, &error))
 			array_append(&valid_keywords, keywords, 1);
 	}
 	(void)array_append_space(&valid_keywords); /* NULL-terminate */
-	kw = mail_index_keywords_create(ibox->index, keywords);
-	t_pop();
-	return kw;
+	return mail_index_keywords_create(ibox->index, keywords);
 }
 
 int index_keywords_create(struct mailbox *_box, const char *const keywords[],
@@ -539,15 +535,18 @@ int index_keywords_create(struct mailbox *_box, const char *const keywords[],
 		if (index_mailbox_keyword_is_valid(ibox, keywords[i], &error))
 			continue;
 
-		if (skip_invalid) {
-			/* found invalid keywords, do this the slow
-			   way */
-			*keywords_r =
-				index_keywords_create_skip(ibox, keywords);
-			return 0;
+		if (!skip_invalid) {
+			mail_storage_set_error(_box->storage,
+					       MAIL_ERROR_PARAMS, error);
+			return -1;
 		}
-		mail_storage_set_error(_box->storage, MAIL_ERROR_PARAMS, error);
-		return -1;
+
+		/* found invalid keywords, do this the slow way */
+		T_FRAME(
+			*keywords_r = index_keywords_create_skip(ibox,
+								 keywords);
+		);
+		return 0;
 	}
 
 	*keywords_r = mail_index_keywords_create(ibox->index, keywords);

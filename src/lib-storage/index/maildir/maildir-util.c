@@ -19,7 +19,7 @@
 static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 			       maildir_file_do_func *callback, void *context)
 {
-	const char *fname, *path;
+	const char *fname;
         enum maildir_uidlist_rec_flag flags;
 	int ret;
 
@@ -27,20 +27,24 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 	if (fname == NULL)
 		return -2; /* expunged */
 
-	t_push();
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
-		path = t_strconcat(mbox->path, "/new/", fname, NULL);
-		ret = callback(mbox, path, context);
-		if (ret != 0) {
-			t_pop();
+		T_FRAME(
+			const char *path;
+
+			path = t_strconcat(mbox->path, "/new/", fname, NULL);
+			ret = callback(mbox, path, context);
+		);
+		if (ret != 0)
 			return ret;
-		}
 	}
 
-	path = t_strconcat(mbox->path, "/cur/", fname, NULL);
-	ret = callback(mbox, path, context);
-	t_pop();
+	T_FRAME(
+		const char *path;
+
+		path = t_strconcat(mbox->path, "/cur/", fname, NULL);
+		ret = callback(mbox, path, context);
+	);
 	return ret;
 }
 
@@ -84,7 +88,8 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	return ret == -2 ? 0 : ret;
 }
 
-void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir)
+static void
+maildir_tmp_cleanup_real(struct mail_storage *storage, const char *dir)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -101,7 +106,6 @@ void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir)
 		return;
 	}
 
-	t_push();
 	path = t_str_new(256);
 	str_printfa(path, "%s/", dir);
 	dir_len = str_len(path);
@@ -129,7 +133,6 @@ void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir)
 			}
 		}
 	}
-	t_pop();
 
 #ifdef HAVE_DIRFD
 	if (fstat(dirfd(dirp), &st) < 0) {
@@ -156,6 +159,13 @@ void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir)
 	}
 }
 
+void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir)
+{
+	T_FRAME(
+		maildir_tmp_cleanup_real(storage, dir);
+	);
+}
+
 static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 {
 	static const char *subdirs[] = { "cur", "new", "tmp" };
@@ -165,7 +175,6 @@ static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 	const char *path;
 	unsigned int i;
 
-	t_push();
 	/* @UNSAFE: get a list of directories we want to create */
 	for (i = 0; i < N_ELEMENTS(subdirs); i++)
 		dirs[i] = t_strconcat(mbox->path, "/", subdirs[i], NULL);
@@ -196,7 +205,6 @@ static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 			break;
 		}
 	}
-	t_pop();
 	return i == N_ELEMENTS(dirs) ? 0 : -1;
 }
 
@@ -204,6 +212,7 @@ bool maildir_set_deleted(struct maildir_mailbox *mbox)
 {
 	struct mailbox *box = &mbox->ibox.box;
 	struct stat st;
+	int ret;
 
 	if (stat(mbox->path, &st) < 0) {
 		if (errno == ENOENT)
@@ -216,5 +225,8 @@ bool maildir_set_deleted(struct maildir_mailbox *mbox)
 	}
 	/* maildir itself exists. create all of its subdirectories in case
 	   they got lost. */
-	return maildir_create_subdirs(mbox) < 0 ? TRUE : FALSE;
+	T_FRAME(
+		ret = maildir_create_subdirs(mbox);
+	);
+	return ret < 0 ? TRUE : FALSE;
 }

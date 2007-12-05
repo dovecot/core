@@ -261,7 +261,10 @@ static int dbox_index_read_or_create(struct dbox_index *index)
 		if (index->fd != -1)
 			dbox_index_close(index);
 
-		if (dbox_index_recreate(index, FALSE) < 0)
+		T_FRAME(
+			ret = dbox_index_recreate(index, FALSE);
+		);
+		if (ret < 0)
 			return -1;
 	}
 
@@ -552,15 +555,12 @@ static int dbox_index_recreate(struct dbox_index *index, bool locked)
 	unsigned int i, count;
 	int fd, ret = 0;
 
-	t_push();
 	temp_path = t_str_new(256);
 	str_append(temp_path, index->path);
 
 	fd = dbox_index_create_fd(index->mbox, temp_path, locked);
-	if (fd == -1) {
-		t_pop();
+	if (fd == -1)
 		return -1;
-	}
 
 	str = t_str_new(256);
 	output = o_stream_create_fd_file(fd, 0, FALSE);
@@ -626,7 +626,6 @@ static int dbox_index_recreate(struct dbox_index *index, bool locked)
 		if (unlink(str_c(temp_path)) < 0)
 			i_error("unlink(%s) failed: %m", str_c(temp_path));
 	}
-	t_pop();
 	return ret;
 }
 
@@ -877,12 +876,10 @@ int dbox_index_append_assign_file_ids(struct dbox_index_append_context *ctx)
 	for (i = 0; i < count; i++) {
 		file = files[i];
 
-		if (file->file_id == 0) {
-			t_push();
+		if (file->file_id == 0) T_FRAME_BEGIN {
 			if (dbox_index_append_commit_new(ctx, file, str) < 0)
 				ret = -1;
-			t_pop();
-		}
+		} T_FRAME_END;
 	}
 
 	if (ret == 0 && str_len(str) > 0) {

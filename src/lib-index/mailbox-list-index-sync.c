@@ -235,7 +235,6 @@ mailbox_list_index_sync_int(struct mailbox_list_index_sync_ctx *ctx,
 	dir = ctx->sync_root;
 	rec_flags = MAILBOX_LIST_INDEX_FLAG_CHILDREN;
 
-	t_push();
 	for (;;) {
 		p = strchr(name, ctx->index->separator);
 		hier_name = p == NULL ? name : t_strdup_until(name, p);
@@ -321,7 +320,6 @@ mailbox_list_index_sync_int(struct mailbox_list_index_sync_ctx *ctx,
 		name = p + 1;
 		dir = rec->dir;
 	}
-	t_pop();
 
 	i_assert(dir != NULL);
 	*dir_r = dir;
@@ -331,6 +329,7 @@ mailbox_list_index_sync_int(struct mailbox_list_index_sync_ctx *ctx,
 static int mailbox_list_index_get_root(struct mailbox_list_index_sync_ctx *ctx)
 {
 	uint32_t seq;
+	int ret;
 
 	i_assert(ctx->index->mmap_size > 0);
 
@@ -352,8 +351,11 @@ static int mailbox_list_index_get_root(struct mailbox_list_index_sync_ctx *ctx)
 			return -1;
 	}
 
-	return mailbox_list_index_sync_int(ctx, ctx->sync_path,
-					   &ctx->sync_root, &seq);
+	T_FRAME(
+		ret = mailbox_list_index_sync_int(ctx, ctx->sync_path,
+						  &ctx->sync_root, &seq);
+	);
+	return ret;
 }
 
 static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
@@ -461,8 +463,12 @@ int mailbox_list_index_sync_more(struct mailbox_list_index_sync_ctx *ctx,
 				 const char *name, uint32_t *seq_r)
 {
 	struct mailbox_list_sync_dir *dir;
+	int ret;
 
-	return mailbox_list_index_sync_int(ctx, name, &dir, seq_r);
+	T_FRAME(
+		ret = mailbox_list_index_sync_int(ctx, name, &dir, seq_r);
+	);
+	return ret;
 }
 
 static int
@@ -699,7 +705,6 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 	else {
 		/* @UNSAFE: copy the records into a temporary buffer that
 		   we modify and then write back to disk */
-		t_push();
 		recs = t_new(struct mailbox_list_record, dir->count);
 		memcpy(recs, MAILBOX_LIST_RECORDS(dir),
 		       sizeof(struct mailbox_list_record) * dir->count);
@@ -741,7 +746,6 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 		o_stream_seek(ctx->output, offset);
 		o_stream_send(ctx->output, recs, size);
 		o_stream_seek(ctx->output, old_offset);
-		t_pop();
 	}
 	ctx->changed = TRUE;
 	return 0;
@@ -757,6 +761,7 @@ mailbox_list_index_sync_write_dir(struct mailbox_list_index_sync_ctx *ctx,
 	const struct mailbox_list_sync_record *sync_recs;
 	uint32_t child_offset_pos;
 	unsigned int i, j, count;
+	int ret;
 
 	if (!ctx->seen_sync_root && ctx->sync_root == sync_dir) {
 		i_assert(partial);
@@ -780,7 +785,10 @@ mailbox_list_index_sync_write_dir(struct mailbox_list_index_sync_ctx *ctx,
 	} else if (sync_dir->seen_records_count !=
 		   array_count(&sync_dir->records) && !partial) {
 		/* just mark the records deleted */
-		if (mailbox_list_index_sync_update_dir(ctx, sync_dir) < 0)
+		T_FRAME(
+			ret = mailbox_list_index_sync_update_dir(ctx, sync_dir);
+		);
+		if (ret < 0)
 			return -1;
 	}
 

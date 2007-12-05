@@ -280,7 +280,6 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 	module->module.default_pass_scheme = "PLAIN";
 	module->module.blocking = TRUE;
 
-	t_push();
 	t_args = t_strsplit_spaces(args, " ");
 	for(i = 0; t_args[i] != NULL; i++) {
 		/* -session for backwards compatibility */
@@ -307,8 +306,6 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 			i_fatal("Unexpected PAM parameter: %s", t_args[i]);
 		}
 	}
-	t_pop();
-
 	return &module->module;
 }
 

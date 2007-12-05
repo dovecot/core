@@ -322,12 +322,10 @@ static void mbox_sync_update_xkeywords(struct mbox_sync_mail_context *ctx)
 	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1)
 		return;
 
-	t_push();
 	str = t_str_new(256);
 	keywords_append(ctx->sync_ctx, str, &ctx->mail.keywords);
 	str_append_c(str, '\n');
 	mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_KEYWORDS], str);
-	t_pop();
 }
 
 static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
@@ -348,8 +346,6 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	}
 
 	/* a) keyword list changed, b) uid-last didn't use 10 digits */
-	t_push();
-
 	str = t_str_new(200);
 	str_printfa(str, "%u ", sync_ctx->base_uid_validity);
 
@@ -362,7 +358,6 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	str_append_c(str, '\n');
 
         mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_IMAPBASE], str);
-	t_pop();
 }
 
 static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
@@ -373,14 +368,12 @@ static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
 	    ctx->mail.uid == ctx->parsed_uid)
 		return;
 
-	t_push();
 	str = t_str_new(64);
 	str_printfa(str, "%u\n", ctx->mail.uid);
 	mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_UID], str);
-	t_pop();
 }
 
-void mbox_sync_update_header(struct mbox_sync_mail_context *ctx)
+static void mbox_sync_update_header_real(struct mbox_sync_mail_context *ctx)
 {
 	uint8_t old_flags;
 	enum mailbox_sync_type sync_type;
@@ -413,7 +406,15 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx)
 	ctx->updated = TRUE;
 }
 
-void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
+void mbox_sync_update_header(struct mbox_sync_mail_context *ctx)
+{
+	T_FRAME(
+		mbox_sync_update_header_real(ctx);
+	);
+}
+
+static void
+mbox_sync_update_header_from_real(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail)
 {
 	if ((ctx->mail.flags & STATUS_FLAGS_MASK) !=
@@ -460,4 +461,12 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 	mbox_sync_update_x_imap_base(ctx);
 	mbox_sync_update_x_uid(ctx);
 	mbox_sync_add_missing_headers(ctx);
+}
+
+void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
+				  const struct mbox_sync_mail *mail)
+{
+	T_FRAME(
+		mbox_sync_update_header_from_real(ctx, mail);
+	);
 }

@@ -156,6 +156,28 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 	return TRUE;
 }
 
+static bool
+auth_master_input_line(struct auth_master_connection *conn, const char *line)
+{
+	if (conn->listener->auth->verbose_debug)
+		i_info("master in: %s", line);
+
+	if (strncmp(line, "REQUEST\t", 8) == 0)
+		return master_input_request(conn, line + 8);
+	else if (strncmp(line, "USER\t", 5) == 0)
+		return master_input_user(conn, line + 5);
+	else if (strncmp(line, "CPID\t", 5) == 0) {
+		i_error("Authentication client trying to connect to "
+			"master socket");
+		return FALSE;
+	} else {
+		/* ignore unknown command */
+		i_error("BUG: Unknown command in master socket: %s",
+			str_sanitize(line, 80));
+		return FALSE;
+	}
+}
+
 static void master_input(struct auth_master_connection *conn)
 {
  	char *line;
@@ -194,26 +216,9 @@ static void master_input(struct auth_master_connection *conn)
 	}
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		if (conn->listener->auth->verbose_debug)
-			i_info("master in: %s", line);
-
-		t_push();
-		if (strncmp(line, "REQUEST\t", 8) == 0)
-			ret = master_input_request(conn, line + 8);
-		else if (strncmp(line, "USER\t", 5) == 0)
-			ret = master_input_user(conn, line + 5);
-		else if (strncmp(line, "CPID\t", 5) == 0) {
-			i_error("Authentication client trying to connect to "
-				"master socket");
-			ret = FALSE;
-		} else {
-			/* ignore unknown command */
-			i_error("BUG: Unknown command in master socket: %s",
-				str_sanitize(line, 80));
-			ret = FALSE;
-		}
-		t_pop();
-
+		T_FRAME(
+			ret = auth_master_input_line(conn, line);
+		);
 		if (!ret) {
 			auth_master_connection_destroy(&conn);
 			return;

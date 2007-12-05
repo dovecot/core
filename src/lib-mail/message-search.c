@@ -26,16 +26,16 @@ struct message_search_context {
 	unsigned int content_type_text:1; /* text/any or message/any */
 };
 
-int message_search_init(pool_t pool, const char *key, const char *charset,
-			enum message_search_flags flags,
-			struct message_search_context **ctx_r)
+static int
+message_search_init_real(pool_t pool, const char *key, const char *charset,
+			 enum message_search_flags flags,
+			 struct message_search_context **ctx_r)
 {
 	struct message_search_context *ctx;
 	string_t *key_utf8;
 	enum charset_result result;
 	int ret;
 
-	t_push();
 	key_utf8 = t_str_new(128);
 	if (charset_to_utf8_str(charset, CHARSET_FLAG_DECOMP_TITLECASE,
 				key, key_utf8, &result) < 0)
@@ -53,7 +53,19 @@ int message_search_init(pool_t pool, const char *key, const char *charset,
 		ctx->str_find_ctx = str_find_init(pool, ctx->key);
 		ret = 1;
 	}
-	t_pop();
+	return ret;
+}
+
+int message_search_init(pool_t pool, const char *key, const char *charset,
+			enum message_search_flags flags,
+			struct message_search_context **ctx_r)
+{
+	int ret;
+
+	T_FRAME(
+		ret = message_search_init_real(pool, key, charset, flags,
+					       ctx_r);
+	);
 	return ret;
 }
 
@@ -75,7 +87,6 @@ static void parse_content_type(struct message_search_context *ctx,
 	struct rfc822_parser_context parser;
 	string_t *content_type;
 
-	t_push();
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
 	(void)rfc822_skip_lwsp(&parser);
 
@@ -85,7 +96,6 @@ static void parse_content_type(struct message_search_context *ctx,
 			strncasecmp(str_c(content_type), "text/", 5) == 0 ||
 			strncasecmp(str_c(content_type), "message/", 8) == 0;
 	}
-	t_pop();
 }
 
 static void handle_header(struct message_search_context *ctx,
@@ -97,7 +107,9 @@ static void handle_header(struct message_search_context *ctx,
 			hdr->use_full_value = TRUE;
 			return;
 		}
-		parse_content_type(ctx, hdr);
+		T_FRAME(
+			parse_content_type(ctx, hdr);
+		);
 	}
 }
 
@@ -194,8 +206,9 @@ void message_search_reset(struct message_search_context *ctx)
 	message_decoder_decode_reset(ctx->decoder);
 }
 
-int message_search_msg(struct message_search_context *ctx,
-		       struct istream *input, const struct message_part *parts)
+static int
+message_search_msg_real(struct message_search_context *ctx,
+			struct istream *input, const struct message_part *parts)
 {
 	const enum message_header_parser_flags hdr_parser_flags =
 		MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
@@ -203,7 +216,6 @@ int message_search_msg(struct message_search_context *ctx,
 	struct message_block raw_block;
 	int ret = 0;
 
-	t_push();
 	message_search_reset(ctx);
 
 	if (parts != NULL) {
@@ -224,7 +236,16 @@ int message_search_msg(struct message_search_context *ctx,
 	if (ret < 0 && input->stream_errno == 0)
 		ret = 0;
 	(void)message_parser_deinit(&parser_ctx);
-	t_pop();
+	return ret;
+}
 
+int message_search_msg(struct message_search_context *ctx,
+		       struct istream *input, const struct message_part *parts)
+{
+	int ret;
+
+	T_FRAME(
+		ret = message_search_msg_real(ctx, input, parts);
+	);
 	return ret;
 }

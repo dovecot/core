@@ -372,22 +372,22 @@ static void search_header_arg(struct mail_search_arg *arg,
 		ret = 0;
 	else if (arg->type == SEARCH_HEADER_ADDRESS) {
 		/* we have to match against normalized address */
-		struct message_address *addr;
-		string_t *str;
+		T_FRAME(
+			struct message_address *addr;
+			string_t *str;
 
-		t_push();
-		addr = message_address_parse(pool_datastack_create(),
-					     ctx->hdr->full_value,
-					     ctx->hdr->full_value_len,
-					     (unsigned int)-1, TRUE);
-		str = t_str_new(ctx->hdr->value_len);
-		message_address_write(str, addr);
-		hdr = *ctx->hdr;
-		hdr.value = hdr.full_value = str_data(str);
-		hdr.value_len = hdr.full_value_len = str_len(str);
-		block.hdr = &hdr;
-		ret = message_search_more(msg_search_ctx, &block);
-		t_pop();
+			addr = message_address_parse(pool_datastack_create(),
+						     ctx->hdr->full_value,
+						     ctx->hdr->full_value_len,
+						     (unsigned int)-1, TRUE);
+			str = t_str_new(ctx->hdr->value_len);
+			message_address_write(str, addr);
+			hdr = *ctx->hdr;
+			hdr.value = hdr.full_value = str_data(str);
+			hdr.value_len = hdr.full_value_len = str_len(str);
+			block.hdr = &hdr;
+			ret = message_search_more(msg_search_ctx, &block);
+		);
 	} else {
 		block.hdr = ctx->hdr;
 		ret = message_search_more(msg_search_ctx, &block);
@@ -944,7 +944,6 @@ static void index_storage_search_notify(struct mailbox *box,
 					struct index_search_context *ctx)
 {
 	const struct mail_index_header *hdr;
-	const char *text;
 	float percentage;
 	unsigned int msecs, secs;
 
@@ -962,13 +961,16 @@ static void index_storage_search_notify(struct mailbox *box,
 			 ctx->search_start_time.tv_usec) / 1000;
 		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
 
-		t_push();
-		text = t_strdup_printf("Searched %d%% of the mailbox, "
-				       "ETA %d:%02d", (int)percentage,
-				       secs/60, secs%60);
-		box->storage->callbacks->
-			notify_ok(box, text, box->storage->callback_context);
-		t_pop();
+		T_FRAME(
+			const char *text;
+
+			text = t_strdup_printf("Searched %d%% of the mailbox, "
+					       "ETA %d:%02d", (int)percentage,
+					       secs/60, secs%60);
+			box->storage->callbacks->
+				notify_ok(box, text,
+					  box->storage->callback_context);
+		);
 	}
 	ctx->last_notify = ioloop_timeval;
 }
@@ -1001,9 +1003,9 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	while ((ret = box->v.search_next_update_seq(_ctx)) > 0) {
 		mail_set_seq(mail, _ctx->seq);
 
-		t_push();
-		ret = search_match_next(ctx) ? 1 : 0;
-		t_pop();
+		T_FRAME(
+			ret = search_match_next(ctx) ? 1 : 0;
+		);
 
 		mail_search_args_reset(ctx->mail_ctx.args, FALSE);
 

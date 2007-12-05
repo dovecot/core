@@ -134,11 +134,11 @@ static int acl_mailbox_create(struct mail_storage *storage, const char *name,
 	struct mailbox_list *list = mail_storage_get_list(storage);
 	int ret;
 
-	t_push();
-	ret = acl_storage_have_right(storage,
+	T_FRAME(
+		ret = acl_storage_have_right(storage,
 			acl_mailbox_list_get_parent_mailbox_name(list, name),
 			ACL_STORAGE_RIGHT_CREATE, NULL);
-	t_pop();
+	);
 
 	if (ret <= 0) {
 		if (ret == 0) {

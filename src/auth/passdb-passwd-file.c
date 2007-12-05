@@ -40,7 +40,6 @@ static void passwd_file_save_results(struct auth_request *request,
         }
 
 	if (pu->extra_fields != NULL) {
-		t_push();
 		str = t_str_new(512);
 		table = auth_request_get_var_expand_table(request, NULL);
 
@@ -57,7 +56,6 @@ static void passwd_file_save_results(struct auth_request *request,
 			}
 			auth_request_set_field(request, key, value, NULL);
 		}
-		t_pop();
 	}
 }
 
@@ -121,7 +119,6 @@ passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 		if (*args == '/')
 			break;
 
-		t_push();
 		key = args;
 		value = strchr(key, '=');
 		if (value == NULL) {
@@ -142,7 +139,6 @@ passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 			scheme = p_strdup(auth_passdb->auth->pool, value);
 		else if (strcmp(key, "username_format") == 0)
 			format = p_strdup(auth_passdb->auth->pool, value);
-		t_pop();
 	}
 
 	module = p_new(auth_passdb->auth->pool,

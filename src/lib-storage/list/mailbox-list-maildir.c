@@ -337,13 +337,10 @@ static int rename_children(struct mailbox_list *list,
 	}
 
 	for (i = 0; i < count; i++) {
-		t_push();
-
 		old_listname = t_strconcat(oldname, names[i], NULL);
 		if (strcmp(old_listname, newname) == 0) {
 			/* When doing RENAME "a" "a.b" we see "a.b" here.
 			   We don't want to rename it anymore to "a.b.b". */
-			t_pop();
 			continue;
 		}
 
@@ -367,7 +364,6 @@ static int rename_children(struct mailbox_list *list,
 			mailbox_list_set_critical(list,
 				"rename(%s, %s) failed: %m", oldpath, newpath);
 			ret = -1;
-			t_pop();
 			break;
 		}
 
@@ -375,7 +371,6 @@ static int rename_children(struct mailbox_list *list,
 				 old_listname, new_listname);
 		(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_INDEX,
 				 old_listname, new_listname);
-		t_pop();
 	}
 	array_free(&names_arr);
 	pool_unref(&pool);
@@ -412,7 +407,9 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 				 oldname, newname);
 
 		found = ret == 0;
-		ret = rename_children(list, oldname, newname);
+		T_FRAME(
+			ret = rename_children(list, oldname, newname);
+		);
 		if (ret < 0)
 			return -1;
 		if (!found && ret == 0) {

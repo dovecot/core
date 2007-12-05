@@ -76,7 +76,6 @@ void imap_status_send(struct client *client, const char *mailbox,
 {
 	string_t *str;
 
-	t_push();
 	str = t_str_new(128);
 	str_append(str, "* STATUS ");
         imap_quote_append_string(str, mailbox, FALSE);
@@ -98,5 +97,4 @@ void imap_status_send(struct client *client, const char *mailbox,
 	str_append_c(str, ')');
 
 	client_send_line(client, str_c(str));
-	t_pop();
 }

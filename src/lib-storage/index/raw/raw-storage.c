@@ -206,7 +206,6 @@ static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	struct mail_storage *storage = RAW_LIST_CONTEXT(ctx->list);
 	const char *path;
 	struct stat st;
-	int ret = 1;
 
 	/* try to avoid stat() with these checks */
 	if (type == MAILBOX_LIST_FILE_TYPE_DIR) {
@@ -221,25 +220,23 @@ static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	}
 
 	/* need to stat() then */
-	t_push();
 	path = t_strconcat(dir, "/", fname, NULL);
 	if (stat(path, &st) == 0) {
 		if (S_ISDIR(st.st_mode))
 			*flags_r = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
 		else
 			*flags_r = MAILBOX_NOINFERIORS;
-	} else if (errno == EACCES || errno == ELOOP)
+		return 1;
+	} else if (errno == EACCES || errno == ELOOP) {
 		*flags_r = MAILBOX_NOSELECT;
-	else if (ENOTFOUND(errno)) {
+		return 1;
+	} else if (ENOTFOUND(errno)) {
 		*flags_r = MAILBOX_NONEXISTENT;
-		ret = 0;
+		return 0;
 	} else {
 		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
-		ret = -1;
+		return -1;
 	}
-	t_pop();
-
-	return ret;
 }
 
 static void raw_class_init(void)

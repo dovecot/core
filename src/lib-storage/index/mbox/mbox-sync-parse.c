@@ -132,7 +132,6 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 		}
 
 		/* add it to index's keyword list if it's not there already */
-		t_push();
 		keyword = t_strndup(hdr->full_value + keyword_start,
 				    pos - keyword_start);
 		if (index_mailbox_keyword_is_valid(&ctx->sync_ctx->mbox->ibox,
@@ -140,8 +139,6 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 			mail_index_keyword_lookup_or_create(
 				ctx->sync_ctx->mbox->ibox.index, keyword, &idx);
 		}
-		t_pop();
-
 		count++;
 	}
 
@@ -227,7 +224,9 @@ static bool parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 	ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
 	ctx->seen_imapbase = TRUE;
 
-	parse_imap_keywords_list(ctx, hdr, i);
+	T_FRAME(
+		parse_imap_keywords_list(ctx, hdr, i);
+	);
 	parse_trailing_whitespace(ctx, hdr);
 	return TRUE;
 }
@@ -244,8 +243,8 @@ static bool parse_x_imap(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
-			     struct message_header_line *hdr)
+static bool parse_x_keywords_real(struct mbox_sync_mail_context *ctx,
+				  struct message_header_line *hdr)
 {
 	ARRAY_TYPE(keyword_indexes) keyword_list;
 	const unsigned int *list;
@@ -258,7 +257,6 @@ static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
 		return FALSE; /* duplicate header, delete */
 
 	/* read keyword indexes to temporary array first */
-	t_push();
 	keyword = t_str_new(128);
 	t_array_init(&keyword_list, 16);
 
@@ -282,7 +280,6 @@ static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
 					       str_c(keyword), &idx)) {
 			/* keyword wasn't found. that means the sent mail
 			   originally contained X-Keywords header. Delete it. */
-			t_pop();
 			return FALSE;
 		}
 
@@ -309,9 +306,18 @@ static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
 
 	ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] = str_len(ctx->header);
 	parse_trailing_whitespace(ctx, hdr);
-
-	t_pop();
 	return TRUE;
+}
+
+static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
+			     struct message_header_line *hdr)
+{
+	bool ret;
+
+	T_FRAME(
+		ret = parse_x_keywords_real(ctx, hdr);
+	);
+	return ret;
 }
 
 static bool parse_x_uid(struct mbox_sync_mail_context *ctx,

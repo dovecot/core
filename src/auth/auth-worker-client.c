@@ -56,7 +56,6 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 	auth_request->id = id;
 
 	if (args != NULL) {
-		t_push();
 		for (tmp = t_strsplit(args, "\t"); *tmp != NULL; tmp++) {
 			value = strchr(*tmp, '=');
 			if (value == NULL)
@@ -67,7 +66,6 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 
 			(void)auth_request_import(auth_request, key, value);
 		}
-		t_pop();
 	}
 
 	return auth_request;
@@ -443,9 +441,9 @@ static void auth_worker_input(struct auth_worker_client *client)
 
         client->refcount++;
 	while ((line = i_stream_next_line(client->input)) != NULL) {
-		t_push();
-		ret = auth_worker_handle_line(client, line);
-		t_pop();
+		T_FRAME(
+			ret = auth_worker_handle_line(client, line);
+		);
 
 		if (!ret) {
 			auth_worker_client_destroy(&client);

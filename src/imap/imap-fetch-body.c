@@ -623,17 +623,14 @@ static bool fetch_body_header_fields_init(struct imap_fetch_context *ctx,
 		return TRUE;
 	}
 
-	t_push();
-
 	for (arr = body->fields; *arr != NULL; arr++) {
 		char *hdr = p_strdup(ctx->cmd->pool, *arr);
 		buffer_append(ctx->all_headers_buf, &hdr, sizeof(hdr));
 	}
 
 	body->header_ctx = mailbox_header_lookup_init(ctx->box, body->fields);
-	imap_fetch_add_handler(ctx, FALSE, TRUE, name, "NIL",
+	imap_fetch_add_handler(ctx, FALSE, TRUE, name, "NIL",
 			       fetch_body_header_fields, body);
-	t_pop();
 	return TRUE;
 }
 

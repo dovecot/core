@@ -134,13 +134,14 @@ static int list_opendir(struct fs_list_iterate_context *ctx,
 	/* if no patterns have wildcards at this point of the path, we don't
 	   have to readdir() the files. instead we can just go through the
 	   mailboxes listed in patterns. */
-	t_push();
-	patterns = array_idx(&ctx->valid_patterns, 0);
-	for (i = 0; patterns[i] != NULL; i++) {
-		if (pattern_has_wildcard_at(ctx, patterns[i], list_path))
-			break;
-	}
-	t_pop();
+	T_FRAME(
+		patterns = array_idx(&ctx->valid_patterns, 0);
+		for (i = 0; patterns[i] != NULL; i++) {
+			if (pattern_has_wildcard_at(ctx, patterns[i],
+						    list_path))
+				break;
+		}
+	);
 	if (patterns[i] == NULL) {
 		*dirp = NULL;
 		return 1;
@@ -288,11 +289,15 @@ fs_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
 	struct fs_list_iterate_context *ctx =
 		(struct fs_list_iterate_context *)_ctx;
+	const struct mailbox_info *info;
 
 	if (ctx->ctx.failed)
 		return NULL;
 
-	return ctx->next(ctx);
+	T_FRAME(
+		info = ctx->next(ctx);
+	);
+	return info;
 }
 
 static void
@@ -333,7 +338,6 @@ static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 	ctx->info.flags = 0;
 	ctx->info.name = "INBOX";
 
-	t_push();
 	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
 					   MAILBOX_LIST_PATH_TYPE_DIR);
 	path_split(inbox_path, &dir, &fname);
@@ -341,7 +345,6 @@ static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 					     MAILBOX_LIST_FILE_TYPE_UNKNOWN,
 					     &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
-	t_pop();
 
 	ctx->info.flags |= fs_list_get_subscription_flags(ctx, "INBOX");
 	return &ctx->info;
@@ -535,7 +538,6 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 		return &ctx->info;
 	}
 
-	t_push();
 	path = mailbox_list_get_path(ctx->ctx.list, ctx->info.name,
 				     MAILBOX_LIST_PATH_TYPE_DIR);
 	path_split(path, &dir, &fname);
@@ -543,7 +545,6 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 					     MAILBOX_LIST_FILE_TYPE_UNKNOWN,
 					     &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
-	t_pop();
 
 	ctx->info.flags |= flags;
 	return &ctx->info;
@@ -568,13 +569,10 @@ fs_list_dir_next(struct fs_list_iterate_context *ctx)
 		return readdir(dir->dirp);
 	}
 
-	t_push();
 	for (;;) {
 		patterns = array_idx(&ctx->valid_patterns, 0);
-		if (patterns[dir->pattern_pos] == NULL) {
-			t_pop();
+		if (patterns[dir->pattern_pos] == NULL)
 			return NULL;
-		}
 
 		patterns += dir->pattern_pos;
 		dir->pattern_pos++;
@@ -616,8 +614,6 @@ fs_list_dir_next(struct fs_list_iterate_context *ctx)
 		break;
 	}
 
-	t_pop();
-
 	return &dir->dirent;
 }
 
@@ -634,9 +630,9 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 	while (ctx->dir != NULL) {
 		/* NOTE: list_file() may change ctx->dir */
 		while ((d = fs_list_dir_next(ctx)) != NULL) {
-			t_push();
-			ret = list_file(ctx, d);
-			t_pop();
+			T_FRAME(
+				ret = list_file(ctx, d);
+			);
 
 			if (ret > 0)
 				return &ctx->info;

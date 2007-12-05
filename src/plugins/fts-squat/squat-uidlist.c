@@ -116,7 +116,6 @@ uidlist_write_array(struct ostream *output, const uint32_t *uid_list,
 		squat_pack_num(&listbufp, offset);
 
 	/* @UNSAFE */
-	t_push();
 	base_uid = uid_list[0] & ~UID_LIST_MASK_RANGE;
 	datastack = uid_count < 1024*8/SQUAT_PACK_MAX_SIZE;
 	if (datastack)
@@ -219,7 +218,6 @@ uidlist_write_array(struct ostream *output, const uint32_t *uid_list,
 	o_stream_send(output, uidbuf, uid_list_len);
 	if (!datastack)
 		i_free(uidbuf);
-	t_pop();
 
 	*size_r = size_value;
 	return 0;
@@ -234,6 +232,7 @@ uidlist_write(struct ostream *output, const struct uidlist_list *list,
 	uint32_t uid_count = list->uid_count;
 	uint32_t packed_flags = 0;
 	uint32_t offset = 0;
+	int ret;
 
 	if (list->uid_begins_with_pointer) {
 		/* continued UID list */
@@ -256,8 +255,12 @@ uidlist_write(struct ostream *output, const struct uidlist_list *list,
 		uid_count--;
 	}
 
-	return uidlist_write_array(output, uid_list, uid_count,
-				   packed_flags, offset, write_size, size_r);
+	T_FRAME(
+		ret = uidlist_write_array(output, uid_list, uid_count,
+					  packed_flags, offset,
+					  write_size, size_r);
+	);
+	return ret;
 }
 
 static int node_uidlist_map_blocks(struct squat_uidlist *uidlist)
@@ -812,9 +815,14 @@ uidlist_rebuild_flush_block(struct squat_uidlist_rebuild_context *ctx)
 void squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
 				const ARRAY_TYPE(uint32_t) *uids)
 {
-	if (uidlist_write_array(ctx->output, array_idx(uids, 0),
-				array_count(uids), 0, 0, FALSE,
-				&ctx->list_sizes[ctx->list_idx]) < 0)
+	int ret;
+
+	T_FRAME(
+		ret = uidlist_write_array(ctx->output, array_idx(uids, 0),
+					  array_count(uids), 0, 0, FALSE,
+					  &ctx->list_sizes[ctx->list_idx]);
+	);
+	if (ret < 0)
 		squat_uidlist_set_corrupted(ctx->uidlist, "Broken uidlists");
 
 	if (++ctx->list_idx == UIDLIST_BLOCK_LIST_COUNT) {

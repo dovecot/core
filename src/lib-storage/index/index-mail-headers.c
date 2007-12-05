@@ -52,8 +52,6 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	unsigned int i, j, count, match_idx, match_count;
 	bool noncontiguous;
 
-	t_push();
-
 	lines = array_get_modifiable(&mail->header_lines, &count);
 
 	/* sort it first so fields are grouped together and ordered by
@@ -144,7 +142,6 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 			index_mail_cache_add_idx(mail, match_idx, NULL, 0);
 		}
 	}
-	t_pop();
 }
 
 static unsigned int
@@ -155,10 +152,10 @@ get_header_field_idx(struct index_mailbox *ibox, const char *field)
 		MAIL_CACHE_DECISION_TEMP
 	};
 
-	t_push();
-	header_field.name = t_strconcat("hdr.", field, NULL);
-	mail_cache_register_fields(ibox->cache, &header_field, 1);
-	t_pop();
+	T_FRAME(
+		header_field.name = t_strconcat("hdr.", field, NULL);
+		mail_cache_register_fields(ibox->cache, &header_field, 1);
+	);
 	return header_field.idx;
 }
 
@@ -174,13 +171,32 @@ bool index_mail_want_parse_headers(struct index_mail *mail)
 	return FALSE;
 }
 
+static void index_mail_parse_header_register_all_wanted(struct index_mail *mail)
+{
+	const struct mail_cache_field *all_cache_fields;
+	unsigned int i, count;
+
+	all_cache_fields =
+		mail_cache_register_get_list(mail->ibox->cache,
+					     pool_datastack_create(), &count);
+	for (i = 0; i < count; i++) {
+		if (strncasecmp(all_cache_fields[i].name, "hdr.", 4) != 0)
+			continue;
+		if (!mail_cache_field_want_add(mail->trans->cache_trans,
+					       mail->data.seq, i))
+			continue;
+
+		array_idx_set(&mail->header_match, all_cache_fields[i].idx,
+			      &mail->header_match_value);
+	}
+}
+
 void index_mail_parse_header_init(struct index_mail *mail,
 				  struct mailbox_header_lookup_ctx *_headers)
 {
 	struct index_header_lookup_ctx *headers =
 		(struct index_header_lookup_ctx *)_headers;
-	const struct mail_cache_field *all_cache_fields;
-	unsigned int i, count;
+	unsigned int i;
 
 	mail->header_seq = mail->data.seq;
 	if (mail->header_data == NULL) {
@@ -226,21 +242,9 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	}
 
 	/* register also all the other headers that exist in cache file */
-	t_push();
-	all_cache_fields =
-		mail_cache_register_get_list(mail->ibox->cache,
-					     pool_datastack_create(), &count);
-	for (i = 0; i < count; i++) {
-		if (strncasecmp(all_cache_fields[i].name, "hdr.", 4) != 0)
-			continue;
-		if (!mail_cache_field_want_add(mail->trans->cache_trans,
-					       mail->data.seq, i))
-			continue;
-
-		array_idx_set(&mail->header_match, all_cache_fields[i].idx,
-			      &mail->header_match_value);
-	}
-	t_pop();
+	T_FRAME(
+		index_mail_parse_header_register_all_wanted(mail);
+	);
 }
 
 static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
@@ -265,7 +269,6 @@ void index_mail_parse_header(struct message_part *part,
 			     struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
-	const char *cache_field_name;
 	unsigned int field_idx, count;
 	uint8_t *match;
 
@@ -288,18 +291,21 @@ void index_mail_parse_header(struct message_part *part,
 		/* end of headers */
 		if (mail->data.save_sent_date)
 			mail->data.sent_date_parsed = TRUE;
-		index_mail_parse_header_finish(mail);
+		T_FRAME(
+			index_mail_parse_header_finish(mail);
+		);
                 data->save_bodystructure_header = FALSE;
 		return;
 	}
 
 	if (!hdr->continued) {
-		t_push();
-		cache_field_name = t_strconcat("hdr.", hdr->name, NULL);
-		data->parse_line.field_idx =
-			mail_cache_register_lookup(mail->ibox->cache,
-						   cache_field_name);
-		t_pop();
+		T_FRAME(
+			const char *cache_field_name =
+				t_strconcat("hdr.", hdr->name, NULL);
+			data->parse_line.field_idx =
+				mail_cache_register_lookup(mail->ibox->cache,
+							   cache_field_name);
+		);
 	}
 	field_idx = data->parse_line.field_idx;
 	match = array_get_modifiable(&mail->header_match, &count);
@@ -642,7 +648,6 @@ index_mail_headers_decode(struct index_mail *mail, const char *const *list,
 		count = max_count;
 	decoded_list = p_new(mail->data_pool, const char *, count + 1);
 
-	t_push();
 	buf = buffer_create_dynamic(pool_datastack_create(), 512);
 
 	for (i = 0; i < count; i++) {
@@ -655,7 +660,6 @@ index_mail_headers_decode(struct index_mail *mail, const char *const *list,
 						    buf->data, buf->used);
 		}
 	}
-	t_pop();
 	return decoded_list;
 }
 
@@ -669,7 +673,9 @@ int index_mail_get_headers(struct mail *_mail, const char *field,
 	if (!decode_to_utf8 || **value_r == NULL)
 		return 0;
 
-	*value_r = index_mail_headers_decode(mail, *value_r, (unsigned int)-1);
+	T_FRAME(
+		*value_r = index_mail_headers_decode(mail, *value_r, -1U);
+	);
 	return 0;
 }
 
@@ -681,8 +687,11 @@ int index_mail_get_first_header(struct mail *_mail, const char *field,
 
 	if (index_mail_get_raw_headers(mail, field, &list) < 0)
 		return -1;
-	if (decode_to_utf8 && list[0] != NULL)
-		list = index_mail_headers_decode(mail, list, 1);
+	if (decode_to_utf8 && list[0] != NULL) {
+		T_FRAME(
+			list = index_mail_headers_decode(mail, list, 1);
+		);
+	}
 	*value_r = list[0];
 	return list[0] != NULL ? 1 : 0;
 }
@@ -744,8 +753,8 @@ int index_mail_get_header_stream(struct mail *_mail,
 	return 0;
 }
 
-struct mailbox_header_lookup_ctx *
-index_header_lookup_init(struct mailbox *box, const char *const headers[])
+static struct mailbox_header_lookup_ctx *
+index_header_lookup_init_real(struct mailbox *box, const char *const headers[])
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct mail_cache_field *fields, header_field = {
@@ -762,8 +771,6 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 
 	for (count = 0, name = headers; *name != NULL; name++)
 		count++;
-
-	t_push();
 
 	/* @UNSAFE: headers need to be sorted for filter stream. */
 	sorted_headers = t_new(const char *, count);
@@ -793,9 +800,18 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 		ctx->idx[i] = fields[i].idx;
 		ctx->name[i] = p_strdup(pool, headers[i]);
 	}
-
-	t_pop();
 	return &ctx->ctx;
+}
+
+struct mailbox_header_lookup_ctx *
+index_header_lookup_init(struct mailbox *box, const char *const headers[])
+{
+	struct mailbox_header_lookup_ctx *ctx;
+
+	T_FRAME(
+		ctx = index_header_lookup_init_real(box, headers);
+	);
+	return ctx;
 }
 
 void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *_ctx)

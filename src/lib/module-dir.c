@@ -172,7 +172,6 @@ static void check_duplicates(ARRAY_TYPE(const_string) *names,
 	const char *const *names_p, *base_name, *tmp;
 	unsigned int i, count;
 
-	t_push();
 	base_name = module_file_get_name(name);
 	names_p = array_get(names, &count);
 	for (i = 0; i < count; i++) {
@@ -182,15 +181,15 @@ static void check_duplicates(ARRAY_TYPE(const_string) *names,
 			i_fatal("Multiple files for module %s: %s/%s, %s/%s",
 				base_name, dir, name, dir, names_p[i]);
 	}
-	t_pop();
 }
 
-struct module *module_dir_load(const char *dir, const char *module_names,
-			       bool require_init_funcs, const char *version)
+static struct module *
+module_dir_load_real(const char *dir, const char *module_names,
+		     bool require_init_funcs, const char *version)
 {
 	DIR *dirp;
 	struct dirent *d;
-	const char *name, *path, *p, *stripped_name, **names_p;
+	const char *name, *p, **names_p;
 	const char **module_names_arr;
 	struct module *modules, *module, **module_pos;
 	unsigned int i, count;
@@ -226,7 +225,9 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 		if (p == NULL || strlen(p) != 3)
 			continue;
 
-		check_duplicates(&names, name, dir);
+		T_FRAME(
+			check_duplicates(&names, name, dir);
+		);
 
 		name = p_strdup(pool, d->d_name);
 		array_append(&names, &name, 1);
@@ -235,7 +236,6 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 	names_p = array_get_modifiable(&names, &count);
 	qsort(names_p, count, sizeof(const char *), module_name_cmp);
 
-	t_push();
 	if (module_names == NULL)
 		module_names_arr = NULL;
 	else {
@@ -249,10 +249,10 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 	}
 
 	module_pos = &modules;
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count; i++) T_FRAME_BEGIN {
 		const char *name = names_p[i];
+		const char *path, *stripped_name;
 
-		t_push();
 		stripped_name = module_file_get_name(name);
 		if (!module_want_load(module_names_arr, stripped_name))
 			module = NULL;
@@ -263,13 +263,13 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 			if (module == NULL && module_names_arr != NULL)
 				i_fatal("Couldn't load required plugins");
 		}
-		t_pop();
 
 		if (module != NULL) {
 			*module_pos = module;
 			module_pos = &module->next;
 		}
-	}
+	} T_FRAME_END;
+
 	if (module_names_arr != NULL) {
 		/* make sure all modules were found */
 		for (; *module_names_arr != NULL; module_names_arr++) {
@@ -279,7 +279,6 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 			}
 		}
 	}
-	t_pop();
 	pool_unref(&pool);
 
 	if (closedir(dirp) < 0)
@@ -288,13 +287,28 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 	return modules;
 }
 
+struct module *module_dir_load(const char *dir, const char *module_names,
+			       bool require_init_funcs, const char *version)
+{
+	struct module *modules;
+
+	T_FRAME(
+		modules = module_dir_load_real(dir, module_names,
+					       require_init_funcs, version);
+	);
+	return modules;
+}
+
 void module_dir_init(struct module *modules)
 {
 	struct module *module;
 
 	for (module = modules; module != NULL; module = module->next) {
-		if (module->init != NULL)
-			module->init();
+		if (module->init != NULL) {
+			T_FRAME(
+				module->init();
+			);
+		}
 	}
 }
 
@@ -310,20 +324,22 @@ void module_dir_deinit(struct module *modules)
 		return;
 
 	/* @UNSAFE: deinitialize in reverse order */
-	t_push();
-	rev = t_new(struct module *, count);
-	for (i = 0, module = modules; i < count; i++, module = module->next)
-		rev[count-i-1] = module;
-
-	for (i = 0; i < count; i++) {
-		module = rev[i];
-
-		if (module->deinit != NULL) {
-			module->deinit();
-			module->deinit = NULL;
+	T_FRAME(
+		rev = t_new(struct module *, count);
+		for (i = 0, module = modules; i < count; i++) {
+			rev[count-i-1] = module;
+			module = module->next;
 		}
-	}
-	t_pop();
+
+		for (i = 0; i < count; i++) {
+			module = rev[i];
+
+			if (module->deinit != NULL) {
+				module->deinit();
+				module->deinit = NULL;
+			}
+		}
+	);
 }
 
 void module_dir_unload(struct module **modules)

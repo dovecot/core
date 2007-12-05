@@ -21,8 +21,6 @@ quota_send(struct client_command_context *cmd, struct quota_root *root)
 	uint64_t value, limit;
 	int ret;
 
-	t_push();
-
 	str = t_str_new(128);
 	str_append(str, "* QUOTA ");
 	imap_quote_append_string(str, quota_root_get_name(root), FALSE);
@@ -45,8 +43,6 @@ quota_send(struct client_command_context *cmd, struct quota_root *root)
 	}
 	str_append_c(str, ')');
 	client_send_line(cmd->client, str_c(str));
-
-	t_pop();
 }
 
 static bool cmd_getquotaroot(struct client_command_context *cmd)

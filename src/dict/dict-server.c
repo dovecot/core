@@ -77,7 +77,7 @@ static int cmd_iterate(struct dict_client_connection *conn, const char *line)
 {
 	struct dict_iterate_context *ctx;
 	const char *const *args;
-	const char *reply, *key, *value;
+	const char *key, *value;
 	int ret;
 
 	args = t_strsplit(line, "\t");
@@ -92,10 +92,12 @@ static int cmd_iterate(struct dict_client_connection *conn, const char *line)
 	while ((ret = dict_iterate(ctx, &key, &value)) > 0) {
 		/* FIXME: we don't want to keep blocking here. set a flush
 		   function and send the replies there when buffer gets full */
-		t_push();
-		reply = t_strdup_printf("%s\t%s\n", key, value);
-		o_stream_send_str(conn->output, reply);
-		t_pop();
+		T_FRAME(
+			const char *reply;
+
+			reply = t_strdup_printf("%s\t%s\n", key, value);
+			o_stream_send_str(conn->output, reply);
+		);
 	}
 	dict_iterate_deinit(ctx);
 
@@ -397,9 +399,9 @@ static void dict_client_connection_input(struct dict_client_connection *conn)
 		ret = 0;
 		for (i = 0; cmds[i].cmd != '\0'; i++) {
 			if (cmds[i].cmd == *line) {
-				t_push();
-				ret = cmds[i].func(conn, line + 1);
-				t_pop();
+				T_FRAME(
+					ret = cmds[i].func(conn, line + 1);
+				);
 				break;
 			}
 		}

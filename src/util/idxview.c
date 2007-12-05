@@ -413,11 +413,11 @@ int main(int argc, const char *argv[])
 	}
 	for (seq = 1; seq <= index->map->hdr.messages_count; seq++) {
 		if (uid == 0 || mail_index_lookup(view, seq)->uid == uid) {
-			t_push();
-			dump_record(view, seq);
-			dump_cache(cache_view, seq);
-			printf("\n");
-			t_pop();
+			T_FRAME(
+				dump_record(view, seq);
+				dump_cache(cache_view, seq);
+				printf("\n");
+			);
 		}
 	}
 	mail_cache_view_close(cache_view);

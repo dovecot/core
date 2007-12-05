@@ -155,7 +155,6 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 	const char *path;
 	bool is_file;
 
-	t_push();
 	t_array_init(&paths, 8);
 	storages = array_get(&root->quota->storages, &count);
 	for (i = 0; i < count; i++) {
@@ -173,13 +172,9 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 	count_paths = array_get(&paths, &count);
 	for (i = 0; i < count; i++) {
 		if (get_usage(count_paths[i].path, count_paths[i].is_file,
-			      value_r) < 0) {
-			t_pop();
+			      value_r) < 0)
 			return -1;
-		}
 	}
-
-	t_pop();
 	return 0;
 }
 
@@ -187,13 +182,16 @@ static int
 dirsize_quota_get_resource(struct quota_root *_root, const char *name,
 			   uint64_t *value_r, uint64_t *limit ATTR_UNUSED)
 {
+	int ret;
+
 	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0)
 		return 0;
 
-	if (get_quota_root_usage(_root, value_r) < 0)
-		return -1;
+	T_FRAME(
+		ret = get_quota_root_usage(_root, value_r);
+	);
 
-	return 1;
+	return ret < 0 ? -1 : 1;
 }
 
 static int 

@@ -23,7 +23,6 @@ userdb_static_template_build(pool_t pool, const char *userdb_name,
 	uid_t uid;
 	gid_t gid;
 
-	t_push();
 	tmpl = p_new(pool, struct userdb_static_template, 1);
 
 	tmp = t_strsplit_spaces(args, " ");
@@ -62,7 +61,6 @@ userdb_static_template_build(pool_t pool, const char *userdb_name,
 		array_append(&tmpl->args, &key, 1);
 		array_append(&tmpl->args, &value, 1);
 	}
-	t_pop();
 	return tmpl;
 }
 
@@ -107,7 +105,6 @@ void userdb_static_template_export(struct userdb_static_template *tmpl,
 	const char *const *args, *value;
 	unsigned int i, count;
 
-	t_push();
 	str = t_str_new(256);
 	table = auth_request_get_var_expand_table(auth_request, NULL);
 
@@ -123,7 +120,6 @@ void userdb_static_template_export(struct userdb_static_template *tmpl,
 		}
 		auth_request_set_userdb_field(auth_request, args[i], value);
 	}
-	t_pop();
 }
 
 #ifdef USERDB_STATIC

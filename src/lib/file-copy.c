@@ -93,22 +93,23 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 
 int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
 {
-	const char *tmppath;
 	int ret;
 
-	t_push();
-	tmppath = t_strconcat(destpath, ".tmp", NULL);
+	T_FRAME(
+		const char *tmppath;
 
-	ret = file_copy_to_tmp(srcpath, tmppath, try_hardlink);
-	if (ret > 0) {
-		if (rename(tmppath, destpath) < 0) {
-			i_error("rename(%s, %s) failed: %m", tmppath, destpath);
-			ret = -1;
+		tmppath = t_strconcat(destpath, ".tmp", NULL);
+
+		ret = file_copy_to_tmp(srcpath, tmppath, try_hardlink);
+		if (ret > 0) {
+			if (rename(tmppath, destpath) < 0) {
+				i_error("rename(%s, %s) failed: %m",
+					tmppath, destpath);
+				ret = -1;
+			}
 		}
-	}
-	if (ret < 0)
-		(void)unlink(tmppath);
-
-	t_pop();
+		if (ret < 0)
+			(void)unlink(tmppath);
+	);
 	return ret;
 }

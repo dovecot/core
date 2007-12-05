@@ -372,10 +372,10 @@ mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 	view->broken = TRUE;
 
 	va_start(va, fmt);
-	t_push();
-	mail_transaction_log_file_set_corrupted(view->log->head, "%s",
-						t_strdup_vprintf(fmt, va));
-	t_pop();
+	T_FRAME(
+		mail_transaction_log_file_set_corrupted(view->log->head, "%s",
+			t_strdup_vprintf(fmt, va));
+	);
 	va_end(va);
 }
 
@@ -419,7 +419,6 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 	   checked here so that we don't have to implement the same validation
 	   multiple times. other records are checked internally by
 	   mail_index_sync_record(). */
-	t_push();
 	switch (rec_type) {
 	case MAIL_TRANSACTION_APPEND:
 		if ((rec_size % sizeof(struct mail_index_record)) != 0) {
@@ -505,7 +504,6 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 			}
 		}
 	}
-	t_pop();
 	return ret;
 }
 
@@ -520,6 +518,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	enum mail_transaction_type rec_type;
 	uint32_t full_size;
 	size_t file_size;
+	int ret;
 
 	if (view->cur == NULL)
 		return 0;
@@ -575,13 +574,15 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	if (!log_view_is_record_valid(file, hdr, data))
-		return -1;
-
-	*hdr_r = hdr;
-	*data_r = data;
-	view->cur_offset += full_size;
-	return 1;
+	T_FRAME(
+		ret = log_view_is_record_valid(file, hdr, data) ? 1 : -1;
+	);
+	if (ret > 0) {
+		*hdr_r = hdr;
+		*data_r = data;
+		view->cur_offset += full_size;
+	}
+	return ret;
 }
 
 int mail_transaction_log_view_next(struct mail_transaction_log_view *view,

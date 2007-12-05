@@ -69,7 +69,6 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 		(struct acl_backend_vfile *)_backend;
 	const char *const *tmp;
 
-	t_push();
 	tmp = t_strsplit(data, ":");
 	backend->global_dir = p_strdup_empty(_backend->pool, *tmp);
 	backend->cache_secs = ACL_VFILE_DEFAULT_CACHE_SECS;
@@ -81,7 +80,6 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 			backend->cache_secs = atoi(*tmp + 11);
 		else {
 			i_error("acl vfile: Unknown parameter: %s", *tmp);
-			t_pop();
 			return -1;
 		}
 	}
@@ -93,7 +91,6 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 	_backend->cache =
 		acl_cache_init(_backend,
 			       sizeof(struct acl_backend_vfile_validity));
-	t_pop();
 	return 0;
 }
 
@@ -206,7 +203,6 @@ acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, const char *path,
 		return 0;
 
 	/* <id> [<imap acls>] [:<named acls>] */
-	t_push();
 	p = strchr(line, ' ');
 	if (p == NULL)
 		p = "";
@@ -265,7 +261,6 @@ acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, const char *path,
 
 	if (error != NULL) {
 		i_error("ACL file %s line %u: %s", path, linenum, error);
-		t_pop();
 		return -1;
 	}
 
@@ -275,8 +270,6 @@ acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, const char *path,
 
 	acl_cache_update(aclobj->aclobj.backend->cache,
 			 aclobj->aclobj.name, &rights);
-
-	t_pop();
 	return 0;
 }
 
@@ -359,11 +352,12 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj, const char *path,
 
 	linenum = 1;
 	while ((line = i_stream_read_next_line(input)) != NULL) {
-		if (acl_object_vfile_parse_line(aclobj, path, line,
-						linenum++) < 0) {
-			ret = -1;
+		T_FRAME(
+			ret = acl_object_vfile_parse_line(aclobj, path, line,
+							  linenum++);
+		);
+		if (ret < 0)
 			break;
-		}
 	}
 
 	if (input->stream_errno != 0) {

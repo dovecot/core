@@ -63,17 +63,15 @@ struct dict *dict_init(const char *uri, enum dict_data_type value_type,
 		return NULL;
 	}
 
-	t_push();
-	name = t_strdup_until(uri, p);
-	dict = dict_driver_lookup(name);
-	if (dict == NULL) {
-		i_error("Unknown dict module: %s", name);
-		t_pop();
-		return NULL;
-	}
-	t_pop();
+	T_FRAME(
+		name = t_strdup_until(uri, p);
+		dict = dict_driver_lookup(name);
+		if (dict == NULL)
+			i_error("Unknown dict module: %s", name);
+	);
 
-	return dict->v.init(dict, p+1, value_type, username);
+	return dict == NULL ? NULL :
+		dict->v.init(dict, p+1, value_type, username);
 }
 
 void dict_deinit(struct dict **_dict)

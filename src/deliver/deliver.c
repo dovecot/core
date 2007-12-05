@@ -237,7 +237,6 @@ static void config_file_init(const char *path)
 	if (fd < 0)
 		i_fatal_status(EX_CONFIG, "open(%s) failed: %m", path);
 
-	t_push();
 	input = i_stream_create_fd(fd, 1024, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		/* @UNSAFE: line is modified */
@@ -373,7 +372,6 @@ static void config_file_init(const char *path)
 		}
 	}
 	i_stream_unref(&input);
-	t_pop();
 }
 
 static const struct var_expand_table *
@@ -756,7 +754,9 @@ int main(int argc, char *argv[])
 			"destination user parameter (-d user) not given");
 	}
 
-	config_file_init(config_path);
+	T_FRAME(
+		config_file_init(config_path);
+	);
 	open_logfile(user);
 
 	if (getenv("MAIL_DEBUG") != NULL)

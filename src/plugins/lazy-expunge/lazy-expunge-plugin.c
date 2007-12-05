@@ -392,7 +392,6 @@ mailbox_move(struct mailbox_list *src_list, const char *src_name,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	}
 
-	t_push();
 	src2dir = mailbox_list_get_path(src_list, src_name,
 					MAILBOX_LIST_PATH_TYPE_CONTROL);
 	if (strcmp(src2dir, srcdir) != 0) {
@@ -407,7 +406,6 @@ mailbox_move(struct mailbox_list *src_list, const char *src_name,
 						MAILBOX_LIST_PATH_TYPE_INDEX);
 		(void)dir_move_or_merge(src_list, src3dir, destdir);
 	}
-	t_pop();
 
 	*_dest_name = dest_name;
 	return 1;
@@ -491,7 +489,6 @@ static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
 
 	/* if this is one of our internal storages, mark it as such before
 	   quota plugin sees it */
-	t_push();
 	p = t_strsplit_spaces(getenv("LAZY_EXPUNGE"), " ");
 	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
 		if (strcmp(storage->ns->prefix, *p) == 0) {
@@ -499,7 +496,6 @@ static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
 			break;
 		}
 	}
-	t_pop();
 
 	llist->storage = storage;
 
@@ -534,7 +530,6 @@ lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 	if (lazy_expunge_next_hook_mail_namespaces_created != NULL)
 		lazy_expunge_next_hook_mail_namespaces_created(namespaces);
 
-	t_push();
 	p = t_strsplit_spaces(getenv("LAZY_EXPUNGE"), " ");
 	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
 		const char *name = *p;
@@ -556,7 +551,6 @@ lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 		lstorage = LAZY_EXPUNGE_CONTEXT(lazy_namespaces[i]->storage);
 		lstorage->internal_namespace = TRUE;
 	}
-	t_pop();
 }
 
 void lazy_expunge_plugin_init(void)

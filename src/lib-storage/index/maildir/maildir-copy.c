@@ -225,10 +225,10 @@ int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
 	if (mbox->storage->copy_with_hardlinks &&
 	    mail->box->storage == mbox->ibox.box.storage &&
 	    maildir_compatible_file_modes(&mbox->ibox.box, mail->box)) {
-		t_push();
-		ret = maildir_copy_hardlink(t, mail, flags,
-					    keywords, dest_mail);
-		t_pop();
+		T_FRAME(
+			ret = maildir_copy_hardlink(t, mail, flags,
+						    keywords, dest_mail);
+		);
 
 		if (ret > 0)
 			return 0;

@@ -387,7 +387,9 @@ static void ldap_input(struct ldap_connection *conn)
 				msgid);
 		} else {
 			hash_remove(conn->requests, POINTER_CAST(msgid));
-			request->callback(conn, request, res);
+			T_FRAME(
+				request->callback(conn, request, res);
+			);
 		}
 
 		ldap_msgfree(res);
@@ -678,7 +680,6 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 	if (*attrlist == '\0')
 		return;
 
-	t_push();
 	attr = t_strsplit(attrlist, ",");
 	static_data = t_str_new(128);
 
@@ -715,7 +716,6 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		hash_insert(attr_map, "",
 			    p_strdup(conn->pool, str_c(static_data)));
 	}
-	t_pop();
 }
 
 struct var_expand_table *

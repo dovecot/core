@@ -59,8 +59,6 @@ mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
 	if (path == NULL)
 		return tree->nodes;
 
-	t_push();
-
 	if (strncasecmp(path, "INBOX", 5) == 0 &&
 	    (path[5] == '\0' || path[5] == tree->separator))
 		path = t_strdup_printf("INBOX%s", path+5);
@@ -106,7 +104,6 @@ mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
 		parent = *node;
 		node = &(*node)->children;
 	}
-	t_pop();
 
 	return *node;
 }
@@ -115,13 +112,23 @@ struct mailbox_node *
 mailbox_tree_get(struct mailbox_tree_context *tree, const char *path,
 		 bool *created)
 {
-	return mailbox_tree_traverse(tree, path, TRUE, created);
+	struct mailbox_node *node;
+
+	T_FRAME(
+		node = mailbox_tree_traverse(tree, path, TRUE, created);
+	);
+	return node;
 }
 
 struct mailbox_node *
 mailbox_tree_lookup(struct mailbox_tree_context *tree, const char *path)
 {
-	return mailbox_tree_traverse(tree, path, FALSE, NULL);
+	struct mailbox_node *node;
+
+	T_FRAME(
+		node = mailbox_tree_traverse(tree, path, FALSE, NULL);
+	);
+	return node;
 }
 
 struct mailbox_tree_iterate_context *

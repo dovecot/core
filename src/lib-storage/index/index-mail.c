@@ -37,31 +37,39 @@ struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 static int index_mail_parse_body(struct index_mail *mail,
 				 enum index_cache_field field);
 
-static bool get_cached_parts(struct index_mail *mail)
+static struct message_part *get_unserialized_parts(struct index_mail *mail)
 {
-	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
-	struct message_part *part;
+	unsigned int field_idx =
+		mail->ibox->cache_fields[MAIL_CACHE_MESSAGE_PARTS].idx;
+	struct message_part *parts;
 	buffer_t *part_buf;
 	const char *error;
+	int ret;
 
-	t_push();
 	part_buf = buffer_create_dynamic(pool_datastack_create(), 128);
-	if (mail_cache_lookup_field(mail->trans->cache_view, part_buf,
-			mail->data.seq,
-			cache_fields[MAIL_CACHE_MESSAGE_PARTS].idx) <= 0) {
-		t_pop();
-		return FALSE;
-	}
+	ret = mail_cache_lookup_field(mail->trans->cache_view, part_buf,
+				      mail->data.seq, field_idx);
+	if (ret <= 0)
+		return NULL;
 
-	part = message_part_deserialize(mail->data_pool,
-					part_buf->data, part_buf->used, &error);
-	t_pop();
-
-	if (part == NULL) {
+	parts = message_part_deserialize(mail->data_pool, part_buf->data,
+					 part_buf->used, &error);
+	if (parts == NULL) {
 		mail_cache_set_corrupted(mail->ibox->cache,
 			"Corrupted cached message_part data (%s)", error);
-		return FALSE;
 	}
+	return parts;
+}
+
+static bool get_cached_parts(struct index_mail *mail)
+{
+	struct message_part *part;
+
+	T_FRAME(
+		part = get_unserialized_parts(mail);
+	);
+	if (part == NULL)
+		return FALSE;
 
 	/* we know the NULs now, update them */
 	if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
@@ -80,21 +88,23 @@ static bool index_mail_get_fixed_field(struct index_mail *mail,
 				       enum index_cache_field field,
 				       void *data, size_t data_size)
 {
-	buffer_t *buf;
+	unsigned int field_idx = mail->ibox->cache_fields[field].idx;
 	int ret;
 
-	t_push();
-	buf = buffer_create_data(pool_datastack_create(), data, data_size);
-	if (mail_cache_lookup_field(mail->trans->cache_view, buf,
-				    mail->data.seq,
-				    mail->ibox->cache_fields[field].idx) <= 0) {
-		ret = FALSE;
-	} else {
-		i_assert(buf->used == data_size);
-		ret = TRUE;
-	}
-	t_pop();
+	T_FRAME(
+		buffer_t *buf;
 
+		buf = buffer_create_data(pool_datastack_create(),
+					 data, data_size);
+
+		if (mail_cache_lookup_field(mail->trans->cache_view, buf,
+					    mail->data.seq, field_idx) <= 0)
+			ret = FALSE;
+		else {
+			i_assert(buf->used == data_size);
+			ret = TRUE;
+		}
+	);
 	return ret;
 }
 
@@ -117,10 +127,10 @@ enum mail_flags index_mail_get_flags(struct mail *_mail)
 	return data->flags;
 }
 
-const char *const *index_mail_get_keywords(struct mail *_mail)
+static const char *const *
+index_mail_get_keywords_real(struct index_mail *mail)
 {
 	static const char *const no_keywords[] = { NULL };
-	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	ARRAY_TYPE(keyword_indexes) keyword_indexes_arr;
 	const char *const *names;
@@ -130,16 +140,13 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 	if (array_is_created(&data->keywords))
 		return array_idx(&data->keywords, 0);
 
-	t_push();
 	t_array_init(&keyword_indexes_arr, 128);
 	mail_index_lookup_keywords(mail->ibox->view, mail->data.seq,
 				   &keyword_indexes_arr);
 
 	keyword_indexes = array_get(&keyword_indexes_arr, &count);
-	if (count == 0) {
-		t_pop();
+	if (count == 0)
 		return no_keywords;
-	}
 
 	names = array_get(mail->ibox->keyword_names, &names_count);
 	p_array_init(&data->keywords, mail->data_pool, count);
@@ -153,9 +160,18 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 
 	/* end with NULL */
 	(void)array_append_space(&data->keywords);
-
-	t_pop();
 	return array_idx(&data->keywords, 0);
+}
+
+const char *const *index_mail_get_keywords(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	const char *const *ret;
+
+	T_FRAME(
+		ret = index_mail_get_keywords_real(mail);
+	);
+	return ret;
 }
 
 int index_mail_get_parts(struct mail *_mail,
@@ -494,11 +510,12 @@ static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
 		return;
 	}
 
-	t_push();
-	buffer = buffer_create_dynamic(pool_datastack_create(), 1024);
-	message_part_serialize(mail->data.parts, buffer);
-	index_mail_cache_add_idx(mail, cache_field, buffer->data, buffer->used);
-	t_pop();
+	T_FRAME(
+		buffer = buffer_create_dynamic(pool_datastack_create(), 1024);
+		message_part_serialize(mail->data.parts, buffer);
+		index_mail_cache_add_idx(mail, cache_field,
+					 buffer->data, buffer->used);
+	);
 
 	data->messageparts_saved_to_cache = TRUE;
 }

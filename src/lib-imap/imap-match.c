@@ -107,16 +107,13 @@ static bool pattern_is_inboxcase(const char *pattern, char separator)
 	return TRUE;
 }
 
-struct imap_match_glob *
-imap_match_init_multiple(pool_t pool, const char *const *patterns,
-			 bool inboxcase, char separator)
+static struct imap_match_glob *
+imap_match_init_multiple_real(pool_t pool, const char *const *patterns,
+			      bool inboxcase, char separator)
 {
 	struct imap_match_glob *glob;
 	struct imap_match_pattern *match_patterns;
 	unsigned int i, len, pos, patterns_count, patterns_data_len = 0;
-
-	if (!pool->datastack_pool)
-		t_push();
 
 	patterns_count = str_array_length(patterns);
 	match_patterns = p_new(pool, struct imap_match_pattern,
@@ -151,10 +148,23 @@ imap_match_init_multiple(pool_t pool, const char *const *patterns,
 		pos += len;
 	}
 	glob->patterns = match_patterns;
+	return glob;
+}
 
-	if (!pool->datastack_pool)
-		t_pop();
+struct imap_match_glob *
+imap_match_init_multiple(pool_t pool, const char *const *patterns,
+			 bool inboxcase, char separator)
+{
+	struct imap_match_glob *glob;
 
+	if (pool->datastack_pool) {
+		return imap_match_init_multiple_real(pool, patterns,
+						     inboxcase, separator);
+	}
+	T_FRAME(
+		glob = imap_match_init_multiple_real(pool, patterns,
+						     inboxcase, separator);
+	);
 	return glob;
 }
 

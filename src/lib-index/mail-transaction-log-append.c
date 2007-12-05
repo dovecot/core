@@ -238,7 +238,6 @@ log_append_ext_hdr_update(struct log_append_context *ctx,
 	buffer_t *buf;
 	unsigned int hdr_size;
 
-	t_push();
 	hdr_size = sizeof(*trans_hdr) + hdr->size;
 	buf = buffer_create_static_hard(pool_datastack_create(), hdr_size);
 	trans_hdr = buffer_append_space_unsafe(buf, sizeof(*trans_hdr));
@@ -246,7 +245,6 @@ log_append_ext_hdr_update(struct log_append_context *ctx,
 	trans_hdr->size = hdr->size;
 	buffer_append(buf, hdr + 1, hdr->size);
 	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_EXT_HDR_UPDATE);
-	t_pop();
 }
 
 static void
@@ -331,8 +329,11 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 			log_append_buffer(ctx, buf, NULL,
 					  MAIL_TRANSACTION_EXT_RESET);
 		}
-		if (ext_id < hdrs_count && hdrs[ext_id] != NULL)
-			log_append_ext_hdr_update(ctx, hdrs[ext_id]);
+		if (ext_id < hdrs_count && hdrs[ext_id] != NULL) {
+			T_FRAME(
+				log_append_ext_hdr_update(ctx, hdrs[ext_id]);
+			);
+		}
 	}
 }
 

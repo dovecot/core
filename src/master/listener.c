@@ -148,7 +148,6 @@ listener_init(const char *set_name, const char *listen,
 	l.fd = -1;
 	l.wanted = TRUE;
 
-	t_push();
 	for (tmp = t_strsplit_spaces(listen, ", "); *tmp != NULL; tmp++) {
 		l.port = default_port;
 		resolve_ip(set_name, *tmp, &l.ip, &l.port);
@@ -181,7 +180,6 @@ listener_init(const char *set_name, const char *listen,
 			listens = array_get_modifiable(listens_arr, &count);
 		}
 	}
-	t_pop();
 }
 
 static void listener_close_fds(ARRAY_TYPE(listener) *listens_arr)

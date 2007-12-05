@@ -86,15 +86,15 @@ static void acl_cache_free_object_cache(struct acl_object_cache *obj_cache)
 	i_free(obj_cache);
 }
 
-struct acl_mask *acl_cache_mask_init(struct acl_cache *cache, pool_t pool,
-				     const char *const *rights)
+static struct acl_mask *
+acl_cache_mask_init_real(struct acl_cache *cache, pool_t pool,
+			 const char *const *rights)
 {
 	struct acl_mask *mask;
 	unsigned int rights_count, i, idx;
 	unsigned char *p;
 	buffer_t *bitmask;
 
-	t_push();
 	rights_count = str_array_length(rights);
 	bitmask = buffer_create_dynamic(pool_datastack_create(),
 					DEFAULT_ACL_RIGHTS_COUNT / CHAR_BIT);
@@ -109,7 +109,17 @@ struct acl_mask *acl_cache_mask_init(struct acl_cache *cache, pool_t pool,
 	memcpy(mask->mask, bitmask->data, bitmask->used);
 	mask->pool = pool;
 	mask->size = bitmask->used;
-	t_pop();
+	return mask;
+}
+
+struct acl_mask *acl_cache_mask_init(struct acl_cache *cache, pool_t pool,
+				     const char *const *rights)
+{
+	struct acl_mask *mask;
+
+	T_FRAME(
+		mask = acl_cache_mask_init_real(cache, pool, rights);
+	);
 	return mask;
 }
 
@@ -359,7 +369,6 @@ acl_cache_my_current_rights_recalculate(struct acl_object_cache *obj_cache)
 	unsigned char *p;
 	unsigned int i, j, right_size;
 
-	t_push();
 	bitmask = buffer_create_dynamic(pool_datastack_create(),
 					DEFAULT_ACL_RIGHTS_COUNT / CHAR_BIT);
 	for (i = 0; i < ACL_ID_TYPE_COUNT; i++) {
@@ -389,7 +398,6 @@ acl_cache_my_current_rights_recalculate(struct acl_object_cache *obj_cache)
 	memcpy(mask->mask, bitmask->data, bitmask->used);
 	mask->pool = default_pool;
 	mask->size = bitmask->used;
-	t_pop();
 }
 
 const struct acl_mask *
@@ -402,8 +410,11 @@ acl_cache_get_my_rights(struct acl_cache *cache, const char *objname)
 	    obj_cache->my_current_rights == &negative_cache_entry)
 		return NULL;
 
-	if (obj_cache->my_current_rights == NULL)
-		acl_cache_my_current_rights_recalculate(obj_cache);
+	if (obj_cache->my_current_rights == NULL) {
+		T_FRAME(
+			acl_cache_my_current_rights_recalculate(obj_cache);
+		);
+	}
 	return obj_cache->my_current_rights;
 }
 

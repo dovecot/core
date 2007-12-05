@@ -328,7 +328,6 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 	file->append_offset = 0;
 	file->msg_header_size = 0;
 
-	t_push();
 	for (tmp = t_strsplit(line, " "); *tmp != NULL; tmp++) {
 		key = **tmp;
 		value = *tmp + 1;
@@ -348,7 +347,6 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 		}
 		pos += strlen(value) + 2;
 	}
-	t_pop();
 
 	if (file->msg_header_size == 0) {
 		dbox_file_set_corrupted(file, "Missing message header size");
@@ -363,6 +361,7 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 static int dbox_file_read_header(struct dbox_file *file)
 {
 	const char *line;
+	int ret;
 
 	i_stream_seek(file->input, 0);
 	line = i_stream_read_next_line(file->input);
@@ -374,7 +373,10 @@ static int dbox_file_read_header(struct dbox_file *file)
 		return -1;
 	}
 	file->file_header_size = file->input->v_offset;
-	return dbox_file_parse_header(file, line) < 0 ? 0 : 1;
+	T_FRAME(
+		ret = dbox_file_parse_header(file, line) < 0 ? 0 : 1;
+	);
+	return ret;
 }
 
 static int dbox_file_open_fd(struct dbox_file *file)
@@ -989,7 +991,7 @@ static int dbox_file_grow_metadata(struct dbox_file *file, unsigned int len)
 	return ret;
 }
 
-int dbox_file_metadata_write(struct dbox_file *file)
+static int dbox_file_metadata_write_real(struct dbox_file *file)
 {
 	const char *const *metadata, *const *changes;
 	unsigned int i, j, count, changes_count, space_needed, skip_pos;
@@ -1022,7 +1024,6 @@ int dbox_file_metadata_write(struct dbox_file *file)
 		skip_pos += strlen(metadata[i]) + 1;
 	}
 
-	t_push();
 	str = t_str_new(512);
 	last_change_len = orig_len = 0;
 	/* overwrite existing metadata fields */
@@ -1058,10 +1059,8 @@ int dbox_file_metadata_write(struct dbox_file *file)
 	str_truncate(str, last_change_len);
 	if (skip_pos + str_len(str) >= file->metadata_len) {
 		if ((ret = dbox_file_grow_metadata(file, skip_pos +
-						   str_len(str))) <= 0) {
-			t_pop();
+						   str_len(str))) <= 0)
 			return ret;
-		}
 	}
 
 	memset(space, DBOX_METADATA_SPACE, sizeof(space));
@@ -1074,10 +1073,21 @@ int dbox_file_metadata_write(struct dbox_file *file)
 
 	ret = pwrite_full(file->fd, str_data(str), str_len(str),
 			  offset + skip_pos);
-	if (ret < 0)
+	if (ret < 0) {
 		dbox_file_set_syscall_error(file, "pwrite");
-	t_pop();
-	return ret < 0 ? -1 : 1;
+		return -1;
+	}
+	return 1;
+}
+
+int dbox_file_metadata_write(struct dbox_file *file)
+{
+	int ret;
+
+	T_FRAME(
+		ret = dbox_file_metadata_write_real(file);
+	);
+	return ret;
 }
 
 int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output)

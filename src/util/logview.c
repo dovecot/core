@@ -276,7 +276,7 @@ static int dump_record(int fd)
 
 int main(int argc, const char *argv[])
 {
-	int fd;
+	int fd, ret;
 
 	lib_init();
 
@@ -290,12 +290,10 @@ int main(int argc, const char *argv[])
 	}
 
 	dump_hdr(fd);
-	for (;;) {
-		t_push();
-		if (!dump_record(fd))
-			break;
-		t_pop();
-	}
-	t_pop();
+	do {
+		T_FRAME(
+			ret = dump_record(fd);
+		);
+	} while (ret > 0);
 	return 0;
 }

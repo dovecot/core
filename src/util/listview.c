@@ -106,18 +106,16 @@ static void dump_dir(int fd, unsigned int show_offset, const char *path)
 			       path, name, crc32_str(name), rec.name_hash);
 		}
 
-		if (rec.dir_offset != 0) {
+		if (rec.dir_offset != 0) T_FRAME_BEGIN {
 			const char *new_path;
 
-			t_push();
 			lseek(fd, rec.dir_offset, SEEK_SET);
 			if (*path == '\0')
 				new_path = t_strdup_printf("%s/", name);
 			else
 				new_path = t_strdup_printf("%s%s/", path, name);
 			dump_dir(fd, show_offset, new_path);
-			t_pop();
-		}
+		} T_FRAME_END;
 
 		offset += sizeof(rec);
 	}

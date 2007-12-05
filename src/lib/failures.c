@@ -118,7 +118,6 @@ static int ATTR_FORMAT(3, 0)
 default_handler(const char *prefix, int fd, const char *format, va_list args)
 {
 	static int recursed = 0;
-	string_t *str;
 	int ret, old_errno = errno;
 
 	if (recursed >= 2) {
@@ -129,17 +128,17 @@ default_handler(const char *prefix, int fd, const char *format, va_list args)
 
 	recursed++;
 
-	t_push();
-	str = t_str_new(256);
-	log_prefix_add(str);
-	str_append(str, prefix);
+	T_FRAME(
+		string_t *str = t_str_new(256);
+		log_prefix_add(str);
+		str_append(str, prefix);
 
-	/* make sure there's no %n in there and fix %m */
-	str_vprintfa(str, printf_format_fix(format), args);
-	str_append_c(str, '\n');
+		/* make sure there's no %n in there and fix %m */
+		str_vprintfa(str, printf_format_fix(format), args);
+		str_append_c(str, '\n');
 
-	ret = log_fd_write(fd, str_data(str), str_len(str));
-	t_pop();
+		ret = log_fd_write(fd, str_data(str), str_len(str));
+	);
 
 	errno = old_errno;
 	recursed--;
@@ -393,17 +392,18 @@ void i_set_failure_prefix(const char *prefix)
 static int ATTR_FORMAT(2, 0)
 internal_handler(char log_type, const char *format, va_list args)
 {
-	string_t *str;
 	int ret;
 
-	t_push();
-	str = t_str_new(512);
-	str_append_c(str, 1);
-	str_append_c(str, log_type);
-	str_vprintfa(str, format, args);
-	str_append_c(str, '\n');
-	ret = write_full(2, str_data(str), str_len(str));
-	t_pop();
+	T_FRAME(
+		string_t *str;
+
+		str = t_str_new(512);
+		str_append_c(str, 1);
+		str_append_c(str, log_type);
+		str_vprintfa(str, format, args);
+		str_append_c(str, '\n');
+		ret = write_full(2, str_data(str), str_len(str));
+	);
 
 	return ret;
 }

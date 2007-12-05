@@ -464,7 +464,8 @@ static void node_fix_parents(struct mailbox_node *node)
 	}
 }
 
-void mailbox_list_iter_update(struct mailbox_list_iterate_context *ctx,
+static void
+mailbox_list_iter_update_real(struct mailbox_list_iterate_context *ctx,
 			      struct mailbox_tree_context *tree_ctx,
 			      struct imap_match_glob *glob, bool update_only,
 			      bool match_parents, const char *name)
@@ -482,7 +483,6 @@ void mailbox_list_iter_update(struct mailbox_list_iterate_context *ctx,
 	always_flags = MAILBOX_SUBSCRIBED;
 	add_matched = TRUE;
 
-	t_push();
 	for (;;) {
 		created = FALSE;
 		match = imap_match(glob, name);
@@ -524,7 +524,17 @@ void mailbox_list_iter_update(struct mailbox_list_iterate_context *ctx,
 		create_flags &= ~MAILBOX_NOCHILDREN;
 		always_flags = MAILBOX_CHILDREN | MAILBOX_CHILD_SUBSCRIBED;
 	}
-	t_pop();
+}
+
+void mailbox_list_iter_update(struct mailbox_list_iterate_context *ctx,
+			      struct mailbox_tree_context *tree_ctx,
+			      struct imap_match_glob *glob, bool update_only,
+			      bool match_parents, const char *name)
+{
+	T_FRAME(
+		mailbox_list_iter_update_real(ctx, tree_ctx, glob, update_only,
+					      match_parents, name);
+	);
 }
 
 bool mailbox_list_name_is_too_large(const char *name, char sep)

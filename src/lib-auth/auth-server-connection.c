@@ -129,6 +129,29 @@ static bool auth_client_input_done(struct auth_server_connection *conn)
 	return TRUE;
 }
 
+static bool
+auth_client_input_line(struct auth_server_connection *conn, const char *line)
+{
+	if (strncmp(line, "OK\t", 3) == 0)
+		return auth_client_input_ok(conn, line + 3);
+	else if (strncmp(line, "CONT\t", 5) == 0)
+		return auth_client_input_cont(conn, line + 5);
+	else if (strncmp(line, "FAIL\t", 5) == 0)
+		return auth_client_input_fail(conn, line + 5);
+	else if (strncmp(line, "MECH\t", 5) == 0)
+		return auth_client_input_mech(conn, line + 5);
+	else if (strncmp(line, "SPID\t", 5) == 0)
+		return auth_client_input_spid(conn, line + 5);
+	else if (strncmp(line, "CUID\t", 5) == 0)
+		return auth_client_input_cuid(conn, line + 5);
+	else if (strcmp(line, "DONE") == 0)
+		return auth_client_input_done(conn);
+	else {
+		/* ignore unknown command */
+		return TRUE;
+	}
+}
+
 static void auth_client_input(struct auth_server_connection *conn)
 {
 	const char *line;
@@ -168,26 +191,9 @@ static void auth_client_input(struct auth_server_connection *conn)
 
 	conn->refcount++;
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		t_push();
-		if (strncmp(line, "OK\t", 3) == 0)
-			ret = auth_client_input_ok(conn, line + 3);
-		else if (strncmp(line, "CONT\t", 5) == 0)
-			ret = auth_client_input_cont(conn, line + 5);
-        	else if (strncmp(line, "FAIL\t", 5) == 0)
-			ret = auth_client_input_fail(conn, line + 5);
-		else if (strncmp(line, "MECH\t", 5) == 0)
-			ret = auth_client_input_mech(conn, line + 5);
-		else if (strncmp(line, "SPID\t", 5) == 0)
-			ret = auth_client_input_spid(conn, line + 5);
-		else if (strncmp(line, "CUID\t", 5) == 0)
-			ret = auth_client_input_cuid(conn, line + 5);
-		else if (strcmp(line, "DONE") == 0)
-			ret = auth_client_input_done(conn);
-		else {
-			/* ignore unknown command */
-			ret = TRUE;
-		}
-		t_pop();
+		T_FRAME(
+			ret = auth_client_input_line(conn, line);
+		);
 
 		if (!ret) {
 			auth_server_connection_destroy(&conn, FALSE);

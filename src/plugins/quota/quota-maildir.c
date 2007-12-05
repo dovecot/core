@@ -139,7 +139,6 @@ static const char *
 maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 {
 	struct stat st;
-	const char *path;
 	bool is_file;
 
 	for (;;) {
@@ -149,14 +148,17 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 				return NULL;
 		}
 
-		t_push();
-		path = mail_storage_get_mailbox_path(ctx->storage,
-						     ctx->info->name,
-						     &is_file);
-		str_truncate(ctx->path, 0);
-		str_append(ctx->path, path);
-		str_append(ctx->path, ctx->state == 0 ? "/new" : "/cur");
-		t_pop();
+		T_FRAME(
+			const char *path;
+
+			path = mail_storage_get_mailbox_path(ctx->storage,
+							     ctx->info->name,
+							     &is_file);
+			str_truncate(ctx->path, 0);
+			str_append(ctx->path, path);
+			str_append(ctx->path, ctx->state == 0 ?
+				   "/new" : "/cur");
+		);
 
 		if (++ctx->state == 2)
 			ctx->state = 0;
@@ -274,11 +276,11 @@ static int maildirsize_recalculate_storage(struct maildir_quota_root *root,
 		if (mtime > root->recalc_last_stamp)
 			root->recalc_last_stamp = mtime;
 
-		t_push();
-		if (maildir_sum_dir(dir, &root->total_bytes,
-				    &root->total_count) < 0)
-			ret = -1;
-		t_pop();
+		T_FRAME(
+			if (maildir_sum_dir(dir, &root->total_bytes,
+					    &root->total_count) < 0)
+				ret = -1;
+		);
 	}
 	if (maildir_list_deinit(ctx) < 0)
 		ret = -1;
@@ -447,7 +449,6 @@ static int maildirsize_read(struct maildir_quota_root *root)
 	unsigned int i, size;
 	int fd, ret = 0;
 
-	t_push();
 	if (root->fd != -1) {
 		if (close(root->fd) < 0)
 			i_error("close(%s) failed: %m", root->maildirsize_path);
@@ -462,7 +463,6 @@ static int maildirsize_read(struct maildir_quota_root *root)
 			ret = -1;
 			i_error("open(%s) failed: %m", root->maildirsize_path);
 		}
-		t_pop();
 		return ret;
 	}
 
@@ -480,7 +480,6 @@ static int maildirsize_read(struct maildir_quota_root *root)
 	if (ret < 0 || size >= sizeof(buf)-1) {
 		/* error / recalculation needed. */
 		(void)close(fd);
-		t_pop();
 		return ret < 0 ? -1 : 0;
 	}
 
@@ -509,7 +508,6 @@ static int maildirsize_read(struct maildir_quota_root *root)
 		root->fd = -1;
 		ret = 0;
 	}
-	t_pop();
 	return ret;
 }
 
@@ -541,7 +539,9 @@ static int maildirquota_refresh(struct maildir_quota_root *root)
 			return 0;
 	}
 
-	ret = maildirsize_read(root);
+	T_FRAME(
+		ret = maildirsize_read(root);
+	);
 	if (ret == 0) {
 		if (root->message_bytes_limit == (uint64_t)-1 &&
 		    root->message_count_limit == (uint64_t)-1) {
@@ -557,20 +557,19 @@ static int maildirquota_refresh(struct maildir_quota_root *root)
 static int maildirsize_update(struct maildir_quota_root *root,
 			      int count_diff, int64_t bytes_diff)
 {
-	const char *str;
+	char str[MAX_INT_STRLEN*2 + 2];
 	int ret = 0;
 
 	if (count_diff == 0 && bytes_diff == 0)
 		return 0;
-
-	t_push();
 
 	/* We rely on O_APPEND working in here. That isn't NFS-safe, but it
 	   isn't necessarily that bad because the file is recreated once in
 	   a while, and sooner if corruption causes calculations to go
 	   over quota. This is also how Maildir++ spec specifies it should be
 	   done.. */
-	str = t_strdup_printf("%lld %d\n", (long long)bytes_diff, count_diff);
+	i_snprintf(str, sizeof(str), "%lld %d\n",
+		   (long long)bytes_diff, count_diff);
 	if (write_full(root->fd, str, strlen(str)) < 0) {
 		ret = -1;
 		if (errno == ESTALE) {
@@ -580,7 +579,6 @@ static int maildirsize_update(struct maildir_quota_root *root,
 				root->maildirsize_path);
 		}
 	}
-	t_pop();
 	return ret;
 }
 

@@ -110,7 +110,6 @@ userdb_nss_preinit(struct auth_userdb *auth_userdb, const char *args)
 	module->bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
 	module->buf = p_malloc(pool, module->bufsize);
 
-	t_push();
 	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
 		if (strcmp(*tmp, "blocking=yes") == 0)
 			module->module.blocking = TRUE;
@@ -119,7 +118,6 @@ userdb_nss_preinit(struct auth_userdb *auth_userdb, const char *args)
 		else
 			i_fatal("userdb nss: Unknown parameter: %s", *tmp);
 	}
-	t_pop();
 
 	if (module->nss_module.name == NULL)
 		i_fatal("userdb nss: Missing service");

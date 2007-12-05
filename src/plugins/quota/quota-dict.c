@@ -81,11 +81,11 @@ dict_quota_count(struct dict_quota_root *root,
 	if (quota_count(root->root.quota, &bytes, &count) < 0)
 		return -1;
 
-	t_push();
-	dt = dict_transaction_begin(root->dict);
-	dict_set(dt, DICT_QUOTA_CURRENT_BYTES_PATH, dec2str(bytes));
-	dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
-	t_pop();
+	T_FRAME(
+		dt = dict_transaction_begin(root->dict);
+		dict_set(dt, DICT_QUOTA_CURRENT_BYTES_PATH, dec2str(bytes));
+		dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
+	);
 
 	if (dict_transaction_commit(dt) < 0)
 		i_error("dict_quota: Couldn't update quota");
@@ -99,7 +99,6 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 			uint64_t *value_r, uint64_t *limit ATTR_UNUSED)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
-	const char *value;
 	bool want_bytes;
 	int ret;
 
@@ -110,24 +109,28 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 	else
 		return 0;
 
-	t_push();
-	ret = dict_lookup(root->dict, unsafe_data_stack_pool,
-			  want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
-			  DICT_QUOTA_CURRENT_COUNT_PATH, &value);
-	if (ret < 0)
-		*value_r = 0;
-	else {
-		long long tmp;
+	T_FRAME(
+		const char *value;
 
-		/* recalculate quota if it's negative or if it wasn't found */
-		tmp = ret == 0 ? -1 : strtoll(value, NULL, 10);
-		if (tmp < 0)
-			ret = dict_quota_count(root, want_bytes, value_r);
-		else
-			*value_r = tmp;
-	}
+		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
+				  want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
+				  DICT_QUOTA_CURRENT_COUNT_PATH, &value);
+		if (ret < 0)
+			*value_r = 0;
+		else {
+			long long tmp;
 
-	t_pop();
+			/* recalculate quota if it's negative or if it
+			   wasn't found */
+			tmp = ret == 0 ? -1 : strtoll(value, NULL, 10);
+			if (tmp >= 0)
+				*value_r = tmp;
+			else {
+				ret = dict_quota_count(root, want_bytes,
+						       value_r);
+			}
+		}
+	);
 	return ret;
 }
 

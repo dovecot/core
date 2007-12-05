@@ -213,13 +213,11 @@ static int mail_index_map_parse_extensions(struct mail_index_map *map)
 	for (i = 0; offset < map->hdr.header_size; i++) {
 		ext_offset = offset;
 
-		t_push();
 		if (mail_index_map_ext_get_next(map, &offset,
 						&ext_hdr, &name) < 0) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"Header extension #%d (%s) goes outside header",
 				index->filepath, i, name);
-			t_pop();
 			return -1;
 		}
 
@@ -228,19 +226,16 @@ static int mail_index_map_parse_extensions(struct mail_index_map *map)
 			mail_index_set_error(index, "Corrupted index file %s: "
 					     "Broken extension #%d (%s): %s",
 					     index->filepath, i, name, error);
-			t_pop();
 			return -1;
 		}
 		if (mail_index_map_lookup_ext(map, name, NULL)) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"Duplicate header extension %s",
 				index->filepath, name);
-			t_pop();
 			return -1;
 		}
 
 		mail_index_map_register_ext(map, name, ext_offset, ext_hdr);
-		t_pop();
 	}
 	return 0;
 }
@@ -838,12 +833,12 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	for (try = 0; ret > 0; try++) {
 		/* make sure the header is ok before using this mapping */
 		ret = mail_index_map_check_header(new_map);
-		if (ret > 0) {
+		if (ret > 0) T_FRAME_BEGIN {
 			if (mail_index_map_parse_extensions(new_map) < 0)
 				ret = 0;
 			else if (mail_index_map_parse_keywords(new_map) < 0)
 				ret = 0;
-		}
+		} T_FRAME_END;
 		if (ret != 0 || try == 2)
 			break;
 

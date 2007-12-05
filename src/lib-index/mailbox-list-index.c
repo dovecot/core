@@ -405,7 +405,6 @@ static int mailbox_list_record_cmp(const void *_key, const void *_rec)
 {
 	const struct mailbox_list_index_lookup_key *key = _key;
 	const struct mailbox_list_record *rec = _rec;
-	const char *name;
 	int ret;
 
 	if (key->name_hash < rec->name_hash)
@@ -413,15 +412,17 @@ static int mailbox_list_record_cmp(const void *_key, const void *_rec)
 	if (key->name_hash > rec->name_hash)
 		return 1;
 
-	t_push();
-	if (mailbox_list_get_name(key->index, unsafe_data_stack_pool,
-				  rec, &name) < 0) {
-		*key->failed = TRUE;
-		ret = -1;
-	} else {
-		ret = strcmp(key->name, name);
-	}
-	t_pop();
+	T_FRAME(
+		const char *name;
+
+		if (mailbox_list_get_name(key->index, unsafe_data_stack_pool,
+					  rec, &name) < 0) {
+			*key->failed = TRUE;
+			ret = -1;
+		} else {
+			ret = strcmp(key->name, name);
+		}
+	);
 	return ret;
 }
 
@@ -671,7 +672,6 @@ int mailbox_list_index_iterate_next(struct mailbox_list_iter_ctx *ctx,
 {
 	const struct mailbox_list_iter_path *cur;
 	const struct mailbox_list_record *recs;
-	const char *name;
 	uint32_t dir_offset;
 	unsigned int count;
 
@@ -709,18 +709,24 @@ int mailbox_list_index_iterate_next(struct mailbox_list_iter_ctx *ctx,
 		}
 	}
 
-	t_push();
-	if (mailbox_list_get_name(ctx->view->index, unsafe_data_stack_pool,
-				  recs, &name) < 0) {
-		ctx->failed = TRUE;
-		t_pop();
+	T_FRAME(
+		const char *name;
+
+		if (mailbox_list_get_name(ctx->view->index,
+					  unsafe_data_stack_pool,
+					  recs, &name) < 0)
+			ctx->failed = TRUE;
+		else {
+			str_truncate(ctx->name_path, ctx->cur.name_path_len);
+			if (ctx->cur.name_path_len > 0) {
+				str_append_c(ctx->name_path,
+					     ctx->view->index->separator);
+			}
+			str_append(ctx->name_path, name);
+		}
+	);
+	if (ctx->failed)
 		return -1;
-	}
-	str_truncate(ctx->name_path, ctx->cur.name_path_len);
-	if (ctx->cur.name_path_len > 0)
-		str_append_c(ctx->name_path, ctx->view->index->separator);
-	str_append(ctx->name_path, name);
-	t_pop();
 
 	info_r->name = str_c(ctx->name_path);
 	info_r->uid = recs->uid;

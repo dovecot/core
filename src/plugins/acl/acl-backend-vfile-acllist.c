@@ -147,7 +147,6 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 	struct acl_object_list_iter *iter;
 	struct acl_rights rights;
 	struct acl_backend_vfile_acllist acllist;
-	const char *line;
 	int ret;
 
 	acl_cache_flush(backend->backend.cache, name);
@@ -167,10 +166,12 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 		acllist.name = p_strdup(backend->acllist_pool, name);
 		array_append(&backend->acllist, &acllist, 1);
 
-		t_push();
-		line = t_strdup_printf("%s %s\n", dec2str(acllist.mtime), name);
-		o_stream_send_str(output, line);
-		t_pop();
+		T_FRAME(
+			const char *line;
+			line = t_strdup_printf("%s %s\n",
+					       dec2str(acllist.mtime), name);
+			o_stream_send_str(output, line);
+		);
 	}
 	acl_object_deinit(&aclobj);
 	return ret < 0 ? -1 : 0;

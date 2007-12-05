@@ -51,7 +51,6 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 		auth_request_set_userdb_field(auth_request, "home", pu->home);
 
 	if (pu->extra_fields != NULL) {
-		t_push();
 		str = t_str_new(512);
 		table = auth_request_get_var_expand_table(auth_request, NULL);
 
@@ -69,7 +68,6 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 			}
 			auth_request_set_userdb_field(auth_request, key, value);
 		}
-		t_pop();
 	}
 
 	callback(USERDB_RESULT_OK, auth_request);

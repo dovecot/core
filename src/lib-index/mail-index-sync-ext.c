@@ -154,7 +154,6 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 
 	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map) && map->refcount == 1);
 
-	t_push();
 	ext = array_get_modifiable(&map->extensions, &count);
 	i_assert(ext_map_idx < count);
 
@@ -256,8 +255,6 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
                 ext_hdr = get_ext_header(map, &ext[i]);
 		ext_hdr->record_offset = ext[i].record_offset;
 	}
-
-	t_pop();
 }
 
 static void
@@ -382,7 +379,6 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		return -1;
 	}
 
-	t_push();
 	if (u->ext_id != (uint32_t)-1) {
 		name = NULL;
 		ext_map_idx = u->ext_id;
@@ -402,7 +398,6 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		   assert-crashes later, so prevent them immediately. */
 		mail_index_sync_set_corrupted(ctx,
 			"Extension introduction for keywords");
-		t_pop();
 		return -1;
 	}
 
@@ -417,7 +412,6 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			   yet seen it. ignore this update. */
 			ctx->cur_ext_ignore = TRUE;
 		}
-		t_pop();
 
 		ctx->cur_ext_map_idx = ext_map_idx;
 		return 1;
@@ -449,7 +443,6 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 					 name, &error) < 0) {
 		mail_index_sync_set_corrupted(ctx,
 			"Broken extension introduction: %s", error);
-		t_pop();
 		return -1;
 	}
 
@@ -472,8 +465,6 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 
 	map->hdr.header_size = hdr_buf->used;
 	map->hdr_base = hdr_buf->data;
-
-	t_pop();
 
         mail_index_sync_init_handlers(ctx);
 	sync_ext_reorder(map, ext_map_idx, 0);

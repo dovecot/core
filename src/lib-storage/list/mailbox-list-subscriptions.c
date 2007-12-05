@@ -6,10 +6,11 @@
 #include "mailbox-list-private.h"
 #include "mailbox-list-subscriptions.h"
 
-int mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
-				    struct mailbox_tree_context *tree_ctx,
-				    struct imap_match_glob *glob,
-				    bool update_only)
+static int
+mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
+				     struct mailbox_tree_context *tree_ctx,
+				     struct imap_match_glob *glob,
+				     bool update_only)
 {
 	struct mail_namespace *ns = ctx->list->ns;
 	struct subsfile_list_context *subsfile_ctx;
@@ -17,7 +18,6 @@ int mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 	string_t *vname;
 	bool match_parents;
 
-	t_push();
 	vname = t_str_new(256);
 	path = t_strconcat(ctx->list->set.control_dir != NULL ?
 			   ctx->list->set.control_dir :
@@ -33,7 +33,19 @@ int mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 		mailbox_list_iter_update(ctx, tree_ctx, glob, update_only,
 					 match_parents, name);
 	}
-	t_pop();
-
 	return subsfile_list_deinit(subsfile_ctx);
+}
+
+int mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
+				    struct mailbox_tree_context *tree_ctx,
+				    struct imap_match_glob *glob,
+				    bool update_only)
+{
+	int ret;
+
+	T_FRAME(
+		ret = mailbox_list_subscriptions_fill_real(ctx, tree_ctx, glob,
+							   update_only);
+	);
+	return ret;
 }

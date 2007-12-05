@@ -33,7 +33,6 @@ struct auth *auth_preinit(void)
 		auth->verbose_debug_passwords;
 	auth->verbose = getenv("VERBOSE") != NULL || auth->verbose_debug;
 
-	t_push();
 	passdb_p = &auth->passdbs;
 	masterdb_p = &auth->masterdbs;
 	auth_passdb = NULL;
@@ -69,9 +68,7 @@ struct auth *auth_preinit(void)
 				"if there are no passdbs");
 		}
 	}
-	t_pop();
 
-	t_push();
 	for (i = 1; ; i++) {
 		driver = getenv(t_strdup_printf("USERDB_%u_DRIVER", i));
 		if (driver == NULL)
@@ -80,7 +77,6 @@ struct auth *auth_preinit(void)
                 args = getenv(t_strdup_printf("USERDB_%u_ARGS", i));
 		userdb_preinit(auth, driver, args);
 	}
-	t_pop();
 
 	if (auth->userdbs == NULL) {
 		/* use a dummy userdb static. */

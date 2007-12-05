@@ -749,13 +749,11 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		old_username = request->user;
 		request->user = user;
 
-		t_push();
 		dest = t_str_new(256);
 		table = auth_request_get_var_expand_table(request,
 						auth_request_str_escape);
 		var_expand(dest, request->auth->username_format, table);
 		user = p_strdup(request->pool, str_c(dest));
-		t_pop();
 
 		request->user = old_username;
 	}
@@ -919,7 +917,6 @@ static void auth_request_validate_networks(struct auth_request *request,
 		return;
 	}
 
-	t_push();
 	for (net = t_strsplit_spaces(networks, ", "); *net != NULL; net++) {
 		auth_request_log_debug(request, "auth",
 			"allow_nets: Matching for network %s", *net);
@@ -935,7 +932,6 @@ static void auth_request_validate_networks(struct auth_request *request,
 			break;
 		}
 	}
-	t_pop();
 
 	if (!found) {
 		auth_request_log_info(request, "passdb",
@@ -1084,7 +1080,6 @@ void auth_request_set_fields(struct auth_request *request,
 {
 	const char *key, *value;
 
-	t_push();
 	for (; *fields != NULL; fields++) {
 		if (**fields == '\0')
 			continue;
@@ -1099,7 +1094,6 @@ void auth_request_set_fields(struct auth_request *request,
 		}
 		auth_request_set_field(request, key, value, default_scheme);
 	}
-	t_pop();
 }
 
 void auth_request_init_userdb_reply(struct auth_request *request)
@@ -1117,7 +1111,6 @@ auth_request_change_userdb_user(struct auth_request *request, const char *user)
 	if (strcmp(user, request->user) == 0)
 		return;
 
-	t_push();
 	str = t_strdup(auth_stream_reply_export(request->userdb_reply));
 
 	/* reset the reply and add the new username */
@@ -1130,7 +1123,6 @@ auth_request_change_userdb_user(struct auth_request *request, const char *user)
 	str = strchr(str, '\t');
 	i_assert(str != NULL);
 	auth_stream_reply_import(request->userdb_reply, str + 1);
-	t_pop();
 }
 
 static void auth_request_set_uidgid_file(struct auth_request *request,
@@ -1139,7 +1131,6 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 	string_t *path;
 	struct stat st;
 
-	t_push();
 	path = t_str_new(256);
 	var_expand(path, path_template,
 		   auth_request_get_var_expand_table(request, NULL));
@@ -1152,7 +1143,6 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 		auth_stream_reply_add(request->userdb_reply,
 				      "gid", dec2str(st.st_gid));
 	}
-	t_pop();
 }
 
 void auth_request_set_userdb_field(struct auth_request *request,
@@ -1201,13 +1191,11 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 		string_t *value;
 		gid_t gid;
 
-		t_push();
 		value = t_str_new(128);
 		for (; *values != NULL; values++) {
 			gid = userdb_parse_gid(request, *values);
 			if (gid == (gid_t)-1) {
 				request->userdb_lookup_failed = TRUE;
-				t_pop();
 				return;
 			}
 
@@ -1217,7 +1205,6 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 		}
 		auth_stream_reply_add(request->userdb_reply, name,
 				      str_c(value));
-		t_pop();
 	} else {
 		/* add only one */
 		auth_request_set_userdb_field(request, name, *values);
@@ -1401,9 +1388,9 @@ void auth_request_log_debug(struct auth_request *auth_request,
 		return;
 
 	va_start(va, format);
-	t_push();
-	i_info("%s", get_log_str(auth_request, subsystem, format, va));
-	t_pop();
+	T_FRAME(
+		i_info("%s", get_log_str(auth_request, subsystem, format, va));
+	);
 	va_end(va);
 }
 
@@ -1417,9 +1404,9 @@ void auth_request_log_info(struct auth_request *auth_request,
 		return;
 
 	va_start(va, format);
-	t_push();
-	i_info("%s", get_log_str(auth_request, subsystem, format, va));
-	t_pop();
+	T_FRAME(
+		i_info("%s", get_log_str(auth_request, subsystem, format, va));
+	);
 	va_end(va);
 }
 
@@ -1430,8 +1417,8 @@ void auth_request_log_error(struct auth_request *auth_request,
 	va_list va;
 
 	va_start(va, format);
-	t_push();
-	i_error("%s", get_log_str(auth_request, subsystem, format, va));
-	t_pop();
+	T_FRAME(
+		i_error("%s", get_log_str(auth_request, subsystem, format, va));
+	);
 	va_end(va);
 }

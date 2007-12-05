@@ -73,8 +73,6 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 
 	ret = mailbox_transaction_commit(&ctx->t);
 
-	t_push();
-
 	if (status.uidvalidity != ctx->client->uidvalidity) {
 		/* most clients would get confused by this. disconnect them. */
 		client_disconnect_with_error(ctx->client,
@@ -95,7 +93,6 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 		}
 	}
 
-	t_pop();
 	i_free(ctx);
 	return ret;
 }
@@ -107,9 +104,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 	string_t *str;
 	int ret = 1;
 
-	t_push();
 	str = t_str_new(256);
-
 	for (;;) {
 		if (ctx->seq == 0) {
 			/* get next one */
@@ -187,7 +182,6 @@ int imap_sync_more(struct imap_sync_context *ctx)
 
 		ctx->seq = 0;
 	}
-	t_pop();
 	return ret;
 }
 

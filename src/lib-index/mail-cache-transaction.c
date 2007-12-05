@@ -807,7 +807,6 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 {
 	struct mail_cache *cache = ctx->cache;
 	unsigned int i;
-	buffer_t *buffer;
 	int ret;
 
 	/* we want to avoid adding all the fields one by one to the cache file,
@@ -844,11 +843,13 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		return 0;
 	}
 
-	t_push();
-	buffer = buffer_create_dynamic(pool_datastack_create(), 256);
-	mail_cache_header_fields_get(cache, buffer);
-	ret = mail_cache_header_fields_write(ctx, buffer);
-	t_pop();
+	T_FRAME(
+		buffer_t *buffer;
+
+		buffer = buffer_create_dynamic(pool_datastack_create(), 256);
+		mail_cache_header_fields_get(cache, buffer);
+		ret = mail_cache_header_fields_write(ctx, buffer);
+	);
 
 	if (ret == 0) {
 		/* we wrote all the headers, so there are no pending changes */
@@ -1033,11 +1034,10 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 	return 0;
 }
 
-int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
+static int mail_cache_delete_real(struct mail_cache *cache, uint32_t offset)
 {
 	const struct mail_cache_record *rec;
 	ARRAY_TYPE(uint32_t) looping_offsets;
-	int ret = -1;
 
 	i_assert(cache->locked);
 
@@ -1046,7 +1046,6 @@ int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 	   the data. also it's actually useful as some index views are still
 	   able to ask cached data from messages that have already been
 	   expunged. */
-	t_push();
 	t_array_init(&looping_offsets, 8);
 	array_append(&looping_offsets, &offset, 1);
 	while (mail_cache_get_record(cache, offset, &rec) == 0) {
@@ -1055,18 +1054,25 @@ int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 
 		if (offset == 0) {
 			/* successfully got to the end of the list */
-			ret = 0;
-			break;
+			return 0;
 		}
 
 		if (mail_cache_track_loops(&looping_offsets, offset)) {
 			mail_cache_set_corrupted(cache,
 						 "record list is circular");
-			break;
+			return -1;
 		}
 	}
-	t_pop();
+	return -1;
+}
 
+int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
+{
+	int ret;
+
+	T_FRAME(
+		ret = mail_cache_delete_real(cache, offset);
+	);
 	cache->hdr_modified = TRUE;
 	return ret;
 }

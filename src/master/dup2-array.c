@@ -25,7 +25,6 @@ int dup2_array(ARRAY_TYPE(dup2) *dups_arr)
 
 	dups = array_get_modifiable(dups_arr, &count);
 
-	t_push();
 	moved = t_new(bool, count);
 	for (;;) {
 		conflict = count;
@@ -50,7 +49,6 @@ int dup2_array(ARRAY_TYPE(dup2) *dups_arr)
 					i_error("dup2(%d, %d) failed: %m",
 						dups[i].fd_src,
 						dups[i].fd_dest);
-					t_pop();
 					return -1;
 				}
 			}
@@ -68,13 +66,11 @@ int dup2_array(ARRAY_TYPE(dup2) *dups_arr)
 		fd = dup(dups[conflict].fd_src);
 		if (fd == -1) {
 			i_error("dup(%d) failed: %m", dups[conflict].fd_src);
-			t_pop();
 			return -1;
 		}
 		fd_close_on_exec(fd, TRUE);
                 dups[conflict].fd_src = fd;
 	}
-	t_pop();
 	return 0;
 }
 

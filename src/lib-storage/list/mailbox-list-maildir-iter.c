@@ -56,7 +56,6 @@ maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 		prefix_len = 0;
 	}
 
-	t_push();
 	mailbox_c = str_c(mailbox);
 	while ((p = strrchr(mailbox_c, hierarchy_sep)) != NULL) {
 		str_truncate(mailbox, (size_t) (p-mailbox_c));
@@ -88,7 +87,6 @@ maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 			node_fix_parents(node);
 		}
 	}
-	t_pop();
 }
 
 static int
@@ -122,7 +120,6 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		strcmp(ctx->ctx.list->name, MAILBOX_LIST_NAME_IMAPDIR) != 0 ?
 		ctx->ctx.list->hierarchy_sep : '\0';
 
-	t_push();
 	mailbox = t_str_new(PATH_MAX);
 	while ((d = readdir(dirp)) != NULL) {
 		const char *fname = d->d_name;
@@ -156,15 +153,16 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 
 		/* check if this is an actual mailbox */
 		flags = 0;
-		ret = ctx->ctx.list->v.
-			iter_is_mailbox(&ctx->ctx, ctx->dir, fname,
+		T_FRAME(
+			ret = ctx->ctx.list->v.
+				iter_is_mailbox(&ctx->ctx, ctx->dir, fname,
 					mailbox_list_get_file_type(d), &flags);
-		if (ret < 0) {
-			t_pop();
-			return -1;
-		}
-		if (ret == 0)
+		);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
 			continue;
+		}
 
 		/* we know the children flags ourself, so ignore if any of
 		   them were set. */
@@ -172,8 +170,10 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 			   MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
 
 		if ((match & IMAP_MATCH_PARENT) != 0) {
-			maildir_fill_parents(ctx, glob, update_only,
-					     mailbox, flags);
+			T_FRAME(
+				maildir_fill_parents(ctx, glob, update_only,
+						     mailbox, flags);
+			);
 		} else {
 			created = FALSE;
 			node = update_only ?
@@ -194,7 +194,6 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 			}
 		}
 	}
-	t_pop();
 
 	if (closedir(dirp) < 0) {
 		mailbox_list_set_critical(ctx->ctx.list,
@@ -241,6 +240,7 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
         struct imap_match_glob *glob;
 	char sep;
 	pool_t pool;
+	int ret;
 
 	sep = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
 		_list->ns->sep : _list->ns->real_sep;
@@ -272,7 +272,10 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		bool update_only =
 			(flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0;
 
-		if (maildir_fill_readdir(ctx, glob, update_only) < 0) {
+		T_FRAME(
+			ret = maildir_fill_readdir(ctx, glob, update_only);
+		);
+		if (ret < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}

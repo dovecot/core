@@ -278,13 +278,10 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	const char *fname1, *path1, *path2;
 	const char *new_fname, *new_path;
 	struct stat st1, st2;
-	int ret = 0;
 
 	fname1 = maildir_uidlist_sync_get_full_filename(ctx->uidlist_sync_ctx,
 							fname2);
 	i_assert(fname1 != NULL);
-
-	t_push();
 
 	path1 = t_strconcat(dir, "/", fname1, NULL);
 	path2 = t_strconcat(dir, "/", fname2, NULL);
@@ -292,7 +289,6 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	if (stat(path1, &st1) < 0 || stat(path2, &st2) < 0) {
 		/* most likely the files just don't exist anymore.
 		   don't really care about other errors much. */
-		t_pop();
 		return 0;
 	}
 	if (st1.st_ino == st2.st_ino &&
@@ -320,7 +316,6 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 					"unlink(%s) failed: %m", path2);
 			}
 		}
-		t_pop();
 		return 0;
 	}
 
@@ -333,11 +328,9 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 		mail_storage_set_critical(&ctx->mbox->storage->storage,
 			"Couldn't fix a duplicate: rename(%s, %s) failed: %m",
 			path2, new_path);
-		ret = -1;
+		return -1;
 	}
-	t_pop();
-
-	return ret;
+	return 0;
 }
 
 static int
@@ -425,7 +418,6 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 #endif
 	}
 
-	t_push();
 	src = t_str_new(1024);
 	dest = t_str_new(1024);
 
@@ -488,10 +480,12 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 				break;
 
 			/* possibly duplicate - try fixing it */
-			if (maildir_fix_duplicate(ctx, path, dp->d_name) < 0) {
-				ret = -1;
+			T_FRAME(
+				ret = maildir_fix_duplicate(ctx, path,
+							    dp->d_name);
+			);
+			if (ret < 0)
 				break;
-			}
 		}
 	}
 
@@ -514,7 +508,6 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 			ctx->mbox->maildir_hdr.cur_mtime = now;
 	}
 
-	t_pop();
 	return ret < 0 ? -1 :
 		(move_count <= MAILDIR_RENAME_RESCAN_COUNT ? 0 : 1);
 }
@@ -846,19 +839,20 @@ int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)
 	bool lost_files;
 	int ret;
 
-	t_push();
-	ctx = maildir_sync_context_new(mbox, MAILBOX_SYNC_FLAG_FAST);
-	ret = maildir_sync_context(ctx, TRUE, &uid, &lost_files);
-	maildir_sync_deinit(ctx);
-	t_pop();
+	T_FRAME(
+		ctx = maildir_sync_context_new(mbox, MAILBOX_SYNC_FLAG_FAST);
+		ret = maildir_sync_context(ctx, TRUE, &uid, &lost_files);
+		maildir_sync_deinit(ctx);
+	);
 
 	if (uid != 0) {
 		/* maybe it's expunged. check again. */
-		t_push();
-		ctx = maildir_sync_context_new(mbox, 0);
-		ret = maildir_sync_context(ctx, TRUE, NULL, &lost_files);
-		maildir_sync_deinit(ctx);
-		t_pop();
+		T_FRAME(
+			ctx = maildir_sync_context_new(mbox, 0);
+			ret = maildir_sync_context(ctx, TRUE, NULL,
+						   &lost_files);
+			maildir_sync_deinit(ctx);
+		);
 	}
 	return ret;
 }
@@ -879,11 +873,12 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	    ioloop_time) {
 		mbox->ibox.sync_last_check = ioloop_time;
 
-		t_push();
-		ctx = maildir_sync_context_new(mbox, flags);
-		ret = maildir_sync_context(ctx, FALSE, NULL, &lost_files);
-		maildir_sync_deinit(ctx);
-		t_pop();
+		T_FRAME(
+			ctx = maildir_sync_context_new(mbox, flags);
+			ret = maildir_sync_context(ctx, FALSE, NULL,
+						   &lost_files);
+			maildir_sync_deinit(ctx);
+		);
 
 		i_assert(!maildir_uidlist_is_locked(mbox->uidlist) ||
 			 mbox->ibox.keep_locked);
@@ -899,16 +894,17 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 int maildir_sync_is_synced(struct maildir_mailbox *mbox)
 {
-	const char *new_dir, *cur_dir;
 	bool new_changed, cur_changed;
 	int ret;
 
-	t_push();
-	new_dir = t_strconcat(mbox->path, "/new", NULL);
-	cur_dir = t_strconcat(mbox->path, "/cur", NULL);
+	T_FRAME_BEGIN {
+		const char *new_dir, *cur_dir;
 
-	ret = maildir_sync_quick_check(mbox, new_dir, cur_dir,
-				       &new_changed, &cur_changed);
-	t_pop();
+		new_dir = t_strconcat(mbox->path, "/new", NULL);
+		cur_dir = t_strconcat(mbox->path, "/cur", NULL);
+
+		ret = maildir_sync_quick_check(mbox, new_dir, cur_dir,
+					       &new_changed, &cur_changed);
+	} T_FRAME_END;
 	return ret < 0 ? -1 : (!new_changed && !cur_changed);
 }

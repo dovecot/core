@@ -195,7 +195,6 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 
 	db->ssl_cipher = "HIGH";
 
-	t_push();
 	args = t_strsplit_spaces(connect_string, " ");
 	for (; *args != NULL; args++) {
 		value = strchr(*args, '=');
@@ -236,7 +235,6 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 		if (field != NULL)
 			*field = p_strdup(db->pool, value);
 	}
-	t_pop();
 
 	if (array_count(&db->connections) == 0)
 		i_fatal("mysql: No hosts given in connect string");
@@ -253,7 +251,9 @@ static struct sql_db *driver_mysql_init_v(const char *connect_string)
 	db->api = driver_mysql_db;
 	p_array_init(&db->connections, db->pool, 6);
 
-	driver_mysql_parse_connect_string(db, connect_string);
+	T_FRAME(
+		driver_mysql_parse_connect_string(db, connect_string);
+	);
 	return &db->api;
 }
 

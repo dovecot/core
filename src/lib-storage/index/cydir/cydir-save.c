@@ -70,7 +70,6 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	struct cydir_save_context *ctx = t->save_ctx;
 	enum mail_flags save_flags;
 	struct istream *crlf_input;
-	const char *path;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
@@ -82,20 +81,23 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 		ctx->tmp_basename = cydir_generate_tmp_filename();
 	}
 
-	t_push();
-	path = cydir_get_save_path(ctx, ctx->mail_count);
-	ctx->fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);
-	if (ctx->fd != -1) {
-		ctx->output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
-		o_stream_cork(ctx->output);
-	} else {
-		mail_storage_set_critical(_t->box->storage,
-					  "open(%s) failed: %m", path);
-		ctx->failed = TRUE;
-		t_pop();
+	T_FRAME(
+		const char *path;
+
+		path = cydir_get_save_path(ctx, ctx->mail_count);
+		ctx->fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);
+		if (ctx->fd != -1) {
+			ctx->output =
+				o_stream_create_fd_file(ctx->fd, 0, FALSE);
+			o_stream_cork(ctx->output);
+		} else {
+			mail_storage_set_critical(_t->box->storage,
+						  "open(%s) failed: %m", path);
+			ctx->failed = TRUE;
+		}
+	);
+	if (ctx->failed)
 		return -1;
-	}
-	t_pop();
 
 	/* add to index */
 	save_flags = flags & ~MAIL_RECENT;

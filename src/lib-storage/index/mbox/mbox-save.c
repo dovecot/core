@@ -115,7 +115,7 @@ static int mbox_append_lf(struct mbox_save_context *ctx)
 static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 			   const char *from_envelope)
 {
-	const char *line, *name;
+	const char *name;
 	int ret;
 
 	if (*my_hostdomain == '\0') {
@@ -132,19 +132,21 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 		i_strocpy(my_hostdomain, name, sizeof(my_hostdomain));
 	}
 
-	t_push();
-	if (from_envelope == NULL) {
-		from_envelope =
-			t_strconcat(ctx->mbox->storage->storage.user,
-				    "@", my_hostdomain, NULL);
-	}
+	T_FRAME(
+		const char *line;
 
-	/* save in local timezone, no matter what it was given with */
-	line = mbox_from_create(from_envelope, received_date);
+		if (from_envelope == NULL) {
+			from_envelope =
+				t_strconcat(ctx->mbox->storage->storage.user,
+					    "@", my_hostdomain, NULL);
+		}
 
-	if ((ret = o_stream_send_str(ctx->output, line)) < 0)
-		write_error(ctx);
-	t_pop();
+		/* save in local timezone, no matter what it was given with */
+		line = mbox_from_create(from_envelope, received_date);
+
+		if ((ret = o_stream_send_str(ctx->output, line)) < 0)
+			write_error(ctx);
+	);
 
 	return ret;
 }
@@ -355,7 +357,6 @@ static void mbox_save_x_delivery_id(struct mbox_save_context *ctx)
 	string_t *str;
 	void *randbuf;
 
-	t_push();
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 	buffer_append(buf, &ioloop_time, sizeof(ioloop_time));
 	buffer_append(buf, &ioloop_timeval.tv_usec,
@@ -372,7 +373,6 @@ static void mbox_save_x_delivery_id(struct mbox_save_context *ctx)
 	str_append_c(str, '\n');
 
 	ctx->x_delivery_id_header = i_strdup(str_c(str));
-	t_pop();
 }
 
 static struct istream *
@@ -395,7 +395,9 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 		   our own X-Delivery-ID header. */
 		const char *hdr;
 
-		mbox_save_x_delivery_id(ctx);
+		T_FRAME(
+			mbox_save_x_delivery_id(ctx);
+		);
 		hdr = ctx->x_delivery_id_header;
 
 		streams[0] = i_stream_create_from_data(hdr, strlen(hdr));
@@ -655,11 +657,11 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	ctx->finished = TRUE;
 	if (!ctx->failed) {
-		t_push();
-		if (mbox_write_content_length(ctx) < 0 ||
-		    mbox_append_lf(ctx) < 0)
-			ctx->failed = TRUE;
-		t_pop();
+		T_FRAME(
+			if (mbox_write_content_length(ctx) < 0 ||
+			    mbox_append_lf(ctx) < 0)
+				ctx->failed = TRUE;
+		);
 	}
 
 	if (ctx->mail != NULL)

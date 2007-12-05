@@ -541,7 +541,6 @@ node_split_string(struct squat_trie_build_context *ctx, struct squat_node *node)
 
 	i_assert(str_len > 0);
 
-	t_push();
 	/* make a copy of the leaf string and convert to normal node by
 	   removing it. */
 	str = t_malloc(str_len);
@@ -578,7 +577,6 @@ node_split_string(struct squat_trie_build_context *ctx, struct squat_node *node)
 			memcpy(child->children.leaf_string, str + 1, str_len);
 		}
 	}
-	t_pop();
 }
 
 static bool
@@ -592,14 +590,18 @@ node_leaf_string_add_or_split(struct squat_trie_build_context *ctx,
 
 	if (data_len != str_len) {
 		/* different lengths, can't match */
-		node_split_string(ctx, node);
+		T_FRAME(
+			node_split_string(ctx, node);
+		);
 		return FALSE;
 	}
 
 	for (i = 0; i < data_len; i++) {
 		if (data[i] != str[i]) {
 			/* non-match */
-			node_split_string(ctx, node);
+			T_FRAME(
+				node_split_string(ctx, node);
+			);
 			return FALSE;
 		}
 	}
@@ -778,9 +780,10 @@ squat_data_normalize(struct squat_trie *trie, const unsigned char *data,
 	return dest;
 }
 
-int squat_trie_build_more(struct squat_trie_build_context *ctx,
-			  uint32_t uid, enum squat_index_type type,
-			  const unsigned char *input, unsigned int size)
+static int
+squat_trie_build_more_real(struct squat_trie_build_context *ctx,
+			   uint32_t uid, enum squat_index_type type,
+			   const unsigned char *input, unsigned int size)
 {
 	struct squat_trie *trie = ctx->trie;
 	const unsigned char *data;
@@ -791,7 +794,6 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 
 	uid = uid * 2 + (type == SQUAT_INDEX_TYPE_HEADER ? 1 : 0);
 
-	t_push();
 	char_lengths = t_malloc(size);
 	data = squat_data_normalize(trie, input, size);
 	for (i = 0; i < size; i++) {
@@ -823,7 +825,18 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 				     char_lengths + start, i - start) < 0)
 			ret = -1;
 	}
-	t_pop();
+	return ret;
+}
+
+int squat_trie_build_more(struct squat_trie_build_context *ctx,
+			  uint32_t uid, enum squat_index_type type,
+			  const unsigned char *input, unsigned int size)
+{
+	int ret;
+
+	T_FRAME(
+		ret = squat_trie_build_more_real(ctx, uid, type, input, size);
+	);
 	return ret;
 }
 
@@ -862,6 +875,7 @@ squat_write_node(struct squat_trie_build_context *ctx, struct squat_node *node,
 	unsigned int i;
 	uoff_t *node_offsets;
 	uint8_t child_count;
+	int ret;
 
 	i_assert(node->next_uid != 0);
 
@@ -888,13 +902,12 @@ squat_write_node(struct squat_trie_build_context *ctx, struct squat_node *node,
 	children = NODE_CHILDREN_NODES(node);
 	node_offsets = t_new(uoff_t, child_count);
 	for (i = 0; i < child_count; i++) {
-		t_push();
-		if (squat_write_node(ctx, &children[i], &node_offsets[i],
-				     level + 1) < 0) {
-			t_pop();
+		T_FRAME(
+			ret = squat_write_node(ctx, &children[i],
+					       &node_offsets[i], level + 1);
+		);
+		if (ret < 0)
 			return -1;
-		}
-		t_pop();
 	}
 
 	*node_offset_r = ctx->output->offset;
@@ -911,9 +924,9 @@ static int squat_write_nodes(struct squat_trie_build_context *ctx)
 	if (ctx->trie->root.next_uid == 0)
 		return 0;
 
-	t_push();
-	ret = squat_write_node(ctx, &ctx->trie->root, &node_offset, 0);
-	t_pop();
+	T_FRAME(
+		ret = squat_write_node(ctx, &ctx->trie->root, &node_offset, 0);
+	);
 	if (ret < 0)
 		return -1;
 
@@ -1525,10 +1538,11 @@ static void squat_trie_add_unknown(struct squat_trie *trie,
 	}
 }
 
-int squat_trie_lookup(struct squat_trie *trie, const char *str,
-		      enum squat_index_type type,
-		      ARRAY_TYPE(seq_range) *definite_uids,
-		      ARRAY_TYPE(seq_range) *maybe_uids)
+static int
+squat_trie_lookup_real(struct squat_trie *trie, const char *str,
+		       enum squat_index_type type,
+		       ARRAY_TYPE(seq_range) *definite_uids,
+		       ARRAY_TYPE(seq_range) *maybe_uids)
 {
 	struct squat_trie_lookup_context ctx;
 	unsigned char *data;
@@ -1536,7 +1550,6 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 	unsigned int i, start, bytes, str_bytelen, str_charlen;
 	int ret = 0;
 
-	t_push();
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.trie = trie;
 	ctx.type = type;
@@ -1578,7 +1591,6 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 							char_lengths,
 							i - start);
 		}
-		t_pop();
 		squat_trie_add_unknown(trie, maybe_uids);
 		return ret < 0 ? -1 : 0;
 	}
@@ -1603,9 +1615,22 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 		ret = squat_trie_lookup_partial(&ctx, data + start,
 						char_lengths, i - start);
 	}
-	t_pop();
 	squat_trie_add_unknown(trie, maybe_uids);
 	return ret < 0 ? -1 : 0;
+}
+
+int squat_trie_lookup(struct squat_trie *trie, const char *str,
+		      enum squat_index_type type,
+		      ARRAY_TYPE(seq_range) *definite_uids,
+		      ARRAY_TYPE(seq_range) *maybe_uids)
+{
+	int ret;
+
+	T_FRAME(
+		ret = squat_trie_lookup_real(trie, str, type,
+					     definite_uids, maybe_uids);
+	);
+	return ret;
 }
 
 struct squat_uidlist *squat_trie_get_uidlist(struct squat_trie *trie)

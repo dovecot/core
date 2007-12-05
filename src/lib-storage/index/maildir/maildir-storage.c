@@ -150,21 +150,22 @@ static bool maildir_storage_is_valid_create_name(struct mailbox_list *list,
 						 const char *name)
 {
 	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(list);
-	const char *const *tmp;
 	bool ret = TRUE;
 
 	if (!storage->list_module_ctx.super.is_valid_create_name(list, name))
 		return FALSE;
 
 	/* Don't allow creating mailboxes under cur/new/tmp */
-	t_push();
-	for (tmp = t_strsplit(name, "/"); *tmp != NULL; tmp++) {
-		if (maildir_is_internal_name(*tmp)) {
-			ret = FALSE;
-			break;
+	T_FRAME(
+		const char *const *tmp;
+
+		for (tmp = t_strsplit(name, "/"); *tmp != NULL; tmp++) {
+			if (maildir_is_internal_name(*tmp)) {
+				ret = FALSE;
+				break;
+			}
 		}
-	}
-	t_pop();
+	);
 	return ret;
 }
 
@@ -384,7 +385,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	struct stat st;
 	pool_t pool;
 
-	t_push();
 	path = mailbox_list_get_path(storage->storage.list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	control_dir = mailbox_list_get_path(storage->storage.list, name,
@@ -432,7 +432,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 			struct mailbox *box = &mbox->ibox.box;
 
 			mailbox_close(&box);
-			t_pop();
 			return NULL;
 		}
 		mbox->keep_lock_to = timeout_add(MAILDIR_LOCK_TOUCH_SECS * 1000,
@@ -445,7 +444,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 		mbox->ibox.readonly = TRUE;
 
 	mbox->keywords = maildir_keywords_init(mbox);
-	t_pop();
 	return &mbox->ibox.box;
 }
 
@@ -837,7 +835,6 @@ maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 {
 	struct stat st;
 	const char *path;
-	int ret;
 
 	if (maildir_is_internal_name(fname)) {
 		*flags_r = MAILBOX_NONEXISTENT;
@@ -857,29 +854,26 @@ maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 		break;
 	}
 
-	t_push();
 	path = t_strdup_printf("%s/%s", dir, fname);
 	if (stat(path, &st) == 0) {
 		if (S_ISDIR(st.st_mode))
-			ret = 1;
+			return 1;
 		else if (strncmp(fname, ".nfs", 4) == 0) {
 			/* temporary NFS file */
 			*flags_r = MAILBOX_NONEXISTENT;
-			ret = 0;
+			return 0;
 		} else {
 			*flags_r = MAILBOX_NOSELECT;
-			ret = 0;
+			return 0;
 		}
 	} else if (errno == ENOENT) {
 		/* this was a directory. maybe it has children. */
 		*flags_r = MAILBOX_NOSELECT;
-		ret = 1;
+		return 1;
 	} else {
 		*flags_r = MAILBOX_NOSELECT;
-		ret = 0;
+		return 0;
 	}
-	t_pop();
-	return ret;
 }
 
 static int
@@ -901,12 +895,10 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 		   or the process trying to delete it had died.
 		   delete it ourself if it's been there longer than
 		   one hour. */
-		t_push();
 		path = t_strdup_printf("%s/%s", dir, fname);
 		if (stat(path, &st) == 0 &&
 		    st.st_mtime < ioloop_time - 3600)
 			(void)unlink_directory(path, TRUE);
-		t_pop();
 
 		*flags_r = MAILBOX_NONEXISTENT;
 		return 0;
@@ -936,7 +928,6 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 		const char *path;
 		struct stat st;
 
-		t_push();
 		/* if fname="", we're checking if a base maildir has INBOX */
 		path = *fname == '\0' ? t_strdup_printf("%s/cur", dir) :
 			t_strdup_printf("%s/%s", dir, fname);
@@ -958,7 +949,6 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 			*flags_r = MAILBOX_NOSELECT;
 			ret = 0;
 		}
-		t_pop();
 	} else {
 		ret = 1;
 	}

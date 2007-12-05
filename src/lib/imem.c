@@ -53,22 +53,22 @@ char *i_strdup_vprintf(const char *format, va_list args)
 char *i_strconcat(const char *str1, ...)
 {
 	va_list args;
-        const char *temp;
 	char *ret;
         size_t len;
 
 	va_start(args, str1);
 
-	t_push();
-	temp = vstrconcat(str1, args, &len);
-	if (temp == NULL)
-		ret = NULL;
-	else {
-		t_buffer_alloc(len);
-		ret = p_malloc(default_pool, len);
-		memcpy(ret, temp, len);
-	}
-	t_pop();
+	T_FRAME(
+		const char *temp = vstrconcat(str1, args, &len);
+	
+		if (temp == NULL)
+			ret = NULL;
+		else {
+			t_buffer_alloc(len);
+			ret = p_malloc(default_pool, len);
+			memcpy(ret, temp, len);
+		}
+	);
 
 	va_end(args);
         return ret;

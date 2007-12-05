@@ -315,10 +315,11 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 	iter = mailbox_list_iter_init(mail_storage_get_list(source_storage),
 				      "*", MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		t_push();
-		ret = mailbox_convert_list_item(source_storage, dest_storage,
-						info, dotlock, set);
-		t_pop();
+		T_FRAME(
+			ret = mailbox_convert_list_item(source_storage,
+							dest_storage,
+							info, dotlock, set);
+		);
 		if (ret < 0)
 			break;
 

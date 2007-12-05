@@ -67,8 +67,11 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 		      i_strcmp_p);
 	}
 
-	if (acl_backend_vfile.init(backend, data) < 0)
-		i_fatal("acl: backend vfile init failed with data: %s", data);
+	T_FRAME(
+		if (acl_backend_vfile.init(backend, data) < 0)
+			i_fatal("acl: backend vfile init failed with data: %s",
+				data);
+	);
 
 	backend->default_aclmask =
 		acl_cache_mask_init(backend->cache, backend->pool,

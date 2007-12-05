@@ -78,17 +78,14 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	/* get 128bit of random data as nonce */
 	random_fill(nonce, sizeof(nonce));
 
-	t_push();
 	buf = buffer_create_static_hard(pool_datastack_create(),
 				MAX_BASE64_ENCODED_SIZE(sizeof(nonce))+1);
 
 	base64_encode(nonce, sizeof(nonce), buf);
 	buffer_append_c(buf, '\0');
 	request->nonce = p_strdup(request->pool, buffer_get_data(buf, NULL));
-	t_pop();
 
 	str = t_str_new(256);
-
 	if (*auth->auth_realms == NULL) {
 		/* If no realms are given, at least Cyrus SASL client defaults
 		   to destination host name */

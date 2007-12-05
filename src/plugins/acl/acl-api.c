@@ -45,8 +45,8 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 	return acl_cache_mask_isset(have_mask, right_idx);
 }
 
-int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
-                             const char *const **rights_r)
+static int acl_object_get_my_rights_real(struct acl_object *aclobj, pool_t pool,
+					 const char *const **rights_r)
 {
 	struct acl_backend *backend = aclobj->backend;
 	const struct acl_mask *mask;
@@ -70,9 +70,6 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 		}
 	}
 
-	if (!pool->datastack_pool)
-		t_push();
-
 	names = acl_cache_get_names(backend->cache, &names_count);
 	buf = t_new(const char *, (mask->size * CHAR_BIT) + 1);
 	count = 0;
@@ -95,10 +92,20 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 	rights = p_new(pool, const char *, count + 1);
 	memcpy(rights, buf, count * sizeof(const char *));
 	*rights_r = rights;
-
-	if (!pool->datastack_pool)
-		t_pop();
 	return 0;
+}
+
+int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
+                             const char *const **rights_r)
+{
+	int ret;
+
+	if (pool->datastack_pool)
+		return acl_object_get_my_rights_real(aclobj, pool, rights_r);
+	T_FRAME(
+		ret = acl_object_get_my_rights_real(aclobj, pool, rights_r);
+	);
+	return ret;
 }
 
 int acl_object_update(struct acl_object *aclobj,

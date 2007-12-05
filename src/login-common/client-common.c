@@ -74,7 +74,7 @@ static bool have_key(const struct var_expand_table *table, const char *str)
 	return FALSE;
 }
 
-void client_syslog(struct client *client, const char *msg)
+static void client_syslog_real(struct client *client, const char *msg)
 {
 	static struct var_expand_table static_tab[3] = {
 		{ 's', NULL },
@@ -86,7 +86,6 @@ void client_syslog(struct client *client, const char *msg)
 	const char *p, *const *e;
 	string_t *str;
 
-	t_push();
 	var_expand_table = get_var_expand_table(client);
 
 	tab = t_malloc(sizeof(static_tab));
@@ -114,6 +113,11 @@ void client_syslog(struct client *client, const char *msg)
 
 	var_expand(str, log_format, tab);
 	i_info("%s", str_c(str));
+}
 
-	t_pop();
+void client_syslog(struct client *client, const char *msg)
+{
+	T_FRAME(
+		client_syslog_real(client, msg);
+	);
 }

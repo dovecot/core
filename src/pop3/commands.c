@@ -517,6 +517,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	};
 	struct var_expand_table *tab;
 	string_t *str;
+	char uid_str[MAX_INT_STRLEN];
 	const char *uidl;
 	int ret;
 	bool found = FALSE;
@@ -525,7 +526,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	memcpy(tab, static_tab, sizeof(static_tab));
 	tab[0].value = t_strdup_printf("%u", client->uid_validity);
 
-	str = str_new(default_pool, 128);
+	str = t_str_new(128);
 	while (mailbox_search_next(ctx->search_ctx, ctx->mail) > 0) {
 		if (client->deleted) {
 			uint32_t idx = ctx->mail->seq - 1;
@@ -535,9 +536,11 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		}
 		found = TRUE;
 
-		t_push();
-		if ((uidl_keymask & UIDL_UID) != 0)
-			tab[1].value = dec2str(ctx->mail->uid);
+		if ((uidl_keymask & UIDL_UID) != 0) {
+			i_snprintf(uid_str, sizeof(uid_str), "%u",
+				   ctx->mail->uid);
+			tab[1].value = uid_str;
+		}
 		if ((uidl_keymask & UIDL_MD5) != 0) {
 			if (mail_get_special(ctx->mail, MAIL_FETCH_HEADER_MD5,
 					     &tab[2].value) < 0 ||
@@ -566,18 +569,14 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		else
 			var_expand(str, uidl_format, tab);
 		ret = client_send_line(client, "%s", str_c(str));
-		t_pop();
-
 		if (ret < 0)
 			break;
 		if (ret == 0 && ctx->message == 0) {
 			/* output is being buffered, continue when there's
 			   more space */
-			str_free(&str);
 			return 0;
 		}
 	}
-	str_free(&str);
 
 	/* finished */
 	mail_free(&ctx->mail);

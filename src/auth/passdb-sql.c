@@ -206,8 +206,6 @@ static int sql_set_credentials(struct auth_request *request,
 	struct passdb_sql_request *sql_request;
 	string_t *query;
 
-	t_push();
-
 	request->mech_password = p_strdup(request->pool, new_credentials);
 
 	query = t_str_new(512);
@@ -223,8 +221,6 @@ static int sql_set_credentials(struct auth_request *request,
 	sql_update(transaction, str_c(query));
 	sql_transaction_commit(&transaction,
 			       sql_set_credentials_callback, sql_request);
-
-	t_pop();
 	return 0;
 }
 

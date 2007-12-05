@@ -353,7 +353,6 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		idx_mail.flags = rec->flags & ~MAIL_RECENT;
 
 		/* get old keywords */
-		t_push();
 		t_array_init(&idx_mail.keywords, 32);
 		mail_index_lookup_keywords(sync_ctx->sync_view,
 					   sync_ctx->idx_seq,
@@ -398,7 +397,6 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		    !index_keyword_array_cmp(&idx_mail.keywords,
 					     &mail_ctx->mail.keywords))
 			mbox_sync_update_index_keywords(mail_ctx);
-		t_pop();
 
 		/* see if we need to update md5 sum. */
 		if (sync_ctx->mbox->mbox_save_md5 != 0)
@@ -1064,8 +1062,11 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		}
 
 		if (!mail_ctx->mail.pseudo) {
-			if (!expunged)
-				mbox_sync_update_index(mail_ctx, rec);
+			if (!expunged) {
+				T_FRAME(
+					mbox_sync_update_index(mail_ctx, rec);
+				);
+			}
 			sync_ctx->idx_seq++;
 		}
 

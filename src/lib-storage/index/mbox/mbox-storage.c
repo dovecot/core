@@ -757,7 +757,6 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	const char *path, *root_dir;
 	size_t len;
 	struct stat st;
-	int ret = 1;
 
 	if (strcmp(fname, MBOX_INDEX_DIR_NAME) == 0) {
 		*flags_r = MAILBOX_NOSELECT;
@@ -792,7 +791,6 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	}
 
 	/* need to stat() then */
-	t_push();
 	path = t_strconcat(dir, "/", fname, NULL);
 	if (stat(path, &st) == 0) {
 		if (S_ISDIR(st.st_mode))
@@ -807,18 +805,17 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				*flags_r &= ~MAILBOX_NOINFERIORS;
 			}
 		}
-	} else if (errno == EACCES || errno == ELOOP)
+		return 1;
+	} else if (errno == EACCES || errno == ELOOP) {
 		*flags_r = MAILBOX_NOSELECT;
-	else if (ENOTFOUND(errno)) {
+		return 1;
+	} else if (ENOTFOUND(errno)) {
 		*flags_r = MAILBOX_NONEXISTENT;
-		ret = 0;
+		return 0;
 	} else {
 		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
-		ret = -1;
+		return -1;
 	}
-	t_pop();
-
-	return ret;
 }
 
 static int mbox_list_delete_mailbox(struct mailbox_list *list,
