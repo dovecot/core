@@ -429,6 +429,8 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 	else if (input->size != 0)
 		return message_decode_body(ctx, input, output);
 	else {
+		output->hdr = NULL;
+		output->size = 0;
 		message_decode_body_init_charset(ctx);
 		return TRUE;
 	}
