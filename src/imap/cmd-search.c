@@ -16,6 +16,8 @@ struct imap_search_context {
 	struct timeout *to;
 	string_t *output_buf;
 
+	struct timeval start_time;
+
 	unsigned int output_sent:1;
 };
 
@@ -29,6 +31,7 @@ imap_search_init(struct client_command_context *cmd, const char *charset,
 	ctx->trans = mailbox_transaction_begin(cmd->client->mailbox, 0);
 	ctx->search_ctx = mailbox_search_init(ctx->trans, charset, sargs, NULL);
 	ctx->mail = mail_alloc(ctx->trans, 0, NULL);
+	(void)gettimeofday(&ctx->start_time, NULL);
 
 	ctx->output_buf = str_new(default_pool, OUTBUF_SIZE);
 	str_append(ctx->output_buf, "* SEARCH");
@@ -63,6 +66,7 @@ static int imap_search_deinit(struct client_command_context *cmd,
 static bool cmd_search_more(struct client_command_context *cmd)
 {
 	struct imap_search_context *ctx = cmd->context;
+	struct timeval end_time;
 	bool tryagain;
 	int ret;
 
@@ -89,6 +93,15 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	if (tryagain)
 		return FALSE;
 
+	if (gettimeofday(&end_time, NULL) < 0)
+		memset(&end_time, 0, sizeof(end_time));
+	end_time.tv_sec -= ctx->start_time.tv_sec;
+	end_time.tv_usec -= ctx->start_time.tv_usec;
+	if (end_time.tv_usec < 0) {
+		end_time.tv_sec++;
+		end_time.tv_usec += 1000000;
+	}
+
 	if (imap_search_deinit(cmd, ctx) < 0)
 		ret = -1;
 
@@ -96,11 +109,13 @@ static bool cmd_search_more(struct client_command_context *cmd)
 		client_send_storage_error(cmd,
 			mailbox_get_storage(cmd->client->mailbox));
 		return TRUE;
-	} else {
-		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
-				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
-				0, "OK Search completed.");
 	}
+
+	return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+			(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES), 0,
+			t_strdup_printf("OK Search completed (%d.%03d secs).",
+					(int)end_time.tv_sec,
+					(int)(end_time.tv_usec/1000)));
 }
 
 static void cmd_search_more_callback(struct client_command_context *cmd)
