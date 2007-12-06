@@ -19,6 +19,8 @@ v1.1.UNSTABLE
 	  Maildir++ layout.
 	+ Out of order command execution (SEARCH, FETCH, LIST), nonstandard
 	  command cancellation (X-CANCEL <tag>)
+	+ IMAP: Non-standard LIST+STATUS combination:
+	  LIST .. RETURN (X-STATUS (status options))
 	+ Expire plugin can be used to keep track of oldest messages in
 	  specific mailboxes. A nightly run can then quickly expunge old
 	  messages from the mailboxes that have them. The tracking is done
