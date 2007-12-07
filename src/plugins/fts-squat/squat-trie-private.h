@@ -118,13 +118,18 @@ struct squat_trie {
 
 	char *path;
 	int fd;
+	struct file_cache *file_cache;
+
 	uoff_t locked_file_size;
+	const void *data;
+	size_t data_size;
 
 	void *mmap_base;
 	size_t mmap_size;
 
 	unsigned char default_normalize_map[256];
 
+	unsigned int mmap_disable:1;
 	unsigned int corrupted:1;
 };
 

@@ -3,9 +3,11 @@
 #include "lib.h"
 #include "array.h"
 #include "bsearch-insert-pos.h"
+#include "file-cache.h"
 #include "file-lock.h"
-#include "ostream.h"
+#include "read-full.h"
 #include "write-full.h"
+#include "ostream.h"
 #include "squat-trie-private.h"
 #include "squat-uidlist.h"
 
@@ -34,6 +36,7 @@ struct squat_uidlist {
 
 	char *path;
 	int fd;
+	struct file_cache *file_cache;
 
 	struct file_lock *file_lock;
 	uoff_t locked_file_size;
@@ -41,6 +44,9 @@ struct squat_uidlist {
 	void *mmap_base;
 	size_t mmap_size;
 	struct squat_uidlist_file_header hdr;
+
+	const void *data;
+	size_t data_size;
 
 	unsigned int cur_block_count;
 	const uint32_t *cur_block_offsets;
@@ -263,32 +269,72 @@ uidlist_write(struct ostream *output, const struct uidlist_list *list,
 	return ret;
 }
 
-static int node_uidlist_map_blocks(struct squat_uidlist *uidlist)
+static void squat_uidlist_map_blocks_set_pointers(struct squat_uidlist *uidlist)
+{
+	const void *base;
+	size_t end_index_size, end_size;
+
+	base = CONST_PTR_OFFSET(uidlist->data, uidlist->hdr.block_list_offset +
+				sizeof(uint32_t));
+
+	end_index_size = uidlist->cur_block_count * sizeof(uint32_t);
+	end_size = end_index_size + uidlist->cur_block_count * sizeof(uint32_t);
+	if (end_size <= uidlist->data_size) {
+		uidlist->cur_block_end_indexes = base;
+		uidlist->cur_block_offsets =
+			CONST_PTR_OFFSET(base, end_index_size);
+	} else {
+		uidlist->cur_block_end_indexes = NULL;
+		uidlist->cur_block_offsets = NULL;
+	}
+}
+
+static int uidlist_file_cache_read(struct squat_uidlist *uidlist,
+				   size_t offset, size_t size)
+{
+	if (uidlist->file_cache == NULL)
+		return 0;
+
+	if (file_cache_read(uidlist->file_cache, offset, size) < 0) {
+		i_error("read(%s) failed: %m", uidlist->path);
+		return -1;
+	}
+	uidlist->data = file_cache_get_map(uidlist->file_cache,
+					   &uidlist->data_size);
+	squat_uidlist_map_blocks_set_pointers(uidlist);
+	return 0;
+}
+
+static int squat_uidlist_map_blocks(struct squat_uidlist *uidlist)
 {
 	const struct squat_uidlist_file_header *hdr = &uidlist->hdr;
 	const void *base;
-	uint32_t block_count, block_end_offset, i, verify_count;
+	uint32_t block_count, blocks_offset, blocks_size, i, verify_count;
 
-	block_end_offset = hdr->block_list_offset + sizeof(block_count);
-	if (block_end_offset > uidlist->mmap_size) {
+	/* get number of blocks */
+	if (uidlist_file_cache_read(uidlist, hdr->block_list_offset,
+				    sizeof(block_count)) < 0)
+		return -1;
+	blocks_offset = hdr->block_list_offset + sizeof(block_count);
+	if (blocks_offset > uidlist->data_size) {
 		squat_uidlist_set_corrupted(uidlist, "block list outside file");
 		return -1;
 	}
 
-	base = CONST_PTR_OFFSET(uidlist->mmap_base, hdr->block_list_offset);
+	base = CONST_PTR_OFFSET(uidlist->data, hdr->block_list_offset);
 	memcpy(&block_count, base, sizeof(block_count));
-	base = CONST_PTR_OFFSET(base, sizeof(block_count));
 
-	block_end_offset += block_count * sizeof(uint32_t)*2;
-	if (block_end_offset > uidlist->mmap_size) {
+	/* map the blocks */
+	blocks_size = block_count * sizeof(uint32_t)*2;
+	if (uidlist_file_cache_read(uidlist, blocks_offset, blocks_size) < 0)
+		return -1;
+	if (blocks_offset + blocks_size > uidlist->data_size) {
 		squat_uidlist_set_corrupted(uidlist, "block list outside file");
 		return -1;
 	}
 
 	uidlist->cur_block_count = block_count;
-	uidlist->cur_block_end_indexes = base;
-	uidlist->cur_block_offsets =
-		CONST_PTR_OFFSET(base, block_count * sizeof(uint32_t));
+	squat_uidlist_map_blocks_set_pointers(uidlist);
 
 	/* verify just a couple of the end indexes to make sure they
 	   look correct */
@@ -319,13 +365,25 @@ static int squat_uidlist_map_header(struct squat_uidlist *uidlist)
 		return -1;
 	}
 	if (uidlist->hdr.used_file_size < sizeof(uidlist->hdr) ||
-	    uidlist->hdr.used_file_size > uidlist->mmap_size) {
+	    (uidlist->hdr.used_file_size > uidlist->mmap_size &&
+	     uidlist->mmap_base != NULL)) {
 		squat_uidlist_set_corrupted(uidlist, "broken used_file_size");
 		return -1;
 	}
-	if (node_uidlist_map_blocks(uidlist) < 0)
-		return -1;
-	return 0;
+	return squat_uidlist_map_blocks(uidlist);
+}
+
+static void squat_uidlist_unmap(struct squat_uidlist *uidlist)
+{
+	if (uidlist->mmap_size != 0) {
+		if (munmap(uidlist->mmap_base, uidlist->mmap_size) < 0)
+			i_error("munmap(%s) failed: %m", uidlist->path);
+		uidlist->mmap_base = NULL;
+		uidlist->mmap_size = 0;
+	}
+	uidlist->cur_block_count = 0;
+	uidlist->cur_block_end_indexes = NULL;
+	uidlist->cur_block_offsets = NULL;
 }
 
 static int squat_uidlist_mmap(struct squat_uidlist *uidlist)
@@ -343,26 +401,26 @@ static int squat_uidlist_mmap(struct squat_uidlist *uidlist)
 		return -1;
 	}
 
-	if (uidlist->mmap_size != 0) {
-		if (munmap(uidlist->mmap_base, uidlist->mmap_size) < 0)
-			i_error("munmap(%s) failed: %m", uidlist->path);
-	}
+	squat_uidlist_unmap(uidlist);
 	uidlist->mmap_size = st.st_size;
 	uidlist->mmap_base = mmap(NULL, uidlist->mmap_size,
 				  PROT_READ | PROT_WRITE,
 				  MAP_SHARED, uidlist->fd, 0);
 	if (uidlist->mmap_base == MAP_FAILED) {
-		uidlist->mmap_base = NULL;
-		uidlist->mmap_size = 0;
+		uidlist->data = uidlist->mmap_base = NULL;
+		uidlist->data_size = uidlist->mmap_size = 0;
 		i_error("mmap(%s) failed: %m", uidlist->path);
 		return -1;
 	}
+	uidlist->data = uidlist->mmap_base;
+	uidlist->data_size = uidlist->mmap_size;
 	return 0;
 }
 
 static int squat_uidlist_map(struct squat_uidlist *uidlist)
 {
 	const struct squat_uidlist_file_header *mmap_hdr = uidlist->mmap_base;
+	int ret;
 
 	if (mmap_hdr != NULL && !uidlist->building &&
 	    uidlist->hdr.block_list_offset == mmap_hdr->block_list_offset) {
@@ -370,15 +428,36 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist)
 		return 0;
 	}
 
-	if (mmap_hdr == NULL || uidlist->building ||
-	    uidlist->mmap_size < mmap_hdr->used_file_size) {
-		if (squat_uidlist_mmap(uidlist) < 0)
-			return -1;
+	if (!uidlist->trie->mmap_disable) {
+		if (mmap_hdr == NULL || uidlist->building ||
+		    uidlist->mmap_size < mmap_hdr->used_file_size) {
+			if (squat_uidlist_mmap(uidlist) < 0)
+				return -1;
+		}
+
+		if (!uidlist->building) {
+			memcpy(&uidlist->hdr, uidlist->mmap_base,
+			       sizeof(uidlist->hdr));
+		}
+	} else if (uidlist->building) {
+		/* we want to update blocks mapping, but using the header
+		   in memory */
+	} else {
+		ret = pread_full(uidlist->fd, &uidlist->hdr,
+				 sizeof(uidlist->hdr), 0);
+		if (ret <= 0) {
+			if (ret < 0) {
+				i_error("pread(%s) failed: %m", uidlist->path);
+				return -1;
+			}
+			i_error("Corrupted %s: File too small", uidlist->path);
+			return 0;
+		}
+		uidlist->data = NULL;
+		uidlist->data_size = 0;
 	}
-
-	if (!uidlist->building)
-		memcpy(&uidlist->hdr, uidlist->mmap_base, sizeof(uidlist->hdr));
-
+	if (uidlist->file_cache == NULL && uidlist->trie->mmap_disable)
+		uidlist->file_cache = file_cache_new(uidlist->fd);
 	return squat_uidlist_map_header(uidlist);
 }
 
@@ -422,26 +501,23 @@ static void squat_uidlist_close(struct squat_uidlist *uidlist)
 {
 	i_assert(!uidlist->building);
 
+	squat_uidlist_unmap(uidlist);
+	if (uidlist->file_cache != NULL)
+		file_cache_free(&uidlist->file_cache);
 	if (uidlist->file_lock != NULL)
 		file_lock_free(&uidlist->file_lock);
-	if (uidlist->mmap_size != 0) {
-		if (munmap(uidlist->mmap_base, uidlist->mmap_size) < 0)
-			i_error("munmap(%s) failed: %m", uidlist->path);
-		uidlist->mmap_base = NULL;
-		uidlist->mmap_size = 0;
-	}
 	if (uidlist->fd != -1) {
 		if (close(uidlist->fd) < 0)
 			i_error("close(%s) failed: %m", uidlist->path);
 		uidlist->fd = -1;
 	}
-	uidlist->cur_block_end_indexes = NULL;
-	uidlist->cur_block_offsets = NULL;
 	uidlist->corrupted = FALSE;
 }
 
 int squat_uidlist_refresh(struct squat_uidlist *uidlist)
 {
+	/* we assume here that trie is locked, so that we don't need to worry
+	   about it when reading the header */
 	if (uidlist->fd == -1 ||
 	    uidlist->hdr.indexid != uidlist->trie->hdr.indexid) {
 		if (squat_uidlist_open(uidlist) < 0)
@@ -1080,26 +1156,38 @@ static void uidlist_array_append_range(ARRAY_TYPE(uint32_t) *uids,
 }
 
 static int
-node_uidlist_get_at_offset(struct squat_uidlist *uidlist, uoff_t offset,
-			   uint32_t num, ARRAY_TYPE(uint32_t) *uids)
+squat_uidlist_get_at_offset(struct squat_uidlist *uidlist, uoff_t offset,
+			    uint32_t num, ARRAY_TYPE(uint32_t) *uids)
 {
 	const uint8_t *p, *end;
 	uint32_t size, base_uid;
+	uoff_t uidlist_data_offset;
 	unsigned int i, j, extra = 0;
 
-	p = CONST_PTR_OFFSET(uidlist->mmap_base, offset);
-	end = CONST_PTR_OFFSET(uidlist->mmap_base, uidlist->mmap_size);
-
-	if (num == 0) {
+	if (num != 0)
+		uidlist_data_offset = offset;
+	else {
 		/* not given, read it */
+		if (uidlist_file_cache_read(uidlist, offset,
+					    SQUAT_PACK_MAX_SIZE) < 0)
+			return -1;
+
+		p = CONST_PTR_OFFSET(uidlist->data, offset);
+		end = CONST_PTR_OFFSET(uidlist->data, uidlist->data_size);
 		num = squat_unpack_num(&p, end);
+		uidlist_data_offset = p - (const uint8_t *)uidlist->data;
 	}
 	size = num >> 2;
-	if (p + size > end) {
+
+	if (uidlist_file_cache_read(uidlist, uidlist_data_offset, size) < 0)
+		return -1;
+	if (uidlist_data_offset + size > uidlist->data_size) {
 		squat_uidlist_set_corrupted(uidlist,
 					    "size points outside file");
 		return -1;
 	}
+
+	p = CONST_PTR_OFFSET(uidlist->data, uidlist_data_offset);
 	end = p + size;
 
 	if ((num & UIDLIST_PACKED_FLAG_BEGINS_WITH_POINTER) != 0) {
@@ -1113,8 +1201,8 @@ node_uidlist_get_at_offset(struct squat_uidlist *uidlist, uoff_t offset,
 				return -1;
 		} else {
 			prev = offset - (prev >> 1);
-			if (node_uidlist_get_at_offset(uidlist, prev,
-						       0, uids) < 0)
+			if (squat_uidlist_get_at_offset(uidlist, prev,
+							0, uids) < 0)
 				return -1;
 		}
 	}
@@ -1160,12 +1248,13 @@ static int uint32_cmp(const void *key, const void *data)
 }
 
 static int
-node_uidlist_get_offset(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
-			uint32_t *offset_r, uint32_t *num_r)
+squat_uidlist_get_offset(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
+			 uint32_t *offset_r, uint32_t *num_r)
 {
 	const uint8_t *p, *end;
 	unsigned int idx;
 	uint32_t num, skip_bytes, uidlists_offset;
+	size_t max_map_size;
 
 	if (uidlist->fd == -1) {
 		squat_uidlist_set_corrupted(uidlist, "no uidlists");
@@ -1186,14 +1275,19 @@ node_uidlist_get_offset(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 		return -1;
 	}
 
+	/* make sure everything is mapped */
+	uid_list_idx -= idx == 0 ? 0 : uidlist->cur_block_end_indexes[idx-1];
+	max_map_size = SQUAT_PACK_MAX_SIZE * (1+uid_list_idx);
+	if (uidlist_file_cache_read(uidlist, uidlist->cur_block_offsets[idx],
+				    max_map_size) < 0)
+		return -1;
+
 	/* find the uidlist inside the block */
-	p = CONST_PTR_OFFSET(uidlist->mmap_base,
-			     uidlist->cur_block_offsets[idx]);
-	end = CONST_PTR_OFFSET(uidlist->mmap_base, uidlist->mmap_size);
+	p = CONST_PTR_OFFSET(uidlist->data, uidlist->cur_block_offsets[idx]);
+	end = CONST_PTR_OFFSET(uidlist->data, uidlist->data_size);
 
 	uidlists_offset = uidlist->cur_block_offsets[idx] -
 		squat_unpack_num(&p, end);
-	uid_list_idx -= idx == 0 ? 0 : uidlist->cur_block_end_indexes[idx-1];
 	for (skip_bytes = 0; uid_list_idx > 0; uid_list_idx--) {
 		num = squat_unpack_num(&p, end);
 		skip_bytes += num >> 2;
@@ -1201,7 +1295,12 @@ node_uidlist_get_offset(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 	*offset_r = uidlists_offset + skip_bytes;
 	*num_r = squat_unpack_num(&p, end);
 
-	if (unlikely(*offset_r > uidlist->mmap_size)) {
+	if (unlikely(p == end)) {
+		squat_uidlist_set_corrupted(uidlist, "broken file");
+		return -1;
+	}
+	if (unlikely(*offset_r > uidlist->mmap_size &&
+		     uidlist->mmap_base != NULL)) {
 		squat_uidlist_set_corrupted(uidlist, "broken offset");
 		return -1;
 	}
@@ -1229,9 +1328,9 @@ int squat_uidlist_get(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 	}
 
 	uid_list_idx = (uid_list_idx >> 1) - 0x100;
-	if (node_uidlist_get_offset(uidlist, uid_list_idx, &offset, &num) < 0)
+	if (squat_uidlist_get_offset(uidlist, uid_list_idx, &offset, &num) < 0)
 		return -1;
-	return node_uidlist_get_at_offset(uidlist, offset, num, uids);
+	return squat_uidlist_get_at_offset(uidlist, offset, num, uids);
 }
 
 uint32_t squat_uidlist_singleton_last_uid(uint32_t uid_list_idx)

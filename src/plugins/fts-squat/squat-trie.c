@@ -3,9 +3,11 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "read-full.h"
 #include "istream.h"
 #include "ostream.h"
 #include "unichar.h"
+#include "file-cache.h"
 #include "seq-range-array.h"
 #include "squat-uidlist.h"
 #include "squat-trie-private.h"
@@ -13,9 +15,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <time.h>
 #include <sys/mman.h>
 
 #define DEFAULT_NORMALIZE_MAP_CHARS \
@@ -25,6 +24,11 @@
 
 #define MAX_FAST_LEVEL 3
 #define SEQUENTIAL_COUNT 46
+
+#define TRIE_BYTES_LEFT(n) \
+	((n) * SQUAT_PACK_MAX_SIZE)
+#define TRIE_READAHEAD_SIZE \
+	I_MAX(4096, 1 + 256 + TRIE_BYTES_LEFT(256))
 
 struct squat_trie_build_context {
 	struct squat_trie *trie;
@@ -130,6 +134,7 @@ squat_trie_init(const char *path, uint32_t uidvalidity,
 	trie->fd = -1;
 	trie->lock_method = lock_method;
 	trie->uidvalidity = uidvalidity;
+	trie->mmap_disable = mmap_disable;
 	squat_trie_normalize_map_build(trie);
 	return trie;
 }
@@ -141,6 +146,11 @@ static void squat_trie_close(struct squat_trie *trie)
 	memset(&trie->root, 0, sizeof(trie->root));
 	memset(&trie->hdr, 0, sizeof(trie->hdr));
 
+	trie->data = NULL;
+	trie->data_size = 0;
+
+	if (trie->file_cache != NULL)
+		file_cache_free(&trie->file_cache);
 	if (trie->mmap_size != 0) {
 		if (munmap(trie->mmap_base, trie->mmap_size) < 0)
 			i_error("munmap(%s) failed: %m", trie->path);
@@ -342,6 +352,20 @@ node_add_child(struct squat_trie *trie, struct squat_node *node,
 }
 
 static int
+trie_file_cache_read(struct squat_trie *trie, size_t offset, size_t size)
+{
+	if (trie->file_cache == NULL)
+		return 0;
+
+	if (file_cache_read(trie->file_cache, offset, size) < 0) {
+		i_error("read(%s) failed: %m", trie->path);
+		return -1;
+	}
+	trie->data = file_cache_get_map(trie->file_cache, &trie->data_size);
+	return 0;
+}
+
+static int
 node_read_children(struct squat_trie *trie, struct squat_node *node, int level)
 {
 	const uint8_t *data, *end;
@@ -355,21 +379,24 @@ node_read_children(struct squat_trie *trie, struct squat_node *node, int level)
 	i_assert(node->children_not_mapped);
 	i_assert(!node->have_sequential);
 	i_assert(trie->unmapped_child_count > 0);
+	i_assert(trie->data_size <= trie->locked_file_size);
 
 	trie->unmapped_child_count--;
 	node_offset = node->children.offset;
 	node->children_not_mapped = FALSE;
 	node->children.data = NULL;
 
-	if (unlikely(node_offset >= trie->mmap_size)) {
+	if (trie_file_cache_read(trie, node_offset, TRIE_READAHEAD_SIZE) < 0)
+		return -1;
+	if (unlikely(node_offset >= trie->data_size)) {
 		squat_trie_set_corrupted(trie);
 		return -1;
 	}
 
-	data = CONST_PTR_OFFSET(trie->mmap_base, node_offset);
-	end = CONST_PTR_OFFSET(trie->mmap_base, trie->mmap_size);
+	data = CONST_PTR_OFFSET(trie->data, node_offset);
+	end = CONST_PTR_OFFSET(trie->data, trie->data_size);
 	child_count = *data++;
-	if (unlikely(node_offset + child_count >= trie->mmap_size)) {
+	if (unlikely(node_offset + child_count >= trie->data_size)) {
 		squat_trie_set_corrupted(trie);
 		return -1;
 	}
@@ -404,7 +431,7 @@ node_read_children(struct squat_trie *trie, struct squat_node *node, int level)
 			} else {
 				base_offset -= num >> 1;
 			}
-			if (base_offset >= trie->mmap_size) {
+			if (base_offset >= trie->locked_file_size) {
 				squat_trie_set_corrupted(trie);
 				return -1;
 			}
@@ -447,6 +474,24 @@ node_read_children(struct squat_trie *trie, struct squat_node *node, int level)
 				dest = child->children.leaf_string =
 					i_malloc(len);
 			}
+
+			if (trie->file_cache != NULL) {
+				/* the string may be long -
+				   recalculate the end pos */
+				size_t offset, size;
+
+				offset = (const char *)data -
+					(const char *)trie->data;
+				size = len + TRIE_BYTES_LEFT(child_count - i);
+
+				if (trie_file_cache_read(trie, offset,
+							 size) < 0)
+					return -1;
+				data = CONST_PTR_OFFSET(trie->data, offset);
+				end = CONST_PTR_OFFSET(trie->data,
+						       trie->data_size);
+			}
+
 			if (end - data < len) {
 				squat_trie_set_corrupted(trie);
 				return -1;
@@ -454,6 +499,11 @@ node_read_children(struct squat_trie *trie, struct squat_node *node, int level)
 			memcpy(dest, data, len);
 			data += len;
 		}
+	}
+	if (unlikely(data == end)) {
+		/* we should never get this far */
+		squat_trie_set_corrupted(trie);
+		return -1;
 	}
 	return 0;
 }
@@ -1092,38 +1142,52 @@ static bool squat_trie_check_header(struct squat_trie *trie)
 
 static int squat_trie_map_header(struct squat_trie *trie)
 {
+	int ret;
+
 	if (trie->locked_file_size == 0) {
 		/* newly created file */
-		squat_trie_header_init(trie);
-		return 0;
+		return 1;
 	}
 	i_assert(trie->fd != -1);
 
-	if (trie->mmap_size != 0) {
-		if (munmap(trie->mmap_base, trie->mmap_size) < 0)
-			i_error("munmap(%s) failed: %m", trie->path);
+	if (trie->mmap_disable) {
+		ret = pread_full(trie->fd, &trie->hdr, sizeof(trie->hdr), 0);
+		if (ret <= 0) {
+			if (ret < 0) {
+				i_error("pread(%s) failed: %m", trie->path);
+				return -1;
+			}
+			i_error("Corrupted %s: File too small", trie->path);
+			return 0;
+		}
+		trie->data = NULL;
+		trie->data_size = 0;
+	} else {
+		if (trie->locked_file_size < sizeof(trie->hdr)) {
+			i_error("Corrupted %s: File too small", trie->path);
+			return 0;
+		}
+		if (trie->mmap_size != 0) {
+			if (munmap(trie->mmap_base, trie->mmap_size) < 0)
+				i_error("munmap(%s) failed: %m", trie->path);
+		}
+
+		trie->mmap_size = trie->locked_file_size;
+		trie->mmap_base = mmap(NULL, trie->mmap_size,
+				       PROT_READ | PROT_WRITE,
+				       MAP_SHARED, trie->fd, 0);
+		if (trie->mmap_base == MAP_FAILED) {
+			trie->data = trie->mmap_base = NULL;
+			trie->data_size = trie->mmap_size = 0;
+			i_error("mmap(%s) failed: %m", trie->path);
+			return -1;
+		}
+		memcpy(&trie->hdr, trie->mmap_base, sizeof(trie->hdr));
+		trie->data = trie->mmap_base;
+		trie->data_size = trie->mmap_size;
 	}
 
-	trie->mmap_size = trie->locked_file_size;
-	trie->mmap_base = mmap(NULL, trie->mmap_size, PROT_READ | PROT_WRITE,
-			       MAP_SHARED, trie->fd, 0);
-	if (trie->mmap_base == MAP_FAILED) {
-		trie->mmap_base = NULL;
-		trie->mmap_size = 0;
-		i_error("mmap(%s) failed: %m", trie->path);
-		return -1;
-	}
-	memcpy(&trie->hdr, trie->mmap_base, sizeof(trie->hdr));
-
-	if (trie->hdr.root_offset == 0)
-		return 0;
-	if (!squat_trie_check_header(trie)) {
-		squat_trie_delete(trie);
-		squat_trie_close(trie);
-		squat_trie_header_init(trie);
-		return 0;
-	}
-	return 0;
+	return squat_trie_check_header(trie) ? 1 : 0;
 }
 
 static int squat_trie_map(struct squat_trie *trie, bool building)
@@ -1135,9 +1199,17 @@ static int squat_trie_map(struct squat_trie *trie, bool building)
 	if (trie->fd != -1) {
 		if (squat_trie_lock(trie, F_RDLCK, &file_lock) <= 0)
 			return -1;
+		if (trie->mmap_disable && trie->file_cache == NULL)
+			trie->file_cache = file_cache_new(trie->fd);
 	}
 
 	ret = squat_trie_map_header(trie);
+	if (ret == 0) {
+		file_lock_free(&file_lock);
+		squat_trie_delete(trie);
+		squat_trie_close(trie);
+		squat_trie_header_init(trie);
+	}
 	changed = trie->root.children.offset != trie->hdr.root_offset;
 
 	if (changed || trie->hdr.root_offset == 0) {
@@ -1157,7 +1229,7 @@ static int squat_trie_map(struct squat_trie *trie, bool building)
 		}
 	}
 
-	if (ret == 0 && !building) {
+	if (ret >= 0 && !building) {
 		/* do this while we're still locked */
 		ret = squat_uidlist_refresh(trie->uidlist);
 	}
@@ -1266,6 +1338,10 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 	ctx->output = output;
 	ret = squat_write_nodes(ctx);
 	ctx->output = NULL;
+
+	/* write 1 byte guard at the end of file, so that we can verify broken
+	   squat_unpack_num() input by checking if data==end */
+	o_stream_send(output, "", 1);
 
 	if (trie->corrupted)
 		ret = -1;
