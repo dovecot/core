@@ -1631,8 +1631,8 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 	ctx.type = type;
 	ctx.definite_uids = definite_uids;
 	ctx.maybe_uids = maybe_uids;
-	t_array_init(&ctx.tmp_uids, 128);
-	t_array_init(&ctx.tmp_uids2, 128);
+	i_array_init(&ctx.tmp_uids, 128);
+	i_array_init(&ctx.tmp_uids2, 128);
 	ctx.first = TRUE;
 
 	str_bytelen = strlen(str);
@@ -1667,31 +1667,32 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 							char_lengths,
 							i - start);
 		}
-		squat_trie_add_unknown(trie, maybe_uids);
-		return ret < 0 ? -1 : 0;
-	}
-
-	if (str_charlen <= trie->hdr.partial_len ||
-	    trie->hdr.full_len > trie->hdr.partial_len) {
-		ret = squat_trie_lookup_data(trie, data, str_bytelen,
-					     &ctx.tmp_uids);
-		if (ret > 0) {
-			squat_trie_filter_type(type, &ctx.tmp_uids,
-					       definite_uids);
+	} else {
+		if (str_charlen <= trie->hdr.partial_len ||
+		    trie->hdr.full_len > trie->hdr.partial_len) {
+			ret = squat_trie_lookup_data(trie, data, str_bytelen,
+						     &ctx.tmp_uids);
+			if (ret > 0) {
+				squat_trie_filter_type(type, &ctx.tmp_uids,
+						       definite_uids);
+			}
+		} else {
+			array_clear(definite_uids);
 		}
-	} else {
-		array_clear(definite_uids);
-	}
 
-	if (str_charlen <= trie->hdr.partial_len ||
-	    trie->hdr.partial_len == 0) {
-		/* we have the result */
-		array_clear(maybe_uids);
-	} else {
-		ret = squat_trie_lookup_partial(&ctx, data + start,
-						char_lengths, i - start);
+		if (str_charlen <= trie->hdr.partial_len ||
+		    trie->hdr.partial_len == 0) {
+			/* we have the result */
+			array_clear(maybe_uids);
+		} else {
+			ret = squat_trie_lookup_partial(&ctx, data + start,
+							char_lengths,
+							i - start);
+		}
 	}
 	squat_trie_add_unknown(trie, maybe_uids);
+	array_free(&ctx.tmp_uids);
+	array_free(&ctx.tmp_uids2);
 	return ret < 0 ? -1 : 0;
 }
 

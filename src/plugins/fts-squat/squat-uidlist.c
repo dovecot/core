@@ -1364,22 +1364,24 @@ int squat_uidlist_get_seqrange(struct squat_uidlist *uidlist,
 	struct seq_range range;
 	const uint32_t *tmp_uids;
 	unsigned int i, count;
+	int ret;
 
-	t_array_init(&tmp_uid_arr, 128);
-	if (squat_uidlist_get(uidlist, uid_list_idx, &tmp_uid_arr) < 0)
-		return -1;
-
-	tmp_uids = array_get(&tmp_uid_arr, &count);
-	for (i = 0; i < count; i++) {
-		if ((tmp_uids[i] & UID_LIST_MASK_RANGE) == 0)
-			range.seq1 = range.seq2 = tmp_uids[i];
-		else {
-			range.seq1 = tmp_uids[i] & ~UID_LIST_MASK_RANGE;
-			range.seq2 = tmp_uids[++i];
+	i_array_init(&tmp_uid_arr, 128);
+	ret = squat_uidlist_get(uidlist, uid_list_idx, &tmp_uid_arr);
+	if (ret == 0) {
+		tmp_uids = array_get(&tmp_uid_arr, &count);
+		for (i = 0; i < count; i++) {
+			if ((tmp_uids[i] & UID_LIST_MASK_RANGE) == 0)
+				range.seq1 = range.seq2 = tmp_uids[i];
+			else {
+				range.seq1 = tmp_uids[i] & ~UID_LIST_MASK_RANGE;
+				range.seq2 = tmp_uids[++i];
+			}
+			array_append(seq_range_arr, &range, 1);
 		}
-		array_append(seq_range_arr, &range, 1);
 	}
-	return 0;
+	array_free(&tmp_uid_arr);
+	return ret;
 }
 
 int squat_uidlist_filter(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
