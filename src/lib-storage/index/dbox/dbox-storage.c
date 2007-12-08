@@ -430,11 +430,15 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 static void dbox_notify_changes(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
+	const char *path;
 
 	if (box->notify_callback == NULL)
 		index_mailbox_check_remove_all(&mbox->ibox);
-	else
-		index_mailbox_check_add(&mbox->ibox, mbox->path);
+	else {
+		path = t_strdup_printf("%s/"DBOX_INDEX_PREFIX".log",
+				       mbox->path);
+		index_mailbox_check_add(&mbox->ibox, path);
+	}
 }
 
 static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
