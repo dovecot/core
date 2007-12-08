@@ -36,7 +36,7 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 	}
 }
 
-static gid_t *get_groups_list(int *gid_count_r)
+static gid_t *get_groups_list(unsigned int *gid_count_r)
 {
 	gid_t *gid_list;
 	int ret, gid_count;
@@ -53,39 +53,31 @@ static gid_t *get_groups_list(int *gid_count_r)
 	return gid_list;
 }
 
-static void drop_restricted_groups(bool *have_root_group)
+static bool drop_restricted_groups(gid_t *gid_list, unsigned int *gid_count,
+				   bool *have_root_group)
 {
 	/* @UNSAFE */
+	gid_t first_valid, last_valid;
 	const char *env;
-	gid_t *gid_list, first_valid_gid, last_valid_gid;
-	int i, used, gid_count;
+	unsigned int i, used;
 
 	env = getenv("RESTRICT_GID_FIRST");
-	first_valid_gid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
+	first_valid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
 	env = getenv("RESTRICT_GID_LAST");
-	last_valid_gid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
+	last_valid = env == NULL ? (gid_t)-1 : (gid_t)strtoul(env, NULL, 10);
 
-	if (first_valid_gid == 0 && last_valid_gid == 0)
-		return;
-
-	gid_list = get_groups_list(&gid_count);
-
-	for (i = 0, used = 0; i < gid_count; i++) {
-		if (gid_list[i] >= first_valid_gid &&
-		    (last_valid_gid == 0 || gid_list[i] <= last_valid_gid)) {
+	for (i = 0, used = 0; i < *gid_count; i++) {
+		if (gid_list[i] >= first_valid &&
+		    (last_valid == (gid_t)-1 || gid_list[i] <= last_valid)) {
 			if (gid_list[i] == 0)
 				*have_root_group = TRUE;
 			gid_list[used++] = gid_list[i];
 		}
 	}
-
-	if (used != gid_count) {
-		/* it did contain restricted groups, remove it */
-		if (setgroups(used, gid_list) < 0) {
-			i_fatal("Couldn't drop restricted groups: "
-				"setgroups() failed: %m");
-		}
-	}
+	if (*gid_count == used)
+		return FALSE;
+	*gid_count = used;
+	return TRUE;
 }
 
 static gid_t get_group_id(const char *name)
@@ -101,26 +93,42 @@ static gid_t get_group_id(const char *name)
 	return group->gr_gid;
 }
 
-static void grant_extra_groups(const char *groups)
+static void fix_groups_list(const char *extra_groups,
+			    bool preserve_existing, bool *have_root_group)
 {
-	const char *const *tmp;
 	gid_t *gid_list;
-	int gid_count;
+	const char *const *tmp, *empty = NULL;
+	unsigned int gid_count;
 
-	tmp = t_strsplit(groups, ", ");
-	gid_list = get_groups_list(&gid_count);
+	tmp = extra_groups == NULL ? &empty :
+		t_strsplit_spaces(extra_groups, ", ");
+
+	if (preserve_existing) {
+		gid_list = get_groups_list(&gid_count);
+		if (!drop_restricted_groups(gid_list, &gid_count,
+					    have_root_group) &&
+		    *tmp == NULL) {
+			/* nothing dropped, no extra groups to grant. */
+			return;
+		}
+	} else {
+		gid_list = t_new(gid_t, 1);
+		gid_count = 0;
+	}
+
+	/* add extra groups to gids list */
 	for (; *tmp != NULL; tmp++) {
-		if (**tmp == '\0')
-			continue;
-
 		if (!t_try_realloc(gid_list, (gid_count+1) * sizeof(gid_t)))
 			i_unreached();
 		gid_list[gid_count++] = get_group_id(*tmp);
 	}
-
 	if (setgroups(gid_count, gid_list) < 0) {
-		i_fatal("Couldn't set mail_extra_groups: "
-			"setgroups(%s) failed: %m", groups);
+		if (errno == EINVAL) {
+			i_fatal("setgroups(%s) failed: Too many extra groups",
+				extra_groups == NULL ? "" : extra_groups);
+		} else {
+			i_fatal("setgroups() failed: %m");
+		}
 	}
 }
 
@@ -129,45 +137,39 @@ void restrict_access_by_env(bool disallow_root)
 	const char *env;
 	gid_t gid;
 	uid_t uid;
-	bool have_root_group;
+	bool is_root, have_root_group, preserve_groups = FALSE;
 
-	/* groups - the getgid() checks are just so we don't fail if we're
-	   not running as root and try to just use our own GID. Do this
-	   before chrooting so initgroups() actually works. */
+	is_root = geteuid() == 0;
+
+	/* set the primary group */
 	env = getenv("RESTRICT_SETGID");
-	gid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
+	gid = env == NULL || *env == '\0' ? (gid_t)-1 :
+		(gid_t)strtoul(env, NULL, 10);
 	have_root_group = gid == 0;
-	if (gid != 0 && (gid != getgid() || gid != getegid())) {
+	if (gid != (gid_t)-1 && (gid != getgid() || gid != getegid())) {
 		if (setgid(gid) != 0) {
 			i_fatal("setgid(%s) failed with euid=%s, egid=%s: %m",
 				dec2str(gid), dec2str(geteuid()),
 				dec2str(getegid()));
 		}
-
-		env = getenv("RESTRICT_USER");
-		if (env == NULL || *env == '\0') {
-			/* user not known, use only this one group */
-			if (setgroups(1, &gid) < 0) {
-				i_fatal("setgroups(%s) failed: %m",
-					dec2str(gid));
-			}
-		} else {
-			if (initgroups(env, gid) != 0) {
-				i_fatal("initgroups(%s, %s) failed: %m",
-					env, dec2str(gid));
-			}
-
-			T_FRAME(
-				drop_restricted_groups(&have_root_group);
-			);
-		}
 	}
 
-	/* grant additional groups to process */
+	/* set system user's groups */
+	env = getenv("RESTRICT_USER");
+	if (env != NULL && *env != '\0' && is_root) {
+		if (initgroups(env, gid) < 0) {
+			i_fatal("initgroups(%s, %s) failed: %m",
+				env, dec2str(gid));
+		}
+		preserve_groups = TRUE;
+	}
+
+	/* add extra groups. if we set system user's groups, drop the
+	   restricted groups at the same time. */
 	env = getenv("RESTRICT_SETEXTRAGROUPS");
-	if (env != NULL && *env != '\0') {
+	if (is_root) {
 		T_FRAME(
-			grant_extra_groups(env);
+			fix_groups_list(env, preserve_groups, &have_root_group);
 		);
 	}
 
@@ -197,7 +199,7 @@ void restrict_access_by_env(bool disallow_root)
 
 	/* uid last */
 	env = getenv("RESTRICT_SETUID");
-	uid = env == NULL ? 0 : (uid_t)strtoul(env, NULL, 10);
+	uid = env == NULL || *env == '\0' ? 0 : (uid_t)strtoul(env, NULL, 10);
 	if (uid != 0) {
 		if (setuid(uid) != 0) {
 			i_fatal("setuid(%s) failed with euid=%s: %m",
