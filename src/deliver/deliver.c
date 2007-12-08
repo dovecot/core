@@ -48,6 +48,11 @@
    where to read the mail. */
 #define MAIL_MAX_MEMORY_BUFFER (1024*128)
 
+static const char *wanted_headers[] = {
+	"From", "Message-ID", "Subject", "Return-Path",
+	NULL
+};
+
 struct deliver_settings *deliver_set;
 deliver_mail_func_t *deliver_mail = NULL;
 
@@ -73,6 +78,46 @@ static void sig_die(int signo, void *context ATTR_UNUSED)
 	io_loop_stop(ioloop);
 }
 
+static const char *deliver_get_address(struct mail *mail, const char *header)
+{
+	struct message_address *addr;
+	const char *str;
+
+	if (explicit_envelope_sender != NULL)
+		return explicit_envelope_sender;
+
+	if (mail_get_first_header(mail, header, &str) <= 0)
+		return NULL;
+	addr = message_address_parse(pool_datastack_create(),
+				     (const unsigned char *)str,
+				     strlen(str), 1, FALSE);
+	return addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
+		*addr->mailbox == '\0' || *addr->domain == '\0' ?
+		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
+}
+
+static const struct var_expand_table *
+get_log_var_expand_table(struct mail *mail, const char *message)
+{
+	static struct var_expand_table static_tab[] = {
+		{ '$', NULL },
+		{ 'm', NULL },
+		{ 's', NULL },
+		{ 'f', NULL },
+		{ '\0', NULL }
+	};
+	struct var_expand_table *tab;
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+
+	tab[0].value = message;
+	(void)mail_get_first_header(mail, "Message-ID", &tab[1].value);
+	(void)mail_get_first_header(mail, "Subject", &tab[2].value);
+	tab[3].value = deliver_get_address(mail, "From");
+	return tab;
+}
+
 static void
 deliver_log(struct mail *mail, const char *fmt, ...) ATTR_FORMAT(2, 3);
 
@@ -80,16 +125,14 @@ static void deliver_log(struct mail *mail, const char *fmt, ...)
 {
 	va_list args;
 	string_t *str;
-	const char *msgid;
+	const char *msg;
 
 	va_start(args, fmt);
+	msg = t_strdup_vprintf(fmt, args);
+
 	str = t_str_new(256);
-
-	if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
-		msgid = "";
-	str_printfa(str, "msgid=%s: ", str_sanitize(msgid, 80));
-
-	str_vprintfa(str, fmt, args);
+	var_expand(str, deliver_set->log_format,
+		   get_log_var_expand_table(mail, msg));
 	i_info("%s", str_c(str));
 	va_end(args);
 }
@@ -185,20 +228,7 @@ int deliver_save(struct mail_namespace *namespaces,
 
 const char *deliver_get_return_address(struct mail *mail)
 {
-	struct message_address *addr;
-	const char *str;
-
-	if (explicit_envelope_sender != NULL)
-		return explicit_envelope_sender;
-
-	if (mail_get_first_header(mail, "Return-Path", &str) <= 0)
-		return NULL;
-	addr = message_address_parse(pool_datastack_create(),
-				     (const unsigned char *)str,
-				     strlen(str), 1, FALSE);
-	return addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
-		*addr->mailbox == '\0' || *addr->domain == '\0' ?
-		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
+	return deliver_get_address(mail, "Return-Path");
 }
 
 const char *deliver_get_new_message_id(void)
@@ -671,6 +701,7 @@ int main(int argc, char *argv[])
 	struct raw_mailbox *raw_box;
 	struct istream *input;
 	struct mailbox_transaction_context *t;
+	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail *mail;
 	uid_t process_euid;
 	pool_t namespace_pool;
@@ -859,6 +890,9 @@ int main(int argc, char *argv[])
 		deliver_set->rejection_reason =
 			DEFAULT_MAIL_REJECTION_HUMAN_REASON;
 	}
+	deliver_set->log_format = getenv("DELIVER_LOG_FORMAT");
+	if (deliver_set->log_format == NULL)
+		deliver_set->log_format = DEFAULT_LOG_FORMAT;
 
 	dict_driver_register(&dict_driver_client);
         duplicate_init();
@@ -892,7 +926,8 @@ int main(int argc, char *argv[])
 	raw_box->envelope_sender = envelope_sender;
 
 	t = mailbox_transaction_begin(box, 0);
-	mail = mail_alloc(t, 0, NULL);
+	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
+	mail = mail_alloc(t, 0, headers_ctx);
 	mail_set_seq(mail, 1);
 
 	storage = NULL;
@@ -958,6 +993,7 @@ int main(int argc, char *argv[])
 	i_stream_unref(&input);
 
 	mail_free(&mail);
+	mailbox_header_lookup_deinit(&headers_ctx);
 	mailbox_transaction_rollback(&t);
 	mailbox_close(&box);
 
