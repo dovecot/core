@@ -207,65 +207,6 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 	ctx->translation_size = 0;
 }
 
-static inline unsigned int
-is_valid_utf8_seq(const unsigned char *input, unsigned int size)
-{
-	size_t i, len;
-
-	len = uni_utf8_char_bytes(input[0]);
-	if (unlikely(len > size))
-		return 0;
-
-	for (i = 0; i < len; i++) {
-		if (unlikely(uni_utf8_char_bytes(input[i]) != len-i))
-			return 0;
-	}
-	return len;
-}
-
-static const unsigned char *
-get_valid_utf8(const unsigned char *input, size_t size, buffer_t *tmpbuf,
-	       size_t *output_size_r)
-{
-	size_t i, len;
-
-	/* find the first invalid utf8 sequence */
-	for (i = 0; i < size;) {
-		if (input[i] < 0x80)
-			i++;
-		else {
-			len = is_valid_utf8_seq(input + i, size-i);
-			if (unlikely(len == 0))
-				goto broken;
-			i += len;
-		}
-	}
-	/* we can use it as-is */
-	*output_size_r = size;
-	return input;
-broken:
-	/* broken utf-8 input - skip the broken characters */
-	buffer_set_used_size(tmpbuf, 0);
-	buffer_append(tmpbuf, input, i++);
-
-	while (i < size) {
-		if (input[i] < 0x80) {
-			buffer_append_c(tmpbuf, input[i++]);
-			continue;
-		}
-
-		len = is_valid_utf8_seq(input + i, size-i);
-		if (len == 0) {
-			i++;
-			continue;
-		}
-		buffer_append(tmpbuf, input + i, len);
-		i += len;
-	}
-	*output_size_r = tmpbuf->used;
-	return tmpbuf->data;
-}
-
 static void message_decode_body_init_charset(struct message_decoder_context *ctx)
 {
 	enum charset_flags flags;
@@ -382,13 +323,14 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 			output->data = ctx->buf2->data;
 			output->size = ctx->buf2->used;
 		} else {
-			output->data = get_valid_utf8(data, size, ctx->buf2,
-						      &output->size);
+			output->data =
+				uni_utf8_get_valid_data(data, size, ctx->buf2,
+							&output->size);
 		}
 	} else if (ctx->charset_trans == NULL) {
 		/* unknown charset */
-		output->data = get_valid_utf8(data, size, ctx->buf2,
-					      &output->size);
+		output->data = uni_utf8_get_valid_data(data, size, ctx->buf2,
+						       &output->size);
 	} else {
 		buffer_set_used_size(ctx->buf2, 0);
 		if (ctx->translation_size != 0)
