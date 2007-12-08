@@ -1,30 +1,17 @@
 /* Copyright (c) 2006-2007 Dovecot authors, see the included COPYING file */
 
-/* The idea in here is that for each used primary sort condition there's
-   a 32bit integer in the index file which specifies the sort order. So when
-   sorting we simply look up the sort IDs and sort the messages by them.
+/* The idea in here is that we use a 32bit integer (sort ID) which specifies
+   the sort order for primary sort condition. With fixed size fields (time,
+   size) we use the field itself as the sort ID. They can be looked up fast
+   enough from cache file, so we don't add them to index file.
 
-   Sort IDs are allocated in two ways:
-
-   1) Time and size fields can be directly used as sort IDs, so we simply
-   use them directly as the missing sort IDs.
-
-   2) Strings can't be used as sort IDs directly. The way they're currently
+   Strings can't be used as sort IDs directly. The way they're currently
    handled is that the whole 32bit integer space is used for them and whenever
    adding a string, the available space is halved and the new ID is added in
    the middle. For example if we add one mail the first time, it gets ID
    2^31. If we then add two mails which are sorted before the first one, they
    get IDs 2^31/3 and 2^31/3*2. Once we run out of the available space between
    IDs, a large amount of the IDs are renumbered.
-
-   We try to avoid looking at mails' contents as much as possible. For case 1)
-   IDs it's simple because we need to get only the new mails' sort fields once
-   and use them as sort IDs. For case 2) we'll have to start looking at the
-   strings from older mails as well. To minimize this, we first sort the
-   existing sort IDs. After that we start inserting the new mails into the
-   sorted array by looking the position using binary search. This minimizes
-   the number of lookups we have to do for the old mails. Usually only a few
-   mails have been added, so this should be faster than other sort methods.
 */
 
 #include "lib.h"
@@ -59,6 +46,7 @@ struct mail_search_sort_program {
 
 	uint32_t ext_id;
 	unsigned int first_missing_sort_id_idx;
+	uint32_t (*get_sort_id)(struct mail *);
 
 	unsigned int reverse:1;
 	unsigned int sort_ids_added:1;
@@ -72,13 +60,17 @@ struct sort_cmp_context {
 
 static struct sort_cmp_context static_node_cmp_context;
 
+static uint32_t sort_get_arrival(struct mail *mail);
+static uint32_t sort_get_date(struct mail *mail);
+static uint32_t sort_get_size(struct mail *mail);
+
 struct mail_search_sort_program *
 index_sort_program_init(struct mailbox_transaction_context *t,
 			const enum mail_sort_type *sort_program)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)t->box;
 	struct mail_search_sort_program *program;
-	const char *name;
+	const char *name = NULL;
 	unsigned int i;
 
 	if (sort_program == NULL || sort_program[0] == MAIL_SORT_END)
@@ -104,21 +96,21 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 
 	switch (program->sort_program[0] & MAIL_SORT_MASK) {
 	case MAIL_SORT_ARRIVAL:
-		name = "rdate";
+		program->get_sort_id = sort_get_arrival;
+		break;
+	case MAIL_SORT_DATE:
+		program->get_sort_id = sort_get_date;
+		break;
+	case MAIL_SORT_SIZE:
+		program->get_sort_id = sort_get_size;
 		break;
 	case MAIL_SORT_CC:
 		name = "sort-c";
 		program->primary_sort_header = "Cc";
 		break;
-	case MAIL_SORT_DATE:
-		name = "date";
-		break;
 	case MAIL_SORT_FROM:
 		name = "sort-f";
 		program->primary_sort_header = "From";
-		break;
-	case MAIL_SORT_SIZE:
-		name = "size";
 		break;
 	case MAIL_SORT_SUBJECT:
 		name = "sort-s";
@@ -131,7 +123,7 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 	default:
 		i_unreached();
 	}
-	program->ext_id =
+	program->ext_id = name == NULL ? (uint32_t)-1 :
 		mail_index_ext_register(ibox->index, name, 0,
 					sizeof(uint32_t), sizeof(uint32_t));
 	return program;
@@ -489,38 +481,8 @@ index_sort_add_ids(struct mail_search_sort_program *program, struct mail *mail)
 	}
 }
 
-static void index_sort_preset_sort_ids(struct mail_search_sort_program *program,
-				       uint32_t last_seq)
-{
-	struct mail_sort_node node;
-	uint32_t (*get_sort_id)(struct mail *);
-
-	switch (program->sort_program[0] & MAIL_SORT_MASK) {
-	case MAIL_SORT_ARRIVAL:
-		get_sort_id = sort_get_arrival;
-		break;
-	case MAIL_SORT_DATE:
-		get_sort_id = sort_get_date;
-		break;
-	case MAIL_SORT_SIZE:
-		get_sort_id = sort_get_size;
-		break;
-	default:
-		i_unreached();
-	}
-
-	/* add the missing nodes with their sort_ids */
-	node.seq = array_count(&program->all_nodes) + 1;
-	for (; node.seq <= last_seq; node.seq++) {
-		mail_set_seq(program->temp_mail, node.seq);
-		node.sort_id = get_sort_id(program->temp_mail);
-
-		i_assert(node.sort_id != 0);
-		array_append(&program->all_nodes, &node, 1);
-	}
-}
-
-static void index_sort_headers(struct mail_search_sort_program *program,
+static void
+index_sort_add_string_sort_ids(struct mail_search_sort_program *program,
 			       uint32_t last_seq)
 {
 	ARRAY_TYPE(mail_sort_node) seq_nodes_arr;
@@ -579,36 +541,20 @@ static void index_sort_build(struct mail_search_sort_program *program)
 		array_append(&program->all_nodes, &node, 1);
 	}
 	i_assert(seq <= last_seq);
+	index_sort_add_string_sort_ids(program, last_seq);
 
-	/* add the new sort_ids and sort them all */
-	switch (program->sort_program[0] & MAIL_SORT_MASK) {
-	case MAIL_SORT_ARRIVAL:
-	case MAIL_SORT_DATE:
-	case MAIL_SORT_SIZE:
-		index_sort_preset_sort_ids(program, last_seq);
-		break;
-	default:
-		index_sort_headers(program, last_seq);
-		break;
-	}
-
-	/* add the missing sort IDs to index. also update sort_id in
-	   wanted nodes. */
+	/* add the missing sort IDs to index */
 	all_nodes = array_get_modifiable(&program->all_nodes, &count);
-	nodes = array_get_modifiable(&program->nodes, &count2);
-	i = program->first_missing_sort_id_idx;
-	i_assert(nodes[i].seq <= seq);
 	for (; seq <= count; seq++) {
-		i_assert(all_nodes[seq-1].seq == seq);
 		i_assert(all_nodes[seq-1].sort_id != 0);
-		if (nodes[i].seq == seq) {
-			nodes[i].sort_id = all_nodes[seq-1].sort_id;
-			i++;
-		}
-
 		mail_index_update_ext(t->trans, seq, program->ext_id,
 				      &all_nodes[seq-1].sort_id, NULL);
 	}
+
+	/* set missing sort_ids to wanted nodes */
+	nodes = array_get_modifiable(&program->nodes, &count2);
+	for (i = program->first_missing_sort_id_idx; i < count2; i++)
+		nodes[i].sort_id = all_nodes[nodes[i].seq-1].sort_id;
 	array_free(&program->all_nodes);
 }
 
@@ -622,11 +568,17 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 
 	i_assert(mail->transaction == program->t);
 
+	node.seq = mail->seq;
+	if (program->ext_id == (uint32_t)-1) {
+		/* no indexing for this field */
+		node.sort_id = program->get_sort_id(mail);
+		array_append(&program->nodes, &node, 1);
+		return;
+	}
+
 	mail_index_lookup_ext(t->trans_view, mail->seq,
 			      program->ext_id, &data, NULL);
-	node.seq = mail->seq;
 	node.sort_id = data == NULL ? 0 : *(const uint32_t *)data;
-
 	if (node.sort_id == 0 && !program->missing_sort_ids) {
 		program->missing_sort_ids = TRUE;
 		program->first_missing_sort_id_idx =
@@ -643,8 +595,10 @@ void index_sort_list_finish(struct mail_search_sort_program *program)
 	static_node_cmp_context.program = program;
 	static_node_cmp_context.mail = program->temp_mail;
 
-	if (program->missing_sort_ids)
+	if (program->missing_sort_ids) {
+		i_assert(program->ext_id != (uint32_t)-1);
 		index_sort_build(program);
+	}
 
 	nodes = array_get_modifiable(&program->nodes, &program->nodes_count);
 	qsort(nodes, program->nodes_count, sizeof(struct mail_sort_node),
