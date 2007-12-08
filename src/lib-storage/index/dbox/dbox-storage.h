@@ -15,6 +15,11 @@
 #define DBOX_MAIL_FILE_MULTI_FORMAT DBOX_MAIL_FILE_MULTI_PREFIX"%u"
 #define DBOX_MAIL_FILE_UID_FORMAT DBOX_MAIL_FILE_UID_PREFIX"%u"
 
+/* How often to scan for stale temp files (based on dir's atime) */
+#define DBOX_TMP_SCAN_SECS (8*60*60)
+/* Delete temp files having ctime older than this. */
+#define DBOX_TMP_DELETE_SECS (36*60*60)
+
 /* Default rotation settings */
 #define DBOX_DEFAULT_ROTATE_SIZE (2*1024*1024)
 #define DBOX_DEFAULT_ROTATE_MIN_SIZE (1024*16)

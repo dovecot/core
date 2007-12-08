@@ -6,6 +6,7 @@
 #include "str.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
+#include "unlink-old-files.h"
 #include "index-mail.h"
 #include "mail-copy.h"
 #include "dbox-sync.h"
@@ -225,13 +226,40 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	return &mbox->ibox.box;
 }
 
+static bool
+dbox_cleanup_if_exists(struct mail_storage *storage, const char *path)
+{
+	struct stat st;
+
+	if (stat(path, &st) < 0) {
+		if (errno != ENOENT) {
+			mail_storage_set_critical(storage,
+						  "stat(%s) failed: %m", path);
+		}
+		return FALSE;
+	}
+
+	/* check once in a while if there are temp files to clean up */
+	if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
+		/* there haven't been any changes to this directory since we
+		   last checked it. */
+	} else if (st.st_atime < ioloop_time - DBOX_TMP_SCAN_SECS) {
+		/* time to scan */
+		const char *prefix =
+			mailbox_list_get_global_temp_prefix(storage->list);
+
+		(void)unlink_old_files(path, prefix,
+				       ioloop_time - DBOX_TMP_DELETE_SECS);
+	}
+	return TRUE;
+}
+
 static struct mailbox *
 dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 		  struct istream *input, enum mailbox_open_flags flags)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	const char *path;
-	struct stat st;
 
 	if (input != NULL) {
 		mail_storage_set_critical(_storage,
@@ -241,7 +269,7 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0)
+	if (dbox_cleanup_if_exists(_storage, path))
 		return dbox_open(storage, name, flags);
 	else if (errno == ENOENT) {
 		if (strcmp(name, "INBOX") == 0) {
