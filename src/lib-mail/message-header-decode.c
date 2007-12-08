@@ -154,7 +154,10 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 
 	flags = ctx->dtcase ? CHARSET_FLAG_DECOMP_TITLECASE : 0;
 	if (charset_to_utf8_begin(charset, flags, &t) < 0) {
-		/* let's just ignore this part */
+		/* data probably still contains some valid ASCII characters.
+		   append them. */
+		if (uni_utf8_get_valid_data(data, size, ctx->dest))
+			buffer_append(ctx->dest, data, size);
 		return TRUE;
 	}
 
