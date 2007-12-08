@@ -266,11 +266,14 @@ int uni_utf8_to_decomposed_titlecase(const void *_input, size_t max_len,
 	const unsigned char *input = _input;
 	unsigned int bytes;
 	unichar_t chr;
+	int ret = 0;
 
 	while (max_len > 0 && *input != '\0') {
 		if (uni_utf8_get_char_n(input, max_len, &chr) <= 0) {
-			/* invalid input */
-			return -1;
+			/* invalid input. try the next byte. */
+			ret = -1;
+			input++; max_len--;
+			continue;
 		}
 		bytes = uni_utf8_char_bytes(*input);
 		input += bytes;
@@ -283,7 +286,7 @@ int uni_utf8_to_decomposed_titlecase(const void *_input, size_t max_len,
 			 !uni_ucs4_decompose_multi_utf8(chr, output))
 			uni_ucs4_to_utf8_c(chr, output);
 	}
-	return 0;
+	return ret;
 }
 
 static inline unsigned int
