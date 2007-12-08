@@ -214,7 +214,7 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 		}
 
 		/* merge all flags arguments */
-		if (args->type == SEARCH_FLAGS && !args->not) {
+		if (args->type == SEARCH_FLAGS && !args->not && parent_and) {
 			if (prev_flags_arg == NULL)
 				prev_flags_arg = args;
 			else {
@@ -224,7 +224,8 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 				args = args->next;
 				continue;
 			}
-		} else if (args->type == SEARCH_FLAGS && args->not) {
+		} else if (args->type == SEARCH_FLAGS && args->not &&
+			   !parent_and) {
 			if (prev_not_flags_arg == NULL)
 				prev_not_flags_arg = args;
 			else {
