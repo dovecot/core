@@ -40,6 +40,7 @@ struct index_search_context {
 	unsigned int failed:1;
 	unsigned int sorted:1;
 	unsigned int have_seqsets:1;
+	unsigned int have_flags:1;
 };
 
 struct search_header_context {
@@ -77,48 +78,26 @@ static int seqset_contains(struct mail_search_seqset *set, uint32_t seq)
 	return FALSE;
 }
 
-static uoff_t str_to_uoff_t(const char *str)
-{
-	uoff_t num;
-
-	num = 0;
-	while (*str != '\0') {
-		if (*str < '0' || *str > '9')
-			return 0;
-
-		num = num*10 + (*str - '0');
-		str++;
-	}
-
-	return num;
-}
-
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
 static int search_arg_match_index(struct index_mail *imail,
-				  enum mail_search_arg_type type,
-				  const char *value)
+				  struct mail_search_arg *arg)
 {
-	enum mail_flags flags = imail->data.flags;
+	enum mail_flags flags;
 	const char *const *keywords;
 
-	switch (type) {
+	switch (arg->type) {
 	/* flags */
-	case SEARCH_ANSWERED:
-		return flags & MAIL_ANSWERED;
-	case SEARCH_DELETED:
-		return flags & MAIL_DELETED;
-	case SEARCH_DRAFT:
-		return flags & MAIL_DRAFT;
-	case SEARCH_FLAGGED:
-		return flags & MAIL_FLAGGED;
-	case SEARCH_SEEN:
-		return flags & MAIL_SEEN;
-	case SEARCH_RECENT:
-		return mail_get_flags(&imail->mail.mail) & MAIL_RECENT;
+	case SEARCH_FLAGS:
+		flags = imail->data.flags;
+		if ((arg->value.flags & MAIL_RECENT) != 0 &&
+		    index_mailbox_is_recent(imail->ibox,
+					    imail->mail.mail.uid))
+			flags |= MAIL_RECENT;
+		return (flags & arg->value.flags) == arg->value.flags;
 	case SEARCH_KEYWORD:
 		keywords = mail_get_keywords(&imail->mail.mail);
 		while (*keywords != NULL) {
-			if (strcasecmp(*keywords, value) == 0)
+			if (strcasecmp(*keywords, arg->value.str) == 0)
 				return 1;
 			keywords++;
 		}
@@ -159,8 +138,7 @@ static void search_seqset_arg(struct mail_search_arg *arg,
 static void search_index_arg(struct mail_search_arg *arg,
 			     struct index_search_context *ctx)
 {
-	switch (search_arg_match_index(ctx->imail, arg->type,
-				       arg->value.str)) {
+	switch (search_arg_match_index(ctx->imail, arg)) {
 	case -1:
 		/* unknown */
 		break;
@@ -177,7 +155,7 @@ static void search_index_arg(struct mail_search_arg *arg,
 static int search_arg_match_cached(struct index_search_context *ctx,
 				   struct mail_search_arg *arg)
 {
-	uoff_t virtual_size, search_size;
+	uoff_t virtual_size;
 	time_t date;
 	int timezone_offset;
 
@@ -231,11 +209,10 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		if (mail_get_virtual_size(ctx->mail, &virtual_size) < 0)
 			return -1;
 
-		search_size = str_to_uoff_t(arg->value.str);
 		if (arg->type == SEARCH_SMALLER)
-			return virtual_size < search_size;
+			return virtual_size < arg->value.size;
 		else
-			return virtual_size > search_size;
+			return virtual_size > arg->value.size;
 
 	default:
 		return -1;
@@ -757,8 +734,14 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 				  uint32_t *seq1, uint32_t *seq2)
 {
 	for (; args != NULL; args = args->next) {
-		switch (args->type) {
-		case SEARCH_SEEN:
+		if (args->type != SEARCH_FLAGS) {
+			if (args->type == SEARCH_ALL) {
+				if (args->not)
+					return FALSE;
+			}
+			continue;
+		}
+		if ((args->value.flags & MAIL_SEEN) != 0) {
 			/* SEEN with 0 seen? */
 			if (!args->not && hdr->seen_messages_count == 0)
 				return FALSE;
@@ -775,8 +758,8 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 				search_limit_lowwater(ctx,
                                 	hdr->first_unseen_uid_lowwater, seq1);
 			}
-			break;
-		case SEARCH_DELETED:
+		}
+		if ((args->value.flags & MAIL_DELETED) != 0) {
 			/* DELETED with 0 deleted? */
 			if (!args->not && hdr->deleted_messages_count == 0)
 				return FALSE;
@@ -794,13 +777,6 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 				search_limit_lowwater(ctx,
                                 	hdr->first_deleted_uid_lowwater, seq1);
 			}
-			break;
-		case SEARCH_ALL:
-			if (args->not)
-				return FALSE;
-			break;
-		default:
-			break;
 		}
 	}
 

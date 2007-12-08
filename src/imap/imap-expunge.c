@@ -19,7 +19,8 @@ bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 	}
 
 	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_DELETED;
+	search_arg.type = SEARCH_FLAGS;
+	search_arg.value.flags = MAIL_DELETED;
 	search_arg.next = next_search_arg;
 
 	t = mailbox_transaction_begin(box, 0);

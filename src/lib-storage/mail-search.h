@@ -1,6 +1,8 @@
 #ifndef MAIL_SEARCH_H
 #define MAIL_SEARCH_H
 
+#include "mail-types.h"
+
 enum mail_search_arg_type {
 	SEARCH_OR,
 	SEARCH_SUB,
@@ -10,12 +12,7 @@ enum mail_search_arg_type {
 	SEARCH_SEQSET,
 
 	/* flags */
-	SEARCH_ANSWERED,
-	SEARCH_DELETED,
-	SEARCH_DRAFT,
-	SEARCH_FLAGGED,
-	SEARCH_SEEN,
-	SEARCH_RECENT,
+	SEARCH_FLAGS,
 	SEARCH_KEYWORD,
 
 	/* dates */
@@ -55,6 +52,8 @@ struct mail_search_arg {
                 struct mail_search_seqset *seqset;
 		const char *str;
 		time_t time;
+		uoff_t size;
+		enum mail_flags flags;
 	} value;
 
         void *context;
