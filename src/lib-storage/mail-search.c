@@ -180,8 +180,10 @@ mail_search_args_analyze(struct mail_search_arg *args,
 static void
 mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 {
-	struct mail_search_arg *sub;
+	struct mail_search_arg *sub, *prev = NULL;
+	struct mail_search_arg *prev_flags_arg, *prev_not_flags_arg;
 
+	prev_flags_arg = prev_not_flags_arg = NULL;
 	for (; args != NULL;) {
 		if (args->not && (args->type == SEARCH_SUB ||
 				  args->type == SEARCH_OR)) {
@@ -210,6 +212,31 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 			mail_search_args_simplify_sub(args->value.subargs,
 						      args->type == SEARCH_SUB);
 		}
+
+		/* merge all flags arguments */
+		if (args->type == SEARCH_FLAGS && !args->not) {
+			if (prev_flags_arg == NULL)
+				prev_flags_arg = args;
+			else {
+				prev_flags_arg->value.flags |=
+					args->value.flags;
+				prev->next = args->next;
+				args = args->next;
+				continue;
+			}
+		} else if (args->type == SEARCH_FLAGS && args->not) {
+			if (prev_not_flags_arg == NULL)
+				prev_not_flags_arg = args;
+			else {
+				prev_not_flags_arg->value.flags |=
+					args->value.flags;
+				prev->next = args->next;
+				args = args->next;
+				continue;
+			}
+		}
+
+		prev = args;
 		args = args->next;
 	}
 }
