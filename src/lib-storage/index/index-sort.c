@@ -339,7 +339,7 @@ static int sort_node_cmp_nozero_sort_id(const void *p1, const void *p2)
 		sort_program = ctx->program->sort_program;
 	}
 
-	return sort_node_cmp_type(ctx, ctx->program->sort_program, n1, n2);
+	return sort_node_cmp_type(ctx, sort_program, n1, n2);
 }
 
 static bool
