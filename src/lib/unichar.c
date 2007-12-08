@@ -302,9 +302,8 @@ is_valid_utf8_seq(const unsigned char *input, unsigned int size)
 	return len;
 }
 
-const unsigned char *
-uni_utf8_get_valid_data(const unsigned char *input, size_t size,
-			buffer_t *tmpbuf, size_t *output_size_r)
+bool uni_utf8_get_valid_data(const unsigned char *input, size_t size,
+			     buffer_t *buf)
 {
 	size_t i, len;
 
@@ -319,17 +318,14 @@ uni_utf8_get_valid_data(const unsigned char *input, size_t size,
 			i += len;
 		}
 	}
-	/* we can use it as-is */
-	*output_size_r = size;
-	return input;
+	return TRUE;
 broken:
 	/* broken utf-8 input - skip the broken characters */
-	buffer_set_used_size(tmpbuf, 0);
-	buffer_append(tmpbuf, input, i++);
+	buffer_append(buf, input, i++);
 
 	while (i < size) {
 		if (input[i] < 0x80) {
-			buffer_append_c(tmpbuf, input[i++]);
+			buffer_append_c(buf, input[i++]);
 			continue;
 		}
 
@@ -338,9 +334,8 @@ broken:
 			i++;
 			continue;
 		}
-		buffer_append(tmpbuf, input + i, len);
+		buffer_append(buf, input + i, len);
 		i += len;
 	}
-	*output_size_r = tmpbuf->used;
-	return tmpbuf->data;
+	return FALSE;
 }
