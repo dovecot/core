@@ -53,28 +53,21 @@ struct mail_search_sort_program {
 	const char *primary_sort_header;
 	struct mail *temp_mail;
 
-	ARRAY_TYPE(mail_sort_node) nodes;
+	ARRAY_TYPE(mail_sort_node) nodes, all_nodes;
 	const struct mail_sort_node *nodes_ptr;
 	unsigned int nodes_count, iter_idx;
 
-	ARRAY_TYPE(mail_sort_node) all_nodes;
-
 	uint32_t ext_id;
-	uint32_t prev_seq, last_sorted_seq;
+	unsigned int first_missing_sort_id_idx;
 
 	unsigned int reverse:1;
-	unsigned int skipped_mails:1;
 	unsigned int sort_ids_added:1;
+	unsigned int missing_sort_ids:1;
 };
 
 struct sort_cmp_context {
 	struct mail_search_sort_program *program;
 	struct mail *mail;
-
-	uint32_t cache_seq;
-	enum mail_sort_type cache_type;
-	uint32_t cache_value;
-	const char *cache_str;
 };
 
 static struct sort_cmp_context static_node_cmp_context;
@@ -168,19 +161,21 @@ static const char *get_first_mailbox(struct mail *mail, const char *header)
 	return addr != NULL ? addr->mailbox : "";
 }
 
-static const char *
-sort_header_get(enum mail_sort_type sort_type, struct mail *mail, uint32_t seq)
+static void
+sort_header_get(string_t *dest, enum mail_sort_type sort_type,
+		struct mail *mail, uint32_t seq)
 {
 	const char *str;
-	string_t *buf;
 
 	mail_set_seq(mail, seq);
 	switch (sort_type & MAIL_SORT_MASK) {
 	case MAIL_SORT_SUBJECT:
 		if (mail_get_first_header(mail, "Subject", &str) <= 0)
-			return "";
-		return imap_get_base_subject_cased(pool_datastack_create(),
-						   str, NULL);
+			return;
+		str = imap_get_base_subject_cased(pool_datastack_create(),
+						  str, NULL);
+		str_append(dest, str);
+		return;
 	case MAIL_SORT_CC:
 		str = get_first_mailbox(mail, "Cc");
 		break;
@@ -194,9 +189,7 @@ sort_header_get(enum mail_sort_type sort_type, struct mail *mail, uint32_t seq)
 		i_unreached();
 	}
 
-	buf = t_str_new(128);
-	(void)uni_utf8_to_decomposed_titlecase(str, (size_t)-1, buf);
-	return str_c(buf);
+	(void)uni_utf8_to_decomposed_titlecase(str, (size_t)-1, dest);
 }
 
 static uint32_t sort_get_arrival(struct mail *mail)
@@ -259,23 +252,19 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 	case MAIL_SORT_TO:
 	case MAIL_SORT_SUBJECT:
 		T_FRAME_BEGIN {
-			const char *str1, *str2;
+			string_t *str1, *str2;
 
-			str1 = n1->seq == ctx->cache_seq &&
-				ctx->cache_type == sort_type ? ctx->cache_str :
-				sort_header_get(sort_type, ctx->mail, n1->seq);
-			str2 = sort_header_get(sort_type, ctx->mail, n2->seq);
+			str1 = t_str_new(256);
+			str2 = t_str_new(256);
+			sort_header_get(str1, sort_type, ctx->mail, n1->seq);
+			sort_header_get(str2, sort_type, ctx->mail, n2->seq);
 
-			ret = strcmp(str1, str2);
+			ret = strcmp(str_c(str1), str_c(str2));
 		} T_FRAME_END;
 		break;
 	case MAIL_SORT_ARRIVAL:
-		if (n1->seq == ctx->cache_seq && ctx->cache_type == sort_type)
-			time1 = ctx->cache_value;
-		else {
-			mail_set_seq(ctx->mail, n1->seq);
-			time1 = sort_get_arrival(ctx->mail);
-		}
+		mail_set_seq(ctx->mail, n1->seq);
+		time1 = sort_get_arrival(ctx->mail);
 
 		mail_set_seq(ctx->mail, n2->seq);
 		time2 = sort_get_arrival(ctx->mail);
@@ -284,12 +273,8 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			(time1 > time2 ? 1 : 0);
 		break;
 	case MAIL_SORT_DATE:
-		if (n1->seq == ctx->cache_seq && ctx->cache_type == sort_type)
-			time1 = ctx->cache_value;
-		else {
-			mail_set_seq(ctx->mail, n1->seq);
-			time1 = sort_get_date(ctx->mail);
-		}
+		mail_set_seq(ctx->mail, n1->seq);
+		time1 = sort_get_date(ctx->mail);
 
 		mail_set_seq(ctx->mail, n2->seq);
 		time2 = sort_get_date(ctx->mail);
@@ -298,12 +283,8 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			(time1 > time2 ? 1 : 0);
 		break;
 	case MAIL_SORT_SIZE:
-		if (n1->seq == ctx->cache_seq && ctx->cache_type == sort_type)
-			size1 = ctx->cache_value;
-		else {
-			mail_set_seq(ctx->mail, n1->seq);
-			size1 = sort_get_size(ctx->mail);
-		}
+		mail_set_seq(ctx->mail, n1->seq);
+		size1 = sort_get_size(ctx->mail);
 
 		mail_set_seq(ctx->mail, n2->seq);
 		size2 = sort_get_size(ctx->mail);
@@ -341,31 +322,24 @@ static int sort_node_cmp(const void *p1, const void *p2)
 	return sort_node_cmp_type(ctx, ctx->program->sort_program + 1, n1, n2);
 }
 
-static int sort_node_cmp_no_sort_id(const void *p1, const void *p2)
+static int sort_node_cmp_nozero_sort_id(const void *p1, const void *p2)
 {
 	struct sort_cmp_context *ctx = &static_node_cmp_context;
+	const struct mail_sort_node *n1 = p1, *n2 = p2;
+	const enum mail_sort_type *sort_program;
 
-	return sort_node_cmp_type(ctx, ctx->program->sort_program, p1, p2);
-}
-
-static void
-index_sort_save_ids(struct mail_search_sort_program *program,
-		    uint32_t first_seq)
-{
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)program->t;
-	const struct mail_sort_node *nodes;
-	unsigned int i, count;
-
-	nodes = array_get(&program->all_nodes, &count);
-	for (i = 0; i < count; i++) {
-		if (nodes[i].seq < first_seq)
-			continue;
-
-		i_assert(nodes[i].sort_id != 0);
-		mail_index_update_ext(t->trans, nodes[i].seq,
-				      program->ext_id, &nodes[i].sort_id, NULL);
+	/* Use sort IDs only if both have them */
+	if (n1->sort_id != 0 && n2->sort_id != 0) {
+		if (n1->sort_id < n2->sort_id)
+			return -1;
+		if (n1->sort_id > n2->sort_id)
+			return 1;
+		sort_program = ctx->program->sort_program + 1;
+	} else {
+		sort_program = ctx->program->sort_program;
 	}
+
+	return sort_node_cmp_type(ctx, ctx->program->sort_program, n1, n2);
 }
 
 static bool
@@ -375,19 +349,18 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 {
 	struct mail_sort_node *nodes;
 	unsigned int i, count;
-	const char *last_str = "";
 	uint32_t prev_id = 0, last_id = (uint32_t)-1;
-	string_t *prev_str;
-	const char *str;
+	string_t *last_str, *prev_str, *str;
 	unsigned int skip;
 
+	last_str = t_str_new(256);
 	nodes = array_get_modifiable(&program->all_nodes, &count);
 	if (nodes[idx2].sort_id != 0) {
 		i_assert(idx1 != idx2);
 		last_id = nodes[idx2].sort_id;
 
-		last_str = sort_header_get(program->sort_program[0], mail,
-					   nodes[idx2].seq);
+		sort_header_get(last_str, program->sort_program[0], mail,
+				nodes[idx2].seq);
 		idx2--;
 	}
 
@@ -395,19 +368,21 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 	if (nodes[idx1].sort_id != 0) {
 		prev_id = nodes[idx1].sort_id;
 
-		str_append(prev_str,
-			   sort_header_get(program->sort_program[0], mail,
-					   nodes[idx1].seq));
+		sort_header_get(prev_str, program->sort_program[0], mail,
+				nodes[idx1].seq);
 		idx1++;
 	}
 
+	str = str_new(default_pool, 256);
 	for (i = idx1; i <= idx2; i++) {
-		str = sort_header_get(program->sort_program[0], mail,
-				      nodes[i].seq);
+		T_FRAME(
+			sort_header_get(str, program->sort_program[0], mail,
+					nodes[i].seq);
+		);
 
-		if (i == idx2 && strcmp(str, last_str) == 0)
+		if (i == idx2 && str_equals(str, last_str))
 			nodes[i].sort_id = last_id;
-		else if (strcmp(str, str_c(prev_str)) == 0 && prev_id != 0)
+		else if (prev_id != 0 && str_equals(str, prev_str) == 0)
 			nodes[i].sort_id = prev_id;
 		else {
 			/* divide the available space so that each message gets
@@ -420,14 +395,16 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 			if (nodes[i].sort_id == last_id) {
 				/* we ran out of ID space. have to renumber
 				   the IDs. */
+				str_free(&str);
 				return FALSE;
 			}
 
 			prev_id = nodes[i].sort_id;
 			str_truncate(prev_str, 0);
-			str_append(prev_str, str);
+			str_append_str(prev_str, str);
 		}
 	}
+	str_free(&str);
 	return TRUE;
 }
 
@@ -516,7 +493,6 @@ static void index_sort_preset_sort_ids(struct mail_search_sort_program *program,
 				       uint32_t last_seq)
 {
 	struct mail_sort_node node;
-	struct mail *mail;
 	uint32_t (*get_sort_id)(struct mail *);
 
 	switch (program->sort_program[0] & MAIL_SORT_MASK) {
@@ -534,114 +510,77 @@ static void index_sort_preset_sort_ids(struct mail_search_sort_program *program,
 	}
 
 	/* add the missing nodes with their sort_ids */
-	mail = program->temp_mail;
 	node.seq = array_count(&program->all_nodes) + 1;
 	for (; node.seq <= last_seq; node.seq++) {
-		mail_set_seq(mail, node.seq);
-		node.sort_id = get_sort_id(mail);
+		mail_set_seq(program->temp_mail, node.seq);
+		node.sort_id = get_sort_id(program->temp_mail);
+
 		i_assert(node.sort_id != 0);
 		array_append(&program->all_nodes, &node, 1);
-	}
-
-	/* @UNSAFE: and sort them */
-	memset(&static_node_cmp_context, 0, sizeof(static_node_cmp_context));
-	static_node_cmp_context.program = program;
-	static_node_cmp_context.mail = mail;
-
-	qsort(array_idx_modifiable(&program->all_nodes, 0), last_seq,
-	      sizeof(struct mail_sort_node), sort_node_cmp);
-}
-
-static void index_sort_cache_seq(struct sort_cmp_context *ctx,
-				 enum mail_sort_type sort_type, uint32_t seq)
-{
-	ctx->cache_seq = seq;
-	ctx->cache_type = sort_type & MAIL_SORT_MASK;
-
-	mail_set_seq(ctx->mail, seq);
-	switch (ctx->cache_type) {
-	case MAIL_SORT_ARRIVAL:
-		ctx->cache_value = sort_get_arrival(ctx->mail);
-		break;
-	case MAIL_SORT_DATE:
-		ctx->cache_value = sort_get_date(ctx->mail);
-		break;
-	case MAIL_SORT_SIZE:
-		ctx->cache_value = sort_get_size(ctx->mail);
-		break;
-	default:
-		ctx->cache_str = sort_header_get(sort_type, ctx->mail, seq);
-		break;
 	}
 }
 
 static void index_sort_headers(struct mail_search_sort_program *program,
 			       uint32_t last_seq)
 {
-	struct mail_sort_node *nodes, node;
-	const struct mail_sort_node *cnodes;
-	unsigned int count, idx;
+	ARRAY_TYPE(mail_sort_node) seq_nodes_arr;
+	struct mail_sort_node *nodes, node, *seq_nodes;
+	unsigned int i, count, count2;
 
-	/* we wish to avoid reading the actual headers as much as possible.
-	   first sort the nodes which already have sort_ids, then start
-	   inserting the new nodes by finding their insertion position with
-	   binary search */
-	memset(&static_node_cmp_context, 0, sizeof(static_node_cmp_context));
-	static_node_cmp_context.program = program;
-	static_node_cmp_context.mail = program->temp_mail;
+	/* insert missing nodes */
+	node.seq = array_count(&program->all_nodes) + 1;
+	for (; node.seq <= last_seq; node.seq++)
+		array_append(&program->all_nodes, &node, 1);
 
-	/* @UNSAFE */
+	/* sort everything. use sort_ids whenever possible */
 	nodes = array_get_modifiable(&program->all_nodes, &count);
-	if (program->last_sorted_seq != count) {
-		qsort(nodes, count, sizeof(struct mail_sort_node),
-		      sort_node_cmp);
-	}
+	i_assert(count == last_seq);
+	qsort(nodes, count, sizeof(struct mail_sort_node),
+	      sort_node_cmp_nozero_sort_id);
 
-	node.sort_id = 0;
-	for (node.seq = count + 1; node.seq <= last_seq; node.seq++) {
-		index_sort_cache_seq(&static_node_cmp_context,
-				     program->sort_program[0], node.seq);
-
-		cnodes = array_get_modifiable(&program->all_nodes, &count);
-		bsearch_insert_pos(&node, cnodes, count, sizeof(*cnodes),
-				   sort_node_cmp_no_sort_id,
-				   &idx);
-		array_insert(&program->all_nodes, idx, &node, 1);
-	}
-
+	/* we can now build the sort_ids */
 	index_sort_add_ids(program, static_node_cmp_context.mail);
+
+	/* @UNSAFE: and finally get the range sorted back by sequence */
+	i_array_init(&seq_nodes_arr, count);
+	(void)array_idx_modifiable(&seq_nodes_arr, count-1);
+	seq_nodes = array_get_modifiable(&seq_nodes_arr, &count2);
+	i_assert(count2 == count);
+	for (i = 0; i < count; i++)
+		seq_nodes[nodes[i].seq-1] = nodes[i];
+
+	array_free(&program->all_nodes);
+	program->all_nodes = seq_nodes_arr;
 }
 
-static void index_sort_build(struct mail_search_sort_program *program,
-			     uint32_t last_seq)
+static void index_sort_build(struct mail_search_sort_program *program)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)program->t->box;
-	struct mail_sort_node node;
+	struct index_transaction_context *t =
+		(struct index_transaction_context *)program->t;
+	struct mail_sort_node node, *all_nodes, *nodes;
 	const void *data;
-	unsigned int i, first_missing_sort_id_seq;
+	uint32_t last_seq;
+	unsigned int seq, i, count, count2;
 
-	i = array_count(&program->all_nodes);
-	if (i == 0) {
-		/* we're building the array from scratch. add here only the
-		   messages that have sort_ids set. */
-		program->last_sorted_seq = 0;
-		for (; i < last_seq; i++) {
-			node.seq = i+1;
+	/* add messages that have sort_ids. they're always at the beginning
+	   of the mailbox. */
+	last_seq = mail_index_view_get_messages_count(t->ibox->view);
+	i_array_init(&program->all_nodes, last_seq);
+	for (seq = 1; seq <= last_seq; seq++) {
+		node.seq = seq;
 
-			mail_index_lookup_ext(ibox->view, i+1, program->ext_id,
-					      &data, NULL);
-
-			node.sort_id = data == NULL ? 0 :
-				*(const uint32_t *)data;
-			if (node.sort_id == 0) {
-				/* the rest don't have sort_ids either */
-				break;
-			}
-			array_append(&program->all_nodes, &node, 1);
+		mail_index_lookup_ext(t->ibox->view, seq, program->ext_id,
+				      &data, NULL);
+		node.sort_id = data == NULL ? 0 : *(const uint32_t *)data;
+		if (node.sort_id == 0) {
+			/* the rest don't have sort_ids either */
+			break;
 		}
+		array_append(&program->all_nodes, &node, 1);
 	}
-	first_missing_sort_id_seq = i + 1;
+	i_assert(seq <= last_seq);
 
+	/* add the new sort_ids and sort them all */
 	switch (program->sort_program[0] & MAIL_SORT_MASK) {
 	case MAIL_SORT_ARRIVAL:
 	case MAIL_SORT_DATE:
@@ -652,27 +591,25 @@ static void index_sort_build(struct mail_search_sort_program *program,
 		index_sort_headers(program, last_seq);
 		break;
 	}
-	index_sort_save_ids(program, first_missing_sort_id_seq);
-}
 
-static void index_sort_add_node(struct mail_search_sort_program *program,
-				const struct mail_sort_node *node)
-{
-	const struct mail_sort_node *nodes;
-	unsigned int count, idx;
+	/* add the missing sort IDs to index. also update sort_id in
+	   wanted nodes. */
+	all_nodes = array_get_modifiable(&program->all_nodes, &count);
+	nodes = array_get_modifiable(&program->nodes, &count2);
+	i = program->first_missing_sort_id_idx;
+	i_assert(nodes[i].seq <= seq);
+	for (; seq <= count; seq++) {
+		i_assert(all_nodes[seq-1].seq == seq);
+		i_assert(all_nodes[seq-1].sort_id != 0);
+		if (nodes[i].seq == seq) {
+			nodes[i].sort_id = all_nodes[seq-1].sort_id;
+			i++;
+		}
 
-	memset(&static_node_cmp_context, 0, sizeof(static_node_cmp_context));
-	static_node_cmp_context.program = program;
-	static_node_cmp_context.mail = program->temp_mail;
-
-	nodes = array_get(&program->nodes, &count);
-	bsearch_insert_pos(node, nodes, count,
-			   sizeof(*node), sort_node_cmp,
-			   &idx);
-	array_insert(&program->nodes, idx, node, 1);
-
-	program->last_sorted_seq = node->seq;
-	program->prev_seq = node->seq;
+		mail_index_update_ext(t->trans, seq, program->ext_id,
+				      &all_nodes[seq-1].sort_id, NULL);
+	}
+	array_free(&program->all_nodes);
 }
 
 void index_sort_list_add(struct mail_search_sort_program *program,
@@ -680,82 +617,40 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)program->t;
-	const struct mail_index_header *hdr;
 	const void *data;
 	struct mail_sort_node node;
-	uint32_t last_seq;
 
 	i_assert(mail->transaction == program->t);
 
-	if (program->prev_seq + 1 != mail->seq)
-		program->skipped_mails = TRUE;
-
+	mail_index_lookup_ext(t->trans_view, mail->seq,
+			      program->ext_id, &data, NULL);
 	node.seq = mail->seq;
-	if (program->last_sorted_seq == program->prev_seq) {
-		/* we're still on the fast path using sort_ids from the
-		   index file */
-		mail_index_lookup_ext(t->trans_view, mail->seq,
-				      program->ext_id, &data, NULL);
-		node.sort_id = data == NULL ? 0 : *(const uint32_t *)data;
-		if (node.sort_id != 0) {
-			index_sort_add_node(program, &node);
-			return;
-		}
-		i_assert(!program->sort_ids_added);
-	} else {
-		node.sort_id = 0;
+	node.sort_id = data == NULL ? 0 : *(const uint32_t *)data;
+
+	if (node.sort_id == 0 && !program->missing_sort_ids) {
+		program->missing_sort_ids = TRUE;
+		program->first_missing_sort_id_idx =
+			array_count(&program->nodes);
 	}
-
-	/* sort_ids are missing, have to generate them */
-	if (!program->skipped_mails) {
-		/* as long as we think we're returning all the mails sorted,
-		   which is the common case, we want to avoid duplicating the
-		   node array. so here we just keep counting the sequences
-		   until either we skip a sequence or we reach list_finish() */
-		program->prev_seq = mail->seq;
-		return;
-	}
-
-	/* we're not returning all the mails. have to create a temporary array
-	   for all the nodes so we can set all the missing sort_ids. */
-	hdr = mail_index_get_header(t->ibox->view);
-	i_array_init(&program->all_nodes, hdr->messages_count);
-	index_sort_build(program, hdr->messages_count);
-	array_free(&program->all_nodes);
-
-	/* add the nodes in the middle */
-	node.seq = program->last_sorted_seq + 1;
-	last_seq = program->prev_seq;
-	for (; node.seq <= last_seq; node.seq++) {
-		mail_index_lookup_ext(t->trans_view, mail->seq, program->ext_id,
-				      &data, NULL);
-
-		node.sort_id = *(const uint32_t *)data;
-		i_assert(node.sort_id != 0);
-
-		index_sort_add_node(program, &node);
-	}
-
-	/* and add this last node */
-	program->sort_ids_added = TRUE;
-	index_sort_list_add(program, mail);
+	array_append(&program->nodes, &node, 1);
 }
 
 void index_sort_list_finish(struct mail_search_sort_program *program)
 {
-	if (program->last_sorted_seq != program->prev_seq) {
-		/* nodes array contains a contiguous range of sequences from
-		   the beginning, with the last ones missing sort_id. we can
-		   just sort the array directly without copying it. */
-		i_assert(!program->sort_ids_added);
+	struct mail_sort_node *nodes;
 
-		program->all_nodes = program->nodes;
-		index_sort_build(program, program->prev_seq);
-	}
+	memset(&static_node_cmp_context, 0, sizeof(static_node_cmp_context));
+	static_node_cmp_context.program = program;
+	static_node_cmp_context.mail = program->temp_mail;
 
-	program->nodes_ptr =
-		array_get(&program->nodes, &program->nodes_count);
+	if (program->missing_sort_ids)
+		index_sort_build(program);
 
+	nodes = array_get_modifiable(&program->nodes, &program->nodes_count);
+	qsort(nodes, program->nodes_count, sizeof(struct mail_sort_node),
+	      sort_node_cmp);
+
+	program->nodes_ptr = nodes;
 	if (program->reverse)
 		program->iter_idx = program->nodes_count;
 }
