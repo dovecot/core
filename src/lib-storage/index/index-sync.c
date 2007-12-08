@@ -325,8 +325,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 
 	/* finish handling expunges, so we don't break when updating
 	   recent flags */
-	while (ctx->expunge_pos > 0)
-		index_mailbox_sync_next_expunge(ctx, &sync_rec);
+	while (index_mailbox_sync_next_expunge(ctx, &sync_rec) > 0) ;
 
 	if (ctx->sync_ctx != NULL) {
 		if (mail_index_view_sync_commit(&ctx->sync_ctx) < 0) {
