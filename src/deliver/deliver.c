@@ -73,6 +73,27 @@ static void sig_die(int signo, void *context ATTR_UNUSED)
 	io_loop_stop(ioloop);
 }
 
+static void
+deliver_log(struct mail *mail, const char *fmt, ...) ATTR_FORMAT(2, 3);
+
+static void deliver_log(struct mail *mail, const char *fmt, ...)
+{
+	va_list args;
+	string_t *str;
+	const char *msgid;
+
+	va_start(args, fmt);
+	str = t_str_new(256);
+
+	if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
+		msgid = "";
+	str_printfa(str, "msgid=%s: ", str_sanitize(msgid, 80));
+
+	str_vprintfa(str, fmt, args);
+	i_info("%s", str_c(str));
+	va_end(args);
+}
+
 static struct mailbox *
 mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 			      struct mail_storage **storage_r, const char *name)
@@ -123,22 +144,17 @@ int deliver_save(struct mail_namespace *namespaces,
 	struct mailbox_transaction_context *t;
 	struct mail_keywords *kw;
 	enum mail_error error;
-	const char *msgid, *mailbox_name;
+	const char *mailbox_name;
 	int ret = 0;
 
 	if (strcmp(mailbox, default_mailbox_name) == 0)
 		tried_default_save = TRUE;
 
-	if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
-		msgid = "";
-	else
-		msgid = str_sanitize(msgid, 80);
 	mailbox_name = str_sanitize(mailbox, 80);
-
 	box = mailbox_open_or_create_synced(namespaces, storage_r, mailbox);
 	if (box == NULL) {
-		i_info("msgid=%s: save failed to %s: %s", msgid, mailbox_name,
-		       mail_storage_get_last_error(*storage_r, &error));
+		deliver_log(mail, "save failed to %s: %s", mailbox_name,
+			    mail_storage_get_last_error(*storage_r, &error));
 		return -1;
 	}
 
@@ -157,10 +173,10 @@ int deliver_save(struct mail_namespace *namespaces,
 
 	if (ret == 0) {
 		saved_mail = TRUE;
-		i_info("msgid=%s: saved mail to %s", msgid, mailbox_name);
+		deliver_log(mail, "saved mail to %s", mailbox_name);
 	} else {
-		i_info("msgid=%s: save failed to %s: %s", msgid, mailbox_name,
-		       mail_storage_get_last_error(*storage_r, &error));
+		deliver_log(mail, "save failed to %s: %s", mailbox_name,
+			    mail_storage_get_last_error(*storage_r, &error));
 	}
 
 	mailbox_close(&box);
@@ -907,7 +923,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (ret < 0 ) {
-		const char *error_string, *msgid;
+		const char *error_string;
 		enum mail_error error;
 		int ret;
 
@@ -926,10 +942,8 @@ int main(int argc, char *argv[])
 			return EX_TEMPFAIL;
 		}
 
-		if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
-			msgid = "";
-		i_info("msgid=%s: Rejected: %s", str_sanitize(msgid, 80),
-		       str_sanitize(error_string, 512));
+		deliver_log(mail, "rejected: %s",
+			    str_sanitize(error_string, 512));
 
 		/* we'll have to reply with permanent failure */
 		if (stderr_rejection) {
