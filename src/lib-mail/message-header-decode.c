@@ -62,7 +62,7 @@ void message_header_decode(const unsigned char *data, size_t size,
 {
 	buffer_t *decodebuf = NULL;
 	unsigned int charsetlen = 0;
-	size_t pos, start_pos;
+	size_t pos, start_pos, ret;
 
 	/* =?charset?Q|B?text?= */
 	start_pos = pos = 0;
@@ -90,8 +90,13 @@ void message_header_decode(const unsigned char *data, size_t size,
 		}
 
 		pos += 2;
-		pos += message_header_decode_encoded(data + pos, size - pos,
-						     decodebuf, &charsetlen);
+		ret = message_header_decode_encoded(data + pos, size - pos,
+						    decodebuf, &charsetlen);
+		if (ret == 0) {
+			start_pos = pos-2;
+			continue;
+		}
+		pos += ret;
 
 		if (decodebuf->used > charsetlen) {
 			/* decodebuf contains <charset> NUL <text> */
