@@ -120,7 +120,6 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	maildir_file_do(mbox, seq, (maildir_file_do_func *)callback, context)
 #endif
 
-void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir);
 bool maildir_set_deleted(struct maildir_mailbox *mbox);
 
 void maildir_transaction_class_init(void);
