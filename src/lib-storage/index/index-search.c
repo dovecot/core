@@ -40,7 +40,7 @@ struct index_search_context {
 	unsigned int failed:1;
 	unsigned int sorted:1;
 	unsigned int have_seqsets:1;
-	unsigned int have_flags:1;
+	unsigned int have_flags_or_keywords:1;
 };
 
 struct search_header_context {
@@ -67,6 +67,26 @@ static void search_parse_msgset_args(const struct mail_index_header *hdr,
 				     struct mail_search_arg *args,
 				     uint32_t *seq1_r, uint32_t *seq2_r);
 
+static void search_init_arg(struct mail_search_arg *arg,
+			    struct index_search_context *ctx)
+{
+	switch (arg->type) {
+	case SEARCH_SEQSET:
+		ctx->have_seqsets = TRUE;
+		break;
+	case SEARCH_FLAGS:
+	case SEARCH_KEYWORDS:
+		ctx->have_flags_or_keywords = TRUE;
+		break;
+	case SEARCH_ALL:
+		if (!arg->not)
+			arg->match_always = TRUE;
+		break;
+	default:
+		break;
+	}
+}
+
 static int seqset_contains(struct mail_search_seqset *set, uint32_t seq)
 {
 	while (set != NULL) {
@@ -78,7 +98,18 @@ static int seqset_contains(struct mail_search_seqset *set, uint32_t seq)
 	return FALSE;
 }
 
-static int search_arg_match_keywords(struct index_mail *imail,
+static void search_seqset_arg(struct mail_search_arg *arg,
+			      struct index_search_context *ctx)
+{
+	if (arg->type == SEARCH_SEQSET) {
+		if (seqset_contains(arg->value.seqset, ctx->mail_ctx.seq))
+			ARG_SET_RESULT(arg, 1);
+		else
+			ARG_SET_RESULT(arg, 0);
+	}
+}
+
+static int search_arg_match_keywords(struct index_search_context *ctx,
 				     struct mail_search_arg *arg)
 {
 	ARRAY_TYPE(keyword_indexes) keyword_indexes_arr;
@@ -87,7 +118,7 @@ static int search_arg_match_keywords(struct index_mail *imail,
 	unsigned int i, j, count;
 
 	t_array_init(&keyword_indexes_arr, 128);
-	mail_index_lookup_keywords(imail->ibox->view, imail->mail.mail.seq,
+	mail_index_lookup_keywords(ctx->view, ctx->mail_ctx.seq,
 				   &keyword_indexes_arr);
 	keyword_indexes = array_get(&keyword_indexes_arr, &count);
 
@@ -104,22 +135,23 @@ static int search_arg_match_keywords(struct index_mail *imail,
 }
 
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
-static int search_arg_match_index(struct index_mail *imail,
-				  struct mail_search_arg *arg)
+static int search_arg_match_index(struct index_search_context *ctx,
+				  struct mail_search_arg *arg,
+				  const struct mail_index_record *rec)
 {
 	enum mail_flags flags;
 	int ret;
 
 	switch (arg->type) {
 	case SEARCH_FLAGS:
-		flags = imail->data.flags;
+		flags = rec->flags;
 		if ((arg->value.flags & MAIL_RECENT) != 0 &&
-		    index_mailbox_is_recent(imail->ibox, imail->mail.mail.uid))
+		    index_mailbox_is_recent(ctx->ibox, rec->uid))
 			flags |= MAIL_RECENT;
 		return (flags & arg->value.flags) == arg->value.flags;
 	case SEARCH_KEYWORDS:
 		T_FRAME(
-			ret = search_arg_match_keywords(imail, arg);
+			ret = search_arg_match_keywords(ctx, arg);
 		);
 		return ret;
 
@@ -128,37 +160,13 @@ static int search_arg_match_index(struct index_mail *imail,
 	}
 }
 
-static void search_init_seqset_arg(struct mail_search_arg *arg,
-				   struct index_search_context *ctx)
-{
-	switch (arg->type) {
-	case SEARCH_SEQSET:
-		ctx->have_seqsets = TRUE;
-		break;
-	case SEARCH_ALL:
-		if (!arg->not)
-			arg->match_always = TRUE;
-		break;
-	default:
-		break;
-	}
-}
-
-static void search_seqset_arg(struct mail_search_arg *arg,
-			      struct index_search_context *ctx)
-{
-	if (arg->type == SEARCH_SEQSET) {
-		if (seqset_contains(arg->value.seqset, ctx->mail_ctx.seq))
-			ARG_SET_RESULT(arg, 1);
-		else
-			ARG_SET_RESULT(arg, 0);
-	}
-}
-
 static void search_index_arg(struct mail_search_arg *arg,
 			     struct index_search_context *ctx)
 {
-	switch (search_arg_match_index(ctx->imail, arg)) {
+	const struct mail_index_record *rec;
+
+	rec = mail_index_lookup(ctx->view, ctx->mail_ctx.seq);
+	switch (search_arg_match_index(ctx, arg, rec)) {
 	case -1:
 		/* unknown */
 		break;
@@ -862,7 +870,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	mail_search_args_reset(ctx->mail_ctx.args, TRUE);
 
 	search_get_seqset(ctx, args);
-	(void)mail_search_args_foreach(args, search_init_seqset_arg, ctx);
+	(void)mail_search_args_foreach(args, search_init_arg, ctx);
 
 	/* Need to reset results for match_always cases */
 	mail_search_args_reset(ctx->mail_ctx.args, FALSE);
@@ -911,12 +919,6 @@ static bool search_match_next(struct index_search_context *ctx)
 {
         struct mail_search_arg *arg;
 	int ret;
-
-	/* check the index matches first */
-	ret = mail_search_args_foreach(ctx->mail_ctx.args,
-				       search_index_arg, ctx);
-	if (ret >= 0)
-		return ret > 0;
 
 	/* next search only from cached arguments */
 	ret = mail_search_args_foreach(ctx->mail_ctx.args,
@@ -1048,7 +1050,7 @@ int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 		_ctx->seq++;
 	}
 
-	if (!ctx->have_seqsets)
+	if (!ctx->have_seqsets && !ctx->have_flags_or_keywords)
 		return _ctx->seq <= ctx->seq2 ? 1 : 0;
 
 	ret = 0;
@@ -1056,8 +1058,16 @@ int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 		/* check if the sequence matches */
 		ret = mail_search_args_foreach(ctx->mail_ctx.args,
 					       search_seqset_arg, ctx);
-		if (ret != 0)
-			break;
+		if (ret != 0) {
+			/* check if flags/keywords match before anything else
+			   is done. mail_set_seq() can be a bit slow. */
+			if (!ctx->have_flags_or_keywords)
+				break;
+			ret = mail_search_args_foreach(ctx->mail_ctx.args,
+						       search_index_arg, ctx);
+			if (ret != 0)
+				break;
+		}
 
 		/* doesn't, try next one */
 		_ctx->seq++;
