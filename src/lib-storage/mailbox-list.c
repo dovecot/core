@@ -304,7 +304,12 @@ const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 
 const char *mailbox_list_get_temp_prefix(struct mailbox_list *list)
 {
-	return list->v.get_temp_prefix(list);
+	return list->v.get_temp_prefix(list, FALSE);
+}
+
+const char *mailbox_list_get_global_temp_prefix(struct mailbox_list *list)
+{
+	return list->v.get_temp_prefix(list, TRUE);
 }
 
 const char *mailbox_list_join_refpattern(struct mailbox_list *list,

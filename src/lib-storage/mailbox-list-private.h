@@ -25,7 +25,7 @@ struct mailbox_list_vfuncs {
 				       const char *name,
 				       enum mailbox_name_status *status);
 
-	const char *(*get_temp_prefix)(struct mailbox_list *list);
+	const char *(*get_temp_prefix)(struct mailbox_list *list, bool global);
 	const char *(*join_refpattern)(struct mailbox_list *list,
 				       const char *ref, const char *pattern);
 

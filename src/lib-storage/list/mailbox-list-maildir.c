@@ -10,6 +10,9 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+#define MAILDIR_GLOBAL_TEMP_PREFIX "temp."
+#define IMAPDIR_GLOBAL_TEMP_PREFIX ".temp."
+
 extern struct mailbox_list maildir_mailbox_list;
 extern struct mailbox_list imapdir_mailbox_list;
 
@@ -23,8 +26,9 @@ static struct mailbox_list *maildir_list_alloc(void)
 	list->list = maildir_mailbox_list;
 	list->list.pool = pool;
 
-	list->temp_prefix =
-		p_strconcat(pool, "temp.", my_hostname, ".", my_pid, ".", NULL);
+	list->global_temp_prefix = MAILDIR_GLOBAL_TEMP_PREFIX;
+	list->temp_prefix = p_strconcat(pool, list->global_temp_prefix,
+					my_hostname, ".", my_pid, ".", NULL);
 	return &list->list;
 }
 
@@ -38,8 +42,9 @@ static struct mailbox_list *imapdir_list_alloc(void)
 	list->list = imapdir_mailbox_list;
 	list->list.pool = pool;
 
-	list->temp_prefix = p_strconcat(pool, ".temp.", my_hostname, ".",
-					my_pid, ".", NULL);
+	list->global_temp_prefix = IMAPDIR_GLOBAL_TEMP_PREFIX;
+	list->temp_prefix = p_strconcat(pool, list->global_temp_prefix,
+					my_hostname, ".", my_pid, ".", NULL);
 	return &list->list;
 }
 
@@ -246,12 +251,12 @@ maildir_list_get_mailbox_name_status(struct mailbox_list *_list,
 }
 
 static const char *
-maildir_list_get_temp_prefix(struct mailbox_list *_list)
+maildir_list_get_temp_prefix(struct mailbox_list *_list, bool global)
 {
 	struct maildir_mailbox_list *list =
 		(struct maildir_mailbox_list *)_list;
 
-	return list->temp_prefix;
+	return global ? list->global_temp_prefix : list->temp_prefix;
 }
 
 static int maildir_list_set_subscribed(struct mailbox_list *_list,

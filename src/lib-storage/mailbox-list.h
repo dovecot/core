@@ -161,6 +161,9 @@ int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 /* Returns a prefix that temporary files should use without conflicting
    with the namespace. */
 const char *mailbox_list_get_temp_prefix(struct mailbox_list *list);
+/* Returns prefix that's common to all get_temp_prefix() calls.
+   Typically this returns either "temp." or ".temp.". */
+const char *mailbox_list_get_global_temp_prefix(struct mailbox_list *list);
 
 /* Returns a single pattern from given reference and pattern. */
 const char *mailbox_list_join_refpattern(struct mailbox_list *list,

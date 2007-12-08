@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
+#define GLOBAL_TEMP_PREFIX ".temp."
 
 extern struct mailbox_list fs_mailbox_list;
 
@@ -26,8 +27,8 @@ static struct mailbox_list *fs_list_alloc(void)
 	list->list = fs_mailbox_list;
 	list->list.pool = pool;
 
-	list->temp_prefix = p_strconcat(pool, ".temp.", my_hostname, ".",
-					my_pid, ".", NULL);
+	list->temp_prefix = p_strconcat(pool, GLOBAL_TEMP_PREFIX,
+					my_hostname, ".", my_pid, ".", NULL);
 	return &list->list;
 }
 
@@ -238,11 +239,11 @@ fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 }
 
 static const char *
-fs_list_get_temp_prefix(struct mailbox_list *_list)
+fs_list_get_temp_prefix(struct mailbox_list *_list, bool global)
 {
 	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 
-	return list->temp_prefix;
+	return global ? GLOBAL_TEMP_PREFIX : list->temp_prefix;
 }
 
 static const char *
