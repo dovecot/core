@@ -233,15 +233,12 @@ static int is_valid_atom_char(struct imap_parser *parser, char chr)
 {
 	const char *error;
 
-	if (IS_ATOM_SPECIAL_INPUT((unsigned char)chr)) {
+	if (IS_ATOM_SPECIAL_INPUT((unsigned char)chr))
 		error = "Invalid characters in atom";
-		return FALSE;
-	} else if ((chr & 0x80) != 0) {
+	else if ((chr & 0x80) != 0)
 		error = "8bit data in atom";
-		return FALSE;
-	} else {
+	else
 		return TRUE;
-	}
 
 	if ((parser->flags & IMAP_PARSE_FLAG_ATOM_ALLCHARS) != 0)
 		return TRUE;
