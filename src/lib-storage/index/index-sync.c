@@ -185,6 +185,30 @@ static bool sync_rec_check_skips(struct index_mailbox_sync_context *ctx,
 	return TRUE;
 }
 
+static int
+index_mailbox_sync_next_expunge(struct index_mailbox_sync_context *ctx,
+				struct mailbox_sync_rec *sync_rec_r)
+{
+	const struct seq_range *range;
+
+	if (ctx->expunge_pos == 0)
+		return 0;
+
+	/* expunges is a sorted array of sequences. it's easiest for
+	   us to print them from end to beginning. */
+	ctx->expunge_pos--;
+	range = array_idx(ctx->expunges, ctx->expunge_pos);
+	i_assert(range->seq2 <= ctx->messages_count);
+
+	index_mailbox_expunge_recent(ctx->ibox, range->seq1, range->seq2);
+	ctx->messages_count -= range->seq2 - range->seq1 + 1;
+
+	sync_rec_r->seq1 = range->seq1;
+	sync_rec_r->seq2 = range->seq2;
+	sync_rec_r->type = MAILBOX_SYNC_TYPE_EXPUNGE;
+	return 1;
+}
+
 bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 			     struct mailbox_sync_rec *sync_rec_r)
 {
@@ -225,29 +249,7 @@ bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 			return 1;
 		}
 	}
-
-	if (ctx->expunge_pos > 0) {
-		/* expunges is a sorted array of sequences. it's easiest for
-		   us to print them from end to beginning. */
-		const struct seq_range *range;
-
-		ctx->expunge_pos--;
-		range = array_idx(ctx->expunges, ctx->expunge_pos);
-
-		sync_rec_r->seq1 = range->seq1;
-		sync_rec_r->seq2 = range->seq2;
-		index_mailbox_expunge_recent(ctx->ibox, sync_rec_r->seq1,
-					     sync_rec_r->seq2);
-
-		if (sync_rec_r->seq2 > ctx->messages_count)
-			sync_rec_r->seq2 = ctx->messages_count;
-		ctx->messages_count -= sync_rec_r->seq2 - sync_rec_r->seq1 + 1;
-
-		sync_rec_r->type = MAILBOX_SYNC_TYPE_EXPUNGE;
-		return 1;
-	}
-
-	return 0;
+	return index_mailbox_sync_next_expunge(ctx, sync_rec_r);
 }
 
 static void
@@ -316,9 +318,15 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	struct index_mailbox_sync_context *ctx =
 		(struct index_mailbox_sync_context *)_ctx;
 	struct index_mailbox *ibox = ctx->ibox;
+	struct mailbox_sync_rec sync_rec;
 	const struct mail_index_header *hdr;
 	uint32_t seq1, seq2;
 	int ret = ctx->failed ? -1 : 0;
+
+	/* finish handling expunges, so we don't break when updating
+	   recent flags */
+	while (ctx->expunge_pos > 0)
+		index_mailbox_sync_next_expunge(ctx, &sync_rec);
 
 	if (ctx->sync_ctx != NULL) {
 		if (mail_index_view_sync_commit(&ctx->sync_ctx) < 0) {
