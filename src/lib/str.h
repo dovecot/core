@@ -10,6 +10,7 @@ const char *str_c(string_t *str);
 const unsigned char *str_data(const string_t *str);
 char *str_c_modifiable(string_t *str);
 size_t str_len(const string_t *str);
+bool str_equals(const string_t *str1, const string_t *str2);
 
 /* Append string/character */
 void str_append(string_t *str, const char *cstr);

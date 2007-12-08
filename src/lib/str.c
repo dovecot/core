@@ -61,6 +61,14 @@ size_t str_len(const string_t *str)
 	return buffer_get_used_size(str);
 }
 
+bool str_equals(const string_t *str1, const string_t *str2)
+{
+	if (str1->used != str2->used)
+		return FALSE;
+
+	return memcmp(str1->data, str2->data, str1->used) == 0;
+}
+
 void str_append(string_t *str, const char *cstr)
 {
 	buffer_append(str, cstr, strlen(cstr));
