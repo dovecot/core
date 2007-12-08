@@ -37,7 +37,6 @@ ARRAY_DEFINE_TYPE(mail_sort_node, struct mail_sort_node);
 struct mail_search_sort_program {
 	struct mailbox_transaction_context *t;
 	enum mail_sort_type sort_program[MAX_SORT_PROGRAM_SIZE];
-	const char *primary_sort_header;
 	struct mail *temp_mail;
 
 	ARRAY_TYPE(mail_sort_node) nodes, all_nodes;
@@ -106,19 +105,15 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 		break;
 	case MAIL_SORT_CC:
 		name = "sort-c";
-		program->primary_sort_header = "Cc";
 		break;
 	case MAIL_SORT_FROM:
 		name = "sort-f";
-		program->primary_sort_header = "From";
 		break;
 	case MAIL_SORT_SUBJECT:
 		name = "sort-s";
-		program->primary_sort_header = "Subject";
 		break;
 	case MAIL_SORT_TO:
 		name = "sort-t";
-		program->primary_sort_header = "To";
 		break;
 	default:
 		i_unreached();
