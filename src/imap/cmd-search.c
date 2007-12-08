@@ -9,9 +9,11 @@
 #define OUTBUF_SIZE 65536
 
 struct imap_search_context {
-        struct mailbox_transaction_context *trans;
+	struct mailbox *box;
+	struct mailbox_transaction_context *trans;
         struct mail_search_context *search_ctx;
 	struct mail *mail;
+	struct mail_search_arg *sargs;
 
 	struct timeout *to;
 	string_t *output_buf;
@@ -22,13 +24,15 @@ struct imap_search_context {
 };
 
 static struct imap_search_context *
-imap_search_init(struct client_command_context *cmd, const char *charset,
-		 struct mail_search_arg *sargs)
+imap_search_init(struct client_command_context *cmd, struct mailbox *box,
+		 const char *charset, struct mail_search_arg *sargs)
 {
 	struct imap_search_context *ctx;
 
 	ctx = p_new(cmd->pool, struct imap_search_context, 1);
+	ctx->box = box;
 	ctx->trans = mailbox_transaction_begin(cmd->client->mailbox, 0);
+	ctx->sargs = sargs;
 	ctx->search_ctx = mailbox_search_init(ctx->trans, charset, sargs, NULL);
 	ctx->mail = mail_alloc(ctx->trans, 0, NULL);
 	(void)gettimeofday(&ctx->start_time, NULL);
@@ -58,6 +62,7 @@ static int imap_search_deinit(struct client_command_context *cmd,
 	if (ctx->to != NULL)
 		timeout_remove(&ctx->to);
 	str_free(&ctx->output_buf);
+	imap_search_args_free(ctx->box, ctx->sargs);
 
 	cmd->context = NULL;
 	return ret;
@@ -183,7 +188,7 @@ bool cmd_search(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	ctx = imap_search_init(cmd, charset, sargs);
+	ctx = imap_search_init(cmd, cmd->client->mailbox, charset, sargs);
 	cmd->func = cmd_search_more;
 	cmd->context = ctx;
 

@@ -125,6 +125,32 @@ arg_new_flags(struct search_build_data *data,
 	return TRUE;
 }
 
+static bool
+arg_new_keyword(struct search_build_data *data,
+		const struct imap_arg **args,
+		struct mail_search_arg **next_sarg)
+{
+	struct mail_search_arg *sarg;
+	const char *value, *keywords[2];
+	struct mail_storage *storage;
+	enum mail_error error;
+
+	*next_sarg = sarg = search_arg_new(data->pool, SEARCH_KEYWORDS);
+	if (!arg_get_next(data, args, &value))
+		return FALSE;
+
+	keywords[0] = value;
+	keywords[1] = NULL;
+
+	if (mailbox_keywords_create(data->box, keywords,
+				    &sarg->value.keywords) < 0) {
+		storage = mailbox_get_storage(data->box);
+		data->error = mail_storage_get_last_error(storage, &error);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 #define ARG_NEW_SIZE(type) \
 	arg_new_size(data, args, next_sarg, type)
 static bool
@@ -304,7 +330,7 @@ static bool search_arg_build(struct search_build_data *data,
 	case 'K':
 		if (strcmp(str, "KEYWORD") == 0) {
 			/* <flag> */
-			return ARG_NEW_STR(SEARCH_KEYWORD);
+			return arg_new_keyword(data, args, next_sarg);
 		}
 		break;
 	case 'L':
@@ -446,7 +472,7 @@ static bool search_arg_build(struct search_build_data *data,
 			return TRUE;
 		} else if (strcmp(str, "UNKEYWORD") == 0) {
 			/* <flag> */
-			if (!ARG_NEW_STR(SEARCH_KEYWORD))
+			if (!arg_new_keyword(data, args, next_sarg))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
@@ -515,6 +541,7 @@ imap_search_args_build(pool_t pool, struct mailbox *box,
 	first_sarg = NULL; sargs = &first_sarg;
 	while (args->type != IMAP_ARG_EOL) {
 		if (!search_arg_build(&data, &args, sargs)) {
+			imap_search_args_free(box, first_sarg);
 			*error_r = data.error;
 			return NULL;
 		}
@@ -550,6 +577,16 @@ static int imap_search_get_msgset_arg(struct client_command_context *cmd,
 	}
 	*arg_r = arg;
 	return 0;
+}
+
+void imap_search_args_free(struct mailbox *box, struct mail_search_arg *args)
+{
+	for (; args != NULL; args = args->next) {
+		if (args->type == SEARCH_KEYWORDS)
+			mailbox_keywords_free(box, &args->value.keywords);
+		else if (args->type == SEARCH_SUB || args->type == SEARCH_OR)
+			imap_search_args_free(box, args->value.subargs);
+	}
 }
 
 static int

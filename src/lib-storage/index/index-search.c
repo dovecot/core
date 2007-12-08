@@ -78,30 +78,50 @@ static int seqset_contains(struct mail_search_seqset *set, uint32_t seq)
 	return FALSE;
 }
 
+static int search_arg_match_keywords(struct index_mail *imail,
+				     struct mail_search_arg *arg)
+{
+	ARRAY_TYPE(keyword_indexes) keyword_indexes_arr;
+	const struct mail_keywords *search_kws = arg->value.keywords;
+	const unsigned int *keyword_indexes;
+	unsigned int i, j, count;
+
+	t_array_init(&keyword_indexes_arr, 128);
+	mail_index_lookup_keywords(imail->ibox->view, imail->mail.mail.seq,
+				   &keyword_indexes_arr);
+	keyword_indexes = array_get(&keyword_indexes_arr, &count);
+
+	/* there probably aren't many keywords, so O(n*m) for now */
+	for (i = 0; i < search_kws->count; i++) {
+		for (j = 0; j < count; j++) {
+			if (search_kws->idx[i] == keyword_indexes[j])
+				break;
+		}
+		if (j == count)
+			return 0;
+	}
+	return 1;
+}
+
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
 static int search_arg_match_index(struct index_mail *imail,
 				  struct mail_search_arg *arg)
 {
 	enum mail_flags flags;
-	const char *const *keywords;
+	int ret;
 
 	switch (arg->type) {
-	/* flags */
 	case SEARCH_FLAGS:
 		flags = imail->data.flags;
 		if ((arg->value.flags & MAIL_RECENT) != 0 &&
-		    index_mailbox_is_recent(imail->ibox,
-					    imail->mail.mail.uid))
+		    index_mailbox_is_recent(imail->ibox, imail->mail.mail.uid))
 			flags |= MAIL_RECENT;
 		return (flags & arg->value.flags) == arg->value.flags;
-	case SEARCH_KEYWORD:
-		keywords = mail_get_keywords(&imail->mail.mail);
-		while (*keywords != NULL) {
-			if (strcasecmp(*keywords, arg->value.str) == 0)
-				return 1;
-			keywords++;
-		}
-		return 0;
+	case SEARCH_KEYWORDS:
+		T_FRAME(
+			ret = search_arg_match_keywords(imail, arg);
+		);
+		return ret;
 
 	default:
 		return -1;

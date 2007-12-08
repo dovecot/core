@@ -13,7 +13,7 @@ enum mail_search_arg_type {
 
 	/* flags */
 	SEARCH_FLAGS,
-	SEARCH_KEYWORD,
+	SEARCH_KEYWORDS,
 
 	/* dates */
 	SEARCH_BEFORE,
@@ -54,6 +54,7 @@ struct mail_search_arg {
 		time_t time;
 		uoff_t size;
 		enum mail_flags flags;
+		struct mail_keywords *keywords;
 	} value;
 
         void *context;
