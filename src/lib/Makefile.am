@@ -95,7 +95,7 @@ liblib_a_SOURCES = \
 	strfuncs.c \
 	unix-socket-create.c \
 	unlink-directory.c \
-	unlink-lockfiles.c \
+	unlink-old-files.c \
 	unichar.c \
 	utc-offset.c \
 	utc-mktime.c \
@@ -177,7 +177,7 @@ headers = \
 	strfuncs.h \
 	unix-socket-create.h \
 	unlink-directory.h \
-	unlink-lockfiles.h \
+	unlink-old-files.h \
 	unichar.h \
 	utc-offset.h \
 	utc-mktime.h \
