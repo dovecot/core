@@ -107,6 +107,7 @@ get_log_var_expand_table(struct mail *mail, const char *message)
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
+	unsigned int i;
 
 	tab = t_malloc(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
@@ -115,6 +116,8 @@ get_log_var_expand_table(struct mail *mail, const char *message)
 	(void)mail_get_first_header(mail, "Message-ID", &tab[1].value);
 	(void)mail_get_first_header(mail, "Subject", &tab[2].value);
 	tab[3].value = deliver_get_address(mail, "From");
+	for (i = 1; tab[i].key != '\0'; i++)
+		tab[i].value = str_sanitize(tab[i].value, 80);
 	return tab;
 }
 
