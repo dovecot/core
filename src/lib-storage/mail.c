@@ -47,6 +47,13 @@ const char *const *mail_get_keywords(struct mail *mail)
 	return p->v.get_keywords(mail);
 }
 
+const ARRAY_TYPE(keyword_indexes) *mail_get_keyword_indexes(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.get_keyword_indexes(mail);
+}
+
 int mail_get_parts(struct mail *mail, const struct message_part **parts_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;

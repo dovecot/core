@@ -412,6 +412,8 @@ bool mail_set_uid(struct mail *mail, uint32_t uid);
 enum mail_flags mail_get_flags(struct mail *mail);
 /* Returns message's keywords */
 const char *const *mail_get_keywords(struct mail *mail);
+/* Returns message's keywords */
+const ARRAY_TYPE(keyword_indexes) *mail_get_keyword_indexes(struct mail *mail);
 
 /* Returns message's MIME parts */
 int mail_get_parts(struct mail *mail, const struct message_part **parts_r);

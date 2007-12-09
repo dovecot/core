@@ -127,12 +127,10 @@ enum mail_flags index_mail_get_flags(struct mail *_mail)
 	return data->flags;
 }
 
-static const char *const *
-index_mail_get_keywords_real(struct index_mail *mail)
+const char *const *index_mail_get_keywords(struct mail *_mail)
 {
-	static const char *const no_keywords[] = { NULL };
+	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
-	ARRAY_TYPE(keyword_indexes) keyword_indexes_arr;
 	const char *const *names;
 	const unsigned int *keyword_indexes;
 	unsigned int i, count, names_count;
@@ -140,16 +138,11 @@ index_mail_get_keywords_real(struct index_mail *mail)
 	if (array_is_created(&data->keywords))
 		return array_idx(&data->keywords, 0);
 
-	t_array_init(&keyword_indexes_arr, 128);
-	mail_index_lookup_keywords(mail->ibox->view, mail->data.seq,
-				   &keyword_indexes_arr);
+	(void)index_mail_get_keyword_indexes(_mail);
 
-	keyword_indexes = array_get(&keyword_indexes_arr, &count);
-	if (count == 0)
-		return no_keywords;
-
+	keyword_indexes = array_get(&data->keyword_indexes, &count);
 	names = array_get(mail->ibox->keyword_names, &names_count);
-	p_array_init(&data->keywords, mail->data_pool, count);
+	p_array_init(&data->keywords, mail->data_pool, count + 1);
 	for (i = 0; i < count; i++) {
 		const char *name;
 		i_assert(keyword_indexes[i] < names_count);
@@ -163,15 +156,18 @@ index_mail_get_keywords_real(struct index_mail *mail)
 	return array_idx(&data->keywords, 0);
 }
 
-const char *const *index_mail_get_keywords(struct mail *_mail)
+const ARRAY_TYPE(keyword_indexes) *
+index_mail_get_keyword_indexes(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	const char *const *ret;
+	struct index_mail_data *data = &mail->data;
 
-	T_FRAME(
-		ret = index_mail_get_keywords_real(mail);
-	);
-	return ret;
+	if (!array_is_created(&data->keyword_indexes)) {
+		p_array_init(&data->keyword_indexes, mail->data_pool, 32);
+		mail_index_lookup_keywords(mail->ibox->view, mail->data.seq,
+					   &data->keyword_indexes);
+	}
+	return &data->keyword_indexes;
 }
 
 int index_mail_get_parts(struct mail *_mail,

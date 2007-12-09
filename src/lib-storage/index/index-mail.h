@@ -90,6 +90,7 @@ struct index_mail_data {
 	struct message_parser_ctx *parser_ctx;
 	int parsing_count;
 	ARRAY_TYPE(keywords) keywords;
+	ARRAY_TYPE(keyword_indexes) keyword_indexes;
 
 	unsigned int save_sent_date:1;
 	unsigned int sent_date_parsed:1;
@@ -167,6 +168,8 @@ int index_mail_get_header_stream(struct mail *_mail,
 
 enum mail_flags index_mail_get_flags(struct mail *_mail);
 const char *const *index_mail_get_keywords(struct mail *_mail);
+const ARRAY_TYPE(keyword_indexes) *
+index_mail_get_keyword_indexes(struct mail *_mail);
 int index_mail_get_parts(struct mail *_mail,
 			 const struct message_part **parts_r);
 int index_mail_get_received_date(struct mail *_mail, time_t *date_r);

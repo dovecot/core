@@ -208,6 +208,8 @@ struct mail_vfuncs {
 
 	enum mail_flags (*get_flags)(struct mail *mail);
 	const char *const *(*get_keywords)(struct mail *mail);
+	const ARRAY_TYPE(keyword_indexes) *
+		(*get_keyword_indexes)(struct mail *mail);
 
 	int (*get_parts)(struct mail *mail,
 			 const struct message_part **parts_r);
