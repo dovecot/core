@@ -254,6 +254,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 	}
 
 	ns->storage = storage;
+        mail_namespace_init_storage(ns);
 	return 0;
 }
 

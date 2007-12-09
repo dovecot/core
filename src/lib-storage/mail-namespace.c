@@ -10,7 +10,7 @@
 
 void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
 
-static void namespace_init_storage(struct mail_namespace *ns)
+void mail_namespace_init_storage(struct mail_namespace *ns)
 {
 	ns->list = mail_storage_get_list(ns->storage);
 	ns->prefix_len = strlen(ns->prefix);
@@ -83,7 +83,6 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 
 	if (sep != NULL)
 		ns->sep = *sep;
-        namespace_init_storage(ns);
 	return ns;
 }
 
@@ -249,8 +248,6 @@ int mail_namespaces_init(pool_t pool, const char *user,
 		}
 		return -1;
 	}
-
-	namespace_init_storage(ns);
 	*namespaces_r = ns;
 
 	if (hook_mail_namespaces_created != NULL) {

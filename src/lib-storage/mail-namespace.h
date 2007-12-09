@@ -85,4 +85,7 @@ struct mail_namespace *
 mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
 				 const char *prefix);
 
+/* Called internally by mail_storage_create(). */
+void mail_namespace_init_storage(struct mail_namespace *ns);
+
 #endif
