@@ -261,6 +261,8 @@ int imap_fetch(struct imap_fetch_context *ctx)
 		ctx->cont_handler = NULL;
 		ctx->cur_offset = 0;
                 ctx->cur_handler++;
+		if (ctx->cur_input != NULL)
+			i_stream_unref(&ctx->cur_input);
 	}
 
 	/* assume initially that we're locking it */
@@ -285,9 +287,6 @@ int imap_fetch(struct imap_fetch_context *ctx)
 		if (ctx->cur_mail == NULL) {
 			if (ctx->cmd->cancel)
 				return 1;
-
-			if (ctx->cur_input != NULL)
-				i_stream_unref(&ctx->cur_input);
 
 			if (mailbox_search_next(ctx->search_ctx,
 						ctx->mail) <= 0)
@@ -341,6 +340,8 @@ int imap_fetch(struct imap_fetch_context *ctx)
 
 			ctx->cont_handler = NULL;
 			ctx->cur_offset = 0;
+			if (ctx->cur_input != NULL)
+				i_stream_unref(&ctx->cur_input);
 		}
 
 		if (str_len(ctx->cur_str) > 0) {
