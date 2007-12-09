@@ -85,15 +85,7 @@ static void dbox_file_free(struct dbox_file *file)
 
 	if (file->metadata_pool != NULL)
 		pool_unref(&file->metadata_pool);
-	if (file->input != NULL)
-		i_stream_unref(&file->input);
-	if (file->output != NULL)
-		o_stream_unref(&file->output);
-	if (file->fd != -1) {
-		if (close(file->fd) < 0)
-			dbox_file_set_syscall_error(file, "close");
-		file->fd = -1;
-	}
+	dbox_file_close(file);
 	i_free(file->current_path);
 	i_free(file->fname);
 	i_free(file);
@@ -506,6 +498,38 @@ int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
 		return 1;
 	else
 		return dbox_file_open(file, read_header, deleted_r);
+}
+
+int dbox_file_open_if_needed(struct dbox_file *file)
+{
+	const char *path;
+	int ret;
+
+	if (file->fd != -1)
+		return 0;
+
+	T_FRAME(
+		ret = dbox_file_open_fd(file);
+	);
+	if (ret == 0) {
+		path = t_strdup_printf("%s/%s", file->mbox->path, file->fname);
+		mail_storage_set_critical(file->mbox->ibox.box.storage,
+					  "open(%s) failed: %m", path);
+	}
+	return ret <= 0 ? -1 : 0;
+}
+
+void dbox_file_close(struct dbox_file *file)
+{
+	if (file->input != NULL)
+		i_stream_unref(&file->input);
+	if (file->output != NULL)
+		o_stream_unref(&file->output);
+	if (file->fd != -1) {
+		if (close(file->fd) < 0)
+			dbox_file_set_syscall_error(file, "close");
+		file->fd = -1;
+	}
 }
 
 const char *dbox_file_get_path(struct dbox_file *file)

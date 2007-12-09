@@ -153,6 +153,10 @@ int dbox_file_assign_id(struct dbox_file *file, unsigned int file_id);
    deleted, deleted_r=TRUE and 1 is returned. */
 int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
 			     bool *deleted_r);
+/* Open the file's fd if it's currently closed. Assumes that the file exists. */
+int dbox_file_open_if_needed(struct dbox_file *file);
+/* Close the file handle from the file, but don't free it. */
+void dbox_file_close(struct dbox_file *file);
 
 /* Returns the current fulle path for an opened/created file. It's an error to
    call this function for a non-opened file. */

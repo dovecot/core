@@ -18,7 +18,7 @@
 
 struct dbox_save_mail {
 	struct dbox_file *file;
-	uint32_t seq;
+	uint32_t seq, uid;
 	uint32_t append_offset;
 	uoff_t message_size;
 };
@@ -250,6 +250,12 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 	i_stream_unref(&ctx->input);
 
 	count = array_count(&ctx->mails);
+	if (count >= ctx->mbox->max_open_files) {
+		/* too many open files, close one of them */
+		save_mail = array_idx_modifiable(&ctx->mails, count -
+						 ctx->mbox->max_open_files);
+		dbox_file_close(save_mail->file);
+	}
 	save_mail = array_idx_modifiable(&ctx->mails, count - 1);
 	if (ctx->failed) {
 		dbox_file_cancel_append(save_mail->file,
@@ -273,28 +279,21 @@ void dbox_save_cancel(struct mail_save_context *_ctx)
 	(void)dbox_save_finish(_ctx);
 }
 
-static int
-dbox_save_mail_write_header(struct dbox_save_mail *mail, uint32_t uid)
+static int dbox_save_mail_write_header(struct dbox_save_mail *mail)
 {
 	struct dbox_message_header dbox_msg_hdr;
-	struct ostream *output = mail->file->output;
-	uoff_t orig_offset;
-	int ret = 0;
 
 	i_assert(mail->file->msg_header_size == sizeof(dbox_msg_hdr));
 
-	mail->file->last_append_uid = uid;
-	dbox_msg_header_fill(&dbox_msg_hdr, uid, mail->message_size);
+	mail->file->last_append_uid = mail->uid;
+	dbox_msg_header_fill(&dbox_msg_hdr, mail->uid, mail->message_size);
 
-	orig_offset = output->offset;
-	o_stream_seek(output, mail->append_offset);
-	if (o_stream_send(output, &dbox_msg_hdr, sizeof(dbox_msg_hdr)) < 0 ||
-	    o_stream_flush(output) < 0) {
+	if (pwrite_full(mail->file->fd, &dbox_msg_hdr,
+			sizeof(dbox_msg_hdr), mail->append_offset) < 0) {
 		dbox_file_set_syscall_error(mail->file, "write");
-		ret = -1;
+		return -1;
 	}
-	o_stream_seek(output, orig_offset);
-	return ret;
+	return 0;
 }
 
 static int
@@ -350,32 +349,40 @@ static int dbox_save_commit(struct dbox_save_context *ctx, uint32_t first_uid)
 	struct dbox_mail_index_record rec;
 	struct dbox_save_mail *mails;
 	unsigned int i, count;
+	int ret = 0;
 
-	/* first write updated mail headers and collect all files we wrote to */
+	/* assign UIDs to mails */
 	mails = array_get_modifiable(&ctx->mails, &count);
-	for (i = 0; i < count; i++) {
-		if (dbox_save_mail_write_header(&mails[i], first_uid++) < 0)
-			return -1;
-	}
+	for (i = 0; i < count; i++)
+		mails[i].uid = first_uid++;
 
-	/* update append offsets in file headers */
+	/* update headers */
 	qsort(mails, count, sizeof(*mails), dbox_save_mail_file_cmp);
 	for (i = 0; i < count; i++) {
-		if (i > 0 && mails[i].file == mails[i-1].file) {
-			/* already written */
-			continue;
+		if (dbox_file_open_if_needed(mails[i].file) < 0 ||
+		    dbox_save_mail_write_header(&mails[i]) < 0) {
+			ret = -1;
+			break;
 		}
 
-		if (dbox_save_file_commit_header(&mails[i]) < 0) {
-			/* have to uncommit all changes so far */
-			for (; i > 0; i--) {
-				if (i > 1 &&
-				    mails[i-2].file == mails[i-1].file)
-					continue;
-				dbox_save_file_uncommit_header(&mails[i-1]);
+		/* write file header only once after all mails headers
+		   have been written */
+		if (i+1 == count || mails[i].file != mails[i+1].file) {
+			if (dbox_save_file_commit_header(&mails[i]) < 0) {
+				ret = -1;
+				break;
 			}
-			return -1;
+			dbox_file_close(mails[i].file);
 		}
+	}
+	if (ret < 0) {
+		/* have to uncommit all written changes */
+		for (; i > 0; i--) {
+			if (i > 1 && mails[i-2].file == mails[i-1].file)
+				continue;
+			dbox_save_file_uncommit_header(&mails[i-1]);
+		}
+		return -1;
 	}
 
 	/* set file_id / offsets to records */
