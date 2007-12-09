@@ -161,8 +161,6 @@ struct mail_index_view_sync_rec {
 	enum mail_index_sync_type type;
 };
 
-ARRAY_DEFINE_TYPE(keyword_indexes, unsigned int);
-
 struct mail_index;
 struct mail_index_map;
 struct mail_index_view;

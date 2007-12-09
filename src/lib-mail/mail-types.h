@@ -20,5 +20,6 @@ enum modify_type {
 };
 
 ARRAY_DEFINE_TYPE(keywords, const char *);
+ARRAY_DEFINE_TYPE(keyword_indexes, unsigned int);
 
 #endif
