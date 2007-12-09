@@ -22,13 +22,13 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h \
   xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h)
 
 AC_ARG_ENABLE(ipv6,
-[  --enable-ipv6           Enable IPv6 support (default)],
-	if test x$enableval = xno; then
-		want_ipv6=no
+[  --enable-ipv6           Enable IPv6 support (auto)],
+	if test x$withval = xno || test x$withval = xauto; then
+		want_ipv6=$withval
 	else
 		want_ipv6=yes
 	fi,
-	want_ipv6=yes)
+	want_ipv6=auto)
 
 AC_ARG_ENABLE(debug,
 [  --enable-debug          Enable some extra expensive checks for developers],
@@ -69,71 +69,72 @@ AC_ARG_WITH(linux-quota,
 
 AC_ARG_WITH(passwd,
 [  --with-passwd           Build with /etc/passwd support (default)],
-	if test x$withval = xno; then
-		want_passwd=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_passwd=$withval
 	else
 		want_passwd=yes
 	fi,
 	want_passwd=yes)
 
 AC_ARG_WITH(nss,
-[  --with-nss              Build with NSS module support (default)],
-	if test x$withval = xno; then
-		want_nss=no
+[  --with-nss              Build with NSS module support (auto)],
+	if test x$withval = xno || test x$withval = xauto; then
+		want_nss=$withval
 	else
 		want_nss=yes
 	fi,
-	want_nss=yes)
+	want_nss=auto)
 
 AC_ARG_WITH(passwd-file,
 [  --with-passwd-file      Build with passwd-like file support (default)],
-	if test x$withval = xno; then
-		want_passwd_file=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_passwd_file=$withval
 	else
 		want_passwd_file=yes
 	fi,
 	want_passwd_file=yes)
 
 AC_ARG_WITH(shadow,
-[  --with-shadow           Build with shadow password support (default)],
-	if test x$withval = xno; then
-		want_shadow=no
+[  --with-shadow           Build with shadow password support (auto)],
+	if test x$withval = xno || test x$withval = xauto; then
+		want_shadow=$withval
 	else
 		want_shadow=yes
 	fi,
-	want_shadow=yes)
+	want_shadow=auto)
 
 AC_ARG_WITH(pam,
-[  --with-pam              Build with PAM support (default)],
-	if test x$withval = xno; then
-		want_pam=no
+[  --with-pam              Build with PAM support (auto)],
+	if test x$withval = xno || test x$withval = xauto; then
+		want_pam=$withval
 	else
 		want_pam=yes
 	fi,
-	want_pam=yes)
+	want_pam=auto)
 
 AC_ARG_WITH(checkpassword,
 [  --with-checkpassword    Build with checkpassword support (default)],
-	if test x$withval = xno; then
-		want_checkpassword=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_checkpassword=$withval
 	else
 		want_checkpassword=yes
 	fi,
 	want_checkpassword=yes)
 
 AC_ARG_WITH(bsdauth,
-[  --with-bsdauth          Build with BSD authentication support (default)],
-	if test x$withval = xno; then
-		want_bsdauth=no
+[  --with-bsdauth          Build with BSD authentication support (auto)],
+	if test x$withval = xno || test x$withval = xauto; then
+		want_bsdauth=$withval
 	else
 		want_bsdauth=yes
 	fi,
-	want_bsdauth=yes)
+	want_bsdauth=auto)
 
 AC_ARG_WITH(gssapi,
 [  --with-gssapi=yes|plugin Build with GSSAPI authentication support],
-	if test x$withval = xno; then
-		want_gssapi=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_gssapi=$withval
+		want_gssapi_plugin=no
 	elif test x$withval = xplugin; then
 		want_gssapi=yes
 		want_gssapi_plugin=yes
@@ -145,17 +146,18 @@ AC_ARG_WITH(gssapi,
 
 AC_ARG_WITH(sia,
 [  --with-sia              Build with Tru64 SIA support],
-      if test x$withval = xno; then
-              want_sia=no
-      else
-              want_sia=yes
-      fi,
-      want_sia=no)
+	if test x$withval = xno || test x$withval = xauto; then
+		want_sia=$withval
+	else
+		want_sia=yes
+	fi,
+	want_sia=no)
 
 AC_ARG_WITH(ldap,
 [  --with-ldap=yes|plugin  Build with LDAP support],
-	if test x$withval = xno; then
-		want_ldap=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_ldap=$withval
+		want_ldap_plugin=no
 	elif test x$withval = xplugin; then
 		want_ldap=yes
 		want_ldap_plugin=yes
@@ -166,18 +168,19 @@ AC_ARG_WITH(ldap,
 	want_ldap=no)
 
 AC_ARG_WITH(vpopmail,
-[  --with-vpopmail         Build with vpopmail support (default)],
+[  --with-vpopmail         Build with vpopmail support (auto)],
 	if test x$withval = xno; then
 		want_vpopmail=no
 	else
-		want_vpopmail=yes
-		if test x$withval = xyes; then
+		if test x$withval = xyes || test x$withval = xauto; then
 			vpopmail_home="`echo ~vpopmail`"
+			want_vpopmail=$withval
 		else
 			vpopmail_home="$withval"
+			want_vpopmail=yes
 		fi
 	fi, [
-		want_vpopmail=yes
+		want_vpopmail=auto
 		vpopmail_home="`echo ~vpopmail`"
 	])
 
@@ -201,8 +204,8 @@ AC_ARG_WITH(prefetch-userdb,
 
 AC_ARG_WITH(db,
 [  --with-db               Build with Berkeley DB support],
-	if test x$withval = xno; then
-		want_db=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_db=$withval
 	else
 		want_db=yes
 	fi,
@@ -225,8 +228,8 @@ AC_ARG_WITH(sql,
 
 AC_ARG_WITH(pgsql,
 [  --with-pgsql            Build with PostgreSQL driver support],
-	if test x$withval = xno; then
-		want_pgsql=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_pgsql=$withval
 	else
 		want_pgsql=yes
 	fi,
@@ -234,8 +237,8 @@ AC_ARG_WITH(pgsql,
 
 AC_ARG_WITH(mysql,
 [  --with-mysql            Build with MySQL driver support],
-	if test x$withval = xno; then
-		want_mysql=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_mysql=$withval
 	else
 		want_mysql=yes
 	fi,
@@ -243,17 +246,17 @@ AC_ARG_WITH(mysql,
 
 AC_ARG_WITH(sqlite,
 [  --with-sqlite           Build with SQLite3 driver support],
-	if test x$withval = xno; then
-		want_sqlite=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_sqlite=$withval
 	else
-	want_sqlite=yes
+		want_sqlite=yes
 	fi,
 	want_sqlite=no)
 
 AC_ARG_WITH(lucene,
 [  --with-lucene           Build with CLucene full text search support],
-	if test x$withval = xno; then
-		want_lucene=no
+	if test x$withval = xno || test x$withval = xauto; then
+		want_lucene=$withval
 	else
 		want_lucene=yes
 	fi,
@@ -276,7 +279,7 @@ AC_ARG_WITH(ssl,
 		want_openssl=yes
 	fi, [
 		want_gnutls=no
-		want_openssl=yes
+		want_openssl=auto
 	])
 
 AC_ARG_WITH(ssldir,
@@ -302,14 +305,10 @@ AC_SUBST(statedir)
 
 AC_ARG_WITH(gc,
 [  --with-gc               Use Boehm garbage collector],
-	if test x$withval = xyes; then
-		want_gc=yes
+	if test x$withval = xno || test x$withval = xauto; then
+		want_gc=$withval
 	else
-		if test "x$withval" = xno; then
-			want_gc=no
-		else
-			want_gc=yes
-		fi
+		want_gc=yes
 	fi,
 	want_gc=no)
 
@@ -1429,7 +1428,7 @@ dnl **
 
 have_ssl=no
 
-if test "$want_openssl" = "yes" && test "$have_ssl" = "no"; then
+if test $want_openssl != no && test $have_ssl = no; then
   if pkg-config --exists openssl 2>/dev/null; then
     PKG_CHECK_MODULES(SSL, openssl)
     CFLAGS="$CFLAGS $SSL_CFLAGS"
@@ -1440,8 +1439,16 @@ if test "$want_openssl" = "yes" && test "$have_ssl" = "no"; then
         SSL_LIBS="-lssl -lcrypto"
         AC_SUBST(SSL_LIBS)
 	have_openssl=yes
+      ], [
+	if test $want_openssl = yes; then
+	  AC_ERROR([Can't build with OpenSSL: openssl/ssl.h or openssl/err.h not found])
+	fi
       ])
-    ],, -lcrypto)
+    ], [
+      if test $want_openssl = yes; then
+        AC_ERROR([Can't build with OpenSSL: libssl not found])
+      fi
+    ], -lcrypto)
   fi
   if test "$have_openssl" = "yes"; then
     AC_DEFINE(HAVE_OPENSSL,, Build with OpenSSL support)
@@ -1449,16 +1456,24 @@ if test "$want_openssl" = "yes" && test "$have_ssl" = "no"; then
   fi
 fi
 
-if test $want_gnutls = yes && test "$have_ssl" = no; then
-	AC_CHECK_LIB(gnutls, gnutls_global_init, [
-		AC_CHECK_HEADERS(gnutls/gnutls.h, [
-			AC_DEFINE(HAVE_GNUTLS,, Build with GNUTLS support)
-			SSL_LIBS="-lgnutls -lgcrypt"
-			AC_SUBST(SSL_LIBS)
-			have_ssl="yes (GNUTLS)"
-			have_gnutls=yes
-		])
-	],, -lgcrypt)
+if test $want_gnutls != no && test $have_ssl = no; then
+  AC_CHECK_LIB(gnutls, gnutls_global_init, [
+    AC_CHECK_HEADER(gnutls/gnutls.h, [
+      AC_DEFINE(HAVE_GNUTLS,, Build with GNUTLS support)
+      SSL_LIBS="-lgnutls -lgcrypt"
+      AC_SUBST(SSL_LIBS)
+      have_ssl="yes (GNUTLS)"
+      have_gnutls=yes
+    ], [
+      if test $want_gnutls = yes; then
+	AC_ERROR([Can't build with GNUTLS: gnutls/gnutls.h not found])
+      fi
+    ])
+  ], [
+    if test $want_gnutls = yes; then
+      AC_ERROR([Can't build with GNUTLS: libgnutls not found])
+    fi
+  ], -lgcrypt)
 fi
 
 if test "$have_ssl" != "no"; then
@@ -1469,13 +1484,15 @@ dnl **
 dnl ** Garbage Collector
 dnl ** 
 
-if test "$want_gc" = "yes"; then
+if test $want_gc != no; then
   AC_CHECK_LIB(gc, GC_malloc, [
     AC_CHECK_HEADERS(gc/gc.h gc.h)
     AC_DEFINE(USE_GC,, Define if you want to use Boehm GC)
     LIBS="$LIBS -lgc"
   ], [
-    want_gc=no
+    if test $want_gc = yes; then
+      AC_ERROR([Can't build with GC: libgc not found])
+    fi
   ])
 fi
 
@@ -1486,40 +1503,48 @@ dnl **
 userdb=""
 passdb=""
 
-if test $want_static_userdb = yes; then
+if test $want_static_userdb != no; then
         AC_DEFINE(USERDB_STATIC,, Build with static userdb support)
 	userdb="$userdb static"
 fi
 
-if test $want_prefetch_userdb = yes; then
+if test $want_prefetch_userdb != no; then
         AC_DEFINE(USERDB_PREFETCH,, Build with prefetch userdb support)
 	userdb="$userdb prefetch"
 fi
 
-if test $want_passwd = yes; then
+if test $want_passwd != no; then
         AC_DEFINE(USERDB_PASSWD,, Build with passwd support)
         AC_DEFINE(PASSDB_PASSWD,, Build with passwd support)
 	userdb="$userdb passwd"
 	passdb="$passdb passwd"
 fi
 
-if test $want_passwd_file = yes; then
+if test $want_passwd_file != no; then
         AC_DEFINE(USERDB_PASSWD_FILE,, Build with passwd-file support)
         AC_DEFINE(PASSDB_PASSWD_FILE,, Build with passwd-file support)
 	userdb="$userdb passwd-file"
 	passdb="$passdb passwd-file"
 fi
 
-if test $want_shadow = yes; then
-	AC_CHECK_FUNC(getspnam, [
-		AC_CHECK_HEADER(shadow.h, [
-			AC_DEFINE(PASSDB_SHADOW,, Build with shadow support)
-			passdb="$passdb shadow"
-		])
-	])
+if test $want_shadow != no; then
+  AC_CHECK_FUNC(getspnam, [
+    AC_CHECK_HEADER(shadow.h, [
+      AC_DEFINE(PASSDB_SHADOW,, Build with shadow support)
+      passdb="$passdb shadow"
+    ], [
+      if test $want_shadow = yes; then
+        AC_ERROR([Can't build with shadow support: shadow.h not found])
+      fi
+    ])
+  ], [
+    if test $want_shadow = yes; then
+      AC_ERROR([Can't build with shadow support: getspnam() not found])
+    fi
+  ])
 fi
 
-if test $want_pam = yes; then
+if test $want_pam != no; then
 	AC_CHECK_LIB(pam, pam_start, [
 		have_pam=no
 		AC_CHECK_HEADER(security/pam_appl.h, [
@@ -1543,26 +1568,36 @@ if test $want_pam = yes; then
 				AC_DEFINE(HAVE_PAM_SETCRED,,
 					  Define if you have pam_setcred())
 			])
+		elif test $want_pam = yes; then
+		  AC_ERROR([Can't build with PAM support: pam_appl.h not found])
 		fi
+	], [
+	  if test $want_pam = yes; then
+	    AC_ERROR([Can't build with PAM support: libpam not found])
+	  fi
 	])
 fi
 
-if test $want_checkpassword = yes; then
+if test $want_checkpassword != no; then
         AC_DEFINE(USERDB_CHECKPASSWORD,, Build with checkpassword userdb support)
         AC_DEFINE(PASSDB_CHECKPASSWORD,, Build with checkpassword passdb support)
 	userdb="$userdb checkpassword"
 	passdb="$passdb checkpassword"
 fi
 
-if test $want_bsdauth = yes; then
+if test $want_bsdauth != no; then
 	AC_CHECK_FUNC(auth_userokay, [
 		AC_DEFINE(PASSDB_BSDAUTH,, Build with BSD authentication support)
 		passdb="$passdb bsdauth"
+	], [
+	  if test $want_bsdauth = yes; then
+	    AC_ERROR([Can't build with BSD authentication support: auth_userokay() not found])
+	  fi
 	])
 fi
 
 have_gssapi=no
-if test $want_gssapi = yes; then
+if test $want_gssapi != no; then
 	AC_CHECK_PROG(KRB5CONFIG, krb5-config, YES, NO)
 	if test $KRB5CONFIG = YES; then
 		# we have a kludgy check here to check that we have
@@ -1603,22 +1638,38 @@ if test $want_gssapi = yes; then
 				else
 				  have_gssapi_plugin=yes
 				fi
+			else
+			  if test $want_gssapi = yes; then
+			    AC_ERROR([Can't build with GSSAPI support: gssapi.h not found])
+			  fi
 			fi
 			CFLAGS=$old_CFLAGS
+		else
+		  if test $want_gssapi = yes; then
+		    AC_ERROR([Can't build with GSSAPI support: v1.2 library not supported])
+		  fi
 		fi
+	else
+	  if test $want_gssapi = yes; then
+	    AC_ERROR([Can't build with GSSAPI support: krb5-config not found])
+	  fi
 	fi
 fi
 AM_CONDITIONAL(GSSAPI_PLUGIN, test "$have_gssapi_plugin" = "yes")
 
-if test $want_sia = yes; then
+if test $want_sia != no; then
 	AC_CHECK_FUNC(sia_validate_user, [
 		AC_DEFINE(PASSDB_SIA,, Build with Tru64 SIA support)
 		passdb="$passdb sia"
 		AUTH_LIBS="$AUTH_LIBS -depth_ring_search"
+	], [
+	  if test $want_sia = yes; then
+	    AC_ERROR([Can't build with SIA support: sia_validate_user() not found])
+	  fi
 	])
 fi
 
-if test $want_ldap = yes; then
+if test $want_ldap != no; then
 	AC_CHECK_LIB(ldap, ldap_init, [
 		AC_CHECK_HEADER(ldap.h, [
 			AC_CHECK_LIB(ldap, ldap_initialize, [
@@ -1643,14 +1694,22 @@ if test $want_ldap = yes; then
 				userdb="$userdb (plugin)"
 				passdb="$passdb (plugin)"
 			fi
+		], [
+		  if test $want_ldap = yes; then
+		    AC_ERROR([Can't build with LDAP support: ldap.h not found])
+		  fi
 		])
+	], [
+	  if test $want_ldap = yes; then
+	    AC_ERROR([Can't build with LDAP support: libldap not found])
+	  fi
 	])
 fi
 AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
 
 dict_drivers=client
 
-if test $want_db = yes; then
+if test $want_db != no; then
 	AC_MSG_CHECKING([db_env_create in -ldb])
 	old_LIBS=$LIBS
 	LIBS="$LIBS -ldb"
@@ -1664,14 +1723,21 @@ if test $want_db = yes; then
         		DICT_LIBS="$DICT_LIBS -ldb"
 			dict_drivers="$dict_drivers db"
 			AC_DEFINE(BUILD_DB,, Build with Berkeley DB support)
+		], [
+		  if test $want_db = yes; then
+		    AC_ERROR([Can't build with db support: db.h not found])
+		  fi
 		])
 	], [
 		AC_MSG_RESULT(no)
+		if test $want_db = yes; then
+		  AC_ERROR([Can't build with db support: libdb not found])
+		fi
 	])
 	LIBS=$old_LIBS
 fi
 
-if test $want_pgsql = yes; then
+if test $want_pgsql != no; then
 	# based on code from PHP
 	for i in /usr /usr/local /usr/local/pgsql; do
 		for j in include include/pgsql include/postgres include/postgresql ""; do
@@ -1715,13 +1781,21 @@ if test $want_pgsql = yes; then
                         if test "$all_sql_drivers" = "yes"; then
 			  sql_drivers="$sql_drivers pgsql"
 			fi
+		], [
+		  if test $want_pgsql = yes; then
+		    AC_ERROR([Can't build with PostgreSQL support: libpq-fe.h not found])
+		  fi
 		])
 		CPPFLAGS=$old_CPPFLAGS
+	], [
+	  if test $want_pgsql = yes; then
+	    AC_ERROR([Can't build with PostgreSQL support: libpq not found])
+	  fi
 	])
 	LIBS=$old_LIBS
 fi
 
-if test $want_mysql = yes; then
+if test $want_mysql != no; then
 	# based on code from PHP
 	for i in /usr /usr/local /usr/local/mysql; do
 		for j in include include/mysql ""; do
@@ -1744,10 +1818,6 @@ if test $want_mysql = yes; then
 	mysql_lib=""
 	LIBS="$LIBS -lz -lm"
 	AC_CHECK_LIB(mysqlclient, mysql_init, [
-		mysql_lib="-lmysqlclient -lz -lm"
-	])
-
-	if test "$mysql_lib" != ""; then
 		old_CPPFLAGS=$CPPFLAGS
 		if test "$MYSQL_INCLUDE" != ""; then
 			CPPFLAGS="$CPPFLAGS -I $MYSQL_INCLUDE"
@@ -1759,7 +1829,7 @@ if test $want_mysql = yes; then
 			if test "$MYSQL_LIBDIR" != ""; then
 				MYSQL_LIBS="$MYSQL_LIBS -L$MYSQL_LIBDIR"
 			fi
-			MYSQL_LIBS="$MYSQL_LIBS $mysql_lib"
+			MYSQL_LIBS="$MYSQL_LIBS -lmysqlclient -lz -lm"
 
 			AC_CHECK_LIB(mysqlclient, mysql_ssl_set, [
 				AC_DEFINE(HAVE_MYSQL_SSL,, Define if your MySQL library has SSL functions)
@@ -1780,21 +1850,37 @@ if test $want_mysql = yes; then
 			
 			AC_DEFINE(HAVE_MYSQL,, Build with MySQL support)
 			found_sql_drivers="$found_sql_drivers mysql"
+		], [
+		  if test $want_mysql = yes; then
+		    AC_ERROR([Can't build with MySQL support: mysql.h not found])
+		  fi
 		])
 		CPPFLAGS=$old_CPPFLAGS
-	fi
+	], [
+	  if test $want_mysql = yes; then
+	    AC_ERROR([Can't build with MySQL support: libmysqlclient not found])
+	  fi
+	])
 
 	LIBS=$old_LIBS
 fi
 
-if test $want_sqlite = yes; then
+if test $want_sqlite != no; then
 	AC_CHECK_LIB(sqlite3, sqlite3_open, [
 		AC_CHECK_HEADER(sqlite3.h, [
 			SQLITE_LIBS="$SQLITE_LIBS -lsqlite3 -lz"
 
 			AC_DEFINE(HAVE_SQLITE,, Build with SQLite3 support)
 			found_sql_drivers="$found_sql_drivers sqlite"
+		], [
+		  if test $want_sqlite = yes; then
+		    AC_ERROR([Can't build with SQLite support: sqlite3.h not found])
+		  fi
 		])
+	], [
+	  if test $want_sqlite = yes; then
+	    AC_ERROR([Can't build with SQLite support: libsqlite3 not found])
+	  fi
 	])
 fi
 	
@@ -1815,7 +1901,7 @@ if test "$found_sql_drivers" != "" -o "$want_sql" != "no"; then
 	userdb="$userdb sql"
 fi
 
-if test $want_vpopmail = yes; then
+if test $want_vpopmail != no; then
 	vpop_libdeps="$vpopmail_home/etc/lib_deps"
 
 	AC_MSG_CHECKING([for vpopmail configuration at $vpop_libdeps])
@@ -1828,8 +1914,10 @@ if test $want_vpopmail = yes; then
 		passdb="$passdb vpopmail"
 		AC_MSG_RESULT(found)
 	else
-		want_vpopmail=no
 		AC_MSG_RESULT(not found)
+		if test $want_vpopmail = yes; then
+		  AC_ERROR([Can't build with vpopmail support: $vpop_libdeps not found])
+		fi
 	fi
 fi
 
@@ -1858,15 +1946,27 @@ if test $have_modules = yes; then
   AC_SUBST(MODULE_LIBS)
 fi
 
-if test $want_nss = yes && test $have_modules = yes; then
-  AC_TRY_COMPILE([
-    #include <nss.h>
-  ], [
-    enum nss_status status = NSS_STATUS_TRYAGAIN;
-  ], [
-    AC_DEFINE(USERDB_NSS,, Build with NSS module support)
-    userdb="$userdb nss"
-  ])
+have_nss=no
+if test $want_nss != no; then
+  if test $have_modules != yes; then
+    if test $want_nss = yes; then
+      AC_ERROR([Can't build with NSS support: Dynamic modules not supported])
+    fi
+  else
+    AC_TRY_COMPILE([
+      #include <nss.h>
+    ], [
+      enum nss_status status = NSS_STATUS_TRYAGAIN;
+    ], [
+      AC_DEFINE(USERDB_NSS,, Build with NSS module support)
+      userdb="$userdb nss"
+      have_nss=yes
+    ], [
+      if test $want_nss = yes; then
+        AC_ERROR([Can't build with NSS support: nss.h not found or not usable])
+      fi
+    ])
+  fi
 fi
 
 AC_SUBST(AUTH_CFLAGS)
@@ -1903,7 +2003,8 @@ dnl **
 dnl ** IPv6 support
 dnl **
 
-if test "x$want_ipv6" = "xyes"; then
+have_ipv6=no
+if test "$want_ipv6" != no; then
 	AC_MSG_CHECKING([for IPv6])
 	AC_CACHE_VAL(i_cv_type_in6_addr,
 	[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -1917,6 +2018,7 @@ if test "x$want_ipv6" = "xyes"; then
 	[i_cv_type_in6_addr=no])])
 	if test $i_cv_type_in6_addr = yes; then
 		AC_DEFINE(HAVE_IPV6,, Build with IPv6 support)
+		have_ipv6=yes
 	fi
 	AC_MSG_RESULT($i_cv_type_in6_addr)
 fi
@@ -2072,7 +2174,7 @@ echo "File offsets ........................ : ${offt_bits}bit"
 echo "I/O loop method ..................... : $ioloop"
 echo "File change notification method ..... : $have_notify"
 echo "Building with SSL support ........... : $have_ssl"
-echo "Building with IPv6 support .......... : $want_ipv6"
+echo "Building with IPv6 support .......... : $have_ipv6"
 echo "Building with pop3 server ........... : $want_pop3d"
 echo "Building with mail delivery agent  .. : $want_deliver"
 echo "Building with GSSAPI support ........ : $have_gssapi"
