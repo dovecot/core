@@ -4,7 +4,8 @@
 #include "ioloop.h"
 #include "randgen.h"
 #include "lib-signals.h"
-#include "mail-storage.h"
+#include "mail-namespace.h"
+#include "mail-storage-private.h"
 #include "convert-storage.h"
 
 #include <stdlib.h>
@@ -17,6 +18,10 @@ int main(int argc, const char *argv[])
 {
 	struct ioloop *ioloop;
 	struct convert_settings set;
+	struct mail_namespace *dest_ns;
+        enum mail_storage_flags dest_flags;
+	enum file_lock_method lock_method;
+	const char *error;
 	int i, ret = 0;
 
 	lib_init();
@@ -44,13 +49,22 @@ int main(int argc, const char *argv[])
 			set.alt_hierarchy_char = argv[i][19];
 	}
 
-	ret = convert_storage(argv[3], argv[4], &set);
+	mail_storage_parse_env(&dest_flags, &lock_method);
+	dest_ns = mail_namespaces_init_empty(pool_datastack_create());
+	if (mail_storage_create(dest_ns, NULL, argv[4], set.user,
+				dest_flags, lock_method, &error) < 0) {
+		i_fatal("Failed to create destination "
+			"mail storage with data '%s': %s", argv[4], error);
+	}
+
+	ret = convert_storage(argv[3], dest_ns, &set);
 	if (ret > 0)
 		i_info("Successfully converted");
 	else if (ret == 0)
 		i_error("Source storage not found");
 	else
 		i_error("Internal failure");
+	mail_namespaces_deinit(&dest_ns);
 
 	io_loop_destroy(&ioloop);
 	mail_storage_deinit();
