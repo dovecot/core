@@ -329,150 +329,119 @@ static int sort_node_cmp_nozero_sort_id(const void *p1, const void *p2)
 	return sort_node_cmp_type(ctx, sort_program, n1, n2);
 }
 
-static bool
+static void
 index_sort_add_ids_range(struct mail_search_sort_program *program,
-			 struct mail *mail, unsigned int idx1,
-			 unsigned int idx2)
+			 struct mail *mail, unsigned int left_idx,
+			 unsigned int right_idx)
 {
 	struct mail_sort_node *nodes;
-	unsigned int i, count;
-	uint32_t prev_id = 0, last_id = (uint32_t)-1;
-	string_t *last_str, *prev_str, *str;
+	unsigned int i, count, rightmost_idx;
+	uint32_t left_sort_id, right_sort_id;
+	string_t *right_str, *left_str, *str;
 	unsigned int skip;
+	bool have_right_sort_id = FALSE;
 
-	last_str = t_str_new(256);
 	nodes = array_get_modifiable(&program->all_nodes, &count);
-	if (nodes[idx2].sort_id != 0) {
-		i_assert(idx1 != idx2);
-		last_id = nodes[idx2].sort_id;
+	rightmost_idx = count - 1;
 
-		sort_header_get(last_str, program->sort_program[0], mail,
-				nodes[idx2].seq);
-		idx2--;
+	/* get the sort IDs from left and right */
+	i_assert(left_idx == 0 || nodes[left_idx].sort_id != 0);
+	i_assert(right_idx == rightmost_idx || nodes[right_idx].sort_id != 0);
+	left_sort_id = nodes[left_idx].sort_id == 0 ? 1 :
+		nodes[left_idx].sort_id;
+	right_sort_id = nodes[right_idx].sort_id == 0 ? (uint32_t)-1 :
+		nodes[right_idx].sort_id;
+
+	while ((right_sort_id - left_sort_id) / (right_idx-left_idx + 2) == 0) {
+		/* we most likely don't have enough space. we have to
+		   renumber some of the existing sort IDs. do this by
+		   widening the area we're giving sort IDs. */
+		if (left_idx > 0) {
+			left_idx--;
+			left_sort_id = nodes[left_idx].sort_id;
+			i_assert(left_sort_id != 0);
+		}
+
+		while (right_idx < rightmost_idx) {
+			if (nodes[++right_idx].sort_id != 0)
+				break;
+		}
+		right_sort_id = right_idx == rightmost_idx ? (uint32_t)-1 :
+			nodes[right_idx].sort_id;
+		i_assert(left_sort_id < right_sort_id);
 	}
 
-	prev_str = t_str_new(256);
-	if (nodes[idx1].sort_id != 0) {
-		prev_id = nodes[idx1].sort_id;
-
-		sort_header_get(prev_str, program->sort_program[0], mail,
-				nodes[idx1].seq);
-		idx1++;
+	left_str = t_str_new(256);
+	right_str = t_str_new(256);
+	if (nodes[left_idx].sort_id != 0) {
+		sort_header_get(left_str, program->sort_program[0], mail,
+				nodes[left_idx].seq);
+		left_idx++;
+	}
+	if (nodes[right_idx].sort_id != 0) {
+		have_right_sort_id = TRUE;
+		sort_header_get(right_str, program->sort_program[0], mail,
+				nodes[right_idx].seq);
+		right_idx--;
 	}
 
+	/* give (new) sort IDs to all nodes in left_idx..right_idx range.
+	   divide the available space so that each messagets an equal sized
+	   share. some messages' sort strings may be equivalent, so give them
+	   the same sort IDs. */
 	str = str_new(default_pool, 256);
-	for (i = idx1; i <= idx2; i++) {
+	for (i = left_idx; i <= right_idx; i++) {
 		T_FRAME(
 			sort_header_get(str, program->sort_program[0], mail,
 					nodes[i].seq);
 		);
 
-		if (i == idx2 && str_equals(str, last_str))
-			nodes[i].sort_id = last_id;
-		else if (prev_id != 0 && str_equals(str, prev_str) == 0)
-			nodes[i].sort_id = prev_id;
-		else {
-			/* divide the available space so that each message gets
-			   an equal sized share. leave the same sized space
-			   also between the first and the last messages */
-			skip = (last_id - prev_id) / (idx2 - i + 2);
-			nodes[i].sort_id = prev_id + skip;
-			if (nodes[i].sort_id == prev_id && prev_id != last_id)
-				nodes[i].sort_id++;
-			if (nodes[i].sort_id == last_id) {
-				/* we ran out of ID space. have to renumber
-				   the IDs. */
-				str_free(&str);
-				return FALSE;
-			}
+		if (left_idx != 0 && str_equals(str, left_str))
+			nodes[i].sort_id = left_sort_id;
+		else if (have_right_sort_id && str_equals(str, right_str)) {
+			/* the rest of the sort IDs should be the same */
+			nodes[i].sort_id = right_sort_id;
+		} else {
+			/* divide the available space equally. leave the same
+			   sized space also between the first and the last
+			   messages */
+			skip = (right_sort_id - left_sort_id) /
+				(right_idx - i + 2);
+			i_assert(skip > 0);
+			left_sort_id += skip;
+			nodes[i].sort_id = left_sort_id;
 
-			prev_id = nodes[i].sort_id;
-			str_truncate(prev_str, 0);
-			str_append_str(prev_str, str);
+			str_truncate(left_str, 0);
+			str_append_str(left_str, str);
 		}
 	}
 	str_free(&str);
-	return TRUE;
-}
-
-static void
-index_sort_renumber_ids(struct mail_search_sort_program *program,
-			unsigned int idx)
-{
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)program->t;
-	struct mail_sort_node *nodes;
-	unsigned int i, count;
-	uint32_t sort_id = 0, prev_sort_id, skip;
-
-	nodes = array_get_modifiable(&program->all_nodes, &count);
-	prev_sort_id = (uint32_t)-1;
-	for (; idx < count; idx++) {
-		sort_id = nodes[idx].sort_id;
-		if (sort_id == nodes[idx+1].sort_id)
-			break;
-	}
-	i_assert(idx != count);
-
-	if (((uint32_t)-1 - sort_id) / (count - idx + 1) < RENUMBER_SPACE) {
-		/* space is running out, lets just renumber everything */
-		sort_id = 0;
-		skip = (uint32_t)-1 / (count + 1);
-		for (i = 0; i < idx; i++) {
-			if (sort_id != prev_sort_id)
-				sort_id += skip;
-			prev_sort_id = nodes[i].sort_id;
-
-			i_assert(sort_id != 0);
-			nodes[i].sort_id = sort_id;
-			mail_index_update_ext(t->trans, nodes[i].seq,
-					      program->ext_id,
-					      &nodes[i].sort_id, NULL);
-		}
-	} else {
-		skip = RENUMBER_SPACE;
-	}
-
-	for (i = idx; i < count && sort_id >= nodes[i].sort_id; i++) {
-		if (sort_id != prev_sort_id) {
-			i_assert(sort_id <= (uint32_t)-1 - skip);
-			sort_id += skip;
-		}
-		prev_sort_id = nodes[i].sort_id;
-
-		i_assert(sort_id != 0);
-		if (nodes[i].sort_id != 0) {
-			nodes[i].sort_id = sort_id;
-			mail_index_update_ext(t->trans, nodes[i].seq,
-					      program->ext_id,
-					      &nodes[i].sort_id, NULL);
-		}
-	}
 }
 
 static void
 index_sort_add_ids(struct mail_search_sort_program *program, struct mail *mail)
 {
 	const struct mail_sort_node *nodes;
-	unsigned int i, j, count;
-	bool ret;
+	unsigned int i, left_idx = 0, right_idx, count;
 
 	nodes = array_get(&program->all_nodes, &count);
 	for (i = 0; i < count; i++) {
 		if (nodes[i].sort_id != 0)
 			continue;
 
-		for (j = i + 1; j < count; j++) {
-			if (nodes[j].sort_id != 0)
+		/* get the range for all sort_id=0 nodes. include the nodes
+		   left and right of the range as well */
+		for (right_idx = i + 1; right_idx < count; right_idx++) {
+			if (nodes[right_idx].sort_id != 0)
 				break;
 		}
+		if (right_idx == count)
+			right_idx--;
+		left_idx = i == 0 ? 0 : i - 1;
 		T_FRAME(
-			ret = index_sort_add_ids_range(program, mail,
-						       I_MAX(i, 1)-1,
-						       I_MIN(j, count-1));
+			index_sort_add_ids_range(program, mail,
+						 left_idx, right_idx);
 		);
-		if (!ret)
-			index_sort_renumber_ids(program, i-1);
 	}
 }
 
@@ -485,6 +454,7 @@ index_sort_add_string_sort_ids(struct mail_search_sort_program *program,
 	unsigned int i, count, count2;
 
 	/* insert missing nodes */
+	memset(&node, 0, sizeof(node));
 	node.seq = array_count(&program->all_nodes) + 1;
 	for (; node.seq <= last_seq; node.seq++)
 		array_append(&program->all_nodes, &node, 1);
@@ -521,6 +491,7 @@ static void index_sort_build(struct mail_search_sort_program *program)
 
 	/* add messages that have sort_ids. they're always at the beginning
 	   of the mailbox. */
+	memset(&node, 0, sizeof(node));
 	last_seq = mail_index_view_get_messages_count(t->ibox->view);
 	i_array_init(&program->all_nodes, last_seq);
 	for (seq = 1; seq <= last_seq; seq++) {
