@@ -21,6 +21,9 @@ struct imap_sync_context {
 	struct mailbox_sync_context *sync_ctx;
 	struct mail *mail;
 
+	const ARRAY_TYPE(keywords) *keywords;
+	unsigned int keyword_announce_count;
+
 	struct mailbox_sync_rec sync_rec;
 	uint32_t seq;
 
@@ -29,6 +32,13 @@ struct imap_sync_context {
 	unsigned int failed:1;
 	unsigned int no_newmail:1;
 };
+
+static void imap_sync_send_changed_keywords(struct imap_sync_context *ctx)
+{
+	ctx->keyword_announce_count = array_count(ctx->keywords);
+	if (client_save_keywords(&ctx->client->keywords, ctx->keywords))
+		client_send_mailbox_flags(ctx->client, ctx->box, ctx->keywords);
+}
 
 struct imap_sync_context *
 imap_sync_init(struct client *client, struct mailbox *box,
@@ -49,10 +59,9 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->mail = mail_alloc(ctx->t, MAIL_FETCH_FLAGS, 0);
 	ctx->messages_count = client->messages_count;
 
-	/* if keyword list changed, send the new list before flag changes */
 	mailbox_get_status(ctx->box, STATUS_KEYWORDS, &status);
-	if (client_save_keywords(&client->keywords, status.keywords))
-		client_send_mailbox_flags(client, box, status.keywords);
+	ctx->keywords = status.keywords;
+	imap_sync_send_changed_keywords(ctx);
 	return ctx;
 }
 
@@ -97,10 +106,53 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 	return ret;
 }
 
-int imap_sync_more(struct imap_sync_context *ctx)
+static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str,
+				ARRAY_TYPE(keywords) *keyword_names)
 {
 	enum mail_flags flags;
-	const char *const *keywords;
+	const ARRAY_TYPE(keyword_indexes) *keywords;
+	const unsigned int *kw_indexes;
+	const char *const *all_names;
+	unsigned int i, kw_count, all_count;
+
+	mail_set_seq(ctx->mail, ctx->seq);
+	flags = mail_get_flags(ctx->mail);
+
+	all_names = array_get(ctx->keywords, &all_count);
+	keywords = mail_get_keyword_indexes(ctx->mail);
+	kw_indexes = array_get(keywords, &kw_count);
+
+	if (!array_is_created(keyword_names))
+		t_array_init(keyword_names, I_MAX(kw_count, 16));
+	else
+		array_clear(keyword_names);
+	/* convert indexes to names */
+	for (i = 0; i < kw_count; i++) {
+		if (kw_indexes[i] >= ctx->keyword_announce_count) {
+			/* a new keyword. notify the client. */
+			imap_sync_send_changed_keywords(ctx);
+			all_names = array_get(ctx->keywords, &all_count);
+			i_error("whee, added %d/%d == %s", kw_indexes[i], all_count, all_names[kw_indexes[i]]);
+		}
+		i_assert(kw_indexes[i] < all_count);
+		array_append(keyword_names, &all_names[kw_indexes[i]], 1);
+	}
+	(void)array_append_space(keyword_names);
+
+	str_truncate(str, 0);
+	str_printfa(str, "* %u FETCH (", ctx->seq);
+	if (ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID)
+		str_printfa(str, "UID %u ", ctx->mail->uid);
+
+	str_append(str, "FLAGS (");
+	imap_write_flags(str, flags, array_idx(keyword_names, 0));
+	str_append(str, "))");
+	return client_send_line(ctx->client, str_c(str));
+}
+
+int imap_sync_more(struct imap_sync_context *ctx)
+{
+	ARRAY_TYPE(keywords) keyword_names = ARRAY_INIT;
 	string_t *str;
 	int ret = 1;
 
@@ -136,21 +188,8 @@ int imap_sync_more(struct imap_sync_context *ctx)
 				if (ret <= 0)
 					break;
 
-				mail_set_seq(ctx->mail, ctx->seq);
-				flags = mail_get_flags(ctx->mail);
-				keywords = mail_get_keywords(ctx->mail);
-
-				str_truncate(str, 0);
-				str_printfa(str, "* %u FETCH (", ctx->seq);
-				if (ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID) {
-					str_printfa(str, "UID %u ",
-						    ctx->mail->uid);
-				}
-				str_append(str, "FLAGS (");
-				imap_write_flags(str, flags, keywords);
-				str_append(str, "))");
-
-				ret = client_send_line(ctx->client, str_c(str));
+				ret = imap_sync_send_flags(ctx, str,
+							   &keyword_names);
 			}
 			break;
 		case MAILBOX_SYNC_TYPE_EXPUNGE:
