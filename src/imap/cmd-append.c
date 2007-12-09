@@ -470,7 +470,11 @@ static void get_keywords(struct cmd_append_context *ctx)
 		client->keywords.pool =
 			pool_alloconly_create("append keywords pool", 256);
 	}
-	client_save_keywords(&client->keywords, status.keywords);
+	if (client_save_keywords(&client->keywords, status.keywords) &&
+	    ctx->box == client->mailbox) {
+		client_send_mailbox_flags(ctx->client, ctx->box,
+					  status.keywords);
+	}
 }
 
 bool cmd_append(struct client_command_context *cmd)
