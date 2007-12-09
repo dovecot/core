@@ -1,26 +1,22 @@
- - proxying should support connecting to multiple IPs or if nothing works
-   fallbacking to logging in normally (optionally).
- - imap-login: file client-authenticate.c: line 193 (sasl_callback): assertion failed: (!client->destroyed || reply == SASL_SERVER_REPLY_CLIENT_ERROR || reply == SASL_SERVER_REPLY_MASTER_FAILED)
-  - login_process_per_connection=yes, HUP
- - index-sync.c: line 273 (index_mailbox_expunge_unseen_recent): assertion failed: (mail_index_view_is_inconsistent(ibox->view))
-  - ^ imaptest -> ctrl-c
- - dbox: inotify should wait on .log
- - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"
- - search: flag searching is too slow with huge mailboxes. at least optimize
-   deleted search.
- - group privilege handling is ugly/broken. if gid+egid == wanted gid, no
-   checking is done if there are extra groups that should be dropped. otherwise
-   if we're not root, setgroups() will fail with EPERM, and the error message
-   is difficult to understand.
- - message-header-decode.c: handle decoding errors by fallbacking to simply
-   returning the data as ASCII (the whole thing, beginning from =?)
- - dbox: clean up temp.* files once in a while
+ - stat() failed with index cache file /home/tss/dbox/INBOX/dbox-Mails/dovecot.index.cache: No such file or directory
+ - squat: handle expunges
+ - fts lucene broken
+ - recent flag handling is still slightly buggy with simultaneous connections
+   with maildir and mbox
+
+ - fix listescape plugin
+ - cache: compress when we can drop temporary fields.
+ - cache record joining could be done for most cases directly when writing the
+   new records
+ - POP3 UIDL caching
  - expunged messages' flags may get updated in views where they're not yet
    expunged (e.g. "expunge uid 2", "+flags \seen uid 1:3")
- - POP3 UIDL caching
- - Cydir/dbox doesn't respect LIST RETURN (CHILDREN)
- - SORT: Invalid input is supposed to be sorted last.
- - indexes: are cache prev_offsets updated right?
+ - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"
+ - new %modifier for reverse DNS lookups with a cache
+   - auth_gssapi_hostname = %Xl
+   - proxying would also want DNS lookups, but not reverse..
+ - proxying should support connecting to multiple IPs or if nothing works
+   fallbacking to logging in normally (optionally).
 
  - maildir+pop3/deliver fast updates:
    - with locking enabled, pop3 could just keep the one and same sync lock and
@@ -32,6 +28,7 @@
      the log (uidvalidity, nextuid)
 
  - maildir
+   - don't allow more than 26 keywords
    - physical separator could be configurable
    - setting flags to same as they already are causes unnecessary
      rename()s with identical parameters
@@ -56,8 +53,6 @@
    - Why are updates so slow?
    - Support for FS layout
 
- - don't use squat with header if index doesn't exist
- - don't use squat index if searching only a couple of mails
  - threading: (all done?) 
     - duplicate: mark original as rebuild
     - re-parent (also reparenting to root): mark as rebuild
@@ -75,8 +70,9 @@
 	   more messages after that, a new dummy parent needs to be created,
 	   and the rest of the messages need to be sorted before sending
 
- - mail_log: log appends
- - pop3 proxying(?): dovecot: login: tried to change state 2 -> 2
+ - mail_log: log appends. support from and subject fields
+ - proxy: If remote server disconnects on login:
+   login: tried to change state 2 -> 2
  - logging consistency:
    http://www.dovecot.org/list/dovecot/2007-April/021532.html
  - EXPUNGE command in read-only mailbox should give an error message if
@@ -106,8 +102,6 @@
       enough temp fields are ready to be dropped
     - we could try compressing same field values into a single
       location in cache file.
-    - support caching all message headers. this could be useful when
-      indexes are in local disk but actual mails are accessed through NFS.
 
  - mbox
     - dirty state should be stored to index (with mbox_very_dirty_syncs)
@@ -143,7 +137,6 @@
     - namespaces: add new "auto_disable" flag so if the mailbox can't be opened
       (eg. file doesn't exist), just ignore the problem and disable the
       namespace
-    - convert plugin doesn't support namespaces
 
  - lib-storage
     - rename: allow moving between storages, as long as they're of same type
@@ -186,7 +179,7 @@
     - non-plaintext authentication doesn't support all features:
         - multiple passdbs don't work, only the first one is used
 	- auth cache's last_success password change check doesn't exist
-    - remove system_user and allow returning multiple gids instead.
+    - allow returning multiple gids
     - SIGHUP restarts auth processes .. but does it wait until they've finished
       with all requests? no.
     - does dovecot-auth really break when it runs out of fds?

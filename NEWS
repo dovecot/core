@@ -11,12 +11,8 @@ v1.1.UNSTABLE
 	+ IMAP SORT: Sort keys are indexed, which makes SORT commands faster.
 	+ When saving messages, update cache file immediately with the data
 	  that we expect client to fetch later.
-	+ NFS attribute and data caches are are flushed whenever needed.
-	  See mail_nfs_storage and mail_nfs_index settings.
-	+ Mailbox list indexes. Mailbox metadata is stored there, so STATUS
-	  commands can return synchronized mailboxes' metadata simply by
-	  reading a single mailbox list index file. Currently works only with
-	  Maildir++ layout.
+	+ NFS caches are are flushed whenever needed. See mail_nfs_storage and
+	  mail_nfs_index settings.
 	+ Out of order command execution (SEARCH, FETCH, LIST), nonstandard
 	  command cancellation (X-CANCEL <tag>)
 	+ IMAP: Non-standard LIST+STATUS combination:
@@ -39,8 +35,8 @@ v1.1.UNSTABLE
 	  per-mailbox quota rules.
 	+ Filesystem quota backend supports inode limits, group quota and
 	  RPC quota for NFS.
-	+ SEARCH and SORT finally compare all characters case-insensitively.
-	  We use i;unicode-casemap algorithm.
+	+ SEARCH and SORT finally compare non-ASCII characters
+	  case-insensitively. We use i;unicode-casemap algorithm.
 	+ Config files support splitting values to multiple lines with \
 
 v1.0.0 2007-04-13  Timo Sirainen <tss@iki.fi>
