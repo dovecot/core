@@ -227,6 +227,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 		box->v.sync_notify(box, 0, 0);
 
 	dbox_sync_unlock_files(ctx);
+	array_free(&ctx->locked_files);
 	hash_destroy(&ctx->syncs);
 	pool_unref(&ctx->pool);
 	return ret;
