@@ -37,10 +37,11 @@ static char *dbox_generate_tmp_filename(void)
 {
 	static unsigned int create_count = 0;
 
-	return i_strdup_printf("temp.%s.P%sQ%uM%s.%s",
-			       dec2str(ioloop_timeval.tv_sec), my_pid,
+	return i_strdup_printf("temp.%lu.P%sQ%uM%u.%s",
+			       (unsigned long)ioloop_timeval.tv_sec, my_pid,
 			       create_count++,
-			       dec2str(ioloop_timeval.tv_usec), my_hostname);
+			       (unsigned int)ioloop_timeval.tv_usec,
+			       my_hostname);
 }
 
 void dbox_file_set_syscall_error(struct dbox_file *file, const char *function)
@@ -419,7 +420,9 @@ static int dbox_file_open(struct dbox_file *file, bool read_header,
 	*deleted_r = FALSE;
 
 	if (file->fd == -1) {
-		ret = dbox_file_open_fd(file);
+		T_FRAME(
+			ret = dbox_file_open_fd(file);
+		);
 		if (ret <= 0) {
 			if (ret < 0)
 				return -1;
@@ -490,11 +493,16 @@ static int dbox_file_create(struct dbox_file *file)
 int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
 			     bool *deleted_r)
 {
+	int ret;
+
 	*deleted_r = FALSE;
 
-	if (file->file_id == 0)
-		return dbox_file_create(file) < 0 ? -1 : 1;
-	else if (file->input != NULL)
+	if (file->file_id == 0) {
+		T_FRAME(
+			ret = dbox_file_create(file) < 0 ? -1 : 1;
+		);
+		return ret;
+	} else if (file->input != NULL)
 		return 1;
 	else
 		return dbox_file_open(file, read_header, deleted_r);
