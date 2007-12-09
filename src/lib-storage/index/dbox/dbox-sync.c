@@ -317,6 +317,10 @@ int dbox_sync_begin(struct dbox_mailbox *mbox,
 			return ret;
 		}
 
+		if (rebuild && dbox_sync_want_flush_dirty(mbox, FALSE) >= 0) {
+			/* another process rebuilt it already */
+			rebuild = FALSE;
+		}
 		if (rebuild) {
 			ret = 0;
 			rebuild = FALSE;
