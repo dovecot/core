@@ -93,7 +93,7 @@ static gid_t get_group_id(const char *name)
 	return group->gr_gid;
 }
 
-static void fix_groups_list(const char *extra_groups,
+static void fix_groups_list(const char *extra_groups, gid_t egid,
 			    bool preserve_existing, bool *have_root_group)
 {
 	gid_t *gid_list;
@@ -112,8 +112,11 @@ static void fix_groups_list(const char *extra_groups,
 			return;
 		}
 	} else {
-		gid_list = t_new(gid_t, 1);
-		gid_count = 0;
+		/* Some OSes don't like an empty groups list,
+		   so use the effective GID as the only one. */
+		gid_list = t_new(gid_t, 2);
+		gid_list[0] = egid;
+		gid_count = 1;
 	}
 
 	/* add extra groups to gids list */
@@ -169,7 +172,8 @@ void restrict_access_by_env(bool disallow_root)
 	env = getenv("RESTRICT_SETEXTRAGROUPS");
 	if (is_root) {
 		T_FRAME(
-			fix_groups_list(env, preserve_groups, &have_root_group);
+			fix_groups_list(env, gid, preserve_groups,
+					&have_root_group);
 		);
 	}
 
