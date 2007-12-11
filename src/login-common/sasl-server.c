@@ -134,6 +134,7 @@ void sasl_server_auth_begin(struct client *client,
 	const struct auth_mech_desc *mech;
 	const char *error;
 
+	client->auth_attempts++;
 	client->authenticating = TRUE;
 	i_free(client->auth_mech_name);
 	client->auth_mech_name = str_ucase(i_strdup(mech_name));

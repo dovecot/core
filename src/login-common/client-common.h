@@ -20,10 +20,13 @@ struct client {
 	master_callback_t *master_callback;
 	sasl_server_callback_t *sasl_callback;
 
+	unsigned int auth_attempts;
+
 	char *virtual_user;
 	unsigned int tls:1;
 	unsigned int secured:1;
 	unsigned int authenticating:1;
+	unsigned int auth_tried_disabled_plaintext:1;
 	/* ... */
 };
 

@@ -210,7 +210,14 @@ static int cmd_logout(struct imap_client *client)
 {
 	client_send_line(client, "* BYE Logging out");
 	client_send_tagline(client, "OK Logout completed.");
-	client_destroy(client, "Aborted login");
+	if (client->common.auth_tried_disabled_plaintext) {
+		client_destroy(client, "Aborted login "
+			"(tried to use disabled plaintext authentication)");
+	} else {
+		client_destroy(client, t_strdup_printf(
+			"Aborted login (%u authentication attempts)",
+			client->common.auth_attempts));
+	}
 	return 1;
 }
 

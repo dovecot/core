@@ -303,6 +303,7 @@ int cmd_login(struct imap_client *client, const struct imap_arg *args)
 			client_syslog(&client->common, "Login failed: "
 				      "Plaintext authentication disabled");
 		}
+		client->common.auth_tried_disabled_plaintext = TRUE;
 		client_send_line(client,
 			"* BAD [ALERT] Plaintext authentication is disabled, "
 			"but your client sent password in plaintext anyway. "
