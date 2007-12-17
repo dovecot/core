@@ -526,21 +526,24 @@ static void maildirquota_init_limits(struct maildir_quota_root *root)
 	}
 }
 
-static int maildirquota_refresh(struct maildir_quota_root *root)
+static bool maildirquota_limits_init(struct maildir_quota_root *root)
 {
-	int ret;
-
 	if (!root->limits_initialized) {
 		maildirquota_init_limits(root);
 		if (root->maildirsize_path == NULL) {
 			i_warning("quota maildir: No maildir storages, "
 				  "ignoring quota.");
-			return 0;
 		}
-	} else {
-		if (root->maildirsize_path == NULL)
-			return 0;
 	}
+	return root->maildirsize_path != NULL;
+}
+
+static int maildirquota_refresh(struct maildir_quota_root *root)
+{
+	int ret;
+
+	if (!maildirquota_limits_init(root))
+		return 0;
 
 	T_FRAME(
 		ret = maildirsize_read(root);
@@ -697,6 +700,10 @@ maildir_quota_update(struct quota_root *_root,
 	struct maildir_quota_root *root =
 		(struct maildir_quota_root *) _root;
 
+	if (!maildirquota_limits_init(root)) {
+		/* no limits */
+		return 0;
+	}
 	/* make sure the latest file is opened. */
 	(void)maildirsize_open(root);
 
