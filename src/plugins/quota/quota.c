@@ -120,6 +120,11 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 		root->name = "";
 	}
 
+	if (quota->debug) {
+		i_info("Quota root: name=%s backend=%s args=%s",
+		       root->name, backend_name, args == NULL ? "" : args);
+	}
+
 	i_array_init(&root->rules, 4);
 	i_array_init(&root->warning_rules, 4);
 	array_create(&root->quota_module_contexts, default_pool,
