@@ -443,33 +443,36 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 	return 1;
 }
 
+static int maildirsize_open(struct maildir_quota_root *root)
+{
+	if (root->fd != -1) {
+		if (close(root->fd) < 0)
+			i_error("close(%s) failed: %m", root->maildirsize_path);
+	}
+
+	root->fd = nfs_safe_open(root->maildirsize_path, O_RDWR | O_APPEND);
+	if (root->fd == -1) {
+		if (errno == ENOENT)
+			return 0;
+		i_error("open(%s) failed: %m", root->maildirsize_path);
+		return -1;
+	}
+	return 1;
+}
+
 static int maildirsize_read(struct maildir_quota_root *root)
 {
 	char buf[5120+1];
 	unsigned int i, size;
-	int fd, ret = 0;
+	int ret;
 
-	if (root->fd != -1) {
-		if (close(root->fd) < 0)
-			i_error("close(%s) failed: %m", root->maildirsize_path);
-		root->fd = -1;
-	}
-
-	fd = nfs_safe_open(root->maildirsize_path, O_RDWR | O_APPEND);
-	if (fd == -1) {
-		if (errno == ENOENT)
-			ret = 0;
-		else {
-			ret = -1;
-			i_error("open(%s) failed: %m", root->maildirsize_path);
-		}
+	if ((ret = maildirsize_open(root)) <= 0)
 		return ret;
-	}
 
 	/* @UNSAFE */
 	size = 0;
 	while (size < sizeof(buf)-1 &&
-	       (ret = read(fd, buf + size, sizeof(buf)-1 - size)) != 0) {
+	       (ret = read(root->fd, buf + size, sizeof(buf)-1 - size)) != 0) {
 		if (ret < 0) {
 			if (errno == ESTALE)
 				break;
@@ -479,7 +482,8 @@ static int maildirsize_read(struct maildir_quota_root *root)
 	}
 	if (ret < 0 || size >= sizeof(buf)-1) {
 		/* error / recalculation needed. */
-		(void)close(fd);
+		(void)close(root->fd);
+		root->fd = -1;
 		return ret < 0 ? -1 : 0;
 	}
 
@@ -499,12 +503,11 @@ static int maildirsize_read(struct maildir_quota_root *root)
 	}
 
 	if (i == size &&
-	    maildirsize_parse(root, fd, t_strsplit(buf, "\n")) > 0) {
-		root->fd = fd;
+	    maildirsize_parse(root, root->fd, t_strsplit(buf, "\n")) > 0)
 		ret = 1;
-	} else {
+	else {
 		/* broken file / need recalculation */
-		(void)close(fd);
+		(void)close(root->fd);
 		root->fd = -1;
 		ret = 0;
 	}
@@ -693,6 +696,9 @@ maildir_quota_update(struct quota_root *_root,
 {
 	struct maildir_quota_root *root =
 		(struct maildir_quota_root *) _root;
+
+	/* make sure the latest file is opened. */
+	(void)maildirsize_open(root);
 
 	if (root->fd == -1 || ctx->recalculate ||
 	    maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0)
