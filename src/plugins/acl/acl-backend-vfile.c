@@ -292,7 +292,7 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj, const char *path,
 	struct stat st;
 	const char *line;
 	unsigned int linenum;
-	int fd, ret = 1;
+	int fd, ret = 0;
 
 	*is_dir_r = FALSE;
 
@@ -360,24 +360,25 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj, const char *path,
 			break;
 	}
 
-	if (input->stream_errno != 0) {
+	if (ret < 0) {
+		/* parsing failure */
+	} else if (input->stream_errno != 0) {
 		if (input->stream_errno == ESTALE && try_retry)
 			ret = 0;
 		else {
 			ret = -1;
 			i_error("read(%s) failed: %m", path);
 		}
-	}
-
-	if (ret > 0) {
+	} else {
 		if (fstat(fd, &st) < 0) {
 			if (errno == ESTALE && try_retry)
 				ret = 0;
 			else {
 				ret = -1;
-				i_error("read(%s) failed: %m", path);
+				i_error("fstat(%s) failed: %m", path);
 			}
 		} else {
+			ret = 1;
 			validity->last_read_time = ioloop_time;
 			validity->last_mtime = st.st_mtime;
 			validity->last_size = st.st_size;
