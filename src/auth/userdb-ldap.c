@@ -140,7 +140,8 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 			  conn->user_attr_map, NULL);
 	module->module.cache_key =
 		auth_cache_parse_key(auth_userdb->auth->pool,
-				     conn->set.user_filter);
+				     t_strconcat(conn->set.base,
+						 conn->set.user_filter, NULL));
 	return &module->module;
 }
 

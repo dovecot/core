@@ -435,7 +435,8 @@ passdb_ldap_preinit(struct auth_passdb *auth_passdb, const char *args)
 			  conn->set.auth_bind ? "password" : NULL);
 	module->module.cache_key =
 		auth_cache_parse_key(auth_passdb->auth->pool,
-				     conn->set.pass_filter);
+				     t_strconcat(conn->set.base,
+						 conn->set.pass_filter, NULL));
 	module->module.default_pass_scheme = conn->set.default_pass_scheme;
 	return &module->module;
 }
