@@ -60,7 +60,7 @@ int my_inet_aton(const char *cp, struct in_addr *inp)
 #ifndef HAVE_VSYSLOG
 void my_vsyslog(int priority, const char *format, va_list args)
 {
-	DSTACK_FRAME(
+	T_FRAME(
 		syslog(priority, "%s", t_strdup_vprintf(format, args));
 	);
 }
