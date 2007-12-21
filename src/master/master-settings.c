@@ -1545,7 +1545,6 @@ static void settings_dump(const struct setting_def *def, const void **sets,
 			  bool nondefaults, unsigned int indent)
 {
 	const char **str;
-	char num_str[MAX_INT_STRLEN];
 	unsigned int i;
 
 	str = t_new(const char *, count);
@@ -1567,8 +1566,7 @@ static void settings_dump(const struct setting_def *def, const void **sets,
 
 			for (i = 0; i < count; i++) {
 				n = CONST_PTR_OFFSET(sets[i], def->offset);
-				snprintf(num_str, sizeof(num_str), "%u", *n);
-				str[i] = num_str;
+				str[i] = dec2str(*n);
 			}
 			break;
 		}
