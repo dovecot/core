@@ -13,17 +13,23 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+struct list_dir_entry {
+	const char *fname;
+	enum mailbox_list_file_type type;
+};
+
 struct list_dir_context {
 	struct list_dir_context *prev;
 
 	DIR *dirp;
 	char *real_path, *virtual_path;
 
-	const struct dirent *next_dirent;
+	const struct list_dir_entry *next_entry;
+	struct list_dir_entry entry;
+	char *entry_fname;
 	struct mailbox_info info;
 
 	unsigned int pattern_pos;
-	struct dirent dirent;
 
 	unsigned int delayed_send:1;
 };
@@ -246,6 +252,7 @@ static void list_dir_context_free(struct list_dir_context *dir)
 {
 	if (dir->dirp != NULL)
 		(void)closedir(dir->dirp);
+	i_free(dir->entry_fname);
 	i_free(dir->real_path);
 	i_free(dir->virtual_path);
 	i_free(dir);
@@ -452,10 +459,11 @@ list_file_subdir(struct fs_list_iterate_context *ctx,
 }
 
 static int
-list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
+list_file(struct fs_list_iterate_context *ctx,
+	  const struct list_dir_entry *entry)
 {
 	struct mail_namespace *ns = ctx->ctx.list->ns;
-	const char *fname = d->d_name;
+	const char *fname = entry->fname;
 	const char *list_path;
 	enum imap_match_result match;
 	int ret;
@@ -482,8 +490,7 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 	ctx->info.flags = 0;
 	ret = ctx->ctx.list->v.
 		iter_is_mailbox(&ctx->ctx, ctx->dir->real_path, fname,
-				mailbox_list_get_file_type(d),
-				&ctx->info.flags);
+				entry->type, &ctx->info.flags);
 	if (ret <= 0)
 		return ret;
 
@@ -493,7 +500,7 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 		ctx->dir->delayed_send = FALSE;
 		if (match == IMAP_MATCH_YES ||
 		    (match & IMAP_MATCH_CHILDREN) != 0)
-			ctx->dir->next_dirent = d;
+			ctx->dir->next_entry = entry;
 		ctx->info = ctx->dir->info;
 		ctx->info.flags |= MAILBOX_CHILDREN;
 		return 1;
@@ -550,10 +557,11 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 	return &ctx->info;
 }
 
-static const struct dirent *
+static const struct list_dir_entry *
 fs_list_dir_next(struct fs_list_iterate_context *ctx)
 {
 	struct list_dir_context *dir = ctx->dir;
+	struct dirent *d;
 	char *const *patterns;
 	const char *fname, *path, *p;
 	unsigned int pos;
@@ -561,12 +569,17 @@ fs_list_dir_next(struct fs_list_iterate_context *ctx)
 	int ret;
 
 	if (dir->dirp != NULL) {
-		if (dir->next_dirent != NULL) {
-			const struct dirent *ret = dir->next_dirent;
-			dir->next_dirent = NULL;
+		if (dir->next_entry != NULL) {
+			const struct list_dir_entry *ret = dir->next_entry;
+			dir->next_entry = NULL;
 			return ret;
 		}
-		return readdir(dir->dirp);
+		d = readdir(dir->dirp);
+		if (d == NULL)
+			return NULL;
+		dir->entry.fname = d->d_name;
+		dir->entry.type = mailbox_list_get_file_type(d);
+		return &dir->entry;
 	}
 
 	for (;;) {
@@ -596,32 +609,27 @@ fs_list_dir_next(struct fs_list_iterate_context *ctx)
 			continue;
 		}
 
-#ifdef HAVE_DIRENT_D_TYPE
 		if (S_ISREG(st.st_mode))
-			dir->dirent.d_type = DT_REG;
+			dir->entry.type = MAILBOX_LIST_FILE_TYPE_FILE;
 		else if (S_ISDIR(st.st_mode))
-			dir->dirent.d_type = DT_DIR;
+			dir->entry.type = MAILBOX_LIST_FILE_TYPE_DIR;
 		else if (S_ISLNK(st.st_mode))
-			dir->dirent.d_type = DT_LNK;
+			dir->entry.type = MAILBOX_LIST_FILE_TYPE_SYMLINK;
 		else
-			dir->dirent.d_type = DT_UNKNOWN;
-#endif
-		if (i_strocpy(dir->dirent.d_name, fname,
-			    sizeof(dir->dirent.d_name)) < 0) {
-			/* name too large.. shouldn't happen. */
-			continue;
-		}
+			dir->entry.type = MAILBOX_LIST_FILE_TYPE_UNKNOWN;
+		i_free(dir->entry_fname);
+		dir->entry.fname = dir->entry_fname = i_strdup(fname);
 		break;
 	}
 
-	return &dir->dirent;
+	return &dir->entry;
 }
 
 static const struct mailbox_info *
 fs_list_next(struct fs_list_iterate_context *ctx)
 {
 	struct list_dir_context *dir;
-	const struct dirent *d;
+	const struct list_dir_entry *entry;
 	int ret;
 
 	if (ctx->dir == NULL || !ctx->dir->delayed_send)
@@ -629,9 +637,9 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 
 	while (ctx->dir != NULL) {
 		/* NOTE: list_file() may change ctx->dir */
-		while ((d = fs_list_dir_next(ctx)) != NULL) {
+		while ((entry = fs_list_dir_next(ctx)) != NULL) {
 			T_FRAME(
-				ret = list_file(ctx, d);
+				ret = list_file(ctx, entry);
 			);
 
 			if (ret > 0)
