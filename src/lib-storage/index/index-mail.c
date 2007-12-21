@@ -542,6 +542,9 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 		}
 	}
 
+	if (!data->parsed_bodystructure)
+		return;
+
 	/* If BODY is fetched first but BODYSTRUCTURE is also wanted, we don't
 	   normally want to first cache BODY and then BODYSTRUCTURE. So check
 	   the wanted_fields also in here. */
