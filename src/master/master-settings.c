@@ -709,7 +709,8 @@ static bool settings_verify(struct settings *set)
 			return FALSE;
 	}
 
-	if (access(t_strcut(set->mail_executable, ' '), X_OK) < 0) {
+	if (set->protocol != MAIL_PROTOCOL_ANY &&
+	    access(t_strcut(set->mail_executable, ' '), X_OK) < 0) {
 		i_error("Can't use mail executable %s: %m",
 			t_strcut(set->mail_executable, ' '));
 		return FALSE;
@@ -786,7 +787,8 @@ static bool settings_verify(struct settings *set)
 		return FALSE;
 	}
 
-	if (access(t_strcut(set->login_executable, ' '), X_OK) < 0) {
+	if (set->protocol != MAIL_PROTOCOL_ANY &&
+	    access(t_strcut(set->login_executable, ' '), X_OK) < 0) {
 		i_error("Can't use login executable %s: %m",
 			t_strcut(set->login_executable, ' '));
 		return FALSE;
@@ -1469,6 +1471,7 @@ bool master_settings_read(const char *path, bool nochecks, bool nofixes)
 		   of what's in protocols setting. */
 		if (!settings_is_active(server->imap) && !nochecks) {
 			if (strcmp(server->imap->protocols, "none") == 0) {
+				server->imap->protocol = MAIL_PROTOCOL_ANY;
 				if (!settings_fix(server->imap, nochecks,
 						  nofixes))
 					return FALSE;
