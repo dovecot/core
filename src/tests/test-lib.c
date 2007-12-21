@@ -6,6 +6,7 @@
 #include "base64.h"
 #include "bsearch-insert-pos.h"
 #include "seq-range-array.h"
+#include "str-sanitize.h"
 
 static void test_base64_encode(void)
 {
@@ -165,6 +166,41 @@ static void test_seq_range_array(void)
 	}
 }
 
+struct str_sanitize_input {
+	const char *str;
+	unsigned int max_len;
+};
+static void test_str_sanitize(void)
+{
+	static struct str_sanitize_input input[] = {
+		{ NULL, 2 },
+		{ "", 2 },
+		{ "a", 2 },
+		{ "ab", 2 },
+		{ "abc", 2 },
+		{ "abcd", 3 },
+		{ "abcde", 4 }
+	};
+	static const char *output[] = {
+		NULL,
+		"",
+		"a",
+		"ab",
+		"...",
+		"...",
+		"a..."
+	};
+	const char *str;
+	unsigned int i;
+	bool success;
+
+	for (i = 0; i < N_ELEMENTS(input); i++) {
+		str = str_sanitize(input[i].str, input[i].max_len);
+		success = null_strcmp(output[i], str) == 0;
+		test_out(t_strdup_printf("str_sanitize(%d)", i), success);
+	}
+}
+
 int main(void)
 {
 	test_init();
@@ -173,6 +209,7 @@ int main(void)
 	test_base64_decode();
 	test_bsearch_insert_pos();
 	test_seq_range_array();
+	test_str_sanitize();
 	test_istreams();
 	return test_deinit();
 }
