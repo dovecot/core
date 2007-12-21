@@ -316,10 +316,6 @@ client_dict_init(struct dict *driver, const char *uri,
 		dict->path = DEFAULT_DICT_SERVER_SOCKET_PATH;
 	}
 	dict->uri = p_strdup(pool, dest_uri + 1);
-
-	T_FRAME(
-		(void)client_dict_connect(dict);
-	);
 	return &dict->dict;
 }
 
@@ -337,9 +333,6 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool,
 	struct client_dict *dict = (struct client_dict *)_dict;
 	const char *line;
 	int ret;
-
-	if (dict->fd == -1)
-		return -1;
 
 	T_FRAME(
 		const char *query;
