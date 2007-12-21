@@ -837,7 +837,16 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 	unsigned int len;
 
 	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
-	i_assert(rec != NULL);
+	if (rec == NULL) {
+		/* maybe it's a new message */
+		if (maildir_uidlist_refresh(uidlist) < 0)
+			return;
+		rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
+		if (rec == NULL) {
+			/* message is already expunged, ignore */
+			return;
+		}
+	}
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
 
