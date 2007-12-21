@@ -39,6 +39,7 @@ static void client_input_append(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
 	struct client *client = cmd->client;
+	bool finished;
 
 	i_assert(!client->destroyed);
 
@@ -73,10 +74,14 @@ static void client_input_append(struct client_command_context *cmd)
 	}
 
 	o_stream_cork(client->output);
-	if (cmd->func(cmd)) {
-		o_stream_uncork(client->output);
+	finished = cmd->func(cmd);
+	o_stream_uncork(client->output);
+	if (finished) {
 		client_command_free(cmd);
 		client_continue_pending_input(&client);
+	} else if (cmd->output_pending) {
+		/* syncing didn't send everything */
+		o_stream_set_flush_pending(client->output, TRUE);
 	}
 }
 
