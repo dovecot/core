@@ -122,7 +122,6 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	}
 
 	auth_request_init_userdb_reply(auth_request);
-	auth_request_set_userdb_field(auth_request, NULL, auth_request->user);
 	auth_request_set_userdb_field(auth_request, "uid", dec2str(uid));
 	auth_request_set_userdb_field(auth_request, "gid", dec2str(gid));
 	auth_request_set_userdb_field(auth_request, "home", vpw->pw_dir);
