@@ -110,10 +110,10 @@ quota_mailbox_transaction_rollback(struct mailbox_transaction_context *ctx)
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx);
 
-	qbox->module_ctx.super.transaction_rollback(ctx);
-
 	if (qt->tmp_mail != NULL)
 		mail_free(&qt->tmp_mail);
+
+	qbox->module_ctx.super.transaction_rollback(ctx);
 	quota_transaction_rollback(&qt);
 }
 
