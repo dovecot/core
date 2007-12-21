@@ -430,7 +430,7 @@ int mail_get_save_date(struct mail *mail, time_t *date_r);
 /* Get the space used by the mail as seen by the reader. Linefeeds are always
    counted as being CR+LF. */
 int mail_get_virtual_size(struct mail *mail, uoff_t *size_r);
-/* Get the space used by the mail in disk. */
+/* Get the size of the stream returned by mail_get_stream(). */
 int mail_get_physical_size(struct mail *mail, uoff_t *size_r);
 
 /* Get value for single header field, or NULL if header wasn't found.

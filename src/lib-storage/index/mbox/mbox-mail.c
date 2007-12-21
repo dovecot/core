@@ -172,17 +172,19 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct index_mail_data *data = &mail->data;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 	const struct mail_index_header *hdr;
-	struct istream *stream;
-	uoff_t hdr_offset, body_offset, body_size;
-	uoff_t next_offset;
+	struct istream *input;
+	struct message_size hdr_size;
+	uoff_t body_offset, body_size, next_offset;
 
-	if (mbox_mail_seek(mail) < 0)
+	if (index_mail_get_physical_size(_mail, size_r) == 0)
+		return 0;
+
+	/* we want to return the header size as seen by mail_get_stream(). */
+	if (mail_get_stream(_mail, &hdr_size, NULL, &input) < 0)
 		return -1;
 
 	/* our header size varies, so don't do any caching */
-	stream = mbox->mbox_stream;
-	hdr_offset = istream_raw_mbox_get_header_offset(stream);
-	body_offset = istream_raw_mbox_get_body_offset(stream);
+	body_offset = istream_raw_mbox_get_body_offset(mbox->mbox_stream);
 	if (body_offset == (uoff_t)-1) {
 		mail_storage_set_critical(_mail->box->storage,
 					  "Couldn't get mbox size");
@@ -208,9 +210,10 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	}
 
 	/* verify that the calculated body size is correct */
-	body_size = istream_raw_mbox_get_body_size(stream, body_size);
+	body_size = istream_raw_mbox_get_body_size(mbox->mbox_stream,
+						   body_size);
 
-	data->physical_size = (body_offset - hdr_offset) + body_size;
+	data->physical_size = hdr_size.physical_size + body_size;
 	*size_r = data->physical_size;
 	return 0;
 }

@@ -334,6 +334,9 @@ static void index_mail_get_cached_body_size(struct index_mail *mail)
 	if (!data->hdr_size_set)
 		return;
 
+	/* we've already called get_cached_msgpart_sizes() and it didn't work.
+	   try to do this by using cached virtual size and a quick physical
+	   size lookup. */
 	if (!index_mail_get_cached_virtual_size(mail, &tmp))
 		return;
 
