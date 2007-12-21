@@ -311,9 +311,9 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 
 	if (root->quota->debug) {
 		i_info("Quota rule: root=%s mailbox=%s "
-		       "storage=%lldkB messages=%lld", root->name,
+		       "bytes=%lld messages=%lld", root->name,
 		       rule->mailbox_name != NULL ? rule->mailbox_name : "",
-		       (long long)rule->bytes_limit / 1024,
+		       (long long)rule->bytes_limit,
 		       (long long)rule->count_limit);
 	}
 	return ret;
@@ -439,6 +439,13 @@ int quota_root_add_warning_rule(struct quota_root *root, const char *rule_def,
 	warning->command = i_strdup(p+1);
 	warning->bytes_limit = rule.bytes_limit;
 	warning->count_limit = rule.count_limit;
+
+	if (root->quota->debug) {
+		i_info("Quota warning: bytes=%llu messages=%llu command=%s",
+		       (unsigned long long)warning->bytes_limit,
+		       (unsigned long long)warning->count_limit,
+		       warning->command);
+	}
 	return 0;
 }
 
