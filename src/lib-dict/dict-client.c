@@ -21,6 +21,7 @@ struct client_dict {
 	const char *path;
 	enum dict_data_type value_type;
 
+	time_t last_connect_try;
 	struct istream *input;
 	struct ostream *output;
 
@@ -240,6 +241,12 @@ static int client_dict_connect(struct client_dict *dict)
 	const char *query;
 
 	i_assert(dict->fd == -1);
+
+	if (dict->last_connect_try == ioloop_time) {
+		/* Try again later */
+		return -1;
+	}
+	dict->last_connect_try = ioloop_time;
 
 	dict->fd = net_connect_unix(dict->path);
 	if (dict->fd == -1) {
