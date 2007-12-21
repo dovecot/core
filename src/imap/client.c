@@ -18,6 +18,8 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
+static bool client_handle_input(struct client *client);
+
 struct client *client_create(int fd_in, int fd_out,
 			     struct mail_namespace *namespaces)
 {
@@ -472,7 +474,7 @@ void client_continue_pending_input(struct client **_client)
 	/* if there's unread data in buffer, handle it. */
 	(void)i_stream_get_data(client->input, &size);
 	if (size > 0)
-		client_input(client);
+		(void)client_handle_input(client);
 }
 
 /* Skip incoming data until newline is found,
@@ -509,9 +511,12 @@ static bool client_command_input(struct client_command_context *cmd)
 			return TRUE;
 		}
 
-		/* unfinished */
-		if (cmd->output_pending)
+		if (cmd->output_pending) {
+			/* output is blocking, we can execute more commands */
 			o_stream_set_flush_pending(client->output, TRUE);
+			return TRUE;
+		}
+		/* need more input */
 		return FALSE;
 	}
 
@@ -563,13 +568,17 @@ static bool client_command_input(struct client_command_context *cmd)
 	}
 }
 
-static bool client_handle_next_command(struct client *client)
+static int client_handle_next_command(struct client *client, bool *remove_io_r)
 {
 	size_t size;
 
+	*remove_io_r = FALSE;
+
 	if (client->input_lock != NULL) {
-		if (client->input_lock->waiting_unambiguity)
+		if (client->input_lock->waiting_unambiguity) {
+			*remove_io_r = TRUE;
 			return FALSE;
+		}
 		return client_command_input(client->input_lock);
 	}
 
@@ -590,7 +599,7 @@ static bool client_handle_next_command(struct client *client)
 	if (client->command_queue_size >= CLIENT_COMMAND_QUEUE_MAX_SIZE ||
 	    client->output_lock != NULL) {
 		/* wait for some of the commands to finish */
-		io_remove(&client->io);
+		*remove_io_r = TRUE;
 		return FALSE;
 	}
 
@@ -598,21 +607,51 @@ static bool client_handle_next_command(struct client *client)
 	return client_command_input(client->input_lock);
 }
 
+static bool client_handle_input(struct client *client)
+{
+	bool ret, remove_io, handled_commands = FALSE;
+
+	o_stream_cork(client->output);
+	client->handling_input = TRUE;
+	do {
+		T_FRAME(
+			ret = client_handle_next_command(client, &remove_io);
+		);
+		if (ret)
+			handled_commands = TRUE;
+	} while (ret && !client->disconnected);
+	client->handling_input = FALSE;
+	o_stream_uncork(client->output);
+
+	if (client->output->closed) {
+		client_destroy(client, NULL);
+		return TRUE;
+	} else {
+		if (remove_io)
+			io_remove(&client->io);
+		else
+			client_add_missing_io(client);
+		return handled_commands;
+	}
+}
+
 void client_input(struct client *client)
 {
 	struct client_command_context *cmd;
-	int ret;
+	ssize_t bytes;
 
 	i_assert(client->io != NULL);
 
 	client->last_input = ioloop_time;
 
-	switch (i_stream_read(client->input)) {
-	case -1:
+	bytes = i_stream_read(client->input);
+	if (bytes == -1) {
 		/* disconnected */
 		client_destroy(client, NULL);
 		return;
-	case -2:
+	}
+
+	if (!client_handle_input(client) && bytes == -2) {
 		/* parameter word is longer than max. input buffer size.
 		   this is most likely an error, so skip the new data
 		   until newline is found. */
@@ -623,23 +662,7 @@ void client_input(struct client *client)
 		cmd->param_error = TRUE;
 		client_send_command_error(cmd, "Too long argument.");
 		client_command_free(cmd);
-		return;
 	}
-
-	o_stream_cork(client->output);
-	client->handling_input = TRUE;
-	do {
-		T_FRAME(
-			ret = client_handle_next_command(client);
-		);
-	} while (ret && !client->disconnected);
-	client->handling_input = FALSE;
-	o_stream_uncork(client->output);
-
-	if (client->output->closed)
-		client_destroy(client, NULL);
-	else
-		client_add_missing_io(client);
 }
 
 static void client_output_cmd(struct client_command_context *cmd)
