@@ -232,7 +232,7 @@ static int imap_fetch_send_nil_reply(struct imap_fetch_context *ctx)
 	return 0;
 }
 
-int imap_fetch(struct imap_fetch_context *ctx)
+static int imap_fetch_more(struct imap_fetch_context *ctx)
 {
 	struct client *client = ctx->client;
 	const struct imap_fetch_context_handler *handlers;
@@ -245,7 +245,7 @@ int imap_fetch(struct imap_fetch_context *ctx)
 			return 0;
 
 		if (ret < 0) {
-			if (ctx->client->output->closed)
+			if (client->output->closed)
 				return -1;
 
 			if (ctx->cur_mail->expunged) {
@@ -265,23 +265,13 @@ int imap_fetch(struct imap_fetch_context *ctx)
 			i_stream_unref(&ctx->cur_input);
 	}
 
-	/* assume initially that we're locking it */
-	i_assert(client->output_lock == NULL ||
-		 client->output_lock == ctx->cmd);
-	client->output_lock = ctx->cmd;
-
 	handlers = array_get(&ctx->handlers, &count);
 	for (;;) {
 		if (o_stream_get_buffer_used_size(client->output) >=
 		    CLIENT_OUTPUT_OPTIMAL_SIZE) {
 			ret = o_stream_flush(client->output);
-			if (ret <= 0) {
-				if (!ctx->line_partial) {
-					/* last line was fully sent */
-					client->output_lock = NULL;
-				}
+			if (ret <= 0)
 				return ret;
-			}
 		}
 
 		if (ctx->cur_mail == NULL) {
@@ -317,13 +307,8 @@ int imap_fetch(struct imap_fetch_context *ctx)
 						 h->context);
 			);
 
-			if (ret == 0) {
-				if (!ctx->line_partial) {
-					/* last line was fully sent */
-					client->output_lock = NULL;
-				}
+			if (ret == 0)
 				return 0;
-			}
 
 			if (ret < 0) {
 				if (ctx->cur_mail->expunged) {
@@ -354,13 +339,28 @@ int imap_fetch(struct imap_fetch_context *ctx)
 		ctx->line_partial = FALSE;
 		if (o_stream_send(client->output, ")\r\n", 3) < 0)
 			return -1;
-		ctx->client->last_output = ioloop_time;
+		client->last_output = ioloop_time;
 
 		ctx->cur_mail = NULL;
 		ctx->cur_handler = 0;
 	}
 
 	return 1;
+}
+
+int imap_fetch(struct imap_fetch_context *ctx)
+{
+	int ret;
+
+	i_assert(ctx->client->output_lock == NULL ||
+		 ctx->client->output_lock == ctx->cmd);
+
+	ret = imap_fetch_more(ctx);
+	if (ctx->line_partial) {
+		/* nothing can be sent until FETCH is finished */
+		ctx->client->output_lock = ctx->cmd;
+	}
+	return ret;
 }
 
 int imap_fetch_deinit(struct imap_fetch_context *ctx)
