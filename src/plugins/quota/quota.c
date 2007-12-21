@@ -203,9 +203,9 @@ quota_rule_parse_percentage(struct quota_root *root, struct quota_rule *rule,
 	}
 
 	if (limit == &rule->bytes_limit)
-		*limit = rule->bytes_limit * percentage / 100;
+		*limit = root->default_rule.bytes_limit * percentage / 100;
 	else if (limit == &rule->count_limit)
-		*limit = rule->count_limit * percentage / 100;
+		*limit = root->default_rule.count_limit * percentage / 100;
 	else
 		i_unreached();
 	return 0;
