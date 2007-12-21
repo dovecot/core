@@ -222,11 +222,10 @@ static void status_flags_append(string_t *str, enum mail_flags flags,
 
 static void mbox_save_append_flag_headers(string_t *str, enum mail_flags flags)
 {
-	if ((flags & STATUS_FLAGS_MASK) != 0) {
-		str_append(str, "Status: ");
-		status_flags_append(str, flags, mbox_status_flags);
-		str_append_c(str, '\n');
-	}
+	/* write the Status: header always. It always gets added soon anyway. */
+	str_append(str, "Status: ");
+	status_flags_append(str, flags, mbox_status_flags);
+	str_append_c(str, '\n');
 
 	if ((flags & XSTATUS_FLAGS_MASK) != 0) {
 		str_append(str, "X-Status: ");
@@ -471,12 +470,10 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 				    ctx->uid_validity, ctx->next_uid);
 		}
 		str_printfa(ctx->headers, "X-UID: %u\n", ctx->next_uid);
-		if (!mbox->ibox.keep_recent)
-			save_flags &= ~MAIL_RECENT;
 
 		mail_index_append(ctx->trans, ctx->next_uid, &ctx->seq);
 		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
-					save_flags);
+					save_flags & ~MAIL_RECENT);
 		if (keywords != NULL) {
 			mail_index_update_keywords(ctx->trans, ctx->seq,
 						   MODIFY_REPLACE, keywords);
