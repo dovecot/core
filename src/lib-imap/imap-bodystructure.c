@@ -231,9 +231,15 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 	bool parent_rfc822;
 
 	if (hdr == NULL) {
-		/* If there was no Mime-Version, forget all the Content-stuff */
-		if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0 &&
-		    part->context != NULL) {
+		if (part->context == NULL) {
+			/* no Content-* headers. add an empty context
+			   structure anyway. */
+			part->context = part_data =
+				p_new(pool, struct message_part_body_data, 1);
+			part_data->pool = pool;
+		} else if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
+			/* If there was no Mime-Version, forget all
+			   the Content-stuff */
 			part_data = part->context;
 			envelope = part_data->envelope;
 
@@ -276,11 +282,6 @@ static void part_write_body_multipart(const struct message_part *part,
 				      string_t *str, bool extended)
 {
 	struct message_part_body_data *data = part->context;
-
-	if (data == NULL) {
-		/* there was no content headers, use an empty structure */
-		data = t_new(struct message_part_body_data, 1);
-	}
 
 	if (part->children != NULL)
 		imap_bodystructure_write(part->children, str, extended);
@@ -344,11 +345,6 @@ static void part_write_body(const struct message_part *part,
 	struct message_part_body_data *data = part->context;
 	bool text;
 
-	if (data == NULL) {
-		/* there was no content headers, use an empty structure */
-		data = t_new(struct message_part_body_data, 1);
-	}
-
 	if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		str_append(str, "\"message\" \"rfc822\"");
 		text = FALSE;
@@ -401,7 +397,7 @@ static void part_write_body(const struct message_part *part,
 		i_assert(part->children->next == NULL);
 
                 child_data = part->children->context;
-		env_data = child_data != NULL ? child_data->envelope : NULL;
+		env_data = child_data->envelope;
 
 		str_append(str, " (");
 		imap_envelope_write_part_data(env_data, str);
@@ -455,11 +451,6 @@ bool imap_bodystructure_is_plain_7bit(struct message_part *part)
 	struct message_part_body_data *data = part->context;
 
 	i_assert(part->parent == NULL);
-
-	if (data == NULL) {
-		/* no bodystructure headers found */
-		return TRUE;
-	}
 
 	/* if content-type is text/xxx we don't have to check any
 	   multipart stuff */
