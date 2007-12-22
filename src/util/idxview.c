@@ -263,6 +263,8 @@ static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 		case MAIL_CACHE_FIELD_FIXED_SIZE:
 			if (size == sizeof(uint32_t))
 				str_printfa(str, "%u ", *((const uint32_t *)data));
+			else if (size == sizeof(uint64_t))
+				str_printfa(str, "%llu ", (unsigned long long)*((const uint64_t *)data));
 		case MAIL_CACHE_FIELD_VARIABLE_SIZE:
 		case MAIL_CACHE_FIELD_BITMASK:
 			str_printfa(str, "(%s)", binary_to_hex(data, size));
