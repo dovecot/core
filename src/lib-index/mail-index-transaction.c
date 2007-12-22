@@ -73,6 +73,8 @@ void mail_index_transaction_reset(struct mail_index_transaction *t)
 		array_free(&t->ext_resizes);
 	if (array_is_created(&t->ext_resets))
 		array_free(&t->ext_resets);
+	if (array_is_created(&t->ext_reset_ids))
+		array_free(&t->ext_reset_ids);
 
 	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
 	t->last_new_seq = 0;
