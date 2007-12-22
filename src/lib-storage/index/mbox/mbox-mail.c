@@ -235,8 +235,8 @@ static int mbox_mail_get_stream(struct mail *_mail,
 
 		raw_stream = mbox->mbox_stream;
 		offset = istream_raw_mbox_get_header_offset(raw_stream);
-		raw_stream = i_stream_create_limit(raw_stream,
-						   offset, (uoff_t)-1);
+		i_stream_seek(raw_stream, offset);
+		raw_stream = i_stream_create_limit(raw_stream, (uoff_t)-1);
 		data->stream =
 			i_stream_create_header_filter(raw_stream,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,

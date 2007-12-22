@@ -280,9 +280,7 @@ static int fetch_stream(struct imap_fetch_context *ctx,
 	if (size->physical_size == size->virtual_size &&
 	    ctx->cur_mail->has_no_nuls) {
 		/* no need to kludge with CRs, we can use sendfile() */
-		input = i_stream_create_limit(ctx->cur_input,
-					      ctx->cur_input->v_offset,
-					      ctx->cur_size);
+		input = i_stream_create_limit(ctx->cur_input, ctx->cur_size);
 		i_stream_unref(&ctx->cur_input);
 		ctx->cur_input = input;
 

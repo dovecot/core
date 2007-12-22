@@ -26,8 +26,7 @@ struct istream *i_stream_create_mmap(int fd, size_t block_size,
 				     uoff_t start_offset, uoff_t v_size,
 				     bool autoclose_fd);
 struct istream *i_stream_create_from_data(const void *data, size_t size);
-struct istream *i_stream_create_limit(struct istream *input,
-				      uoff_t v_start_offset, uoff_t v_size);
+struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size);
 
 /* i_stream_close() + i_stream_unref() */
 void i_stream_destroy(struct istream **stream);

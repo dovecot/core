@@ -559,8 +559,7 @@ static struct istream *create_raw_stream(int fd)
 		input2 = input;
 		i_stream_ref(input2);
 	} else {
-		input2 = i_stream_create_limit(input, input->v_offset,
-					       (uoff_t)-1);
+		input2 = i_stream_create_limit(input, (uoff_t)-1);
 	}
 	i_stream_unref(&input);
 

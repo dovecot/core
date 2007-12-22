@@ -140,7 +140,8 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 				break;
 		}
 
-		input = i_stream_create_limit(file->input, offset,
+		i_stream_seek(file->input, offset);
+		input = i_stream_create_limit(file->input,
 					      file->msg_header_size +
 					      physical_size);
 		ret = o_stream_send_istream(output, input) < 0 ? -1 : 0;

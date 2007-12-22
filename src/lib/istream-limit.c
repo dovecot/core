@@ -106,22 +106,16 @@ i_stream_limit_stat(struct istream_private *stream, bool exact)
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_limit(struct istream *input,
-				      uoff_t v_start_offset, uoff_t v_size)
+struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 {
 	struct limit_istream *lstream;
 
 	i_stream_ref(input);
 
 	lstream = i_new(struct limit_istream, 1);
-	lstream->v_start_offset = v_start_offset;
+	lstream->v_start_offset = input->v_offset;
 	lstream->v_size = v_size;
 	lstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
-
-	lstream->istream.istream.v_offset =
-		input->v_offset < v_start_offset ? 0 :
-		input->v_offset - v_start_offset > v_size ? v_size :
-		input->v_offset - v_start_offset;
 
 	lstream->istream.iostream.destroy = i_stream_limit_destroy;
 	lstream->istream.iostream.set_max_buffer_size =
@@ -136,5 +130,5 @@ struct istream *i_stream_create_limit(struct istream *input,
 	lstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&lstream->istream, i_stream_get_fd(input),
 			       input->real_stream->abs_start_offset +
-			       v_start_offset);
+			       input->v_offset);
 }
