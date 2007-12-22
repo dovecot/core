@@ -126,7 +126,7 @@ static void free_blocks(struct stack_block *block)
 		next = block->next;
 
 		if (unused_block == NULL || block->size > unused_block->size) {
-			if (clean_after_pop) {
+			if (clean_after_pop && unused_block != NULL) {
 				memset(STACK_BLOCK_DATA(unused_block),
 				       CLEAR_CHR, unused_block->size);
 			}
