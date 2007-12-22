@@ -1034,13 +1034,13 @@ void index_mail_close(struct mail *_mail)
 
 	if (mail->data.parser_ctx != NULL)
 		(void)message_parser_deinit(&mail->data.parser_ctx);
+	if (mail->data.filter_stream != NULL)
+		i_stream_unref(&mail->data.filter_stream);
 	if (mail->data.stream != NULL) {
 		mail->data.destroying_stream = TRUE;
 		i_stream_unref(&mail->data.stream);
 		i_assert(!mail->data.destroying_stream);
 	}
-	if (mail->data.filter_stream != NULL)
-		i_stream_unref(&mail->data.filter_stream);
 }
 
 static void index_mail_reset(struct index_mail *mail)
