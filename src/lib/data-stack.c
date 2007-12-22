@@ -29,6 +29,7 @@
 
 #ifdef DEBUG
 #  define CLEAR_CHR 0xde
+#  define SENTRY_COUNT (4*8)
 #else
 #  define CLEAR_CHR 0
 #endif
@@ -43,7 +44,7 @@ struct stack_block {
 #define SIZEOF_MEMBLOCK MEM_ALIGN(sizeof(struct stack_block))
 
 #define STACK_BLOCK_DATA(block) \
-	((char *) (block) + SIZEOF_MEMBLOCK)
+	((unsigned char *) (block) + SIZEOF_MEMBLOCK)
 
 /* current_frame_block contains last t_push()ed frames. After that new
    stack_frame_block is created and it's ->prev is set to
@@ -153,6 +154,46 @@ static void free_blocks(struct stack_block *block)
 	}
 }
 
+#ifdef DEBUG
+static void t_pop_verify(void)
+{
+	struct stack_block *block;
+	unsigned char *p;
+	size_t pos, max_pos, used_size, alloc_size;
+
+	block = current_frame_block->block[frame_pos];
+	pos = block->size - current_frame_block->block_space_used[frame_pos];
+	while (block != NULL) {
+		used_size = block->size - block->left;
+		p = STACK_BLOCK_DATA(block);
+		while (pos < used_size) {
+			alloc_size = *(size_t *)(p + pos);
+			if (used_size - pos < alloc_size)
+				i_panic("data stack: saved alloc size broken");
+			pos += MEM_ALIGN(sizeof(alloc_size));
+			max_pos = pos + MEM_ALIGN(alloc_size + SENTRY_COUNT);
+			pos += alloc_size;
+
+			for (; pos < max_pos; pos++) {
+				if (p[pos] != CLEAR_CHR)
+					i_panic("data stack: buffer overflow");
+			}
+		}
+
+		/* we could verify here that the rest of the buffer contains
+		   CLEAR_CHRs, but it would slow us down a bit too much. */
+		max_pos = block->size - pos < SENTRY_COUNT ?
+			block->size - pos : SENTRY_COUNT;
+		for (; pos < max_pos; pos++) {
+			if (p[pos] != CLEAR_CHR)
+				i_panic("data stack: buffer overflow");
+		}
+		block = block->next;
+		pos = 0;
+	}
+}
+#endif
+
 unsigned int t_pop(void)
 {
 	struct stack_frame_block *frame_block;
@@ -161,14 +202,23 @@ unsigned int t_pop(void)
 	if (unlikely(frame_pos < 0))
 		i_panic("t_pop() called with empty stack");
 
+#ifdef DEBUG
+	t_pop_verify();
+#endif
+
 	/* update the current block */
 	current_block = current_frame_block->block[frame_pos];
-	current_block->left = current_frame_block->block_space_used[frame_pos];
 	if (clean_after_pop) {
-		memset(STACK_BLOCK_DATA(current_block) +
-		       (current_block->size - current_block->left), CLEAR_CHR,
-		       current_block->left);
+		size_t pos, used_size;
+
+		pos = current_block->size -
+			current_frame_block->block_space_used[frame_pos];
+		used_size = current_block->size - current_block->left;
+		memset(STACK_BLOCK_DATA(current_block) + pos, CLEAR_CHR,
+		       used_size - pos);
 	}
+	current_block->left = current_frame_block->block_space_used[frame_pos];
+
 	if (current_block->next != NULL) {
 		/* free unused blocks */
 		free_blocks(current_block->next);
@@ -225,13 +275,17 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	block->size = alloc_size;
 	block->next = NULL;
 
+#ifdef DEBUG
+	memset(STACK_BLOCK_DATA(block), CLEAR_CHR, alloc_size);
+#endif
 	return block;
 }
 
 static void *t_malloc_real(size_t size, bool permanent)
 {
 	struct stack_block *block;
-        void *ret;
+	void *ret;
+	size_t alloc_size;
 #ifdef DEBUG
 	bool warn = FALSE;
 #endif
@@ -251,48 +305,55 @@ static void *t_malloc_real(size_t size, bool permanent)
 
 	/* allocate only aligned amount of memory so alignment comes
 	   always properly */
-	size = MEM_ALIGN(size);
+#ifndef DEBUG
+	alloc_size = MEM_ALIGN(size);
+#else
+	alloc_size = MEM_ALIGN(sizeof(size)) + MEM_ALIGN(size + SENTRY_COUNT);
+#endif
 
 	/* used for t_try_realloc() */
-	current_frame_block->last_alloc_size[frame_pos] = size;
+	current_frame_block->last_alloc_size[frame_pos] = alloc_size;
 
-	if (current_block->left >= size) {
+	if (current_block->left >= alloc_size) {
 		/* enough space in current block, use it */
 		ret = STACK_BLOCK_DATA(current_block) +
 			(current_block->size - current_block->left);
                 if (permanent)
-			current_block->left -= size;
-		return ret;
-	}
-
-	/* current block is full, see if we can use the unused_block */
-	if (unused_block != NULL && unused_block->size >= size) {
-		block = unused_block;
-		unused_block = NULL;
+			current_block->left -= alloc_size;
 	} else {
-		block = mem_block_alloc(size);
+		/* current block is full, see if we can use the unused_block */
+		if (unused_block != NULL && unused_block->size >= alloc_size) {
+			block = unused_block;
+			unused_block = NULL;
+		} else {
+			block = mem_block_alloc(alloc_size);
 #ifdef DEBUG
-		warn = TRUE;
+			warn = TRUE;
+#endif
+		}
+
+		block->left = block->size;
+		if (permanent)
+			block->left -= alloc_size;
+		block->next = NULL;
+
+		current_block->next = block;
+		current_block = block;
+
+		ret = STACK_BLOCK_DATA(current_block);
+#ifdef DEBUG
+		if (warn) {
+			/* warn after allocation, so if i_warning() wants to
+			   allocate more memory we don't go to infinite loop */
+			i_warning("Growing data stack with: %"PRIuSIZE_T,
+				  block->size);
+		}
 #endif
 	}
-
-	block->left = block->size;
-	if (permanent)
-		block->left -= size;
-	block->next = NULL;
-
-	current_block->next = block;
-	current_block = block;
-
-	ret = STACK_BLOCK_DATA(current_block);
 #ifdef DEBUG
-	if (warn) {
-		/* warn later, so that if i_warning() wants to allocate more
-		   memory we don't go to infinite loop */
-		i_warning("Growing data stack with: %"PRIuSIZE_T, block->size);
-	}
+	memcpy(ret, &size, sizeof(size));
+	ret = PTR_OFFSET(ret, MEM_ALIGN(sizeof(size)));
 #endif
-
         return ret;
 }
 
