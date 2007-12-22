@@ -26,10 +26,9 @@
     - t_malloc()ed data could be accidentally stored into permanent location
       and accessed after it's already been freed. const'ing the return values
       helps for most uses though (see the t_malloc() description).
-    - Debugging invalid memory usage requires recompilation with
-      -DDISABLE_DATA_STACK which then uses malloc() and free() for all
-      allocations and keeping track of them for stack frames making it much
-      slower.
+    - Debugging invalid memory usage may be difficult using existing tools,
+      although compiling with DEBUG enabled helps finding simple buffer
+      overflows.
 */
 
 extern unsigned int data_stack_frame;
