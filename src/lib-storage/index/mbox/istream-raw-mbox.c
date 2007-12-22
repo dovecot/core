@@ -13,7 +13,6 @@ struct raw_mbox_istream {
 	char *sender, *next_sender;
 
 	uoff_t from_offset, hdr_offset, body_offset, mail_size;
-	struct istream *input;
 	uoff_t input_peak_offset;
 
 	unsigned int crlf_ending:1;
@@ -28,8 +27,9 @@ static void i_stream_raw_mbox_destroy(struct iostream_private *stream)
 	i_free(rstream->sender);
 	i_free(rstream->next_sender);
 
-	i_stream_seek(rstream->input, rstream->istream.istream.v_offset);
-	i_stream_unref(&rstream->input);
+	i_stream_seek(rstream->istream.parent,
+		      rstream->istream.istream.v_offset);
+	i_stream_unref(&rstream->istream.parent);
 }
 
 static void
@@ -39,7 +39,7 @@ i_stream_raw_mbox_set_max_buffer_size(struct iostream_private *stream,
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
 	rstream->istream.max_buffer_size = max_size;
-	i_stream_set_max_buffer_size(rstream->input, max_size);
+	i_stream_set_max_buffer_size(rstream->istream.parent, max_size);
 }
 
 static int mbox_read_from_line(struct raw_mbox_istream *rstream)
@@ -50,7 +50,7 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 	size_t pos, line_pos;
 	int skip;
 
-	buf = i_stream_get_data(rstream->input, &pos);
+	buf = i_stream_get_data(rstream->istream.parent, &pos);
 	i_assert(pos > 0);
 
 	/* from_offset points to "\nFrom ", so unless we're at the beginning
@@ -60,11 +60,11 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 		skip++;
 
 	while ((p = memchr(buf+skip, '\n', pos-skip)) == NULL) {
-		if (i_stream_read(rstream->input) < 0) {
+		if (i_stream_read(rstream->istream.parent) < 0) {
 			/* EOF - shouldn't happen */
 			return -1;
 		}
-		buf = i_stream_get_data(rstream->input, &pos);
+		buf = i_stream_get_data(rstream->istream.parent, &pos);
 		i_assert(pos > 0);
 	}
 	line_pos = (size_t)(p - buf);
@@ -94,7 +94,7 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 
 	/* we'll skip over From-line */
 	rstream->istream.istream.v_offset += line_pos+1;
-	i_stream_skip(rstream->input, line_pos+1);
+	i_stream_skip(rstream->istream.parent, line_pos+1);
 	rstream->hdr_offset = rstream->istream.istream.v_offset;
 	return 0;
 }
@@ -137,7 +137,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	if (stream->istream.eof)
 		return -1;
 
-	i_stream_seek(rstream->input, stream->istream.v_offset);
+	i_stream_seek(stream->parent, stream->istream.v_offset);
 
 	stream->pos -= stream->skip;
 	stream->skip = 0;
@@ -145,7 +145,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 
 	ret = 0;
 	do {
-		buf = i_stream_get_data(rstream->input, &pos);
+		buf = i_stream_get_data(stream->parent, &pos);
 		if (pos > 1 && stream->istream.v_offset + pos >
 		    rstream->input_peak_offset) {
 			/* fake our read count. needed because if in the end
@@ -155,9 +155,9 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 			ret = pos;
 			break;
 		}
-		ret = i_stream_read(rstream->input);
+		ret = i_stream_read(stream->parent);
 	} while (ret > 0);
-	stream->istream.stream_errno = rstream->input->stream_errno;
+	stream->istream.stream_errno = stream->parent->stream_errno;
 
 	if (ret < 0) {
 		if (ret == -2) {
@@ -214,7 +214,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 
 		/* got it. we don't want to return it however,
 		   so start again from headers */
-		buf = i_stream_get_data(rstream->input, &pos);
+		buf = i_stream_get_data(stream->parent, &pos);
 		if (pos == 0)
 			return i_stream_raw_mbox_read(stream);
 	}
@@ -321,7 +321,7 @@ static void i_stream_raw_mbox_sync(struct istream_private *stream)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
-	i_stream_sync(rstream->input);
+	i_stream_sync(stream->parent);
 
 	rstream->istream.skip = 0;
 	rstream->istream.pos = 0;
@@ -330,10 +330,9 @@ static void i_stream_raw_mbox_sync(struct istream_private *stream)
 static const struct stat *
 i_stream_raw_mbox_stat(struct istream_private *stream, bool exact)
 {
-	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 	const struct stat *st;
 
-	st = i_stream_stat(rstream->input, exact);
+	st = i_stream_stat(stream->parent, exact);
 	if (st == NULL)
 		return NULL;
 
@@ -350,17 +349,17 @@ struct istream *i_stream_create_raw_mbox(struct istream *input)
 
 	rstream = i_new(struct raw_mbox_istream, 1);
 
-	rstream->input = input;
 	rstream->body_offset = (uoff_t)-1;
 	rstream->mail_size = (uoff_t)-1;
 	rstream->received_time = (time_t)-1;
 	rstream->next_received_time = (time_t)-1;
 
-	rstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	rstream->istream.iostream.destroy = i_stream_raw_mbox_destroy;
 	rstream->istream.iostream.set_max_buffer_size =
 		i_stream_raw_mbox_set_max_buffer_size;
 
+	rstream->istream.parent = input;
+	rstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	rstream->istream.read = i_stream_raw_mbox_read;
 	rstream->istream.seek = i_stream_raw_mbox_seek;
 	rstream->istream.sync = i_stream_raw_mbox_sync;
@@ -380,7 +379,7 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	char *sender;
 
 	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars */
-	if (i_stream_read_data(rstream->input, &data, &size, 30) == -1)
+	if (i_stream_read_data(rstream->istream.parent, &data, &size, 30) == -1)
 		return -1;
 
 	if ((size == 1 && data[0] == '\n') ||
@@ -400,7 +399,8 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	}
 
 	while (memchr(data, '\n', size) == NULL) {
-		if (i_stream_read_data(rstream->input, &data, &size, size) < 0)
+		if (i_stream_read_data(rstream->istream.parent,
+				       &data, &size, size) < 0)
 			break;
 	}
 
@@ -485,7 +485,8 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 	}
 
 	if (body_size != (uoff_t)-1) {
-		i_stream_seek(rstream->input, rstream->body_offset + body_size);
+		i_stream_seek(rstream->istream.parent,
+			      rstream->body_offset + body_size);
 		if (istream_raw_mbox_is_valid_from(rstream) > 0) {
 			rstream->mail_size = body_size +
 				(rstream->body_offset - rstream->hdr_offset);
@@ -551,7 +552,7 @@ void istream_raw_mbox_next(struct istream *stream, uoff_t body_size)
 
 	if (stream->v_offset != rstream->from_offset)
 		i_stream_seek_mark(stream, rstream->from_offset);
-	i_stream_seek_mark(rstream->input, rstream->from_offset);
+	i_stream_seek_mark(rstream->istream.parent, rstream->from_offset);
 
 	rstream->eof = FALSE;
 	rstream->istream.istream.eof = FALSE;
@@ -594,7 +595,7 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 	}
 
 	i_stream_seek_mark(stream, offset);
-	i_stream_seek_mark(rstream->input, offset);
+	i_stream_seek_mark(rstream->istream.parent, offset);
 
 	if (check)
 		(void)i_stream_raw_mbox_read(&rstream->istream);

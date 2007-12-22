@@ -12,7 +12,6 @@ struct header_filter_istream {
 	struct istream_private istream;
 	pool_t pool;
 
-	struct istream *input;
 	struct message_header_parser_ctx *hdr_ctx;
 	uoff_t start_offset;
 
@@ -45,7 +44,7 @@ static void i_stream_header_filter_destroy(struct iostream_private *stream)
 
 	if (mstream->hdr_ctx != NULL)
 		message_parse_header_deinit(&mstream->hdr_ctx);
-	i_stream_unref(&mstream->input);
+	i_stream_unref(&mstream->istream.parent);
 	if (array_is_created(&mstream->match_change_lines))
 		array_free(&mstream->match_change_lines);
 	pool_unref(&mstream->pool);
@@ -59,7 +58,7 @@ i_stream_header_filter_set_max_buffer_size(struct iostream_private *stream,
 		(struct header_filter_istream *)stream;
 
 	mstream->istream.max_buffer_size = max_size;
-	i_stream_set_max_buffer_size(mstream->input, max_size);
+	i_stream_set_max_buffer_size(mstream->istream.parent, max_size);
 }
 
 static ssize_t
@@ -74,17 +73,17 @@ read_mixed(struct header_filter_istream *mstream, size_t body_highwater_size)
 		return -1;
 	}
 
-	data = i_stream_get_data(mstream->input, &pos);
+	data = i_stream_get_data(mstream->istream.parent, &pos);
 	if (pos == body_highwater_size) {
-		ret = i_stream_read(mstream->input);
+		ret = i_stream_read(mstream->istream.parent);
 		mstream->istream.istream.stream_errno =
-			mstream->input->stream_errno;
-		mstream->istream.istream.eof = mstream->input->eof;
+			mstream->istream.parent->stream_errno;
+		mstream->istream.istream.eof = mstream->istream.parent->eof;
 
 		if (ret <= 0)
 			return ret;
 
-		data = i_stream_get_data(mstream->input, &pos);
+		data = i_stream_get_data(mstream->istream.parent, &pos);
 	}
 	i_assert(pos > body_highwater_size);
 	buffer_append(mstream->hdr_buf, data + body_highwater_size,
@@ -128,7 +127,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 
 	if (mstream->hdr_ctx == NULL) {
 		mstream->hdr_ctx =
-			message_parse_header_init(mstream->input, NULL, 0);
+			message_parse_header_init(mstream->istream.parent,
+						  NULL, 0);
 	}
 
 	/* remove skipped data from hdr_buf */
@@ -250,7 +250,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		mstream->header_parsed = TRUE;
 		mstream->header_read = TRUE;
 
-		mstream->header_size.physical_size = mstream->input->v_offset;
+		mstream->header_size.physical_size =
+			mstream->istream.parent->v_offset;
 		mstream->header_size.virtual_size =
 			mstream->istream.istream.v_offset + pos;
 	}
@@ -287,7 +288,7 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 		return -1;
 	}
 
-	i_stream_seek(mstream->input, mstream->start_offset +
+	i_stream_seek(stream->parent, mstream->start_offset +
 		      stream->istream.v_offset -
 		      mstream->header_size.virtual_size +
 		      mstream->header_size.physical_size);
@@ -295,13 +296,13 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 	stream->pos -= stream->skip;
 	stream->skip = 0;
 
-	stream->buffer = i_stream_get_data(mstream->input, &pos);
+	stream->buffer = i_stream_get_data(stream->parent, &pos);
 	if (pos <= stream->pos) {
-		if ((ret = i_stream_read(mstream->input)) == -2)
+		if ((ret = i_stream_read(stream->parent)) == -2)
 			return -2;
-		stream->istream.stream_errno = mstream->input->stream_errno;
-		stream->istream.eof = mstream->input->eof;
-		stream->buffer = i_stream_get_data(mstream->input, &pos);
+		stream->istream.stream_errno = stream->parent->stream_errno;
+		stream->istream.eof = stream->parent->eof;
+		stream->buffer = i_stream_get_data(stream->parent, &pos);
 	} else {
 		ret = 0;
 	}
@@ -345,7 +346,7 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 	if (v_offset < mstream->header_size.virtual_size) {
 		/* seek into headers. we'll have to re-parse them, use
 		   skip_count to set the wanted position */
-		i_stream_seek(mstream->input, mstream->start_offset);
+		i_stream_seek(stream->parent, mstream->start_offset);
 		mstream->skip_count = v_offset;
 		mstream->cur_line = 0;
 		mstream->header_read = FALSE;
@@ -353,7 +354,7 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 		/* body */
 		v_offset += mstream->header_size.physical_size -
 			mstream->header_size.virtual_size;
-		i_stream_seek(mstream->input, mstream->start_offset + v_offset);
+		i_stream_seek(stream->parent, mstream->start_offset + v_offset);
 	}
 }
 
@@ -370,7 +371,7 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 		(struct header_filter_istream *)stream;
 	const struct stat *st;
 
-	st = i_stream_stat(mstream->input, exact);
+	st = i_stream_stat(stream->parent, exact);
 	if (st == NULL || st->st_size == -1 || !exact)
 		return st;
 
@@ -400,8 +401,8 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->pool = pool_alloconly_create("header filter stream", 4096);
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
-	mstream->input = input;
-	i_stream_ref(mstream->input);
+	mstream->istream.parent = input;
+	i_stream_ref(mstream->istream.parent);
 
 	mstream->headers = headers_count == 0 ? NULL :
 		p_new(mstream->pool, const char *, headers_count);

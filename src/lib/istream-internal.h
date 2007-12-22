@@ -30,6 +30,7 @@ struct istream_private {
 	size_t buffer_size, max_buffer_size;
 	size_t skip, pos;
 
+	struct istream *parent; /* for filter streams */
 	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
 };
 

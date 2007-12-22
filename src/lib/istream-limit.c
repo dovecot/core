@@ -6,7 +6,6 @@
 struct limit_istream {
 	struct istream_private istream;
 
-	struct istream *input;
 	uoff_t v_start_offset, v_size;
 };
 
@@ -15,9 +14,9 @@ static void i_stream_limit_destroy(struct iostream_private *stream)
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
 	/* get to same position in parent stream */
-	i_stream_seek(lstream->input, lstream->v_start_offset +
+	i_stream_seek(lstream->istream.parent, lstream->v_start_offset +
 		      lstream->istream.istream.v_offset);
-	i_stream_unref(&lstream->input);
+	i_stream_unref(&lstream->istream.parent);
 }
 
 static void
@@ -27,7 +26,7 @@ i_stream_limit_set_max_buffer_size(struct iostream_private *stream,
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
 	lstream->istream.max_buffer_size = max_size;
-	i_stream_set_max_buffer_size(lstream->input, max_size);
+	i_stream_set_max_buffer_size(lstream->istream.parent, max_size);
 }
 
 static ssize_t i_stream_limit_read(struct istream_private *stream)
@@ -43,21 +42,21 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 		return -1;
 	}
 
-	if (lstream->input->v_offset !=
+	if (stream->parent->v_offset !=
 	    lstream->v_start_offset + stream->istream.v_offset) {
-		i_stream_seek(lstream->input,
+		i_stream_seek(stream->parent,
 			      lstream->v_start_offset +
 			      stream->istream.v_offset);
 	}
 
-	stream->buffer = i_stream_get_data(lstream->input, &pos);
+	stream->buffer = i_stream_get_data(stream->parent, &pos);
 	if (pos <= stream->pos) {
-		if ((ret = i_stream_read(lstream->input)) == -2)
+		if ((ret = i_stream_read(stream->parent)) == -2)
 			return -2;
 
-		stream->istream.stream_errno = lstream->input->stream_errno;
-		stream->istream.eof = lstream->input->eof;
-		stream->buffer = i_stream_get_data(lstream->input, &pos);
+		stream->istream.stream_errno = stream->parent->stream_errno;
+		stream->istream.eof = stream->parent->eof;
+		stream->buffer = i_stream_get_data(stream->parent, &pos);
 	} else {
 		ret = 0;
 	}
@@ -97,7 +96,7 @@ i_stream_limit_stat(struct istream_private *stream, bool exact)
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	const struct stat *st;
 
-	st = i_stream_stat(lstream->input, exact);
+	st = i_stream_stat(stream->parent, exact);
 	if (st == NULL)
 		return NULL;
 
@@ -115,7 +114,6 @@ struct istream *i_stream_create_limit(struct istream *input,
 	i_stream_ref(input);
 
 	lstream = i_new(struct limit_istream, 1);
-	lstream->input = input;
 	lstream->v_start_offset = v_start_offset;
 	lstream->v_size = v_size;
 	lstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
@@ -129,6 +127,7 @@ struct istream *i_stream_create_limit(struct istream *input,
 	lstream->istream.iostream.set_max_buffer_size =
 		i_stream_limit_set_max_buffer_size;
 
+	lstream->istream.parent = input;
 	lstream->istream.read = i_stream_limit_read;
 	lstream->istream.seek = i_stream_limit_seek;
 	lstream->istream.stat = i_stream_limit_stat;
