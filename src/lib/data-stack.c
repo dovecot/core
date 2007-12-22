@@ -31,7 +31,7 @@
 struct stack_block {
 	struct stack_block *next;
 
-	size_t size, left;
+	size_t size, left, lowwater;
 	/* unsigned char data[]; */
 };
 
@@ -125,20 +125,15 @@ static void free_blocks(struct stack_block *block)
 	while (block != NULL) {
 		next = block->next;
 
+		if (clean_after_pop)
+			memset(STACK_BLOCK_DATA(block), CLEAR_CHR, block->size);
+
 		if (unused_block == NULL || block->size > unused_block->size) {
-			if (clean_after_pop && unused_block != NULL) {
-				memset(STACK_BLOCK_DATA(unused_block),
-				       CLEAR_CHR, unused_block->size);
-			}
 #ifndef USE_GC
 			free(unused_block);
 #endif
 			unused_block = block;
 		} else {
-			if (clean_after_pop) {
-				memset(STACK_BLOCK_DATA(block), CLEAR_CHR,
-				       block->size);
-			}
 #ifndef USE_GC
 			free(block);
 #endif
@@ -207,11 +202,12 @@ unsigned int t_pop(void)
 
 		pos = current_block->size -
 			current_frame_block->block_space_used[frame_pos];
-		used_size = current_block->size - current_block->left;
+		used_size = current_block->size - current_block->lowwater;
 		memset(STACK_BLOCK_DATA(current_block) + pos, CLEAR_CHR,
 		       used_size - pos);
 	}
 	current_block->left = current_frame_block->block_space_used[frame_pos];
+	current_block->lowwater = current_block->left;
 
 	if (current_block->next != NULL) {
 		/* free unused blocks */
@@ -312,6 +308,12 @@ static void *t_malloc_real(size_t size, bool permanent)
 		/* enough space in current block, use it */
 		ret = STACK_BLOCK_DATA(current_block) +
 			(current_block->size - current_block->left);
+
+		if (current_block->left - alloc_size <
+		    current_block->lowwater) {
+			current_block->lowwater =
+				current_block->left - alloc_size;
+		}
                 if (permanent)
 			current_block->left -= alloc_size;
 	} else {
@@ -327,6 +329,8 @@ static void *t_malloc_real(size_t size, bool permanent)
 		}
 
 		block->left = block->size;
+		if (block->left - alloc_size < block->lowwater)
+			block->lowwater = block->left - alloc_size;
 		if (permanent)
 			block->left -= alloc_size;
 		block->next = NULL;
