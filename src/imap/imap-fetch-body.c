@@ -323,21 +323,22 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 		      const struct imap_fetch_body_data *body)
 {
 	const struct message_size *fetch_size;
+	struct istream *input;
 	struct message_size hdr_size, body_size;
 
 	if (body->section[0] == '\0') {
-		if (mail_get_stream(mail, NULL, NULL, &ctx->cur_input) < 0)
-			return -1;
-		if (mail_get_virtual_size(mail, &body_size.virtual_size) < 0 ||
+		if (mail_get_stream(mail, NULL, NULL, &input) < 0 ||
+		    mail_get_virtual_size(mail, &body_size.virtual_size) < 0 ||
 		    mail_get_physical_size(mail, &body_size.physical_size) < 0)
 			return -1;
 	} else {
 		if (mail_get_stream(mail, &hdr_size,
 				    body->section[0] == 'H' ? NULL : &body_size,
-				    &ctx->cur_input) < 0)
+				    &input) < 0)
 			return -1;
 	}
 
+	ctx->cur_input = input;
 	i_stream_ref(ctx->cur_input);
 	ctx->update_partial = TRUE;
 
@@ -872,14 +873,14 @@ static int fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 {
 	struct message_size size;
 	const char *str;
+	struct istream *input;
 
-	if (mail_get_stream(mail, NULL, NULL, &ctx->cur_input) < 0)
-		return -1;
-
-	if (mail_get_virtual_size(mail, &size.virtual_size) < 0 ||
+	if (mail_get_stream(mail, NULL, NULL, &input) < 0 ||
+	    mail_get_virtual_size(mail, &size.virtual_size) < 0 ||
 	    mail_get_physical_size(mail, &size.physical_size) < 0)
 		return -1;
 
+	ctx->cur_input = input;
 	i_stream_ref(ctx->cur_input);
 	ctx->update_partial = FALSE;
 
