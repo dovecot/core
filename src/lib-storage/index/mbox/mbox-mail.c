@@ -174,12 +174,13 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	const struct mail_index_header *hdr;
 	struct istream *input;
 	struct message_size hdr_size;
-	uoff_t body_offset, body_size, next_offset;
+	uoff_t old_offset, body_offset, body_size, next_offset;
 
 	if (index_mail_get_physical_size(_mail, size_r) == 0)
 		return 0;
 
 	/* we want to return the header size as seen by mail_get_stream(). */
+	old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
 	if (mail_get_stream(_mail, &hdr_size, NULL, &input) < 0)
 		return -1;
 
@@ -215,6 +216,8 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 	data->physical_size = hdr_size.physical_size + body_size;
 	*size_r = data->physical_size;
+
+	i_stream_seek(input, old_offset);
 	return 0;
 }
 

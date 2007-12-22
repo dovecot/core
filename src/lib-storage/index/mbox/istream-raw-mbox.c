@@ -475,6 +475,7 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 		(struct raw_mbox_istream *)stream->real_stream;
 	const unsigned char *data;
 	size_t size;
+	uoff_t old_offset;
 
 	i_assert(rstream->hdr_offset != (uoff_t)-1);
 	i_assert(rstream->body_offset != (uoff_t)-1);
@@ -484,12 +485,14 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 			(rstream->body_offset - rstream->hdr_offset);
 	}
 
+	old_offset = stream->v_offset;
 	if (body_size != (uoff_t)-1) {
 		i_stream_seek(rstream->istream.parent,
 			      rstream->body_offset + body_size);
 		if (istream_raw_mbox_is_valid_from(rstream) > 0) {
 			rstream->mail_size = body_size +
 				(rstream->body_offset - rstream->hdr_offset);
+			i_stream_seek(stream, old_offset);
 			return body_size;
 		}
 	}
@@ -497,6 +500,7 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
 	/* have to read through the message body */
 	while (i_stream_read_data(stream, &data, &size, 0) > 0)
 		i_stream_skip(stream, size);
+	i_stream_seek(stream, old_offset);
 
 	i_assert(rstream->mail_size != (uoff_t)-1);
 	return rstream->mail_size -
