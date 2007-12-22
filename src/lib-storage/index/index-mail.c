@@ -754,12 +754,22 @@ static int index_mail_parse_body(struct index_mail *mail,
 	return ret;
 }
 
+static void index_mail_stream_destroy_callback(struct index_mail *mail)
+{
+	i_assert(mail->data.destroying_stream);
+
+	mail->data.destroying_stream = FALSE;
+}
+
 int index_mail_init_stream(struct index_mail *mail,
 			   struct message_size *hdr_size,
 			   struct message_size *body_size,
 			   struct istream **stream_r)
 {
 	struct index_mail_data *data = &mail->data;
+
+	i_stream_set_destroy_callback(data->stream,
+				      index_mail_stream_destroy_callback, mail);
 
 	if (hdr_size != NULL || body_size != NULL)
 		(void)get_cached_msgpart_sizes(mail);
@@ -1024,8 +1034,11 @@ void index_mail_close(struct mail *_mail)
 
 	if (mail->data.parser_ctx != NULL)
 		(void)message_parser_deinit(&mail->data.parser_ctx);
-	if (mail->data.stream != NULL)
+	if (mail->data.stream != NULL) {
+		mail->data.destroying_stream = TRUE;
 		i_stream_unref(&mail->data.stream);
+		i_assert(!mail->data.destroying_stream);
+	}
 	if (mail->data.filter_stream != NULL)
 		i_stream_unref(&mail->data.filter_stream);
 }

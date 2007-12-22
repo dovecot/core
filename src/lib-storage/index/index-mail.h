@@ -103,6 +103,7 @@ struct index_mail_data {
 	unsigned int body_size_set:1;
 	unsigned int messageparts_saved_to_cache:1;
 	unsigned int header_parsed:1;
+	unsigned int destroying_stream:1;
 };
 
 struct index_mail {
