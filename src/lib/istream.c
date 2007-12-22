@@ -28,6 +28,16 @@ void i_stream_unref(struct istream **stream)
 	*stream = NULL;
 }
 
+#undef i_stream_set_destroy_callback
+void i_stream_set_destroy_callback(struct istream *stream,
+				   istream_callback_t *callback, void *context)
+{
+	struct iostream_private *iostream = &stream->real_stream->iostream;
+
+	iostream->destroy_callback = callback;
+	iostream->destroy_context = context;
+}
+
 int i_stream_get_fd(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;

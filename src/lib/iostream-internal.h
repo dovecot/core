@@ -10,6 +10,9 @@ struct iostream_private {
 	void (*destroy)(struct iostream_private *stream);
 	void (*set_max_buffer_size)(struct iostream_private *stream,
 				    size_t max_size);
+
+	void (*destroy_callback)(void *context);
+	void *destroy_context;
 };
 
 void io_stream_init(struct iostream_private *stream);

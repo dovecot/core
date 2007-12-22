@@ -18,6 +18,8 @@ struct istream {
 	struct istream_private *real_stream;
 };
 
+typedef void istream_callback_t(void *context);
+
 struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 				   bool autoclose_fd);
 struct istream *i_stream_create_mmap(int fd, size_t block_size,
@@ -35,6 +37,12 @@ void i_stream_destroy(struct istream **stream);
 void i_stream_ref(struct istream *stream);
 /* Unreferences the stream and sets stream pointer to NULL. */
 void i_stream_unref(struct istream **stream);
+/* Call the given callback function when stream is destroyed. */
+void i_stream_set_destroy_callback(struct istream *stream,
+				   istream_callback_t *callback, void *context);
+#define i_stream_set_destroy_callback(stream, callback, context) \
+	CONTEXT_CALLBACK(i_stream_set_destroy_callback, istream_callback_t, \
+			 callback, context, stream)
 
 /* Return file descriptor for stream, or -1 if none is available. */
 int i_stream_get_fd(struct istream *stream);
