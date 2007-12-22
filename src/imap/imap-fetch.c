@@ -299,6 +299,7 @@ static int imap_fetch_more(struct imap_fetch_context *ctx)
 					return -1;
 			}
 
+			i_assert(ctx->cur_input == NULL);
 			T_FRAME(
 				const struct imap_fetch_context_handler *h =
 					&handlers[ctx->cur_handler];
