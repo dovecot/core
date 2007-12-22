@@ -13,7 +13,6 @@ struct header_filter_istream {
 	pool_t pool;
 
 	struct message_header_parser_ctx *hdr_ctx;
-	uoff_t start_offset;
 
 	const char **headers;
 	unsigned int headers_count;
@@ -288,7 +287,7 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 		return -1;
 	}
 
-	i_stream_seek(stream->parent, mstream->start_offset +
+	i_stream_seek(stream->parent, mstream->istream.parent_start_offset +
 		      stream->istream.v_offset -
 		      mstream->header_size.virtual_size +
 		      mstream->header_size.physical_size);
@@ -346,7 +345,7 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 	if (v_offset < mstream->header_size.virtual_size) {
 		/* seek into headers. we'll have to re-parse them, use
 		   skip_count to set the wanted position */
-		i_stream_seek(stream->parent, mstream->start_offset);
+		i_stream_seek(stream->parent, stream->parent_start_offset);
 		mstream->skip_count = v_offset;
 		mstream->cur_line = 0;
 		mstream->header_read = FALSE;
@@ -354,7 +353,8 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 		/* body */
 		v_offset += mstream->header_size.physical_size -
 			mstream->header_size.virtual_size;
-		i_stream_seek(stream->parent, mstream->start_offset + v_offset);
+		i_stream_seek(stream->parent,
+			      stream->parent_start_offset + v_offset);
 	}
 }
 
@@ -401,9 +401,6 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->pool = pool_alloconly_create("header filter stream", 4096);
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
-	mstream->istream.parent = input;
-	i_stream_ref(mstream->istream.parent);
-
 	mstream->headers = headers_count == 0 ? NULL :
 		p_new(mstream->pool, const char *, headers_count);
 	for (i = 0; i < headers_count; i++) 
@@ -416,7 +413,6 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->exclude = (flags & HEADER_FILTER_EXCLUDE) != 0;
 	mstream->crlf = (flags & HEADER_FILTER_NO_CR) == 0;
 	mstream->hide_body = (flags & HEADER_FILTER_HIDE_BODY) != 0;
-	mstream->start_offset = input->v_offset;
 
 	mstream->istream.iostream.destroy = i_stream_header_filter_destroy;
 	mstream->istream.iostream.set_max_buffer_size =
@@ -429,5 +425,7 @@ i_stream_create_header_filter(struct istream *input,
 
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
-	return i_stream_create(&mstream->istream, -1, 0);
+
+	i_stream_ref(input);
+	return i_stream_create(&mstream->istream, input, -1);
 }

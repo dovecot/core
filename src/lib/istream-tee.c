@@ -206,6 +206,6 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 	tstream->next = tee->children;
 	tee->children = tstream;
 
-	return i_stream_create(&tstream->istream,
-			       i_stream_get_fd(tee->input), 0);
+	return i_stream_create(&tstream->istream, NULL,
+			       i_stream_get_fd(tee->input));
 }

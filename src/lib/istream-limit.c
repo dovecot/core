@@ -6,7 +6,7 @@
 struct limit_istream {
 	struct istream_private istream;
 
-	uoff_t v_start_offset, v_size;
+	uoff_t v_size;
 };
 
 static void i_stream_limit_destroy(struct iostream_private *stream)
@@ -14,7 +14,8 @@ static void i_stream_limit_destroy(struct iostream_private *stream)
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
 	/* get to same position in parent stream */
-	i_stream_seek(lstream->istream.parent, lstream->v_start_offset +
+	i_stream_seek(lstream->istream.parent,
+		      lstream->istream.parent_start_offset +
 		      lstream->istream.istream.v_offset);
 	i_stream_unref(&lstream->istream.parent);
 }
@@ -43,9 +44,9 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 	}
 
 	if (stream->parent->v_offset !=
-	    lstream->v_start_offset + stream->istream.v_offset) {
+	    lstream->istream.parent_start_offset + stream->istream.v_offset) {
 		i_stream_seek(stream->parent,
-			      lstream->v_start_offset +
+			      lstream->istream.parent_start_offset +
 			      stream->istream.v_offset);
 	}
 
@@ -113,7 +114,6 @@ struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 	i_stream_ref(input);
 
 	lstream = i_new(struct limit_istream, 1);
-	lstream->v_start_offset = input->v_offset;
 	lstream->v_size = v_size;
 	lstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
@@ -128,7 +128,6 @@ struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 
 	lstream->istream.istream.blocking = input->blocking;
 	lstream->istream.istream.seekable = input->seekable;
-	return i_stream_create(&lstream->istream, i_stream_get_fd(input),
-			       input->real_stream->abs_start_offset +
-			       input->v_offset);
+	return i_stream_create(&lstream->istream, input,
+			       i_stream_get_fd(input));
 }

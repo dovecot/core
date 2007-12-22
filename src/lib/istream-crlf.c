@@ -178,7 +178,6 @@ i_stream_create_crlf_full(struct istream *input, bool crlf)
 	cstream->istream.iostream.set_max_buffer_size =
 		i_stream_crlf_set_max_buffer_size;
 
-	cstream->istream.parent = input;
 	cstream->istream.read = crlf ? i_stream_crlf_read_crlf :
 		i_stream_crlf_read_lf;
 	cstream->istream.seek = i_stream_crlf_seek;
@@ -186,7 +185,8 @@ i_stream_create_crlf_full(struct istream *input, bool crlf)
 
 	cstream->istream.istream.blocking = input->blocking;
 	cstream->istream.istream.seekable = input->seekable;
-	return i_stream_create(&cstream->istream, i_stream_get_fd(input), 0);
+	return i_stream_create(&cstream->istream, input,
+			       i_stream_get_fd(input));
 }
 
 struct istream *i_stream_create_crlf(struct istream *input)

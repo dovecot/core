@@ -347,5 +347,5 @@ i_stream_create_seekable(struct istream *input[],
 
 	sstream->istream.istream.blocking = blocking;
 	sstream->istream.istream.seekable = TRUE;
-	return i_stream_create(&sstream->istream, -1, 0);
+	return i_stream_create(&sstream->istream, NULL, -1);
 }

@@ -220,7 +220,8 @@ struct istream *i_stream_create_mmap(int fd, size_t block_size,
 	mstream->istream.sync = i_stream_mmap_sync;
 	mstream->istream.stat = i_stream_mmap_stat;
 
-	istream = i_stream_create(&mstream->istream, fd, start_offset);
+	mstream->istream.abs_start_offset = start_offset;
+	istream = i_stream_create(&mstream->istream, NULL, fd);
 	istream->mmaped = TRUE;
 	istream->blocking = TRUE;
 	istream->seekable = TRUE;

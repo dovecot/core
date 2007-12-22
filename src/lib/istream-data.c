@@ -29,7 +29,7 @@ struct istream *i_stream_create_from_data(const void *data, size_t size)
 
 	stream->istream.blocking = TRUE;
 	stream->istream.seekable = TRUE;
-	(void)i_stream_create(stream, -1, 0);
+	(void)i_stream_create(stream, NULL, -1);
 	stream->statbuf.st_size = size;
 	return &stream->istream;
 }

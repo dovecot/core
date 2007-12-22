@@ -271,5 +271,5 @@ struct istream *i_stream_create_concat(struct istream *input[])
 
 	cstream->istream.istream.blocking = blocking;
 	cstream->istream.istream.seekable = seekable;
-	return i_stream_create(&cstream->istream, -1, 0);
+	return i_stream_create(&cstream->istream, NULL, -1);
 }

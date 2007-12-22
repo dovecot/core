@@ -341,11 +341,15 @@ i_stream_default_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 }
 
 struct istream *
-i_stream_create(struct istream_private *_stream,
-		int fd, uoff_t abs_start_offset)
+i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 {
 	_stream->fd = fd;
-	_stream->abs_start_offset = abs_start_offset;
+	if (parent != NULL) {
+		_stream->parent = parent;
+		_stream->parent_start_offset = parent->v_offset;
+		_stream->abs_start_offset = parent->v_offset +
+			parent->real_stream->abs_start_offset;
+	}
 	_stream->istream.real_stream = _stream;
 
 	if (_stream->stat == NULL)

@@ -31,12 +31,13 @@ struct istream_private {
 	size_t skip, pos;
 
 	struct istream *parent; /* for filter streams */
+	uoff_t parent_start_offset;
+
 	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
 };
 
 struct istream *
-i_stream_create(struct istream_private *stream,
-		int fd, uoff_t abs_start_offset);
+i_stream_create(struct istream_private *stream, struct istream *parent, int fd);
 
 void i_stream_compress(struct istream_private *stream);
 void i_stream_grow_buffer(struct istream_private *stream, size_t bytes);

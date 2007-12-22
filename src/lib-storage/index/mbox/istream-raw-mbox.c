@@ -345,7 +345,7 @@ struct istream *i_stream_create_raw_mbox(struct istream *input)
 {
 	struct raw_mbox_istream *rstream;
 
-	i_stream_ref(input);
+	i_assert(input->v_offset == 0);
 
 	rstream = i_new(struct raw_mbox_istream, 1);
 
@@ -358,7 +358,6 @@ struct istream *i_stream_create_raw_mbox(struct istream *input)
 	rstream->istream.iostream.set_max_buffer_size =
 		i_stream_raw_mbox_set_max_buffer_size;
 
-	rstream->istream.parent = input;
 	rstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	rstream->istream.read = i_stream_raw_mbox_read;
 	rstream->istream.seek = i_stream_raw_mbox_seek;
@@ -367,8 +366,9 @@ struct istream *i_stream_create_raw_mbox(struct istream *input)
 
 	rstream->istream.istream.blocking = input->blocking;
 	rstream->istream.istream.seekable = input->seekable;
-	return i_stream_create(&rstream->istream, -1,
-			       input->real_stream->abs_start_offset);
+
+	i_stream_ref(input);
+	return i_stream_create(&rstream->istream, input, -1);
 }
 
 static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
