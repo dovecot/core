@@ -91,11 +91,29 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	_stream->seek(_stream, stream->v_offset + count, FALSE);
 }
 
+static bool i_stream_can_optimize_seek(struct istream *stream)
+{
+	uoff_t expected_offset;
+
+	if (stream->real_stream->parent == NULL)
+		return TRUE;
+
+	/* use the fast route only if the parent stream is at the
+	   expected offset */
+	expected_offset = stream->real_stream->parent_start_offset +
+		stream->v_offset - stream->real_stream->skip;
+	if (stream->real_stream->parent->v_offset != expected_offset)
+		return FALSE;
+
+	return i_stream_can_optimize_seek(stream->real_stream->parent);
+}
+
 void i_stream_seek(struct istream *stream, uoff_t v_offset)
 {
 	struct istream_private *_stream = stream->real_stream;
 
-	if (v_offset >= stream->v_offset) {
+	if (v_offset >= stream->v_offset &&
+	    i_stream_can_optimize_seek(stream)) {
 		i_stream_skip(stream, v_offset - stream->v_offset);
 		return;
 	}
