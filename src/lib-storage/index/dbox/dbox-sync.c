@@ -257,11 +257,11 @@ static int dbox_sync_want_flush_dirty(struct dbox_mailbox *mbox,
 	hdr = data;
 
 	if (!close_flush_dirty_flags) {
-		if (hdr->last_dirty_flush_stamp <
+		if ((time_t)hdr->last_dirty_flush_stamp <
 		    ioloop_time - DBOX_FLUSH_SECS_IMMEDIATE)
 			return 1;
 	} else {
-		if (hdr->last_dirty_flush_stamp <
+		if ((time_t)hdr->last_dirty_flush_stamp <
 		    ioloop_time - DBOX_FLUSH_SECS_CLOSE)
 			return 1;
 	}

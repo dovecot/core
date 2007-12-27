@@ -256,7 +256,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	const uint8_t *types, *decisions;
 	const char *p, *names, *end;
 	void *orig_key, *orig_value;
-	unsigned int new_fields_count;
+	unsigned int fidx, new_fields_count;
 	time_t max_drop_time;
 	uint32_t offset, i;
 
@@ -337,12 +337,12 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		if (hash_lookup_full(cache->field_name_hash, names,
 				     &orig_key, &orig_value)) {
 			/* already exists, see if decision can be updated */
-			field.idx = POINTER_CAST_TO(orig_value, unsigned int);
-			if (!cache->fields[field.idx].decision_dirty) {
-				cache->fields[field.idx].field.decision =
+			fidx = POINTER_CAST_TO(orig_value, unsigned int);
+			if (!cache->fields[fidx].decision_dirty) {
+				cache->fields[fidx].field.decision =
 					decisions[i];
 			}
-			if (field_type_verify(cache, field.idx,
+			if (field_type_verify(cache, fidx,
 					      types[i], sizes[i]) < 0)
 				return -1;
 		} else {
@@ -351,23 +351,24 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			field.field_size = sizes[i];
 			field.decision = decisions[i];
 			mail_cache_register_fields(cache, &field, 1);
+			fidx = field.idx;
 		}
-		if (cache->field_file_map[field.idx] != (uint32_t)-1) {
+		if (cache->field_file_map[fidx] != (uint32_t)-1) {
 			mail_cache_set_corrupted(cache,
 				"Duplicated field in header: %s", names);
 			return -1;
 		}
-		cache->fields[field.idx].used = TRUE;
+		cache->fields[fidx].used = TRUE;
 
-		cache->field_file_map[field.idx] = i;
+		cache->field_file_map[fidx] = i;
 		cache->file_field_map[i] = field.idx;
 
 		/* update last_used if it's newer than ours */
-		if (last_used[i] > cache->fields[field.idx].last_used)
-			cache->fields[field.idx].last_used = last_used[i];
+		if (last_used[i] > cache->fields[fidx].last_used)
+			cache->fields[fidx].last_used = last_used[i];
 
-		if (cache->fields[field.idx].last_used < max_drop_time &&
-		    cache->fields[field.idx].last_used != 0) {
+		if ((time_t)cache->fields[fidx].last_used < max_drop_time &&
+		    cache->fields[fidx].last_used != 0) {
 			/* time to drop this field. don't bother dropping
 			   fields that have never been used. */
 			cache->need_compress_file_seq = cache->hdr->file_seq;

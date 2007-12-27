@@ -206,7 +206,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		used_fields_count = i;
 	} else {
 		for (i = used_fields_count = 0; i < orig_fields_count; i++) {
-			if (cache->fields[i].last_used < max_drop_time)
+			if ((time_t)cache->fields[i].last_used < max_drop_time)
 				cache->fields[i].used = FALSE;
 
 			ctx.field_file_map[i] = !cache->fields[i].used ?

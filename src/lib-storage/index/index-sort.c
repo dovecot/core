@@ -189,7 +189,7 @@ static uint32_t sort_get_arrival(struct mail *mail)
 	i_assert(t != (time_t)-1);
 	/* FIXME: truncation isn't good.. */
 	return t <= 0 ? 1 :
-		(t >= (uint32_t)-1 ? (uint32_t)-1 : t + 1);
+		((uint64_t)t >= (uint32_t)-1 ? (uint32_t)-1 : (uint32_t)t + 1);
 }
 
 static uint32_t sort_get_date(struct mail *mail)
@@ -205,7 +205,7 @@ static uint32_t sort_get_date(struct mail *mail)
 	i_assert(t != (time_t)-1);
 	/* FIXME: truncation isn't good.. */
 	return t <= 0 ? 1 :
-		(t >= (uint32_t)-1 ? (uint32_t)-1 : t + 1);
+		((uint64_t)t >= (uint32_t)-1 ? (uint32_t)-1 : (uint32_t)t + 1);
 }
 
 static uint32_t sort_get_size(struct mail *mail)

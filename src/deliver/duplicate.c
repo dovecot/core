@@ -130,7 +130,7 @@ duplicate_read_records(struct duplicate_file *file, struct istream *input,
 			return -1;
 		}
 
-		if (hdr.stamp >= ioloop_time) {
+		if ((time_t)hdr.stamp >= ioloop_time) {
 			/* still valid, save it */
 			struct duplicate *d;
 			void *new_id;

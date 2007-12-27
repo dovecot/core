@@ -519,7 +519,7 @@ int maildir_list_index_has_changed(struct mailbox *box,
 					  "stat(%s) failed: %m", new_dir);
 		return -1;
 	}
-	if (rec->new_mtime != st.st_mtime)
+	if ((time_t)rec->new_mtime != st.st_mtime)
 		return 1;
 
 	/* check if cur/ changed */
@@ -529,7 +529,7 @@ int maildir_list_index_has_changed(struct mailbox *box,
 					  "stat(%s) failed: %m", cur_dir);
 		return -1;
 	}
-	if (rec->cur_mtime != st.st_mtime)
+	if ((time_t)rec->cur_mtime != st.st_mtime)
 		return 1;
 	return 0;
 }

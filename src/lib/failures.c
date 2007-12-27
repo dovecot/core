@@ -87,7 +87,7 @@ static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
 	struct io *io;
 	ssize_t ret;
 
-	while ((ret = write(fd, data, len)) != len) {
+	while ((ret = write(fd, data, len)) != (ssize_t)len) {
 		if (ret > 0) {
 			/* some was written, continue.. */
 			data += ret;

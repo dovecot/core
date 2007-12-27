@@ -492,7 +492,7 @@ node_read_children(struct squat_trie *trie, struct squat_node *node, int level)
 						       trie->data_size);
 			}
 
-			if (end - data < len) {
+			if ((size_t)(end - data) < len) {
 				squat_trie_set_corrupted(trie);
 				return -1;
 			}
@@ -1094,7 +1094,8 @@ squat_trie_renumber_uidlists(struct squat_trie_build_context *ctx,
 					      compress, &rebuild_ctx)) <= 0)
 		return ret;
 
-	ctx->trie->hdr.indexid = I_MAX(ioloop_time, ctx->trie->hdr.indexid + 1);
+	ctx->trie->hdr.indexid =
+		I_MAX((unsigned int)ioloop_time, ctx->trie->hdr.indexid + 1);
 
 	i_array_init(&uids, 1024);
 	iter = squat_trie_iterate_uidlist_init(ctx->trie);
