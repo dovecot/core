@@ -79,8 +79,10 @@ raw_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	struct raw_mailbox *mbox = (struct raw_mailbox *)_mail->box;
 
 	if (mail->data.stream == NULL) {
-		i_stream_ref(mbox->input);
-		mail->data.stream = mbox->input;
+		/* we can't just reference mbox->input, because
+		   index_mail_close() expects to be able to free the stream */
+		mail->data.stream =
+			i_stream_create_limit(mbox->input, (uoff_t)-1);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
