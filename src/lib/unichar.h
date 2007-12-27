@@ -2,6 +2,7 @@
 #define UNICHAR_H
 
 typedef uint32_t unichar_t;
+ARRAY_DEFINE_TYPE(unichars, unichar_t);
 
 extern const uint8_t *const uni_utf8_non1_bytes;
 
@@ -9,7 +10,7 @@ extern const uint8_t *const uni_utf8_non1_bytes;
 unsigned int uni_strlen(const unichar_t *str);
 /* Translates UTF-8 input to UCS-4 output. Returns 0 if ok, -1 if input was
    invalid */
-int uni_utf8_to_ucs4(const char *input, buffer_t *output);
+int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output);
 /* Translates UCS-4 input to UTF-8 output. */
 void uni_ucs4_to_utf8(const unichar_t *input, size_t len, buffer_t *output);
 void uni_ucs4_to_utf8_c(unichar_t chr, buffer_t *output);

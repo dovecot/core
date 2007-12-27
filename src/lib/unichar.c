@@ -1,7 +1,7 @@
 /* Copyright (c) 2005-2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "bsearch-insert-pos.h"
 #include "unichar.h"
 
@@ -93,7 +93,7 @@ int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
 	return ret;
 }
 
-int uni_utf8_to_ucs4(const char *input, buffer_t *output)
+int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output)
 {
 	unichar_t chr;
 
@@ -104,7 +104,7 @@ int uni_utf8_to_ucs4(const char *input, buffer_t *output)
 		}
                 input += uni_utf8_char_bytes(*input);
 
-		buffer_append(output, &chr, sizeof(chr));
+		array_append(output, &chr, 1);
 	}
 	return 0;
 }
