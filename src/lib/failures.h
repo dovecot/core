@@ -26,6 +26,8 @@ typedef void failure_callback_t(enum log_type type, const char *, va_list);
 typedef void fatal_failure_callback_t(enum log_type type, int status,
 				      const char *, va_list);
 
+extern const char *failure_log_type_prefixes[];
+
 void i_log_type(enum log_type type, const char *format, ...) ATTR_FORMAT(2, 3);
 
 void i_panic(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN;
@@ -75,6 +77,8 @@ void i_set_failure_timestamp_format(const char *fmt);
 
 /* Call the callback before exit()ing. The callback may update the status. */
 void i_set_failure_exit_callback(void (*callback)(int *status));
+/* Call the exit callback and exit() */
+void failure_exit(int status) ATTR_NORETURN;
 
 void failures_deinit(void);
 

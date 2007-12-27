@@ -14,7 +14,7 @@
 #include <syslog.h>
 #include <time.h>
 
-static const char *log_type_prefixes[] = {
+const char *failure_log_type_prefixes[] = {
 	"Info: ",
 	"Warning: ",
 	"Error: ",
@@ -24,8 +24,6 @@ static const char *log_type_prefixes[] = {
 static char log_type_internal_chars[] = {
 	'I', 'W', 'E', 'F', 'P'
 };
-
-static void failure_exit(int status) ATTR_NORETURN;
 
 static void default_fatal_handler(enum log_type type, int status,
 				  const char *format, va_list args)
@@ -52,7 +50,7 @@ static const char *get_log_stamp_format(const char *unused ATTR_UNUSED)
 	return log_stamp_format;
 }
 
-static void failure_exit(int status)
+void failure_exit(int status)
 {
 	if (failure_exit_callback != NULL)
 		failure_exit_callback(&status);
@@ -152,7 +150,7 @@ default_fatal_handler(enum log_type type, int status,
 {
 	const char *backtrace;
 
-	if (default_handler(log_type_prefixes[type], log_fd, format,
+	if (default_handler(failure_log_type_prefixes[type], log_fd, format,
 			    args) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
 
@@ -172,7 +170,8 @@ default_error_handler(enum log_type type, const char *format, va_list args)
 {
 	int fd = type == LOG_TYPE_INFO ? log_info_fd : log_fd;
 
-	if (default_handler(log_type_prefixes[type], fd, format, args) < 0)
+	if (default_handler(failure_log_type_prefixes[type],
+			    fd, format, args) < 0)
 		failure_exit(FATAL_LOGWRITE);
 }
 
