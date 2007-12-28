@@ -230,7 +230,7 @@ void maildir_sync_notify(struct maildir_sync_context *ctx)
 	}
 
 	now = time(NULL);
-	if (now - ctx->last_touch > MAILDIR_LOCK_TOUCH_SECS) {
+	if (now - ctx->last_touch > MAILDIR_LOCK_TOUCH_SECS && ctx->locked) {
 		(void)maildir_uidlist_lock_touch(ctx->mbox->uidlist);
 		ctx->last_touch = now;
 	}
