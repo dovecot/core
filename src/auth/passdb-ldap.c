@@ -4,6 +4,7 @@
 
 #ifdef PASSDB_LDAP
 
+#include "ioloop.h"
 #include "hash.h"
 #include "str.h"
 #include "var-expand.h"
@@ -203,6 +204,7 @@ static void authbind_start(struct ldap_connection *conn,
 		}
 
 		conn->binding = TRUE;
+		conn->last_request_stamp = ioloop_time;
 		hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
 
 		auth_request_log_debug(auth_request, "ldap", "bind: dn=%s",

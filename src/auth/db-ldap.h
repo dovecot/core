@@ -62,6 +62,7 @@ struct ldap_connection {
 
 	struct hash_table *requests;
 	struct ldap_request *delayed_requests_head, *delayed_requests_tail;
+	time_t last_request_stamp;
 
 	char **pass_attr_names, **user_attr_names;
 	struct hash_table *pass_attr_map, *user_attr_map;

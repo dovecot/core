@@ -42,6 +42,10 @@
 #  define LDAP_OPT_SUCCESS LDAP_SUCCESS
 #endif
 
+/* If server disconnects us, don't reconnect if no requests have been sent
+   for this many seconds. */
+#define LDAP_IDLE_RECONNECT_SECS 60
+
 struct db_ldap_result_iterate_context {
 	struct ldap_connection *conn;
 	LDAPMessage *entry;
@@ -277,6 +281,7 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 		hash_insert(conn->requests, POINTER_CAST(msgid), request);
 	else
 		db_ldap_add_delayed_request(conn, request);
+	conn->last_request_stamp = ioloop_time;
 }
 
 static void ldap_conn_retry_requests(struct ldap_connection *conn)
@@ -395,12 +400,21 @@ static void ldap_input(struct ldap_connection *conn)
 		ldap_msgfree(res);
 	}
 
-	if (ret < 0) {
-		i_error("LDAP: ldap_result() failed: %s", ldap_get_error(conn));
-		ldap_conn_reconnect(conn);
-	} else {
+	if (ret == 0) {
 		if (!conn->binding)
 			db_ldap_handle_next_delayed_request(conn);
+	} else if (ldap_get_errno(conn) != LDAP_SERVER_DOWN) {
+		i_error("LDAP: ldap_result() failed: %s", ldap_get_error(conn));
+		ldap_conn_reconnect(conn);
+	} else if (hash_count(conn->requests) > 0 ||
+		   ioloop_time - conn->last_request_stamp <
+		   				LDAP_IDLE_RECONNECT_SECS) {
+		i_error("LDAP: Connection lost to LDAP server, reconnecting");
+		ldap_conn_reconnect(conn);
+	} else {
+		/* server probably disconnected an idle connection. don't
+		   reconnect until the next request comes. */
+		ldap_conn_close(conn, TRUE);
 	}
 }
 
@@ -516,6 +530,7 @@ static int db_ldap_bind(struct ldap_connection *conn)
 	/* we're binding back to the original DN, not doing an
 	   authentication bind */
 	conn->last_auth_bind = FALSE;
+	conn->last_request_stamp = ioloop_time;
 	return 0;
 }
 
@@ -547,6 +562,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 		return 0;
 	i_assert(!conn->binding);
 
+	conn->last_request_stamp = ioloop_time;
 	if (conn->ld == NULL) {
 		if (conn->set.uris != NULL) {
 #ifdef LDAP_HAVE_INITIALIZE
