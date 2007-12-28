@@ -203,13 +203,22 @@ static void test_str_sanitize(void)
 
 int main(void)
 {
-	test_init();
+	static void (*test_functions[])(void) = {
+		test_base64_encode,
+		test_base64_decode,
+		test_bsearch_insert_pos,
+		test_seq_range_array,
+		test_str_sanitize,
 
-	test_base64_encode();
-	test_base64_decode();
-	test_bsearch_insert_pos();
-	test_seq_range_array();
-	test_str_sanitize();
-	test_istreams();
+		test_istreams
+	};
+	unsigned int i;
+
+	test_init();
+	for (i = 0; i < N_ELEMENTS(test_functions); i++) {
+		T_FRAME(
+			test_functions[i]();
+		);
+	}
 	return test_deinit();
 }
