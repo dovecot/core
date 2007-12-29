@@ -178,6 +178,22 @@ static int update_lock_info(time_t now, struct lock_info *lock_info,
 	return 0;
 }
 
+static int dotlock_override(struct lock_info *lock_info)
+{
+	if (unlink(lock_info->lock_path) < 0 && errno != ENOENT) {
+		i_error("unlink(%s) failed: %m",
+			lock_info->lock_path);
+		return -1;
+	}
+
+	/* make sure we sleep for a while after overriding the lock file.
+	   otherwise another process might try to override it at the same time
+	   and unlink our newly created dotlock. */
+	if (lock_info->use_io_notify)
+		usleep(LOCK_RANDOM_USLEEP_TIME);
+	return 0;
+}
+
 static int check_lock(time_t now, struct lock_info *lock_info)
 {
 	time_t stale_timeout = lock_info->set->stale_timeout;
@@ -230,12 +246,7 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 
 		if (!changed) {
 			/* still there, go ahead and override it */
-			if (unlink(lock_info->lock_path) < 0 &&
-			    errno != ENOENT) {
-				i_error("unlink(%s) failed: %m",
-					lock_info->lock_path);
-				return -1;
-			}
+			return dotlock_override(lock_info);
 		}
 		return 1;
 	}
@@ -271,11 +282,7 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 
 	if (now > lock_info->last_change + stale_timeout) {
 		/* no changes for a while, assume stale lock */
-		if (unlink(lock_info->lock_path) < 0 && errno != ENOENT) {
-			i_error("unlink(%s) failed: %m", lock_info->lock_path);
-			return -1;
-		}
-		return 1;
+		return dotlock_override(lock_info);
 	}
 
 	return 0;
