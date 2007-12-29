@@ -693,8 +693,16 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	*t->ictx.saved_uid_validity =
 		maildir_uidlist_get_uid_validity(ctx->mbox->uidlist);
 
+	if (ctx->mail != NULL) {
+		/* Mail freeing may trigger cache updates and a call to
+		   maildir_save_file_get_path(). Do this before finishing index
+		   sync so we still have keywords_sync_ctx. */
+		mail_free(&ctx->mail);
+	}
+
 	if (sync_commit) {
 		/* It doesn't matter if index syncing fails */
+		ctx->keywords_sync_ctx = NULL;
 		(void)maildir_sync_index_finish(&ctx->sync_ctx,
 						ret < 0, !sync_commit);
 	}
@@ -715,9 +723,6 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		maildir_transaction_save_rollback(ctx);
 		return -1;
 	}
-
-	if (ctx->mail != NULL)
-		mail_free(&ctx->mail);
 	return ret;
 }
 
