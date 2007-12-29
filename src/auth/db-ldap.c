@@ -399,7 +399,8 @@ static void db_ldap_default_bind_finished(struct ldap_connection *conn,
 
 static void db_ldap_abort_requests(struct ldap_connection *conn,
 				   unsigned int max_count,
-				   unsigned int timeout_secs)
+				   unsigned int timeout_secs,
+				   bool error, const char *reason)
 {
 	struct ldap_request *const *requestp, *request;
 	time_t diff;
@@ -419,6 +420,13 @@ static void db_ldap_abort_requests(struct ldap_connection *conn,
 		if (request->msgid != -1) {
 			i_assert(conn->pending_count > 0);
 			conn->pending_count--;
+		}
+		if (error) {
+			auth_request_log_error(request->auth_request, "ldap",
+					       "%s", reason);
+		} else {
+			auth_request_log_info(request->auth_request, "ldap",
+					      "%s", reason);
 		}
 		request->callback(conn, request, NULL);
 		max_count--;
@@ -482,7 +490,8 @@ db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
 	if (i > 0) {
 		/* see if there are timed out requests */
 		db_ldap_abort_requests(conn, i,
-				       DB_LDAP_REQUEST_LOST_TIMEOUT_SECS);
+				       DB_LDAP_REQUEST_LOST_TIMEOUT_SECS,
+				       TRUE, "Request lost");
 	}
 }
 
@@ -706,7 +715,8 @@ int db_ldap_connect(struct ldap_connection *conn)
 static void db_ldap_disconnect_timeout(struct ldap_connection *conn)
 {
 	db_ldap_abort_requests(conn, -1U,
-			       DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS);
+			       DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS,
+			       FALSE, "LDAP server not connected");
 
 	if (queue_count(conn->request_queue) == 0) {
 		/* no requests left, remove this timeout handler */
@@ -1098,7 +1108,7 @@ void db_ldap_unref(struct ldap_connection **_conn)
 		}
 	}
 
-	db_ldap_abort_requests(conn, -1U, 0);
+	db_ldap_abort_requests(conn, -1U, 0, FALSE, "Shutting down");
 	i_assert(conn->pending_count == 0);
 	db_ldap_conn_close(conn);
 	i_assert(conn->to == NULL);
