@@ -17,6 +17,7 @@ bool cmd_unselect(struct client_command_context *cmd)
 	storage = mailbox_get_storage(mailbox);
 	if (mailbox_close(&mailbox) < 0)
 		client_send_untagged_storage_error(client, storage);
+	client_update_mailbox_flags(client, NULL);
 
 	client_send_tagline(cmd, "OK Unselect completed.");
 	return TRUE;

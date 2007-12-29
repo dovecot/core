@@ -50,14 +50,16 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 			     enum mail_flags *flags_r,
 			     const char *const **keywords_r);
 
-/* Send FLAGS + PERMANENTFLAGS to client. */
-void client_send_mailbox_flags(struct client *client, struct mailbox *box,
-			       const ARRAY_TYPE(keywords) *keywords);
-
-/* Copy keywords into dest. dest must have been initialized. Returns TRUE if
-   keywords changed. */
-bool client_save_keywords(struct mailbox_keywords *dest,
-			  const ARRAY_TYPE(keywords) *keywords);
+/* Send FLAGS + PERMANENTFLAGS to client if they have changed,
+   or if selecting=TRUE. */
+void client_send_mailbox_flags(struct client *client, bool selecting);
+/* Update client->keywords array. Use keywords=NULL when unselecting. */
+void client_update_mailbox_flags(struct client *client,
+				 const ARRAY_TYPE(keywords) *keywords);
+/* Convert keyword indexes to keyword names in selected mailbox. */
+const char *const *
+client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
+			 const ARRAY_TYPE(keyword_indexes) *src);
 
 bool mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
 		    const char *name2);

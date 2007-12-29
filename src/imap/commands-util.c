@@ -251,9 +251,6 @@ static const char *get_keywords_string(const ARRAY_TYPE(keywords) *keywords)
 	const char *const *names;
 	unsigned int i, count;
 
-	if (array_count(keywords) == 0)
-		return "";
-
 	str = t_str_new(256);
 	names = array_get(keywords, &count);
 	for (i = 0; i < count; i++) {
@@ -265,65 +262,62 @@ static const char *get_keywords_string(const ARRAY_TYPE(keywords) *keywords)
 
 #define SYSTEM_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"
 
-void client_send_mailbox_flags(struct client *client, struct mailbox *box,
-			       const ARRAY_TYPE(keywords) *keywords)
+void client_send_mailbox_flags(struct client *client, bool selecting)
 {
+	unsigned int count = array_count(client->keywords.names);
 	const char *str;
 
-	str = get_keywords_string(keywords);
+	if (!selecting && count == client->keywords.announce_count) {
+		/* no changes to keywords and we're not selecting a mailbox */
+		return;
+	}
+
+	client->keywords.announce_count = count;
+	str = count == 0 ? "" : get_keywords_string(client->keywords.names);
 	client_send_line(client,
 		t_strconcat("* FLAGS ("SYSTEM_FLAGS, str, ")", NULL));
 
-	if (mailbox_is_readonly(box)) {
+	if (mailbox_is_readonly(client->mailbox)) {
 		client_send_line(client, "* OK [PERMANENTFLAGS ()] "
 				 "Read-only mailbox.");
 	} else {
+		bool star = mailbox_allow_new_keywords(client->mailbox);
+
 		client_send_line(client,
 			t_strconcat("* OK [PERMANENTFLAGS ("SYSTEM_FLAGS, str,
-				    mailbox_allow_new_keywords(box) ?
-				    " \\*" : "", ")] Flags permitted.", NULL));
+				    star ? " \\*" : "",
+				    ")] Flags permitted.", NULL));
 	}
 }
 
-bool client_save_keywords(struct mailbox_keywords *dest,
-			  const ARRAY_TYPE(keywords) *keywords)
+void client_update_mailbox_flags(struct client *client,
+				 const ARRAY_TYPE(keywords) *keywords)
 {
-	const char *const *names, *const *old_names;
-	unsigned int i, count, old_count;
-	bool changed;
+	client->keywords.names = keywords;
+	client->keywords.announce_count = 0;
+}
 
-	names = array_get(keywords, &count);
+const char *const *
+client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
+			 const ARRAY_TYPE(keyword_indexes) *src)
+{
+	const unsigned int *kw_indexes;
+	const char *const *all_names;
+	unsigned int i, kw_count, all_count;
 
-	/* first check if anything changes */
-	if (!array_is_created(&dest->keywords))
-		changed = count != 0;
-	else {
-		old_names = array_get(&dest->keywords, &old_count);
-		if (count != old_count)
-			changed = TRUE;
-		else {
-			changed = FALSE;
-			for (i = 0; i < count; i++) {
-				if (strcmp(names[i], old_names[i]) != 0) {
-					changed = TRUE;
-					break;
-				}
-			}
-		}
+	client_send_mailbox_flags(client, FALSE);
+
+	all_names = array_get(client->keywords.names, &all_count);
+	kw_indexes = array_get(src, &kw_count);
+
+	/* convert indexes to names */
+	for (i = 0; i < kw_count; i++) {
+		i_assert(kw_indexes[i] < all_count);
+		array_append(dest, &all_names[kw_indexes[i]], 1);
 	}
 
-	if (!changed)
-		return FALSE;
-
-	p_clear(dest->pool);
-	p_array_init(&dest->keywords, dest->pool, array_count(keywords));
-
-	for (i = 0; i < count; i++) {
-		const char *name = p_strdup(dest->pool, names[i]);
-
-		array_append(&dest->keywords, &name, 1);
-	}
-	return TRUE;
+	(void)array_append_space(dest);
+	return array_idx(dest, 0);
 }
 
 bool mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,

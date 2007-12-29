@@ -41,7 +41,6 @@ struct client *client_create(int fd_in, int fd_out,
         client->last_input = ioloop_time;
 
 	client->command_pool = pool_alloconly_create("client command", 8192);
-	client->keywords.pool = pool_alloconly_create("mailbox_keywords", 512);
 	client->namespaces = namespaces;
 
 	while (namespaces != NULL) {
@@ -144,7 +143,6 @@ void client_destroy(struct client *client, const char *reason)
 			i_error("close(client out) failed: %m");
 	}
 
-	pool_unref(&client->keywords.pool);
 	pool_unref(&client->command_pool);
 	i_free(client);
 

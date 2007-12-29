@@ -99,6 +99,8 @@ struct imap_fetch_context *imap_fetch_init(struct client_command_context *cmd)
 	ctx->cur_str = str_new(default_pool, 8192);
 	ctx->all_headers_buf = buffer_create_dynamic(cmd->pool, 128);
 	p_array_init(&ctx->handlers, cmd->pool, 16);
+	p_array_init(&ctx->tmp_keywords, cmd->pool,
+		     client->keywords.announce_count + 8);
 	ctx->line_finished = TRUE;
 	return ctx;
 }
@@ -514,8 +516,6 @@ static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
 	const char *const *keywords;
 
 	flags = mail_get_flags(mail);
-	keywords = mail_get_keywords(mail);
-
 	if (ctx->flags_update_seen && (flags & MAIL_SEEN) == 0) {
 		/* Add \Seen flag */
 		ctx->seen_flags_changed = TRUE;
@@ -524,6 +524,9 @@ static int fetch_flags(struct imap_fetch_context *ctx, struct mail *mail,
 	} else if (ctx->flags_show_only_seen_changes) {
 		return 1;
 	}
+
+	keywords = client_get_keyword_names(ctx->client, &ctx->tmp_keywords,
+			mail_get_keyword_indexes(mail));
 
 	str_append(ctx->cur_str, "FLAGS (");
 	imap_write_flags(ctx->cur_str, flags, keywords);

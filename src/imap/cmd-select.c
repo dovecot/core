@@ -45,17 +45,17 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		return TRUE;
 	}
 
-	client_save_keywords(&client->keywords, status.keywords);
-	client->messages_count = status.messages;
-	client->recent_count = status.recent;
-	client->uidvalidity = status.uidvalidity;
-
 	/* set client's mailbox only after getting status to make sure
 	   we're not sending any expunge/exists replies too early to client */
 	client->mailbox = box;
 	client->select_counter++;
 
-	client_send_mailbox_flags(client, box, status.keywords);
+	client->messages_count = status.messages;
+	client->recent_count = status.recent;
+	client->uidvalidity = status.uidvalidity;
+
+	client_update_mailbox_flags(client, status.keywords);
+	client_send_mailbox_flags(client, TRUE);
 
 	client_send_line(client,
 		t_strdup_printf("* %u EXISTS", status.messages));

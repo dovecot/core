@@ -11,9 +11,13 @@ struct imap_parser;
 struct imap_arg;
 
 struct mailbox_keywords {
-	pool_t pool; /* will be p_clear()ed when changed */
-
-	ARRAY_DEFINE(keywords, const char *);
+	/* All keyword names. The array itself exists in mail_index.
+	   Keywords are currently only appended, they're never removed. */
+	const ARRAY_TYPE(keywords) *names;
+	/* Number of keywords announced to client via FLAGS/PERMANENTFLAGS.
+	   This relies on keywords not being removed while mailbox is
+	   selected. */
+	unsigned int announce_count;
 };
 
 struct client_command_context {

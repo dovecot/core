@@ -51,6 +51,7 @@ struct imap_fetch_context {
 	bool skip_cr;
 	int (*cont_handler)(struct imap_fetch_context *ctx);
 
+	ARRAY_TYPE(keywords) tmp_keywords;
 	unsigned int select_counter;
 
 	unsigned int flags_have_handler:1;
