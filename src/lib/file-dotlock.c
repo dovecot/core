@@ -88,6 +88,7 @@ static pid_t read_local_pid(const char *lock_path)
 	char buf[512], *host;
 	int fd;
 	ssize_t ret;
+	pid_t pid;
 
 	fd = open(lock_path, O_RDONLY);
 	if (fd == -1)
@@ -116,7 +117,10 @@ static pid_t read_local_pid(const char *lock_path)
 
 	if (!is_numeric(buf, '\0'))
 		return -1;
-	return (pid_t)strtoul(buf, NULL, 0);
+	pid = (pid_t)strtoul(buf, NULL, 0);
+	if (pid <= 0)
+		return -1;
+	return pid;
 }
 
 static bool
