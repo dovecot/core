@@ -95,7 +95,8 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 			client_send_line(ctx->client,
 				t_strdup_printf("* %u EXISTS", status.messages));
 		}
-		if (status.recent != ctx->client->recent_count && !ctx->no_newmail) {
+		if (status.recent != ctx->client->recent_count &&
+		    !ctx->no_newmail) {
 			ctx->client->recent_count = status.recent;
 			client_send_line(ctx->client,
 				t_strdup_printf("* %u RECENT", status.recent));
@@ -132,7 +133,6 @@ static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str,
 			/* a new keyword. notify the client. */
 			imap_sync_send_changed_keywords(ctx);
 			all_names = array_get(ctx->keywords, &all_count);
-			i_error("whee, added %d/%d == %s", kw_indexes[i], all_count, all_names[kw_indexes[i]]);
 		}
 		i_assert(kw_indexes[i] < all_count);
 		array_append(keyword_names, &all_names[kw_indexes[i]], 1);
