@@ -24,7 +24,6 @@ struct cmd_append_context {
 
 	struct imap_parser *save_parser;
 	struct mail_save_context *save_ctx;
-	struct mailbox_keywords old_keywords;
 	unsigned int count;
 
 	unsigned int message_input:1;
@@ -138,12 +137,8 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 		mailbox_save_cancel(&ctx->save_ctx);
 	if (ctx->t != NULL)
 		mailbox_transaction_rollback(&ctx->t);
-	if (ctx->box != ctx->cmd->client->mailbox && ctx->box != NULL) {
+	if (ctx->box != ctx->cmd->client->mailbox && ctx->box != NULL)
 		mailbox_close(&ctx->box);
-
-		pool_unref(&ctx->client->keywords.pool);
-		ctx->client->keywords = ctx->old_keywords;
-	}
 }
 
 static bool cmd_append_continue_cancel(struct client_command_context *cmd)
@@ -454,30 +449,6 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 	return box;
 }
 
-static void get_keywords(struct cmd_append_context *ctx)
-{
-	struct client *client = ctx->client;
-	struct mailbox_status status;
-
-	/* we'll need to get the current keywords so that
-	   client_parse_mail_flags()'s keyword verification works.
-	   however if we're not appending to selected mailbox, we'll
-	   need to restore the keywords list. */
-	mailbox_get_status(ctx->box, STATUS_KEYWORDS, &status);
-	if (ctx->box != client->mailbox) {
-		ctx->old_keywords = client->keywords;
-
-		memset(&client->keywords, 0, sizeof(client->keywords));
-		client->keywords.pool =
-			pool_alloconly_create("append keywords pool", 256);
-	}
-	if (client_save_keywords(&client->keywords, status.keywords) &&
-	    ctx->box == client->mailbox) {
-		client_send_mailbox_flags(ctx->client, ctx->box,
-					  status.keywords);
-	}
-}
-
 bool cmd_append(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
@@ -500,7 +471,6 @@ bool cmd_append(struct client_command_context *cmd)
 	else {
 		ctx->storage = mailbox_get_storage(ctx->box);
 
-		get_keywords(ctx);
 		ctx->t = mailbox_transaction_begin(ctx->box,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 					MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
