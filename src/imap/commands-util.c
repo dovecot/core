@@ -311,6 +311,7 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 	kw_indexes = array_get(src, &kw_count);
 
 	/* convert indexes to names */
+	array_clear(dest);
 	for (i = 0; i < kw_count; i++) {
 		i_assert(kw_indexes[i] < all_count);
 		array_append(dest, &all_names[kw_indexes[i]], 1);
