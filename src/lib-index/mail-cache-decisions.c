@@ -79,14 +79,6 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 
 	i_assert(field < cache->fields_count);
 
-	if (cache->fields[field].field.decision != MAIL_CACHE_DECISION_TEMP) {
-		/* a) forced decision
-		   b) not cached, mail_cache_decision_add() will handle this
-		   c) permanently cached already, okay. */
-		return;
-	}
-
-	/* see if we want to change decision from TEMP to YES */
 	mail_index_lookup_uid(view->view, seq, &uid);
 	hdr = mail_index_get_header(view->view);
 
@@ -96,6 +88,14 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 		cache->field_header_write_pending = TRUE;
 	}
 
+	if (cache->fields[field].field.decision != MAIL_CACHE_DECISION_TEMP) {
+		/* a) forced decision
+		   b) not cached, mail_cache_decision_add() will handle this
+		   c) permanently cached already, okay. */
+		return;
+	}
+
+	/* see if we want to change decision from TEMP to YES */
 	if (uid < cache->fields[field].uid_highwater ||
 	    uid < hdr->day_first_uid[7]) {
 		/* a) nonordered access within this session. if client doesn't
