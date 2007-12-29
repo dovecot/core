@@ -576,7 +576,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)ctx->ctx.transaction;
 	struct maildir_filename *mf;
-	uint32_t seq, first_uid, next_uid;
+	uint32_t seq, uid, first_uid, next_uid;
 	enum maildir_uidlist_rec_flag flags;
 	bool newdir, sync_commit = FALSE;
 	int ret;
@@ -627,10 +627,25 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
 		i_assert(first_uid != 0);
 		mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
+		i_assert(next_uid = first_uid + ctx->files_count);
+
+		/* these mails are all recent in our session */
+		for (uid = first_uid; uid < next_uid; uid++)
+			index_mailbox_set_recent_uid(&ctx->mbox->ibox, uid);
+
+		if (!ctx->mbox->ibox.keep_recent) {
+			/* maildir_sync_index() dropped recent flags from
+			   existing messages. we'll still need to drop recent
+			   flags from these newly added messages. */
+			mail_index_update_header(ctx->trans,
+				offsetof(struct mail_index_header,
+					 first_recent_uid),
+				&next_uid, sizeof(next_uid), FALSE);
+		}
 
 		/* this will work even if index isn't updated */
 		*t->ictx.first_saved_uid = first_uid;
-		*t->ictx.last_saved_uid = first_uid + ctx->files_count - 1;
+		*t->ictx.last_saved_uid = next_uid - 1;
 	} else {
 		/* since we couldn't lock uidlist, we'll have to drop the
 		   appends to index. */

@@ -259,19 +259,20 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 {
 	struct maildir_mailbox *mbox = ctx->mbox;
 	struct mail_index_view *view = ctx->view;
+	struct mail_index_view *view2;
 	struct maildir_uidlist_iter_ctx *iter;
 	struct mail_index_transaction *trans = ctx->trans;
 	const struct mail_index_header *hdr;
 	struct mail_index_header empty_hdr;
 	const struct mail_index_record *rec;
-	uint32_t seq, uid, prev_uid;
+	uint32_t seq, seq2, uid, prev_uid;
         enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
 	ARRAY_TYPE(keyword_indexes) idx_keywords;
-	uint32_t uid_validity, next_uid, hdr_next_uid, last_nonrecent_uid;
+	uint32_t uid_validity, next_uid, hdr_next_uid, first_recent_uid;
 	unsigned int changes = 0;
 	int ret = 0;
-	bool recent, expunged, full_rescan = FALSE;
+	bool expunged, full_rescan = FALSE;
 
 	i_assert(!mbox->syncing_commit);
 	i_assert(maildir_uidlist_is_locked(mbox->uidlist));
@@ -295,7 +296,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	hdr_next_uid = hdr->next_uid;
 
 	mbox->syncing_commit = TRUE;
-	seq = prev_uid = last_nonrecent_uid = 0;
+	seq = prev_uid = 0; first_recent_uid = hdr->first_recent_uid;
 	t_array_init(&ctx->keywords, MAILDIR_MAX_KEYWORDS);
 	t_array_init(&idx_keywords, MAILDIR_MAX_KEYWORDS);
 	iter = maildir_uidlist_iter_init(mbox->uidlist);
@@ -314,18 +315,24 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		ctx->seq = ++seq;
 		ctx->uid = uid;
 
-		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) == 0 &&
-		    (uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) == 0)
-			last_nonrecent_uid = uid;
-		recent = (uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
-			uid >= hdr->first_recent_uid;
-
 		if (seq > hdr->messages_count) {
 			if (uid < hdr_next_uid) {
 				maildir_handle_uid_insertion(ctx, uflags,
 							     filename, uid);
 				seq--;
 				continue;
+			}
+
+			/* Trust uidlist recent flags only for newly added
+			   messages. When saving/copying messages with flags
+			   they're stored to cur/ and uidlist treats them
+			   as non-recent. */
+			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0) {
+				if (uid > first_recent_uid)
+					first_recent_uid = uid;
+			} else {
+				if (uid >= first_recent_uid)
+					first_recent_uid = uid + 1;
 			}
 
 			hdr_next_uid = uid + 1;
@@ -341,8 +348,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 							   MODIFY_REPLACE, kw);
 				mail_index_keywords_free(&kw);
 			}
-			if (recent)
-				index_mailbox_set_recent_uid(&mbox->ibox, uid);
 			continue;
 		}
 
@@ -371,9 +376,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 				maildir_sync_notify(ctx->maildir_sync_ctx);
 			continue;
 		}
-
-		if (recent)
-			index_mailbox_set_recent_uid(&mbox->ibox, uid);
 
 		/* the private flags are stored only in indexes, keep them */
 		ctx->flags |= rec->flags & mbox->ibox.box.private_flags_mask;
@@ -424,6 +426,20 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	maildir_uidlist_iter_deinit(&iter);
 	mbox->syncing_commit = FALSE;
 
+	if (!partial) {
+		/* expunge the rest */
+		for (seq++; seq <= hdr->messages_count; seq++)
+			mail_index_expunge(trans, seq);
+	}
+
+	/* add \Recent flags. use updated view so it contains newly
+	   appended messages. */
+	view2 = mail_index_transaction_open_updated_view(trans);
+	if (mail_index_lookup_seq_range(view2, first_recent_uid, (uint32_t)-1,
+					&seq, &seq2))
+		index_mailbox_set_recent_seq(&mbox->ibox, view2, seq, seq2);
+	mail_index_view_close(&view2);
+
 	if (ctx->uidlist_sync_ctx != NULL) {
 		if (maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx) < 0)
 			ret = -1;
@@ -431,12 +447,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 	if (mbox->ibox.box.v.sync_notify != NULL)
 		mbox->ibox.box.v.sync_notify(&mbox->ibox.box, 0, 0);
-
-	if (!partial) {
-		/* expunge the rest */
-		for (seq++; seq <= hdr->messages_count; seq++)
-			mail_index_expunge(trans, seq);
-	}
 
 	if (ctx->changed)
 		mbox->maildir_hdr.cur_mtime = time(NULL);
@@ -462,10 +472,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			&next_uid, sizeof(next_uid), FALSE);
 	}
 
-	if (ctx->mbox->ibox.keep_recent &&
-	    hdr->first_recent_uid < last_nonrecent_uid + 1) {
-		uint32_t first_recent_uid = last_nonrecent_uid + 1;
-
+	i_assert(hdr->first_recent_uid <= first_recent_uid);
+	if (hdr->first_recent_uid < first_recent_uid) {
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, first_recent_uid),
 			&first_recent_uid, sizeof(first_recent_uid), FALSE);
