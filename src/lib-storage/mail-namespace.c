@@ -74,15 +74,15 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		       "yes" : "no");
 	}
 
+	if (sep != NULL)
+		ns->sep = *sep;
 	ns->prefix = p_strdup(pool, prefix);
+
 	if (mail_storage_create(ns, NULL, data, user, flags, lock_method,
 				&error) < 0) {
 		i_error("Namespace '%s': %s", ns->prefix, error);
 		return NULL;
 	}
-
-	if (sep != NULL)
-		ns->sep = *sep;
 	return ns;
 }
 
