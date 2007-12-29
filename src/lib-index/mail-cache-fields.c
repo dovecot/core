@@ -361,7 +361,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		cache->fields[fidx].used = TRUE;
 
 		cache->field_file_map[fidx] = i;
-		cache->file_field_map[i] = field.idx;
+		cache->file_field_map[i] = fidx;
 
 		/* update last_used if it's newer than ours */
 		if (last_used[i] > cache->fields[fidx].last_used)
