@@ -263,6 +263,8 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 			PRIuSIZE_T" bytes", alloc_size + SIZEOF_MEMBLOCK);
 	}
 	block->size = alloc_size;
+	block->left = 0;
+	block->lowwater = block->size;
 	block->next = NULL;
 
 #ifdef DEBUG
