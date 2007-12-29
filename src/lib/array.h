@@ -246,6 +246,17 @@ array_insert_space_i(struct array *array, unsigned int idx)
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		array_insert_space_i(&(array)->arr, idx)
 
+static inline void
+array_copy(struct array *dest, unsigned int dest_idx,
+	   const struct array *src, unsigned int src_idx, unsigned int count)
+{
+	i_assert(dest->element_size == src->element_size);
+
+	buffer_copy(dest->buffer, dest_idx * dest->element_size,
+		    dest->buffer, src_idx * src->element_size,
+		    count * dest->element_size);
+}
+
 static inline unsigned int
 array_count_i(const struct array *array)
 {

@@ -5,6 +5,7 @@
 #include "str.h"
 #include "base64.h"
 #include "bsearch-insert-pos.h"
+#include "queue.h"
 #include "seq-range-array.h"
 #include "str-sanitize.h"
 
@@ -123,6 +124,72 @@ static void test_bsearch_insert_pos(void)
 	}
 }
 
+static bool queue_is_ok(struct queue *queue, unsigned int deleted_n)
+{
+	const unsigned int *p;
+	unsigned int n, i, count;
+
+	count = queue_count(queue);
+	for (i = 0, n = 1; i < count; i++, n++) {
+		p = array_idx_i(queue->arr, queue_idx(queue, i));
+		if (i == deleted_n)
+			n++;
+		if (*p != n)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static const unsigned int queue_input[] = { 1, 2, 3, 4, 5, 6 };
+static const char *test_queue2(unsigned int initial_size)
+{
+	ARRAY_DEFINE(queue_array, unsigned int);
+	unsigned int i, j, k;
+	struct queue *queue;
+
+	for (i = 0; i < N_ELEMENTS(queue_input); i++) {
+		for (k = 0; k < N_ELEMENTS(queue_input); k++) {
+			t_array_init(&queue_array, initial_size);
+			queue = queue_init(&queue_array.arr);
+			queue->head = queue->tail = initial_size - 1;
+			for (j = 0; j < k; j++) {
+				queue_append(queue, &queue_input[j]);
+				if (queue_count(queue) != j + 1) {
+					return t_strdup_printf("Wrong count after append %u vs %u)",
+							       queue_count(queue), j + 1);
+				}
+				if (!queue_is_ok(queue, -1U))
+					return "Invalid data after append";
+			}
+
+			if (k != 0 && i < k) {
+				queue_delete(queue, i);
+				if (queue_count(queue) != k - 1)
+					return "Wrong count after delete";
+				if (!queue_is_ok(queue, i))
+					return "Invalid data after delete";
+			}
+		}
+	}
+	queue_clear(queue);
+	if (queue_count(queue) != 0)
+		return "queue_clear() broken";
+	return NULL;
+}
+
+static void test_queue(void)
+{
+	unsigned int i;
+	const char *reason = NULL;
+
+	for (i = 1; i <= N_ELEMENTS(queue_input) + 1 && reason == NULL; i++) {
+		T_FRAME(
+			reason = test_queue2(i);
+		);
+	}
+	test_out_reason("queue", reason == NULL, reason);
+}
+
 static void test_seq_range_array(void)
 {
 	static const unsigned int input_min = 1, input_max = 5;
@@ -207,6 +274,7 @@ int main(void)
 		test_base64_encode,
 		test_base64_decode,
 		test_bsearch_insert_pos,
+		test_queue,
 		test_seq_range_array,
 		test_str_sanitize,
 
