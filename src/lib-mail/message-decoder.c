@@ -87,6 +87,7 @@ parse_content_transfer_encoding(struct message_decoder_context *ctx,
 	(void)rfc822_skip_lwsp(&parser);
 	(void)rfc822_parse_mime_token(&parser, value);
 
+	ctx->content_type = CONTENT_TYPE_UNKNOWN;
 	switch (str_len(value)) {
 	case 4:
 		if (i_memcasecmp(str_data(value), "7bit", 4) == 0 ||
