@@ -206,7 +206,13 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		used_fields_count = i;
 	} else {
 		for (i = used_fields_count = 0; i < orig_fields_count; i++) {
-			if ((time_t)cache->fields[i].last_used < max_drop_time)
+			enum mail_cache_decision_type dec =
+				cache->fields[i].field.decision;
+
+			/* if the decision isn't forced and this field hasn't
+			   been accessed for a while, drop it */
+			if ((dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
+			    (time_t)cache->fields[i].last_used < max_drop_time)
 				cache->fields[i].used = FALSE;
 
 			ctx.field_file_map[i] = !cache->fields[i].used ?
