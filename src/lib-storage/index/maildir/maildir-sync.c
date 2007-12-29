@@ -536,7 +536,7 @@ static int maildir_header_refresh(struct maildir_mailbox *mbox)
 	return 0;
 }
 
-static int maildir_sync_quick_check(struct maildir_mailbox *mbox,
+static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 				    const char *new_dir, const char *cur_dir,
 				    bool *new_changed_r, bool *cur_changed_r)
 {
@@ -550,7 +550,8 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox,
 #define DIR_DELAYED_REFRESH(hdr, name) \
 	((hdr)->name ## _check_time <= \
 		(hdr)->name ## _mtime + MAILDIR_SYNC_SECS && \
-	 (time_t)(hdr)->name ## _check_time < ioloop_time - MAILDIR_SYNC_SECS)
+	 (undirty || \
+	  (time_t)(hdr)->name ## _check_time < ioloop_time - MAILDIR_SYNC_SECS))
 
 #define DIR_MTIME_CHANGED(st, hdr, name) \
 	((st).st_mtime != (time_t)(hdr)->name ## _mtime || \
@@ -660,8 +661,10 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 				    bool *new_changed_r, bool *cur_changed_r)
 {
 	enum mail_index_sync_flags flags = 0;
+	bool undirty = (ctx->flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0;
 
-	if (maildir_sync_quick_check(ctx->mbox, ctx->new_dir, ctx->cur_dir,
+	if (maildir_sync_quick_check(ctx->mbox, undirty,
+				     ctx->new_dir, ctx->cur_dir,
 				     new_changed_r, cur_changed_r) < 0)
 		return -1;
 
@@ -903,7 +906,7 @@ int maildir_sync_is_synced(struct maildir_mailbox *mbox)
 		new_dir = t_strconcat(mbox->path, "/new", NULL);
 		cur_dir = t_strconcat(mbox->path, "/cur", NULL);
 
-		ret = maildir_sync_quick_check(mbox, new_dir, cur_dir,
+		ret = maildir_sync_quick_check(mbox, FALSE, new_dir, cur_dir,
 					       &new_changed, &cur_changed);
 	} T_FRAME_END;
 	return ret < 0 ? -1 : (!new_changed && !cur_changed);
