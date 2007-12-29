@@ -340,11 +340,12 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 	struct mail_cache_iterate_field field;
 	int ret;
 
-	if ((ret = mail_cache_field_exists(view, seq, field_idx)) <= 0)
-		return ret;
-	/* the field should exist */
+	ret = mail_cache_field_exists(view, seq, field_idx);
 	mail_cache_decision_state_update(view, seq, field_idx);
+	if (ret <= 0)
+		return ret;
 
+	/* the field should exist */
 	mail_cache_lookup_iter_init(view, seq, &iter);
 	field_def = &view->cache->fields[field_idx].field;
 	if (field_def->type == MAIL_CACHE_FIELD_BITMASK) {
@@ -445,6 +446,11 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 	if (!view->cache->opened)
 		(void)mail_cache_open_and_verify(view->cache);
 
+	/* update the decision state regardless of whether the fields
+	   actually exist or not. */
+	for (i = 0; i < fields_count; i++)
+		mail_cache_decision_state_update(view, seq, field_idxs[i]);
+
 	/* mark all the fields we want to find. */
 	buf = buffer_create_dynamic(pool_datastack_create(), 32);
 	for (i = 0; i < fields_count; i++) {
@@ -482,9 +488,6 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 		if (field_state[i] == HDR_FIELD_STATE_WANT)
 			return 0;
 	}
-
-	for (i = 0; i < fields_count; i++)
-		mail_cache_decision_state_update(view, seq, field_idxs[i]);
 
 	/* we need to return headers in the order they existed originally.
 	   we can do this by sorting the messages by their line numbers. */

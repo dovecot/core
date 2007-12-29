@@ -85,7 +85,8 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 	if (ioloop_time - cache->fields[field].last_used > 3600*24) {
 		/* update last_used about once a day */
 		cache->fields[field].last_used = (uint32_t)ioloop_time;
-		cache->field_header_write_pending = TRUE;
+		if (cache->field_file_map[field] != (uint32_t)-1)
+			cache->field_header_write_pending = TRUE;
 	}
 
 	if (cache->fields[field].field.decision != MAIL_CACHE_DECISION_TEMP) {
@@ -107,7 +108,9 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 		      drop back to TEMP within few months. */
 		cache->fields[field].field.decision = MAIL_CACHE_DECISION_YES;
 		cache->fields[field].decision_dirty = TRUE;
-		cache->field_header_write_pending = TRUE;
+
+		if (cache->field_file_map[field] != (uint32_t)-1)
+			cache->field_header_write_pending = TRUE;
 	} else {
 		cache->fields[field].uid_highwater = uid;
 	}

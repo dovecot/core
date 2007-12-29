@@ -254,7 +254,8 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 /* Mark record in given offset to be deleted. */
 int mail_cache_delete(struct mail_cache *cache, uint32_t offset);
 
-/* Notify the decision handling code that field was looked up for seq */
+/* Notify the decision handling code that field was looked up for seq.
+   This should be called even for fields that aren't currently in cache file */
 void mail_cache_decision_state_update(struct mail_cache_view *view,
 				      uint32_t seq, unsigned int field);
 void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
