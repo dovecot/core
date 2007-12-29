@@ -21,7 +21,7 @@ struct ldap_userdb_module {
 };
 
 struct userdb_ldap_request {
-	struct ldap_request request;
+	struct ldap_request_search request;
         struct auth_request *auth_request;
         userdb_callback_t *userdb_callback;
 };
@@ -43,40 +43,30 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 	}
 }
 
-static void handle_request(struct ldap_connection *conn,
-			   struct ldap_request *request, LDAPMessage *res)
+static void userdb_ldap_lookup_callback(struct ldap_connection *conn,
+					struct ldap_request *request,
+					LDAPMessage *res)
 {
 	struct userdb_ldap_request *urequest =
 		(struct userdb_ldap_request *) request;
 	struct auth_request *auth_request = urequest->auth_request;
 	LDAPMessage *entry;
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
-	int ret;
 
 	if (res != NULL) {
-		ret = ldap_result2error(conn->ld, res, 0);
-		if (ret != LDAP_SUCCESS) {
-			auth_request_log_error(auth_request, "ldap",
-					       "ldap_search() failed: %s", ldap_err2string(ret));
-			urequest->userdb_callback(result, auth_request);
-			return;
-		}
-	}
-
-	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
-	if (entry == NULL) {
-		if (res != NULL) {
+		entry = ldap_first_entry(conn->ld, res);
+		if (entry == NULL) {
 			result = USERDB_RESULT_USER_UNKNOWN;
-			auth_request_log_error(auth_request, "ldap",
-					       "Unknown user");
-		}
-	} else {
-		ldap_query_get_result(conn, entry, auth_request);
-		if (ldap_next_entry(conn->ld, entry) == NULL)
-			result = USERDB_RESULT_OK;
-		else {
-			auth_request_log_error(auth_request, "ldap",
-				"Multiple replies found for user");
+			auth_request_log_info(auth_request, "ldap",
+					      "Unknown user");
+		} else {
+			ldap_query_get_result(conn, entry, auth_request);
+			if (ldap_next_entry(conn->ld, entry) == NULL)
+				result = USERDB_RESULT_OK;
+			else {
+				auth_request_log_error(auth_request, "ldap",
+					"Multiple replies found for user");
+			}
 		}
 	}
 
@@ -98,7 +88,6 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 
 	auth_request_ref(auth_request);
 	request = p_new(auth_request->pool, struct userdb_ldap_request, 1);
-	request->request.callback = handle_request;
 	request->auth_request = auth_request;
 	request->userdb_callback = callback;
 
@@ -121,7 +110,8 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       attr_names == NULL ? "(all)" :
 			       t_strarray_join(attr_names, ","));
 
-	db_ldap_search(conn, &request->request, conn->set.ldap_scope);
+	request->request.request.callback = userdb_ldap_lookup_callback;
+	db_ldap_request(conn, &request->request.request);
 }
 
 static struct userdb_module *

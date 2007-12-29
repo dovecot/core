@@ -5,6 +5,19 @@
    This define enables them until the code here can be refactored */
 #define LDAP_DEPRECATED 1
 
+/* Maximum number of requests in queue. After this new requests are dropped. */
+#define DB_LDAP_MAX_QUEUE_SIZE 1024
+/* Maximum number of pending requests before delaying new requests. */
+#define DB_LDAP_MAX_PENDING_REQUESTS 128
+/* If LDAP connection is down, fail requests after waiting for this long. */
+#define DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS 4
+/* If request is still in queue after this many seconds and other requests
+   have been replied, assume the request was lost and abort it. */
+#define DB_LDAP_REQUEST_LOST_TIMEOUT_SECS 60
+/* If server disconnects us, don't reconnect if no requests have been sent
+   for this many seconds. */
+#define DB_LDAP_IDLE_RECONNECT_SECS 60
+
 #include <ldap.h>
 
 struct auth_request;
@@ -47,6 +60,48 @@ struct ldap_settings {
 	gid_t gid;
 };
 
+enum ldap_request_type {
+	LDAP_REQUEST_TYPE_SEARCH,
+	LDAP_REQUEST_TYPE_BIND
+};
+
+struct ldap_request {
+	enum ldap_request_type type;
+
+	/* msgid for sent requests, -1 if not sent */
+	int msgid;
+	/* timestamp when request was created */
+	time_t create_time;
+
+	db_search_callback_t *callback;
+	struct auth_request *auth_request;
+};
+
+struct ldap_request_search {
+	struct ldap_request request;
+
+	const char *base;
+	const char *filter;
+	char **attributes; /* points to pass_attr_names / user_attr_names */
+};
+
+struct ldap_request_bind {
+	struct ldap_request request;
+
+	const char *dn;
+};
+
+enum ldap_connection_state {
+	/* Not connected */
+	LDAP_CONN_STATE_DISCONNECTED,
+	/* Binding - either to default dn or doing auth bind */
+	LDAP_CONN_STATE_BINDING,
+	/* Bound to auth dn */
+	LDAP_CONN_STATE_BOUND_AUTH,
+	/* Bound to default dn */
+	LDAP_CONN_STATE_BOUND_DEFAULT
+};
+
 struct ldap_connection {
 	struct ldap_connection *next;
 
@@ -57,46 +112,30 @@ struct ldap_connection {
         struct ldap_settings set;
 
 	LDAP *ld;
-	int fd; /* only set when connected/connecting */
-	struct io *io;
+	enum ldap_connection_state conn_state;
+	int default_bind_msgid;
 
-	struct hash_table *requests;
-	struct ldap_request *delayed_requests_head, *delayed_requests_tail;
-	time_t last_request_stamp;
+	int fd;
+	struct io *io;
+	struct timeout *to;
+
+	/* Request queue contains sent requests at tail (msgid != -1) and
+	   queued requests at head (msgid == -1). */
+	struct queue *request_queue;
+	ARRAY_DEFINE(request_array, struct ldap_request *);
+	/* Number of messages in queue with msgid != -1 */
+	unsigned int pending_count;
+
+	/* Timestamp when we last received a reply */
+	time_t last_reply_stamp;
 
 	char **pass_attr_names, **user_attr_names;
 	struct hash_table *pass_attr_map, *user_attr_map;
-
-	unsigned int connected:1;
-	unsigned int connecting:1;
-	unsigned int binding:1;
-	unsigned int retrying:1; /* just reconnected, resending requests */
-	unsigned int last_auth_bind:1;
 };
 
-struct ldap_request {
-	struct ldap_request *next; /* in conn->delayed_requests */
-
-	db_search_callback_t *callback;
-	void *context;
-
-	/* for bind requests, base contains the DN and filter=NULL */
-	const char *base;
-	const char *filter;
-	char **attributes; /* points to pass_attr_names / user_attr_names */
-};
-
-struct ldap_sasl_bind_context {
-	const char *authcid;
-	const char *passwd;
-	const char *realm;
-	const char *authzid;
-};
-
-void db_ldap_add_delayed_request(struct ldap_connection *conn,
-				 struct ldap_request *request);
-void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
-		    int scope);
+/* Send/queue request */
+void db_ldap_request(struct ldap_connection *conn,
+		     struct ldap_request *request);
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, struct hash_table *attr_map,

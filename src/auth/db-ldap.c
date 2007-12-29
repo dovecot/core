@@ -6,7 +6,9 @@
 
 #include "network.h"
 #include "ioloop.h"
+#include "array.h"
 #include "hash.h"
+#include "queue.h"
 #include "str.h"
 #include "var-expand.h"
 #include "settings.h"
@@ -42,10 +44,6 @@
 #  define LDAP_OPT_SUCCESS LDAP_SUCCESS
 #endif
 
-/* If server disconnects us, don't reconnect if no requests have been sent
-   for this many seconds. */
-#define LDAP_IDLE_RECONNECT_SECS 60
-
 struct db_ldap_result_iterate_context {
 	struct ldap_connection *conn;
 	LDAPMessage *entry;
@@ -61,6 +59,13 @@ struct db_ldap_result_iterate_context {
 
 	string_t *var, *debug;
 	unsigned int value_idx;
+};
+
+struct db_ldap_sasl_bind_context {
+	const char *authcid;
+	const char *passwd;
+	const char *realm;
+	const char *authzid;
 };
 
 #define DEF_STR(name) DEF_STRUCT_STR(name, ldap_settings)
@@ -118,7 +123,7 @@ struct ldap_settings default_ldap_settings = {
 static struct ldap_connection *ldap_connections = NULL;
 
 static int db_ldap_bind(struct ldap_connection *conn);
-static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests);
+static void db_ldap_conn_close(struct ldap_connection *conn);
 
 static int deref2str(const char *str)
 {
@@ -165,49 +170,14 @@ const char *ldap_get_error(struct ldap_connection *conn)
 	return ldap_err2string(ldap_get_errno(conn));
 }
 
-void db_ldap_add_delayed_request(struct ldap_connection *conn,
-				 struct ldap_request *request)
-{
-	request->next = NULL;
-
-	if (conn->delayed_requests_head == NULL)
-		conn->delayed_requests_head = request;
-	else
-		conn->delayed_requests_tail->next = request;
-	conn->delayed_requests_tail = request;
-}
-
-static void db_ldap_handle_next_delayed_request(struct ldap_connection *conn)
-{
-	struct ldap_request *request;
-
-	if (conn->delayed_requests_head == NULL)
-		return;
-
-	request = conn->delayed_requests_head;
-	conn->delayed_requests_head = request->next;
-	if (conn->delayed_requests_head == NULL)
-		conn->delayed_requests_tail = NULL;
-
-	conn->retrying = TRUE;
-	if (request->filter == NULL)
-		request->callback(conn, request, NULL);
-	else
-		db_ldap_search(conn, request, conn->set.ldap_scope);
-	conn->retrying = FALSE;
-}
-
 static void ldap_conn_reconnect(struct ldap_connection *conn)
 {
-	ldap_conn_close(conn, FALSE);
-
-	if (db_ldap_connect(conn) < 0) {
-		/* failed to reconnect. fail all requests. */
-		ldap_conn_close(conn, TRUE);
-	}
+	db_ldap_conn_close(conn);
+	if (db_ldap_connect(conn) < 0)
+		db_ldap_conn_close(conn);
 }
 
-static void ldap_handle_error(struct ldap_connection *conn)
+static int ldap_handle_error(struct ldap_connection *conn)
 {
 	int err = ldap_get_errno(conn);
 
@@ -229,7 +199,7 @@ static void ldap_handle_error(struct ldap_connection *conn)
 	case LDAP_ALIAS_DEREF_PROBLEM:
 	case LDAP_FILTER_ERROR:
 		/* invalid input */
-		break;
+		return -1;
 	case LDAP_SERVER_DOWN:
 	case LDAP_TIMEOUT:
 	case LDAP_UNAVAILABLE:
@@ -242,132 +212,285 @@ static void ldap_handle_error(struct ldap_connection *conn)
 	default:
 		/* connection problems */
 		ldap_conn_reconnect(conn);
-		break;
+		return 0;
 	}
 }
 
-void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
-		    int scope)
+static int db_ldap_request_bind(struct ldap_connection *conn,
+				struct ldap_request *request)
 {
-	int try, msgid = -1;
+	struct ldap_request_bind *brequest =
+		(struct ldap_request_bind *)request;
 
-	if (db_ldap_connect(conn) < 0) {
+	i_assert(request->type == LDAP_REQUEST_TYPE_BIND);
+	i_assert(request->msgid == -1);
+	i_assert(conn->conn_state == LDAP_CONN_STATE_BOUND_AUTH ||
+		 conn->conn_state == LDAP_CONN_STATE_BOUND_DEFAULT);
+	i_assert(conn->pending_count == 0);
+
+	request->msgid = ldap_bind(conn->ld, brequest->dn,
+				   request->auth_request->mech_password,
+				   LDAP_AUTH_SIMPLE);
+	if (request->msgid == -1) {
+		auth_request_log_error(request->auth_request, "ldap",
+				       "ldap_bind(%s) failed: %s",
+				       brequest->dn, ldap_get_error(conn));
+		if (ldap_handle_error(conn) < 0) {
+			/* broken request, remove it */
+			return 0;
+		}
+		return -1;
+	}
+	conn->conn_state = LDAP_CONN_STATE_BINDING;
+	return 1;
+}
+
+static int db_ldap_request_search(struct ldap_connection *conn,
+				  struct ldap_request *request)
+{
+	struct ldap_request_search *srequest =
+		(struct ldap_request_search *)request;
+
+	i_assert(conn->conn_state == LDAP_CONN_STATE_BOUND_DEFAULT);
+	i_assert(request->msgid == -1);
+
+	request->msgid =
+		ldap_search(conn->ld, srequest->base, conn->set.ldap_scope,
+			    srequest->filter, srequest->attributes, 0);
+	if (request->msgid == -1) {
+		auth_request_log_error(request->auth_request, "ldap",
+				       "ldap_search() failed (filter %s): %s",
+				       srequest->filter, ldap_get_error(conn));
+		if (ldap_handle_error(conn) < 0) {
+			/* broken request, remove it */
+			return 0;
+		}
+		return -1;
+	}
+	return 1;
+}
+
+static bool db_ldap_request_queue_next(struct ldap_connection *conn)
+{
+	struct ldap_request *const *requestp, *request;
+	unsigned int queue_size = queue_count(conn->request_queue);
+	int ret = -1;
+
+	if (conn->pending_count == queue_size) {
+		/* no non-pending requests */
+		return FALSE;
+	}
+	if (queue_size > DB_LDAP_MAX_PENDING_REQUESTS) {
+		/* wait until server has replied to some requests */
+		return FALSE;
+	}
+
+	if (db_ldap_connect(conn) < 0)
+		return FALSE;
+
+	requestp = array_idx(&conn->request_array,
+			     queue_idx(conn->request_queue,
+				       conn->pending_count));
+	request = *requestp;
+
+	if (conn->pending_count > 0 &&
+	    request->type == LDAP_REQUEST_TYPE_BIND) {
+		/* we can't do binds until all existing requests are finished */
+		return FALSE;
+	}
+
+	switch (conn->conn_state) {
+	case LDAP_CONN_STATE_DISCONNECTED:
+	case LDAP_CONN_STATE_BINDING:
+		/* wait until we're in bound state */
+		return FALSE;
+	case LDAP_CONN_STATE_BOUND_AUTH:
+		if (request->type == LDAP_REQUEST_TYPE_BIND)
+			break;
+
+		/* bind to default dn first */
+		i_assert(conn->pending_count == 0);
+		(void)db_ldap_bind(conn);
+		return FALSE;
+	case LDAP_CONN_STATE_BOUND_DEFAULT:
+		/* we can do anything in this state */
+		break;
+	}
+
+	switch (request->type) {
+	case LDAP_REQUEST_TYPE_BIND:
+		ret = db_ldap_request_bind(conn, request);
+		break;
+	case LDAP_REQUEST_TYPE_SEARCH:
+		ret = db_ldap_request_search(conn, request);
+		break;
+	}
+
+	if (ret > 0) {
+		/* success */
+		i_assert(request->msgid != -1);
+		conn->pending_count++;
+		return TRUE;
+	} else if (ret < 0) {
+		/* disconnected */
+		return FALSE;
+	} else {
+		/* broken request, remove from queue */
+		queue_delete_tail(conn->request_queue);
+		request->callback(conn, request, NULL);
+		return TRUE;
+	}
+}
+
+void db_ldap_request(struct ldap_connection *conn,
+		     struct ldap_request *request)
+{
+	request->msgid = -1;
+	request->create_time = ioloop_time;
+
+	if (conn->request_queue->full &&
+	    queue_count(conn->request_queue) >= DB_LDAP_MAX_QUEUE_SIZE) {
+		/* Queue is full already, fail this request */
+		auth_request_log_error(request->auth_request, "ldap",
+				       "Request queue is full");
 		request->callback(conn, request, NULL);
 		return;
 	}
 
-	for (try = 0; conn->connected && !conn->binding && try < 2; try++) {
-		if (conn->last_auth_bind) {
-			/* switch back to the default dn before doing the
-			   search request. */
-			if (db_ldap_bind(conn) < 0) {
-				request->callback(conn, request, NULL);
-				return;
-			}
-			break;
-		}
-
-		msgid = ldap_search(conn->ld, request->base, scope,
-				    request->filter, request->attributes, 0);
-		if (msgid != -1)
-			break;
-
-		i_error("LDAP: ldap_search() failed (filter %s): %s",
-			request->filter, ldap_get_error(conn));
-		ldap_handle_error(conn);
-	}
-
-	if (msgid != -1)
-		hash_insert(conn->requests, POINTER_CAST(msgid), request);
-	else
-		db_ldap_add_delayed_request(conn, request);
-	conn->last_request_stamp = ioloop_time;
+	queue_append(conn->request_queue, &request);
+	(void)db_ldap_request_queue_next(conn);
 }
 
-static void ldap_conn_retry_requests(struct ldap_connection *conn)
+static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
 {
-	struct hash_table *old_requests;
-        struct hash_iterate_context *iter;
-	struct ldap_request *request, **p, *next;
-	void *key, *value;
-	bool have_hash_binds = FALSE;
+	if (ret == LDAP_SERVER_DOWN) {
+		i_error("LDAP: Can't connect to server: %s",
+			conn->set.uris != NULL ?
+			conn->set.uris : conn->set.hosts);
+		return -1;
+	}
+	if (ret != LDAP_SUCCESS) {
+		i_error("LDAP: binding failed (dn %s): %s",
+			conn->set.dn == NULL ? "(none)" : conn->set.dn,
+			ldap_get_error(conn));
+		return -1;
+	}
 
-	i_assert(conn->connected);
+	conn->conn_state = LDAP_CONN_STATE_BOUND_DEFAULT;
+	while (db_ldap_request_queue_next(conn))
+		;
+	return 0;
+}
 
-	if (hash_count(conn->requests) == 0 &&
-	    conn->delayed_requests_head == NULL)
+static void db_ldap_default_bind_finished(struct ldap_connection *conn,
+					  LDAPMessage *res)
+{
+	int ret;
+
+	i_assert(conn->pending_count == 0);
+	conn->default_bind_msgid = -1;
+
+	ret = ldap_result2error(conn->ld, res, FALSE);
+	if (db_ldap_connect_finish(conn, ret) < 0) {
+		/* lost connection, close it */
+		db_ldap_conn_close(conn);
+	}
+}
+
+static void db_ldap_abort_requests(struct ldap_connection *conn,
+				   unsigned int max_count,
+				   unsigned int timeout_secs)
+{
+	struct ldap_request *const *requestp, *request;
+	time_t diff;
+
+	while (queue_count(conn->request_queue) > 0 && max_count > 0) {
+		requestp = array_idx(&conn->request_array,
+				     queue_idx(conn->request_queue, 0));
+		request = *requestp;
+
+		diff = ioloop_time - request->create_time;
+		if (diff < (time_t)timeout_secs)
+			break;
+
+		/* timed out, abort */
+		queue_delete_tail(conn->request_queue);
+
+		if (request->msgid != -1) {
+			i_assert(conn->pending_count > 0);
+			conn->pending_count--;
+		}
+		request->callback(conn, request, NULL);
+		max_count--;
+	}
+}
+
+static void
+db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
+{
+	struct ldap_request *const *requests, *request = NULL;
+	unsigned int i, count;
+	int msgid, ret;
+
+	msgid = ldap_msgid(res);
+	if (msgid == conn->default_bind_msgid) {
+		db_ldap_default_bind_finished(conn, res);
 		return;
-
-	old_requests = conn->requests;
-	conn->requests = hash_create(default_pool, conn->pool, 0, NULL, NULL);
-
-	conn->retrying = TRUE;
-	/* first retry all the search requests */
-	iter = hash_iterate_init(old_requests);
-	while (hash_iterate(iter, &key, &value)) {
-		request = value;
-
-		if (request->filter == NULL) {
-			/* bind request */
-			have_hash_binds = TRUE;
-		} else {
-			i_assert(conn->connected);
-			db_ldap_search(conn, request, conn->set.ldap_scope);
-		}
-	}
-	hash_iterate_deinit(&iter);
-
-	/* then delayed search requests */
-	p = &conn->delayed_requests_head;
-	while (*p != NULL) {
-		request = *p;
-
-		if (request->filter != NULL) {
-			*p = request->next;
-
-			i_assert(conn->connected);
-			db_ldap_search(conn, request, conn->set.ldap_scope);
-		} else {
-			p = &(*p)->next;
-		}
 	}
 
-	if (have_hash_binds && conn->set.auth_bind) {
-		/* next retry all the bind requests. without auth binds the
-		   only bind request can be the initial connection binding,
-		   which we don't care to retry. */
-		iter = hash_iterate_init(old_requests);
-		while (hash_iterate(iter, &key, &value)) {
-			request = value;
-
-			if (request->filter == NULL)
-				request->callback(conn, request, NULL);
+	count = queue_count(conn->request_queue);
+	requests = count == 0 ? NULL : array_idx(&conn->request_array, 0);
+	for (i = 0; i < count; i++) {
+		request = requests[queue_idx(conn->request_queue, i)];
+		if (request->msgid == msgid)
+			break;
+		if (request->msgid == -1) {
+			request = NULL;
+			break;
 		}
-		hash_iterate_deinit(&iter);
 	}
-	if (conn->delayed_requests_head != NULL && conn->set.auth_bind) {
-		request = conn->delayed_requests_head;
-		for (; request != NULL; request = next) {
-			next = request->next;
-
-			i_assert(request->filter == NULL);
-			request->callback(conn, request, NULL);
-		}
-		conn->delayed_requests_head = NULL;
+	if (request == NULL) {
+		i_error("LDAP: Reply with unknown msgid %d", msgid);
+		return;
 	}
-	hash_destroy(&old_requests);
 
-	i_assert(conn->delayed_requests_head == NULL);
-	conn->delayed_requests_tail = NULL;
-	conn->retrying = FALSE;
+	if (request->type == LDAP_REQUEST_TYPE_BIND) {
+		i_assert(conn->conn_state == LDAP_CONN_STATE_BINDING);
+		i_assert(conn->pending_count == 1);
+		conn->conn_state = LDAP_CONN_STATE_BOUND_AUTH;
+	}
+	i_assert(conn->pending_count > 0);
+	conn->pending_count--;
+	queue_delete(conn->request_queue, i);
+
+	ret = ldap_result2error(conn->ld, res, 0);
+	if (ret != LDAP_SUCCESS && request->type == LDAP_REQUEST_TYPE_SEARCH) {
+		/* handle search failures here */
+		struct ldap_request_search *srequest =
+			(struct ldap_request_search *)request;
+
+		auth_request_log_error(request->auth_request, "ldap",
+				       "ldap_search(%s) failed: %s",
+				       srequest->filter, ldap_err2string(ret));
+		res = NULL;
+	}
+
+	T_FRAME(
+		request->callback(conn, request, res);
+	);
+
+	if (i > 0) {
+		/* see if there are timed out requests */
+		db_ldap_abort_requests(conn, i,
+				       DB_LDAP_REQUEST_LOST_TIMEOUT_SECS);
+	}
 }
 
 static void ldap_input(struct ldap_connection *conn)
 {
-        struct ldap_request *request;
 	struct timeval timeout;
 	LDAPMessage *res;
-	int ret, msgid;
+	int ret;
 
 	for (;;) {
 		if (conn->ld == NULL)
@@ -385,36 +508,27 @@ static void ldap_input(struct ldap_connection *conn)
 		if (ret <= 0)
 			break;
 
-		msgid = ldap_msgid(res);
-		request = hash_lookup(conn->requests, POINTER_CAST(msgid));
-		if (request == NULL) {
-			i_error("LDAP: Reply with unknown msgid %d",
-				msgid);
-		} else {
-			hash_remove(conn->requests, POINTER_CAST(msgid));
-			T_FRAME(
-				request->callback(conn, request, res);
-			);
-		}
-
+		db_ldap_handle_result(conn, res);
 		ldap_msgfree(res);
 	}
+	conn->last_reply_stamp = ioloop_time;
 
 	if (ret == 0) {
-		if (!conn->binding)
-			db_ldap_handle_next_delayed_request(conn);
+		/* send more requests */
+		while (db_ldap_request_queue_next(conn))
+			;
 	} else if (ldap_get_errno(conn) != LDAP_SERVER_DOWN) {
 		i_error("LDAP: ldap_result() failed: %s", ldap_get_error(conn));
 		ldap_conn_reconnect(conn);
-	} else if (hash_count(conn->requests) > 0 ||
-		   ioloop_time - conn->last_request_stamp <
-		   				LDAP_IDLE_RECONNECT_SECS) {
+	} else if (queue_count(conn->request_queue) > 0 ||
+		   ioloop_time - conn->last_reply_stamp <
+		   				DB_LDAP_IDLE_RECONNECT_SECS) {
 		i_error("LDAP: Connection lost to LDAP server, reconnecting");
 		ldap_conn_reconnect(conn);
 	} else {
 		/* server probably disconnected an idle connection. don't
 		   reconnect until the next request comes. */
-		ldap_conn_close(conn, TRUE);
+		db_ldap_conn_close(conn);
 	}
 }
 
@@ -423,7 +537,7 @@ static int
 sasl_interact(LDAP *ld ATTR_UNUSED, unsigned flags ATTR_UNUSED,
 	      void *defaults, void *interact)
 {
-	struct ldap_sasl_bind_context *context = defaults;
+	struct db_ldap_sasl_bind_context *context = defaults;
 	sasl_interact_t *in;
 	const char *str;
 
@@ -455,82 +569,27 @@ sasl_interact(LDAP *ld ATTR_UNUSED, unsigned flags ATTR_UNUSED,
 }
 #endif
 
-static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
-{
-	if (ret == LDAP_SERVER_DOWN) {
-		i_error("LDAP: Can't connect to server: %s",
-			conn->set.uris != NULL ?
-			conn->set.uris : conn->set.hosts);
-		return -1;
-	}
-	if (ret != LDAP_SUCCESS) {
-		i_error("LDAP: binding failed (dn %s): %s",
-			conn->set.dn == NULL ? "(none)" : conn->set.dn,
-			ldap_get_error(conn));
-		return -1;
-	}
-
-	if (!conn->connected) {
-		conn->connected = TRUE;
-
-		/* in case there are requests waiting, retry them */
-		ldap_conn_retry_requests(conn);
-	}
-	return 0;
-}
-
-static void db_ldap_bind_callback(struct ldap_connection *conn,
-				  struct ldap_request *ldap_request,
-				  LDAPMessage *res)
-{
-	int ret;
-
-	conn->binding = FALSE;
-	conn->connecting = FALSE;
-	i_free(ldap_request);
-
-	if (res == NULL) {
-		/* aborted */
-		return;
-	}
-
-	ret = ldap_result2error(conn->ld, res, FALSE);
-	if (db_ldap_connect_finish(conn, ret) < 0) {
-		/* lost connection, close it */
-		ldap_conn_close(conn, TRUE);
-	}
-}
-
 static int db_ldap_bind(struct ldap_connection *conn)
 {
-	struct ldap_request *ldap_request;
 	int msgid;
 
-	i_assert(!conn->binding);
-
-	ldap_request = i_new(struct ldap_request, 1);
-	ldap_request->callback = db_ldap_bind_callback;
-	ldap_request->context = conn;
+	i_assert(conn->conn_state != LDAP_CONN_STATE_BINDING);
+	i_assert(conn->default_bind_msgid == -1);
+	i_assert(conn->pending_count == 0);
 
 	msgid = ldap_bind(conn->ld, conn->set.dn, conn->set.dnpass,
 			  LDAP_AUTH_SIMPLE);
 	if (msgid == -1) {
+		i_assert(ldap_get_errno(conn) != LDAP_SUCCESS);
 		if (db_ldap_connect_finish(conn, ldap_get_errno(conn)) < 0) {
 			/* lost connection, close it */
-			ldap_conn_close(conn, TRUE);
+			db_ldap_conn_close(conn);
 		}
-		i_free(ldap_request);
 		return -1;
 	}
 
-	conn->connecting = TRUE;
-	conn->binding = TRUE;
-	hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
-
-	/* we're binding back to the original DN, not doing an
-	   authentication bind */
-	conn->last_auth_bind = FALSE;
-	conn->last_request_stamp = ioloop_time;
+	conn->conn_state = LDAP_CONN_STATE_BINDING;
+	conn->default_bind_msgid = msgid;
 	return 0;
 }
 
@@ -558,11 +617,10 @@ int db_ldap_connect(struct ldap_connection *conn)
 	unsigned int ldap_version;
 	int ret;
 
-	if (conn->connected || conn->connecting)
+	if (conn->conn_state != LDAP_CONN_STATE_DISCONNECTED)
 		return 0;
-	i_assert(!conn->binding);
 
-	conn->last_request_stamp = ioloop_time;
+	i_assert(conn->pending_count == 0);
 	if (conn->ld == NULL) {
 		if (conn->set.uris != NULL) {
 #ifdef LDAP_HAVE_INITIALIZE
@@ -615,7 +673,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 
 	if (conn->set.sasl_bind) {
 #ifdef HAVE_LDAP_SASL
-		struct ldap_sasl_bind_context context;
+		struct db_ldap_sasl_bind_context context;
 
 		memset(&context, 0, sizeof(context));
 		context.authcid = conn->set.dn;
@@ -631,48 +689,49 @@ int db_ldap_connect(struct ldap_connection *conn)
 						   sasl_interact, &context);
 		if (db_ldap_connect_finish(conn, ret) < 0)
 			return -1;
-		db_ldap_get_fd(conn);
 #else
 		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
 #endif
+		conn->conn_state = LDAP_CONN_STATE_BOUND_DEFAULT;
 	} else {
 		if (db_ldap_bind(conn) < 0)
 			return -1;
-		db_ldap_get_fd(conn);
 	}
 
+	db_ldap_get_fd(conn);
 	conn->io = io_add(conn->fd, IO_READ, ldap_input, conn);
 	return 0;
 }
 
-static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests)
+static void db_ldap_disconnect_timeout(struct ldap_connection *conn)
 {
-	struct hash_iterate_context *iter;
-	struct ldap_request *request, *next;
-	void *key, *value;
+	db_ldap_abort_requests(conn, -1U,
+			       DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS);
 
-	if (flush_requests) {
-		iter = hash_iterate_init(conn->requests);
-		while (hash_iterate(iter, &key, &value)) {
-			request = value;
-
-			request->callback(conn, request, NULL);
-		}
-		hash_iterate_deinit(&iter);
-		hash_clear(conn->requests, FALSE);
-
-		request = conn->delayed_requests_head;
-		for (; request != NULL; request = next) {
-			next = request->next;
-
-			request->callback(conn, request, NULL);
-		}
-		conn->delayed_requests_head = NULL;
-		conn->delayed_requests_tail = NULL;
+	if (queue_count(conn->request_queue) == 0) {
+		/* no requests left, remove this timeout handler */
+		timeout_remove(&conn->to);
 	}
+}
 
-	conn->connected = FALSE;
-	conn->binding = FALSE;
+static void db_ldap_conn_close(struct ldap_connection *conn)
+{
+	struct ldap_request *const *requests, *request;
+	unsigned int i;
+
+	conn->conn_state = LDAP_CONN_STATE_DISCONNECTED;
+	conn->default_bind_msgid = -1;
+
+	if (conn->pending_count != 0) {
+		requests = array_idx(&conn->request_array, 0);
+		for (i = 0; i < conn->pending_count; i++) {
+			request = requests[queue_idx(conn->request_queue, i)];
+
+			i_assert(request->msgid != -1);
+			request->msgid = -1;
+		}
+		conn->pending_count = 0;
+	}
 
 	if (conn->io != NULL)
 		io_remove(&conn->io);
@@ -682,6 +741,14 @@ static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests)
 		conn->ld = NULL;
 	}
 	conn->fd = -1;
+
+	if (queue_count(conn->request_queue) == 0) {
+		if (conn->to != NULL)
+			timeout_remove(&conn->to);
+	} else if (conn->to == NULL) {
+		conn->to = timeout_add(DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS *
+				       1000/2, db_ldap_disconnect_timeout, conn);
+	}
 }
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
@@ -980,10 +1047,10 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	pool = pool_alloconly_create("ldap_connection", 1024);
 	conn = p_new(pool, struct ldap_connection, 1);
 	conn->pool = pool;
-
 	conn->refcount = 1;
-	conn->requests = hash_create(default_pool, pool, 0, NULL, NULL);
 
+	conn->conn_state = LDAP_CONN_STATE_DISCONNECTED;
+	conn->default_bind_msgid = -1;
 	conn->fd = -1;
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_ldap_settings;
@@ -1005,6 +1072,9 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 
         conn->set.ldap_deref = deref2str(conn->set.deref);
 	conn->set.ldap_scope = scope2str(conn->set.scope);
+
+	i_array_init(&conn->request_array, DB_LDAP_MAX_QUEUE_SIZE);
+	conn->request_queue = queue_init(&conn->request_array.arr);
 
 	conn->next = ldap_connections;
         ldap_connections = conn;
@@ -1028,9 +1098,14 @@ void db_ldap_unref(struct ldap_connection **_conn)
 		}
 	}
 
-	ldap_conn_close(conn, TRUE);
+	db_ldap_abort_requests(conn, -1U, 0);
+	i_assert(conn->pending_count == 0);
+	db_ldap_conn_close(conn);
+	i_assert(conn->to == NULL);
 
-	hash_destroy(&conn->requests);
+	array_free(&conn->request_array);
+	queue_deinit(&conn->request_queue);
+
 	if (conn->pass_attr_map != NULL)
 		hash_destroy(&conn->pass_attr_map);
 	if (conn->user_attr_map != NULL)
