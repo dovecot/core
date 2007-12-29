@@ -1,8 +1,10 @@
+ - pipelining: commands that require output should do a delayed sync until
+   there are no transactions, instead of just immediately returning OK
+ - SORT/SEARCH: Replace invalid input with #fffd. Make sure squat doesn't
+   index it.
  - stat() failed with index cache file /home/tss/dbox/INBOX/dbox-Mails/dovecot.index.cache: No such file or directory
- - squat: handle expunges
+ - squat: handle expunges, nfs support
  - fts lucene broken
- - recent flag handling is still slightly buggy with simultaneous connections
-   with maildir and mbox
 
  - fix listescape plugin
  - cache: compress when we can drop temporary fields.
@@ -17,6 +19,7 @@
    - proxying would also want DNS lookups, but not reverse..
  - proxying should support connecting to multiple IPs or if nothing works
    fallbacking to logging in normally (optionally).
+ - ldap domain lookups which set the base for user lookup
 
  - maildir+pop3/deliver fast updates:
    - with locking enabled, pop3 could just keep the one and same sync lock and
