@@ -205,7 +205,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		if (ret > 0) {
 			fstream->real_offset += ret;
 			ret += sent;
-		} else if (!fstream->file) {
+		} else if (!fstream->file && sent > 0) {
 			/* return what we managed to get sent */
 			ret = sent;
 		}
