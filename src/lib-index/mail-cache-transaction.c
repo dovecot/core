@@ -152,11 +152,12 @@ mail_cache_transaction_open_if_needed(struct mail_cache_transaction_ctx *ctx)
 		(void)mail_cache_open_and_verify(cache);
 		return;
 	}
-	if (MAIL_CACHE_IS_UNUSABLE(cache))
-		return;
 
 	/* see if we should try to reopen the cache file */
 	for (i = 0;; i++) {
+		if (MAIL_CACHE_IS_UNUSABLE(cache))
+			return;
+
 		if (!mail_index_map_get_ext_idx(cache->index->map,
 						cache->ext_id, &idx))
 			return;

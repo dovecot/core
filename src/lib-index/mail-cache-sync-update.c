@@ -45,7 +45,7 @@ static int mail_cache_handler_lock(struct mail_cache_sync_context *ctx,
 	int ret;
 
 	if (ctx->locked)
-		return 1;
+		return MAIL_CACHE_IS_UNUSABLE(cache) ? 0 : 1;
 	if (ctx->lock_failed)
 		return 0;
 
@@ -59,17 +59,17 @@ static int mail_cache_handler_lock(struct mail_cache_sync_context *ctx,
 	return 1;
 }
 
-static int get_cache_file_seq(struct mail_index_view *view,
+static bool get_cache_file_seq(struct mail_index_view *view,
 			      uint32_t *cache_file_seq_r)
 {
 	const struct mail_index_ext *ext;
 
 	ext = mail_index_view_get_ext(view, view->index->cache->ext_id);
 	if (ext == NULL)
-		return 0;
+		return FALSE;
 
 	*cache_file_seq_r = ext->reset_id;
-	return 1;
+	return TRUE;
 }
 
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,

@@ -192,7 +192,7 @@ mail_index_header_update_lowwaters(struct mail_index_sync_map_ctx *ctx,
 	}
 }
 
-static int
+static void
 sync_expunge_call_handlers(struct mail_index_sync_map_ctx *ctx,
 			   uint32_t seq1, uint32_t seq2)
 {
@@ -202,25 +202,27 @@ sync_expunge_call_handlers(struct mail_index_sync_map_ctx *ctx,
 
 	/* call expunge handlers only when syncing index file */
 	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_FILE)
-		return 0;
+		return;
 
 	if (!ctx->expunge_handlers_set)
 		mail_index_sync_init_expunge_handlers(ctx);
 
 	if (!array_is_created(&ctx->expunge_handlers))
-		return 0;
+		return;
 
 	eh = array_get(&ctx->expunge_handlers, &count);
 	for (i = 0; i < count; i++, eh++) {
 		for (; seq1 <= seq2; seq1++) {
 			rec = MAIL_INDEX_MAP_IDX(ctx->view->map, seq1-1);
-			if (eh->handler(ctx, seq1,
-					PTR_OFFSET(rec, eh->record_offset),
-					eh->sync_context, eh->context) < 0)
-				return -1;
+			/* FIXME: does expunge handler's return value matter?
+			   we probably shouldn't disallow expunges if the
+			   handler returns failure.. should it be just changed
+			   to return void? */
+			(void)eh->handler(ctx, seq1,
+					  PTR_OFFSET(rec, eh->record_offset),
+					  eh->sync_context, eh->context);
 		}
 	}
-	return 0;
 }
 
 static int
@@ -239,6 +241,8 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 			continue;
 		}
 
+		sync_expunge_call_handlers(ctx, seq1, seq2);
+
 		map = mail_index_sync_get_atomic_map(ctx);
 		for (seq = seq1; seq <= seq2; seq++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
@@ -246,9 +250,6 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 							     rec->flags, 0,
 							     FALSE);
 		}
-
-		if (sync_expunge_call_handlers(ctx, seq1, seq2) < 0)
-			return -1;
 
 		/* @UNSAFE */
 		memmove(MAIL_INDEX_MAP_IDX(map, seq1-1),
