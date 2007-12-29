@@ -257,6 +257,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	const char *p, *names, *end;
 	void *orig_key, *orig_value;
 	unsigned int fidx, new_fields_count;
+	enum mail_cache_decision_type dec;
 	time_t max_drop_time;
 	uint32_t offset, i;
 
@@ -367,10 +368,11 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		if (last_used[i] > cache->fields[fidx].last_used)
 			cache->fields[fidx].last_used = last_used[i];
 
+		dec = cache->fields[fidx].field.decision;
 		if ((time_t)cache->fields[fidx].last_used < max_drop_time &&
 		    cache->fields[fidx].last_used != 0 &&
-		    (cache->fields[fidx].field.decision &
-		     ~MAIL_CACHE_DECISION_FORCED) != MAIL_CACHE_DECISION_NO) {
+		    (dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
+		    dec != MAIL_CACHE_DECISION_NO) {
 			/* time to drop this field. don't bother dropping
 			   fields that have never been used. */
 			cache->need_compress_file_seq = cache->hdr->file_seq;
