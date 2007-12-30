@@ -65,11 +65,6 @@ void random_deinit(void)
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
-#include <sys/time.h>
-#ifdef HAVE_SYS_RESOURCE_H
-#  include <sys/resource.h>
-#endif
-
 static const char *ssl_last_error(void)
 {
 	unsigned long err;
@@ -86,37 +81,6 @@ static const char *ssl_last_error(void)
 	return buf;
 }
 
-static void random_init_rng(void)
-{
-	unsigned int counter = 0;
-	struct timeval tv;
-#ifdef HAVE_GETRUSAGE
-	struct rusage ru;
-#endif
-
-	/* If the RNG is already seeded, we can return immediately. */
-	if (RAND_status() == 1)
-		return;
-
-	/* Else, try to seed it. Unfortunately we don't have
-	   /dev/urandom, so we can only use weak random sources. */
-	while (RAND_status() != 1) {
-		if (gettimeofday(&tv, NULL) < 0)
-			i_fatal("gettimeofday() failed: %m");
-		RAND_add(&tv, sizeof(tv), sizeof(tv) / 2);
-#ifdef HAVE_GETRUSAGE
-		if (getrusage(RUSAGE_SELF, &ru) < 0)
-			i_fatal("getrusage() failed: %m");
-		RAND_add(&ru, sizeof(ru), sizeof(ru) / 2);
-#endif
-
-		if (counter++ > 100) {
-			i_fatal("Random generator initialization failed: "
-				"Couldn't get enough entropy");
-		}
-	}
-}
-
 void random_fill(void *buf, size_t size)
 {
 	if (RAND_bytes(buf, size) != 1)
@@ -127,7 +91,10 @@ void random_init(void)
 {
 	unsigned int seed;
 
-	random_init_rng();
+	if (RAND_status() == 0) {
+		i_fatal("Random generator not initialized: "
+			"Install egd on /var/run/egd-pool");
+	}
 
 	random_fill(&seed, sizeof(seed));
 	srand(seed);
