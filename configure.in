@@ -430,7 +430,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsyslog writev pread \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
 	       strtoull strtouq setpriority quotactl getmntent kqueue kevent \
-	       getrusage backtrace_symbols walkcontext dirfd \
+	       backtrace_symbols walkcontext dirfd \
 	       malloc_usable_size posix_fallocate)
 
 dnl * I/O loop function
