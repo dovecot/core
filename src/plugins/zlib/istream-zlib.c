@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "istream-internal.h"

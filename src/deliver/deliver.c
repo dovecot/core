@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2008 Dovecot authors, see the included COPYING file */
 
 /* This is getting pretty horrible. Especially the config file parsing.
    Dovecot v2.0 should have a config file handling process which should help

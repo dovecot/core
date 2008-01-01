@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 /*
    LINUX_PROCTITLE_HACK code from:

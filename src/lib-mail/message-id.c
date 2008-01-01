@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2007 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"

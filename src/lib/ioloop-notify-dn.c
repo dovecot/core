@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2007 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2008 Dovecot authors, see the included COPYING file */
 
 /* Logic is pretty much based on dnotify by Oskar Liljeblad. */
 

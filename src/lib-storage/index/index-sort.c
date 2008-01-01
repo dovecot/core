@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2007 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2008 Dovecot authors, see the included COPYING file */
 
 /* The idea in here is that we use a 32bit integer (sort ID) which specifies
    the sort order for primary sort condition. With fixed size fields (time,

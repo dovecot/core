@@ -1,4 +1,4 @@
-/* Copyright (c) 1999-2007 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 1999-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "close-keep-errno.h"
