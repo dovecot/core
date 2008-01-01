@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
-#include "buffer.h"
+#include "array.h"
 #include "base64.h"
 #include "hash.h"
 #include "str.h"
@@ -27,7 +27,7 @@ struct auth_request_handler {
 	auth_request_callback_t *master_callback;
 };
 
-static buffer_t *auth_failures_buf;
+static ARRAY_DEFINE(auth_failures, struct auth_request *);
 static struct timeout *to_auth_failures;
 
 #undef auth_request_handler_create
@@ -214,8 +214,7 @@ static void auth_callback(struct auth_request *request,
 			   a) timing attacks, b) flooding */
 			request->delayed_failure = TRUE;
 			handler->refcount++;
-			buffer_append(auth_failures_buf,
-				      &request, sizeof(request));
+			array_append(&auth_failures, &request, 1);
 		}
 		break;
 	}
@@ -481,18 +480,17 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 void auth_request_handler_flush_failures(void)
 {
 	struct auth_request **auth_request;
-	size_t i, size;
+	unsigned int i, count;
 
-	auth_request = buffer_get_modifiable_data(auth_failures_buf, &size);
-	size /= sizeof(*auth_request);
+	auth_request = array_get_modifiable(&auth_failures, &count);
 
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < count; i++) {
 		i_assert(auth_request[i]->state == AUTH_REQUEST_STATE_FINISHED);
 		auth_request[i]->callback(auth_request[i],
 					  AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
 		auth_request_unref(&auth_request[i]);
 	}
-	buffer_set_used_size(auth_failures_buf, 0);
+	array_clear(&auth_failures);
 }
 
 static void auth_failure_timeout(void *context ATTR_UNUSED)
@@ -502,13 +500,13 @@ static void auth_failure_timeout(void *context ATTR_UNUSED)
 
 void auth_request_handler_init(void)
 {
-	auth_failures_buf = buffer_create_dynamic(default_pool, 1024);
+	i_array_init(&auth_failures, 128);
         to_auth_failures = timeout_add(2000, auth_failure_timeout, NULL);
 }
 
 void auth_request_handler_deinit(void)
 {
 	auth_request_handler_flush_failures();
-	buffer_free(&auth_failures_buf);
+	array_free(&auth_failures);
 	timeout_remove(&to_auth_failures);
 }

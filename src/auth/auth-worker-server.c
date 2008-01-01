@@ -1,7 +1,7 @@
 /* Copyright (c) 2005-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
-#include "buffer.h"
+#include "array.h"
 #include "ioloop.h"
 #include "network.h"
 #include "istream.h"
@@ -30,14 +30,14 @@ struct auth_worker_connection {
 	struct ostream *output;
 
 	unsigned int id_counter;
-        buffer_t *requests; /* struct auth_worker_request[] */
+        ARRAY_DEFINE(requests, struct auth_worker_request);
 
 	time_t last_used;
 	unsigned int request_count;
 	unsigned int requests_left;
 };
 
-static buffer_t *connections = NULL;
+static ARRAY_DEFINE(connections, struct auth_worker_connection *) = ARRAY_INIT;
 static unsigned int idle_count;
 static unsigned int auth_workers_max;
 static unsigned int auth_workers_max_request_count;
@@ -52,7 +52,7 @@ static struct auth_worker_connection *auth_worker_create(void)
 	struct auth_worker_connection *conn;
 	int fd, try;
 
-	if (connections->used / sizeof(conn) >= auth_workers_max)
+	if (array_count(&connections) >= auth_workers_max)
 		return NULL;
 
 	for (try = 0;; try++) {
@@ -85,29 +85,26 @@ static struct auth_worker_connection *auth_worker_create(void)
 					 FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->io = io_add(fd, IO_READ, worker_input, conn);
-	conn->requests = buffer_create_dynamic(default_pool, 128);
+	i_array_init(&conn->requests, 16);
 	conn->requests_left = auth_workers_max_request_count;
 
 	idle_count++;
 
-	buffer_append(connections, &conn, sizeof(conn));
+	array_append(&connections, &conn, 1);
 	return conn;
 }
 
 static void auth_worker_destroy(struct auth_worker_connection *conn)
 {
 	struct auth_worker_connection **connp;
-	struct auth_worker_request *request;
-	size_t i, size;
+	struct auth_worker_request *requests;
+	unsigned int i, count;
 	const char *reply;
 
-	connp = buffer_get_modifiable_data(connections, &size);
-	size /= sizeof(*connp);
-
-	for (i = 0; i < size; i++) {
+	connp = array_get_modifiable(&connections, &count);
+	for (i = 0; i < count; i++) {
 		if (connp[i] == conn) {
-			buffer_delete(connections, i * sizeof(*connp),
-				      sizeof(*connp));
+			array_delete(&connections, i, 1);
 			break;
 		}
 	}
@@ -116,22 +113,21 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 		idle_count--;
 
 	/* abort all pending requests */
-	request = buffer_get_modifiable_data(conn->requests, &size);
-	size /= sizeof(*request);
-
 	reply = t_strdup_printf("FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE);
-	for (i = 0; i < size; i++) {
-		if (request[i].id != 0) {
+
+	requests = array_get_modifiable(&conn->requests, &count);
+	for (i = 0; i < count; i++) {
+		if (requests[i].id != 0) {
 			T_FRAME(
-				request[i].callback(request[i].auth_request,
-						    reply);
+				requests[i].callback(requests[i].auth_request,
+						     reply);
 			);
-			auth_request_unref(&request[i].auth_request);
+			auth_request_unref(&requests[i].auth_request);
 		}
 	}
 
 
-	buffer_free(&conn->requests);
+	array_free(&conn->requests);
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
@@ -145,31 +141,27 @@ static struct auth_worker_request *
 auth_worker_request_lookup(struct auth_worker_connection *conn,
 			   unsigned int id)
 {
-	struct auth_worker_request *request;
-	size_t i, size;
+	struct auth_worker_request *requests;
+	unsigned int i, count;
 
-	request = buffer_get_modifiable_data(conn->requests, &size);
-	size /= sizeof(*request);
-
-	for (i = 0; i < size; i++) {
-		if (request[i].id == id)
-			return &request[i];
+	requests = array_get_modifiable(&conn->requests, &count);
+	for (i = 0; i < count; i++) {
+		if (requests[i].id == id)
+			return &requests[i];
 	}
-
 	return NULL;
 }
 
 static struct auth_worker_connection *auth_worker_find_free(void)
 {
 	struct auth_worker_connection **conn, *best;
-	size_t i, size, outbuf_size, best_size;
+	unsigned int i, count;
+	size_t outbuf_size, best_size;
 
-	conn = buffer_get_modifiable_data(connections, &size);
-	size /= sizeof(*conn);
-
+	conn = array_get_modifiable(&connections, &count);
 	if (idle_count > 0) {
 		/* there exists at least one idle connection, use it */
-		for (i = 0; i < size; i++) {
+		for (i = 0; i < count; i++) {
 			if (conn[i]->request_count == 0)
 				return conn[i];
 		}
@@ -179,7 +171,7 @@ static struct auth_worker_connection *auth_worker_find_free(void)
 	/* first the connection with least data in output buffer */
 	best = NULL;
 	best_size = (size_t)-1;
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < count; i++) {
 		outbuf_size = o_stream_get_buffer_used_size(conn[i]->output);
 		if (outbuf_size < best_size && conn[i]->requests_left > 0) {
 			best = conn[i];
@@ -254,17 +246,9 @@ static struct auth_worker_request *
 auth_worker_request_get(struct auth_worker_connection *conn)
 {
         struct auth_worker_request *request;
-	size_t i, size;
 
-	request = buffer_get_modifiable_data(conn->requests, &size);
-	size /= sizeof(*request);
-
-	for (i = 0; i < size; i++) {
-		if (request[i].id == 0)
-			return &request[i];
-	}
-
-	return buffer_append_space_unsafe(conn->requests, sizeof(*request));
+	request = auth_worker_request_lookup(conn, 0);
+	return request != NULL ? request : array_append_space(&conn->requests);
 }
 
 void auth_worker_call(struct auth_request *auth_request, const char *data,
@@ -332,10 +316,7 @@ void auth_worker_call(struct auth_request *auth_request, const char *data,
 static void auth_worker_timeout(void *context ATTR_UNUSED)
 {
 	struct auth_worker_connection **conn;
-	size_t i, size;
-
-	conn = buffer_get_modifiable_data(connections, &size);
-	size /= sizeof(*conn);
+	unsigned int i, count;
 
 	if (idle_count <= 1)
 		return;
@@ -343,7 +324,8 @@ static void auth_worker_timeout(void *context ATTR_UNUSED)
 	/* remove connections which we haven't used for a long time.
 	   this works because auth_worker_find_free() always returns the
 	   first free connection. */
-	for (i = 0; i < size; i++) {
+	conn = array_get_modifiable(&connections, &count);
+	for (i = 0; i < count; i++) {
 		if (conn[i]->last_used +
 		    AUTH_WORKER_MAX_IDLE_TIME < ioloop_time) {
 			/* remove just one. easier.. */
@@ -357,7 +339,7 @@ void auth_worker_server_init(void)
 {
 	const char *env;
 
-	if (connections != NULL) {
+	if (array_is_created(&connections)) {
 		/* already initialized */
 		return;
 	}
@@ -379,8 +361,7 @@ void auth_worker_server_init(void)
 	if (auth_workers_max_request_count == 0)
 		auth_workers_max_request_count = (unsigned int)-1;
 
-	connections = buffer_create_dynamic(default_pool,
-		sizeof(struct auth_worker_connection) * 16);
+	i_array_init(&connections, 16);
 	to = timeout_add(1000 * 60, auth_worker_timeout, NULL);
 
 	auth_worker_create();
@@ -390,14 +371,14 @@ void auth_worker_server_deinit(void)
 {
 	struct auth_worker_connection **connp;
 
-	if (connections == NULL)
+	if (!array_is_created(&connections))
 		return;
 
-	while (connections->used > 0) {
-		connp = buffer_get_modifiable_data(connections, NULL);
+	while (array_count(&connections) > 0) {
+		connp = array_idx_modifiable(&connections, 0);
 		auth_worker_destroy(*connp);
 	}
-	buffer_free(&connections);
+	array_free(&connections);
 
 	timeout_remove(&to);
 	i_free(worker_socket_path);
