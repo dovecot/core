@@ -243,12 +243,14 @@ static const char *ns_env_key(const char *name, unsigned int i)
 static void
 env_add_namespace(ARRAY_TYPE(const_string) *env,
 		  struct namespace_settings *ns, const char *default_location,
-		  const struct var_expand_table *table)
+		  const struct var_expand_table *table,
+		  const char **first_location_r)
 {
 	const char *location;
 	unsigned int i;
 	string_t *str;
 
+	*first_location_r = NULL;
 	if (default_location == NULL)
 		default_location = "";
 
@@ -256,6 +258,8 @@ env_add_namespace(ARRAY_TYPE(const_string) *env,
 		location = *ns->location != '\0' ? ns->location :
 			default_location;
 		location = expand_mail_env(location, table);
+		if (*first_location_r == NULL)
+			*first_location_r = location;
 		envarr_add(env, t_strdup_printf("NAMESPACE_%u", i), location);
 
 		if (ns->separator != NULL)
@@ -283,7 +287,8 @@ static void
 mail_process_set_environment(ARRAY_TYPE(const_string) *env,
 			     struct settings *set, const char *mail,
 			     const struct var_expand_table *var_expand_table,
-			     bool dump_capability)
+			     bool dump_capability,
+			     const char **first_location_r)
 {
 	const char *const *envs;
 	string_t *str;
@@ -388,10 +393,13 @@ mail_process_set_environment(ARRAY_TYPE(const_string) *env,
 		mail = expand_mail_env(set->mail_location, var_expand_table);
 	envarr_add(env, "MAIL", mail);
 
+	*first_location_r = NULL;
 	if (set->server->namespaces != NULL) {
 		env_add_namespace(env, set->server->namespaces,
-				  mail, var_expand_table);
+				  mail, var_expand_table, first_location_r);
 	}
+	if (*first_location_r == NULL)
+		*first_location_r = mail == NULL ? mail : "";
 
 	str = t_str_new(256);
 	envs = array_get(&set->plugin_envs, &count);
@@ -409,7 +417,7 @@ void mail_process_exec(const char *protocol, const char *section)
 	struct server_settings *server = settings_root;
 	const struct var_expand_table *var_expand_table;
 	struct settings *set;
-	const char *executable;
+	const char *executable, *first_location;
 	ARRAY_TYPE(const_string) env;
 
 	if (strcmp(protocol, "ext") == 0) {
@@ -459,8 +467,8 @@ void mail_process_exec(const char *protocol, const char *section)
 		envarr_add(&env, "LOG_PREFIX", str_c(str));
 	}
 
-	mail_process_set_environment(&env, set, getenv("MAIL"), var_expand_table,
-				     FALSE);
+	mail_process_set_environment(&env, set, getenv("MAIL"),
+				     var_expand_table, FALSE, &first_location);
         client_process_exec(executable, "", &env);
 
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
@@ -513,7 +521,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 {
 	const struct var_expand_table *var_expand_table;
 	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
-	const char *system_user;
+	const char *system_user, *first_location;
 	struct mail_process_group *process_group;
 	char title[1024];
 	struct log_io *log;
@@ -773,7 +781,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 	mail_process_set_environment(&env, set, mail, var_expand_table,
-				     dump_capability);
+				     dump_capability, &first_location);
 
 	/* extra args. uppercase key value. */
 	args = array_get(&extra_args, &count);
@@ -799,11 +807,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	if (nfs_check) {
 		/* ideally we should check all of the namespaces,
 		   but for now don't bother. */
-		const char *mail_location = getenv("NAMESPACE_1");
-
-		if (mail_location == NULL)
-			mail_location = getenv("MAIL");
-		nfs_warn_if_found(mail_location, full_home_dir);
+		nfs_warn_if_found(first_location, full_home_dir);
 	}
 
 	envarr_addb(&env, "LOGGED_IN");
