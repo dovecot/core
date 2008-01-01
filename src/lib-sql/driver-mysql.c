@@ -31,6 +31,7 @@ struct mysql_db {
 	pool_t pool;
 	const char *user, *password, *dbname, *unix_socket;
 	const char *ssl_cert, *ssl_key, *ssl_ca, *ssl_ca_path, *ssl_cipher;
+	const char *def_file, *def_group;
 	unsigned int port, client_flags;
 
 	ARRAY_DEFINE(connections, struct mysql_connection);
@@ -105,6 +106,14 @@ static bool driver_mysql_connect(struct mysql_connection *conn)
 		unix_socket = NULL;
 		host = conn->host;
 	}
+
+	if (db->def_file != NULL)
+		mysql_options(conn->mysql, MYSQL_READ_DEFAULT_FILE, db->def_file);
+
+	if (db->def_group != NULL)
+		mysql_options(conn->mysql, MYSQL_READ_DEFAULT_GROUP, db->def_group);
+	else
+		mysql_options(conn->mysql, MYSQL_READ_DEFAULT_GROUP, "client");
 
 	if (!conn->ssl_set && (db->ssl_ca != NULL || db->ssl_ca_path != NULL)) {
 #ifdef HAVE_MYSQL_SSL
@@ -229,6 +238,10 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 			field = &db->ssl_ca_path;
 		else if (strcmp(name, "ssl_cipher") == 0)
 			field = &db->ssl_cipher;
+		else if (strcmp(name, "default_file") == 0)
+			field = &db->def_file;
+		else if (strcmp(name, "default_group") == 0)
+			field = &db->def_group;
 		else
 			i_fatal("mysql: Unknown connect string: %s", name);
 
