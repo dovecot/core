@@ -9,7 +9,6 @@
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "mail-search.h"
-#include "index/index-storage.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -266,14 +265,10 @@ void mail_storage_destroy(struct mail_storage **_storage)
 
 	*_storage = NULL;
 
-	if (storage->v.destroy != NULL)
-		storage->v.destroy(storage);
-
+	storage->v.destroy(storage);
 	mailbox_list_deinit(storage->list);
 	i_free(storage->error_string);
 	pool_unref(&storage->pool);
-
-	index_storage_destroy_unrefed();
 }
 
 void mail_storage_clear_error(struct mail_storage *storage)

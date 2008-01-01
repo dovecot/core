@@ -510,7 +510,7 @@ struct mail_storage dbox_storage = {
 		dbox_class_deinit,
 		dbox_alloc,
 		dbox_create,
-		NULL,
+		index_storage_destroy,
 		NULL,
 		dbox_mailbox_open,
 		dbox_mailbox_create

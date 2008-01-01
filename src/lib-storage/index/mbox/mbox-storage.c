@@ -911,7 +911,7 @@ struct mail_storage mbox_storage = {
 		mbox_class_deinit,
 		mbox_alloc,
 		mbox_create,
-		NULL,
+		index_storage_destroy,
 		mbox_autodetect,
 		mbox_mailbox_open,
 		mbox_mailbox_create

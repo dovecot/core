@@ -97,6 +97,7 @@ index_storage_alloc(struct mail_storage *storage, const char *name,
 		    enum mailbox_open_flags flags, const char *prefix);
 void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
+void index_storage_destroy(struct mail_storage *storage ATTR_UNUSED);
 
 void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 				enum mailbox_open_flags flags,

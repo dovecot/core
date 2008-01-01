@@ -399,7 +399,7 @@ struct mail_storage cydir_storage = {
 		cydir_class_deinit,
 		cydir_alloc,
 		cydir_create,
-		NULL,
+		index_storage_destroy,
 		NULL,
 		cydir_mailbox_open,
 		cydir_mailbox_create

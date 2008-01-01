@@ -977,7 +977,7 @@ struct mail_storage maildir_storage = {
 		maildir_class_deinit,
 		maildir_alloc,
 		maildir_create,
-		NULL,
+		index_storage_destroy,
 		maildir_autodetect,
 		maildir_mailbox_open,
 		maildir_mailbox_create

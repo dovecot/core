@@ -235,6 +235,11 @@ void index_storage_destroy_unrefed(void)
 	destroy_unrefed(TRUE);
 }
 
+void index_storage_destroy(struct mail_storage *storage ATTR_UNUSED)
+{
+	index_storage_destroy_unrefed();
+}
+
 static void set_cache_decisions(const char *set, const char *fields,
 				enum mail_cache_decision_type dec)
 {
