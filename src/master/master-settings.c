@@ -83,6 +83,7 @@ static struct setting_def auth_setting_defs[] = {
 	DEF_STR(krb5_keytab),
 	DEF_STR(gssapi_hostname),
 	DEF_STR(winbind_helper_path),
+	DEF_INT(failure_delay),
 
 	DEF_BOOL(verbose),
 	DEF_BOOL(debug),
@@ -312,6 +313,7 @@ struct auth_settings default_auth_settings = {
 	MEMBER(krb5_keytab) "",
 	MEMBER(gssapi_hostname) "",
 	MEMBER(winbind_helper_path) "/usr/bin/ntlm_auth",
+	MEMBER(failure_delay) 2,
 
 	MEMBER(verbose) FALSE,
 	MEMBER(debug) FALSE,

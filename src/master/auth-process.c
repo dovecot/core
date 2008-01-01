@@ -495,6 +495,7 @@ static void auth_set_environment(struct auth_settings *set)
 	}
 	env_put(t_strconcat("WINBIND_HELPER_PATH=",
 			    set->winbind_helper_path, NULL));
+	env_put(t_strdup_printf("FAILURE_DELAY=%u", set->failure_delay));
 
 	restrict_process_size(set->process_size, (unsigned int)-1);
 }

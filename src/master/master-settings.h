@@ -205,6 +205,7 @@ struct auth_settings {
 	const char *krb5_keytab;
 	const char *gssapi_hostname;
 	const char *winbind_helper_path;
+	unsigned int failure_delay;
 
 	bool verbose, debug, debug_passwords;
 	bool ssl_require_client_cert;

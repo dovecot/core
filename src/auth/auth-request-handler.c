@@ -14,8 +14,8 @@
 
 #include <stdlib.h>
 
-#define AUTH_FAILURE_DELAY_SECS 2
-#define AUTH_FAILURE_DELAY_CHECK_MSECS (1000*AUTH_FAILURE_DELAY_SECS/2)
+#define DEFAULT_AUTH_FAILURE_DELAY 2
+#define AUTH_FAILURE_DELAY_CHECK_MSECS 500
 
 struct auth_request_handler {
 	int refcount;
@@ -34,6 +34,7 @@ struct auth_request_handler {
 static ARRAY_DEFINE(auth_failures_arr, struct auth_request *);
 static struct aqueue *auth_failures;
 static struct timeout *to_auth_failures;
+static unsigned int auth_failure_delay;
 
 static void auth_failure_timeout(void *context);
 
@@ -508,7 +509,8 @@ void auth_request_handler_flush_failures(bool flush_all)
 
 	count = aqueue_count(auth_failures);
 	if (count == 0) {
-		timeout_remove(&to_auth_failures);
+		if (to_auth_failures != NULL)
+			timeout_remove(&to_auth_failures);
 		return;
 	}
 
@@ -517,7 +519,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 		auth_request = auth_requests[aqueue_idx(auth_failures, 0)];
 
 		diff = ioloop_time - auth_request->last_access;
-		if (diff < AUTH_FAILURE_DELAY_SECS && !flush_all)
+		if (diff < auth_failure_delay && !flush_all)
 			break;
 
 		aqueue_delete_tail(auth_failures);
@@ -536,6 +538,12 @@ static void auth_failure_timeout(void *context ATTR_UNUSED)
 
 void auth_request_handler_init(void)
 {
+	const char *env;
+
+	env = getenv("FAILURE_DELAY");
+	auth_failure_delay = env != NULL ? atoi(env) :
+		DEFAULT_AUTH_FAILURE_DELAY;
+
 	i_array_init(&auth_failures_arr, 128);
 	auth_failures = aqueue_init(&auth_failures_arr.arr);
 }
