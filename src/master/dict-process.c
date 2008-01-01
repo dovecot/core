@@ -36,6 +36,7 @@ static int dict_process_start(struct dict_process *process)
 	unsigned int i, count;
 	int log_fd;
 	pid_t pid;
+	ARRAY_TYPE(const_string) env;
 
 	log_fd = log_create_pipe(&log, 0);
 	if (log_fd < 0)
@@ -81,20 +82,22 @@ static int dict_process_start(struct dict_process *process)
 	for (i = 0; i <= 3; i++)
 		fd_close_on_exec(i, FALSE);
 
-	child_process_init_env();
-	env_put(t_strconcat("DICT_LISTEN_FROM_FD=", process->path, NULL));
+	child_process_init_env(&env);
+	envarr_add(&env, "DICT_LISTEN_FROM_FD", process->path);
 
 	dicts = array_get(&settings_root->dicts, &count);
 	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2)
-		env_put(t_strdup_printf("DICT_%s=%s", dicts[i], dicts[i+1]));
+	for (i = 0; i < count; i += 2) {
+		envarr_add(&env, t_strdup_printf("DICT_%s", dicts[i]),
+			   dicts[i+1]);
+	}
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
 	closelog();
 
 	executable = PKG_LIBEXECDIR"/dict";
-	client_process_exec(executable, "");
+	client_process_exec(executable, "", &env);
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 	return -1;
 }

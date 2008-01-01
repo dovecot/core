@@ -143,7 +143,7 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 		conn->current_uid = uid;
 	}
 
-	restrict_access_by_env(FALSE);
+	restrict_access_by_env(NULL, FALSE);
 	conn->return_value = 1;
 }
 
