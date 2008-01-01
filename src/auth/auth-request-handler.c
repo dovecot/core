@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "array.h"
+#include "aqueue.h"
 #include "base64.h"
 #include "hash.h"
 #include "str.h"
@@ -12,6 +13,9 @@
 #include "auth-request-handler.h"
 
 #include <stdlib.h>
+
+#define AUTH_FAILURE_DELAY_SECS 2
+#define AUTH_FAILURE_DELAY_CHECK_MSECS (1000*AUTH_FAILURE_DELAY_SECS/2)
 
 struct auth_request_handler {
 	int refcount;
@@ -27,8 +31,11 @@ struct auth_request_handler {
 	auth_request_callback_t *master_callback;
 };
 
-static ARRAY_DEFINE(auth_failures, struct auth_request *);
+static ARRAY_DEFINE(auth_failures_arr, struct auth_request *);
+static struct aqueue *auth_failures;
 static struct timeout *to_auth_failures;
+
+static void auth_failure_timeout(void *context);
 
 #undef auth_request_handler_create
 struct auth_request_handler *
@@ -147,6 +154,43 @@ static const char *get_client_extra_fields(struct auth_request *request)
 	return str_len(str) == 0 ? NULL : str_c(str);
 }
 
+static void
+auth_request_handle_failure(struct auth_request *request, const char *str)
+{
+        struct auth_request_handler *handler = request->context;
+
+	if (request->delayed_failure) {
+		/* we came here from flush_failures() */
+		handler->callback(str, handler->context);
+		return;
+	}
+
+	/* remove the request from requests-list */
+	auth_request_ref(request);
+	auth_request_handler_remove(handler, request);
+
+	if (request->no_failure_delay) {
+		/* passdb specifically requested not to delay the
+		   reply. */
+		handler->callback(str, handler->context);
+		auth_request_unref(&request);
+		return;
+	}
+
+	/* failure. don't announce it immediately to avoid
+	   a) timing attacks, b) flooding */
+	request->delayed_failure = TRUE;
+	handler->refcount++;
+
+	request->last_access = ioloop_time;
+	aqueue_append(auth_failures, &request);
+	if (to_auth_failures == NULL) {
+		to_auth_failures =
+			timeout_add(AUTH_FAILURE_DELAY_CHECK_MSECS,
+				    auth_failure_timeout, NULL);
+	}
+}
+
 static void auth_callback(struct auth_request *request,
 			  enum auth_client_result result,
 			  const void *reply, size_t reply_size)
@@ -194,28 +238,7 @@ static void auth_callback(struct auth_request *request,
 			str_append(str, fields);
 		}
 
-		if (request->delayed_failure) {
-			/* we came here from flush_failures() */
-			handler->callback(str_c(str), handler->context);
-			break;
-		}
-
-		/* remove the request from requests-list */
-		auth_request_ref(request);
-		auth_request_handler_remove(handler, request);
-
-		if (request->no_failure_delay) {
-			/* passdb specifically requested not to delay the
-			   reply. */
-			handler->callback(str_c(str), handler->context);
-			auth_request_unref(&request);
-		} else {
-			/* failure. don't announce it immediately to avoid
-			   a) timing attacks, b) flooding */
-			request->delayed_failure = TRUE;
-			handler->refcount++;
-			array_append(&auth_failures, &request, 1);
-		}
+		auth_request_handle_failure(request, str_c(str));
 		break;
 	}
 	/* NOTE: request may be destroyed now */
@@ -477,36 +500,52 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 	}
 }
 
-void auth_request_handler_flush_failures(void)
+void auth_request_handler_flush_failures(bool flush_all)
 {
-	struct auth_request **auth_request;
+	struct auth_request **auth_requests, *auth_request;
 	unsigned int i, count;
+	time_t diff;
 
-	auth_request = array_get_modifiable(&auth_failures, &count);
-
-	for (i = 0; i < count; i++) {
-		i_assert(auth_request[i]->state == AUTH_REQUEST_STATE_FINISHED);
-		auth_request[i]->callback(auth_request[i],
-					  AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
-		auth_request_unref(&auth_request[i]);
+	count = aqueue_count(auth_failures);
+	if (count == 0) {
+		timeout_remove(&to_auth_failures);
+		return;
 	}
-	array_clear(&auth_failures);
+
+	auth_requests = array_idx_modifiable(&auth_failures_arr, 0);
+	for (i = 0; i < count; i++) {
+		auth_request = auth_requests[aqueue_idx(auth_failures, 0)];
+
+		diff = ioloop_time - auth_request->last_access;
+		if (diff < AUTH_FAILURE_DELAY_SECS && !flush_all)
+			break;
+
+		aqueue_delete_tail(auth_failures);
+
+		i_assert(auth_request->state == AUTH_REQUEST_STATE_FINISHED);
+		auth_request->callback(auth_request,
+				       AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
+		auth_request_unref(&auth_request);
+	}
 }
 
 static void auth_failure_timeout(void *context ATTR_UNUSED)
 {
-	auth_request_handler_flush_failures();
+	auth_request_handler_flush_failures(FALSE);
 }
 
 void auth_request_handler_init(void)
 {
-	i_array_init(&auth_failures, 128);
-        to_auth_failures = timeout_add(2000, auth_failure_timeout, NULL);
+	i_array_init(&auth_failures_arr, 128);
+	auth_failures = aqueue_init(&auth_failures_arr.arr);
 }
 
 void auth_request_handler_deinit(void)
 {
-	auth_request_handler_flush_failures();
-	array_free(&auth_failures);
-	timeout_remove(&to_auth_failures);
+	auth_request_handler_flush_failures(TRUE);
+	array_free(&auth_failures_arr);
+	aqueue_deinit(&auth_failures);
+
+	if (to_auth_failures != NULL)
+		timeout_remove(&to_auth_failures);
 }

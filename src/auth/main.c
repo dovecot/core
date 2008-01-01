@@ -281,7 +281,7 @@ static void main_deinit(void)
 	if (worker_client != NULL)
 		auth_worker_client_unref(&worker_client);
 	else
-		auth_request_handler_flush_failures();
+		auth_request_handler_flush_failures(TRUE);
 
         auth_worker_server_deinit();
 	auth_master_listeners_deinit();

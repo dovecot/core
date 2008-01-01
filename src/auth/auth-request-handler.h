@@ -39,7 +39,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 					 unsigned int id,
 					 unsigned int client_id);
 
-void auth_request_handler_flush_failures(void);
+void auth_request_handler_flush_failures(bool flush_all);
 
 void auth_request_handler_init(void);
 void auth_request_handler_deinit(void);
