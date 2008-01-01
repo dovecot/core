@@ -28,6 +28,7 @@
 #include "auth-client.h"
 #include "mail-send.h"
 #include "duplicate.h"
+#include "mbox/mbox-from.h"
 #include "../master/syslog-util.h"
 #include "../master/syslog-util.c" /* ugly, ugly.. */
 #include "deliver.h"
@@ -61,7 +62,7 @@ static const char *default_mailbox_name = NULL;
 static bool saved_mail = FALSE;
 static bool tried_default_save = FALSE;
 static bool no_mailbox_autocreate = FALSE;
-static const char *explicit_envelope_sender = NULL;
+static char *explicit_envelope_sender = NULL;
 
 static struct module *modules;
 static struct ioloop *ioloop;
@@ -526,13 +527,15 @@ static const char *address_sanitize(const char *address)
 }
 
 
-static struct istream *create_raw_stream(int fd)
+static struct istream *create_raw_stream(int fd, time_t *mtime_r)
 {
 	struct istream *input, *input2, *input_list[2];
 	const unsigned char *data;
+	char *sender = NULL;
 	size_t i, size;
 	int ret;
 
+	*mtime_r = (time_t)-1;
 	fd_set_nonblock(fd, FALSE);
 
 	input = i_stream_create_fd(fd, 4096, FALSE);
@@ -548,12 +551,21 @@ static struct istream *create_raw_stream(int fd)
 					break;
 			}
 			if (i != size) {
+				(void)mbox_from_parse(data, i, mtime_r,
+						      &sender);
 				i_stream_skip(input, i + 1);
 				break;
 			}
 			i_stream_skip(input, size);
 		}
 	}
+
+	if (sender != NULL && explicit_envelope_sender == NULL) {
+		/* use the envelope sender from From_-line, but only if it
+		   hasn't been specified with -f already. */
+		explicit_envelope_sender = i_strdup(sender);
+	}
+	i_free(sender);
 
 	if (input->v_offset == 0) {
 		input2 = input;
@@ -692,7 +704,6 @@ static void putenv_extra_fields(ARRAY_TYPE(string) *extra_fields)
 int main(int argc, char *argv[])
 {
 	const char *config_path = DEFAULT_CONFIG_FILE;
-	const char *envelope_sender = DEFAULT_ENVELOPE_SENDER;
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
 	const char *home, *destaddr, *user, *value, *error;
@@ -710,6 +721,7 @@ int main(int argc, char *argv[])
 	bool stderr_rejection = FALSE;
 	bool keep_environment = FALSE;
 	bool user_auth = FALSE;
+	time_t mtime;
 	int i, ret;
 
 	i_set_failure_exit_callback(failure_exit_callback);
@@ -770,8 +782,8 @@ int main(int argc, char *argv[])
 			i++;
 			if (i == argc)
 				i_fatal_status(EX_USAGE, "Missing -f argument");
-			envelope_sender = address_sanitize(argv[i]);
-			explicit_envelope_sender = argv[i];
+			explicit_envelope_sender =
+				i_strdup(address_sanitize(argv[i]));
 		} else if (argv[i][0] != '\0') {
 			print_help();
 			i_fatal_status(EX_USAGE,
@@ -913,7 +925,7 @@ int main(int argc, char *argv[])
 	if (mail_storage_create(raw_ns, "raw", "/tmp", user,
 				0, FILE_LOCK_METHOD_FCNTL, &error) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", error);
-	input = create_raw_stream(0);
+	input = create_raw_stream(0, &mtime);
 	box = mailbox_open(raw_ns->storage, "Dovecot Delivery Mail", input,
 			   MAILBOX_OPEN_NO_INDEX_FILES);
 	if (box == NULL)
@@ -925,7 +937,9 @@ int main(int argc, char *argv[])
 			mail_storage_get_last_error(raw_ns->storage, &error));
 	}
 	raw_box = (struct raw_mailbox *)box;
-	raw_box->envelope_sender = envelope_sender;
+	raw_box->envelope_sender = explicit_envelope_sender != NULL ?
+		explicit_envelope_sender : DEFAULT_ENVELOPE_SENDER;
+	raw_box->mtime = mtime;
 
 	t = mailbox_transaction_begin(box, 0);
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
@@ -993,6 +1007,7 @@ int main(int argc, char *argv[])
 		/* ok, rejection sent */
 	}
 	i_stream_unref(&input);
+	i_free(explicit_envelope_sender);
 
 	mail_free(&mail);
 	mailbox_header_lookup_deinit(&headers_ctx);
