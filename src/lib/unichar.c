@@ -111,7 +111,7 @@ int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output)
 
 void uni_ucs4_to_utf8(const unichar_t *input, size_t len, buffer_t *output)
 {
-	for (; *input != '\0' && len > 0; input++, len--)
+	for (; len > 0 && *input != '\0'; input++, len--)
 		uni_ucs4_to_utf8_c(*input, output);
 }
 
