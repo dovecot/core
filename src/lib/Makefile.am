@@ -9,6 +9,7 @@ $(srcdir)/unicodemap.c:
 	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
 
 liblib_a_SOURCES = \
+	aqueue.c \
 	backtrace-string.c \
 	base64.c \
 	bsearch-insert-pos.c \
@@ -77,7 +78,6 @@ liblib_a_SOURCES = \
 	primes.c \
 	printf-format-fix.c \
 	process-title.c \
-	queue.c \
 	randgen.c \
 	read-full.c \
 	restrict-access.c \
@@ -104,6 +104,7 @@ liblib_a_SOURCES = \
 	write-full.c
 
 headers = \
+	aqueue.h \
 	array.h \
 	array-decl.h \
 	backtrace-string.h \
@@ -160,7 +161,6 @@ headers = \
 	primes.h \
 	printf-format-fix.h \
 	process-title.h \
-	queue.h \
 	randgen.h \
 	read-full.h \
 	restrict-access.h \

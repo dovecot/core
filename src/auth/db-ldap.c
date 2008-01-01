@@ -8,7 +8,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "hash.h"
-#include "queue.h"
+#include "aqueue.h"
 #include "str.h"
 #include "var-expand.h"
 #include "settings.h"
@@ -273,7 +273,7 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 {
 	struct ldap_request *const *requestp, *request;
-	unsigned int queue_size = queue_count(conn->request_queue);
+	unsigned int queue_size = aqueue_count(conn->request_queue);
 	int ret = -1;
 
 	if (conn->pending_count == queue_size) {
@@ -289,8 +289,8 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 		return FALSE;
 
 	requestp = array_idx(&conn->request_array,
-			     queue_idx(conn->request_queue,
-				       conn->pending_count));
+			     aqueue_idx(conn->request_queue,
+					conn->pending_count));
 	request = *requestp;
 
 	if (conn->pending_count > 0 &&
@@ -336,7 +336,7 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 		return FALSE;
 	} else {
 		/* broken request, remove from queue */
-		queue_delete_tail(conn->request_queue);
+		aqueue_delete_tail(conn->request_queue);
 		request->callback(conn, request, NULL);
 		return TRUE;
 	}
@@ -349,7 +349,7 @@ void db_ldap_request(struct ldap_connection *conn,
 	request->create_time = ioloop_time;
 
 	if (conn->request_queue->full &&
-	    queue_count(conn->request_queue) >= DB_LDAP_MAX_QUEUE_SIZE) {
+	    aqueue_count(conn->request_queue) >= DB_LDAP_MAX_QUEUE_SIZE) {
 		/* Queue is full already, fail this request */
 		auth_request_log_error(request->auth_request, "ldap",
 				       "Request queue is full");
@@ -357,7 +357,7 @@ void db_ldap_request(struct ldap_connection *conn,
 		return;
 	}
 
-	queue_append(conn->request_queue, &request);
+	aqueue_append(conn->request_queue, &request);
 	(void)db_ldap_request_queue_next(conn);
 }
 
@@ -405,9 +405,9 @@ static void db_ldap_abort_requests(struct ldap_connection *conn,
 	struct ldap_request *const *requestp, *request;
 	time_t diff;
 
-	while (queue_count(conn->request_queue) > 0 && max_count > 0) {
+	while (aqueue_count(conn->request_queue) > 0 && max_count > 0) {
 		requestp = array_idx(&conn->request_array,
-				     queue_idx(conn->request_queue, 0));
+				     aqueue_idx(conn->request_queue, 0));
 		request = *requestp;
 
 		diff = ioloop_time - request->create_time;
@@ -415,7 +415,7 @@ static void db_ldap_abort_requests(struct ldap_connection *conn,
 			break;
 
 		/* timed out, abort */
-		queue_delete_tail(conn->request_queue);
+		aqueue_delete_tail(conn->request_queue);
 
 		if (request->msgid != -1) {
 			i_assert(conn->pending_count > 0);
@@ -446,10 +446,10 @@ db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
 		return;
 	}
 
-	count = queue_count(conn->request_queue);
+	count = aqueue_count(conn->request_queue);
 	requests = count == 0 ? NULL : array_idx(&conn->request_array, 0);
 	for (i = 0; i < count; i++) {
-		request = requests[queue_idx(conn->request_queue, i)];
+		request = requests[aqueue_idx(conn->request_queue, i)];
 		if (request->msgid == msgid)
 			break;
 		if (request->msgid == -1) {
@@ -469,7 +469,7 @@ db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
 	}
 	i_assert(conn->pending_count > 0);
 	conn->pending_count--;
-	queue_delete(conn->request_queue, i);
+	aqueue_delete(conn->request_queue, i);
 
 	ret = ldap_result2error(conn->ld, res, 0);
 	if (ret != LDAP_SUCCESS && request->type == LDAP_REQUEST_TYPE_SEARCH) {
@@ -529,7 +529,7 @@ static void ldap_input(struct ldap_connection *conn)
 	} else if (ldap_get_errno(conn) != LDAP_SERVER_DOWN) {
 		i_error("LDAP: ldap_result() failed: %s", ldap_get_error(conn));
 		ldap_conn_reconnect(conn);
-	} else if (queue_count(conn->request_queue) > 0 ||
+	} else if (aqueue_count(conn->request_queue) > 0 ||
 		   ioloop_time - conn->last_reply_stamp <
 		   				DB_LDAP_IDLE_RECONNECT_SECS) {
 		i_error("LDAP: Connection lost to LDAP server, reconnecting");
@@ -718,7 +718,7 @@ static void db_ldap_disconnect_timeout(struct ldap_connection *conn)
 			       DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS,
 			       FALSE, "LDAP server not connected");
 
-	if (queue_count(conn->request_queue) == 0) {
+	if (aqueue_count(conn->request_queue) == 0) {
 		/* no requests left, remove this timeout handler */
 		timeout_remove(&conn->to);
 	}
@@ -735,7 +735,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	if (conn->pending_count != 0) {
 		requests = array_idx(&conn->request_array, 0);
 		for (i = 0; i < conn->pending_count; i++) {
-			request = requests[queue_idx(conn->request_queue, i)];
+			request = requests[aqueue_idx(conn->request_queue, i)];
 
 			i_assert(request->msgid != -1);
 			request->msgid = -1;
@@ -752,7 +752,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	}
 	conn->fd = -1;
 
-	if (queue_count(conn->request_queue) == 0) {
+	if (aqueue_count(conn->request_queue) == 0) {
 		if (conn->to != NULL)
 			timeout_remove(&conn->to);
 	} else if (conn->to == NULL) {
@@ -1084,7 +1084,7 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	conn->set.ldap_scope = scope2str(conn->set.scope);
 
 	i_array_init(&conn->request_array, DB_LDAP_MAX_QUEUE_SIZE);
-	conn->request_queue = queue_init(&conn->request_array.arr);
+	conn->request_queue = aqueue_init(&conn->request_array.arr);
 
 	conn->next = ldap_connections;
         ldap_connections = conn;
@@ -1114,7 +1114,7 @@ void db_ldap_unref(struct ldap_connection **_conn)
 	i_assert(conn->to == NULL);
 
 	array_free(&conn->request_array);
-	queue_deinit(&conn->request_queue);
+	aqueue_deinit(&conn->request_queue);
 
 	if (conn->pass_attr_map != NULL)
 		hash_destroy(&conn->pass_attr_map);
