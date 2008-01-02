@@ -2032,7 +2032,7 @@ mbox_libs='$(top_builddir)/src/lib-storage/index/mbox/libstorage_mbox.a'
 dbox_libs='$(top_builddir)/src/lib-storage/index/dbox/libstorage_dbox.a'
 cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.a'
 raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.a'
-index_libs='$(top_builddir)/src/lib-storage/index/libstorage_index.a $(top_builddir)/src/lib-index/libindex.a'
+CORE_LIBS='$(top_builddir)/src/lib-storage/index/libstorage_index.a $(top_builddir)/src/lib-storage/libstorage.a $(top_builddir)/src/lib-index/libindex.a'
 
 deliver_storage="raw"
 STORAGE_LIBS=
@@ -2042,7 +2042,7 @@ for storage in $mail_storages; do
   fi
   STORAGE_LIBS="$STORAGE_LIBS `eval echo \\$${storage}_libs`"
 done
-STORAGE_LIBS="$STORAGE_LIBS $index_libs"
+STORAGE_LIBS="$STORAGE_LIBS $CORE_LIBS"
 AC_SUBST(STORAGE_LIBS)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
 

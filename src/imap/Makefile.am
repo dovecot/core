@@ -22,7 +22,6 @@ libs = \
 	../lib-storage/register/libstorage-register.a \
 	../lib-storage/list/libstorage_list.a \
 	$(STORAGE_LIBS) \
-	../lib-storage/libstorage.a \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
 	../lib-dict/libdict.a \
