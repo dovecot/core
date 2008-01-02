@@ -442,8 +442,8 @@ static void auth_set_environment(ARRAY_TYPE(const_string) *env,
 	envarr_add(env, "USERNAME_TRANSLATION", set->username_translation);
 	envarr_add(env, "USERNAME_FORMAT", set->username_format);
 	envarr_add(env, "MASTER_USER_SEPARATOR", set->master_user_separator);
-	envarr_addi(env, "CACHE_SIZE=%u", set->cache_size);
-	envarr_addi(env, "CACHE_TTL=%u", set->cache_ttl);
+	envarr_addi(env, "CACHE_SIZE", set->cache_size);
+	envarr_addi(env, "CACHE_TTL", set->cache_ttl);
 	envarr_addi(env, "CACHE_NEGATIVE_TTL", set->cache_negative_ttl);
 
 	for (ap = set->passdbs, i = 1; ap != NULL; ap = ap->next, i++) {

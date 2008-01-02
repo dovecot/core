@@ -50,7 +50,7 @@ void child_process_init_env(ARRAY_TYPE(const_string) *env)
 	/* we'll log through master process */
 	envarr_addb(env, "LOG_TO_MASTER");
 	if (env_tz != NULL)
-		envarr_add(env, "TZ=", env_tz);
+		envarr_add(env, "TZ", env_tz);
 
 	if (settings_root == NULL ||
 	    !syslog_facility_find(settings_root->defaults->syslog_facility,
