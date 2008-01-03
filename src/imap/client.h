@@ -46,6 +46,7 @@ struct client {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct timeout *to_idle, *to_idle_output;
 
         struct mail_namespace *namespaces;
 	struct mailbox *mailbox;
@@ -110,6 +111,7 @@ void clients_deinit(void);
 void client_command_cancel(struct client_command_context *cmd);
 void client_command_free(struct client_command_context *cmd);
 
+bool client_handle_unfinished_cmd(struct client_command_context *cmd);
 void client_continue_pending_input(struct client **_client);
 
 void client_input(struct client *client);

@@ -75,12 +75,11 @@ static void client_input_append(struct client_command_context *cmd)
 	o_stream_cork(client->output);
 	finished = cmd->func(cmd);
 	o_stream_uncork(client->output);
-	if (finished) {
+	if (!finished)
+		(void)client_handle_unfinished_cmd(cmd);
+	else {
 		client_command_free(cmd);
 		client_continue_pending_input(&client);
-	} else if (cmd->output_pending) {
-		/* syncing didn't send everything */
-		o_stream_set_flush_pending(client->output, TRUE);
 	}
 }
 

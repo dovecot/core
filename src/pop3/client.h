@@ -11,6 +11,7 @@ struct client {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct timeout *to_idle;
 
 	command_func_t *cmd;
 	void *cmd_context;

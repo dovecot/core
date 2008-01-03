@@ -23,20 +23,27 @@
    size has dropped to half of it, start reading input again. */
 #define OUTBUF_THROTTLE_SIZE 4096
 
-/* If we can't send anything for 10 minutes, disconnect the client */
-#define CLIENT_OUTPUT_TIMEOUT (10*60)
-
 /* Disconnect client when it sends too many bad commands in a row */
 #define CLIENT_MAX_BAD_COMMANDS 20
 
-/* Disconnect client after idling this many seconds */
-#define CLIENT_IDLE_TIMEOUT (10*60)
+/* Disconnect client after idling this many milliseconds */
+#define CLIENT_IDLE_TIMEOUT_MSECS (10*60*1000)
 
 static struct client *my_client; /* we don't need more than one currently */
-static struct timeout *to_idle;
 
 static void client_input(struct client *client);
 static int client_output(struct client *client);
+
+static void client_idle_timeout(struct client *client)
+{
+	if (client->cmd != NULL) {
+		client_destroy(client,
+			"Disconnected for inactivity in reading our output");
+	} else {
+		client_send_line(client, "-ERR Disconnected for inactivity.");
+		client_destroy(client, "Disconnected for inactivity");
+	}
+}
 
 static bool init_mailbox(struct client *client, const char **error_r)
 {
@@ -152,6 +159,8 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client->io = io_add(fd_in, IO_READ, client_input, client);
         client->last_input = ioloop_time;
+	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
+				      client_idle_timeout, client);
 
 	client->namespaces = namespaces;
 
@@ -260,6 +269,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	if (client->io != NULL)
 		io_remove(&client->io);
+	timeout_remove(&client->to_idle);
 
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
@@ -369,6 +379,7 @@ static void client_input(struct client *client)
 
 	client->waiting_input = FALSE;
 	client->last_input = ioloop_time;
+	timeout_reset(client->to_idle);
 
 	switch (i_stream_read(client->input)) {
 	case -1:
@@ -422,6 +433,7 @@ static int client_output(struct client *client)
 	}
 
 	client->last_output = ioloop_time;
+	timeout_reset(client->to_idle);
 
 	if (client->cmd != NULL) {
 		o_stream_cork(client->output);
@@ -443,31 +455,9 @@ static int client_output(struct client *client)
 	return client->cmd == NULL;
 }
 
-static void idle_timeout(void *context ATTR_UNUSED)
-{
-	if (my_client == NULL)
-		return;
-
-	if (my_client->cmd != NULL) {
-		if (ioloop_time - my_client->last_output >=
-		    CLIENT_OUTPUT_TIMEOUT) {
-			client_destroy(my_client, "Disconnected for inactivity "
-				       "in reading our output");
-		}
-	} else {
-		if (ioloop_time - my_client->last_input >=
-		    CLIENT_IDLE_TIMEOUT) {
-			client_send_line(my_client,
-					 "-ERR Disconnected for inactivity.");
-			client_destroy(my_client, "Disconnected for inactivity");
-		}
-	}
-}
-
 void clients_init(void)
 {
 	my_client = NULL;
-	to_idle = timeout_add(10000, idle_timeout, NULL);
 }
 
 void clients_deinit(void)
@@ -476,6 +466,4 @@ void clients_deinit(void)
 		client_send_line(my_client, "-ERR Server shutting down.");
 		client_destroy(my_client, "Server shutting down");
 	}
-
-	timeout_remove(&to_idle);
 }

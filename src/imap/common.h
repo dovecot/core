@@ -4,11 +4,11 @@
 #include "lib.h"
 #include "client.h"
 
-/* Disconnect client after idling this many seconds */
-#define CLIENT_IDLE_TIMEOUT (60*30)
+/* Disconnect client after idling this many milliseconds */
+#define CLIENT_IDLE_TIMEOUT_MSECS (60*30*1000)
 
 /* If we can't send anything to client for this long, disconnect the client */
-#define CLIENT_OUTPUT_TIMEOUT (5*60)
+#define CLIENT_OUTPUT_TIMEOUT_MSECS (5*60*1000)
 
 /* Stop buffering more data into output stream after this many bytes */
 #define CLIENT_OUTPUT_OPTIMAL_SIZE 2048

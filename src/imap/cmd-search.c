@@ -132,12 +132,11 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 	finished = cmd_search_more(cmd);
 	o_stream_uncork(client->output);
 
-	if (finished) {
+	if (!finished)
+		(void)client_handle_unfinished_cmd(cmd);
+	else {
 		client_command_free(cmd);
 		client_continue_pending_input(&client);
-	} else {
-		if (cmd->output_pending)
-			o_stream_set_flush_pending(client->output, TRUE);
 	}
 }
 
