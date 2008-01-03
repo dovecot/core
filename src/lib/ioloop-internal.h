@@ -1,6 +1,7 @@
 #ifndef IOLOOP_INTERNAL_H
 #define IOLOOP_INTERNAL_H
 
+#include "priorityq.h"
 #include "ioloop.h"
 
 #ifndef IOLOOP_INITIAL_FD_COUNT
@@ -12,7 +13,7 @@ struct ioloop {
 
 	struct io_file *io_files;
 	struct io_file *next_io_file;
-	struct timeout *timeouts; /* sorted by next_run */
+	struct priorityq *timeouts;
 
         struct ioloop_handler_context *handler_context;
         struct ioloop_notify_handler_context *notify_handler_context;
@@ -38,21 +39,18 @@ struct io_file {
 };
 
 struct timeout {
-	struct timeout *next;
+	struct priorityq_item item;
 
-	struct timeval next_run;
         unsigned int msecs;
-
-	unsigned int run_now:1;
-	unsigned int destroyed:1;
+	struct timeval next_run;
 
 	timeout_callback_t *callback;
         void *context;
 };
 
-int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
+int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv,
 			  struct timeval *tv_now);
-void io_loop_handle_timeouts(struct ioloop *ioloop, bool update_run_now);
+void io_loop_handle_timeouts(struct ioloop *ioloop);
 
 /* I/O handler calls */
 void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io);

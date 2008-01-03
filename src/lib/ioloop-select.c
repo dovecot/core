@@ -111,7 +111,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	int ret;
 
 	/* get the time left for next timeout task */
-	io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
+	io_loop_get_wait_time(ioloop, &tv, NULL);
 
 	memcpy(&ctx->tmp_read_fds, &ctx->read_fds, sizeof(fd_set));
 	memcpy(&ctx->tmp_write_fds, &ctx->write_fds, sizeof(fd_set));
@@ -123,7 +123,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		i_warning("select() : %m");
 
 	/* execute timeout handlers */
-        io_loop_handle_timeouts(ioloop, ret == 0);
+        io_loop_handle_timeouts(ioloop);
 
 	if (ret <= 0 || !ioloop->running) {
                 /* no I/O events */

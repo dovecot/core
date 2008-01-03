@@ -86,21 +86,6 @@ void io_remove(struct io **_io)
 	}
 }
 
-static void timeout_list_insert(struct ioloop *ioloop, struct timeout *timeout)
-{
-	struct timeout **t;
-        struct timeval *next_run;
-
-        next_run = &timeout->next_run;
-	for (t = &ioloop->timeouts; *t != NULL; t = &(*t)->next) {
-		if (timer_is_larger(&(*t)->next_run, next_run))
-                        break;
-	}
-
-        timeout->next = *t;
-        *t = timeout;
-}
-
 static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 {
 	if (tv_now == NULL) {
@@ -138,27 +123,44 @@ struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 
 	timeout_update_next(timeout, current_ioloop->running ?
 			    NULL : &ioloop_timeval);
-        timeout_list_insert(current_ioloop, timeout);
+	priorityq_add(current_ioloop->timeouts, &timeout->item);
 	return timeout;
 }
 
-void timeout_remove(struct timeout **timeout)
+void timeout_remove(struct timeout **_timeout)
 {
-	i_assert(*timeout != NULL);
+	struct timeout *timeout = *_timeout;
 
-	(*timeout)->destroyed = TRUE;
-	*timeout = NULL;
+	*_timeout = NULL;
+	priorityq_remove(current_ioloop->timeouts, &timeout->item);
+	i_free(timeout);
 }
 
-int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
-			  struct timeval *tv_now)
+static void
+timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 {
-	if (timeout == NULL) {
-		/* no timeouts. give it INT_MAX msecs. */
-		tv->tv_sec = INT_MAX / 1000;
-		tv->tv_usec = 0;
-		return INT_MAX;
+	timeout_update_next(timeout, tv_now);
+	if (timeout->msecs == 0) {
+		/* if we came here from io_loop_handle_timeouts(),
+		   next_run must be larger than tv_now or we could go to
+		   infinite loop */
+		if (++timeout->next_run.tv_usec == 0)
+			timeout->next_run.tv_sec++;
 	}
+	priorityq_remove(current_ioloop->timeouts, &timeout->item);
+	priorityq_add(current_ioloop->timeouts, &timeout->item);
+}
+
+void timeout_reset(struct timeout *timeout)
+{
+	timeout_reset_timeval(timeout, current_ioloop->running ? NULL :
+			      &ioloop_timeval);
+}
+
+static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv,
+				 struct timeval *tv_now)
+{
+	int ret;
 
 	if (tv_now == NULL) {
 		if (gettimeofday(tv, NULL) < 0)
@@ -175,21 +177,44 @@ int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 		tv->tv_usec += 1000000;
 	}
 
-	if (tv->tv_sec > 0 || (tv->tv_sec == 0 && tv->tv_usec > 0)) {
-		/* round wait times up to next millisecond */
-		return tv->tv_sec * 1000 + (tv->tv_usec + 999) / 1000;
-	}
-
-	/* no need to calculate the times again with this timeout */
-        tv->tv_sec = tv->tv_usec = 0;
-	timeout->run_now = TRUE;
-        return 0;
+	/* round wait times up to next millisecond */
+	ret = tv->tv_sec * 1000 + (tv->tv_usec + 999) / 1000;
+	return ret < 0 ? 0 : ret;
 }
 
-void io_loop_handle_timeouts(struct ioloop *ioloop, bool update_run_now)
+int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv,
+			  struct timeval *tv_now)
 {
-	struct timeout *called_timeouts;
-	struct timeval tv;
+	struct priorityq_item *item;
+	struct timeout *timeout;
+
+	item = priorityq_peek(ioloop->timeouts);
+	timeout = (struct timeout *)item;
+	if (timeout == NULL) {
+		/* no timeouts. give it INT_MAX msecs. */
+		tv->tv_sec = INT_MAX / 1000;
+		tv->tv_usec = 0;
+		return INT_MAX;
+	}
+
+	return timeout_get_wait_time(timeout, tv, tv_now);
+}
+
+static int timeout_cmp(const void *p1, const void *p2)
+{
+	const struct timeout *to1 = p1, *to2 = p2;
+	int diff;
+
+	diff = to1->next_run.tv_sec - to2->next_run.tv_sec;
+	if (diff == 0)
+		diff = to1->next_run.tv_usec - to2->next_run.tv_usec;
+	return diff;
+}
+
+static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
+{
+	struct priorityq_item *item;
+	struct timeval tv, tv_call;
         unsigned int t_id;
 
 	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
@@ -227,72 +252,37 @@ void io_loop_handle_timeouts(struct ioloop *ioloop, bool update_run_now)
 			}
 
 			/* Try again. */
-			io_loop_handle_timeouts(ioloop, TRUE);
+			io_loop_handle_timeouts(ioloop);
 		}
 	}
-
 	ioloop_time = ioloop_timeval.tv_sec;
+	tv_call = ioloop_timeval;
 
-	if (ioloop->timeouts == NULL ||
-	    (!ioloop->timeouts->run_now && !update_run_now))
-		return;
+	while ((item = priorityq_peek(ioloop->timeouts)) != NULL) {
+		struct timeout *timeout = (struct timeout *)item;
 
-	called_timeouts = NULL;
-	while (ioloop->timeouts != NULL) {
-		struct timeout *t = ioloop->timeouts;
+		/* use tv_call to make sure we don't get to infinite loop in
+		   case callbacks update ioloop_timeval. */
+		if (timeout_get_wait_time(timeout, &tv, &tv_call) > 0)
+			break;
 
-		if (t->destroyed) {
-			ioloop->timeouts = t->next;
-			i_free(t);
-			continue;
-		}
-
-		if (!t->run_now) {
-			io_loop_get_wait_time(t, &tv, &ioloop_timeval);
-
-			if (!t->run_now)
-				break;
-		}
-
-		/* move timeout to called_timeouts list */
-		ioloop->timeouts = t->next;
-		t->next = called_timeouts;
-		called_timeouts = t;
-
-                t->run_now = FALSE;
-                timeout_update_next(t, &ioloop_timeval);
+		/* update timeout's next_run and reposition it in the queue */
+		timeout_reset_timeval(timeout, &tv_call);
 
                 t_id = t_push();
-		t->callback(t->context);
+		timeout->callback(timeout->context);
 		if (t_pop() != t_id) {
 			i_panic("Leaked a t_pop() call in timeout handler %p",
-				(void *)t->callback);
+				(void *)timeout->callback);
 		}
 	}
+}
 
-	/* move timeouts back to list so they get re-sorted again by next_run
-	   time, or destroy them if timeout_remove() was called for them. */
-	while (called_timeouts != NULL) {
-		struct timeout *t = called_timeouts;
-
-		if (t->destroyed) {
-			called_timeouts = t->next;
-			i_free(t);
-		} else {
-			called_timeouts = t->next;
-			timeout_list_insert(current_ioloop, t);
-		}
-	}
-#ifdef DEBUG
-	if (ioloop->timeouts != NULL) {
-		struct timeout *t;
-
-		for (t = ioloop->timeouts; t->next != NULL; t = t->next) {
-			if (timer_is_larger(&t->next_run, &t->next->next_run))
-				i_panic("broken timeout list");
-		}
-	}
-#endif
+void io_loop_handle_timeouts(struct ioloop *ioloop)
+{
+	T_FRAME(
+		io_loop_handle_timeouts_real(ioloop);
+	);
 }
 
 void io_loop_run(struct ioloop *ioloop)
@@ -330,6 +320,7 @@ struct ioloop *io_loop_create(void)
 	ioloop_time = ioloop_timeval.tv_sec;
 
         ioloop = i_new(struct ioloop, 1);
+	ioloop->timeouts = priorityq_init(timeout_cmp, 32);
 
 	ioloop->prev = current_ioloop;
         current_ioloop = ioloop;
@@ -339,7 +330,8 @@ struct ioloop *io_loop_create(void)
 
 void io_loop_destroy(struct ioloop **_ioloop)
 {
-        struct ioloop *ioloop = *_ioloop;
+	struct ioloop *ioloop = *_ioloop;
+	struct priorityq_item *item;
 
 	*_ioloop = NULL;
 
@@ -354,16 +346,15 @@ void io_loop_destroy(struct ioloop **_ioloop)
 		io_remove(&_io);
 	}
 
-	while (ioloop->timeouts != NULL) {
-		struct timeout *to = ioloop->timeouts;
+	while ((item = priorityq_pop(ioloop->timeouts)) != NULL) {
+		struct timeout *to = (struct timeout *)item;
 
-		if (!to->destroyed)
-			i_warning("Timeout leak: %p", (void *)to->callback);
-		ioloop->timeouts = to->next;
+		i_warning("Timeout leak: %p", (void *)to->callback);
 		i_free(to);
 	}
-	
-	if (current_ioloop->handler_context != NULL)
+	priorityq_deinit(&ioloop->timeouts);
+
+	if (ioloop->handler_context != NULL)
 		io_loop_handler_deinit(ioloop);
 
         /* ->prev won't work unless loops are destroyed in create order */

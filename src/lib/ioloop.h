@@ -68,6 +68,8 @@ struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 			 callback, context, msecs)
 /* Remove timeout handler, and set timeout pointer to NULL. */
 void timeout_remove(struct timeout **timeout);
+/* Reset timeout so it's next run after now+msecs. */
+void timeout_reset(struct timeout *timeout);
 
 void io_loop_run(struct ioloop *ioloop);
 void io_loop_stop(struct ioloop *ioloop); /* safe to run in signal handler */

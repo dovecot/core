@@ -118,7 +118,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	int msecs, ret, i;
 
 	/* get the time left for next timeout task */
-	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
+	msecs = io_loop_get_wait_time(ioloop, &tv, NULL);
 	ts.tv_sec = tv.tv_sec;
 	ts.tv_nsec = tv.tv_usec * 1000;
 
@@ -135,7 +135,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	}
 
 	/* execute timeout handlers */
-	io_loop_handle_timeouts(ioloop, ret == 0);
+	io_loop_handle_timeouts(ioloop);
 
 	for (i = 0; i < ret; i++) {
 		/* io_loop_handle_add() may cause events array reallocation,
