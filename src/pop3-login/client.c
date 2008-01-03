@@ -27,7 +27,7 @@
 #define MAX_OUTBUF_SIZE 4096
 
 /* Disconnect client after idling this many milliseconds */
-#define CLIENT_LOGIN_IDLE_TIMEOUT_MSECS (3*60)
+#define CLIENT_LOGIN_IDLE_TIMEOUT_MSECS (3*60*1000)
 
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 10
