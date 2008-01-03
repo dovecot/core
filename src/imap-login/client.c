@@ -53,8 +53,6 @@
 const char *login_protocol = "IMAP";
 const char *capability_string = CAPABILITY_STRING;
 
-static struct hash_table *clients;
-
 static void client_set_title(struct imap_client *client)
 {
 	const char *addr;
@@ -371,8 +369,7 @@ void client_input(struct imap_client *client)
 
 void client_destroy_oldest(void)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
+	struct client *client;
 	struct imap_client *destroy_buf[CLIENT_DESTROY_OLDEST_COUNT];
 	unsigned int i, destroy_count;
 
@@ -381,23 +378,21 @@ void client_destroy_oldest(void)
 
 	destroy_count = max_connections > CLIENT_DESTROY_OLDEST_COUNT*2 ?
 		CLIENT_DESTROY_OLDEST_COUNT : I_MIN(max_connections/2, 1);
-	iter = hash_iterate_init(clients);
-	while (hash_iterate(iter, &key, &value)) {
-		struct imap_client *client = key;
+	for (client = clients; client != NULL; client = client->next) {
+		struct imap_client *imap_client = (struct imap_client *)client;
 
 		for (i = 0; i < destroy_count; i++) {
 			if (destroy_buf[i] == NULL ||
-			    destroy_buf[i]->created > client->created) {
+			    destroy_buf[i]->created > imap_client->created) {
 				/* @UNSAFE */
 				memmove(destroy_buf+i+1, destroy_buf+i,
 					sizeof(destroy_buf) -
 					(i+1) * sizeof(struct imap_client *));
-				destroy_buf[i] = client;
+				destroy_buf[i] = imap_client;
 				break;
 			}
 		}
 	}
-	hash_iterate_deinit(&iter);
 
 	/* then kill them */
 	for (i = 0; i < destroy_count; i++) {
@@ -470,7 +465,7 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 	client_open_streams(client, fd);
 	client->io = io_add(fd, IO_READ, client_input, client);
 
-	hash_insert(clients, client, client);
+	client_link(&client->common);
 
 	main_ref();
 
@@ -495,7 +490,7 @@ void client_destroy(struct imap_client *client, const char *reason)
 	if (reason != NULL)
 		client_syslog(&client->common, reason);
 
-	hash_remove(clients, client);
+	client_unlink(&client->common);
 
 	if (client->input != NULL)
 		i_stream_close(client->input);
@@ -608,53 +603,31 @@ void client_send_tagline(struct imap_client *client, const char *line)
 	client_send_line(client, t_strconcat(client->cmd_tag, " ", line, NULL));
 }
 
-unsigned int clients_get_count(void)
-{
-	return hash_count(clients);
-}
-
 void clients_notify_auth_connected(void)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
+	struct client *client;
 
-	iter = hash_iterate_init(clients);
-	while (hash_iterate(iter, &key, &value)) {
-		struct imap_client *client = key;
+	for (client = clients; client != NULL; client = client->next) {
+		struct imap_client *imap_client = (struct imap_client *)client;
 
-		if (client->to_auth_waiting != NULL)
-			timeout_remove(&client->to_auth_waiting);
-		if (!client->greeting_sent)
-			client_send_greeting(client);
-		if (client->input_blocked) {
-			client->input_blocked = FALSE;
-			client_input(client);
+		if (imap_client->to_auth_waiting != NULL)
+			timeout_remove(&imap_client->to_auth_waiting);
+		if (!imap_client->greeting_sent)
+			client_send_greeting(imap_client);
+		if (imap_client->input_blocked) {
+			imap_client->input_blocked = FALSE;
+			client_input(imap_client);
 		}
 	}
-	hash_iterate_deinit(&iter);
 }
 
 void clients_destroy_all(void)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
+	struct client *client;
 
-	iter = hash_iterate_init(clients);
-	while (hash_iterate(iter, &key, &value)) {
-		struct imap_client *client = key;
+	for (client = clients; client != NULL; client = client->next) {
+		struct imap_client *imap_client = (struct imap_client *)client;
 
-		client_destroy(client, "Disconnected: Shutting down");
+		client_destroy(imap_client, "Disconnected: Shutting down");
 	}
-	hash_iterate_deinit(&iter);
-}
-
-void clients_init(void)
-{
-	clients = hash_create(system_pool, system_pool, 128, NULL, NULL);
-}
-
-void clients_deinit(void)
-{
-	clients_destroy_all();
-	hash_destroy(&clients);
 }
