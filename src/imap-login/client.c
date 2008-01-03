@@ -2,7 +2,6 @@
 
 #include "common.h"
 #include "buffer.h"
-#include "hash.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -35,8 +34,8 @@
 #define CLIENT_MAX_BAD_COMMANDS 10
 
 /* When max. number of simultaneous connections is reached, few of the
-   oldest connections are disconnected. Since we have to go through the whole
-   client hash, it's faster if we disconnect multiple clients. */
+   oldest connections are disconnected. Since we have to go through all of the
+   clients, it's faster if we disconnect multiple clients. */
 #define CLIENT_DESTROY_OLDEST_COUNT 16
 
 /* If we've been waiting auth server to respond for over this many milliseconds,
