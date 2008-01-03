@@ -78,6 +78,7 @@ liblib_a_SOURCES = \
 	primes.c \
 	printf-format-fix.c \
 	process-title.c \
+	priorityq.c \
 	randgen.c \
 	read-full.c \
 	restrict-access.c \
@@ -161,6 +162,7 @@ headers = \
 	primes.h \
 	printf-format-fix.h \
 	process-title.h \
+	priorityq.h \
 	randgen.h \
 	read-full.h \
 	restrict-access.h \
