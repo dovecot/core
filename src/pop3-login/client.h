@@ -15,12 +15,12 @@ struct pop3_client {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct timeout *to_idle_disconnect;
 
 	struct login_proxy *proxy;
 	char *proxy_user, *proxy_password;
 	int proxy_state;
 
-	time_t last_input;
 	unsigned int bad_counter;
 
 	char *last_user;

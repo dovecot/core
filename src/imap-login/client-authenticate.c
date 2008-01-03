@@ -19,6 +19,8 @@
 
 #define IMAP_SERVICE_NAME "imap"
 
+static void client_auth_failed(struct imap_client *client);
+
 const char *client_authenticate_get_capabilities(bool secured)
 {
 	const struct auth_mech_desc *mech;
@@ -211,13 +213,8 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				  NULL);
 		client_send_tagline(client, msg);
 
-		if (!client->destroyed) {
-			/* get back to normal client input. */
-			if (client->io != NULL)
-				io_remove(&client->io);
-			client->io = io_add(client->common.fd, IO_READ,
-					    client_input, client);
-		}
+		if (!client->destroyed)
+			client_auth_failed(client);
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:
 		if (data == NULL)
@@ -251,6 +248,33 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	client_unref(client);
 }
 
+static int client_auth_begin(struct imap_client *client, const char *mech_name,
+			     const char *init_resp)
+{
+	client_ref(client);
+	sasl_server_auth_begin(&client->common, IMAP_SERVICE_NAME, mech_name,
+			       init_resp, sasl_callback);
+	if (!client->common.authenticating)
+		return 1;
+
+	/* don't handle input until we get the initial auth reply */
+	if (client->io != NULL)
+		io_remove(&client->io);
+	client_set_auth_waiting(client);
+	return 0;
+}
+
+static void client_auth_failed(struct imap_client *client)
+{
+	/* get back to normal client input. */
+	if (client->io != NULL)
+		io_remove(&client->io);
+	client->io = io_add(client->common.fd, IO_READ,
+			    client_input, client);
+
+	timeout_remove(&client->to_auth_waiting);
+}
+
 int cmd_authenticate(struct imap_client *client, const struct imap_arg *args)
 {
 	const char *mech_name, *init_resp = NULL;
@@ -269,17 +293,7 @@ int cmd_authenticate(struct imap_client *client, const struct imap_arg *args)
 	mech_name = IMAP_ARG_STR(&args[0]);
 	if (*mech_name == '\0')
 		return -1;
-
-	client_ref(client);
-	sasl_server_auth_begin(&client->common, IMAP_SERVICE_NAME, mech_name,
-			       init_resp, sasl_callback);
-	if (!client->common.authenticating)
-		return 1;
-
-	/* don't handle input until we get the initial auth reply */
-	if (client->io != NULL)
-		io_remove(&client->io);
-	return 0;
+	return client_auth_begin(client, mech_name, init_resp);
 }
 
 int cmd_login(struct imap_client *client, const struct imap_arg *args)
@@ -322,16 +336,5 @@ int cmd_login(struct imap_client *client, const struct imap_arg *args)
 	base64 = buffer_create_dynamic(pool_datastack_create(),
         			MAX_BASE64_ENCODED_SIZE(plain_login->used));
 	base64_encode(plain_login->data, plain_login->used, base64);
-
-	client_ref(client);
-	sasl_server_auth_begin(&client->common, IMAP_SERVICE_NAME, "PLAIN",
-			       str_c(base64), sasl_callback);
-	if (!client->common.authenticating)
-		return 1;
-
-	/* don't read any input from client until login is finished */
-	if (client->io != NULL)
-		io_remove(&client->io);
-
-	return 0;
+	return client_auth_begin(client, "PLAIN", str_c(base64));
 }

@@ -28,8 +28,8 @@
 /* maximum length for IMAP command line. */
 #define MAX_IMAP_LINE 8192
 
-/* Disconnect client after idling this many seconds */
-#define CLIENT_LOGIN_IDLE_TIMEOUT (3*60)
+/* Disconnect client after idling this many milliseconds */
+#define CLIENT_LOGIN_IDLE_TIMEOUT_MSECS (3*60*1000)
 
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 10
@@ -39,21 +39,21 @@
    client hash, it's faster if we disconnect multiple clients. */
 #define CLIENT_DESTROY_OLDEST_COUNT 16
 
-/* If we've been waiting auth server to respond for over this many seconds,
+/* If we've been waiting auth server to respond for over this many milliseconds,
    send a "waiting" message. */
-#define AUTH_WAITING_TIMEOUT 30
+#define AUTH_WAITING_TIMEOUT_MSECS 30
 
-#if CLIENT_LOGIN_IDLE_TIMEOUT >= AUTH_REQUEST_TIMEOUT
+#if CLIENT_LOGIN_IDLE_TIMEOUT_MSECS >= AUTH_REQUEST_TIMEOUT*1000
 #  error client idle timeout must be smaller than authentication timeout
 #endif
+
+#define AUTH_WAITING_MSG \
+	"* OK Waiting for authentication process to respond.."
 
 const char *login_protocol = "IMAP";
 const char *capability_string = CAPABILITY_STRING;
 
 static struct hash_table *clients;
-static struct timeout *to_idle;
-
-static void idle_timeout(void *context);
 
 static void client_set_title(struct imap_client *client)
 {
@@ -345,7 +345,7 @@ bool client_read(struct imap_client *client)
 
 void client_input(struct imap_client *client)
 {
-	client->last_input = ioloop_time;
+	timeout_reset(client->to_idle_disconnect);
 
 	if (!client_read(client))
 		return;
@@ -355,12 +355,12 @@ void client_input(struct imap_client *client)
 	if (!auth_client_is_connected(auth_client)) {
 		/* we're not yet connected to auth process -
 		   don't allow any commands */
-		client->waiting_sent = TRUE;
-		client_send_line(client,
-			"* OK Waiting for authentication process to respond..");
+		client_send_line(client, AUTH_WAITING_MSG);
+		if (client->to_auth_waiting != NULL)
+			timeout_remove(&client->to_auth_waiting);
+
 		client->input_blocked = TRUE;
 	} else {
-		client->waiting_sent = FALSE;
 		o_stream_cork(client->output);
 		while (client_handle_input(client)) ;
 		o_stream_uncork(client->output);
@@ -425,6 +425,26 @@ static void client_send_greeting(struct imap_client *client)
 	client->greeting_sent = TRUE;
 }
 
+static void client_idle_disconnect_timeout(struct imap_client *client)
+{
+	client_send_line(client, "* BYE Disconnected for inactivity.");
+	client_destroy(client, "Disconnected: Inactivity");
+}
+
+static void client_auth_waiting_timeout(struct imap_client *client)
+{
+	client_send_line(client, AUTH_WAITING_MSG);
+	timeout_remove(&client->to_auth_waiting);
+}
+
+void client_set_auth_waiting(struct imap_client *client)
+{
+	i_assert(client->to_auth_waiting == NULL);
+	client->to_auth_waiting =
+		timeout_add(AUTH_WAITING_TIMEOUT_MSECS,
+			    client_auth_waiting_timeout, client);
+}
+
 struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip)
 {
@@ -450,17 +470,19 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 	client_open_streams(client, fd);
 	client->io = io_add(fd, IO_READ, client_input, client);
 
-	client->last_input = ioloop_time;
 	hash_insert(clients, client, client);
 
 	main_ref();
 
 	if (!greeting_capability || auth_client_is_connected(auth_client))
-                client_send_greeting(client);
+		client_send_greeting(client);
+	else
+		client_set_auth_waiting(client);
 	client_set_title(client);
 
-	if (to_idle == NULL)
-		to_idle = timeout_add(1000, idle_timeout, NULL);
+	client->to_idle_disconnect =
+		timeout_add(CLIENT_LOGIN_IDLE_TIMEOUT_MSECS,
+			    client_idle_disconnect_timeout, client);
 	return &client->common;
 }
 
@@ -474,8 +496,6 @@ void client_destroy(struct imap_client *client, const char *reason)
 		client_syslog(&client->common, reason);
 
 	hash_remove(clients, client);
-	if (hash_count(clients) == 0)
-		timeout_remove(&to_idle);
 
 	if (client->input != NULL)
 		i_stream_close(client->input);
@@ -494,6 +514,10 @@ void client_destroy(struct imap_client *client, const char *reason)
 
 	if (client->io != NULL)
 		io_remove(&client->io);
+	if (client->to_idle_disconnect != NULL)
+		timeout_remove(&client->to_idle_disconnect);
+	if (client->to_auth_waiting != NULL)
+		timeout_remove(&client->to_auth_waiting);
 
 	if (client->common.fd != -1) {
 		net_disconnect(client->common.fd);
@@ -584,34 +608,6 @@ void client_send_tagline(struct imap_client *client, const char *line)
 	client_send_line(client, t_strconcat(client->cmd_tag, " ", line, NULL));
 }
 
-static void client_check_idle(struct imap_client *client)
-{
-	if (ioloop_time - client->last_input >= CLIENT_LOGIN_IDLE_TIMEOUT) {
-		client_send_line(client, "* BYE Disconnected for inactivity.");
-		client_destroy(client, "Disconnected: Inactivity");
-	} else if (!client->waiting_sent &&
-		   ioloop_time - client->last_input > AUTH_WAITING_TIMEOUT &&
-		   (client->common.authenticating || !client->greeting_sent)) {
-		client->waiting_sent = TRUE;
-		client_send_line(client,
-			"* OK Waiting for authentication process to respond..");
-	}
-}
-
-static void idle_timeout(void *context ATTR_UNUSED)
-{
-	struct hash_iterate_context *iter;
-	void *key, *value;
-
-	iter = hash_iterate_init(clients);
-	while (hash_iterate(iter, &key, &value)) {
-		struct imap_client *client = key;
-
-		client_check_idle(client);
-	}
-	hash_iterate_deinit(&iter);
-}
-
 unsigned int clients_get_count(void)
 {
 	return hash_count(clients);
@@ -626,6 +622,8 @@ void clients_notify_auth_connected(void)
 	while (hash_iterate(iter, &key, &value)) {
 		struct imap_client *client = key;
 
+		if (client->to_auth_waiting != NULL)
+			timeout_remove(&client->to_auth_waiting);
 		if (!client->greeting_sent)
 			client_send_greeting(client);
 		if (client->input_blocked) {
@@ -659,6 +657,4 @@ void clients_deinit(void)
 {
 	clients_destroy_all();
 	hash_destroy(&clients);
-
-	i_assert(to_idle == NULL);
 }

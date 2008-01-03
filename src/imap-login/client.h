@@ -15,11 +15,11 @@ struct imap_client {
 	struct istream *input;
 	struct ostream *output;
 	struct imap_parser *parser;
+	struct timeout *to_idle_disconnect, *to_auth_waiting;
 
 	struct login_proxy *proxy;
 	char *proxy_user, *proxy_password;
 
-	time_t last_input;
 	unsigned int bad_counter;
 
 	const char *cmd_tag, *cmd_name;
@@ -30,7 +30,6 @@ struct imap_client {
 	unsigned int input_blocked:1;
 	unsigned int destroyed:1;
 	unsigned int greeting_sent:1;
-	unsigned int waiting_sent:1;
 };
 
 void client_destroy(struct imap_client *client, const char *reason);
@@ -45,5 +44,7 @@ void client_input(struct imap_client *client);
 
 void client_ref(struct imap_client *client);
 bool client_unref(struct imap_client *client);
+
+void client_set_auth_waiting(struct imap_client *client);
 
 #endif
