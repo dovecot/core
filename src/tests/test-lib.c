@@ -190,6 +190,49 @@ static void test_aqueue(void)
 	test_out_reason("aqueue", reason == NULL, reason);
 }
 
+static bool mem_has_bytes(const void *mem, size_t size, uint8_t b)
+{
+	const uint8_t *bytes = mem;
+	unsigned int i;
+
+	for (i = 0; i < size; i++) {
+		if (bytes[i] != b)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static void test_mempool_alloconly(void)
+{
+#define PMALLOC_MAX_COUNT 128
+	pool_t pool;
+	unsigned int i, j, k;
+	void *mem[PMALLOC_MAX_COUNT + 1];
+	bool success = TRUE;
+
+	for (i = 0; i < 64; i++) {
+		for (j = 1; j <= 128; j++) {
+			pool = pool_alloconly_create("test", i);
+			mem[0] = p_malloc(pool, j);
+			memset(mem[0], j, j);
+
+			for (k = 1; k <= PMALLOC_MAX_COUNT; k++) {
+				mem[k] = p_malloc(pool, k);
+				memset(mem[k], k, k);
+			}
+
+			if (!mem_has_bytes(mem[0], j, j))
+				success = FALSE;
+			for (k = 1; k <= PMALLOC_MAX_COUNT; k++) {
+				if (!mem_has_bytes(mem[k], k, k))
+					success = FALSE;
+			}
+			pool_unref(&pool);
+		}
+	}
+	test_out("mempool_alloconly", success);
+}
+
 static void test_seq_range_array(void)
 {
 	static const unsigned int input_min = 1, input_max = 5;
@@ -271,10 +314,11 @@ static void test_str_sanitize(void)
 int main(void)
 {
 	static void (*test_functions[])(void) = {
+		test_aqueue,
 		test_base64_encode,
 		test_base64_decode,
 		test_bsearch_insert_pos,
-		test_aqueue,
+		test_mempool_alloconly,
 		test_seq_range_array,
 		test_str_sanitize,
 

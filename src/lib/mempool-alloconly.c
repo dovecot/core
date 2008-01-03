@@ -96,10 +96,11 @@ static void check_nuls(struct pool_block *block)
 pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 {
 	struct alloconly_pool apool, *new_apool;
-	size_t min_alloc = sizeof(struct alloconly_pool) + SIZEOF_POOLBLOCK;
+	size_t min_alloc = MEM_ALIGN(sizeof(struct alloconly_pool)) +
+		SIZEOF_POOLBLOCK;
 
 #ifdef DEBUG
-	min_alloc += strlen(name) + 1;
+	min_alloc += MEM_ALIGN(strlen(name) + 1);
 #endif
 
 	/* create a fake alloconly_pool so we can call block_alloc() */
@@ -114,6 +115,8 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	/* now allocate the actual alloconly_pool from the created block */
 	new_apool = p_new(&apool.pool, struct alloconly_pool, 1);
 	*new_apool = apool;
+	/* the pool allocation must be from the first block */
+	i_assert(apool.block->prev == NULL);
 #ifdef DEBUG
 	if (strncmp(name, MEMPOOL_GROWING, strlen(MEMPOOL_GROWING)) == 0) {
 		name += strlen(MEMPOOL_GROWING);
