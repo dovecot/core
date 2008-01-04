@@ -6,6 +6,8 @@
 #include "sasl-server.h"
 
 struct client {
+	struct client *prev, *next;
+
 	struct ip_addr local_ip;
 	struct ip_addr ip;
 	unsigned int local_port, remote_port;
@@ -30,17 +32,19 @@ struct client {
 	/* ... */
 };
 
+extern struct client *clients;
+
 struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip);
 
+void client_link(struct client *client);
+void client_unlink(struct client *client);
+unsigned int clients_get_count(void);
+
 void client_syslog(struct client *client, const char *msg);
 
-unsigned int clients_get_count(void);
 void clients_notify_auth_connected(void);
 void client_destroy_oldest(void);
 void clients_destroy_all(void);
-
-void clients_init(void);
-void clients_deinit(void);
 
 #endif

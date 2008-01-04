@@ -10,6 +10,37 @@
 
 #include <stdlib.h>
 
+struct client *clients = NULL;
+unsigned int clients_count = 0;
+
+void client_link(struct client *client)
+{
+	client->prev = NULL;
+	client->next = clients;
+	if (clients != NULL)
+		clients->prev = client;
+	clients = client;
+	clients_count++;
+}
+
+void client_unlink(struct client *client)
+{
+	i_assert(clients_count > 0);
+
+	clients_count--;
+	if (client->prev == NULL)
+		clients = client->next;
+	else
+		client->prev->next = client->next;
+	if (client->next != NULL)
+		client->next->prev = client->prev;
+}
+
+unsigned int clients_get_count(void)
+{
+	return clients_count;
+}
+
 static const struct var_expand_table *
 get_var_expand_table(struct client *client)
 {
