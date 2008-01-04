@@ -503,11 +503,6 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.fields_count = cache->file_fields_count;
 	for (i = 0; i < cache->fields_count; i++) {
-		if (cache->fields[i].last_used == 0) {
-			/* return newly added fields' last_used as
-			   the current time */
-			cache->fields[i].last_used = ioloop_time;
-		}
 		if (CACHE_FIELD_IS_NEWLY_WANTED(cache, i))
 			hdr.fields_count++;
 	}

@@ -803,18 +803,25 @@ mail_cache_header_fields_write(struct mail_cache_transaction_ctx *ctx,
 	return 0;
 }
 
-static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
-				       unsigned int field_idx)
+static void mail_cache_mark_adding(struct mail_cache *cache, bool set)
 {
-	struct mail_cache *cache = ctx->cache;
 	unsigned int i;
-	int ret;
 
 	/* we want to avoid adding all the fields one by one to the cache file,
 	   so just add all of them at once in here. the unused ones get dropped
 	   later when compressing. */
-	for (i = 0; i < cache->fields_count; i++)
-		cache->fields[i].used = TRUE;
+	for (i = 0; i < cache->fields_count; i++) {
+		if (set)
+			cache->fields[i].used = TRUE;
+		cache->fields[i].adding = set;
+	}
+}
+
+static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
+				       unsigned int field_idx)
+{
+	struct mail_cache *cache = ctx->cache;
+	int ret;
 
 	if ((ret = mail_cache_transaction_lock(ctx)) <= 0) {
 		if (MAIL_CACHE_IS_UNUSABLE(cache))
@@ -875,6 +882,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	uint32_t file_field, data_size32;
 	unsigned int fixed_size;
 	size_t full_size;
+	int ret;
 
 	i_assert(field_idx < ctx->cache->fields_count);
 	i_assert(data_size < (uint32_t)-1);
@@ -896,7 +904,10 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	file_field = ctx->cache->field_file_map[field_idx];
 	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache) || file_field == (uint32_t)-1) {
 		/* we'll have to add this field to headers */
-		if (mail_cache_header_add_field(ctx, field_idx) < 0)
+		mail_cache_mark_adding(ctx->cache, TRUE);
+		ret = mail_cache_header_add_field(ctx, field_idx);
+		mail_cache_mark_adding(ctx->cache, FALSE);
+		if (ret < 0)
 			return;
 
 		if (ctx->cache_file_seq == 0)

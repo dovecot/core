@@ -191,13 +191,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	max_drop_time = idx_hdr->day_stamp == 0 ? 0 :
 		idx_hdr->day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
 
-	/* if some fields' "last used" time is zero, they were probably just
-	   added by us. change them to the current time. */
-	for (i = 0; i < cache->fields_count; i++) {
-		if (cache->fields[i].last_used == 0)
-			cache->fields[i].last_used = ioloop_time;
-	}
-
 	orig_fields_count = cache->fields_count;
 	if (cache->file_fields_count == 0) {
 		/* creating the initial cache file. add all fields. */
@@ -206,16 +199,28 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		used_fields_count = i;
 	} else {
 		for (i = used_fields_count = 0; i < orig_fields_count; i++) {
+			struct mail_cache_field_private *field =
+				&cache->fields[i];
 			enum mail_cache_decision_type dec =
-				cache->fields[i].field.decision;
+				field->field.decision;
 
 			/* if the decision isn't forced and this field hasn't
 			   been accessed for a while, drop it */
 			if ((dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
-			    (time_t)cache->fields[i].last_used < max_drop_time)
-				cache->fields[i].used = FALSE;
+			    (time_t)field->last_used < max_drop_time &&
+			    !field->adding) {
+				dec = MAIL_CACHE_DECISION_NO;
+				field->field.decision = dec;
+			}
 
-			ctx.field_file_map[i] = !cache->fields[i].used ?
+			/* drop all fields we don't want */
+			if ((dec & ~MAIL_CACHE_DECISION_FORCED) ==
+			    MAIL_CACHE_DECISION_NO && !field->adding) {
+				field->used = FALSE;
+				field->last_used = 0;
+			}
+
+			ctx.field_file_map[i] = !field->used ?
 				(uint32_t)-1 : used_fields_count++;
 		}
 	}

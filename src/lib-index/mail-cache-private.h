@@ -121,6 +121,7 @@ struct mail_cache_field_private {
 
 	/* Unused fields aren't written to cache file */
 	unsigned int used:1;
+	unsigned int adding:1;
 	unsigned int decision_dirty:1;
 };
 
