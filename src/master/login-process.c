@@ -505,23 +505,22 @@ static void login_process_unref(struct login_process *p)
 	i_free(p);
 }
 
-static void login_process_init_env(ARRAY_TYPE(const_string) *env,
-				   struct login_group *group, pid_t pid)
+static void login_process_init_env(struct login_group *group, pid_t pid)
 {
 	struct settings *set = group->set;
 
-	child_process_init_env(env);
+	child_process_init_env();
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment. Don't set user
 	   parameter since we don't want to call initgroups() for login
 	   processes. */
-	restrict_access_set_env(env, NULL, set->login_uid,
+	restrict_access_set_env(NULL, set->login_uid,
 				set->server->login_gid,
 				set->login_chroot ? set->login_dir : NULL,
 				0, 0, NULL);
 
-	envarr_addb(env, "DOVECOT_MASTER");
+	env_put("DOVECOT_MASTER=1");
 
 	if (!set->ssl_disable) {
 		const char *ssl_key_password;
@@ -529,51 +528,57 @@ static void login_process_init_env(ARRAY_TYPE(const_string) *env,
 		ssl_key_password = *set->ssl_key_password != '\0' ?
 			set->ssl_key_password : ssl_manual_key_password;
 
-		if (*set->ssl_ca_file != '\0')
-			envarr_add(env, "SSL_CA_FILE", set->ssl_ca_file);
-		envarr_add(env, "SSL_CERT_FILE", set->ssl_cert_file);
-		envarr_add(env, "SSL_KEY_FILE", set->ssl_key_file);
-		envarr_add(env, "SSL_KEY_PASSWORD", ssl_key_password);
-		envarr_add(env, "SSL_PARAM_FILE", SSL_PARAMETERS_FILENAME);
-		if (*set->ssl_cipher_list != '\0') {
-			envarr_add(env, "SSL_CIPHER_LIST",
-				   set->ssl_cipher_list);
+		if (*set->ssl_ca_file != '\0') {
+			env_put(t_strconcat("SSL_CA_FILE=",
+					    set->ssl_ca_file, NULL));
 		}
-		envarr_add(env, "SSL_CERT_USERNAME_FIELD",
-			   set->ssl_cert_username_field);
+		env_put(t_strconcat("SSL_CERT_FILE=",
+				    set->ssl_cert_file, NULL));
+		env_put(t_strconcat("SSL_KEY_FILE=",
+				    set->ssl_key_file, NULL));
+		env_put(t_strconcat("SSL_KEY_PASSWORD=",
+				    ssl_key_password, NULL));
+		env_put("SSL_PARAM_FILE="SSL_PARAMETERS_FILENAME);
+		if (*set->ssl_cipher_list != '\0') {
+			env_put(t_strconcat("SSL_CIPHER_LIST=",
+					    set->ssl_cipher_list, NULL));
+		}
+		env_put(t_strconcat("SSL_CERT_USERNAME_FIELD=",
+				    set->ssl_cert_username_field, NULL));
 		if (set->ssl_verify_client_cert)
-			envarr_addb(env, "SSL_VERIFY_CLIENT_CERT");
+			env_put("SSL_VERIFY_CLIENT_CERT=1");
 	}
 
 	if (set->disable_plaintext_auth)
-		envarr_addb(env, "DISABLE_PLAINTEXT_AUTH");
+		env_put("DISABLE_PLAINTEXT_AUTH=1");
 	if (set->verbose_proctitle)
-		envarr_addb(env, "VERBOSE_PROCTITLE");
+		env_put("VERBOSE_PROCTITLE=1");
 	if (set->verbose_ssl)
-		envarr_addb(env, "VERBOSE_SSL");
+		env_put("VERBOSE_SSL=1");
 	if (set->server->auths->verbose)
-		envarr_addb(env, "VERBOSE_AUTH");
+		env_put("VERBOSE_AUTH=1");
 
 	if (set->login_process_per_connection) {
-		envarr_addi(env, "PROCESS_PER_CONNECTION", 1);
-		envarr_addi(env, "MAX_CONNECTIONS", 1);
+		env_put("PROCESS_PER_CONNECTION=1");
+		env_put("MAX_CONNECTIONS=1");
 	} else {
-		envarr_addi(env, "MAX_CONNECTIONS",
-			    set->login_max_connections);
+		env_put(t_strdup_printf("MAX_CONNECTIONS=%u",
+					set->login_max_connections));
 	}
 
-	envarr_add(env, "PROCESS_UID", dec2str(pid));
-	envarr_add(env, "GREETING", set->login_greeting);
-	envarr_add(env, "LOG_FORMAT_ELEMENTS", set->login_log_format_elements);
-	envarr_add(env, "LOG_FORMAT", set->login_log_format);
+	env_put(t_strconcat("PROCESS_UID=", dec2str(pid), NULL));
+	env_put(t_strconcat("GREETING=", set->login_greeting, NULL));
+	env_put(t_strconcat("LOG_FORMAT_ELEMENTS=",
+			    set->login_log_format_elements, NULL));
+	env_put(t_strconcat("LOG_FORMAT=", set->login_log_format, NULL));
 	if (set->login_greeting_capability)
-		envarr_addb(env, "GREETING_CAPABILITY");
+		env_put("GREETING_CAPABILITY=1");
 
 	if (group->mail_process_type == PROCESS_TYPE_IMAP) {
-		envarr_add(env, "CAPABILITY_STRING",
-			   *set->imap_capability != '\0' ?
-			   set->imap_capability :
-			   set->imap_generated_capability);
+		env_put(t_strconcat("CAPABILITY_STRING=",
+				    *set->imap_capability != '\0' ?
+				    set->imap_capability :
+				    set->imap_generated_capability, NULL));
 	}
 }
 
@@ -587,7 +592,6 @@ static pid_t create_login_process(struct login_group *group)
 	ARRAY_TYPE(dup2) dups;
 	unsigned int i, fd_limit, listen_count = 0, ssl_listen_count = 0;
 	int fd[2], log_fd, cur_fd, tmp_fd;
-	ARRAY_TYPE(const_string) env;
 
 	if (group->set->login_uid == 0)
 		i_fatal("Login process must not run as root");
@@ -668,10 +672,10 @@ static pid_t create_login_process(struct login_group *group)
 	(void)close(fd[0]);
 	(void)close(fd[1]);
 
-	login_process_init_env(&env, group, getpid());
+	login_process_init_env(group, getpid());
 
-	envarr_addi(&env, "LISTEN_FDS", listen_count);
-	envarr_addi(&env, "SSL_LISTEN_FDS", ssl_listen_count);
+	env_put(t_strdup_printf("LISTEN_FDS=%u", listen_count));
+	env_put(t_strdup_printf("SSL_LISTEN_FDS=%u", ssl_listen_count));
 
 	if (!group->set->login_chroot) {
 		/* no chrooting, but still change to the directory */
@@ -697,7 +701,7 @@ static pid_t create_login_process(struct login_group *group)
 	i_assert(fd_limit > (unsigned int)cur_fd+1);
 	(void)close(cur_fd+1);
 
-	client_process_exec(group->set->login_executable, "", &env);
+	client_process_exec(group->set->login_executable, "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
 		       group->set->login_executable);
 	return -1;
@@ -843,20 +847,18 @@ login_processes_start_missing(void *context ATTR_UNUSED)
 
 static int login_process_send_env(struct login_process *p)
 {
-	ARRAY_TYPE(const_string) env;
-	const char *const *envs;
+	extern char **environ;
+	char **env;
 	ssize_t len;
-	unsigned int i, count;
 	int ret = 0;
 
 	/* this will clear our environment. luckily we don't need it. */
-	login_process_init_env(&env, p->group, p->pid);
+	login_process_init_env(p->group, p->pid);
 
-	envs = array_get(&env, &count);
-	for (i = 0; i < count; i++) {
-		len = strlen(envs[i]);
+	for (env = environ; *env != NULL; env++) {
+		len = strlen(*env);
 
-		if (o_stream_send(p->output, envs[i], len) != len ||
+		if (o_stream_send(p->output, *env, len) != len ||
 		    o_stream_send(p->output, "\n", 1) != 1) {
 			ret = -1;
 			break;
@@ -882,16 +884,11 @@ static int login_process_send_env(struct login_process *p)
 
 static bool login_process_init_group(struct login_process *p)
 {
-	int ret;
-
 	p->group->refcount++;
 	p->group->processes++;
 	p->group->listening_processes++;
 
-	T_FRAME(
-		ret = login_process_send_env(p);
-	);
-	if (ret < 0) {
+	if (login_process_send_env(p) < 0) {
 		i_error("login: Couldn't send environment");
 		return FALSE;
 	}

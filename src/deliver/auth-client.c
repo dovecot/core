@@ -173,7 +173,7 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 				    extra_groups, NULL));
 	}
 
-	restrict_access_by_env(NULL, TRUE);
+	restrict_access_by_env(TRUE);
 	return_value = EX_OK;
 }
 

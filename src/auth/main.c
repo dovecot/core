@@ -209,7 +209,7 @@ static void drop_privileges(void)
 		add_extra_listeners();
 
 	/* Password lookups etc. may require roots, allow it. */
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(FALSE);
 }
 
 static void main_init(bool nodaemon)

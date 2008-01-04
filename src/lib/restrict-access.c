@@ -1,7 +1,6 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
 #include "restrict-access.h"
 #include "env-util.h"
 
@@ -10,54 +9,31 @@
 #include <time.h>
 #include <grp.h>
 
-enum restrict_env {
-	RESTRICT_ENV_USER,
-	RESTRICT_ENV_CHROOT,
-	RESTRICT_ENV_SETUID,
-	RESTRICT_ENV_SETGID,
-	RESTRICT_ENV_SETEXTRAGROUPS,
-	RESTRICT_ENV_GID_FIRST,
-	RESTRICT_ENV_GID_LAST,
-
-	RESTRICT_ENV_COUNT
-};
-
-static const char *restrict_env_strings[RESTRICT_ENV_COUNT] = {
-	"RESTRICT_USER",
-	"RESTRICT_CHROOT",
-	"RESTRICT_SETUID",
-	"RESTRICT_SETGID",
-	"RESTRICT_SETEXTRAGROUPS",
-	"RESTRICT_GID_FIRST",
-	"RESTRICT_GID_LAST"
-};
-
-static void renv_add(ARRAY_TYPE(const_string) *env, enum restrict_env key,
-		     const char *value)
-{
-	envarr_add(env, restrict_env_strings[key], value);
-}
-
-void restrict_access_set_env(ARRAY_TYPE(const_string) *env,
-			     const char *user, uid_t uid, gid_t gid,
+void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 			     const char *chroot_dir,
 			     gid_t first_valid_gid, gid_t last_valid_gid,
 			     const char *extra_groups)
 {
 	if (user != NULL && *user != '\0')
-		renv_add(env, RESTRICT_ENV_USER, user);
+		env_put(t_strconcat("RESTRICT_USER=", user, NULL));
 	if (chroot_dir != NULL && *chroot_dir != '\0')
-		renv_add(env, RESTRICT_ENV_CHROOT, chroot_dir);
+		env_put(t_strconcat("RESTRICT_CHROOT=", chroot_dir, NULL));
 
-	renv_add(env, RESTRICT_ENV_SETUID, dec2str(uid));
-	renv_add(env, RESTRICT_ENV_SETGID, dec2str(gid));
-	if (extra_groups != NULL && *extra_groups != '\0')
-		renv_add(env, RESTRICT_ENV_SETEXTRAGROUPS, extra_groups);
+	env_put(t_strdup_printf("RESTRICT_SETUID=%s", dec2str(uid)));
+	env_put(t_strdup_printf("RESTRICT_SETGID=%s", dec2str(gid)));
+	if (extra_groups != NULL && *extra_groups != '\0') {
+		env_put(t_strconcat("RESTRICT_SETEXTRAGROUPS=",
+				    extra_groups, NULL));
+	}
 
-	if (first_valid_gid != 0)
-		renv_add(env, RESTRICT_ENV_GID_FIRST, dec2str(first_valid_gid));
-	if (last_valid_gid != 0)
-		renv_add(env, RESTRICT_ENV_GID_LAST, dec2str(last_valid_gid));
+	if (first_valid_gid != 0) {
+		env_put(t_strdup_printf("RESTRICT_GID_FIRST=%s",
+					dec2str(first_valid_gid)));
+	}
+	if (last_valid_gid != 0) {
+		env_put(t_strdup_printf("RESTRICT_GID_LAST=%s",
+					dec2str(last_valid_gid)));
+	}
 }
 
 static gid_t *get_groups_list(unsigned int *gid_count_r)
@@ -77,8 +53,7 @@ static gid_t *get_groups_list(unsigned int *gid_count_r)
 	return gid_list;
 }
 
-static bool drop_restricted_groups(const char *const *env_values,
-				   gid_t *gid_list, unsigned int *gid_count,
+static bool drop_restricted_groups(gid_t *gid_list, unsigned int *gid_count,
 				   bool *have_root_group)
 {
 	/* @UNSAFE */
@@ -86,9 +61,9 @@ static bool drop_restricted_groups(const char *const *env_values,
 	const char *env;
 	unsigned int i, used;
 
-	env = env_values[RESTRICT_ENV_GID_FIRST];
+	env = getenv("RESTRICT_GID_FIRST");
 	first_valid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
-	env = env_values[RESTRICT_ENV_GID_LAST];
+	env = getenv("RESTRICT_GID_LAST");
 	last_valid = env == NULL ? (gid_t)-1 : (gid_t)strtoul(env, NULL, 10);
 
 	for (i = 0, used = 0; i < *gid_count; i++) {
@@ -118,20 +93,19 @@ static gid_t get_group_id(const char *name)
 	return group->gr_gid;
 }
 
-static void fix_groups_list(const char *const *env_values, gid_t egid,
+static void fix_groups_list(const char *extra_groups, gid_t egid,
 			    bool preserve_existing, bool *have_root_group)
 {
 	gid_t *gid_list;
-	const char *const *tmp, *extra_groups, *empty = NULL;
+	const char *const *tmp, *empty = NULL;
 	unsigned int gid_count;
 
-	extra_groups = env_values[RESTRICT_ENV_SETEXTRAGROUPS];
 	tmp = extra_groups == NULL ? &empty :
 		t_strsplit_spaces(extra_groups, ", ");
 
 	if (preserve_existing) {
 		gid_list = get_groups_list(&gid_count);
-		if (!drop_restricted_groups(env_values, gid_list, &gid_count,
+		if (!drop_restricted_groups(gid_list, &gid_count,
 					    have_root_group) &&
 		    *tmp == NULL) {
 			/* nothing dropped, no extra groups to grant. */
@@ -161,40 +135,17 @@ static void fix_groups_list(const char *const *env_values, gid_t egid,
 	}
 }
 
-void restrict_access_by_env(ARRAY_TYPE(const_string) *envarr,
-			    bool disallow_root)
+void restrict_access_by_env(bool disallow_root)
 {
-	const char *env_values[RESTRICT_ENV_COUNT], *const *envs, *env;
-	const char *home = NULL;
-	unsigned int i, j, count, len;
+	const char *env;
 	gid_t gid;
 	uid_t uid;
 	bool is_root, have_root_group, preserve_groups = FALSE;
 
-	if (envarr == NULL) {
-		/* use environment */
-		for (i = 0; i < RESTRICT_ENV_COUNT; i++)
-			env_values[i] = getenv(restrict_env_strings[i]);
-		home = getenv("HOME");
-	} else {
-		envs = array_get(envarr, &count);
-		memset(env_values, 0, sizeof(env_values));
-		for (i = 0; i < count; i++) {
-			for (j = 0; j < RESTRICT_ENV_COUNT; j++) {
-				len = strlen(restrict_env_strings[j]);
-				if (strncmp(envs[i], restrict_env_strings[j],
-					    len) == 0 &&
-				    envs[i][len] == '=')
-					env_values[j] = envs[i] + len + 1;
-			}
-			if (strncmp(envs[i], "HOME=", 5) == 0)
-				home = envs[i] + 5;
-		}
-	}
 	is_root = geteuid() == 0;
 
 	/* set the primary group */
-	env = env_values[RESTRICT_ENV_SETGID];
+	env = getenv("RESTRICT_SETGID");
 	gid = env == NULL || *env == '\0' ? (gid_t)-1 :
 		(gid_t)strtoul(env, NULL, 10);
 	have_root_group = gid == 0;
@@ -207,7 +158,7 @@ void restrict_access_by_env(ARRAY_TYPE(const_string) *envarr,
 	}
 
 	/* set system user's groups */
-	env = env_values[RESTRICT_ENV_USER];
+	env = getenv("RESTRICT_USER");
 	if (env != NULL && *env != '\0' && is_root) {
 		if (initgroups(env, gid) < 0) {
 			i_fatal("initgroups(%s, %s) failed: %m",
@@ -218,18 +169,20 @@ void restrict_access_by_env(ARRAY_TYPE(const_string) *envarr,
 
 	/* add extra groups. if we set system user's groups, drop the
 	   restricted groups at the same time. */
+	env = getenv("RESTRICT_SETEXTRAGROUPS");
 	if (is_root) {
 		T_FRAME(
-			fix_groups_list(env_values, gid, preserve_groups,
+			fix_groups_list(env, gid, preserve_groups,
 					&have_root_group);
 		);
 	}
 
 	/* chrooting */
-	env = env_values[RESTRICT_ENV_CHROOT];
+	env = getenv("RESTRICT_CHROOT");
 	if (env != NULL && *env != '\0') {
 		/* kludge: localtime() must be called before chroot(),
 		   or the timezone isn't known */
+		const char *home = getenv("HOME");
 		time_t t = 0;
 		(void)localtime(&t);
 
@@ -249,7 +202,7 @@ void restrict_access_by_env(ARRAY_TYPE(const_string) *envarr,
 	}
 
 	/* uid last */
-	env = env_values[RESTRICT_ENV_SETUID];
+	env = getenv("RESTRICT_SETUID");
 	uid = env == NULL || *env == '\0' ? 0 : (uid_t)strtoul(env, NULL, 10);
 	if (uid != 0) {
 		if (setuid(uid) != 0) {
@@ -267,7 +220,7 @@ void restrict_access_by_env(ARRAY_TYPE(const_string) *envarr,
 		}
 	}
 
-	env = env_values[RESTRICT_ENV_GID_FIRST];
+	env = getenv("RESTRICT_GID_FIRST");
 	if ((!have_root_group || (env != NULL && atoi(env) != 0)) && uid != 0) {
 		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0) {
 			if (gid == 0)
@@ -277,4 +230,13 @@ void restrict_access_by_env(ARRAY_TYPE(const_string) *envarr,
 				dec2str(getgid()), dec2str(getegid()));
 		}
 	}
+
+	/* clear the environment, so we don't fail if we get back here */
+	env_put("RESTRICT_USER=");
+	env_put("RESTRICT_CHROOT=");
+	env_put("RESTRICT_SETUID=");
+	env_put("RESTRICT_SETGID=");
+	env_put("RESTRICT_SETEXTRAGROUPS=");
+	env_put("RESTRICT_GID_FIRST=");
+	env_put("RESTRICT_GID_LAST=");
 }

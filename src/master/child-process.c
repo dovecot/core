@@ -2,7 +2,6 @@
 
 #include "common.h"
 #include "lib-signals.h"
-#include "array.h"
 #include "hash.h"
 #include "env-util.h"
 #include "syslog-util.h"
@@ -41,32 +40,32 @@ void child_process_remove(pid_t pid)
 	hash_remove(processes, POINTER_CAST(pid));
 }
 
-void child_process_init_env(ARRAY_TYPE(const_string) *env)
+void child_process_init_env(void)
 {
 	int facility;
 
-	t_array_init(env, 128);
+	/* remove all environment, we don't need them */
+	env_clean();
 
 	/* we'll log through master process */
-	envarr_addb(env, "LOG_TO_MASTER");
+	env_put("LOG_TO_MASTER=1");
 	if (env_tz != NULL)
-		envarr_add(env, "TZ", env_tz);
+		env_put(t_strconcat("TZ=", env_tz, NULL));
 
 	if (settings_root == NULL ||
 	    !syslog_facility_find(settings_root->defaults->syslog_facility,
 				  &facility))
 		facility = LOG_MAIL;
-	envarr_addi(env, "SYSLOG_FACILITY", facility);
+	env_put(t_strdup_printf("SYSLOG_FACILITY=%d", facility));
 
 	if (settings_root != NULL && !settings_root->defaults->version_ignore)
-		envarr_add(env, "DOVECOT_VERSION", PACKAGE_VERSION);
+		env_put("DOVECOT_VERSION="PACKAGE_VERSION);
 #ifdef DEBUG
-	if (gdb) envarr_addb(env, "GDB");
+	if (gdb) env_put("GDB=1");
 #endif
 }
 
-void client_process_exec(const char *cmd, const char *title,
-			 ARRAY_TYPE(const_string) *env)
+void client_process_exec(const char *cmd, const char *title)
 {
 	const char *executable, *p, **argv;
 
@@ -82,9 +81,7 @@ void client_process_exec(const char *cmd, const char *title,
 	p = strrchr(argv[0], '/');
 	if (p != NULL) argv[0] = p+1;
 
-	(void)array_append_space(env); /* NULL-terminate */
-	execve(executable, (char **)argv,
-	       (char **)array_idx_modifiable(env, 0));
+	execv(executable, (char **)argv);
 }
 
 static const char *get_exit_status_message(enum fatal_exit_status status)

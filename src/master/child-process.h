@@ -30,9 +30,8 @@ struct child_process *child_process_lookup(pid_t pid);
 void child_process_add(pid_t pid, struct child_process *process);
 void child_process_remove(pid_t pid);
 
-void child_process_init_env(ARRAY_TYPE(const_string) *env);
-void client_process_exec(const char *cmd, const char *title,
-			 ARRAY_TYPE(const_string) *env);
+void child_process_init_env(void);
+void client_process_exec(const char *cmd, const char *title);
 
 void child_process_set_destroy_callback(enum process_type type,
 					child_process_destroy_callback_t *cb);

@@ -177,7 +177,7 @@ static void drop_privileges(void)
 					  TRUE, version);
 	}
 
-	restrict_access_by_env(NULL, !IS_STANDALONE());
+	restrict_access_by_env(!IS_STANDALONE());
 }
 
 static int main_init(void)

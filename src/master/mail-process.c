@@ -235,22 +235,14 @@ expand_mail_env(const char *env, const struct var_expand_table *table)
 	return str_c(str);
 }
 
-static const char *ns_env_key(const char *name, unsigned int i)
-{
-	return t_strdup_printf("NAMESPACE_%u_%s", i, name);
-}
-
 static void
-env_add_namespace(ARRAY_TYPE(const_string) *env,
-		  struct namespace_settings *ns, const char *default_location,
-		  const struct var_expand_table *table,
-		  const char **first_location_r)
+env_put_namespace(struct namespace_settings *ns, const char *default_location,
+		  const struct var_expand_table *table)
 {
 	const char *location;
 	unsigned int i;
 	string_t *str;
 
-	*first_location_r = NULL;
 	if (default_location == NULL)
 		default_location = "";
 
@@ -258,132 +250,142 @@ env_add_namespace(ARRAY_TYPE(const_string) *env,
 		location = *ns->location != '\0' ? ns->location :
 			default_location;
 		location = expand_mail_env(location, table);
-		if (*first_location_r == NULL)
-			*first_location_r = location;
-		envarr_add(env, t_strdup_printf("NAMESPACE_%u", i), location);
+		env_put(t_strdup_printf("NAMESPACE_%u=%s", i, location));
 
-		if (ns->separator != NULL)
-			envarr_add(env, ns_env_key("SEP", i), ns->separator);
-		if (ns->type != NULL)
-			envarr_add(env, ns_env_key("TYPE", i), ns->type);
+		if (ns->separator != NULL) {
+			env_put(t_strdup_printf("NAMESPACE_%u_SEP=%s",
+						i, ns->separator));
+		}
+		if (ns->type != NULL) {
+			env_put(t_strdup_printf("NAMESPACE_%u_TYPE=%s",
+						i, ns->type));
+		}
 		if (ns->prefix != NULL) {
 			/* expand variables, eg. ~%u/ can be useful */
 			str = t_str_new(256);
+			str_printfa(str, "NAMESPACE_%u_PREFIX=", i);
 			var_expand(str, ns->prefix, table);
-			envarr_add(env, ns_env_key("PREFIX", i), str_c(str));
+			env_put(str_c(str));
 		}
 		if (ns->inbox)
-			envarr_addb(env, ns_env_key("INBOX", i));
+			env_put(t_strdup_printf("NAMESPACE_%u_INBOX=1", i));
 		if (ns->hidden)
-			envarr_addb(env, ns_env_key("HIDDEN", i));
+			env_put(t_strdup_printf("NAMESPACE_%u_HIDDEN=1", i));
 		if (ns->list)
-			envarr_addb(env, ns_env_key("LIST", i));
+			env_put(t_strdup_printf("NAMESPACE_%u_LIST=1", i));
 		if (ns->subscriptions)
-			envarr_addb(env, ns_env_key("SUBSCRIPTIONS", i));
+			env_put(t_strdup_printf("NAMESPACE_%u_SUBSCRIPTIONS=1",
+						i));
 	}
 }
 
 static void
-mail_process_set_environment(ARRAY_TYPE(const_string) *env,
-			     struct settings *set, const char *mail,
+mail_process_set_environment(struct settings *set, const char *mail,
 			     const struct var_expand_table *var_expand_table,
-			     bool dump_capability,
-			     const char **first_location_r)
+			     bool dump_capability)
 {
 	const char *const *envs;
 	string_t *str;
 	unsigned int i, count;
 
-	(void)umask(set->umask);
-
-	envarr_add(env, "MAIL_CACHE_FIELDS", set->mail_cache_fields);
-	envarr_add(env, "MAIL_NEVER_CACHE_FIELDS",
-		   set->mail_never_cache_fields);
-	envarr_addi(env, "MAIL_CACHE_MIN_MAIL_COUNT",
-		    set->mail_cache_min_mail_count);
-	envarr_addi(env, "MAILBOX_IDLE_CHECK_INTERVAL",
-		    set->mailbox_idle_check_interval);
-	envarr_addi(env, "MAIL_MAX_KEYWORD_LENGTH",
-		    set->mail_max_keyword_length);
+	env_put(t_strconcat("MAIL_CACHE_FIELDS=",
+			    set->mail_cache_fields, NULL));
+	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
+			    set->mail_never_cache_fields, NULL));
+	env_put(t_strdup_printf("MAIL_CACHE_MIN_MAIL_COUNT=%u",
+				set->mail_cache_min_mail_count));
+	env_put(t_strdup_printf("MAILBOX_IDLE_CHECK_INTERVAL=%u",
+				set->mailbox_idle_check_interval));
+	env_put(t_strdup_printf("MAIL_MAX_KEYWORD_LENGTH=%u",
+				set->mail_max_keyword_length));
 
 	if (set->protocol == MAIL_PROTOCOL_IMAP) {
-		envarr_addi(env, "IMAP_MAX_LINE_LENGTH",
-			    set->imap_max_line_length);
+		env_put(t_strdup_printf("IMAP_MAX_LINE_LENGTH=%u",
+					set->imap_max_line_length));
 		if (*set->imap_capability != '\0') {
-			envarr_add(env, "IMAP_CAPABILITY",
-				   set->imap_capability);
+			env_put(t_strconcat("IMAP_CAPABILITY=",
+					    set->imap_capability, NULL));
 		}
-		envarr_add(env, "IMAP_CLIENT_WORKAROUNDS",
-			   set->imap_client_workarounds);
-		envarr_add(env, "IMAP_LOGOUT_FORMAT", set->imap_logout_format);
+		env_put(t_strconcat("IMAP_CLIENT_WORKAROUNDS=",
+				    set->imap_client_workarounds, NULL));
+		env_put(t_strconcat("IMAP_LOGOUT_FORMAT=",
+				    set->imap_logout_format, NULL));
 	}
 	if (set->protocol == MAIL_PROTOCOL_POP3) {
-		envarr_add(env, "POP3_CLIENT_WORKAROUNDS",
-			   set->pop3_client_workarounds);
-		envarr_add(env, "POP3_LOGOUT_FORMAT", set->pop3_logout_format);
+		env_put(t_strconcat("POP3_CLIENT_WORKAROUNDS=",
+				    set->pop3_client_workarounds, NULL));
+		env_put(t_strconcat("POP3_LOGOUT_FORMAT=",
+				    set->pop3_logout_format, NULL));
 		if (set->pop3_no_flag_updates)
-			envarr_addb(env, "POP3_NO_FLAG_UPDATES");
+			env_put("POP3_NO_FLAG_UPDATES=1");
 		if (set->pop3_reuse_xuidl)
-			envarr_addb(env, "POP3_REUSE_XUIDL");
+			env_put("POP3_REUSE_XUIDL=1");
 		if (set->pop3_enable_last)
-			envarr_addb(env, "POP3_ENABLE_LAST");
+			env_put("POP3_ENABLE_LAST=1");
 		if (set->pop3_lock_session)
-			envarr_addb(env, "POP3_LOCK_SESSION");
+			env_put("POP3_LOCK_SESSION=1");
 	}
 
 	/* We care about POP3 UIDL format in all process types */
-	envarr_add(env, "POP3_UIDL_FORMAT", set->pop3_uidl_format);
+	env_put(t_strconcat("POP3_UIDL_FORMAT=", set->pop3_uidl_format, NULL));
 
 	if (set->mail_save_crlf)
-		envarr_addb(env, "MAIL_SAVE_CRLF");
+		env_put("MAIL_SAVE_CRLF=1");
 	if (set->mmap_disable)
-		envarr_addb(env, "MMAP_DISABLE");
+		env_put("MMAP_DISABLE=1");
 	if (set->dotlock_use_excl)
-		envarr_addb(env, "DOTLOCK_USE_EXCL");
+		env_put("DOTLOCK_USE_EXCL=1");
 	if (set->fsync_disable)
-		envarr_addb(env, "FSYNC_DISABLE");
+		env_put("FSYNC_DISABLE=1");
 	if (set->mail_nfs_storage)
-		envarr_addb(env, "MAIL_NFS_STORAGE");
+		env_put("MAIL_NFS_STORAGE=1");
 	if (set->mail_nfs_index)
-		envarr_addb(env, "MAIL_NFS_INDEX");
+		env_put("MAIL_NFS_INDEX=1");
 	if (set->mailbox_list_index_disable)
-		envarr_addb(env, "MAILBOX_LIST_INDEX_DISABLE");
+		env_put("MAILBOX_LIST_INDEX_DISABLE=1");
 	if (set->maildir_stat_dirs)
-		envarr_addb(env, "MAILDIR_STAT_DIRS");
+		env_put("MAILDIR_STAT_DIRS=1");
 	if (set->maildir_copy_with_hardlinks)
-		envarr_addb(env, "MAILDIR_COPY_WITH_HARDLINKS");
+		env_put("MAILDIR_COPY_WITH_HARDLINKS=1");
 	if (set->maildir_copy_preserve_filename)
-		envarr_addb(env, "MAILDIR_COPY_PRESERVE_FILENAME");
+		env_put("MAILDIR_COPY_PRESERVE_FILENAME=1");
 	if (set->mail_debug)
-		envarr_addb(env, "DEBUG");
+		env_put("DEBUG=1");
 	if (set->mail_full_filesystem_access)
-		envarr_addb(env, "FULL_FILESYSTEM_ACCESS");
+		env_put("FULL_FILESYSTEM_ACCESS=1");
 	if (set->mbox_dirty_syncs)
-		envarr_addb(env, "MBOX_DIRTY_SYNCS");
+		env_put("MBOX_DIRTY_SYNCS=1");
 	if (set->mbox_very_dirty_syncs)
-		envarr_addb(env, "MBOX_VERY_DIRTY_SYNCS");
+		env_put("MBOX_VERY_DIRTY_SYNCS=1");
 	if (set->mbox_lazy_writes)
-		envarr_addb(env, "MBOX_LAZY_WRITES");
+		env_put("MBOX_LAZY_WRITES=1");
 	/* when running dump-capability log still points to stderr,
 	   and io_add()ing it might break (epoll_ctl() gives EPERM) */
 	if (set->shutdown_clients && !dump_capability)
-		envarr_addb(env, "STDERR_CLOSE_SHUTDOWN");
+		env_put("STDERR_CLOSE_SHUTDOWN=1");
+	(void)umask(set->umask);
 
-	envarr_add(env, "LOCK_METHOD", set->lock_method);
-	envarr_add(env, "MBOX_READ_LOCKS", set->mbox_read_locks);
-	envarr_add(env, "MBOX_WRITE_LOCKS", set->mbox_write_locks);
-	envarr_addi(env, "MBOX_LOCK_TIMEOUT", set->mbox_lock_timeout);
-	envarr_addi(env, "MBOX_DOTLOCK_CHANGE_TIMEOUT",
-		    set->mbox_dotlock_change_timeout);
-	envarr_addi(env, "MBOX_MIN_INDEX_SIZE", set->mbox_min_index_size);
+	env_put(t_strconcat("LOCK_METHOD=", set->lock_method, NULL));
+	env_put(t_strconcat("MBOX_READ_LOCKS=", set->mbox_read_locks, NULL));
+	env_put(t_strconcat("MBOX_WRITE_LOCKS=", set->mbox_write_locks, NULL));
+	env_put(t_strdup_printf("MBOX_LOCK_TIMEOUT=%u",
+				set->mbox_lock_timeout));
+	env_put(t_strdup_printf("MBOX_DOTLOCK_CHANGE_TIMEOUT=%u",
+				set->mbox_dotlock_change_timeout));
+	env_put(t_strdup_printf("MBOX_MIN_INDEX_SIZE=%u",
+				set->mbox_min_index_size));
 
-	envarr_addi(env, "DBOX_ROTATE_SIZE", set->dbox_rotate_size);
-	envarr_addi(env, "DBOX_ROTATE_MIN_SIZE", set->dbox_rotate_min_size);
-	envarr_addi(env, "DBOX_ROTATE_DAYS", set->dbox_rotate_days);
+	env_put(t_strdup_printf("DBOX_ROTATE_SIZE=%u",
+				set->dbox_rotate_size));
+	env_put(t_strdup_printf("DBOX_ROTATE_MIN_SIZE=%u",
+				set->dbox_rotate_min_size));
+	env_put(t_strdup_printf("DBOX_ROTATE_DAYS=%u",
+				set->dbox_rotate_days));
 
 	if (*set->mail_plugins != '\0') {
-		envarr_add(env, "MAIL_PLUGIN_DIR", set->mail_plugin_dir);
-		envarr_add(env, "MAIL_PLUGINS", set->mail_plugins);
+		env_put(t_strconcat("MAIL_PLUGIN_DIR=",
+				    set->mail_plugin_dir, NULL));
+		env_put(t_strconcat("MAIL_PLUGINS=", set->mail_plugins, NULL));
 	}
 
 	/* user given environment - may be malicious. virtual_user comes from
@@ -391,15 +393,12 @@ mail_process_set_environment(ARRAY_TYPE(const_string) *env,
 	   mechanism might allow leaving extra data there. */
 	if ((mail == NULL || *mail == '\0') && *set->mail_location != '\0')
 		mail = expand_mail_env(set->mail_location, var_expand_table);
-	envarr_add(env, "MAIL", mail);
+	env_put(t_strconcat("MAIL=", mail, NULL));
 
-	*first_location_r = NULL;
 	if (set->server->namespaces != NULL) {
-		env_add_namespace(env, set->server->namespaces,
-				  mail, var_expand_table, first_location_r);
+		env_put_namespace(set->server->namespaces,
+				  mail, var_expand_table);
 	}
-	if (*first_location_r == NULL)
-		*first_location_r = mail == NULL ? mail : "";
 
 	str = t_str_new(256);
 	envs = array_get(&set->plugin_envs, &count);
@@ -408,7 +407,8 @@ mail_process_set_environment(ARRAY_TYPE(const_string) *env,
 		str_truncate(str, 0);
 		var_expand(str, envs[i+1], var_expand_table);
 
-		envarr_add(env, t_str_ucase(envs[i]), str_c(str));
+		env_put(t_strconcat(t_str_ucase(envs[i]), "=",
+				    str_c(str), NULL));
 	}
 }
 
@@ -417,8 +417,7 @@ void mail_process_exec(const char *protocol, const char *section)
 	struct server_settings *server = settings_root;
 	const struct var_expand_table *var_expand_table;
 	struct settings *set;
-	const char *executable, *first_location;
-	ARRAY_TYPE(const_string) env;
+	const char *executable;
 
 	if (strcmp(protocol, "ext") == 0) {
 		/* external binary. section contains path for it. */
@@ -452,24 +451,24 @@ void mail_process_exec(const char *protocol, const char *section)
 				     getpid(), geteuid());
 
 	/* set up logging */
-	t_array_init(&env, 128);
-	envarr_add(&env, "LOG_TIMESTAMP", set->log_timestamp);
+	env_put(t_strconcat("LOG_TIMESTAMP=", set->log_timestamp, NULL));
 	if (*set->log_path == '\0')
-		envarr_addb(&env, "USE_SYSLOG");
+		env_put("USE_SYSLOG=1");
 	else
-		envarr_add(&env, "LOGFILE", set->log_path);
+		env_put(t_strconcat("LOGFILE=", set->log_path, NULL));
 	if (*set->info_log_path != '\0')
-		envarr_add(&env, "INFOLOGFILE", set->info_log_path);
+		env_put(t_strconcat("INFOLOGFILE=", set->info_log_path, NULL));
 	if (*set->mail_log_prefix != '\0') {
 		string_t *str = t_str_new(256);
 
+		str_append(str, "LOG_PREFIX=");
 		var_expand(str, set->mail_log_prefix, var_expand_table);
-		envarr_add(&env, "LOG_PREFIX", str_c(str));
+		env_put(str_c(str));
 	}
 
-	mail_process_set_environment(&env, set, getenv("MAIL"),
-				     var_expand_table, FALSE, &first_location);
-        client_process_exec(executable, "", &env);
+	mail_process_set_environment(set, getenv("MAIL"), var_expand_table,
+				     FALSE);
+        client_process_exec(executable, "");
 
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 }
@@ -521,7 +520,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 {
 	const struct var_expand_table *var_expand_table;
 	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
-	const char *system_user, *first_location;
+	const char *system_user;
 	struct mail_process_group *process_group;
 	char title[1024];
 	struct log_io *log;
@@ -529,7 +528,6 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	pid_t pid;
 	uid_t uid;
 	gid_t gid;
-	ARRAY_TYPE(const_string) env, restrict_env, *dest_env;
 	ARRAY_DEFINE(extra_args, const char *);
 	unsigned int i, count, left, process_count;
 	int ret, log_fd, nice, chdir_errno;
@@ -702,7 +700,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		log_set_prefix(log, str_c(str));
 	}
 
-	child_process_init_env(&env);
+	child_process_init_env();
 
 	/* move the client socket into stdin and stdout fds, log to stderr */
 	if (dup2(dump_capability ? null_fd : socket, 0) < 0)
@@ -717,20 +715,14 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
-	if (!set->mail_drop_priv_before_exec)
-		dest_env = &env;
-	else {
-		t_array_init(&restrict_env, 8);
-		dest_env = &restrict_env;
-	}
-	restrict_access_set_env(dest_env, system_user, uid, gid, chroot_dir,
+	restrict_access_set_env(system_user, uid, gid, chroot_dir,
 				set->first_valid_gid, set->last_valid_gid,
 				set->mail_extra_groups);
 
 	restrict_process_size(set->mail_process_size, (unsigned int)-1);
 
 	if (dump_capability)
-		envarr_addb(&env, "DUMP_CAPABILITY");
+		env_put("DUMP_CAPABILITY=1");
 
 	if (*home_dir == '\0') {
 		full_home_dir = "";
@@ -780,8 +772,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 			i_fatal("chdir(/tmp) failed: %m");
 	}
 
-	mail_process_set_environment(&env, set, mail, var_expand_table,
-				     dump_capability, &first_location);
+	mail_process_set_environment(set, mail, var_expand_table,
+				     dump_capability);
 
 	/* extra args. uppercase key value. */
 	args = array_get(&extra_args, &count);
@@ -794,28 +786,31 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		p = strchr(args[i], '=');
 		if (p == NULL) {
 			/* boolean */
-			envarr_addb(&env, t_str_ucase(args[i]));
+			env_put(t_strconcat(t_str_ucase(args[i]), "=1", NULL));
 
 		} else {
 			/* key=value */
-			envarr_add(&env,
-				   t_str_ucase(t_strdup_until(args[i], p)),
-				   p + 1);
+			env_put(t_strconcat(t_str_ucase(
+				t_strdup_until(args[i], p)), p, NULL));
 		}
 	}
 
 	if (nfs_check) {
 		/* ideally we should check all of the namespaces,
 		   but for now don't bother. */
-		nfs_warn_if_found(first_location, full_home_dir);
+		const char *mail_location = getenv("NAMESPACE_1");
+
+		if (mail_location == NULL)
+			mail_location = getenv("MAIL");
+		nfs_warn_if_found(mail_location, full_home_dir);
 	}
 
-	envarr_addb(&env, "LOGGED_IN");
-	envarr_add(&env, "HOME", home_dir);
-	envarr_add(&env, "USER", user);
+	env_put("LOGGED_IN=1");
+	env_put(t_strconcat("HOME=", home_dir, NULL));
+	env_put(t_strconcat("USER=", user, NULL));
 
 	addr = net_ip2addr(remote_ip);
-	envarr_add(&env, "IP", addr);
+	env_put(t_strconcat("IP=", addr, NULL));
 
 	if (!set->verbose_proctitle)
 		title[0] = '\0';
@@ -831,9 +826,9 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	closelog();
 
 	if (set->mail_drop_priv_before_exec)
-		restrict_access_by_env(&restrict_env, TRUE);
+		restrict_access_by_env(TRUE);
 
-	client_process_exec(set->mail_executable, title, &env);
+	client_process_exec(set->mail_executable, title);
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
 		       set->mail_executable);
 

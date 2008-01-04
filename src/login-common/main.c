@@ -275,7 +275,7 @@ static void drop_privileges(void)
 
 	/* Refuse to run as root - we should never need it and it's
 	   dangerous with SSL. */
-	restrict_access_by_env(NULL, TRUE);
+	restrict_access_by_env(TRUE);
 
 	/* make sure we can't fork() */
 	restrict_process_size((unsigned int)-1, 1);

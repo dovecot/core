@@ -378,25 +378,18 @@ static void auth_process_destroy(struct auth_process *p)
 }
 
 static void
-socket_settings_env_put(ARRAY_TYPE(const_string) *env,
-			const char *env_base, struct socket_settings *set)
+socket_settings_env_put(const char *env_base, struct socket_settings *set)
 {
 	if (!set->used)
 		return;
 
-	envarr_add(env, env_base, set->path);
-	if (set->mode != 0) {
-		envarr_add(env, t_strdup_printf("%s_MODE", env_base),
-			   t_strdup_printf("%o", set->mode));
-	}
-	if (*set->user != '\0') {
-		envarr_add(env, t_strdup_printf("%s_USER", env_base),
-			   set->user);
-	}
-	if (*set->group != '\0') {
-		envarr_add(env, t_strdup_printf("%s_GROUP", env_base),
-			   set->group);
-	}
+	env_put(t_strdup_printf("%s=%s", env_base, set->path));
+	if (set->mode != 0)
+		env_put(t_strdup_printf("%s_MODE=%o", env_base, set->mode));
+	if (*set->user != '\0')
+		env_put(t_strdup_printf("%s_USER=%s", env_base, set->user));
+	if (*set->group != '\0')
+		env_put(t_strdup_printf("%s_GROUP=%s", env_base, set->group));
 }
 
 static int connect_auth_socket(struct auth_process_group *group,
@@ -418,8 +411,7 @@ static int connect_auth_socket(struct auth_process_group *group,
 	return 0;
 }
 
-static void auth_set_environment(ARRAY_TYPE(const_string) *env,
-				 struct auth_settings *set)
+static void auth_set_environment(struct auth_settings *set)
 {
 	struct auth_socket_settings *as;
 	struct auth_passdb_settings *ap;
@@ -428,46 +420,46 @@ static void auth_set_environment(ARRAY_TYPE(const_string) *env,
 	int i;
 
 	/* setup access environment */
-	restrict_access_set_env(env, set->user, set->uid, set->gid, set->chroot,
+	restrict_access_set_env(set->user, set->uid, set->gid, set->chroot,
 				0, 0, NULL);
 
 	/* set other environment */
-	envarr_addb(env, "DOVECOT_MASTER");
-	envarr_add(env, "AUTH_NAME", set->name);
-	envarr_add(env, "MECHANISMS", set->mechanisms);
-	envarr_add(env, "REALMS", set->realms);
-	envarr_add(env, "DEFAULT_REALM", set->default_realm);
-	envarr_add(env, "USERNAME_CHARS", set->username_chars);
-	envarr_add(env, "ANONYMOUS_USERNAME", set->anonymous_username);
-	envarr_add(env, "USERNAME_TRANSLATION", set->username_translation);
-	envarr_add(env, "USERNAME_FORMAT", set->username_format);
-	envarr_add(env, "MASTER_USER_SEPARATOR", set->master_user_separator);
-	envarr_addi(env, "CACHE_SIZE", set->cache_size);
-	envarr_addi(env, "CACHE_TTL", set->cache_ttl);
-	envarr_addi(env, "CACHE_NEGATIVE_TTL", set->cache_negative_ttl);
+	env_put("DOVECOT_MASTER=1");
+	env_put(t_strconcat("AUTH_NAME=", set->name, NULL));
+	env_put(t_strconcat("MECHANISMS=", set->mechanisms, NULL));
+	env_put(t_strconcat("REALMS=", set->realms, NULL));
+	env_put(t_strconcat("DEFAULT_REALM=", set->default_realm, NULL));
+	env_put(t_strconcat("USERNAME_CHARS=", set->username_chars, NULL));
+	env_put(t_strconcat("ANONYMOUS_USERNAME=",
+			    set->anonymous_username, NULL));
+	env_put(t_strconcat("USERNAME_TRANSLATION=",
+			    set->username_translation, NULL));
+	env_put(t_strconcat("USERNAME_FORMAT=", set->username_format, NULL));
+	env_put(t_strconcat("MASTER_USER_SEPARATOR=",
+			    set->master_user_separator, NULL));
+	env_put(t_strdup_printf("CACHE_SIZE=%u", set->cache_size));
+	env_put(t_strdup_printf("CACHE_TTL=%u", set->cache_ttl));
+	env_put(t_strdup_printf("CACHE_NEGATIVE_TTL=%u",
+				set->cache_negative_ttl));
 
 	for (ap = set->passdbs, i = 1; ap != NULL; ap = ap->next, i++) {
-		envarr_add(env, t_strdup_printf("PASSDB_%u_DRIVER", i),
-			   ap->driver);
+		env_put(t_strdup_printf("PASSDB_%u_DRIVER=%s", i, ap->driver));
 		if (ap->args != NULL) {
-			envarr_add(env, t_strdup_printf("PASSDB_%u_ARGS", i),
-				   ap->args);
+			env_put(t_strdup_printf("PASSDB_%u_ARGS=%s",
+						i, ap->args));
 		}
 		if (ap->deny)
-			envarr_addb(env, t_strdup_printf("PASSDB_%u_DENY", i));
+			env_put(t_strdup_printf("PASSDB_%u_DENY=1", i));
                 if (ap->pass)
-			envarr_addb(env, t_strdup_printf("PASSDB_%u_PASS", i));
-		if (ap->master) {
-			envarr_addb(env,
-				    t_strdup_printf("PASSDB_%u_MASTER", i));
-		}
+                        env_put(t_strdup_printf("PASSDB_%u_PASS=1", i));
+		if (ap->master)
+                        env_put(t_strdup_printf("PASSDB_%u_MASTER=1", i));
 	}
 	for (au = set->userdbs, i = 1; au != NULL; au = au->next, i++) {
-		envarr_add(env, t_strdup_printf("USERDB_%u_DRIVER", i),
-			   au->driver);
+		env_put(t_strdup_printf("USERDB_%u_DRIVER=%s", i, au->driver));
 		if (au->args != NULL) {
-			envarr_add(env, t_strdup_printf("USERDB_%u_ARGS", i),
-				   au->args);
+			env_put(t_strdup_printf("USERDB_%u_ARGS=%s",
+						i, au->args));
 		}
 	}
 
@@ -476,31 +468,34 @@ static void auth_set_environment(ARRAY_TYPE(const_string) *env,
 			continue;
 
 		str = t_strdup_printf("AUTH_%u", i);
-		socket_settings_env_put(env, str, &as->client);
-		socket_settings_env_put(env, t_strconcat(str, "_MASTER", NULL),
+		socket_settings_env_put(str, &as->client);
+		socket_settings_env_put(t_strconcat(str, "_MASTER", NULL),
 					&as->master);
 	}
 
 	if (set->verbose)
-		envarr_addb(env, "VERBOSE");
+		env_put("VERBOSE=1");
 	if (set->debug)
-		envarr_addb(env, "VERBOSE_DEBUG");
+		env_put("VERBOSE_DEBUG=1");
 	if (set->debug_passwords)
-		envarr_addb(env, "VERBOSE_DEBUG_PASSWORDS");
+		env_put("VERBOSE_DEBUG_PASSWORDS=1");
 	if (set->ssl_require_client_cert)
-		envarr_addb(env, "SSL_REQUIRE_CLIENT_CERT");
+		env_put("SSL_REQUIRE_CLIENT_CERT=1");
 	if (set->ssl_username_from_cert)
-		envarr_addb(env, "SSL_USERNAME_FROM_CERT");
+		env_put("SSL_USERNAME_FROM_CERT=1");
 	if (set->ntlm_use_winbind)
-		envarr_addb(env, "NTLM_USE_WINBIND");
+		env_put("NTLM_USE_WINBIND=1");
 	if (*set->krb5_keytab != '\0') {
 		/* Environment used by Kerberos 5 library directly */
-		envarr_add(env, "KRB5_KTNAME", set->krb5_keytab);
+		env_put(t_strconcat("KRB5_KTNAME=", set->krb5_keytab, NULL));
 	}
-	if (*set->gssapi_hostname != '\0')
-		envarr_add(env, "GSSAPI_HOSTNAME", set->gssapi_hostname);
-	envarr_add(env, "WINBIND_HELPER_PATH", set->winbind_helper_path);
-	envarr_addi(env, "FAILURE_DELAY", set->failure_delay);
+	if (*set->gssapi_hostname != '\0') {
+		env_put(t_strconcat("GSSAPI_HOSTNAME=",
+				    set->gssapi_hostname, NULL));
+	}
+	env_put(t_strconcat("WINBIND_HELPER_PATH=",
+			    set->winbind_helper_path, NULL));
+	env_put(t_strdup_printf("FAILURE_DELAY=%u", set->failure_delay));
 
 	restrict_process_size(set->process_size, (unsigned int)-1);
 }
@@ -512,7 +507,6 @@ static int create_auth_process(struct auth_process_group *group)
 	struct log_io *log;
 	pid_t pid;
 	int fd[2], log_fd, i;
-	ARRAY_TYPE(const_string) env;
 
 	/* see if this is a connect socket */
 	as = group->set->sockets;
@@ -572,7 +566,7 @@ static int create_auth_process(struct auth_process_group *group)
 	if (dup2(log_fd, 2) < 0)
 		i_fatal("dup2(stderr) failed: %m");
 
-	child_process_init_env(&env);
+	child_process_init_env();
 
 	if (group->listen_fd != 3) {
 		if (dup2(group->listen_fd, 3) < 0)
@@ -583,24 +577,23 @@ static int create_auth_process(struct auth_process_group *group)
 	for (i = 0; i <= 2; i++)
 		fd_close_on_exec(i, FALSE);
 
-        auth_set_environment(&env, group->set);
+        auth_set_environment(group->set);
 
-	envarr_add(&env, "AUTH_WORKER_PATH",
-		   t_strdup_printf("%s/auth-worker.%s",
-				   *group->set->chroot != '\0' ? "" :
-				   group->set->parent->defaults->base_dir,
-				   dec2str(getpid())));
-	envarr_addi(&env, "AUTH_WORKER_MAX_COUNT",
-		    group->set->worker_max_count);
-	envarr_addi(&env, "AUTH_WORKER_MAX_REQUEST_COUNT",
-		    group->set->worker_max_request_count);
+	env_put(t_strdup_printf("AUTH_WORKER_PATH=%s/auth-worker.%s",
+				*group->set->chroot != '\0' ? "" :
+				group->set->parent->defaults->base_dir,
+				dec2str(getpid())));
+	env_put(t_strdup_printf("AUTH_WORKER_MAX_COUNT=%u",
+				group->set->worker_max_count));
+	env_put(t_strdup_printf("AUTH_WORKER_MAX_REQUEST_COUNT=%u",
+				group->set->worker_max_request_count));
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
 	closelog();
 
 	executable = group->set->executable;
-	client_process_exec(executable, "", &env);
+	client_process_exec(executable, "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 	return -1;
 }
@@ -611,7 +604,6 @@ static int create_auth_worker(struct auth_process *process, int fd)
 	const char *prefix, *executable;
 	pid_t pid;
 	int log_fd, i;
-	ARRAY_TYPE(const_string) env;
 
 	log_fd = log_create_pipe(&log, 0);
 	if (log_fd < 0)
@@ -659,15 +651,15 @@ static int create_auth_worker(struct auth_process *process, int fd)
 		fd_close_on_exec(i, FALSE);
 	fd_close_on_exec(4, FALSE);
 
-	child_process_init_env(&env);
-        auth_set_environment(&env, process->group->set);
+	child_process_init_env();
+        auth_set_environment(process->group->set);
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
 	closelog();
 
 	executable = t_strconcat(process->group->set->executable, " -w", NULL);
-	client_process_exec(executable, "", &env);
+	client_process_exec(executable, "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 	return -1;
 }

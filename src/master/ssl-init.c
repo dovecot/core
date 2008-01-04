@@ -31,7 +31,6 @@ static void start_generate_process(const char *fname)
 	struct log_io *log;
 	pid_t pid;
 	int log_fd;
-	ARRAY_TYPE(const_string) env;
 
 	log_fd = log_create_pipe(&log, 10);
 	if (log_fd == -1)
@@ -61,9 +60,9 @@ static void start_generate_process(const char *fname)
 	if (dup2(log_fd, 2) < 0)
 		i_fatal("dup2(stderr) failed: %m");
 
-	child_process_init_env(&env);
+	child_process_init_env();
 	client_process_exec(t_strconcat(binpath, " "SSL_PARAMETERS_PERM_PATH,
-					NULL), "", &env);
+					NULL), "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", binpath);
 }
 
