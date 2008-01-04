@@ -428,7 +428,7 @@ static void test_utc_mktime(void)
 		{ 1969, 12, 31, 23, 59, 59 },
 		{ 1901, 12, 13, 20, 45, 53 },
 #endif
-#if TIME_T_MAX_BITS > 32
+#if (TIME_T_MAX_BITS > 32 || !defined(TIME_T_SIGNED))
 		{ 2106, 2, 7, 6, 28, 15 },
 #endif
 		{ 2007, 11, 7, 1, 7, 20 },
@@ -440,7 +440,7 @@ static void test_utc_mktime(void)
 		-1,
 		-2147483647,
 #endif
-#if TIME_T_MAX_BITS > 32
+#if (TIME_T_MAX_BITS > 32 || !defined(TIME_T_SIGNED))
 		4294967295,
 #endif
 		1194397640,

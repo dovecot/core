@@ -132,9 +132,9 @@ static void test_message_date_parse(void)
 	static const char *input[] = {
 #ifdef TIME_T_SIGNED
 		"Thu, 01 Jan 1970 01:59:59 +0200",
-		"Fri, 13 Dec 1901 20:45:52 +0000",
+		"Fri, 13 Dec 1901 20:45:53 +0000",
 #endif
-#if TIME_T_MAX_BITS > 31
+#if (TIME_T_MAX_BITS > 32 || !defined(TIME_T_SIGNED))
 		"Sun, 07 Feb 2106 06:28:15 +0000",
 #endif
 		"Wed, 07 Nov 2007 01:07:20 +0200",
@@ -146,9 +146,9 @@ static void test_message_date_parse(void)
 	static struct test_message_date_output output[] = {
 #ifdef TIME_T_SIGNED
 		{ -1, 2*60, TRUE },
-		{ -2147483648, 0, TRUE },
+		{ -2147483647, 0, TRUE },
 #endif
-#if TIME_T_MAX_BITS > 31
+#if (TIME_T_MAX_BITS > 32 || !defined(TIME_T_SIGNED))
 		{ 4294967295, 0, TRUE },
 #endif
 		{ 1194390440, 2*60, TRUE },
