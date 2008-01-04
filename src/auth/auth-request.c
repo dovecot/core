@@ -173,6 +173,8 @@ bool auth_request_import(struct auth_request *request,
 		request->remote_port = atoi(value);
 	else if (strcmp(key, "secured") == 0)
 		request->secured = TRUE;
+	else if (strcmp(key, "nologin") == 0)
+		request->no_login = TRUE;
 	else
 		return FALSE;
 
