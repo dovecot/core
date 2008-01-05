@@ -119,8 +119,6 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 		*error_r = "Root mail directory not given";
 		return -1;
 	}
-	if (list_set->inbox_path == NULL)
-		list_set->inbox_path = list_set->root_dir;
 	return 0;
 }
 
@@ -200,7 +198,13 @@ maildir_create(struct mail_storage *_storage, const char *data,
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;
 
-	/* normally the maildir is created in verify_inbox() */
+	if (list_set.inbox_path == NULL &&
+	    strcmp(layout, MAILDIR_PLUSPLUS_DRIVER_NAME) == 0 &&
+	    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		/* Maildir++ INBOX is the Maildir base itself */
+		list_set.inbox_path = list_set.root_dir;
+	}
+
 	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
 		if (stat(list_set.root_dir, &st) < 0) {
 			if (errno != ENOENT) {
@@ -699,7 +703,7 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(list);
 	struct stat st;
-	const char *src, *dest;
+	const char *src, *dest, *base;
 	int count;
 
 	/* Make sure the indexes are closed before trying to delete the
@@ -728,6 +732,20 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 			return -1;
 		}
 		return 0;
+	}
+
+	if (strcmp(name, "INBOX") == 0) {
+		/* we shouldn't get this far if this is the actual INBOX.
+		   more likely we're just deleting a namespace/INBOX.
+		   be anyway sure that we don't accidentally delete the entire
+		   maildir (INBOX explicitly configured to maildir root). */
+		base = mailbox_list_get_path(list, NULL,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (strcmp(base, src) == 0) {
+			mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+					       "INBOX can't be deleted.");
+			return -1;
+		}
 	}
 
 	dest = maildir_get_unlink_dest(list, name);

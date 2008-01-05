@@ -392,7 +392,8 @@ int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 				       "Invalid mailbox name");
 		return -1;
 	}
-	if (strcmp(name, "INBOX") == 0) {
+	if (strcmp(name, "INBOX") == 0 &&
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
 				       "INBOX can't be deleted.");
 		return -1;

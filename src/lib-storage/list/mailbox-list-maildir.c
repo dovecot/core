@@ -212,10 +212,8 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		break;
 	}
 
-	if (strcmp(name, "INBOX") == 0) {
-		return _list->set.inbox_path != NULL ?
-			_list->set.inbox_path : _list->set.root_dir;
-	}
+	if (strcmp(name, "INBOX") == 0 && _list->set.inbox_path != NULL)
+		return _list->set.inbox_path;
 
 	return maildir_list_get_dirname_path(_list, _list->set.root_dir, name);
 }
@@ -231,7 +229,9 @@ maildir_list_get_mailbox_name_status(struct mailbox_list *_list,
 	path = mailbox_list_get_path(_list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
-	if (strcmp(name, "INBOX") == 0 || stat(path, &st) == 0) {
+	if ((strcmp(name, "INBOX") == 0 &&
+	     (_list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) ||
+	    stat(path, &st) == 0) {
 		*status = MAILBOX_NAME_EXISTS;
 		return 0;
 	}
