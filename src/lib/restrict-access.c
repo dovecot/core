@@ -112,10 +112,14 @@ static void fix_groups_list(const char *extra_groups, gid_t egid,
 			return;
 		}
 	} else {
+		if (egid == (gid_t)-1 && *tmp == NULL) {
+			/* nothing to do */
+			return;
+		}
 		/* Some OSes don't like an empty groups list,
 		   so use the effective GID as the only one. */
 		gid_list = t_new(gid_t, 2);
-		gid_list[0] = egid;
+		gid_list[0] = egid != (gid_t)-1 ? egid : getegid();
 		gid_count = 1;
 	}
 
