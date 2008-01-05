@@ -94,7 +94,7 @@ static bool client_handle_args(struct imap_client *client,
 	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	string_t *reply;
 	unsigned int port = 143;
-	bool proxy = FALSE, temp = FALSE, nologin = !success;
+	bool proxy = FALSE, temp = FALSE, nologin = !success, proxy_self;
 
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
@@ -118,8 +118,9 @@ static bool client_handle_args(struct imap_client *client,
 	if (destuser == NULL)
 		destuser = client->common.virtual_user;
 
-	if (proxy &&
-	    !login_proxy_is_ourself(&client->common, host, port, destuser)) {
+	proxy_self = proxy &&
+		login_proxy_is_ourself(&client->common, host, port, destuser);
+	if (proxy && !proxy_self) {
 		/* we want to proxy the connection to another server.
 		   don't do this unless authentication succeeded. with
 		   master user proxying we can get FAIL with proxy still set.
@@ -162,13 +163,18 @@ static bool client_handle_args(struct imap_client *client,
 			client_destroy(client, "Login with referral");
 			return TRUE;
 		}
-	} else if (nologin) {
+	} else if (nologin || proxy_self) {
 		/* Authentication went ok, but for some reason user isn't
 		   allowed to log in. Shouldn't probably happen. */
+		if (proxy_self) {
+			client_syslog(&client->common,
+				      "Proxying loops to itself");
+		}
+
 		reply = t_str_new(128);
 		if (reason != NULL)
 			str_printfa(reply, "NO %s", reason);
-		else if (temp)
+		else if (temp || proxy_self)
 			str_append(reply, "NO "AUTH_TEMP_FAILED_MSG);
 		else
 			str_append(reply, "NO "AUTH_FAILED_MSG);
@@ -178,7 +184,7 @@ static bool client_handle_args(struct imap_client *client,
 		return FALSE;
 	}
 
-	i_assert(nologin);
+	i_assert(nologin || proxy_self);
 
 	if (!client->destroyed)
 		client_auth_failed(client);
