@@ -40,7 +40,7 @@
 
 /* If we've been waiting auth server to respond for over this many milliseconds,
    send a "waiting" message. */
-#define AUTH_WAITING_TIMEOUT_MSECS 30
+#define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
 
 #if CLIENT_LOGIN_IDLE_TIMEOUT_MSECS >= AUTH_REQUEST_TIMEOUT*1000
 #  error client idle timeout must be smaller than authentication timeout
