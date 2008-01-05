@@ -7,6 +7,7 @@
 #include "base64.h"
 #include "safe-memset.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "client.h"
 #include "pop3-proxy.h"
 
@@ -40,8 +41,8 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	switch (i_stream_read(input)) {
 	case -2:
 		/* buffer full */
-		i_error("pop-proxy(%s): Remote input buffer full",
-			client->common.virtual_user);
+		client_syslog(&client->common,
+			      "proxy: Remote input buffer full");
 		client_destroy_internal_failure(client);
 		return;
 	case -1:
@@ -58,9 +59,9 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	case 0:
 		/* this is a banner */
 		if (strncmp(line, "+OK", 3) != 0) {
-			i_error("pop3-proxy(%s): "
-				"Remote returned invalid banner: %s",
-				client->common.virtual_user, line);
+			client_syslog(&client->common, t_strdup_printf(
+				"proxy: Remote returned invalid banner: %s",
+				str_sanitize(line, 160)));
 			client_destroy_internal_failure(client);
 			return;
 		}
@@ -148,8 +149,7 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 	i_assert(!client->destroyed);
 
 	if (password == NULL) {
-		i_error("proxy(%s): password not given",
-			client->common.virtual_user);
+		client_syslog(&client->common, "proxy: password not given");
 		return -1;
 	}
 

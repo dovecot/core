@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "safe-memset.h"
 #include "client.h"
 #include "imap-quote.h"
@@ -21,9 +22,9 @@ static int proxy_input_line(struct imap_client *client,
 	if (!client->proxy_login_sent) {
 		/* this is a banner */
 		if (strncmp(line, "* OK ", 5) != 0) {
-			i_error("imap-proxy(%s): "
-				"Remote returned invalid banner: %s",
-				client->common.virtual_user, line);
+			client_syslog(&client->common, t_strdup_printf(
+				"proxy: Remote returned invalid banner: %s",
+				str_sanitize(line, 160)));
 			client_destroy_internal_failure(client);
 			return -1;
 		}
@@ -115,8 +116,8 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	switch (i_stream_read(input)) {
 	case -2:
 		/* buffer full */
-		i_error("imap-proxy(%s): Remote input buffer full",
-			client->common.virtual_user);
+		client_syslog(&client->common,
+			      "proxy: Remote input buffer full");
 		client_destroy_internal_failure(client);
 		return;
 	case -1:
@@ -138,8 +139,7 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 	i_assert(!client->destroyed);
 
 	if (password == NULL) {
-		i_error("proxy(%s): password not given",
-			client->common.virtual_user);
+		client_syslog(&client->common, "proxy: password not given");
 		return -1;
 	}
 

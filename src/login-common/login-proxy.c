@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "hash.h"
+#include "str-sanitize.h"
 #include "client-common.h"
 #include "login-proxy.h"
 
@@ -189,7 +190,8 @@ void login_proxy_free(struct login_proxy *proxy)
 
 		ipstr = net_ip2addr(&proxy->ip);
 		i_info("proxy(%s): disconnecting %s",
-		       proxy->user, ipstr != NULL ? ipstr : "");
+		       str_sanitize(proxy->user, 80),
+		       ipstr != NULL ? ipstr : "");
 
 		if (proxy->client_io != NULL)
 			io_remove(&proxy->client_io);

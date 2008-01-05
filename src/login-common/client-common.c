@@ -60,6 +60,7 @@ get_var_expand_table(struct client *client)
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
+	unsigned int i;
 
 	tab = t_malloc(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
@@ -69,6 +70,9 @@ get_var_expand_table(struct client *client)
 		tab[1].value = t_strcut(client->virtual_user, '@');
 		tab[2].value = strchr(client->virtual_user, '@');
 		if (tab[2].value != NULL) tab[2].value++;
+
+		for (i = 0; i < 3; i++)
+			tab[i].value = str_sanitize(tab[i].value, 80);
 	}
 	tab[3].value = login_protocol;
 	tab[4].value = getenv("HOME");
