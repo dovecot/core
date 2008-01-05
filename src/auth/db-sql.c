@@ -29,9 +29,9 @@ static struct setting_def setting_defs[] = {
 struct sql_settings default_sql_settings = {
 	MEMBER(driver) NULL,
 	MEMBER(connect) NULL,
-	MEMBER(password_query) "SELECT password FROM users WHERE userid = '%u'",
-	MEMBER(user_query) "SELECT home, uid, gid FROM users WHERE userid = '%u'",
-	MEMBER(update_query) "UPDATE users SET password = '%w' WHERE userid = '%u'",
+	MEMBER(password_query) "SELECT username, domain, password FROM users WHERE username = '%n' AND domain = '%d'",
+	MEMBER(user_query) "SELECT home, uid, gid FROM users WHERE username = '%n' AND domain = '%d'",
+	MEMBER(update_query) "UPDATE users SET password = '%w' WHERE username = '%n' AND domain = '%d'",
 	MEMBER(default_pass_scheme) "PLAIN-MD5"
 };
 
