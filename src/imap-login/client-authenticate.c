@@ -77,6 +77,17 @@ static void client_auth_input(struct imap_client *client)
 	}
 }
 
+static void client_auth_failed(struct imap_client *client)
+{
+	/* get back to normal client input. */
+	if (client->io != NULL)
+		io_remove(&client->io);
+	client->io = io_add(client->common.fd, IO_READ,
+			    client_input, client);
+
+	timeout_remove(&client->to_auth_waiting);
+}
+
 static bool client_handle_args(struct imap_client *client,
 			       const char *const *args, bool success)
 {
@@ -169,13 +180,8 @@ static bool client_handle_args(struct imap_client *client,
 
 	i_assert(nologin);
 
-	if (!client->destroyed) {
-		/* get back to normal client input. */
-		if (client->io != NULL)
-			io_remove(&client->io);
-		client->io = io_add(client->common.fd, IO_READ,
-				    client_input, client);
-	}
+	if (!client->destroyed)
+		client_auth_failed(client);
 	return TRUE;
 }
 
@@ -262,17 +268,6 @@ static int client_auth_begin(struct imap_client *client, const char *mech_name,
 		io_remove(&client->io);
 	client_set_auth_waiting(client);
 	return 0;
-}
-
-static void client_auth_failed(struct imap_client *client)
-{
-	/* get back to normal client input. */
-	if (client->io != NULL)
-		io_remove(&client->io);
-	client->io = io_add(client->common.fd, IO_READ,
-			    client_input, client);
-
-	timeout_remove(&client->to_auth_waiting);
 }
 
 int cmd_authenticate(struct imap_client *client, const struct imap_arg *args)
