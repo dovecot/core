@@ -163,7 +163,7 @@ index_sync_changes_get_next_uid(struct index_sync_changes_context *ctx)
 void index_sync_changes_apply(struct index_sync_changes_context *ctx,
 			      pool_t pool, uint8_t *flags,
 			      ARRAY_TYPE(keyword_indexes) *keywords,
-			      enum mailbox_sync_type *sync_type_r)
+			      enum mail_index_sync_type *sync_type_r)
 {
 	const struct mail_index_sync_rec *syncs;
 	unsigned int i, count;
@@ -174,7 +174,7 @@ void index_sync_changes_apply(struct index_sync_changes_context *ctx,
 		switch (syncs[i].type) {
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
 			mail_index_sync_flags_apply(&syncs[i], flags);
-			sync_type |= MAILBOX_SYNC_TYPE_FLAGS;
+			sync_type |= MAIL_INDEX_SYNC_TYPE_FLAGS;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
@@ -190,7 +190,7 @@ void index_sync_changes_apply(struct index_sync_changes_context *ctx,
 					     I_MIN(10, count - i));
 			}
 			if (mail_index_sync_keywords_apply(&syncs[i], keywords))
-				sync_type |= MAILBOX_SYNC_TYPE_KEYWORDS;
+				sync_type |= syncs[i].type;
 			break;
 		default:
 			break;

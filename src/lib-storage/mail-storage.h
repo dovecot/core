@@ -140,8 +140,7 @@ enum mailbox_sync_flags {
 
 enum mailbox_sync_type {
 	MAILBOX_SYNC_TYPE_EXPUNGE	= 0x01,
-	MAILBOX_SYNC_TYPE_FLAGS		= 0x02,
-	MAILBOX_SYNC_TYPE_KEYWORDS	= 0x04
+	MAILBOX_SYNC_TYPE_FLAGS		= 0x02
 };
 
 struct message_part;

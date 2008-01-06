@@ -376,7 +376,7 @@ static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
 static void mbox_sync_update_header_real(struct mbox_sync_mail_context *ctx)
 {
 	uint8_t old_flags;
-	enum mailbox_sync_type sync_type;
+	enum mail_index_sync_type sync_type;
 
 	i_assert(ctx->mail.uid != 0 || ctx->mail.pseudo);
 
@@ -390,7 +390,9 @@ static void mbox_sync_update_header_real(struct mbox_sync_mail_context *ctx)
 	if ((old_flags & XSTATUS_FLAGS_MASK) !=
 	    (ctx->mail.flags & XSTATUS_FLAGS_MASK))
 		mbox_sync_update_xstatus(ctx);
-	if ((sync_type & MAILBOX_SYNC_TYPE_KEYWORDS) != 0)
+	if ((sync_type & (MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD |
+			  MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE |
+			  MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET)) != 0)
 		mbox_sync_update_xkeywords(ctx);
 
 	if (!ctx->sync_ctx->mbox->ibox.keep_recent)

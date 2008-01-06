@@ -146,7 +146,6 @@ int imap_sync_more(struct imap_sync_context *ctx)
 
 		switch (ctx->sync_rec.type) {
 		case MAILBOX_SYNC_TYPE_FLAGS:
-		case MAILBOX_SYNC_TYPE_KEYWORDS:
 			if (ctx->seq == 0)
 				ctx->seq = ctx->sync_rec.seq1;
 

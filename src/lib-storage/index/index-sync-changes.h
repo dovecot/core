@@ -22,6 +22,6 @@ index_sync_changes_get_next_uid(struct index_sync_changes_context *ctx);
 void index_sync_changes_apply(struct index_sync_changes_context *ctx,
 			      pool_t pool, uint8_t *flags,
 			      ARRAY_TYPE(keyword_indexes) *keywords,
-			      enum mailbox_sync_type *sync_type_r);
+			      enum mail_index_sync_type *sync_type_r);
 
 #endif

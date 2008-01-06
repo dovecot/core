@@ -347,7 +347,7 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		   sync records are automatically applied to rec->flags at the
 		   end of index syncing, so calculate those new flags first */
 		struct mbox_sync_mail idx_mail;
-		enum mailbox_sync_type sync_type;
+		enum mail_index_sync_type sync_type;
 
 		memset(&idx_mail, 0, sizeof(idx_mail));
 		idx_mail.flags = rec->flags & ~MAIL_RECENT;
@@ -361,8 +361,10 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 					 sync_ctx->mail_keyword_pool,
 					 &idx_mail.flags, &idx_mail.keywords,
 					 &sync_type);
-		if (sync_type != 0 && box->v.sync_notify != NULL)
-			box->v.sync_notify(box, rec->uid, sync_type);
+		if (sync_type != 0 && box->v.sync_notify != NULL) {
+			box->v.sync_notify(box, rec->uid,
+					   index_sync_type_convert(sync_type));
+		}
 
 		if ((idx_mail.flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 			/* flags are dirty. ignore whatever was in the mbox,

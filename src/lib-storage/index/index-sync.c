@@ -12,9 +12,9 @@ struct index_mailbox_sync_context {
 	struct mail_index_view_sync_ctx *sync_ctx;
 	uint32_t messages_count;
 
+	ARRAY_TYPE(seq_range) flag_updates;
 	const ARRAY_TYPE(seq_range) *expunges;
-	unsigned int expunge_pos;
-	uint32_t last_seq1, last_seq2;
+	unsigned int flag_update_pos, expunge_pos;
 
 	bool failed;
 };
@@ -93,6 +93,41 @@ static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
 	}
 }
 
+static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
+{
+	struct mail_index_view_sync_rec sync;
+	uint32_t seq1, seq2;
+
+	i_array_init(&ctx->flag_updates, 128);
+	while (mail_index_view_sync_next(ctx->sync_ctx, &sync)) {
+		switch (sync.type) {
+		case MAIL_INDEX_SYNC_TYPE_APPEND:
+			/* not interested */
+			break;
+		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+			/* later */
+			break;
+		case MAIL_INDEX_SYNC_TYPE_FLAGS:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
+			if (mail_index_lookup_seq_range(ctx->ibox->view,
+							sync.uid1, sync.uid2,
+							&seq1, &seq2)) {
+				seq_range_array_add_range(&ctx->flag_updates,
+							  seq1, seq2);
+			}
+			break;
+		}
+	}
+
+	/* remove expunged messages from flag updates */
+	if (ctx->expunges != NULL) {
+		seq_range_array_remove_seq_range(&ctx->flag_updates,
+						 ctx->expunges);
+	}
+}
+
 struct mailbox_sync_context *
 index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 			bool failed)
@@ -133,56 +168,8 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 						  &ctx->expunges);
 		ctx->expunge_pos = array_count(ctx->expunges);
 	}
+	index_view_sync_recs_get(ctx);
 	return &ctx->ctx;
-}
-
-static bool sync_rec_check_skips(struct index_mailbox_sync_context *ctx,
-				 struct mailbox_sync_rec *sync_rec)
-{
-	uint32_t seq, new_seq1, new_seq2;
-
-	if (sync_rec->seq1 >= ctx->last_seq1 &&
-	    sync_rec->seq1 <= ctx->last_seq2)
-		new_seq1 = ctx->last_seq2 + 1;
-	else
-		new_seq1 = sync_rec->seq1;
-	if (sync_rec->seq2 >= ctx->last_seq1 &&
-	    sync_rec->seq2 <= ctx->last_seq2)
-		new_seq2 = ctx->last_seq1 - 1;
-	else
-		new_seq2 = sync_rec->seq2;
-
-	if (new_seq1 > new_seq2)
-		return FALSE;
-
-	ctx->last_seq1 = sync_rec->seq1;
-	ctx->last_seq2 = sync_rec->seq2;
-
-	sync_rec->seq1 = new_seq1;
-	sync_rec->seq2 = new_seq2;
-
-	/* FIXME: we're only skipping messages from the beginning and from
-	   the end. we should skip also the middle ones. This takes care of
-	   the most common repeats though. */
-	if (ctx->expunges != NULL) {
-		/* skip expunged messages from the beginning and the end */
-		for (seq = sync_rec->seq1; seq <= sync_rec->seq2; seq++) {
-			if (!seq_range_exists(ctx->expunges, seq))
-				break;
-		}
-		if (seq > sync_rec->seq2) {
-			/* everything skipped */
-			return FALSE;
-		}
-		sync_rec->seq1 = seq;
-
-		for (seq = sync_rec->seq2; seq >= sync_rec->seq1; seq--) {
-			if (!seq_range_exists(ctx->expunges, seq))
-				break;
-		}
-		sync_rec->seq2 = seq;
-	}
-	return TRUE;
 }
 
 static int
@@ -214,41 +201,21 @@ bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 {
 	struct index_mailbox_sync_context *ctx =
 		(struct index_mailbox_sync_context *)_ctx;
-	struct mail_index_view_sync_rec sync;
+	const struct seq_range *flag_updates;
+	unsigned int count;
 
 	if (ctx->failed)
 		return FALSE;
 
-	while (mail_index_view_sync_next(ctx->sync_ctx, &sync)) {
-		switch (sync.type) {
-		case MAIL_INDEX_SYNC_TYPE_APPEND:
-			/* not interested */
-			break;
-		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-			/* later */
-			break;
-		case MAIL_INDEX_SYNC_TYPE_FLAGS:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-			/* FIXME: hide the flag updates for expunged messages */
-			mail_index_lookup_seq_range(ctx->ibox->view,
-						    sync.uid1, sync.uid2,
-						    &sync_rec_r->seq1,
-						    &sync_rec_r->seq2);
-			if (sync_rec_r->seq1 == 0)
-				break;
-
-			if (!sync_rec_check_skips(ctx, sync_rec_r))
-				break;
-
-			sync_rec_r->type =
-				sync.type == MAIL_INDEX_SYNC_TYPE_FLAGS ?
-				MAILBOX_SYNC_TYPE_FLAGS :
-				MAILBOX_SYNC_TYPE_KEYWORDS;
-			return 1;
-		}
+	flag_updates = array_get(&ctx->flag_updates, &count);
+	if (ctx->flag_update_pos < count) {
+		sync_rec_r->type = MAILBOX_SYNC_TYPE_FLAGS;
+		sync_rec_r->seq1 = flag_updates[ctx->flag_update_pos].seq1;
+		sync_rec_r->seq2 = flag_updates[ctx->flag_update_pos].seq2;
+		ctx->flag_update_pos++;
+		return 1;
 	}
+
 	return index_mailbox_sync_next_expunge(ctx, sync_rec_r);
 }
 
@@ -353,6 +320,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	if (ret == 0 && status_items != 0)
 		mailbox_get_status(_ctx->box, status_items, status_r);
 
+	array_free(&ctx->flag_updates);
 	i_free(ctx);
 	return ret;
 }
@@ -388,4 +356,18 @@ bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
 		}
 	}
 	return TRUE;
+}
+
+enum mailbox_sync_type index_sync_type_convert(enum mail_index_sync_type type)
+{
+	enum mailbox_sync_type ret = 0;
+
+	if ((type & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0)
+		ret |= MAILBOX_SYNC_TYPE_EXPUNGE;
+	if ((type & (MAIL_INDEX_SYNC_TYPE_FLAGS |
+		     MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD |
+		     MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE |
+		     MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET)) != 0)
+		ret |= MAILBOX_SYNC_TYPE_FLAGS;
+	return ret;
 }

@@ -65,7 +65,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 {
 	struct mailbox *box = &mbox->ibox.box;
 	const char *dir, *fname, *newfname, *newpath;
-	enum mailbox_sync_type sync_type;
+	enum mail_index_sync_type sync_type;
 	uint8_t flags8;
 
 	fname = strrchr(path, '/');
@@ -88,8 +88,10 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 					      ctx->flags, &ctx->keywords);
 	newpath = t_strconcat(dir, newfname, NULL);
 	if (rename(path, newpath) == 0) {
-		if (box->v.sync_notify != NULL)
-			box->v.sync_notify(box, ctx->uid, sync_type);
+		if (box->v.sync_notify != NULL) {
+			box->v.sync_notify(box, ctx->uid,
+					   index_sync_type_convert(sync_type));
+		}
 		ctx->changed = TRUE;
 		return 1;
 	}
