@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "hash.h"
+#include "llist.h"
 #include "str-sanitize.h"
 #include "client-common.h"
 #include "login-proxy.h"
@@ -13,6 +13,8 @@
 #define OUTBUF_THRESHOLD 1024
 
 struct login_proxy {
+	struct login_proxy *prev, *next;
+
 	int client_fd, server_fd;
 	struct io *client_io, *server_io;
 	struct istream *server_input;
@@ -28,7 +30,8 @@ struct login_proxy {
 	unsigned int destroying:1;
 };
 
-static struct hash_table *login_proxies;
+static struct login_proxy *login_proxies = NULL;
+static unsigned int login_proxy_count = 0;
 
 static void server_input(struct login_proxy *proxy)
 {
@@ -186,7 +189,8 @@ void login_proxy_free(struct login_proxy *proxy)
 	if (proxy->client_fd != -1) {
 		/* detached proxy */
 		main_unref();
-		hash_remove(login_proxies, proxy);
+		DLLIST_REMOVE(&login_proxies, proxy);
+		login_proxy_count--;
 
 		ipstr = net_ip2addr(&proxy->ip);
 		i_info("proxy(%s): disconnecting %s",
@@ -248,7 +252,7 @@ unsigned int login_proxy_get_port(struct login_proxy *proxy)
 
 unsigned int login_proxy_get_count(void)
 {
-	return login_proxies == NULL ? 0 : hash_count(login_proxies);
+	return login_proxy_count;
 }
 
 void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
@@ -284,25 +288,13 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 	proxy->callback = NULL;
 	proxy->context = NULL;
 
-	if (login_proxies == NULL) {
-		login_proxies = hash_create(system_pool, system_pool,
-					    0, NULL, NULL);
-	}
-	hash_insert(login_proxies, proxy, proxy);
+	login_proxy_count++;
+	DLLIST_PREPEND(&login_proxies, proxy);
 	main_ref();
 }
 
 void login_proxy_deinit(void)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
-
-	if (login_proxies == NULL)
-		return;
-
-	iter = hash_iterate_init(login_proxies);
-	while (hash_iterate(iter, &key, &value))
-		login_proxy_free(value);
-	hash_iterate_deinit(&iter);
-	hash_destroy(&login_proxies);
+	while (login_proxies != NULL)
+		login_proxy_free(login_proxies);
 }

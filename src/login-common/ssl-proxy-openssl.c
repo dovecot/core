@@ -6,7 +6,7 @@
 #include "network.h"
 #include "ostream.h"
 #include "read-full.h"
-#include "hash.h"
+#include "llist.h"
 #include "ssl-proxy.h"
 
 #include <fcntl.h>
@@ -35,6 +35,7 @@ enum ssl_io_action {
 
 struct ssl_proxy {
 	int refcount;
+	struct ssl_proxy *prev, *next;
 
 	SSL *ssl;
 	struct ip_addr ip;
@@ -64,7 +65,8 @@ struct ssl_parameters {
 
 static int extdata_index;
 static SSL_CTX *ssl_ctx;
-static struct hash_table *ssl_proxies;
+static unsigned int ssl_proxy_count;
+static struct ssl_proxy *ssl_proxies;
 static struct ssl_parameters ssl_params;
 static int ssl_username_nid;
 
@@ -495,7 +497,8 @@ int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 	proxy->ip = *ip;
         SSL_set_ex_data(ssl, extdata_index, proxy);
 
-	hash_insert(ssl_proxies, proxy, proxy);
+	ssl_proxy_count++;
+	DLLIST_PREPEND(&ssl_proxies, proxy);
 
 	ssl_step(proxy);
 	main_ref();
@@ -560,7 +563,8 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 		return;
 	proxy->destroyed = TRUE;
 
-	hash_remove(ssl_proxies, proxy);
+	ssl_proxy_count--;
+	DLLIST_REMOVE(&ssl_proxies, proxy);
 
 	if (proxy->io_ssl_read != NULL)
 		io_remove(&proxy->io_ssl_read);
@@ -661,7 +665,7 @@ pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
 
 unsigned int ssl_proxy_get_count(void)
 {
-	return ssl_proxies == NULL ? 0 : hash_count(ssl_proxies);
+	return ssl_proxy_count;
 }
 
 static void *ssl_clean_malloc(size_t size)
@@ -778,23 +782,18 @@ void ssl_proxy_init(void)
 	   initialized though. */
 	(void)RAND_bytes(&buf, 1);
 
-        ssl_proxies = hash_create(system_pool, system_pool, 0, NULL, NULL);
+	ssl_proxy_count = 0;
+        ssl_proxies = NULL;
 	ssl_initialized = TRUE;
 }
 
 void ssl_proxy_deinit(void)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
-
 	if (!ssl_initialized)
 		return;
 
-	iter = hash_iterate_init(ssl_proxies);
-	while (hash_iterate(iter, &key, &value))
-		ssl_proxy_destroy(value);
-	hash_iterate_deinit(&iter);
-	hash_destroy(&ssl_proxies);
+	while (ssl_proxies != NULL)
+		ssl_proxy_destroy(ssl_proxies);
 
 	ssl_free_parameters(&ssl_params);
 	SSL_CTX_free(ssl_ctx);
