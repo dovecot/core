@@ -1270,6 +1270,9 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 
+	/* This is needed with 0 byte mails to get hdr=NULL call done. */
+	index_mail_cache_parse_continue(_mail);
+
 	if (mail->data.received_date == (time_t)-1)
 		mail->data.received_date = received_date;
 	if (mail->data.save_date == (time_t)-1) {
