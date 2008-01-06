@@ -309,8 +309,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	ctx->expunges = expunges;
 	ctx->finish_min_msg_count = reset || quick_sync ? 0 :
 		view->map->hdr.messages_count - expunge_count;
-	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
-				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
 	if (reset && view->map->hdr.messages_count > 0 &&
 	    (flags & MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT) == 0) {
@@ -358,6 +356,11 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		} else {
 			map = view->map;
 		}
+	}
+
+	if (ctx->sync_map_update) {
+		mail_index_sync_map_init(&ctx->sync_map_ctx, view,
+					 MAIL_INDEX_SYNC_HANDLER_VIEW);
 	}
 
 #ifdef DEBUG
@@ -686,7 +689,8 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx)
 		view->map->hdr.log_file_tail_offset = 0;
 	}
 
-	mail_index_sync_map_deinit(&ctx->sync_map_ctx);
+	if (ctx->sync_map_update)
+		mail_index_sync_map_deinit(&ctx->sync_map_ctx);
 	mail_index_view_sync_clean_log_syncs(ctx->view);
 
 #ifdef DEBUG

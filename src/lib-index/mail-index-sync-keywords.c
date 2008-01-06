@@ -191,22 +191,18 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	i_assert(*keyword_idx_r / CHAR_BIT < ext->record_size);
 }
 
-static int
+static void
 keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 			const struct mail_index_ext *ext,
 			unsigned int keyword_idx, enum modify_type type,
-			uint32_t uid1, uint32_t uid2)
+			uint32_t seq1, uint32_t seq2)
 {
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	unsigned char *data, data_mask;
 	unsigned int data_offset;
-	uint32_t seq1, seq2;
 
 	i_assert(keyword_idx != (unsigned int)-1);
-
-	if (!mail_index_lookup_seq_range(view, uid1, uid2, &seq1, &seq2))
-		return 1;
 
 	mail_index_sync_write_seq_update(ctx, seq1, seq2);
 
@@ -237,7 +233,6 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 	default:
 		i_unreached();
 	}
-	return 1;
 }
 
 int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
@@ -248,9 +243,10 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 	const char *keyword_name;
 	const struct mail_index_ext *ext;
 	const uint32_t *uid, *end;
+	struct sync_uid_range_iter iter;
+	uint32_t seq1, seq2;
 	uint32_t seqset_offset, ext_map_idx;
 	unsigned int keyword_idx;
-	int ret;
 
 	seqset_offset = sizeof(*rec) + rec->name_size;
 	if ((seqset_offset % 4) != 0)
@@ -293,12 +289,11 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 	}
 
 	while (uid+2 <= end) {
-		ret = keywords_update_records(ctx, ext, keyword_idx,
-					      rec->modify_type,
-					      uid[0], uid[1]);
-		if (ret <= 0)
-			return ret;
-
+		sync_uid_range_iter_init(&iter, ctx, uid[0], uid[1]);
+		while (sync_uid_range_iter_next(&iter, &seq1, &seq2)) {
+			keywords_update_records(ctx, ext, keyword_idx,
+						rec->modify_type, seq1, seq2);
+		}
 		uid += 2;
 	}
 
@@ -314,6 +309,7 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_record *rec;
 	const struct mail_index_ext *ext;
 	const struct mail_transaction_keyword_reset *end;
+	struct sync_uid_range_iter iter;
 	uint32_t ext_map_idx, seq1, seq2;
 
 	if (!mail_index_map_lookup_ext(map, "keywords", &ext_map_idx)) {
@@ -324,15 +320,14 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 	ext = array_idx(&map->extensions, ext_map_idx);
 	end = CONST_PTR_OFFSET(r, hdr->size);
 	for (; r != end; r++) {
-		if (!mail_index_lookup_seq_range(ctx->view, r->uid1, r->uid2,
-						 &seq1, &seq2))
-			continue;
-
-		mail_index_sync_write_seq_update(ctx, seq1, seq2);
-		for (seq1--; seq1 < seq2; seq1++) {
-			rec = MAIL_INDEX_MAP_IDX(map, seq1);
-			memset(PTR_OFFSET(rec, ext->record_offset),
-			       0, ext->record_size);
+		sync_uid_range_iter_init(&iter, ctx, r->uid1, r->uid2);
+		while (sync_uid_range_iter_next(&iter, &seq1, &seq2)) {
+			mail_index_sync_write_seq_update(ctx, seq1, seq2);
+			for (seq1--; seq1 < seq2; seq1++) {
+				rec = MAIL_INDEX_MAP_IDX(map, seq1);
+				memset(PTR_OFFSET(rec, ext->record_offset),
+				       0, ext->record_size);
+			}
 		}
 	}
 	return 1;

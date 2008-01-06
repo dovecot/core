@@ -88,6 +88,55 @@ mail_index_sync_get_atomic_map(struct mail_index_sync_map_ctx *ctx)
 	return ctx->view->map;
 }
 
+void sync_uid_range_iter_init(struct sync_uid_range_iter *iter,
+			      struct mail_index_sync_map_ctx *ctx,
+			      uint32_t uid1, uint32_t uid2)
+{
+	memset(iter, 0, sizeof(*iter));
+	iter->ctx = ctx;
+	if (!mail_index_lookup_seq_range(ctx->view, uid1, uid2,
+					 &iter->seq1, &iter->seq2))
+		iter->seq1 = 1;
+}
+
+bool sync_uid_range_iter_next(struct sync_uid_range_iter *iter,
+			      uint32_t *seq1_r, uint32_t *seq2_r)
+{
+	struct mail_index_view *view;
+	uint32_t seq;
+
+	if (iter->seq1 > iter->seq2)
+		return FALSE;
+
+	if (iter->ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
+		*seq1_r = iter->seq1;
+		*seq2_r = iter->seq2;
+		iter->seq1 = iter->seq2 + 1;
+		return TRUE;
+	}
+	view = iter->ctx->view;
+
+	/* with views we have to drop expunged messages from the range.
+	   first skip over any expunged messages from the beginning of the
+	   range. */
+	for (seq = iter->seq1; seq <= iter->seq2; seq++) {
+		if (!mail_index_is_expunged(view, seq))
+			break;
+	}
+	if (seq > iter->seq2)
+		return FALSE;
+	*seq1_r = seq;
+
+	/* go forward until we find the first expunged message */
+	for (seq++; seq <= iter->seq2; seq++) {
+		if (mail_index_is_expunged(view, seq))
+			break;
+	}
+	*seq2_r = seq - 1;
+	iter->seq1 = seq;
+	return TRUE;
+}
+
 static int
 mail_index_header_update_counts(struct mail_index_header *hdr,
 				uint8_t old_flags, uint8_t new_flags,
@@ -338,16 +387,14 @@ static int sync_append(const struct mail_index_record *rec,
 	return 1;
 }
 
-static int sync_flag_update(const struct mail_transaction_flag_update *u,
-			    struct mail_index_sync_map_ctx *ctx)
+static void sync_flag_update_range(struct mail_index_sync_map_ctx *ctx,
+				   const struct mail_transaction_flag_update *u,
+				   uint32_t seq1, uint32_t seq2)
 {
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	uint8_t flag_mask, old_flags;
-	uint32_t idx, seq1, seq2;
-
-	if (!mail_index_lookup_seq_range(view, u->uid1, u->uid2, &seq1, &seq2))
-		return 1;
+	uint32_t idx;
 
 	mail_index_sync_write_seq_update(ctx, seq1, seq2);
 
@@ -377,6 +424,17 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 							     rec->flags, TRUE);
 		}
 	}
+}
+
+static int sync_flag_update(const struct mail_transaction_flag_update *u,
+			    struct mail_index_sync_map_ctx *ctx)
+{
+	struct sync_uid_range_iter iter;
+	uint32_t seq1, seq2;
+
+	sync_uid_range_iter_init(&iter, ctx, u->uid1, u->uid2);
+	while (sync_uid_range_iter_next(&iter, &seq1, &seq2))
+		sync_flag_update_range(ctx, u, seq1, seq2);
 	return 1;
 }
 

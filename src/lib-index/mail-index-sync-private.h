@@ -8,6 +8,11 @@ struct uid_range {
 };
 ARRAY_DEFINE_TYPE(uid_range, struct uid_range);
 
+struct sync_uid_range_iter {
+	struct mail_index_sync_map_ctx *ctx;
+	uint32_t seq1, seq2;
+};
+
 struct mail_index_sync_list {
 	const ARRAY_TYPE(uid_range) *array;
 	unsigned int idx;
@@ -51,6 +56,12 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx);
 int mail_index_sync_map(struct mail_index_map **map,
 			enum mail_index_sync_handler_type type, bool force);
+
+void sync_uid_range_iter_init(struct sync_uid_range_iter *iter,
+			      struct mail_index_sync_map_ctx *ctx,
+			      uint32_t uid1, uint32_t uid2);
+bool sync_uid_range_iter_next(struct sync_uid_range_iter *iter,
+			      uint32_t *seq1_r, uint32_t *seq2_r);
 
 int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			   const struct mail_transaction_header *hdr,
