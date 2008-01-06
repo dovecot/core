@@ -90,6 +90,7 @@ struct auth_request {
 	unsigned int no_password:1;
 	unsigned int skip_password_check:1;
 	unsigned int proxy:1;
+	unsigned int proxy_maybe:1;
 	unsigned int cert_username:1;
 	unsigned int userdb_lookup:1;
 	unsigned int userdb_lookup_failed:1;
@@ -147,6 +148,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 void auth_request_set_userdb_field_values(struct auth_request *request,
 					  const char *name,
 					  const char *const *values);
+void auth_request_proxy_finish(struct auth_request *request);
 
 int auth_request_password_verify(struct auth_request *request,
 				 const char *plain_password,

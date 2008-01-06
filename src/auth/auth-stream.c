@@ -57,6 +57,33 @@ void auth_stream_reply_add(struct auth_stream_reply *reply,
 	}
 }
 
+void auth_stream_reply_remove(struct auth_stream_reply *reply, const char *key)
+{
+	const char *str = str_c(reply->str);
+	unsigned int i, start, key_len = strlen(key);
+
+	i = 0;
+	while (str[i] != '\0') {
+		start = i;
+		for (; str[i] != '\0'; i++) {
+			if (str[i] == '\t') {
+				i++;
+				break;
+			}
+		}
+
+		if (strncmp(str+start, key, key_len) == 0 &&
+		    (str[start+key_len] == '=' ||
+		     str[start+key_len] == '\t' ||
+		     str[start+key_len] == '\0')) {
+			str_delete(reply->str, start, i-start);
+			if (str_len(reply->str) == start && start > 0)
+				str_delete(reply->str, start - 1, 1);
+			break;
+		}
+	}
+}
+
 void auth_stream_reply_reset(struct auth_stream_reply *reply)
 {
 	str_truncate(reply->str, 0);
@@ -77,4 +104,9 @@ const char *auth_stream_reply_export(struct auth_stream_reply *reply)
 bool auth_stream_is_empty(struct auth_stream_reply *reply)
 {
 	return reply == NULL || str_len(reply->str) == 0;
+}
+
+const char *const *auth_stream_split(struct auth_stream_reply *reply)
+{
+	return t_strsplit(str_c(reply->str), "\t");
 }

@@ -967,6 +967,33 @@ auth_request_set_password(struct auth_request *request, const char *value,
 	}
 }
 
+static void auth_request_set_reply_field(struct auth_request *request,
+					 const char *name, const char *value)
+{
+	if (strcmp(name, "nologin") == 0) {
+		/* user can't actually login - don't keep this
+		   reply for master */
+		request->no_login = TRUE;
+		value = NULL;
+	} else if (strcmp(name, "proxy") == 0) {
+		/* we're proxying authentication for this user. send
+		   password back if using plaintext authentication. */
+		request->proxy = TRUE;
+		value = NULL;
+	} else if (strcmp(name, "proxy_maybe") == 0) {
+		/* like "proxy", but log in normally if we're proxying to
+		   ourself */
+		request->proxy = TRUE;
+		request->proxy_maybe = TRUE;
+		name = "proxy";
+		value = NULL;
+	}
+
+	if (request->extra_fields == NULL)
+		request->extra_fields = auth_stream_reply_init(request);
+	auth_stream_reply_add(request->extra_fields, name, value);
+}
+
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
@@ -1046,22 +1073,8 @@ void auth_request_set_field(struct auth_request *request,
 			auth_request_init_userdb_reply(request);
 		auth_request_set_userdb_field(request, name + 7, value);
 	} else {
-		if (strcmp(name, "nologin") == 0) {
-			/* user can't actually login - don't keep this
-			   reply for master */
-			request->no_login = TRUE;
-			value = NULL;
-		} else if (strcmp(name, "proxy") == 0) {
-			/* we're proxying authentication for this user. send
-			   password back if using plaintext authentication. */
-			request->proxy = TRUE;
-			request->no_login = TRUE;
-			value = NULL;
-		}
-
-		if (request->extra_fields == NULL)
-			request->extra_fields = auth_stream_reply_init(request);
-		auth_stream_reply_add(request->extra_fields, name, value);
+		/* these fields are returned to client */
+		auth_request_set_reply_field(request, name, value);
 		return;
 	}
 
@@ -1211,6 +1224,52 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 		/* add only one */
 		auth_request_set_userdb_field(request, name, *values);
 	}
+}
+
+static bool auth_request_proxy_is_self(struct auth_request *request)
+{
+	const char *const *tmp, *host = NULL, *port = NULL, *destuser = NULL;
+	struct ip_addr ip;
+
+	tmp = auth_stream_split(request->extra_fields);
+	for (; *tmp != NULL; tmp++) {
+		if (strncmp(*tmp, "host=", 5) == 0)
+			host = *tmp + 5;
+		else if (strncmp(*tmp, "port=", 5) == 0)
+			port = *tmp + 5;
+		if (strncmp(*tmp, "destuser=", 9) == 0)
+			destuser = *tmp + 9;
+	}
+
+	if (host == NULL || net_addr2ip(host, &ip) < 0) {
+		/* broken setup */
+		return FALSE;
+	}
+	if (!net_ip_compare(&ip, &request->local_ip))
+		return FALSE;
+
+	if (port != NULL && (unsigned int)atoi(port) != request->local_port)
+		return FALSE;
+	return destuser == NULL ||
+		strcmp(destuser, request->original_username) == 0;
+}
+
+void auth_request_proxy_finish(struct auth_request *request)
+{
+	if (!request->proxy_maybe || request->no_login)
+		return;
+
+	if (!auth_request_proxy_is_self(request)) {
+		request->no_login = TRUE;
+		return;
+	}
+
+	/* proxying to ourself - log in without proxying by dropping all the
+	   proxying fields. */
+	auth_stream_reply_remove(request->extra_fields, "proxy");
+	auth_stream_reply_remove(request->extra_fields, "host");
+	auth_stream_reply_remove(request->extra_fields, "port");
+	auth_stream_reply_remove(request->extra_fields, "destuser");
 }
 
 int auth_request_password_verify(struct auth_request *request,
