@@ -96,7 +96,7 @@ static gid_t get_group_id(const char *name)
 static void fix_groups_list(const char *extra_groups, gid_t egid,
 			    bool preserve_existing, bool *have_root_group)
 {
-	gid_t *gid_list;
+	gid_t *gid_list, *gid_list2;
 	const char *const *tmp, *empty = NULL;
 	unsigned int gid_count;
 
@@ -123,12 +123,15 @@ static void fix_groups_list(const char *extra_groups, gid_t egid,
 		gid_count = 1;
 	}
 
-	/* add extra groups to gids list */
-	for (; *tmp != NULL; tmp++) {
-		if (!t_try_realloc(gid_list, (gid_count+1) * sizeof(gid_t)))
-			i_unreached();
-		gid_list[gid_count++] = get_group_id(*tmp);
+	if (*tmp != NULL) {
+		/* @UNSAFE: add extra groups to gids list */
+		gid_list2 = t_new(gid_t, gid_count + str_array_length(tmp));
+		memcpy(gid_list2, gid_list, gid_count * sizeof(gid_t));
+		for (; *tmp != NULL; tmp++)
+			gid_list2[gid_count++] = get_group_id(*tmp);
+		gid_list = gid_list2;
 	}
+
 	if (setgroups(gid_count, gid_list) < 0) {
 		if (errno == EINVAL) {
 			i_fatal("setgroups(%s) failed: Too many extra groups",
