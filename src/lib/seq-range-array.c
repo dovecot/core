@@ -100,6 +100,14 @@ void seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 	}
 }
 
+void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,
+			       uint32_t seq1, uint32_t seq2)
+{
+	/* FIXME: optimize */
+	for (; seq1 <= seq2; seq1++)
+		seq_range_array_add(array, 2, seq1);
+}
+
 bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	struct seq_range *data, value;
