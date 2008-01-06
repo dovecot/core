@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "hostpid.h"
+#include "llist.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "var-expand.h"
@@ -15,11 +16,7 @@ unsigned int clients_count = 0;
 
 void client_link(struct client *client)
 {
-	client->prev = NULL;
-	client->next = clients;
-	if (clients != NULL)
-		clients->prev = client;
-	clients = client;
+	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 }
 
@@ -28,12 +25,7 @@ void client_unlink(struct client *client)
 	i_assert(clients_count > 0);
 
 	clients_count--;
-	if (client->prev == NULL)
-		clients = client->next;
-	else
-		client->prev->next = client->next;
-	if (client->next != NULL)
-		client->next->prev = client->prev;
+	DLLIST_REMOVE(&clients, client);
 }
 
 unsigned int clients_get_count(void)
