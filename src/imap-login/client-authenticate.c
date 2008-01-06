@@ -19,8 +19,6 @@
 
 #define IMAP_SERVICE_NAME "imap"
 
-static void client_auth_failed(struct imap_client *client);
-
 const char *client_authenticate_get_capabilities(bool secured)
 {
 	const struct auth_mech_desc *mech;
@@ -84,8 +82,6 @@ static void client_auth_failed(struct imap_client *client)
 		io_remove(&client->io);
 	client->io = io_add(client->common.fd, IO_READ,
 			    client_input, client);
-
-	timeout_remove(&client->to_auth_waiting);
 }
 
 static bool client_handle_args(struct imap_client *client,
@@ -205,6 +201,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
+		timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
 			if (client_handle_args(client, args, TRUE))
 				break;
@@ -215,6 +212,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 	case SASL_SERVER_REPLY_CLIENT_ERROR:
+		timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
 			if (client_handle_args(client, args, FALSE))
 				break;
