@@ -895,6 +895,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	i_assert(fd != -1);
 
 	output = o_stream_create_fd_file(fd, (uoff_t)-1, FALSE);
+	o_stream_cork(output);
 	str = t_str_new(512);
 
 	if (output->offset == 0) {
