@@ -146,6 +146,7 @@ headers = \
 	ioloop-notify-fd.h \
 	lib.h \
 	lib-signals.h \
+	llist.h \
 	macros.h \
 	md4.h \
 	md5.h \
