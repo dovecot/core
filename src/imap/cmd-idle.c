@@ -64,6 +64,7 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 	char *line;
 
 	client->last_input = ioloop_time;
+	timeout_reset(client->to_idle);
 
 	switch (i_stream_read(client->input)) {
 	case -1:

@@ -43,6 +43,7 @@ static void client_input_append(struct client_command_context *cmd)
 	i_assert(!client->destroyed);
 
 	client->last_input = ioloop_time;
+	timeout_reset(client->to_idle);
 
 	switch (i_stream_read(client->input)) {
 	case -1:
