@@ -148,7 +148,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 void auth_request_set_userdb_field_values(struct auth_request *request,
 					  const char *name,
 					  const char *const *values);
-void auth_request_proxy_finish(struct auth_request *request);
+void auth_request_proxy_finish(struct auth_request *request, bool success);
 
 int auth_request_password_verify(struct auth_request *request,
 				 const char *plain_password,

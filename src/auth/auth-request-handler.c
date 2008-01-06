@@ -209,7 +209,7 @@ static void auth_callback(struct auth_request *request,
 		handler->callback(str_c(str), handler->context);
 		break;
 	case AUTH_CLIENT_RESULT_SUCCESS:
-		auth_request_proxy_finish(request);
+		auth_request_proxy_finish(request, TRUE);
 
 		str_printfa(str, "OK\t%u\tuser=%s", request->id, request->user);
 		if (reply_size > 0) {
@@ -230,6 +230,8 @@ static void auth_callback(struct auth_request *request,
 		handler->callback(str_c(str), handler->context);
 		break;
 	case AUTH_CLIENT_RESULT_FAILURE:
+		auth_request_proxy_finish(request, FALSE);
+
 		str_printfa(str, "FAIL\t%u", request->id);
 		if (request->user != NULL)
 			str_printfa(str, "\tuser=%s", request->user);

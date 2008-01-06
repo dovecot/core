@@ -1254,18 +1254,23 @@ static bool auth_request_proxy_is_self(struct auth_request *request)
 		strcmp(destuser, request->original_username) == 0;
 }
 
-void auth_request_proxy_finish(struct auth_request *request)
+void auth_request_proxy_finish(struct auth_request *request, bool success)
 {
-	if (!request->proxy_maybe || request->no_login)
+	if (!request->proxy || request->no_login)
 		return;
 
-	if (!auth_request_proxy_is_self(request)) {
-		request->no_login = TRUE;
-		return;
+	if (!success) {
+		/* drop all proxy fields */
+	} else {
+		if (!request->proxy_maybe ||
+		    !auth_request_proxy_is_self(request)) {
+			request->no_login = TRUE;
+			return;
+		}
+
+		/* proxying to ourself - log in without proxying by dropping
+		   all the proxying fields. */
 	}
-
-	/* proxying to ourself - log in without proxying by dropping all the
-	   proxying fields. */
 	auth_stream_reply_remove(request->extra_fields, "proxy");
 	auth_stream_reply_remove(request->extra_fields, "host");
 	auth_stream_reply_remove(request->extra_fields, "port");
