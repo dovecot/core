@@ -1015,8 +1015,13 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		i_error("fstat(%s) failed: %m", temp_path);
 		(void)close(fd);
 		ret = -1;
+	} else if (file_size != (uoff_t)st.st_size) {
+		i_assert(!file_dotlock_is_locked(uidlist->dotlock));
+		i_error("Maildir uidlist dotlock overridden: %s",
+			uidlist->path);
+		(void)close(fd);
+		ret = -1;
 	} else {
-		i_assert(file_size == (uoff_t)st.st_size);
 		maildir_uidlist_close(uidlist);
 		uidlist->fd = fd;
 		uidlist->fd_dev = st.st_dev;
