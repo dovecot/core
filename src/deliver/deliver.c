@@ -801,12 +801,15 @@ int main(int argc, char *argv[])
 		/* we're non-root. get our username and possibly our home. */
 		struct passwd *pw;
 
-		pw = getpwuid(process_euid);
-		if (pw != NULL) {
+		user = getenv("USER");
+		home = getenv("HOME");
+		if (user != NULL && home != NULL) {
+			/* no need for a pw lookup */
+		} else if ((pw = getpwuid(process_euid)) != NULL) {
 			user = t_strdup(pw->pw_name);
-			if (getenv("HOME") == NULL)
+			if (home == NULL)
 				env_put(t_strconcat("HOME=", pw->pw_dir, NULL));
-		} else {
+		} else if (user == NULL) {
 			i_fatal("Couldn't lookup our username (uid=%s)",
 				dec2str(process_euid));
 		}
