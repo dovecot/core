@@ -75,6 +75,8 @@ int file_dotlock_replace(struct dotlock **dotlock,
    it's a good idea to update it once in a while so others won't override it.
    If the timestamp is less than a second old, it's not updated. */
 int file_dotlock_touch(struct dotlock *dotlock);
+/* Returns TRUE if the lock is still ok, FALSE if it's been overridden. */
+bool file_dotlock_is_locked(struct dotlock *dotlock);
 
 /* Returns the lock file path. */
 const char *file_dotlock_get_lock_path(struct dotlock *dotlock);

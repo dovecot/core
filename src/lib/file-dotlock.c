@@ -728,7 +728,6 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 			 enum dotlock_replace_flags flags)
 {
 	struct dotlock *dotlock;
-	struct stat st, st2;
 	const char *lock_path;
 	int fd;
 
@@ -740,28 +739,14 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 		dotlock->fd = -1;
 
 	lock_path = file_dotlock_get_lock_path(dotlock);
-	if ((flags & DOTLOCK_REPLACE_FLAG_VERIFY_OWNER) != 0) {
-		if (fstat(fd, &st) < 0) {
-			i_error("fstat(%s) failed: %m", lock_path);
-			file_dotlock_free(&dotlock);
-			return -1;
-		}
-
-		if (nfs_safe_lstat(lock_path, &st2) < 0) {
-			i_error("lstat(%s) failed: %m", lock_path);
-			file_dotlock_free(&dotlock);
-			return -1;
-		}
-
-		if (st.st_ino != st2.st_ino ||
-		    !CMP_DEV_T(st.st_dev, st2.st_dev)) {
-			i_warning("Our dotlock file %s was overridden "
-				  "(kept it %d secs)", lock_path,
-				  (int)(time(NULL) - dotlock->lock_time));
-			errno = EEXIST;
-			file_dotlock_free(&dotlock);
-			return 0;
-		}
+	if ((flags & DOTLOCK_REPLACE_FLAG_VERIFY_OWNER) != 0 &&
+	    !file_dotlock_is_locked(dotlock)) {
+		i_warning("Our dotlock file %s was overridden "
+			  "(kept it %d secs)", lock_path,
+			  (int)(time(NULL) - dotlock->lock_time));
+		errno = EEXIST;
+		file_dotlock_free(&dotlock);
+		return 0;
 	}
 
 	if (rename(lock_path, dotlock->path) < 0) {
@@ -793,6 +778,24 @@ int file_dotlock_touch(struct dotlock *dotlock)
 		}
 	);
 	return ret;
+}
+
+bool file_dotlock_is_locked(struct dotlock *dotlock)
+{
+	struct stat st, st2;
+	const char *lock_path;
+
+	lock_path = file_dotlock_get_lock_path(dotlock);
+	if (fstat(dotlock->fd, &st) < 0) {
+		i_error("fstat(%s) failed: %m", lock_path);
+		return FALSE;
+	}
+
+	if (nfs_safe_lstat(lock_path, &st2) < 0) {
+		i_error("lstat(%s) failed: %m", lock_path);
+		return FALSE;
+	}
+	return st.st_ino == st2.st_ino && CMP_DEV_T(st.st_dev, st2.st_dev);
 }
 
 const char *file_dotlock_get_lock_path(struct dotlock *dotlock)
