@@ -337,6 +337,7 @@ static void main_init(void)
 
 	auth_client = auth_client_new(login_process_uid);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
+	clients_init();
 
 	value = getenv("LISTEN_FDS");
 	listen_count = value == NULL ? 0 : atoi(value);
@@ -367,7 +368,7 @@ static void main_deinit(void)
 
 	if (auth_client != NULL)
 		auth_client_free(&auth_client);
-	clients_destroy_all();
+	clients_deinit();
 	master_deinit();
 
 	lib_signals_deinit();

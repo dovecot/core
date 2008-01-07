@@ -630,3 +630,13 @@ void clients_destroy_all(void)
 		client_destroy(imap_client, "Disconnected: Shutting down");
 	}
 }
+
+void clients_init(void)
+{
+	/* Nothing to initialize for IMAP */
+}
+
+void clients_deinit(void)
+{
+	clients_destroy_all();
+}

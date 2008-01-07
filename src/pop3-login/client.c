@@ -480,3 +480,13 @@ void clients_destroy_all(void)
 		client_destroy(pop3_client, "Disconnected: Shutting down");
 	}
 }
+
+void clients_init(void)
+{
+    /* Nothing to initialize for POP3 */
+}
+
+void clients_deinit(void)
+{
+	clients_destroy_all();
+}

@@ -47,4 +47,7 @@ void clients_notify_auth_connected(void);
 void client_destroy_oldest(void);
 void clients_destroy_all(void);
 
+void clients_init(void);
+void clients_deinit(void);
+
 #endif
