@@ -196,44 +196,87 @@ static bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
 	}
 }
 
-static void
-mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
-				  ARRAY_TYPE(seq_array) *array, bool range)
+static uint32_t
+mail_index_transaction_get_uid(struct mail_index_transaction *t, uint32_t seq)
 {
-        struct mail_index_view *view = t->view;
 	const struct mail_index_record *rec;
+
+	i_assert(seq > 0);
+
+	if (seq >= t->first_new_seq)
+		rec = mail_index_transaction_lookup(t, seq);
+	else {
+		i_assert(seq <= t->view->map->hdr.messages_count);
+		rec = MAIL_INDEX_MAP_IDX(t->view->map, seq - 1);
+	}
+	i_assert(rec->uid != 0);
+	return rec->uid;
+}
+
+static void
+mail_index_convert_to_uids(struct mail_index_transaction *t,
+			   ARRAY_TYPE(seq_array) *array)
+{
 	uint32_t *seq;
-	unsigned int i, j, count, range_count;
+	unsigned int i, count;
 
 	if (!array_is_created(array))
 		return;
 
 	count = array_count(array);
-	range_count = range ? 1 : 0;
 	for (i = 0; i < count; i++) {
 		seq = array_idx_modifiable(array, i);
+		*seq = mail_index_transaction_get_uid(t, *seq);
+	}
+}
 
-		for (j = 0; j <= range_count; j++, seq++) {
-			i_assert(*seq > 0);
+static uint32_t
+get_nonexpunged_uid2(struct mail_index_transaction *t,
+		     uint32_t uid1, uint32_t seq1)
+{
+	seq1++;
 
-			if (*seq >= t->first_new_seq)
-				rec = mail_index_transaction_lookup(t, *seq);
-			else {
-				i_assert(*seq <= view->map->hdr.messages_count);
-				rec = MAIL_INDEX_MAP_IDX(view->map, *seq - 1);
-			}
+	while (mail_index_transaction_get_uid(t, seq1) == uid1 + 1) {
+		seq1++;
+		uid1++;
+	}
+	return uid1;
+}
 
-			/* we're using only rec->uid, no need to bother locking
-			   the index. */
-			if (rec->uid == 0) {
-				/* FIXME: replace with simple assert once we
-				   figure out why this happens.. */
-				i_panic("seq = %u, rec->uid = %u, "
-					"first_new_seq = %u, messages = %u",
-					*seq, rec->uid, t->first_new_seq,
-					view->map->hdr.messages_count);
-			}
-			*seq = rec->uid;
+static void
+mail_index_convert_to_uid_ranges(struct mail_index_transaction *t,
+				 ARRAY_TYPE(seq_range) *array)
+{
+	struct seq_range *range, *new_range;
+	unsigned int i, count;
+	uint32_t uid1, uid2;
+
+	if (!array_is_created(array))
+		return;
+
+	count = array_count(array);
+	for (i = 0; i < count; i++) {
+		range = array_idx_modifiable(array, i);
+
+		uid1 = mail_index_transaction_get_uid(t, range->seq1);
+		uid2 = mail_index_transaction_get_uid(t, range->seq2);
+		if (uid2 - uid1 == range->seq2 - range->seq1) {
+			/* simple conversion */
+			range->seq1 = uid1;
+			range->seq2 = uid2;
+		} else {
+			/* remove expunged UIDs */
+			new_range = array_insert_space(array, i);
+			range = array_idx_modifiable(array, i + 1);
+			count++;
+
+			memcpy(new_range, range, array->arr.element_size);
+			new_range->seq1 = uid1;
+			new_range->seq2 = get_nonexpunged_uid2(t, uid1,
+							       range->seq1);
+
+			/* continue the range without the inserted seqs */
+			range->seq1 += new_range->seq2 - new_range->seq1 + 1;
 		}
 	}
 }
@@ -248,14 +291,8 @@ static void keyword_updates_convert_to_uids(struct mail_index_transaction *t)
 
 	updates = array_get_modifiable(&t->keyword_updates, &count);
 	for (i = 0; i < count; i++) {
-		if (array_is_created(&updates[i].add_seq)) {
-			mail_index_buffer_convert_to_uids(t,
-				(void *)&updates[i].add_seq, TRUE);
-		}
-		if (array_is_created(&updates[i].remove_seq)) {
-			mail_index_buffer_convert_to_uids(t,
-				(void *)&updates[i].remove_seq, TRUE);
-		}
+		mail_index_convert_to_uid_ranges(t, &updates[i].add_seq);
+		mail_index_convert_to_uid_ranges(t, &updates[i].remove_seq);
 	}
 }
 
@@ -267,19 +304,15 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 
 	if (array_is_created(&t->ext_rec_updates)) {
 		updates = array_get_modifiable(&t->ext_rec_updates, &count);
-		for (i = 0; i < count; i++) {
-			if (!array_is_created(&updates[i]))
-				continue;
-			mail_index_buffer_convert_to_uids(t, &updates[i],
-							  FALSE);
-		}
+		for (i = 0; i < count; i++)
+			mail_index_convert_to_uids(t, (void *)&updates[i]);
 	}
 
         keyword_updates_convert_to_uids(t);
 
-	mail_index_buffer_convert_to_uids(t, (void *)&t->expunges, TRUE);
-	mail_index_buffer_convert_to_uids(t, (void *)&t->updates, TRUE);
-	mail_index_buffer_convert_to_uids(t, (void *)&t->keyword_resets, TRUE);
+	mail_index_convert_to_uid_ranges(t, &t->expunges);
+	mail_index_convert_to_uid_ranges(t, (void *)&t->updates);
+	mail_index_convert_to_uid_ranges(t, &t->keyword_resets);
 	return 0;
 }
 
