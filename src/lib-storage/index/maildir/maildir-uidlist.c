@@ -1405,7 +1405,10 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 	if (ctx->partial)
 		maildir_uidlist_mark_all(ctx->uidlist, FALSE);
 
-	if ((ctx->changed || ctx->uidlist->recreate) && !ctx->failed) {
+	i_assert(ctx->locked || !ctx->changed);
+	if ((ctx->changed || ctx->uidlist->recreate) &&
+	    !ctx->failed && ctx->locked) {
+		i_assert(ctx->locked);
 		T_FRAME(
 			ret = maildir_uidlist_sync_update(ctx);
 		);
