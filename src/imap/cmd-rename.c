@@ -1,13 +1,16 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "mail-namespace.h"
 #include "commands.h"
 
 bool cmd_rename(struct client_command_context *cmd)
 {
 	struct mail_storage *old_storage, *new_storage;
 	struct mailbox_list *list;
+	struct mail_namespace *ns;
 	const char *oldname, *newname;
+	unsigned int oldlen;
 
 	/* <old name> <new name> */
 	if (!client_read_string_args(cmd, 2, &oldname, &newname))
@@ -30,7 +33,18 @@ bool cmd_rename(struct client_command_context *cmd)
 		return TRUE;
 	}
 
+	/* disallow box -> box/child, because it may break clients and there's
+	   really no point in doing it anyway. */
 	list = mail_storage_get_list(old_storage);
+	ns = mailbox_list_get_namespace(list);
+	oldlen = strlen(oldname);
+	if (strncmp(oldname, newname, oldlen) == 0 &&
+	    newname[oldlen] == ns->real_sep) {
+		client_send_tagline(cmd,
+			"NO Can't rename mailbox under its own child.");
+		return TRUE;
+	}
+
 	if (mailbox_list_rename_mailbox(list, oldname, newname) < 0)
 		client_send_list_error(cmd, list);
 	else {
