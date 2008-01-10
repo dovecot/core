@@ -673,6 +673,7 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache_record *rec, new_rec;
 	void *data;
 	size_t size;
+	uint32_t reset_id;
 
 	if (ctx->prev_seq != 0) {
 		/* fix record size */
@@ -680,6 +681,15 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 		rec = PTR_OFFSET(data, ctx->prev_pos);
 		rec->size = size - ctx->prev_pos;
 		i_assert(rec->size > sizeof(*rec));
+
+		/* set prev_offset if possible */
+		rec->prev_offset =
+			mail_cache_lookup_cur_offset(ctx->view->view,
+						     ctx->prev_seq, &reset_id);
+		if (reset_id != ctx->cache->hdr->file_seq)
+			rec->prev_offset = 0;
+		else
+			ctx->cache->hdr_copy.continued_record_count++;
 
 		array_append(&ctx->cache_data_seq, &ctx->prev_seq, 1);
 		ctx->prev_pos = size;
@@ -1025,17 +1035,35 @@ static int mail_cache_link_unlocked(struct mail_cache *cache,
 int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 		    uint32_t new_offset)
 {
+	const struct mail_cache_record *rec;
+
 	i_assert(cache->locked);
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return -1;
 
-	if (new_offset + sizeof(struct mail_cache_record) >
-	    cache->hdr_copy.used_file_size) {
+	/* this function is called for each added cache record (or cache
+	   extension record update actually) with new_offset pointing to the
+	   new record and old_offset pointing to the previous record.
+
+	   we want to keep the old and new records linked so both old and new
+	   cached data is found. normally they are already linked correctly.
+	   the problem only comes when multiple processes are adding cache
+	   records at the same time. we'd rather not lose those additions, so
+	   force the linking order to be new_offset -> old_offset if it isn't
+	   already. */
+	if (mail_cache_map(cache, new_offset, sizeof(*rec)) < 0)
+		return -1;
+	if (new_offset + sizeof(*rec) > cache->mmap_length) {
 		mail_cache_set_corrupted(cache,
 			"Cache record offset %u points outside file",
 			new_offset);
 		return -1;
+	}
+	rec = CACHE_RECORD(cache, new_offset);
+	if (rec->prev_offset == old_offset) {
+		/* link is already correct */
+		return 0;
 	}
 
 	if (mail_cache_link_unlocked(cache, old_offset, new_offset) < 0)

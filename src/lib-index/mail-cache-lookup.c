@@ -48,24 +48,39 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 	return 0;
 }
 
+uint32_t mail_cache_lookup_cur_offset(struct mail_index_view *view,
+				      uint32_t seq, uint32_t *reset_id_r)
+{
+	struct mail_cache *cache = mail_index_view_get_index(view)->cache;
+	struct mail_index_map *map;
+	const void *data;
+	uint32_t offset;
+
+	mail_index_lookup_ext_full(view, seq, cache->ext_id,
+				   &map, &data, NULL);
+	if (data == NULL) {
+		/* no cache offsets */
+		return 0;
+	}
+	offset = *((const uint32_t *)data);
+	if (offset == 0)
+		return 0;
+
+	if (!mail_index_ext_get_reset_id(view, map, cache->ext_id, reset_id_r))
+		i_unreached();
+	return offset;
+}
+
 static int
 mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 			 uint32_t seq, uint32_t *offset_r)
 {
-	struct mail_index_map *map;
-	const void *data;
-	uint32_t reset_id;
+	uint32_t offset, reset_id;
 	int i, ret;
 
-	mail_index_lookup_ext_full(view, seq, cache->ext_id,
-				   &map, &data, NULL);
-	if (data == NULL || *((const uint32_t *)data) == 0) {
-		/* nothing in cache (for this record) */
+	offset = mail_cache_lookup_cur_offset(view, seq, &reset_id);
+	if (offset == 0)
 		return 0;
-	}
-
-	if (!mail_index_ext_get_reset_id(view, map, cache->ext_id, &reset_id))
-		i_unreached();
 
 	/* reset_id must match file_seq or the offset is for a different cache
 	   file. if this happens, try if reopening the cache helps. if not,
@@ -86,7 +101,7 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 		}
 	}
 
-	*offset_r = *((const uint32_t *)data);
+	*offset_r = offset;
 	return 1;
 }
 
