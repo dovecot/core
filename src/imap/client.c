@@ -442,6 +442,8 @@ void client_command_free(struct client_command_context *cmd)
 	if (client->command_queue == NULL) {
 		/* no commands left in the queue, we can clear the pool */
 		p_clear(client->command_pool);
+		if (client->to_idle_output != NULL)
+			timeout_remove(&client->to_idle_output);
 	}
 }
 
