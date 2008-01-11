@@ -57,7 +57,10 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 		fd = dup(i_stream_get_fd(imail->data.stream));
 		if (fd == -1)
 			i_error("zlib plugin: dup() failed: %m");
+
+		imail->data.destroying_stream = TRUE;
 		i_stream_unref(&imail->data.stream);
+		i_assert(!imail->data.destroying_stream);
 
 		if (fd == -1)
 			return -1;
