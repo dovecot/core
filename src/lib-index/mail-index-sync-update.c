@@ -687,13 +687,17 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
 
-	if (!force) {
-		/* see if we'd prefer to reopen the index file instead of
-		   syncing the current map from the transaction log */
-		uoff_t log_size, index_size;
+	if (index->log->head == NULL) {
+		i_assert(!force);
+		return 0;
+	}
 
-		if (index->log->head == NULL)
-			return 0;
+	if (!force && !index->mmap_disable) {
+		/* see if we'd prefer to reopen the index file instead of
+		   syncing the current map from the transaction log.
+		   don't check this if mmap is disabled, because reopening
+		   index causes sync to get lost. */
+		uoff_t log_size, index_size;
 
 		if (index->fd == -1 &&
 		    index->log->head->hdr.prev_file_seq != 0) {
