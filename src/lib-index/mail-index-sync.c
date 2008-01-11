@@ -503,6 +503,10 @@ static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 			continue;
 
 		switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+		case MAIL_TRANSACTION_EXT_REC_UPDATE:
+			/* extension record updates aren't exactly needed
+			   to be synced, but cache syncing relies on tail
+			   offsets being updated. */
 		case MAIL_TRANSACTION_EXPUNGE:
 		case MAIL_TRANSACTION_FLAG_UPDATE:
 		case MAIL_TRANSACTION_KEYWORD_UPDATE:
@@ -684,7 +688,6 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 static void
 mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 {
-	const struct mail_index_header *hdr = &ctx->index->map->hdr;
 	uint32_t seq;
 	uoff_t offset;
 
@@ -694,7 +697,7 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 
 	/* If tail offset has changed, make sure it gets written to
 	   transaction log. */
-	if (hdr->log_file_tail_offset != ctx->last_tail_offset)
+	if (ctx->last_tail_offset != offset)
 		ctx->ext_trans->log_updates = TRUE;
 }
 
