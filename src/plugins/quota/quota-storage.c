@@ -150,7 +150,7 @@ static int quota_check(struct mailbox_transaction_context *t, struct mail *mail)
 		return 0;
 	else if (ret == 0) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_NOSPACE,
-				       "Quota exceeded");
+				       qt->quota->quota_exceeded_msg);
 		return -1;
 	} else {
 		mail_storage_set_critical(t->box->storage,
@@ -214,7 +214,8 @@ quota_save_init(struct mailbox_transaction_context *t,
 		ret = quota_test_alloc(qt, st->st_size, &too_large);
 		if (ret == 0) {
 			mail_storage_set_error(t->box->storage,
-				MAIL_ERROR_NOSPACE, "Quota exceeded");
+				MAIL_ERROR_NOSPACE,
+				qt->quota->quota_exceeded_msg);
 			return -1;
 		} else if (ret < 0) {
 			mail_storage_set_critical(t->box->storage,

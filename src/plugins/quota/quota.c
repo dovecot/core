@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#define DEFAULT_QUOTA_EXCEEDED_MSG "Quota exceeded"
 #define RULE_NAME_ALL_MAILBOXES "*"
 
 struct quota_root_iter {
@@ -46,6 +47,9 @@ struct quota *quota_init(void)
 	quota = i_new(struct quota, 1);
 	quota->test_alloc = quota_default_test_alloc;
 	quota->debug = getenv("DEBUG") != NULL;
+	quota->quota_exceeded_msg = getenv("QUOTA_EXCEEDED_MESSAGE");
+	if (quota->quota_exceeded_msg == NULL)
+		quota->quota_exceeded_msg = DEFAULT_QUOTA_EXCEEDED_MSG;
 	i_array_init(&quota->roots, 4);
 	i_array_init(&quota->storages, 8);
 
