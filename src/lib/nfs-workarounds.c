@@ -275,7 +275,8 @@ bool nfs_flush_attr_cache_fd_locked(const char *path ATTR_UNUSED,
 #endif
 }
 
-static bool nfs_flush_file_handle_cache_dir(const char *path)
+static bool
+nfs_flush_file_handle_cache_dir(const char *path, bool try_parent ATTR_UNUSED)
 {
 #ifdef __linux__
 	/* chown()ing parent is the safest way to handle this */
@@ -297,6 +298,42 @@ static bool nfs_flush_file_handle_cache_dir(const char *path)
 		/* expected failures */
 	} else if (errno == ENOENT) {
 		return FALSE;
+	} else if (errno == EINVAL && try_parent) {
+		/* Solaris gives this if we're trying to rmdir() the current
+		   directory. Work around this by temporarily changing the
+		   current directory to the parent directory. */
+		char cur_path[PATH_MAX], *p;
+		int cur_dir_fd;
+		bool ret;
+
+		cur_dir_fd = open(".", O_RDONLY);
+		if (cur_dir_fd == -1) {
+			i_error("open(.) failed for: %m");
+			return TRUE;
+		}
+
+		if (getcwd(cur_path, sizeof(cur_path)) == NULL) {
+			i_error("nfs_flush_file_handle_cache_dir: "
+				"getcwd() failed");
+			(void)close(cur_dir_fd);
+			return TRUE;
+		}
+		p = strrchr(cur_path, '/');
+		if (p != NULL)
+			*p = '\0';
+		else {
+			p[0] = '/';
+			p[1] = '\0';
+		}
+		if (chdir(cur_path) < 0) {
+			i_error("nfs_flush_file_handle_cache_dir: "
+				"chdir() failed");
+		}
+		ret = nfs_flush_file_handle_cache_dir(path, FALSE);
+		if (fchdir(cur_dir_fd) < 0)
+			i_error("fchdir() failed: %m");
+		(void)close(cur_dir_fd);
+		return ret;
 	} else {
 		i_error("nfs_flush_file_handle_cache_dir: "
 			"rmdir(%s) failed: %m", path);
@@ -311,9 +348,9 @@ static void nfs_flush_file_handle_cache_parent_dir(const char *path)
 
 	p = strrchr(path, '/');
 	if (p == NULL)
-		nfs_flush_file_handle_cache_dir(".");
+		nfs_flush_file_handle_cache_dir(".", TRUE);
 	else T_FRAME(
-		nfs_flush_file_handle_cache_dir(t_strdup_until(path, p));
+		nfs_flush_file_handle_cache_dir(t_strdup_until(path, p), TRUE);
 	);
 }
 
