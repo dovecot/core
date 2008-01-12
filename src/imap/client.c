@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "llist.h"
 #include "str.h"
 #include "network.h"
 #include "istream.h"
@@ -391,12 +392,7 @@ client_command_new(struct client *client)
 						 imap_max_line_length);
 	}
 
-	/* add to beginning of the queue */
-	if (client->command_queue != NULL) {
-		client->command_queue->prev = cmd;
-		cmd->next = client->command_queue;
-	}
-	client->command_queue = cmd;
+	DLLIST_PREPEND(&client->command_queue, cmd);
 	client->command_queue_size++;
 
 	return cmd;
@@ -432,12 +428,7 @@ void client_command_free(struct client_command_context *cmd)
 	}
 
 	client->command_queue_size--;
-	if (cmd->prev != NULL)
-		cmd->prev->next = cmd->next;
-	else
-		client->command_queue = cmd->next;
-	if (cmd->next != NULL)
-		cmd->next->prev = cmd->prev;
+	DLLIST_REMOVE(&client->command_queue, cmd);
 	cmd = NULL;
 
 	if (client->command_queue == NULL) {
