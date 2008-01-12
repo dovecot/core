@@ -852,7 +852,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 
 		if (!cmd_list_continue(cmd)) {
 			/* unfinished */
-			cmd->output_pending = TRUE;
+			cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
 			cmd->func = cmd_list_continue;
 			return FALSE;
 		}

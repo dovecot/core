@@ -246,7 +246,7 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 
 	cmd->func = cmd_sync_continue;
 	cmd->context = ctx;
-	cmd->output_pending = TRUE;
+	cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
 	if (client->input_lock == cmd)
 		client->input_lock = NULL;
 	client->output_lock = NULL;

@@ -153,7 +153,7 @@ bool cmd_fetch(struct client_command_context *cmd)
 	imap_fetch_begin(ctx, search_arg);
 	if ((ret = imap_fetch(ctx)) == 0) {
 		/* unfinished */
-		cmd->output_pending = TRUE;
+		cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
 
 		cmd->func = cmd_fetch_continue;
 		cmd->context = ctx;

@@ -71,7 +71,7 @@ void client_command_cancel(struct client_command_context *cmd)
 
 	cmd->cancel = TRUE;
 	cmd_ret = cmd->func == NULL ? TRUE : cmd->func(cmd);
-	if (!cmd_ret && !cmd->param_error) {
+	if (!cmd_ret && cmd->state != CLIENT_COMMAND_STATE_DONE) {
 		if (cmd->client->output->closed)
 			i_panic("command didn't cancel itself: %s", cmd->name);
 	} else {
@@ -258,10 +258,11 @@ void client_send_command_error(struct client_command_context *cmd,
 			"Too many invalid IMAP commands.");
 	}
 
+	cmd->param_error = TRUE;
 	/* client_read_args() failures rely on this being set, so that the
 	   command processing is stopped even while command function returns
 	   FALSE. */
-	cmd->param_error = TRUE;
+	cmd->state = CLIENT_COMMAND_STATE_DONE;
 }
 
 bool client_read_args(struct client_command_context *cmd, unsigned int count,
@@ -282,7 +283,7 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		/* need more data */
 		if (cmd->client->input->closed) {
 			/* disconnected */
-			cmd->param_error = TRUE;
+			cmd->state = CLIENT_COMMAND_STATE_DONE;
 		}
 		return FALSE;
 	} else {
@@ -479,6 +480,7 @@ void client_continue_pending_input(struct client **_client)
 		if (client_command_check_ambiguity(client->input_lock))
 			return;
 		client->input_lock->waiting_unambiguity = FALSE;
+		client->input_lock->state = CLIENT_COMMAND_STATE_WAIT_INPUT;
 	}
 
 	client_add_missing_io(client);
@@ -518,10 +520,8 @@ static void client_idle_output_timeout(struct client *client)
 
 bool client_handle_unfinished_cmd(struct client_command_context *cmd)
 {
-	if (!cmd->output_pending) {
-		/* need more input */
+	if (cmd->state != CLIENT_COMMAND_STATE_WAIT_OUTPUT)
 		return FALSE;
-	}
 
 	/* output is blocking, we can execute more commands */
 	o_stream_set_flush_pending(cmd->client->output, TRUE);
@@ -537,10 +537,11 @@ bool client_handle_unfinished_cmd(struct client_command_context *cmd)
 static bool client_command_input(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
+	struct command *command;
 
         if (cmd->func != NULL) {
 		/* command is being executed - continue it */
-		if (cmd->func(cmd) || cmd->param_error) {
+		if (cmd->func(cmd) || cmd->state == CLIENT_COMMAND_STATE_DONE) {
 			/* command execution was finished */
 			client_command_free(cmd);
 			client_add_missing_io(client);
@@ -568,20 +569,16 @@ static bool client_command_input(struct client_command_context *cmd)
 
 	if (cmd->name == '\0') {
 		/* command not given - cmd_func is already NULL. */
-	} else {
-		/* find the command function */
-		struct command *command = command_find(cmd->name);
-
-		if (command != NULL) {
-			cmd->func = command->func;
-			cmd->cmd_flags = command->flags;
-			if (client_command_check_ambiguity(cmd)) {
-				/* do nothing until existing commands are
-				   finished */
-				cmd->waiting_unambiguity = TRUE;
-				io_remove(&client->io);
-				return FALSE;
-			}
+	} else if ((command = command_find(cmd->name)) != NULL) {
+		cmd->func = command->func;
+		cmd->cmd_flags = command->flags;
+		if (client_command_check_ambiguity(cmd)) {
+			/* do nothing until existing commands are finished */
+			i_assert(cmd->state == CLIENT_COMMAND_STATE_WAIT_INPUT);
+			cmd->waiting_unambiguity = TRUE;
+			cmd->state = CLIENT_COMMAND_STATE_WAIT;
+			io_remove(&client->io);
+			return FALSE;
 		}
 	}
 
@@ -701,7 +698,7 @@ static void client_output_cmd(struct client_command_context *cmd)
 	bool finished;
 
 	/* continue processing command */
-	finished = cmd->func(cmd) || cmd->param_error;
+	finished = cmd->func(cmd) || cmd->state == CLIENT_COMMAND_STATE_DONE;
 
 	if (!finished)
 		(void)client_handle_unfinished_cmd(cmd);
@@ -735,7 +732,7 @@ int client_output(struct client *client)
 		cmd = client->command_queue;
 		for (; cmd != NULL; cmd = next) {
 			next = cmd->next;
-			if (!cmd->waiting_unambiguity) {
+			if (cmd->state == CLIENT_COMMAND_STATE_WAIT_OUTPUT) {
 				client_output_cmd(cmd);
 				if (client->output_lock != NULL)
 					break;

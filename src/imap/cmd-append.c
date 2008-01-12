@@ -76,7 +76,7 @@ static void client_input_append(struct client_command_context *cmd)
 	o_stream_cork(client->output);
 	finished = cmd->func(cmd);
 	o_stream_uncork(client->output);
-	if (!finished)
+	if (!finished && cmd->state != CLIENT_COMMAND_STATE_DONE)
 		(void)client_handle_unfinished_cmd(cmd);
 	else {
 		client_command_free(cmd);

@@ -151,7 +151,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 				ctx->manual_cork = FALSE;
 				o_stream_uncork(client->output);
 			}
-			cmd->output_pending = TRUE;
+			cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
 			return FALSE;
 		}
 
@@ -171,7 +171,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		   so we return here instead of doing everything twice. */
 		return FALSE;
 	}
-        cmd->output_pending = FALSE;
+	cmd->state = CLIENT_COMMAND_STATE_WAIT;
 
 	if (ctx->manual_cork) {
 		ctx->manual_cork = FALSE;

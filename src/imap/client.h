@@ -20,6 +20,18 @@ struct mailbox_keywords {
 	unsigned int announce_count;
 };
 
+enum client_command_state {
+	/* Waiting for more input */
+	CLIENT_COMMAND_STATE_WAIT_INPUT,
+	/* Waiting to be able to send more output */
+	CLIENT_COMMAND_STATE_WAIT_OUTPUT,
+	/* Just waiting for execution to continue later. For example waiting
+	   for other commands to finish first. */
+	CLIENT_COMMAND_STATE_WAIT,
+	/* Command is finished */
+	CLIENT_COMMAND_STATE_DONE
+};
+
 struct client_command_context {
 	struct client_command_context *prev, *next;
 	struct client *client;
@@ -33,11 +45,11 @@ struct client_command_context {
 	void *context;
 
 	struct imap_parser *parser;
+	enum client_command_state state;
 
 	unsigned int uid:1; /* used UID command */
 	unsigned int cancel:1; /* command is wanted to be cancelled */
 	unsigned int param_error:1;
-	unsigned int output_pending:1;
 	unsigned int waiting_unambiguity:1;
 };
 
