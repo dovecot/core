@@ -179,11 +179,12 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 
 	/* round wait times up to next millisecond */
 	ret = tv_r->tv_sec * 1000 + (tv_r->tv_usec + 999) / 1000;
-	if (ret < 0) {
+	if (ret <= 0) {
 		tv_r->tv_sec = 0;
 		tv_r->tv_usec = 0;
 		return 0;
 	}
+	i_assert(tv_r->tv_sec >= 0 && tv_r->tv_usec >= 0);
 	return ret;
 }
 
