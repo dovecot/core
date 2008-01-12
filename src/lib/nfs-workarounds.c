@@ -293,7 +293,7 @@ static bool nfs_flush_file_handle_cache_dir(const char *path)
 				  "removed the dir. mkdir() failed: %m", path);
 		}
 	} else if (errno == ESTALE || errno == ENOTDIR ||
-		   errno == ENOTEMPTY || errno == EEXIST) {
+		   errno == ENOTEMPTY || errno == EEXIST || errno == EACCES) {
 		/* expected failures */
 	} else if (errno == ENOENT) {
 		return FALSE;
