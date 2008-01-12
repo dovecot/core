@@ -25,9 +25,8 @@ enum client_command_state {
 	CLIENT_COMMAND_STATE_WAIT_INPUT,
 	/* Waiting to be able to send more output */
 	CLIENT_COMMAND_STATE_WAIT_OUTPUT,
-	/* Just waiting for execution to continue later. For example waiting
-	   for other commands to finish first. */
-	CLIENT_COMMAND_STATE_WAIT,
+	/* Wait for other commands to finish execution */
+	CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY,
 	/* Command is finished */
 	CLIENT_COMMAND_STATE_DONE
 };
@@ -50,7 +49,6 @@ struct client_command_context {
 	unsigned int uid:1; /* used UID command */
 	unsigned int cancel:1; /* command is wanted to be cancelled */
 	unsigned int param_error:1;
-	unsigned int waiting_unambiguity:1;
 };
 
 struct client {

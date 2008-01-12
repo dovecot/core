@@ -171,7 +171,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		   so we return here instead of doing everything twice. */
 		return FALSE;
 	}
-	cmd->state = CLIENT_COMMAND_STATE_WAIT;
+	cmd->state = CLIENT_COMMAND_STATE_WAIT_INPUT;
 
 	if (ctx->manual_cork) {
 		ctx->manual_cork = FALSE;

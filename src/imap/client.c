@@ -472,15 +472,16 @@ void client_continue_pending_input(struct client **_client)
 
 	if (client->input_lock != NULL) {
 		/* there's a command that has locked the input */
-		if (!client->input_lock->waiting_unambiguity)
+		struct client_command_context *cmd = client->input_lock;
+
+		if (cmd->state != CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY)
 			return;
 
 		/* the command is waiting for existing ambiguity causing
 		   commands to finish. */
-		if (client_command_check_ambiguity(client->input_lock))
+		if (client_command_check_ambiguity(cmd))
 			return;
-		client->input_lock->waiting_unambiguity = FALSE;
-		client->input_lock->state = CLIENT_COMMAND_STATE_WAIT_INPUT;
+		cmd->state = CLIENT_COMMAND_STATE_WAIT_INPUT;
 	}
 
 	client_add_missing_io(client);
@@ -575,8 +576,7 @@ static bool client_command_input(struct client_command_context *cmd)
 		if (client_command_check_ambiguity(cmd)) {
 			/* do nothing until existing commands are finished */
 			i_assert(cmd->state == CLIENT_COMMAND_STATE_WAIT_INPUT);
-			cmd->waiting_unambiguity = TRUE;
-			cmd->state = CLIENT_COMMAND_STATE_WAIT;
+			cmd->state = CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY;
 			io_remove(&client->io);
 			return FALSE;
 		}
@@ -602,7 +602,8 @@ static int client_handle_next_command(struct client *client, bool *remove_io_r)
 	*remove_io_r = FALSE;
 
 	if (client->input_lock != NULL) {
-		if (client->input_lock->waiting_unambiguity) {
+		if (client->input_lock->state ==
+		    CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY) {
 			*remove_io_r = TRUE;
 			return FALSE;
 		}
