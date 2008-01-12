@@ -115,10 +115,10 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct timespec ts;
 	struct io_file *io;
 	unsigned int events_count, t_id;
-	int msecs, ret, i;
+	int ret, i;
 
 	/* get the time left for next timeout task */
-	msecs = io_loop_get_wait_time(ioloop, &tv, NULL);
+	io_loop_get_wait_time(ioloop, &tv, NULL);
 	ts.tv_sec = tv.tv_sec;
 	ts.tv_nsec = tv.tv_usec * 1000;
 
