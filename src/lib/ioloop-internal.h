@@ -48,7 +48,7 @@ struct timeout {
         void *context;
 };
 
-int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv,
+int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r,
 			  struct timeval *tv_now);
 void io_loop_handle_timeouts(struct ioloop *ioloop);
 

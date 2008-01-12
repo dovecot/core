@@ -157,32 +157,37 @@ void timeout_reset(struct timeout *timeout)
 			      &ioloop_timeval);
 }
 
-static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv,
+static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 				 struct timeval *tv_now)
 {
 	int ret;
 
 	if (tv_now == NULL) {
-		if (gettimeofday(tv, NULL) < 0)
+		if (gettimeofday(tv_r, NULL) < 0)
 			i_fatal("gettimeofday(): %m");
 	} else {
-		tv->tv_sec = tv_now->tv_sec;
-		tv->tv_usec = tv_now->tv_usec;
+		tv_r->tv_sec = tv_now->tv_sec;
+		tv_r->tv_usec = tv_now->tv_usec;
 	}
 
-	tv->tv_sec = timeout->next_run.tv_sec - tv->tv_sec;
-	tv->tv_usec = timeout->next_run.tv_usec - tv->tv_usec;
-	if (tv->tv_usec < 0) {
-		tv->tv_sec--;
-		tv->tv_usec += 1000000;
+	tv_r->tv_sec = timeout->next_run.tv_sec - tv_r->tv_sec;
+	tv_r->tv_usec = timeout->next_run.tv_usec - tv_r->tv_usec;
+	if (tv_r->tv_usec < 0) {
+		tv_r->tv_sec--;
+		tv_r->tv_usec += 1000000;
 	}
 
 	/* round wait times up to next millisecond */
-	ret = tv->tv_sec * 1000 + (tv->tv_usec + 999) / 1000;
-	return ret < 0 ? 0 : ret;
+	ret = tv_r->tv_sec * 1000 + (tv_r->tv_usec + 999) / 1000;
+	if (ret < 0) {
+		tv_r->tv_sec = 0;
+		tv_r->tv_usec = 0;
+		return 0;
+	}
+	return ret;
 }
 
-int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv,
+int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r,
 			  struct timeval *tv_now)
 {
 	struct priorityq_item *item;
@@ -192,12 +197,12 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv,
 	timeout = (struct timeout *)item;
 	if (timeout == NULL) {
 		/* no timeouts. give it INT_MAX msecs. */
-		tv->tv_sec = INT_MAX / 1000;
-		tv->tv_usec = 0;
+		tv_r->tv_sec = INT_MAX / 1000;
+		tv_r->tv_usec = 0;
 		return INT_MAX;
 	}
 
-	return timeout_get_wait_time(timeout, tv, tv_now);
+	return timeout_get_wait_time(timeout, tv_r, tv_now);
 }
 
 static int timeout_cmp(const void *p1, const void *p2)
