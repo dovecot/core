@@ -702,7 +702,7 @@ static void client_output_cmd(struct client_command_context *cmd)
 
 int client_output(struct client *client)
 {
-	struct client_command_context *cmd, *next;
+	struct client_command_context *cmd;
 	int ret;
 
 	i_assert(!client->destroyed);
@@ -717,18 +717,31 @@ int client_output(struct client *client)
 		return 1;
 	}
 
+	/* mark all commands non-executed */
+	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next)
+		cmd->temp_executed = FALSE;
+
 	o_stream_cork(client->output);
-	if (client->output_lock != NULL)
+	if (client->output_lock != NULL) {
+		client->output_lock->temp_executed = TRUE;
 		client_output_cmd(client->output_lock);
-	if (client->output_lock == NULL) {
+	}
+	while (client->output_lock == NULL) {
+		/* go through the entire commands list every time in case
+		   multiple commands were freed. temp_executed keeps track of
+		   which messages we've called so far */
 		cmd = client->command_queue;
-		for (; cmd != NULL; cmd = next) {
-			next = cmd->next;
-			if (cmd->state == CLIENT_COMMAND_STATE_WAIT_OUTPUT) {
+		for (; cmd != NULL; cmd = cmd->next) {
+			if (!cmd->temp_executed &&
+			    cmd->state == CLIENT_COMMAND_STATE_WAIT_OUTPUT) {
+				cmd->temp_executed = TRUE;
 				client_output_cmd(cmd);
-				if (client->output_lock != NULL)
-					break;
+				break;
 			}
+		}
+		if (cmd == NULL) {
+			/* all commands executed */
+			break;
 		}
 	}
 	o_stream_uncork(client->output);

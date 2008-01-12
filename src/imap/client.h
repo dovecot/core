@@ -49,6 +49,7 @@ struct client_command_context {
 	unsigned int uid:1; /* used UID command */
 	unsigned int cancel:1; /* command is wanted to be cancelled */
 	unsigned int param_error:1;
+	unsigned int temp_executed:1; /* temporary execution state tracking */
 };
 
 struct client {
