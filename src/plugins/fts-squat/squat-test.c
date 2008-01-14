@@ -42,7 +42,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	char *line, *str, buf[4096];
 	buffer_t *valid;
 	int ret, fd;
-	unsigned int last = 0, seq = 1, node_count, uidlist_count;
+	unsigned int len, last = 0, seq = 1, node_count, uidlist_count;
 	enum squat_index_type index_type;
 	bool data_header = TRUE, first = TRUE, skip_body = FALSE;
 	bool mime_header = TRUE;
@@ -116,9 +116,12 @@ int main(int argc ATTR_UNUSED, char *argv[])
 			SQUAT_INDEX_TYPE_BODY;
 
 		buffer_set_used_size(valid, 0);
-		uni_utf8_get_valid_data((const unsigned char *)line,
-					strlen(line), valid);
-		if (valid->used > 0) {
+		len = strlen(line);
+		if (uni_utf8_get_valid_data((const unsigned char *)line,
+					    len, valid)) {
+			ret = squat_trie_build_more(build_ctx, seq, index_type,
+						    (const void *)line, len);
+		} else if (valid->used > 0) {
 			ret = squat_trie_build_more(build_ctx, seq, index_type,
 						    valid->data, valid->used);
 		}
@@ -176,7 +179,9 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		ret = squat_trie_lookup(trie, str, SQUAT_INDEX_TYPE_HEADER |
 					SQUAT_INDEX_TYPE_BODY,
 					&definite_uids, &maybe_uids);
-		if (ret > 0) {
+		if (ret < 0)
+			printf("error\n");
+		else {
 			gettimeofday(&tv_end, NULL);
 			printf(" - Search took %.05f CPU seconds\n",
 			       (tv_end.tv_sec - tv_start.tv_sec) +
@@ -185,10 +190,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 			result_print(&definite_uids);
 			printf(" - maybe uids: ");
 			result_print(&maybe_uids);
-		} else if (ret == 0)
-			printf("not found\n");
-		else
-			printf("error\n");
+		}
 	}
 	return 0;
 }
