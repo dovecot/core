@@ -295,11 +295,12 @@ is_valid_utf8_seq(const unsigned char *input, unsigned int size)
 	size_t i, len;
 
 	len = uni_utf8_char_bytes(input[0]);
-	if (unlikely(len > size))
+	if (unlikely(len > size || len == 1))
 		return 0;
 
-	for (i = 0; i < len; i++) {
-		if (unlikely(uni_utf8_char_bytes(input[i]) != len-i))
+	for (i = 1; i < len; i++) {
+		if (unlikely(uni_utf8_char_bytes(input[i]) != len-i ||
+			     input[i] < 192-2))
 			return 0;
 	}
 	return len;
