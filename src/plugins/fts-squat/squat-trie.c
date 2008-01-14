@@ -1147,6 +1147,7 @@ static int squat_trie_map_header(struct squat_trie *trie)
 
 	if (trie->locked_file_size == 0) {
 		/* newly created file */
+		squat_trie_header_init(trie);
 		return 1;
 	}
 	i_assert(trie->fd != -1);
