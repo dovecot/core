@@ -4,6 +4,7 @@
 #include "array.h"
 #include "file-lock.h"
 #include "istream.h"
+#include "unichar.h"
 #include "squat-trie.h"
 #include "squat-uidlist.h"
 
@@ -39,6 +40,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	struct stat trie_st, uidlist_st;
 	ARRAY_TYPE(seq_range) definite_uids, maybe_uids;
 	char *line, *str, buf[4096];
+	buffer_t *valid;
 	int ret, fd;
 	unsigned int last = 0, seq = 1, node_count, uidlist_count;
 	enum squat_index_type index_type;
@@ -66,6 +68,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	if (squat_trie_build_init(trie, &last_uid, &build_ctx) < 0)
 		return 1;
 
+	valid = buffer_create_dynamic(default_pool, 4096);
 	input = i_stream_create_fd(fd, 0, FALSE);
 	ret = 0;
 	while (ret == 0 && (line = i_stream_read_next_line(input)) != NULL) {
@@ -111,9 +114,16 @@ int main(int argc ATTR_UNUSED, char *argv[])
 
 		index_type = data_header ? SQUAT_INDEX_TYPE_HEADER :
 			SQUAT_INDEX_TYPE_BODY;
-		ret = squat_trie_build_more(build_ctx, seq, index_type,
-					    (const void *)line, strlen(line));
+
+		buffer_set_used_size(valid, 0);
+		uni_utf8_get_valid_data((const unsigned char *)line,
+					strlen(line), valid);
+		if (valid->used > 0) {
+			ret = squat_trie_build_more(build_ctx, seq, index_type,
+						    valid->data, valid->used);
+		}
 	}
+	buffer_free(&valid);
 	if (squat_trie_build_deinit(&build_ctx) < 0)
 		ret = -1;
 	if (ret < 0) {
