@@ -178,7 +178,7 @@ static void squat_trie_header_init(struct squat_trie *trie)
 {
 	memset(&trie->hdr, 0, sizeof(trie->hdr));
 	trie->hdr.version = SQUAT_TRIE_VERSION;
-	trie->hdr.indexid = ioloop_time;
+	trie->hdr.indexid = time(NULL);
 	trie->hdr.uidvalidity = trie->uidvalidity;
 	trie->hdr.partial_len = DEFAULT_PARTIAL_LEN;
 	trie->hdr.full_len = DEFAULT_FULL_LEN;
@@ -1087,6 +1087,7 @@ squat_trie_renumber_uidlists(struct squat_trie_build_context *ctx,
 	struct squat_uidlist_rebuild_context *rebuild_ctx;
 	ARRAY_TYPE(uint32_t) uids;
 	uint32_t new_uid_list_idx, max_count=0;
+	time_t now;
 	int ret = 0;
 
 	/* FIXME: update indexid */
@@ -1094,8 +1095,9 @@ squat_trie_renumber_uidlists(struct squat_trie_build_context *ctx,
 					      compress, &rebuild_ctx)) <= 0)
 		return ret;
 
+	now = time(NULL);
 	ctx->trie->hdr.indexid =
-		I_MAX((unsigned int)ioloop_time, ctx->trie->hdr.indexid + 1);
+		I_MAX((unsigned int)now, ctx->trie->hdr.indexid + 1);
 
 	i_array_init(&uids, 1024);
 	iter = squat_trie_iterate_uidlist_init(ctx->trie);
