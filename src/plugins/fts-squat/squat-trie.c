@@ -1630,6 +1630,9 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 	unsigned int i, start, bytes, str_bytelen, str_charlen;
 	int ret = 0;
 
+	array_clear(definite_uids);
+	array_clear(maybe_uids);
+
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.trie = trie;
 	ctx.type = type;
