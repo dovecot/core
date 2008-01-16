@@ -84,7 +84,7 @@ struct maildir_uidlist {
 
 	unsigned int version;
 	unsigned int uid_validity, next_uid, prev_read_uid, last_seen_uid;
-	unsigned int read_records_count;
+	unsigned int read_records_count, read_line_count;
 	uoff_t last_read_offset;
 	string_t *hdr_extensions;
 
@@ -261,6 +261,7 @@ static void maildir_uidlist_close(struct maildir_uidlist *uidlist)
 		uidlist->fd_ino = 0;
 	}
 	uidlist->last_read_offset = 0;
+	uidlist->read_line_count = 0;
 }
 
 void maildir_uidlist_deinit(struct maildir_uidlist **_uidlist)
@@ -339,10 +340,23 @@ maildir_uidlist_read_extended(struct maildir_uidlist *uidlist,
 	return TRUE;
 }
 
+static void ATTR_FORMAT(2, 3)
+maildir_uidlist_set_corrupted(struct maildir_uidlist *uidlist,
+			      const char *fmt, ...)
+{
+	struct mail_storage *storage = uidlist->ibox->box.storage;
+	va_list args;
+
+	va_start(args, fmt);
+	mail_storage_set_critical(storage, "Broken file %s line %u: %s",
+				  uidlist->path, uidlist->read_line_count,
+				  t_strdup_vprintf(fmt, args));
+	va_end(args);
+}
+
 static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 				const char *line)
 {
-	struct mail_storage *storage = uidlist->ibox->box.storage;
 	struct maildir_uidlist_rec *rec, *old_rec;
 	uint32_t uid;
 
@@ -354,14 +368,14 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 
 	if (uid == 0 || *line != ' ') {
 		/* invalid file */
-                mail_storage_set_critical(storage,
-			"Invalid data in file %s", uidlist->path);
+		maildir_uidlist_set_corrupted(uidlist, "Invalid data: %s",
+					      line);
 		return 0;
 	}
 	if (uid <= uidlist->prev_read_uid) {
-                mail_storage_set_critical(storage,
-			"UIDs not ordered in file %s (%u > %u)",
-			uidlist->path, uid, uidlist->prev_read_uid);
+		maildir_uidlist_set_corrupted(uidlist, 
+					      "UIDs not ordered (%u > %u)",
+					      uid, uidlist->prev_read_uid);
 		return 0;
 	}
 	uidlist->prev_read_uid = uid;
@@ -373,9 +387,9 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
         uidlist->last_seen_uid = uid;
 
 	if (uid >= uidlist->next_uid && uidlist->version == 1) {
-		mail_storage_set_critical(storage,
-			"UID larger than next_uid in file %s (%u >= %u)",
-			uidlist->path, uid, uidlist->next_uid);
+		maildir_uidlist_set_corrupted(uidlist, 
+			"UID larger than next_uid (%u >= %u)",
+			uid, uidlist->next_uid);
 		return 0;
 	}
 
@@ -394,8 +408,8 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 							    rec);
 		);
 		if (!ret) {
-			mail_storage_set_critical(storage,
-				"Invalid data in file %s", uidlist->path);
+			maildir_uidlist_set_corrupted(uidlist, 
+				"Invalid extended fields: %s", line);
 			return 0;
 		}
 	}
@@ -404,7 +418,8 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	if (old_rec != NULL) {
 		/* This can happen if expunged file is moved back and the file
 		   was appended to uidlist. */
-		i_warning("%s: Duplicate file entry: %s", uidlist->path, line);
+		i_warning("%s: Duplicate file entry at line %u: %s",
+			  uidlist->path, uidlist->read_line_count, line);
 		/* Delete the old UID */
 		maildir_uidlist_records_array_delete(uidlist, old_rec);
 		/* Replace the old record with this new one */
@@ -422,7 +437,6 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 				       struct istream *input)
 {
-	struct mail_storage *storage = uidlist->ibox->box.storage;
 	unsigned int uid_validity, next_uid;
 	string_t *ext_hdr;
 	const char *line;
@@ -433,11 +447,11 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
                 /* I/O error / empty file */
                 return input->stream_errno == 0 ? 0 : -1;
 	}
+	uidlist->read_line_count = 1;
 
 	if (*line < '0' || *line > '9' || line[1] != ' ') {
-		mail_storage_set_critical(storage,
-			"%s: Corrupted header (invalid version number)",
-			uidlist->path);
+		maildir_uidlist_set_corrupted(uidlist,
+			"Corrupted header (invalid version number)");
 		return 0;
 	}
 
@@ -447,16 +461,15 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 	switch (uidlist->version) {
 	case 1:
 		if (sscanf(line, "%u %u", &uid_validity, &next_uid) != 2) {
-			mail_storage_set_critical(storage,
-				"%s: Corrupted header (version 1)",
-				uidlist->path);
+			maildir_uidlist_set_corrupted(uidlist,
+				"Corrupted header (version 1)");
 			return 0;
 		}
 		if (uid_validity == uidlist->uid_validity &&
 		    next_uid < uidlist->next_uid) {
-			mail_storage_set_critical(storage,
-				"%s: next_uid was lowered (v1, %u -> %u)",
-				uidlist->path, uidlist->next_uid, next_uid);
+			maildir_uidlist_set_corrupted(uidlist,
+				"next_uid was lowered (v1, %u -> %u)",
+				uidlist->next_uid, next_uid);
 			return 0;
 		}
 		break;
@@ -489,15 +502,15 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 		} T_FRAME_END;
 		break;
 	default:
-		mail_storage_set_critical(storage, "%s: Unsupported version %u",
-					  uidlist->path, uidlist->version);
+		maildir_uidlist_set_corrupted(uidlist, "Unsupported version %u",
+					      uidlist->version);
 		return 0;
 	}
 
 	if (uid_validity == 0 || next_uid == 0) {
-		mail_storage_set_critical(storage,
-			"%s: Broken header (uidvalidity = %u, next_uid=%u)",
-			uidlist->path, uid_validity, next_uid);
+		maildir_uidlist_set_corrupted(uidlist,
+			"Broken header (uidvalidity = %u, next_uid=%u)",
+			uid_validity, next_uid);
 		return 0;
 	}
 
@@ -578,6 +591,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 		ret = 1;
 		while ((line = i_stream_read_next_line(input)) != NULL) {
 			uidlist->read_records_count++;
+			uidlist->read_line_count++;
 			if (!maildir_uidlist_next(uidlist, line)) {
 				ret = 0;
 				break;
