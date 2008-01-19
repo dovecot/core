@@ -1210,6 +1210,27 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 	ctx->finished = FALSE;
 }
 
+static char *ext_dup(pool_t pool, const char *extensions)
+{
+	char *ret;
+
+	if (extensions == NULL)
+		return NULL;
+
+	T_FRAME_BEGIN {
+		string_t *str = t_str_new(64);
+		unsigned int len;
+
+		while (*extensions != '\0') {
+			len = strlen(extensions);
+			str_append_n(str, extensions, len);
+			extensions += len + 1;
+		}
+		ret = p_strdup(pool, str_c(str));
+	} T_FRAME_END;
+	return ret;
+}
+
 int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags)
@@ -1247,7 +1268,7 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 		if (old_rec != NULL) {
 			*rec = *old_rec;
 			rec->extensions =
-				p_strdup(ctx->record_pool, rec->extensions);
+				ext_dup(ctx->record_pool, rec->extensions);
 		} else {
 			rec->uid = (uint32_t)-1;
 			ctx->new_files_count++;
