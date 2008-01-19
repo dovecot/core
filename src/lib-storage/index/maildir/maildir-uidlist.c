@@ -578,7 +578,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 	}
 
 	input = i_stream_create_fd(fd, 4096, FALSE);
-	i_stream_seek(input, uidlist->last_read_offset);
+	i_stream_seek(input, last_read_offset);
 
 	orig_next_uid = uidlist->next_uid;
 	ret = input->v_offset != 0 ? 1 :
