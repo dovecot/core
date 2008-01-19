@@ -54,10 +54,8 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 			/* don't try to keep anything cached if we don't
 			   have a seek mark. */
 			i_stream_compress(stream);
-		}
-
-		if (stream->max_buffer_size == 0 ||
-		    stream->buffer_size < stream->max_buffer_size) {
+		} else if (stream->max_buffer_size == 0 ||
+			   stream->buffer_size < stream->max_buffer_size) {
 			/* buffer is full - grow it */
 			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
 		}
