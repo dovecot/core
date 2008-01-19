@@ -58,7 +58,7 @@ struct maildir_uidlist_rec {
 	uint32_t uid;
 	uint32_t flags;
 	char *filename;
-	char *extensions; /* <data>\0[<data>\0 ...]\0 */
+	unsigned char *extensions; /* <data>\0[<data>\0 ...]\0 */
 };
 ARRAY_DEFINE_TYPE(maildir_uidlist_rec_p, struct maildir_uidlist_rec *);
 
@@ -797,7 +797,8 @@ maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 {
 	const struct maildir_uidlist_rec *rec;
 	unsigned int idx;
-	const char *p, *value;
+	const unsigned char *p;
+	const char *value;
 
 	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
 	if (rec == NULL || rec->extensions == NULL)
@@ -807,9 +808,9 @@ maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 	while (*p != '\0') {
 		/* <key><value>\0 */
 		if (*p == (char)key)
-			return p + 1;
+			return (const char *)p + 1;
 
-		p += strlen(p) + 1;
+		p += strlen((const char *)p) + 1;
 	}
 	return NULL;
 }
@@ -846,7 +847,7 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 {
 	struct maildir_uidlist_rec *rec;
 	unsigned int idx;
-	const char *p;
+	const unsigned char *p;
 	buffer_t *buf;
 	unsigned int len;
 
@@ -869,7 +870,7 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 		p = rec->extensions;
 		while (*p != '\0') {
 			/* <key><value>\0 */
-			len = strlen(p) + 1;
+			len = strlen((const char *)p) + 1;
 			if (*p != (char)key)
 				buffer_append(buf, p, len);
 			p += len;
@@ -903,7 +904,8 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	struct ostream *output;
 	struct maildir_uidlist_rec *rec;
 	string_t *str;
-	const char *p;
+	const unsigned char *p;
+	unsigned int len;
 	int ret;
 
 	i_assert(fd != -1);
@@ -936,9 +938,10 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		str_printfa(str, "%u", rec->uid);
 		if (rec->extensions != NULL) {
 			for (p = rec->extensions; *p != '\0'; ) {
+				len = strlen((const char *)p);
 				str_append_c(str, ' ');
-				str_append(str, p);
-				p += strlen(p) + 1;
+				str_append_n(str, p, len);
+				p += len + 1;
 			}
 		}
 		str_printfa(str, " :%s\n", rec->filename);
@@ -1210,23 +1213,21 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 	ctx->finished = FALSE;
 }
 
-static char *ext_dup(pool_t pool, const char *extensions)
+static unsigned char *ext_dup(pool_t pool, const unsigned char *extensions)
 {
-	char *ret;
+	unsigned char *ret;
 
 	if (extensions == NULL)
 		return NULL;
 
 	T_FRAME_BEGIN {
-		string_t *str = t_str_new(64);
 		unsigned int len;
 
-		while (*extensions != '\0') {
-			len = strlen(extensions);
-			str_append_n(str, extensions, len);
-			extensions += len + 1;
+		for (len = 0; extensions[len] != '\0'; len++) {
+			while (extensions[len] != '\0') len++;
 		}
-		ret = p_strdup(pool, str_c(str));
+		ret = p_malloc(pool, len + 1);
+		memcpy(ret, extensions, len);
 	} T_FRAME_END;
 	return ret;
 }
