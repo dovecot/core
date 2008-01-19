@@ -132,7 +132,7 @@ zlib_mailbox_open(struct mail_storage *storage, const char *name,
 	if (zlib_input != NULL)
 		i_stream_unref(&zlib_input);
 
-	if (strcmp(storage->name, "maildir") == 0) 
+	if (box != NULL && strcmp(storage->name, "maildir") == 0)
 		zlib_maildir_open_init(box);
 	return box;
 }
