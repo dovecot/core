@@ -460,11 +460,35 @@ static int maildirsize_open(struct maildir_quota_root *root)
 	return 1;
 }
 
+static bool maildirsize_has_changed(struct maildir_quota_root *root)
+{
+	struct stat st1, st2;
+
+	if (dotlock_settings.nfs_flush) {
+		nfs_flush_file_handle_cache(root->maildirsize_path);
+		nfs_flush_attr_cache_unlocked(root->maildirsize_path);
+	}
+
+	if (root->fd == -1)
+		return TRUE;
+
+	if (stat(root->maildirsize_path, &st1) < 0)
+		return TRUE;
+	if (fstat(root->fd, &st2) < 0)
+		return TRUE;
+
+	return st1.st_size != st2.st_size || st1.st_ino != st2.st_ino ||
+		!CMP_DEV_T(st1.st_dev, st2.st_dev);
+}
+
 static int maildirsize_read(struct maildir_quota_root *root)
 {
 	char buf[5120+1];
 	unsigned int i, size;
 	int ret;
+
+	if (!maildirsize_has_changed(root))
+		return 1;
 
 	if ((ret = maildirsize_open(root)) <= 0)
 		return ret;
