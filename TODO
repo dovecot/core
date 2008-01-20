@@ -1,3 +1,6 @@
+ - quota causing dovecot.index.cache files to be created with pop3
+ - save cancelled -> cache still tried to be updated
+ - configure --docdir doesn't work now
  - pipelining: commands that require output should do a delayed sync until
    there are no transactions, instead of just immediately returning OK
  - SORT/SEARCH: Replace invalid input with #fffd. Make sure squat doesn't
@@ -8,17 +11,11 @@
 
  - fix listescape plugin
  - cache: compress when we can drop temporary fields.
- - cache record joining could be done for most cases directly when writing the
-   new records
  - POP3 UIDL caching
- - expunged messages' flags may get updated in views where they're not yet
-   expunged (e.g. "expunge uid 2", "+flags \seen uid 1:3")
  - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"
  - new %modifier for reverse DNS lookups with a cache
    - auth_gssapi_hostname = %Xl
    - proxying would also want DNS lookups, but not reverse..
- - proxying should support connecting to multiple IPs or if nothing works
-   fallbacking to logging in normally (optionally).
  - ldap domain lookups which set the base for user lookup
 
  - maildir+pop3/deliver fast updates:
