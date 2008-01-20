@@ -320,7 +320,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	if (ret == 0 && status_items != 0)
 		mailbox_get_status(_ctx->box, status_items, status_r);
 
-	array_free(&ctx->flag_updates);
+	if (array_is_created(&ctx->flag_updates))
+		array_free(&ctx->flag_updates);
 	i_free(ctx);
 	return ret;
 }
