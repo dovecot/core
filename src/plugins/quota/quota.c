@@ -640,11 +640,13 @@ static void quota_warning_execute(const char *cmd)
 	}
 }
 
-static void quota_warnings_execute(struct quota_root *root)
+static void quota_warnings_execute(struct quota_transaction_context *ctx,
+				   struct quota_root *root)
 {
 	struct quota_warning_rule *warnings;
 	unsigned int i, count;
-	uint64_t bytes_current, bytes_limit, count_current, count_limit;
+	uint64_t bytes_current, bytes_before, bytes_limit;
+	uint64_t count_current, count_before, count_limit;
 
 	warnings = array_get_modifiable(&root->warning_rules, &count);
 	if (count == 0)
@@ -657,10 +659,12 @@ static void quota_warnings_execute(struct quota_root *root)
 			       &count_current, &count_limit) < 0)
 		return;
 
+	bytes_before = bytes_current - ctx->bytes_used;
+	count_before = count_current - ctx->count_used;
 	for (i = 0; i < count; i++) {
-		if ((bytes_current < warnings[i].bytes_limit &&
+		if ((bytes_before < warnings[i].bytes_limit &&
 		     bytes_current >= warnings[i].bytes_limit) ||
-		    (count_current < warnings[i].count_limit &&
+		    (count_before < warnings[i].count_limit &&
 		     count_current >= warnings[i].count_limit)) {
 			quota_warning_execute(warnings[i].command);
 			break;
@@ -690,7 +694,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		   work correctly regardless of whether backend.get_resource()
 		   returns updated values before backend.update() or not */
 		for (i = 0; i < count; i++)
-			quota_warnings_execute(roots[i]);
+			quota_warnings_execute(ctx, roots[i]);
 	}
 
 	i_free(ctx);
