@@ -31,6 +31,7 @@ struct maildir_quota_root {
 
 	int fd;
 	time_t recalc_last_stamp;
+	off_t last_size;
 
 	unsigned int limits_initialized:1;
 	unsigned int master_message_limits:1;
@@ -477,7 +478,7 @@ static bool maildirsize_has_changed(struct maildir_quota_root *root)
 	if (fstat(root->fd, &st2) < 0)
 		return TRUE;
 
-	return st1.st_size != st2.st_size || st1.st_ino != st2.st_ino ||
+	return root->last_size != st2.st_size || st1.st_ino != st2.st_ino ||
 		!CMP_DEV_T(st1.st_dev, st2.st_dev);
 }
 
@@ -513,6 +514,7 @@ static int maildirsize_read(struct maildir_quota_root *root)
 
 	/* file is smaller than 5120 bytes, which means we can use it */
 	root->total_bytes = root->total_count = 0;
+	root->last_size = size;
 
 	/* skip the last line if there's no LF at the end. Remove the last LF
 	   so we don't get one empty line in the strsplit. */
