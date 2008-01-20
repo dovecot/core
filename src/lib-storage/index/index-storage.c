@@ -109,6 +109,11 @@ get_index_dir(struct mail_storage *storage, const char *name,
 			if (stat(index_dir, st_r) == 0)
 				return index_dir;
 		}
+		if (errno == EACCES) {
+			mail_storage_set_critical(storage, "%s",
+				mail_storage_eacces_msg("stat", index_dir));
+			return NULL;
+		}
 
 		mail_storage_set_critical(storage, "stat(%s) failed: %m",
 					  index_dir);

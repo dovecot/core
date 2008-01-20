@@ -206,12 +206,20 @@ maildir_create(struct mail_storage *_storage, const char *data,
 	}
 
 	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
-		if (stat(list_set.root_dir, &st) < 0) {
-			if (errno != ENOENT) {
-				i_error("stat(%s) failed: %m",
+		if (stat(list_set.root_dir, &st) == 0) {
+			/* ok */
+		} else if (errno == EACCES) {
+			*error_r = mail_storage_eacces_msg("stat",
+							   list_set.root_dir);
+			return -1;
+		} else if (errno == ENOENT) {
+			*error_r = t_strdup_printf(
+					"Root mail directory doesn't exist: %s",
 					list_set.root_dir);
-			}
-			*error_r = "Mail storage doesn't exist";
+			return -1;
+		} else {
+			*error_r = t_strdup_printf("stat(%s) failed: %m",
+						   list_set.root_dir);
 			return -1;
 		}
 	}
@@ -324,6 +332,11 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT)
 			return 0;
+		if (errno == EACCES) {
+			mail_storage_set_critical(storage, "%s",
+				mail_storage_eacces_msg("stat", path));
+			return -1;
+		}
 		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
 		return -1;
 	}

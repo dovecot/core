@@ -335,6 +335,10 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		/* make sure the directory exists */
 		if (lstat(list_set->root_dir, &st) == 0) {
 			/* yep, go ahead */
+		} else if (errno == EACCES) {
+			*error_r = mail_storage_eacces_msg("lstat",
+							   list_set->root_dir);
+			return -1;
 		} else if (errno != ENOENT && errno != ENOTDIR) {
 			*error_r = t_strdup_printf("lstat(%s) failed: %m",
 						   list_set->root_dir);
@@ -446,9 +450,15 @@ static int verify_inbox(struct mail_storage *storage)
 			"mbox root directory can't be a file: %s "
 			"(http://wiki.dovecot.org/MailLocation/Mbox)",
 			rootdir);
+		return -1;
+	} else if (errno == EACCES) {
+		mail_storage_set_critical(storage, "%s",
+			mail_storage_eacces_msg("open", inbox_path));
+		return -1;
 	} else if (errno != EEXIST) {
 		mail_storage_set_critical(storage,
 			"open(%s, O_CREAT) failed: %m", inbox_path);
+		return -1;
 	}
 
 	return 0;

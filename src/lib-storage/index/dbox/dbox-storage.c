@@ -95,24 +95,29 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 
 	if ((_storage->flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
 		if (stat(list_set.root_dir, &st) < 0) {
-			if (errno != ENOENT) {
-				*error_r = t_strdup_printf(
-							"stat(%s) failed: %m",
-							list_set.root_dir);
-			} else {
+			if (errno == ENOENT) {
 				*error_r = t_strdup_printf(
 					"Root mail directory doesn't exist: %s",
 					list_set.root_dir);
+			} else if (errno == EACCES) {
+				*error_r = mail_storage_eacces_msg("stat",
+							list_set.root_dir);
+			} else {
+				*error_r = t_strdup_printf(
+							"stat(%s) failed: %m",
+							list_set.root_dir);
 			}
 			return -1;
 		}
+	} else if (mkdir_parents(list_set.root_dir,
+				 CREATE_MODE) == 0 || errno == EEXIST) {
+	} else if (errno == EACCES) {
+		*error_r = mail_storage_eacces_msg("mkdir", list_set.root_dir);
+		return -1;
 	} else {
-		if (mkdir_parents(list_set.root_dir, CREATE_MODE) < 0 &&
-		    errno != EEXIST) {
-			*error_r = t_strdup_printf("mkdir(%s) failed: %m",
-						   list_set.root_dir);
-			return -1;
-		}
+		*error_r = t_strdup_printf("mkdir(%s) failed: %m",
+					   list_set.root_dir);
+		return -1;
 	}
 
 	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
@@ -231,13 +236,8 @@ dbox_cleanup_if_exists(struct mail_storage *storage, const char *path)
 {
 	struct stat st;
 
-	if (stat(path, &st) < 0) {
-		if (errno != ENOENT) {
-			mail_storage_set_critical(storage,
-						  "stat(%s) failed: %m", path);
-		}
+	if (stat(path, &st) < 0)
 		return FALSE;
-	}
 
 	/* check once in a while if there are temp files to clean up */
 	if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
@@ -281,12 +281,14 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 
 		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		return NULL;
+	} else if (errno == EACCES) {
+		mail_storage_set_critical(_storage, "%s",
+			mail_storage_eacces_msg("stat", path));
 	} else {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
 					  path);
-		return NULL;
 	}
+	return NULL;
 }
 
 static int dbox_storage_mailbox_close(struct mailbox *box)
