@@ -178,6 +178,7 @@ int mail_send_forward(struct mail *mail, const char *forwardto)
 		    break;
 	    i_stream_skip(input, size);
     }
+    i_stream_unref(&input);
 
     return smtp_client_close(smtp_client);
 }
