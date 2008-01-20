@@ -677,18 +677,24 @@ maildir_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 
 static int
 maildir_quota_get_resource(struct quota_root *_root, const char *name,
-			   uint64_t *value_r, uint64_t *limit  ATTR_UNUSED)
+			   uint64_t *value_r, uint64_t *limit_r)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 
 	if (maildirquota_refresh(root) < 0)
 		return -1;
 
-	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
+	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0) {
 		*value_r = root->total_bytes;
-	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
+		if (!root->master_message_limits &&
+		    root->message_bytes_limit != (uint64_t)-1)
+			*limit_r = root->message_bytes_limit;
+	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
 		*value_r = root->total_count;
-	else
+		if (!root->master_message_limits &&
+		    root->message_count_limit != (uint64_t)-1)
+			*limit_r = root->message_count_limit;
+	} else
 		return 0;
 	return 1;
 }
