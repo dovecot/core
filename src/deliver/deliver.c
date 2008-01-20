@@ -41,7 +41,6 @@
 #include <syslog.h>
 
 #define DEFAULT_CONFIG_FILE SYSCONFDIR"/dovecot.conf"
-#define DEFAULT_AUTH_SOCKET_PATH PKG_RUNDIR"/auth-master"
 #define DEFAULT_SENDMAIL_PATH "/usr/lib/sendmail"
 #define DEFAULT_ENVELOPE_SENDER "MAILER-DAEMON"
 
@@ -844,8 +843,13 @@ int main(int argc, char *argv[])
 	t_array_init(&extra_fields, 64);
 	if (user_auth) {
 		auth_socket = getenv("AUTH_SOCKET_PATH");
-		if (auth_socket == NULL)
-			auth_socket = DEFAULT_AUTH_SOCKET_PATH;
+		if (auth_socket == NULL) {
+			const char *base_dir = getenv("BASE_DIR");
+			if (base_dir == NULL)
+				base_dir = PKG_RUNDIR;
+			auth_socket = t_strconcat(base_dir, "/auth-master",
+						  NULL);
+		}
 
 		ret = auth_client_lookup_and_restrict(ioloop, auth_socket,
 						      user, process_euid,
