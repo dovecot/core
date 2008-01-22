@@ -821,12 +821,23 @@ static unsigned char *
 squat_data_normalize(struct squat_trie *trie, const unsigned char *data,
 		     unsigned int size)
 {
+	static const unsigned char replacement_utf8[] = { 0xef, 0xbf, 0xbd };
 	unsigned char *dest;
 	unsigned int i;
 
 	dest = t_malloc(size);
-	for (i = 0; i < size; i++)
-		dest[i] = trie->hdr.normalize_map[data[i]];
+	for (i = 0; i < size; i++) {
+		if (data[i] == replacement_utf8[0] && i + 2 < size &&
+		    data[i+1] == replacement_utf8[1] &&
+		    data[i+2] == replacement_utf8[2]) {
+			/* Don't index replacement character */
+			dest[i++] = 0;
+			dest[i++] = 0;
+			dest[i] = 0;
+		} else {
+			dest[i] = trie->hdr.normalize_map[data[i]];
+		}
+	}
 	return dest;
 }
 
