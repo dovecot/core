@@ -1,6 +1,9 @@
 #ifndef UNICHAR_H
 #define UNICHAR_H
 
+/* Character used to replace invalid input. */
+#define UNICODE_REPLACEMENT_CHAR 0xfffd
+
 typedef uint32_t unichar_t;
 ARRAY_DEFINE_TYPE(unichars, unichar_t);
 
@@ -37,13 +40,14 @@ unichar_t uni_ucs4_to_titlecase(unichar_t chr);
 
 /* Convert UTF-8 input to titlecase and decompose the titlecase characters to
    output buffer. Returns 0 if ok, -1 if input was invalid. This generates
-   output that's compatible with i;unicode-casemap comparator. */
+   output that's compatible with i;unicode-casemap comparator. Invalid input
+   is replaced with unicode replacement character (0xfffd). */
 int uni_utf8_to_decomposed_titlecase(const void *input, size_t max_len,
 				     buffer_t *output);
 
-/* If input contains only valid UTF-8 characters, return TRUE. If input
-   contains invalid UTF-8 characters, write only the valid ones to buf and
-   return FALSE. */
+/* If input contains only valid UTF-8 characters, return TRUE without updating
+   buf. If input contains invalid UTF-8 characters, replace them with unicode
+   replacement character (0xfffd), write the output to buf and return FALSE. */
 bool uni_utf8_get_valid_data(const unsigned char *input, size_t size,
 			     buffer_t *buf);
 

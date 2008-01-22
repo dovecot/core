@@ -260,6 +260,22 @@ static bool uni_ucs4_decompose_multi_utf8(unichar_t chr, buffer_t *output)
 	return TRUE;
 }
 
+static void output_add_replacement_char(buffer_t *output)
+{
+	/* 0xfffd */
+	static const unsigned char replacement_utf8[] = { 0xef, 0xbf, 0xbd };
+#define REPLACEMENT_UTF8_LEN 3
+
+	if (output->used >= REPLACEMENT_UTF8_LEN &&
+	    memcmp(CONST_PTR_OFFSET(output->data,
+				    output->used - REPLACEMENT_UTF8_LEN),
+		   replacement_utf8, REPLACEMENT_UTF8_LEN) == 0) {
+		/* don't add the replacement char multiple times */
+		return;
+	}
+	buffer_append(output, replacement_utf8, REPLACEMENT_UTF8_LEN);
+}
+
 int uni_utf8_to_decomposed_titlecase(const void *_input, size_t max_len,
 				     buffer_t *output)
 {
@@ -273,6 +289,7 @@ int uni_utf8_to_decomposed_titlecase(const void *_input, size_t max_len,
 			/* invalid input. try the next byte. */
 			ret = -1;
 			input++; max_len--;
+			output_add_replacement_char(output);
 			continue;
 		}
 		bytes = uni_utf8_char_bytes(*input);
@@ -327,6 +344,7 @@ broken:
 	/* broken utf-8 input - skip the broken characters */
 	buffer_append(buf, input, i++);
 
+	output_add_replacement_char(buf);
 	while (i < size) {
 		if (input[i] < 0x80) {
 			buffer_append_c(buf, input[i++]);
@@ -336,6 +354,7 @@ broken:
 		len = is_valid_utf8_seq(input + i, size-i);
 		if (len == 0) {
 			i++;
+			output_add_replacement_char(buf);
 			continue;
 		}
 		buffer_append(buf, input + i, len);
