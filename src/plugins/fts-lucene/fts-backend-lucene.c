@@ -28,8 +28,8 @@ struct lucene_fts_backend {
 	uint32_t last_uid;
 };
 
-static MODULE_CONTEXT_DEFINE(fts_lucene_storage_module,
-			     &mail_storage_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(fts_lucene_storage_module,
+				  &mail_storage_module_register);
 
 static void fts_backend_select(struct lucene_fts_backend *backend)
 {
