@@ -30,6 +30,9 @@ enum maildir_uidlist_hdr_ext_key {
 };
 
 enum maildir_uidlist_rec_ext_key {
+	/* Physical message size. If filename also contains ,S=<vsize> this
+	   isn't written to uidlist. */
+	MAILDIR_UIDLIST_REC_EXT_PSIZE		= 'S',
 	/* Virtual message size. If filename also contains ,W=<vsize> this
 	   isn't written to uidlist. */
 	MAILDIR_UIDLIST_REC_EXT_VSIZE		= 'W',
