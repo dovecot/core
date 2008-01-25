@@ -26,6 +26,9 @@
 #else
 #  undef HAVE_LDAP_SASL
 #endif
+#ifdef LDAP_OPT_X_TLS
+#  define OPENLDAP_TLS_OPTIONS
+#endif
 #if SASL_VERSION_MAJOR < 2
 #  undef HAVE_LDAP_SASL
 #endif
@@ -84,6 +87,12 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(sasl_mech),
 	DEF_STR(sasl_realm),
 	DEF_STR(sasl_authz_id),
+	DEF_STR(tls_ca_cert_file),
+	DEF_STR(tls_ca_cert_dir),
+	DEF_STR(tls_cert_file),
+	DEF_STR(tls_key_file),
+	DEF_STR(tls_cipher_suite),
+	DEF_STR(tls_require_cert),
 	DEF_STR(deref),
 	DEF_STR(scope),
 	DEF_STR(base),
@@ -109,6 +118,12 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(sasl_mech) NULL,
 	MEMBER(sasl_realm) NULL,
 	MEMBER(sasl_authz_id) NULL,
+	MEMBER(tls_ca_cert_file) NULL,
+	MEMBER(tls_ca_cert_dir) NULL,
+	MEMBER(tls_cert_file) NULL,
+	MEMBER(tls_key_file) NULL,
+	MEMBER(tls_cipher_suite) NULL,
+	MEMBER(tls_require_cert) NULL,
 	MEMBER(deref) "never",
 	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
@@ -150,6 +165,24 @@ static int scope2str(const char *str)
 
 	i_fatal("LDAP: Unknown scope option '%s'", str);
 }
+
+#ifdef OPENLDAP_TLS_OPTIONS
+static int tls_require_cert2str(const char *str)
+{
+	if (strcasecmp(str, "never") == 0)
+		return LDAP_OPT_X_TLS_NEVER;
+	if (strcasecmp(str, "hard") == 0)
+		return LDAP_OPT_X_TLS_HARD;
+	if (strcasecmp(str, "demand") == 0)
+		return LDAP_OPT_X_TLS_DEMAND;
+	if (strcasecmp(str, "allow") == 0)
+		return LDAP_OPT_X_TLS_ALLOW;
+	if (strcasecmp(str, "try") == 0)
+		return LDAP_OPT_X_TLS_TRY;
+
+	i_fatal("LDAP: Unknown tls_require_cert value '%s'", str);
+}
+#endif
 
 static int ldap_get_errno(struct ldap_connection *conn)
 {
@@ -621,9 +654,69 @@ static void db_ldap_get_fd(struct ldap_connection *conn)
 	net_set_nonblock(conn->fd, TRUE);
 }
 
-int db_ldap_connect(struct ldap_connection *conn)
+static void
+db_ldap_set_opt(struct ldap_connection *conn, int opt, const void *value,
+		const char *optname, const char *value_str)
+{
+	int ret;
+
+	ret = ldap_set_option(conn == NULL ? NULL : conn->ld, opt, value);
+	if (ret != LDAP_SUCCESS) {
+		i_fatal("LDAP: Can't set option %s to %s: %s",
+			optname, value_str, ldap_err2string(ret));
+	}
+}
+
+static void
+db_ldap_set_opt_str(struct ldap_connection *conn, int opt, const char *value,
+		    const char *optname)
+{
+	if (value != NULL)
+		db_ldap_set_opt(conn, opt, value, optname, value);
+}
+
+static void db_ldap_set_tls_options(struct ldap_connection *conn)
+{
+	if (!conn->set.tls)
+		return;
+
+#ifdef OPENLDAP_TLS_OPTIONS
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CACERTFILE,
+			    conn->set.tls_ca_cert_file, "tls_ca_cert_file");
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CACERTDIR,
+			    conn->set.tls_ca_cert_dir, "tls_ca_cert_dir");
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CERTFILE,
+			    conn->set.tls_cert_file, "tls_cert_file");
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_KEYFILE,
+			    conn->set.tls_key_file, "tls_key_file");
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CIPHER_SUITE,
+			    conn->set.tls_cipher_suite, "tls_cipher_suite");
+	if (conn->set.tls_require_cert != NULL) {
+		int value = tls_require_cert2str(conn->set.tls_require_cert);
+		db_ldap_set_opt(NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &value,
+				"tls_require_cert", conn->set.tls_require_cert);
+	}
+#endif
+}
+
+static void db_ldap_set_options(struct ldap_connection *conn)
 {
 	unsigned int ldap_version;
+
+	db_ldap_set_opt(conn, LDAP_OPT_DEREF, &conn->set.ldap_deref,
+			"deref", conn->set.deref);
+
+	/* If SASL binds are used, the protocol version needs to be
+	   at least 3 */
+	ldap_version = conn->set.sasl_bind &&
+		conn->set.ldap_version < 3 ? 3 : conn->set.ldap_version;
+	db_ldap_set_opt(conn, LDAP_OPT_PROTOCOL_VERSION, &ldap_version,
+			"protocol_version", dec2str(ldap_version));
+	db_ldap_set_tls_options(conn);
+}
+
+int db_ldap_connect(struct ldap_connection *conn)
+{
 	int ret;
 
 	if (conn->conn_state != LDAP_CONN_STATE_DISCONNECTED)
@@ -646,24 +739,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 			i_fatal("LDAP: ldap_init() failed with hosts: %s",
 				conn->set.hosts);
 
-		ret = ldap_set_option(conn->ld, LDAP_OPT_DEREF,
-				      (void *)&conn->set.ldap_deref);
-		if (ret != LDAP_SUCCESS) {
-			i_fatal("LDAP: Can't set deref option: %s",
-				ldap_err2string(ret));
-		}
-
-		/* If SASL binds are used, the protocol version needs to be
-		   at least 3 */
-		ldap_version = conn->set.sasl_bind &&
-			conn->set.ldap_version < 3 ? 3 :
-			conn->set.ldap_version;
-		ret = ldap_set_option(conn->ld, LDAP_OPT_PROTOCOL_VERSION,
-				      (void *)&ldap_version);
-		if (ret != LDAP_OPT_SUCCESS) {
-			i_fatal("LDAP: Can't set protocol version %u: %s",
-				ldap_version, ldap_err2string(ret));
-		}
+		db_ldap_set_options(conn);
 	}
 
 	if (conn->set.tls) {
