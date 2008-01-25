@@ -490,7 +490,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	output_errno = ctx->output->stream_errno;
 	o_stream_destroy(&ctx->output);
 
-	if (!ctx->mbox->ibox.fsync_disable) {
+	if (!ctx->mbox->ibox.fsync_disable && !ctx->failed) {
 		if (fsync(ctx->fd) < 0) {
 			mail_storage_set_critical(storage,
 						  "fsync(%s) failed: %m", path);
