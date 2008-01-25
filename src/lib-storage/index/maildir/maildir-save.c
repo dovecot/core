@@ -476,7 +476,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 
 	if (ctx->cur_dest_mail != NULL) {
 		index_mail_cache_parse_deinit(ctx->cur_dest_mail,
-					      ctx->received_date);
+					      ctx->received_date, !ctx->failed);
 	}
 	i_stream_unref(&ctx->input);
 

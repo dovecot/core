@@ -103,6 +103,7 @@ struct index_mail_data {
 	unsigned int body_size_set:1;
 	unsigned int messageparts_saved_to_cache:1;
 	unsigned int header_parsed:1;
+	unsigned int no_caching:1;
 	unsigned int destroying_stream:1;
 };
 
@@ -204,6 +205,7 @@ void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 struct istream *index_mail_cache_parse_init(struct mail *mail,
 					    struct istream *input);
 void index_mail_cache_parse_continue(struct mail *mail);
-void index_mail_cache_parse_deinit(struct mail *mail, time_t received_date);
+void index_mail_cache_parse_deinit(struct mail *mail, time_t received_date,
+				   bool success);
 
 #endif

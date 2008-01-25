@@ -405,8 +405,10 @@ void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 			return;
 	}
 
-	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-		       field_idx, data, data_size);
+	if (!mail->data.no_caching) {
+		mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+			       field_idx, data, data_size);
+	}
 }
 
 static void parse_bodystructure_part_header(struct message_part *part,
@@ -1266,9 +1268,16 @@ void index_mail_cache_parse_continue(struct mail *_mail)
 	}
 }
 
-void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date)
+void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
+				   bool success)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+
+	if (!success) {
+		/* we're going to delete this mail anyway,
+		   don't bother trying to update cache file */
+		mail->data.no_caching = TRUE;
+	}
 
 	/* This is needed with 0 byte mails to get hdr=NULL call done. */
 	index_mail_cache_parse_continue(_mail);

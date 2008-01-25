@@ -662,8 +662,10 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 		);
 	}
 
-	if (ctx->mail != NULL)
-		index_mail_cache_parse_deinit(ctx->mail, ctx->received_date);
+	if (ctx->mail != NULL) {
+		index_mail_cache_parse_deinit(ctx->mail, ctx->received_date,
+					      !ctx->failed);
+	}
 	if (ctx->input != NULL)
 		i_stream_destroy(&ctx->input);
 
