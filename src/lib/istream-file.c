@@ -18,6 +18,7 @@ struct file_istream {
 
 	unsigned int file:1;
 	unsigned int autoclose_fd:1;
+	unsigned int seen_eof:1;
 };
 
 static void i_stream_file_close(struct iostream_private *stream)
@@ -54,6 +55,10 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 			ret = pread(stream->fd, stream->w_buffer + stream->pos,
 				    size, stream->istream.v_offset +
 				    (stream->pos - stream->skip));
+		} else if (fstream->seen_eof) {
+			/* don't try to read() again. EOF from keyboard (^D)
+			   requires this to work right. */
+			ret = 0;
 		} else {
 			ret = read(stream->fd, stream->w_buffer + stream->pos,
 				   size);
@@ -64,6 +69,7 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 	if (ret == 0) {
 		/* EOF */
 		stream->istream.eof = TRUE;
+		fstream->seen_eof = TRUE;
 		return -1;
 	}
 
@@ -114,6 +120,7 @@ static void i_stream_file_seek(struct istream_private *stream, uoff_t v_offset,
 	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
+	fstream->seen_eof = FALSE;
 }
 
 static void i_stream_file_sync(struct istream_private *stream)
