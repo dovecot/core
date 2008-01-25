@@ -696,6 +696,14 @@ static void db_ldap_set_tls_options(struct ldap_connection *conn)
 		db_ldap_set_opt(NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &value,
 				"tls_require_cert", conn->set.tls_require_cert);
 	}
+#else
+	if (conn->set.tls_ca_cert_file != NULL ||
+	    conn->set.tls_ca_cert_dir != NULL ||
+	    conn->set.tls_cert_file != NULL ||
+	    conn->set.tls_key_file != NULL ||
+	    conn->set.tls_cipher_suite != NULL)
+		i_warning("LDAP: tls_* settings ignored, "
+			  "your LDAP library doesn't seem to support them");
 #endif
 }
 
