@@ -27,6 +27,8 @@ enum client_command_state {
 	CLIENT_COMMAND_STATE_WAIT_OUTPUT,
 	/* Wait for other commands to finish execution */
 	CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY,
+	/* Waiting for other commands to finish so we can sync */
+	CLIENT_COMMAND_STATE_WAIT_SYNC,
 	/* Command is finished */
 	CLIENT_COMMAND_STATE_DONE
 };
@@ -46,6 +48,13 @@ struct client_command_context {
 	struct imap_parser *parser;
 	enum client_command_state state;
 
+	/* if multiple commands are in progress, we may need to wait for them
+	   to finish before syncing mailbox. */
+	unsigned int sync_counter;
+	enum mailbox_sync_flags sync_flags;
+	enum imap_sync_flags sync_imap_flags;
+	const char *sync_tagline;
+
 	unsigned int uid:1; /* used UID command */
 	unsigned int cancel:1; /* command is wanted to be cancelled */
 	unsigned int param_error:1;
@@ -63,6 +72,7 @@ struct client {
 	struct mailbox *mailbox;
         struct mailbox_keywords keywords;
 	unsigned int select_counter; /* increased when mailbox is changed */
+	unsigned int sync_counter;
 	uint32_t messages_count, recent_count, uidvalidity;
 
 	time_t last_input, last_output;

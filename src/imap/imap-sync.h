@@ -16,5 +16,6 @@ int imap_sync_more(struct imap_sync_context *ctx);
 
 bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	      enum imap_sync_flags imap_flags, const char *tagline);
+bool cmd_sync_delayed(struct client *client);
 
 #endif

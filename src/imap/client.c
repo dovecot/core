@@ -49,7 +49,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
 
-	client->command_pool = pool_alloconly_create("client command", 8192);
+	client->command_pool = pool_alloconly_create("client command", 1024*12);
 	client->namespaces = namespaces;
 
 	while (namespaces != NULL) {
@@ -512,8 +512,18 @@ static void client_idle_output_timeout(struct client *client)
 
 bool client_handle_unfinished_cmd(struct client_command_context *cmd)
 {
-	if (cmd->state != CLIENT_COMMAND_STATE_WAIT_OUTPUT)
+	if (cmd->state == CLIENT_COMMAND_STATE_WAIT_INPUT) {
+		/* need more input */
 		return FALSE;
+	}
+	if (cmd->state != CLIENT_COMMAND_STATE_WAIT_OUTPUT) {
+		/* waiting for something */
+		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC) {
+			/* this is mainly for APPEND. */
+			client_add_missing_io(cmd->client);
+		}
+		return TRUE;
+	}
 
 	/* output is blocking, we can execute more commands */
 	o_stream_set_flush_pending(cmd->client->output, TRUE);
@@ -586,7 +596,7 @@ static bool client_command_input(struct client_command_context *cmd)
 	}
 }
 
-static int client_handle_next_command(struct client *client, bool *remove_io_r)
+static bool client_handle_next_command(struct client *client, bool *remove_io_r)
 {
 	size_t size;
 
@@ -630,7 +640,6 @@ static bool client_handle_input(struct client *client)
 {
 	bool ret, remove_io, handled_commands = FALSE;
 
-	o_stream_cork(client->output);
 	client->handling_input = TRUE;
 	do {
 		T_FRAME(
@@ -638,9 +647,8 @@ static bool client_handle_input(struct client *client)
 		);
 		if (ret)
 			handled_commands = TRUE;
-	} while (ret && !client->disconnected);
+	} while (ret && !client->disconnected && client->io != NULL);
 	client->handling_input = FALSE;
-	o_stream_uncork(client->output);
 
 	if (client->output->closed) {
 		client_destroy(client, NULL);
@@ -650,13 +658,20 @@ static bool client_handle_input(struct client *client)
 			io_remove(&client->io);
 		else
 			client_add_missing_io(client);
-		return handled_commands;
+		if (!handled_commands)
+			return FALSE;
+
+		ret = cmd_sync_delayed(client);
+		if (ret)
+			client_continue_pending_input(&client);
+		return TRUE;
 	}
 }
 
 void client_input(struct client *client)
 {
 	struct client_command_context *cmd;
+	struct ostream *output = client->output;
 	ssize_t bytes;
 
 	i_assert(client->io != NULL);
@@ -671,6 +686,8 @@ void client_input(struct client *client)
 		return;
 	}
 
+	o_stream_ref(output);
+	o_stream_cork(output);
 	if (!client_handle_input(client) && bytes == -2) {
 		/* parameter word is longer than max. input buffer size.
 		   this is most likely an error, so skip the new data
@@ -683,6 +700,8 @@ void client_input(struct client *client)
 		client_send_command_error(cmd, "Too long argument.");
 		client_command_free(cmd);
 	}
+	o_stream_uncork(output);
+	o_stream_unref(&output);
 }
 
 static void client_output_cmd(struct client_command_context *cmd)
@@ -750,6 +769,7 @@ int client_output(struct client *client)
 		client_destroy(client, NULL);
 		return 1;
 	} else {
+		(void)cmd_sync_delayed(client);
 		client_continue_pending_input(&client);
 	}
 	return ret;

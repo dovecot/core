@@ -78,10 +78,10 @@ static void client_input_append(struct client_command_context *cmd)
 	o_stream_uncork(client->output);
 	if (!finished && cmd->state != CLIENT_COMMAND_STATE_DONE)
 		(void)client_handle_unfinished_cmd(cmd);
-	else {
+	else
 		client_command_free(cmd);
+	if (cmd_sync_delayed(client))
 		client_continue_pending_input(&client);
-	}
 }
 
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
@@ -454,6 +454,13 @@ bool cmd_append(struct client_command_context *cmd)
 	struct client *client = cmd->client;
         struct cmd_append_context *ctx;
 	const char *mailbox;
+
+	if (client->syncing) {
+		/* if transaction is created while its view is synced,
+		   appends aren't allowed for it. */
+		cmd->state = CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY;
+		return FALSE;
+	}
 
 	/* <mailbox> */
 	if (!client_read_string_args(cmd, 1, &mailbox))
