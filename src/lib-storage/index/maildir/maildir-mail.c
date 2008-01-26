@@ -333,7 +333,7 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	int ret;
 
 	if (index_mail_get_physical_size(_mail, size_r) == 0) {
-		i_assert(mail->data.virtual_size != (uoff_t)-1);
+		i_assert(mail->data.physical_size != (uoff_t)-1);
 		maildir_handle_size_caching(mail, TRUE, FALSE);
 		return 0;
 	}
