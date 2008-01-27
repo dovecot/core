@@ -999,7 +999,7 @@ static int squat_write_nodes(struct squat_trie_build_context *ctx)
 }
 
 static struct squat_trie_iterate_context *
-squat_trie_iterate_uidlist_init(struct squat_trie *trie)
+squat_trie_iterate_init(struct squat_trie *trie)
 {
 	struct squat_trie_iterate_context *ctx;
 
@@ -1011,7 +1011,7 @@ squat_trie_iterate_uidlist_init(struct squat_trie *trie)
 }
 
 static int
-squat_trie_iterate_uidlist_deinit(struct squat_trie_iterate_context *ctx)
+squat_trie_iterate_deinit(struct squat_trie_iterate_context *ctx)
 {
 	int ret = ctx->failed ? -1 : 0;
 
@@ -1021,72 +1021,38 @@ squat_trie_iterate_uidlist_deinit(struct squat_trie_iterate_context *ctx)
 }
 
 static struct squat_node *
-squat_trie_iterate_uidlist_first(struct squat_trie_iterate_context *ctx)
+squat_trie_iterate_first(struct squat_trie_iterate_context *ctx)
 {
-	struct squat_node *node = ctx->cur.node;
-	int level;
-
-	if (UIDLIST_IS_SINGLETON(node->uid_list_idx)) {
-		/* no uidlists */
-		i_assert(node == &ctx->trie->root);
-		return NULL;
-	}
-
-	if (node->children_not_mapped) {
-		level = array_count(&ctx->parents);
-
-		if (node_read_children(ctx->trie, node, level) < 0) {
+	if (ctx->cur.node->children_not_mapped) {
+		if (node_read_children(ctx->trie, ctx->cur.node, 1) < 0) {
 			ctx->failed = TRUE;
 			return NULL;
 		}
 	}
-	return node;
+	return ctx->cur.node;
 }
 
 static struct squat_node *
-squat_trie_iterate_uidlist_next(struct squat_trie_iterate_context *ctx)
+squat_trie_iterate_next(struct squat_trie_iterate_context *ctx)
 {
 	struct squat_trie_iterate_node *iter_nodes;
-	struct squat_node *node = ctx->cur.node;
 	struct squat_node *children;
 	unsigned int count;
 
-	/* return our children first */
-	children = NODE_CHILDREN_NODES(node);
-	for (; ctx->cur.idx < node->child_count; ctx->cur.idx++) {
-		if (!UIDLIST_IS_SINGLETON(children[ctx->cur.idx].uid_list_idx))
-			return &children[ctx->cur.idx++];
-	}
-
-	ctx->cur.idx = 0;
-	for (;;) {
-		/* next start iterating our childrens' children */
-		while (ctx->cur.idx < node->child_count) {
-			uint32_t list_idx =
-				children[ctx->cur.idx++].uid_list_idx;
-
-			if (UIDLIST_IS_SINGLETON(list_idx))
-				continue;
-
-			array_append(&ctx->parents, &ctx->cur, 1);
-			ctx->cur.node = &children[ctx->cur.idx-1];
-			ctx->cur.idx = 0;
-			if (squat_trie_iterate_uidlist_first(ctx) == NULL)
-				return NULL;
-			return squat_trie_iterate_uidlist_next(ctx);
-		}
-
-		/* no more children. go to next sibling's children */
+	while (ctx->cur.idx == ctx->cur.node->child_count) {
 		iter_nodes = array_get_modifiable(&ctx->parents, &count);
 		if (count == 0)
 			return NULL;
-
 		ctx->cur = iter_nodes[count-1];
 		array_delete(&ctx->parents, count-1, 1);
-
-		node = ctx->cur.node;
-		children = NODE_CHILDREN_NODES(node);
 	}
+
+	ctx->cur.idx++;
+	array_append(&ctx->parents, &ctx->cur, 1);
+	children = NODE_CHILDREN_NODES(ctx->cur.node);
+	ctx->cur.node = &children[ctx->cur.idx-1];
+	ctx->cur.idx = 0;
+	return ctx->cur.node;
 }
 
 static int
@@ -1111,24 +1077,25 @@ squat_trie_renumber_uidlists(struct squat_trie_build_context *ctx,
 		I_MAX((unsigned int)now, ctx->trie->hdr.indexid + 1);
 
 	i_array_init(&uids, 1024);
-	iter = squat_trie_iterate_uidlist_init(ctx->trie);
-	node = squat_trie_iterate_uidlist_first(iter);
+	iter = squat_trie_iterate_init(ctx->trie);
+	node = squat_trie_iterate_first(iter);
 	new_uid_list_idx = 0x100;
 	while (node != NULL) {
-		array_clear(&uids);
-		if (squat_uidlist_get(ctx->trie->uidlist, node->uid_list_idx,
-				      &uids) < 0) {
-			ret = -1;
-			break;
+		if (!UIDLIST_IS_SINGLETON(node->uid_list_idx)) {
+			array_clear(&uids);
+			if (squat_uidlist_get(ctx->trie->uidlist,
+					      node->uid_list_idx, &uids) < 0) {
+				ret = -1;
+				break;
+			}
+			max_count = I_MAX(max_count, array_count(&uids));
+			squat_uidlist_rebuild_next(rebuild_ctx, &uids);
+			node->uid_list_idx = new_uid_list_idx << 1;
+			new_uid_list_idx++;
 		}
-		max_count = I_MAX(max_count, array_count(&uids));
-		squat_uidlist_rebuild_next(rebuild_ctx, &uids);
-		node->uid_list_idx = new_uid_list_idx << 1;
-		new_uid_list_idx++;
-
-		node = squat_trie_iterate_uidlist_next(iter);
+		node = squat_trie_iterate_next(iter);
 	}
-	squat_trie_iterate_uidlist_deinit(iter);
+	squat_trie_iterate_deinit(iter);
 	array_free(&uids);
 
 	/* lock the trie before we rename uidlist */
