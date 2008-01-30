@@ -345,12 +345,10 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 	rightmost_idx = count - 1;
 
 	/* get the sort IDs from left and right */
-	i_assert(left_idx == 0 || nodes[left_idx].sort_id != 0);
-	i_assert(right_idx == rightmost_idx || nodes[right_idx].sort_id != 0);
-	left_sort_id = nodes[left_idx].sort_id == 0 ? 1 :
-		nodes[left_idx].sort_id;
-	right_sort_id = nodes[right_idx].sort_id == 0 ? (uint32_t)-1 :
+	left_sort_id = left_idx == 0 ? 1 : nodes[left_idx].sort_id;
+	right_sort_id = right_idx == rightmost_idx ? (uint32_t)-1 :
 		nodes[right_idx].sort_id;
+	i_assert(left_sort_id != 0 && right_sort_id != 0);
 
 	while ((right_sort_id - left_sort_id) / (right_idx-left_idx + 2) == 0) {
 		/* we most likely don't have enough space. we have to
