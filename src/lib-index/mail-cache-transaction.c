@@ -673,7 +673,6 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache_record *rec, new_rec;
 	void *data;
 	size_t size;
-	uint32_t reset_id;
 
 	if (ctx->prev_seq != 0) {
 		/* fix record size */
@@ -682,14 +681,10 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 		rec->size = size - ctx->prev_pos;
 		i_assert(rec->size > sizeof(*rec));
 
-		/* set prev_offset if possible */
-		rec->prev_offset =
-			mail_cache_lookup_cur_offset(ctx->view->view,
-						     ctx->prev_seq, &reset_id);
-		if (reset_id != ctx->cache->hdr->file_seq)
-			rec->prev_offset = 0;
-		else
-			ctx->cache->hdr_copy.continued_record_count++;
+		/* FIXME: here would be a good place to set prev_offset to
+		   avoid doing it later, but avoid circular prev_offsets
+		   when cache is updated multiple times within the same
+		   transaction */
 
 		array_append(&ctx->cache_data_seq, &ctx->prev_seq, 1);
 		ctx->prev_pos = size;
