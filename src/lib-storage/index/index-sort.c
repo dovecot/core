@@ -356,7 +356,8 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 		   widening the area we're giving sort IDs. */
 		if (left_idx > 0) {
 			left_idx--;
-			left_sort_id = nodes[left_idx].sort_id;
+			left_sort_id = left_idx == 0 ? 1 :
+				nodes[left_idx].sort_id;
 			i_assert(left_sort_id != 0);
 		}
 
