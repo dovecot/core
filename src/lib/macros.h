@@ -106,7 +106,6 @@
 #  define ATTR_UNUSED __attribute__((unused))
 #  define ATTR_NORETURN __attribute__((noreturn))
 #  define ATTR_CONST __attribute__((const))
-#  define ATTR_MALLOC __attribute__((malloc))
 #else
 #  define ATTR_FORMAT(format_idx, arg_idx)
 #  define ATTR_FORMAT_ARG(arg_idx)
@@ -115,6 +114,10 @@
 #  define ATTR_NORETURN
 #  define ATTR_CONST
 #  define ATTR_UNUSED
+#endif
+#if __GNUC__ > 2
+#  define ATTR_MALLOC __attribute__((malloc))
+#else
 #  define ATTR_MALLOC
 #endif
 #if __GNUC__ > 3
@@ -146,7 +149,7 @@
 	name(__VA_ARGS__, (callback_type *)callback, context)
 #endif
 
-#ifdef __GNUC__
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 0)
 #  define HAVE_TYPEOF
 #  define COMPILE_ERROR_IF_TRUE(condition) \
 	(sizeof(char[1 - 2 * !!(condition)]) - 1)
@@ -168,7 +171,7 @@
 #  define GNUC_PRETTY_FUNCTION ""
 #endif
 
-#ifdef __GNUC__
+#if __GNUC__ > 2
 #  define unlikely(expr) __builtin_expect(!!(expr), 0)
 #  define likely(expr) __builtin_expect(!!(expr), 1)
 #else
