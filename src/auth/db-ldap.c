@@ -968,9 +968,14 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 static void
 db_ldap_result_iterate_finish(struct db_ldap_result_iterate_context *ctx)
 {
-	if (ctx->debug != NULL && str_len(ctx->debug) > 0) {
-		auth_request_log_debug(ctx->auth_request, "ldap",
-				       "result: %s", str_c(ctx->debug) + 1);
+	if (ctx->debug != NULL) {
+		if (str_len(ctx->debug) > 0) {
+			auth_request_log_debug(ctx->auth_request, "ldap",
+				"result: %s", str_c(ctx->debug) + 1);
+		} else {
+			auth_request_log_debug(ctx->auth_request, "ldap",
+				"no fields returned by the server");
+		}
 	}
 
 	ber_free(ctx->ber, 0);
