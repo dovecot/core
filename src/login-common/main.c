@@ -437,7 +437,7 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 	if (is_inetd) {
 		if (net_getpeername(1, &remote_ip, &remote_port) < 0) {
 			i_fatal("%s can be started only through dovecot "
-				"master process, inetd or equilevant", argv[0]);
+				"master process, inetd or equivalent", argv[0]);
 		}
 		if (net_getsockname(1, &local_ip, &local_port) < 0) {
 			memset(&local_ip, 0, sizeof(local_ip));
