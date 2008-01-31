@@ -200,15 +200,18 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 
 	if (hdr->version != MAIL_CACHE_VERSION) {
 		/* version changed - upgrade silently */
+		(void)unlink(cache->filepath);
 		return FALSE;
 	}
 	if (hdr->compat_sizeof_uoff_t != sizeof(uoff_t)) {
 		/* architecture change - handle silently(?) */
+		(void)unlink(cache->filepath);
 		return FALSE;
 	}
 
 	if (hdr->indexid != cache->index->indexid) {
 		/* index id changed - handle silently */
+		(void)unlink(cache->filepath);
 		return FALSE;
 	}
 	if (hdr->file_seq == 0) {
