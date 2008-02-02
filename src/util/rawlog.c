@@ -27,7 +27,8 @@ static struct ioloop *ioloop;
 enum rawlog_flags {
 	RAWLOG_FLAG_LOG_INPUT		= 0x01,
 	RAWLOG_FLAG_LOG_OUTPUT		= 0x02,
-	RAWLOG_FLAG_LOG_TIMESTAMPS	= 0x04
+	RAWLOG_FLAG_LOG_TIMESTAMPS	= 0x04,
+	RAWLOG_FLAG_LOG_BOUNDARIES	= 0X10
 };
 
 struct rawlog_proxy {
@@ -79,11 +80,16 @@ static void proxy_write_in(struct rawlog_proxy *proxy,
 	if (proxy->fd_in == -1 || size == 0)
 		return;
 
+	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0)
+		write_full(proxy->fd_in, "<<<", 3);
+
 	if (write_full(proxy->fd_in, data, size) < 0) {
 		/* failed, disable logging */
 		i_error("write(in) failed: %m");
 		(void)close(proxy->fd_in);
 		proxy->fd_in = -1;
+	} else if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0) {
+		write_full(proxy->fd_in, ">>>\n", 4);
 	}
 }
 
@@ -107,15 +113,20 @@ static void proxy_write_out(struct rawlog_proxy *proxy,
 			i_fatal("Can't write to log file: %m");
 	}
 
+	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0)
+		write_full(proxy->fd_out, "<<<", 3);
 	if (write_full(proxy->fd_out, data, size) < 0) {
 		/* failed, disable logging */
 		i_error("write(out) failed: %m");
 		(void)close(proxy->fd_out);
 		proxy->fd_out = -1;
+	} else if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0) {
+		write_full(proxy->fd_out, ">>>\n", 4);
 	}
 
 	proxy->last_write = ioloop_time;
-	proxy->last_out_lf = ((const unsigned char *)buf)[size-1] == '\n';
+	proxy->last_out_lf = ((const unsigned char *)buf)[size-1] == '\n' ||
+		(proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0;
 }
 
 static void server_input(struct rawlog_proxy *proxy)
@@ -340,6 +351,8 @@ int main(int argc, char *argv[], char *envp[])
 			flags &= ~RAWLOG_FLAG_LOG_OUTPUT;
 		else if (strcmp(argv[0], "-o") == 0)
 			flags &= ~RAWLOG_FLAG_LOG_INPUT;
+		else if (strcmp(argv[0], "-b") == 0)
+			flags |= RAWLOG_FLAG_LOG_BOUNDARIES;
 		else {
 			argc = 0;
 			break;
@@ -349,7 +362,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (argc < 1)
-		i_fatal("Usage: rawlog [-i | -o] <binary> <arguments>");
+		i_fatal("Usage: rawlog [-i | -o] [-b] <binary> <arguments>");
 
 	executable = argv[0];
 	if (strstr(executable, "/imap") != NULL)
