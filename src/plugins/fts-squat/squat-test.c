@@ -94,8 +94,6 @@ int main(int argc ATTR_UNUSED, char *argv[])
 
 		if (mime_header) {
 			if (*line == '\0') {
-				if (data_header)
-					seq++;
 				data_header = FALSE;
 				mime_header = FALSE;
 				continue;
@@ -112,7 +110,11 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		if (*line == '\0')
 			continue;
 
-		index_type = data_header ? SQUAT_INDEX_TYPE_HEADER :
+		/* we're actually indexing here headers as bodies and bodies
+		   as headers. it doesn't really matter in this test, and
+		   fixing it would require storing headers temporarily
+		   elsewhere and index them only after the body */
+		index_type = !data_header ? SQUAT_INDEX_TYPE_HEADER :
 			SQUAT_INDEX_TYPE_BODY;
 
 		buffer_set_used_size(valid, 0);
