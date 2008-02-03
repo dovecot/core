@@ -81,11 +81,14 @@ int fts_backend_get_last_uid(struct fts_backend *backend, uint32_t *last_uid_r)
 int fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
 			   struct fts_backend_build_context **ctx_r)
 {
+	int ret;
+
 	i_assert(!backend->building);
 
-	backend->building = TRUE;
-
-	return backend->v.build_init(backend, last_uid_r, ctx_r);
+	ret = backend->v.build_init(backend, last_uid_r, ctx_r);
+	if (ret == 0)
+		backend->building = TRUE;
+	return ret;
 }
 
 int fts_backend_build_more(struct fts_backend_build_context *ctx, uint32_t uid,
