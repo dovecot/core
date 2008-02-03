@@ -32,8 +32,8 @@ void fts_backend_unregister(const char *name)
 		array_free(&backends);
 }
 
-struct fts_backend *
-fts_backend_init(const char *backend_name, struct mailbox *box)
+static const struct fts_backend *
+fts_backend_class_lookup(const char *backend_name)
 {
 	const struct fts_backend *const *be;
 	unsigned int i, count;
@@ -42,12 +42,27 @@ fts_backend_init(const char *backend_name, struct mailbox *box)
 		be = array_get(&backends, &count);
 		for (i = 0; i < count; i++) {
 			if (strcmp(be[i]->name, backend_name) == 0)
-				return be[i]->v.init(box);
+				return be[i];
 		}
 	}
-
-	i_error("Unknown FTS backend: %s", backend_name);
 	return NULL;
+}
+
+struct fts_backend *
+fts_backend_init(const char *backend_name, struct mailbox *box)
+{
+	const struct fts_backend *be;
+	struct fts_backend *backend;
+
+	be = fts_backend_class_lookup(backend_name);
+	if (be == NULL) {
+		i_error("Unknown FTS backend: %s", backend_name);
+		return NULL;
+	}
+
+	backend = be->v.init(box);
+	backend->box = box;
+	return backend;
 }
 
 void fts_backend_deinit(struct fts_backend **_backend)
