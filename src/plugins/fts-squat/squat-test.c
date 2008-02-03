@@ -129,7 +129,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		}
 	}
 	buffer_free(&valid);
-	if (squat_trie_build_deinit(&build_ctx) < 0)
+	if (squat_trie_build_deinit(&build_ctx, NULL) < 0)
 		ret = -1;
 	if (ret < 0) {
 		printf("build broken\n");

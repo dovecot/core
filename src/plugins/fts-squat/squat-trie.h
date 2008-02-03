@@ -20,11 +20,14 @@ void squat_trie_refresh(struct squat_trie *trie);
 
 int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
 			  struct squat_trie_build_context **ctx_r);
-/* headers must be added before bodies */
+/* bodies must be added before headers */
 int squat_trie_build_more(struct squat_trie_build_context *ctx,
 			  uint32_t uid, enum squat_index_type type,
 			  const unsigned char *data, unsigned int size);
-int squat_trie_build_deinit(struct squat_trie_build_context **ctx);
+/* if expunged_uids is non-NULL, they may be removed from the index if they
+   still exist. */
+int squat_trie_build_deinit(struct squat_trie_build_context **ctx,
+			    const ARRAY_TYPE(seq_range) *expunged_uids);
 
 int squat_trie_get_last_uid(struct squat_trie *trie, uint32_t *last_uid_r);
 /* type specifies if we're looking at header, body or both */

@@ -47,8 +47,10 @@ void squat_uidlist_build_deinit(struct squat_uidlist_build_context **ctx);
 int squat_uidlist_rebuild_init(struct squat_uidlist_build_context *build_ctx,
 			       bool compress,
 			       struct squat_uidlist_rebuild_context **ctx_r);
-void squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
-				const ARRAY_TYPE(uint32_t) *uids);
+uint32_t squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
+				    const ARRAY_TYPE(uint32_t) *uids);
+uint32_t squat_uidlist_rebuild_nextu(struct squat_uidlist_rebuild_context *ctx,
+				     const ARRAY_TYPE(seq_range) *uids);
 int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 				 bool cancel);
 

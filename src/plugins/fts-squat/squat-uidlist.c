@@ -82,6 +82,7 @@ struct squat_uidlist_rebuild_context {
 	uoff_t cur_block_start_offset;
 
 	uint32_t list_sizes[UIDLIST_BLOCK_LIST_COUNT];
+	uint32_t next_uid_list_idx;
 	unsigned int list_idx;
 	unsigned int new_count;
 };
@@ -845,6 +846,7 @@ int squat_uidlist_rebuild_init(struct squat_uidlist_build_context *build_ctx,
 	ctx->build_ctx = build_ctx;
 	ctx->fd = fd;
 	ctx->output = o_stream_create_fd(ctx->fd, 0, FALSE);
+	ctx->next_uid_list_idx = 0x100;
 	o_stream_cork(ctx->output);
 
 	memset(&hdr, 0, sizeof(hdr));
@@ -888,8 +890,8 @@ uidlist_rebuild_flush_block(struct squat_uidlist_rebuild_context *ctx)
 	ctx->cur_block_start_offset = ctx->output->offset;
 }
 
-void squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
-				const ARRAY_TYPE(uint32_t) *uids)
+uint32_t squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
+				    const ARRAY_TYPE(uint32_t) *uids)
 {
 	int ret;
 
@@ -905,6 +907,50 @@ void squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
 		uidlist_rebuild_flush_block(ctx);
 		ctx->list_idx = 0;
 	}
+	return ctx->next_uid_list_idx++ << 1;
+}
+
+uint32_t squat_uidlist_rebuild_nextu(struct squat_uidlist_rebuild_context *ctx,
+				     const ARRAY_TYPE(seq_range) *uids)
+{
+	const struct seq_range *range;
+	ARRAY_TYPE(uint32_t) tmp_uids;
+	uint32_t seq, uid1, ret;
+	unsigned int i, count;
+
+	range = array_get(uids, &count);
+	if (count == 0)
+		return 0;
+
+	if (count == 1 && range[0].seq1 == range[0].seq2) {
+		/* single UID */
+		return (range[0].seq1 << 1) | 1;
+	}
+	if (range[count-1].seq2 < 8) {
+		/* we can use a singleton bitmask */
+		ret = 0;
+		for (i = 0; i < count; i++) {
+			for (seq = range[i].seq1; seq <= range[i].seq2; seq++)
+				ret |= 1 << (seq+1);
+		}
+		return ret;
+	}
+
+	/* convert seq range to our internal representation and use the
+	   normal _rebuild_next() to write it */
+	i_array_init(&tmp_uids, 128);
+	for (i = 0; i < count; i++) {
+		if (range[i].seq1 == range[i].seq2)
+			array_append(&tmp_uids, &range[i].seq1, 1);
+		else {
+			uid1 = range[i].seq1 | UID_LIST_MASK_RANGE;
+			array_append(&tmp_uids, &uid1, 1);
+			array_append(&tmp_uids, &range[i].seq2, 1);
+		}
+	}
+	ret = squat_uidlist_rebuild_next(ctx, &tmp_uids);
+	array_free(&tmp_uids);
+	return ret;
 }
 
 int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,

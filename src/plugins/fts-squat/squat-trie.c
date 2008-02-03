@@ -43,6 +43,7 @@ struct squat_trie_build_context {
 
 struct squat_trie_iterate_node {
 	struct squat_node *node;
+	ARRAY_TYPE(seq_range) shifts;
 	unsigned int idx;
 };
 
@@ -1013,8 +1014,16 @@ squat_trie_iterate_init(struct squat_trie *trie)
 static int
 squat_trie_iterate_deinit(struct squat_trie_iterate_context *ctx)
 {
+	struct squat_trie_iterate_node *nodes;
+	unsigned int i, count;
 	int ret = ctx->failed ? -1 : 0;
 
+	if (array_is_created(&ctx->cur.shifts)) {
+		nodes = array_get_modifiable(&ctx->parents, &count);
+		for (i = 0; i < count; i++)
+			array_free(&nodes[i].shifts);
+		array_free(&ctx->cur.shifts);
+	}
 	array_free(&ctx->parents);
 	i_free(ctx);
 	return ret;
@@ -1033,37 +1042,233 @@ squat_trie_iterate_first(struct squat_trie_iterate_context *ctx)
 }
 
 static struct squat_node *
-squat_trie_iterate_next(struct squat_trie_iterate_context *ctx)
+squat_trie_iterate_next(struct squat_trie_iterate_context *ctx,
+			ARRAY_TYPE(seq_range) *shifts_r)
 {
 	struct squat_trie_iterate_node *iter_nodes;
 	struct squat_node *children;
-	unsigned int count;
+	unsigned int count, shift_count = 0;
 
-	while (ctx->cur.idx == ctx->cur.node->child_count) {
+	while (ctx->cur.idx == ctx->cur.node->child_count ||
+	       ctx->cur.node->uid_list_idx == 0)
+	{
 		iter_nodes = array_get_modifiable(&ctx->parents, &count);
 		if (count == 0)
 			return NULL;
+
+		if (array_is_created(&ctx->cur.shifts))
+			array_free(&ctx->cur.shifts);
 		ctx->cur = iter_nodes[count-1];
 		array_delete(&ctx->parents, count-1, 1);
 	}
 
-	ctx->cur.idx++;
-	array_append(&ctx->parents, &ctx->cur, 1);
+	*shifts_r = ctx->cur.shifts;
+	if (array_is_created(&ctx->cur.shifts)) {
+		shift_count = array_count(&ctx->cur.shifts);
+		i_assert(shift_count > 0);
+	}
+
 	children = NODE_CHILDREN_NODES(ctx->cur.node);
+	while (children[ctx->cur.idx++].uid_list_idx == 0) {
+		if (ctx->cur.idx == ctx->cur.node->child_count) {
+			/* no more non-empty children in this node */
+			return squat_trie_iterate_next(ctx, shifts_r);
+		}
+	}
+	array_append(&ctx->parents, &ctx->cur, 1);
 	ctx->cur.node = &children[ctx->cur.idx-1];
 	ctx->cur.idx = 0;
+	if (shift_count != 0)
+		i_array_init(&ctx->cur.shifts, shift_count);
 	return ctx->cur.node;
+}
+
+static void
+squat_uidlist_update_expunged_uids(const ARRAY_TYPE(seq_range) *shifts_arr,
+				   ARRAY_TYPE(seq_range) *child_shifts,
+				   ARRAY_TYPE(seq_range) *uids_arr,
+				   bool do_shifts)
+{
+	const struct seq_range *shifts;
+	struct seq_range *uids, shift;
+	unsigned int i, uid_idx, uid_count, shift_count;
+	uint32_t child_shift_seq1, child_shift_count, seq_high;
+	unsigned int shift_sum = 0, child_sum = 0;
+
+	/* self shift */
+	uids = array_get_modifiable(uids_arr, &uid_count);
+	shifts = array_get(shifts_arr, &shift_count);
+	for (i = 0, uid_idx = 0, seq_high = 0;; ) {
+		/* skip UID ranges until we skip/overlap shifts */
+		while (uid_idx < uid_count &&
+		       (i == shift_count ||
+			I_MAX(shifts[i].seq1, seq_high) > uids[uid_idx].seq2))
+		{
+			i_assert(uids[uid_idx].seq1 >= shift_sum);
+			uids[uid_idx].seq1 -= shift_sum;
+			uids[uid_idx].seq2 -= shift_sum;
+			child_sum += uids[uid_idx].seq2 -
+				uids[uid_idx].seq1 + 1;
+
+			if (uid_idx > 0 &&
+			    uids[uid_idx-1].seq2 == uids[uid_idx].seq1 - 1) {
+				/* we can merge this and the previous range */
+				uids[uid_idx-1].seq2 = uids[uid_idx].seq2;
+				array_delete(uids_arr, uid_idx, 1);
+				uids = array_get_modifiable(uids_arr,
+							    &uid_count);
+			} else {
+				uid_idx++;
+			}
+		}
+		if (uid_idx == uid_count)
+			break;
+
+		shift.seq1 = I_MAX(shifts[i].seq1, seq_high);
+		shift.seq2 = shifts[i].seq2;
+		if (shift.seq2 < uids[uid_idx].seq1) {
+			/* shift is entirely before UID range */
+			shift_sum += shift.seq2 - shift.seq1 + 1;
+			i++;
+		} else {
+			/* handle shifts before UID range */
+			if (shift.seq1 < uids[uid_idx].seq1) {
+				shift_sum += uids[uid_idx].seq1 - shift.seq1;
+				shift.seq1 = uids[uid_idx].seq1;
+			}
+			/* update child shifts */
+			child_shift_seq1 = child_sum +
+				shift.seq1 - uids[uid_idx].seq1;
+			child_shift_count =
+				I_MIN(shift.seq2, uids[uid_idx].seq2) -
+				shift.seq1 + 1;
+			seq_range_array_add_range(child_shifts,
+						  child_shift_seq1,
+						  child_shift_seq1 +
+						  child_shift_count - 1);
+			child_sum += child_shift_count;
+
+			/* if the shifts continue after the UID range,
+			   treat it in the next loop iteration */
+			if (shift.seq2 <= uids[uid_idx].seq2)
+				i++;
+			else
+				seq_high = uids[uid_idx].seq2 + 1;
+
+			/* update UIDs - no matter where within the UID range
+			   the shifts happened, the result is the same:
+			   shift number of UIDs are removed, and the rest
+			   are decreased by shift_sum.
+
+			      123     uids child_shifts
+			   a) s    -> 12   1
+			   b)  s   -> 12   2
+			   c)   s  -> 12   3
+			*/
+			if (uids[uid_idx].seq1 +
+			    child_shift_count > uids[uid_idx].seq2) {
+				/* removed completely */
+				array_delete(uids_arr, uid_idx, 1);
+				uids = array_get_modifiable(uids_arr,
+							    &uid_count);
+			} else {
+				/* the next loop iteration fixes the UIDs */
+				uids[uid_idx].seq1 += child_shift_count;
+			}
+			shift_sum += child_shift_count;
+		}
+		if (!do_shifts) {
+			/* root node - UIDs are only removed, not shifted */
+			shift_sum = 0;
+		}
+	}
+}
+
+static int
+squat_trie_expunge_uidlists(struct squat_trie_build_context *ctx,
+			    struct squat_uidlist_rebuild_context *rebuild_ctx,
+			    struct squat_trie_iterate_context *iter,
+			    const ARRAY_TYPE(seq_range) *expunged_uids)
+{
+	struct squat_node *node;
+	ARRAY_TYPE(seq_range) uid_range, shifts;
+	bool shift = FALSE;
+	int ret = 0;
+
+	node = squat_trie_iterate_first(iter);
+	if (node->uid_list_idx == 0)
+		return 0;
+
+	i_array_init(&uid_range, 1024);
+	i_array_init(&shifts, array_count(expunged_uids));
+	array_append_array(&shifts, expunged_uids);
+
+	while (node != NULL) {
+		i_assert(node->uid_list_idx != 0);
+		array_clear(&uid_range);
+		if (squat_uidlist_get_seqrange(ctx->trie->uidlist,
+					       node->uid_list_idx,
+					       &uid_range) < 0) {
+			ret = -1;
+			break;
+		}
+		squat_uidlist_update_expunged_uids(&shifts, &iter->cur.shifts,
+						   &uid_range, shift);
+		node->uid_list_idx =
+			squat_uidlist_rebuild_nextu(rebuild_ctx, &uid_range);
+		if (node->uid_list_idx == 0) {
+			node->child_count = 0;
+			node->next_uid = 0;
+		}
+		node = squat_trie_iterate_next(iter, &shifts);
+		i_assert(array_count(&shifts) > 0);
+		shift = TRUE;
+	}
+	array_free(&uid_range);
+	return ret;
+}
+
+static int
+squat_trie_renumber_uidlists2(struct squat_trie_build_context *ctx,
+			      struct squat_uidlist_rebuild_context *rebuild_ctx,
+			      struct squat_trie_iterate_context *iter)
+{
+	struct squat_node *node;
+	ARRAY_TYPE(seq_range) shifts;
+	ARRAY_TYPE(uint32_t) uids;
+	int ret = 0;
+
+	node = squat_trie_iterate_first(iter);
+	if (node->uid_list_idx == 0)
+		return 0;
+
+	i_array_init(&uids, 1024);
+	while (node != NULL) {
+		i_assert(node->uid_list_idx != 0);
+		if (!UIDLIST_IS_SINGLETON(node->uid_list_idx)) {
+			/* rebuild the uidlist */
+			array_clear(&uids);
+			if (squat_uidlist_get(ctx->trie->uidlist,
+					      node->uid_list_idx, &uids) < 0) {
+				ret = -1;
+				break;
+			}
+			node->uid_list_idx =
+				squat_uidlist_rebuild_next(rebuild_ctx, &uids);
+		}
+		node = squat_trie_iterate_next(iter, &shifts);
+	}
+	array_free(&uids);
+	return ret;
 }
 
 static int
 squat_trie_renumber_uidlists(struct squat_trie_build_context *ctx,
+			     const ARRAY_TYPE(seq_range) *expunged_uids,
 			     bool compress)
 {
 	struct squat_trie_iterate_context *iter;
-	struct squat_node *node;
 	struct squat_uidlist_rebuild_context *rebuild_ctx;
-	ARRAY_TYPE(uint32_t) uids;
-	uint32_t new_uid_list_idx, max_count=0;
 	time_t now;
 	int ret = 0;
 
@@ -1076,27 +1281,14 @@ squat_trie_renumber_uidlists(struct squat_trie_build_context *ctx,
 	ctx->trie->hdr.indexid =
 		I_MAX((unsigned int)now, ctx->trie->hdr.indexid + 1);
 
-	i_array_init(&uids, 1024);
 	iter = squat_trie_iterate_init(ctx->trie);
-	node = squat_trie_iterate_first(iter);
-	new_uid_list_idx = 0x100;
-	while (node != NULL) {
-		if (!UIDLIST_IS_SINGLETON(node->uid_list_idx)) {
-			array_clear(&uids);
-			if (squat_uidlist_get(ctx->trie->uidlist,
-					      node->uid_list_idx, &uids) < 0) {
-				ret = -1;
-				break;
-			}
-			max_count = I_MAX(max_count, array_count(&uids));
-			squat_uidlist_rebuild_next(rebuild_ctx, &uids);
-			node->uid_list_idx = new_uid_list_idx << 1;
-			new_uid_list_idx++;
-		}
-		node = squat_trie_iterate_next(iter);
+	if (expunged_uids != NULL) {
+		ret = squat_trie_expunge_uidlists(ctx, rebuild_ctx, iter,
+						  expunged_uids);
+	} else {
+		ret = squat_trie_renumber_uidlists2(ctx, rebuild_ctx, iter);
 	}
 	squat_trie_iterate_deinit(iter);
-	array_free(&uids);
 
 	/* lock the trie before we rename uidlist */
 	if (squat_trie_lock(ctx->trie, F_WRLCK, &ctx->file_lock) <= 0)
@@ -1369,7 +1561,8 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 	return ret;
 }
 
-int squat_trie_build_deinit(struct squat_trie_build_context **_ctx)
+int squat_trie_build_deinit(struct squat_trie_build_context **_ctx,
+			    const ARRAY_TYPE(seq_range) *expunged_uids)
 {
 	struct squat_trie_build_context *ctx = *_ctx;
 	bool compress;
@@ -1383,7 +1576,7 @@ int squat_trie_build_deinit(struct squat_trie_build_context **_ctx)
 	   being renamed, so that while trie is read locked, uidlist can't
 	   change under. */
 	squat_uidlist_build_flush(ctx->uidlist_build_ctx);
-	ret = squat_trie_renumber_uidlists(ctx, compress);
+	ret = squat_trie_renumber_uidlists(ctx, expunged_uids, compress);
 	if (ret == 0)
 		ret = squat_trie_write(ctx);
 

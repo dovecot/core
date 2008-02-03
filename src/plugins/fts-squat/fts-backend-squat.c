@@ -102,14 +102,45 @@ fts_backend_squat_build_more(struct fts_backend_build_context *_ctx,
 				     data, size);
 }
 
+static int get_all_msg_uids(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
+{
+	struct mailbox_transaction_context *t;
+	struct mail_search_context *search_ctx;
+	struct mail_search_arg search_arg;
+	struct mail *mail;
+	int ret = 0;
+
+	t = mailbox_transaction_begin(box, 0);
+	memset(&search_arg, 0, sizeof(search_arg));
+	search_arg.type = SEARCH_ALL;
+
+	mail = mail_alloc(t, 0, NULL);
+	search_ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
+	while ((ret = mailbox_search_next(search_ctx, mail)) > 0)
+		seq_range_array_add(uids, 0, mail->uid);
+	if (mailbox_search_deinit(&search_ctx) < 0)
+		ret = -1;
+	mail_free(&mail);
+	(void)mailbox_transaction_commit(&t);
+	return ret;
+}
+
 static int
 fts_backend_squat_build_deinit(struct fts_backend_build_context *_ctx)
 {
 	struct squat_fts_backend_build_context *ctx =
 		(struct squat_fts_backend_build_context *)_ctx;
+	ARRAY_TYPE(seq_range) uids;
 	int ret;
 
-	ret = squat_trie_build_deinit(&ctx->build_ctx);
+	i_array_init(&uids, 1024);
+	if (get_all_msg_uids(ctx->ctx.backend->box, &uids) < 0)
+		ret = squat_trie_build_deinit(&ctx->build_ctx, NULL);
+	else {
+		seq_range_array_invert(&uids, 1, (uint32_t)-2);
+		ret = squat_trie_build_deinit(&ctx->build_ctx, &uids);
+	}
+	array_free(&uids);
 	i_free(ctx);
 	return ret;
 }
