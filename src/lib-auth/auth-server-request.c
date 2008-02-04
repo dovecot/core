@@ -349,6 +349,8 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 	request->flags = request_info->flags;
 	request->local_ip = request_info->local_ip;
 	request->remote_ip = request_info->remote_ip;
+	request->local_port = request_info->local_port;
+	request->remote_port = request_info->remote_port;
 	request->id = ++client->request_id_counter;
 
 	if (request_info->initial_resp_base64 != NULL) {
