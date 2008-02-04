@@ -168,9 +168,11 @@ static void parse_next_body_multipart_init(struct message_parser_ctx *ctx)
 	ctx->last_boundary = NULL;
 }
 
-static void parse_next_body_message_rfc822_init(struct message_parser_ctx *ctx)
+static int parse_next_body_message_rfc822_init(struct message_parser_ctx *ctx,
+					       struct message_block *block_r)
 {
 	ctx->part = message_part_append(ctx->part_pool, ctx->part);
+	return parse_next_header_init(ctx, block_r);
 }
 
 static int
@@ -532,10 +534,9 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 	if (ctx->last_boundary != NULL) {
 		parse_next_body_multipart_init(ctx);
 		ctx->parse_next_block = parse_next_body_to_boundary;
-	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
-		parse_next_body_message_rfc822_init(ctx);
-		ctx->parse_next_block = parse_next_header_init;
-	} else if (ctx->boundaries != NULL)
+	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822)
+		ctx->parse_next_block = parse_next_body_message_rfc822_init;
+	else if (ctx->boundaries != NULL)
 		ctx->parse_next_block = parse_next_body_to_boundary;
 	else
 		ctx->parse_next_block = parse_next_body_to_eof;
