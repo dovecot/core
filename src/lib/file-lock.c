@@ -64,7 +64,10 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 			errno = EAGAIN;
 			return 0;
 		}
-		i_error("fcntl() locking failed for file %s: %m", path);
+		i_error("fcntl(%s) locking failed for file %s: %m",
+			lock_type == F_UNLCK ? "unlock" :
+			lock_type == F_RDLCK ? "read-lock" : "write-lock",
+			path);
 		return -1;
 #endif
 	}
@@ -97,7 +100,10 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 			   b) timeouted */
 			return 0;
 		}
-		i_error("flock() locking failed for file %s: %m", path);
+		i_error("flock(%s) locking failed for file %s: %m",
+			lock_type == F_UNLCK ? "unlock" :
+			lock_type == F_RDLCK ? "read-lock" : "write-lock",
+			path);
 		return -1;
 #endif
 	}
