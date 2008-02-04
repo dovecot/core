@@ -80,8 +80,8 @@ static void client_input_append(struct client_command_context *cmd)
 		(void)client_handle_unfinished_cmd(cmd);
 	else
 		client_command_free(cmd);
-	if (cmd_sync_delayed(client))
-		client_continue_pending_input(&client);
+	(void)cmd_sync_delayed(client);
+	client_continue_pending_input(&client);
 }
 
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
