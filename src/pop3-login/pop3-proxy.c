@@ -118,10 +118,12 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		return;
 	}
 
-	/* Login failed. Send our own failure reply so client can't
-	   figure out if user exists or not just by looking at the
-	   reply string. */
-	client_send_line(client, "-ERR "AUTH_FAILED_MSG);
+	/* Login failed. Pass through the error message to client
+	   (see imap-proxy code for potential problems with this) */
+	if (strncmp(line, "-ERR ", 5) != 0)
+		client_send_line(client, "-ERR "AUTH_FAILED_MSG);
+	else
+		client_send_line(client, line);
 
 	/* allow client input again */
 	i_assert(client->io == NULL);

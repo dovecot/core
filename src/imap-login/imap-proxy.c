@@ -66,10 +66,20 @@ static int proxy_input_line(struct imap_client *client,
 		client_destroy(client, msg);
 		return -1;
 	} else if (strncmp(line, "P ", 2) == 0) {
-		/* Login failed. Send our own failure reply so client can't
-		   figure out if user exists or not just by looking at the
-		   reply string. */
-		client_send_tagline(client, "NO "AUTH_FAILED_MSG);
+		/* If the backend server isn't Dovecot, the error message may
+		   be different from Dovecot's "user doesn't exist" error. This
+		   would allow an attacker to find out what users exist in the
+		   system.
+
+		   The optimal way to handle this would be to replace the
+		   backend's "password failed" error message with Dovecot's
+		   AUTH_FAILED_MSG, but this would require a new setting and
+		   the sysadmin to actually bother setting it properly.
+
+		   So for now we'll just forward the error message. This
+		   shouldn't be a real problem since of course everyone will
+		   be using only Dovecot as their backend :) */
+		client_send_tagline(client, line + 2);
 
 		/* allow client input again */
 		i_assert(client->io == NULL);
