@@ -339,16 +339,19 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		line->full_value = line->value;
 		line->full_value_len = line->value_len;
 	} else if (line->use_full_value) {
-		/* continue saving the full value */
-		if (!last_no_newline) {
+		/* continue saving the full value. */
+		if (last_no_newline) {
+			/* line is longer than fit into our buffer, so we
+			   were forced to break it into multiple
+			   message_header_lines */
+		} else {
 			if (last_crlf)
 				buffer_append_c(ctx->value_buf, '\r');
 			buffer_append_c(ctx->value_buf, '\n');
 		}
 		if ((ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) &&
-		    line->value_len > 0 && line->value[0] != ' ') {
-			i_assert(IS_LWSP(line->value[0]));
-
+		    line->value_len > 0 && line->value[0] != ' ' &&
+		    IS_LWSP(line->value[0])) {
 			buffer_append_c(ctx->value_buf, ' ');
 			buffer_append(ctx->value_buf,
 				      line->value + 1, line->value_len - 1);
