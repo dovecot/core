@@ -693,6 +693,7 @@ uidlist_write_block_list_and_header(struct squat_uidlist_build_context *ctx,
 
 	if (array_count(block_end_indexes) == 0) {
 		ctx->build_hdr.used_file_size = output->offset;
+		ctx->build_hdr.block_list_offset = 0;
 		uidlist->hdr = ctx->build_hdr;
 		return;
 	}
@@ -940,10 +941,6 @@ uint32_t squat_uidlist_rebuild_nextu(struct squat_uidlist_rebuild_context *ctx,
 	if (count == 0)
 		return 0;
 
-	if (count == 1 && range[0].seq1 == range[0].seq2) {
-		/* single UID */
-		return (range[0].seq1 << 1) | 1;
-	}
 	if (range[count-1].seq2 < 8) {
 		/* we can use a singleton bitmask */
 		ret = 0;
@@ -952,6 +949,10 @@ uint32_t squat_uidlist_rebuild_nextu(struct squat_uidlist_rebuild_context *ctx,
 				ret |= 1 << (seq+1);
 		}
 		return ret;
+	}
+	if (count == 1 && range[0].seq1 == range[0].seq2) {
+		/* single UID */
+		return (range[0].seq1 << 1) | 1;
 	}
 
 	/* convert seq range to our internal representation and use the

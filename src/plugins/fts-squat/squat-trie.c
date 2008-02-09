@@ -1065,10 +1065,8 @@ squat_trie_iterate_next(struct squat_trie_iterate_context *ctx,
 	}
 
 	*shifts_r = ctx->cur.shifts;
-	if (array_is_created(&ctx->cur.shifts)) {
+	if (array_is_created(&ctx->cur.shifts))
 		shift_count = array_count(&ctx->cur.shifts);
-		i_assert(shift_count > 0);
-	}
 
 	children = NODE_CHILDREN_NODES(ctx->cur.node);
 	while (children[ctx->cur.idx++].uid_list_idx == 0) {
@@ -1082,6 +1080,8 @@ squat_trie_iterate_next(struct squat_trie_iterate_context *ctx,
 	ctx->cur.idx = 0;
 	if (shift_count != 0)
 		i_array_init(&ctx->cur.shifts, shift_count);
+	else
+		memset(&ctx->cur.shifts, 0, sizeof(ctx->cur.shifts));
 	return squat_trie_iterate_first(ctx);
 }
 
@@ -1096,6 +1096,9 @@ squat_uidlist_update_expunged_uids(const ARRAY_TYPE(seq_range) *shifts_arr,
 	unsigned int i, uid_idx, uid_count, shift_count;
 	uint32_t child_shift_seq1, child_shift_count, seq_high;
 	unsigned int shift_sum = 0, child_sum = 0;
+
+	if (!array_is_created(shifts_arr))
+		return;
 
 	uids = array_get_modifiable(uids_arr, &uid_count);
 	shifts = array_get(shifts_arr, &shift_count);
@@ -1122,11 +1125,9 @@ squat_uidlist_update_expunged_uids(const ARRAY_TYPE(seq_range) *shifts_arr,
 				uid_idx++;
 			}
 		}
-		if (uid_idx == uid_count) {
-			i_assert(array_count(child_shifts) > 0 ||
-				 array_count(uids_arr) == 0);
+		if (uid_idx == uid_count)
 			break;
-		}
+
 		shift.seq1 = I_MAX(shifts[i].seq1, seq_high);
 		shift.seq2 = shifts[i].seq2;
 		if (shift.seq2 < uids[uid_idx].seq1) {
@@ -1206,7 +1207,7 @@ squat_trie_expunge_uidlists(struct squat_trie_build_context *ctx,
 	i_array_init(&shifts, array_count(expunged_uids));
 	array_append_array(&shifts, expunged_uids);
 
-	while (node != NULL) {
+	do {
 		i_assert(node->uid_list_idx != 0);
 		array_clear(&uid_range);
 		if (squat_uidlist_get_seqrange(ctx->trie->uidlist,
@@ -1224,9 +1225,8 @@ squat_trie_expunge_uidlists(struct squat_trie_build_context *ctx,
 			node->next_uid = 0;
 		}
 		node = squat_trie_iterate_next(iter, &shifts);
-		i_assert(array_count(&shifts) > 0);
 		shift = TRUE;
-	}
+	} while (node != NULL);
 	array_free(&uid_range);
 	return ret;
 }
