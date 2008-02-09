@@ -201,6 +201,8 @@ static int squat_trie_open_fd(struct squat_trie *trie)
 		i_error("open(%s) failed: %m", trie->path);
 		return -1;
 	}
+	if (trie->file_cache != NULL)
+		file_cache_set_fd(trie->file_cache, trie->fd);
 	return 0;
 }
 
@@ -1387,6 +1389,7 @@ static int squat_trie_map(struct squat_trie *trie, bool building)
 	changed = trie->root.children.offset != trie->hdr.root_offset;
 
 	if (changed || trie->hdr.root_offset == 0) {
+		node_free(trie, &trie->root);
 		memset(&trie->root, 0, sizeof(trie->root));
 		trie->root.want_sequential = TRUE;
 		trie->root.unused_uids = trie->hdr.root_unused_uids;
@@ -1429,6 +1432,8 @@ int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
 			i_error("creat(%s) failed: %m", trie->path);
 			return -1;
 		}
+		if (trie->file_cache != NULL)
+			file_cache_set_fd(trie->file_cache, trie->fd);
 	}
 
 	/* uidlist locks building */
@@ -1557,6 +1562,8 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 				i_error("close(%s) failed: %m", trie->path);
 		}
 		trie->fd = fd;
+		if (trie->file_cache != NULL)
+			file_cache_set_fd(trie->file_cache, trie->fd);
 	}
 	return ret;
 }
@@ -1565,7 +1572,7 @@ int squat_trie_build_deinit(struct squat_trie_build_context **_ctx,
 			    const ARRAY_TYPE(seq_range) *expunged_uids)
 {
 	struct squat_trie_build_context *ctx = *_ctx;
-	bool compress;
+	bool compress, unlock = TRUE;
 	int ret;
 
 	*_ctx = NULL;
@@ -1577,13 +1584,20 @@ int squat_trie_build_deinit(struct squat_trie_build_context **_ctx,
 	   change under. */
 	squat_uidlist_build_flush(ctx->uidlist_build_ctx);
 	ret = squat_trie_renumber_uidlists(ctx, expunged_uids, compress);
-	if (ret == 0)
+	if (ret == 0) {
 		ret = squat_trie_write(ctx);
+		if (ret < 0)
+			unlock = FALSE;
+	}
 
 	if (ret == 0)
 		ret = squat_uidlist_build_finish(ctx->uidlist_build_ctx);
-	if (ctx->file_lock != NULL)
-		file_unlock(&ctx->file_lock);
+	if (ctx->file_lock != NULL) {
+		if (unlock)
+			file_unlock(&ctx->file_lock);
+		else
+			file_lock_free(&ctx->file_lock);
+	}
 	squat_uidlist_build_deinit(&ctx->uidlist_build_ctx);
 
 	i_free(ctx);
