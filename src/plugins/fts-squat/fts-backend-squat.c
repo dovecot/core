@@ -116,8 +116,11 @@ static int get_all_msg_uids(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
 
 	mail = mail_alloc(t, 0, NULL);
 	search_ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
-	while ((ret = mailbox_search_next(search_ctx, mail)) > 0)
-		seq_range_array_add(uids, 0, mail->uid);
+	while ((ret = mailbox_search_next(search_ctx, mail)) > 0) {
+		/* *2 because even/odd is for body/header */
+		seq_range_array_add_range(uids, mail->uid * 2,
+					  mail->uid * 2 + 1);
+	}
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
 	mail_free(&mail);
@@ -137,7 +140,7 @@ fts_backend_squat_build_deinit(struct fts_backend_build_context *_ctx)
 	if (get_all_msg_uids(ctx->ctx.backend->box, &uids) < 0)
 		ret = squat_trie_build_deinit(&ctx->build_ctx, NULL);
 	else {
-		seq_range_array_invert(&uids, 1, (uint32_t)-2);
+		seq_range_array_invert(&uids, 2, (uint32_t)-2);
 		ret = squat_trie_build_deinit(&ctx->build_ctx, &uids);
 	}
 	array_free(&uids);
