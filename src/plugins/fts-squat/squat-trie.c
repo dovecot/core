@@ -140,18 +140,11 @@ squat_trie_init(const char *path, uint32_t uidvalidity,
 	return trie;
 }
 
-static void squat_trie_close(struct squat_trie *trie)
+static void squat_trie_close_fd(struct squat_trie *trie)
 {
-	trie->corrupted = FALSE;
-	node_free(trie, &trie->root);
-	memset(&trie->root, 0, sizeof(trie->root));
-	memset(&trie->hdr, 0, sizeof(trie->hdr));
-
 	trie->data = NULL;
 	trie->data_size = 0;
 
-	if (trie->file_cache != NULL)
-		file_cache_free(&trie->file_cache);
 	if (trie->mmap_size != 0) {
 		if (munmap(trie->mmap_base, trie->mmap_size) < 0)
 			i_error("munmap(%s) failed: %m", trie->path);
@@ -161,6 +154,18 @@ static void squat_trie_close(struct squat_trie *trie)
 			i_error("close(%s) failed: %m", trie->path);
 		trie->fd = -1;
 	}
+}
+
+static void squat_trie_close(struct squat_trie *trie)
+{
+	trie->corrupted = FALSE;
+	node_free(trie, &trie->root);
+	memset(&trie->root, 0, sizeof(trie->root));
+	memset(&trie->hdr, 0, sizeof(trie->hdr));
+
+	squat_trie_close_fd(trie);
+	if (trie->file_cache != NULL)
+		file_cache_free(&trie->file_cache);
 	trie->locked_file_size = 0;
 }
 
@@ -232,8 +237,11 @@ static int squat_trie_is_file_stale(struct squat_trie *trie)
 	}
 	trie->locked_file_size = st2.st_size;
 
-	return st.st_ino == st2.st_ino &&
-		CMP_DEV_T(st.st_dev, st2.st_dev) ? 0 : 1;
+	if (st.st_ino == st2.st_ino && CMP_DEV_T(st.st_dev, st2.st_dev)) {
+		i_assert(trie->locked_file_size >= trie->data_size);
+		return 0;
+	}
+	return 1;
 }
 
 void squat_trie_refresh(struct squat_trie *trie)
@@ -704,6 +712,7 @@ static int squat_build_add(struct squat_trie_build_context *ctx, uint32_t uid,
 		level++;
 
 		if (node->have_sequential) {
+			i_assert(node->child_count >= SEQUENTIAL_COUNT);
 			if (*data < SEQUENTIAL_COUNT) {
 				idx = *data;
 				goto found;
@@ -1089,7 +1098,8 @@ static void
 squat_uidlist_update_expunged_uids(const ARRAY_TYPE(seq_range) *shifts_arr,
 				   ARRAY_TYPE(seq_range) *child_shifts,
 				   ARRAY_TYPE(seq_range) *uids_arr,
-				   bool do_shifts)
+				   struct squat_trie *trie,
+				   struct squat_node *node, bool do_shifts)
 {
 	const struct seq_range *shifts;
 	struct seq_range *uids, shift;
@@ -1097,8 +1107,13 @@ squat_uidlist_update_expunged_uids(const ARRAY_TYPE(seq_range) *shifts_arr,
 	uint32_t child_shift_seq1, child_shift_count, seq_high;
 	unsigned int shift_sum = 0, child_sum = 0;
 
-	if (!array_is_created(shifts_arr))
+	if (!array_is_created(shifts_arr)) {
+		i_assert(node->uid_list_idx != 0 || node->child_count == 0);
 		return;
+	}
+
+	/* we'll recalculate this */
+	node->unused_uids = 0;
 
 	uids = array_get_modifiable(uids_arr, &uid_count);
 	shifts = array_get(shifts_arr, &shift_count);
@@ -1115,13 +1130,22 @@ squat_uidlist_update_expunged_uids(const ARRAY_TYPE(seq_range) *shifts_arr,
 				uids[uid_idx].seq1 + 1;
 
 			if (uid_idx > 0 &&
-			    uids[uid_idx-1].seq2 == uids[uid_idx].seq1 - 1) {
+			    uids[uid_idx-1].seq2 >= uids[uid_idx].seq1 - 1) {
 				/* we can merge this and the previous range */
+				i_assert(uids[uid_idx-1].seq2 ==
+					 uids[uid_idx].seq1 - 1);
 				uids[uid_idx-1].seq2 = uids[uid_idx].seq2;
 				array_delete(uids_arr, uid_idx, 1);
 				uids = array_get_modifiable(uids_arr,
 							    &uid_count);
 			} else {
+				if (uid_idx == 0)
+					node->unused_uids += uids[0].seq1;
+				else {
+					node->unused_uids +=
+						uids[uid_idx].seq1 -
+						uids[uid_idx-1].seq2 - 1;
+				}
 				uid_idx++;
 			}
 		}
@@ -1186,6 +1210,24 @@ squat_uidlist_update_expunged_uids(const ARRAY_TYPE(seq_range) *shifts_arr,
 			shift_sum = 0;
 		}
 	}
+
+	if (uid_count == 0) {
+		/* no UIDs left, delete the node's children and mark it
+		   unused */
+		i_assert(!NODE_IS_DYNAMIC_LEAF(node));
+		node_free(trie, node);
+
+		node->child_count = 0;
+		node->have_sequential = FALSE;
+		node->next_uid = 0;
+	} else {
+		if (do_shifts)
+			node->next_uid = uids[uid_count-1].seq2 + 1;
+		else {
+			node->unused_uids += (node->next_uid - 1) -
+				uids[uid_count-1].seq2;
+		}
+	}
 }
 
 static int
@@ -1217,13 +1259,12 @@ squat_trie_expunge_uidlists(struct squat_trie_build_context *ctx,
 			break;
 		}
 		squat_uidlist_update_expunged_uids(&shifts, &iter->cur.shifts,
-						   &uid_range, shift);
+						   &uid_range, ctx->trie, node,
+						   shift);
 		node->uid_list_idx =
 			squat_uidlist_rebuild_nextu(rebuild_ctx, &uid_range);
-		if (node->uid_list_idx == 0) {
-			node->child_count = 0;
-			node->next_uid = 0;
-		}
+		i_assert(node->uid_list_idx != 0 || node->next_uid == 0);
+
 		node = squat_trie_iterate_next(iter, &shifts);
 		shift = TRUE;
 	} while (node != NULL);
@@ -1434,6 +1475,7 @@ int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
 		}
 		if (trie->file_cache != NULL)
 			file_cache_set_fd(trie->file_cache, trie->fd);
+		i_assert(trie->locked_file_size == 0);
 	}
 
 	/* uidlist locks building */
@@ -1557,11 +1599,9 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 		if (unlink(path) < 0 && errno != ENOENT)
 			i_error("unlink(%s) failed: %m", path);
 	} else {
-		if (trie->fd != -1) {
-			if (close(trie->fd) < 0)
-				i_error("close(%s) failed: %m", trie->path);
-		}
+		squat_trie_close_fd(trie);
 		trie->fd = fd;
+		trie->locked_file_size = trie->hdr.used_file_size;
 		if (trie->file_cache != NULL)
 			file_cache_set_fd(trie->file_cache, trie->fd);
 	}

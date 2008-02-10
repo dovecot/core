@@ -61,7 +61,8 @@ struct squat_node {
 	   first SEQUENTIAL_COUNT children have chars[n] = n. */
 	unsigned int have_sequential:1;
 
-	/* Number of UIDs that exists in parent node but not in this one.
+	/* Number of UIDs that exists in parent node but not in this one
+	   (i.e. number of UIDs [0..next_uid-1] not in this node's uidlist).
 	   This is mainly used when adding new UIDs to our children to set
 	   the UID to be relative to this node's UID list. */
 	uint32_t unused_uids;
