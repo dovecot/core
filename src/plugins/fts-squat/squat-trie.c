@@ -1214,8 +1214,8 @@ squat_uidlist_update_expunged_uids(const ARRAY_TYPE(seq_range) *shifts_arr,
 	if (uid_count == 0) {
 		/* no UIDs left, delete the node's children and mark it
 		   unused */
-		i_assert(!NODE_IS_DYNAMIC_LEAF(node));
-		node_free(trie, node);
+		if (!NODE_IS_DYNAMIC_LEAF(node))
+			node_free(trie, node);
 
 		node->child_count = 0;
 		node->have_sequential = FALSE;
