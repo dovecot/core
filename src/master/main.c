@@ -32,6 +32,8 @@
    higher, it's not dropped. */
 #define DOVECOT_MASTER_FD_MIN_LIMIT 65536
 
+#define FATAL_FILENAME "master-fatal.lastlog"
+
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
 
 struct ioloop *ioloop;
@@ -43,6 +45,57 @@ const char *env_tz;
 #ifdef DEBUG
 bool gdb;
 #endif
+
+static void ATTR_NORETURN ATTR_FORMAT(3, 0)
+master_fatal_callback(enum log_type type, int status,
+		      const char *format, va_list args)
+{
+	const struct settings *set = settings_root->defaults;
+	const char *path, *str;
+	int fd;
+
+	/* write the error message to a file */
+	path = t_strconcat(set->base_dir, "/"FATAL_FILENAME, NULL);
+	fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+	if (fd != -1) {
+		str = t_strdup_vprintf(format, args);
+		write_full(fd, str, strlen(str));
+		(void)close(fd);
+	}
+
+	/* write it to log as well */
+	if (*set->log_path == '\0')
+		i_syslog_fatal_handler(type, status, format, args);
+	else
+		default_fatal_handler(type, status, format, args);
+}
+
+static void fatal_log_check(void)
+{
+	const struct settings *set = settings_root->defaults;
+	const char *path;
+	char buf[1024];
+	ssize_t ret;
+	int fd;
+
+	path = t_strconcat(set->base_dir, "/"FATAL_FILENAME, NULL);
+	fd = open(path, O_RDONLY);
+	if (fd == -1)
+		return;
+
+	ret = read(fd, buf, sizeof(buf));
+	if (ret < 0)
+		i_error("read(%s) failed: %m", path);
+	else {
+		buf[ret] = '\0';
+		i_warning("Last died with error (see error log for more "
+			  "information): %s", buf);
+	}
+
+	close(fd);
+	if (unlink(path) < 0)
+		i_error("unlink(%s) failed: %m", path);
+}
 
 static void set_logfile(struct settings *set)
 {
@@ -57,6 +110,7 @@ static void set_logfile(struct settings *set)
 		/* log to file or stderr */
 		i_set_failure_file(set->log_path, "dovecot: ");
 	}
+	i_set_fatal_handler(master_fatal_callback);
 
 	if (*set->info_log_path != '\0')
 		i_set_info_file(set->info_log_path);
@@ -492,6 +546,7 @@ int main(int argc, char *argv[])
 	if (!log_error)
 		open_fds();
 
+	fatal_log_check();
 	if (!foreground)
 		daemonize(settings_root->defaults);
 
