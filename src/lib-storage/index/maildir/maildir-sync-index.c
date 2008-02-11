@@ -298,7 +298,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	hdr_next_uid = hdr->next_uid;
 
 	mbox->syncing_commit = TRUE;
-	seq = prev_uid = 0; first_recent_uid = hdr->first_recent_uid;
+	seq = prev_uid = 0; first_recent_uid = I_MAX(hdr->first_recent_uid, 1);
 	t_array_init(&ctx->keywords, MAILDIR_MAX_KEYWORDS);
 	t_array_init(&idx_keywords, MAILDIR_MAX_KEYWORDS);
 	iter = maildir_uidlist_iter_init(mbox->uidlist);
