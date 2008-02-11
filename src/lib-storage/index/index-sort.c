@@ -238,7 +238,7 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 	case MAIL_SORT_FROM:
 	case MAIL_SORT_TO:
 	case MAIL_SORT_SUBJECT:
-		T_FRAME_BEGIN {
+		T_BEGIN {
 			string_t *str1, *str2;
 
 			str1 = t_str_new(256);
@@ -247,7 +247,7 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			sort_header_get(str2, sort_type, ctx->mail, n2->seq);
 
 			ret = strcmp(str_c(str1), str_c(str2));
-		} T_FRAME_END;
+		} T_END;
 		break;
 	case MAIL_SORT_ARRIVAL:
 		mail_set_seq(ctx->mail, n1->seq);
@@ -390,10 +390,10 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 	   the same sort IDs. */
 	str = str_new(default_pool, 256);
 	for (i = left_idx; i <= right_idx; i++) {
-		T_FRAME(
+		T_BEGIN {
 			sort_header_get(str, program->sort_program[0], mail,
 					nodes[i].seq);
-		);
+		} T_END;
 
 		if (left_idx != 0 && str_equals(str, left_str))
 			nodes[i].sort_id = left_sort_id;
@@ -437,10 +437,10 @@ index_sort_add_ids(struct mail_search_sort_program *program, struct mail *mail)
 		if (right_idx == count)
 			right_idx--;
 		left_idx = i == 0 ? 0 : i - 1;
-		T_FRAME(
+		T_BEGIN {
 			index_sort_add_ids_range(program, mail,
 						 left_idx, right_idx);
-		);
+		} T_END;
 	}
 }
 

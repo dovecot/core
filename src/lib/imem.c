@@ -58,7 +58,7 @@ char *i_strconcat(const char *str1, ...)
 
 	va_start(args, str1);
 
-	T_FRAME(
+	T_BEGIN {
 		const char *temp = vstrconcat(str1, args, &len);
 	
 		if (temp == NULL)
@@ -68,7 +68,7 @@ char *i_strconcat(const char *str1, ...)
 			ret = p_malloc(default_pool, len);
 			memcpy(ret, temp, len);
 		}
-	);
+	} T_END;
 
 	va_end(args);
         return ret;

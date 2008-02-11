@@ -630,9 +630,9 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 	int ret;
 
 	dotlock = file_dotlock_alloc(set);
-	T_FRAME(
+	T_BEGIN {
 		ret = file_dotlock_create_real(dotlock, path, flags);
-	);
+	} T_END;
 	if (ret <= 0 || (flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0)
 		file_dotlock_free(&dotlock);
 
@@ -708,11 +708,11 @@ int file_dotlock_open(const struct dotlock_settings *set, const char *path,
 	int ret;
 
 	dotlock = file_dotlock_alloc(set);
-	T_FRAME(
+	T_BEGIN {
 		const char *lock_path;
 
 		ret = dotlock_create(path, dotlock, flags, FALSE, &lock_path);
-	);
+	} T_END;
 
 	if (ret <= 0) {
 		file_dotlock_free(&dotlock);
@@ -770,13 +770,13 @@ int file_dotlock_touch(struct dotlock *dotlock)
 	dotlock->mtime = now;
 	buf.actime = buf.modtime = now;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *lock_path = file_dotlock_get_lock_path(dotlock);
 		if (utime(lock_path, &buf) < 0) {
 			i_error("utime(%s) failed: %m", lock_path);
 			ret = -1;
 		}
-	);
+	} T_END;
 	return ret;
 }
 

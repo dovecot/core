@@ -144,14 +144,14 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 		return FALSE;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		if (hdr->name_len == 12 &&
 		    strcasecmp(hdr->name, "Content-Type") == 0)
 			parse_content_type(ctx, hdr);
 		if (hdr->name_len == 25 &&
 		    strcasecmp(hdr->name, "Content-Transfer-Encoding") == 0)
 			parse_content_transfer_encoding(ctx, hdr);
-	);
+	} T_END;
 
 	buffer_set_used_size(ctx->buf, 0);
 	message_header_decode_utf8(hdr->full_value, hdr->full_value_len,

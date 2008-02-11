@@ -187,7 +187,7 @@ mail_search_keywords_merge(struct mail_keywords **_kw1,
 	struct mail_keywords *new_kw;
 
 	i_assert(kw1->index == kw2->index);
-	T_FRAME_BEGIN {
+	T_BEGIN {
 		ARRAY_TYPE(keyword_indexes) new_indexes;
 		unsigned int i, j;
 
@@ -204,7 +204,7 @@ mail_search_keywords_merge(struct mail_keywords **_kw1,
 		}
 		new_kw = mail_index_keywords_create_from_indexes(kw1->index,
 								 &new_indexes);
-	} T_FRAME_END;
+	} T_END;
 	mail_index_keywords_free(_kw1);
 	mail_index_keywords_free(_kw2);
 	return new_kw;

@@ -480,10 +480,10 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 				break;
 
 			/* possibly duplicate - try fixing it */
-			T_FRAME(
+			T_BEGIN {
 				ret = maildir_fix_duplicate(ctx, path,
 							    dp->d_name);
-			);
+			} T_END;
 			if (ret < 0)
 				break;
 		}
@@ -842,20 +842,20 @@ int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)
 	bool lost_files;
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ctx = maildir_sync_context_new(mbox, MAILBOX_SYNC_FLAG_FAST);
 		ret = maildir_sync_context(ctx, TRUE, &uid, &lost_files);
 		maildir_sync_deinit(ctx);
-	);
+	} T_END;
 
 	if (uid != 0) {
 		/* maybe it's expunged. check again. */
-		T_FRAME(
+		T_BEGIN {
 			ctx = maildir_sync_context_new(mbox, 0);
 			ret = maildir_sync_context(ctx, TRUE, NULL,
 						   &lost_files);
 			maildir_sync_deinit(ctx);
-		);
+		} T_END;
 	}
 	return ret;
 }
@@ -876,12 +876,12 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	    ioloop_time) {
 		mbox->ibox.sync_last_check = ioloop_time;
 
-		T_FRAME(
+		T_BEGIN {
 			ctx = maildir_sync_context_new(mbox, flags);
 			ret = maildir_sync_context(ctx, FALSE, NULL,
 						   &lost_files);
 			maildir_sync_deinit(ctx);
-		);
+		} T_END;
 
 		i_assert(!maildir_uidlist_is_locked(mbox->uidlist) ||
 			 mbox->ibox.keep_locked);
@@ -900,7 +900,7 @@ int maildir_sync_is_synced(struct maildir_mailbox *mbox)
 	bool new_changed, cur_changed;
 	int ret;
 
-	T_FRAME_BEGIN {
+	T_BEGIN {
 		const char *new_dir, *cur_dir;
 
 		new_dir = t_strconcat(mbox->path, "/new", NULL);
@@ -908,6 +908,6 @@ int maildir_sync_is_synced(struct maildir_mailbox *mbox)
 
 		ret = maildir_sync_quick_check(mbox, FALSE, new_dir, cur_dir,
 					       &new_changed, &cur_changed);
-	} T_FRAME_END;
+	} T_END;
 	return ret < 0 ? -1 : (!new_changed && !cur_changed);
 }

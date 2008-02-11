@@ -161,10 +161,10 @@ imap_match_init_multiple(pool_t pool, const char *const *patterns,
 		return imap_match_init_multiple_real(pool, patterns,
 						     inboxcase, separator);
 	}
-	T_FRAME(
+	T_BEGIN {
 		glob = imap_match_init_multiple_real(pool, patterns,
 						     inboxcase, separator);
-	);
+	} T_END;
 	return glob;
 }
 

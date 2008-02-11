@@ -352,10 +352,10 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj, const char *path,
 
 	linenum = 1;
 	while ((line = i_stream_read_next_line(input)) != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			ret = acl_object_vfile_parse_line(aclobj, path, line,
 							  linenum++);
-		);
+		} T_END;
 		if (ret < 0)
 			break;
 	}

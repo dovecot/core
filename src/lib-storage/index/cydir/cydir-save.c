@@ -81,7 +81,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 		ctx->tmp_basename = cydir_generate_tmp_filename();
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		const char *path;
 
 		path = cydir_get_save_path(ctx, ctx->mail_count);
@@ -95,7 +95,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 						  "open(%s) failed: %m", path);
 			ctx->failed = TRUE;
 		}
-	);
+	} T_END;
 	if (ctx->failed)
 		return -1;
 

@@ -312,7 +312,7 @@ int client_send_line(struct client *client, const char *fmt, ...)
 
 	va_start(va, fmt);
 
-	T_FRAME(
+	T_BEGIN {
 		string_t *str;
 
 		str = t_str_new(256);
@@ -322,7 +322,7 @@ int client_send_line(struct client *client, const char *fmt, ...)
 		ret = o_stream_send(client->output,
 				    str_data(str), str_len(str));
 		i_assert(ret < 0 || (size_t)ret == str_len(str));
-	);
+	} T_END;
 	if (ret >= 0) {
 		if (o_stream_get_buffer_used_size(client->output) <
 		    OUTBUF_THROTTLE_SIZE) {
@@ -400,10 +400,10 @@ static void client_input(struct client *client)
 		if (args != NULL)
 			*args++ = '\0';
 
-		T_FRAME(
+		T_BEGIN {
 			ret = client_command_execute(client, line,
 						     args != NULL ? args : "");
-		);
+		} T_END;
 		if (ret >= 0) {
 			client->bad_counter = 0;
 			if (client->cmd != NULL) {

@@ -330,9 +330,9 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 					  MAIL_TRANSACTION_EXT_RESET);
 		}
 		if (ext_id < hdrs_count && hdrs[ext_id] != NULL) {
-			T_FRAME(
+			T_BEGIN {
 				log_append_ext_hdr_update(ctx, hdrs[ext_id]);
-			);
+			} T_END;
 		}
 	}
 }

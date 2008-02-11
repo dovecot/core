@@ -118,10 +118,10 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 	requests = array_get_modifiable(&conn->requests, &count);
 	for (i = 0; i < count; i++) {
 		if (requests[i].id != 0) {
-			T_FRAME(
+			T_BEGIN {
 				requests[i].callback(requests[i].auth_request,
 						     reply);
-			);
+			} T_END;
 			auth_request_unref(&requests[i].auth_request);
 		}
 	}
@@ -225,11 +225,11 @@ static void worker_input(struct auth_worker_connection *conn)
 		if (line == NULL)
 			continue;
 
-		T_FRAME(
+		T_BEGIN {
 			id = (unsigned int)strtoul(t_strcut(id_str, '\t'),
 						   NULL, 10);
 			request = auth_worker_request_lookup(conn, id);
-		);
+		} T_END;
 
 		if (request != NULL)
 			auth_worker_handle_request(conn, request, line + 1);

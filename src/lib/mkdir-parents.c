@@ -24,9 +24,9 @@ int mkdir_parents(const char *path, mode_t mode)
 		if (p == NULL || p == path)
 			return -1; /* shouldn't happen */
 
-		T_FRAME(
+		T_BEGIN {
 			ret = mkdir_parents(t_strdup_until(path, p), mode);
-		);
+		} T_END;
 		if (ret < 0)
 			return -1;
 

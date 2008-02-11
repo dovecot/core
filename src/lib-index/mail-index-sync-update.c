@@ -792,10 +792,10 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		}
 
 		/* we'll just skip over broken entries */
-		T_FRAME(
+		T_BEGIN {
 			(void)mail_index_sync_record(&sync_map_ctx,
 						     thdr, tdata);
-		);
+		} T_END;
 	}
 	map = view->map;
 

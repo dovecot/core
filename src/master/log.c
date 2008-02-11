@@ -47,9 +47,9 @@ static bool log_write_pending(struct log_io *log_io)
 	}
 
 	while ((line = i_stream_next_line(log_io->stream)) != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			ret = log_it(log_io, line, FALSE);
-		);
+		} T_END;
 		if (!ret)
 			return FALSE;
 	}
@@ -246,9 +246,9 @@ static void log_close(struct log_io *log_io)
 	/* write partial data as well */
 	data = i_stream_get_data(log_io->stream, &size);
 	if (size != 0) {
-		T_FRAME(
+		T_BEGIN {
 			log_it(log_io, t_strndup(data, size), TRUE);
-		);
+		} T_END;
 	}
 
 	if (log_io == log_ios)

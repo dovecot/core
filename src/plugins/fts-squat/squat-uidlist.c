@@ -263,11 +263,11 @@ uidlist_write(struct ostream *output, const struct uidlist_list *list,
 		uid_count--;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		ret = uidlist_write_array(output, uid_list, uid_count,
 					  packed_flags, offset,
 					  write_size, size_r);
-	);
+	} T_END;
 	return ret;
 }
 
@@ -914,11 +914,11 @@ uint32_t squat_uidlist_rebuild_next(struct squat_uidlist_rebuild_context *ctx,
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = uidlist_write_array(ctx->output, array_idx(uids, 0),
 					  array_count(uids), 0, 0, FALSE,
 					  &ctx->list_sizes[ctx->list_idx]);
-	);
+	} T_END;
 	if (ret < 0)
 		squat_uidlist_set_corrupted(ctx->uidlist, "Broken uidlists");
 

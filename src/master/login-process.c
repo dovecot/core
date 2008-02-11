@@ -97,7 +97,7 @@ void auth_master_callback(const char *user, const char *const *args,
 	memset(&master_reply, 0, sizeof(master_reply));
 	if (user == NULL)
 		master_reply.status = MASTER_LOGIN_STATUS_INTERNAL_ERROR;
-	else T_FRAME_BEGIN {
+	else T_BEGIN {
 		struct login_group *group = request->process->group;
 
 		master_reply.status =
@@ -106,7 +106,7 @@ void auth_master_callback(const char *user, const char *const *args,
 					    request->fd, &request->local_ip,
 					    &request->remote_ip, user, args,
 					    FALSE);
-	} T_FRAME_END;
+	} T_END;
 
 	/* reply to login */
 	master_reply.tag = request->login_tag;

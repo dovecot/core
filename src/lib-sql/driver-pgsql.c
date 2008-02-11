@@ -289,9 +289,9 @@ static void result_finish(struct pgsql_result *result)
 
 	if (result->callback != NULL) {
 		result->api.callback = TRUE;
-		T_FRAME(
+		T_BEGIN {
 			result->callback(&result->api, result->context);
-		);
+		} T_END;
 		result->api.callback = FALSE;
 		free_result = db->sync_result != &result->api;
 	}

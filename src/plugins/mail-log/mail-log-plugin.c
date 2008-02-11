@@ -249,9 +249,9 @@ mail_log_group_changes(struct mailbox *box,
 
 	group = array_get(&lt->group_changes, &count);
 	for (i = 0; i < count; i++) {
-		T_FRAME(
+		T_BEGIN {
 			mail_log_group(box, &group[i]);
-		);
+		} T_END;
 	}
 }
 
@@ -321,9 +321,9 @@ static void mail_log_mail_expunge(struct mail *_mail)
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *lmail = MAIL_LOG_MAIL_CONTEXT(mail);
 
-	T_FRAME(
+	T_BEGIN {
 		mail_log_action(_mail, MAIL_LOG_EVENT_EXPUNGE, NULL);
-	);
+	} T_END;
 	lmail->super.expunge(_mail);
 }
 
@@ -353,11 +353,11 @@ mail_log_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 	if (((old_flags ^ new_flags) & MAIL_DELETED) == 0)
 		return;
 
-	T_FRAME(
+	T_BEGIN {
 		mail_log_action(_mail, (new_flags & MAIL_DELETED) != 0 ?
 				MAIL_LOG_EVENT_DELETE :
 				MAIL_LOG_EVENT_UNDELETE, NULL);
-	);
+	} T_END;
 }
 
 static struct mail *
@@ -393,11 +393,11 @@ mail_log_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	if (lbox->super.copy(t, mail, flags, keywords, dest_mail) < 0)
 		return -1;
 
-	T_FRAME(
+	T_BEGIN {
 		name = str_sanitize(mailbox_get_name(t->box),
 				    MAILBOX_NAME_LOG_LEN);
 		mail_log_action(mail, MAIL_LOG_EVENT_COPY, name);
-	);
+	} T_END;
 	return 0;
 }
 

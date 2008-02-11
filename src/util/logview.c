@@ -291,9 +291,9 @@ int main(int argc, const char *argv[])
 
 	dump_hdr(fd);
 	do {
-		T_FRAME(
+		T_BEGIN {
 			ret = dump_record(fd);
-		);
+		} T_END;
 	} while (ret > 0);
 	return 0;
 }

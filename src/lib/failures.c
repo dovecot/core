@@ -126,7 +126,7 @@ default_handler(const char *prefix, int fd, const char *format, va_list args)
 
 	recursed++;
 
-	T_FRAME(
+	T_BEGIN {
 		string_t *str = t_str_new(256);
 		log_prefix_add(str);
 		str_append(str, prefix);
@@ -136,7 +136,7 @@ default_handler(const char *prefix, int fd, const char *format, va_list args)
 		str_append_c(str, '\n');
 
 		ret = log_fd_write(fd, str_data(str), str_len(str));
-	);
+	} T_END;
 
 	errno = old_errno;
 	recursed--;
@@ -393,7 +393,7 @@ internal_handler(char log_type, const char *format, va_list args)
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		string_t *str;
 
 		str = t_str_new(512);
@@ -402,7 +402,7 @@ internal_handler(char log_type, const char *format, va_list args)
 		str_vprintfa(str, format, args);
 		str_append_c(str, '\n');
 		ret = write_full(2, str_data(str), str_len(str));
-	);
+	} T_END;
 
 	return ret;
 }

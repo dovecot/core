@@ -412,7 +412,7 @@ static int mailbox_list_record_cmp(const void *_key, const void *_rec)
 	if (key->name_hash > rec->name_hash)
 		return 1;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *name;
 
 		if (mailbox_list_get_name(key->index, unsafe_data_stack_pool,
@@ -422,7 +422,7 @@ static int mailbox_list_record_cmp(const void *_key, const void *_rec)
 		} else {
 			ret = strcmp(key->name, name);
 		}
-	);
+	} T_END;
 	return ret;
 }
 
@@ -709,7 +709,7 @@ int mailbox_list_index_iterate_next(struct mailbox_list_iter_ctx *ctx,
 		}
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		const char *name;
 
 		if (mailbox_list_get_name(ctx->view->index,
@@ -724,7 +724,7 @@ int mailbox_list_index_iterate_next(struct mailbox_list_iter_ctx *ctx,
 			}
 			str_append(ctx->name_path, name);
 		}
-	);
+	} T_END;
 	if (ctx->failed)
 		return -1;
 

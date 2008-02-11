@@ -261,9 +261,9 @@ static int dbox_index_read_or_create(struct dbox_index *index)
 		if (index->fd != -1)
 			dbox_index_close(index);
 
-		T_FRAME(
+		T_BEGIN {
 			ret = dbox_index_recreate(index, FALSE);
-		);
+		} T_END;
 		if (ret < 0)
 			return -1;
 	}
@@ -876,10 +876,10 @@ int dbox_index_append_assign_file_ids(struct dbox_index_append_context *ctx)
 	for (i = 0; i < count; i++) {
 		file = files[i];
 
-		if (file->file_id == 0) T_FRAME_BEGIN {
+		if (file->file_id == 0) T_BEGIN {
 			if (dbox_index_append_commit_new(ctx, file, str) < 0)
 				ret = -1;
-		} T_FRAME_END;
+		} T_END;
 	}
 
 	if (ret == 0 && str_len(str) > 0) {

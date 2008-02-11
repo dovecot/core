@@ -351,10 +351,10 @@ static int mailbox_list_index_get_root(struct mailbox_list_index_sync_ctx *ctx)
 			return -1;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		ret = mailbox_list_index_sync_int(ctx, ctx->sync_path,
 						  &ctx->sync_root, &seq);
-	);
+	} T_END;
 	return ret;
 }
 
@@ -465,9 +465,9 @@ int mailbox_list_index_sync_more(struct mailbox_list_index_sync_ctx *ctx,
 	struct mailbox_list_sync_dir *dir;
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = mailbox_list_index_sync_int(ctx, name, &dir, seq_r);
-	);
+	} T_END;
 	return ret;
 }
 
@@ -785,9 +785,9 @@ mailbox_list_index_sync_write_dir(struct mailbox_list_index_sync_ctx *ctx,
 	} else if (sync_dir->seen_records_count !=
 		   array_count(&sync_dir->records) && !partial) {
 		/* just mark the records deleted */
-		T_FRAME(
+		T_BEGIN {
 			ret = mailbox_list_index_sync_update_dir(ctx, sync_dir);
-		);
+		} T_END;
 		if (ret < 0)
 			return -1;
 	}

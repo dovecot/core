@@ -216,9 +216,9 @@ static void master_input(struct auth_master_connection *conn)
 	}
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			ret = auth_master_input_line(conn, line);
-		);
+		} T_END;
 		if (!ret) {
 			auth_master_connection_destroy(&conn);
 			return;

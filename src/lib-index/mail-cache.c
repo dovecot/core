@@ -37,12 +37,12 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 	cache->hdr = NULL;
 
 	va_start(va, fmt);
-	T_FRAME(
+	T_BEGIN {
 		mail_index_set_error(cache->index,
 				     "Corrupted index cache file %s: %s",
 				     cache->filepath,
 				     t_strdup_vprintf(fmt, va));
-	);
+	} T_END;
 	va_end(va);
 }
 

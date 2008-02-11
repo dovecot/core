@@ -817,9 +817,9 @@ int main(int argc, char *argv[])
 			"destination user parameter (-d user) not given");
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		config_file_init(config_path);
-	);
+	} T_END;
 	open_logfile(user);
 
 	if (getenv("MAIL_DEBUG") != NULL)

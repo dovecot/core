@@ -114,9 +114,9 @@ mailbox_tree_get(struct mailbox_tree_context *tree, const char *path,
 {
 	struct mailbox_node *node;
 
-	T_FRAME(
+	T_BEGIN {
 		node = mailbox_tree_traverse(tree, path, TRUE, created);
-	);
+	} T_END;
 	return node;
 }
 
@@ -125,9 +125,9 @@ mailbox_tree_lookup(struct mailbox_tree_context *tree, const char *path)
 {
 	struct mailbox_node *node;
 
-	T_FRAME(
+	T_BEGIN {
 		node = mailbox_tree_traverse(tree, path, FALSE, NULL);
-	);
+	} T_END;
 	return node;
 }
 

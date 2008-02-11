@@ -226,10 +226,10 @@ int fts_backend_filter(struct fts_backend *backend, const char *key,
 		array_clear(definite_uids);
 		array_clear(maybe_uids);
 	} else {
-		T_FRAME(
+		T_BEGIN {
 			fts_merge_maybies(maybe_uids, definite_uids,
 					  &tmp_maybe, &tmp_definite);
-		);
+		} T_END;
 		/* keep only what exists in both lists. the rest is in
 		   maybies or not wanted */
 		seq_range_array_remove_invert_range(definite_uids,

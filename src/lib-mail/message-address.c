@@ -306,10 +306,10 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 		return message_address_parse_real(pool, data, size,
 						  max_addresses, fill_missing);
 	}
-	T_FRAME(
+	T_BEGIN {
 		addr = message_address_parse_real(pool, data, size,
 						  max_addresses, fill_missing);
-	);
+	} T_END;
 	return addr;
 }
 

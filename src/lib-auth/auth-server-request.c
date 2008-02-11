@@ -269,11 +269,11 @@ bool auth_client_input_fail(struct auth_server_connection *conn,
 				    request);
 			request->next_conn = next;
 
-			T_FRAME(
+			T_BEGIN {
 				(void)auth_server_send_new_request(next,
 								   request,
 								   &error);
-			);
+			} T_END;
 			return TRUE;
 		}
 	}
@@ -365,7 +365,7 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 	request->callback = callback;
 	request->context = context;
 
-	T_FRAME(
+	T_BEGIN {
 		if (auth_server_send_new_request(conn, request, error_r) == 0) {
 			hash_insert(conn->requests, POINTER_CAST(request->id),
 				    request);
@@ -373,7 +373,7 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 			auth_client_request_free(request);
 			request = NULL;
 		}
-	);
+	} T_END;
 	return request;
 }
 

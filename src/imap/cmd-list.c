@@ -361,9 +361,9 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 
 		if (ctx->status_items != 0 &&
 		    (flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) == 0) {
-			T_FRAME(
+			T_BEGIN {
 				list_send_status(ctx, name);
-			);
+			} T_END;
 		}
 
 		if (client_send_line(ctx->cmd->client, str_c(str)) == 0) {
@@ -671,16 +671,16 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 	}
 	for (; ctx->ns != NULL; ctx->ns = ctx->ns->next) {
 		if (ctx->list_iter == NULL) {
-			T_FRAME(
+			T_BEGIN {
 				list_namespace_init(ctx);
-			);
+			} T_END;
 			if (ctx->list_iter == NULL)
 				continue;
 		}
 
-		T_FRAME(
+		T_BEGIN {
 			ret = list_namespace_mailboxes(ctx);
-		);
+		} T_END;
 		if (ret < 0) {
 			client_send_list_error(cmd, ctx->ns->list);
 			return TRUE;

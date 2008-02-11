@@ -245,10 +245,10 @@ static void auth_client_input(struct auth_client_connection *conn)
 
         conn->refcount++;
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			ret = auth_client_handle_line(conn, line);
 			safe_memset(line, 0, strlen(line));
-		);
+		} T_END;
 
 		if (!ret) {
 			struct auth_client_connection *tmp_conn = conn;

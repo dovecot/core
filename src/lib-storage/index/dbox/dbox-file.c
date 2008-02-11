@@ -366,9 +366,9 @@ static int dbox_file_read_header(struct dbox_file *file)
 		return -1;
 	}
 	file->file_header_size = file->input->v_offset;
-	T_FRAME(
+	T_BEGIN {
 		ret = dbox_file_parse_header(file, line) < 0 ? 0 : 1;
-	);
+	} T_END;
 	return ret;
 }
 
@@ -412,9 +412,9 @@ static int dbox_file_open(struct dbox_file *file, bool read_header,
 	*deleted_r = FALSE;
 
 	if (file->fd == -1) {
-		T_FRAME(
+		T_BEGIN {
 			ret = dbox_file_open_fd(file);
-		);
+		} T_END;
 		if (ret <= 0) {
 			if (ret < 0)
 				return -1;
@@ -490,9 +490,9 @@ int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
 	*deleted_r = FALSE;
 
 	if (file->file_id == 0) {
-		T_FRAME(
+		T_BEGIN {
 			ret = dbox_file_create(file) < 0 ? -1 : 1;
-		);
+		} T_END;
 		return ret;
 	} else if (file->input != NULL)
 		return 1;
@@ -508,9 +508,9 @@ int dbox_file_open_if_needed(struct dbox_file *file)
 	if (file->fd != -1)
 		return 0;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = dbox_file_open_fd(file);
-	);
+	} T_END;
 	if (ret == 0) {
 		path = t_strdup_printf("%s/%s", file->mbox->path, file->fname);
 		mail_storage_set_critical(file->mbox->ibox.box.storage,
@@ -1115,9 +1115,9 @@ int dbox_file_metadata_write(struct dbox_file *file)
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = dbox_file_metadata_write_real(file);
-	);
+	} T_END;
 	return ret;
 }
 

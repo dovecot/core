@@ -233,7 +233,7 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 	index_mail_cache_parse_deinit(ctx->cur_dest_mail,
 				      ctx->cur_received_date, !ctx->failed);
 
-	if (!ctx->failed) T_FRAME_BEGIN {
+	if (!ctx->failed) T_BEGIN {
 		const char *cur_path;
 
 		cur_path = dbox_file_get_path(ctx->cur_file);
@@ -244,7 +244,7 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 				"o_stream_flush(%s) failed: %m", cur_path);
 			ctx->failed = TRUE;
 		}
-	} T_FRAME_END;
+	} T_END;
 
 	o_stream_unref(&ctx->cur_output);
 	i_stream_unref(&ctx->input);

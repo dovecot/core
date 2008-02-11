@@ -372,10 +372,10 @@ mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 	view->broken = TRUE;
 
 	va_start(va, fmt);
-	T_FRAME(
+	T_BEGIN {
 		mail_transaction_log_file_set_corrupted(view->log->head, "%s",
 			t_strdup_vprintf(fmt, va));
-	);
+	} T_END;
 	va_end(va);
 }
 
@@ -574,9 +574,9 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		ret = log_view_is_record_valid(file, hdr, data) ? 1 : -1;
-	);
+	} T_END;
 	if (ret > 0) {
 		*hdr_r = hdr;
 		*data_r = data;

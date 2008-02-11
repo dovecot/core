@@ -203,10 +203,10 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0)
 			continue;
 
-		T_FRAME(
+		T_BEGIN {
 			if (mail_index_sync_add_transaction(ctx))
 				mail_index_sync_update_mailbox_pos(ctx);
-		);
+		} T_END;
 	}
 
 	/* create an array containing all expunge, flag and keyword update
@@ -835,12 +835,12 @@ void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 	}
 
 	va_start(va, fmt);
-	T_FRAME(
+	T_BEGIN {
 		mail_index_set_error(ctx->view->index,
 				     "Log synchronization error at "
 				     "seq=%u,offset=%"PRIuUOFF_T" for %s: %s",
 				     seq, offset, ctx->view->index->filepath,
 				     t_strdup_vprintf(fmt, va));
-	);
+	} T_END;
 	va_end(va);
 }

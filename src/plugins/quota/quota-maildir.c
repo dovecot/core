@@ -149,7 +149,7 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 				return NULL;
 		}
 
-		T_FRAME(
+		T_BEGIN {
 			const char *path;
 
 			path = mail_storage_get_mailbox_path(ctx->storage,
@@ -159,7 +159,7 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 			str_append(ctx->path, path);
 			str_append(ctx->path, ctx->state == 0 ?
 				   "/new" : "/cur");
-		);
+		} T_END;
 
 		if (++ctx->state == 2)
 			ctx->state = 0;
@@ -277,11 +277,11 @@ static int maildirsize_recalculate_storage(struct maildir_quota_root *root,
 		if (mtime > root->recalc_last_stamp)
 			root->recalc_last_stamp = mtime;
 
-		T_FRAME(
+		T_BEGIN {
 			if (maildir_sum_dir(dir, &root->total_bytes,
 					    &root->total_count) < 0)
 				ret = -1;
-		);
+		} T_END;
 	}
 	if (maildir_list_deinit(ctx) < 0)
 		ret = -1;
@@ -571,9 +571,9 @@ static int maildirquota_refresh(struct maildir_quota_root *root)
 	if (!maildirquota_limits_init(root))
 		return 0;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = maildirsize_read(root);
-	);
+	} T_END;
 	if (ret == 0) {
 		if (root->message_bytes_limit == (uint64_t)-1 &&
 		    root->message_count_limit == (uint64_t)-1) {

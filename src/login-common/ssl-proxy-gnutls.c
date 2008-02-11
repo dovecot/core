@@ -472,9 +472,9 @@ static void gcrypt_log_handler(void *context ATTR_UNUSED, int level,
 	if (level != GCRY_LOG_FATAL)
 		return;
 
-	T_FRAME(
+	T_BEGIN {
 		i_error("gcrypt fatal: %s", t_strdup_vprintf(fmt, args));
-	);
+	} T_END;
 }
 
 void ssl_proxy_init(void)

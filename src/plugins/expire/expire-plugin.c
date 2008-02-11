@@ -114,7 +114,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 		return -1;
 	}
 
-	T_FRAME_BEGIN {
+	T_BEGIN {
 		const char *key, *value;
 
 		key = t_strconcat(DICT_PATH_SHARED, expire.username, "/",
@@ -137,7 +137,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			dict_set(dctx, key, dec2str(new_stamp));
 			dict_transaction_commit(dctx);
 		}
-	} T_FRAME_END;
+	} T_END;
 	i_free(xt);
 	return 0;
 }

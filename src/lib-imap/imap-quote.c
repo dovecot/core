@@ -94,13 +94,13 @@ const char *imap_quote(pool_t pool, const unsigned char *value,
 	if (value == NULL)
 		return "NIL";
 
-	T_FRAME(
+	T_BEGIN {
 		   string_t *str;
 
 		   str = t_str_new(value_len + MAX_INT_STRLEN + 5);
 		   imap_quote_append(str, value, value_len, TRUE);
 		   ret = p_strndup(pool, str_data(str), str_len(str));
-	);
+	} T_END;
 
 	return ret;
 }

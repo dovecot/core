@@ -224,9 +224,9 @@ static bool parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 	ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
 	ctx->seen_imapbase = TRUE;
 
-	T_FRAME(
+	T_BEGIN {
 		parse_imap_keywords_list(ctx, hdr, i);
-	);
+	} T_END;
 	parse_trailing_whitespace(ctx, hdr);
 	return TRUE;
 }
@@ -314,9 +314,9 @@ static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
 {
 	bool ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = parse_x_keywords_real(ctx, hdr);
-	);
+	} T_END;
 	return ret;
 }
 

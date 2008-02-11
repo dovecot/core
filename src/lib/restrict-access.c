@@ -178,10 +178,10 @@ void restrict_access_by_env(bool disallow_root)
 	   restricted groups at the same time. */
 	env = getenv("RESTRICT_SETEXTRAGROUPS");
 	if (is_root) {
-		T_FRAME(
+		T_BEGIN {
 			fix_groups_list(env, gid, preserve_groups,
 					&have_root_group);
-		);
+		} T_END;
 	}
 
 	/* chrooting */

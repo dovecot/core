@@ -196,7 +196,7 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 		if (ret != NULL)
 			t_buffer_alloc(len);
 	} else {
-		T_FRAME(
+		T_BEGIN {
 			temp = vstrconcat(str1, args, &len);
 			if (temp == NULL)
 				ret = NULL;
@@ -205,7 +205,7 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 				ret = p_malloc(pool, len);
 				memcpy(ret, temp, len);
 			}
-		);
+		} T_END;
 	}
 
 	va_end(args);

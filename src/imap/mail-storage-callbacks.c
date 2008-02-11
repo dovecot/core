@@ -13,13 +13,13 @@ static void notify_ok(struct mailbox *mailbox ATTR_UNUSED,
 	if (o_stream_get_buffer_used_size(client->output) != 0)
 		return;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *str;
 
 		str = t_strconcat("* OK ", text, "\r\n", NULL);
 		o_stream_send_str(client->output, str);
 		o_stream_flush(client->output);
-	);
+	} T_END;
 }
 
 static void notify_no(struct mailbox *mailbox ATTR_UNUSED,
@@ -30,13 +30,13 @@ static void notify_no(struct mailbox *mailbox ATTR_UNUSED,
 	if (o_stream_get_buffer_used_size(client->output) != 0)
 		return;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *str;
 
 		str = t_strconcat("* NO ", text, "\r\n", NULL);
 		o_stream_send_str(client->output, str);
 		o_stream_flush(client->output);
-	);
+	} T_END;
 }
 
 struct mail_storage_callbacks mail_storage_callbacks = {

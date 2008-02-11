@@ -1065,9 +1065,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 		if (!mail_ctx->mail.pseudo) {
 			if (!expunged) {
-				T_FRAME(
+				T_BEGIN {
 					mbox_sync_update_index(mail_ctx, rec);
-				);
+				} T_END;
 			}
 			sync_ctx->idx_seq++;
 		}

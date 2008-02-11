@@ -155,7 +155,7 @@ static bool maildir_storage_is_valid_create_name(struct mailbox_list *list,
 		return FALSE;
 
 	/* Don't allow creating mailboxes under cur/new/tmp */
-	T_FRAME(
+	T_BEGIN {
 		const char *const *tmp;
 
 		for (tmp = t_strsplit(name, "/"); *tmp != NULL; tmp++) {
@@ -164,7 +164,7 @@ static bool maildir_storage_is_valid_create_name(struct mailbox_list *list,
 				break;
 			}
 		}
-	);
+	} T_END;
 	return ret;
 }
 

@@ -81,11 +81,11 @@ dict_quota_count(struct dict_quota_root *root,
 	if (quota_count(root->root.quota, &bytes, &count) < 0)
 		return -1;
 
-	T_FRAME(
+	T_BEGIN {
 		dt = dict_transaction_begin(root->dict);
 		dict_set(dt, DICT_QUOTA_CURRENT_BYTES_PATH, dec2str(bytes));
 		dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
-	);
+	} T_END;
 
 	if (dict_transaction_commit(dt) < 0)
 		i_error("dict_quota: Couldn't update quota");
@@ -109,7 +109,7 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 	else
 		return 0;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *value;
 
 		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
@@ -130,7 +130,7 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 						       value_r);
 			}
 		}
-	);
+	} T_END;
 	return ret;
 }
 

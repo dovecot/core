@@ -188,9 +188,9 @@ static void test_aqueue(void)
 	const char *reason = NULL;
 
 	for (i = 1; i <= N_ELEMENTS(aqueue_input) + 1 && reason == NULL; i++) {
-		T_FRAME(
+		T_BEGIN {
 			reason = test_aqueue2(i);
-		);
+		} T_END;
 	}
 	test_out_reason("aqueue", reason == NULL, reason);
 }
@@ -488,9 +488,9 @@ int main(void)
 
 	test_init();
 	for (i = 0; i < N_ELEMENTS(test_functions); i++) {
-		T_FRAME(
+		T_BEGIN {
 			test_functions[i]();
-		);
+		} T_END;
 	}
 	return test_deinit();
 }

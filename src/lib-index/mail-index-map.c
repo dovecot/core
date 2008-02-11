@@ -833,12 +833,12 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	for (try = 0; ret > 0; try++) {
 		/* make sure the header is ok before using this mapping */
 		ret = mail_index_map_check_header(new_map);
-		if (ret > 0) T_FRAME_BEGIN {
+		if (ret > 0) T_BEGIN {
 			if (mail_index_map_parse_extensions(new_map) < 0)
 				ret = 0;
 			else if (mail_index_map_parse_keywords(new_map) < 0)
 				ret = 0;
-		} T_FRAME_END;
+		} T_END;
 		if (ret != 0 || try == 2)
 			break;
 

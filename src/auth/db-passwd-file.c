@@ -187,7 +187,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 		if (*line == '\0' || *line == ':' || *line == '#')
 			continue; /* no username or comment */
 
-		T_FRAME(
+		T_BEGIN {
 			const char *const *args = t_strsplit(line, ":");
 			if (args[1] != NULL) {
 				/* at least username+password */
@@ -196,7 +196,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 				/* only username */
 				passwd_file_add(pw, args[0], NULL, &no_args);
 			}
-		);
+		} T_END;
 	}
 	i_stream_destroy(&input);
 

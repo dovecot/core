@@ -516,9 +516,9 @@ db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
 		res = NULL;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		request->callback(conn, request, res);
-	);
+	} T_END;
 
 	if (i > 0) {
 		/* see if there are timed out requests */

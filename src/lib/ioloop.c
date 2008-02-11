@@ -286,9 +286,9 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 
 void io_loop_handle_timeouts(struct ioloop *ioloop)
 {
-	T_FRAME(
+	T_BEGIN {
 		io_loop_handle_timeouts_real(ioloop);
-	);
+	} T_END;
 }
 
 void io_loop_run(struct ioloop *ioloop)

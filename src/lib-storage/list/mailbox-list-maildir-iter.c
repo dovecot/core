@@ -153,11 +153,11 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 
 		/* check if this is an actual mailbox */
 		flags = 0;
-		T_FRAME(
+		T_BEGIN {
 			ret = ctx->ctx.list->v.
 				iter_is_mailbox(&ctx->ctx, ctx->dir, fname,
 					mailbox_list_get_file_type(d), &flags);
-		);
+		} T_END;
 		if (ret <= 0) {
 			if (ret < 0)
 				return -1;
@@ -170,10 +170,10 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 			   MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
 
 		if ((match & IMAP_MATCH_PARENT) != 0) {
-			T_FRAME(
+			T_BEGIN {
 				maildir_fill_parents(ctx, glob, update_only,
 						     mailbox, flags);
-			);
+			} T_END;
 		} else {
 			created = FALSE;
 			node = update_only ?
@@ -272,9 +272,9 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		bool update_only =
 			(flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0;
 
-		T_FRAME(
+		T_BEGIN {
 			ret = maildir_fill_readdir(ctx, glob, update_only);
-		);
+		} T_END;
 		if (ret < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;

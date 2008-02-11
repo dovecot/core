@@ -233,14 +233,14 @@ bool message_date_parse(const unsigned char *data, size_t size,
 {
 	bool success;
 
-	T_FRAME(
+	T_BEGIN {
 		struct message_date_parser_context ctx;
 
 		rfc822_parser_init(&ctx.parser, data, size, NULL);
 		ctx.str = t_str_new(128);
 		success = message_date_parser_tokens(&ctx, time,
 						     timezone_offset);
-	);
+	} T_END;
 
 	return success;
 }

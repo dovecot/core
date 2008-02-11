@@ -45,18 +45,11 @@ unsigned int t_pop(void);
    panicking if it doesn't match. */
 void t_pop_check(unsigned int *id);
 
-/* Usage: T_FRAME_BEGIN { code } T_FRAME_END */
-#define T_FRAME_BEGIN \
+/* Usage: T_BEGIN { code } T_END */
+#define T_BEGIN \
 	STMT_START { unsigned int _data_stack_cur_id = t_push();
-#define T_FRAME_END \
+#define T_END \
 	t_pop_check(&_data_stack_cur_id); } STMT_END
-
-/* Usage: T_FRAME(code). This doesn't work if there are commas within the code
-   outside function parameters. */
-#define T_FRAME(_data_stack_code) \
-	T_FRAME_BEGIN { \
-		_data_stack_code; \
-	} T_FRAME_END
 
 /* WARNING: Be careful when using these functions, it's too easy to
    accidentally save the returned value somewhere permanently.

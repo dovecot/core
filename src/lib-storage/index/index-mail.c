@@ -65,9 +65,9 @@ static bool get_cached_parts(struct index_mail *mail)
 {
 	struct message_part *part;
 
-	T_FRAME(
+	T_BEGIN {
 		part = get_unserialized_parts(mail);
-	);
+	} T_END;
 	if (part == NULL)
 		return FALSE;
 
@@ -91,7 +91,7 @@ static bool index_mail_get_fixed_field(struct index_mail *mail,
 	unsigned int field_idx = mail->ibox->cache_fields[field].idx;
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		buffer_t *buf;
 
 		buf = buffer_create_data(pool_datastack_create(),
@@ -104,7 +104,7 @@ static bool index_mail_get_fixed_field(struct index_mail *mail,
 			i_assert(buf->used == data_size);
 			ret = TRUE;
 		}
-	);
+	} T_END;
 	return ret;
 }
 
@@ -511,12 +511,12 @@ static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
 		return;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		buffer = buffer_create_dynamic(pool_datastack_create(), 1024);
 		message_part_serialize(mail->data.parts, buffer);
 		index_mail_cache_add_idx(mail, cache_field,
 					 buffer->data, buffer->used);
-	);
+	} T_END;
 
 	data->messageparts_saved_to_cache = TRUE;
 }

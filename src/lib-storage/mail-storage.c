@@ -248,9 +248,9 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		atoi(value) : DEFAULT_MAX_KEYWORD_LENGTH;
 	
 	if (hook_mail_storage_created != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			hook_mail_storage_created(storage);
-		);
+		} T_END;
 	}
 
 	ns->storage = storage;
@@ -453,11 +453,11 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 		return NULL;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		box = storage->v.mailbox_open(storage, name, input, flags);
 		if (hook_mailbox_opened != NULL && box != NULL)
 			hook_mailbox_opened(box);
-	);
+	} T_END;
 	return box;
 }
 

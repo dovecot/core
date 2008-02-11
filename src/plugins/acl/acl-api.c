@@ -102,9 +102,9 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 
 	if (pool->datastack_pool)
 		return acl_object_get_my_rights_real(aclobj, pool, rights_r);
-	T_FRAME(
+	T_BEGIN {
 		ret = acl_object_get_my_rights_real(aclobj, pool, rights_r);
-	);
+	} T_END;
 	return ret;
 }
 

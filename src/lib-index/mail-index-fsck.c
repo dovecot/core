@@ -430,9 +430,9 @@ int mail_index_fsck(struct mail_index *index)
 	mail_index_unmap(&index->map);
 	index->map = map;
 
-	T_FRAME(
+	T_BEGIN {
 		mail_index_fsck_map(index, map);
-	);
+	} T_END;
 
 	map->write_base_header = TRUE;
 	map->write_atomic = TRUE;

@@ -166,12 +166,12 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 		acllist.name = p_strdup(backend->acllist_pool, name);
 		array_append(&backend->acllist, &acllist, 1);
 
-		T_FRAME(
+		T_BEGIN {
 			const char *line;
 			line = t_strdup_printf("%s %s\n",
 					       dec2str(acllist.mtime), name);
 			o_stream_send_str(output, line);
-		);
+		} T_END;
 	}
 	acl_object_deinit(&aclobj);
 	return ret < 0 ? -1 : 0;

@@ -267,9 +267,9 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 	part_data = part->context;
 
 	if (strncasecmp(hdr->name, "Content-", 8) == 0) {
-		T_FRAME(
+		T_BEGIN {
 			parse_content_header(part_data, hdr, pool);
-		);
+		} T_END;
 	}
 
 	if (parent_rfc822) {

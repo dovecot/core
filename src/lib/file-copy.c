@@ -95,7 +95,7 @@ int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *tmppath;
 
 		tmppath = t_strconcat(destpath, ".tmp", NULL);
@@ -110,6 +110,6 @@ int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
 		}
 		if (ret < 0)
 			(void)unlink(tmppath);
-	);
+	} T_END;
 	return ret;
 }

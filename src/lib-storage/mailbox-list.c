@@ -537,10 +537,10 @@ void mailbox_list_iter_update(struct mailbox_list_iterate_context *ctx,
 			      struct imap_match_glob *glob, bool update_only,
 			      bool match_parents, const char *name)
 {
-	T_FRAME(
+	T_BEGIN {
 		mailbox_list_iter_update_real(ctx, tree_ctx, glob, update_only,
 					      match_parents, name);
-	);
+	} T_END;
 }
 
 bool mailbox_list_name_is_too_large(const char *name, char sep)

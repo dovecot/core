@@ -273,9 +273,9 @@ bool settings_read(const char *path, const char *section,
 {
 	bool ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = settings_read_real(path, section, callback,
 					 sect_callback, context);
-	);
+	} T_END;
 	return ret;
 }

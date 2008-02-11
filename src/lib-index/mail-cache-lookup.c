@@ -539,9 +539,9 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = mail_cache_lookup_headers_real(view, dest, seq,
 						     field_idxs, fields_count);
-	);
+	} T_END;
 	return ret;
 }

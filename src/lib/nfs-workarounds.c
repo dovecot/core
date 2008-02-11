@@ -349,9 +349,9 @@ static void nfs_flush_file_handle_cache_parent_dir(const char *path)
 	p = strrchr(path, '/');
 	if (p == NULL)
 		nfs_flush_file_handle_cache_dir(".", TRUE);
-	else T_FRAME(
+	else T_BEGIN {
 		nfs_flush_file_handle_cache_dir(t_strdup_until(path, p), TRUE);
-	);
+	} T_END;
 }
 
 void nfs_flush_file_handle_cache(const char *path)

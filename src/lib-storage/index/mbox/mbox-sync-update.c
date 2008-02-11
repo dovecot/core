@@ -410,9 +410,9 @@ static void mbox_sync_update_header_real(struct mbox_sync_mail_context *ctx)
 
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx)
 {
-	T_FRAME(
+	T_BEGIN {
 		mbox_sync_update_header_real(ctx);
-	);
+	} T_END;
 }
 
 static void
@@ -468,7 +468,7 @@ mbox_sync_update_header_from_real(struct mbox_sync_mail_context *ctx,
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail)
 {
-	T_FRAME(
+	T_BEGIN {
 		mbox_sync_update_header_from_real(ctx, mail);
-	);
+	} T_END;
 }

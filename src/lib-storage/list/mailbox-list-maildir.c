@@ -412,9 +412,9 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 				 oldname, newname);
 
 		found = ret == 0;
-		T_FRAME(
+		T_BEGIN {
 			ret = rename_children(list, oldname, newname);
-		);
+		} T_END;
 		if (ret < 0)
 			return -1;
 		if (!found && ret == 0) {

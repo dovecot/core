@@ -642,9 +642,9 @@ static bool client_handle_input(struct client *client)
 
 	client->handling_input = TRUE;
 	do {
-		T_FRAME(
+		T_BEGIN {
 			ret = client_handle_next_command(client, &remove_io);
-		);
+		} T_END;
 		if (ret)
 			handled_commands = TRUE;
 	} while (ret && !client->disconnected && client->io != NULL);

@@ -117,9 +117,9 @@ struct acl_mask *acl_cache_mask_init(struct acl_cache *cache, pool_t pool,
 {
 	struct acl_mask *mask;
 
-	T_FRAME(
+	T_BEGIN {
 		mask = acl_cache_mask_init_real(cache, pool, rights);
-	);
+	} T_END;
 	return mask;
 }
 
@@ -411,9 +411,9 @@ acl_cache_get_my_rights(struct acl_cache *cache, const char *objname)
 		return NULL;
 
 	if (obj_cache->my_current_rights == NULL) {
-		T_FRAME(
+		T_BEGIN {
 			acl_cache_my_current_rights_recalculate(obj_cache);
-		);
+		} T_END;
 	}
 	return obj_cache->my_current_rights;
 }

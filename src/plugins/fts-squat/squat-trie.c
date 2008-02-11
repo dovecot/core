@@ -653,18 +653,18 @@ node_leaf_string_add_or_split(struct squat_trie_build_context *ctx,
 
 	if (data_len != str_len) {
 		/* different lengths, can't match */
-		T_FRAME(
+		T_BEGIN {
 			node_split_string(ctx, node);
-		);
+		} T_END;
 		return FALSE;
 	}
 
 	for (i = 0; i < data_len; i++) {
 		if (data[i] != str[i]) {
 			/* non-match */
-			T_FRAME(
+			T_BEGIN {
 				node_split_string(ctx, node);
-			);
+			} T_END;
 			return FALSE;
 		}
 	}
@@ -909,9 +909,9 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = squat_trie_build_more_real(ctx, uid, type, input, size);
-	);
+	} T_END;
 	return ret;
 }
 
@@ -977,10 +977,10 @@ squat_write_node(struct squat_trie_build_context *ctx, struct squat_node *node,
 	children = NODE_CHILDREN_NODES(node);
 	node_offsets = t_new(uoff_t, child_count);
 	for (i = 0; i < child_count; i++) {
-		T_FRAME(
+		T_BEGIN {
 			ret = squat_write_node(ctx, &children[i],
 					       &node_offsets[i], level + 1);
-		);
+		} T_END;
 		if (ret < 0)
 			return -1;
 	}
@@ -999,9 +999,9 @@ static int squat_write_nodes(struct squat_trie_build_context *ctx)
 	if (ctx->trie->root.next_uid == 0)
 		return 0;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = squat_write_node(ctx, &ctx->trie->root, &node_offset, 0);
-	);
+	} T_END;
 	if (ret < 0)
 		return -1;
 
@@ -1937,10 +1937,10 @@ int squat_trie_lookup(struct squat_trie *trie, const char *str,
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = squat_trie_lookup_real(trie, str, type,
 					     definite_uids, maybe_uids);
-	);
+	} T_END;
 	return ret;
 }
 

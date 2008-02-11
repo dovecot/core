@@ -568,9 +568,9 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	if (strcmp(root->mount->type, "nfs") == 0) {
 		int ret;
 
-		T_FRAME(
+		T_BEGIN {
 			ret = do_rquota(root, bytes, value_r, limit_r);
-		);
+		} T_END;
 		return ret;
 	}
 #endif

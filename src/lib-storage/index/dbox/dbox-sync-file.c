@@ -152,9 +152,9 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 		/* write metadata */
 		(void)dbox_file_metadata_seek_mail_offset(file, offset,
 							  &expunged);
-		T_FRAME(
+		T_BEGIN {
 			dbox_sync_update_metadata(ctx, file, entry, seq);
-		);
+		} T_END;
 		if ((ret = dbox_file_metadata_write_to(file, output)) < 0)
 			break;
 
@@ -229,9 +229,9 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 	}
 	append_offset = output->offset;
 	dbox_msg_header_fill(&dbox_msg_hdr, uid, size);
-	T_FRAME(
+	T_BEGIN {
 		dbox_sync_update_metadata(ctx, out_file, NULL, seq);
-	);
+	} T_END;
 
 	/* copy the message */
 	out_path = dbox_file_get_path(out_file);
@@ -294,9 +294,9 @@ dbox_sync_file_changes(struct dbox_sync_context *ctx, struct dbox_file *file,
 		return 1;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		dbox_sync_update_metadata(ctx, file, entry, seq);
-	);
+	} T_END;
 	ret = dbox_file_metadata_write(file);
 	if (ret <= 0) {
 		return ret < 0 ? -1 :

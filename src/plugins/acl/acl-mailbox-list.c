@@ -140,9 +140,9 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = acl_mailbox_try_list_fast(ctx, patterns);
-	);
+	} T_END;
 	if (!ret) {
 		ctx->super_ctx = alist->module_ctx.super.
 			iter_init(list, patterns, flags);
@@ -218,9 +218,9 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	int ret;
 
 	while ((info = acl_mailbox_list_iter_next_info(ctx)) != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			ret = acl_mailbox_list_info_is_visible(ctx, info);
-		);
+		} T_END;
 		if (ret > 0)
 			break;
 		if (ret < 0) {
@@ -288,14 +288,14 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 		break;
 	case MAILBOX_NAME_NOINFERIORS:
 		/* have to check if we are allowed to see the parent */
-		T_FRAME(
+		T_BEGIN {
 			const char *parent;
 
 			parent = acl_mailbox_list_get_parent_mailbox_name(list,
 									  name);
 			ret = acl_mailbox_list_have_right(alist, parent,
 						ACL_STORAGE_RIGHT_LOOKUP, NULL);
-		);
+		} T_END;
 
 		if (ret < 0)
 			return -1;
@@ -358,11 +358,11 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 	}
 
 	/* and create the new one under the parent mailbox */
-	T_FRAME(
+	T_BEGIN {
 		ret = acl_mailbox_list_have_right(alist,
 			acl_mailbox_list_get_parent_mailbox_name(list, newname),
 			ACL_STORAGE_RIGHT_CREATE, NULL);
-	);
+	} T_END;
 
 	if (ret <= 0) {
 		if (ret == 0) {

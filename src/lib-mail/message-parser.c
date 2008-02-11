@@ -484,11 +484,9 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 
 			if (hdr->continues)
 				hdr->use_full_value = TRUE;
-			else {
-				T_FRAME(
-					parse_content_type(ctx, hdr);
-				);
-			}
+			else T_BEGIN {
+				parse_content_type(ctx, hdr);
+			} T_END;
 		}
 
 		block_r->hdr = hdr;

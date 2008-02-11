@@ -140,9 +140,9 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 						 wanted_headers);
 	mail = mail_alloc(ctx->t, MAIL_FETCH_DATE, headers_ctx);
 	while (mailbox_search_next(ctx->search_ctx, mail) > 0) {
-		T_FRAME(
+		T_BEGIN {
 			mail_thread_input(ctx, mail);
-		);
+		} T_END;
 	}
 
 	mail_free(&mail);
@@ -699,9 +699,9 @@ static void gather_base_subjects(struct thread_context *ctx)
 			mail_set_seq(ctx->mail, seq);
 			if (mail_get_first_header(ctx->mail, "subject",
 						  &subject) > 0) {
-				T_FRAME(
+				T_BEGIN {
 					add_base_subject(ctx, subject, node);
-				);
+				} T_END;
 			}
 		}
 	}
@@ -971,7 +971,7 @@ static void mail_thread_finish(struct thread_context *ctx)
 	merge_subject_threads(ctx);
 
 	/* (6) Sort and send replies */
-	T_FRAME(
+	T_BEGIN {
 		send_roots(ctx);
-	);
+	} T_END;
 }

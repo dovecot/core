@@ -121,15 +121,15 @@ void fts_search_lookup(struct fts_search_context *fctx)
 	i_array_init(&fctx->maybe_seqs, 64);
 
 	/* start filtering with the best arg */
-	T_FRAME(
+	T_BEGIN {
 		ret = fts_search_lookup_arg(fctx, fctx->best_arg, FALSE);
-	);
+	} T_END;
 	/* filter the rest */
 	for (arg = fctx->args; arg != NULL && ret == 0; arg = arg->next) {
 		if (arg != fctx->best_arg) {
-			T_FRAME(
+			T_BEGIN {
 				ret = fts_search_lookup_arg(fctx, arg, TRUE);
-			);
+			} T_END;
 		}
 	}
 

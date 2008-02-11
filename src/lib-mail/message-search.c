@@ -62,10 +62,10 @@ int message_search_init(pool_t pool, const char *key, const char *charset,
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = message_search_init_real(pool, key, charset, flags,
 					       ctx_r);
-	);
+	} T_END;
 	return ret;
 }
 
@@ -107,9 +107,9 @@ static void handle_header(struct message_search_context *ctx,
 			hdr->use_full_value = TRUE;
 			return;
 		}
-		T_FRAME(
+		T_BEGIN {
 			parse_content_type(ctx, hdr);
-		);
+		} T_END;
 	}
 }
 
@@ -244,8 +244,8 @@ int message_search_msg(struct message_search_context *ctx,
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = message_search_msg_real(ctx, input, parts);
-	);
+	} T_END;
 	return ret;
 }

@@ -173,7 +173,7 @@ static void expire_run(void)
 			   so stop processing */
 			break;
 		} else {
-			T_FRAME(
+			T_BEGIN {
 				const char *username;
 
 				username = t_strdup_until(userp, p);
@@ -181,7 +181,7 @@ static void expire_run(void)
 						mailbox,
 						expire_box->expire_secs,
 						&oldest);
-			);
+			} T_END;
 			if (ret < 0) {
 				/* failed to update */
 			} else if (oldest == 0) {

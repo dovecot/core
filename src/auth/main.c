@@ -321,10 +321,10 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		argv++;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		drop_privileges();
 		main_init(foreground);
-	);
+	} T_END;
         io_loop_run(ioloop);
 	main_deinit();
 

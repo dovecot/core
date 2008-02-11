@@ -115,9 +115,9 @@ index_list_mailbox_open_unchanged_view(struct mailbox *box,
 		return 0;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		ret = box->v.list_index_has_changed(box, view, seq);
-	);
+	} T_END;
 	if (ret != 0) {
 		/* error / mailbox has changed. we'll need to sync it. */
 		mail_index_view_close(&view);

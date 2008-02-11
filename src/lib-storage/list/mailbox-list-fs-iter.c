@@ -140,14 +140,14 @@ static int list_opendir(struct fs_list_iterate_context *ctx,
 	/* if no patterns have wildcards at this point of the path, we don't
 	   have to readdir() the files. instead we can just go through the
 	   mailboxes listed in patterns. */
-	T_FRAME(
+	T_BEGIN {
 		patterns = array_idx(&ctx->valid_patterns, 0);
 		for (i = 0; patterns[i] != NULL; i++) {
 			if (pattern_has_wildcard_at(ctx, patterns[i],
 						    list_path))
 				break;
 		}
-	);
+	} T_END;
 	if (patterns[i] == NULL) {
 		*dirp = NULL;
 		return 1;
@@ -301,9 +301,9 @@ fs_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	if (ctx->ctx.failed)
 		return NULL;
 
-	T_FRAME(
+	T_BEGIN {
 		info = ctx->next(ctx);
-	);
+	} T_END;
 	return info;
 }
 
@@ -638,9 +638,9 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 	while (ctx->dir != NULL) {
 		/* NOTE: list_file() may change ctx->dir */
 		while ((entry = fs_list_dir_next(ctx)) != NULL) {
-			T_FRAME(
+			T_BEGIN {
 				ret = list_file(ctx, entry);
-			);
+			} T_END;
 
 			if (ret > 0)
 				return &ctx->info;

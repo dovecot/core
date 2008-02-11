@@ -43,9 +43,9 @@ int mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = mailbox_list_subscriptions_fill_real(ctx, tree_ctx, glob,
 							   update_only);
-	);
+	} T_END;
 	return ret;
 }

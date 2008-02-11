@@ -552,10 +552,10 @@ int index_keywords_create(struct mailbox *_box, const char *const keywords[],
 		}
 
 		/* found invalid keywords, do this the slow way */
-		T_FRAME(
+		T_BEGIN {
 			*keywords_r = index_keywords_create_skip(ibox,
 								 keywords);
-		);
+		} T_END;
 		return 0;
 	}
 

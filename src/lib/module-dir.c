@@ -225,9 +225,9 @@ module_dir_load_real(const char *dir, const char *module_names,
 		if (p == NULL || strlen(p) != 3)
 			continue;
 
-		T_FRAME(
+		T_BEGIN {
 			check_duplicates(&names, name, dir);
-		);
+		} T_END;
 
 		name = p_strdup(pool, d->d_name);
 		array_append(&names, &name, 1);
@@ -249,7 +249,7 @@ module_dir_load_real(const char *dir, const char *module_names,
 	}
 
 	module_pos = &modules;
-	for (i = 0; i < count; i++) T_FRAME_BEGIN {
+	for (i = 0; i < count; i++) T_BEGIN {
 		const char *name = names_p[i];
 		const char *path, *stripped_name;
 
@@ -268,7 +268,7 @@ module_dir_load_real(const char *dir, const char *module_names,
 			*module_pos = module;
 			module_pos = &module->next;
 		}
-	} T_FRAME_END;
+	} T_END;
 
 	if (module_names_arr != NULL) {
 		/* make sure all modules were found */
@@ -292,10 +292,10 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 {
 	struct module *modules;
 
-	T_FRAME(
+	T_BEGIN {
 		modules = module_dir_load_real(dir, module_names,
 					       require_init_funcs, version);
-	);
+	} T_END;
 	return modules;
 }
 
@@ -305,9 +305,9 @@ void module_dir_init(struct module *modules)
 
 	for (module = modules; module != NULL; module = module->next) {
 		if (module->init != NULL) {
-			T_FRAME(
+			T_BEGIN {
 				module->init();
-			);
+			} T_END;
 		}
 	}
 }
@@ -324,7 +324,7 @@ void module_dir_deinit(struct module *modules)
 		return;
 
 	/* @UNSAFE: deinitialize in reverse order */
-	T_FRAME(
+	T_BEGIN {
 		rev = t_new(struct module *, count);
 		for (i = 0, module = modules; i < count; i++) {
 			rev[count-i-1] = module;
@@ -339,7 +339,7 @@ void module_dir_deinit(struct module *modules)
 				module->deinit = NULL;
 			}
 		}
-	);
+	} T_END;
 }
 
 void module_dir_unload(struct module **modules)

@@ -441,9 +441,9 @@ static void auth_worker_input(struct auth_worker_client *client)
 
         client->refcount++;
 	while ((line = i_stream_next_line(client->input)) != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			ret = auth_worker_handle_line(client, line);
-		);
+		} T_END;
 
 		if (!ret) {
 			auth_worker_client_destroy(&client);

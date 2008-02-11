@@ -76,8 +76,8 @@ int unlink_old_files(const char *dir, const char *prefix, time_t min_time)
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = unlink_old_files_real(dir, prefix, min_time);
-	);
+	} T_END;
 	return ret;
 }

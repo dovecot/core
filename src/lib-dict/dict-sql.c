@@ -81,9 +81,9 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 
 	input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			sql_dict_config_parse_line(dict, line);
-		);
+		} T_END;
 	}
 	i_stream_destroy(&input);
 	(void)close(fd);
@@ -178,7 +178,7 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 		return -1;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		string_t *query = t_str_new(256);
 		str_printfa(query, "SELECT %s FROM %s WHERE %s = '%s'",
 			    dict->select_field, dict->table,
@@ -190,7 +190,7 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 				    sql_escape_string(dict->db, dict->username));
 		}
 		result = sql_query_s(dict->db, str_c(query));
-	);
+	} T_END;
 
 	ret = sql_result_next_row(result);
 	if (ret <= 0)
@@ -219,7 +219,7 @@ sql_dict_iterate_init(struct dict *_dict, const char *path,
 		ctx->result = NULL;
 		return &ctx->ctx;
 	}
-	T_FRAME(
+	T_BEGIN {
 		string_t *query = t_str_new(256);
 		str_printfa(query, "SELECT %s, %s FROM %s "
 			    "WHERE %s LIKE '%s/%%'",
@@ -242,7 +242,7 @@ sql_dict_iterate_init(struct dict *_dict, const char *path,
 		else if ((flags & DICT_ITERATE_FLAG_SORT_BY_VALUE) != 0)
 			str_printfa(query, " ORDER BY %s", dict->select_field);
 		ctx->result = sql_query_s(dict->db, str_c(query));
-	);
+	} T_END;
 
 	return &ctx->ctx;
 }
@@ -360,12 +360,12 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		const char *query;
 
 		query = sql_dict_set_query(dict, key, value, priv);
 		sql_update(ctx->sql_ctx, query);
-	);
+	} T_END;
 }
 
 static const char *
@@ -400,12 +400,12 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		const char *query;
 
 		query = sql_dict_unset_query(dict, key, priv);
 		sql_update(ctx->sql_ctx, query);
-	);
+	} T_END;
 }
 
 static const char *
@@ -445,12 +445,12 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		const char *query;
 
 		query = sql_dict_atomic_inc_query(dict, key, diff, priv);
 		sql_update(ctx->sql_ctx, query);
-	);
+	} T_END;
 }
 
 static struct dict sql_dict = {

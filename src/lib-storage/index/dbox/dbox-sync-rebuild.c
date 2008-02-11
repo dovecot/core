@@ -129,13 +129,13 @@ dbox_sync_index_metadata(struct dbox_sync_rebuild_context *ctx,
 	}
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_KEYWORDS);
-	if (value != NULL) T_FRAME_BEGIN {
+	if (value != NULL) T_BEGIN {
 		keywords = mail_index_keywords_create(ctx->mbox->ibox.index,
 						t_strsplit_spaces(value, " "));
 		mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE,
 					   keywords);
 		mail_index_keywords_free(&keywords);
-	} T_FRAME_END;
+	} T_END;
 }
 
 static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
@@ -299,10 +299,10 @@ static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 		if ((d = readdir(dir)) == NULL)
 			break;
 
-		T_FRAME(
+		T_BEGIN {
 			ret = dbox_sync_index_file(ctx, path, d->d_name,
 						   primary);
-		);
+		} T_END;
 	}
 	if (errno != 0) {
 		mail_storage_set_critical(storage,
@@ -348,9 +348,9 @@ static int dbox_sync_new_maildir(struct dbox_sync_rebuild_context *ctx)
 	mail_index_view_close(&trans_view);
 
 	for (i = 0; i < count && ret == 0; i++) {
-		T_FRAME(
+		T_BEGIN {
 			ret = dbox_sync_index_maildir_file(ctx, fnames[i]);
-		);
+		} T_END;
 	}
 	return ret;
 }

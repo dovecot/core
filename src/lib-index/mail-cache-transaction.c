@@ -856,13 +856,13 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		return 0;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		buffer_t *buffer;
 
 		buffer = buffer_create_dynamic(pool_datastack_create(), 256);
 		mail_cache_header_fields_get(cache, buffer);
 		ret = mail_cache_header_fields_write(ctx, buffer);
-	);
+	} T_END;
 
 	if (ret == 0) {
 		/* we wrote all the headers, so there are no pending changes */
@@ -1105,9 +1105,9 @@ int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = mail_cache_delete_real(cache, offset);
-	);
+	} T_END;
 	cache->hdr_modified = TRUE;
 	return ret;
 }

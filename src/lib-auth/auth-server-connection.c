@@ -191,9 +191,9 @@ static void auth_client_input(struct auth_server_connection *conn)
 
 	conn->refcount++;
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			ret = auth_client_input_line(conn, line);
-		);
+		} T_END;
 
 		if (!ret) {
 			auth_server_connection_destroy(&conn, FALSE);

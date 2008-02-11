@@ -132,7 +132,7 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 		i_strocpy(my_hostdomain, name, sizeof(my_hostdomain));
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		const char *line;
 
 		if (from_envelope == NULL) {
@@ -146,8 +146,7 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 
 		if ((ret = o_stream_send_str(ctx->output, line)) < 0)
 			write_error(ctx);
-	);
-
+	} T_END;
 	return ret;
 }
 
@@ -395,9 +394,9 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 		   our own X-Delivery-ID header. */
 		const char *hdr;
 
-		T_FRAME(
+		T_BEGIN {
 			mbox_save_x_delivery_id(ctx);
-		);
+		} T_END;
 		hdr = ctx->x_delivery_id_header;
 
 		streams[0] = i_stream_create_from_data(hdr, strlen(hdr));
@@ -655,11 +654,11 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	ctx->finished = TRUE;
 	if (!ctx->failed) {
-		T_FRAME(
+		T_BEGIN {
 			if (mbox_write_content_length(ctx) < 0 ||
 			    mbox_append_lf(ctx) < 0)
 				ctx->failed = TRUE;
-		);
+		} T_END;
 	}
 
 	if (ctx->mail != NULL) {

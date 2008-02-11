@@ -259,9 +259,9 @@ static void auth_process_input(struct auth_process *process)
 	}
 
 	while ((line = i_stream_next_line(process->input)) != NULL) {
-		T_FRAME(
+		T_BEGIN {
 			ret = auth_process_input_line(process, line);
-		);
+		} T_END;
 		if (!ret) {
 			auth_process_destroy(process);
 			break;

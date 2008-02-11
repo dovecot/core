@@ -367,7 +367,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 	if (mbox->ibox.keep_recent)
 		flags |= MAIL_RECENT;
 
-	T_FRAME(
+	T_BEGIN {
 		/* create a new file in tmp/ directory */
 		const char *fname;
 
@@ -383,7 +383,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 
 			maildir_save_add(t, fname, flags, keywords, dest_mail);
 		}
-	);
+	} T_END;
 	if (ctx->failed)
 		return -1;
 
@@ -540,9 +540,9 @@ int maildir_save_finish(struct mail_save_context *ctx)
 {
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		ret = maildir_save_finish_real(ctx);
-	);
+	} T_END;
 	return ret;
 }
 
@@ -563,9 +563,9 @@ maildir_transaction_unlink_copied_files(struct maildir_save_context *ctx,
 	/* try to unlink the mails already moved */
 	for (mf = ctx->files; mf != pos; mf = mf->next) {
 		if ((mf->flags & MAILDIR_SAVE_FLAG_DELETED) == 0) {
-			T_FRAME(
+			T_BEGIN {
 				(void)unlink(maildir_mf_get_path(ctx, mf));
-			);
+			} T_END;
 		}
 	}
 	ctx->files = pos;
@@ -662,7 +662,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	ret = 0;
 	ctx->moving = TRUE;
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
-		T_FRAME(
+		T_BEGIN {
 			const char *dest;
 
 			newdir = maildir_get_updated_filename(ctx, mf, &dest);
@@ -678,7 +678,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 				ret = maildir_file_move(ctx, mf->basename,
 							dest, newdir);
 			}
-		);
+		} T_END;
 		if (ret < 0)
 			break;
 	}
@@ -686,7 +686,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	if (ret == 0 && ctx->uidlist_sync_ctx != NULL) {
 		/* everything was moved successfully. update our internal
 		   state. */
-		for (mf = ctx->files; mf != NULL; mf = mf->next) T_FRAME_BEGIN {
+		for (mf = ctx->files; mf != NULL; mf = mf->next) T_BEGIN {
 			const char *dest;
 			newdir = maildir_get_updated_filename(ctx, mf, &dest);
 
@@ -696,7 +696,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
 							dest, flags);
 			i_assert(ret > 0);
-		} T_FRAME_END;
+		} T_END;
 	}
 
 	if (ctx->uidlist_sync_ctx != NULL) {
@@ -797,7 +797,7 @@ maildir_transaction_save_rollback_real(struct maildir_save_context *ctx)
 
 void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 {
-	T_FRAME(
+	T_BEGIN {
 		maildir_transaction_save_rollback_real(ctx);
-	);
+	} T_END;
 }

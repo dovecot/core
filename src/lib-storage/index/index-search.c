@@ -150,9 +150,9 @@ static int search_arg_match_index(struct index_search_context *ctx,
 			flags |= MAIL_RECENT;
 		return (flags & arg->value.flags) == arg->value.flags;
 	case SEARCH_KEYWORDS:
-		T_FRAME(
+		T_BEGIN {
 			ret = search_arg_match_keywords(ctx, arg);
-		);
+		} T_END;
 		return ret;
 
 	default:
@@ -377,7 +377,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 		ret = 0;
 	else if (arg->type == SEARCH_HEADER_ADDRESS) {
 		/* we have to match against normalized address */
-		T_FRAME(
+		T_BEGIN {
 			struct message_address *addr;
 			string_t *str;
 
@@ -392,7 +392,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 			hdr.value_len = hdr.full_value_len = str_len(str);
 			block.hdr = &hdr;
 			ret = message_search_more(msg_search_ctx, &block);
-		);
+		} T_END;
 	} else {
 		block.hdr = ctx->hdr;
 		ret = message_search_more(msg_search_ctx, &block);
@@ -959,7 +959,7 @@ static void index_storage_search_notify(struct mailbox *box,
 			 ctx->search_start_time.tv_usec) / 1000;
 		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
 
-		T_FRAME(
+		T_BEGIN {
 			const char *text;
 
 			text = t_strdup_printf("Searched %d%% of the mailbox, "
@@ -968,7 +968,7 @@ static void index_storage_search_notify(struct mailbox *box,
 			box->storage->callbacks->
 				notify_ok(box, text,
 					  box->storage->callback_context);
-		);
+		} T_END;
 	}
 	ctx->last_notify = ioloop_timeval;
 }
@@ -1001,9 +1001,9 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	while ((ret = box->v.search_next_update_seq(_ctx)) > 0) {
 		mail_set_seq(mail, _ctx->seq);
 
-		T_FRAME(
+		T_BEGIN {
 			ret = search_match_next(ctx) ? 1 : 0;
-		);
+		} T_END;
 
 		mail_search_args_reset(ctx->mail_ctx.args, FALSE);
 

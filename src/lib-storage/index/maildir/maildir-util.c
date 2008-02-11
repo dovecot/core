@@ -29,22 +29,22 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
-		T_FRAME(
+		T_BEGIN {
 			const char *path;
 
 			path = t_strconcat(mbox->path, "/new/", fname, NULL);
 			ret = callback(mbox, path, context);
-		);
+		} T_END;
 		if (ret != 0)
 			return ret;
 	}
 
-	T_FRAME(
+	T_BEGIN {
 		const char *path;
 
 		path = t_strconcat(mbox->path, "/cur/", fname, NULL);
 		ret = callback(mbox, path, context);
-	);
+	} T_END;
 	return ret;
 }
 
@@ -147,8 +147,8 @@ bool maildir_set_deleted(struct maildir_mailbox *mbox)
 	}
 	/* maildir itself exists. create all of its subdirectories in case
 	   they got lost. */
-	T_FRAME(
+	T_BEGIN {
 		ret = maildir_create_subdirs(mbox);
-	);
+	} T_END;
 	return ret < 0 ? TRUE : FALSE;
 }

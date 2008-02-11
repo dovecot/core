@@ -412,9 +412,9 @@ void maildir_keywords_sync_deinit(struct maildir_keywords_sync_ctx **_ctx)
 
 	*_ctx = NULL;
 
-	T_FRAME(
+	T_BEGIN {
 		(void)maildir_keywords_commit(ctx->mk);
-	);
+	} T_END;
 
 	array_free(&ctx->idx_to_chr);
 	i_free(ctx);

@@ -168,7 +168,7 @@ client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx)
 	if (ctx->failed)
 		return -1;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *query;
 
 		query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_BEGIN,
@@ -177,7 +177,7 @@ client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx)
 			ctx->failed = TRUE;
 		else
 			ctx->connect_counter = dict->connect_counter;
-	);
+	} T_END;
 
 	return ctx->failed ? -1 : 0;
 }
@@ -341,13 +341,13 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool,
 	const char *line;
 	int ret;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *query;
 
 		query = t_strdup_printf("%c%s\n", DICT_PROTOCOL_CMD_LOOKUP,
 					dict_client_escape(key));
 		ret = client_dict_send_query(dict, query);
-	);
+	} T_END;
 	if (ret < 0)
 		return -1;
 
@@ -380,14 +380,14 @@ client_dict_iterate_init(struct dict *_dict, const char *path,
 	ctx->ctx.dict = _dict;
 	ctx->pool = pool_alloconly_create("client dict iteration", 512);
 
-	T_FRAME(
+	T_BEGIN {
 		const char *query;
 
 		query = t_strdup_printf("%c%d\t%s\n", DICT_PROTOCOL_CMD_ITERATE,
 					flags, dict_client_escape(path));
 		if (client_dict_send_query(dict, query) < 0)
 			ctx->failed = TRUE;
-	);
+	} T_END;
 	return &ctx->ctx;
 }
 
@@ -459,7 +459,7 @@ static int client_dict_transaction_commit(struct dict_transaction_context *_ctx)
 	struct client_dict *dict = (struct client_dict *)_ctx->dict;
 	int ret = ctx->failed ? -1 : 0;
 
-	if (ctx->sent_begin) T_FRAME_BEGIN {
+	if (ctx->sent_begin) T_BEGIN {
 		const char *query, *line;
 
 		query = t_strdup_printf("%c%u\n", !ctx->failed ?
@@ -473,7 +473,7 @@ static int client_dict_transaction_commit(struct dict_transaction_context *_ctx)
 			if (line == NULL || *line != DICT_PROTOCOL_REPLY_OK)
 				ret = -1;
 		}
-	} T_FRAME_END;
+	} T_END;
 
 	i_free(ctx);
 	return ret;
@@ -485,13 +485,13 @@ client_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	struct client_dict_transaction_context *ctx =
 		(struct client_dict_transaction_context *)_ctx;
 
-	if (ctx->sent_begin) T_FRAME_BEGIN {
+	if (ctx->sent_begin) T_BEGIN {
 		const char *query;
 
 		query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_ROLLBACK,
 					ctx->id);
 		(void)client_dict_send_transaction_query(ctx, query);
-	} T_FRAME_END;
+	} T_END;
 
 	i_free(ctx);
 }
@@ -502,7 +502,7 @@ static void client_dict_set(struct dict_transaction_context *_ctx,
 	struct client_dict_transaction_context *ctx =
 		(struct client_dict_transaction_context *)_ctx;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *query;
 
 		query = t_strdup_printf("%c%u\t%s\t%s\n",
@@ -510,7 +510,7 @@ static void client_dict_set(struct dict_transaction_context *_ctx,
 					dict_client_escape(key),
 					dict_client_escape(value));
 		(void)client_dict_send_transaction_query(ctx, query);
-	);
+	} T_END;
 }
 
 static void client_dict_unset(struct dict_transaction_context *_ctx,
@@ -519,14 +519,14 @@ static void client_dict_unset(struct dict_transaction_context *_ctx,
 	struct client_dict_transaction_context *ctx =
 		(struct client_dict_transaction_context *)_ctx;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *query;
 
 		query = t_strdup_printf("%c%u\t%s\n",
 					DICT_PROTOCOL_CMD_UNSET, ctx->id,
 					dict_client_escape(key));
 		(void)client_dict_send_transaction_query(ctx, query);
-	);
+	} T_END;
 }
 
 static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
@@ -535,13 +535,13 @@ static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	struct client_dict_transaction_context *ctx =
 		(struct client_dict_transaction_context *)_ctx;
 
-	T_FRAME(
+	T_BEGIN {
 		const char *query;
 		query = t_strdup_printf("%c%u\t%s\t%lld\n",
 					DICT_PROTOCOL_CMD_ATOMIC_INC,
 					ctx->id, dict_client_escape(key), diff);
 		(void)client_dict_send_transaction_query(ctx, query);
-	);
+	} T_END;
 }
 
 struct dict dict_driver_client = {

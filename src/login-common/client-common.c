@@ -144,7 +144,7 @@ static void client_syslog_real(struct client *client, const char *msg)
 
 void client_syslog(struct client *client, const char *msg)
 {
-	T_FRAME(
+	T_BEGIN {
 		client_syslog_real(client, msg);
-	);
+	} T_END;
 }
