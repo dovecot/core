@@ -2,6 +2,7 @@
 
 extern "C" {
 #include "lib.h"
+#include "array.h"
 #include "env-util.h"
 #include "unichar.h"
 #include "str.h"
@@ -283,6 +284,8 @@ lucene_doc_get_uid(struct lucene_index *index, Document *doc,
 static int
 lucene_index_get_last_uid_int(struct lucene_index *index, bool delete_old)
 {
+	ARRAY_TYPE(uint32_t) delete_doc_ids;
+	uint32_t del_id;
 	int ret = 0;
 	bool deleted = false;
 
@@ -304,6 +307,8 @@ lucene_index_get_last_uid_int(struct lucene_index *index, bool delete_old)
 	query.add(&mailbox_query, true, false);
 	query.add(&last_uid_query, true, false);
 
+	t_push();
+	t_array_init(&delete_doc_ids, 10);
 	int32_t last_doc_id = -1;
 	try {
 		Hits *hits = index->searcher->search(&query);
@@ -317,19 +322,28 @@ lucene_index_get_last_uid_int(struct lucene_index *index, bool delete_old)
 				break;
 			}
 
-			int32_t del_id = -1;
 			if (uid > index->last_uid) {
-				if (last_doc_id >= 0)
+				if (last_doc_id >= 0) {
 					del_id = last_doc_id;
+					array_append_i(&delete_doc_ids.arr,
+						       (void *)&del_id, 1);
+				}
 				index->last_uid = uid;
 				last_doc_id = hits->id(i);
 			} else {
 				del_id = hits->id(i);
+				array_append_i(&delete_doc_ids.arr,
+					       (void *)&del_id, 1);
 			}
-			if (del_id >= 0 && delete_old) {
-				index->reader->deleteDocument(del_id);
-				deleted = true;
-			}
+		}
+		if (delete_old && array_count(&delete_doc_ids) > 0) {
+			const uint32_t *ids;
+			unsigned int i, count;
+
+			ids = array_get(&delete_doc_ids, &count);
+			for (i = 0; i < count; i++)
+				index->reader->deleteDocument(ids[i]);
+			deleted = true;
 		}
 		index->lock_error = FALSE;
 		_CLDELETE(hits);
@@ -343,6 +357,7 @@ lucene_index_get_last_uid_int(struct lucene_index *index, bool delete_old)
 		   before opening a writer */
 		lucene_index_close(index);
 	}
+	t_pop();
 	return ret;
 }
 
