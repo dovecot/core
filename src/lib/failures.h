@@ -49,6 +49,13 @@ void i_set_fatal_handler(fatal_failure_callback_t *callback);
 void i_set_error_handler(failure_callback_t *callback);
 void i_set_info_handler(failure_callback_t *callback);
 
+/* Send failures to file. */
+void default_fatal_handler(enum log_type type, int status,
+			   const char *format, va_list args)
+	ATTR_NORETURN ATTR_FORMAT(3, 0);
+void default_error_handler(enum log_type type, const char *format, va_list args)
+	ATTR_FORMAT(2, 0);
+
 /* Send failures to syslog() */
 void i_syslog_fatal_handler(enum log_type type, int status,
 			    const char *fmt, va_list args)

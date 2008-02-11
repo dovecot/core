@@ -25,12 +25,6 @@ static char log_type_internal_chars[] = {
 	'I', 'W', 'E', 'F', 'P'
 };
 
-static void default_fatal_handler(enum log_type type, int status,
-				  const char *format, va_list args)
-	ATTR_NORETURN ATTR_FORMAT(3, 0);
-static void default_error_handler(enum log_type type, const char *format,
-				  va_list args) ATTR_FORMAT(2, 0);
-
 /* Initialize working defaults */
 static fatal_failure_callback_t *fatal_handler ATTR_NORETURN =
 	default_fatal_handler;
@@ -144,9 +138,8 @@ default_handler(const char *prefix, int fd, const char *format, va_list args)
 	return ret;
 }
 
-static void ATTR_FORMAT(3, 0)
-default_fatal_handler(enum log_type type, int status,
-		      const char *format, va_list args)
+void default_fatal_handler(enum log_type type, int status,
+			   const char *format, va_list args)
 {
 	const char *backtrace;
 
@@ -165,8 +158,7 @@ default_fatal_handler(enum log_type type, int status,
 		failure_exit(status);
 }
 
-static void ATTR_FORMAT(2, 0)
-default_error_handler(enum log_type type, const char *format, va_list args)
+void default_error_handler(enum log_type type, const char *format, va_list args)
 {
 	int fd = type == LOG_TYPE_INFO ? log_info_fd : log_fd;
 
