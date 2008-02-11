@@ -148,6 +148,8 @@ static void squat_trie_close_fd(struct squat_trie *trie)
 	if (trie->mmap_size != 0) {
 		if (munmap(trie->mmap_base, trie->mmap_size) < 0)
 			i_error("munmap(%s) failed: %m", trie->path);
+		trie->mmap_base = NULL;
+		trie->mmap_size = 0;
 	}
 	if (trie->fd != -1) {
 		if (close(trie->fd) < 0)
