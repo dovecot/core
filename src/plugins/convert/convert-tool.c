@@ -70,5 +70,5 @@ int main(int argc, const char *argv[])
 	mail_storage_deinit();
 	lib_signals_deinit();
 	lib_deinit();
-	return ret;
+	return ret <= 0 ? 1 : 0;
 }
