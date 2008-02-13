@@ -383,6 +383,9 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 static int sync_header_update(const struct mail_transaction_header_update *u,
 			      struct mail_index_sync_map_ctx *ctx)
 {
+#define MAIL_INDEX_HEADER_UPDATE_FIELD_IN_RANGE(u, field) \
+	((u)->offset <= offsetof(struct mail_index_header, field) && \
+	 (u)->offset + (u)->size > offsetof(struct mail_index_header, field))
 	struct mail_index_map *map = ctx->view->map;
 	uint32_t orig_log_file_tail_offset = map->hdr.log_file_tail_offset;
 	uint32_t orig_next_uid = map->hdr.next_uid;
@@ -410,11 +413,6 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	}
 
 	/* UIDVALIDITY can be changed only by resetting the index */
-#define MAIL_INDEX_HEADER_UPDATE_FIELD_IN_RANGE(u, field) \
-	((u)->offset <= offsetof(struct mail_index_header, field) && \
-	 (u)->offset + (u)->size > offsetof(struct mail_index_header, field))
-
-
 	if (orig_uid_validity != 0 &&
 	    MAIL_INDEX_HEADER_UPDATE_FIELD_IN_RANGE(u, uid_validity)) {
 		mail_index_sync_set_corrupted(ctx,
