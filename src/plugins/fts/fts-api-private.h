@@ -41,10 +41,10 @@ enum fts_backend_flags {
 
 struct fts_backend {
 	const char *name;
-	struct mailbox *box;
 	enum fts_backend_flags flags;
 
 	struct fts_backend_vfuncs v;
+	struct mailbox *box;
 
 	unsigned int locked:1;
 	unsigned int building:1;
