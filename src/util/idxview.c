@@ -100,7 +100,10 @@ static void dump_extensions(struct mail_index *index)
 	const struct mail_index_ext *extensions;
 	unsigned int i, count;
 
-	extensions = array_get(&index->map->extensions, &count);
+	if (array_is_created(&index->map->extensions))
+		extensions = array_get(&index->map->extensions, &count);
+	else
+		count = 0;
 	if (count == 0) {
 		printf("no extensions\n");
 		return;
