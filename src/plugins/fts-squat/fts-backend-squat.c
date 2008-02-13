@@ -192,7 +192,7 @@ fts_backend_squat_lookup(struct fts_backend *_backend, const char *key,
 		squat_type |= SQUAT_INDEX_TYPE_BODY;
 	i_assert(squat_type != 0);
 
-	return squat_trie_lookup(backend->trie, key, flags,
+	return squat_trie_lookup(backend->trie, key, squat_type,
 				 definite_uids, maybe_uids);
 }
 
