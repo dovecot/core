@@ -17,15 +17,15 @@ int message_search_init(pool_t pool, const char *key, const char *charset,
 			struct message_search_context **ctx_r);
 void message_search_deinit(struct message_search_context **ctx);
 
-/* Returns 1 if key is found from input buffer, 0 if not and -1 if error
-   occurred */
-int message_search_more(struct message_search_context *ctx,
-			struct message_block *raw_block);
+/* Returns TRUE if key is found from input buffer, FALSE if not. */
+bool message_search_more(struct message_search_context *ctx,
+			 struct message_block *raw_block);
 /* The data has already passed through decoder. */
-int message_search_more_decoded(struct message_search_context *ctx,
-				struct message_block *block);
+bool message_search_more_decoded(struct message_search_context *ctx,
+				 struct message_block *block);
 void message_search_reset(struct message_search_context *ctx);
-/* Search a full message. */
+/* Search a full message. Returns 1 if match was found, 0 if not,
+   -1 if error (if stream_error == 0, the parts contained broken data) */
 int message_search_msg(struct message_search_context *ctx,
 		       struct istream *input, const struct message_part *parts);
 

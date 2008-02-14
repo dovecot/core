@@ -128,21 +128,21 @@ static bool search_header(struct message_search_context *ctx,
 		 str_find_more(ctx->str_find_ctx, crlf, 2));
 }
 
-static int message_search_more_decoded2(struct message_search_context *ctx,
-					struct message_block *block)
+static bool message_search_more_decoded2(struct message_search_context *ctx,
+					 struct message_block *block)
 {
 	if (block->hdr != NULL) {
 		if (search_header(ctx, block->hdr))
-			return 1;
+			return TRUE;
 	} else {
 		if (str_find_more(ctx->str_find_ctx, block->data, block->size))
-			return 1;
+			return TRUE;
 	}
-	return 0;
+	return FALSE;
 }
 
-int message_search_more(struct message_search_context *ctx,
-			struct message_block *raw_block)
+bool message_search_more(struct message_search_context *ctx,
+			 struct message_block *raw_block)
 {
 	struct message_header_line *hdr = raw_block->hdr;
 	struct message_block block;
@@ -161,31 +161,31 @@ int message_search_more(struct message_search_context *ctx,
 			   but decoder needs some headers so that it can
 			   decode the body properly. */
 			if (hdr->name_len != 12 && hdr->name_len != 25)
-				return 0;
+				return FALSE;
 			if (strcasecmp(hdr->name, "Content-Type") != 0 &&
 			    strcasecmp(hdr->name,
 				       "Content-Transfer-Encoding") != 0)
-				return 0;
+				return FALSE;
 		}
 	} else {
 		/* body */
 		if (!ctx->content_type_text)
-			return 0;
+			return FALSE;
 	}
 	if (!message_decoder_decode_next_block(ctx->decoder, raw_block, &block))
-		return 0;
+		return FALSE;
 
 	if (block.hdr != NULL &&
 	    (ctx->flags & MESSAGE_SEARCH_FLAG_SKIP_HEADERS) != 0) {
 		/* Content-* header */
-		return 0;
+		return FALSE;
 	}
 
 	return message_search_more_decoded2(ctx, &block);
 }
 
-int message_search_more_decoded(struct message_search_context *ctx,
-				struct message_block *block)
+bool message_search_more_decoded(struct message_search_context *ctx,
+				 struct message_block *block)
 {
 	if (block->part != ctx->prev_part) {
 		/* part changes */
