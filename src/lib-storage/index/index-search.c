@@ -330,6 +330,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 	struct message_block block;
 	struct message_header_line hdr;
 	int ret;
+	bool match;
 
 	/* first check that the field name matches to argument. */
 	switch (arg->type) {
@@ -374,7 +375,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 	memset(&block, 0, sizeof(block));
 	msg_search_ctx = msg_search_arg_context(ctx->index_context, arg);
 	if (msg_search_ctx == NULL)
-		ret = 0;
+		match = FALSE;
 	else if (arg->type == SEARCH_HEADER_ADDRESS) {
 		/* we have to match against normalized address */
 		T_BEGIN {
@@ -391,17 +392,18 @@ static void search_header_arg(struct mail_search_arg *arg,
 			hdr.value = hdr.full_value = str_data(str);
 			hdr.value_len = hdr.full_value_len = str_len(str);
 			block.hdr = &hdr;
-			ret = message_search_more(msg_search_ctx, &block);
+			match = message_search_more(msg_search_ctx, &block);
 		} T_END;
 	} else {
 		block.hdr = ctx->hdr;
-		ret = message_search_more(msg_search_ctx, &block);
+		match = message_search_more(msg_search_ctx, &block);
 	}
 
-	if (ret > 0 ||
+	if (match ||
 	    (arg->type != SEARCH_HEADER &&
 	     arg->type != SEARCH_HEADER_ADDRESS)) {
 		/* set only when we definitely know if it's a match */
+		ret = match ? 1 : 0;
 		ARG_SET_RESULT(arg, ret);
 	}
 }
