@@ -214,7 +214,8 @@ message_search_msg_real(struct message_search_context *ctx,
 		MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
 	struct message_parser_ctx *parser_ctx;
 	struct message_block raw_block;
-	int ret = 0;
+	struct message_part *new_parts;
+	int ret;
 
 	message_search_reset(ctx);
 
@@ -229,13 +230,21 @@ message_search_msg_real(struct message_search_context *ctx,
 
 	while ((ret = message_parser_parse_next_block(parser_ctx,
 						      &raw_block)) > 0) {
-		if ((ret = message_search_more(ctx, &raw_block)) != 0)
+		if (message_search_more(ctx, &raw_block)) {
+			ret = 1;
 			break;
+		}
 	}
 	i_assert(ret != 0);
-	if (ret < 0 && input->stream_errno == 0)
+	if (ret < 0 && input->stream_errno == 0) {
+		/* normal exit */
 		ret = 0;
-	(void)message_parser_deinit(&parser_ctx);
+	}
+	if (message_parser_deinit(&parser_ctx, &new_parts) < 0) {
+		/* broken parts */
+		input->stream_errno = 0;
+		ret = -1;
+	}
 	return ret;
 }
 

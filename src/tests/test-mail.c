@@ -219,7 +219,8 @@ static void test_message_parser(void)
 	parser = message_parser_init(pool, input, 0, 0);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	i_assert(ret < 0);
-	parts = message_parser_deinit(&parser);
+	ret = message_parser_deinit(&parser, &parts);
+	i_assert(ret == 0);
 	i_stream_unref(&input);
 
 	input = test_istream_create(test_msg);
@@ -234,7 +235,8 @@ static void test_message_parser(void)
 			break;
 		}
 	}
-	parts2 = message_parser_deinit(&parser);
+	ret = message_parser_deinit(&parser, &parts2);
+	i_assert(ret == 0);
 	i_stream_unref(&input);
 
 	if (!msg_parts_cmp(parts, parts2))

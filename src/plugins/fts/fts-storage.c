@@ -108,7 +108,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 	struct message_parser_ctx *parser;
 	struct message_decoder_context *decoder;
 	struct message_block raw_block, block;
-	struct message_part *prev_part;
+	struct message_part *prev_part, *parts;
 	int ret;
 
 	ctx->uid = uid;
@@ -153,7 +153,8 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 			}
 		}
 	}
-	(void)message_parser_deinit(&parser);
+	if (message_parser_deinit(&parser, &parts) < 0)
+		mail_set_cache_corrupted(ctx->mail, MAIL_FETCH_MESSAGE_PARTS);
 	message_decoder_deinit(&decoder);
 
 	if (ret == 0) {
