@@ -467,5 +467,7 @@ void mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 
 /* Expunge this message. Sequence numbers don't change until commit. */
 void mail_expunge(struct mail *mail);
+/* Mark a cached field corrupted and have it recalculated. */
+void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field);
 
 #endif

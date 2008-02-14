@@ -478,18 +478,14 @@ static void search_body(struct mail_search_arg *arg,
 
 	i_stream_seek(ctx->input, 0);
 	ret = message_search_msg(msg_search_ctx, ctx->input, ctx->part);
-	if (ret < 0) {
-		mail_cache_set_corrupted(ctx->index_ctx->ibox->cache,
-			"Broken message structure for mail UID %u",
-			ctx->index_ctx->mail->uid);
-
-		/* get the body parts, and try again */
-		ctx->index_ctx->imail->data.parts = NULL;
+	if (ret < 0 && ctx->input->stream_errno == 0) {
+		/* try again without cached parts */
+		mail_set_cache_corrupted(ctx->index_ctx->mail,
+					 MAIL_FETCH_MESSAGE_PARTS);
 
 		i_stream_seek(ctx->input, 0);
 		ret = message_search_msg(msg_search_ctx, ctx->input, NULL);
-		if (ret < 0)
-			i_panic("Couldn't fix broken body structure");
+		i_assert(ret >= 0 || ctx->input->stream_errno != 0);
 	}
 
 	ARG_SET_RESULT(arg, ret > 0);

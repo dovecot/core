@@ -238,6 +238,8 @@ struct mail_vfuncs {
 	void (*update_keywords)(struct mail *mail, enum modify_type modify_type,
 				struct mail_keywords *keywords);
 	void (*expunge)(struct mail *mail);
+	void (*set_cache_corrupted)(struct mail *mail,
+				    enum mail_fetch_field field);
 };
 
 union mail_module_context {

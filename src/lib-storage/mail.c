@@ -186,3 +186,10 @@ void mail_set_expunged(struct mail *mail)
 			       "Message was expunged");
 	mail->expunged = TRUE;
 }
+
+void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	p->v.set_cache_corrupted(mail, field);
+}

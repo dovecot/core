@@ -291,5 +291,6 @@ struct mail_vfuncs mbox_mail_vfuncs = {
 	mbox_mail_get_special,
 	index_mail_update_flags,
 	index_mail_update_keywords,
-	index_mail_expunge
+	index_mail_expunge,
+	index_mail_set_cache_corrupted
 };
