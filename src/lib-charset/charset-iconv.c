@@ -104,7 +104,8 @@ charset_to_utf8_try(struct charset_translation *t,
 	else {
 		/* should be EILSEQ */
 		*result = CHARSET_RET_INVALID_INPUT;
-		buffer_set_used_size(dest, dest->used - destleft);
+		if (!dtcase)
+			buffer_set_used_size(dest, dest->used - destleft);
 		uni_ucs4_to_utf8_c(UNICODE_REPLACEMENT_CHAR, dest);
 		return TRUE;
 	}
