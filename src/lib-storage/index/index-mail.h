@@ -191,6 +191,8 @@ void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 				struct mail_keywords *keywords);
 void index_mail_expunge(struct mail *mail);
+void index_mail_set_cache_corrupted(struct mail *mail,
+				    enum mail_fetch_field field);
 
 bool index_mail_get_cached_uoff_t(struct index_mail *mail,
 				  enum index_cache_field field, uoff_t *size_r);

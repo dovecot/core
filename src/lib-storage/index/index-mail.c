@@ -909,10 +909,8 @@ int index_mail_get_special(struct mail *_mail,
 				data->body = str_c(str);
 			else {
 				/* broken, continue.. */
-				mail_cache_set_corrupted(mail->ibox->cache,
-					"Corrupted BODYSTRUCTURE for mail %u",
-					mail->mail.mail.uid);
-				data->bodystructure = NULL;
+				mail_set_cache_corrupted(_mail,
+					MAIL_FETCH_IMAP_BODYSTRUCTURE);
 			}
 		}
 
@@ -1319,4 +1317,35 @@ void index_mail_expunge(struct mail *mail)
 	struct index_mail *imail = (struct index_mail *)mail;
 
 	mail_index_expunge(imail->trans->trans, mail->seq);
+}
+
+void index_mail_set_cache_corrupted(struct mail *mail,
+				    enum mail_fetch_field field)
+{
+	struct index_mail *imail = (struct index_mail *)mail;
+	const char *field_name;
+
+	switch (field) {
+	case MAIL_FETCH_MESSAGE_PARTS:
+		field_name = "MIME parts";
+		imail->data.parts = NULL;
+		break;
+	case MAIL_FETCH_IMAP_BODY:
+		field_name = "IMAP BODY";
+		imail->data.body = NULL;
+		imail->data.bodystructure = NULL;
+		break;
+	case MAIL_FETCH_IMAP_BODYSTRUCTURE:
+		field_name = "IMAP BODYSTRUCTURE";
+		imail->data.body = NULL;
+		imail->data.bodystructure = NULL;
+		break;
+	default:
+		field_name = t_strdup_printf("#%x", field);
+	}
+
+	mail_cache_set_corrupted(imail->ibox->cache,
+				 "Broken %s for mail UID %u",
+				 field_name, mail->uid);
+
 }
