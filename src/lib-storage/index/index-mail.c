@@ -702,7 +702,12 @@ static void index_mail_cache_dates(struct index_mail *mail)
 static void index_mail_parse_body_finish(struct index_mail *mail,
 					 enum index_cache_field field)
 {
-	mail->data.parts = message_parser_deinit(&mail->data.parser_ctx);
+	if (message_parser_deinit(&mail->data.parser_ctx,
+				  &mail->data.parts) < 0) {
+		mail_set_cache_corrupted(&mail->mail.mail,
+					 MAIL_FETCH_MESSAGE_PARTS);
+		return;
+	}
 
 	(void)get_cached_msgpart_sizes(mail);
 
@@ -1026,14 +1031,19 @@ void index_mail_init(struct index_mail *mail,
 void index_mail_close(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+	struct message_part *parts;
 
 	if (mail->mail.mail.seq != 0) {
 		index_mail_cache_sizes(mail);
 		index_mail_cache_dates(mail);
 	}
 
-	if (mail->data.parser_ctx != NULL)
-		(void)message_parser_deinit(&mail->data.parser_ctx);
+	if (mail->data.parser_ctx != NULL) {
+		if (message_parser_deinit(&mail->data.parser_ctx, &parts) < 0) {
+			mail_set_cache_corrupted(_mail,
+						 MAIL_FETCH_MESSAGE_PARTS);
+		}
+	}
 	if (mail->data.filter_stream != NULL)
 		i_stream_unref(&mail->data.filter_stream);
 	if (mail->data.stream != NULL) {

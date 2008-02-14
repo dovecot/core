@@ -78,7 +78,10 @@ message_parser_init_from_parts(struct message_part *parts,
 			       struct istream *input,
 			       enum message_header_parser_flags hdr_flags,
 			       enum message_parser_flags flags);
-struct message_part *message_parser_deinit(struct message_parser_ctx **ctx);
+/* Returns 0 if parts were returned, -1 we used preparsed parts and they
+   didn't match the current message */
+int message_parser_deinit(struct message_parser_ctx **ctx,
+			  struct message_part **parts_r);
 
 /* Read the next block of a message. Returns 1 if block is returned, 0 if
    input stream is non-blocking and more data needs to be read, -1 when all is

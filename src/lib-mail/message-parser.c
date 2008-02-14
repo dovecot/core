@@ -41,6 +41,7 @@ struct message_parser_ctx {
 				struct message_block *block_r);
 
 	unsigned int part_seen_content_type:1;
+	unsigned int broken:1;
 };
 
 message_part_header_callback_t *null_message_part_header_callback = NULL;
@@ -663,6 +664,11 @@ static int preparsed_parse_next_header(struct message_parser_ctx *ctx,
 	/* return empty block as end of headers */
 	block_r->hdr = NULL;
 	block_r->size = 0;
+
+	i_assert(ctx->skip == 0);
+	if (ctx->input->v_offset != ctx->part->physical_pos +
+	    ctx->part->header_size.physical_size)
+		ctx->broken = TRUE;
 	return 1;
 }
 
@@ -718,15 +724,18 @@ message_parser_init_from_parts(struct message_part *parts,
 	return ctx;
 }
 
-struct message_part *message_parser_deinit(struct message_parser_ctx **_ctx)
+int message_parser_deinit(struct message_parser_ctx **_ctx,
+			  struct message_part **parts_r)
 {
         struct message_parser_ctx *ctx = *_ctx;
-	struct message_part *parts = ctx->parts;
+	int ret = ctx->broken ? -1 : 0;
 
 	*_ctx = NULL;
+	*parts_r = ctx->parts;
+
 	i_stream_unref(&ctx->input);
 	pool_unref(&ctx->parser_pool);
-	return parts;
+	return ret;
 }
 
 int message_parser_parse_next_block(struct message_parser_ctx *ctx,

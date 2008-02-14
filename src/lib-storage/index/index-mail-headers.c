@@ -380,9 +380,10 @@ index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 static void index_mail_init_parser(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
+	struct message_part *parts;
 
 	if (data->parser_ctx != NULL)
-		(void)message_parser_deinit(&data->parser_ctx);
+		(void)message_parser_deinit(&data->parser_ctx, &parts);
 
 	if (data->parts == NULL) {
 		data->parser_ctx = message_parser_init(mail->data_pool,
