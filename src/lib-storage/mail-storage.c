@@ -35,6 +35,7 @@ static ARRAY_DEFINE(storages, struct mail_storage *);
 
 void mail_storage_init(void)
 {
+	mailbox_lists_init();
 	i_array_init(&storages, 8);
 }
 
@@ -42,6 +43,7 @@ void mail_storage_deinit(void)
 {
 	if (array_is_created(&storages))
 		array_free(&storages);
+	mailbox_lists_deinit();
 }
 
 void mail_storage_class_register(struct mail_storage *storage_class)

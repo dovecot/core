@@ -96,6 +96,9 @@ extern struct mailbox_list_module_register mailbox_list_module_register;
 
 extern void (*hook_mailbox_list_created)(struct mailbox_list *list);
 
+void mailbox_lists_init(void);
+void mailbox_lists_deinit(void);
+
 int mailbox_list_settings_parse(const char *data,
 				struct mailbox_list_settings *set,
 				const char **layout, const char **alt_dir_r,
