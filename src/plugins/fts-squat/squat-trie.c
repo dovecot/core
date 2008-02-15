@@ -1860,6 +1860,20 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 	array_clear(definite_uids);
 	array_clear(maybe_uids);
 
+	str_bytelen = strlen(str);
+	if (str_bytelen == 0) {
+		/* list all root UIDs */
+		i_array_init(&ctx.tmp_uids, 128);
+		ret = squat_uidlist_get_seqrange(trie->uidlist,
+						 trie->root.uid_list_idx,
+						 &ctx.tmp_uids);
+		squat_trie_filter_type(type, &ctx.tmp_uids,
+				       definite_uids);
+		squat_trie_add_unknown(trie, maybe_uids);
+		array_free(&ctx.tmp_uids);
+		return ret;
+	}
+
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.trie = trie;
 	ctx.type = type;
@@ -1869,7 +1883,6 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 	i_array_init(&ctx.tmp_uids2, 128);
 	ctx.first = TRUE;
 
-	str_bytelen = strlen(str);
 	char_lengths = t_malloc0(str_bytelen);
 	for (i = 0, str_charlen = 0; i < str_bytelen; str_charlen++) {
 		bytes = uni_utf8_char_bytes(str[i]);
