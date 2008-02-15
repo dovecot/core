@@ -33,6 +33,16 @@ void (*hook_mailbox_list_created)(struct mailbox_list *list);
 
 static ARRAY_DEFINE(mailbox_list_drivers, const struct mailbox_list *);
 
+void mailbox_lists_init(void)
+{
+	i_array_init(&mailbox_list_drivers, 4);
+}
+
+void mailbox_lists_deinit(void)
+{
+	array_free(&mailbox_list_drivers);
+}
+
 static bool mailbox_list_driver_find(const char *name, unsigned int *idx_r)
 {
 	const struct mailbox_list *const *drivers;
@@ -50,15 +60,11 @@ static bool mailbox_list_driver_find(const char *name, unsigned int *idx_r)
 
 void mailbox_list_register(const struct mailbox_list *list)
 {
-	if (!array_is_created(&mailbox_list_drivers))
-		i_array_init(&mailbox_list_drivers, 4);
-	else {
-		unsigned int idx;
+	unsigned int idx;
 
-		if (mailbox_list_driver_find(list->name, &idx)) {
-			i_fatal("mailbox_list_register(%s): duplicate driver",
-				list->name);
-		}
+	if (mailbox_list_driver_find(list->name, &idx)) {
+		i_fatal("mailbox_list_register(%s): duplicate driver",
+			list->name);
 	}
 
 	array_append(&mailbox_list_drivers, &list, 1);
@@ -73,9 +79,6 @@ void mailbox_list_unregister(const struct mailbox_list *list)
 			list->name);
 	}
 	array_delete(&mailbox_list_drivers, idx, 1);
-
-	if (array_count(&mailbox_list_drivers) == 0)
-		array_free(&mailbox_list_drivers);
 }
 
 int mailbox_list_alloc(const char *driver, struct mailbox_list **list_r,

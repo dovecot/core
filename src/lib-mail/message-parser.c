@@ -733,6 +733,8 @@ int message_parser_deinit(struct message_parser_ctx **_ctx,
 	*_ctx = NULL;
 	*parts_r = ctx->parts;
 
+	if (ctx->hdr_parser_ctx != NULL)
+		message_parse_header_deinit(&ctx->hdr_parser_ctx);
 	i_stream_unref(&ctx->input);
 	pool_unref(&ctx->parser_pool);
 	return ret;
