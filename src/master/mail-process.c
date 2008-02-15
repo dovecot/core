@@ -597,8 +597,10 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		}
 	}
 
-	if (*chroot_dir == '\0' && (p = strstr(home_dir, "/./")) != NULL) {
-		/* wu-ftpd like <chroot>/./<home> */
+	if (*chroot_dir == '\0' && *set->valid_chroot_dirs != '\0' &&
+	    (p = strstr(home_dir, "/./")) != NULL) {
+		/* wu-ftpd like <chroot>/./<home> - check only if there's even
+		   a possibility of using them (non-empty valid_chroot_dirs)*/
 		chroot_dir = t_strdup_until(home_dir, p);
 		home_dir = p + 2;
 	} else if (*chroot_dir != '\0' && *home_dir != '/') {
