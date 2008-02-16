@@ -109,9 +109,10 @@ static void node_free(struct squat_trie *trie, struct squat_node *node)
 	struct squat_node *children;
 	unsigned int i;
 
-	if (NODE_IS_DYNAMIC_LEAF(node))
-		i_free(node->children.leaf_string);
-	else if (!node->children_not_mapped && node->child_count > 0) {
+	if (node->leaf_string_length > 0) {
+		if (NODE_IS_DYNAMIC_LEAF(node))
+			i_free(node->children.leaf_string);
+	} else if (!node->children_not_mapped) {
 		children = NODE_CHILDREN_NODES(node);
 
 		trie->node_alloc_size -=
@@ -915,7 +916,8 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 	return ret;
 }
 
-static void node_drop_unused_children(struct squat_node *node)
+static void
+node_drop_unused_children(struct squat_trie *trie, struct squat_node *node)
 {
 	unsigned char *chars;
 	struct squat_node *children_src, *children_dest;
@@ -938,6 +940,8 @@ static void node_drop_unused_children(struct squat_node *node)
 	for (i = j = 0; i < orig_child_count; i++) {
 		if (children_src[i].next_uid != 0)
 			children_dest[j++] = children_src[i];
+		else
+			node_free(trie, &children_src[i]);
 	}
 }
 
@@ -960,7 +964,7 @@ squat_write_node(struct squat_trie_build_context *ctx, struct squat_node *node,
 	}
 
 	node->have_sequential = FALSE;
-	node_drop_unused_children(node);
+	node_drop_unused_children(trie, node);
 
 	child_count = node->child_count;
 	if (child_count == 0) {
@@ -1245,7 +1249,7 @@ squat_trie_expunge_uidlists(struct squat_trie_build_context *ctx,
 			    const ARRAY_TYPE(seq_range) *expunged_uids)
 {
 	struct squat_node *node;
-	ARRAY_TYPE(seq_range) uid_range, shifts;
+	ARRAY_TYPE(seq_range) uid_range, root_shifts, shifts;
 	bool shift = FALSE;
 	int ret = 0;
 
@@ -1254,9 +1258,10 @@ squat_trie_expunge_uidlists(struct squat_trie_build_context *ctx,
 		return 0;
 
 	i_array_init(&uid_range, 1024);
-	i_array_init(&shifts, array_count(expunged_uids));
-	array_append_array(&shifts, expunged_uids);
+	i_array_init(&root_shifts, array_count(expunged_uids));
+	array_append_array(&root_shifts, expunged_uids);
 
+	shifts = root_shifts;
 	do {
 		i_assert(node->uid_list_idx != 0);
 		array_clear(&uid_range);
@@ -1277,6 +1282,7 @@ squat_trie_expunge_uidlists(struct squat_trie_build_context *ctx,
 		shift = TRUE;
 	} while (node != NULL);
 	array_free(&uid_range);
+	array_free(&root_shifts);
 	return ret;
 }
 
@@ -1518,6 +1524,7 @@ static int squat_trie_write_lock(struct squat_trie_build_context *ctx)
 static int squat_trie_write(struct squat_trie_build_context *ctx)
 {
 	struct squat_trie *trie = ctx->trie;
+	struct file_lock *file_lock = NULL;
 	struct ostream *output;
 	const char *path;
 	int fd = -1, ret = 0;
@@ -1534,7 +1541,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 			return -1;
 		}
 		ret = file_wait_lock(fd, path, F_WRLCK, trie->lock_method,
-				     SQUAT_TRIE_LOCK_TIMEOUT, &ctx->file_lock);
+				     SQUAT_TRIE_LOCK_TIMEOUT, &file_lock);
 		if (ret <= 0) {
 			if (ret == 0)
 				i_error("file_wait_lock(%s) failed: %m", path);
@@ -1590,6 +1597,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 
 	if (fd == -1) {
 		/* appended to the existing file */
+		i_assert(file_lock == NULL);
 		return ret;
 	}
 
@@ -1606,12 +1614,17 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 	if (ret < 0) {
 		if (unlink(path) < 0 && errno != ENOENT)
 			i_error("unlink(%s) failed: %m", path);
+		file_lock_free(&file_lock);
 	} else {
 		squat_trie_close_fd(trie);
 		trie->fd = fd;
 		trie->locked_file_size = trie->hdr.used_file_size;
 		if (trie->file_cache != NULL)
 			file_cache_set_fd(trie->file_cache, trie->fd);
+
+		if (ctx->file_lock != NULL)
+			file_lock_free(&ctx->file_lock);
+		ctx->file_lock = file_lock;
 	}
 	return ret;
 }
