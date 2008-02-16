@@ -61,6 +61,8 @@ fts_backend_init(const char *backend_name, struct mailbox *box)
 	}
 
 	backend = be->v.init(box);
+	if (backend == NULL)
+		return NULL;
 	backend->box = box;
 	return backend;
 }
