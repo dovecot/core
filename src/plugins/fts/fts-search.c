@@ -33,12 +33,10 @@ static void fts_uid_results_to_seq(struct fts_search_context *fctx)
 	ARRAY_TYPE(seq_range) uid_range;
 
 	uid_range = fctx->definite_seqs;
-	i_array_init(&fctx->definite_seqs, array_count(&uid_range));
 	uid_range_to_seqs(fctx->t->box, &uid_range, &fctx->definite_seqs);
 	array_free(&uid_range);
 
 	uid_range = fctx->maybe_seqs;
-	i_array_init(&fctx->maybe_seqs, array_count(&uid_range));
 	uid_range_to_seqs(fctx->t->box, &uid_range, &fctx->maybe_seqs);
 	array_free(&uid_range);
 }
