@@ -302,19 +302,7 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 	str = t_str_new(256);
 	name_str = t_str_new(256);
 	while ((info = mailbox_list_iter_next(ctx->list_iter)) != NULL) {
-		if (ctx->ns->sep == ctx->ns->real_sep)
-			name = info->name;
-		else {
-			char *p;
-
-			str_truncate(name_str, 0);
-			str_append(name_str, info->name);
-			for (p = str_c_modifiable(name_str); *p != '\0'; p++) {
-				if (*p == ctx->ns->real_sep)
-					*p = ctx->ns->sep;
-			}
-			name = str_c(name_str);
-		}
+		name = info->name;
 		flags = info->flags;
 
 		if (strcasecmp(name, "INBOX") == 0) {
