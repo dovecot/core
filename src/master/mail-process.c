@@ -614,9 +614,6 @@ create_mail_process(enum process_type process_type, struct settings *set,
 			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	}
 
-	if (*chroot_dir == '\0' && *set->mail_chroot != '\0')
-		chroot_dir = set->mail_chroot;
-
 	if (*chroot_dir != '\0') {
 		if (!validate_chroot(set, chroot_dir)) {
 			i_error("Invalid chroot directory '%s' (user %s) "
@@ -630,6 +627,10 @@ create_mail_process(enum process_type process_type, struct settings *set,
 				chroot_dir, user);
 			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
+	} else if (*set->mail_chroot != '\0') {
+		/* mail_chroot setting's value doesn't need to be in
+		   valid_chroot_dirs. */
+		chroot_dir = set->mail_chroot;
 	}
 
 	if (!dump_capability) {
