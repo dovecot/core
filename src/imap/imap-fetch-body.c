@@ -200,6 +200,7 @@ static off_t imap_fetch_send(struct imap_fetch_context *ctx,
 			"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
 			mailbox_get_name(ctx->mail->box), ctx->mail->uid,
 			(uoff_t)sent, virtual_size);
+		mail_set_cache_corrupted(ctx->mail, ctx->cur_size_field);
 		o_stream_close(output);
 		return -1;
 	}
@@ -344,15 +345,18 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 	case '\0':
 		/* BODY[] - fetch everything */
                 fetch_size = &body_size;
+		ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
 		break;
 	case 'H':
 		/* BODY[HEADER] - fetch only header */
                 fetch_size = &hdr_size;
+		ctx->cur_size_field = MAIL_FETCH_MESSAGE_PARTS;
 		break;
 	case 'T':
 		/* BODY[TEXT] - skip header */
 		i_stream_skip(ctx->cur_input, hdr_size.physical_size);
                 fetch_size = &body_size;
+		ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
 		break;
 	default:
 		i_unreached();
@@ -414,6 +418,7 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 		ctx->cur_append_eoh = TRUE;
 	}
 
+	ctx->cur_size_field = 0;
 	return fetch_data(ctx, body, &msg_size);
 }
 
@@ -458,6 +463,7 @@ fetch_body_header_fields(struct imap_fetch_context *ctx, struct mail *mail,
 	size.virtual_size += 2;
 	ctx->cur_append_eoh = TRUE;
 
+	ctx->cur_size_field = 0;
 	return fetch_data(ctx, body, &size);
 }
 
@@ -534,6 +540,7 @@ static int fetch_body_mime(struct imap_fetch_context *ctx, struct mail *mail,
 
 	i_stream_ref(ctx->cur_input);
 	ctx->update_partial = TRUE;
+	ctx->cur_size_field = MAIL_FETCH_MESSAGE_PARTS;
 
 	if (*section == '\0') {
 		/* fetch the whole section */
@@ -893,6 +900,7 @@ static int fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 	}
 
         ctx->cur_size = size.virtual_size;
+	ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
 	return fetch_stream(ctx, &size);
 }
 
@@ -917,6 +925,7 @@ static int fetch_rfc822_header(struct imap_fetch_context *ctx,
 		return -1;
 
         ctx->cur_size = hdr_size.virtual_size;
+	ctx->cur_size_field = MAIL_FETCH_MESSAGE_PARTS;
 	return fetch_stream(ctx, &hdr_size);
 }
 
@@ -942,6 +951,7 @@ static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 
 	i_stream_seek(ctx->cur_input, hdr_size.physical_size);
         ctx->cur_size = body_size.virtual_size;
+	ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
 	return fetch_stream(ctx, &body_size);
 }
 
