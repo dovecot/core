@@ -1206,8 +1206,8 @@ squat_uidlist_update_expunged_uids(const ARRAY_TYPE(seq_range) *shifts_arr,
 				uids[uid_idx].seq1 += child_shift_count;
 			} else {
 				seq_range_array_remove_range(uids_arr,
-							     shift.seq1,
-							     shift.seq2);
+					shift.seq1,
+					I_MIN(shift.seq2, uids[uid_idx].seq2));
 				uids = array_get_modifiable(uids_arr,
 							    &uid_count);
 			}
