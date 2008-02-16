@@ -1642,6 +1642,7 @@ if test $want_gssapi != no; then
 				AC_CHECK_LIB(gss, __gss_userok, [
 					AC_DEFINE(HAVE___GSS_USEROK,,
 						Define if you have __gss_userok())
+					KRB5_LIBS="$KRB5_LIBS -lgss"
 				],, $KRB5_LIBS)
 
 				if test x$want_gssapi_plugin != xyes; then
