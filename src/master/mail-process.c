@@ -621,16 +621,16 @@ create_mail_process(enum process_type process_type, struct settings *set,
 				chroot_dir, user);
 			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
-		if (set->mail_drop_priv_before_exec) {
-			i_error("Can't chroot to directory '%s' (user %s) "
-				"with mail_drop_priv_before_exec=yes",
-				chroot_dir, user);
-			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
-		}
 	} else if (*set->mail_chroot != '\0') {
 		/* mail_chroot setting's value doesn't need to be in
 		   valid_chroot_dirs. */
 		chroot_dir = set->mail_chroot;
+	}
+	if (*chroot_dir != '\0' && set->mail_drop_priv_before_exec) {
+		i_error("Can't chroot to directory '%s' (user %s) "
+			"with mail_drop_priv_before_exec=yes",
+			chroot_dir, user);
+		return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	}
 
 	if (!dump_capability) {
