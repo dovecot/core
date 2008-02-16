@@ -1800,10 +1800,10 @@ squat_trie_lookup_partial(struct squat_trie_lookup_context *ctx,
 	int ret;
 
 	max_chars = uni_utf8_strlen_n(data, size);
-	if (max_chars > ctx->trie->hdr.partial_len)
-		max_chars = partial_len;
+	i_assert(max_chars > 0);
 
-	for (i = 0, char_idx = 0; char_idx < max_chars; char_idx++) {
+	i = 0; char_idx = 0;
+	do {
 		bytelen = 0;
 		for (j = 0; j < partial_len && i+bytelen < size; j++)
 			bytelen += char_lengths[i + bytelen];
@@ -1825,9 +1825,9 @@ squat_trie_lookup_partial(struct squat_trie_lookup_context *ctx,
 			seq_range_array_remove_invert_range(ctx->maybe_uids,
 							    &ctx->tmp_uids2);
 		}
-
 		i += char_lengths[i];
-	}
+		char_idx++;
+	} while (max_chars - char_idx >= partial_len);
 	return 1;
 }
 
