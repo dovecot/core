@@ -1,15 +1,14 @@
- - quota causing dovecot.index.cache files to be created with pop3
- - save cancelled -> cache still tried to be updated
- - configure --docdir doesn't work now
- - pipelining: commands that require output should do a delayed sync until
-   there are no transactions, instead of just immediately returning OK
- - SORT/SEARCH: Replace invalid input with #fffd. Make sure squat doesn't
-   index it.
- - stat() failed with index cache file /home/tss/dbox/INBOX/dbox-Mails/dovecot.index.cache: No such file or directory
- - squat: handle expunges, nfs support
- - fts lucene broken
+ - do something about From_-lines splitting mails with mboxes
+ - dbox doesn't fsync?
+ - maildir save: should we fsync new/cur dir after rename()s?
+ - seq_range_array_add_range() optimization
+ - lucene: handle replacement chars?
+ - squat:
+   - nfs support
+   - is locking done right? it reads header without file being locked?
+   - split after ~8 bytes?
+ - test replacement chars (SEARCH / SORT / Squat)
 
- - fix listescape plugin
  - cache: compress when we can drop temporary fields.
  - POP3 UIDL caching
  - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"
@@ -47,29 +46,6 @@
    - UID renumbering doesn't really work after all?
    - still problems with CRLF mboxes..
 
- - Mailbox list indexes
-   - Should probably check dovecot.index.log stamp/size too so that non-zero
-     recent counters get reset
-   - Why are updates so slow?
-   - Support for FS layout
-
- - threading: (all done?) 
-    - duplicate: mark original as rebuild
-    - re-parent (also reparenting to root): mark as rebuild
-    - unref: if refcount drops to zero, set children's parent=0 (can happen
-      if there are only grandchildren and dummy children)
-    - mail-hash: stat() and reopen if needed
-    - subjects: group roots togethere already while gathering subjects. then
-      go through them and sort them to get their sent date. then start writing
-      the nodes out. sorting needs to these cases:
-        1) root is dummy -> just sort their children. if there are dummies
-	   they're skipped and their children ascend
-	2) root is non-dummy -> there are no dummies at all in the thread.
-	   the root has the oldest date in the thread. after the root if there
-	   are re: or fwd: messages they're children to the root. if there are
-	   more messages after that, a new dummy parent needs to be created,
-	   and the rest of the messages need to be sorted before sending
-
  - mail_log: log appends. support from and subject fields
  - proxy: If remote server disconnects on login:
    login: tried to change state 2 -> 2
@@ -102,6 +78,10 @@
       enough temp fields are ready to be dropped
     - we could try compressing same field values into a single
       location in cache file.
+    - place some maximum limit of fields to cache file? maybe some soft and
+      hard limits, so when soft limit is reached drop fields that have
+      been used only once. when hard limit is reached drop any fields to get
+      more space. all this to avoid cache file growing infinitely.
 
  - mbox
     - dirty state should be stored to index (with mbox_very_dirty_syncs)
