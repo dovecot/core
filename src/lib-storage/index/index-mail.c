@@ -1336,6 +1336,15 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	const char *field_name;
 
 	switch (field) {
+	case 0:
+		field_name = "fields";
+		break;
+	case MAIL_FETCH_VIRTUAL_SIZE:
+		field_name = "virtual size";
+		imail->data.physical_size = (uoff_t)-1;
+		imail->data.virtual_size = (uoff_t)-1;
+		imail->data.parts = NULL;
+		break;
 	case MAIL_FETCH_MESSAGE_PARTS:
 		field_name = "MIME parts";
 		imail->data.parts = NULL;
@@ -1354,8 +1363,14 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 		field_name = t_strdup_printf("#%x", field);
 	}
 
+	/* make sure we don't cache invalid values */
+	mail_cache_transaction_rollback(&imail->trans->cache_trans);
+	imail->trans->cache_trans =
+		mail_cache_get_transaction(imail->trans->cache_view,
+					   imail->trans->trans);
+
+	imail->data.no_caching = TRUE;
 	mail_cache_set_corrupted(imail->ibox->cache,
 				 "Broken %s for mail UID %u",
 				 field_name, mail->uid);
-
 }
