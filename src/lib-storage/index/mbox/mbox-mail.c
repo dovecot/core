@@ -195,14 +195,19 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	/* use the next message's offset to avoid reading through the entire
 	   message body to find out its size */
 	hdr = mail_index_get_header(mail->trans->trans_view);
-	if (_mail->seq == hdr->messages_count) {
-		/* last message, use the synced mbox size */
-		int trailer_size;
+	if (_mail->seq >= hdr->messages_count) {
+		if (_mail->seq == hdr->messages_count) {
+			/* last message, use the synced mbox size */
+			int trailer_size;
 
-		trailer_size = (mbox->storage->storage.flags &
-				MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ? 2 : 1;
-
-		body_size = hdr->sync_size - body_offset - trailer_size;
+			trailer_size = (mbox->storage->storage.flags &
+					MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
+				2 : 1;
+			body_size = hdr->sync_size - body_offset - trailer_size;
+		} else {
+			/* we're appending a new message */
+			body_size = (uoff_t)-1;
+		}
 	} else if (mbox_file_lookup_offset(mbox, mail->trans->trans_view,
 					   _mail->seq + 1, &next_offset) > 0) {
 		body_size = next_offset - body_offset;
