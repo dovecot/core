@@ -50,9 +50,9 @@ AC_ARG_WITH(mem-align,
 AC_ARG_WITH(ioloop,
 [  --with-ioloop=IOLOOP    Specify the I/O loop method to use
                           (epoll, kqueue, poll; best for the fastest available;
-			   default is poll)],
+			   default is best)],
 	ioloop=$withval,
-	ioloop=poll)
+	ioloop=best)
 
 AC_ARG_WITH(notify,
 [  --with-notify=NOTIFY    Specify the file system notification method to use
