@@ -571,6 +571,42 @@ maildir_transaction_unlink_copied_files(struct maildir_save_context *ctx,
 	ctx->files = pos;
 }
 
+static int fdatasync_path(const char *path)
+{
+	int fd, ret = 0;
+
+	/* Directories need to be opened as read-only.
+	   fsync() doesn't appear to care about it. */
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		i_error("open(%s) failed: %m", path);
+		return -1;
+	}
+	if (fdatasync(fd) < 0) {
+		i_error("fdatasync(%s) failed: %m", path);
+		ret = -1;
+	}
+	(void)close(fd);
+	return ret;
+}
+
+static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
+					  bool new_changed, bool cur_changed)
+{
+	if (ctx->mbox->ibox.fsync_disable)
+		return 0;
+
+	if (new_changed) {
+		if (fdatasync_path(ctx->newdir) < 0)
+			return -1;
+	}
+	if (cur_changed) {
+		if (fdatasync_path(ctx->curdir) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 {
 	struct maildir_transaction_context *t =
@@ -578,7 +614,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	struct maildir_filename *mf;
 	uint32_t seq, uid, first_uid, next_uid;
 	enum maildir_uidlist_rec_flag flags;
-	bool newdir, sync_commit = FALSE;
+	bool newdir, new_changed, cur_changed, sync_commit = FALSE;
 	int ret;
 
 	i_assert(ctx->output == NULL);
@@ -661,6 +697,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	/* move them into new/ and/or cur/ */
 	ret = 0;
 	ctx->moving = TRUE;
+	new_changed = cur_changed = FALSE;
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
 		T_BEGIN {
 			const char *dest;
@@ -675,6 +712,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			if ((mf->flags & MAILDIR_SAVE_FLAG_HARDLINK) != 0)
 				ret = 0;
 			else {
+				if (newdir)
+					new_changed = TRUE;
+				else
+					cur_changed = TRUE;
 				ret = maildir_file_move(ctx, mf->basename,
 							dest, newdir);
 			}
@@ -683,6 +724,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			break;
 	}
 
+	if (ret == 0) {
+		ret = maildir_transaction_fsync_dirs(ctx, new_changed,
+						     cur_changed);
+	}
 	if (ret == 0 && ctx->uidlist_sync_ctx != NULL) {
 		/* everything was moved successfully. update our internal
 		   state. */
