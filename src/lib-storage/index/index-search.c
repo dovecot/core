@@ -194,6 +194,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	case SEARCH_SINCE:
 		if (mail_get_received_date(ctx->mail, &date) < 0)
 			return -1;
+		date -= ioloop_timezone.tz_minuteswest*60;
 
 		switch (arg->type) {
 		case SEARCH_BEFORE:
