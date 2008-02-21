@@ -1,6 +1,5 @@
  - do something about From_-lines splitting mails with mboxes
  - dbox doesn't fsync?
- - maildir save: should we fsync new/cur dir after rename()s?
  - seq_range_array_add_range() optimization
  - lucene: handle replacement chars?
  - squat:
