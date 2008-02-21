@@ -355,7 +355,8 @@ static void *t_malloc_real(size_t size, bool permanent)
 	ret = PTR_OFFSET(ret, MEM_ALIGN(sizeof(size)));
 	/* make sure the sentry contains CLEAR_CHRs. it might not if we
 	   had used t_buffer_get(). */
-	memset(PTR_OFFSET(ret, size), CLEAR_CHR, SENTRY_COUNT);
+	memset(PTR_OFFSET(ret, size), CLEAR_CHR,
+	       MEM_ALIGN(size + SENTRY_COUNT) - size);
 #endif
         return ret;
 }
