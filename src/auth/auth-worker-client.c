@@ -75,7 +75,11 @@ static void add_userdb_replies(string_t *str, const char *data)
 {
 	const char *const *tmp;
 
-	for (tmp = t_strsplit(data, "\t"); *tmp != NULL; tmp++)
+	tmp = t_strsplit(data, "\t");
+	i_assert(*tmp != NULL);
+	/* first field is the user name */
+	tmp++;
+	for (; *tmp != NULL; tmp++)
 		str_printfa(str, "\tuserdb_%s", *tmp);
 }
 
