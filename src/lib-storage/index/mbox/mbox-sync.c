@@ -1324,15 +1324,12 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	   is entirely empty. In that case just make up a new one if needed. */
 	i_assert(sync_ctx->base_uid_validity != 0 || st->st_size == 0);
 
-	if (sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity ||
-	    sync_ctx->base_uid_validity == 0) {
-		if (sync_ctx->base_uid_validity == 0) {
-                        sync_ctx->base_uid_validity =
-				sync_ctx->hdr->uid_validity != 0 ?
-				sync_ctx->hdr->uid_validity :
-				(unsigned int)ioloop_time;
-		}
-
+	if (sync_ctx->base_uid_validity == 0) {
+		sync_ctx->base_uid_validity = sync_ctx->hdr->uid_validity != 0 ?
+			sync_ctx->hdr->uid_validity :
+			I_MIN((unsigned int)ioloop_time, 1);
+	}
+	if (sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) {
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, uid_validity),
 			&sync_ctx->base_uid_validity,
