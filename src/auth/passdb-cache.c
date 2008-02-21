@@ -9,6 +9,20 @@
 
 struct auth_cache *passdb_cache = NULL;
 
+static void
+passdb_cache_log_hit(struct auth_request *request, const char *value)
+{
+	const char *p;
+
+	if (!request->auth->verbose_debug_passwords &&
+	    *value != '\0' && *value != '\t') {
+		/* hide the password */
+		p = strchr(value, '\t');
+		value = t_strconcat("<hidden>", p, NULL);
+	}
+	auth_request_log_debug(request, "cache", "hit: %s", value);
+}
+
 bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 			       const char *password,
 			       enum passdb_result *result_r, int use_expired)
@@ -28,7 +42,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 				       value == NULL ? "miss" : "expired");
 		return FALSE;
 	}
-	auth_request_log_debug(request, "cache", "hit: %s", value);
+	passdb_cache_log_hit(request, value);
 
 	if (*value == '\0') {
 		/* negative cache entry */
@@ -88,7 +102,7 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 				       value == NULL ? "miss" : "expired");
 		return FALSE;
 	}
-	auth_request_log_debug(request, "cache", "hit: %s", value);
+	passdb_cache_log_hit(request, value);
 
 	if (*value == '\0') {
 		/* negative cache entry */
