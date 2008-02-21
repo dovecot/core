@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "istream.h"
+#include "utc-offset.h"
 #include "str.h"
 #include "message-address.h"
 #include "message-date.h"
@@ -183,6 +184,7 @@ static void search_index_arg(struct mail_search_arg *arg,
 static int search_arg_match_cached(struct index_search_context *ctx,
 				   struct mail_search_arg *arg)
 {
+	struct tm *tm;
 	uoff_t virtual_size;
 	time_t date;
 	int timezone_offset;
@@ -194,7 +196,9 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	case SEARCH_SINCE:
 		if (mail_get_received_date(ctx->mail, &date) < 0)
 			return -1;
-		date -= ioloop_timezone.tz_minuteswest*60;
+
+		tm = localtime(&date);
+		date += utc_offset(tm, date)*60;
 
 		switch (arg->type) {
 		case SEARCH_BEFORE:
