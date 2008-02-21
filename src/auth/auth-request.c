@@ -985,7 +985,6 @@ static void auth_request_set_reply_field(struct auth_request *request,
 		   ourself */
 		request->proxy = TRUE;
 		request->proxy_maybe = TRUE;
-		name = "proxy";
 		value = NULL;
 	}
 
@@ -1261,17 +1260,22 @@ void auth_request_proxy_finish(struct auth_request *request, bool success)
 
 	if (!success) {
 		/* drop all proxy fields */
+	} else if (!request->proxy_maybe) {
+		/* proxying */
+		request->no_login = TRUE;
+		return;
+	} else if (!auth_request_proxy_is_self(request)) {
+		/* proxy destination isn't ourself - proxy */
+		auth_stream_reply_remove(request->extra_fields, "proxy_maybe");
+		auth_stream_reply_add(request->extra_fields, "proxy", NULL);
+		request->no_login = TRUE;
+		return;
 	} else {
-		if (!request->proxy_maybe ||
-		    !auth_request_proxy_is_self(request)) {
-			request->no_login = TRUE;
-			return;
-		}
-
 		/* proxying to ourself - log in without proxying by dropping
 		   all the proxying fields. */
 	}
 	auth_stream_reply_remove(request->extra_fields, "proxy");
+	auth_stream_reply_remove(request->extra_fields, "proxy_maybe");
 	auth_stream_reply_remove(request->extra_fields, "host");
 	auth_stream_reply_remove(request->extra_fields, "port");
 	auth_stream_reply_remove(request->extra_fields, "destuser");
