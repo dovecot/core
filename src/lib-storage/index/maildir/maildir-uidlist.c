@@ -103,6 +103,7 @@ struct maildir_uidlist_sync_ctx {
 
 	unsigned int first_unwritten_pos, first_nouid_pos;
 	unsigned int new_files_count;
+	unsigned int finish_change_counter;
 
 	unsigned int partial:1;
 	unsigned int finished:1;
@@ -931,6 +932,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	}
 
 	iter = maildir_uidlist_iter_init(uidlist);
+	i_assert(first_idx <= array_count(&uidlist->records));
 	iter->next += first_idx;
 
 	while (maildir_uidlist_iter_next_rec(iter, &rec)) {
@@ -1080,6 +1082,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 
 	if (ctx->uidlist->recreate || uidlist->fd == -1 ||
 	    uidlist->version != 3 ||
+	    ctx->finish_change_counter != ctx->uidlist->change_counter ||
 	    (uidlist->read_records_count + ctx->new_files_count) *
 	    UIDLIST_COMPRESS_PERCENTAGE / 100 >= array_count(&uidlist->records))
 		return maildir_uidlist_recreate(uidlist);
@@ -1381,6 +1384,7 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 
         ctx->uidlist->last_seen_uid = ctx->uidlist->next_uid-1;
 	ctx->uidlist->change_counter++;
+	ctx->finish_change_counter = ctx->uidlist->change_counter;
 }
 
 static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
@@ -1409,9 +1413,9 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	if (ctx->new_files_count != 0) {
 		ctx->first_nouid_pos = count - ctx->new_files_count;
 		maildir_uidlist_assign_uids(ctx);
+	} else {
+		ctx->uidlist->change_counter++;
 	}
-
-	ctx->uidlist->change_counter++;
 }
 
 void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
