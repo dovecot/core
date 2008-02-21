@@ -378,6 +378,14 @@ static void search_header_arg(struct mail_search_arg *arg,
 	}
 
 	memset(&block, 0, sizeof(block));
+
+	/* We're searching only for values, so drop header name and middle
+	   parts. We use header searching so that MIME words will be decoded. */
+	hdr = *ctx->hdr;
+	hdr.name = ""; hdr.name_len = 0;
+	hdr.middle_len = 0;
+	block.hdr = &hdr;
+
 	msg_search_ctx = msg_search_arg_context(ctx->index_context, arg);
 	if (msg_search_ctx == NULL)
 		match = FALSE;
@@ -393,14 +401,11 @@ static void search_header_arg(struct mail_search_arg *arg,
 						     (unsigned int)-1, TRUE);
 			str = t_str_new(ctx->hdr->value_len);
 			message_address_write(str, addr);
-			hdr = *ctx->hdr;
 			hdr.value = hdr.full_value = str_data(str);
 			hdr.value_len = hdr.full_value_len = str_len(str);
-			block.hdr = &hdr;
 			match = message_search_more(msg_search_ctx, &block);
 		} T_END;
 	} else {
-		block.hdr = ctx->hdr;
 		match = message_search_more(msg_search_ctx, &block);
 	}
 
