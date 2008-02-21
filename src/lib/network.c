@@ -318,10 +318,11 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
 
-	/* if using IPv6, bind both on the IPv4 and IPv6 addresses */
+	/* If using IPv6, bind only to IPv6 if possible. This avoids
+	   ambiguities with IPv4-mapped IPv6 addresses. */
 #ifdef IPV6_V6ONLY
 	if (so.sin.sin_family == AF_INET6) {
-		opt = 0;
+		opt = 1;
 		setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt));
 	}
 #endif
