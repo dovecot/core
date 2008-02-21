@@ -265,6 +265,7 @@ int index_mail_get_date(struct mail *_mail, time_t *date_r, int *timezone_r)
 
 	data->cache_fetch_fields |= MAIL_FETCH_DATE;
 	if (data->sent_date.time != (uint32_t)-1) {
+		*timezone_r = data->sent_date.timezone;
 		*date_r = data->sent_date.time;
 		return 0;
 	}
