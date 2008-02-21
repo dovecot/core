@@ -761,7 +761,6 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 	block_r->part = ctx->part;
 
 	if (ret < 0 && ctx->part != NULL) {
-		i_assert(ctx->input->eof);
 		while (ctx->part->parent != NULL) {
 			message_size_add(&ctx->part->parent->body_size,
 					 &ctx->part->body_size);
