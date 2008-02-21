@@ -328,6 +328,25 @@ msg_search_arg_context(struct index_search_context *ctx,
 	return NULL;
 }
 
+static void compress_lwsp(string_t *dest, const unsigned char *src,
+			  unsigned int src_len)
+{
+	unsigned int i;
+	bool prev_lwsp = TRUE;
+
+	for (i = 0; i < src_len; i++) {
+		if (IS_LWSP(src[i])) {
+			if (!prev_lwsp) {
+				prev_lwsp = TRUE;
+				str_append_c(dest, ' ');
+			}
+		} else {
+			prev_lwsp = FALSE;
+			str_append_c(dest, src[i]);
+		}
+	}
+}
+
 static void search_header_arg(struct mail_search_arg *arg,
 			      struct search_header_context *ctx)
 {
@@ -335,7 +354,6 @@ static void search_header_arg(struct mail_search_arg *arg,
 	struct message_block block;
 	struct message_header_line hdr;
 	int ret;
-	bool match;
 
 	/* first check that the field name matches to argument. */
 	switch (arg->type) {
@@ -357,6 +375,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
+	case SEARCH_HEADER_COMPRESS_LWSP:
 		ctx->custom_header = TRUE;
 
 		if (strcasecmp(ctx->hdr->name, arg->hdr_field_name) != 0)
@@ -388,13 +407,18 @@ static void search_header_arg(struct mail_search_arg *arg,
 
 	msg_search_ctx = msg_search_arg_context(ctx->index_context, arg);
 	if (msg_search_ctx == NULL)
-		match = FALSE;
-	else if (arg->type == SEARCH_HEADER_ADDRESS) {
-		/* we have to match against normalized address */
-		T_BEGIN {
-			struct message_address *addr;
-			string_t *str;
+		return;
 
+	T_BEGIN {
+		struct message_address *addr;
+		string_t *str;
+
+		switch (arg->type) {
+		case SEARCH_HEADER:
+			/* simple match */
+			break;
+		case SEARCH_HEADER_ADDRESS:
+			/* we have to match against normalized address */
 			addr = message_address_parse(pool_datastack_create(),
 						     ctx->hdr->full_value,
 						     ctx->hdr->full_value_len,
@@ -403,19 +427,21 @@ static void search_header_arg(struct mail_search_arg *arg,
 			message_address_write(str, addr);
 			hdr.value = hdr.full_value = str_data(str);
 			hdr.value_len = hdr.full_value_len = str_len(str);
-			match = message_search_more(msg_search_ctx, &block);
-		} T_END;
-	} else {
-		match = message_search_more(msg_search_ctx, &block);
-	}
+			break;
+		case SEARCH_HEADER_COMPRESS_LWSP:
+			/* convert LWSP to single spaces */
+			str = t_str_new(hdr.full_value_len);
+			compress_lwsp(str, hdr.full_value, hdr.full_value_len);
+			hdr.value = hdr.full_value = str_data(str);
+			hdr.value_len = hdr.full_value_len = str_len(str);
+			break;
+		default:
+			i_unreached();
+		}
+		ret = message_search_more(msg_search_ctx, &block) ? 1 : 0;
+	} T_END;
 
-	if (match ||
-	    (arg->type != SEARCH_HEADER &&
-	     arg->type != SEARCH_HEADER_ADDRESS)) {
-		/* set only when we definitely know if it's a match */
-		ret = match ? 1 : 0;
-		ARG_SET_RESULT(arg, ret);
-	}
+	ARG_SET_RESULT(arg, ret);
 }
 
 static void search_header_unmatch(struct mail_search_arg *arg,

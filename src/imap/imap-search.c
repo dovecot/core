@@ -408,7 +408,7 @@ static bool search_arg_build(struct search_build_data *data,
 			return ARG_NEW_FLAGS(MAIL_SEEN);
 		else if (strcmp(str, "SUBJECT") == 0) {
 			/* <string> */
-			return ARG_NEW_HEADER(SEARCH_HEADER, str);
+			return ARG_NEW_HEADER(SEARCH_HEADER_COMPRESS_LWSP, str);
 		} else if (strcmp(str, "SENTBEFORE") == 0) {
 			/* <date> */
 			return ARG_NEW_DATE(SEARCH_SENTBEFORE);

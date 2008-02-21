@@ -30,6 +30,7 @@ enum mail_search_arg_type {
 	/* headers */
 	SEARCH_HEADER,
 	SEARCH_HEADER_ADDRESS,
+	SEARCH_HEADER_COMPRESS_LWSP,
 
 	/* body */
 	SEARCH_BODY,

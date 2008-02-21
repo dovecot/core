@@ -139,6 +139,7 @@ search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
 		break;
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
+	case SEARCH_HEADER_COMPRESS_LWSP:
 		buffer_append(headers, &arg->hdr_field_name,
 			      sizeof(const char *));
 		break;
