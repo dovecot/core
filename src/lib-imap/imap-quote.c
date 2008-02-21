@@ -26,8 +26,10 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 			modify = TRUE;
 			last_lwsp = FALSE;
 			break;
-		case ' ':
 		case '\t':
+			modify = TRUE;
+			/* fall through */
+		case ' ':
 			if (last_lwsp && compress_lwsp) {
 				modify = TRUE;
 				extra++;
