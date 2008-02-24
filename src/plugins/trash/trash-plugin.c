@@ -253,7 +253,7 @@ static int read_configuration(const char *path)
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		/* <priority> <mailbox name> */
 		name = strchr(line, ' ');
-		if (name == NULL || name[1] == '\0')
+		if (name == NULL || name[1] == '\0' || *line == '#')
 			continue;
 
 		trash = array_append_space(&trash_boxes);
