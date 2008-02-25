@@ -25,16 +25,7 @@ static void check_timeout(struct index_mailbox *ibox)
 {
 	struct index_notify_file *file;
 	struct stat st;
-	time_t last_check;
 	bool notify;
-
-	/* check changes only when we can also notify of new mail */
-	last_check = I_MAX(ibox->sync_last_check, ibox->notify_last_check);
-	if ((unsigned int)(ioloop_time - last_check) <
-	    ibox->box.notify_min_interval)
-		return;
-
-	ibox->notify_last_check = ioloop_time;
 
 	notify = ibox->notify_pending;
 	for (file = ibox->notify_files; file != NULL; file = file->next) {
@@ -54,7 +45,8 @@ static void check_timeout(struct index_mailbox *ibox)
 
 static void notify_callback(struct index_mailbox *ibox)
 {
-	ibox->notify_last_check = ioloop_time;
+	timeout_reset(ibox->notify_to);
+
 	/* don't notify more often than once a second */
 	if (ioloop_time > ibox->notify_last_sent) {
 		ibox->notify_last_sent = ioloop_time;
@@ -91,8 +83,11 @@ void index_mailbox_check_add(struct index_mailbox *ibox,
 	/* we still add a timeout if we don't have one already,
 	 * because we don't know what happens with [di]notify
 	 * when the filesystem is remote (NFS, ...) */
-	if (ibox->notify_to == NULL)
-		ibox->notify_to = timeout_add(1000, check_timeout, ibox);
+	if (ibox->notify_to == NULL) {
+		ibox->notify_to =
+			timeout_add(ibox->box.notify_min_interval * 1000,
+				    check_timeout, ibox);
+	}
 }
 
 void index_mailbox_check_remove_all(struct index_mailbox *ibox)
