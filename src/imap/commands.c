@@ -9,7 +9,7 @@
 
 const struct command imap4rev1_commands[] = {
 	{ "CAPABILITY",		cmd_capability,  0 },
-	{ "LOGOUT",		cmd_logout,      0 },
+	{ "LOGOUT",		cmd_logout,      COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "NOOP",		cmd_noop,        COMMAND_FLAG_BREAKS_SEQS },
 
 	{ "APPEND",		cmd_append,      COMMAND_FLAG_BREAKS_SEQS },
