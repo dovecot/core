@@ -871,11 +871,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if (!box->opened)
 		index_storage_mailbox_open(&mbox->ibox);
 
-	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
-	    mbox->ibox.sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <=
-	    ioloop_time) {
-		mbox->ibox.sync_last_check = ioloop_time;
-
+	if (index_mailbox_want_full_sync(&mbox->ibox, flags)) {
 		T_BEGIN {
 			ctx = maildir_sync_context_new(mbox, flags);
 			ret = maildir_sync_context(ctx, FALSE, NULL,

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "seq-range-array.h"
+#include "ioloop.h"
 #include "array.h"
 #include "buffer.h"
 #include "index-storage.h"
@@ -18,6 +19,17 @@ struct index_mailbox_sync_context {
 
 	bool failed;
 };
+
+bool index_mailbox_want_full_sync(struct index_mailbox *ibox,
+				  enum mailbox_sync_flags flags)
+{
+	if ((flags & MAILBOX_SYNC_FLAG_FAST) != 0 &&
+	    ioloop_time < ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL)
+		return FALSE;
+
+	ibox->sync_last_check = ioloop_time;
+	return TRUE;
+}
 
 void index_mailbox_set_recent_uid(struct index_mailbox *ibox, uint32_t uid)
 {

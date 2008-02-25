@@ -396,9 +396,7 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if (!box->opened)
 		index_storage_mailbox_open(&mbox->ibox);
 
-	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
-	    mbox->ibox.sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <=
-	    ioloop_time)
+	if (index_mailbox_want_full_sync(&mbox->ibox, flags))
 		ret = dbox_sync(mbox, FALSE);
 
 	return index_mailbox_sync_init(box, flags, ret < 0);

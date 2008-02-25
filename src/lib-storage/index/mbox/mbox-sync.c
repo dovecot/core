@@ -1555,8 +1555,6 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 		((flags & MBOX_SYNC_REWRITE) == 0 &&
 		 getenv("MBOX_LAZY_WRITES") != NULL);
 
-	mbox->ibox.sync_last_check = ioloop_time;
-
 	if (!mbox->mbox_do_dirty_syncs)
 		flags |= MBOX_SYNC_UNDIRTY;
 
@@ -1812,9 +1810,7 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if (!box->opened)
 		index_storage_mailbox_open(&mbox->ibox);
 
-	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
-	    mbox->ibox.sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <=
-	    ioloop_time) {
+	if (index_mailbox_want_full_sync(&mbox->ibox, flags)) {
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
 		    !mbox->mbox_very_dirty_syncs)
 			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
