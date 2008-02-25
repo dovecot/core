@@ -126,6 +126,8 @@ void index_mailbox_check_add(struct index_mailbox *ibox,
 			     const char *path);
 void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 
+bool index_mailbox_want_full_sync(struct index_mailbox *ibox,
+				  enum mailbox_sync_flags flags);
 struct mailbox_sync_context *
 index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 			bool failed);
