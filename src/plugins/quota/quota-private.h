@@ -23,11 +23,12 @@ struct quota_rule {
 	char *mailbox_name;
 
 	int64_t bytes_limit, count_limit;
+	/* relative to default_rule */
+	unsigned int bytes_percent, count_percent;
 };
 
 struct quota_warning_rule {
-	uint64_t bytes_limit;
-	uint64_t count_limit;
+	struct quota_rule rule;
 
 	char *command;
 };
@@ -45,10 +46,8 @@ struct quota_backend_vfuncs {
 			      struct mail_storage *storage);
 
 	const char *const *(*get_resources)(struct quota_root *root);
-	/* the limit is set by default, so it shouldn't normally need to
-	   be changed. */
 	int (*get_resource)(struct quota_root *root, const char *name,
-			    uint64_t *value_r, uint64_t *limit);
+			    uint64_t *value_r);
 
 	int (*update)(struct quota_root *root, 
 		      struct quota_transaction_context *ctx);
@@ -102,6 +101,7 @@ void quota_add_user_storage(struct quota *quota, struct mail_storage *storage);
 void quota_remove_user_storage(struct quota *quota, 
 			       struct mail_storage *storage);
 
+void quota_root_recalculate_relative_rules(struct quota_root *root);
 int quota_count(struct quota *quota, uint64_t *bytes_r, uint64_t *count_r);
 
 #endif

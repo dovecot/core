@@ -180,7 +180,7 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 
 static int
 dirsize_quota_get_resource(struct quota_root *_root, const char *name,
-			   uint64_t *value_r, uint64_t *limit ATTR_UNUSED)
+			   uint64_t *value_r)
 {
 	int ret;
 

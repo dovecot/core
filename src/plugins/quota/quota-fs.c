@@ -549,14 +549,14 @@ fs_quota_get_one_resource(struct fs_quota_root *root, bool group, bool bytes,
 
 static int
 fs_quota_get_resource(struct quota_root *_root, const char *name,
-		      uint64_t *value_r, uint64_t *limit_r)
+		      uint64_t *value_r)
 {
 	struct fs_quota_root *root = (struct fs_quota_root *)_root;
+	uint64_t limit = 0;
 	bool bytes;
 	int ret;
 
 	*value_r = 0;
-	*limit_r = 0;
 
 	if (root->mount == NULL ||
 	    (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0 &&
@@ -566,22 +566,29 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 
 #ifdef HAVE_RQUOTA
 	if (strcmp(root->mount->type, "nfs") == 0) {
-		int ret;
-
 		T_BEGIN {
-			ret = do_rquota(root, bytes, value_r, limit_r);
+			ret = do_rquota(root, bytes, value_r, &limit);
 		} T_END;
-		return ret;
-	}
+	} else
 #endif
-
-	ret = fs_quota_get_one_resource(root, FALSE, bytes,
-					value_r, limit_r);
-	if (ret != 0)
+	{
+		ret = fs_quota_get_one_resource(root, FALSE, bytes,
+						value_r, &limit);
+		if (ret == 0) {
+			/* fallback to group quota */
+			ret = fs_quota_get_one_resource(root, TRUE, bytes,
+							value_r, &limit);
+		}
+	}
+	if (ret <= 0)
 		return ret;
 
-	/* fallback to group quota */
-	return fs_quota_get_one_resource(root, TRUE, bytes, value_r, limit_r);
+	/* update limit */
+	if (bytes)
+		_root->default_rule.bytes_limit = limit;
+	else
+		_root->default_rule.count_limit = limit;
+	return 1;
 }
 
 static int 
