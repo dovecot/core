@@ -2124,6 +2124,12 @@ AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", IMAP capabilities)
 
 CFLAGS="$CFLAGS $EXTRA_CFLAGS"
 
+if test "$docdir" = ""; then
+  dnl docdir supported only by autoconf v2.59c and later
+  docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
+fi
+AC_SUBST(docdir)
+
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 Makefile
