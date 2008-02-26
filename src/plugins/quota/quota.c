@@ -195,7 +195,7 @@ quota_rule_parse_percentage(struct quota_root *root, struct quota_rule *rule,
 {
 	int64_t percentage = *limit;
 
-	if (percentage < 0) {
+	if (percentage <= 0 || percentage >= -1U) {
 		*error_r = p_strdup_printf(root->pool,
 			"Invalid rule percentage: %lld", (long long)percentage);
 		return -1;
@@ -207,17 +207,51 @@ quota_rule_parse_percentage(struct quota_root *root, struct quota_rule *rule,
 	}
 
 	if (limit == &rule->bytes_limit)
-		*limit = root->default_rule.bytes_limit * percentage / 100;
+		rule->bytes_percent = percentage;
 	else if (limit == &rule->count_limit)
-		*limit = root->default_rule.count_limit * percentage / 100;
+		rule->count_percent = percentage;
 	else
 		i_unreached();
 	return 0;
 }
 
+static void
+quota_rule_recalculate_relative_rules(struct quota_rule *rule,
+				      const struct quota_rule *default_rule)
+{
+	if (rule->bytes_percent > 0) {
+		rule->bytes_limit = default_rule->bytes_limit *
+			rule->bytes_percent / 100;
+	}
+	if (rule->count_percent > 0) {
+		rule->count_limit = default_rule->count_limit *
+			rule->count_percent / 100;
+	}
+}
+
+void quota_root_recalculate_relative_rules(struct quota_root *root)
+{
+	struct quota_rule *rules;
+	struct quota_warning_rule *warning_rules;
+	unsigned int i, count;
+
+	rules = array_get_modifiable(&root->rules, &count);
+	for (i = 0; i < count; i++) {
+		quota_rule_recalculate_relative_rules(&rules[i],
+						      &root->default_rule);
+	}
+
+	warning_rules = array_get_modifiable(&root->warning_rules, &count);
+	for (i = 0; i < count; i++) {
+		quota_rule_recalculate_relative_rules(&warning_rules[i].rule,
+						      &root->default_rule);
+	}
+}
+
 static int
 quota_rule_parse_limits(struct quota_root *root, struct quota_rule *rule,
-			const char *limits, const char **error_r)
+			const char *limits, bool allow_negative,
+			const char **error_r)
 {
 	const char **args;
 	char *p;
@@ -264,7 +298,7 @@ quota_rule_parse_limits(struct quota_root *root, struct quota_rule *rule,
 			multiply = 1024ULL*1024*1024*1024;
 			break;
 		case '%':
-			multiply = 1;
+			multiply = 0;
 			if (quota_rule_parse_percentage(root, rule, limit,
 							error_r) < 0)
 				return -1;
@@ -275,6 +309,16 @@ quota_rule_parse_limits(struct quota_root *root, struct quota_rule *rule,
 			return -1;
 		}
 		*limit *= multiply;
+	}
+	if (!allow_negative) {
+		if (rule->bytes_limit < 0) {
+			*error_r = "Bytes limit can't be negative";
+			return -1;
+		}
+		if (rule->count_limit < 0) {
+			*error_r = "Count limit can't be negative";
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -309,16 +353,20 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 		if (!root->backend.v.parse_rule(root, rule, p, error_r))
 			ret = -1;
 	} else {
-		if (quota_rule_parse_limits(root, rule, p, error_r) < 0)
+		bool allow_negative = rule != &root->default_rule;
+
+		if (quota_rule_parse_limits(root, rule, p,
+					    allow_negative, error_r) < 0)
 			ret = -1;
 	}
 
+	quota_root_recalculate_relative_rules(root);
 	if (root->quota->debug) {
 		i_info("Quota rule: root=%s mailbox=%s "
-		       "bytes=%lld messages=%lld", root->name,
+		       "bytes=%lld (%u%%) messages=%lld (%u%%)", root->name,
 		       rule->mailbox_name != NULL ? rule->mailbox_name : "",
-		       (long long)rule->bytes_limit,
-		       (long long)rule->count_limit);
+		       (long long)rule->bytes_limit, rule->bytes_percent,
+		       (long long)rule->count_limit, rule->count_percent);
 	}
 	return ret;
 }
@@ -426,29 +474,22 @@ int quota_root_add_warning_rule(struct quota_root *root, const char *rule_def,
 
 	memset(&rule, 0, sizeof(rule));
 	ret = quota_rule_parse_limits(root, &rule, t_strdup_until(rule_def, p),
-				      error_r);
+				      TRUE, error_r);
 	if (ret < 0)
 		return -1;
 
-	if (rule.bytes_limit < 0) {
-		*error_r = "Bytes limit can't be negative";
-		return -1;
-	}
-	if (rule.count_limit < 0) {
-		*error_r = "Count limit can't be negative";
-		return -1;
-	}
-
 	warning = array_append_space(&root->warning_rules);
 	warning->command = i_strdup(p+1);
-	warning->bytes_limit = rule.bytes_limit;
-	warning->count_limit = rule.count_limit;
+	warning->rule = rule;
 
+	quota_root_recalculate_relative_rules(root);
 	if (root->quota->debug) {
-		i_info("Quota warning: bytes=%llu messages=%llu command=%s",
-		       (unsigned long long)warning->bytes_limit,
-		       (unsigned long long)warning->count_limit,
-		       warning->command);
+		i_info("Quota warning: bytes=%llu (%u%%) "
+		       "messages=%llu (%u%%) command=%s",
+		       (unsigned long long)warning->rule.bytes_limit,
+		       warning->rule.bytes_percent,
+		       (unsigned long long)warning->rule.count_limit,
+		       warning->rule.count_percent, warning->command);
 	}
 	return 0;
 }
@@ -537,6 +578,12 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		kilobytes = TRUE;
 	}
 
+	/* Get the value first. This call may also update quota limits if
+	   they're defined externally. */
+	ret = root->backend.v.get_resource(root, name, value_r);
+	if (ret <= 0)
+		return ret;
+
 	(void)quota_root_get_rule_limits(root, mailbox_name,
 					 &bytes_limit, &count_limit);
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
@@ -546,13 +593,11 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	else
 		*limit_r = 0;
 
-	ret = root->backend.v.get_resource(root, name, value_r, limit_r);
-	if (kilobytes && ret > 0) {
+	if (kilobytes) {
 		*value_r /= 1024;
 		*limit_r /= 1024;
 	}
-	return ret <= 0 ? ret :
-		(*limit_r == 0 ? 0 : 1);
+	return *limit_r == 0 ? 0 : 1;
 }
 
 int quota_set_resource(struct quota_root *root ATTR_UNUSED,
@@ -662,10 +707,10 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 	bytes_before = bytes_current - ctx->bytes_used;
 	count_before = count_current - ctx->count_used;
 	for (i = 0; i < count; i++) {
-		if ((bytes_before < warnings[i].bytes_limit &&
-		     bytes_current >= warnings[i].bytes_limit) ||
-		    (count_before < warnings[i].count_limit &&
-		     count_current >= warnings[i].count_limit)) {
+		if ((bytes_before < (uint64_t)warnings[i].rule.bytes_limit &&
+		     bytes_current >= (uint64_t)warnings[i].rule.bytes_limit) ||
+		    (count_before < (uint64_t)warnings[i].rule.count_limit &&
+		     count_current >= (uint64_t)warnings[i].rule.count_limit)) {
 			quota_warning_execute(warnings[i].command);
 			break;
 		}

@@ -23,8 +23,6 @@ struct maildir_quota_root {
 	struct quota_root root;
 
 	const char *maildirsize_path;
-	uint64_t message_bytes_limit;
-	uint64_t message_count_limit;
 
 	uint64_t total_bytes;
 	uint64_t total_count;
@@ -208,6 +206,7 @@ maildirs_check_have_changed(struct mail_storage *storage, time_t latest_mtime)
 
 static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 {
+	const struct quota_rule *rule = &root->root.default_rule;
 	struct dotlock *dotlock;
 	string_t *str;
 	int fd;
@@ -229,15 +228,15 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	}
 
 	str = t_str_new(128);
-	if (root->message_bytes_limit != (uint64_t)-1) {
+	if (rule->bytes_limit != 0) {
 		str_printfa(str, "%lluS",
-			    (unsigned long long)root->message_bytes_limit);
+			    (unsigned long long)rule->bytes_limit);
 	}
-	if (root->message_count_limit != (uint64_t)-1) {
+	if (rule->count_limit != 0) {
 		if (str_len(str) > 0)
 			str_append_c(str, ',');
 		str_printfa(str, "%lluC",
-			    (unsigned long long)root->message_count_limit);
+			    (unsigned long long)rule->count_limit);
 	}
 	str_printfa(str, "\n%llu %llu\n",
 		    (unsigned long long)root->total_bytes,
@@ -352,8 +351,8 @@ maildir_parse_limit(const char *str, uint64_t *bytes_r, uint64_t *count_r)
 	char *pos;
 	bool ret = TRUE;
 
-	*bytes_r = (uint64_t)-1;
-	*count_r = (uint64_t)-1;
+	*bytes_r = 0;
+	*count_r = 0;
 
 	/* 0 values mean unlimited */
 	for (limit = t_strsplit(str, ","); *limit != NULL; limit++) {
@@ -382,6 +381,7 @@ maildir_parse_limit(const char *str, uint64_t *bytes_r, uint64_t *count_r)
 static int maildirsize_parse(struct maildir_quota_root *root,
 			     int fd, const char *const *lines)
 {
+	struct quota_rule *rule = &root->root.default_rule;
 	uint64_t message_bytes_limit, message_count_limit;
 	long long bytes_diff, total_bytes;
 	int count_diff, total_count;
@@ -394,15 +394,24 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 	(void)maildir_parse_limit(lines[0], &message_bytes_limit,
 				  &message_count_limit);
 
-	if (!root->master_message_limits) {
-		/* we don't know the limits, use whatever the file says */
-		root->message_bytes_limit = message_bytes_limit;
-		root->message_count_limit = message_count_limit;
-	} else if (root->message_bytes_limit != message_bytes_limit ||
-		   root->message_count_limit != message_count_limit) {
+	/* truncate too high limits to signed 64bit int range */
+	if (message_bytes_limit >= (1ULL << 63))
+		message_bytes_limit = (1ULL << 63) - 1;
+	if (message_count_limit >= (1ULL << 63))
+		message_count_limit = (1ULL << 63) - 1;
+
+	if (rule->bytes_limit == (int64_t)message_bytes_limit &&
+	    rule->count_limit == (int64_t)message_count_limit) {
+		/* limits haven't changed */
+	} else if (root->master_message_limits) {
 		/* we know the limits and they've changed.
 		   the file must be rewritten. */
 		return 0;
+	} else {
+		/* we're using limits from the file. */
+		rule->bytes_limit = message_bytes_limit;
+		rule->count_limit = message_count_limit;
+		quota_root_recalculate_relative_rules(&root->root);
 	}
 
 	if (*lines == NULL) {
@@ -425,8 +434,8 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 		return -1;
 	}
 
-	if ((uint64_t)total_bytes > root->message_bytes_limit ||
-	    (uint64_t)total_count > root->message_count_limit) {
+	if (total_bytes > rule->bytes_limit ||
+	    total_count > rule->count_limit) {
 		/* we're over quota. don't trust these values if the file
 		   contains more than the initial summary line, or if the file
 		   is older than 15 minutes. */
@@ -540,26 +549,23 @@ static int maildirsize_read(struct maildir_quota_root *root)
 	return ret;
 }
 
-static void maildirquota_init_limits(struct maildir_quota_root *root)
-{
-	root->limits_initialized = TRUE;
-
-	if (root->root.default_rule.bytes_limit != 0 ||
-	    root->root.default_rule.count_limit != 0) {
-		root->master_message_limits = TRUE;
-		root->message_bytes_limit = root->root.default_rule.bytes_limit;
-		root->message_count_limit = root->root.default_rule.count_limit;
-	}
-}
-
 static bool maildirquota_limits_init(struct maildir_quota_root *root)
 {
-	if (!root->limits_initialized) {
-		maildirquota_init_limits(root);
-		if (root->maildirsize_path == NULL) {
-			i_warning("quota maildir: No maildir storages, "
-				  "ignoring quota.");
-		}
+	if (root->limits_initialized)
+		return root->maildirsize_path != NULL;
+	root->limits_initialized = TRUE;
+
+	/* these limits must be checked before the maildirsize is read the
+	   first time. if master limits aren't used, the default rule limits
+	   will be zero initially, but they'll be updated after the file is
+	   read. */
+	if (root->root.default_rule.bytes_limit != 0 ||
+	    root->root.default_rule.count_limit != 0)
+		root->master_message_limits = TRUE;
+
+	if (root->maildirsize_path == NULL) {
+		i_warning("quota maildir: No maildir storages, "
+			  "ignoring quota.");
 	}
 	return root->maildirsize_path != NULL;
 }
@@ -575,8 +581,8 @@ static int maildirquota_refresh(struct maildir_quota_root *root)
 		ret = maildirsize_read(root);
 	} T_END;
 	if (ret == 0) {
-		if (root->message_bytes_limit == (uint64_t)-1 &&
-		    root->message_count_limit == (uint64_t)-1) {
+		if (root->root.default_rule.bytes_limit == 0 &&
+		    root->root.default_rule.count_limit == 0) {
 			/* no quota */
 			return 0;
 		}
@@ -620,8 +626,6 @@ static struct quota_root *maildir_quota_alloc(void)
 
 	root = i_new(struct maildir_quota_root, 1);
 	root->fd = -1;
-	root->message_bytes_limit = (uint64_t)-1;
-	root->message_count_limit = (uint64_t)-1;
 	return &root->root;
 }
 
@@ -703,7 +707,7 @@ maildir_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 
 static int
 maildir_quota_get_resource(struct quota_root *_root, const char *name,
-			   uint64_t *value_r, uint64_t *limit_r)
+			   uint64_t *value_r)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 
@@ -712,14 +716,8 @@ maildir_quota_get_resource(struct quota_root *_root, const char *name,
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0) {
 		*value_r = root->total_bytes;
-		if (!root->master_message_limits &&
-		    root->message_bytes_limit != (uint64_t)-1)
-			*limit_r = root->message_bytes_limit;
 	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
 		*value_r = root->total_count;
-		if (!root->master_message_limits &&
-		    root->message_count_limit != (uint64_t)-1)
-			*limit_r = root->message_count_limit;
 	} else
 		return 0;
 	return 1;

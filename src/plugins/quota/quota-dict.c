@@ -96,7 +96,7 @@ dict_quota_count(struct dict_quota_root *root,
 
 static int
 dict_quota_get_resource(struct quota_root *_root, const char *name,
-			uint64_t *value_r, uint64_t *limit ATTR_UNUSED)
+			uint64_t *value_r)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 	bool want_bytes;
