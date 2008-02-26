@@ -12,7 +12,8 @@
 #include <sys/wait.h>
 
 #define DEFAULT_QUOTA_EXCEEDED_MSG "Quota exceeded"
-#define RULE_NAME_ALL_MAILBOXES "*"
+#define RULE_NAME_DEFAULT_FORCE "*"
+#define RULE_NAME_DEFAULT_NONFORCE "?"
 
 struct quota_root_iter {
 	struct quota *quota;
@@ -341,9 +342,12 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 
 	rule = quota_root_rule_find(root, mailbox_name);
 	if (rule == NULL) {
-		if (strcmp(mailbox_name, RULE_NAME_ALL_MAILBOXES) == 0)
+		if (strcmp(mailbox_name, RULE_NAME_DEFAULT_NONFORCE) == 0)
 			rule = &root->default_rule;
-		else {
+		else if (strcmp(mailbox_name, RULE_NAME_DEFAULT_FORCE) == 0) {
+			rule = &root->default_rule;
+			root->force_default_rule = TRUE;
+		} else {
 			rule = array_append_space(&root->rules);
 			rule->mailbox_name = p_strdup(root->pool, mailbox_name);
 		}

@@ -78,6 +78,8 @@ struct quota_root {
 
 	/* don't enforce quota when saving */
 	unsigned int no_enforcing:1;
+	/* Limits in default_rule override backend's quota limits */
+	unsigned int force_default_rule:1;
 };
 
 struct quota_transaction_context {
