@@ -32,7 +32,6 @@ struct maildir_quota_root {
 	off_t last_size;
 
 	unsigned int limits_initialized:1;
-	unsigned int master_message_limits:1;
 };
 
 struct maildir_list_context {
@@ -290,7 +289,7 @@ static int maildirsize_recalculate_storage(struct maildir_quota_root *root,
 
 static void maildirsize_rebuild_later(struct maildir_quota_root *root)
 {
-	if (!root->master_message_limits) {
+	if (!root->root.force_default_rule) {
 		/* FIXME: can't unlink(), because the limits would be lost. */
 		return;
 	}
@@ -403,7 +402,7 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 	if (rule->bytes_limit == (int64_t)message_bytes_limit &&
 	    rule->count_limit == (int64_t)message_count_limit) {
 		/* limits haven't changed */
-	} else if (root->master_message_limits) {
+	} else if (root->root.force_default_rule) {
 		/* we know the limits and they've changed.
 		   the file must be rewritten. */
 		return 0;
@@ -551,22 +550,15 @@ static int maildirsize_read(struct maildir_quota_root *root)
 
 static bool maildirquota_limits_init(struct maildir_quota_root *root)
 {
-	if (root->limits_initialized)
-		return root->maildirsize_path != NULL;
-	root->limits_initialized = TRUE;
+	if (!root->limits_initialized) {
+		root->limits_initialized = TRUE;
 
-	/* these limits must be checked before the maildirsize is read the
-	   first time. if master limits aren't used, the default rule limits
-	   will be zero initially, but they'll be updated after the file is
-	   read. */
-	if (root->root.default_rule.bytes_limit != 0 ||
-	    root->root.default_rule.count_limit != 0)
-		root->master_message_limits = TRUE;
-
-	if (root->maildirsize_path == NULL) {
-		i_warning("quota maildir: No maildir storages, "
-			  "ignoring quota.");
+		if (root->maildirsize_path == NULL) {
+			i_warning("quota maildir: No maildir storages, "
+				  "ignoring quota.");
+		}
 	}
+
 	return root->maildirsize_path != NULL;
 }
 
