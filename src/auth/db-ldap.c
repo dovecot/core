@@ -378,6 +378,8 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 void db_ldap_request(struct ldap_connection *conn,
 		     struct ldap_request *request)
 {
+	i_assert(request->auth_request != NULL);
+
 	request->msgid = -1;
 	request->create_time = ioloop_time;
 

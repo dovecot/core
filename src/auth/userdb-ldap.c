@@ -22,7 +22,6 @@ struct ldap_userdb_module {
 
 struct userdb_ldap_request {
 	struct ldap_request_search request;
-        struct auth_request *auth_request;
         userdb_callback_t *userdb_callback;
 };
 
@@ -49,7 +48,8 @@ static void userdb_ldap_lookup_callback(struct ldap_connection *conn,
 {
 	struct userdb_ldap_request *urequest =
 		(struct userdb_ldap_request *) request;
-	struct auth_request *auth_request = urequest->auth_request;
+	struct auth_request *auth_request =
+		urequest->request.request.auth_request;
 	LDAPMessage *entry;
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
 
@@ -88,7 +88,6 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 
 	auth_request_ref(auth_request);
 	request = p_new(auth_request->pool, struct userdb_ldap_request, 1);
-	request->auth_request = auth_request;
 	request->userdb_callback = callback;
 
 	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
@@ -110,6 +109,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       attr_names == NULL ? "(all)" :
 			       t_strarray_join(attr_names, ","));
 
+	request->request.request.auth_request = auth_request;
 	request->request.request.callback = userdb_ldap_lookup_callback;
 	db_ldap_request(conn, &request->request.request);
 }
