@@ -2126,7 +2126,7 @@ CFLAGS="$CFLAGS $EXTRA_CFLAGS"
 
 if test "$docdir" = ""; then
   dnl docdir supported only by autoconf v2.59c and later
-  docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
+  docdir='${datadir}/doc/${PACKAGE_TARNAME}'
 fi
 AC_SUBST(docdir)
 
