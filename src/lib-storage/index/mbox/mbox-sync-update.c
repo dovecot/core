@@ -323,7 +323,8 @@ static void mbox_sync_update_xkeywords(struct mbox_sync_mail_context *ctx)
 		return;
 
 	str = t_str_new(256);
-	keywords_append(ctx->sync_ctx, str, &ctx->mail.keywords);
+	if (array_is_created(&ctx->mail.keywords))
+		keywords_append(ctx->sync_ctx, str, &ctx->mail.keywords);
 	str_append_c(str, '\n');
 	mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_KEYWORDS], str);
 }
@@ -375,35 +376,18 @@ static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
 
 static void mbox_sync_update_header_real(struct mbox_sync_mail_context *ctx)
 {
-	uint8_t old_flags;
-	enum mail_index_sync_type sync_type;
-
 	i_assert(ctx->mail.uid != 0 || ctx->mail.pseudo);
-
-	old_flags = ctx->mail.flags;
-
-	index_sync_changes_apply(ctx->sync_ctx->sync_changes,
-				 ctx->sync_ctx->mail_keyword_pool,
-				 &ctx->mail.flags, &ctx->mail.keywords,
-				 &sync_type);
-
-	if ((old_flags & XSTATUS_FLAGS_MASK) !=
-	    (ctx->mail.flags & XSTATUS_FLAGS_MASK))
-		mbox_sync_update_xstatus(ctx);
-	if ((sync_type & (MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD |
-			  MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE |
-			  MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET)) != 0)
-		mbox_sync_update_xkeywords(ctx);
 
 	if (!ctx->sync_ctx->mbox->ibox.keep_recent)
 		ctx->mail.flags &= ~MAIL_RECENT;
 
-	if ((old_flags & STATUS_FLAGS_MASK) !=
-	    (ctx->mail.flags & STATUS_FLAGS_MASK))
-		mbox_sync_update_status(ctx);
+	mbox_sync_update_status(ctx);
+	mbox_sync_update_xstatus(ctx);
+	mbox_sync_update_xkeywords(ctx);
 
 	mbox_sync_update_x_imap_base(ctx);
 	mbox_sync_update_x_uid(ctx);
+
 	mbox_sync_add_missing_headers(ctx);
 	ctx->updated = TRUE;
 }
