@@ -184,7 +184,7 @@ i_stream_create_crlf_full(struct istream *input, bool crlf)
 	cstream->istream.stat = i_stream_crlf_stat;
 
 	cstream->istream.istream.blocking = input->blocking;
-	cstream->istream.istream.seekable = input->seekable;
+	cstream->istream.istream.seekable = FALSE;
 	return i_stream_create(&cstream->istream, input,
 			       i_stream_get_fd(input));
 }
