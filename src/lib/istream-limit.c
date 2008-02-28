@@ -13,10 +13,12 @@ static void i_stream_limit_destroy(struct iostream_private *stream)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
-	/* get to same position in parent stream */
-	i_stream_seek(lstream->istream.parent,
-		      lstream->istream.parent_start_offset +
-		      lstream->istream.istream.v_offset);
+	if (lstream->istream.parent->seekable) {
+		/* get to same position in parent stream */
+		i_stream_seek(lstream->istream.parent,
+			      lstream->istream.parent_start_offset +
+			      lstream->istream.istream.v_offset);
+	}
 	i_stream_unref(&lstream->istream.parent);
 }
 
