@@ -796,6 +796,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	user = getenv("USER");
 	if (!keep_environment)
 		deliver_env_clean();
 
@@ -806,7 +807,6 @@ int main(int argc, char *argv[])
 		/* we're non-root. get our username and possibly our home. */
 		struct passwd *pw;
 
-		user = getenv("USER");
 		home = getenv("HOME");
 		if (user != NULL && home != NULL) {
 			/* no need for a pw lookup */
