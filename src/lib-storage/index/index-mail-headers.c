@@ -215,7 +215,7 @@ void index_mail_parse_header_init(struct index_mail *mail,
 			  (HEADER_MATCH_SKIP_COUNT-1)) == 0);
 		if (mail->header_match_value == 0) {
 			/* wrapped, we'll have to clear the buffer */
-			buffer_reset(mail->header_match.arr.buffer);
+			array_clear(&mail->header_match);
 			mail->header_match_value = HEADER_MATCH_SKIP_COUNT;
 		}
 	}
