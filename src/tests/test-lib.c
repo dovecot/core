@@ -461,6 +461,79 @@ static void test_priorityq(void)
 	pool_unref(&pool);
 }
 
+static void test_seq_range_array_random(void)
+{
+#define SEQ_RANGE_TEST_BUFSIZE 1024
+#define SEQ_RANGE_TEST_COUNT 10000
+	unsigned char shadowbuf[SEQ_RANGE_TEST_BUFSIZE];
+	ARRAY_TYPE(seq_range) range;
+	const struct seq_range *seqs;
+	uint32_t seq1, seq2;
+	unsigned int i, j, ret, ret2, count;
+	int test = -1;
+
+	ret = ret2 = 0;
+	i_array_init(&range, 1);
+	memset(shadowbuf, 0, sizeof(shadowbuf));
+	for (i = 0; i < SEQ_RANGE_TEST_COUNT; i++) {
+		seq1 = rand() % SEQ_RANGE_TEST_BUFSIZE;
+		seq2 = seq1 + rand() % (SEQ_RANGE_TEST_BUFSIZE - seq1);
+		test = rand() % 4;
+		switch (test) {
+		case 0:
+			seq_range_array_add(&range, 0, seq1);
+			shadowbuf[seq1] = 1;
+			break;
+		case 1:
+			seq_range_array_add_range(&range, seq1, seq2);
+			memset(shadowbuf + seq1, 1, seq2 - seq1 + 1);
+			break;
+		case 2:
+			ret = seq_range_array_remove(&range, seq1) ? 1 : 0;
+			ret2 = shadowbuf[seq1] != 0 ? 1 : 0;
+			shadowbuf[seq1] = 0;
+			break;
+		case 3:
+			ret = seq_range_array_remove_range(&range, seq1, seq2);
+			for (ret2 = 0; seq1 <= seq2; seq1++) {
+				if (shadowbuf[seq1] != 0) {
+					ret2++;
+					shadowbuf[seq1] = 0;
+				}
+			}
+			break;
+		}
+		if (ret != ret2)
+			break;
+
+		seqs = array_get(&range, &count);
+		for (j = 0, seq1 = 0; j < count; j++) {
+			if (j > 0 && seqs[j-1].seq2 >= seqs[j].seq1)
+				goto fail;
+			for (; seq1 < seqs[j].seq1; seq1++) {
+				if (shadowbuf[seq1] != 0)
+					goto fail;
+			}
+			for (; seq1 <= seqs[j].seq2; seq1++) {
+				if (shadowbuf[seq1] == 0)
+					goto fail;
+			}
+		}
+		i_assert(seq1 <= SEQ_RANGE_TEST_BUFSIZE);
+		for (; seq1 < SEQ_RANGE_TEST_BUFSIZE; seq1++) {
+			if (shadowbuf[seq1] != 0)
+				goto fail;
+		}
+	}
+fail:
+	if (i == SEQ_RANGE_TEST_COUNT)
+		test_out("seq_range_array random", TRUE);
+	else {
+		test_out_reason("seq_range_array random", FALSE,
+			t_strdup_printf("round %u test %d failed", i, test));
+	}
+}
+
 static void test_seq_range_array(void)
 {
 	static const unsigned int input_min = 1, input_max = 5;
@@ -502,6 +575,7 @@ static void test_seq_range_array(void)
 			 success);
 		array_free(&range);
 	}
+	test_seq_range_array_random();
 }
 
 struct str_sanitize_input {
