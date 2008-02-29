@@ -815,8 +815,9 @@ int main(int argc, char *argv[])
 			if (home == NULL)
 				env_put(t_strconcat("HOME=", pw->pw_dir, NULL));
 		} else if (user == NULL) {
-			i_fatal("Couldn't lookup our username (uid=%s)",
-				dec2str(process_euid));
+			i_fatal_status(EX_USAGE,
+				       "Couldn't lookup our username (uid=%s)",
+				       dec2str(process_euid));
 		}
 	} else {
 		i_fatal_status(EX_USAGE,
