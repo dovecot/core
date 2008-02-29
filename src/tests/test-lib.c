@@ -131,7 +131,7 @@ static void test_bsearch_insert_pos(void)
 
 static void test_buffer(void)
 {
-#define BUF_TEST_SIZE (1024*64)
+#define BUF_TEST_SIZE (1024*2)
 #define BUF_TEST_COUNT 1000
 	buffer_t *buf;
 	unsigned char *p, testdata[BUF_TEST_SIZE], shadowbuf[BUF_TEST_SIZE];
@@ -463,7 +463,7 @@ static void test_priorityq(void)
 
 static void test_seq_range_array_random(void)
 {
-#define SEQ_RANGE_TEST_BUFSIZE 1024
+#define SEQ_RANGE_TEST_BUFSIZE 20
 #define SEQ_RANGE_TEST_COUNT 10000
 	unsigned char shadowbuf[SEQ_RANGE_TEST_BUFSIZE];
 	ARRAY_TYPE(seq_range) range;
