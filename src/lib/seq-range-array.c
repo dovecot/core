@@ -27,6 +27,8 @@ static bool seq_range_lookup(const ARRAY_TYPE(seq_range) *array,
 			right_idx = idx;
 		}
 	}
+	if (left_idx > idx)
+		idx++;
 	*idx_r = idx;
 	return FALSE;
 }
@@ -73,10 +75,7 @@ void seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 	if (seq_range_lookup(array, seq, &idx))
 		return;
 
-	if (data[idx].seq2 < seq)
-		idx++;
-
-        /* idx == count couldn't happen because we already handle it above */
+	/* idx == count couldn't happen because we already handle it above */
 	i_assert(idx < count && data[idx].seq1 >= seq);
 	i_assert(data[idx].seq1 > seq || data[idx].seq2 < seq);
 
@@ -103,9 +102,40 @@ void seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,
 			       uint32_t seq1, uint32_t seq2)
 {
-	/* FIXME: optimize */
-	for (; seq1 <= seq2; seq1++)
-		seq_range_array_add(array, 2, seq1);
+	struct seq_range *data, value;
+	unsigned int idx1, idx2, count;
+
+	(void)seq_range_lookup(array, seq1, &idx1);
+	(void)seq_range_lookup(array, seq2, &idx2);
+
+	data = array_get_modifiable(array, &count);
+	if (idx1 > 0 && data[idx1-1].seq2+1 == seq1)
+		idx1--;
+
+	if (idx1 == idx2 &&
+	    (idx2 == count || data[idx2].seq1 > seq2+1) &&
+	    (idx1 == 0 || data[idx1-1].seq2 < seq1-1)) {
+		/* no overlapping */
+		value.seq1 = seq1;
+		value.seq2 = seq2;
+		array_insert(array, idx1, &value, 1);
+	} else {
+		i_assert(idx1 < count);
+		if (seq1 < data[idx1].seq1)
+			data[idx1].seq1 = seq1;
+		if (seq2 > data[idx1].seq2) {
+			/* merge */
+			if (idx2 == count ||
+			    data[idx2].seq1 > seq2+1)
+				idx2--;
+			if (seq2 >= data[idx2].seq2) {
+				data[idx1].seq2 = seq2;
+			} else {
+				data[idx1].seq2 = data[idx2].seq2;
+			}
+			array_delete(array, idx1 + 1, idx2 - idx1);
+		}
+	}
 }
 
 bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
@@ -205,8 +235,6 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 	/* find the beginning */
 	data = array_get(array, &count);
 	(void)seq_range_lookup(array, seq1, &idx);
-	if (idx < count && data[idx].seq2 < seq1)
-		idx++;
 
 	if (idx == count)
 		return remove_count;
