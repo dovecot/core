@@ -66,11 +66,13 @@ static unsigned int
 heap_item_bubble_up(struct priorityq *pq, unsigned int idx)
 {
 	struct priorityq_item **items;
-	unsigned int parent_idx;
+	unsigned int parent_idx, count;
 
-	items = array_idx_modifiable(&pq->items, 0);
+	items = array_get_modifiable(&pq->items, &count);
 	while (idx > 0) {
 		parent_idx = PARENT_IDX(idx);
+
+		i_assert(idx < count);
 		if (pq->cmp_callback(items[idx], items[parent_idx]) >= 0)
 			break;
 
@@ -124,7 +126,7 @@ static void priorityq_remove_idx(struct priorityq *pq, unsigned int idx)
 	heap_items_swap(items, idx, count);
 	array_delete(&pq->items, count, 1);
 
-	if (count > 0) {
+	if (count > 0 && idx != count) {
 		if (idx > 0)
 			idx = heap_item_bubble_up(pq, idx);
 		heap_item_bubble_down(pq, idx);
