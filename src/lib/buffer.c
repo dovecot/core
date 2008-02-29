@@ -47,6 +47,12 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 	}
 	new_size = pos + data_size;
 
+	if (new_size > buf->used && buf->used < buf->dirty) {
+		/* clear used..dirty area */
+		size_t max = I_MIN(I_MIN(buf->alloc, buf->dirty), new_size);
+
+		memset(buf->w_buffer + buf->used, 0, max - buf->used);
+	}
 	if (new_size > buf->alloc) {
 		if (unlikely(!buf->dynamic)) {
 			i_panic("Buffer full (%"PRIuSIZE_T" > %"PRIuSIZE_T", "
@@ -142,13 +148,9 @@ pool_t buffer_get_pool(buffer_t *_buf)
 	return buf->pool;
 }
 
-void buffer_reset(buffer_t *_buf)
+void buffer_reset(buffer_t *buf)
 {
-	struct real_buffer *buf = (struct real_buffer *)_buf;
-
-	memset(buf->w_buffer, 0, I_MAX(buf->used, buf->dirty));
-	buf->dirty = 0;
-	buf->used = 0;
+	buffer_set_used_size(buf, 0);
 }
 
 void buffer_write(buffer_t *_buf, size_t pos,
@@ -287,7 +289,7 @@ void buffer_set_used_size(buffer_t *_buf, size_t used_size)
 
 	i_assert(used_size <= buf->alloc);
 
-	if (used_size < buf->used && buf->used > buf->dirty)
+	if (buf->used > buf->dirty)
 		buf->dirty = buf->used;
 
 	buf->used = used_size;
