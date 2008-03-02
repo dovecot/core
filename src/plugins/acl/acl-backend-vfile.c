@@ -157,7 +157,7 @@ acl_parse_rights(pool_t pool, const char *acl, const char **error_r)
 		acl++;
 
 	t_array_init(&rights, 64);
-	for (; *acl != '\0' && *acl != ':'; acl++) {
+	while (*acl != '\0' && *acl != ' ' && *acl != '\t' && *acl != ':') {
 		for (i = 0; acl_letter_map[i].letter != '\0'; i++) {
 			if (acl_letter_map[i].letter == *acl)
 				break;
@@ -169,7 +169,9 @@ acl_parse_rights(pool_t pool, const char *acl, const char **error_r)
 		}
 
 		array_append(&rights, &acl_letter_map[i].name, 1);
+		acl++;
 	}
+	while (*acl == ' ' || *acl == '\t') acl++;
 
 	if (*acl != '\0') {
 		/* parse our own extended ACLs */
