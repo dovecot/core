@@ -185,16 +185,27 @@ match_sub(struct imap_match_context *ctx, const char **data_p,
 	  const char **pattern_p)
 {
 	enum imap_match_result ret, match;
+	unsigned int i;
 	const char *data = *data_p, *pattern = *pattern_p;
 
 	/* match all non-wildcards */
-	while (*pattern != '\0' && *pattern != '*' && *pattern != '%') {
-		if (!CMP_CUR_CHR(ctx, data, pattern)) {
-			return *data == '\0' && *pattern == ctx->sep ?
-				IMAP_MATCH_CHILDREN : IMAP_MATCH_NO;
+	i = 0;
+	while (pattern[i] != '\0' && pattern[i] != '*' && pattern[i] != '%') {
+		if (!CMP_CUR_CHR(ctx, data+i, pattern+i)) {
+			if (data[i] != '\0')
+				return IMAP_MATCH_NO;
+			if (pattern[i] == ctx->sep)
+				return IMAP_MATCH_CHILDREN;
+			if (i > 0 && pattern[i-1] == ctx->sep) {
+				/* data="foo/" pattern = "foo/bar/%" */
+				return IMAP_MATCH_CHILDREN;
+			}
+			return IMAP_MATCH_NO;
 		}
-		data++; pattern++;
+		i++;
 	}
+	data += i;
+	pattern += i;
 
         match = IMAP_MATCH_NO;
 	while (*pattern == '%') {
