@@ -255,11 +255,11 @@ mail_log_group_changes(struct mailbox *box,
 	}
 }
 
-static void mail_log_action(struct mail *mail, enum mail_log_event event,
+static void mail_log_action(struct mailbox_transaction_context *dest_trans,
+			    struct mail *mail, enum mail_log_event event,
 			    const char *data)
 {
-	struct mail_log_transaction_context *lt =
-		MAIL_LOG_CONTEXT(mail->transaction);
+	struct mail_log_transaction_context *lt = MAIL_LOG_CONTEXT(dest_trans);
 	const char *msgid;
 	uoff_t size;
 	string_t *str;
@@ -272,8 +272,7 @@ static void mail_log_action(struct mail *mail, enum mail_log_event event,
 		pool = pool_alloconly_create("mail log transaction", 1024);
 		lt = p_new(pool, struct mail_log_transaction_context, 1);
 		lt->pool = pool;
-		MODULE_CONTEXT_SET(mail->transaction,
-				   mail_log_storage_module, lt);
+		MODULE_CONTEXT_SET(dest_trans, mail_log_storage_module, lt);
 	}
 	lt->changes++;
 
@@ -322,7 +321,8 @@ static void mail_log_mail_expunge(struct mail *_mail)
 	union mail_module_context *lmail = MAIL_LOG_MAIL_CONTEXT(mail);
 
 	T_BEGIN {
-		mail_log_action(_mail, MAIL_LOG_EVENT_EXPUNGE, NULL);
+		mail_log_action(_mail->transaction, _mail,
+				MAIL_LOG_EVENT_EXPUNGE, NULL);
 	} T_END;
 	lmail->super.expunge(_mail);
 }
@@ -354,7 +354,8 @@ mail_log_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		return;
 
 	T_BEGIN {
-		mail_log_action(_mail, (new_flags & MAIL_DELETED) != 0 ?
+		mail_log_action(_mail->transaction, _mail,
+				(new_flags & MAIL_DELETED) != 0 ?
 				MAIL_LOG_EVENT_DELETE :
 				MAIL_LOG_EVENT_UNDELETE, NULL);
 	} T_END;
@@ -396,7 +397,7 @@ mail_log_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	T_BEGIN {
 		name = str_sanitize(mailbox_get_name(t->box),
 				    MAILBOX_NAME_LOG_LEN);
-		mail_log_action(mail, MAIL_LOG_EVENT_COPY, name);
+		mail_log_action(t, mail, MAIL_LOG_EVENT_COPY, name);
 	} T_END;
 	return 0;
 }
