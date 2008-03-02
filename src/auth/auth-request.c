@@ -123,7 +123,7 @@ void auth_request_export(struct auth_request *request, string_t *str)
 	str_append(str, request->service);
 
         if (request->master_user != NULL) {
-                str_append(str, "master_user=");
+                str_append(str, "\tmaster_user=");
                 str_append(str, request->master_user);
         }
 
@@ -145,6 +145,8 @@ void auth_request_export(struct auth_request *request, string_t *str)
 	}
 	if (request->secured)
 		str_append(str, "\tsecured=1");
+	if (request->skip_password_check)
+		str_append(str, "\tskip_password_check=1");
 }
 
 bool auth_request_import(struct auth_request *request,
@@ -175,7 +177,10 @@ bool auth_request_import(struct auth_request *request,
 		request->secured = TRUE;
 	else if (strcmp(key, "nologin") == 0)
 		request->no_login = TRUE;
-	else
+	else if (strcmp(key, "skip_password_check") == 0) {
+		i_assert(request->master_user !=  NULL);
+		request->skip_password_check = TRUE;
+	} else
 		return FALSE;
 
 	return TRUE;
