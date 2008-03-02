@@ -175,6 +175,12 @@ struct mail_cache {
 	unsigned int field_header_write_pending:1;
 };
 
+struct mail_cache_loop_track {
+	/* we're looping if size_sum > (max_offset-min_offset) */
+	uoff_t min_offset, max_offset;
+	uoff_t size_sum;
+};
+
 struct mail_cache_view {
 	struct mail_cache *cache;
 	struct mail_index_view *view, *trans_view;
@@ -182,8 +188,7 @@ struct mail_cache_view {
 	struct mail_cache_transaction_ctx *transaction;
 	uint32_t trans_seq1, trans_seq2;
 
-	/* temporary array, just to avoid mallocs. */
-	ARRAY_TYPE(uint32_t) looping_offsets;
+	struct mail_cache_loop_track loop_track;
 
 	/* if cached_exists_buf[field] == cached_exists_value, it's cached.
 	   this allows us to avoid constantly clearing the whole buffer.
@@ -236,9 +241,11 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 			  const struct mail_cache_record **rec_r);
 uint32_t mail_cache_get_first_new_seq(struct mail_index_view *view);
 
-/* Returns TRUE if offset is already in given array. Otherwise return FALSE
-   and add the offset to the array. */
-bool mail_cache_track_loops(ARRAY_TYPE(uint32_t) *array, uint32_t offset);
+/* Returns TRUE if offset..size area has been tracked before.
+   Returns FALSE if the area may or may not have been tracked before,
+   but we don't know for sure yet. */
+bool mail_cache_track_loops(struct mail_cache_loop_track *loop_track,
+			    uoff_t offset, uoff_t size);
 
 /* Iterate through a message's cached fields. */
 void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,

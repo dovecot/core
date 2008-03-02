@@ -105,18 +105,29 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 	return 1;
 }
 
-bool mail_cache_track_loops(ARRAY_TYPE(uint32_t) *array, uint32_t offset)
+bool mail_cache_track_loops(struct mail_cache_loop_track *loop_track,
+			    uoff_t offset, uoff_t size)
 {
-	const uint32_t *offsets;
-	unsigned int i, count;
+	i_assert(offset != 0);
+	i_assert(size != 0);
 
-	offsets = array_get(array, &count);
-	for (i = 0; i < count; i++) {
-		if (offsets[i] == offset)
-			return TRUE;
+	/* looping happens only in rare error conditions, so it's enough if we
+	   just catch it eventually. we do this by checking if we've seen
+	   more record data than possible in the accessed file area. */
+	if (loop_track->size_sum == 0) {
+		/* first call */
+		loop_track->min_offset = offset;
+		loop_track->max_offset = offset + size;
+	} else {
+		if (loop_track->min_offset > offset)
+			loop_track->min_offset = offset;
+		if (loop_track->max_offset < offset + size)
+			loop_track->max_offset = offset + size;
 	}
-	array_append(array, &offset, 1);
-	return FALSE;
+
+	loop_track->size_sum += size;
+	return loop_track->size_sum >
+		(loop_track->max_offset - loop_track->min_offset);
 }
 
 void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
@@ -143,7 +154,7 @@ void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 	}
 	ctx->remap_counter = view->cache->remap_counter;
 
-	array_clear(&view->looping_offsets);
+	memset(&view->loop_track, 0, sizeof(view->loop_track));
 }
 
 static int
@@ -168,17 +179,18 @@ mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 
 		ctx->appends_checked = TRUE;
 		ctx->remap_counter = view->cache->remap_counter;
-		array_clear(&view->looping_offsets);
+		memset(&view->loop_track, 0, sizeof(view->loop_track));
 	}
 
 	/* look up the next record */
-	if (mail_cache_track_loops(&view->looping_offsets, ctx->offset)) {
+	if (mail_cache_get_record(view->cache, ctx->offset, &ctx->rec) < 0)
+		return -1;
+	if (mail_cache_track_loops(&view->loop_track, ctx->offset,
+				   ctx->rec->size)) {
 		mail_cache_set_corrupted(view->cache,
 					 "record list is circular");
 		return -1;
 	}
-	if (mail_cache_get_record(view->cache, ctx->offset, &ctx->rec) < 0)
-		return -1;
 	ctx->remap_counter = view->cache->remap_counter;
 
 	ctx->pos = sizeof(*ctx->rec);
