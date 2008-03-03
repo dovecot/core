@@ -11,7 +11,6 @@ AM_CPPFLAGS = \
 libstorage_mbox_a_SOURCES = \
 	istream-raw-mbox.c \
 	mbox-file.c \
-	mbox-from.c \
 	mbox-lock.c \
 	mbox-mail.c \
 	mbox-md5.c \
@@ -26,7 +25,6 @@ libstorage_mbox_a_SOURCES = \
 headers = \
 	istream-raw-mbox.h \
 	mbox-file.h \
-	mbox-from.h \
 	mbox-lock.h \
 	mbox-md5.h \
 	mbox-storage.h \
