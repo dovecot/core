@@ -443,6 +443,12 @@ void t_buffer_alloc(size_t size)
 	t_malloc_real(size, TRUE);
 }
 
+void t_buffer_alloc_last_full(void)
+{
+	if (last_buffer_block != NULL)
+		t_malloc_real(last_buffer_size, TRUE);
+}
+
 void data_stack_set_clean_after_pop(bool enable ATTR_UNUSED)
 {
 #ifndef DEBUG
