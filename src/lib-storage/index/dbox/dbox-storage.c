@@ -398,6 +398,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
 	struct stat st;
 	const char *path, *alt_path;
+	bool deleted = FALSE;
 
 	/* Make sure the indexes are closed before trying to delete the
 	   directory that contains them. It can still fail with some NFS
@@ -412,21 +413,53 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	/* check if the mailbox actually exists */
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) != 0 && errno == ENOENT) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		return -1;
-	}
-
-	if (dbox_delete_nonrecursive(list, path, name) < 0)
-		return -1;
-
-	alt_path = dbox_get_alt_path(storage, path);
-	if (alt_path != NULL) {
-		if (dbox_delete_nonrecursive(list, alt_path, name) < 0)
+	if (stat(path, &st) == 0) {
+		/* delete the mailbox first */
+		if (dbox_delete_nonrecursive(list, path, name) < 0)
 			return -1;
+
+		alt_path = dbox_get_alt_path(storage, path);
+		if (alt_path != NULL) {
+			if (dbox_delete_nonrecursive(list, alt_path, name) < 0)
+				return -1;
+		}
+		/* try to delete the directory also */
+		deleted = TRUE;
+		path = mailbox_list_get_path(list, name,
+					     MAILBOX_LIST_PATH_TYPE_DIR);
+	} else if (errno != ENOENT) {
+		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
+		return -1;
+	} else {
+		/* mailbox not found - what about the directory? */
+		path = mailbox_list_get_path(list, name,
+					     MAILBOX_LIST_PATH_TYPE_DIR);
+		if (stat(path, &st) == 0) {
+			/* delete the directory */
+		} else if (errno == ENOENT) {
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+			return -1;
+		} else if (!mailbox_list_set_error_from_errno(list)) {
+			mailbox_list_set_critical(list, "stat(%s) failed: %m",
+						  path);
+			return -1;
+		}
 	}
-	return 0;
+
+	if (rmdir(path) == 0)
+		return 0;
+	else if (errno == ENOTEMPTY) {
+		if (deleted)
+			return 0;
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			t_strdup_printf("Directory %s isn't empty, "
+					"can't delete it.", name));
+	} else if (!mailbox_list_set_error_from_errno(list)) {
+		mailbox_list_set_critical(list, "rmdir() failed for %s: %m",
+					  path);
+	}
+	return -1;
 }
 
 static void dbox_notify_changes(struct mailbox *box)
