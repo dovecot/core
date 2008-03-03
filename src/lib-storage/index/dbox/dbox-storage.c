@@ -482,7 +482,7 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags)
 {
-	const char *mail_path;
+	const char *path, *maildir_path;
 	struct stat st;
 	int ret = 1;
 
@@ -496,8 +496,8 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	}
 
 	/* need to stat() then */
-	mail_path = t_strconcat(dir, "/", fname, NULL);
-	if (stat(mail_path, &st) == 0) {
+	path = t_strconcat(dir, "/", fname, NULL);
+	if (stat(path, &st) == 0) {
 		if (!S_ISDIR(st.st_mode)) {
 			/* non-directory */
 			*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
@@ -522,6 +522,12 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 		/* non-selectable. probably either access denied, or symlink
 		   destination not found. don't bother logging errors. */
 		*flags |= MAILBOX_NOSELECT;
+	}
+	if ((*flags & MAILBOX_NOSELECT) == 0) {
+		/* make sure it's a selectable mailbox */
+		maildir_path = t_strconcat(path, "/"DBOX_MAILDIR_NAME, NULL);
+		if (stat(maildir_path, &st) < 0 || !S_ISDIR(st.st_mode))
+			*flags |= MAILBOX_NOSELECT;
 	}
 	return ret;
 }
