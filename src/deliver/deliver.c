@@ -28,7 +28,7 @@
 #include "auth-client.h"
 #include "mail-send.h"
 #include "duplicate.h"
-#include "mbox/mbox-from.h"
+#include "mbox-from.h"
 #include "../master/syslog-util.h"
 #include "../master/syslog-util.c" /* ugly, ugly.. */
 #include "deliver.h"
