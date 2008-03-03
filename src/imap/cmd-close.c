@@ -18,6 +18,8 @@ bool cmd_close(struct client_command_context *cmd)
 
 	if (!imap_expunge(mailbox, NULL))
 		client_send_untagged_storage_error(client, storage);
+	else if (mailbox_sync(mailbox, 0, 0, NULL) < 0)
+		client_send_untagged_storage_error(client, storage);
 
 	if (mailbox_close(&mailbox) < 0)
                 client_send_untagged_storage_error(client, storage);
