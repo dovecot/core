@@ -97,6 +97,8 @@ void *t_buffer_reget(void *buffer, size_t size);
 #define t_buffer_alloc_type(type, size) \
         t_buffer_alloc(sizeof(type) * (size))
 void t_buffer_alloc(size_t size);
+/* Allocate the last t_buffer_get()ed data entirely. */
+void t_buffer_alloc_last_full(void);
 
 /* If enabled, all the used memory is cleared after t_pop(). */
 void data_stack_set_clean_after_pop(bool enable);
