@@ -459,6 +459,7 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 		break;
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
+	case SEARCH_HEADER_COMPRESS_LWSP:
 		ARG_SET_RESULT(arg, 0);
 		break;
 	default:
