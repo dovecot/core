@@ -151,11 +151,30 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 	return ret;
 }
 
-static void ATTR_NORETURN
-i_stream_crlf_seek(struct istream_private *stream ATTR_UNUSED,
-		   uoff_t v_offset ATTR_UNUSED, bool mark ATTR_UNUSED)
+static void
+i_stream_crlf_seek(struct istream_private *stream,
+		   uoff_t v_offset, bool mark ATTR_UNUSED)
 {
-	i_panic("crlf-istream: seeking unsupported currently");
+	size_t available;
+
+	if (stream->istream.v_offset > v_offset)
+		i_panic("crlf-istream: seeking unsupported currently");
+
+	while (stream->istream.v_offset < v_offset) {
+		(void)i_stream_crlf_read_crlf(stream);
+
+		available = stream->pos - stream->skip;
+		if (available == 0) {
+			stream->istream.stream_errno = ESPIPE;
+			return;
+		}
+		if (available <= v_offset - stream->istream.v_offset)
+			i_stream_skip(&stream->istream, available);
+		else {
+			i_stream_skip(&stream->istream,
+				      v_offset - stream->istream.v_offset);
+		}
+	}
 }
 
 static const struct stat *
