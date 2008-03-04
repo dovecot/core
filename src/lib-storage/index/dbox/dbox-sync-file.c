@@ -324,9 +324,9 @@ dbox_sync_file_int(struct dbox_sync_context *ctx, struct dbox_file *file,
 		first_expunge_seq = (uint32_t)-1;
 	}
 
-	if (array_is_created(&entry->changes))
+	if (array_is_created(&entry->changes)) {
 		seqs = array_get(&entry->changes, &count);
-	else {
+	} else {
 		seqs = NULL;
 		count = 0;
 	}
@@ -344,6 +344,31 @@ dbox_sync_file_int(struct dbox_sync_context *ctx, struct dbox_file *file,
 	if (first_expunge_seq != (uint32_t)-1)
 		return dbox_sync_file_expunge(ctx, file, entry);
 	return 1;
+}
+
+static void
+dbox_sync_file_move_if_needed(struct dbox_sync_context *ctx,
+			      struct dbox_file *file,
+			      const struct dbox_sync_file_entry *entry)
+{
+	const struct seq_range *seq;
+	const struct mail_index_record *rec;
+	bool new_alt_path;
+
+	if (!array_is_created(&entry->changes))
+		return;
+
+	/* check if we want to move the file to alt path or back.
+	   FIXME: change this check somehow when a file may contain
+	   multiple messages. */
+	seq = array_idx(&entry->changes, 0);
+	rec = mail_index_lookup(ctx->sync_view, seq[0].seq1);
+	new_alt_path = (rec->flags & DBOX_INDEX_FLAG_ALT) != 0;
+	if (new_alt_path != file->alt_path) {
+		/* move the file. if it fails, nothing broke so
+		   don't worry about it. */
+		(void)dbox_file_move(file, new_alt_path);
+	}
 }
 
 static void
@@ -394,8 +419,10 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 		}
 	} else {
 		ret = dbox_file_open_or_create(file, TRUE, &deleted);
-		if (ret > 0 && !deleted)
+		if (ret > 0 && !deleted) {
+			dbox_sync_file_move_if_needed(ctx, file, entry);
 			ret = dbox_sync_file_int(ctx, file, entry, locked);
+		}
 	}
 	dbox_file_unref(&file);
 	return ret;

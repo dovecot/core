@@ -26,6 +26,9 @@
 #define DBOX_DEFAULT_ROTATE_DAYS 0
 #define DBOX_DEFAULT_MAX_OPEN_FILES 64
 
+/* Flag specifies if the message should be in primary or alternative storage */
+#define DBOX_INDEX_FLAG_ALT MAIL_INDEX_MAIL_FLAG_BACKEND
+
 struct dbox_index_header {
 	uint32_t last_dirty_flush_stamp;
 };
