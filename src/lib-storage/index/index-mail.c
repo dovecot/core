@@ -1116,7 +1116,8 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 
 	rec = mail_index_lookup(mail->trans->trans_view, seq);
 	data->seq = seq;
-	data->flags = rec->flags & MAIL_FLAGS_NONRECENT;
+	data->flags = rec->flags & (MAIL_FLAGS_NONRECENT |
+				    MAIL_INDEX_MAIL_FLAG_BACKEND);
 
 	mail->mail.mail.seq = seq;
 	mail->mail.mail.uid = rec->uid;
@@ -1310,8 +1311,9 @@ void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 
+	flags &= MAIL_FLAGS_NONRECENT | MAIL_INDEX_MAIL_FLAG_BACKEND;
 	mail_index_update_flags(imail->trans->trans, mail->seq, modify_type,
-				flags & MAIL_FLAGS_NONRECENT);
+				flags);
 }
 
 void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
