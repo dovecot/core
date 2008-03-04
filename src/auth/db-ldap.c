@@ -716,10 +716,14 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 	db_ldap_set_opt(conn, LDAP_OPT_DEREF, &conn->set.ldap_deref,
 			"deref", conn->set.deref);
 
-	/* If SASL binds are used, the protocol version needs to be
-	   at least 3 */
-	ldap_version = conn->set.sasl_bind &&
-		conn->set.ldap_version < 3 ? 3 : conn->set.ldap_version;
+	if (conn->set.ldap_version < 3) {
+		if (conn->set.sasl_bind)
+			i_fatal("LDAP: sasl_bind=yes requires ldap_version=3");
+		if (conn->set.tls)
+			i_fatal("LDAP: tls=yes requires ldap_version=3");
+	}
+
+	ldap_version = conn->set.ldap_version;
 	db_ldap_set_opt(conn, LDAP_OPT_PROTOCOL_VERSION, &ldap_version,
 			"protocol_version", dec2str(ldap_version));
 	db_ldap_set_tls_options(conn);
