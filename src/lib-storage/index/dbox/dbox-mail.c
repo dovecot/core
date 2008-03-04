@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "index-mail.h"
 #include "dbox-storage.h"
@@ -119,7 +120,9 @@ static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_SAVE_TIME);
 	data->save_date = value == NULL ? 0 : strtoul(value, NULL, 16);
-	*date_r = data->save_date;
+	/* if the time is missing or corrupted, use the current time and
+	   cache it */
+	*date_r = data->save_date == 0 ? ioloop_time : data->save_date;
 	return 0;
 }
 
