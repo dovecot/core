@@ -7,4 +7,6 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 	      unsigned int *lock_id_r);
 int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id);
 
+void mbox_dotlock_touch(struct mbox_mailbox *mbox);
+
 #endif

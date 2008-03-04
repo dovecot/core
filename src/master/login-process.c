@@ -516,7 +516,7 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	   parameter since we don't want to call initgroups() for login
 	   processes. */
 	restrict_access_set_env(NULL, set->login_uid,
-				set->server->login_gid,
+				set->server->login_gid, (gid_t)-1,
 				set->login_chroot ? set->login_dir : NULL,
 				0, 0, NULL);
 

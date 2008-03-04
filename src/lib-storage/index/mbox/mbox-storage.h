@@ -47,6 +47,8 @@ struct mbox_mailbox {
 	unsigned int mbox_very_dirty_syncs:1;
 	unsigned int mbox_save_md5:1;
 	unsigned int mbox_dotlocked:1;
+	unsigned int mbox_used_privileges:1;
+	unsigned int mbox_privileged_locking:1;
 	unsigned int syncing:1;
 };
 

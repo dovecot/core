@@ -724,9 +724,10 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
-	restrict_access_set_env(system_user, uid, gid, chroot_dir,
+	restrict_access_set_env(system_user, uid, gid, set->mail_priv_gid_t,
+				chroot_dir,
 				set->first_valid_gid, set->last_valid_gid,
-				set->mail_extra_groups);
+				set->mail_access_groups);
 
 	restrict_process_size(set->mail_process_size, (unsigned int)-1);
 
@@ -834,8 +835,13 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	   any errors above will be logged */
 	closelog();
 
-	if (set->mail_drop_priv_before_exec)
+	if (set->mail_drop_priv_before_exec) {
 		restrict_access_by_env(TRUE);
+		/* privileged GID is now only in saved-GID. if we want to
+		   preserve it accross exec, it needs to be temporarily
+		   in effective gid */
+		restrict_access_use_priv_gid();
+	}
 
 	client_process_exec(set->mail_executable, title);
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
