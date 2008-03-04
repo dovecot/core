@@ -67,7 +67,7 @@ void child_process_init_env(void)
 
 void client_process_exec(const char *cmd, const char *title)
 {
-	const char *executable, *p, **argv;
+	const char **argv;
 
 	/* very simple argument splitting. */
 	if (*title == '\0')
@@ -75,7 +75,12 @@ void client_process_exec(const char *cmd, const char *title)
 	else
 		argv = t_strsplit(t_strconcat(cmd, " ", title, NULL), " ");
 
-	executable = argv[0];
+	client_process_exec_argv(argv[0], argv);
+}
+
+void client_process_exec_argv(const char *executable, const char **argv)
+{
+	const char *p;
 
 	/* hide the path, it's ugly */
 	p = strrchr(argv[0], '/');
