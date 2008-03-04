@@ -362,8 +362,10 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 		if (errno == EEXIST)
 			return 0;
 
-		i_error("link(%s, %s) failed: %m",
-			lock_info->temp_path, lock_info->lock_path);
+		if (errno != EACCES) {
+			i_error("link(%s, %s) failed: %m",
+				lock_info->temp_path, lock_info->lock_path);
+		}
 		return -1;
 	}
 
@@ -384,7 +386,7 @@ static int try_create_lock_excl(struct lock_info *lock_info, bool write_pid)
 		if (errno == EEXIST)
 			return 0;
 
-		if (errno != ENOENT)
+		if (errno != ENOENT && errno != EACCES)
 			i_error("open(%s) failed: %m", lock_info->lock_path);
 		return -1;
 	}
