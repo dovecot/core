@@ -49,7 +49,7 @@ static void expire_env_parse(struct expire_env *env, const char *str,
 		/* FIXME: hardcoded separator isn't very good */
 		box.glob = imap_match_init(env->pool, box.pattern, TRUE, '/');
 		box.type = type;
-		box.expire_secs = strtoul(names[1], NULL, 10)/* * 3600 * 24*/ * 10;//FIXME
+		box.expire_secs = strtoul(names[1], NULL, 10) * 3600 * 24;
 
 		array_append(&env->expire_boxes, &box, 1);
 	}
