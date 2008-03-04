@@ -6,6 +6,7 @@
 #include "randgen.h"
 #include "lib-signals.h"
 #include "dict-client.h"
+#include "mail-index.h"
 #include "mail-search.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
@@ -26,6 +27,7 @@ struct expire_context {
 	char *user;
 	pool_t namespace_pool;
 	struct mail_namespace *ns;
+	bool testrun;
 };
 
 static int user_init(struct expire_context *ctx, const char *user)
@@ -54,7 +56,8 @@ static void user_deinit(struct expire_context *ctx)
 
 static int
 mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
-			 const char *mailbox, time_t expire_secs,
+			 const char *mailbox,
+			 unsigned int expunge_secs, unsigned int altmove_secs,
 			 time_t *oldest_r)
 {
 	struct mail_namespace *ns;
@@ -63,7 +66,10 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	struct mailbox_transaction_context *t;
 	struct mail_search_arg search_arg;
 	struct mail *mail;
+	const char *ns_mailbox;
 	time_t now, save_time;
+	enum mail_error error;
+	enum mail_flags flags;
 	int ret;
 
 	*oldest_r = 0;
@@ -71,8 +77,11 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	if (ctx->user != NULL && strcmp(user, ctx->user) != 0)
 		user_deinit(ctx);
 	if (ctx->user == NULL) {
-		if ((ret = user_init(ctx, user)) <= 0)
+		if ((ret = user_init(ctx, user)) <= 0) {
+			if (ctx->testrun)
+				i_info("User lookup failed: %s", user);
 			return ret;
+		}
 		ctx->user = i_strdup(user);
 	}
 
@@ -80,11 +89,25 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	search_arg.type = SEARCH_ALL;
 	search_arg.next = NULL;
 
-	ns = mail_namespace_find(ctx->ns, &mailbox);
-	if (ns == NULL)
-		return -1;
+	ns_mailbox = mailbox;
+	ns = mail_namespace_find(ctx->ns, &ns_mailbox);
+	if (ns == NULL) {
+		/* entire namespace no longer exists, remove the entry */
+		if (ctx->testrun)
+			i_info("Namespace lookup failed: %s", mailbox);
+		return 0;
+	}
 
-	box = mailbox_open(ns->storage, mailbox, NULL, 0);
+	box = mailbox_open(ns->storage, ns_mailbox, NULL, 0);
+	if (box == NULL) {
+		(void)mail_storage_get_last_error(ns->storage, &error);
+		if (error != MAIL_ERROR_NOTFOUND)
+			return -1;
+		
+		/* mailbox no longer exists, remove the entry */
+		return 0;
+	}
+
 	t = mailbox_transaction_begin(box, 0);
 	search_ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
 	mail = mail_alloc(t, 0, NULL);
@@ -93,14 +116,36 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	while ((ret = mailbox_search_next(search_ctx, mail)) > 0) {
 		if (mail_get_save_date(mail, &save_time) < 0) {
 			/* maybe just got expunged. anyway try again later. */
+			if (ctx->testrun) {
+				i_info("%s: seq=%u uid=%u: "
+				       "Save date lookup failed",
+				       mailbox, mail->seq, mail->uid);
+			}
 			ret = -1;
 			break;
 		}
 
-		if (save_time + expire_secs <= now)
-			mail_expunge(mail);
-		else {
-			/* first non-expunged one. */
+		if (save_time + expunge_secs <= now && expunge_secs != 0) {
+			if (!ctx->testrun)
+				mail_expunge(mail);
+			else {
+				i_info("%s: seq=%u uid=%u: Expunge",
+				       mailbox, mail->seq, mail->uid);
+			}
+		} else if (save_time + altmove_secs <= now && altmove_secs != 0) {
+			/* works only with dbox */
+			flags = mail_get_flags(mail);
+			if ((flags & MAIL_INDEX_MAIL_FLAG_BACKEND) != 0) {
+				/* alread moved */
+			} else if (!ctx->testrun) {
+				mail_update_flags(mail, MODIFY_ADD,
+						  MAIL_INDEX_MAIL_FLAG_BACKEND);
+			} else {
+				i_info("%s: seq=%u uid=%u: Move to alt dir",
+				       mailbox, mail->seq, mail->uid);
+			}
+		} else {
+			/* first non-expired one. */
 			*oldest_r = save_time;
 			break;
 		}
@@ -109,21 +154,29 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
-	if (mailbox_transaction_commit(&t) < 0)
+	if (!ctx->testrun) {
+		if (mailbox_transaction_commit(&t) < 0)
+			ret = -1;
+	} else {
+		mailbox_transaction_rollback(&t);
+	}
+
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST, 0, NULL) < 0)
 		ret = -1;
+
 	mailbox_close(&box);
 	return ret < 0 ? -1 : 0;
 }
 
-static void expire_run(void)
+static void expire_run(bool testrun)
 {
 	struct expire_context ctx;
 	struct dict *dict = NULL;
 	struct dict_transaction_context *trans;
 	struct dict_iterate_context *iter;
 	struct expire_env *env;
-	const struct expire_box *expire_box;
 	time_t oldest;
+	unsigned int expunge_secs, altmove_secs;
 	const char *auth_socket, *p, *key, *value;
 	const char *userp, *mailbox;
 	int ret;
@@ -133,8 +186,8 @@ static void expire_run(void)
 	mail_storage_register_all();
 	mailbox_list_register_all();
 
-	if (getenv("EXPIRE") == NULL)
-		i_fatal("expire setting not set");
+	if (getenv("EXPIRE") == NULL && getenv("EXPIRE_ALTMOVE") == NULL)
+		i_fatal("expire and expire_altmove settings not set");
 	if (getenv("EXPIRE_DICT") == NULL)
 		i_fatal("expire_dict setting not set");
 
@@ -143,9 +196,10 @@ static void expire_run(void)
 		auth_socket = DEFAULT_AUTH_SOCKET_PATH;
 
 	memset(&ctx, 0, sizeof(ctx));
+	ctx.testrun = testrun;
 	ctx.auth_conn = auth_connection_init(auth_socket);
 	ctx.namespace_pool = pool_alloconly_create("namespaces", 1024);
-	env = expire_env_init(getenv("EXPIRE"));
+	env = expire_env_init(getenv("EXPIRE"), getenv("EXPIRE_ALTMOVE"));
 	dict = dict_init(getenv("EXPIRE_DICT"), DICT_DATA_TYPE_UINT32, "");
 	trans = dict_transaction_begin(dict);
 	iter = dict_iterate_init(dict, DICT_PATH_SHARED,
@@ -164,43 +218,64 @@ static void expire_run(void)
 		}
 
 		mailbox = p + 1;
-		expire_box = expire_box_find(env, mailbox);
-		if (expire_box == NULL) {
+		if (!expire_box_find(env, mailbox,
+				     &expunge_secs, &altmove_secs)) {
 			/* we're no longer expunging old messages from here */
-			dict_unset(trans, key);
-		} else if (time(NULL) < (time_t)strtoul(value, NULL, 10)) {
+			if (!testrun)
+				dict_unset(trans, key);
+			else
+				i_info("%s: removed from config", mailbox);
+			continue;
+		}
+		if (time(NULL) < (time_t)strtoul(value, NULL, 10)) {
 			/* this and the rest of the timestamps are in future,
 			   so stop processing */
+			if (testrun) {
+				i_info("%s: stop, expire time in future: %s",
+				       mailbox, value);
+			}
 			break;
-		} else {
-			T_BEGIN {
-				const char *username;
+		}
 
-				username = t_strdup_until(userp, p);
-				ret = mailbox_delete_old_mails(&ctx, username,
-						mailbox,
-						expire_box->expire_secs,
-						&oldest);
-			} T_END;
-			if (ret < 0) {
-				/* failed to update */
-			} else if (oldest == 0) {
-				/* no more messages or we're no longer
-				   expunging messages from here */
+		T_BEGIN {
+			const char *username;
+
+			username = t_strdup_until(userp, p);
+			ret = mailbox_delete_old_mails(&ctx, username,
+						       mailbox, expunge_secs,
+						       altmove_secs, &oldest);
+		} T_END;
+
+		if (ret < 0) {
+			/* failed to update */
+		} else if (oldest == 0) {
+			/* no more messages or mailbox deleted */
+			if (!testrun)
 				dict_unset(trans, key);
-			} else {
-				char new_value[MAX_INT_STRLEN];
+			else
+				i_info("%s: no messages left", mailbox);
+		} else {
+			char new_value[MAX_INT_STRLEN];
 
-				oldest += expire_box->expire_secs;
-				i_snprintf(new_value, sizeof(new_value), "%lu",
-					   (unsigned long)oldest);
-				if (strcmp(value, new_value) != 0)
-					dict_set(trans, key, new_value);
+			oldest += altmove_secs != 0 ?
+				altmove_secs : expunge_secs;
+			i_snprintf(new_value, sizeof(new_value), "%lu",
+				   (unsigned long)oldest);
+			if (strcmp(value, new_value) == 0) {
+				/* no change */
+			} else if (!testrun)
+				dict_set(trans, key, new_value);
+			else {
+				i_info("%s: timestamp %s -> %s",
+				       mailbox, value, new_value);
 			}
 		}
 	}
 	dict_iterate_deinit(iter);
-	dict_transaction_commit(trans);
+	if (!testrun)
+		dict_transaction_commit(trans);
+	else
+		dict_transaction_rollback(trans);
 	dict_deinit(&dict);
 
 	if (ctx.user != NULL)
@@ -211,16 +286,19 @@ static void expire_run(void)
 	dict_driver_unregister(&dict_driver_client);
 }
 
-int main(void)
+int main(int argc, const char *argv[])
 {
 	struct ioloop *ioloop;
+	bool test;
 
 	lib_init();
 	lib_signals_init();
 	random_init();
 
+	test = argc > 1 && strcmp(argv[1], "--test") == 0;
+
 	ioloop = io_loop_create();
-	expire_run();
+	expire_run(test);
 	io_loop_destroy(&ioloop);
 
 	lib_signals_deinit();
