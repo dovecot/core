@@ -412,7 +412,7 @@ mail_process_set_environment(struct settings *set, const char *mail,
 	}
 }
 
-void mail_process_exec(const char *protocol, const char *section)
+void mail_process_exec(const char *protocol, const char **args)
 {
 	struct server_settings *server = settings_root;
 	const struct var_expand_table *var_expand_table;
@@ -421,11 +421,13 @@ void mail_process_exec(const char *protocol, const char *section)
 
 	if (strcmp(protocol, "ext") == 0) {
 		/* external binary. section contains path for it. */
-		if (section == NULL)
+		if (*args == NULL)
 			i_fatal("External binary parameter not given");
 		set = server->defaults;
-		executable = section;
+		executable = *args;
 	} else {
+		const char *section = *args;
+
 		if (section != NULL) {
 			for (; server != NULL; server = server->next) {
 				if (strcmp(server->name, section) == 0)
@@ -442,6 +444,7 @@ void mail_process_exec(const char *protocol, const char *section)
 		else
 			i_fatal("Unknown protocol: '%s'", protocol);
 		executable = set->mail_executable;
+		args = NULL;
 	}
 
 	var_expand_table =
@@ -468,7 +471,10 @@ void mail_process_exec(const char *protocol, const char *section)
 
 	mail_process_set_environment(set, getenv("MAIL"), var_expand_table,
 				     FALSE);
-        client_process_exec(executable, "");
+	if (args == NULL)
+		client_process_exec(executable, "");
+	else
+		client_process_exec_argv(executable, args);
 
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 }

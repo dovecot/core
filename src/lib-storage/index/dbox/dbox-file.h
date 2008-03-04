@@ -128,6 +128,7 @@ struct dbox_file {
 	/* Includes the trailing LF that shouldn't be used */
 	unsigned int metadata_len;
 
+	unsigned int alt_path:1;
 	unsigned int maildir_file:1;
 	unsigned int nonappendable:1;
 	unsigned int deleted:1;
@@ -216,6 +217,9 @@ int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output);
 /* Get file/offset for wanted message. Returns TRUE if found. */
 bool dbox_file_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		      uint32_t seq, uint32_t *file_id_r, uoff_t *offset_r);
+
+/* Move the file to alt path or back. */
+int dbox_file_move(struct dbox_file *file, bool alt_path);
 
 /* Append flags as metadata value to given string */
 void dbox_mail_metadata_flags_append(string_t *str, enum mail_flags flags);

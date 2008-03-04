@@ -7,6 +7,8 @@
 #include "hostpid.h"
 #include "istream.h"
 #include "ostream.h"
+#include "mkdir-parents.h"
+#include "fdatasync-path.h"
 #include "write-full.h"
 #include "str.h"
 #include "dbox-storage.h"
@@ -375,6 +377,7 @@ static int dbox_file_read_header(struct dbox_file *file)
 static int dbox_file_open_fd(struct dbox_file *file)
 {
 	const char *path;
+	bool alt = FALSE;
 	int i;
 
 	/* try the primary path first */
@@ -398,7 +401,11 @@ static int dbox_file_open_fd(struct dbox_file *file)
 		/* try the alternative path */
 		path = t_strdup_printf("%s/%s", file->mbox->alt_path,
 				       file->fname);
+		alt = TRUE;
 	}
+	i_free(file->current_path);
+	file->current_path = i_strdup(path);
+	file->alt_path = alt;
 	return 1;
 }
 
@@ -1015,7 +1022,7 @@ static int dbox_file_grow_metadata(struct dbox_file *file, unsigned int len)
 	} else {
 		i_error("%s: Metadata changed unexpectedly",
 			dbox_file_get_path(file));
-		ret = 0;
+		ret = -1;
 	}
 
 	dbox_index_unlock_file(file->mbox->dbox_index, file->file_id);
@@ -1197,6 +1204,113 @@ bool dbox_file_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		*offset_r = dbox_rec->offset;
 	}
 	return TRUE;
+}
+
+int dbox_file_move(struct dbox_file *file, bool alt_path)
+{
+	struct ostream *output;
+	const char *dest_dir, *temp_path, *dest_path;
+	struct stat st;
+	bool deleted;
+	int out_fd, ret = 0;
+
+	i_assert(file->input != NULL);
+
+	if (file->alt_path == alt_path)
+		return 0;
+
+	if (stat(file->current_path, &st) < 0 && errno == ENOENT) {
+		/* already expunged by another session */
+		return 0;
+	}
+
+	dest_dir = alt_path ? file->mbox->alt_path : file->mbox->path;
+	temp_path = t_strdup_printf("%s/%s", dest_dir,
+				    dbox_generate_tmp_filename());
+
+	/* first copy the file. make sure to catch every possible error
+	   since we really don't want to break the file. */
+	out_fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (out_fd == -1 && errno == ENOENT) {
+		if (mkdir_parents(dest_dir, 0700) < 0) {
+			i_error("mkdir_parents(%s) failed: %m", dest_dir);
+			return -1;
+		}
+		out_fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	}
+	if (out_fd == -1) {
+		i_error("open(%s, O_CREAT) failed: %m", temp_path);
+		return -1;
+	}
+	output = o_stream_create_fd_file(out_fd, 0, FALSE);
+	i_stream_seek(file->input, 0);
+	while ((ret = o_stream_send_istream(output, file->input)) > 0) ;
+	if (ret == 0)
+		ret = o_stream_flush(output);
+	if (output->stream_errno != 0) {
+		errno = output->stream_errno;
+		i_error("write(%s) failed: %m", temp_path);
+		ret = -1;
+	} else if (file->input->stream_errno != 0) {
+		errno = file->input->stream_errno;
+		i_error("read(%s) failed: %m", file->current_path);
+		ret = -1;
+	} else if (ret < 0) {
+		i_error("o_stream_send_istream(%s, %s) "
+			"failed with unknown error",
+			temp_path, file->current_path);
+	}
+	o_stream_unref(&output);
+
+	if (!file->mbox->ibox.fsync_disable && ret == 0) {
+		if (fsync(out_fd) < 0) {
+			i_error("fsync(%s) failed: %m", temp_path);
+			ret = -1;
+		}
+	}
+	if (close(out_fd) < 0) {
+		i_error("close(%s) failed: %m", temp_path);
+		ret = -1;
+	}
+	if (ret < 0) {
+		(void)unlink(temp_path);
+		return -1;
+	}
+
+	/* the temp file was successfully written. rename it now to the
+	   destination file. the destination shouldn't exist, but if it does
+	   its contents should be the same (except for maybe older metadata) */
+	dest_path = t_strdup_printf("%s/%s", dest_dir, file->fname);
+	if (rename(temp_path, dest_path) < 0) {
+		i_error("rename(%s, %s) failed: %m", temp_path, dest_path);
+		(void)unlink(temp_path);
+		return -1;
+	}
+	if (!file->mbox->ibox.fsync_disable) {
+		if (fdatasync_path(dest_dir) < 0) {
+			i_error("fdatasync(%s) failed: %m", dest_dir);
+			(void)unlink(dest_path);
+			return -1;
+		}
+	}
+	if (unlink(file->current_path) < 0) {
+		i_error("unlink(%s) failed: %m", file->current_path);
+		if (errno == EACCES) {
+			/* configuration problem? revert the write */
+			(void)unlink(dest_path);
+		}
+		/* who knows what happened to the file. keep both just to be
+		   sure both won't get deleted. */
+		return -1;
+	}
+
+	/* file was successfully moved - reopen it */
+	dbox_file_close(file);
+	if (dbox_file_open(file, TRUE, &deleted) <= 0) {
+		i_error("dbox_file_move(%s): reopening file failed", dest_path);
+		return -1;
+	}
+	return 0;
 }
 
 void dbox_mail_metadata_flags_append(string_t *str, enum mail_flags flags)

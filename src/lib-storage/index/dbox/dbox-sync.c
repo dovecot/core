@@ -17,12 +17,13 @@
 #define DBOX_REBUILD_COUNT 3
 
 static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
-			     enum mail_index_sync_type type, uint32_t seq)
+			     const struct mail_index_sync_rec *sync_rec,
+			     uint32_t seq)
 {
 	struct dbox_sync_file_entry *entry;
 	uint32_t file_id;
 	uoff_t offset;
-	bool uid_file;
+	bool uid_file, add;
 
 	if (!dbox_file_lookup(ctx->mbox, ctx->sync_view, seq,
 			      &file_id, &offset))
@@ -30,8 +31,22 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 
 	entry = hash_lookup(ctx->syncs, POINTER_CAST(file_id));
 	if (entry == NULL) {
-		if (type != MAIL_INDEX_SYNC_TYPE_EXPUNGE &&
-		    !ctx->flush_dirty_flags) {
+		if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE ||
+		    ctx->flush_dirty_flags) {
+			/* expunges / flushing dirty flags */
+			add = TRUE;
+		} else if (sync_rec->type != MAIL_INDEX_SYNC_TYPE_FLAGS) {
+			/* keywords, not flushing dirty flags */
+			add = FALSE;
+		} else {
+			/* add if we're moving from/to alternative storage
+			   and we actually have an alt directory specified */
+			add = ((sync_rec->add_flags | sync_rec->remove_flags) &
+			       DBOX_INDEX_FLAG_ALT) != 0 &&
+				ctx->mbox->alt_path != NULL;
+		}
+
+		if (!add) {
 			mail_index_update_flags(ctx->trans, seq, MODIFY_ADD,
 				(enum mail_flags)MAIL_INDEX_MAIL_FLAG_DIRTY);
 			return 0;
@@ -43,7 +58,7 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 	}
 	uid_file = (file_id & DBOX_FILE_ID_FLAG_UID) != 0;
 
-	if (type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
+	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
 		if (!array_is_created(&entry->expunges)) {
 			p_array_init(&entry->expunges, ctx->pool,
 				     uid_file ? 1 : 3);
@@ -81,7 +96,7 @@ static int dbox_sync_add(struct dbox_sync_context *ctx,
 	}
 
 	for (seq = seq1; seq <= seq2; seq++) {
-		if (dbox_sync_add_seq(ctx, sync_rec->type, seq) < 0)
+		if (dbox_sync_add_seq(ctx, sync_rec, seq) < 0)
 			return -1;
 	}
 	return 0;

@@ -322,7 +322,7 @@ static void print_help(void)
 {
 	printf(
 "Usage: dovecot [-F] [-c <config file>] [-p] [-n] [-a]\n"
-"       [--exec-mail <protocol>] [--version] [--build-options]\n");
+"       [--version] [--build-options] [--exec-mail <protocol> [<args>]]\n");
 }
 
 static void print_build_options(void)
@@ -431,7 +431,7 @@ static void print_build_options(void)
 int main(int argc, char *argv[])
 {
 	/* parse arguments */
-	const char *exec_protocol = NULL, *exec_section = NULL, *user, *home;
+	const char *exec_protocol = NULL, **exec_args = NULL, *user, *home;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
 	bool dump_config = FALSE, dump_config_nondefaults = FALSE;
 	int i;
@@ -460,13 +460,13 @@ int main(int argc, char *argv[])
 			/* Ask SSL private key password */
 			ask_key_pass = TRUE;
 		} else if (strcmp(argv[i], "--exec-mail") == 0) {
-			/* <protocol> [<server section>]
+			/* <protocol> [<args>]
 			   read configuration and execute mail process */
 			i++;
 			if (i == argc) i_fatal("Missing protocol argument");
 			exec_protocol = argv[i];
-			if (i+1 != argc) 
-				exec_section = argv[++i];
+			exec_args = (const char **)&argv[i+1];
+			break;
 		} else if (strcmp(argv[i], "--version") == 0) {
 			printf("%s\n", VERSION);
 			return 0;
@@ -540,7 +540,7 @@ int main(int argc, char *argv[])
 		/* Put back user and home */
 		env_put(t_strconcat("USER=", user, NULL));
 		env_put(t_strconcat("HOME=", home, NULL));
-		mail_process_exec(exec_protocol, exec_section);
+		mail_process_exec(exec_protocol, exec_args);
 	}
 
 	if (!log_error)

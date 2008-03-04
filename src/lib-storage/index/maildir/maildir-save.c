@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "istream-crlf.h"
 #include "ostream.h"
+#include "fdatasync-path.h"
 #include "str.h"
 #include "index-mail.h"
 #include "maildir-storage.h"
@@ -571,25 +572,6 @@ maildir_transaction_unlink_copied_files(struct maildir_save_context *ctx,
 	ctx->files = pos;
 }
 
-static int fdatasync_path(const char *path)
-{
-	int fd, ret = 0;
-
-	/* Directories need to be opened as read-only.
-	   fsync() doesn't appear to care about it. */
-	fd = open(path, O_RDONLY);
-	if (fd == -1) {
-		i_error("open(%s) failed: %m", path);
-		return -1;
-	}
-	if (fdatasync(fd) < 0) {
-		i_error("fdatasync(%s) failed: %m", path);
-		ret = -1;
-	}
-	(void)close(fd);
-	return ret;
-}
-
 static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 					  bool new_changed, bool cur_changed)
 {
@@ -597,12 +579,16 @@ static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 		return 0;
 
 	if (new_changed) {
-		if (fdatasync_path(ctx->newdir) < 0)
+		if (fdatasync_path(ctx->newdir) < 0) {
+			i_error("fdatasync_path(%s) failed: %m", ctx->newdir);
 			return -1;
+		}
 	}
 	if (cur_changed) {
-		if (fdatasync_path(ctx->curdir) < 0)
+		if (fdatasync_path(ctx->curdir) < 0) {
+			i_error("fdatasync_path(%s) failed: %m", ctx->curdir);
 			return -1;
+		}
 	}
 	return 0;
 }

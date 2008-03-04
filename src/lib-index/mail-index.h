@@ -36,7 +36,10 @@ enum mail_index_header_flag {
 };
 
 enum mail_index_mail_flags {
-	MAIL_INDEX_MAIL_FLAG_DIRTY = 0x80
+	/* For private use by backend. Replacing flags doesn't change this. */
+	MAIL_INDEX_MAIL_FLAG_BACKEND	= 0x40,
+	/* Message flags haven't been written to backend */
+	MAIL_INDEX_MAIL_FLAG_DIRTY	= 0x80
 };
 
 #define MAIL_INDEX_FLAGS_MASK \
@@ -245,9 +248,9 @@ mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
    Changes done to the returned transaction are expected to describe the
    mailbox's current state.
 
-   The returned view already contains all the changes, so if e.g. a record's
-   flags are different in view than in the mailbox you can assume that they
-   were changed externally, and you need to update the index.
+   The returned view already contains all the changes (except expunge
+   requests). After applying sync records on top of backend flags they should
+   match flags in the view. If they don't, there have been external changes.
 
    Returned expunges are treated as expunge requests. They're not really
    removed from the index until you mark them expunged to the returned

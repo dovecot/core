@@ -151,16 +151,21 @@ static int create_dbox(struct mail_storage *storage, const char *path)
 static const char *
 dbox_get_alt_path(struct dbox_storage *storage, const char *path)
 {
+	const char *root;
 	unsigned int len;
 
 	if (storage->alt_dir == NULL)
 		return NULL;
 
-	len = strlen(storage->alt_dir);
-	if (strncmp(path, storage->alt_dir, len) != 0)
-		return t_strconcat(storage->alt_dir, path + len, NULL);
-	else
+	root = mailbox_list_get_path(storage->storage.list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_DIR);
+
+	len = strlen(root);
+	if (strncmp(path, root, len) != 0 && path[len] == '/') {
+		/* can't determine the alt path - shouldn't happen */
 		return NULL;
+	}
+	return t_strconcat(storage->alt_dir, path + len, NULL);
 }
 
 static struct mailbox *
