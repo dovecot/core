@@ -703,12 +703,16 @@ static bool settings_verify(struct settings *set)
 	set->mail_gid_t = (gid_t)-1;
 
 	if (*set->mail_uid != '\0') {
-		if (!parse_uid(set->mail_uid, &set->mail_uid_t))
+		if (!parse_uid(set->mail_uid, &set->mail_uid_t)) {
+			i_error("Non-existing mail_uid: %s", set->mail_uid);
 			return FALSE;
+		}
 	}
 	if (*set->mail_gid != '\0') {
-		if (!parse_gid(set->mail_gid, &set->mail_gid_t))
+		if (!parse_gid(set->mail_gid, &set->mail_gid_t)) {
+			i_error("Non-existing mail_gid: %s", set->mail_uid);
 			return FALSE;
+		}
 	}
 
 	if (set->protocol != MAIL_PROTOCOL_ANY &&
