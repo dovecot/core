@@ -8,6 +8,7 @@
 #include "dbox-file.h"
 
 #include <stdlib.h>
+#include <sys/stat.h>
 
 struct dbox_mail {
 	struct index_mail imail;
@@ -110,6 +111,7 @@ static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
 	struct index_mail_data *data = &mail->imail.data;
 	struct dbox_file *file;
+	struct stat st;
 	const char *value;
 
 	if (index_mail_get_save_date(_mail, date_r) == 0)
@@ -120,9 +122,18 @@ static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_SAVE_TIME);
 	data->save_date = value == NULL ? 0 : strtoul(value, NULL, 16);
-	/* if the time is missing or corrupted, use the current time and
-	   cache it */
-	*date_r = data->save_date == 0 ? ioloop_time : data->save_date;
+
+	if (data->save_date == 0) {
+		/* missing / corrupted save time - use the file's ctime */
+		i_assert(file->fd != -1);
+		if (fstat(file->fd, &st) < 0) {
+			mail_storage_set_critical(_mail->box->storage,
+				"fstat(%s) failed: %m", file->current_path);
+			return -1;
+		}
+		data->save_date = st.st_ctime;
+	}
+	*date_r = data->save_date;
 	return 0;
 }
 
