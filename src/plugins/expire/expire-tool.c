@@ -286,16 +286,22 @@ static void expire_run(bool testrun)
 	dict_driver_unregister(&dict_driver_client);
 }
 
-int main(int argc, const char *argv[])
+int main(int argc ATTR_UNUSED, const char *argv[])
 {
 	struct ioloop *ioloop;
-	bool test;
+	bool test = FALSE;
 
 	lib_init();
 	lib_signals_init();
 	random_init();
 
-	test = argc > 1 && strcmp(argv[1], "--test") == 0;
+	while (argv[1] != NULL) {
+		if (strcmp(argv[1], "--test") == 0)
+			test = TRUE;
+		else
+			i_fatal("Unknown parameter: %s", argv[1]);
+		argv++;
+	}
 
 	ioloop = io_loop_create();
 	expire_run(test);
