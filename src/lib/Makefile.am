@@ -22,6 +22,7 @@ liblib_a_SOURCES = \
 	failures.c \
 	fd-close-on-exec.c \
 	fd-set-nonblock.c \
+	fdatasync-path.c \
 	fdpass.c \
 	file-cache.c \
 	file-copy.c \
@@ -120,6 +121,7 @@ headers = \
 	failures.h \
 	fd-close-on-exec.h \
 	fd-set-nonblock.h \
+	fdatasync-path.h \
 	fdpass.h \
 	file-cache.h \
 	file-copy.h \
