@@ -396,6 +396,33 @@ static struct mail_storage *mbox_alloc(void)
 	return &storage->storage;
 }
 
+static bool mbox_name_is_dotlock(const char *name)
+{
+	unsigned int len = strlen(name);
+
+	return len >= 5 && strcmp(name + len - 5, ".lock") == 0;
+}
+
+static bool
+mbox_is_valid_existing_name(struct mailbox_list *list, const char *name)
+{
+	struct mbox_storage *storage = MBOX_LIST_CONTEXT(list);
+
+	return storage->list_module_ctx.super.
+		is_valid_existing_name(list, name) &&
+		!mbox_name_is_dotlock(name);
+}
+
+static bool
+mbox_is_valid_create_name(struct mailbox_list *list, const char *name)
+{
+	struct mbox_storage *storage = MBOX_LIST_CONTEXT(list);
+
+	return storage->list_module_ctx.super.
+		is_valid_create_name(list, name) &&
+		!mbox_name_is_dotlock(name);
+}
+
 static int mbox_create(struct mail_storage *_storage, const char *data,
 		       const char **error_r)
 {
@@ -419,6 +446,8 @@ static int mbox_create(struct mail_storage *_storage, const char *data,
 	}
 	_storage->list->v.iter_is_mailbox = mbox_list_iter_is_mailbox;
 	_storage->list->v.delete_mailbox = mbox_list_delete_mailbox;
+	_storage->list->v.is_valid_existing_name = mbox_is_valid_existing_name;
+	_storage->list->v.is_valid_create_name = mbox_is_valid_create_name;
 
 	MODULE_CONTEXT_SET_FULL(_storage->list, mbox_mailbox_list_module,
 				storage, &storage->list_module_ctx);
@@ -492,7 +521,7 @@ static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
 
 static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
 {
-	(void)file_dotlock_touch(mbox->mbox_dotlock);
+	mbox_dotlock_touch(mbox);
 }
 
 static struct mbox_mailbox *
@@ -553,7 +582,7 @@ mbox_open(struct mbox_storage *storage, const char *name,
 	struct mail_storage *_storage = &storage->storage;
 	struct mbox_mailbox *mbox;
 	struct mail_index *index;
-	const char *path;
+	const char *path, *rootdir;
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -570,6 +599,14 @@ mbox_open(struct mbox_storage *storage, const char *name,
 		}
 	}
 
+	if (strcmp(name, "INBOX") == 0) {
+		/* if INBOX isn't under the root directory, it's probably in
+		   /var/mail and we want to allow privileged dotlocking */
+		rootdir = mailbox_list_get_path(_storage->list, NULL,
+						MAILBOX_LIST_PATH_TYPE_DIR);
+		if (strncmp(path, rootdir, strlen(rootdir)) != 0)
+			mbox->mbox_privileged_locking = TRUE;
+	}
 	return &mbox->ibox.box;
 }
 

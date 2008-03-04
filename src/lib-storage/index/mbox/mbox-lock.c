@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "restrict-access.h"
 #include "nfs-workarounds.h"
 #include "mail-index-private.h"
 #include "mbox-storage.h"
@@ -38,6 +39,12 @@ enum mbox_lock_type {
 	MBOX_LOCK_COUNT
 };
 
+enum mbox_dotlock_op {
+	MBOX_DOTLOCK_OP_LOCK,
+	MBOX_DOTLOCK_OP_UNLOCK,
+	MBOX_DOTLOCK_OP_TOUCH
+};
+
 struct mbox_lock_context {
 	struct mbox_mailbox *mbox;
 	int lock_status[MBOX_LOCK_COUNT];
@@ -46,6 +53,7 @@ struct mbox_lock_context {
 	int lock_type;
 	bool dotlock_last_stale;
 	bool fcntl_locked;
+	bool using_privileges;
 };
 
 struct mbox_lock_data {
@@ -200,6 +208,9 @@ static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
 	enum mbox_lock_type *lock_types;
 	int i;
 
+	if (ctx->using_privileges)
+		restrict_access_drop_priv_gid();
+
 	if (stale && !ctx->dotlock_last_stale) {
 		/* get next index we wish to try locking. it's the one after
 		   dotlocking. */
@@ -231,7 +242,90 @@ static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
 				  MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE :
 				  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
 				  secs_left);
+	if (ctx->using_privileges) {
+		if (restrict_access_use_priv_gid() < 0) {
+			/* shouldn't get here */
+			return FALSE;
+		}
+	}
 	return TRUE;
+}
+
+static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
+				      struct dotlock_settings *set,
+				      enum mbox_dotlock_op op)
+{
+	const char *dir, *fname;
+	int ret = -1, orig_dir_fd;
+
+	orig_dir_fd = open(".", O_RDONLY);
+	if (orig_dir_fd == -1) {
+		i_error("open(.) failed: %m");
+		return -1;
+	}
+
+	/* allow dotlocks to be created only for files we can read while we're
+	   unprivileged. to make sure there are no race conditions we first
+	   have to chdir to the mbox file's directory and then use relative
+	   paths. unless this is done, users could:
+	    - create *.lock files to any directory writable by the
+	      privileged group
+	    - DoS other users by dotlocking their mailboxes infinitely
+	*/
+	fname = strrchr(mbox->path, '/');
+	if (fname == NULL) {
+		/* already relative */
+		fname = mbox->path;
+	} else {
+		dir = t_strdup_until(mbox->path, fname);
+		if (chdir(dir) < 0) {
+			i_error("chdir(%s) failed: %m", dir);
+			(void)close(orig_dir_fd);
+			return -1;
+		}
+		fname++;
+	}
+	if (op == MBOX_DOTLOCK_OP_LOCK) {
+		if (access(fname, R_OK) < 0) {
+			i_error("access(%s) failed: %m", mbox->path);
+			return -1;
+		}
+	}
+
+	if (restrict_access_use_priv_gid() < 0) {
+		(void)close(orig_dir_fd);
+		return -1;
+	}
+
+	switch (op) {
+	case MBOX_DOTLOCK_OP_LOCK:
+		/* we're now privileged - avoid doing as much as possible */
+		ret = file_dotlock_create(set, fname, 0, &mbox->mbox_dotlock);
+		if (ret > 0)
+			mbox->mbox_used_privileges = TRUE;
+		break;
+	case MBOX_DOTLOCK_OP_UNLOCK:
+		/* we're now privileged - avoid doing as much as possible */
+		ret = file_dotlock_delete(&mbox->mbox_dotlock);
+		mbox->mbox_used_privileges = FALSE;
+		break;
+	case MBOX_DOTLOCK_OP_TOUCH:
+		if (!file_dotlock_is_locked(mbox->mbox_dotlock)) {
+			file_dotlock_delete(&mbox->mbox_dotlock);
+			mbox->mbox_used_privileges = TRUE;
+			ret = -1;
+		} else {
+			ret = file_dotlock_touch(mbox->mbox_dotlock);
+		}
+		break;
+	}
+
+	restrict_access_drop_priv_gid();
+
+	if (fchdir(orig_dir_fd) < 0)
+		i_error("fchdir() failed: %m");
+	(void)close(orig_dir_fd);
+	return ret;
 }
 
 static int
@@ -245,7 +339,15 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 		if (!mbox->mbox_dotlocked)
 			return 1;
 
-		if (file_dotlock_delete(&mbox->mbox_dotlock) <= 0) {
+		if (!mbox->mbox_used_privileges)
+			ret = file_dotlock_delete(&mbox->mbox_dotlock);
+		else {
+			ctx->using_privileges = TRUE;
+			ret = mbox_dotlock_privileged_op(mbox, NULL,
+							MBOX_DOTLOCK_OP_UNLOCK);
+			ctx->using_privileges = FALSE;
+		}
+		if (ret <= 0) {
 			mbox_set_syscall_error(mbox, "file_dotlock_delete()");
 			ret = -1;
 		}
@@ -269,6 +371,13 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 	set.context = ctx;
 
 	ret = file_dotlock_create(&set, mbox->path, 0, &mbox->mbox_dotlock);
+	if (ret < 0 && errno == EACCES && restrict_access_have_priv_gid() &&
+	    mbox->mbox_privileged_locking) {
+		/* try again, this time with extra privileges */
+		ret = mbox_dotlock_privileged_op(mbox, &set,
+						 MBOX_DOTLOCK_OP_LOCK);
+	}
+
 	if (ret < 0) {
 		if ((ENOSPACE(errno) || errno == EACCES) && try)
 			return 1;
@@ -642,4 +751,17 @@ int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id)
 		ctx.lock_status[i] = 1;
 
 	return mbox_unlock_files(&ctx);
+}
+
+void mbox_dotlock_touch(struct mbox_mailbox *mbox)
+{
+	if (mbox->mbox_dotlock == NULL)
+		return;
+
+	if (!mbox->mbox_used_privileges)
+		(void)file_dotlock_touch(mbox->mbox_dotlock);
+	else {
+		(void)mbox_dotlock_privileged_op(mbox, NULL,
+						 MBOX_DOTLOCK_OP_TOUCH);
+	}
 }

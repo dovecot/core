@@ -226,6 +226,8 @@ struct settings default_settings = {
 	MEMBER(first_valid_gid) 1,
 	MEMBER(last_valid_gid) 0,
 	MEMBER(mail_extra_groups) "",
+	MEMBER(mail_access_groups) "",
+	MEMBER(mail_privileged_group) "",
 	MEMBER(mail_uid) "",
 	MEMBER(mail_gid) "",
 
@@ -701,6 +703,7 @@ static bool settings_verify(struct settings *set)
 
 	set->mail_uid_t = (uid_t)-1;
 	set->mail_gid_t = (gid_t)-1;
+	set->mail_priv_gid_t = (gid_t)-1;
 
 	if (*set->mail_uid != '\0') {
 		if (!parse_uid(set->mail_uid, &set->mail_uid_t)) {
@@ -713,6 +716,29 @@ static bool settings_verify(struct settings *set)
 			i_error("Non-existing mail_gid: %s", set->mail_uid);
 			return FALSE;
 		}
+	}
+	if (*set->mail_privileged_group != '\0') {
+		if (!parse_gid(set->mail_privileged_group,
+			       &set->mail_priv_gid_t)) {
+			i_error("Non-existing mail_privileged_group: %s",
+				set->mail_privileged_group);
+			return FALSE;
+		}
+	}
+	if (*set->mail_extra_groups != '\0') {
+		if (*set->mail_access_groups != '\0') {
+			i_error("Can't set both mail_extra_groups "
+				"and mail_access_groups");
+			return FALSE;
+		}
+		if (!set->server->warned_mail_extra_groups) {
+			set->server->warned_mail_extra_groups = TRUE;
+			i_warning("mail_extra_groups setting was often used "
+				  "insecurely so it is now deprecated, "
+				  "use mail_access_groups or "
+				  "mail_privileged_group instead");
+		}
+		set->mail_access_groups = set->mail_extra_groups;
 	}
 
 	if (set->protocol != MAIL_PROTOCOL_ANY &&

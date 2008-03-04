@@ -421,8 +421,8 @@ static void auth_set_environment(struct auth_settings *set)
 	int i;
 
 	/* setup access environment */
-	restrict_access_set_env(set->user, set->uid, set->gid, set->chroot,
-				0, 0, NULL);
+	restrict_access_set_env(set->user, set->uid, set->gid,
+				(gid_t)-1, set->chroot, 0, 0, NULL);
 
 	/* set other environment */
 	env_put("DOVECOT_MASTER=1");

@@ -76,6 +76,8 @@ struct settings {
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
 	const char *mail_extra_groups;
+	const char *mail_access_groups;
+	const char *mail_privileged_group;
 	const char *mail_uid;
 	const char *mail_gid;
 
@@ -139,7 +141,7 @@ struct settings {
 	ARRAY_TYPE(listener) ssl_listens;
 
 	uid_t login_uid, mail_uid_t;
-	gid_t mail_gid_t;
+	gid_t mail_gid_t, mail_priv_gid_t;
 
 	const char *imap_generated_capability;
 
@@ -254,6 +256,7 @@ struct server_settings {
 	ARRAY_DEFINE(dicts, const char *);
 
 	gid_t login_gid;
+	unsigned int warned_mail_extra_groups:1;
 };
 
 extern struct server_settings *settings_root;

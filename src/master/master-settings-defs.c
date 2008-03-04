@@ -64,6 +64,8 @@ static struct setting_def setting_defs[] = {
 	DEF_INT(first_valid_gid),
 	DEF_INT(last_valid_gid),
 	DEF_STR(mail_extra_groups),
+	DEF_STR(mail_access_groups),
+	DEF_STR(mail_privileged_group),
 	DEF_STR(mail_uid),
 	DEF_STR(mail_gid),
 

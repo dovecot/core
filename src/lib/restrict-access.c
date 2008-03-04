@@ -1,15 +1,22 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
+#define _GNU_SOURCE /* setresgid() */
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "lib.h"
 #include "restrict-access.h"
 #include "env-util.h"
 
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
 #include <grp.h>
 
-void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
+static gid_t primary_gid = (gid_t)-1, privileged_gid = (gid_t)-1;
+static bool using_priv_gid = FALSE;
+
+void restrict_access_set_env(const char *user, uid_t uid,
+			     gid_t gid, gid_t privileged_gid,
 			     const char *chroot_dir,
 			     gid_t first_valid_gid, gid_t last_valid_gid,
 			     const char *extra_groups)
@@ -21,6 +28,10 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 
 	env_put(t_strdup_printf("RESTRICT_SETUID=%s", dec2str(uid)));
 	env_put(t_strdup_printf("RESTRICT_SETGID=%s", dec2str(gid)));
+	if (privileged_gid != (gid_t)-1) {
+		env_put(t_strdup_printf("RESTRICT_SETGID_PRIV=%s",
+					dec2str(privileged_gid)));
+	}
 	if (extra_groups != NULL && *extra_groups != '\0') {
 		env_put(t_strconcat("RESTRICT_SETEXTRAGROUPS=",
 				    extra_groups, NULL));
@@ -34,6 +45,53 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 		env_put(t_strdup_printf("RESTRICT_GID_LAST=%s",
 					dec2str(last_valid_gid)));
 	}
+}
+
+static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid)
+{
+	if (privileged_gid == (gid_t)-1) {
+		if (primary_gid == getgid() && primary_gid == getegid()) {
+			/* everything is already set */
+			return;
+		}
+
+		if (setgid(primary_gid) != 0) {
+			i_fatal("setgid(%s) failed with euid=%s, "
+				"gid=%s, egid=%s: %m",
+				dec2str(primary_gid), dec2str(geteuid()),
+				dec2str(getgid()), dec2str(getegid()));
+		}
+		return;
+	}
+
+	if (getegid() != 0 && primary_gid == getgid() &&
+	    primary_gid == getegid()) {
+		/* privileged_gid is hopefully in saved ID. if not,
+		   there's nothing we can do about it. */
+		return;
+	}
+
+#ifdef HAVE_SETRESGID
+	if (setresgid(primary_gid, primary_gid, privileged_gid) != 0) {
+		i_fatal("setresgid(%s,%s,%s) failed with euid=%s: %m",
+			dec2str(primary_gid), dec2str(primary_gid),
+			dec2str(privileged_gid), dec2str(geteuid()));
+	}
+#else
+	/* real: primary_gid
+	   effective: privileged_gid
+	   saved: privileged_gid */
+	if (setregid(primary_gid, privileged_gid) != 0) {
+		i_fatal("setregid(%s,%s) failed with euid=%s: %m",
+			dec2str(primary_gid), dec2str(privileged_gid),
+			dec2str(geteuid()));
+	}
+	/* effective: privileged_gid -> primary_gid */
+	if (setegid(privileged_gid) != 0) {
+		i_fatal("setegid(%s) failed with euid=%s: %m",
+			dec2str(privileged_gid), dec2str(geteuid()));
+	}
+#endif
 }
 
 static gid_t *get_groups_list(unsigned int *gid_count_r)
@@ -145,31 +203,33 @@ static void fix_groups_list(const char *extra_groups, gid_t egid,
 void restrict_access_by_env(bool disallow_root)
 {
 	const char *env;
-	gid_t gid;
 	uid_t uid;
 	bool is_root, have_root_group, preserve_groups = FALSE;
+	bool allow_root_gid;
 
 	is_root = geteuid() == 0;
 
-	/* set the primary group */
+	/* set the primary/privileged group */
 	env = getenv("RESTRICT_SETGID");
-	gid = env == NULL || *env == '\0' ? (gid_t)-1 :
+	primary_gid = env == NULL || *env == '\0' ? (gid_t)-1 :
 		(gid_t)strtoul(env, NULL, 10);
-	have_root_group = gid == 0;
-	if (gid != (gid_t)-1 && (gid != getgid() || gid != getegid())) {
-		if (setgid(gid) != 0) {
-			i_fatal("setgid(%s) failed with euid=%s, egid=%s: %m",
-				dec2str(gid), dec2str(geteuid()),
-				dec2str(getegid()));
-		}
+	env = getenv("RESTRICT_SETGID_PRIV");
+	privileged_gid = env == NULL || *env == '\0' ? (gid_t)-1 :
+		(gid_t)strtoul(env, NULL, 10);
+
+	have_root_group = primary_gid == 0;
+	if (primary_gid != (gid_t)-1 || privileged_gid != (gid_t)-1) {
+		if (primary_gid == (gid_t)-1)
+			primary_gid = getegid();
+		restrict_init_groups(primary_gid, privileged_gid);
 	}
 
 	/* set system user's groups */
 	env = getenv("RESTRICT_USER");
 	if (env != NULL && *env != '\0' && is_root) {
-		if (initgroups(env, gid) < 0) {
+		if (initgroups(env, primary_gid) < 0) {
 			i_fatal("initgroups(%s, %s) failed: %m",
-				env, dec2str(gid));
+				env, dec2str(primary_gid));
 		}
 		preserve_groups = TRUE;
 	}
@@ -179,7 +239,7 @@ void restrict_access_by_env(bool disallow_root)
 	env = getenv("RESTRICT_SETEXTRAGROUPS");
 	if (is_root) {
 		T_BEGIN {
-			fix_groups_list(env, gid, preserve_groups,
+			fix_groups_list(env, primary_gid, preserve_groups,
 					&have_root_group);
 		} T_END;
 	}
@@ -228,12 +288,20 @@ void restrict_access_by_env(bool disallow_root)
 	}
 
 	env = getenv("RESTRICT_GID_FIRST");
-	if ((!have_root_group || (env != NULL && atoi(env) != 0)) && uid != 0) {
+	if (env != NULL && atoi(env) != 0)
+		allow_root_gid = FALSE;
+	else if (primary_gid == 0 || privileged_gid == 0)
+		allow_root_gid = TRUE;
+	else
+		allow_root_gid = FALSE;
+
+	if (!allow_root_gid && uid != 0) {
 		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0) {
-			if (gid == 0)
+			if (primary_gid == 0)
 				i_fatal("GID 0 isn't permitted");
 			i_fatal("We couldn't drop root group privileges "
-				"(wanted=%s, gid=%s, egid=%s)", dec2str(gid),
+				"(wanted=%s, gid=%s, egid=%s)",
+				dec2str(primary_gid),
 				dec2str(getgid()), dec2str(getegid()));
 		}
 	}
@@ -242,8 +310,43 @@ void restrict_access_by_env(bool disallow_root)
 	env_put("RESTRICT_USER=");
 	env_put("RESTRICT_CHROOT=");
 	env_put("RESTRICT_SETUID=");
-	env_put("RESTRICT_SETGID=");
+	if (privileged_gid == (gid_t)-1) {
+		/* if we're dropping privileges before executing and
+		   a privileged group is set, the groups must be fixed
+		   after exec */
+		env_put("RESTRICT_SETGID=");
+		env_put("RESTRICT_SETGID_PRIV=");
+	}
 	env_put("RESTRICT_SETEXTRAGROUPS=");
 	env_put("RESTRICT_GID_FIRST=");
 	env_put("RESTRICT_GID_LAST=");
+}
+
+int restrict_access_use_priv_gid(void)
+{
+	i_assert(!using_priv_gid);
+
+	if (privileged_gid == (gid_t)-1)
+		return 0;
+	if (setegid(privileged_gid) < 0) {
+		i_error("setegid(privileged) failed: %m");
+		return -1;
+	}
+	using_priv_gid = TRUE;
+	return 0;
+}
+
+void restrict_access_drop_priv_gid(void)
+{
+	if (!using_priv_gid)
+		return;
+
+	if (setegid(primary_gid) < 0)
+		i_fatal("setegid(primary) failed: %m");
+	using_priv_gid = FALSE;
+}
+
+bool restrict_access_have_priv_gid(void)
+{
+	return privileged_gid != (gid_t)-1;
 }
