@@ -709,6 +709,12 @@ static void index_mail_parse_body_finish(struct index_mail *mail,
 					 MAIL_FETCH_MESSAGE_PARTS);
 		return;
 	}
+	if (mail->data.no_caching) {
+		/* if we're here because we aborted parsing, don't get any
+		   further or we may crash while generating output from
+		   incomplete data */
+		return;
+	}
 
 	(void)get_cached_msgpart_sizes(mail);
 
