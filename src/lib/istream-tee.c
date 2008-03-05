@@ -127,6 +127,7 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 				   wait for it */
 				return 0;
 			}
+			stream->istream.stream_errno = input->stream_errno;
 			stream->istream.eof = input->eof;
 			return ret;
 		}
