@@ -285,9 +285,9 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	struct stat st;
 
 	oldpath = mailbox_list_get_path(list, oldname,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
+					MAILBOX_LIST_PATH_TYPE_DIR);
 	newpath = mailbox_list_get_path(list, newname,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
+					MAILBOX_LIST_PATH_TYPE_DIR);
 
 	/* create the hierarchy */
 	p = strrchr(newpath, '/');
@@ -319,6 +319,11 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 		mailbox_list_set_critical(list, "lstat(%s) failed: %m",
 					  newpath);
 		return -1;
+	}
+
+	if (list->v.rename_mailbox_pre != NULL) {
+		if (list->v.rename_mailbox_pre(list, oldname, newname) < 0)
+			return -1;
 	}
 
 	/* NOTE: renaming INBOX works just fine with us, it's simply recreated
@@ -372,6 +377,7 @@ struct mailbox_list fs_mailbox_list = {
 		NULL,
 		fs_list_set_subscribed,
 		fs_list_delete_mailbox,
-		fs_list_rename_mailbox
+		fs_list_rename_mailbox,
+		NULL
 	}
 };

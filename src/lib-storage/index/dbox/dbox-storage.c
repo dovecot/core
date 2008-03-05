@@ -33,6 +33,12 @@ static MODULE_CONTEXT_DEFINE_INIT(dbox_mailbox_list_module,
 
 static int
 dbox_list_delete_mailbox(struct mailbox_list *list, const char *name);
+static int
+dbox_list_rename_mailbox(struct mailbox_list *list,
+			 const char *oldname, const char *newname);
+static int
+dbox_list_rename_mailbox_pre(struct mailbox_list *list,
+			     const char *oldname, const char *newname);
 static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
 				     enum mailbox_list_file_type type,
@@ -126,6 +132,8 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 	storage->alt_dir = p_strdup(_storage->pool, alt_dir);
 	_storage->list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
 	_storage->list->v.delete_mailbox = dbox_list_delete_mailbox;
+	_storage->list->v.rename_mailbox = dbox_list_rename_mailbox;
+	_storage->list->v.rename_mailbox_pre = dbox_list_rename_mailbox_pre;
 
 	MODULE_CONTEXT_SET_FULL(_storage->list, dbox_mailbox_list_module,
 				storage, &storage->list_module_ctx);
@@ -313,12 +321,24 @@ static int dbox_storage_mailbox_close(struct mailbox *box)
 static int dbox_mailbox_create(struct mail_storage *_storage,
 			       const char *name, bool directory ATTR_UNUSED)
 {
-	const char *path;
+	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	const char *path, *alt_path;
 	struct stat st;
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox already exists");
+		return -1;
+	}
+
+	/* make sure the alt path doesn't exist yet. it shouldn't (except with
+	   race conditions with RENAME/DELETE), but if something crashed and
+	   left it lying around we don't want to start overwriting files in
+	   it. */
+	alt_path = dbox_get_alt_path(storage, path);
+	if (alt_path != NULL && stat(alt_path, &st) == 0) {
 		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Mailbox already exists");
 		return -1;
@@ -339,6 +359,8 @@ dbox_delete_nonrecursive(struct mailbox_list *list, const char *path,
 
 	dir = opendir(path);
 	if (dir == NULL) {
+		if (errno == ENOENT)
+			return 0;
 		if (!mailbox_list_set_error_from_errno(list)) {
 			mailbox_list_set_critical(list,
 				"opendir(%s) failed: %m", path);
@@ -394,7 +416,7 @@ dbox_delete_nonrecursive(struct mailbox_list *list, const char *path,
 					"can't delete it.", name));
 		return -1;
 	}
-	return 0;
+	return 1;
 }
 
 static int
@@ -404,6 +426,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	struct stat st;
 	const char *path, *alt_path;
 	bool deleted = FALSE;
+	int ret;
 
 	/* Make sure the indexes are closed before trying to delete the
 	   directory that contains them. It can still fail with some NFS
@@ -418,11 +441,8 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	/* check if the mailbox actually exists */
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0) {
+	if ((ret = dbox_delete_nonrecursive(list, path, name)) > 0) {
 		/* delete the mailbox first */
-		if (dbox_delete_nonrecursive(list, path, name) < 0)
-			return -1;
-
 		alt_path = dbox_get_alt_path(storage, path);
 		if (alt_path != NULL) {
 			if (dbox_delete_nonrecursive(list, alt_path, name) < 0)
@@ -452,6 +472,10 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		}
 	}
 
+	alt_path = dbox_get_alt_path(storage, path);
+	if (alt_path != NULL)
+		(void)rmdir(alt_path);
+
 	if (rmdir(path) == 0)
 		return 0;
 	else if (errno == ENOTEMPTY) {
@@ -465,6 +489,78 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 					  path);
 	}
 	return -1;
+}
+
+static bool
+dbox_list_rename_get_alt_paths(struct mailbox_list *list,
+			       const char *oldname, const char *newname,
+			       const char **oldpath_r, const char **newpath_r)
+{
+	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
+	const char *path;
+
+	if (storage->alt_dir == NULL)
+		return FALSE;
+
+	path = mailbox_list_get_path(list, oldname, MAILBOX_LIST_PATH_TYPE_DIR);
+	*oldpath_r = dbox_get_alt_path(storage, path);
+	if (*oldpath_r == NULL)
+		return FALSE;
+
+	path = mailbox_list_get_path(list, newname, MAILBOX_LIST_PATH_TYPE_DIR);
+	*newpath_r = dbox_get_alt_path(storage, path);
+	i_assert(*newpath_r != NULL);
+	return TRUE;
+}
+
+static int
+dbox_list_rename_mailbox_pre(struct mailbox_list *list,
+			     const char *oldname, const char *newname)
+{
+	const char *alt_oldpath, *alt_newpath;
+	struct stat st;
+
+	if (!dbox_list_rename_get_alt_paths(list, oldname, newname,
+					    &alt_oldpath, &alt_newpath))
+		return 0;
+
+	if (stat(alt_newpath, &st) == 0) {
+		/* race condition or a directory left there lying around?
+		   safest to just report error. */
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+				       "Target mailbox already exists");
+		return -1;
+	} else if (errno != ENOENT) {
+		mailbox_list_set_critical(list, "stat(%s) failed: %m",
+					  alt_newpath);
+		return -1;
+	}
+	return 0;
+}
+
+static int
+dbox_list_rename_mailbox(struct mailbox_list *list,
+			 const char *oldname, const char *newname)
+{
+	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
+	const char *alt_oldpath, *alt_newpath;
+
+	if (storage->list_module_ctx.super.rename_mailbox(list, oldname,
+							  newname) < 0)
+		return -1;
+
+	if (!dbox_list_rename_get_alt_paths(list, oldname, newname,
+					    &alt_oldpath, &alt_newpath))
+		return 0;
+
+	if (rename(alt_oldpath, alt_newpath) == 0) {
+		/* ok */
+	} else if (errno != ENOENT) {
+		/* renaming is done already, so just log the error */
+		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
+					  alt_oldpath, alt_newpath);
+	}
+	return 0;
 }
 
 static void dbox_notify_changes(struct mailbox *box)

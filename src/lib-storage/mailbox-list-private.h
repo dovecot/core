@@ -49,6 +49,9 @@ struct mailbox_list_vfuncs {
 	int (*delete_mailbox)(struct mailbox_list *list, const char *name);
 	int (*rename_mailbox)(struct mailbox_list *list, const char *oldname,
 			      const char *newname);
+	/* called by rename_mailbox() just before running the actual rename() */
+	int (*rename_mailbox_pre)(struct mailbox_list *list,
+				  const char *oldname, const char *newname);
 };
 
 struct mailbox_list_module_register {

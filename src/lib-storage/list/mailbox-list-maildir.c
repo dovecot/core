@@ -457,7 +457,8 @@ struct mailbox_list maildir_mailbox_list = {
 		NULL,
 		maildir_list_set_subscribed,
 		maildir_list_delete_mailbox,
-		maildir_list_rename_mailbox
+		maildir_list_rename_mailbox,
+		NULL
 	}
 };
 
@@ -482,6 +483,7 @@ struct mailbox_list imapdir_mailbox_list = {
 		NULL,
 		maildir_list_set_subscribed,
 		maildir_list_delete_mailbox,
-		maildir_list_rename_mailbox
+		maildir_list_rename_mailbox,
+		NULL
 	}
 };
