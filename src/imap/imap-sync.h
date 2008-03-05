@@ -6,6 +6,8 @@ enum imap_sync_flags {
 	IMAP_SYNC_FLAG_SAFE	= 0x02
 };
 
+typedef bool imap_sync_callback_t(struct client_command_context *cmd);
+
 struct client;
 
 struct imap_sync_context *
@@ -16,6 +18,10 @@ int imap_sync_more(struct imap_sync_context *ctx);
 
 bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	      enum imap_sync_flags imap_flags, const char *tagline);
+bool cmd_sync_callback(struct client_command_context *cmd,
+		       enum mailbox_sync_flags flags,
+		       enum imap_sync_flags imap_flags,
+		       imap_sync_callback_t *callback);
 bool cmd_sync_delayed(struct client *client);
 
 #endif

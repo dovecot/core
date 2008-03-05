@@ -38,6 +38,19 @@ bool cmd_uid_expunge(struct client_command_context *cmd)
 	}
 }
 
+static bool cmd_expunge_callback(struct client_command_context *cmd)
+{
+	if (cmd->client->sync_seen_deletes) {
+		/* Outlook workaround: session 1 set \Deleted flag and
+		   session 2 tried to expunge without having seen it yet.
+		   expunge again. */
+		return cmd_expunge(cmd);
+	}
+
+	client_send_tagline(cmd, "OK Expunge completed.");
+	return TRUE;
+}
+
 bool cmd_expunge(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
@@ -45,9 +58,10 @@ bool cmd_expunge(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
+	cmd->client->sync_seen_deletes = FALSE;
 	if (imap_expunge(client->mailbox, NULL)) {
-		return cmd_sync(cmd, 0, IMAP_SYNC_FLAG_SAFE,
-				"OK Expunge completed.");
+		return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
+					 cmd_expunge_callback);
 	} else {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));

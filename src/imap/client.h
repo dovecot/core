@@ -48,12 +48,7 @@ struct client_command_context {
 	struct imap_parser *parser;
 	enum client_command_state state;
 
-	/* if multiple commands are in progress, we may need to wait for them
-	   to finish before syncing mailbox. */
-	unsigned int sync_counter;
-	enum mailbox_sync_flags sync_flags;
-	enum imap_sync_flags sync_imap_flags;
-	const char *sync_tagline;
+	struct client_sync_context *sync;
 
 	unsigned int uid:1; /* used UID command */
 	unsigned int cancel:1; /* command is wanted to be cancelled */
@@ -89,6 +84,9 @@ struct client {
 	struct client_command_context *input_lock;
 	struct client_command_context *output_lock;
 
+	/* syncing marks this TRUE when it sees \Deleted flags. this is by
+	   EXPUNGE for Outlook-workaround. */
+	unsigned int sync_seen_deletes:1;
 	unsigned int disconnected:1;
 	unsigned int destroyed:1;
 	unsigned int handling_input:1;
