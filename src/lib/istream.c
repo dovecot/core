@@ -49,6 +49,9 @@ void i_stream_close(struct istream *stream)
 {
 	io_stream_close(&stream->real_stream->iostream);
 	stream->closed = TRUE;
+
+	if (stream->stream_errno == 0)
+		stream->stream_errno = ECONNRESET;
 }
 
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
