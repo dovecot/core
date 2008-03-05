@@ -513,7 +513,7 @@ static void nfs_warn_if_found(const char *mail, const char *full_home_dir)
 		return;
 
 	i_fatal("Mailbox indexes in %s are in NFS mount. "
-		"You must set mmap_disable=yes to avoid index corruptions. "
+		"You must set mail_nfs_index=yes to avoid index corruptions. "
 		"If you're sure this check was wrong, set nfs_check=no.", path);
 }
 
@@ -655,7 +655,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	/* See if we need to do the initial NFS check. We want to do this only
 	   once, so the check code needs to be before fork(). */
-	if (set->nfs_check && !set->mmap_disable && !dump_capability) {
+	if (set->nfs_check && !set->mail_nfs_index && !dump_capability) {
 		set->nfs_check = FALSE;
 		nfs_check = TRUE;
 	} else {
