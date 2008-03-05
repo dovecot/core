@@ -763,16 +763,16 @@ int client_output(struct client *client)
 			break;
 		}
 	}
-	o_stream_uncork(client->output);
 
 	if (client->output->closed) {
 		client_destroy(client, NULL);
 		return 1;
 	} else {
 		(void)cmd_sync_delayed(client);
+		o_stream_uncork(client->output);
 		client_continue_pending_input(&client);
+		return ret;
 	}
-	return ret;
 }
 
 void clients_init(void)
