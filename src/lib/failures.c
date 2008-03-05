@@ -263,8 +263,8 @@ void i_set_info_handler(failure_callback_t *callback)
 	info_handler = callback;
 }
 
-static int ATTR_FORMAT(2, 0)
-syslog_handler(int level, const char *format, va_list args)
+static int ATTR_FORMAT(3, 0)
+syslog_handler(int level, enum log_type type, const char *format, va_list args)
 {
 	static int recursed = 0;
 
@@ -273,11 +273,19 @@ syslog_handler(int level, const char *format, va_list args)
 
 	recursed++;
 
-	/* make sure there's no %n in there. vsyslog() supports %m, but since
-	   we'll convert it ourself anyway, we might as well it */
-	vsyslog(level, printf_format_fix_unsafe(format), args);
+	/* syslogs don't generatelly bother to log the level in any way,
+	   so make sure fatals and panics are shown clearly */
+	if (type == LOG_TYPE_FATAL || type == LOG_TYPE_PANIC) {
+		T_BEGIN {
+			syslog(level, "%s%s", failure_log_type_prefixes[type],
+			       t_strdup_vprintf(format, args));
+		} T_END;
+	} else {
+		/* make sure there's no %n in there. vsyslog() supports %m, but
+		   since we'll convert it ourself anyway, we might as well it */
+		vsyslog(level, printf_format_fix_unsafe(format), args);
+	}
 	recursed--;
-
 	return 0;
 }
 
@@ -285,7 +293,8 @@ void i_syslog_fatal_handler(enum log_type type, int status,
 			    const char *fmt, va_list args)
 {
 	const char *backtrace;
-	if (syslog_handler(LOG_CRIT, fmt, args) < 0 && status == FATAL_DEFAULT)
+	if (syslog_handler(LOG_CRIT, type, fmt, args) < 0 &&
+	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 
 	if (type == LOG_TYPE_PANIC) {
@@ -317,7 +326,7 @@ void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
 		break;
 	}
 
-	if (syslog_handler(level, fmt, args) < 0)
+	if (syslog_handler(level, type, fmt, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 }
 
