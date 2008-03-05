@@ -52,13 +52,15 @@ master_fatal_callback(enum log_type type, int status,
 {
 	const struct settings *set = settings_root->defaults;
 	const char *path, *str;
+	va_list args2;
 	int fd;
 
 	/* write the error message to a file */
 	path = t_strconcat(set->base_dir, "/"FATAL_FILENAME, NULL);
 	fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, 0600);
 	if (fd != -1) {
-		str = t_strdup_vprintf(format, args);
+		VA_COPY(args2, args);
+		str = t_strdup_vprintf(format, args2);
 		write_full(fd, str, strlen(str));
 		(void)close(fd);
 	}
