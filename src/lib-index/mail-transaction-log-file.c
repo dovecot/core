@@ -219,7 +219,7 @@ mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file)
 	}
 
 	mail_index_set_error(file->log->index,
-			     "Timeout while waiting for release of "
+			     "Timeout while waiting for "
 			     "dotlock for transaction log file %s",
 			     file->filepath);
 	file->log->index->index_lock_timeout = TRUE;
