@@ -222,15 +222,11 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	i_assert(view->map->hdr.messages_count <=
 		 view->map->rec_map->records_count);
 
-	if (uid == 1) {
-		/* optimization: the message can be only the first one */
-		return 1;
-	}
 	rec_base = view->map->rec_map->records;
 	record_size = view->map->hdr.record_size;
 
 	idx = left_idx;
-	right_idx = view->map->hdr.messages_count;
+	right_idx = I_MIN(view->map->hdr.messages_count, uid);
 
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
