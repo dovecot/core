@@ -695,6 +695,12 @@ unsigned int mailbox_transaction_get_count(struct mailbox *box)
 	return box->transaction_count;
 }
 
+struct mailbox *
+mailbox_transaction_get_mailbox(struct mailbox_transaction_context *t)
+{
+	return t->box;
+}
+
 int mailbox_save_init(struct mailbox_transaction_context *t,
 		      enum mail_flags flags, struct mail_keywords *keywords,
 		      time_t received_date, int timezone_offset,
