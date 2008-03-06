@@ -325,6 +325,9 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context **t);
 /* Return the number of active transactions for the mailbox. */
 unsigned int mailbox_transaction_get_count(struct mailbox *box);
 
+struct mailbox *
+mailbox_transaction_get_mailbox(struct mailbox_transaction_context *t);
+
 /* Build mail_keywords from NULL-terminated keywords list.
    Returns 0 if successful, -1 if there are invalid keywords (error is set). */
 int mailbox_keywords_create(struct mailbox *box, const char *const keywords[],
