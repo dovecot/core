@@ -169,7 +169,7 @@ static inline uint32_t squat_unpack_num(const uint8_t **p, const uint8_t *end)
 		c++;
 	}
 
-	if (unlikely(bits > 32-7)) {
+	if (unlikely(bits >= 32)) {
 		/* broken input */
 		*p = end;
 		return 0;
