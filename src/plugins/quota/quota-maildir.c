@@ -433,8 +433,8 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 		return -1;
 	}
 
-	if (total_bytes > rule->bytes_limit ||
-	    total_count > rule->count_limit) {
+	if ((total_bytes > rule->bytes_limit && rule->bytes_limit != 0) ||
+	    (total_count > rule->count_limit && rule->count_limit != 0)) {
 		/* we're over quota. don't trust these values if the file
 		   contains more than the initial summary line, or if the file
 		   is older than 15 minutes. */
