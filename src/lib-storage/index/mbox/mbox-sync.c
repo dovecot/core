@@ -1228,6 +1228,11 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
 		return -1;
 	}
+	if (st->st_size < 0) {
+		/* Not a file - allow anyway */
+		return 0;
+	}
+
 	file_size = st->st_size;
 	if (file_size < sync_ctx->file_input->v_offset) {
 		mbox_sync_set_critical(sync_ctx,
@@ -1365,7 +1370,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 
 	/* only reason not to have UID validity at this point is if the file
 	   is entirely empty. In that case just make up a new one if needed. */
-	i_assert(sync_ctx->base_uid_validity != 0 || st->st_size == 0);
+	i_assert(sync_ctx->base_uid_validity != 0 || st->st_size <= 0);
 
 	if (sync_ctx->base_uid_validity == 0) {
 		sync_ctx->base_uid_validity = sync_ctx->hdr->uid_validity != 0 ?
