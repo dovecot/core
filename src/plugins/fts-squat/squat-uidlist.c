@@ -254,9 +254,11 @@ uidlist_write(struct ostream *output, const struct uidlist_list *list,
 				*size_r = (bufp - buf) << 2 | packed_flags;
 				return 0;
 			}
+		} else if (unlikely(output->offset <= uid_list[0])) {
+			i_assert(output->closed);
+			return -1;
 		} else {
 			i_assert(list->uid_count > 1);
-			i_assert(output->offset > uid_list[0]);
 			offset = (output->offset - uid_list[0]) << 1;
 		}
 		uid_list++;
@@ -800,10 +802,13 @@ int squat_uidlist_build_finish(struct squat_uidlist_build_context *ctx)
 	if (ctx->uidlist->corrupted)
 		return -1;
 
-	o_stream_seek(ctx->output, 0);
-	o_stream_send(ctx->output, &ctx->build_hdr, sizeof(ctx->build_hdr));
-	o_stream_seek(ctx->output, ctx->build_hdr.used_file_size);
-	o_stream_flush(ctx->output);
+	if (!ctx->output->closed) {
+		o_stream_seek(ctx->output, 0);
+		o_stream_send(ctx->output,
+			      &ctx->build_hdr, sizeof(ctx->build_hdr));
+		o_stream_seek(ctx->output, ctx->build_hdr.used_file_size);
+		o_stream_flush(ctx->output);
+	}
 
 	if (ctx->output->last_failed_errno != 0) {
 		errno = ctx->output->last_failed_errno;
