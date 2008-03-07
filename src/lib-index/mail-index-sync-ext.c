@@ -402,6 +402,21 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		return -1;
 	}
 
+	memset(&ext_hdr, 0, sizeof(ext_hdr));
+	ext_hdr.name_size = strlen(name);
+	ext_hdr.reset_id = u->reset_id;
+	ext_hdr.hdr_size = u->hdr_size;
+	ext_hdr.record_size = u->record_size;
+	ext_hdr.record_align = u->record_align;
+
+	/* make sure the header looks valid before doing anything with it */
+	if (mail_index_map_ext_hdr_check(&map->hdr, &ext_hdr,
+					 name, &error) < 0) {
+		mail_index_sync_set_corrupted(ctx,
+			"Broken extension introduction: %s", error);
+		return -1;
+	}
+
 	if (ext_map_idx != (uint32_t)-1) {
 		/* exists already */
 		if (u->reset_id == ext->reset_id) {
@@ -431,20 +446,6 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		buffer_append_zero(hdr_buf,
 				   MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) -
 				   hdr_buf->used);
-	}
-
-	memset(&ext_hdr, 0, sizeof(ext_hdr));
-	ext_hdr.name_size = strlen(name);
-	ext_hdr.reset_id = u->reset_id;
-	ext_hdr.hdr_size = u->hdr_size;
-	ext_hdr.record_size = u->record_size;
-	ext_hdr.record_align = u->record_align;
-
-	if (mail_index_map_ext_hdr_check(&map->hdr, &ext_hdr,
-					 name, &error) < 0) {
-		mail_index_sync_set_corrupted(ctx,
-			"Broken extension introduction: %s", error);
-		return -1;
 	}
 
 	/* register record offset initially using zero,
