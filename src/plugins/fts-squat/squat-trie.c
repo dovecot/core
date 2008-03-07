@@ -1281,6 +1281,9 @@ squat_trie_expunge_uidlists(struct squat_trie_build_context *ctx,
 	i_array_init(&root_shifts, array_count(expunged_uids));
 	array_append_array(&root_shifts, expunged_uids);
 
+	if (array_count(expunged_uids) > 0)
+		i_array_init(&iter->cur.shifts, array_count(expunged_uids));
+
 	shifts = root_shifts;
 	do {
 		i_assert(node->uid_list_idx != 0);
