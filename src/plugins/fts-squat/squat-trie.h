@@ -4,6 +4,12 @@
 #include "file-lock.h"
 #include "seq-range-array.h"
 
+enum squat_index_flags {
+	SQUAT_INDEX_FLAG_MMAP_DISABLE		= 0x01,
+	SQUAT_INDEX_FLAG_NFS_FLUSH		= 0x02,
+	SQUAT_INDEX_FLAG_DOTLOCK_USE_EXCL	= 0x04
+};
+
 enum squat_index_type {
 	SQUAT_INDEX_TYPE_HEADER	= 0x01,
 	SQUAT_INDEX_TYPE_BODY	= 0x02
@@ -13,7 +19,8 @@ struct squat_trie_build_context;
 
 struct squat_trie *
 squat_trie_init(const char *path, uint32_t uidvalidity,
-		enum file_lock_method lock_method, bool mmap_disable);
+		enum file_lock_method lock_method,
+		enum squat_index_flags flags);
 void squat_trie_deinit(struct squat_trie **trie);
 
 void squat_trie_refresh(struct squat_trie *trie);

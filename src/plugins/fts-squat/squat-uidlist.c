@@ -39,6 +39,7 @@ struct squat_uidlist {
 	struct file_cache *file_cache;
 
 	struct file_lock *file_lock;
+	struct dotlock *dotlock;
 	uoff_t locked_file_size;
 
 	void *mmap_base;
@@ -438,7 +439,7 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist)
 		return 1;
 	}
 
-	if (!uidlist->trie->mmap_disable) {
+	if ((uidlist->trie->flags & SQUAT_INDEX_FLAG_MMAP_DISABLE) == 0) {
 		if (mmap_hdr == NULL || uidlist->building ||
 		    uidlist->mmap_size < mmap_hdr->used_file_size) {
 			if (squat_uidlist_mmap(uidlist) < 0)
@@ -466,7 +467,8 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist)
 		uidlist->data = NULL;
 		uidlist->data_size = 0;
 	}
-	if (uidlist->file_cache == NULL && uidlist->trie->mmap_disable)
+	if (uidlist->file_cache == NULL &&
+	    (uidlist->trie->flags & SQUAT_INDEX_FLAG_MMAP_DISABLE) != 0)
 		uidlist->file_cache = file_cache_new(uidlist->fd);
 	return squat_uidlist_map_header(uidlist);
 }
@@ -516,6 +518,8 @@ static void squat_uidlist_close(struct squat_uidlist *uidlist)
 		file_cache_free(&uidlist->file_cache);
 	if (uidlist->file_lock != NULL)
 		file_lock_free(&uidlist->file_lock);
+	if (uidlist->dotlock != NULL)
+		file_dotlock_delete(&uidlist->dotlock);
 	if (uidlist->fd != -1) {
 		if (close(uidlist->fd) < 0)
 			i_error("close(%s) failed: %m", uidlist->path);
@@ -569,13 +573,22 @@ static int squat_uidlist_lock(struct squat_uidlist *uidlist)
 	for (;;) {
 		i_assert(uidlist->fd != -1);
 		i_assert(uidlist->file_lock == NULL);
+		i_assert(uidlist->dotlock == NULL);
 
-		ret = file_wait_lock(uidlist->fd, uidlist->path, F_WRLCK,
-				     uidlist->trie->lock_method,
-				     SQUAT_TRIE_LOCK_TIMEOUT,
-				     &uidlist->file_lock);
+		if (uidlist->trie->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
+			ret = file_wait_lock(uidlist->fd, uidlist->path,
+					     F_WRLCK,
+					     uidlist->trie->lock_method,
+					     SQUAT_TRIE_LOCK_TIMEOUT,
+					     &uidlist->file_lock);
+		} else {
+			ret = file_dotlock_create(&uidlist->trie->dotlock_set,
+						  uidlist->path, 0,
+						  &uidlist->dotlock);
+		}
 		if (ret == 0) {
-			i_error("file_wait_lock(%s) failed: %m", uidlist->path);
+			i_error("squat uidlist %s: Locking timed out",
+				uidlist->path);
 			return 0;
 		}
 		if (ret < 0)
@@ -585,7 +598,10 @@ static int squat_uidlist_lock(struct squat_uidlist *uidlist)
 		if (ret == 0)
 			break;
 
-		file_unlock(&uidlist->file_lock);
+		if (uidlist->file_lock != NULL)
+			file_unlock(&uidlist->file_lock);
+		else
+			file_dotlock_delete(&uidlist->dotlock);
 		if (ret < 0)
 			return -1;
 
@@ -642,18 +658,22 @@ int squat_uidlist_build_init(struct squat_uidlist *uidlist,
 			     struct squat_uidlist_build_context **ctx_r)
 {
 	struct squat_uidlist_build_context *ctx;
+	int ret;
 
 	i_assert(!uidlist->building);
 
-	if (squat_uidlist_open_or_create(uidlist) < 0) {
-		if (uidlist->file_lock != NULL)
-			file_unlock(&uidlist->file_lock);
-		return -1;
-	}
-	if (lseek(uidlist->fd, uidlist->hdr.used_file_size, SEEK_SET) < 0) {
+	ret = squat_uidlist_open_or_create(uidlist);
+	if (ret == 0 &&
+	    lseek(uidlist->fd, uidlist->hdr.used_file_size, SEEK_SET) < 0) {
 		i_error("lseek(%s) failed: %m", uidlist->path);
+		ret = -1;
+	}
+
+	if (ret < 0) {
 		if (uidlist->file_lock != NULL)
 			file_unlock(&uidlist->file_lock);
+		if (uidlist->dotlock != NULL)
+			file_dotlock_delete(&uidlist->dotlock);
 		return -1;
 	}
 
@@ -828,7 +848,10 @@ void squat_uidlist_build_deinit(struct squat_uidlist_build_context **_ctx)
 	i_assert(ctx->uidlist->building);
 	ctx->uidlist->building = FALSE;
 
-	file_unlock(&ctx->uidlist->file_lock);
+	if (ctx->uidlist->file_lock != NULL)
+		file_unlock(&ctx->uidlist->file_lock);
+	else
+		file_dotlock_delete(&ctx->uidlist->dotlock);
 
 	if (ctx->need_reopen)
 		(void)squat_uidlist_open(ctx->uidlist);

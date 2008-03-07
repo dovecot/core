@@ -1,10 +1,12 @@
 #ifndef SQUAT_TRIE_PRIVATE_H
 #define SQUAT_TRIE_PRIVATE_H
 
+#include "file-dotlock.h"
 #include "squat-trie.h"
 
 #define SQUAT_TRIE_VERSION 2
 #define SQUAT_TRIE_LOCK_TIMEOUT 60
+#define SQUAT_TRIE_DOTLOCK_STALE_TIMEOUT (15*60)
 
 struct squat_file_header {
 	uint8_t version;
@@ -114,12 +116,14 @@ struct squat_trie {
 	size_t node_alloc_size;
 	unsigned int unmapped_child_count;
 
+	enum squat_index_flags flags;
 	enum file_lock_method lock_method;
 	uint32_t uidvalidity;
 
 	char *path;
 	int fd;
 	struct file_cache *file_cache;
+	struct dotlock_settings dotlock_set;
 
 	uoff_t locked_file_size;
 	const void *data;
@@ -130,7 +134,6 @@ struct squat_trie {
 
 	unsigned char default_normalize_map[256];
 
-	unsigned int mmap_disable:1;
 	unsigned int corrupted:1;
 };
 
