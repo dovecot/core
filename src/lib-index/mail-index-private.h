@@ -18,6 +18,9 @@ struct mail_index_sync_map_ctx;
    This happens with NFS when the file has been deleted (ie. index file was
    rewritten by another computer than us). */
 #define MAIL_INDEX_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
+/* Large extension header sizes are probably caused by file corruption, so
+   try to catch them by limiting the header size. */
+#define MAIL_INDEX_EXT_HEADER_MAX_SIZE (1024*1024*16-1)
 
 #define MAIL_INDEX_IS_IN_MEMORY(index) \
 	((index)->dir == NULL)

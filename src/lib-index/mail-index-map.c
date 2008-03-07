@@ -184,6 +184,11 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 					   "not used", ext_hdr->record_align);
 		return -1;
 	}
+	if (ext_hdr->hdr_size > MAIL_INDEX_EXT_HEADER_MAX_SIZE) {
+		*error_r = t_strdup_printf("Headersize too large (%u)",
+					   ext_hdr->hdr_size);
+		return -1;
+	}
 	return 0;
 }
 
