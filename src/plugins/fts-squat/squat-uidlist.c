@@ -8,12 +8,12 @@
 #include "read-full.h"
 #include "write-full.h"
 #include "ostream.h"
+#include "mmap-util.h"
 #include "squat-trie-private.h"
 #include "squat-uidlist.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
 
 #define UIDLIST_LIST_SIZE 31
 #define UIDLIST_BLOCK_LIST_COUNT 100
@@ -473,6 +473,40 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist)
 	return squat_uidlist_map_header(uidlist);
 }
 
+static int squat_uidlist_read_to_memory(struct squat_uidlist *uidlist)
+{
+	size_t i, page_size = mmap_get_page_size();
+	char x;
+
+	if (uidlist->file_cache != NULL) {
+		return uidlist_file_cache_read(uidlist, 0,
+					       uidlist->hdr.used_file_size);
+	}
+	/* Tell the kernel we're going to use the uidlist data, so it loads
+	   it into memory and keeps it there. */
+	(void)madvise(uidlist->mmap_base, uidlist->mmap_size, MADV_WILLNEED);
+	/* It also speeds up a bit for us to sequentially load everything
+	   into memory, although at least Linux catches up quite fast even
+	   without this code. Compiler can quite easily optimize away this
+	   entire for loop, but volatile seems to help with gcc 4.2. */
+	for (i = 0; i < uidlist->mmap_size; i += page_size)
+		x = ((const volatile char *)uidlist->data)[i];
+	return 0;
+}
+
+static void squat_uidlist_free_from_memory(struct squat_uidlist *uidlist)
+{
+	size_t page_size = mmap_get_page_size();
+
+	if (uidlist->file_cache != NULL) {
+		file_cache_invalidate(uidlist->file_cache,
+				      page_size, (uoff_t)-1);
+	} else {
+		(void)madvise(uidlist->mmap_base, uidlist->mmap_size,
+			      MADV_DONTNEED);
+	}
+}
+
 struct squat_uidlist *squat_uidlist_init(struct squat_trie *trie)
 {
 	struct squat_uidlist *uidlist;
@@ -881,6 +915,12 @@ int squat_uidlist_rebuild_init(struct squat_uidlist_build_context *build_ctx,
 			return 0;
 	}
 
+	/* make sure the entire uidlist is in memory before beginning,
+	   otherwise the pages are faulted to memory in random order which
+	   takes forever. */
+	if (squat_uidlist_read_to_memory(build_ctx->uidlist) < 0)
+		return -1;
+
 	temp_path = t_strconcat(build_ctx->uidlist->path, ".tmp", NULL);
 	fd = open(temp_path, O_RDWR | O_TRUNC | O_CREAT, 0600);
 	if (fd < 0) {
@@ -1041,6 +1081,10 @@ int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 		}
 		ctx->build_ctx->need_reopen = TRUE;
 	}
+
+	/* we no longer require the entire uidlist to be in memory,
+	   let it be used for something more useful. */
+	squat_uidlist_free_from_memory(ctx->uidlist);
 
 	o_stream_unref(&ctx->output);
 	if (close(ctx->fd) < 0)
