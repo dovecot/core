@@ -26,8 +26,8 @@
 #define UIDLIST_PACKED_FLAG_BEGINS_WITH_POINTER 2
 
 struct uidlist_list {
-	uint32_t uid_count:31;
-	uint32_t uid_begins_with_pointer:1;
+	unsigned int uid_count:31;
+	unsigned int uid_begins_with_pointer:1;
 	uint32_t uid_list[UIDLIST_LIST_SIZE];
 };
 
@@ -1160,11 +1160,11 @@ uint32_t squat_uidlist_build_add_uid(struct squat_uidlist_build_context *ctx,
 		}
 		/* create a new range */
 		*p |= UID_LIST_MASK_RANGE;
-	}
-
-	if (list->uid_count == UIDLIST_LIST_SIZE) {
-		uidlist_flush(ctx, list, uid);
-		return uid_list_idx;
+	} else {
+		if (list->uid_count == UIDLIST_LIST_SIZE) {
+			uidlist_flush(ctx, list, uid);
+			return uid_list_idx;
+		}
 	}
 
 	p++;
