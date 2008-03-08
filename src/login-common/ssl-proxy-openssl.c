@@ -49,6 +49,7 @@ struct ssl_proxy {
 	unsigned char sslout_buf[1024];
 	unsigned int sslout_size;
 
+	char *last_error;
 	unsigned int handshaked:1;
 	unsigned int destroyed:1;
 	unsigned int cert_received:1;
@@ -320,9 +321,12 @@ static const char *ssl_last_error(void)
 static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
 			     const char *func_name)
 {
-	const char *errstr;
+	const char *errstr = NULL;
 	int err;
 
+	proxy->refcount++;
+
+	i_free_and_null(proxy->last_error);
 	err = SSL_get_error(proxy->ssl, ret);
 
 	switch (err) {
@@ -334,42 +338,37 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
 		break;
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */
-		if (verbose_ssl) {
-			if (ERR_peek_error() != 0)
-				errstr = ssl_last_error();
-			else if (ret != 0)
-				errstr = strerror(errno);
-			else {
-				/* EOF. don't bother logging this. */
-				errstr = NULL;
-			}
-
-			if (errstr != NULL) {
-				i_warning("%s syscall failed: %s [%s]",
-					  func_name, errstr,
-					  net_ip2addr(&proxy->ip));
-			}
+		if (ERR_peek_error() != 0)
+			errstr = ssl_last_error();
+		else if (ret != 0)
+			errstr = strerror(errno);
+		else {
+			/* EOF. */
+			errstr = "Disconnected";
+			break;
 		}
-		ssl_proxy_destroy(proxy);
+		errstr = t_strdup_printf("%s syscall failed: %s",
+					 func_name, errstr);
 		break;
 	case SSL_ERROR_ZERO_RETURN:
 		/* clean connection closing */
 		ssl_proxy_destroy(proxy);
 		break;
 	case SSL_ERROR_SSL:
-		if (verbose_ssl) {
-			i_warning("%s failed: %s [%s]", func_name,
-				  ssl_last_error(), net_ip2addr(&proxy->ip));
-		}
-		ssl_proxy_destroy(proxy);
+		errstr = t_strdup_printf("%s failed: %s",
+					 func_name, ssl_last_error());
 		break;
 	default:
-		i_warning("%s failed: unknown failure %d (%s) [%s]",
-			  func_name, err, ssl_last_error(),
-			  net_ip2addr(&proxy->ip));
-		ssl_proxy_destroy(proxy);
+		errstr = t_strdup_printf("%s failed: unknown failure %d (%s)",
+					 func_name, err, ssl_last_error());
 		break;
 	}
+
+	if (errstr != NULL) {
+		proxy->last_error = i_strdup(errstr);
+		ssl_proxy_destroy(proxy);
+	}
+	ssl_proxy_unref(proxy);
 }
 
 static void ssl_handshake(struct ssl_proxy *proxy)
@@ -380,6 +379,7 @@ static void ssl_handshake(struct ssl_proxy *proxy)
 	if (ret != 1)
 		ssl_handle_error(proxy, ret, "SSL_accept()");
 	else {
+		i_free_and_null(proxy->last_error);
 		proxy->handshaked = TRUE;
 
 		ssl_set_io(proxy, SSL_ADD_INPUT);
@@ -401,6 +401,7 @@ static void ssl_read(struct ssl_proxy *proxy)
 			ssl_handle_error(proxy, ret, "SSL_read()");
 			break;
 		} else {
+			i_free_and_null(proxy->last_error);
 			proxy->plainout_size += ret;
 			plain_write(proxy);
 		}
@@ -415,6 +416,7 @@ static void ssl_write(struct ssl_proxy *proxy)
 	if (ret <= 0)
 		ssl_handle_error(proxy, ret, "SSL_write()");
 	else {
+		i_free_and_null(proxy->last_error);
 		proxy->sslout_size -= ret;
 		memmove(proxy->sslout_buf, proxy->sslout_buf + ret,
 			proxy->sslout_size);
@@ -538,6 +540,11 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
 bool ssl_proxy_is_handshaked(struct ssl_proxy *proxy)
 {
 	return proxy->handshaked;
+}
+
+const char *ssl_proxy_get_last_error(struct ssl_proxy *proxy)
+{
+	return proxy->last_error;
 }
 
 void ssl_proxy_free(struct ssl_proxy *proxy)

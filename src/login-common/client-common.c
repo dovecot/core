@@ -78,9 +78,12 @@ get_var_expand_table(struct client *client)
 	if (!client->tls) {
 		tab[11].value = client->secured ? "secured" : NULL;
 	} else {
-		tab[11].value = client->proxy != NULL &&
-			ssl_proxy_is_handshaked(client->proxy) ? "TLS" :
-			"TLS handshaking";
+		const char *ssl_state = ssl_proxy_is_handshaked(client->proxy) ?
+			"TLS" : "TLS handshaking";
+		const char *ssl_error = ssl_proxy_get_last_error(client->proxy);
+
+		tab[11].value = ssl_error == NULL ? ssl_state :
+			t_strdup_printf("%s: %s", ssl_state, ssl_error);
 	}
 
 	return tab;
