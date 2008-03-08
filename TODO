@@ -1,9 +1,15 @@
+ - dbox:
+   - "metadata changed unexpectedly" with alt paths - why?
+    - check that metadata is always correct and whitespace contains only
+      whitespace
+    - "File unexpectedly lost" doesn't get fixed by itself
+    - doesn't call fsync
  - do something about From_-lines splitting mails with mboxes
- - dbox doesn't fsync?
- - seq_range_array_add_range() optimization
  - lucene: handle replacement chars?
  - squat:
-   - nfs support
+   - wrong indexid
+   - fts_build_init() assertion failed: (last_uid < last_uid_locked)
+   - nfs support (cache flushes, how can write fail with ESTALE?)
    - is locking done right? it reads header without file being locked?
    - split after ~8 bytes?
  - test replacement chars (SEARCH / SORT / Squat)

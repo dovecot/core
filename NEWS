@@ -1,3 +1,29 @@
+v1.1.rc2 2008-03-08  Timo Sirainen <tss@iki.fi>
+
+	* mail_extra_groups setting was commonly used insecurely. This setting
+	  is now deprecated. Most users should switch to using
+	  mail_privileged_group setting, but if you really need the old
+	  functionality use mail_access_groups instead.
+
+	+ Expire plugin now supports wildcards in mailbox names.
+	+ dbox: Expire plugin supports moving old mails to alternative
+	  dbox directory
+	+ Maildir++ quota: quota_rule=?:<rule> specifies a default rule
+	  which is used only if the maildirsize file doesn't exist.
+	+ If SSL/TLS connection isn't closed cleanly, log the last error
+	  in the disconnection line.
+	+ EXPUNGE: If new \Deleted messages were found while expunging,
+	  do it again and expunge them as well (Outlook workaround)
+	- IMAP: SEARCH, LIST and THREAD command correctness fixes
+	- Maildir++ quota: Quota rules and warnings with % rules didn't work
+	  if the default limits were taken from maildirsize file.
+	- Maildir++ quota: If both byte and message limits weren't specified,
+	  maildirsize file was recalculated all the time
+	- mbox: Flag and keyword updates may have gotten lost in some
+	  situations (happens with v1.0 too)
+	- ldap: Don't crash if userdb lookup fails
+	- Squat fixes and performance improvements
+
 v1.1.rc1 2008-02-21  Timo Sirainen <tss@iki.fi>
 
 	* After Dovecot v1.1 has modified index or dovecot-uidlist files,
