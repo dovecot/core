@@ -28,8 +28,10 @@ static void dump_hdr(int fd)
 	int ret;
 
 	ret = read(fd, &hdr, sizeof(hdr));
-	if (ret != sizeof(hdr))
-		i_fatal("file hdr read() %d != %ld\n", ret, sizeof(hdr));
+	if (ret != sizeof(hdr)) {
+		i_fatal("file hdr read() %d != %"PRIuSIZE_T"\n",
+			ret, sizeof(hdr));
+	}
 
 	printf("version = %u.%u\n", hdr.major_version, hdr.minor_version);
 	printf("header size = %u\n", hdr.header_size);
@@ -58,7 +60,7 @@ static void dump_dir(int fd, unsigned int show_offset, const char *path)
 	}
 
 	if (ret != sizeof(dir))
-		i_fatal("dir read() %d != %ld", ret, sizeof(dir));
+		i_fatal("dir read() %d != %"PRIuSIZE_T, ret, sizeof(dir));
 
 	dir.next_offset = mail_index_offset_to_uint32(dir.next_offset);
 	printf("%s: DIR: offset=%"PRIuUOFF_T" next_offset=%u count=%u dir_size=%u\n",
@@ -77,8 +79,10 @@ static void dump_dir(int fd, unsigned int show_offset, const char *path)
 		if (ret == 0)
 			i_fatal("unexpected EOF, %d/%d records", i, dir.count);
 
-		if (ret != sizeof(rec))
-			i_fatal("rec read() %d != %ld", ret, sizeof(rec));
+		if (ret != sizeof(rec)) {
+			i_fatal("rec read() %d != %"PRIuSIZE_T,
+				ret, sizeof(rec));
+		}
 		rec.dir_offset = mail_index_offset_to_uint32(rec.dir_offset);
 
 		ret = pread(fd, name, sizeof(name)-1, rec.name_offset);

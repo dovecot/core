@@ -523,7 +523,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 		auth_request = auth_requests[aqueue_idx(auth_failures, 0)];
 
 		diff = ioloop_time - auth_request->last_access;
-		if (diff < auth_failure_delay && !flush_all)
+		if (diff < (time_t)auth_failure_delay && !flush_all)
 			break;
 
 		aqueue_delete_tail(auth_failures);

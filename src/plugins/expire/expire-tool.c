@@ -125,14 +125,16 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 			break;
 		}
 
-		if (save_time + expunge_secs <= now && expunge_secs != 0) {
+		if (save_time + (time_t)expunge_secs <= now &&
+		    expunge_secs != 0) {
 			if (!ctx->testrun)
 				mail_expunge(mail);
 			else {
 				i_info("%s: seq=%u uid=%u: Expunge",
 				       mailbox, mail->seq, mail->uid);
 			}
-		} else if (save_time + altmove_secs <= now && altmove_secs != 0) {
+		} else if (save_time + (time_t)altmove_secs <= now &&
+			   altmove_secs != 0) {
 			/* works only with dbox */
 			flags = mail_get_flags(mail);
 			if ((flags & MAIL_INDEX_MAIL_FLAG_BACKEND) != 0) {
