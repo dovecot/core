@@ -15,6 +15,7 @@
 #include "deliver.h"
 #include "mail-send.h"
 
+#include <stdlib.h>
 #include <sys/wait.h>
 
 int global_outgoing_count = 0;
@@ -68,6 +69,11 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 		   orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 		   str_sanitize(reason, 512));
 	    return 0;
+    }
+
+    if (getenv("DEBUG") != NULL) {
+	    i_info("Sending a rejection to %s: %s", recipient,
+		   str_sanitize(reason, 512));
     }
 
     smtp_client = smtp_client_open(return_addr, NULL, &f);
@@ -166,6 +172,12 @@ int mail_send_forward(struct mail *mail, const char *forwardto)
 
     if (mail_get_first_header(mail, "Return-Path", &return_path) <= 0)
 	    return_path = "";
+
+    if (getenv("DEBUG") != NULL) {
+	    i_info("Sending a forward to <%s> with return path <%s>",
+		   forwardto, return_path);
+    }
+
     smtp_client = smtp_client_open(forwardto, return_path, &f);
 
     input = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
