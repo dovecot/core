@@ -1916,24 +1916,11 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 	unsigned char *data;
 	uint8_t *char_lengths;
 	unsigned int i, start, bytes, str_bytelen, str_charlen;
+	bool searched = FALSE;
 	int ret = 0;
 
 	array_clear(definite_uids);
 	array_clear(maybe_uids);
-
-	str_bytelen = strlen(str);
-	if (str_bytelen == 0) {
-		/* list all root UIDs */
-		i_array_init(&ctx.tmp_uids, 128);
-		ret = squat_uidlist_get_seqrange(trie->uidlist,
-						 trie->root.uid_list_idx,
-						 &ctx.tmp_uids);
-		squat_trie_filter_type(type, &ctx.tmp_uids,
-				       definite_uids);
-		squat_trie_add_unknown(trie, maybe_uids);
-		array_free(&ctx.tmp_uids);
-		return ret;
-	}
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.trie = trie;
@@ -1944,7 +1931,8 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 	i_array_init(&ctx.tmp_uids2, 128);
 	ctx.first = TRUE;
 
-	char_lengths = t_malloc0(str_bytelen);
+	str_bytelen = strlen(str);
+	char_lengths = str_bytelen == 0 ? NULL : t_malloc0(str_bytelen);
 	for (i = 0, str_charlen = 0; i < str_bytelen; str_charlen++) {
 		bytes = uni_utf8_char_bytes(str[i]);
 		char_lengths[i] = bytes;
@@ -1963,19 +1951,12 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 			ret = squat_trie_lookup_partial(&ctx, data + start,
 							char_lengths,
 							i - start);
+			searched = TRUE;
 		}
 		start = i + char_lengths[i];
 	}
 
-	if (start != 0) {
-		/* string has nonindexed characters. finish the search. */
-		array_clear(definite_uids);
-		if (i != start && ret >= 0) {
-			ret = squat_trie_lookup_partial(&ctx, data + start,
-							char_lengths,
-							i - start);
-		}
-	} else {
+	if (start == 0) {
 		if (str_charlen <= trie->hdr.partial_len ||
 		    trie->hdr.full_len > trie->hdr.partial_len) {
 			ret = squat_trie_lookup_data(trie, data, str_bytelen,
@@ -1997,6 +1978,30 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 							char_lengths,
 							i - start);
 		}
+	} else if (str_bytelen > 0) {
+		/* string has nonindexed characters. finish the search. */
+		array_clear(definite_uids);
+		if (i != start && ret >= 0) {
+			ret = squat_trie_lookup_partial(&ctx, data + start,
+							char_lengths,
+							i - start);
+		} else if (!searched) {
+			/* string has only nonindexed chars,
+			   list all root UIDs as maybes */
+			ret = squat_uidlist_get_seqrange(trie->uidlist,
+							trie->root.uid_list_idx,
+							&ctx.tmp_uids);
+			squat_trie_filter_type(type, &ctx.tmp_uids,
+					       maybe_uids);
+		}
+	} else {
+		/* zero string length - list all root UIDs as definite
+		   answers */
+		ret = squat_uidlist_get_seqrange(trie->uidlist,
+						 trie->root.uid_list_idx,
+						 &ctx.tmp_uids);
+		squat_trie_filter_type(type, &ctx.tmp_uids,
+				       definite_uids);
 	}
 	squat_trie_add_unknown(trie, maybe_uids);
 	array_free(&ctx.tmp_uids);
