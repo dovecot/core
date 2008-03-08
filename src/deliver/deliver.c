@@ -796,7 +796,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	user = getenv("USER");
+	if (user == NULL)
+		user = getenv("USER");
 	if (!keep_environment)
 		deliver_env_clean();
 
