@@ -423,18 +423,19 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 	if (!fctx->seqs_set)
 		return fbox->module_ctx.super.search_next_update_seq(ctx);
 
+	wanted_seq = ctx->seq + 1;
 	/* fts_search_lookup() was called successfully */
-	do {
+	for (;;) {
 		def_range = array_get_modifiable(&fctx->definite_seqs,
 						 &def_count);
 		maybe_range = array_get_modifiable(&fctx->maybe_seqs,
 						   &maybe_count);
 		/* if we're ahead of current positions, skip them */
 		while (fctx->definite_idx < def_count &&
-		       ctx->seq > def_range[fctx->definite_idx].seq2)
+		       wanted_seq > def_range[fctx->definite_idx].seq2)
 			fctx->definite_idx++;
 		while (fctx->maybe_idx < maybe_count &&
-		       ctx->seq > maybe_range[fctx->maybe_idx].seq2)
+		       wanted_seq > maybe_range[fctx->maybe_idx].seq2)
 			fctx->maybe_idx++;
 
 		/* use whichever is lower of definite/maybe */
@@ -457,20 +458,25 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 			range = def_range + fctx->definite_idx;
 
 		i_assert(range->seq1 <= range->seq2);
-		if (ctx->seq > range->seq1) {
+		if (wanted_seq > range->seq1) {
 			/* current sequence is already larger than where
 			   range begins, so use the current sequence. */
-			range->seq1 = ctx->seq+1;
+			range->seq1 = wanted_seq+1;
 		} else {
-			ctx->seq = range->seq1 - 1;
-			if (++range->seq1 > range->seq2)
-				range->seq2 = 0;
+			wanted_seq = range->seq1;
+			range->seq1++;
 		}
+		if (range->seq1 > range->seq2)
+			range->seq2 = 0;
 
 		/* ctx->seq points to previous sequence we want */
-		wanted_seq = ctx->seq + 1;
+		ctx->seq = wanted_seq - 1;
 		ret = fbox->module_ctx.super.search_next_update_seq(ctx);
-	} while (ret > 0 && wanted_seq != ctx->seq);
+		if (ret <= 0 || wanted_seq == ctx->seq)
+			break;
+		wanted_seq = ctx->seq;
+		mail_search_args_reset(ctx->args, FALSE);
+	}
 
 	if (!use_maybe) {
 		/* we have definite results, update args */
