@@ -15,16 +15,16 @@ uid_range_to_seqs(struct mailbox *box, const ARRAY_TYPE(seq_range) *uid_range,
 		  ARRAY_TYPE(seq_range) *seq_range)
 {
 	const struct seq_range *range;
-	struct seq_range new_range;
 	unsigned int i, count;
+	uint32_t seq1, seq2;
 
 	range = array_get(uid_range, &count);
 	i_array_init(seq_range, count);
 	for (i = 0; i < count; i++) {
 		mailbox_get_uids(box, range[i].seq1, range[i].seq2,
-				 &new_range.seq1, &new_range.seq2);
-		if (new_range.seq1 != 0)
-			array_append(seq_range, &new_range, 1);
+				 &seq1, &seq2);
+		if (seq1 != 0)
+			seq_range_array_add_range(seq_range, seq1, seq2);
 	}
 }
 
