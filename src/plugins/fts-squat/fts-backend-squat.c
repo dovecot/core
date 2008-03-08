@@ -25,7 +25,7 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 	struct mail_storage *storage;
 	struct mailbox_status status;
 	const char *path;
-	bool mmap_disable;
+	enum squat_index_flags flags = 0;
 
 	storage = mailbox_get_storage(box);
 	path = mail_storage_get_mailbox_index_dir(storage,
@@ -36,16 +36,20 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 	}
 
 	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
-	mmap_disable = (storage->flags &
-			(MAIL_STORAGE_FLAG_MMAP_DISABLE |
-			 MAIL_STORAGE_FLAG_MMAP_NO_WRITE)) != 0;
+	if ((storage->flags & (MAIL_STORAGE_FLAG_MMAP_DISABLE |
+			       MAIL_STORAGE_FLAG_MMAP_NO_WRITE)) != 0)
+		flags |= SQUAT_INDEX_FLAG_MMAP_DISABLE;
+	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX) != 0)
+		flags |= SQUAT_INDEX_FLAG_NFS_FLUSH;
+	if ((storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0)
+		flags |= SQUAT_INDEX_FLAG_DOTLOCK_USE_EXCL;
 
 	backend = i_new(struct squat_fts_backend, 1);
 	backend->backend = fts_backend_squat;
 	backend->trie =
 		squat_trie_init(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL),
 				status.uidvalidity, storage->lock_method,
-				mmap_disable);
+				flags);
 	return &backend->backend;
 }
 
