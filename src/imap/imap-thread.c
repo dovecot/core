@@ -392,13 +392,13 @@ static void link_node(struct thread_context *ctx, const char *parent_msgid,
 		return;
 	}
 
+	if (child->parent != NULL)
+		unlink_child(ctx, child, FALSE);
+
 	if (find_parent(parent, child)) {
 		/* this would create a loop, not allowed */
 		return;
 	}
-
-	if (child->parent != NULL)
-		unlink_child(ctx, child, FALSE);
 
 	/* link them */
 	child->parent = parent;
@@ -449,6 +449,10 @@ static void mail_thread_input(struct thread_context *ctx, struct mail *mail)
 
 	if (mail_get_date(mail, &sent_date, NULL) < 0)
 		sent_date = 0;
+	if (sent_date == 0) {
+		if (mail_get_received_date(mail, &sent_date) < 0)
+			sent_date = 0;
+	}
 
 	if (mail_get_first_header(mail, "message-id", &message_id) < 0)
 		message_id = NULL;
