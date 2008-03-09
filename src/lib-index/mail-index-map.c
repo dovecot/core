@@ -998,7 +998,8 @@ static void mail_index_map_copy_header(struct mail_index_map *dest,
 {
 	/* use src->hdr copy directly, because if we got here
 	   from syncing it has the latest changes. */
-	dest->hdr = src->hdr;
+	if (src != dest)
+		dest->hdr = src->hdr;
 	if (dest->hdr_copy_buf != NULL) {
 		if (src == dest)
 			return;
