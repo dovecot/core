@@ -111,7 +111,8 @@ void auth_request_success(struct auth_request *request,
 void auth_request_fail(struct auth_request *request);
 void auth_request_internal_failure(struct auth_request *request);
 
-void auth_request_export(struct auth_request *request, string_t *str);
+void auth_request_export(struct auth_request *request,
+			 struct auth_stream_reply *reply);
 bool auth_request_import(struct auth_request *request,
 			 const char *key, const char *value);
 

@@ -10,12 +10,12 @@ struct auth_stream_reply {
 	string_t *str;
 };
 
-struct auth_stream_reply *auth_stream_reply_init(struct auth_request *request)
+struct auth_stream_reply *auth_stream_reply_init(pool_t pool)
 {
 	struct auth_stream_reply *reply;
 
-	reply = p_new(request->pool, struct auth_stream_reply, 1);
-	reply->str = str_new(request->pool, 256);
+	reply = p_new(pool, struct auth_stream_reply, 1);
+	reply->str = str_new(pool, 256);
 	return reply;
 }
 
@@ -109,4 +109,9 @@ bool auth_stream_is_empty(struct auth_stream_reply *reply)
 const char *const *auth_stream_split(struct auth_stream_reply *reply)
 {
 	return t_strsplit(str_c(reply->str), "\t");
+}
+
+string_t *auth_stream_reply_get_str(struct auth_stream_reply *reply)
+{
+	return reply->str;
 }

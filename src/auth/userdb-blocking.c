@@ -18,7 +18,7 @@ static void user_callback(struct auth_request *request, const char *reply)
 		result = USERDB_RESULT_USER_UNKNOWN;
 	else if (strncmp(reply, "OK\t", 3) == 0) {
 		result = USERDB_RESULT_OK;
-		request->userdb_reply = auth_stream_reply_init(request);
+		request->userdb_reply = auth_stream_reply_init(request->pool);
 		auth_stream_reply_import(request->userdb_reply, reply + 3);
 	} else {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
@@ -30,11 +30,12 @@ static void user_callback(struct auth_request *request, const char *reply)
 
 void userdb_blocking_lookup(struct auth_request *request)
 {
-	string_t *str;
+	struct auth_stream_reply *reply;
 
-	str = t_str_new(64);
-	str_printfa(str, "USER\t%u\t", request->userdb->num);
-	auth_request_export(request, str);
+	reply = auth_stream_reply_init(pool_datastack_create());
+	auth_stream_reply_add(reply, "USER", NULL);
+	auth_stream_reply_add(reply, NULL, dec2str(request->userdb->num));
+	auth_request_export(request, reply);
 
-	auth_worker_call(request, str_c(str), user_callback);
+	auth_worker_call(request, reply, user_callback);
 }

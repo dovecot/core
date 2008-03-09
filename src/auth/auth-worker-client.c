@@ -71,56 +71,58 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 	return auth_request;
 }
 
-static void add_userdb_replies(string_t *str, const char *data)
+static void
+add_userdb_replies(struct auth_stream_reply *reply,
+		   struct auth_stream_reply *userdb_reply)
 {
 	const char *const *tmp;
 
-	tmp = t_strsplit(data, "\t");
+	tmp = auth_stream_split(userdb_reply);
 	i_assert(*tmp != NULL);
 	/* first field is the user name */
 	tmp++;
-	for (; *tmp != NULL; tmp++)
-		str_printfa(str, "\tuserdb_%s", *tmp);
+	for (; *tmp != NULL; tmp++) {
+		auth_stream_reply_import(reply,
+					 t_strconcat("userdb_", *tmp, NULL));
+	}
 }
 
 static void verify_plain_callback(enum passdb_result result,
 				  struct auth_request *request)
 {
 	struct auth_worker_client *client = request->context;
+	struct auth_stream_reply *reply;
 	string_t *str;
 
 	if (request->passdb_failure && result == PASSDB_RESULT_OK)
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
 
-	str = t_str_new(64);
-	str_printfa(str, "%u\t", request->id);
+	reply = auth_stream_reply_init(pool_datastack_create());
+	auth_stream_reply_add(reply, NULL, dec2str(request->id));
 
-	if (result == PASSDB_RESULT_INTERNAL_FAILURE)
-		str_printfa(str, "FAIL\t%d", result);
+	if (result == PASSDB_RESULT_OK)
+		auth_stream_reply_add(reply, "OK", NULL);
 	else {
-		if (result != PASSDB_RESULT_OK)
-			str_printfa(str, "FAIL\t%d\t", result);
-		else
-			str_append(str, "OK\t");
-		str_append(str, request->user);
-		str_append_c(str, '\t');
-		if (request->passdb_password != NULL)
-			str_append(str, request->passdb_password);
+		auth_stream_reply_add(reply, "FAIL", NULL);
+		auth_stream_reply_add(reply, NULL,
+				      t_strdup_printf("%d", result));
+	}
+	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
+		auth_stream_reply_add(reply, NULL, request->user);
+		auth_stream_reply_add(reply, NULL,
+				      request->passdb_password == NULL ? "" :
+				      request->passdb_password);
 		if (request->no_password)
-			str_append(str, "\tnopassword");
-		if (request->userdb_reply != NULL) {
-			const char *data =
-				auth_stream_reply_export(request->userdb_reply);
-			add_userdb_replies(str, data);
-		}
+			auth_stream_reply_add(reply, "nopassword", NULL);
+		if (request->userdb_reply != NULL)
+			add_userdb_replies(reply, request->userdb_reply);
 		if (request->extra_fields != NULL) {
-			const char *field =
+			const char *fields =
 				auth_stream_reply_export(request->extra_fields);
-
-			str_append_c(str, '\t');
-			str_append(str, field);
+			auth_stream_reply_import(reply, fields);
 		}
 	}
+	str = auth_stream_reply_get_str(reply);
 	str_append_c(str, '\n');
 	o_stream_send(client->output, str_data(str), str_len(str));
 
@@ -189,32 +191,37 @@ lookup_credentials_callback(enum passdb_result result,
 			    struct auth_request *request)
 {
 	struct auth_worker_client *client = request->context;
+	struct auth_stream_reply *reply;
 	string_t *str;
 
 	if (request->passdb_failure && result == PASSDB_RESULT_OK)
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
 
-	str = t_str_new(64);
-	str_printfa(str, "%u\t", request->id);
+	reply = auth_stream_reply_init(pool_datastack_create());
+	auth_stream_reply_add(reply, NULL, dec2str(request->id));
 
-	if (result != PASSDB_RESULT_OK)
-		str_printfa(str, "FAIL\t%d", result);
-	else {
-		str_printfa(str, "OK\t%s\t{%s.b64}", request->user,
-			    request->credentials_scheme);
+	if (result != PASSDB_RESULT_OK) {
+		auth_stream_reply_add(reply, "FAIL", NULL);
+		auth_stream_reply_add(reply, NULL,
+				      t_strdup_printf("%d", result));
+	} else {
+		auth_stream_reply_add(reply, "OK", NULL);
+		auth_stream_reply_add(reply, NULL, request->user);
+
+		str = t_str_new(64);
+		str_printfa(str, "{%s.b64}", request->credentials_scheme);
 		base64_encode(credentials, size, str);
-		str_append_c(str, '\t');
+		auth_stream_reply_add(reply, NULL, str_c(str));
+
 		if (request->extra_fields != NULL) {
-			const char *field =
+			const char *fields =
 				auth_stream_reply_export(request->extra_fields);
-			str_append(str, field);
+			auth_stream_reply_import(reply, fields);
 		}
-		if (request->userdb_reply != NULL) {
-			const char *data =
-				auth_stream_reply_export(request->userdb_reply);
-			add_userdb_replies(str, data);
-		}
+		if (request->userdb_reply != NULL)
+			add_userdb_replies(reply, request->userdb_reply);
 	}
+	str = auth_stream_reply_get_str(reply);
 	str_append_c(str, '\n');
 	o_stream_send(client->output, str_data(str), str_len(str));
 

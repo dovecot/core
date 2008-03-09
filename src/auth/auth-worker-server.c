@@ -251,12 +251,13 @@ auth_worker_request_get(struct auth_worker_connection *conn)
 	return request != NULL ? request : array_append_space(&conn->requests);
 }
 
-void auth_worker_call(struct auth_request *auth_request, const char *data,
+void auth_worker_call(struct auth_request *auth_request,
+		      struct auth_stream_reply *data,
 		      auth_worker_callback_t *callback)
 {
 	struct auth_worker_connection *conn;
 	struct auth_worker_request *request;
-	const char *reply;
+	const char *reply, *data_str;
 	struct const_iovec iov[3];
 
 	conn = auth_worker_find_free();
@@ -276,10 +277,11 @@ void auth_worker_call(struct auth_request *auth_request, const char *data,
 
 	i_assert(conn->requests_left > 0);
 
+	data_str = auth_stream_reply_export(data);
 	iov[0].iov_base = t_strdup_printf("%d\t", ++conn->id_counter);
 	iov[0].iov_len = strlen(iov[0].iov_base);
-	iov[1].iov_base = data;
-	iov[1].iov_len = strlen(data);
+	iov[1].iov_base = data_str;
+	iov[1].iov_len = strlen(data_str);
 	iov[2].iov_base = "\n";
 	iov[2].iov_len = 1;
 

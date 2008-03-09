@@ -9,6 +9,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "safe-memset.h"
+#include "auth-stream.h"
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
 #include "auth-client-connection.h"
@@ -63,7 +64,7 @@ static void auth_client_send(struct auth_client_connection *conn,
 	}
 }
 
-static void auth_callback(const char *reply,
+static void auth_callback(struct auth_stream_reply *reply,
 			  struct auth_client_connection *conn)
 {
 	if (reply == NULL) {
@@ -72,7 +73,7 @@ static void auth_callback(const char *reply,
 		return;
 	}
 
-	auth_client_send(conn, reply);
+	auth_client_send(conn, auth_stream_reply_export(reply));
 }
 
 static bool

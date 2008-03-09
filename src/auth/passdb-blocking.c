@@ -70,18 +70,18 @@ verify_plain_callback(struct auth_request *request, const char *reply)
 
 void passdb_blocking_verify_plain(struct auth_request *request)
 {
-	string_t *str;
+	struct auth_stream_reply *reply;
 
 	i_assert(auth_stream_is_empty(request->extra_fields) ||
 		 request->master_user != NULL);
 
-	str = t_str_new(64);
-	str_printfa(str, "PASSV\t%u\t", request->passdb->id);
-	str_append(str, request->mech_password);
-	str_append_c(str, '\t');
-	auth_request_export(request, str);
+	reply = auth_stream_reply_init(pool_datastack_create());
+	auth_stream_reply_add(reply, "PASSV", NULL);
+	auth_stream_reply_add(reply, NULL, dec2str(request->passdb->id));
+	auth_stream_reply_add(reply, NULL, request->mech_password);
+	auth_request_export(request, reply);
 
-	auth_worker_call(request, str_c(str), verify_plain_callback);
+	auth_worker_call(request, reply, verify_plain_callback);
 }
 
 static void
@@ -109,17 +109,18 @@ lookup_credentials_callback(struct auth_request *request, const char *reply)
 
 void passdb_blocking_lookup_credentials(struct auth_request *request)
 {
-	string_t *str;
+	struct auth_stream_reply *reply;
 
 	i_assert(auth_stream_is_empty(request->extra_fields) ||
 		 request->master_user != NULL);
 
-	str = t_str_new(64);
-	str_printfa(str, "PASSL\t%u\t%s\t",
-		    request->passdb->id, request->credentials_scheme);
-	auth_request_export(request, str);
+	reply = auth_stream_reply_init(pool_datastack_create());
+	auth_stream_reply_add(reply, "PASSL", NULL);
+	auth_stream_reply_add(reply, NULL, dec2str(request->passdb->id));
+	auth_stream_reply_add(reply, NULL, request->credentials_scheme);
+	auth_request_export(request, reply);
 
-	auth_worker_call(request, str_c(str), lookup_credentials_callback);
+	auth_worker_call(request, reply, lookup_credentials_callback);
 }
 
 static void
@@ -134,12 +135,13 @@ set_credentials_callback(struct auth_request *request, const char *reply)
 void passdb_blocking_set_credentials(struct auth_request *request,
 				     const char *new_credentials)
 {
-	string_t *str;
+	struct auth_stream_reply *reply;
 
-	str = t_str_new(64);
-	str_printfa(str, "SETCRED\t%u\t%s\t",
-		    request->passdb->id, new_credentials);
-	auth_request_export(request, str);
+	reply = auth_stream_reply_init(pool_datastack_create());
+	auth_stream_reply_add(reply, "SETCRED", NULL);
+	auth_stream_reply_add(reply, NULL, dec2str(request->passdb->id));
+	auth_stream_reply_add(reply, NULL, new_credentials);
+	auth_request_export(request, reply);
 
-	auth_worker_call(request, str_c(str), set_credentials_callback);
+	auth_worker_call(request, reply, set_credentials_callback);
 }

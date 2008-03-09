@@ -1,6 +1,8 @@
 #ifndef AUTH_MASTER_CONNECTION_H
 #define AUTH_MASTER_CONNECTION_H
 
+struct auth_stream_reply;
+
 struct auth_master_connection {
 	struct auth_master_listener *listener;
 	int refcount;
@@ -24,6 +26,7 @@ void auth_master_connection_unref(struct auth_master_connection **conn);
 void auth_master_connection_send_handshake(struct auth_master_connection *conn);
 void auth_master_connections_send_handshake(void);
 
-void auth_master_request_callback(const char *reply, void *context);
+void auth_master_request_callback(struct auth_stream_reply *reply,
+				  void *context);
 
 #endif

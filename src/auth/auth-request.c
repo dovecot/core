@@ -115,38 +115,37 @@ void auth_request_unref(struct auth_request **_request)
 		pool_unref(&request->pool);
 }
 
-void auth_request_export(struct auth_request *request, string_t *str)
+void auth_request_export(struct auth_request *request,
+			 struct auth_stream_reply *reply)
 {
-	str_append(str, "user=");
-	str_append(str, request->user);
-	str_append(str, "\tservice=");
-	str_append(str, request->service);
+	auth_stream_reply_add(reply, "user", request->user);
+	auth_stream_reply_add(reply, "service", request->service);
 
         if (request->master_user != NULL) {
-                str_append(str, "\tmaster_user=");
-                str_append(str, request->master_user);
+		auth_stream_reply_add(reply, "master_user",
+				      request->master_user);
         }
 
 	if (request->local_ip.family != 0) {
-		str_append(str, "\tlip=");
-		str_append(str, net_ip2addr(&request->local_ip));
+		auth_stream_reply_add(reply, "lip",
+				      net_ip2addr(&request->local_ip));
 	}
 	if (request->remote_ip.family != 0) {
-		str_append(str, "\trip=");
-		str_append(str, net_ip2addr(&request->remote_ip));
+		auth_stream_reply_add(reply, "rip",
+				      net_ip2addr(&request->remote_ip));
 	}
 	if (request->local_port != 0) {
-		str_append(str, "\tlport=");
-		str_printfa(str, "%u", request->local_port);
+		auth_stream_reply_add(reply, "lport",
+				      dec2str(request->local_port));
 	}
 	if (request->remote_port != 0) {
-		str_append(str, "\trport=");
-		str_printfa(str, "%u", request->remote_port);
+		auth_stream_reply_add(reply, "rport",
+				      dec2str(request->remote_port));
 	}
 	if (request->secured)
-		str_append(str, "\tsecured=1");
+		auth_stream_reply_add(reply, "secured", "1");
 	if (request->skip_password_check)
-		str_append(str, "\tskip_password_check=1");
+		auth_stream_reply_add(reply, "skip_password_check", "1");
 }
 
 bool auth_request_import(struct auth_request *request,
@@ -352,8 +351,10 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			}
 		}
 	} else if (*result == PASSDB_RESULT_PASS_EXPIRED) {
-	        if (request->extra_fields == NULL)
-		        request->extra_fields = auth_stream_reply_init(request);
+		if (request->extra_fields == NULL) {
+			request->extra_fields =
+				auth_stream_reply_init(request->pool);
+		}
 	        auth_stream_reply_add(request->extra_fields, "reason",
 				      "Password expired");
 	} else if (request->passdb->next != NULL &&
@@ -632,12 +633,12 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	if (*value == '\0') {
 		/* negative cache entry */
 		*result_r = USERDB_RESULT_USER_UNKNOWN;
-		*reply_r = auth_stream_reply_init(request);
+		*reply_r = auth_stream_reply_init(request->pool);
 		return TRUE;
 	}
 
 	*result_r = USERDB_RESULT_OK;
-	*reply_r = auth_stream_reply_init(request);
+	*reply_r = auth_stream_reply_init(request->pool);
 	auth_stream_reply_import(*reply_r, value);
 	return TRUE;
 }
@@ -994,7 +995,7 @@ static void auth_request_set_reply_field(struct auth_request *request,
 	}
 
 	if (request->extra_fields == NULL)
-		request->extra_fields = auth_stream_reply_init(request);
+		request->extra_fields = auth_stream_reply_init(request->pool);
 	auth_stream_reply_add(request->extra_fields, name, value);
 }
 
@@ -1087,7 +1088,7 @@ void auth_request_set_field(struct auth_request *request,
 		/* we'll need to get this field stored into cache */
 		if (request->extra_cache_fields == NULL) {
 			request->extra_cache_fields =
-				auth_stream_reply_init(request);
+				auth_stream_reply_init(request->pool);
 		}
 		auth_stream_reply_add(request->extra_cache_fields, name, value);
 	}
@@ -1117,7 +1118,7 @@ void auth_request_set_fields(struct auth_request *request,
 
 void auth_request_init_userdb_reply(struct auth_request *request)
 {
-	request->userdb_reply = auth_stream_reply_init(request);
+	request->userdb_reply = auth_stream_reply_init(request->pool);
 	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
 }
 

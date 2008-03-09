@@ -29,16 +29,20 @@ struct master_userdb_request {
 	struct auth_request *auth_request;
 };
 
-void auth_master_request_callback(const char *reply, void *context)
+void auth_master_request_callback(struct auth_stream_reply *reply,
+				  void *context)
 {
 	struct auth_master_connection *conn = context;
 	struct const_iovec iov[2];
+	const char *reply_str;
+
+	reply_str = auth_stream_reply_export(reply);
 
 	if (conn->listener->auth->verbose_debug)
-		i_info("master out: %s", reply);
+		i_info("master out: %s", reply_str);
 
-	iov[0].iov_base = reply;
-	iov[0].iov_len = strlen(reply);
+	iov[0].iov_base = reply_str;
+	iov[0].iov_len = strlen(reply_str);
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
 
