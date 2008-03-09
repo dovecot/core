@@ -78,18 +78,19 @@ static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid)
 			dec2str(privileged_gid), dec2str(geteuid()));
 	}
 #else
-	/* real: primary_gid
-	   effective: privileged_gid
-	   saved: privileged_gid */
-	if (setregid(primary_gid, privileged_gid) != 0) {
+	if (geteuid() == 0) {
+		/* real, effective, saved -> privileged_gid */
+		if (setgid(privileged_gid) < 0) {
+			i_fatal("setgid(%s) failed: %m",
+				dec2str(privileged_gid));
+		}
+	}
+	/* real, effective -> primary_gid
+	   saved -> keep */
+	if (setregid(primary_gid, primary_gid) != 0) {
 		i_fatal("setregid(%s,%s) failed with euid=%s: %m",
 			dec2str(primary_gid), dec2str(privileged_gid),
 			dec2str(geteuid()));
-	}
-	/* effective: privileged_gid -> primary_gid */
-	if (setegid(privileged_gid) != 0) {
-		i_fatal("setegid(%s) failed with euid=%s: %m",
-			dec2str(privileged_gid), dec2str(geteuid()));
 	}
 #endif
 }
