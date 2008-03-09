@@ -12,6 +12,7 @@
    - nfs support (cache flushes, how can write fail with ESTALE?)
    - is locking done right? it reads header without file being locked?
    - split after ~8 bytes?
+   - expunges are delayed until more mails are added
  - test replacement chars (SEARCH / SORT / Squat)
 
  - cache: compress when we can drop temporary fields.

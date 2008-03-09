@@ -1,3 +1,14 @@
+v1.1.rc3 2008-03-09  Timo Sirainen <tss@iki.fi>
+
+	* Fixed a security hole in blocking passdbs (MySQL always. PAM, passwd
+	  and shadow if blocking=yes) where user could specify extra fields
+	  in the password. The main problem here is when specifying
+	  "skip_password_check" introduced in v1.0.11 for fixing master user
+	  logins, allowing the user to log in as anyone without a valid
+	  password.
+
+	- mail_privileged_group was broken in some systems (OS X, Solaris?)
+
 v1.1.rc2 2008-03-08  Timo Sirainen <tss@iki.fi>
 
 	* mail_extra_groups setting was commonly used insecurely. This setting
