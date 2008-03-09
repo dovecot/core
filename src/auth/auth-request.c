@@ -426,6 +426,23 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 	auth_request_verify_plain_callback_finish(result, request);
 }
 
+static bool password_has_illegal_chars(const char *password)
+{
+	for (; *password != '\0'; password++) {
+		switch (*password) {
+		case '\001':
+		case '\t':
+		case '\r':
+		case '\n':
+			/* these characters have a special meaning in internal
+			   protocols, make sure the password doesn't
+			   accidentally get there unescaped. */
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 void auth_request_verify_plain(struct auth_request *request,
 			       const char *password,
 			       verify_plain_callback_t *callback)
@@ -443,7 +460,14 @@ void auth_request_verify_plain(struct auth_request *request,
 			"Attempted master login with no master passdbs");
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
-        }
+	}
+
+	if (password_has_illegal_chars(password)) {
+		auth_request_log_info(request, "passdb",
+			"Attempted login with password having illegal chars");
+		callback(PASSDB_RESULT_USER_UNKNOWN, request);
+		return;
+	}
 
         passdb = request->passdb->passdb;
 	if (request->mech_password == NULL)
