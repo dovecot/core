@@ -406,8 +406,6 @@ static int squat_uidlist_mmap(struct squat_uidlist *uidlist)
 		return -1;
 	}
 	if (st.st_size < (off_t)sizeof(uidlist->hdr)) {
-		if (st.st_size == 0)
-			return 0;
 		squat_uidlist_set_corrupted(uidlist, "File too small");
 		return -1;
 	}
