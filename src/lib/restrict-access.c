@@ -112,7 +112,7 @@ static gid_t *get_groups_list(unsigned int *gid_count_r)
 	return gid_list;
 }
 
-static bool drop_restricted_groups(gid_t *gid_list, unsigned int *gid_count,
+static void drop_restricted_groups(gid_t *gid_list, unsigned int *gid_count,
 				   bool *have_root_group)
 {
 	/* @UNSAFE */
@@ -133,10 +133,7 @@ static bool drop_restricted_groups(gid_t *gid_list, unsigned int *gid_count,
 			gid_list[used++] = gid_list[i];
 		}
 	}
-	if (*gid_count == used)
-		return FALSE;
 	*gid_count = used;
-	return TRUE;
 }
 
 static gid_t get_group_id(const char *name)
@@ -152,42 +149,57 @@ static gid_t get_group_id(const char *name)
 	return group->gr_gid;
 }
 
-static void fix_groups_list(const char *extra_groups, gid_t egid,
+static void fix_groups_list(const char *extra_groups,
 			    bool preserve_existing, bool *have_root_group)
 {
-	gid_t *gid_list, *gid_list2;
+	gid_t gid, *gid_list, *gid_list2;
 	const char *const *tmp, *empty = NULL;
-	unsigned int gid_count;
+	unsigned int i, gid_count;
+	bool add_primary_gid;
+
+	/* if we're using a privileged GID, we can temporarily drop our
+	   effective GID. we still want to be able to use its privileges,
+	   so add it to supplementary groups. */
+	add_primary_gid = privileged_gid != (gid_t)-1;
 
 	tmp = extra_groups == NULL ? &empty :
 		t_strsplit_spaces(extra_groups, ", ");
 
 	if (preserve_existing) {
 		gid_list = get_groups_list(&gid_count);
-		if (!drop_restricted_groups(gid_list, &gid_count,
-					    have_root_group) &&
-		    *tmp == NULL) {
-			/* nothing dropped, no extra groups to grant. */
-			return;
+		drop_restricted_groups(gid_list, &gid_count,
+				       have_root_group);
+		/* see if the list already contains the primary GID */
+		for (i = 0; i < gid_count; i++) {
+			if (gid_list[i] == primary_gid) {
+				add_primary_gid = FALSE;
+				break;
+			}
 		}
 	} else {
-		if (egid == (gid_t)-1 && *tmp == NULL) {
-			/* nothing to do */
-			return;
-		}
+		gid_list = NULL;
+		gid_count = 0;
+	}
+	if (gid_count == 0) {
 		/* Some OSes don't like an empty groups list,
-		   so use the effective GID as the only one. */
+		   so use the primary GID as the only one. */
 		gid_list = t_new(gid_t, 2);
-		gid_list[0] = egid != (gid_t)-1 ? egid : getegid();
+		gid_list[0] = primary_gid;
 		gid_count = 1;
+		add_primary_gid = FALSE;
 	}
 
-	if (*tmp != NULL) {
-		/* @UNSAFE: add extra groups to gids list */
-		gid_list2 = t_new(gid_t, gid_count + str_array_length(tmp));
+	if (*tmp != NULL || add_primary_gid) {
+		/* @UNSAFE: add extra groups and/or primary GID to gids list */
+		gid_list2 = t_new(gid_t, gid_count + str_array_length(tmp) + 1);
 		memcpy(gid_list2, gid_list, gid_count * sizeof(gid_t));
-		for (; *tmp != NULL; tmp++)
-			gid_list2[gid_count++] = get_group_id(*tmp);
+		for (; *tmp != NULL; tmp++) {
+			gid = get_group_id(*tmp);
+			if (gid != primary_gid)
+				gid_list2[gid_count++] = gid;
+		}
+		if (add_primary_gid)
+			gid_list2[gid_count++] = primary_gid;
 		gid_list = gid_list2;
 	}
 
@@ -223,6 +235,9 @@ void restrict_access_by_env(bool disallow_root)
 		if (primary_gid == (gid_t)-1)
 			primary_gid = getegid();
 		restrict_init_groups(primary_gid, privileged_gid);
+	} else {
+		if (primary_gid == (gid_t)-1)
+			primary_gid = getegid();
 	}
 
 	/* set system user's groups */
@@ -238,12 +253,9 @@ void restrict_access_by_env(bool disallow_root)
 	/* add extra groups. if we set system user's groups, drop the
 	   restricted groups at the same time. */
 	env = getenv("RESTRICT_SETEXTRAGROUPS");
-	if (is_root) {
-		T_BEGIN {
-			fix_groups_list(env, primary_gid, preserve_groups,
-					&have_root_group);
-		} T_END;
-	}
+	if (is_root) T_BEGIN {
+		fix_groups_list(env, preserve_groups, &have_root_group);
+	} T_END;
 
 	/* chrooting */
 	env = getenv("RESTRICT_CHROOT");
