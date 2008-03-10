@@ -270,7 +270,19 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 
 	if (quick_check && maildir_quick_size_lookup(mail, vsize, &size) > 0) {
 		/* already in filename / uidlist. don't add it anywhere,
-		   including to the uidlist if it's already in filename. */
+		   including to the uidlist if it's already in filename.
+		   do some extra checks here to catch potential cache bugs. */
+		if (vsize && mail->data.virtual_size != size) {
+			mail_cache_set_corrupted(mail->ibox->cache,
+				"Corrupted virtual size: "
+				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
+				mail->data.virtual_size, size);
+		} else if (!vsize && mail->data.physical_size != size) {
+			mail_cache_set_corrupted(mail->ibox->cache,
+				"Corrupted phycaisl size: "
+				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
+				mail->data.physical_size, size);
+		}
 		mail->data.dont_cache_fetch_fields |= field;
 		return;
 	}
