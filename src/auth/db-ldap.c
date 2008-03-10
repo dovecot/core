@@ -10,6 +10,7 @@
 #include "hash.h"
 #include "aqueue.h"
 #include "str.h"
+#include "env-util.h"
 #include "var-expand.h"
 #include "settings.h"
 #include "userdb.h"
@@ -98,6 +99,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(base),
 	DEF_INT(ldap_version),
 	DEF_STR(debug_level),
+	DEF_STR(ldaprc_path),
 	DEF_STR(user_attrs),
 	DEF_STR(user_filter),
 	DEF_STR(pass_attrs),
@@ -130,6 +132,7 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(base) NULL,
 	MEMBER(ldap_version) 2,
 	MEMBER(debug_level) "0",
+	MEMBER(ldaprc_path) "",
 	MEMBER(user_attrs) "homeDirectory=home,uidNumber=uid,gidNumber=gid",
 	MEMBER(user_filter) "(&(objectClass=posixAccount)(uid=%u))",
 	MEMBER(pass_attrs) "uid=user,userPassword=password",
@@ -1152,6 +1155,7 @@ static struct ldap_connection *ldap_conn_find(const char *config_path)
 struct ldap_connection *db_ldap_init(const char *config_path)
 {
 	struct ldap_connection *conn;
+	const char *str;
 	pool_t pool;
 
 	/* see if it already exists */
@@ -1189,6 +1193,16 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 			"(ldap_initialize not found)");
 	}
 #endif
+
+	if (*conn->set.ldaprc_path != '\0') {
+		str = getenv("LDAPRC");
+		if (str != NULL && strcmp(str, conn->set.ldaprc_path) != 0) {
+			i_fatal("LDAP: Multiple different ldaprc_path "
+				"settings not allowed (%s and %s)",
+				str, conn->set.ldaprc_path);
+		}
+		env_put(t_strconcat("LDAPRC=", conn->set.ldaprc_path, NULL));
+	}
 
         conn->set.ldap_deref = deref2str(conn->set.deref);
 	conn->set.ldap_scope = scope2str(conn->set.scope);

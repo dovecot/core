@@ -54,6 +54,7 @@ struct ldap_settings {
 	const char *base;
 	unsigned int ldap_version;
 
+	const char *ldaprc_path;
 	const char *debug_level;
 
 	const char *user_attrs;
