@@ -268,7 +268,7 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 	if ((mail->data.dont_cache_fetch_fields & field) != 0)
 		return;
 
-	if (quick_check && maildir_quick_size_lookup(mail, TRUE, &size) > 0) {
+	if (quick_check && maildir_quick_size_lookup(mail, vsize, &size) > 0) {
 		/* already in filename / uidlist. don't add it anywhere,
 		   including to the uidlist if it's already in filename. */
 		mail->data.dont_cache_fetch_fields |= field;
