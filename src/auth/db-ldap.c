@@ -97,6 +97,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(scope),
 	DEF_STR(base),
 	DEF_INT(ldap_version),
+	DEF_STR(debug_level),
 	DEF_STR(user_attrs),
 	DEF_STR(user_filter),
 	DEF_STR(pass_attrs),
@@ -128,6 +129,7 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
 	MEMBER(ldap_version) 2,
+	MEMBER(debug_level) "0",
 	MEMBER(user_attrs) "homeDirectory=home,uidNumber=uid,gidNumber=gid",
 	MEMBER(user_filter) "(&(objectClass=posixAccount)(uid=%u))",
 	MEMBER(pass_attrs) "uid=user,userPassword=password",
@@ -712,9 +714,17 @@ static void db_ldap_set_tls_options(struct ldap_connection *conn)
 static void db_ldap_set_options(struct ldap_connection *conn)
 {
 	unsigned int ldap_version;
+	int value;
 
 	db_ldap_set_opt(conn, LDAP_OPT_DEREF, &conn->set.ldap_deref,
 			"deref", conn->set.deref);
+#ifdef LDAP_OPT_DEBUG_LEVEL
+	value = atoi(conn->set.debug_level);
+	if (value != 0) {
+		db_ldap_set_opt(NULL, LDAP_OPT_DEBUG_LEVEL, &value,
+				"debug_level", conn->set.debug_level);
+	}
+#endif
 
 	if (conn->set.ldap_version < 3) {
 		if (conn->set.sasl_bind)
