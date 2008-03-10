@@ -383,8 +383,10 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 	path = t_strconcat(log->index->filepath,
 			   MAIL_TRANSACTION_LOG_SUFFIX".2", NULL);
 	file = mail_transaction_log_file_alloc(log, path);
-	if ((ret = mail_transaction_log_file_open(file, TRUE)) <= 0)
+	if ((ret = mail_transaction_log_file_open(file, TRUE)) <= 0) {
+		mail_transaction_log_file_free(&file);
 		return ret;
+	}
 
 	/* but is it what we expected? */
 	if (file->hdr.file_seq != file_seq)
