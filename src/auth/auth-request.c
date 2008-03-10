@@ -1165,8 +1165,8 @@ auth_request_change_userdb_user(struct auth_request *request, const char *user)
 
 	/* add the rest */
 	str = strchr(str, '\t');
-	i_assert(str != NULL);
-	auth_stream_reply_import(request->userdb_reply, str + 1);
+	if (str != NULL)
+		auth_stream_reply_import(request->userdb_reply, str + 1);
 }
 
 static void auth_request_set_uidgid_file(struct auth_request *request,
