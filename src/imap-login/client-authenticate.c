@@ -201,7 +201,8 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
-		timeout_remove(&client->to_auth_waiting);
+		if (client->to_auth_waiting != NULL)
+			timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
 			if (client_handle_args(client, args, TRUE))
 				break;
@@ -212,7 +213,8 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 	case SASL_SERVER_REPLY_CLIENT_ERROR:
-		timeout_remove(&client->to_auth_waiting);
+		if (client->to_auth_waiting != NULL)
+			timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
 			if (client_handle_args(client, args, FALSE))
 				break;
