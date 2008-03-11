@@ -63,7 +63,7 @@
 
 #ifdef BUGGY_CMSG_MACROS
 /* Some OSes have broken CMSG macros in 64bit systems. The macros use 64bit
-   alignmentation while kernel uses 32bit alignmentation. */
+   alignment while kernel uses 32bit alignment. */
 #  undef CMSG_SPACE
 #  undef CMSG_LEN
 #  undef CMSG_DATA

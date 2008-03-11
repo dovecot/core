@@ -180,7 +180,7 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 	if (ext_hdr->record_size > 0 &&
 	    ((ext_hdr->record_offset % ext_hdr->record_align) != 0 ||
 	     (hdr->record_size % ext_hdr->record_align) != 0)) {
-		*error_r = t_strdup_printf("Record field alignmentation %u "
+		*error_r = t_strdup_printf("Record field alignment %u "
 					   "not used", ext_hdr->record_align);
 		return -1;
 	}

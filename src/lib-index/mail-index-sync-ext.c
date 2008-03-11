@@ -179,7 +179,7 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 
 	/* we simply try to use the extensions with largest alignment
 	   requirement first. FIXME: if the extension sizes don't match
-	   alignmentation, this may not give the minimal layout. */
+	   alignment, this may not give the minimal layout. */
 	offset = sizeof(struct mail_index_record);
 	max_align = sizeof(uint32_t);
 	for (;;) {
