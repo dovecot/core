@@ -287,6 +287,10 @@ static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 	dir = opendir(path);
 	if (dir == NULL) {
 		if (errno == ENOENT) {
+			if (!primary) {
+				/* alt directory doesn't exist, ignore */
+				return 0;
+			}
 			mailbox_set_deleted(&ctx->mbox->ibox.box);
 			return -1;
 		}
