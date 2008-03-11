@@ -566,17 +566,14 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 			mail_cache_field_want_add(mail->trans->cache_trans,
 				data->seq, cache_field_bodystructure);
 	}
-	if (field == MAIL_CACHE_IMAP_BODYSTRUCTURE || cache_bodystructure) {
+	if (cache_bodystructure) {
 		str = str_new(mail->data_pool, 128);
 		imap_bodystructure_write(data->parts, str, TRUE);
 		data->bodystructure = str_c(str);
 
-		if (cache_bodystructure) {
-			index_mail_cache_add(mail,
-					     MAIL_CACHE_IMAP_BODYSTRUCTURE,
-					     str_c(str), str_len(str)+1);
-			bodystructure_cached = TRUE;
-		}
+		index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODYSTRUCTURE,
+				     str_c(str), str_len(str)+1);
+		bodystructure_cached = TRUE;
 	} else {
 		bodystructure_cached =
 			mail_cache_field_exists(mail->trans->cache_view,
@@ -601,15 +598,13 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 				data->seq, cache_field_body);
 	}
 
-	if (field == MAIL_CACHE_IMAP_BODY || cache_body) {
+	if (cache_body) {
 		str = str_new(mail->data_pool, 128);
 		imap_bodystructure_write(data->parts, str, FALSE);
 		data->body = str_c(str);
 
-		if (cache_body) {
-			index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODY,
-					     str_c(str), str_len(str)+1);
-		}
+		index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODY,
+				     str_c(str), str_len(str)+1);
 	}
 }
 
@@ -841,25 +836,47 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 					  enum index_cache_field field)
 {
 	struct index_mail_data *data = &mail->data;
+	string_t *str;
 
 	if (data->parsed_bodystructure) {
 		/* we have everything parsed already, but just not written to
 		   a string */
 		index_mail_body_parsed_cache_bodystructure(mail, field);
-		return 0;
-	}
+	} else {
+		if (data->save_bodystructure_header ||
+		    !data->save_bodystructure_body) {
+			/* we haven't parsed the header yet */
+			data->save_bodystructure_header = TRUE;
+			data->save_bodystructure_body = TRUE;
+			(void)get_cached_parts(mail);
+			if (index_mail_parse_headers(mail, NULL) < 0)
+				return -1;
+		}
 
-	if (data->save_bodystructure_header ||
-	    !data->save_bodystructure_body) {
-		/* we haven't parsed the header yet */
-		data->save_bodystructure_header = TRUE;
-		data->save_bodystructure_body = TRUE;
-		(void)get_cached_parts(mail);
-		if (index_mail_parse_headers(mail, NULL) < 0)
+		if (index_mail_parse_body(mail, field) < 0)
 			return -1;
 	}
-
-	return index_mail_parse_body(mail, field);
+	/* if we didn't want to have the body(structure) cached,
+	   it's still not written. */
+	switch (field) {
+	case MAIL_CACHE_IMAP_BODY:
+		if (data->body == NULL) {
+			str = str_new(mail->data_pool, 128);
+			imap_bodystructure_write(data->parts, str, FALSE);
+			data->body = str_c(str);
+		}
+		break;
+	case MAIL_CACHE_IMAP_BODYSTRUCTURE:
+		if (data->bodystructure == NULL) {
+			str = str_new(mail->data_pool, 128);
+			imap_bodystructure_write(data->parts, str, TRUE);
+			data->bodystructure = str_c(str);
+		}
+		break;
+	default:
+		i_unreached();
+	}
+	return 0;
 }
 
 static void
@@ -932,6 +949,7 @@ int index_mail_get_special(struct mail *_mail,
 						MAIL_CACHE_IMAP_BODY) < 0)
 				return -1;
 		}
+		i_assert(data->body != NULL);
 		*value_r = data->body;
 		return 0;
 	}
@@ -960,6 +978,7 @@ int index_mail_get_special(struct mail *_mail,
 					MAIL_CACHE_IMAP_BODYSTRUCTURE) < 0)
 				return -1;
 		}
+		i_assert(data->bodystructure != NULL);
 		*value_r = data->bodystructure;
 		return 0;
 	}
