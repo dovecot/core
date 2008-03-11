@@ -280,7 +280,7 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 			mail->data.virtual_size = size;
 		} else if (!vsize && mail->data.physical_size != size) {
 			mail_cache_set_corrupted(mail->ibox->cache,
-				"Corrupted phycaisl size: "
+				"Corrupted physical size: "
 				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
 				mail->data.physical_size, size);
 			mail->data.physical_size = size;
