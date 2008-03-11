@@ -147,7 +147,7 @@ void default_fatal_handler(enum log_type type, int status,
 			    args) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
 
-	if (type == LOG_TYPE_PANIC) {
+	if (type == LOG_TYPE_PANIC || status == FATAL_OUTOFMEM) {
 		if (backtrace_get(&backtrace) == 0)
 			i_error("Raw backtrace: %s", backtrace);
 	}
