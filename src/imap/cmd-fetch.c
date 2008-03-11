@@ -22,6 +22,10 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg)
 {
 	const char *str, *const *macro;
 
+	if (ctx->cmd->uid) {
+		if (!imap_fetch_init_handler(ctx, "UID", &arg))
+			return FALSE;
+	}
 	if (arg->type == IMAP_ARG_ATOM) {
 		str = t_str_ucase(IMAP_ARG_STR(arg));
 		arg++;
@@ -59,12 +63,6 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg)
 			return FALSE;
 		}
 	}
-
-	if (ctx->cmd->uid) {
-		if (!imap_fetch_init_handler(ctx, "UID", &arg))
-			return FALSE;
-	}
-
 	return TRUE;
 }
 
