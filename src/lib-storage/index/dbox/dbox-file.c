@@ -851,7 +851,7 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 		p_clear(file->metadata_pool);
 	} else {
 		file->metadata_pool =
-			pool_alloconly_create("dbox metadata", 512);
+			pool_alloconly_create("dbox metadata", 1024);
 	}
 	file->metadata_read_offset = 0;
 	p_array_init(&file->metadata, file->metadata_pool, 16);
@@ -867,6 +867,9 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 			*expunged_r = TRUE;
 			return 1;
 		}
+	} else {
+		/* make sure to flush any cached data */
+		i_stream_sync(file->input);
 	}
 
 	i_stream_seek(file->input, metadata_offset);
