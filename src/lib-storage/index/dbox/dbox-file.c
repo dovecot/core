@@ -1039,7 +1039,6 @@ static int dbox_file_metadata_write_real(struct dbox_file *file)
 	char space[DBOX_EXTRA_SPACE];
 	string_t *str;
 	uoff_t offset;
-	size_t last_change_len, orig_len;
 	int ret;
 
 	if (!array_is_created(&file->metadata_changes)) {
@@ -1066,7 +1065,6 @@ static int dbox_file_metadata_write_real(struct dbox_file *file)
 	}
 
 	str = t_str_new(512);
-	last_change_len = orig_len = 0;
 	/* overwrite existing metadata fields */
 	for (; i < count; i++) {
 		for (j = 0; j < changes_count; j++) {
@@ -1076,14 +1074,10 @@ static int dbox_file_metadata_write_real(struct dbox_file *file)
 		if (j != changes_count) {
 			str_append(str, changes[j]);
 			str_append_c(str, '\n');
-			last_change_len = str_len(str);
 		} else {
 			str_append(str, metadata[i]);
 			str_append_c(str, '\n');
-			if (orig_len != str_len(str))
-				last_change_len = str_len(str);
 		}
-		orig_len += strlen(metadata[i]) + 1;
 	}
 	/* add new metadata */
 	for (j = 0; j < changes_count; j++) {
@@ -1094,10 +1088,8 @@ static int dbox_file_metadata_write_real(struct dbox_file *file)
 		if (i == count) {
 			str_append(str, changes[j]);
 			str_append_c(str, '\n');
-			last_change_len = str_len(str);
 		}
 	}
-	str_truncate(str, last_change_len);
 	if (skip_pos + str_len(str) >= file->metadata_len) {
 		if ((ret = dbox_file_grow_metadata(file, skip_pos +
 						   str_len(str))) <= 0)
@@ -1111,6 +1103,11 @@ static int dbox_file_metadata_write_real(struct dbox_file *file)
 		str_append_n(str, space, I_MIN(sizeof(space), space_needed));
 	}
 	i_assert(skip_pos + str_len(str) <= file->metadata_len);
+
+	if (file->metadata_space_pos < skip_pos + str_len(str)) {
+		/* metadata was grown, update space position */
+		file->metadata_space_pos = skip_pos + str_len(str);
+	}
 
 	ret = pwrite_full(file->fd, str_data(str), str_len(str),
 			  offset + skip_pos);
