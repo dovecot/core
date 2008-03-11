@@ -18,6 +18,9 @@ convert_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 	const char *convert_mail, *str;
 	struct convert_settings set;
 
+	if (convert_next_hook_mail_namespaces_created != NULL)
+		convert_next_hook_mail_namespaces_created(namespaces);
+
 	convert_mail = getenv("CONVERT_MAIL");
 	if (convert_mail == NULL)
 		return;
