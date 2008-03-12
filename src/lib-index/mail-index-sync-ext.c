@@ -34,11 +34,10 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	id_map = array_get(&ctx->view->map->ext_id_map, &id_map_count);
 	contexts = array_get_modifiable(&ctx->extra_contexts, &context_count);
 
-	i_assert(id_map_count <= rext_count);
 	i_assert(context_count >= rext_count);
-
 	for (idx_ext_id = 0; idx_ext_id < rext_count; idx_ext_id++) {
-		map_ext_id = id_map[idx_ext_id];
+		map_ext_id = idx_ext_id >= id_map_count ? (uint32_t)-1 :
+			id_map[idx_ext_id];
 		if (rext[idx_ext_id].expunge_handler == NULL ||
 		    (map_ext_id == (uint32_t)-1 &&
 		     !rext[idx_ext_id].expunge_handler_call_always))
