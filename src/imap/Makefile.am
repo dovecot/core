@@ -45,6 +45,7 @@ cmds = \
 	cmd-copy.c \
 	cmd-create.c \
 	cmd-delete.c \
+	cmd-enable.c \
 	cmd-examine.c \
 	cmd-expunge.c \
 	cmd-fetch.c \
