@@ -1027,7 +1027,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	}
 
 	ctx->mail = mail;
-	ctx->imail = (struct index_mail *)mail;
+	ctx->imail = ((struct mail_private *)mail)->v.get_index_mail(mail);
 
 	if (ioloop_time - ctx->last_notify.tv_sec >=
 	    SEARCH_NOTIFY_INTERVAL_SECS)

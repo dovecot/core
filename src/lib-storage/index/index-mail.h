@@ -193,6 +193,7 @@ void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 void index_mail_expunge(struct mail *mail);
 void index_mail_set_cache_corrupted(struct mail *mail,
 				    enum mail_fetch_field field);
+struct index_mail *index_mail_get_index_mail(struct mail *mail);
 
 bool index_mail_get_cached_uoff_t(struct index_mail *mail,
 				  enum index_cache_field field, uoff_t *size_r);
