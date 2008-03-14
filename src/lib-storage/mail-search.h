@@ -1,6 +1,7 @@
 #ifndef MAIL_SEARCH_H
 #define MAIL_SEARCH_H
 
+#include "seq-range-array.h"
 #include "mail-types.h"
 
 enum mail_search_arg_type {
@@ -40,18 +41,13 @@ enum mail_search_arg_type {
 	SEARCH_TEXT_FAST
 };
 
-struct mail_search_seqset {
-	uint32_t seq1, seq2;
-        struct mail_search_seqset *next;
-};
-
 struct mail_search_arg {
 	struct mail_search_arg *next;
 
 	enum mail_search_arg_type type;
 	struct {
 		struct mail_search_arg *subargs;
-                struct mail_search_seqset *seqset;
+		ARRAY_TYPE(seq_range) seqset;
 		const char *str;
 		time_t time;
 		uoff_t size;

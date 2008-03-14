@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "array.h"
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
@@ -185,7 +186,6 @@ static int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 static bool expunge_mails(struct client *client)
 {
 	struct mail_search_arg search_arg;
-        struct mail_search_seqset seqset;
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	uint32_t idx;
@@ -198,12 +198,11 @@ static bool expunge_mails(struct client *client)
 		return TRUE;
 	}
 
-	memset(&seqset, 0, sizeof(seqset));
 	memset(&search_arg, 0, sizeof(search_arg));
-	seqset.seq1 = 1;
-	seqset.seq2 = client->messages_count;
 	search_arg.type = SEARCH_SEQSET;
-	search_arg.value.seqset = &seqset;
+	t_array_init(&search_arg.value.seqset, 1);
+	seq_range_array_add_range(&search_arg.value.seqset,
+				  1, client->messages_count);
 
 	ctx = mailbox_search_init(client->trans, NULL, &search_arg, NULL);
 	mail = mail_alloc(client->trans, 0, NULL);
@@ -255,7 +254,6 @@ struct fetch_context {
 	uoff_t body_lines;
 
 	struct mail_search_arg search_arg;
-        struct mail_search_seqset seqset;
 
 	unsigned char last;
 	bool cr_skipped, in_body;
@@ -264,6 +262,7 @@ struct fetch_context {
 static void fetch_deinit(struct fetch_context *ctx)
 {
 	(void)mailbox_search_deinit(&ctx->search_ctx);
+	array_free(&ctx->search_arg.value.seqset);
 	mail_free(&ctx->mail);
 	i_free(ctx);
 }
@@ -371,9 +370,9 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 
 	ctx = i_new(struct fetch_context, 1);
 
-	ctx->seqset.seq1 = ctx->seqset.seq2 = msgnum+1;
 	ctx->search_arg.type = SEARCH_SEQSET;
-	ctx->search_arg.value.seqset = &ctx->seqset;
+	i_array_init(&ctx->search_arg.value.seqset, 1);
+	seq_range_array_add(&ctx->search_arg.value.seqset, 0, msgnum+1);
 
 	ctx->search_ctx = mailbox_search_init(client->trans, NULL,
 					      &ctx->search_arg, NULL);
@@ -432,7 +431,6 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 	struct mail_search_arg search_arg;
-        struct mail_search_seqset seqset;
 
 	client->last_seen = 0;
 
@@ -445,12 +443,11 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 
 	if (enable_last_command) {
 		/* remove all \Seen flags (as specified by RFC 1460) */
-		memset(&seqset, 0, sizeof(seqset));
 		memset(&search_arg, 0, sizeof(search_arg));
-		seqset.seq1 = 1;
-		seqset.seq2 = client->messages_count;
 		search_arg.type = SEARCH_SEQSET;
-		search_arg.value.seqset = &seqset;
+		t_array_init(&search_arg.value.seqset, 1);
+		seq_range_array_add_range(&search_arg.value.seqset,
+					  1, client->messages_count);
 
 		search_ctx = mailbox_search_init(client->trans, NULL,
 						 &search_arg, NULL);
@@ -503,7 +500,6 @@ struct cmd_uidl_context {
 	unsigned int message;
 
 	struct mail_search_arg search_arg;
-	struct mail_search_seqset seqset;
 };
 
 static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
@@ -586,6 +582,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 
 	if (ctx->message == 0)
 		client_send_line(client, ".");
+	array_free(&ctx->search_arg.value.seqset);
 	i_free(ctx);
 	return found;
 }
@@ -605,15 +602,15 @@ cmd_uidl_init(struct client *client, unsigned int message)
 
 	ctx = i_new(struct cmd_uidl_context, 1);
 
+	ctx->search_arg.type = SEARCH_SEQSET;
+	i_array_init(&ctx->search_arg.value.seqset, 1);
 	if (message == 0) {
-		ctx->seqset.seq1 = 1;
-		ctx->seqset.seq2 = client->messages_count;
+		seq_range_array_add_range(&ctx->search_arg.value.seqset,
+					  1, client->messages_count);
 	} else {
 		ctx->message = message;
-		ctx->seqset.seq1 = ctx->seqset.seq2 = message;
+		seq_range_array_add(&ctx->search_arg.value.seqset, 0, message);
 	}
-	ctx->search_arg.type = SEARCH_SEQSET;
-	ctx->search_arg.value.seqset = &ctx->seqset;
 
 	wanted_fields = 0;
 	if ((uidl_keymask & UIDL_MD5) != 0)

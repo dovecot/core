@@ -75,7 +75,6 @@ imap_SOURCES = \
 	imap-expunge.c \
 	imap-fetch.c \
 	imap-fetch-body.c \
-	imap-messageset.c \
 	imap-search.c \
 	imap-sort.c \
 	imap-status.c \
@@ -92,7 +91,6 @@ headers = \
 	common.h \
 	imap-expunge.h \
 	imap-fetch.h \
-	imap-messageset.h \
 	imap-search.h \
 	imap-sort.h \
 	imap-status.h \

@@ -25,7 +25,6 @@
 
 struct fts_storage_build_context {
 	struct mail_search_context *search_ctx;
-	struct mail_search_seqset seqset;
 	struct mail_search_arg search_arg;
 	struct mail *mail;
 	struct fts_backend_build_context *build;
@@ -171,16 +170,13 @@ static int fts_build_init(struct fts_search_context *fctx)
 	struct fts_backend *backend = fctx->build_backend;
 	struct fts_storage_build_context *ctx;
 	struct fts_backend_build_context *build;
-	struct mail_search_seqset seqset;
-	uint32_t last_uid, last_uid_locked;
+	uint32_t last_uid, last_uid_locked, seq1, seq2;
 
 	if (fts_backend_get_last_uid(backend, &last_uid) < 0)
 		return -1;
 
-	memset(&seqset, 0, sizeof(seqset));
-	mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
-			 &seqset.seq1, &seqset.seq2);
-	if (seqset.seq1 == 0) {
+	mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1, &seq1, &seq2);
+	if (seq1 == 0) {
 		/* no new messages */
 		return 0;
 	}
@@ -197,8 +193,8 @@ static int fts_build_init(struct fts_search_context *fctx)
 
 		last_uid = last_uid_locked;
 		mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
-				 &seqset.seq1, &seqset.seq2);
-		if (seqset.seq1 == 0) {
+				 &seq1, &seq2);
+		if (seq1 == 0) {
 			/* no new messages */
 			(void)fts_backend_build_deinit(&build);
 			return 0;
@@ -207,9 +203,9 @@ static int fts_build_init(struct fts_search_context *fctx)
 
 	ctx = i_new(struct fts_storage_build_context, 1);
 	ctx->build = build;
-	ctx->seqset = seqset;
 	ctx->search_arg.type = SEARCH_SEQSET;
-	ctx->search_arg.value.seqset = &ctx->seqset;
+	i_array_init(&ctx->search_arg.value.seqset, 1);
+	seq_range_array_add_range(&ctx->search_arg.value.seqset, seq1, seq2);
 
 	ctx->headers = str_new(default_pool, 512);
 	ctx->mail = mail_alloc(t, 0, NULL);
@@ -243,6 +239,7 @@ static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 	}
 
 	str_free(&ctx->headers);
+	array_free(&ctx->search_arg.value.seqset);
 	i_free(ctx);
 	return ret;
 }
@@ -250,6 +247,7 @@ static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 static void fts_build_notify(struct fts_storage_build_context *ctx)
 {
 	struct mailbox *box = ctx->mail->transaction->box;
+	const struct seq_range *range;
 	float percentage;
 	unsigned int msecs, secs;
 
@@ -258,8 +256,9 @@ static void fts_build_notify(struct fts_storage_build_context *ctx)
 		   already spent some time indexing the mailbox */
 		ctx->search_start_time = ioloop_timeval;
 	} else if (box->storage->callbacks->notify_ok != NULL) {
-		percentage = (ctx->mail->seq - ctx->seqset.seq1) * 100.0 /
-			(ctx->seqset.seq2 - ctx->seqset.seq1);
+		range = array_idx(&ctx->search_arg.value.seqset, 0);
+		percentage = (ctx->mail->seq - range->seq1) * 100.0 /
+			(range->seq2 - range->seq1);
 		msecs = (ioloop_timeval.tv_sec -
 			 ctx->search_start_time.tv_sec) * 1000 +
 			(ioloop_timeval.tv_usec -
