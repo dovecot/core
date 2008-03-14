@@ -981,7 +981,8 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 			    (t->last_update_idx + 1 == count ||
 			     last_update[1].uid1 > seq2)) {
 				/* we can just update the UID range */
-				last_update->uid2 = seq2;
+				if (mail_transaction_update_want_add(t, &u))
+					last_update->uid2 = seq2;
 				return;
 			}
 		} else if (seq1 > last_update->uid2) {
