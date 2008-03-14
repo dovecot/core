@@ -2180,6 +2180,7 @@ src/plugins/mbox-snarf/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/trash/Makefile
+src/plugins/virtual/Makefile
 src/plugins/zlib/Makefile
 stamp.h
 dovecot-config.in])
