@@ -267,6 +267,8 @@ union mailbox_transaction_module_context {
 
 struct mailbox_transaction_context {
 	struct mailbox *box;
+	enum mailbox_transaction_flags flags;
+
 	ARRAY_DEFINE(module_contexts,
 		     union mailbox_transaction_module_context *);
 };
