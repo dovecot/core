@@ -654,8 +654,12 @@ struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags)
 {
+	struct mailbox_transaction_context *trans;
+
 	box->transaction_count++;
-	return box->v.transaction_begin(box, flags);
+	trans = box->v.transaction_begin(box, flags);
+	trans->flags = flags;
+	return trans;
 }
 
 int mailbox_transaction_commit(struct mailbox_transaction_context **t)
