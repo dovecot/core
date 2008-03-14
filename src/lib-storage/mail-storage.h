@@ -135,7 +135,10 @@ enum mailbox_sync_flags {
 	/* Stop auto syncing */
 	MAILBOX_SYNC_AUTO_STOP			= 0x20,
 	/* If mailbox is currently inconsistent, fix it instead of failing. */
-	MAILBOX_SYNC_FLAG_FIX_INCONSISTENT	= 0x40
+	MAILBOX_SYNC_FLAG_FIX_INCONSISTENT	= 0x40,
+	/* Syncing after an EXPUNGE command. This is just an informational
+	   flag for plugins. */
+	MAILBOX_SYNC_FLAG_EXPUNGE		= 0x80
 };
 
 enum mailbox_sync_type {
