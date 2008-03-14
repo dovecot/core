@@ -10,6 +10,7 @@ enum mail_search_arg_type {
 	/* sequence sets */
 	SEARCH_ALL,
 	SEARCH_SEQSET,
+	SEARCH_UIDSET,
 
 	/* flags */
 	SEARCH_FLAGS,

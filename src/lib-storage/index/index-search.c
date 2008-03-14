@@ -75,6 +75,7 @@ static void search_init_arg(struct mail_search_arg *arg,
 	case SEARCH_SEQSET:
 		ctx->have_seqsets = TRUE;
 		break;
+	case SEARCH_UIDSET:
 	case SEARCH_FLAGS:
 	case SEARCH_KEYWORDS:
 		ctx->have_flags_or_keywords = TRUE;
@@ -144,6 +145,8 @@ static int search_arg_match_index(struct index_search_context *ctx,
 	int ret;
 
 	switch (arg->type) {
+	case SEARCH_UIDSET:
+		return seqset_contains(arg->value.seqset, rec->uid);
 	case SEARCH_FLAGS:
 		flags = rec->flags;
 		if ((arg->value.flags & MAIL_RECENT) != 0 &&
