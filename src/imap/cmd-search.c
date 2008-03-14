@@ -4,6 +4,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "commands.h"
+#include "mail-search-build.h"
 #include "imap-search.h"
 
 #define OUTBUF_SIZE 65536
@@ -62,7 +63,7 @@ static int imap_search_deinit(struct client_command_context *cmd,
 	if (ctx->to != NULL)
 		timeout_remove(&ctx->to);
 	str_free(&ctx->output_buf);
-	imap_search_args_free(ctx->box, ctx->sargs);
+	mail_search_args_deinit(ctx->sargs, ctx->box);
 
 	cmd->context = NULL;
 	return ret;

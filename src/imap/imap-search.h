@@ -9,8 +9,6 @@ struct client_command_context;
 struct mail_search_arg *
 imap_search_args_build(pool_t pool, struct mailbox *box,
 		       const struct imap_arg *args, const char **error_r);
-/* Free allocated keywords */
-void imap_search_args_free(struct mailbox *box, struct mail_search_arg *args);
 
 struct mail_search_arg *
 imap_search_get_arg(struct client_command_context *cmd,

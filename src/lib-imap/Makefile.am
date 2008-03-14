@@ -11,8 +11,9 @@ libimap_a_SOURCES = \
 	imap-date.c \
 	imap-envelope.c \
 	imap-match.c \
-	imap-quote.c \
+	imap-messageset.c \
 	imap-parser.c \
+	imap-quote.c \
 	imap-util.c
 
 headers = \
@@ -21,8 +22,9 @@ headers = \
 	imap-date.h \
 	imap-envelope.h \
 	imap-match.h \
-	imap-quote.h \
+	imap-messageset.h \
 	imap-parser.h \
+	imap-quote.h \
 	imap-util.h
 
 if INSTALL_HEADERS
