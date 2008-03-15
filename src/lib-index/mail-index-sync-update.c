@@ -673,12 +673,15 @@ void mail_index_map_check(struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr = &map->hdr;
 	unsigned int i, del = 0, seen = 0;
+	uint32_t prev_uid = 0;
 
 	i_assert(hdr->messages_count <= map->rec_map->records_count);
 	for (i = 0; i < hdr->messages_count; i++) {
 		const struct mail_index_record *rec;
 
 		rec = MAIL_INDEX_MAP_IDX(map, i);
+		i_assert(rec->uid > prev_uid);
+		prev_uid = rec->uid;
 
 		if (rec->flags & MAIL_DELETED) {
 			i_assert(rec->uid >= hdr->first_deleted_uid_lowwater);
