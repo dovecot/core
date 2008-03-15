@@ -3,6 +3,7 @@
 
 struct message_size;
 
+#include "seq-range-array.h"
 #include "file-lock.h"
 #include "mail-types.h"
 #include "mail-error.h"
@@ -60,6 +61,8 @@ enum mailbox_open_flags {
 enum mailbox_feature {
 	/* Enable tracking modsequences */
 	MAILBOX_FEATURE_CONDSTORE	= 0x01,
+	/* Enable tracking expunge modsequences */
+	MAILBOX_FEATURE_QRESYNC		= 0x02
 };
 
 enum mailbox_status_items {
@@ -354,6 +357,12 @@ void mailbox_keywords_free(struct mailbox *box,
 /* Convert uid range to sequence range. */
 void mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 		      uint32_t *seq1_r, uint32_t *seq2_r);
+/* Get list of UIDs expunged after modseq and within the given range.
+   UIDs that have been expunged after the last mailbox sync aren't returned.
+   Returns TRUE if ok, FALSE if modseq is lower than we can check for. */
+bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t modseq,
+			       const ARRAY_TYPE(seq_range) *uids,
+			       ARRAY_TYPE(seq_range) *expunged_uids);
 
 /* Initialize header lookup for given headers. */
 struct mailbox_header_lookup_ctx *

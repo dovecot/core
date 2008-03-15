@@ -29,6 +29,7 @@ struct imap_sync_context {
 
 	struct mailbox_sync_rec sync_rec;
 	ARRAY_TYPE(keywords) tmp_keywords;
+	ARRAY_TYPE(seq_range) expunges;
 	uint32_t seq;
 
 	unsigned int messages_count;
@@ -56,6 +57,9 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->messages_count = client->messages_count;
 	i_array_init(&ctx->tmp_keywords, client->keywords.announce_count + 8);
 
+	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0)
+		i_array_init(&ctx->expunges, 128);
+
 	client_send_mailbox_flags(client, FALSE);
 	return ctx;
 }
@@ -66,6 +70,8 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 	int ret;
 
 	mail_free(&ctx->mail);
+	if (array_is_created(&ctx->expunges))
+		array_free(&ctx->expunges);
 
 	if (mailbox_sync_deinit(&ctx->sync_ctx, STATUS_UIDVALIDITY |
 				STATUS_MESSAGES | STATUS_RECENT, &status) < 0 ||
@@ -144,6 +150,53 @@ static int imap_sync_send_modseq(struct imap_sync_context *ctx, string_t *str)
 	return client_send_line(ctx->client, str_c(str));
 }
 
+static void imap_sync_vanished(struct imap_sync_context *ctx)
+{
+	const struct seq_range *seqs;
+	unsigned int i, count;
+	string_t *line;
+	uint32_t seq, prev_uid, start_uid;
+	bool comma = FALSE;
+
+	/* Convert expunge sequences to UIDs and send them in VANISHED line. */
+	seqs = array_get(&ctx->expunges, &count);
+	if (count == 0)
+		return;
+
+	line = t_str_new(256);
+	str_append(line, "* VANISHED ");
+	for (i = 0; i < count; i++) {
+		prev_uid = start_uid = 0;
+		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
+			mail_set_seq(ctx->mail, seq);
+			if (prev_uid + 1 != ctx->mail->uid) {
+				if (start_uid != 0) {
+					if (!comma)
+						comma = TRUE;
+					else
+						str_append_c(line, ',');
+					str_printfa(line, "%u", start_uid);
+					if (start_uid != prev_uid) {
+						str_printfa(line, ":%u",
+							    prev_uid);
+					}
+				}
+				start_uid = ctx->mail->uid;
+			}
+			prev_uid = ctx->mail->uid;
+		}
+		if (!comma)
+			comma = TRUE;
+		else
+			str_append_c(line, ',');
+		str_printfa(line, "%u", start_uid);
+		if (start_uid != prev_uid)
+			str_printfa(line, ":%u", prev_uid);
+	}
+	str_append(line, "\r\n");
+	o_stream_send(ctx->client->output, str_data(line), str_len(line));
+}
+
 int imap_sync_more(struct imap_sync_context *ctx)
 {
 	string_t *str;
@@ -170,6 +223,10 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			ctx->sync_rec.seq2 = ctx->messages_count;
 		}
 
+		/* EXPUNGEs must come last */
+		i_assert(!array_is_created(&ctx->expunges) ||
+			 array_count(&ctx->expunges) == 0 ||
+			 ctx->sync_rec.type == MAILBOX_SYNC_TYPE_EXPUNGE);
 		switch (ctx->sync_rec.type) {
 		case MAILBOX_SYNC_TYPE_FLAGS:
 			if (ctx->seq == 0)
@@ -184,6 +241,16 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			}
 			break;
 		case MAILBOX_SYNC_TYPE_EXPUNGE:
+			if (array_is_created(&ctx->expunges)) {
+				/* Use a single VANISHED line */
+				seq_range_array_add_range(&ctx->expunges,
+							  ctx->sync_rec.seq1,
+							  ctx->sync_rec.seq2);
+				ctx->messages_count -=
+					ctx->sync_rec.seq2 -
+					ctx->sync_rec.seq1 + 1;
+				break;
+			}
 			if (ctx->seq == 0)
 				ctx->seq = ctx->sync_rec.seq2;
 			ret = 1;
@@ -228,6 +295,8 @@ int imap_sync_more(struct imap_sync_context *ctx)
 
 		ctx->seq = 0;
 	}
+	if (array_is_created(&ctx->expunges))
+		imap_sync_vanished(ctx);
 	return ret;
 }
 

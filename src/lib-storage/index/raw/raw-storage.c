@@ -288,6 +288,7 @@ struct mailbox raw_mailbox = {
 		index_keywords_create,
 		index_keywords_free,
 		index_storage_get_uids,
+		index_storage_get_expunged_uids,
 		index_mail_alloc,
 		index_header_lookup_init,
 		index_header_lookup_deinit,

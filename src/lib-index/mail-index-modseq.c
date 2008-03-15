@@ -21,14 +21,6 @@ enum modseq_metadata_idx {
 	METADATA_MODSEQ_IDX_KEYWORD_START
 };
 
-struct mail_index_modseq_header {
-	/* highest used modseq */
-	uint64_t highest_modseq;
-	/* last tracked log file position */
-	uint32_t log_seq;
-	uint32_t log_offset;
-};
-
 struct metadata_modseqs {
 	ARRAY_TYPE(modseqs) modseqs;
 };
@@ -607,4 +599,17 @@ void mail_index_map_modseq_free(struct mail_index_map_modseq *mmap)
 	}
 	array_free(&mmap->metadata_modseqs);
 	i_free(mmap);
+}
+
+bool mail_index_modseq_get_log_offset(struct mail_index_view *view,
+				      uint64_t modseq, uint32_t *log_seq_r,
+				      uoff_t *log_offset_r)
+{
+	if (view->map->hdr.indexid >= (modseq >> 32)) {
+		/* invalid modseq or created for an earlier index */
+		return FALSE;
+	}
+	*log_seq_r = (modseq >> 32) - view->map->hdr.indexid;
+	*log_offset_r = modseq & 0xffffffff;
+	return TRUE;
 }

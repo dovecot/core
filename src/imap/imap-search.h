@@ -11,7 +11,10 @@ imap_search_args_build(pool_t pool, struct mailbox *box,
 		       const struct imap_arg *args, const char **error_r);
 
 struct mail_search_arg *
-imap_search_get_arg(struct client_command_context *cmd,
-		    const char *set, bool uid);
+imap_search_get_seqset(struct client_command_context *cmd,
+		       const char *set, bool uid);
+struct mail_search_arg *
+imap_search_get_anyset(struct client_command_context *cmd,
+		       const char *set, bool uid);
 
 #endif

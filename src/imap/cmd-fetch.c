@@ -69,20 +69,34 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg)
 }
 
 static bool
-fetch_add_unchanged_since(struct imap_fetch_context *ctx, uint64_t modseq)
+fetch_parse_modifier(struct imap_fetch_context *ctx,
+		     const char *name, const struct imap_arg **args)
 {
-	struct mail_search_arg *search_arg;
+	unsigned long long num;
 
-	search_arg = p_new(ctx->cmd->pool, struct mail_search_arg, 1);
-	search_arg->type = SEARCH_MODSEQ;
-	search_arg->value.modseq =
-		p_new(ctx->cmd->pool, struct mail_search_modseq, 1);
-	search_arg->value.modseq->modseq = modseq;
+	if (strcmp(name, "CHANGEDSINCE") == 0) {
+		if ((*args)->type != IMAP_ARG_ATOM) {
+			client_send_command_error(ctx->cmd,
+				"Invalid CHANGEDSINCE modseq.");
+			return FALSE;
+		}
+		num = strtoull(imap_arg_string(*args), NULL, 10);
+		*args += 1;
+		return imap_fetch_add_unchanged_since(ctx, num);
+	}
+	if (strcmp(name, "VANISHED") == 0 && ctx->cmd->uid) {
+		if ((ctx->client->enabled_features &
+		     MAILBOX_FEATURE_QRESYNC) == 0) {
+			client_send_command_error(ctx->cmd,
+						  "QRESYNC not enabled");
+			return FALSE;
+		}
+		ctx->send_vanished = TRUE;
+		return TRUE;
+	}
 
-	search_arg->next = ctx->search_args->next;
-	ctx->search_args->next = search_arg;
-
-	return imap_fetch_init_handler(ctx, "MODSEQ", NULL);
+	client_send_command_error(ctx->cmd, "Unknown FETCH modifier");
+	return FALSE;
 }
 
 static bool
@@ -90,26 +104,24 @@ fetch_parse_modifiers(struct imap_fetch_context *ctx,
 		      const struct imap_arg *args)
 {
 	const char *name;
-	unsigned long long num;
 
-	for (; args->type != IMAP_ARG_EOL; args++) {
-		if (args->type != IMAP_ARG_ATOM ||
-		    args[1].type != IMAP_ARG_ATOM) {
+	while (args->type != IMAP_ARG_EOL) {
+		if (args->type != IMAP_ARG_ATOM) {
 			client_send_command_error(ctx->cmd,
 				"FETCH modifiers contain non-atoms.");
 			return FALSE;
 		}
-		name = IMAP_ARG_STR(args);
-		if (strcasecmp(name, "CHANGEDSINCE") == 0) {
-			args++;
-			num = strtoull(imap_arg_string(args), NULL, 10);
-			if (!fetch_add_unchanged_since(ctx, num))
-				return FALSE;
-		} else {
-			client_send_command_error(ctx->cmd,
-						  "Unknown FETCH modifier");
+		name = t_str_ucase(IMAP_ARG_STR(args));
+		args++;
+		if (!fetch_parse_modifier(ctx, name, &args))
 			return FALSE;
-		}
+	}
+	if (ctx->send_vanished &&
+	    (ctx->search_args->next == NULL ||
+	     ctx->search_args->next->type != SEARCH_MODSEQ)) {
+		client_send_command_error(ctx->cmd,
+			"VANISHED used without CHANGEDSINCE");
+		return FALSE;
 	}
 	return TRUE;
 }
@@ -150,15 +162,11 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 static bool cmd_fetch_continue(struct client_command_context *cmd)
 {
         struct imap_fetch_context *ctx = cmd->context;
-	int ret;
 
-	if ((ret = imap_fetch(ctx)) == 0) {
+	if (imap_fetch_more(ctx) == 0) {
 		/* unfinished */
 		return FALSE;
 	}
-	if (ret < 0)
-		ctx->failed = TRUE;
-
 	return cmd_fetch_finish(ctx);
 }
 
@@ -168,7 +176,6 @@ bool cmd_fetch(struct client_command_context *cmd)
 	const struct imap_arg *args;
 	struct mail_search_arg *search_arg;
 	const char *messageset;
-	int ret;
 
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
@@ -185,11 +192,11 @@ bool cmd_fetch(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	search_arg = imap_search_get_arg(cmd, messageset, cmd->uid);
+	search_arg = imap_search_get_anyset(cmd, messageset, cmd->uid);
 	if (search_arg == NULL)
 		return TRUE;
 
-	ctx = imap_fetch_init(cmd);
+	ctx = imap_fetch_init(cmd, cmd->client->mailbox);
 	if (ctx == NULL)
 		return TRUE;
 	ctx->search_args = search_arg;
@@ -201,17 +208,15 @@ bool cmd_fetch(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	imap_fetch_begin(ctx);
-	if ((ret = imap_fetch(ctx)) == 0) {
-		/* unfinished */
-		cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
+	if (imap_fetch_begin(ctx) == 0) {
+		if (imap_fetch_more(ctx) == 0) {
+			/* unfinished */
+			cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
 
-		cmd->func = cmd_fetch_continue;
-		cmd->context = ctx;
-		return FALSE;
+			cmd->func = cmd_fetch_continue;
+			cmd->context = ctx;
+			return FALSE;
+		}
 	}
-	if (ret < 0)
-		ctx->failed = TRUE;
-
 	return cmd_fetch_finish(ctx);
 }

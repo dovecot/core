@@ -9,6 +9,14 @@ struct mail_index_modseq;
 struct mail_index_map_modseq;
 struct mail_index_sync_map_ctx;
 
+struct mail_index_modseq_header {
+	/* highest used modseq */
+	uint64_t highest_modseq;
+	/* last tracked log file position */
+	uint32_t log_seq;
+	uint32_t log_offset;
+};
+
 void mail_index_modseq_init(struct mail_index *index);
 
 void mail_index_modseq_enable(struct mail_index *index);
@@ -40,5 +48,9 @@ void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
 				      uint32_t seq1, uint32_t seq2);
 
 void mail_index_map_modseq_free(struct mail_index_map_modseq *mmap);
+
+bool mail_index_modseq_get_log_offset(struct mail_index_view *view,
+				      uint64_t modseq, uint32_t *log_seq_r,
+				      uoff_t *log_offset_r);
 
 #endif

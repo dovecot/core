@@ -7,6 +7,8 @@
 #include "file-lock.h"
 #include "mail-index-private.h"
 #include "mail-cache-private.h"
+#include "mail-cache-private.h"
+#include "mail-index-modseq.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,6 +91,14 @@ static void dump_extension_header(struct mail_index *index,
 
 		printf("header\n");
 		printf(" - last_dirty_flush_stamp = %s\n", unixdate2str(hdr->last_dirty_flush_stamp));
+	} else if (strcmp(ext->name, "modseq") == 0) {
+		const struct mail_index_modseq_header *hdr = data;
+
+		printf("header\n");
+		printf(" - highest_modseq = %llu\n",
+		       (unsigned long long)hdr->highest_modseq);
+		printf(" - log_seq ...... = %u\n", hdr->log_seq);
+		printf(" - log_offset ... = %u\n", hdr->log_offset);
 	} else {
 		printf("header ........ = %s\n",
 		       binary_to_hex(data, ext->hdr_size));

@@ -24,6 +24,11 @@ bool cmd_enable(struct client_command_context *cmd)
 			client_enable(cmd->client, MAILBOX_FEATURE_CONDSTORE);
 			str_append(reply, " CONDSTORE");
 		}
+		else if (strcmp(str, "QRESYNC") == 0) {
+			client_enable(cmd->client, MAILBOX_FEATURE_QRESYNC |
+				      MAILBOX_FEATURE_CONDSTORE);
+			str_append(reply, " QRESYNC");
+		}
 	}
 	if (str_len(reply) > 9)
 		client_send_line(cmd->client, str_c(reply));

@@ -5,6 +5,7 @@
 #include "str.h"
 #include "commands.h"
 #include "mail-search.h"
+#include "mail-search-build.h"
 #include "imap-search.h"
 
 #define OUTBUF_SIZE 65536

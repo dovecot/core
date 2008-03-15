@@ -109,7 +109,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (!client_verify_mailbox_name(cmd, mailbox, TRUE, FALSE))
 		return TRUE;
 
-	search_arg = imap_search_get_arg(cmd, messageset, cmd->uid);
+	search_arg = imap_search_get_seqset(cmd, messageset, cmd->uid);
 	if (search_arg == NULL)
 		return TRUE;
 

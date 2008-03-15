@@ -142,7 +142,7 @@ bool cmd_store(struct client_command_context *cmd)
 	if (!store_parse_args(&ctx, args))
 		return TRUE;
 
-	search_arg = imap_search_get_arg(cmd, ctx.messageset, cmd->uid);
+	search_arg = imap_search_get_seqset(cmd, ctx.messageset, cmd->uid);
 	if (search_arg == NULL)
 		return TRUE;
 

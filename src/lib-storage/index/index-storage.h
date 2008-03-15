@@ -146,6 +146,9 @@ void index_storage_get_status(struct mailbox *box,
 			      struct mailbox_status *status_r);
 void index_storage_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			    uint32_t *seq1_r, uint32_t *seq2_r);
+bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t modseq,
+				     const ARRAY_TYPE(seq_range) *uids,
+				     ARRAY_TYPE(seq_range) *expunged_uids);
 
 struct mailbox_header_lookup_ctx *
 index_header_lookup_init(struct mailbox *box, const char *const headers[]);
