@@ -20,7 +20,7 @@
 #define ENVELOPE_NIL_REPLY \
 	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
-const struct imap_fetch_handler default_handlers[7];
+const struct imap_fetch_handler default_handlers[8];
 static buffer_t *fetch_handlers = NULL;
 
 static int imap_fetch_handler_cmp(const void *p1, const void *p2)
@@ -153,8 +153,7 @@ void imap_fetch_add_handler(struct imap_fetch_context *ctx,
 	}
 }
 
-void imap_fetch_begin(struct imap_fetch_context *ctx,
-		      struct mail_search_arg *search_arg)
+void imap_fetch_begin(struct imap_fetch_context *ctx)
 {
 	const void *null = NULL;
 	const void *data;
@@ -188,7 +187,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx,
 	ctx->mail = mail_alloc(ctx->trans, ctx->fetch_data,
 			       ctx->all_headers_ctx);
 	ctx->search_ctx =
-		mailbox_search_init(ctx->trans, NULL, search_arg, NULL);
+		mailbox_search_init(ctx->trans, NULL, ctx->search_args, NULL);
 }
 
 static int imap_fetch_flush_buffer(struct imap_fetch_context *ctx)
@@ -568,6 +567,24 @@ fetch_internaldate_init(struct imap_fetch_context *ctx, const char *name,
 	return TRUE;
 }
 
+static int fetch_modseq(struct imap_fetch_context *ctx, struct mail *mail,
+			void *context ATTR_UNUSED)
+{
+	str_printfa(ctx->cur_str, "MODSEQ %llu ",
+		    (unsigned long long)mail_get_modseq(mail));
+	return 1;
+}
+
+static bool
+fetch_modseq_init(struct imap_fetch_context *ctx, const char *name,
+		  const struct imap_arg **args ATTR_UNUSED)
+{
+	client_enable(ctx->client, MAILBOX_FEATURE_CONDSTORE);
+	imap_fetch_add_handler(ctx, TRUE, FALSE, name, NULL,
+			       fetch_modseq, NULL);
+	return TRUE;
+}
+
 static int fetch_uid(struct imap_fetch_context *ctx, struct mail *mail,
 		     void *context ATTR_UNUSED)
 {
@@ -583,12 +600,13 @@ fetch_uid_init(struct imap_fetch_context *ctx ATTR_UNUSED, const char *name,
 	return TRUE;
 }
 
-const struct imap_fetch_handler default_handlers[7] = {
+const struct imap_fetch_handler default_handlers[8] = {
 	{ "BODY", fetch_body_init },
 	{ "BODYSTRUCTURE", fetch_bodystructure_init },
 	{ "ENVELOPE", fetch_envelope_init },
 	{ "FLAGS", fetch_flags_init },
 	{ "INTERNALDATE", fetch_internaldate_init },
+	{ "MODSEQ", fetch_modseq_init },
 	{ "RFC822", fetch_rfc822_init },
 	{ "UID", fetch_uid_init }
 };

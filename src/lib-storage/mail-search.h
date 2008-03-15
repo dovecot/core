@@ -38,7 +38,21 @@ enum mail_search_arg_type {
 	SEARCH_BODY,
 	SEARCH_TEXT,
 	SEARCH_BODY_FAST,
-	SEARCH_TEXT_FAST
+	SEARCH_TEXT_FAST,
+
+	/* extensions */
+	SEARCH_MODSEQ
+};
+
+enum mail_search_modseq_type {
+	MAIL_SEARCH_MODSEQ_TYPE_ANY = 0,
+	MAIL_SEARCH_MODSEQ_TYPE_PRIVATE,
+	MAIL_SEARCH_MODSEQ_TYPE_SHARED
+};
+
+struct mail_search_modseq {
+	uint64_t modseq;
+	enum mail_search_modseq_type type;
 };
 
 struct mail_search_arg {
@@ -53,6 +67,7 @@ struct mail_search_arg {
 		uoff_t size;
 		enum mail_flags flags;
 		struct mail_keywords *keywords;
+		struct mail_search_modseq *modseq;
 	} value;
 
         void *context;

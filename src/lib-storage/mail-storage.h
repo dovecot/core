@@ -54,7 +54,12 @@ enum mailbox_open_flags {
 	/* Don't create index files for the mailbox */
 	MAILBOX_OPEN_NO_INDEX_FILES	= 0x10,
 	/* Keep mailbox exclusively locked all the time while it's open */
-	MAILBOX_OPEN_KEEP_LOCKED	= 0x20
+	MAILBOX_OPEN_KEEP_LOCKED	= 0x20,
+};
+
+enum mailbox_feature {
+	/* Enable tracking modsequences */
+	MAILBOX_FEATURE_CONDSTORE	= 0x01,
 };
 
 enum mailbox_status_items {
@@ -64,7 +69,8 @@ enum mailbox_status_items {
 	STATUS_UIDVALIDITY	= 0x08,
 	STATUS_UNSEEN		= 0x10,
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
-	STATUS_KEYWORDS		= 0x40
+	STATUS_KEYWORDS		= 0x40,
+	STATUS_HIGHESTMODSEQ	= 0x80
 };
 
 enum mail_sort_type {
@@ -140,7 +146,8 @@ enum mailbox_sync_flags {
 
 enum mailbox_sync_type {
 	MAILBOX_SYNC_TYPE_EXPUNGE	= 0x01,
-	MAILBOX_SYNC_TYPE_FLAGS		= 0x02
+	MAILBOX_SYNC_TYPE_FLAGS		= 0x02,
+	MAILBOX_SYNC_TYPE_MODSEQ	= 0x04
 };
 
 struct message_part;
@@ -161,6 +168,7 @@ struct mailbox_status {
 	uint32_t uidnext;
 
 	uint32_t first_unseen_seq;
+	uint64_t highest_modseq;
 
 	const ARRAY_TYPE(keywords) *keywords;
 };
@@ -266,6 +274,10 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 /* Close the box. Returns -1 if some cleanup errors occurred, but
    the mailbox was closed anyway. */
 int mailbox_close(struct mailbox **box);
+
+/* Enable the given feature for the mailbox. */
+int mailbox_enable(struct mailbox *box, enum mailbox_feature features);
+enum mailbox_feature mailbox_get_enabled_features(struct mailbox *box);
 
 /* Returns storage of given mailbox */
 struct mail_storage *mailbox_get_storage(struct mailbox *box);
@@ -416,6 +428,8 @@ enum mail_flags mail_get_flags(struct mail *mail);
 const char *const *mail_get_keywords(struct mail *mail);
 /* Returns message's keywords */
 const ARRAY_TYPE(keyword_indexes) *mail_get_keyword_indexes(struct mail *mail);
+/* Returns message's modseq */
+uint64_t mail_get_modseq(struct mail *mail);
 
 /* Returns message's MIME parts */
 int mail_get_parts(struct mail *mail, const struct message_part **parts_r);

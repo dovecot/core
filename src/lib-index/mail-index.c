@@ -13,6 +13,7 @@
 #include "mail-index-private.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
+#include "mail-index-modseq.h"
 #include "mail-transaction-log.h"
 #include "mail-cache.h"
 
@@ -50,6 +51,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 		hash_create(default_pool, index->keywords_pool, 0,
 			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 	index->log = mail_transaction_log_alloc(index);
+	mail_index_modseq_init(index);
 	return index;
 }
 
@@ -574,6 +576,11 @@ int mail_index_move_to_memory(struct mail_index *index)
 		index->fd = -1;
 	}
 	return 0;
+}
+
+bool mail_index_is_in_memory(struct mail_index *index)
+{
+	return MAIL_INDEX_IS_IN_MEMORY(index);
 }
 
 void mail_index_mark_corrupted(struct mail_index *index)

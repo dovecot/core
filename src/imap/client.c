@@ -775,6 +775,13 @@ int client_output(struct client *client)
 	}
 }
 
+void client_enable(struct client *client, enum mailbox_feature features)
+{
+	client->enabled_features |= features;
+	if (client->mailbox != NULL)
+		mailbox_enable(client->mailbox, features);
+}
+
 void clients_init(void)
 {
 	my_client = NULL;

@@ -7,6 +7,8 @@
 #include "imap-search.h"
 #include "mail-search.h"
 
+#include <stdlib.h>
+
 const char *all_macro[] = {
 	"FLAGS", "INTERNALDATE", "RFC822.SIZE", "ENVELOPE", NULL
 };
@@ -60,6 +62,52 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg)
 		if (arg->type != IMAP_ARG_EOL) {
 			client_send_command_error(ctx->cmd,
 				"FETCH list contains non-atoms.");
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+static bool
+fetch_add_unchanged_since(struct imap_fetch_context *ctx, uint64_t modseq)
+{
+	struct mail_search_arg *search_arg;
+
+	search_arg = p_new(ctx->cmd->pool, struct mail_search_arg, 1);
+	search_arg->type = SEARCH_MODSEQ;
+	search_arg->value.modseq =
+		p_new(ctx->cmd->pool, struct mail_search_modseq, 1);
+	search_arg->value.modseq->modseq = modseq;
+
+	search_arg->next = ctx->search_args->next;
+	ctx->search_args->next = search_arg;
+
+	return imap_fetch_init_handler(ctx, "MODSEQ", NULL);
+}
+
+static bool
+fetch_parse_modifiers(struct imap_fetch_context *ctx,
+		      const struct imap_arg *args)
+{
+	const char *name;
+	unsigned long long num;
+
+	for (; args->type != IMAP_ARG_EOL; args++) {
+		if (args->type != IMAP_ARG_ATOM ||
+		    args[1].type != IMAP_ARG_ATOM) {
+			client_send_command_error(ctx->cmd,
+				"FETCH modifiers contain non-atoms.");
+			return FALSE;
+		}
+		name = IMAP_ARG_STR(args);
+		if (strcasecmp(name, "CHANGEDSINCE") == 0) {
+			args++;
+			num = strtoull(imap_arg_string(args), NULL, 10);
+			if (!fetch_add_unchanged_since(ctx, num))
+				return FALSE;
+		} else {
+			client_send_command_error(ctx->cmd,
+						  "Unknown FETCH modifier");
 			return FALSE;
 		}
 	}
@@ -128,9 +176,11 @@ bool cmd_fetch(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
+	/* <messageset> <field(s)> [(CHANGEDSINCE <modseq>)] */
 	messageset = imap_arg_string(&args[0]);
 	if (messageset == NULL ||
-	    (args[1].type != IMAP_ARG_LIST && args[1].type != IMAP_ARG_ATOM)) {
+	    (args[1].type != IMAP_ARG_LIST && args[1].type != IMAP_ARG_ATOM) ||
+	    (args[2].type != IMAP_ARG_EOL && args[2].type != IMAP_ARG_LIST)) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
@@ -142,13 +192,16 @@ bool cmd_fetch(struct client_command_context *cmd)
 	ctx = imap_fetch_init(cmd);
 	if (ctx == NULL)
 		return TRUE;
+	ctx->search_args = search_arg;
 
-	if (!fetch_parse_args(ctx, &args[1])) {
+	if (!fetch_parse_args(ctx, &args[1]) ||
+	    (args[2].type == IMAP_ARG_LIST &&
+	     !fetch_parse_modifiers(ctx, IMAP_ARG_LIST_ARGS(&args[2])))) {
 		imap_fetch_deinit(ctx);
 		return TRUE;
 	}
 
-	imap_fetch_begin(ctx, search_arg);
+	imap_fetch_begin(ctx);
 	if ((ret = imap_fetch(ctx)) == 0) {
 		/* unfinished */
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;

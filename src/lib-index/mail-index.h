@@ -187,6 +187,8 @@ void mail_index_close(struct mail_index *index);
 
 /* Move the index into memory. Returns 0 if ok, -1 if error occurred. */
 int mail_index_move_to_memory(struct mail_index *index);
+/* Returns TRUE if index is currently in memory. */
+bool mail_index_is_in_memory(struct mail_index *index);
 
 struct mail_cache *mail_index_get_cache(struct mail_index *index);
 

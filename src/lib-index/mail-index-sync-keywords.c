@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "buffer.h"
+#include "mail-index-modseq.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
@@ -209,6 +210,8 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 
 	mail_index_sync_write_seq_update(ctx, seq1, seq2);
+	mail_index_modseq_update_keyword(ctx->modseq_ctx, keyword_idx,
+					  seq1, seq2);
 
 	data_offset = keyword_idx / CHAR_BIT;
 	data_mask = 1 << (keyword_idx % CHAR_BIT);
@@ -329,6 +332,7 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 			continue;
 
 		mail_index_sync_write_seq_update(ctx, seq1, seq2);
+		mail_index_modseq_reset_keywords(ctx->modseq_ctx, seq1, seq2);
 		for (seq1--; seq1 < seq2; seq1++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq1);
 			memset(PTR_OFFSET(rec, ext->record_offset),

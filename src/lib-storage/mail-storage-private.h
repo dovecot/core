@@ -75,6 +75,7 @@ struct mailbox_vfuncs {
 	bool (*is_readonly)(struct mailbox *box);
 	bool (*allow_new_keywords)(struct mailbox *box);
 
+	int (*enable)(struct mailbox *box, enum mailbox_feature features);
 	int (*close)(struct mailbox *box);
 
 	void (*get_status)(struct mailbox *box, enum mailbox_status_items items,
@@ -177,6 +178,7 @@ struct mailbox {
 	pool_t pool;
 
 	unsigned int transaction_count;
+	enum mailbox_feature enabled_features;
 
 	/* User's private flags if this is a shared mailbox */
 	enum mail_flags private_flags_mask;
@@ -210,6 +212,7 @@ struct mail_vfuncs {
 	const char *const *(*get_keywords)(struct mail *mail);
 	const ARRAY_TYPE(keyword_indexes) *
 		(*get_keyword_indexes)(struct mail *mail);
+	uint64_t (*get_modseq)(struct mail *mail);
 
 	int (*get_parts)(struct mail *mail,
 			 const struct message_part **parts_r);

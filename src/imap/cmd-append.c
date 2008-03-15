@@ -446,6 +446,8 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 		client_send_storage_error(cmd, storage);
 		return NULL;
 	}
+	if (cmd->client->enabled_features != 0)
+		mailbox_enable(box, cmd->client->enabled_features);
 	return box;
 }
 

@@ -116,6 +116,7 @@ struct mail_index_record_map {
 	void *records; /* struct mail_index_record[] */
 	unsigned int records_count;
 
+	struct mail_index_map_modseq *modseq;
 	uint32_t last_appended_uid;
 
 	/* If this mapping is written to disk and write_atomic=FALSE,
@@ -200,6 +201,7 @@ struct mail_index {
 	struct hash_table *keywords_hash; /* name -> idx */
 
 	uint32_t keywords_ext_id;
+	uint32_t modseq_ext_id;
 
 	/* Module-specific contexts. */
 	ARRAY_DEFINE(module_contexts, union mail_index_module_context *);
@@ -218,6 +220,7 @@ struct mail_index {
 	unsigned int mapping:1;
 	unsigned int syncing:1;
 	unsigned int need_recreate:1;
+	unsigned int modseqs_enabled:1;
 };
 
 extern struct mail_index_module_register mail_index_module_register;

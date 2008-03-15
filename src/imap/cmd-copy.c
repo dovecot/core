@@ -128,6 +128,8 @@ bool cmd_copy(struct client_command_context *cmd)
 			client_send_storage_error(cmd, storage);
 			return TRUE;
 		}
+		if (client->enabled_features != 0)
+			mailbox_enable(destbox, client->enabled_features);
 	}
 
 	t = mailbox_transaction_begin(destbox,

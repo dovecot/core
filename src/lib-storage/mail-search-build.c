@@ -148,6 +148,92 @@ arg_new_header(struct search_build_data *data,
 	return TRUE;
 }
 
+static bool
+arg_modseq_set_name(struct search_build_data *data,
+		    struct mail_search_arg *sarg, const char *name)
+{
+	name = t_str_lcase(name);
+	if (strncmp(name, "/flags/", 7) != 0) {
+		data->error = "Invalid MODSEQ entry";
+		return FALSE;
+	}
+	name += 7;
+
+	if (*name == '\\') {
+		/* system flag */
+		name++;
+		if (strcmp(name, "answered") == 0)
+			sarg->value.flags = MAIL_ANSWERED;
+		else if (strcmp(name, "flagged") == 0)
+			sarg->value.flags = MAIL_FLAGGED;
+		else if (strcmp(name, "deleted") == 0)
+			sarg->value.flags = MAIL_DELETED;
+		else if (strcmp(name, "seen") == 0)
+			sarg->value.flags = MAIL_SEEN;
+		else if (strcmp(name, "draft") == 0)
+			sarg->value.flags = MAIL_DRAFT;
+		else {
+			data->error = "Invalid MODSEQ system flag";
+			return FALSE;
+		}
+		return TRUE;
+	}
+	sarg->value.str = p_strdup(data->pool, name);
+	return TRUE;
+}
+
+static bool
+arg_modseq_set_type(struct search_build_data *data,
+		    struct mail_search_modseq *modseq, const char *name)
+{
+	if (strcasecmp(name, "all") == 0)
+		modseq->type = MAIL_SEARCH_MODSEQ_TYPE_ANY;
+	else if (strcasecmp(name, "priv") == 0)
+		modseq->type = MAIL_SEARCH_MODSEQ_TYPE_PRIVATE;
+	else if (strcasecmp(name, "shared") == 0)
+		modseq->type = MAIL_SEARCH_MODSEQ_TYPE_SHARED;
+	else {
+		data->error = "Invalid MODSEQ type";
+		return FALSE;
+	}
+	return TRUE;
+}
+
+#define ARG_NEW_MODSEQ() \
+	arg_new_modseq(data, args, next_sarg)
+static bool
+arg_new_modseq(struct search_build_data *data,
+	       const struct imap_arg **args, struct mail_search_arg **next_sarg)
+{
+	struct mail_search_arg *sarg;
+	const char *value;
+
+	*next_sarg = sarg = search_arg_new(data->pool, SEARCH_MODSEQ);
+	if (!arg_get_next(data, args, &value))
+		return FALSE;
+
+	sarg->value.modseq = p_new(data->pool, struct mail_search_modseq, 1);
+	if ((*args)[-1].type == IMAP_ARG_STRING) {
+		/* <name> <type> */
+		if (!arg_modseq_set_name(data, sarg, value))
+			return FALSE;
+
+		if (!arg_get_next(data, args, &value))
+			return FALSE;
+		if (!arg_modseq_set_type(data, sarg->value.modseq, value))
+			return FALSE;
+
+		if (!arg_get_next(data, args, &value))
+			return FALSE;
+	}
+	if (!is_numeric(value, '\0')) {
+		data->error = "Invalid MODSEQ value";
+		return FALSE;
+	}
+	sarg->value.modseq->modseq = strtoull(value, NULL, 10);
+	return TRUE;
+}
+
 static bool search_arg_build(struct search_build_data *data,
 			     const struct imap_arg **args,
 			     struct mail_search_arg **next_sarg)
@@ -272,6 +358,12 @@ static bool search_arg_build(struct search_build_data *data,
 			return ARG_NEW_SIZE(SEARCH_LARGER);
 		}
 		break;
+	case 'M':
+		if (strcmp(str, "MODSEQ") == 0) {
+			/* [<name> <type>] <n> */
+			return ARG_NEW_MODSEQ();
+		}
+  		break;
 	case 'N':
 		if (strcmp(str, "NOT") == 0) {
 			if (!search_arg_build(data, args, next_sarg))
@@ -525,6 +617,10 @@ void mail_search_args_init(struct mail_search_arg *args,
 				mailbox_uidseq_change(args, box);
 			} T_END;
 			break;
+		case SEARCH_MODSEQ:
+			if (args->value.str == NULL)
+				break;
+			/* modseq with keyword */
 		case SEARCH_KEYWORDS:
 			keywords[0] = args->value.str;
 			keywords[1] = NULL;
@@ -533,6 +629,7 @@ void mail_search_args_init(struct mail_search_arg *args,
 			args->value.keywords =
 				mailbox_keywords_create_valid(box, keywords);
 			break;
+
 		case SEARCH_SUB:
 		case SEARCH_OR:
 			mail_search_args_init(args->value.subargs, box,
@@ -549,6 +646,7 @@ void mail_search_args_deinit(struct mail_search_arg *args,
 {
 	for (; args != NULL; args = args->next) {
 		switch (args->type) {
+		case SEARCH_MODSEQ:
 		case SEARCH_KEYWORDS:
 			if (args->value.keywords == NULL)
 				break;

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "index-storage.h"
+#include "mail-index-modseq.h"
 
 void index_storage_get_status(struct mailbox *box,
 			      enum mailbox_status_items items,
@@ -25,6 +26,11 @@ void index_storage_get_status(struct mailbox *box,
 	status_r->unseen = hdr->messages_count - hdr->seen_messages_count;
 	status_r->uidvalidity = hdr->uid_validity;
 	status_r->uidnext = hdr->next_uid;
+	if ((items & STATUS_HIGHESTMODSEQ) != 0 &&
+	    !mail_index_is_in_memory(ibox->index)) {
+		status_r->highest_modseq =
+			mail_index_modseq_get_highest(ibox->view);
+	}
 
 	if (items & STATUS_FIRST_UNSEEN_SEQ) {
 		mail_index_lookup_first(ibox->view, 0, MAIL_SEEN,

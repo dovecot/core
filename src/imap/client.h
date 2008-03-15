@@ -69,6 +69,7 @@ struct client {
 	unsigned int select_counter; /* increased when mailbox is changed */
 	unsigned int sync_counter;
 	uint32_t messages_count, recent_count, uidvalidity;
+	enum mailbox_feature enabled_features;
 
 	time_t last_input, last_output;
 	unsigned int bad_counter;
@@ -123,6 +124,8 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
    store the arguments. */
 bool client_read_string_args(struct client_command_context *cmd,
 			     unsigned int count, ...);
+
+void client_enable(struct client *client, enum mailbox_feature features);
 
 void clients_init(void);
 void clients_deinit(void);

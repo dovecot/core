@@ -463,6 +463,16 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 	return box;
 }
 
+int mailbox_enable(struct mailbox *box, enum mailbox_feature features)
+{
+	return box->v.enable(box, features);
+}
+
+enum mailbox_feature mailbox_get_enabled_features(struct mailbox *box)
+{
+	return box->enabled_features;
+}
+
 int mailbox_close(struct mailbox **_box)
 {
 	struct mailbox *box = *_box;

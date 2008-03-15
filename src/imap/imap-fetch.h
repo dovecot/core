@@ -33,6 +33,7 @@ struct imap_fetch_context {
 	struct mailbox *box;
 
 	struct mailbox_transaction_context *trans;
+	struct mail_search_arg *search_args;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 
@@ -95,8 +96,7 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx);
 bool imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
 			     const struct imap_arg **args);
 
-void imap_fetch_begin(struct imap_fetch_context *ctx,
-		      struct mail_search_arg *search_arg);
+void imap_fetch_begin(struct imap_fetch_context *ctx);
 int imap_fetch(struct imap_fetch_context *ctx);
 
 bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,

@@ -7,6 +7,7 @@
 #include "imap-parser.h"
 #include "mkdir-parents.h"
 #include "mail-index-private.h"
+#include "mail-index-modseq.h"
 #include "index-storage.h"
 #include "index-mail.h"
 
@@ -437,6 +438,18 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 
 	if ((flags & MAILBOX_OPEN_FAST) == 0)
 		index_storage_mailbox_open(ibox);
+}
+
+int index_storage_mailbox_enable(struct mailbox *box,
+				 enum mailbox_feature feature)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *)box;
+
+	if ((feature & MAILBOX_FEATURE_CONDSTORE) != 0) {
+		box->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
+		mail_index_modseq_enable(ibox->index);
+	}
+	return TRUE;
 }
 
 int index_storage_mailbox_close(struct mailbox *box)

@@ -103,6 +103,8 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 				enum mailbox_open_flags flags,
 				bool move_to_memory);
 void index_storage_mailbox_open(struct index_mailbox *ibox);
+int index_storage_mailbox_enable(struct mailbox *box,
+				 enum mailbox_feature feature);
 int index_storage_mailbox_close(struct mailbox *box);
 
 bool index_storage_is_readonly(struct mailbox *box);

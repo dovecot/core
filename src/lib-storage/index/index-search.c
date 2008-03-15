@@ -10,6 +10,7 @@
 #include "message-date.h"
 #include "message-search.h"
 #include "message-parser.h"
+#include "mail-index-modseq.h"
 #include "index-storage.h"
 #include "index-mail.h"
 #include "index-sort.h"
@@ -41,7 +42,7 @@ struct index_search_context {
 	unsigned int failed:1;
 	unsigned int sorted:1;
 	unsigned int have_seqsets:1;
-	unsigned int have_flags_or_keywords:1;
+	unsigned int have_index_args:1;
 };
 
 struct search_header_context {
@@ -78,7 +79,10 @@ static void search_init_arg(struct mail_search_arg *arg,
 	case SEARCH_UIDSET:
 	case SEARCH_FLAGS:
 	case SEARCH_KEYWORDS:
-		ctx->have_flags_or_keywords = TRUE;
+	case SEARCH_MODSEQ:
+		if (arg->type == SEARCH_MODSEQ)
+			mail_index_modseq_enable(ctx->ibox->index);
+		ctx->have_index_args = TRUE;
 		break;
 	case SEARCH_ALL:
 		if (!arg->not)
@@ -131,6 +135,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 				  const struct mail_index_record *rec)
 {
 	enum mail_flags flags;
+	uint64_t modseq;
 	int ret;
 
 	switch (arg->type) {
@@ -147,7 +152,19 @@ static int search_arg_match_index(struct index_search_context *ctx,
 			ret = search_arg_match_keywords(ctx, arg);
 		} T_END;
 		return ret;
-
+	case SEARCH_MODSEQ: {
+		if (arg->value.flags != 0) {
+			modseq = mail_index_modseq_lookup_flags(ctx->view,
+					arg->value.flags, ctx->mail_ctx.seq);
+		} else if (arg->value.keywords != NULL) {
+			modseq = mail_index_modseq_lookup_keywords(ctx->view,
+					arg->value.keywords, ctx->mail_ctx.seq);
+		} else {
+			modseq = mail_index_modseq_lookup_highest(ctx->view,
+						ctx->mail_ctx.seq);
+		}
+		return modseq >= arg->value.modseq->modseq;
+	}
 	default:
 		return -1;
 	}
@@ -1028,7 +1045,7 @@ int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 		_ctx->seq++;
 	}
 
-	if (!ctx->have_seqsets && !ctx->have_flags_or_keywords)
+	if (!ctx->have_seqsets && !ctx->have_index_args)
 		return _ctx->seq <= ctx->seq2 ? 1 : 0;
 
 	ret = 0;
@@ -1039,7 +1056,7 @@ int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 		if (ret != 0) {
 			/* check if flags/keywords match before anything else
 			   is done. mail_set_seq() can be a bit slow. */
-			if (!ctx->have_flags_or_keywords)
+			if (!ctx->have_index_args)
 				break;
 			ret = mail_search_args_foreach(ctx->mail_ctx.args,
 						       search_index_arg, ctx);

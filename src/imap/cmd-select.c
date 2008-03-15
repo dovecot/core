@@ -10,11 +10,30 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	struct mail_storage *storage;
 	struct mailbox *box;
 	struct mailbox_status status;
-	const char *mailbox;
+	enum mailbox_open_flags open_flags = 0;
+	const struct imap_arg *args, *list_args;
+	const char *mailbox, *str;
 
-	/* <mailbox> */
-	if (!client_read_string_args(cmd, 1, &mailbox))
+	/* <mailbox> [(CONDSTORE)] */
+	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
+
+	if (!IMAP_ARG_TYPE_IS_STRING(args[0].type)) {
+		client_send_command_error(cmd, "Invalid arguments.");
+		return FALSE;
+	}
+	mailbox = IMAP_ARG_STR(&args[0]);
+
+	if (args[1].type == IMAP_ARG_LIST) {
+		list_args = IMAP_ARG_LIST_ARGS(&args[1]);
+		for (; list_args->type != IMAP_ARG_EOL; list_args++) {
+			str = imap_arg_string(list_args);
+			if (str != NULL && strcasecmp(str, "CONDSTORE") == 0) {
+				client_enable(client,
+					      MAILBOX_FEATURE_CONDSTORE);
+			}
+		}
+	}
 
 	if (client->mailbox != NULL) {
 		box = client->mailbox;
@@ -29,17 +48,22 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	if (storage == NULL)
 		return TRUE;
 
-	box = mailbox_open(storage, mailbox, NULL, !readonly ? 0 :
-			   (MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT));
+	if (readonly)
+		open_flags |= MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT;
+
+	box = mailbox_open(storage, mailbox, NULL, open_flags);
 	if (box == NULL) {
 		client_send_storage_error(cmd, storage);
 		return TRUE;
 	}
 
+	if (client->enabled_features != 0)
+		mailbox_enable(box, client->enabled_features);
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ,
 			 STATUS_MESSAGES | STATUS_RECENT |
 			 STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
-			 STATUS_UIDNEXT | STATUS_KEYWORDS, &status) < 0) {
+			 STATUS_UIDNEXT | STATUS_KEYWORDS |
+			 STATUS_HIGHESTMODSEQ, &status) < 0) {
 		client_send_storage_error(cmd, storage);
 		mailbox_close(&box);
 		return TRUE;
@@ -75,6 +99,15 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	client_send_line(client,
 			 t_strdup_printf("* OK [UIDNEXT %u] Predicted next UID",
 					 status.uidnext));
+
+	if (status.highest_modseq == 0) {
+		client_send_line(client,
+				 "* OK [NOMODSEQ] No permanent modsequences");
+	} else {
+		client_send_line(client,
+			t_strdup_printf("* OK [HIGHESTMODSEQ %llu]",
+				(unsigned long long)status.highest_modseq));
+	}
 
 	client_send_tagline(cmd, mailbox_is_readonly(box) ?
 			    "OK [READ-ONLY] Select completed." :

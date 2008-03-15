@@ -64,11 +64,12 @@ index_transaction_begin(struct mailbox *box,
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct mail_index_transaction *t;
 	struct index_transaction_context *it;
-	enum mail_index_transaction_flags trans_flags = 0;
+	enum mail_index_transaction_flags trans_flags;
 
 	if (!box->opened)
 		index_storage_mailbox_open(ibox);
 
+	trans_flags = MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES;
 	if ((flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0)
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_HIDE;
 	if ((flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0)

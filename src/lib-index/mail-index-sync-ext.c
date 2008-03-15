@@ -348,6 +348,92 @@ mail_index_sync_ext_unknown_complain(struct mail_index_sync_map_ctx *ctx,
 	return TRUE;
 }
 
+static void
+mail_index_sync_ext_init_new(struct mail_index_sync_map_ctx *ctx,
+			     const char *name,
+			     const struct mail_index_ext_header *ext_hdr,
+			     uint32_t *ext_map_idx_r)
+{
+	struct mail_index_map *map = ctx->view->map;
+	const struct mail_index_ext *ext;
+	buffer_t *hdr_buf;
+	uint32_t ext_map_idx;
+
+	/* be sure to get a unique mapping before we modify the extensions,
+	   otherwise other map users will see the new extension but not the
+	   data records that sync_ext_reorder() adds. */
+	map = mail_index_sync_get_atomic_map(ctx);
+
+	hdr_buf = map->hdr_copy_buf;
+	i_assert(hdr_buf->used == map->hdr.header_size);
+
+	if (MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) != hdr_buf->used) {
+		/* we need to add padding between base header and extensions */
+		buffer_append_zero(hdr_buf,
+				   MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) -
+				   hdr_buf->used);
+	}
+
+	/* register record offset initially using zero,
+	   sync_ext_reorder() will fix it. */
+	ext_map_idx = mail_index_map_register_ext(map, name, hdr_buf->used,
+						  ext_hdr);
+	ext = array_idx(&map->extensions, ext_map_idx);
+
+	/* <ext_hdr> <name> [padding] [header data] */
+	buffer_append(hdr_buf, ext_hdr, sizeof(*ext_hdr));
+	buffer_append(hdr_buf, name, strlen(name));
+	/* header must begin and end in correct alignment */
+	buffer_append_zero(hdr_buf,
+		MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) - hdr_buf->used +
+		MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size));
+	i_assert(hdr_buf->used ==
+		 ext->hdr_offset + MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size));
+	i_assert((hdr_buf->used % sizeof(uint64_t)) == 0);
+
+	map->hdr.header_size = hdr_buf->used;
+	map->hdr_base = hdr_buf->data;
+
+        mail_index_sync_init_handlers(ctx);
+	sync_ext_reorder(map, ext_map_idx, 0);
+
+	*ext_map_idx_r = ext_map_idx;
+}
+
+void mail_index_sync_ext_init(struct mail_index_sync_map_ctx *ctx,
+			      const char *name, bool fix_size,
+			      uint32_t *ext_map_idx_r)
+{
+	struct mail_index_map *map = ctx->view->map;
+	const struct mail_index_registered_ext *rext;
+	struct mail_index_ext_header ext_hdr;
+	struct mail_transaction_ext_intro u;
+	uint32_t ext_id;
+
+	if (!mail_index_ext_lookup(ctx->view->index, name, &ext_id))
+		i_unreached();
+	rext = array_idx(&ctx->view->index->extensions, ext_id);
+
+	if (mail_index_map_lookup_ext(map, name, ext_map_idx_r)) {
+		if (!fix_size)
+			return;
+
+		/* make sure it's the expected size */
+		memset(&u, 0, sizeof(u));
+		u.hdr_size = rext->hdr_size;
+		u.record_size = rext->record_size;
+		u.record_align = rext->record_align;
+		sync_ext_resize(&u, *ext_map_idx_r, ctx);
+	} else {
+		memset(&ext_hdr, 0, sizeof(ext_hdr));
+		ext_hdr.hdr_size = rext->hdr_size;
+		ext_hdr.record_size = rext->record_size;
+		ext_hdr.record_align = rext->record_align;
+		mail_index_sync_ext_init_new(ctx, name, &ext_hdr,
+					     ext_map_idx_r);
+	}
+}
+
 int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_intro *u)
 {
@@ -355,7 +441,6 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_ext_header ext_hdr;
 	const struct mail_index_ext *ext;
 	const char *name, *error;
-	buffer_t *hdr_buf;
 	uint32_t ext_map_idx;
 
 	/* default to ignoring the following extension updates in case this
@@ -432,43 +517,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 	}
 
-	/* be sure to get a unique mapping before we modify the extensions,
-	   otherwise other map users will see the new extension but not the
-	   data records that sync_ext_reorder() adds. */
-	map = mail_index_sync_get_atomic_map(ctx);
-
-	hdr_buf = map->hdr_copy_buf;
-	i_assert(hdr_buf->used == map->hdr.header_size);
-
-	if (MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) != hdr_buf->used) {
-		/* we need to add padding between base header and extensions */
-		buffer_append_zero(hdr_buf,
-				   MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) -
-				   hdr_buf->used);
-	}
-
-	/* register record offset initially using zero,
-	   sync_ext_reorder() will fix it. */
-	ext_map_idx = mail_index_map_register_ext(map, name, hdr_buf->used,
-						  &ext_hdr);
-	ext = array_idx(&map->extensions, ext_map_idx);
-
-	/* <ext_hdr> <name> [padding] [header data] */
-	buffer_append(hdr_buf, &ext_hdr, sizeof(ext_hdr));
-	buffer_append(hdr_buf, name, strlen(name));
-	/* header must begin and end in correct alignment */
-	buffer_append_zero(hdr_buf,
-		MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) - hdr_buf->used +
-		MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size));
-	i_assert(hdr_buf->used ==
-		 ext->hdr_offset + MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size));
-	i_assert((hdr_buf->used % sizeof(uint64_t)) == 0);
-
-	map->hdr.header_size = hdr_buf->used;
-	map->hdr_base = hdr_buf->data;
-
-        mail_index_sync_init_handlers(ctx);
-	sync_ext_reorder(map, ext_map_idx, 0);
+	mail_index_sync_ext_init_new(ctx, name, &ext_hdr, &ext_map_idx);
 
 	ctx->cur_ext_ignore = FALSE;
 	ctx->cur_ext_map_idx = ctx->internal_update ?

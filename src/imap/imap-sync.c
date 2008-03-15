@@ -120,10 +120,27 @@ static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)
 	str_printfa(str, "* %u FETCH (", ctx->seq);
 	if (ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
-
+	if ((mailbox_get_enabled_features(ctx->box) &
+	     MAILBOX_FEATURE_CONDSTORE) != 0) {
+		str_printfa(str, "MODSEQ %llu ",
+			    (unsigned long long)mail_get_modseq(ctx->mail));
+	}
 	str_append(str, "FLAGS (");
 	imap_write_flags(str, flags, keywords);
 	str_append(str, "))");
+	return client_send_line(ctx->client, str_c(str));
+}
+
+static int imap_sync_send_modseq(struct imap_sync_context *ctx, string_t *str)
+{
+	mail_set_seq(ctx->mail, ctx->seq);
+
+	str_truncate(str, 0);
+	str_printfa(str, "* %u FETCH (", ctx->seq);
+	if (ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID)
+		str_printfa(str, "UID %u ", ctx->mail->uid);
+	str_printfa(str, "MODSEQ %llu)",
+		    (unsigned long long)mail_get_modseq(ctx->mail));
 	return client_send_line(ctx->client, str_c(str));
 }
 
@@ -185,6 +202,22 @@ int imap_sync_more(struct imap_sync_context *ctx)
 				ctx->messages_count -=
 					ctx->sync_rec.seq2 -
 					ctx->sync_rec.seq1 + 1;
+			}
+			break;
+		case MAILBOX_SYNC_TYPE_MODSEQ:
+			if ((ctx->client->enabled_features &
+			     MAILBOX_FEATURE_CONDSTORE) == 0)
+				break;
+
+			if (ctx->seq == 0)
+				ctx->seq = ctx->sync_rec.seq1;
+
+			ret = 1;
+			for (; ctx->seq <= ctx->sync_rec.seq2; ctx->seq++) {
+				if (ret <= 0)
+					break;
+
+				ret = imap_sync_send_modseq(ctx, str);
 			}
 			break;
 		}

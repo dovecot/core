@@ -1327,12 +1327,60 @@ void mail_index_keywords_free(struct mail_keywords **keywords)
 	*keywords = NULL;
 }
 
+static bool
+keyword_update_has_changes(struct mail_index_transaction *t, uint32_t seq,
+			   enum modify_type modify_type,
+			   struct mail_keywords *keywords)
+{
+	struct mail_index_transaction_keyword_update *u;
+	ARRAY_TYPE(keyword_indexes) existing;
+	const unsigned int *existing_idx;
+	unsigned int i, j, existing_count;
+	bool found;
+
+	t_array_init(&existing, 32);
+	mail_index_lookup_keywords(t->view, seq, &existing);
+	existing_idx = array_get(&existing, &existing_count);
+
+	if (modify_type == MODIFY_REPLACE && existing_count != keywords->count)
+		return TRUE;
+
+	for (i = 0; i < keywords->count; i++) {
+		u = array_idx_modifiable(&t->keyword_updates,
+					 keywords->idx[i]);
+		if (array_is_created(&u->add_seq) ||
+		    array_is_created(&u->remove_seq))
+			return TRUE;
+
+		found = FALSE;
+		for (j = 0; j < existing_count; j++) {
+			if (existing_idx[j] == keywords->idx[i]) {
+				found = TRUE;
+				break;
+			}
+		}
+		switch (modify_type) {
+		case MODIFY_ADD:
+		case MODIFY_REPLACE:
+			if (!found)
+				return TRUE;
+			break;
+		case MODIFY_REMOVE:
+			if (found)
+				return TRUE;
+			break;
+		}
+	}
+	return FALSE;
+}
+
 void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 				enum modify_type modify_type,
 				struct mail_keywords *keywords)
 {
 	struct mail_index_transaction_keyword_update *u;
 	unsigned int i, ku_count;
+	bool changed;
 
 	i_assert(seq > 0 &&
 		 (seq <= mail_index_view_get_messages_count(t->view) ||
@@ -1346,6 +1394,16 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 		i_array_init(&t->keyword_updates, max_idx + 1);
 	}
 
+	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES) != 0) {
+		T_BEGIN {
+			changed = keyword_update_has_changes(t, seq,
+							     modify_type,
+							     keywords);
+		} T_END;
+		if (!changed)
+			return;
+	}
+
 	/* Update add_seq and remove_seq arrays which describe the keyword
 	   changes. Don't bother updating remove_seq or keyword resets for
 	   newly added messages since they default to not having any
@@ -1356,8 +1414,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 			u = array_idx_modifiable(&t->keyword_updates,
 						 keywords->idx[i]);
 			seq_range_array_add(&u->add_seq, 16, seq);
-			if (seq < t->first_new_seq)
-				seq_range_array_remove(&u->remove_seq, seq);
+			seq_range_array_remove(&u->remove_seq, seq);
 		}
 		break;
 	case MODIFY_REMOVE:
@@ -1376,10 +1433,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 						 &ku_count);
 			for (i = 0; i < ku_count; i++) {
 				seq_range_array_remove(&u[i].add_seq, seq);
-				if (seq < t->first_new_seq) {
-					seq_range_array_remove(
-						&u[i].remove_seq, seq);
-				}
+				seq_range_array_remove(&u[i].remove_seq, seq);
 			}
 		}
 		/* Add the wanted keyword back */

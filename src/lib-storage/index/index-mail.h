@@ -81,6 +81,7 @@ struct index_mail_data {
 
 	uint32_t seq;
 	uint32_t cache_flags;
+	uint64_t modseq;
 	enum index_mail_access_part access_part;
 	/* dont_cache_fields overrides cache_fields */
 	enum mail_fetch_field cache_fetch_fields, dont_cache_fetch_fields;
@@ -169,6 +170,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 				 struct istream **stream_r);
 
 enum mail_flags index_mail_get_flags(struct mail *_mail);
+uint64_t index_mail_get_modseq(struct mail *_mail);
 const char *const *index_mail_get_keywords(struct mail *_mail);
 const ARRAY_TYPE(keyword_indexes) *
 index_mail_get_keyword_indexes(struct mail *_mail);

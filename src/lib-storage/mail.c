@@ -40,6 +40,13 @@ enum mail_flags mail_get_flags(struct mail *mail)
 	return p->v.get_flags(mail);
 }
 
+uint64_t mail_get_modseq(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.get_modseq(mail);
+}
+
 const char *const *mail_get_keywords(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;

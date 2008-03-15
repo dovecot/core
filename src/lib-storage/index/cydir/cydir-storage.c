@@ -415,6 +415,7 @@ struct mailbox cydir_mailbox = {
 	{
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
+		index_storage_mailbox_enable,
 		index_storage_mailbox_close,
 		index_storage_get_status,
 		NULL,

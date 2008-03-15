@@ -5,6 +5,7 @@
 #include "buffer.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
+#include "mail-index-modseq.h"
 #include "mail-transaction-log.h"
 
 struct mail_index_view_sync_ctx {
@@ -664,6 +665,7 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx)
 		view->inconsistent = TRUE;
 		ret = -1;
 	}
+	mail_index_modseq_sync_end(&ctx->sync_map_ctx.modseq_ctx);
 
 	if (view->sync_new_map != NULL) {
 		mail_index_unmap(&view->map);

@@ -13,6 +13,7 @@
 #include "imap-bodystructure.h"
 #include "imap-envelope.h"
 #include "mail-cache.h"
+#include "mail-index-modseq.h"
 #include "index-storage.h"
 #include "index-mail.h"
 
@@ -125,6 +126,20 @@ enum mail_flags index_mail_get_flags(struct mail *_mail)
 		data->flags |= MAIL_RECENT;
 
 	return data->flags;
+}
+
+uint64_t index_mail_get_modseq(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+
+	if (mail->data.modseq != 0)
+		return mail->data.modseq;
+
+	mail_index_modseq_enable(mail->ibox->index);
+	mail->data.modseq =
+		mail_index_modseq_lookup_highest(mail->trans->trans_view,
+						 _mail->seq);
+	return mail->data.modseq;
 }
 
 const char *const *index_mail_get_keywords(struct mail *_mail)

@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "mmap-util.h"
+#include "mail-index-modseq.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
@@ -261,6 +262,7 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 		seq_count = seq2 - seq1 + 1;
 		map->rec_map->records_count -= seq_count;
 		map->hdr.messages_count -= seq_count;
+		mail_index_modseq_expunge(ctx->modseq_ctx, seq1, seq2);
 	}
 	return 1;
 }
@@ -325,6 +327,8 @@ static int sync_append(const struct mail_index_record *rec,
 		mail_index_sync_write_seq_update(ctx,
 						 map->rec_map->records_count,
 						 map->rec_map->records_count);
+		mail_index_modseq_append(ctx->modseq_ctx,
+					 map->rec_map->records_count);
 	}
 
 	map->hdr.messages_count++;
@@ -351,6 +355,9 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 		return 1;
 
 	mail_index_sync_write_seq_update(ctx, seq1, seq2);
+	mail_index_modseq_update_flags(ctx->modseq_ctx,
+				       u->add_flags | u->remove_flags,
+				       seq1, seq2);
 
 	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		view->map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
@@ -637,12 +644,15 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 	sync_map_ctx->view = view;
 	sync_map_ctx->cur_ext_map_idx = (uint32_t)-1;
 	sync_map_ctx->type = type;
+	sync_map_ctx->modseq_ctx = mail_index_modseq_sync_begin(sync_map_ctx);
 
 	mail_index_sync_init_handlers(sync_map_ctx);
 }
 
 void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx)
 {
+	i_assert(sync_map_ctx->modseq_ctx == NULL);
+
 	if (sync_map_ctx->unknown_extensions != NULL)
 		buffer_free(&sync_map_ctx->unknown_extensions);
 	if (sync_map_ctx->expunge_handlers_used)
@@ -827,6 +837,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	if (had_dirty)
 		mail_index_sync_update_hdr_dirty_flag(map);
+	mail_index_modseq_sync_end(&sync_map_ctx.modseq_ctx);
 
 	mail_index_sync_update_log_offset(&sync_map_ctx, view->map, TRUE);
 

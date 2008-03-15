@@ -8,6 +8,7 @@
 #include "read-full.h"
 #include "mail-index-private.h"
 #include "mail-index-sync-private.h"
+#include "mail-index-modseq.h"
 #include "mail-transaction-log-private.h"
 
 static void mail_index_map_init_extbufs(struct mail_index_map *map,
@@ -943,6 +944,8 @@ static void mail_index_record_map_free(struct mail_index_map *map,
 		rec_map->mmap_base = NULL;
 	}
 	array_free(&rec_map->maps);
+	if (rec_map->modseq != NULL)
+		mail_index_map_modseq_free(rec_map->modseq);
 	i_free(rec_map);
 }
 

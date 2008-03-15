@@ -1022,6 +1022,7 @@ struct mailbox maildir_mailbox = {
 	{
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
+		index_storage_mailbox_enable,
 		maildir_storage_mailbox_close,
 		index_storage_get_status,
 		maildir_list_index_has_changed,

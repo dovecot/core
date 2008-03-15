@@ -33,6 +33,8 @@ int imap_status_parse_items(struct client_command_context *cmd,
 			items |= STATUS_UIDVALIDITY;
 		else if (strcmp(item, "UNSEEN") == 0)
 			items |= STATUS_UNSEEN;
+		else if (strcmp(item, "HIGHESTMODSEQ") == 0)
+			items |= STATUS_HIGHESTMODSEQ;
 		else {
 			client_send_tagline(cmd, t_strconcat(
 				"BAD Invalid status item ", item, NULL));
@@ -65,6 +67,11 @@ bool imap_status_get(struct client *client, struct mail_storage *storage,
 	if (box == NULL)
 		return FALSE;
 
+	if ((items & STATUS_HIGHESTMODSEQ) != 0)
+		client_enable(client, MAILBOX_FEATURE_CONDSTORE);
+	if (client->enabled_features != 0)
+		mailbox_enable(box, client->enabled_features);
+
 	ret = mailbox_sync(box, 0, items, status_r);
 	mailbox_close(&box);
 	return ret == 0;
@@ -91,6 +98,10 @@ void imap_status_send(struct client *client, const char *mailbox,
 		str_printfa(str, "UIDVALIDITY %u ", status->uidvalidity);
 	if (items & STATUS_UNSEEN)
 		str_printfa(str, "UNSEEN %u ", status->unseen);
+	if (items & STATUS_HIGHESTMODSEQ) {
+		str_printfa(str, "HIGHESTMODSEQ %llu ",
+			    (unsigned long long)status->highest_modseq);
+	}
 
 	if (items != 0)
 		str_truncate(str, str_len(str)-1);

@@ -4,6 +4,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "commands.h"
+#include "mail-search.h"
 #include "mail-search-build.h"
 #include "imap-search.h"
 
@@ -19,10 +20,30 @@ struct imap_search_context {
 	struct timeout *to;
 	string_t *output_buf;
 
+	uint64_t highest_seen_modseq;
 	struct timeval start_time;
 
 	unsigned int output_sent:1;
+	unsigned int show_highest_modseq:1;
 };
+
+static bool imap_search_args_have_modseq(const struct mail_search_arg *sargs)
+{
+	for (; sargs->type != IMAP_ARG_EOL; sargs++) {
+		switch (sargs->type) {
+		case SEARCH_MODSEQ:
+			return TRUE;
+		case SEARCH_OR:
+		case SEARCH_SUB:
+			if (imap_search_args_have_modseq(sargs->value.subargs))
+				return TRUE;
+			break;
+		default:
+			break;
+		}
+	}
+	return FALSE;
+}
 
 static struct imap_search_context *
 imap_search_init(struct client_command_context *cmd, struct mailbox *box,
@@ -31,13 +52,17 @@ imap_search_init(struct client_command_context *cmd, struct mailbox *box,
 	struct imap_search_context *ctx;
 
 	ctx = p_new(cmd->pool, struct imap_search_context, 1);
+	if (imap_search_args_have_modseq(sargs)) {
+		ctx->show_highest_modseq = TRUE;
+		client_enable(cmd->client, MAILBOX_FEATURE_CONDSTORE);
+	}
+
 	ctx->box = box;
 	ctx->trans = mailbox_transaction_begin(cmd->client->mailbox, 0);
 	ctx->sargs = sargs;
 	ctx->search_ctx = mailbox_search_init(ctx->trans, charset, sargs, NULL);
 	ctx->mail = mail_alloc(ctx->trans, 0, NULL);
 	(void)gettimeofday(&ctx->start_time, NULL);
-
 	ctx->output_buf = str_new(default_pool, OUTBUF_SIZE);
 	str_append(ctx->output_buf, "* SEARCH");
 	return ctx;
@@ -73,6 +98,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 {
 	struct imap_search_context *ctx = cmd->context;
 	struct timeval end_time;
+	uint64_t modseq;
 	bool tryagain;
 	int ret;
 
@@ -92,12 +118,22 @@ static bool cmd_search_more(struct client_command_context *cmd)
 			str_truncate(ctx->output_buf, 0);
 			ctx->output_sent = TRUE;
 		}
+		if (ctx->show_highest_modseq) {
+			modseq = mail_get_modseq(ctx->mail);
+			if (ctx->highest_seen_modseq < modseq)
+				ctx->highest_seen_modseq = modseq;
+		}
 
 		str_printfa(ctx->output_buf, " %u",
 			    cmd->uid ? ctx->mail->uid : ctx->mail->seq);
 	}
 	if (tryagain)
 		return FALSE;
+
+	if (ctx->highest_seen_modseq != 0) {
+		str_printfa(ctx->output_buf, " (MODSEQ %llu)",
+			    (unsigned long long)ctx->highest_seen_modseq);
+	}
 
 	if (gettimeofday(&end_time, NULL) < 0)
 		memset(&end_time, 0, sizeof(end_time));

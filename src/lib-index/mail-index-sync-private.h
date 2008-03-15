@@ -24,6 +24,7 @@ struct mail_index_expunge_handler {
 
 struct mail_index_sync_map_ctx {
 	struct mail_index_view *view;
+	struct mail_index_modseq_sync *modseq_ctx;
 	uint32_t cur_ext_map_idx;
 
 	uint32_t ext_intro_seq;
@@ -66,6 +67,10 @@ void
 mail_index_sync_deinit_expunge_handlers(struct mail_index_sync_map_ctx *ctx);
 void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx);
 void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx);
+
+void mail_index_sync_ext_init(struct mail_index_sync_map_ctx *ctx,
+			      const char *name, bool fix_size,
+			      uint32_t *ext_map_idx_r);
 
 int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_intro *u);
