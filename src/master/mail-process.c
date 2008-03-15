@@ -535,7 +535,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	uid_t uid;
 	gid_t gid;
 	ARRAY_DEFINE(extra_args, const char *);
-	unsigned int i, count, left, process_count;
+	unsigned int i, count, left, process_count, throttle;
 	int ret, log_fd, nice, chdir_errno;
 	bool home_given, nfs_check;
 
@@ -640,7 +640,9 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 	if (!dump_capability) {
-		log_fd = log_create_pipe(&log, set->mail_log_max_lines_per_sec);
+		throttle = set->mail_debug ? 0 :
+			set->mail_log_max_lines_per_sec;
+		log_fd = log_create_pipe(&log, throttle);
 		if (log_fd == -1)
 			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	} else {
