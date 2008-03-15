@@ -137,8 +137,7 @@ uint64_t index_mail_get_modseq(struct mail *_mail)
 
 	mail_index_modseq_enable(mail->ibox->index);
 	mail->data.modseq =
-		mail_index_modseq_lookup_highest(mail->trans->trans_view,
-						 _mail->seq);
+		mail_index_modseq_lookup(mail->trans->trans_view, _mail->seq);
 	return mail->data.modseq;
 }
 

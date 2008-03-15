@@ -5,7 +5,6 @@
 #include "str.h"
 #include "commands.h"
 #include "mail-search.h"
-#include "mail-search-build.h"
 #include "imap-search.h"
 
 #define OUTBUF_SIZE 65536
@@ -29,7 +28,7 @@ struct imap_search_context {
 
 static bool imap_search_args_have_modseq(const struct mail_search_arg *sargs)
 {
-	for (; sargs->type != IMAP_ARG_EOL; sargs++) {
+	for (; sargs != NULL; sargs = sargs->next) {
 		switch (sargs->type) {
 		case SEARCH_MODSEQ:
 			return TRUE;

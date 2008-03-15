@@ -160,7 +160,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 			modseq = mail_index_modseq_lookup_keywords(ctx->view,
 					arg->value.keywords, ctx->mail_ctx.seq);
 		} else {
-			modseq = mail_index_modseq_lookup_highest(ctx->view,
+			modseq = mail_index_modseq_lookup(ctx->view,
 						ctx->mail_ctx.seq);
 		}
 		return modseq >= arg->value.modseq->modseq;

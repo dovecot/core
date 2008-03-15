@@ -5,6 +5,7 @@
 #include "buffer.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
+#include "mail-index-modseq.h"
 #include "mail-transaction-log.h"
 
 #include <stdlib.h>
@@ -381,8 +382,9 @@ mail_index_sync_ext_init_new(struct mail_index_sync_map_ctx *ctx,
 	ext = array_idx(&map->extensions, ext_map_idx);
 
 	/* <ext_hdr> <name> [padding] [header data] */
+	i_assert(ext_hdr->name_size == strlen(name));
 	buffer_append(hdr_buf, ext_hdr, sizeof(*ext_hdr));
-	buffer_append(hdr_buf, name, strlen(name));
+	buffer_append(hdr_buf, name, ext_hdr->name_size);
 	/* header must begin and end in correct alignment */
 	buffer_append_zero(hdr_buf,
 		MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) - hdr_buf->used +
@@ -396,6 +398,7 @@ mail_index_sync_ext_init_new(struct mail_index_sync_map_ctx *ctx,
 
         mail_index_sync_init_handlers(ctx);
 	sync_ext_reorder(map, ext_map_idx, 0);
+	i_assert(ext->record_offset != 0 || ext->record_size == 0);
 
 	*ext_map_idx_r = ext_map_idx;
 }
@@ -426,6 +429,7 @@ void mail_index_sync_ext_init(struct mail_index_sync_map_ctx *ctx,
 		sync_ext_resize(&u, *ext_map_idx_r, ctx);
 	} else {
 		memset(&ext_hdr, 0, sizeof(ext_hdr));
+		ext_hdr.name_size = strlen(name);
 		ext_hdr.hdr_size = rext->hdr_size;
 		ext_hdr.record_size = rext->record_size;
 		ext_hdr.record_align = rext->record_align;
@@ -587,6 +591,9 @@ mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
 	buffer_write(map->hdr_copy_buf, ext->hdr_offset + u->offset,
 		     u + 1, u->size);
 	map->hdr_base = map->hdr_copy_buf->data;
+
+	if (ext->index_idx == ctx->view->index->modseq_ext_id)
+		mail_index_modseq_hdr_update(ctx->modseq_ctx);
 
 	map->write_ext_header = TRUE;
 	return 1;
