@@ -13,6 +13,9 @@ struct mail_index_view_sync_ctx {
 	enum mail_index_view_sync_flags flags;
 	struct mail_index_sync_map_ctx sync_map_ctx;
 
+	/* After syncing view, map is replaced with sync_new_map. */
+	struct mail_index_map *sync_new_map;
+
 	ARRAY_TYPE(seq_range) expunges;
 	unsigned int finish_min_msg_count;
 
@@ -271,7 +274,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_map *map;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
 	unsigned int expunge_count = 0;
-	bool reset, sync_expunges, quick_sync;
+	bool reset, sync_expunges, quick_sync, have_expunges;
 
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
@@ -321,7 +324,9 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 				     view->index->filepath);
 	}
 
-	if (sync_expunges || !view_sync_have_expunges(view)) {
+	have_expunges = view_sync_have_expunges(view);
+	if (!have_expunges) {
+		/* no expunges, we can just replace the map */
 		if (view->index->map->hdr.messages_count <
 		    ctx->finish_min_msg_count) {
 			mail_index_set_error(view->index,
@@ -333,24 +338,14 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			view->inconsistent = TRUE;
 		}
 
-		view->sync_new_map = view->index->map;
-		view->sync_new_map->refcount++;
-
-		/* keep the old mapping without expunges until we're
-		   fully synced */
+		view->index->map->refcount++;
+		mail_index_unmap(&view->map);
+		view->map = view->index->map;
 	} else {
-		/* We need a private copy of the map if we don't want to
-		   sync expunges.
-
-		   If view's map is the head map, it means that it contains
-		   already all the latest changes and there's no need for us
-		   to apply any changes to it. This can only happen if there
-		   hadn't been any expunges. */
-		if (view->map != view->index->map) {
-			/* Using non-head mapping. We have to apply
-			   transactions to it to get latest changes into it. */
-			ctx->sync_map_update = TRUE;
-		}
+		/* expunges seen. create a private map which we update.
+		   if we're syncing expunges the map will finally be replaced
+		   with the head map to remove the expunged messages. */
+		ctx->sync_map_update = TRUE;
 
 		if (view->map->refcount > 1) {
 			map = mail_index_map_clone(view->map);
@@ -358,6 +353,11 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			view->map = map;
 		} else {
 			map = view->map;
+		}
+
+		if (sync_expunges) {
+			ctx->sync_new_map = view->index->map;
+			ctx->sync_new_map->refcount++;
 		}
 	}
 
@@ -667,10 +667,9 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx)
 	}
 	mail_index_modseq_sync_end(&ctx->sync_map_ctx.modseq_ctx);
 
-	if (view->sync_new_map != NULL) {
+	if (ctx->sync_new_map != NULL) {
 		mail_index_unmap(&view->map);
-		view->map = view->sync_new_map;
-		view->sync_new_map = NULL;
+		view->map = ctx->sync_new_map;
 	}
 
 	i_assert(view->map->hdr.messages_count >= ctx->finish_min_msg_count);

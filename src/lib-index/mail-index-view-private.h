@@ -52,8 +52,6 @@ struct mail_index_view {
 	unsigned int inconsistency_id;
 
 	struct mail_index_map *map;
-	/* After syncing view, map is replaced with sync_new_map. */
-	struct mail_index_map *sync_new_map;
 	/* All mappings where we have returned records. They need to be kept
 	   valid until view is synchronized. */
 	ARRAY_DEFINE(map_refs, struct mail_index_map *);
