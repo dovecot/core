@@ -343,3 +343,37 @@ void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,
 		array_append(array, &value, 1);
 	}
 }
+
+void seq_range_array_iter_init(struct seq_range_iter *iter_r,
+			       const ARRAY_TYPE(seq_range) *array)
+{
+	memset(iter_r, 0, sizeof(*iter_r));
+	iter_r->array = array;
+}
+
+bool seq_range_array_iter_nth(struct seq_range_iter *iter, unsigned int n,
+			      uint32_t *seq_r)
+{
+	const struct seq_range *range;
+	unsigned int i, count, diff;
+
+	if (n < iter->prev_n) {
+		/* iterating backwards, don't bother optimizing */
+		iter->prev_n = 0;
+		iter->prev_idx = 0;
+	}
+
+	range = array_get(iter->array, &count);
+	for (i = iter->prev_idx; i < count; i++) {
+		diff = range[i].seq2 - range[i].seq1;
+		if (n <= iter->prev_n + diff) {
+			i_assert(n >= iter->prev_n);
+			*seq_r = range[i].seq1 + (n - iter->prev_n);
+			iter->prev_idx = i;
+			return TRUE;
+		}
+		iter->prev_n += diff + 1;
+	}
+	iter->prev_idx = i;
+	return FALSE;
+}
