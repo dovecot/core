@@ -14,8 +14,9 @@ struct index_mailbox_sync_context {
 	uint32_t messages_count;
 
 	ARRAY_TYPE(seq_range) flag_updates;
+	ARRAY_TYPE(seq_range) modseq_updates;
 	const ARRAY_TYPE(seq_range) *expunges;
-	unsigned int flag_update_pos, expunge_pos;
+	unsigned int flag_update_idx, modseq_update_idx, expunge_pos;
 
 	bool failed;
 };
@@ -113,6 +114,8 @@ static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 	uint32_t seq1, seq2;
 
 	i_array_init(&ctx->flag_updates, 128);
+	if ((ctx->ibox->box.enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0)
+		i_array_init(&ctx->modseq_updates, 32);
 	while (mail_index_view_sync_next(ctx->sync_ctx, &sync)) {
 		switch (sync.type) {
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
@@ -125,20 +128,35 @@ static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-			if (mail_index_lookup_seq_range(ctx->ibox->view,
+			if (!mail_index_lookup_seq_range(ctx->ibox->view,
 							sync.uid1, sync.uid2,
-							&seq1, &seq2)) {
+							 &seq1, &seq2))
+				break;
+
+			if (!sync.hidden) {
 				seq_range_array_add_range(&ctx->flag_updates,
+							  seq1, seq2);
+			} else if (array_is_created(&ctx->modseq_updates)) {
+				seq_range_array_add_range(&ctx->modseq_updates,
 							  seq1, seq2);
 			}
 			break;
 		}
 	}
 
-	/* remove expunged messages from flag updates */
+	/* remove expunged messages from flag/modseq updates */
 	if (ctx->expunges != NULL) {
 		seq_range_array_remove_seq_range(&ctx->flag_updates,
 						 ctx->expunges);
+		if (array_is_created(&ctx->modseq_updates)) {
+			seq_range_array_remove_seq_range(&ctx->modseq_updates,
+							 ctx->expunges);
+		}
+	}
+	/* remove flag updates from modseq updates */
+	if (array_is_created(&ctx->modseq_updates)) {
+		seq_range_array_remove_seq_range(&ctx->modseq_updates,
+						 &ctx->flag_updates);
 	}
 }
 
@@ -215,19 +233,29 @@ bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 {
 	struct index_mailbox_sync_context *ctx =
 		(struct index_mailbox_sync_context *)_ctx;
-	const struct seq_range *flag_updates;
+	const struct seq_range *range;
 	unsigned int count;
 
 	if (ctx->failed)
 		return FALSE;
 
-	flag_updates = array_get(&ctx->flag_updates, &count);
-	if (ctx->flag_update_pos < count) {
+	range = array_get(&ctx->flag_updates, &count);
+	if (ctx->flag_update_idx < count) {
 		sync_rec_r->type = MAILBOX_SYNC_TYPE_FLAGS;
-		sync_rec_r->seq1 = flag_updates[ctx->flag_update_pos].seq1;
-		sync_rec_r->seq2 = flag_updates[ctx->flag_update_pos].seq2;
-		ctx->flag_update_pos++;
+		sync_rec_r->seq1 = range[ctx->flag_update_idx].seq1;
+		sync_rec_r->seq2 = range[ctx->flag_update_idx].seq2;
+		ctx->flag_update_idx++;
 		return 1;
+	}
+	if (array_is_created(&ctx->modseq_updates)) {
+		range = array_get(&ctx->modseq_updates, &count);
+		if (ctx->modseq_update_idx < count) {
+			sync_rec_r->type = MAILBOX_SYNC_TYPE_MODSEQ;
+			sync_rec_r->seq1 = range[ctx->modseq_update_idx].seq1;
+			sync_rec_r->seq2 = range[ctx->modseq_update_idx].seq2;
+			ctx->modseq_update_idx++;
+			return 1;
+		}
 	}
 
 	return index_mailbox_sync_next_expunge(ctx, sync_rec_r);
@@ -336,6 +364,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 
 	if (array_is_created(&ctx->flag_updates))
 		array_free(&ctx->flag_updates);
+	if (array_is_created(&ctx->modseq_updates))
+		array_free(&ctx->modseq_updates);
 	i_free(ctx);
 	return ret;
 }
