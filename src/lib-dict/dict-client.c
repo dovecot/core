@@ -231,10 +231,8 @@ static char *client_dict_read_line(struct client_dict *dict)
 
 	if (ret == -2)
 		i_error("read(%s) returned too much data", dict->path);
-	else if (ret < 0)
-		i_error("read(%s) failed: %m", dict->path);
 	else
-		i_error("read(%s) returned %d", dict->path, ret);
+		i_error("read(%s) failed: %m", dict->path);
 	return NULL;
 }
 
