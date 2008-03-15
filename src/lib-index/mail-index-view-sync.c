@@ -478,10 +478,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 	/* Apply transaction to view's mapping if needed (meaning we
 	   didn't just re-map the view to head mapping). */
 	if (ctx->sync_map_update && !synced_to_map) {
-		i_assert((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0 ||
-			 (hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0);
-
-		T_BEGIN {
+		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0) T_BEGIN {
 			ret = mail_index_sync_record(&ctx->sync_map_ctx,
 						     hdr, ctx->data);
 		} T_END;
