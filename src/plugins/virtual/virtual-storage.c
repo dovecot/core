@@ -143,14 +143,15 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	struct mail_namespace *ns;
 	unsigned int i, count;
 	enum mail_error error;
-	const char *str;
+	const char *str, *mailbox;
 
 	open_flags |= MAILBOX_OPEN_KEEP_RECENT;
 
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
-		ns = mail_namespace_find_inbox(virtual_all_namespaces);
-		bboxes[i]->box = mailbox_open(ns->storage, bboxes[i]->name,
+		mailbox = bboxes[i]->name;
+		ns = mail_namespace_find(virtual_all_namespaces, &mailbox);
+		bboxes[i]->box = mailbox_open(ns->storage, mailbox,
 					      NULL, open_flags);
 		if (bboxes[i]->box == NULL) {
 			str = mail_storage_get_last_error(ns->storage, &error);
