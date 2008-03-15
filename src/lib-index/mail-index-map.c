@@ -178,10 +178,18 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 	}
 
 	if (ext_hdr->record_size > 0 &&
-	    ((ext_hdr->record_offset % ext_hdr->record_align) != 0 ||
-	     (hdr->record_size % ext_hdr->record_align) != 0)) {
+	    (ext_hdr->record_offset % ext_hdr->record_align) != 0) {
 		*error_r = t_strdup_printf("Record field alignment %u "
 					   "not used", ext_hdr->record_align);
+		return -1;
+	}
+	/* if we get here from extension introduction, record_offset=0 and
+	   hdr->record_size hasn't been updated yet */
+	if (ext_hdr->record_offset != 0 &&
+	    (hdr->record_size % ext_hdr->record_align) != 0) {
+		*error_r = t_strdup_printf("Record size not aligned by %u "
+					   "as required by extension",
+					   ext_hdr->record_align);
 		return -1;
 	}
 	if (ext_hdr->hdr_size > MAIL_INDEX_EXT_HEADER_MAX_SIZE) {
