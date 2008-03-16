@@ -782,9 +782,25 @@ int client_output(struct client *client)
 
 void client_enable(struct client *client, enum mailbox_feature features)
 {
+	struct mailbox_status status;
+
+	if ((client->enabled_features & features) == features)
+		return;
+
 	client->enabled_features |= features;
-	if (client->mailbox != NULL)
-		mailbox_enable(client->mailbox, features);
+	if (client->mailbox == NULL)
+		return;
+
+	mailbox_enable(client->mailbox, features);
+	if ((features & MAILBOX_FEATURE_CONDSTORE) != 0) {
+		/* CONDSTORE being enabled while mailbox is selected.
+		   Notify client of the latest HIGHESTMODSEQ. */
+		mailbox_get_status(client->mailbox,
+				   STATUS_HIGHESTMODSEQ, &status);
+		client_send_line(client, t_strdup_printf(
+			"* OK [HIGHESTMODSEQ %llu]",
+			(unsigned long long)status.highest_modseq));
+	}
 }
 
 void clients_init(void)

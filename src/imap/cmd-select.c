@@ -22,6 +22,8 @@ struct imap_select_context {
 	ARRAY_TYPE(seq_range) qresync_known_uids;
 	ARRAY_TYPE(uint32_t) qresync_sample_seqset;
 	ARRAY_TYPE(uint32_t) qresync_sample_uidset;
+
+	unsigned int condstore:1;
 };
 
 static int select_qresync_get_uids(struct imap_select_context *ctx,
@@ -157,8 +159,7 @@ select_parse_options(struct imap_select_context *ctx,
 		args++;
 
 		if (strcmp(name, "CONDSTORE") == 0)
-			client_enable(ctx->cmd->client,
-				      MAILBOX_FEATURE_CONDSTORE);
+			ctx->condstore = TRUE;
 		else if (strcmp(name, "QRESYNC") == 0) {
 			if (!select_parse_qresync(ctx, args))
 				return FALSE;
@@ -365,6 +366,12 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		}
 		/* CLOSED response is required by QRESYNC */
 		client_send_line(client, "* OK [CLOSED]");
+	}
+
+	if (ctx->condstore) {
+		/* Enable while no mailbox is opened to avoid sending
+		   HIGHESTMODSEQ for previously opened mailbox */
+		client_enable(client, MAILBOX_FEATURE_CONDSTORE);
 	}
 
 	ret = select_open(ctx, mailbox, readonly);
