@@ -468,7 +468,7 @@ static bool search_arg_build(struct search_build_data *data,
 	case 'U':
 		if (strcmp(str, "UID") == 0) {
 			/* <message set> */
-			if (!ARG_NEW_STR(SEARCH_SEQSET))
+			if (!ARG_NEW_STR(SEARCH_UIDSET))
 				return FALSE;
 
 			sarg = *next_sarg;
