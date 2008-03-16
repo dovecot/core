@@ -51,14 +51,13 @@ bool cmd_uid_expunge(struct client_command_context *cmd)
 	if (search_arg == NULL)
 		return TRUE;
 
-	if (imap_expunge(client->mailbox, search_arg)) {
-		return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
-					 cmd_expunge_callback);
-	} else {
+	if (imap_expunge(client->mailbox, search_arg) < 0) {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 		return TRUE;
 	}
+	return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
+				 cmd_expunge_callback);
 }
 
 bool cmd_expunge(struct client_command_context *cmd)
@@ -69,12 +68,11 @@ bool cmd_expunge(struct client_command_context *cmd)
 		return TRUE;
 
 	cmd->client->sync_seen_deletes = FALSE;
-	if (imap_expunge(client->mailbox, NULL)) {
-		return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
-					 cmd_expunge_callback);
-	} else {
+	if (imap_expunge(client->mailbox, NULL) < 0) {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 		return TRUE;
 	}
+	return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
+				 cmd_expunge_callback);
 }

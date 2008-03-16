@@ -12,6 +12,7 @@ bool cmd_unselect(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
+	i_assert(!client->changing_mailbox);
 	client->mailbox = NULL;
 
 	storage = mailbox_get_storage(mailbox);

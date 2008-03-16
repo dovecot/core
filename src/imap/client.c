@@ -364,6 +364,11 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 			/* don't do anything until syncing is finished */
 			return TRUE;
 		}
+		if (cmd->client->changing_mailbox) {
+			/* don't do anything until mailbox is fully
+			   opened/closed */
+			return TRUE;
+		}
 		return FALSE;
 	}
 

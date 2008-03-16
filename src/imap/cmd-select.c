@@ -194,7 +194,7 @@ static void cmd_select_finish(struct imap_select_context *ctx, int ret)
 				    "OK [READ-ONLY] Select completed." :
 				    "OK [READ-WRITE] Select completed.");
 	}
-	ctx->cmd->client->selecting = FALSE;
+	ctx->cmd->client->changing_mailbox = FALSE;
 	select_context_free(ctx);
 }
 
@@ -352,11 +352,8 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		}
 	}
 
-	if (client->selecting) {
-		client_send_tagline(cmd, "Mailbox is already being selected");
-		return TRUE;
-	}
-	client->selecting = TRUE;
+	i_assert(!client->changing_mailbox);
+	client->changing_mailbox = TRUE;
 
 	if (client->mailbox != NULL) {
 		box = client->mailbox;
