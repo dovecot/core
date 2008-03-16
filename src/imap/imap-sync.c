@@ -241,6 +241,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			}
 			break;
 		case MAILBOX_SYNC_TYPE_EXPUNGE:
+			ctx->client->sync_seen_expunges = TRUE;
 			if (array_is_created(&ctx->expunges)) {
 				/* Use a single VANISHED line */
 				seq_range_array_add_range(&ctx->expunges,

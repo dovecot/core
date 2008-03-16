@@ -7,16 +7,23 @@
 
 static bool cmd_expunge_callback(struct client_command_context *cmd)
 {
-	struct mailbox_status status;
-
 	if (cmd->client->sync_seen_deletes && !cmd->uid) {
 		/* Outlook workaround: session 1 set \Deleted flag and
 		   session 2 tried to expunge without having seen it yet.
-		   expunge again. */
+		   expunge again. MAILBOX_TRANSACTION_FLAG_REFRESH should
+		   have caught this already if index files are used. */
 		return cmd_expunge(cmd);
 	}
 
-	if ((cmd->client->enabled_features & MAILBOX_FEATURE_QRESYNC) == 0)
+	client_send_tagline(cmd, "OK Expunge completed.");
+	return TRUE;
+}
+
+static bool cmd_expunge_callback_qresync(struct client_command_context *cmd)
+{
+	struct mailbox_status status;
+
+	if (!cmd->client->sync_seen_expunges)
 		client_send_tagline(cmd, "OK Expunge completed.");
 	else {
 		mailbox_get_status(cmd->client->mailbox,
@@ -28,9 +35,30 @@ static bool cmd_expunge_callback(struct client_command_context *cmd)
 	return TRUE;
 }
 
-bool cmd_uid_expunge(struct client_command_context *cmd)
+static bool cmd_expunge_finish(struct client_command_context *cmd,
+			       struct mail_search_arg *search_arg)
 {
 	struct client *client = cmd->client;
+
+	if (imap_expunge(client->mailbox, search_arg) < 0) {
+		client_send_storage_error(cmd,
+					  mailbox_get_storage(client->mailbox));
+		return TRUE;
+	}
+
+	client->sync_seen_deletes = FALSE;
+	client->sync_seen_expunges = FALSE;
+	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
+		return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
+					 cmd_expunge_callback_qresync);
+	} else {
+		return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
+					 cmd_expunge_callback);
+	}
+}
+
+bool cmd_uid_expunge(struct client_command_context *cmd)
+{
 	const struct imap_arg *args;
 	struct mail_search_arg *search_arg;
 	const char *uidset;
@@ -48,31 +76,14 @@ bool cmd_uid_expunge(struct client_command_context *cmd)
 	}
 
 	search_arg = imap_search_get_seqset(cmd, uidset, TRUE);
-	if (search_arg == NULL)
-		return TRUE;
-
-	if (imap_expunge(client->mailbox, search_arg) < 0) {
-		client_send_storage_error(cmd,
-					  mailbox_get_storage(client->mailbox));
-		return TRUE;
-	}
-	return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
-				 cmd_expunge_callback);
+	return search_arg == NULL ? TRUE :
+		cmd_expunge_finish(cmd, search_arg);
 }
 
 bool cmd_expunge(struct client_command_context *cmd)
 {
-	struct client *client = cmd->client;
-
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
-	cmd->client->sync_seen_deletes = FALSE;
-	if (imap_expunge(client->mailbox, NULL) < 0) {
-		client_send_storage_error(cmd,
-					  mailbox_get_storage(client->mailbox));
-		return TRUE;
-	}
-	return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
-				 cmd_expunge_callback);
+	return cmd_expunge_finish(cmd, NULL);
 }

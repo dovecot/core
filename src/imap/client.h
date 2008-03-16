@@ -88,6 +88,7 @@ struct client {
 	/* syncing marks this TRUE when it sees \Deleted flags. this is by
 	   EXPUNGE for Outlook-workaround. */
 	unsigned int sync_seen_deletes:1;
+	unsigned int sync_seen_expunges:1;
 	unsigned int disconnected:1;
 	unsigned int destroyed:1;
 	unsigned int handling_input:1;
