@@ -29,10 +29,12 @@ RFCs conformed
 
  2088       - IMAP4 non-synchronizing literals (LITERAL+)
  2177       - IMAP4 IDLE command
+ 2221       - IMAP4 Login Referrals
  2342       - IMAP4 Namespace
  3348       - IMAP4 Child Mailbox Extension
  3502       - IMAP4 MULTIAPPEND Extension
  3691       - IMAP4 UNSELECT command
+ 4315       - IMAP UIDPLUS extension
 
 Contact info
 ------------
