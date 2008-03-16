@@ -48,7 +48,7 @@ msgset_is_valid(ARRAY_TYPE(seq_range) *seqset, uint32_t messages_count)
 
 	if (range[count-1].seq2 == (uint32_t)-1) {
 		if (range[count-1].seq1 > messages_count &&
-		    range[0].seq1 != (uint32_t)-1)
+		    range[count-1].seq1 != (uint32_t)-1)
 			return FALSE;
 	} else {
 		if (range[count-1].seq2 > messages_count)
