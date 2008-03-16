@@ -263,10 +263,9 @@ static void get_common_sync_flags(struct client *client,
 			count++;
 		}
 	}
+	i_assert(noexpunges_count == 0 || noexpunges_count == count);
 	if (fast_count != count)
 		*flags_r &= ~MAILBOX_SYNC_FLAG_FAST;
-	if (noexpunges_count != count)
-		*flags_r &= ~MAILBOX_SYNC_FLAG_NO_EXPUNGES;
 
 	i_assert((*flags_r & (MAILBOX_SYNC_AUTO_STOP |
 			      MAILBOX_SYNC_FLAG_FIX_INCONSISTENT)) == 0);
@@ -383,7 +382,7 @@ static bool cmd_sync_drop_fast(struct client *client)
 
 bool cmd_sync_delayed(struct client *client)
 {
-	struct client_command_context *cmd;
+	struct client_command_context *cmd, *first_expunge, *first_nonexpunge;
 
 	if (client->output_lock != NULL) {
 		/* wait until we can send output to client */
@@ -397,13 +396,32 @@ bool cmd_sync_delayed(struct client *client)
 		return cmd_sync_drop_fast(client);
 	}
 
-	/* find a command that we can sync */
+	/* separate syncs that can send expunges from those that can't */
+	first_expunge = first_nonexpunge = NULL;
 	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
-		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC) {
-			if (cmd->sync->counter == client->sync_counter)
-				break;
+		if (cmd->sync != NULL &&
+		    cmd->sync->counter == client->sync_counter) {
+			if (cmd->sync->flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) {
+				if (first_nonexpunge == NULL)
+					first_nonexpunge = cmd;
+			} else {
+				if (first_expunge == NULL)
+					first_expunge = cmd;
+			}
 		}
 	}
+	if (first_expunge != NULL && first_nonexpunge != NULL) {
+		/* sync expunges after nonexpunges */
+		for (cmd = first_expunge; cmd != NULL; cmd = cmd->next) {
+			if (cmd->sync != NULL &&
+			    cmd->sync->counter == client->sync_counter &&
+			    (cmd->sync->flags &
+			     MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0)
+				cmd->sync->counter++;
+		}
+		first_expunge = NULL;
+	}
+	cmd = first_nonexpunge != NULL ? first_nonexpunge : first_expunge;
 
 	if (cmd == NULL)
 		return cmd_sync_drop_fast(client);
