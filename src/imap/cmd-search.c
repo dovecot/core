@@ -17,8 +17,10 @@ enum search_return_options {
 	SEARCH_RETURN_MAX		= 0x04,
 	SEARCH_RETURN_ALL		= 0x08,
 	SEARCH_RETURN_COUNT		= 0x10,
-	SEARCH_RETURN_MODSEQ		= 0x20
-#define SEARCH_RETURN_EXTRAS (SEARCH_RETURN_ESEARCH | SEARCH_RETURN_MODSEQ)
+	SEARCH_RETURN_MODSEQ		= 0x20,
+	SEARCH_RETURN_SAVE		= 0x40
+#define SEARCH_RETURN_EXTRAS \
+	(SEARCH_RETURN_ESEARCH | SEARCH_RETURN_MODSEQ | SEARCH_RETURN_SAVE)
 };
 
 struct imap_search_context {
@@ -38,36 +40,42 @@ struct imap_search_context {
 	struct timeval start_time;
 };
 
-static bool search_parse_return_options(struct imap_search_context *ctx,
-					const struct imap_arg *args)
+static bool
+search_parse_return_options(struct client_command_context *cmd,
+			    const struct imap_arg *args,
+			    enum search_return_options *return_options_r)
 {
 	const char *name;
 
+	*return_options_r = 0;
+
 	while (args->type != IMAP_ARG_EOL) {
 		if (args->type != IMAP_ARG_ATOM) {
-			client_send_command_error(ctx->cmd,
+			client_send_command_error(cmd,
 				"SEARCH return options contain non-atoms.");
 			return FALSE;
 		}
 		name = t_str_ucase(IMAP_ARG_STR(args));
 		args++;
 		if (strcmp(name, "MIN") == 0)
-			ctx->return_options |= SEARCH_RETURN_MIN;
+			*return_options_r |= SEARCH_RETURN_MIN;
 		else if (strcmp(name, "MAX") == 0)
-			ctx->return_options |= SEARCH_RETURN_MAX;
+			*return_options_r |= SEARCH_RETURN_MAX;
 		else if (strcmp(name, "ALL") == 0)
-			ctx->return_options |= SEARCH_RETURN_ALL;
+			*return_options_r |= SEARCH_RETURN_ALL;
 		else if (strcmp(name, "COUNT") == 0)
-			ctx->return_options |= SEARCH_RETURN_COUNT;
+			*return_options_r |= SEARCH_RETURN_COUNT;
+		else if (strcmp(name, "SAVE") == 0)
+			*return_options_r |= SEARCH_RETURN_SAVE;
 		else {
-			client_send_command_error(ctx->cmd,
+			client_send_command_error(cmd,
 				"Unknown SEARCH return option");
 			return FALSE;
 		}
 	}
-	if (ctx->return_options == 0)
-		ctx->return_options = SEARCH_RETURN_ALL;
-	ctx->return_options |= SEARCH_RETURN_ESEARCH;
+	if (*return_options_r == 0)
+		*return_options_r = SEARCH_RETURN_ALL;
+	*return_options_r |= SEARCH_RETURN_ESEARCH;
 	return TRUE;
 }
 
@@ -139,12 +147,20 @@ static void imap_search_send_result_standard(struct imap_search_context *ctx)
 
 static void imap_search_send_result(struct imap_search_context *ctx)
 {
+	struct client *client = ctx->cmd->client;
 	const struct seq_range *range;
 	unsigned int count;
 	string_t *str;
 
 	if ((ctx->return_options & SEARCH_RETURN_ESEARCH) == 0) {
 		imap_search_send_result_standard(ctx);
+		return;
+	}
+
+	if (ctx->return_options ==
+	    (SEARCH_RETURN_ESEARCH | SEARCH_RETURN_SAVE)) {
+		/* we only wanted to save the result, don't return
+		   ESEARCH result. */
 		return;
 	}
 
@@ -172,8 +188,7 @@ static void imap_search_send_result(struct imap_search_context *ctx)
 			    (unsigned long long)ctx->highest_seen_modseq);
 	}
 	str_append(str, "\r\n");
-	o_stream_send(ctx->cmd->client->output,
-		      str_data(str), str_len(str));
+	o_stream_send(client->output, str_data(str), str_len(str));
 }
 
 static int imap_search_deinit(struct imap_search_context *ctx)
@@ -183,8 +198,14 @@ static int imap_search_deinit(struct imap_search_context *ctx)
 	mail_free(&ctx->mail);
 	if (mailbox_search_deinit(&ctx->search_ctx) < 0)
 		ret = -1;
-	else if (!ctx->cmd->cancel)
+
+	if (ret == 0 && !ctx->cmd->cancel)
 		imap_search_send_result(ctx);
+	else {
+		/* search failed */
+		if ((ctx->return_options & SEARCH_RETURN_SAVE) != 0)
+			array_clear(&ctx->cmd->client->search_saved_uidset);
+	}
 
 	(void)mailbox_transaction_commit(&ctx->trans);
 
@@ -197,6 +218,21 @@ static int imap_search_deinit(struct imap_search_context *ctx)
 	return ret;
 }
 
+static void search_update_mail(struct imap_search_context *ctx)
+{
+	uint64_t modseq;
+
+	if ((ctx->return_options & SEARCH_RETURN_MODSEQ) != 0) {
+		modseq = mail_get_modseq(ctx->mail);
+		if (ctx->highest_seen_modseq < modseq)
+			ctx->highest_seen_modseq = modseq;
+	}
+	if ((ctx->return_options & SEARCH_RETURN_SAVE) != 0) {
+		seq_range_array_add(&ctx->cmd->client->search_saved_uidset,
+				    0, ctx->mail->uid);
+	}
+}
+
 static bool cmd_search_more(struct client_command_context *cmd)
 {
 	struct imap_search_context *ctx = cmd->context;
@@ -204,9 +240,8 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	struct timeval end_time;
 	const struct seq_range *range;
 	unsigned int count;
-	uint64_t modseq;
 	uint32_t id, id_min, id_max;
-	bool tryagain;
+	bool tryagain, minmax;
 
 	if (cmd->cancel) {
 		(void)imap_search_deinit(ctx);
@@ -222,32 +257,29 @@ static bool cmd_search_more(struct client_command_context *cmd)
 		id_max = range[count-1].seq2;
 	}
 
+	minmax = (opts & (SEARCH_RETURN_MIN | SEARCH_RETURN_MAX)) != 0 &&
+		(opts & ~(SEARCH_RETURN_EXTRAS |
+			  SEARCH_RETURN_MIN | SEARCH_RETURN_MAX)) == 0;
 	while (mailbox_search_next_nonblock(ctx->search_ctx, ctx->mail,
 					    &tryagain) > 0) {
 		id = cmd->uid ? ctx->mail->uid : ctx->mail->seq;
 		ctx->result_count++;
 
-		if ((opts & ~(SEARCH_RETURN_EXTRAS |
-			      SEARCH_RETURN_MIN | SEARCH_RETURN_MAX)) == 0) {
+		if (minmax) {
 			/* we only care about min/max */
 			if (id < id_min && (opts & SEARCH_RETURN_MIN) != 0)
 				id_min = id;
 			if (id > id_max && (opts & SEARCH_RETURN_MAX) != 0)
 				id_max = id;
 			if (id == id_min || id == id_max) {
-				/* modseq is looked up when we know the
-				   actual min/max values */
+				/* return option updates are delayed until
+				   we know the actual min/max values */
 				seq_range_array_add(&ctx->result, 0, id);
 			}
 			continue;
 		}
 
-		if ((ctx->return_options & SEARCH_RETURN_MODSEQ) != 0) {
-			modseq = mail_get_modseq(ctx->mail);
-			if (ctx->highest_seen_modseq < modseq)
-				ctx->highest_seen_modseq = modseq;
-		}
-
+		search_update_mail(ctx);
 		if ((opts & ~(SEARCH_RETURN_EXTRAS |
 			      SEARCH_RETURN_COUNT)) == 0) {
 			/* we only want to count (and get modseqs) */
@@ -258,10 +290,9 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	if (tryagain)
 		return FALSE;
 
-	if (ctx->highest_seen_modseq == 0 &&
-	    (ctx->return_options & SEARCH_RETURN_MODSEQ) != 0 &&
-	    array_count(&ctx->result) > 0) {
-		/* get highest modseq only from MIN/MAX messages */
+	if (minmax && array_count(&ctx->result) > 0 &&
+	    (opts & (SEARCH_RETURN_MODSEQ | SEARCH_RETURN_SAVE)) != 0) {
+		/* handle MIN/MAX modseq/save updates */
 		if ((opts & SEARCH_RETURN_MIN) != 0) {
 			i_assert(id_min != (uint32_t)-1);
 			if (cmd->uid) {
@@ -270,7 +301,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 			} else {
 				mail_set_seq(ctx->mail, id_min);
 			}
-			ctx->highest_seen_modseq = mail_get_modseq(ctx->mail);
+			search_update_mail(ctx);
 		}
 		if ((opts & SEARCH_RETURN_MAX) != 0) {
 			i_assert(id_max != 0);
@@ -280,9 +311,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 			} else {
 				mail_set_seq(ctx->mail, id_max);
 			}
-			modseq = mail_get_modseq(ctx->mail);
-			if (ctx->highest_seen_modseq < modseq)
-				ctx->highest_seen_modseq = modseq;
+			search_update_mail(ctx);
 		}
 	}
 
@@ -297,7 +326,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	end_time.tv_sec -= ctx->start_time.tv_sec;
 	end_time.tv_usec -= ctx->start_time.tv_usec;
 	if (end_time.tv_usec < 0) {
-		end_time.tv_sec++;
+		end_time.tv_sec--;
 		end_time.tv_usec += 1000000;
 	}
 
@@ -327,11 +356,13 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 
 bool cmd_search(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct imap_search_context *ctx;
 	struct mail_search_arg *sargs;
 	const struct imap_arg *args;
-	int args_count;
-	const char *error, *charset;
+	enum search_return_options return_options;
+	int ret, args_count;
+	const char *charset;
 
 	args_count = imap_parser_read_args(cmd->parser, 0, 0, &args);
 	if (args_count < 1) {
@@ -342,23 +373,42 @@ bool cmd_search(struct client_command_context *cmd)
 					  "Missing SEARCH arguments.");
 		return TRUE;
 	}
-	cmd->client->input_lock = NULL;
+	client->input_lock = NULL;
 
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
-	ctx = p_new(cmd->pool, struct imap_search_context, 1);
-	ctx->cmd = cmd;
-
 	if (args->type == IMAP_ARG_ATOM && args[1].type == IMAP_ARG_LIST &&
 	    strcasecmp(IMAP_ARG_STR_NONULL(args), "RETURN") == 0) {
 		args++;
-		if (!search_parse_return_options(ctx, IMAP_ARG_LIST_ARGS(args)))
+		if (!search_parse_return_options(cmd, IMAP_ARG_LIST_ARGS(args),
+						 &return_options))
 			return TRUE;
 		args++;
+
+		if ((return_options & SEARCH_RETURN_SAVE) != 0) {
+			/* wait if there is another SEARCH SAVE command
+			   running. */
+			cmd->search_save_result = TRUE;
+			if (client_handle_search_save_ambiguity(cmd))
+				return FALSE;
+		}
 	} else {
-		ctx->return_options = SEARCH_RETURN_ALL;
+		return_options = SEARCH_RETURN_ALL;
 	}
+
+	if ((return_options & SEARCH_RETURN_SAVE) != 0) {
+		/* make sure the search result gets cleared if SEARCH fails */
+		if (array_is_created(&client->search_saved_uidset))
+			array_clear(&client->search_saved_uidset);
+		else
+			i_array_init(&client->search_saved_uidset, 128);
+	}
+
+	ctx = p_new(cmd->pool, struct imap_search_context, 1);
+	ctx->cmd = cmd;
+	ctx->return_options = return_options;
+
 	if (args->type == IMAP_ARG_ATOM &&
 	    strcasecmp(IMAP_ARG_STR_NONULL(args), "CHARSET") == 0) {
 		/* CHARSET specified */
@@ -376,13 +426,9 @@ bool cmd_search(struct client_command_context *cmd)
 		charset = "UTF-8";
 	}
 
-	sargs = imap_search_args_build(cmd->pool, cmd->client->mailbox,
-				       args, &error);
-	if (sargs == NULL) {
-		/* error in search arguments */
-		client_send_tagline(cmd, t_strconcat("BAD ", error, NULL));
-		return TRUE;
-	}
+	ret = imap_search_args_build(cmd, args, &sargs);
+	if (ret <= 0)
+		return ret < 0;
 
 	imap_search_init(ctx, charset, sargs);
 	cmd->func = cmd_search_more;

@@ -62,6 +62,7 @@ bool cmd_uid_expunge(struct client_command_context *cmd)
 	const struct imap_arg *args;
 	struct mail_search_arg *search_arg;
 	const char *uidset;
+	int ret;
 
 	if (!client_read_args(cmd, 1, 0, &args))
 		return FALSE;
@@ -75,9 +76,10 @@ bool cmd_uid_expunge(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	search_arg = imap_search_get_seqset(cmd, uidset, TRUE);
-	return search_arg == NULL ? TRUE :
-		cmd_expunge_finish(cmd, search_arg);
+	ret = imap_search_get_seqset(cmd, uidset, TRUE, &search_arg);
+	if (ret <= 0)
+		return ret < 0;
+	return cmd_expunge_finish(cmd, search_arg);
 }
 
 bool cmd_expunge(struct client_command_context *cmd)

@@ -155,6 +155,8 @@ void client_destroy(struct client *client, const char *reason)
 			i_error("close(client out) failed: %m");
 	}
 
+	if (array_is_created(&client->search_saved_uidset))
+		array_free(&client->search_saved_uidset);
 	pool_unref(&client->command_pool);
 	i_free(client);
 
@@ -778,6 +780,27 @@ int client_output(struct client *client)
 		client_continue_pending_input(&client);
 		return ret;
 	}
+}
+
+bool client_handle_search_save_ambiguity(struct client_command_context *cmd)
+{
+	struct client_command_context *old_cmd = cmd->next;
+
+	/* search only commands that were added before this command
+	   (commands are prepended to the queue, so they're after ourself) */
+	for (; old_cmd != NULL; old_cmd = old_cmd->next) {
+		if (old_cmd->search_save_result)
+			break;
+	}
+	if (old_cmd == NULL)
+		return FALSE;
+
+	/* ambiguity, wait until it's over */
+	i_assert(cmd->state == CLIENT_COMMAND_STATE_WAIT_INPUT);
+	cmd->client->input_lock = cmd;
+	cmd->state = CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY;
+	io_remove(&cmd->client->io);
+	return TRUE;
 }
 
 void client_enable(struct client *client, enum mailbox_feature features)

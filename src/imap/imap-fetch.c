@@ -349,7 +349,8 @@ int imap_fetch_begin(struct imap_fetch_context *ctx)
 			       ctx->all_headers_ctx);
 
 	/* Delayed uidset -> seqset conversion. VANISHED needs the uidset. */
-	mail_search_args_init(ctx->search_args, ctx->box, TRUE);
+	mail_search_args_init(ctx->search_args, ctx->box, TRUE,
+			      &ctx->cmd->client->search_saved_uidset);
 	ctx->search_ctx =
 		mailbox_search_init(ctx->trans, NULL, ctx->search_args, NULL);
 	return 0;

@@ -53,6 +53,7 @@ struct client_command_context {
 	unsigned int uid:1; /* used UID command */
 	unsigned int cancel:1; /* command is wanted to be cancelled */
 	unsigned int param_error:1;
+	unsigned int search_save_result:1; /* search result is being updated */
 	unsigned int temp_executed:1; /* temporary execution state tracking */
 };
 
@@ -78,8 +79,12 @@ struct client {
 	struct imap_parser *free_parser;
 	/* command_pool is cleared when the command queue gets empty */
 	pool_t command_pool;
+	/* New commands are always prepended to the queue */
 	struct client_command_context *command_queue;
 	unsigned int command_queue_size;
+
+	/* SEARCHRES extension: Last saved SEARCH result */
+	ARRAY_TYPE(seq_range) search_saved_uidset;
 
 	/* client input/output is locked by this command */
 	struct client_command_context *input_lock;
@@ -126,6 +131,10 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
    store the arguments. */
 bool client_read_string_args(struct client_command_context *cmd,
 			     unsigned int count, ...);
+
+/* SEARCHRES extension: Call if $ is being used/updated, returns TRUE if we
+   have to wait for an existing SEARCH SAVE to finish. */
+bool client_handle_search_save_ambiguity(struct client_command_context *cmd);
 
 void client_enable(struct client *client, enum mailbox_feature features);
 

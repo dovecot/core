@@ -11,7 +11,8 @@ mail_search_build_from_imap_args(pool_t pool, const struct imap_arg *args,
 /* Allocate keywords for search arguments. If change_uidsets is TRUE,
    change uidsets to seqsets. */
 void mail_search_args_init(struct mail_search_arg *args,
-			   struct mailbox *box, bool change_uidsets);
+			   struct mailbox *box, bool change_uidsets,
+			   const ARRAY_TYPE(seq_range) *search_saved_uidset);
 /* Free keywords. The args can initialized afterwards again if needed. */
 void mail_search_args_deinit(struct mail_search_arg *args,
 			     struct mailbox *box);

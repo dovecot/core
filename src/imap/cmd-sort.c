@@ -89,8 +89,8 @@ bool cmd_sort(struct client_command_context *cmd)
 	enum mail_sort_type sorting[MAX_SORT_PROGRAM_SIZE];
 	const struct imap_arg *args;
 	int args_count;
-	pool_t pool;
-	const char *error, *charset;
+	const char *charset;
+	int ret;
 
 	args_count = imap_parser_read_args(cmd->parser, 0, 0, &args);
 	if (args_count == -2)
@@ -125,22 +125,17 @@ bool cmd_sort(struct client_command_context *cmd)
 	charset = IMAP_ARG_STR(args);
 	args++;
 
-	pool = pool_alloconly_create("mail_search_args", 2048);
+	ret = imap_search_args_build(cmd, args, &sargs);
+	if (ret <= 0)
+		return ret < 0;
 
-	sargs = imap_search_args_build(pool, client->mailbox, args, &error);
-	if (sargs == NULL) {
-		/* error in search arguments */
-		client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
-	} else if (imap_sort(cmd, charset, sargs, sorting) == 0) {
-		pool_unref(&pool);
-		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
-				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
-				0, "OK Sort completed.");
-	} else {
+	if (imap_sort(cmd, charset, sargs, sorting) < 0) {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
+		return TRUE;
 	}
 
-	pool_unref(&pool);
-	return TRUE;
+	return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+			(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+			0, "OK Sort completed.");
 }

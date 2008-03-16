@@ -109,9 +109,9 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (!client_verify_mailbox_name(cmd, mailbox, TRUE, FALSE))
 		return TRUE;
 
-	search_arg = imap_search_get_seqset(cmd, messageset, cmd->uid);
-	if (search_arg == NULL)
-		return TRUE;
+	ret = imap_search_get_seqset(cmd, messageset, cmd->uid, &search_arg);
+	if (ret <= 0)
+		return ret < 0;
 
 	storage = client_find_storage(cmd, &mailbox);
 	if (storage == NULL)

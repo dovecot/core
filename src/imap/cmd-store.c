@@ -11,7 +11,6 @@
 
 struct imap_store_context {
 	struct client_command_context *cmd;
-	const char *messageset;
 	uint64_t max_modseq;
 
 	enum mail_flags flags;
@@ -80,8 +79,6 @@ store_parse_args(struct imap_store_context *ctx, const struct imap_arg *args)
 	const char *const *keywords_list = NULL;
 
 	ctx->max_modseq = (uint64_t)-1;
-	ctx->messageset = imap_arg_string(args++);
-
 	if (args->type == IMAP_ARG_LIST) {
 		if (!store_parse_modifiers(ctx, IMAP_ARG_LIST_ARGS(args)))
 			return FALSE;
@@ -89,8 +86,7 @@ store_parse_args(struct imap_store_context *ctx, const struct imap_arg *args)
 	}
 
 	type = imap_arg_string(args++);
-	if (ctx->messageset == NULL || type == NULL ||
-	    !get_modify_type(ctx, type)) {
+	if (type == NULL || !get_modify_type(ctx, type)) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return FALSE;
 	}
@@ -128,9 +124,10 @@ bool cmd_store(struct client_command_context *cmd)
 	struct imap_store_context ctx;
 	ARRAY_TYPE(seq_range) modified_set = ARRAY_INIT;
 	enum mailbox_transaction_flags flags = 0;
+	enum imap_sync_flags imap_sync_flags = 0;
 	const char *tagged_reply;
 	string_t *str;
-	bool failed;
+	int ret;
 
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
@@ -138,13 +135,18 @@ bool cmd_store(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
+	if (args->type != IMAP_ARG_ATOM) {
+		client_send_command_error(cmd, "Invalid arguments.");
+		return TRUE;
+	}
+	ret = imap_search_get_seqset(cmd, IMAP_ARG_STR_NONULL(args),
+				     cmd->uid, &search_arg);
+	if (ret <= 0)
+		return ret < 0;
+
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.cmd = cmd;
-	if (!store_parse_args(&ctx, args))
-		return TRUE;
-
-	search_arg = imap_search_get_seqset(cmd, ctx.messageset, cmd->uid);
-	if (search_arg == NULL)
+	if (!store_parse_args(&ctx, ++args))
 		return TRUE;
 
 	if (ctx.silent)
@@ -188,32 +190,26 @@ bool cmd_store(struct client_command_context *cmd)
 	if (ctx.keywords != NULL)
 		mailbox_keywords_free(client->mailbox, &ctx.keywords);
 
-	if (mailbox_search_deinit(&search_ctx) < 0) {
-		failed = TRUE;
+	ret = mailbox_search_deinit(&search_ctx);
+	if (ret < 0)
 		mailbox_transaction_rollback(&t);
-	} else {
-		failed = mailbox_transaction_commit(&t) < 0;
-	}
-
-	if (!failed) {
-		/* With UID STORE we have to return UID for the flags as well.
-		   Unfortunately we don't have the ability to separate those
-		   flag changes that were caused by UID STORE and those that
-		   came externally, so we'll just send the UID for all flag
-		   changes that we see. */
-		enum imap_sync_flags imap_sync_flags = 0;
-
-		if (cmd->uid &&
-		    (!ctx.silent || (client->enabled_features &
-				     MAILBOX_FEATURE_CONDSTORE) != 0))
-			imap_sync_flags |= IMAP_SYNC_FLAG_SEND_UID;
-
-		return cmd_sync(cmd,
-				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
-				imap_sync_flags, tagged_reply);
-	} else {
+	 else
+		ret = mailbox_transaction_commit(&t);
+	if (ret < 0) {
 		client_send_storage_error(cmd,
 			mailbox_get_storage(client->mailbox));
 		return TRUE;
 	}
+
+	/* With UID STORE we have to return UID for the flags as well.
+	   Unfortunately we don't have the ability to separate those
+	   flag changes that were caused by UID STORE and those that
+	   came externally, so we'll just send the UID for all flag
+	   changes that we see. */
+	if (cmd->uid && (!ctx.silent || (client->enabled_features &
+					 MAILBOX_FEATURE_CONDSTORE) != 0))
+		imap_sync_flags |= IMAP_SYNC_FLAG_SEND_UID;
+
+	return cmd_sync(cmd, (cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+			imap_sync_flags, tagged_reply);
 }

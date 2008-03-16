@@ -16,18 +16,48 @@ struct search_build_data {
 	const char *error;
 };
 
-struct mail_search_arg *
-imap_search_args_build(pool_t pool, struct mailbox *box,
-		       const struct imap_arg *args, const char **error_r)
+static bool search_args_have_searchres(struct mail_search_arg *sargs)
+{
+	for (; sargs != NULL; sargs = sargs->next) {
+		switch (sargs->type) {
+		case SEARCH_UIDSET:
+			if (strcmp(sargs->value.str, "$") == 0)
+				return TRUE;
+			break;
+		case SEARCH_SUB:
+		case SEARCH_OR:
+			if (search_args_have_searchres(sargs->value.subargs))
+				return TRUE;
+			break;
+		default:
+			break;
+		}
+	}
+	return FALSE;
+}
+
+int imap_search_args_build(struct client_command_context *cmd,
+			   const struct imap_arg *args,
+			   struct mail_search_arg **search_args_r)
 {
 	struct mail_search_arg *sargs;
+	const char *error;
 
-	sargs = mail_search_build_from_imap_args(pool, args, error_r);
-	if (sargs == NULL)
-		return NULL;
+	sargs = mail_search_build_from_imap_args(cmd->pool, args, &error);
+	if (sargs == NULL) {
+		client_send_command_error(cmd, error);
+		return -1;
+	}
 
-	mail_search_args_init(sargs, box, TRUE);
-	return sargs;
+	if (search_args_have_searchres(sargs)) {
+		if (client_handle_search_save_ambiguity(cmd))
+			return 0;
+	}
+
+	mail_search_args_init(sargs, cmd->client->mailbox, TRUE,
+			      &cmd->client->search_saved_uidset);
+	*search_args_r = sargs;
+	return 1;
 }
 
 static bool
@@ -95,34 +125,63 @@ imap_search_get_uidset_arg(struct client_command_context *cmd,
 	return 0;
 }
 
-struct mail_search_arg *
-imap_search_get_seqset(struct client_command_context *cmd,
-		       const char *set, bool uid)
+int imap_search_get_seqset(struct client_command_context *cmd,
+			   const char *set, bool uid,
+			   struct mail_search_arg **search_arg_r)
+{
+	int ret;
+
+	ret = imap_search_get_anyset(cmd, set, uid, search_arg_r);
+	if (ret > 0) {
+		mail_search_args_init(*search_arg_r,
+				      cmd->client->mailbox, TRUE,
+				      &cmd->client->search_saved_uidset);
+	}
+	return ret;
+}
+
+static int imap_search_get_searchres(struct client_command_context *cmd,
+				     struct mail_search_arg **search_arg_r)
 {
 	struct mail_search_arg *search_arg;
 
-	search_arg = imap_search_get_anyset(cmd, set, uid);
-	if (uid && search_arg != NULL)
-		mail_search_args_init(search_arg, cmd->client->mailbox, TRUE);
-	return search_arg;
+	if (client_handle_search_save_ambiguity(cmd))
+		return 0;
+	search_arg = p_new(cmd->pool, struct mail_search_arg, 1);
+	if (array_is_created(&cmd->client->search_saved_uidset)) {
+		search_arg->type = SEARCH_UIDSET;
+		p_array_init(&search_arg->value.seqset, cmd->pool,
+			     array_count(&cmd->client->search_saved_uidset));
+		array_append_array(&search_arg->value.seqset,
+				   &cmd->client->search_saved_uidset);
+	} else {
+		/* $ not set yet, match nothing */
+		search_arg->type = SEARCH_ALL;
+		search_arg->not = TRUE;
+	}
+	*search_arg_r = search_arg;
+	return 1;
 }
 
-struct mail_search_arg *
-imap_search_get_anyset(struct client_command_context *cmd,
-		       const char *set, bool uid)
+int imap_search_get_anyset(struct client_command_context *cmd,
+			   const char *set, bool uid,
+			   struct mail_search_arg **search_arg_r)
 {
-	struct mail_search_arg *search_arg = NULL;
 	const char *error = NULL;
 	int ret;
 
+	if (strcmp(set, "$") == 0) {
+		/* SEARCHRES extension: replace $ with the last saved
+		   search result */
+		return imap_search_get_searchres(cmd, search_arg_r);
+	}
 	if (!uid)
-		ret = imap_search_get_msgset_arg(cmd, set, &search_arg, &error);
+		ret = imap_search_get_msgset_arg(cmd, set, search_arg_r, &error);
 	else
-		ret = imap_search_get_uidset_arg(cmd, set, &search_arg, &error);
+		ret = imap_search_get_uidset_arg(cmd, set, search_arg_r, &error);
 	if (ret < 0) {
 		client_send_command_error(cmd, error);
-		return NULL;
+		return -1;
 	}
-
-	return search_arg;
+	return 1;
 }

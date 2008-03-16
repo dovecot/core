@@ -172,10 +172,12 @@ static bool cmd_fetch_continue(struct client_command_context *cmd)
 
 bool cmd_fetch(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct imap_fetch_context *ctx;
 	const struct imap_arg *args;
 	struct mail_search_arg *search_arg;
 	const char *messageset;
+	int ret;
 
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
@@ -183,7 +185,7 @@ bool cmd_fetch(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
-	/* <messageset> <field(s)> [(CHANGEDSINCE <modseq>)] */
+	/* <messageset> <field(s)> [(modifiers)] */
 	messageset = imap_arg_string(&args[0]);
 	if (messageset == NULL ||
 	    (args[1].type != IMAP_ARG_LIST && args[1].type != IMAP_ARG_ATOM) ||
@@ -192,11 +194,13 @@ bool cmd_fetch(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	search_arg = imap_search_get_anyset(cmd, messageset, cmd->uid);
-	if (search_arg == NULL)
-		return TRUE;
+	/* UID FETCH VANISHED needs the uidset, so convert it to
+	   sequence set later */
+	ret = imap_search_get_anyset(cmd, messageset, cmd->uid, &search_arg);
+	if (ret <= 0)
+		return ret < 0;
 
-	ctx = imap_fetch_init(cmd, cmd->client->mailbox);
+	ctx = imap_fetch_init(cmd, client->mailbox);
 	if (ctx == NULL)
 		return TRUE;
 	ctx->search_args = search_arg;

@@ -473,6 +473,10 @@ static bool search_arg_build(struct search_build_data *data,
 
 			sarg = *next_sarg;
 			p_array_init(&sarg->value.seqset, data->pool, 16);
+			if (strcmp(sarg->value.str, "$") == 0) {
+				/* SEARCHRES: delay initialization */
+				return TRUE;
+			}
 			if (imap_messageset_parse(&sarg->value.seqset,
 						  sarg->value.str) < 0) {
 				data->error = "Invalid UID messageset";
@@ -544,6 +548,15 @@ static bool search_arg_build(struct search_build_data *data,
 				return FALSE;
 			}
 			return TRUE;
+		} else if (strcmp(str, "$") == 0) {
+			/* SEARCHRES: delay initialization */
+			if (!ARG_NEW_SINGLE(SEARCH_UIDSET))
+				return FALSE;
+
+			(*next_sarg)->value.str = p_strdup(data->pool, "$");
+			p_array_init(&(*next_sarg)->value.seqset,
+				     data->pool, 16);
+			return TRUE;
 		}
 		break;
 	}
@@ -576,16 +589,32 @@ mail_search_build_from_imap_args(pool_t pool, const struct imap_arg *args,
 }
 
 static void
-mailbox_uidseq_change(struct mail_search_arg *arg, struct mailbox *box)
+mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
+		      const ARRAY_TYPE(seq_range) *search_saved_uidset)
 {
 	struct seq_range *uids;
 	unsigned int i, count;
 	uint32_t seq1, seq2;
 
+	if (strcmp(arg->value.str, "$") == 0) {
+		/* SEARCHRES: Replace with saved uidset */
+		array_clear(&arg->value.seqset);
+		if (search_saved_uidset == NULL ||
+		    !array_is_created(search_saved_uidset))
+			return;
+
+		array_append_array(&arg->value.seqset, search_saved_uidset);
+		return;
+	}
+
 	arg->type = SEARCH_SEQSET;
 
 	/* make a copy of the UIDs */
 	count = array_count(&arg->value.seqset);
+	if (count == 0) {
+		/* empty set, keep it */
+		return;
+	}
 	uids = t_new(struct seq_range, count);
 	memcpy(uids, array_idx(&arg->value.seqset, 0), sizeof(*uids) * count);
 
@@ -606,7 +635,8 @@ mailbox_uidseq_change(struct mail_search_arg *arg, struct mailbox *box)
 }
 
 void mail_search_args_init(struct mail_search_arg *args,
-			   struct mailbox *box, bool change_uidsets)
+			   struct mailbox *box, bool change_uidsets,
+			   const ARRAY_TYPE(seq_range) *search_saved_uidset)
 {
 	const char *keywords[2];
 
@@ -614,7 +644,8 @@ void mail_search_args_init(struct mail_search_arg *args,
 		switch (args->type) {
 		case SEARCH_UIDSET:
 			if (change_uidsets) T_BEGIN {
-				mailbox_uidseq_change(args, box);
+				mailbox_uidset_change(args, box,
+						      search_saved_uidset);
 			} T_END;
 			break;
 		case SEARCH_MODSEQ:
@@ -633,7 +664,8 @@ void mail_search_args_init(struct mail_search_arg *args,
 		case SEARCH_SUB:
 		case SEARCH_OR:
 			mail_search_args_init(args->value.subargs, box,
-					      change_uidsets);
+					      change_uidsets,
+					      search_saved_uidset);
 			break;
 		default:
 			break;
