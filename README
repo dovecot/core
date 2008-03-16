@@ -29,10 +29,18 @@ RFCs conformed
 
  2088       - IMAP4 non-synchronizing literals (LITERAL+)
  2177       - IMAP4 IDLE command
+ 2221       - IMAP4 Login Referrals
  2342       - IMAP4 Namespace
  3348       - IMAP4 Child Mailbox Extension
  3502       - IMAP4 MULTIAPPEND Extension
  3691       - IMAP4 UNSELECT command
+ 4315       - IMAP UIDPLUS extension
+ 4551       - IMAP Extension for Conditional STORE Operation
+              or Quick Flag Changes Resynchronization
+ 4731       - IMAP4 Extension to SEARCH Command for Controlling
+              What Kind of Information Is Returned
+ 5032       - WITHIN Search Extension to the IMAP Protocol
+ 5162       - IMAP4 Extensions for Quick Mailbox Resynchronization
 
 Contact info
 ------------
