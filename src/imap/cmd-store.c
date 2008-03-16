@@ -127,6 +127,7 @@ bool cmd_store(struct client_command_context *cmd)
 	struct mail *mail;
 	struct imap_store_context ctx;
 	ARRAY_TYPE(seq_range) modified_set = ARRAY_INIT;
+	enum mailbox_transaction_flags flags = 0;
 	const char *tagged_reply;
 	string_t *str;
 	bool failed;
@@ -146,8 +147,11 @@ bool cmd_store(struct client_command_context *cmd)
 	if (search_arg == NULL)
 		return TRUE;
 
-	t = mailbox_transaction_begin(client->mailbox, !ctx.silent ? 0 :
-				      MAILBOX_TRANSACTION_FLAG_HIDE);
+	if (ctx.silent)
+		flags |= MAILBOX_TRANSACTION_FLAG_HIDE;
+	if (ctx.max_modseq < (uint64_t)-1)
+		flags |= MAILBOX_TRANSACTION_FLAG_REFRESH;
+	t = mailbox_transaction_begin(client->mailbox, flags);
 	search_ctx = mailbox_search_init(t, NULL, search_arg, NULL);
 
 	/* FIXME: UNCHANGEDSINCE should be atomic, but this requires support

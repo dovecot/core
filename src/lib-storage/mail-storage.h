@@ -128,7 +128,9 @@ enum mailbox_transaction_flags {
 	/* Always assign UIDs to messages when saving/copying. Normally this
 	   is done only if the mailbox is synced, or if dest_mail parameter
 	   was non-NULL to mailbox_save_init() or mailbox_copy() */
-	MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS	= 0x04
+	MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS	= 0x04,
+	/* Refresh the index so lookups return latest flags/modseqs */
+	MAILBOX_TRANSACTION_FLAG_REFRESH	= 0x08
 };
 
 enum mailbox_sync_flags {

@@ -74,6 +74,8 @@ index_transaction_begin(struct mailbox *box,
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_HIDE;
 	if ((flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0)
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
+	if ((flags & MAILBOX_TRANSACTION_FLAG_REFRESH) != 0)
+		(void)mail_index_refresh(ibox->index);
 	t = mail_index_transaction_begin(ibox->view, trans_flags);
 
 	it = MAIL_STORAGE_CONTEXT(t);
