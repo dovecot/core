@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "imap-date.h"
 #include "imap-parser.h"
 #include "imap-messageset.h"
@@ -126,6 +127,33 @@ arg_new_date(struct search_build_data *data,
 		data->error = "Invalid search date parameter";
 		return FALSE;
 	}
+	return TRUE;
+}
+
+#define ARG_NEW_INTERVAL(type) \
+	arg_new_interval(data, args, next_sarg, type)
+static bool
+arg_new_interval(struct search_build_data *data,
+		 const struct imap_arg **args,
+		 struct mail_search_arg **next_sarg,
+		 enum mail_search_arg_type type)
+{
+	struct mail_search_arg *sarg;
+	const char *value;
+	unsigned long interval;
+	char *p;
+
+	*next_sarg = sarg = search_arg_new(data->pool, type);
+	if (!arg_get_next(data, args, &value))
+		return FALSE;
+
+	interval = strtoul(value, &p, 10);
+	if (interval == 0 || *p != '\0') {
+		data->error = "Invalid search interval parameter";
+		return FALSE;
+	}
+	sarg->value.search_flags = MAIL_SEARCH_ARG_FLAG_USE_TZ;
+	sarg->value.time = ioloop_time - interval;
 	return TRUE;
 }
 
@@ -422,6 +450,15 @@ static bool search_arg_build(struct search_build_data *data,
 
 			(*next_sarg)->not = TRUE;
 			return TRUE;
+		} if (strcmp(str, "OLDER") == 0) {
+			/* <interval> - WITHIN extension */
+			if (!ARG_NEW_INTERVAL(SEARCH_BEFORE))
+				return FALSE;
+
+			/* we need to match also equal, but standard BEFORE
+			   compares with "<" */
+			(*next_sarg)->value.time++;
+			return TRUE;
 		}
 		break;
 	case 'R':
@@ -513,6 +550,12 @@ static bool search_arg_build(struct search_build_data *data,
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
+		}
+		break;
+	case 'Y':
+		if (strcmp(str, "YOUNGER") == 0) {
+			/* <interval> - WITHIN extension */
+			return ARG_NEW_INTERVAL(SEARCH_SINCE);
 		}
 		break;
 	case 'X':

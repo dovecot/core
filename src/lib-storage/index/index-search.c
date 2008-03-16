@@ -206,8 +206,11 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		if (mail_get_received_date(ctx->mail, &date) < 0)
 			return -1;
 
-		tm = localtime(&date);
-		date += utc_offset(tm, date)*60;
+		if ((arg->value.search_flags &
+		     MAIL_SEARCH_ARG_FLAG_USE_TZ) == 0) {
+			tm = localtime(&date);
+			date += utc_offset(tm, date)*60;
+		}
 
 		switch (arg->type) {
 		case SEARCH_BEFORE:
@@ -230,7 +233,9 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		   in searches. date is returned as UTC, so change it. */
 		if (mail_get_date(ctx->mail, &date, &timezone_offset) < 0)
 			return -1;
-		date += timezone_offset * 60;
+		if ((arg->value.search_flags &
+		     MAIL_SEARCH_ARG_FLAG_USE_TZ) == 0)
+			date += timezone_offset * 60;
 
 		switch (arg->type) {
 		case SEARCH_SENTBEFORE:

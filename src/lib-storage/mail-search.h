@@ -44,6 +44,12 @@ enum mail_search_arg_type {
 	SEARCH_MODSEQ
 };
 
+enum mail_search_arg_flag {
+	/* For (SENT)BEFORE/SINCE/ON searches: Don't drop timezone from
+	   comparisons */
+	MAIL_SEARCH_ARG_FLAG_USE_TZ	= 0x01,
+};
+
 enum mail_search_modseq_type {
 	MAIL_SEARCH_MODSEQ_TYPE_ANY = 0,
 	MAIL_SEARCH_MODSEQ_TYPE_PRIVATE,
@@ -68,6 +74,7 @@ struct mail_search_arg {
 		enum mail_flags flags;
 		struct mail_keywords *keywords;
 		struct mail_search_modseq *modseq;
+		enum mail_search_arg_flag search_flags;
 	} value;
 
         void *context;
