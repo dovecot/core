@@ -39,6 +39,8 @@ bool cmd_thread(struct client_command_context *cmd)
 	str = IMAP_ARG_STR(args);
 	if (strcasecmp(str, "REFERENCES") == 0)
 		threading = MAIL_THREAD_REFERENCES;
+	else if (strcasecmp(str, "X-REFERENCES2") == 0)
+		threading = MAIL_THREAD_REFERENCES2;
 	else if (strcasecmp(str, "ORDEREDSUBJECT") == 0) {
 		client_send_command_error(cmd,
 			"ORDEREDSUBJECT threading is currently not supported.");

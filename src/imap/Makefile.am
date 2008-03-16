@@ -81,6 +81,8 @@ imap_SOURCES = \
 	imap-status.c \
 	imap-sync.c \
 	imap-thread.c \
+	imap-thread-links.c \
+	imap-thread-finish.c \
 	mail-storage-callbacks.c \
 	main.c
 
