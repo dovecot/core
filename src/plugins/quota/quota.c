@@ -354,7 +354,7 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 	}
 
 	if (strncmp(p, "backend=", 8) == 0) {
-		if (!root->backend.v.parse_rule(root, rule, p, error_r))
+		if (!root->backend.v.parse_rule(root, rule, p + 8, error_r))
 			ret = -1;
 	} else {
 		bool allow_negative = rule != &root->default_rule;
