@@ -31,8 +31,8 @@ static void quota_root_add_rules(const char *root_name,
 			break;
 
 		if (quota_root_add_rule(root, rule, &error) < 0) {
-			i_fatal("Quota root %s: Invalid rule: %s",
-				root_name, rule);
+			i_fatal("Quota root %s: Invalid rule %s: %s",
+				root_name, rule, error);
 		}
 		rule_name = t_strdup_printf("%s_RULE%d", root_name, i);
 	}
