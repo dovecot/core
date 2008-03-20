@@ -274,14 +274,16 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 		   do some extra checks here to catch potential cache bugs. */
 		if (vsize && mail->data.virtual_size != size) {
 			mail_cache_set_corrupted(mail->ibox->cache,
-				"Corrupted virtual size: "
+				"Corrupted virtual size for uid=%u: "
 				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
+				mail->mail.mail.uid,
 				mail->data.virtual_size, size);
 			mail->data.virtual_size = size;
 		} else if (!vsize && mail->data.physical_size != size) {
 			mail_cache_set_corrupted(mail->ibox->cache,
-				"Corrupted physical size: "
+				"Corrupted physical size for uid=%u: "
 				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
+				mail->mail.mail.uid,
 				mail->data.physical_size, size);
 			mail->data.physical_size = size;
 		}
