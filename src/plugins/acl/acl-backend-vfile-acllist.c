@@ -203,7 +203,12 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	   the file at the same time the result should be the same. */
 	fd = safe_mkstemp(path, mode, (uid_t)-1, gid);
 	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+		if (errno == EACCES) {
+			/* Ignore silently if we can't create it */
+			return 0;
+		}
+		i_error("dovecot-acl-list creation failed: "
+			"safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;
 	}
 	output = o_stream_create_fd_file(fd, 0, FALSE);
