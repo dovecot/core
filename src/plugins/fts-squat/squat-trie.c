@@ -2015,6 +2015,7 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 		squat_trie_filter_type(type, &ctx.tmp_uids,
 				       definite_uids);
 	}
+	seq_range_array_remove_seq_range(maybe_uids, definite_uids);
 	squat_trie_add_unknown(trie, maybe_uids);
 	array_free(&ctx.tmp_uids);
 	array_free(&ctx.tmp_uids2);
