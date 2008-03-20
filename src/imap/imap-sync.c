@@ -210,7 +210,7 @@ static bool cmd_finish_sync(struct client_command_context *cmd)
 
 static bool cmd_sync_continue(struct client_command_context *sync_cmd)
 {
-	struct client_command_context *cmd, *next;
+	struct client_command_context *cmd, *prev;
 	struct client *client = sync_cmd->client;
 	struct imap_sync_context *ctx = sync_cmd->context;
 	int ret;
@@ -229,9 +229,13 @@ static bool cmd_sync_continue(struct client_command_context *sync_cmd)
 	}
 	sync_cmd->context = NULL;
 
-	/* finish all commands that waited for this sync */
-	for (cmd = client->command_queue; cmd != NULL; cmd = next) {
-		next = cmd->next;
+	/* Finish all commands that waited for this sync. Go through the queue
+	   backwards, so that tagged replies are sent in the same order as
+	   they were received. This fixes problems with clients that rely on
+	   this (Apple Mail 3.2) */
+	for (cmd = client->command_queue; cmd->next != NULL; cmd = cmd->next) ;
+	for (; cmd != NULL; cmd = prev) {
+		prev = cmd->prev;
 
 		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC &&
 		    cmd != sync_cmd &&
@@ -365,11 +369,15 @@ bool cmd_sync_callback(struct client_command_context *cmd,
 
 static bool cmd_sync_drop_fast(struct client *client)
 {
-	struct client_command_context *cmd, *next;
+	struct client_command_context *cmd, *prev;
 	bool ret = FALSE;
 
-	for (cmd = client->command_queue; cmd != NULL; cmd = next) {
-		next = cmd->next;
+	if (client->command_queue == NULL)
+		return FALSE;
+
+	for (cmd = client->command_queue; cmd->next != NULL; cmd = cmd->next) ;
+	for (; cmd != NULL; cmd = prev) {
+		prev = cmd->next;
 
 		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC &&
 		    (cmd->sync->flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
