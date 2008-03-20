@@ -210,7 +210,7 @@ static bool cmd_finish_sync(struct client_command_context *cmd)
 
 static bool cmd_sync_continue(struct client_command_context *sync_cmd)
 {
-	struct client_command_context *cmd;
+	struct client_command_context *cmd, *next;
 	struct client *client = sync_cmd->client;
 	struct imap_sync_context *ctx = sync_cmd->context;
 	int ret;
@@ -230,7 +230,9 @@ static bool cmd_sync_continue(struct client_command_context *sync_cmd)
 	sync_cmd->context = NULL;
 
 	/* finish all commands that waited for this sync */
-	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
+	for (cmd = client->command_queue; cmd != NULL; cmd = next) {
+		next = cmd->next;
+
 		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC &&
 		    cmd != sync_cmd &&
 		    cmd->sync->counter+1 == client->sync_counter) {
