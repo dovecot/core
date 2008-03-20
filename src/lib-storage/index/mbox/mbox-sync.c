@@ -1788,7 +1788,8 @@ again:
                 ret = mbox_rewrite_base_uid_last(&sync_ctx);
 	}
 
-	if (ret == 0 && mbox->mbox_fd != -1 && mbox->ibox.keep_recent) {
+	if (ret == 0 && mbox->mbox_fd != -1 && mbox->ibox.keep_recent &&
+	    !sync_ctx.mbox->mbox_readonly) {
 		/* try to set atime back to its original value */
 		struct utimbuf buf;
 		struct stat st;
