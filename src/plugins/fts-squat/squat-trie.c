@@ -145,6 +145,8 @@ squat_trie_init(const char *path, uint32_t uidvalidity,
 	trie->dotlock_set.nfs_flush = (flags & SQUAT_INDEX_FLAG_NFS_FLUSH) != 0;
 	trie->dotlock_set.timeout = SQUAT_TRIE_LOCK_TIMEOUT;
 	trie->dotlock_set.stale_timeout = SQUAT_TRIE_DOTLOCK_STALE_TIMEOUT;
+	trie->default_partial_len = DEFAULT_PARTIAL_LEN;
+	trie->default_full_len = DEFAULT_FULL_LEN;
 	return trie;
 }
 
@@ -190,14 +192,24 @@ void squat_trie_deinit(struct squat_trie **_trie)
 	i_free(trie);
 }
 
+void squat_trie_set_partial_len(struct squat_trie *trie, unsigned int len)
+{
+	trie->default_partial_len = len;
+}
+
+void squat_trie_set_full_len(struct squat_trie *trie, unsigned int len)
+{
+	trie->default_full_len = len;
+}
+
 static void squat_trie_header_init(struct squat_trie *trie)
 {
 	memset(&trie->hdr, 0, sizeof(trie->hdr));
 	trie->hdr.version = SQUAT_TRIE_VERSION;
 	trie->hdr.indexid = time(NULL);
 	trie->hdr.uidvalidity = trie->uidvalidity;
-	trie->hdr.partial_len = DEFAULT_PARTIAL_LEN;
-	trie->hdr.full_len = DEFAULT_FULL_LEN;
+	trie->hdr.partial_len = trie->default_partial_len;
+	trie->hdr.full_len = trie->default_full_len;
 
 	i_assert(sizeof(trie->hdr.normalize_map) ==
 		 sizeof(trie->default_normalize_map));

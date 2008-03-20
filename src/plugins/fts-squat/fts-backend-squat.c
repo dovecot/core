@@ -7,6 +7,8 @@
 #include "squat-trie.h"
 #include "fts-squat-plugin.h"
 
+#include <stdlib.h>
+
 #define SQUAT_FILE_PREFIX "dovecot.index.search"
 
 struct squat_fts_backend {
@@ -19,12 +21,39 @@ struct squat_fts_backend_build_context {
 	struct squat_trie_build_context *build_ctx;
 };
 
+static void
+fts_backend_squat_set(struct squat_fts_backend *backend, const char *str)
+{
+	const char *const *tmp;
+	int len;
+
+	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
+		if (strncmp(*tmp, "partial=", 8) == 0) {
+			len = atoi(*tmp + 8);
+			if (len <= 0) {
+				i_fatal("fts_squat: Invalid partial len: %s",
+					*tmp + 8);
+			}
+			squat_trie_set_partial_len(backend->trie, len);
+		} else if (strncmp(*tmp, "full=", 5) == 0) {
+			len = atoi(*tmp + 5);
+			if (len <= 0) {
+				i_fatal("fts_squat: Invalid full len: %s",
+					*tmp + 5);
+			}
+			squat_trie_set_full_len(backend->trie, len);
+		} else {
+			i_fatal("fts_squat: Invalid setting: %s", *tmp);
+		}
+	}
+}
+
 static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 {
 	struct squat_fts_backend *backend;
 	struct mail_storage *storage;
 	struct mailbox_status status;
-	const char *path;
+	const char *path, *env;
 	enum squat_index_flags flags = 0;
 
 	storage = mailbox_get_storage(box);
@@ -50,6 +79,10 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 		squat_trie_init(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL),
 				status.uidvalidity, storage->lock_method,
 				flags);
+
+	env = getenv("FTS_SQUAT");
+	if (env != NULL)
+		fts_backend_squat_set(backend, env);
 	return &backend->backend;
 }
 
