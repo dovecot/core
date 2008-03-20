@@ -54,7 +54,7 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 
 	o_stream_uncork(client->output);
 	if (free_cmd)
-		client_command_free(ctx->cmd);
+		client_command_free(&ctx->cmd);
 }
 
 static void idle_client_input(struct cmd_idle_context *ctx)

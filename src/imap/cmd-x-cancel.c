@@ -16,7 +16,7 @@ bool cmd_x_cancel(struct client_command_context *cmd)
 	for (; cancel_cmd != NULL; cancel_cmd = cancel_cmd->next) {
 		if (cancel_cmd->tag != NULL && cancel_cmd != cmd &&
 		    strcmp(cancel_cmd->tag, tag) == 0) {
-			client_command_cancel(cancel_cmd);
+			client_command_cancel(&cancel_cmd);
 			client_send_tagline(cmd, "OK Command cancelled.");
 			return TRUE;
 		}

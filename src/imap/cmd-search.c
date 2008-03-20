@@ -135,7 +135,7 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 	if (!finished)
 		(void)client_handle_unfinished_cmd(cmd);
 	else
-		client_command_free(cmd);
+		client_command_free(&cmd);
 	(void)cmd_sync_delayed(client);
 	client_continue_pending_input(&client);
 }

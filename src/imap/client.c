@@ -66,8 +66,9 @@ struct client *client_create(int fd_in, int fd_out,
 	return client;
 }
 
-void client_command_cancel(struct client_command_context *cmd)
+void client_command_cancel(struct client_command_context **_cmd)
 {
+	struct client_command_context *cmd = *_cmd;
 	bool cmd_ret;
 
 	cmd->cancel = TRUE;
@@ -76,7 +77,7 @@ void client_command_cancel(struct client_command_context *cmd)
 		if (cmd->client->output->closed)
 			i_panic("command didn't cancel itself: %s", cmd->name);
 	} else {
-		client_command_free(cmd);
+		client_command_free(_cmd);
 	}
 }
 
@@ -112,6 +113,7 @@ static const char *client_get_disconnect_reason(struct client *client)
 
 void client_destroy(struct client *client, const char *reason)
 {
+	struct client_command_context *cmd;
 	i_assert(!client->destroyed);
 	client->destroyed = TRUE;
 
@@ -127,11 +129,13 @@ void client_destroy(struct client *client, const char *reason)
 
 	/* finish off all the queued commands. */
 	if (client->output_lock != NULL)
-		client_command_cancel(client->output_lock);
+		client_command_cancel(&client->output_lock);
 	if (client->input_lock != NULL)
-		client_command_cancel(client->input_lock);
-	while (client->command_queue != NULL)
-		client_command_cancel(client->command_queue);
+		client_command_cancel(&client->input_lock);
+	while (client->command_queue != NULL) {
+		cmd = client->command_queue;
+		client_command_cancel(&cmd);
+	}
 
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);
@@ -398,9 +402,12 @@ client_command_new(struct client *client)
 	return cmd;
 }
 
-void client_command_free(struct client_command_context *cmd)
+void client_command_free(struct client_command_context **_cmd)
 {
+	struct client_command_context *cmd = *_cmd;
 	struct client *client = cmd->client;
+
+	*_cmd = NULL;
 
 	/* reset input idle time because command output might have taken a
 	   long time and we don't want to disconnect client immediately then */
@@ -545,7 +552,7 @@ static bool client_command_input(struct client_command_context *cmd)
 		/* command is being executed - continue it */
 		if (cmd->func(cmd) || cmd->state == CLIENT_COMMAND_STATE_DONE) {
 			/* command execution was finished */
-			client_command_free(cmd);
+			client_command_free(&cmd);
 			client_add_missing_io(client);
 			return TRUE;
 		}
@@ -587,7 +594,7 @@ static bool client_command_input(struct client_command_context *cmd)
 		/* unknown command */
 		client_send_command_error(cmd, "Unknown command.");
 		cmd->param_error = TRUE;
-		client_command_free(cmd);
+		client_command_free(&cmd);
 		return TRUE;
 	} else {
 		i_assert(!client->disconnected);
@@ -698,7 +705,7 @@ void client_input(struct client *client)
 			client_command_new(client);
 		cmd->param_error = TRUE;
 		client_send_command_error(cmd, "Too long argument.");
-		client_command_free(cmd);
+		client_command_free(&cmd);
 	}
 	o_stream_uncork(output);
 	o_stream_unref(&output);
@@ -715,7 +722,7 @@ static void client_output_cmd(struct client_command_context *cmd)
 		(void)client_handle_unfinished_cmd(cmd);
 	else {
 		/* command execution was finished */
-		client_command_free(cmd);
+		client_command_free(&cmd);
 	}
 }
 

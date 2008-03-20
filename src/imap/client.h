@@ -127,8 +127,8 @@ bool client_read_string_args(struct client_command_context *cmd,
 void clients_init(void);
 void clients_deinit(void);
 
-void client_command_cancel(struct client_command_context *cmd);
-void client_command_free(struct client_command_context *cmd);
+void client_command_cancel(struct client_command_context **cmd);
+void client_command_free(struct client_command_context **cmd);
 
 bool client_handle_unfinished_cmd(struct client_command_context *cmd);
 void client_continue_pending_input(struct client **_client);

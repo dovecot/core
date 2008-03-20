@@ -235,7 +235,7 @@ static bool cmd_sync_continue(struct client_command_context *sync_cmd)
 		    cmd != sync_cmd &&
 		    cmd->sync->counter+1 == client->sync_counter) {
 			if (cmd_finish_sync(cmd))
-				client_command_free(cmd);
+				client_command_free(&cmd);
 		}
 	}
 	return cmd_finish_sync(sync_cmd);
@@ -306,7 +306,7 @@ static bool cmd_sync_client(struct client_command_context *sync_cmd)
 		return FALSE;
 	}
 
-	client_command_free(sync_cmd);
+	client_command_free(&sync_cmd);
 	(void)cmd_sync_delayed(client);
 	return TRUE;
 }
@@ -372,7 +372,7 @@ static bool cmd_sync_drop_fast(struct client *client)
 		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC &&
 		    (cmd->sync->flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
 			if (cmd_finish_sync(cmd)) {
-				client_command_free(cmd);
+				client_command_free(&cmd);
 				ret = TRUE;
 			}
 		}
