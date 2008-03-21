@@ -1065,8 +1065,9 @@ mail_transaction_log_file_map_mmap(struct mail_transaction_log_file *file,
 		return 0;
 	}
 
-	if ((uoff_t)st.st_size == file->mmap_size) {
-		/* we already have the whole file mmaped */
+	if (file->buffer != NULL &&
+	    (uoff_t)st.st_size == file->buffer_offset + file->buffer->used) {
+		/* we already have the whole file mapped */
 		if ((ret = mail_transaction_log_file_sync(file)) < 0)
 			return 0;
 		if (ret > 0)
