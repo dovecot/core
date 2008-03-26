@@ -150,9 +150,7 @@ static bool cmd_quit(struct pop3_client *client)
 		client_destroy(client, "Aborted login "
 			"(tried to use disabled plaintext authentication)");
 	} else {
-		client_destroy(client, t_strdup_printf(
-			"Aborted login (%u authentication attempts)",
-			client->common.auth_attempts));
+		client_destroy(client, "Aborted login");
 	}
 	return TRUE;
 }
@@ -341,12 +339,22 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 	return &client->common;
 }
 
+void client_destroy_success(struct pop3_client *client, const char *reason)
+{
+	client->login_success = TRUE;
+	client_destroy(client, reason);
+}
+
 void client_destroy(struct pop3_client *client, const char *reason)
 {
 	if (client->destroyed)
 		return;
 	client->destroyed = TRUE;
 
+	if (!client->login_success && reason != NULL) {
+		reason = t_strdup_printf("%s (auth failed, %u attempts)",
+					 reason, client->common.auth_attempts);
+	}
 	if (reason != NULL)
 		client_syslog(&client->common, reason);
 

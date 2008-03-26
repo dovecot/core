@@ -24,6 +24,7 @@ struct imap_client {
 
 	const char *cmd_tag, *cmd_name;
 
+	unsigned int login_success:1;
 	unsigned int cmd_finished:1;
 	unsigned int proxy_login_sent:1;
 	unsigned int skip_line:1;
@@ -33,6 +34,7 @@ struct imap_client {
 };
 
 void client_destroy(struct imap_client *client, const char *reason);
+void client_destroy_success(struct imap_client *client, const char *reason);
 void client_destroy_internal_failure(struct imap_client *client);
 
 void client_send_line(struct imap_client *client, const char *line);

@@ -32,7 +32,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		/* failed for some reason, probably server disconnected */
 		client_send_line(client,
 				 "-ERR [IN-USE] Temporary login failure.");
-		client_destroy(client, NULL);
+		client_destroy_success(client, NULL);
 		return;
 	}
 
@@ -47,7 +47,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		return;
 	case -1:
 		/* disconnected */
-		client_destroy(client, "Proxy: Remote disconnected");
+		client_destroy_success(client, "Proxy: Remote disconnected");
 		return;
 	}
 
@@ -114,7 +114,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		client->input = NULL;
 		client->output = NULL;
 		client->common.fd = -1;
-		client_destroy(client, msg);
+		client_destroy_success(client, msg);
 		return;
 	}
 

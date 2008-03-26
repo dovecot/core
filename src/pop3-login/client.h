@@ -28,12 +28,14 @@ struct pop3_client {
 	char *apop_challenge;
 	struct auth_connect_id auth_id;
 
+	unsigned int login_success:1;
 	unsigned int authenticating:1;
 	unsigned int auth_connected:1;
 	unsigned int destroyed:1;
 };
 
 void client_destroy(struct pop3_client *client, const char *reason);
+void client_destroy_success(struct pop3_client *client, const char *reason);
 void client_destroy_internal_failure(struct pop3_client *client);
 
 void client_send_line(struct pop3_client *client, const char *line);
