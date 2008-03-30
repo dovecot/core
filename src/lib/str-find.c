@@ -82,7 +82,7 @@ struct str_find_context *str_find_init(pool_t pool, const char *key)
 	ctx = p_malloc(pool, sizeof(struct str_find_context) +
 		       sizeof(ctx->goodtab[0]) * key_len);
 	ctx->pool = pool;
-	ctx->matches = p_malloc(pool, key_len);
+	ctx->matches = p_new(pool, unsigned int, key_len);
 	ctx->key_len = key_len;
 	ctx->key = p_malloc(pool, key_len);
 	memcpy(ctx->key, key, key_len);
