@@ -72,6 +72,33 @@ union {
 	unsigned char data[128];
 } outofmem_area;
 
+static void data_stack_last_buffer_reset(void)
+{
+	if (last_buffer_block != NULL) {
+#ifdef DEBUG
+		const unsigned char *p;
+		unsigned int i;
+
+		p = STACK_BLOCK_DATA(current_block) +
+			(current_block->size - current_block->left) +
+			MEM_ALIGN(sizeof(size_t) + last_buffer_size);
+#endif
+		/* reset t_buffer_get() mark - not really needed but makes it
+		   easier to notice if t_malloc()/t_push()/t_pop() is called
+		   between t_buffer_get() and t_buffer_alloc().
+		   do this before we get to i_panic() to avoid recursive
+		   panics. */
+		last_buffer_block = NULL;
+
+#ifdef DEBUG
+		for (i = 0; i < SENTRY_COUNT; i++) {
+			if (p[i] != CLEAR_CHR)
+				i_panic("t_buffer_get(): buffer overflow");
+		}
+#endif
+	}
+}
+
 unsigned int t_push(void)
 {
         struct stack_frame_block *frame_block;
@@ -107,6 +134,7 @@ unsigned int t_push(void)
 		frame_block->prev = current_frame_block;
 		current_frame_block = frame_block;
 	}
+	data_stack_last_buffer_reset();
 
 	/* mark our current position */
 	current_frame_block->block[frame_pos] = current_block;
@@ -194,6 +222,7 @@ unsigned int t_pop(void)
 #ifdef DEBUG
 	t_pop_verify();
 #endif
+	data_stack_last_buffer_reset();
 
 	/* update the current block */
 	current_block = current_frame_block->block[frame_pos];
@@ -290,10 +319,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 		data_stack_init();
 	}
 
-	/* reset t_buffer_get() mark - not really needed but makes it easier
-	   to notice if t_malloc() is called between t_buffer_get() and
-	   t_buffer_alloc() */
-        last_buffer_block = NULL;
+	data_stack_last_buffer_reset();
 
 	/* allocate only aligned amount of memory so alignment comes
 	   always properly */
