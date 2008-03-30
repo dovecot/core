@@ -86,6 +86,12 @@ bool cmd_store(struct client_command_context *cmd)
 	if (search_arg == NULL)
 		return TRUE;
 
+	if (mailbox_is_readonly(box)) {
+		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+				0, "OK Store ignored with read-only mailbox.");
+	}
+
 	t = mailbox_transaction_begin(box, !silent ? 0 :
 				      MAILBOX_TRANSACTION_FLAG_HIDE);
 	if (keywords_list == NULL && modify_type != MODIFY_REPLACE)
