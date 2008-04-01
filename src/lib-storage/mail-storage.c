@@ -664,9 +664,12 @@ mailbox_transaction_begin(struct mailbox *box,
 
 int mailbox_transaction_commit(struct mailbox_transaction_context **t)
 {
-	uint32_t tmp;
+	uint32_t uidvalidity, uid1, uid2;
 
-	return mailbox_transaction_commit_get_uids(t, &tmp, &tmp, &tmp);
+	/* Store the return values to separate temporary variables so that
+	   plugins overriding transaction_commit() can look at them. */
+	return mailbox_transaction_commit_get_uids(t, &uidvalidity,
+						   &uid1, &uid2);
 }
 
 int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **_t,
