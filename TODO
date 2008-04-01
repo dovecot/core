@@ -1,7 +1,13 @@
+ - index: clear recent flags created by v1.0 at some point so the bit may be
+   reused for something useful later.
+ - mbox: mail_privileged_group should be used when creating INBOX?..
+ - convert plugin: Create a r/w lock for a file. It's read-locked if
+   conversion isn't wanted and released when process dies. If conversion is
+   wanted and write-lock succeeds, conversion is done, if write-lock doesn't
+   succeed it fallbacks to using the old storage. When process is exiting it
+   again tries to write-lock and do the conversion. Add a parameter that
+   specifies if conversion should be done.
  - dbox:
-   - "metadata changed unexpectedly" with alt paths - why?
-    - check that metadata is always correct and whitespace contains only
-      whitespace
     - "File unexpectedly lost" doesn't get fixed by itself
     - doesn't call fsync
  - do something about From_-lines splitting mails with mboxes
@@ -15,6 +21,8 @@
    - expunges are delayed until more mails are added
  - test replacement chars (SEARCH / SORT / Squat)
 
+ - DEBUG: buffer overflow checking code probably doesn't handle a successful
+   t_try_realloc() or pool_alloconly_realloc() properly
  - cache: compress when we can drop temporary fields.
  - POP3 UIDL caching
  - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"

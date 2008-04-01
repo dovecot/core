@@ -1,3 +1,20 @@
+v1.1.rc4 2008-04-01  Timo Sirainen <tss@iki.fi>
+
+	* Fixed two buffer overflows in str_find_init(). It was used by
+	  SEARCH code when searching for headers or message body. Added code
+	  to catch these kind of overflows when compiling with --enable-debug.
+	  Found by Diego Liziero.
+
+	+ LDAP: Added debug_level and ldaprc_path settings (OpenLDAP-only)
+	+ Squat: Added fts_squat = partial=n full=m settings. See the wiki.
+	- dbox metadata updating fixes.
+	- quota: backend=n didn't work
+	- SEARCH RECENT may have returned non-recent messages if index files
+	  were created by v1.0.
+	- If mailbox was opened as read-only with EXAMINE, STOREs were
+	  permanently saved.
+	- LDAP: Templates were somewhat broken (by richs at whidbey.net)
+
 v1.1.rc3 2008-03-09  Timo Sirainen <tss@iki.fi>
 
 	* Fixed a security hole in blocking passdbs (MySQL always. PAM, passwd
