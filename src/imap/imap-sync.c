@@ -71,6 +71,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 				STATUS_MESSAGES | STATUS_RECENT, &status) < 0 ||
 	    ctx->failed) {
 		mailbox_transaction_rollback(&ctx->t);
+		array_free(&ctx->tmp_keywords);
 		i_free(ctx);
 		return -1;
 	}
