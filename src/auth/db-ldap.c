@@ -1009,6 +1009,7 @@ static void
 db_ldap_result_change_attr(struct db_ldap_result_iterate_context *ctx)
 {
 	ctx->name = hash_lookup(ctx->attr_map, ctx->attr);
+	ctx->template = NULL;
 
 	if (ctx->debug != NULL) {
 		str_printfa(ctx->debug, " %s(%s)=", ctx->attr,
