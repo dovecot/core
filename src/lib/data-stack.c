@@ -81,7 +81,7 @@ static void data_stack_last_buffer_reset(void)
 
 		p = STACK_BLOCK_DATA(current_block) +
 			(current_block->size - current_block->left) +
-			MEM_ALIGN(sizeof(size_t) + last_buffer_size);
+			MEM_ALIGN(sizeof(size_t)) + MEM_ALIGN(last_buffer_size);
 #endif
 		/* reset t_buffer_get() mark - not really needed but makes it
 		   easier to notice if t_malloc()/t_push()/t_pop() is called
