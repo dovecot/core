@@ -334,6 +334,12 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 		auth_request_fail(&request->auth_request);
 		return;
 	}
+
+	request->auth_request.user =
+		p_strndup(request->auth_request.pool,
+			  (unsigned char *)outbuf.value + 4,
+			  outbuf.length - 4);
+
 	major_status = gss_compare_name(&minor_status,
 					request->authn_name,
 					request->authz_name,
@@ -344,12 +350,6 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 		auth_request_fail(&request->auth_request);
 		return;
 	}
-
-	request->auth_request.user =
-		p_strndup(request->auth_request.pool,
-			  (unsigned char *)outbuf.value + 4,
-			  outbuf.length - 4);
-
 #endif
 	auth_request_success(&request->auth_request, NULL, 0);
 }
