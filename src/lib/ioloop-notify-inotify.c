@@ -95,7 +95,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 	if (ctx == NULL)
 		ctx = io_loop_notify_handler_init();
 	if (ctx->disabled)
-		return IO_NOTIFY_DISABLED;
+		return IO_NOTIFY_NOSUPPORT;
 
 	wd = inotify_add_watch(ctx->inotify_fd, path,
 			       IN_CREATE | IN_DELETE | IN_DELETE_SELF |
@@ -107,7 +107,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 			return IO_NOTIFY_NOTFOUND;
 
 		ctx->disabled = TRUE;
-		return IO_NOTIFY_DISABLED;
+		return IO_NOTIFY_NOSUPPORT;
 	}
 
 	if (ctx->event_io == NULL) {

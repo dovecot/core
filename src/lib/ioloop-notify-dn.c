@@ -84,7 +84,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 	if (ctx == NULL)
 		ctx = io_loop_notify_handler_init();
 	if (ctx->disabled)
-		return IO_NOTIFY_DISABLED;
+		return IO_NOTIFY_NOSUPPORT;
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
@@ -101,24 +101,22 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 			i_error("fcntl(F_SETSIG) failed: %m");
 		ctx->disabled = TRUE;
 		(void)close(fd);
-		return IO_NOTIFY_DISABLED;
+		return IO_NOTIFY_NOSUPPORT;
 	}
 	if (fcntl(fd, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME |
 		  DN_MULTISHOT) < 0) {
 		if (errno == ENOTDIR) {
 			/* we're trying to add dnotify to a non-directory fd.
 			   fail silently. */
-			ret = IO_NOTIFY_NOTFOUND;
 		} else {
 			/* dnotify not in kernel. disable it. */
 			if (errno != EINVAL)
 				i_error("fcntl(F_NOTIFY) failed: %m");
 			ctx->disabled = TRUE;
-			ret = IO_NOTIFY_DISABLED;
 		}
 		(void)fcntl(fd, F_SETSIG, 0);
 		(void)close(fd);
-		return ret;
+		return IO_NOTIFY_NOSUPPORT;
 	}
 
 	if (ctx->event_io == NULL) {

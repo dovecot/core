@@ -12,7 +12,7 @@ io_add_notify(const char *path ATTR_UNUSED,
 	      void *context ATTR_UNUSED, struct io **io_r)
 {
 	*io_r = NULL;
-	return IO_NOTIFY_DISABLED;
+	return IO_NOTIFY_NOSUPPORT;
 }
 
 void io_loop_notify_remove(struct ioloop *ioloop ATTR_UNUSED,

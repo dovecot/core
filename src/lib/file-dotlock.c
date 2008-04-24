@@ -429,7 +429,7 @@ static void dotlock_wait(struct lock_info *lock_info)
 		/* the lock file doesn't exist anymore, don't sleep */
 		io_loop_destroy(&ioloop);
 		return;
-	case IO_NOTIFY_DISABLED:
+	case IO_NOTIFY_NOSUPPORT:
 		/* listening for files not supported */
 		io_loop_destroy(&ioloop);
 		lock_info->use_io_notify = FALSE;

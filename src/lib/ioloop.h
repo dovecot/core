@@ -20,9 +20,13 @@ enum io_condition {
 };
 
 enum io_notify_result {
+	/* Notify added successfully */
 	IO_NOTIFY_ADDED,
+	/* Specified file doesn't exist, can't wait on it */
 	IO_NOTIFY_NOTFOUND,
-	IO_NOTIFY_DISABLED
+	/* Can't add notify for specified file. Main reasons for this:
+	   a) No notify support at all, b) Only directory notifies supported */
+	IO_NOTIFY_NOSUPPORT
 };
 
 typedef void io_callback_t(void *context);
