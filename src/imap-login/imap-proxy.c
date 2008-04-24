@@ -46,9 +46,12 @@ static int proxy_input_line(struct imap_client *client,
 		return 0;
 	} else if (strncmp(line, "P OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
-		(void)o_stream_send_str(client->output, client->cmd_tag);
-		(void)o_stream_send_str(client->output, line + 1);
-		(void)o_stream_send(client->output, "\r\n", 2);
+		str = t_str_new(128);
+		str_append(str, client->cmd_tag);
+		str_append(str, line + 1);
+		str_append(str, "\r\n");
+		(void)o_stream_send(client->output,
+				    str_data(str), str_len(str));
 
 		msg = t_strdup_printf("proxy(%s): started proxying to %s:%u",
 				      client->common.virtual_user,

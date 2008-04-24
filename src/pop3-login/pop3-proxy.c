@@ -99,8 +99,8 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			break;
 
 		/* Login successful. Send this line to client. */
+		line = t_strconcat(line, "\r\n", NULL);
 		(void)o_stream_send_str(client->output, line);
-		(void)o_stream_send(client->output, "\r\n", 2);
 
 		msg = t_strdup_printf("proxy(%s): started proxying to %s:%u",
 				      client->common.virtual_user,
