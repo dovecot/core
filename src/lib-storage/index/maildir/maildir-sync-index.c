@@ -272,6 +272,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	const char *filename;
 	ARRAY_TYPE(keyword_indexes) idx_keywords;
 	uint32_t uid_validity, next_uid, hdr_next_uid, first_recent_uid;
+	uint32_t first_uid;
 	unsigned int changes = 0;
 	int ret = 0;
 	bool expunged, full_rescan = FALSE;
@@ -279,6 +280,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	i_assert(!mbox->syncing_commit);
 	i_assert(maildir_uidlist_is_locked(mbox->uidlist));
 
+	first_uid = 1;
 	hdr = mail_index_get_header(view);
 	uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
 	if (uid_validity != hdr->uid_validity &&
@@ -292,6 +294,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		index_mailbox_reset_uidvalidity(&mbox->ibox);
 		maildir_uidlist_set_next_uid(mbox->uidlist, 1, TRUE);
 
+		first_uid = hdr->messages_count + 1;
 		memset(&empty_hdr, 0, sizeof(empty_hdr));
 		empty_hdr.next_uid = 1;
 		hdr = &empty_hdr;
@@ -439,8 +442,13 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	   appended messages. */
 	view2 = mail_index_transaction_open_updated_view(trans);
 	if (mail_index_lookup_seq_range(view2, first_recent_uid, (uint32_t)-1,
-					&seq, &seq2))
+					&seq, &seq2) && seq2 >= first_uid) {
+		if (seq < first_uid) {
+			/* UIDVALIDITY changed, skip over the old messages */
+			seq = first_uid;
+		}
 		index_mailbox_set_recent_seq(&mbox->ibox, view2, seq, seq2);
+	}
 	mail_index_view_close(&view2);
 
 	if (ctx->uidlist_sync_ctx != NULL) {

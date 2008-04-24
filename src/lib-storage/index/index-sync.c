@@ -66,7 +66,8 @@ bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t uid)
 void index_mailbox_reset_uidvalidity(struct index_mailbox *ibox)
 {
 	/* can't trust the currently cached recent flags anymore */
-	array_clear(&ibox->recent_flags);
+	if (array_is_created(&ibox->recent_flags))
+		array_clear(&ibox->recent_flags);
 	ibox->recent_flags_count = 0;
 	ibox->recent_flags_prev_uid = 0;
 }
