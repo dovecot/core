@@ -111,7 +111,7 @@ unsigned int expire_box_find_min_secs(struct expire_env *env, const char *name,
 	unsigned int secs1, secs2;
 
 	(void)expire_box_find(env, name, &secs1, &secs2);
-	if (secs1 < secs2 && secs1 != 0) {
+	if (secs1 != 0 && (secs1 < secs2 || secs2 == 0)) {
 		*altmove_r = FALSE;
 		return secs1;
 	} else {
