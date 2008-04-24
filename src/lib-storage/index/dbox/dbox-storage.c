@@ -308,7 +308,10 @@ static int dbox_storage_mailbox_close(struct mailbox *box)
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 	int ret;
 
-	ret = dbox_sync(mbox, TRUE);
+	if (box->opened) {
+		/* see if we want to flush dirty flags */
+		ret = dbox_sync(mbox, TRUE);
+	}
 
 	dbox_index_deinit(&mbox->dbox_index);
 	dbox_files_free(mbox);
