@@ -63,6 +63,14 @@ bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t uid)
 		seq_range_exists(&ibox->recent_flags, uid);
 }
 
+void index_mailbox_reset_uidvalidity(struct index_mailbox *ibox)
+{
+	/* can't trust the currently cached recent flags anymore */
+	array_clear(&ibox->recent_flags);
+	ibox->recent_flags_count = 0;
+	ibox->recent_flags_prev_uid = 0;
+}
+
 unsigned int index_mailbox_get_recent_count(struct index_mailbox *ibox)
 {
 	const struct mail_index_header *hdr;

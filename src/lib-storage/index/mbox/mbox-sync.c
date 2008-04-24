@@ -1441,6 +1441,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 		mail_index_reset(sync_ctx->t);
 		sync_ctx->reset_hdr.next_uid = 1;
 		sync_ctx->hdr = &sync_ctx->reset_hdr;
+		index_mailbox_reset_uidvalidity(&sync_ctx->mbox->ibox);
 	}
 
 	sync_ctx->prev_msg_uid = 0;

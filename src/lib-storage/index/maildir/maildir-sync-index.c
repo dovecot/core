@@ -289,6 +289,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		i_warning("Maildir %s: UIDVALIDITY changed (%u -> %u)",
 			  mbox->path, hdr->uid_validity, uid_validity);
 		mail_index_reset(trans);
+		index_mailbox_reset_uidvalidity(&mbox->ibox);
 		maildir_uidlist_set_next_uid(mbox->uidlist, 1, TRUE);
 
 		memset(&empty_hdr, 0, sizeof(empty_hdr));

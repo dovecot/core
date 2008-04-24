@@ -413,6 +413,7 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	i_array_init(&ctx.maildir_new_files, 8);
 	mail_index_reset(ctx.trans);
+	index_mailbox_reset_uidvalidity(&mbox->ibox);
 	mail_index_ext_lookup(mbox->ibox.index, "cache", &ctx.cache_ext_id);
 
 	if ((ret = dbox_sync_index_rebuild_ctx(&ctx)) < 0)
