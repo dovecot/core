@@ -236,8 +236,10 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 	if (lock_info->have_pid) {
 		/* we've local PID. Check if it exists. */
 		if (kill(pid, 0) == 0 || errno != ESRCH) {
-			if (pid != getpid())
+			if (pid != getpid()) {
+				/* process exists, don't override */
 				return 0;
+			}
 			/* it's us. either we're locking it again, or it's a
 			   stale lock file with same pid than us. either way,
 			   recreate it.. */
@@ -434,6 +436,8 @@ static void dotlock_wait(struct lock_info *lock_info)
 		usleep(LOCK_RANDOM_USLEEP_TIME);
 		return;
 	}
+	/* timeout after a random time even when using notify, since it
+	   doesn't work reliably with e.g. NFS. */
 	to = timeout_add(LOCK_RANDOM_USLEEP_TIME/1000,
 			 dotlock_wait_end, ioloop);
 	io_loop_run(ioloop);
