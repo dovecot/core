@@ -29,6 +29,21 @@ static int sigrt_refcount = 0;
 
 static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void);
 
+static void ioloop_dnotify_disable(struct ioloop_notify_handler_context *ctx)
+{
+	if (ctx->disabled)
+		return;
+
+	if (--sigrt_refcount == 0)
+		signal(SIGRTMIN, SIG_IGN);
+
+	if (close(ctx->event_pipe[0]) < 0)
+		i_error("close(dnotify pipe[0]) failed: %m");
+	if (close(ctx->event_pipe[1]) < 0)
+		i_error("close(dnotify pipe[1]) failed: %m");
+	ctx->disabled = TRUE;
+}
+
 static void sigrt_handler(int signo ATTR_UNUSED, siginfo_t *si,
 			  void *data ATTR_UNUSED)
 {
@@ -37,9 +52,14 @@ static void sigrt_handler(int signo ATTR_UNUSED, siginfo_t *si,
 	int saved_errno = errno;
 	int ret;
 
+	if (ctx->disabled)
+		return;
+
 	ret = write(ctx->event_pipe[1], &si->si_fd, sizeof(int));
-	if (ret < 0 && errno != EINTR && errno != EAGAIN)
-		i_fatal("write(event_pipe) failed: %m");
+	if (ret < 0 && errno != EINTR && errno != EAGAIN) {
+		i_error("write(dnotify pipe) failed: %m");
+		ioloop_dnotify_disable(ctx);
+	}
 
 	i_assert(ret <= 0 || ret == sizeof(int));
 
@@ -55,9 +75,9 @@ static void dnotify_input(struct ioloop *ioloop)
 
 	ret = read(ctx->event_pipe[0], fd_buf, sizeof(fd_buf));
 	if (ret < 0)
-		i_fatal("read(event_pipe) failed: %m");
+		i_fatal("read(dnotify pipe) failed: %m");
 	if ((ret % sizeof(fd_buf[0])) != 0)
-		i_fatal("read(event_pipe) returned %d", ret);
+		i_fatal("read(dnotify pipe) returned %d", ret);
 	ret /= sizeof(fd_buf[0]);
 
 	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
@@ -77,7 +97,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 {
 	struct ioloop_notify_handler_context *ctx =
 		current_ioloop->notify_handler_context;
-	int fd, ret;
+	int fd;
 
 	*io_r = NULL;
 
@@ -99,7 +119,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 		/* EINVAL means there's no realtime signals and no dnotify */
 		if (errno != EINVAL)
 			i_error("fcntl(F_SETSIG) failed: %m");
-		ctx->disabled = TRUE;
+		ioloop_dnotify_disable(ctx);
 		(void)close(fd);
 		return IO_NOTIFY_NOSUPPORT;
 	}
@@ -112,7 +132,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 			/* dnotify not in kernel. disable it. */
 			if (errno != EINVAL)
 				i_error("fcntl(F_NOTIFY) failed: %m");
-			ctx->disabled = TRUE;
+			ioloop_dnotify_disable(ctx);
 		}
 		(void)fcntl(fd, F_SETSIG, 0);
 		(void)close(fd);
@@ -179,7 +199,7 @@ static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void)
 			if (errno == EINVAL) {
 				/* kernel is too old to understand even RT
 				   signals, so there's no way dnotify works */
-				ctx->disabled = TRUE;
+				ioloop_dnotify_disable(ctx);
 			} else {
 				i_fatal("sigaction(SIGRTMIN) failed: %m");
 			}
@@ -193,14 +213,7 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 
-	if (--sigrt_refcount == 0)
-		signal(SIGRTMIN, SIG_IGN);
-
-	if (close(ctx->event_pipe[0]) < 0)
-		i_error("close(event_pipe[0]) failed: %m");
-	if (close(ctx->event_pipe[1]) < 0)
-		i_error("close(event_pipe[1]) failed: %m");
-
+	ioloop_dnotify_disable(ctx);
 	i_free(ctx);
 }
 
