@@ -140,14 +140,14 @@ static void zlib_mail_storage_created(struct mail_storage *storage)
 {
 	union mail_storage_module_context *qstorage;
 
-	if (zlib_next_hook_mail_storage_created != NULL)
-		zlib_next_hook_mail_storage_created(storage);
-
 	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
 	qstorage->super = storage->v;
 	storage->v.mailbox_open = zlib_mailbox_open;
 
 	MODULE_CONTEXT_SET_SELF(storage, zlib_storage_module, qstorage);
+
+	if (zlib_next_hook_mail_storage_created != NULL)
+		zlib_next_hook_mail_storage_created(storage);
 }
 
 void zlib_plugin_init(void)

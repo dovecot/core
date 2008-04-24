@@ -472,20 +472,13 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	return 0;
 }
 
-static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
+static void lazy_expunge_mail_storage_init(struct mail_storage *storage)
 {
 	struct lazy_expunge_mailbox_list *llist =
 		LAZY_EXPUNGE_LIST_CONTEXT(storage->list);
 	struct lazy_expunge_mail_storage *lstorage;
 	const char *const *p;
 	unsigned int i;
-
-	if (lazy_expunge_next_hook_mail_storage_created != NULL)
-		lazy_expunge_next_hook_mail_storage_created(storage);
-
-	/* only maildir supported for now */
-	if (strcmp(storage->name, "maildir") != 0)
-		return;
 
 	/* if this is one of our internal storages, mark it as such before
 	   quota plugin sees it */
@@ -504,6 +497,16 @@ static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
 	storage->v.mailbox_open = lazy_expunge_mailbox_open;
 
 	MODULE_CONTEXT_SET(storage, lazy_expunge_mail_storage_module, lstorage);
+}
+
+static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
+{
+	/* only maildir supported for now */
+	if (strcmp(storage->name, "maildir") == 0)
+		lazy_expunge_mail_storage_init(storage);
+
+	if (lazy_expunge_next_hook_mail_storage_created != NULL)
+		lazy_expunge_next_hook_mail_storage_created(storage);
 }
 
 static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)

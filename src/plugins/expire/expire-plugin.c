@@ -271,15 +271,15 @@ static void expire_mail_storage_created(struct mail_storage *storage)
 {
 	union mail_storage_module_context *xpr_storage;
 
-	if (expire.next_hook_mail_storage_created != NULL)
-		expire.next_hook_mail_storage_created(storage);
-
 	xpr_storage =
 		p_new(storage->pool, union mail_storage_module_context, 1);
 	xpr_storage->super = storage->v;
 	storage->v.mailbox_open = expire_mailbox_open;
 
 	MODULE_CONTEXT_SET_SELF(storage, expire_storage_module, xpr_storage);
+
+	if (expire.next_hook_mail_storage_created != NULL)
+		expire.next_hook_mail_storage_created(storage);
 }
 
 void expire_plugin_init(void)

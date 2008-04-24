@@ -659,17 +659,9 @@ static int fts_transaction_commit(struct mailbox_transaction_context *t,
 	return ret;
 }
 
-void fts_mailbox_opened(struct mailbox *box)
+static void fts_mailbox_init(struct mailbox *box, const char *env)
 {
 	struct fts_mailbox *fbox;
-	const char *env;
-
-	if (fts_next_hook_mailbox_opened != NULL)
-		fts_next_hook_mailbox_opened(box);
-
-	env = getenv("FTS");
-	if (env == NULL)
-		return;
 
 	fbox = i_new(struct fts_mailbox, 1);
 	fbox->env = env;
@@ -685,4 +677,16 @@ void fts_mailbox_opened(struct mailbox *box)
 	box->v.transaction_commit = fts_transaction_commit;
 
 	MODULE_CONTEXT_SET(box, fts_storage_module, fbox);
+}
+
+void fts_mailbox_opened(struct mailbox *box)
+{
+	const char *env;
+
+	env = getenv("FTS");
+	if (env != NULL)
+		fts_mailbox_init(box, env);
+
+	if (fts_next_hook_mailbox_opened != NULL)
+		fts_next_hook_mailbox_opened(box);
 }

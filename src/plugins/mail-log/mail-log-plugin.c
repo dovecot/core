@@ -499,22 +499,19 @@ static void mail_log_mail_storage_created(struct mail_storage *storage)
 {
 	union mail_storage_module_context *lstorage;
 
-	if (mail_log_next_hook_mail_storage_created != NULL)
-		mail_log_next_hook_mail_storage_created(storage);
-
 	lstorage = p_new(storage->pool, union mail_storage_module_context, 1);
 	lstorage->super = storage->v;
 	storage->v.mailbox_open = mail_log_mailbox_open;
 
 	MODULE_CONTEXT_SET_SELF(storage, mail_log_storage_module, lstorage);
+
+	if (mail_log_next_hook_mail_storage_created != NULL)
+		mail_log_next_hook_mail_storage_created(storage);
 }
 
 static void mail_log_mailbox_list_created(struct mailbox_list *list)
 {
 	union mailbox_list_module_context *llist;
-
-	if (mail_log_next_hook_mailbox_list_created != NULL)
-		mail_log_next_hook_mailbox_list_created(list);
 
 	llist = p_new(list->pool, union mailbox_list_module_context, 1);
 	llist->super = list->v;
@@ -522,6 +519,9 @@ static void mail_log_mailbox_list_created(struct mailbox_list *list)
 	list->v.rename_mailbox = mail_log_mailbox_list_rename;
 
 	MODULE_CONTEXT_SET_SELF(list, mail_log_mailbox_list_module, llist);
+
+	if (mail_log_next_hook_mailbox_list_created != NULL)
+		mail_log_next_hook_mailbox_list_created(list);
 }
 
 static enum mail_log_field mail_log_parse_fields(const char *str)

@@ -160,9 +160,6 @@ void acl_mail_storage_created(struct mail_storage *storage)
 	struct acl_mail_storage *astorage;
 	struct acl_backend *backend;
 
-	if (acl_next_hook_mail_storage_created != NULL)
-		acl_next_hook_mail_storage_created(storage);
-
 	astorage = p_new(storage->pool, struct acl_mail_storage, 1);
 	astorage->module_ctx.super = storage->v;
 	storage->v.destroy = acl_storage_destroy;
@@ -173,5 +170,8 @@ void acl_mail_storage_created(struct mail_storage *storage)
 	acl_storage_rights_ctx_init(&astorage->rights, backend);
 
 	MODULE_CONTEXT_SET(storage, acl_storage_module, astorage);
+
+	if (acl_next_hook_mail_storage_created != NULL)
+		acl_next_hook_mail_storage_created(storage);
 }
 

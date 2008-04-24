@@ -387,9 +387,6 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	const char *acl_env, *current_username, *owner_username;
 	bool owner = TRUE;
 
-	if (acl_next_hook_mailbox_list_created != NULL)
-		acl_next_hook_mailbox_list_created(list);
-
 	acl_env = getenv("ACL");
 	i_assert(acl_env != NULL);
 
@@ -437,4 +434,7 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	acl_storage_rights_ctx_init(&alist->rights, backend);
 
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
+
+	if (acl_next_hook_mailbox_list_created != NULL)
+		acl_next_hook_mailbox_list_created(list);
 }

@@ -454,9 +454,6 @@ void quota_mail_storage_created(struct mail_storage *storage)
 	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(storage->list);
 	union mail_storage_module_context *qstorage;
 
-	if (quota_next_hook_mail_storage_created != NULL)
-		quota_next_hook_mail_storage_created(storage);
-
 	qlist->storage = storage;
 
 	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
@@ -471,18 +468,21 @@ void quota_mail_storage_created(struct mail_storage *storage)
 		/* register to user's quota roots */
 		quota_add_user_storage(quota_set, storage);
 	}
+
+	if (quota_next_hook_mail_storage_created != NULL)
+		quota_next_hook_mail_storage_created(storage);
 }
 
 void quota_mailbox_list_created(struct mailbox_list *list)
 {
 	struct quota_mailbox_list *qlist;
 
-	if (quota_next_hook_mailbox_list_created != NULL)
-		quota_next_hook_mailbox_list_created(list);
-
 	qlist = p_new(list->pool, struct quota_mailbox_list, 1);
 	qlist->module_ctx.super = list->v;
 	list->v.delete_mailbox = quota_mailbox_list_delete;
 
 	MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
+
+	if (quota_next_hook_mailbox_list_created != NULL)
+		quota_next_hook_mailbox_list_created(list);
 }
