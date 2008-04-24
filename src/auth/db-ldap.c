@@ -979,8 +979,15 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 	ctx->attr_map = attr_map;
 
 	static_data = hash_lookup(attr_map, "");
-	if (static_data != NULL)
-		ctx->static_attrs = t_strsplit(static_data, ",");
+	if (static_data != NULL) {
+		const struct var_expand_table *table;
+		string_t *str;
+
+		table = auth_request_get_var_expand_table(auth_request, NULL);
+		str = t_str_new(256);
+		var_expand(str, static_data, table);
+		ctx->static_attrs = t_strsplit(str_c(str), ",");
+	}
 
 	if (auth_request->auth->verbose_debug)
 		ctx->debug = t_str_new(256);
