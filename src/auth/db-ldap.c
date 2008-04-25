@@ -1103,6 +1103,9 @@ static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
 			ctx->name = t_strdup_until(*ctx->static_attrs, p);
 			ctx->value = p + 1;
 		}
+		/* make _next_all() return correct values */
+		ctx->template = "";
+		ctx->val_1_arr[0] = ctx->value;
 		ctx->static_attrs++;
 		return TRUE;
 	}
