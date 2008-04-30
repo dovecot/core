@@ -126,7 +126,7 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 		SIZEOF_POOLBLOCK;
 
 #ifdef DEBUG
-	min_alloc += MEM_ALIGN(strlen(name) + 1);
+	min_alloc += MEM_ALIGN(strlen(name) + 1 + SENTRY_COUNT);
 #endif
 
 	/* create a fake alloconly_pool so we can call block_alloc() */
