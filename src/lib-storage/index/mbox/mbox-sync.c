@@ -1410,8 +1410,8 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			&sync_size, sizeof(sync_size), TRUE);
 	}
 
-	first_recent_uid = !sync_ctx->mbox->ibox.keep_recent ? 0 :
-		sync_ctx->last_nonrecent_uid + 1;
+	first_recent_uid = !sync_ctx->mbox->ibox.keep_recent ?
+		sync_ctx->next_uid : sync_ctx->last_nonrecent_uid + 1;
 	if (sync_ctx->hdr->first_recent_uid < first_recent_uid) {
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, first_recent_uid),
