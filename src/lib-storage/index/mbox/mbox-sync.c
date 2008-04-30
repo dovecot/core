@@ -1715,7 +1715,7 @@ again:
 	sync_ctx.sync_view = sync_view;
 	sync_ctx.t = trans;
 	sync_ctx.mail_keyword_pool =
-		pool_alloconly_create("mbox keywords", 256);
+		pool_alloconly_create("mbox keywords", 512);
 	sync_ctx.saved_keywords_pool =
 		pool_alloconly_create("mbox saved keywords", 4096);
 
