@@ -112,12 +112,13 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 			mailbox_list_iter_update(&ctx->ctx, ctx->tree,
 						 glob, FALSE, TRUE, name);
 		}
+		acl_backend_nonowner_lookups_iter_deinit(&nonowner_list_ctx);
+
 		if (ret == 0)
 			break;
 
 		/* try again */
 		mailbox_tree_deinit(&ctx->tree);
-		acl_backend_nonowner_lookups_iter_deinit(&nonowner_list_ctx);
 	}
 	if (ret < 0)
 		return FALSE;
@@ -246,6 +247,8 @@ acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	}
 	if (ctx->tree_iter != NULL)
 		mailbox_tree_iterate_deinit(&ctx->tree_iter);
+	if (ctx->tree != NULL)
+		mailbox_tree_deinit(&ctx->tree);
 
 	i_free(ctx);
 	return ret;

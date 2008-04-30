@@ -94,9 +94,16 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 	return 0;
 }
 
-static void acl_backend_vfile_deinit(struct acl_backend *backend)
+static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 {
-	pool_unref(&backend->pool);
+	struct acl_backend_vfile *backend =
+		(struct acl_backend_vfile *)_backend;
+
+	if (backend->acllist_pool != NULL) {
+		array_free(&backend->acllist);
+		pool_unref(&backend->acllist_pool);
+	}
+	pool_unref(&backend->backend.pool);
 }
 
 static struct acl_object *
