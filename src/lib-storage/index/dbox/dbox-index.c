@@ -346,6 +346,7 @@ dbox_index_lock_range(struct dbox_index *index, int cmd, int lock_type,
 		      off_t start, off_t len)
 {
 	struct flock fl;
+	const char *errstr;
 
 	fl.l_type = lock_type;
 	fl.l_whence = SEEK_SET;
@@ -355,9 +356,12 @@ dbox_index_lock_range(struct dbox_index *index, int cmd, int lock_type,
 		if ((errno == EACCES || errno == EAGAIN || errno == EINTR) &&
 		    cmd == F_SETLK)
 			return 0;
+
+		errstr = errno != EACCES ? strerror(errno) :
+			"File is locked by another process (EACCES)";
 		mail_storage_set_critical(index->mbox->ibox.box.storage,
-			"fcntl(%s, %s) failed: %m", index->path,
-			lock_type == F_UNLCK ? "F_UNLCK" : "F_WRLCK");
+			"fcntl(%s, %s) failed: %s", index->path,
+			lock_type == F_UNLCK ? "F_UNLCK" : "F_WRLCK", errstr);
 		return -1;
 	}
 	return 1;
