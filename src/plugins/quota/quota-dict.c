@@ -78,7 +78,7 @@ dict_quota_count(struct dict_quota_root *root,
 	struct dict_transaction_context *dt;
 	uint64_t bytes, count;
 
-	if (quota_count(root->root.quota, &bytes, &count) < 0)
+	if (quota_count(&root->root, &bytes, &count) < 0)
 		return -1;
 
 	T_BEGIN {

@@ -36,6 +36,7 @@ struct maildir_quota_root {
 
 struct maildir_list_context {
 	struct mail_storage *storage;
+	struct maildir_quota_root *root;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
 
@@ -121,12 +122,14 @@ static int maildir_sum_dir(const char *dir, uint64_t *total_bytes,
 }
 
 static struct maildir_list_context *
-maildir_list_init(struct mail_storage *storage)
+maildir_list_init(struct maildir_quota_root *root,
+		  struct mail_storage *storage)
 {
 	struct maildir_list_context *ctx;
 
 	ctx = i_new(struct maildir_list_context, 1);
 	ctx->storage = storage;
+	ctx->root = root;
 	ctx->path = str_new(default_pool, 512);
 	ctx->iter = mailbox_list_iter_init(mail_storage_get_list(storage), "*",
 					   MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
@@ -136,6 +139,7 @@ maildir_list_init(struct mail_storage *storage)
 static const char *
 maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 {
+	struct quota_rule *rule;
 	struct stat st;
 	bool is_file;
 
@@ -144,6 +148,13 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 			ctx->info = mailbox_list_iter_next(ctx->iter);
 			if (ctx->info == NULL)
 				return NULL;
+
+			rule = quota_root_rule_find(&ctx->root->root,
+						    ctx->info->name);
+			if (rule != NULL && rule->ignore) {
+				/* mailbox not included in quota */
+				continue;
+			}
 		}
 
 		T_BEGIN {
@@ -185,13 +196,14 @@ static int maildir_list_deinit(struct maildir_list_context *ctx)
 }
 
 static int
-maildirs_check_have_changed(struct mail_storage *storage, time_t latest_mtime)
+maildirs_check_have_changed(struct maildir_quota_root *root,
+			    struct mail_storage *storage, time_t latest_mtime)
 {
 	struct maildir_list_context *ctx;
 	time_t mtime;
 	int ret = 0;
 
-	ctx = maildir_list_init(storage);
+	ctx = maildir_list_init(root, storage);
 	while (maildir_list_next(ctx, &mtime) != NULL) {
 		if (mtime > latest_mtime) {
 			ret = 1;
@@ -270,7 +282,7 @@ static int maildirsize_recalculate_storage(struct maildir_quota_root *root,
 	time_t mtime;
 	int ret = 0;
 
-	ctx = maildir_list_init(storage);
+	ctx = maildir_list_init(root, storage);
 	while ((dir = maildir_list_next(ctx, &mtime)) != NULL) {
 		if (mtime > root->recalc_last_stamp)
 			root->recalc_last_stamp = mtime;
@@ -332,7 +344,7 @@ static int maildirsize_recalculate(struct maildir_quota_root *root)
 	if (ret == 0) {
 		/* check if any of the directories have changed */
 		for (i = 0; i < count; i++) {
-			ret = maildirs_check_have_changed(storages[i],
+			ret = maildirs_check_have_changed(root, storages[i],
 						root->recalc_last_stamp);
 			if (ret != 0)
 				break;

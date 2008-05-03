@@ -176,7 +176,7 @@ void quota_root_deinit(struct quota_root **_root)
 	pool_unref(&pool);
 }
 
-static struct quota_rule *
+struct quota_rule *
 quota_root_rule_find(struct quota_root *root, const char *name)
 {
 	struct quota_rule *rules;
@@ -353,6 +353,15 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 		}
 	}
 
+	if (strcmp(p, "ignore") == 0) {
+		rule->ignore = TRUE;
+		if (root->quota->debug) {
+			i_info("Quota rule: root=%s mailbox=%s ignored",
+			       root->name, mailbox_name);
+		}
+		return 0;
+	}
+
 	if (strncmp(p, "backend=", 8) == 0) {
 		if (!root->backend.v.parse_rule(root, rule, p + 8, error_r))
 			ret = -1;
@@ -368,7 +377,7 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 	if (root->quota->debug) {
 		i_info("Quota rule: root=%s mailbox=%s "
 		       "bytes=%lld (%u%%) messages=%lld (%u%%)", root->name,
-		       rule->mailbox_name != NULL ? rule->mailbox_name : "",
+		       mailbox_name,
 		       (long long)rule->bytes_limit, rule->bytes_percent,
 		       (long long)rule->count_limit, rule->count_percent);
 	}
@@ -393,8 +402,13 @@ static bool quota_root_get_rule_limits(struct quota_root *root,
 
 	rule = quota_root_rule_find(root, mailbox_name);
 	if (rule != NULL) {
-		bytes_limit += rule->bytes_limit;
-		count_limit += rule->count_limit;
+		if (!rule->ignore) {
+			bytes_limit += rule->bytes_limit;
+			count_limit += rule->count_limit;
+		} else {
+			bytes_limit = 0;
+			count_limit = 0;
+		}
 		found = TRUE;
 	}
 
@@ -724,8 +738,10 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 int quota_transaction_commit(struct quota_transaction_context **_ctx)
 {
 	struct quota_transaction_context *ctx = *_ctx;
+	struct quota_rule *rule;
 	struct quota_root *const *roots;
 	unsigned int i, count;
+	const char *mailbox_name;
 	int ret = 0;
 
 	*_ctx = NULL;
@@ -734,8 +750,15 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		ret = -1;
 	else if (ctx->bytes_used != 0 || ctx->count_used != 0 ||
 		 ctx->recalculate) {
+		mailbox_name = mailbox_get_name(ctx->box);
 		roots = array_get(&ctx->quota->roots, &count);
 		for (i = 0; i < count; i++) {
+			rule = quota_root_rule_find(roots[i], mailbox_name);
+			if (rule != NULL && rule->ignore) {
+				/* mailbox not included in quota */
+				continue;
+			}
+
 			if (roots[i]->backend.v.update(roots[i], ctx) < 0)
 				ret = -1;
 		}

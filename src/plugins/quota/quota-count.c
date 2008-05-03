@@ -6,9 +6,11 @@
 #include "mail-storage.h"
 #include "quota-private.h"
 
-static int quota_count_mailbox(struct mail_storage *storage, const char *name,
-			       uint64_t *bytes_r, uint64_t *count_r)
+static int
+quota_count_mailbox(struct quota_root *root, struct mail_storage *storage,
+		    const char *name, uint64_t *bytes_r, uint64_t *count_r)
 {
+	struct quota_rule *rule;
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *ctx;
@@ -16,6 +18,12 @@ static int quota_count_mailbox(struct mail_storage *storage, const char *name,
 	struct mail_search_arg search_arg;
 	uoff_t size;
 	int ret = 0;
+
+	rule = quota_root_rule_find(root, name);
+	if (rule != NULL && rule->ignore) {
+		/* mailbox not included in quota */
+		return 0;
+	}
 
 	box = mailbox_open(storage, name, NULL,
 			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
@@ -51,8 +59,9 @@ static int quota_count_mailbox(struct mail_storage *storage, const char *name,
 	return ret;
 }
 
-static int quota_count_storage(struct mail_storage *storage,
-			       uint64_t *bytes, uint64_t *count)
+static int
+quota_count_storage(struct quota_root *root, struct mail_storage *storage,
+		    uint64_t *bytes, uint64_t *count)
 {
 	struct mailbox_list_iterate_context *ctx;
 	const struct mailbox_info *info;
@@ -63,7 +72,7 @@ static int quota_count_storage(struct mail_storage *storage,
 	while ((info = mailbox_list_iter_next(ctx)) != NULL) {
 		if ((info->flags & (MAILBOX_NONEXISTENT |
 				    MAILBOX_NOSELECT)) == 0) {
-			ret = quota_count_mailbox(storage, info->name,
+			ret = quota_count_mailbox(root, storage, info->name,
 						  bytes, count);
 			if (ret < 0)
 				break;
@@ -75,7 +84,7 @@ static int quota_count_storage(struct mail_storage *storage,
 	return ret;
 }
 
-int quota_count(struct quota *quota, uint64_t *bytes_r, uint64_t *count_r)
+int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 {
 	struct mail_storage *const *storages;
 	unsigned int i, count;
@@ -83,9 +92,9 @@ int quota_count(struct quota *quota, uint64_t *bytes_r, uint64_t *count_r)
 
 	*bytes_r = *count_r = 0;
 
-	storages = array_get(&quota->storages, &count);
+	storages = array_get(&root->quota->storages, &count);
 	for (i = 0; i < count; i++) {
-		ret = quota_count_storage(storages[i], bytes_r, count_r);
+		ret = quota_count_storage(root, storages[i], bytes_r, count_r);
 		if (ret < 0)
 			break;
 	}
