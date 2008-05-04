@@ -1,3 +1,25 @@
+v1.1.rc5 2008-05-05  Timo Sirainen <tss@iki.fi>
+
+	+ Support cross-realm Kerberos 5 authentication. Based on patch by
+	  Zachary Kotlarek.
+	+ Added dict_db_config setting to point to a Berkeley DB config file.
+	+ If mail_chroot ends with "/.", remove chroot prefix from home
+	  directory.
+	- Fixed several bugs and memory leaks in ACL plugin. LIST and LSUB
+	  may have listed mailboxes where user had no 'l' access. STORE could
+	  have been used to update any flags without appropriate access.
+	- mbox: Valid-looking From_-lines in message bodies caused the message
+	  to be split to two messages (broken since v1.0).
+	- Plugin initialization hooks were called in wrong order, possibly
+	  causing problems when multiple plugins were used at the same time.
+	- Expire plugin was broken
+	- LIST-EXTENDED options were ignored.
+	- LDAP: Static attribute names weren't working correctly
+	- deliver: mail_uid and mail_gid settings weren't used.
+	- pop3 + maildir++ quota: maildirsize file wasn't created if it 
+	  didn't exist already.
+	- dnotify: Waiting for dotlock to be deleted used 100% CPU
+
 v1.1.rc4 2008-04-01  Timo Sirainen <tss@iki.fi>
 
 	* Fixed two buffer overflows in str_find_init(). It was used by

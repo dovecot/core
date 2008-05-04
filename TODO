@@ -1,3 +1,5 @@
+ - zlib plugin + maildir hard link copying is broken
+ - sieve-cmu.c crash: i_assert(buf->used - 1 == part->body_size.physical_size);
  - index: clear recent flags created by v1.0 at some point so the bit may be
    reused for something useful later.
  - mbox: mail_privileged_group should be used when creating INBOX?..
@@ -8,9 +10,9 @@
    again tries to write-lock and do the conversion. Add a parameter that
    specifies if conversion should be done.
  - dbox:
+    - u.* files don't really need to have the UID written inside the file
     - "File unexpectedly lost" doesn't get fixed by itself
     - doesn't call fsync
- - do something about From_-lines splitting mails with mboxes
  - lucene: handle replacement chars?
  - squat:
    - wrong indexid
@@ -30,6 +32,8 @@
    - auth_gssapi_hostname = %Xl
    - proxying would also want DNS lookups, but not reverse..
  - ldap domain lookups which set the base for user lookup
+ - ldap: same attribute can't be used for multiple values.
+ - ldap: multiple attributes can't be merged to a single value.
 
  - maildir+pop3/deliver fast updates:
    - with locking enabled, pop3 could just keep the one and same sync lock and
