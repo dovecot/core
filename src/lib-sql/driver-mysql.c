@@ -534,10 +534,11 @@ driver_mysql_result_get_field_value(struct sql_result *_result,
 }
 
 static const unsigned char *
-driver_mysql_result_get_field_value_binary(struct sql_result *_result,
-					   unsigned int idx, size_t *size_r)
+driver_mysql_result_get_field_value_binary(struct sql_result *_result ATTR_UNUSED,
+					   unsigned int idx ATTR_UNUSED,
+					   size_t *size_r ATTR_UNUSED)
 {
-	// FIXME
+	/* FIXME */
 	return NULL;
 }
 

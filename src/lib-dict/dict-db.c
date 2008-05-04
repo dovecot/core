@@ -406,8 +406,9 @@ static void db_dict_unset(struct dict_transaction_context *_ctx,
 	dict->pdb->del(dict->pdb, ctx->tid, &dkey, 0);
 }
 
-static void db_dict_atomic_inc(struct dict_transaction_context *_ctx,
-			       const char *key, long long diff)
+static void
+db_dict_atomic_inc(struct dict_transaction_context *_ctx ATTR_UNUSED,
+		   const char *key ATTR_UNUSED, long long diff ATTR_UNUSED)
 {
 	/* FIXME */
 }

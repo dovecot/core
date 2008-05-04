@@ -225,8 +225,9 @@ dbox_sync_index_uid_file(struct dbox_sync_rebuild_context *ctx,
 }
 
 static int
-dbox_sync_index_multi_file(struct dbox_sync_rebuild_context *ctx,
-			   const char *dir, const char *fname)
+dbox_sync_index_multi_file(struct dbox_sync_rebuild_context *ctx ATTR_UNUSED,
+			   const char *dir ATTR_UNUSED,
+			   const char *fname ATTR_UNUSED)
 {
 	/* FIXME */
 	return 0;
