@@ -535,7 +535,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	uid_t uid;
 	gid_t gid;
 	ARRAY_DEFINE(extra_args, const char *);
-	unsigned int i, count, left, process_count, throttle;
+	unsigned int i, len, count, left, process_count, throttle;
 	int ret, log_fd, nice, chdir_errno;
 	bool home_given, nfs_check;
 
@@ -638,6 +638,12 @@ create_mail_process(enum process_type process_type, struct settings *set,
 			chroot_dir, user);
 		return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	}
+	len = strlen(chroot_dir);
+	if (len > 2 && strcmp(chroot_dir + len - 2, "/.") == 0 &&
+	    strncmp(home_dir, chroot_dir, len - 2) == 0) {
+		/* strip chroot dir from home dir */
+		home_dir += len - 2;
+	}
 
 	if (!dump_capability) {
 		throttle = set->mail_debug ? 0 :
@@ -736,7 +742,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	if (dump_capability)
 		env_put("DUMP_CAPABILITY=1");
 
-	if (*home_dir == '\0') {
+	if (*home_dir == '\0' && *chroot_dir == '\0') {
 		full_home_dir = "";
 		ret = -1;
 	} else {
