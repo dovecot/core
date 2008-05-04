@@ -474,38 +474,36 @@ static void node_fix_parents(struct mailbox_node *node)
 }
 
 static void
-mailbox_list_iter_update_real(struct mailbox_list_iterate_context *ctx,
-			      struct mailbox_tree_context *tree_ctx,
-			      struct imap_match_glob *glob, bool update_only,
-			      bool match_parents, const char *name)
+mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
+			      const char *name)
 {
-	struct mail_namespace *ns = ctx->list->ns;
+	struct mail_namespace *ns = ctx->iter_ctx->list->ns;
 	struct mailbox_node *node;
-	enum mailbox_info_flags create_flags, always_flags;
+	enum mailbox_info_flags create_flags = 0, always_flags;
 	enum imap_match_result match;
 	const char *p;
 	bool created, add_matched;
 
-	create_flags = (update_only ||
-			(ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0) ?
-		(MAILBOX_NONEXISTENT | MAILBOX_NOCHILDREN) : 0;
-	always_flags = MAILBOX_SUBSCRIBED;
+	if (ctx->update_only ||
+	    (ctx->iter_ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0)
+		create_flags = MAILBOX_NONEXISTENT | MAILBOX_NOCHILDREN;
+	always_flags = ctx->leaf_flags;
 	add_matched = TRUE;
 
 	for (;;) {
 		created = FALSE;
-		match = imap_match(glob, name);
+		match = imap_match(ctx->glob, name);
 		if (match == IMAP_MATCH_YES) {
-			node = update_only ?
-				mailbox_tree_lookup(tree_ctx, name) :
-				mailbox_tree_get(tree_ctx, name, &created);
+			node = ctx->update_only ?
+				mailbox_tree_lookup(ctx->tree_ctx, name) :
+				mailbox_tree_get(ctx->tree_ctx, name, &created);
 			if (created) {
 				node->flags = create_flags;
 				if (create_flags != 0)
 					node_fix_parents(node);
 			}
 			if (node != NULL) {
-				if (!update_only && add_matched)
+				if (!ctx->update_only && add_matched)
 					node->flags |= MAILBOX_MATCHED;
 				node->flags |= always_flags;
 			}
@@ -521,7 +519,7 @@ mailbox_list_iter_update_real(struct mailbox_list_iterate_context *ctx,
 			   return the parent mailbox. */
 		}
 
-		if (!match_parents)
+		if (!ctx->match_parents)
 			break;
 
 		/* see if parent matches */
@@ -531,18 +529,15 @@ mailbox_list_iter_update_real(struct mailbox_list_iterate_context *ctx,
 
 		name = t_strdup_until(name, p);
 		create_flags &= ~MAILBOX_NOCHILDREN;
-		always_flags = MAILBOX_CHILDREN | MAILBOX_CHILD_SUBSCRIBED;
+		always_flags = MAILBOX_CHILDREN | ctx->parent_flags;
 	}
 }
 
-void mailbox_list_iter_update(struct mailbox_list_iterate_context *ctx,
-			      struct mailbox_tree_context *tree_ctx,
-			      struct imap_match_glob *glob, bool update_only,
-			      bool match_parents, const char *name)
+void mailbox_list_iter_update(struct mailbox_list_iter_update_context *ctx,
+			      const char *name)
 {
 	T_BEGIN {
-		mailbox_list_iter_update_real(ctx, tree_ctx, glob, update_only,
-					      match_parents, name);
+		mailbox_list_iter_update_real(ctx, name);
 	} T_END;
 }
 
