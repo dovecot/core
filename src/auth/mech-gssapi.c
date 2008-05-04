@@ -322,9 +322,12 @@ static bool gssapi_krb5_userok(struct gssapi_auth_request *request)
 	}
 	krb5_err = krb5_parse_name(ctx, princ_display_name, &princ);
 	if (krb5_err != 0) {
+		/* writing the error string would be better, but we probably
+		   rarely get here and there doesn't seem to be a standard
+		   way of getting it */
 		auth_request_log_error(&request->auth_request, "gssapi",
-				       "krb5_parse_name() failed: %s",
-				       krb5_get_error_message(ctx, krb5_err));
+				       "krb5_parse_name() failed: %d",
+				       (int)krb5_err);
 	} else {
 		/* See if the principal is authorized to act as the
 		   specified user */
