@@ -300,7 +300,6 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		   cached next_offset? */
 		i_error("Next message unexpectedly lost from %"PRIuUOFF_T,
 			rstream->hdr_offset + rstream->mail_size);
-		sleep(3600);
 		rstream->eof = TRUE;
 		rstream->corrupted = TRUE;
 		return -1;
