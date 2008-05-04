@@ -806,6 +806,8 @@ void ssl_proxy_deinit(void)
 
 	ssl_free_parameters(&ssl_params);
 	SSL_CTX_free(ssl_ctx);
+	EVP_cleanup();
+	ERR_free_strings();
 }
 
 #endif
