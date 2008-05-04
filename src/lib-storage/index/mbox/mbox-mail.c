@@ -170,26 +170,41 @@ static bool
 mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
-	struct mail *_mail = &mail->mail.mail;
+	struct mail_index_view *view;
 	const struct mail_index_header *hdr;
+	uint32_t seq;
+	int trailer_size;
+	bool ret;
 
 	hdr = mail_index_get_header(mail->trans->trans_view);
-	if (_mail->seq >= hdr->messages_count) {
-		if (_mail->seq != hdr->messages_count) {
-			/* we're appending a new message */
-			return FALSE;
-		}
+	if (mail->mail.mail.seq > hdr->messages_count) {
+		/* we're appending a new message */
+		return FALSE;
+	}
 
+	/* We can't really trust trans_view. The next message may already be
+	   expugned from it. hdr.sync_size may also be updated, but
+	   hdr.messages_count not. So refresh the index to get the latest
+	   changes and get the next message's offset using a new view. */
+	(void)mail_index_refresh(mail->ibox->index);
+
+	view = mail_index_view_open(mail->ibox->index);
+	hdr = mail_index_get_header(view);
+	if (!mail_index_lookup_seq(view, mail->mail.mail.uid, &seq))
+		i_panic("Message unexpectedly expunged from index");
+
+	if (seq == hdr->messages_count) {
 		/* last message, use the synced mbox size */
-		int trailer_size;
-
 		trailer_size = (mbox->storage->storage.flags &
 				MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ? 2 : 1;
 		*next_offset_r = hdr->sync_size - trailer_size;
-		return TRUE;
+		ret = TRUE;
+	} else {
+		ret = mbox_file_lookup_offset(mbox, view, seq + 1,
+					      next_offset_r) > 0;
 	}
-	return mbox_file_lookup_offset(mbox, mail->trans->trans_view,
-				       _mail->seq + 1, next_offset_r);
+	mail_index_view_close(&view);
+	return ret;
 }
 
 static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
