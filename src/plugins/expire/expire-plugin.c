@@ -129,7 +129,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			   this is the first mail in the database */
 			ret = dict_lookup(expire.db, pool_datastack_create(),
 					  key, &value);
-			update_dict = ret == 0 || strtoul(value, NULL, 10) == 0;
+			update_dict = ret == 0 ||
+				(ret > 0 && strtoul(value, NULL, 10) == 0);
 			/* may not be exactly the first message's save time
 			   but a few second difference doesn't matter */
 			new_stamp = ioloop_time;
@@ -295,6 +296,8 @@ void expire_plugin_init(void)
 
 		expire.env = expire_env_init(expunge_env, altmove_env);
 		expire.db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, NULL);
+		if (expire.db == NULL)
+			i_fatal("expire plugin: dict_init() failed");
 		expire.username = getenv("USER");
 
 		expire.next_hook_mail_storage_created =
