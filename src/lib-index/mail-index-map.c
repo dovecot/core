@@ -25,7 +25,7 @@ static void mail_index_map_init_extbufs(struct mail_index_map *map,
 		size = EXT_GLOBAL_ALLOC_SIZE +
 			initial_count * EXT_PER_ALLOC_SIZE;
 		map->extension_pool =
-			pool_alloconly_create("map extensions",
+			pool_alloconly_create(MEMPOOL_GROWING"map extensions",
 					      nearest_power(size));
 	} else {
 		p_clear(map->extension_pool);

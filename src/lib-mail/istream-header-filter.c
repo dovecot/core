@@ -398,7 +398,8 @@ i_stream_create_header_filter(struct istream *input,
 	i_assert((flags & (HEADER_FILTER_INCLUDE|HEADER_FILTER_EXCLUDE)) != 0);
 
 	mstream = i_new(struct header_filter_istream, 1);
-	mstream->pool = pool_alloconly_create("header filter stream", 4096);
+	mstream->pool = pool_alloconly_create(MEMPOOL_GROWING
+					      "header filter stream", 4096);
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	mstream->headers = headers_count == 0 ? NULL :

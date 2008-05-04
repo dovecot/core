@@ -15,7 +15,7 @@ struct auth_stream_reply *auth_stream_reply_init(pool_t pool)
 	struct auth_stream_reply *reply;
 
 	reply = p_new(pool, struct auth_stream_reply, 1);
-	reply->str = str_new(pool, 256);
+	reply->str = str_new(pool, 128);
 	return reply;
 }
 

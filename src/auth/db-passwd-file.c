@@ -178,7 +178,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 	pw->stamp = st.st_mtime;
 	pw->size = st.st_size;
 
-	pw->pool = pool_alloconly_create("passwd_file", 10240);;
+	pw->pool = pool_alloconly_create(MEMPOOL_GROWING"passwd_file", 10240);
 	pw->users = hash_create(default_pool, pw->pool, 100,
 				str_hash, (hash_cmp_callback_t *)strcmp);
 
