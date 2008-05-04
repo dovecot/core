@@ -166,12 +166,37 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	return index_mail_get_special(_mail, field, value_r);
 }
 
+static bool
+mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
+{
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
+	struct mail *_mail = &mail->mail.mail;
+	const struct mail_index_header *hdr;
+
+	hdr = mail_index_get_header(mail->trans->trans_view);
+	if (_mail->seq >= hdr->messages_count) {
+		if (_mail->seq != hdr->messages_count) {
+			/* we're appending a new message */
+			return FALSE;
+		}
+
+		/* last message, use the synced mbox size */
+		int trailer_size;
+
+		trailer_size = (mbox->storage->storage.flags &
+				MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ? 2 : 1;
+		*next_offset_r = hdr->sync_size - trailer_size;
+		return TRUE;
+	}
+	return mbox_file_lookup_offset(mbox, mail->trans->trans_view,
+				       _mail->seq + 1, next_offset_r);
+}
+
 static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
-	const struct mail_index_header *hdr;
 	struct istream *input;
 	struct message_size hdr_size;
 	uoff_t old_offset, body_offset, body_size, next_offset;
@@ -194,26 +219,10 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 	/* use the next message's offset to avoid reading through the entire
 	   message body to find out its size */
-	hdr = mail_index_get_header(mail->trans->trans_view);
-	if (_mail->seq >= hdr->messages_count) {
-		if (_mail->seq == hdr->messages_count) {
-			/* last message, use the synced mbox size */
-			int trailer_size;
-
-			trailer_size = (mbox->storage->storage.flags &
-					MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
-				2 : 1;
-			body_size = hdr->sync_size - body_offset - trailer_size;
-		} else {
-			/* we're appending a new message */
-			body_size = (uoff_t)-1;
-		}
-	} else if (mbox_file_lookup_offset(mbox, mail->trans->trans_view,
-					   _mail->seq + 1, &next_offset) > 0) {
+	if (mbox_mail_get_next_offset(mail, &next_offset))
 		body_size = next_offset - body_offset;
-	} else {
+	else
 		body_size = (uoff_t)-1;
-	}
 
 	/* verify that the calculated body size is correct */
 	body_size = istream_raw_mbox_get_body_size(mbox->mbox_stream,
@@ -226,31 +235,52 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	return 0;
 }
 
+static int mbox_mail_init_stream(struct index_mail *mail)
+{
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
+	struct istream *raw_stream;
+	uoff_t hdr_offset, next_offset;
+
+	if (mbox_mail_seek(mail) < 0)
+		return -1;
+
+	if (!mbox_mail_get_next_offset(mail, &next_offset)) {
+		if (mbox_mail_seek(mail) < 0)
+			return -1;
+		if (!mbox_mail_get_next_offset(mail, &next_offset)) {
+			i_warning("mbox %s: Can't find next message offset",
+				  mbox->path);
+			next_offset = (uoff_t)-1;
+		}
+	}
+
+	raw_stream = mbox->mbox_stream;
+	hdr_offset = istream_raw_mbox_get_header_offset(raw_stream);
+	i_stream_seek(raw_stream, hdr_offset);
+
+	if (next_offset != (uoff_t)-1)
+		istream_raw_mbox_set_next_offset(raw_stream, next_offset);
+
+	raw_stream = i_stream_create_limit(raw_stream, (uoff_t)-1);
+	mail->data.stream =
+		i_stream_create_header_filter(raw_stream,
+				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
+				mbox_hide_headers, mbox_hide_headers_count,
+				null_header_filter_callback, NULL);
+	i_stream_unref(&raw_stream);
+	return 0;
+}
+
 static int mbox_mail_get_stream(struct mail *_mail,
 				struct message_size *hdr_size,
 				struct message_size *body_size,
 				struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct index_mail_data *data = &mail->data;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
-	struct istream *raw_stream;
-	uoff_t offset;
 
-	if (data->stream == NULL) {
-		if (mbox_mail_seek(mail) < 0)
+	if (mail->data.stream == NULL) {
+		if (mbox_mail_init_stream(mail) < 0)
 			return -1;
-
-		raw_stream = mbox->mbox_stream;
-		offset = istream_raw_mbox_get_header_offset(raw_stream);
-		i_stream_seek(raw_stream, offset);
-		raw_stream = i_stream_create_limit(raw_stream, (uoff_t)-1);
-		data->stream =
-			i_stream_create_header_filter(raw_stream,
-				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
-				mbox_hide_headers, mbox_hide_headers_count,
-				null_header_filter_callback, NULL);
-		i_stream_unref(&raw_stream);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
