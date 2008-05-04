@@ -110,10 +110,6 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 					conn->user);
 				return_value = EX_TEMPFAIL;
 			}
-			if (conn->euid != uid) {
-				env_put(t_strconcat("RESTRICT_SETUID=",
-						    dec2str(uid), NULL));
-			}
 		} else if (strncmp(*tmp, "gid=", 4) == 0) {
 			gid = strtoul(*tmp + 4, NULL, 10);
 
@@ -121,11 +117,6 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 				i_error("userdb(%s) returned 0 as gid",
 					conn->user);
 				return_value = EX_TEMPFAIL;
-			}
-
-			if (conn->euid == 0 || getegid() != gid) {
-				env_put(t_strconcat("RESTRICT_SETGID=",
-						    *tmp + 4, NULL));
 			}
 		} else if (strncmp(*tmp, "chroot=", 7) == 0) {
 			chroot = *tmp + 7;
@@ -139,7 +130,7 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 		}
 	}
 
-	if (uid == 0 && getenv("MAIL_UID")) {
+	if (uid == 0 && getenv("MAIL_UID") != NULL) {
 		if (!parse_uid(getenv("MAIL_UID"), &uid) || uid == 0) {
 			i_error("mail_uid setting is invalid");
 			return_value = EX_TEMPFAIL;
@@ -151,7 +142,7 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 		return_value = EX_TEMPFAIL;
 		return;
 	}
-	if (gid == 0 && getenv("MAIL_GID")) {
+	if (gid == 0 && getenv("MAIL_GID") != NULL) {
 		if (!parse_gid(getenv("MAIL_GID"), &gid) || gid == 0) {
 			i_error("mail_gid setting is invalid");
 			return_value = EX_TEMPFAIL;
@@ -163,6 +154,11 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 		return_value = EX_TEMPFAIL;
 		return;
 	}
+
+	if (conn->euid != uid)
+		env_put(t_strconcat("RESTRICT_SETUID=", dec2str(uid), NULL));
+	if (conn->euid == 0 || getegid() != gid)
+		env_put(t_strconcat("RESTRICT_SETGID=", dec2str(gid), NULL));
 
 	if (chroot != NULL)
 		env_put(t_strconcat("RESTRICT_CHROOT=", chroot, NULL));
