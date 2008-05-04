@@ -71,6 +71,7 @@ static MODULE_CONTEXT_DEFINE_INIT(mbox_mailbox_list_module,
 
 static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
+				     const char *mailbox_name,
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags);
 static int mbox_list_delete_mailbox(struct mailbox_list *list,
@@ -797,6 +798,7 @@ is_inbox_file(struct mailbox_list *list, const char *path, const char *fname)
 
 static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
+				     const char *mailbox_name ATTR_UNUSED,
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags_r)
 {

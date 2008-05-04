@@ -349,7 +349,7 @@ static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
 					   MAILBOX_LIST_PATH_TYPE_DIR);
 	path_split(inbox_path, &dir, &fname);
-	if (ctx->ctx.list->v.iter_is_mailbox(&ctx->ctx, dir, fname,
+	if (ctx->ctx.list->v.iter_is_mailbox(&ctx->ctx, dir, fname, "INBOX",
 					     MAILBOX_LIST_FILE_TYPE_UNKNOWN,
 					     &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
@@ -492,7 +492,7 @@ list_file(struct fs_list_iterate_context *ctx,
 	ctx->info.flags = 0;
 	ret = ctx->ctx.list->v.
 		iter_is_mailbox(&ctx->ctx, ctx->dir->real_path, fname,
-				entry->type, &ctx->info.flags);
+				list_path, entry->type, &ctx->info.flags);
 	if (ret <= 0)
 		return ret;
 
@@ -551,6 +551,7 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 				     MAILBOX_LIST_PATH_TYPE_DIR);
 	path_split(path, &dir, &fname);
 	if (ctx->ctx.list->v.iter_is_mailbox(&ctx->ctx, dir, fname,
+					     ctx->info.name,
 					     MAILBOX_LIST_FILE_TYPE_UNKNOWN,
 					     &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;

@@ -40,6 +40,7 @@ dbox_list_rename_mailbox_pre(struct mailbox_list *list,
 			     const char *oldname, const char *newname);
 static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
+				     const char *mailbox_name,
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags);
 
@@ -306,7 +307,7 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 static int dbox_storage_mailbox_close(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
-	int ret;
+	int ret = 0;
 
 	if (box->opened) {
 		/* see if we want to flush dirty flags */
@@ -581,6 +582,7 @@ static void dbox_notify_changes(struct mailbox *box)
 static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 				      			ATTR_UNUSED,
 				     const char *dir, const char *fname,
+				     const char *mailbox_name ATTR_UNUSED,
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags)
 {

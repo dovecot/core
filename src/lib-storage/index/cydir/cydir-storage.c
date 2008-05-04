@@ -28,6 +28,7 @@ static int
 cydir_list_delete_mailbox(struct mailbox_list *list, const char *name);
 static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				      const char *dir, const char *fname,
+				      const char *mailbox_name,
 				      enum mailbox_list_file_type type,
 				      enum mailbox_info_flags *flags);
 
@@ -335,6 +336,7 @@ static void cydir_notify_changes(struct mailbox *box)
 static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 				      			ATTR_UNUSED,
 				      const char *dir, const char *fname,
+				      const char *mailbox_name ATTR_UNUSED,
 				      enum mailbox_list_file_type type,
 				      enum mailbox_info_flags *flags)
 {

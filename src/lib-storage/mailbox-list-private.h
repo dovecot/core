@@ -41,6 +41,7 @@ struct mailbox_list_vfuncs {
 	   flags may be updated (especially the children flags). */
 	int (*iter_is_mailbox)(struct mailbox_list_iterate_context *ctx,
 			       const char *dir, const char *fname,
+			       const char *mailbox_name,
 			       enum mailbox_list_file_type type,
 			       enum mailbox_info_flags *flags_r);
 

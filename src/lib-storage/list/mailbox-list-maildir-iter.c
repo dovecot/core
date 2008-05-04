@@ -183,6 +183,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		T_BEGIN {
 			ret = ctx->ctx.list->v.
 				iter_is_mailbox(&ctx->ctx, ctx->dir, fname,
+					mailbox_name,
 					mailbox_list_get_file_type(d), &flags);
 		} T_END;
 		if (ret <= 0) {
@@ -251,7 +252,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		   imap_match(glob, "INBOX") == IMAP_MATCH_YES) {
 		/* see if INBOX exists. */
 		ret = ctx->ctx.list->v.
-			iter_is_mailbox(&ctx->ctx, ctx->dir, "",
+			iter_is_mailbox(&ctx->ctx, ctx->dir, "", "INBOX",
 					MAILBOX_LIST_FILE_TYPE_UNKNOWN, &flags);
 		if (ret > 0) {
 			node = mailbox_tree_get(ctx->tree_ctx,

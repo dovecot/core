@@ -21,6 +21,7 @@ static MODULE_CONTEXT_DEFINE_INIT(raw_mailbox_list_module,
 static int raw_list_delete_mailbox(struct mailbox_list *list, const char *name);
 static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				    const char *dir, const char *fname,
+				    const char *mailbox_name,
 				    enum mailbox_list_file_type type,
 				    enum mailbox_info_flags *flags);
 
@@ -200,6 +201,7 @@ static void raw_notify_changes(struct mailbox *box ATTR_UNUSED)
 
 static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				    const char *dir, const char *fname,
+				    const char *mailbox_name ATTR_UNUSED,
 				    enum mailbox_list_file_type type,
 				    enum mailbox_info_flags *flags_r)
 {
