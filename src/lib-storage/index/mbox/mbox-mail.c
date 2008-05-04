@@ -248,8 +248,9 @@ static int mbox_mail_init_stream(struct index_mail *mail)
 		if (mbox_mail_seek(mail) < 0)
 			return -1;
 		if (!mbox_mail_get_next_offset(mail, &next_offset)) {
-			i_warning("mbox %s: Can't find next message offset",
-				  mbox->path);
+			i_warning("mbox %s: Can't find next message offset "
+				  "for uid=%u",
+				  mbox->path, mail->mail.mail.uid);
 			next_offset = (uoff_t)-1;
 		}
 	}

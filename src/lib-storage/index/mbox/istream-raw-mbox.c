@@ -298,7 +298,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	    rstream->hdr_offset + new_pos > rstream->mail_size) {
 		/* istream_raw_mbox_set_next_offset() used invalid
 		   cached next_offset? */
-		i_error("Unexpectedly lost From-line at %"PRIuUOFF_T,
+		i_error("Next message unexpectedly lost from %"PRIuUOFF_T,
 			rstream->hdr_offset + rstream->mail_size);
 		rstream->eof = TRUE;
 		rstream->corrupted = TRUE;
