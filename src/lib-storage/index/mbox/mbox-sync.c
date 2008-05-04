@@ -68,6 +68,7 @@ void mbox_sync_set_critical(struct mbox_sync_context *sync_ctx,
 {
 	va_list va;
 
+	sync_ctx->errors = TRUE;
 	if (sync_ctx->ext_modified) {
 		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
 			"mbox file %s was modified while we were syncing, "
@@ -1455,6 +1456,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 
 	sync_ctx->dest_first_mail = TRUE;
 	sync_ctx->ext_modified = FALSE;
+	sync_ctx->errors = FALSE;
 }
 
 static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
@@ -1501,16 +1503,25 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	}
 
 	mbox_sync_restart(sync_ctx);
-	for (i = 0; i < 3; i++) {
+	for (i = 0;;) {
 		ret = mbox_sync_loop(sync_ctx, &mail_ctx, partial);
-		if (ret > 0)
+		if (ret > 0 && !sync_ctx->errors)
 			break;
 		if (ret < 0)
 			return -1;
 
-		/* partial syncing didn't work, do it again. we get here
-		   also if we ran out of UIDs. */
-		i_assert(sync_ctx->mbox->mbox_sync_dirty);
+		/* a) partial sync didn't work
+		   b) we ran out of UIDs
+		   c) syncing had errors */
+		if (sync_ctx->delay_writes && !sync_ctx->mbox->mbox_readonly &&
+		    (sync_ctx->errors || sync_ctx->renumber_uids)) {
+			/* fixing a broken mbox state, be sure to write
+			   the changes. */
+			sync_ctx->delay_writes = FALSE;
+		}
+		if (++i == 3)
+			break;
+
 		mbox_sync_restart(sync_ctx);
 		partial = FALSE;
 	}
