@@ -46,7 +46,7 @@ struct pool_block {
 
 #ifdef DEBUG
 #  define CLEAR_CHR 0xde
-#  define SENTRY_COUNT (4*8)
+#  define SENTRY_COUNT 8
 #else
 #  define CLEAR_CHR 0
 #endif
