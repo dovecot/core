@@ -812,7 +812,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		args += 2;
 	}
 
-	ctx->list_flags = MAILBOX_LIST_ITER_VIRTUAL_NAMES;
+	ctx->list_flags |= MAILBOX_LIST_ITER_VIRTUAL_NAMES;
 	if (lsub) {
 		/* LSUB - we don't care about flags */
 		ctx->list_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
