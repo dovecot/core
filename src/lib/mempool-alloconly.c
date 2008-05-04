@@ -48,6 +48,7 @@ struct pool_block {
 #  define CLEAR_CHR 0xde
 #  define SENTRY_COUNT 8
 #else
+#  define SENTRY_COUNT 0
 #  define CLEAR_CHR 0
 #endif
 
@@ -122,11 +123,12 @@ static void check_sentries(struct pool_block *block)
 pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 {
 	struct alloconly_pool apool, *new_apool;
-	size_t min_alloc = MEM_ALIGN(sizeof(struct alloconly_pool)) +
-		SIZEOF_POOLBLOCK;
+	size_t min_alloc = SIZEOF_POOLBLOCK +
+		MEM_ALIGN(sizeof(struct alloconly_pool) + SENTRY_COUNT);
 
 #ifdef DEBUG
-	min_alloc += MEM_ALIGN(strlen(name) + 1 + SENTRY_COUNT);
+	min_alloc += MEM_ALIGN(strlen(name) + 1 + SENTRY_COUNT) +
+		sizeof(size_t)*2;
 #endif
 
 	/* create a fake alloconly_pool so we can call block_alloc() */
@@ -141,8 +143,6 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	/* now allocate the actual alloconly_pool from the created block */
 	new_apool = p_new(&apool.pool, struct alloconly_pool, 1);
 	*new_apool = apool;
-	/* the pool allocation must be from the first block */
-	i_assert(apool.block->prev == NULL);
 #ifdef DEBUG
 	if (strncmp(name, MEMPOOL_GROWING, strlen(MEMPOOL_GROWING)) == 0) {
 		name += strlen(MEMPOOL_GROWING);
@@ -154,6 +154,8 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	new_apool->base_size = new_apool->block->size - new_apool->block->left;
 	new_apool->block->last_alloc_size = 0;
 #endif
+	/* the first pool allocations must be from the first block */
+	i_assert(new_apool->block->prev == NULL);
 
 	return &new_apool->pool;
 }
