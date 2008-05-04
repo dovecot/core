@@ -89,6 +89,33 @@ maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 	}
 }
 
+static void maildir_set_children(struct maildir_list_iterate_context *ctx,
+				 string_t *mailbox)
+{
+	struct mailbox_node *node;
+	const char *p, *mailbox_c;
+	char hierarchy_sep;
+
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0)
+		hierarchy_sep = ctx->ctx.list->ns->sep;
+	else
+		hierarchy_sep = ctx->ctx.list->ns->real_sep;
+
+	/* mark the first existing parent as containing children */
+	mailbox_c = str_c(mailbox);
+	while ((p = strrchr(mailbox_c, hierarchy_sep)) != NULL) {
+		str_truncate(mailbox, (size_t) (p-mailbox_c));
+		mailbox_c = str_c(mailbox);
+
+		node = mailbox_tree_lookup(ctx->tree_ctx, mailbox_c);
+		if (node != NULL) {
+			node->flags &= ~MAILBOX_NOCHILDREN;
+			node->flags |= MAILBOX_CHILDREN;
+			break;
+		}
+	}
+}
+
 static int
 maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		     struct imap_match_glob *glob, bool update_only)
@@ -191,6 +218,9 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 					node->flags |= MAILBOX_MATCHED;
 				node->flags |= flags;
 				node_fix_parents(node);
+			} else {
+				i_assert(update_only);
+				maildir_set_children(ctx, mailbox);
 			}
 		}
 	}
