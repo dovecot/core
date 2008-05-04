@@ -155,7 +155,9 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		/* handle this by first removing the allowed flags and
 		   then adding the allowed flags */
 		acl_mail_update_flags(_mail, MODIFY_REMOVE, ~flags);
-		acl_mail_update_flags(_mail, MODIFY_ADD, flags);
+		if (flags != 0)
+			acl_mail_update_flags(_mail, MODIFY_ADD, flags);
+		return;
 	}
 
 	amail->super.update_flags(_mail, modify_type, flags);
