@@ -720,16 +720,20 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 
 		if (!ctx->mbox->mbox_sync_dirty && ret == 0) {
 			uint32_t sync_stamp = st.st_mtime;
-			uint64_t sync_size = st.st_size;
 
 			mail_index_update_header(ctx->trans,
 				offsetof(struct mail_index_header, sync_stamp),
 				&sync_stamp, sizeof(sync_stamp), TRUE);
+		}
+		if (ret == 0) {
+			/* sync_size is used in calculating the last message's
+			   size. it must be up-to-date. */
+			uint64_t sync_size = st.st_size;
+
 			mail_index_update_header(ctx->trans,
 				offsetof(struct mail_index_header, sync_size),
 				&sync_size, sizeof(sync_size), TRUE);
 		}
-
 		*t->ictx.last_saved_uid = ctx->next_uid - 1;
 	}
 
