@@ -689,7 +689,8 @@ static pid_t create_login_process(struct login_group *group)
 	fd_limit = 16 + listen_count + ssl_listen_count +
 		2 * (group->set->login_process_per_connection ? 1 :
 		     group->set->login_max_connections);
-	restrict_fd_limit(fd_limit);
+	if (!gdb)
+		restrict_fd_limit(fd_limit);
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
