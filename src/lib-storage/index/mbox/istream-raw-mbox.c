@@ -634,6 +634,8 @@ void istream_raw_mbox_set_next_offset(struct istream *stream, uoff_t offset)
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
 
+	i_assert(rstream->hdr_offset != (uoff_t)-1);
+
 	rstream->mail_size = offset - rstream->hdr_offset;
 }
 
