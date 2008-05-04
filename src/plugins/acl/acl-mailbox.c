@@ -295,6 +295,36 @@ acl_transaction_commit(struct mailbox_transaction_context *ctx,
 		transaction_commit(ctx, uid_validity_r,
 				   first_saved_uid_r, last_saved_uid_r);
 }
+
+static int
+acl_keywords_create(struct mailbox *box, const char *const keywords[],
+		    struct mail_keywords **keywords_r, bool skip_invalid)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	int ret;
+
+	ret = mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE);
+	if (ret < 0) {
+		if (!skip_invalid)
+			return -1;
+		/* we can't return failure. assume we don't have permissions. */
+		ret = 0;
+	}
+
+	if (ret == 0) {
+		/* no permission to update any flags. just return empty
+		   keywords list. */
+		const char *null = NULL;
+
+		return abox->module_ctx.super.keywords_create(box, &null,
+							      keywords_r,
+							      skip_invalid);
+	}
+
+	return abox->module_ctx.super.keywords_create(box, keywords,
+						      keywords_r, skip_invalid);
+}
+
 struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 {
 	struct acl_mail_storage *astorage = ACL_CONTEXT(box->storage);
@@ -311,6 +341,7 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 	box->v.close = acl_mailbox_close;
 	box->v.mail_alloc = acl_mail_alloc;
 	box->v.save_init = acl_save_init;
+	box->v.keywords_create = acl_keywords_create;
 	box->v.copy = acl_copy;
 	box->v.transaction_commit = acl_transaction_commit;
 	MODULE_CONTEXT_SET(box, acl_storage_module, abox);
