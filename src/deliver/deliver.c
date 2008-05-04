@@ -1000,6 +1000,13 @@ int main(int argc, char *argv[])
 		}
 
 		error_string = mail_storage_get_last_error(storage, &error);
+
+		if (stderr_rejection) {
+			/* write to stderr also for tempfails so that MTA
+			   can log the reason if it wants to. */
+			fprintf(stderr, "%s\n", error_string);
+		}
+
 		if (error != MAIL_ERROR_NOSPACE ||
 		    getenv("QUOTA_FULL_TEMPFAIL") != NULL) {
 			/* Saving to INBOX should always work unless
@@ -1008,14 +1015,12 @@ int main(int argc, char *argv[])
 			return EX_TEMPFAIL;
 		}
 
+		/* we'll have to reply with permanent failure */
 		deliver_log(mail, "rejected: %s",
 			    str_sanitize(error_string, 512));
 
-		/* we'll have to reply with permanent failure */
-		if (stderr_rejection) {
-			fprintf(stderr, "%s\n", error_string);
+		if (stderr_rejection)
 			return EX_NOPERM;
-		}
 		ret = mail_send_rejection(mail, user, error_string);
 		if (ret != 0)
 			return ret < 0 ? EX_TEMPFAIL : ret;
