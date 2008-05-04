@@ -738,8 +738,13 @@ maildir_quota_update(struct quota_root *_root,
 		/* no limits */
 		return 0;
 	}
-	/* make sure the latest file is opened. */
-	(void)maildirsize_open(root);
+
+	/* even though we don't really care about the limits in here ourself,
+	   we do want to make sure the header gets updated if the limits have
+	   changed. also this makes sure the maildirsize file is created if
+	   it doesn't exist. */
+	if (maildirquota_refresh(root) < 0)
+		return -1;
 
 	if (root->fd == -1 || ctx->recalculate ||
 	    maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0)
