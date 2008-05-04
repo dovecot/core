@@ -136,6 +136,9 @@ struct settings {
 	const char *pop3_client_workarounds;
 	const char *pop3_logout_format;
 
+	/* dict */
+	const char *dict_db_config;
+
 	/* .. */
 	ARRAY_TYPE(listener) listens;
 	ARRAY_TYPE(listener) ssl_listens;

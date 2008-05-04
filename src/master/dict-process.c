@@ -84,6 +84,12 @@ static int dict_process_start(struct dict_process *process)
 	child_process_init_env();
 	env_put(t_strconcat("DICT_LISTEN_FROM_FD=", process->path, NULL));
 
+	if (settings_root->defaults->dict_db_config != NULL) {
+		env_put(t_strconcat("DB_CONFIG=",
+				    settings_root->defaults->dict_db_config,
+				    NULL));
+	}
+
 	dicts = array_get(&settings_root->dicts, &count);
 	i_assert((count % 2) == 0);
 	for (i = 0; i < count; i += 2)

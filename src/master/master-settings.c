@@ -290,6 +290,9 @@ struct settings default_settings = {
 	MEMBER(pop3_client_workarounds) "",
 	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s",
 
+	/* dict */
+	MEMBER(dict_db_config) NULL,
+
 	/* .. */
 };
 
