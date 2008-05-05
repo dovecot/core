@@ -760,7 +760,6 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 					&ctx->uidlist_sync_ctx);
 	if (ret <= 0) {
 		/* failure / timeout */
-		i_assert(ret < 0 || !forced);
 		return ret;
 	}
 	ctx->locked = maildir_uidlist_is_locked(ctx->mbox->uidlist);
