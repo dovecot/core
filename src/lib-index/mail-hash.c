@@ -39,6 +39,7 @@ struct mail_hash {
 	mail_hash_remap_callback_t *remap_callback;
 	hash_callback_t *rec_hash_cb;
 	void *cb_context;
+	unsigned int transaction_count;
 
 	char *filepath;
 	char *suffix;
@@ -143,6 +144,8 @@ mail_hash_idx(struct mail_hash_transaction *trans, uint32_t idx)
 
 static void mail_hash_file_close(struct mail_hash *hash)
 {
+	i_assert(hash->transaction_count == 0);
+
 	if (hash->file_lock != NULL)
 		file_lock_free(&hash->file_lock);
 
@@ -307,6 +310,7 @@ static int mail_hash_file_map(struct mail_hash *hash, bool full)
 {
 	struct stat st;
 
+	i_assert(hash->transaction_count == 0);
 	i_assert(hash->lock_type != F_UNLCK);
 
 	if (mail_hash_file_fstat(hash, &st) < 0)
@@ -595,7 +599,7 @@ static void mail_hash_resize(struct mail_hash_transaction *trans)
 	trans->hash_base = trans->hash_buf;
 
 	for (idx = 1; idx < trans->hdr.record_count; idx++) {
-		rec = HASH_RECORD_IDX(trans, idx);
+		rec = mail_hash_idx(trans, idx);
 		if (MAIL_HASH_RECORD_IS_DELETED(rec))
 			continue;
 
@@ -643,11 +647,7 @@ mail_hash_transaction_begin(struct mail_hash *hash, unsigned int min_hash_size)
 
 	trans->next_grow_hashed_count =
 		trans->hdr.hash_size * MAIL_HASH_GROW_PRESSURE;
-	if (trans->next_grow_hashed_count < min_hash_size) {
-		/* if we add new records, make sure to resize the hash */
-		i_assert(trans->base_count > 1);
-		trans->next_grow_hashed_count = trans->hdr.hashed_count;
-	}
+	hash->transaction_count++;
 	return trans;
 }
 
@@ -716,11 +716,16 @@ int mail_hash_transaction_write(struct mail_hash_transaction *trans)
 		return -1;
 	}
 	offset += trans->hdr.hash_size * sizeof(uint32_t);
-	if (pwrite_full(fd, trans->records_base,
-			trans->base_count * trans->hdr.record_size,
-			offset) < 0) {
-		mail_hash_set_syscall_error(hash, "pwrite()");
-		return -1;
+	/* if there's only the first null record, don't bother writing it.
+	   especially because then records_base may point to sizeof(uint32_t)
+	   instead of hdr.record_size */
+	if (trans->base_count > 1) {
+		if (pwrite_full(fd, trans->records_base,
+				trans->base_count * trans->hdr.record_size,
+				offset) < 0) {
+			mail_hash_set_syscall_error(hash, "pwrite()");
+			return -1;
+		}
 	}
 
 	/* write the new data */
@@ -753,6 +758,8 @@ void mail_hash_transaction_end(struct mail_hash_transaction **_trans)
 	struct mail_hash_transaction *trans = *_trans;
 
 	*_trans = NULL;
+
+	trans->hash->transaction_count--;
 	if (array_is_created(&trans->inserts))
 		array_free(&trans->inserts);
 	if (array_is_created(&trans->updates))
@@ -779,6 +786,7 @@ void mail_hash_reset(struct mail_hash_transaction *trans)
 			      &trans->hdr);
 	trans->mapped = TRUE;
 	trans->base_count = trans->hdr.record_count;
+	i_assert(trans->base_count == 1);
 
 	i_free(trans->hash_buf);
 	trans->hash_buf = i_new(uint32_t, trans->hdr.hash_size);
