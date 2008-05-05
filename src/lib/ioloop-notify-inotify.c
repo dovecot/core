@@ -106,6 +106,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 		if (errno == ENOENT || errno == ESTALE)
 			return IO_NOTIFY_NOTFOUND;
 
+		i_error("inotify_add_watch(%s) failed: %m", path);
 		ctx->disabled = TRUE;
 		return IO_NOTIFY_NOSUPPORT;
 	}
