@@ -153,7 +153,8 @@ static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void)
 			i_error("inotify_init() failed: %m");
 		else {
 			i_warning("Inotify instance limit for user exceeded, "
-				  "disabling.");
+				  "disabling. Increase "
+				  "/proc/sys/fs/inotify/max_user_instances");
 		}
 		ctx->disabled = TRUE;
 	} else {
