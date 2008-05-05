@@ -6,6 +6,7 @@
 #include "maildir-storage.h"
 #include "maildir-filename.h"
 #include "maildir-uidlist.h"
+#include "maildir-sync.h"
 
 #include <stdlib.h>
 #include <fcntl.h>
@@ -143,13 +144,32 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 		       const char **fname_r)
 {
 	enum maildir_uidlist_rec_flag flags;
+	struct mail_index_view *view;
+	uint32_t seq;
+	bool exists;
 
 	*fname_r = maildir_uidlist_lookup(mbox->uidlist, mail->uid, &flags);
-	if (*fname_r == NULL) {
-		mail_set_expunged(mail);
-		return FALSE;
+	if (*fname_r != NULL)
+		return TRUE;
+
+	/* file exists in index file, but not in dovecot-uidlist anymore. */
+	mail_set_expunged(mail);
+
+	/* one reason this could happen is if we delayed opening
+	   dovecot-uidlist and we're trying to open a mail that got recently
+	   expunged. Let's test this theory first: */
+	(void)mail_index_refresh(mbox->ibox.index);
+	view = mail_index_view_open(mbox->ibox.index);
+	exists = mail_index_lookup_seq(view, mail->uid, &seq);
+	mail_index_view_close(&view);
+
+	if (exists) {
+		/* the message still exists in index. this means there's some
+		   kind of a desync, which doesn't get fixed if cur/ mtime is
+		   the same as in index. fix this by forcing a resync. */
+		(void)maildir_storage_sync_force(mbox, mail->uid);
 	}
-	return TRUE;
+	return FALSE;
 }
 
 static int maildir_get_pop3_state(struct index_mail *mail)
