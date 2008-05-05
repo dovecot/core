@@ -339,7 +339,6 @@ static void mail_thread_root_thread_merge(struct thread_finish_context *ctx,
 		new_root.root_idx1 = array_count(&ctx->roots) + 1;
 		new_root.node.idx = ctx->next_new_root_idx++;
 		new_root.dummy = TRUE;
-		array_append(&ctx->roots, &new_root, 1);
 
 		thread_add_shadow_child(ctx, new_root.node.idx, root->node.idx);
 		thread_add_shadow_child(ctx, new_root.node.idx, cur->node.idx);
@@ -347,6 +346,9 @@ static void mail_thread_root_thread_merge(struct thread_finish_context *ctx,
 		root->parent_root_idx1 = new_root.root_idx1;
 		root->ignore = TRUE;
 		cur->ignore = TRUE;
+
+		/* append last, since it breaks root and cur pointers */
+		array_append(&ctx->roots, &new_root, 1);
 
 		/* make sure all shadow indexes are accessible directly */
 		(void)array_idx_modifiable(&ctx->shadow_nodes,
@@ -670,5 +672,7 @@ int mail_thread_finish(struct mail *tmp_mail,
 	T_BEGIN {
 		ret = send_roots(&ctx);
 	} T_END;
+	array_free(&ctx.roots);
+	array_free(&ctx.shadow_nodes);
 	return ret;
 }

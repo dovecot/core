@@ -351,6 +351,8 @@ static int imap_thread_finish(struct imap_thread_mailbox *tbox,
 {
 	int ret;
 
+	mail_hash_transaction_end(&ctx->thread_ctx.hash_trans);
+
 	ret = mailbox_search_deinit(&ctx->search);
 	mail_free(&ctx->thread_ctx.tmp_mail);
 	if (mailbox_transaction_commit(&ctx->t) < 0)
