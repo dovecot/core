@@ -479,7 +479,8 @@ int mail_hash_lock_shared(struct mail_hash *hash)
 }
 
 static int
-mail_hash_lock_exclusive_fd(struct mail_hash *hash, bool create_missing)
+mail_hash_lock_exclusive_fd(struct mail_hash *hash,
+			    enum mail_hash_lock_flags flags)
 {
 	bool exists = TRUE;
 	int ret;
@@ -490,7 +491,8 @@ mail_hash_lock_exclusive_fd(struct mail_hash *hash, bool create_missing)
 	if (hash->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
 		/* use dotlocking */
 	} else if (hash->fd == -1 && (ret = mail_hash_open_fd(hash)) <= 0) {
-		if (ret < 0 || !create_missing)
+		if (ret < 0 ||
+		    (flags & MAIL_HASH_LOCK_FLAG_CREATE_MISSING) == 0)
 			return ret;
 		/* the file doesn't exist - we need to use dotlocking */
 		exists = FALSE;
@@ -501,6 +503,8 @@ mail_hash_lock_exclusive_fd(struct mail_hash *hash, bool create_missing)
 			/* success / error */
 			return ret;
 		}
+		if ((flags & MAIL_HASH_LOCK_FLAG_TRY) != 0)
+			return 0;
 
 		/* already locked. if it's only read-locked, we can
 		   overwrite the file. first wait for a shared lock. */
@@ -529,9 +533,7 @@ mail_hash_lock_exclusive_fd(struct mail_hash *hash, bool create_missing)
 
 			/* the file was created - we need to have it locked,
 			   so retry this operation */
-			(void)file_dotlock_delete(&hash->dotlock);
-			return mail_hash_lock_exclusive_fd(hash,
-							   create_missing);
+			return mail_hash_lock_exclusive_fd(hash, flags);
 		}
 	}
 	/* other sessions are reading the file, we must not overwrite */
@@ -539,8 +541,10 @@ mail_hash_lock_exclusive_fd(struct mail_hash *hash, bool create_missing)
 	return 1;
 }
 
-int mail_hash_lock_exclusive(struct mail_hash *hash, bool create_missing)
+int mail_hash_lock_exclusive(struct mail_hash *hash,
+			     enum mail_hash_lock_flags flags)
 {
+	bool create_missing = (flags & MAIL_HASH_LOCK_FLAG_CREATE_MISSING) != 0;
 	int ret;
 
 	i_assert(hash->lock_type == F_UNLCK);
@@ -552,7 +556,7 @@ int mail_hash_lock_exclusive(struct mail_hash *hash, bool create_missing)
 		return 1;
 	}
 
-	if ((ret = mail_hash_lock_exclusive_fd(hash, create_missing)) <= 0) {
+	if ((ret = mail_hash_lock_exclusive_fd(hash, flags)) <= 0) {
 		mail_hash_unlock(hash);
 		return ret;
 	}
@@ -565,7 +569,7 @@ int mail_hash_lock_exclusive(struct mail_hash *hash, bool create_missing)
 		if (ret == 0 && create_missing) {
 			/* the broken file was unlinked - try again */
 			mail_hash_file_close(hash);
-			return mail_hash_lock_exclusive(hash, create_missing);
+			return mail_hash_lock_exclusive(hash, flags);
 		}
 		return ret;
 	}

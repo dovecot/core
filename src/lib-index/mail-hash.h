@@ -59,6 +59,11 @@ ARRAY_DEFINE_TYPE(mail_hash_record, struct mail_hash_record);
 #define MAIL_HASH_RECORD_IS_DELETED(rec) \
 	((rec)->next_idx == (uint32_t)-1)
 
+enum mail_hash_lock_flags {
+	MAIL_HASH_LOCK_FLAG_TRY			= 0x01,
+	MAIL_HASH_LOCK_FLAG_CREATE_MISSING	= 0x02
+};
+
 /* Returns 0 if the pointers are equal. */
 typedef bool mail_hash_ctx_cmp_callback_t(struct mail_hash_transaction *trans,
 					  const void *key, uint32_t idx,
@@ -82,7 +87,10 @@ void mail_hash_free(struct mail_hash **hash);
 /* Lock the file. Returns 1 if locking was successful, 0 if file doesn't exist,
    -1 if error. */
 int mail_hash_lock_shared(struct mail_hash *hash);
-int mail_hash_lock_exclusive(struct mail_hash *hash, bool create_missing);
+/* If FLAG_TRY_LOCK is set and file is already locked, return 0.
+   Otherwise return values are identical with mail_hash_lock_shared() */
+int mail_hash_lock_exclusive(struct mail_hash *hash,
+			     enum mail_hash_lock_flags flags);
 void mail_hash_unlock(struct mail_hash *hash);
 
 struct mail_hash_transaction *

@@ -224,7 +224,8 @@ imap_thread_try_use_hash(struct imap_thread_context *ctx,
 		return FALSE;
 	if (ret == 0) {
 		/* doesn't exist, creating a new hash */
-		if (mail_hash_lock_exclusive(hash, TRUE) <= 0)
+		if (mail_hash_lock_exclusive(hash,
+				MAIL_HASH_LOCK_FLAG_CREATE_MISSING) <= 0)
 			return FALSE;
 		ctx->thread_ctx.hash_trans =
 			mail_hash_transaction_begin(hash, status->messages);
@@ -281,7 +282,8 @@ again:
 	if (can_use && !shared_lock) {
 		mail_hash_transaction_end(&hash_trans);
 		mail_hash_unlock(hash);
-		if (mail_hash_lock_exclusive(hash, TRUE) <= 0)
+		if (mail_hash_lock_exclusive(hash,
+				MAIL_HASH_LOCK_FLAG_CREATE_MISSING) <= 0)
 			return FALSE;
 		shared_lock = TRUE;
 		goto again;
@@ -323,7 +325,8 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 				       mail_thread_hash_cmp,
 				       mail_thread_hash_remap,
 				       tbox);
-		if (mail_hash_lock_exclusive(hash, TRUE) <= 0)
+		if (mail_hash_lock_exclusive(hash,
+				MAIL_HASH_LOCK_FLAG_CREATE_MISSING) <= 0)
 			i_unreached();
 		ctx->thread_ctx.hash_trans =
 			mail_hash_transaction_begin(hash, 0);
@@ -487,7 +490,9 @@ imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		/* init */
 		tbox->ctx = ctx = i_new(struct thread_context, 1);
 
-		if (mail_hash_lock_exclusive(tbox->hash, FALSE) <= 0)
+		/* we can't wait the lock in here or we could deadlock. */
+		if (mail_hash_lock_exclusive(tbox->hash,
+					     MAIL_HASH_LOCK_FLAG_TRY) <= 0)
 			return 0;
 
 		ctx->hash = tbox->hash;
