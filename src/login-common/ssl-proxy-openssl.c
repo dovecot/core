@@ -309,8 +309,11 @@ static const char *ssl_last_error(void)
 	size_t err_size = 256;
 
 	err = ERR_get_error();
-	if (err == 0)
-		return strerror(errno);
+	if (err == 0) {
+		if (errno != 0)
+			return strerror(errno);
+		return "Unknown error";
+	}
 
 	buf = t_malloc(err_size);
 	buf[err_size-1] = '\0';
