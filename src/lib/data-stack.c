@@ -214,7 +214,6 @@ static void t_pop_verify(void)
 unsigned int t_pop(void)
 {
 	struct stack_frame_block *frame_block;
-	int popped_frame_pos;
 
 	if (unlikely(frame_pos < 0))
 		i_panic("t_pop() called with empty stack");
@@ -244,7 +243,6 @@ unsigned int t_pop(void)
 		current_block->next = NULL;
 	}
 
-	popped_frame_pos = frame_pos;
 	if (frame_pos > 0)
 		frame_pos--;
 	else {
