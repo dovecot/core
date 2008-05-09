@@ -43,7 +43,7 @@ struct imap_thread_mailbox {
 	struct thread_context *ctx;
 };
 
-static void (*next_hook_mailbox_opened)(struct mailbox *box);
+static void (*next_hook_mailbox_index_opened)(struct mailbox *box);
 
 static MODULE_CONTEXT_DEFINE_INIT(imap_thread_storage_module,
 				  &mail_storage_module_register);
@@ -581,14 +581,14 @@ static int imap_thread_mailbox_close(struct mailbox *box)
 	return ret;
 }
 
-static void imap_thread_mailbox_opened(struct mailbox *box)
+static void imap_thread_mailbox_index_opened(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct imap_thread_mailbox *tbox;
 	uint32_t ext_id;
 
-	if (next_hook_mailbox_opened != NULL)
-		next_hook_mailbox_opened(box);
+	if (next_hook_mailbox_index_opened != NULL)
+		next_hook_mailbox_index_opened(box);
 
 	tbox = i_new(struct imap_thread_mailbox, 1);
 	tbox->module_ctx.super = box->v;
@@ -611,12 +611,12 @@ static void imap_thread_mailbox_opened(struct mailbox *box)
 
 void imap_thread_init(void)
 {
-	next_hook_mailbox_opened = hook_mailbox_opened;
-	hook_mailbox_opened = imap_thread_mailbox_opened;
+	next_hook_mailbox_index_opened = hook_mailbox_index_opened;
+	hook_mailbox_index_opened = imap_thread_mailbox_index_opened;
 }
 
 void imap_thread_deinit(void)
 {
-	i_assert(hook_mailbox_opened == imap_thread_mailbox_opened);
-	hook_mailbox_opened = next_hook_mailbox_opened;
+	i_assert(hook_mailbox_index_opened == imap_thread_mailbox_index_opened);
+	hook_mailbox_index_opened = next_hook_mailbox_index_opened;
 }
