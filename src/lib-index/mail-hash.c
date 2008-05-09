@@ -480,13 +480,15 @@ int mail_hash_lock_shared(struct mail_hash *hash)
 
 static int
 mail_hash_lock_exclusive_fd(struct mail_hash *hash,
-			    enum mail_hash_lock_flags flags)
+			    enum mail_hash_lock_flags flags, bool *created_r)
 {
 	bool exists = TRUE;
 	int ret;
 
 	i_assert(hash->file_lock == NULL);
 	i_assert(hash->dotlock == NULL);
+
+	*created_r = FALSE;
 
 	if (hash->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
 		/* use dotlocking */
@@ -533,16 +535,19 @@ mail_hash_lock_exclusive_fd(struct mail_hash *hash,
 
 			/* the file was created - we need to have it locked,
 			   so retry this operation */
-			return mail_hash_lock_exclusive_fd(hash, flags);
+			return mail_hash_lock_exclusive_fd(hash, flags,
+							   created_r);
 		}
+		*created_r = TRUE;
 	}
 	/* other sessions are reading the file, we must not overwrite */
 	hash->recreate = TRUE;
 	return 1;
 }
 
-int mail_hash_lock_exclusive(struct mail_hash *hash,
-			     enum mail_hash_lock_flags flags)
+static int mail_hash_lock_excl_full(struct mail_hash *hash,
+				    enum mail_hash_lock_flags flags,
+				    bool *created_r)
 {
 	bool create_missing = (flags & MAIL_HASH_LOCK_FLAG_CREATE_MISSING) != 0;
 	int ret;
@@ -556,7 +561,7 @@ int mail_hash_lock_exclusive(struct mail_hash *hash,
 		return 1;
 	}
 
-	if ((ret = mail_hash_lock_exclusive_fd(hash, flags)) <= 0) {
+	if ((ret = mail_hash_lock_exclusive_fd(hash, flags, created_r)) <= 0) {
 		mail_hash_unlock(hash);
 		return ret;
 	}
@@ -569,11 +574,19 @@ int mail_hash_lock_exclusive(struct mail_hash *hash,
 		if (ret == 0 && create_missing) {
 			/* the broken file was unlinked - try again */
 			mail_hash_file_close(hash);
-			return mail_hash_lock_exclusive(hash, flags);
+			return mail_hash_lock_excl_full(hash, flags, created_r);
 		}
 		return ret;
 	}
 	return 1;
+}
+
+int mail_hash_lock_exclusive(struct mail_hash *hash,
+			     enum mail_hash_lock_flags flags)
+{
+	bool created;
+
+	return mail_hash_lock_excl_full(hash, flags, &created);
 }
 
 void mail_hash_unlock(struct mail_hash *hash)
@@ -586,6 +599,21 @@ void mail_hash_unlock(struct mail_hash *hash)
 	if (hash->dotlock != NULL)
 		(void)file_dotlock_delete(&hash->dotlock);
 	hash->lock_type = F_UNLCK;
+}
+
+int mail_hash_create_excl_locked(struct mail_hash *hash)
+{
+	bool created;
+
+	if (mail_hash_lock_excl_full(hash, MAIL_HASH_LOCK_FLAG_CREATE_MISSING,
+				     &created) <= 0)
+		return -1;
+
+	if (!created) {
+		mail_hash_unlock(hash);
+		return 0;
+	}
+	return 1;
 }
 
 static void mail_hash_resize(struct mail_hash_transaction *trans)

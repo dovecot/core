@@ -47,6 +47,7 @@ struct thread_context {
 
 	unsigned int failed:1;
 	unsigned int rebuild:1;
+	unsigned int syncing:1;
 };
 
 static inline bool thread_node_is_root(const struct mail_thread_node *node)

@@ -195,7 +195,7 @@ imap_thread_try_use_hash(struct imap_thread_context *ctx,
 	struct mail_hash_transaction *hash_trans;
 	uint32_t last_seq, last_uid;
 	bool can_use = TRUE, shared_lock = FALSE;
-	int ret;
+	int try, ret;
 
 	last_seq = status->messages;
 	last_uid = status->uidnext - 1;
@@ -220,16 +220,25 @@ imap_thread_try_use_hash(struct imap_thread_context *ctx,
 		return FALSE;
 	}
 
-	if ((ret = mail_hash_lock_shared(hash)) < 0)
-		return FALSE;
-	if (ret == 0) {
-		/* doesn't exist, creating a new hash */
-		if (mail_hash_lock_exclusive(hash,
-				MAIL_HASH_LOCK_FLAG_CREATE_MISSING) <= 0)
+	for (try = 0;; try++) {
+		if ((ret = mail_hash_lock_shared(hash)) < 0)
 			return FALSE;
-		ctx->thread_ctx.hash_trans =
-			mail_hash_transaction_begin(hash, status->messages);
-		return TRUE;
+		if (ret > 0)
+			break;
+		if (try == 5) {
+			/* enough tries */
+			return FALSE;
+		}
+
+		/* doesn't exist, create a new hash */
+		if ((ret = mail_hash_create_excl_locked(hash)) < 0)
+			return FALSE;
+		if (ret > 0) {
+			ctx->thread_ctx.hash_trans =
+				mail_hash_transaction_begin(hash,
+							    status->messages);
+			return TRUE;
+		}
 	}
 
 again:
@@ -237,17 +246,15 @@ again:
 	hdr = mail_hash_get_header(hash_trans);
 	if (reset)
 		mail_hash_reset(hash_trans);
-	else if (hdr->message_count > last_seq) {
-		if (hdr->last_uid > last_uid) {
-			/* thread index is newer than our current mailbox view,
-			   can't optimize */
-			can_use = FALSE;
-		} else {
-			/* messages have been expunged, but not removed from
-			   the thread index. we don't know their Message-IDs
-			   anymore, so we have to rebuild the index. */
-			mail_hash_reset(hash_trans);
-		}
+	else if (hdr->last_uid > last_uid) {
+		/* thread index is newer than our current mailbox view,
+		   can't optimize */
+		can_use = FALSE;
+	} else if (hdr->message_count > last_seq) {
+		/* messages have been expunged, but not removed from
+		   the thread index. we don't know their Message-IDs
+		   anymore, so we have to rebuild the index. */
+		mail_hash_reset(hash_trans);
 	} else if (hdr->message_count > 0) {
 		/* non-empty hash. add only the new messages in there. */
 		mailbox_get_uids(box, 1, hdr->last_uid,
@@ -431,6 +438,7 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 	struct imap_thread_context *ctx;
 	int ret, try;
 
+	i_assert(tbox->ctx == NULL);
 	i_assert(type == MAIL_THREAD_REFERENCES ||
 		 type == MAIL_THREAD_REFERENCES2);
 
@@ -453,8 +461,29 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 		}
 	}
 
+	i_assert(!tbox->ctx->syncing);
 	tbox->ctx = NULL;
 	return ret;
+}
+
+static bool imap_thread_index_is_up_to_date(struct thread_context *ctx,
+					    struct mail_index_view *view)
+{
+	const struct mail_index_header *hdr;
+	struct mail_hash_header *hash_hdr;
+	uint32_t seq1, seq2;
+
+	hdr = mail_index_get_header(view);
+	hash_hdr = mail_hash_get_header(ctx->hash_trans);
+	if (hash_hdr->last_uid + 1 == hdr->next_uid) {
+		/* all messages have been added to hash */
+		return hash_hdr->message_count == hdr->messages_count;
+	}
+
+	if (!mail_index_lookup_seq_range(view, 1, hash_hdr->last_uid,
+					 &seq1, &seq2))
+		seq2 = 0;
+	return seq2 == hash_hdr->message_count;
 }
 
 static int
@@ -470,6 +499,8 @@ imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 
 	if (data == NULL) {
 		/* deinit */
+		if (!ctx->syncing)
+			return 0;
 		if (ctx->hash != NULL) {
 			t = ctx->tmp_mail->transaction;
 
@@ -479,7 +510,9 @@ imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			mail_hash_unlock(tbox->hash);
 
 			mail_free(&ctx->tmp_mail);
-			(void)mailbox_transaction_commit(&t);
+			/* don't commit. we're in the middle of syncing and
+			   this transaction isn't marked as external. */
+			(void)mailbox_transaction_rollback(&t);
 			array_free(&ctx->msgid_cache);
 			pool_unref(&ctx->msgid_pool);
 		}
@@ -488,7 +521,12 @@ imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	}
 	if (ctx == NULL) {
 		/* init */
+		if (tbox->ctx != NULL) {
+			/* we're already in the middle of threading */
+			return 0;
+		}
 		tbox->ctx = ctx = i_new(struct thread_context, 1);
+		ctx->syncing = TRUE;
 
 		/* we can't wait the lock in here or we could deadlock. */
 		if (mail_hash_lock_exclusive(tbox->hash,
@@ -503,12 +541,17 @@ imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 
 		t = mailbox_transaction_begin(box, 0);
 		ctx->tmp_mail = mail_alloc(t, 0, NULL);
+
+		if (!imap_thread_index_is_up_to_date(ctx, sync_ctx->view)) {
+			ctx->failed = TRUE;
+			return 0;
+		}
 	} else {
 		if (ctx->hash == NULL) {
 			/* locking had failed */
 			return 0;
 		}
-		if (ctx->failed)
+		if (!ctx->syncing || ctx->failed)
 			return 0;
 	}
 
@@ -524,6 +567,8 @@ static int imap_thread_mailbox_close(struct mailbox *box)
 {
 	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(box);
 	int ret;
+
+	i_assert(tbox->ctx == NULL);
 
 	mail_hash_free(&tbox->hash);
 	ret = tbox->module_ctx.super.close(box);

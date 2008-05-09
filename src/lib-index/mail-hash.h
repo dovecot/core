@@ -84,6 +84,9 @@ mail_hash_alloc(struct mail_index *index, const char *suffix,
 		void *context);
 void mail_hash_free(struct mail_hash **hash);
 
+/* Returns 1 if created and locked, 0 if already exists, -1 if error. */
+int mail_hash_create_excl_locked(struct mail_hash *hash);
+
 /* Lock the file. Returns 1 if locking was successful, 0 if file doesn't exist,
    -1 if error. */
 int mail_hash_lock_shared(struct mail_hash *hash);
