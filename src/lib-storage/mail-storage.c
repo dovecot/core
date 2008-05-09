@@ -31,6 +31,7 @@ struct mail_storage_mail_index_module mail_storage_mail_index_module =
 
 void (*hook_mail_storage_created)(struct mail_storage *storage);
 void (*hook_mailbox_opened)(struct mailbox *box) = NULL;
+void (*hook_mailbox_index_opened)(struct mailbox *box) = NULL;
 
 static ARRAY_DEFINE(storages, struct mail_storage *);
 

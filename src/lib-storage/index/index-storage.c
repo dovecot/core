@@ -403,6 +403,9 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 				ibox, &ibox->view_module_ctx);
 
 	ibox->box.opened = TRUE;
+
+	if (hook_mailbox_index_opened != NULL)
+		hook_mailbox_index_opened(&ibox->box);
 }
 
 void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,

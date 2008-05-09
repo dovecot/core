@@ -10,6 +10,8 @@
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 /* Called after mailbox has been opened */
 extern void (*hook_mailbox_opened)(struct mailbox *box);
+/* Called after mailbox index has been opened */
+extern void (*hook_mailbox_index_opened)(struct mailbox *box);
 
 struct mail_storage_module_register {
 	unsigned int id;
