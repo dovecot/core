@@ -67,7 +67,7 @@ static size_t last_buffer_size;
 static bool clean_after_pop = FALSE;
 static bool outofmem = FALSE;
 
-union {
+static union {
 	struct stack_block block;
 	unsigned char data[128];
 } outofmem_area;
