@@ -187,6 +187,8 @@ mail_hash_alloc(struct mail_index *index, const char *suffix,
 	hash->in_memory = MAIL_INDEX_IS_IN_MEMORY(index) || suffix == NULL;
 	hash->filepath = hash->in_memory ? i_strdup("(in-memory hash)") :
 		i_strconcat(index->filepath, suffix, NULL);
+	i_assert(hash->filepath != NULL);
+
 	hash->suffix = i_strdup(suffix);
 	hash->record_size = record_size;
 	hash->fd = -1;
