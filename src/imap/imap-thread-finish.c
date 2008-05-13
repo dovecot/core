@@ -539,7 +539,7 @@ static int send_root(struct thread_finish_context *ctx, string_t *str,
 static int send_roots(struct thread_finish_context *ctx)
 {
 	const struct mail_thread_root_node *roots;
-	unsigned int i, count, child_count;
+	unsigned int i, count;
 	string_t *str;
 	int ret = 0;
 
@@ -547,29 +547,11 @@ static int send_roots(struct thread_finish_context *ctx)
 	str_append(str, "* THREAD ");
 
 	roots = array_get(&ctx->roots, &count);
-	/* see if we have only one child */
-	for (i = 0, child_count = 0; i < count && child_count < 2; i++) {
-		if (!roots[i].ignore)
-			child_count++;
-	}
-	if (child_count == 1) {
-		for (i = 0; i < count; i++) {
-			if (!roots[i].ignore) {
-				if (!roots[i].dummy)
-					str_append_c(str, '(');
-				ret = send_root(ctx, str, &roots[i]);
-				if (!roots[i].dummy)
-					str_append_c(str, ')');
-				break;
-			}
-		}
-	} else {
-		for (i = 0; i < count && ret == 0; i++) {
-			if (!roots[i].ignore) {
-				str_append_c(str, '(');
-				ret = send_root(ctx, str, &roots[i]);
-				str_append_c(str, ')');
-			}
+	for (i = 0; i < count && ret == 0; i++) {
+		if (!roots[i].ignore) {
+			str_append_c(str, '(');
+			ret = send_root(ctx, str, &roots[i]);
+			str_append_c(str, ')');
 		}
 	}
 
