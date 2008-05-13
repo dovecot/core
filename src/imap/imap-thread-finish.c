@@ -387,7 +387,7 @@ static int sort_root_nodes(struct thread_finish_context *ctx)
 	i_array_init(&sorted_children, 64);
 	shadows = array_idx(&ctx->shadow_nodes, 0);
 	roots = array_get_modifiable(&ctx->roots, &count);
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count && ret == 0; i++) {
 		if (roots[i].ignore)
 			continue;
 		if (roots[i].dummy) {
@@ -407,19 +407,15 @@ static int sort_root_nodes(struct thread_finish_context *ctx)
 				/* only one child - deferred step (3).
 				   promote the child to the root. */
 				roots[i].node = children[0];
-				if (thread_child_node_fill(ctx,
-							   &roots[i].node) < 0)
-					return -1;
+				ret = thread_child_node_fill(ctx,
+							     &roots[i].node);
 				roots[i].dummy = FALSE;
 			} else {
 				roots[i].node.uid = children[0].uid;
 				roots[i].node.sort_date = children[0].sort_date;
 			}
 		} else {
-			if (thread_child_node_fill(ctx, &roots[i].node) < 0) {
-				ret = -1;
-				break;
-			}
+			ret = thread_child_node_fill(ctx, &roots[i].node);
 		}
 	}
 	array_free(&sorted_children);
@@ -427,6 +423,51 @@ static int sort_root_nodes(struct thread_finish_context *ctx)
 		return -1;
 
 	qsort(roots, count, sizeof(*roots), mail_thread_child_node_cmp);
+	return 0;
+}
+
+static int mail_thread_root_node_idx_cmp(const void *key, const void *value)
+{
+	const uint32_t *idx = key;
+	const struct mail_thread_root_node *root = value;
+
+	return *idx < root->node.idx ? -1 :
+		*idx > root->node.idx ? 1 : 0;
+}
+
+static int sort_root_nodes_ref2(struct thread_finish_context *ctx,
+				uint32_t record_count)
+{
+	struct mail_thread_node *node;
+	struct mail_thread_root_node *roots, *root;
+	struct mail_thread_child_node child;
+	unsigned int root_count;
+	uint32_t idx, parent_idx;
+
+	roots = array_get_modifiable(&ctx->roots, &root_count);
+	for (idx = 1; idx < record_count; idx++) {
+		node = mail_hash_lookup_idx(ctx->hash_trans, idx);
+		if (MAIL_HASH_RECORD_IS_DELETED(&node->rec) || !node->exists)
+			continue;
+
+		child.idx = idx;
+		if (thread_child_node_fill(ctx, &child) < 0)
+			return -1;
+
+		parent_idx = idx;
+		while (node->parent_idx != 0) {
+			parent_idx = node->parent_idx;
+			node = mail_hash_lookup_idx(ctx->hash_trans,
+						    node->parent_idx);
+		}
+		root = bsearch(&parent_idx, roots, root_count, sizeof(*roots),
+			       mail_thread_root_node_idx_cmp);
+		i_assert(root != NULL);
+
+		if (root->node.sort_date < child.sort_date)
+			root->node.sort_date = child.sort_date;
+	}
+	qsort(roots, root_count, sizeof(*roots), mail_thread_child_node_cmp);
 	return 0;
 }
 
@@ -570,10 +611,15 @@ static void mail_thread_create_shadows(struct thread_finish_context *ctx,
 {
 	struct mail_thread_node *node, *parent;
 	struct mail_thread_root_node root;
+	struct mail_thread_child_node child;
 	uint8_t *referenced;
 	uint32_t idx, i, j, parent_idx, alloc_size, max;
 
+	ctx->use_sent_date = FALSE;
+
 	memset(&root, 0, sizeof(root));
+	memset(&child, 0, sizeof(child));
+
 	alloc_size = record_count/8 + 1;
 	referenced = i_new(uint8_t, alloc_size);
 	for (idx = 1; idx < record_count; idx++) {
@@ -581,32 +627,38 @@ static void mail_thread_create_shadows(struct thread_finish_context *ctx,
 		if (MAIL_HASH_RECORD_IS_DELETED(&node->rec))
 			continue;
 
+		if (node->exists) {
+			/* @UNSAFE: don't remove existing nodes */
+			referenced[idx / 8] |= 1 << (idx % 8);
+		}
+
 		if (node->parent_idx == 0) {
 			root.node.idx = idx;
 			root.node.uid = node->uid;
 			root.dummy = !node->exists;
 			array_append(&ctx->roots, &root, 1);
 			continue;
-		} else {
-			/* @UNSAFE */
-			referenced[node->parent_idx / 8] |=
-				1 << (node->parent_idx % 8);
 		}
 
-		if (node->exists) {
-			/* Find the node's first non-dummy parent and add the
-			   node as its child. If there are no non-dummy
-			   parents, add it as the highest dummy's child. */
-			parent_idx = node->parent_idx;
+		/* @UNSAFE: keep track of referenced nodes */
+		referenced[node->parent_idx / 8] |= 1 << (node->parent_idx % 8);
+
+		if (!node->exists) {
+			/* dummy node */
+			continue;
+		}
+
+		/* Find the node's first non-dummy parent and add the
+		   node as its child. If there are no non-dummy
+		   parents, add it as the highest dummy's child. */
+		parent_idx = node->parent_idx;
+		parent = mail_hash_lookup_idx(ctx->hash_trans, parent_idx);
+		while (!parent->exists && parent->parent_idx != 0) {
+			parent_idx = parent->parent_idx;
 			parent = mail_hash_lookup_idx(ctx->hash_trans,
 						      parent_idx);
-			while (!parent->exists && parent->parent_idx != 0) {
-				parent_idx = parent->parent_idx;
-				parent = mail_hash_lookup_idx(ctx->hash_trans,
-							      parent_idx);
-			}
-			thread_add_shadow_child(ctx, parent_idx, idx);
 		}
+		thread_add_shadow_child(ctx, parent_idx, idx);
 	}
 
 	/* remove unneeded records from hash */
@@ -643,7 +695,6 @@ int mail_thread_finish(struct mail *tmp_mail,
 	ctx.tmp_mail = tmp_mail;
 	ctx.hash_trans = hash_trans;
 	ctx.id_is_uid = id_is_uid;
-	ctx.use_sent_date = thread_type == MAIL_THREAD_REFERENCES;
 
 	hdr = mail_hash_get_header(ctx.hash_trans);
 	if (hdr->record_count == 0)
@@ -659,9 +710,11 @@ int mail_thread_finish(struct mail *tmp_mail,
 	mail_thread_create_shadows(&ctx, hdr->record_count);
 
 	/* (4) */
-	if (sort_root_nodes(&ctx) < 0)
-		return -1;
-	if (thread_type == MAIL_THREAD_REFERENCES) {
+	ctx.use_sent_date = TRUE;
+	switch (thread_type) {
+	case MAIL_THREAD_REFERENCES:
+		if (sort_root_nodes(&ctx) < 0)
+			return -1;
 		/* (5) Gather together messages under the root that have
 		   the same base subject text. */
 		if (gather_base_subjects(&ctx) < 0)
@@ -673,6 +726,13 @@ int mail_thread_finish(struct mail *tmp_mail,
 			if (sort_root_nodes(&ctx) < 0)
 				return -1;
 		}
+		break;
+	case MAIL_THREAD_REFERENCES2:
+		if (sort_root_nodes_ref2(&ctx, hdr->record_count) < 0)
+			return -1;
+		break;
+	default:
+		i_unreached();
 	}
 
 	/* (6) Sort children and send replies */
