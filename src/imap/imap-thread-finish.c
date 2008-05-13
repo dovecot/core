@@ -687,7 +687,7 @@ int mail_thread_finish(struct mail *tmp_mail,
 {
 	struct thread_finish_context ctx;
 	const struct mail_hash_header *hdr;
-	int ret;
+	int ret = 0;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.box = tmp_mail->box;
@@ -697,8 +697,7 @@ int mail_thread_finish(struct mail *tmp_mail,
 	ctx.id_is_uid = id_is_uid;
 
 	hdr = mail_hash_get_header(ctx.hash_trans);
-	if (hdr->record_count == 0)
-		return 0;
+	i_assert(hdr->record_count > 0);
 	ctx.next_new_root_idx = hdr->record_count + 1;
 
 	/* (2) save root nodes and (3) remove dummy messages */
@@ -714,31 +713,31 @@ int mail_thread_finish(struct mail *tmp_mail,
 	switch (thread_type) {
 	case MAIL_THREAD_REFERENCES:
 		if (sort_root_nodes(&ctx) < 0)
-			return -1;
+			ret = -1;
 		/* (5) Gather together messages under the root that have
 		   the same base subject text. */
-		if (gather_base_subjects(&ctx) < 0)
-			return -1;
-
+		else if (gather_base_subjects(&ctx) < 0)
+			ret = -1;
 		/* (5.C) Merge threads with the same thread subject. */
-		if (merge_subject_threads(&ctx)) {
+		else if (merge_subject_threads(&ctx)) {
 			/* root ordering may have changed, sort them again. */
 			if (sort_root_nodes(&ctx) < 0)
-				return -1;
+				ret = -1;
 		}
 		break;
 	case MAIL_THREAD_REFERENCES2:
-		if (sort_root_nodes_ref2(&ctx, hdr->record_count) < 0)
-			return -1;
+		ret = sort_root_nodes_ref2(&ctx, hdr->record_count);
 		break;
 	default:
 		i_unreached();
 	}
 
-	/* (6) Sort children and send replies */
-	T_BEGIN {
-		ret = send_roots(&ctx);
-	} T_END;
+	if (ret == 0) {
+		/* (6) Sort children and send replies */
+		T_BEGIN {
+			ret = send_roots(&ctx);
+		} T_END;
+	}
 	array_free(&ctx.roots);
 	array_free(&ctx.shadow_nodes);
 	return ret;
