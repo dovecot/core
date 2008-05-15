@@ -600,32 +600,30 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	struct maildir_filename *mf;
 	uint32_t seq, uid, first_uid, next_uid;
 	enum maildir_uidlist_rec_flag flags;
+	enum maildir_uidlist_sync_flags sync_flags;
 	bool newdir, new_changed, cur_changed, sync_commit = FALSE;
 	int ret;
 
 	i_assert(ctx->output == NULL);
 	i_assert(ctx->finished);
 
+	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL;
+
 	/* if we want to assign UIDs or keywords, we require uidlist lock */
 	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) == 0 &&
 	    !ctx->have_keywords) {
 		/* assign the UIDs if we happen to get a lock */
-		ctx->locked = maildir_uidlist_try_lock(ctx->mbox->uidlist) > 0;
-	} else {
-		if (maildir_uidlist_lock(ctx->mbox->uidlist) <= 0) {
-			/* error or timeout - our transaction is broken */
-			maildir_transaction_save_rollback(ctx);
-			return -1;
-		}
-		ctx->locked = TRUE;
+		sync_flags |= MAILDIR_UIDLIST_SYNC_TRYLOCK;
+	}
+	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags,
+					&ctx->uidlist_sync_ctx);
+	if (ret < 0) {
+		maildir_transaction_save_rollback(ctx);
+		return -1;
 	}
 
+	ctx->locked = ret > 0;
 	if (ctx->locked) {
-		ret = maildir_uidlist_sync_init(ctx->mbox->uidlist,
-						MAILDIR_UIDLIST_SYNC_PARTIAL,
-						&ctx->uidlist_sync_ctx);
-		i_assert(ret > 0); /* already locked, shouldn't fail */
-
 		if (maildir_sync_index_begin(ctx->mbox, NULL,
 					     &ctx->sync_ctx) < 0) {
 			maildir_transaction_save_rollback(ctx);
