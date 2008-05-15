@@ -624,6 +624,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 	ctx->locked = ret > 0;
 	if (ctx->locked) {
+		/* we'll need to keep the lock past the sync deinit */
+		ret = maildir_uidlist_lock(ctx->mbox->uidlist);
+		i_assert(ret > 0);
+
 		if (maildir_sync_index_begin(ctx->mbox, NULL,
 					     &ctx->sync_ctx) < 0) {
 			maildir_transaction_save_rollback(ctx);
