@@ -152,6 +152,14 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 	if (*fname_r != NULL)
 		return TRUE;
 
+	/* refresh uidlist and check again in case it was added after the last
+	   mailbox sync */
+	if (maildir_uidlist_refresh(mbox->uidlist) < 0)
+		return FALSE;
+	*fname_r = maildir_uidlist_lookup(mbox->uidlist, mail->uid, &flags);
+	if (*fname_r != NULL)
+		return TRUE;
+
 	/* file exists in index file, but not in dovecot-uidlist anymore. */
 	mail_set_expunged(mail);
 
