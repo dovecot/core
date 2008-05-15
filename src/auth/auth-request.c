@@ -870,11 +870,9 @@ bool auth_request_set_login_username(struct auth_request *request,
 
 static int is_ip_in_network(const char *network, const struct ip_addr *ip)
 {
-	const uint32_t *ip1, *ip2;
 	struct ip_addr src_ip, net_ip;
 	const char *p;
-	unsigned int max_bits, bits, pos, i;
-	uint32_t mask;
+	unsigned int max_bits, bits;
 
 	if (net_ipv6_mapped_ipv4_convert(ip, &src_ip) == 0)
 		ip = &src_ip;
@@ -895,44 +893,7 @@ static int is_ip_in_network(const char *network, const struct ip_addr *ip)
 	if (net_addr2ip(network, &net_ip) < 0)
 		return -1;
 
-	if (IPADDR_IS_V4(ip) != IPADDR_IS_V4(&net_ip)) {
-		/* one is IPv6 and one is IPv4 */
-		return 0;
-	}
-	i_assert(IPADDR_IS_V6(ip) == IPADDR_IS_V6(&net_ip));
-
-	if (IPADDR_IS_V4(ip)) {
-		ip1 = &ip->u.ip4.s_addr;
-		ip2 = &net_ip.u.ip4.s_addr;
-	} else {
-#ifdef HAVE_IPV6
-		ip1 = (const void *)&ip->u.ip6;
-		ip2 = (const void *)&net_ip.u.ip6;
-#else
-		/* shouldn't get here */
-		return -1;
-#endif
-	}
-
-	/* check first the full 32bit ints */
-	for (pos = 0, i = 0; pos + 32 <= bits; pos += 32, i++) {
-		if (ip1[i] != ip2[i])
-			return 0;
-	}
-
-	/* check the last full bytes */
-	for (mask = 0xff; pos + 8 <= bits; pos += 8, mask <<= 8) {
-		if ((ip1[i] & mask) != (ip2[i] & mask))
-			return 0;
-	}
-
-	/* check the last bits, they're reversed in bytes */
-	bits -= pos;
-	for (mask = 0x80 << (pos % 32); bits > 0; bits--, mask >>= 1) {
-		if ((ip1[i] & mask) != (ip2[i] & mask))
-			return 0;
-	}
-	return 1;
+	return net_is_in_network(ip, &net_ip, bits);
 }
 
 static void auth_request_validate_networks(struct auth_request *request,
