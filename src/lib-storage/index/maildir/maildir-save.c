@@ -593,15 +593,67 @@ static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 	return 0;
 }
 
+static int
+maildir_transaction_save_commit_pre_sync(struct maildir_save_context *ctx)
+{
+	struct maildir_transaction_context *t =
+		(struct maildir_transaction_context *)ctx->ctx.transaction;
+	struct maildir_mailbox *mbox = ctx->mbox;
+	uint32_t uid, first_uid, next_uid;
+	int ret;
+
+	/* we'll need to keep the lock past the sync deinit */
+	ret = maildir_uidlist_lock(mbox->uidlist);
+	i_assert(ret > 0);
+
+	if (maildir_sync_index_begin(mbox, NULL, &ctx->sync_ctx) < 0)
+		return -1;
+
+	ctx->keywords_sync_ctx =
+		maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx);
+
+	/* now that uidlist is locked, make sure all the existing mails
+	   have been added to index. we don't really look into the
+	   maildir, just add all the new mails listed in
+	   dovecot-uidlist to index. */
+	if (maildir_sync_index(ctx->sync_ctx, TRUE) < 0)
+		return -1;
+
+	/* if messages were added to index, assign them UIDs */
+	first_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
+	i_assert(first_uid != 0);
+	mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
+	i_assert(next_uid = first_uid + ctx->files_count);
+
+	/* these mails are all recent in our session */
+	for (uid = first_uid; uid < next_uid; uid++)
+		index_mailbox_set_recent_uid(&mbox->ibox, uid);
+
+	if (!mbox->ibox.keep_recent) {
+		/* maildir_sync_index() dropped recent flags from
+		   existing messages. we'll still need to drop recent
+		   flags from these newly added messages. */
+		mail_index_update_header(ctx->trans,
+					 offsetof(struct mail_index_header,
+						  first_recent_uid),
+					 &next_uid, sizeof(next_uid), FALSE);
+	}
+
+	/* this will work even if index isn't updated */
+	*t->ictx.first_saved_uid = first_uid;
+	*t->ictx.last_saved_uid = next_uid - 1;
+	return 0;
+}
+
 int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)ctx->ctx.transaction;
 	struct maildir_filename *mf;
-	uint32_t seq, uid, first_uid, next_uid;
+	uint32_t seq;
 	enum maildir_uidlist_rec_flag flags;
 	enum maildir_uidlist_sync_flags sync_flags;
-	bool newdir, new_changed, cur_changed, sync_commit = FALSE;
+	bool newdir, new_changed, cur_changed;
 	int ret;
 
 	i_assert(ctx->output == NULL);
@@ -624,52 +676,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 	ctx->locked = ret > 0;
 	if (ctx->locked) {
-		/* we'll need to keep the lock past the sync deinit */
-		ret = maildir_uidlist_lock(ctx->mbox->uidlist);
-		i_assert(ret > 0);
-
-		if (maildir_sync_index_begin(ctx->mbox, NULL,
-					     &ctx->sync_ctx) < 0) {
+		if (maildir_transaction_save_commit_pre_sync(ctx) < 0) {
 			maildir_transaction_save_rollback(ctx);
 			return -1;
 		}
-
-		ctx->keywords_sync_ctx =
-			maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx);
-
-		/* now that uidlist is locked, make sure all the existing mails
-		   have been added to index. we don't really look into the
-		   maildir, just add all the new mails listed in
-		   dovecot-uidlist to index. */
-		if (maildir_sync_index(ctx->sync_ctx, TRUE) < 0) {
-			maildir_transaction_save_rollback(ctx);
-			return -1;
-		}
-		sync_commit = TRUE;
-
-		/* if messages were added to index, assign them UIDs */
-		first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
-		i_assert(first_uid != 0);
-		mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
-		i_assert(next_uid = first_uid + ctx->files_count);
-
-		/* these mails are all recent in our session */
-		for (uid = first_uid; uid < next_uid; uid++)
-			index_mailbox_set_recent_uid(&ctx->mbox->ibox, uid);
-
-		if (!ctx->mbox->ibox.keep_recent) {
-			/* maildir_sync_index() dropped recent flags from
-			   existing messages. we'll still need to drop recent
-			   flags from these newly added messages. */
-			mail_index_update_header(ctx->trans,
-				offsetof(struct mail_index_header,
-					 first_recent_uid),
-				&next_uid, sizeof(next_uid), FALSE);
-		}
-
-		/* this will work even if index isn't updated */
-		*t->ictx.first_saved_uid = first_uid;
-		*t->ictx.last_saved_uid = next_uid - 1;
 	} else {
 		/* since we couldn't lock uidlist, we'll have to drop the
 		   appends to index. */
@@ -748,11 +758,11 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		mail_free(&ctx->mail);
 	}
 
-	if (sync_commit) {
+	if (ctx->locked) {
 		/* It doesn't matter if index syncing fails */
 		ctx->keywords_sync_ctx = NULL;
 		(void)maildir_sync_index_finish(&ctx->sync_ctx,
-						ret < 0, !sync_commit);
+						ret < 0, FALSE);
 	}
 
 	if (ret < 0) {
