@@ -512,7 +512,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 		(move_count <= MAILDIR_RENAME_RESCAN_COUNT ? 0 : 1);
 }
 
-static int maildir_header_refresh(struct maildir_mailbox *mbox)
+int maildir_sync_header_refresh(struct maildir_mailbox *mbox)
 {
 	const void *data;
 	size_t data_size;
@@ -529,10 +529,8 @@ static int maildir_header_refresh(struct maildir_mailbox *mbox)
 		return 0;
 	}
 
-	if (data_size != sizeof(mbox->maildir_hdr))
-		i_warning("Maildir %s: Invalid header record size", mbox->path);
-	else
-		memcpy(&mbox->maildir_hdr, data, sizeof(mbox->maildir_hdr));
+	memcpy(&mbox->maildir_hdr, data,
+	       I_MIN(sizeof(mbox->maildir_hdr), data_size));
 	return 0;
 }
 
@@ -562,7 +560,7 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 	bool refreshed = FALSE, check_new = FALSE, check_cur = FALSE;
 
 	if (mbox->maildir_hdr.new_mtime == 0) {
-		if (maildir_header_refresh(mbox) < 0)
+		if (maildir_sync_header_refresh(mbox) < 0)
 			return -1;
 		if (mbox->maildir_hdr.new_mtime == 0) {
 			/* first sync */
@@ -577,7 +575,7 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 	if (DIR_DELAYED_REFRESH(hdr, new) ||
 	    DIR_DELAYED_REFRESH(hdr, cur)) {
 		/* refresh index and try again */
-		if (maildir_header_refresh(mbox) < 0)
+		if (maildir_sync_header_refresh(mbox) < 0)
 			return -1;
 		refreshed = TRUE;
 
@@ -610,7 +608,7 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 			break;
 
 		/* refresh index and try again */
-		if (maildir_header_refresh(mbox) < 0)
+		if (maildir_sync_header_refresh(mbox) < 0)
 			return -1;
 		refreshed = TRUE;
 	}

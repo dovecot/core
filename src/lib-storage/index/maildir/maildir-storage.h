@@ -57,6 +57,7 @@ struct maildir_copy_context;
 struct maildir_index_header {
 	uint32_t new_check_time, new_mtime, new_mtime_nsecs;
 	uint32_t cur_check_time, cur_mtime, cur_mtime_nsecs;
+	uint32_t uidlist_mtime, uidlist_mtime_nsecs, uidlist_size;
 };
 
 struct maildir_list_index_record {

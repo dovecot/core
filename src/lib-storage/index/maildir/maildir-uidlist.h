@@ -11,7 +11,8 @@ enum maildir_uidlist_sync_flags {
 	MAILDIR_UIDLIST_SYNC_PARTIAL	= 0x01,
 	MAILDIR_UIDLIST_SYNC_KEEP_STATE	= 0x02,
 	MAILDIR_UIDLIST_SYNC_FORCE	= 0x04,
-	MAILDIR_UIDLIST_SYNC_TRYLOCK	= 0x08
+	MAILDIR_UIDLIST_SYNC_TRYLOCK	= 0x08,
+	MAILDIR_UIDLIST_SYNC_NOREFRESH	= 0x10
 };
 
 enum maildir_uidlist_rec_flag {
@@ -55,6 +56,9 @@ void maildir_uidlist_deinit(struct maildir_uidlist **uidlist);
    and storage has NFS_FLUSH flag set, the NFS attribute cache is flushed to
    make sure that we see the latest uidlist file. */
 int maildir_uidlist_refresh(struct maildir_uidlist *uidlist);
+/* Like maildir_uidlist_refresh(), but if uidlist isn't opened yet, try to
+   fill in the uidvalidity/nextuid from index file instead. */
+int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist);
 
 /* Returns uidlist record for given filename, or NULL if not found. */
 const char *

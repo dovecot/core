@@ -609,6 +609,11 @@ maildir_transaction_save_commit_pre_sync(struct maildir_save_context *ctx)
 	if (maildir_sync_index_begin(mbox, NULL, &ctx->sync_ctx) < 0)
 		return -1;
 
+	if (maildir_sync_header_refresh(mbox) < 0)
+		return -1;
+	if (maildir_uidlist_refresh_fast_init(mbox->uidlist) < 0)
+		return 1;
+
 	ctx->keywords_sync_ctx =
 		maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx);
 
@@ -659,7 +664,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	i_assert(ctx->output == NULL);
 	i_assert(ctx->finished);
 
-	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL;
+	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL |
+		MAILDIR_UIDLIST_SYNC_NOREFRESH;
 
 	/* if we want to assign UIDs or keywords, we require uidlist lock */
 	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) == 0 &&
