@@ -15,6 +15,7 @@
 struct maildir_index_header {
 	uint32_t new_check_time, new_mtime, new_mtime_nsecs;
 	uint32_t cur_check_time, cur_mtime, cur_mtime_nsecs;
+	uint32_t uidlist_mtime, uidlist_mtime_nsecs, uidlist_size;
 };
 struct dbox_index_header {
 	uint32_t last_dirty_flush_stamp;
@@ -78,12 +79,15 @@ static void dump_extension_header(struct mail_index *index,
 		const struct maildir_index_header *hdr = data;
 
 		printf("header\n");
-		printf(" - new_check_time  = %s\n", unixdate2str(hdr->new_check_time));
-		printf(" - new_mtime ..... = %s\n", unixdate2str(hdr->new_mtime));
-		printf(" - new_mtime_nsecs = %u\n", hdr->new_mtime_nsecs);
-		printf(" - cur_check_time  = %s\n", unixdate2str(hdr->cur_check_time));
-		printf(" - cur_mtime ..... = %s\n", unixdate2str(hdr->cur_mtime));
-		printf(" - cur_mtime_nsecs = %u\n", hdr->cur_mtime_nsecs);
+		printf(" - new_check_time .... = %s\n", unixdate2str(hdr->new_check_time));
+		printf(" - new_mtime ......... = %s\n", unixdate2str(hdr->new_mtime));
+		printf(" - new_mtime_nsecs ... = %u\n", hdr->new_mtime_nsecs);
+		printf(" - cur_check_time .... = %s\n", unixdate2str(hdr->cur_check_time));
+		printf(" - cur_mtime ......... = %s\n", unixdate2str(hdr->cur_mtime));
+		printf(" - cur_mtime_nsecs.... = %u\n", hdr->cur_mtime_nsecs);
+		printf(" - uidlist_mtime ..... = %s\n", unixdate2str(hdr->uidlist_mtime));
+		printf(" - uidlist_mtime_nsecs = %u\n", hdr->uidlist_mtime_nsecs);
+		printf(" - uidlist_size ...... = %u\n", hdr->uidlist_size);
 	} else if (strcmp(ext->name, "dbox-hdr") == 0) {
 		const struct dbox_index_header *hdr = data;
 
