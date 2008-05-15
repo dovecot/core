@@ -358,7 +358,7 @@ static void open_log_file(int *fd, const char *path)
 		if (*fd == -1) {
 			*fd = STDERR_FILENO;
 			i_snprintf(buf, sizeof(buf),
-				   "Can't open log file %s: %m", path);
+				   "Can't open log file %s: %m\n", path);
 			(void)write_full(STDERR_FILENO, buf, strlen(buf));
 			failure_exit(FATAL_LOGOPEN);
 		}
