@@ -1016,7 +1016,6 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	if (ret < 0) {
 		mail_storage_set_critical(storage,
 			"o_stream_send(%s) failed: %m", path);
-		(void)close(fd);
 		return -1;
 	}
 
@@ -1024,7 +1023,6 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		if (fdatasync(fd) < 0) {
 			mail_storage_set_critical(storage,
 				"fdatasync(%s) failed: %m", path);
-			(void)close(fd);
 			return -1;
 		}
 	}
@@ -1091,14 +1089,12 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 	} else if (fstat(fd, &st) < 0) {
 		mail_storage_set_critical(box->storage,
 			"fstat(%s) failed: %m", temp_path);
-		(void)close(fd);
 		ret = -1;
 	} else if (file_size != (uoff_t)st.st_size) {
 		i_assert(!file_dotlock_is_locked(uidlist->dotlock));
 		mail_storage_set_critical(box->storage,
 			"Maildir uidlist dotlock overridden: %s",
 			uidlist->path);
-		(void)close(fd);
 		ret = -1;
 	} else {
 		maildir_uidlist_close(uidlist);
@@ -1110,6 +1106,8 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		uidlist->recreate = FALSE;
 		maildir_uidlist_update_hdr(uidlist, &st);
 	}
+	if (ret < 0)
+		(void)close(fd);
 	return ret;
 }
 
