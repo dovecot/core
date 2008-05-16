@@ -352,7 +352,12 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 	enum command_flags flags;
 	bool broken_client = FALSE;
 
-	if ((cmd->cmd_flags & COMMAND_FLAG_USES_SEQS) != 0) {
+	if ((cmd->cmd_flags & COMMAND_FLAG_BREAKS_MAILBOX) ==
+	    COMMAND_FLAG_BREAKS_MAILBOX) {
+		/* there must be no other command running that uses the
+		   selected mailbox */
+		flags = COMMAND_FLAG_USES_MAILBOX;
+	} else if ((cmd->cmd_flags & COMMAND_FLAG_USES_SEQS) != 0) {
 		/* no existing command must be breaking sequences */
 		flags = COMMAND_FLAG_BREAKS_SEQS;
 		broken_client = TRUE;
