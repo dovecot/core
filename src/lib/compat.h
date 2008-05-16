@@ -63,17 +63,37 @@ typedef int socklen_t;
 #  error I do not know how to compare dev_t
 #endif
 
-#ifdef HAVE_STAT_TV_NSEC
-#  define CMP_ST_MTIME(st1, st2) \
-	((st1)->st_mtime == (st2)->st_mtime && \
-	 (st1)->st_mtim.tv_nsec == (st2)->st_mtim.tv_nsec)
-#  define CMP_ST_CTIME(st1, st2) \
-	((st1)->st_ctime == (st2)->st_ctime && \
-	 (st1)->st_ctim.tv_nsec == (st2)->st_ctim.tv_nsec)
+#ifdef HAVE_STAT_XTIM
+#  define HAVE_ST_NSECS
+#  define ST_ATIME_NSEC(st) ((unsigned long)(st).st_atim.tv_nsec)
+#  define ST_MTIME_NSEC(st) ((unsigned long)(st).st_mtim.tv_nsec)
+#  define ST_CTIME_NSEC(st) ((unsigned long)(st).st_ctim.tv_nsec)
+#elif defined (HAVE_STAT_XTIMESPEC)
+#  define HAVE_ST_NSECS
+#  define ST_ATIME_NSEC(st) ((unsigned long)(st).st_atimespec.tv_nsec)
+#  define ST_MTIME_NSEC(st) ((unsigned long)(st).st_mtimespec.tv_nsec)
+#  define ST_CTIME_NSEC(st) ((unsigned long)(st).st_ctimespec.tv_nsec)
 #else
-#  define CMP_ST_MTIME(st1, st2) ((st1)->st_mtime == (st2)->st_mtime)
-#  define CMP_ST_CTIME(st1, st2) ((st1)->st_ctime == (st2)->st_ctime)
+#  define ST_ATIME_NSEC(st) 0UL
+#  define ST_MTIME_NSEC(st) 0UL
+#  define ST_CTIME_NSEC(st) 0UL
 #endif
+
+#ifdef HAVE_ST_NSECS
+/* TRUE if a nanosecond timestamp from struct stat matches another nanosecond.
+   If nanoseconds aren't supported in struct stat, returns always TRUE (useful
+   with NFS if some hosts support nanoseconds and others don't). */
+#  define ST_NTIMES_EQUAL(ns1, ns2) ((ns1) == (ns2))
+#else
+#  define ST_NTIMES_EQUAL(ns1, ns2) TRUE
+#endif
+
+#define CMP_ST_MTIME(st1, st2) \
+	((st1)->st_mtime == (st2)->st_mtime && \
+	 ST_NTIMES_EQUAL((st1)->st_mtim.tv_nsec, (st2)->st_mtim.tv_nsec))
+#define CMP_ST_CTIME(st1, st2) \
+	((st1)->st_ctime == (st2)->st_ctime && \
+	 ST_NTIMES_EQUAL((st1)->st_ctim.tv_nsec, (st2)->st_ctim.tv_nsec))
 
 /* strcasecmp(), strncasecmp() */
 #ifndef HAVE_STRCASECMP

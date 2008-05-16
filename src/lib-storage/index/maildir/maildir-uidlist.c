@@ -318,9 +318,7 @@ static void maildir_uidlist_update_hdr(struct maildir_uidlist *uidlist,
 	struct maildir_index_header *mhdr = &uidlist->mbox->maildir_hdr;
 
 	mhdr->uidlist_mtime = st->st_mtime;
-#ifdef HAVE_STAT_TV_NSEC
-	mhdr->uidlist_mtime_nsecs = st->st_mtim.tv_nsec;
-#endif
+	mhdr->uidlist_mtime_nsecs = ST_MTIME_NSEC(st);
 	mhdr->uidlist_size = st->st_size;
 }
 
@@ -767,11 +765,8 @@ int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 		return ret;
 
 	if (st.st_size == mhdr->uidlist_size &&
-	    st.st_mtime == mhdr->uidlist_mtime
-#ifdef HAVE_STAT_TV_NSEC
-	    && st.st_mtim.tv_nsec == mhdr->uidlist_mtime_nsecs
-#endif
-	   ) {
+	    st.st_mtime == mhdr->uidlist_mtime &&
+	    ST_NTIMES_EQUAL(ST_MTIME_NSEC(st), mhdr->uidlist_mtime_nsecs)) {
 		/* index is up-to-date */
 		hdr = mail_index_get_header(uidlist->mbox->ibox.view);
 		uidlist->uid_validity = hdr->uid_validity;
