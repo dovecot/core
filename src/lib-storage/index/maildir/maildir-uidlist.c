@@ -767,9 +767,9 @@ int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 		return ret;
 
 	if (st.st_size == mhdr->uidlist_size &&
-	    st.st_mtime == mhdr->uidlist_mtime &&
+	    st.st_mtime == mhdr->uidlist_mtime
 #ifdef HAVE_STAT_TV_NSEC
-	    st.st_mtim.tv_nsec == mhdr->uidlist_mtime_nsecs
+	    && st.st_mtim.tv_nsec == mhdr->uidlist_mtime_nsecs
 #endif
 	   ) {
 		/* index is up-to-date */
