@@ -307,12 +307,10 @@ mail_thread_node_lookup(struct mail_thread_update_context *ctx, uint32_t uid,
 }
 
 static bool
-thread_unref_msgid(struct mail_thread_update_context *ctx, uint32_t child_idx,
-		   const char *msgid, uint32_t *parent_idx_r)
+thread_msgid_lookup(struct mail_thread_update_context *ctx, const char *msgid,
+		    uint32_t *idx_r)
 {
 	struct msgid_search_key key;
-	struct mail_thread_node *parent, *child;
-	uint32_t parent_idx;
 
 	key.msgid = msgid;
 	key.msgid_crc32 = crc32_str_nonzero(msgid);
@@ -320,8 +318,7 @@ thread_unref_msgid(struct mail_thread_update_context *ctx, uint32_t child_idx,
 	ctx->cmp_match_count = 0;
 	ctx->cmp_last_idx = 0;
 
-	parent = mail_hash_lookup(ctx->hash_trans, &key, &parent_idx);
-	if (parent == NULL) {
+	if (mail_hash_lookup(ctx->hash_trans, &key, idx_r) == NULL) {
 		if (ctx->cmp_match_count != 1 || ctx->failed) {
 			/* couldn't find the message-id */
 			return FALSE;
@@ -329,9 +326,18 @@ thread_unref_msgid(struct mail_thread_update_context *ctx, uint32_t child_idx,
 
 		/* there's only one key with this crc32 value, so it
 		   must be what we're looking for */
-		parent_idx = ctx->cmp_last_idx;
-		parent = mail_hash_lookup_idx(ctx->hash_trans, parent_idx);
+		*idx_r = ctx->cmp_last_idx;
 	}
+	return TRUE;
+}
+
+static bool
+thread_unref_msgid(struct mail_thread_update_context *ctx,
+		   uint32_t parent_idx, uint32_t child_idx)
+{
+	struct mail_thread_node *parent, *child;
+
+	parent = mail_hash_lookup_idx(ctx->hash_trans, parent_idx);
 	if (parent->parent_unref_rebuilds)
 		return FALSE;
 
@@ -347,29 +353,36 @@ thread_unref_msgid(struct mail_thread_update_context *ctx, uint32_t child_idx,
 		child->parent_idx = 0;
 	}
 	mail_hash_update(ctx->hash_trans, child_idx);
-	*parent_idx_r = parent_idx;
 	return TRUE;
 }
 
 static bool
-thread_unref_links(struct mail_thread_update_context *ctx, uint32_t child_idx,
-		   const char *references, bool *valid_r)
+thread_unref_links(struct mail_thread_update_context *ctx,
+		   uint32_t last_child_idx, const char *references,
+		   bool *valid_r)
 {
-	uint32_t parent_idx;
 	const char *msgid;
+	uint32_t parent_idx, child_idx;
 
 	/* tmp_mail may be changed below, so we have to duplicate the
 	   references string */
 	references = t_strdup(references);
 	*valid_r = FALSE;
 
+	msgid = message_id_get_next(&references);
+	if (msgid == NULL)
+		return TRUE;
+	if (!thread_msgid_lookup(ctx, msgid, &parent_idx))
+		return FALSE;
+	*valid_r = TRUE;
+
 	while ((msgid = message_id_get_next(&references)) != NULL) {
-		*valid_r = TRUE;
-		if (!thread_unref_msgid(ctx, child_idx, msgid, &parent_idx))
+		if (!thread_msgid_lookup(ctx, msgid, &child_idx) ||
+		    !thread_unref_msgid(ctx, parent_idx, child_idx))
 			return FALSE;
-		child_idx = parent_idx;
+		parent_idx = child_idx;
 	}
-	return TRUE;
+	return thread_unref_msgid(ctx, parent_idx, last_child_idx);
 }
 
 int mail_thread_remove(struct mail_thread_update_context *ctx, uint32_t uid)
@@ -397,11 +410,10 @@ int mail_thread_remove(struct mail_thread_update_context *ctx, uint32_t uid)
 					  &in_reply_to) < 0)
 			return -1;
 		in_reply_to = message_id_get_next(&in_reply_to);
-		if (in_reply_to != NULL) {
-			if (!thread_unref_msgid(ctx, idx, in_reply_to,
-						&parent_idx))
-				return 0;
-		}
+		if (in_reply_to != NULL &&
+		    (!thread_msgid_lookup(ctx, in_reply_to, &parent_idx) ||
+		     !thread_unref_msgid(ctx, parent_idx, idx)))
+			return 0;
 	}
 
 	/* get the node again, the pointer may have changed */
