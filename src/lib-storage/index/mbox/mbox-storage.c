@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "istream.h"
+#include "restrict-access.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "home-expand.h"
@@ -472,6 +473,12 @@ static int verify_inbox(struct mail_storage *storage)
 
 	/* make sure inbox file itself exists */
 	fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
+	if (fd == -1 && errno == EACCES) {
+		/* try again with increased privileges */
+		(void)restrict_access_use_priv_gid();
+		fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
+		restrict_access_drop_priv_gid();
+	}
 	if (fd != -1)
 		(void)close(fd);
 	else if (errno == ENOTDIR &&
