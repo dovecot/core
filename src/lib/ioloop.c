@@ -144,9 +144,16 @@ timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 		/* if we came here from io_loop_handle_timeouts(),
 		   next_run must be larger than tv_now or we could go to
 		   infinite loop */
-		if (++timeout->next_run.tv_usec == 0)
+		timeout->next_run.tv_usec += 1000;
+		if (timeout->next_run.tv_usec >= 1000000) {
 			timeout->next_run.tv_sec++;
+			timeout->next_run.tv_usec -= 1000000;
+		}
 	}
+	i_assert(tv_now == NULL ||
+		 timeout->next_run.tv_sec > tv_now->tv_sec ||
+		 (timeout->next_run.tv_sec == tv_now->tv_sec &&
+		  timeout->next_run.tv_usec > tv_now->tv_usec));
 	priorityq_remove(current_ioloop->timeouts, &timeout->item);
 	priorityq_add(current_ioloop->timeouts, &timeout->item);
 }
