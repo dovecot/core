@@ -757,8 +757,13 @@ int dbox_file_get_append_stream(struct dbox_file *file, uoff_t mail_size,
 {
 	int ret;
 
-	if (file->nonappendable)
-		return 0;
+	if (file->append_count == 0) {
+		if (file->nonappendable)
+			return 0;
+	} else {
+		if (!dbox_file_can_append(file, mail_size))
+			return 0;
+	}
 
 	ret = dbox_file_get_append_stream_int(file, mail_size, stream_r);
 	if (ret == 0)
