@@ -462,6 +462,34 @@ static int maildir_mail_get_stream(struct mail *_mail,
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
+static void maildir_mail_set_cache_corrupted(struct mail *_mail,
+					     enum mail_fetch_field field)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
+	enum maildir_uidlist_rec_flag flags;
+	const char *fname;
+	uoff_t size;
+
+	if (field == MAIL_FETCH_VIRTUAL_SIZE) {
+		/* make sure it gets removed from uidlist.
+		   if it's in file name, we can't really do more than log it. */
+		fname = maildir_uidlist_lookup(mbox->uidlist,
+					       _mail->uid, &flags);
+		if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
+					      &size)) {
+			i_error("Maildir filename has wrong W value: %s/%s",
+				mbox->path, fname);
+		} else if (maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
+				MAILDIR_UIDLIST_REC_EXT_VSIZE) != NULL) {
+			maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
+						MAILDIR_UIDLIST_REC_EXT_VSIZE,
+						NULL);
+		}
+	}
+	index_mail_set_cache_corrupted(_mail, field);
+}
+
 struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_close,
 	index_mail_free,
@@ -485,6 +513,6 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_expunge,
-	index_mail_set_cache_corrupted,
+	maildir_mail_set_cache_corrupted,
 	index_mail_get_index_mail
 };

@@ -80,6 +80,7 @@ void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
 				  uint32_t next_uid, bool force);
 
+/* Update extended record. value=NULL removes the key. */
 void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 			     enum maildir_uidlist_rec_ext_key key,
 			     const char *value);

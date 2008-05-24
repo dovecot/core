@@ -935,8 +935,10 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 			p += len;
 		}
 	}
-	buffer_append_c(buf, key);
-	buffer_append(buf, value, strlen(value) + 1);
+	if (value != NULL) {
+		buffer_append_c(buf, key);
+		buffer_append(buf, value, strlen(value) + 1);
+	}
 	buffer_append_c(buf, '\0');
 
 	rec->extensions = p_malloc(uidlist->record_pool, buf->used);
