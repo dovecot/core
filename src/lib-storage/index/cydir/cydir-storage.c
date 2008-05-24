@@ -376,6 +376,9 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 			if (st.st_nlink > 2)
 				*flags |= MAILBOX_CHILDREN;
 		}
+	} else if (errno == ENOENT) {
+		/* doesn't exist - probably a non-existing subscribed mailbox */
+		*flags |= MAILBOX_NONEXISTENT;
 	} else {
 		/* non-selectable. probably either access denied, or symlink
 		   destination not found. don't bother logging errors. */

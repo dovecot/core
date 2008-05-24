@@ -622,12 +622,15 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 			if (st.st_nlink > 2)
 				*flags |= MAILBOX_CHILDREN;
 		}
+	} else if (errno == ENOENT) {
+		/* doesn't exist - probably a non-existing subscribed mailbox */
+		*flags |= MAILBOX_NONEXISTENT;
 	} else {
 		/* non-selectable. probably either access denied, or symlink
 		   destination not found. don't bother logging errors. */
 		*flags |= MAILBOX_NOSELECT;
 	}
-	if ((*flags & MAILBOX_NOSELECT) == 0) {
+	if ((*flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) == 0) {
 		/* make sure it's a selectable mailbox */
 		maildir_path = t_strconcat(path, "/"DBOX_MAILDIR_NAME, NULL);
 		if (stat(maildir_path, &st) < 0 || !S_ISDIR(st.st_mode))
