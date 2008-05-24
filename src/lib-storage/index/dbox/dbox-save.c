@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "fdatasync-path.h"
 #include "hex-dec.h"
 #include "str.h"
 #include "istream.h"
@@ -232,6 +233,12 @@ static int dbox_save_mail_write_header(struct dbox_save_mail *mail)
 		dbox_file_set_syscall_error(mail->file, "write");
 		return -1;
 	}
+	if (!mail->file->mbox->ibox.fsync_disable) {
+		if (fdatasync(mail->file->fd) < 0) {
+			dbox_file_set_syscall_error(mail->file, "fdatasync");
+			return -1;
+		}
+	}
 	return 0;
 }
 
@@ -452,6 +459,13 @@ void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 	ctx->ctx.transaction = NULL; /* transaction is already freed */
 
 	(void)dbox_sync_finish(&ctx->sync_ctx, TRUE);
+
+	if (!ctx->mbox->ibox.fsync_disable) {
+		if (fdatasync_path(ctx->mbox->path) < 0) {
+			i_error("fdatasync_path(%s) failed: %m",
+				ctx->mbox->path);
+		}
+	}
 	dbox_transaction_save_rollback(ctx);
 }
 
