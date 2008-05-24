@@ -550,6 +550,7 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 	path = mailbox_list_get_path(ctx->ctx.list, ctx->info.name,
 				     MAILBOX_LIST_PATH_TYPE_DIR);
 	path_split(path, &dir, &fname);
+	ctx->info.flags = 0;
 	if (ctx->ctx.list->v.iter_is_mailbox(&ctx->ctx, dir, fname,
 					     ctx->info.name,
 					     MAILBOX_LIST_FILE_TYPE_UNKNOWN,
