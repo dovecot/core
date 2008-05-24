@@ -418,6 +418,17 @@ static bool mail_index_check_header_compat(struct mail_index *index,
 	return TRUE;
 }
 
+static void mail_index_map_clear_recent_flags(struct mail_index_map *map)
+{
+	struct mail_index_record *rec;
+	unsigned int i;
+
+	for (i = 0; i < map->hdr.messages_count; i++) {
+		rec = MAIL_INDEX_MAP_IDX(map, i);
+		rec->flags &= ~MAIL_RECENT;
+	}
+}
+
 int mail_index_map_check_header(struct mail_index_map *map)
 {
 	struct mail_index *index = map->index;
@@ -445,13 +456,18 @@ int mail_index_map_check_header(struct mail_index_map *map)
 	if (hdr->seen_messages_count > hdr->messages_count ||
 	    hdr->deleted_messages_count > hdr->messages_count)
 		return 0;
-	if (hdr->minor_version == 0) {
+	switch (hdr->minor_version) {
+	case 0:
 		/* upgrade silently from v1.0 */
-		map->hdr.minor_version = MAIL_INDEX_MINOR_VERSION;
 		map->hdr.unused_old_recent_messages_count = 0;
 		if (hdr->first_recent_uid == 0)
 			map->hdr.first_recent_uid = 1;
 		index->need_recreate = TRUE;
+		/* fall through */
+	case 1:
+		/* pre-v1.1.rc6: make sure the \Recent flags are gone */
+		mail_index_map_clear_recent_flags(map);
+		map->hdr.minor_version = MAIL_INDEX_MINOR_VERSION;
 	}
 	if (hdr->first_recent_uid == 0 ||
 	    hdr->first_recent_uid > hdr->next_uid ||
