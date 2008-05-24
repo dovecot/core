@@ -26,18 +26,32 @@ static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
 
+static int zlib_mail_is_compressed(struct istream *mail)
+{
+	const unsigned char *zheader;
+	size_t header_size;
+
+	/* Peek in to the mail and see if it looks like it's compressed
+	   (it has the correct 2 byte zlib header). This also means that users
+	   can try to exploit security holes in zlib by APPENDing a specially
+	   crafted mail. So let's hope zlib is free of holes. */
+	if (i_stream_read_data(mail, &zheader, &header_size, 2) <= 0)
+		return 0;
+	i_stream_seek(mail, 0);
+
+	return header_size >= 2 && zheader &&
+		zheader[0] == 31 && zheader[1] == 139;
+}
+
 static int zlib_maildir_get_stream(struct mail *_mail,
 				   struct message_size *hdr_size,
 				   struct message_size *body_size,
 				   struct istream **stream_r)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct index_mail *imail = (struct index_mail *)mail;
 	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
-	const char *fname, *p;
-        enum maildir_uidlist_rec_flag flags;
 	int fd;
 
 	if (imail->data.stream != NULL) {
@@ -49,10 +63,7 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 		return -1;
 	i_assert(input == imail->data.stream);
 
-	fname = maildir_uidlist_lookup(mbox->uidlist, _mail->uid, &flags);
-	p = fname == NULL ? NULL : strstr(fname, ":2,");
-	if (p != NULL && strchr(p + 3, 'Z') != NULL) {
-		/* has a Z flag - it's compressed */
+	if (zlib_mail_is_compressed(imail->data.stream)) {
 		fd = dup(i_stream_get_fd(imail->data.stream));
 		if (fd == -1)
 			i_error("zlib plugin: dup() failed: %m");
