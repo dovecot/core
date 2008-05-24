@@ -347,14 +347,14 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		imap_quote_append_string(str, name, FALSE);
 		mailbox_childinfo2str(ctx, str, flags);
 
+		ret = client_send_line(ctx->cmd->client, str_c(str));
 		if (ctx->status_items != 0 &&
 		    (flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) == 0) {
 			T_BEGIN {
 				list_send_status(ctx, name);
 			} T_END;
 		}
-
-		if (client_send_line(ctx->cmd->client, str_c(str)) == 0) {
+		if (ret == 0) {
 			/* buffer is full, continue later */
 			return 0;
 		}
