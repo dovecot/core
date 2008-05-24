@@ -600,7 +600,10 @@ static int dbox_file_read_mail_header(struct dbox_file *file, uint32_t *uid_r,
 		return 0;
 	}
 
-	*uid_r = hex2dec(hdr.uid_hex, sizeof(hdr.uid_hex));
+	/* Ignore the UID header with UID files */
+	*uid_r = (file->file_id & DBOX_FILE_ID_FLAG_UID) != 0 ?
+		(file->file_id & ~DBOX_FILE_ID_FLAG_UID) :
+		hex2dec(hdr.uid_hex, sizeof(hdr.uid_hex));
 	*physical_size_r = hex2dec(hdr.message_size_hex,
 				   sizeof(hdr.message_size_hex));
 	return 1;
