@@ -204,6 +204,9 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			/* FIXME: broken file/offset */
 			if (ret > 0)
 				i_stream_unref(&input);
+			mail_storage_set_critical(_mail->box->storage,
+				"broken pointer to dbox file %s",
+				mail->open_file->current_path);
 			return -1;
 		}
 		data->physical_size = size;
