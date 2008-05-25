@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "unichar.h"
+#include "nfs-workarounds.h"
 #include "file-cache.h"
 #include "seq-range-array.h"
 #include "squat-uidlist.h"
@@ -246,7 +247,9 @@ static int squat_trie_is_file_stale(struct squat_trie *trie)
 {
 	struct stat st, st2;
 
-	if (stat(trie->path, &st) < 0) {
+	if ((trie->flags & SQUAT_INDEX_FLAG_NFS_FLUSH) != 0)
+		nfs_flush_file_handle_cache(trie->path);
+	if (nfs_safe_stat(trie->path, &st) < 0) {
 		if (errno == ENOENT)
 			return 1;
 
@@ -254,6 +257,8 @@ static int squat_trie_is_file_stale(struct squat_trie *trie)
 		return -1;
 	}
 	if (fstat(trie->fd, &st2) < 0) {
+		if (errno == ESTALE)
+			return 1;
 		i_error("fstat(%s) failed: %m", trie->path);
 		return -1;
 	}
@@ -281,7 +286,7 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 	*file_lock_r = NULL;
 	*dotlock_r = NULL;
 
-	while (trie->fd != -1) {
+	for (;;) {
 		if (trie->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 			ret = file_wait_lock(trie->fd, trie->path, lock_type,
 					     trie->lock_method,
@@ -302,7 +307,7 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 		   file and try to lock again */
 		ret = squat_trie_is_file_stale(trie);
 		if (ret == 0)
-			return 1;
+			break;
 
 		if (*file_lock_r != NULL)
 			file_unlock(file_lock_r);
@@ -314,8 +319,13 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 		squat_trie_close(trie);
 		if (squat_trie_open_fd(trie) < 0)
 			return -1;
+		if (trie->fd == -1)
+			return 0;
 	}
-	return 0;
+
+	if ((trie->flags & SQUAT_INDEX_FLAG_NFS_FLUSH) != 0)
+		nfs_flush_read_cache_locked(trie->path, trie->fd);
+	return 1;
 }
 
 static void
