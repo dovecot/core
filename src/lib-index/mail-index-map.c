@@ -808,13 +808,15 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 	return mail_index_map_clone(&tmp_map);
 }
 
+/* returns -1 = error, 0 = index files are unusable,
+   1 = index files are usable or at least repairable */
 static int mail_index_map_latest_file(struct mail_index *index)
 {
 	struct mail_index_map *old_map, *new_map;
 	struct stat st;
 	unsigned int lock_id;
 	uoff_t file_size;
-	bool use_mmap;
+	bool use_mmap, unusable = FALSE;
 	int ret, try;
 
 	ret = mail_index_reopen_if_changed(index);
@@ -824,7 +826,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 
 		/* the index file is lost/broken. let's hope that we can
 		   build it from the transaction log. */
-		return 0;
+		return 1;
 	}
 
 	/* the index file is still open, lock it */
@@ -858,6 +860,10 @@ static int mail_index_map_latest_file(struct mail_index *index)
 		ret = mail_index_read_map(new_map, file_size, &lock_id);
 		mail_index_unlock(index, &lock_id);
 	}
+	if (ret == 0) {
+		/* the index files are unusable */
+		unusable = TRUE;
+	}
 
 	for (try = 0; ret > 0; try++) {
 		/* make sure the header is ok before using this mapping */
@@ -868,8 +874,13 @@ static int mail_index_map_latest_file(struct mail_index *index)
 			else if (mail_index_map_parse_keywords(new_map) < 0)
 				ret = 0;
 		} T_END;
-		if (ret != 0 || try == 2)
+		if (ret != 0 || try == 2) {
+			if (ret < 0) {
+				unusable = TRUE;
+				ret = 0;
+			}
 			break;
+		}
 
 		/* fsck and try again */
 		old_map = index->map;
@@ -885,7 +896,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	}
 	if (ret <= 0) {
 		mail_index_unmap(&new_map);
-		return ret;
+		return ret < 0 ? -1 : (unusable ? 0 : 1);
 	}
 	i_assert(new_map->rec_map->records != NULL);
 
@@ -924,18 +935,24 @@ int mail_index_map(struct mail_index *index,
 	}
 
 	if (ret == 0) {
-		/* try to open and read the latest index. if it fails for
-		   any reason, we'll fallback to updating the existing mapping
-		   from transaction logs (which we'll also do even if the
-		   reopening succeeds) */
-		(void)mail_index_map_latest_file(index);
-
-		/* if we're creating the index file, we don't have any
-		   logs yet */
-		if (index->log->head != NULL && index->indexid != 0) {
-			/* and update the map with the latest changes from
-			   transaction log */
-			ret = mail_index_sync_map(&index->map, type, TRUE);
+		/* try to open and read the latest index. if it fails, we'll
+		   fallback to updating the existing mapping from transaction
+		   logs (which we'll also do even if the reopening succeeds).
+		   if index files are unusable (e.g. major version change)
+		   don't even try to use the transaction log. */
+		if (mail_index_map_latest_file(index) == 0) {
+			/* make sure we don't try to open the file again */
+			if (unlink(index->filepath) < 0 && errno != ENOENT)
+				mail_index_set_syscall_error(index, "unlink()");
+		} else {
+			/* if we're creating the index file, we don't have any
+			   logs yet */
+			if (index->log->head != NULL && index->indexid != 0) {
+				/* and update the map with the latest changes
+				   from transaction log */
+				ret = mail_index_sync_map(&index->map, type,
+							  TRUE);
+			}
 		}
 	}
 
