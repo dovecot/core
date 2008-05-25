@@ -149,7 +149,8 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	if (min_file_offset > 0 && min_file_offset < view->tail->hdr.hdr_size) {
+	if (min_file_offset > 0 &&
+	    min_file_offset < view->log->files->hdr.hdr_size) {
 		/* log file offset is probably corrupted in the index file. */
 		mail_transaction_log_view_set_corrupted(view,
 			"file_seq=%u, min_file_offset (%"PRIuUOFF_T
