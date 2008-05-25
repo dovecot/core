@@ -1633,16 +1633,33 @@ if test $want_gssapi != no; then
 		# we have a kludgy check here to check that we have
 		# version >= v1.3. Although this doesn't work right with
 		# non-MIT kerberos versioning..
-		if `krb5-config --version|grep -v '1\.2' > /dev/null`; then
-			KRB5_LIBS=`krb5-config --libs gssapi`
-			KRB5_CFLAGS=`krb5-config --cflags gssapi`
+		if ! krb5-config --version gssapi 2>/dev/null > /dev/null; then
+		  # krb5-config doesn't support gssapi.
+		  KRB5_LIBS="`krb5-config --libs`"
+		  KRB5_CFLAGS=`krb5-config --cflags`
+		  AC_CHECK_LIB(gss, gss_acquire_cred, [
+		    # Solaris
+		    KRB5_LIBS="$KRB5_LIBS -lgss"
+		  ], [
+		    # failed
+		    KRB5_LIBS=
+		  ], $KRB5_LIBS)
+		elif krb5-config --version|grep '1\.2' > /dev/null; then
+		  if test $want_gssapi = yes; then
+		    AC_ERROR([Can't build with GSSAPI support: v1.2 library not supported])
+		  fi
+		else
+		  KRB5_LIBS=`krb5-config --libs gssapi`
+		  KRB5_CFLAGS=`krb5-config --cflags gssapi`
+		fi
+		if test "$KRB5_LIBS" != ""; then
 			AC_SUBST(KRB5_LIBS)
 			AC_SUBST(KRB5_CFLAGS)
 			
 			# Although krb5-config exists, all systems still don't
 			# have gssapi.h
 			old_CFLAGS=$CFLAGS
-			CFLAGS="$CFLAGS `krb5-config --cflags gssapi`"
+			CFLAGS="$CFLAGS $KRB5_CFLAGS"
 			AC_CHECK_HEADER([gssapi/gssapi.h], [
 				AC_DEFINE(HAVE_GSSAPI_GSSAPI_H,, GSSAPI headers in gssapi/gssapi.h)
 				have_gssapi=yes
@@ -1675,10 +1692,6 @@ if test $want_gssapi != no; then
 			  fi
 			fi
 			CFLAGS=$old_CFLAGS
-		else
-		  if test $want_gssapi = yes; then
-		    AC_ERROR([Can't build with GSSAPI support: v1.2 library not supported])
-		  fi
 		fi
 	else
 	  if test $want_gssapi = yes; then
