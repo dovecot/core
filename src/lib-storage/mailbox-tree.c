@@ -200,7 +200,7 @@ mailbox_tree_iterate_next(struct mailbox_tree_iterate_context *ctx,
 		str_truncate(ctx->path_str, ctx->parent_pos);
 		if (ctx->first_child) {
 			ctx->first_child = FALSE;
-			if (ctx->parent_pos != 0) {
+			if (node->parent != NULL) {
 				str_append_c(ctx->path_str, ctx->separator);
 				ctx->parent_pos++;
 			}
