@@ -821,12 +821,16 @@ maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 
 	fname = maildir_uidlist_lookup_nosync(uidlist, uid, flags_r);
 	if (fname == NULL) {
-		if (uidlist->fd != -1 || uidlist->mbox == NULL)
-			return NULL;
-
-		/* the uidlist doesn't exist. */
-		if (maildir_storage_sync_force(uidlist->mbox, uid) < 0)
-			return NULL;
+		if (uidlist->fd != -1 || uidlist->mbox == NULL) {
+			/* refresh uidlist and check again in case it was added
+			   after the last mailbox sync */
+			if (maildir_uidlist_refresh(uidlist) < 0)
+				return NULL;
+		} else {
+			/* the uidlist doesn't exist. */
+			if (maildir_storage_sync_force(uidlist->mbox, uid) < 0)
+				return NULL;
+		}
 
 		/* try again */
 		fname = maildir_uidlist_lookup_nosync(uidlist, uid, flags_r);
