@@ -430,6 +430,13 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		}
 	}
 
+	if (strchr(line, '/') != NULL) {
+		maildir_uidlist_set_corrupted(uidlist, 
+			"%s: Broken filename at line %u: %s",
+			uidlist->path, uidlist->read_line_count, line);
+		return 0;
+	}
+
 	old_rec = hash_lookup(uidlist->files, line);
 	if (old_rec != NULL) {
 		/* This can happen if expunged file is moved back and the file
