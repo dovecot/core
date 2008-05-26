@@ -370,8 +370,8 @@ maildir_uidlist_read_extended(struct maildir_uidlist *uidlist,
 	return TRUE;
 }
 
-static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
-				const char *line)
+static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
+				 const char *line)
 {
 	struct maildir_uidlist_rec *rec, *old_rec;
 	uint32_t uid;
@@ -386,19 +386,19 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		/* invalid file */
 		maildir_uidlist_set_corrupted(uidlist, "Invalid data: %s",
 					      line);
-		return 0;
+		return FALSE;
 	}
 	if (uid <= uidlist->prev_read_uid) {
 		maildir_uidlist_set_corrupted(uidlist, 
 					      "UIDs not ordered (%u > %u)",
 					      uid, uidlist->prev_read_uid);
-		return 0;
+		return FALSE;
 	}
 	uidlist->prev_read_uid = uid;
 
 	if (uid <= uidlist->last_seen_uid) {
 		/* we already have this */
-		return 1;
+		return TRUE;
 	}
         uidlist->last_seen_uid = uid;
 
@@ -406,7 +406,7 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		maildir_uidlist_set_corrupted(uidlist, 
 			"UID larger than next_uid (%u >= %u)",
 			uid, uidlist->next_uid);
-		return 0;
+		return FALSE;
 	}
 
 	rec = p_new(uidlist->record_pool, struct maildir_uidlist_rec, 1);
@@ -426,7 +426,7 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		if (!ret) {
 			maildir_uidlist_set_corrupted(uidlist, 
 				"Invalid extended fields: %s", line);
-			return 0;
+			return FALSE;
 		}
 	}
 
@@ -449,7 +449,7 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	rec->filename = p_strdup(uidlist->record_pool, line);
 	hash_insert(uidlist->files, rec->filename, rec);
 	array_append(&uidlist->records, &rec, 1);
-	return 1;
+	return TRUE;
 }
 
 static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
