@@ -155,11 +155,11 @@ static void dbox_index_header_init(struct dbox_index *index,
 				   struct dbox_index_file_header *hdr)
 {
 	if (index->uid_validity == 0) {
-		const struct mail_index_header *hdr;
+		const struct mail_index_header *idx_hdr;
 
-		hdr = mail_index_get_header(index->mbox->ibox.view);
-		index->uid_validity = hdr->uid_validity != 0 ?
-			hdr->uid_validity : (uint32_t)ioloop_time;
+		idx_hdr = mail_index_get_header(index->mbox->ibox.view);
+		index->uid_validity = idx_hdr->uid_validity != 0 ?
+			idx_hdr->uid_validity : (uint32_t)ioloop_time;
 	}
 
 	memset(hdr, ' ', sizeof(*hdr));

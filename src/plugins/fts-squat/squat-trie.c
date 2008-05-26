@@ -643,17 +643,17 @@ node_split_string(struct squat_trie_build_context *ctx, struct squat_node *node)
 {
 	struct squat_node *child;
 	unsigned char *str;
-	unsigned int uid, idx, str_len = node->leaf_string_length;
+	unsigned int uid, idx, leafstr_len = node->leaf_string_length;
 
-	i_assert(str_len > 0);
+	i_assert(leafstr_len > 0);
 
 	/* make a copy of the leaf string and convert to normal node by
 	   removing it. */
-	str = t_malloc(str_len);
+	str = t_malloc(leafstr_len);
 	if (!NODE_IS_DYNAMIC_LEAF(node))
-		memcpy(str, node->children.static_leaf_string, str_len);
+		memcpy(str, node->children.static_leaf_string, leafstr_len);
 	else {
-		memcpy(str, node->children.leaf_string, str_len);
+		memcpy(str, node->children.leaf_string, leafstr_len);
 		i_free(node->children.leaf_string);
 	}
 	node->leaf_string_length = 0;
@@ -671,16 +671,17 @@ node_split_string(struct squat_trie_build_context *ctx, struct squat_node *node)
 	}
 
 	i_assert(!child->have_sequential && child->children.data == NULL);
-	if (str_len > 1) {
+	if (leafstr_len > 1) {
 		/* make the child a leaf string */
-		str_len--;
-		child->leaf_string_length = str_len;
+		leafstr_len--;
+		child->leaf_string_length = leafstr_len;
 		if (!NODE_IS_DYNAMIC_LEAF(child)) {
 			memcpy(child->children.static_leaf_string,
-			       str + 1, str_len);
+			       str + 1, leafstr_len);
 		} else {
-			child->children.leaf_string = i_malloc(str_len);
-			memcpy(child->children.leaf_string, str + 1, str_len);
+			child->children.leaf_string = i_malloc(leafstr_len);
+			memcpy(child->children.leaf_string,
+			       str + 1, leafstr_len);
 		}
 	}
 }
@@ -691,10 +692,10 @@ node_leaf_string_add_or_split(struct squat_trie_build_context *ctx,
 			      const unsigned char *data, unsigned int data_len)
 {
 	const unsigned char *str = NODE_LEAF_STRING(node);
-	const unsigned int str_len = node->leaf_string_length;
+	const unsigned int leafstr_len = node->leaf_string_length;
 	unsigned int i;
 
-	if (data_len != str_len) {
+	if (data_len != leafstr_len) {
 		/* different lengths, can't match */
 		T_BEGIN {
 			node_split_string(ctx, node);
@@ -1757,15 +1758,15 @@ squat_trie_lookup_data(struct squat_trie *trie, const unsigned char *data,
 				return -1;
 		}
 		if (node->leaf_string_length != 0) {
-			unsigned int str_len = node->leaf_string_length;
+			unsigned int len = node->leaf_string_length;
 			const unsigned char *str;
 
-			if (str_len > sizeof(node->children.static_leaf_string))
+			if (len > sizeof(node->children.static_leaf_string))
 				str = node->children.leaf_string;
 			else
 				str = node->children.static_leaf_string;
 
-			if (size > str_len || memcmp(data, str, size) != 0)
+			if (size > len || memcmp(data, str, size) != 0)
 				return 0;
 
 			/* match */

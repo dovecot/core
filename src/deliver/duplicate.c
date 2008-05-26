@@ -245,7 +245,7 @@ int duplicate_check(const void *id, size_t id_size, const char *user)
 }
 
 void duplicate_mark(const void *id, size_t id_size,
-                    const char *user, time_t time)
+                    const char *user, time_t timestamp)
 {
 	struct duplicate *d;
 	void *new_id;
@@ -260,7 +260,7 @@ void duplicate_mark(const void *id, size_t id_size,
 	d->id = new_id;
 	d->id_size = id_size;
 	d->user = p_strdup(duplicate_file->pool, user);
-	d->time = time;
+	d->time = timestamp;
 
 	duplicate_file->changed = TRUE;
 	hash_insert(duplicate_file->hash, d, d);

@@ -21,12 +21,12 @@ struct dbox_index_header {
 	uint32_t last_dirty_flush_stamp;
 };
 
-static const char *unixdate2str(time_t time)
+static const char *unixdate2str(time_t timestamp)
 {
 	static char buf[64];
 	struct tm *tm;
 
-	tm = localtime(&time);
+	tm = localtime(&timestamp);
 	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", tm);
 	return buf;
 }

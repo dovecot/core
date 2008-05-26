@@ -711,7 +711,7 @@ int main(int argc, char *argv[])
 	const char *config_path = DEFAULT_CONFIG_FILE;
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
-	const char *home, *destaddr, *user, *value, *error;
+	const char *home, *destaddr, *user, *value, *errstr;
 	ARRAY_TYPE(string) extra_fields;
 	struct mail_namespace *ns, *raw_ns;
 	struct mail_storage *storage;
@@ -938,8 +938,8 @@ int main(int argc, char *argv[])
 	raw_ns = mail_namespaces_init_empty(namespace_pool);
 	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
 	if (mail_storage_create(raw_ns, "raw", "/tmp", user,
-				0, FILE_LOCK_METHOD_FCNTL, &error) < 0)
-		i_fatal("Couldn't create internal raw storage: %s", error);
+				0, FILE_LOCK_METHOD_FCNTL, &errstr) < 0)
+		i_fatal("Couldn't create internal raw storage: %s", errstr);
 	input = create_raw_stream(0, &mtime);
 	box = mailbox_open(raw_ns->storage, "Dovecot Delivery Mail", input,
 			   MAILBOX_OPEN_NO_INDEX_FILES);
@@ -991,7 +991,6 @@ int main(int argc, char *argv[])
 	if (ret < 0 ) {
 		const char *error_string;
 		enum mail_error error;
-		int ret;
 
 		if (storage == NULL) {
 			/* This shouldn't happen */

@@ -939,8 +939,7 @@ static void mail_thread_finish(struct thread_context *ctx)
 	/* (2) save root nodes and drop the msgids */
 	iter = hash_iterate_init(ctx->msgid_hash);
 	while (hash_iterate(iter, &key, &value)) {
-		struct node *node = value;
-
+		node = value;
 		if (node->parent == NULL)
 			add_root(ctx, node);
 	}

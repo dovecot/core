@@ -574,9 +574,9 @@ fs_list_dir_next(struct fs_list_iterate_context *ctx)
 
 	if (dir->dirp != NULL) {
 		if (dir->next_entry != NULL) {
-			const struct list_dir_entry *ret = dir->next_entry;
+			const struct list_dir_entry *entry = dir->next_entry;
 			dir->next_entry = NULL;
-			return ret;
+			return entry;
 		}
 		d = readdir(dir->dirp);
 		if (d == NULL)

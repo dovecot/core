@@ -95,7 +95,7 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 	const char *const *tmp, *extra_groups;
 	uid_t uid = 0;
 	gid_t gid = 0;
-	const char *chroot = getenv("MAIL_CHROOT");
+	const char *chroot_dir = getenv("MAIL_CHROOT");
 	const char *home_dir = NULL;
 	bool debug = getenv("DEBUG") != NULL;
 	unsigned int len;
@@ -121,7 +121,7 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 				return_value = EX_TEMPFAIL;
 			}
 		} else if (strncmp(*tmp, "chroot=", 7) == 0) {
-			chroot = *tmp + 7;
+			chroot_dir = *tmp + 7;
 		} else {
 			char *field = i_strdup(*tmp);
 
@@ -162,15 +162,15 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 	if (conn->euid == 0 || getegid() != gid)
 		env_put(t_strconcat("RESTRICT_SETGID=", dec2str(gid), NULL));
 
-	if (chroot != NULL) {
-		len = strlen(chroot);
-		if (len > 2 && strcmp(chroot + len - 2, "/.") == 0 &&
+	if (chroot_dir != NULL) {
+		len = strlen(chroot_dir);
+		if (len > 2 && strcmp(chroot_dir + len - 2, "/.") == 0 &&
 		    home_dir != NULL &&
-		    strncmp(home_dir, chroot, len - 2) == 0) {
+		    strncmp(home_dir, chroot_dir, len - 2) == 0) {
 			/* strip chroot dir from home dir */
 			home_dir += len - 2;
 		}
-		env_put(t_strconcat("RESTRICT_CHROOT=", chroot, NULL));
+		env_put(t_strconcat("RESTRICT_CHROOT=", chroot_dir, NULL));
 	}
 	if (home_dir != NULL)
 		env_put(t_strconcat("HOME=", home_dir, NULL));

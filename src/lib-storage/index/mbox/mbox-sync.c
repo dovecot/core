@@ -1656,7 +1656,6 @@ again:
 		   before index syncing is started to avoid deadlocks, so we
 		   don't have much choice either (well, easy ones anyway). */
 		int lock_type = mbox->mbox_readonly ? F_RDLCK : F_WRLCK;
-		int ret;
 
 		if ((ret = mbox_lock(mbox, lock_type, &lock_id)) <= 0) {
 			if (ret == 0 || lock_type == F_RDLCK)

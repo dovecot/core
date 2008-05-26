@@ -199,28 +199,28 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		used_fields_count = i;
 	} else {
 		for (i = used_fields_count = 0; i < orig_fields_count; i++) {
-			struct mail_cache_field_private *field =
+			struct mail_cache_field_private *priv =
 				&cache->fields[i];
 			enum mail_cache_decision_type dec =
-				field->field.decision;
+				priv->field.decision;
 
 			/* if the decision isn't forced and this field hasn't
 			   been accessed for a while, drop it */
 			if ((dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
-			    (time_t)field->last_used < max_drop_time &&
-			    !field->adding) {
+			    (time_t)priv->last_used < max_drop_time &&
+			    !priv->adding) {
 				dec = MAIL_CACHE_DECISION_NO;
-				field->field.decision = dec;
+				priv->field.decision = dec;
 			}
 
 			/* drop all fields we don't want */
 			if ((dec & ~MAIL_CACHE_DECISION_FORCED) ==
-			    MAIL_CACHE_DECISION_NO && !field->adding) {
-				field->used = FALSE;
-				field->last_used = 0;
+			    MAIL_CACHE_DECISION_NO && !priv->adding) {
+				priv->used = FALSE;
+				priv->last_used = 0;
 			}
 
-			ctx.field_file_map[i] = !field->used ?
+			ctx.field_file_map[i] = !priv->used ?
 				(uint32_t)-1 : used_fields_count++;
 		}
 	}

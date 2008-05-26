@@ -1650,7 +1650,7 @@ static void auth_settings_dump(struct auth_settings *auth, bool nondefaults)
 {
 	const struct auth_passdb_settings *passdb;
 	const struct auth_userdb_settings *userdb;
-	const struct auth_socket_settings *socket;
+	const struct auth_socket_settings *socket_set;
 	const void *sets[2], *sets2[2];
 	const void *empty_defaults;
 
@@ -1682,23 +1682,23 @@ static void auth_settings_dump(struct auth_settings *auth, bool nondefaults)
 				      nondefaults, 4);
 		}
 
-		socket = auth->sockets;
-		for (; socket != NULL; socket = socket->next) {
+		socket_set = auth->sockets;
+		for (; socket_set != NULL; socket_set = socket_set->next) {
 			printf("  socket:\n");
-			sets2[1] = socket;
+			sets2[1] = socket_set;
 			settings_dump(auth_socket_setting_defs, sets2, NULL, 2,
 				      nondefaults, 4);
 
-			if (socket->client.used) {
+			if (socket_set->client.used) {
 				printf("    client:\n");
-				sets2[1] = &socket->client;
+				sets2[1] = &socket_set->client;
 				settings_dump(socket_setting_defs, sets2, NULL,
 					      2, nondefaults, 6);
 			}
 
-			if (socket->master.used) {
+			if (socket_set->master.used) {
 				printf("    master:\n");
-				sets2[1] = &socket->master;
+				sets2[1] = &socket_set->master;
 				settings_dump(socket_setting_defs, sets2, NULL,
 					      2, nondefaults, 6);
 			}

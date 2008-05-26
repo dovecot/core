@@ -40,16 +40,16 @@ struct auth_master_listener *auth_master_listener_create(struct auth *auth)
 }
 
 static void
-auth_master_listener_socket_free(struct auth_master_listener_socket *socket)
+auth_master_listener_socket_free(struct auth_master_listener_socket *s)
 {
-	if (socket->path != NULL) {
-		(void)unlink(socket->path);
-		i_free(socket->path);
+	if (s->path != NULL) {
+		(void)unlink(s->path);
+		i_free(s->path);
 	}
 
-	io_remove(&socket->io);
-	net_disconnect(socket->fd);
-	i_free(socket);
+	io_remove(&s->io);
+	net_disconnect(s->fd);
+	i_free(s);
 }
 
 void auth_master_listener_destroy(struct auth_master_listener *listener)

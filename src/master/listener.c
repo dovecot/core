@@ -130,7 +130,7 @@ static void check_conflicts(const struct ip_addr *ip, unsigned int port,
 }
 
 static void
-listener_init(const char *set_name, const char *listen,
+listener_init(const char *set_name, const char *listen_list,
 	      unsigned int default_port, ARRAY_TYPE(listener) *listens_arr)
 {
 	const char *const *tmp;
@@ -148,7 +148,7 @@ listener_init(const char *set_name, const char *listen,
 	l.fd = -1;
 	l.wanted = TRUE;
 
-	for (tmp = t_strsplit_spaces(listen, ", "); *tmp != NULL; tmp++) {
+	for (tmp = t_strsplit_spaces(listen_list, ", "); *tmp != NULL; tmp++) {
 		l.port = default_port;
 		resolve_ip(set_name, *tmp, &l.ip, &l.port);
 
@@ -204,7 +204,7 @@ static void listen_parse_and_close_unneeded(struct settings *set)
 {
 	const char *const *proto;
 	unsigned int default_port;
-	bool listen = FALSE, ssl_listen = FALSE;
+	bool nonssl_listen = FALSE, ssl_listen = FALSE;
 
 	if (set == NULL)
 		return;
@@ -214,14 +214,14 @@ static void listen_parse_and_close_unneeded(struct settings *set)
 	for (; *proto != NULL; proto++) {
 		if (strcasecmp(*proto, "imap") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_IMAP)
-				listen = TRUE;
+				nonssl_listen = TRUE;
 		} else if (strcasecmp(*proto, "imaps") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_IMAP &&
 			    !set->ssl_disable)
 				ssl_listen = TRUE;
 		} else if (strcasecmp(*proto, "pop3") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_POP3)
-				listen = TRUE;
+				nonssl_listen = TRUE;
 		} else if (strcasecmp(*proto, "pop3s") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_POP3 &&
 			    !set->ssl_disable)
@@ -229,7 +229,7 @@ static void listen_parse_and_close_unneeded(struct settings *set)
 		}
 	}
 
-	if (!listen)
+	if (!nonssl_listen)
 		listener_close_fds(&set->listens);
 	else {
 		default_port = set->protocol == MAIL_PROTOCOL_IMAP ? 143 : 110;

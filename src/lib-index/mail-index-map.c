@@ -331,11 +331,11 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	for (i = 0; i < array_count(&map->keyword_idx_map); i++) {
 		const char *keyword = name + kw_rec[i].name_offset;
 		const unsigned int *old_idx;
-		unsigned int idx;
+		unsigned int kw_idx;
 
 		old_idx = array_idx(&map->keyword_idx_map, i);
-		if (!mail_index_keyword_lookup(index, keyword, &idx) ||
-		    idx != *old_idx) {
+		if (!mail_index_keyword_lookup(index, keyword, &kw_idx) ||
+		    kw_idx != *old_idx) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 					     "Keywords changed unexpectedly",
 					     index->filepath);
@@ -347,7 +347,7 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	i = array_count(&map->keyword_idx_map);
 	for (; i < kw_hdr->keywords_count; i++) {
 		const char *keyword = name + kw_rec[i].name_offset;
-		unsigned int idx;
+		unsigned int kw_idx;
 
 		if (*keyword == '\0') {
 			mail_index_set_error(index, "Corrupted index file %s: "
@@ -355,8 +355,8 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 				index->filepath);
 			return -1;
 		}
-		mail_index_keyword_lookup_or_create(index, keyword, &idx);
-		array_append(&map->keyword_idx_map, &idx, 1);
+		mail_index_keyword_lookup_or_create(index, keyword, &kw_idx);
+		array_append(&map->keyword_idx_map, &kw_idx, 1);
 	}
 	return 0;
 }

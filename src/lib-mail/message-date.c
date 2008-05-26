@@ -105,8 +105,9 @@ static int next_token(struct message_date_parser_context *ctx,
 	return ret < 0 ? -1 : *value_len > 0;
 }
 
-static bool message_date_parser_tokens(struct message_date_parser_context *ctx,
-				       time_t *time, int *timezone_offset)
+static bool
+message_date_parser_tokens(struct message_date_parser_context *ctx,
+			   time_t *timestamp_r, int *timezone_offset_r)
 {
 	struct tm tm;
 	const unsigned char *value;
@@ -212,24 +213,24 @@ static bool message_date_parser_tokens(struct message_date_parser_context *ctx,
 		return FALSE;
 	if (ret == 0) {
 		/* missing timezone */
-		*timezone_offset = 0;
+		*timezone_offset_r = 0;
 	} else {
 		/* timezone */
-		*timezone_offset = parse_timezone(value, len);
+		*timezone_offset_r = parse_timezone(value, len);
 	}
 
 	tm.tm_isdst = -1;
-	*time = utc_mktime(&tm);
-	if (*time == (time_t)-1)
+	*timestamp_r = utc_mktime(&tm);
+	if (*timestamp_r == (time_t)-1)
 		return FALSE;
 
-	*time -= *timezone_offset * 60;
+	*timestamp_r -= *timezone_offset_r * 60;
 
 	return TRUE;
 }
 
 bool message_date_parse(const unsigned char *data, size_t size,
-		       time_t *time, int *timezone_offset)
+			time_t *timestamp_r, int *timezone_offset_r)
 {
 	bool success;
 
@@ -238,21 +239,21 @@ bool message_date_parse(const unsigned char *data, size_t size,
 
 		rfc822_parser_init(&ctx.parser, data, size, NULL);
 		ctx.str = t_str_new(128);
-		success = message_date_parser_tokens(&ctx, time,
-						     timezone_offset);
+		success = message_date_parser_tokens(&ctx, timestamp_r,
+						     timezone_offset_r);
 	} T_END;
 
 	return success;
 }
 
-const char *message_date_create(time_t time)
+const char *message_date_create(time_t timestamp)
 {
 	struct tm *tm;
 	int offset;
 	bool negative;
 
-	tm = localtime(&time);
-	offset = utc_offset(tm, time);
+	tm = localtime(&timestamp);
+	offset = utc_offset(tm, timestamp);
 	if (offset >= 0)
 		negative = FALSE;
 	else {

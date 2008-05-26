@@ -118,12 +118,12 @@ static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
 
 static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 {
-	struct mail_index_view_sync_rec sync;
+	struct mail_index_view_sync_rec sync_rec;
 	uint32_t seq1, seq2;
 
 	i_array_init(&ctx->flag_updates, 128);
-	while (mail_index_view_sync_next(ctx->sync_ctx, &sync)) {
-		switch (sync.type) {
+	while (mail_index_view_sync_next(ctx->sync_ctx, &sync_rec)) {
+		switch (sync_rec.type) {
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 			/* not interested */
 			break;
@@ -135,7 +135,8 @@ static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			if (mail_index_lookup_seq_range(ctx->ibox->view,
-							sync.uid1, sync.uid2,
+							sync_rec.uid1,
+							sync_rec.uid2,
 							&seq1, &seq2)) {
 				seq_range_array_add_range(&ctx->flag_updates,
 							  seq1, seq2);

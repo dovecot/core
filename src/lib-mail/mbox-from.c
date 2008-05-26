@@ -54,7 +54,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 {
 	const unsigned char *msg_start, *sender_end, *msg_end;
 	struct tm tm;
-	int esc, alt_stamp, timezone = 0, seen_timezone = FALSE;
+	int esc, alt_stamp, timezone_secs = 0, seen_timezone = FALSE;
 	time_t t;
 
 	*time_r = (time_t)-1;
@@ -198,9 +198,9 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		   i_isdigit(msg[3]) && i_isdigit(msg[4]) && msg[5] == ' ') {
 		/* numeric timezone, use it */
                 seen_timezone = TRUE;
-		timezone = (msg[1]-'0') * 10*60*60 + (msg[2]-'0') * 60*60 +
+		timezone_secs = (msg[1]-'0') * 10*60*60 + (msg[2]-'0') * 60*60 +
 			(msg[3]-'0') * 10 + (msg[4]-'0');
-		if (msg[0] == '-') timezone = -timezone;
+		if (msg[0] == '-') timezone_secs = -timezone_secs;
 		msg += 6;
 	}
 
@@ -217,9 +217,9 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	    i_isdigit(msg[2]) && i_isdigit(msg[3]) &&
 	    i_isdigit(msg[4]) && i_isdigit(msg[5])) {
 		seen_timezone = TRUE;
-		timezone = (msg[2]-'0') * 10*60*60 + (msg[3]-'0') * 60*60 +
+		timezone_secs = (msg[2]-'0') * 10*60*60 + (msg[3]-'0') * 60*60 +
 			(msg[4]-'0') * 10 + (msg[5]-'0');
-		if (msg[1] == '-') timezone = -timezone;
+		if (msg[1] == '-') timezone_secs = -timezone_secs;
 	}
 
 	if (seen_timezone) {
@@ -227,7 +227,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		if (t == (time_t)-1)
 			return -1;
 
-		t -= timezone;
+		t -= timezone_secs;
 		*time_r = t;
 	} else {
 		/* assume local timezone */
@@ -238,7 +238,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	return 0;
 }
 
-const char *mbox_from_create(const char *sender, time_t time)
+const char *mbox_from_create(const char *sender, time_t timestamp)
 {
 	string_t *str;
 	struct tm *tm;
@@ -251,7 +251,7 @@ const char *mbox_from_create(const char *sender, time_t time)
 
 	/* we could use simply asctime(), but i18n etc. may break it.
 	   Example: "Thu Nov 29 22:33:52 2001" */
-	tm = localtime(&time);
+	tm = localtime(&timestamp);
 
 	/* week day */
 	str_append(str, weekdays[tm->tm_wday]);
