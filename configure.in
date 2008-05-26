@@ -1681,7 +1681,7 @@ if test $want_gssapi != no; then
 
 				if test x$want_gssapi_plugin != xyes; then
 				  AUTH_LIBS="$AUTH_LIBS $KRB5_LIBS"
-				  AUTH_CFLAGS="$AUTH_CFLAGS `krb5-config --cflags gssapi`"
+				  AUTH_CFLAGS="$AUTH_CFLAGS $KRB5_CFLAGS"
 				  AC_DEFINE(BUILTIN_GSSAPI,, GSSAPI support is built in)
 				else
 				  have_gssapi_plugin=yes
