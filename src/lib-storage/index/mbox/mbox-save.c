@@ -328,6 +328,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		ctx->output = o_stream_create_fd_file(mbox->mbox_fd,
 						      ctx->append_offset,
 						      FALSE);
+		o_stream_cork(ctx->output);
 	}
 	return 0;
 }
@@ -670,8 +671,10 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	if (ctx->failed && ctx->mail_offset != (uoff_t)-1) {
 		/* saving this mail failed - truncate back to beginning of it */
+		(void)o_stream_flush(ctx->output);
 		if (ftruncate(ctx->mbox->mbox_fd, (off_t)ctx->mail_offset) < 0)
 			mbox_set_syscall_error(ctx->mbox, "ftruncate()");
+		o_stream_seek(ctx->output, ctx->mail_offset);
 		ctx->mail_offset = (uoff_t)-1;
 	}
 
