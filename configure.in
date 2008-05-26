@@ -437,7 +437,7 @@ dnl * I/O loop function
 have_ioloop=no
 
 if test "$ioloop" = "best" || test "$ioloop" = "epoll"; then
-  AC_CACHE_CHECK([whether we can use epoll],epoll_works,[
+  AC_CACHE_CHECK([whether we can use epoll],i_cv_epoll_works,[
     AC_TRY_RUN([
       #include <sys/epoll.h>
   
@@ -446,12 +446,12 @@ if test "$ioloop" = "best" || test "$ioloop" = "epoll"; then
 	return epoll_create(5) < 1;
       }
     ], [
-      epoll_works=yes
+      i_cv_epoll_works=yes
     ], [
-      epoll_works=no
+      i_cv_epoll_works=no
     ])
   ])
-  if test $epoll_works = yes; then
+  if test $i_cv_epoll_works = yes; then
     AC_DEFINE(IOLOOP_EPOLL,, Implement I/O loop with Linux 2.6 epoll())
     have_ioloop=yes
     ioloop=epoll
@@ -489,7 +489,7 @@ have_notify=none
 
 if test "$notify" = "" || test "$notify" = "inotify" ; then
   dnl * inotify?
-  AC_CACHE_CHECK([whether we can use inotify],inotify_works,[
+  AC_CACHE_CHECK([whether we can use inotify],i_cv_inotify_works,[
     AC_TRY_RUN([
       #define _GNU_SOURCE
       #include <sys/ioctl.h>
@@ -523,12 +523,12 @@ if test "$notify" = "" || test "$notify" = "inotify" ; then
 	return 0;
       }
     ], [
-      inotify_works=yes
+      i_cv_inotify_works=yes
     ], [
-      inotify_works=no
+      i_cv_inotify_works=no
     ])
   ])
-  if test $inotify_works = yes; then
+  if test $i_cv_inotify_works = yes; then
     have_notify=inotify
     notify=inotify
     AC_DEFINE(IOLOOP_NOTIFY_INOTIFY,, Use Linux inotify)
@@ -809,7 +809,7 @@ AC_DEFINE_UNQUOTED(PRIuUOFF_T, "$uofft_fmt", printf() format for uoff_t)
 dnl * make sure size_t isn't signed. we'd probably work fine with it, but
 dnl * it's more likely vulnerable to buffer overflows. Anyway, C99 specifies
 dnl * that it's unsigned and only some old systems define it as signed.
-AC_CACHE_CHECK([whether size_t is signed],signed_size_t,[
+AC_CACHE_CHECK([whether size_t is signed],i_cv_signed_size_t,[
   AC_RUN_IFELSE([AC_LANG_SOURCE([[
     #include <sys/types.h>
     int main() {
@@ -817,7 +817,7 @@ AC_CACHE_CHECK([whether size_t is signed],signed_size_t,[
       exit((size_t)(int)-1 <= 0 ? 0 : 1);
     }
   ]])],[
-    signed_size_t=yes
+    i_cv_signed_size_t=yes
 
     echo
     echo "Your system's size_t is a signed integer, Dovecot isn't designed to"
@@ -830,7 +830,7 @@ AC_CACHE_CHECK([whether size_t is signed],signed_size_t,[
     fi
     echo "..ignoring as requested.."
   ],[
-    signed_size_t=no
+    i_cv_signed_size_t=no
   ],[])
 ])
 dnl Note: we check size_t rather than ssize_t here, because on OSX 10.2
@@ -924,7 +924,7 @@ fi
 AC_MSG_RESULT($i_cv_field_tm_gmtoff)
 
 dnl * how large time_t values does gmtime() accept?
-AC_CACHE_CHECK([how large time_t values gmtime() accepts],gmtime_max_time_t,[
+AC_CACHE_CHECK([how large time_t values gmtime() accepts],i_cv_gmtime_max_time_t,[
   AC_RUN_IFELSE([AC_LANG_SOURCE([[
     #include <stdio.h>
     #include <time.h>
@@ -955,16 +955,16 @@ AC_CACHE_CHECK([how large time_t values gmtime() accepts],gmtime_max_time_t,[
       return 0;
     }
   ]])],[
-    gmtime_max_time_t=`cat conftest.temp`
+    i_cv_gmtime_max_time_t=`cat conftest.temp`
     rm -f conftest.temp
   ], [
     printf "check failed, assuming "
-    gmtime_max_time_t=31
+    i_cv_gmtime_max_time_t=31
   ],[])
 ])
-AC_DEFINE_UNQUOTED(TIME_T_MAX_BITS, $gmtime_max_time_t, max. time_t bits gmtime() can handle)
+AC_DEFINE_UNQUOTED(TIME_T_MAX_BITS, $i_cv_gmtime_max_time_t, max. time_t bits gmtime() can handle)
 
-AC_CACHE_CHECK([whether time_t is signed],signed_time_t,[
+AC_CACHE_CHECK([whether time_t is signed],i_cv_signed_time_t,[
   AC_RUN_IFELSE([AC_LANG_SOURCE([[
     #include <sys/types.h>
     int main() {
@@ -972,12 +972,12 @@ AC_CACHE_CHECK([whether time_t is signed],signed_time_t,[
       exit((time_t)(int)-1 <= 0 ? 0 : 1);
     }
   ]])],[
-    signed_time_t=yes
+    i_cv_signed_time_t=yes
   ], [
-    signed_time_t=no
+    i_cv_signed_time_t=no
   ])
 ])
-if test $signed_time_t = yes; then
+if test $i_cv_signed_time_t = yes; then
   AC_DEFINE(TIME_T_SIGNED,, Define if your time_t is signed)
 fi
 
@@ -1051,7 +1051,7 @@ AC_TRY_LINK([
 ])
 
 dnl * If mmap() plays nicely with write()
-AC_CACHE_CHECK([whether shared mmaps get updated by write()s],mmap_plays_with_write,[
+AC_CACHE_CHECK([whether shared mmaps get updated by write()s],i_cv_mmap_plays_with_write,[
   AC_TRY_RUN([
     #include <stdio.h>
     #include <sys/types.h>
@@ -1083,17 +1083,17 @@ AC_CACHE_CHECK([whether shared mmaps get updated by write()s],mmap_plays_with_wr
       return strcmp(mem, "3") == 0 ? 0 : 1;
     }
   ], [
-    mmap_plays_with_write=yes
+    i_cv_mmap_plays_with_write=yes
   ], [
-    mmap_plays_with_write=no
+    i_cv_mmap_plays_with_write=no
   ])
 ])
-if test $mmap_plays_with_write = no; then
+if test $i_cv_mmap_plays_with_write = no; then
   AC_DEFINE(MMAP_CONFLICTS_WRITE,, [Define if shared mmaps don't get updated by write()s])
 fi
 
 dnl * see if fd passing works
-AC_CACHE_CHECK([whether fd passing works],fd_passing,[
+AC_CACHE_CHECK([whether fd passing works],i_cv_fd_passing,[
   for i in 1 2; do
     old_cflags="$CFLAGS"
     CFLAGS="$CFLAGS -I$srcdir/src/lib $srcdir/src/lib/fdpass.c"
@@ -1143,20 +1143,20 @@ AC_CACHE_CHECK([whether fd passing works],fd_passing,[
     ], [
       CFLAGS=$old_cflags
       if test $i = 2; then
-	fd_passing=buggy_cmsg_macros
+	i_cv_fd_passing=buggy_cmsg_macros
       else
-        fd_passing=yes
+        i_cv_fd_passing=yes
       fi
       break
     ], [
       dnl no, try with BUGGY_CMSG_MACROS
       CFLAGS=$old_cflags
-      fd_passing=no
+      i_cv_fd_passing=no
     ])
   done
 ]);
 
-if test $fd_passing = buggy_cmsg_macros; then
+if test $i_cv_fd_passing = buggy_cmsg_macros; then
   AC_DEFINE(BUGGY_CMSG_MACROS,, Define if you have buggy CMSG macros)
 fi
 
@@ -1352,7 +1352,7 @@ dnl ***
 dnl *** C99 vsnprintf()?
 dnl ***
 
-AC_CACHE_CHECK([for C99 vsnprintf()],c99_vsnprintf,[
+AC_CACHE_CHECK([for C99 vsnprintf()],i_cv_c99_vsnprintf,[
   AC_RUN_IFELSE([AC_LANG_SOURCE([[
   #include <stdio.h>
   #include <stdarg.h>
@@ -1369,11 +1369,11 @@ AC_CACHE_CHECK([for C99 vsnprintf()],c99_vsnprintf,[
   int main() {
     return f("hello %s%d", "world", 1);
   }]])],
-  [c99_vsnprintf=yes],
-  [c99_vsnprintf=no],
+  [i_cv_c99_vsnprintf=yes],
+  [i_cv_c99_vsnprintf=no],
   [])
 ])
-if test $c99_vsnprintf = no; then
+if test $i_cv_c99_vsnprintf = no; then
   AC_ERROR([You don't appear to have C99 compatible vsnprintf() call])
 fi
 
