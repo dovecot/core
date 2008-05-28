@@ -138,14 +138,10 @@ default_handler(const char *prefix, int fd, const char *format, va_list args)
 	return ret;
 }
 
-void default_fatal_handler(enum log_type type, int status,
-			   const char *format, va_list args)
+static void ATTR_NORETURN
+default_fatal_finish(enum log_type type, int status)
 {
 	const char *backtrace;
-
-	if (default_handler(failure_log_type_prefixes[type], log_fd, format,
-			    args) < 0 && status == FATAL_DEFAULT)
-		status = FATAL_LOGWRITE;
 
 	if (type == LOG_TYPE_PANIC || status == FATAL_OUTOFMEM) {
 		if (backtrace_get(&backtrace) == 0)
@@ -156,6 +152,16 @@ void default_fatal_handler(enum log_type type, int status,
 		abort();
 	else
 		failure_exit(status);
+}
+
+void default_fatal_handler(enum log_type type, int status,
+			   const char *format, va_list args)
+{
+	if (default_handler(failure_log_type_prefixes[type], log_fd, format,
+			    args) < 0 && status == FATAL_DEFAULT)
+		status = FATAL_LOGWRITE;
+
+	default_fatal_finish(type, status);
 }
 
 void default_error_handler(enum log_type type, const char *format, va_list args)
@@ -292,18 +298,11 @@ syslog_handler(int level, enum log_type type, const char *format, va_list args)
 void i_syslog_fatal_handler(enum log_type type, int status,
 			    const char *fmt, va_list args)
 {
-	const char *backtrace;
 	if (syslog_handler(LOG_CRIT, type, fmt, args) < 0 &&
 	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 
-	if (type == LOG_TYPE_PANIC) {
-		if (backtrace_get(&backtrace) == 0)
-			i_error("Raw backtrace: %s", backtrace);
-		abort();
-	} else {
-		failure_exit(status);
-	}
+	default_fatal_finish(type, status);
 }
 
 void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
@@ -412,19 +411,11 @@ static void ATTR_NORETURN ATTR_FORMAT(3, 0)
 i_internal_fatal_handler(enum log_type type, int status,
 			 const char *fmt, va_list args)
 {
-	const char *backtrace;
-
 	if (internal_handler(log_type_internal_chars[type], fmt, args) < 0 &&
 	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 
-	if (type == LOG_TYPE_PANIC) {
-		if (backtrace_get(&backtrace) == 0)
-			i_error("Raw backtrace: %s", backtrace);
-		abort();
-	} else {
-		failure_exit(status);
-	}
+	default_fatal_finish(type, status);
 }
 
 static void ATTR_FORMAT(2, 0)
