@@ -424,7 +424,8 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			ctx->cur_ext_ignore = FALSE;
 		} else {
 			/* extension was reset and this transaction hadn't
-			   yet seen it. ignore this update. */
+			   yet seen it. ignore this update (except for
+			   resets). */
 			ctx->cur_ext_ignore = TRUE;
 		}
 
@@ -476,30 +477,12 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	return 1;
 }
 
-int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
-			      const struct mail_transaction_ext_reset *u)
+static void mail_index_sync_ext_clear(struct mail_index_view *view,
+				      struct mail_index_map *map,
+				      struct mail_index_ext *ext)
 {
-	struct mail_index_view *view = ctx->view;
-	struct mail_index_map *map = view->map;
-	struct mail_index_ext_header *ext_hdr;
-        struct mail_index_ext *ext;
 	struct mail_index_record *rec;
 	uint32_t i;
-
-	if (ctx->cur_ext_map_idx == (uint32_t)-1) {
-		mail_index_sync_set_corrupted(ctx,
-			"Extension reset without intro prefix");
-		return -1;
-	}
-	if (ctx->cur_ext_ignore)
-		return 1;
-
-	/* a new index file will be created, so the old data won't be
-	   accidentally used by other processes. */
-	map = mail_index_sync_get_atomic_map(ctx);
-
-	ext = array_idx_modifiable(&map->extensions, ctx->cur_ext_map_idx);
-	ext->reset_id = u->new_reset_id;
 
 	memset(buffer_get_space_unsafe(map->hdr_copy_buf, ext->hdr_offset,
 				       ext->hdr_size), 0, ext->hdr_size);
@@ -512,10 +495,34 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	}
 	map->rec_map->write_seq_first = 1;
 	map->rec_map->write_seq_last = view->map->rec_map->records_count;
+}
+
+int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
+			      const struct mail_transaction_ext_reset *u)
+{
+	struct mail_index_map *map = ctx->view->map;
+	struct mail_index_ext_header *ext_hdr;
+        struct mail_index_ext *ext;
+
+	if (ctx->cur_ext_map_idx == (uint32_t)-1) {
+		mail_index_sync_set_corrupted(ctx,
+			"Extension reset without intro prefix");
+		return -1;
+	}
+	/* since we're resetting the extension, don't check cur_ext_ignore */
+
+	/* a new index file will be created, so the old data won't be
+	   accidentally used by other processes. */
+	map = mail_index_sync_get_atomic_map(ctx);
+
+	ext = array_idx_modifiable(&map->extensions, ctx->cur_ext_map_idx);
+	ext->reset_id = u->new_reset_id;
+
+	if (!u->preserve_data)
+		mail_index_sync_ext_clear(ctx->view, map, ext);
 
 	ext_hdr = get_ext_header(map, ext);
 	ext_hdr->reset_id = u->new_reset_id;
-
 	return 1;
 }
 

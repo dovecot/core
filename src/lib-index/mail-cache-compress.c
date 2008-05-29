@@ -414,7 +414,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 
 	/* once we're sure that the compression was successful,
 	   update the offsets */
-	mail_index_ext_reset(trans, cache->ext_id, file_seq);
+	mail_index_ext_reset(trans, cache->ext_id, file_seq, TRUE);
 	offsets = array_get(&ext_offsets, &count);
 	for (i = 0; i < count; i++) {
 		if (offsets[i] != 0) {

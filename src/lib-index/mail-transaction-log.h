@@ -95,6 +95,8 @@ struct mail_transaction_ext_intro {
 
 struct mail_transaction_ext_reset {
 	uint32_t new_reset_id;
+	uint8_t preserve_data;
+	uint8_t unused_padding[3];
 };
 
 /* these are set for the last ext_intro */

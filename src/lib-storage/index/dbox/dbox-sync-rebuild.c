@@ -70,7 +70,7 @@ dbox_sync_index_copy_cache(struct dbox_sync_rebuild_context *ctx,
 		ctx->cache_used = TRUE;
 		ctx->cache_reset_id = reset_id;
 		mail_index_ext_reset(ctx->trans, ctx->cache_ext_id,
-				     ctx->cache_reset_id);
+				     ctx->cache_reset_id, TRUE);
 	}
 	if (ctx->cache_reset_id == reset_id) {
 		mail_index_update_ext(ctx->trans, new_seq,
