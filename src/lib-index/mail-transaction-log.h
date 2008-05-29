@@ -122,7 +122,7 @@ void mail_transaction_log_free(struct mail_transaction_log **log);
    is corrupted, -1 if there was some I/O error. */
 int mail_transaction_log_open(struct mail_transaction_log *log);
 /* Create, or recreate, the transaction log. Returns 0 if ok, -1 if error. */
-int mail_transaction_log_create(struct mail_transaction_log *log);
+int mail_transaction_log_create(struct mail_transaction_log *log, bool reset);
 /* Close all the open transactions log files. */
 void mail_transaction_log_close(struct mail_transaction_log *log);
 

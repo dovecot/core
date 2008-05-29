@@ -357,7 +357,8 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		return 0;
 	}
 	if (file->hdr.indexid != file->log->index->indexid) {
-		if (file->log->index->indexid != 0) {
+		if (file->log->index->indexid != 0 &&
+		    !file->log->index->initial_create) {
 			/* index file was probably just rebuilt and we don't
 			   know about it yet */
 			mail_transaction_log_file_set_corrupted(file,
@@ -477,8 +478,6 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 			file->fd = fd;
 			if (mail_transaction_log_file_read_hdr(file,
 							       FALSE) > 0 &&
-			    file->hdr.file_seq == 1 &&
-			    file->hdr.prev_file_seq == 0 &&
 			    mail_transaction_log_file_stat(file, FALSE) == 0) {
 				/* yes, it was ok */
 				(void)file_dotlock_delete(dotlock);
