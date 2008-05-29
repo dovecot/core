@@ -34,6 +34,7 @@ struct sort_string_context {
 	unsigned int first_missing_sort_id_idx;
 
 	uint32_t ext_id, last_seq, highest_reset_id;
+	uint32_t lowest_nonexpunged_zero;
 
 	unsigned int regetting:1;
 	unsigned int have_all_wanted:1;
@@ -157,6 +158,14 @@ static void index_sort_node_add(struct sort_string_context *ctx,
 		node->sort_id = 0;
 	} else {
 		node->sort_id = data == NULL ? 0 : *(const uint32_t *)data;
+		if (node->sort_id == 0) {
+			if (ctx->lowest_nonexpunged_zero > node->seq ||
+			    ctx->lowest_nonexpunged_zero == 0)
+				ctx->lowest_nonexpunged_zero = node->seq;
+		} else {
+			i_assert(ctx->lowest_nonexpunged_zero == 0 ||
+				 ctx->lowest_nonexpunged_zero > node->seq);
+		}
 	}
 
 	if (node->sort_id != 0) {
@@ -668,6 +677,12 @@ static void index_sort_add_missing(struct sort_string_context *ctx)
 			}
 			next_seq = seqs[i] + 1;
 		}
+	}
+
+	if (ctx->lowest_nonexpunged_zero == 0) {
+		/* we're handling only expunged zeros. if it causes us to
+		   renumber some existing sort IDs, don't save them. */
+		ctx->no_writing = TRUE;
 	}
 }
 
