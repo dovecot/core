@@ -63,7 +63,7 @@ bool cmd_thread(struct client_command_context *cmd)
 	sargs = imap_search_args_build(pool, client->mailbox, args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
-		client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
+		client_send_tagline(cmd, t_strconcat("BAD ", error, NULL));
 	} else if (imap_thread(cmd, charset, sargs, threading) == 0) {
 		pool_unref(&pool);
 		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
