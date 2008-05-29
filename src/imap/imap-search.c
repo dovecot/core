@@ -548,6 +548,8 @@ imap_search_args_build(pool_t pool, struct mailbox *box,
 		sargs = &(*sargs)->next;
 	}
 
+	if (first_sarg == NULL)
+		*error_r = "Missing search parameters";
 	return first_sarg;
 }
 
