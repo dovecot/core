@@ -36,6 +36,8 @@ struct sort_string_context {
 	uint32_t ext_id, last_seq, highest_reset_id;
 
 	unsigned int regetting:1;
+	unsigned int have_all_wanted:1;
+	unsigned int no_writing:1;
 };
 
 static char expunged_msg;
@@ -164,12 +166,18 @@ static void index_sort_node_add(struct sort_string_context *ctx,
 						 ctx->ext_id, &reset_id))
 			reset_id = 0;
 		if (reset_id != ctx->highest_reset_id) {
-			if (reset_id > ctx->highest_reset_id) {
-				ctx->highest_reset_id = reset_id;
-				index_sort_reget_sort_ids(ctx);
-			} else {
+			if (reset_id < ctx->highest_reset_id) {
 				i_assert(expunged);
 				node->sort_id = 0;
+			} else if (ctx->have_all_wanted) {
+				/* a bit late to start changing the reset_id.
+				   the node lists aren't ordered by sequence
+				   anymore. */
+				node->sort_id = 0;
+				ctx->no_writing = TRUE;
+			} else {
+				ctx->highest_reset_id = reset_id;
+				index_sort_reget_sort_ids(ctx);
 			}
 		}
 	}
@@ -599,6 +607,12 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 	const struct mail_sort_node *nodes;
 	unsigned int i, count;
 
+	if (ctx->no_writing) {
+		/* our reset_id is already stale - don't even bother
+		   trying to write */
+		return;
+	}
+
 	mail_index_ext_reset_inc(t->trans, ext_id, ctx->highest_reset_id, FALSE);
 
 	/* add the missing sort IDs to index */
@@ -635,6 +649,7 @@ static void index_sort_add_missing(struct sort_string_context *ctx)
 	unsigned int i, count;
 	uint32_t seq, next_seq;
 
+	ctx->have_all_wanted = TRUE;
 
 	seqs = array_get(&ctx->program->seqs, &count);
 	for (i = 0, next_seq = 1; i < count; i++) {
