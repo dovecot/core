@@ -498,18 +498,22 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 		   renumber some of the existing sort IDs. do this by
 		   widening the area we're giving sort IDs. */
 		if (left_idx > 0) {
-			left_idx--;
-			left_sort_id = left_idx == 0 ? 1 :
-				nodes[left_idx].sort_id;
-			i_assert(left_sort_id != 0);
+			left_sort_id = nodes[--left_idx].sort_id;
+			if (left_sort_id == 0) {
+				i_assert(left_idx == 0);
+				left_sort_id = 1;
+			}
 		}
 
 		while (right_idx < rightmost_idx) {
 			if (nodes[++right_idx].sort_id > 1)
 				break;
 		}
-		right_sort_id = right_idx == rightmost_idx ? (uint32_t)-1 :
-			nodes[right_idx].sort_id;
+		right_sort_id = nodes[right_idx].sort_id;
+		if (right_sort_id == 0) {
+			i_assert(right_idx == rightmost_idx);
+			right_sort_id = (uint32_t)-1;
+		}
 		i_assert(left_sort_id < right_sort_id);
 	}
 
