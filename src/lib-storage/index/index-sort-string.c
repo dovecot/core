@@ -366,8 +366,14 @@ index_sort_bsearch(struct sort_string_context *ctx, const char *key,
 
 	*idx_r = idx;
 	if (idx > start_idx) {
-		*prev_str_r = index_sort_get_string(ctx, idx - 1,
-						    nodes[idx-1].seq);
+		prev = idx;
+		do {
+			prev--;
+			str2 = index_sort_get_string(ctx, prev,
+						     nodes[prev].seq);
+		} while (str2 == &expunged_msg && prev > 0 &&
+			 nodes[prev-1].sort_id == nodes[prev].sort_id);
+		*prev_str_r = str2;
 	}
 }
 
@@ -408,7 +414,7 @@ static void index_sort_merge(struct sort_string_context *ctx)
 
 		if (ret <= 0) {
 			array_append(&ctx->sorted_nodes, &znodes[zpos], 1);
-			prev_str = nzstr;
+			prev_str = zstr;
 			zpos++;
 		} else {
 			array_append(&ctx->sorted_nodes, &nznodes[nzpos], 1);
