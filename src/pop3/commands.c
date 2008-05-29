@@ -562,9 +562,12 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		str_truncate(str, 0);
 		str_printfa(str, ctx->message == 0 ? "%u " : "+OK %u ",
 			    ctx->mail->seq);
-
-		if (reuse_xuidl &&
-		    mail_get_first_header(ctx->mail, "X-UIDL", &uidl) > 0)
+		
+		if (mail_get_special(ctx->mail, MAIL_FETCH_UIDL_BACKEND,
+				     &uidl) == 0)
+			str_append(str, uidl);
+		else if (reuse_xuidl &&
+			 mail_get_first_header(ctx->mail, "X-UIDL", &uidl) > 0)
 			str_append(str, uidl);
 		else
 			var_expand(str, uidl_format, tab);
