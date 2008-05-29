@@ -16,6 +16,7 @@ libstorage_index_a_SOURCES = \
 	index-mailbox-check.c \
 	index-search.c \
 	index-sort.c \
+	index-sort-string.c \
 	index-status.c \
 	index-storage.c \
 	index-sync.c \
@@ -25,6 +26,7 @@ libstorage_index_a_SOURCES = \
 headers = \
 	index-mail.h \
 	index-sort.h \
+	index-sort-private.h \
 	index-storage.h \
 	index-sync-changes.h
 
