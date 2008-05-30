@@ -1,3 +1,7 @@
+v1.1.rc7 2008-05-30  Timo Sirainen <tss@iki.fi>
+
+	- Fixed compiling problems with non-Linux OSes
+
 v1.1.rc6 2008-05-30  Timo Sirainen <tss@iki.fi>
 
 	* Index file format changed a bit. If an older Dovecot v1.1 reads
