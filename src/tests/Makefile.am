@@ -44,4 +44,5 @@ test_imap_LDADD = \
 	$(RAND_LIBS) \
 	libtest.a \
 	../lib-imap/libimap.a \
+	../lib-mail/libmail.a \
 	../lib/liblib.a
