@@ -93,7 +93,7 @@ typedef int socklen_t;
 	 ST_NTIMES_EQUAL(ST_MTIME_NSEC(*(st1)), ST_MTIME_NSEC(*(st2))))
 #define CMP_ST_CTIME(st1, st2) \
 	((st1)->st_ctime == (st2)->st_ctime && \
-	 ST_NTIMES_EQUAL(ST_MTIME_NSEC(*(st1)), ST_MTIME_NSEC(*(st2))))
+	 ST_NTIMES_EQUAL(ST_CTIME_NSEC(*(st1)), ST_CTIME_NSEC(*(st2))))
 
 /* strcasecmp(), strncasecmp() */
 #ifndef HAVE_STRCASECMP
