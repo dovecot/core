@@ -1,28 +1,23 @@
- - zlib plugin + maildir hard link copying is broken
+ - recent assert. both with mbox and maildir.
  - sieve-cmu.c crash: i_assert(buf->used - 1 == part->body_size.physical_size);
- - index: clear recent flags created by v1.0 at some point so the bit may be
-   reused for something useful later.
- - mbox: mail_privileged_group should be used when creating INBOX?..
  - convert plugin: Create a r/w lock for a file. It's read-locked if
    conversion isn't wanted and released when process dies. If conversion is
    wanted and write-lock succeeds, conversion is done, if write-lock doesn't
    succeed it fallbacks to using the old storage. When process is exiting it
    again tries to write-lock and do the conversion. Add a parameter that
    specifies if conversion should be done.
- - dbox:
-    - u.* files don't really need to have the UID written inside the file
-    - "File unexpectedly lost" doesn't get fixed by itself
-    - doesn't call fsync
  - lucene: handle replacement chars?
  - squat:
    - wrong indexid
    - fts_build_init() assertion failed: (last_uid < last_uid_locked)
-   - nfs support (cache flushes, how can write fail with ESTALE?)
    - is locking done right? it reads header without file being locked?
    - split after ~8 bytes?
    - expunges are delayed until more mails are added
  - test replacement chars (SEARCH / SORT / Squat)
 
+ - dbox:
+    - "File unexpectedly lost" doesn't get fixed by itself
+    - Fix support for multi-message files
  - DEBUG: buffer overflow checking code probably doesn't handle a successful
    t_try_realloc() or pool_alloconly_realloc() properly
  - cache: compress when we can drop temporary fields.
@@ -34,6 +29,10 @@
  - ldap domain lookups which set the base for user lookup
  - ldap: same attribute can't be used for multiple values.
  - ldap: multiple attributes can't be merged to a single value.
+
+ - Per-user options:
+   - Deny deleting non-empty mailboxes
+   - Disable IDLE "still here" notifications
 
  - maildir+pop3/deliver fast updates:
    - with locking enabled, pop3 could just keep the one and same sync lock and
