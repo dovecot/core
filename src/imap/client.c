@@ -71,8 +71,26 @@ void client_command_cancel(struct client_command_context **_cmd)
 	struct client_command_context *cmd = *_cmd;
 	bool cmd_ret;
 
-	cmd->cancel = TRUE;
-	cmd_ret = cmd->func == NULL ? TRUE : cmd->func(cmd);
+	switch (cmd->state) {
+	case CLIENT_COMMAND_STATE_WAIT_INPUT:
+		/* a bit kludgy check: cancel command only if it has context
+		   set. currently only append command matches this check. all
+		   other commands haven't even started the processing yet. */
+		if (cmd->context == NULL)
+			break;
+		/* fall through */
+	case CLIENT_COMMAND_STATE_WAIT_OUTPUT:
+		cmd->cancel = TRUE;
+		break;
+	case CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY:
+	case CLIENT_COMMAND_STATE_WAIT_SYNC:
+		/* commands haven't started yet */
+		break;
+	case CLIENT_COMMAND_STATE_DONE:
+		i_unreached();
+	}
+
+	cmd_ret = !cmd->cancel || cmd->func == NULL ? TRUE : cmd->func(cmd);
 	if (!cmd_ret && cmd->state != CLIENT_COMMAND_STATE_DONE) {
 		if (cmd->client->output->closed)
 			i_panic("command didn't cancel itself: %s", cmd->name);
@@ -130,12 +148,16 @@ void client_destroy(struct client *client, const char *reason)
 	/* finish off all the queued commands. */
 	if (client->output_lock != NULL)
 		client_command_cancel(&client->output_lock);
-	if (client->input_lock != NULL)
-		client_command_cancel(&client->input_lock);
 	while (client->command_queue != NULL) {
 		cmd = client->command_queue;
 		client_command_cancel(&cmd);
 	}
+	/* handle the input_lock command last. it might have been waiting on
+	   other queued commands (although we probably should just drop the
+	   command at that point since it hasn't started running. but this may
+	   change in future). */
+	if (client->input_lock != NULL)
+		client_command_cancel(&client->input_lock);
 
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);
