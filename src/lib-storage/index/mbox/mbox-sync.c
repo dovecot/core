@@ -1534,6 +1534,14 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	   ignore them, as we've overwritten them above. */
 	index_sync_changes_reset(sync_ctx->sync_changes);
 
+	if (sync_ctx->base_uid_last != sync_ctx->next_uid-1 &&
+	    ret == 0 && !sync_ctx->delay_writes &&
+	    sync_ctx->base_uid_last_offset != 0) {
+		/* Rewrite uid_last in X-IMAPbase header if we've seen it
+		   (ie. the file isn't empty) */
+                ret = mbox_rewrite_base_uid_last(sync_ctx);
+	}
+
 	if (mbox_sync_update_index_header(sync_ctx) < 0)
 		return -1;
 
@@ -1790,14 +1798,6 @@ again:
 	}
 	sync_ctx.t = NULL;
 	sync_ctx.index_sync_ctx = NULL;
-
-	if (sync_ctx.base_uid_last != sync_ctx.next_uid-1 &&
-	    ret == 0 && !sync_ctx.delay_writes &&
-	    sync_ctx.base_uid_last_offset != 0) {
-		/* Rewrite uid_last in X-IMAPbase header if we've seen it
-		   (ie. the file isn't empty) */
-                ret = mbox_rewrite_base_uid_last(&sync_ctx);
-	}
 
 	if (ret == 0 && mbox->mbox_fd != -1 && mbox->ibox.keep_recent &&
 	    !sync_ctx.mbox->mbox_readonly) {
