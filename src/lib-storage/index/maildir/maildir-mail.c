@@ -430,12 +430,8 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	} else if (field == MAIL_FETCH_UIDL_BACKEND) {
 		uidl = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 					MAILDIR_UIDLIST_REC_EXT_POP3_UIDL);
-		if (uidl != NULL) {
-			*value_r = uidl;
-			return 0;
-		} else {
-			return -1;
-		}
+		*value_r = uidl != NULL ? uidl : "";
+		return 0;
 	}
 
 	return index_mail_get_special(_mail, field, value_r);
