@@ -617,7 +617,11 @@ static int preparsed_parse_body_init(struct message_parser_ctx *ctx,
 	uoff_t offset = ctx->part->physical_pos +
 		ctx->part->header_size.physical_size;
 
-	i_assert(offset >= ctx->input->v_offset);
+	if (offset < ctx->input->v_offset) {
+		/* header was actually larger than the cached size suggested */
+		ctx->broken = TRUE;
+		return -1;
+	}
 	i_stream_skip(ctx->input, offset - ctx->input->v_offset);
 
 	ctx->parse_next_block = preparsed_parse_body_more;
