@@ -78,9 +78,15 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 
 	if (!password_scheme_is_alias(input_scheme, wanted_scheme)) {
 		if (!password_scheme_is_alias(input_scheme, "PLAIN")) {
-			auth_request_log_info(auth_request, "password",
+			const char *error = t_strdup_printf(
 				"Requested %s scheme, but we have only %s",
 				wanted_scheme, input_scheme);
+			if (auth_request->auth->verbose_debug_passwords) {
+				error = t_strdup_printf("%s (input: %s)",
+							error, input);
+			}
+			auth_request_log_info(auth_request, "password",
+					      "%s", error);
 			return FALSE;
 		}
 
