@@ -45,4 +45,5 @@ test_imap_LDADD = \
 	libtest.a \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
+	../lib-charset/libcharset.a \
 	../lib/liblib.a
