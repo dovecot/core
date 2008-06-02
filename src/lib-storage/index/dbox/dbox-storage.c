@@ -322,13 +322,14 @@ static int dbox_storage_mailbox_close(struct mailbox *box)
 }
 
 static int dbox_mailbox_create(struct mail_storage *_storage,
-			       const char *name, bool directory ATTR_UNUSED)
+			       const char *name, bool directory)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	const char *path, *alt_path;
 	struct stat st;
 
 	path = mailbox_list_get_path(_storage->list, name,
+				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
 		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
@@ -340,7 +341,7 @@ static int dbox_mailbox_create(struct mail_storage *_storage,
 	   race conditions with RENAME/DELETE), but if something crashed and
 	   left it lying around we don't want to start overwriting files in
 	   it. */
-	alt_path = dbox_get_alt_path(storage, path);
+	alt_path = directory ? NULL : dbox_get_alt_path(storage, path);
 	if (alt_path != NULL && stat(alt_path, &st) == 0) {
 		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Mailbox already exists");
