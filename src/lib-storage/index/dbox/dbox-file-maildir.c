@@ -40,7 +40,7 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 {
 	struct stat st;
 	uoff_t size;
-	const char *p, *value = NULL;
+	const char *value = NULL;
 
 	switch (key) {
 	case DBOX_METADATA_FLAGS:
