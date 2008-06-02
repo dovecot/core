@@ -382,7 +382,8 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 
 	/* filter out unwanted headers and keep track of headers' MD5 sum */
 	filter = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
-					       HEADER_FILTER_NO_CR,
+					       HEADER_FILTER_NO_CR |
+					       HEADER_FILTER_ADD_MISSING_EOH,
 					       mbox_save_drop_headers,
 					       mbox_save_drop_headers_count,
 					       save_header_callback, ctx);
