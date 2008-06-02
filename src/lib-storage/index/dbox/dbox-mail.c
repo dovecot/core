@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "str.h"
 #include "index-mail.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
@@ -177,6 +178,47 @@ static int dbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 }
 
 static int
+dbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
+		      const char **value_r)
+{
+	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct index_mail *imail = &mail->imail;
+	const unsigned int pop3_uidl_cache_field =
+		imail->ibox->cache_fields[MAIL_CACHE_POP3_UIDL].idx;
+	struct dbox_file *file;
+	const char *value;
+	string_t *str;
+
+	switch (field) {
+	case MAIL_FETCH_UIDL_BACKEND:
+		/* keep the UIDL in cache file, otherwise POP3 would open all
+		   mail files and read the metadata */
+		str = str_new(imail->data_pool, 64);
+		if (mail_cache_lookup_field(imail->trans->cache_view, str,
+					    _mail->seq,
+					    pop3_uidl_cache_field) > 0) {
+			*value_r = str_c(str);
+			return 0;
+		}
+
+		if (dbox_mail_metadata_seek(mail, &file) < 0)
+			return -1;
+
+		value = dbox_file_metadata_get(file, DBOX_METADATA_POP3_UIDL);
+		if (value == NULL)
+			value = "";
+		index_mail_cache_add_idx(imail, pop3_uidl_cache_field,
+					 value, strlen(value)+1);
+		*value_r = value;
+		return 0;
+	default:
+		break;
+	}
+
+	return index_mail_get_special(_mail, field, value_r);
+}
+							
+static int
 dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 		     struct message_size *body_size, struct istream **stream_r)
 {
@@ -236,7 +278,7 @@ struct mail_vfuncs dbox_mail_vfuncs = {
 	index_mail_get_headers,
 	index_mail_get_header_stream,
 	dbox_mail_get_stream,
-	index_mail_get_special,
+	dbox_mail_get_special,
 	index_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_expunge,

@@ -200,6 +200,7 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 		DBOX_METADATA_VIRTUAL_SIZE,
 		DBOX_METADATA_RECEIVED_TIME,
 		DBOX_METADATA_SAVE_TIME,
+		DBOX_METADATA_POP3_UIDL
 	};
 	struct dbox_index_append_context *append_ctx;
 	struct dbox_file *out_file;

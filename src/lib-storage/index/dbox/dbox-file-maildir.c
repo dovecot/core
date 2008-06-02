@@ -73,6 +73,7 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 					      &size))
 			value = dec2str(size);
 		break;
+	case DBOX_METADATA_POP3_UIDL:
 	case DBOX_METADATA_EXPUNGED:
 	case DBOX_METADATA_EXT_REF:
 	case DBOX_METADATA_SPACE:
