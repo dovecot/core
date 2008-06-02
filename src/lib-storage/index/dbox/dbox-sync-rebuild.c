@@ -254,8 +254,12 @@ dbox_sync_index_maildir_file(struct dbox_sync_rebuild_context *ctx,
 	}
 
 	file = dbox_file_init_new_maildir(ctx->mbox, fname);
-	if ((ret = dbox_sync_index_file_next(ctx, file, &offset)) > 0)
+	if ((ret = dbox_sync_index_file_next(ctx, file, &offset)) > 0) {
 		dbox_index_append_file(ctx->append_ctx, file);
+		/* appending referenced the file, so make sure it gets closed
+		   so we don't have too many open files. */
+		dbox_file_close(file);
+	}
 	dbox_file_unref(&file);
 	return ret < 0 ? -1 : 0;
 }
