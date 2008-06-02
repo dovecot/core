@@ -65,9 +65,10 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 		else
 			return dec2str(st.st_ctime);
 	case DBOX_METADATA_VIRTUAL_SIZE:
-		maildir_filename_get_size(file->fname,
-					  MAILDIR_EXTRA_VIRTUAL_SIZE, &size);
-		return dec2str(size);
+		if (maildir_filename_get_size(file->fname,
+					      MAILDIR_EXTRA_VIRTUAL_SIZE,
+					      &size))
+			return dec2str(size);
 	case DBOX_METADATA_EXPUNGED:
 	case DBOX_METADATA_EXT_REF:
 	case DBOX_METADATA_SPACE:
