@@ -18,6 +18,8 @@
  - dbox:
     - "File unexpectedly lost" doesn't get fixed by itself
     - Fix support for multi-message files
+    - Delete dovecot-keywords and dovecot-uidlist after all maildir files
+      have been converted to native dbox
  - DEBUG: buffer overflow checking code probably doesn't handle a successful
    t_try_realloc() or pool_alloconly_realloc() properly
  - cache: compress when we can drop temporary fields.
