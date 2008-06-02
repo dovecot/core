@@ -3,14 +3,16 @@
 
 enum header_filter_flags {
 	/* Include only specified headers in output.*/
-	HEADER_FILTER_INCLUDE	= 0x01,
+	HEADER_FILTER_INCLUDE		= 0x01,
 	/* Exclude specified headers from output. */
-	HEADER_FILTER_EXCLUDE	= 0x02,
+	HEADER_FILTER_EXCLUDE		= 0x02,
 
 	/* Use LF linefeeds instead of CRLF. */
-	HEADER_FILTER_NO_CR	= 0x04,
+	HEADER_FILTER_NO_CR		= 0x04,
 	/* Return EOF at the beginning of message body. */
-	HEADER_FILTER_HIDE_BODY	= 0x08
+	HEADER_FILTER_HIDE_BODY		= 0x08,
+	/* If the empty "end of headers" line doesn't exist, add it. */
+	HEADER_FILTER_ADD_MISSING_EOH	= 0x10
 };
 
 struct message_header_line;
