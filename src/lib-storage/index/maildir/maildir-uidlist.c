@@ -315,8 +315,14 @@ maildir_uidlist_set_corrupted(struct maildir_uidlist *uidlist,
 static void maildir_uidlist_update_hdr(struct maildir_uidlist *uidlist,
 				       const struct stat *st)
 {
-	struct maildir_index_header *mhdr = &uidlist->mbox->maildir_hdr;
+	struct maildir_index_header *mhdr;
 
+	if (uidlist->mbox == NULL) {
+		/* dbox is using this */
+		return;
+	}
+
+	mhdr = &uidlist->mbox->maildir_hdr;
 	mhdr->uidlist_mtime = st->st_mtime;
 	mhdr->uidlist_mtime_nsecs = ST_MTIME_NSEC(*st);
 	mhdr->uidlist_size = st->st_size;
