@@ -626,7 +626,7 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 	if (offset == 0)
 		offset = file->file_header_size;
 
-	if (offset != file->cur_offset) {
+	if (offset != file->cur_offset || file->cur_uid == 0) {
 		file->cur_offset = offset;
 		i_stream_seek(file->input, offset);
 		ret = dbox_file_read_mail_header(file, &file->cur_uid,
