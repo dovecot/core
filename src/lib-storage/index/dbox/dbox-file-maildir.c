@@ -40,11 +40,13 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 {
 	struct stat st;
 	uoff_t size;
+	const char *p, *value = NULL;
 
 	switch (key) {
 	case DBOX_METADATA_FLAGS:
 	case DBOX_METADATA_KEYWORDS:
-		return dbox_file_maildir_get_flags(file, key);
+		value = dbox_file_maildir_get_flags(file, key);
+		break;
 	case DBOX_METADATA_RECEIVED_TIME:
 	case DBOX_METADATA_SAVE_TIME:
 		if (file->fd != -1) {
@@ -61,18 +63,22 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 			}
 		}
 		if (key == DBOX_METADATA_RECEIVED_TIME)
-			return dec2str(st.st_mtime);
+			value = dec2str(st.st_mtime);
 		else
-			return dec2str(st.st_ctime);
+			value = dec2str(st.st_ctime);
+		break;
 	case DBOX_METADATA_VIRTUAL_SIZE:
 		if (maildir_filename_get_size(file->fname,
 					      MAILDIR_EXTRA_VIRTUAL_SIZE,
 					      &size))
-			return dec2str(size);
+			value = dec2str(size);
+		break;
 	case DBOX_METADATA_EXPUNGED:
 	case DBOX_METADATA_EXT_REF:
 	case DBOX_METADATA_SPACE:
 		break;
 	}
-	return NULL;
+	if (value != NULL)
+		dbox_file_metadata_set(file, key, value);
+	return value;
 }

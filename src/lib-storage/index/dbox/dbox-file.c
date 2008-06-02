@@ -948,7 +948,7 @@ void dbox_file_metadata_set(struct dbox_file *file, enum dbox_metadata_key key,
 	const char **changes, *data;
 	unsigned int i, count;
 
-	data = dbox_file_metadata_get(file, key);
+	data = file->maildir_file ? NULL : dbox_file_metadata_get(file, key);
 	if (data != NULL && strcmp(data, value) == 0) {
 		/* value didn't change */
 		return;
