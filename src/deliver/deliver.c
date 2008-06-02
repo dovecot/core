@@ -711,7 +711,7 @@ int main(int argc, char *argv[])
 	const char *config_path = DEFAULT_CONFIG_FILE;
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
-	const char *home, *destaddr, *user, *value, *errstr;
+	const char *home, *destaddr, *user, *value, *errstr, *path;
 	ARRAY_TYPE(string) extra_fields;
 	struct mail_namespace *ns, *raw_ns;
 	struct mail_storage *storage;
@@ -743,7 +743,7 @@ int main(int argc, char *argv[])
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 
-	destaddr = user = NULL;
+	destaddr = user = path = NULL;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-a") == 0) {
 			/* destination address */
@@ -758,6 +758,12 @@ int main(int argc, char *argv[])
 				i_fatal_status(EX_USAGE, "Missing -d argument");
 			user = argv[i];
 			user_auth = TRUE;
+		} else if (strcmp(argv[i], "-p") == 0) {
+			/* input path */
+			i++;
+			if (i == argc)
+				i_fatal_status(EX_USAGE, "Missing -p argument");
+			path = argv[i];
 		} else if (strcmp(argv[i], "-e") == 0) {
 			stderr_rejection = TRUE;
 		} else if (strcmp(argv[i], "-c") == 0) {
@@ -938,11 +944,19 @@ int main(int argc, char *argv[])
 	raw_ns = mail_namespaces_init_empty(namespace_pool);
 	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
 	if (mail_storage_create(raw_ns, "raw", "/tmp", user,
-				0, FILE_LOCK_METHOD_FCNTL, &errstr) < 0)
+				MAIL_STORAGE_FLAG_FULL_FS_ACCESS,
+				FILE_LOCK_METHOD_FCNTL, &errstr) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", errstr);
-	input = create_raw_stream(0, &mtime);
-	box = mailbox_open(raw_ns->storage, "Dovecot Delivery Mail", input,
-			   MAILBOX_OPEN_NO_INDEX_FILES);
+	if (path == NULL) {
+		input = create_raw_stream(0, &mtime);
+		box = mailbox_open(raw_ns->storage, "Dovecot Delivery Mail",
+				   input, MAILBOX_OPEN_NO_INDEX_FILES);
+		i_stream_unref(&input);
+	} else {
+		mtime = (time_t)-1;
+		box = mailbox_open(raw_ns->storage, path, NULL,
+				   MAILBOX_OPEN_NO_INDEX_FILES);
+	}
 	if (box == NULL)
 		i_fatal("Can't open delivery mail as raw");
 	if (mailbox_sync(box, 0, 0, NULL) < 0) {
@@ -978,13 +992,11 @@ int main(int argc, char *argv[])
 
 	if (ret < 0 && !tried_default_save) {
 		/* plugins didn't handle this. save into the default mailbox. */
-		i_stream_seek(input, 0);
 		ret = deliver_save(ns, &storage, mailbox, mail, 0, NULL);
 	}
 	if (ret < 0 && strcasecmp(mailbox, "INBOX") != 0) {
 		/* still didn't work. try once more to save it
 		   to INBOX. */
-		i_stream_seek(input, 0);
 		ret = deliver_save(ns, &storage, "INBOX", mail, 0, NULL);
 	}
 
@@ -1025,7 +1037,6 @@ int main(int argc, char *argv[])
 			return ret < 0 ? EX_TEMPFAIL : ret;
 		/* ok, rejection sent */
 	}
-	i_stream_unref(&input);
 	i_free(explicit_envelope_sender);
 
 	mail_free(&mail);

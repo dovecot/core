@@ -162,8 +162,10 @@ raw_mailbox_open(struct mail_storage *_storage, const char *name,
 
 	if (stream)
 		mbox->mtime = mbox->ctime = ioloop_time;
-	else
+	else {
 		mbox->mtime = mbox->ctime = (time_t)-1;
+		mbox->have_filename = TRUE;
+	}
 	mbox->size = (uoff_t)-1;
 
 	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
