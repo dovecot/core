@@ -31,6 +31,7 @@ struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	{ "imap.body", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "imap.bodystructure", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "imap.envelope", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
+	{ "pop3.uidl", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "mime.parts", 0, MAIL_CACHE_FIELD_VARIABLE_SIZE, 0, 0 }
 };
 
