@@ -631,11 +631,11 @@ void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx **_ctx)
 
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,
-		    const char *charset, struct mail_search_arg *args,
+		    struct mail_search_args *args,
 		    const enum mail_sort_type *sort_program)
 {
-	mail_search_args_simplify(args);
-	return t->box->v.search_init(t, charset, args, sort_program);
+	mail_search_args_simplify(args->args);
+	return t->box->v.search_init(t, args, sort_program);
 }
 
 int mailbox_search_deinit(struct mail_search_context **_ctx)

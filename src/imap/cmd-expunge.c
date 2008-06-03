@@ -36,15 +36,17 @@ static bool cmd_expunge_callback_qresync(struct client_command_context *cmd)
 }
 
 static bool cmd_expunge_finish(struct client_command_context *cmd,
-			       struct mail_search_arg *search_arg)
+			       struct mail_search_args *search_args)
 {
 	struct client *client = cmd->client;
 
-	if (imap_expunge(client->mailbox, search_arg) < 0) {
+	if (imap_expunge(client->mailbox, search_args->args) < 0) {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 		return TRUE;
 	}
+	if (search_args != NULL)
+		mail_search_args_unref(&search_args);
 
 	client->sync_seen_deletes = FALSE;
 	client->sync_seen_expunges = FALSE;
@@ -60,7 +62,7 @@ static bool cmd_expunge_finish(struct client_command_context *cmd,
 bool cmd_uid_expunge(struct client_command_context *cmd)
 {
 	const struct imap_arg *args;
-	struct mail_search_arg *search_arg;
+	struct mail_search_args *search_args;
 	const char *uidset;
 	int ret;
 
@@ -76,10 +78,10 @@ bool cmd_uid_expunge(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	ret = imap_search_get_seqset(cmd, uidset, TRUE, &search_arg);
+	ret = imap_search_get_seqset(cmd, uidset, TRUE, &search_args);
 	if (ret <= 0)
 		return ret < 0;
-	return cmd_expunge_finish(cmd, search_arg);
+	return cmd_expunge_finish(cmd, search_args);
 }
 
 bool cmd_expunge(struct client_command_context *cmd)

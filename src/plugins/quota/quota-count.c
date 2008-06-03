@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "mail-storage.h"
 #include "quota-private.h"
 
@@ -13,7 +13,7 @@ static int quota_count_mailbox(struct mail_storage *storage, const char *name,
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *ctx;
 	struct mail *mail;
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
 	uoff_t size;
 	int ret = 0;
 
@@ -27,12 +27,14 @@ static int quota_count_mailbox(struct mail_storage *storage, const char *name,
 		return -1;
 	}
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
-
 	trans = mailbox_transaction_begin(box, 0);
-	ctx = mailbox_search_init(trans, NULL, &search_arg, NULL);
 	mail = mail_alloc(trans, MAIL_FETCH_PHYSICAL_SIZE, NULL);
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+	ctx = mailbox_search_init(trans, search_args, NULL);
+	mail_search_args_unref(&search_args);
+
 	while (mailbox_search_next(ctx, mail) > 0) {
 		if (mail_get_physical_size(mail, &size) == 0)
 			*bytes_r += size;

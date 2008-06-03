@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "home-expand.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
 #include "mbox-snarf-plugin.h"
@@ -37,7 +37,7 @@ static MODULE_CONTEXT_DEFINE_INIT(mbox_snarf_storage_module,
 
 static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 {
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
         struct mailbox_transaction_context *src_trans, *dest_trans;
 	struct mail *mail;
@@ -46,13 +46,14 @@ static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 	if (mailbox_sync(srcbox, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
 		return -1;
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
-
 	src_trans = mailbox_transaction_begin(srcbox, 0);
 	dest_trans = mailbox_transaction_begin(destbox,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL);
-	search_ctx = mailbox_search_init(src_trans, NULL, &search_arg, NULL);
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+	search_ctx = mailbox_search_init(src_trans, search_args, NULL);
+	mail_search_args_unref(&search_args);
 
 	mail = mail_alloc(src_trans, MAIL_FETCH_STREAM_HEADER |
 			  MAIL_FETCH_STREAM_BODY, NULL);

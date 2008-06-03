@@ -6,7 +6,7 @@
 #include "file-dotlock.h"
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "convert-storage.h"
 
 #include <stdio.h>
@@ -35,7 +35,7 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 	struct mail_search_context *ctx;
 	struct mailbox_transaction_context *src_trans, *dest_trans;
 	struct mail *mail;
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
 	int ret = 0;
 
 	if (mailbox_sync(srcbox, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0) {
@@ -44,14 +44,16 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 	}
 	*error_r = NULL;
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
 
 	src_trans = mailbox_transaction_begin(srcbox, 0);
 	dest_trans = mailbox_transaction_begin(destbox,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 
-	ctx = mailbox_search_init(src_trans, NULL, &search_arg, NULL);
+	ctx = mailbox_search_init(src_trans, search_args, NULL);
+	mail_search_args_unref(&search_args);
+
 	mail = mail_alloc(src_trans,
 			  MAIL_FETCH_FLAGS | MAIL_FETCH_RECEIVED_DATE |
 			  MAIL_FETCH_STREAM_HEADER | MAIL_FETCH_STREAM_BODY |

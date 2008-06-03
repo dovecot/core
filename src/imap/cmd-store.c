@@ -117,7 +117,7 @@ bool cmd_store(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	const struct imap_arg *args;
-	struct mail_search_arg *search_arg;
+	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
         struct mailbox_transaction_context *t;
 	struct mail *mail;
@@ -140,7 +140,7 @@ bool cmd_store(struct client_command_context *cmd)
 		return TRUE;
 	}
 	ret = imap_search_get_seqset(cmd, IMAP_ARG_STR_NONULL(args),
-				     cmd->uid, &search_arg);
+				     cmd->uid, &search_args);
 	if (ret <= 0)
 		return ret < 0;
 
@@ -154,7 +154,8 @@ bool cmd_store(struct client_command_context *cmd)
 	if (ctx.max_modseq < (uint64_t)-1)
 		flags |= MAILBOX_TRANSACTION_FLAG_REFRESH;
 	t = mailbox_transaction_begin(client->mailbox, flags);
-	search_ctx = mailbox_search_init(t, NULL, search_arg, NULL);
+	search_ctx = mailbox_search_init(t, search_args, NULL);
+	mail_search_args_unref(&search_args);
 
 	/* FIXME: UNCHANGEDSINCE should be atomic, but this requires support
 	   from mail-storage API. So for now we fake it. */

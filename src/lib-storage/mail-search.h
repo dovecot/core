@@ -85,6 +85,14 @@ struct mail_search_arg {
 	int result; /* -1 = unknown, 0 = unmatched, 1 = matched */
 };
 
+struct mail_search_args {
+	int refcount;
+	pool_t pool;
+	struct mailbox *box;
+	struct mail_search_arg *args;
+	const char *charset;
+};
+
 #define ARG_SET_RESULT(arg, res) \
 	STMT_START { \
 		(arg)->result = !(arg)->not ? (res) : \
@@ -93,6 +101,17 @@ struct mail_search_arg {
 
 typedef void mail_search_foreach_callback_t(struct mail_search_arg *arg,
 					    void *context);
+
+/* Allocate keywords for search arguments. If change_uidsets is TRUE,
+   change uidsets to seqsets. */
+void mail_search_args_init(struct mail_search_args *args,
+			   struct mailbox *box, bool change_uidsets,
+			   const ARRAY_TYPE(seq_range) *search_saved_uidset);
+/* Free keywords. The args can initialized afterwards again if needed. */
+void mail_search_args_deinit(struct mail_search_args *args);
+
+void mail_search_args_ref(struct mail_search_args *args);
+void mail_search_args_unref(struct mail_search_args **args);
 
 /* Reset the results in search arguments. match_always is reset only if
    full_reset is TRUE. */

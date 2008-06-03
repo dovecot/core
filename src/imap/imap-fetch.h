@@ -33,7 +33,7 @@ struct imap_fetch_context {
 	struct mailbox *box;
 
 	struct mailbox_transaction_context *trans;
-	struct mail_search_arg *search_args;
+	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 

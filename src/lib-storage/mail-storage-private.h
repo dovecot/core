@@ -141,7 +141,7 @@ struct mailbox_vfuncs {
 
 	struct mail_search_context *
 	(*search_init)(struct mailbox_transaction_context *t,
-		       const char *charset, struct mail_search_arg *args,
+		       struct mail_search_args *args,
 		       const enum mail_sort_type *sort_program);
 	int (*search_deinit)(struct mail_search_context *ctx);
 	int (*search_next_nonblock)(struct mail_search_context *ctx,
@@ -288,8 +288,7 @@ union mail_search_module_context {
 struct mail_search_context {
 	struct mailbox_transaction_context *transaction;
 
-	char *charset;
-	struct mail_search_arg *args;
+	struct mail_search_args *args;
 	struct mail_search_sort_program *sort_program;
 
 	uint32_t seq;

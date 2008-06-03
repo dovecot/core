@@ -9,7 +9,6 @@
 #include "message-send.h"
 #include "message-size.h"
 #include "imap-date.h"
-#include "mail-search.h"
 #include "mail-search-build.h"
 #include "commands.h"
 #include "imap-fetch.h"
@@ -113,14 +112,14 @@ bool imap_fetch_add_unchanged_since(struct imap_fetch_context *ctx,
 {
 	struct mail_search_arg *search_arg;
 
-	search_arg = p_new(ctx->cmd->pool, struct mail_search_arg, 1);
+	search_arg = p_new(ctx->search_args->pool, struct mail_search_arg, 1);
 	search_arg->type = SEARCH_MODSEQ;
 	search_arg->value.modseq =
 		p_new(ctx->cmd->pool, struct mail_search_modseq, 1);
 	search_arg->value.modseq->modseq = modseq;
 
-	search_arg->next = ctx->search_args->next;
-	ctx->search_args->next = search_arg;
+	search_arg->next = ctx->search_args->args->next;
+	ctx->search_args->args->next = search_arg;
 
 	return imap_fetch_init_handler(ctx, "MODSEQ", NULL);
 }
@@ -200,7 +199,7 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 				 ARRAY_TYPE(seq_range) *expunges)
 {
 	struct mailbox_transaction_context *trans;
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 	const struct seq_range *uid_range;
@@ -215,14 +214,17 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 	next_uid = uid_range[0].seq1;
 
 	/* search UIDs in given range */
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_UIDSET;
-	i_array_init(&search_arg.value.seqset, array_count(uids));
-	array_append_array(&search_arg.value.seqset, uids);
+	search_args = mail_search_build_init();
+	search_args->args = p_new(search_args->pool, struct mail_search_arg, 1);
+	search_args->args->type = SEARCH_UIDSET;
+	i_array_init(&search_args->args->value.seqset, array_count(uids));
+	array_append_array(&search_args->args->value.seqset, uids);
 
 	trans = mailbox_transaction_begin(ctx->box, 0);
 	mail = mail_alloc(trans, 0, NULL);
-	search_ctx = mailbox_search_init(trans, NULL, &search_arg, NULL);
+	search_ctx = mailbox_search_init(trans, search_args, NULL);
+	mail_search_args_unref(&search_args);
+
 	while (mailbox_search_next(search_ctx, mail) > 0) {
 		if (mail->uid == next_uid) {
 			if (next_uid < uid_range[i].seq2)
@@ -279,7 +281,7 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 static int
 imap_fetch_send_vanished(struct imap_fetch_context *ctx)
 {
-	const struct mail_search_arg *uidarg = ctx->search_args;
+	const struct mail_search_arg *uidarg = ctx->search_args->args;
 	const struct mail_search_arg *modseqarg = uidarg->next;
 	const ARRAY_TYPE(seq_range) *uids = &uidarg->value.seqset;
 	uint64_t modseq = modseqarg->value.modseq->modseq;
@@ -352,7 +354,7 @@ int imap_fetch_begin(struct imap_fetch_context *ctx)
 	mail_search_args_init(ctx->search_args, ctx->box, TRUE,
 			      &ctx->cmd->client->search_saved_uidset);
 	ctx->search_ctx =
-		mailbox_search_init(ctx->trans, NULL, ctx->search_args, NULL);
+		mailbox_search_init(ctx->trans, ctx->search_args, NULL);
 	return 0;
 }
 

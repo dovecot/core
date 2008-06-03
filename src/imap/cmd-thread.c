@@ -10,7 +10,7 @@ bool cmd_thread(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	enum mail_thread_type threading;
-	struct mail_search_arg *sargs;
+	struct mail_search_args *sargs;
 	const struct imap_arg *args;
 	int ret, args_count;
 	const char *charset, *str;
@@ -57,11 +57,13 @@ bool cmd_thread(struct client_command_context *cmd)
 	charset = IMAP_ARG_STR(args);
 	args++;
 
-	ret = imap_search_args_build(cmd, args, &sargs);
+	ret = imap_search_args_build(cmd, args, charset, &sargs);
 	if (ret <= 0)
 		return ret < 0;
 
-	if (imap_thread(cmd, charset, sargs, threading) < 0) {
+	ret = imap_thread(cmd, sargs, threading);
+	mail_search_args_unref(&sargs);
+	if (ret < 0) {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 		return TRUE;

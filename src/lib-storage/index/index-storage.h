@@ -156,7 +156,7 @@ void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx);
 
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *t,
-			  const char *charset, struct mail_search_arg *args,
+			  struct mail_search_args *args,
 			  const enum mail_sort_type *sort_program);
 int index_storage_search_deinit(struct mail_search_context *ctx);
 int index_storage_search_next(struct mail_search_context *ctx,

@@ -158,7 +158,7 @@ enum mailbox_sync_type {
 struct message_part;
 struct mail_namespace;
 struct mail_storage;
-struct mail_search_arg;
+struct mail_search_args;
 struct mail_keywords;
 struct mail_save_context;
 struct mailbox;
@@ -376,7 +376,7 @@ void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx **ctx);
    returned in the requested order, otherwise from first to last. */
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,
-		    const char *charset, struct mail_search_arg *args,
+		    struct mail_search_args *args,
 		    const enum mail_sort_type *sort_program);
 /* Deinitialize search request. */
 int mailbox_search_deinit(struct mail_search_context **ctx);

@@ -28,7 +28,7 @@ static void client_send_sendalive_if_needed(struct client *client)
 
 static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 			  struct mailbox_transaction_context *t,
-			  struct mail_search_arg *search_args,
+			  struct mail_search_args *search_args,
 			  const char **src_uidset_r,
 			  unsigned int *copy_count_r)
 {
@@ -46,7 +46,7 @@ static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 	msgset_generator_init(&srcset_ctx, src_uidset);
 
 	src_trans = mailbox_transaction_begin(client->mailbox, 0);
-	search_ctx = mailbox_search_init(src_trans, NULL, search_args, NULL);
+	search_ctx = mailbox_search_init(src_trans, search_args, NULL);
 
 	mail = mail_alloc(src_trans, MAIL_FETCH_STREAM_HEADER |
 			  MAIL_FETCH_STREAM_BODY, NULL);
@@ -90,7 +90,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	struct mail_storage *storage;
 	struct mailbox *destbox;
 	struct mailbox_transaction_context *t;
-        struct mail_search_arg *search_arg;
+        struct mail_search_args *search_args;
 	const char *messageset, *mailbox, *src_uidset, *msg = NULL;
 	enum mailbox_sync_flags sync_flags = 0;
 	enum imap_sync_flags imap_flags = 0;
@@ -109,7 +109,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (!client_verify_mailbox_name(cmd, mailbox, TRUE, FALSE))
 		return TRUE;
 
-	ret = imap_search_get_seqset(cmd, messageset, cmd->uid, &search_arg);
+	ret = imap_search_get_seqset(cmd, messageset, cmd->uid, &search_args);
 	if (ret <= 0)
 		return ret < 0;
 
@@ -135,8 +135,9 @@ bool cmd_copy(struct client_command_context *cmd)
 	t = mailbox_transaction_begin(destbox,
 				      MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 				      MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
-	ret = fetch_and_copy(client, destbox, t, search_arg,
+	ret = fetch_and_copy(client, destbox, t, search_args,
 			     &src_uidset, &copy_count);
+	mail_search_args_unref(&search_args);
 
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);

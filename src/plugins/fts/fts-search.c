@@ -86,7 +86,8 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 
 	/* convert key to titlecase */
 	key_utf8 = t_str_new(128);
-	if (charset_to_utf8_str(fctx->charset, CHARSET_FLAG_DECOMP_TITLECASE,
+	if (charset_to_utf8_str(fctx->args->charset,
+				CHARSET_FLAG_DECOMP_TITLECASE,
 				key, key_utf8, &result) < 0) {
 		/* unknown charset, can't handle this */
 		ret = 0;
@@ -123,7 +124,7 @@ void fts_search_lookup(struct fts_search_context *fctx)
 		ret = fts_search_lookup_arg(fctx, fctx->best_arg, FALSE);
 	} T_END;
 	/* filter the rest */
-	for (arg = fctx->args; arg != NULL && ret == 0; arg = arg->next) {
+	for (arg = fctx->args->args; arg != NULL && ret == 0; arg = arg->next) {
 		if (arg != fctx->best_arg) {
 			T_BEGIN {
 				ret = fts_search_lookup_arg(fctx, arg, TRUE);
@@ -196,7 +197,8 @@ void fts_search_analyze(struct fts_search_context *fctx)
 {
 	struct mail_search_arg *best_fast_arg = NULL, *best_substr_arg = NULL;
 
-	fts_search_args_find_best(fctx->args, &best_fast_arg, &best_substr_arg);
+	fts_search_args_find_best(fctx->args->args, &best_fast_arg,
+				  &best_substr_arg);
 
 	if (best_fast_arg != NULL && fctx->fbox->backend_fast != NULL) {
 		/* use fast backend whenever possible */

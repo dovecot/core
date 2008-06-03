@@ -5,7 +5,6 @@
 #include "str.h"
 #include "seq-range-array.h"
 #include "commands.h"
-#include "mail-search.h"
 #include "mail-search-build.h"
 #include "imap-quote.h"
 #include "imap-util.h"
@@ -29,7 +28,7 @@ struct imap_search_context {
 	struct mailbox_transaction_context *trans;
         struct mail_search_context *search_ctx;
 	struct mail *mail;
-	struct mail_search_arg *sargs;
+	struct mail_search_args *sargs;
 	enum search_return_options return_options;
 
 	struct timeout *to;
@@ -98,10 +97,10 @@ static bool imap_search_args_have_modseq(const struct mail_search_arg *sargs)
 }
 
 static struct imap_search_context *
-imap_search_init(struct imap_search_context *ctx, const char *charset,
-		 struct mail_search_arg *sargs)
+imap_search_init(struct imap_search_context *ctx,
+		 struct mail_search_args *sargs)
 {
-	if (imap_search_args_have_modseq(sargs)) {
+	if (imap_search_args_have_modseq(sargs->args)) {
 		ctx->return_options |= SEARCH_RETURN_MODSEQ;
 		client_enable(ctx->cmd->client, MAILBOX_FEATURE_CONDSTORE);
 	}
@@ -109,7 +108,7 @@ imap_search_init(struct imap_search_context *ctx, const char *charset,
 	ctx->box = ctx->cmd->client->mailbox;
 	ctx->trans = mailbox_transaction_begin(ctx->box, 0);
 	ctx->sargs = sargs;
-	ctx->search_ctx = mailbox_search_init(ctx->trans, charset, sargs, NULL);
+	ctx->search_ctx = mailbox_search_init(ctx->trans, sargs, NULL);
 	ctx->mail = mail_alloc(ctx->trans, 0, NULL);
 	(void)gettimeofday(&ctx->start_time, NULL);
 	i_array_init(&ctx->result, 128);
@@ -212,7 +211,8 @@ static int imap_search_deinit(struct imap_search_context *ctx)
 	if (ctx->to != NULL)
 		timeout_remove(&ctx->to);
 	array_free(&ctx->result);
-	mail_search_args_deinit(ctx->sargs, ctx->box);
+	mail_search_args_deinit(ctx->sargs);
+	mail_search_args_unref(&ctx->sargs);
 
 	ctx->cmd->context = NULL;
 	return ret;
@@ -358,7 +358,7 @@ bool cmd_search(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct imap_search_context *ctx;
-	struct mail_search_arg *sargs;
+	struct mail_search_args *sargs;
 	const struct imap_arg *args;
 	enum search_return_options return_options;
 	int ret, args_count;
@@ -426,11 +426,11 @@ bool cmd_search(struct client_command_context *cmd)
 		charset = "UTF-8";
 	}
 
-	ret = imap_search_args_build(cmd, args, &sargs);
+	ret = imap_search_args_build(cmd, args, charset, &sargs);
 	if (ret <= 0)
 		return ret < 0;
 
-	imap_search_init(ctx, charset, sargs);
+	imap_search_init(ctx, sargs);
 	cmd->func = cmd_search_more;
 	cmd->context = ctx;
 

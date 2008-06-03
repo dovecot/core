@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-storage-private.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "squat-trie.h"
 #include "fts-squat-plugin.h"
 
@@ -110,16 +110,18 @@ static int get_all_msg_uids(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
 {
 	struct mailbox_transaction_context *t;
 	struct mail_search_context *search_ctx;
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
 	struct mail *mail;
 	int ret = 0;
 
 	t = mailbox_transaction_begin(box, 0);
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
-
 	mail = mail_alloc(t, 0, NULL);
-	search_ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+	search_ctx = mailbox_search_init(t, search_args, NULL);
+	mail_search_args_unref(&search_args);
+
 	while ((ret = mailbox_search_next(search_ctx, mail)) > 0) {
 		/* *2 because even/odd is for body/header */
 		seq_range_array_add_range(uids, mail->uid * 2,

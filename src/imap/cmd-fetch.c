@@ -117,8 +117,8 @@ fetch_parse_modifiers(struct imap_fetch_context *ctx,
 			return FALSE;
 	}
 	if (ctx->send_vanished &&
-	    (ctx->search_args->next == NULL ||
-	     ctx->search_args->next->type != SEARCH_MODSEQ)) {
+	    (ctx->search_args->args->next == NULL ||
+	     ctx->search_args->args->next->type != SEARCH_MODSEQ)) {
 		client_send_command_error(ctx->cmd,
 			"VANISHED used without CHANGEDSINCE");
 		return FALSE;
@@ -175,7 +175,7 @@ bool cmd_fetch(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct imap_fetch_context *ctx;
 	const struct imap_arg *args;
-	struct mail_search_arg *search_arg;
+	struct mail_search_args *search_args;
 	const char *messageset;
 	int ret;
 
@@ -196,14 +196,14 @@ bool cmd_fetch(struct client_command_context *cmd)
 
 	/* UID FETCH VANISHED needs the uidset, so convert it to
 	   sequence set later */
-	ret = imap_search_get_anyset(cmd, messageset, cmd->uid, &search_arg);
+	ret = imap_search_get_anyset(cmd, messageset, cmd->uid, &search_args);
 	if (ret <= 0)
 		return ret < 0;
 
 	ctx = imap_fetch_init(cmd, client->mailbox);
 	if (ctx == NULL)
 		return TRUE;
-	ctx->search_args = search_arg;
+	ctx->search_args = search_args;
 
 	if (!fetch_parse_args(ctx, &args[1]) ||
 	    (args[2].type == IMAP_ARG_LIST &&

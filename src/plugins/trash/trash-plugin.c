@@ -5,7 +5,7 @@
 #include "istream.h"
 #include "home-expand.h"
 #include "mail-namespace.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "quota-private.h"
 #include "quota-plugin.h"
 #include "trash-plugin.h"
@@ -26,7 +26,6 @@ struct trash_mailbox {
 	/* temporarily set while cleaning: */
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
-        struct mail_search_arg search_arg;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 
@@ -44,6 +43,8 @@ static ARRAY_DEFINE(trash_boxes, struct trash_mailbox);
 
 static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
+	struct mail_search_args *search_args;
+
 	trash->box = mailbox_open(trash->storage, trash->name, NULL,
 				  MAILBOX_OPEN_KEEP_RECENT);
 	if (trash->box == NULL)
@@ -53,11 +54,14 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 		return -1;
 
 	trash->trans = mailbox_transaction_begin(trash->box, 0);
-
-	trash->search_ctx = mailbox_search_init(trash->trans, NULL,
-						&trash->search_arg, NULL);
 	trash->mail = mail_alloc(trash->trans, MAIL_FETCH_PHYSICAL_SIZE |
 				 MAIL_FETCH_RECEIVED_DATE, NULL);
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+	trash->search_ctx = mailbox_search_init(trash->trans,
+						search_args, NULL);
+	mail_search_args_unref(&search_args);
 
 	return mailbox_search_next(trash->search_ctx, trash->mail);
 }
@@ -259,7 +263,6 @@ static int read_configuration(const char *path)
 		trash = array_append_space(&trash_boxes);
 		trash->name = p_strdup(config_pool, name+1);
 		trash->priority = atoi(t_strdup_until(line, name));
-		trash->search_arg.type = SEARCH_ALL;
 
 		if (getenv("DEBUG") != NULL) {
 			i_info("trash plugin: Added '%s' with priority %d",

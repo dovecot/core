@@ -3,7 +3,7 @@
 #include "common.h"
 #include "seq-range-array.h"
 #include "commands.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "imap-messageset.h"
 #include "imap-fetch.h"
 #include "imap-sync.h"
@@ -217,17 +217,18 @@ static bool cmd_select_continue(struct client_command_context *cmd)
 static int select_qresync(struct imap_select_context *ctx)
 {
 	struct imap_fetch_context *fetch_ctx;
-	struct mail_search_arg *search_arg;
+	struct mail_search_args *search_args;
 
-	search_arg = p_new(ctx->cmd->pool, struct mail_search_arg, 1);
-	search_arg->type = SEARCH_UIDSET;
-	search_arg->value.seqset = ctx->qresync_known_uids;
+	search_args = mail_search_build_init();
+	search_args->args = p_new(search_args->pool, struct mail_search_arg, 1);
+	search_args->args->type = SEARCH_UIDSET;
+	search_args->args->value.seqset = ctx->qresync_known_uids;
 
 	fetch_ctx = imap_fetch_init(ctx->cmd, ctx->box);
 	if (fetch_ctx == NULL)
 		return -1;
 
-	fetch_ctx->search_args = search_arg;
+	fetch_ctx->search_args = search_args;
 	fetch_ctx->send_vanished = TRUE;
 	fetch_ctx->qresync_sample_seqset = &ctx->qresync_sample_seqset;
 	fetch_ctx->qresync_sample_uidset = &ctx->qresync_sample_uidset;

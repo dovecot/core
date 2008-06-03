@@ -7,7 +7,7 @@
 #include "istream.h"
 #include "message-parser.h"
 #include "message-decoder.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "fts-api-private.h"
 #include "fts-storage.h"
@@ -25,7 +25,7 @@
 
 struct fts_storage_build_context {
 	struct mail_search_context *search_ctx;
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
 	struct mail *mail;
 	struct fts_backend_build_context *build;
 
@@ -167,6 +167,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 static int fts_build_init(struct fts_search_context *fctx)
 {
 	struct mailbox_transaction_context *t = fctx->t;
+	struct mail_search_args *search_args;
 	struct fts_backend *backend = fctx->build_backend;
 	struct fts_storage_build_context *ctx;
 	struct fts_backend_build_context *build;
@@ -201,15 +202,15 @@ static int fts_build_init(struct fts_search_context *fctx)
 		}
 	}
 
+	search_args = mail_search_build_init();
+	mail_search_build_add_seqset(search_args, seq1, seq2);
+
 	ctx = i_new(struct fts_storage_build_context, 1);
 	ctx->build = build;
-	ctx->search_arg.type = SEARCH_SEQSET;
-	i_array_init(&ctx->search_arg.value.seqset, 1);
-	seq_range_array_add_range(&ctx->search_arg.value.seqset, seq1, seq2);
-
 	ctx->headers = str_new(default_pool, 512);
 	ctx->mail = mail_alloc(t, 0, NULL);
-	ctx->search_ctx = mailbox_search_init(t, NULL, &ctx->search_arg, NULL);
+	ctx->search_ctx = mailbox_search_init(t, search_args, NULL);
+	ctx->search_args = search_args;
 
 	fctx->build_ctx = ctx;
 	return 0;
@@ -239,7 +240,7 @@ static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 	}
 
 	str_free(&ctx->headers);
-	array_free(&ctx->search_arg.value.seqset);
+	mail_search_args_unref(&ctx->search_args);
 	i_free(ctx);
 	return ret;
 }
@@ -256,7 +257,7 @@ static void fts_build_notify(struct fts_storage_build_context *ctx)
 		   already spent some time indexing the mailbox */
 		ctx->search_start_time = ioloop_timeval;
 	} else if (box->storage->callbacks->notify_ok != NULL) {
-		range = array_idx(&ctx->search_arg.value.seqset, 0);
+		range = array_idx(&ctx->search_args->args->value.seqset, 0);
 		percentage = (ctx->mail->seq - range->seq1) * 100.0 /
 			(range->seq2 - range->seq1);
 		msecs = (ioloop_timeval.tv_sec -
@@ -330,21 +331,19 @@ static bool fts_try_build_init(struct fts_search_context *fctx)
 
 static struct mail_search_context *
 fts_mailbox_search_init(struct mailbox_transaction_context *t,
-			const char *charset, struct mail_search_arg *args,
+			struct mail_search_args *args,
 			const enum mail_sort_type *sort_program)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
 	struct mail_search_context *ctx;
 	struct fts_search_context *fctx;
 
-	ctx = fbox->module_ctx.super.
-		search_init(t, charset, args, sort_program);
+	ctx = fbox->module_ctx.super.search_init(t, args, sort_program);
 
 	fctx = i_new(struct fts_search_context, 1);
 	fctx->fbox = fbox;
 	fctx->t = t;
 	fctx->args = args;
-	fctx->charset = ctx->charset;
 	MODULE_CONTEXT_SET(ctx, fts_storage_module, fctx);
 
 	if (fbox->backend_substr == NULL && fbox->backend_fast == NULL)
@@ -395,7 +394,7 @@ fts_mailbox_search_args_definite_set(struct fts_search_context *fctx)
 {
 	struct mail_search_arg *arg;
 
-	for (arg = fctx->args; arg != NULL; arg = arg->next) {
+	for (arg = fctx->args->args; arg != NULL; arg = arg->next) {
 		switch (arg->type) {
 		case SEARCH_TEXT:
 		case SEARCH_BODY:
@@ -474,7 +473,7 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 		if (ret <= 0 || wanted_seq == ctx->seq)
 			break;
 		wanted_seq = ctx->seq;
-		mail_search_args_reset(ctx->args, FALSE);
+		mail_search_args_reset(ctx->args->args, FALSE);
 	}
 
 	if (!use_maybe) {

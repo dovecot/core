@@ -5,7 +5,6 @@
 #include "imap-date.h"
 #include "imap-parser.h"
 #include "imap-messageset.h"
-#include "mail-search.h"
 #include "mail-search-build.h"
 #include "mail-storage.h"
 
@@ -608,131 +607,71 @@ static bool search_arg_build(struct search_build_data *data,
 	return FALSE;
 }
 
-struct mail_search_arg *
-mail_search_build_from_imap_args(pool_t pool, const struct imap_arg *args,
-				 const char **error_r)
+int mail_search_build_from_imap_args(const struct imap_arg *imap_args,
+				     const char *charset,
+				     struct mail_search_args **args_r,
+				     const char **error_r)
 {
         struct search_build_data data;
-	struct mail_search_arg *first_sarg, **sargs;
+	struct mail_search_args *args;
+	struct mail_search_arg **sargs;
 
-	data.pool = pool;
+	*args_r = NULL;
+	*error_r = NULL;
+
+	args = mail_search_build_init();
+	args->charset = p_strdup(args->pool, charset);
+
+	data.pool = args->pool;
 	data.error = NULL;
 
-	first_sarg = NULL; sargs = &first_sarg;
-	while (args->type != IMAP_ARG_EOL) {
-		if (!search_arg_build(&data, &args, sargs)) {
-			first_sarg = NULL;
-			break;
+	sargs = &args->args;
+	while (imap_args->type != IMAP_ARG_EOL) {
+		if (!search_arg_build(&data, &imap_args, sargs)) {
+			pool_unref(&args->pool);
+			*error_r = data.error;
+			return -1;
 		}
 		sargs = &(*sargs)->next;
 	}
 
-	*error_r = data.error;
-	return first_sarg;
+	*args_r = args;
+	return 0;
 }
 
-static void
-mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
-		      const ARRAY_TYPE(seq_range) *search_saved_uidset)
+struct mail_search_args *mail_search_build_init(void)
 {
-	struct seq_range *uids;
-	unsigned int i, count;
-	uint32_t seq1, seq2;
+	struct mail_search_args *args;
+	pool_t pool;
 
-	if (strcmp(arg->value.str, "$") == 0) {
-		/* SEARCHRES: Replace with saved uidset */
-		array_clear(&arg->value.seqset);
-		if (search_saved_uidset == NULL ||
-		    !array_is_created(search_saved_uidset))
-			return;
+	pool = pool_alloconly_create("mail search args", 1024);
+	args = p_new(pool, struct mail_search_args, 1);
+	args->pool = pool;
+	args->refcount = 1;
+	return args;
+}
 
-		array_append_array(&arg->value.seqset, search_saved_uidset);
-		return;
-	}
+void mail_search_build_add_all(struct mail_search_args *args)
+{
+	struct mail_search_arg *arg;
 
+	arg = p_new(args->pool, struct mail_search_arg, 1);
+	arg->type = SEARCH_ALL;
+
+	arg->next = args->args;
+	args->args = arg;
+}
+
+void mail_search_build_add_seqset(struct mail_search_args *args,
+				  uint32_t seq1, uint32_t seq2)
+{
+	struct mail_search_arg *arg;
+
+	arg = p_new(args->pool, struct mail_search_arg, 1);
 	arg->type = SEARCH_SEQSET;
+	p_array_init(&arg->value.seqset, args->pool, 1);
+	seq_range_array_add_range(&arg->value.seqset, seq1, seq2);
 
-	/* make a copy of the UIDs */
-	count = array_count(&arg->value.seqset);
-	if (count == 0) {
-		/* empty set, keep it */
-		return;
-	}
-	uids = t_new(struct seq_range, count);
-	memcpy(uids, array_idx(&arg->value.seqset, 0), sizeof(*uids) * count);
-
-	/* put them back to the range as sequences */
-	array_clear(&arg->value.seqset);
-	for (i = 0; i < count; i++) {
-		mailbox_get_uids(box, uids[i].seq1, uids[i].seq2, &seq1, &seq2);
-		if (seq1 != 0) {
-			seq_range_array_add_range(&arg->value.seqset,
-						  seq1, seq2);
-		}
-		if (uids[i].seq2 == (uint32_t)-1) {
-			/* make sure the last message is in the range */
-			mailbox_get_uids(box, 1, (uint32_t)-1, &seq1, &seq2);
-			seq_range_array_add(&arg->value.seqset, 0, seq2);
-		}
-	}
-}
-
-void mail_search_args_init(struct mail_search_arg *args,
-			   struct mailbox *box, bool change_uidsets,
-			   const ARRAY_TYPE(seq_range) *search_saved_uidset)
-{
-	const char *keywords[2];
-
-	for (; args != NULL; args = args->next) {
-		switch (args->type) {
-		case SEARCH_UIDSET:
-			if (change_uidsets) T_BEGIN {
-				mailbox_uidset_change(args, box,
-						      search_saved_uidset);
-			} T_END;
-			break;
-		case SEARCH_MODSEQ:
-			if (args->value.str == NULL)
-				break;
-			/* modseq with keyword */
-		case SEARCH_KEYWORDS:
-			keywords[0] = args->value.str;
-			keywords[1] = NULL;
-
-			i_assert(args->value.keywords == NULL);
-			args->value.keywords =
-				mailbox_keywords_create_valid(box, keywords);
-			break;
-
-		case SEARCH_SUB:
-		case SEARCH_OR:
-			mail_search_args_init(args->value.subargs, box,
-					      change_uidsets,
-					      search_saved_uidset);
-			break;
-		default:
-			break;
-		}
-	}
-}
-
-void mail_search_args_deinit(struct mail_search_arg *args,
-			     struct mailbox *box)
-{
-	for (; args != NULL; args = args->next) {
-		switch (args->type) {
-		case SEARCH_MODSEQ:
-		case SEARCH_KEYWORDS:
-			if (args->value.keywords == NULL)
-				break;
-			mailbox_keywords_free(box, &args->value.keywords);
-			break;
-		case SEARCH_SUB:
-		case SEARCH_OR:
-			mail_search_args_deinit(args->value.subargs, box);
-			break;
-		default:
-			break;
-		}
-	}
+	arg->next = args->args;
+	args->args = arg;
 }

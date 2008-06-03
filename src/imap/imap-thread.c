@@ -101,8 +101,8 @@ static void mail_thread_deinit(struct thread_context *ctx)
 	pool_unref(&ctx->pool);
 }
 
-int imap_thread(struct client_command_context *cmd, const char *charset,
-		struct mail_search_arg *args, enum mail_thread_type type)
+int imap_thread(struct client_command_context *cmd,
+		struct mail_search_args *args, enum mail_thread_type type)
 {
 	static const char *wanted_headers[] = {
 		"message-id", "in-reply-to", "references", "subject",
@@ -121,7 +121,7 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 
 	/* initialize searching */
 	ctx->t = mailbox_transaction_begin(client->mailbox, 0);
-	ctx->search_ctx = mailbox_search_init(ctx->t, charset, args, NULL);
+	ctx->search_ctx = mailbox_search_init(ctx->t, args, NULL);
 
 	ctx->box = client->mailbox;
 	ctx->output = client->output;

@@ -37,8 +37,7 @@ struct sort_context {
 	bool written;
 };
 
-int imap_sort(struct client_command_context *cmd, const char *charset,
-	      struct mail_search_arg *args,
+int imap_sort(struct client_command_context *cmd, struct mail_search_args *args,
 	      const enum mail_sort_type *sort_program)
 {
 	struct client *client = cmd->client;
@@ -82,7 +81,7 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 		mailbox_header_lookup_init(client->mailbox, wanted_headers);
 
 	t = mailbox_transaction_begin(client->mailbox, 0);
-	search_ctx = mailbox_search_init(t, charset, args, sort_program);
+	search_ctx = mailbox_search_init(t, args, sort_program);
 
 	str = t_str_new(STRBUF_SIZE);
 	str_append(str, "* SORT");

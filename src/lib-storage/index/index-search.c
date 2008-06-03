@@ -329,7 +329,7 @@ msg_search_arg_context(struct index_search_context *ctx,
 		MESSAGE_SEARCH_FLAG_SKIP_HEADERS : 0;
 
 	ret = message_search_init(ctx->search_pool, arg->value.str,
-				  ctx->mail_ctx.charset, flags,
+				  ctx->mail_ctx.args->charset, flags,
 				  &arg_ctx);
 	if (ret > 0) {
 		arg->context = arg_ctx;
@@ -849,7 +849,7 @@ static void search_get_seqset(struct index_search_context *ctx,
 
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *_t,
-			  const char *charset, struct mail_search_arg *args,
+			  struct mail_search_args *args,
 			  const enum mail_sort_type *sort_program)
 {
 	struct index_transaction_context *t =
@@ -860,20 +860,19 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	ctx->mail_ctx.transaction = _t;
 	ctx->ibox = t->ibox;
 	ctx->view = t->trans_view;
-	ctx->mail_ctx.charset = i_strdup(charset);
 	ctx->mail_ctx.args = args;
 	ctx->mail_ctx.sort_program = index_sort_program_init(_t, sort_program);
 
 	array_create(&ctx->mail_ctx.module_contexts, default_pool,
 		     sizeof(void *), 5);
 
-	mail_search_args_reset(ctx->mail_ctx.args, TRUE);
+	mail_search_args_reset(ctx->mail_ctx.args->args, TRUE);
 
-	search_get_seqset(ctx, args);
-	(void)mail_search_args_foreach(args, search_init_arg, ctx);
+	search_get_seqset(ctx, args->args);
+	(void)mail_search_args_foreach(args->args, search_init_arg, ctx);
 
 	/* Need to reset results for match_always cases */
-	mail_search_args_reset(ctx->mail_ctx.args, FALSE);
+	mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
 	return &ctx->mail_ctx;
 }
 
@@ -900,8 +899,8 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 				       MAIL_ERROR_PARAMS, ctx->error);
 	}
 
-	mail_search_args_reset(ctx->mail_ctx.args, FALSE);
-	(void)mail_search_args_foreach(ctx->mail_ctx.args,
+	mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
+	(void)mail_search_args_foreach(ctx->mail_ctx.args->args,
 				       search_arg_deinit, NULL);
 
 	if (ctx->search_pool != NULL)
@@ -910,7 +909,6 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	if (ctx->mail_ctx.sort_program != NULL)
 		index_sort_program_deinit(&ctx->mail_ctx.sort_program);
 	array_free(&ctx->mail_ctx.module_contexts);
-	i_free(ctx->mail_ctx.charset);
 	i_free(ctx);
 	return ret;
 }
@@ -921,16 +919,16 @@ static bool search_match_next(struct index_search_context *ctx)
 	int ret;
 
 	/* next search only from cached arguments */
-	ret = mail_search_args_foreach(ctx->mail_ctx.args,
+	ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
 				       search_cached_arg, ctx);
 	if (ret >= 0)
 		return ret > 0;
 
 	/* open the mail file and check the rest */
-	if (!search_arg_match_text(ctx->mail_ctx.args, ctx))
+	if (!search_arg_match_text(ctx->mail_ctx.args->args, ctx))
 		return FALSE;
 
-	for (arg = ctx->mail_ctx.args; arg != NULL; arg = arg->next) {
+	for (arg = ctx->mail_ctx.args->args; arg != NULL; arg = arg->next) {
 		if (arg->result != 1)
 			return FALSE;
 	}
@@ -1005,7 +1003,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 			ret = search_match_next(ctx) ? 1 : 0;
 		} T_END;
 
-		mail_search_args_reset(ctx->mail_ctx.args, FALSE);
+		mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
 
 		if (ctx->error != NULL)
 			ret = -1;
@@ -1056,14 +1054,14 @@ int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 	ret = 0;
 	while (_ctx->seq <= ctx->seq2) {
 		/* check if the sequence matches */
-		ret = mail_search_args_foreach(ctx->mail_ctx.args,
+		ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
 					       search_seqset_arg, ctx);
 		if (ret != 0) {
 			/* check if flags/keywords match before anything else
 			   is done. mail_set_seq() can be a bit slow. */
 			if (!ctx->have_index_args)
 				break;
-			ret = mail_search_args_foreach(ctx->mail_ctx.args,
+			ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
 						       search_index_arg, ctx);
 			if (ret != 0)
 				break;
@@ -1071,7 +1069,7 @@ int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 
 		/* doesn't, try next one */
 		_ctx->seq++;
-		mail_search_args_reset(ctx->mail_ctx.args, FALSE);
+		mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
 	}
 	return ret == 0 ? 0 : 1;
 }

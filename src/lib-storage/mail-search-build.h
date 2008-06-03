@@ -1,20 +1,20 @@
 #ifndef MAIL_SEARCH_BUILD_H
 #define MAIL_SEARCH_BUILD_H
 
+#include "mail-search.h"
+
 struct imap_arg;
 struct mailbox;
 
-struct mail_search_arg *
-mail_search_build_from_imap_args(pool_t pool, const struct imap_arg *args,
-				 const char **error_r);
+struct mail_search_args *mail_search_build_init(void);
 
-/* Allocate keywords for search arguments. If change_uidsets is TRUE,
-   change uidsets to seqsets. */
-void mail_search_args_init(struct mail_search_arg *args,
-			   struct mailbox *box, bool change_uidsets,
-			   const ARRAY_TYPE(seq_range) *search_saved_uidset);
-/* Free keywords. The args can initialized afterwards again if needed. */
-void mail_search_args_deinit(struct mail_search_arg *args,
-			     struct mailbox *box);
+int mail_search_build_from_imap_args(const struct imap_arg *imap_args,
+				     const char *charset,
+				     struct mail_search_args **args_r,
+				     const char **error_r);
+
+void mail_search_build_add_all(struct mail_search_args *args);
+void mail_search_build_add_seqset(struct mail_search_args *args,
+				  uint32_t seq1, uint32_t seq2);
 
 #endif

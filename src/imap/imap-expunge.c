@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "mail-storage.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "imap-expunge.h"
 
 int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
@@ -10,7 +10,7 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 	struct mail_search_context *ctx;
         struct mailbox_transaction_context *t;
 	struct mail *mail;
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
 	bool expunges = FALSE;
 
 	if (mailbox_is_readonly(box)) {
@@ -18,15 +18,17 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 		return 0;
 	}
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_FLAGS;
-	search_arg.value.flags = MAIL_DELETED;
-	search_arg.next = next_search_arg;
+	search_args = mail_search_build_init();
+	search_args->args = p_new(search_args->pool, struct mail_search_arg, 1);
+	search_args->args->type = SEARCH_FLAGS;
+	search_args->args->value.flags = MAIL_DELETED;
+	search_args->args->next = next_search_arg;
 
 	/* Refresh the flags so we'll expunge all messages marked as \Deleted
 	   by any session. */
 	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_REFRESH);
-	ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
+	ctx = mailbox_search_init(t, search_args, NULL);
+	mail_search_args_unref(&search_args);
 
 	mail = mail_alloc(t, 0, NULL);
 	while (mailbox_search_next(ctx, mail) > 0) {

@@ -7,7 +7,7 @@
 #include "lib-signals.h"
 #include "dict-client.h"
 #include "mail-index.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "auth-client.h"
@@ -64,7 +64,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	struct mailbox *box;
 	struct mail_search_context *search_ctx;
 	struct mailbox_transaction_context *t;
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
 	struct mail *mail;
 	const char *ns_mailbox;
 	time_t now, save_time;
@@ -85,10 +85,6 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 		ctx->user = i_strdup(user);
 	}
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
-	search_arg.next = NULL;
-
 	ns_mailbox = mailbox;
 	ns = mail_namespace_find(ctx->ns, &ns_mailbox);
 	if (ns == NULL) {
@@ -108,8 +104,13 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 		return 0;
 	}
 
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+
 	t = mailbox_transaction_begin(box, 0);
-	search_ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
+	search_ctx = mailbox_search_init(t, search_args, NULL);
+	mail_search_args_unref(&search_args);
+
 	mail = mail_alloc(t, 0, NULL);
 
 	now = time(NULL);

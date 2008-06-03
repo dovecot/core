@@ -10,7 +10,7 @@
 #include "var-expand.h"
 #include "mail-storage.h"
 #include "commands.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "mail-namespace.h"
 
 #include <stdlib.h>
@@ -47,7 +47,7 @@ static void client_idle_timeout(struct client *client)
 
 static bool init_mailbox(struct client *client, const char **error_r)
 {
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
         struct mailbox_transaction_context *t;
 	struct mail_search_context *ctx;
         struct mailbox_status status;
@@ -60,8 +60,8 @@ static bool init_mailbox(struct client *client, const char **error_r)
 
 	message_sizes_buf = buffer_create_dynamic(default_pool, 512);
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
 
 	for (i = 0; i < 2; i++) {
 		expunged = FALSE;
@@ -73,7 +73,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 		client->uid_validity = status.uidvalidity;
 
 		t = mailbox_transaction_begin(client->mailbox, 0);
-		ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
+		ctx = mailbox_search_init(t, search_args, NULL);
 
 		client->last_seen = 0;
 		client->total_size = 0;
@@ -114,6 +114,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 			client->trans = t;
 			client->message_sizes =
 				buffer_free_without_data(&message_sizes_buf);
+			mail_search_args_unref(&search_args);
 			return TRUE;
 		}
 
@@ -121,6 +122,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 		   sizes, make sure they get committed. */
 		(void)mailbox_transaction_commit(&t);
 	}
+	mail_search_args_unref(&search_args);
 
 	if (expunged) {
 		client_send_line(client,

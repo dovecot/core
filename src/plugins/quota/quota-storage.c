@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
-#include "mail-search.h"
+#include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
 #include "quota-private.h"
@@ -392,7 +392,7 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
         struct mailbox_transaction_context *t;
 	struct quota_transaction_context *qt;
 	struct mail *mail;
-	struct mail_search_arg search_arg;
+	struct mail_search_args *search_args;
 	enum mail_error error;
 	int ret;
 
@@ -416,12 +416,13 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 		return -1;
 	}
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
-
 	t = mailbox_transaction_begin(box, 0);
 	qt = QUOTA_CONTEXT(t);
-	ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+	ctx = mailbox_search_init(t, search_args, NULL);
+	mail_search_args_unref(&search_args);
 
 	mail = mail_alloc(t, 0, NULL);
 	while (mailbox_search_next(ctx, mail) > 0)
