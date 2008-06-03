@@ -634,6 +634,7 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 		    struct mail_search_args *args,
 		    const enum mail_sort_type *sort_program)
 {
+	mail_search_args_ref(args);
 	mail_search_args_simplify(args->args);
 	return t->box->v.search_init(t, args, sort_program);
 }
@@ -641,9 +642,13 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 int mailbox_search_deinit(struct mail_search_context **_ctx)
 {
 	struct mail_search_context *ctx = *_ctx;
+	struct mail_search_args *args = ctx->args;
+	int ret;
 
 	*_ctx = NULL;
-	return ctx->transaction->box->v.search_deinit(ctx);
+	ret = ctx->transaction->box->v.search_deinit(ctx);
+	mail_search_args_unref(&args);
+	return ret;
 }
 
 int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail)
