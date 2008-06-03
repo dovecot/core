@@ -233,7 +233,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 	}
 
-	if (!mstream->seen_eoh && mstream->add_missing_eoh) {
+	if (hdr_ret < 0 && !mstream->seen_eoh && mstream->add_missing_eoh) {
 		mstream->seen_eoh = TRUE;
 		add_eol(mstream);
 	}
