@@ -30,14 +30,16 @@
 
 #ifdef HAVE_GSSAPI_GSSAPI_H
 #  include <gssapi/gssapi.h>
-#  ifdef USE_KRB5_USEROK
-#    include <gssapi/gssapi_krb5.h>
-#  endif
 #elif defined (HAVE_GSSAPI_H)
 #  include <gssapi.h>
-#  ifdef USE_KRB5_USEROK
-#    include <gssapi_krb5.h>
-#  endif
+#endif
+
+#ifdef HAVE_GSSAPI_GSSAPI_KRB5_H
+#  include <gssapi/gssapi_krb5.h>
+#elif defined (HAVE_GSSAPI_KRB5_H)
+#  include <gssapi_krb5.h>
+#else
+#  undef USE_KRB5_USEROK
 #endif
 
 #ifdef HAVE_GSSAPI_GSSAPI_EXT_H

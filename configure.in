@@ -1664,15 +1664,13 @@ if test $want_gssapi != no; then
 				AC_DEFINE(HAVE_GSSAPI_GSSAPI_H,, GSSAPI headers in gssapi/gssapi.h)
 				have_gssapi=yes
 			])
-			AC_CHECK_HEADER([gssapi/gssapi_ext.h], [
-				AC_DEFINE(HAVE_GSSAPI_GSSAPI_EXT_H,, GSSAPI headers in gssapi/gssapi_ext.h)
-			])
 			AC_CHECK_HEADER([gssapi.h], [
 				AC_DEFINE(HAVE_GSSAPI_H,, GSSAPI headers in gssapi.h)
 				have_gssapi=yes
 			])
 			if test $have_gssapi = yes; then
 				AC_DEFINE(HAVE_GSSAPI,, Build with GSSAPI support)
+				AC_CHECK_HEADERS(gssapi/gssapi_ext.h gssapi_krb5.h gssapi/gssapi_krb5.h)
 				AC_CHECK_LIB(gss, __gss_userok, [
 					AC_DEFINE(HAVE___GSS_USEROK,,
 						Define if you have __gss_userok())
