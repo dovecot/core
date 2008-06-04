@@ -472,7 +472,8 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 	struct mail_sort_node *nodes;
 	unsigned int i, count, rightmost_idx, skip;
 	const char *left_str = NULL, *right_str = NULL, *str;
-	uint32_t left_sort_id, right_sort_id;
+	uint32_t left_sort_id, right_sort_id, diff;
+	bool no_left_str = FALSE, no_right_str = FALSE;
 
 	nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
 	rightmost_idx = count - 1;
@@ -502,7 +503,8 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 	}
 	i_assert(left_sort_id <= right_sort_id);
 
-	while ((right_sort_id - left_sort_id) / (right_idx-left_idx + 2) == 0) {
+	diff = right_sort_id - left_sort_id;
+	while (diff / (right_idx-left_idx + 2) == 0) {
 		/* we most likely don't have enough space. we have to
 		   renumber some of the existing sort IDs. do this by
 		   widening the area we're giving sort IDs. */
@@ -515,7 +517,8 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 		}
 
 		while (right_idx < rightmost_idx) {
-			if (nodes[++right_idx].sort_id > 1)
+			right_idx++;
+			if (nodes[right_idx].sort_id > right_sort_id)
 				break;
 		}
 		right_sort_id = nodes[right_idx].sort_id;
@@ -524,9 +527,24 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 			right_sort_id = (uint32_t)-1;
 		}
 		i_assert(left_sort_id < right_sort_id);
+
+		if (diff == right_sort_id - left_sort_id) {
+			/* we did nothing, but there's still not enough space.
+			   have to renumber the leftmost/rightmost node(s) */
+			i_assert(left_idx == 0 && right_idx == rightmost_idx);
+			if (left_sort_id > 1) {
+				left_sort_id = 1;
+				no_left_str = TRUE;
+			} else {
+				i_assert(right_sort_id != (uint32_t)-1);
+				right_sort_id = (uint32_t)-1;
+				no_right_str = TRUE;
+			}
+		}
+		diff = right_sort_id - left_sort_id;
 	}
 
-	if (nodes[left_idx].sort_id != 0) {
+	if (nodes[left_idx].sort_id != 0 && !no_left_str) {
 		left_str = index_sort_get_string(ctx, left_idx,
 						 nodes[left_idx].seq);
 		if (left_str == &expunged_msg) {
@@ -535,7 +553,7 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 		}
 		left_idx++;
 	}
-	if (nodes[right_idx].sort_id != 0) {
+	if (nodes[right_idx].sort_id != 0 && !no_right_str) {
 		right_str = index_sort_get_string(ctx, right_idx,
 						  nodes[right_idx].seq);
 		if (right_str == &expunged_msg) {
