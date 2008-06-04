@@ -40,7 +40,8 @@ static bool cmd_expunge_finish(struct client_command_context *cmd,
 {
 	struct client *client = cmd->client;
 
-	if (imap_expunge(client->mailbox, search_args->args) < 0) {
+	if (imap_expunge(client->mailbox, search_args == NULL ? NULL :
+			 search_args->args) < 0) {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 		return TRUE;
