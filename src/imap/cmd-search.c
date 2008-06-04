@@ -168,6 +168,9 @@ static void imap_search_send_result(struct imap_search_context *ctx)
 	imap_quote_append_string(str, ctx->cmd->tag, FALSE);
 	str_append_c(str, ')');
 
+	if (ctx->cmd->uid)
+		str_append(str, " UID");
+
 	range = array_get(&ctx->result, &count);
 	if (count > 0) {
 		if ((ctx->return_options & SEARCH_RETURN_MIN) != 0)
