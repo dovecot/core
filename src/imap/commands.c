@@ -41,6 +41,7 @@ const struct command imap4rev1_commands[] = {
 #define IMAP4REV1_COMMANDS_COUNT N_ELEMENTS(imap4rev1_commands)
 
 const struct command imap_ext_commands[] = {
+	{ "CANCELUPDATE",	cmd_cancelupdate,0 },
 	{ "ENABLE",		cmd_enable,      0 },
 	{ "IDLE",		cmd_idle,        COMMAND_FLAG_BREAKS_SEQS },
 	{ "NAMESPACE",		cmd_namespace,   0 },

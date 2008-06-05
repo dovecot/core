@@ -4,6 +4,7 @@
 #include "str.h"
 #include "ostream.h"
 #include "mail-storage.h"
+#include "imap-quote.h"
 #include "imap-util.h"
 #include "imap-sync.h"
 #include "commands.h"
@@ -32,11 +33,100 @@ struct imap_sync_context {
 	ARRAY_TYPE(seq_range) expunges;
 	uint32_t seq;
 
+	ARRAY_TYPE(seq_range) search_adds, search_removes;
+
 	unsigned int messages_count;
 
 	unsigned int failed:1;
 	unsigned int no_newmail:1;
 };
+
+static void uids_to_seqs(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
+{
+	T_BEGIN {
+		ARRAY_TYPE(seq_range) seqs;
+		const struct seq_range *range;
+		unsigned int i, count;
+		uint32_t seq1, seq2;
+
+		range = array_get(uids, &count);
+		t_array_init(&seqs, count);
+		for (i = 0; i < count; i++) {
+			mailbox_get_uids(box, range[i].seq1, range[i].seq2,
+					 &seq1, &seq2);
+			/* since we have to notify about expunged messages,
+			   we expect that all the referenced UIDs exist */
+			i_assert(seq1 != 0);
+			i_assert(seq2 - seq1 == range[i].seq2 - range[i].seq1);
+
+			seq_range_array_add_range(&seqs, seq1, seq2);
+		}
+		/* replace uids with seqs */
+		array_clear(uids);
+		array_append_array(uids, &seqs);
+
+	} T_END;
+}
+
+static void
+imap_sync_send_search_update(struct imap_sync_context *ctx,
+			     const struct imap_search_update *update)
+{
+	string_t *cmd;
+	unsigned int pos;
+
+	mailbox_search_result_sync(update->result, &ctx->search_removes,
+				   &ctx->search_adds);
+	if (array_count(&ctx->search_adds) == 0 &&
+	    array_count(&ctx->search_removes) == 0)
+		return;
+
+	cmd = t_str_new(256);
+	str_append(cmd, "* ESEARCH (TAG ");
+	imap_quote_append_string(cmd, update->tag, FALSE);
+	str_append(cmd, ") ");
+	if (update->return_uids)
+		str_append(cmd, "UID ");
+	else {
+		/* convert to sequences */
+		uids_to_seqs(ctx->client->mailbox, &ctx->search_removes);
+		uids_to_seqs(ctx->client->mailbox, &ctx->search_adds);
+	}
+	pos = str_len(cmd);
+
+	if (array_count(&ctx->search_removes) != 0) {
+		str_printfa(cmd, "REMOVEFROM (0 ");
+		imap_write_seq_range(cmd, &ctx->search_removes);
+		str_append(cmd, ")\r\n");
+		o_stream_send(ctx->client->output, str_data(cmd), str_len(cmd));
+		str_truncate(cmd, pos);
+	}
+	if (array_count(&ctx->search_adds) != 0) {
+		str_printfa(cmd, "ADDTO (0 ");
+		imap_write_seq_range(cmd, &ctx->search_adds);
+		str_append(cmd, ")\r\n");
+		o_stream_send(ctx->client->output, str_data(cmd), str_len(cmd));
+	}
+}
+
+static void imap_sync_send_search_updates(struct imap_sync_context *ctx)
+{
+	const struct imap_search_update *updates;
+	unsigned int i, count;
+
+	if (!array_is_created(&ctx->client->search_updates))
+		return;
+
+	if (!array_is_created(&ctx->search_removes)) {
+		i_array_init(&ctx->search_removes, 64);
+		i_array_init(&ctx->search_adds, 128);
+	}
+
+	updates = array_get(&ctx->client->search_updates, &count);
+	for (i = 0; i < count; i++) T_BEGIN {
+		imap_sync_send_search_update(ctx, &updates[i]);
+	} T_END;
+}
 
 struct imap_sync_context *
 imap_sync_init(struct client *client, struct mailbox *box,
@@ -61,6 +151,10 @@ imap_sync_init(struct client *client, struct mailbox *box,
 		i_array_init(&ctx->expunges, 128);
 
 	client_send_mailbox_flags(client, FALSE);
+	/* send search updates the first time after sync is initialized.
+	   it now contains expunged messages that must be sent before
+	   EXPUNGE replies. */
+	imap_sync_send_search_updates(ctx);
 	return ctx;
 }
 
@@ -102,6 +196,14 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 			client_send_line(ctx->client,
 				t_strdup_printf("* %u RECENT", status.recent));
 		}
+	}
+	/* send search updates the second time after syncing in done.
+	   now it contains added/removed messages. */
+	imap_sync_send_search_updates(ctx);
+
+	if (array_is_created(&ctx->search_removes)) {
+		array_free(&ctx->search_removes);
+		array_free(&ctx->search_adds);
 	}
 
 	array_free(&ctx->tmp_keywords);

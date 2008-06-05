@@ -76,6 +76,14 @@ enum mailbox_status_items {
 	STATUS_HIGHESTMODSEQ	= 0x80
 };
 
+enum mailbox_search_result_flags {
+	/* Update search results whenever the mailbox view is synced.
+	   Expunged messages are removed even without this flag. */
+	MAILBOX_SEARCH_RESULT_FLAG_UPDATE	= 0x01,
+	/* Queue changes so _sync() can be used. */
+	MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC	= 0x02
+};
+
 enum mail_sort_type {
 /* Maximum size for sort program (each one separately + END) */
 #define MAX_SORT_PROGRAM_SIZE (7 + 1)
@@ -159,6 +167,7 @@ struct message_part;
 struct mail_namespace;
 struct mail_storage;
 struct mail_search_args;
+struct mail_search_result;
 struct mail_keywords;
 struct mail_save_context;
 struct mailbox;
@@ -387,6 +396,23 @@ int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
    finished, and TRUE if more results will by calling the function again. */
 int mailbox_search_next_nonblock(struct mail_search_context *ctx,
 				 struct mail *mail, bool *tryagain_r);
+
+/* Remember the search result for future use. This must be called before the
+   first mailbox_search_next*() call. */
+struct mail_search_result *
+mailbox_search_result_save(struct mail_search_context *ctx,
+			   enum mailbox_search_result_flags flags);
+/* Free memory used by search result. */
+void mailbox_search_result_free(struct mail_search_result **result);
+/* Return all messages' UIDs in the search result. */
+const ARRAY_TYPE(seq_range) *
+mailbox_search_result_get(struct mail_search_result *result);
+/* Return messages that have been removed and added since the last sync call.
+   This function must not be called if search result wasn't saved with
+   _QUEUE_SYNC flag. */
+void mailbox_search_result_sync(struct mail_search_result *result,
+				ARRAY_TYPE(seq_range) *removed_uids,
+				ARRAY_TYPE(seq_range) *added_uids);
 
 /* Save a mail into mailbox. timezone_offset specifies the timezone in
    minutes in which received_date was originally given with. To use

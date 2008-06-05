@@ -24,6 +24,7 @@ bool cmd_delete(struct client_command_context *cmd)
 	mailbox = client->mailbox;
 	if (mailbox != NULL && strcmp(mailbox_get_name(mailbox), name) == 0) {
 		/* deleting selected mailbox. close it first */
+		client_search_updates_free(client);
 		storage = mailbox_get_storage(mailbox);
 		client->mailbox = NULL;
 

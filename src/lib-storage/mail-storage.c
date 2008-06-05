@@ -10,6 +10,7 @@
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "mail-search.h"
+#include "mailbox-search-result-private.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -646,6 +647,7 @@ int mailbox_search_deinit(struct mail_search_context **_ctx)
 	int ret;
 
 	*_ctx = NULL;
+	mailbox_search_results_initial_done(ctx);
 	ret = ctx->transaction->box->v.search_deinit(ctx);
 	mail_search_args_unref(&args);
 	return ret;
@@ -668,8 +670,13 @@ int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail)
 int mailbox_search_next_nonblock(struct mail_search_context *ctx,
 				 struct mail *mail, bool *tryagain_r)
 {
-	return ctx->transaction->box->v.
+	int ret;
+
+	ret = ctx->transaction->box->v.
 		search_next_nonblock(ctx, mail, tryagain_r);
+	if (ret > 0)
+		mailbox_search_results_add(ctx, mail->uid);
+	return ret;
 }
 
 struct mailbox_transaction_context *

@@ -6,6 +6,7 @@
 
 static void cmd_close_finish(struct client *client)
 {
+	client_search_updates_free(client);
 	if (mailbox_close(&client->mailbox) < 0) {
 		client_send_untagged_storage_error(client,
 			mailbox_get_storage(client->mailbox));

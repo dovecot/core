@@ -358,6 +358,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	client->changing_mailbox = TRUE;
 
 	if (client->mailbox != NULL) {
+		client_search_updates_free(client);
 		box = client->mailbox;
 		client->mailbox = NULL;
 

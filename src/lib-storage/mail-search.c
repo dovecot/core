@@ -125,6 +125,9 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 
 void mail_search_args_deinit(struct mail_search_args *args)
 {
+	if (args->refcount > 1)
+		return;
+
 	mail_search_args_deinit_sub(args, args->args);
 }
 

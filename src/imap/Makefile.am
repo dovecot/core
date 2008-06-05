@@ -40,6 +40,7 @@ imap_DEPENDENCIES = $(libs)
 cmds = \
 	cmd-append.c \
 	cmd-capability.c \
+	cmd-cancelupdate.c \
 	cmd-check.c \
 	cmd-close.c \
 	cmd-copy.c \

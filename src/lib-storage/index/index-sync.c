@@ -4,22 +4,7 @@
 #include "seq-range-array.h"
 #include "ioloop.h"
 #include "array.h"
-#include "buffer.h"
-#include "index-storage.h"
-
-struct index_mailbox_sync_context {
-	struct mailbox_sync_context ctx;
-	struct index_mailbox *ibox;
-	struct mail_index_view_sync_ctx *sync_ctx;
-	uint32_t messages_count;
-
-	ARRAY_TYPE(seq_range) flag_updates;
-	ARRAY_TYPE(seq_range) modseq_updates;
-	const ARRAY_TYPE(seq_range) *expunges;
-	unsigned int flag_update_idx, modseq_update_idx, expunge_pos;
-
-	bool failed;
-};
+#include "index-sync-private.h"
 
 bool index_mailbox_want_full_sync(struct index_mailbox *ibox,
 				  enum mailbox_sync_flags flags)
@@ -129,7 +114,7 @@ static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			if (!mail_index_lookup_seq_range(ctx->ibox->view,
-							sync.uid1, sync.uid2,
+							 sync.uid1, sync.uid2,
 							 &seq1, &seq2))
 				break;
 
@@ -201,6 +186,7 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 		ctx->expunge_pos = array_count(ctx->expunges);
 	}
 	index_view_sync_recs_get(ctx);
+	index_sync_search_results_expunge(ctx);
 	return &ctx->ctx;
 }
 
@@ -361,6 +347,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 
 	if (ret == 0 && status_items != 0)
 		mailbox_get_status(_ctx->box, status_items, status_r);
+
+	index_sync_search_results_update(ctx);
 
 	if (array_is_created(&ctx->flag_updates))
 		array_free(&ctx->flag_updates);

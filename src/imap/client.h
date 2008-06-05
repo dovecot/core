@@ -4,6 +4,10 @@
 #include "commands.h"
 
 #define CLIENT_COMMAND_QUEUE_MAX_SIZE 4
+/* Maximum number of CONTEXT=SEARCH UPDATEs. Clients probably won't need more
+   than a few, so this is mainly to avoid more or less accidental pointless
+   resource usage. */
+#define CLIENT_MAX_SEARCH_UPDATES 10
 
 struct client;
 struct mail_storage;
@@ -18,6 +22,12 @@ struct mailbox_keywords {
 	   This relies on keywords not being removed while mailbox is
 	   selected. */
 	unsigned int announce_count;
+};
+
+struct imap_search_update {
+	char *tag;
+	struct mail_search_result *result;
+	bool return_uids;
 };
 
 enum client_command_state {
@@ -85,6 +95,8 @@ struct client {
 
 	/* SEARCHRES extension: Last saved SEARCH result */
 	ARRAY_TYPE(seq_range) search_saved_uidset;
+	/* SEARCH=CONTEXT extension: Searches that get updated */
+	ARRAY_DEFINE(search_updates, struct imap_search_update);
 
 	/* client input/output is locked by this command */
 	struct client_command_context *input_lock;
@@ -137,6 +149,11 @@ bool client_read_string_args(struct client_command_context *cmd,
 bool client_handle_search_save_ambiguity(struct client_command_context *cmd);
 
 void client_enable(struct client *client, enum mailbox_feature features);
+
+struct imap_search_update *
+client_search_update_lookup(struct client *client, const char *tag,
+			    unsigned int *idx_r);
+void client_search_updates_free(struct client *client);
 
 void clients_init(void);
 void clients_deinit(void);

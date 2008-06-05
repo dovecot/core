@@ -12,6 +12,7 @@ bool cmd_logout(struct client_command_context *cmd)
 	o_stream_uncork(client->output);
 
 	if (client->mailbox != NULL) {
+		client_search_updates_free(client);
 		/* this could be done at client_disconnect() as well,
 		   but eg. mbox rewrite takes a while so the waiting is
 		   better to happen before "OK" message. */

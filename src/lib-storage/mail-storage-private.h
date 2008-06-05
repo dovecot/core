@@ -195,6 +195,9 @@ struct mailbox {
 	mailbox_notify_callback_t *notify_callback;
 	void *notify_context;
 
+	/* Saved search results */
+	ARRAY_DEFINE(search_results, struct mail_search_result *);
+
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mailbox_module_context *);
 
@@ -290,6 +293,14 @@ struct mail_search_context {
 
 	struct mail_search_args *args;
 	struct mail_search_sort_program *sort_program;
+
+	/* if non-NULL, specifies that a search resulting is being updated.
+	   this can be used as a search optimization: if searched message
+	   already exists in search result, it's not necessary to check if
+	   static data matches. */
+	struct mail_search_result *update_result;
+	/* add matches to these search results */
+	ARRAY_DEFINE(results, struct mail_search_result *);
 
 	uint32_t seq;
 	ARRAY_DEFINE(module_contexts, union mail_search_module_context *);

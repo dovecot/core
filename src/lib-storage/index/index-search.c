@@ -15,6 +15,7 @@
 #include "index-mail.h"
 #include "index-sort.h"
 #include "mail-search.h"
+#include "mailbox-search-result-private.h"
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -863,6 +864,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	ctx->mail_ctx.args = args;
 	ctx->mail_ctx.sort_program = index_sort_program_init(_t, sort_program);
 
+	i_array_init(&ctx->mail_ctx.results, 5);
 	array_create(&ctx->mail_ctx.module_contexts, default_pool,
 		     sizeof(void *), 5);
 
@@ -908,6 +910,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 
 	if (ctx->mail_ctx.sort_program != NULL)
 		index_sort_program_deinit(&ctx->mail_ctx.sort_program);
+	array_free(&ctx->mail_ctx.results);
 	array_free(&ctx->mail_ctx.module_contexts);
 	i_free(ctx);
 	return ret;
@@ -971,6 +974,55 @@ static void index_storage_search_notify(struct mailbox *box,
 	ctx->last_notify = ioloop_timeval;
 }
 
+static bool search_arg_is_static(struct mail_search_arg *arg)
+{
+	struct mail_search_arg *subarg;
+
+	switch (arg->type) {
+	case SEARCH_OR:
+	case SEARCH_SUB:
+		/* they're static only if all subargs are static */
+		subarg = arg->value.subargs;
+		for (; subarg != NULL; subarg = subarg->next) {
+			if (!search_arg_is_static(subarg))
+				return FALSE;
+		}
+		return TRUE;
+	case SEARCH_SEQSET: /* changes between syncs */
+	case SEARCH_FLAGS:
+	case SEARCH_KEYWORDS:
+	case SEARCH_MODSEQ:
+		break;
+	case SEARCH_ALL:
+	case SEARCH_UIDSET:
+	case SEARCH_BEFORE:
+	case SEARCH_ON:
+	case SEARCH_SINCE:
+	case SEARCH_SENTBEFORE:
+	case SEARCH_SENTON:
+	case SEARCH_SENTSINCE:
+	case SEARCH_SMALLER:
+	case SEARCH_LARGER:
+	case SEARCH_HEADER:
+	case SEARCH_HEADER_ADDRESS:
+	case SEARCH_HEADER_COMPRESS_LWSP:
+	case SEARCH_BODY:
+	case SEARCH_TEXT:
+	case SEARCH_BODY_FAST:
+	case SEARCH_TEXT_FAST:
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static void search_set_static_matches(struct mail_search_arg *arg)
+{
+	for (; arg != NULL; arg = arg->next) {
+		if (search_arg_is_static(arg))
+			arg->result = 1;
+	}
+}
+
 int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 				       struct mail *mail, bool *tryagain_r)
 {
@@ -998,6 +1050,14 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 
 	while ((ret = box->v.search_next_update_seq(_ctx)) > 0) {
 		mail_set_seq(mail, _ctx->seq);
+
+		if (ctx->mail_ctx.update_result != NULL &&
+		    seq_range_exists(&ctx->mail_ctx.update_result->uids,
+				     mail->uid)) {
+			/* updating an existing search result: we already know
+			   that the static data matches. mark it as such. */
+			search_set_static_matches(ctx->mail_ctx.args->args);
+		}
 
 		T_BEGIN {
 			ret = search_match_next(ctx) ? 1 : 0;

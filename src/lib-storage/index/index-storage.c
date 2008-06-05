@@ -421,6 +421,7 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 		ibox->box.file_create_gid = (gid_t)-1;
 	}
 
+	p_array_init(&ibox->box.search_results, ibox->box.pool, 16);
 	array_create(&ibox->box.module_contexts,
 		     ibox->box.pool, sizeof(void *), 5);
 

@@ -133,8 +133,10 @@ void client_destroy(struct client *client, const char *reason)
 	while (client->command_queue != NULL)
 		client_command_cancel(client->command_queue);
 
-	if (client->mailbox != NULL)
+	if (client->mailbox != NULL) {
+		client_search_updates_free(client);
 		mailbox_close(&client->mailbox);
+	}
 	mail_namespaces_deinit(&client->namespaces);
 
 	if (client->free_parser != NULL)
@@ -157,6 +159,8 @@ void client_destroy(struct client *client, const char *reason)
 
 	if (array_is_created(&client->search_saved_uidset))
 		array_free(&client->search_saved_uidset);
+	if (array_is_created(&client->search_updates))
+		array_free(&client->search_updates);
 	pool_unref(&client->command_pool);
 	i_free(client);
 
@@ -824,6 +828,42 @@ void client_enable(struct client *client, enum mailbox_feature features)
 			"* OK [HIGHESTMODSEQ %llu]",
 			(unsigned long long)status.highest_modseq));
 	}
+}
+
+struct imap_search_update *
+client_search_update_lookup(struct client *client, const char *tag,
+			    unsigned int *idx_r)
+{
+	struct imap_search_update *updates;
+	unsigned int i, count;
+
+	if (!array_is_created(&client->search_updates))
+		return NULL;
+
+	updates = array_get_modifiable(&client->search_updates, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(updates[i].tag, tag) == 0) {
+			*idx_r = i;
+			return &updates[i];
+		}
+	}
+	return NULL;
+}
+
+void client_search_updates_free(struct client *client)
+{
+	struct imap_search_update *updates;
+	unsigned int i, count;
+
+	if (!array_is_created(&client->search_updates))
+		return;
+
+	updates = array_get_modifiable(&client->search_updates, &count);
+	for (i = 0; i < count; i++) {
+		i_free(updates[i].tag);
+		mailbox_search_result_free(&updates[i].result);
+	}
+	array_clear(&client->search_updates);
 }
 
 void clients_init(void)

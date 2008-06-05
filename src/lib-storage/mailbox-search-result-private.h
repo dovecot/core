@@ -1,0 +1,28 @@
+#ifndef MAILBOX_SEARCH_RESULT_PRIVATE_H
+#define MAILBOX_SEARCH_RESULT_PRIVATE_H
+
+#include "mail-storage.h"
+
+struct mail_search_result {
+	struct mailbox *box;
+	enum mailbox_search_result_flags flags;
+	struct mail_search_args *search_args;
+
+	ARRAY_TYPE(seq_range) uids;
+	ARRAY_TYPE(seq_range) removed_uids, added_uids;
+
+	unsigned int args_have_flags:1;
+	unsigned int args_have_keywords:1;
+	unsigned int args_have_modseq:1;
+};
+
+/* called when initial search is done. */
+void mailbox_search_results_initial_done(struct mail_search_context *ctx);
+
+void mailbox_search_result_add(struct mail_search_result *result, uint32_t uid);
+void mailbox_search_result_remove(struct mail_search_result *result,
+				  uint32_t uid);
+void mailbox_search_results_add(struct mail_search_context *ctx, uint32_t uid);
+void mailbox_search_results_remove(struct mailbox *box, uint32_t uid);
+
+#endif

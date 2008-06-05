@@ -77,6 +77,7 @@ bool cmd_copy(struct client_command_context *cmd);
 bool cmd_uid(struct client_command_context *cmd);
 
 /* IMAP extensions: */
+bool cmd_cancelupdate(struct client_command_context *cmd);
 bool cmd_enable(struct client_command_context *cmd);
 bool cmd_idle(struct client_command_context *cmd);
 bool cmd_namespace(struct client_command_context *cmd);

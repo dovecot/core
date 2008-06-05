@@ -17,9 +17,11 @@ enum search_return_options {
 	SEARCH_RETURN_ALL		= 0x08,
 	SEARCH_RETURN_COUNT		= 0x10,
 	SEARCH_RETURN_MODSEQ		= 0x20,
-	SEARCH_RETURN_SAVE		= 0x40
+	SEARCH_RETURN_SAVE		= 0x40,
+	SEARCH_RETURN_UPDATE		= 0x80
 #define SEARCH_RETURN_EXTRAS \
-	(SEARCH_RETURN_ESEARCH | SEARCH_RETURN_MODSEQ | SEARCH_RETURN_SAVE)
+	(SEARCH_RETURN_ESEARCH | SEARCH_RETURN_MODSEQ | SEARCH_RETURN_SAVE | \
+	 SEARCH_RETURN_UPDATE)
 };
 
 struct imap_search_context {
@@ -66,12 +68,15 @@ search_parse_return_options(struct client_command_context *cmd,
 			*return_options_r |= SEARCH_RETURN_COUNT;
 		else if (strcmp(name, "SAVE") == 0)
 			*return_options_r |= SEARCH_RETURN_SAVE;
+		else if (strcmp(name, "UPDATE") == 0)
+			*return_options_r |= SEARCH_RETURN_UPDATE;
 		else {
 			client_send_command_error(cmd,
 				"Unknown SEARCH return option");
 			return FALSE;
 		}
 	}
+
 	if (*return_options_r == 0)
 		*return_options_r = SEARCH_RETURN_ALL;
 	*return_options_r |= SEARCH_RETURN_ESEARCH;
@@ -96,7 +101,36 @@ static bool imap_search_args_have_modseq(const struct mail_search_arg *sargs)
 	return FALSE;
 }
 
-static struct imap_search_context *
+static void imap_search_result_save(struct imap_search_context *ctx)
+{
+	struct client *client = ctx->cmd->client;
+	struct mail_search_result *result;
+	struct imap_search_update *update;
+
+	if (!array_is_created(&client->search_updates))
+		i_array_init(&client->search_updates, 32);
+	else if (array_count(&client->search_updates) >=
+		 CLIENT_MAX_SEARCH_UPDATES) {
+		/* too many updates */
+		string_t *str = t_str_new(256);
+		str_append(str, "* NO [NOUPDATE ");
+		imap_quote_append_string(str, ctx->cmd->tag, FALSE);
+		str_append_c(str, ']');
+		client_send_line(client, str_c(str));
+		ctx->return_options &= ~SEARCH_RETURN_UPDATE;
+		return;
+	}
+	result = mailbox_search_result_save(ctx->search_ctx,
+					MAILBOX_SEARCH_RESULT_FLAG_UPDATE |
+					MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC);
+
+	update = array_append_space(&client->search_updates);
+	update->tag = i_strdup(ctx->cmd->tag);
+	update->result = result;
+	update->return_uids = ctx->cmd->uid;
+}
+
+static void
 imap_search_init(struct imap_search_context *ctx,
 		 struct mail_search_args *sargs)
 {
@@ -112,7 +146,8 @@ imap_search_init(struct imap_search_context *ctx,
 	ctx->mail = mail_alloc(ctx->trans, 0, NULL);
 	(void)gettimeofday(&ctx->start_time, NULL);
 	i_array_init(&ctx->result, 128);
-	return ctx;
+	if ((ctx->return_options & SEARCH_RETURN_UPDATE) != 0)
+		imap_search_result_save(ctx);
 }
 
 static void imap_search_send_result_standard(struct imap_search_context *ctx)
@@ -365,6 +400,7 @@ bool cmd_search(struct client_command_context *cmd)
 	const struct imap_arg *args;
 	enum search_return_options return_options;
 	int ret, args_count;
+	unsigned int idx;
 	const char *charset;
 
 	args_count = imap_parser_read_args(cmd->parser, 0, 0, &args);
@@ -406,6 +442,12 @@ bool cmd_search(struct client_command_context *cmd)
 			array_clear(&client->search_saved_uidset);
 		else
 			i_array_init(&client->search_saved_uidset, 128);
+	}
+
+	if ((return_options & SEARCH_RETURN_UPDATE) != 0 &&
+	    client_search_update_lookup(client, cmd->tag, &idx) != NULL) {
+		client_send_command_error(cmd, "Duplicate search update tag");
+		return TRUE;
 	}
 
 	ctx = p_new(cmd->pool, struct imap_search_context, 1);

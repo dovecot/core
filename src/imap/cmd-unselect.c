@@ -12,6 +12,8 @@ bool cmd_unselect(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
+	client_search_updates_free(client);
+
 	i_assert(!client->changing_mailbox);
 	client->mailbox = NULL;
 
