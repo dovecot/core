@@ -73,7 +73,6 @@ imap_sync_send_search_update(struct imap_sync_context *ctx,
 			     const struct imap_search_update *update)
 {
 	string_t *cmd;
-	unsigned int pos;
 
 	mailbox_search_result_sync(update->result, &ctx->search_removes,
 				   &ctx->search_adds);
@@ -84,29 +83,27 @@ imap_sync_send_search_update(struct imap_sync_context *ctx,
 	cmd = t_str_new(256);
 	str_append(cmd, "* ESEARCH (TAG ");
 	imap_quote_append_string(cmd, update->tag, FALSE);
-	str_append(cmd, ") ");
+	str_append_c(cmd, ')');
 	if (update->return_uids)
-		str_append(cmd, "UID ");
+		str_append(cmd, " UID");
 	else {
 		/* convert to sequences */
 		uids_to_seqs(ctx->client->mailbox, &ctx->search_removes);
 		uids_to_seqs(ctx->client->mailbox, &ctx->search_adds);
 	}
-	pos = str_len(cmd);
 
 	if (array_count(&ctx->search_removes) != 0) {
-		str_printfa(cmd, "REMOVEFROM (0 ");
+		str_printfa(cmd, " REMOVEFROM (0 ");
 		imap_write_seq_range(cmd, &ctx->search_removes);
-		str_append(cmd, ")\r\n");
-		o_stream_send(ctx->client->output, str_data(cmd), str_len(cmd));
-		str_truncate(cmd, pos);
+		str_append_c(cmd, ')');
 	}
 	if (array_count(&ctx->search_adds) != 0) {
-		str_printfa(cmd, "ADDTO (0 ");
+		str_printfa(cmd, " ADDTO (0 ");
 		imap_write_seq_range(cmd, &ctx->search_adds);
-		str_append(cmd, ")\r\n");
-		o_stream_send(ctx->client->output, str_data(cmd), str_len(cmd));
+		str_append_c(cmd, ')');
 	}
+	str_append(cmd, ")\r\n");
+	o_stream_send(ctx->client->output, str_data(cmd), str_len(cmd));
 }
 
 static void imap_sync_send_search_updates(struct imap_sync_context *ctx)
