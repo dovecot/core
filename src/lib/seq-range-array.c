@@ -138,6 +138,22 @@ void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,
 	}
 }
 
+void seq_range_array_merge(ARRAY_TYPE(seq_range) *dest,
+			   const ARRAY_TYPE(seq_range) *src)
+{
+	const struct seq_range *range;
+	unsigned int i, count;
+
+	if (array_count(dest) == 0) {
+		array_append_array(dest, src);
+		return;
+	}
+
+	range = array_get(src, &count);
+	for (i = 0; i < count; i++)
+		seq_range_array_add_range(dest, range[i].seq1, range[i].seq2);
+}
+
 bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	struct seq_range *data, value;
