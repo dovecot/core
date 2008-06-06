@@ -471,7 +471,7 @@ static void index_sort_merge(struct sort_string_context *ctx)
 	ctx->nonzero_nodes = ctx->sorted_nodes;
 }
 
-static void
+static int
 index_sort_add_ids_range(struct sort_string_context *ctx,
 			 unsigned int left_idx, unsigned int right_idx)
 {
@@ -481,6 +481,7 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 	const char *left_str = NULL, *right_str = NULL, *str;
 	uint32_t left_sort_id, right_sort_id, diff;
 	bool no_left_str = FALSE, no_right_str = FALSE;
+	int ret;
 
 	nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
 	rightmost_idx = count - 1;
@@ -496,7 +497,7 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 			nodes[i].sort_id = left_sort_id;
 			nodes[i].sort_id_changed = TRUE;
 		}
-		return;
+		return 0;
 	}
 
 	if (left_sort_id == 0) {
@@ -585,9 +586,14 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 			continue;
 		}
 
-		if (left_str != NULL && strcmp(str, left_str) == 0)
+		ret = left_str == NULL ? 1 : strcmp(str, left_str);
+		if (ret <= 0) {
+			if (ret < 0) {
+				/* broken sort_ids */
+				return -1;
+			}
 			nodes[i].sort_id = left_sort_id;
-		else if (right_str != NULL && strcmp(str, right_str) == 0) {
+		} else if (right_str != NULL && strcmp(str, right_str) == 0) {
 			/* the rest of the sort IDs should be the same */
 			nodes[i].sort_id = right_sort_id;
 			left_sort_id = right_sort_id;
@@ -595,10 +601,6 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 			/* divide the available space equally. leave the same
 			   sized space also between the first and the last
 			   messages */
-			if (left_str != NULL)
-				i_assert(strcmp(left_str, str) < 0);
-			if (right_str != NULL)
-				i_assert(strcmp(right_str, str) > 0);
 			skip = (right_sort_id - left_sort_id) /
 				(right_idx - i + 2);
 			i_assert(skip > 0);
@@ -610,9 +612,10 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 		}
 		nodes[i].sort_id_changed = TRUE;
 	}
+	return right_str == NULL || strcmp(str, right_str) < 0 ? 0 : -1;
 }
 
-static void
+static int
 index_sort_add_sort_ids(struct sort_string_context *ctx)
 {
 	const struct mail_sort_node *nodes;
@@ -632,8 +635,10 @@ index_sort_add_sort_ids(struct sort_string_context *ctx)
 		if (right_idx == count)
 			right_idx--;
 		left_idx = i == 0 ? 0 : i - 1;
-		index_sort_add_ids_range(ctx, left_idx, right_idx);
+		if (index_sort_add_ids_range(ctx, left_idx, right_idx) < 0)
+			return -1;
 	}
+	return 0;
 }
 
 static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
@@ -710,6 +715,26 @@ static void index_sort_add_missing(struct sort_string_context *ctx)
 	}
 }
 
+static void index_sort_list_reset_broken(struct sort_string_context *ctx)
+{
+	struct mailbox *box = ctx->program->t->box;
+	struct mail_sort_node *nodes;
+	unsigned int i, count;
+
+	mail_storage_set_critical(box->storage,
+				  "Sort IDs %u broken in mailbox %s, reseting",
+				  ctx->ext_id, box->name);
+
+	array_clear(&ctx->zero_nodes);
+	array_append_array(&ctx->zero_nodes,
+			   &ctx->nonzero_nodes);
+	array_clear(&ctx->nonzero_nodes);
+
+	nodes = array_get_modifiable(&ctx->zero_nodes, &count);
+	for (i = 0; i < count; i++)
+		nodes[i].sort_id = 0;
+}
+
 void index_sort_list_finish_string(struct mail_search_sort_program *program)
 {
 	struct sort_string_context *ctx = program->context;
@@ -742,12 +767,18 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 		nodes = array_get_modifiable(&ctx->nonzero_nodes, &count);
 		qsort(nodes, count, sizeof(struct mail_sort_node),
 		      sort_node_cmp);
-		/* sort all messages without sort IDs */
-		index_sort_zeroes(ctx);
-		/* merge zero and non-zero arrays into sorted_nodes */
-		index_sort_merge(ctx);
-		/* give sort IDs to messages missing them */
-		index_sort_add_sort_ids(ctx);
+		for (;;) {
+			/* sort all messages without sort IDs */
+			index_sort_zeroes(ctx);
+			/* merge zero and non-zero arrays into sorted_nodes */
+			index_sort_merge(ctx);
+			/* give sort IDs to messages missing them */
+			if (index_sort_add_sort_ids(ctx) == 0)
+				break;
+
+			/* broken, try again */
+			index_sort_list_reset_broken(ctx);
+		}
 		index_sort_write_changed_sort_ids(ctx);
 
 		nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
