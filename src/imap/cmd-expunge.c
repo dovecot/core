@@ -52,10 +52,12 @@ static bool cmd_expunge_finish(struct client_command_context *cmd,
 	client->sync_seen_deletes = FALSE;
 	client->sync_seen_expunges = FALSE;
 	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
-		return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
+		return cmd_sync_callback(cmd, MAILBOX_SYNC_FLAG_EXPUNGE,
+					 IMAP_SYNC_FLAG_SAFE,
 					 cmd_expunge_callback_qresync);
 	} else {
-		return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
+		return cmd_sync_callback(cmd, MAILBOX_SYNC_FLAG_EXPUNGE,
+					 IMAP_SYNC_FLAG_SAFE,
 					 cmd_expunge_callback);
 	}
 }
