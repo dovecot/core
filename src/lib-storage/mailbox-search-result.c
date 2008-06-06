@@ -89,6 +89,7 @@ mailbox_search_result_initial_done(struct mail_search_result *result)
 		i_array_init(&result->removed_uids, 32);
 		i_array_init(&result->added_uids, 32);
 	}
+	mail_search_args_seq2uid(result->search_args);
 }
 
 void mailbox_search_results_initial_done(struct mail_search_context *ctx)

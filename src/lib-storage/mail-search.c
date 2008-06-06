@@ -133,6 +133,45 @@ void mail_search_args_deinit(struct mail_search_args *args)
 	mail_search_args_deinit_sub(args, args->args);
 }
 
+static void mail_search_args_seq2uid_sub(struct mail_search_args *args,
+					 struct mail_search_arg *arg,
+					 ARRAY_TYPE(seq_range) *uids)
+{
+	for (; arg != NULL; arg = arg->next) {
+		switch (arg->type) {
+		case SEARCH_SEQSET:
+			array_clear(uids);
+			mailbox_get_uid_range(args->box,
+					      &arg->value.seqset, uids);
+
+			/* replace sequences with UIDs in the existing array.
+			   this way it's possible to switch between uidsets and
+			   seqsets constantly without leaking memory */
+			arg->type = SEARCH_UIDSET;
+			array_clear(&arg->value.seqset);
+			array_append_array(&arg->value.seqset, uids);
+			break;
+		case SEARCH_SUB:
+		case SEARCH_OR:
+			mail_search_args_seq2uid_sub(args, arg->value.subargs,
+						     uids);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+void mail_search_args_seq2uid(struct mail_search_args *args)
+{
+	T_BEGIN {
+		ARRAY_TYPE(seq_range) uids;
+
+		t_array_init(&uids, 128);
+		mail_search_args_seq2uid_sub(args, args->args, &uids);
+	} T_END;
+}
+
 void mail_search_args_ref(struct mail_search_args *args)
 {
 	i_assert(args->refcount > 0);

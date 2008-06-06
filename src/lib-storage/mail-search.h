@@ -109,6 +109,8 @@ void mail_search_args_init(struct mail_search_args *args,
 			   const ARRAY_TYPE(seq_range) *search_saved_uidset);
 /* Free keywords. The args can initialized afterwards again if needed. */
 void mail_search_args_deinit(struct mail_search_args *args);
+/* Convert sequence sets in args to UIDs. */
+void mail_search_args_seq2uid(struct mail_search_args *args);
 
 void mail_search_args_ref(struct mail_search_args *args);
 void mail_search_args_unref(struct mail_search_args **args);
