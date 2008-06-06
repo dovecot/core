@@ -75,17 +75,22 @@ search_parse_return_options(struct imap_search_context *ctx,
 		else if (strcmp(name, "UPDATE") == 0)
 			ctx->return_options |= SEARCH_RETURN_UPDATE;
 		else if (strcmp(name, "PARTIAL") == 0) {
+			if (ctx->seq1 != 0) {
+				client_send_command_error(cmd,
+					"PARTIAL can be used only once.");
+				return FALSE;
+			}
 			ctx->return_options |= SEARCH_RETURN_PARTIAL;
 			if (args->type != IMAP_ARG_ATOM) {
 				client_send_command_error(cmd,
-					"SEARCH PARTIAL range missing.");
+					"PARTIAL range missing.");
 				return FALSE;
 			}
 			str = IMAP_ARG_STR_NONULL(args);
 			if (imap_seq_range_parse(str, &ctx->seq1,
 						 &ctx->seq2) < 0) {
 				client_send_command_error(cmd,
-					"SEARCH PARTIAL range broken.");
+					"PARTIAL range broken.");
 				return FALSE;
 			}
 			args++;
@@ -103,8 +108,7 @@ search_parse_return_options(struct imap_search_context *ctx,
 	}
 	if ((ctx->return_options & SEARCH_RETURN_PARTIAL) != 0 &&
 	    (ctx->return_options & SEARCH_RETURN_ALL) != 0) {
-		client_send_command_error(cmd,
-			"SEARCH PARTIAL conflicts with ALL");
+		client_send_command_error(cmd, "PARTIAL conflicts with ALL");
 		return FALSE;
 	}
 
