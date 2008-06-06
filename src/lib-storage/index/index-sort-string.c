@@ -213,10 +213,17 @@ void index_sort_list_add_string(struct mail_search_sort_program *program,
 
 static int sort_node_zero_string_cmp(const void *p1, const void *p2)
 {
+	struct sort_string_context *ctx = static_zero_cmp_context;
 	const struct mail_sort_node *n1 = p1, *n2 = p2;
+	int ret;
 
-	return strcmp(static_zero_cmp_context->sort_strings[n1->seq],
-		      static_zero_cmp_context->sort_strings[n2->seq]);
+	ret = strcmp(ctx->sort_strings[n1->seq], ctx->sort_strings[n2->seq]);
+	if (ret != 0)
+		return ret;
+
+	return index_sort_node_cmp_type(ctx->program->temp_mail,
+					ctx->program->sort_program + 1,
+					n1->seq, n2->seq);
 }
 
 static void index_sort_zeroes(struct sort_string_context *ctx)
