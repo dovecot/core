@@ -1550,6 +1550,13 @@ void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 
 	ctx->finished = TRUE;
 	ctx->uidlist->initial_sync = TRUE;
+
+	i_assert(ctx->locked || !ctx->changed);
+	if ((ctx->changed || ctx->uidlist->recreate) &&
+	    !ctx->failed && ctx->locked) T_BEGIN {
+		if (maildir_uidlist_sync_update(ctx) < 0)
+			ctx->failed = TRUE;
+	} T_END;
 }
 
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
@@ -1561,18 +1568,8 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 
 	if (!ctx->finished)
 		maildir_uidlist_sync_finish(ctx);
-
 	if (ctx->partial)
 		maildir_uidlist_mark_all(ctx->uidlist, FALSE);
-
-	i_assert(ctx->locked || !ctx->changed);
-	if ((ctx->changed || ctx->uidlist->recreate) &&
-	    !ctx->failed && ctx->locked) {
-		T_BEGIN {
-			ret = maildir_uidlist_sync_update(ctx);
-		} T_END;
-	}
-
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->uidlist);
 
