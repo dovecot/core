@@ -483,8 +483,7 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 	right_sort_id = nodes[right_idx].sort_id;
 	/* check if all of them should have the same sort IDs. we don't want
 	   to hit the renumbering code in that situation. */
-	if ((left_sort_id == right_sort_id && left_sort_id != 0) ||
-	    left_sort_id == (uint32_t)-1 || right_sort_id == 1) {
+	if (left_sort_id == right_sort_id && left_sort_id != 0) {
 		/* they should all have the same sort ID */
 		for (i = left_idx + 1; i < right_idx; i++) {
 			nodes[i].sort_id = left_sort_id;
