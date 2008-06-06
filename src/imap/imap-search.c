@@ -5,7 +5,7 @@
 #include "mail-search-build.h"
 #include "imap-search.h"
 #include "imap-parser.h"
-#include "imap-messageset.h"
+#include "imap-seqset.h"
 
 #include <stdlib.h>
 
@@ -97,7 +97,7 @@ static int imap_search_get_msgset_arg(struct client_command_context *cmd,
 	args->args = p_new(args->pool, struct mail_search_arg, 1);
 	args->args->type = SEARCH_SEQSET;
 	p_array_init(&args->args->value.seqset, args->pool, 16);
-	if (imap_messageset_parse(&args->args->value.seqset, messageset) < 0 ||
+	if (imap_seq_set_parse(messageset, &args->args->value.seqset) < 0 ||
 	    !msgset_is_valid(&args->args->value.seqset,
 			     cmd->client->messages_count)) {
 		*error_r = "Invalid messageset";
@@ -118,7 +118,7 @@ imap_search_get_uidset_arg(struct client_command_context *cmd,
 	args->args = p_new(args->pool, struct mail_search_arg, 1);
 	args->args->type = SEARCH_UIDSET;
 	p_array_init(&args->args->value.seqset, cmd->pool, 16);
-	if (imap_messageset_parse(&args->args->value.seqset, uidset) < 0) {
+	if (imap_seq_set_parse(uidset, &args->args->value.seqset) < 0) {
 		*error_r = "Invalid uidset";
 		return -1;
 	}

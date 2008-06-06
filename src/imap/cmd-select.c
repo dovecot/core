@@ -4,7 +4,7 @@
 #include "seq-range-array.h"
 #include "commands.h"
 #include "mail-search-build.h"
-#include "imap-messageset.h"
+#include "imap-seqset.h"
 #include "imap-fetch.h"
 #include "imap-sync.h"
 
@@ -100,8 +100,8 @@ select_parse_qresync(struct imap_select_context *ctx,
 		strtoull(IMAP_ARG_STR_NONULL(&args[1]), NULL, 10);
 	if (count > 2) {
 		i_array_init(&ctx->qresync_known_uids, 64);
-		if (imap_messageset_parse(&ctx->qresync_known_uids,
-					  IMAP_ARG_STR_NONULL(&args[2])) < 0) {
+		if (imap_seq_set_parse(IMAP_ARG_STR_NONULL(&args[2]),
+				       &ctx->qresync_known_uids) < 0) {
 			client_send_command_error(ctx->cmd,
 						  "Invalid QRESYNC known-uids");
 			return FALSE;
@@ -121,15 +121,15 @@ select_parse_qresync(struct imap_select_context *ctx,
 			return FALSE;
 		}
 		t_array_init(&seqset, 32);
-		if (imap_messageset_parse(&seqset,
-					  IMAP_ARG_STR_NONULL(&args[0])) < 0) {
+		if (imap_seq_set_parse(IMAP_ARG_STR_NONULL(&args[0]),
+				       &seqset) < 0) {
 			client_send_command_error(ctx->cmd,
 				"Invalid QRESYNC known-sequence-set");
 			return FALSE;
 		}
 		t_array_init(&uidset, 32);
-		if (imap_messageset_parse(&uidset,
-					  IMAP_ARG_STR_NONULL(&args[1])) < 0) {
+		if (imap_seq_set_parse(IMAP_ARG_STR_NONULL(&args[1]),
+				       &uidset) < 0) {
 			client_send_command_error(ctx->cmd,
 				"Invalid QRESYNC known-uid-set");
 			return FALSE;

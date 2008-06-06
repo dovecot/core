@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "imap-date.h"
 #include "imap-parser.h"
-#include "imap-messageset.h"
+#include "imap-seqset.h"
 #include "mail-search-build.h"
 #include "mail-storage.h"
 
@@ -513,8 +513,8 @@ static bool search_arg_build(struct search_build_data *data,
 				/* SEARCHRES: delay initialization */
 				return TRUE;
 			}
-			if (imap_messageset_parse(&sarg->value.seqset,
-						  sarg->value.str) < 0) {
+			if (imap_seq_set_parse(sarg->value.str,
+					       &sarg->value.seqset) < 0) {
 				data->error = "Invalid UID messageset";
 				return FALSE;
 			}
@@ -584,8 +584,7 @@ static bool search_arg_build(struct search_build_data *data,
 
 			p_array_init(&(*next_sarg)->value.seqset,
 				     data->pool, 16);
-			if (imap_messageset_parse(&(*next_sarg)->value.seqset,
-						  str) < 0) {
+			if (imap_seq_set_parse(str, &(*next_sarg)->value.seqset) < 0) {
 				data->error = "Invalid messageset";
 				return FALSE;
 			}
