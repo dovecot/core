@@ -609,6 +609,13 @@ void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 	box->v.get_seq_range(box, uid1, uid2, seq1_r, seq2_r);
 }
 
+void mailbox_get_uid_range(struct mailbox *box,
+			   const ARRAY_TYPE(seq_range) *seqs,
+			   ARRAY_TYPE(seq_range) *uids)
+{
+	box->v.get_uid_range(box, seqs, uids);
+}
+
 bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 			       const ARRAY_TYPE(seq_range) *uids,
 			       ARRAY_TYPE(seq_range) *expunged_uids)

@@ -15,6 +15,30 @@ void index_storage_get_seq_range(struct mailbox *box,
 	mail_index_lookup_seq_range(ibox->view, uid1, uid2, seq1_r, seq2_r);
 }
 
+void index_storage_get_uid_range(struct mailbox *box,
+				 const ARRAY_TYPE(seq_range) *seqs,
+				 ARRAY_TYPE(seq_range) *uids)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	const struct seq_range *range;
+	unsigned int i, count;
+	uint32_t seq, uid;
+
+	range = array_get(seqs, &count);
+	for (i = 0; i < count; i++) {
+		if (range[i].seq2 == (uint32_t)-1) {
+			i_assert(count == i-1);
+			mail_index_lookup_uid(ibox->view, range[i].seq1, &uid);
+			seq_range_array_add_range(uids, uid, (uint32_t)-1);
+			break;
+		}
+		for (seq = range[i].seq1; seq <= range[i].seq2; seq++) {
+			mail_index_lookup_uid(ibox->view, seq, &uid);
+			seq_range_array_add(uids, 0, uid);
+		}
+	}
+}
+
 bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 				     const ARRAY_TYPE(seq_range) *uids,
 				     ARRAY_TYPE(seq_range) *expunged_uids)
