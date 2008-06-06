@@ -36,7 +36,7 @@ struct imap_search_context {
 
 	struct mail_search_args *sargs;
 	enum search_return_options return_options;
-	uint32_t seq1, seq2;
+	uint32_t partial1, partial2;
 
 	struct timeout *to;
 	ARRAY_TYPE(seq_range) result;
@@ -45,6 +45,20 @@ struct imap_search_context {
 	uint64_t highest_seen_modseq;
 	struct timeval start_time;
 };
+
+static int
+imap_partial_range_parse(struct imap_search_context *ctx, const char *str)
+{
+	ctx->partial1 = 0;
+	ctx->partial2 = 0;
+	for (; *str >= '0' && *str <= '9'; str++)
+		ctx->partial1 = ctx->partial1 * 10 + *str-'0';
+	if (*str != ':')
+		return -1;
+	for (; *str >= '0' && *str <= '9'; str++)
+		ctx->partial2 = ctx->partial2 * 10 + *str-'0';
+	return *str == '\0' ? 0 : -1;
+}
 
 static bool
 search_parse_return_options(struct imap_search_context *ctx,
@@ -75,7 +89,7 @@ search_parse_return_options(struct imap_search_context *ctx,
 		else if (strcmp(name, "UPDATE") == 0)
 			ctx->return_options |= SEARCH_RETURN_UPDATE;
 		else if (strcmp(name, "PARTIAL") == 0) {
-			if (ctx->seq1 != 0) {
+			if (ctx->partial1 != 0) {
 				client_send_command_error(cmd,
 					"PARTIAL can be used only once.");
 				return FALSE;
@@ -87,8 +101,7 @@ search_parse_return_options(struct imap_search_context *ctx,
 				return FALSE;
 			}
 			str = IMAP_ARG_STR_NONULL(args);
-			if (imap_seq_range_parse(str, &ctx->seq1,
-						 &ctx->seq2) < 0) {
+			if (imap_partial_range_parse(ctx, str) < 0) {
 				client_send_command_error(cmd,
 					"PARTIAL range broken.");
 				return FALSE;
@@ -218,24 +231,24 @@ static void
 imap_search_send_partial(struct imap_search_context *ctx, string_t *str)
 {
 	struct seq_range_iter iter;
-	uint32_t seq1, seq2;
+	uint32_t n1, n2;
 
-	str_printfa(str, " PARTIAL (%u:%u ", ctx->seq1, ctx->seq2);
+	str_printfa(str, " PARTIAL (%u:%u ", ctx->partial1, ctx->partial2);
 	seq_range_array_iter_init(&iter, &ctx->result);
-	if (!seq_range_array_iter_nth(&iter, ctx->seq1 - 1, &seq1)) {
+	if (!seq_range_array_iter_nth(&iter, ctx->partial1 - 1, &n1)) {
 		/* no results (in range) */
 		str_append(str, "NIL)");
 		return;
 	}
-	if (!seq_range_array_iter_nth(&iter, ctx->seq2 - 1, &seq2))
-		seq2 = (uint32_t)-1;
+	if (!seq_range_array_iter_nth(&iter, ctx->partial2 - 1, &n2))
+		n2 = (uint32_t)-1;
 
 	/* FIXME: we should save the search result for later use */
-	if (seq1 > 1)
-		seq_range_array_remove_range(&ctx->result, 1, seq1 - 1);
-	if (seq2 != (uint32_t)-1) {
+	if (n1 > 1)
+		seq_range_array_remove_range(&ctx->result, 1, n1 - 1);
+	if (n2 != (uint32_t)-1) {
 		seq_range_array_remove_range(&ctx->result,
-					     seq2 + 1, (uint32_t)-1);
+					     n2 + 1, (uint32_t)-1);
 	}
 	imap_write_seq_range(str, &ctx->result);
 	str_append_c(str, ')');
