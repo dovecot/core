@@ -366,8 +366,8 @@ void mailbox_keywords_free(struct mailbox *box,
 			   struct mail_keywords **keywords);
 
 /* Convert uid range to sequence range. */
-void mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
-		      uint32_t *seq1_r, uint32_t *seq2_r);
+void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
+			   uint32_t *seq1_r, uint32_t *seq2_r);
 /* Get list of UIDs expunged after modseq and within the given range.
    UIDs that have been expunged after the last mailbox sync aren't returned.
    Returns TRUE if ok, FALSE if modseq is lower than we can check for. */

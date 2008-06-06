@@ -176,7 +176,7 @@ static int fts_build_init(struct fts_search_context *fctx)
 	if (fts_backend_get_last_uid(backend, &last_uid) < 0)
 		return -1;
 
-	mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1, &seq1, &seq2);
+	mailbox_get_seq_range(t->box, last_uid+1, (uint32_t)-1, &seq1, &seq2);
 	if (seq1 == 0) {
 		/* no new messages */
 		return 0;
@@ -193,8 +193,8 @@ static int fts_build_init(struct fts_search_context *fctx)
 		i_assert(last_uid < last_uid_locked);
 
 		last_uid = last_uid_locked;
-		mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
-				 &seq1, &seq2);
+		mailbox_get_seq_range(t->box, last_uid+1, (uint32_t)-1,
+				      &seq1, &seq2);
 		if (seq1 == 0) {
 			/* no new messages */
 			(void)fts_backend_build_deinit(&build);

@@ -987,7 +987,7 @@ struct mailbox mbox_mailbox = {
 		index_transaction_rollback,
 		index_keywords_create,
 		index_keywords_free,
-		index_storage_get_uids,
+		index_storage_get_seq_range,
 		index_storage_get_expunged_uids,
 		index_mail_alloc,
 		index_header_lookup_init,

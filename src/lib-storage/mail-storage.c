@@ -603,10 +603,10 @@ void mailbox_keywords_free(struct mailbox *box,
 	box->v.keywords_free(keywords);
 }
 
-void mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
-		      uint32_t *seq1_r, uint32_t *seq2_r)
+void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
+			   uint32_t *seq1_r, uint32_t *seq2_r)
 {
-	box->v.get_uids(box, uid1, uid2, seq1_r, seq2_r);
+	box->v.get_seq_range(box, uid1, uid2, seq1_r, seq2_r);
 }
 
 bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t modseq,

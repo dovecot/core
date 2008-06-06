@@ -52,8 +52,8 @@ static void uids_to_seqs(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
 		range = array_get(uids, &count);
 		t_array_init(&seqs, count);
 		for (i = 0; i < count; i++) {
-			mailbox_get_uids(box, range[i].seq1, range[i].seq2,
-					 &seq1, &seq2);
+			mailbox_get_seq_range(box, range[i].seq1, range[i].seq2,
+					      &seq1, &seq2);
 			/* since we have to notify about expunged messages,
 			   we expect that all the referenced UIDs exist */
 			i_assert(seq1 != 0);

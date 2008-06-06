@@ -6,9 +6,9 @@
 #include "index-storage.h"
 #include "index-mail.h"
 
-void index_storage_get_uids(struct mailbox *box,
-			    uint32_t uid1, uint32_t uid2,
-			    uint32_t *seq1_r, uint32_t *seq2_r)
+void index_storage_get_seq_range(struct mailbox *box,
+				 uint32_t uid1, uint32_t uid2,
+				 uint32_t *seq1_r, uint32_t *seq2_r)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 

@@ -40,14 +40,16 @@ mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
 	/* put them back to the range as sequences */
 	array_clear(&arg->value.seqset);
 	for (i = 0; i < count; i++) {
-		mailbox_get_uids(box, uids[i].seq1, uids[i].seq2, &seq1, &seq2);
+		mailbox_get_seq_range(box, uids[i].seq1, uids[i].seq2,
+				      &seq1, &seq2);
 		if (seq1 != 0) {
 			seq_range_array_add_range(&arg->value.seqset,
 						  seq1, seq2);
 		}
 		if (uids[i].seq2 == (uint32_t)-1) {
 			/* make sure the last message is in the range */
-			mailbox_get_uids(box, 1, (uint32_t)-1, &seq1, &seq2);
+			mailbox_get_seq_range(box, 1, (uint32_t)-1,
+					      &seq1, &seq2);
 			seq_range_array_add(&arg->value.seqset, 0, seq2);
 		}
 	}

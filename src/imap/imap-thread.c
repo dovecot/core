@@ -697,7 +697,7 @@ static void gather_base_subjects(struct thread_context *ctx)
 		if (!ctx->id_is_uid)
 			seq = id;
 		else
-			mailbox_get_uids(ctx->box, id, id, &seq, &seq);
+			mailbox_get_seq_range(ctx->box, id, id, &seq, &seq);
 
 		if (seq != 0) {
 			mail_set_seq(ctx->mail, seq);

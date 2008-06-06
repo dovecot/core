@@ -123,8 +123,8 @@ struct mailbox_vfuncs {
 			       bool skip_invalid);
 	void (*keywords_free)(struct mail_keywords *keywords);
 
-	void (*get_uids)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
-			 uint32_t *seq1_r, uint32_t *seq2_r);
+	void (*get_seq_range)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
+			      uint32_t *seq1_r, uint32_t *seq2_r);
 	bool (*get_expunged_uids)(struct mailbox *box, uint64_t modseq,
 				  const ARRAY_TYPE(seq_range) *uids,
 				  ARRAY_TYPE(seq_range) *expunged_uids);

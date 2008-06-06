@@ -182,8 +182,8 @@ static int lazy_expunge_move_expunges(struct mailbox *srcbox,
 
 	range = array_get(&lt->expunge_seqs, &count);
 	for (i = 0; i < count && ret == 0; i++) {
-		mailbox_get_uids(srcbox, range[i].seq1, range[i].seq2,
-				 &seq1, &seq2);
+		mailbox_get_seq_range(srcbox, range[i].seq1, range[i].seq2,
+				      &seq1, &seq2);
 		for (uid = range[i].seq1; uid <= range[i].seq2; uid++) {
 			if (maildir_file_do(msrcbox, uid, lazy_expunge_move,
 					    &ctx) < 0) {
