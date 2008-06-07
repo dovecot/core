@@ -98,7 +98,7 @@ static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
 		/* wait until we can write more. this can happen at least
 		   when writing to terminal, even if fd is blocking. */
 		ioloop = io_loop_create();
-		io = io_add(IO_WRITE, fd, log_fd_flush_stop, ioloop);
+		io = io_add(fd, IO_WRITE, log_fd_flush_stop, ioloop);
 		io_loop_run(ioloop);
 		io_remove(&io);
 		io_loop_destroy(&ioloop);
