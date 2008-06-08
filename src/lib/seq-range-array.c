@@ -310,6 +310,17 @@ bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq)
 	return seq_range_lookup(array, seq, &idx);
 }
 
+unsigned int seq_range_count(const ARRAY_TYPE(seq_range) *array)
+{
+	const struct seq_range *range;
+	unsigned int i, count, seq_count;
+
+	range = array_get(array, &count);
+	for (i = seq_count = 0; i < count; i++)
+		seq_count += range[i].seq2 - range[i].seq1 + 1;
+	return seq_count;
+}
+
 void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,
 			    uint32_t min_seq, uint32_t max_seq)
 {
