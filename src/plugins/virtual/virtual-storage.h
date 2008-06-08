@@ -20,18 +20,29 @@ struct virtual_storage {
 	union mailbox_list_module_context list_module_ctx;
 };
 
+struct virtual_backend_uidmap {
+	uint32_t real_uid;
+	/* can be 0 temporarily while syncing before the UID is assigned */
+	uint32_t virtual_uid;
+};
+
 struct virtual_backend_box {
 	uint32_t mailbox_id;
 	const char *name;
+
 	struct mail_search_args *search_args;
+	struct mail_search_result *search_result;
 
 	struct mailbox *box;
-	/* Sorted list of UIDs currently included in the virtual mailbox */
-	ARRAY_TYPE(seq_range) uids;
+	/* Messages currently included in the virtual mailbox,
+	   sorted by real_uid */
+	ARRAY_DEFINE(uids, struct virtual_backend_uidmap);
 
+	/* temporary mail used while syncing */
 	struct mail *sync_mail;
-	unsigned int sync_iter_idx;
-	unsigned int sync_iter_prev_real_uid;
+	/* pending removed UIDs */
+	ARRAY_TYPE(seq_range) sync_pending_removes;
+	unsigned int sync_seen:1;
 };
 
 struct virtual_mailbox {
@@ -43,6 +54,8 @@ struct virtual_mailbox {
 
 	/* Mailboxes this virtual mailbox consists of, sorted by mailbox_id */
 	ARRAY_DEFINE(backend_boxes, struct virtual_backend_box *);
+
+	unsigned int uids_mapped:1;
 };
 
 extern struct mail_storage virtual_storage;

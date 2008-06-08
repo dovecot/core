@@ -160,6 +160,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 			break;
 		}
 		i_array_init(&bboxes[i]->uids, 64);
+		i_array_init(&bboxes[i]->sync_pending_removes, 64);
 	}
 	if (i == count)
 		return 0;
@@ -260,8 +261,10 @@ static int virtual_storage_mailbox_close(struct mailbox *box)
 
 	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
+		mailbox_search_result_free(&bboxes[i]->search_result);
 		if (mailbox_close(&bboxes[i]->box) < 0)
 			ret = -1;
+		array_free(&bboxes[i]->sync_pending_removes);
 		array_free(&bboxes[i]->uids);
 	}
 	array_free(&mbox->backend_boxes);

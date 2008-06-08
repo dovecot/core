@@ -228,24 +228,6 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 	return mail_get_special(vmail->backend_mail, field, value_r);
 }
 
-static void
-virtual_mail_update_flags(struct mail *mail, enum modify_type modify_type,
-			  enum mail_flags flags)
-{
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
-
-	mail_update_flags(vmail->backend_mail, modify_type, flags);
-}
-
-static void
-virtual_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
-			     struct mail_keywords *keywords)
-{
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
-
-	mail_update_keywords(vmail->backend_mail, modify_type, keywords);
-}
-
 static void virtual_mail_expunge(struct mail *mail)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
@@ -289,8 +271,8 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_get_header_stream,
 	virtual_mail_get_stream,
 	virtual_mail_get_special,
-	virtual_mail_update_flags,
-	virtual_mail_update_keywords,
+	index_mail_update_flags,
+	index_mail_update_keywords,
 	virtual_mail_expunge,
 	virtual_mail_set_cache_corrupted,
 	virtual_mail_get_index_mail
