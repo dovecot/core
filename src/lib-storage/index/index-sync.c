@@ -196,14 +196,14 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 	return &ctx->ctx;
 }
 
-static int
+static bool
 index_mailbox_sync_next_expunge(struct index_mailbox_sync_context *ctx,
 				struct mailbox_sync_rec *sync_rec_r)
 {
 	const struct seq_range *range;
 
 	if (ctx->expunge_pos == 0)
-		return 0;
+		return FALSE;
 
 	/* expunges is a sorted array of sequences. it's easiest for
 	   us to print them from end to beginning. */
@@ -217,7 +217,7 @@ index_mailbox_sync_next_expunge(struct index_mailbox_sync_context *ctx,
 	sync_rec_r->seq1 = range->seq1;
 	sync_rec_r->seq2 = range->seq2;
 	sync_rec_r->type = MAILBOX_SYNC_TYPE_EXPUNGE;
-	return 1;
+	return TRUE;
 }
 
 bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
@@ -237,7 +237,7 @@ bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 		sync_rec_r->seq1 = flag_updates[ctx->flag_update_pos].seq1;
 		sync_rec_r->seq2 = flag_updates[ctx->flag_update_pos].seq2;
 		ctx->flag_update_pos++;
-		return 1;
+		return TRUE;
 	}
 
 	return index_mailbox_sync_next_expunge(ctx, sync_rec_r);
