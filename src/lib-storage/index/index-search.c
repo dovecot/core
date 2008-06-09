@@ -1023,12 +1023,22 @@ static void search_set_static_matches(struct mail_search_arg *arg)
 	}
 }
 
+static bool search_has_static_nonmatches(struct mail_search_arg *arg)
+{
+	for (; arg != NULL; arg = arg->next) {
+		if (arg->result == 0 && search_arg_is_static(arg))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 				       struct mail *mail, bool *tryagain_r)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	struct mailbox *box = _ctx->transaction->box;
 	unsigned int count = 0;
+	bool never;
 	int ret;
 
 	*tryagain_r = FALSE;
@@ -1051,27 +1061,43 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	while ((ret = box->v.search_next_update_seq(_ctx)) > 0) {
 		mail_set_seq(mail, _ctx->seq);
 
-		if (ctx->mail_ctx.update_result != NULL &&
-		    seq_range_exists(&ctx->mail_ctx.update_result->uids,
-				     mail->uid)) {
-			/* updating an existing search result: we already know
-			   that the static data matches. mark it as such. */
-			search_set_static_matches(ctx->mail_ctx.args->args);
+		if (_ctx->update_result == NULL)
+			never = FALSE;
+		else {
+			/* see if this message never matches */
+			never = seq_range_exists(&_ctx->update_result->never_uids,
+						 mail->uid);
+			if (!never &&
+			    seq_range_exists(&_ctx->update_result->uids,
+					     mail->uid)) {
+				/* we already know that the static data
+				   matches. mark it as such. */
+				search_set_static_matches(_ctx->args->args);
+			}
 		}
 
-		T_BEGIN {
+		if (never) {
+			ret = 0;
+		} else T_BEGIN {
 			ret = search_match_next(ctx) ? 1 : 0;
+
+			if (ret == 0 &&
+			    search_has_static_nonmatches(_ctx->args->args)) {
+				/* if there are saved search results remember
+				   that this message never matches */
+				mailbox_search_results_never(_ctx, mail->uid);
+			}
 		} T_END;
 
-		mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
+		mail_search_args_reset(_ctx->args->args, FALSE);
 
 		if (ctx->error != NULL)
 			ret = -1;
 		if (ret != 0) {
-			if (ctx->mail_ctx.sort_program == NULL)
+			if (_ctx->sort_program == NULL)
 				break;
 
-			index_sort_list_add(ctx->mail_ctx.sort_program, mail);
+			index_sort_list_add(_ctx->sort_program, mail);
 		}
 
 		if (++count == SEARCH_NONBLOCK_COUNT) {
@@ -1084,11 +1110,11 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	ctx->mail = NULL;
 	ctx->imail = NULL;
 
-	if (ctx->mail_ctx.sort_program != NULL && ret == 0) {
+	if (_ctx->sort_program != NULL && ret == 0) {
 		/* finished searching the messages. now sort them and start
 		   returning the messages. */
 		ctx->sorted = TRUE;
-		index_sort_list_finish(ctx->mail_ctx.sort_program);
+		index_sort_list_finish(_ctx->sort_program);
 		return index_storage_search_next_nonblock(_ctx, mail,
 							  tryagain_r);
 	}

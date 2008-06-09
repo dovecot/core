@@ -42,6 +42,7 @@ mailbox_search_result_save(struct mail_search_context *ctx,
 	result->box = ctx->transaction->box;
 	result->flags = flags;
 	i_array_init(&result->uids, 32);
+	i_array_init(&result->never_uids, 128);
 
 	if ((result->flags & MAILBOX_SEARCH_RESULT_FLAG_UPDATE) != 0) {
 		result->search_args = ctx->args;
@@ -75,6 +76,7 @@ void mailbox_search_result_free(struct mail_search_result **_result)
 		mail_search_args_unref(&result->search_args);
 
 	array_free(&result->uids);
+	array_free(&result->never_uids);
 	if (array_is_created(&result->removed_uids)) {
 		array_free(&result->removed_uids);
 		array_free(&result->added_uids);
@@ -145,6 +147,26 @@ void mailbox_search_results_remove(struct mailbox *box, uint32_t uid)
 	results = array_get(&box->search_results, &count);
 	for (i = 0; i < count; i++)
 		mailbox_search_result_remove(results[i], uid);
+}
+
+void mailbox_search_result_never(struct mail_search_result *result,
+				 uint32_t uid)
+{
+	seq_range_array_add(&result->never_uids, 0, uid);
+}
+
+void mailbox_search_results_never(struct mail_search_context *ctx,
+				  uint32_t uid)
+{
+	struct mail_search_result *const *results;
+	unsigned int i, count;
+
+	if (ctx->update_result != NULL)
+		mailbox_search_result_never(ctx->update_result, uid);
+
+	results = array_get(&ctx->results, &count);
+	for (i = 0; i < count; i++)
+		mailbox_search_result_never(results[i], uid);
 }
 
 const ARRAY_TYPE(seq_range) *
