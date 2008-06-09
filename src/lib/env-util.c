@@ -21,9 +21,12 @@ void env_clean(void)
 {
 	extern char **environ;
 
+	/* Try to clear the environment. It should always be non-NULL, but
+	   apparently it's not on some ancient OSes (Ultrix), so just keep
+	   the check. The clearing also fails on FreeBSD 7.0 (currently). */
 	if (environ != NULL)
 		*environ = NULL;
 
-	if (pool != NULL)
-		pool_unref(&pool);
+	/* don't clear the env_pool, otherwise the environment would get
+	   corrupted if we failed to clear it. */
 }
