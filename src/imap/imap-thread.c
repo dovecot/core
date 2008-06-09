@@ -4,8 +4,6 @@
 
 #include "common.h"
 #include "array.h"
-#include "ostream.h"
-#include "str.h"
 #include "message-id.h"
 #include "mail-search.h"
 #include "imap-thread-private.h"
@@ -24,21 +22,14 @@
 #define APPROX_MSG_EXTRA_COUNT 10
 #define APPROX_MSGID_SIZE 45
 
-#define STR_FLUSH_LENGTH 512
-
 struct imap_thread_context {
-	struct mailbox *box;
-	struct ostream *output;
 	struct thread_context thread_ctx;
+
+	struct mailbox *box;
 	struct mailbox_transaction_context *t;
-	enum mail_thread_type thread_type;
 
 	struct mail_search_context *search;
 	struct mail_search_arg tmp_search_arg;
-	string_t *str;
-
-	unsigned int id_is_uid:1;
-	unsigned int flushed:1;
 };
 
 struct imap_thread_mailbox {
@@ -317,8 +308,8 @@ again:
 }
 
 static void
-imap_thread_context_init(struct imap_thread_context *ctx,
-			 struct mail_search_args *search_args, bool reset)
+imap_thread_update_init(struct imap_thread_context *ctx,
+			struct mail_search_args *search_args, bool reset)
 {
 	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(ctx->box);
 	struct mail_hash *hash = NULL;
@@ -365,118 +356,25 @@ imap_thread_context_init(struct imap_thread_context *ctx,
 		     I_MAX(hdr->record_count, status.messages));
 }
 
-static int imap_thread_finish(struct imap_thread_mailbox *tbox,
-			      struct imap_thread_context *ctx)
-{
-	int ret;
 
-	mail_hash_transaction_end(&ctx->thread_ctx.hash_trans);
-
-	ret = mailbox_search_deinit(&ctx->search);
-	mail_free(&ctx->thread_ctx.tmp_mail);
-	if (mailbox_transaction_commit(&ctx->t) < 0)
-		ret = -1;
-
-	mail_hash_unlock(ctx->thread_ctx.hash);
-	if (ctx->thread_ctx.hash != tbox->hash)
-		mail_hash_free(&ctx->thread_ctx.hash);
-
-	array_free(&ctx->thread_ctx.msgid_cache);
-	pool_unref(&ctx->thread_ctx.msgid_pool);
-	return ret;
-}
-
-static int str_add_id(struct imap_thread_context *ctx, uint32_t uid)
-{
-	i_assert(uid != 0);
-
-	if (!ctx->id_is_uid) {
-		mailbox_get_seq_range(ctx->box, uid, uid, &uid, &uid);
-		if (uid == 0) {
-			mail_hash_transaction_set_corrupted(
-				ctx->thread_ctx.hash_trans,
-				t_strdup_printf("Found expunged UID %u", uid));
-			return -1;
-		}
-	}
-	str_printfa(ctx->str, "%u", uid);
-
-	if (str_len(ctx->str) >= STR_FLUSH_LENGTH) {
-		(void)o_stream_send(ctx->output, str_data(ctx->str),
-				    str_len(ctx->str));
-		str_truncate(ctx->str, 0);
-		ctx->flushed = TRUE;
-	}
-	return 0;
-}
-
-static int imap_thread_send(struct imap_thread_context *ctx,
-			    struct mail_thread_iterate_context *iter, bool root)
-{
-	const struct mail_thread_child_node *node;
-	struct mail_thread_iterate_context *child_iter;
-	string_t *str = ctx->str;
-	unsigned int count;
-	int ret;
-
-	count = mail_thread_iterate_count(iter);
-	if (count == 0)
-		return 0;
-
-	if (count == 1 && !root) {
-		/* only one child - special case to avoid extra paranthesis */
-		node = mail_thread_iterate_next(iter, &child_iter);
-		ret = str_add_id(ctx, node->uid);
-		if (child_iter != NULL) {
-			if (ret == 0) T_BEGIN {
-				str_append_c(str, ' ');
-				ret = imap_thread_send(ctx, child_iter, FALSE);
-			} T_END;
-			mail_thread_iterate_deinit(&child_iter);
-		}
-		return ret;
-	}
-
-	while ((node = mail_thread_iterate_next(iter, &child_iter)) != NULL) {
-		if (child_iter == NULL) {
-			/* no children */
-			str_append_c(str, '(');
-			if (str_add_id(ctx, node->uid) < 0)
-				return -1;
-			str_append_c(str, ')');
-		} else {
-			/* node with children */
-			str_append_c(str, '(');
-			if (node->uid != 0) {
-				ret = str_add_id(ctx, node->uid);
-				str_append_c(str, ' ');
-			}
-			if (ret == 0) T_BEGIN {
-				ret = imap_thread_send(ctx, child_iter, FALSE);
-			} T_END;
-			mail_thread_iterate_deinit(&child_iter);
-			if (ret < 0)
-				return -1;
-			str_append_c(str, ')');
-		}
-	}
-	return 0;
-}
-
-static int imap_thread_run(struct imap_thread_context *ctx)
+static int
+imap_thread_update(struct imap_thread_context *ctx,
+		   struct mail_search_args *search_args, bool reset)
 {
 	static const char *wanted_headers[] = {
 		HDR_MESSAGE_ID, HDR_IN_REPLY_TO, HDR_REFERENCES, HDR_SUBJECT,
 		NULL
 	};
-	struct mailbox *box = mailbox_transaction_get_mailbox(ctx->t);
+	struct mailbox *box;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail_hash_header *hdr;
 	struct mail *mail;
-	struct mail_thread_iterate_context *iter;
 	bool changed = FALSE;
 	uint32_t prev_uid;
 	int ret = 0;
+
+	imap_thread_update_init(ctx, search_args, reset);
+	box = mailbox_transaction_get_mailbox(ctx->t);
 
 	hdr = mail_hash_get_header(ctx->thread_ctx.hash_trans);
 	prev_uid = hdr->last_uid;
@@ -504,66 +402,73 @@ static int imap_thread_run(struct imap_thread_context *ctx)
 		   building */
 		(void)mail_hash_transaction_write(ctx->thread_ctx.hash_trans);
 	}
-
-	iter = mail_thread_iterate_init(ctx->thread_ctx.tmp_mail,
-					ctx->thread_ctx.hash_trans,
-					ctx->thread_type);
-	ctx->str = str_new(default_pool, STR_FLUSH_LENGTH + 32);
-	str_append(ctx->str, "* THREAD ");
-	T_BEGIN {
-		ret = imap_thread_send(ctx, iter, TRUE);
-	} T_END;
-	if (mail_thread_iterate_deinit(&iter) < 0)
-		ret = -1;
-
-	if (ret == 0) {
-		str_append(ctx->str, "\r\n");
-		(void)o_stream_send(ctx->output, str_data(ctx->str),
-				    str_len(ctx->str));
-	} else if (ctx->flushed) {
-		o_stream_close(ctx->output);
-	}
-	str_free(&ctx->str);
-	return ret;
+	return 0;
 }
 
-int imap_thread(struct mailbox *box, bool id_is_uid, struct ostream *output,
- 		struct mail_search_args *args, enum mail_thread_type type)
+int imap_thread_init(struct mailbox *box, bool reset,
+		     struct mail_search_args *args,
+		     struct imap_thread_context **ctx_r)
 {
 	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(box);
 	struct imap_thread_context *ctx;
-	int ret, try;
+	int ret;
 
 	i_assert(tbox->ctx == NULL);
-	i_assert(type == MAIL_THREAD_REFERENCES ||
-		 type == MAIL_THREAD_REFERENCES2);
 
-	ctx = t_new(struct imap_thread_context, 1);
+	ctx = i_new(struct imap_thread_context, 1);
 	tbox->ctx = &ctx->thread_ctx;
+	ctx->box = box;
 
-	for (try = 0; try < 2; try++) {
-		ctx->box = box;
-		ctx->output = output;
-		ctx->id_is_uid = id_is_uid;
-		ctx->thread_type = type;
-		imap_thread_context_init(ctx, args, try == 1);
-		ret = imap_thread_run(ctx);
-		if (imap_thread_finish(tbox, ctx) < 0)
-			ret = -1;
-
-		if (ret < 0 && ctx->thread_ctx.hash == tbox->hash) {
-			/* try again with in-memory hash */
-			memset(ctx, 0, sizeof(*ctx));
-		} else {
-			break;
+	while ((ret = imap_thread_update(ctx, args, reset)) < 0) {
+		if (ctx->thread_ctx.hash == tbox->hash) {
+			/* failed with in-memory hash */
+			imap_thread_deinit(&ctx);
+			return -1;
 		}
-	}
-	if (ret < 0)
-		mail_storage_set_internal_error(box->storage);
 
-	i_assert(!tbox->ctx->syncing);
-	tbox->ctx = NULL;
-	return ret;
+		/* try again with in-memory hash */
+		imap_thread_deinit(&ctx);
+		reset = TRUE;
+		memset(ctx, 0, sizeof(*ctx));
+		ctx->box = box;
+	}
+
+	*ctx_r = ctx;
+	return 0;
+}
+
+struct mail_thread_iterate_context *
+imap_thread_iterate_init(struct imap_thread_context *ctx,
+			 enum mail_thread_type thread_type, bool write_seqs)
+{
+	return mail_thread_iterate_init(ctx->thread_ctx.tmp_mail,
+					ctx->thread_ctx.hash_trans,
+					thread_type, write_seqs);
+}
+
+void imap_thread_deinit(struct imap_thread_context **_ctx)
+{
+	struct imap_thread_context *ctx = *_ctx;
+	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(ctx->box);
+	int ret;
+
+	*_ctx = NULL;
+
+	mail_hash_transaction_end(&ctx->thread_ctx.hash_trans);
+
+	ret = mailbox_search_deinit(&ctx->search);
+	mail_free(&ctx->thread_ctx.tmp_mail);
+	(void)mailbox_transaction_commit(&ctx->t);
+
+	mail_hash_unlock(ctx->thread_ctx.hash);
+	if (ctx->thread_ctx.hash != tbox->hash)
+		mail_hash_free(&ctx->thread_ctx.hash);
+
+	array_free(&ctx->thread_ctx.msgid_cache);
+	pool_unref(&ctx->thread_ctx.msgid_pool);
+ 
+ 	i_assert(!tbox->ctx->syncing);
+ 	tbox->ctx = NULL;
 }
 
 static bool imap_thread_index_is_up_to_date(struct thread_context *ctx,
@@ -704,13 +609,13 @@ static void imap_thread_mailbox_index_opened(struct mailbox *box)
 	MODULE_CONTEXT_SET(box, imap_thread_storage_module, tbox);
 }
 
-void imap_thread_init(void)
+void imap_threads_init(void)
 {
 	next_hook_mailbox_index_opened = hook_mailbox_index_opened;
 	hook_mailbox_index_opened = imap_thread_mailbox_index_opened;
 }
 
-void imap_thread_deinit(void)
+void imap_threads_deinit(void)
 {
 	i_assert(hook_mailbox_index_opened == imap_thread_mailbox_index_opened);
 	hook_mailbox_index_opened = next_hook_mailbox_index_opened;

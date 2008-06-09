@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "array.h"
+#include "mail-storage-private.h"
 #include "imap-base-subject.h"
 #include "imap-thread-private.h"
 
@@ -42,6 +43,7 @@ struct thread_finish_context {
 	unsigned int next_new_root_idx;
 
 	unsigned int use_sent_date:1;
+	unsigned int return_seqs:1;
 };
 
 struct mail_thread_iterate_context {
@@ -583,6 +585,36 @@ static int mail_thread_finish(struct thread_finish_context *ctx,
 }
 
 static void
+nodes_change_uids_to_seqs(struct mail_thread_iterate_context *iter, bool root)
+{
+	struct mail_thread_child_node *children;
+	struct mailbox *box;
+	unsigned int i, count;
+	uint32_t uid, seq;
+
+	box = mailbox_transaction_get_mailbox(iter->ctx->tmp_mail->transaction);
+	children = array_get_modifiable(&iter->children, &count);
+	for (i = 0; i < count; i++) {
+		uid = children[i].uid;
+		if (uid == 0) {
+			/* dummy root */
+			if (root)
+				continue;
+		} else {
+			mailbox_get_seq_range(box, uid, uid, &seq, &seq);
+		}
+		if (uid == 0) {
+			mail_hash_transaction_set_corrupted(
+				iter->ctx->hash_trans,
+				t_strdup_printf("Found expunged UID %u", uid));
+			iter->failed = TRUE;
+			seq = 0;
+		}
+		children[i].uid = seq;
+	}
+}
+
+static void
 mail_thread_iterate_fill_root(struct mail_thread_iterate_context *iter)
 {
 	struct mail_thread_root_node *roots;
@@ -614,6 +646,9 @@ mail_thread_iterate_children(struct mail_thread_iterate_context *parent_iter,
 				 &child_iter->children) < 0) {
 		child_iter->failed = TRUE;
 		array_clear(&child_iter->children);
+	} else {
+		if (child_iter->ctx->return_seqs)
+			nodes_change_uids_to_seqs(child_iter, FALSE);
 	}
 	return child_iter;
 }
@@ -621,7 +656,7 @@ mail_thread_iterate_children(struct mail_thread_iterate_context *parent_iter,
 struct mail_thread_iterate_context *
 mail_thread_iterate_init(struct mail *tmp_mail,
 			 struct mail_hash_transaction *hash_trans,
-			 enum mail_thread_type thread_type)
+			 enum mail_thread_type thread_type, bool return_seqs)
 {
 	struct mail_thread_iterate_context *iter;
 	struct thread_finish_context *ctx;
@@ -631,10 +666,14 @@ mail_thread_iterate_init(struct mail *tmp_mail,
 	ctx->refcount = 1;
 	ctx->tmp_mail = tmp_mail;
 	ctx->hash_trans = hash_trans;
+	ctx->return_seqs = return_seqs;
 	if (mail_thread_finish(ctx, thread_type) < 0)
 		iter->failed = TRUE;
-	else
+	else {
 		mail_thread_iterate_fill_root(iter);
+		if (return_seqs)
+			nodes_change_uids_to_seqs(iter, TRUE);
+	}
 	return iter;
 }
 
@@ -670,6 +709,14 @@ int mail_thread_iterate_deinit(struct mail_thread_iterate_context **_iter)
 	int ret = iter->failed ? -1 : 0;
 
 	*_iter = NULL;
+
+	if (ret < 0) {
+		struct mail *mail = iter->ctx->tmp_mail;
+		struct mailbox *box;
+
+		box = mailbox_transaction_get_mailbox(mail->transaction);
+		mail_storage_set_internal_error(box->storage);
+	}
 	if (--iter->ctx->refcount == 0) {
 		array_free(&iter->ctx->roots);
 		array_free(&iter->ctx->shadow_nodes);
