@@ -94,13 +94,13 @@ static bool thread_node_has_ancestor(struct thread_context *ctx,
 static void thread_link_reference(struct thread_context *ctx,
 				  uint32_t parent_idx, uint32_t child_idx)
 {
-	struct mail_thread_node *node, *parent, *child, *orig_parent;
+	struct mail_thread_node *node, *parent, *child;
 	uint32_t idx;
 
 	parent = mail_hash_lookup_idx(ctx->hash_trans, parent_idx);
 	child = mail_hash_lookup_idx(ctx->hash_trans, child_idx);
 
-	parent->link_refcount++;
+	child->link_refcount++;
 	mail_hash_update(ctx->hash_trans, parent_idx);
 
 	if (thread_node_has_ancestor(ctx, parent, child)) {
@@ -130,7 +130,7 @@ static void thread_link_reference(struct thread_context *ctx,
 				break;
 			}
 			node = mail_hash_lookup_idx(ctx->hash_trans, idx);
-			node->unref_rebuilds = TRUE;
+			node->parent_unref_rebuilds = TRUE;
 			mail_hash_update(ctx->hash_trans, idx);
 		} while (node != child);
 		return;
@@ -140,11 +140,9 @@ static void thread_link_reference(struct thread_context *ctx,
 	}
 
 	/* Set parent_node as child_node's parent */
-	orig_parent = child->parent_idx == 0 ? NULL :
-		mail_hash_lookup_idx(ctx->hash_trans, child->parent_idx);
-	if (thread_node_is_root(orig_parent)) {
+	if (child->parent_idx == 0)
 		child->parent_idx = parent_idx;
-	} else {
+	else {
 		/* Conflicting parent already exists, keep the original */
 		if (child->exists) {
 			/* If this message gets expunged,
@@ -156,13 +154,13 @@ static void thread_link_reference(struct thread_context *ctx,
 			   that reference gets dropped, the parent is changed.
 			   We could catch this in one of several ways:
 
-			    a) Parent node gets unreferenced
-			    b) This node gets unreferenced
+			    a) Link to parent node gets unreferenced
+			    b) Link to this node gets unreferenced
 			    c) Any of the child nodes gets expunged
 
 			   b) is probably the least likely to happen,
 			   so use it */
-			child->unref_rebuilds = TRUE;
+			child->parent_unref_rebuilds = TRUE;
 		}
 	}
 	mail_hash_update(ctx->hash_trans, child_idx);
@@ -263,7 +261,7 @@ int mail_thread_add(struct thread_context *ctx, struct mail *mail)
 	old_parent = node->parent_idx == 0 ? NULL :
 		mail_hash_lookup_idx(ctx->hash_trans, node->parent_idx);
 
-	if (!thread_node_is_root(old_parent) &&
+	if (old_parent != NULL &&
 	    (parent == NULL || old_parent->parent_idx != parent_idx)) {
 		/* conflicting parent, remove it. */
 		node->parent_idx = 0;
@@ -308,11 +306,13 @@ mail_thread_node_lookup(struct thread_context *ctx, uint32_t uid,
 	return TRUE;
 }
 
-static bool thread_unref_msgid(struct thread_context *ctx, const char *msgid)
+static bool
+thread_unref_msgid(struct thread_context *ctx, uint32_t child_idx,
+		   const char *msgid, uint32_t *parent_idx_r)
 {
 	struct msgid_search_key key;
-	struct mail_thread_node *node;
-	uint32_t idx;
+	struct mail_thread_node *parent, *child;
+	uint32_t parent_idx;
 
 	key.msgid = msgid;
 	key.msgid_crc32 = crc32_str_nonzero(msgid);
@@ -320,8 +320,8 @@ static bool thread_unref_msgid(struct thread_context *ctx, const char *msgid)
 	ctx->cmp_match_count = 0;
 	ctx->cmp_last_idx = 0;
 
-	node = mail_hash_lookup(ctx->hash_trans, &key, &idx);
-	if (node == NULL) {
+	parent = mail_hash_lookup(ctx->hash_trans, &key, &parent_idx);
+	if (parent == NULL) {
 		if (ctx->cmp_match_count != 1 || ctx->failed) {
 			/* couldn't find the message-id */
 			return FALSE;
@@ -329,25 +329,33 @@ static bool thread_unref_msgid(struct thread_context *ctx, const char *msgid)
 
 		/* there's only one key with this crc32 value, so it
 		   must be what we're looking for */
-		idx = ctx->cmp_last_idx;
-		node = mail_hash_lookup_idx(ctx->hash_trans, idx);
+		parent_idx = ctx->cmp_last_idx;
+		parent = mail_hash_lookup_idx(ctx->hash_trans, parent_idx);
 	}
-	if (node->unref_rebuilds)
+	if (parent->parent_unref_rebuilds)
 		return FALSE;
 
-	node->link_refcount--;
-	if (!node->exists && node->link_refcount == 0) {
-		/* we turned into a root node */
-		node->parent_idx = 0;
+	child = mail_hash_lookup_idx(ctx->hash_trans, child_idx);
+	if (child->link_refcount == 0) {
+		mail_hash_transaction_set_corrupted(ctx->hash_trans,
+						    "unexpected refcount=0");
+		return FALSE;
 	}
-	mail_hash_update(ctx->hash_trans, idx);
+	child->link_refcount--;
+	if (child->link_refcount == 0) {
+		/* we don't have a root anymore */
+		child->parent_idx = 0;
+	}
+	mail_hash_update(ctx->hash_trans, child_idx);
+	*parent_idx_r = parent_idx;
 	return TRUE;
 }
 
 static bool
-thread_unref_links(struct thread_context *ctx, const char *references,
-		   bool *valid_r)
+thread_unref_links(struct thread_context *ctx, uint32_t child_idx,
+		   const char *references, bool *valid_r)
 {
+	uint32_t parent_idx;
 	const char *msgid;
 
 	/* tmp_mail may be changed below, so we have to duplicate the
@@ -357,8 +365,9 @@ thread_unref_links(struct thread_context *ctx, const char *references,
 
 	while ((msgid = message_id_get_next(&references)) != NULL) {
 		*valid_r = TRUE;
-		if (!thread_unref_msgid(ctx, msgid))
+		if (!thread_unref_msgid(ctx, child_idx, msgid, &parent_idx))
 			return FALSE;
+		child_idx = parent_idx;
 	}
 	return TRUE;
 }
@@ -368,7 +377,7 @@ int mail_thread_remove(struct thread_context *ctx, uint32_t uid)
 	struct mail_hash_header *hdr;
 	struct mail_thread_node *node;
 	const char *references, *in_reply_to;
-	uint32_t idx;
+	uint32_t idx, parent_idx;
 	bool have_refs;
 
 	if (!mail_thread_node_lookup(ctx, uid, &idx, &node))
@@ -380,7 +389,7 @@ int mail_thread_remove(struct thread_context *ctx, uint32_t uid)
 				  &references) < 0)
 		return -1;
 
-	if (!thread_unref_links(ctx, references, &have_refs))
+	if (!thread_unref_links(ctx, idx, references, &have_refs))
 		return 0;
 	if (!have_refs) {
 		/* no valid IDs in References:, use In-Reply-To: instead */
@@ -389,7 +398,8 @@ int mail_thread_remove(struct thread_context *ctx, uint32_t uid)
 			return -1;
 		in_reply_to = message_id_get_next(&in_reply_to);
 		if (in_reply_to != NULL) {
-			if (!thread_unref_msgid(ctx, in_reply_to))
+			if (!thread_unref_msgid(ctx, idx, in_reply_to,
+						&parent_idx))
 				return 0;
 		}
 	}
@@ -399,10 +409,6 @@ int mail_thread_remove(struct thread_context *ctx, uint32_t uid)
 
 	node->uid = 0;
 	node->exists = FALSE;
-	if (node->link_refcount == 0) {
-		/* we turned into a root node */
-		node->parent_idx = 0;
-	}
 	mail_hash_update(ctx->hash_trans, idx);
 
 	hdr = mail_hash_get_header(ctx->hash_trans);

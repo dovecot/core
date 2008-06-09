@@ -24,15 +24,16 @@
 #define APPROX_MSGID_SIZE 45
 
 struct imap_thread_context {
+	struct mailbox *box;
+	struct ostream *output;
 	struct thread_context thread_ctx;
-	struct client_command_context *cmd;
 	struct mailbox_transaction_context *t;
 	enum mail_thread_type thread_type;
 
 	struct mail_search_context *search;
 	struct mail_search_arg tmp_search_arg;
 
-	unsigned int id_is_uid:1;
+	bool id_is_uid;
 };
 
 struct imap_thread_mailbox {
@@ -188,7 +189,6 @@ imap_thread_try_use_hash(struct imap_thread_context *ctx,
 			 const struct mailbox_status *status, bool reset,
 			 struct mail_search_args *search_args)
 {
-	struct mailbox *box = ctx->cmd->client->mailbox;
 	const struct mail_hash_header *hdr;
 	struct mail_hash_transaction *hash_trans;
 	uint32_t last_seq, last_uid, seq1, seq2;
@@ -262,7 +262,7 @@ again:
 		mail_hash_reset(hash_trans);
 	} else if (hdr->message_count > 0) {
 		/* non-empty hash. add only the new messages in there. */
-		mailbox_get_seq_range(box, 1, hdr->last_uid, &seq1, &seq2);
+		mailbox_get_seq_range(ctx->box, 1, hdr->last_uid, &seq1, &seq2);
 
 		if (seq2 != hdr->message_count ||
 		    hdr->uid_validity != status->uidvalidity) {
@@ -274,7 +274,7 @@ again:
 			struct mail_search_arg *arg = &ctx->tmp_search_arg;
 
 			arg->type = SEARCH_SEQSET;
-			p_array_init(&arg->value.seqset, ctx->cmd->pool, 1);
+			p_array_init(&arg->value.seqset, search_args->pool, 1);
 			if (seq2 == last_seq) {
 				/* no need to update the index,
 				   search nothing */
@@ -312,23 +312,22 @@ again:
 }
 
 static void
-imap_thread_context_init(struct imap_thread_mailbox *tbox,
-			 struct imap_thread_context *ctx,
+imap_thread_context_init(struct imap_thread_context *ctx,
 			 struct mail_search_args *search_args, bool reset)
 {
-	struct mailbox *box = ctx->cmd->client->mailbox;
+	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(ctx->box);
 	struct mail_hash *hash = NULL;
 	struct mailbox_status status;
 	const struct mail_hash_header *hdr;
 	unsigned int count;
 
-	mailbox_get_status(box, STATUS_MESSAGES | STATUS_UIDNEXT, &status);
+	mailbox_get_status(ctx->box, STATUS_MESSAGES | STATUS_UIDNEXT, &status);
 	if (imap_thread_try_use_hash(ctx, tbox->hash, &status,
 				     reset, search_args))
 		hash = tbox->hash;
 	else {
 		/* fallback to using in-memory hash */
-		struct index_mailbox *ibox = (struct index_mailbox *)box;
+		struct index_mailbox *ibox = (struct index_mailbox *)ctx->box;
 
 		hash = mail_hash_alloc(ibox->index, NULL,
 				       sizeof(struct mail_thread_node),
@@ -346,7 +345,7 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 	ctx->thread_ctx.hash = hash;
 
 	/* initialize searching */
-	ctx->t = mailbox_transaction_begin(box, 0);
+	ctx->t = mailbox_transaction_begin(ctx->box, 0);
 	ctx->search = mailbox_search_init(ctx->t, search_args, NULL);
 	ctx->thread_ctx.tmp_mail = mail_alloc(ctx->t, 0, NULL);
 
@@ -427,19 +426,18 @@ static int imap_thread_run(struct imap_thread_context *ctx)
 
 	if (mail_thread_finish(ctx->thread_ctx.tmp_mail,
 			       ctx->thread_ctx.hash_trans,
-			       ctx->thread_type, ctx->cmd->client->output,
-			       ctx->cmd->uid) < 0) {
+			       ctx->thread_type, ctx->output,
+			       ctx->id_is_uid) < 0) {
 		mail_storage_set_internal_error(box->storage);
 		return -1;
 	}
 	return 0;
 }
 
-int imap_thread(struct client_command_context *cmd,
-		struct mail_search_args *args, enum mail_thread_type type)
+int imap_thread(struct mailbox *box, bool id_is_uid, struct ostream *output,
+ 		struct mail_search_args *args, enum mail_thread_type type)
 {
-	struct imap_thread_mailbox *tbox =
-		IMAP_THREAD_CONTEXT(cmd->client->mailbox);
+	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(box);
 	struct imap_thread_context *ctx;
 	int ret, try;
 
@@ -451,9 +449,11 @@ int imap_thread(struct client_command_context *cmd,
 	tbox->ctx = &ctx->thread_ctx;
 
 	for (try = 0; try < 2; try++) {
+		ctx->box = box;
+		ctx->output = output;
+		ctx->id_is_uid = id_is_uid;
 		ctx->thread_type = type;
-		ctx->cmd = cmd;
-		imap_thread_context_init(tbox, ctx, args, try == 1);
+		imap_thread_context_init(ctx, args, try == 1);
 		ret = imap_thread_run(ctx);
 		if (imap_thread_finish(tbox, ctx) < 0)
 			ret = -1;

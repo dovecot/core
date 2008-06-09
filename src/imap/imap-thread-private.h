@@ -28,7 +28,7 @@ struct mail_thread_node {
 
 	uint32_t link_refcount:29;
 	uint32_t expunge_rebuilds:1;
-	uint32_t unref_rebuilds:1;
+	uint32_t parent_unref_rebuilds:1;
 	uint32_t exists:1;
 };
 
@@ -49,15 +49,6 @@ struct thread_context {
 	unsigned int rebuild:1;
 	unsigned int syncing:1;
 };
-
-static inline bool thread_node_is_root(const struct mail_thread_node *node)
-{
-	if (node == NULL)
-		return TRUE;
-
-	/* check also if expunging had changed this node to a root node */
-	return !node->exists && node->link_refcount == 0;
-}
 
 static inline uint32_t crc32_str_nonzero(const char *str)
 {

@@ -250,8 +250,8 @@ static int gather_base_subjects(struct thread_finish_context *ctx)
 		if (!mail_set_uid(ctx->tmp_mail, node->uid)) {
 			/* the UID should have existed. we would have rebuild
 			   the thread tree otherwise. */
-			mail_hash_transaction_set_corrupted(
-				ctx->hash_trans, "Found expunged UID");
+			mail_hash_transaction_set_corrupted(ctx->hash_trans,
+				"Found expunged UID");
 			ret = -1;
 			break;
 		}
@@ -570,41 +570,36 @@ static void mail_thread_create_shadows(struct thread_finish_context *ctx,
 {
 	struct mail_thread_node *node, *parent;
 	struct mail_thread_root_node root;
-	ARRAY_TYPE(uint32_t) free_indexes;
-	const uint32_t *indexes;
-	unsigned int i, count;
-	uint32_t idx, parent_idx;
+	uint8_t *referenced;
+	uint32_t idx, i, j, parent_idx, alloc_size, max;
 
 	memset(&root, 0, sizeof(root));
-	i_array_init(&free_indexes, 128);
+	alloc_size = record_count/8 + 1;
+	referenced = i_new(uint8_t, alloc_size);
 	for (idx = 1; idx < record_count; idx++) {
 		node = mail_hash_lookup_idx(ctx->hash_trans, idx);
 		if (MAIL_HASH_RECORD_IS_DELETED(&node->rec))
 			continue;
 
-		if (thread_node_is_root(node)) {
-			/* node is a duplicate root, free it later */
-			array_append(&free_indexes, &idx, 1);
-			continue;
-		}
-		parent = node->parent_idx == 0 ? NULL :
-			mail_hash_lookup_idx(ctx->hash_trans, node->parent_idx);
-		if (thread_node_is_root(parent)) {
-			if (parent != NULL) {
-				/* parent is a duplicate root. replace it with
-				   the real root. */
-				node->parent_idx = 0;
-				mail_hash_update(ctx->hash_trans, idx);
-			}
+		if (node->parent_idx == 0) {
 			root.node.idx = idx;
 			root.node.uid = node->uid;
 			root.dummy = !node->exists;
 			array_append(&ctx->roots, &root, 1);
-		} else if (node->exists) {
+			continue;
+		} else {
+			/* @UNSAFE */
+			referenced[node->parent_idx / 8] |=
+				1 << (node->parent_idx % 8);
+		}
+
+		if (node->exists) {
 			/* Find the node's first non-dummy parent and add the
 			   node as its child. If there are no non-dummy
 			   parents, add it as the highest dummy's child. */
 			parent_idx = node->parent_idx;
+			parent = mail_hash_lookup_idx(ctx->hash_trans,
+						      parent_idx);
 			while (!parent->exists && parent->parent_idx != 0) {
 				parent_idx = parent->parent_idx;
 				parent = mail_hash_lookup_idx(ctx->hash_trans,
@@ -614,14 +609,23 @@ static void mail_thread_create_shadows(struct thread_finish_context *ctx,
 		}
 	}
 
-	/* remove records from hash that have been marked as deleted */
-	indexes = array_get(&free_indexes, &count);
-	for (i = 0; i < count; i++) {
-		node = mail_hash_lookup_idx(ctx->hash_trans, indexes[i]);
-		mail_hash_remove(ctx->hash_trans, indexes[i],
-				 node->msgid_crc32);
+	/* remove unneeded records from hash */
+	for (i = 1; i < alloc_size; i++) {
+		if (referenced[i] == 0xff)
+			continue;
+
+		max = i+1 < alloc_size ? 8 : (record_count % 8);
+		for (j = 0; j < max; j++) {
+			if ((referenced[i] & (1 << j)) != 0)
+				continue;
+
+			idx = i*8 + j;
+			node = mail_hash_lookup_idx(ctx->hash_trans, idx);
+			mail_hash_remove(ctx->hash_trans, idx,
+					 node->msgid_crc32);
+		}
 	}
-	array_free(&free_indexes);
+	i_free(referenced);
 }
 
 int mail_thread_finish(struct mail *tmp_mail,

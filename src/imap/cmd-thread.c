@@ -63,7 +63,8 @@ bool cmd_thread(struct client_command_context *cmd)
 	if (ret <= 0)
 		return ret < 0;
 
-	ret = imap_thread(cmd, sargs, threading);
+	ret = imap_thread(client->mailbox, cmd->uid, client->output,
+			  sargs, threading);
 	mail_search_args_unref(&sargs);
 	if (ret < 0) {
 		client_send_storage_error(cmd,
