@@ -1,0 +1,221 @@
+Optimistic incremental THREAD=REFERENCES
+
+Step (1) is the slowest stage for building a THREAD=REFERENCES tree. If its
+result tree is permanently saved, the following thread builds can be based
+on it by updating the tree incrementally.
+
+Adding new messages to the tree is simple: simply follow the normal rules
+as when building a new tree from scratch. Expunging messages gets more
+problematic though.
+
+Each node in the tree keeps a "link reference count" which specifies how
+many messages contain a "this message" -> "parent message" reference. The
+first reference is usually added by the message's own References: or
+In-Reply-To: header and the latter references are added by References:
+headers. This link refcount must be updated when adding and expunging
+messages. When the link refcount drops to zero, the message becomes a root.
+The link refcount doesn't tell much about the number of children the node
+has, because References: headers may reference any number of its ancestors.
+
+The optimistic approach assumes that usually there are no problematic
+links. In such case expunging a message simply updates the link refcounts
+and marks the message's node as expunged. Expunged messages may still act
+as dummy nodes. The node may be removed only after there are no nodes which
+point to it.
+
+Problematic links are handled by marking nodes affected by them. If such a
+node is expunged or its link is unreferenced, the thread tree must be
+rebuilt. This is assumed to be a rarely occurring event. The problematic
+cases are:
+
+1) Duplicate Message-ID: headers. If the first message having it is
+expunged, the thread tree must be rebuilt.
+
+2) Message-ID loops. If a message referencing the looping path gets
+expunged, the loop may break and the thread tree must be rebuilt. Because
+it can't be determined easily which loops get broken by which expunges,
+this case can be handled in a bit easier way: When detecting a loop between
+parent and child, rebuild the tree if any link between the parent and child
+gets unreferenced.
+
+3) A message changes its parent because an earlier message's References:
+header contained a different link. If the message gets expunged, the thread
+tree must be rebuilt to get the original parent back.
+
+4) A link in a message's References: header is ignored, because the
+referenced child already specified a different parent to itself. If the
+message gets expunged, the thread tree must be rebuilt to determine its new
+parent.
+
+5) A link in a message's References: header is ignored, because an earlier
+message's References: header already specified a different link. If the
+earlier message gets expunged, the parent may change. The earlier message
+could be found out quickly by keeping some extra state (or with a slow
+scan), but since this is assumed to be a rare problem, there's an easier
+(but less specific) way to handle this: Rebuild the tree if a link to the
+child node is unreferenced (or alternatively if a link to the original
+parent node is unreferenced, but it probably happens more often).
+
+Pseudocode:
+
+node {
+  parent: Pointer to parent node. Children pointers aren't required.
+  uid: Message's UID (0 = expunged or never even existed)
+
+  link_refcount: Number of messages referencing "this node" -> "parent node"
+    (e.g. "References: a b" would increase this message's reference as well as
+    b's reference, regardless of how the links are really added to the thread
+    tree).
+  expunge_rebuilds: If this message gets expunged, rebuild the thread tree.
+  parent_unref_rebuilds: If a link between this node and its child gets
+    unreferenced, rebuild the thread tree.
+}
+
+link_reference(parent_node, child_node)
+  parent_node.link_refcount++
+  if is_ancestor(child_node, parent_node)
+    // child_node is an ancestor of parent_node. Adding child_node ->
+    // parent_node would introduce a loop. If any messages referencing the
+    // path between parent_node's parent and child_node get expunged, we
+    // have to rebuild the tree because the loop might break. For example:
+    //   #1: a -> b       (a.ref=1, b.ref=1)
+    //   #2: b -> a       (a.ref=2, b.ref=2)
+    //   #3: c -> a -> b  (a.ref=3, b.ref=3, c.ref=1)
+    // Expunging #3 wouldn't break the loop, but expunging #1 would.
+    for node in nodes[parent_node.parent .. child_node]
+      node.parent_unref_rebuilds = true
+  else if child_node.parent == parent_node
+    // The same link already exists
+  else
+    // Set parent_node as child_node's parent
+    if child_node.parent == NIL
+      child_node.parent = parent_node
+    else
+      // Conflicting parent already exists, keep the original.
+      // We get here only when handling References: header.
+      if child_node.uid != 0
+	// We've already seen this message. It specifies its own parent and
+	// it doesn't matter what any other reference says. The only way its
+	// parent can change is if the message itself gets expunged.
+	child_node.expunge_rebuilds = true
+      else
+	// Message doesn't exist, so it was one of the node's children
+	// that created the original reference. If that reference gets
+	// dropped, the parent is changed. We could catch this in one of
+	// several ways:
+	//  a) Link to original parent node gets unreferenced
+	//  b) Link to this node gets unreferenced
+	//  c) Any of the child nodes gets expunged
+	// b) is probably the least likely to happen, so use it
+	child_node.parent_unref_rebuilds = true
+
+thread_add_msg(uid)
+  // get the Message-IDs as specified by the thread spec
+  (msgid, parent_msgid, references) = message_get_thread_headers(uid)
+
+  if msgid != NIL
+    if nodes[msgid].uid == 0
+      nodes[msgid].uid = uid
+    else
+      // duplicate Message-ID. if the original ever gets expunged,
+      // rebuild the thread tree
+      nodes[msgid].expunge_rebuilds = true
+      msgid = NIL
+
+  if msgid == NIL
+    msgid = get_unique_msg_id()
+
+  node = nodes[msgid]
+  if node.parent != NIL and
+     (parent_msgid == NIL or node.parent.msgid != parent_msgid)
+    // Conflicting parent, remove it. If this message gets expunged, we have
+    // to revert back to the original parent.
+    node.parent = NIL
+    node.expunge_rebuilds = true
+
+  if parent_msgid != NIL
+    link_reference(nodes[parent_msgid], node)
+
+  // go through References (skipping the last one)
+  for (parent_msgid, child_msgid) in references
+    link_reference(nodes[parent_msgid], nodes[child_msgid])
+
+unref_link(parent, child)
+  if parent.parent_unref_rebuilds
+    return false
+
+  child.link_refcount--
+  if child.link_refcount == 0
+    child.parent = NIL
+  return true  
+
+// returns false if thread tree needs to be rebuilt
+thread_expunge_msg(uid)
+  // get the Message-IDs as specified by the thread spec
+  (msgid, in_reply_to_msgid, references) = message_get_thread_headers(uid)
+
+  node = nodes[msgid]
+  if node.uid != uid
+    // Removing a duplicate Message-ID
+    return false
+
+  if node.expunge_rebuilds
+    return false
+
+  if parent_msgid != NIL and
+     not unref_link(nodes[parent_msgid], nodes[child_msgid])
+    return false
+
+  if references != NIL
+    // go through References
+    for (parent_msgid, child_msgid) in references
+      if not unref_link(nodes[parent_msgid], nodes[child_msgid])
+	return false
+    last_parent_msgid = references.last
+  else if in_reply_to_msgid != NIL
+    last_parent_msgid = in_reply_to_msgid
+
+  if last_parent_msgid != NIL and
+     not unref_link(nodes[last_parent_msgid], node)
+    return false
+
+  // mark this node as expunged
+  node.uid = 0
+  return true
+
+thread_iterate()
+  root_nodes = []
+  referenced = []
+  children = [][]
+  // Steps (2) and (3)
+  for node in nodes
+    if node.parent != NIL
+      root_nodes[] = node
+    else
+      referenced[node.parent] = true
+      if node.uid != 0
+	// Find the node's first non-dummy parent and add the node as its child.
+	// If there are no non-dummy parents, add it as the highest dummy's
+	// child.
+	nondummy_parent = node.parent
+	while nondummy_parent.uid == 0 and nondummy_parent.parent != NIL
+	  nondummy_parent = nondummy_parent.parent
+	children[nondummy_parent][] = node
+
+  for node in root_nodes
+    if node.uid == 0
+      if children[node] == NIL
+	// remove dummy roots that have no children.
+	delete(node)
+      else if count(children[node]) == 1
+	// dummy root has a single child, replace the root with its child
+	node = children[node]
+
+  for node in nodes
+    if node.uid == 0 and !referenced[node]
+      free(node)
+
+  // root_nodes and children now contain a tree equivalent to a tree built by
+  // THREAD=REFERENCES specification steps (1)-(3). The rest of the steps
+  // can be performed using them. Note that node.parent should not (and need
+  // not) be used because it points its parent before steps (2) and (3).
