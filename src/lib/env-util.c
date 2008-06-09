@@ -19,6 +19,10 @@ void env_put(const char *env)
 
 void env_clean(void)
 {
+#ifdef HAVE_CLEARENV
+	if (clearenv() < 0)
+		i_fatal("clearenv() failed");
+#else
 	extern char **environ;
 
 	/* Try to clear the environment. It should always be non-NULL, but
@@ -27,6 +31,7 @@ void env_clean(void)
 	if (environ != NULL)
 		*environ = NULL;
 
+#endif
 	/* don't clear the env_pool, otherwise the environment would get
 	   corrupted if we failed to clear it. */
 }
