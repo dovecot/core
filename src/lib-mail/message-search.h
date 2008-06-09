@@ -12,7 +12,7 @@ enum message_search_flags {
 
 /* Returns 1 if ok, 0 if unknown charset, -1 if key contains invalid characters
    in given charset. */
-int message_search_init(pool_t pool, const char *key, const char *charset,
+int message_search_init(const char *key, const char *charset,
 			enum message_search_flags flags,
 			struct message_search_context **ctx_r);
 void message_search_deinit(struct message_search_context **ctx);

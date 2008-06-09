@@ -35,7 +35,6 @@ struct index_search_context {
 	struct mail *mail;
 	struct index_mail *imail;
 
-	pool_t search_pool;
 	const char *error;
 
 	struct timeval search_start_time, last_notify;
@@ -325,13 +324,10 @@ msg_search_arg_context(struct index_search_context *ctx,
 	if (arg_ctx != NULL)
 		return arg_ctx;
 
-	if (ctx->search_pool == NULL)
-		ctx->search_pool = pool_alloconly_create("search pool", 8192);
-
 	flags = (arg->type == SEARCH_BODY || arg->type == SEARCH_BODY_FAST) ?
 		MESSAGE_SEARCH_FLAG_SKIP_HEADERS : 0;
 
-	ret = message_search_init(ctx->search_pool, arg->value.str,
+	ret = message_search_init(arg->value.str,
 				  ctx->mail_ctx.args->charset, flags,
 				  &arg_ctx);
 	if (ret > 0) {
@@ -906,9 +902,6 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
 	(void)mail_search_args_foreach(ctx->mail_ctx.args->args,
 				       search_arg_deinit, NULL);
-
-	if (ctx->search_pool != NULL)
-		pool_unref(&ctx->search_pool);
 
 	if (ctx->mail_ctx.sort_program != NULL)
 		index_sort_program_deinit(&ctx->mail_ctx.sort_program);

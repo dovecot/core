@@ -12,8 +12,6 @@
 #include "message-search.h"
 
 struct message_search_context {
-	pool_t pool;
-
 	char *key;
 	char *key_charset;
 	unsigned int key_len;
@@ -27,7 +25,7 @@ struct message_search_context {
 };
 
 static int
-message_search_init_real(pool_t pool, const char *key, const char *charset,
+message_search_init_real(const char *key, const char *charset,
 			 enum message_search_flags flags,
 			 struct message_search_context **ctx_r)
 {
@@ -43,28 +41,26 @@ message_search_init_real(pool_t pool, const char *key, const char *charset,
 	else if (result != CHARSET_RET_OK)
 		ret = -1;
 	else {
-		ctx = *ctx_r = p_new(pool, struct message_search_context, 1);
-		ctx->pool = pool;
-		ctx->key = p_strdup(pool, str_c(key_utf8));
+		ctx = *ctx_r = i_new(struct message_search_context, 1);
+		ctx->key = i_strdup(str_c(key_utf8));
 		ctx->key_len = str_len(key_utf8);
-		ctx->key_charset = p_strdup(pool, charset);
+		ctx->key_charset = i_strdup(charset);
 		ctx->flags = flags;
 		ctx->decoder = message_decoder_init(TRUE);
-		ctx->str_find_ctx = str_find_init(pool, ctx->key);
+		ctx->str_find_ctx = str_find_init(default_pool, ctx->key);
 		ret = 1;
 	}
 	return ret;
 }
 
-int message_search_init(pool_t pool, const char *key, const char *charset,
+int message_search_init(const char *key, const char *charset,
 			enum message_search_flags flags,
 			struct message_search_context **ctx_r)
 {
 	int ret;
 
 	T_BEGIN {
-		ret = message_search_init_real(pool, key, charset, flags,
-					       ctx_r);
+		ret = message_search_init_real(key, charset, flags, ctx_r);
 	} T_END;
 	return ret;
 }
@@ -76,9 +72,9 @@ void message_search_deinit(struct message_search_context **_ctx)
 	*_ctx = NULL;
 	str_find_deinit(&ctx->str_find_ctx);
 	message_decoder_deinit(&ctx->decoder);
-	p_free(ctx->pool, ctx->key);
-	p_free(ctx->pool, ctx->key_charset);
-	p_free(ctx->pool, ctx);
+	i_free(ctx->key);
+	i_free(ctx->key_charset);
+	i_free(ctx);
 }
 
 static void parse_content_type(struct message_search_context *ctx,
