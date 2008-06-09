@@ -10,6 +10,7 @@
 #include "mail-index-modseq.h"
 #include "index-storage.h"
 #include "index-mail.h"
+#include "index-thread-private.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -404,6 +405,7 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 
 	ibox->box.opened = TRUE;
 
+	index_thread_mailbox_index_opened(ibox);
 	if (hook_mailbox_index_opened != NULL)
 		hook_mailbox_index_opened(&ibox->box);
 }

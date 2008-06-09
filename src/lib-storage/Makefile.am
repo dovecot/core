@@ -26,6 +26,7 @@ headers = \
 	mail-namespace.h \
 	mail-search.h \
 	mail-search-build.h \
+	mail-thread.h \
 	mail-storage.h \
 	mail-storage-private.h \
 	mailbox-list.h \

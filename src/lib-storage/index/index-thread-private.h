@@ -1,9 +1,11 @@
-#ifndef IMAP_THREAD_PRIVATE_H
-#define IMAP_THREAD_PRIVATE_H
+#ifndef INDEX_THREAD_PRIVATE_H
+#define INDEX_THREAD_PRIVATE_H
+
+struct index_mailbox;
 
 #include "crc32.h"
 #include "mail-hash.h"
-#include "imap-thread.h"
+#include "mail-thread.h"
 
 #define HDR_MESSAGE_ID "message-id"
 #define HDR_IN_REPLY_TO "in-reply-to"
@@ -32,7 +34,7 @@ struct mail_thread_node {
 	uint32_t exists:1;
 };
 
-struct thread_context {
+struct mail_thread_update_context {
 	struct mail *tmp_mail;
 
 	struct mail_hash *hash;
@@ -56,12 +58,15 @@ static inline uint32_t crc32_str_nonzero(const char *str)
 	return value == 0 ? 1 : value;
 }
 
-int mail_thread_add(struct thread_context *ctx, struct mail *mail);
-int mail_thread_remove(struct thread_context *ctx, uint32_t seq);
+int mail_thread_add(struct mail_thread_update_context *ctx, struct mail *mail);
+int mail_thread_remove(struct mail_thread_update_context *ctx, uint32_t seq);
 
 struct mail_thread_iterate_context *
-mail_thread_iterate_init(struct mail *tmp_mail,
-			 struct mail_hash_transaction *hash_trans,
-			 enum mail_thread_type thread_type, bool return_seqs);
+mail_thread_iterate_init_full(struct mail *tmp_mail,
+			      struct mail_hash_transaction *hash_trans,
+			      enum mail_thread_type thread_type,
+			      bool return_seqs);
+
+void index_thread_mailbox_index_opened(struct index_mailbox *ibox);
 
 #endif

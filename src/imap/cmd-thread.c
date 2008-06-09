@@ -5,7 +5,7 @@
 #include "ostream.h"
 #include "commands.h"
 #include "imap-search.h"
-#include "imap-thread.h"
+#include "mail-thread.h"
 
 static int imap_thread_write(struct mail_thread_iterate_context *iter,
 			     string_t *str, bool root)
@@ -13,7 +13,7 @@ static int imap_thread_write(struct mail_thread_iterate_context *iter,
 	const struct mail_thread_child_node *node;
 	struct mail_thread_iterate_context *child_iter;
 	unsigned int count;
-	int ret;
+	int ret = 0;
 
 	count = mail_thread_iterate_count(iter);
 	if (count == 0)
@@ -56,13 +56,13 @@ static int imap_thread_write(struct mail_thread_iterate_context *iter,
 }
 
 static int
-imap_thread_write_reply(struct imap_thread_context *ctx, string_t *str,
+imap_thread_write_reply(struct mail_thread_context *ctx, string_t *str,
 			enum mail_thread_type thread_type, bool write_seqs)
 {
 	struct mail_thread_iterate_context *iter;
 	int ret;
 
-	iter = imap_thread_iterate_init(ctx, thread_type, write_seqs);
+	iter = mail_thread_iterate_init(ctx, thread_type, write_seqs);
 	str_append(str, "* THREAD ");
 	T_BEGIN {
 		ret = imap_thread_write(iter, str, TRUE);
@@ -78,7 +78,7 @@ static int imap_thread(struct client_command_context *cmd,
 		       struct mail_search_args *search_args,
 		       enum mail_thread_type thread_type)
 {
-	struct imap_thread_context *ctx;
+	struct mail_thread_context *ctx;
 	string_t *str;
 	bool reset = FALSE;
 	int ret;
@@ -88,12 +88,12 @@ static int imap_thread(struct client_command_context *cmd,
 
 	str = str_new(default_pool, 1024);
 	for (;;) {
-		ret = imap_thread_init(cmd->client->mailbox, reset,
+		ret = mail_thread_init(cmd->client->mailbox, reset,
 				       search_args, &ctx);
 		if (ret == 0) {
 			ret = imap_thread_write_reply(ctx, str, thread_type,
 						      !cmd->uid);
-			imap_thread_deinit(&ctx);
+			mail_thread_deinit(&ctx);
 		}
 
 		if (ret == 0 || reset)

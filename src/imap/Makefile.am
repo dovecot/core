@@ -81,9 +81,6 @@ imap_SOURCES = \
 	imap-sort.c \
 	imap-status.c \
 	imap-sync.c \
-	imap-thread.c \
-	imap-thread-links.c \
-	imap-thread-finish.c \
 	mail-storage-callbacks.c \
 	main.c
 
@@ -98,8 +95,7 @@ headers = \
 	imap-search.h \
 	imap-sort.h \
 	imap-status.h \
-	imap-sync.h \
-	imap-thread.h
+	imap-sync.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/imap

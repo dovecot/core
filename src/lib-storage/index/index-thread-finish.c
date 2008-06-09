@@ -1,10 +1,10 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "lib.h"
 #include "array.h"
-#include "mail-storage-private.h"
 #include "imap-base-subject.h"
-#include "imap-thread-private.h"
+#include "mail-storage-private.h"
+#include "index-thread-private.h"
 
 #include <stdlib.h>
 
@@ -654,9 +654,10 @@ mail_thread_iterate_children(struct mail_thread_iterate_context *parent_iter,
 }
 
 struct mail_thread_iterate_context *
-mail_thread_iterate_init(struct mail *tmp_mail,
-			 struct mail_hash_transaction *hash_trans,
-			 enum mail_thread_type thread_type, bool return_seqs)
+mail_thread_iterate_init_full(struct mail *tmp_mail,
+			      struct mail_hash_transaction *hash_trans,
+			      enum mail_thread_type thread_type,
+			      bool return_seqs)
 {
 	struct mail_thread_iterate_context *iter;
 	struct thread_finish_context *ctx;
