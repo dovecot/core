@@ -23,6 +23,7 @@ struct hardlink_ctx {
 	unsigned int base_end_pos;
 
 	unsigned int size_set:1;
+	unsigned int vsize_set:1;
 	unsigned int success:1;
 	unsigned int preserve_filename:1;
 };
@@ -49,7 +50,7 @@ static int do_save_mail_size(struct maildir_mailbox *mbox, const char *path,
 		size = st.st_size;
 	}
 
-	str = t_strdup_printf(",S=%"PRIuUOFF_T, size);
+	str = t_strdup_printf(",%c=%"PRIuUOFF_T, MAILDIR_EXTRA_FILE_SIZE, size);
 	str_insert(ctx->dest_path, ctx->base_end_pos, str);
 
 	ctx->dest_fname = strrchr(str_c(ctx->dest_path), '/') + 1;
@@ -57,15 +58,40 @@ static int do_save_mail_size(struct maildir_mailbox *mbox, const char *path,
 	return 1;
 }
 
+static void do_save_mail_vsize(const char *path, struct hardlink_ctx *ctx)
+{
+	const char *fname, *str;
+	uoff_t size;
+
+	fname = strrchr(path, '/');
+	fname = fname != NULL ? fname + 1 : path;
+
+	if (!maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
+				       &size))
+		return;
+
+	str = t_strdup_printf(",%c=%"PRIuUOFF_T,
+			      MAILDIR_EXTRA_VIRTUAL_SIZE, size);
+	str_insert(ctx->dest_path, ctx->base_end_pos, str);
+
+	ctx->dest_fname = strrchr(str_c(ctx->dest_path), '/') + 1;
+	ctx->vsize_set = TRUE;
+}
+
 static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 		       struct hardlink_ctx *ctx)
 {
 	int ret;
 
-	if (!ctx->preserve_filename && mbox->storage->save_size_in_filename &&
-	    !ctx->size_set) {
-		if ((ret = do_save_mail_size(mbox, path, ctx)) <= 0)
-			return ret;
+	if (!ctx->preserve_filename) {
+		if (mbox->storage->save_size_in_filename &&
+		    !ctx->size_set) {
+			if ((ret = do_save_mail_size(mbox, path, ctx)) <= 0)
+				return ret;
+		}
+		/* set virtual size if it's in the original file name */
+		if (!ctx->vsize_set)
+			do_save_mail_vsize(path, ctx);
 	}
 
 	if ((mbox->storage->storage.flags &
