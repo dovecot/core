@@ -273,6 +273,18 @@ static bool setting_is_bool(const char *name)
 	return FALSE;
 }
 
+/* more ugly kludging because we have our own config parsing code.
+   hopefully this goes away in v1.2. */
+static struct {
+	const char *name;
+	bool set;
+} default_yes_settings[] = {
+	{ "dotlock_use_excl", TRUE },
+	{ "maildir_copy_with_hardlinks", TRUE },
+	{ "mbox_dirty_syncs", TRUE },
+	{ "mbox_lazy_writes", TRUE }
+};
+
 static void config_file_init(const char *path)
 {
 	struct istream *input;
@@ -282,7 +294,7 @@ static void config_file_init(const char *path)
 	bool lda_section = FALSE, pop3_section = FALSE, plugin_section = FALSE;
 	bool ns_section = FALSE, ns_location = FALSE, ns_list = FALSE;
 	bool ns_subscriptions = FALSE;
-	unsigned int ns_idx = 0;
+	unsigned int i, ns_idx = 0;
 	size_t len;
 
 	plugin_pool = pool_alloconly_create("Plugin strings", 512);
@@ -412,8 +424,14 @@ static void config_file_init(const char *path)
 			value = str_unescape(p_strndup(unsafe_data_stack_pool,
 						       value+1, len - 2));
 		}
-		if (setting_is_bool(key) && strcasecmp(value, "yes") != 0)
+		if (setting_is_bool(key) && strcasecmp(value, "yes") != 0) {
+			for (i = 0; i < N_ELEMENTS(default_yes_settings); i++) {
+				if (strcmp(default_yes_settings[i].name,
+					   key) == 0)
+					default_yes_settings[i].set = FALSE;
+			}
 			continue;
+		}
 
 		if (!plugin_section) {
 			env_put(t_strconcat(t_str_ucase(key), "=",
@@ -427,6 +445,13 @@ static void config_file_init(const char *path)
 		}
 	}
 	i_stream_unref(&input);
+
+	for (i = 0; i < N_ELEMENTS(default_yes_settings); i++) {
+		if (default_yes_settings[i].set) {
+			key = default_yes_settings[i].name;
+			env_put(t_strconcat(t_str_ucase(key), "=1", NULL));
+		}
+	}
 }
 
 static const struct var_expand_table *
