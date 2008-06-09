@@ -979,8 +979,15 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 	ctx->attr_map = attr_map;
 
 	static_data = hash_lookup(attr_map, "");
-	if (static_data != NULL)
-		ctx->static_attrs = t_strsplit(static_data, ",");
+	if (static_data != NULL) {
+		const struct var_expand_table *table;
+		string_t *str;
+
+		table = auth_request_get_var_expand_table(auth_request, NULL);
+		str = t_str_new(256);
+		var_expand(str, static_data, table);
+		ctx->static_attrs = t_strsplit(str_c(str), ",");
+	}
 
 	if (auth_request->auth->verbose_debug)
 		ctx->debug = t_str_new(256);
@@ -1009,6 +1016,7 @@ static void
 db_ldap_result_change_attr(struct db_ldap_result_iterate_context *ctx)
 {
 	ctx->name = hash_lookup(ctx->attr_map, ctx->attr);
+	ctx->template = NULL;
 
 	if (ctx->debug != NULL) {
 		str_printfa(ctx->debug, " %s(%s)=", ctx->attr,
@@ -1095,6 +1103,9 @@ static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
 			ctx->name = t_strdup_until(*ctx->static_attrs, p);
 			ctx->value = p + 1;
 		}
+		/* make _next_all() return correct values */
+		ctx->template = "";
+		ctx->val_1_arr[0] = ctx->value;
 		ctx->static_attrs++;
 		return TRUE;
 	}

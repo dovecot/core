@@ -54,15 +54,17 @@ enum dbox_metadata_key {
 	DBOX_METADATA_FLAGS		= 'F',
 	/* Space separated list of keywords */
 	DBOX_METADATA_KEYWORDS		= 'K',
-	/* Pointer to external message data. Format is:
-	   1*(<start offset> <byte count> <ref>) */
-	DBOX_METADATA_EXT_REF		= 'P',
+	/* POP3 UIDL overriding the default format */
+	DBOX_METADATA_POP3_UIDL		= 'P',
 	/* Received UNIX timestamp in hex */
 	DBOX_METADATA_RECEIVED_TIME	= 'R',
 	/* Saved UNIX timestamp in hex */
 	DBOX_METADATA_SAVE_TIME		= 'S',
 	/* Virtual message size in hex (line feeds counted as CRLF) */
 	DBOX_METADATA_VIRTUAL_SIZE	= 'V',
+	/* Pointer to external message data. Format is:
+	   1*(<start offset> <byte count> <ref>) */
+	DBOX_METADATA_EXT_REF		= 'X',
 
 	/* End of metadata block. The spaces can be used for writing more
 	   metadata. */

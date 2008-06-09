@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "unichar.h"
+#include "nfs-workarounds.h"
 #include "file-cache.h"
 #include "seq-range-array.h"
 #include "squat-uidlist.h"
@@ -145,6 +146,8 @@ squat_trie_init(const char *path, uint32_t uidvalidity,
 	trie->dotlock_set.nfs_flush = (flags & SQUAT_INDEX_FLAG_NFS_FLUSH) != 0;
 	trie->dotlock_set.timeout = SQUAT_TRIE_LOCK_TIMEOUT;
 	trie->dotlock_set.stale_timeout = SQUAT_TRIE_DOTLOCK_STALE_TIMEOUT;
+	trie->default_partial_len = DEFAULT_PARTIAL_LEN;
+	trie->default_full_len = DEFAULT_FULL_LEN;
 	return trie;
 }
 
@@ -190,14 +193,24 @@ void squat_trie_deinit(struct squat_trie **_trie)
 	i_free(trie);
 }
 
+void squat_trie_set_partial_len(struct squat_trie *trie, unsigned int len)
+{
+	trie->default_partial_len = len;
+}
+
+void squat_trie_set_full_len(struct squat_trie *trie, unsigned int len)
+{
+	trie->default_full_len = len;
+}
+
 static void squat_trie_header_init(struct squat_trie *trie)
 {
 	memset(&trie->hdr, 0, sizeof(trie->hdr));
 	trie->hdr.version = SQUAT_TRIE_VERSION;
 	trie->hdr.indexid = time(NULL);
 	trie->hdr.uidvalidity = trie->uidvalidity;
-	trie->hdr.partial_len = DEFAULT_PARTIAL_LEN;
-	trie->hdr.full_len = DEFAULT_FULL_LEN;
+	trie->hdr.partial_len = trie->default_partial_len;
+	trie->hdr.full_len = trie->default_full_len;
 
 	i_assert(sizeof(trie->hdr.normalize_map) ==
 		 sizeof(trie->default_normalize_map));
@@ -234,7 +247,9 @@ static int squat_trie_is_file_stale(struct squat_trie *trie)
 {
 	struct stat st, st2;
 
-	if (stat(trie->path, &st) < 0) {
+	if ((trie->flags & SQUAT_INDEX_FLAG_NFS_FLUSH) != 0)
+		nfs_flush_file_handle_cache(trie->path);
+	if (nfs_safe_stat(trie->path, &st) < 0) {
 		if (errno == ENOENT)
 			return 1;
 
@@ -242,6 +257,8 @@ static int squat_trie_is_file_stale(struct squat_trie *trie)
 		return -1;
 	}
 	if (fstat(trie->fd, &st2) < 0) {
+		if (errno == ESTALE)
+			return 1;
 		i_error("fstat(%s) failed: %m", trie->path);
 		return -1;
 	}
@@ -269,7 +286,7 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 	*file_lock_r = NULL;
 	*dotlock_r = NULL;
 
-	while (trie->fd != -1) {
+	for (;;) {
 		if (trie->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 			ret = file_wait_lock(trie->fd, trie->path, lock_type,
 					     trie->lock_method,
@@ -290,7 +307,7 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 		   file and try to lock again */
 		ret = squat_trie_is_file_stale(trie);
 		if (ret == 0)
-			return 1;
+			break;
 
 		if (*file_lock_r != NULL)
 			file_unlock(file_lock_r);
@@ -302,8 +319,13 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 		squat_trie_close(trie);
 		if (squat_trie_open_fd(trie) < 0)
 			return -1;
+		if (trie->fd == -1)
+			return 0;
 	}
-	return 0;
+
+	if ((trie->flags & SQUAT_INDEX_FLAG_NFS_FLUSH) != 0)
+		nfs_flush_read_cache_locked(trie->path, trie->fd);
+	return 1;
 }
 
 static void
@@ -621,17 +643,17 @@ node_split_string(struct squat_trie_build_context *ctx, struct squat_node *node)
 {
 	struct squat_node *child;
 	unsigned char *str;
-	unsigned int uid, idx, str_len = node->leaf_string_length;
+	unsigned int uid, idx, leafstr_len = node->leaf_string_length;
 
-	i_assert(str_len > 0);
+	i_assert(leafstr_len > 0);
 
 	/* make a copy of the leaf string and convert to normal node by
 	   removing it. */
-	str = t_malloc(str_len);
+	str = t_malloc(leafstr_len);
 	if (!NODE_IS_DYNAMIC_LEAF(node))
-		memcpy(str, node->children.static_leaf_string, str_len);
+		memcpy(str, node->children.static_leaf_string, leafstr_len);
 	else {
-		memcpy(str, node->children.leaf_string, str_len);
+		memcpy(str, node->children.leaf_string, leafstr_len);
 		i_free(node->children.leaf_string);
 	}
 	node->leaf_string_length = 0;
@@ -649,16 +671,17 @@ node_split_string(struct squat_trie_build_context *ctx, struct squat_node *node)
 	}
 
 	i_assert(!child->have_sequential && child->children.data == NULL);
-	if (str_len > 1) {
+	if (leafstr_len > 1) {
 		/* make the child a leaf string */
-		str_len--;
-		child->leaf_string_length = str_len;
+		leafstr_len--;
+		child->leaf_string_length = leafstr_len;
 		if (!NODE_IS_DYNAMIC_LEAF(child)) {
 			memcpy(child->children.static_leaf_string,
-			       str + 1, str_len);
+			       str + 1, leafstr_len);
 		} else {
-			child->children.leaf_string = i_malloc(str_len);
-			memcpy(child->children.leaf_string, str + 1, str_len);
+			child->children.leaf_string = i_malloc(leafstr_len);
+			memcpy(child->children.leaf_string,
+			       str + 1, leafstr_len);
 		}
 	}
 }
@@ -669,10 +692,10 @@ node_leaf_string_add_or_split(struct squat_trie_build_context *ctx,
 			      const unsigned char *data, unsigned int data_len)
 {
 	const unsigned char *str = NODE_LEAF_STRING(node);
-	const unsigned int str_len = node->leaf_string_length;
+	const unsigned int leafstr_len = node->leaf_string_length;
 	unsigned int i;
 
-	if (data_len != str_len) {
+	if (data_len != leafstr_len) {
 		/* different lengths, can't match */
 		T_BEGIN {
 			node_split_string(ctx, node);
@@ -1735,15 +1758,15 @@ squat_trie_lookup_data(struct squat_trie *trie, const unsigned char *data,
 				return -1;
 		}
 		if (node->leaf_string_length != 0) {
-			unsigned int str_len = node->leaf_string_length;
+			unsigned int len = node->leaf_string_length;
 			const unsigned char *str;
 
-			if (str_len > sizeof(node->children.static_leaf_string))
+			if (len > sizeof(node->children.static_leaf_string))
 				str = node->children.leaf_string;
 			else
 				str = node->children.static_leaf_string;
 
-			if (size > str_len || memcmp(data, str, size) != 0)
+			if (size > len || memcmp(data, str, size) != 0)
 				return 0;
 
 			/* match */
@@ -2003,6 +2026,7 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 		squat_trie_filter_type(type, &ctx.tmp_uids,
 				       definite_uids);
 	}
+	seq_range_array_remove_seq_range(maybe_uids, definite_uids);
 	squat_trie_add_unknown(trie, maybe_uids);
 	array_free(&ctx.tmp_uids);
 	array_free(&ctx.tmp_uids2);

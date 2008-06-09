@@ -13,9 +13,8 @@ struct acl_mask {
 	/* variable length bitmask */
 	unsigned char mask[1];
 };
-#define SIZEOF_ACL_MASK(count) \
-	(sizeof(pool_t) + sizeof(unsigned int) + \
-	 (count + CHAR_BIT-1) / CHAR_BIT)
+#define SIZEOF_ACL_MASK(bitmask_size) \
+	(sizeof(pool_t) + sizeof(unsigned int) + (bitmask_size))
 
 struct acl_cache *acl_cache_init(struct acl_backend *backend,
 				 size_t validity_rec_size);

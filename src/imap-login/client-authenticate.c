@@ -156,7 +156,7 @@ static bool client_handle_args(struct imap_client *client,
 		}
 		client_send_tagline(client, str_c(reply));
 		if (!nologin) {
-			client_destroy(client, "Login with referral");
+			client_destroy_success(client, "Login with referral");
 			return TRUE;
 		}
 	} else if (nologin || proxy_self) {
@@ -209,7 +209,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		}
 
 		client_send_tagline(client, "OK Logged in.");
-		client_destroy(client, "Login");
+		client_destroy_success(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 	case SASL_SERVER_REPLY_CLIENT_ERROR:
@@ -234,7 +234,9 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		else {
 			client_send_tagline(client,
 					    t_strconcat("NO ", data, NULL));
-			client_destroy(client, data);
+			/* authentication itself succeeded, we just hit some
+			   internal failure. */
+			client_destroy_success(client, data);
 		}
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:

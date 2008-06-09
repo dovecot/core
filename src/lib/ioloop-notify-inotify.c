@@ -95,7 +95,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 	if (ctx == NULL)
 		ctx = io_loop_notify_handler_init();
 	if (ctx->disabled)
-		return IO_NOTIFY_DISABLED;
+		return IO_NOTIFY_NOSUPPORT;
 
 	wd = inotify_add_watch(ctx->inotify_fd, path,
 			       IN_CREATE | IN_DELETE | IN_DELETE_SELF |
@@ -106,8 +106,9 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 		if (errno == ENOENT || errno == ESTALE)
 			return IO_NOTIFY_NOTFOUND;
 
+		i_error("inotify_add_watch(%s) failed: %m", path);
 		ctx->disabled = TRUE;
-		return IO_NOTIFY_DISABLED;
+		return IO_NOTIFY_NOSUPPORT;
 	}
 
 	if (ctx->event_io == NULL) {
@@ -153,7 +154,8 @@ static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void)
 			i_error("inotify_init() failed: %m");
 		else {
 			i_warning("Inotify instance limit for user exceeded, "
-				  "disabling.");
+				  "disabling. Increase "
+				  "/proc/sys/fs/inotify/max_user_instances");
 		}
 		ctx->disabled = TRUE;
 	} else {

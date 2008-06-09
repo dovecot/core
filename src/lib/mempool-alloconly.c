@@ -40,9 +40,17 @@ struct pool_block {
 #define SIZEOF_POOLBLOCK (MEM_ALIGN(sizeof(struct pool_block)))
 
 #define POOL_BLOCK_DATA(block) \
-	((char *) (block) + SIZEOF_POOLBLOCK)
+	((unsigned char *) (block) + SIZEOF_POOLBLOCK)
 
 #define DEFAULT_BASE_SIZE MEM_ALIGN(sizeof(struct alloconly_pool))
+
+#ifdef DEBUG
+#  define CLEAR_CHR 0xde
+#  define SENTRY_COUNT 8
+#else
+#  define SENTRY_COUNT 0
+#  define CLEAR_CHR 0
+#endif
 
 static const char *pool_alloconly_get_name(pool_t pool);
 static void pool_alloconly_ref(pool_t pool);
@@ -79,28 +87,48 @@ static const struct pool static_alloconly_pool = {
 };
 
 #ifdef DEBUG
-static void check_nuls(struct pool_block *block)
+static void check_sentries(struct pool_block *block)
 {
-	const char *data = POOL_BLOCK_DATA(block);
-	size_t i;
+	const unsigned char *data = POOL_BLOCK_DATA(block);
+	size_t i, max_pos, alloc_size, used_size;
 
-	for (i = block->size - block->left; i < block->size; i++) {
+	used_size = block->size - block->left;
+	for (i = 0; i < used_size; ) {
+		alloc_size = *(size_t *)(data + i);
+		if (alloc_size == 0 || used_size - i < alloc_size)
+			i_panic("mempool-alloconly: saved alloc size broken");
+		i += MEM_ALIGN(sizeof(alloc_size));
+		max_pos = i + MEM_ALIGN(alloc_size + SENTRY_COUNT);
+		i += alloc_size;
+
+		for (; i < max_pos; i++) {
+			if (data[i] != CLEAR_CHR)
+				i_panic("mempool-alloconly: buffer overflow");
+		}
+	}
+
+	if (i != used_size)
+		i_panic("mempool-alloconly: used_size wrong");
+
+	/* The unused data must be NULs */
+	for (; i < block->size; i++) {
 		if (data[i] != '\0')
 			i_unreached();
 	}
 	if (block->prev != NULL)
-		check_nuls(block->prev);
+		check_sentries(block->prev);
 }
 #endif
 
 pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 {
 	struct alloconly_pool apool, *new_apool;
-	size_t min_alloc = MEM_ALIGN(sizeof(struct alloconly_pool)) +
-		SIZEOF_POOLBLOCK;
+	size_t min_alloc = SIZEOF_POOLBLOCK +
+		MEM_ALIGN(sizeof(struct alloconly_pool) + SENTRY_COUNT);
 
 #ifdef DEBUG
-	min_alloc += MEM_ALIGN(strlen(name) + 1);
+	min_alloc += MEM_ALIGN(strlen(name) + 1 + SENTRY_COUNT) +
+		sizeof(size_t)*2;
 #endif
 
 	/* create a fake alloconly_pool so we can call block_alloc() */
@@ -115,8 +143,6 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	/* now allocate the actual alloconly_pool from the created block */
 	new_apool = p_new(&apool.pool, struct alloconly_pool, 1);
 	*new_apool = apool;
-	/* the pool allocation must be from the first block */
-	i_assert(apool.block->prev == NULL);
 #ifdef DEBUG
 	if (strncmp(name, MEMPOOL_GROWING, strlen(MEMPOOL_GROWING)) == 0) {
 		name += strlen(MEMPOOL_GROWING);
@@ -128,6 +154,8 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	new_apool->base_size = new_apool->block->size - new_apool->block->left;
 	new_apool->block->last_alloc_size = 0;
 #endif
+	/* the first pool allocations must be from the first block */
+	i_assert(new_apool->block->prev == NULL);
 
 	return &new_apool->pool;
 }
@@ -153,10 +181,12 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 	/* destroy the last block */
 	block = apool->block;
 #ifdef DEBUG
-	safe_memset(block, 0xde, SIZEOF_POOLBLOCK + apool->block->size);
+	safe_memset(block, CLEAR_CHR, SIZEOF_POOLBLOCK + apool->block->size);
 #else
-	if (apool->clean_frees)
-		safe_memset(block, 0, SIZEOF_POOLBLOCK + apool->block->size);
+	if (apool->clean_frees) {
+		safe_memset(block, CLEAR_CHR,
+			    SIZEOF_POOLBLOCK + apool->block->size);
+	}
 #endif
 
 #ifndef USE_GC
@@ -238,22 +268,34 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 {
 	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 	void *mem;
+	size_t alloc_size;
 
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
-	size = MEM_ALIGN(size);
+#ifndef DEBUG
+	alloc_size = MEM_ALIGN(size);
+#else
+	alloc_size = MEM_ALIGN(sizeof(size)) + MEM_ALIGN(size + SENTRY_COUNT);
+#endif
 
-	if (apool->block->left < size) {
+	if (apool->block->left < alloc_size) {
 		/* we need a new block */
-		block_alloc(apool, size + SIZEOF_POOLBLOCK);
+		block_alloc(apool, alloc_size + SIZEOF_POOLBLOCK);
 	}
 
 	mem = POOL_BLOCK_DATA(apool->block) +
 		(apool->block->size - apool->block->left);
 
-	apool->block->left -= size;
-	apool->block->last_alloc_size = size;
+	apool->block->left -= alloc_size;
+	apool->block->last_alloc_size = alloc_size;
+#ifdef DEBUG
+	memcpy(mem, &size, sizeof(size));
+	mem = PTR_OFFSET(mem, MEM_ALIGN(sizeof(size)));
+	/* write CLEAR_CHRs to sentry */
+	memset(PTR_OFFSET(mem, size), CLEAR_CHR,
+	       MEM_ALIGN(size + SENTRY_COUNT) - size);
+#endif
 	return mem;
 }
 
@@ -325,7 +367,7 @@ static void pool_alloconly_clear(pool_t pool)
 	size_t base_size, avail_size;
 
 #ifdef DEBUG
-	check_nuls(apool->block);
+	check_sentries(apool->block);
 #endif
 
 	/* destroy all blocks but the oldest, which contains the
@@ -335,10 +377,12 @@ static void pool_alloconly_clear(pool_t pool)
 		apool->block = block->prev;
 
 #ifdef DEBUG
-		safe_memset(block, 0xde, SIZEOF_POOLBLOCK + block->size);
+		safe_memset(block, CLEAR_CHR, SIZEOF_POOLBLOCK + block->size);
 #else
-		if (apool->clean_frees)
-			safe_memset(block, 0, SIZEOF_POOLBLOCK + block->size);
+		if (apool->clean_frees) {
+			safe_memset(block, CLEAR_CHR,
+				    SIZEOF_POOLBLOCK + block->size);
+		}
 #endif
 #ifndef USE_GC
 		free(block);

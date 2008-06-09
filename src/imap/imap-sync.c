@@ -168,6 +168,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 				STATUS_MESSAGES | STATUS_RECENT, &status) < 0 ||
 	    ctx->failed) {
 		mailbox_transaction_rollback(&ctx->t);
+		array_free(&ctx->tmp_keywords);
 		i_free(ctx);
 		return -1;
 	}
@@ -412,7 +413,7 @@ static bool cmd_finish_sync(struct client_command_context *cmd)
 
 static bool cmd_sync_continue(struct client_command_context *sync_cmd)
 {
-	struct client_command_context *cmd;
+	struct client_command_context *cmd, *prev;
 	struct client *client = sync_cmd->client;
 	struct imap_sync_context *ctx = sync_cmd->context;
 	int ret;
@@ -431,13 +432,19 @@ static bool cmd_sync_continue(struct client_command_context *sync_cmd)
 	}
 	sync_cmd->context = NULL;
 
-	/* finish all commands that waited for this sync */
-	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
+	/* Finish all commands that waited for this sync. Go through the queue
+	   backwards, so that tagged replies are sent in the same order as
+	   they were received. This fixes problems with clients that rely on
+	   this (Apple Mail 3.2) */
+	for (cmd = client->command_queue; cmd->next != NULL; cmd = cmd->next) ;
+	for (; cmd != NULL; cmd = prev) {
+		prev = cmd->prev;
+
 		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC &&
 		    cmd != sync_cmd &&
 		    cmd->sync->counter+1 == client->sync_counter) {
 			if (cmd_finish_sync(cmd))
-				client_command_free(cmd);
+				client_command_free(&cmd);
 		}
 	}
 	return cmd_finish_sync(sync_cmd);
@@ -465,10 +472,9 @@ static void get_common_sync_flags(struct client *client,
 			count++;
 		}
 	}
+	i_assert(noexpunges_count == 0 || noexpunges_count == count);
 	if (fast_count != count)
 		*flags_r &= ~MAILBOX_SYNC_FLAG_FAST;
-	if (noexpunges_count != count)
-		*flags_r &= ~MAILBOX_SYNC_FLAG_NO_EXPUNGES;
 
 	i_assert((*flags_r & (MAILBOX_SYNC_AUTO_STOP |
 			      MAILBOX_SYNC_FLAG_FIX_INCONSISTENT)) == 0);
@@ -509,7 +515,7 @@ static bool cmd_sync_client(struct client_command_context *sync_cmd)
 		return FALSE;
 	}
 
-	client_command_free(sync_cmd);
+	client_command_free(&sync_cmd);
 	(void)cmd_sync_delayed(client);
 	return TRUE;
 }
@@ -566,16 +572,20 @@ bool cmd_sync_callback(struct client_command_context *cmd,
 
 static bool cmd_sync_drop_fast(struct client *client)
 {
-	struct client_command_context *cmd, *next;
+	struct client_command_context *cmd, *prev;
 	bool ret = FALSE;
 
-	for (cmd = client->command_queue; cmd != NULL; cmd = next) {
-		next = cmd->next;
+	if (client->command_queue == NULL)
+		return FALSE;
+
+	for (cmd = client->command_queue; cmd->next != NULL; cmd = cmd->next) ;
+	for (; cmd != NULL; cmd = prev) {
+		prev = cmd->next;
 
 		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC &&
 		    (cmd->sync->flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
 			if (cmd_finish_sync(cmd)) {
-				client_command_free(cmd);
+				client_command_free(&cmd);
 				ret = TRUE;
 			}
 		}
@@ -585,7 +595,7 @@ static bool cmd_sync_drop_fast(struct client *client)
 
 bool cmd_sync_delayed(struct client *client)
 {
-	struct client_command_context *cmd;
+	struct client_command_context *cmd, *first_expunge, *first_nonexpunge;
 
 	if (client->output_lock != NULL) {
 		/* wait until we can send output to client */
@@ -599,13 +609,32 @@ bool cmd_sync_delayed(struct client *client)
 		return cmd_sync_drop_fast(client);
 	}
 
-	/* find a command that we can sync */
+	/* separate syncs that can send expunges from those that can't */
+	first_expunge = first_nonexpunge = NULL;
 	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
-		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC) {
-			if (cmd->sync->counter == client->sync_counter)
-				break;
+		if (cmd->sync != NULL &&
+		    cmd->sync->counter == client->sync_counter) {
+			if (cmd->sync->flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) {
+				if (first_nonexpunge == NULL)
+					first_nonexpunge = cmd;
+			} else {
+				if (first_expunge == NULL)
+					first_expunge = cmd;
+			}
 		}
 	}
+	if (first_expunge != NULL && first_nonexpunge != NULL) {
+		/* sync expunges after nonexpunges */
+		for (cmd = first_expunge; cmd != NULL; cmd = cmd->next) {
+			if (cmd->sync != NULL &&
+			    cmd->sync->counter == client->sync_counter &&
+			    (cmd->sync->flags &
+			     MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0)
+				cmd->sync->counter++;
+		}
+		first_expunge = NULL;
+	}
+	cmd = first_nonexpunge != NULL ? first_nonexpunge : first_expunge;
 
 	if (cmd == NULL)
 		return cmd_sync_drop_fast(client);

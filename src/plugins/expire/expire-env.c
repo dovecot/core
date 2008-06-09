@@ -105,10 +105,17 @@ bool expire_box_find(struct expire_env *env, const char *name,
 	return expunge_min > 0 || altmove_min > 0;
 }
 
-unsigned int expire_box_find_min_secs(struct expire_env *env, const char *name)
+unsigned int expire_box_find_min_secs(struct expire_env *env, const char *name,
+				      bool *altmove_r)
 {
 	unsigned int secs1, secs2;
 
 	(void)expire_box_find(env, name, &secs1, &secs2);
-	return secs1 < secs2 && secs1 != 0 ? secs1 : secs2;
+	if (secs1 != 0 && (secs1 < secs2 || secs2 == 0)) {
+		*altmove_r = FALSE;
+		return secs1;
+	} else {
+		*altmove_r = TRUE;
+		return secs2;
+	}
 }

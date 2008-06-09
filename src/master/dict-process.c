@@ -25,7 +25,7 @@ struct dict_process {
 	struct io *io;
 };
 
-static struct dict_process *process;
+static struct dict_process *dict_process;
 
 static void dict_process_unlisten(struct dict_process *process);
 
@@ -83,6 +83,12 @@ static int dict_process_start(struct dict_process *process)
 
 	child_process_init_env();
 	env_put(t_strconcat("DICT_LISTEN_FROM_FD=", process->path, NULL));
+
+	if (settings_root->defaults->dict_db_config != NULL) {
+		env_put(t_strconcat("DB_CONFIG=",
+				    settings_root->defaults->dict_db_config,
+				    NULL));
+	}
 
 	dicts = array_get(&settings_root->dicts, &count);
 	i_assert((count % 2) == 0);
@@ -175,7 +181,9 @@ dict_process_destroyed(struct child_process *process,
 
 void dict_process_init(void)
 {
-	process = i_new(struct dict_process, 1);
+	struct dict_process *process;
+
+	process = dict_process = i_new(struct dict_process, 1);
 	process->process.type = PROCESS_TYPE_DICT;
 	process->fd = -1;
 	process->path = i_strconcat(settings_root->defaults->base_dir,
@@ -188,6 +196,8 @@ void dict_process_init(void)
 
 void dict_process_deinit(void)
 {
+	struct dict_process *process = dict_process;
+
 	dict_process_unlisten(process);
 	if (process->log != NULL)
 		log_unref(process->log);
@@ -197,6 +207,8 @@ void dict_process_deinit(void)
 
 void dict_process_kill(void)
 {
+	struct dict_process *process = dict_process;
+
 	if (process->log != NULL) {
 		log_unref(process->log);
 		process->log = NULL;

@@ -238,15 +238,19 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 				   FIXME: if From-line is longer than input
 				   buffer, we break. probably irrelevant.. */
 				i++;
-				from_after_pos = i;
-				from_start_pos = i - 6;
-				if (from_start_pos > 0 &&
-				    buf[from_start_pos-1] == '\r') {
-					/* CR also belongs to it. */
-					crlf_ending = TRUE;
-					from_start_pos--;
-				} else {
-					crlf_ending = FALSE;
+				if (rstream->hdr_offset + rstream->mail_size ==
+				    stream->istream.v_offset + i - 6 ||
+				    rstream->mail_size == (uoff_t)-1) {
+					from_after_pos = i;
+					from_start_pos = i - 6;
+					if (from_start_pos > 0 &&
+					    buf[from_start_pos-1] == '\r') {
+						/* CR also belongs to it. */
+						crlf_ending = TRUE;
+						from_start_pos--;
+					} else {
+						crlf_ending = FALSE;
+					}
 				}
 				fromp = mbox_from;
 			} else if (from_start_pos != (size_t)-1) {
@@ -288,6 +292,17 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		new_pos = i - (fromp - mbox_from);
 		if (new_pos > 0)
 			new_pos--;
+	}
+
+	if (stream->istream.v_offset -
+	    rstream->hdr_offset + new_pos > rstream->mail_size) {
+		/* istream_raw_mbox_set_next_offset() used invalid
+		   cached next_offset? */
+		i_error("Next message unexpectedly lost from %"PRIuUOFF_T,
+			rstream->hdr_offset + rstream->mail_size);
+		rstream->eof = TRUE;
+		rstream->corrupted = TRUE;
+		return -1;
 	}
 
 	stream->buffer = buf;
@@ -379,8 +394,7 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	char *sender;
 
 	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars */
-	if (i_stream_read_data(rstream->istream.parent, &data, &size, 30) == -1)
-		return -1;
+	(void)i_stream_read_data(rstream->istream.parent, &data, &size, 30);
 
 	if ((size == 1 && data[0] == '\n') ||
 	    (size == 2 && data[0] == '\r' && data[1] == '\n')) {
@@ -469,33 +483,41 @@ uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
 	return rstream->body_offset;
 }
 
-uoff_t istream_raw_mbox_get_body_size(struct istream *stream, uoff_t body_size)
+uoff_t istream_raw_mbox_get_body_size(struct istream *stream,
+				      uoff_t expected_body_size)
 {
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
 	const unsigned char *data;
 	size_t size;
-	uoff_t old_offset;
+	uoff_t old_offset, body_size;
 
 	i_assert(rstream->hdr_offset != (uoff_t)-1);
 	i_assert(rstream->body_offset != (uoff_t)-1);
 
-	if (rstream->mail_size != (uoff_t)-1) {
-		return rstream->mail_size -
-			(rstream->body_offset - rstream->hdr_offset);
-	}
-
+	body_size = rstream->mail_size == (uoff_t)-1 ? (uoff_t)-1 :
+		rstream->mail_size - (rstream->body_offset -
+				      rstream->hdr_offset);
 	old_offset = stream->v_offset;
-	if (body_size != (uoff_t)-1) {
+	if (expected_body_size != (uoff_t)-1) {
+		/* if we already have the existing body size, use it as long as
+		   it's >= expected body_size. otherwise the previous parsing
+		   may have stopped at a From_-line that belongs to the body. */
+		if (body_size != (uoff_t)-1 && body_size >= expected_body_size)
+			return body_size;
+
 		i_stream_seek(rstream->istream.parent,
-			      rstream->body_offset + body_size);
+			      rstream->body_offset + expected_body_size);
 		if (istream_raw_mbox_is_valid_from(rstream) > 0) {
-			rstream->mail_size = body_size +
+			rstream->mail_size = expected_body_size +
 				(rstream->body_offset - rstream->hdr_offset);
 			i_stream_seek(stream, old_offset);
-			return body_size;
+			return expected_body_size;
 		}
+		/* invalid expected_body_size */
 	}
+	if (body_size != (uoff_t)-1)
+		return body_size;
 
 	/* have to read through the message body */
 	while (i_stream_read_data(stream, &data, &size, 0) > 0)
@@ -535,12 +557,13 @@ bool istream_raw_mbox_has_crlf_ending(struct istream *stream)
 	return rstream->crlf_ending;
 }
 
-void istream_raw_mbox_next(struct istream *stream, uoff_t body_size)
+void istream_raw_mbox_next(struct istream *stream, uoff_t expected_body_size)
 {
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
+	uoff_t body_size;
 
-	body_size = istream_raw_mbox_get_body_size(stream, body_size);
+	body_size = istream_raw_mbox_get_body_size(stream, expected_body_size);
 	rstream->mail_size = (uoff_t)-1;
 
 	rstream->received_time = rstream->next_received_time;
@@ -604,6 +627,16 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 	if (check)
 		(void)i_stream_raw_mbox_read(&rstream->istream);
 	return rstream->corrupted ? -1 : 0;
+}
+
+void istream_raw_mbox_set_next_offset(struct istream *stream, uoff_t offset)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+
+	i_assert(rstream->hdr_offset != (uoff_t)-1);
+
+	rstream->mail_size = offset - rstream->hdr_offset;
 }
 
 bool istream_raw_mbox_is_eof(struct istream *stream)

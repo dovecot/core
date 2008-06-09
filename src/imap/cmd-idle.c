@@ -54,7 +54,7 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 
 	o_stream_uncork(client->output);
 	if (free_cmd)
-		client_command_free(ctx->cmd);
+		client_command_free(&ctx->cmd);
 }
 
 static void idle_client_input(struct cmd_idle_context *ctx)
@@ -102,12 +102,13 @@ static void keepalive_timeout(struct cmd_idle_context *ctx)
 		return;
 	}
 
-	/* Sending this keeps NATs/stateful firewalls alive, and it also
-	   updates client->last_output so we don't ever disconnect the
-	   client. Sending this output should kill dead connections and there
-	   are several clients that really want to IDLE forever (Outlook
-	   especially). */
+	/* Sending this keeps NATs/stateful firewalls alive. Sending this
+	   also catches dead connections. */
 	client_send_line(ctx->client, "* OK Still here");
+	/* Make sure idling connections don't get disconnected. There are
+	   several clients that really want to IDLE forever and there's not
+	   much harm in letting them do so. */
+	timeout_reset(ctx->client->to_idle);
 }
 
 static void idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)

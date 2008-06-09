@@ -143,7 +143,9 @@ static int search_arg_match_index(struct index_search_context *ctx,
 	case SEARCH_UIDSET:
 		return seq_range_exists(&arg->value.seqset, rec->uid);
 	case SEARCH_FLAGS:
-		flags = rec->flags;
+		/* recent flag shouldn't be set, but indexes from v1.0.x
+		   may contain it. */
+		flags = rec->flags & ~MAIL_RECENT;
 		if ((arg->value.flags & MAIL_RECENT) != 0 &&
 		    index_mailbox_is_recent(ctx->ibox, rec->uid))
 			flags |= MAIL_RECENT;

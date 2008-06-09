@@ -155,11 +155,11 @@ static void dbox_index_header_init(struct dbox_index *index,
 				   struct dbox_index_file_header *hdr)
 {
 	if (index->uid_validity == 0) {
-		const struct mail_index_header *hdr;
+		const struct mail_index_header *idx_hdr;
 
-		hdr = mail_index_get_header(index->mbox->ibox.view);
-		index->uid_validity = hdr->uid_validity != 0 ?
-			hdr->uid_validity : (uint32_t)ioloop_time;
+		idx_hdr = mail_index_get_header(index->mbox->ibox.view);
+		index->uid_validity = idx_hdr->uid_validity != 0 ?
+			idx_hdr->uid_validity : (uint32_t)ioloop_time;
 	}
 
 	memset(hdr, ' ', sizeof(*hdr));
@@ -346,6 +346,7 @@ dbox_index_lock_range(struct dbox_index *index, int cmd, int lock_type,
 		      off_t start, off_t len)
 {
 	struct flock fl;
+	const char *errstr;
 
 	fl.l_type = lock_type;
 	fl.l_whence = SEEK_SET;
@@ -355,9 +356,12 @@ dbox_index_lock_range(struct dbox_index *index, int cmd, int lock_type,
 		if ((errno == EACCES || errno == EAGAIN || errno == EINTR) &&
 		    cmd == F_SETLK)
 			return 0;
+
+		errstr = errno != EACCES ? strerror(errno) :
+			"File is locked by another process (EACCES)";
 		mail_storage_set_critical(index->mbox->ibox.box.storage,
-			"fcntl(%s, %s) failed: %m", index->path,
-			lock_type == F_UNLCK ? "F_UNLCK" : "F_WRLCK");
+			"fcntl(%s, %s) failed: %s", index->path,
+			lock_type == F_UNLCK ? "F_UNLCK" : "F_WRLCK", errstr);
 		return -1;
 	}
 	return 1;

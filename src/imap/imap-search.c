@@ -42,6 +42,11 @@ int imap_search_args_build(struct client_command_context *cmd,
 	struct mail_search_args *sargs;
 	const char *error;
 
+	if (args->type == IMAP_ARG_EOL) {
+		client_send_command_error(cmd, "Missing search parameters");
+		return -1;
+	}
+
 	if (mail_search_build_from_imap_args(args, charset,
 					     &sargs, &error) < 0) {
 		client_send_command_error(cmd, error);

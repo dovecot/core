@@ -343,19 +343,21 @@ static int mail_index_open_files(struct mail_index *index,
 			/* Create a new indexid for us. If we're opening index
 			   into memory, index->map doesn't exist yet. */
 			index->indexid = ioloop_time;
+			index->initial_create = TRUE;
 			if (index->map != NULL)
 				index->map->hdr.indexid = index->indexid;
 		}
 
-		ret = mail_transaction_log_create(index->log);
+		ret = mail_transaction_log_create(index->log, FALSE);
+		index->initial_create = FALSE;
 		created = TRUE;
 	}
 	if (ret >= 0) {
-		ret = index->map != NULL ? 0 : mail_index_try_open(index);
+		ret = index->map != NULL ? 1 : mail_index_try_open(index);
 		if (ret == 0) {
-			/* doesn't exist / corrupted */
+			/* corrupted */
 			mail_transaction_log_close(index->log);
-			ret = mail_transaction_log_create(index->log);
+			ret = mail_transaction_log_create(index->log, TRUE);
 			if (ret == 0) {
 				if (index->map != NULL)
 					mail_index_unmap(&index->map);

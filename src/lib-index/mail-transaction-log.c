@@ -99,7 +99,7 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 	return 1;
 }
 
-int mail_transaction_log_create(struct mail_transaction_log *log)
+int mail_transaction_log_create(struct mail_transaction_log *log, bool reset)
 {
 	struct mail_transaction_log_file *file;
 	const char *path;
@@ -125,7 +125,7 @@ int mail_transaction_log_create(struct mail_transaction_log *log)
 		mail_transaction_log_file_free(&log->open_file);
 	}
 
-	if (mail_transaction_log_file_create(file, FALSE) < 0) {
+	if (mail_transaction_log_file_create(file, reset) < 0) {
 		mail_transaction_log_file_free(&file);
 		return -1;
 	}
@@ -187,7 +187,7 @@ void mail_transaction_log_indexid_changed(struct mail_transaction_log *log)
 	    log->head->hdr.indexid != log->index->indexid) {
 		if (--log->head->refcount == 0)
 			mail_transaction_log_file_free(&log->head);
-		(void)mail_transaction_log_create(log);
+		(void)mail_transaction_log_create(log, FALSE);
 	}
 }
 
@@ -291,7 +291,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 		   someone deleted it manually while the index was open. try to
 		   handle this nicely by creating a new log file. */
 		file = log->head;
-		if (mail_transaction_log_create(log) < 0)
+		if (mail_transaction_log_create(log, FALSE) < 0)
 			return -1;
 		i_assert(file->refcount > 0);
 		file->refcount--;

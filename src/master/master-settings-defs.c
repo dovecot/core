@@ -124,5 +124,8 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(pop3_client_workarounds),
 	DEF_STR(pop3_logout_format),
 
+	/* dict */
+	DEF_STR(dict_db_config),
+
 	{ 0, NULL, 0 }
 };

@@ -211,9 +211,7 @@ static int cmd_logout(struct imap_client *client)
 		client_destroy(client, "Aborted login "
 			"(tried to use disabled plaintext authentication)");
 	} else {
-		client_destroy(client, t_strdup_printf(
-			"Aborted login (%u authentication attempts)",
-			client->common.auth_attempts));
+		client_destroy(client, "Aborted login");
 	}
 	return 1;
 }
@@ -284,8 +282,8 @@ static bool client_handle_input(struct imap_client *client)
 		if (fatal) {
 			client_send_line(client, t_strconcat("* BYE ",
 							     msg, NULL));
-			client_destroy(client, t_strconcat("Disconnected: ",
-							   msg, NULL));
+			client_destroy(client,
+				t_strconcat("Disconnected: ", msg, NULL));
 			return FALSE;
 		}
 
@@ -311,8 +309,8 @@ static bool client_handle_input(struct imap_client *client)
 		if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
 			client_send_line(client,
 				"* BYE Too many invalid IMAP commands.");
-			client_destroy(client, "Disconnected: "
-				       "Too many invalid commands");
+			client_destroy(client,
+				"Disconnected: Too many invalid commands");
 			return FALSE;
 		}  
 		client_send_tagline(client,
@@ -486,6 +484,10 @@ void client_destroy(struct imap_client *client, const char *reason)
 		return;
 	client->destroyed = TRUE;
 
+	if (!client->login_success && reason != NULL) {
+		reason = t_strdup_printf("%s (auth failed, %u attempts)",
+					 reason, client->common.auth_attempts);
+	}
 	if (reason != NULL)
 		client_syslog(&client->common, reason);
 
@@ -541,6 +543,12 @@ void client_destroy(struct imap_client *client, const char *reason)
 
 	main_listen_start();
 	main_unref();
+}
+
+void client_destroy_success(struct imap_client *client, const char *reason)
+{
+	client->login_success = TRUE;
+	client_destroy(client, reason);
 }
 
 void client_destroy_internal_failure(struct imap_client *client)

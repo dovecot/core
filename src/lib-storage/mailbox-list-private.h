@@ -41,6 +41,7 @@ struct mailbox_list_vfuncs {
 	   flags may be updated (especially the children flags). */
 	int (*iter_is_mailbox)(struct mailbox_list_iterate_context *ctx,
 			       const char *dir, const char *fname,
+			       const char *mailbox_name,
 			       enum mailbox_list_file_type type,
 			       enum mailbox_info_flags *flags_r);
 
@@ -93,6 +94,17 @@ struct mailbox_list_iterate_context {
 	bool failed;
 };
 
+struct mailbox_list_iter_update_context {
+	struct mailbox_list_iterate_context *iter_ctx;
+	struct mailbox_tree_context *tree_ctx;
+			      
+	struct imap_match_glob *glob;
+	enum mailbox_info_flags leaf_flags, parent_flags;
+
+	unsigned int update_only:1;
+	unsigned int match_parents:1;
+};
+
 /* Modules should use do "my_id = mailbox_list_module_id++" and
    use objects' module_contexts[id] for their own purposes. */
 extern struct mailbox_list_module_register mailbox_list_module_register;
@@ -110,10 +122,8 @@ int mailbox_list_settings_parse(const char *data,
 int mailbox_list_delete_index_control(struct mailbox_list *list,
 				      const char *name);
 
-void mailbox_list_iter_update(struct mailbox_list_iterate_context *ctx,
-			      struct mailbox_tree_context *tree_ctx,
-			      struct imap_match_glob *glob, bool update_only,
-			      bool match_parents, const char *name);
+void mailbox_list_iter_update(struct mailbox_list_iter_update_context *ctx,
+			      const char *name);
 
 bool mailbox_list_name_is_too_large(const char *name, char sep);
 enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);

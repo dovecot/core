@@ -204,6 +204,9 @@ static void expire_run(bool testrun)
 	ctx.namespace_pool = pool_alloconly_create("namespaces", 1024);
 	env = expire_env_init(getenv("EXPIRE"), getenv("EXPIRE_ALTMOVE"));
 	dict = dict_init(getenv("EXPIRE_DICT"), DICT_DATA_TYPE_UINT32, "");
+	if (dict == NULL)
+		i_fatal("dict_init() failed");
+
 	trans = dict_transaction_begin(dict);
 	iter = dict_iterate_init(dict, DICT_PATH_SHARED,
 				 DICT_ITERATE_FLAG_SORT_BY_VALUE);

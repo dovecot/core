@@ -1,3 +1,84 @@
+v1.1.rc8 2008-06-03  Timo Sirainen <tss@iki.fi>
+
+	+ deliver: Added -p parameter to provide path to delivered mail.
+	  This allows maildir to save identical mails to multiple recipients
+	  using hard links.
+	- rc6/rc7 broke POP3 with non-Maildir formats
+	- mbox: Saving a message without a body or the end-of-headers line
+	  could have caused an assert-crash later.
+	- Several dbox fixes
+
+v1.1.rc7 2008-05-30  Timo Sirainen <tss@iki.fi>
+
+	- Fixed compiling problems with non-Linux OSes
+
+v1.1.rc6 2008-05-30  Timo Sirainen <tss@iki.fi>
+
+	* Index file format changed a bit. If an older Dovecot v1.1 reads
+	  index files updated by rc6+, they may give "Invalid header record
+	  size" or "ext reset: invalid record size" warnings. v1.0 won't give
+	  these errors.
+	* IMAP: LIST .. RETURN (X-STATUS) command return now LIST entries
+	  before STATUS entries.
+	* zlib plugin: Uncompress if the message begins with zlib header
+	  instead of looking at the 'Z' flag. This fixes copying with hard
+	  links. Based on a patch by Richard Platel.
+
+	+ IMAP: SORT index handling code was half-rewritten to fix several bugs
+	  when multiple sessions were sorting at the same time. The new code is
+	  hopefully also faster.
+	+ Maildir: If POP3 UIDL extra field is found from dovecot-uidlist,
+	  it's used instead of the default UIDL format (or X-UIDL: header).
+	  This allows easily preserving UIDLs when migrating from other POP3
+	  servers. Patch by Nicholas Von Hollen @ Mailtrust.
+	+ Maildir: ,W=<vsize> is now always added to maildir filenames
+	+ deliver: Avoid reading dovecot-uidlist's contents if possible.
+	+ Added %T modifier = Trim whitespace from end of string
+	- IMAP: Fixed some bugs in LIST-EXTENDED implementation.
+	- IMAP: If client tries to change the selected mailbox state while
+	  another command is still running, wait until the command is finished.
+	  This fixes some crashes and other unwanted behavior.
+	- allow_nets userdb setting was broken with big endian CPUs
+
+v1.1.rc5 2008-05-05  Timo Sirainen <tss@iki.fi>
+
+	+ Support cross-realm Kerberos 5 authentication. Based on patch by
+	  Zachary Kotlarek.
+	+ Added dict_db_config setting to point to a Berkeley DB config file.
+	+ If mail_chroot ends with "/.", remove chroot prefix from home
+	  directory.
+	- Fixed several bugs and memory leaks in ACL plugin. LIST and LSUB
+	  may have listed mailboxes where user had no 'l' access. STORE could
+	  have been used to update any flags without appropriate access.
+	- mbox: Valid-looking From_-lines in message bodies caused the message
+	  to be split to two messages (broken since v1.0).
+	- Plugin initialization hooks were called in wrong order, possibly
+	  causing problems when multiple plugins were used at the same time.
+	- Expire plugin was broken
+	- LIST-EXTENDED options were ignored.
+	- LDAP: Static attribute names weren't working correctly
+	- deliver: mail_uid and mail_gid settings weren't used.
+	- pop3 + maildir++ quota: maildirsize file wasn't created if it 
+	  didn't exist already.
+	- dnotify: Waiting for dotlock to be deleted used 100% CPU
+
+v1.1.rc4 2008-04-01  Timo Sirainen <tss@iki.fi>
+
+	* Fixed two buffer overflows in str_find_init(). It was used by
+	  SEARCH code when searching for headers or message body. Added code
+	  to catch these kind of overflows when compiling with --enable-debug.
+	  Found by Diego Liziero.
+
+	+ LDAP: Added debug_level and ldaprc_path settings (OpenLDAP-only)
+	+ Squat: Added fts_squat = partial=n full=m settings. See the wiki.
+	- dbox metadata updating fixes.
+	- quota: backend=n didn't work
+	- SEARCH RECENT may have returned non-recent messages if index files
+	  were created by v1.0.
+	- If mailbox was opened as read-only with EXAMINE, STOREs were
+	  permanently saved.
+	- LDAP: Templates were somewhat broken (by richs at whidbey.net)
+
 v1.1.rc3 2008-03-09  Timo Sirainen <tss@iki.fi>
 
 	* Fixed a security hole in blocking passdbs (MySQL always. PAM, passwd

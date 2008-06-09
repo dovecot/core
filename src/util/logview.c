@@ -171,6 +171,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		const struct mail_transaction_ext_reset *reset = data;
 
 		printf(" - new_reset_id = %u\n", reset->new_reset_id);
+		printf(" - preserve_data = %u\n", reset->preserve_data);
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_HDR_UPDATE: {

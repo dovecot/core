@@ -170,7 +170,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		}
 
 		client_send_line(client, "+OK Logged in.");
-		client_destroy(client, "Login");
+		client_destroy_success(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 	case SASL_SERVER_REPLY_CLIENT_ERROR:
@@ -197,7 +197,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		else {
 			client_send_line(client,
 				t_strconcat("-ERR [IN-USE] ", data, NULL));
-			client_destroy(client, data);
+			client_destroy_success(client, data);
 		}
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:

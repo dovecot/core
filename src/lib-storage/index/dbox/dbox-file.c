@@ -600,7 +600,10 @@ static int dbox_file_read_mail_header(struct dbox_file *file, uint32_t *uid_r,
 		return 0;
 	}
 
-	*uid_r = hex2dec(hdr.uid_hex, sizeof(hdr.uid_hex));
+	/* Ignore the UID header with UID files */
+	*uid_r = (file->file_id & DBOX_FILE_ID_FLAG_UID) != 0 ?
+		(file->file_id & ~DBOX_FILE_ID_FLAG_UID) :
+		hex2dec(hdr.uid_hex, sizeof(hdr.uid_hex));
 	*physical_size_r = hex2dec(hdr.message_size_hex,
 				   sizeof(hdr.message_size_hex));
 	return 1;
@@ -623,7 +626,7 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 	if (offset == 0)
 		offset = file->file_header_size;
 
-	if (offset != file->cur_offset) {
+	if (offset != file->cur_offset || file->cur_uid == 0) {
 		file->cur_offset = offset;
 		i_stream_seek(file->input, offset);
 		ret = dbox_file_read_mail_header(file, &file->cur_uid,
@@ -757,8 +760,13 @@ int dbox_file_get_append_stream(struct dbox_file *file, uoff_t mail_size,
 {
 	int ret;
 
-	if (file->nonappendable)
-		return 0;
+	if (file->append_count == 0) {
+		if (file->nonappendable)
+			return 0;
+	} else {
+		if (!dbox_file_can_append(file, mail_size))
+			return 0;
+	}
 
 	ret = dbox_file_get_append_stream_int(file, mail_size, stream_r);
 	if (ret == 0)
@@ -940,7 +948,7 @@ void dbox_file_metadata_set(struct dbox_file *file, enum dbox_metadata_key key,
 	const char **changes, *data;
 	unsigned int i, count;
 
-	data = dbox_file_metadata_get(file, key);
+	data = file->maildir_file ? NULL : dbox_file_metadata_get(file, key);
 	if (data != NULL && strcmp(data, value) == 0) {
 		/* value didn't change */
 		return;

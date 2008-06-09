@@ -46,9 +46,12 @@ static int proxy_input_line(struct imap_client *client,
 		return 0;
 	} else if (strncmp(line, "P OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
-		(void)o_stream_send_str(client->output, client->cmd_tag);
-		(void)o_stream_send_str(client->output, line + 1);
-		(void)o_stream_send(client->output, "\r\n", 2);
+		str = t_str_new(128);
+		str_append(str, client->cmd_tag);
+		str_append(str, line + 1);
+		str_append(str, "\r\n");
+		(void)o_stream_send(client->output,
+				    str_data(str), str_len(str));
 
 		msg = t_strdup_printf("proxy(%s): started proxying to %s:%u",
 				      client->common.virtual_user,
@@ -63,7 +66,7 @@ static int proxy_input_line(struct imap_client *client,
 		client->input = NULL;
 		client->output = NULL;
 		client->common.fd = -1;
-		client_destroy(client, msg);
+		client_destroy_success(client, msg);
 		return -1;
 	} else if (strncmp(line, "P ", 2) == 0) {
 		/* If the backend server isn't Dovecot, the error message may
@@ -117,7 +120,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 
 		/* failed for some reason, probably server disconnected */
 		client_send_line(client, "* BYE Temporary login failure.");
-		client_destroy(client, NULL);
+		client_destroy_success(client, NULL);
 		return;
 	}
 
@@ -132,7 +135,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		return;
 	case -1:
 		/* disconnected */
-		client_destroy(client, "Proxy: Remote disconnected");
+		client_destroy_success(client, "Proxy: Remote disconnected");
 		return;
 	}
 

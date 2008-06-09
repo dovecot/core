@@ -542,7 +542,6 @@ int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags,
 		 struct mailbox_status *status_r)
 {
 	struct mailbox_sync_context *ctx;
-        struct mailbox_sync_rec sync_rec;
 
 	if (array_count(&box->search_results) == 0) {
 		/* we don't care about mailbox's current state, so we might
@@ -551,8 +550,6 @@ int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags,
 	}
 
 	ctx = mailbox_sync_init(box, flags);
-	while (mailbox_sync_next(ctx, &sync_rec))
-		;
 	return mailbox_sync_deinit(&ctx, status_items, status_r);
 }
 
@@ -703,9 +700,12 @@ mailbox_transaction_begin(struct mailbox *box,
 
 int mailbox_transaction_commit(struct mailbox_transaction_context **t)
 {
-	uint32_t tmp;
+	uint32_t uidvalidity, uid1, uid2;
 
-	return mailbox_transaction_commit_get_uids(t, &tmp, &tmp, &tmp);
+	/* Store the return values to separate temporary variables so that
+	   plugins overriding transaction_commit() can look at them. */
+	return mailbox_transaction_commit_get_uids(t, &uidvalidity,
+						   &uid1, &uid2);
 }
 
 int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **_t,

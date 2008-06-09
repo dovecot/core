@@ -66,17 +66,36 @@ struct client *client_create(int fd_in, int fd_out,
 	return client;
 }
 
-void client_command_cancel(struct client_command_context *cmd)
+void client_command_cancel(struct client_command_context **_cmd)
 {
+	struct client_command_context *cmd = *_cmd;
 	bool cmd_ret;
 
-	cmd->cancel = TRUE;
-	cmd_ret = cmd->func == NULL ? TRUE : cmd->func(cmd);
+	switch (cmd->state) {
+	case CLIENT_COMMAND_STATE_WAIT_INPUT:
+		/* a bit kludgy check: cancel command only if it has context
+		   set. currently only append command matches this check. all
+		   other commands haven't even started the processing yet. */
+		if (cmd->context == NULL)
+			break;
+		/* fall through */
+	case CLIENT_COMMAND_STATE_WAIT_OUTPUT:
+		cmd->cancel = TRUE;
+		break;
+	case CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY:
+	case CLIENT_COMMAND_STATE_WAIT_SYNC:
+		/* commands haven't started yet */
+		break;
+	case CLIENT_COMMAND_STATE_DONE:
+		i_unreached();
+	}
+
+	cmd_ret = !cmd->cancel || cmd->func == NULL ? TRUE : cmd->func(cmd);
 	if (!cmd_ret && cmd->state != CLIENT_COMMAND_STATE_DONE) {
 		if (cmd->client->output->closed)
 			i_panic("command didn't cancel itself: %s", cmd->name);
 	} else {
-		client_command_free(cmd);
+		client_command_free(_cmd);
 	}
 }
 
@@ -112,6 +131,7 @@ static const char *client_get_disconnect_reason(struct client *client)
 
 void client_destroy(struct client *client, const char *reason)
 {
+	struct client_command_context *cmd;
 	i_assert(!client->destroyed);
 	client->destroyed = TRUE;
 
@@ -127,11 +147,17 @@ void client_destroy(struct client *client, const char *reason)
 
 	/* finish off all the queued commands. */
 	if (client->output_lock != NULL)
-		client_command_cancel(client->output_lock);
+		client_command_cancel(&client->output_lock);
+	while (client->command_queue != NULL) {
+		cmd = client->command_queue;
+		client_command_cancel(&cmd);
+	}
+	/* handle the input_lock command last. it might have been waiting on
+	   other queued commands (although we probably should just drop the
+	   command at that point since it hasn't started running. but this may
+	   change in future). */
 	if (client->input_lock != NULL)
-		client_command_cancel(client->input_lock);
-	while (client->command_queue != NULL)
-		client_command_cancel(client->command_queue);
+		client_command_cancel(&client->input_lock);
 
 	if (client->mailbox != NULL) {
 		client_search_updates_free(client);
@@ -354,7 +380,12 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 	enum command_flags flags;
 	bool broken_client = FALSE;
 
-	if ((cmd->cmd_flags & COMMAND_FLAG_USES_SEQS) != 0) {
+	if ((cmd->cmd_flags & COMMAND_FLAG_BREAKS_MAILBOX) ==
+	    COMMAND_FLAG_BREAKS_MAILBOX) {
+		/* there must be no other command running that uses the
+		   selected mailbox */
+		flags = COMMAND_FLAG_USES_MAILBOX;
+	} else if ((cmd->cmd_flags & COMMAND_FLAG_USES_SEQS) != 0) {
 		/* no existing command must be breaking sequences */
 		flags = COMMAND_FLAG_BREAKS_SEQS;
 		broken_client = TRUE;
@@ -409,9 +440,12 @@ client_command_new(struct client *client)
 	return cmd;
 }
 
-void client_command_free(struct client_command_context *cmd)
+void client_command_free(struct client_command_context **_cmd)
 {
+	struct client_command_context *cmd = *_cmd;
 	struct client *client = cmd->client;
+
+	*_cmd = NULL;
 
 	/* reset input idle time because command output might have taken a
 	   long time and we don't want to disconnect client immediately then */
@@ -556,7 +590,7 @@ static bool client_command_input(struct client_command_context *cmd)
 		/* command is being executed - continue it */
 		if (cmd->func(cmd) || cmd->state == CLIENT_COMMAND_STATE_DONE) {
 			/* command execution was finished */
-			client_command_free(cmd);
+			client_command_free(&cmd);
 			client_add_missing_io(client);
 			return TRUE;
 		}
@@ -598,7 +632,7 @@ static bool client_command_input(struct client_command_context *cmd)
 		/* unknown command */
 		client_send_command_error(cmd, "Unknown command.");
 		cmd->param_error = TRUE;
-		client_command_free(cmd);
+		client_command_free(&cmd);
 		return TRUE;
 	} else {
 		i_assert(!client->disconnected);
@@ -709,7 +743,7 @@ void client_input(struct client *client)
 			client_command_new(client);
 		cmd->param_error = TRUE;
 		client_send_command_error(cmd, "Too long argument.");
-		client_command_free(cmd);
+		client_command_free(&cmd);
 	}
 	o_stream_uncork(output);
 	o_stream_unref(&output);
@@ -726,7 +760,7 @@ static void client_output_cmd(struct client_command_context *cmd)
 		(void)client_handle_unfinished_cmd(cmd);
 	else {
 		/* command execution was finished */
-		client_command_free(cmd);
+		client_command_free(&cmd);
 	}
 }
 

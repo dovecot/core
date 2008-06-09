@@ -178,7 +178,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 	pw->stamp = st.st_mtime;
 	pw->size = st.st_size;
 
-	pw->pool = pool_alloconly_create("passwd_file", 10240);;
+	pw->pool = pool_alloconly_create(MEMPOOL_GROWING"passwd_file", 10240);
 	pw->users = hash_create(default_pool, pw->pool, 100,
 				str_hash, (hash_cmp_callback_t *)strcmp);
 
@@ -385,15 +385,12 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 	struct passwd_file *pw;
 	struct passwd_user *pu;
 	const struct var_expand_table *table;
-	string_t *username;
+	string_t *username, *dest;
 	const char *path;
 
 	if (!db->vars)
 		pw = db->default_file;
 	else {
-		const struct var_expand_table *table;
-		string_t *dest;
-
 		table = auth_request_get_var_expand_table(request, path_fix);
 		dest = t_str_new(256);
 		var_expand(dest, db->path, table);

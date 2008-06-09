@@ -118,7 +118,9 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		if (errno != ENOENT)
+		/* ESTALE could happen with NFS. Don't bother giving an error
+		   message then. */
+		if (errno != ENOENT && errno != ESTALE)
 			i_error("open(%s) for kq notify failed: %m", path);
 		return IO_NOTIFY_NOTFOUND;
 	}
@@ -140,7 +142,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 		i_error("kevent(%d, %s) for notify failed: %m", fd, path);
 		(void)close(fd);
 		i_free(io);
-		return IO_NOTIFY_DISABLED;
+		return IO_NOTIFY_NOSUPPORT;
 	}
 
 	if (ctx->event_io == NULL) {

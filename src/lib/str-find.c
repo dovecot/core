@@ -1,5 +1,7 @@
 /* Copyright (c) 2007-2008 Dovecot authors, see the included COPYING file */
 
+/* @UNSAFE: whole file */
+
 #include "lib.h"
 #include "str-find.h"
 
@@ -53,7 +55,7 @@ static void init_goodtab(struct str_find_context *ctx)
 	unsigned int j, *suffixes;
 	int i;
 
-	suffixes = t_buffer_get(ctx->key_len);
+	suffixes = t_buffer_get(sizeof(*suffixes) * ctx->key_len);
 	init_suffixes(ctx, suffixes);
 
 	for (i = 0; i < (int)ctx->key_len; i++)
@@ -71,7 +73,7 @@ static void init_goodtab(struct str_find_context *ctx)
 	for (i = 0; i <= (int)ctx->key_len - 2; i++)
 		ctx->goodtab[len_1 - suffixes[i]] = len_1 - i;
 }
- 
+
 struct str_find_context *str_find_init(pool_t pool, const char *key)
 {
 	struct str_find_context *ctx;
@@ -80,7 +82,7 @@ struct str_find_context *str_find_init(pool_t pool, const char *key)
 	ctx = p_malloc(pool, sizeof(struct str_find_context) +
 		       sizeof(ctx->goodtab[0]) * key_len);
 	ctx->pool = pool;
-	ctx->matches = p_malloc(pool, key_len);
+	ctx->matches = p_new(pool, unsigned int, key_len);
 	ctx->key_len = key_len;
 	ctx->key = p_malloc(pool, key_len);
 	memcpy(ctx->key, key, key_len);

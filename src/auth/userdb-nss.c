@@ -130,13 +130,13 @@ userdb_nss_preinit(struct auth_userdb *auth_userdb, const char *args)
 static void userdb_nss_deinit(struct userdb_module *_module)
 {
 	struct nss_userdb_module *module = (struct nss_userdb_module *)_module;
-	void (*endpwent)(void);
+	void (*mod_endpwent)(void);
+	const char *symbol;
 
-	endpwent = module_get_symbol(&module->nss_module,
-				     t_strdup_printf("_nss_%s_endpwent",
-						     module->nss_module.name));
-	if (endpwent != NULL)
-		endpwent();
+	symbol = t_strdup_printf("_nss_%s_endpwent", module->nss_module.name);
+	mod_endpwent = module_get_symbol(&module->nss_module, symbol);
+	if (mod_endpwent != NULL)
+		mod_endpwent();
 }
 
 struct userdb_module_interface userdb_nss = {

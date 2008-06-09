@@ -51,7 +51,7 @@ static void client_input_append(struct client_command_context *cmd)
 		cmd_append_finish(cmd->context);
 		/* Reset command so that client_destroy() doesn't try to call
 		   cmd_append_continue_message() anymore. */
-		client_command_free(cmd);
+		client_command_free(&cmd);
 		client_destroy(client, "Disconnected in APPEND");
 		return;
 	case -2:
@@ -69,7 +69,7 @@ static void client_input_append(struct client_command_context *cmd)
 
 		client_send_command_error(cmd, "Too long argument.");
 		cmd->param_error = TRUE;
-		client_command_free(cmd);
+		client_command_free(&cmd);
 		return;
 	}
 
@@ -79,7 +79,7 @@ static void client_input_append(struct client_command_context *cmd)
 	if (!finished && cmd->state != CLIENT_COMMAND_STATE_DONE)
 		(void)client_handle_unfinished_cmd(cmd);
 	else
-		client_command_free(cmd);
+		client_command_free(&cmd);
 	(void)cmd_sync_delayed(client);
 	client_continue_pending_input(&client);
 }

@@ -106,14 +106,23 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 {
 	struct maildir_mailbox *dest_mbox =
 		(struct maildir_mailbox *)t->ictx.ibox;
-	struct maildir_mailbox *src_mbox =
-		(struct maildir_mailbox *)mail->box;
+	struct maildir_mailbox *src_mbox;
 	struct maildir_save_context *ctx;
 	struct hardlink_ctx do_ctx;
-	const char *filename = NULL;
+	const char *path, *filename = NULL;
 	uint32_t seq;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+
+	if (strcmp(mail->box->storage->name, MAILDIR_STORAGE_NAME) == 0)
+		src_mbox = (struct maildir_mailbox *)mail->box;
+	else if (strcmp(mail->box->storage->name, "raw") == 0) {
+		/* deliver uses raw format */
+		src_mbox = NULL;
+	} else {
+		/* Can't hard link files from the source storage */
+		return 0;
+	}
 
 	if (t->save_ctx == NULL)
 		t->save_ctx = maildir_save_transaction_init(t);
@@ -127,7 +136,7 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path = str_new(default_pool, 512);
 
-	if (dest_mbox->storage->copy_preserve_filename) {
+	if (dest_mbox->storage->copy_preserve_filename && src_mbox != NULL) {
 		enum maildir_uidlist_rec_flag src_flags;
 		const char *src_fname;
 
@@ -175,15 +184,26 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		}
 	} else
 #endif
-{
+	{
 		/* keywords, hardlink to tmp/ with basename and later when we
 		   have uidlist locked, move it to new/cur. */
 		str_printfa(do_ctx.dest_path, "%s/tmp/%s",
 			    dest_mbox->path, do_ctx.dest_fname);
 		do_ctx.base_end_pos = str_len(do_ctx.dest_path);
 	}
-	if (maildir_file_do(src_mbox, mail->uid, do_hardlink, &do_ctx) < 0)
-		return -1;
+	if (src_mbox != NULL) {
+		/* maildir */
+		if (maildir_file_do(src_mbox, mail->uid,
+				    do_hardlink, &do_ctx) < 0)
+			return -1;
+	} else {
+		/* raw / deliver */
+		if (mail_get_special(mail, MAIL_FETCH_UIDL_FILE_NAME,
+				     &path) < 0 || *path == '\0')
+			return 0;
+		if (do_hardlink(dest_mbox, path, &do_ctx) < 0)
+			return -1;
+	}
 
 	if (!do_ctx.success) {
 		/* couldn't copy with hardlinking, fallback to copying */
@@ -223,7 +243,6 @@ int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
 	int ret;
 
 	if (mbox->storage->copy_with_hardlinks &&
-	    mail->box->storage == mbox->ibox.box.storage &&
 	    maildir_compatible_file_modes(&mbox->ibox.box, mail->box)) {
 		T_BEGIN {
 			ret = maildir_copy_hardlink(t, mail, flags,

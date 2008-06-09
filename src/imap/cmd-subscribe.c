@@ -28,8 +28,6 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
 	struct mail_namespace *ns;
-        struct mail_storage *storage;
-	struct mailbox_list *list;
 	const char *mailbox, *verify_name;
 
 	/* <mailbox> */
@@ -43,11 +41,10 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		client_send_tagline(cmd, "NO Unknown namespace.");
 		return TRUE;
 	}
-	storage = ns->storage;
 
 	if ((client_workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
 	    *mailbox != '\0' && mailbox[strlen(mailbox)-1] ==
-	    mail_storage_get_hierarchy_sep(storage)) {
+	    mail_storage_get_hierarchy_sep(ns->storage)) {
 		/* verify the validity without the trailing '/' */
 		verify_name = t_strndup(verify_name, strlen(verify_name)-1);
 	}
@@ -61,9 +58,8 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 			return TRUE;
 	}
 
-	list = mail_storage_get_list(storage);
-	if (mailbox_list_set_subscribed(list, mailbox, subscribe) < 0)
-		client_send_storage_error(cmd, storage);
+	if (mailbox_list_set_subscribed(ns->list, mailbox, subscribe) < 0)
+		client_send_list_error(cmd, ns->list);
 	else {
 		client_send_tagline(cmd, subscribe ?
 				    "OK Subscribe completed." :

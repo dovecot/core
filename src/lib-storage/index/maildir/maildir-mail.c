@@ -6,6 +6,7 @@
 #include "maildir-storage.h"
 #include "maildir-filename.h"
 #include "maildir-uidlist.h"
+#include "maildir-sync.h"
 
 #include <stdlib.h>
 #include <fcntl.h>
@@ -143,13 +144,32 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 		       const char **fname_r)
 {
 	enum maildir_uidlist_rec_flag flags;
+	struct mail_index_view *view;
+	uint32_t seq;
+	bool exists;
 
 	*fname_r = maildir_uidlist_lookup(mbox->uidlist, mail->uid, &flags);
-	if (*fname_r == NULL) {
-		mail_set_expunged(mail);
-		return FALSE;
+	if (*fname_r != NULL)
+		return TRUE;
+
+	/* file exists in index file, but not in dovecot-uidlist anymore. */
+	mail_set_expunged(mail);
+
+	/* one reason this could happen is if we delayed opening
+	   dovecot-uidlist and we're trying to open a mail that got recently
+	   expunged. Let's test this theory first: */
+	(void)mail_index_refresh(mbox->ibox.index);
+	view = mail_index_view_open(mbox->ibox.index);
+	exists = mail_index_lookup_seq(view, mail->uid, &seq);
+	mail_index_view_close(&view);
+
+	if (exists) {
+		/* the message still exists in index. this means there's some
+		   kind of a desync, which doesn't get fixed if cur/ mtime is
+		   the same as in index. fix this by forcing a resync. */
+		(void)maildir_storage_sync_force(mbox, mail->uid);
 	}
-	return TRUE;
+	return FALSE;
 }
 
 static int maildir_get_pop3_state(struct index_mail *mail)
@@ -274,14 +294,16 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 		   do some extra checks here to catch potential cache bugs. */
 		if (vsize && mail->data.virtual_size != size) {
 			mail_cache_set_corrupted(mail->ibox->cache,
-				"Corrupted virtual size: "
+				"Corrupted virtual size for uid=%u: "
 				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
+				mail->mail.mail.uid,
 				mail->data.virtual_size, size);
 			mail->data.virtual_size = size;
 		} else if (!vsize && mail->data.physical_size != size) {
 			mail_cache_set_corrupted(mail->ibox->cache,
-				"Corrupted physical size: "
+				"Corrupted physical size for uid=%u: "
 				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
+				mail->mail.mail.uid,
 				mail->data.physical_size, size);
 			mail->data.physical_size = size;
 		}
@@ -390,7 +412,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
-	const char *path, *fname, *end;
+	const char *path, *fname, *end, *uidl;
 
 	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
 		if (_mail->uid != 0) {
@@ -404,6 +426,11 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		}
 		end = strchr(fname, MAILDIR_INFO_SEP);
 		*value_r = end == NULL ? fname : t_strdup_until(fname, end);
+		return 0;
+	} else if (field == MAIL_FETCH_UIDL_BACKEND) {
+		uidl = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
+					MAILDIR_UIDLIST_REC_EXT_POP3_UIDL);
+		*value_r = uidl != NULL ? uidl : "";
 		return 0;
 	}
 
@@ -432,6 +459,34 @@ static int maildir_mail_get_stream(struct mail *_mail,
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
+static void maildir_mail_set_cache_corrupted(struct mail *_mail,
+					     enum mail_fetch_field field)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
+	enum maildir_uidlist_rec_flag flags;
+	const char *fname;
+	uoff_t size;
+
+	if (field == MAIL_FETCH_VIRTUAL_SIZE) {
+		/* make sure it gets removed from uidlist.
+		   if it's in file name, we can't really do more than log it. */
+		fname = maildir_uidlist_lookup(mbox->uidlist,
+					       _mail->uid, &flags);
+		if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
+					      &size)) {
+			i_error("Maildir filename has wrong W value: %s/%s",
+				mbox->path, fname);
+		} else if (maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
+				MAILDIR_UIDLIST_REC_EXT_VSIZE) != NULL) {
+			maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
+						MAILDIR_UIDLIST_REC_EXT_VSIZE,
+						NULL);
+		}
+	}
+	index_mail_set_cache_corrupted(_mail, field);
+}
+
 struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_close,
 	index_mail_free,
@@ -456,6 +511,6 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_expunge,
-	index_mail_set_cache_corrupted,
+	maildir_mail_set_cache_corrupted,
 	index_mail_get_index_mail
 };

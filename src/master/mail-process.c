@@ -519,7 +519,7 @@ static void nfs_warn_if_found(const char *mail, const char *full_home_dir)
 
 enum master_login_status
 create_mail_process(enum process_type process_type, struct settings *set,
-		    int socket, const struct ip_addr *local_ip,
+		    int socket_fd, const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip,
 		    const char *user, const char *const *args,
 		    bool dump_capability)
@@ -535,8 +535,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	uid_t uid;
 	gid_t gid;
 	ARRAY_DEFINE(extra_args, const char *);
-	unsigned int i, count, left, process_count, throttle;
-	int ret, log_fd, nice, chdir_errno;
+	unsigned int i, len, count, left, process_count, throttle;
+	int ret, log_fd, nice_value, chdir_errno;
 	bool home_given, nfs_check;
 
 	i_assert(process_type == PROCESS_TYPE_IMAP ||
@@ -558,7 +558,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	t_array_init(&extra_args, 16);
 	mail = home_dir = chroot_dir = system_user = "";
-	uid = (uid_t)-1; gid = (gid_t)-1; nice = 0;
+	uid = (uid_t)-1; gid = (gid_t)-1; nice_value = 0;
 	home_given = FALSE;
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "home=", 5) == 0) {
@@ -569,7 +569,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		else if (strncmp(*args, "chroot=", 7) == 0)
 			chroot_dir = *args + 7;
 		else if (strncmp(*args, "nice=", 5) == 0)
-			nice = atoi(*args + 5);
+			nice_value = atoi(*args + 5);
 		else if (strncmp(*args, "system_user=", 12) == 0)
 			system_user = *args + 12;
 		else if (strncmp(*args, "uid=", 4) == 0) {
@@ -638,6 +638,12 @@ create_mail_process(enum process_type process_type, struct settings *set,
 			chroot_dir, user);
 		return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	}
+	len = strlen(chroot_dir);
+	if (len > 2 && strcmp(chroot_dir + len - 2, "/.") == 0 &&
+	    strncmp(home_dir, chroot_dir, len - 2) == 0) {
+		/* strip chroot dir from home dir */
+		home_dir += len - 2;
+	}
 
 	if (!dump_capability) {
 		throttle = set->mail_debug ? 0 :
@@ -699,9 +705,9 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 #ifdef HAVE_SETPRIORITY
-	if (nice != 0) {
-		if (setpriority(PRIO_PROCESS, 0, nice) < 0)
-			i_error("setpriority(%d) failed: %m", nice);
+	if (nice_value != 0) {
+		if (setpriority(PRIO_PROCESS, 0, nice_value) < 0)
+			i_error("setpriority(%d) failed: %m", nice_value);
 	}
 #endif
 
@@ -714,9 +720,9 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	child_process_init_env();
 
 	/* move the client socket into stdin and stdout fds, log to stderr */
-	if (dup2(dump_capability ? null_fd : socket, 0) < 0)
+	if (dup2(dump_capability ? null_fd : socket_fd, 0) < 0)
 		i_fatal("dup2(stdin) failed: %m");
-	if (dup2(socket, 1) < 0)
+	if (dup2(socket_fd, 1) < 0)
 		i_fatal("dup2(stdout) failed: %m");
 	if (dup2(log_fd, 2) < 0)
 		i_fatal("dup2(stderr) failed: %m");
@@ -736,7 +742,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	if (dump_capability)
 		env_put("DUMP_CAPABILITY=1");
 
-	if (*home_dir == '\0') {
+	if (*home_dir == '\0' && *chroot_dir == '\0') {
 		full_home_dir = "";
 		ret = -1;
 	} else {

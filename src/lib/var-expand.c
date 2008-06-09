@@ -10,6 +10,7 @@
 #include "var-expand.h"
 
 #include <stdlib.h>
+#include <ctype.h>
 
 struct var_expand_context {
 	int offset;
@@ -81,7 +82,8 @@ static const char *m_str_hash(const char *str, struct var_expand_context *ctx)
 	return str_c(hash);
 }
 
-static const char *m_str_md5(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
+static const char *
+m_str_md5(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	unsigned char digest[16];
 
@@ -90,7 +92,8 @@ static const char *m_str_md5(const char *str, struct var_expand_context *ctx ATT
 	return binary_to_hex(digest, sizeof(digest));
 }
 
-static const char *m_str_ldap_dn(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
+static const char *
+m_str_ldap_dn(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	string_t *ret = t_str_new(256);
 
@@ -105,6 +108,17 @@ static const char *m_str_ldap_dn(const char *str, struct var_expand_context *ctx
 	return str_free_without_data(&ret);
 }
 
+static const char *
+m_str_trim(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
+{
+	unsigned int len;
+
+	len = strlen(str);
+	while (len > 0 && i_isspace(str[len-1]))
+		len--;
+	return t_strndup(str, len);
+}
+
 #define MAX_MODIFIER_COUNT 10
 static const struct var_expand_modifier modifiers[] = {
 	{ 'L', m_str_lcase },
@@ -115,6 +129,7 @@ static const struct var_expand_modifier modifiers[] = {
 	{ 'H', m_str_hash },
 	{ 'M', m_str_md5 },
 	{ 'D', m_str_ldap_dn },
+	{ 'T', m_str_trim },
 	{ '\0', NULL }
 };
 

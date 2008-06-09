@@ -130,20 +130,24 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 		return;
 	}
 
+	if (uid != conn->current_uid && conn->current_uid != 0) {
+		if (seteuid(0) != 0)
+			i_fatal("seteuid(0) failed: %m");
+		conn->current_uid = 0;
+	}
+
+	/* change GID */
+	restrict_access_by_env(FALSE);
+
 	/* we'll change only effective UID. This is a bit unfortunate since
 	   it allows reverting back to root, but we'll have to be able to
 	   access different users' mailboxes.. */
 	if (uid != conn->current_uid) {
-		if (conn->current_uid != 0) {
-			if (seteuid(0) != 0)
-				i_fatal("seteuid(0) failed: %m");
-		}
 		if (seteuid(uid) < 0)
 			i_fatal("seteuid(%s) failed: %m", dec2str(uid));
 		conn->current_uid = uid;
 	}
 
-	restrict_access_by_env(FALSE);
 	conn->return_value = 1;
 }
 

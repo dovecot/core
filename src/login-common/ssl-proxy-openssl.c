@@ -309,8 +309,11 @@ static const char *ssl_last_error(void)
 	size_t err_size = 256;
 
 	err = ERR_get_error();
-	if (err == 0)
-		return strerror(errno);
+	if (err == 0) {
+		if (errno != 0)
+			return strerror(errno);
+		return "Unknown error";
+	}
 
 	buf = t_malloc(err_size);
 	buf[err_size-1] = '\0';
@@ -806,6 +809,8 @@ void ssl_proxy_deinit(void)
 
 	ssl_free_parameters(&ssl_params);
 	SSL_CTX_free(ssl_ctx);
+	EVP_cleanup();
+	ERR_free_strings();
 }
 
 #endif

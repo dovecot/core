@@ -12,18 +12,11 @@ const char *convert_plugin_version = PACKAGE_VERSION;
 static void (*convert_next_hook_mail_namespaces_created)
 	(struct mail_namespace *namespaces);
 
-static void
-convert_hook_mail_namespaces_created(struct mail_namespace *namespaces)
+static void convert_mail_storage(struct mail_namespace *namespaces,
+				 const char *convert_mail)
 {
-	const char *convert_mail, *str;
+	const char *str;
 	struct convert_settings set;
-
-	if (convert_next_hook_mail_namespaces_created != NULL)
-		convert_next_hook_mail_namespaces_created(namespaces);
-
-	convert_mail = getenv("CONVERT_MAIL");
-	if (convert_mail == NULL)
-		return;
 
 	memset(&set, 0, sizeof(set));
 	set.user = getenv("USER");
@@ -42,6 +35,19 @@ convert_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 
 	if (convert_storage(convert_mail, namespaces, &set) < 0)
 		i_fatal("Mailbox conversion failed, exiting");
+}
+
+static void
+convert_hook_mail_namespaces_created(struct mail_namespace *namespaces)
+{
+	const char *convert_mail;
+
+	convert_mail = getenv("CONVERT_MAIL");
+	if (convert_mail != NULL)
+		convert_mail_storage(namespaces, convert_mail);
+
+	if (convert_next_hook_mail_namespaces_created != NULL)
+		convert_next_hook_mail_namespaces_created(namespaces);
 }
 
 void convert_plugin_init(void)

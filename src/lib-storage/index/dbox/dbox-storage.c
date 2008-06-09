@@ -40,6 +40,7 @@ dbox_list_rename_mailbox_pre(struct mailbox_list *list,
 			     const char *oldname, const char *newname);
 static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
+				     const char *mailbox_name,
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags);
 
@@ -306,9 +307,12 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 static int dbox_storage_mailbox_close(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
-	int ret;
+	int ret = 0;
 
-	ret = dbox_sync(mbox, TRUE);
+	if (box->opened) {
+		/* see if we want to flush dirty flags */
+		ret = dbox_sync(mbox, TRUE);
+	}
 
 	dbox_index_deinit(&mbox->dbox_index);
 	dbox_files_free(mbox);
@@ -318,13 +322,14 @@ static int dbox_storage_mailbox_close(struct mailbox *box)
 }
 
 static int dbox_mailbox_create(struct mail_storage *_storage,
-			       const char *name, bool directory ATTR_UNUSED)
+			       const char *name, bool directory)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	const char *path, *alt_path;
 	struct stat st;
 
 	path = mailbox_list_get_path(_storage->list, name,
+				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
 		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
@@ -336,7 +341,7 @@ static int dbox_mailbox_create(struct mail_storage *_storage,
 	   race conditions with RENAME/DELETE), but if something crashed and
 	   left it lying around we don't want to start overwriting files in
 	   it. */
-	alt_path = dbox_get_alt_path(storage, path);
+	alt_path = directory ? NULL : dbox_get_alt_path(storage, path);
 	if (alt_path != NULL && stat(alt_path, &st) == 0) {
 		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Mailbox already exists");
@@ -578,6 +583,7 @@ static void dbox_notify_changes(struct mailbox *box)
 static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 				      			ATTR_UNUSED,
 				     const char *dir, const char *fname,
+				     const char *mailbox_name ATTR_UNUSED,
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags)
 {
@@ -617,12 +623,15 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 			if (st.st_nlink > 2)
 				*flags |= MAILBOX_CHILDREN;
 		}
+	} else if (errno == ENOENT) {
+		/* doesn't exist - probably a non-existing subscribed mailbox */
+		*flags |= MAILBOX_NONEXISTENT;
 	} else {
 		/* non-selectable. probably either access denied, or symlink
 		   destination not found. don't bother logging errors. */
 		*flags |= MAILBOX_NOSELECT;
 	}
-	if ((*flags & MAILBOX_NOSELECT) == 0) {
+	if ((*flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) == 0) {
 		/* make sure it's a selectable mailbox */
 		maildir_path = t_strconcat(path, "/"DBOX_MAILDIR_NAME, NULL);
 		if (stat(maildir_path, &st) < 0 || !S_ISDIR(st.st_mode))

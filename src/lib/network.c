@@ -703,3 +703,52 @@ bool is_ipv6_address(const char *addr)
 
 	return TRUE;
 }
+
+bool net_is_in_network(const struct ip_addr *ip,
+		       const struct ip_addr *net_ip, unsigned int bits)
+{
+	const uint32_t *ip1, *ip2;
+	uint32_t mask, i1, i2;
+	unsigned int pos, i;
+
+	if (IPADDR_IS_V4(ip) != IPADDR_IS_V4(net_ip)) {
+		/* one is IPv6 and one is IPv4 */
+		return FALSE;
+	}
+	i_assert(IPADDR_IS_V6(ip) == IPADDR_IS_V6(net_ip));
+
+	if (IPADDR_IS_V4(ip)) {
+		ip1 = &ip->u.ip4.s_addr;
+		ip2 = &net_ip->u.ip4.s_addr;
+	} else {
+#ifdef HAVE_IPV6
+		ip1 = (const void *)&ip->u.ip6;
+		ip2 = (const void *)&net_ip->u.ip6;
+#else
+		/* shouldn't get here */
+		return FALSE;
+#endif
+	}
+
+	/* check first the full 32bit ints */
+	for (pos = 0, i = 0; pos + 32 <= bits; pos += 32, i++) {
+		if (ip1[i] != ip2[i])
+			return FALSE;
+	}
+	i1 = htonl(ip1[i]);
+	i2 = htonl(ip2[i]);
+
+	/* check the last full bytes */
+	for (mask = 0xff000000; pos + 8 <= bits; pos += 8, mask >>= 8) {
+		if ((i1 & mask) != (i2 & mask))
+			return FALSE;
+	}
+
+	/* check the last bits, they're reversed in bytes */
+	bits -= pos;
+	for (mask = 0x80000000 >> (pos % 32); bits > 0; bits--, mask >>= 1) {
+		if ((i1 & mask) != (i2 & mask))
+			return FALSE;
+	}
+	return TRUE;
+}

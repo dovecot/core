@@ -235,7 +235,8 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		}
 	}
 
-	if ((mail->data.cache_fetch_fields & MAIL_FETCH_DATE) != 0) {
+	if ((mail->data.cache_fetch_fields & MAIL_FETCH_DATE) != 0 ||
+	    mail->data.save_sent_date) {
 		array_idx_set(&mail->header_match,
 			      get_header_field_idx(mail->ibox, "Date"),
 			      &mail->header_match_value);

@@ -149,6 +149,17 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
+	if (min_file_offset > 0 &&
+	    min_file_offset < view->log->files->hdr.hdr_size) {
+		/* log file offset is probably corrupted in the index file. */
+		mail_transaction_log_view_set_corrupted(view,
+			"file_seq=%u, min_file_offset (%"PRIuUOFF_T
+			") < hdr_size (%u)",
+			min_file_seq, min_file_offset,
+			view->tail->hdr.hdr_size);
+		return -1;
+	}
+
 	view->tail = view->head = file = NULL;
 	for (seq = min_file_seq; seq <= max_file_seq; seq++) {
 		if (file == NULL || file->hdr.file_seq != seq) {

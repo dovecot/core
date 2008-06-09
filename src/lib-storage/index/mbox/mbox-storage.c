@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "istream.h"
+#include "restrict-access.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "home-expand.h"
@@ -71,6 +72,7 @@ static MODULE_CONTEXT_DEFINE_INIT(mbox_mailbox_list_module,
 
 static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
+				     const char *mailbox_name,
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags);
 static int mbox_list_delete_mailbox(struct mailbox_list *list,
@@ -471,6 +473,12 @@ static int verify_inbox(struct mail_storage *storage)
 
 	/* make sure inbox file itself exists */
 	fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
+	if (fd == -1 && errno == EACCES) {
+		/* try again with increased privileges */
+		(void)restrict_access_use_priv_gid();
+		fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
+		restrict_access_drop_priv_gid();
+	}
 	if (fd != -1)
 		(void)close(fd);
 	else if (errno == ENOTDIR &&
@@ -797,6 +805,7 @@ is_inbox_file(struct mailbox_list *list, const char *path, const char *fname)
 
 static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
+				     const char *mailbox_name ATTR_UNUSED,
 				     enum mailbox_list_file_type type,
 				     enum mailbox_info_flags *flags_r)
 {

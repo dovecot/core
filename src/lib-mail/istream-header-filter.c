@@ -28,10 +28,12 @@ struct header_filter_istream {
 	ARRAY_DEFINE(match_change_lines, unsigned int);
 
 	unsigned int header_read:1;
+	unsigned int seen_eoh:1;
 	unsigned int header_parsed:1;
 	unsigned int exclude:1;
 	unsigned int crlf:1;
 	unsigned int hide_body:1;
+	unsigned int add_missing_eoh:1;
 };
 
 header_filter_callback *null_header_filter_callback = NULL;
@@ -115,6 +117,14 @@ static bool match_line_changed(struct header_filter_istream *mstream)
 		       cmp_uint) != NULL;
 }
 
+static void add_eol(struct header_filter_istream *mstream)
+{
+	if (mstream->crlf)
+		buffer_append(mstream->hdr_buf, "\r\n", 2);
+	else
+		buffer_append_c(mstream->hdr_buf, '\n');
+}
+
 static ssize_t read_header(struct header_filter_istream *mstream)
 {
 	struct message_header_line *hdr;
@@ -154,6 +164,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		mstream->cur_line++;
 
 		if (hdr->eoh) {
+			mstream->seen_eoh = TRUE;
 			matched = TRUE;
 			if (!mstream->header_parsed &&
 			    mstream->callback != NULL) {
@@ -164,10 +175,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			if (!matched)
 				continue;
 
-			if (mstream->crlf)
-				buffer_append(mstream->hdr_buf, "\r\n", 2);
-			else
-				buffer_append_c(mstream->hdr_buf, '\n');
+			add_eol(mstream);
 			continue;
 		}
 
@@ -207,13 +215,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			}
 			buffer_append(mstream->hdr_buf,
 				      hdr->value, hdr->value_len);
-			if (!hdr->no_newline) {
-				if (mstream->crlf) {
-					buffer_append(mstream->hdr_buf,
-						      "\r\n", 2);
-				} else
-					buffer_append_c(mstream->hdr_buf, '\n');
-			}
+			if (!hdr->no_newline)
+				add_eol(mstream);
 
 			if (mstream->skip_count >= mstream->hdr_buf->used) {
 				/* we need more */
@@ -228,6 +231,11 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 				break;
 			}
 		}
+	}
+
+	if (hdr_ret < 0 && !mstream->seen_eoh && mstream->add_missing_eoh) {
+		mstream->seen_eoh = TRUE;
+		add_eol(mstream);
 	}
 
 	/* don't copy eof here because we're only returning headers here.
@@ -349,6 +357,7 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 		mstream->skip_count = v_offset;
 		mstream->cur_line = 0;
 		mstream->header_read = FALSE;
+		mstream->seen_eoh = FALSE;
 	} else {
 		/* body */
 		v_offset += mstream->header_size.physical_size -
@@ -398,7 +407,8 @@ i_stream_create_header_filter(struct istream *input,
 	i_assert((flags & (HEADER_FILTER_INCLUDE|HEADER_FILTER_EXCLUDE)) != 0);
 
 	mstream = i_new(struct header_filter_istream, 1);
-	mstream->pool = pool_alloconly_create("header filter stream", 4096);
+	mstream->pool = pool_alloconly_create(MEMPOOL_GROWING
+					      "header filter stream", 4096);
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	mstream->headers = headers_count == 0 ? NULL :
@@ -413,6 +423,7 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->exclude = (flags & HEADER_FILTER_EXCLUDE) != 0;
 	mstream->crlf = (flags & HEADER_FILTER_NO_CR) == 0;
 	mstream->hide_body = (flags & HEADER_FILTER_HIDE_BODY) != 0;
+	mstream->add_missing_eoh = (flags & HEADER_FILTER_ADD_MISSING_EOH) != 0;
 
 	mstream->istream.iostream.destroy = i_stream_header_filter_destroy;
 	mstream->istream.iostream.set_max_buffer_size =

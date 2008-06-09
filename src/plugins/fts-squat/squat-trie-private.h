@@ -133,6 +133,8 @@ struct squat_trie {
 	size_t mmap_size;
 
 	unsigned char default_normalize_map[256];
+	unsigned int default_partial_len;
+	unsigned int default_full_len;
 
 	unsigned int corrupted:1;
 };

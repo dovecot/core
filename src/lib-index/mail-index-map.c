@@ -26,7 +26,7 @@ static void mail_index_map_init_extbufs(struct mail_index_map *map,
 		size = EXT_GLOBAL_ALLOC_SIZE +
 			initial_count * EXT_PER_ALLOC_SIZE;
 		map->extension_pool =
-			pool_alloconly_create("map extensions",
+			pool_alloconly_create(MEMPOOL_GROWING"map extensions",
 					      nearest_power(size));
 	} else {
 		p_clear(map->extension_pool);
@@ -332,11 +332,11 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	for (i = 0; i < array_count(&map->keyword_idx_map); i++) {
 		const char *keyword = name + kw_rec[i].name_offset;
 		const unsigned int *old_idx;
-		unsigned int idx;
+		unsigned int kw_idx;
 
 		old_idx = array_idx(&map->keyword_idx_map, i);
-		if (!mail_index_keyword_lookup(index, keyword, &idx) ||
-		    idx != *old_idx) {
+		if (!mail_index_keyword_lookup(index, keyword, &kw_idx) ||
+		    kw_idx != *old_idx) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 					     "Keywords changed unexpectedly",
 					     index->filepath);
@@ -348,7 +348,7 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	i = array_count(&map->keyword_idx_map);
 	for (; i < kw_hdr->keywords_count; i++) {
 		const char *keyword = name + kw_rec[i].name_offset;
-		unsigned int idx;
+		unsigned int kw_idx;
 
 		if (*keyword == '\0') {
 			mail_index_set_error(index, "Corrupted index file %s: "
@@ -356,8 +356,8 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 				index->filepath);
 			return -1;
 		}
-		mail_index_keyword_lookup_or_create(index, keyword, &idx);
-		array_append(&map->keyword_idx_map, &idx, 1);
+		mail_index_keyword_lookup_or_create(index, keyword, &kw_idx);
+		array_append(&map->keyword_idx_map, &kw_idx, 1);
 	}
 	return 0;
 }
@@ -419,6 +419,17 @@ static bool mail_index_check_header_compat(struct mail_index *index,
 	return TRUE;
 }
 
+static void mail_index_map_clear_recent_flags(struct mail_index_map *map)
+{
+	struct mail_index_record *rec;
+	unsigned int i;
+
+	for (i = 0; i < map->hdr.messages_count; i++) {
+		rec = MAIL_INDEX_MAP_IDX(map, i);
+		rec->flags &= ~MAIL_RECENT;
+	}
+}
+
 int mail_index_map_check_header(struct mail_index_map *map)
 {
 	struct mail_index *index = map->index;
@@ -446,13 +457,18 @@ int mail_index_map_check_header(struct mail_index_map *map)
 	if (hdr->seen_messages_count > hdr->messages_count ||
 	    hdr->deleted_messages_count > hdr->messages_count)
 		return 0;
-	if (hdr->minor_version == 0) {
+	switch (hdr->minor_version) {
+	case 0:
 		/* upgrade silently from v1.0 */
-		map->hdr.minor_version = MAIL_INDEX_MINOR_VERSION;
 		map->hdr.unused_old_recent_messages_count = 0;
 		if (hdr->first_recent_uid == 0)
 			map->hdr.first_recent_uid = 1;
 		index->need_recreate = TRUE;
+		/* fall through */
+	case 1:
+		/* pre-v1.1.rc6: make sure the \Recent flags are gone */
+		mail_index_map_clear_recent_flags(map);
+		map->hdr.minor_version = MAIL_INDEX_MINOR_VERSION;
 	}
 	if (hdr->first_recent_uid == 0 ||
 	    hdr->first_recent_uid > hdr->next_uid ||
@@ -793,13 +809,15 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 	return mail_index_map_clone(&tmp_map);
 }
 
+/* returns -1 = error, 0 = index files are unusable,
+   1 = index files are usable or at least repairable */
 static int mail_index_map_latest_file(struct mail_index *index)
 {
 	struct mail_index_map *old_map, *new_map;
 	struct stat st;
 	unsigned int lock_id;
 	uoff_t file_size;
-	bool use_mmap;
+	bool use_mmap, unusable = FALSE;
 	int ret, try;
 
 	ret = mail_index_reopen_if_changed(index);
@@ -809,7 +827,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 
 		/* the index file is lost/broken. let's hope that we can
 		   build it from the transaction log. */
-		return 0;
+		return 1;
 	}
 
 	/* the index file is still open, lock it */
@@ -843,6 +861,10 @@ static int mail_index_map_latest_file(struct mail_index *index)
 		ret = mail_index_read_map(new_map, file_size, &lock_id);
 		mail_index_unlock(index, &lock_id);
 	}
+	if (ret == 0) {
+		/* the index files are unusable */
+		unusable = TRUE;
+	}
 
 	for (try = 0; ret > 0; try++) {
 		/* make sure the header is ok before using this mapping */
@@ -853,8 +875,13 @@ static int mail_index_map_latest_file(struct mail_index *index)
 			else if (mail_index_map_parse_keywords(new_map) < 0)
 				ret = 0;
 		} T_END;
-		if (ret != 0 || try == 2)
+		if (ret != 0 || try == 2) {
+			if (ret < 0) {
+				unusable = TRUE;
+				ret = 0;
+			}
 			break;
+		}
 
 		/* fsck and try again */
 		old_map = index->map;
@@ -870,7 +897,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	}
 	if (ret <= 0) {
 		mail_index_unmap(&new_map);
-		return ret;
+		return ret < 0 ? -1 : (unusable ? 0 : 1);
 	}
 	i_assert(new_map->rec_map->records != NULL);
 
@@ -909,18 +936,24 @@ int mail_index_map(struct mail_index *index,
 	}
 
 	if (ret == 0) {
-		/* try to open and read the latest index. if it fails for
-		   any reason, we'll fallback to updating the existing mapping
-		   from transaction logs (which we'll also do even if the
-		   reopening succeeds) */
-		(void)mail_index_map_latest_file(index);
-
-		/* if we're creating the index file, we don't have any
-		   logs yet */
-		if (index->log->head != NULL && index->indexid != 0) {
-			/* and update the map with the latest changes from
-			   transaction log */
-			ret = mail_index_sync_map(&index->map, type, TRUE);
+		/* try to open and read the latest index. if it fails, we'll
+		   fallback to updating the existing mapping from transaction
+		   logs (which we'll also do even if the reopening succeeds).
+		   if index files are unusable (e.g. major version change)
+		   don't even try to use the transaction log. */
+		if (mail_index_map_latest_file(index) == 0) {
+			/* make sure we don't try to open the file again */
+			if (unlink(index->filepath) < 0 && errno != ENOENT)
+				mail_index_set_syscall_error(index, "unlink()");
+		} else {
+			/* if we're creating the index file, we don't have any
+			   logs yet */
+			if (index->log->head != NULL && index->indexid != 0) {
+				/* and update the map with the latest changes
+				   from transaction log */
+				ret = mail_index_sync_map(&index->map, type,
+							  TRUE);
+			}
 		}
 	}
 

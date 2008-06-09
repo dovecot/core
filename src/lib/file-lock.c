@@ -39,6 +39,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		i_fatal("fcntl() locks not supported");
 #else
 		struct flock fl;
+		const char *errstr;
 
 		fl.l_type = lock_type;
 		fl.l_whence = SEEK_SET;
@@ -64,10 +65,12 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 			errno = EAGAIN;
 			return 0;
 		}
-		i_error("fcntl(%s) locking failed for file %s: %m",
+		errstr = errno != EACCES ? strerror(errno) :
+			"File is locked by another process (EACCES)";
+		i_error("fcntl(%s) locking failed for file %s: %s",
 			lock_type == F_UNLCK ? "unlock" :
 			lock_type == F_RDLCK ? "read-lock" : "write-lock",
-			path);
+			path, errstr);
 		return -1;
 #endif
 	}

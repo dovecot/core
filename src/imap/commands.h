@@ -16,7 +16,11 @@ enum command_flags {
 	/* Command may reply with EXPUNGE, causing sequences to break */
 	COMMAND_FLAG_BREAKS_SEQS	= 0x02,
 	/* Command changes the mailbox */
-	COMMAND_FLAG_BREAKS_MAILBOX	= 0x04 | COMMAND_FLAG_BREAKS_SEQS
+	COMMAND_FLAG_BREAKS_MAILBOX	= 0x04 | COMMAND_FLAG_BREAKS_SEQS,
+
+	/* Command uses selected mailbox */
+	COMMAND_FLAG_USES_MAILBOX	= COMMAND_FLAG_BREAKS_MAILBOX |
+					  COMMAND_FLAG_USES_SEQS
 };
 
 struct command {

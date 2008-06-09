@@ -328,6 +328,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		ctx->output = o_stream_create_fd_file(mbox->mbox_fd,
 						      ctx->append_offset,
 						      FALSE);
+		o_stream_cork(ctx->output);
 	}
 	return 0;
 }
@@ -381,7 +382,8 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 
 	/* filter out unwanted headers and keep track of headers' MD5 sum */
 	filter = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
-					       HEADER_FILTER_NO_CR,
+					       HEADER_FILTER_NO_CR |
+					       HEADER_FILTER_ADD_MISSING_EOH,
 					       mbox_save_drop_headers,
 					       mbox_save_drop_headers_count,
 					       save_header_callback, ctx);
@@ -652,6 +654,10 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 
+	/* make sure everything is written */
+	if (o_stream_flush(ctx->output) < 0)
+		return write_error(ctx);
+
 	ctx->finished = TRUE;
 	if (!ctx->failed) {
 		T_BEGIN {
@@ -670,8 +676,10 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	if (ctx->failed && ctx->mail_offset != (uoff_t)-1) {
 		/* saving this mail failed - truncate back to beginning of it */
+		(void)o_stream_flush(ctx->output);
 		if (ftruncate(ctx->mbox->mbox_fd, (off_t)ctx->mail_offset) < 0)
 			mbox_set_syscall_error(ctx->mbox, "ftruncate()");
+		o_stream_seek(ctx->output, ctx->mail_offset);
 		ctx->mail_offset = (uoff_t)-1;
 	}
 
@@ -720,16 +728,20 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 
 		if (!ctx->mbox->mbox_sync_dirty && ret == 0) {
 			uint32_t sync_stamp = st.st_mtime;
-			uint64_t sync_size = st.st_size;
 
 			mail_index_update_header(ctx->trans,
 				offsetof(struct mail_index_header, sync_stamp),
 				&sync_stamp, sizeof(sync_stamp), TRUE);
+		}
+		if (ret == 0) {
+			/* sync_size is used in calculating the last message's
+			   size. it must be up-to-date. */
+			uint64_t sync_size = st.st_size;
+
 			mail_index_update_header(ctx->trans,
 				offsetof(struct mail_index_header, sync_size),
 				&sync_size, sizeof(sync_size), TRUE);
 		}
-
 		*t->ictx.last_saved_uid = ctx->next_uid - 1;
 	}
 

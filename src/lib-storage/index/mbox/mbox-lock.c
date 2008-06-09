@@ -533,8 +533,15 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 				/* non-blocking lock trying failed */
 				return 0;
 			}
-			mbox_set_syscall_error(ctx->mbox, "fcntl()");
 			alarm(0);
+			if (errno != EACCES) {
+				mbox_set_syscall_error(ctx->mbox, "fcntl()");
+				return -1;
+			}
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
+				"fcntl() failed with mbox file %s: "
+				"File is locked by another process (EACCES)",
+				ctx->mbox->path);
 			return -1;
 		}
 

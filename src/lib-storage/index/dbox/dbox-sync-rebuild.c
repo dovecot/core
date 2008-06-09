@@ -70,7 +70,7 @@ dbox_sync_index_copy_cache(struct dbox_sync_rebuild_context *ctx,
 		ctx->cache_used = TRUE;
 		ctx->cache_reset_id = reset_id;
 		mail_index_ext_reset(ctx->trans, ctx->cache_ext_id,
-				     ctx->cache_reset_id);
+				     ctx->cache_reset_id, TRUE);
 	}
 	if (ctx->cache_reset_id == reset_id) {
 		mail_index_update_ext(ctx->trans, new_seq,
@@ -225,8 +225,9 @@ dbox_sync_index_uid_file(struct dbox_sync_rebuild_context *ctx,
 }
 
 static int
-dbox_sync_index_multi_file(struct dbox_sync_rebuild_context *ctx,
-			   const char *dir, const char *fname)
+dbox_sync_index_multi_file(struct dbox_sync_rebuild_context *ctx ATTR_UNUSED,
+			   const char *dir ATTR_UNUSED,
+			   const char *fname ATTR_UNUSED)
 {
 	/* FIXME */
 	return 0;
@@ -253,8 +254,12 @@ dbox_sync_index_maildir_file(struct dbox_sync_rebuild_context *ctx,
 	}
 
 	file = dbox_file_init_new_maildir(ctx->mbox, fname);
-	if ((ret = dbox_sync_index_file_next(ctx, file, &offset)) > 0)
+	if ((ret = dbox_sync_index_file_next(ctx, file, &offset)) > 0) {
 		dbox_index_append_file(ctx->append_ctx, file);
+		/* appending referenced the file, so make sure it gets closed
+		   so we don't have too many open files. */
+		dbox_file_close(file);
+	}
 	dbox_file_unref(&file);
 	return ret < 0 ? -1 : 0;
 }
@@ -413,6 +418,7 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	i_array_init(&ctx.maildir_new_files, 8);
 	mail_index_reset(ctx.trans);
+	index_mailbox_reset_uidvalidity(&mbox->ibox);
 	mail_index_ext_lookup(mbox->ibox.index, "cache", &ctx.cache_ext_id);
 
 	if ((ret = dbox_sync_index_rebuild_ctx(&ctx)) < 0)

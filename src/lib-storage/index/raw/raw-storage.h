@@ -24,6 +24,7 @@ struct raw_mailbox {
 	const char *envelope_sender;
 
 	unsigned int synced:1;
+	unsigned int have_filename:1;
 };
 
 extern struct mail_vfuncs raw_mail_vfuncs;

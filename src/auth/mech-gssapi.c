@@ -23,10 +23,23 @@
 
 #ifdef HAVE_GSSAPI
 
+#ifndef HAVE___GSS_USEROK
+#  define USE_KRB5_USEROK
+#  include <krb5.h>
+#endif
+
 #ifdef HAVE_GSSAPI_GSSAPI_H
 #  include <gssapi/gssapi.h>
 #elif defined (HAVE_GSSAPI_H)
 #  include <gssapi.h>
+#endif
+
+#ifdef HAVE_GSSAPI_GSSAPI_KRB5_H
+#  include <gssapi/gssapi_krb5.h>
+#elif defined (HAVE_GSSAPI_KRB5_H)
+#  include <gssapi_krb5.h>
+#else
+#  undef USE_KRB5_USEROK
 #endif
 
 #ifdef HAVE_GSSAPI_GSSAPI_EXT_H
@@ -156,6 +169,7 @@ static OM_uint32 obtain_service_credentials(struct auth_request *request,
 	return major_status;
 }
 
+#ifndef HAVE___GSS_USEROK
 static gss_name_t
 import_name(struct auth_request *request, void *str, size_t len)
 {
@@ -177,6 +191,7 @@ import_name(struct auth_request *request, void *str, size_t len)
 
 	return name;
 }
+#endif
 
 static void gssapi_sec_context(struct gssapi_auth_request *request,
 			       gss_buffer_desc inbuf)
@@ -271,6 +286,61 @@ static void gssapi_wrap(struct gssapi_auth_request *request,
 	request->sasl_gssapi_state = GSS_STATE_UNWRAP;
 }
 
+#ifdef USE_KRB5_USEROK
+static bool gssapi_krb5_userok(struct gssapi_auth_request *request)
+{
+	krb5_context ctx;
+	krb5_principal princ;
+	krb5_error_code krb5_err;
+	OM_uint32 major_status, minor_status;
+	gss_buffer_desc princ_name;
+	gss_OID name_type;
+	const char *princ_display_name;
+	bool ret = FALSE;
+
+	/* Parse out the principal's username */
+	major_status = gss_display_name(&minor_status, request->authn_name,
+					&princ_name, &name_type);
+	if (major_status != GSS_S_COMPLETE) {
+		auth_request_log_gss_error(&request->auth_request, major_status,
+					   GSS_C_GSS_CODE,
+					   "gssapi_krb5_userok");
+		return FALSE;
+	}
+	if (name_type != GSS_KRB5_NT_PRINCIPAL_NAME) {
+		auth_request_log_error(&request->auth_request, "gssapi",
+				       "OID not kerberos principal name");
+		return FALSE;
+	}
+	princ_display_name = t_strndup(princ_name.value, princ_name.length);
+	gss_release_buffer(&minor_status, &princ_name);
+
+	/* Init a krb5 context and parse the principal username */
+	krb5_err = krb5_init_context(&ctx);
+	if (krb5_err != 0) {
+		auth_request_log_error(&request->auth_request, "gssapi",
+			"krb5_init_context() failed: %d", (int)krb5_err);
+		return FALSE;
+	}
+	krb5_err = krb5_parse_name(ctx, princ_display_name, &princ);
+	if (krb5_err != 0) {
+		/* writing the error string would be better, but we probably
+		   rarely get here and there doesn't seem to be a standard
+		   way of getting it */
+		auth_request_log_error(&request->auth_request, "gssapi",
+				       "krb5_parse_name() failed: %d",
+				       (int)krb5_err);
+	} else {
+		/* See if the principal is authorized to act as the
+		   specified user */
+		ret = krb5_kuserok(ctx, princ, request->auth_request.user);
+		krb5_free_principal(ctx, princ);
+	}
+	krb5_free_context(ctx);
+	return ret;
+}
+#endif
+
 static void gssapi_unwrap(struct gssapi_auth_request *request,
 			  gss_buffer_desc inbuf)
 {
@@ -334,22 +404,26 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 		auth_request_fail(&request->auth_request);
 		return;
 	}
-	major_status = gss_compare_name(&minor_status,
-					request->authn_name,
-					request->authz_name,
-					&equal_authn_authz);
-	if (equal_authn_authz == 0) {
-		auth_request_log_error(&request->auth_request, "gssapi",
-			"authn_name and authz_name differ: not supported");
-		auth_request_fail(&request->auth_request);
-		return;
-	}
 
 	request->auth_request.user =
 		p_strndup(request->auth_request.pool,
 			  (unsigned char *)outbuf.value + 4,
 			  outbuf.length - 4);
 
+	major_status = gss_compare_name(&minor_status,
+					request->authn_name,
+					request->authz_name,
+					&equal_authn_authz);
+#ifdef USE_KRB5_USEROK
+	if (equal_authn_authz == 0)
+		equal_authn_authz = gssapi_krb5_userok(request);
+#endif
+	if (equal_authn_authz == 0) {
+		auth_request_log_error(&request->auth_request, "gssapi",
+			"authn_name and authz_name differ: not supported");
+		auth_request_fail(&request->auth_request);
+		return;
+	}
 #endif
 	auth_request_success(&request->auth_request, NULL, 0);
 }

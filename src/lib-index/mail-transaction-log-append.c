@@ -166,6 +166,58 @@ log_get_hdr_update_buffer(struct mail_index_transaction *t, bool prepend)
 	return buf;
 }
 
+static void
+ext_reset_update_atomic(struct mail_index_transaction *t,
+			uint32_t ext_id, uint32_t expected_reset_id)
+{
+	const struct mail_index_ext *map_ext;
+	struct mail_transaction_ext_reset *reset;
+	uint32_t idx, reset_id;
+
+	if (!mail_index_map_get_ext_idx(t->view->index->map, ext_id, &idx)) {
+		/* new extension */
+		reset_id = 1;
+	} else {
+		map_ext = array_idx(&t->view->index->map->extensions, idx);
+		reset_id = map_ext->reset_id + 1;
+	}
+	if (reset_id != expected_reset_id) {
+		/* ignore this extension update */
+		mail_index_ext_set_reset_id(t, ext_id, 0);
+		return;
+	}
+
+	if (reset_id == 0)
+		reset_id++;
+
+	array_idx_set(&t->ext_reset_ids, ext_id, &reset_id);
+
+	/* reseting existing data is optional */
+	if (array_is_created(&t->ext_resets)) {
+		reset = array_idx_modifiable(&t->ext_resets, ext_id);
+		if (reset->new_reset_id == (uint32_t)-1)
+			reset->new_reset_id = reset_id;
+	}
+}
+
+static void
+transaction_update_atomic_reset_ids(struct mail_index_transaction *t)
+{
+	const uint32_t *expected_reset_ids;
+	unsigned int ext_id, count;
+
+	if (!array_is_created(&t->ext_reset_atomic))
+		return;
+
+	expected_reset_ids = array_get(&t->ext_reset_atomic, &count);
+	for (ext_id = 0; ext_id < count; ext_id++) {
+		if (expected_reset_ids[ext_id] != 0) {
+			ext_reset_update_atomic(t, ext_id,
+						expected_reset_ids[ext_id]);
+		}
+	}
+}
+
 static void log_append_ext_intro(struct log_append_context *ctx,
 				 uint32_t ext_id, uint32_t reset_id)
 {
@@ -257,7 +309,8 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 	unsigned int update_count, resize_count, ext_count = 0;
 	unsigned int hdrs_count, reset_id_count, reset_count;
 	uint32_t ext_id, reset_id;
-	const uint32_t *reset_ids, *reset;
+	const struct mail_transaction_ext_reset *reset;
+	const uint32_t *reset_ids;
 	const ARRAY_TYPE(seq_array) *update;
 	buffer_t *buf;
 
@@ -304,15 +357,15 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 	}
 
 	memset(&ext_reset, 0, sizeof(ext_reset));
-
 	buf = buffer_create_data(pool_datastack_create(),
 				 &ext_reset, sizeof(ext_reset));
 	buffer_set_used_size(buf, sizeof(ext_reset));
 
 	for (ext_id = 0; ext_id < ext_count; ext_id++) {
-		ext_reset.new_reset_id =
-			ext_id < reset_count && reset[ext_id] != 0 ?
-			reset[ext_id] : 0;
+		if (ext_id < reset_count)
+			ext_reset = reset[ext_id];
+		else
+			ext_reset.new_reset_id = 0;
 		if ((ext_id < resize_count && resize[ext_id].name_size) ||
 		    (ext_id < update_count &&
 		     array_is_created(&update[ext_id])) ||
@@ -497,6 +550,18 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 						  log->head->sync_offset,
 						  (uoff_t)-1) <= 0)
 			return -1;
+	}
+
+	if (array_is_created(&t->ext_reset_atomic)) {
+		if (mail_index_map(t->view->index,
+				   MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0)
+			return -1;
+		transaction_update_atomic_reset_ids(t);
+
+		if (!TRANSACTION_HAS_CHANGES(t)) {
+			/* we aborted the ext changes, nothing else to do */
+			return 0;
+		}
 	}
 
 	file = log->head;

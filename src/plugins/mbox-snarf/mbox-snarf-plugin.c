@@ -165,9 +165,6 @@ static void mbox_snarf_mail_storage_created(struct mail_storage *storage)
 {
 	struct mbox_snarf_mail_storage *mstorage;
 
-	if (mbox_snarf_next_hook_mail_storage_created != NULL)
-		mbox_snarf_next_hook_mail_storage_created(storage);
-
 	mstorage = p_new(storage->pool, struct mbox_snarf_mail_storage, 1);
 	mstorage->snarf_inbox_path =
 		p_strdup(storage->pool, home_expand(getenv("MBOX_SNARF")));
@@ -175,6 +172,9 @@ static void mbox_snarf_mail_storage_created(struct mail_storage *storage)
 	storage->v.mailbox_open = mbox_snarf_mailbox_open;
 
 	MODULE_CONTEXT_SET(storage, mbox_snarf_storage_module, mstorage);
+
+	if (mbox_snarf_next_hook_mail_storage_created != NULL)
+		mbox_snarf_next_hook_mail_storage_created(storage);
 }
 
 void mbox_snarf_plugin_init(void)

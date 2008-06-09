@@ -41,7 +41,7 @@ struct partial_cache {
 	struct message_size pos;
 };
 
-static struct partial_cache partial = { 0, 0, 0, 0, { 0, 0, 0 } };
+static struct partial_cache last_partial = { 0, 0, 0, 0, { 0, 0, 0 } };
 
 static bool seek_partial(unsigned int select_counter, unsigned int uid,
 			 struct partial_cache *partial, struct istream *stream,
@@ -224,10 +224,10 @@ static int fetch_stream_send(struct imap_fetch_context *ctx)
 
 	ctx->cur_offset += ret;
 	if (ctx->update_partial) {
-		partial.cr_skipped = ctx->skip_cr != 0;
-		partial.pos.physical_size =
-			ctx->cur_input->v_offset - partial.physical_start;
-		partial.pos.virtual_size += ret;
+		last_partial.cr_skipped = ctx->skip_cr != 0;
+		last_partial.pos.physical_size =
+			ctx->cur_input->v_offset - last_partial.physical_start;
+		last_partial.pos.virtual_size += ret;
 	}
 
 	return ctx->cur_offset == ctx->cur_size;
@@ -312,7 +312,7 @@ static int fetch_data(struct imap_fetch_context *ctx,
 	} else {
 		ctx->skip_cr =
 			seek_partial(ctx->select_counter, ctx->cur_mail->uid,
-				     &partial, ctx->cur_input, body->skip);
+				     &last_partial, ctx->cur_input, body->skip);
 	}
 
 	return fetch_stream(ctx, size);

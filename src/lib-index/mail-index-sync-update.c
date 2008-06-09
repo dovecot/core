@@ -539,15 +539,17 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_RESET: {
-		const struct mail_transaction_ext_reset *rec = data;
+		struct mail_transaction_ext_reset rec;
 
-		if (hdr->size != sizeof(*rec)) {
+		/* old versions have only new_reset_id */
+		if (hdr->size < sizeof(uint32_t)) {
 			mail_index_sync_set_corrupted(ctx,
 				"ext reset: invalid record size");
 			ret = -1;
 			break;
 		}
-		ret = mail_index_sync_ext_reset(ctx, rec);
+		memcpy(&rec, data, I_MIN(hdr->size, sizeof(rec)));
+		ret = mail_index_sync_ext_reset(ctx, &rec);
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_HDR_UPDATE: {
@@ -790,6 +792,9 @@ int mail_index_sync_map(struct mail_index_map **_map,
 			      map->hdr.header_size);
 		map->hdr_base = map->hdr_copy_buf->data;
 	}
+
+	mail_transaction_log_view_get_prev_pos(view->log_view,
+					       &prev_seq, &prev_offset);
 
 	mail_index_sync_map_init(&sync_map_ctx, view, type);
 	if (reset) {

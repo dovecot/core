@@ -29,6 +29,7 @@ struct expire {
 struct expire_mailbox {
 	union mailbox_module_context module_ctx;
 	time_t expire_secs;
+	unsigned int altmove:1;
 };
 
 struct expire_transaction_context {
@@ -78,16 +79,16 @@ static void first_nonexpunged_timestamp(struct mailbox_transaction_context *_t,
 	for (seq = 2; seq <= hdr->messages_count; seq++) {
 		if (!mail_index_is_expunged(view, seq)) {
 			mail_set_seq(mail, seq);
-			if (mail_get_save_date(mail, stamp_r) == 0) {
-				mail_free(&mail);
-				return;
-			}
+			if (mail_get_save_date(mail, stamp_r) == 0)
+				break;
 		}
 	}
 	mail_free(&mail);
 
-	/* everything expunged */
-	*stamp_r = 0;
+	if (seq > hdr->messages_count) {
+		/* everything expunged */
+		*stamp_r = 0;
+	}
 }
 
 static int
@@ -103,7 +104,9 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	bool update_dict = FALSE;
 	int ret;
 
-	if (xt->first_expunged) {
+	if (xpr_box->altmove) {
+		/* only moving mails - don't update the move stamps */
+	} else if (xt->first_expunged) {
 		/* first mail expunged. dict needs updating. */
 		first_nonexpunged_timestamp(t, &new_stamp);
 		update_dict = TRUE;
@@ -126,7 +129,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			   this is the first mail in the database */
 			ret = dict_lookup(expire.db, pool_datastack_create(),
 					  key, &value);
-			update_dict = ret == 0 || strtoul(value, NULL, 10) == 0;
+			update_dict = ret == 0 ||
+				(ret > 0 && strtoul(value, NULL, 10) == 0);
 			/* may not be exactly the first message's save time
 			   but a few second difference doesn't matter */
 			new_stamp = ioloop_time;
@@ -219,7 +223,8 @@ expire_copy(struct mailbox_transaction_context *t, struct mail *mail,
 		copy(t, mail, flags, keywords, dest_mail);
 }
 
-static void mailbox_expire_hook(struct mailbox *box, time_t expire_secs)
+static void
+mailbox_expire_hook(struct mailbox *box, time_t expire_secs, bool altmove)
 {
 	struct expire_mailbox *xpr_box;
 
@@ -233,6 +238,7 @@ static void mailbox_expire_hook(struct mailbox *box, time_t expire_secs)
 	box->v.save_finish = expire_save_finish;
 	box->v.copy = expire_copy;
 
+	xpr_box->altmove = altmove;
 	xpr_box->expire_secs = expire_secs;
 
 	MODULE_CONTEXT_SET(box, expire_storage_module, xpr_box);
@@ -247,15 +253,17 @@ expire_mailbox_open(struct mail_storage *storage, const char *name,
 	struct mailbox *box;
 	string_t *vname;
 	unsigned int secs;
+	bool altmove;
 
 	box = xpr_storage->super.mailbox_open(storage, name, input, flags);
 	if (box != NULL) {
 		vname = t_str_new(128);
 		(void)mail_namespace_get_vname(storage->ns, vname, name);
 
-		secs = expire_box_find_min_secs(expire.env, str_c(vname));
+		secs = expire_box_find_min_secs(expire.env, str_c(vname),
+						&altmove);
 		if (secs != 0)
-			mailbox_expire_hook(box, secs);
+			mailbox_expire_hook(box, secs, altmove);
 	}
 	return box;
 }
@@ -264,15 +272,15 @@ static void expire_mail_storage_created(struct mail_storage *storage)
 {
 	union mail_storage_module_context *xpr_storage;
 
-	if (expire.next_hook_mail_storage_created != NULL)
-		expire.next_hook_mail_storage_created(storage);
-
 	xpr_storage =
 		p_new(storage->pool, union mail_storage_module_context, 1);
 	xpr_storage->super = storage->v;
 	storage->v.mailbox_open = expire_mailbox_open;
 
 	MODULE_CONTEXT_SET_SELF(storage, expire_storage_module, xpr_storage);
+
+	if (expire.next_hook_mail_storage_created != NULL)
+		expire.next_hook_mail_storage_created(storage);
 }
 
 void expire_plugin_init(void)
@@ -286,9 +294,11 @@ void expire_plugin_init(void)
 		if (dict_uri == NULL)
 			i_fatal("expire plugin: expire_dict setting missing");
 
-		expire.env = expire_env_init(expunge_env, altmove_env);
-		expire.db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, NULL);
 		expire.username = getenv("USER");
+		expire.env = expire_env_init(expunge_env, altmove_env);
+		expire.db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, expire.username);
+		if (expire.db == NULL)
+			i_fatal("expire plugin: dict_init() failed");
 
 		expire.next_hook_mail_storage_created =
 			hook_mail_storage_created;

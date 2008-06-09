@@ -85,7 +85,7 @@ mailbox_childinfo2str(struct cmd_list_context *ctx, string_t *str,
 		return;
 
 	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0)
-		str_append(str, " (\"CHILDINFO\" (\"SUBSCRIBED\"))");
+		str_append(str, " (CHILDINFO (\"SUBSCRIBED\"))");
 }
 
 static bool
@@ -347,14 +347,14 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		imap_quote_append_string(str, name, FALSE);
 		mailbox_childinfo2str(ctx, str, flags);
 
+		ret = client_send_line(ctx->cmd->client, str_c(str));
 		if (ctx->status_items != 0 &&
 		    (flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) == 0) {
 			T_BEGIN {
 				list_send_status(ctx, name);
 			} T_END;
 		}
-
-		if (client_send_line(ctx->cmd->client, str_c(str)) == 0) {
+		if (ret == 0) {
 			/* buffer is full, continue later */
 			return 0;
 		}
@@ -812,7 +812,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		args += 2;
 	}
 
-	ctx->list_flags = MAILBOX_LIST_ITER_VIRTUAL_NAMES;
+	ctx->list_flags |= MAILBOX_LIST_ITER_VIRTUAL_NAMES;
 	if (lsub) {
 		/* LSUB - we don't care about flags */
 		ctx->list_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |

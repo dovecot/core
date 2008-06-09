@@ -21,6 +21,7 @@ static MODULE_CONTEXT_DEFINE_INIT(raw_mailbox_list_module,
 static int raw_list_delete_mailbox(struct mailbox_list *list, const char *name);
 static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				    const char *dir, const char *fname,
+				    const char *mailbox_name,
 				    enum mailbox_list_file_type type,
 				    enum mailbox_info_flags *flags);
 
@@ -161,8 +162,10 @@ raw_mailbox_open(struct mail_storage *_storage, const char *name,
 
 	if (stream)
 		mbox->mtime = mbox->ctime = ioloop_time;
-	else
+	else {
 		mbox->mtime = mbox->ctime = (time_t)-1;
+		mbox->have_filename = TRUE;
+	}
 	mbox->size = (uoff_t)-1;
 
 	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
@@ -200,6 +203,7 @@ static void raw_notify_changes(struct mailbox *box ATTR_UNUSED)
 
 static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				    const char *dir, const char *fname,
+				    const char *mailbox_name ATTR_UNUSED,
 				    enum mailbox_list_file_type type,
 				    enum mailbox_info_flags *flags_r)
 {

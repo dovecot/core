@@ -49,6 +49,15 @@ bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t uid)
 		seq_range_exists(&ibox->recent_flags, uid);
 }
 
+void index_mailbox_reset_uidvalidity(struct index_mailbox *ibox)
+{
+	/* can't trust the currently cached recent flags anymore */
+	if (array_is_created(&ibox->recent_flags))
+		array_clear(&ibox->recent_flags);
+	ibox->recent_flags_count = 0;
+	ibox->recent_flags_prev_uid = 0;
+}
+
 unsigned int index_mailbox_get_recent_count(struct index_mailbox *ibox)
 {
 	const struct mail_index_header *hdr;
@@ -95,14 +104,14 @@ static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
 
 static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 {
-	struct mail_index_view_sync_rec sync;
+	struct mail_index_view_sync_rec sync_rec;
 	uint32_t seq1, seq2;
 
 	i_array_init(&ctx->flag_updates, 128);
 	if ((ctx->ibox->box.enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0)
 		i_array_init(&ctx->modseq_updates, 32);
-	while (mail_index_view_sync_next(ctx->sync_ctx, &sync)) {
-		switch (sync.type) {
+	while (mail_index_view_sync_next(ctx->sync_ctx, &sync_rec)) {
+		switch (sync_rec.type) {
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 			/* not interested */
 			break;
@@ -114,11 +123,11 @@ static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			if (!mail_index_lookup_seq_range(ctx->ibox->view,
-							 sync.uid1, sync.uid2,
+							 sync_rec.uid1, sync_rec.uid2,
 							 &seq1, &seq2))
 				break;
 
-			if (!sync.hidden) {
+			if (!sync_rec.hidden) {
 				seq_range_array_add_range(&ctx->flag_updates,
 							  seq1, seq2);
 			} else if (array_is_created(&ctx->modseq_updates)) {
@@ -190,14 +199,14 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 	return &ctx->ctx;
 }
 
-static int
+static bool
 index_mailbox_sync_next_expunge(struct index_mailbox_sync_context *ctx,
 				struct mailbox_sync_rec *sync_rec_r)
 {
 	const struct seq_range *range;
 
 	if (ctx->expunge_pos == 0)
-		return 0;
+		return FALSE;
 
 	/* expunges is a sorted array of sequences. it's easiest for
 	   us to print them from end to beginning. */
@@ -211,7 +220,7 @@ index_mailbox_sync_next_expunge(struct index_mailbox_sync_context *ctx,
 	sync_rec_r->seq1 = range->seq1;
 	sync_rec_r->seq2 = range->seq2;
 	sync_rec_r->type = MAILBOX_SYNC_TYPE_EXPUNGE;
-	return 1;
+	return TRUE;
 }
 
 bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
@@ -231,7 +240,7 @@ bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 		sync_rec_r->seq1 = range[ctx->flag_update_idx].seq1;
 		sync_rec_r->seq2 = range[ctx->flag_update_idx].seq2;
 		ctx->flag_update_idx++;
-		return 1;
+		return TRUE;
 	}
 	if (array_is_created(&ctx->modseq_updates)) {
 		range = array_get(&ctx->modseq_updates, &count);
@@ -240,7 +249,7 @@ bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 			sync_rec_r->seq1 = range[ctx->modseq_update_idx].seq1;
 			sync_rec_r->seq2 = range[ctx->modseq_update_idx].seq2;
 			ctx->modseq_update_idx++;
-			return 1;
+			return TRUE;
 		}
 	}
 

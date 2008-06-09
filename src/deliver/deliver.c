@@ -633,7 +633,7 @@ static void open_logfile(const char *username)
 static void print_help(void)
 {
 	printf(
-"Usage: deliver [-c <config file>] [-a <address>] [-d <username>]\n"
+"Usage: deliver [-c <config file>] [-a <address>] [-d <username>] [-p <path>]\n"
 "               [-f <envelope sender>] [-m <mailbox>] [-n] [-e] [-k]\n");
 }
 
@@ -711,7 +711,7 @@ int main(int argc, char *argv[])
 	const char *config_path = DEFAULT_CONFIG_FILE;
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
-	const char *home, *destaddr, *user, *value, *error;
+	const char *home, *destaddr, *user, *value, *errstr, *path;
 	ARRAY_TYPE(string) extra_fields;
 	struct mail_namespace *ns, *raw_ns;
 	struct mail_storage *storage;
@@ -743,7 +743,7 @@ int main(int argc, char *argv[])
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 
-	destaddr = user = NULL;
+	destaddr = user = path = NULL;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-a") == 0) {
 			/* destination address */
@@ -758,6 +758,12 @@ int main(int argc, char *argv[])
 				i_fatal_status(EX_USAGE, "Missing -d argument");
 			user = argv[i];
 			user_auth = TRUE;
+		} else if (strcmp(argv[i], "-p") == 0) {
+			/* input path */
+			i++;
+			if (i == argc)
+				i_fatal_status(EX_USAGE, "Missing -p argument");
+			path = argv[i];
 		} else if (strcmp(argv[i], "-e") == 0) {
 			stderr_rejection = TRUE;
 		} else if (strcmp(argv[i], "-c") == 0) {
@@ -938,11 +944,19 @@ int main(int argc, char *argv[])
 	raw_ns = mail_namespaces_init_empty(namespace_pool);
 	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
 	if (mail_storage_create(raw_ns, "raw", "/tmp", user,
-				0, FILE_LOCK_METHOD_FCNTL, &error) < 0)
-		i_fatal("Couldn't create internal raw storage: %s", error);
-	input = create_raw_stream(0, &mtime);
-	box = mailbox_open(raw_ns->storage, "Dovecot Delivery Mail", input,
-			   MAILBOX_OPEN_NO_INDEX_FILES);
+				MAIL_STORAGE_FLAG_FULL_FS_ACCESS,
+				FILE_LOCK_METHOD_FCNTL, &errstr) < 0)
+		i_fatal("Couldn't create internal raw storage: %s", errstr);
+	if (path == NULL) {
+		input = create_raw_stream(0, &mtime);
+		box = mailbox_open(raw_ns->storage, "Dovecot Delivery Mail",
+				   input, MAILBOX_OPEN_NO_INDEX_FILES);
+		i_stream_unref(&input);
+	} else {
+		mtime = (time_t)-1;
+		box = mailbox_open(raw_ns->storage, path, NULL,
+				   MAILBOX_OPEN_NO_INDEX_FILES);
+	}
 	if (box == NULL)
 		i_fatal("Can't open delivery mail as raw");
 	if (mailbox_sync(box, 0, 0, NULL) < 0) {
@@ -978,20 +992,17 @@ int main(int argc, char *argv[])
 
 	if (ret < 0 && !tried_default_save) {
 		/* plugins didn't handle this. save into the default mailbox. */
-		i_stream_seek(input, 0);
 		ret = deliver_save(ns, &storage, mailbox, mail, 0, NULL);
 	}
 	if (ret < 0 && strcasecmp(mailbox, "INBOX") != 0) {
 		/* still didn't work. try once more to save it
 		   to INBOX. */
-		i_stream_seek(input, 0);
 		ret = deliver_save(ns, &storage, "INBOX", mail, 0, NULL);
 	}
 
 	if (ret < 0 ) {
 		const char *error_string;
 		enum mail_error error;
-		int ret;
 
 		if (storage == NULL) {
 			/* This shouldn't happen */
@@ -1000,6 +1011,13 @@ int main(int argc, char *argv[])
 		}
 
 		error_string = mail_storage_get_last_error(storage, &error);
+
+		if (stderr_rejection) {
+			/* write to stderr also for tempfails so that MTA
+			   can log the reason if it wants to. */
+			fprintf(stderr, "%s\n", error_string);
+		}
+
 		if (error != MAIL_ERROR_NOSPACE ||
 		    getenv("QUOTA_FULL_TEMPFAIL") != NULL) {
 			/* Saving to INBOX should always work unless
@@ -1008,20 +1026,17 @@ int main(int argc, char *argv[])
 			return EX_TEMPFAIL;
 		}
 
+		/* we'll have to reply with permanent failure */
 		deliver_log(mail, "rejected: %s",
 			    str_sanitize(error_string, 512));
 
-		/* we'll have to reply with permanent failure */
-		if (stderr_rejection) {
-			fprintf(stderr, "%s\n", error_string);
+		if (stderr_rejection)
 			return EX_NOPERM;
-		}
 		ret = mail_send_rejection(mail, user, error_string);
 		if (ret != 0)
 			return ret < 0 ? EX_TEMPFAIL : ret;
 		/* ok, rejection sent */
 	}
-	i_stream_unref(&input);
 	i_free(explicit_envelope_sender);
 
 	mail_free(&mail);

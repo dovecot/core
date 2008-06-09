@@ -48,14 +48,15 @@ static int
 maildir_list_rename_mailbox(struct mailbox_list *list,
 			    const char *oldname, const char *newname);
 static int
-maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
-			     	ATTR_UNUSED,
+maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 			     const char *dir, const char *fname,
+			     const char *mailbox_name,
 			     enum mailbox_list_file_type type,
 			     enum mailbox_info_flags *flags_r);
 static int
 maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				const char *dir, const char *fname,
+				const char *mailbox_name,
 				enum mailbox_list_file_type type,
 				enum mailbox_info_flags *flags_r);
 
@@ -864,6 +865,7 @@ static int
 maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 			     	ATTR_UNUSED,
 			     const char *dir, const char *fname,
+			     const char *mailbox_name ATTR_UNUSED,
 			     enum mailbox_list_file_type type,
 			     enum mailbox_info_flags *flags_r)
 {
@@ -913,6 +915,7 @@ maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 static int
 maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				const char *dir, const char *fname,
+				const char *mailbox_name ATTR_UNUSED,
 				enum mailbox_list_file_type type,
 				enum mailbox_info_flags *flags_r)
 {

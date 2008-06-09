@@ -148,6 +148,15 @@ static int mailbox_convert_maildir_to_dbox(struct mail_storage *src_storage,
 	bool t;
 	int ret;
 
+	/* create as non-selectable mailbox so the dbox-Mails directory
+	   isn't created yet */
+	if (mail_storage_mailbox_create(dest_storage, dest_name, TRUE) < 0) {
+		i_error("Mailbox conversion: "
+			"Couldn't create mailbox %s: %s",
+			dest_name, storage_error(dest_storage));
+		return -1;
+	}
+
 	src_path = mail_storage_get_mailbox_path(src_storage, src_name, &t);
 	dest_path = mail_storage_get_mailbox_path(dest_storage, dest_name, &t);
 

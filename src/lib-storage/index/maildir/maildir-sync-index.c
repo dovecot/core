@@ -186,6 +186,46 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	return 0;
 }
 
+static bool
+maildir_index_header_has_changed(const struct maildir_index_header *old_hdr,
+				 const struct maildir_index_header *new_hdr)
+{
+#define DIR_DELAYED_REFRESH(hdr, name) \
+	((hdr)->name ## _check_time <= \
+		(hdr)->name ## _mtime + MAILDIR_SYNC_SECS)
+
+	if (old_hdr->new_mtime != new_hdr->new_mtime ||
+	    old_hdr->new_mtime_nsecs != new_hdr->new_mtime_nsecs ||
+	    old_hdr->cur_mtime != new_hdr->cur_mtime ||
+	    old_hdr->cur_mtime_nsecs != new_hdr->cur_mtime_nsecs ||
+	    old_hdr->uidlist_mtime != new_hdr->uidlist_mtime ||
+	    old_hdr->uidlist_mtime_nsecs != new_hdr->uidlist_mtime_nsecs ||
+	    old_hdr->uidlist_size != new_hdr->uidlist_size)
+		return TRUE;
+
+	return DIR_DELAYED_REFRESH(old_hdr, new) !=
+		DIR_DELAYED_REFRESH(new_hdr, new) ||
+		DIR_DELAYED_REFRESH(old_hdr, cur) !=
+		DIR_DELAYED_REFRESH(new_hdr, cur);
+}
+
+static void
+maildir_sync_index_update_ext_header(struct maildir_index_sync_context *ctx)
+{
+	struct maildir_mailbox *mbox = ctx->mbox;
+	const void *data;
+	size_t data_size;
+
+	mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
+				  &data, &data_size);
+	if (data_size != sizeof(mbox->maildir_hdr) ||
+	    maildir_index_header_has_changed(data, &mbox->maildir_hdr)) {
+		mail_index_update_header_ext(ctx->trans, mbox->maildir_ext_id,
+					     0, &mbox->maildir_hdr,
+					     sizeof(mbox->maildir_hdr));
+	}
+}
+
 int maildir_sync_index_finish(struct maildir_index_sync_context **_ctx,
 			      bool failed, bool cancel)
 {
@@ -198,6 +238,8 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_ctx,
 	if (ret < 0 || cancel)
 		mail_index_sync_rollback(&ctx->sync_ctx);
 	else {
+		maildir_sync_index_update_ext_header(ctx);
+
 		/* Set syncing_commit=TRUE so that if any sync callbacks try
 		   to access mails which got lost (eg. expunge callback trying
 		   to open the file which was just unlinked) we don't try to
@@ -219,43 +261,6 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_ctx,
 	return ret;
 }
 
-static bool
-maildir_index_header_has_changed(const struct maildir_index_header *old_hdr,
-				 const struct maildir_index_header *new_hdr)
-{
-#define DIR_DELAYED_REFRESH(hdr, name) \
-	((hdr)->name ## _check_time <= \
-		(hdr)->name ## _mtime + MAILDIR_SYNC_SECS)
-
-	if (old_hdr->new_mtime != new_hdr->new_mtime ||
-	    old_hdr->cur_mtime != new_hdr->cur_mtime ||
-	    old_hdr->new_mtime_nsecs != new_hdr->new_mtime_nsecs ||
-	    old_hdr->cur_mtime_nsecs != new_hdr->cur_mtime_nsecs)
-		return TRUE;
-
-	return DIR_DELAYED_REFRESH(old_hdr, new) !=
-		DIR_DELAYED_REFRESH(new_hdr, new) ||
-		DIR_DELAYED_REFRESH(old_hdr, cur) !=
-		DIR_DELAYED_REFRESH(new_hdr, cur);
-}
-
-static void
-maildir_index_update_ext_header(struct maildir_mailbox *mbox,
-				struct mail_index_transaction *trans)
-{
-	const void *data;
-	size_t data_size;
-
-	mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
-				  &data, &data_size);
-	if (data_size != sizeof(mbox->maildir_hdr) ||
-	    maildir_index_header_has_changed(data, &mbox->maildir_hdr)) {
-		mail_index_update_header_ext(trans, mbox->maildir_ext_id, 0,
-					     &mbox->maildir_hdr,
-					     sizeof(mbox->maildir_hdr));
-	}
-}
-
 int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		       bool partial)
 {
@@ -272,6 +277,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	const char *filename;
 	ARRAY_TYPE(keyword_indexes) idx_keywords;
 	uint32_t uid_validity, next_uid, hdr_next_uid, first_recent_uid;
+	uint32_t first_uid;
 	unsigned int changes = 0;
 	int ret = 0;
 	bool expunged, full_rescan = FALSE;
@@ -279,6 +285,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	i_assert(!mbox->syncing_commit);
 	i_assert(maildir_uidlist_is_locked(mbox->uidlist));
 
+	first_uid = 1;
 	hdr = mail_index_get_header(view);
 	uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
 	if (uid_validity != hdr->uid_validity &&
@@ -289,8 +296,10 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		i_warning("Maildir %s: UIDVALIDITY changed (%u -> %u)",
 			  mbox->path, hdr->uid_validity, uid_validity);
 		mail_index_reset(trans);
+		index_mailbox_reset_uidvalidity(&mbox->ibox);
 		maildir_uidlist_set_next_uid(mbox->uidlist, 1, TRUE);
 
+		first_uid = hdr->messages_count + 1;
 		memset(&empty_hdr, 0, sizeof(empty_hdr));
 		empty_hdr.next_uid = 1;
 		hdr = &empty_hdr;
@@ -438,8 +447,13 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	   appended messages. */
 	view2 = mail_index_transaction_open_updated_view(trans);
 	if (mail_index_lookup_seq_range(view2, first_recent_uid, (uint32_t)-1,
-					&seq, &seq2))
+					&seq, &seq2) && seq2 >= first_uid) {
+		if (seq < first_uid) {
+			/* UIDVALIDITY changed, skip over the old messages */
+			seq = first_uid;
+		}
 		index_mailbox_set_recent_seq(&mbox->ibox, view2, seq, seq2);
+	}
 	mail_index_view_close(&view2);
 
 	if (ctx->uidlist_sync_ctx != NULL) {
@@ -452,7 +466,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 	if (ctx->changed)
 		mbox->maildir_hdr.cur_mtime = time(NULL);
-	maildir_index_update_ext_header(mbox, trans);
 
 	if (uid_validity == 0) {
 		uid_validity = hdr->uid_validity != 0 ?

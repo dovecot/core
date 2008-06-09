@@ -196,15 +196,22 @@ static int
 dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 		     uoff_t offset, uint32_t seq)
 {
+	static enum dbox_metadata_key maildir_metadata_keys[] = {
+		DBOX_METADATA_VIRTUAL_SIZE,
+		DBOX_METADATA_RECEIVED_TIME,
+		DBOX_METADATA_SAVE_TIME,
+		DBOX_METADATA_POP3_UIDL
+	};
 	struct dbox_index_append_context *append_ctx;
 	struct dbox_file *out_file;
 	struct istream *input;
 	struct ostream *output;
 	struct dbox_message_header dbox_msg_hdr;
 	struct dbox_mail_index_record rec;
-	const char *out_path;
+	const char *out_path, *value;
 	uint32_t uid;
 	uoff_t size, append_offset;
+	unsigned int i;
 	int ret;
 	bool expunged;
 
@@ -232,6 +239,16 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 	T_BEGIN {
 		dbox_sync_update_metadata(ctx, out_file, NULL, seq);
 	} T_END;
+
+	/* set static metadata */
+	for (i = 0; i < N_ELEMENTS(maildir_metadata_keys); i++) {
+		value = dbox_file_metadata_get(in_file,
+					       maildir_metadata_keys[i]);
+		if (value != NULL) {
+			dbox_file_metadata_set(out_file,
+					       maildir_metadata_keys[i], value);
+		}
+	}
 
 	/* copy the message */
 	out_path = dbox_file_get_path(out_file);

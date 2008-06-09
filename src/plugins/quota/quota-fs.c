@@ -203,7 +203,7 @@ static void fs_quota_mount_init(struct fs_quota_root *root,
 	/* if there are more unused quota roots, copy this mount to them */
 	roots = array_get(&root->root.quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		struct fs_quota_root *root = (struct fs_quota_root *)roots[i];
+		root = (struct fs_quota_root *)roots[i];
 		if (QUOTA_ROOT_MATCH(root, mount) && root->mount == NULL) {
 			mount->refcount++;
 			root->mount = mount;

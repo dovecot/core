@@ -507,6 +507,49 @@ struct cmd_uidl_context {
 	struct mail_search_arg search_arg;
 };
 
+static void pop3_get_uid(struct cmd_uidl_context *ctx,
+			 struct var_expand_table *tab, string_t *str)
+{
+	char uid_str[MAX_INT_STRLEN];
+	const char *uidl;
+
+	if (mail_get_special(ctx->mail, MAIL_FETCH_UIDL_BACKEND, &uidl) == 0 &&
+	    *uidl != '\0') {
+		str_append(str, uidl);
+		return;
+	}
+
+	if (reuse_xuidl &&
+	    mail_get_first_header(ctx->mail, "X-UIDL", &uidl) > 0) {
+		str_append(str, uidl);
+		return;
+	}
+
+	if ((uidl_keymask & UIDL_UID) != 0) {
+		i_snprintf(uid_str, sizeof(uid_str), "%u",
+			   ctx->mail->uid);
+		tab[1].value = uid_str;
+	}
+	if ((uidl_keymask & UIDL_MD5) != 0) {
+		if (mail_get_special(ctx->mail, MAIL_FETCH_HEADER_MD5,
+				     &tab[2].value) < 0 ||
+		    *tab[2].value == '\0') {
+			/* broken */
+			i_fatal("UIDL: Header MD5 not found");
+		}
+	}
+	if ((uidl_keymask & UIDL_FILE_NAME) != 0) {
+		if (mail_get_special(ctx->mail,
+				     MAIL_FETCH_UIDL_FILE_NAME,
+				     &tab[3].value) < 0 ||
+		    *tab[3].value == '\0') {
+			/* broken */
+			i_fatal("UIDL: File name not found");
+		}
+	}
+	var_expand(str, uidl_format, tab);
+}
+
 static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 {
 	static struct var_expand_table static_tab[] = {
@@ -518,8 +561,6 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	};
 	struct var_expand_table *tab;
 	string_t *str;
-	char uid_str[MAX_INT_STRLEN];
-	const char *uidl;
 	int ret;
 	bool found = FALSE;
 
@@ -537,38 +578,11 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		}
 		found = TRUE;
 
-		if ((uidl_keymask & UIDL_UID) != 0) {
-			i_snprintf(uid_str, sizeof(uid_str), "%u",
-				   ctx->mail->uid);
-			tab[1].value = uid_str;
-		}
-		if ((uidl_keymask & UIDL_MD5) != 0) {
-			if (mail_get_special(ctx->mail, MAIL_FETCH_HEADER_MD5,
-					     &tab[2].value) < 0 ||
-			    *tab[2].value == '\0') {
-				/* broken */
-				i_fatal("UIDL: Header MD5 not found");
-			}
-		}
-		if ((uidl_keymask & UIDL_FILE_NAME) != 0) {
-			if (mail_get_special(ctx->mail,
-					     MAIL_FETCH_UIDL_FILE_NAME,
-					     &tab[3].value) < 0 ||
-			    *tab[3].value == '\0') {
-				/* broken */
-				i_fatal("UIDL: File name not found");
-			}
-		}
-
 		str_truncate(str, 0);
 		str_printfa(str, ctx->message == 0 ? "%u " : "+OK %u ",
 			    ctx->mail->seq);
+		pop3_get_uid(ctx, tab, str);
 
-		if (reuse_xuidl &&
-		    mail_get_first_header(ctx->mail, "X-UIDL", &uidl) > 0)
-			str_append(str, uidl);
-		else
-			var_expand(str, uidl_format, tab);
 		ret = client_send_line(client, "%s", str_c(str));
 		if (ret < 0)
 			break;

@@ -125,7 +125,7 @@ bool cmd_store(struct client_command_context *cmd)
 	ARRAY_TYPE(seq_range) modified_set = ARRAY_INIT;
 	enum mailbox_transaction_flags flags = 0;
 	enum imap_sync_flags imap_sync_flags = 0;
-	const char *tagged_reply;
+	const char *reply, *tagged_reply;
 	string_t *str;
 	int ret;
 
@@ -149,10 +149,21 @@ bool cmd_store(struct client_command_context *cmd)
 	if (!store_parse_args(&ctx, ++args))
 		return TRUE;
 
+	if (mailbox_is_readonly(client->mailbox)) {
+		if (ctx.max_modseq < (uint64_t)-1)
+			reply = "NO CONDSTORE failed: Mailbox is read-only.";
+		else
+			reply = "OK Store ignored with read-only mailbox.";
+		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
+				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+				0, reply);
+	}
+
 	if (ctx.silent)
 		flags |= MAILBOX_TRANSACTION_FLAG_HIDE;
 	if (ctx.max_modseq < (uint64_t)-1)
 		flags |= MAILBOX_TRANSACTION_FLAG_REFRESH;
+
 	t = mailbox_transaction_begin(client->mailbox, flags);
 	search_ctx = mailbox_search_init(t, search_args, NULL);
 	mail_search_args_unref(&search_args);

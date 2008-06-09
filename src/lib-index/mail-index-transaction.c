@@ -75,6 +75,8 @@ void mail_index_transaction_reset(struct mail_index_transaction *t)
 		array_free(&t->ext_resets);
 	if (array_is_created(&t->ext_reset_ids))
 		array_free(&t->ext_reset_ids);
+	if (array_is_created(&t->ext_reset_atomic))
+		array_free(&t->ext_reset_atomic);
 
 	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
 	t->last_new_seq = 0;
@@ -1087,16 +1089,34 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 }
 
 void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
-			  uint32_t reset_id)
+			  uint32_t reset_id, bool clear_data)
 {
+	struct mail_transaction_ext_reset reset;
+
 	i_assert(reset_id != 0);
+
+	memset(&reset, 0, sizeof(reset));
+	reset.new_reset_id = reset_id;
+	reset.preserve_data = !clear_data;
 
 	mail_index_ext_set_reset_id(t, ext_id, reset_id);
 
 	if (!array_is_created(&t->ext_resets))
 		i_array_init(&t->ext_resets, ext_id + 2);
-	array_idx_set(&t->ext_resets, ext_id, &reset_id);
+	array_idx_set(&t->ext_resets, ext_id, &reset);
 	t->log_ext_updates = TRUE;
+}
+
+void mail_index_ext_reset_inc(struct mail_index_transaction *t, uint32_t ext_id,
+			      uint32_t prev_reset_id, bool clear_data)
+{
+	uint32_t expected_reset_id = prev_reset_id + 1;
+
+	mail_index_ext_reset(t, ext_id, (uint32_t)-1, clear_data);
+
+	if (!array_is_created(&t->ext_reset_atomic))
+		i_array_init(&t->ext_reset_atomic, ext_id + 2);
+	array_idx_set(&t->ext_reset_atomic, ext_id, &expected_reset_id);
 }
 
 static bool
@@ -1123,11 +1143,11 @@ mail_index_transaction_has_ext_changes(struct mail_index_transaction *t)
 		}
 	}
 	if (array_is_created(&t->ext_resets)) {
-		const uint32_t *ids;
+		const struct mail_transaction_ext_reset *resets;
 
-		ids = array_get(&t->ext_resets, &count);
+		resets = array_get(&t->ext_resets, &count);
 		for (i = 0; i < count; i++) {
-			if (ids[i] != 0)
+			if (resets[i].new_reset_id != 0)
 				return TRUE;
 		}
 	}

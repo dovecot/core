@@ -12,8 +12,9 @@
 #include <time.h>
 #include <grp.h>
 
-static gid_t primary_gid = (gid_t)-1, privileged_gid = (gid_t)-1;
-static bool using_priv_gid = FALSE;
+static gid_t process_primary_gid = (gid_t)-1;
+static gid_t process_privileged_gid = (gid_t)-1;
+static bool process_using_priv_gid = FALSE;
 
 void restrict_access_set_env(const char *user, uid_t uid,
 			     gid_t gid, gid_t privileged_gid,
@@ -160,7 +161,7 @@ static void fix_groups_list(const char *extra_groups,
 	/* if we're using a privileged GID, we can temporarily drop our
 	   effective GID. we still want to be able to use its privileges,
 	   so add it to supplementary groups. */
-	add_primary_gid = privileged_gid != (gid_t)-1;
+	add_primary_gid = process_privileged_gid != (gid_t)-1;
 
 	tmp = extra_groups == NULL ? &empty :
 		t_strsplit_spaces(extra_groups, ", ");
@@ -171,7 +172,7 @@ static void fix_groups_list(const char *extra_groups,
 				       have_root_group);
 		/* see if the list already contains the primary GID */
 		for (i = 0; i < gid_count; i++) {
-			if (gid_list[i] == primary_gid) {
+			if (gid_list[i] == process_primary_gid) {
 				add_primary_gid = FALSE;
 				break;
 			}
@@ -184,7 +185,7 @@ static void fix_groups_list(const char *extra_groups,
 		/* Some OSes don't like an empty groups list,
 		   so use the primary GID as the only one. */
 		gid_list = t_new(gid_t, 2);
-		gid_list[0] = primary_gid;
+		gid_list[0] = process_primary_gid;
 		gid_count = 1;
 		add_primary_gid = FALSE;
 	}
@@ -195,11 +196,11 @@ static void fix_groups_list(const char *extra_groups,
 		memcpy(gid_list2, gid_list, gid_count * sizeof(gid_t));
 		for (; *tmp != NULL; tmp++) {
 			gid = get_group_id(*tmp);
-			if (gid != primary_gid)
+			if (gid != process_primary_gid)
 				gid_list2[gid_count++] = gid;
 		}
 		if (add_primary_gid)
-			gid_list2[gid_count++] = primary_gid;
+			gid_list2[gid_count++] = process_primary_gid;
 		gid_list = gid_list2;
 	}
 
@@ -224,28 +225,30 @@ void restrict_access_by_env(bool disallow_root)
 
 	/* set the primary/privileged group */
 	env = getenv("RESTRICT_SETGID");
-	primary_gid = env == NULL || *env == '\0' ? (gid_t)-1 :
+	process_primary_gid = env == NULL || *env == '\0' ? (gid_t)-1 :
 		(gid_t)strtoul(env, NULL, 10);
 	env = getenv("RESTRICT_SETGID_PRIV");
-	privileged_gid = env == NULL || *env == '\0' ? (gid_t)-1 :
+	process_privileged_gid = env == NULL || *env == '\0' ? (gid_t)-1 :
 		(gid_t)strtoul(env, NULL, 10);
 
-	have_root_group = primary_gid == 0;
-	if (primary_gid != (gid_t)-1 || privileged_gid != (gid_t)-1) {
-		if (primary_gid == (gid_t)-1)
-			primary_gid = getegid();
-		restrict_init_groups(primary_gid, privileged_gid);
+	have_root_group = process_primary_gid == 0;
+	if (process_primary_gid != (gid_t)-1 ||
+	    process_privileged_gid != (gid_t)-1) {
+		if (process_primary_gid == (gid_t)-1)
+			process_primary_gid = getegid();
+		restrict_init_groups(process_primary_gid,
+				     process_privileged_gid);
 	} else {
-		if (primary_gid == (gid_t)-1)
-			primary_gid = getegid();
+		if (process_primary_gid == (gid_t)-1)
+			process_primary_gid = getegid();
 	}
 
 	/* set system user's groups */
 	env = getenv("RESTRICT_USER");
 	if (env != NULL && *env != '\0' && is_root) {
-		if (initgroups(env, primary_gid) < 0) {
+		if (initgroups(env, process_primary_gid) < 0) {
 			i_fatal("initgroups(%s, %s) failed: %m",
-				env, dec2str(primary_gid));
+				env, dec2str(process_primary_gid));
 		}
 		preserve_groups = TRUE;
 	}
@@ -303,18 +306,18 @@ void restrict_access_by_env(bool disallow_root)
 	env = getenv("RESTRICT_GID_FIRST");
 	if (env != NULL && atoi(env) != 0)
 		allow_root_gid = FALSE;
-	else if (primary_gid == 0 || privileged_gid == 0)
+	else if (process_primary_gid == 0 || process_privileged_gid == 0)
 		allow_root_gid = TRUE;
 	else
 		allow_root_gid = FALSE;
 
 	if (!allow_root_gid && uid != 0) {
 		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0) {
-			if (primary_gid == 0)
+			if (process_primary_gid == 0)
 				i_fatal("GID 0 isn't permitted");
 			i_fatal("We couldn't drop root group privileges "
 				"(wanted=%s, gid=%s, egid=%s)",
-				dec2str(primary_gid),
+				dec2str(process_primary_gid),
 				dec2str(getgid()), dec2str(getegid()));
 		}
 	}
@@ -323,7 +326,7 @@ void restrict_access_by_env(bool disallow_root)
 	env_put("RESTRICT_USER=");
 	env_put("RESTRICT_CHROOT=");
 	env_put("RESTRICT_SETUID=");
-	if (privileged_gid == (gid_t)-1) {
+	if (process_privileged_gid == (gid_t)-1) {
 		/* if we're dropping privileges before executing and
 		   a privileged group is set, the groups must be fixed
 		   after exec */
@@ -337,29 +340,29 @@ void restrict_access_by_env(bool disallow_root)
 
 int restrict_access_use_priv_gid(void)
 {
-	i_assert(!using_priv_gid);
+	i_assert(!process_using_priv_gid);
 
-	if (privileged_gid == (gid_t)-1)
+	if (process_privileged_gid == (gid_t)-1)
 		return 0;
-	if (setegid(privileged_gid) < 0) {
+	if (setegid(process_privileged_gid) < 0) {
 		i_error("setegid(privileged) failed: %m");
 		return -1;
 	}
-	using_priv_gid = TRUE;
+	process_using_priv_gid = TRUE;
 	return 0;
 }
 
 void restrict_access_drop_priv_gid(void)
 {
-	if (!using_priv_gid)
+	if (!process_using_priv_gid)
 		return;
 
-	if (setegid(primary_gid) < 0)
+	if (setegid(process_primary_gid) < 0)
 		i_fatal("setegid(primary) failed: %m");
-	using_priv_gid = FALSE;
+	process_using_priv_gid = FALSE;
 }
 
 bool restrict_access_have_priv_gid(void)
 {
-	return privileged_gid != (gid_t)-1;
+	return process_privileged_gid != (gid_t)-1;
 }

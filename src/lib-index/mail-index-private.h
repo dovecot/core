@@ -221,6 +221,7 @@ struct mail_index {
 	unsigned int syncing:1;
 	unsigned int need_recreate:1;
 	unsigned int modseqs_enabled:1;
+	unsigned int initial_create:1;
 };
 
 extern struct mail_index_module_register mail_index_module_register;

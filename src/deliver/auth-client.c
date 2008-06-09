@@ -95,8 +95,10 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 	const char *const *tmp, *extra_groups;
 	uid_t uid = 0;
 	gid_t gid = 0;
-	const char *chroot = getenv("MAIL_CHROOT");
+	const char *chroot_dir = getenv("MAIL_CHROOT");
+	const char *home_dir = NULL;
 	bool debug = getenv("DEBUG") != NULL;
+	unsigned int len;
 
 	for (tmp = t_strsplit(args, "\t"); *tmp != NULL; tmp++) {
 		if (debug)
@@ -110,10 +112,6 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 					conn->user);
 				return_value = EX_TEMPFAIL;
 			}
-			if (conn->euid != uid) {
-				env_put(t_strconcat("RESTRICT_SETUID=",
-						    dec2str(uid), NULL));
-			}
 		} else if (strncmp(*tmp, "gid=", 4) == 0) {
 			gid = strtoul(*tmp + 4, NULL, 10);
 
@@ -122,24 +120,19 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 					conn->user);
 				return_value = EX_TEMPFAIL;
 			}
-
-			if (conn->euid == 0 || getegid() != gid) {
-				env_put(t_strconcat("RESTRICT_SETGID=",
-						    *tmp + 4, NULL));
-			}
 		} else if (strncmp(*tmp, "chroot=", 7) == 0) {
-			chroot = *tmp + 7;
+			chroot_dir = *tmp + 7;
 		} else {
 			char *field = i_strdup(*tmp);
 
 			if (strncmp(field, "home=", 5) == 0)
-				env_put(t_strconcat("HOME=", field + 5, NULL));
+				home_dir = field + 5;
 
 			array_append(conn->extra_fields, &field, 1);
 		}
 	}
 
-	if (uid == 0 && getenv("MAIL_UID")) {
+	if (uid == 0 && getenv("MAIL_UID") != NULL) {
 		if (!parse_uid(getenv("MAIL_UID"), &uid) || uid == 0) {
 			i_error("mail_uid setting is invalid");
 			return_value = EX_TEMPFAIL;
@@ -151,7 +144,7 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 		return_value = EX_TEMPFAIL;
 		return;
 	}
-	if (gid == 0 && getenv("MAIL_GID")) {
+	if (gid == 0 && getenv("MAIL_GID") != NULL) {
 		if (!parse_gid(getenv("MAIL_GID"), &gid) || gid == 0) {
 			i_error("mail_gid setting is invalid");
 			return_value = EX_TEMPFAIL;
@@ -164,8 +157,23 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 		return;
 	}
 
-	if (chroot != NULL)
-		env_put(t_strconcat("RESTRICT_CHROOT=", chroot, NULL));
+	if (conn->euid != uid)
+		env_put(t_strconcat("RESTRICT_SETUID=", dec2str(uid), NULL));
+	if (conn->euid == 0 || getegid() != gid)
+		env_put(t_strconcat("RESTRICT_SETGID=", dec2str(gid), NULL));
+
+	if (chroot_dir != NULL) {
+		len = strlen(chroot_dir);
+		if (len > 2 && strcmp(chroot_dir + len - 2, "/.") == 0 &&
+		    home_dir != NULL &&
+		    strncmp(home_dir, chroot_dir, len - 2) == 0) {
+			/* strip chroot dir from home dir */
+			home_dir += len - 2;
+		}
+		env_put(t_strconcat("RESTRICT_CHROOT=", chroot_dir, NULL));
+	}
+	if (home_dir != NULL)
+		env_put(t_strconcat("HOME=", home_dir, NULL));
 
 	extra_groups = getenv("MAIL_EXTRA_GROUPS");
 	if (extra_groups != NULL) {

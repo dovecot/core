@@ -403,19 +403,11 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	if (new_dir) {
 		ctx->mbox->maildir_hdr.new_check_time = now;
 		ctx->mbox->maildir_hdr.new_mtime = st.st_mtime;
-#ifdef HAVE_STAT_TV_NSEC
-		ctx->mbox->maildir_hdr.new_mtime_nsecs = st.st_mtim.tv_nsec;
-#else
-		ctx->mbox->maildir_hdr.new_mtime_nsecs = 0;
-#endif
+		ctx->mbox->maildir_hdr.new_mtime_nsecs = ST_MTIME_NSEC(st);
 	} else {
 		ctx->mbox->maildir_hdr.cur_check_time = now;
 		ctx->mbox->maildir_hdr.cur_mtime = st.st_mtime;
-#ifdef HAVE_STAT_TV_NSEC
-		ctx->mbox->maildir_hdr.cur_mtime_nsecs = st.st_mtim.tv_nsec;
-#else
-		ctx->mbox->maildir_hdr.cur_mtime_nsecs = 0;
-#endif
+		ctx->mbox->maildir_hdr.cur_mtime_nsecs = ST_MTIME_NSEC(st);
 	}
 
 	src = t_str_new(1024);
@@ -512,7 +504,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 		(move_count <= MAILDIR_RENAME_RESCAN_COUNT ? 0 : 1);
 }
 
-static int maildir_header_refresh(struct maildir_mailbox *mbox)
+int maildir_sync_header_refresh(struct maildir_mailbox *mbox)
 {
 	const void *data;
 	size_t data_size;
@@ -529,10 +521,8 @@ static int maildir_header_refresh(struct maildir_mailbox *mbox)
 		return 0;
 	}
 
-	if (data_size != sizeof(mbox->maildir_hdr))
-		i_warning("Maildir %s: Invalid header record size", mbox->path);
-	else
-		memcpy(&mbox->maildir_hdr, data, sizeof(mbox->maildir_hdr));
+	memcpy(&mbox->maildir_hdr, data,
+	       I_MIN(sizeof(mbox->maildir_hdr), data_size));
 	return 0;
 }
 
@@ -540,13 +530,6 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 				    const char *new_dir, const char *cur_dir,
 				    bool *new_changed_r, bool *cur_changed_r)
 {
-#ifdef HAVE_STAT_TV_NSEC
-#  define DIR_NSECS_CHANGED(st, hdr, name) \
-	((unsigned int)(st).st_mtim.tv_nsec != (hdr)->name ## _mtime_nsecs)
-#else
-#  define DIR_NSECS_CHANGED(st, hdr, name) 0
-#endif
-
 #define DIR_DELAYED_REFRESH(hdr, name) \
 	((hdr)->name ## _check_time <= \
 		(hdr)->name ## _mtime + MAILDIR_SYNC_SECS && \
@@ -555,14 +538,14 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 
 #define DIR_MTIME_CHANGED(st, hdr, name) \
 	((st).st_mtime != (time_t)(hdr)->name ## _mtime || \
-	 DIR_NSECS_CHANGED(st, hdr, name))
+	 !ST_NTIMES_EQUAL(ST_MTIME_NSEC(st), (hdr)->name ## _mtime_nsecs))
 
 	struct maildir_index_header *hdr = &mbox->maildir_hdr;
 	struct stat new_st, cur_st;
 	bool refreshed = FALSE, check_new = FALSE, check_cur = FALSE;
 
 	if (mbox->maildir_hdr.new_mtime == 0) {
-		if (maildir_header_refresh(mbox) < 0)
+		if (maildir_sync_header_refresh(mbox) < 0)
 			return -1;
 		if (mbox->maildir_hdr.new_mtime == 0) {
 			/* first sync */
@@ -577,7 +560,7 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 	if (DIR_DELAYED_REFRESH(hdr, new) ||
 	    DIR_DELAYED_REFRESH(hdr, cur)) {
 		/* refresh index and try again */
-		if (maildir_header_refresh(mbox) < 0)
+		if (maildir_sync_header_refresh(mbox) < 0)
 			return -1;
 		refreshed = TRUE;
 
@@ -610,7 +593,7 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 			break;
 
 		/* refresh index and try again */
-		if (maildir_header_refresh(mbox) < 0)
+		if (maildir_sync_header_refresh(mbox) < 0)
 			return -1;
 		refreshed = TRUE;
 	}
@@ -760,7 +743,6 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 					&ctx->uidlist_sync_ctx);
 	if (ret <= 0) {
 		/* failure / timeout */
-		i_assert(ret < 0 || !forced);
 		return ret;
 	}
 	ctx->locked = maildir_uidlist_is_locked(ctx->mbox->uidlist);

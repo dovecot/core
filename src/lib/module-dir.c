@@ -250,9 +250,9 @@ module_dir_load_real(const char *dir, const char *module_names,
 
 	module_pos = &modules;
 	for (i = 0; i < count; i++) T_BEGIN {
-		const char *name = names_p[i];
 		const char *path, *stripped_name;
 
+		name = names_p[i];
 		stripped_name = module_file_get_name(name);
 		if (!module_want_load(module_names_arr, stripped_name))
 			module = NULL;

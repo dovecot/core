@@ -98,6 +98,9 @@ raw_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	case MAIL_FETCH_FROM_ENVELOPE:
 		*value_r = mbox->envelope_sender;
 		return 0;
+	case MAIL_FETCH_UIDL_FILE_NAME:
+		*value_r = mbox->have_filename ? mbox->path : "";
+		return 0;
 	default:
 		return index_mail_get_special(_mail, field, value_r);
 	}

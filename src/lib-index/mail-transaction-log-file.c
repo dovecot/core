@@ -357,7 +357,8 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		return 0;
 	}
 	if (file->hdr.indexid != file->log->index->indexid) {
-		if (file->log->index->indexid != 0) {
+		if (file->log->index->indexid != 0 &&
+		    !file->log->index->initial_create) {
 			/* index file was probably just rebuilt and we don't
 			   know about it yet */
 			mail_transaction_log_file_set_corrupted(file,
@@ -1065,8 +1066,9 @@ mail_transaction_log_file_map_mmap(struct mail_transaction_log_file *file,
 		return 0;
 	}
 
-	if ((uoff_t)st.st_size == file->mmap_size) {
-		/* we already have the whole file mmaped */
+	if (file->buffer != NULL && file->buffer_offset <= start_offset &&
+	    (uoff_t)st.st_size == file->buffer_offset + file->buffer->used) {
+		/* we already have the whole file mapped */
 		if ((ret = mail_transaction_log_file_sync(file)) < 0)
 			return 0;
 		if (ret > 0)

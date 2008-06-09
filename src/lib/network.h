@@ -110,4 +110,8 @@ const char *net_getservbyport(unsigned short port);
 bool is_ipv4_address(const char *addr);
 bool is_ipv6_address(const char *addr);
 
+/* Returns TRUE if ip is in net_ip/bits network. */
+bool net_is_in_network(const struct ip_addr *ip,
+		       const struct ip_addr *net_ip, unsigned int bits);
+
 #endif

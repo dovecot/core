@@ -25,6 +25,9 @@ struct quota_rule {
 	int64_t bytes_limit, count_limit;
 	/* relative to default_rule */
 	unsigned int bytes_percent, count_percent;
+
+	/* Don't include this mailbox in quota */
+	unsigned int ignore:1;
 };
 
 struct quota_warning_rule {
@@ -103,7 +106,10 @@ void quota_add_user_storage(struct quota *quota, struct mail_storage *storage);
 void quota_remove_user_storage(struct quota *quota, 
 			       struct mail_storage *storage);
 
+struct quota_rule *
+quota_root_rule_find(struct quota_root *root, const char *name);
+
 void quota_root_recalculate_relative_rules(struct quota_root *root);
-int quota_count(struct quota *quota, uint64_t *bytes_r, uint64_t *count_r);
+int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r);
 
 #endif
