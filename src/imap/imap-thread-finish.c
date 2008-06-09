@@ -2,25 +2,14 @@
 
 #include "common.h"
 #include "array.h"
-#include "str.h"
-#include "ostream.h"
 #include "imap-base-subject.h"
 #include "imap-thread-private.h"
 
 #include <stdlib.h>
 
-#define STR_FLUSH_LENGTH 512
-
 struct mail_thread_shadow_node {
 	uint32_t first_child_idx, next_sibling_idx;
 };
-
-struct mail_thread_child_node {
-	uint32_t idx;
-	uint32_t uid;
-	time_t sort_date;
-};
-ARRAY_DEFINE_TYPE(mail_thread_child_node, struct mail_thread_child_node);
 
 struct mail_thread_root_node {
 	/* node.idx usually points to indexes from mail hash. However
@@ -43,8 +32,7 @@ struct mail_thread_root_node {
 };
 
 struct thread_finish_context {
-	struct mailbox *box;
-	struct ostream *output;
+	unsigned int refcount;
 
 	struct mail *tmp_mail;
 	struct mail_hash_transaction *hash_trans;
@@ -53,9 +41,15 @@ struct thread_finish_context {
 	ARRAY_DEFINE(shadow_nodes, struct mail_thread_shadow_node);
 	unsigned int next_new_root_idx;
 
-	unsigned int id_is_uid:1;
 	unsigned int use_sent_date:1;
-	unsigned int flushed:1;
+};
+
+struct mail_thread_iterate_context {
+	struct thread_finish_context *ctx;
+
+	ARRAY_TYPE(mail_thread_child_node) children;
+	unsigned int next_idx;
+	bool failed;
 };
 
 struct subject_gather_context {
@@ -471,141 +465,6 @@ static int sort_root_nodes_ref2(struct thread_finish_context *ctx,
 	return 0;
 }
 
-static int
-str_add_id(struct thread_finish_context *ctx, string_t *str, uint32_t uid)
-{
-	i_assert(uid != 0);
-
-	if (!ctx->id_is_uid) {
-		mailbox_get_seq_range(ctx->box, uid, uid, &uid, &uid);
-		if (uid == 0) {
-			mail_hash_transaction_set_corrupted(ctx->hash_trans,
-				t_strdup_printf("Found expunged UID %u", uid));
-			return -1;
-		}
-	}
-	str_printfa(str, "%u", uid);
-
-	if (str_len(str) >= STR_FLUSH_LENGTH) {
-		(void)o_stream_send(ctx->output, str_data(str), str_len(str));
-		str_truncate(str, 0);
-		ctx->flushed = TRUE;
-	}
-	return 0;
-}
-
-static int send_nodes(struct thread_finish_context *ctx, string_t *str,
-		      uint32_t parent_idx)
-{
-	ARRAY_TYPE(mail_thread_child_node) sorted_children;
-	const struct mail_thread_child_node *children;
-	const struct mail_thread_shadow_node *shadows;
-	unsigned int i, child_count;
-	uint32_t idx;
-	int ret;
-
-	t_array_init(&sorted_children, 8);
-	if (thread_sort_children(ctx, parent_idx, &sorted_children) < 0)
-		return -1;
-
-	shadows = array_idx(&ctx->shadow_nodes, 0);
-	children = array_get(&sorted_children, &child_count);
-	if (child_count == 1) {
-		/* only one child - special case to avoid extra paranthesis */
-		if (str_add_id(ctx, str, children[0].uid) < 0)
-			return -1;
-		idx = children[0].idx;
-		if (shadows[idx].first_child_idx != 0) {
-			str_append_c(str, ' ');
-			T_BEGIN {
-				ret = send_nodes(ctx, str, idx);
-			} T_END;
-			if (ret < 0)
-				return -1;
-		}
-		return 0;
-	}
-
-	for (i = 0; i < child_count; i++) {
-		idx = children[i].idx;
-
-		if (shadows[idx].first_child_idx == 0) {
-			/* no children */
-			str_append_c(str, '(');
-			if (str_add_id(ctx, str, children[i].uid) < 0)
-				return -1;
-			str_append_c(str, ')');
-		} else {
-			/* node with children */
-			str_append_c(str, '(');
-			if (str_add_id(ctx, str, children[i].uid) < 0)
-				return -1;
-			str_append_c(str, ' ');
-			T_BEGIN {
-				ret = send_nodes(ctx, str, idx);
-			} T_END;
-			if (ret < 0)
-				return -1;
-			str_append_c(str, ')');
-		}
-	}
-	return 0;
-}
-
-static int send_root(struct thread_finish_context *ctx, string_t *str,
-		     const struct mail_thread_root_node *root)
-{
-	const struct mail_thread_shadow_node *shadow;
-	int ret;
-
-	if (!root->dummy) {
-		if (str_add_id(ctx, str, root->node.uid) < 0)
-			return -1;
-	}
-
-	shadow = array_idx(&ctx->shadow_nodes, root->node.idx);
-	if (shadow->first_child_idx != 0) {
-		if (!root->dummy)
-			str_append_c(str, ' ');
-
-		T_BEGIN {
-			ret = send_nodes(ctx, str, root->node.idx);
-		} T_END;
-		if (ret < 0)
-			return -1;
-	}
-	return 0;
-}
-
-static int send_roots(struct thread_finish_context *ctx)
-{
-	const struct mail_thread_root_node *roots;
-	unsigned int i, count;
-	string_t *str;
-	int ret = 0;
-
-	str = str_new(default_pool, STR_FLUSH_LENGTH + 32);
-	str_append(str, "* THREAD ");
-
-	roots = array_get(&ctx->roots, &count);
-	for (i = 0; i < count && ret == 0; i++) {
-		if (!roots[i].ignore) {
-			str_append_c(str, '(');
-			ret = send_root(ctx, str, &roots[i]);
-			str_append_c(str, ')');
-		}
-	}
-
-	if (ret == 0) {
-		str_append(str, "\r\n");
-		(void)o_stream_send(ctx->output, str_data(str), str_len(str));
-	} else if (ctx->flushed) {
-		o_stream_close(ctx->output);
-	}
-	str_free(&str);
-	return ret;
-}
-
 static void mail_thread_create_shadows(struct thread_finish_context *ctx,
 				       uint32_t record_count)
 {
@@ -680,65 +539,143 @@ static void mail_thread_create_shadows(struct thread_finish_context *ctx,
 	i_free(referenced);
 }
 
-int mail_thread_finish(struct mail *tmp_mail,
-		       struct mail_hash_transaction *hash_trans,
-		       enum mail_thread_type thread_type,
-		       struct ostream *output, bool id_is_uid)
+static int mail_thread_finish(struct thread_finish_context *ctx,
+			      enum mail_thread_type thread_type)
 {
-	struct thread_finish_context ctx;
 	const struct mail_hash_header *hdr;
-	int ret = 0;
 
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.box = tmp_mail->box;
-	ctx.output = output;
-	ctx.tmp_mail = tmp_mail;
-	ctx.hash_trans = hash_trans;
-	ctx.id_is_uid = id_is_uid;
-
-	hdr = mail_hash_get_header(ctx.hash_trans);
+	hdr = mail_hash_get_header(ctx->hash_trans);
 	i_assert(hdr->record_count > 0);
-	ctx.next_new_root_idx = hdr->record_count + 1;
+	ctx->next_new_root_idx = hdr->record_count + 1;
 
 	/* (2) save root nodes and (3) remove dummy messages */
-	i_array_init(&ctx.roots, I_MIN(128, hdr->record_count));
-	i_array_init(&ctx.shadow_nodes, hdr->record_count);
+	i_array_init(&ctx->roots, I_MIN(128, hdr->record_count));
+	i_array_init(&ctx->shadow_nodes, hdr->record_count);
 	/* make sure all shadow indexes are accessible directly. */
-	(void)array_idx_modifiable(&ctx.shadow_nodes, hdr->record_count);
+	(void)array_idx_modifiable(&ctx->shadow_nodes, hdr->record_count);
 
-	mail_thread_create_shadows(&ctx, hdr->record_count);
+	mail_thread_create_shadows(ctx, hdr->record_count);
 
 	/* (4) */
-	ctx.use_sent_date = TRUE;
+	ctx->use_sent_date = TRUE;
 	switch (thread_type) {
 	case MAIL_THREAD_REFERENCES:
-		if (sort_root_nodes(&ctx) < 0)
-			ret = -1;
+		if (sort_root_nodes(ctx) < 0)
+			return -1;
 		/* (5) Gather together messages under the root that have
 		   the same base subject text. */
-		else if (gather_base_subjects(&ctx) < 0)
-			ret = -1;
+		if (gather_base_subjects(ctx) < 0)
+			return -1;
 		/* (5.C) Merge threads with the same thread subject. */
-		else if (merge_subject_threads(&ctx)) {
+		if (merge_subject_threads(ctx)) {
 			/* root ordering may have changed, sort them again. */
-			if (sort_root_nodes(&ctx) < 0)
-				ret = -1;
+			if (sort_root_nodes(ctx) < 0)
+				return -1;
 		}
 		break;
 	case MAIL_THREAD_REFERENCES2:
-		ret = sort_root_nodes_ref2(&ctx, hdr->record_count);
-		break;
+		if (sort_root_nodes_ref2(ctx, hdr->record_count) < 0)
+			return -1;
 	default:
 		i_unreached();
 	}
+	return 0;
+}
 
-	if (ret == 0) {
-		/* (6) Sort children and send replies */
-		T_BEGIN {
-			ret = send_roots(&ctx);
-		} T_END;
+static void
+mail_thread_iterate_fill_root(struct mail_thread_iterate_context *iter)
+{
+	struct mail_thread_root_node *roots;
+	unsigned int i, count;
+
+	roots = array_get_modifiable(&iter->ctx->roots, &count);
+	i_array_init(&iter->children, count);
+	for (i = 0; i < count; i++) {
+		if (!roots[i].ignore) {
+			if (roots[i].dummy)
+				roots[i].node.uid = 0;
+			array_append(&iter->children, &roots[i].node, 1);
+		}
 	}
-	array_free(&ctx.roots);
-	array_free(&ctx.shadow_nodes);
+}
+
+static struct mail_thread_iterate_context *
+mail_thread_iterate_children(struct mail_thread_iterate_context *parent_iter,
+			     uint32_t parent_idx)
+{
+	struct mail_thread_iterate_context *child_iter;
+
+	child_iter = i_new(struct mail_thread_iterate_context, 1);
+	child_iter->ctx = parent_iter->ctx;
+	child_iter->ctx->refcount++;
+
+	i_array_init(&child_iter->children, 8);
+	if (thread_sort_children(child_iter->ctx, parent_idx,
+				 &child_iter->children) < 0) {
+		child_iter->failed = TRUE;
+		array_clear(&child_iter->children);
+	}
+	return child_iter;
+}
+
+struct mail_thread_iterate_context *
+mail_thread_iterate_init(struct mail *tmp_mail,
+			 struct mail_hash_transaction *hash_trans,
+			 enum mail_thread_type thread_type)
+{
+	struct mail_thread_iterate_context *iter;
+	struct thread_finish_context *ctx;
+
+	iter = i_new(struct mail_thread_iterate_context, 1);
+	ctx = iter->ctx = i_new(struct thread_finish_context, 1);
+	ctx->refcount = 1;
+	ctx->tmp_mail = tmp_mail;
+	ctx->hash_trans = hash_trans;
+	if (mail_thread_finish(ctx, thread_type) < 0)
+		iter->failed = TRUE;
+	else
+		mail_thread_iterate_fill_root(iter);
+	return iter;
+}
+
+const struct mail_thread_child_node *
+mail_thread_iterate_next(struct mail_thread_iterate_context *iter,
+			 struct mail_thread_iterate_context **child_iter_r)
+{
+	const struct mail_thread_child_node *children, *child;
+	const struct mail_thread_shadow_node *shadow;
+	unsigned int count;
+
+	children = array_get(&iter->children, &count);
+	if (iter->next_idx >= count)
+		return NULL;
+
+	child = &children[iter->next_idx++];
+	if (child_iter_r != NULL) {
+		shadow = array_idx(&iter->ctx->shadow_nodes, child->idx);
+		*child_iter_r = shadow->first_child_idx == 0 ? NULL :
+			mail_thread_iterate_children(iter, child->idx);
+	}
+	return child;
+}
+
+unsigned int mail_thread_iterate_count(struct mail_thread_iterate_context *iter)
+{
+	return array_count(&iter->children);
+}
+
+int mail_thread_iterate_deinit(struct mail_thread_iterate_context **_iter)
+{
+	struct mail_thread_iterate_context *iter = *_iter;
+	int ret = iter->failed ? -1 : 0;
+
+	*_iter = NULL;
+	if (--iter->ctx->refcount == 0) {
+		array_free(&iter->ctx->roots);
+		array_free(&iter->ctx->shadow_nodes);
+		i_free(iter->ctx);
+	}
+	array_free(&iter->children);
+	i_free(iter);
 	return ret;
 }

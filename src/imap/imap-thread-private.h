@@ -32,6 +32,13 @@ struct mail_thread_node {
 	uint32_t exists:1;
 };
 
+struct mail_thread_child_node {
+	uint32_t idx;
+	uint32_t uid;
+	time_t sort_date;
+};
+ARRAY_DEFINE_TYPE(mail_thread_child_node, struct mail_thread_child_node);
+
 struct thread_context {
 	struct mail *tmp_mail;
 
@@ -59,9 +66,15 @@ static inline uint32_t crc32_str_nonzero(const char *str)
 int mail_thread_add(struct thread_context *ctx, struct mail *mail);
 int mail_thread_remove(struct thread_context *ctx, uint32_t seq);
 
-int mail_thread_finish(struct mail *tmp_mail,
-		       struct mail_hash_transaction *hash_trans,
-		       enum mail_thread_type thread_type,
-		       struct ostream *output, bool id_is_uid);
+struct mail_thread_iterate_context *
+mail_thread_iterate_init(struct mail *tmp_mail,
+			 struct mail_hash_transaction *hash_trans,
+			 enum mail_thread_type thread_type);
+const struct mail_thread_child_node *
+mail_thread_iterate_next(struct mail_thread_iterate_context *iter,
+			 struct mail_thread_iterate_context **child_iter_r);
+unsigned int
+mail_thread_iterate_count(struct mail_thread_iterate_context *iter);
+int mail_thread_iterate_deinit(struct mail_thread_iterate_context **iter);
 
 #endif
