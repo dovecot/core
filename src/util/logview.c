@@ -31,6 +31,11 @@ static void dump_hdr(int fd)
 		i_fatal("file hdr read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
 			ret, sizeof(hdr));
 	}
+	if (hdr.hdr_size < sizeof(hdr)) {
+		memset(PTR_OFFSET(&hdr, hdr.hdr_size), 0,
+		       sizeof(hdr) - hdr.hdr_size);
+	}
+	lseek(fd, hdr.hdr_size, SEEK_SET);
 
 	printf("version = %u.%u\n", hdr.major_version, hdr.minor_version);
 	printf("hdr size = %u\n", hdr.hdr_size);
