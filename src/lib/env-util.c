@@ -24,15 +24,15 @@ void env_clean(void)
 		i_fatal("clearenv() failed");
 #else
 	extern char **environ;
-	static char *emptyenv[1] = { NULL };
 
 	/* Try to clear the environment.
 
 	   a) environ = NULL crashes on OS X.
 	   b) *environ = NULL doesn't work on FreeBSD 7.0.
-	   c) environ = emptyenv appears to work everywhere.
+	   c) environ = emptyenv doesn't work on Haiku OS
+	   d) environ = calloc() should work everywhere
 	*/
-	environ = emptyenv;
+	environ = calloc(1, sizeof(*environ));
 #endif
 	/* don't clear the env_pool, otherwise the environment would get
 	   corrupted if we failed to clear it. */
