@@ -149,7 +149,7 @@ parse_return_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 			list_flags |= MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		else if (strcasecmp(atom, "CHILDREN") == 0)
 			list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;
-		else if (strcasecmp(atom, "X-STATUS") == 0 &&
+		else if (strcasecmp(atom, "STATUS") == 0 &&
 			 args[1].type == IMAP_ARG_LIST) {
 			/* FIXME: this should probably be a plugin.. */
 			if (imap_status_parse_items(ctx->cmd,
