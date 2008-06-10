@@ -24,13 +24,15 @@ void env_clean(void)
 		i_fatal("clearenv() failed");
 #else
 	extern char **environ;
+	static char *emptyenv[1] = { NULL };
 
-	/* Try to clear the environment. It should always be non-NULL, but
-	   apparently it's not on some ancient OSes (Ultrix), so just keep
-	   the check. The clearing also fails on FreeBSD 7.0 (currently). */
-	if (environ != NULL)
-		*environ = NULL;
+	/* Try to clear the environment.
 
+	   a) environ = NULL crashes on OS X.
+	   b) *environ = NULL doesn't work on FreeBSD 7.0.
+	   c) environ = emptyenv appears to work everywhere.
+	*/
+	environ = emptyenv;
 #endif
 	/* don't clear the env_pool, otherwise the environment would get
 	   corrupted if we failed to clear it. */
