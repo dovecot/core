@@ -144,8 +144,11 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->messages_count = client->messages_count;
 	i_array_init(&ctx->tmp_keywords, client->keywords.announce_count + 8);
 
-	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0)
+	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
 		i_array_init(&ctx->expunges, 128);
+		/* always send UIDs in FETCH replies */
+		ctx->imap_flags |= IMAP_SYNC_FLAG_SEND_UID;
+	}
 
 	client_send_mailbox_flags(client, FALSE);
 	/* send search updates the first time after sync is initialized.
