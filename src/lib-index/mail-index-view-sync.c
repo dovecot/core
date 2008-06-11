@@ -633,7 +633,8 @@ mail_index_view_sync_clean_log_syncs(struct mail_index_view *view)
 		array_delete(&view->syncs_hidden, 0, i);
 }
 
-int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx)
+int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx,
+				bool *delayed_expunges_r)
 {
         struct mail_index_view_sync_ctx *ctx = *_ctx;
         struct mail_index_view *view = ctx->view;
@@ -642,6 +643,7 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx)
 	i_assert(view->syncing);
 
 	*_ctx = NULL;
+	*delayed_expunges_r = ctx->skipped_expunges;
 
 	if ((!ctx->last_read || view->inconsistent) &&
 	    (ctx->flags & MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT) == 0) {

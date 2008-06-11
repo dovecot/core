@@ -160,6 +160,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 
 int imap_sync_deinit(struct imap_sync_context *ctx)
 {
+	struct client *client = ctx->client;
 	struct mailbox_status status;
 	int ret;
 
@@ -168,7 +169,8 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 		array_free(&ctx->expunges);
 
 	if (mailbox_sync_deinit(&ctx->sync_ctx, STATUS_UIDVALIDITY |
-				STATUS_MESSAGES | STATUS_RECENT, &status) < 0 ||
+				STATUS_MESSAGES | STATUS_RECENT |
+				STATUS_HIGHESTMODSEQ, &status) < 0 ||
 	    ctx->failed) {
 		mailbox_transaction_rollback(&ctx->t);
 		array_free(&ctx->tmp_keywords);
@@ -176,25 +178,38 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 		return -1;
 	}
 
+	if (!status.sync_delayed_expunges || status.highest_modseq == 0)
+		client->sync_last_full_modseq = status.highest_modseq;
+	else if (client->modseqs_sent_since_sync &&
+		 (client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
+		/* if client updates highest-modseq using returned MODSEQs
+		   it loses expunges. try to avoid this by sending it a lower
+		   pre-expunge HIGHESTMODSEQ reply. */
+		client_send_line(client, t_strdup_printf(
+			"* OK [HIGHESTMODSEQ %llu]",
+			(unsigned long long)client->sync_last_full_modseq));
+	}
+	client->modseqs_sent_since_sync = FALSE;
+
 	ret = mailbox_transaction_commit(&ctx->t);
 
-	if (status.uidvalidity != ctx->client->uidvalidity) {
+	if (status.uidvalidity != client->uidvalidity) {
 		/* most clients would get confused by this. disconnect them. */
-		client_disconnect_with_error(ctx->client,
+		client_disconnect_with_error(client,
 					     "Mailbox UIDVALIDITY changed");
 	}
 	if (!ctx->no_newmail) {
 		if (status.messages < ctx->messages_count)
 			i_panic("Message count decreased");
-		ctx->client->messages_count = status.messages;
+		client->messages_count = status.messages;
 		if (status.messages != ctx->messages_count) {
-			client_send_line(ctx->client,
+			client_send_line(client,
 				t_strdup_printf("* %u EXISTS", status.messages));
 		}
-		if (status.recent != ctx->client->recent_count &&
+		if (status.recent != client->recent_count &&
 		    !ctx->no_newmail) {
-			ctx->client->recent_count = status.recent;
-			client_send_line(ctx->client,
+			client->recent_count = status.recent;
+			client_send_line(client,
 				t_strdup_printf("* %u RECENT", status.recent));
 		}
 	}
@@ -231,6 +246,7 @@ static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
 	if ((mailbox_get_enabled_features(ctx->box) &
 	     MAILBOX_FEATURE_CONDSTORE) != 0) {
+		ctx->client->modseqs_sent_since_sync = TRUE;
 		str_printfa(str, "MODSEQ %llu ",
 			    (unsigned long long)mail_get_modseq(ctx->mail));
 	}
@@ -250,6 +266,7 @@ static int imap_sync_send_modseq(struct imap_sync_context *ctx, string_t *str)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
 	str_printfa(str, "MODSEQ %llu)",
 		    (unsigned long long)mail_get_modseq(ctx->mail));
+	ctx->client->modseqs_sent_since_sync = TRUE;
 	return client_send_line(ctx->client, str_c(str));
 }
 

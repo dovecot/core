@@ -189,6 +189,9 @@ struct mailbox_status {
 	uint64_t highest_modseq;
 
 	const ARRAY_TYPE(keywords) *keywords;
+
+	/* There are expunges that haven't been synced yet */
+	unsigned int sync_delayed_expunges:1;
 };
 
 struct mailbox_sync_rec {

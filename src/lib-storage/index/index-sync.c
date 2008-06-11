@@ -325,6 +325,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	struct mailbox_sync_rec sync_rec;
 	const struct mail_index_header *hdr;
 	uint32_t seq1, seq2;
+	bool delayed_expunges = FALSE;
 	int ret = ctx->failed ? -1 : 0;
 
 	/* finish handling expunges, so we don't break when updating
@@ -332,7 +333,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	while (index_mailbox_sync_next_expunge(ctx, &sync_rec) > 0) ;
 
 	if (ctx->sync_ctx != NULL) {
-		if (mail_index_view_sync_commit(&ctx->sync_ctx) < 0) {
+		if (mail_index_view_sync_commit(&ctx->sync_ctx,
+						&delayed_expunges) < 0) {
 			mail_storage_set_index_error(ibox);
 			ret = -1;
 		}
@@ -354,8 +356,10 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 		}
 	}
 
-	if (ret == 0 && status_items != 0)
+	if (ret == 0 && status_items != 0) {
 		mailbox_get_status(_ctx->box, status_items, status_r);
+		status_r->sync_delayed_expunges = delayed_expunges;
+	}
 
 	index_sync_search_results_update(ctx);
 

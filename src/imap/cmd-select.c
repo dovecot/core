@@ -313,6 +313,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 		client_send_line(client,
 			t_strdup_printf("* OK [HIGHESTMODSEQ %llu]",
 				(unsigned long long)status.highest_modseq));
+		client->sync_last_full_modseq = status.highest_modseq;
 	}
 
 	if (ctx->qresync_uid_validity == status.uidvalidity) {

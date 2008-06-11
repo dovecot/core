@@ -752,6 +752,7 @@ fetch_modseq_init(struct imap_fetch_context *ctx, const char *name,
 	client_enable(ctx->client, MAILBOX_FEATURE_CONDSTORE);
 	imap_fetch_add_handler(ctx, TRUE, FALSE, name, NULL,
 			       fetch_modseq, NULL);
+	ctx->client->modseqs_sent_since_sync = TRUE;
 	return TRUE;
 }
 

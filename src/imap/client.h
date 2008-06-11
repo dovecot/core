@@ -93,6 +93,8 @@ struct client {
 	struct client_command_context *command_queue;
 	unsigned int command_queue_size;
 
+	uint64_t sync_last_full_modseq;
+
 	/* SEARCHRES extension: Last saved SEARCH result */
 	ARRAY_TYPE(seq_range) search_saved_uidset;
 	/* SEARCH=CONTEXT extension: Searches that get updated */
@@ -113,6 +115,7 @@ struct client {
 	unsigned int changing_mailbox:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
+	unsigned int modseqs_sent_since_sync:1;
 };
 
 /* Create new client with specified input/output handles. socket specifies

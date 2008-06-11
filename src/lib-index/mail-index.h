@@ -314,7 +314,8 @@ bool mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 void
 mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 				  const ARRAY_TYPE(seq_range) **expunges_r);
-int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **ctx);
+int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **ctx,
+				bool *delayed_expunges_r);
 
 /* Returns the index header. */
 const struct mail_index_header *
