@@ -195,7 +195,6 @@ static void cmd_select_finish(struct imap_select_context *ctx, int ret)
 				    "OK [READ-ONLY] Select completed." :
 				    "OK [READ-WRITE] Select completed.");
 	}
-	ctx->cmd->client->changing_mailbox = FALSE;
 	select_context_free(ctx);
 }
 
@@ -355,8 +354,8 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		}
 	}
 
-	i_assert(!client->changing_mailbox);
-	client->changing_mailbox = TRUE;
+	i_assert(client->mailbox_change_lock == NULL);
+	client->mailbox_change_lock = cmd;
 
 	if (client->mailbox != NULL) {
 		client_search_updates_free(client);

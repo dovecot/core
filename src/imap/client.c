@@ -401,7 +401,8 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 			/* don't do anything until syncing is finished */
 			return TRUE;
 		}
-		if (cmd->client->changing_mailbox) {
+		if (cmd->client->mailbox_change_lock != NULL &&
+		    cmd->client->mailbox_change_lock != cmd) {
 			/* don't do anything until mailbox is fully
 			   opened/closed */
 			return TRUE;
@@ -464,6 +465,8 @@ void client_command_free(struct client_command_context **_cmd)
 		client->input_lock = NULL;
 	if (client->output_lock == cmd)
 		client->output_lock = NULL;
+	if (client->mailbox_change_lock == cmd)
+		client->mailbox_change_lock = NULL;
 
 	if (client->free_parser != NULL)
 		imap_parser_destroy(&cmd->parser);

@@ -14,7 +14,7 @@ bool cmd_unselect(struct client_command_context *cmd)
 
 	client_search_updates_free(client);
 
-	i_assert(!client->changing_mailbox);
+	i_assert(client->mailbox_change_lock == NULL);
 	client->mailbox = NULL;
 
 	storage = mailbox_get_storage(mailbox);

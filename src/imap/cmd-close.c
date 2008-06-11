@@ -12,7 +12,6 @@ static void cmd_close_finish(struct client *client)
 			mailbox_get_storage(client->mailbox));
 	}
 	client_update_mailbox_flags(client, NULL);
-	client->changing_mailbox = FALSE;
 }
 
 static bool cmd_close_callback(struct client_command_context *cmd)
@@ -38,8 +37,8 @@ bool cmd_close(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
-	i_assert(!client->changing_mailbox);
-	client->changing_mailbox = TRUE;
+	i_assert(client->mailbox_change_lock == NULL);
+	client->mailbox_change_lock = cmd;
 
 	storage = mailbox_get_storage(mailbox);
 	if ((ret = imap_expunge(mailbox, NULL)) < 0)

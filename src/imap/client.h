@@ -103,6 +103,8 @@ struct client {
 	/* client input/output is locked by this command */
 	struct client_command_context *input_lock;
 	struct client_command_context *output_lock;
+	/* command changing the mailbox */
+	struct client_command_context *mailbox_change_lock;
 
 	/* syncing marks this TRUE when it sees \Deleted flags. this is by
 	   EXPUNGE for Outlook-workaround. */
@@ -112,7 +114,6 @@ struct client {
 	unsigned int destroyed:1;
 	unsigned int handling_input:1;
 	unsigned int syncing:1;
-	unsigned int changing_mailbox:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
 	unsigned int modseqs_sent_since_sync:1;
