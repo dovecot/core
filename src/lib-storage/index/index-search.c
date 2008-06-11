@@ -639,8 +639,8 @@ static bool search_msgset_fix_limits(const struct mail_index_header *hdr,
 	else {
 		/* if all messages are in the range, it can't match */
 		range = array_get_modifiable(seqset, &count);
-		return range[0].seq1 == 1 &&
-			range[count-1].seq2 == hdr->messages_count;
+		return range[0].seq1 != 1 ||
+			range[count-1].seq2 != hdr->messages_count;
 	}
 }
 
