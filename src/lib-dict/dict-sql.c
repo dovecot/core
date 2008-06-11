@@ -209,7 +209,8 @@ sql_dict_iterate_init(struct dict *_dict, const char *path,
 		      enum dict_iterate_flags flags)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
-        struct sql_dict_iterate_context *ctx;
+	struct sql_dict_iterate_context *ctx;
+	unsigned int len;
 	bool priv;
 
 	ctx = i_new(struct sql_dict_iterate_context, 1);
@@ -221,26 +222,41 @@ sql_dict_iterate_init(struct dict *_dict, const char *path,
 	}
 	T_BEGIN {
 		string_t *query = t_str_new(256);
-		str_printfa(query, "SELECT %s, %s FROM %s "
-			    "WHERE %s LIKE '%s/%%'",
+		str_printfa(query, "SELECT %s, %s FROM %s WHERE ",
 			    dict->where_field, dict->select_field,
-			    dict->table, dict->where_field,
-			    sql_escape_string(dict->db, path));
+			    dict->table);
+		len = str_len(query);
+
+		if (*path != '\0') {
+			str_printfa(query, "%s LIKE '%s/%%' AND ",
+				    dict->where_field,
+				    sql_escape_string(dict->db, path));
+		}
 		if (priv) {
-			str_printfa(query, " AND %s = '%s'",
+			str_printfa(query, "%s = '%s' AND ",
 				    dict->username_field,
 				    sql_escape_string(dict->db,
 						      dict->username));
 		}
-		if ((flags & DICT_ITERATE_FLAG_RECURSE) == 0) {
-			str_printfa(query, " AND %s NOT LIKE '%s/%%/%%'",
+		if ((flags & DICT_ITERATE_FLAG_RECURSE) != 0) {
+			/* get everything */
+		} else if (*path == '\0') {
+			str_printfa(query, "%s NOT LIKE '%%/%%' AND ",
+				    dict->where_field);
+		} else {
+			str_printfa(query, "%s NOT LIKE '%s/%%/%%' AND ",
 				    dict->where_field,
 				    sql_escape_string(dict->db, path));
 		}
+		if (str_len(query) == len)
+			str_truncate(query, str_len(query) - 6);
+		else
+			str_truncate(query, str_len(query) - 4);
+
 		if ((flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0)
-			str_printfa(query, " ORDER BY %s", dict->where_field);
+			str_printfa(query, "ORDER BY %s", dict->where_field);
 		else if ((flags & DICT_ITERATE_FLAG_SORT_BY_VALUE) != 0)
-			str_printfa(query, " ORDER BY %s", dict->select_field);
+			str_printfa(query, "ORDER BY %s", dict->select_field);
 		ctx->result = sql_query_s(dict->db, str_c(query));
 	} T_END;
 
