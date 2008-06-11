@@ -613,6 +613,7 @@ dnl * OS specific options
 case "$host_os" in
 	hpux*)
 		CFLAGS="$CFLAGS -D_XOPEN_SOURCE_EXTENDED"
+		AC_DEFINE(PREAD_BROKEN,, Defint if pread/pwrite implementation is broken)
 		;;
 	*)
 		;;

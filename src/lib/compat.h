@@ -160,7 +160,7 @@ struct iovec;
 ssize_t my_writev(int fd, const struct iovec *iov, int iov_len);
 #endif
 
-#if !defined (HAVE_PREAD) || defined (PREAD_WRAPPERS)
+#if !defined(HAVE_PREAD) || defined(PREAD_WRAPPERS) || defined(PREAD_BROKEN)
 #  ifndef IN_COMPAT_C
 #    define pread my_pread
 #    define pwrite my_pwrite

@@ -107,7 +107,7 @@ ssize_t my_writev(int fd, const struct iovec *iov, int iov_len)
 }
 #endif
 
-#ifndef HAVE_PREAD
+#if !defined(HAVE_PREAD) || defined(PREAD_BROKEN)
 ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
 {
 	ssize_t ret;
@@ -149,9 +149,7 @@ ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 		return -1;
 	return ret;
 }
-#endif
-
-#ifdef PREAD_WRAPPERS
+#elif defined(PREAD_WRAPPERS)
 
 ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
 {
