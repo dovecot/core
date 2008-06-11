@@ -26,6 +26,7 @@ struct mail_thread_context {
 	struct mailbox_transaction_context *t;
 
 	struct mail_search_context *search;
+	struct mail_search_args *search_args;
 	struct mail_search_arg tmp_search_arg;
 };
 
@@ -178,9 +179,9 @@ mail_thread_hash_remap(struct mail_hash_transaction *trans,
 static bool
 mail_thread_try_use_hash(struct mail_thread_context *ctx,
 			 struct mail_hash *hash,
-			 const struct mailbox_status *status, bool reset,
-			 struct mail_search_args *search_args)
+			 const struct mailbox_status *status, bool reset)
 {
+	struct mail_search_args *search_args = ctx->search_args;
 	struct mail_search_arg *limit_arg = NULL;
 	const struct mail_hash_header *hdr;
 	struct mail_hash_transaction *hash_trans;
@@ -309,8 +310,7 @@ again:
 }
 
 static void
-mail_thread_update_init(struct mail_thread_context *ctx,
-			struct mail_search_args *search_args, bool reset)
+mail_thread_update_init(struct mail_thread_context *ctx, bool reset)
 {
 	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
 	struct mail_hash *hash = NULL;
@@ -319,8 +319,7 @@ mail_thread_update_init(struct mail_thread_context *ctx,
 	unsigned int count;
 
 	mailbox_get_status(ctx->box, STATUS_MESSAGES | STATUS_UIDNEXT, &status);
-	if (mail_thread_try_use_hash(ctx, tbox->hash, &status,
-				     reset, search_args))
+	if (mail_thread_try_use_hash(ctx, tbox->hash, &status, reset))
 		hash = tbox->hash;
 	else {
 		/* fallback to using in-memory hash */
@@ -343,7 +342,7 @@ mail_thread_update_init(struct mail_thread_context *ctx,
 
 	/* initialize searching */
 	ctx->t = mailbox_transaction_begin(ctx->box, 0);
-	ctx->search = mailbox_search_init(ctx->t, search_args, NULL);
+	ctx->search = mailbox_search_init(ctx->t, ctx->search_args, NULL);
 	ctx->thread_ctx.tmp_mail = mail_alloc(ctx->t, 0, NULL);
 
 	hdr = mail_hash_get_header(ctx->thread_ctx.hash_trans);
@@ -357,10 +356,8 @@ mail_thread_update_init(struct mail_thread_context *ctx,
 		     I_MAX(hdr->record_count, status.messages));
 }
 
-
 static int
-mail_thread_update(struct mail_thread_context *ctx,
-		   struct mail_search_args *search_args, bool reset)
+mail_thread_update(struct mail_thread_context *ctx, bool reset)
 {
 	static const char *wanted_headers[] = {
 		HDR_MESSAGE_ID, HDR_IN_REPLY_TO, HDR_REFERENCES, HDR_SUBJECT,
@@ -374,7 +371,7 @@ mail_thread_update(struct mail_thread_context *ctx,
 	uint32_t prev_uid;
 	int ret = 0;
 
-	mail_thread_update_init(ctx, search_args, reset);
+	mail_thread_update_init(ctx, reset);
 	box = mailbox_transaction_get_mailbox(ctx->t);
 
 	hdr = mail_hash_get_header(ctx->thread_ctx.hash_trans);
@@ -419,8 +416,9 @@ int mail_thread_init(struct mailbox *box, bool reset,
 	ctx = i_new(struct mail_thread_context, 1);
 	tbox->ctx = &ctx->thread_ctx;
 	ctx->box = box;
+	ctx->search_args = args;
 
-	while ((ret = mail_thread_update(ctx, args, reset)) < 0) {
+	while ((ret = mail_thread_update(ctx, reset)) < 0) {
 		if (ctx->thread_ctx.hash == tbox->hash) {
 			/* failed with in-memory hash */
 			mail_thread_deinit(&ctx);
@@ -454,6 +452,9 @@ void mail_thread_deinit(struct mail_thread_context **_ctx)
 	int ret;
 
 	*_ctx = NULL;
+
+	if (ctx->search_args->args == &ctx->tmp_search_arg)
+		ctx->search_args->args = ctx->tmp_search_arg.next;
 
 	mail_hash_transaction_end(&ctx->thread_ctx.hash_trans);
 
