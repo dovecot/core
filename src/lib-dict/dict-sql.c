@@ -28,6 +28,8 @@ struct sql_dict_iterate_context {
 	struct dict_iterate_context ctx;
 
 	struct sql_result *result;
+	char *prev_key;
+	bool priv;
 };
 
 struct sql_dict_transaction_context {
@@ -220,6 +222,8 @@ sql_dict_iterate_init(struct dict *_dict, const char *path,
 		ctx->result = NULL;
 		return &ctx->ctx;
 	}
+	ctx->priv = priv;
+
 	T_BEGIN {
 		string_t *query = t_str_new(256);
 		str_printfa(query, "SELECT %s, %s FROM %s WHERE ",
@@ -268,6 +272,7 @@ static int sql_dict_iterate(struct dict_iterate_context *_ctx,
 {
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
+	const char *key;
 	int ret;
 
 	if (ctx->result == NULL)
@@ -276,7 +281,14 @@ static int sql_dict_iterate(struct dict_iterate_context *_ctx,
 	if ((ret = sql_result_next_row(ctx->result)) <= 0)
 		return ret;
 
-	*key_r = sql_result_get_field_value(ctx->result, 0);
+	key = sql_result_get_field_value(ctx->result, 0);
+	i_free(ctx->prev_key);
+	if (ctx->priv)
+		ctx->prev_key = i_strconcat(DICT_PATH_PRIVATE, key, NULL);
+	else
+		ctx->prev_key = i_strconcat(DICT_PATH_SHARED, key, NULL);
+
+	*key_r = ctx->prev_key;
 	*value_r = sql_result_get_field_value(ctx->result, 1);
 	return 1;
 }
@@ -287,6 +299,7 @@ static void sql_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 		(struct sql_dict_iterate_context *)_ctx;
 
 	sql_result_free(ctx->result);
+	i_free(ctx->prev_key);
 	i_free(ctx);
 }
 
