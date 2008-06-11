@@ -3,6 +3,10 @@
 
 #include <sysexits.h>
 
+#ifndef EX_CONFIG
+#  define EX_CONFIG 78 /* HP-UX */
+#endif
+
 #include "lib.h"
 #include "mail-storage.h"
 
