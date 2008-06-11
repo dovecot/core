@@ -13,7 +13,8 @@ struct client;
 struct imap_sync_context *
 imap_sync_init(struct client *client, struct mailbox *box,
 	       enum imap_sync_flags imap_flags, enum mailbox_sync_flags flags);
-int imap_sync_deinit(struct imap_sync_context *ctx);
+int imap_sync_deinit(struct imap_sync_context *ctx,
+		     struct client_command_context *sync_cmd);
 int imap_sync_more(struct imap_sync_context *ctx);
 
 bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,

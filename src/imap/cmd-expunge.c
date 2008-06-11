@@ -19,22 +19,6 @@ static bool cmd_expunge_callback(struct client_command_context *cmd)
 	return TRUE;
 }
 
-static bool cmd_expunge_callback_qresync(struct client_command_context *cmd)
-{
-	struct mailbox_status status;
-
-	if (!cmd->client->sync_seen_expunges)
-		client_send_tagline(cmd, "OK Expunge completed.");
-	else {
-		mailbox_get_status(cmd->client->mailbox,
-				   STATUS_HIGHESTMODSEQ, &status);
-		client_send_tagline(cmd, t_strdup_printf(
-			"OK [HIGHESTMODSEQ %llu] Expunge completed.",
-			(unsigned long long)status.highest_modseq));
-	}
-	return TRUE;
-}
-
 static bool cmd_expunge_finish(struct client_command_context *cmd,
 			       struct mail_search_args *search_args)
 {
@@ -52,9 +36,8 @@ static bool cmd_expunge_finish(struct client_command_context *cmd,
 	client->sync_seen_deletes = FALSE;
 	client->sync_seen_expunges = FALSE;
 	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
-		return cmd_sync_callback(cmd, MAILBOX_SYNC_FLAG_EXPUNGE,
-					 IMAP_SYNC_FLAG_SAFE,
-					 cmd_expunge_callback_qresync);
+		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_EXPUNGE,
+				IMAP_SYNC_FLAG_SAFE, "OK Expunge completed.");
 	} else {
 		return cmd_sync_callback(cmd, MAILBOX_SYNC_FLAG_EXPUNGE,
 					 IMAP_SYNC_FLAG_SAFE,

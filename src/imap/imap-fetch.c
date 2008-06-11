@@ -740,8 +740,13 @@ fetch_internaldate_init(struct imap_fetch_context *ctx, const char *name,
 static int fetch_modseq(struct imap_fetch_context *ctx, struct mail *mail,
 			void *context ATTR_UNUSED)
 {
+	uint64_t modseq;
+
+	modseq = mail_get_modseq(mail);
+	if (ctx->client->highest_fetch_modseq < modseq)
+		ctx->client->highest_fetch_modseq = modseq;
 	str_printfa(ctx->cur_str, "MODSEQ %llu ",
-		    (unsigned long long)mail_get_modseq(mail));
+		    (unsigned long long)modseq);
 	return 1;
 }
 
@@ -752,7 +757,6 @@ fetch_modseq_init(struct imap_fetch_context *ctx, const char *name,
 	client_enable(ctx->client, MAILBOX_FEATURE_CONDSTORE);
 	imap_fetch_add_handler(ctx, TRUE, FALSE, name, NULL,
 			       fetch_modseq, NULL);
-	ctx->client->modseqs_sent_since_sync = TRUE;
 	return TRUE;
 }
 

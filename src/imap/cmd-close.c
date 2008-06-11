@@ -14,19 +14,6 @@ static void cmd_close_finish(struct client *client)
 	client_update_mailbox_flags(client, NULL);
 }
 
-static bool cmd_close_callback(struct client_command_context *cmd)
-{
-	struct mailbox_status status;
-
-	mailbox_get_status(cmd->client->mailbox,
-			   STATUS_HIGHESTMODSEQ, &status);
-	cmd_close_finish(cmd->client);
-	client_send_tagline(cmd, t_strdup_printf(
-		"OK [HIGHESTMODSEQ %llu] Close completed.",
-		(unsigned long long)status.highest_modseq));
-	return TRUE;
-}
-
 bool cmd_close(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
@@ -51,8 +38,8 @@ bool cmd_close(struct client_command_context *cmd)
 		   it by syncing the mailbox one last time. We wouldn't need
 		   to include our own expunge in there, but it's too much
 		   trouble to hide it. */
-		return cmd_sync_callback(cmd, 0, IMAP_SYNC_FLAG_SAFE,
-					 cmd_close_callback);
+		return cmd_sync(cmd, 0, IMAP_SYNC_FLAG_SAFE,
+				"OK Close completed.");
 	} else {
 		if (mailbox_sync(mailbox, 0, 0, NULL) < 0)
 			client_send_untagged_storage_error(client, storage);

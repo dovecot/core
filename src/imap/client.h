@@ -94,6 +94,7 @@ struct client {
 	unsigned int command_queue_size;
 
 	uint64_t sync_last_full_modseq;
+	uint64_t highest_fetch_modseq;
 
 	/* SEARCHRES extension: Last saved SEARCH result */
 	ARRAY_TYPE(seq_range) search_saved_uidset;

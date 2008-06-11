@@ -158,7 +158,54 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	return ctx;
 }
 
-int imap_sync_deinit(struct imap_sync_context *ctx)
+static void
+imap_sync_send_highestmodseq(struct imap_sync_context *ctx,
+			     const struct mailbox_status *status,
+			     struct client_command_context *sync_cmd)
+{
+	struct client *client = ctx->client;
+	uint64_t send_modseq = 0;
+
+	if (status->sync_delayed_expunges &&
+	    client->highest_fetch_modseq > client->sync_last_full_modseq) {
+		/* if client updates highest-modseq using returned MODSEQs
+		   it loses expunges. try to avoid this by sending it a lower
+		   pre-expunge HIGHESTMODSEQ reply. */
+		send_modseq = client->sync_last_full_modseq;
+	} else if (!status->sync_delayed_expunges &&
+		   status->highest_modseq > client->sync_last_full_modseq &&
+		   status->highest_modseq > client->highest_fetch_modseq) {
+		/* we've probably send some VANISHED or EXISTS replies which
+		   increased the highest-modseq. notify the client about
+		   this. */
+		send_modseq = status->highest_modseq;
+	}
+
+	if (send_modseq == 0) {
+		/* no sending */
+	} else if (strncmp(sync_cmd->sync->tagline, "OK ", 3) == 0 &&
+		   sync_cmd->sync->tagline[3] != '[') {
+		/* modify the tagged reply directly */
+		sync_cmd->sync->tagline = p_strdup_printf(sync_cmd->pool,
+			"OK [HIGHESTMODSEQ %llu] %s",
+			(unsigned long long)send_modseq,
+			sync_cmd->sync->tagline + 3);
+	} else {
+		/* send an untagged OK reply */
+		client_send_line(client, t_strdup_printf(
+			"* OK [HIGHESTMODSEQ %llu]",
+			(unsigned long long)send_modseq));
+	}
+
+	if (!status->sync_delayed_expunges) {
+		/* no delayed expunges, remember this for future */
+		client->sync_last_full_modseq = status->highest_modseq;
+	}
+	client->highest_fetch_modseq = 0;
+}
+
+int imap_sync_deinit(struct imap_sync_context *ctx,
+		     struct client_command_context *sync_cmd)
 {
 	struct client *client = ctx->client;
 	struct mailbox_status status;
@@ -177,19 +224,6 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 		i_free(ctx);
 		return -1;
 	}
-
-	if (!status.sync_delayed_expunges || status.highest_modseq == 0)
-		client->sync_last_full_modseq = status.highest_modseq;
-	else if (client->modseqs_sent_since_sync &&
-		 (client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0) {
-		/* if client updates highest-modseq using returned MODSEQs
-		   it loses expunges. try to avoid this by sending it a lower
-		   pre-expunge HIGHESTMODSEQ reply. */
-		client_send_line(client, t_strdup_printf(
-			"* OK [HIGHESTMODSEQ %llu]",
-			(unsigned long long)client->sync_last_full_modseq));
-	}
-	client->modseqs_sent_since_sync = FALSE;
 
 	ret = mailbox_transaction_commit(&ctx->t);
 
@@ -217,6 +251,9 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 	   now it contains added/removed messages. */
 	imap_sync_send_search_updates(ctx);
 
+	if ((client->enabled_features & MAILBOX_FEATURE_QRESYNC) != 0)
+		imap_sync_send_highestmodseq(ctx, &status, sync_cmd);
+
 	if (array_is_created(&ctx->search_removes)) {
 		array_free(&ctx->search_removes);
 		array_free(&ctx->search_adds);
@@ -225,6 +262,16 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 	array_free(&ctx->tmp_keywords);
 	i_free(ctx);
 	return ret;
+}
+
+static void imap_sync_add_modseq(struct imap_sync_context *ctx, string_t *str)
+{
+	uint64_t modseq;
+
+	modseq = mail_get_modseq(ctx->mail);
+	if (ctx->client->highest_fetch_modseq < modseq)
+		ctx->client->highest_fetch_modseq = modseq;
+	str_printfa(str, "MODSEQ %llu", (unsigned long long)modseq);
 }
 
 static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)
@@ -246,9 +293,8 @@ static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
 	if ((mailbox_get_enabled_features(ctx->box) &
 	     MAILBOX_FEATURE_CONDSTORE) != 0) {
-		ctx->client->modseqs_sent_since_sync = TRUE;
-		str_printfa(str, "MODSEQ %llu ",
-			    (unsigned long long)mail_get_modseq(ctx->mail));
+		imap_sync_add_modseq(ctx, str);
+		str_append_c(str, ' ');
 	}
 	str_append(str, "FLAGS (");
 	imap_write_flags(str, flags, keywords);
@@ -264,9 +310,8 @@ static int imap_sync_send_modseq(struct imap_sync_context *ctx, string_t *str)
 	str_printfa(str, "* %u FETCH (", ctx->seq);
 	if (ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
-	str_printfa(str, "MODSEQ %llu)",
-		    (unsigned long long)mail_get_modseq(ctx->mail));
-	ctx->client->modseqs_sent_since_sync = TRUE;
+	imap_sync_add_modseq(ctx, str);
+	str_append_c(str, ')');
 	return client_send_line(ctx->client, str_c(str));
 }
 
@@ -446,7 +491,7 @@ static bool cmd_sync_continue(struct client_command_context *sync_cmd)
 		ctx->failed = TRUE;
 
 	client->syncing = FALSE;
-	if (imap_sync_deinit(ctx) < 0) {
+	if (imap_sync_deinit(ctx, sync_cmd) < 0) {
 		client_send_untagged_storage_error(client,
 			mailbox_get_storage(client->mailbox));
 	}

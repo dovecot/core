@@ -37,7 +37,7 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 
 	if (ctx->sync_ctx != NULL) {
 		/* we're here only in connection failure cases */
-		(void)imap_sync_deinit(ctx->sync_ctx);
+		(void)imap_sync_deinit(ctx->sync_ctx, ctx->cmd);
 	}
 
 	o_stream_cork(client->output);
@@ -157,7 +157,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 			return FALSE;
 		}
 
-		if (imap_sync_deinit(ctx->sync_ctx) < 0) {
+		if (imap_sync_deinit(ctx->sync_ctx, ctx->cmd) < 0) {
 			client_send_untagged_storage_error(client,
 				mailbox_get_storage(client->mailbox));
 			mailbox_notify_changes_stop(client->mailbox);
