@@ -44,6 +44,9 @@ struct imap_search_context {
 
 	uint64_t highest_seen_modseq;
 	struct timeval start_time;
+
+	unsigned int have_seqsets:1;
+	unsigned int have_modseqs:1;
 };
 
 static int
@@ -131,22 +134,25 @@ search_parse_return_options(struct imap_search_context *ctx,
 	return TRUE;
 }
 
-static bool imap_search_args_have_modseq(const struct mail_search_arg *sargs)
+static void imap_search_args_check(struct imap_search_context *ctx,
+				   const struct mail_search_arg *sargs)
 {
 	for (; sargs != NULL; sargs = sargs->next) {
 		switch (sargs->type) {
+		case SEARCH_SEQSET:
+			ctx->have_seqsets = TRUE;
+			break;
 		case SEARCH_MODSEQ:
-			return TRUE;
+			ctx->have_modseqs = TRUE;
+			break;
 		case SEARCH_OR:
 		case SEARCH_SUB:
-			if (imap_search_args_have_modseq(sargs->value.subargs))
-				return TRUE;
+			imap_search_args_check(ctx, sargs->value.subargs);
 			break;
 		default:
 			break;
 		}
 	}
-	return FALSE;
 }
 
 static void imap_search_result_save(struct imap_search_context *ctx)
@@ -182,7 +188,9 @@ static void
 imap_search_init(struct imap_search_context *ctx,
 		 struct mail_search_args *sargs)
 {
-	if (imap_search_args_have_modseq(sargs->args)) {
+	imap_search_args_check(ctx, sargs->args);
+
+	if (ctx->have_modseqs) {
 		ctx->return_options |= SEARCH_RETURN_MODSEQ;
 		client_enable(ctx->cmd->client, MAILBOX_FEATURE_CONDSTORE);
 	}
@@ -353,6 +361,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 {
 	struct imap_search_context *ctx = cmd->context;
 	enum search_return_options opts = ctx->return_options;
+	enum mailbox_sync_flags sync_flags;
 	struct timeval end_time;
 	const struct seq_range *range;
 	unsigned int count;
@@ -446,8 +455,10 @@ static bool cmd_search_more(struct client_command_context *cmd)
 		end_time.tv_usec += 1000000;
 	}
 
-	return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
-			(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES), 0,
+	sync_flags = MAILBOX_SYNC_FLAG_FAST;
+	if (cmd->uid && !ctx->have_seqsets)
+		sync_flags |= MAILBOX_SYNC_FLAG_NO_EXPUNGES;
+	return cmd_sync(cmd, sync_flags, 0,
 			t_strdup_printf("OK Search completed (%d.%03d secs).",
 					(int)end_time.tv_sec,
 					(int)(end_time.tv_usec/1000)));
