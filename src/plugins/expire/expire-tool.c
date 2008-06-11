@@ -209,6 +209,7 @@ static void expire_run(bool testrun)
 
 	trans = dict_transaction_begin(dict);
 	iter = dict_iterate_init(dict, DICT_PATH_SHARED,
+				 DICT_ITERATE_FLAG_RECURSE |
 				 DICT_ITERATE_FLAG_SORT_BY_VALUE);
 
 	/* We'll get the oldest values (timestamps) first */
