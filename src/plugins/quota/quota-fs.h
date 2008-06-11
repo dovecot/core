@@ -7,7 +7,7 @@
 #endif
 
 #ifdef HAVE_SYS_QUOTA_H
-#  include <sys/quota.h> /* Linux */
+#  include <sys/quota.h> /* Linux, HP-UX */
 #elif defined(HAVE_SYS_FS_UFS_QUOTA_H)
 #  include <sys/fs/ufs_quota.h> /* Solaris */
 #elif defined(HAVE_UFS_UFS_QUOTA_H)
@@ -18,10 +18,16 @@
 #  undef HAVE_FS_QUOTA
 #endif
 
-#if defined (HAVE_QUOTACTL) && defined(HAVE_SYS_QUOTA_H)
-#  define FS_QUOTA_LINUX
-#elif defined(HAVE_QUOTACTL)
-#  define FS_QUOTA_BSDAIX
+#ifdef HAVE_QUOTACTL
+#  ifdef HAVE_SYS_QUOTA_H
+#    ifdef QCMD
+#      define FS_QUOTA_LINUX
+#    else
+#      define FS_QUOTA_HPUX
+#    endif
+#  else
+#    define FS_QUOTA_BSDAIX
+#  endif
 #elif defined (HAVE_Q_QUOTACTL)
 #  define FS_QUOTA_SOLARIS
 #else

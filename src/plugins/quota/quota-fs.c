@@ -494,6 +494,35 @@ fs_quota_get_bsdaix(struct fs_quota_root *root, bool group, bool bytes,
 }
 #endif
 
+#ifdef FS_QUOTA_HPUX
+static int
+fs_quota_get_hpux(struct fs_quota_root *root, bool bytes,
+		  uint64_t *value_r, uint64_t *limit_r)
+{
+	struct dqblk dqblk;
+
+	if (quotactl(Q_GETQUOTA, root->mount->device_path,
+		     root->uid, &dqblk) < 0) {
+		if (errno == ESRCH) {
+			root->user_disabled = TRUE;
+			return 0;
+		}
+		i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
+			root->mount->device_path);
+		return -1;
+	}
+
+	if (bytes) {
+		*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
+		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
+	} else {
+		*value_r = dqblk.dqb_curinodes;
+		*value_r = dqblk.dqb_isoftlimit;
+	}
+	return 1;
+}
+#endif
+
 #ifdef FS_QUOTA_SOLARIS
 static int
 fs_quota_get_solaris(struct fs_quota_root *root, bool bytes,
@@ -543,7 +572,11 @@ fs_quota_get_one_resource(struct fs_quota_root *root, bool group, bool bytes,
 		/* not supported */
 		return 0;
 	}
+#ifdef FS_QUOTA_HPUX
+	return fs_quota_get_hpux(root, bytes, value_r, limit_r);
+#else
 	return fs_quota_get_solaris(root, bytes, value_r, limit_r);
+#endif
 #endif
 }
 
