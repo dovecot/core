@@ -634,11 +634,14 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	if ((*flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) == 0) {
 		/* make sure it's a selectable mailbox */
 		maildir_path = t_strconcat(path, "/"DBOX_MAILDIR_NAME, NULL);
-		if (stat(maildir_path, &st2) < 0 || !S_ISDIR(st2.st_mode)) {
+		if (stat(maildir_path, &st2) < 0 || !S_ISDIR(st2.st_mode))
 			*flags |= MAILBOX_NOSELECT;
-			if (st.st_nlink == 3 &&
-			    *ctx->list->set.maildir_name != '\0')
+		if (st.st_nlink == 3 && *ctx->list->set.maildir_name != '\0') {
+			/* now we know what link count 3 means. */
+			if ((*flags & MAILBOX_NOSELECT) != 0)
 				*flags |= MAILBOX_CHILDREN;
+			else
+				*flags |= MAILBOX_NOCHILDREN;
 		}
 	}
 	return ret;
