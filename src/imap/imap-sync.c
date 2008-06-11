@@ -102,7 +102,7 @@ imap_sync_send_search_update(struct imap_sync_context *ctx,
 		imap_write_seq_range(cmd, &ctx->search_adds);
 		str_append_c(cmd, ')');
 	}
-	str_append(cmd, ")\r\n");
+	str_append(cmd, "\r\n");
 	o_stream_send(ctx->client->output, str_data(cmd), str_len(cmd));
 }
 
