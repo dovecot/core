@@ -101,7 +101,7 @@ static void thread_link_reference(struct mail_thread_update_context *ctx,
 	child = mail_hash_lookup_idx(ctx->hash_trans, child_idx);
 
 	child->link_refcount++;
-	mail_hash_update(ctx->hash_trans, parent_idx);
+	mail_hash_update(ctx->hash_trans, child_idx);
 
 	if (thread_node_has_ancestor(ctx, parent, child)) {
 		if (parent == child) {
