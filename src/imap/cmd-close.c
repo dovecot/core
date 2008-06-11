@@ -38,8 +38,8 @@ bool cmd_close(struct client_command_context *cmd)
 		   it by syncing the mailbox one last time. We wouldn't need
 		   to include our own expunge in there, but it's too much
 		   trouble to hide it. */
-		return cmd_sync(cmd, 0, IMAP_SYNC_FLAG_SAFE,
-				"OK Close completed.");
+		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_EXPUNGE,
+				IMAP_SYNC_FLAG_SAFE, "OK Close completed.");
 	} else {
 		if (mailbox_sync(mailbox, 0, 0, NULL) < 0)
 			client_send_untagged_storage_error(client, storage);
