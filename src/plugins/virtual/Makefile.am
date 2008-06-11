@@ -20,6 +20,7 @@ lib20_virtual_plugin_la_SOURCES = \
 	virtual-transaction.c
 
 noinst_HEADERS = \
+	virtual-plugin.h \
 	virtual-storage.h
 
 install-exec-local:
