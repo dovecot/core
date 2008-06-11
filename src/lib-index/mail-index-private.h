@@ -32,6 +32,10 @@ struct mail_index_sync_map_ctx;
 	((struct mail_index_record *) \
 	 PTR_OFFSET((map)->rec_map->records, (idx) * (map)->hdr.record_size))
 
+#define MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(u) \
+	((((u)->add_flags | (u)->remove_flags) & \
+	  MAIL_INDEX_FLAGS_MASK) == 0)
+
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 					 uint32_t seq, const void *data,
 					 void **sync_context, void *context);

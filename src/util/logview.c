@@ -21,7 +21,7 @@ uint32_t mail_index_offset_to_uint32(uint32_t offset)
 		(((uint32_t)buf[0] & 0x7f) << 23);
 }
 
-static void dump_hdr(int fd)
+static void dump_hdr(int fd, uint64_t *modseq_r)
 {
 	struct mail_transaction_log_header hdr;
 	ssize_t ret;
@@ -43,8 +43,29 @@ static void dump_hdr(int fd)
 	printf("file seq = %u\n", hdr.file_seq);
 	printf("prev file = %u/%u\n", hdr.prev_file_seq, hdr.prev_file_offset);
 	printf("create stamp = %u\n", hdr.create_stamp);
+	printf("initial modseq = %llu\n",
+	       (unsigned long long)hdr.initial_modseq);
+	*modseq_r = I_MAX(hdr.initial_modseq, 1);
 }
 
+static bool
+mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr)
+{
+	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+	case MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT:
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			/* ignore expunge requests */
+			break;
+		}
+	case MAIL_TRANSACTION_APPEND:
+	case MAIL_TRANSACTION_FLAG_UPDATE:
+	case MAIL_TRANSACTION_KEYWORD_UPDATE:
+	case MAIL_TRANSACTION_KEYWORD_RESET:
+		/* these changes increase modseq */
+		return TRUE;
+	}
+	return FALSE;
+}
 static const char *log_record_type(unsigned int type)
 {
 	const char *name;
@@ -235,7 +256,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	}
 }
 
-static int dump_record(int fd)
+static int dump_record(int fd, uint64_t *modseq)
 {
 	off_t offset;
 	ssize_t ret;
@@ -262,8 +283,13 @@ static int dump_record(int fd)
 		return 0;
 	}
 
-	printf("record: offset=%"PRIuUOFF_T", type=%s, size=%u\n",
+	printf("record: offset=%"PRIuUOFF_T", type=%s, size=%u",
 	       offset, log_record_type(hdr.type), hdr.size);
+	if (mail_transaction_header_has_modseq(&hdr)) {
+		*modseq += 1;
+		printf(", modseq=%llu", (unsigned long long)*modseq);
+	}
+	printf("\n");
 
 	if (hdr.size < 1024*1024) {
 		unsigned char *buf = t_malloc(hdr.size);
@@ -282,6 +308,7 @@ static int dump_record(int fd)
 
 int main(int argc, const char *argv[])
 {
+	uint64_t modseq;
 	int fd, ret;
 
 	lib_init();
@@ -295,10 +322,10 @@ int main(int argc, const char *argv[])
 		return 1;
 	}
 
-	dump_hdr(fd);
+	dump_hdr(fd, &modseq);
 	do {
 		T_BEGIN {
-			ret = dump_record(fd);
+			ret = dump_record(fd, &modseq);
 		} T_END;
 	} while (ret > 0);
 	return 0;

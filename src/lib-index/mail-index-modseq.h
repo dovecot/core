@@ -4,6 +4,7 @@
 enum mail_flags;
 struct mail_keywords;
 struct mail_index;
+struct mail_index_map;
 struct mail_index_view;
 struct mail_index_modseq;
 struct mail_index_map_modseq;
@@ -19,6 +20,9 @@ struct mail_index_modseq_header {
 
 void mail_index_modseq_init(struct mail_index *index);
 
+const struct mail_index_modseq_header *
+mail_index_map_get_modseq_header(struct mail_index_map *map);
+uint64_t mail_index_map_modseq_get_highest(struct mail_index_map *map);
 void mail_index_modseq_enable(struct mail_index *index);
 uint64_t mail_index_modseq_get_highest(struct mail_index_view *view);
 
@@ -49,8 +53,8 @@ void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
 
 void mail_index_map_modseq_free(struct mail_index_map_modseq *mmap);
 
-bool mail_index_modseq_get_log_offset(struct mail_index_view *view,
-				      uint64_t modseq, uint32_t *log_seq_r,
-				      uoff_t *log_offset_r);
+bool mail_index_modseq_get_next_log_offset(struct mail_index_view *view,
+					   uint64_t modseq, uint32_t *log_seq_r,
+					   uoff_t *log_offset_r);
 
 #endif

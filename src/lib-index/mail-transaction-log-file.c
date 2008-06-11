@@ -9,6 +9,7 @@
 #include "write-full.h"
 #include "mmap-util.h"
 #include "mail-index-private.h"
+#include "mail-index-modseq.h"
 #include "mail-transaction-log-private.h"
 
 #define LOG_PREFETCH 1024
@@ -106,23 +107,36 @@ mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
 	struct mail_transaction_log *log = file->log;
 	struct mail_transaction_log_file **p;
 	struct mail_index_map *map = log->index->map;
+	const struct mail_index_modseq_header *modseq_hdr;
 
 	if (map != NULL && file->hdr.file_seq == map->hdr.log_file_seq &&
 	    map->hdr.log_file_head_offset != 0) {
 		/* we can get a valid log offset from index file. initialize
 		   sync_offset from it so we don't have to read the whole log
 		   file from beginning. */
-		if (map->hdr.log_file_head_offset >= file->hdr.hdr_size)
-			file->sync_offset = map->hdr.log_file_head_offset;
-		else {
+		uoff_t head_offset = map->hdr.log_file_head_offset;
+
+		modseq_hdr = mail_index_map_get_modseq_header(map);
+		if (head_offset < file->hdr.hdr_size) {
 			mail_index_set_error(log->index,
 				"%s: log_file_head_offset too small",
 				log->index->filepath);
 			file->sync_offset = file->hdr.hdr_size;
+			file->sync_highest_modseq = file->hdr.initial_modseq;
+		} else if (modseq_hdr == NULL ||
+			   modseq_hdr->log_seq != file->hdr.file_seq ||
+			   modseq_hdr->log_offset != head_offset) {
+			/* highest_modseq not synced, start from beginning */
+			file->sync_offset = file->hdr.hdr_size;
+			file->sync_highest_modseq = file->hdr.initial_modseq;
+		} else {
+			file->sync_offset = head_offset;
+			file->sync_highest_modseq = modseq_hdr->highest_modseq;
 		}
 		file->saved_tail_offset = map->hdr.log_file_tail_offset;
 	} else {
 		file->sync_offset = file->hdr.hdr_size;
+		file->sync_highest_modseq = file->hdr.initial_modseq;
 	}
 
 	/* insert it to correct position */
@@ -165,6 +179,8 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 		hdr->prev_file_seq = index->map->hdr.log_file_seq;
 		hdr->prev_file_offset = index->map->hdr.log_file_head_offset;
 		hdr->file_seq = index->map->hdr.log_file_seq + 1;
+		hdr->initial_modseq =
+			mail_index_map_modseq_get_highest(index->map);
 	} else {
 		hdr->file_seq = 1;
 	}
@@ -346,6 +362,8 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		   shouldn't have filled */
 		memset(PTR_OFFSET(&file->hdr, file->hdr.hdr_size), 0,
 		       sizeof(file->hdr) - file->hdr.hdr_size);
+		if (file->hdr.minor_version == 0)
+			file->hdr.initial_modseq = 1;
 	}
 
 	if (file->hdr.indexid == 0) {
@@ -387,6 +405,7 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		}
 	}
 
+	file->sync_highest_modseq = file->hdr.initial_modseq;
 	return 1;
 }
 
@@ -499,6 +518,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	if (reset) {
 		file->hdr.prev_file_seq = 0;
 		file->hdr.prev_file_offset = 0;
+		file->hdr.initial_modseq = 1;
 	}
 
 	if (write_full(new_fd, &file->hdr, sizeof(file->hdr)) < 0) {
@@ -697,15 +717,265 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 	return 0;
 }
 
+bool
+mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr)
+{
+	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+	case MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT:
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			/* ignore expunge requests */
+			break;
+		}
+	case MAIL_TRANSACTION_APPEND:
+	case MAIL_TRANSACTION_FLAG_UPDATE:
+	case MAIL_TRANSACTION_KEYWORD_UPDATE:
+	case MAIL_TRANSACTION_KEYWORD_RESET:
+		/* these changes increase modseq */
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static struct modseq_cache *
+modseq_cache_hit(struct mail_transaction_log_file *file, unsigned int idx)
+{
+	struct modseq_cache cache;
+
+	if (idx > 0) {
+		/* @UNSAFE: move it to top */
+		cache = file->modseq_cache[idx];
+		memmove(file->modseq_cache + 1, file->modseq_cache,
+			sizeof(*file->modseq_cache) * idx);
+		file->modseq_cache[0] = cache;
+	}
+	return &file->modseq_cache[0];
+}
+
+static struct modseq_cache *
+modseq_cache_get_offset(struct mail_transaction_log_file *file, uoff_t offset)
+{
+	unsigned int i, best = -1U;
+
+	for (i = 0; i < N_ELEMENTS(file->modseq_cache); i++) {
+		if (offset < file->modseq_cache[i].offset)
+			continue;
+
+		if (file->modseq_cache[i].offset == 0)
+			return NULL;
+
+		if (offset == file->modseq_cache[i].offset) {
+			/* exact cache hit */
+			return modseq_cache_hit(file, i);
+		}
+
+		if (best == -1U ||
+		    file->modseq_cache[i].offset <
+		    file->modseq_cache[best].offset)
+			best = i;
+	}
+	if (best == -1U)
+		return NULL;
+	return &file->modseq_cache[best];
+}
+
+static struct modseq_cache *
+modseq_cache_get_modseq(struct mail_transaction_log_file *file, uint64_t modseq)
+{
+	unsigned int i, best = -1U;
+
+	for (i = 0; i < N_ELEMENTS(file->modseq_cache); i++) {
+		if (modseq < file->modseq_cache[i].highest_modseq)
+			continue;
+
+		if (file->modseq_cache[i].offset == 0)
+			return NULL;
+
+		if (modseq == file->modseq_cache[i].highest_modseq) {
+			/* exact cache hit */
+			return modseq_cache_hit(file, i);
+		}
+
+		if (best == -1U ||
+		    file->modseq_cache[i].highest_modseq <
+		    file->modseq_cache[best].highest_modseq)
+			best = i;
+	}
+	if (best == -1U)
+		return NULL;
+	return &file->modseq_cache[best];
+}
+
 static int
-log_file_track_mailbox_sync_offset(struct mail_transaction_log_file *file,
-				   const struct mail_transaction_header *hdr,
-				   unsigned int trans_size)
+log_get_synced_record(struct mail_transaction_log_file *file, uoff_t *offset,
+		      const struct mail_transaction_header **hdr_r)
+{
+	const struct mail_transaction_header *hdr;
+	uint32_t trans_size;
+
+	hdr = CONST_PTR_OFFSET(file->buffer->data,
+			       *offset - file->buffer_offset);
+
+	/* we've already synced this record at some point. it should
+	   be valid. */
+	trans_size = mail_index_offset_to_uint32(hdr->size);
+	if (trans_size < sizeof(*hdr) ||
+	    *offset - file->buffer_offset + trans_size > file->buffer->used) {
+		mail_transaction_log_file_set_corrupted(file,
+			"Transaction log corrupted unexpectedly");
+		return -1;
+	}
+	*offset += trans_size;
+	*hdr_r = hdr;
+	return 0;
+}
+
+int mail_transaction_log_file_get_highest_modseq_at(
+		struct mail_transaction_log_file *file,
+		uoff_t offset, uint64_t *highest_modseq_r)
+{
+	const struct mail_transaction_header *hdr;
+	struct modseq_cache *cache;
+	uoff_t cur_offset;
+	uint64_t cur_modseq;
+	int ret;
+
+	i_assert(offset <= file->sync_offset);
+
+	if (offset == file->sync_offset) {
+		*highest_modseq_r = file->sync_highest_modseq;
+		return 0;
+	}
+
+	cache = modseq_cache_get_offset(file, offset);
+	if (cache == NULL) {
+		/* nothing usable in cache - scan from beginning */
+		cur_offset = file->hdr.hdr_size;
+		cur_modseq = file->hdr.initial_modseq;
+	} else if (cache->offset == offset) {
+		/* exact cache hit */
+		*highest_modseq_r = cache->highest_modseq;
+		return 0;
+	} else {
+		/* use cache to skip over some records */
+		cur_offset = cache->offset;
+		cur_modseq = cache->highest_modseq;
+	}
+
+	ret = mail_transaction_log_file_map(file, cur_offset, offset);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		mail_index_set_error(file->log->index,
+			"%s: Transaction log corrupted, can't get modseq",
+			file->filepath);
+		return -1;
+	}
+
+	i_assert(cur_offset >= file->buffer_offset);
+	i_assert(cur_offset + file->buffer->used >= offset);
+	while (cur_offset < offset) {
+		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
+			return- 1;
+		if (mail_transaction_header_has_modseq(hdr))
+			cur_modseq++;
+	}
+
+	/* @UNSAFE: cache the value */
+	memmove(file->modseq_cache + 1, file->modseq_cache,
+		sizeof(*file->modseq_cache) *
+		(N_ELEMENTS(file->modseq_cache) - 1));
+	file->modseq_cache[0].offset = cur_offset;
+	file->modseq_cache[0].highest_modseq = cur_modseq;
+
+	*highest_modseq_r = cur_modseq;
+	return 0;
+}
+
+int mail_transaction_log_file_get_modseq_next_offset(
+		struct mail_transaction_log_file *file,
+		uint64_t modseq, uoff_t *next_offset_r)
+{
+	const struct mail_transaction_header *hdr;
+	struct modseq_cache *cache;
+	uoff_t cur_offset, prev_offset;
+	uint64_t cur_modseq;
+	int ret;
+
+	if (modseq >= file->sync_highest_modseq) {
+		*next_offset_r = file->sync_offset;
+		return 0;
+	}
+
+	cache = modseq_cache_get_modseq(file, modseq);
+	if (cache == NULL) {
+		/* nothing usable in cache - scan from beginning */
+		cur_offset = file->hdr.hdr_size;
+		cur_modseq = file->hdr.initial_modseq;
+	} else if (cache->highest_modseq == modseq) {
+		/* exact cache hit */
+		*next_offset_r = cache->offset;
+		return 0;
+	} else {
+		/* use cache to skip over some records */
+		cur_offset = cache->offset;
+		cur_modseq = cache->highest_modseq;
+	}
+
+	ret = mail_transaction_log_file_map(file, cur_offset,
+					    file->sync_offset);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		mail_index_set_error(file->log->index,
+			"%s: Transaction log corrupted, can't get modseq",
+			file->filepath);
+		return -1;
+	}
+
+	i_assert(cur_offset >= file->buffer_offset);
+	while (cur_offset < file->sync_offset) {
+		prev_offset = cur_offset;
+		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
+			return -1;
+		if (mail_transaction_header_has_modseq(hdr)) {
+			if (++cur_modseq == modseq)
+				break;
+		}
+	}
+	if (modseq != cur_modseq) {
+		/* if we got to sync_offset, cur_modseq should be
+		   sync_highest_modseq */
+		mail_index_set_error(file->log->index,
+			"%s: Transaction log changed unexpectedly, "
+			"can't get modseq", file->filepath);
+		return -1;
+	}
+
+	/* @UNSAFE: cache the value */
+	memmove(file->modseq_cache + 1, file->modseq_cache,
+		sizeof(*file->modseq_cache) *
+		(N_ELEMENTS(file->modseq_cache) - 1));
+	file->modseq_cache[0].offset = cur_offset;
+	file->modseq_cache[0].highest_modseq = cur_modseq;
+
+	*next_offset_r = cur_offset;
+	return 0;
+}
+
+static int
+log_file_track_sync(struct mail_transaction_log_file *file,
+		    const struct mail_transaction_header *hdr,
+		    unsigned int trans_size)
 {
 	int ret;
 
-	i_assert((hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0);
+	if (mail_transaction_header_has_modseq(hdr))
+		file->sync_highest_modseq++;
 
+	if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
+		return 0;
+
+	/* external transactions: */
 	if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
 	    MAIL_TRANSACTION_HEADER_UPDATE) {
 		/* see if this updates mailbox_sync_offset */
@@ -734,11 +1004,9 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 	size_t size, avail;
 	uint32_t trans_size = 0;
 
+	i_assert(file->sync_offset >= file->buffer_offset);
+
 	data = buffer_get_data(file->buffer, &size);
-
-	if (file->sync_offset < file->buffer_offset)
-		file->sync_offset = file->buffer_offset;
-
 	while (file->sync_offset - file->buffer_offset + sizeof(*hdr) <= size) {
 		hdr = CONST_PTR_OFFSET(data, file->sync_offset -
 				       file->buffer_offset);
@@ -757,11 +1025,9 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 			break;
 
 		/* transaction has been fully written */
-		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0) {
-			if (log_file_track_mailbox_sync_offset(file, hdr,
-							       trans_size) < 0)
-				return -1;
-		}
+		if (log_file_track_sync(file, hdr, trans_size) < 0)
+			return -1;
+
 		file->sync_offset += trans_size;
 		trans_size = 0;
 	}
@@ -935,6 +1201,13 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 			nfs_flush_attr_cache_fd_locked(file->filepath,
 						       file->fd);
 		}
+	}
+
+	if (start_offset > file->sync_offset) {
+		/* although we could just skip over the unwanted data, we have
+		   to sync everything so that modseqs are calculated
+		   correctly */
+		start_offset = file->sync_offset;
 	}
 
 	if (file->buffer != NULL && file->buffer_offset > start_offset) {

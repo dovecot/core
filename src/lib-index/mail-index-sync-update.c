@@ -355,9 +355,11 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 		return 1;
 
 	mail_index_sync_write_seq_update(ctx, seq1, seq2);
-	mail_index_modseq_update_flags(ctx->modseq_ctx,
-				       u->add_flags | u->remove_flags,
-				       seq1, seq2);
+	if (!MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(u)) {
+		mail_index_modseq_update_flags(ctx->modseq_ctx,
+					       u->add_flags | u->remove_flags,
+					       seq1, seq2);
+	}
 
 	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		view->map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;

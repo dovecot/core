@@ -20,6 +20,13 @@
 
 #define MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ((file)->fd == -1)
 
+#define LOG_FILE_MODSEQ_CACHE_SIZE 10
+
+struct modseq_cache {
+	uoff_t offset;
+	uint64_t highest_modseq;
+};
+
 struct mail_transaction_log_file {
 	struct mail_transaction_log *log;
         struct mail_transaction_log_file *next;
@@ -44,12 +51,16 @@ struct mail_transaction_log_file {
 
 	/* points to the next uncommitted transaction. usually same as EOF. */
 	uoff_t sync_offset;
+	/* highest modseq at sync_offset */
+	uint64_t sync_highest_modseq;
 	/* saved_tail_offset is the offset that was last written to transaction
 	   log. max_tail_offset is what should be written to the log the next
 	   time a transaction is written. transaction log handling may update
 	   max_tail_offset automatically by making it skip external transactions
 	   after the last saved offset (to avoid re-reading them unneededly). */
 	uoff_t saved_tail_offset, max_tail_offset;
+
+	struct modseq_cache modseq_cache[LOG_FILE_MODSEQ_CACHE_SIZE];
 
 	struct file_lock *file_lock;
 
@@ -109,5 +120,14 @@ bool mail_transaction_log_want_rotate(struct mail_transaction_log *log);
 int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset);
 int mail_transaction_log_lock_head(struct mail_transaction_log *log);
 void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file);
+
+bool
+mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr);
+int mail_transaction_log_file_get_highest_modseq_at(
+		struct mail_transaction_log_file *file,
+		uoff_t offset, uint64_t *highest_modseq_r);
+int mail_transaction_log_file_get_modseq_next_offset(
+		struct mail_transaction_log_file *file,
+		uint64_t modseq, uoff_t *next_offset_r);
 
 #endif

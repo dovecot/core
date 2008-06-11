@@ -52,12 +52,12 @@ bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 	const struct seq_range *uid_range;
 	unsigned int count;
 	const void *tdata;
-	uint32_t prev_seq, log_seq, min_uid, max_uid;
-	uoff_t prev_offset, log_offset;
+	uint32_t log_seq, min_uid, max_uid;
+	uoff_t log_offset;
 	bool reset;
 
-	if (!mail_index_modseq_get_log_offset(ibox->view, modseq,
-					      &log_seq, &log_offset))
+	if (!mail_index_modseq_get_next_log_offset(ibox->view, modseq,
+						   &log_seq, &log_offset))
 		return FALSE;
 	if (log_seq > ibox->view->log_file_head_seq ||
 	    (log_seq == ibox->view->log_file_head_seq &&
@@ -68,11 +68,9 @@ bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 
 	hdr = mail_index_get_header(ibox->view);
 	log_view = mail_transaction_log_view_open(ibox->index->log);
-	/* we can't trust user-given log offsets, so we have to start reading
-	   from the beginning of the log. */
-	if (mail_transaction_log_view_set(log_view, log_seq, 0,
+	if (mail_transaction_log_view_set(log_view, log_seq, log_offset,
 					  ibox->view->log_file_head_seq,
-					  ibox->view->log_file_head_offset,
+					  ibox->view->log_file_head_offset, 
 					  &reset) <= 0) {
 		mail_transaction_log_view_close(&log_view);
 		return FALSE;
@@ -87,15 +85,6 @@ bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 	while (mail_transaction_log_view_next(log_view, &thdr, &tdata) > 0) {
 		if ((thdr->type & EXPUNGE_MASK) != EXPUNGE_MASK)
 			continue;
-
-		mail_transaction_log_view_get_prev_pos(log_view,
-						       &prev_seq, &prev_offset);
-		if (prev_seq < log_seq ||
-		    (prev_offset <= log_offset && prev_seq == log_seq)) {
-			/* still too old expunge. note that
-			   prev_offset==log_offset is also skipped. */
-			continue;
-		}
 
 		rec = tdata;
 		end = rec + thdr->size / sizeof(*rec);

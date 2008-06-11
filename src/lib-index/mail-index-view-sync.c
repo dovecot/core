@@ -236,13 +236,10 @@ static bool view_sync_have_expunges(struct mail_index_view *view)
 {
 	const struct mail_transaction_header *hdr;
 	const void *data;
-	uint32_t seq;
-	uoff_t offset;
 	bool have_expunges = FALSE;
 	int ret;
 
-	mail_transaction_log_view_get_prev_pos(view->log_view,
-					       &seq, &offset);
+	mail_transaction_log_view_mark(view->log_view);
 
 	while ((ret = mail_transaction_log_view_next(view->log_view,
 						     &hdr, &data)) > 0) {
@@ -260,7 +257,7 @@ static bool view_sync_have_expunges(struct mail_index_view *view)
 		}
 	}
 
-	mail_transaction_log_view_seek(view->log_view, seq, offset);
+	mail_transaction_log_view_rewind(view->log_view);
 
 	/* handle failures as having expunges (which is safer).
 	   we'll probably fail later. */
@@ -490,10 +487,6 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 	return 1;
 }
 
-#define FLAG_UPDATE_IS_INTERNAL(u) \
-	((((u)->add_flags | (u)->remove_flags) & \
-	  MAIL_INDEX_FLAGS_MASK) == 0)
-
 static bool
 mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 			     struct mail_index_view_sync_rec *rec)
@@ -534,7 +527,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		/* data contains mail_transaction_flag_update[] */
 		for (;;) {
 			ctx->data_offset += sizeof(*update);
-			if (!FLAG_UPDATE_IS_INTERNAL(update))
+			if (!MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(update))
 				break;
 
 			/* skip internal flag changes */

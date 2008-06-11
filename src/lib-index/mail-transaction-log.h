@@ -1,8 +1,11 @@
 #ifndef MAIL_TRANSACTION_LOG_H
 #define MAIL_TRANSACTION_LOG_H
 
+struct mail_index;
+struct mail_index_transaction;
+
 #define MAIL_TRANSACTION_LOG_MAJOR_VERSION 1
-#define MAIL_TRANSACTION_LOG_MINOR_VERSION 0
+#define MAIL_TRANSACTION_LOG_MINOR_VERSION 1
 #define MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE 24
 
 struct mail_transaction_log_header {
@@ -15,6 +18,7 @@ struct mail_transaction_log_header {
 	uint32_t prev_file_seq;
 	uint32_t prev_file_offset;
 	uint32_t create_stamp;
+	uint64_t initial_modseq;
 };
 
 enum mail_transaction_type {
@@ -165,9 +169,11 @@ void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
 int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 				   const struct mail_transaction_header **hdr_r,
 				   const void **data_r);
-/* Seek to given position within view. Must be inside the view's range. */
-void mail_transaction_log_view_seek(struct mail_transaction_log_view *view,
-				    uint32_t seq, uoff_t offset);
+/* Mark the current view's position to the record returned previously with
+   _log_view_next(). */
+void mail_transaction_log_view_mark(struct mail_transaction_log_view *view);
+/* Seek to previously marked position. */
+void mail_transaction_log_view_rewind(struct mail_transaction_log_view *view);
 
 /* Returns the position of the record returned previously with
    mail_transaction_log_view_next() */
@@ -175,6 +181,9 @@ void
 mail_transaction_log_view_get_prev_pos(struct mail_transaction_log_view *view,
 				       uint32_t *file_seq_r,
 				       uoff_t *file_offset_r);
+/* Return the modseq of the change returned previously with _view_next(). */
+uint64_t
+mail_transaction_log_view_get_prev_modseq(struct mail_transaction_log_view *view);
 /* Returns TRUE if we're at the end of the view window. */
 bool mail_transaction_log_view_is_last(struct mail_transaction_log_view *view);
 

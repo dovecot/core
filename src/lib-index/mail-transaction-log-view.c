@@ -21,8 +21,18 @@ struct mail_transaction_log_view {
         struct mail_transaction_log_file *cur, *head, *tail;
 	uoff_t cur_offset;
 
+	/* prev_modseq doesn't contain correct values until we know that
+	   caller is really interested in modseqs. so the prev_modseq begins
+	   from 0 and it's relative to prev_modseq_start_offset. when
+	   prev_modseq_initialized=TRUE prev_modseq contains a correct value */
+	uint64_t prev_modseq;
+
 	uint32_t prev_file_seq;
 	uoff_t prev_file_offset;
+
+	struct mail_transaction_log_file *mark_file;
+	uoff_t mark_offset, mark_next_offset;
+	uint64_t mark_modseq;
 
 	unsigned int broken:1;
 };
@@ -289,6 +299,10 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	view->max_file_offset = I_MIN(max_file_offset, view->head->sync_offset);
 	view->broken = FALSE;
 
+	if (mail_transaction_log_file_get_highest_modseq_at(view->cur,
+				view->cur_offset, &view->prev_modseq) < 0)
+		return -1;
+
 	i_assert(view->cur_offset <= view->cur->sync_offset);
 	return 1;
 }
@@ -307,12 +321,17 @@ void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
 
 	view->cur = view->head = view->tail = NULL;
 
+	view->mark_file = NULL;
+	view->mark_offset = 0;
+	view->mark_modseq = 0;
+
 	view->min_file_seq = view->max_file_seq = 0;
 	view->min_file_offset = view->max_file_offset = 0;
 	view->cur_offset = 0;
 
 	view->prev_file_seq = 0;
 	view->prev_file_offset = 0;
+	view->prev_modseq = 0;
 }
 
 void
@@ -322,6 +341,12 @@ mail_transaction_log_view_get_prev_pos(struct mail_transaction_log_view *view,
 {
 	*file_seq_r = view->prev_file_seq;
 	*file_offset_r = view->prev_file_offset;
+}
+
+uint64_t
+mail_transaction_log_view_get_prev_modseq(struct mail_transaction_log_view *view)
+{
+	return view->prev_modseq;
 }
 
 static bool
@@ -589,6 +614,8 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		ret = log_view_is_record_valid(file, hdr, data) ? 1 : -1;
 	} T_END;
 	if (ret > 0) {
+		if (mail_transaction_header_has_modseq(hdr))
+			view->prev_modseq++;
 		*hdr_r = hdr;
 		*data_r = data;
 		view->cur_offset += full_size;
@@ -631,24 +658,23 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	return 1;
 }
 
-void mail_transaction_log_view_seek(struct mail_transaction_log_view *view,
-				    uint32_t seq, uoff_t offset)
+void mail_transaction_log_view_mark(struct mail_transaction_log_view *view)
 {
-	struct mail_transaction_log_file *file;
+	i_assert(view->cur->hdr.file_seq == view->prev_file_seq);
 
-	i_assert(seq >= view->min_file_seq && seq <= view->max_file_seq);
-	i_assert(seq != view->min_file_seq || offset >= view->min_file_offset);
-	i_assert(seq != view->max_file_seq || offset <= view->max_file_offset);
+	view->mark_file = view->cur;
+	view->mark_offset = view->prev_file_offset;
+	view->mark_next_offset = view->cur_offset;
+	view->mark_modseq = view->prev_modseq;
+}
 
-	if (view->cur == NULL || seq != view->cur->hdr.file_seq) {
-		for (file = view->tail; file != NULL; file = file->next) {
-			if (file->hdr.file_seq == seq)
-				break;
-		}
-		i_assert(file != NULL);
+void mail_transaction_log_view_rewind(struct mail_transaction_log_view *view)
+{
+	i_assert(view->mark_file != NULL);
 
-		view->cur = file;
-	}
-
-	view->cur_offset = offset;
+	view->cur = view->mark_file;
+	view->cur_offset = view->mark_next_offset;
+	view->prev_file_seq = view->cur->hdr.file_seq;
+	view->prev_file_offset = view->mark_offset;
+	view->prev_modseq = view->mark_modseq;
 }
