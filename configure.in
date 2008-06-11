@@ -1990,6 +1990,11 @@ AC_CHECK_FUNC(dlopen, [
 if test $have_modules = yes; then
   AC_DEFINE(HAVE_MODULES,, Define if you have dynamic module support)
   AC_SUBST(MODULE_LIBS)
+
+  # shrext_cmds comes from libtool.m4
+  MODULE_SUFFIX=$shrext_cmds
+  AC_DEFINE_UNQUOTED(MODULE_SUFFIX,"$MODULE_SUFFIX",Dynamic module suffix)
+  AC_SUBST(MODULE_SUFFIX)
 fi
 
 have_nss=no

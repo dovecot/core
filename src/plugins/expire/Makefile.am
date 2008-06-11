@@ -52,6 +52,6 @@ install-exec-local:
 	  $(DESTDIR)$(moduledir)/pop3 \
 	  $(DESTDIR)$(moduledir)/lda
 	for d in imap pop3 lda; do \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib20_expire_plugin.so; \
-	  $(LN_S) ../lib20_expire_plugin.so $(DESTDIR)$(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/lib20_expire_plugin$MODULE_SUFFIX; \
+	  $(LN_S) ../lib20_expire_plugin$MODULE_SUFFIX $(DESTDIR)$(moduledir)/$$d; \
 	done

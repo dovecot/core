@@ -56,7 +56,7 @@ const char *module_file_get_name(const char *fname)
 	if (*p == '_')
 		fname = p + 1;
 
-	p = strstr(fname, ".so");
+	p = strstr(fname, MODULE_SUFFIX);
 	if (p == NULL)
 		return fname;
 
@@ -221,7 +221,7 @@ module_dir_load_real(const char *dir, const char *module_names,
 		if (name[0] == '.')
 			continue;
 
-		p = strstr(name, ".so");
+		p = strstr(name, MODULE_SUFFIX);
 		if (p == NULL || strlen(p) != 3)
 			continue;
 

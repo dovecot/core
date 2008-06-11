@@ -48,6 +48,6 @@ convert_tool_DEPENDENCIES = $(libs) $(common_objects)
 install-exec-local:
 	for d in imap pop3 lda; do \
 	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib20_convert_plugin.so; \
-	  $(LN_S) ../lib20_convert_plugin.so $(DESTDIR)$(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/lib20_convert_plugin$MODULE_SUFFIX; \
+	  $(LN_S) ../lib20_convert_plugin$MODULE_SUFFIX $(DESTDIR)$(moduledir)/$$d; \
 	done
