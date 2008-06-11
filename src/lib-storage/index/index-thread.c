@@ -181,6 +181,7 @@ mail_thread_try_use_hash(struct mail_thread_context *ctx,
 			 const struct mailbox_status *status, bool reset,
 			 struct mail_search_args *search_args)
 {
+	struct mail_search_arg *limit_arg = NULL;
 	const struct mail_hash_header *hdr;
 	struct mail_hash_transaction *hash_trans;
 	uint32_t last_seq, last_uid, seq1, seq2;
@@ -276,8 +277,7 @@ again:
 				seq_range_array_add_range(&arg->value.seqset,
 							  seq2 + 1, last_seq);
 			}
-			ctx->tmp_search_arg.next = search_args->args;
-			search_args->args = &ctx->tmp_search_arg;
+			limit_arg = &ctx->tmp_search_arg;
 		}
 	} else {
 		/* empty hash - make sure anyway that it gets reset */
@@ -291,6 +291,7 @@ again:
 				MAIL_HASH_LOCK_FLAG_CREATE_MISSING) <= 0)
 			return FALSE;
 		shared_lock = TRUE;
+		limit_arg = NULL;
 		goto again;
 	}
 	if (!can_use) {
@@ -299,6 +300,10 @@ again:
 		return FALSE;
 	} else {
 		ctx->thread_ctx.hash_trans = hash_trans;
+		if (limit_arg != NULL) {
+			limit_arg->next = search_args->args;
+			search_args->args = limit_arg;
+		}
 		return TRUE;
 	}
 }
