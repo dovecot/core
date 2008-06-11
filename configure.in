@@ -612,7 +612,10 @@ AC_TRY_LINK([
 dnl * OS specific options
 case "$host_os" in
 	hpux*)
-		CFLAGS="$CFLAGS -D_XOPEN_SOURCE_EXTENDED"
+		CFLAGS="$CFLAGS -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED"
+		# for getting fd_send/fd_recv working:
+		LDFLAGS="$LDFLAGS -Wl,+b,:"
+		LIBS="-lxnet $LIBS"
 		AC_DEFINE(PREAD_BROKEN,, Defint if pread/pwrite implementation is broken)
 		;;
 	*)
