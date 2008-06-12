@@ -224,13 +224,16 @@ static void test_message_parser(void)
 	i_stream_unref(&input);
 
 	input = test_istream_create(test_msg);
+	test_istream_set_allow_eof(input, FALSE);
 
 	parser = message_parser_init(pool, input, 0, 0);
-	for (i = 1; i <= TEST_MSG_LEN; i++) {
-		test_istream_set_size(input, i);
+	for (i = 1; i <= TEST_MSG_LEN*2+1; i++) {
+		test_istream_set_size(input, i/2);
+		if (i > TEST_MSG_LEN*2)
+			test_istream_set_allow_eof(input, TRUE);
 		while ((ret = message_parser_parse_next_block(parser,
 							      &block)) > 0) ;
-		if (ret < 0 && i < TEST_MSG_LEN) {
+		if (ret < 0 && i < TEST_MSG_LEN*2) {
 			success = FALSE;
 			break;
 		}

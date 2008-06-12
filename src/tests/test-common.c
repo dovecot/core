@@ -20,6 +20,11 @@ static ssize_t test_read(struct istream_private *stream)
 	return -1;
 }
 
+static ssize_t test_noread(struct istream_private *stream ATTR_UNUSED)
+{
+	return 0;
+}
+
 struct istream *test_istream_create(const char *data)
 {
 	struct istream *input;
@@ -35,6 +40,11 @@ struct istream *test_istream_create(const char *data)
 void test_istream_set_size(struct istream *input, uoff_t size)
 {
 	input->real_stream->pos = size;
+}
+
+void test_istream_set_allow_eof(struct istream *input, bool allow)
+{
+	input->real_stream->read = allow ? test_read : test_noread;
 }
 
 void test_out(const char *name, bool success)
