@@ -686,7 +686,8 @@ static pid_t create_login_process(struct login_group *group)
 	}
 
 	restrict_process_size(group->set->login_process_size, (unsigned int)-1);
-	fd_limit = 16 + listen_count + ssl_listen_count +
+	/* +16 is just for some extra things the process might want */
+	fd_limit = 16 + cur_fd +
 		2 * (group->set->login_process_per_connection ? 1 :
 		     group->set->login_max_connections);
 #ifdef DEBUG
