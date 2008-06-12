@@ -32,7 +32,6 @@ libs = \
 imap_LDADD = \
 	$(libs) \
 	$(LIBICONV) \
-	$(RAND_LIBS) \
 	$(MODULE_LIBS)
 
 imap_DEPENDENCIES = $(libs)

@@ -46,7 +46,6 @@ dovecotpw_LDADD = \
 	../lib-otp/libotp.a \
 	../lib/liblib.a \
 	$(AUTH_LIBS) \
-	$(RAND_LIBS) \
 	$(MODULE_LIBS)
 
 dovecotpw_SOURCES = \

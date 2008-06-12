@@ -43,8 +43,7 @@ libs = \
 squat_test_LDADD = \
 	$(common_objects) \
 	$(libs) \
-	$(LIBICONV) \
-	$(RAND_LIBS)
+	$(LIBICONV)
 
 squat_test_DEPENDENCIES = $(libs) $(common_objects)
 

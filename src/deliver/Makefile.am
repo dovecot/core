@@ -36,7 +36,6 @@ libs = \
 deliver_LDADD = \
 	$(libs) \
 	$(LIBICONV) \
-	$(RAND_LIBS) \
 	$(MODULE_LIBS)
 
 deliver_DEPENDENCIES = $(libs)

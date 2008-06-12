@@ -19,7 +19,6 @@ libs = \
 
 dict_LDADD = \
 	$(libs) \
-	$(RAND_LIBS) \
 	$(MODULE_LIBS) \
 	$(DICT_LIBS) \
 	$(SQL_LIBS)

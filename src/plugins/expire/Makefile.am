@@ -42,8 +42,7 @@ libs = \
 
 expire_tool_LDADD = \
 	$(libs) \
-	$(LIBICONV) \
-	$(RAND_LIBS)
+	$(LIBICONV)
 
 expire_tool_DEPENDENCIES = $(libs)
 

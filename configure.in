@@ -909,10 +909,9 @@ else
 
   AC_CHECK_HEADER(openssl/rand.h, [
     AC_DEFINE(HAVE_OPENSSL_RAND_H,, Define if you have openssl/rand.h)
-    RAND_LIBS=-lcrypto
+    LIBS="$LIBS -lcrypto"
   ])
 fi
-AC_SUBST(RAND_LIBS)
 
 dnl * do we have tm_gmtoff
 AC_MSG_CHECKING([for tm_gmtoff])

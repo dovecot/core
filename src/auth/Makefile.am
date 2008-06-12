@@ -44,7 +44,6 @@ dovecot_auth_LDADD = \
 	../lib-sql/libsql.a \
 	../lib/liblib.a \
 	$(AUTH_LIBS) \
-	$(RAND_LIBS) \
 	$(MODULE_LIBS)
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
