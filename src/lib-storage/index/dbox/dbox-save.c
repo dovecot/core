@@ -278,7 +278,6 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 	if (ctx->failed) {
 		dbox_file_cancel_append(save_mail->file,
 					save_mail->append_offset);
-		dbox_file_unref(&save_mail->file);
 		array_delete(&ctx->mails, count - 1, 1);
 		return -1;
 	} else {
