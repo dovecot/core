@@ -516,8 +516,8 @@ fs_quota_get_hpux(struct fs_quota_root *root, bool bytes,
 		*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
 		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
 	} else {
-		*value_r = dqblk.dqb_curinodes;
-		*limit_r = dqblk.dqb_isoftlimit;
+		*value_r = dqblk.dqb_curfiles;
+		*limit_r = dqblk.dqb_fsoftlimit;
 	}
 	return 1;
 }
