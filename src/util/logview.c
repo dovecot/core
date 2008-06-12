@@ -124,6 +124,101 @@ static void print_data(const void *data, size_t size)
 	}
 }
 
+static void print_try_uint(const void *data, size_t size)
+{
+	size_t i;
+
+	switch (size) {
+	case 1: {
+		const uint8_t *n = data;
+		printf("%u", *n);
+		break;
+	}
+	case 2: {
+		const uint16_t *n = data;
+		printf("%u", *n);
+		break;
+	}
+	case 4: {
+		const uint32_t *n = data;
+		printf("%u", *n);
+		break;
+	}
+	case 8: {
+		const uint64_t *n = data;
+		printf("%llu", (unsigned long long)*n);
+		break;
+	}
+	default:
+		for (i = 0; i < size; i++)
+			printf("%02x", ((const unsigned char *)data)[i]);
+	}
+}
+
+#define HDRF(field) { \
+	#field, offsetof(struct mail_index_header, field), \
+	sizeof(((struct mail_index_header *)0)->field) }
+
+static struct {
+	const char *name;
+	unsigned int offset, size;
+} header_fields[] = {
+	HDRF(minor_version),
+	HDRF(base_header_size),
+	HDRF(header_size),
+	HDRF(record_size),
+	HDRF(compat_flags),
+	HDRF(indexid),
+	HDRF(flags),
+	HDRF(uid_validity),
+	HDRF(next_uid),
+	HDRF(messages_count),
+	HDRF(unused_old_recent_messages_count),
+	HDRF(seen_messages_count),
+	HDRF(deleted_messages_count),
+	HDRF(first_recent_uid),
+	HDRF(first_unseen_uid_lowwater),
+	HDRF(first_deleted_uid_lowwater),
+	HDRF(log_file_seq),
+	HDRF(log_file_tail_offset),
+	HDRF(log_file_head_offset),
+	HDRF(sync_size),
+	HDRF(sync_stamp),
+	HDRF(day_stamp)
+};
+
+static void log_header_update(const struct mail_transaction_header_update *u)
+{
+	const void *data = u + 1;
+	unsigned int offset = u->offset, size = u->size;
+	unsigned int i;
+
+	while (size > 0) {
+		/* don't bother trying to handle header updates that include
+		   unknown/unexpected fields offsets/sizes */
+		for (i = 0; i < N_ELEMENTS(header_fields); i++) {
+			if (header_fields[i].offset == offset &&
+			    header_fields[i].size <= size)
+				break;
+		}
+
+		if (i == N_ELEMENTS(header_fields)) {
+			printf(" - offset = %u, size = %u: ", offset, size);
+			print_data(data, size);
+			printf("\n");
+			break;
+		}
+
+		printf(" - %s = ", header_fields[i].name);
+		print_try_uint(data, header_fields[i].size);
+		printf("\n");
+
+		data = CONST_PTR_OFFSET(data, header_fields[i].size);
+		offset += header_fields[i].size;
+		size -= header_fields[i].size;
+	}
+}
+
 static void log_record_print(const struct mail_transaction_header *hdr,
 			     const void *data)
 {
@@ -165,16 +260,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_HEADER_UPDATE: {
 		const struct mail_transaction_header_update *u = data;
 
-		if (u->offset == offsetof(struct mail_index_header,
-					  log_file_tail_offset) &&
-		    u->size == sizeof(uint32_t)) {
-			printf(" - log_file_tail_offset = %u\n",
-			       *(const uint32_t *)(u + 1));
-			break;
-		}
-		printf(" - offset = %u, size = %u: ", u->offset, u->size);
-		print_data(u + 1, u->size);
-		printf("\n");
+		log_header_update(u);
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_INTRO: {
