@@ -23,7 +23,8 @@ static void prefetch_lookup(struct auth_request *auth_request,
 		} else {
 			/* more userdbs, they may know the user */
 			auth_request_log_info(auth_request, "prefetch",
-				"passdb didn't return userdb entries");
+				"passdb didn't return userdb entries, "
+				"trying the next userdb");
 		}
 		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
