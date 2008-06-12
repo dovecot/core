@@ -427,7 +427,14 @@ bool t_try_realloc(void *mem, size_t size)
 
 size_t t_get_bytes_available(void)
 {
-	return current_block->left;
+#ifndef DEBUG
+	const unsigned int extra = MEM_ALIGN_SIZE-1;
+#else
+	const unsigned int extra = MEM_ALIGN_SIZE-1 + SENTRY_COUNT +
+		MEM_ALIGN(sizeof(size_t));
+#endif
+	return current_block->left < extra ? current_block->left :
+		current_block->left - extra;
 }
 
 void *t_buffer_get(size_t size)
