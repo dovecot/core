@@ -88,7 +88,7 @@ static int sort_node_date_cmp(const void *p1, const void *p2)
 
 	if (n1->date < n2->date)
 		return -1;
-	if (n2->date > n2->date)
+	if (n1->date > n2->date)
 		return 1;
 
 	return index_sort_node_cmp_type(ctx->mail,
@@ -118,7 +118,7 @@ static int sort_node_size_cmp(const void *p1, const void *p2)
 
 	if (n1->size < n2->size)
 		return -1;
-	if (n2->size > n2->size)
+	if (n1->size > n2->size)
 		return 1;
 
 	return index_sort_node_cmp_type(ctx->mail,
