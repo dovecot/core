@@ -142,6 +142,13 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 			quota_root_deinit(&root);
 			return NULL;
 		}
+	} else if (args != NULL) {
+		while (*args == ' ') args++;
+		if (*args != '\0') {
+			i_fatal("Quota root %s: backend %s "
+				"doesn't take any parameters (used: %s)",
+				root->name, backend_name, args);
+		}
 	}
 	return root;
 }
