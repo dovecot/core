@@ -188,6 +188,10 @@ char *my_basename(char *path);
 #  define strtoull my_strtoull
 unsigned long long int my_strtoull(const char *nptr, char **endptr, int base);
 #endif
+#ifndef HAVE_STRTOLL
+#  define strtoll my_strtoll
+unsigned long long int my_strtoll(const char *nptr, char **endptr, int base);
+#endif
 
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */

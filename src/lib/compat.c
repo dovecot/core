@@ -17,6 +17,9 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <syslog.h>
+#ifdef HAVE_INTTYPES_H
+#  include <inttypes.h> /* for strtoimax() and strtoumax() */
+#endif
 
 #ifndef INADDR_NONE
 #  define INADDR_NONE INADDR_BROADCAST
@@ -201,7 +204,9 @@ char *my_basename(char *path)
 #ifndef HAVE_STRTOULL
 unsigned long long int my_strtoull(const char *nptr, char **endptr, int base)
 {
-#ifdef HAVE_STRTOUQ
+#ifdef HAVE_STRTOUMAX
+	return strtoumax(nptr, endptr, base);
+#elif defined(HAVE_STRTOUQ)
 	return strtouq(nptr, endptr, base);
 #else
 	unsigned long ret = 0;
@@ -217,6 +222,19 @@ unsigned long long int my_strtoull(const char *nptr, char **endptr, int base)
 	if (endptr != NULL)
 		*endptr = (char *)nptr;
 	return ret;
+#endif
+}
+#endif
+
+#ifndef HAVE_STRTOLL
+unsigned long long int my_strtoll(const char *nptr, char **endptr, int base)
+{
+#ifdef HAVE_STRTOIMAX 
+	return strtoimax(nptr, endptr, base);
+#elif defined (HAVE_STRTOQ)
+	return strtoq(nptr, endptr, base);
+#else
+	i_panic("strtoll() not implemented");
 #endif
 }
 #endif

@@ -15,7 +15,7 @@ AC_C_INLINE
 AC_PROG_LIBTOOL
 AM_ICONV
 
-AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h \
+AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
   sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
@@ -429,9 +429,9 @@ dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsyslog writev pread \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
-	       strtoull strtouq setpriority quotactl getmntent kqueue kevent \
-	       backtrace_symbols walkcontext dirfd clearenv \
-	       malloc_usable_size)
+	       strtoull strtoll strtoumax strtoimax strtouq strtoq \
+	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \
+	       walkcontext dirfd clearenv malloc_usable_size)
 
 dnl * I/O loop function
 have_ioloop=no
