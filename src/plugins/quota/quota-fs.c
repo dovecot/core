@@ -455,7 +455,7 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group, bool bytes,
 			*limit_r = dqblk.dqb_bsoftlimit * 1024;
 		} else {
 			*value_r = dqblk.dqb_curinodes;
-			*value_r = dqblk.dqb_isoftlimit;
+			*limit_r = dqblk.dqb_isoftlimit;
 		}
 	}
 	return 1;
@@ -488,7 +488,7 @@ fs_quota_get_bsdaix(struct fs_quota_root *root, bool group, bool bytes,
 		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
 	} else {
 		*value_r = dqblk.dqb_curinodes;
-		*value_r = dqblk.dqb_isoftlimit;
+		*limit_r = dqblk.dqb_isoftlimit;
 	}
 	return 1;
 }
@@ -517,7 +517,7 @@ fs_quota_get_hpux(struct fs_quota_root *root, bool bytes,
 		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
 	} else {
 		*value_r = dqblk.dqb_curinodes;
-		*value_r = dqblk.dqb_isoftlimit;
+		*limit_r = dqblk.dqb_isoftlimit;
 	}
 	return 1;
 }
@@ -546,7 +546,7 @@ fs_quota_get_solaris(struct fs_quota_root *root, bool bytes,
 		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
 	} else {
 		*value_r = dqblk.dqb_curfiles;
-		*value_r = dqblk.dqb_fsoftlimit;
+		*limit_r = dqblk.dqb_fsoftlimit;
 	}
 	return 1;
 }
