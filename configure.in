@@ -1373,11 +1373,10 @@ AC_CACHE_CHECK([for C99 vsnprintf()],i_cv_c99_vsnprintf,[
     return f("hello %s%d", "world", 1);
   }]])],
   [i_cv_c99_vsnprintf=yes],
-  [i_cv_c99_vsnprintf=no],
-  [])
+  [i_cv_c99_vsnprintf=no])
 ])
 if test $i_cv_c99_vsnprintf = no; then
-  AC_ERROR([You don't appear to have C99 compatible vsnprintf() call])
+  AC_DEFINE(HAVE_OLD_VSNPRINTF,, Define if you don't have C99 compatible vsnprintf() call)
 fi
 
 dnl ***

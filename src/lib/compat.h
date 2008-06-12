@@ -193,6 +193,12 @@ unsigned long long int my_strtoull(const char *nptr, char **endptr, int base);
 unsigned long long int my_strtoll(const char *nptr, char **endptr, int base);
 #endif
 
+#ifdef HAVE_OLD_VSNPRINTF
+#  include <stdio.h>
+#  define vsnprintf my_vsnprintf
+int my_vsnprintf(char *str, size_t size, const char *format, va_list ap);
+#endif
+
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
 #define i_toupper(x) ((char) toupper((int) (unsigned char) (x)))
