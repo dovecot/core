@@ -250,21 +250,21 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
 
 static void drop_privileges(void)
 {
-	const char *env;
+	const char *value;
 
 	if (!is_inetd)
 		i_set_failure_internal();
 	else {
 		/* log to syslog */
-		env = getenv("SYSLOG_FACILITY");
+		value = getenv("SYSLOG_FACILITY");
 		i_set_failure_syslog(process_name, LOG_NDELAY,
-				     env == NULL ? LOG_MAIL : atoi(env));
+				     value == NULL ? LOG_MAIL : atoi(value));
 
 		/* if we don't chroot, we must chdir */
-		env = getenv("LOGIN_DIR");
-		if (env != NULL) {
-			if (chdir(env) < 0)
-				i_error("chdir(%s) failed: %m", env);
+		value = getenv("LOGIN_DIR");
+		if (value != NULL) {
+			if (chdir(value) < 0)
+				i_error("chdir(%s) failed: %m", value);
 		}
 	}
 
@@ -272,6 +272,18 @@ static void drop_privileges(void)
 	   key file. */
 	random_init();
 	ssl_proxy_init();
+
+	value = getenv("LISTEN_FDS");
+	listen_count = value == NULL ? 0 : atoi(value);
+	value = getenv("SSL_LISTEN_FDS");
+	ssl_listen_count = value == NULL ? 0 : atoi(value);
+	value = getenv("MAX_CONNECTIONS");
+	max_connections = value == NULL ? 1 : strtoul(value, NULL, 10);
+
+	/* set the number of fds we want to use. it may get increased or
+	   decreased. leave a couple of extra fds for auth sockets and such */
+	restrict_fd_limit(LOGIN_MASTER_SOCKET_FD + 16 +
+			  listen_count + ssl_listen_count + max_connections);
 
 	/* Refuse to run as root - we should never need it and it's
 	   dangerous with SSL. */
@@ -302,9 +314,6 @@ static void main_init(void)
 	verbose_proctitle = getenv("VERBOSE_PROCTITLE") != NULL;
         verbose_ssl = getenv("VERBOSE_SSL") != NULL;
         verbose_auth = getenv("VERBOSE_AUTH") != NULL;
-
-	value = getenv("MAX_CONNECTIONS");
-	max_connections = value == NULL ? 1 : strtoul(value, NULL, 10);
 
 	greeting = getenv("GREETING");
 	if (greeting == NULL)
@@ -338,12 +347,6 @@ static void main_init(void)
 	auth_client = auth_client_new(login_process_uid);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 	clients_init();
-
-	value = getenv("LISTEN_FDS");
-	listen_count = value == NULL ? 0 : atoi(value);
-
-	value = getenv("SSL_LISTEN_FDS");
-	ssl_listen_count = value == NULL ? 0 : atoi(value);
 
 	if (!ssl_initialized && ssl_listen_count > 0) {
 		/* this shouldn't happen, master should have

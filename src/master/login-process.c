@@ -590,7 +590,7 @@ static pid_t create_login_process(struct login_group *group)
 	const char *prefix;
 	pid_t pid;
 	ARRAY_TYPE(dup2) dups;
-	unsigned int i, fd_limit, listen_count = 0, ssl_listen_count = 0;
+	unsigned int i, listen_count = 0, ssl_listen_count = 0;
 	int fd[2], log_fd, cur_fd, tmp_fd;
 
 	if (group->set->login_uid == 0)
@@ -686,24 +686,10 @@ static pid_t create_login_process(struct login_group *group)
 	}
 
 	restrict_process_size(group->set->login_process_size, (unsigned int)-1);
-	/* +16 is just for some extra things the process might want */
-	fd_limit = 16 + cur_fd +
-		2 * (group->set->login_process_per_connection ? 1 :
-		     group->set->login_max_connections);
-#ifdef DEBUG
-	if (!gdb)
-#endif
-		restrict_fd_limit(fd_limit);
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
 	closelog();
-
-	/* execv() needs at least one file descriptor. we might have all fds
-	   up to fd_limit used already, so close one we don't care about.
-	   either it succeeds or fails with EBADF, doesn't matter. */
-	i_assert(fd_limit > (unsigned int)cur_fd+1);
-	(void)close(cur_fd+1);
 
 	client_process_exec(group->set->login_executable, "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
