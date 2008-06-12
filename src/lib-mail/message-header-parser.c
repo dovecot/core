@@ -33,6 +33,7 @@ message_parse_header_init(struct istream *input, struct message_size *hdr_size,
 	ctx->hdr_size = hdr_size;
 	ctx->name = str_new(default_pool, 128);
 	ctx->flags = flags;
+	ctx->value_buf = buffer_create_dynamic(default_pool, 4096);
 
 	if (hdr_size != NULL)
 		memset(hdr_size, 0, sizeof(*hdr_size));
@@ -44,8 +45,7 @@ void message_parse_header_deinit(struct message_header_parser_ctx **_ctx)
 	struct message_header_parser_ctx *ctx = *_ctx;
 
 	i_stream_skip(ctx->input, ctx->skip);
-	if (ctx->value_buf != NULL)
-		buffer_free(&ctx->value_buf);
+	buffer_free(&ctx->value_buf);
 	str_free(&ctx->name);
 	i_free(ctx);
 
@@ -57,7 +57,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 {
         struct message_header_line *line = &ctx->line;
 	const unsigned char *msg;
-	size_t i, size, startpos, colon_pos, parse_size;
+	size_t i, size, startpos, colon_pos, parse_size, value_pos;
 	int ret;
 	bool continued, continues, last_no_newline, last_crlf;
 	bool no_newline, crlf_newline;
@@ -71,25 +71,13 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		ctx->skip = 0;
 	}
 
-	if (line->continues) {
-		if (line->use_full_value && !line->continued) {
-			/* save the first line */
-			if (ctx->value_buf != NULL)
-				buffer_set_used_size(ctx->value_buf, 0);
-			else {
-				ctx->value_buf =
-					buffer_create_dynamic(default_pool,
-							      4096);
-			}
-			buffer_append(ctx->value_buf,
-				      line->value, line->value_len);
-		}
-
+	if (line->continues)
 		colon_pos = 0;
-	} else {
+	else {
 		/* new header line */
 		line->name_offset = ctx->input->v_offset;
 		colon_pos = UINT_MAX;
+		buffer_set_used_size(ctx->value_buf, 0);
 	}
 
 	no_newline = FALSE;
@@ -99,7 +87,6 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 	for (startpos = 0;;) {
 		ret = i_stream_read_data(ctx->input, &msg, &size, startpos+1);
-
 		if (ret >= 0) {
 			/* we want to know one byte in advance to find out
 			   if it's multiline header */
@@ -335,8 +322,10 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 	}
 
 	if (!line->continued) {
-		/* first header line, set full_value = value */
-		line->full_value = line->value;
+		/* first header line. make a copy of the line since we can't
+		   really trust input stream not to lose it. */
+		buffer_append(ctx->value_buf, line->value, line->value_len);
+		line->value = line->full_value = ctx->value_buf->data;
 		line->full_value_len = line->value_len;
 	} else if (line->use_full_value) {
 		/* continue saving the full value. */
@@ -349,6 +338,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				buffer_append_c(ctx->value_buf, '\r');
 			buffer_append_c(ctx->value_buf, '\n');
 		}
+		value_pos = ctx->value_buf->used;
 		if ((ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) &&
 		    line->value_len > 0 && line->value[0] != ' ' &&
 		    IS_LWSP(line->value[0])) {
@@ -361,6 +351,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		}
 		line->full_value = buffer_get_data(ctx->value_buf,
 						   &line->full_value_len);
+		line->value = line->full_value + value_pos;
 	} else {
 		/* we didn't want full_value, and this is a continued line. */
 		line->full_value = NULL;
