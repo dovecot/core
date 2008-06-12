@@ -49,6 +49,7 @@ struct fs_quota_mountpoint {
 	char *mount_path;
 	char *device_path;
 	char *type;
+	unsigned int block_size;
 
 #ifdef FS_QUOTA_SOLARIS
 	int fd;
@@ -154,6 +155,7 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 	mount->device_path = point.device_path;
 	mount->mount_path = point.mount_path;
 	mount->type = point.type;
+	mount->block_size = point.block_size;
 	return mount;
 }
 
@@ -513,8 +515,10 @@ fs_quota_get_hpux(struct fs_quota_root *root, bool bytes,
 	}
 
 	if (bytes) {
-		*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
-		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
+		*value_r = (uint64_t)dqblk.dqb_curblocks *
+			root->mount->block_size;
+		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit *
+			root->mount->block_size;
 	} else {
 		*value_r = dqblk.dqb_curfiles;
 		*limit_r = dqblk.dqb_fsoftlimit;
