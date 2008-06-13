@@ -195,6 +195,8 @@ static bool nfs_flush_fchown_uid(const char *path, int fd)
 		return TRUE;
 	}
 	uid = st.st_uid;
+#else
+	uid = (uid_t)-1;
 #endif
 	if (fchown(fd, uid, (gid_t)-1) < 0) {
 		if (errno == ESTALE)
