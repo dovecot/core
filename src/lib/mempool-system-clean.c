@@ -25,7 +25,6 @@
 #  define EXTRA_SIZE_SPACE SIZEOF_VOID_P
 #endif
 
-#undef HAVE_MALLOC_USABLE_SIZE
 static const char *pool_system_clean_get_name(pool_t pool);
 static void pool_system_clean_ref(pool_t pool);
 static void pool_system_clean_unref(pool_t *pool);
