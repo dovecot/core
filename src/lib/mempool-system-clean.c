@@ -9,6 +9,9 @@
 #ifdef HAVE_MALLOC_H
 #  include <malloc.h>
 #endif
+#ifdef HAVE_MALLOC_NP_H
+#  include <malloc_np.h> /* for malloc_usable_size() with FreeBSD */
+#endif
 #include <stdlib.h>
 
 #ifdef HAVE_GC_GC_H

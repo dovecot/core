@@ -19,7 +19,7 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
   sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
-  xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h)
+  xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h malloc_np.h)
 
 AC_ARG_ENABLE(ipv6,
 [  --enable-ipv6           Enable IPv6 support (auto)],
