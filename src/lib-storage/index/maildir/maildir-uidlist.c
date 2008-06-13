@@ -780,7 +780,7 @@ int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 		return ret;
 
 	if (st.st_size == mhdr->uidlist_size &&
-	    st.st_mtime == mhdr->uidlist_mtime &&
+	    st.st_mtime == (time_t)mhdr->uidlist_mtime &&
 	    ST_NTIMES_EQUAL(ST_MTIME_NSEC(st), mhdr->uidlist_mtime_nsecs)) {
 		/* index is up-to-date */
 		hdr = mail_index_get_header(uidlist->mbox->ibox.view);
