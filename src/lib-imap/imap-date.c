@@ -158,14 +158,11 @@ bool imap_parse_datetime(const char *str, time_t *timestamp_r,
 	return TRUE;
 }
 
-const char *imap_to_datetime(time_t timestamp)
+static const char *
+imap_to_datetime_tm(const struct tm *tm, int timezone_offset)
 {
 	char *buf;
-	struct tm *tm;
-	int timezone_offset, year;
-
-	tm = localtime(&timestamp);
-	timezone_offset = utc_offset(tm, timestamp);
+	int year;
 
 	/* @UNSAFE: but faster than t_strdup_printf() call.. */
 	buf = t_malloc(27);
@@ -210,4 +207,23 @@ const char *imap_to_datetime(time_t timestamp)
 	buf[26] = '\0';
 
 	return buf;
+}
+
+const char *imap_to_datetime(time_t timestamp)
+{
+	struct tm *tm;
+	int timezone_offset;
+
+	tm = localtime(&timestamp);
+	timezone_offset = utc_offset(tm, timestamp);
+	return imap_to_datetime_tm(tm, timezone_offset);
+}
+
+const char *imap_to_datetime_tz(time_t timestamp, int timezone_offset)
+{
+	const struct tm *tm;
+	time_t adjusted = timestamp + timezone_offset*60;
+
+	tm = gmtime(&adjusted);
+	return imap_to_datetime_tm(tm, timezone_offset);
 }
