@@ -22,7 +22,7 @@ noinst_HEADERS = \
 install-exec-local:
 	for d in imap pop3; do \
 	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib02_lazy_expunge_plugin$MODULE_SUFFIX; \
-	  $(LN_S) ../lib02_lazy_expunge_plugin$MODULE_SUFFIX $(DESTDIR)$(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/lib02_lazy_expunge_plugin$(MODULE_SUFFIX); \
+	  $(LN_S) ../lib02_lazy_expunge_plugin$(MODULE_SUFFIX) $(DESTDIR)$(moduledir)/$$d; \
 	done
 

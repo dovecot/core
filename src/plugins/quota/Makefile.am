@@ -55,8 +55,8 @@ noinst_HEADERS = \
 install-exec-local:
 	for d in imap pop3 lda; do \
 	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib10_quota_plugin$MODULE_SUFFIX; \
-	  $(LN_S) ../lib10_quota_plugin$MODULE_SUFFIX $(DESTDIR)$(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/lib10_quota_plugin$(MODULE_SUFFIX); \
+	  $(LN_S) ../lib10_quota_plugin$(MODULE_SUFFIX) $(DESTDIR)$(moduledir)/$$d; \
 	done
 
 DISTFILES = $(DIST_COMMON) $(quota_dist_sources) $(TEXINFOS) $(EXTRA_DIST)

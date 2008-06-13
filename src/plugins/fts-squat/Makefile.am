@@ -50,6 +50,6 @@ squat_test_DEPENDENCIES = $(libs) $(common_objects)
 install-exec-local:
 	for d in imap lda; do \
 	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib21_fts_squat_plugin$MODULE_SUFFIX; \
-	  $(LN_S) ../lib21_fts_squat_plugin$MODULE_SUFFIX $(DESTDIR)$(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/lib21_fts_squat_plugin$(MODULE_SUFFIX); \
+	  $(LN_S) ../lib21_fts_squat_plugin$(MODULE_SUFFIX) $(DESTDIR)$(moduledir)/$$d; \
 	done
