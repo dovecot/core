@@ -1990,11 +1990,7 @@ if test $have_modules = yes; then
   AC_SUBST(MODULE_LIBS)
 
   # shrext_cmds comes from libtool.m4
-  MODULE_SUFFIX=`eval "echo $shrext_cmds"`
-  if test "$MODULE_SUFFIX" = ".dylib"; then
-    # no idea why libtool does this with OS X, but we don't want it
-    MODULE_SUFFIX=.so
-  fi
+  module=yes eval MODULE_SUFFIX=$shrext_cmds
   AC_DEFINE_UNQUOTED(MODULE_SUFFIX,"$MODULE_SUFFIX",Dynamic module suffix)
   AC_SUBST(MODULE_SUFFIX)
 fi
