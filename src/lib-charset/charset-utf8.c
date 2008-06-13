@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "str.h"
 #include "unichar.h"
 #include "charset-utf8.h"
