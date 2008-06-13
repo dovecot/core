@@ -48,7 +48,7 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 	char *sender;
 	time_t received_time;
 	size_t pos, line_pos;
-	int skip;
+	int skip, tz;
 
 	buf = i_stream_get_data(rstream->istream.parent, &pos);
 	i_assert(pos > 0);
@@ -76,7 +76,7 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 
 	/* beginning of mbox */
 	if (memcmp(buf, "From ", 5) != 0 ||
-	    mbox_from_parse(buf+5, pos-5, &received_time, &sender) < 0) {
+	    mbox_from_parse(buf+5, pos-5, &received_time, &tz, &sender) < 0) {
 		/* broken From - should happen only at beginning of
 		   file if this isn't a mbox.. */
 		return -1;
@@ -129,7 +129,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	time_t received_time;
 	size_t i, pos, new_pos, from_start_pos, from_after_pos;
 	ssize_t ret = 0;
-	int eoh_char;
+	int eoh_char, tz;
 	bool crlf_ending = FALSE;
 
 	i_assert(stream->istream.v_offset >= rstream->from_offset);
@@ -258,7 +258,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 				   See if it's a valid one. */
 				if (mbox_from_parse(buf + from_after_pos,
 						    pos - from_after_pos,
-						    &received_time,
+						    &received_time, &tz,
 						    &sender) == 0) {
 					/* yep, we stop here. */
 					rstream->next_received_time =
@@ -392,6 +392,7 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	size_t size;
 	time_t received_time;
 	char *sender;
+	int tz;
 
 	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars */
 	(void)i_stream_read_data(rstream->istream.parent, &data, &size, 30);
@@ -418,7 +419,7 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 			break;
 	}
 
-	if (mbox_from_parse(data, size, &received_time, &sender) < 0)
+	if (mbox_from_parse(data, size, &received_time, &tz, &sender) < 0)
 		return 0;
 
 	rstream->next_received_time = received_time;

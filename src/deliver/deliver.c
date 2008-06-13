@@ -563,7 +563,7 @@ static struct istream *create_raw_stream(int fd, time_t *mtime_r)
 	const unsigned char *data;
 	char *sender = NULL;
 	size_t i, size;
-	int ret;
+	int ret, tz;
 
 	*mtime_r = (time_t)-1;
 	fd_set_nonblock(fd, FALSE);
@@ -581,7 +581,7 @@ static struct istream *create_raw_stream(int fd, time_t *mtime_r)
 					break;
 			}
 			if (i != size) {
-				(void)mbox_from_parse(data, i, mtime_r,
+				(void)mbox_from_parse(data, i, mtime_r, &tz,
 						      &sender);
 				i_stream_skip(input, i + 1);
 				break;

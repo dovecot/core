@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "str.h"
 #include "utc-mktime.h"
 #include "mbox-from.h"
@@ -50,7 +51,7 @@ static int mbox_parse_year(const unsigned char *msg, struct tm *tm)
 }
 
 int mbox_from_parse(const unsigned char *msg, size_t size,
-		    time_t *time_r, char **sender_r)
+		    time_t *time_r, int *tz_offset_r, char **sender_r)
 {
 	const unsigned char *msg_start, *sender_end, *msg_end;
 	struct tm tm;
@@ -229,9 +230,11 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 
 		t -= timezone_secs;
 		*time_r = t;
+		*tz_offset_r = timezone_secs/60;
 	} else {
 		/* assume local timezone */
 		*time_r = mktime(&tm);
+		*tz_offset_r = -ioloop_timezone.tz_minuteswest;
 	}
 
 	*sender_r = i_strdup_until(msg_start, sender_end);
