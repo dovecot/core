@@ -1991,6 +1991,10 @@ if test $have_modules = yes; then
 
   # shrext_cmds comes from libtool.m4
   module=yes eval MODULE_SUFFIX=$shrext_cmds
+  if test "$MODULE_SUFFIX" = ""; then
+    # too old libtool?
+    MODULE_SUFFIX=.so
+  fi
   AC_DEFINE_UNQUOTED(MODULE_SUFFIX,"$MODULE_SUFFIX",Dynamic module suffix)
   AC_SUBST(MODULE_SUFFIX)
 fi
