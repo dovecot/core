@@ -57,14 +57,14 @@ static void remove_subj_trailers(buffer_t *buf, size_t start_pos,
 	/* subj-trailer    = "(fwd)" / WSP */
 	data = buffer_get_data(buf, &orig_size);
 
-	if (orig_size < 2) /* size includes trailing \0 */
+	if (orig_size < 1) /* size includes trailing \0 */
 		return;
 
-	for (size = orig_size-2; size > start_pos; ) {
-		if (data[size] == ' ')
+	for (size = orig_size-1; size > start_pos; ) {
+		if (data[size-1] == ' ')
 			size--;
 		else if (size >= 5 &&
-			 memcmp(data + size - 5, "(fwd)", 5) == 0) {
+			 memcmp(data + size - 5, "(FWD)", 5) == 0) {
 			if (is_reply_or_forward_r != NULL)
 				*is_reply_or_forward_r = TRUE;
 			size -= 5;
@@ -73,7 +73,7 @@ static void remove_subj_trailers(buffer_t *buf, size_t start_pos,
 		}
 	}
 
-	if (size != orig_size-2) {
+	if (size != orig_size-1) {
 		buffer_set_used_size(buf, size);
 		buffer_append_c(buf, '\0');
 	}
@@ -130,11 +130,11 @@ static bool remove_subj_leader(buffer_t *buf, size_t *start_pos,
 			return ret;
 	}
 
-	if (strncasecmp(data, "re", 2) == 0)
+	if (strncmp(data, "RE", 2) == 0)
 		data += 2;
-	else if (strncasecmp(data, "fwd", 3) == 0)
+	else if (strncmp(data, "FWD", 3) == 0)
 		data += 3;
-	else if (strncasecmp(data, "fw", 2) == 0)
+	else if (strncmp(data, "FW", 2) == 0)
 		data += 2;
 	else
 		return ret;
@@ -181,7 +181,7 @@ static bool remove_subj_fwd_hdr(buffer_t *buf, size_t *start_pos,
 	   subj-fwd-trl    = "]" */
 	data = buffer_get_data(buf, &size);
 
-	if (strncasecmp(data + *start_pos, "[fwd:", 5) != 0)
+	if (strncmp(data + *start_pos, "[FWD:", 5) != 0)
 		return FALSE;
 
 	if (data[size-2] != ']')
@@ -249,5 +249,5 @@ const char *imap_get_base_subject_cased(pool_t pool, const char *subject,
 
 	/* (7) The resulting text is the "base subject" used in the
 	   SORT. */
-	return (const char *)buffer_get_data(buf, NULL) + start_pos;
+	return (const char *)buf->data + start_pos;
 }
