@@ -15,6 +15,31 @@
 #include <stdlib.h>
 #include <time.h>
 
+static void test_array(void)
+{
+	ARRAY_DEFINE(intarr, int);
+	int input[] = { -1234567890, -272585721, 2724859223, 824725652 };
+	const int *output;
+	unsigned int i, j;
+	bool success = TRUE;
+
+	t_array_init(&intarr, 5);
+	for (i = 0; i < N_ELEMENTS(input); i++) {
+		array_clear(&intarr);
+		array_append(&intarr, input, i);
+		array_reverse(&intarr);
+
+		output = i == 0 ? NULL : array_idx(&intarr, 0);
+		for (j = 0; j < i; j++) {
+			if (input[i-j-1] != output[j]) {
+				success = FALSE;
+				break;
+			}
+		}
+	}
+	test_out("array_reverse()", success);
+}
+
 static void test_base64_encode(void)
 {
 	static const char *input[] = {
@@ -720,6 +745,7 @@ static void test_utc_mktime(void)
 int main(void)
 {
 	static void (*test_functions[])(void) = {
+		test_array,
 		test_aqueue,
 		test_base64_encode,
 		test_base64_decode,

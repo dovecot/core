@@ -221,4 +221,8 @@ bool array_cmp_i(const struct array *array1, const struct array *array2);
 #define array_cmp(array1, array2) \
 	array_cmp_i(&(array1)->arr, &(array2)->arr)
 
+void array_reverse_i(const struct array *array);
+#define array_reverse(array) \
+	array_reverse_i(&(array)->arr)
+
 #endif
