@@ -130,7 +130,8 @@
 #endif
 
 /* C99-style struct member definitions */
-#if (defined(__STDC__) && __STDC_VERSION__ >= 199901L) || __GNUC__ > 2
+#if (defined(__STDC__) && __STDC_VERSION__ >= 199901L && \
+	!defined(_HPUX_SOURCE)) || __GNUC__ > 2
 #  define MEMBER(name) .name =
 #else
 #  define MEMBER(name)
