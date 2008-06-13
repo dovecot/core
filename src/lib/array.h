@@ -167,52 +167,17 @@ array_get_modifiable_i(struct array *array, unsigned int *count_r)
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		array_get_modifiable_i(&(array)->arr, count)
 
-static inline void *
-array_idx_modifiable_i(struct array *array, unsigned int idx)
-{
-	size_t pos;
-
-	pos = idx * array->element_size;
-	if (pos >= array->buffer->used) {
-		/* index doesn't exist yet, initialize with zero */
-		buffer_append_zero(array->buffer, pos + array->element_size -
-				   array->buffer->used);
-	}
-	return buffer_get_space_unsafe(array->buffer, pos, array->element_size);
-}
+void *array_idx_modifiable_i(struct array *array, unsigned int idx);
 #define array_idx_modifiable(array, idx) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		array_idx_modifiable_i(&(array)->arr, idx)
 
-static inline void
-array_idx_set_i(struct array *array, unsigned int idx, const void *data)
-{
-	size_t pos;
-
-	pos = idx * array->element_size;
-	if (pos > array->buffer->used) {
-		/* index doesn't exist yet, initialize with zero */
-		buffer_append_zero(array->buffer, pos - array->buffer->used);
-	}
-	buffer_write(array->buffer, pos, data, array->element_size);
-}
+void array_idx_set_i(struct array *array, unsigned int idx, const void *data);
 #define array_idx_set(array, idx, data) \
 	array_idx_set_i(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
 		idx, data)
 
-static inline void
-array_idx_clear_i(struct array *array, unsigned int idx)
-{
-	size_t pos;
-
-	pos = idx * array->element_size;
-	if (pos > array->buffer->used) {
-		/* index doesn't exist yet, initialize with zero */
-		buffer_append_zero(array->buffer, pos - array->buffer->used);
-	} else {
-		buffer_write_zero(array->buffer, pos, array->element_size);
-	}
-}
+void array_idx_clear_i(struct array *array, unsigned int idx);
 #define array_idx_clear(array, idx) \
 	array_idx_clear_i(&(array)->arr, idx)
 
@@ -228,20 +193,7 @@ array_append_space_i(struct array *array)
 #define array_append_space(array) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array)array_append_space_i(&(array)->arr)
 
-static inline void *
-array_insert_space_i(struct array *array, unsigned int idx)
-{
-	void *data;
-	size_t pos;
-
-	pos = idx * array->element_size;
-	buffer_copy(array->buffer, pos + array->element_size,
-		    array->buffer, pos, (size_t)-1);
-
-	data = buffer_get_space_unsafe(array->buffer, pos, array->element_size);
-	memset(data, 0, array->element_size);
-	return data;
-}
+void *array_insert_space_i(struct array *array, unsigned int idx);
 #define array_insert_space(array, idx) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 		array_insert_space_i(&(array)->arr, idx)
@@ -265,17 +217,7 @@ array_count_i(const struct array *array)
 #define array_count(array) \
 	array_count_i(&(array)->arr)
 
-static inline bool
-array_cmp_i(const struct array *array1, const struct array *array2)
-{
-	if (!array_is_created_i(array1) || array1->buffer->used == 0)
-		return !array_is_created_i(array2) || array2->buffer->used == 0;
-
-	if (!array_is_created_i(array2))
-		return FALSE;
-
-	return buffer_cmp(array1->buffer, array2->buffer);
-}
+bool array_cmp_i(const struct array *array1, const struct array *array2);
 #define array_cmp(array1, array2) \
 	array_cmp_i(&(array1)->arr, &(array2)->arr)
 

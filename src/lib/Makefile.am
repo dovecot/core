@@ -9,6 +9,7 @@ $(srcdir)/unicodemap.c:
 	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
 
 liblib_a_SOURCES = \
+	array.c \
 	aqueue.c \
 	backtrace-string.c \
 	base64.c \
