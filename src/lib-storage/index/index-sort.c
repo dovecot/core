@@ -26,6 +26,7 @@ ARRAY_DEFINE_TYPE(mail_sort_node_size, struct mail_sort_node_size);
 struct sort_cmp_context {
 	struct mail_search_sort_program *program;
 	struct mail *mail;
+	bool reverse;
 };
 
 static struct sort_cmp_context static_node_cmp_context;
@@ -87,9 +88,9 @@ static int sort_node_date_cmp(const void *p1, const void *p2)
 	const struct mail_sort_node_date *n1 = p1, *n2 = p2;
 
 	if (n1->date < n2->date)
-		return -1;
+		return !ctx->reverse ? -1 : 1;
 	if (n1->date > n2->date)
-		return 1;
+		return !ctx->reverse ? 1 : -1;
 
 	return index_sort_node_cmp_type(ctx->mail,
 					ctx->program->sort_program + 1,
@@ -117,9 +118,9 @@ static int sort_node_size_cmp(const void *p1, const void *p2)
 	const struct mail_sort_node_size *n1 = p1, *n2 = p2;
 
 	if (n1->size < n2->size)
-		return -1;
+		return !ctx->reverse ? -1 : 1;
 	if (n1->size > n2->size)
-		return 1;
+		return !ctx->reverse ? 1 : -1;
 
 	return index_sort_node_cmp_type(ctx->mail,
 					ctx->program->sort_program + 1,
@@ -146,11 +147,10 @@ void index_sort_list_finish(struct mail_search_sort_program *program)
 	memset(&static_node_cmp_context, 0, sizeof(static_node_cmp_context));
 	static_node_cmp_context.program = program;
 	static_node_cmp_context.mail = program->temp_mail;
+	static_node_cmp_context.reverse =
+		(program->sort_program[0] & MAIL_SORT_FLAG_REVERSE) != 0;
 
 	program->sort_list_finish(program);
-
-	if (program->reverse)
-		program->iter_idx = array_count(&program->seqs);
 }
 
 bool index_sort_list_next(struct mail_search_sort_program *program,
@@ -158,17 +158,10 @@ bool index_sort_list_next(struct mail_search_sort_program *program,
 {
 	const uint32_t *seqp;
 
-	if (!program->reverse) {
-		if (program->iter_idx == array_count(&program->seqs))
-			return FALSE;
+	if (program->iter_idx == array_count(&program->seqs))
+		return FALSE;
 
-		seqp = array_idx(&program->seqs, program->iter_idx++);
-	} else {
-		if (program->iter_idx == 0)
-			return FALSE;
-
-		seqp = array_idx(&program->seqs, --program->iter_idx);
-	}
+	seqp = array_idx(&program->seqs, program->iter_idx++);
 	mail_set_seq(mail, *seqp);
 	return TRUE;
 }
@@ -188,11 +181,7 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 	program->t = t;
 	program->temp_mail = mail_alloc(t, 0, NULL);
 
-	/* primary reversion isn't stored to sort_program. we handle it by
-	   iterating backwards at the end. */
-	program->reverse = (sort_program[0] & MAIL_SORT_FLAG_REVERSE) != 0;
-	program->sort_program[0] = sort_program[0] & ~MAIL_SORT_FLAG_REVERSE;
-	for (i = 1; i < MAX_SORT_PROGRAM_SIZE; i++) {
+	for (i = 0; i < MAX_SORT_PROGRAM_SIZE; i++) {
 		program->sort_program[i] = sort_program[i];
 		if (sort_program[i] == MAIL_SORT_END)
 			break;
@@ -387,7 +376,6 @@ int index_sort_node_cmp_type(struct mail *mail,
 						seq1, seq2);
 	}
 
-	/* primary reversion isn't in sort_program */
 	if ((*sort_program & MAIL_SORT_FLAG_REVERSE) != 0)
 		ret = ret < 0 ? 1 : -1;
 	return ret;

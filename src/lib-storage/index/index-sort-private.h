@@ -15,8 +15,6 @@ struct mail_search_sort_program {
 
 	ARRAY_TYPE(uint32_t) seqs;
 	unsigned int iter_idx;
-
-	unsigned int reverse:1;
 };
 
 int index_sort_header_get(struct mail *mail, uint32_t seq,

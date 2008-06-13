@@ -39,11 +39,11 @@ struct sort_string_context {
 	unsigned int regetting:1;
 	unsigned int have_all_wanted:1;
 	unsigned int no_writing:1;
+	unsigned int reverse:1;
 };
 
 static char expunged_msg;
 static struct sort_string_context *static_zero_cmp_context;
-static struct mail_search_sort_program *static_sort_node_cmp_context;
 
 static void index_sort_node_add(struct sort_string_context *ctx,
 				struct mail_sort_node *node);
@@ -72,6 +72,7 @@ void index_sort_list_init_string(struct mail_search_sort_program *program)
 	}
 
 	program->context = ctx = i_new(struct sort_string_context, 1);
+	ctx->reverse = (program->sort_program[0] & MAIL_SORT_FLAG_REVERSE) != 0;
 	ctx->program = program;
 	ctx->ext_id = mail_index_ext_register(ibox->index, name, 0,
 					      sizeof(uint32_t),
@@ -219,7 +220,7 @@ static int sort_node_zero_string_cmp(const void *p1, const void *p2)
 
 	ret = strcmp(ctx->sort_strings[n1->seq], ctx->sort_strings[n2->seq]);
 	if (ret != 0)
-		return ret;
+		return !ctx->reverse ? ret : -ret;
 
 	return index_sort_node_cmp_type(ctx->program->temp_mail,
 					ctx->program->sort_program + 1,
@@ -671,16 +672,16 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 
 static int sort_node_cmp(const void *p1, const void *p2)
 {
-	struct mail_search_sort_program *program = static_sort_node_cmp_context;
+	struct sort_string_context *ctx = static_zero_cmp_context;
 	const struct mail_sort_node *n1 = p1, *n2 = p2;
 
 	if (n1->sort_id < n2->sort_id)
-		return -1;
+		return !ctx->reverse ? -1 : 1;
 	if (n1->sort_id > n2->sort_id)
-		return 1;
+		return !ctx->reverse ? 1 : -1;
 
-	return index_sort_node_cmp_type(program->temp_mail,
-					program->sort_program + 1,
+	return index_sort_node_cmp_type(ctx->program->temp_mail,
+					ctx->program->sort_program + 1,
 					n1->seq, n2->seq);
 }
 
@@ -744,7 +745,7 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 
 	nodes = array_get_modifiable(&ctx->nonzero_nodes, &count);
 
-	static_sort_node_cmp_context = program;
+	static_zero_cmp_context = ctx;
 	if (array_count(&ctx->zero_nodes) == 0) {
 		/* fast path: we have all sort IDs */
 		qsort(nodes, count, sizeof(struct mail_sort_node),
@@ -770,16 +771,34 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 		for (;;) {
 			/* sort all messages without sort IDs */
 			index_sort_zeroes(ctx);
+
+			if (ctx->reverse) {
+				/* sort lists are descending currently, but
+				   merging and sort ID assigning works only
+				   with ascending lists. reverse the lists
+				   temporarily. we can't do this while earlier
+				   because secondary sort conditions must not
+				   be reversed in results (but while assigning
+				   sort IDs it doesn't matter). */
+				array_reverse(&ctx->nonzero_nodes);
+				array_reverse(&ctx->zero_nodes);
+			}
+
 			/* merge zero and non-zero arrays into sorted_nodes */
 			index_sort_merge(ctx);
 			/* give sort IDs to messages missing them */
 			if (index_sort_add_sort_ids(ctx) == 0)
 				break;
 
-			/* broken, try again */
+			/* broken, try again with sort IDs reset */
 			index_sort_list_reset_broken(ctx);
 		}
 		index_sort_write_changed_sort_ids(ctx);
+
+		if (ctx->reverse) {
+			/* restore the correct sort order */
+			array_reverse(&ctx->sorted_nodes);
+		}
 
 		nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
 		array_clear(&program->seqs);
