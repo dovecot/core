@@ -182,13 +182,7 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 			mail_index_view_get_messages_count(ibox->view);
 	}
 
-	if (mail_index_view_sync_begin(ibox->view, sync_flags,
-				       &ctx->sync_ctx) < 0) {
-		mail_storage_set_index_error(ibox);
-		ctx->failed = TRUE;
-		return &ctx->ctx;
-	}
-
+	ctx->sync_ctx = mail_index_view_sync_begin(ibox->view, sync_flags);
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0) {
 		mail_index_view_sync_get_expunges(ctx->sync_ctx,
 						  &ctx->expunges);

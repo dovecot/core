@@ -306,9 +306,9 @@ int mail_index_fsck(struct mail_index *index);
 /* Synchronize changes in view. You have to go through all records, or view
    will be marked inconsistent. Only sync_mask type records are
    synchronized. */
-int mail_index_view_sync_begin(struct mail_index_view *view,
-                               enum mail_index_view_sync_flags flags,
-			       struct mail_index_view_sync_ctx **ctx_r);
+struct mail_index_view_sync_ctx *
+mail_index_view_sync_begin(struct mail_index_view *view,
+			   enum mail_index_view_sync_flags flags);
 bool mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 			       struct mail_index_view_sync_rec *sync_rec);
 void
