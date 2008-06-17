@@ -8,6 +8,8 @@
 #include "mail-index-modseq.h"
 #include "mail-transaction-log.h"
 
+#include <stdlib.h>
+
 struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;
 	enum mail_index_view_sync_flags flags;
@@ -22,11 +24,17 @@ struct mail_index_view_sync_ctx {
 	const struct mail_transaction_header *hdr;
 	const void *data;
 
+	ARRAY_TYPE(keyword_indexes) lost_old_kw, lost_new_kw;
+	buffer_t *lost_kw_buf;
+	ARRAY_TYPE(seq_range) lost_flags;
+	unsigned int lost_flag_idx;
+
 	size_t data_offset;
 	unsigned int failed:1;
 	unsigned int sync_map_update:1;
 	unsigned int skipped_expunges:1;
 	unsigned int last_read:1;
+	unsigned int log_was_lost:1;
 	unsigned int hidden:1;
 };
 
@@ -104,10 +112,10 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 	uoff_t start_offset, end_offset;
 	int ret;
 
-	end_seq = hdr->log_file_seq;
-	end_offset = hdr->log_file_head_offset;
 	start_seq = view->log_file_expunge_seq;
 	start_offset = view->log_file_expunge_offset;
+	end_seq = hdr->log_file_seq;
+	end_offset = hdr->log_file_head_offset;
 
 	for (;;) {
 		/* the view begins from the first non-synced transaction */
@@ -115,23 +123,14 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 						    start_seq, start_offset,
 						    end_seq, end_offset,
 						    reset_r);
-		if (ret <= 0) {
-			if (ret < 0)
-				return -1;
-
-			/* FIXME: use the new index to get needed
-			   changes */
-			mail_index_set_error(view->index,
-				"Transaction log got desynced for index %s",
-				view->index->filepath);
-			view->inconsistent = TRUE;
-			return -1;
-		}
+		if (ret <= 0)
+			return ret;
 
 		if (!*reset_r || sync_expunges)
 			break;
 
-		/* we can't do this. sync only up to reset. */
+		/* log was reset, but we don't want to sync expunges.
+		   we can't do this, so sync only up to the reset. */
 		mail_transaction_log_view_get_prev_pos(view->log_view,
 						       &end_seq, &end_offset);
 		end_seq--; end_offset = (uoff_t)-1;
@@ -142,53 +141,19 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 			break;
 		}
 	}
-
-	return 0;
+	return 1;
 }
 
-static int
-view_sync_get_expunges(struct mail_index_view *view,
-		       ARRAY_TYPE(seq_range) *expunges_r,
-		       unsigned int *expunge_count_r)
+static unsigned int
+view_sync_expunges2seqs(struct mail_index_view_sync_ctx *ctx)
 {
-	const struct mail_transaction_header *hdr;
+	struct mail_index_view *view = ctx->view;
 	struct seq_range *src, *src_end, *dest;
-	const void *data;
 	unsigned int count, expunge_count = 0;
 	uint32_t prev_seq = 0;
-	int ret;
-
-	/* get a list of expunge transactions. there may be some that we have
-	   already synced, but it doesn't matter because they'll get dropped
-	   out when converting to sequences */
-	i_array_init(expunges_r, 64);
-	mail_transaction_log_view_mark(view->log_view);
-	while ((ret = mail_transaction_log_view_next(view->log_view,
-						     &hdr, &data)) > 0) {
-		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0)
-			continue;
-		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
-			/* this is simply a request for expunge */
-			continue;
-		}
-
-		if (mail_transaction_log_sort_expunges(expunges_r, data,
-						       hdr->size) < 0) {
-			mail_transaction_log_view_set_corrupted(view->log_view,
-				"Corrupted expunge record");
-			ret = -1;
-			break;
-		}
-	}
-	mail_transaction_log_view_rewind(view->log_view);
-
-	if (ret < 0) {
-		array_free(expunges_r);
-		return -1;
-	}
 
 	/* convert UIDs to sequences */
-	src = dest = array_get_modifiable(expunges_r, &count);
+	src = dest = array_get_modifiable(&ctx->expunges, &count);
 	src_end = src + count;
 	for (; src != src_end; src++) {
 		if (!mail_index_lookup_seq_range(view, src->seq1, src->seq2,
@@ -202,8 +167,43 @@ view_sync_get_expunges(struct mail_index_view *view,
 			dest++;
 		}
 	}
-	array_delete(expunges_r, count, array_count(expunges_r) - count);
-	*expunge_count_r = expunge_count;
+	array_delete(&ctx->expunges, count,
+		     array_count(&ctx->expunges) - count);
+	return expunge_count;
+}
+
+static int
+view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
+		       unsigned int *expunge_count_r)
+{
+	struct mail_index_view *view = ctx->view;
+	const struct mail_transaction_header *hdr;
+	const void *data;
+	int ret;
+
+	/* get a list of expunge transactions. there may be some that we have
+	   already synced, but it doesn't matter because they'll get dropped
+	   out when converting to sequences */
+	mail_transaction_log_view_mark(view->log_view);
+	while ((ret = mail_transaction_log_view_next(view->log_view,
+						     &hdr, &data)) > 0) {
+		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0)
+			continue;
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			/* this is simply a request for expunge */
+			continue;
+		}
+
+		if (mail_transaction_log_sort_expunges(&ctx->expunges, data,
+						       hdr->size) < 0) {
+			mail_transaction_log_view_set_corrupted(view->log_view,
+				"Corrupted expunge record");
+			return -1;
+		}
+	}
+	mail_transaction_log_view_rewind(view->log_view);
+
+	*expunge_count_r = view_sync_expunges2seqs(ctx);
 	return 0;
 }
 
@@ -254,14 +254,222 @@ static bool view_sync_have_expunges(struct mail_index_view *view)
 	return ret < 0 || have_expunges;
 }
 
+static int uint_cmp(const void *p1, const void *p2)
+{
+	const unsigned int *u1 = p1, *u2 = p2;
+
+	if (*u1 < *u2)
+		return -1;
+	if (*u1 > *u2)
+		return 1;
+	return 0;
+}
+
+static bool view_sync_lost_keywords_equal(struct mail_index_view_sync_ctx *ctx)
+{
+	unsigned int *old_idx, *new_idx;
+	unsigned int old_count, new_count;
+
+	old_idx = array_get_modifiable(&ctx->lost_old_kw, &old_count);
+	new_idx = array_get_modifiable(&ctx->lost_new_kw, &new_count);
+	if (old_count != new_count)
+		return FALSE;
+
+	qsort(old_idx, old_count, sizeof(*old_idx), uint_cmp);
+	qsort(new_idx, new_count, sizeof(*new_idx), uint_cmp);
+	return memcmp(old_idx, new_idx, old_count * sizeof(old_idx)) == 0;
+}
+
+static int view_sync_update_keywords(struct mail_index_view_sync_ctx *ctx,
+				     uint32_t uid)
+{
+	struct mail_transaction_header thdr;
+	struct mail_transaction_keyword_update kw_up;
+	const unsigned int *kw_idx;
+	const char *const *kw_names;
+	unsigned int i, count;
+
+	kw_idx = array_get(&ctx->lost_new_kw, &count);
+	if (count == 0)
+		return 0;
+	kw_names = array_idx(&ctx->view->index->keywords, 0);
+
+	memset(&thdr, 0, sizeof(thdr));
+	thdr.type = MAIL_TRANSACTION_KEYWORD_UPDATE | MAIL_TRANSACTION_EXTERNAL;
+	memset(&kw_up, 0, sizeof(kw_up));
+	kw_up.modify_type = MODIFY_ADD;
+	/* add new flags one by one */
+	for (i = 0; i < count; i++) {
+		kw_up.name_size = strlen(kw_names[kw_idx[i]]);
+		buffer_set_used_size(ctx->lost_kw_buf, 0);
+		buffer_append(ctx->lost_kw_buf, &kw_up, sizeof(kw_up));
+		buffer_append(ctx->lost_kw_buf, kw_names[kw_idx[i]],
+			      kw_up.name_size);
+		if (ctx->lost_kw_buf->used % 4 != 0) {
+			buffer_append_zero(ctx->lost_kw_buf,
+					   4 - ctx->lost_kw_buf->used % 4);
+		}
+		buffer_append(ctx->lost_kw_buf, &uid, sizeof(uid));
+		buffer_append(ctx->lost_kw_buf, &uid, sizeof(uid));
+
+		thdr.size = ctx->lost_kw_buf->used;
+		if (mail_index_sync_record(&ctx->sync_map_ctx, &thdr,
+					   ctx->lost_kw_buf->data) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
+					uint32_t old_seq, uint32_t new_seq)
+{
+	struct mail_index_map *old_map = ctx->view->map;
+	struct mail_index_map *new_map = ctx->view->index->map;
+	const struct mail_index_record *old_rec, *new_rec;
+	struct mail_transaction_header thdr;
+	bool changed = FALSE;
+
+	old_rec = MAIL_INDEX_MAP_IDX(old_map, old_seq - 1);
+	new_rec = MAIL_INDEX_MAP_IDX(new_map, new_seq - 1);
+	memset(&thdr, 0, sizeof(thdr));
+	if (old_rec->flags != new_rec->flags) {
+		struct mail_transaction_flag_update flag_update;
+
+		/* check this before syncing the record, since it updates
+		   old_rec. */
+		if ((old_rec->flags & MAIL_INDEX_FLAGS_MASK) !=
+		    (new_rec->flags & MAIL_INDEX_FLAGS_MASK))
+			changed = TRUE;
+
+		thdr.type = MAIL_TRANSACTION_FLAG_UPDATE |
+			MAIL_TRANSACTION_EXTERNAL;
+		thdr.size = sizeof(flag_update);
+
+		memset(&flag_update, 0, sizeof(flag_update));
+		flag_update.uid1 = flag_update.uid2 = new_rec->uid;
+		flag_update.add_flags = new_rec->flags;
+		flag_update.remove_flags = ~new_rec->flags & 0xff;
+		if (mail_index_sync_record(&ctx->sync_map_ctx, &thdr,
+					   &flag_update) < 0)
+			return -1;
+	}
+
+	mail_index_map_lookup_keywords(old_map, old_seq, &ctx->lost_old_kw);
+	mail_index_map_lookup_keywords(new_map, new_seq, &ctx->lost_new_kw);
+	if (!view_sync_lost_keywords_equal(ctx)) {
+		struct mail_transaction_keyword_reset kw_reset;
+
+		thdr.type = MAIL_TRANSACTION_KEYWORD_RESET |
+			MAIL_TRANSACTION_EXTERNAL;
+		thdr.size = sizeof(kw_reset);
+
+		/* remove all old flags by resetting them */
+		memset(&kw_reset, 0, sizeof(kw_reset));
+		kw_reset.uid1 = kw_reset.uid2 = new_rec->uid;
+		if (mail_index_sync_record(&ctx->sync_map_ctx, &thdr,
+					   &kw_reset) < 0)
+			return -1;
+
+		view_sync_update_keywords(ctx, new_rec->uid);
+		changed = TRUE;
+	}
+
+	/* lost_flags isn't updated perfectly correctly, because by the time
+	   we're comparing old flags it may have changed from what we last
+	   sent to the client (because the map is shared). This could be
+	   avoided by always keeping a private copy of the map in the view,
+	   but that's a waste of memory for as rare of a problem as this. */
+	if (changed)
+		seq_range_array_add(&ctx->lost_flags, 0, new_rec->uid);
+	return 0;
+}
+
+static int
+view_sync_get_log_lost_changes(struct mail_index_view_sync_ctx *ctx,
+			       unsigned int *expunge_count_r)
+{
+	struct mail_index_view *view = ctx->view;
+	struct mail_index_map *old_map = view->map;
+	struct mail_index_map *new_map = view->index->map;
+	const unsigned int old_count = old_map->hdr.messages_count;
+	const unsigned int new_count = new_map->hdr.messages_count;
+	const struct mail_index_record *old_rec, *new_rec;
+	struct mail_transaction_header thdr;
+	unsigned int i, j;
+
+	/* we don't update the map in the same order as it's typically done.
+	   map->rec_map may already have some messages appended that we don't
+	   want. get an atomic map to make sure these get removed. */
+	(void)mail_index_sync_get_atomic_map(&ctx->sync_map_ctx);
+
+	i_array_init(&ctx->lost_flags, 64);
+	t_array_init(&ctx->lost_old_kw, 32);
+	t_array_init(&ctx->lost_new_kw, 32);
+	ctx->lost_kw_buf = buffer_create_dynamic(pool_datastack_create(), 128);
+
+	/* handle expunges and sync flags */
+	i = j = 0;
+	while (i < old_count && j < new_count) {
+		old_rec = MAIL_INDEX_MAP_IDX(old_map, i);
+		new_rec = MAIL_INDEX_MAP_IDX(new_map, j);
+		if (old_rec->uid == new_rec->uid) {
+			/* message found - check if flags have changed */
+			if (view_sync_apply_lost_changes(ctx, i + 1, j + 1) < 0)
+				return -1;
+			i++; j++;
+		} else if (old_rec->uid < new_rec->uid) {
+			/* message expunged */
+			seq_range_array_add(&ctx->expunges, 0, old_rec->uid);
+			i++;
+		} else {
+			/* new message appeared out of nowhere */
+			mail_index_set_error(view->index,
+				"%s view is inconsistent: "
+				"uid=%u inserted in the middle of mailbox",
+				view->index->filepath, new_rec->uid);
+			return -1;
+		}
+	}
+	/* if there are old messages left, they're all expunged */
+	for (; i < old_count; i++) {
+		old_rec = MAIL_INDEX_MAP_IDX(old_map, i);
+		seq_range_array_add(&ctx->expunges, 0, old_rec->uid);
+	}
+	/* if there are new messages left, they're all new messages */
+	thdr.type = MAIL_TRANSACTION_APPEND | MAIL_TRANSACTION_EXTERNAL;
+	thdr.size = sizeof(*new_rec);
+	for (; j < new_count; j++) {
+		new_rec = MAIL_INDEX_MAP_IDX(new_map, j);
+		if (mail_index_sync_record(&ctx->sync_map_ctx,
+					   &thdr, new_rec) < 0)
+			return -1;
+		mail_index_map_lookup_keywords(new_map, j + 1,
+					       &ctx->lost_new_kw);
+		view_sync_update_keywords(ctx, new_rec->uid);
+	}
+	*expunge_count_r = view_sync_expunges2seqs(ctx);
+
+	/* we have no idea how far we've synced - make sure these aren't used */
+	old_map->hdr.log_file_seq = 0;
+	old_map->hdr.log_file_head_offset = 0;
+	old_map->hdr.log_file_tail_offset = 0;
+
+	if ((ctx->flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) != 0) {
+		array_clear(&ctx->expunges);
+		ctx->skipped_expunges = *expunge_count_r > 0;
+	} else {
+		view->log_file_head_seq = new_map->hdr.log_file_seq;
+		view->log_file_head_offset = new_map->hdr.log_file_head_offset;
+	}
+	return 0;
+}
+
 static int mail_index_view_sync_init_fix(struct mail_index_view_sync_ctx *ctx)
 {
 	struct mail_index_view *view = ctx->view;
 	uint32_t seq;
 	uoff_t offset;
 	bool reset;
-
-	i_array_init(&ctx->expunges, 1);
 
 	/* replace the view's map */
 	view->index->map->refcount++;
@@ -288,6 +496,7 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_map *map;
 	unsigned int expunge_count = 0;
 	bool reset, sync_expunges, have_expunges;
+	int ret;
 
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
@@ -303,6 +512,8 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 	ctx->flags = flags;
 
 	sync_expunges = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0;
+	if (sync_expunges)
+		i_array_init(&ctx->expunges, 64);
 	if ((flags & MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT) != 0) {
 		/* just get this view synced - don't return anything */
 		i_assert(sync_expunges);
@@ -317,15 +528,30 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		return ctx;
 	}
 
-	if (view_sync_set_log_view_range(view, sync_expunges, &reset) < 0) {
+	ret = view_sync_set_log_view_range(view, sync_expunges, &reset);
+	if (ret < 0) {
 		ctx->failed = TRUE;
 		return ctx;
 	}
 
-	if (sync_expunges) {
+	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
+				 MAIL_INDEX_SYNC_HANDLER_VIEW);
+	if (ret == 0) {
+		ctx->log_was_lost = TRUE;
+		if (!sync_expunges)
+			i_array_init(&ctx->expunges, 64);
+		if (view_sync_get_log_lost_changes(ctx, &expunge_count) < 0) {
+			mail_index_set_error(view->index,
+				"%s view syncing failed to apply changes",
+				view->index->filepath);
+			view->inconsistent = TRUE;
+			ctx->failed = TRUE;
+			return ctx;
+		}
+		have_expunges = expunge_count > 0;
+	} else if (sync_expunges) {
 		/* get list of all expunges first */
-		if (view_sync_get_expunges(view, &ctx->expunges,
-					   &expunge_count) < 0) {
+		if (view_sync_get_expunges(ctx, &expunge_count) < 0) {
 			ctx->failed = TRUE;
 			return ctx;
 		}
@@ -336,9 +562,6 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 
 	ctx->finish_min_msg_count = reset ? 0 :
 		view->map->hdr.messages_count - expunge_count;
-	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
-				 MAIL_INDEX_SYNC_HANDLER_VIEW);
-
 	if (reset && view->map->hdr.messages_count > 0) {
 		view->inconsistent = TRUE;
 		mail_index_set_error(view->index,
@@ -497,6 +720,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		} T_END;
 		if (ret < 0)
 			return -1;
+
 	}
 
 	ctx->hidden = view_sync_is_hidden(view, seq, offset);
@@ -575,10 +799,33 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 	return TRUE;
 }
 
+static bool
+mail_index_view_sync_next_lost(struct mail_index_view_sync_ctx *ctx,
+			       struct mail_index_view_sync_rec *sync_rec)
+{
+	const struct seq_range *range;
+	unsigned int count;
+
+	range = array_get(&ctx->lost_flags, &count);
+	if (ctx->lost_flag_idx == count) {
+		ctx->last_read = TRUE;
+		return FALSE;
+	}
+
+	sync_rec->type = MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS;
+	sync_rec->uid1 = range[ctx->lost_flag_idx].seq1;
+	sync_rec->uid2 = range[ctx->lost_flag_idx].seq2;
+	ctx->lost_flag_idx++;
+	return TRUE;
+}
+
 bool mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 			       struct mail_index_view_sync_rec *sync_rec)
 {
 	int ret;
+
+	if (ctx->log_was_lost)
+		return mail_index_view_sync_next_lost(ctx, sync_rec);
 
 	do {
 		if (ctx->hdr == NULL || ctx->data_offset == ctx->hdr->size) {
@@ -648,6 +895,12 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx,
 	if (ctx->sync_new_map != NULL) {
 		mail_index_unmap(&view->map);
 		view->map = ctx->sync_new_map;
+	} else if (ctx->sync_map_update) {
+		/* log offsets have no meaning in views. make sure they're not
+		   tried to be used wrong by setting them to zero. */
+		view->map->hdr.log_file_seq = 0;
+		view->map->hdr.log_file_head_offset = 0;
+		view->map->hdr.log_file_tail_offset = 0;
 	}
 
 	i_assert(view->map->hdr.messages_count >= ctx->finish_min_msg_count);
@@ -655,14 +908,6 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx,
 	if (!ctx->skipped_expunges) {
 		view->log_file_expunge_seq = view->log_file_head_seq;
 		view->log_file_expunge_offset = view->log_file_head_offset;
-	}
-
-	if (ctx->sync_map_update) {
-		/* log offsets have no meaning in views. make sure they're not
-		   tried to be used wrong by setting them to zero. */
-		view->map->hdr.log_file_seq = 0;
-		view->map->hdr.log_file_head_offset = 0;
-		view->map->hdr.log_file_tail_offset = 0;
 	}
 
 	if (ctx->sync_map_ctx.view != NULL)
@@ -679,6 +924,8 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx,
 
 	if (array_is_created(&ctx->expunges))
 		array_free(&ctx->expunges);
+	if (array_is_created(&ctx->lost_flags))
+		array_free(&ctx->lost_flags);
 
 	view->syncing = FALSE;
 	i_free(ctx);

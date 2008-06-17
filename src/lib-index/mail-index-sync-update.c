@@ -23,6 +23,10 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 
 	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
 					       &prev_seq, &prev_offset);
+	if (prev_seq == 0) {
+		/* handling lost changes in view syncing */
+		return;
+	}
 
 	if (!eol) {
 		if (prev_offset == ctx->ext_intro_end_offset &&

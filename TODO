@@ -120,7 +120,6 @@
       selected in read-only state
 
  - index
-    - if log file is lost, generate it from old and new index
     - read-only support for mailboxes where we don't have write-access
     - index file format changes:
 	- pack UIDs to beginning of file with UID ranges
