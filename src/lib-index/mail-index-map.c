@@ -1134,16 +1134,29 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 void mail_index_record_map_move_to_private(struct mail_index_map *map)
 {
 	struct mail_index_record_map *new_map;
+	const struct mail_index_record *rec;
 
-	if (array_count(&map->rec_map->maps) == 1)
-		return;
+	if (array_count(&map->rec_map->maps) > 1) {
+		new_map = mail_index_record_map_alloc(map);
+		mail_index_map_copy_records(new_map, map->rec_map,
+					    map->hdr.record_size);
+		mail_index_record_map_unlink(map);
+		map->rec_map = new_map;
+	} else {
+		new_map = map->rec_map;
+	}
 
-	new_map = mail_index_record_map_alloc(map);
-	mail_index_map_copy_records(new_map, map->rec_map,
-				    map->hdr.record_size);
-
-	mail_index_record_map_unlink(map);
-	map->rec_map = new_map;
+	if (new_map->records_count != map->hdr.messages_count) {
+		new_map->records_count = map->hdr.messages_count;
+		if (new_map->records_count == 0)
+			new_map->last_appended_uid = 0;
+		else {
+			rec = MAIL_INDEX_MAP_IDX(map, new_map->records_count-1);
+			new_map->last_appended_uid = rec->uid;
+		}
+		buffer_set_used_size(new_map->buffer, new_map->records_count *
+				     map->hdr.record_size);
+	}
 }
 
 void mail_index_map_move_to_memory(struct mail_index_map *map)
