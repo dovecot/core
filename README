@@ -41,6 +41,9 @@ RFCs conformed
               What Kind of Information Is Returned
  5032       - WITHIN Search Extension to the IMAP Protocol
  5162       - IMAP4 Extensions for Quick Mailbox Resynchronization
+ 5182       - IMAP Extension for Referencing the Last SEARCH Result
+ 5256       - IMAP SORT and THREAD Extensions
+ 5258       - IMAP4 - LIST Command Extensions 
 
 Contact info
 ------------
