@@ -14,6 +14,7 @@ struct log_append_context {
 	struct mail_index_transaction *trans;
 	buffer_t *output;
 
+	unsigned int modseq_change_count;
 	uint32_t first_append_size;
 	bool sync_includes_this;
 };
@@ -38,6 +39,9 @@ static void log_append_buffer(struct log_append_context *ctx,
 		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
 	if ((ctx->trans->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
+
+	if (mail_transaction_header_has_modseq(&hdr))
+		ctx->modseq_change_count++;
 
 	hdr_size = mail_index_uint32_to_offset(sizeof(hdr) + buf->used +
 					       (hdr_buf == NULL ? 0 :
@@ -566,8 +570,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 
 	file = log->head;
 
-	if (file->sync_offset < file->buffer_offset)
-		file->sync_offset = file->buffer_offset;
+	i_assert(file->sync_offset >= file->buffer_offset);
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.file = file;
@@ -646,6 +649,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		buffer_free(&ctx.output);
 		return -1;
 	}
+	file->sync_highest_modseq += ctx.modseq_change_count;
 	buffer_free(&ctx.output);
 
 	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_HIDE) != 0) {
