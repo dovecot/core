@@ -156,16 +156,13 @@ view_sync_get_expunges(struct mail_index_view *view,
 	const void *data;
 	unsigned int count, expunge_count = 0;
 	uint32_t prev_seq = 0;
-	bool reset;
 	int ret;
-
-	if (view_sync_set_log_view_range(view, TRUE, &reset) < 0)
-		return -1;
 
 	/* get a list of expunge transactions. there may be some that we have
 	   already synced, but it doesn't matter because they'll get dropped
 	   out when converting to sequences */
 	i_array_init(expunges_r, 64);
+	mail_transaction_log_view_mark(view->log_view);
 	while ((ret = mail_transaction_log_view_next(view->log_view,
 						     &hdr, &data)) > 0) {
 		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0)
@@ -183,6 +180,7 @@ view_sync_get_expunges(struct mail_index_view *view,
 			break;
 		}
 	}
+	mail_transaction_log_view_rewind(view->log_view);
 
 	if (ret < 0) {
 		array_free(expunges_r);
@@ -319,6 +317,11 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		return ctx;
 	}
 
+	if (view_sync_set_log_view_range(view, sync_expunges, &reset) < 0) {
+		ctx->failed = TRUE;
+		return ctx;
+	}
+
 	if (sync_expunges) {
 		/* get list of all expunges first */
 		if (view_sync_get_expunges(view, &ctx->expunges,
@@ -326,11 +329,6 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 			ctx->failed = TRUE;
 			return ctx;
 		}
-	}
-
-	if (view_sync_set_log_view_range(view, sync_expunges, &reset) < 0) {
-		ctx->failed = TRUE;
-		return ctx;
 	}
 
 	ctx->finish_min_msg_count = reset ? 0 :
