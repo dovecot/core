@@ -442,30 +442,23 @@ bool mail_index_is_expunged(struct mail_index_view *view, uint32_t seq)
 	return expunged;
 }
 
-void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
+static void
+mail_index_data_lookup_keywords(struct mail_index_map *map,
+				const unsigned char *data,
 				ARRAY_TYPE(keyword_indexes) *keyword_idx)
 {
-	struct mail_index_map *map;
-	const void *data;
-	const unsigned char *keyword_data;
 	const unsigned int *keyword_idx_map;
 	unsigned int i, j, keyword_count, index_idx;
-	uint32_t ext_id, idx;
+	uint32_t idx;
 	uint16_t record_size;
 
 	array_clear(keyword_idx);
-
-	/* get the keywords data. */
-	ext_id = view->index->keywords_ext_id;
-	mail_index_lookup_ext_full(view, seq, ext_id, &map, &data, NULL);
 	if (data == NULL) {
 		/* no keywords at all in index */
 		return;
 	}
-        keyword_data = data;
-
-	(void)mail_index_ext_get_size(view, ext_id, map, NULL,
-				      &record_size, NULL);
+	(void)mail_index_ext_get_size(NULL, map->index->keywords_ext_id,
+				      map, NULL, &record_size, NULL);
 
 	/* keyword_idx_map[] contains file => index keyword mapping */
 	if (!array_is_created(&map->keyword_idx_map))
@@ -474,12 +467,12 @@ void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 	keyword_idx_map = array_get(&map->keyword_idx_map, &keyword_count);
 	for (i = 0, idx = 0; i < record_size; i++) {
 		/* first do the quick check to see if there's keywords at all */
-		if (keyword_data[i] == 0)
+		if (data[i] == 0)
 			continue;
 
 		idx = i * CHAR_BIT;
 		for (j = 0; j < CHAR_BIT; j++, idx++) {
-			if ((keyword_data[i] & (1 << j)) == 0)
+			if ((data[i] & (1 << j)) == 0)
 				continue;
 
 			if (idx >= keyword_count) {
@@ -492,6 +485,36 @@ void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 			array_append(keyword_idx, &index_idx, 1);
 		}
 	}
+}
+
+void mail_index_map_lookup_keywords(struct mail_index_map *map, uint32_t seq,
+				    ARRAY_TYPE(keyword_indexes) *keyword_idx)
+{
+	const struct mail_index_ext *ext;
+	const struct mail_index_record *rec;
+	const void *data;
+	uint32_t idx;
+
+	if (!mail_index_map_get_ext_idx(map, map->index->keywords_ext_id, &idx))
+		data = NULL;
+	else {
+		rec = MAIL_INDEX_MAP_IDX(map, seq-1);
+		ext = array_idx(&map->extensions, idx);
+		data = ext->record_offset == 0 ? NULL :
+			CONST_PTR_OFFSET(rec, ext->record_offset);
+	}
+	mail_index_data_lookup_keywords(map, data, keyword_idx);
+}
+
+void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
+				ARRAY_TYPE(keyword_indexes) *keyword_idx)
+{
+	struct mail_index_map *map;
+	const void *data;
+
+	mail_index_lookup_ext_full(view, seq, view->index->keywords_ext_id,
+				   &map, &data, NULL);
+	mail_index_data_lookup_keywords(map, data, keyword_idx);
 }
 
 void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,

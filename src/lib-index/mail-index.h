@@ -334,6 +334,9 @@ bool mail_index_is_expunged(struct mail_index_view *view, uint32_t seq);
 /* Note that returned keyword indexes aren't sorted. */
 void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 				ARRAY_TYPE(keyword_indexes) *keyword_idx);
+/* Return keywords from given map. */
+void mail_index_map_lookup_keywords(struct mail_index_map *map, uint32_t seq,
+				    ARRAY_TYPE(keyword_indexes) *keyword_idx);
 /* Returns the UID for given message. May be slightly faster than
    mail_index_lookup()->uid. */
 void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
