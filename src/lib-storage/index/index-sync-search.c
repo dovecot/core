@@ -226,18 +226,19 @@ void index_sync_search_results_update(struct index_mailbox_sync_context *ctx)
 
 void index_sync_search_results_expunge(struct index_mailbox_sync_context *ctx)
 {
+	struct mailbox *box = &ctx->ibox->box;
 	const struct seq_range *seqs;
 	unsigned int i, count;
 	uint32_t seq, uid;
 
-	if (ctx->expunges == NULL)
+	if (ctx->expunges == NULL || array_count(&box->search_results) == 0)
 		return;
 
 	seqs = array_get(ctx->expunges, &count);
 	for (i = 0; i < count; i++) {
 		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
 			mail_index_lookup_uid(ctx->ibox->view, seq, &uid);
-			mailbox_search_results_remove(&ctx->ibox->box, uid);
+			mailbox_search_results_remove(box, uid);
 		}
 	}
 }
