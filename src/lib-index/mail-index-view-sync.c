@@ -329,6 +329,9 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 			ctx->failed = TRUE;
 			return ctx;
 		}
+		have_expunges = expunge_count > 0;
+	} else {
+		have_expunges = view_sync_have_expunges(view);
 	}
 
 	ctx->finish_min_msg_count = reset ? 0 :
@@ -343,7 +346,6 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 				     view->index->filepath);
 	}
 
-	have_expunges = view_sync_have_expunges(view);
 	if (!have_expunges) {
 		/* no expunges, we can just replace the map */
 		if (view->index->map->hdr.messages_count <
