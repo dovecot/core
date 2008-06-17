@@ -274,7 +274,7 @@ rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 		return FALSE;
 	}
 
-	len = (p[0] >> 8) + p[1];
+	len = (p[0] << 8) + p[1];
 	if (p + 2 + len > end) {
 		*error = "message too short";
 		return FALSE;
