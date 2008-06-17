@@ -112,18 +112,10 @@ static void index_view_sync_recs_get(struct index_mailbox_sync_context *ctx)
 		i_array_init(&ctx->modseq_updates, 32);
 	while (mail_index_view_sync_next(ctx->sync_ctx, &sync_rec)) {
 		switch (sync_rec.type) {
-		case MAIL_INDEX_SYNC_TYPE_APPEND:
-			/* not interested */
-			break;
-		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-			/* later */
-			break;
-		case MAIL_INDEX_SYNC_TYPE_FLAGS:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
+		case MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS:
 			if (!mail_index_lookup_seq_range(ctx->ibox->view,
-							 sync_rec.uid1, sync_rec.uid2,
+							 sync_rec.uid1,
+							 sync_rec.uid2,
 							 &seq1, &seq2))
 				break;
 

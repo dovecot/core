@@ -157,11 +157,14 @@ struct mail_index_sync_rec {
 	unsigned int keyword_idx;
 };
 
+enum mail_index_view_sync_type {
+	/* Flags or keywords changed */
+	MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS		= 0x01
+};
+
 struct mail_index_view_sync_rec {
 	uint32_t uid1, uid2;
-	/* keyword appends and removes are packed into one and same
-	   MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD */
-	enum mail_index_sync_type type;
+	enum mail_index_view_sync_type type;
 
 	/* TRUE if this was a hidden transaction. */
 	unsigned int hidden:1;

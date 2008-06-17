@@ -509,31 +509,6 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 	const void *data = ctx->data;
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
-	case MAIL_TRANSACTION_APPEND: {
-		/* data contains the appended records, but we don't care */
-		rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
-		rec->uid1 = rec->uid2 = 0;
-		ctx->data_offset += hdr->size;
-		break;
-	}
-	case MAIL_TRANSACTION_EXPUNGE: {
-		const struct mail_transaction_expunge *exp =
-			CONST_PTR_OFFSET(data, ctx->data_offset);
-
-		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
-			/* this is simply a request for expunge */
-			ctx->data_offset = ctx->hdr->size;
-			return 0;
-		}
-
-		/* data contains mail_transaction_expunge[] */
-		rec->type = MAIL_INDEX_SYNC_TYPE_EXPUNGE;
-		rec->uid1 = exp->uid1;
-		rec->uid2 = exp->uid2;
-
-		ctx->data_offset += sizeof(*exp);
-		break;
-	}
 	case MAIL_TRANSACTION_FLAG_UPDATE: {
 		const struct mail_transaction_flag_update *update =
 			CONST_PTR_OFFSET(data, ctx->data_offset);
@@ -551,7 +526,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 			update = CONST_PTR_OFFSET(data, ctx->data_offset);
 		}
 
-		rec->type = MAIL_INDEX_SYNC_TYPE_FLAGS;
+		rec->type = MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS;
 		rec->uid1 = update->uid1;
 		rec->uid2 = update->uid2;
 		break;
@@ -571,7 +546,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		}
 
 		uids = CONST_PTR_OFFSET(data, ctx->data_offset);
-		rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD;
+		rec->type = MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS;
 		rec->uid1 = uids[0];
 		rec->uid2 = uids[1];
 
@@ -583,7 +558,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 			CONST_PTR_OFFSET(data, ctx->data_offset);
 
 		/* data contains mail_transaction_keyword_reset[] */
-		rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET;
+		rec->type = MAIL_INDEX_VIEW_SYNC_TYPE_FLAGS;
 		rec->uid1 = reset->uid1;
 		rec->uid2 = reset->uid2;
 		ctx->data_offset += sizeof(*reset);
