@@ -331,7 +331,7 @@ static void imap_sync_vanished(struct imap_sync_context *ctx)
 	line = t_str_new(256);
 	str_append(line, "* VANISHED ");
 	for (i = 0; i < count; i++) {
-		prev_uid = start_uid = 0;
+		start_uid = 0; prev_uid = (uint32_t)-1;
 		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
 			mail_set_seq(ctx->mail, seq);
 			if (prev_uid + 1 != ctx->mail->uid) {
