@@ -185,9 +185,15 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 		hdr->file_seq = 1;
 	}
 
-	if (log->head != NULL && hdr->file_seq <= log->head->hdr.file_seq) {
-		/* make sure the sequence grows */
-		hdr->file_seq = log->head->hdr.file_seq+1;
+	if (log->head != NULL) {
+		if (hdr->file_seq <= log->head->hdr.file_seq) {
+			/* make sure the sequence grows */
+			hdr->file_seq = log->head->hdr.file_seq+1;
+		}
+		if (hdr->initial_modseq < log->head->sync_highest_modseq) {
+			/* this should be always up-to-date */
+			hdr->initial_modseq = log->head->sync_highest_modseq;
+		}
 	}
 	return 0;
 }
