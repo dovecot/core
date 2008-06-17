@@ -207,6 +207,11 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 
 		mail_transaction_log_file_free(&file);
 	}
+	/* if we still have locked files with refcount=0, unlock them */
+	for (; file != NULL; file = file->next) {
+		if (file->locked && file->refcount == 0)
+			mail_transaction_log_file_unlock(file);
+	}
 	i_assert(log->head == NULL || log->files != NULL);
 }
 
