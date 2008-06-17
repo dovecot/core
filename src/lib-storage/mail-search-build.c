@@ -643,7 +643,7 @@ struct mail_search_args *mail_search_build_init(void)
 	struct mail_search_args *args;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mail search args", 1024);
+	pool = pool_alloconly_create("mail search args", 4096);
 	args = p_new(pool, struct mail_search_args, 1);
 	args->pool = pool;
 	args->refcount = 1;
