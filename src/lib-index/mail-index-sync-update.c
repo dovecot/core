@@ -284,6 +284,7 @@ static int sync_append(const struct mail_index_record *rec,
 {
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
+	const struct mail_index_record *old_rec;
 	enum mail_flags new_flags;
 	void *dest;
 	size_t append_pos;
@@ -306,8 +307,9 @@ static int sync_append(const struct mail_index_record *rec,
 		/* the flags may have changed since it was added to map.
 		   use the updated flags already, so flag counters won't get
 		   broken. */
-		new_flags =
-			MAIL_INDEX_MAP_IDX(map, map->hdr.messages_count)->flags;
+		old_rec = MAIL_INDEX_MAP_IDX(map, map->hdr.messages_count);
+		i_assert(old_rec->uid == rec->uid);
+		new_flags = old_rec->flags;
 	} else {
 		/* don't rely on buffer->used being at the correct position.
 		   at least expunges can move it */
