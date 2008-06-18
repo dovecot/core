@@ -24,8 +24,11 @@ struct mail_index_view_sync_ctx {
 	const struct mail_transaction_header *hdr;
 	const void *data;
 
+	/* temporary variables while handling lost transaction logs: */
 	ARRAY_TYPE(keyword_indexes) lost_old_kw, lost_new_kw;
 	buffer_t *lost_kw_buf;
+	uint32_t lost_old_ext_idx, lost_new_ext_idx;
+	/* result of lost transaction logs: */
 	ARRAY_TYPE(seq_range) lost_flags;
 	unsigned int lost_flag_idx;
 
@@ -327,10 +330,14 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	struct mail_index_map *new_map = ctx->view->index->map;
 	const struct mail_index_record *old_rec, *new_rec;
 	struct mail_transaction_header thdr;
+	const struct mail_index_ext *ext;
+	const uint64_t *modseqp;
+	uint64_t old_modseq, new_modseq;
 	bool changed = FALSE;
 
 	old_rec = MAIL_INDEX_MAP_IDX(old_map, old_seq - 1);
 	new_rec = MAIL_INDEX_MAP_IDX(new_map, new_seq - 1);
+
 	memset(&thdr, 0, sizeof(thdr));
 	if (old_rec->flags != new_rec->flags) {
 		struct mail_transaction_flag_update flag_update;
@@ -374,10 +381,28 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 		changed = TRUE;
 	}
 
+	if (changed) {
+		/* flags or keywords changed */
+	} else if (ctx->lost_old_ext_idx != (uint32_t)-1 &&
+		   ctx->lost_new_ext_idx != (uint32_t)-1) {
+		/* if modseq has changed include this message in changed flags
+		   list, even if we didn't see any changes above. */
+		ext = array_idx(&old_map->extensions, ctx->lost_old_ext_idx);
+		modseqp = CONST_PTR_OFFSET(old_rec, ext->record_offset);
+		old_modseq = *modseqp;
+
+		ext = array_idx(&new_map->extensions, ctx->lost_new_ext_idx);
+		modseqp = CONST_PTR_OFFSET(new_rec, ext->record_offset);
+		new_modseq = *modseqp;
+
+		if (old_modseq != new_modseq)
+			changed = TRUE;
+	}
+
 	/* lost_flags isn't updated perfectly correctly, because by the time
-	   we're comparing old flags it may have changed from what we last
-	   sent to the client (because the map is shared). This could be
-	   avoided by always keeping a private copy of the map in the view,
+	   we're comparing old flags (or modseqs) it may have changed from what
+	   we last sent to the client (because the map is shared). This could
+	   be avoided by always keeping a private copy of the map in the view,
 	   but that's a waste of memory for as rare of a problem as this. */
 	if (changed)
 		seq_range_array_add(&ctx->lost_flags, 0, new_rec->uid);
@@ -401,6 +426,13 @@ view_sync_get_log_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	   map->rec_map may already have some messages appended that we don't
 	   want. get an atomic map to make sure these get removed. */
 	(void)mail_index_sync_get_atomic_map(&ctx->sync_map_ctx);
+
+	if (!mail_index_map_get_ext_idx(old_map, view->index->modseq_ext_id,
+					&ctx->lost_old_ext_idx))
+		ctx->lost_old_ext_idx = (uint32_t)-1;
+	if (!mail_index_map_get_ext_idx(new_map, view->index->modseq_ext_id,
+					&ctx->lost_new_ext_idx))
+		ctx->lost_new_ext_idx = (uint32_t)-1;
 
 	i_array_init(&ctx->lost_flags, 64);
 	t_array_init(&ctx->lost_old_kw, 32);
@@ -720,7 +752,6 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		} T_END;
 		if (ret < 0)
 			return -1;
-
 	}
 
 	ctx->hidden = view_sync_is_hidden(view, seq, offset);
