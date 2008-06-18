@@ -10,9 +10,9 @@ struct index_mailbox_sync_context {
 	uint32_t messages_count;
 
 	ARRAY_TYPE(seq_range) flag_updates;
-	ARRAY_TYPE(seq_range) modseq_updates;
+	ARRAY_TYPE(seq_range) hidden_updates;
 	const ARRAY_TYPE(seq_range) *expunges;
-	unsigned int flag_update_idx, modseq_update_idx, expunge_pos;
+	unsigned int flag_update_idx, hidden_update_idx, expunge_pos;
 
 	bool failed;
 };

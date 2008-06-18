@@ -112,52 +112,56 @@ search_result_update_search(struct mail_search_result *result,
 	return ret;
 }
 
-static int
-search_result_update_existing(struct index_mailbox_sync_context *ctx,
-			      struct mail_search_result *result)
+static bool
+search_result_merge_changes(struct index_mailbox_sync_context *ctx,
+			    struct mail_search_result *result,
+			    ARRAY_TYPE(seq_range) *changes)
 {
 	/* @UNSAFE */
-	const ARRAY_TYPE(seq_range) *merge_ranges[2];
-	ARRAY_TYPE(seq_range) changes;
-	struct mail_search_arg search_arg;
-	unsigned int i, count, merge_count = 0;
-	int ret;
+	unsigned int count;
 
-	/* get the changes we're interested in */
-	if ((result->args_have_flags || result->args_have_keywords) &&
-	    array_is_created(&ctx->flag_updates))
-		merge_ranges[merge_count++] = &ctx->flag_updates;
-	if (result->args_have_modseq && array_is_created(&ctx->modseq_updates))
-		merge_ranges[merge_count++] = &ctx->modseq_updates;
-	i_assert(merge_count < N_ELEMENTS(merge_ranges));
-
-	for (i = 0, count = 0; i < merge_count; i++)
-		count += array_count(merge_ranges[i]);
+	if (!result->args_have_flags && !result->args_have_keywords &&
+	    !result->args_have_modseq) {
+		/* search result doesn't care about flag changes */
+		return FALSE;
+	}
+	count = array_count(&ctx->flag_updates) +
+		array_count(&ctx->hidden_updates);
 	if (count == 0) {
 		/* no changes */
-		return 0;
+		return FALSE;
 	}
 
 	/* merge the changed sequences */
-	t_array_init(&changes, count);
-	for (i = 0; i < merge_count; i++)
-		seq_range_array_merge(&changes, merge_ranges[i]);
+	t_array_init(changes, count);
+	seq_range_array_merge(changes, &ctx->flag_updates);
+	seq_range_array_merge(changes, &ctx->hidden_updates);
+	return TRUE;
+}
+
+static int
+search_result_update_existing(struct mail_search_result *result,
+			      const ARRAY_TYPE(seq_range) *changes)
+{
+	struct mail_search_arg search_arg;
+	int ret;
 
 	/* add a temporary search parameter to limit the search only to
 	   the changed messages */
 	memset(&search_arg, 0, sizeof(search_arg));
 	search_arg.type = SEARCH_SEQSET;
-	search_arg.value.seqset = changes;
+	search_arg.value.seqset = *changes;
 	search_arg.next = result->search_args->args;
 	result->search_args->args = &search_arg;
-	ret = search_result_update_search(result, &changes);
+	ret = search_result_update_search(result, changes);
 	i_assert(result->search_args->args == &search_arg);
 	result->search_args->args = search_arg.next;
 	return ret;
 }
 
 static int
-search_result_update_appends(struct index_mailbox_sync_context *ctx,
+search_result_update_appends(struct mail_index_view *view,
+			     unsigned int old_messages_count,
 			     struct mail_search_result *result)
 {
 	struct mailbox_transaction_context *t;
@@ -167,8 +171,8 @@ search_result_update_appends(struct index_mailbox_sync_context *ctx,
 	uint32_t message_count;
 	int ret;
 
-	message_count = mail_index_view_get_messages_count(ctx->ibox->view);
-	if (ctx->messages_count == message_count) {
+	message_count = mail_index_view_get_messages_count(view);
+	if (old_messages_count == message_count) {
 		/* no new messages */
 		return 0;
 	}
@@ -179,7 +183,7 @@ search_result_update_appends(struct index_mailbox_sync_context *ctx,
 	search_arg.type = SEARCH_SEQSET;
 	t_array_init(&search_arg.value.seqset, 1);
 	seq_range_array_add_range(&search_arg.value.seqset,
-				  ctx->messages_count + 1, message_count);
+				  old_messages_count + 1, message_count);
 	search_arg.next = result->search_args->args;
 	result->search_args->args = &search_arg;
 
@@ -205,13 +209,19 @@ static void
 search_result_update(struct index_mailbox_sync_context *ctx,
 		     struct mail_search_result *result)
 {
-	if ((result->flags & MAILBOX_SEARCH_RESULT_FLAG_UPDATE) == 0)
+	if ((result->flags & MAILBOX_SEARCH_RESULT_FLAG_UPDATE) == 0) {
+		/* not an updateable search result */
 		return;
+	}
 
 	T_BEGIN {
-		(void)search_result_update_existing(ctx, result);
+		ARRAY_TYPE(seq_range) changes;
+
+		if (search_result_merge_changes(ctx, result, &changes))
+			(void)search_result_update_existing(result, &changes);
 	} T_END;
-	(void)search_result_update_appends(ctx, result);
+	(void)search_result_update_appends(ctx->ibox->view, ctx->messages_count,
+					   result);
 }
 
 void index_sync_search_results_update(struct index_mailbox_sync_context *ctx)
