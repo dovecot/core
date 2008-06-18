@@ -1065,7 +1065,7 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 	} else {
 		const struct mail_index_ext *ext;
 
-		ext = array_idx(&t->view->map->extensions, ext_id);
+		ext = array_idx(&t->view->map->extensions, intro.ext_id);
 		old_record_size = ext->record_size;
 		old_record_align = ext->record_align;
 	}
