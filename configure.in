@@ -429,9 +429,34 @@ dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsyslog writev pread \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
-	       strtoull strtoll strtoumax strtoimax strtouq strtoq \
+	       strtoull strtoll strtouq strtoq \
 	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \
 	       walkcontext dirfd clearenv malloc_usable_size)
+
+dnl strtoimax and strtoumax are macros in HP-UX, so inttypes.h must be included
+AC_MSG_CHECKING([for strtoimax])
+AC_TRY_COMPILE([
+  #include <inttypes.h>
+], [
+  strtoimax(0, 0, 0);
+], [
+  AC_DEFINE(HAVE_STRTOIMAX,, Define if you have strtoimax function)
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
+])
+
+AC_MSG_CHECKING([for strtoumax])
+AC_TRY_COMPILE([
+  #include <inttypes.h>
+], [
+  strtoumax(0, 0, 0);
+], [
+  AC_DEFINE(HAVE_STRTOUMAX,, Define if you have strtoumax function)
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
+])
 
 dnl * I/O loop function
 have_ioloop=no
