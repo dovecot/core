@@ -349,6 +349,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 		array_free(&ctx->flag_updates);
 	if (array_is_created(&ctx->hidden_updates))
 		array_free(&ctx->hidden_updates);
+	if (array_is_created(&ctx->all_flag_updates_merge))
+		array_free(&ctx->all_flag_updates_merge);
 	i_free(ctx);
 	return ret;
 }

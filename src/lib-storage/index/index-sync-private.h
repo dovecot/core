@@ -11,6 +11,7 @@ struct index_mailbox_sync_context {
 
 	ARRAY_TYPE(seq_range) flag_updates;
 	ARRAY_TYPE(seq_range) hidden_updates;
+	ARRAY_TYPE(seq_range) *all_flag_updates, all_flag_updates_merge;
 	const ARRAY_TYPE(seq_range) *expunges;
 	unsigned int flag_update_idx, hidden_update_idx, expunge_pos;
 
