@@ -446,6 +446,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	const struct mail_index_ext *ext;
 	const char *name, *error;
 	uint32_t ext_map_idx;
+	bool no_resize;
 
 	/* default to ignoring the following extension updates in case this
 	   intro is corrupted */
@@ -496,6 +497,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	ext_hdr.hdr_size = u->hdr_size;
 	ext_hdr.record_size = u->record_size;
 	ext_hdr.record_align = u->record_align;
+	no_resize = (u->flags & MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_RESIZE) != 0;
 
 	/* make sure the header looks valid before doing anything with it */
 	if (mail_index_map_ext_hdr_check(&map->hdr, &ext_hdr,
@@ -509,7 +511,8 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		/* exists already */
 		if (u->reset_id == ext->reset_id) {
 			/* check if we need to resize anything */
-			sync_ext_resize(u, ext_map_idx, ctx);
+			if (!no_resize)
+				sync_ext_resize(u, ext_map_idx, ctx);
 			ctx->cur_ext_ignore = FALSE;
 		} else {
 			/* extension was reset and this transaction hadn't

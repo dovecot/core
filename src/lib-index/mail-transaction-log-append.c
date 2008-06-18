@@ -264,6 +264,7 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 		intro->hdr_size = rext->hdr_size;
 		intro->record_size = rext->record_size;
 		intro->record_align = rext->record_align;
+		intro->flags = MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_RESIZE;
 		intro->name_size = idx != (uint32_t)-1 ? 0 :
 			strlen(rext->name);
 	}

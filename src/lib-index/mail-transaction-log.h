@@ -84,6 +84,11 @@ struct mail_transaction_header_update {
 	/* unsigned char data[]; */
 };
 
+enum {
+	/* Ignore hdr_size, record_size and record_align */
+	MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_RESIZE = 0x01
+};
+
 struct mail_transaction_ext_intro {
 	/* old extension: set ext_id. don't set name.
 	   new extension: ext_id = (uint32_t)-1. give name. */
@@ -92,7 +97,7 @@ struct mail_transaction_ext_intro {
 	uint32_t hdr_size;
 	uint16_t record_size;
 	uint16_t record_align;
-	uint16_t unused_padding;
+	uint16_t flags;
 	uint16_t name_size;
 	/* unsigned char name[]; */
 };
