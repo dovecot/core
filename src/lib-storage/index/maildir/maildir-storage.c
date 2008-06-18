@@ -341,7 +341,6 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
 		return -1;
 	}
-	st.st_atime = 0;
 
 	if (st.st_atime > st.st_ctime + MAILDIR_TMP_DELETE_SECS) {
 		/* the directory should be empty. we won't do anything
