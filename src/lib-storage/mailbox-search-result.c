@@ -33,24 +33,23 @@ mailbox_search_result_analyze_args(struct mail_search_result *result,
 }
 
 struct mail_search_result *
-mailbox_search_result_save(struct mail_search_context *ctx,
-			   enum mailbox_search_result_flags flags)
+mailbox_search_result_alloc(struct mailbox *box, struct mail_search_args *args,
+			    enum mailbox_search_result_flags flags)
 {
 	struct mail_search_result *result;
 
 	result = i_new(struct mail_search_result, 1);
-	result->box = ctx->transaction->box;
+	result->box = box;
 	result->flags = flags;
 	i_array_init(&result->uids, 32);
 	i_array_init(&result->never_uids, 128);
 
 	if ((result->flags & MAILBOX_SEARCH_RESULT_FLAG_UPDATE) != 0) {
-		result->search_args = ctx->args;
+		result->search_args = args;
 		mail_search_args_ref(result->search_args);
-		mailbox_search_result_analyze_args(result, ctx->args->args);
+		mailbox_search_result_analyze_args(result, args->args);
 	}
 
-	array_append(&ctx->results, &result, 1);
 	array_append(&result->box->search_results, &result, 1);
 	return result;
 }
@@ -82,6 +81,18 @@ void mailbox_search_result_free(struct mail_search_result **_result)
 		array_free(&result->added_uids);
 	}
 	i_free(result);
+}
+
+struct mail_search_result *
+mailbox_search_result_save(struct mail_search_context *ctx,
+			   enum mailbox_search_result_flags flags)
+{
+	struct mail_search_result *result;
+
+	result = mailbox_search_result_alloc(ctx->transaction->box,
+					     ctx->args, flags);
+	array_append(&ctx->results, &result, 1);
+	return result;
 }
 
 static void

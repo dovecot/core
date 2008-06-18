@@ -19,6 +19,10 @@ struct mail_search_result {
 	unsigned int args_have_modseq:1;
 };
 
+struct mail_search_result *
+mailbox_search_result_alloc(struct mailbox *box, struct mail_search_args *args,
+			    enum mailbox_search_result_flags flags);
+
 /* called when initial search is done. */
 void mailbox_search_results_initial_done(struct mail_search_context *ctx);
 
