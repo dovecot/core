@@ -95,8 +95,7 @@ mailbox_search_result_save(struct mail_search_context *ctx,
 	return result;
 }
 
-static void
-mailbox_search_result_initial_done(struct mail_search_result *result)
+void mailbox_search_result_initial_done(struct mail_search_result *result)
 {
 	if ((result->flags & MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC) != 0) {
 		i_array_init(&result->removed_uids, 32);

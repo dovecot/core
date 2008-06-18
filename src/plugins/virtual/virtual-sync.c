@@ -5,7 +5,10 @@
 #include "bsearch-insert-pos.h"
 #include "ioloop.h"
 #include "str.h"
+#include "mail-index-modseq.h"
 #include "mail-search-build.h"
+#include "mailbox-search-result-private.h"
+#include "index-search-result.h"
 #include "virtual-storage.h"
 
 #include <stdlib.h>
@@ -34,7 +37,11 @@ struct virtual_sync_context {
 	ARRAY_DEFINE(all_adds, struct virtual_add_record);
 	enum mailbox_sync_flags flags;
 	uint32_t uid_validity;
+
+	unsigned int ext_header_changed:1;
+	unsigned int ext_header_rewrite:1;
 	unsigned int expunge_removed:1;
+	unsigned int retry:1;
 };
 
 static void virtual_sync_set_uidvalidity(struct virtual_sync_context *ctx)
@@ -107,6 +114,192 @@ virtual_backend_box_sync_mail_unset(struct virtual_backend_box *bbox)
 		mail_free(&bbox->sync_mail);
 		(void)mailbox_transaction_commit(&trans);
 	}
+}
+
+static int bbox_mailbox_id_cmp(const void *p1, const void *p2)
+{
+	const struct virtual_backend_box *b1 = p1, *b2 = p2;
+
+	if (b1->mailbox_id < b2->mailbox_id)
+		return -1;
+	if (b1->mailbox_id > b2->mailbox_id)
+		return 1;
+	return 0;
+}
+
+static bool virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
+{
+	const struct virtual_mail_index_header *ext_hdr;
+	const struct mail_index_header *hdr;
+	const struct virtual_mail_index_mailbox_record *mailboxes;
+	struct virtual_backend_box *bbox, **bboxes;
+	const void *ext_data;
+	size_t ext_size;
+	unsigned int i, count, ext_name_offset, ext_mailbox_count;
+	uint32_t prev_mailbox_id;
+	bool ret;
+
+	hdr = mail_index_get_header(ctx->sync_view);
+	mail_index_get_header_ext(ctx->sync_view, ctx->mbox->virtual_ext_id,
+				  &ext_data, &ext_size);
+	ext_hdr = ext_data;
+	if (ctx->mbox->sync_initialized &&
+	    ctx->mbox->prev_uid_validity == hdr->uid_validity &&
+	    ext_size >= sizeof(*ext_hdr) &&
+	    ctx->mbox->prev_change_counter == ext_hdr->change_counter) {
+		/* fully refreshed */
+		return TRUE;
+	}
+
+	ctx->mbox->sync_initialized = TRUE;
+	ctx->mbox->prev_uid_validity = hdr->uid_validity;
+	if (ext_hdr == NULL) {
+		mailboxes = NULL;
+		ext_name_offset = 0;
+		ext_mailbox_count = 0;
+	} else {
+		ctx->mbox->prev_change_counter = ext_hdr->change_counter;
+		mailboxes = (const void *)(ext_hdr + 1);
+		ext_name_offset = sizeof(*ext_hdr) +
+			ext_hdr->mailbox_count * sizeof(*mailboxes);
+		if (ext_name_offset >= ext_size ||
+		    ext_hdr->mailbox_count > INT_MAX/sizeof(*mailboxes)) {
+			i_error("virtual %s: Broken mailbox_count header",
+				ctx->mbox->path);
+			ext_mailbox_count = 0;
+		} else {
+			ext_mailbox_count = ext_hdr->mailbox_count;
+		}
+	}
+
+	/* update mailbox backends */
+	prev_mailbox_id = 0;
+	for (i = 0; i < ext_mailbox_count; i++) {
+		if (mailboxes[i].id > ext_hdr->highest_mailbox_id ||
+		    mailboxes[i].id <= prev_mailbox_id) {
+			i_error("virtual %s: Broken mailbox id",
+				ctx->mbox->path);
+			break;
+		}
+		if (mailboxes[i].name_len == 0 ||
+		    mailboxes[i].name_len > ext_size) {
+			i_error("virtual %s: Broken mailbox name_len",
+				ctx->mbox->path);
+			break;
+		}
+		if (ext_name_offset + mailboxes[i].name_len > ext_size) {
+			i_error("virtual %s: Broken mailbox list",
+				ctx->mbox->path);
+			break;
+		}
+		T_BEGIN {
+			const unsigned char *nameptr;
+			const char *name;
+
+			nameptr = CONST_PTR_OFFSET(ext_data, ext_name_offset);
+			name = t_strndup(nameptr, mailboxes[i].name_len);
+			bbox = virtual_backend_box_lookup_name(ctx->mbox, name);
+		} T_END;
+		if (bbox == NULL) {
+			/* mailbox no longer exists */
+			ret = FALSE;
+		} else {
+			bbox->mailbox_id = mailboxes[i].id;
+			bbox->sync_uid_validity = mailboxes[i].uid_validity;
+			bbox->sync_highest_modseq = mailboxes[i].highest_modseq;
+			bbox->sync_next_uid = mailboxes[i].next_uid;
+			bbox->sync_mailbox_idx = i;
+		}
+		ext_name_offset += mailboxes[i].name_len;
+		prev_mailbox_id = mailboxes[i].id;
+	}
+	if (ext_hdr == NULL) {
+		ret = TRUE;
+		ctx->mbox->highest_mailbox_id = 0;
+	} else {
+		ret = i == ext_hdr->mailbox_count;
+		ctx->mbox->highest_mailbox_id = ext_hdr->highest_mailbox_id;
+	}
+
+	/* assign new mailbox IDs if any are missing */
+	bboxes = array_get_modifiable(&ctx->mbox->backend_boxes, &count);
+	for (i = 0; i < count; i++) {
+		if (bboxes[i]->mailbox_id == 0) {
+			bboxes[i]->mailbox_id = ++ctx->mbox->highest_mailbox_id;
+			ret = FALSE;
+		}
+	}
+	/* sort the backend mailboxes by mailbox_id. */
+	qsort(bboxes, count, sizeof(*bboxes), bbox_mailbox_id_cmp);
+	return ret;
+}
+
+static void virtual_sync_ext_header_rewrite(struct virtual_sync_context *ctx)
+{
+	struct virtual_mail_index_header ext_hdr;
+	struct virtual_mail_index_mailbox_record mailbox;
+	struct virtual_backend_box **bboxes;
+	buffer_t *buf;
+	const void *ext_data;
+	size_t ext_size;
+	unsigned int i, mailbox_pos, name_pos, count;
+
+	bboxes = array_get_modifiable(&ctx->mbox->backend_boxes, &count);
+	mailbox_pos = sizeof(ext_hdr);
+	name_pos = mailbox_pos + sizeof(mailbox) * count;
+
+	memset(&ext_hdr, 0, sizeof(ext_hdr));
+	memset(&mailbox, 0, sizeof(mailbox));
+
+	ext_hdr.change_counter = ++ctx->mbox->prev_change_counter;
+	ext_hdr.mailbox_count = count;
+	ext_hdr.highest_mailbox_id = ctx->mbox->highest_mailbox_id;
+
+	buf = buffer_create_dynamic(pool_datastack_create(), name_pos + 256);
+	buffer_append(buf, &ext_hdr, sizeof(ext_hdr));
+
+	for (i = 0; i < count; i++) {
+		i_assert(i == 0 ||
+			 bboxes[i]->mailbox_id > bboxes[i-1]->mailbox_id);
+
+		bboxes[i]->sync_mailbox_idx = i;
+		mailbox.id = bboxes[i]->mailbox_id;
+		mailbox.name_len = strlen(bboxes[i]->name);
+		mailbox.uid_validity = bboxes[i]->sync_uid_validity;
+		mailbox.highest_modseq = bboxes[i]->sync_highest_modseq;
+		mailbox.next_uid = bboxes[i]->sync_next_uid;
+		buffer_write(buf, mailbox_pos, &mailbox, sizeof(mailbox));
+		buffer_write(buf, name_pos, bboxes[i]->name, mailbox.name_len);
+
+		mailbox_pos += sizeof(mailbox);
+		name_pos += mailbox.name_len;
+	}
+	i_assert(buf->used == name_pos);
+
+	mail_index_get_header_ext(ctx->sync_view, ctx->mbox->virtual_ext_id,
+				  &ext_data, &ext_size);
+	if (ext_size < name_pos) {
+		mail_index_ext_resize(ctx->trans, ctx->mbox->virtual_ext_id,
+				      name_pos,
+				      sizeof(struct virtual_mail_index_record),
+				      sizeof(uint32_t));
+	}
+	mail_index_update_header_ext(ctx->trans, ctx->mbox->virtual_ext_id,
+				     0, buf->data, name_pos);
+}
+
+static void virtual_sync_ext_header_update(struct virtual_sync_context *ctx)
+{
+	struct virtual_mail_index_header ext_hdr;
+
+	if (!ctx->ext_header_changed)
+		return;
+
+	/* we changed something - update the change counter in header */
+	ext_hdr.change_counter = ++ctx->mbox->prev_change_counter;
+	mail_index_update_header_ext(ctx->trans, ctx->mbox->virtual_ext_id,
+		offsetof(struct virtual_mail_index_header, change_counter),
+		&ext_hdr.change_counter, sizeof(ext_hdr.change_counter));
 }
 
 static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
@@ -210,7 +403,7 @@ static void virtual_sync_index_changes(struct virtual_sync_context *ctx)
 		virtual_sync_index_rec(ctx, &sync_rec);
 }
 
-static void virtual_sync_index(struct virtual_sync_context *ctx)
+static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
 {
 	struct mailbox *box = &ctx->mbox->ibox.box;
 	const struct mail_index_header *hdr;
@@ -228,6 +421,13 @@ static void virtual_sync_index(struct virtual_sync_context *ctx)
 		index_mailbox_set_recent_seq(&ctx->mbox->ibox, ctx->sync_view,
 					     seq1, seq2);
 	}
+	if (ctx->ext_header_rewrite) {
+		/* entire mailbox list needs to be rewritten */
+		virtual_sync_ext_header_rewrite(ctx);
+	} else {
+		/* update only changed parts in the header */
+		virtual_sync_ext_header_update(ctx);
+	}
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
@@ -242,8 +442,6 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 	enum mailbox_search_result_flags result_flags;
 	int ret;
 
-	/* FIXME: build the initial search result from the saved view and
-	   sync beginning from the saved modseq */
 	trans = mailbox_transaction_begin(bbox->box, 0);
 	mail = mail_alloc(trans, 0, NULL);
 
@@ -272,7 +470,113 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 	return ret;
 }
 
-static int virtual_backend_uidmap_cmp(const void *key, const void *data)
+static int virtual_backend_uidmap_cmp(const void *p1, const void *p2)
+{
+	const struct virtual_backend_uidmap *u1 = p1, *u2 = p2;
+
+	if (u1->real_uid < u2->real_uid)
+		return -1;
+	if (u1->real_uid > u2->real_uid)
+		return 1;
+	return 0;
+}
+
+static void
+virtual_sync_backend_add_existing_uids(struct virtual_sync_context *ctx,
+				       struct virtual_backend_box *bbox,
+				       struct mail_search_result *result)
+{
+	struct virtual_backend_uidmap uidmap, *uids;
+	const struct virtual_mail_index_record *vrec;
+	const void *data;
+	uint32_t vseq, vuid, messages;
+	unsigned int uid_count;
+	bool expunged;
+
+	/* add the currently existing UIDs to uidmap. */
+	memset(&uidmap, 0, sizeof(uidmap));
+	array_clear(&bbox->uids);
+
+	messages = mail_index_view_get_messages_count(ctx->sync_view);
+	for (vseq = 1; vseq <= messages; vseq++) {
+		mail_index_lookup_uid(ctx->sync_view, vseq, &vuid);
+		mail_index_lookup_ext(ctx->sync_view, vseq,
+				      ctx->mbox->virtual_ext_id,
+				      &data, &expunged);
+		vrec = data;
+		if (vrec->mailbox_id == bbox->mailbox_id) {
+			seq_range_array_add(&result->uids, 0, vrec->real_uid);
+			uidmap.real_uid = vrec->real_uid;
+			uidmap.virtual_uid = vuid;
+			array_append(&bbox->uids, &uidmap, 1);
+		}
+	}
+
+	/* the uidmap must be sorted by real_uids */
+	uids = array_get_modifiable(&bbox->uids, &uid_count);
+	qsort(uids, uid_count, sizeof(*uids), virtual_backend_uidmap_cmp);
+}
+
+static void
+virtual_sync_backend_remove_expunged_uids(struct mail_search_result *result)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *)result->box;
+	const struct seq_range *range;
+	unsigned int i, count;
+	uint32_t seq, uid;
+
+	range = array_get(&result->uids, &count);
+	for (i = 0; i < count; i++) {
+		for (uid = range[i].seq1; uid <= range[i].seq2; uid++) {
+			if (!mail_index_lookup_seq(ibox->view, uid, &seq))
+				mailbox_search_result_remove(result, uid);
+		}
+	}
+}
+
+static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
+					     struct virtual_backend_box *bbox)
+{
+	const enum mailbox_search_result_flags result_flags =
+		MAILBOX_SEARCH_RESULT_FLAG_UPDATE |
+		MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC;
+	struct index_mailbox *ibox = (struct index_mailbox *)bbox->box;
+	struct mail_search_result *result;
+	ARRAY_TYPE(seq_range) flag_updates;
+	uint64_t modseq;
+	uint32_t seq, old_msg_count;
+
+	/* build the initial search result from the existing UIDs */
+	result = mailbox_search_result_alloc(bbox->box, bbox->search_args,
+					     result_flags);
+	mailbox_search_result_initial_done(result);
+	virtual_sync_backend_add_existing_uids(ctx, bbox, result);
+
+	/* changes done from now on must update the sync queue */
+	virtual_sync_backend_remove_expunged_uids(result);
+
+	/* get list of changed messages */
+	if (!mail_index_lookup_seq_range(ibox->view, 1, bbox->sync_next_uid-1,
+					 &seq, &old_msg_count))
+		old_msg_count = 0;
+	t_array_init(&flag_updates, I_MIN(128, old_msg_count));
+	for (seq = 1; seq <= old_msg_count; seq++) {
+		modseq = mail_index_modseq_lookup(ibox->view, seq);
+		if (modseq > bbox->sync_highest_modseq)
+			seq_range_array_add(&flag_updates, 0, seq);
+	}
+
+	if (index_search_result_update_flags(result, &flag_updates) < 0 ||
+	    index_search_result_update_appends(result, old_msg_count) < 0) {
+		mailbox_search_result_free(&result);
+		return -1;
+	}
+
+	bbox->search_result = result;
+	return 0;
+}
+
+static int virtual_backend_uidmap_bsearch_cmp(const void *key, const void *data)
 {
 	const uint32_t *uidp = key;
 	const struct virtual_backend_uidmap *uidmap = data;
@@ -302,11 +606,11 @@ virtual_sync_mailbox_box_remove(struct virtual_sync_context *ctx,
 	/* find the first uidmap record to be removed */
 	if (!bsearch_insert_pos(&uids[0].seq1, uidmap, rec_count,
 				sizeof(*uidmap),
-				virtual_backend_uidmap_cmp, &src))
+				virtual_backend_uidmap_bsearch_cmp, &src))
 		i_unreached();
 
 	/* remove the unwanted messages */
-	for (i = dest = 0; i < uid_count; i++) {
+	for (i = src = dest = 0; i < uid_count; i++) {
 		uid = uids[i].seq1;
 		while (uidmap[src].real_uid != uid) {
 			uidmap[dest++] = uidmap[src++];
@@ -345,12 +649,13 @@ virtual_sync_mailbox_box_add(struct virtual_sync_context *ctx,
 	/* none of added_uids should exist in bbox->uids. find the position
 	   of the first inserted index. */
 	uidmap = array_get_modifiable(&bbox->uids, &rec_count);
-	if (uids[0].seq1 > uidmap[rec_count-1].real_uid) {
+	if (rec_count == 0 || uids[0].seq1 > uidmap[rec_count-1].real_uid) {
 		/* fast path: usually messages are appended */
 		dest = rec_count;
 	} else if (bsearch_insert_pos(&uids[0].seq1, uidmap, rec_count,
 				      sizeof(*uidmap),
-				      virtual_backend_uidmap_cmp, &dest))
+				      virtual_backend_uidmap_bsearch_cmp,
+				      &dest))
 		i_unreached();
 
 	/* make space for all added UIDs. */
@@ -444,7 +749,7 @@ static bool virtual_sync_find_seqs(struct virtual_backend_box *bbox,
 	mail_index_lookup_uid(ibox->view, sync_rec->seq2, &uid2);
 	uidmap = array_get_modifiable(&bbox->uids, &count);
 	(void)bsearch_insert_pos(&uid1, uidmap, count, sizeof(*uidmap),
-				 virtual_backend_uidmap_cmp, &idx);
+				 virtual_backend_uidmap_bsearch_cmp, &idx);
 	if (idx == count || uidmap[idx].real_uid > uid2)
 		return FALSE;
 
@@ -497,27 +802,87 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 	return mailbox_sync_deinit(&sync_ctx, 0, NULL);
 }
 
+static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
+					    struct virtual_backend_box *bbox)
+{
+	const unsigned int uidval_pos =
+		offsetof(struct virtual_mail_index_mailbox_record,
+			 uid_validity);
+	struct mailbox_status status;
+	struct virtual_mail_index_mailbox_record mailbox;
+	unsigned int mailbox_offset;
+
+	mailbox_get_status(bbox->box, STATUS_UIDVALIDITY |
+			   STATUS_HIGHESTMODSEQ, &status);
+	if (bbox->sync_uid_validity == status.uidvalidity &&
+	    bbox->sync_next_uid == status.uidnext &&
+	    bbox->sync_highest_modseq == status.highest_modseq)
+		return;
+
+	/* mailbox changed - update extension header */
+	bbox->sync_uid_validity = status.uidvalidity;
+	bbox->sync_highest_modseq = status.highest_modseq;
+	bbox->sync_next_uid = status.uidnext;
+
+	if (!ctx->ext_header_rewrite) {
+		/* we'll rewrite the entire header later */
+		return;
+	}
+
+	memset(&mailbox, 0, sizeof(mailbox));
+	mailbox.uid_validity = bbox->sync_uid_validity;
+	mailbox.highest_modseq = bbox->sync_highest_modseq;
+	mailbox.next_uid = bbox->sync_next_uid;
+
+	mailbox_offset = sizeof(struct virtual_mail_index_header) +
+		bbox->sync_mailbox_idx * sizeof(mailbox);
+	mail_index_update_header_ext(ctx->trans, ctx->mbox->virtual_ext_id,
+				     mailbox_offset + uidval_pos,
+				     CONST_PTR_OFFSET(&mailbox, uidval_pos),
+				     sizeof(mailbox) - uidval_pos);
+	ctx->ext_header_changed = TRUE;
+}
+
 static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 				    struct virtual_backend_box *bbox)
 {
+	struct index_mailbox *ibox = (struct index_mailbox *)bbox->box;
 	enum mailbox_sync_flags sync_flags;
+	struct mailbox_status status;
 	int ret;
 
 	/* if we already did some changes to index, commit them before
 	   syncing starts. */
 	virtual_backend_box_sync_mail_unset(bbox);
+	/* we use modseqs for speeding up initial search result build.
+	   make sure the backend has them enabled. */
+	mail_index_modseq_enable(ibox->index);
 
 	sync_flags = ctx->flags & (MAILBOX_SYNC_FLAG_FULL_READ |
 				   MAILBOX_SYNC_FLAG_FULL_WRITE |
 				   MAILBOX_SYNC_FLAG_FAST);
 
 	if (bbox->search_result == NULL) {
-		/* initial sync, do a full search */
-		if (mailbox_sync(bbox->box, sync_flags, 0, NULL) < 0)
+		/* first sync in this process */
+		i_assert(ctx->expunge_removed);
+
+		if (mailbox_sync(bbox->box, sync_flags, STATUS_UIDVALIDITY,
+				 &status) < 0)
 			return -1;
 
 		virtual_backend_box_sync_mail_set(bbox);
-		ret = virtual_sync_backend_box_init(bbox);
+		if (status.uidvalidity != bbox->sync_uid_validity) {
+			/* UID validity changed since last sync (or this is
+			   the first sync), do a full search */
+			ret = virtual_sync_backend_box_init(bbox);
+		} else {
+			/* build the initial search using the saved modseq.
+			   we can't directly update the search result because
+			   uidmap isn't finished for all messages yet, so
+			   mark the sync to be retried. */
+			ret = virtual_sync_backend_box_continue(ctx, bbox);
+			ctx->retry = TRUE;
+		}
 	} else {
 		/* sync using the existing search result */
 		i_array_init(&ctx->sync_expunges, 32);
@@ -527,6 +892,8 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		} T_END;
 		array_free(&ctx->sync_expunges);
 	}
+
+	virtual_sync_backend_ext_header(ctx, bbox);
 	return ret;
 }
 
@@ -615,7 +982,7 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 			continue;
 
 		add_rec.rec.mailbox_id = bboxes[i]->mailbox_id;
-		uidmap = array_get_modifiable(&bbox->uids, &uidmap_count);
+		uidmap = array_get_modifiable(&bboxes[i]->uids, &uidmap_count);
 		for (j = 0; j < uidmap_count; j++) {
 			add_rec.rec.real_uid = uidmap[j].real_uid;
 			array_append(&ctx->all_adds, &add_rec, 1);
@@ -723,7 +1090,8 @@ static void virtual_sync_backend_add_new(struct virtual_sync_context *ctx)
 		uidmap = array_get_modifiable(&bbox->uids, &uid_count);
 		if (!bsearch_insert_pos(&vrec->real_uid, uidmap, uid_count,
 					sizeof(*uidmap),
-					virtual_backend_uidmap_cmp, &idx))
+					virtual_backend_uidmap_bsearch_cmp,
+					&idx))
 			i_unreached();
 		i_assert(uidmap[idx].virtual_uid == 0);
 		uidmap[idx].virtual_uid = first_uid + i;
@@ -813,12 +1181,21 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 		return ret;
 	}
 
-	/* update list of UIDs in mailboxes */
+	if (!virtual_sync_ext_header_read(ctx))
+		ctx->ext_header_rewrite = TRUE;
+	/* apply changes from virtual index to backend mailboxes */
 	virtual_sync_index_changes(ctx);
-	if (virtual_sync_backend_boxes(ctx) < 0)
+	/* update list of UIDs in backend mailboxes */
+	ret = virtual_sync_backend_boxes(ctx);
+	if (ctx->retry && ret == 0) {
+		ctx->retry = FALSE;
+		ret = virtual_sync_backend_boxes(ctx);
+		i_assert(!ctx->retry);
+	}
+	if (ret < 0)
 		return virtual_sync_finish(ctx, FALSE);
 
-	virtual_sync_index(ctx);
+	virtual_sync_index_finish(ctx);
 	return virtual_sync_finish(ctx, TRUE);
 }
 

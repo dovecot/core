@@ -17,7 +17,6 @@ struct virtual_parse_context {
 
 	pool_t pool;
 	string_t *rule;
-	unsigned int mailbox_id;
 	unsigned int rule_idx;
 };
 
@@ -99,7 +98,6 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 
 	/* new mailbox */
 	bbox = p_new(ctx->pool, struct virtual_backend_box, 1);
-	bbox->mailbox_id = ++ctx->mailbox_id;
 	bbox->name = p_strdup(ctx->pool, line);
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 	return 0;

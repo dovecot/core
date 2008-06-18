@@ -24,6 +24,7 @@ mailbox_search_result_alloc(struct mailbox *box, struct mail_search_args *args,
 			    enum mailbox_search_result_flags flags);
 
 /* called when initial search is done. */
+void mailbox_search_result_initial_done(struct mail_search_result *result);
 void mailbox_search_results_initial_done(struct mail_search_context *ctx);
 
 void mailbox_search_result_add(struct mail_search_result *result, uint32_t uid);

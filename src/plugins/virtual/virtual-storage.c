@@ -32,6 +32,7 @@ virtual_list_delete_mailbox(struct mailbox_list *list, const char *name);
 static int
 virtual_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 			     const char *dir, const char *fname,
+			     const char *mailbox_name,
 			     enum mailbox_list_file_type type,
 			     enum mailbox_info_flags *flags);
 
@@ -120,6 +121,20 @@ static int virtual_create(struct mail_storage *_storage, const char *data,
 }
 
 struct virtual_backend_box *
+virtual_backend_box_lookup_name(struct virtual_mailbox *mbox, const char *name)
+{
+	struct virtual_backend_box *const *bboxes;
+	unsigned int i, count;
+
+	bboxes = array_get(&mbox->backend_boxes, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(bboxes[i]->name, name) == 0)
+			return bboxes[i];
+	}
+	return NULL;
+}
+
+struct virtual_backend_box *
 virtual_backend_box_lookup(struct virtual_mailbox *mbox, uint32_t mailbox_id)
 {
 	struct virtual_backend_box *const *bboxes;
@@ -129,7 +144,7 @@ virtual_backend_box_lookup(struct virtual_mailbox *mbox, uint32_t mailbox_id)
 		return NULL;
 
 	bboxes = array_get(&mbox->backend_boxes, &count);
-	for (i = mailbox_id-1; i < count; i++) {
+	for (i = 0; i < count; i++) {
 		if (bboxes[i]->mailbox_id == mailbox_id)
 			return bboxes[i];
 	}
@@ -390,6 +405,7 @@ static int
 virtual_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 			     	ATTR_UNUSED,
 			     const char *dir, const char *fname,
+			     const char *mailbox_name ATTR_UNUSED,
 			     enum mailbox_list_file_type type,
 			     enum mailbox_info_flags *flags)
 {
