@@ -46,7 +46,7 @@ void restrict_fd_limit(unsigned int count)
 
 	rlim.rlim_cur = rlim.rlim_max = count;
 	if (setrlimit(RLIMIT_NOFILE, &rlim) < 0)
-		i_fatal("setrlimit(RLIMIT_NOFILE, %u): %m", count);
+		i_error("setrlimit(RLIMIT_NOFILE, %u): %m", count);
 #endif
 }
 
