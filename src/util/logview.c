@@ -272,6 +272,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		printf(" - hdr_size = %u\n", intro->hdr_size);
 		printf(" - record_size = %u\n", intro->record_size);
 		printf(" - record_align = %u\n", intro->record_align);
+		printf(" - flags = %u\n", intro->flags);
 		printf(" - name_size = %u\n", intro->name_size);
 		if (intro->name_size > 0) {
 			printf(" - name = '%.*s'\n",
