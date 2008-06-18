@@ -97,7 +97,7 @@ bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 	}
 
 	/* remove UIDs not in the wanted UIDs range */
-	seq_range_array_remove_invert_range(expunged_uids, uids);
+	seq_range_array_intersect(expunged_uids, uids);
 	mail_transaction_log_view_close(&log_view);
 	return TRUE;
 }

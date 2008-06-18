@@ -234,8 +234,7 @@ int fts_backend_filter(struct fts_backend *backend, const char *key,
 		} T_END;
 		/* keep only what exists in both lists. the rest is in
 		   maybies or not wanted */
-		seq_range_array_remove_invert_range(definite_uids,
-						    &tmp_definite);
+		seq_range_array_intersect(definite_uids, &tmp_definite);
 	}
 	array_free(&tmp_maybe);
 	array_free(&tmp_definite);

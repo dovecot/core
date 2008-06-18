@@ -26,10 +26,11 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 					  uint32_t seq1, uint32_t seq2);
 unsigned int seq_range_array_remove_seq_range(ARRAY_TYPE(seq_range) *dest,
 					      const ARRAY_TYPE(seq_range) *src);
-/* Remove sequences from dest that don't exist in src. */
+/* Remove sequences from dest that don't exist in src.
+   Returns the number of sequences actually removed. */
 unsigned int
-seq_range_array_remove_invert_range(ARRAY_TYPE(seq_range) *dest,
-				    const ARRAY_TYPE(seq_range) *src);
+seq_range_array_intersect(ARRAY_TYPE(seq_range) *dest,
+			  const ARRAY_TYPE(seq_range) *src);
 /* Returns TRUE if sequence exists in the range. */
 bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq);
 /* Return number of sequences in the range. */

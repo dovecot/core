@@ -281,8 +281,8 @@ unsigned int seq_range_array_remove_seq_range(ARRAY_TYPE(seq_range) *dest,
 }
 
 unsigned int
-seq_range_array_remove_invert_range(ARRAY_TYPE(seq_range) *dest,
-				    const ARRAY_TYPE(seq_range) *src)
+seq_range_array_intersect(ARRAY_TYPE(seq_range) *dest,
+			  const ARRAY_TYPE(seq_range) *src)
 {
 	const struct seq_range *src_range;
 	unsigned int i, count, ret = 0;

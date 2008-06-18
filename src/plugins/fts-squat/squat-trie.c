@@ -1900,8 +1900,8 @@ squat_trie_lookup_partial(struct squat_trie_lookup_context *ctx,
 		} else {
 			squat_trie_filter_type(ctx->type, &ctx->tmp_uids,
 					       &ctx->tmp_uids2);
-			seq_range_array_remove_invert_range(ctx->maybe_uids,
-							    &ctx->tmp_uids2);
+			seq_range_array_intersect(ctx->maybe_uids,
+						  &ctx->tmp_uids2);
 		}
 		i += char_lengths[i];
 		char_idx++;
