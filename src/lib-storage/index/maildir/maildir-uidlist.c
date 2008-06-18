@@ -1022,6 +1022,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	iter->next += first_idx;
 
 	while (maildir_uidlist_iter_next_rec(iter, &rec)) {
+		uidlist->read_records_count++;
 		str_truncate(str, 0);
 		str_printfa(str, "%u", rec->uid);
 		if (rec->extensions != NULL) {
@@ -1101,6 +1102,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		}
 	}
 
+	uidlist->read_records_count = 0;
 	ret = maildir_uidlist_write_fd(uidlist, fd, temp_path, 0, &file_size);
 	if (ret == 0) {
 		if (rename(temp_path, uidlist->path) < 0) {
@@ -1155,10 +1157,19 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 	return ret;
 }
 
+static bool maildir_uidlist_want_compress(struct maildir_uidlist_sync_ctx *ctx)
+{
+	unsigned int min_rewrite_count;
+
+	min_rewrite_count =
+		(ctx->uidlist->read_records_count + ctx->new_files_count) *
+		UIDLIST_COMPRESS_PERCENTAGE / 100;
+	return min_rewrite_count >= array_count(&ctx->uidlist->records);
+}
+
 static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
-	unsigned int min_rewrite_count;
 
 	if (!uidlist->initial_read)
 		return FALSE;
@@ -1168,10 +1179,7 @@ static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
 	    ctx->finish_change_counter != uidlist->change_counter)
 		return TRUE;
 
-	min_rewrite_count =
-		(uidlist->read_records_count + ctx->new_files_count) *
-		UIDLIST_COMPRESS_PERCENTAGE / 100;
-	return min_rewrite_count >= array_count(&uidlist->records);
+	return maildir_uidlist_want_compress(ctx);
 }
 
 static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
@@ -1570,7 +1578,8 @@ void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 	ctx->uidlist->initial_sync = TRUE;
 
 	i_assert(ctx->locked || !ctx->changed);
-	if ((ctx->changed || ctx->uidlist->recreate) &&
+	if ((ctx->changed || ctx->uidlist->recreate ||
+	     maildir_uidlist_want_compress(ctx)) &&
 	    !ctx->failed && ctx->locked) T_BEGIN {
 		if (maildir_uidlist_sync_update(ctx) < 0)
 			ctx->failed = TRUE;
