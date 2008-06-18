@@ -10,10 +10,10 @@ struct mail_index_transaction_keyword_update {
 };
 
 struct mail_index_transaction_ext_hdr_update {
-	uint32_t ext_id;
-	uint16_t offset;
-	uint16_t size;
-	/* unsigned char data[]; */
+	size_t alloc_size;
+	/* mask is in bytes, not bits */
+	unsigned char *mask;
+	unsigned char *data;
 };
 
 struct mail_index_transaction_vfuncs {
@@ -48,7 +48,7 @@ struct mail_index_transaction {
 	unsigned char post_hdr_mask[sizeof(struct mail_index_header)];
 
 	ARRAY_DEFINE(ext_hdr_updates,
-		     struct mail_index_transaction_ext_hdr_update *);
+		     struct mail_index_transaction_ext_hdr_update);
 	ARRAY_DEFINE(ext_rec_updates, ARRAY_TYPE(seq_array));
 	ARRAY_DEFINE(ext_resizes, struct mail_transaction_ext_intro);
 	ARRAY_DEFINE(ext_resets, struct mail_transaction_ext_reset);
