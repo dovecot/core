@@ -294,12 +294,14 @@ log_append_ext_hdr_update(struct log_append_context *ctx,
 	buffer_t *buf;
 	unsigned int hdr_size;
 
-	hdr_size = sizeof(*trans_hdr) + hdr->size;
+	hdr_size = sizeof(*trans_hdr) + hdr->size + 4;
 	buf = buffer_create_static_hard(pool_datastack_create(), hdr_size);
 	trans_hdr = buffer_append_space_unsafe(buf, sizeof(*trans_hdr));
 	trans_hdr->offset = hdr->offset;
 	trans_hdr->size = hdr->size;
 	buffer_append(buf, hdr + 1, hdr->size);
+	if (buf->used % 4 != 0)
+		buffer_append_zero(buf, 4 - buf->used % 4);
 	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_EXT_HDR_UPDATE);
 }
 
