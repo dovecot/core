@@ -174,12 +174,12 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 	const struct mail_index_header *hdr;
 	uint32_t seq;
 	int trailer_size;
-	bool ret;
+	int ret = 1;
 
 	hdr = mail_index_get_header(mail->trans->trans_view);
 	if (mail->mail.mail.seq > hdr->messages_count) {
 		/* we're appending a new message */
-		return FALSE;
+		return 0;
 	}
 
 	/* We can't really trust trans_view. The next message may already be
@@ -198,10 +198,10 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 		trailer_size = (mbox->storage->storage.flags &
 				MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ? 2 : 1;
 		*next_offset_r = hdr->sync_size - trailer_size;
-		ret = TRUE;
 	} else {
-		ret = mbox_file_lookup_offset(mbox, view, seq + 1,
-					      next_offset_r) > 0;
+		if (mbox_file_lookup_offset(mbox, view, seq + 1,
+					    next_offset_r) <= 0)
+			ret = -1;
 	}
 	mail_index_view_close(&view);
 	return ret;
@@ -234,7 +234,7 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 	/* use the next message's offset to avoid reading through the entire
 	   message body to find out its size */
-	if (mbox_mail_get_next_offset(mail, &next_offset))
+	if (mbox_mail_get_next_offset(mail, &next_offset) > 0)
 		body_size = next_offset - body_offset;
 	else
 		body_size = (uoff_t)-1;
@@ -255,20 +255,24 @@ static int mbox_mail_init_stream(struct index_mail *mail)
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 	struct istream *raw_stream;
 	uoff_t hdr_offset, next_offset;
+	int ret;
 
 	if (mbox_mail_seek(mail) < 0)
 		return -1;
 
-	if (!mbox_mail_get_next_offset(mail, &next_offset)) {
+	ret = mbox_mail_get_next_offset(mail, &next_offset);
+	if (ret < 0) {
 		if (mbox_mail_seek(mail) < 0)
 			return -1;
-		if (!mbox_mail_get_next_offset(mail, &next_offset)) {
+		ret = mbox_mail_get_next_offset(mail, &next_offset);
+		if (ret < 0) {
 			i_warning("mbox %s: Can't find next message offset "
 				  "for uid=%u",
 				  mbox->path, mail->mail.mail.uid);
-			next_offset = (uoff_t)-1;
 		}
 	}
+	if (ret <= 0)
+		next_offset = (uoff_t)-1;
 
 	raw_stream = mbox->mbox_stream;
 	hdr_offset = istream_raw_mbox_get_header_offset(raw_stream);
