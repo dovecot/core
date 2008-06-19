@@ -8,6 +8,7 @@
 #include "restrict-access.h"
 #include "env-util.h"
 
+#include <stdio.h> /* for AIX */
 #include <stdlib.h>
 #include <time.h>
 #include <grp.h>
