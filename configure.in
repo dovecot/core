@@ -17,7 +17,7 @@ AM_ICONV
 
 AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
-  sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h \
+  sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h sys/fs/quota_common.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
   xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h malloc_np.h)
 

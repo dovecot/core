@@ -14,6 +14,9 @@
 #  include <ufs/ufs/quota.h> /* BSDs */
 #elif defined(HAVE_JFS_QUOTA_H)
 #  include <jfs/quota.h> /* AIX */
+#  ifdef HAVE_SYS_FS_QUOTA_COMMON_H
+#    include <sys/fs/quota_common.h> /* quotactl() */
+#  endif
 #else
 #  undef HAVE_FS_QUOTA
 #endif
