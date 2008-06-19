@@ -194,8 +194,9 @@ fts_backend_squat_expunge(struct fts_backend *_backend ATTR_UNUSED,
 }
 
 static void
-fts_backend_squat_expunge_finish(struct fts_backend *_backend,
-				 struct mailbox *box, bool committed)
+fts_backend_squat_expunge_finish(struct fts_backend *_backend ATTR_UNUSED,
+				 struct mailbox *box ATTR_UNUSED,
+				 bool committed ATTR_UNUSED)
 {
 	/* FIXME */
 }
