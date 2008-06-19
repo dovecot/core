@@ -654,9 +654,11 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 
-	/* make sure everything is written */
-	if (o_stream_flush(ctx->output) < 0)
-		return write_error(ctx);
+	if (ctx->output != NULL) {
+		/* make sure everything is written */
+		if (o_stream_flush(ctx->output) < 0)
+			return write_error(ctx);
+	}
 
 	ctx->finished = TRUE;
 	if (!ctx->failed) {
