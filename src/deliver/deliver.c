@@ -410,6 +410,9 @@ static void config_file_init(const char *path)
 					key = t_strdup_printf("NAMESPACE_%u_%s",
 							      ns_idx, key);
 				}
+			} else {
+				/* unwanted section */
+				continue;
 			}
 		}
 
