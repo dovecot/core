@@ -149,7 +149,8 @@ keywords_append(struct mbox_sync_context *sync_ctx, string_t *dest,
 }
 
 static void
-keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest)
+keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest,
+		    size_t startpos)
 {
 	const char *const *names;
 	const unsigned char *p;
@@ -157,8 +158,8 @@ keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest)
 	size_t last_break;
 
 	p = str_data(dest);
-	if (str_len(dest) < KEYWORD_WRAP_LINE_LENGTH)
-		last_break = 0;
+	if (str_len(dest) - startpos < KEYWORD_WRAP_LINE_LENGTH)
+		last_break = startpos;
 	else {
 		/* set last_break to beginning of line */
 		for (last_break = str_len(dest); last_break > 0; last_break--) {
@@ -182,7 +183,7 @@ keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest)
 
 static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 {
-	size_t old_hdr_size, new_hdr_size;
+	size_t old_hdr_size, new_hdr_size, startpos;
 
 	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
 	new_hdr_size = str_len(ctx->header);
@@ -199,6 +200,9 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 
 		str_append(ctx->header, "X-IMAPbase: ");
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
+		/* startpos must start from identical position as when
+		   updating */
+		startpos = str_len(ctx->header);
 		str_printfa(ctx->header, "%u ",
 			    ctx->sync_ctx->base_uid_validity);
 
@@ -208,7 +212,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		ctx->imapbase_updated = TRUE;
 		str_printfa(ctx->header, "%010u", ctx->last_uid_updated_value);
 
-		keywords_append_all(ctx, ctx->header);
+		keywords_append_all(ctx, ctx->header, startpos);
 		str_append_c(ctx->header, '\n');
 	}
 
@@ -355,7 +359,7 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	ctx->imapbase_updated = TRUE;
 	str_printfa(str, "%010u", ctx->last_uid_updated_value);
 
-	keywords_append_all(ctx, str);
+	keywords_append_all(ctx, str, 0);
 	str_append_c(str, '\n');
 
         mbox_sync_update_line(ctx, ctx->hdr_pos[MBOX_HDR_X_IMAPBASE], str);
