@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #define _GNU_SOURCE /* setresgid() */
+#include <stdio.h> /* for AIX */
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -8,7 +9,6 @@
 #include "restrict-access.h"
 #include "env-util.h"
 
-#include <stdio.h> /* for AIX */
 #include <stdlib.h>
 #include <time.h>
 #include <grp.h>
