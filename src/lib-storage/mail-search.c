@@ -61,6 +61,7 @@ mail_search_args_init_sub(struct mail_search_args *args,
 			  bool change_uidsets,
 			  const ARRAY_TYPE(seq_range) *search_saved_uidset)
 {
+	struct mail_search_args *thread_args;
 	const char *keywords[2];
 
 	for (; arg != NULL; arg = arg->next) {
@@ -85,6 +86,23 @@ mail_search_args_init_sub(struct mail_search_args *args,
 							      keywords);
 			break;
 
+		case SEARCH_INTHREAD:
+			thread_args = arg->value.search_args;
+			if (thread_args == NULL) {
+				arg->value.search_args = thread_args =
+					p_new(args->pool,
+					      struct mail_search_args, 1);
+				thread_args->pool = args->pool;
+				thread_args->args = arg->value.subargs;
+				thread_args->charset = args->charset;
+				thread_args->simplified = TRUE;
+				/* simplification should have unnested all
+				   inthreads, so we'll assume that
+				   have_inthreads=FALSE */
+			}
+			thread_args->refcount++;
+			thread_args->box = args->box;
+			/* fall through */
 		case SEARCH_SUB:
 		case SEARCH_OR:
 			mail_search_args_init_sub(args, arg->value.subargs,
@@ -124,6 +142,16 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 				break;
 			mailbox_keywords_free(args->box, &arg->value.keywords);
 			break;
+		case SEARCH_INTHREAD:
+			i_assert(arg->value.search_args->refcount > 0);
+			arg->value.search_args->refcount--;
+			arg->value.search_args->box = NULL;
+			if (args->refcount == 0 &&
+			    arg->value.search_result != NULL) {
+				mailbox_search_result_free(
+					&arg->value.search_result);
+			}
+			/* fall through */
 		case SEARCH_SUB:
 		case SEARCH_OR:
 			mail_search_args_deinit_sub(args, arg->value.subargs);
@@ -164,6 +192,7 @@ static void mail_search_args_seq2uid_sub(struct mail_search_args *args,
 			break;
 		case SEARCH_SUB:
 		case SEARCH_OR:
+		case SEARCH_INTHREAD:
 			mail_search_args_seq2uid_sub(args, arg->value.subargs,
 						     uids);
 			break;
@@ -445,9 +474,11 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 			continue;
 		}
 
-		if (args->type == SEARCH_SUB || args->type == SEARCH_OR) {
+		if (args->type == SEARCH_SUB ||
+		    args->type == SEARCH_OR ||
+		    args->type == SEARCH_INTHREAD) {
 			mail_search_args_simplify_sub(args->value.subargs,
-						      args->type == SEARCH_SUB);
+						      args->type != SEARCH_OR);
 		}
 
 		/* merge all flags arguments */
@@ -507,8 +538,80 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 	}
 }
 
+static bool
+mail_search_args_unnest_inthreads(struct mail_search_args *args,
+				  struct mail_search_arg **argp,
+				  bool parent_inthreads, bool parent_and)
+{
+	struct mail_search_arg *arg, *thread_arg, *or_arg;
+	bool child_inthreads = FALSE, non_inthreads = FALSE;
+
+	for (arg = *argp; arg != NULL; arg = arg->next) {
+		switch (arg->type) {
+		case SEARCH_SUB:
+		case SEARCH_OR:
+			if (!mail_search_args_unnest_inthreads(args,
+					&arg->value.subargs, parent_inthreads,
+					arg->type != SEARCH_OR)) {
+				arg->result = 1;
+				child_inthreads = TRUE;
+			} else {
+				arg->result = 0;
+				non_inthreads = TRUE;
+			}
+			break;
+		case SEARCH_INTHREAD:
+			if (mail_search_args_unnest_inthreads(args,
+					&arg->value.subargs, TRUE, TRUE)) {
+				/* children converted to SEARCH_INTHREADs */
+				arg->type = SEARCH_SUB;
+			}
+			args->have_inthreads = TRUE;
+			arg->result = 1;
+			child_inthreads = TRUE;
+			break;
+		default:
+			arg->result = 0;
+			non_inthreads = TRUE;
+			break;
+		}
+	}
+
+	if (!parent_inthreads || !child_inthreads || !non_inthreads)
+		return FALSE;
+
+	/* put all non-INTHREADs under a single INTHREAD */
+	thread_arg = p_new(args->pool, struct mail_search_arg, 1);
+	thread_arg->type = SEARCH_INTHREAD;
+
+	while (*argp != NULL) {
+		arg = *argp;
+		argp = &(*argp)->next;
+
+		if (arg->result == 0) {
+			/* not an INTHREAD or a SUB/OR with only INTHREADs */
+			arg->next = thread_arg->value.subargs;
+			thread_arg->value.subargs = arg;
+		}
+	}
+	if (!parent_and) {
+		/* We want to OR the args */
+		or_arg = p_new(args->pool, struct mail_search_arg, 1);
+		or_arg->type = SEARCH_OR;
+		or_arg->value.subargs = thread_arg->value.subargs;
+		thread_arg->value.subargs = or_arg;
+	}
+	return TRUE;
+}
+
 void mail_search_args_simplify(struct mail_search_args *args)
 {
 	args->simplified = TRUE;
+
 	mail_search_args_simplify_sub(args->args, TRUE);
+	if (mail_search_args_unnest_inthreads(args, &args->args,
+					      FALSE, TRUE)) {
+		/* we may have added some extra SUBs that could be dropped */
+		mail_search_args_simplify_sub(args->args, TRUE);
+	}
 }

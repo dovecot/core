@@ -374,6 +374,31 @@ static bool search_arg_build(struct search_build_data *data,
 			return ARG_NEW_HEADER(SEARCH_HEADER, key);
 		}
 		break;
+	case 'I':
+		if (strcmp(str, "INTHREAD") == 0) {
+			/* <algorithm> <search key> */
+			enum mail_thread_type thread_type;
+			const char *str;
+
+			if ((*args)->type != IMAP_ARG_ATOM) {
+				data->error = "Invalid parameter for INTHREAD";
+				return FALSE;
+			}
+
+			str = IMAP_ARG_STR_NONULL(*args);
+			if (!mail_thread_type_parse(str, &thread_type)) {
+				data->error = "Unknown thread algorithm";
+				return FALSE;
+			}
+			*args += 1;
+
+			*next_sarg = search_arg_new(data->pool,
+						    SEARCH_INTHREAD);
+			(*next_sarg)->value.thread_type = thread_type;
+			subargs = &(*next_sarg)->value.subargs;
+			return search_arg_build(data, args, subargs);
+		}
+		break;
 	case 'K':
 		if (strcmp(str, "KEYWORD") == 0) {
 			return ARG_NEW_STR(SEARCH_KEYWORDS);

@@ -3,6 +3,7 @@
 
 #include "seq-range-array.h"
 #include "mail-types.h"
+#include "mail-thread.h"
 
 enum mail_search_arg_type {
 	SEARCH_OR,
@@ -41,7 +42,8 @@ enum mail_search_arg_type {
 	SEARCH_TEXT_FAST,
 
 	/* extensions */
-	SEARCH_MODSEQ
+	SEARCH_MODSEQ,
+	SEARCH_INTHREAD
 };
 
 enum mail_search_arg_flag {
@@ -72,9 +74,12 @@ struct mail_search_arg {
 		time_t time;
 		uoff_t size;
 		enum mail_flags flags;
+		enum mail_search_arg_flag search_flags;
+		enum mail_thread_type thread_type;
 		struct mail_keywords *keywords;
 		struct mail_search_modseq *modseq;
-		enum mail_search_arg_flag search_flags;
+		struct mail_search_args *search_args;
+		struct mail_search_result *search_result;
 	} value;
 
         void *context;

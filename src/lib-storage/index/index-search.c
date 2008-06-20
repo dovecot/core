@@ -34,6 +34,7 @@ struct index_search_context {
 	uint32_t seq1, seq2;
 	struct mail *mail;
 	struct index_mail *imail;
+	struct mail_thread_context *thread_ctx;
 
 	const char *error;
 
@@ -77,6 +78,7 @@ static void search_init_arg(struct mail_search_arg *arg,
 		ctx->have_seqsets = TRUE;
 		break;
 	case SEARCH_UIDSET:
+	case SEARCH_INTHREAD:
 	case SEARCH_FLAGS:
 	case SEARCH_KEYWORDS:
 	case SEARCH_MODSEQ:
@@ -140,6 +142,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 
 	switch (arg->type) {
 	case SEARCH_UIDSET:
+	case SEARCH_INTHREAD:
 		return seq_range_exists(&arg->value.seqset, rec->uid);
 	case SEARCH_FLAGS:
 		/* recent flag shouldn't be set, but indexes from v1.0.x
@@ -858,6 +861,96 @@ static void search_get_seqset(struct index_search_context *ctx,
 	}
 }
 
+static int search_build_subthread(struct mail_thread_iterate_context *iter,
+				  ARRAY_TYPE(seq_range) *uids)
+{
+	struct mail_thread_iterate_context *child_iter;
+	const struct mail_thread_child_node *node;
+	int ret = 0;
+
+	while ((node = mail_thread_iterate_next(iter, &child_iter)) != NULL) {
+		if (child_iter != NULL) {
+			if (search_build_subthread(child_iter, uids) < 0)
+				ret = -1;
+		}
+		seq_range_array_add(uids, 0, node->uid);
+	}
+	if (mail_thread_iterate_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
+}
+
+static int search_build_inthread_result(struct index_search_context *ctx,
+					struct mail_search_arg *arg)
+{
+	struct mail_thread_iterate_context *iter, *child_iter;
+	const struct mail_thread_child_node *node;
+	const ARRAY_TYPE(seq_range) *search_uids;
+	ARRAY_TYPE(seq_range) thread_uids;
+	int ret;
+
+	p_array_init(&arg->value.seqset, ctx->mail_ctx.args->pool, 64);
+	if (mailbox_search_result_build(ctx->mail_ctx.transaction,
+					arg->value.search_args,
+					MAILBOX_SEARCH_RESULT_FLAG_UPDATE |
+					MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC,
+					&arg->value.search_result) < 0)
+		return -1;
+	if (ctx->thread_ctx == NULL) {
+		/* failed earlier */
+		return -1;
+	}
+
+	search_uids = mailbox_search_result_get(arg->value.search_result);
+	if (array_count(search_uids) == 0) {
+		/* search found nothing - no threads can match */
+		return 0;
+	}
+
+	t_array_init(&thread_uids, 128);
+	iter = mail_thread_iterate_init(ctx->thread_ctx,
+					arg->value.thread_type, FALSE);
+	while ((node = mail_thread_iterate_next(iter, &child_iter)) != NULL) {
+		seq_range_array_add(&thread_uids, 0, node->uid);
+		if (child_iter != NULL) {
+			if (search_build_subthread(child_iter,
+						   &thread_uids) < 0)
+				ret = -1;
+		}
+		if (seq_range_array_have_common(&thread_uids, search_uids)) {
+			/* yes, we want this thread */
+			seq_range_array_merge(&arg->value.seqset, &thread_uids);
+		}
+		array_clear(&thread_uids);
+	}
+	if (mail_thread_iterate_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
+}
+
+static int search_build_inthreads(struct index_search_context *ctx,
+				  struct mail_search_arg *arg)
+{
+	int ret = 0;
+
+	for (; arg != NULL; arg = arg->next) {
+		switch (arg->type) {
+		case SEARCH_OR:
+		case SEARCH_SUB:
+			if (search_build_inthreads(ctx, arg->value.subargs) < 0)
+				ret = -1;
+			break;
+		case SEARCH_INTHREAD:
+			if (search_build_inthread_result(ctx, arg) < 0)
+				ret = -1;
+			break;
+		default:
+			break;
+		}
+	}
+	return ret;
+}
+
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *_t,
 			  struct mail_search_args *args,
@@ -879,6 +972,13 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 		     sizeof(void *), 5);
 
 	mail_search_args_reset(ctx->mail_ctx.args->args, TRUE);
+	if (args->have_inthreads) {
+		if (mail_thread_init(_t->box, FALSE, NULL,
+				     &ctx->thread_ctx) < 0)
+			ctx->failed = TRUE;
+		if (search_build_inthreads(ctx, args->args) < 0)
+			ctx->failed = TRUE;
+	}
 
 	search_get_seqset(ctx, args->args);
 	(void)mail_search_args_foreach(args->args, search_init_arg, ctx);
@@ -917,6 +1017,8 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 
 	if (ctx->mail_ctx.sort_program != NULL)
 		index_sort_program_deinit(&ctx->mail_ctx.sort_program);
+	if (ctx->thread_ctx != NULL)
+		mail_thread_deinit(&ctx->thread_ctx);
 	array_free(&ctx->mail_ctx.results);
 	array_free(&ctx->mail_ctx.module_contexts);
 	i_free(ctx);
@@ -1001,6 +1103,7 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_FLAGS:
 	case SEARCH_KEYWORDS:
 	case SEARCH_MODSEQ:
+	case SEARCH_INTHREAD:
 		break;
 	case SEARCH_ALL:
 	case SEARCH_UIDSET:
