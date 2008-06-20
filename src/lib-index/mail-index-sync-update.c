@@ -556,6 +556,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			ret = -1;
 			break;
 		}
+		memset(&rec, 0, sizeof(rec));
 		memcpy(&rec, data, I_MIN(hdr->size, sizeof(rec)));
 		ret = mail_index_sync_ext_reset(ctx, &rec);
 		break;
