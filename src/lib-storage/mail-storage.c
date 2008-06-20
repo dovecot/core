@@ -686,6 +686,27 @@ int mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	return ret;
 }
 
+int mailbox_search_result_build(struct mailbox_transaction_context *t,
+				struct mail_search_args *args,
+				enum mailbox_search_result_flags flags,
+				struct mail_search_result **result_r)
+{
+	struct mail_search_context *ctx;
+	struct mail *mail;
+	int ret;
+
+	ctx = mailbox_search_init(t, args, NULL);
+	*result_r = mailbox_search_result_save(ctx, flags);
+	mail = mail_alloc(t, 0, NULL);
+	while (mailbox_search_next(ctx, mail) > 0) ;
+	mail_free(&mail);
+
+	ret = mailbox_search_deinit(&ctx);
+	if (ret < 0)
+		mailbox_search_result_free(result_r);
+	return ret;
+}
+
 struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags)

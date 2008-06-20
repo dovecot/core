@@ -416,6 +416,11 @@ mailbox_search_result_save(struct mail_search_context *ctx,
 			   enum mailbox_search_result_flags flags);
 /* Free memory used by search result. */
 void mailbox_search_result_free(struct mail_search_result **result);
+/* A simplified API for searching and saving the result. */
+int mailbox_search_result_build(struct mailbox_transaction_context *t,
+				struct mail_search_args *args,
+				enum mailbox_search_result_flags flags,
+				struct mail_search_result **result_r);
 /* Return all messages' UIDs in the search result. */
 const ARRAY_TYPE(seq_range) *
 mailbox_search_result_get(struct mail_search_result *result);
