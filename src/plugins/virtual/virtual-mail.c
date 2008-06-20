@@ -225,6 +225,10 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
+	if (field == MAIL_FETCH_MAILBOX_NAME) {
+		*value_r = vmail->backend_mail->box->name;
+		return 0;
+	}
 	return mail_get_special(vmail->backend_mail, field, value_r);
 }
 

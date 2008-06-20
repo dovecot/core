@@ -198,6 +198,7 @@ static void search_index_arg(struct mail_search_arg *arg,
 static int search_arg_match_cached(struct index_search_context *ctx,
 				   struct mail_search_arg *arg)
 {
+	const char *str;
 	struct tm *tm;
 	uoff_t virtual_size;
 	time_t date;
@@ -266,6 +267,14 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		else
 			return virtual_size > arg->value.size;
 
+	case SEARCH_MAILBOX:
+		if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME,
+				     &str) < 0)
+			return -1;
+
+		if (strcasecmp(str, "INBOX") == 0)
+			return strcasecmp(arg->value.str, "INBOX") == 0;
+		return strcmp(str, arg->value.str) == 0;
 	default:
 		return -1;
 	}
@@ -1122,6 +1131,7 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_TEXT:
 	case SEARCH_BODY_FAST:
 	case SEARCH_TEXT_FAST:
+	case SEARCH_MAILBOX:
 		return TRUE;
 	}
 	return FALSE;

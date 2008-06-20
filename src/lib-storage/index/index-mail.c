@@ -1019,6 +1019,9 @@ int index_mail_get_special(struct mail *_mail,
 		}
 		*value_r = binary_to_hex(ext_data, 16);
 		return 0;
+	case MAIL_FETCH_MAILBOX_NAME:
+		*value_r = _mail->box->name;
+		return 0;
 	default:
 		i_unreached();
 		return -1;

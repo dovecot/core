@@ -11,6 +11,7 @@
 #include "imap-date.h"
 #include "mail-search-build.h"
 #include "commands.h"
+#include "imap-quote.h"
 #include "imap-fetch.h"
 #include "imap-util.h"
 
@@ -21,7 +22,8 @@
 #define ENVELOPE_NIL_REPLY \
 	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
-const struct imap_fetch_handler default_handlers[8];
+#define IMAP_FETCH_HANDLER_COUNT 9
+const struct imap_fetch_handler default_handlers[IMAP_FETCH_HANDLER_COUNT];
 static buffer_t *fetch_handlers = NULL;
 
 static int imap_fetch_handler_cmp(const void *p1, const void *p2)
@@ -775,7 +777,29 @@ fetch_uid_init(struct imap_fetch_context *ctx ATTR_UNUSED, const char *name,
 	return TRUE;
 }
 
-const struct imap_fetch_handler default_handlers[8] = {
+static int fetch_x_mailbox(struct imap_fetch_context *ctx, struct mail *mail,
+			   void *context ATTR_UNUSED)
+{
+	const char *str;
+
+	if (mail_get_special(mail, MAIL_FETCH_MAILBOX_NAME, &str) < 0)
+		i_panic("mailbox name not returned");
+	str_append(ctx->cur_str, "X-MAILBOX ");
+	imap_quote_append_string(ctx->cur_str, str, FALSE);
+	return 1;
+}
+
+static bool
+fetch_x_mailbox_init(struct imap_fetch_context *ctx ATTR_UNUSED,
+		     const char *name,
+		     const struct imap_arg **args ATTR_UNUSED)
+{
+	imap_fetch_add_handler(ctx, TRUE, FALSE, name, NULL,
+			       fetch_x_mailbox, NULL);
+	return TRUE;
+}
+
+const struct imap_fetch_handler default_handlers[IMAP_FETCH_HANDLER_COUNT] = {
 	{ "BODY", fetch_body_init },
 	{ "BODYSTRUCTURE", fetch_bodystructure_init },
 	{ "ENVELOPE", fetch_envelope_init },
@@ -783,5 +807,6 @@ const struct imap_fetch_handler default_handlers[8] = {
 	{ "INTERNALDATE", fetch_internaldate_init },
 	{ "MODSEQ", fetch_modseq_init },
 	{ "RFC822", fetch_rfc822_init },
-	{ "UID", fetch_uid_init }
+	{ "UID", fetch_uid_init },
+	{ "X-MAILBOX", fetch_x_mailbox_init }
 };

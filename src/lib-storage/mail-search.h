@@ -43,7 +43,8 @@ enum mail_search_arg_type {
 
 	/* extensions */
 	SEARCH_MODSEQ,
-	SEARCH_INTHREAD
+	SEARCH_INTHREAD,
+	SEARCH_MAILBOX
 };
 
 enum mail_search_arg_flag {
