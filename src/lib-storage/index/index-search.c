@@ -688,17 +688,23 @@ static void search_or_parse_msgset_args(const struct mail_index_header *hdr,
 	for (; args != NULL; args = args->next) {
 		seq1 = 1; seq2 = hdr->messages_count;
 
-		if (args->type == SEARCH_SUB) {
+		switch (args->type) {
+		case SEARCH_SUB:
 			i_assert(!args->not);
 			search_parse_msgset_args(hdr, args->value.subargs,
 						 &seq1, &seq2);
-		} else if (args->type == SEARCH_OR) {
+			break;
+		case SEARCH_OR:
 			i_assert(!args->not);
 			search_or_parse_msgset_args(hdr, args->value.subargs,
 						    &seq1, &seq2);
-		} else if (args->type == SEARCH_SEQSET) {
+			break;
+		case SEARCH_SEQSET:
 			search_msgset_fix(hdr, &args->value.seqset,
 					  &seq1, &seq2, args->not);
+			break;
+		default:
+			break;
 		}
 
 		if (min_seq1 == 0) {
@@ -724,19 +730,25 @@ static void search_parse_msgset_args(const struct mail_index_header *hdr,
 				     uint32_t *seq1_r, uint32_t *seq2_r)
 {
 	for (; args != NULL; args = args->next) {
-		if (args->type == SEARCH_SUB) {
+		switch (args->type) {
+		case SEARCH_SUB:
 			i_assert(!args->not);
 			search_parse_msgset_args(hdr, args->value.subargs,
 						 seq1_r, seq2_r);
-		} else if (args->type == SEARCH_OR) {
+			break;
+		case SEARCH_OR:
 			/* go through our children and use the widest seqset
 			   range */
 			i_assert(!args->not);
 			search_or_parse_msgset_args(hdr, args->value.subargs,
 						    seq1_r, seq2_r);
-		} else if (args->type == SEARCH_SEQSET) {
+			break;
+		case SEARCH_SEQSET:
 			search_msgset_fix(hdr, &args->value.seqset,
 					  seq1_r, seq2_r, args->not);
+			break;
+		default:
+			break;
 		}
 	}
 }
@@ -983,7 +995,9 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 				return FALSE;
 		}
 		return TRUE;
-	case SEARCH_SEQSET: /* changes between syncs */
+	case SEARCH_SEQSET:
+		/* changes between syncs, but we can't really handle this
+		   currently. seqsets should be converted to uidsets first. */
 	case SEARCH_FLAGS:
 	case SEARCH_KEYWORDS:
 	case SEARCH_MODSEQ:

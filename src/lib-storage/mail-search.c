@@ -56,36 +56,38 @@ mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
 }
 
 static void
-mail_search_args_init_sub(struct mail_search_arg *args,
-			  struct mailbox *box, bool change_uidsets,
+mail_search_args_init_sub(struct mail_search_args *args,
+			  struct mail_search_arg *arg,
+			  bool change_uidsets,
 			  const ARRAY_TYPE(seq_range) *search_saved_uidset)
 {
 	const char *keywords[2];
 
-	for (; args != NULL; args = args->next) {
-		switch (args->type) {
+	for (; arg != NULL; arg = arg->next) {
+		switch (arg->type) {
 		case SEARCH_UIDSET:
 			if (change_uidsets) T_BEGIN {
-				mailbox_uidset_change(args, box,
+				mailbox_uidset_change(arg, args->box,
 						      search_saved_uidset);
 			} T_END;
 			break;
 		case SEARCH_MODSEQ:
-			if (args->value.str == NULL)
+			if (arg->value.str == NULL)
 				break;
 			/* modseq with keyword */
 		case SEARCH_KEYWORDS:
-			keywords[0] = args->value.str;
+			keywords[0] = arg->value.str;
 			keywords[1] = NULL;
 
-			i_assert(args->value.keywords == NULL);
-			args->value.keywords =
-				mailbox_keywords_create_valid(box, keywords);
+			i_assert(arg->value.keywords == NULL);
+			arg->value.keywords =
+				mailbox_keywords_create_valid(args->box,
+							      keywords);
 			break;
 
 		case SEARCH_SUB:
 		case SEARCH_OR:
-			mail_search_args_init_sub(args->value.subargs, box,
+			mail_search_args_init_sub(args, arg->value.subargs,
 						  change_uidsets,
 						  search_saved_uidset);
 			break;
@@ -99,8 +101,15 @@ void mail_search_args_init(struct mail_search_args *args,
 			   struct mailbox *box, bool change_uidsets,
 			   const ARRAY_TYPE(seq_range) *search_saved_uidset)
 {
+	if (args->initialized) {
+		i_assert(args->box == box);
+		return;
+	}
+
 	args->box = box;
-	mail_search_args_init_sub(args->args, box, change_uidsets,
+	if (!args->simplified)
+		mail_search_args_simplify(args);
+	mail_search_args_init_sub(args, args->args, change_uidsets,
 				  search_saved_uidset);
 }
 
@@ -127,10 +136,12 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 
 void mail_search_args_deinit(struct mail_search_args *args)
 {
-	if (args->refcount > 1)
+	if (args->refcount > 1 || !args->initialized)
 		return;
 
 	mail_search_args_deinit_sub(args, args->args);
+	args->initialized = FALSE;
+	args->box = NULL;
 }
 
 static void mail_search_args_seq2uid_sub(struct mail_search_args *args,
@@ -407,7 +418,7 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 
 	prev_flags_arg = prev_not_flags_arg = NULL;
 	prev_kw_arg = prev_not_kw_arg = NULL;
-	for (; args != NULL;) {
+	while (args != NULL) {
 		if (args->not && (args->type == SEARCH_SUB ||
 				  args->type == SEARCH_OR)) {
 			/* neg(p and q and ..) == neg(p) or neg(q) or ..
@@ -421,9 +432,12 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 		}
 
 		if ((args->type == SEARCH_SUB && parent_and) ||
-		    (args->type == SEARCH_OR && !parent_and)) {
+		    (args->type == SEARCH_OR && !parent_and) ||
+		    ((args->type == SEARCH_SUB || args->type == SEARCH_OR) &&
+		     args->value.subargs->next == NULL)) {
 			/* p and (q and ..) == p and q and ..
-			   p or (q or ..) == p or q or .. */
+			   p or (q or ..) == p or q or ..
+			   (p) = p */
 			sub = args->value.subargs;
 			for (; sub->next != NULL; sub = sub->next) ;
 			sub->next = args->next;
@@ -493,7 +507,8 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 	}
 }
 
-void mail_search_args_simplify(struct mail_search_arg *args)
+void mail_search_args_simplify(struct mail_search_args *args)
 {
-	mail_search_args_simplify_sub(args, TRUE);
+	args->simplified = TRUE;
+	mail_search_args_simplify_sub(args->args, TRUE);
 }

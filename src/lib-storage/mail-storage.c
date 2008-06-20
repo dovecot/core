@@ -643,7 +643,8 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 		    const enum mail_sort_type *sort_program)
 {
 	mail_search_args_ref(args);
-	mail_search_args_simplify(args->args);
+	if (!args->simplified)
+		mail_search_args_simplify(args);
 	return t->box->v.search_init(t, args, sort_program);
 }
 
