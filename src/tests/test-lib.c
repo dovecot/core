@@ -605,7 +605,7 @@ fail:
 	}
 }
 
-static void test_seq_range_array(void)
+static void test_seq_range_array_invert(void)
 {
 	static const unsigned int input_min = 1, input_max = 5;
 	static const unsigned int input[] = {
@@ -646,6 +646,44 @@ static void test_seq_range_array(void)
 			 success);
 		array_free(&range);
 	}
+}
+
+static void test_seq_range_create(ARRAY_TYPE(seq_range) *array, uint8_t byte)
+{
+	unsigned int i;
+
+	array_clear(array);
+	for (i = 0; i < 8; i++) {
+		if ((byte & (1 << i)) != 0)
+			seq_range_array_add(array, 0, i + 1);
+	}
+}
+
+static void test_seq_range_array_have_common(void)
+{
+	ARRAY_TYPE(seq_range) arr1, arr2;
+	unsigned int i, j;
+	bool ret1, ret2, success = TRUE;
+
+	t_array_init(&arr1, 8);
+	t_array_init(&arr2, 8);
+	for (i = 0; i < 256; i++) {
+		test_seq_range_create(&arr1, i);
+		for (j = 0; j < 256; j++) {
+			test_seq_range_create(&arr2, j);
+			ret1 = seq_range_array_have_common(&arr1, &arr2);
+			ret2 = (i & j) != 0;
+			if (ret1 != ret2)
+				success = FALSE;
+		}
+	}
+	test_out("seq_range_array_have_common()", success);
+}
+
+static void test_seq_range_array(void)
+{
+	test_seq_range_array_invert();
+	test_seq_range_array_have_common();
 	test_seq_range_array_random();
 }
 

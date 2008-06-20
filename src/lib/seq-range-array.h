@@ -33,6 +33,9 @@ seq_range_array_intersect(ARRAY_TYPE(seq_range) *dest,
 			  const ARRAY_TYPE(seq_range) *src);
 /* Returns TRUE if sequence exists in the range. */
 bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq);
+/* Returns TRUE if arrays have common sequences. */
+bool seq_range_array_have_common(const ARRAY_TYPE(seq_range) *array1,
+				 const ARRAY_TYPE(seq_range) *array2);
 /* Return number of sequences in the range. */
 unsigned int seq_range_count(const ARRAY_TYPE(seq_range) *array);
 

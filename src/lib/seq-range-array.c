@@ -310,6 +310,27 @@ bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq)
 	return seq_range_lookup(array, seq, &idx);
 }
 
+bool seq_range_array_have_common(const ARRAY_TYPE(seq_range) *array1,
+				 const ARRAY_TYPE(seq_range) *array2)
+{
+	const struct seq_range *range1, *range2;
+	unsigned int i1, i2, count1, count2;
+
+	range1 = array_get(array1, &count1);
+	range2 = array_get(array2, &count2);
+	for (i1 = i2 = 0; i1 < count1 && i2 < count2; ) {
+		if (range1[i1].seq1 <= range2[i2].seq2 &&
+		    range1[i1].seq2 >= range2[i2].seq1)
+			return TRUE;
+
+		if (range1[i1].seq1 < range2[i2].seq1)
+			i1++;
+		else
+			i2++;
+	}
+	return FALSE;
+}
+
 unsigned int seq_range_count(const ARRAY_TYPE(seq_range) *array)
 {
 	const struct seq_range *range;
