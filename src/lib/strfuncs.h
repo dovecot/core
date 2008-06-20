@@ -41,7 +41,7 @@ const char *t_strcut(const char *str, char cutchar);
 
 /* Return TRUE if all characters in string are numbers.
    Stop when `end_char' is found from string. */
-bool is_numeric(const char *str, char end_char);
+bool is_numeric(const char *str, char end_char) ATTR_PURE;
 
 /* Like strlcpy(), but return -1 if buffer was overflown, 0 if not. */
 int i_strocpy(char *dest, const char *src, size_t dstsize);
@@ -51,12 +51,12 @@ char *str_lcase(char *str);
 const char *t_str_lcase(const char *str);
 const char *t_str_ucase(const char *str);
 
-int null_strcmp(const char *s1, const char *s2);
-int bsearch_strcmp(const void *p1, const void *p2);
-int bsearch_strcasecmp(const void *p1, const void *p2);
-int i_memcasecmp(const void *p1, const void *p2, size_t size);
-int i_strcmp_p(const void *p1, const void *p2);
-int i_strcasecmp_p(const void *p1, const void *p2);
+int null_strcmp(const char *s1, const char *s2) ATTR_PURE;
+int bsearch_strcmp(const void *p1, const void *p2) ATTR_PURE;
+int bsearch_strcasecmp(const void *p1, const void *p2) ATTR_PURE;
+int i_memcasecmp(const void *p1, const void *p2, size_t size) ATTR_PURE;
+int i_strcmp_p(const void *p1, const void *p2) ATTR_PURE;
+int i_strcasecmp_p(const void *p1, const void *p2) ATTR_PURE;
 
 /* separators is an array of separator characters, not a separator string. */
 char **p_strsplit(pool_t pool, const char *data, const char *separators)
@@ -74,7 +74,7 @@ void p_strsplit_free(pool_t pool, char **arr);
 const char *dec2str(uintmax_t number);
 
 /* Return length of NULL-terminated list string array */
-unsigned int str_array_length(const char *const *arr);
+unsigned int str_array_length(const char *const *arr) ATTR_PURE;
 /* Return all strings from array joined into one string. */
 const char *t_strarray_join(const char *const *arr, const char *separator)
 	ATTR_MALLOC;

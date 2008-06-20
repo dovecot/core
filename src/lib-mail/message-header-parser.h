@@ -55,7 +55,8 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			      struct message_header_line **hdr_r);
 
 /* Returns TRUE if the parser has seen NUL characters. */
-bool message_parse_header_has_nuls(struct message_header_parser_ctx *ctx);
+bool message_parse_header_has_nuls(const struct message_header_parser_ctx *ctx)
+	ATTR_PURE;
 
 /* Read and parse the header from the given stream. */
 void message_parse_header(struct istream *input, struct message_size *hdr_size,

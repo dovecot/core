@@ -66,7 +66,7 @@ bool array_cmp_i(const struct array *array1, const struct array *array2)
 	return buffer_cmp(array1->buffer, array2->buffer);
 }
 
-void array_reverse_i(const struct array *array)
+void array_reverse_i(struct array *array)
 {
 	const unsigned int element_size = array->element_size;
 	unsigned int i, count = array_count_i(array);

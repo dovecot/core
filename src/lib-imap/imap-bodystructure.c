@@ -446,9 +446,9 @@ static void part_write_body(const struct message_part *part,
 	}
 }
 
-bool imap_bodystructure_is_plain_7bit(struct message_part *part)
+bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
 {
-	struct message_part_body_data *data = part->context;
+	const struct message_part_body_data *data = part->context;
 
 	i_assert(part->parent == NULL);
 

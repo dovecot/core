@@ -141,9 +141,9 @@ void *buffer_free_without_data(buffer_t **_buf)
 	return data;
 }
 
-pool_t buffer_get_pool(buffer_t *_buf)
+pool_t buffer_get_pool(const buffer_t *_buf)
 {
-	struct real_buffer *buf = (struct real_buffer *)_buf;
+	const struct real_buffer *buf = (const struct real_buffer *)_buf;
 
 	return buf->pool;
 }

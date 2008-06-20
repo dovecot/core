@@ -160,9 +160,9 @@ const struct stat *i_stream_stat(struct istream *stream, bool exact)
 	return _stream->stat(_stream, exact);
 }
 
-bool i_stream_have_bytes_left(struct istream *stream)
+bool i_stream_have_bytes_left(const struct istream *stream)
 {
-	struct istream_private *_stream = stream->real_stream;
+	const struct istream_private *_stream = stream->real_stream;
 
 	return !stream->eof || _stream->skip != _stream->pos;
 }
@@ -241,9 +241,10 @@ char *i_stream_read_next_line(struct istream *stream)
 	return line;
 }
 
-const unsigned char *i_stream_get_data(struct istream *stream, size_t *size_r)
+const unsigned char *
+i_stream_get_data(const struct istream *stream, size_t *size_r)
 {
-	struct istream_private *_stream = stream->real_stream;
+	const struct istream_private *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos) {
 		*size_r = 0;
@@ -254,10 +255,10 @@ const unsigned char *i_stream_get_data(struct istream *stream, size_t *size_r)
         return _stream->buffer + _stream->skip;
 }
 
-unsigned char *i_stream_get_modifiable_data(struct istream *stream,
+unsigned char *i_stream_get_modifiable_data(const struct istream *stream,
 					    size_t *size_r)
 {
-	struct istream_private *_stream = stream->real_stream;
+	const struct istream_private *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos || _stream->w_buffer == NULL) {
 		*size_r = 0;

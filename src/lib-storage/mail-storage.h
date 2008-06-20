@@ -250,8 +250,10 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 void mail_storage_destroy(struct mail_storage **storage);
 
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);
-struct mailbox_list *mail_storage_get_list(struct mail_storage *storage);
-struct mail_namespace *mail_storage_get_namespace(struct mail_storage *storage);
+struct mailbox_list *
+mail_storage_get_list(const struct mail_storage *storage) ATTR_PURE;
+struct mail_namespace *
+mail_storage_get_namespace(const struct mail_storage *storage) ATTR_PURE;
 
 /* Set storage callback functions to use. */
 void mail_storage_set_callbacks(struct mail_storage *storage,
@@ -302,10 +304,10 @@ int mailbox_enable(struct mailbox *box, enum mailbox_feature features);
 enum mailbox_feature mailbox_get_enabled_features(struct mailbox *box);
 
 /* Returns storage of given mailbox */
-struct mail_storage *mailbox_get_storage(struct mailbox *box);
+struct mail_storage *mailbox_get_storage(const struct mailbox *box) ATTR_PURE;
 
 /* Returns name of given mailbox */
-const char *mailbox_get_name(struct mailbox *box);
+const char *mailbox_get_name(const struct mailbox *box) ATTR_PURE;
 
 /* Returns TRUE if mailbox is read-only. */
 bool mailbox_is_readonly(struct mailbox *box);
@@ -357,10 +359,11 @@ int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **t,
 					uint32_t *last_saved_uid_r);
 void mailbox_transaction_rollback(struct mailbox_transaction_context **t);
 /* Return the number of active transactions for the mailbox. */
-unsigned int mailbox_transaction_get_count(struct mailbox *box);
+unsigned int mailbox_transaction_get_count(const struct mailbox *box) ATTR_PURE;
 
 struct mailbox *
-mailbox_transaction_get_mailbox(struct mailbox_transaction_context *t);
+mailbox_transaction_get_mailbox(const struct mailbox_transaction_context *t)
+	ATTR_PURE;
 
 /* Build mail_keywords from NULL-terminated keywords list.
    Returns 0 if successful, -1 if there are invalid keywords (error is set). */

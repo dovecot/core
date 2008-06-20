@@ -10,7 +10,7 @@ ARRAY_DEFINE_TYPE(unichars, unichar_t);
 extern const uint8_t *const uni_utf8_non1_bytes;
 
 /* Returns number of characters in a NUL-terminated unicode string */
-unsigned int uni_strlen(const unichar_t *str);
+unsigned int uni_strlen(const unichar_t *str) ATTR_PURE;
 /* Translates UTF-8 input to UCS-4 output. Returns 0 if ok, -1 if input was
    invalid */
 int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output);
@@ -23,11 +23,12 @@ void uni_ucs4_to_utf8_c(unichar_t chr, buffer_t *output);
 int uni_utf8_get_char(const char *input, unichar_t *chr_r);
 int uni_utf8_get_char_n(const void *input, size_t max_len, unichar_t *chr_r);
 /* Returns UTF-8 string length with maximum input size. */
-unsigned int uni_utf8_strlen_n(const void *input, size_t size);
+unsigned int uni_utf8_strlen_n(const void *input, size_t size) ATTR_PURE;
 
 /* Returns the number of bytes belonging to this partial UTF-8 character.
    Invalid input is returned with length 1. */
-static inline unsigned int uni_utf8_char_bytes(char chr)
+static inline unsigned int ATTR_CONST
+uni_utf8_char_bytes(char chr)
 {
 	/* 0x00 .. 0x7f are ASCII. 0x80 .. 0xC1 are invalid. */
 	if ((uint8_t)chr < (192 + 2))
@@ -36,7 +37,7 @@ static inline unsigned int uni_utf8_char_bytes(char chr)
 }
 
 /* Return given character in titlecase. */
-unichar_t uni_ucs4_to_titlecase(unichar_t chr);
+unichar_t uni_ucs4_to_titlecase(unichar_t chr) ATTR_CONST;
 
 /* Convert UTF-8 input to titlecase and decompose the titlecase characters to
    output buffer. Returns 0 if ok, -1 if input was invalid. This generates

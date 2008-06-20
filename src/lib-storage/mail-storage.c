@@ -328,12 +328,13 @@ char mail_storage_get_hierarchy_sep(struct mail_storage *storage)
 	return mailbox_list_get_hierarchy_sep(storage->list);
 }
 
-struct mailbox_list *mail_storage_get_list(struct mail_storage *storage)
+struct mailbox_list *mail_storage_get_list(const struct mail_storage *storage)
 {
 	return storage->list;
 }
 
-struct mail_namespace *mail_storage_get_namespace(struct mail_storage *storage)
+struct mail_namespace *
+mail_storage_get_namespace(const struct mail_storage *storage)
 {
 	return storage->ns;
 }
@@ -488,12 +489,12 @@ int mailbox_close(struct mailbox **_box)
 	return box->v.close(box);
 }
 
-struct mail_storage *mailbox_get_storage(struct mailbox *box)
+struct mail_storage *mailbox_get_storage(const struct mailbox *box)
 {
 	return box->storage;
 }
 
-const char *mailbox_get_name(struct mailbox *box)
+const char *mailbox_get_name(const struct mailbox *box)
 {
 	return box->name;
 }
@@ -566,7 +567,6 @@ void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 
 void mailbox_notify_changes_stop(struct mailbox *box)
 {
-
 	mailbox_notify_changes(box, 0, NULL, NULL);
 }
 
@@ -755,13 +755,13 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)
 	t->box->v.transaction_rollback(t);
 }
 
-unsigned int mailbox_transaction_get_count(struct mailbox *box)
+unsigned int mailbox_transaction_get_count(const struct mailbox *box)
 {
 	return box->transaction_count;
 }
 
 struct mailbox *
-mailbox_transaction_get_mailbox(struct mailbox_transaction_context *t)
+mailbox_transaction_get_mailbox(const struct mailbox_transaction_context *t)
 {
 	return t->box;
 }

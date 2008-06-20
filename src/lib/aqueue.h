@@ -29,10 +29,10 @@ void aqueue_delete(struct aqueue *aqueue, unsigned int n);
 void aqueue_clear(struct aqueue *aqueue);
 
 /* Returns the number of items in aqueue. */
-unsigned int aqueue_count(const struct aqueue *aqueue);
+unsigned int aqueue_count(const struct aqueue *aqueue) ATTR_PURE;
 
 /* Returns array index of n'th element in aqueue. */
-static inline unsigned int
+static inline unsigned int ATTR_PURE
 aqueue_idx(const struct aqueue *aqueue, unsigned int n)
 {
 	return (aqueue->tail + n) % aqueue->area_size;

@@ -80,7 +80,7 @@ void i_stream_seek_mark(struct istream *stream, uoff_t v_offset);
    compressed stream st_size could be compressed size) */
 const struct stat *i_stream_stat(struct istream *stream, bool exact);
 /* Returns TRUE if there are any bytes left to be read or in buffer. */
-bool i_stream_have_bytes_left(struct istream *stream);
+bool i_stream_have_bytes_left(const struct istream *stream) ATTR_PURE;
 
 /* Gets the next line from stream and returns it, or NULL if more data is
    needed to make a full line. Note that if the stream ends with LF not being
@@ -92,10 +92,11 @@ char *i_stream_read_next_line(struct istream *stream);
 
 /* Returns pointer to beginning of read data, or NULL if there's no data
    buffered. */
-const unsigned char *i_stream_get_data(struct istream *stream, size_t *size_r);
+const unsigned char *
+i_stream_get_data(const struct istream *stream, size_t *size_r);
 /* Like i_stream_get_data(), but returns non-const data. This only works with
    buffered streams (currently only file), others return NULL. */
-unsigned char *i_stream_get_modifiable_data(struct istream *stream,
+unsigned char *i_stream_get_modifiable_data(const struct istream *stream,
 					    size_t *size_r);
 /* Like i_stream_get_data(), but read more when needed. Returns 1 if more
    than threshold bytes are available, 0 if less, -1 if error or EOF with no

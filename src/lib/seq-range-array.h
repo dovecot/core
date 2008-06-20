@@ -32,12 +32,13 @@ unsigned int
 seq_range_array_intersect(ARRAY_TYPE(seq_range) *dest,
 			  const ARRAY_TYPE(seq_range) *src);
 /* Returns TRUE if sequence exists in the range. */
-bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq);
+bool seq_range_exists(const ARRAY_TYPE(seq_range) *array,
+		      uint32_t seq) ATTR_PURE;
 /* Returns TRUE if arrays have common sequences. */
 bool seq_range_array_have_common(const ARRAY_TYPE(seq_range) *array1,
-				 const ARRAY_TYPE(seq_range) *array2);
+				 const ARRAY_TYPE(seq_range) *array2) ATTR_PURE;
 /* Return number of sequences in the range. */
-unsigned int seq_range_count(const ARRAY_TYPE(seq_range) *array);
+unsigned int seq_range_count(const ARRAY_TYPE(seq_range) *array) ATTR_PURE;
 
 /* Invert the sequence range. For example 5:6 -> min_seq:4,7:max_seq. */
 void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,

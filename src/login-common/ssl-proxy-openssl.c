@@ -512,7 +512,7 @@ int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 	return sfd[1];
 }
 
-bool ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy)
+bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy)
 {
 	return proxy->cert_received && !proxy->cert_broken;
 }
@@ -540,12 +540,12 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
 	return *name == '\0' ? NULL : name;
 }
 
-bool ssl_proxy_is_handshaked(struct ssl_proxy *proxy)
+bool ssl_proxy_is_handshaked(const struct ssl_proxy *proxy)
 {
 	return proxy->handshaked;
 }
 
-const char *ssl_proxy_get_last_error(struct ssl_proxy *proxy)
+const char *ssl_proxy_get_last_error(const struct ssl_proxy *proxy)
 {
 	return proxy->last_error;
 }

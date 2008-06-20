@@ -224,7 +224,7 @@ void login_proxy_free(struct login_proxy *proxy)
 	main_listen_start();
 }
 
-bool login_proxy_is_ourself(struct client *client, const char *host,
+bool login_proxy_is_ourself(const struct client *client, const char *host,
 			    unsigned int port, const char *destuser)
 {
 	struct ip_addr ip;
@@ -240,12 +240,12 @@ bool login_proxy_is_ourself(struct client *client, const char *host,
 	return strcmp(client->virtual_user, destuser) == 0;
 }
 
-const char *login_proxy_get_host(struct login_proxy *proxy)
+const char *login_proxy_get_host(const struct login_proxy *proxy)
 {
 	return proxy->host;
 }
 
-unsigned int login_proxy_get_port(struct login_proxy *proxy)
+unsigned int login_proxy_get_port(const struct login_proxy *proxy)
 {
 	return proxy->port;
 }

@@ -82,10 +82,10 @@ ssize_t net_transmit(int fd, const void *data, size_t len);
 int net_gethostbyname(const char *addr, struct ip_addr **ips,
 		      unsigned int *ips_count);
 /* get error of net_gethostname() */
-const char *net_gethosterror(int error);
+const char *net_gethosterror(int error) ATTR_CONST;
 /* return TRUE if host lookup failed because it didn't exist (ie. not
    some error with name server) */
-int net_hosterror_notfound(int error);
+int net_hosterror_notfound(int error) ATTR_CONST;
 
 /* Get socket local address/port */
 int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port);
@@ -105,13 +105,13 @@ int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 int net_geterror(int fd);
 
 /* Get name of TCP service */
-const char *net_getservbyport(unsigned short port);
+const char *net_getservbyport(unsigned short port) ATTR_CONST;
 
-bool is_ipv4_address(const char *addr);
-bool is_ipv6_address(const char *addr);
+bool is_ipv4_address(const char *addr) ATTR_PURE;
+bool is_ipv6_address(const char *addr) ATTR_PURE;
 
 /* Returns TRUE if ip is in net_ip/bits network. */
-bool net_is_in_network(const struct ip_addr *ip,
-		       const struct ip_addr *net_ip, unsigned int bits);
+bool net_is_in_network(const struct ip_addr *ip, const struct ip_addr *net_ip,
+		       unsigned int bits) ATTR_PURE;
 
 #endif

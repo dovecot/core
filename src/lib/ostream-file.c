@@ -319,7 +319,7 @@ o_stream_file_flush_pending(struct ostream_private *stream, bool set)
 	}
 }
 
-static size_t get_unused_space(struct file_ostream *fstream)
+static size_t get_unused_space(const struct file_ostream *fstream)
 {
 	if (fstream->head > fstream->tail) {
 		/* XXXT...HXXX */
@@ -333,9 +333,10 @@ static size_t get_unused_space(struct file_ostream *fstream)
 	}
 }
 
-static size_t o_stream_file_get_used_size(struct ostream_private *stream)
+static size_t o_stream_file_get_used_size(const struct ostream_private *stream)
 {
-	struct file_ostream *fstream = (struct file_ostream *)stream;
+	const struct file_ostream *fstream =
+		(const struct file_ostream *)stream;
 
 	return fstream->buffer_size - get_unused_space(fstream);
 }

@@ -53,7 +53,8 @@ const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
 				     const char *name);
 
 /* Returns the hierarchy separator for mailboxes that are listed at root. */
-char mail_namespace_get_root_sep(struct mail_namespace *namespaces);
+char mail_namespace_get_root_sep(const struct mail_namespace *namespaces)
+	ATTR_PURE;
 
 /* Returns namespace based on the mailbox name's prefix. Updates mailbox to
    be a valid name inside the namespace (prefix is skipped, hierarchy separator
@@ -73,7 +74,7 @@ struct mail_namespace *
 mail_namespace_find_inbox(struct mail_namespace *namespaces);
 /* Returns TRUE if the given namespace matches the mailbox's prefix.
    Updates mailbox name to be a valid name inside the namespace. */
-bool mail_namespace_update_name(struct mail_namespace *ns,
+bool mail_namespace_update_name(const struct mail_namespace *ns,
 				const char **mailbox);
 
 /* Find a namespace with given prefix. */

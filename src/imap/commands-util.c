@@ -321,8 +321,8 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 	return array_idx(dest, 0);
 }
 
-bool mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
-		    const char *name2)
+bool mailbox_equals(const struct mailbox *box1,
+		    const struct mail_storage *storage2, const char *name2)
 {
 	struct mail_storage *storage1 = mailbox_get_storage(box1);
 	const char *name1;

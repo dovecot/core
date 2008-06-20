@@ -21,7 +21,7 @@ void hash_destroy(struct hash_table **table);
    alloconly pools. */
 void hash_clear(struct hash_table *table, bool free_collisions);
 
-void *hash_lookup(const struct hash_table *table, const void *key);
+void *hash_lookup(const struct hash_table *table, const void *key) ATTR_PURE;
 bool hash_lookup_full(const struct hash_table *table, const void *lookup_key,
 		      void **orig_key, void **value);
 
@@ -31,7 +31,7 @@ void hash_insert(struct hash_table *table, void *key, void *value);
 void hash_update(struct hash_table *table, void *key, void *value);
 
 void hash_remove(struct hash_table *table, const void *key);
-unsigned int hash_count(const struct hash_table *table);
+unsigned int hash_count(const struct hash_table *table) ATTR_PURE;
 
 /* Iterates through all nodes in hash table. You may safely call hash_*()
    functions while iterating, but if you add any new nodes, they may or may
@@ -50,7 +50,7 @@ void hash_thaw(struct hash_table *table);
 void hash_copy(struct hash_table *dest, struct hash_table *src);
 
 /* hash function for strings */
-unsigned int str_hash(const void *p);
-unsigned int strcase_hash(const void *p);
+unsigned int str_hash(const void *p) ATTR_PURE;
+unsigned int strcase_hash(const void *p) ATTR_PURE;
 
 #endif

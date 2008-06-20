@@ -33,7 +33,7 @@ void buffer_free(buffer_t **buf);
 void *buffer_free_without_data(buffer_t **buf);
 
 /* Returns the pool buffer was created with. */
-pool_t buffer_get_pool(buffer_t *buf);
+pool_t buffer_get_pool(const buffer_t *buf) ATTR_PURE;
 
 /* Reset the buffer. used size and it's contents are zeroed. */
 void buffer_reset(buffer_t *buf);
@@ -85,7 +85,7 @@ void *buffer_get_modifiable_data(const buffer_t *buf, size_t *used_size_r);
 void buffer_set_used_size(buffer_t *buf, size_t used_size);
 
 /* Returns the current buffer size. */
-size_t buffer_get_size(const buffer_t *buf);
+size_t buffer_get_size(const buffer_t *buf) ATTR_PURE;
 
 /* Returns TRUE if buffer contents are identical. */
 bool buffer_cmp(const buffer_t *buf1, const buffer_t *buf2);
@@ -101,7 +101,8 @@ buffer_get_data(const buffer_t *buf, size_t *used_size_r)
 }
 
 /* Returns the current used buffer size. */
-static inline size_t buffer_get_used_size(const buffer_t *buf)
+static inline size_t ATTR_PURE
+buffer_get_used_size(const buffer_t *buf)
 {
 	return buf->used;
 }

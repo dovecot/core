@@ -70,7 +70,7 @@ bool t_try_realloc(void *mem, size_t size);
 
 /* Returns the number of bytes available in data stack without allocating
    more memory. */
-size_t t_get_bytes_available(void);
+size_t t_get_bytes_available(void) ATTR_PURE;
 
 #define t_new(type, count) \
 	((type *) t_malloc0(sizeof(type) * (count)))

@@ -10,14 +10,14 @@ extern bool ssl_initialized;
    must use from now on, or -1 if error occurred. Unless -1 is returned,
    the given fd must be simply forgotten. */
 int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r);
-bool ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy);
+bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy) ATTR_PURE;
 const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy);
-bool ssl_proxy_is_handshaked(struct ssl_proxy *proxy);
-const char *ssl_proxy_get_last_error(struct ssl_proxy *proxy);
+bool ssl_proxy_is_handshaked(const struct ssl_proxy *proxy) ATTR_PURE;
+const char *ssl_proxy_get_last_error(const struct ssl_proxy *proxy) ATTR_PURE;
 void ssl_proxy_free(struct ssl_proxy *proxy);
 
 /* Return number of active SSL proxies */
-unsigned int ssl_proxy_get_count(void);
+unsigned int ssl_proxy_get_count(void) ATTR_PURE;
 
 void ssl_proxy_init(void);
 void ssl_proxy_deinit(void);

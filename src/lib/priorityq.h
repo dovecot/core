@@ -20,7 +20,7 @@ priorityq_init(priorityq_cmp_callback_t *cmp_callback, unsigned int init_size);
 void priorityq_deinit(struct priorityq **pq);
 
 /* Return number of items in the queue. */
-unsigned int priorityq_count(const struct priorityq *pq);
+unsigned int priorityq_count(const struct priorityq *pq) ATTR_PURE;
 
 /* Add a new item to the queue. */
 void priorityq_add(struct priorityq *pq, struct priorityq_item *item);

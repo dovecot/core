@@ -21,7 +21,7 @@ void charset_to_utf8_end(struct charset_translation **t);
 void charset_to_utf8_reset(struct charset_translation *t);
 
 /* Returns TRUE if charset is UTF-8 or ASCII */
-bool charset_is_utf8(const char *charset);
+bool charset_is_utf8(const char *charset) ATTR_PURE;
 
 /* Translate src to UTF-8. src_size is updated to contain the number of
    characters actually translated from src. */

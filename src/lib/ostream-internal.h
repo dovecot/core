@@ -12,7 +12,7 @@ struct ostream_private {
 	void (*cork)(struct ostream_private *stream, bool set);
 	int (*flush)(struct ostream_private *stream);
 	void (*flush_pending)(struct ostream_private *stream, bool set);
-	size_t (*get_used_size)(struct ostream_private *stream);
+	size_t (*get_used_size)(const struct ostream_private *stream);
 	int (*seek)(struct ostream_private *stream, uoff_t offset);
 	ssize_t (*sendv)(struct ostream_private *stream,
 			 const struct const_iovec *iov,

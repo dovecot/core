@@ -148,7 +148,7 @@ array_get_i(const struct array *array, unsigned int *count_r)
 #define array_get(array, count) \
 	ARRAY_TYPE_CAST_CONST(array)array_get_i(&(array)->arr, count)
 
-static inline const void *
+static inline const void * ATTR_PURE
 array_idx_i(const struct array *array, unsigned int idx)
 {
 	i_assert(idx * array->element_size < array->buffer->used);
@@ -209,7 +209,7 @@ array_copy(struct array *dest, unsigned int dest_idx,
 		    count * dest->element_size);
 }
 
-static inline unsigned int
+static inline unsigned int ATTR_PURE
 array_count_i(const struct array *array)
 {
 	return array->buffer->used / array->element_size;
@@ -217,11 +217,12 @@ array_count_i(const struct array *array)
 #define array_count(array) \
 	array_count_i(&(array)->arr)
 
-bool array_cmp_i(const struct array *array1, const struct array *array2);
+bool array_cmp_i(const struct array *array1,
+		 const struct array *array2) ATTR_PURE;
 #define array_cmp(array1, array2) \
 	array_cmp_i(&(array1)->arr, &(array2)->arr)
 
-void array_reverse_i(const struct array *array);
+void array_reverse_i(struct array *array);
 #define array_reverse(array) \
 	array_reverse_i(&(array)->arr)
 

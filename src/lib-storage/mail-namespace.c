@@ -313,7 +313,7 @@ const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
 	return str_c(dest);
 }
 
-char mail_namespace_get_root_sep(struct mail_namespace *namespaces)
+char mail_namespace_get_root_sep(const struct mail_namespace *namespaces)
 {
 	while ((namespaces->flags & NAMESPACE_FLAG_LIST) == 0)
 		namespaces = namespaces->next;
@@ -401,7 +401,7 @@ mail_namespace_find_inbox(struct mail_namespace *namespaces)
 	return namespaces;
 }
 
-bool mail_namespace_update_name(struct mail_namespace *ns,
+bool mail_namespace_update_name(const struct mail_namespace *ns,
 				const char **mailbox)
 {
 	struct mail_namespace tmp_ns = *ns;

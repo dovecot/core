@@ -216,22 +216,23 @@ void mailbox_list_deinit(struct mailbox_list *list)
 	list->v.deinit(list);
 }
 
-const char *mailbox_list_get_driver_name(struct mailbox_list *list)
+const char *mailbox_list_get_driver_name(const struct mailbox_list *list)
 {
 	return list->name;
 }
 
-char mailbox_list_get_hierarchy_sep(struct mailbox_list *list)
+char mailbox_list_get_hierarchy_sep(const struct mailbox_list *list)
 {
 	return list->hierarchy_sep;
 }
 
-enum mailbox_list_flags mailbox_list_get_flags(struct mailbox_list *list)
+enum mailbox_list_flags mailbox_list_get_flags(const struct mailbox_list *list)
 {
 	return list->flags;
 }
 
-struct mail_namespace *mailbox_list_get_namespace(struct mailbox_list *list)
+struct mail_namespace *
+mailbox_list_get_namespace(const struct mailbox_list *list)
 {
 	return list->ns;
 }

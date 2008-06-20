@@ -16,7 +16,7 @@ int ssl_proxy_new(int fd ATTR_UNUSED, struct ip_addr *ip ATTR_UNUSED,
 	return -1;
 }
 
-bool ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy ATTR_UNUSED)
+bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy ATTR_UNUSED)
 {
 	return FALSE;
 }
@@ -26,12 +26,12 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy ATTR_UNUSED)
 	return NULL;
 }
 
-bool ssl_proxy_is_handshaked(struct ssl_proxy *proxy ATTR_UNUSED)
+bool ssl_proxy_is_handshaked(const struct ssl_proxy *proxy ATTR_UNUSED)
 {
 	return FALSE;
 }
 
-const char *ssl_proxy_get_last_error(struct ssl_proxy *proxy ATTR_UNUSED)
+const char *ssl_proxy_get_last_error(const struct ssl_proxy *proxy ATTR_UNUSED)
 {
 	return NULL;
 }

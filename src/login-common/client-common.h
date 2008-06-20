@@ -39,7 +39,7 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 
 void client_link(struct client *client);
 void client_unlink(struct client *client);
-unsigned int clients_get_count(void);
+unsigned int clients_get_count(void) ATTR_PURE;
 
 void client_syslog(struct client *client, const char *msg);
 

@@ -370,7 +370,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 	return 1;
 }
 
-bool message_parse_header_has_nuls(struct message_header_parser_ctx *ctx)
+bool message_parse_header_has_nuls(const struct message_header_parser_ctx *ctx)
 {
 	return ctx->has_nuls;
 }

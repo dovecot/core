@@ -28,7 +28,7 @@ void login_proxy_free(struct login_proxy *proxy);
 
 /* Return TRUE if host/port/destuser combination points to same as current
    connection. */
-bool login_proxy_is_ourself(struct client *client, const char *host,
+bool login_proxy_is_ourself(const struct client *client, const char *host,
 			    unsigned int port, const char *destuser);
 
 /* Detach proxy from client. This is done after the authentication is
@@ -36,11 +36,11 @@ bool login_proxy_is_ourself(struct client *client, const char *host,
 void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 			struct ostream *client_output);
 
-const char *login_proxy_get_host(struct login_proxy *proxy);
-unsigned int login_proxy_get_port(struct login_proxy *proxy);
+const char *login_proxy_get_host(const struct login_proxy *proxy) ATTR_PURE;
+unsigned int login_proxy_get_port(const struct login_proxy *proxy) ATTR_PURE;
 
 /* Return number of active detached login proxies */
-unsigned int login_proxy_get_count(void);
+unsigned int login_proxy_get_count(void) ATTR_PURE;
 
 void login_proxy_deinit(void);
 

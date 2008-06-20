@@ -97,9 +97,9 @@ void o_stream_set_flush_pending(struct ostream *stream, bool set)
 	_stream->flush_pending(_stream, set);
 }
 
-size_t o_stream_get_buffer_used_size(struct ostream *stream)
+size_t o_stream_get_buffer_used_size(const struct ostream *stream)
 {
-	struct ostream_private *_stream = stream->real_stream;
+	const struct ostream_private *_stream = stream->real_stream;
 
 	return _stream->get_used_size(_stream);
 }

@@ -128,10 +128,13 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 		       enum mailbox_list_flags flags);
 void mailbox_list_deinit(struct mailbox_list *list);
 
-const char *mailbox_list_get_driver_name(struct mailbox_list *list);
-char mailbox_list_get_hierarchy_sep(struct mailbox_list *list);
-enum mailbox_list_flags mailbox_list_get_flags(struct mailbox_list *list);
-struct mail_namespace *mailbox_list_get_namespace(struct mailbox_list *list);
+const char *
+mailbox_list_get_driver_name(const struct mailbox_list *list) ATTR_PURE;
+char mailbox_list_get_hierarchy_sep(const struct mailbox_list *list) ATTR_PURE;
+enum mailbox_list_flags
+mailbox_list_get_flags(const struct mailbox_list *list) ATTR_PURE;
+struct mail_namespace *
+mailbox_list_get_namespace(const struct mailbox_list *list) ATTR_PURE;
 
 /* Returns the mode and GID that should be used when creating new global files
    to the mailbox list root directories. (gid_t)-1 is returned if it's not
