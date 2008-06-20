@@ -546,6 +546,8 @@ node_read_children(struct squat_trie *trie, struct squat_node *node, int level)
 				data = CONST_PTR_OFFSET(trie->data, offset);
 				end = CONST_PTR_OFFSET(trie->data,
 						       trie->data_size);
+				child_chars = CONST_PTR_OFFSET(trie->data,
+							       node_offset + 1);
 			}
 
 			if ((size_t)(end - data) < len) {
