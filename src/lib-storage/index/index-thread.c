@@ -8,6 +8,7 @@
 #include "mail-index-private.h"
 #include "mail-index-sync-private.h"
 #include "mail-search.h"
+#include "mail-search-build.h"
 #include "index-storage.h"
 #include "index-thread-private.h"
 
@@ -40,6 +41,17 @@ struct mail_thread_mailbox {
 
 static MODULE_CONTEXT_DEFINE_INIT(mail_thread_storage_module,
 				  &mail_storage_module_register);
+
+bool mail_thread_type_parse(const char *str, enum mail_thread_type *type_r)
+{
+	if (strcasecmp(str, "REFERENCES") == 0)
+		*type_r = MAIL_THREAD_REFERENCES;
+	else if (strcasecmp(str, "X-REFERENCES2") == 0)
+		*type_r = MAIL_THREAD_REFERENCES2;
+	else
+		return FALSE;
+	return TRUE;
+}
 
 static unsigned int mail_thread_hash_key(const void *key)
 {
@@ -413,6 +425,13 @@ int mail_thread_init(struct mailbox *box, bool reset,
 
 	i_assert(tbox->ctx == NULL);
 
+	if (args != NULL)
+		mail_search_args_ref(args);
+	else {
+		args = mail_search_build_init();
+		mail_search_build_add_all(args);
+	}
+
 	ctx = i_new(struct mail_thread_context, 1);
 	tbox->ctx = &ctx->thread_ctx;
 	ctx->box = box;
@@ -421,6 +440,9 @@ int mail_thread_init(struct mailbox *box, bool reset,
 	while ((ret = mail_thread_update(ctx, reset)) < 0) {
 		if (ctx->thread_ctx.hash == tbox->hash) {
 			/* failed with in-memory hash */
+			mail_storage_set_critical(box->storage,
+				"Threading mailbox %s failed unexpectedly",
+				box->name);
 			mail_thread_deinit(&ctx);
 			return -1;
 		}
@@ -434,15 +456,6 @@ int mail_thread_init(struct mailbox *box, bool reset,
 
 	*ctx_r = ctx;
 	return 0;
-}
-
-struct mail_thread_iterate_context *
-mail_thread_iterate_init(struct mail_thread_context *ctx,
-			 enum mail_thread_type thread_type, bool write_seqs)
-{
-	return mail_thread_iterate_init_full(ctx->thread_ctx.tmp_mail,
-					     ctx->thread_ctx.hash_trans,
-					     thread_type, write_seqs);
 }
 
 void mail_thread_deinit(struct mail_thread_context **_ctx)
@@ -468,9 +481,20 @@ void mail_thread_deinit(struct mail_thread_context **_ctx)
 
 	array_free(&ctx->thread_ctx.msgid_cache);
 	pool_unref(&ctx->thread_ctx.msgid_pool);
- 
+	mail_search_args_unref(&ctx->search_args);
+
  	i_assert(!tbox->ctx->syncing);
  	tbox->ctx = NULL;
+	i_free(ctx);
+}
+
+struct mail_thread_iterate_context *
+mail_thread_iterate_init(struct mail_thread_context *ctx,
+			 enum mail_thread_type thread_type, bool write_seqs)
+{
+	return mail_thread_iterate_init_full(ctx->thread_ctx.tmp_mail,
+					     ctx->thread_ctx.hash_trans,
+					     thread_type, write_seqs);
 }
 
 static bool

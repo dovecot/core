@@ -1,6 +1,8 @@
 #ifndef MAIL_THREAD_H
 #define MAIL_THREAD_H
 
+struct mailbox;
+struct mail_search_args;
 struct mail_thread_context;
 
 enum mail_thread_type {
@@ -20,8 +22,12 @@ struct mail_thread_child_node {
 };
 ARRAY_DEFINE_TYPE(mail_thread_child_node, struct mail_thread_child_node);
 
+/* Convert thread type string to enum. Returns TRUE if ok, FALSE if type is
+   unknown. */
+bool mail_thread_type_parse(const char *str, enum mail_thread_type *type_r);
+
 /* Build thread from given search arguments. If reset=TRUE, build a new thread
-   tree to memory even if thread index exists. */
+   tree to memory even if thread index exists. args=NULL searches everything. */
 int mail_thread_init(struct mailbox *box, bool reset,
 		     struct mail_search_args *args,
 		     struct mail_thread_context **ctx_r);
