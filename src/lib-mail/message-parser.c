@@ -767,7 +767,7 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 	if (ret < 0 && ctx->part != NULL) {
 		/* Successful EOF or unexpected failure */
 		i_assert(ctx->input->eof || ctx->input->closed ||
-			 ctx->input->stream_errno != 0);
+			 ctx->input->stream_errno != 0 || ctx->broken);
 		while (ctx->part->parent != NULL) {
 			message_size_add(&ctx->part->parent->body_size,
 					 &ctx->part->body_size);
