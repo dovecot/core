@@ -106,6 +106,7 @@
 #  define ATTR_UNUSED __attribute__((unused))
 #  define ATTR_NORETURN __attribute__((noreturn))
 #  define ATTR_CONST __attribute__((const))
+#  define ATTR_PURE __attribute__((pure))
 #else
 #  define ATTR_FORMAT(format_idx, arg_idx)
 #  define ATTR_FORMAT_ARG(arg_idx)
@@ -113,7 +114,7 @@
 #  define ATTR_UNUSED
 #  define ATTR_NORETURN
 #  define ATTR_CONST
-#  define ATTR_UNUSED
+#  define ATTR_PURE
 #endif
 #if __GNUC__ > 2
 #  define ATTR_MALLOC __attribute__((malloc))
