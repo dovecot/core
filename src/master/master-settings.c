@@ -201,7 +201,7 @@ struct settings default_settings = {
 	MEMBER(login_dir) "login",
 	MEMBER(login_executable) NULL,
 	MEMBER(login_user) "dovecot",
-	MEMBER(login_greeting) "Dovecot ready.",
+	MEMBER(login_greeting) PACKAGE_NAME" ready.",
 	MEMBER(login_log_format_elements) "user=<%u> method=%m rip=%r lip=%l %c",
 	MEMBER(login_log_format) "%$: %s",
 

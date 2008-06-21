@@ -1,5 +1,5 @@
 AC_PREREQ([2.59])
-AC_INIT([dovecot],[1.2.UNSTABLE],[dovecot@dovecot.org])
+AC_INIT([Dovecot],[1.2.UNSTABLE],[dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AM_INIT_AUTOMAKE
@@ -292,14 +292,14 @@ AC_SUBST(ssldir)
 AC_ARG_WITH(rundir,
 [  --with-rundir=DIR       Runtime data directory (LOCALSTATEDIR/run/dovecot)],
 	rundir="$withval",
-	rundir=$localstatedir/run/$PACKAGE_NAME
+	rundir=$localstatedir/run/$PACKAGE
 )
 AC_SUBST(rundir)
 
 AC_ARG_WITH(statedir,
 [  --with-statedir=DIR     Permanent data directory (LOCALSTATEDIR/lib/dovecot)],
 	statedir="$withval",
-	statedir=$localstatedir/lib/$PACKAGE_NAME
+	statedir=$localstatedir/lib/$PACKAGE
 )
 AC_SUBST(statedir)
 

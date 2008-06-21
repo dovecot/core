@@ -255,7 +255,7 @@ static void main_init(bool log_error)
 		i_error("This is Dovecot's error log");
 		i_fatal("This is Dovecot's fatal log");
 	}
-	i_info("Dovecot v"VERSION" starting up");
+	i_info(PACKAGE_NAME" v"VERSION" starting up");
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
