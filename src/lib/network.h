@@ -110,7 +110,11 @@ const char *net_getservbyport(unsigned short port) ATTR_CONST;
 bool is_ipv4_address(const char *addr) ATTR_PURE;
 bool is_ipv6_address(const char *addr) ATTR_PURE;
 
-/* Returns TRUE if ip is in net_ip/bits network. */
+/* Parse network as ip/bits. Returns 0 if successful, -1 if invalid input. */
+int net_parse_range(const char *network, struct ip_addr *ip_r,
+		    unsigned int *bits_r);
+/* Returns TRUE if ip is in net_ip/bits network. IPv6 mapped IPv4 addresses
+   are converted to plain IPv4 addresses before matching. */
 bool net_is_in_network(const struct ip_addr *ip, const struct ip_addr *net_ip,
 		       unsigned int bits) ATTR_PURE;
 

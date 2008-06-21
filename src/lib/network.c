@@ -5,6 +5,7 @@
 #include "fd-set-nonblock.h"
 #include "network.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <ctype.h>
@@ -704,12 +705,45 @@ bool is_ipv6_address(const char *addr)
 	return TRUE;
 }
 
+int net_parse_range(const char *network, struct ip_addr *ip_r,
+		    unsigned int *bits_r)
+{
+	const char *p;
+	int bits, max_bits;
+
+	p = strchr(network, '/');
+	if (p != NULL)
+		network = t_strdup_until(network, p++);
+
+	if (net_addr2ip(network, ip_r) < 0)
+		return -1;
+
+	max_bits = IPADDR_IS_V4(ip_r) ? 32 : 128;
+	if (p == NULL) {
+		/* full IP address must match */
+		bits = max_bits;
+	} else {
+		/* get the network mask */
+		bits = atoi(p);
+		if (bits < 0 || bits > max_bits)
+			return -1;
+	}
+	*bits_r = bits;
+	return 0;
+}
+
 bool net_is_in_network(const struct ip_addr *ip,
 		       const struct ip_addr *net_ip, unsigned int bits)
 {
+	struct ip_addr tmp_ip;
 	const uint32_t *ip1, *ip2;
 	uint32_t mask, i1, i2;
 	unsigned int pos, i;
+
+	if (net_ipv6_mapped_ipv4_convert(ip, &tmp_ip) == 0) {
+		/* IPv4 address mapped disguised as IPv6 address */
+		ip = &tmp_ip;
+	}
 
 	if (IPADDR_IS_V4(ip) != IPADDR_IS_V4(net_ip)) {
 		/* one is IPv6 and one is IPv4 */

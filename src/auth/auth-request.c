@@ -868,38 +868,12 @@ bool auth_request_set_login_username(struct auth_request *request,
 	return request->requested_login_user != NULL;
 }
 
-static int is_ip_in_network(const char *network, const struct ip_addr *ip)
-{
-	struct ip_addr src_ip, net_ip;
-	const char *p;
-	unsigned int max_bits, bits;
-
-	if (net_ipv6_mapped_ipv4_convert(ip, &src_ip) == 0)
-		ip = &src_ip;
-
-	max_bits = IPADDR_IS_V4(ip) ? 32 : 128;
-	p = strchr(network, '/');
-	if (p == NULL) {
-		/* full IP address must match */
-		bits = max_bits;
-	} else {
-		/* get the network mask */
-		network = t_strdup_until(network, p);
-		bits = strtoul(p+1, NULL, 10);
-		if (bits > max_bits)
-			bits = max_bits;
-	}
-
-	if (net_addr2ip(network, &net_ip) < 0)
-		return -1;
-
-	return net_is_in_network(ip, &net_ip, bits);
-}
-
 static void auth_request_validate_networks(struct auth_request *request,
 					   const char *networks)
 {
 	const char *const *net;
+	struct ip_addr net_ip;
+	unsigned int bits;
 	bool found = FALSE;
 
 	if (request->remote_ip.family == 0) {
@@ -913,15 +887,14 @@ static void auth_request_validate_networks(struct auth_request *request,
 	for (net = t_strsplit_spaces(networks, ", "); *net != NULL; net++) {
 		auth_request_log_debug(request, "auth",
 			"allow_nets: Matching for network %s", *net);
-		switch (is_ip_in_network(*net, &request->remote_ip)) {
-		case 1:
-			found = TRUE;
-			break;
-		case -1:
+
+		if (net_parse_range(*net, &net_ip, &bits) < 0) {
 			auth_request_log_info(request, "passdb",
 				"allow_nets: Invalid network '%s'", *net);
-			break;
-		default:
+		}
+
+		if (net_is_in_network(&request->remote_ip, &net_ip, bits)) {
+			found = TRUE;
 			break;
 		}
 	}
