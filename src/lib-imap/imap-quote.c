@@ -108,3 +108,26 @@ const char *imap_quote(pool_t pool, const unsigned char *value,
 		t_pop();
 	return ret;
 }
+
+void imap_dquote_append(string_t *dest, const char *src)
+{
+	str_append_c(dest, '"');
+	for (; *src != '\0'; src++) {
+		switch (*src) {
+		case '"':
+		case '\\':
+			str_append_c(dest, '\\');
+			str_append_c(dest, *src);
+			break;
+		default:
+			if ((unsigned char)*src >= 0x80) {
+				/* 8bit input not allowed in dquotes */
+				break;
+			}
+
+			str_append_c(dest, *src);
+			break;
+		}
+	}
+	str_append_c(dest, '"');
+}

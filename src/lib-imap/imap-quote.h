@@ -15,4 +15,7 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 	imap_quote_append(str, (const unsigned char *)(value), \
 			  (size_t)-1, compress_lwsp)
 
+/* Append data to destination string quoted using "". */
+void imap_dquote_append(string_t *dest, const char *src);
+
 #endif
