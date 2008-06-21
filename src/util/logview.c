@@ -45,7 +45,7 @@ static void dump_hdr(int fd, uint64_t *modseq_r)
 	printf("create stamp = %u\n", hdr.create_stamp);
 	printf("initial modseq = %llu\n",
 	       (unsigned long long)hdr.initial_modseq);
-	*modseq_r = I_MAX(hdr.initial_modseq, 1);
+	*modseq_r = hdr.initial_modseq;
 }
 
 static bool
@@ -220,7 +220,7 @@ static void log_header_update(const struct mail_transaction_header_update *u)
 }
 
 static void log_record_print(const struct mail_transaction_header *hdr,
-			     const void *data)
+			     const void *data, uint64_t *modseq)
 {
 	unsigned int size = hdr->size - sizeof(*hdr);
 
@@ -275,8 +275,12 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		printf(" - flags = %u\n", intro->flags);
 		printf(" - name_size = %u\n", intro->name_size);
 		if (intro->name_size > 0) {
-			printf(" - name = '%.*s'\n",
-			       intro->name_size, (const char *)(intro+1));
+			const char *name = (const char *)(intro+1);
+
+			printf(" - name = '%.*s'\n", intro->name_size, name);
+			if (*modseq == 0 && intro->name_size == 6 &&
+			    memcmp(name, "modseq", 6) == 0)
+				*modseq = 1;
 		}
 		break;
 	}
@@ -372,7 +376,7 @@ static int dump_record(int fd, uint64_t *modseq)
 
 	printf("record: offset=%"PRIuUOFF_T", type=%s, size=%u",
 	       offset, log_record_type(hdr.type), hdr.size);
-	if (mail_transaction_header_has_modseq(&hdr)) {
+	if (*modseq > 0 && mail_transaction_header_has_modseq(&hdr)) {
 		*modseq += 1;
 		printf(", modseq=%llu", (unsigned long long)*modseq);
 	}
@@ -386,7 +390,7 @@ static int dump_record(int fd, uint64_t *modseq)
 			i_fatal("rec data read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
 				ret, hdr.size - sizeof(hdr));
 		}
-		log_record_print(&hdr, buf);
+		log_record_print(&hdr, buf, modseq);
 	} else {
 		lseek(fd, hdr.size - sizeof(hdr), SEEK_CUR);
 	}

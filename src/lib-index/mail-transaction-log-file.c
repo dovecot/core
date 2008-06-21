@@ -102,45 +102,62 @@ void mail_transaction_log_file_free(struct mail_transaction_log_file **_file)
 }
 
 static void
-mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
+mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 {
 	struct mail_transaction_log *log = file->log;
-	struct mail_transaction_log_file **p;
 	struct mail_index_map *map = log->index->map;
 	const struct mail_index_modseq_header *modseq_hdr;
+	uoff_t head_offset;
 
-	if (map != NULL && file->hdr.file_seq == map->hdr.log_file_seq &&
-	    map->hdr.log_file_head_offset != 0) {
-		/* we can get a valid log offset from index file. initialize
-		   sync_offset from it so we don't have to read the whole log
-		   file from beginning. */
-		uoff_t head_offset = map->hdr.log_file_head_offset;
+	if (map == NULL || file->hdr.file_seq != map->hdr.log_file_seq ||
+	    map->hdr.log_file_head_offset == 0)
+		return;
 
-		modseq_hdr = mail_index_map_get_modseq_header(map);
-		if (head_offset < file->hdr.hdr_size) {
-			mail_index_set_error(log->index,
-				"%s: log_file_head_offset too small",
-				log->index->filepath);
-			file->sync_offset = file->hdr.hdr_size;
-			file->sync_highest_modseq = file->hdr.initial_modseq;
-		} else if (modseq_hdr == NULL ||
-			   modseq_hdr->log_seq != file->hdr.file_seq ||
-			   modseq_hdr->log_offset != head_offset) {
-			/* highest_modseq not synced, start from beginning */
-			file->sync_offset = file->hdr.hdr_size;
-			file->sync_highest_modseq = file->hdr.initial_modseq;
-		} else {
-			file->sync_offset = head_offset;
-			file->sync_highest_modseq = modseq_hdr->highest_modseq;
-		}
-		file->saved_tail_offset = map->hdr.log_file_tail_offset;
-	} else {
+	/* we can get a valid log offset from index file. initialize
+	   sync_offset from it so we don't have to read the whole log
+	   file from beginning. */
+	head_offset = map->hdr.log_file_head_offset;
+
+	modseq_hdr = mail_index_map_get_modseq_header(map);
+	if (head_offset < file->hdr.hdr_size) {
+		mail_index_set_error(log->index,
+				     "%s: log_file_head_offset too small",
+				     log->index->filepath);
 		file->sync_offset = file->hdr.hdr_size;
 		file->sync_highest_modseq = file->hdr.initial_modseq;
+	} else if (modseq_hdr == NULL && file->hdr.initial_modseq == 0) {
+		/* modseqs not used yet */
+		file->sync_offset = head_offset;
+		file->sync_highest_modseq = 0;
+	} else if (modseq_hdr->log_seq != file->hdr.file_seq) {
+		/* highest_modseq not synced, start from beginning */
+		file->sync_offset = file->hdr.hdr_size;
+		file->sync_highest_modseq = file->hdr.initial_modseq;
+	} else if (modseq_hdr->log_offset > head_offset) {
+		mail_index_set_error(log->index,
+				     "%s: modseq_hdr.log_offset too large",
+				     log->index->filepath);
+		file->sync_offset = file->hdr.hdr_size;
+		file->sync_highest_modseq = file->hdr.initial_modseq;
+	} else {
+		/* start from where we last stopped tracking modseqs */
+		file->sync_offset = modseq_hdr->log_offset;
+		file->sync_highest_modseq = modseq_hdr->highest_modseq;
 	}
+	file->saved_tail_offset = log->index->map->hdr.log_file_tail_offset;
+}
+
+static void
+mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
+{
+	struct mail_transaction_log_file **p;
+
+	file->sync_offset = file->hdr.hdr_size;
+	file->sync_highest_modseq = file->hdr.initial_modseq;
+	mail_transaction_log_file_skip_to_head(file);
 
 	/* insert it to correct position */
-	for (p = &log->files; *p != NULL; p = &(*p)->next) {
+	for (p = &file->log->files; *p != NULL; p = &(*p)->next) {
 		if ((*p)->hdr.file_seq > file->hdr.file_seq)
 			break;
 		i_assert((*p)->hdr.file_seq < file->hdr.file_seq);
@@ -179,7 +196,8 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 		hdr->prev_file_seq = index->map->hdr.log_file_seq;
 		hdr->prev_file_offset = index->map->hdr.log_file_head_offset;
 		hdr->file_seq = index->map->hdr.log_file_seq + 1;
-		hdr->initial_modseq =
+		hdr->initial_modseq = log->head == NULL ||
+			log->head->sync_highest_modseq == 0 ? 0 :
 			mail_index_map_modseq_get_highest(index->map);
 	} else {
 		hdr->file_seq = 1;
@@ -368,8 +386,6 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		   shouldn't have filled */
 		memset(PTR_OFFSET(&file->hdr, file->hdr.hdr_size), 0,
 		       sizeof(file->hdr) - file->hdr.hdr_size);
-		if (file->hdr.minor_version == 0)
-			file->hdr.initial_modseq = 1;
 	}
 
 	if (file->hdr.indexid == 0) {
@@ -524,7 +540,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	if (reset) {
 		file->hdr.prev_file_seq = 0;
 		file->hdr.prev_file_offset = 0;
-		file->hdr.initial_modseq = 1;
+		file->hdr.initial_modseq = 0;
 	}
 
 	if (write_full(new_fd, &file->hdr, sizeof(file->hdr)) < 0) {
@@ -724,8 +740,31 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 }
 
 bool
-mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr)
+mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr,
+				   const void *data,
+				   uint64_t cur_modseq)
 {
+	if (cur_modseq != 0) {
+		/* tracking modseqs */
+	} else if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
+		   MAIL_TRANSACTION_EXT_INTRO) {
+		/* modseqs not tracked yet. see if this is a modseq
+		   extension introduction. */
+		const struct mail_transaction_ext_intro *intro = data;
+		const unsigned int modseq_ext_len =
+			strlen(MAIL_INDEX_MODSEQ_EXT_NAME);
+
+		if (intro->name_size == modseq_ext_len &&
+		    memcmp(intro + 1, MAIL_INDEX_MODSEQ_EXT_NAME,
+			   modseq_ext_len) == 0) {
+			/* modseq tracking started */
+			return TRUE;
+		}
+	} else {
+		/* not tracking modseqs */
+		return FALSE;
+	}
+
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT:
 		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
@@ -882,7 +921,8 @@ int mail_transaction_log_file_get_highest_modseq_at(
 	while (cur_offset < offset) {
 		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
 			return- 1;
-		if (mail_transaction_header_has_modseq(hdr))
+		if (mail_transaction_header_has_modseq(hdr, hdr + 1,
+						       cur_modseq))
 			cur_modseq++;
 	}
 
@@ -943,7 +983,8 @@ int mail_transaction_log_file_get_modseq_next_offset(
 		prev_offset = cur_offset;
 		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
 			return -1;
-		if (mail_transaction_header_has_modseq(hdr)) {
+		if (mail_transaction_header_has_modseq(hdr, hdr + 1,
+						       cur_modseq)) {
 			if (++cur_modseq == modseq)
 				break;
 		}
@@ -973,11 +1014,12 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 		    const struct mail_transaction_header *hdr,
 		    unsigned int trans_size)
 {
+	const void *data = hdr + 1;
 	int ret;
 
-	if (mail_transaction_header_has_modseq(hdr))
+	if (mail_transaction_header_has_modseq(hdr, hdr + 1,
+					       file->sync_highest_modseq))
 		file->sync_highest_modseq++;
-
 	if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
 		return 0;
 
@@ -985,7 +1027,7 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 	if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
 	    MAIL_TRANSACTION_HEADER_UPDATE) {
 		/* see if this updates mailbox_sync_offset */
-		ret = log_file_track_mailbox_sync_offset_hdr(file, hdr + 1,
+		ret = log_file_track_mailbox_sync_offset_hdr(file, data,
 							     trans_size -
 							     sizeof(*hdr));
 		if (ret != 0)
@@ -1209,13 +1251,6 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 		}
 	}
 
-	if (start_offset > file->sync_offset) {
-		/* although we could just skip over the unwanted data, we have
-		   to sync everything so that modseqs are calculated
-		   correctly */
-		start_offset = file->sync_offset;
-	}
-
 	if (file->buffer != NULL && file->buffer_offset > start_offset) {
 		/* we have to insert missing data to beginning of buffer */
 		ret = mail_transaction_log_file_insert_read(file, start_offset);
@@ -1417,6 +1452,15 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		}
 		return log_file_map_check_offsets(file, start_offset,
 						  end_offset);
+	}
+
+	if (start_offset > file->sync_offset)
+		mail_transaction_log_file_skip_to_head(file);
+	if (start_offset > file->sync_offset) {
+		/* although we could just skip over the unwanted data, we have
+		   to sync everything so that modseqs are calculated
+		   correctly */
+		start_offset = file->sync_offset;
 	}
 
 	if (!index->mmap_disable)

@@ -6,6 +6,7 @@
 #include "write-full.h"
 #include "mail-index-private.h"
 #include "mail-index-view-private.h"
+#include "mail-index-modseq.h"
 #include "mail-index-transaction-private.h"
 #include "mail-transaction-log-private.h"
 
@@ -14,7 +15,7 @@ struct log_append_context {
 	struct mail_index_transaction *trans;
 	buffer_t *output;
 
-	unsigned int modseq_change_count;
+	uint64_t modseq;
 	uint32_t first_append_size;
 	bool sync_includes_this;
 };
@@ -25,6 +26,7 @@ static void log_append_buffer(struct log_append_context *ctx,
 {
 	struct mail_transaction_header hdr;
 	uint32_t hdr_size;
+	size_t hdr_pos;
 
 	i_assert((type & MAIL_TRANSACTION_TYPE_MASK) != 0);
 	i_assert((buf->used % 4) == 0);
@@ -39,26 +41,31 @@ static void log_append_buffer(struct log_append_context *ctx,
 		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
 	if ((ctx->trans->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
+	hdr.size = sizeof(hdr) + buf->used +
+		(hdr_buf == NULL ? 0 : hdr_buf->used);
 
-	if (mail_transaction_header_has_modseq(&hdr))
-		ctx->modseq_change_count++;
+	hdr_pos = ctx->output->used;
+	buffer_append(ctx->output, &hdr, sizeof(hdr));
+	if (hdr_buf != NULL)
+		buffer_append(ctx->output, hdr_buf->data, hdr_buf->used);
+	buffer_append(ctx->output, buf->data, buf->used);
 
-	hdr_size = mail_index_uint32_to_offset(sizeof(hdr) + buf->used +
-					       (hdr_buf == NULL ? 0 :
-						hdr_buf->used));
+	if (mail_transaction_header_has_modseq(buf->data,
+			CONST_PTR_OFFSET(buf->data, sizeof(hdr)), ctx->modseq))
+		ctx->modseq++;
+
+	/* update the size */
+	hdr_size = mail_index_uint32_to_offset(hdr.size);
 	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(ctx->file) &&
 	    ctx->first_append_size == 0) {
 		/* size will be written later once everything
 		   is in disk */
 		ctx->first_append_size = hdr_size;
+		hdr.size = 0;
 	} else {
 		hdr.size = hdr_size;
 	}
-
-	buffer_append(ctx->output, &hdr, sizeof(hdr));
-	if (hdr_buf != NULL)
-		buffer_append(ctx->output, hdr_buf->data, hdr_buf->used);
-	buffer_append(ctx->output, buf->data, buf->used);
+	buffer_write(ctx->output, hdr_pos, &hdr, sizeof(hdr));
 }
 
 static int log_buffer_move_to_memory(struct log_append_context *ctx)
@@ -280,9 +287,14 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 		/* new extension, reset_id defaults to 0 */
 	}
 	buffer_append(buf, rext->name, intro->name_size);
-
 	if ((buf->used % 4) != 0)
 		buffer_append_zero(buf, 4 - (buf->used % 4));
+
+	if (ctx->file->sync_highest_modseq == 0 &&
+	    strcmp(rext->name, MAIL_INDEX_MODSEQ_EXT_NAME) == 0) {
+		/* modseq tracking started */
+		ctx->file->sync_highest_modseq = 1;
+	}
 
 	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_EXT_INTRO);
 }
@@ -601,6 +613,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 	ctx.file = file;
 	ctx.trans = t;
 	ctx.output = buffer_create_dynamic(default_pool, 1024);
+	ctx.modseq = file->sync_highest_modseq;
 
 	/* send all extension introductions and resizes before appends
 	   to avoid resize overhead as much as possible */
@@ -674,7 +687,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		buffer_free(&ctx.output);
 		return -1;
 	}
-	file->sync_highest_modseq += ctx.modseq_change_count;
+	file->sync_highest_modseq = ctx.modseq;
 	buffer_free(&ctx.output);
 
 	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_HIDE) != 0) {

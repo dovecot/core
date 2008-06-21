@@ -122,7 +122,9 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log);
 void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file);
 
 bool
-mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr);
+mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr,
+				   const void *data,
+				   uint64_t cur_modseq);
 int mail_transaction_log_file_get_highest_modseq_at(
 		struct mail_transaction_log_file *file,
 		uoff_t offset, uint64_t *highest_modseq_r);

@@ -7,8 +7,6 @@
 #include "mail-index-sync-private.h"
 #include "mail-index-modseq.h"
 
-#define MAIL_INDEX_MODSEQ_EXT_NAME "modseq"
-
 ARRAY_DEFINE_TYPE(modseqs, uint64_t);
 
 enum modseq_metadata_idx {
@@ -51,7 +49,7 @@ void mail_index_modseq_init(struct mail_index *index)
 static uint64_t mail_index_modseq_get_head(struct mail_index *index)
 {
 	return index->log->head == NULL ? 1 :
-		index->log->head->sync_highest_modseq;
+		I_MAX(index->log->head->sync_highest_modseq, 1);
 }
 
 void mail_index_modseq_enable(struct mail_index *index)

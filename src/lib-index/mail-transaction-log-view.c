@@ -21,12 +21,7 @@ struct mail_transaction_log_view {
         struct mail_transaction_log_file *cur, *head, *tail;
 	uoff_t cur_offset;
 
-	/* prev_modseq doesn't contain correct values until we know that
-	   caller is really interested in modseqs. so the prev_modseq begins
-	   from 0 and it's relative to prev_modseq_start_offset. when
-	   prev_modseq_initialized=TRUE prev_modseq contains a correct value */
 	uint64_t prev_modseq;
-
 	uint32_t prev_file_seq;
 	uoff_t prev_file_offset;
 
@@ -614,7 +609,8 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		ret = log_view_is_record_valid(file, hdr, data) ? 1 : -1;
 	} T_END;
 	if (ret > 0) {
-		if (mail_transaction_header_has_modseq(hdr))
+		if (mail_transaction_header_has_modseq(hdr, data,
+						       view->prev_modseq))
 			view->prev_modseq++;
 		*hdr_r = hdr;
 		*data_r = data;
