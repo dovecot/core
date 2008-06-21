@@ -269,6 +269,14 @@ static int cmd_logout(struct imap_client *client)
 	return 1;
 }
 
+static int cmd_enable(struct imap_client *client)
+{
+	client_send_line(client, "* ENABLED");
+	client_send_tagline(client,
+			    "OK ENABLE ignored in non-authenticated state.");
+	return 1;
+}
+
 static int client_command_execute(struct imap_client *client, const char *cmd,
 				  const struct imap_arg *args)
 {
@@ -287,6 +295,8 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 		return cmd_noop(client);
 	if (strcmp(cmd, "LOGOUT") == 0)
 		return cmd_logout(client);
+	if (strcmp(cmd, "ENABLE") == 0)
+		return cmd_enable(client);
 
 	return -1;
 }
