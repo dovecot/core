@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <syslog.h>
 
-bool disable_plaintext_auth, process_per_connection, greeting_capability;
+bool disable_plaintext_auth, process_per_connection;
 bool verbose_proctitle, verbose_ssl, verbose_auth;
 const char *greeting, *log_format;
 const char *const *log_format_elements;
@@ -319,7 +319,6 @@ static void main_init(void)
 	greeting = getenv("GREETING");
 	if (greeting == NULL)
 		greeting = PACKAGE" ready.";
-	greeting_capability = getenv("GREETING_CAPABILITY") != NULL;
 
 	value = getenv("LOG_FORMAT_ELEMENTS");
 	if (value == NULL)

@@ -573,8 +573,6 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	env_put(t_strconcat("LOG_FORMAT=", set->login_log_format, NULL));
 	env_put(t_strconcat("IMAP_ID_SEND=", set->imap_id_send, NULL));
 	env_put(t_strconcat("IMAP_ID_LOG=", set->imap_id_log, NULL));
-	if (set->login_greeting_capability)
-		env_put("GREETING_CAPABILITY=1");
 
 	if (group->mail_process_type == PROCESS_TYPE_IMAP) {
 		env_put(t_strconcat("CAPABILITY_STRING=",

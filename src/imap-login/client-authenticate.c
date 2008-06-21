@@ -208,7 +208,13 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				break;
 		}
 
-		client_send_tagline(client, "OK Logged in.");
+		if (client->full_capability_sent)
+			client_send_tagline(client, "OK Logged in.");
+		else {
+			client_send_tagline(client, t_strdup_printf(
+				"OK [CAPABILITY %s] Logged in.",
+				capability_string));
+		}
 		client_destroy_success(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
