@@ -193,6 +193,8 @@ struct mailbox_status {
 
 	/* There are expunges that haven't been synced yet */
 	unsigned int sync_delayed_expunges:1;
+	/* Modseqs aren't permanent (index is in memory) */
+	unsigned int nonpermanent_modseqs:1;
 };
 
 struct mailbox_sync_rec {
