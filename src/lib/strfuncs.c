@@ -541,6 +541,15 @@ bool str_array_remove(const char **arr, const char *value)
 	return FALSE;
 }
 
+bool str_array_icase_find(const char *const *arr, const char *value)
+{
+	for (; *arr != NULL; arr++) {
+		if (strcasecmp(*arr, value) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 const char *dec2str(uintmax_t number)
 {
 	char *buffer;
