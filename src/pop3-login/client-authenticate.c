@@ -66,7 +66,7 @@ static void client_auth_input(struct pop3_client *client)
 		return;
 
 	/* @UNSAFE */
-	line = i_stream_next_line(client->input);
+	line = i_stream_next_line(client->common.input);
 	if (line == NULL)
 		return;
 

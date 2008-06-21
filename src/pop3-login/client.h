@@ -13,7 +13,6 @@ struct pop3_client {
 	int refcount;
 
 	struct io *io;
-	struct istream *input;
 	struct ostream *output;
 	struct timeout *to_idle_disconnect;
 
@@ -29,7 +28,6 @@ struct pop3_client {
 	struct auth_connect_id auth_id;
 
 	unsigned int login_success:1;
-	unsigned int authenticating:1;
 	unsigned int auth_connected:1;
 	unsigned int destroyed:1;
 };

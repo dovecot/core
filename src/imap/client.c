@@ -18,8 +18,6 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 
 static struct client *my_client; /* we don't need more than one currently */
 
-static bool client_handle_input(struct client *client);
-
 static void client_idle_timeout(struct client *client)
 {
 	if (client->output_lock == NULL)
@@ -684,7 +682,7 @@ static bool client_handle_next_command(struct client *client, bool *remove_io_r)
 	return client_command_input(client->input_lock);
 }
 
-static bool client_handle_input(struct client *client)
+bool client_handle_input(struct client *client)
 {
 	bool ret, remove_io, handled_commands = FALSE;
 

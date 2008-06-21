@@ -9,6 +9,9 @@
    (or something else) is changed. */
 #define MASTER_LOGIN_PROTOCOL_VERSION 3
 
+/* This should be kept in sync with LOGIN_MAX_INBUF_SIZE */
+#define MASTER_LOGIN_MAX_DATA_SIZE 4096
+
 enum master_login_state {
 	/* process is accepting new connections */
 	LOGIN_STATE_LISTENING = 0,
@@ -28,6 +31,8 @@ struct master_login_request {
 
 	uint32_t auth_pid;
 	uint32_t auth_id;
+	/* request follows this many bytes of client input */
+	uint32_t data_size;
 
 	ino_t ino;
 

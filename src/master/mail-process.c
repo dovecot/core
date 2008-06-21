@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "fd-close-on-exec.h"
 #include "env-util.h"
+#include "base64.h"
 #include "str.h"
 #include "network.h"
 #include "mountpoint.h"
@@ -524,6 +525,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		    int socket_fd, const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip,
 		    const char *user, const char *const *args,
+		    unsigned int input_size, const unsigned char *input,
 		    bool dump_capability)
 {
 	const struct var_expand_table *var_expand_table;
@@ -831,6 +833,13 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	addr = net_ip2addr(remote_ip);
 	env_put(t_strconcat("IP=", addr, NULL));
+
+	if (input_size > 0) {
+		str_truncate(str, 0);
+		str_append(str, "CLIENT_INPUT=");
+		base64_encode(input, input_size, str);
+		env_put(str_c(str));
+	}
 
 	if (!set->verbose_proctitle)
 		title[0] = '\0';

@@ -97,11 +97,11 @@ static int proxy_input_line(struct imap_client *client,
 				      login_proxy_get_port(client->proxy));
 
 		(void)client_skip_line(client);
-		login_proxy_detach(client->proxy, client->input,
+		login_proxy_detach(client->proxy, client->common.input,
 				   client->output);
 
 		client->proxy = NULL;
-		client->input = NULL;
+		client->common.input = NULL;
 		client->output = NULL;
 		client->common.fd = -1;
 		client_destroy_success(client, msg);

@@ -5,6 +5,8 @@
 #include "network.h"
 #include "ostream.h"
 #include "str.h"
+#include "base64.h"
+#include "istream.h"
 #include "lib-signals.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
@@ -163,6 +165,7 @@ static void drop_privileges(void)
 static void main_init(void)
 {
 	struct client *client;
+	struct ostream *output;
 	struct mail_namespace *ns;
 	const char *user, *str;
 
@@ -238,7 +241,9 @@ static void main_init(void)
 		i_fatal("Namespace initialization failed");
 	client = client_create(0, 1, ns);
 
-        o_stream_cork(client->output);
+	output = client->output;
+	o_stream_ref(output);
+	o_stream_cork(output);
 	if (IS_STANDALONE()) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY ",
@@ -249,7 +254,18 @@ static void main_init(void)
 		client_send_line(client, t_strconcat(getenv("IMAPLOGINTAG"),
 						     " OK Logged in.", NULL));
 	}
-        o_stream_uncork(client->output);
+	str = getenv("CLIENT_INPUT");
+	if (str != NULL) T_BEGIN {
+		buffer_t *buf = t_base64_decode_str(str);
+		if (buf->used > 0) {
+			if (!i_stream_add_data(client->input, buf->data,
+					       buf->used))
+				i_panic("Couldn't add client input to stream");
+			(void)client_handle_input(client);
+		}
+	} T_END;
+        o_stream_uncork(output);
+	o_stream_unref(&output);
 }
 
 static void main_deinit(void)
@@ -292,8 +308,12 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
         process_title_init(argv, envp);
 	ioloop = io_loop_create();
 
+	/* fake that we're running, so we know if client was destroyed
+	   while initializing */
+	io_loop_set_running(ioloop);
 	main_init();
-        io_loop_run(ioloop);
+	if (io_loop_is_running(ioloop))
+		io_loop_run(ioloop);
 	main_deinit();
 
 	io_loop_destroy(&ioloop);

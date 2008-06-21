@@ -48,7 +48,9 @@ struct login_auth_request {
 	unsigned int login_tag;
 	int fd;
 
+	unsigned int data_size;
 	struct ip_addr local_ip, remote_ip;
+	unsigned char data[];
 };
 
 static unsigned int auth_id_counter, login_pid_counter;
@@ -105,6 +107,7 @@ void auth_master_callback(const char *user, const char *const *args,
 					    group->set,
 					    request->fd, &request->local_ip,
 					    &request->remote_ip, user, args,
+					    request->data_size, request->data,
 					    FALSE);
 	} T_END;
 
@@ -304,6 +307,7 @@ static bool login_process_read_group(struct login_process *p)
 
 static int
 login_read_request(struct login_process *p, struct master_login_request *req,
+		   unsigned char data[MASTER_LOGIN_MAX_DATA_SIZE],
 		   int *client_fd_r)
 {
 	struct stat st;
@@ -343,6 +347,26 @@ login_read_request(struct login_process *p, struct master_login_request *req,
 		}
 		return 1;
 	}
+	if (req->data_size != 0) {
+		if (req->data_size > MASTER_LOGIN_MAX_DATA_SIZE) {
+			i_error("login: Too large data_size sent");
+			return -1;
+		}
+		/* @UNSAFE */
+		ret = read(p->fd, data, req->data_size);
+		if (ret != req->data_size) {
+			if (ret == 0) {
+				/* disconnected */
+			} else if (ret > 0) {
+				/* request wasn't fully read */
+				i_error("login: Data read partially %d/%u",
+					(int)ret, req->data_size);
+			} else {
+				i_error("login: read(data) failed: %m");
+			}
+			return -1;
+		}
+	}
 
 	if (*client_fd_r == -1) {
 		i_error("login: Login request missing a file descriptor");
@@ -353,7 +377,6 @@ login_read_request(struct login_process *p, struct master_login_request *req,
 		i_error("login: fstat(mail client) failed: %m");
 		return -1;
 	}
-
 	if (st.st_ino != req->ino) {
 		i_error("login: Login request inode mismatch: %s != %s",
 			dec2str(st.st_ino), dec2str(req->ino));
@@ -367,6 +390,7 @@ static void login_process_input(struct login_process *p)
 	struct auth_process *auth_process;
 	struct login_auth_request *authreq;
 	struct master_login_request req;
+	unsigned char data[MASTER_LOGIN_MAX_DATA_SIZE];
 	int client_fd;
 	ssize_t ret;
 
@@ -377,7 +401,7 @@ static void login_process_input(struct login_process *p)
 		return;
 	}
 
-	ret = login_read_request(p, &req, &client_fd);
+	ret = login_read_request(p, &req, data, &client_fd);
 	if (ret == 0)
 		return;
 	if (ret < 0) {
@@ -412,7 +436,7 @@ static void login_process_input(struct login_process *p)
 	fd_close_on_exec(client_fd, TRUE);
 
 	/* ask the cookie from the auth process */
-	authreq = i_new(struct login_auth_request, 1);
+	authreq = i_malloc(sizeof(*authreq) + req.data_size);
 	p->refcount++;
 	authreq->process = p;
 	authreq->tag = ++auth_id_counter;
@@ -420,6 +444,8 @@ static void login_process_input(struct login_process *p)
 	authreq->fd = client_fd;
 	authreq->local_ip = req.local_ip;
 	authreq->remote_ip = req.remote_ip;
+	authreq->data_size = req.data_size;
+	memcpy(authreq->data, data, req.data_size);
 
 	auth_process = auth_process_find(req.auth_pid);
 	if (auth_process == NULL) {

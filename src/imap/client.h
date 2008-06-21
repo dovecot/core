@@ -171,6 +171,7 @@ bool client_handle_unfinished_cmd(struct client_command_context *cmd);
 void client_continue_pending_input(struct client **_client);
 
 void client_input(struct client *client);
+bool client_handle_input(struct client *client);
 int client_output(struct client *client);
 
 #endif

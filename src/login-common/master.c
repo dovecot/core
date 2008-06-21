@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "hash.h"
+#include "buffer.h"
 #include "ioloop.h"
 #include "network.h"
 #include "fdpass.h"
@@ -59,32 +60,50 @@ static void request_handle(struct master_login_reply *reply)
 void master_request_login(struct client *client, master_callback_t *callback,
 			  unsigned int auth_pid, unsigned int auth_id)
 {
-	struct master_login_request req;
+	buffer_t *buf;
+	struct master_login_request *req;
 	struct stat st;
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
 
 	i_assert(auth_pid != 0);
 
-	memset(&req, 0, sizeof(req));
-	req.version = MASTER_LOGIN_PROTOCOL_VERSION;
-	req.tag = ++master_tag_counter;
-	if (req.tag == 0)
-		req.tag = ++master_tag_counter;
-	req.auth_pid = auth_pid;
-	req.auth_id = auth_id;
-	req.local_ip = client->local_ip;
-	req.remote_ip = client->ip;
+	data = i_stream_get_data(client->input, &size);
+	buf = buffer_create_dynamic(pool_datastack_create(),
+				    sizeof(*req) + size);
+	buffer_write(buf, sizeof(*req), data, size);
+	req = buffer_get_space_unsafe(buf, 0, sizeof(*req));
+	req->version = MASTER_LOGIN_PROTOCOL_VERSION;
+	req->tag = ++master_tag_counter;
+	if (req->tag == 0)
+		req->tag = ++master_tag_counter;
+	req->auth_pid = auth_pid;
+	req->auth_id = auth_id;
+	req->local_ip = client->local_ip;
+	req->remote_ip = client->ip;
+	req->data_size = size;
+#if LOGIN_MAX_INBUF_SIZE != MASTER_LOGIN_MAX_DATA_SIZE
+#  error buffer max sizes unsynced
+#endif
+	i_assert(req->data_size <= LOGIN_MAX_INBUF_SIZE);
 
 	if (fstat(client->fd, &st) < 0)
 		i_fatal("fstat(client) failed: %m");
-	req.ino = st.st_ino;
+	req->ino = st.st_ino;
 
-	if (fd_send(master_fd, client->fd, &req, sizeof(req)) != sizeof(req))
+	ret = fd_send(master_fd, client->fd, buf->data, buf->used);
+	if (ret < 0)
 		i_fatal("fd_send(%d) failed: %m", client->fd);
+	if ((size_t)ret != buf->used) {
+		i_fatal("fd_send() sent only %d of %d bytes",
+			(int)ret, (int)buf->used);
+	}
 
-	client->master_tag = req.tag;
+	client->master_tag = req->tag;
 	client->master_callback = callback;
 
-	hash_insert(master_requests, POINTER_CAST(req.tag), client);
+	hash_insert(master_requests, POINTER_CAST(req->tag), client);
 }
 
 void master_request_abort(struct client *client)

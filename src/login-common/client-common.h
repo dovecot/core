@@ -5,6 +5,14 @@
 #include "master.h"
 #include "sasl-server.h"
 
+/* max. size of input buffer. this means:
+
+   SASL: Max SASL request length from client
+   IMAP: Max. length of a single parameter
+   POP3: Max. length of a command line (spec says 512 would be enough)
+*/
+#define LOGIN_MAX_INBUF_SIZE 4096
+
 struct client {
 	struct client *prev, *next;
 
@@ -14,6 +22,7 @@ struct client {
 	struct ssl_proxy *proxy;
 
 	int fd;
+	struct istream *input;
 
 	char *auth_mech_name;
 	struct auth_request *auth_request;

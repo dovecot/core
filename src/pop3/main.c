@@ -7,6 +7,9 @@
 #include "lib-signals.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
+#include "base64.h"
+#include "buffer.h"
+#include "istream.h"
 #include "process-title.h"
 #include "randgen.h"
 #include "module-dir.h"
@@ -180,9 +183,12 @@ static void drop_privileges(void)
 	restrict_access_by_env(!IS_STANDALONE());
 }
 
-static int main_init(void)
+static bool main_init(void)
 {
 	struct mail_namespace *ns;
+	struct client *client;
+	const char *str;
+	bool ret = TRUE;
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
@@ -232,7 +238,21 @@ static int main_init(void)
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
 	if (mail_namespaces_init(namespace_pool, getenv("USER"), &ns) < 0)
 		i_fatal("Namespace initialization failed");
-	return client_create(0, 1, ns) != NULL;
+	client = client_create(0, 1, ns);
+	if (client == NULL)
+		return FALSE;
+
+	str = getenv("CLIENT_INPUT");
+	if (str != NULL) T_BEGIN {
+		buffer_t *buf = t_base64_decode_str(str);
+		if (buf->used > 0) {
+			if (!i_stream_add_data(client->input, buf->data,
+					       buf->used))
+				i_panic("Couldn't add client input to stream");
+			ret = client_handle_input(client);
+		}
+	} T_END;
+	return ret;
 }
 
 static void main_deinit(void)

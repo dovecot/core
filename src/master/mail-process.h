@@ -13,6 +13,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		    int socket_fd, const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip,
 		    const char *user, const char *const *args,
+		    unsigned int input_size, const unsigned char *input,
 		    bool dump_capability);
 
 void mail_processes_init(void);

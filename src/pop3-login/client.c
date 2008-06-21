@@ -17,10 +17,6 @@
 #include "pop3-proxy.h"
 #include "hostpid.h"
 
-/* max. length of input command line (spec says 512), or max reply length in
-   SASL authentication */
-#define MAX_INBUF_SIZE 4096
-
 /* max. size of output buffer. if it gets full, the client is disconnected.
    SASL authentication gives the largest output. */
 #define MAX_OUTBUF_SIZE 4096
@@ -59,7 +55,8 @@ static void client_set_title(struct pop3_client *client)
 
 static void client_open_streams(struct pop3_client *client, int fd)
 {
-	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+	client->common.input =
+		i_stream_create_fd(fd, LOGIN_MAX_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
 }
 
@@ -87,7 +84,7 @@ static void client_start_tls(struct pop3_client *client)
 
 	client->common.fd = fd_ssl;
 
-	i_stream_unref(&client->input);
+	i_stream_unref(&client->common.input);
 	o_stream_unref(&client->output);
 
 	client_open_streams(client, fd_ssl);
@@ -180,7 +177,7 @@ static bool client_command_execute(struct pop3_client *client, const char *cmd,
 
 bool client_read(struct pop3_client *client)
 {
-	switch (i_stream_read(client->input)) {
+	switch (i_stream_read(client->common.input)) {
 	case -2:
 		/* buffer full */
 		client_send_line(client, "-ERR Input line too long, aborting");
@@ -208,8 +205,8 @@ void client_input(struct pop3_client *client)
 	client_ref(client);
 
 	o_stream_cork(client->output);
-	while (!client->output->closed &&
-	       (line = i_stream_next_line(client->input)) != NULL) {
+	while (!client->output->closed && !client->common.authenticating &&
+	       (line = i_stream_next_line(client->common.input)) != NULL) {
 		args = strchr(line, ' ');
 		if (args != NULL)
 			*args++ = '\0';
@@ -363,8 +360,8 @@ void client_destroy(struct pop3_client *client, const char *reason)
 
 	client_unlink(&client->common);
 
-	if (client->input != NULL)
-		i_stream_close(client->input);
+	if (client->common.input != NULL)
+		i_stream_close(client->common.input);
 	if (client->output != NULL)
 		o_stream_close(client->output);
 
@@ -433,8 +430,8 @@ bool client_unref(struct pop3_client *client)
 
 	i_assert(client->destroyed);
 
-	if (client->input != NULL)
-		i_stream_unref(&client->input);
+	if (client->common.input != NULL)
+		i_stream_unref(&client->common.input);
 	if (client->output != NULL)
 		o_stream_unref(&client->output);
 
@@ -463,7 +460,7 @@ void client_send_line(struct pop3_client *client, const char *line)
 		   want this connection destroyed. however destroying it here
 		   might break things if client is still tried to be accessed
 		   without being referenced.. */
-		i_stream_close(client->input);
+		i_stream_close(client->common.input);
 	}
 }
 

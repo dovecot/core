@@ -19,10 +19,6 @@
 
 #include <stdlib.h>
 
-/* max. size of one parameter in line, or max reply length in SASL
-   authentication */
-#define MAX_INBUF_SIZE 4096
-
 /* max. size of output buffer. if it gets full, the client is disconnected.
    SASL authentication gives the largest output. */
 #define MAX_OUTBUF_SIZE 4096
@@ -72,10 +68,11 @@ static void client_set_title(struct imap_client *client)
 
 static void client_open_streams(struct imap_client *client, int fd)
 {
-	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+	client->common.input =
+		i_stream_create_fd(fd, LOGIN_MAX_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
-	client->parser = imap_parser_create(client->input, client->output,
-					    MAX_IMAP_LINE);
+	client->parser = imap_parser_create(client->common.input,
+					    client->output, MAX_IMAP_LINE);
 }
 
 /* Skip incoming data until newline is found,
@@ -85,11 +82,11 @@ bool client_skip_line(struct imap_client *client)
 	const unsigned char *data;
 	size_t i, data_size;
 
-	data = i_stream_get_data(client->input, &data_size);
+	data = i_stream_get_data(client->common.input, &data_size);
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == '\n') {
-			i_stream_skip(client->input, i+1);
+			i_stream_skip(client->common.input, i+1);
 			return TRUE;
 		}
 	}
@@ -141,7 +138,7 @@ static void client_start_tls(struct imap_client *client)
 	client_set_title(client);
 
 	client->common.fd = fd_ssl;
-	i_stream_unref(&client->input);
+	i_stream_unref(&client->common.input);
 	o_stream_unref(&client->output);
 	imap_parser_destroy(&client->parser);
 
@@ -360,7 +357,9 @@ static bool client_handle_input(struct imap_client *client)
 		/* not enough data */
 		return FALSE;
 	}
-	client->skip_line = TRUE;
+	/* we read the entire line - skip over the CRLF */
+	if (!client_skip_line(client))
+		i_unreached();
 
 	if (*client->cmd_tag == '\0')
 		ret = -1;
@@ -387,7 +386,7 @@ static bool client_handle_input(struct imap_client *client)
 
 bool client_read(struct imap_client *client)
 {
-	switch (i_stream_read(client->input)) {
+	switch (i_stream_read(client->common.input)) {
 	case -2:
 		/* buffer full */
 		client_send_line(client, "* BYE Input buffer full, aborting");
@@ -557,8 +556,8 @@ void client_destroy(struct imap_client *client, const char *reason)
 
 	client_unlink(&client->common);
 
-	if (client->input != NULL)
-		i_stream_close(client->input);
+	if (client->common.input != NULL)
+		i_stream_close(client->common.input);
 	if (client->output != NULL)
 		o_stream_close(client->output);
 
@@ -637,8 +636,8 @@ bool client_unref(struct imap_client *client)
 
 	imap_parser_destroy(&client->parser);
 
-	if (client->input != NULL)
-		i_stream_unref(&client->input);
+	if (client->common.input != NULL)
+		i_stream_unref(&client->common.input);
 	if (client->output != NULL)
 		o_stream_unref(&client->output);
 
@@ -665,7 +664,7 @@ void client_send_line(struct imap_client *client, const char *line)
 		   want this connection destroyed. however destroying it here
 		   might break things if client is still tried to be accessed
 		   without being referenced.. */
-		i_stream_close(client->input);
+		i_stream_close(client->common.input);
 	}
 }
 

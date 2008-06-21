@@ -12,7 +12,6 @@ struct imap_client {
 	int refcount;
 
 	struct io *io;
-	struct istream *input;
 	struct ostream *output;
 	struct imap_parser *parser;
 	struct timeout *to_idle_disconnect, *to_auth_waiting;

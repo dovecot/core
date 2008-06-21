@@ -375,34 +375,10 @@ void client_send_storage_error(struct client *client)
 						     &error));
 }
 
-static void client_input(struct client *client)
+bool client_handle_input(struct client *client)
 {
 	char *line, *args;
 	int ret;
-
-	if (client->cmd != NULL) {
-		/* we're still processing a command. wait until it's
-		   finished. */
-		io_remove(&client->io);
-		client->waiting_input = TRUE;
-		return;
-	}
-
-	client->waiting_input = FALSE;
-	client->last_input = ioloop_time;
-	timeout_reset(client->to_idle);
-
-	switch (i_stream_read(client->input)) {
-	case -1:
-		/* disconnected */
-		client_destroy(client, NULL);
-		return;
-	case -2:
-		/* line too long, kill it */
-		client_send_line(client, "-ERR Input line too long.");
-		client_destroy(client, "Input line too long");
-		return;
-	}
 
 	o_stream_cork(client->output);
 	while (!client->output->closed &&
@@ -430,8 +406,40 @@ static void client_input(struct client *client)
 	}
 	o_stream_uncork(client->output);
 
-	if (client->output->closed)
+	if (client->output->closed) {
 		client_destroy(client, NULL);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static void client_input(struct client *client)
+{
+	if (client->cmd != NULL) {
+		/* we're still processing a command. wait until it's
+		   finished. */
+		io_remove(&client->io);
+		client->waiting_input = TRUE;
+		return;
+	}
+
+	client->waiting_input = FALSE;
+	client->last_input = ioloop_time;
+	timeout_reset(client->to_idle);
+
+	switch (i_stream_read(client->input)) {
+	case -1:
+		/* disconnected */
+		client_destroy(client, NULL);
+		return;
+	case -2:
+		/* line too long, kill it */
+		client_send_line(client, "-ERR Input line too long.");
+		client_destroy(client, "Input line too long");
+		return;
+	}
+
+	(void)client_handle_input(client);
 }
 
 static int client_output(struct client *client)

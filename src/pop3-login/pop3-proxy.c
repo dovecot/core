@@ -107,11 +107,11 @@ static void proxy_input(struct istream *input, struct ostream *output,
 				      login_proxy_get_host(client->proxy),
 				      login_proxy_get_port(client->proxy));
 
-		login_proxy_detach(client->proxy, client->input,
+		login_proxy_detach(client->proxy, client->common.input,
 				   client->output);
 
 		client->proxy = NULL;
-		client->input = NULL;
+		client->common.input = NULL;
 		client->output = NULL;
 		client->common.fd = -1;
 		client_destroy_success(client, msg);

@@ -52,14 +52,14 @@ static void client_auth_input(struct imap_client *client)
 		return;
 
 	if (client->skip_line) {
-		if (i_stream_next_line(client->input) == NULL)
+		if (i_stream_next_line(client->common.input) == NULL)
 			return;
 
 		client->skip_line = FALSE;
 	}
 
 	/* @UNSAFE */
-	line = i_stream_next_line(client->input);
+	line = i_stream_next_line(client->common.input);
 	if (line == NULL)
 		return;
 
