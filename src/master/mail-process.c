@@ -14,7 +14,6 @@
 #include "home-expand.h"
 #include "var-expand.h"
 #include "mail-process.h"
-#include "master-login-interface.h"
 #include "login-process.h"
 #include "log.h"
 
@@ -837,9 +836,6 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		env_put(t_strconcat("IMAPLOGINTAG=",
 			t_strndup(data, request->cmd_tag_size), NULL));
 	}
-	if ((request->flags & LOGIN_IMAP_FLAG_FULL_CAPABILITY_SENT) == 0 &&
-	    process_type == PROCESS_TYPE_IMAP)
-		env_put("CLIENT_SEND_CAPABILITY=1");
 
 	if (request->data_size > request->cmd_tag_size) {
 		str_truncate(str, 0);

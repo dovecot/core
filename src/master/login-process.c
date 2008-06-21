@@ -438,7 +438,6 @@ static void login_process_input(struct login_process *p)
 	authreq->mail_request.fd = client_fd;
 	authreq->mail_request.local_ip = req.local_ip;
 	authreq->mail_request.remote_ip = req.remote_ip;
-	authreq->mail_request.flags = req.flags;
 	authreq->mail_request.cmd_tag_size = req.cmd_tag_size;
 	authreq->mail_request.data_size = req.data_size;
 	memcpy(authreq->data, data, req.data_size);

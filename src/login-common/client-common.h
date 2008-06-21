@@ -28,7 +28,6 @@ struct client {
 	char *auth_mech_name;
 	struct auth_request *auth_request;
 
-	enum master_login_flags master_login_flags;
 	unsigned int master_tag;
 	master_callback_t *master_callback;
 	sasl_server_callback_t *sasl_callback;

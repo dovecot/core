@@ -6,7 +6,6 @@
 
 struct mail_login_request {
 	int fd;
-	enum master_login_flags flags;
 	unsigned int cmd_tag_size;
 	unsigned int data_size;
 	struct ip_addr local_ip, remote_ip;

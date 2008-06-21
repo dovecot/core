@@ -87,7 +87,6 @@ void master_request_login(struct client *client, master_callback_t *callback,
 	req->auth_id = auth_id;
 	req->local_ip = client->local_ip;
 	req->remote_ip = client->ip;
-	req->flags = client->master_login_flags;
 	req->cmd_tag_size =  cmd_tag_size;
 	req->data_size = req->cmd_tag_size + size;
 #if (LOGIN_MAX_INBUF_SIZE*2) != MASTER_LOGIN_MAX_DATA_SIZE

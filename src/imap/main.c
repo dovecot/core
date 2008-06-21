@@ -252,9 +252,6 @@ static void main_init(void)
 			"* PREAUTH [CAPABILITY ",
 			str_c(capability_string), "] "
 			"Logged in as ", user, NULL));
-	} else if (getenv("CLIENT_SEND_CAPABILITY") == NULL) {
-		client_send_line(client,
-				 t_strconcat(tag, " OK Logged in.", NULL));
 	} else {
 		client_send_line(client, t_strconcat(
 			tag, " OK [CAPABILITY ",

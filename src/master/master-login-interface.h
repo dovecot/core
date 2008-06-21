@@ -25,10 +25,6 @@ enum master_login_state {
 	LOGIN_STATE_COUNT
 };
 
-enum master_login_flags {
-	LOGIN_IMAP_FLAG_FULL_CAPABILITY_SENT	= 0x01
-};
-
 struct master_login_request {
 	uint32_t version;
 	/* if fd == -1, tag is used as master_login_state */
@@ -39,7 +35,6 @@ struct master_login_request {
 	/* request follows this many bytes of client input */
 	uint16_t data_size;
 	uint16_t cmd_tag_size;
-	uint32_t flags;
 
 	ino_t ino;
 
