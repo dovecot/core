@@ -994,6 +994,7 @@ struct mailbox mbox_mailbox = {
 		index_transaction_begin,
 		index_transaction_commit,
 		index_transaction_rollback,
+		index_transaction_set_max_modseq,
 		index_keywords_create,
 		index_keywords_free,
 		index_storage_get_seq_range,

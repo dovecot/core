@@ -118,6 +118,9 @@ struct mailbox_vfuncs {
 				  uint32_t *first_saved_uid_r,
 				  uint32_t *last_saved_uid_r);
 	void (*transaction_rollback)(struct mailbox_transaction_context *t);
+	void (*transaction_set_max_modseq)(struct mailbox_transaction_context *t,
+					   uint64_t max_modseq,
+					   ARRAY_TYPE(seq_range) *seqs);
 
 	int (*keywords_create)(struct mailbox *box,
 			       const char *const keywords[],

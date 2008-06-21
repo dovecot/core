@@ -229,6 +229,12 @@ int mail_index_transaction_commit(struct mail_index_transaction **t,
 void mail_index_transaction_rollback(struct mail_index_transaction **t);
 /* Discard all changes in the transaction. */
 void mail_index_transaction_reset(struct mail_index_transaction *t);
+/* When committing transaction, drop flag/keyword updates for messages whose
+   mdoseq is larger than max_modseq. Save those messages' sequences to the
+   given array. */
+void mail_index_transaction_set_max_modseq(struct mail_index_transaction *t,
+					   uint64_t max_modseq,
+					   ARRAY_TYPE(seq_range) *seqs);
 
 /* Returns the view transaction was created for. */
 struct mail_index_view *

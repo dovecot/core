@@ -10,6 +10,7 @@
 #include "bsearch-insert-pos.h"
 #include "seq-range-array.h"
 #include "mail-index-view-private.h"
+#include "mail-index-modseq.h"
 #include "mail-transaction-log.h"
 #include "mail-cache-private.h"
 #include "mail-index-transaction-private.h"
@@ -83,6 +84,8 @@ void mail_index_transaction_reset(struct mail_index_transaction *t)
 	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
 	t->last_new_seq = 0;
 	t->last_update_idx = 0;
+	t->min_flagupdate_seq = 0;
+	t->max_flagupdate_seq = 0;
 
 	memset(t->pre_hdr_mask, 0, sizeof(t->pre_hdr_mask));
 	memset(t->post_hdr_mask, 0, sizeof(t->post_hdr_mask));
@@ -300,8 +303,7 @@ static void keyword_updates_convert_to_uids(struct mail_index_transaction *t)
 	}
 }
 
-static int
-mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
+void mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 {
 	ARRAY_TYPE(seq_array) *updates;
 	unsigned int i, count;
@@ -317,7 +319,6 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 	mail_index_convert_to_uid_ranges(t, &t->expunges);
 	mail_index_convert_to_uid_ranges(t, (void *)&t->updates);
 	mail_index_convert_to_uid_ranges(t, &t->keyword_resets);
-	return 0;
 }
 
 struct uid_map {
@@ -584,12 +585,7 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 		mail_index_update_day_headers(t);
 	}
 
-	if (mail_index_transaction_convert_to_uids(t) < 0)
-		ret = -1;
-	else {
-		ret = mail_transaction_log_append(t, log_file_seq_r,
-						  log_file_offset_r);
-	}
+	ret = mail_transaction_log_append(t, log_file_seq_r, log_file_offset_r);
 
 	if (ret == 0 && !t->view->index->syncing) {
 		/* if we're committing a normal transaction, we want to
@@ -772,6 +768,20 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	}
 }
 
+static void update_minmax_flagupdate_seq(struct mail_index_transaction *t,
+					 uint32_t seq1, uint32_t seq2)
+{
+	if (t->min_flagupdate_seq == 0) {
+		t->min_flagupdate_seq = seq1;
+		t->max_flagupdate_seq = seq2;
+	} else {
+		if (t->min_flagupdate_seq > seq1)
+			t->min_flagupdate_seq = seq1;
+		if (t->max_flagupdate_seq < seq2)
+			t->max_flagupdate_seq = seq2;
+	}
+}
+
 static bool
 mail_transaction_update_want_add(struct mail_index_transaction *t,
 				 const struct mail_transaction_flag_update *u)
@@ -792,17 +802,15 @@ mail_transaction_update_want_add(struct mail_index_transaction *t,
 	return FALSE;
 }
 
-static void
-mail_index_insert_flag_update(struct mail_index_transaction *t,
-			      struct mail_transaction_flag_update u,
-			      uint32_t left_idx, uint32_t right_idx)
+static uint32_t
+mail_index_find_update_insert_pos(struct mail_index_transaction *t,
+				  unsigned int left_idx, unsigned int right_idx,
+				  uint32_t seq)
 {
-	struct mail_transaction_flag_update *updates, tmp_update;
-	unsigned int count;
-	uint32_t idx, move;
+	const struct mail_transaction_flag_update *updates;
+	unsigned int idx, count;
 
-	updates = array_get_modifiable(&t->updates, &count);
-
+	updates = array_get(&t->updates, &count);
 	i_assert(left_idx <= right_idx && right_idx <= count);
 
 	/* find the first update with either overlapping range,
@@ -811,15 +819,28 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 
-		if (updates[idx].uid2 < u.uid1)
+		if (updates[idx].uid2 < seq)
 			left_idx = idx+1;
-		else if (updates[idx].uid1 > u.uid1)
+		else if (updates[idx].uid1 > seq)
 			right_idx = idx;
 		else
 			break;
 	}
-	if (idx < count && updates[idx].uid2 < u.uid1)
+	if (idx < count && updates[idx].uid2 < seq)
 		idx++;
+	return idx;
+}
+
+static void
+mail_index_insert_flag_update(struct mail_index_transaction *t,
+			      struct mail_transaction_flag_update u,
+			      unsigned int idx)
+{
+	struct mail_transaction_flag_update *updates, tmp_update;
+	unsigned int count;
+	uint32_t move;
+
+	updates = array_get_modifiable(&t->updates, &count);
 
 	/* overlapping ranges, split/merge them */
 	i_assert(idx == 0 || updates[idx-1].uid2 < u.uid1);
@@ -930,8 +951,9 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 {
 	struct mail_index_record *rec;
 	struct mail_transaction_flag_update u, *last_update;
-	unsigned int first_idx, count;
+	unsigned int idx, first_idx, count;
 
+	update_minmax_flagupdate_seq(t, seq1, seq2);
 	if (seq2 >= t->first_new_seq) {
 		/* updates for appended messages, modify them directly */
 		uint32_t seq;
@@ -1013,7 +1035,9 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 			first_idx = 0;
 			count = t->last_update_idx + 1;
 		}
-		mail_index_insert_flag_update(t, u, first_idx, count);
+		idx = mail_index_find_update_insert_pos(t, first_idx, count,
+							u.uid1);
+		mail_index_insert_flag_update(t, u, idx);
 	}
 }
 
@@ -1416,6 +1440,8 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	i_assert(keywords->count > 0 || modify_type == MODIFY_REPLACE);
 	i_assert(keywords->index == t->view->index);
 
+	update_minmax_flagupdate_seq(t, seq, seq);
+
 	if (!array_is_created(&t->keyword_updates) && keywords->count > 0) {
 		uint32_t max_idx = keywords->idx[keywords->count-1];
 
@@ -1484,6 +1510,107 @@ void mail_index_reset(struct mail_index_transaction *t)
 	mail_index_transaction_reset(t);
 
 	t->reset = TRUE;
+}
+
+void mail_index_transaction_set_max_modseq(struct mail_index_transaction *t,
+					   uint64_t max_modseq,
+					   ARRAY_TYPE(seq_range) *seqs)
+{
+	i_assert(array_is_created(seqs));
+
+	t->max_modseq = max_modseq;
+	t->conflict_seqs = seqs;
+}
+
+static bool
+mail_index_update_cancel_array(ARRAY_TYPE(seq_range) *array, uint32_t seq)
+{
+	if (array_is_created(array)) {
+		if (seq_range_array_remove(array, seq)) {
+			if (array_count(array) == 0)
+				array_free(array);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static bool
+mail_index_update_cancel(struct mail_index_transaction *t, uint32_t seq)
+{
+	struct mail_index_transaction_keyword_update *kw;
+	struct mail_transaction_flag_update *updates, tmp_update;
+	unsigned int i, count;
+	bool ret, have_kw_changes = FALSE;
+
+	ret = mail_index_update_cancel_array(&t->keyword_resets, seq);
+	if (array_is_created(&t->keyword_updates)) {
+		kw = array_get_modifiable(&t->keyword_updates, &count);
+		for (i = 0; i < count; i++) {
+			if (mail_index_update_cancel_array(&kw[i].add_seq, seq))
+				ret = TRUE;
+			if (mail_index_update_cancel_array(&kw[i].remove_seq,
+							   seq))
+				ret = TRUE;
+			if (array_is_created(&kw[i].add_seq) ||
+			    array_is_created(&kw[i].remove_seq))
+				have_kw_changes = TRUE;
+		}
+		if (!have_kw_changes)
+			array_free(&t->keyword_updates);
+	}
+
+	if (!array_is_created(&t->updates))
+		return ret;
+
+	updates = array_get_modifiable(&t->updates, &count);
+	i = mail_index_find_update_insert_pos(t, 0, count, seq);
+	if (i < count && updates[i].uid1 <= seq && updates[i].uid2 >= seq) {
+		/* exists */
+		ret = TRUE;
+		if (updates[i].uid1 == seq && updates[i].uid2 == seq) {
+			if (count > 1)
+				array_delete(&t->updates, i, 1);
+			else
+				array_free(&t->updates);
+		} else if (updates[i].uid1 == seq)
+			updates[i].uid1++;
+		else if (updates[i].uid2 == seq)
+			updates[i].uid2--;
+		else {
+			/* need to split it in two */
+			tmp_update = updates[i];
+			tmp_update.uid1 = seq+1;
+			updates[i].uid2 = seq-1;
+			array_insert(&t->updates, i + 1, &tmp_update, 1);
+		}
+	}
+	return ret;
+}
+
+void mail_index_transaction_check_conflicts(struct mail_index_transaction *t)
+{
+	uint32_t seq;
+
+	i_assert(t->max_modseq != 0);
+	i_assert(t->conflict_seqs != NULL);
+
+	if (t->max_modseq == mail_index_modseq_get_highest(t->view)) {
+		/* no conflicts possible */
+		return;
+	}
+	if (t->min_flagupdate_seq == 0) {
+		/* no flag updates */
+		return;
+	}
+
+	for (seq = t->min_flagupdate_seq; seq <= t->max_flagupdate_seq; seq++) {
+		if (mail_index_modseq_lookup(t->view, seq) > t->max_modseq) {
+			if (mail_index_update_cancel(t, seq))
+				seq_range_array_add(t->conflict_seqs, 0, seq);
+		}
+	}
+	t->log_updates = mail_index_transaction_has_changes(t);
 }
 
 struct mail_index_transaction_vfuncs trans_vfuncs = {

@@ -760,6 +760,13 @@ unsigned int mailbox_transaction_get_count(const struct mailbox *box)
 	return box->transaction_count;
 }
 
+void mailbox_transaction_set_max_modseq(struct mailbox_transaction_context *t,
+					uint64_t max_modseq,
+					ARRAY_TYPE(seq_range) *seqs)
+{
+	t->box->v.transaction_set_max_modseq(t, max_modseq, seqs);
+}
+
 struct mailbox *
 mailbox_transaction_get_mailbox(const struct mailbox_transaction_context *t)
 {

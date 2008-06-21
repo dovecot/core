@@ -122,7 +122,7 @@ bool cmd_store(struct client_command_context *cmd)
         struct mailbox_transaction_context *t;
 	struct mail *mail;
 	struct imap_store_context ctx;
-	ARRAY_TYPE(seq_range) modified_set = ARRAY_INIT;
+	ARRAY_TYPE(seq_range) modified_set, uids;
 	enum mailbox_transaction_flags flags = 0;
 	enum imap_sync_flags imap_sync_flags = 0;
 	const char *reply, *tagged_reply;
@@ -161,21 +161,30 @@ bool cmd_store(struct client_command_context *cmd)
 
 	if (ctx.silent)
 		flags |= MAILBOX_TRANSACTION_FLAG_HIDE;
-	if (ctx.max_modseq < (uint64_t)-1)
+	if (ctx.max_modseq < (uint64_t)-1) {
+		/* update modseqs so we can check them early */
 		flags |= MAILBOX_TRANSACTION_FLAG_REFRESH;
+	}
 
 	t = mailbox_transaction_begin(client->mailbox, flags);
 	search_ctx = mailbox_search_init(t, search_args, NULL);
 	mail_search_args_unref(&search_args);
 
-	/* FIXME: UNCHANGEDSINCE should be atomic, but this requires support
-	   from mail-storage API. So for now we fake it. */
+	i_array_init(&modified_set, 64);
+	if (ctx.max_modseq < (uint32_t)-1) {
+		/* STORE UNCHANGEDSINCE is being used */
+		mailbox_transaction_set_max_modseq(t, ctx.max_modseq,
+						   &modified_set);
+	}
+
 	mail = mail_alloc(t, MAIL_FETCH_FLAGS, NULL);
 	while (mailbox_search_next(search_ctx, mail) > 0) {
 		if (ctx.max_modseq < (uint64_t)-1) {
+			/* check early so there's less work for transaction
+			   commit if something has to be cancelled */
 			if (mail_get_modseq(mail) > ctx.max_modseq) {
-				seq_range_array_add(&modified_set, 64,
-					cmd->uid ? mail->uid : mail->seq);
+				seq_range_array_add(&modified_set, 0,
+						    mail->seq);
 				continue;
 			}
 		}
@@ -188,17 +197,6 @@ bool cmd_store(struct client_command_context *cmd)
 	}
 	mail_free(&mail);
 
-	if (!array_is_created(&modified_set))
-		tagged_reply = "OK Store completed.";
-	else {
-		str = str_new(cmd->pool, 256);
-		str_append(str, "OK [MODIFIED ");
-		imap_write_seq_range(str, &modified_set);
-		array_free(&modified_set);
-		str_append(str, "] Conditional store failed.");
-		tagged_reply = str_c(str);
-	}
-
 	if (ctx.keywords != NULL)
 		mailbox_keywords_free(client->mailbox, &ctx.keywords);
 
@@ -208,10 +206,29 @@ bool cmd_store(struct client_command_context *cmd)
 	 else
 		ret = mailbox_transaction_commit(&t);
 	if (ret < 0) {
+		array_free(&modified_set);
 		client_send_storage_error(cmd,
 			mailbox_get_storage(client->mailbox));
 		return TRUE;
 	}
+
+	if (array_count(&modified_set) == 0)
+		tagged_reply = "OK Store completed.";
+	else {
+		if (cmd->uid) {
+			i_array_init(&uids, array_count(&modified_set)*2);
+			mailbox_get_uid_range(client->mailbox, &modified_set,
+					      &uids);
+			array_free(&modified_set);
+			modified_set = uids;
+		}
+		str = str_new(cmd->pool, 256);
+		str_append(str, "OK [MODIFIED ");
+		imap_write_seq_range(str, &modified_set);
+		str_append(str, "] Conditional store failed.");
+		tagged_reply = str_c(str);
+	}
+	array_free(&modified_set);
 
 	/* With UID STORE we have to return UID for the flags as well.
 	   Unfortunately we don't have the ability to separate those

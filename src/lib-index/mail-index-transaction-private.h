@@ -37,6 +37,8 @@ struct mail_index_transaction {
 	   mail_index_transaction_reset() to reset it. */
         ARRAY_DEFINE(appends, struct mail_index_record);
 	uint32_t first_new_seq, last_new_seq;
+	/* lowest/highest sequence that updates flags/keywords */
+	uint32_t min_flagupdate_seq, max_flagupdate_seq;
 
 	ARRAY_TYPE(seq_range) expunges;
 	ARRAY_DEFINE(updates, struct mail_transaction_flag_update);
@@ -58,6 +60,9 @@ struct mail_index_transaction {
 	ARRAY_DEFINE(keyword_updates,
 		     struct mail_index_transaction_keyword_update);
 	ARRAY_TYPE(seq_range) keyword_resets;
+
+	uint64_t max_modseq;
+	ARRAY_TYPE(seq_range) *conflict_seqs;
 
         struct mail_cache_transaction_ctx *cache_trans_ctx;
 
@@ -92,6 +97,8 @@ void mail_index_transaction_unref(struct mail_index_transaction **t);
 
 void mail_index_transaction_sort_appends(struct mail_index_transaction *t);
 uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t);
+void mail_index_transaction_convert_to_uids(struct mail_index_transaction *t);
+void mail_index_transaction_check_conflicts(struct mail_index_transaction *t);
 
 bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 				 uint32_t seq, unsigned int *idx_r);

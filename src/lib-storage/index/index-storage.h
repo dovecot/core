@@ -176,6 +176,9 @@ int index_transaction_finish_commit(struct index_transaction_context *t,
 				    uint32_t *log_file_seq_r,
 				    uoff_t *log_file_offset_r);
 void index_transaction_finish_rollback(struct index_transaction_context *t);
+void index_transaction_set_max_modseq(struct mailbox_transaction_context *_t,
+				      uint64_t max_modseq,
+				      ARRAY_TYPE(seq_range) *seqs);
 
 struct mailbox_transaction_context *
 index_transaction_begin(struct mailbox *box,

@@ -576,17 +576,22 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 			return -1;
 	}
 
-	if (array_is_created(&t->ext_reset_atomic)) {
+	if (array_is_created(&t->ext_reset_atomic) || t->max_modseq != 0) {
 		if (mail_index_map(t->view->index,
 				   MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0)
 			return -1;
-		transaction_update_atomic_reset_ids(t);
-
-		if (!TRANSACTION_HAS_CHANGES(t)) {
-			/* we aborted the ext changes, nothing else to do */
-			return 0;
-		}
 	}
+	if (array_is_created(&t->ext_reset_atomic))
+		transaction_update_atomic_reset_ids(t);
+	if (t->max_modseq != 0)
+		mail_index_transaction_check_conflicts(t);
+	if (!TRANSACTION_HAS_CHANGES(t)) {
+		/* we aborted all changes, nothing else to do */
+		return 0;
+	}
+	/* finally convert all sequences to UIDs before we write them,
+	   but after we've checked and removed conflicts */
+	mail_index_transaction_convert_to_uids(t);
 
 	file = log->head;
 
