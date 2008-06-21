@@ -38,8 +38,8 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 	str_printfa(str, "I ID ("
 		    "\"x-originating-ip\" \"%s\" "
 		    "\"x-originating-port\" \"%u\" "
-		    "\"x-local-ip\" \"%s\" "
-		    "\"x-local-port\" \"%u\")\r\n",
+		    "\"x-connected-ip\" \"%s\" "
+		    "\"x-connected-port\" \"%u\")\r\n",
 		    net_ip2addr(&client->common.ip),
 		    client->common.remote_port,
 		    net_ip2addr(&client->common.local_ip),

@@ -217,9 +217,9 @@ client_update_info(struct imap_client *client, const struct imap_arg *args)
 			(void)net_addr2ip(value, &client->common.ip);
 		else if (strcasecmp(key, "x-originating-port") == 0)
 			client->common.remote_port = atoi(value);
-		else if (strcasecmp(key, "x-local-ip") == 0)
+		else if (strcasecmp(key, "x-connected-ip") == 0)
 			(void)net_addr2ip(value, &client->common.local_ip);
-		else if (strcasecmp(key, "x-local-port") == 0)
+		else if (strcasecmp(key, "x-connected-port") == 0)
 			client->common.local_port = atoi(value);
 		args += 2;
 	}
