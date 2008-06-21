@@ -138,6 +138,10 @@ static void client_start_tls(struct imap_client *client)
 	client->common.secured = TRUE;
 	client_set_title(client);
 
+	/* CAPABILITY sent before STARTTLS can't be trusted */
+	client->common.master_login_flags &=
+		~LOGIN_IMAP_FLAG_FULL_CAPABILITY_SENT;
+
 	client->common.fd = fd_ssl;
 	i_stream_unref(&client->common.input);
 	o_stream_unref(&client->output);
