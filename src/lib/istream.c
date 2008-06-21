@@ -347,6 +347,21 @@ bool i_stream_get_buffer_space(struct istream_private *stream,
 	return stream->pos != stream->buffer_size;
 }
 
+bool i_stream_add_data(struct istream *_stream, const unsigned char *data,
+		       size_t size)
+{
+	struct istream_private *stream = _stream->real_stream;
+	size_t size2;
+
+	(void)i_stream_get_buffer_space(stream, size, &size2);
+	if (size > size2)
+		return FALSE;
+
+	memcpy(stream->w_buffer + stream->pos, data, size);
+	stream->pos += size;
+	return TRUE;
+}
+
 static void
 i_stream_default_set_max_buffer_size(struct iostream_private *stream,
 				     size_t max_size)

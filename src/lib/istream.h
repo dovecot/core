@@ -105,4 +105,9 @@ unsigned char *i_stream_get_modifiable_data(const struct istream *stream,
 int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 		       size_t *size_r, size_t threshold);
 
+/* Append external data to input stream. Returns TRUE if successful, FALSE if
+   there is not enough space in the stream. */
+bool i_stream_add_data(struct istream *stream, const unsigned char *data,
+		       size_t size);
+
 #endif
