@@ -151,3 +151,26 @@ void client_syslog(struct client *client, const char *msg)
 		client_syslog_real(client, msg);
 	} T_END;
 }
+
+bool client_is_trusted(struct client *client)
+{
+	const char *const *net;
+	struct ip_addr net_ip;
+	unsigned int bits;
+
+	if (trusted_networks == NULL)
+		return FALSE;
+
+	net = t_strsplit_spaces(trusted_networks, ", ");
+	for (; *net != NULL; net++) {
+		if (net_parse_range(*net, &net_ip, &bits) < 0) {
+			i_error("login_trusted_networks: "
+				"Invalid network '%s'", *net);
+			break;
+		}
+
+		if (net_is_in_network(&client->ip, &net_ip, bits))
+			return TRUE;
+	}
+	return FALSE;
+}

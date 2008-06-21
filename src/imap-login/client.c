@@ -200,12 +200,40 @@ static int cmd_starttls(struct imap_client *client)
 	return 1;
 }
 
+static void
+client_update_info(struct imap_client *client, const struct imap_arg *args)
+{
+	const char *key, *value;
+
+	if (args->type != IMAP_ARG_LIST)
+		return;
+	args = IMAP_ARG_LIST_ARGS(args);
+
+	while (args->type == IMAP_ARG_STRING &&
+	       args[1].type == IMAP_ARG_STRING) {
+		key = IMAP_ARG_STR_NONULL(&args[0]);
+		value = IMAP_ARG_STR_NONULL(&args[1]);
+		if (strcasecmp(key, "x-originating-ip") == 0)
+			(void)net_addr2ip(value, &client->common.ip);
+		else if (strcasecmp(key, "x-originating-port") == 0)
+			client->common.remote_port = atoi(value);
+		else if (strcasecmp(key, "x-local-ip") == 0)
+			(void)net_addr2ip(value, &client->common.local_ip);
+		else if (strcasecmp(key, "x-local-port") == 0)
+			client->common.local_port = atoi(value);
+		args += 2;
+	}
+}
+
 static int cmd_id(struct imap_client *client, const struct imap_arg *args)
 {
 	const char *env, *value;
 
 	if (!client->id_logged) {
 		client->id_logged = TRUE;
+		if (client->common.trusted)
+			client_update_info(client, args);
+
 		env = getenv("IMAP_ID_LOG");
 		value = imap_id_args_get_log_reply(args, env);
 		if (value != NULL) {
@@ -478,12 +506,14 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 	client = i_new(struct imap_client, 1);
 	client->created = ioloop_time;
 	client->refcount = 1;
-	client->common.tls = ssl;
-	client->common.secured = ssl || net_ip_compare(ip, local_ip);
 
 	client->common.local_ip = *local_ip;
 	client->common.ip = *ip;
 	client->common.fd = fd;
+	client->common.tls = ssl;
+	client->common.trusted = client_is_trusted(&client->common);
+	client->common.secured = ssl || client->common.trusted ||
+		net_ip_compare(ip, local_ip);
 
 	client_open_streams(client, fd);
 	client->io = io_add(fd, IO_READ, client_input, client);

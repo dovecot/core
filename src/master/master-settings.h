@@ -60,6 +60,7 @@ struct settings {
 	bool login_process_per_connection;
 	bool login_chroot;
 	bool login_greeting_capability;
+	const char *login_trusted_networks;
 
 	unsigned int login_process_size;
 	unsigned int login_processes_count;

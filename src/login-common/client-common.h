@@ -27,6 +27,7 @@ struct client {
 	char *virtual_user;
 	unsigned int tls:1;
 	unsigned int secured:1;
+	unsigned int trusted:1;
 	unsigned int authenticating:1;
 	unsigned int auth_tried_disabled_plaintext:1;
 	/* ... */
@@ -42,6 +43,7 @@ void client_unlink(struct client *client);
 unsigned int clients_get_count(void) ATTR_PURE;
 
 void client_syslog(struct client *client, const char *msg);
+bool client_is_trusted(struct client *client);
 
 void clients_notify_auth_connected(void);
 void client_destroy_oldest(void);

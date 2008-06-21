@@ -18,6 +18,7 @@ extern bool verbose_proctitle, verbose_ssl, verbose_auth;
 extern const char *greeting, *log_format;
 extern const char *const *log_format_elements;
 extern const char *capability_string;
+extern const char *trusted_networks;
 extern unsigned int max_connections;
 extern unsigned int login_process_uid;
 extern struct auth_client *auth_client;

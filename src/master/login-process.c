@@ -582,6 +582,10 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 				    set->imap_capability :
 				    set->imap_generated_capability, NULL));
 	}
+	if (*set->login_trusted_networks != '\0') {
+		env_put(t_strconcat("TRUSTED_NETWORKS=",
+				    set->login_trusted_networks, NULL));
+	}
 }
 
 static pid_t create_login_process(struct login_group *group)

@@ -317,12 +317,15 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 	client = i_new(struct pop3_client, 1);
 	client->created = ioloop_time;
 	client->refcount = 1;
-	client->common.tls = ssl;
-	client->common.secured = ssl || net_ip_compare(ip, local_ip);
 
 	client->common.local_ip = *local_ip;
 	client->common.ip = *ip;
 	client->common.fd = fd;
+	client->common.tls = ssl;
+	client->common.trusted = client_is_trusted(&client->common);
+	client->common.secured = ssl || client->common.trusted ||
+		net_ip_compare(ip, local_ip);
+
 	client_open_streams(client, fd);
 	client_link(&client->common);
 

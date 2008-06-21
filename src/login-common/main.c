@@ -23,6 +23,7 @@ bool disable_plaintext_auth, process_per_connection, greeting_capability;
 bool verbose_proctitle, verbose_ssl, verbose_auth;
 const char *greeting, *log_format;
 const char *const *log_format_elements;
+const char *trusted_networks;
 unsigned int max_connections;
 unsigned int login_process_uid;
 struct auth_client *auth_client;
@@ -328,6 +329,8 @@ static void main_init(void)
 	log_format = getenv("LOG_FORMAT");
 	if (log_format == NULL)
 		log_format = "%$: %s";
+
+	trusted_networks = getenv("TRUSTED_NETWORKS");
 
 	value = getenv("PROCESS_UID");
 	if (value == NULL)

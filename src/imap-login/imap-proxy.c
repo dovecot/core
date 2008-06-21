@@ -11,6 +11,41 @@
 #include "imap-quote.h"
 #include "imap-proxy.h"
 
+static bool imap_banner_has_capability(const char *line, const char *capability)
+{
+	unsigned int capability_len = strlen(capability);
+
+	if (strncmp(line, "[CAPABILITY ", 12) != 0)
+		return FALSE;
+
+	line += 12;
+	while (strncmp(line, capability, capability_len) != 0 ||
+	       (line[capability_len] != ' ' &&
+		line[capability_len] != '\0')) {
+		/* skip over the capability */
+		while (*line != ' ') {
+			if (*line == '\0')
+				return FALSE;
+			line++;
+		}
+		line++;
+	}
+	return TRUE;
+}
+
+static void proxy_write_id(struct imap_client *client, string_t *str)
+{
+	str_printfa(str, "I ID ("
+		    "\"x-originating-ip\" \"%s\" "
+		    "\"x-originating-port\" \"%u\" "
+		    "\"x-local-ip\" \"%s\" "
+		    "\"x-local-port\" \"%u\")\r\n",
+		    net_ip2addr(&client->common.ip),
+		    client->common.remote_port,
+		    net_ip2addr(&client->common.local_ip),
+		    client->common.local_port);
+}
+
 static int proxy_input_line(struct imap_client *client,
 			    struct ostream *output, const char *line)
 {
@@ -29,8 +64,11 @@ static int proxy_input_line(struct imap_client *client,
 			return -1;
 		}
 
-		/* send LOGIN command */
 		str = t_str_new(128);
+		if (imap_banner_has_capability(line + 5, "ID"))
+			proxy_write_id(client, str);
+
+		/* send LOGIN command */
 		str_append(str, "P LOGIN ");
 		imap_quote_append_string(str, client->proxy_user, FALSE);
 		str_append_c(str, ' ');

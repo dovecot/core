@@ -46,6 +46,7 @@ static struct setting_def setting_defs[] = {
 	DEF_BOOL(login_process_per_connection),
 	DEF_BOOL(login_chroot),
 	DEF_BOOL(login_greeting_capability),
+	DEF_STR(login_trusted_networks),
 
 	DEF_INT(login_process_size),
 	DEF_INT(login_processes_count),

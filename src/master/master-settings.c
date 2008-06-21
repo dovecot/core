@@ -208,6 +208,7 @@ struct settings default_settings = {
 	MEMBER(login_process_per_connection) TRUE,
 	MEMBER(login_chroot) TRUE,
 	MEMBER(login_greeting_capability) FALSE,
+	MEMBER(login_trusted_networks) "",
 
 	MEMBER(login_process_size) 64,
 	MEMBER(login_processes_count) 3,
