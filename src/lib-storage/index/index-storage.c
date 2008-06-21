@@ -453,6 +453,8 @@ int index_storage_mailbox_enable(struct mailbox *box,
 
 	if ((feature & MAILBOX_FEATURE_CONDSTORE) != 0) {
 		box->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
+		if (!box->opened)
+			index_storage_mailbox_open(ibox);
 		mail_index_modseq_enable(ibox->index);
 	}
 	return TRUE;
