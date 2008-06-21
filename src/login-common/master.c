@@ -66,13 +66,18 @@ void master_request_login(struct client *client, master_callback_t *callback,
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
+	unsigned int cmd_tag_size;
 
 	i_assert(auth_pid != 0);
 
 	data = i_stream_get_data(client->input, &size);
+	cmd_tag_size = client->auth_command_tag == NULL ? 0 :
+		strlen(client->auth_command_tag);
+
 	buf = buffer_create_dynamic(pool_datastack_create(),
-				    sizeof(*req) + size);
-	buffer_write(buf, sizeof(*req), data, size);
+				    sizeof(*req) + size + cmd_tag_size);
+	buffer_write(buf, sizeof(*req), client->auth_command_tag, cmd_tag_size);
+	buffer_write(buf, sizeof(*req) + cmd_tag_size, data, size);
 	req = buffer_get_space_unsafe(buf, 0, sizeof(*req));
 	req->version = MASTER_LOGIN_PROTOCOL_VERSION;
 	req->tag = ++master_tag_counter;
@@ -82,8 +87,10 @@ void master_request_login(struct client *client, master_callback_t *callback,
 	req->auth_id = auth_id;
 	req->local_ip = client->local_ip;
 	req->remote_ip = client->ip;
-	req->data_size = size;
-#if LOGIN_MAX_INBUF_SIZE != MASTER_LOGIN_MAX_DATA_SIZE
+	req->flags = client->master_login_flags;
+	req->cmd_tag_size =  cmd_tag_size;
+	req->data_size = req->cmd_tag_size + size;
+#if (LOGIN_MAX_INBUF_SIZE*2) != MASTER_LOGIN_MAX_DATA_SIZE
 #  error buffer max sizes unsynced
 #endif
 	i_assert(req->data_size <= LOGIN_MAX_INBUF_SIZE);

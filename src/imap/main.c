@@ -24,7 +24,7 @@
 #include <syslog.h>
 
 #define IS_STANDALONE() \
-        (getenv("LOGGED_IN") == NULL && getenv("IMAPLOGINTAG") == NULL)
+        (getenv("IMAPLOGINTAG") == NULL)
 
 struct client_workaround_list {
 	const char *name;
@@ -167,7 +167,7 @@ static void main_init(void)
 	struct client *client;
 	struct ostream *output;
 	struct mail_namespace *ns;
-	const char *user, *str;
+	const char *user, *str, *tag;
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
@@ -244,15 +244,21 @@ static void main_init(void)
 	output = client->output;
 	o_stream_ref(output);
 	o_stream_cork(output);
-	if (IS_STANDALONE()) {
+
+	/* IMAPLOGINTAG environment is compatible with mailfront */
+	tag = getenv("IMAPLOGINTAG");
+	if (tag == NULL) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY ",
 			str_c(capability_string), "] "
 			"Logged in as ", user, NULL));
-	} else if (getenv("IMAPLOGINTAG") != NULL) {
-		/* Support for mailfront */
-		client_send_line(client, t_strconcat(getenv("IMAPLOGINTAG"),
-						     " OK Logged in.", NULL));
+	} else if (getenv("CLIENT_SEND_CAPABILITY") == NULL) {
+		client_send_line(client,
+				 t_strconcat(tag, " OK Logged in.", NULL));
+	} else {
+		client_send_line(client, t_strconcat(
+			tag, " OK [CAPABILITY ",
+			str_c(capability_string), "] Logged in", NULL));
 	}
 	str = getenv("CLIENT_INPUT");
 	if (str != NULL) T_BEGIN {
@@ -290,7 +296,7 @@ static void main_deinit(void)
 int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 {
 #ifdef DEBUG
-	if (getenv("LOGGED_IN") != NULL && getenv("GDB") == NULL)
+	if (!IS_STANDALONE() && getenv("GDB") == NULL)
 		fd_debug_verify_leaks(3, 1024);
 #endif
 	if (IS_STANDALONE() && getuid() == 0 &&

@@ -614,7 +614,7 @@ static bool get_imap_capability(struct settings *set)
 		NULL
 	};
 	enum master_login_status login_status;
-	struct ip_addr ip;
+	struct mail_login_request request;
 	char buf[4096];
 	int fd[2], status;
 	ssize_t ret;
@@ -638,16 +638,17 @@ static bool get_imap_capability(struct settings *set)
 		args[1] = t_strdup_printf("gid=%s", dec2str(getegid()));
 	}
 
-	memset(&ip, 0, sizeof(ip));
 	if (pipe(fd) < 0) {
 		i_error("pipe() failed: %m");
 		return FALSE;
 	}
 	fd_close_on_exec(fd[0], TRUE);
 	fd_close_on_exec(fd[1], TRUE);
-	login_status = create_mail_process(PROCESS_TYPE_IMAP, set, fd[1],
-					   &ip, &ip, "dump-capability",
-					   args, 0, NULL, TRUE);
+
+	memset(&request, 0, sizeof(request));
+	request.fd = fd[1];
+	login_status = create_mail_process(PROCESS_TYPE_IMAP, set, &request,
+					   "dump-capability", args, NULL, TRUE);
 	if (login_status != MASTER_LOGIN_STATUS_OK) {
 		(void)close(fd[0]);
 		(void)close(fd[1]);

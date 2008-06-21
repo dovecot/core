@@ -242,6 +242,9 @@ static bool main_init(void)
 	if (client == NULL)
 		return FALSE;
 
+	if (!IS_STANDALONE())
+		client_send_line(client, "+OK Logged in.");
+
 	str = getenv("CLIENT_INPUT");
 	if (str != NULL) T_BEGIN {
 		buffer_t *buf = t_base64_decode_str(str);

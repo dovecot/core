@@ -9,8 +9,9 @@
    (or something else) is changed. */
 #define MASTER_LOGIN_PROTOCOL_VERSION 3
 
-/* This should be kept in sync with LOGIN_MAX_INBUF_SIZE */
-#define MASTER_LOGIN_MAX_DATA_SIZE 4096
+/* This should be kept in sync with LOGIN_MAX_INBUF_SIZE. Multiply it by two
+   to make sure there's space to transfer the command tag  */
+#define MASTER_LOGIN_MAX_DATA_SIZE (4096*2)
 
 enum master_login_state {
 	/* process is accepting new connections */
@@ -24,6 +25,10 @@ enum master_login_state {
 	LOGIN_STATE_COUNT
 };
 
+enum master_login_flags {
+	LOGIN_IMAP_FLAG_FULL_CAPABILITY_SENT	= 0x01
+};
+
 struct master_login_request {
 	uint32_t version;
 	/* if fd == -1, tag is used as master_login_state */
@@ -32,7 +37,9 @@ struct master_login_request {
 	uint32_t auth_pid;
 	uint32_t auth_id;
 	/* request follows this many bytes of client input */
-	uint32_t data_size;
+	uint16_t data_size;
+	uint16_t cmd_tag_size;
+	uint32_t flags;
 
 	ino_t ino;
 

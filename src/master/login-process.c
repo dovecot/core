@@ -44,12 +44,9 @@ struct login_process {
 struct login_auth_request {
 	struct login_process *process;
 	unsigned int tag;
-
 	unsigned int login_tag;
-	int fd;
 
-	unsigned int data_size;
-	struct ip_addr local_ip, remote_ip;
+	struct mail_login_request mail_request;
 	unsigned char data[];
 };
 
@@ -104,11 +101,8 @@ void auth_master_callback(const char *user, const char *const *args,
 
 		master_reply.status =
 			create_mail_process(group->mail_process_type,
-					    group->set,
-					    request->fd, &request->local_ip,
-					    &request->remote_ip, user, args,
-					    request->data_size, request->data,
-					    FALSE);
+					    group->set, &request->mail_request,
+					    user, args, request->data, FALSE);
 	} T_END;
 
 	/* reply to login */
@@ -124,7 +118,7 @@ void auth_master_callback(const char *user, const char *const *args,
 		login_process_destroy(request->process);
 	}
 
-	if (close(request->fd) < 0)
+	if (close(request->mail_request.fd) < 0)
 		i_error("close(mail client) failed: %m");
 	login_process_unref(request->process);
 	i_free(request);
@@ -441,10 +435,12 @@ static void login_process_input(struct login_process *p)
 	authreq->process = p;
 	authreq->tag = ++auth_id_counter;
 	authreq->login_tag = req.tag;
-	authreq->fd = client_fd;
-	authreq->local_ip = req.local_ip;
-	authreq->remote_ip = req.remote_ip;
-	authreq->data_size = req.data_size;
+	authreq->mail_request.fd = client_fd;
+	authreq->mail_request.local_ip = req.local_ip;
+	authreq->mail_request.remote_ip = req.remote_ip;
+	authreq->mail_request.flags = req.flags;
+	authreq->mail_request.cmd_tag_size = req.cmd_tag_size;
+	authreq->mail_request.data_size = req.data_size;
 	memcpy(authreq->data, data, req.data_size);
 
 	auth_process = auth_process_find(req.auth_pid);

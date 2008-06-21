@@ -82,6 +82,7 @@ static void client_auth_failed(struct imap_client *client)
 		io_remove(&client->io);
 	client->io = io_add(client->common.fd, IO_READ,
 			    client_input, client);
+	client->common.auth_command_tag = NULL;
 }
 
 static bool client_handle_args(struct imap_client *client,
@@ -207,14 +208,6 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 			if (client_handle_args(client, args, TRUE))
 				break;
 		}
-
-		if (client->full_capability_sent)
-			client_send_tagline(client, "OK Logged in.");
-		else {
-			client_send_tagline(client, t_strdup_printf(
-				"OK [CAPABILITY %s] Logged in.",
-				capability_string));
-		}
 		client_destroy_success(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
@@ -271,6 +264,8 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 static int client_auth_begin(struct imap_client *client, const char *mech_name,
 			     const char *init_resp)
 {
+	client->common.auth_command_tag = client->cmd_tag;
+
 	client_ref(client);
 	sasl_server_auth_begin(&client->common, IMAP_SERVICE_NAME, mech_name,
 			       init_resp, sasl_callback);

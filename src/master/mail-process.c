@@ -522,11 +522,9 @@ static void nfs_warn_if_found(const char *mail, const char *full_home_dir)
 
 enum master_login_status
 create_mail_process(enum process_type process_type, struct settings *set,
-		    int socket_fd, const struct ip_addr *local_ip,
-		    const struct ip_addr *remote_ip,
+		    const struct mail_login_request *request,
 		    const char *user, const char *const *args,
-		    unsigned int input_size, const unsigned char *input,
-		    bool dump_capability)
+		    const unsigned char *data, bool dump_capability)
 {
 	const struct var_expand_table *var_expand_table;
 	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
@@ -553,7 +551,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	/* check process limit for this user */
 	process_group = dump_capability ? NULL :
-		mail_process_group_lookup(process_type, user, remote_ip);
+		mail_process_group_lookup(process_type, user,
+					  &request->remote_ip);
 	process_count = process_group == NULL ? 0 :
 		array_count(&process_group->processes);
 	if (process_count >= set->mail_max_userip_connections &&
@@ -684,8 +683,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	var_expand_table =
 		get_var_expand_table(process_names[process_type],
 				     user, home_given ? home_dir : NULL,
-				     net_ip2addr(local_ip),
-				     net_ip2addr(remote_ip),
+				     net_ip2addr(&request->local_ip),
+				     net_ip2addr(&request->remote_ip),
 				     pid != 0 ? pid : getpid(), uid);
 	str = t_str_new(128);
 
@@ -697,10 +696,9 @@ create_mail_process(enum process_type process_type, struct settings *set,
 			log_set_prefix(log, str_c(str));
 			log_set_pid(log, pid);
 			if (process_group == NULL) {
-				process_group =
-					mail_process_group_create(process_type,
-								  user,
-								  remote_ip);
+				process_group = mail_process_group_create(
+							process_type, user,
+							&request->remote_ip);
 			}
 			mail_process_group_add(process_group, pid);
 		}
@@ -724,9 +722,9 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	child_process_init_env();
 
 	/* move the client socket into stdin and stdout fds, log to stderr */
-	if (dup2(dump_capability ? null_fd : socket_fd, 0) < 0)
+	if (dup2(dump_capability ? null_fd : request->fd, 0) < 0)
 		i_fatal("dup2(stdin) failed: %m");
-	if (dup2(socket_fd, 1) < 0)
+	if (dup2(request->fd, 1) < 0)
 		i_fatal("dup2(stdout) failed: %m");
 	if (dup2(log_fd, 2) < 0)
 		i_fatal("dup2(stderr) failed: %m");
@@ -831,13 +829,23 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	env_put(t_strconcat("HOME=", home_dir, NULL));
 	env_put(t_strconcat("USER=", user, NULL));
 
-	addr = net_ip2addr(remote_ip);
+	addr = net_ip2addr(&request->remote_ip);
 	env_put(t_strconcat("IP=", addr, NULL));
 
-	if (input_size > 0) {
+	i_assert(request->cmd_tag_size <= request->data_size);
+	if (request->cmd_tag_size > 0) {
+		env_put(t_strconcat("IMAPLOGINTAG=",
+			t_strndup(data, request->cmd_tag_size), NULL));
+	}
+	if ((request->flags & LOGIN_IMAP_FLAG_FULL_CAPABILITY_SENT) == 0 &&
+	    process_type == PROCESS_TYPE_IMAP)
+		env_put("CLIENT_SEND_CAPABILITY=1");
+
+	if (request->data_size > request->cmd_tag_size) {
 		str_truncate(str, 0);
 		str_append(str, "CLIENT_INPUT=");
-		base64_encode(input, input_size, str);
+		base64_encode(data + request->cmd_tag_size,
+			      request->data_size - request->cmd_tag_size, str);
 		env_put(str_c(str));
 	}
 
