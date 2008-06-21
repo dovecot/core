@@ -323,6 +323,16 @@ static void maildir_uidlist_update_hdr(struct maildir_uidlist *uidlist,
 	}
 
 	mhdr = &uidlist->mbox->maildir_hdr;
+	if (mhdr->uidlist_mtime == 0) {
+		if (!uidlist->initial_read)
+			(void)maildir_uidlist_refresh(uidlist);
+		if (uidlist->version != UIDLIST_VERSION) {
+			/* upgrading from older verson. don't update the
+			   uidlist times until it uses the new format */
+			uidlist->recreate = TRUE;
+			return;
+		}
+	}
 	mhdr->uidlist_mtime = st->st_mtime;
 	mhdr->uidlist_mtime_nsecs = ST_MTIME_NSEC(*st);
 	mhdr->uidlist_size = st->st_size;
