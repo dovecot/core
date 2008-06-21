@@ -1086,9 +1086,7 @@ parse_new_auth_socket(struct auth_settings *auth, const char *name,
 		return NULL;
 	}
 
-	if ((auth->sockets != NULL && strcmp(name, "connect") == 0) ||
-	    (auth->sockets != NULL &&
-	     strcmp(auth->sockets->type, "listen") == 0)) {
+	if (auth->sockets != NULL && strcmp(name, "connect") == 0) {
 		*errormsg = "With connect auth socket no other sockets "
 			"can be used in same auth section";
 		return NULL;
