@@ -30,6 +30,10 @@ void index_storage_get_status(struct mailbox *box,
 	if ((items & STATUS_HIGHESTMODSEQ) != 0) {
 		status_r->highest_modseq =
 			mail_index_modseq_get_highest(ibox->view);
+		if (status_r->highest_modseq == 0) {
+			/* modseqs not enabled yet, but we can't return 0 */
+			status_r->highest_modseq = 1;
+		}
 	}
 
 	if (items & STATUS_FIRST_UNSEEN_SEQ) {

@@ -27,7 +27,7 @@ struct mail_index_view_sync_ctx {
 	/* temporary variables while handling lost transaction logs: */
 	ARRAY_TYPE(keyword_indexes) lost_old_kw, lost_new_kw;
 	buffer_t *lost_kw_buf;
-	uint32_t lost_old_ext_idx, lost_new_ext_idx;
+	uint32_t lost_new_ext_idx;
 	/* result of lost transaction logs: */
 	ARRAY_TYPE(seq_range) lost_flags;
 	unsigned int lost_flag_idx;
@@ -332,7 +332,7 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	struct mail_transaction_header thdr;
 	const struct mail_index_ext *ext;
 	const uint64_t *modseqp;
-	uint64_t old_modseq, new_modseq;
+	uint64_t new_modseq;
 	bool changed = FALSE;
 
 	old_rec = MAIL_INDEX_MAP_IDX(old_map, old_seq - 1);
@@ -383,24 +383,20 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 
 	if (changed) {
 		/* flags or keywords changed */
-	} else if (ctx->lost_old_ext_idx != (uint32_t)-1 &&
+	} else if (ctx->view->highest_modseq != 0 &&
 		   ctx->lost_new_ext_idx != (uint32_t)-1) {
 		/* if modseq has changed include this message in changed flags
 		   list, even if we didn't see any changes above. */
-		ext = array_idx(&old_map->extensions, ctx->lost_old_ext_idx);
-		modseqp = CONST_PTR_OFFSET(old_rec, ext->record_offset);
-		old_modseq = *modseqp;
-
 		ext = array_idx(&new_map->extensions, ctx->lost_new_ext_idx);
 		modseqp = CONST_PTR_OFFSET(new_rec, ext->record_offset);
 		new_modseq = *modseqp;
 
-		if (old_modseq != new_modseq)
+		if (new_modseq > ctx->view->highest_modseq)
 			changed = TRUE;
 	}
 
-	/* lost_flags isn't updated perfectly correctly, because by the time
-	   we're comparing old flags (or modseqs) it may have changed from what
+	/* without modseqs lost_flags isn't updated perfectly correctly, because
+	   by the time we're comparing old flags it may have changed from what
 	   we last sent to the client (because the map is shared). This could
 	   be avoided by always keeping a private copy of the map in the view,
 	   but that's a waste of memory for as rare of a problem as this. */
@@ -427,9 +423,6 @@ view_sync_get_log_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	   want. get an atomic map to make sure these get removed. */
 	(void)mail_index_sync_get_atomic_map(&ctx->sync_map_ctx);
 
-	if (!mail_index_map_get_ext_idx(old_map, view->index->modseq_ext_id,
-					&ctx->lost_old_ext_idx))
-		ctx->lost_old_ext_idx = (uint32_t)-1;
 	if (!mail_index_map_get_ext_idx(new_map, view->index->modseq_ext_id,
 					&ctx->lost_new_ext_idx))
 		ctx->lost_new_ext_idx = (uint32_t)-1;
@@ -958,6 +951,7 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx,
 	if (array_is_created(&ctx->lost_flags))
 		array_free(&ctx->lost_flags);
 
+	view->highest_modseq = mail_index_map_modseq_get_highest(view->map);
 	view->syncing = FALSE;
 	i_free(ctx);
 	return ret;

@@ -114,8 +114,10 @@ uint64_t mail_index_map_modseq_get_highest(struct mail_index_map *map)
 	if (modseq_hdr != NULL && modseq_hdr->highest_modseq != 0)
 		return modseq_hdr->highest_modseq;
 	else {
-		/* fallback to returning the log head */
-		return mail_index_modseq_get_head(map->index);
+		/* fallback to returning the log head. if modseqs aren't
+		   enabled, we return 0. */
+		return map->index->log->head == NULL ? 0 :
+			map->index->log->head->sync_highest_modseq;
 	}
 }
 

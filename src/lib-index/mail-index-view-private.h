@@ -50,6 +50,7 @@ struct mail_index_view {
 
 	uint32_t indexid;
 	unsigned int inconsistency_id;
+	uint64_t highest_modseq;
 
 	struct mail_index_map *map;
 	/* All mappings where we have returned records. They need to be kept

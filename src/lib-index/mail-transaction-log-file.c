@@ -196,8 +196,7 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 		hdr->prev_file_seq = index->map->hdr.log_file_seq;
 		hdr->prev_file_offset = index->map->hdr.log_file_head_offset;
 		hdr->file_seq = index->map->hdr.log_file_seq + 1;
-		hdr->initial_modseq = log->head == NULL ||
-			log->head->sync_highest_modseq == 0 ? 0 :
+		hdr->initial_modseq =
 			mail_index_map_modseq_get_highest(index->map);
 	} else {
 		hdr->file_seq = 1;
