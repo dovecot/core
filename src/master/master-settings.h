@@ -126,6 +126,8 @@ struct settings {
 	const char *imap_capability;
 	const char *imap_client_workarounds;
 	const char *imap_logout_format;
+	const char *imap_id_send;
+	const char *imap_id_log;
 
 	/* pop3 */
 	bool pop3_no_flag_updates;

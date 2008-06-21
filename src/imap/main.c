@@ -41,6 +41,7 @@ struct ioloop *ioloop;
 unsigned int imap_max_line_length;
 enum client_workarounds client_workarounds = 0;
 const char *logout_format;
+const char *imap_id_send, *imap_id_log;
 
 static struct io *log_io = NULL;
 static struct module *modules = NULL;
@@ -226,6 +227,9 @@ static void main_init(void)
 	logout_format = getenv("IMAP_LOGOUT_FORMAT");
 	if (logout_format == NULL)
 		logout_format = "bytes=%i/%o";
+
+	imap_id_send = getenv("IMAP_ID_SEND");
+	imap_id_log = getenv("IMAP_ID_LOG");
 
         parse_workarounds();
 

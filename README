@@ -31,6 +31,7 @@ RFCs conformed
  2177       - IMAP4 IDLE command
  2221       - IMAP4 Login Referrals
  2342       - IMAP4 Namespace
+ 2971       - IMAP4 ID extension
  3348       - IMAP4 Child Mailbox Extension
  3502       - IMAP4 MULTIAPPEND Extension
  3691       - IMAP4 UNSELECT command

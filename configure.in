@@ -19,7 +19,7 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
   sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h sys/fs/quota_common.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
-  xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h malloc_np.h)
+  xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h malloc_np.h sys/utsname.h)
 
 AC_ARG_ENABLE(ipv6,
 [  --enable-ipv6           Enable IPv6 support (auto)],
@@ -425,9 +425,11 @@ AC_CHECK_LIB(cap, cap_init, [
 ])
 AC_SUBST(LIBCAP)
 
+AC_DEFINE(PACKAGE_WEBPAGE, "http://www.dovecot.org/", Support URL)
+
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
-               strcasecmp stricmp vsyslog writev pread \
+               strcasecmp stricmp vsyslog writev pread uname \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
 	       strtoull strtoll strtouq strtoq \
 	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \
@@ -2183,7 +2185,7 @@ dnl **
 dnl ** capabilities
 dnl **
 
-capability="IMAP4rev1 SASL-IR SORT THREAD=REFERENCES MULTIAPPEND UNSELECT LITERAL+ IDLE CHILDREN NAMESPACE LOGIN-REFERRALS UIDPLUS LIST-EXTENDED I18NLEVEL=1 ENABLE CONDSTORE QRESYNC ESEARCH SEARCHRES WITHIN CONTEXT=SEARCH"
+capability="IMAP4rev1 SASL-IR SORT THREAD=REFERENCES MULTIAPPEND UNSELECT LITERAL+ IDLE CHILDREN NAMESPACE LOGIN-REFERRALS UIDPLUS LIST-EXTENDED I18NLEVEL=1 ENABLE CONDSTORE QRESYNC ESEARCH SEARCHRES WITHIN CONTEXT=SEARCH ID"
 AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", IMAP capabilities)
 
 CFLAGS="$CFLAGS $EXTRA_CFLAGS"

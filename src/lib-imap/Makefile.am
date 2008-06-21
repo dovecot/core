@@ -10,6 +10,7 @@ libimap_a_SOURCES = \
 	imap-bodystructure.c \
 	imap-date.c \
 	imap-envelope.c \
+	imap-id.c \
 	imap-match.c \
 	imap-parser.c \
 	imap-quote.c \
@@ -21,6 +22,7 @@ headers = \
 	imap-bodystructure.h \
 	imap-date.h \
 	imap-envelope.h \
+	imap-id.h \
 	imap-match.h \
 	imap-parser.h \
 	imap-quote.h \

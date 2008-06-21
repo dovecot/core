@@ -114,6 +114,8 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(imap_capability),
 	DEF_STR(imap_client_workarounds),
 	DEF_STR(imap_logout_format),
+	DEF_STR(imap_id_send),
+	DEF_STR(imap_id_log),
 
 	/* pop3 */
 	DEF_BOOL(pop3_no_flag_updates),

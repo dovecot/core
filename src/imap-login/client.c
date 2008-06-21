@@ -10,11 +10,14 @@
 #include "str.h"
 #include "strescape.h"
 #include "imap-parser.h"
+#include "imap-id.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "imap-proxy.h"
+
+#include <stdlib.h>
 
 /* max. size of one parameter in line, or max reply length in SASL
    authentication */
@@ -197,6 +200,27 @@ static int cmd_starttls(struct imap_client *client)
 	return 1;
 }
 
+static int cmd_id(struct imap_client *client, const struct imap_arg *args)
+{
+	const char *env, *value;
+
+	if (!client->id_logged) {
+		client->id_logged = TRUE;
+		env = getenv("IMAP_ID_LOG");
+		value = imap_id_args_get_log_reply(args, env);
+		if (value != NULL) {
+			client_syslog(&client->common,
+				      t_strdup_printf("ID sent: %s", value));
+		}
+	}
+
+	env = getenv("IMAP_ID_SEND");
+	client_send_line(client, t_strdup_printf("* ID %s",
+						 imap_id_reply_generate(env)));
+	client_send_tagline(client, "OK ID completed.");
+	return 1;
+}
+
 static int cmd_noop(struct imap_client *client)
 {
 	client_send_tagline(client, "OK NOOP completed.");
@@ -228,6 +252,8 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 		return cmd_capability(client);
 	if (strcmp(cmd, "STARTTLS") == 0)
 		return cmd_starttls(client);
+	if (strcmp(cmd, "ID") == 0)
+		return cmd_id(client, args);
 	if (strcmp(cmd, "NOOP") == 0)
 		return cmd_noop(client);
 	if (strcmp(cmd, "LOGOUT") == 0)

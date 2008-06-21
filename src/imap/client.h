@@ -115,6 +115,7 @@ struct client {
 	unsigned int destroyed:1;
 	unsigned int handling_input:1;
 	unsigned int syncing:1;
+	unsigned int id_logged:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
 	unsigned int modseqs_sent_since_sync:1;

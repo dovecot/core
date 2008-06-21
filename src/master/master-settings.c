@@ -280,6 +280,8 @@ struct settings default_settings = {
 	MEMBER(imap_capability) "",
 	MEMBER(imap_client_workarounds) "",
 	MEMBER(imap_logout_format) "bytes=%i/%o",
+	MEMBER(imap_id_send) "",
+	MEMBER(imap_id_log) "",
 
 	/* pop3 */
 	MEMBER(pop3_no_flag_updates) FALSE,
