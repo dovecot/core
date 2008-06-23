@@ -417,17 +417,20 @@ static void print_build_options(void)
 #ifdef USERDB_CHECKPASSWORD
 		" checkpassword"
 #endif
+#ifdef USERDB_NSS
+		" nss"
+#endif
 #ifdef USERDB_LDAP
 		" ldap"
 #endif
 #ifdef USERDB_PASSWD
 		" passwd"
 #endif
-#ifdef USERDB_PREFETCH
-		" prefetch"
-#endif
 #ifdef USERDB_PASSWD_FILE
 		" passwd-file"
+#endif
+#ifdef USERDB_PREFETCH
+		" prefetch"
 #endif
 #ifdef USERDB_SQL 
 		" sql"
