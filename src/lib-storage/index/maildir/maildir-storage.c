@@ -581,12 +581,13 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 	   its permissions and gid, and copy the dovecot-shared inside it. */
 	shared_path = t_strconcat(root_dir, "/dovecot-shared", NULL);
 	if (stat(shared_path, &st) == 0) {
-		return maildir_create_shared(_storage, path,
-					     st.st_mode & 0666, st.st_gid);
+		if (maildir_create_shared(_storage, path,
+					  st.st_mode & 0666, st.st_gid) < 0)
+			return -1;
+	} else {
+		if (create_maildir(_storage, path, FALSE) < 0)
+			return -1;
 	}
-
-	if (create_maildir(_storage, path, FALSE) < 0)
-		return -1;
 
 	/* Maildir++ spec want that maildirfolder named file is created for
 	   all subfolders. */
