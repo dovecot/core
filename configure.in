@@ -1065,6 +1065,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   AC_DEFINE(HAVE_RLIMIT_NPROC,, Define if you have RLIMIT_NPROC for setrlimit())
 ],[])
 
+dnl * Do we have RLIMIT_CORE?
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+  #include <sys/types.h>
+  #include <sys/time.h>
+  #include <sys/resource.h>
+]], [[
+  struct rlimit r;
+  getrlimit(RLIMIT_CORE, &r);
+]])],[
+  AC_DEFINE(HAVE_RLIMIT_CORE,, Define if you have RLIMIT_CORE for getrlimit())
+],[])
+
 dnl * Linux compatible mremap()
 AC_MSG_CHECKING([Linux compatible mremap()])
 AC_TRY_LINK([

@@ -4,10 +4,6 @@
 #include "restrict-process-size.h"
 
 #include <unistd.h>
-#include <sys/time.h>
-#ifdef HAVE_SYS_RESOURCE_H
-#  include <sys/resource.h>
-#endif
 
 void restrict_process_size(unsigned int size ATTR_UNUSED,
 			   unsigned int max_processes ATTR_UNUSED)
@@ -51,5 +47,21 @@ void restrict_fd_limit(unsigned int count)
 	rlim.rlim_cur = rlim.rlim_max = count;
 	if (setrlimit(RLIMIT_NOFILE, &rlim) < 0)
 		i_fatal("setrlimit(RLIMIT_NOFILE, %u): %m", count);
+#endif
+}
+
+int restrict_get_core_limit(rlim_t *limit_r)
+{
+#ifdef HAVE_RLIMIT_CORE
+	struct rlimit rlim;
+
+	if (getrlimit(RLIMIT_CORE, &rlim) < 0) {
+		i_error("getrlimit(RLIMIT_CORE) failed: %m");
+		return -1;
+	}
+	*limit_r = rlim.rlim_cur;
+	return 0;
+#else
+	return -1;
 #endif
 }

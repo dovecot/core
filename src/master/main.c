@@ -234,6 +234,17 @@ static void create_pid_file(const char *path)
 	(void)close(fd);
 }
 
+static void main_log_startup(void)
+{
+#define STARTUP_STRING PACKAGE_NAME" v"VERSION" starting up"
+	rlim_t core_limit;
+
+	if (restrict_get_core_limit(&core_limit) == 0 && core_limit == 0)
+		i_info(STARTUP_STRING" (core dumps disabled)");
+	else
+		i_info(STARTUP_STRING);
+}
+
 static void main_init(bool log_error)
 {
 	drop_capabilities();
@@ -255,7 +266,7 @@ static void main_init(bool log_error)
 		i_error("This is Dovecot's error log");
 		i_fatal("This is Dovecot's fatal log");
 	}
-	i_info(PACKAGE_NAME" v"VERSION" starting up");
+	main_log_startup();
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
