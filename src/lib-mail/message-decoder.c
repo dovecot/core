@@ -8,6 +8,7 @@
 #include "charset-utf8.h"
 #include "quoted-printable.h"
 #include "rfc822-parser.h"
+#include "rfc2231-parser.h"
 #include "message-parser.h"
 #include "message-header-decode.h"
 #include "message-decoder.h"
@@ -112,7 +113,7 @@ parse_content_type(struct message_decoder_context *ctx,
 		   struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
-	const char *key, *value;
+	const char *const *results;
 	string_t *str;
 
 	if (ctx->content_charset != NULL)
@@ -124,10 +125,11 @@ parse_content_type(struct message_decoder_context *ctx,
 	if (rfc822_parse_content_type(&parser, str) <= 0)
 		return;
 
-	while (rfc822_parse_content_param(&parser, &key, &value) > 0) {
-		if (strcasecmp(key, "charset") == 0) {
-			ctx->content_charset = i_strdup(value);
-			ctx->charset_utf8 = charset_is_utf8(value);
+	(void)rfc2231_parse(&parser, &results);
+	for (; *results != NULL; results += 2) {
+		if (strcasecmp(results[0], "charset") == 0) {
+			ctx->content_charset = i_strdup(results[1]);
+			ctx->charset_utf8 = charset_is_utf8(results[1]);
 			break;
 		}
 	}

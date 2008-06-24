@@ -4,6 +4,7 @@
 #include "str.h"
 #include "istream.h"
 #include "rfc822-parser.h"
+#include "rfc2231-parser.h"
 #include "message-parser.h"
 
 /* RFC-2046 requires boundaries are max. 70 chars + "--" prefix + "--" suffix.
@@ -410,7 +411,7 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 			       struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
-	const char *key, *value;
+	const char *const *results;
 	string_t *content_type;
 
 	if (ctx->part_seen_content_type)
@@ -441,9 +442,11 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 	    ctx->last_boundary != NULL)
 		return;
 
-	while (rfc822_parse_content_param(&parser, &key, &value) > 0) {
-		if (strcasecmp(key, "boundary") == 0) {
-			ctx->last_boundary = p_strdup(ctx->parser_pool, value);
+	(void)rfc2231_parse(&parser, &results);
+	for (; *results != NULL; results += 2) {
+		if (strcasecmp(results[0], "boundary") == 0) {
+			ctx->last_boundary =
+				p_strdup(ctx->parser_pool, results[1]);
 			break;
 		}
 	}

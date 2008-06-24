@@ -19,6 +19,7 @@ libmail_a_SOURCES = \
 	message-send.c \
 	message-size.c \
 	quoted-printable.c \
+	rfc2231-parser.c \
 	rfc822-parser.c
 
 headers = \
@@ -37,6 +38,7 @@ headers = \
 	message-send.h \
 	message-size.h \
 	quoted-printable.h \
+	rfc2231-parser.h \
 	rfc822-parser.h
 
 if INSTALL_HEADERS

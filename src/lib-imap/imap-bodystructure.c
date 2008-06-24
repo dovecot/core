@@ -6,6 +6,7 @@
 #include "str.h"
 #include "message-parser.h"
 #include "rfc822-parser.h"
+#include "rfc2231-parser.h"
 #include "imap-parser.h"
 #include "imap-quote.h"
 #include "imap-envelope.h"
@@ -37,7 +38,7 @@ static void parse_content_type(struct message_part_body_data *data,
 			       struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
-	const char *key, *value;
+	const char *value, *const *results;
 	string_t *str;
 	unsigned int i;
 	bool charset_found = FALSE;
@@ -64,14 +65,15 @@ static void parse_content_type(struct message_part_body_data *data,
 
 	/* parse parameters and save them */
 	str_truncate(str, 0);
-	while (rfc822_parse_content_param(&parser, &key, &value) > 0) {
-		if (strcasecmp(key, "charset") == 0)
+	(void)rfc2231_parse(&parser, &results);
+	for (; *results != NULL; results += 2) {
+		if (strcasecmp(results[0], "charset") == 0)
 			charset_found = TRUE;
 
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, key, TRUE);
+		imap_quote_append_string(str, results[0], TRUE);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, value, TRUE);
+		imap_quote_append_string(str, results[1], TRUE);
 	}
 
 	if (!charset_found &&
@@ -106,7 +108,7 @@ static void parse_content_disposition(struct message_part_body_data *data,
 				      struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
-	const char *key, *value;
+	const char *const *results;
 	string_t *str;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
@@ -120,11 +122,12 @@ static void parse_content_disposition(struct message_part_body_data *data,
 
 	/* parse parameters and save them */
 	str_truncate(str, 0);
-	while (rfc822_parse_content_param(&parser, &key, &value) > 0) {
+	(void)rfc2231_parse(&parser, &results);
+	for (; *results != NULL; results += 2) {
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, key, TRUE);
+		imap_quote_append_string(str, results[0], TRUE);
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, value, TRUE);
+		imap_quote_append_string(str, results[1], TRUE);
 	}
 	if (str_len(str) > 0) {
 		data->content_disposition_params =
