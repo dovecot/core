@@ -18,7 +18,7 @@
 #include <stdlib.h>
 
 #define BODY_NIL_REPLY \
-	"\"text\" \"plain\" NIL NIL NIL \"7bit\" 0 0 NIL NIL NIL"
+	"\"text\" \"plain\" NIL NIL NIL \"7bit\" 0 0"
 #define ENVELOPE_NIL_REPLY \
 	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
