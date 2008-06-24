@@ -28,6 +28,7 @@ struct message_part_body_data {
 	const char *content_disposition_params;
 	const char *content_md5;
 	const char *content_language;
+	const char *content_location;
 
 	struct message_part_envelope_data *envelope;
 };
@@ -196,8 +197,8 @@ static void parse_content_header(struct message_part_body_data *d,
 	case 'T':
 		if (strcasecmp(name, "Type") == 0 && d->content_type == NULL)
 			parse_content_type(d, hdr);
-		if (strcasecmp(name, "Transfer-Encoding") == 0 &&
-		    d->content_transfer_encoding == NULL)
+		else if (strcasecmp(name, "Transfer-Encoding") == 0 &&
+			 d->content_transfer_encoding == NULL)
 			parse_content_transfer_encoding(d, hdr);
 		break;
 
@@ -206,6 +207,11 @@ static void parse_content_header(struct message_part_body_data *d,
 		if (strcasecmp(name, "Language") == 0 &&
 		    d->content_language == NULL)
 			parse_content_language(value, value_len, d);
+		else if (strcasecmp(name, "Location") == 0 &&
+			 d->content_location == NULL) {
+			d->content_location =
+				imap_quote(pool, value, value_len);
+		}
 		break;
 
 	case 'd':
@@ -214,9 +220,8 @@ static void parse_content_header(struct message_part_body_data *d,
 		    d->content_description == NULL) {
 			d->content_description =
 				imap_quote(pool, value, value_len);
-		}
-		if (strcasecmp(name, "Disposition") == 0 &&
-		    d->content_disposition_params == NULL) {
+		} else if (strcasecmp(name, "Disposition") == 0 &&
+			   d->content_disposition_params == NULL) {
 			parse_content_disposition(d, hdr);
 		}
 		break;
@@ -337,6 +342,12 @@ static void part_write_body_multipart(const struct message_part *part,
 		str_append(str, data->content_language);
 		str_append_c(str, ')');
 	}
+
+	str_append_c(str, ' ');
+	if (data->content_location == NULL)
+		str_append(str, "NIL");
+	else
+		str_append(str, data->content_location);
 }
 
 static void part_write_body(const struct message_part *part,
@@ -413,7 +424,7 @@ static void part_write_body(const struct message_part *part,
 	/* BODYSTRUCTURE data */
 
 	/* "md5" ("content disposition" ("disposition" "params"))
-	   ("body" "language" "params") */
+	   ("body" "language" "params") "location" */
 	str_append_c(str, ' ');
 	str_append(str, NVL(data->content_md5, "NIL"));
 
@@ -444,6 +455,12 @@ static void part_write_body(const struct message_part *part,
 		str_append(str, data->content_language);
 		str_append_c(str, ')');
 	}
+
+	str_append_c(str, ' ');
+	if (data->content_location == NULL)
+		str_append(str, "NIL");
+	else
+		str_append(str, data->content_location);
 }
 
 bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
@@ -480,7 +497,8 @@ bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
 	/* BODYSTRUCTURE checks: */
 	if (data->content_md5 != NULL ||
 	    data->content_disposition != NULL ||
-	    data->content_language != NULL)
+	    data->content_language != NULL ||
+	    data->content_location != NULL)
 		return FALSE;
 
 	return TRUE;
