@@ -62,17 +62,18 @@ node {
   parent: Pointer to parent node. Children pointers aren't required.
   uid: Message's UID (0 = expunged or never even existed)
 
-  link_refcount: Number of messages referencing "this node" -> "parent node"
-    (e.g. "References: a b" would increase this message's reference as well as
-    b's reference, regardless of how the links are really added to the thread
-    tree).
+  parent_link_refcount: Number of messages containing "this message" -> "parent
+    message" link, i.e. "number of links to parent node". However since parents
+    can change, not all of these references might be from our current child
+    nodes. When this refcount reaches 0, it means we must detach from our
+    parent.
   expunge_rebuilds: If this message gets expunged, rebuild the thread tree.
   parent_unref_rebuilds: If a link between this node and its child gets
     unreferenced, rebuild the thread tree.
 }
 
 link_reference(parent_node, child_node)
-  parent_node.link_refcount++
+  child_node.parent_link_refcount++
   if is_ancestor(child_node, parent_node)
     // child_node is an ancestor of parent_node. Adding child_node ->
     // parent_node would introduce a loop. If any messages referencing the
@@ -144,8 +145,8 @@ unref_link(parent, child)
   if parent.parent_unref_rebuilds
     return false
 
-  child.link_refcount--
-  if child.link_refcount == 0
+  child.parent_link_refcount--
+  if child.parent_link_refcount == 0
     child.parent = NIL
   return true  
 

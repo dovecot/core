@@ -47,6 +47,8 @@ struct mail_hash_header {
 	uint32_t last_uid;
 	/* Number of message records (records with non-zero UID) */
 	uint32_t message_count;
+	/* Increased every time the hash is reset */
+	uint32_t reset_counter;
 };
 
 struct mail_hash_record {
@@ -95,6 +97,8 @@ int mail_hash_lock_shared(struct mail_hash *hash);
 int mail_hash_lock_exclusive(struct mail_hash *hash,
 			     enum mail_hash_lock_flags flags);
 void mail_hash_unlock(struct mail_hash *hash);
+/* Returns the current locking state (F_UNLCK, F_RDLCK, F_WRLCK) */
+int mail_hash_get_lock_type(struct mail_hash *hash);
 
 struct mail_hash_transaction *
 mail_hash_transaction_begin(struct mail_hash *hash, unsigned int min_hash_size);
@@ -103,6 +107,12 @@ void mail_hash_transaction_end(struct mail_hash_transaction **trans);
 /* Returns TRUE if transaction is in broken state because of an earlier
    I/O error or detected file corruption. */
 bool mail_hash_transaction_is_broken(struct mail_hash_transaction *trans);
+/* Returns TRUE if hash is currently being updated in memory. */
+bool mail_hash_transaction_is_in_memory(struct mail_hash_transaction *trans);
+
+/* Returns the hash structure of the transaction. */
+struct mail_hash *
+mail_hash_transaction_get_hash(struct mail_hash_transaction *trans);
 
 /* Clear the entire hash file's contents. */
 void mail_hash_reset(struct mail_hash_transaction *trans);

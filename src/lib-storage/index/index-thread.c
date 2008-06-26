@@ -35,6 +35,8 @@ struct mail_thread_mailbox {
 	union mailbox_module_context module_ctx;
 	struct mail_hash *hash;
 
+	struct mail_thread_list_context *list_ctx;
+
 	/* set only temporarily while needed */
 	struct mail_thread_update_context *ctx;
 };
@@ -63,69 +65,87 @@ static unsigned int mail_thread_hash_key(const void *key)
 }
 
 static const char *
-mail_thread_find_msgid_crc32(struct mail_thread_update_context *ctx,
-			     uint32_t msgid_crc32)
+mail_thread_nth_last_refid_crc32(const char *msgids, unsigned int ref_index,
+				 uint32_t msgid_crc32)
 {
-	const char *msgids, *msgid;
-	int ret;
+	const unsigned int idx_from_end =
+		ref_index - MAIL_INDEX_NODE_REF_REFERENCES_LAST + 1;
+	const char **last_msgids, *msgid;
+	unsigned int idx = 0;
 
-	/* if there are any valid references, it's in them */
-	ret = mail_get_first_header(ctx->tmp_mail, HDR_REFERENCES, &msgids);
-	if (ret == 0) {
-		/* no References: header, fallback to In-Reply-To: */
-		if (mail_get_first_header(ctx->tmp_mail, HDR_IN_REPLY_TO,
-					  &msgids) <= 0)
-			return NULL;
-
-		msgid = message_id_get_next(&msgids);
-		if (msgid != NULL && crc32_str_nonzero(msgid) == msgid_crc32)
-			return msgid;
-		return NULL;
-	}
-	if (ret < 0)
-		return NULL;
-
+	last_msgids = t_new(const char *, idx_from_end);
 	while ((msgid = message_id_get_next(&msgids)) != NULL) {
 		if (crc32_str_nonzero(msgid) == msgid_crc32) {
-			/* found it. there aren't any colliding message-id
-			   CRC32s in this message or it wouldn't have been
-			   added as a reference UID. */
-			return msgid;
+			last_msgids[idx % idx_from_end] = msgid;
+			idx++;
 		}
 	}
-	return NULL;
-
+	return last_msgids[idx % idx_from_end];
 }
 
 static const char *
-mail_thread_node_get_msgid(struct mail_thread_update_context *ctx,
+mail_thread_node_get_msgid(struct mail_hash_transaction *trans,
+			   struct mail_thread_update_context *ctx,
 			   const struct mail_thread_node *node, uint32_t idx)
 {
-	const char *msgids, *msgid, **p;
+	const char *msgids, *msgid = NULL, **p;
+	int ret;
+
+	if (node->ref_index == MAIL_INDEX_NODE_REF_EXT) {
+		if (mail_thread_list_lookup(ctx->thread_list_ctx,
+					    node->uid_or_id, &msgid) < 0)
+			return NULL;
+		if (msgid == NULL) {
+			mail_hash_transaction_set_corrupted(trans,
+				"Referenced list msgid lost");
+		}
+		return msgid;
+	}
 
 	p = array_idx_modifiable(&ctx->msgid_cache, idx);
 	if (*p != NULL)
 		return *p;
 
-	if (node->uid == 0)
+	ret = mail_set_uid(ctx->tmp_mail, node->uid_or_id);
+	if (ret <= 0) {
+		if (ret == 0) {
+			mail_hash_transaction_set_corrupted(trans,
+				t_strdup_printf("Referenced UID %u lost",
+						node->uid_or_id));
+		}
 		return NULL;
-
-	if (mail_set_uid(ctx->tmp_mail, node->uid) <= 0)
-		return NULL;
-	if (node->exists) {
-		/* we can get the Message-ID directly */
+	}
+	switch (node->ref_index) {
+	case MAIL_INDEX_NODE_REF_MSGID:
+		/* Message-ID: header */
 		if (mail_get_first_header(ctx->tmp_mail, HDR_MESSAGE_ID,
-					  &msgids) <= 0)
+					  &msgids) < 0)
 			return NULL;
-
 		msgid = message_id_get_next(&msgids);
-	} else {
-		/* find from a referencing message */
-		msgid = mail_thread_find_msgid_crc32(ctx, node->msgid_crc32);
+		break;
+	case MAIL_INDEX_NODE_REF_INREPLYTO:
+		/* In-Reply-To: header */
+		if (mail_get_first_header(ctx->tmp_mail, HDR_IN_REPLY_TO,
+					  &msgids) < 0)
+			return NULL;
+		msgid = message_id_get_next(&msgids);
+		break;
+	default:
+		/* References: header */
+		if (mail_get_first_header(ctx->tmp_mail, HDR_REFERENCES,
+					  &msgids) < 0)
+			return NULL;
+		msgid = mail_thread_nth_last_refid_crc32(msgids,
+							 node->ref_index,
+							 node->msgid_crc32);
+		break;
 	}
 
-	if (msgid == NULL)
+	if (msgid == NULL) {
+		/* shouldn't have happened */
+		mail_hash_transaction_set_corrupted(trans, "Message ID lost");
 		return NULL;
+	}
 
 	*p = p_strdup(ctx->msgid_pool, msgid);
 	return *p;
@@ -139,6 +159,7 @@ static bool mail_thread_hash_cmp(struct mail_hash_transaction *trans,
 	struct mail_thread_update_context *ctx = tbox->ctx;
 	const struct mail_thread_node *node;
 	const char *msgid;
+	bool ret;
 
 	node = mail_hash_lookup_idx(trans, idx);
 	if (key_rec->msgid_crc32 != node->msgid_crc32)
@@ -148,14 +169,19 @@ static bool mail_thread_hash_cmp(struct mail_hash_transaction *trans,
 	ctx->cmp_last_idx = idx;
 
 	/* either a match or a collision, need to look closer */
-	msgid = mail_thread_node_get_msgid(ctx, node, ctx->cmp_last_idx);
-	if (msgid == NULL) {
-		/* we couldn't figure out the Message-ID for whatever reason.
-		   we'll need to fallback to rebuilding the whole thread */
-		ctx->rebuild = TRUE;
-		return FALSE;
-	}
-	return strcmp(msgid, key_rec->msgid) == 0;
+	T_BEGIN {
+		msgid = mail_thread_node_get_msgid(trans, ctx, node, idx);
+		if (msgid != NULL)
+			ret = strcmp(msgid, key_rec->msgid) == 0;
+		else {
+			/* we couldn't figure out the Message-ID for whatever
+			   reason. we'll need to fallback to rebuilding the
+			   whole thread. */
+			ctx->rebuild = TRUE;
+			ret = FALSE;
+		}
+	} T_END;
+	return ret;
 }
 
 static unsigned int mail_thread_hash_rec(const void *p)
@@ -358,6 +384,9 @@ mail_thread_update_init(struct mail_thread_context *ctx, bool reset)
 	ctx->t = mailbox_transaction_begin(ctx->box, 0);
 	ctx->search = mailbox_search_init(ctx->t, ctx->search_args, NULL);
 	ctx->thread_ctx.tmp_mail = mail_alloc(ctx->t, 0, NULL);
+	ctx->thread_ctx.thread_list_ctx =
+		mail_thread_list_update_begin(tbox->list_ctx,
+					      ctx->thread_ctx.hash_trans);
 
 	hdr = mail_hash_get_header(ctx->thread_ctx.hash_trans);
 	count = status.messages < hdr->record_count ? 0 :
@@ -465,6 +494,9 @@ static void mail_thread_clear(struct mail_thread_context *ctx)
 {
 	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
 
+	if (ctx->thread_ctx.thread_list_ctx != NULL)
+		mail_thread_list_rollback(&ctx->thread_ctx.thread_list_ctx);
+
 	mail_hash_transaction_end(&ctx->thread_ctx.hash_trans);
 
 	(void)mailbox_search_deinit(&ctx->search);
@@ -500,8 +532,11 @@ struct mail_thread_iterate_context *
 mail_thread_iterate_init(struct mail_thread_context *ctx,
 			 enum mail_thread_type thread_type, bool write_seqs)
 {
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
+
 	return mail_thread_iterate_init_full(ctx->thread_ctx.tmp_mail,
 					     ctx->thread_ctx.hash_trans,
+					     tbox->list_ctx,
 					     thread_type, write_seqs);
 }
 
@@ -526,6 +561,33 @@ mail_thread_index_is_up_to_date(struct mail_thread_update_context *ctx,
 	return seq2 == hash_hdr->message_count;
 }
 
+static void
+mail_thread_expunge_handler_deinit(struct mail_thread_mailbox *tbox,
+				   struct mail_thread_update_context *ctx)
+{
+	struct mailbox_transaction_context *t;
+
+	t = ctx->tmp_mail->transaction;
+
+	if (ctx->failed)
+		mail_thread_list_rollback(&ctx->thread_list_ctx);
+	else {
+		if (mail_thread_list_commit(&ctx->thread_list_ctx) < 0)
+			ctx->failed = TRUE;
+	}
+	if (!ctx->failed)
+		(void)mail_hash_transaction_write(ctx->hash_trans);
+	mail_hash_transaction_end(&ctx->hash_trans);
+	mail_hash_unlock(tbox->hash);
+
+	mail_free(&ctx->tmp_mail);
+	/* don't commit. we're in the middle of syncing and
+	   this transaction isn't marked as external. */
+	(void)mailbox_transaction_rollback(&t);
+	array_free(&ctx->msgid_cache);
+	pool_unref(&ctx->msgid_pool);
+}
+
 static int
 mail_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			    uint32_t seq, const void *data,
@@ -541,21 +603,8 @@ mail_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		/* deinit */
 		if (!ctx->syncing)
 			return 0;
-		if (ctx->hash != NULL) {
-			t = ctx->tmp_mail->transaction;
-
-			if (!ctx->failed)
-				(void)mail_hash_transaction_write(ctx->hash_trans);
-			mail_hash_transaction_end(&ctx->hash_trans);
-			mail_hash_unlock(tbox->hash);
-
-			mail_free(&ctx->tmp_mail);
-			/* don't commit. we're in the middle of syncing and
-			   this transaction isn't marked as external. */
-			(void)mailbox_transaction_rollback(&t);
-			array_free(&ctx->msgid_cache);
-			pool_unref(&ctx->msgid_pool);
-		}
+		if (ctx->hash != NULL)
+			mail_thread_expunge_handler_deinit(tbox, ctx);
 		i_free_and_null(tbox->ctx);
 		return 0;
 	}
@@ -575,6 +624,9 @@ mail_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 
 		ctx->hash = tbox->hash;
 		ctx->hash_trans = mail_hash_transaction_begin(ctx->hash, 0);
+		ctx->thread_list_ctx =
+			mail_thread_list_update_begin(tbox->list_ctx,
+						      ctx->hash_trans);
 		ctx->msgid_pool = pool_alloconly_create(MEMPOOL_GROWING"msgids",
 							20 * APPROX_MSGID_SIZE);
 		i_array_init(&ctx->msgid_cache, 20);
@@ -610,6 +662,7 @@ static int mail_thread_mailbox_close(struct mailbox *box)
 
 	i_assert(tbox->ctx == NULL);
 
+	mail_thread_list_deinit(&tbox->list_ctx);
 	mail_hash_free(&tbox->hash);
 	ret = tbox->module_ctx.super.close(box);
 	i_free(tbox);
@@ -626,7 +679,8 @@ void index_thread_mailbox_index_opened(struct index_mailbox *ibox)
 	tbox->module_ctx.super = box->v;
 	box->v.close = mail_thread_mailbox_close;
 
-	tbox->hash = mail_hash_alloc(ibox->index, ".thread",
+	tbox->list_ctx = mail_thread_list_init(box);
+	tbox->hash = mail_hash_alloc(ibox->index, MAIL_THREAD_INDEX_SUFFIX,
 				     sizeof(struct mail_thread_node),
 				     mail_thread_hash_key,
 				     mail_thread_hash_rec,

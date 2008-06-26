@@ -26,6 +26,7 @@ libstorage_index_a_SOURCES = \
 	index-thread.c \
 	index-thread-finish.c \
 	index-thread-links.c \
+	index-thread-list.c \
 	index-transaction.c
 
 headers = \

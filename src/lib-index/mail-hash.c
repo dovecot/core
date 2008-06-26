@@ -232,6 +232,8 @@ mail_hash_header_init(struct mail_hash *hash, unsigned int hash_size,
 
 	hdr->hash_size = I_MAX(primes_closest(hash_size), MAIL_HASH_MIN_SIZE);
 	hdr->record_count = 1; /* [0] always exists */
+	hdr->reset_counter = hash->hdr == NULL ? ioloop_time :
+		hash->hdr->reset_counter + 1;
 }
 
 static bool mail_hash_check_header(struct mail_hash *hash,
@@ -603,6 +605,11 @@ void mail_hash_unlock(struct mail_hash *hash)
 	hash->lock_type = F_UNLCK;
 }
 
+int mail_hash_get_lock_type(struct mail_hash *hash)
+{
+	return hash->lock_type;
+}
+
 int mail_hash_create_excl_locked(struct mail_hash *hash)
 {
 	bool created;
@@ -696,6 +703,7 @@ int mail_hash_transaction_write(struct mail_hash_transaction *trans)
 	int fd = hash->fd;
 
 	i_assert(hash->lock_type == F_WRLCK);
+	i_assert(trans->hdr.hashed_count <= trans->hdr.record_count);
 
 	if (trans->failed)
 		return -1;
@@ -726,7 +734,8 @@ int mail_hash_transaction_write(struct mail_hash_transaction *trans)
 		trans->base_count * trans->hdr.record_size;
 	if (fd == -1) {
 		temp_path = t_strconcat(hash->filepath, ".tmp", NULL);
-		fd = open(temp_path, O_RDWR | O_CREAT | O_TRUNC, 0600);
+		fd = open(temp_path, O_RDWR | O_CREAT | O_TRUNC,
+			  hash->index->mode);
 		if (fd == -1) {
 			if (ENOSPACE(errno)) {
 				hash->index->nodiskspace = TRUE;
@@ -805,6 +814,17 @@ void mail_hash_transaction_end(struct mail_hash_transaction **_trans)
 bool mail_hash_transaction_is_broken(struct mail_hash_transaction *trans)
 {
 	return trans->failed;
+}
+
+bool mail_hash_transaction_is_in_memory(struct mail_hash_transaction *trans)
+{
+	return trans->hash->in_memory;
+}
+
+struct mail_hash *
+mail_hash_transaction_get_hash(struct mail_hash_transaction *trans)
+{
+	return trans->hash;
 }
 
 void mail_hash_transaction_set_corrupted(struct mail_hash_transaction *trans,
@@ -966,6 +986,11 @@ static void mail_hash_insert_idx(struct mail_hash_transaction *trans,
 	if (trans->hdr.first_hole_idx != 0) {
 		/* allocate the record from the first hole */
 		idx = trans->hdr.first_hole_idx;
+		if (idx >= trans->hdr.record_count) {
+			mail_hash_transaction_set_corrupted(trans,
+				"Corrupted first_hole_idx");
+			idx = 0;
+		}
 		rec = mail_hash_idx(trans, idx);
 
 		memcpy(&trans->hdr.first_hole_idx, rec + 1,
@@ -1104,8 +1129,8 @@ void mail_hash_remove(struct mail_hash_transaction *trans,
 						"Too low hashed_count");
 			return;
 		}
-		trans->hdr.hashed_count--;
 	}
 
+	trans->hdr.hashed_count--;
 	mail_hash_remove_idx(trans, idx);
 }
