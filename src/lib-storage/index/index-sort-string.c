@@ -725,7 +725,7 @@ static void index_sort_list_reset_broken(struct sort_string_context *ctx)
 	unsigned int i, count;
 
 	mail_storage_set_critical(box->storage,
-				  "Sort IDs %u broken in mailbox %s, reseting",
+				  "Sort IDs %u broken in mailbox %s, resetting",
 				  ctx->ext_id, box->name);
 
 	array_clear(&ctx->zero_nodes);
