@@ -902,7 +902,7 @@ index_mail_get_plain_bodystructure(struct index_mail *mail, string_t *str,
 		    mail->data.parts->body_size.virtual_size,
 		    mail->data.parts->body_size.lines);
 	if (extended)
-		str_append(str, " NIL NIL NIL");
+		str_append(str, " NIL NIL NIL NIL");
 }
 
 int index_mail_get_special(struct mail *_mail,
