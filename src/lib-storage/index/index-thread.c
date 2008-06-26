@@ -42,6 +42,8 @@ struct mail_thread_mailbox {
 static MODULE_CONTEXT_DEFINE_INIT(mail_thread_storage_module,
 				  &mail_storage_module_register);
 
+static void mail_thread_clear(struct mail_thread_context *ctx);
+
 bool mail_thread_type_parse(const char *str, enum mail_thread_type *type_r)
 {
 	if (strcasecmp(str, "REFERENCES") == 0)
@@ -438,7 +440,7 @@ int mail_thread_init(struct mailbox *box, bool reset,
 	ctx->search_args = args;
 
 	while ((ret = mail_thread_update(ctx, reset)) < 0) {
-		if (ctx->thread_ctx.hash == tbox->hash) {
+		if (ctx->thread_ctx.hash != tbox->hash) {
 			/* failed with in-memory hash */
 			mail_storage_set_critical(box->storage,
 				"Threading mailbox %s failed unexpectedly",
@@ -448,30 +450,24 @@ int mail_thread_init(struct mailbox *box, bool reset,
 		}
 
 		/* try again with in-memory hash */
-		mail_thread_deinit(&ctx);
+		mail_thread_clear(ctx);
 		reset = TRUE;
 		memset(ctx, 0, sizeof(*ctx));
 		ctx->box = box;
+		ctx->search_args = args;
 	}
 
 	*ctx_r = ctx;
 	return 0;
 }
 
-void mail_thread_deinit(struct mail_thread_context **_ctx)
+static void mail_thread_clear(struct mail_thread_context *ctx)
 {
-	struct mail_thread_context *ctx = *_ctx;
 	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
-	int ret;
-
-	*_ctx = NULL;
-
-	if (ctx->search_args->args == &ctx->tmp_search_arg)
-		ctx->search_args->args = ctx->tmp_search_arg.next;
 
 	mail_hash_transaction_end(&ctx->thread_ctx.hash_trans);
 
-	ret = mailbox_search_deinit(&ctx->search);
+	(void)mailbox_search_deinit(&ctx->search);
 	mail_free(&ctx->thread_ctx.tmp_mail);
 	(void)mailbox_transaction_commit(&ctx->t);
 
@@ -479,10 +475,22 @@ void mail_thread_deinit(struct mail_thread_context **_ctx)
 	if (ctx->thread_ctx.hash != tbox->hash)
 		mail_hash_free(&ctx->thread_ctx.hash);
 
+	if (ctx->search_args->args == &ctx->tmp_search_arg)
+		ctx->search_args->args = ctx->tmp_search_arg.next;
+
 	array_free(&ctx->thread_ctx.msgid_cache);
 	pool_unref(&ctx->thread_ctx.msgid_pool);
-	mail_search_args_unref(&ctx->search_args);
+}
 
+void mail_thread_deinit(struct mail_thread_context **_ctx)
+{
+	struct mail_thread_context *ctx = *_ctx;
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
+
+	*_ctx = NULL;
+
+	mail_thread_clear(ctx);
+	mail_search_args_unref(&ctx->search_args);
  	i_assert(!tbox->ctx->syncing);
  	tbox->ctx = NULL;
 	i_free(ctx);
