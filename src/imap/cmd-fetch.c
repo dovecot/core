@@ -201,8 +201,10 @@ bool cmd_fetch(struct client_command_context *cmd)
 		return ret < 0;
 
 	ctx = imap_fetch_init(cmd, client->mailbox);
-	if (ctx == NULL)
+	if (ctx == NULL) {
+		mail_search_args_unref(&search_args);
 		return TRUE;
+	}
 	ctx->search_args = search_args;
 
 	if (!fetch_parse_args(ctx, &args[1]) ||

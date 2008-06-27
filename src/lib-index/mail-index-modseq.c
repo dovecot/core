@@ -608,8 +608,8 @@ void mail_index_map_modseq_free(struct mail_index_map_modseq *mmap)
 
 	metadata = array_get_modifiable(&mmap->metadata_modseqs, &count);
 	for (i = 0; i < count; i++) {
-		if (array_is_created(&metadata->modseqs))
-			array_free(&metadata->modseqs);
+		if (array_is_created(&metadata[i].modseqs))
+			array_free(&metadata[i].modseqs);
 	}
 	array_free(&mmap->metadata_modseqs);
 	i_free(mmap);

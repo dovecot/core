@@ -562,6 +562,7 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx)
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
 
+	mail_search_args_unref(&ctx->search_args);
 	if (ctx->search_ctx != NULL) {
 		if (mailbox_search_deinit(&ctx->search_ctx) < 0)
 			ctx->failed = TRUE;

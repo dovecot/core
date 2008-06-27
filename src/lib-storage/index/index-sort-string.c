@@ -753,7 +753,10 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 		qsort(nodes, count, sizeof(struct mail_sort_node),
 		      sort_node_cmp);
 
-		i_array_init(&program->seqs, count);
+		if (!array_is_created(&program->seqs))
+			i_array_init(&program->seqs, count);
+		else
+			array_clear(&program->seqs);
 		for (i = 0; i < count; i++) {
 			seq = nodes[i].seq;
 			array_append(&program->seqs, &seq, 1);
@@ -818,4 +821,6 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 	}
 
 	array_free(&ctx->zero_nodes);
+	i_free(ctx);
+	program->context = NULL;
 }

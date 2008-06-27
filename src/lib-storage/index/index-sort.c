@@ -235,6 +235,9 @@ void index_sort_program_deinit(struct mail_search_sort_program **_program)
 	struct mail_search_sort_program *program = *_program;
 
 	*_program = NULL;
+
+	if (program->context != NULL)
+		index_sort_list_finish(program);
 	mail_free(&program->temp_mail);
 	array_free(&program->seqs);
 	i_free(program);
