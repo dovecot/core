@@ -35,8 +35,11 @@ if HAVE_RQUOTA
 RQUOTA_XDR = rquota_xdr.c
 RQUOTA_X = /usr/include/rpcsvc/rquota.x
 rquota_xdr.c: Makefile $(RQUOTA_X)
-	(echo '#include "lib.h"'; $(RPCGEN) -c $(RQUOTA_X) | \
+	(echo '#include "lib.h"'; \
+	 echo '#include <rpc/rpc.h>'; \
+	 $(RPCGEN) -c $(RQUOTA_X) | \
 	  sed -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
+	    -e 's,/usr/include/rpcsvc/rquota.h,rquota.h,' \
 	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' ) > rquota_xdr.c
 
 rquota.h: Makefile $(RQUOTA_X)
