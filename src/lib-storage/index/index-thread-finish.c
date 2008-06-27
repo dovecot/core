@@ -621,6 +621,7 @@ static int mail_thread_finish(struct thread_finish_context *ctx,
 	case MAIL_THREAD_REFERENCES2:
 		if (sort_root_nodes_ref2(ctx, hdr->record_count) < 0)
 			return -1;
+		break;
 	default:
 		i_unreached();
 	}
