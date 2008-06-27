@@ -338,10 +338,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			   messages. When saving/copying messages with flags
 			   they're stored to cur/ and uidlist treats them
 			   as non-recent. */
-			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0) {
-				if (uid > first_recent_uid)
-					first_recent_uid = uid;
-			} else {
+			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) == 0) {
 				if (uid >= first_recent_uid)
 					first_recent_uid = uid + 1;
 			}
