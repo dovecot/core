@@ -1493,6 +1493,19 @@ if test "x$lib_cv_va_val_copy" = "xno"; then
   AC_DEFINE(VA_COPY_AS_ARRAY,1, ['va_lists' cannot be copies as values])
 fi
 
+dnl * dynamic modules?
+have_modules=no
+AC_CHECK_FUNC(dlopen, [
+  have_modules=yes
+  MODULE_LIBS="-export-dynamic"
+], [
+  AC_CHECK_LIB(dl, dlopen, [
+    have_modules=yes
+    MODULE_LIBS="-export-dynamic -ldl"
+    DLLIB=-ldl
+  ])
+])
+
 dnl **
 dnl ** SSL
 dnl **
@@ -1505,9 +1518,10 @@ if test $want_openssl != no && test $have_ssl = no; then
     CFLAGS="$CFLAGS $SSL_CFLAGS"
     have_openssl=yes
   else
+    # openssl 0.9.8 wants -ldl and it's required if there's only .a lib
     AC_CHECK_LIB(ssl, SSL_read, [
       AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
-        SSL_LIBS="-lssl -lcrypto"
+        SSL_LIBS="-lssl -lcrypto $DLLIB"
         AC_SUBST(SSL_LIBS)
 	have_openssl=yes
       ], [
@@ -1519,7 +1533,7 @@ if test $want_openssl != no && test $have_ssl = no; then
       if test $want_openssl = yes; then
         AC_ERROR([Can't build with OpenSSL: libssl not found])
       fi
-    ], -lcrypto)
+    ], -lcrypto $DLLIB)
   fi
   if test "$have_openssl" = "yes"; then
     AC_DEFINE(HAVE_OPENSSL,, Build with OpenSSL support)
@@ -2009,18 +2023,6 @@ AC_CHECK_FUNC(crypt,, [
     AUTH_LIBS="-lcrypt $AUTH_LIBS"
   ], [
     AC_MSG_ERROR([crypt() wasn't found])
-  ])
-])
-
-dnl * dynamic modules?
-have_modules=no
-AC_CHECK_FUNC(dlopen, [
-  have_modules=yes
-  MODULE_LIBS="-export-dynamic"
-], [
-  AC_CHECK_LIB(dl, dlopen, [
-    have_modules=yes
-    MODULE_LIBS="-export-dynamic -ldl"
   ])
 ])
 
