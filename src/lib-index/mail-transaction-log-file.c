@@ -129,7 +129,8 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 		/* modseqs not used yet */
 		file->sync_offset = head_offset;
 		file->sync_highest_modseq = 0;
-	} else if (modseq_hdr->log_seq != file->hdr.file_seq) {
+	} else if (modseq_hdr == NULL ||
+		   modseq_hdr->log_seq != file->hdr.file_seq) {
 		/* highest_modseq not synced, start from beginning */
 		file->sync_offset = file->hdr.hdr_size;
 		file->sync_highest_modseq = file->hdr.initial_modseq;
