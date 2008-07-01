@@ -44,7 +44,7 @@ void maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
 	array_clear(keywords_r);
 	*flags_r = 0;
 
-	info = strchr(fname, MAILDIR_INFO_SEP);
+	info = strrchr(fname, MAILDIR_INFO_SEP);
 	if (info == NULL || info[1] != '2' || info[2] != MAILDIR_FLAGS_SEP)
 		return;
 
