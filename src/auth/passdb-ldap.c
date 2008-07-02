@@ -118,7 +118,7 @@ ldap_lookup_pass_callback(struct ldap_connection *conn,
 	} else if (auth_request->passdb_password == NULL &&
 		   !auth_request->no_password) {
 		auth_request_log_info(auth_request, "ldap",
-			"Empty password returned without no_password");
+			"Empty password returned without nopassword");
 		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 	} else {
 		/* passdb_password may change on the way,
