@@ -9,13 +9,14 @@ as when building a new tree from scratch. Expunging messages gets more
 problematic though.
 
 Each node in the tree keeps a "link reference count" which specifies how
-many messages contain a "this message" -> "parent message" reference. The
-first reference is usually added by the message's own References: or
-In-Reply-To: header and the latter references are added by References:
-headers. This link refcount must be updated when adding and expunging
-messages. When the link refcount drops to zero, the message becomes a root.
-The link refcount doesn't tell much about the number of children the node
-has, because References: headers may reference any number of its ancestors.
+many messages contain a "this message" -> "parent message" reference
+(number of links to parent node). The first reference is usually added by
+the message's own References: or In-Reply-To: header and the latter
+references are added by References: headers. This link refcount must be
+updated when adding and expunging messages. When the link refcount drops to
+zero, the message becomes a root. The link refcount doesn't tell much about
+the number of children the node has, because References: headers may
+reference any number of its ancestors.
 
 The optimistic approach assumes that usually there are no problematic
 links. In such case expunging a message simply updates the link refcounts
@@ -138,8 +139,8 @@ thread_add_msg(uid)
     link_reference(nodes[parent_msgid], node)
 
   // go through References (skipping the last one)
-  for (parent_msgid, child_msgid) in references
-    link_reference(nodes[parent_msgid], nodes[child_msgid])
+  for (ref_parent, ref_child) in references
+    link_reference(nodes[ref_parent], nodes[ref_child])
 
 unref_link(parent, child)
   if parent.parent_unref_rebuilds
