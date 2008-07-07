@@ -22,6 +22,8 @@ struct sql_dict {
 
 	const char *connect_string, *username;
 	const char *table, *select_field, *where_field, *username_field;
+
+	unsigned int has_on_duplicate_key:1;
 };
 
 struct sql_dict_iterate_context {
@@ -132,6 +134,9 @@ sql_dict_init(struct dict *driver, const char *uri,
 		pool_unref(&pool);
 		return NULL;
 	}
+
+	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
+	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
 
 	dict->db = sql_pool_new(dict_sql_pool, driver->name,
 				dict->connect_string);
@@ -352,27 +357,29 @@ static const char *
 sql_dict_set_query(struct sql_dict *dict, const char *key, const char *value,
 		   bool priv)
 {
+	string_t *str;
+
+	str = t_str_new(256);
 	if (priv) {
-		return t_strdup_printf(
-			"INSERT INTO %s (%s, %s, %s) VALUES ('%s', '%s', '%s') "
-			"ON DUPLICATE KEY UPDATE %s = '%s'",
-			dict->table, dict->select_field, dict->where_field,
-			dict->username_field,
-			sql_escape_string(dict->db, value),
-			sql_escape_string(dict->db, key),
-			sql_escape_string(dict->db, dict->username),
-			dict->select_field,
-			sql_escape_string(dict->db, value));
+		str_printfa(str, "INSERT INTO %s (%s, %s, %s) "
+			    "VALUES ('%s', '%s', '%s')",
+			    dict->table, dict->select_field, dict->where_field,
+			    dict->username_field,
+			    sql_escape_string(dict->db, value),
+			    sql_escape_string(dict->db, key),
+			    sql_escape_string(dict->db, dict->username));
 	} else {
-		return t_strdup_printf(
-			"INSERT INTO %s (%s, %s) VALUES ('%s', '%s') "
-			"ON DUPLICATE KEY UPDATE %s = '%s'",
-			dict->table, dict->select_field, dict->where_field,
-			sql_escape_string(dict->db, value),
-			sql_escape_string(dict->db, key),
-                        dict->select_field,
-			sql_escape_string(dict->db, value));
+		str_printfa(str, "INSERT INTO %s (%s, %s) VALUES ('%s', '%s')",
+			    dict->table, dict->select_field, dict->where_field,
+			    sql_escape_string(dict->db, value),
+			    sql_escape_string(dict->db, key));
 	}
+	if (dict->has_on_duplicate_key) {
+		str_printfa(str, " ON DUPLICATE KEY UPDATE %s = '%s'",
+			    dict->select_field,
+			    sql_escape_string(dict->db, value));
+	}
+	return str_c(str);
 }
 
 static void sql_dict_set(struct dict_transaction_context *_ctx,
@@ -441,23 +448,26 @@ static const char *
 sql_dict_atomic_inc_query(struct sql_dict *dict, const char *key,
 			  long long diff, bool priv)
 {
+	string_t *str;
+
+	str = t_str_new(256);
 	if (priv) {
-		return t_strdup_printf(
-			"INSERT INTO %s (%s, %s, %s) VALUES (%lld, '%s', '%s') "
-			"ON DUPLICATE KEY UPDATE %s = %s + %lld",
-			dict->table, dict->select_field, dict->where_field,
-			dict->username_field,
-                        diff, sql_escape_string(dict->db, key),
-			sql_escape_string(dict->db, dict->username),
-                        dict->select_field, dict->select_field, diff);
+		str_printfa(str, "INSERT INTO %s (%s, %s, %s) "
+			    "VALUES (%lld, '%s', '%s')",
+			    dict->table, dict->select_field, dict->where_field,
+			    dict->username_field,
+			    diff, sql_escape_string(dict->db, key),
+			    sql_escape_string(dict->db, dict->username));
 	} else {
-		return t_strdup_printf(
-			"INSERT INTO %s (%s, %s) VALUES (%lld, '%s') "
-			"ON DUPLICATE KEY UPDATE %s = %s + %lld",
-			dict->table, dict->select_field, dict->where_field,
-                        diff, sql_escape_string(dict->db, key),
-                        dict->select_field, dict->select_field, diff);
+		str_printfa(str, "INSERT INTO %s (%s, %s) VALUES (%lld, '%s')",
+			    dict->table, dict->select_field, dict->where_field,
+			    diff, sql_escape_string(dict->db, key));
 	}
+	if (dict->has_on_duplicate_key) {
+		str_printfa(str, " ON DUPLICATE KEY UPDATE %s = %s + %lld",
+			    dict->select_field, dict->select_field, diff);
+	}
+	return str_c(str);
 }
 
 static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
