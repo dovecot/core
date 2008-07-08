@@ -208,7 +208,7 @@ static void driver_pgsql_deinit_v(struct sql_db *_db)
 		db->queue = next;
 	}
 
-	if (db->queue_to != 0)
+	if (db->queue_to != NULL)
 		timeout_remove(&db->queue_to);
         driver_pgsql_close(db);
 	i_free(db->error);
@@ -562,6 +562,12 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
         struct pgsql_db *db = (struct pgsql_db *)_db;
 	struct io old_io;
 
+	if (db->queue_to != NULL) {
+		/* we're creating a new ioloop, make sure the timeout gets
+		   added there. */
+		timeout_remove(&db->queue_to);
+	}
+
 	if (db->io == NULL)
 		db->ioloop = io_loop_create();
 	else {
@@ -573,12 +579,6 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 
 		db->io = io_add(PQsocket(db->pg), old_io.condition,
 				old_io.callback, old_io.context);
-	}
-
-	if (db->queue_to != NULL) {
-		/* we're creating a new ioloop, make sure the timeout gets
-		   added there. */
-		timeout_remove(&db->queue_to);
 	}
 
 	db->query_finished = FALSE;
@@ -596,6 +596,9 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 		}
 		if (db->queue_to != NULL)
 			timeout_remove(&db->queue_to);
+	} else {
+		i_assert(db->io == NULL);
+		i_assert(db->queue_to == NULL);
 	}
 	io_loop_destroy(&db->ioloop);
 
