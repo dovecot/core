@@ -560,6 +560,7 @@ static struct sql_result *
 driver_pgsql_query_s(struct sql_db *_db, const char *query)
 {
         struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct sql_result *result;
 	struct io old_io;
 
 	if (db->queue_to != NULL) {
@@ -585,7 +586,7 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 	driver_pgsql_query(_db, query, pgsql_query_s_callback, db);
 
 	if (!db->query_finished) {
-		if (db->connected || db->connecting)
+		if ((db->connected || db->connecting) && db->io != NULL)
 			io_loop_run(db->ioloop);
 		else
 			queue_abort_next(db);
@@ -602,9 +603,15 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 	}
 	io_loop_destroy(&db->ioloop);
 
-	i_assert(db->io == NULL);
+	result = db->sync_result;
+	if (result == &sql_not_connected_result) {
+		/* we don't end up in pgsql's free function, so sync_result
+		   won't be set to NULL if we don't do it here. */
+		db->sync_result = NULL;
+	}
 
-	return db->sync_result;
+	i_assert(db->io == NULL);
+	return result;
 }
 
 static int driver_pgsql_result_next_row(struct sql_result *_result)
