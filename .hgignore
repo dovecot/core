@@ -45,6 +45,7 @@ Makefile.in
 *.so
 **/Makefile
 **/Makefile.in
+**/Info.plist
 
 doc/wiki/*.txt
 doc/wiki/Makefile.am
