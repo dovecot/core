@@ -67,6 +67,7 @@ static struct module *modules;
 static struct ioloop *ioloop;
 
 static pool_t plugin_pool;
+static ARRAY_DEFINE(lda_envs, const char *);
 static ARRAY_DEFINE(plugin_envs, const char *);
 
 static void sig_die(int signo, void *context ATTR_UNUSED)
@@ -298,6 +299,7 @@ static void config_file_init(const char *path)
 	size_t len;
 
 	plugin_pool = pool_alloconly_create("Plugin strings", 512);
+	i_array_init(&lda_envs, 16);
 	i_array_init(&plugin_envs, 16);
 
 	fd = open(path, O_RDONLY);
@@ -436,7 +438,11 @@ static void config_file_init(const char *path)
 			continue;
 		}
 
-		if (!plugin_section) {
+		if (lda_section) {
+			value = p_strconcat(plugin_pool,
+					    t_str_ucase(key), "=", value, NULL);
+			array_append(&lda_envs, &value, 1);
+		} else if (!plugin_section) {
 			env_put(t_strconcat(t_str_ucase(key), "=",
 					    value, NULL));
 		} else {
@@ -702,6 +708,10 @@ static void expand_envs(const char *user)
 		var_expand(str, envs[i], table);
 		env_put(str_c(str));
 	}
+	/* add LDA envs last so that they can override plugin settings */
+	envs = array_get(&lda_envs, &count);
+	for (i = 0; i < count; i++)
+		env_put(envs[i]);
 
 	mail_env = getenv("MAIL_LOCATION");
 	if (mail_env != NULL) {
