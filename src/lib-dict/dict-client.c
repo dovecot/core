@@ -258,6 +258,7 @@ static int client_dict_connect(struct client_dict *dict)
 	net_set_nonblock(dict->fd, FALSE);
 
 	dict->input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
+	dict->input->blocking = TRUE;
 	dict->output = o_stream_create_fd(dict->fd, 4096, FALSE);
 	dict->transaction_id_counter = 0;
 
