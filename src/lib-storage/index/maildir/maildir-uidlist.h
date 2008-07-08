@@ -2,7 +2,10 @@
 #define MAILDIR_UIDLIST_H
 
 #define MAILDIR_UIDLIST_NAME "dovecot-uidlist"
+/* how many seconds to wait before overriding uidlist.lock */
+#define MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT (60*2)
 
+struct index_mailbox;
 struct maildir_mailbox;
 struct maildir_uidlist;
 struct maildir_uidlist_sync_ctx;

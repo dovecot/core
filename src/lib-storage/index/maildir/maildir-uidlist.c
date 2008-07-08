@@ -46,9 +46,6 @@
    error occurs in the middle of reading it */
 #define UIDLIST_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 
-/* how many seconds to wait before overriding uidlist.lock */
-#define UIDLIST_LOCK_STALE_TIMEOUT (60*2)
-
 #define UIDLIST_VERSION 3
 #define UIDLIST_COMPRESS_PERCENTAGE 75
 
@@ -242,8 +239,10 @@ maildir_uidlist_init_readonly(struct index_mailbox *ibox)
 	uidlist->dotlock_settings.nfs_flush =
 		(box->storage->flags &
 		 MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0;
-	uidlist->dotlock_settings.timeout = UIDLIST_LOCK_STALE_TIMEOUT + 2;
-	uidlist->dotlock_settings.stale_timeout = UIDLIST_LOCK_STALE_TIMEOUT;
+	uidlist->dotlock_settings.timeout =
+		MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT + 2;
+	uidlist->dotlock_settings.stale_timeout =
+		MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT;
 
 	return uidlist;
 }
