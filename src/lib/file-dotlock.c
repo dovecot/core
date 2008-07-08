@@ -70,7 +70,7 @@ struct lock_info {
 };
 
 static struct dotlock *
-file_dotlock_alloc(const struct dotlock_settings *settings)
+file_dotlock_alloc(const struct dotlock_settings *settings, const char *path)
 {
 	struct dotlock *dotlock;
 
@@ -78,6 +78,7 @@ file_dotlock_alloc(const struct dotlock_settings *settings)
 	dotlock->settings = *settings;
 	if (dotlock->settings.lock_suffix == NULL)
 		dotlock->settings.lock_suffix = DEFAULT_LOCK_SUFFIX;
+	dotlock->path = i_strdup(path);
 	dotlock->fd = -1;
 
 	return dotlock;
@@ -446,9 +447,9 @@ static void dotlock_wait(struct lock_info *lock_info)
 	io_loop_destroy(&ioloop);
 }
 
-static int dotlock_create(const char *path, struct dotlock *dotlock,
-			  enum dotlock_create_flags flags, bool write_pid,
-			  const char **lock_path_r)
+static int
+dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
+	       bool write_pid, const char **lock_path_r)
 {
 	const struct dotlock_settings *set = &dotlock->settings;
 	const char *lock_path;
@@ -463,14 +464,15 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 
 	now = time(NULL);
 
-	lock_path = *lock_path_r = t_strconcat(path, set->lock_suffix, NULL);
+	lock_path = *lock_path_r =
+		t_strconcat(dotlock->path, set->lock_suffix, NULL);
 	stale_notify_threshold = set->stale_timeout / 2;
 	max_wait_time = (flags & DOTLOCK_CREATE_FLAG_NONBLOCK) != 0 ? 0 :
 		now + set->timeout;
 	tmp_path = t_str_new(256);
 
 	memset(&lock_info, 0, sizeof(lock_info));
-	lock_info.path = path;
+	lock_info.path = dotlock->path;
 	lock_info.set = set;
 	lock_info.lock_path = lock_path;
 	lock_info.fd = -1;
@@ -534,7 +536,6 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 			dotlock->dev = st.st_dev;
 			dotlock->ino = st.st_ino;
 
-			dotlock->path = i_strdup(path);
 			dotlock->fd = lock_info.fd;
                         dotlock->lock_time = now;
 			lock_info.fd = -1;
@@ -544,7 +545,7 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 				i_warning("Created dotlock file's timestamp is "
 					  "different than current time "
 					  "(%s vs %s): %s", dec2str(st.st_ctime),
-					  dec2str(now), path);
+					  dec2str(now), dotlock->path);
 			}
 		}
 	}
@@ -586,14 +587,14 @@ static void file_dotlock_free(struct dotlock **_dotlock)
 	i_free(dotlock);
 }
 
-static int file_dotlock_create_real(struct dotlock *dotlock, const char *path,
+static int file_dotlock_create_real(struct dotlock *dotlock,
 				    enum dotlock_create_flags flags)
 {
 	const char *lock_path;
 	struct stat st;
 	int fd, ret;
 
-	ret = dotlock_create(path, dotlock, flags, TRUE, &lock_path);
+	ret = dotlock_create(dotlock, flags, TRUE, &lock_path);
 	if (ret <= 0 || (flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0)
 		return ret;
 
@@ -635,9 +636,9 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 	struct dotlock *dotlock;
 	int ret;
 
-	dotlock = file_dotlock_alloc(set);
+	dotlock = file_dotlock_alloc(set, path);
 	T_BEGIN {
-		ret = file_dotlock_create_real(dotlock, path, flags);
+		ret = file_dotlock_create_real(dotlock, flags);
 	} T_END;
 	if (ret <= 0 || (flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0)
 		file_dotlock_free(&dotlock);
@@ -713,11 +714,11 @@ int file_dotlock_open(const struct dotlock_settings *set, const char *path,
 	struct dotlock *dotlock;
 	int ret;
 
-	dotlock = file_dotlock_alloc(set);
+	dotlock = file_dotlock_alloc(set, path);
 	T_BEGIN {
 		const char *lock_path;
 
-		ret = dotlock_create(path, dotlock, flags, FALSE, &lock_path);
+		ret = dotlock_create(dotlock, flags, FALSE, &lock_path);
 	} T_END;
 
 	if (ret <= 0) {
