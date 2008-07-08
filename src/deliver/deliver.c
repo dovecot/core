@@ -691,7 +691,6 @@ static void expand_envs(const char *user)
 	const char *mail_env, *const *envs, *home;
 	unsigned int i, count;
 	string_t *str;
-	char *env, *p;
 
 	home = getenv("HOME");
 
@@ -701,19 +700,7 @@ static void expand_envs(const char *user)
 	for (i = 0; i < count; i++) {
 		str_truncate(str, 0);
 		var_expand(str, envs[i], table);
-
-		env = str_c_modifiable(str);
-		p = strchr(env, '=');
-		if (p != NULL) {
-			*p = '\0';
-			/* more or less temporary solution to allow lda section
-			   to override plugin settings. after config rewrite
-			   this should go away. */
-			if (getenv(env) == NULL) {
-				*p = '=';
-				env_put(env);
-			}
-		}
+		env_put(str_c(str));
 	}
 
 	mail_env = getenv("MAIL_LOCATION");
