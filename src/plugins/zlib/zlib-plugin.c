@@ -17,6 +17,11 @@
 #define ZLIB_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, zlib_mail_module)
 
+struct zlib_handler {
+	bool (*is_compressed)(struct istream *input);
+	struct istream *(*create_istream)(int fd);
+};
+
 const char *zlib_plugin_version = PACKAGE_VERSION;
 
 static void (*zlib_next_hook_mail_storage_created)
@@ -26,21 +31,61 @@ static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
 
-static int zlib_mail_is_compressed(struct istream *mail)
+#ifdef HAVE_ZLIB
+static bool is_compressed_zlib(struct istream *input)
 {
-	const unsigned char *zheader;
-	size_t header_size;
+	const unsigned char *data;
+	size_t size;
 
-	/* Peek in to the mail and see if it looks like it's compressed
-	   (it has the correct 2 byte zlib header). This also means that users
-	   can try to exploit security holes in zlib by APPENDing a specially
+	/* Peek in to the stream and see if it looks like it's compressed
+	   (based on its header). This also means that users can try to exploit
+	   security holes in the uncompression library by APPENDing a specially
 	   crafted mail. So let's hope zlib is free of holes. */
-	if (i_stream_read_data(mail, &zheader, &header_size, 2) <= 0)
-		return 0;
-	i_stream_seek(mail, 0);
+	if (i_stream_read_data(input, &data, &size, 1) <= 0)
+		return FALSE;
+	i_assert(size >= 2);
 
-	return header_size >= 2 && zheader &&
-		zheader[0] == 31 && zheader[1] == 139;
+	return data[0] == 31 && data[1] == 139;
+}
+#endif
+
+#ifdef HAVE_ZLIB
+static bool is_compressed_bzlib(struct istream *input)
+{
+	const unsigned char *data;
+	size_t size;
+
+	if (i_stream_read_data(input, &data, &size, 4+6 - 1) <= 0)
+		return FALSE;
+	if (data[0] != 'B' || data[1] != 'Z')
+		return FALSE;
+	if (data[2] != 'h' && data[2] != '0')
+		return FALSE;
+	if (data[3] < '1' || data[3] > '9')
+		return FALSE;
+	return memcmp(data + 4, "\x31\x41\x59\x26\x53\x59", 6) == 0;
+}
+#endif
+
+static struct zlib_handler zlib_handlers[] = {
+#ifdef HAVE_ZLIB
+	{ is_compressed_zlib, i_stream_create_zlib },
+#endif
+#ifdef HAVE_BZLIB
+	{ is_compressed_bzlib, i_stream_create_bzlib },
+#endif
+	{ NULL, NULL }
+};
+
+static struct zlib_handler *zlib_get_zlib_handler(struct istream *input)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(zlib_handlers)-1; i++) {
+		if (zlib_handlers[i].is_compressed(input))
+			return &zlib_handlers[i];
+	}
+	return NULL;
 }
 
 static int zlib_maildir_get_stream(struct mail *_mail,
@@ -52,6 +97,7 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 	struct index_mail *imail = (struct index_mail *)mail;
 	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
+	struct zlib_handler *handler;
 	int fd;
 
 	if (imail->data.stream != NULL) {
@@ -63,7 +109,8 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 		return -1;
 	i_assert(input == imail->data.stream);
 
-	if (zlib_mail_is_compressed(imail->data.stream)) {
+	handler = zlib_get_zlib_handler(imail->data.stream);
+	if (handler != NULL) {
 		fd = dup(i_stream_get_fd(imail->data.stream));
 		if (fd == -1)
 			i_error("zlib plugin: dup() failed: %m");
@@ -74,7 +121,7 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 
 		if (fd == -1)
 			return -1;
-		imail->data.stream = i_stream_create_zlib(fd);
+		imail->data.stream = handler->create_istream(fd);
 	}
 	return index_mail_init_stream(imail, hdr_size, body_size, stream_r);
 }

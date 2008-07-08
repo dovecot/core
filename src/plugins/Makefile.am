@@ -1,4 +1,4 @@
-if BUILD_ZLIB
+if BUILD_ZLIB_PLUGIN
 ZLIB = zlib
 endif
 

@@ -1,11 +1,20 @@
 /* Copyright (c) 2005-2008 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
-#include "istream-internal.h"
-#include "istream-zlib.h"
+#ifdef BZLIB_INCLUDE
+#  define BUILD_SOURCE
+#else
+#  include "lib.h"
+#  include "istream-internal.h"
+#  include "istream-zlib.h"
+#  include <zlib.h>
 
-#include <zlib.h>
+#  ifdef HAVE_ZLIB
+#    define BUILD_SOURCE
+#    define HAVE_GZSEEK
+#  endif
+#endif
 
+#ifdef BUILD_SOURCE
 /* Default maximum buffer size. Seeking backwards is very expensive, so keep
    this pretty large */
 #define DEFAULT_MAX_BUFFER_SIZE (1024*1024)
@@ -113,6 +122,12 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 
 	stream->istream.stream_errno = 0;
 
+#ifndef HAVE_GZSEEK
+	if (v_offset < start_offset) {
+		gzclose(zstream->file);
+		zstream->file = gzdopen(zstream->fd, "r");
+	}
+#else
 	if (v_offset < start_offset) {
 		/* have to seek backwards */
 		gzseek(zstream->file, v_offset, SEEK_SET);
@@ -120,7 +135,9 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 
 		stream->skip = stream->pos = 0;
 		stream->istream.v_offset = v_offset;
-	} else if (v_offset <= start_offset + stream->pos) {
+	} else
+#endif
+	if (v_offset <= start_offset + stream->pos) {
 		/* seeking backwards within what's already cached */
 		stream->skip = v_offset - start_offset;
 		stream->istream.v_offset = v_offset;
@@ -220,3 +237,4 @@ struct istream *i_stream_create_zlib(int fd)
 
 	return i_stream_create(&zstream->istream, NULL, fd);
 }
+#endif

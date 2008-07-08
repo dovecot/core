@@ -2176,11 +2176,20 @@ dnl **
 dnl ** Plugins
 dnl **
 
-have_zlib=no
 AC_CHECK_HEADER(zlib.h, [
   have_zlib=yes
+  have_zlib_plugin=yes
+  AC_DEFINE(HAVE_ZLIB,, Define if you have zlib library)
 ])
 AM_CONDITIONAL(BUILD_ZLIB, test "$have_zlib" = "yes")
+
+AC_CHECK_HEADER(bzlib.h, [
+  have_bzlib=yes
+  have_zlib_plugin=yes
+  AC_DEFINE(HAVE_BZLIB,, Define if you have zlib library)
+])
+AM_CONDITIONAL(BUILD_BZLIB, test "$have_bzlib" = "yes")
+AM_CONDITIONAL(BUILD_ZLIB_PLUGIN, test "$have_zlib_plugin" = "yes")
 
 RPCGEN=${RPCGEN-rpcgen}
 if ! $RPCGEN -c /dev/null > /dev/null; then
@@ -2255,6 +2264,7 @@ src/plugins/convert/Makefile
 src/plugins/expire/Makefile
 src/plugins/fts/Makefile
 src/plugins/fts-lucene/Makefile
+src/plugins/fts-proxy/Makefile
 src/plugins/fts-squat/Makefile
 src/plugins/lazy-expunge/Makefile
 src/plugins/mail-log/Makefile

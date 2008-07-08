@@ -1,0 +1,20 @@
+/* Copyright (c) 2005-2008 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "istream-internal.h"
+#include "istream-zlib.h"
+
+#ifdef HAVE_BZLIB
+#include <bzlib.h>
+
+#define BZLIB_INCLUDE
+
+#define gzFile BZFILE
+#define gzdopen BZ2_bzdopen
+#define gzclose BZ2_bzclose
+#define gzread BZ2_bzread
+#define gzseek BZ2_bzseek
+
+#define i_stream_create_zlib i_stream_create_bzlib
+#include "istream-zlib.c"
+#endif
