@@ -40,11 +40,20 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 	username = t_strdup_until(args, p);
 	args = p+1;
 
+	if (strncmp(args, "noenforcing:", 12) == 0) {
+		/* FIXME: pretty ugly in here. the parameters should have
+		   been designed to be extensible. do it in a future version */
+		_root->no_enforcing = TRUE;
+		args += 12;
+	}
+
 	if (*username == '\0')
 		username = getenv("USER");
 
-	if (getenv("DEBUG") != NULL)
-		i_info("dict quota: user = %s, uri = %s", username, args);
+	if (getenv("DEBUG") != NULL) {
+		i_info("dict quota: user=%s, uri=%s, enforcing=%d",
+		       username, args, _root->no_enforcing);
+	}
 
 	/* FIXME: we should use 64bit integer as datatype instead but before
 	   it can actually be used don't bother */

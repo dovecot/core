@@ -91,7 +91,7 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 {
 	struct quota_root *root;
 	const struct quota_backend *backend;
-	const char *p, *args, *backend_name;
+	const char *p, *args, *backend_name, *const *tmp;
 
 	/* <backend>[:<quota root name>[:<backend args>]] */
 	p = strchr(root_def, ':');
@@ -144,11 +144,17 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 			return NULL;
 		}
 	} else if (args != NULL) {
-		while (*args == ' ') args++;
-		if (*args != '\0') {
-			i_fatal("Quota root %s: backend %s "
-				"doesn't take any parameters (used: %s)",
-				root->name, backend_name, args);
+		tmp = t_strsplit_spaces(args, " ");
+		for (; *tmp != NULL; tmp++) {
+			if (strcmp(*tmp, "noenforcing") == 0)
+				root->no_enforcing = TRUE;
+			else
+				break;
+		}
+		if (*tmp != NULL) {
+			i_fatal("Quota root %s backend %s: "
+				"Unknown parameter: %s",
+				root->name, backend_name, *tmp);
 		}
 	}
 	return root;
