@@ -676,25 +676,19 @@ maildir_quota_root_storage_added(struct quota_root *_root,
 }
 
 static void
-maildir_quota_storage_added(struct quota *quota,
-			    struct mail_storage *_storage)
+maildir_quota_storage_added(struct quota *quota, struct mail_storage *storage)
 {
-	struct maildir_storage *storage =
-		(struct maildir_storage *)_storage;
 	struct quota_root **roots;
 	unsigned int i, count;
 
-	if (strcmp(_storage->name, "maildir") != 0)
+	if (strcmp(storage->name, "maildir") != 0)
 		return;
 
 	roots = array_get_modifiable(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		if (roots[i]->backend.name == quota_backend_maildir.name)
-			maildir_quota_root_storage_added(roots[i], _storage);
+			maildir_quota_root_storage_added(roots[i], storage);
 	}
-
-	/* For newly generated filenames add ,S=size. */
-	storage->save_size_in_filename = TRUE;
 }
 
 static const char *const *

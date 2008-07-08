@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "mailbox-list-private.h"
+#include "maildir-storage.h"
 #include "quota-private.h"
 #include "quota-fs.h"
 
@@ -424,6 +425,18 @@ static bool quota_root_get_rule_limits(struct quota_root *root,
 	return found;
 }
 
+static void quota_maildir_storage_set(struct mail_storage *storage)
+{
+	/* FIXME: a bit ugly location for this code. */
+	if (strcmp(storage->name, "maildir") == 0) {
+		/* For newly generated filenames add ,S=size. */
+		struct maildir_storage *mstorage =
+			(struct maildir_storage *)storage;
+
+		mstorage->save_size_in_filename = TRUE;
+	}
+}
+
 void quota_add_user_storage(struct quota *quota, struct mail_storage *storage)
 {
 	struct quota_root *const *roots;
@@ -432,6 +445,8 @@ void quota_add_user_storage(struct quota *quota, struct mail_storage *storage)
 	const char *path, *path2;
 	unsigned int i, j, count;
 	bool is_file;
+
+	quota_maildir_storage_set(storage);
 
 	/* first check if there already exists a storage with the exact same
 	   path. we don't want to count them twice. */
