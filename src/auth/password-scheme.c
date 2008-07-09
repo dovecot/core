@@ -141,8 +141,10 @@ int password_decode(const char *password, const char *scheme,
 	len = strlen(password);
 	if (encoding != PW_ENCODING_NONE && s->raw_password_len != 0 &&
 	    strchr(scheme, '.') == NULL) {
-		/* encoding not specified. we can autodetect between
-		   base64 and hex encodings. */
+		/* encoding not specified. we can guess quite well between
+		   base64 and hex encodings. the only problem is distinguishing
+		   2 character strings, but there shouldn't be any that short
+		   raw_password_lens. */
 		encoding = len == s->raw_password_len * 2 ? PW_ENCODING_HEX :
 			PW_ENCODING_BASE64;
 	}
@@ -152,19 +154,21 @@ int password_decode(const char *password, const char *scheme,
 		*raw_password_r = (const unsigned char *)password;
 		*size_r = len;
 		break;
+	case PW_ENCODING_HEX:
+		buf = buffer_create_static_hard(pool_datastack_create(),
+						len / 2 + 1);
+		if (hex_to_binary(password, buf) == 0) {
+			*raw_password_r = buf->data;
+			*size_r = buf->used;
+			break;
+		}
+		/* fall through, just in case it was base64-encoded after
+		   all. some input lengths produce matching hex and base64
+		   encoded lengths. */
 	case PW_ENCODING_BASE64:
 		buf = buffer_create_static_hard(pool_datastack_create(),
 						MAX_BASE64_DECODED_SIZE(len));
 		if (base64_decode(password, len, NULL, buf) < 0)
-			return -1;
-
-		*raw_password_r = buf->data;
-		*size_r = buf->used;
-		break;
-	case PW_ENCODING_HEX:
-		buf = buffer_create_static_hard(pool_datastack_create(),
-						len / 2 + 1);
-		if (hex_to_binary(password, buf) < 0)
 			return -1;
 
 		*raw_password_r = buf->data;
@@ -277,6 +281,29 @@ crypt_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	password = t_strdup(mycrypt(plaintext, salt));
 	*raw_password_r = (const unsigned char *)password;
 	*size_r = strlen(password);
+}
+
+static bool
+md5_verify(const char *plaintext, const char *user,
+	   const unsigned char *raw_password, size_t size)
+{
+	const char *password, *str;
+	const unsigned char *md5_password;
+	size_t md5_size;
+
+	password = t_strndup(raw_password, size);
+	if (strncmp(password, "$1$", 3) == 0) {
+		/* MD5-CRYPT */
+		str = password_generate_md5_crypt(plaintext, password);
+		return strcmp(str, password) == 0;
+	} else {
+		if (password_decode(password, "PLAIN-MD5",
+				    &md5_password, &md5_size) < 0)
+			return FALSE;
+
+		return password_verify(plaintext, user, "PLAIN-MD5",
+				       md5_password, md5_size) > 0;
+	}
 }
 
 static bool
@@ -560,7 +587,7 @@ rpa_generate(const char *plaintext, const char *user ATTR_UNUSED,
 
 static const struct password_scheme builtin_schemes[] = {
 	{ "CRYPT", PW_ENCODING_NONE, 0, crypt_verify, crypt_generate },
-	{ "MD5", PW_ENCODING_NONE, 0, md5_crypt_verify, md5_crypt_generate },
+	{ "MD5", PW_ENCODING_NONE, 0, md5_verify, md5_crypt_generate },
 	{ "MD5-CRYPT", PW_ENCODING_NONE, 0,
 	  md5_crypt_verify, md5_crypt_generate },
  	{ "SHA", PW_ENCODING_BASE64, SHA1_RESULTLEN, NULL, sha1_generate },
