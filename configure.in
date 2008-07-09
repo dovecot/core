@@ -2264,7 +2264,6 @@ src/plugins/convert/Makefile
 src/plugins/expire/Makefile
 src/plugins/fts/Makefile
 src/plugins/fts-lucene/Makefile
-src/plugins/fts-proxy/Makefile
 src/plugins/fts-squat/Makefile
 src/plugins/lazy-expunge/Makefile
 src/plugins/mail-log/Makefile
