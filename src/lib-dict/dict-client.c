@@ -231,6 +231,8 @@ static char *client_dict_read_line(struct client_dict *dict)
 
 	if (ret == -2)
 		i_error("read(%s) returned too much data", dict->path);
+	else if (dict->input->stream_errno == 0)
+		i_error("read(%s) failed: Remote disconnected", dict->path);
 	else
 		i_error("read(%s) failed: %m", dict->path);
 	return NULL;
