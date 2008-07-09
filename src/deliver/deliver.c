@@ -289,7 +289,7 @@ static struct {
 static void config_file_init(const char *path)
 {
 	struct istream *input;
-	const char *key, *value;
+	const char *key, *value, *str;
 	char *line, *p, quote;
 	int fd, sections = 0;
 	bool lda_section = FALSE, pop3_section = FALSE, plugin_section = FALSE;
@@ -345,10 +345,9 @@ static void config_file_init(const char *path)
 			if (strchr(line, '{') != NULL) {
 				if (strcmp(line, "protocol lda {") == 0)
 					lda_section = TRUE;
-				else if (strcmp(line, "plugin {") == 0) {
+				else if (strcmp(line, "plugin {") == 0)
 					plugin_section = TRUE;
-					lda_section = TRUE;
-				} else if (strcmp(line, "protocol pop3 {") == 0)
+				else if (strcmp(line, "protocol pop3 {") == 0)
 					pop3_section = TRUE;
 				else if (strncmp(line, "namespace ", 10) == 0) {
 					ns_section = TRUE;
@@ -392,7 +391,7 @@ static void config_file_init(const char *path)
 		while (p > line && IS_WHITE(p[-1])) p--;
 		key = t_strdup_until(line, p);
 
-		if (sections > 0 && !lda_section) {
+		if (sections > 0 && !lda_section && !plugin_section) {
 			if (pop3_section) {
 				if (strcmp(key, "pop3_uidl_format") != 0)
 					continue;
@@ -439,10 +438,11 @@ static void config_file_init(const char *path)
 		}
 
 		if (lda_section) {
-			value = p_strconcat(plugin_pool,
-					    t_str_ucase(key), "=", value, NULL);
-			array_append(&lda_envs, &value, 1);
-		} else if (!plugin_section) {
+			str = p_strconcat(plugin_pool,
+					  t_str_ucase(key), "=", value, NULL);
+			array_append(&lda_envs, &str, 1);
+		}
+		if (!plugin_section) {
 			env_put(t_strconcat(t_str_ucase(key), "=",
 					    value, NULL));
 		} else {
@@ -708,7 +708,7 @@ static void expand_envs(const char *user)
 		var_expand(str, envs[i], table);
 		env_put(str_c(str));
 	}
-	/* add LDA envs last so that they can override plugin settings */
+	/* add LDA envs again to make sure they override plugin settings */
 	envs = array_get(&lda_envs, &count);
 	for (i = 0; i < count; i++)
 		env_put(envs[i]);
