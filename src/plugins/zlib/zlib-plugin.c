@@ -17,7 +17,15 @@
 #define ZLIB_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, zlib_mail_module)
 
+#ifndef HAVE_ZLIB
+#  define i_stream_create_zlib NULL
+#endif
+#ifndef HAVE_BZLIB
+#  define i_stream_create_bzlib NULL
+#endif
+
 struct zlib_handler {
+	const char *name;
 	bool (*is_compressed)(struct istream *input);
 	struct istream *(*create_istream)(int fd);
 };
@@ -31,7 +39,6 @@ static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
 
-#ifdef HAVE_ZLIB
 static bool is_compressed_zlib(struct istream *input)
 {
 	const unsigned char *data;
@@ -47,9 +54,7 @@ static bool is_compressed_zlib(struct istream *input)
 
 	return data[0] == 31 && data[1] == 139;
 }
-#endif
 
-#ifdef HAVE_ZLIB
 static bool is_compressed_bzlib(struct istream *input)
 {
 	const unsigned char *data;
@@ -65,23 +70,17 @@ static bool is_compressed_bzlib(struct istream *input)
 		return FALSE;
 	return memcmp(data + 4, "\x31\x41\x59\x26\x53\x59", 6) == 0;
 }
-#endif
 
 static struct zlib_handler zlib_handlers[] = {
-#ifdef HAVE_ZLIB
-	{ is_compressed_zlib, i_stream_create_zlib },
-#endif
-#ifdef HAVE_BZLIB
-	{ is_compressed_bzlib, i_stream_create_bzlib },
-#endif
-	{ NULL, NULL }
+	{ "zlib", is_compressed_zlib, i_stream_create_zlib },
+	{ "bzlib", is_compressed_bzlib, i_stream_create_bzlib }
 };
 
 static struct zlib_handler *zlib_get_zlib_handler(struct istream *input)
 {
 	unsigned int i;
 
-	for (i = 0; i < N_ELEMENTS(zlib_handlers)-1; i++) {
+	for (i = 0; i < N_ELEMENTS(zlib_handlers); i++) {
 		if (zlib_handlers[i].is_compressed(input))
 			return &zlib_handlers[i];
 	}
@@ -111,9 +110,18 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 
 	handler = zlib_get_zlib_handler(imail->data.stream);
 	if (handler != NULL) {
-		fd = dup(i_stream_get_fd(imail->data.stream));
-		if (fd == -1)
-			i_error("zlib plugin: dup() failed: %m");
+		if (handler->create_istream == NULL) {
+			mail_storage_set_critical(_mail->box->storage,
+				"zlib plugin: Detected %s "
+				"but support not compiled in", handler->name);
+			fd = -1;
+		} else {
+			fd = dup(i_stream_get_fd(imail->data.stream));
+			if (fd == -1) {
+				mail_storage_set_critical(_mail->box->storage,
+					"zlib plugin: dup() failed: %m");
+			}
+		}
 
 		imail->data.destroying_stream = TRUE;
 		i_stream_unref(&imail->data.stream);
