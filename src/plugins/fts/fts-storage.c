@@ -188,7 +188,7 @@ static int fts_build_init(struct fts_search_context *fctx)
 
 	if (fts_backend_build_init(backend, &last_uid_locked, &build) < 0)
 		return -1;
-	if (last_uid != last_uid_locked) {
+	if (last_uid != last_uid_locked && last_uid_locked != (uint32_t)-1) {
 		/* changed, need to get again the sequences */
 		i_assert(last_uid < last_uid_locked);
 

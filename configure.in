@@ -263,6 +263,15 @@ AC_ARG_WITH(lucene,
 	want_lucene=no)
 AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
 
+AC_ARG_WITH(solr,
+[  --with-solr             Build with Solr full text search support],
+	if test x$withval = xno || test x$withval = xauto; then
+		want_solr=$withval
+	else
+		want_solr=yes
+	fi,
+	want_solr=no)
+
 AC_ARG_WITH(ssl,
 [  --with-ssl=gnutls|openssl Build with GNUTLS or OpenSSL (default)],
 	if test x$withval = xno; then
@@ -2204,6 +2213,36 @@ if test -f /usr/include/rpcsvc/rquota.x && test -n "$RPCGEN"; then
 fi
 AM_CONDITIONAL(HAVE_RQUOTA, test "$have_rquota" = "yes")
 
+if test "$want_solr" != "no"; then
+  AC_CHECK_PROG(CURLCONFIG, curl-config, YES, NO)
+  if test $CURLCONFIG = YES; then
+    CURL_CFLAGS=`curl-config --cflags`
+    CURL_LIBS=`curl-config --libs`
+    
+    dnl libcurl found, also need libexpat
+    AC_CHECK_LIB(expat, XML_Parse, [
+      AC_CHECK_HEADER(expat.h, [
+        AC_SUBST(CURL_CFLAGS)
+        AC_SUBST(CURL_LIBS)
+	have_solr=yes
+      ], [
+	if test $want_solr = yes; then
+	  AC_ERROR([Can't build with Solr support: expat.h not found])
+	fi
+      ])
+    ], [
+      if test $want_solr = yes; then
+	AC_ERROR([Can't build with Solr support: libexpat not found])
+      fi
+    ])
+  else
+    if test $want_solr = yes; then
+      AC_ERROR([Can't build with Solr support: curl-config not found])
+    fi
+  fi
+fi
+AM_CONDITIONAL(BUILD_SOLR, test "$have_solr" = "yes")
+
 dnl **
 dnl ** capabilities
 dnl **
@@ -2264,6 +2303,7 @@ src/plugins/convert/Makefile
 src/plugins/expire/Makefile
 src/plugins/fts/Makefile
 src/plugins/fts-lucene/Makefile
+src/plugins/fts-solr/Makefile
 src/plugins/fts-squat/Makefile
 src/plugins/lazy-expunge/Makefile
 src/plugins/mail-log/Makefile
