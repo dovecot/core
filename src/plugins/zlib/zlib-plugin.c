@@ -25,7 +25,7 @@
 #endif
 
 struct zlib_handler {
-	const char *name;
+	const char *ext;
 	bool (*is_compressed)(struct istream *input);
 	struct istream *(*create_istream)(int fd);
 };
@@ -72,8 +72,8 @@ static bool is_compressed_bzlib(struct istream *input)
 }
 
 static struct zlib_handler zlib_handlers[] = {
-	{ "zlib", is_compressed_zlib, i_stream_create_zlib },
-	{ "bzlib", is_compressed_bzlib, i_stream_create_bzlib }
+	{ ".gz", is_compressed_zlib, i_stream_create_zlib },
+	{ ".bz2", is_compressed_bzlib, i_stream_create_bzlib }
 };
 
 static struct zlib_handler *zlib_get_zlib_handler(struct istream *input)
@@ -82,6 +82,19 @@ static struct zlib_handler *zlib_get_zlib_handler(struct istream *input)
 
 	for (i = 0; i < N_ELEMENTS(zlib_handlers); i++) {
 		if (zlib_handlers[i].is_compressed(input))
+			return &zlib_handlers[i];
+	}
+	return NULL;
+}
+
+static struct zlib_handler *zlib_get_zlib_handler_ext(const char *name)
+{
+	unsigned int i, len, name_len = strlen(name);
+
+	for (i = 0; i < N_ELEMENTS(zlib_handlers); i++) {
+		len = strlen(zlib_handlers[i].ext);
+		if (name_len > len &&
+		    strcmp(name + name_len - len, zlib_handlers[i].ext) == 0)
 			return &zlib_handlers[i];
 	}
 	return NULL;
@@ -112,8 +125,8 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 	if (handler != NULL) {
 		if (handler->create_istream == NULL) {
 			mail_storage_set_critical(_mail->box->storage,
-				"zlib plugin: Detected %s "
-				"but support not compiled in", handler->name);
+				"zlib plugin: Detected %s compression "
+				"but support not compiled in", handler->ext);
 			fd = -1;
 		} else {
 			fd = dup(i_stream_get_fd(imail->data.stream));
@@ -166,6 +179,29 @@ static void zlib_maildir_open_init(struct mailbox *box)
 	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 }
 
+static struct istream *
+zlib_mailbox_open_input(struct mail_storage *storage, const char *name)
+{
+	struct zlib_handler *handler;
+	const char *path;
+	int fd;
+	bool is_file;
+
+	handler = zlib_get_zlib_handler_ext(name);
+	if (handler == NULL || handler->create_istream == NULL)
+		return NULL;
+
+	path = mail_storage_get_mailbox_path(storage, name, &is_file);
+	if (is_file && path != NULL) {
+		/* looks like a compressed single file mailbox. we should be
+		   able to handle this. */
+		fd = open(path, O_RDONLY);
+		if (fd != -1)
+			return handler->create_istream(fd);
+	}
+	return NULL;
+}
+
 static struct mailbox *
 zlib_mailbox_open(struct mail_storage *storage, const char *name,
 		  struct istream *input, enum mailbox_open_flags flags)
@@ -173,24 +209,9 @@ zlib_mailbox_open(struct mail_storage *storage, const char *name,
 	union mail_storage_module_context *qstorage = ZLIB_CONTEXT(storage);
 	struct mailbox *box;
 	struct istream *zlib_input = NULL;
-	size_t len = strlen(name);
 
-	if (input == NULL && len > 3 && strcmp(name + len - 3, ".gz") == 0 &&
-	    strcmp(storage->name, "mbox") == 0) {
-		/* Looks like a .gz mbox file */
-		const char *path;
-		bool is_file;
-
-		path = mail_storage_get_mailbox_path(storage, name, &is_file);
-		if (is_file && path != NULL) {
-			/* it's a single file mailbox. we can handle this. */
-			int fd;
-
-			fd = open(path, O_RDONLY);
-			if (fd != -1)
-				input = zlib_input = i_stream_create_zlib(fd);
-		}
-	}
+	if (input == NULL && strcmp(storage->name, "mbox") == 0)
+		input = zlib_input = zlib_mailbox_open_input(storage, name);
 
 	box = qstorage->super.mailbox_open(storage, name, input, flags);
 
