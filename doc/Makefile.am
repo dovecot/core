@@ -2,6 +2,7 @@ SUBDIRS = wiki
 
 confdir = $(sysconfdir)
 conf_DATA = \
+	dovecot-db-example.conf \
 	dovecot-ldap-example.conf \
 	dovecot-sql-example.conf
 
