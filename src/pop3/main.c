@@ -11,7 +11,6 @@
 #include "buffer.h"
 #include "istream.h"
 #include "process-title.h"
-#include "randgen.h"
 #include "module-dir.h"
 #include "var-expand.h"
 #include "dict-client.h"
@@ -166,10 +165,6 @@ static void drop_privileges(void)
 	/* Log file or syslog opening probably requires roots */
 	open_logfile();
 
-	/* Most likely needed. Have to open /dev/urandom before possible
-	   chrooting. */
-	random_init();
-
 	/* Load the plugins before chrooting. Their init() is called later. */
 	if (getenv("MAIL_PLUGINS") != NULL) {
 		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
@@ -267,7 +262,6 @@ static void main_deinit(void)
 	module_dir_unload(&modules);
 	mail_storage_deinit();
 	dict_driver_unregister(&dict_driver_client);
-	random_deinit();
 
 	lib_signals_deinit();
 	closelog();
