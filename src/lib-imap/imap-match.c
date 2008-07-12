@@ -19,7 +19,7 @@ struct imap_match_glob {
 	struct imap_match_pattern *patterns;
 
 	char sep;
-	char patterns_data[];
+	char patterns_data[FLEXIBLE_ARRAY_MEMBER];
 };
 
 struct imap_match_context {

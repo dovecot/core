@@ -1020,6 +1020,25 @@ if test $i_cv_signed_time_t = yes; then
   AC_DEFINE(TIME_T_SIGNED,, Define if your time_t is signed)
 fi
 
+dnl Our implementation of AC_C_FLEXIBLE_ARRAY_MEMBER.
+dnl Use it until autoconf 2.61+ becomes more widely used
+AC_MSG_CHECKING([if we can use C99-like flexible array members])
+AC_TRY_COMPILE([
+  struct foo {
+    int x;
+    char y[];
+  };
+], [
+  struct foo foo;
+], [
+  flexible_value=""
+  AC_MSG_RESULT(yes)
+], [
+  flexible_value=1
+  AC_MSG_RESULT(no)
+])
+AC_DEFINE_UNQUOTED(FLEXIBLE_ARRAY_MEMBER, $flexible_value, How to define flexible array members in structs)
+
 dnl * do we have struct iovec
 AC_MSG_CHECKING([for struct iovec])
 AC_CACHE_VAL(i_cv_struct_iovec,

@@ -14,7 +14,7 @@ struct str_find_context {
 	unsigned int match_count;
 
 	int badtab[UCHAR_MAX+1];
-	int goodtab[];
+	int goodtab[FLEXIBLE_ARRAY_MEMBER];
 };
 
 static void init_badtab(struct str_find_context *ctx)
