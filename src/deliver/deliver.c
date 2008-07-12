@@ -694,7 +694,7 @@ void deliver_env_clean(void)
 static void expand_envs(const char *user)
 {
         const struct var_expand_table *table;
-	const char *mail_env, *const *envs, *home;
+	const char *mail_env, *const *envs, *home, *env_name;
 	unsigned int i, count;
 	string_t *str;
 
@@ -713,16 +713,26 @@ static void expand_envs(const char *user)
 	for (i = 0; i < count; i++)
 		env_put(envs[i]);
 
+	/* get the table again in case plugin envs provided the home
+	   directory (yea, kludgy) */
+	if (home == NULL)
+		home = getenv("HOME");
+	table = get_var_expand_table(user, home);
+
 	mail_env = getenv("MAIL_LOCATION");
-	if (mail_env != NULL) {
-		/* get the table again in case plugin envs provided the home
-		   directory (yea, kludgy) */
-		if (home == NULL)
-			home = getenv("HOME");
-		table = get_var_expand_table(user, home);
+	if (mail_env != NULL)
 		mail_env = expand_mail_env(mail_env, table);
-	}
 	env_put(t_strconcat("MAIL=", mail_env, NULL));
+
+	for (i = 1;; i++) {
+		env_name = t_strdup_printf("NAMESPACE_%u", i);
+		mail_env = getenv(env_name);
+		if (mail_env == NULL)
+			break;
+
+		mail_env = expand_mail_env(mail_env, table);
+		env_put(t_strconcat(env_name, "=", mail_env, NULL));
+	}
 }
 
 static void putenv_extra_fields(ARRAY_TYPE(string) *extra_fields)
