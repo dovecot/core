@@ -1370,9 +1370,18 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 	struct maildir_uidlist_rec *rec, *old_rec;
+	const char *p;
 
 	if (ctx->failed)
 		return -1;
+
+	for (p = filename; *p != '\0'; p++) {
+		if (*p == 13 || *p == 10) {
+			i_warning("Maildir %s: Ignoring a file with #0x%x: %s",
+				  uidlist->mbox->path, *p, filename);
+			return 1;
+		}
+	}
 
 	if (ctx->partial) {
 		maildir_uidlist_sync_next_partial(ctx, filename, flags);
