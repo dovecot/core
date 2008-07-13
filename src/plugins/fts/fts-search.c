@@ -121,6 +121,7 @@ void fts_search_lookup(struct fts_search_context *fctx)
 
 	i_array_init(&fctx->definite_seqs, 64);
 	i_array_init(&fctx->maybe_seqs, 64);
+	i_array_init(&fctx->score_map, 64);
 
 	/* start lookup with the best arg */
 	T_BEGIN {
@@ -141,7 +142,8 @@ void fts_search_lookup(struct fts_search_context *fctx)
 			have_seqs = TRUE;
 			fts_backend_lookup_deinit(&fctx->lookup_ctx_fast,
 						  &fctx->definite_seqs,
-						  &fctx->maybe_seqs);
+						  &fctx->maybe_seqs,
+						  &fctx->score_map);
 		}
 		if (fctx->fbox->backend_fast->locked)
 			fts_backend_unlock(fctx->fbox->backend_fast);
@@ -152,19 +154,26 @@ void fts_search_lookup(struct fts_search_context *fctx)
 		} else if (!have_seqs) {
 			fts_backend_lookup_deinit(&fctx->lookup_ctx_substr,
 						  &fctx->definite_seqs,
-						  &fctx->maybe_seqs);
+						  &fctx->maybe_seqs,
+						  &fctx->score_map);
 		} else {
 			/* have to merge the results */
 			ARRAY_TYPE(seq_range) tmp_def, tmp_maybe;
+			ARRAY_TYPE(fts_score_map) tmp_scores;
 
 			i_array_init(&tmp_def, 64);
 			i_array_init(&tmp_maybe, 64);
+			i_array_init(&tmp_scores, 64);
+			/* FIXME: for now we just ignore the other scores,
+			   since squat doesn't support it anyway */
 			fts_backend_lookup_deinit(&fctx->lookup_ctx_substr,
-						  &tmp_def, &tmp_maybe);
+						  &tmp_def, &tmp_maybe,
+						  &tmp_scores);
 			fts_filter_uids(&fctx->definite_seqs, &tmp_def,
 					&fctx->maybe_seqs, &tmp_maybe);
 			array_free(&tmp_def);
 			array_free(&tmp_maybe);
+			array_free(&tmp_scores);
 		}
 		if (fctx->fbox->backend_substr->locked)
 			fts_backend_unlock(fctx->fbox->backend_substr);

@@ -86,7 +86,7 @@ enum mailbox_search_result_flags {
 
 enum mail_sort_type {
 /* Maximum size for sort program (each one separately + END) */
-#define MAX_SORT_PROGRAM_SIZE (7 + 1)
+#define MAX_SORT_PROGRAM_SIZE (8 + 1)
 
 	MAIL_SORT_ARRIVAL	= 0x0001,
 	MAIL_SORT_CC		= 0x0002,
@@ -95,6 +95,7 @@ enum mail_sort_type {
 	MAIL_SORT_SIZE		= 0x0010,
 	MAIL_SORT_SUBJECT	= 0x0020,
 	MAIL_SORT_TO		= 0x0040,
+	MAIL_SORT_SEARCH_SCORE	= 0x0080,
 
 	MAIL_SORT_MASK		= 0x0fff,
 	MAIL_SORT_FLAG_REVERSE	= 0x1000, /* reverse this mask type */
@@ -126,7 +127,8 @@ enum mail_fetch_field {
 	MAIL_FETCH_HEADER_MD5		= 0x00010000,
 	MAIL_FETCH_UIDL_FILE_NAME	= 0x00020000,
 	MAIL_FETCH_UIDL_BACKEND		= 0x00040000,
-	MAIL_FETCH_MAILBOX_NAME		= 0x00080000
+	MAIL_FETCH_MAILBOX_NAME		= 0x00080000,
+	MAIL_FETCH_SEARCH_SCORE		= 0x00100000
 };
 
 enum mailbox_transaction_flags {

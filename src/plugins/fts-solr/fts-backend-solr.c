@@ -96,7 +96,7 @@ static int fts_backend_solr_get_last_uid(struct fts_backend *backend,
 	solr_quote_str(str, backend->box->storage->user);
 
 	t_array_init(&uids, 1);
-	if (solr_connection_select(solr_conn, str_c(str), &uids) < 0)
+	if (solr_connection_select(solr_conn, str_c(str), &uids, NULL) < 0)
 		return -1;
 
 	uidvals = array_get(&uids, &count);
@@ -257,7 +257,8 @@ static void fts_backend_solr_unlock(struct fts_backend *backend ATTR_UNUSED)
 
 static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 				   ARRAY_TYPE(seq_range) *definite_uids,
-				   ARRAY_TYPE(seq_range) *maybe_uids)
+				   ARRAY_TYPE(seq_range) *maybe_uids,
+				   ARRAY_TYPE(fts_score_map) *scores)
 {
 	struct mailbox *box = ctx->backend->box;
 	const struct fts_backend_lookup_field *fields;
@@ -268,7 +269,8 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
 
 	str = t_str_new(256);
-	str_printfa(str, "fl=uid&rows=%u&q=", status.uidnext);
+	str_printfa(str, "fl=uid,score&rows=%u&sort=uid%%20asc&q=",
+		    status.uidnext);
 
 	/* build a lucene search query from the fields */
 	fields = array_get(&ctx->fields, &count);
@@ -301,7 +303,8 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 	solr_quote_str(str, box->storage->user);
 
 	array_clear(maybe_uids);
-	return solr_connection_select(solr_conn, str_c(str), definite_uids);
+	return solr_connection_select(solr_conn, str_c(str),
+				      definite_uids, scores);
 }
 
 struct fts_backend fts_backend_solr = {

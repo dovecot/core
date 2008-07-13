@@ -1007,6 +1007,7 @@ int index_mail_get_special(struct mail *_mail,
 	case MAIL_FETCH_FROM_ENVELOPE:
 	case MAIL_FETCH_UIDL_FILE_NAME:
 	case MAIL_FETCH_UIDL_BACKEND:
+	case MAIL_FETCH_SEARCH_SCORE:
 		*value_r = "";
 		return 0;
 	case MAIL_FETCH_HEADER_MD5:

@@ -2,6 +2,7 @@
 #define SOLR_CONNECTION_H
 
 #include "seq-range-array.h"
+#include "fts-api.h"
 
 struct solr_connection *solr_connection_init(const char *url, bool debug);
 void solr_connection_deinit(struct solr_connection *conn);
@@ -10,7 +11,8 @@ void solr_connection_quote_str(struct solr_connection *conn, string_t *dest,
 			       const char *str);
 
 int solr_connection_select(struct solr_connection *conn, const char *query,
-			   ARRAY_TYPE(seq_range) *uids);
+			   ARRAY_TYPE(seq_range) *uids,
+			   ARRAY_TYPE(fts_score_map) *scores);
 int solr_connection_post(struct solr_connection *conn, const char *cmd);
 
 struct solr_connection_post *

@@ -298,16 +298,20 @@ static int fts_backend_lookup_old(struct fts_backend_lookup_context *ctx,
 
 int fts_backend_lookup_deinit(struct fts_backend_lookup_context **_ctx,
 			      ARRAY_TYPE(seq_range) *definite_uids,
-			      ARRAY_TYPE(seq_range) *maybe_uids)
+			      ARRAY_TYPE(seq_range) *maybe_uids,
+			      ARRAY_TYPE(fts_score_map) *scores)
 {
 	struct fts_backend_lookup_context *ctx = *_ctx;
 	int ret;
 
 	*_ctx = NULL;
-	if (ctx->backend->v.lookup2 != NULL)
-		ret = ctx->backend->v.lookup2(ctx, definite_uids, maybe_uids);
-	else
+	if (ctx->backend->v.lookup2 != NULL) {
+		ret = ctx->backend->v.lookup2(ctx, definite_uids, maybe_uids,
+					      scores);
+	} else {
+		array_clear(scores);
 		ret = fts_backend_lookup_old(ctx, definite_uids, maybe_uids);
+	}
 	pool_unref(&ctx->pool);
 	return ret;
 }

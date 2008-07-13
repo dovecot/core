@@ -3,6 +3,7 @@
 /* curl: 7.16.0 curl_multi_timeout */
 
 #include "lib.h"
+#include "array.h"
 #include "str.h"
 #include "strescape.h"
 #include "solr-connection.h"
@@ -29,7 +30,11 @@ struct solr_lookup_xml_context {
 	enum solr_xml_content_state content_state;
 	int depth;
 
+	uint32_t uid;
+	float score;
+
 	ARRAY_TYPE(seq_range) *uids;
+	ARRAY_TYPE(fts_score_map) *scores;
 };
 
 struct solr_connection_post {
@@ -225,8 +230,11 @@ solr_lookup_xml_start(void *context, const char *name, const char **attrs)
 			ctx->state++;
 		break;
 	case SOLR_XML_RESPONSE_STATE_RESULT:
-		if (strcmp(name, "doc") == 0)
+		if (strcmp(name, "doc") == 0) {
 			ctx->state++;
+			ctx->uid = 0;
+			ctx->score = 0;
+		}
 		break;
 	case SOLR_XML_RESPONSE_STATE_DOC:
 		name_attr = attrs_get_name(attrs);
@@ -243,6 +251,23 @@ solr_lookup_xml_start(void *context, const char *name, const char **attrs)
 	}
 }
 
+static void solr_lookup_add_doc(struct solr_lookup_xml_context *ctx)
+{
+	struct fts_score_map *score;
+
+	if (ctx->uid == 0) {
+		i_error("fts_solr: missing uid");
+		return;
+	}
+
+	seq_range_array_add(ctx->uids, 0, ctx->uid);
+	if (ctx->scores != NULL && ctx->score != 0) {
+		score = array_append_space(ctx->scores);
+		score->uid = ctx->uid;
+		score->score = ctx->score;
+	}
+}
+
 static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 {
 	struct solr_lookup_xml_context *ctx = context;
@@ -250,6 +275,8 @@ static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 	i_assert(ctx->depth >= (int)ctx->state);
 
 	if (ctx->depth == (int)ctx->state) {
+		if (ctx->state == SOLR_XML_RESPONSE_STATE_DOC)
+			solr_lookup_add_doc(ctx);
 		ctx->state--;
 		ctx->content_state = SOLR_XML_CONTENT_STATE_NONE;
 	}
@@ -275,16 +302,19 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 			i_error("fts_solr: received invalid uid");
 			break;
 		}
-		seq_range_array_add(ctx->uids, 0, uid);
+		ctx->uid = uid;
 		break;
 	case SOLR_XML_CONTENT_STATE_SCORE:
-		/* FIXME */
+		T_BEGIN {
+			ctx->score = strtod(t_strndup(str, len), NULL);
+		} T_END;
 		break;
 	}
 }
 
 int solr_connection_select(struct solr_connection *conn, const char *query,
-			   ARRAY_TYPE(seq_range) *uids)
+			   ARRAY_TYPE(seq_range) *uids,
+			   ARRAY_TYPE(fts_score_map) *scores)
 {
 	struct solr_lookup_xml_context solr_lookup_context;
 	string_t *str;
@@ -295,6 +325,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 
 	memset(&solr_lookup_context, 0, sizeof(solr_lookup_context));
 	solr_lookup_context.uids = uids;
+	solr_lookup_context.scores = scores;
 
 	i_free_and_null(conn->http_failure);
 	conn->xml_failed = FALSE;

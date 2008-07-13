@@ -23,6 +23,12 @@ struct mail_sort_node_size {
 };
 ARRAY_DEFINE_TYPE(mail_sort_node_size, struct mail_sort_node_size);
 
+struct mail_sort_node_float {
+	uint32_t seq;
+	float num;
+};
+ARRAY_DEFINE_TYPE(mail_sort_node_float, struct mail_sort_node_float);
+
 struct sort_cmp_context {
 	struct mail_search_sort_program *program;
 	struct mail *mail;
@@ -72,6 +78,28 @@ index_sort_list_add_size(struct mail_search_sort_program *program,
 	node->seq = mail->seq;
 	if (mail_get_virtual_size(mail, &node->size) < 0)
 		node->size = 0;
+}
+
+static float index_sort_get_score(struct mail *mail)
+{
+	const char *str;
+
+	if (mail_get_special(mail, MAIL_FETCH_SEARCH_SCORE, &str) < 0)
+		return 0;
+	else
+		return strtod(str, NULL);
+}
+
+static void
+index_sort_list_add_score(struct mail_search_sort_program *program,
+			  struct mail *mail)
+{
+	ARRAY_TYPE(mail_sort_node_float) *nodes = program->context;
+	struct mail_sort_node_float *node;
+
+	node = array_append_space(nodes);
+	node->seq = mail->seq;
+	node->num = index_sort_get_score(mail);
 }
 
 void index_sort_list_add(struct mail_search_sort_program *program,
@@ -137,6 +165,36 @@ index_sort_list_finish_size(struct mail_search_sort_program *program)
 	size_nodes = array_get_modifiable(nodes, &count);
 	qsort(size_nodes, count, sizeof(struct mail_sort_node_size),
 	      sort_node_size_cmp);
+	memcpy(&program->seqs, nodes, sizeof(program->seqs));
+	i_free(nodes);
+	program->context = NULL;
+}
+
+static int sort_node_float_cmp(const void *p1, const void *p2)
+{
+	struct sort_cmp_context *ctx = &static_node_cmp_context;
+	const struct mail_sort_node_float *n1 = p1, *n2 = p2;
+
+	if (n1->num < n2->num)
+		return !ctx->reverse ? -1 : 1;
+	if (n1->num > n2->num)
+		return !ctx->reverse ? 1 : -1;
+
+	return index_sort_node_cmp_type(ctx->mail,
+					ctx->program->sort_program + 1,
+					n1->seq, n2->seq);
+}
+
+static void
+index_sort_list_finish_float(struct mail_search_sort_program *program)
+{
+	ARRAY_TYPE(mail_sort_node_float) *nodes = program->context;
+	struct mail_sort_node_float *float_nodes;
+	unsigned int count;
+
+	float_nodes = array_get_modifiable(nodes, &count);
+	qsort(float_nodes, count, sizeof(struct mail_sort_node_float),
+	      sort_node_float_cmp);
 	memcpy(&program->seqs, nodes, sizeof(program->seqs));
 	i_free(nodes);
 	program->context = NULL;
@@ -224,6 +282,16 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 		program->sort_list_finish = index_sort_list_finish_string;
 		index_sort_list_init_string(program);
 		break;
+	case MAIL_SORT_SEARCH_SCORE: {
+		ARRAY_TYPE(mail_sort_node_float) *nodes;
+
+		nodes = i_malloc(sizeof(*nodes));
+		i_array_init(nodes, 128);
+		program->sort_list_add = index_sort_list_add_score;
+		program->sort_list_finish = index_sort_list_finish_float;
+		program->context = nodes;
+		break;
+	}
 	default:
 		i_unreached();
 	}
@@ -303,6 +371,7 @@ int index_sort_node_cmp_type(struct mail *mail,
 	enum mail_sort_type sort_type;
 	time_t time1, time2;
 	uoff_t size1, size2;
+	float float1, float2;
 	int ret = 0;
 
 	sort_type = *sort_program & MAIL_SORT_MASK;
@@ -365,6 +434,15 @@ int index_sort_node_cmp_type(struct mail *mail,
 
 		ret = size1 < size2 ? -1 :
 			(size1 > size2 ? 1 : 0);
+		break;
+	case MAIL_SORT_SEARCH_SCORE:
+		mail_set_seq(mail, seq1);
+		float1 = index_sort_get_score(mail);
+		mail_set_seq(mail, seq2);
+		float2 = index_sort_get_score(mail);
+
+		ret = float1 < float2 ? -1 :
+			(float1 > float2 ? 1 : 0);
 		break;
 	case MAIL_SORT_END:
 		return seq1 < seq2 ? -1 :

@@ -13,6 +13,12 @@ enum fts_lookup_flags {
 	FTS_LOOKUP_FLAG_INVERT	= 0x04
 };
 
+struct fts_score_map {
+	uint32_t uid;
+	float score;
+};
+ARRAY_DEFINE_TYPE(fts_score_map, struct fts_score_map);
+
 struct fts_backend *
 fts_backend_init(const char *backend_name, struct mailbox *box);
 void fts_backend_deinit(struct fts_backend **backend);
@@ -61,6 +67,7 @@ void fts_backend_lookup_add(struct fts_backend_lookup_context *ctx,
 /* Finish the lookup and return found UIDs. */
 int fts_backend_lookup_deinit(struct fts_backend_lookup_context **ctx,
 			      ARRAY_TYPE(seq_range) *definite_uids,
-			      ARRAY_TYPE(seq_range) *maybe_uids);
+			      ARRAY_TYPE(seq_range) *maybe_uids,
+			      ARRAY_TYPE(fts_score_map) *scores);
 
 #endif

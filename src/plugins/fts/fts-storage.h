@@ -20,6 +20,7 @@ struct fts_search_context {
 
 	struct fts_backend_lookup_context *lookup_ctx_substr, *lookup_ctx_fast;
 	ARRAY_TYPE(seq_range) definite_seqs, maybe_seqs;
+	ARRAY_TYPE(fts_score_map) score_map;
 	unsigned int definite_idx, maybe_idx;
 
 	struct fts_backend *build_backend;

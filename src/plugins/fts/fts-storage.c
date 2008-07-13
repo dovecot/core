@@ -23,6 +23,11 @@
 #define FTS_SEARCH_NONBLOCK_COUNT 10
 #define FTS_BUILD_NOTIFY_INTERVAL_SECS 10
 
+struct fts_mail {
+	union mail_module_context module_ctx;
+	char score[30];
+};
+
 struct fts_storage_build_context {
 	struct mail_search_context *search_ctx;
 	struct mail_search_args *search_args;
@@ -39,6 +44,7 @@ struct fts_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
 
 	struct fts_storage_build_context *build_ctx;
+	ARRAY_TYPE(fts_score_map) *score_map;
 	struct mail *mail;
 
 	uint32_t last_uid;
@@ -334,6 +340,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 			struct mail_search_args *args,
 			const enum mail_sort_type *sort_program)
 {
+	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
 	struct mail_search_context *ctx;
 	struct fts_search_context *fctx;
@@ -348,6 +355,8 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 
 	if (fbox->backend_substr == NULL && fbox->backend_fast == NULL)
 		return ctx;
+
+	ft->score_map = &fctx->score_map;
 
 	fts_search_analyze(fctx);
 	(void)fts_try_build_init(fctx);
@@ -486,8 +495,12 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 
 static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 {
+	struct fts_transaction_context *ft = FTS_CONTEXT(ctx->transaction);
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
+
+	if (ft->score_map == &fctx->score_map)
+		ft->score_map = NULL;
 
 	if (fctx->build_ctx != NULL) {
 		/* the search was cancelled */
@@ -498,6 +511,8 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 		array_free(&fctx->definite_seqs);
 	if (array_is_created(&fctx->maybe_seqs))
 		array_free(&fctx->maybe_seqs);
+	if (array_is_created(&fctx->score_map))
+		array_free(&fctx->score_map);
 	i_free(fctx);
 	return fbox->module_ctx.super.search_deinit(ctx);
 }
@@ -505,7 +520,7 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 static void fts_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
-	union mail_module_context *fmail = FTS_MAIL_CONTEXT(mail);
+	struct fts_mail *fmail = FTS_MAIL_CONTEXT(mail);
 	struct fts_mailbox *fbox = FTS_CONTEXT(_mail->box);
 	struct fts_transaction_context *ft = FTS_CONTEXT(_mail->transaction);
 
@@ -515,7 +530,44 @@ static void fts_mail_expunge(struct mail *_mail)
 	if (fbox->backend_fast != NULL)
 		fts_backend_expunge(fbox->backend_fast, _mail);
 
-	fmail->super.expunge(_mail);
+	fmail->module_ctx.super.expunge(_mail);
+}
+
+static int fts_score_cmp(const void *key, const void *data)
+{
+	const uint32_t *uid = key;
+	const struct fts_score_map *score = data;
+
+	return *uid < score->uid ? -1 :
+		(*uid > score->uid ? 1 : 0);
+}
+
+static int fts_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
+				const char **value_r)
+{
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct fts_mail *fmail = FTS_MAIL_CONTEXT(mail);
+	struct fts_transaction_context *ft = FTS_CONTEXT(_mail->transaction);
+	const struct fts_score_map *scores;
+	unsigned int count;
+
+	if (field != MAIL_FETCH_SEARCH_SCORE || ft->score_map == NULL ||
+	    !array_is_created(ft->score_map))
+		scores = NULL;
+	else {
+		scores = array_get(ft->score_map, &count);
+		scores = bsearch(&_mail->uid, scores, count, sizeof(*scores),
+				 fts_score_cmp);
+	}
+	if (scores != NULL) {
+		i_assert(scores->uid == _mail->uid);
+		i_snprintf(fmail->score, sizeof(fmail->score),
+			   "%f", scores->score);
+		*value_r = fmail->score;
+		return 0;
+	}
+
+	return fmail->module_ctx.super.get_special(_mail, field, value_r);
 }
 
 static struct mail *
@@ -524,7 +576,7 @@ fts_mail_alloc(struct mailbox_transaction_context *t,
 	       struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
-	union mail_module_context *fmail;
+	struct fts_mail *fmail;
 	struct mail *_mail;
 	struct mail_private *mail;
 
@@ -533,11 +585,12 @@ fts_mail_alloc(struct mailbox_transaction_context *t,
 	if (fbox->backend_substr != NULL || fbox->backend_fast != NULL) {
 		mail = (struct mail_private *)_mail;
 
-		fmail = p_new(mail->pool, union mail_module_context, 1);
-		fmail->super = mail->v;
+		fmail = p_new(mail->pool, struct fts_mail, 1);
+		fmail->module_ctx.super = mail->v;
 
 		mail->v.expunge = fts_mail_expunge;
-		MODULE_CONTEXT_SET_SELF(mail, fts_mail_module, fmail);
+		mail->v.get_special = fts_mail_get_special;
+		MODULE_CONTEXT_SET(mail, fts_mail_module, fmail);
 	}
 	return _mail;
 }

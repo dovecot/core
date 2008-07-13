@@ -33,7 +33,8 @@ struct fts_backend_vfuncs {
 
 	int (*lookup2)(struct fts_backend_lookup_context *ctx,
 		       ARRAY_TYPE(seq_range) *definite_uids,
-		       ARRAY_TYPE(seq_range) *maybe_uids);
+		       ARRAY_TYPE(seq_range) *maybe_uids,
+		       ARRAY_TYPE(fts_score_map) *scores);
 };
 
 enum fts_backend_flags {
