@@ -190,7 +190,7 @@ fts_backend_solr_build_deinit(struct fts_backend_build_context *_ctx)
 		str_append(ctx->cmd, "</field></doc></add>");
 		solr_connection_post_more(ctx->post, str_data(ctx->cmd),
 					  str_len(ctx->cmd));
-		ret = solr_connection_end(ctx->post);
+		ret = solr_connection_post_end(ctx->post);
 		/* commit and wait until the documents we just indexed are
 		   visible to the following search */
 		if (solr_connection_post(solr_conn,

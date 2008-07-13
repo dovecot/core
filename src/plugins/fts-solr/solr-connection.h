@@ -17,6 +17,6 @@ struct solr_connection_post *
 solr_connection_post_begin(struct solr_connection *conn);
 void solr_connection_post_more(struct solr_connection_post *post,
 			       const unsigned char *data, size_t size);
-int solr_connection_end(struct solr_connection_post *post);
+int solr_connection_post_end(struct solr_connection_post *post);
 
 #endif
