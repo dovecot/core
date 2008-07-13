@@ -30,7 +30,7 @@ get_sort_program(struct client_command_context *cmd,
 {
 	enum mail_sort_type mask = 0;
 	unsigned int i, pos;
-	bool reverse;
+	bool reverse, last_reverse;
 
 	if (args->type == IMAP_ARG_EOL) {
 		/* empyty list */
@@ -38,12 +38,13 @@ get_sort_program(struct client_command_context *cmd,
 		return -1;
 	}
 
-	pos = 0; reverse = FALSE;
+	pos = 0; reverse = last_reverse = FALSE;
 	for (; args->type == IMAP_ARG_ATOM || args->type == IMAP_ARG_STRING;
 	     args++) {
 		const char *arg = IMAP_ARG_STR(args);
 
-		if (strcasecmp(arg, "reverse") == 0) {
+		last_reverse = strcasecmp(arg, "reverse") == 0;
+		if (last_reverse) {
 			reverse = !reverse;
 			continue;
 		}
@@ -70,7 +71,10 @@ get_sort_program(struct client_command_context *cmd,
 			(reverse ? MAIL_SORT_FLAG_REVERSE : 0);
 		reverse = FALSE;
 	}
-
+	if (last_reverse) {
+		client_send_command_error(cmd, "Sort list ends with REVERSE.");
+		return -1;
+	}
 	program[pos++] = MAIL_SORT_END;
 
 	if (args->type != IMAP_ARG_EOL) {
