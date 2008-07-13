@@ -319,6 +319,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 
 	i_free_and_null(conn->http_failure);
 	conn->xml_failed = FALSE;
+	XML_ParserReset(conn->xml_parser, "UTF-8");
 	XML_SetElementHandler(conn->xml_parser,
 			      solr_lookup_xml_start, solr_lookup_xml_end);
 	XML_SetCharacterDataHandler(conn->xml_parser, solr_lookup_xml_data);

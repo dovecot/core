@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <curl/curl.h>
 
+#define SOLR_CMDBUF_SIZE (1024*64)
+
 struct solr_fts_backend_build_context {
 	struct fts_backend_build_context ctx;
 
@@ -119,7 +121,7 @@ fts_backend_solr_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
 	ctx = i_new(struct solr_fts_backend_build_context, 1);
 	ctx->ctx.backend = backend;
 	ctx->post = solr_connection_post_begin(solr_conn);
-	ctx->cmd = str_new(default_pool, 256);
+	ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
 
 	mailbox_get_status(backend->box, STATUS_UIDVALIDITY, &status);
 	ctx->uid_validity = status.uidvalidity;
@@ -141,7 +143,6 @@ fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
 	/* body comes first, then headers */
 	if (ctx->prev_uid != uid) {
 		/* uid changed */
-		str_truncate(cmd, 0);
 		if (ctx->prev_uid == 0)
 			str_append(cmd, "<add>");
 		else
@@ -171,20 +172,18 @@ fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
 		} else {
 			str_append(cmd, "<field name=\"body\">");
 		}
-		solr_connection_post_more(ctx->post, str_data(cmd),
-					  str_len(cmd));
 	} else if (headers && !ctx->headers) {
-		str_truncate(cmd, 0);
 		str_append(cmd, "</field><field name=\"hdr\">");
-		solr_connection_post_more(ctx->post, str_data(cmd),
-					  str_len(cmd));
 	} else {
 		i_assert(!(!headers && ctx->headers));
 	}
 
-	str_truncate(cmd, 0);
 	xml_encode_data(cmd, data, size);
-	solr_connection_post_more(ctx->post, str_data(cmd), str_len(cmd));
+	if (str_len(cmd) > SOLR_CMDBUF_SIZE-128) {
+		solr_connection_post_more(ctx->post, str_data(cmd),
+					  str_len(cmd));
+		str_truncate(cmd, 0);
+	}
 	return 0;
 }
 
@@ -196,7 +195,6 @@ fts_backend_solr_build_deinit(struct fts_backend_build_context *_ctx)
 	int ret = 0;
 
 	if (ctx->prev_uid != 0) {
-		str_truncate(ctx->cmd, 0);
 		str_append(ctx->cmd, "</field></doc></add>");
 		solr_connection_post_more(ctx->post, str_data(ctx->cmd),
 					  str_len(ctx->cmd));
@@ -241,6 +239,8 @@ fts_backend_solr_expunge_finish(struct fts_backend *backend ATTR_UNUSED,
 				struct mailbox *box ATTR_UNUSED,
 				bool committed ATTR_UNUSED)
 {
+	solr_connection_post(solr_conn,
+		"<commit waitFlush=\"false\" waitSearcher=\"false\"/>");
 }
 
 static int fts_backend_solr_lock(struct fts_backend *backend ATTR_UNUSED)
