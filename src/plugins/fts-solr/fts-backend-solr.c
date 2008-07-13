@@ -26,10 +26,13 @@ static void solr_quote_str(string_t *dest, const char *str)
 	solr_connection_quote_str(solr_conn, dest, str);
 }
 
-static void xml_encode(string_t *dest, const char *str)
+static void
+xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
 {
-	for (; *str != '\0'; str++) {
-		switch (*str) {
+	unsigned int i;
+
+	for (i = 0; i < len; i++) {
+		switch (data[i]) {
 		case '&':
 			str_append(dest, "&amp;");
 			break;
@@ -40,10 +43,15 @@ static void xml_encode(string_t *dest, const char *str)
 			str_append(dest, "&gt;");
 			break;
 		default:
-			str_append_c(dest, *str);
+			str_append_c(dest, data[i]);
 			break;
 		}
 	}
+}
+
+static void xml_encode(string_t *dest, const char *str)
+{
+	xml_encode_data(dest, (const unsigned char *)str, strlen(str));
 }
 
 static struct fts_backend *
@@ -174,7 +182,9 @@ fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
 		i_assert(!(!headers && ctx->headers));
 	}
 
-	solr_connection_post_more(ctx->post, data, size);
+	str_truncate(cmd, 0);
+	xml_encode_data(cmd, data, size);
+	solr_connection_post_more(ctx->post, str_data(cmd), str_len(cmd));
 	return 0;
 }
 
