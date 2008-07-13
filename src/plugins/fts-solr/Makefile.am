@@ -3,7 +3,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
-	-I$(top_srcdir)/src/plugins/fts
+	-I$(top_srcdir)/src/plugins/fts \
+	$(CURL_CFLAGS)
 
 lib21_fts_solr_plugin_la_LDFLAGS = -module -avoid-version
 
@@ -11,7 +12,7 @@ module_LTLIBRARIES = \
 	lib21_fts_solr_plugin.la
 
 lib21_fts_solr_plugin_la_LIBADD = \
-	$(CURL_CFLAGS) -lexpat
+	$(CURL_LIBS) -lexpat
 
 lib21_fts_solr_plugin_la_SOURCES = \
 	fts-backend-solr.c \
