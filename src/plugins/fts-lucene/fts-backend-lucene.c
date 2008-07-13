@@ -216,6 +216,7 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_lock,
 		fts_backend_lucene_unlock,
 		fts_backend_lucene_lookup,
+		NULL,
 		NULL
 	}
 };

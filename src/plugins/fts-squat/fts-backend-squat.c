@@ -252,6 +252,7 @@ struct fts_backend fts_backend_squat = {
 		fts_backend_squat_lock,
 		fts_backend_squat_unlock,
 		fts_backend_squat_lookup,
+		NULL,
 		NULL
 	}
 };

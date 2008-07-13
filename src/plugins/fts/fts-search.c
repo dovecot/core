@@ -42,9 +42,10 @@ static void fts_uid_results_to_seq(struct fts_search_context *fctx)
 }
 
 static int fts_search_lookup_arg(struct fts_search_context *fctx,
-				 struct mail_search_arg *arg, bool filter)
+				 struct mail_search_arg *arg)
 {
 	struct fts_backend *backend;
+	struct fts_backend_lookup_context **lookup_ctx_p;
 	enum fts_lookup_flags flags = 0;
 	const char *key;
 	string_t *key_utf8;
@@ -78,7 +79,6 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 		break;
 	default:
 		/* can't filter this */
-		i_assert(filter);
 		return 0;
 	}
 	if (arg->not)
@@ -96,14 +96,16 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 		ret = 0;
 	} else if (!backend->locked && fts_backend_lock(backend) <= 0)
 		ret = -1;
-	else if (!filter) {
-		ret = fts_backend_lookup(backend, str_c(key_utf8), flags,
-					 &fctx->definite_seqs,
-					 &fctx->maybe_seqs);
-	} else {
-		ret = fts_backend_filter(backend, str_c(key_utf8), flags,
-					 &fctx->definite_seqs,
-					 &fctx->maybe_seqs);
+	else {
+		ret = 0;
+		if (backend == fctx->fbox->backend_substr)
+			lookup_ctx_p = &fctx->lookup_ctx_substr;
+		else
+			lookup_ctx_p = &fctx->lookup_ctx_fast;
+
+		if (*lookup_ctx_p == NULL)
+			*lookup_ctx_p = fts_backend_lookup_init(backend);
+		fts_backend_lookup_add(*lookup_ctx_p, str_c(key_utf8), flags);
 	}
 	return ret;
 }
@@ -111,6 +113,7 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 void fts_search_lookup(struct fts_search_context *fctx)
 {
 	struct mail_search_arg *arg;
+	bool have_seqs;
 	int ret;
 
 	if (fctx->best_arg == NULL)
@@ -119,25 +122,53 @@ void fts_search_lookup(struct fts_search_context *fctx)
 	i_array_init(&fctx->definite_seqs, 64);
 	i_array_init(&fctx->maybe_seqs, 64);
 
-	/* start filtering with the best arg */
+	/* start lookup with the best arg */
 	T_BEGIN {
-		ret = fts_search_lookup_arg(fctx, fctx->best_arg, FALSE);
+		ret = fts_search_lookup_arg(fctx, fctx->best_arg);
 	} T_END;
 	/* filter the rest */
 	for (arg = fctx->args->args; arg != NULL && ret == 0; arg = arg->next) {
 		if (arg != fctx->best_arg) {
 			T_BEGIN {
-				ret = fts_search_lookup_arg(fctx, arg, TRUE);
+				ret = fts_search_lookup_arg(fctx, arg);
 			} T_END;
 		}
 	}
 
-	if (fctx->fbox->backend_fast != NULL &&
-	    fctx->fbox->backend_fast->locked)
-		fts_backend_unlock(fctx->fbox->backend_fast);
-	if (fctx->fbox->backend_substr != NULL &&
-	    fctx->fbox->backend_substr->locked)
-		fts_backend_unlock(fctx->fbox->backend_substr);
+	have_seqs = FALSE;
+	if (fctx->fbox->backend_fast != NULL) {
+		if (fctx->lookup_ctx_fast != NULL) {
+			have_seqs = TRUE;
+			fts_backend_lookup_deinit(&fctx->lookup_ctx_fast,
+						  &fctx->definite_seqs,
+						  &fctx->maybe_seqs);
+		}
+		if (fctx->fbox->backend_fast->locked)
+			fts_backend_unlock(fctx->fbox->backend_fast);
+	}
+	if (fctx->fbox->backend_substr != NULL) {
+		if (fctx->lookup_ctx_substr == NULL) {
+			/* no substr lookups */
+		} else if (!have_seqs) {
+			fts_backend_lookup_deinit(&fctx->lookup_ctx_substr,
+						  &fctx->definite_seqs,
+						  &fctx->maybe_seqs);
+		} else {
+			/* have to merge the results */
+			ARRAY_TYPE(seq_range) tmp_def, tmp_maybe;
+
+			i_array_init(&tmp_def, 64);
+			i_array_init(&tmp_maybe, 64);
+			fts_backend_lookup_deinit(&fctx->lookup_ctx_substr,
+						  &tmp_def, &tmp_maybe);
+			fts_filter_uids(&fctx->definite_seqs, &tmp_def,
+					&fctx->maybe_seqs, &tmp_maybe);
+			array_free(&tmp_def);
+			array_free(&tmp_maybe);
+		}
+		if (fctx->fbox->backend_substr->locked)
+			fts_backend_unlock(fctx->fbox->backend_substr);
+	}
 
 	if (ret == 0) {
 		fctx->seqs_set = TRUE;

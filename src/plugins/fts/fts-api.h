@@ -52,17 +52,15 @@ void fts_backend_expunge_finish(struct fts_backend *backend,
 int fts_backend_lock(struct fts_backend *backend);
 void fts_backend_unlock(struct fts_backend *backend);
 
-/* Lookup key from the index and return the found UIDs in result. */
-int fts_backend_lookup(struct fts_backend *backend, const char *key,
-		       enum fts_lookup_flags flags,
-		       ARRAY_TYPE(seq_range) *definite_uids,
-		       ARRAY_TYPE(seq_range) *maybe_uids);
-/* Drop UIDs from the result list for which the key doesn't exist. The idea
-   is that with multiple search keywords you first lookup one and then filter
-   the rest. */
-int fts_backend_filter(struct fts_backend *backend, const char *key,
-		       enum fts_lookup_flags flags,
-		       ARRAY_TYPE(seq_range) *definite_uids,
-		       ARRAY_TYPE(seq_range) *maybe_uids);
+/* Start building a FTS lookup. */
+struct fts_backend_lookup_context *
+fts_backend_lookup_init(struct fts_backend *backend);
+/* Add a new search key to the lookup. */
+void fts_backend_lookup_add(struct fts_backend_lookup_context *ctx,
+			    const char *key, enum fts_lookup_flags flags);
+/* Finish the lookup and return found UIDs. */
+int fts_backend_lookup_deinit(struct fts_backend_lookup_context **ctx,
+			      ARRAY_TYPE(seq_range) *definite_uids,
+			      ARRAY_TYPE(seq_range) *maybe_uids);
 
 #endif

@@ -30,6 +30,10 @@ struct fts_backend_vfuncs {
 		      enum fts_lookup_flags flags,
 		      ARRAY_TYPE(seq_range) *definite_uids,
 		      ARRAY_TYPE(seq_range) *maybe_uids);
+
+	int (*lookup2)(struct fts_backend_lookup_context *ctx,
+		       ARRAY_TYPE(seq_range) *definite_uids,
+		       ARRAY_TYPE(seq_range) *maybe_uids);
 };
 
 enum fts_backend_flags {
@@ -56,7 +60,24 @@ struct fts_backend_build_context {
 	unsigned int failed:1;
 };
 
+struct fts_backend_lookup_field {
+	const char *key;
+	enum fts_lookup_flags flags;
+};
+
+struct fts_backend_lookup_context {
+	struct fts_backend *backend;
+	pool_t pool;
+
+	ARRAY_DEFINE(fields, struct fts_backend_lookup_field);
+};
+
 void fts_backend_register(const struct fts_backend *backend);
 void fts_backend_unregister(const char *name);
+
+void fts_filter_uids(ARRAY_TYPE(seq_range) *definite_dest,
+		     const ARRAY_TYPE(seq_range) *definite_filter,
+		     ARRAY_TYPE(seq_range) *maybe_dest,
+		     const ARRAY_TYPE(seq_range) *maybe_filter);
 
 #endif

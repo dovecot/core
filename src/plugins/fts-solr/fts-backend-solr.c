@@ -255,37 +255,50 @@ static void fts_backend_solr_unlock(struct fts_backend *backend ATTR_UNUSED)
 {
 }
 
-static int
-fts_backend_solr_lookup(struct fts_backend *backend, const char *key,
-			enum fts_lookup_flags flags,
-			ARRAY_TYPE(seq_range) *definite_uids,
-			ARRAY_TYPE(seq_range) *maybe_uids)
+static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
+				   ARRAY_TYPE(seq_range) *definite_uids,
+				   ARRAY_TYPE(seq_range) *maybe_uids)
 {
+	struct mailbox *box = ctx->backend->box;
+	const struct fts_backend_lookup_field *fields;
+	unsigned int i, count;
 	struct mailbox_status status;
 	string_t *str;
 
-	i_assert((flags & FTS_LOOKUP_FLAG_INVERT) == 0);
+	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
 
 	str = t_str_new(256);
-	str_append(str, "fl=uid&q=");
-	if ((flags & FTS_LOOKUP_FLAG_HEADER) == 0) {
-		/* body only */
-		i_assert((flags & FTS_LOOKUP_FLAG_BODY) != 0);
-		str_append(str, "body:");
-	} else if ((flags & FTS_LOOKUP_FLAG_BODY) == 0) {
-		/* header only */
-		str_append(str, "hdr:");
-	} else {
-		/* both */
-		str_append(str, "any:");
-	}
-	solr_quote_str(str, key);
+	str_printfa(str, "fl=uid&rows=%u&q=", status.uidnext);
 
-	mailbox_get_status(backend->box, STATUS_UIDVALIDITY, &status);
-	str_printfa(str, "%%20uidv:%u%%20box:", status.uidvalidity);
-	solr_quote_str(str, backend->box->name);
+	/* build a lucene search query from the fields */
+	fields = array_get(&ctx->fields, &count);
+	for (i = 0; i < count; i++) {
+		if (i > 0)
+			str_append(str, "%20");
+
+		if ((fields[i].flags & FTS_LOOKUP_FLAG_INVERT) != 0)
+			str_append_c(str, '-');
+
+		if ((fields[i].flags & FTS_LOOKUP_FLAG_HEADER) == 0) {
+			/* body only */
+			i_assert((fields[i].flags & FTS_LOOKUP_FLAG_BODY) != 0);
+			str_append(str, "body:");
+		} else if ((fields[i].flags & FTS_LOOKUP_FLAG_BODY) == 0) {
+			/* header only */
+			str_append(str, "hdr:");
+		} else {
+			/* both */
+			str_append(str, "any:");
+		}
+		solr_quote_str(str, fields[i].key);
+	}
+
+	/* use a separate filter query for selecting the mailbox. it shouldn't
+	   affect the score and there could be some caching benefits too. */
+	str_printfa(str, "&fq=uidv:%u%%20box:", status.uidvalidity);
+	solr_quote_str(str, box->name);
 	str_append(str, "%20user:");
-	solr_quote_str(str, backend->box->storage->user);
+	solr_quote_str(str, box->storage->user);
 
 	array_clear(maybe_uids);
 	return solr_connection_select(solr_conn, str_c(str), definite_uids);
@@ -306,7 +319,8 @@ struct fts_backend fts_backend_solr = {
 		fts_backend_solr_expunge_finish,
 		fts_backend_solr_lock,
 		fts_backend_solr_unlock,
-		fts_backend_solr_lookup,
-		NULL
+		NULL,
+		NULL,
+		fts_backend_solr_lookup
 	}
 };
