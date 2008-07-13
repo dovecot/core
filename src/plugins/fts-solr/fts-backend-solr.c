@@ -7,7 +7,6 @@
 #include "solr-connection.h"
 #include "fts-solr-plugin.h"
 
-#include <stdlib.h>
 #include <curl/curl.h>
 
 #define SOLR_CMDBUF_SIZE (1024*64)
@@ -59,13 +58,17 @@ static void xml_encode(string_t *dest, const char *str)
 static struct fts_backend *
 fts_backend_solr_init(struct mailbox *box ATTR_UNUSED)
 {
+	const struct fts_solr_settings *set = &fts_solr_settings;
 	struct fts_backend *backend;
 
 	if (solr_conn == NULL)
-		solr_conn = solr_connection_init(getenv("FTS_SOLR"));
+		solr_conn = solr_connection_init(set->url, set->debug);
 
 	backend = i_new(struct fts_backend, 1);
 	*backend = fts_backend_solr;
+
+	if (set->substring_search)
+		backend->flags |= FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS;
 	return backend;
 }
 

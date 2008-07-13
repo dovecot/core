@@ -56,28 +56,6 @@ struct solr_connection {
 	unsigned int xml_failed:1;
 };
 
-static void
-solr_conn_init_settings(struct solr_connection *conn, const char *str)
-{
-	const char *const *tmp;
-
-	if (str == NULL)
-		str = "";
-
-	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "url=", 4) == 0) {
-			i_free(conn->url);
-			conn->url = i_strdup(*tmp + 4);
-		} else if (strcmp(*tmp, "debug") == 0) {
-			conn->debug = TRUE;
-		} else {
-			i_fatal("fts_solr: Invalid setting: %s", *tmp);
-		}
-	}
-	if (conn->url == NULL)
-		i_fatal("fts_solr: url setting missing");
-}
-
 static size_t
 curl_output_func(void *data, size_t element_size, size_t nmemb, void *context)
 {
@@ -149,12 +127,13 @@ curl_header_func(void *data, size_t element_size, size_t nmemb, void *context)
 	return size;
 }
 
-struct solr_connection *solr_connection_init(const char *settings)
+struct solr_connection *solr_connection_init(const char *url, bool debug)
 {
 	struct solr_connection *conn;
 
 	conn = i_new(struct solr_connection, 1);
-	solr_conn_init_settings(conn, settings);
+	conn->url = i_strdup(url);
+	conn->debug = debug;
 
 	conn->curlm = curl_multi_init();
 	conn->curl = curl_easy_init();

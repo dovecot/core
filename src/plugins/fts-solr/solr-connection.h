@@ -3,7 +3,7 @@
 
 #include "seq-range-array.h"
 
-struct solr_connection *solr_connection_init(const char *settings);
+struct solr_connection *solr_connection_init(const char *url, bool debug);
 void solr_connection_deinit(struct solr_connection *conn);
 
 void solr_connection_quote_str(struct solr_connection *conn, string_t *dest,
