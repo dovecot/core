@@ -12,6 +12,16 @@ string_t *str_new(pool_t pool, size_t initial_size)
 	return buffer_create_dynamic(pool, initial_size);
 }
 
+string_t *str_new_const(pool_t pool, const char *str, size_t len)
+{
+	string_t *ret;
+
+	i_assert(str[len] == '\0');
+	ret = buffer_create_const_data(pool, str, len + 1);
+	str_truncate(ret, len);
+	return ret;
+}
+
 string_t *t_str_new(size_t initial_size)
 {
 	return str_new(pool_datastack_create(), initial_size);
@@ -24,13 +34,15 @@ void str_free(string_t **str)
 
 static void str_add_nul(string_t *str)
 {
-	size_t len;
+	const unsigned char *data = str_data(str);
+	size_t len = str_len(str);
+	size_t alloc = buffer_get_size(str);
 
-	len = str_len(str);
-	buffer_write(str, len, "", 1);
-
-	/* remove the \0 - we don't want to keep it */
-	buffer_set_used_size(str, len);
+	if (len == alloc || data[len] != '\0') {
+		buffer_write(str, len, "", 1);
+		/* remove the \0 - we don't want to keep it */
+		buffer_set_used_size(str, len);
+	}
 }
 
 char *str_free_without_data(string_t **str)
