@@ -29,10 +29,10 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 			      0, from_envelope, input, dest_mail, &ctx) < 0)
 		return -1;
 
-	while (i_stream_read(input) != -1) {
+	do {
 		if (mailbox_save_continue(ctx) < 0)
 			break;
-	}
+	} while (i_stream_read(input) != -1);
 
 	if (input->stream_errno != 0) {
 		mail_storage_set_critical(t->box->storage,
