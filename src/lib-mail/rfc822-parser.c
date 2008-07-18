@@ -262,6 +262,8 @@ int rfc822_parse_phrase(struct rfc822_parser_context *ctx, string_t *str)
 	   obs-phrase = word *(word / "." / CFWS)
 	*/
 
+	if (ctx->data == ctx->end)
+		return 0;
 	if (*ctx->data == '.')
 		return -1;
 
