@@ -1071,7 +1071,10 @@ void index_mail_init(struct index_mail *mail,
 	mail->ibox = t->ibox;
 	mail->trans = t;
 	mail->wanted_fields = wanted_fields;
-	mail->wanted_headers = wanted_headers;
+	if (wanted_headers != NULL) {
+		mail->wanted_headers = wanted_headers;
+		mailbox_header_lookup_ref(_wanted_headers);
+	}
 }
 
 void index_mail_close(struct mail *_mail)
@@ -1282,6 +1285,8 @@ bool index_mail_set_uid(struct mail *_mail, uint32_t uid)
 void index_mail_free(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+	struct mailbox_header_lookup_ctx *headers_ctx =
+		(struct mailbox_header_lookup_ctx *)mail->wanted_headers;
 
 	mail->mail.v.close(_mail);
 
@@ -1297,6 +1302,8 @@ void index_mail_free(struct mail *_mail)
 	if (array_is_created(&mail->header_match_lines))
 		array_free(&mail->header_match_lines);
 
+	if (headers_ctx != NULL)
+		mailbox_header_lookup_unref(&headers_ctx);
 	pool_unref(&mail->data_pool);
 	pool_unref(&mail->mail.pool);
 }

@@ -586,7 +586,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 							   headers);
 			if (mail_get_header_stream(ctx->mail, headers_ctx,
 						   &input) < 0) {
-				mailbox_header_lookup_deinit(&headers_ctx);
+				mailbox_header_lookup_unref(&headers_ctx);
 				return FALSE;
 			}
 		}
@@ -603,7 +603,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 		message_parse_header(input, NULL, hdr_parser_flags,
 				     search_header, &hdr_ctx);
 		if (headers_ctx != NULL)
-			mailbox_header_lookup_deinit(&headers_ctx);
+			mailbox_header_lookup_unref(&headers_ctx);
 	} else {
 		struct message_size hdr_size;
 

@@ -458,7 +458,7 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 	header_ctx = mailbox_header_lookup_init(&mail->ibox->box,
 						imap_envelope_headers);
 	if (mail_get_header_stream(&mail->mail.mail, header_ctx, &stream) < 0) {
-		mailbox_header_lookup_deinit(&header_ctx);
+		mailbox_header_lookup_unref(&header_ctx);
 		return -1;
 	}
 
@@ -469,7 +469,7 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 				     imap_envelope_parse_callback, mail);
 		mail->data.save_envelope = FALSE;
 	}
-	mailbox_header_lookup_deinit(&header_ctx);
+	mailbox_header_lookup_unref(&header_ctx);
 
 	if (mail->data.stream != NULL)
 		i_stream_seek(mail->data.stream, old_offset);
@@ -595,7 +595,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 			headers_ctx = mailbox_header_lookup_init(
 						&mail->ibox->box, headers);
 			ret = index_mail_parse_headers(mail, headers_ctx);
-			mailbox_header_lookup_deinit(&headers_ctx);
+			mailbox_header_lookup_unref(&headers_ctx);
 			if (ret < 0)
 				return -1;
 		}
@@ -818,7 +818,15 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 	return ctx;
 }
 
-void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *_ctx)
+void index_header_lookup_ref(struct mailbox_header_lookup_ctx *_ctx)
+{
+	struct index_header_lookup_ctx *ctx =
+		(struct index_header_lookup_ctx *)_ctx;
+
+	pool_ref(ctx->pool);
+}
+
+void index_header_lookup_unref(struct mailbox_header_lookup_ctx *_ctx)
 {
 	struct index_header_lookup_ctx *ctx =
 		(struct index_header_lookup_ctx *)_ctx;

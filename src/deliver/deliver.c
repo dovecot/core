@@ -1088,7 +1088,7 @@ int main(int argc, char *argv[])
 	i_free(explicit_envelope_sender);
 
 	mail_free(&mail);
-	mailbox_header_lookup_deinit(&headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
 	mailbox_transaction_rollback(&t);
 	mailbox_close(&box);
 

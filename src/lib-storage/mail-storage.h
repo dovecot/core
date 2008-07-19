@@ -404,7 +404,8 @@ bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 /* Initialize header lookup for given headers. */
 struct mailbox_header_lookup_ctx *
 mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
-void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx **ctx);
+void mailbox_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx);
+void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **ctx);
 
 /* Initialize new search request. charset specifies the character set used in
    the search argument strings. If sort_program is non-NULL, the messages are

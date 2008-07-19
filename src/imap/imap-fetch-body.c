@@ -444,7 +444,7 @@ fetch_body_header_fields(struct imap_fetch_context *ctx, struct mail *mail,
 
 	if (mail == NULL) {
 		/* deinit */
-		mailbox_header_lookup_deinit(&body->header_ctx);
+		mailbox_header_lookup_unref(&body->header_ctx);
 		return 0;
 	}
 

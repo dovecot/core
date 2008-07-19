@@ -629,12 +629,17 @@ mailbox_header_lookup_init(struct mailbox *box, const char *const headers[])
 	return box->v.header_lookup_init(box, headers);
 }
 
-void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx **_ctx)
+void mailbox_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx)
+{
+	ctx->box->v.header_lookup_ref(ctx);
+}
+
+void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **_ctx)
 {
 	struct mailbox_header_lookup_ctx *ctx = *_ctx;
 
 	*_ctx = NULL;
-	ctx->box->v.header_lookup_deinit(ctx);
+	ctx->box->v.header_lookup_unref(ctx);
 }
 
 struct mail_search_context *

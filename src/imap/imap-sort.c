@@ -108,6 +108,6 @@ int imap_sort(struct client_command_context *cmd, struct mail_search_args *args,
 	}
 
 	if (headers_ctx != NULL)
-		mailbox_header_lookup_deinit(&headers_ctx);
+		mailbox_header_lookup_unref(&headers_ctx);
 	return ret;
 }

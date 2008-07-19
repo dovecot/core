@@ -568,7 +568,7 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx)
 			ctx->failed = TRUE;
 	}
 	if (ctx->all_headers_ctx != NULL)
-		mailbox_header_lookup_deinit(&ctx->all_headers_ctx);
+		mailbox_header_lookup_unref(&ctx->all_headers_ctx);
 
 	if (ctx->trans != NULL) {
 		/* even if something failed, we want to commit changes to

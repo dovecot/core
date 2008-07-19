@@ -433,7 +433,7 @@ mail_thread_update(struct mail_thread_context *ctx, bool reset)
 		} T_END;
 	}
 	mail_free(&mail);
-	mailbox_header_lookup_deinit(&headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
 
 	if (ret < 0 || ctx->thread_ctx.failed || ctx->thread_ctx.rebuild)
 		return -1;
