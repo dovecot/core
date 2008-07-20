@@ -98,7 +98,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 			break;
 
 		if (errno != EEXIST) {
-			i_error("open(%s) failed: %m", path);
+			i_error("creat(%s) failed: %m", path);
 			return -1;
 		}
 	}
