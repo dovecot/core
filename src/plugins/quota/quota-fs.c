@@ -232,7 +232,8 @@ static void fs_quota_add_missing_mounts(struct quota *quota)
 			continue;
 
 		mount = fs_quota_mountpoint_get(root->storage_mount_path);
-		fs_quota_mount_init(root, mount);
+		if (mount != NULL)
+			fs_quota_mount_init(root, mount);
 	}
 }
 
@@ -246,17 +247,19 @@ static void fs_quota_storage_added(struct quota *quota,
 
 	dir = mail_storage_get_mailbox_path(storage, "", &is_file);
 	mount = fs_quota_mountpoint_get(dir);
-	if (quota->debug) {
-		i_info("fs quota add storage dir = %s", dir);
-		i_info("fs quota block device = %s", mount->device_path);
-		i_info("fs quota mount point = %s", mount->mount_path);
-	}
+	if (mount != NULL) {
+		if (quota->debug) {
+			i_info("fs quota add storage dir = %s", dir);
+			i_info("fs quota block device = %s", mount->device_path);
+			i_info("fs quota mount point = %s", mount->mount_path);
+		}
 
-	root = fs_quota_root_find_mountpoint(quota, mount);
-	if (root != NULL && root->mount == NULL)
-		fs_quota_mount_init(root, mount);
-	else
-		fs_quota_mountpoint_free(mount);
+		root = fs_quota_root_find_mountpoint(quota, mount);
+		if (root != NULL && root->mount == NULL)
+			fs_quota_mount_init(root, mount);
+		else
+			fs_quota_mountpoint_free(mount);
+	}
 
 	/* we would actually want to do this only once after all quota roots
 	   are created, but there's no way to do this right now */
