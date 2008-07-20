@@ -619,11 +619,16 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 	}
 
 	if (array_count(&used_patterns) == 0) {
-		/* it's possible that the namespace prefix matched,
-		   even though its children didn't */
-		if (ctx->cur_ns_send_prefix)
-			list_namespace_send_prefix(ctx, TRUE);
-		return;
+		if (!ctx->cur_ns_match_inbox) {
+			/* it's possible that the namespace prefix matched,
+			   even though its children didn't */
+			if (ctx->cur_ns_send_prefix)
+				list_namespace_send_prefix(ctx, TRUE);
+			return;
+		}
+		/* we should still list INBOX */
+		pattern = "INBOX";
+		array_append(&used_patterns, &pattern, 1);
 	}
 	(void)array_append_space(&used_patterns); /* NULL-terminate */
 	pat = array_idx(&used_patterns, 0);
