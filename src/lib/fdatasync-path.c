@@ -15,8 +15,14 @@ int fdatasync_path(const char *path)
 	fd = open(path, O_RDONLY);
 	if (fd == -1)
 		return -1;
-	if (fdatasync(fd) < 0)
-		ret = -1;
+	if (fdatasync(fd) < 0) {
+		if (errno == EBADF) {
+			/* At least NetBSD doesn't allow fsyncing directories.
+			   Silently ignore the problem. */
+		} else {
+			ret = -1;
+		}
+	}
 	(void)close(fd);
 	return ret;
 }
