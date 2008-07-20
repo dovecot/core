@@ -1161,6 +1161,9 @@ static bool maildir_uidlist_want_compress(struct maildir_uidlist_sync_ctx *ctx)
 {
 	unsigned int min_rewrite_count;
 
+	if (!ctx->uidlist->initial_read)
+		return FALSE;
+
 	min_rewrite_count =
 		(ctx->uidlist->read_records_count + ctx->new_files_count) *
 		UIDLIST_COMPRESS_PERCENTAGE / 100;
@@ -1171,14 +1174,15 @@ static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 
-	if (!uidlist->initial_read)
-		return FALSE;
-
-	if (uidlist->recreate || uidlist->fd == -1 ||
-	    uidlist->version != UIDLIST_VERSION ||
+	if (uidlist->recreate ||
 	    ctx->finish_change_counter != uidlist->change_counter)
 		return TRUE;
 
+	if (!uidlist->initial_read)
+		return FALSE;
+
+	if (uidlist->fd == -1 || uidlist->version != UIDLIST_VERSION)
+		return TRUE;
 	return maildir_uidlist_want_compress(ctx);
 }
 
