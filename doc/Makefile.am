@@ -14,5 +14,6 @@ doc_DATA = \
 EXTRA_DIST = \
 	mkcert.sh \
 	dovecot-openssl.cnf \
+	solr-schema.xml \
 	$(doc_DATA) \
 	$(conf_DATA)

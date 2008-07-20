@@ -23,8 +23,6 @@ noinst_HEADERS = \
 	fts-solr-plugin.h \
 	solr-connection.h
 
-EXTRA_DIST = schema.xml
-
 install-exec-local:
 	for d in imap lda; do \
 	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
