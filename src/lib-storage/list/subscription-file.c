@@ -101,7 +101,8 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		/* directory hasn't been created yet. */
 		p = strrchr(path, '/');
 		dir = p == NULL ? NULL : t_strdup_until(path, p);
-		if (dir != NULL && mkdir_parents(dir, 0700) < 0) {
+		if (dir != NULL && mkdir_parents(dir, 0700) < 0 &&
+		    errno != EEXIST) {
 			subsfile_set_syscall_error(list, "mkdir()", dir);
 			return -1;
 		}

@@ -293,7 +293,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	p = strrchr(newpath, '/');
 	if (p != NULL) {
 		p = t_strdup_until(newpath, p);
-		if (mkdir_parents(p, CREATE_MODE) < 0) {
+		if (mkdir_parents(p, CREATE_MODE) < 0 && errno != EEXIST) {
 			if (mailbox_list_set_error_from_errno(list))
 				return -1;
 

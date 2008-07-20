@@ -57,7 +57,7 @@ static struct fts_backend *fts_backend_lucene_init(struct mailbox *box)
 
 		path = t_strconcat(path, "/"LUCENE_INDEX_DIR_NAME, NULL);
 		lock_path = t_strdup_printf("%s/"LUCENE_LOCK_SUBDIR_NAME, path);
-		if (mkdir_parents(lock_path, 0700) < 0) {
+		if (mkdir_parents(lock_path, 0700) < 0 && errno != EEXIST) {
 			i_error("mkdir_parents(%s) failed: %m", lock_path);
 			return NULL;
 		}

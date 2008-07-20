@@ -265,7 +265,7 @@ static const char *create_root_dir(bool debug, const char **error_r)
 	}
 
 	path = t_strconcat(home, "/mail", NULL);
-	if (mkdir_parents(path, CREATE_MODE) < 0) {
+	if (mkdir_parents(path, CREATE_MODE) < 0 && errno != EEXIST) {
 		*error_r = t_strdup_printf("mkdir(%s) failed: %m", path);
 		return NULL;
 	}
@@ -719,7 +719,7 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 	p = directory ? path + strlen(path) : strrchr(path, '/');
 	if (p != NULL) {
 		p = t_strdup_until(path, p);
-		if (mkdir_parents(p, CREATE_MODE) < 0) {
+		if (mkdir_parents(p, CREATE_MODE) < 0 && errno != EEXIST) {
 			if (!mail_storage_set_error_from_errno(_storage)) {
 				mail_storage_set_critical(_storage,
 					"mkdir_parents(%s) failed: %m", p);

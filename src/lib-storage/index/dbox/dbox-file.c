@@ -1240,7 +1240,7 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 	   since we really don't want to break the file. */
 	out_fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	if (out_fd == -1 && errno == ENOENT) {
-		if (mkdir_parents(dest_dir, 0700) < 0) {
+		if (mkdir_parents(dest_dir, 0700) < 0 && errno != EEXIST) {
 			i_error("mkdir_parents(%s) failed: %m", dest_dir);
 			return -1;
 		}
