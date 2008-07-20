@@ -4,7 +4,7 @@
 #include "lib-signals.h"
 #include "ioloop.h"
 #include "file-dotlock.h"
-#include "src/lib-storage/index/maildir/maildir-uidlist.h"
+#include "maildir-uidlist.h"
 
 #include <stdio.h>
 #include <stdlib.h>

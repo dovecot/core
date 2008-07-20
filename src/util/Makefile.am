@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
+	-I$(top_srcdir)/src/lib-storage/index/maildir \
 	-I$(top_srcdir)/src/auth
 
 rawlog_LDADD = \
