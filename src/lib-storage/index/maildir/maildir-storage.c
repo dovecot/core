@@ -539,6 +539,10 @@ static int maildir_create_shared(struct mail_storage *storage,
 		umask(old_mask);
 		return -1;
 	}
+	if (chown(dir, (uid_t)-1, gid) < 0) {
+		mail_storage_set_critical(storage,
+					  "chown(%s) failed: %m", dir);
+	}
 	for (i = 0; i < N_ELEMENTS(maildir_subdirs); i++) {
 		path = t_strconcat(dir, "/", maildir_subdirs[i], NULL);
 		if (chown(path, (uid_t)-1, gid) < 0) {
