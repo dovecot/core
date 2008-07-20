@@ -182,6 +182,7 @@ struct quota_backend quota_backend_dict = {
 		NULL,
 		dict_quota_root_get_resources,
 		dict_quota_get_resource,
-		dict_quota_update
+		dict_quota_update,
+		NULL
 	}
 };

@@ -30,7 +30,11 @@
 #endif
 
 #ifndef DEV_BSIZE
-#  define DEV_BSIZE 512
+#  ifdef DQBSIZE
+#    define DEV_BSIZE DQBSIZE /* AIX */
+#  else
+#    define DEV_BSIZE 512
+#  endif
 #endif
 
 #ifdef HAVE_STRUCT_DQBLK_CURSPACE
@@ -584,6 +588,35 @@ fs_quota_get_one_resource(struct fs_quota_root *root, bool group, bool bytes,
 #endif
 }
 
+static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
+{
+	struct fs_quota_root *root = (struct fs_quota_root *)_root;
+	struct stat mst, rst;
+	const char *mailbox_path;
+	bool is_file, match;
+
+	mailbox_path = mail_storage_get_mailbox_path(box->storage, box->name,
+						     &is_file);
+	if (stat(mailbox_path, &mst) < 0) {
+		if (errno != ENOENT)
+			i_error("stat(%s) failed: %m", mailbox_path);
+		return FALSE;
+	}
+	if (stat(root->storage_mount_path, &rst) < 0) {
+		if (getenv("DEBUG") != NULL) {
+			i_error("stat(%s) failed: %m",
+				root->storage_mount_path);
+		}
+		return FALSE;
+	}
+	match = CMP_DEV_T(mst.st_dev, rst.st_dev);
+	if (getenv("DEBUG") != NULL) {
+	 	i_info("box=%s mount=%s match=%s", mailbox_path,
+		       root->storage_mount_path, match ? "yes" : "no");
+	}
+ 	return match;
+}
+
 static int
 fs_quota_get_resource(struct quota_root *_root, const char *name,
 		      uint64_t *value_r)
@@ -648,7 +681,9 @@ struct quota_backend quota_backend_fs = {
 
 		fs_quota_root_get_resources,
 		fs_quota_get_resource,
-		fs_quota_update
+		fs_quota_update,
+
+		fs_quota_match_box
 	}
 };
 

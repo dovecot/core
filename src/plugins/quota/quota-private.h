@@ -54,6 +54,8 @@ struct quota_backend_vfuncs {
 
 	int (*update)(struct quota_root *root, 
 		      struct quota_transaction_context *ctx);
+	bool (*match_box)(struct quota_root *root, struct mailbox *box);
+
 };
 
 struct quota_backend {

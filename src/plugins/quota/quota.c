@@ -551,6 +551,22 @@ quota_root_iter_init(struct quota *quota, struct mailbox *box)
 	return iter;
 }
 
+static bool
+quota_root_is_visible(struct quota_root *root, struct mailbox *box,
+		      bool enforce)
+{
+	if (root->no_enforcing && enforce) {
+		/* we don't want to include this root in quota enforcing */
+		return FALSE;
+	}
+	if (array_count(&root->quota->roots) == 1) {
+		/* a single quota root: don't bother checking further */
+		return TRUE;
+	}
+	return root->backend.v.match_box == NULL ? TRUE :
+		root->backend.v.match_box(root, box);
+}
+
 struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 {
 	struct quota_root *const *roots, *root = NULL;
@@ -563,6 +579,9 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 		return NULL;
 
 	for (; iter->i < count; iter->i++) {
+		if (!quota_root_is_visible(roots[iter->i], iter->box, FALSE))
+			continue;
+
 		ret = quota_get_resource(roots[iter->i], "",
 					 QUOTA_NAME_STORAGE_KILOBYTES,
 					 &value, &limit);
@@ -684,10 +703,8 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		if (roots[i]->no_enforcing) {
-			/* we don't care what the current quota is */
+		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
 			continue;
-		}
 
 		ret = quota_get_resource(roots[i], mailbox_name,
 					 QUOTA_NAME_STORAGE_BYTES,
@@ -781,6 +798,9 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		mailbox_name = mailbox_get_name(ctx->box);
 		roots = array_get(&ctx->quota->roots, &count);
 		for (i = 0; i < count; i++) {
+			if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
+				continue;
+
 			rule = quota_root_rule_find(roots[i], mailbox_name);
 			if (rule != NULL && rule->ignore) {
 				/* mailbox not included in quota */
@@ -853,6 +873,9 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		uint64_t bytes_limit, count_limit;
+
+		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
+			continue;
 
 		if (!quota_root_get_rule_limits(roots[i],
 						mailbox_get_name(ctx->box),
