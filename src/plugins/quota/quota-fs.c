@@ -246,7 +246,7 @@ static void fs_quota_storage_added(struct quota *quota,
 
 	dir = mail_storage_get_mailbox_path(storage, "", &is_file);
 	mount = fs_quota_mountpoint_get(dir);
-	if (getenv("DEBUG") != NULL) {
+	if (quota->debug) {
 		i_info("fs quota add storage dir = %s", dir);
 		i_info("fs quota block device = %s", mount->device_path);
 		i_info("fs quota mount point = %s", mount->mount_path);
@@ -304,7 +304,7 @@ static int do_rquota(struct fs_quota_root *root, bool bytes,
 	host = t_strdup_until(mount->device_path, path);
 	path++;
 
-	if (getenv("DEBUG") != NULL) {
+	if (root->root.quota->debug) {
 		i_info("quota-fs: host=%s, path=%s, uid=%s",
 			host, path, dec2str(root->uid));
 	}
@@ -360,7 +360,7 @@ static int do_rquota(struct fs_quota_root *root, bool bytes,
 				*limit_r = rq->rq_fsoftlimit;
 			}
 		}
-		if (getenv("DEBUG") != NULL) {
+		if (root->root.quota->debug) {
 			i_info("quota-fs: uid=%s, value=%llu, "
 			       "limit=%llu, active=%d", dec2str(root->uid),
 			       (unsigned long long)*value_r,
@@ -369,7 +369,7 @@ static int do_rquota(struct fs_quota_root *root, bool bytes,
 		return 1;
 	}
 	case Q_NOQUOTA:
-		if (getenv("DEBUG") != NULL) {
+		if (root->root.quota->debug) {
 			i_info("quota-fs: uid=%s, limit=unlimited",
 			       dec2str(root->uid));
 		}
@@ -603,14 +603,14 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 		return FALSE;
 	}
 	if (stat(root->storage_mount_path, &rst) < 0) {
-		if (getenv("DEBUG") != NULL) {
+		if (_root->quota->debug) {
 			i_error("stat(%s) failed: %m",
 				root->storage_mount_path);
 		}
 		return FALSE;
 	}
 	match = CMP_DEV_T(mst.st_dev, rst.st_dev);
-	if (getenv("DEBUG") != NULL) {
+	if (_root->quota->debug) {
 	 	i_info("box=%s mount=%s match=%s", mailbox_path,
 		       root->storage_mount_path, match ? "yes" : "no");
 	}

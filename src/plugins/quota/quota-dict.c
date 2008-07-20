@@ -50,7 +50,7 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 	if (*username == '\0')
 		username = getenv("USER");
 
-	if (getenv("DEBUG") != NULL) {
+	if (_root->quota->debug) {
 		i_info("dict quota: user=%s, uri=%s, enforcing=%d",
 		       username, args, _root->no_enforcing);
 	}
