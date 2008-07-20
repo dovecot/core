@@ -603,6 +603,12 @@ void mailbox_keywords_free(struct mailbox *box,
 	box->v.keywords_free(keywords);
 }
 
+bool mailbox_keyword_is_valid(struct mailbox *box, const char *keyword,
+			      const char **error_r)
+{
+	return box->v.keyword_is_valid(box, keyword, error_r);
+}
+
 void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			   uint32_t *seq1_r, uint32_t *seq2_r)
 {

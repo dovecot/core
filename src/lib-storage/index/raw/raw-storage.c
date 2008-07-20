@@ -292,6 +292,7 @@ struct mailbox raw_mailbox = {
 		index_transaction_set_max_modseq,
 		index_keywords_create,
 		index_keywords_free,
+		index_keyword_is_valid,
 		index_storage_get_seq_range,
 		index_storage_get_uid_range,
 		index_storage_get_expunged_uids,

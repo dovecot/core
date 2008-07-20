@@ -385,6 +385,9 @@ mailbox_keywords_create_valid(struct mailbox *box,
 			      const char *const keywords[]);
 void mailbox_keywords_free(struct mailbox *box,
 			   struct mail_keywords **keywords);
+/* Returns TRUE if keyword is valid, FALSE and error if not. */
+bool mailbox_keyword_is_valid(struct mailbox *box, const char *keyword,
+			      const char **error_r);
 
 /* Convert uid range to sequence range. */
 void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,

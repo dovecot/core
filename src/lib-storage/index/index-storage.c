@@ -538,9 +538,10 @@ void mail_storage_set_index_error(struct index_mailbox *ibox)
 	mail_index_reset_error(ibox->index);
 }
 
-int index_mailbox_keyword_is_valid(struct index_mailbox *ibox,
-				   const char *keyword, const char **error_r)
+bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
+			    const char **error_r)
 {
+	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	unsigned int i, idx;
 
 	/* if it already exists, skip validity checks */
@@ -580,7 +581,7 @@ index_keywords_create_skip(struct index_mailbox *ibox,
 
 	t_array_init(&valid_keywords, 32);
 	for (; *keywords != NULL; keywords++) {
-		if (index_mailbox_keyword_is_valid(ibox, *keywords, &error))
+		if (mailbox_keyword_is_valid(&ibox->box, *keywords, &error))
 			array_append(&valid_keywords, keywords, 1);
 	}
 	(void)array_append_space(&valid_keywords); /* NULL-terminate */
@@ -595,7 +596,7 @@ int index_keywords_create(struct mailbox *_box, const char *const keywords[],
 	unsigned int i;
 
 	for (i = 0; keywords[i] != NULL; i++) {
-		if (index_mailbox_keyword_is_valid(ibox, keywords[i], &error))
+		if (mailbox_keyword_is_valid(_box, keywords[i], &error))
 			continue;
 
 		if (!skip_invalid) {

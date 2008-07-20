@@ -116,6 +116,8 @@ int index_mailbox_keyword_is_valid(struct index_mailbox *ibox,
 int index_keywords_create(struct mailbox *box, const char *const keywords[],
 			  struct mail_keywords **keywords_r, bool skip_invalid);
 void index_keywords_free(struct mail_keywords *keywords);
+bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
+			    const char **error_r);
 
 void index_mailbox_set_recent_uid(struct index_mailbox *ibox, uint32_t uid);
 void index_mailbox_set_recent_seq(struct index_mailbox *ibox,

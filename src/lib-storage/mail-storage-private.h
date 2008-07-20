@@ -127,6 +127,8 @@ struct mailbox_vfuncs {
 			       struct mail_keywords **keywords_r,
 			       bool skip_invalid);
 	void (*keywords_free)(struct mail_keywords *keywords);
+	bool (*keyword_is_valid)(struct mailbox *box, const char *keyword,
+				 const char **error_r);
 
 	void (*get_seq_range)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			      uint32_t *seq1_r, uint32_t *seq2_r);
