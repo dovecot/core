@@ -44,7 +44,10 @@ int safe_mkstemp(string_t *prefix, mode_t mode, uid_t uid, gid_t gid)
 	}
 	if (uid != (uid_t)-1 || gid != (gid_t)-1) {
 		if (fchown(fd, uid, gid) < 0) {
-			i_error("fchown(%s) failed: %m", str_c(prefix));
+			i_error("fchown(%s, %ld, %ld) failed: %m",
+				str_c(prefix),
+				uid == (uid_t)-1 ? -1L : (long)uid,
+				gid == (gid_t)-1 ? -1L : (long)gid);
 			(void)close(fd);
 			(void)unlink(str_c(prefix));
 			return -1;
