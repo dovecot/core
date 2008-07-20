@@ -534,7 +534,7 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 			i_assert(right_idx == rightmost_idx);
 			right_sort_id = (uint32_t)-1;
 		}
-		i_assert(left_sort_id < right_sort_id);
+		i_assert(left_sort_id <= right_sort_id);
 
 		if (diff == right_sort_id - left_sort_id) {
 			/* we did nothing, but there's still not enough space.
