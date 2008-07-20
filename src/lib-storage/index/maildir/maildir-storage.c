@@ -574,6 +574,7 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 {
 	struct stat st;
 	const char *path, *root_dir, *shared_path;
+	mode_t old_mask;
 	int fd;
 
 	path = mailbox_list_get_path(_storage->list, name,
@@ -589,6 +590,8 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 					  st.st_mode & 0666, st.st_gid) < 0)
 			return -1;
 	} else {
+		st.st_mode = CREATE_MODE;
+		st.st_gid = (gid_t)-1;
 		if (create_maildir(_storage, path, FALSE) < 0)
 			return -1;
 	}
@@ -596,10 +599,18 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 	/* Maildir++ spec want that maildirfolder named file is created for
 	   all subfolders. */
 	path = t_strconcat(path, "/" MAILDIR_SUBFOLDER_FILENAME, NULL);
-	fd = open(path, O_CREAT | O_WRONLY, CREATE_MODE & 0666);
-	if (fd != -1)
+	old_mask = umask(0777 ^ (st.st_mode & 0666));
+	fd = open(path, O_CREAT | O_WRONLY, 0666);
+	umask(old_mask);
+	if (fd != -1) {
+		/* if dovecot-shared exists, use the same group */
+		if (st.st_gid != (gid_t)-1 &&
+		    fchown(fd, (uid_t)-1, st.st_gid) < 0) {
+			mail_storage_set_critical(_storage,
+				"fchown(%s) failed: %m", path);
+		}
 		(void)close(fd);
-	else if (errno == ENOENT) {
+	} else if (errno == ENOENT) {
 		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
 			"Mailbox was deleted while it was being created");
 		return -1;
