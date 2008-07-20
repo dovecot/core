@@ -250,7 +250,7 @@ acl_save_init(struct mailbox_transaction_context *t,
 	      enum mail_flags flags, struct mail_keywords *keywords,
 	      time_t received_date, int timezone_offset,
 	      const char *from_envelope, struct istream *input,
-	      struct mail *dest_mail, struct mail_save_context **ctx_r)
+	      struct mail **dest_mail, struct mail_save_context **ctx_r)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
 

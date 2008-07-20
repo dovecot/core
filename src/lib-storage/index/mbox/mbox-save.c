@@ -428,7 +428,7 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 		   enum mail_flags flags, struct mail_keywords *keywords,
 		   time_t received_date, int timezone_offset ATTR_UNUSED,
 		   const char *from_envelope, struct istream *input,
-		   struct mail *dest_mail, struct mail_save_context **ctx_r)
+		   struct mail **dest_mail, struct mail_save_context **ctx_r)
 {
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)_t;
@@ -456,7 +456,7 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 	ctx->failed = FALSE;
 	ctx->seq = 0;
 
-	if (mbox_save_init_file(ctx, t, dest_mail != NULL) < 0) {
+	if (mbox_save_init_file(ctx, t, *dest_mail != NULL) < 0) {
 		ctx->failed = TRUE;
 		return -1;
 	}
@@ -488,12 +488,12 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 		ctx->next_uid++;
 
 		/* parse and cache the mail headers as we read it */
-		if (dest_mail == NULL) {
+		if (*dest_mail == NULL) {
 			if (ctx->mail == NULL)
 				ctx->mail = mail_alloc(_t, 0, NULL);
-			dest_mail = ctx->mail;
+			*dest_mail = ctx->mail;
 		}
-		mail_set_seq(dest_mail, ctx->seq);
+		mail_set_seq(*dest_mail, ctx->seq);
 	}
 	mbox_save_append_flag_headers(ctx->headers, save_flags);
 	mbox_save_append_keyword_headers(ctx, keywords);

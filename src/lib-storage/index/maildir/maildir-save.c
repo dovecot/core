@@ -350,7 +350,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 		      enum mail_flags flags, struct mail_keywords *keywords,
 		      time_t received_date, int timezone_offset ATTR_UNUSED,
 		      const char *from_envelope ATTR_UNUSED,
-		      struct istream *input, struct mail *dest_mail,
+		      struct istream *input, struct mail **dest_mail,
 		      struct mail_save_context **ctx_r)
 {
 	struct maildir_transaction_context *t =
@@ -382,7 +382,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 				i_stream_create_crlf(input) :
 				i_stream_create_lf(input);
 
-			maildir_save_add(t, fname, flags, keywords, dest_mail);
+			maildir_save_add(t, fname, flags, keywords, *dest_mail);
 		}
 	} T_END;
 	if (ctx->failed)

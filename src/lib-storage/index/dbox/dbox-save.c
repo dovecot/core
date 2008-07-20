@@ -65,7 +65,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 		   enum mail_flags flags, struct mail_keywords *keywords,
 		   time_t received_date, int timezone_offset ATTR_UNUSED,
 		   const char *from_envelope ATTR_UNUSED,
-		   struct istream *input, struct mail *dest_mail,
+		   struct istream *input, struct mail **dest_mail,
 		   struct mail_save_context **ctx_r)
 {
 	struct dbox_transaction_context *t =
@@ -110,17 +110,17 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 					   MODIFY_REPLACE, keywords);
 	}
 
-	if (dest_mail == NULL) {
+	if (*dest_mail == NULL) {
 		if (ctx->mail == NULL)
 			ctx->mail = mail_alloc(_t, 0, NULL);
-		dest_mail = ctx->mail;
+		*dest_mail = ctx->mail;
 	}
-	mail_set_seq(dest_mail, ctx->seq);
+	mail_set_seq(*dest_mail, ctx->seq);
 
-	ctx->cur_dest_mail = dest_mail;
+	ctx->cur_dest_mail = *dest_mail;
 
 	crlf_input = i_stream_create_lf(input);
-	ctx->input = index_mail_cache_parse_init(dest_mail, crlf_input);
+	ctx->input = index_mail_cache_parse_init(*dest_mail, crlf_input);
 	i_stream_unref(&crlf_input);
 
 	save_mail = array_append_space(&ctx->mails);

@@ -467,7 +467,7 @@ virtual_save_init(struct mailbox_transaction_context *_t,
 		  int timezone_offset ATTR_UNUSED,
 		  const char *from_envelope ATTR_UNUSED,
 		  struct istream *input ATTR_UNUSED,
-		  struct mail *dest_mail ATTR_UNUSED,
+		  struct mail **dest_mail ATTR_UNUSED,
 		  struct mail_save_context **ctx_r)
 {
 	mail_storage_set_error(_t->box->storage, MAIL_ERROR_NOTPOSSIBLE,

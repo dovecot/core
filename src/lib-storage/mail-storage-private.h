@@ -163,7 +163,7 @@ struct mailbox_vfuncs {
 			 struct mail_keywords *keywords,
 			 time_t received_date, int timezone_offset,
 			 const char *from_envelope, struct istream *input,
-			 struct mail *dest_mail,
+			 struct mail **dest_mail,
 			 struct mail_save_context **ctx_r);
 	int (*save_continue)(struct mail_save_context *ctx);
 	int (*save_finish)(struct mail_save_context *ctx);

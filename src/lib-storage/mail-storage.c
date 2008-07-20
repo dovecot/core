@@ -791,7 +791,7 @@ int mailbox_save_init(struct mailbox_transaction_context *t,
 	}
 	if (t->box->v.save_init(t, flags, keywords,
 				received_date, timezone_offset,
-				from_envelope, input, dest_mail, ctx_r) < 0)
+				from_envelope, input, &dest_mail, ctx_r) < 0)
 		return -1;
 
 	(*ctx_r)->dest_mail = dest_mail;

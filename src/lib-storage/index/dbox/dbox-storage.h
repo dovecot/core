@@ -86,7 +86,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 		   enum mail_flags flags, struct mail_keywords *keywords,
 		   time_t received_date, int timezone_offset,
 		   const char *from_envelope, struct istream *input,
-		   struct mail *dest_mail, struct mail_save_context **ctx_r);
+		   struct mail **dest_mail, struct mail_save_context **ctx_r);
 int dbox_save_continue(struct mail_save_context *ctx);
 int dbox_save_finish(struct mail_save_context *ctx);
 void dbox_save_cancel(struct mail_save_context *ctx);
