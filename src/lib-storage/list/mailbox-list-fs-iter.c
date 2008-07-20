@@ -339,6 +339,20 @@ fs_list_get_subscription_flags(struct fs_list_iterate_context *ctx,
 	return node->flags & (MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
 }
 
+static void inbox_flags_set(struct fs_list_iterate_context *ctx)
+{
+	/* INBOX is always selectable */
+	ctx->info.flags &= ~(MAILBOX_NOSELECT | MAILBOX_NONEXISTENT);
+
+	if (*ctx->ctx.list->ns->prefix != '\0') {
+		/* we're listing INBOX for a namespace with a prefix.
+		   if there are children for the INBOX, they're returned under
+		   the mailbox prefix, not under the INBOX itself. */
+		ctx->info.flags &= ~MAILBOX_CHILDREN;
+		ctx->info.flags |= MAILBOX_NOINFERIORS;
+	}
+}
+
 static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 {
 	const char *inbox_path, *dir, *fname;
@@ -355,24 +369,35 @@ static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 		ctx->ctx.failed = TRUE;
 
 	ctx->info.flags |= fs_list_get_subscription_flags(ctx, "INBOX");
+	inbox_flags_set(ctx);
+	/* we got here because we didn't see INBOX among other mailboxes,
+	   which means it has no children. */
+	ctx->info.flags |= MAILBOX_NOCHILDREN;
 	return &ctx->info;
+}
+
+static bool
+list_file_is_inbox(struct fs_list_iterate_context *ctx, const char *fname)
+{
+	const char *real_path, *inbox_path;
+
+	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
+	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
+					   MAILBOX_LIST_PATH_TYPE_DIR);
+	return strcmp(real_path, inbox_path) == 0;
 }
 
 static bool
 list_file_inbox(struct fs_list_iterate_context *ctx, const char *fname)
 {
-	const char *real_path, *inbox_path;
-
-	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
 	if (ctx->inbox_listed) {
 		/* already listed the INBOX */
 		return FALSE;
 	}
+	inbox_flags_set(ctx);
 
-	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
-					   MAILBOX_LIST_PATH_TYPE_DIR);
-	if (strcmp(real_path, inbox_path) == 0 &&
-	    (ctx->info.flags & MAILBOX_NOINFERIORS) != 0) {
+	if ((ctx->info.flags & MAILBOX_NOINFERIORS) != 0 &&
+	    list_file_is_inbox(ctx, fname)) {
 		/* delay listing in case there's a INBOX/ directory */
 		ctx->inbox_found = TRUE;
 		ctx->inbox_flags = ctx->info.flags;
@@ -388,15 +413,12 @@ list_file_inbox(struct fs_list_iterate_context *ctx, const char *fname)
 	if ((ctx->ctx.list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
 		/* this directory is the INBOX */
 	} else if (!ctx->inbox_found) {
-		enum mailbox_info_flags dir_flags = ctx->info.flags;
-
 		(void)fs_list_inbox(ctx);
-		ctx->info.flags &= ~(MAILBOX_NOINFERIORS |
-				     MAILBOX_NOCHILDREN);
-		ctx->info.flags |= dir_flags;
+		ctx->info.flags &= ~(MAILBOX_NOSELECT | MAILBOX_NONEXISTENT |
+				     MAILBOX_NOINFERIORS | MAILBOX_NOCHILDREN);
 		ctx->inbox_found = TRUE;
 	} else {
-		ctx->info.flags &= ~MAILBOX_NOSELECT;
+		ctx->info.flags &= ~(MAILBOX_NOSELECT | MAILBOX_NONEXISTENT);
 		ctx->info.flags |= ctx->inbox_flags;
 	}
 	ctx->inbox_listed = TRUE;
@@ -511,10 +533,17 @@ list_file(struct fs_list_iterate_context *ctx,
 	ctx->info.flags |= fs_list_get_subscription_flags(ctx, list_path);
 
 	/* make sure we give only one correct INBOX */
-	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
-	    strcasecmp(list_path, "INBOX") == 0) {
-		if (!list_file_inbox(ctx, fname))
+	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		if (strcasecmp(list_path, "INBOX") == 0) {
+			if (!list_file_inbox(ctx, fname))
+				return 0;
+		} else if (strcasecmp(fname, "INBOX") == 0 &&
+			   list_file_is_inbox(ctx, fname) &&
+			   (ctx->info.flags & MAILBOX_CHILDREN) == 0) {
+			/* This is the INBOX. Don't return it under the mailbox
+			   prefix unless it has children. */
 			return 0;
+		}
 	}
 
 	if ((ctx->info.flags & MAILBOX_NOINFERIORS) == 0)
