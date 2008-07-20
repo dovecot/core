@@ -110,16 +110,15 @@ static int ATTR_FORMAT(3, 0)
 default_handler(const char *prefix, int fd, const char *format, va_list args)
 {
 	static int recursed = 0;
-	int ret, old_errno = errno;
+	int ret;
 
 	if (recursed >= 2) {
 		/* we're being called from some signal handler or we ran
 		   out of memory */
-		return 0;
+		return -1;
 	}
 
 	recursed++;
-
 	T_BEGIN {
 		string_t *str = t_str_new(256);
 		log_prefix_add(str);
@@ -132,9 +131,7 @@ default_handler(const char *prefix, int fd, const char *format, va_list args)
 		ret = log_fd_write(fd, str_data(str), str_len(str));
 	} T_END;
 
-	errno = old_errno;
 	recursed--;
-
 	return ret;
 }
 
@@ -274,9 +271,8 @@ syslog_handler(int level, enum log_type type, const char *format, va_list args)
 {
 	static int recursed = 0;
 
-	if (recursed != 0)
+	if (recursed >= 2)
 		return -1;
-
 	recursed++;
 
 	/* syslogs don't generatelly bother to log the level in any way,
@@ -391,8 +387,16 @@ void i_set_failure_prefix(const char *prefix)
 static int ATTR_FORMAT(2, 0)
 internal_handler(char log_type, const char *format, va_list args)
 {
+	static int recursed = 0;
 	int ret;
 
+	if (recursed >= 2) {
+		/* we're being called from some signal handler or we ran
+		   out of memory */
+		return -1;
+	}
+
+	recursed++;
 	T_BEGIN {
 		string_t *str;
 
@@ -404,6 +408,7 @@ internal_handler(char log_type, const char *format, va_list args)
 		ret = write_full(2, str_data(str), str_len(str));
 	} T_END;
 
+	recursed--;
 	return ret;
 }
 
