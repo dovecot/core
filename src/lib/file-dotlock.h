@@ -68,6 +68,11 @@ int file_dotlock_delete(struct dotlock **dotlock);
 int file_dotlock_open(const struct dotlock_settings *set, const char *path,
 		      enum dotlock_create_flags flags,
 		      struct dotlock **dotlock_r);
+/* Like file_dotlock_open(), but use the given file permissions. */
+int file_dotlock_open_mode(const struct dotlock_settings *set, const char *path,
+			   enum dotlock_create_flags flags,
+			   mode_t mode, uid_t uid, gid_t gid,
+			   struct dotlock **dotlock_r);
 /* Replaces the file dotlock protects with the dotlock file itself. */
 int file_dotlock_replace(struct dotlock **dotlock,
 			 enum dotlock_replace_flags flags);

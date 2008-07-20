@@ -731,6 +731,31 @@ int file_dotlock_open(const struct dotlock_settings *set, const char *path,
 	return dotlock->fd;
 }
 
+int file_dotlock_open_mode(const struct dotlock_settings *set, const char *path,
+			   enum dotlock_create_flags flags,
+			   mode_t mode, uid_t uid, gid_t gid,
+			   struct dotlock **dotlock_r)
+{
+	struct dotlock *dotlock;
+	mode_t old_mask;
+	int fd;
+
+	old_mask = umask(0666 ^ mode);
+	fd = file_dotlock_open(set, path, flags, &dotlock);
+	umask(old_mask);
+
+	if (fd != -1) {
+		if (fchown(fd, uid, gid) < 0) {
+			i_error("fchown(%s) failed: %m",
+				file_dotlock_get_lock_path(dotlock));
+			file_dotlock_delete(&dotlock);
+			return -1;
+		}
+	}
+	*dotlock_r = dotlock;
+	return fd;
+}
+
 int file_dotlock_replace(struct dotlock **dotlock_p,
 			 enum dotlock_replace_flags flags)
 {
