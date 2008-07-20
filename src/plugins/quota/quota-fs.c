@@ -160,6 +160,9 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 	mount->mount_path = point.mount_path;
 	mount->type = point.type;
 	mount->block_size = point.block_size;
+#ifdef FS_QUOTA_SOLARIS
+	mount->fd = -1;
+#endif
 	return mount;
 }
 
