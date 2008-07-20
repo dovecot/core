@@ -88,6 +88,10 @@ static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 		if (mailbox_transaction_commit(&src_trans) < 0)
 			ret = -1;
 	}
+	if (ret == 0) {
+		if (mailbox_sync(srcbox, 0, 0, NULL) < 0)
+			ret = -1;
+	}
 	return ret;
 }
 
