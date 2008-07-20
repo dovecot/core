@@ -1082,7 +1082,12 @@ void index_mail_close(struct mail *_mail)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct message_part *parts;
 
-	if (mail->mail.mail.seq != 0) {
+	/* If uid == 0 but seq != 0, we came here from saving a (non-mbox)
+	   message. If that happens, don't bother checking if anything should
+	   be cached since it was already checked. Also by now the transaction
+	   may have already been rollbacked and seq point to a non-existing
+	   message. */
+	if (mail->mail.mail.uid != 0) {
 		index_mail_cache_sizes(mail);
 		index_mail_cache_dates(mail);
 	}
