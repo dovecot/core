@@ -143,7 +143,8 @@ static void deliver_log(struct mail *mail, const char *fmt, ...)
 
 static struct mailbox *
 mailbox_open_or_create_synced(struct mail_namespace *namespaces,
-			      struct mail_storage **storage_r, const char *name)
+			      struct mail_storage **storage_r,
+			      const char *name)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
@@ -155,6 +156,12 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 		return NULL;
 	}
 	*storage_r = ns->storage;
+
+	if (*name == '\0') {
+		/* delivering to a namespace prefix means we actually want to
+		   deliver to the INBOX instead */
+		return NULL;
+	}
 
 	box = mailbox_open(ns->storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT);
@@ -192,9 +199,11 @@ int deliver_save(struct mail_namespace *namespaces,
 	struct mail_keywords *kw;
 	enum mail_error error;
 	const char *mailbox_name;
+	bool default_save;
 	int ret = 0;
 
-	if (strcmp(mailbox, default_mailbox_name) == 0)
+	default_save = strcmp(mailbox, default_mailbox_name) == 0;
+	if (default_save)
 		tried_default_save = TRUE;
 
 	mailbox_name = str_sanitize(mailbox, 80);
@@ -204,6 +213,11 @@ int deliver_save(struct mail_namespace *namespaces,
 			deliver_log(mail,
 				    "save failed to %s: Unknown namespace",
 				    mailbox_name);
+			return -1;
+		}
+		if (default_save &&
+		    strcmp((*storage_r)->ns->prefix, mailbox) == 0) {
+			/* silently store to the INBOX instead */
 			return -1;
 		}
 		deliver_log(mail, "save failed to %s: %s", mailbox_name,
