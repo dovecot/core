@@ -218,16 +218,34 @@ maildirs_check_have_changed(struct maildir_quota_root *root,
 static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 {
 	const struct quota_rule *rule = &root->root.default_rule;
+	struct mail_storage *const *storages;
+	unsigned int i, count;
 	struct dotlock *dotlock;
 	string_t *str;
+	mode_t mode;
+	gid_t gid;
 	int fd;
 
 	i_assert(root->fd == -1);
 
+	/* figure out what permissions we should use for maildirsize.
+	   use the inbox namespace's permissions if possible. */
+	mode = 0600;
+	gid = (gid_t)-1;
+	storages = array_get(&root->root.quota->storages, &count);
+	for (i = 0; i < count; i++) {
+		if ((storages[i]->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+			mailbox_list_get_permissions(storages[i]->ns->list,
+						     &mode, &gid);
+			break;
+		}
+	}
+
 	dotlock_settings.use_excl_lock = getenv("DOTLOCK_USE_EXCL") != NULL;
 	dotlock_settings.nfs_flush = getenv("MAIL_NFS_STORAGE") != NULL;
-	fd = file_dotlock_open(&dotlock_settings, path,
-			       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
+	fd = file_dotlock_open_mode(&dotlock_settings, path,
+				    DOTLOCK_CREATE_FLAG_NONBLOCK,
+				    mode, (uid_t)-1, gid, &dotlock);
 	if (fd == -1) {
 		if (errno == EAGAIN) {
 			/* someone's just in the middle of updating it */

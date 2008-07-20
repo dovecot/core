@@ -141,6 +141,10 @@ mailbox_list_get_namespace(const struct mailbox_list *list) ATTR_PURE;
    necessary to change the default */
 void mailbox_list_get_permissions(struct mailbox_list *list,
 				  mode_t *mode_r, gid_t *gid_r);
+/* Like mailbox_list_get_permissions(), but add execute-bits for mode
+   if either read or write bit is set (e.g. 0640 -> 0750). */
+void mailbox_list_get_dir_permissions(struct mailbox_list *list,
+				      mode_t *mode_r, gid_t *gid_r);
 
 /* Returns TRUE if the name doesn't contain any invalid characters.
    The create name check can be more strict. */

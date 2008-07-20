@@ -115,7 +115,8 @@ static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 						  "stat(%s) failed: %m", path);
 			break;
 		}
-		if (mkdir_parents(path, box->dir_create_mode) < 0 &&
+		if (mkdir_parents_chown(path, box->dir_create_mode,
+					(uid_t)-1, box->file_create_gid) < 0 &&
 		    errno != EEXIST) {
 			if (errno == ENOENT) {
 				/* mailbox was being deleted just now */

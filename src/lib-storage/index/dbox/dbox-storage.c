@@ -146,7 +146,12 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 
 static int create_dbox(struct mail_storage *storage, const char *path)
 {
-	if (mkdir_parents(path, CREATE_MODE) < 0 && errno != EEXIST) {
+	mode_t mode;
+	gid_t gid;
+
+	mailbox_list_get_dir_permissions(storage->list, &mode, &gid);
+	if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) < 0 &&
+	    errno != EEXIST) {
 		if (!mail_storage_set_error_from_errno(storage)) {
 			mail_storage_set_critical(storage,
 				"mkdir(%s) failed: %m", path);

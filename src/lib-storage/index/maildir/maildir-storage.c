@@ -21,8 +21,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define CREATE_MODE 0777 /* umask() should limit it more */
-
 #define MAILDIR_PLUSPLUS_DRIVER_NAME "maildir++"
 #define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
 
@@ -290,7 +288,7 @@ static bool maildir_autodetect(const char *data, enum mail_storage_flags flags)
 }
 
 static int mkdir_verify(struct mail_storage *storage,
-			const char *dir, bool verify)
+			const char *dir, mode_t mode, gid_t gid, bool verify)
 {
 	struct stat st;
 
@@ -305,7 +303,7 @@ static int mkdir_verify(struct mail_storage *storage,
 		}
 	}
 
-	if (mkdir_parents(dir, CREATE_MODE) == 0)
+	if (mkdir_parents_chown(dir, mode, (uid_t)-1, gid) == 0)
 		return 0;
 
 	if (errno == EEXIST) {
@@ -355,8 +353,10 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 
 /* create or fix maildir, ignore if it already exists */
 static int create_maildir(struct mail_storage *storage,
-			  const char *dir, bool verify)
+			  const char *dir, mode_t mode, gid_t gid, bool verify)
 {
+	const char *path;
+	unsigned int i;
 	int ret;
 
 	ret = maildir_check_tmp(storage, dir);
@@ -372,12 +372,11 @@ static int create_maildir(struct mail_storage *storage,
 		return -1;
 
 	/* doesn't exist, create */
-	if (mkdir_verify(storage, t_strconcat(dir, "/cur", NULL), verify) < 0)
-		return -1;
-	if (mkdir_verify(storage, t_strconcat(dir, "/new", NULL), verify) < 0)
-		return -1;
-	if (mkdir_verify(storage, t_strconcat(dir, "/tmp", NULL), verify) < 0)
-		return -1;
+	for (i = 0; i < N_ELEMENTS(maildir_subdirs); i++) {
+		path = t_strconcat(dir, "/", maildir_subdirs[i], NULL);
+		if (mkdir_verify(storage, path, mode, gid, verify) < 0)
+			return -1;
+	}
 	return 0;
 }
 
@@ -474,6 +473,8 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	struct maildir_storage *storage = (struct maildir_storage *)_storage;
 	const char *path;
 	struct stat st;
+	mode_t mode;
+	gid_t gid;
 	int ret;
 
 	if (input != NULL) {
@@ -488,7 +489,8 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	if (strcmp(name, "INBOX") == 0 &&
 	    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		/* INBOX always exists */
-		if (create_maildir(_storage, path, TRUE) < 0)
+		mailbox_list_get_dir_permissions(_storage->list, &mode, &gid);
+		if (create_maildir(_storage, path, mode, gid, TRUE) < 0)
 			return NULL;
 		return maildir_open(storage, "INBOX", flags);
 	}
@@ -506,7 +508,8 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	/* tmp/ directory doesn't exist. does the maildir? */
 	if (stat(path, &st) == 0) {
 		/* yes, we'll need to create the missing dirs */
-		if (create_maildir(_storage, path, TRUE) < 0)
+		mailbox_list_get_dir_permissions(_storage->list, &mode, &gid);
+		if (create_maildir(_storage, path, mode, gid, TRUE) < 0)
 			return NULL;
 
 		return maildir_open(storage, name, flags);
@@ -526,7 +529,6 @@ static int maildir_create_shared(struct mail_storage *storage,
 {
 	const char *path;
 	mode_t old_mask;
-	unsigned int i;
 	int fd;
 
 	/* add the execute bit if either read or write bit is set */
@@ -534,23 +536,10 @@ static int maildir_create_shared(struct mail_storage *storage,
 	if ((mode & 0060) != 0) mode |= 0010;
 	if ((mode & 0006) != 0) mode |= 0001;
 
-	old_mask = umask(0777 ^ mode);
-	if (create_maildir(storage, dir, FALSE) < 0) {
-		umask(old_mask);
+	if (create_maildir(storage, dir, mode, gid, FALSE) < 0)
 		return -1;
-	}
-	if (chown(dir, (uid_t)-1, gid) < 0) {
-		mail_storage_set_critical(storage,
-					  "chown(%s) failed: %m", dir);
-	}
-	for (i = 0; i < N_ELEMENTS(maildir_subdirs); i++) {
-		path = t_strconcat(dir, "/", maildir_subdirs[i], NULL);
-		if (chown(path, (uid_t)-1, gid) < 0) {
-			mail_storage_set_critical(storage,
-						  "chown(%s) failed: %m", path);
-		}
-	}
 
+	old_mask = umask(0777 ^ mode);
 	path = t_strconcat(dir, "/dovecot-shared", NULL);
 	fd = open(path, O_WRONLY | O_CREAT, mode & 0666);
 	umask(old_mask);
@@ -590,9 +579,10 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 					  st.st_mode & 0666, st.st_gid) < 0)
 			return -1;
 	} else {
-		st.st_mode = CREATE_MODE;
-		st.st_gid = (gid_t)-1;
-		if (create_maildir(_storage, path, FALSE) < 0)
+		mailbox_list_get_dir_permissions(_storage->list,
+						 &st.st_mode, &st.st_gid);
+		if (create_maildir(_storage, path, st.st_mode, st.st_gid,
+				   FALSE) < 0)
 			return -1;
 	}
 

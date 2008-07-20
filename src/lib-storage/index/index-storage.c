@@ -17,8 +17,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define CREATE_MODE 0770 /* umask() should limit it more */
-
 #define DEFAULT_CACHE_FIELDS ""
 #define DEFAULT_NEVER_CACHE_FIELDS "imap.envelope"
 
@@ -69,9 +67,38 @@ static void index_list_free(struct index_list *list)
 	i_free(list);
 }
 
+static int stat_parent(struct mail_storage *storage, const char *path,
+		       mode_t *mode_r, gid_t *gid_r)
+{
+	struct stat st;
+	const char *p;
+
+	while ((p = strrchr(path, '/')) != NULL) {
+		path = t_strdup_until(path, p);
+		if (stat(path, &st) == 0) {
+			*mode_r = st.st_mode;
+			*gid_r = (st.st_mode & S_ISGID) != 0 ||
+				st.st_gid == getegid() ?
+				(gid_t)-1 : st.st_gid;
+			return 0;
+		}
+		if (errno != ENOENT) {
+			mail_storage_set_critical(storage,
+						  "stat(%s) failed: %m", path);
+			return -1;
+		}
+	}
+	/* use default permissions */
+	*mode_r = 0700;
+	*gid_r = (gid_t)-1;
+	return 0;
+}
+
 static int create_index_dir(struct mail_storage *storage, const char *name)
 {
 	const char *root_dir, *index_dir;
+	mode_t mode;
+	gid_t gid;
 
 	root_dir = mailbox_list_get_path(storage->list, name,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -80,7 +107,12 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 	if (strcmp(index_dir, root_dir) == 0 || *index_dir == '\0')
 		return 0;
 
-	if (mkdir_parents(index_dir, CREATE_MODE) < 0 && errno != EEXIST) {
+	/* get permissions from the parent directory */
+	if (stat_parent(storage, index_dir, &mode, &gid) < 0)
+		return -1;
+
+	if (mkdir_parents_chown(index_dir, mode, (uid_t)-1, gid) < 0 &&
+	    errno != EEXIST) {
 		mail_storage_set_critical(storage, "mkdir(%s) failed: %m",
 					  index_dir);
 		return -1;

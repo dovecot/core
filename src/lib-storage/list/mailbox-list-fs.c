@@ -11,7 +11,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define CREATE_MODE 0770 /* umask() should limit it more */
 #define GLOBAL_TEMP_PREFIX ".temp."
 
 extern struct mailbox_list fs_mailbox_list;
@@ -283,6 +282,8 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 {
 	const char *oldpath, *newpath, *old_indexdir, *new_indexdir, *p;
 	struct stat st;
+	mode_t mode;
+	gid_t gid;
 
 	oldpath = mailbox_list_get_path(list, oldname,
 					MAILBOX_LIST_PATH_TYPE_DIR);
@@ -292,8 +293,10 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	/* create the hierarchy */
 	p = strrchr(newpath, '/');
 	if (p != NULL) {
+		mailbox_list_get_dir_permissions(list, &mode, &gid);
 		p = t_strdup_until(newpath, p);
-		if (mkdir_parents(p, CREATE_MODE) < 0 && errno != EEXIST) {
+		if (mkdir_parents_chown(p, mode, (uid_t)-1, gid) < 0 &&
+		    errno != EEXIST) {
 			if (mailbox_list_set_error_from_errno(list))
 				return -1;
 

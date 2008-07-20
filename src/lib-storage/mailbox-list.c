@@ -291,6 +291,21 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 	*gid_r = list->file_create_gid;
 }
 
+void mailbox_list_get_dir_permissions(struct mailbox_list *list,
+				      mode_t *mode_r, gid_t *gid_r)
+{
+	mode_t mode;
+
+	mailbox_list_get_permissions(list, &mode, gid_r);
+
+	/* add the execute bit if either read or write bit is set */
+	if ((mode & 0600) != 0) mode |= 0100;
+	if ((mode & 0060) != 0) mode |= 0010;
+	if ((mode & 0006) != 0) mode |= 0001;
+
+	*mode_r = mode;
+}
+
 bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
 				   const char *pattern)
 {
