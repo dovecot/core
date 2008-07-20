@@ -5,7 +5,10 @@
 
 #include <sys/stat.h>
 
-#ifdef HAVE_STATVFS_MNTFROMNAME
+#ifdef HAVE_SYS_VMOUNT_H
+#  include <stdio.h>
+#  include <sys/vmount.h> /* AIX */
+#elif defined(HAVE_STATVFS_MNTFROMNAME)
 #  include <sys/statvfs.h> /* NetBSD 3.0+, FreeBSD 5.0+ */
 #  define STATVFS_STR "statvfs"
 #elif defined(HAVE_STATFS_MNTFROMNAME)
@@ -36,6 +39,12 @@
 #endif
 #ifndef MNTTYPE_IGNORE
 #  define MNTTYPE_IGNORE "ignore"
+#endif
+#ifndef MNTTYPE_JFS
+#  define MNTTYPE_JFS "jfs"
+#endif
+#ifndef MNTTYPE_NFS
+#  define MNTTYPE_NFS "nfs"
 #endif
 
 
@@ -93,7 +102,62 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 	}
 	block_size = st.st_blksize;
 
-#ifdef HAVE_SYS_MNTTAB_H
+#ifdef HAVE_SYS_VMOUNT_H
+{
+	char static_mtab[STATIC_MTAB_SIZE], *mtab = static_mtab;
+	int i, count;
+	const struct vmount *vmt;
+
+	count = mntctl(MCTL_QUERY, sizeof(static_mtab), mtab);
+	while (count == 0) {
+		unsigned int size = *(unsigned int *)mtab;
+
+		mtab  = t_malloc(size);
+		count = mntctl(MCTL_QUERY, size, mtab);
+	}
+	if (count < 0) {
+		i_error("mntctl(MCTL_QUERY) failed: %m");
+		return -1;
+	}
+	vmt = (struct vmount *)mtab;
+	for (i = 0; i < count && device_path == NULL; i++) {
+		struct stat vst;
+		const char *vmt_base = (const char *)vmt;
+		const char *vmt_base, *vmt_object, *vmt_stub, *vmt_hostname;
+
+		vmt_hostname = vmt_base + vmt->vmt_data[VMT_HOSTNAME].vmt_off;
+		vmt_object   = vmt_base + vmt->vmt_data[VMT_OBJECT].vmt_off;
+		vmt_stub     = vmt_base + vmt->vmt_data[VMT_STUB].vmt_off;
+
+		switch (vmt->vmt_gfstype) {
+		case MNT_NFS:
+		case MNT_NFS3:
+		case MNT_NFS4:
+		case MNT_RFS4:
+			if (stat(vmt_stub, &vst) == 0 &&
+			    st.st_dev == vst.st_dev) {
+				device_path = t_strconcat(vmt_hostname, ":",
+							  vmt_object, NULL);
+				mount_path  = vmt_stub;
+				type        = MNTTYPE_NFS;
+			}
+			break;
+
+		case MNT_J2:
+		case MNT_JFS:
+			if (stat(vmt_stub, &vst) == 0 &&
+			    st.st_dev == vst.st_dev) {
+				device_path = vmt_object;
+				mount_path  = vmt_stub;
+				type        = MNTTYPE_JFS;
+			}
+			break;
+		}
+		vmt = CONST_PTR_OFFSET(vmt, vmt->vmt_length);
+	}
+}
+#elif defined(HAVE_SYS_MNTTAB_H)
+
 	/* Solaris */
 	f = fopen(MTAB_PATH, "r");
 	if (f == NULL) {
