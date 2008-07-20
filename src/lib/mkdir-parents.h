@@ -6,4 +6,8 @@
    exists, returns -1 with errno=EXIST. */
 int mkdir_parents(const char *path, mode_t mode);
 
+/* Like mkdir_parents(), but use the given uid/gid for newly created
+   directories. */
+int mkdir_parents_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
+
 #endif
