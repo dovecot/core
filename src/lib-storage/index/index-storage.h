@@ -111,8 +111,6 @@ bool index_storage_is_readonly(struct mailbox *box);
 bool index_storage_allow_new_keywords(struct mailbox *box);
 bool index_storage_is_inconsistent(struct mailbox *box);
 
-int index_mailbox_keyword_is_valid(struct index_mailbox *ibox,
-				   const char *keyword, const char **error_r);
 int index_keywords_create(struct mailbox *box, const char *const keywords[],
 			  struct mail_keywords **keywords_r, bool skip_invalid);
 void index_keywords_free(struct mail_keywords *keywords);

@@ -134,8 +134,8 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 		/* add it to index's keyword list if it's not there already */
 		keyword = t_strndup(hdr->full_value + keyword_start,
 				    pos - keyword_start);
-		if (index_mailbox_keyword_is_valid(&ctx->sync_ctx->mbox->ibox,
-						   keyword, &error)) {
+		if (mailbox_keyword_is_valid(&ctx->sync_ctx->mbox->ibox.box,
+					     keyword, &error)) {
 			mail_index_keyword_lookup_or_create(
 				ctx->sync_ctx->mbox->ibox.index, keyword, &idx);
 		}
