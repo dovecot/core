@@ -109,7 +109,7 @@ static struct setting_def setting_defs[] = {
 	{ 0, NULL, 0 }
 };
 
-struct ldap_settings default_ldap_settings = {
+static struct ldap_settings default_ldap_settings = {
 	MEMBER(hosts) NULL,
 	MEMBER(uris) NULL,
 	MEMBER(dn) NULL,

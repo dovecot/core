@@ -23,7 +23,8 @@
 	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
 #define IMAP_FETCH_HANDLER_COUNT 9
-const struct imap_fetch_handler default_handlers[IMAP_FETCH_HANDLER_COUNT];
+extern const struct imap_fetch_handler
+	imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT];
 static buffer_t *fetch_handlers = NULL;
 
 static int imap_fetch_handler_cmp(const void *p1, const void *p2)
@@ -91,8 +92,8 @@ imap_fetch_init(struct client_command_context *cmd, struct mailbox *box)
 	struct imap_fetch_context *ctx;
 
 	if (fetch_handlers == NULL) {
-		imap_fetch_handlers_register(default_handlers,
-					     N_ELEMENTS(default_handlers));
+		imap_fetch_handlers_register(imap_fetch_default_handlers,
+			N_ELEMENTS(imap_fetch_default_handlers));
 	}
 
 	ctx = p_new(cmd->pool, struct imap_fetch_context, 1);
@@ -800,7 +801,8 @@ fetch_x_mailbox_init(struct imap_fetch_context *ctx ATTR_UNUSED,
 	return TRUE;
 }
 
-const struct imap_fetch_handler default_handlers[IMAP_FETCH_HANDLER_COUNT] = {
+const struct imap_fetch_handler
+imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT] = {
 	{ "BODY", fetch_body_init },
 	{ "BODYSTRUCTURE", fetch_bodystructure_init },
 	{ "ENVELOPE", fetch_envelope_init },

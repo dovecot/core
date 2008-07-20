@@ -12,7 +12,7 @@
 #include <stdlib.h>
 
 struct client *clients = NULL;
-unsigned int clients_count = 0;
+static unsigned int clients_count = 0;
 
 void client_link(struct client *client)
 {

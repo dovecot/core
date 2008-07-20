@@ -7,7 +7,7 @@
 
 #include <stdlib.h>
 
-const struct command imap4rev1_commands[] = {
+static const struct command imap4rev1_commands[] = {
 	{ "CAPABILITY",		cmd_capability,  0 },
 	{ "LOGOUT",		cmd_logout,      COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "NOOP",		cmd_noop,        COMMAND_FLAG_BREAKS_SEQS },
@@ -40,7 +40,7 @@ const struct command imap4rev1_commands[] = {
 };
 #define IMAP4REV1_COMMANDS_COUNT N_ELEMENTS(imap4rev1_commands)
 
-const struct command imap_ext_commands[] = {
+static const struct command imap_ext_commands[] = {
 	{ "CANCELUPDATE",	cmd_cancelupdate,0 },
 	{ "ENABLE",		cmd_enable,      0 },
 	{ "ID",			cmd_id,          0 },

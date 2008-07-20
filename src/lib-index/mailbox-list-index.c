@@ -41,7 +41,7 @@ struct mailbox_list_iter_ctx {
 	unsigned int failed:1;
 };
 
-const struct dotlock_settings default_dotlock_set = {
+static const struct dotlock_settings default_dotlock_set = {
 	MEMBER(temp_prefix) NULL,
 	MEMBER(lock_suffix) NULL,
 

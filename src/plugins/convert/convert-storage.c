@@ -14,7 +14,7 @@
 
 #define CONVERT_LOCK_FILENAME ".dovecot.convert"
 
-struct dotlock_settings dotlock_settings = {
+static struct dotlock_settings dotlock_settings = {
 	MEMBER(temp_prefix) NULL,
 	MEMBER(lock_suffix) NULL,
 

@@ -46,7 +46,7 @@ struct maildir_list_context {
 
 extern struct quota_backend quota_backend_maildir;
 
-struct dotlock_settings dotlock_settings = {
+static struct dotlock_settings dotlock_settings = {
 	MEMBER(temp_prefix) NULL,
 	MEMBER(lock_suffix) NULL,
 

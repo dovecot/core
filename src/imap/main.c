@@ -30,7 +30,7 @@ struct client_workaround_list {
 	enum client_workarounds num;
 };
 
-struct client_workaround_list client_workaround_list[] = {
+static struct client_workaround_list client_workaround_list[] = {
 	{ "delay-newmail", WORKAROUND_DELAY_NEWMAIL },
 	{ "outlook-idle", 0 }, /* only for backwards compatibility */
 	{ "netscape-eoh", WORKAROUND_NETSCAPE_EOH },

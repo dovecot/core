@@ -18,8 +18,7 @@
 
 #define DICT_MASTER_LISTENER_FD 3
 
-struct ioloop *ioloop;
-
+static struct ioloop *ioloop;
 static struct io *log_io;
 static struct module *modules;
 static struct dict_server *dict_server;

@@ -9,13 +9,13 @@
 
 #include <stdlib.h>
 
-const char *all_macro[] = {
+static const char *all_macro[] = {
 	"FLAGS", "INTERNALDATE", "RFC822.SIZE", "ENVELOPE", NULL
 };
-const char *fast_macro[] = {
+static const char *fast_macro[] = {
 	"FLAGS", "INTERNALDATE", "RFC822.SIZE", NULL
 };
-const char *full_macro[] = {
+static const char *full_macro[] = {
 	"FLAGS", "INTERNALDATE", "RFC822.SIZE", "ENVELOPE", "BODY", NULL
 };
 

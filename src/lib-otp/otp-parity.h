@@ -1,7 +1,7 @@
 #ifndef OTP_PARITY_H
 #define OTP_PARITY_H
 
-const unsigned char parity_table[256];
+extern const unsigned char parity_table[256];
 
 static inline unsigned int otp_parity(unsigned char *data)
 {

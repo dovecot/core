@@ -26,7 +26,7 @@ static struct setting_def setting_defs[] = {
 	{ 0, NULL, 0 }
 };
 
-struct sql_settings default_sql_settings = {
+static struct sql_settings default_sql_settings = {
 	MEMBER(driver) NULL,
 	MEMBER(connect) NULL,
 	MEMBER(password_query) "SELECT username, domain, password FROM users WHERE username = '%n' AND domain = '%d'",

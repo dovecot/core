@@ -1613,7 +1613,7 @@ void mail_index_transaction_check_conflicts(struct mail_index_transaction *t)
 	t->log_updates = mail_index_transaction_has_changes(t);
 }
 
-struct mail_index_transaction_vfuncs trans_vfuncs = {
+static struct mail_index_transaction_vfuncs trans_vfuncs = {
 	mail_index_transaction_commit_v,
 	mail_index_transaction_rollback_v
 };

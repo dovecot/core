@@ -9,7 +9,7 @@
 #include <sqlite3.h>
 
 /* retry time if db is busy (in ms) */
-const int sqlite_busy_timeout = 1000;
+static const int sqlite_busy_timeout = 1000;
 
 struct sqlite_db {
 	struct sql_db api;

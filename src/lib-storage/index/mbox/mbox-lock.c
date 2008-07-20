@@ -82,7 +82,7 @@ static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 #  define mbox_lock_lockf NULL
 #endif
 
-struct mbox_lock_data lock_data[] = {
+static struct mbox_lock_data lock_data[] = {
 	{ MBOX_LOCK_DOTLOCK, "dotlock", mbox_lock_dotlock },
 	{ MBOX_LOCK_DOTLOCK_TRY, "dotlock_try", mbox_lock_dotlock_try },
 	{ MBOX_LOCK_FCNTL, "fcntl", mbox_lock_fcntl },
