@@ -2236,9 +2236,11 @@ AC_CHECK_HEADER(zlib.h, [
 AM_CONDITIONAL(BUILD_ZLIB, test "$have_zlib" = "yes")
 
 AC_CHECK_HEADER(bzlib.h, [
-  have_bzlib=yes
-  have_zlib_plugin=yes
-  AC_DEFINE(HAVE_BZLIB,, Define if you have zlib library)
+  AC_CHECK_LIB(bz2, BZ2_bzdopen, [
+    have_bzlib=yes
+    have_zlib_plugin=yes
+    AC_DEFINE(HAVE_BZLIB,, Define if you have zlib library)
+  ])
 ])
 AM_CONDITIONAL(BUILD_BZLIB, test "$have_bzlib" = "yes")
 AM_CONDITIONAL(BUILD_ZLIB_PLUGIN, test "$have_zlib_plugin" = "yes")
