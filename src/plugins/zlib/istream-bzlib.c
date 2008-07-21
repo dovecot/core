@@ -5,6 +5,7 @@
 #include "istream-zlib.h"
 
 #ifdef HAVE_BZLIB
+#include <stdio.h>
 #include <bzlib.h>
 
 #define BZLIB_INCLUDE
