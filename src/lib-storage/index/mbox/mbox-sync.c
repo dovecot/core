@@ -449,13 +449,11 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 			mbox_sync_update_md5_if_changed(mail_ctx);
 	}
 
-	/* mail_ctx->recent is TRUE always if Status: O doesn't exist in the
-	   mbox file. With lazy writes another session could have taken it
-	   already, so we'll also have to check this from index header. */
-	if (!mail_ctx->recent || mail->uid < sync_ctx->hdr->first_recent_uid)
+	if (!mail_ctx->recent) {
+		/* Mail has "Status: O" header. No messages before this
+		   can be recent. */
 		sync_ctx->last_nonrecent_uid = mail->uid;
-	else
-		index_mailbox_set_recent_uid(&sync_ctx->mbox->ibox, mail->uid);
+	}
 
 	/* update from_offsets, but not if we're going to rewrite this message.
 	   rewriting would just move it anyway. */
@@ -1328,8 +1326,9 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 {
+	struct mail_index_view *view;
 	const struct stat *st;
-	uint32_t first_recent_uid;
+	uint32_t first_recent_uid, seq, seq2;
 
 	st = i_stream_stat(sync_ctx->file_input, FALSE);
 	if (st == NULL) {
@@ -1410,6 +1409,22 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			offsetof(struct mail_index_header, sync_size),
 			&sync_size, sizeof(sync_size), TRUE);
 	}
+
+	if (sync_ctx->last_nonrecent_uid < sync_ctx->hdr->first_recent_uid) {
+		/* other sessions have already marked more messages as
+		   recent. */
+		sync_ctx->last_nonrecent_uid =
+			sync_ctx->hdr->first_recent_uid - 1;
+	}
+
+	/* mark recent messages */
+	view = mail_index_transaction_open_updated_view(sync_ctx->t);
+	if (mail_index_lookup_seq_range(view, sync_ctx->last_nonrecent_uid + 1,
+					(uint32_t)-1, &seq, &seq2)) {
+		index_mailbox_set_recent_seq(&sync_ctx->mbox->ibox,
+					     view, seq, seq2);
+	}
+	mail_index_view_close(&view);
 
 	first_recent_uid = !sync_ctx->mbox->ibox.keep_recent ?
 		sync_ctx->next_uid : sync_ctx->last_nonrecent_uid + 1;
