@@ -23,7 +23,7 @@ noinst_HEADERS = \
 	fts-storage.h
 
 install-exec-local:
-	for d in imap lda; do \
+	for d in imap pop3 lda; do \
 	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
 	  rm -f $(DESTDIR)$(moduledir)/$$d/lib20_fts_plugin$(MODULE_SUFFIX); \
 	  $(LN_S) ../lib20_fts_plugin$(MODULE_SUFFIX) $(DESTDIR)$(moduledir)/$$d; \
