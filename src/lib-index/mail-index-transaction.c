@@ -536,12 +536,15 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 
 uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
 {
-	const struct mail_index_header *hdr;
+	const struct mail_index_header *head_hdr, *hdr;
 	const struct mail_index_record *recs;
 	unsigned int count, offset;
 	uint32_t next_uid;
 
-	next_uid = t->reset ? 1 : t->view->map->hdr.next_uid;
+	head_hdr = &t->view->index->map->hdr;
+	hdr = &t->view->map->hdr;
+	next_uid = t->reset || head_hdr->uid_validity != hdr->uid_validity ?
+		1 : hdr->next_uid;
 	if (array_is_created(&t->appends)) {
 		/* get next_uid from appends if they have UIDs */
 		mail_index_transaction_sort_appends(t);
