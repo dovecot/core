@@ -123,7 +123,7 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 	for (i = 0; i < count && device_path == NULL; i++) {
 		struct stat vst;
 		const char *vmt_base = (const char *)vmt;
-		const char *vmt_base, *vmt_object, *vmt_stub, *vmt_hostname;
+		const char *vmt_object, *vmt_stub, *vmt_hostname;
 
 		vmt_hostname = vmt_base + vmt->vmt_data[VMT_HOSTNAME].vmt_off;
 		vmt_object   = vmt_base + vmt->vmt_data[VMT_OBJECT].vmt_off;
