@@ -710,20 +710,21 @@ static void index_mail_cache_dates(struct index_mail *mail)
 		(void)index_mail_cache_sent_date(mail);
 }
 
-static void index_mail_parse_body_finish(struct index_mail *mail,
-					 enum index_cache_field field)
+static int index_mail_parse_body_finish(struct index_mail *mail,
+					enum index_cache_field field)
 {
 	if (message_parser_deinit(&mail->data.parser_ctx,
 				  &mail->data.parts) < 0) {
 		mail_set_cache_corrupted(&mail->mail.mail,
 					 MAIL_FETCH_MESSAGE_PARTS);
-		return;
+		mail->data.parsed_bodystructure = FALSE;
+		return -1;
 	}
 	if (mail->data.no_caching) {
 		/* if we're here because we aborted parsing, don't get any
 		   further or we may crash while generating output from
 		   incomplete data */
-		return;
+		return 0;
 	}
 
 	(void)get_cached_msgpart_sizes(mail);
@@ -733,6 +734,7 @@ static void index_mail_parse_body_finish(struct index_mail *mail,
 	index_mail_body_parsed_cache_bodystructure(mail, field);
 	index_mail_cache_sizes(mail);
 	index_mail_cache_dates(mail);
+	return 0;
 }
 
 static int index_mail_stream_check_failure(struct index_mail *mail)
@@ -772,7 +774,8 @@ static int index_mail_parse_body(struct index_mail *mail,
 			null_message_part_header_callback, NULL);
 	}
 	ret = index_mail_stream_check_failure(mail);
-	index_mail_parse_body_finish(mail, field);
+	if (index_mail_parse_body_finish(mail, field) < 0)
+		ret = -1;
 
 	i_stream_seek(data->stream, old_offset);
 	return ret;
@@ -871,6 +874,8 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 		if (index_mail_parse_body(mail, field) < 0)
 			return -1;
 	}
+	i_assert(data->parts != NULL);
+
 	/* if we didn't want to have the body(structure) cached,
 	   it's still not written. */
 	switch (field) {
@@ -1360,7 +1365,7 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 
 	mail->data.save_bodystructure_body = FALSE;
 	mail->data.parsed_bodystructure = TRUE;
-	index_mail_parse_body_finish(mail, 0);
+	(void)index_mail_parse_body_finish(mail, 0);
 }
 
 void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
