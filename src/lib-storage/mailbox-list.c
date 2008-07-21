@@ -282,7 +282,7 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 	if ((list->flags & MAILBOX_LIST_FLAG_DEBUG) != 0) {
 		i_info("Namespace %s: Using permissions from %s: "
 		       "mode=0%o gid=%ld", list->ns->prefix, path,
-		       list->file_create_mode,
+		       (int)list->file_create_mode,
 		       list->file_create_gid == (gid_t)-1 ? -1L :
 		       (long)list->file_create_gid);
 	}
