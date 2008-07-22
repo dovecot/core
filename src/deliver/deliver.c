@@ -378,25 +378,27 @@ static void config_file_init(const char *path)
 				lda_section = FALSE;
 				plugin_section = FALSE;
 				pop3_section = FALSE;
-				ns_section = FALSE;
-				if (ns_location)
-					ns_location = FALSE;
-				else {
-					env_put(t_strdup_printf(
-						"NAMESPACE_%u=", ns_idx));
-				}
-				if (ns_list)
-					ns_list = FALSE;
-				else {
-					env_put(t_strdup_printf(
-						"NAMESPACE_%u_LIST=1", ns_idx));
-				}
-				if (ns_subscriptions)
-					ns_subscriptions = FALSE;
-				else {
-					env_put(t_strdup_printf(
-						"NAMESPACE_%u_SUBSCRIPTIONS=1",
-						ns_idx));
+				if (ns_section) {
+					ns_section = FALSE;
+					if (ns_location)
+						ns_location = FALSE;
+					else {
+						env_put(t_strdup_printf(
+							"NAMESPACE_%u=", ns_idx));
+					}
+					if (ns_list)
+						ns_list = FALSE;
+					else {
+						env_put(t_strdup_printf(
+							"NAMESPACE_%u_LIST=1", ns_idx));
+					}
+					if (ns_subscriptions)
+						ns_subscriptions = FALSE;
+					else {
+						env_put(t_strdup_printf(
+							"NAMESPACE_%u_SUBSCRIPTIONS=1",
+							ns_idx));
+					}
 				}
 			}
 			continue;
