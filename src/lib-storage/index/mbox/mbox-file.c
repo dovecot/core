@@ -125,6 +125,7 @@ void mbox_file_close_stream(struct mbox_mailbox *mbox)
 		if (mbox->mbox_fd == -1) {
 			/* read-only mbox stream */
 			i_assert(mbox->mbox_readonly);
+			i_stream_seek(mbox->mbox_file_stream, 0);
 		} else {
 			i_stream_destroy(&mbox->mbox_file_stream);
 		}
