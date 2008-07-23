@@ -246,6 +246,14 @@ checkpassword_verify_plain_child(struct auth_request *request,
 					    net_ip2addr(&request->remote_ip),
 					    NULL));
 		}
+		if (request->local_port != 0) {
+			env_put(t_strdup_printf("TCPLOCALPORT=%u",
+						request->local_port));
+		}
+		if (request->remote_port != 0) {
+			env_put(t_strdup_printf("TCPREMOTEPORT=%u",
+						request->remote_port));
+		}
 		if (request->master_user != NULL) {
 			env_put(t_strconcat("MASTER_USER=",
 					    request->master_user, NULL));
