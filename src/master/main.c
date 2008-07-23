@@ -414,9 +414,6 @@ static void print_build_options(void)
 		" vpopmail"
 #endif
 	"\nUserdb:"
-#ifdef USERDB_CHECKPASSWORD
-		" checkpassword"
-#endif
 #ifdef USERDB_NSS
 		" nss"
 #endif

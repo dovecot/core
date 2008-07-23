@@ -1723,9 +1723,7 @@ if test $want_pam != no; then
 fi
 
 if test $want_checkpassword != no; then
-        AC_DEFINE(USERDB_CHECKPASSWORD,, Build with checkpassword userdb support)
         AC_DEFINE(PASSDB_CHECKPASSWORD,, Build with checkpassword passdb support)
-	userdb="$userdb checkpassword"
 	passdb="$passdb checkpassword"
 fi
 
