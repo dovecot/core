@@ -175,6 +175,7 @@ static int db_dict_iterate_set(struct db_dict_iterate_context *ctx, int ret,
 			       const char **key_r, const char **value_r)
 {
 	struct db_dict *dict = (struct db_dict *)ctx->ctx.dict;
+	uint32_t value;
 
 	if (ret == DB_NOTFOUND)
 		return 0;
@@ -187,8 +188,10 @@ static int db_dict_iterate_set(struct db_dict_iterate_context *ctx, int ret,
 	switch (dict->value_type) {
 	case DICT_DATA_TYPE_UINT32:
 		i_assert(ctx->pdata.size == sizeof(uint32_t));
-		*value_r = p_strdup(ctx->pool,
-				    dec2str(*((uint32_t *)ctx->pdata.data)));
+
+		/* data may not be aligned, so use memcpy() */
+		memcpy(&value, ctx->pdata.data, sizeof(value));
+		*value_r = p_strdup(ctx->pool, dec2str(value));
 		break;
 	case DICT_DATA_TYPE_STRING:
 		*value_r = p_strndup(ctx->pool,
@@ -203,6 +206,7 @@ static int db_dict_lookup(struct dict *_dict, pool_t pool,
 {
 	struct db_dict *dict = (struct db_dict *)_dict;
 	DBT pkey, pdata;
+	uint32_t value;
 	int ret;
 
 	memset(&pkey, 0, sizeof(DBT));
@@ -220,7 +224,10 @@ static int db_dict_lookup(struct dict *_dict, pool_t pool,
 	switch (dict->value_type) {
 	case DICT_DATA_TYPE_UINT32:
 		i_assert(pdata.size == sizeof(uint32_t));
-		*value_r = p_strdup(pool, dec2str(*((uint32_t *)pdata.data)));
+
+		/* data may not be aligned, so use memcpy() */
+		memcpy(&value, pdata.data, sizeof(value));
+		*value_r = p_strdup(pool, dec2str(value));
 		break;
 	case DICT_DATA_TYPE_STRING:
 		*value_r = p_strndup(pool, pdata.data, pdata.size);
