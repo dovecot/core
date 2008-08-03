@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "mail-index-private.h"
-#include "mail-transaction-log.h"
+#include "mail-transaction-log-private.h"
 
 static void mail_index_fsck_error(struct mail_index *index,
 				  const char *fmt, ...) ATTR_FORMAT(2, 3);
@@ -26,16 +26,11 @@ static void mail_index_fsck_error(struct mail_index *index,
 	}
 
 static void
-mail_index_fsck_header(struct mail_index *index, struct mail_index_map *map,
-		       struct mail_index_header *hdr)
+mail_index_fsck_log_pos(struct mail_index *index, struct mail_index_map *map,
+			struct mail_index_header *hdr)
 {
 	uint32_t file_seq;
 	uoff_t file_offset;
-
-	/* mail_index_map_check_header() has already checked that the index
-	   isn't completely broken. */
-	if (hdr->uid_validity == 0 && hdr->next_uid != 1)
-		hdr->uid_validity = ioloop_time;
 
 	mail_transaction_log_get_head(index->log, &file_seq, &file_offset);
 	if (hdr->log_file_seq < file_seq) {
@@ -55,6 +50,19 @@ mail_index_fsck_header(struct mail_index *index, struct mail_index_map *map,
 		CHECK(log_file_head_offset, !=);
 		CHECK(log_file_tail_offset, !=);
 	}
+}
+
+static void
+mail_index_fsck_header(struct mail_index *index, struct mail_index_map *map,
+		       struct mail_index_header *hdr)
+{
+	/* mail_index_map_check_header() has already checked that the index
+	   isn't completely broken. */
+	if (hdr->uid_validity == 0 && hdr->next_uid != 1)
+		hdr->uid_validity = ioloop_time;
+
+	if (index->log->head != NULL)
+		mail_index_fsck_log_pos(index, map, hdr);
 }
 
 static bool
@@ -396,12 +404,13 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map)
 {
 	struct mail_index_header hdr;
 
-	/* Remember the log head position. If we go back in the index's head
-	   offset, ignore errors in the log up to this offset. */
-	mail_transaction_log_get_head(index->log,
-				      &index->fsck_log_head_file_seq,
-				      &index->fsck_log_head_file_offset);
-
+	if (index->log->head != NULL) {
+		/* Remember the log head position. If we go back in the index's
+		   head offset, ignore errors in the log up to this offset. */
+		mail_transaction_log_get_head(index->log,
+			&index->fsck_log_head_file_seq,
+			&index->fsck_log_head_file_offset);
+	}
 	hdr = map->hdr;
 
 	mail_index_fsck_header(index, map, &hdr);
@@ -419,6 +428,13 @@ int mail_index_fsck(struct mail_index *index)
 	uoff_t file_offset;
 
 	i_warning("fscking index file %s", index->filepath);
+
+	if (index->log->head == NULL) {
+		/* we're trying to open the index files, but there wasn't
+		   any .log file. this should be rare, so just fsck it without
+		   locking. */
+		orig_locked = TRUE;
+	}
 
 	if (!orig_locked) {
 		if (mail_transaction_log_sync_lock(index->log, &file_seq,
