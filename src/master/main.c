@@ -294,14 +294,13 @@ static void main_deinit(void)
 				 "/master.pid", NULL));
 
 	login_processes_destroy_all();
-	/* call process destroy handlers first */
-	child_processes_deinit();
 
 	mail_processes_deinit();
 	login_processes_deinit();
 	auth_processes_deinit();
 	dict_process_deinit();
 	ssl_deinit();
+	child_processes_deinit();
 
 	listeners_close_fds();
 
