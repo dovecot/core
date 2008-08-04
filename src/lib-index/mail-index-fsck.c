@@ -261,20 +261,24 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 	const struct mail_index_ext_header *ext_hdr;
 	ARRAY_TYPE(const_string) names;
 	const char *name, *error;
-	unsigned int offset, ext_offset, i;
+	unsigned int offset, next_offset, i;
 
 	t_array_init(&names, 64);
 	offset = MAIL_INDEX_HEADER_SIZE_ALIGN(hdr->base_header_size);
 	for (i = 0; offset < hdr->header_size; i++) {
-		ext_offset = offset;
-		if (mail_index_map_ext_get_next(map, &offset,
+		/* mail_index_map_ext_get_next() uses map->hdr, so make sure
+		   it's up-to-date */
+		map->hdr = *hdr;
+
+		next_offset = offset;
+		if (mail_index_map_ext_get_next(map, &next_offset,
 						&ext_hdr, &name) < 0) {
 			/* the extension continued outside header, drop it */
 			mail_index_fsck_error(index,
 					      "Dropped extension #%d (%s) "
 					      "with invalid header size",
 					      i, name);
-			hdr->header_size = ext_offset;
+			hdr->header_size = offset;
 			break;
 		}
 		if (mail_index_map_ext_hdr_check(hdr, ext_hdr, name,
@@ -290,20 +294,20 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 
 			if (strcmp(name, "keywords") == 0) {
 				mail_index_fsck_keywords(index, map, hdr,
-							 ext_hdr, ext_offset,
-							 &offset);
+							 ext_hdr, offset,
+							 &next_offset);
 			}
 			array_append(&names, &name, 1);
 			continue;
 		}
 
 		/* drop the field */
-		hdr->header_size -= offset - ext_offset;
-		buffer_copy(map->hdr_copy_buf, ext_offset,
-			    map->hdr_copy_buf, offset, (size_t)-1);
+		hdr->header_size -= next_offset - offset;
+		buffer_copy(map->hdr_copy_buf, offset,
+			    map->hdr_copy_buf, next_offset, (size_t)-1);
 		buffer_set_used_size(map->hdr_copy_buf, hdr->header_size);
 		map->hdr_base = map->hdr_copy_buf->data;
-		offset = ext_offset;
+		next_offset = offset;
 	}
 }
 
