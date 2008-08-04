@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "lib-signals.h"
 #include "ioloop.h"
+#include "write-full.h"
 #include "file-dotlock.h"
 #include "maildir-uidlist.h"
 
@@ -22,11 +23,9 @@ static struct dotlock_settings dotlock_settings = {
 };
 
 static struct ioloop *ioloop;
-static bool success = FALSE;
 
-static void sig_die(int signo, void *context ATTR_UNUSED)
+static void sig_die(int signo ATTR_UNUSED, void *context ATTR_UNUSED)
 {
-	success = signo == SIGTERM;
 	io_loop_stop(ioloop);
 }
 
@@ -46,6 +45,8 @@ int main(int argc, const char *argv[])
 	struct dotlock *dotlock;
 	unsigned int timeout;
 	pid_t pid, parent_pid;
+	int fd[2], ret;
+	char c;
 
 	if (argc != 3) {
 		fprintf(stderr, "Usage: maildirlock <path> <timeout>\n"
@@ -53,6 +54,10 @@ int main(int argc, const char *argv[])
 		return 1;
 	}
 	parent_pid = getpid();
+	if (pipe(fd) != 0) {
+		fprintf(stderr, "pipe() failed: %m");
+		return 1;
+	}
 
 	pid = fork();
 	if (pid == (pid_t)-1) {
@@ -62,17 +67,23 @@ int main(int argc, const char *argv[])
 
 	/* call lib_init() only after fork so that PID gets set correctly */
 	lib_init();
-	ioloop = io_loop_create();
 	lib_signals_init();
+	ioloop = io_loop_create();
 	lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
 	lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
-	lib_signals_set_handler(SIGCHLD, TRUE, sig_die, NULL);
 
 	if (pid != 0) {
-		/* master - wait for the child process to finish locking */
-		io_loop_run(ioloop);
-		if (!success)
+		close(fd[1]);
+		ret = read(fd[0], &c, 1);
+		if (ret < 0) {
+			fprintf(stderr, "read(pipe) failed: %m");
 			return 1;
+		}
+		if (ret != 1) {
+			/* locking timed out */
+			return 1;
+		}
+
 		printf("%s", dec2str(pid));
 		return 0;
 	}
@@ -85,9 +96,10 @@ int main(int argc, const char *argv[])
 	if (maildir_lock(argv[1], timeout, &dotlock) <= 0)
 		return 1;
 
-	/* locked - send a  */
-	if (kill(parent_pid, SIGTERM) < 0)
-		i_fatal("kill(parent, SIGTERM) failed: %m");
+	/* locked - send a byte */
+	if (write_full(fd[1], "", 1) < 0)
+		i_fatal("write(pipe) failed: %m");
+
 	io_loop_run(ioloop);
 
 	file_dotlock_delete(&dotlock);
