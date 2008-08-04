@@ -35,7 +35,6 @@ static const char *get_cram_challenge(void)
 	unsigned char buf[17];
 	size_t i;
 
-	hostpid_init();
 	random_fill(buf, sizeof(buf)-1);
 
 	for (i = 0; i < sizeof(buf)-1; i++)
