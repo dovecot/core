@@ -12,16 +12,11 @@ void hostpid_init(void)
 {
 	static char hostname[256], pid[MAX_INT_STRLEN];
 
-	if (my_hostname == NULL) {
-		if (gethostname(hostname, sizeof(hostname)-1) == -1)
-			i_strocpy(hostname, "unknown", sizeof(hostname));
-		hostname[sizeof(hostname)-1] = '\0';
+	if (gethostname(hostname, sizeof(hostname)-1) == -1)
+		i_strocpy(hostname, "unknown", sizeof(hostname));
+	hostname[sizeof(hostname)-1] = '\0';
+	my_hostname = hostname;
 
-		my_hostname = hostname;
-	}
-
-	if (my_pid == NULL) {
-		i_strocpy(pid, dec2str(getpid()), sizeof(pid));
-		my_pid = pid;
-	}
+	i_strocpy(pid, dec2str(getpid()), sizeof(pid));
+	my_pid = pid;
 }
