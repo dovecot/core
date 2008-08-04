@@ -279,6 +279,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 
 	client->mailbox = ctx->box;
 	client->select_counter++;
+	client->mailbox_examined = readonly;
 	client->messages_count = status.messages;
 	client->recent_count = status.recent;
 	client->uidvalidity = status.uidvalidity;
