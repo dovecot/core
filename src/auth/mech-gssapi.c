@@ -71,6 +71,8 @@ struct gssapi_auth_request {
 	pool_t pool;
 };
 
+static bool gssapi_initialized = FALSE;
+
 static void auth_request_log_gss_error(struct auth_request *request,
 				       OM_uint32 status_value, int status_type,
 				       const char *description)
@@ -94,10 +96,29 @@ static void auth_request_log_gss_error(struct auth_request *request,
 	} while (message_context != 0);
 }
 
+static void mech_gssapi_initialize(void)
+{
+	const char *path;
+
+	path = getenv("KRB5_KTNAME");
+	if (path != NULL) {
+#ifdef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
+		gsskrb5_register_acceptor_identity(path);
+#elif defined (HAVE_KRB5_GSS_REGISTER_ACCEPTOR_IDENTITY)
+		krb5_gss_register_acceptor_identity(path);
+#endif
+	}
+}
+
 static struct auth_request *mech_gssapi_auth_new(void)
 {
 	struct gssapi_auth_request *request;
 	pool_t pool;
+
+	if (!gssapi_initialized) {
+		gssapi_initialized = TRUE;
+		mech_gssapi_initialize();
+	}
 
 	pool = pool_alloconly_create("gssapi_auth_request", 1024);
 	request = p_new(pool, struct gssapi_auth_request, 1);

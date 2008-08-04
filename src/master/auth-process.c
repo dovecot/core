@@ -488,7 +488,8 @@ static void auth_set_environment(struct auth_settings *set)
 	if (set->ntlm_use_winbind)
 		env_put("NTLM_USE_WINBIND=1");
 	if (*set->krb5_keytab != '\0') {
-		/* Environment used by Kerberos 5 library directly */
+		/* Environment may be used by Kerberos 5 library directly,
+		   although we also try to use it directly as well */
 		env_put(t_strconcat("KRB5_KTNAME=", set->krb5_keytab, NULL));
 	}
 	if (*set->gssapi_hostname != '\0') {

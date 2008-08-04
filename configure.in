@@ -1782,6 +1782,13 @@ if test $want_gssapi != no; then
 					KRB5_LIBS="$KRB5_LIBS -lgss"
 				],, $KRB5_LIBS)
 
+				# MIT has a #define for Heimdal acceptor_identity, but it's way too
+				# difficult to test for it..
+				old_LIBS=$LIBS
+				LIBS="$LIBS $KRB5_LIBS"
+				AC_CHECK_FUNCS(gsskrb5_register_acceptor_identity krb5_gss_register_acceptor_identity)
+				LIBS=$old_LIBS
+
 				if test x$want_gssapi_plugin != xyes; then
 				  AUTH_LIBS="$AUTH_LIBS $KRB5_LIBS"
 				  AUTH_CFLAGS="$AUTH_CFLAGS $KRB5_CFLAGS"
