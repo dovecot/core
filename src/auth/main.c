@@ -188,6 +188,14 @@ static void drop_privileges(void)
 			"(if you don't care, set version_ignore=yes)", version);
 	}
 
+	standalone = getenv("DOVECOT_MASTER") == NULL;
+	if (standalone && getenv("AUTH_1") == NULL) {
+		i_fatal("dovecot-auth is usually started through "
+			"dovecot master process. If you wish to run "
+			"it standalone, you'll need to set AUTH_* "
+			"environment variables (AUTH_1 isn't set).");
+	}
+
 	open_logfile();
 
 	/* Open /dev/urandom before chrooting */
@@ -239,16 +247,8 @@ static void main_init(bool nodaemon)
 		return;
 	}
 
-	standalone = getenv("DOVECOT_MASTER") == NULL;
-	if (standalone) {
+	if (getenv("DOVECOT_MASTER") == NULL) {
 		/* starting standalone */
-		if (getenv("AUTH_1") == NULL) {
-			i_fatal("dovecot-auth is usually started through "
-				"dovecot master process. If you wish to run "
-				"it standalone, you'll need to set AUTH_* "
-				"environment variables (AUTH_1 isn't set).");
-		}
-
 		if (!nodaemon) {
 			switch (fork()) {
 			case -1:
