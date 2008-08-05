@@ -516,11 +516,14 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 		/* we most likely don't have enough space. we have to
 		   renumber some of the existing sort IDs. do this by
 		   widening the area we're giving sort IDs. */
-		if (left_idx > 0) {
-			left_sort_id = nodes[--left_idx].sort_id;
-			if (left_sort_id == 0) {
-				i_assert(left_idx == 0);
-				left_sort_id = 1;
+		while (left_idx > 0) {
+			if (nodes[--left_idx].sort_id != left_sort_id) {
+				left_sort_id = nodes[left_idx].sort_id;
+				if (left_sort_id == 0) {
+					i_assert(left_idx == 0);
+					left_sort_id = 1;
+				}
+				break;
 			}
 		}
 
