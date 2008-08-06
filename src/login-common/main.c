@@ -224,10 +224,10 @@ void connection_queue_add(unsigned int connection_count)
 
 	current_count = clients_get_count() + ssl_proxy_get_count() +
 		login_proxy_get_count();
-	if (current_count + connection_count + 1 >= max_connections) {
+	if (current_count + connection_count + 2 >= max_connections) {
 		/* after this client we've reached max users count,
-		   so stop listening for more. reserve +1 extra for SSL
-		   connections. */
+		   so stop listening for more. reserve +2 extra for SSL with
+		   login proxy connections. */
 		main_listen_stop();
 
 		if (current_count >= max_connections) {
@@ -282,9 +282,11 @@ static void drop_privileges(void)
 	max_connections = value == NULL ? 1 : strtoul(value, NULL, 10);
 
 	/* set the number of fds we want to use. it may get increased or
-	   decreased. leave a couple of extra fds for auth sockets and such */
+	   decreased. leave a couple of extra fds for auth sockets and such.
+	   normal connections each use one fd, but SSL connections use two */
 	restrict_fd_limit(LOGIN_MASTER_SOCKET_FD + 16 +
-			  listen_count + ssl_listen_count + max_connections);
+			  listen_count + ssl_listen_count +
+			  max_connections*2);
 
 	/* Refuse to run as root - we should never need it and it's
 	   dangerous with SSL. */
