@@ -252,6 +252,7 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
 static void drop_privileges(void)
 {
 	const char *value;
+	unsigned int max_fd_per_conn;
 
 	if (!is_inetd)
 		i_set_failure_internal();
@@ -281,10 +282,14 @@ static void drop_privileges(void)
 	value = getenv("MAX_CONNECTIONS");
 	max_connections = value == NULL ? 1 : strtoul(value, NULL, 10);
 
+	/* max fds: connection itself, SSL socketpair, login proxy socketpair */
+	max_fd_per_conn = 1 + (ssl_initialized ? 2 : 0) + 2;
+
 	/* set the number of fds we want to use. it may get increased or
 	   decreased. leave a couple of extra fds for auth sockets and such */
 	restrict_fd_limit(LOGIN_MASTER_SOCKET_FD + 16 +
-			  listen_count + ssl_listen_count + max_connections);
+			  listen_count + ssl_listen_count +
+			  max_connections * max_fd_per_conn);
 
 	/* Refuse to run as root - we should never need it and it's
 	   dangerous with SSL. */
