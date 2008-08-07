@@ -896,7 +896,7 @@ static int search_build_inthread_result(struct index_search_context *ctx,
 	const struct mail_thread_child_node *node;
 	const ARRAY_TYPE(seq_range) *search_uids;
 	ARRAY_TYPE(seq_range) thread_uids;
-	int ret;
+	int ret = 0;
 
 	p_array_init(&arg->value.seqset, ctx->mail_ctx.args->pool, 64);
 	if (mailbox_search_result_build(ctx->mail_ctx.transaction,
