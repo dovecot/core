@@ -2,7 +2,10 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "hostpid.h"
 #include "mail-storage-private.h"
+
+#include <time.h>
 
 struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,
@@ -199,4 +202,27 @@ void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
 	struct mail_private *p = (struct mail_private *)mail;
 
 	p->v.set_cache_corrupted(mail, field);
+}
+
+const char *mail_generate_guid_string(void)
+{
+	static struct timespec ts = { 0, 0 };
+	static unsigned int pid = 0;
+
+	/* we'll use the current time in nanoseconds as the initial 64bit
+	   counter. */
+	if (ts.tv_sec == 0) {
+		if (clock_gettime(CLOCK_REALTIME, &ts) < 0)
+			i_fatal("clock_gettime() failed: %m");
+		pid = getpid();
+	} else if ((uint32_t)ts.tv_nsec < (uint32_t)-1) {
+		ts.tv_nsec++;
+	} else {
+		ts.tv_sec++;
+		ts.tv_nsec = 0;
+	}
+	return t_strdup_printf("%04x%04lx%04x%s",
+			       (unsigned int)ts.tv_nsec,
+			       (unsigned long)ts.tv_sec,
+			       pid, my_hostname);
 }

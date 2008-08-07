@@ -662,7 +662,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 	if (ctx->output != NULL) {
 		/* make sure everything is written */
 		if (o_stream_flush(ctx->output) < 0)
-			return write_error(ctx);
+			write_error(ctx);
 	}
 
 	ctx->finished = TRUE;
@@ -690,6 +690,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 		ctx->mail_offset = (uoff_t)-1;
 	}
 
+	index_save_context_free(_ctx);
 	return ctx->failed ? -1 : 0;
 }
 

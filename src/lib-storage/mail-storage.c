@@ -816,6 +816,14 @@ void mailbox_save_set_from_envelope(struct mail_save_context *ctx,
 	ctx->from_envelope = i_strdup(envelope);
 }
 
+void mailbox_save_set_guid(struct mail_save_context *ctx, const char *guid)
+{
+	i_assert(guid == NULL || *guid != '\0');
+
+	i_free(ctx->guid);
+	ctx->guid = i_strdup(guid);
+}
+
 void mailbox_save_set_dest_mail(struct mail_save_context *ctx,
 				struct mail *mail)
 {
@@ -852,7 +860,6 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	struct mail_save_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	i_free(ctx->from_envelope);
 	return ctx->transaction->box->v.save_finish(ctx);
 }
 
@@ -861,7 +868,6 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 	struct mail_save_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	i_free(ctx->from_envelope);
 	ctx->transaction->box->v.save_cancel(ctx);
 }
 

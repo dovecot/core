@@ -33,6 +33,7 @@ struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	{ "imap.bodystructure", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "imap.envelope", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "pop3.uidl", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
+	{ "guid", 0, MAIL_CACHE_FIELD_STRING, 0, 0 },
 	{ "mime.parts", 0, MAIL_CACHE_FIELD_VARIABLE_SIZE, 0, 0 }
 };
 
@@ -1013,6 +1014,7 @@ int index_mail_get_special(struct mail *_mail,
 	case MAIL_FETCH_UIDL_FILE_NAME:
 	case MAIL_FETCH_UIDL_BACKEND:
 	case MAIL_FETCH_SEARCH_SCORE:
+	case MAIL_FETCH_GUID:
 		*value_r = "";
 		return 0;
 	case MAIL_FETCH_HEADER_MD5:

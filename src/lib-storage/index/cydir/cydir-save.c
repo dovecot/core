@@ -216,6 +216,7 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 				      _ctx->received_date, !ctx->failed);
 	i_stream_unref(&ctx->input);
 
+	index_save_context_free(_ctx);
 	return ctx->failed ? -1 : 0;
 }
 

@@ -189,6 +189,7 @@ int index_transaction_commit(struct mailbox_transaction_context *t,
 			     uint32_t *first_saved_uid_r,
 			     uint32_t *last_saved_uid_r);
 void index_transaction_rollback(struct mailbox_transaction_context *t);
+void index_save_context_free(struct mail_save_context *ctx);
 
 bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
 			     const ARRAY_TYPE(keyword_indexes) *k2);

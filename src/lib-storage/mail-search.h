@@ -44,6 +44,7 @@ enum mail_search_arg_type {
 	/* extensions */
 	SEARCH_MODSEQ,
 	SEARCH_INTHREAD,
+	SEARCH_GUID,
 	SEARCH_MAILBOX
 };
 

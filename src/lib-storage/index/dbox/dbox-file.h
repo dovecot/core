@@ -52,6 +52,9 @@ enum dbox_metadata_key {
 	/* Message flags in dbox_metadata_flags order. '0' = not set, anything
 	   else = set. Unknown flags should be preserved. */
 	DBOX_METADATA_FLAGS		= 'F',
+	/* Globally unique identifier for the message. Preserved when
+	   copying. */
+	DBOX_METADATA_GUID		= 'G',
 	/* Space separated list of keywords */
 	DBOX_METADATA_KEYWORDS		= 'K',
 	/* POP3 UIDL overriding the default format */

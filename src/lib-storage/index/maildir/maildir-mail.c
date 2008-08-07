@@ -414,7 +414,9 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	const char *path, *fname, *end, *uidl;
 
-	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
+	switch (field) {
+	case MAIL_FETCH_UIDL_FILE_NAME:
+	case MAIL_FETCH_GUID:
 		if (_mail->uid != 0) {
 			if (!maildir_mail_get_fname(mbox, _mail, &fname))
 				return -1;
@@ -427,14 +429,14 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		end = strchr(fname, MAILDIR_INFO_SEP);
 		*value_r = end == NULL ? fname : t_strdup_until(fname, end);
 		return 0;
-	} else if (field == MAIL_FETCH_UIDL_BACKEND) {
+	case MAIL_FETCH_UIDL_BACKEND:
 		uidl = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 					MAILDIR_UIDLIST_REC_EXT_POP3_UIDL);
 		*value_r = uidl != NULL ? uidl : "";
 		return 0;
+	default:
+		return index_mail_get_special(_mail, field, value_r);
 	}
-
-	return index_mail_get_special(_mail, field, value_r);
 }
 							
 static int maildir_mail_get_stream(struct mail *_mail,

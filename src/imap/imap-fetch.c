@@ -22,7 +22,7 @@
 #define ENVELOPE_NIL_REPLY \
 	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
-#define IMAP_FETCH_HANDLER_COUNT 9
+#define IMAP_FETCH_HANDLER_COUNT 10
 extern const struct imap_fetch_handler
 	imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT];
 static buffer_t *fetch_handlers = NULL;
@@ -779,6 +779,27 @@ fetch_uid_init(struct imap_fetch_context *ctx ATTR_UNUSED, const char *name,
 	return TRUE;
 }
 
+static int fetch_guid(struct imap_fetch_context *ctx, struct mail *mail,
+		      void *context ATTR_UNUSED)
+{
+	const char *value;
+
+	if (mail_get_special(mail, MAIL_FETCH_GUID, &value) < 0)
+		return -1;
+
+	str_append(ctx->cur_str, "X-GUID ");
+	imap_quote_append_string(ctx->cur_str, value, FALSE);
+	return 1;
+}
+
+static bool
+fetch_guid_init(struct imap_fetch_context *ctx ATTR_UNUSED, const char *name,
+		const struct imap_arg **args ATTR_UNUSED)
+{
+	imap_fetch_add_handler(ctx, TRUE, FALSE, name, "", fetch_guid, NULL);
+	return TRUE;
+}
+
 static int fetch_x_mailbox(struct imap_fetch_context *ctx, struct mail *mail,
 			   void *context ATTR_UNUSED)
 {
@@ -811,5 +832,6 @@ imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT] = {
 	{ "MODSEQ", fetch_modseq_init },
 	{ "RFC822", fetch_rfc822_init },
 	{ "UID", fetch_uid_init },
+	{ "X-GUID", fetch_guid_init },
 	{ "X-MAILBOX", fetch_x_mailbox_init }
 };

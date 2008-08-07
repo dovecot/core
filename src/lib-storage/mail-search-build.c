@@ -599,6 +599,9 @@ static bool search_arg_build(struct search_build_data *data,
 				return ARG_NEW_SINGLE(SEARCH_ALL);
 			}
 			return ARG_NEW_STR(SEARCH_TEXT_FAST);
+		} else if (strcmp(str, "X-GUID") == 0) {
+			/* <string> */
+			return ARG_NEW_STR(SEARCH_GUID);
 		} else if (strcmp(str, "X-MAILBOX") == 0) {
 			/* <string> */
 			return ARG_NEW_STR(SEARCH_MAILBOX);

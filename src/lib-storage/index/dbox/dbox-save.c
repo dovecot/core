@@ -178,6 +178,7 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 {
 	struct dbox_metadata_header metadata_hdr;
 	char space[DBOX_EXTRA_SPACE];
+	const char *guid;
 	string_t *str;
 	uoff_t vsize;
 
@@ -196,6 +197,10 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 		i_unreached();
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
 		    (unsigned long long)vsize);
+
+	guid = ctx->ctx.guid != NULL ? ctx->ctx.guid :
+		mail_generate_guid_string();
+	str_printfa(str, "%c%s\n", DBOX_METADATA_GUID, guid);
 
 	/* flags */
 	str_append_c(str, DBOX_METADATA_FLAGS);
@@ -238,7 +243,7 @@ static int dbox_save_mail_write_header(struct dbox_save_mail *mail)
 	return 0;
 }
 
-int dbox_save_finish(struct mail_save_context *_ctx)
+static int dbox_save_finish_write(struct mail_save_context *_ctx)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
@@ -288,6 +293,15 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 		}
 		return 0;
 	}
+}
+
+int dbox_save_finish(struct mail_save_context *ctx)
+{
+	int ret;
+
+	ret = dbox_save_finish_write(ctx);
+	index_save_context_free(ctx);
+	return ret;
 }
 
 void dbox_save_cancel(struct mail_save_context *_ctx)

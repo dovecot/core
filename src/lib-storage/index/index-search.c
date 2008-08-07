@@ -267,6 +267,10 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		else
 			return virtual_size > arg->value.size;
 
+	case SEARCH_GUID:
+		if (mail_get_special(ctx->mail, MAIL_FETCH_GUID, &str) < 0)
+			return -1;
+		return strcmp(str, arg->value.str) == 0;
 	case SEARCH_MAILBOX:
 		if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME,
 				     &str) < 0)
@@ -1131,6 +1135,7 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_TEXT:
 	case SEARCH_BODY_FAST:
 	case SEARCH_TEXT_FAST:
+	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
 		return TRUE;
 	}

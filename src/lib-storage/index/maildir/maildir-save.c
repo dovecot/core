@@ -543,6 +543,7 @@ int maildir_save_finish(struct mail_save_context *ctx)
 	T_BEGIN {
 		ret = maildir_save_finish_real(ctx);
 	} T_END;
+	index_save_context_free(ctx);
 	return ret;
 }
 

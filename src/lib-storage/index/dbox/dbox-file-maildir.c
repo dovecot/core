@@ -40,12 +40,17 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 {
 	struct stat st;
 	uoff_t size;
-	const char *value = NULL;
+	const char *p, *value = NULL;
 
 	switch (key) {
 	case DBOX_METADATA_FLAGS:
 	case DBOX_METADATA_KEYWORDS:
 		value = dbox_file_maildir_get_flags(file, key);
+		break;
+	case DBOX_METADATA_GUID:
+		p = strchr(file->fname, MAILDIR_INFO_SEP);
+		value = p == NULL ? file->fname :
+			t_strdup_until(file->fname, p);
 		break;
 	case DBOX_METADATA_RECEIVED_TIME:
 	case DBOX_METADATA_SAVE_TIME:

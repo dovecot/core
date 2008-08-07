@@ -621,3 +621,9 @@ void index_keywords_free(struct mail_keywords *keywords)
 {
 	mail_index_keywords_free(&keywords);
 }
+
+void index_save_context_free(struct mail_save_context *ctx)
+{
+	i_free_and_null(ctx->from_envelope);
+	i_free_and_null(ctx->guid);
+}
