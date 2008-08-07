@@ -73,11 +73,9 @@ void mbox_transaction_class_deinit(void);
 struct mailbox_sync_context *
 mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 
-int mbox_save_init(struct mailbox_transaction_context *_t,
-		   enum mail_flags flags, struct mail_keywords *keywords,
-		   time_t received_date, int timezone_offset,
-		   const char *from_envelope, struct istream *input,
-		   struct mail **dest_mail, struct mail_save_context **ctx_r);
+struct mail_save_context *
+mbox_save_alloc(struct mailbox_transaction_context *_t);
+int mbox_save_begin(struct mail_save_context *ctx, struct istream *input);
 int mbox_save_continue(struct mail_save_context *ctx);
 int mbox_save_finish(struct mail_save_context *ctx);
 void mbox_save_cancel(struct mail_save_context *ctx);

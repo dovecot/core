@@ -449,24 +449,35 @@ void mailbox_search_result_sync(struct mail_search_result *result,
 				ARRAY_TYPE(seq_range) *removed_uids,
 				ARRAY_TYPE(seq_range) *added_uids);
 
-/* Save a mail into mailbox. timezone_offset specifies the timezone in
-   minutes in which received_date was originally given with. To use
-   current time, set received_date to (time_t)-1.
-
-   If dest_mail is set, the saved message can be accessed using it. Note that
+/* Initialize saving a new mail. You must not try to save more than one mail
+   at a time. */
+struct mail_save_context *
+mailbox_save_alloc(struct mailbox_transaction_context *t);
+/* Set the flags and keywords. Nothing is set by default. */
+void mailbox_save_set_flags(struct mail_save_context *ctx,
+			    enum mail_flags flags,
+			    struct mail_keywords *keywords);
+/* If received date isn't specified the current time is used. timezone_offset
+   specifies the preferred timezone in minutes, but it may be ignored if
+   backend doesn't support storing it. */
+void mailbox_save_set_received_date(struct mail_save_context *ctx,
+				    time_t received_date, int timezone_offset);
+/* Set the envelope sender. This is currently used only with mbox files to
+   specify the address in From_-line. */
+void mailbox_save_set_from_envelope(struct mail_save_context *ctx,
+				    const char *envelope);
+/* If dest_mail is set, the saved message can be accessed using it. Note that
    setting it may require mailbox syncing, so don't set it unless you need
    it. Also you shouldn't try to access it before mailbox_save_finish() is
-   called.
-
-   The given input stream is never read in these functions, only the data
-   inside it is used. So you should call i_stream_read() yourself and then
-   call mailbox_save_continue() whenever more data is read.
-*/
-int mailbox_save_init(struct mailbox_transaction_context *t,
-		      enum mail_flags flags, struct mail_keywords *keywords,
-		      time_t received_date, int timezone_offset,
-		      const char *from_envelope, struct istream *input,
-		      struct mail *dest_mail, struct mail_save_context **ctx_r);
+   called. */
+void mailbox_save_set_dest_mail(struct mail_save_context *ctx,
+				struct mail *mail);
+/* Begin saving the message. All mail_save_set_*() calls must have been called
+   before this function. If the save initialization fails, the context is freed
+   and -1 is returned. After beginning the save you should keep calling
+   i_stream_read() and calling mailbox_save_continue() as long as there's
+   more input. */
+int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input);
 int mailbox_save_continue(struct mail_save_context *ctx);
 int mailbox_save_finish(struct mail_save_context **ctx);
 void mailbox_save_cancel(struct mail_save_context **ctx);

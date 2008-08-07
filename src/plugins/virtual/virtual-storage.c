@@ -459,23 +459,6 @@ virtual_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	return ret;
 }
 
-static int
-virtual_save_init(struct mailbox_transaction_context *_t,
-		  enum mail_flags flags ATTR_UNUSED,
-		  struct mail_keywords *keywords ATTR_UNUSED,
-		  time_t received_date ATTR_UNUSED,
-		  int timezone_offset ATTR_UNUSED,
-		  const char *from_envelope ATTR_UNUSED,
-		  struct istream *input ATTR_UNUSED,
-		  struct mail **dest_mail ATTR_UNUSED,
-		  struct mail_save_context **ctx_r)
-{
-	mail_storage_set_error(_t->box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "Can't save to virtual mailboxes");
-	*ctx_r = NULL;
-	return -1;
-}
-
 static void virtual_class_init(void)
 {
 	virtual_transaction_class_init();
@@ -537,7 +520,8 @@ struct mailbox virtual_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
-		virtual_save_init,
+		NULL,
+		NULL,
 		NULL,
 		NULL,
 		NULL,

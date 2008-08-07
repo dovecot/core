@@ -40,7 +40,6 @@ struct mbox_save_context {
 	struct mail *mail;
 	uoff_t append_offset, mail_offset;
 	time_t orig_atime;
-	time_t received_date;
 
 	string_t *headers;
 	size_t space_end_idx;
@@ -424,44 +423,50 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 	return ret;
 }
 
-int mbox_save_init(struct mailbox_transaction_context *_t,
-		   enum mail_flags flags, struct mail_keywords *keywords,
-		   time_t received_date, int timezone_offset ATTR_UNUSED,
-		   const char *from_envelope, struct istream *input,
-		   struct mail **dest_mail, struct mail_save_context **ctx_r)
+struct mail_save_context *
+mbox_save_alloc(struct mailbox_transaction_context *_t)
 {
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)_t;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->ictx.ibox;
-	struct mbox_save_context *ctx = t->save_ctx;
-	enum mail_flags save_flags;
-	uint64_t offset;
+	struct mbox_save_context *ctx;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
-	/* FIXME: we could write timezone_offset to From-line.. */
-	if (received_date == (time_t)-1)
-		received_date = ioloop_time;
+	if (t->save_ctx != NULL)
+		return &t->save_ctx->ctx;
 
-	if (ctx == NULL) {
-		ctx = t->save_ctx = i_new(struct mbox_save_context, 1);
-		ctx->ctx.transaction = &t->ictx.mailbox_ctx;
-		ctx->mbox = mbox;
-		ctx->trans = t->ictx.trans;
-		ctx->append_offset = (uoff_t)-1;
-		ctx->headers = str_new(default_pool, 512);
-		ctx->mail_offset = (uoff_t)-1;
-	}
+	ctx = t->save_ctx = i_new(struct mbox_save_context, 1);
+	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
+	ctx->mbox = mbox;
+	ctx->trans = t->ictx.trans;
+	ctx->append_offset = (uoff_t)-1;
+	ctx->headers = str_new(default_pool, 512);
+	ctx->mail_offset = (uoff_t)-1;
+	return &ctx->ctx;
+}
+
+int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
+{
+	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mbox_transaction_context *t =
+		(struct mbox_transaction_context *)_ctx->transaction;
+	enum mail_flags save_flags;
+	uint64_t offset;
+
+	/* FIXME: we could write timezone_offset to From-line.. */
+	if (_ctx->received_date == (time_t)-1)
+		_ctx->received_date = ioloop_time;
 
 	ctx->failed = FALSE;
 	ctx->seq = 0;
 
-	if (mbox_save_init_file(ctx, t, *dest_mail != NULL) < 0) {
+	if (mbox_save_init_file(ctx, t, _ctx->dest_mail != NULL) < 0) {
 		ctx->failed = TRUE;
 		return -1;
 	}
 
-	save_flags = (flags & ~MAIL_RECENT) | MAIL_RECENT;
+	save_flags = (_ctx->flags & ~MAIL_RECENT) | MAIL_RECENT;
 	str_truncate(ctx->headers, 0);
 	if (ctx->synced) {
 		if (ctx->mbox->mbox_save_md5)
@@ -476,42 +481,42 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 		mail_index_append(ctx->trans, ctx->next_uid, &ctx->seq);
 		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 					save_flags & ~MAIL_RECENT);
-		if (keywords != NULL) {
+		if (_ctx->keywords != NULL) {
 			mail_index_update_keywords(ctx->trans, ctx->seq,
-						   MODIFY_REPLACE, keywords);
+						   MODIFY_REPLACE,
+						   _ctx->keywords);
 		}
 
 		offset = ctx->output->offset == 0 ? 0 :
 			ctx->output->offset - 1;
 		mail_index_update_ext(ctx->trans, ctx->seq,
-				      mbox->mbox_ext_idx, &offset, NULL);
+				      ctx->mbox->mbox_ext_idx, &offset, NULL);
 		ctx->next_uid++;
 
 		/* parse and cache the mail headers as we read it */
-		if (*dest_mail == NULL) {
-			if (ctx->mail == NULL)
-				ctx->mail = mail_alloc(_t, 0, NULL);
-			*dest_mail = ctx->mail;
+		if (_ctx->dest_mail == NULL) {
+			if (ctx->mail == NULL) {
+				ctx->mail = mail_alloc(_ctx->transaction,
+						       0, NULL);
+			}
+			_ctx->dest_mail = ctx->mail;
 		}
-		mail_set_seq(*dest_mail, ctx->seq);
+		mail_set_seq(_ctx->dest_mail, ctx->seq);
 	}
 	mbox_save_append_flag_headers(ctx->headers, save_flags);
-	mbox_save_append_keyword_headers(ctx, keywords);
+	mbox_save_append_keyword_headers(ctx, _ctx->keywords);
 	str_append_c(ctx->headers, '\n');
 
-	i_assert(mbox->mbox_lock_type == F_WRLCK);
+	i_assert(ctx->mbox->mbox_lock_type == F_WRLCK);
 
 	ctx->mail_offset = ctx->output->offset;
 	ctx->eoh_offset = (uoff_t)-1;
 	ctx->last_char = '\n';
-	ctx->received_date = received_date;
 
-	if (write_from_line(ctx, received_date, from_envelope) < 0)
+	if (write_from_line(ctx, _ctx->received_date, _ctx->from_envelope) < 0)
 		ctx->failed = TRUE;
 	else
 		ctx->input = mbox_save_get_input_stream(ctx, input);
-
-	*ctx_r = &ctx->ctx;
 	return ctx->failed ? -1 : 0;
 }
 
@@ -670,7 +675,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 	}
 
 	if (ctx->mail != NULL) {
-		index_mail_cache_parse_deinit(ctx->mail, ctx->received_date,
+		index_mail_cache_parse_deinit(ctx->mail, ctx->ctx.received_date,
 					      !ctx->failed);
 	}
 	if (ctx->input != NULL)

@@ -784,23 +784,61 @@ mailbox_transaction_get_mailbox(const struct mailbox_transaction_context *t)
 	return t->box;
 }
 
-int mailbox_save_init(struct mailbox_transaction_context *t,
-		      enum mail_flags flags, struct mail_keywords *keywords,
-		      time_t received_date, int timezone_offset,
-		      const char *from_envelope, struct istream *input,
-		      struct mail *dest_mail, struct mail_save_context **ctx_r)
+struct mail_save_context *
+mailbox_save_alloc(struct mailbox_transaction_context *t)
 {
-	if (t->box->v.save_init == NULL) {
-		mail_storage_set_error(t->box->storage, MAIL_ERROR_NOTPOSSIBLE,
+	struct mail_save_context *ctx;
+
+	ctx = t->box->v.save_alloc(t);
+	ctx->received_date = (time_t)-1;
+	return ctx;
+}
+
+void mailbox_save_set_flags(struct mail_save_context *ctx,
+			    enum mail_flags flags,
+			    struct mail_keywords *keywords)
+{
+	ctx->flags = flags;
+	ctx->keywords = keywords;
+}
+
+void mailbox_save_set_received_date(struct mail_save_context *ctx,
+				    time_t received_date, int timezone_offset)
+{
+	ctx->received_date = received_date;
+	ctx->received_tz_offset = timezone_offset;
+}
+
+void mailbox_save_set_from_envelope(struct mail_save_context *ctx,
+				    const char *envelope)
+{
+	i_free(ctx->from_envelope);
+	ctx->from_envelope = i_strdup(envelope);
+}
+
+void mailbox_save_set_dest_mail(struct mail_save_context *ctx,
+				struct mail *mail)
+{
+	ctx->dest_mail = mail;
+}
+
+int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
+{
+	struct mailbox *box = (*ctx)->transaction->box;
+	int ret;
+
+	if (box->v.save_begin == NULL) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Saving messages not supported");
+		ret = -1;
+	} else {
+		ret = box->v.save_begin(*ctx, input);
+	}
+
+	if (ret < 0) {
+		mailbox_save_cancel(ctx);
 		return -1;
 	}
-	if (t->box->v.save_init(t, flags, keywords,
-				received_date, timezone_offset,
-				from_envelope, input, &dest_mail, ctx_r) < 0)
-		return -1;
-
-	(*ctx_r)->dest_mail = dest_mail;
 	return 0;
 }
 
@@ -814,6 +852,7 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	struct mail_save_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	i_free(ctx->from_envelope);
 	return ctx->transaction->box->v.save_finish(ctx);
 }
 
@@ -822,6 +861,7 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 	struct mail_save_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	i_free(ctx->from_envelope);
 	ctx->transaction->box->v.save_cancel(ctx);
 }
 

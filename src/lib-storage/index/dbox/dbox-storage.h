@@ -82,11 +82,9 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 		enum mail_fetch_field wanted_fields,
 		struct mailbox_header_lookup_ctx *wanted_headers);
 
-int dbox_save_init(struct mailbox_transaction_context *_t,
-		   enum mail_flags flags, struct mail_keywords *keywords,
-		   time_t received_date, int timezone_offset,
-		   const char *from_envelope, struct istream *input,
-		   struct mail **dest_mail, struct mail_save_context **ctx_r);
+struct mail_save_context *
+dbox_save_alloc(struct mailbox_transaction_context *_t);
+int dbox_save_begin(struct mail_save_context *ctx, struct istream *input);
 int dbox_save_continue(struct mail_save_context *ctx);
 int dbox_save_finish(struct mail_save_context *ctx);
 void dbox_save_cancel(struct mail_save_context *ctx);

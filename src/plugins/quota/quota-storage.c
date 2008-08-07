@@ -187,12 +187,9 @@ quota_copy(struct mailbox_transaction_context *t, struct mail *mail,
 }
 
 static int
-quota_save_init(struct mailbox_transaction_context *t,
-		enum mail_flags flags, struct mail_keywords *keywords,
-		time_t received_date, int timezone_offset,
-		const char *from_envelope, struct istream *input,
-		struct mail **dest_mail, struct mail_save_context **ctx_r)
+quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 {
+	struct mailbox_transaction_context *t = ctx->transaction;
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(t->box);
 	const struct stat *st;
@@ -224,19 +221,16 @@ quota_save_init(struct mailbox_transaction_context *t,
 		}
 	}
 
-	if (*dest_mail == NULL) {
+	if (ctx->dest_mail == NULL) {
 		/* we always want to know the mail size */
 		if (qt->tmp_mail == NULL) {
 			qt->tmp_mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
 						  NULL);
 		}
-		*dest_mail = qt->tmp_mail;
+		ctx->dest_mail = qt->tmp_mail;
 	}
 
-	return qbox->module_ctx.super.
-		save_init(t, flags, keywords, received_date,
-			  timezone_offset, from_envelope,
-			  input, dest_mail, ctx_r);
+	return qbox->module_ctx.super.save_begin(ctx, input);
 }
 
 static int quota_save_finish(struct mail_save_context *ctx)
@@ -371,7 +365,7 @@ quota_mailbox_open(struct mail_storage *storage, const char *name,
 	box->v.transaction_commit = quota_mailbox_transaction_commit;
 	box->v.transaction_rollback = quota_mailbox_transaction_rollback;
 	box->v.mail_alloc = quota_mail_alloc;
-	box->v.save_init = quota_save_init;
+	box->v.save_begin = quota_save_begin;
 	box->v.save_finish = quota_save_finish;
 	box->v.copy = quota_copy;
 	box->v.sync_notify = quota_mailbox_sync_notify;

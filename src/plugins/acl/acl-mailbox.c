@@ -246,23 +246,17 @@ static int acl_save_get_flags(struct mailbox *box, enum mail_flags *flags,
 }
 
 static int
-acl_save_init(struct mailbox_transaction_context *t,
-	      enum mail_flags flags, struct mail_keywords *keywords,
-	      time_t received_date, int timezone_offset,
-	      const char *from_envelope, struct istream *input,
-	      struct mail **dest_mail, struct mail_save_context **ctx_r)
+acl_save_begin(struct mail_save_context *ctx, struct istream *input)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
+	struct mailbox *box = ctx->transaction->box;
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
 
-	if (mailbox_acl_right_lookup(t->box, ACL_STORAGE_RIGHT_INSERT) <= 0)
+	if (mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) <= 0)
 		return -1;
-	if (acl_save_get_flags(t->box, &flags, &keywords) < 0)
+	if (acl_save_get_flags(box, &ctx->flags, &ctx->keywords) < 0)
 		return -1;
 
-	return abox->module_ctx.super.
-		save_init(t, flags, keywords, received_date,
-			  timezone_offset, from_envelope,
-			  input, dest_mail, ctx_r);
+	return abox->module_ctx.super.save_begin(ctx, input);
 }
 
 static int
@@ -342,7 +336,7 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 	box->v.allow_new_keywords = acl_allow_new_keywords;
 	box->v.close = acl_mailbox_close;
 	box->v.mail_alloc = acl_mail_alloc;
-	box->v.save_init = acl_save_init;
+	box->v.save_begin = acl_save_begin;
 	box->v.keywords_create = acl_keywords_create;
 	box->v.copy = acl_copy;
 	box->v.transaction_commit = acl_transaction_commit;

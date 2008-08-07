@@ -25,8 +25,13 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	if (*from_envelope == '\0')
 		from_envelope = NULL;
 
-	if (mailbox_save_init(t, flags, keywords, received_date,
-			      0, from_envelope, input, dest_mail, &ctx) < 0)
+	ctx = mailbox_save_alloc(t);
+	mailbox_save_set_flags(ctx, flags, keywords);
+	mailbox_save_set_received_date(ctx, received_date, 0);
+	mailbox_save_set_from_envelope(ctx, from_envelope);
+	mailbox_save_set_dest_mail(ctx, dest_mail);
+
+	if (mailbox_save_begin(&ctx, input) < 0)
 		return -1;
 
 	do {

@@ -36,9 +36,7 @@ struct dbox_save_context {
 	/* updated for each appended mail: */
 	uint32_t seq;
 	struct istream *input;
-	struct mail *mail, *cur_dest_mail;
-	time_t cur_received_date;
-	enum mail_flags cur_flags;
+	struct mail *mail;
 	string_t *cur_keywords;
 
 	struct dbox_file *cur_file;
@@ -61,34 +59,37 @@ static void dbox_save_keywords(struct dbox_save_context *ctx,
 					   keywords);
 }
 
-int dbox_save_init(struct mailbox_transaction_context *_t,
-		   enum mail_flags flags, struct mail_keywords *keywords,
-		   time_t received_date, int timezone_offset ATTR_UNUSED,
-		   const char *from_envelope ATTR_UNUSED,
-		   struct istream *input, struct mail **dest_mail,
-		   struct mail_save_context **ctx_r)
+struct mail_save_context *
+dbox_save_alloc(struct mailbox_transaction_context *_t)
 {
 	struct dbox_transaction_context *t =
 		(struct dbox_transaction_context *)_t;
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)t->ictx.ibox;
-	struct dbox_save_context *ctx = t->save_ctx;
+	struct dbox_save_context *ctx;
+
+	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+
+	if (t->save_ctx != NULL)
+		return &t->save_ctx->ctx;
+
+	ctx = t->save_ctx = i_new(struct dbox_save_context, 1);
+	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
+	ctx->mbox = mbox;
+	ctx->trans = t->ictx.trans;
+	ctx->append_ctx = dbox_index_append_begin(mbox->dbox_index);
+	i_array_init(&ctx->mails, 32);
+	return &ctx->ctx;
+}
+
+int dbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
+{
+	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct dbox_message_header dbox_msg_hdr;
 	struct dbox_save_mail *save_mail;
 	struct istream *crlf_input;
 	enum mail_flags save_flags;
 	const struct stat *st;
 	uoff_t mail_size;
-
-	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
-
-	if (ctx == NULL) {
-		ctx = t->save_ctx = i_new(struct dbox_save_context, 1);
-		ctx->ctx.transaction = &t->ictx.mailbox_ctx;
-		ctx->mbox = mbox;
-		ctx->trans = t->ictx.trans;
-		ctx->append_ctx = dbox_index_append_begin(mbox->dbox_index);
-		i_array_init(&ctx->mails, 32);
-	}
 
 	/* get the size of the mail to be saved, if possible */
 	st = i_stream_stat(input, TRUE);
@@ -101,26 +102,24 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	}
 
 	/* add to index */
-	save_flags = flags & ~MAIL_RECENT;
+	save_flags = _ctx->flags & ~MAIL_RECENT;
 	mail_index_append(ctx->trans, 0, &ctx->seq);
 	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 				save_flags);
-	if (keywords != NULL) {
+	if (_ctx->keywords != NULL) {
 		mail_index_update_keywords(ctx->trans, ctx->seq,
-					   MODIFY_REPLACE, keywords);
+					   MODIFY_REPLACE, _ctx->keywords);
 	}
 
-	if (*dest_mail == NULL) {
+	if (_ctx->dest_mail == NULL) {
 		if (ctx->mail == NULL)
-			ctx->mail = mail_alloc(_t, 0, NULL);
-		*dest_mail = ctx->mail;
+			ctx->mail = mail_alloc(_ctx->transaction, 0, NULL);
+		_ctx->dest_mail = ctx->mail;
 	}
-	mail_set_seq(*dest_mail, ctx->seq);
-
-	ctx->cur_dest_mail = *dest_mail;
+	mail_set_seq(_ctx->dest_mail, ctx->seq);
 
 	crlf_input = i_stream_create_lf(input);
-	ctx->input = index_mail_cache_parse_init(*dest_mail, crlf_input);
+	ctx->input = index_mail_cache_parse_init(_ctx->dest_mail, crlf_input);
 	i_stream_unref(&crlf_input);
 
 	save_mail = array_append_space(&ctx->mails);
@@ -134,18 +133,15 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	o_stream_cork(ctx->cur_output);
 	if (o_stream_send(ctx->cur_output, &dbox_msg_hdr,
 			  sizeof(dbox_msg_hdr)) < 0) {
-		mail_storage_set_critical(_t->box->storage,
+		mail_storage_set_critical(_ctx->transaction->box->storage,
 			"o_stream_send(%s) failed: %m", 
 			dbox_file_get_path(ctx->cur_file));
 		ctx->failed = TRUE;
 	}
 
-	ctx->cur_received_date = received_date != (time_t)-1 ?
-		received_date : ioloop_time;
-	ctx->cur_flags = flags;
-	dbox_save_keywords(ctx, keywords);
-
-	*ctx_r = &ctx->ctx;
+	if (_ctx->received_date == (time_t)-1)
+		_ctx->received_date = ioloop_time;
+	dbox_save_keywords(ctx, _ctx->keywords);
 	return ctx->failed ? -1 : 0;
 }
 
@@ -169,7 +165,7 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 			ctx->failed = TRUE;
 			return -1;
 		}
-		index_mail_cache_parse_continue(ctx->cur_dest_mail);
+		index_mail_cache_parse_continue(_ctx->dest_mail);
 
 		/* both tee input readers may consume data from our primary
 		   input stream. we'll have to make sure we don't return with
@@ -193,17 +189,17 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 	str = t_str_new(256);
 	/* write first fields that don't change */
 	str_printfa(str, "%c%lx\n", DBOX_METADATA_RECEIVED_TIME,
-		    (unsigned long)ctx->cur_received_date);
+		    (unsigned long)ctx->ctx.received_date);
 	str_printfa(str, "%c%lx\n", DBOX_METADATA_SAVE_TIME,
 		    (unsigned long)ioloop_time);
-	if (mail_get_virtual_size(ctx->cur_dest_mail, &vsize) < 0)
+	if (mail_get_virtual_size(ctx->ctx.dest_mail, &vsize) < 0)
 		i_unreached();
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
 		    (unsigned long long)vsize);
 
 	/* flags */
 	str_append_c(str, DBOX_METADATA_FLAGS);
-	dbox_mail_metadata_flags_append(str, ctx->cur_flags);
+	dbox_mail_metadata_flags_append(str, ctx->ctx.flags);
 	str_append_c(str, '\n');
 
 	/* keywords */
@@ -254,8 +250,8 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 	if (ctx->cur_output == NULL)
 		return -1;
 
-	index_mail_cache_parse_deinit(ctx->cur_dest_mail,
-				      ctx->cur_received_date, !ctx->failed);
+	index_mail_cache_parse_deinit(_ctx->dest_mail,
+				      _ctx->received_date, !ctx->failed);
 
 	if (!ctx->failed) T_BEGIN {
 		const char *cur_path;

@@ -160,13 +160,9 @@ struct mailbox_vfuncs {
 	/* Internal search function which updates ctx->seq */
 	int (*search_next_update_seq)(struct mail_search_context *ctx);
 
-	int (*save_init)(struct mailbox_transaction_context *t,
-			 enum mail_flags flags,
-			 struct mail_keywords *keywords,
-			 time_t received_date, int timezone_offset,
-			 const char *from_envelope, struct istream *input,
-			 struct mail **dest_mail,
-			 struct mail_save_context **ctx_r);
+	struct mail_save_context *
+		(*save_alloc)(struct mailbox_transaction_context *t);
+	int (*save_begin)(struct mail_save_context *ctx, struct istream *input);
 	int (*save_continue)(struct mail_save_context *ctx);
 	int (*save_finish)(struct mail_save_context *ctx);
 	void (*save_cancel)(struct mail_save_context *ctx);
@@ -320,6 +316,14 @@ struct mail_search_context {
 struct mail_save_context {
 	struct mailbox_transaction_context *transaction;
 	struct mail *dest_mail;
+
+	enum mail_flags flags;
+	struct mail_keywords *keywords;
+
+	time_t received_date;
+	int received_tz_offset;
+
+	char *from_envelope;
 };
 
 struct mailbox_sync_context {

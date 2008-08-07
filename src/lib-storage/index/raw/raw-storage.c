@@ -308,6 +308,7 @@ struct mailbox raw_mailbox = {
 		NULL,
 		NULL,
 		NULL,
+		NULL,
 		mail_storage_copy,
 		index_storage_is_inconsistent
 	}

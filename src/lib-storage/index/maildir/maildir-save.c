@@ -54,7 +54,6 @@ struct maildir_save_context {
 	struct istream *input;
 	struct ostream *output;
 	int fd;
-	time_t received_date;
 	uint32_t first_seq, seq;
 
 	unsigned int want_mails:1;
@@ -346,52 +345,51 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	return fd;
 }
 
-int maildir_save_init(struct mailbox_transaction_context *_t,
-		      enum mail_flags flags, struct mail_keywords *keywords,
-		      time_t received_date, int timezone_offset ATTR_UNUSED,
-		      const char *from_envelope ATTR_UNUSED,
-		      struct istream *input, struct mail **dest_mail,
-		      struct mail_save_context **ctx_r)
+struct mail_save_context *
+maildir_save_alloc(struct mailbox_transaction_context *_t)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;
-	struct maildir_save_context *ctx;
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	if (t->save_ctx == NULL)
 		t->save_ctx = maildir_save_transaction_init(t);
-	ctx = t->save_ctx;
+	return &t->save_ctx->ctx;
+}
 
-	flags &= ~MAIL_RECENT;
-	if (mbox->ibox.keep_recent)
-		flags |= MAIL_RECENT;
+int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
+{
+	struct maildir_transaction_context *t =
+		(struct maildir_transaction_context *)_ctx->transaction;
+	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+
+	_ctx->flags &= ~MAIL_RECENT;
+	if (ctx->mbox->ibox.keep_recent)
+		_ctx->flags |= MAIL_RECENT;
 
 	T_BEGIN {
 		/* create a new file in tmp/ directory */
 		const char *fname;
 
-		ctx->fd = maildir_create_tmp(mbox, ctx->tmpdir, &fname);
+		ctx->fd = maildir_create_tmp(ctx->mbox, ctx->tmpdir, &fname);
 		if (ctx->fd == -1)
 			ctx->failed = TRUE;
 		else {
-			ctx->received_date = received_date;
 			ctx->input = (ctx->mbox->storage->storage.flags &
 				      MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 				i_stream_create_crlf(input) :
 				i_stream_create_lf(input);
 
-			maildir_save_add(t, fname, flags, keywords, *dest_mail);
+			maildir_save_add(t, fname, _ctx->flags, _ctx->keywords,
+					 _ctx->dest_mail);
 		}
 	} T_END;
-	if (ctx->failed)
-		return -1;
 
-	ctx->output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
-	o_stream_cork(ctx->output);
-
-	*ctx_r = &ctx->ctx;
+	if (!ctx->failed) {
+		ctx->output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
+		o_stream_cork(ctx->output);
+	}
 	return ctx->failed ? -1 : 0;
 }
 
@@ -446,10 +444,10 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 		ctx->failed = TRUE;
 	}
 
-	if (ctx->received_date != (time_t)-1) {
+	if (ctx->ctx.received_date != (time_t)-1) {
 		/* set the received_date by modifying mtime */
 		buf.actime = ioloop_time;
-		buf.modtime = ctx->received_date;
+		buf.modtime = ctx->ctx.received_date;
 
 		if (utime(path, &buf) < 0) {
 			ctx->failed = TRUE;
@@ -458,7 +456,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 		}
 	} else if (ctx->fd != -1) {
 		if (fstat(ctx->fd, &st) == 0)
-			ctx->received_date = st.st_mtime;
+			ctx->ctx.received_date = st.st_mtime;
 		else {
 			ctx->failed = TRUE;
 			mail_storage_set_critical(storage,
@@ -467,7 +465,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	} else {
 		/* hardlinked */
 		if (stat(path, &st) == 0)
-			ctx->received_date = st.st_mtime;
+			ctx->ctx.received_date = st.st_mtime;
 		else {
 			ctx->failed = TRUE;
 			mail_storage_set_critical(storage,
@@ -477,7 +475,8 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 
 	if (ctx->cur_dest_mail != NULL) {
 		index_mail_cache_parse_deinit(ctx->cur_dest_mail,
-					      ctx->received_date, !ctx->failed);
+					      ctx->ctx.received_date,
+					      !ctx->failed);
 	}
 	i_stream_unref(&ctx->input);
 
