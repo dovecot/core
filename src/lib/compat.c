@@ -17,6 +17,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <sys/time.h>
 #ifdef HAVE_INTTYPES_H
 #  include <inttypes.h> /* for strtoimax() and strtoumax() */
 #endif
@@ -274,5 +275,21 @@ int my_vsnprintf(char *str, size_t size, const char *format, va_list ap)
 	} while (tmp_size < 1024*1024);
 
 	i_panic("my_vsnprintf(): Output string too big");
+}
+#endif
+
+#ifndef HAVE_CLOCK_GETTIME
+int my_clock_gettime(int clk_id, struct timespec *tp)
+{
+	struct timeval tv;
+
+	i_assert(clk_id == CLOCK_REALTIME);
+
+	/* fallback to using microseconds */
+	if (gettimeofday(&tv, NULL) < 0)
+		return -1;
+	tp->tv_sec = tv.tv_sec;
+	tp->tv_nsec = tv.tv_usec * 1000;
+	return 0;
 }
 #endif

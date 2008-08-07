@@ -443,7 +443,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
 	       strtoull strtoll strtouq strtoq \
 	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \
-	       walkcontext dirfd clearenv malloc_usable_size)
+	       walkcontext dirfd clearenv malloc_usable_size clock_gettime)
 
 dnl strtoimax and strtoumax are macros in HP-UX, so inttypes.h must be included
 AC_MSG_CHECKING([for strtoimax])

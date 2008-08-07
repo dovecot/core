@@ -199,6 +199,14 @@ unsigned long long int my_strtoll(const char *nptr, char **endptr, int base);
 int my_vsnprintf(char *str, size_t size, const char *format, va_list ap);
 #endif
 
+#ifndef HAVE_CLOCK_GETTIME
+#  include <time.h>
+#  undef CLOCK_REALTIME
+#  define CLOCK_REALTIME 1
+#  define clock_gettime my_clock_gettime
+int my_clock_gettime(int clk_id, struct timespec *tp);
+#endif
+
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
 #define i_toupper(x) ((char) toupper((int) (unsigned char) (x)))
