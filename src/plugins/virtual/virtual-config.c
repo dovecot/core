@@ -5,8 +5,10 @@
 #include "istream.h"
 #include "str.h"
 #include "imap-parser.h"
+#include "imap-match.h"
 #include "mail-search-build.h"
 #include "virtual-storage.h"
+#include "virtual-plugin.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -18,6 +20,9 @@ struct virtual_parse_context {
 	pool_t pool;
 	string_t *rule;
 	unsigned int rule_idx;
+
+	char sep;
+	bool have_wildcards;
 };
 
 static struct mail_search_args *
@@ -65,6 +70,8 @@ virtual_config_add_rule(struct virtual_parse_context *ctx, const char **error_r)
 		return -1;
 	}
 
+	/* update at all the mailboxes that were introduced since the previous
+	   rule. */
 	bboxes = array_get(&ctx->mbox->backend_boxes, &count);
 	i_assert(ctx->rule_idx < count);
 	for (i = ctx->rule_idx; i < count; i++) {
@@ -96,11 +103,90 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 	if (virtual_config_add_rule(ctx, error_r) < 0)
 		return -1;
 
-	/* new mailbox */
+	/* new mailbox. the search args are added to it later. */
 	bbox = p_new(ctx->pool, struct virtual_backend_box, 1);
 	bbox->name = p_strdup(ctx->pool, line);
+	if (strchr(bbox->name, '*') != NULL ||
+	    strchr(bbox->name, '%') != NULL) {
+		bbox->glob = imap_match_init(ctx->pool, bbox->name,
+					     TRUE, ctx->sep);
+		bbox->ns = mail_namespace_find(virtual_all_namespaces, &line);
+		ctx->have_wildcards = TRUE;
+	}
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 	return 0;
+}
+
+static void
+separate_wildcard_mailboxes(struct virtual_mailbox *mbox,
+			    ARRAY_TYPE(virtual_backend_box) *wildcard_boxes)
+{
+	struct virtual_backend_box *const *bboxes;
+	unsigned int i, count;
+
+	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
+	t_array_init(wildcard_boxes, I_MIN(16, count));
+	for (i = 0; i < count;) {
+		if (bboxes[i]->glob == NULL)
+			i++;
+		else {
+			array_append(wildcard_boxes, &bboxes[i], 1);
+			array_delete(&mbox->backend_boxes, i, 1);
+			bboxes = array_get_modifiable(&mbox->backend_boxes,
+						      &count);
+		}
+	}
+}
+
+static void virtual_config_copy_expanded(struct virtual_parse_context *ctx,
+					 struct virtual_backend_box *wbox,
+					 const char *name)
+{
+	struct virtual_backend_box *bbox;
+
+	bbox = p_new(ctx->pool, struct virtual_backend_box, 1);
+	*bbox = *wbox;
+	bbox->name = p_strdup(ctx->pool, name);
+	bbox->glob = NULL;
+	mail_search_args_ref(bbox->search_args);
+	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
+}
+
+static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
+{
+	ARRAY_TYPE(virtual_backend_box) wildcard_boxes;
+	struct mailbox_list_iterate_context *iter;
+	struct virtual_backend_box *const *wboxes;
+	const char **patterns;
+	const struct mailbox_info *info;
+	unsigned int i, count;
+
+	separate_wildcard_mailboxes(ctx->mbox, &wildcard_boxes);
+
+	/* get patterns we want to list */
+	wboxes = array_get_modifiable(&wildcard_boxes, &count);
+	patterns = t_new(const char *, count + 1);
+	for (i = 0; i < count; i++)
+		patterns[i] = wboxes[i]->name;
+
+	/* match listed mailboxes to wildcards */
+	iter = mailbox_list_iter_init_namespaces(
+					virtual_all_namespaces, patterns,
+					MAILBOX_LIST_ITER_VIRTUAL_NAMES |
+					MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		for (i = 0; i < count; i++) {
+			if (wboxes[i]->ns == info->ns &&
+			    imap_match(wboxes[i]->glob,
+				       info->name) == IMAP_MATCH_YES) {
+				virtual_config_copy_expanded(ctx, wboxes[i],
+							     info->name);
+			}
+		}
+	}
+	for (i = 0; i < count; i++)
+		mail_search_args_unref(&wboxes[i]->search_args);
+	return mailbox_list_iter_deinit(&iter);
 }
 
 int virtual_config_read(struct virtual_mailbox *mbox)
@@ -127,6 +213,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	}
 
 	memset(&ctx, 0, sizeof(ctx));
+	ctx.sep = mail_namespace_get_root_sep(virtual_all_namespaces);
 	ctx.mbox = mbox;
 	ctx.pool = mbox->ibox.box.pool;
 	ctx.rule = t_str_new(256);
@@ -149,6 +236,9 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	if (ret == 0)
 		ret = virtual_config_add_rule(&ctx, &error);
 
+	if (ret == 0 && ctx.have_wildcards)
+		ret = virtual_config_expand_wildcards(&ctx);
+
 	if (ret == 0 && array_count(&mbox->backend_boxes) == 0) {
 		mail_storage_set_critical(mbox->ibox.storage,
 					  "%s: No mailboxes defined", path);
@@ -168,4 +258,3 @@ void virtual_config_free(struct virtual_mailbox *mbox)
 	for (i = 0; i < count; i++)
 		mail_search_args_unref(&bboxes[i]->search_args);
 }
-

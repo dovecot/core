@@ -73,8 +73,14 @@ struct virtual_backend_box {
 	struct mail *sync_mail;
 	/* pending removed UIDs */
 	ARRAY_TYPE(seq_range) sync_pending_removes;
+
+	/* name contains a wildcard, this is a glob for it */
+	struct imap_match_glob *glob;
+	struct mail_namespace *ns;
+
 	unsigned int sync_seen:1;
 };
+ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 
 struct virtual_mailbox {
 	struct index_mailbox ibox;
@@ -88,7 +94,7 @@ struct virtual_mailbox {
 	uint32_t highest_mailbox_id;
 
 	/* Mailboxes this virtual mailbox consists of, sorted by mailbox_id */
-	ARRAY_DEFINE(backend_boxes, struct virtual_backend_box *);
+	ARRAY_TYPE(virtual_backend_box) backend_boxes;
 
 	unsigned int uids_mapped:1;
 	unsigned int sync_initialized:1;
