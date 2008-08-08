@@ -72,6 +72,7 @@ static struct mail_storage *virtual_alloc(void)
 	storage = p_new(pool, struct virtual_storage, 1);
 	storage->storage = virtual_storage;
 	storage->storage.pool = pool;
+	p_array_init(&storage->open_stack, pool, 8);
 
 	return &storage->storage;
 }
@@ -151,6 +152,20 @@ virtual_backend_box_lookup(struct virtual_mailbox *mbox, uint32_t mailbox_id)
 	return NULL;
 }
 
+static bool virtual_mailbox_is_in_open_stack(struct virtual_storage *storage,
+					     const char *name)
+{
+	const char *const *names;
+	unsigned int i, count;
+
+	names = array_get(&storage->open_stack, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(names[i], name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 				  enum mailbox_open_flags open_flags)
 {
@@ -168,10 +183,15 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 		ns = mail_namespace_find(virtual_all_namespaces, &mailbox);
 		bboxes[i]->box = mailbox_open(ns->storage, mailbox,
 					      NULL, open_flags);
+
 		if (bboxes[i]->box == NULL) {
-			str = mail_storage_get_last_error(ns->storage, &error);
-			mail_storage_set_error(mbox->ibox.box.storage,
-					       error, str);
+			if (ns->storage != mbox->ibox.box.storage) {
+				/* copy the error */
+				str = mail_storage_get_last_error(ns->storage,
+								  &error);
+				mail_storage_set_error(mbox->ibox.box.storage,
+						       error, str);
+			}
 			break;
 		}
 		i_array_init(&bboxes[i]->uids, 64);
@@ -198,6 +218,13 @@ virtual_open(struct virtual_storage *storage, const char *name,
 	struct mail_index *index;
 	const char *path;
 	pool_t pool;
+	bool failed;
+
+	if (virtual_mailbox_is_in_open_stack(storage, name)) {
+		mail_storage_set_critical(_storage,
+					  "Virtual mailbox loops: %s", name);
+		return NULL;
+	}
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -223,8 +250,12 @@ virtual_open(struct virtual_storage *storage, const char *name,
 			sizeof(struct virtual_mail_index_record),
 			sizeof(uint32_t));
 
-	if (virtual_config_read(mbox) < 0 ||
-	    virtual_mailboxes_open(mbox, flags) < 0) {
+	array_append(&storage->open_stack, &name, 1);
+	failed = virtual_config_read(mbox) < 0 ||
+		virtual_mailboxes_open(mbox, flags) < 0;
+	array_delete(&storage->open_stack,
+		     array_count(&storage->open_stack)-1, 1);
+	if (failed) {
 		virtual_config_free(mbox);
 		pool_unref(&pool);
 		return NULL;

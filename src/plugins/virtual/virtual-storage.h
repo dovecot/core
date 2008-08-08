@@ -43,6 +43,10 @@ struct virtual_mail_index_record {
 struct virtual_storage {
 	struct mail_storage storage;
 	union mailbox_list_module_context list_module_ctx;
+
+	/* List of mailboxes while a virtual mailbox is being opened.
+	   Used to track loops. */
+	ARRAY_TYPE(const_string) open_stack;
 };
 
 struct virtual_backend_uidmap {
