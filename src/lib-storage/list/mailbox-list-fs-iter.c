@@ -412,6 +412,7 @@ list_file_inbox(struct fs_list_iterate_context *ctx, const char *fname)
 	/* INBOX/ directory. show the INBOX list now */
 	if ((ctx->ctx.list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
 		/* this directory is the INBOX */
+		ctx->inbox_found = TRUE;
 	} else if (!ctx->inbox_found) {
 		(void)fs_list_inbox(ctx);
 		ctx->info.flags &= ~(MAILBOX_NOSELECT | MAILBOX_NONEXISTENT |
