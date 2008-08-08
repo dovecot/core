@@ -111,7 +111,8 @@ struct mailbox_list_settings {
 
 struct mailbox_info {
 	const char *name;
-        enum mailbox_info_flags flags;
+	enum mailbox_info_flags flags;
+	struct mail_namespace *ns;
 };
 
 /* register all drivers */
@@ -187,6 +188,12 @@ struct mailbox_list_iterate_context *
 mailbox_list_iter_init_multiple(struct mailbox_list *list,
 				const char *const *patterns,
 				enum mailbox_list_iter_flags flags);
+/* List mailbox_list_iter_init_multiple(), but list mailboxes from all the
+   specified namespaces. */
+struct mailbox_list_iterate_context *
+mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
+				  const char *const *patterns,
+				  enum mailbox_list_iter_flags flags);
 /* Get next mailbox. Returns the mailbox name */
 const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx);

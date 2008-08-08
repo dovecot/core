@@ -27,6 +27,14 @@
 	"Internal error occurred. Refer to server log for more information."
 #define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
+struct ns_list_iterate_context {
+	struct mailbox_list_iterate_context ctx;
+	struct mailbox_list_iterate_context *backend_ctx;
+	struct mail_namespace *namespaces;
+	pool_t pool;
+	const char **patterns;
+};
+
 struct mailbox_list_module_register mailbox_list_module_register = { 0 };
 
 void (*hook_mailbox_list_created)(struct mailbox_list *list);
@@ -390,6 +398,71 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 
 	mailbox_list_clear_error(list);
 	return list->v.iter_init(list, patterns, flags);
+}
+
+static const struct mailbox_info *
+mailbox_list_ns_iter_next(struct mailbox_list_iterate_context *_ctx)
+{
+	struct ns_list_iterate_context *ctx =
+		(struct ns_list_iterate_context *)_ctx;
+	const struct mailbox_info *info;
+
+	info = mailbox_list_iter_next(ctx->backend_ctx);
+	if (info == NULL && ctx->namespaces != NULL) {
+		/* go to the next namespace */
+		if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
+			_ctx->failed = TRUE;
+		ctx->backend_ctx =
+			mailbox_list_iter_init_multiple(ctx->namespaces->list,
+							ctx->patterns,
+							_ctx->flags);
+		ctx->namespaces = ctx->namespaces->next;
+		return mailbox_list_ns_iter_next(_ctx);
+	}
+	return info;
+}
+
+static int
+mailbox_list_ns_iter_deinit(struct mailbox_list_iterate_context *_ctx)
+{
+	struct ns_list_iterate_context *ctx =
+		(struct ns_list_iterate_context *)_ctx;
+	int ret;
+
+	if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
+		_ctx->failed = TRUE;
+	ret = _ctx->failed ? -1 : 0;
+	pool_unref(&ctx->pool);
+	return ret;
+}
+
+struct mailbox_list_iterate_context *
+mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
+				  const char *const *patterns,
+				  enum mailbox_list_iter_flags flags)
+{
+	struct ns_list_iterate_context *ctx;
+	unsigned int i, count;
+	pool_t pool;
+
+	i_assert(namespaces != NULL);
+
+	pool = pool_alloconly_create("mailbox list namespaces", 256);
+	ctx = p_new(pool, struct ns_list_iterate_context, 1);
+	ctx->pool = pool;
+	ctx->ctx.list = p_new(pool, struct mailbox_list, 1);
+	ctx->ctx.list->v.iter_next = mailbox_list_ns_iter_next;
+	ctx->ctx.list->v.iter_deinit = mailbox_list_ns_iter_deinit;
+
+	count = str_array_length(patterns);
+	ctx->patterns = p_new(pool, const char *, count + 1);
+	for (i = 0; i < count; i++)
+		ctx->patterns[i] = p_strdup(pool, patterns[i]);
+
+	ctx->backend_ctx = mailbox_list_iter_init_multiple(namespaces->list,
+							   patterns, flags);
+	ctx->namespaces = namespaces->next;
+	return &ctx->ctx;
 }
 
 const struct mailbox_info *

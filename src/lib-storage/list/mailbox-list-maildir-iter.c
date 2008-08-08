@@ -282,6 +282,7 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->ctx.flags = flags;
 	ctx->pool = pool;
 	ctx->tree_ctx = mailbox_tree_init(sep);
+	ctx->info.ns = _list->ns;
 
 	glob = imap_match_init_multiple(pool, patterns, TRUE, sep);
 
