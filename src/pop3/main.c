@@ -41,7 +41,6 @@ struct ioloop *ioloop;
 void (*hook_client_created)(struct client **client) = NULL;
 
 static struct module *modules = NULL;
-static pool_t namespace_pool;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 static struct io *log_io = NULL;
 
@@ -230,9 +229,8 @@ static bool main_init(void)
 		i_fatal("pop3_uidl_format setting doesn't contain any "
 			"%% variables.");
 
-	namespace_pool = pool_alloconly_create("namespaces", 1024);
 	user = mail_user_init(getenv("USER"), getenv("HOME"));
-	if (mail_namespaces_init(namespace_pool, user) < 0)
+	if (mail_namespaces_init(user) < 0)
 		i_fatal("Namespace initialization failed");
 
 	client = client_create(0, 1, user);

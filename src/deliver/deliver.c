@@ -787,7 +787,6 @@ int main(int argc, char *argv[])
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail *mail;
 	uid_t process_euid;
-	pool_t namespace_pool;
 	bool stderr_rejection = FALSE;
 	bool keep_environment = FALSE;
 	bool user_auth = FALSE;
@@ -1002,14 +1001,13 @@ int main(int argc, char *argv[])
 
 	module_dir_init(modules);
 
-	namespace_pool = pool_alloconly_create("namespaces", 1024);
 	mail_user = mail_user_init(user, home);
-	if (mail_namespaces_init(namespace_pool, mail_user) < 0)
+	if (mail_namespaces_init(mail_user) < 0)
 		i_fatal("Namespace initialization failed");
 
 	/* create a separate mail user for the internal namespace */
 	raw_mail_user = mail_user_init(user, NULL);
-	raw_ns = mail_namespaces_init_empty(namespace_pool, raw_mail_user);
+	raw_ns = mail_namespaces_init_empty(raw_mail_user);
 	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
 
 	if (mail_storage_create(raw_ns, "raw", "/tmp",

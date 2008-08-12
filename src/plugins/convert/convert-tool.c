@@ -49,7 +49,7 @@ int main(int argc, const char *argv[])
 
 	mail_storage_parse_env(&dest_flags, &lock_method);
 	user = mail_user_init(argv[1], argv[2]);
-	dest_ns = mail_namespaces_init_empty(pool_datastack_create(), user);
+	dest_ns = mail_namespaces_init_empty(user);
 
 	if (mail_storage_create(dest_ns, NULL, argv[4],
 				dest_flags, lock_method, &error) < 0) {

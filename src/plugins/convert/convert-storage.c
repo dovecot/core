@@ -400,7 +400,7 @@ int convert_storage(const char *source_data,
 	const char *path, *error;
 	int ret;
 
-	source_ns = mail_namespaces_init_empty(pool_datastack_create(), user);
+	source_ns = mail_namespaces_init_empty(user);
 	dest_inbox_ns = mail_namespace_find_inbox(dest_namespaces);
 	src_flags = dest_inbox_ns->storage->flags;
 	lock_method = dest_inbox_ns->storage->lock_method;

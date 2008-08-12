@@ -28,14 +28,14 @@ void mail_namespace_init_storage(struct mail_namespace *ns)
 }
 
 static struct mail_namespace *
-namespace_add_env(pool_t pool, const char *data, unsigned int num,
+namespace_add_env(const char *data, unsigned int num,
 		  struct mail_user *user, enum mail_storage_flags flags,
 		  enum file_lock_method lock_method)
 {
         struct mail_namespace *ns;
 	const char *sep, *type, *prefix, *error;
 
-	ns = p_new(pool, struct mail_namespace, 1);
+	ns = p_new(user->pool, struct mail_namespace, 1);
 
 	sep = getenv(t_strdup_printf("NAMESPACE_%u_SEP", num));
 	type = getenv(t_strdup_printf("NAMESPACE_%u_TYPE", num));
@@ -76,7 +76,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 
 	if (sep != NULL)
 		ns->sep = *sep;
-	ns->prefix = p_strdup(pool, prefix);
+	ns->prefix = p_strdup(user->pool, prefix);
 	ns->user = user;
 
 	if (mail_storage_create(ns, NULL, data, flags, lock_method,
@@ -178,7 +178,7 @@ namespaces_sort(struct mail_namespace *src)
 	return dest;
 }
 
-int mail_namespaces_init(pool_t pool, struct mail_user *user)
+int mail_namespaces_init(struct mail_user *user)
 {
 	struct mail_namespace *namespaces, *ns, **ns_p;
 	enum mail_storage_flags flags;
@@ -199,7 +199,7 @@ int mail_namespaces_init(pool_t pool, struct mail_user *user)
 			break;
 
 		T_BEGIN {
-			*ns_p = namespace_add_env(pool, data, i, user, flags,
+			*ns_p = namespace_add_env(data, i, user, flags,
 						  lock_method);
 		} T_END;
 
@@ -232,7 +232,7 @@ int mail_namespaces_init(pool_t pool, struct mail_user *user)
 			mail = t_strconcat("maildir:", mail, NULL);
 	}
 
-	ns = p_new(pool, struct mail_namespace, 1);
+	ns = p_new(user->pool, struct mail_namespace, 1);
 	ns->type = NAMESPACE_PRIVATE;
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
@@ -260,11 +260,11 @@ int mail_namespaces_init(pool_t pool, struct mail_user *user)
 }
 
 struct mail_namespace *
-mail_namespaces_init_empty(pool_t pool, struct mail_user *user)
+mail_namespaces_init_empty(struct mail_user *user)
 {
 	struct mail_namespace *ns;
 
-	ns = p_new(pool, struct mail_namespace, 1);
+	ns = p_new(user->pool, struct mail_namespace, 1);
 	ns->user = user;
 	ns->prefix = "";
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |

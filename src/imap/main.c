@@ -47,7 +47,6 @@ const char *imap_id_send, *imap_id_log;
 static struct io *log_io = NULL;
 static struct module *modules = NULL;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
-static pool_t namespace_pool;
 
 void (*hook_client_created)(struct client **client) = NULL;
 
@@ -229,9 +228,8 @@ static void main_init(void)
 
         parse_workarounds();
 
-	namespace_pool = pool_alloconly_create("namespaces", 1024);
 	user = mail_user_init(username, home);
-	if (mail_namespaces_init(namespace_pool, user) < 0)
+	if (mail_namespaces_init(user) < 0)
 		i_fatal("Namespace initialization failed");
 	client = client_create(0, 1, user);
 
@@ -275,7 +273,6 @@ static void main_deinit(void)
 	commands_deinit();
         mail_storage_deinit();
 	dict_driver_unregister(&dict_driver_client);
-	pool_unref(&namespace_pool);
 
 	str_free(&capability_string);
 

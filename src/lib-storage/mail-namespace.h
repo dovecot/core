@@ -43,9 +43,8 @@ struct mail_namespace {
 /* Called after namespaces has been created */
 extern void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
 
-int mail_namespaces_init(pool_t pool, struct mail_user *user);
-struct mail_namespace *
-mail_namespaces_init_empty(pool_t pool, struct mail_user *user);
+int mail_namespaces_init(struct mail_user *user);
+struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
 void mail_namespaces_deinit(struct mail_namespace **namespaces);
 
 /* Update hierarchy separators in given name to real_sep characters. */

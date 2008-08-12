@@ -27,7 +27,6 @@ struct expire_context {
 
 	char *user;
 	struct mail_user *mail_user;
-	pool_t namespace_pool;
 	bool testrun;
 };
 
@@ -45,7 +44,7 @@ static int user_init(struct expire_context *ctx, const char *user)
 	}
 
 	ctx->mail_user = mail_user_init(user, getenv("HOME"));
-	if (mail_namespaces_init(ctx->namespace_pool, ctx->mail_user) < 0)
+	if (mail_namespaces_init(ctx->mail_user) < 0)
 		return -1;
 	return 1;
 }
@@ -54,7 +53,6 @@ static void user_deinit(struct expire_context *ctx)
 {
 	mail_user_deinit(&ctx->mail_user);
 	i_free_and_null(ctx->user);
-	p_clear(ctx->namespace_pool);
 }
 
 static int
@@ -204,7 +202,6 @@ static void expire_run(bool testrun)
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.testrun = testrun;
 	ctx.auth_conn = auth_connection_init(auth_socket);
-	ctx.namespace_pool = pool_alloconly_create("namespaces", 1024);
 	env = expire_env_init(getenv("EXPIRE"), getenv("EXPIRE_ALTMOVE"));
 	dict = dict_init(getenv("EXPIRE_DICT"), DICT_DATA_TYPE_UINT32, "");
 	if (dict == NULL)
