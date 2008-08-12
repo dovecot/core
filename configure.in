@@ -273,6 +273,24 @@ AC_ARG_WITH(solr,
 	fi,
 	want_solr=no)
 
+AC_ARG_WITH(zlib,
+[  --with-zlib             Build with zlib compression support],
+	if test x$withval = xno || test x$withval = xauto; then
+		want_zlib=$withval
+	else
+		want_zlib=yes
+	fi,
+	want_zlib=auto)
+
+AC_ARG_WITH(bzlib,
+[  --with-bzlib            Build with bzlib compression support],
+	if test x$withval = xno || test x$withval = xauto; then
+		want_bzlib=$withval
+	else
+		want_bzlib=yes
+	fi,
+	want_bzlib=auto)
+
 AC_ARG_WITH(ssl,
 [  --with-ssl=gnutls|openssl Build with GNUTLS or OpenSSL (default)],
 	if test x$withval = xno; then
@@ -2233,20 +2251,36 @@ dnl **
 dnl ** Plugins
 dnl **
 
-AC_CHECK_HEADER(zlib.h, [
-  have_zlib=yes
-  have_zlib_plugin=yes
-  AC_DEFINE(HAVE_ZLIB,, Define if you have zlib library)
-])
+if test "$want_zlib" != "no"; then
+  AC_CHECK_HEADER(zlib.h, [
+    have_zlib=yes
+    have_zlib_plugin=yes
+    AC_DEFINE(HAVE_ZLIB,, Define if you have zlib library)
+  ], [
+    if test "$want_zlib" = "yes"; then
+      AC_ERROR([Can't build with zlib support: zlib.h not found])
+    fi
+  ])
+fi
 AM_CONDITIONAL(BUILD_ZLIB, test "$have_zlib" = "yes")
 
-AC_CHECK_HEADER(bzlib.h, [
-  AC_CHECK_LIB(bz2, BZ2_bzdopen, [
-    have_bzlib=yes
-    have_zlib_plugin=yes
-    AC_DEFINE(HAVE_BZLIB,, Define if you have bzlib library)
+if test "$want_bzlib" != "no"; then
+  AC_CHECK_HEADER(bzlib.h, [
+    AC_CHECK_LIB(bz2, BZ2_bzdopen, [
+      have_bzlib=yes
+      have_zlib_plugin=yes
+      AC_DEFINE(HAVE_BZLIB,, Define if you have bzlib library)
+    ], [
+      if test "$want_bzlib" = "yes"; then
+	AC_ERROR([Can't build with bzlib support: libbz2 not found])
+      fi
+    ])
+  ], [
+    if test "$want_bzlib" = "yes"; then
+      AC_ERROR([Can't build with bzlib support: bzlib.h not found])
+    fi
   ])
-])
+fi
 AM_CONDITIONAL(BUILD_BZLIB, test "$have_bzlib" = "yes")
 AM_CONDITIONAL(BUILD_ZLIB_PLUGIN, test "$have_zlib_plugin" = "yes")
 
