@@ -691,7 +691,7 @@ static pid_t create_login_process(struct login_group *group)
 		i_fatal("Failed to dup2() fds");
 
 	/* don't close any of these */
-	for (tmp_fd = 0; tmp_fd <= cur_fd; tmp_fd++)
+	for (tmp_fd = 0; tmp_fd < cur_fd; tmp_fd++)
 		fd_close_on_exec(tmp_fd, FALSE);
 
 	(void)close(fd[0]);

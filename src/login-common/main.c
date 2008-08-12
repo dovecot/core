@@ -404,7 +404,7 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 		env = getenv("SSL_LISTEN_FDS");
 		if (env != NULL) i += atoi(env);
 
-		fd_debug_verify_leaks(i + 1, 1024);
+		fd_debug_verify_leaks(i, 1024);
 	}
 #endif
 	/* clear all allocated memory before freeing it. this makes the login
