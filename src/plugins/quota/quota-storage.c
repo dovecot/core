@@ -386,37 +386,17 @@ quota_mailbox_open(struct mail_storage *storage, const char *name,
 }
 
 static int
-quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
+quota_mailbox_delete_shrink_quota(struct mailbox *box)
 {
-	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(list);
-	struct mailbox *box;
 	struct mail_search_context *ctx;
         struct mailbox_transaction_context *t;
 	struct quota_transaction_context *qt;
 	struct mail *mail;
 	struct mail_search_args *search_args;
-	enum mail_error error;
 	int ret;
 
-	/* This is a bit annoying to handle. We'll have to open the mailbox
-	   and free the quota for all the messages existing in it. Open the
-	   mailbox locked so that other processes can't mess up the quota
-	   calculations by adding/removing mails while we're doing this. */
-	box = mailbox_open(qlist->storage, name, NULL, MAILBOX_OPEN_FAST |
-			   MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_KEEP_LOCKED);
-	if (box == NULL) {
-		(void)mail_storage_get_last_error(qlist->storage, &error);
-		if (error != MAIL_ERROR_NOTPOSSIBLE)
-			return -1;
-
-		/* mailbox isn't selectable */
-		return qlist->module_ctx.super.delete_mailbox(list, name);
-	}
-
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0) {
-		mailbox_close(&box);
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
 		return -1;
-	}
 
 	t = mailbox_transaction_begin(box, 0);
 	qt = QUOTA_CONTEXT(t);
@@ -436,7 +416,44 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 		mailbox_transaction_rollback(&t);
 	else
 		ret = mailbox_transaction_commit(&t);
-	mailbox_close(&box);
+	return ret;
+}
+
+static int
+quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
+{
+	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(list);
+	struct mailbox *box;
+	enum mail_error error;
+	const char *str;
+	int ret;
+
+	/* This is a bit annoying to handle. We'll have to open the mailbox
+	   and free the quota for all the messages existing in it. Open the
+	   mailbox locked so that other processes can't mess up the quota
+	   calculations by adding/removing mails while we're doing this. */
+	box = mailbox_open(qlist->storage, name, NULL, MAILBOX_OPEN_FAST |
+			   MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_KEEP_LOCKED);
+	if (box == NULL) {
+		str = mail_storage_get_last_error(qlist->storage, &error);
+		if (error != MAIL_ERROR_NOTPOSSIBLE) {
+			ret = -1;
+		} else {
+			/* mailbox isn't selectable */
+			ret = 0;
+		}
+	} else {
+		ret = quota_mailbox_delete_shrink_quota(box);
+	}
+	if (ret < 0) {
+		str = mail_storage_get_last_error(qlist->storage, &error);
+		mailbox_list_set_error(list, error, str);
+	} else {
+		ret = qlist->module_ctx.super.delete_mailbox(list, name);
+	}
+	if (box != NULL)
+		mailbox_close(&box);
+
 	/* FIXME: here's an unfortunate race condition */
 	return ret < 0 ? -1 :
 		qlist->module_ctx.super.delete_mailbox(list, name);
