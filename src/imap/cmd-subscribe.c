@@ -35,7 +35,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		return FALSE;
 
 	verify_name = mailbox;
-	ns = mail_namespace_find_subscribable(cmd->client->namespaces,
+	ns = mail_namespace_find_subscribable(cmd->client->user->namespaces,
 					      &mailbox);
 	if (ns == NULL) {
 		client_send_tagline(cmd, "NO Unknown namespace.");
@@ -49,7 +49,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		verify_name = t_strndup(verify_name, strlen(verify_name)-1);
 	}
 
-	if (have_listable_namespace_prefix(cmd->client->namespaces,
+	if (have_listable_namespace_prefix(cmd->client->user->namespaces,
 					   verify_name)) {
 		/* subscribing to a listable namespace prefix, allow it. */
 	} else {

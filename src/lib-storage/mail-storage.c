@@ -169,8 +169,7 @@ mail_storage_set_autodetection(const char **data, const char **driver,
 }
 
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
-			const char *data, const char *user,
-			enum mail_storage_flags flags,
+			const char *data, enum mail_storage_flags flags,
 			enum file_lock_method lock_method,
 			const char **error_r)
 {
@@ -214,7 +213,6 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		storage = classes[i]->v.alloc();
 		storage->flags = flags;
 		storage->lock_method = lock_method;
-		storage->user = p_strdup(storage->pool, user);
 		storage->ns = ns;
 
 		storage->callbacks =
@@ -239,7 +237,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			return -1;
 		}
 
-		home = getenv("HOME");
+		home = ns->user->home;
 		if (home == NULL || *home == '\0') home = "(not set)";
 
 		*error_r = t_strdup_printf(

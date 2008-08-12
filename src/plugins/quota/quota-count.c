@@ -19,7 +19,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_storage *storage,
 	uoff_t size;
 	int ret = 0;
 
-	rule = quota_root_rule_find(root, name);
+	rule = quota_root_rule_find(root->set, name);
 	if (rule != NULL && rule->ignore) {
 		/* mailbox not included in quota */
 		return 0;

@@ -29,7 +29,7 @@ void mail_namespace_init_storage(struct mail_namespace *ns)
 
 static struct mail_namespace *
 namespace_add_env(pool_t pool, const char *data, unsigned int num,
-		  const char *user, enum mail_storage_flags flags,
+		  struct mail_user *user, enum mail_storage_flags flags,
 		  enum file_lock_method lock_method)
 {
         struct mail_namespace *ns;
@@ -77,8 +77,9 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	if (sep != NULL)
 		ns->sep = *sep;
 	ns->prefix = p_strdup(pool, prefix);
+	ns->user = user;
 
-	if (mail_storage_create(ns, NULL, data, user, flags, lock_method,
+	if (mail_storage_create(ns, NULL, data, flags, lock_method,
 				&error) < 0) {
 		i_error("Namespace '%s': %s", ns->prefix, error);
 		return NULL;
@@ -177,8 +178,7 @@ namespaces_sort(struct mail_namespace *src)
 	return dest;
 }
 
-int mail_namespaces_init(pool_t pool, const char *user,
-			 struct mail_namespace **namespaces_r)
+int mail_namespaces_init(pool_t pool, struct mail_user *user)
 {
 	struct mail_namespace *namespaces, *ns, **ns_p;
 	enum mail_storage_flags flags;
@@ -213,7 +213,7 @@ int mail_namespaces_init(pool_t pool, const char *user,
 		if (!namespaces_check(namespaces))
 			return -1;
 		namespaces = namespaces_sort(namespaces);
-		*namespaces_r = namespaces;
+		user->namespaces = namespaces;
 
 		if (hook_mail_namespaces_created != NULL) {
 			T_BEGIN {
@@ -237,8 +237,9 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
 	ns->prefix = "";
+	ns->user = user;
 
-	if (mail_storage_create(ns, NULL, mail, user, flags, lock_method,
+	if (mail_storage_create(ns, NULL, mail, flags, lock_method,
 				&error) < 0) {
 		if (mail != NULL && *mail != '\0')
 			i_error("mail_location: %s", error);
@@ -248,7 +249,7 @@ int mail_namespaces_init(pool_t pool, const char *user,
 		}
 		return -1;
 	}
-	*namespaces_r = ns;
+	user->namespaces = ns;
 
 	if (hook_mail_namespaces_created != NULL) {
 		T_BEGIN {
@@ -258,14 +259,17 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	return 0;
 }
 
-struct mail_namespace *mail_namespaces_init_empty(pool_t pool)
+struct mail_namespace *
+mail_namespaces_init_empty(pool_t pool, struct mail_user *user)
 {
 	struct mail_namespace *ns;
 
 	ns = p_new(pool, struct mail_namespace, 1);
+	ns->user = user;
 	ns->prefix = "";
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
+	user->namespaces = ns;
 	return ns;
 }
 

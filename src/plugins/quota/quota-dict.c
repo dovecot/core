@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "dict.h"
+#include "mail-user.h"
 #include "quota-private.h"
 
 #include <stdlib.h>
@@ -48,9 +49,9 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 	}
 
 	if (*username == '\0')
-		username = getenv("USER");
+		username = _root->quota->user->username;
 
-	if (_root->quota->debug) {
+	if (_root->quota->set->debug) {
 		i_info("dict quota: user=%s, uri=%s, enforcing=%d",
 		       username, args, _root->no_enforcing);
 	}
@@ -104,8 +105,8 @@ dict_quota_count(struct dict_quota_root *root,
 }
 
 static int
-dict_quota_get_resource(struct quota_root *_root, const char *name,
-			uint64_t *value_r)
+dict_quota_get_resource(struct quota_root *_root,
+			const char *name, uint64_t *value_r)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 	bool want_bytes;

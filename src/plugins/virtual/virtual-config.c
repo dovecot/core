@@ -89,6 +89,7 @@ static int
 virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 			  const char **error_r)
 {
+	struct mail_user *user = ctx->mbox->storage->storage.ns->user;
 	struct virtual_backend_box *bbox;
 
 	if (*line == ' ') {
@@ -110,7 +111,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 	    strchr(bbox->name, '%') != NULL) {
 		bbox->glob = imap_match_init(ctx->pool, bbox->name,
 					     TRUE, ctx->sep);
-		bbox->ns = mail_namespace_find(virtual_all_namespaces, &line);
+		bbox->ns = mail_namespace_find(user->namespaces, &line);
 		ctx->have_wildcards = TRUE;
 	}
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
@@ -154,6 +155,7 @@ static void virtual_config_copy_expanded(struct virtual_parse_context *ctx,
 
 static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 {
+	struct mail_user *user = ctx->mbox->storage->storage.ns->user;
 	ARRAY_TYPE(virtual_backend_box) wildcard_boxes;
 	struct mailbox_list_iterate_context *iter;
 	struct virtual_backend_box *const *wboxes;
@@ -170,8 +172,7 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 		patterns[i] = wboxes[i]->name;
 
 	/* match listed mailboxes to wildcards */
-	iter = mailbox_list_iter_init_namespaces(
-					virtual_all_namespaces, patterns,
+	iter = mailbox_list_iter_init_namespaces(user->namespaces, patterns,
 					MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 					MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
@@ -191,6 +192,7 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 
 int virtual_config_read(struct virtual_mailbox *mbox)
 {
+	struct mail_user *user = mbox->storage->storage.ns->user;
 	struct virtual_parse_context ctx;
 	const char *path, *line, *error;
 	unsigned int linenum = 0;
@@ -213,7 +215,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	}
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.sep = mail_namespace_get_root_sep(virtual_all_namespaces);
+	ctx.sep = mail_namespace_get_root_sep(user->namespaces);
 	ctx.mbox = mbox;
 	ctx.pool = mbox->ibox.box.pool;
 	ctx.rule = t_str_new(256);

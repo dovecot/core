@@ -60,11 +60,13 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 
 static int
 maildir_get_list_settings(struct mailbox_list_settings *list_set,
-			  const char *data, enum mail_storage_flags flags,
+			  const char *data, struct mail_storage *storage,
 			  const char **layout_r, const char **error_r)
 {
+	enum mail_storage_flags flags = storage->flags;
+	struct mail_user *user = storage->ns->user;
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
-	const char *home, *path;
+	const char *path;
 
 	*layout_r = MAILDIR_PLUSPLUS_DRIVER_NAME;
 
@@ -79,9 +81,9 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 		}
 
 		/* we'll need to figure out the maildir location ourself.
-		   It's $HOME/Maildir unless we are chrooted. */
-		if ((home = getenv("HOME")) != NULL) {
-			path = t_strconcat(home, "/Maildir", NULL);
+		   It's ~/Maildir unless we are chrooted. */
+		if (user->home != NULL) {
+			path = t_strconcat(user->home, "/Maildir", NULL);
 			if (access(path, R_OK|W_OK|X_OK) == 0) {
 				if (debug) {
 					i_info("maildir: root exists (%s)",
@@ -96,7 +98,7 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 			}
 		} else {
 			if (debug)
-				i_info("maildir: HOME not set");
+				i_info("maildir: Home directory not set");
 		}
 
 		if (access("/cur", R_OK|W_OK|X_OK) == 0) {
@@ -191,7 +193,7 @@ maildir_create(struct mail_storage *_storage, const char *data,
 	const char *layout;
 	struct stat st;
 
-	if (maildir_get_list_settings(&list_set, data, flags, &layout,
+	if (maildir_get_list_settings(&list_set, data, _storage, &layout,
 				      error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;

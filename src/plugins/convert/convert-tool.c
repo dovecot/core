@@ -18,6 +18,7 @@ int main(int argc, const char *argv[])
 {
 	struct ioloop *ioloop;
 	struct convert_settings set;
+	struct mail_user *user;
 	struct mail_namespace *dest_ns;
         enum mail_storage_flags dest_flags;
 	enum file_lock_method lock_method;
@@ -37,9 +38,6 @@ int main(int argc, const char *argv[])
 	ioloop = io_loop_create();
 
 	memset(&set, 0, sizeof(set));
-	set.user = argv[1];
-	set.home = argv[2];
-
 	for (i = 5; i < argc; i++) {
 		if (strcmp(argv[i], "skip_broken_mailboxes") != 0)
 			set.skip_broken_mailboxes = TRUE;
@@ -50,8 +48,10 @@ int main(int argc, const char *argv[])
 	}
 
 	mail_storage_parse_env(&dest_flags, &lock_method);
-	dest_ns = mail_namespaces_init_empty(pool_datastack_create());
-	if (mail_storage_create(dest_ns, NULL, argv[4], set.user,
+	user = mail_user_init(argv[1], argv[2]);
+	dest_ns = mail_namespaces_init_empty(pool_datastack_create(), user);
+
+	if (mail_storage_create(dest_ns, NULL, argv[4],
 				dest_flags, lock_method, &error) < 0) {
 		i_fatal("Failed to create destination "
 			"mail storage with data '%s': %s", argv[4], error);
@@ -64,7 +64,7 @@ int main(int argc, const char *argv[])
 		i_error("Source storage not found");
 	else
 		i_error("Internal failure");
-	mail_namespaces_deinit(&dest_ns);
+	mail_user_deinit(&user);
 
 	io_loop_destroy(&ioloop);
 	mail_storage_deinit();

@@ -777,7 +777,8 @@ int main(int argc, char *argv[])
 	const char *auth_socket;
 	const char *home, *destaddr, *user, *value, *errstr, *path;
 	ARRAY_TYPE(string) extra_fields;
-	struct mail_namespace *ns, *raw_ns;
+	struct mail_user *mail_user, *raw_mail_user;
+	struct mail_namespace *raw_ns;
 	struct mail_storage *storage;
 	struct mailbox *box;
 	struct raw_mailbox *raw_box;
@@ -1002,12 +1003,16 @@ int main(int argc, char *argv[])
 	module_dir_init(modules);
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
-	if (mail_namespaces_init(namespace_pool, user, &ns) < 0)
+	mail_user = mail_user_init(user, home);
+	if (mail_namespaces_init(namespace_pool, mail_user) < 0)
 		i_fatal("Namespace initialization failed");
 
-	raw_ns = mail_namespaces_init_empty(namespace_pool);
+	/* create a separate mail user for the internal namespace */
+	raw_mail_user = mail_user_init(user, NULL);
+	raw_ns = mail_namespaces_init_empty(namespace_pool, raw_mail_user);
 	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
-	if (mail_storage_create(raw_ns, "raw", "/tmp", user,
+
+	if (mail_storage_create(raw_ns, "raw", "/tmp",
 				MAIL_STORAGE_FLAG_FULL_FS_ACCESS,
 				FILE_LOCK_METHOD_FCNTL, &errstr) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", errstr);
@@ -1044,7 +1049,8 @@ int main(int argc, char *argv[])
 	if (deliver_mail == NULL)
 		ret = -1;
 	else {
-		if (deliver_mail(ns, &storage, mail, destaddr, mailbox) <= 0) {
+		if (deliver_mail(mail_user->namespaces, &storage, mail,
+				 destaddr, mailbox) <= 0) {
 			/* if message was saved, don't bounce it even though
 			   the script failed later. */
 			ret = saved_mail ? 0 : -1;
@@ -1056,12 +1062,14 @@ int main(int argc, char *argv[])
 
 	if (ret < 0 && !tried_default_save) {
 		/* plugins didn't handle this. save into the default mailbox. */
-		ret = deliver_save(ns, &storage, mailbox, mail, 0, NULL);
+		ret = deliver_save(mail_user->namespaces,
+				   &storage, mailbox, mail, 0, NULL);
 	}
 	if (ret < 0 && strcasecmp(mailbox, "INBOX") != 0) {
 		/* still didn't work. try once more to save it
 		   to INBOX. */
-		ret = deliver_save(ns, &storage, "INBOX", mail, 0, NULL);
+		ret = deliver_save(mail_user->namespaces,
+				   &storage, "INBOX", mail, 0, NULL);
 	}
 
 	if (ret < 0 ) {
@@ -1108,8 +1116,8 @@ int main(int argc, char *argv[])
 	mailbox_transaction_rollback(&t);
 	mailbox_close(&box);
 
-	mail_namespaces_deinit(&raw_ns);
-	mail_namespaces_deinit(&ns);
+	mail_user_deinit(&mail_user);
+	mail_user_deinit(&raw_mail_user);
 
 	module_dir_unload(&modules);
 	mail_storage_deinit();

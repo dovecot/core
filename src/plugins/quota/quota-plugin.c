@@ -11,14 +11,15 @@
 /* defined by imap, pop3, lda */
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 
+void (*quota_next_hook_mail_user_created)(struct mail_user *user);
 void (*quota_next_hook_mail_storage_created)(struct mail_storage *storage);
 void (*quota_next_hook_mailbox_list_created)(struct mailbox_list *list);
 
 const char *quota_plugin_version = PACKAGE_VERSION;
-struct quota *quota_set;
+struct quota_settings *quota_set;
 
 static void quota_root_add_rules(const char *root_name, 
-				 struct quota_root *root)
+				 struct quota_root_settings *root_set)
 {
 	const char *rule_name, *rule, *error;
 	unsigned int i;
@@ -30,7 +31,7 @@ static void quota_root_add_rules(const char *root_name,
 		if (rule == NULL)
 			break;
 
-		if (quota_root_add_rule(root, rule, &error) < 0) {
+		if (quota_root_add_rule(root_set, rule, &error) < 0) {
 			i_fatal("Quota root %s: Invalid rule %s: %s",
 				root_name, rule, error);
 		}
@@ -39,7 +40,7 @@ static void quota_root_add_rules(const char *root_name,
 }
 
 static void quota_root_add_warning_rules(const char *root_name,
-					 struct quota_root *root)
+					 struct quota_root_settings *root_set)
 {
 	const char *rule_name, *rule, *error;
 	unsigned int i;
@@ -51,7 +52,7 @@ static void quota_root_add_warning_rules(const char *root_name,
 		if (rule == NULL)
 			break;
 
-		if (quota_root_add_warning_rule(root, rule, &error) < 0) {
+		if (quota_root_add_warning_rule(root_set, rule, &error) < 0) {
 			i_fatal("Quota root %s: Invalid warning rule: %s",
 				root_name, rule);
 		}
@@ -61,7 +62,7 @@ static void quota_root_add_warning_rules(const char *root_name,
 
 void quota_plugin_init(void)
 {
-	struct quota_root *root;
+	struct quota_root_settings *root_set;
 	unsigned int i;
 	const char *env;
 
@@ -69,13 +70,13 @@ void quota_plugin_init(void)
 	if (env == NULL)
 		return;
 
-	quota_set = quota_init();
+	quota_set = quota_settings_init();
 
-	root = quota_root_init(quota_set, env);
-	if (root == NULL)
+	root_set = quota_root_settings_init(quota_set, env);
+	if (root_set == NULL)
 		i_fatal("Couldn't create quota root: %s", env);
-	quota_root_add_rules("QUOTA", root);
-	quota_root_add_warning_rules("QUOTA", root);
+	quota_root_add_rules("QUOTA", root_set);
+	quota_root_add_warning_rules("QUOTA", root_set);
 
 	for (i = 2;; i++) {
 		const char *root_name;
@@ -86,12 +87,15 @@ void quota_plugin_init(void)
 		if (env == NULL)
 			break;
 
-		root = quota_root_init(quota_set, env);
-		if (root == NULL)
+		root_set = quota_root_settings_init(quota_set, env);
+		if (root_set == NULL)
 			i_fatal("Couldn't create quota root: %s", env);
-		quota_root_add_rules(root_name, root);
-		quota_root_add_warning_rules(root_name, root);
+		quota_root_add_rules(root_name, root_set);
+		quota_root_add_warning_rules(root_name, root_set);
 	}
+
+	quota_next_hook_mail_user_created = hook_mail_user_created;
+	hook_mail_user_created = quota_mail_user_created;
 
 	quota_next_hook_mail_storage_created = hook_mail_storage_created;
 	hook_mail_storage_created = quota_mail_storage_created;
@@ -103,10 +107,11 @@ void quota_plugin_init(void)
 void quota_plugin_deinit(void)
 {
 	if (quota_set != NULL) {
+		hook_mail_user_created = quota_next_hook_mail_user_created;
 		hook_mail_storage_created =
 			quota_next_hook_mail_storage_created;
 		hook_mailbox_list_created =
 			quota_next_hook_mailbox_list_created;
-		quota_deinit(&quota_set);
+		quota_settings_deinit(&quota_set);
 	}
 }

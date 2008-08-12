@@ -248,8 +248,7 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
    from data. If data is NULL, it uses the first storage that exists.
    The storage is put into ns->storage. */
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
-			const char *data, const char *user,
-			enum mail_storage_flags flags,
+			const char *data, enum mail_storage_flags flags,
 			enum file_lock_method lock_method,
 			const char **error_r);
 void mail_storage_destroy(struct mail_storage **storage);

@@ -185,7 +185,7 @@ list_get_inbox_flags(struct cmd_list_context *ctx)
 	}
 
 	/* find the INBOX flags */
-	ns = mail_namespace_find_inbox(ctx->cmd->client->namespaces);
+	ns = mail_namespace_find_inbox(ctx->cmd->client->user->namespaces);
 	list_iter = mailbox_list_iter_init(ns->list, "INBOX", 0);
 	info = mailbox_list_iter_next(list_iter);
 	if (info != NULL) {
@@ -704,13 +704,13 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 	/* Special request to return the hierarchy delimiter and mailbox root
 	   name. If namespace has a prefix, it's returned as the mailbox root.
 	   Otherwise we'll emulate UW-IMAP behavior. */
-	ns = mail_namespace_find_visible(client->namespaces, &ref);
+	ns = mail_namespace_find_visible(client->user->namespaces, &ref);
 	if (ns != NULL) {
 		ns_prefix = ns->prefix;
 		ns_sep = ns->sep;
 	} else {
 		ns_prefix = "";
-		ns_sep = mail_namespace_get_root_sep(client->namespaces);
+		ns_sep = mail_namespace_get_root_sep(client->user->namespaces);
 	}
 
 	str = t_str_new(64);
@@ -754,7 +754,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 
 	ctx = p_new(cmd->pool, struct cmd_list_context, 1);
 	ctx->cmd = cmd;
-	ctx->ns = client->namespaces;
+	ctx->ns = client->user->namespaces;
 	ctx->lsub = lsub;
 
 	cmd->context = ctx;

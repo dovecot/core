@@ -392,6 +392,7 @@ int convert_storage(const char *source_data,
 		    struct mail_namespace *dest_namespaces,
 		    const struct convert_settings *set)
 {
+	struct mail_user *user = dest_namespaces->user;
 	struct mail_namespace *source_ns, *dest_inbox_ns;
 	struct dotlock *dotlock;
         enum mail_storage_flags src_flags;
@@ -399,19 +400,19 @@ int convert_storage(const char *source_data,
 	const char *path, *error;
 	int ret;
 
-	source_ns = mail_namespaces_init_empty(pool_datastack_create());
+	source_ns = mail_namespaces_init_empty(pool_datastack_create(), user);
 	dest_inbox_ns = mail_namespace_find_inbox(dest_namespaces);
 	src_flags = dest_inbox_ns->storage->flags;
 	lock_method = dest_inbox_ns->storage->lock_method;
 
 	src_flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE;
-	if (mail_storage_create(source_ns, NULL, source_data, set->user,
+	if (mail_storage_create(source_ns, NULL, source_data,
 				src_flags, lock_method, &error) < 0) {
 		/* No need for conversion. */
 		return 0;
 	}
 
-        path = t_strconcat(set->home, "/"CONVERT_LOCK_FILENAME, NULL);
+        path = t_strconcat(user->home, "/"CONVERT_LOCK_FILENAME, NULL);
 	dotlock_settings.use_excl_lock =
 		(source_ns->storage->flags &
 		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
@@ -430,7 +431,7 @@ int convert_storage(const char *source_data,
 	/* just in case if another process just had converted the mailbox,
 	   reopen the source storage */
 	mail_storage_destroy(&source_ns->storage);
-	if (mail_storage_create(source_ns, NULL, source_data, set->user,
+	if (mail_storage_create(source_ns, NULL, source_data,
 				src_flags, lock_method, &error) < 0) {
 		/* No need for conversion anymore. */
 		file_dotlock_delete(&dotlock);

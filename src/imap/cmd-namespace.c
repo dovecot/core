@@ -42,11 +42,11 @@ bool cmd_namespace(struct client_command_context *cmd)
 	str = t_str_new(256);
 	str_append(str, "* NAMESPACE ");
 
-        list_namespaces(client->namespaces, NAMESPACE_PRIVATE, str);
+        list_namespaces(client->user->namespaces, NAMESPACE_PRIVATE, str);
 	str_append_c(str, ' ');
-	list_namespaces(client->namespaces, NAMESPACE_SHARED, str);
+	list_namespaces(client->user->namespaces, NAMESPACE_SHARED, str);
 	str_append_c(str, ' ');
-        list_namespaces(client->namespaces, NAMESPACE_PUBLIC, str);
+        list_namespaces(client->user->namespaces, NAMESPACE_PUBLIC, str);
 
 	client_send_line(client, str_c(str));
 	client_send_tagline(cmd, "OK Namespace completed.");

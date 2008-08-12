@@ -19,6 +19,8 @@
 	MODULE_CONTEXT(obj, lazy_expunge_mail_storage_module)
 #define LAZY_EXPUNGE_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, lazy_expunge_mailbox_list_module)
+#define LAZY_EXPUNGE_USER_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, lazy_expunge_mail_user_module)
 
 enum lazy_namespace {
 	LAZY_NAMESPACE_EXPUNGE,
@@ -26,6 +28,12 @@ enum lazy_namespace {
 	LAZY_NAMESPACE_DELETE_EXPUNGE,
 
 	LAZY_NAMESPACE_COUNT
+};
+
+struct lazy_expunge_mail_user {
+	union mail_user_module_context module_ctx;
+
+	struct mail_namespace *lazy_ns[LAZY_NAMESPACE_COUNT];
 };
 
 struct lazy_expunge_mailbox_list {
@@ -57,6 +65,7 @@ static void (*lazy_expunge_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
 static void (*lazy_expunge_next_hook_mailbox_list_created)
 	(struct mailbox_list *list);
+static void (*lazy_expunge_next_hook_mail_user_created)(struct mail_user *user);
 
 static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_storage_module,
 				  &mail_storage_module_register);
@@ -64,8 +73,8 @@ static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_module,
 				  &mail_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mailbox_list_module,
 				  &mailbox_list_module_register);
-
-static struct mail_namespace *lazy_namespaces[LAZY_NAMESPACE_COUNT];
+static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_user_module,
+				  &mail_user_module_register);
 
 static struct mailbox *
 mailbox_open_or_create(struct mail_storage *storage, const char *name)
@@ -95,12 +104,14 @@ mailbox_open_or_create(struct mail_storage *storage, const char *name)
 
 static void lazy_expunge_mail_expunge(struct mail *_mail)
 {
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT(_mail->box->storage->ns->user);
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
 	struct mail_storage *deststorage;
 
 	if (lt->expunge_box == NULL) {
-		deststorage = lazy_namespaces[LAZY_NAMESPACE_EXPUNGE]->storage;
+		deststorage = luser->lazy_ns[LAZY_NAMESPACE_EXPUNGE]->storage;
 		lt->expunge_box = mailbox_open_or_create(deststorage,
 							 _mail->box->name);
 		if (lt->expunge_box == NULL) {
@@ -414,6 +425,8 @@ mailbox_move(struct mailbox_list *src_list, const char *src_name,
 static int
 lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 {
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT(list->ns->user);
 	struct lazy_expunge_mailbox_list *llist =
 		LAZY_EXPUNGE_LIST_CONTEXT(list);
 	struct lazy_expunge_mail_storage *lstorage;
@@ -455,7 +468,7 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	destname = t_strconcat(name, "-", timestamp, NULL);
 
 	/* first move the actual mailbox */
-	dest_list = lazy_namespaces[LAZY_NAMESPACE_DELETE]->storage->list;
+	dest_list = luser->lazy_ns[LAZY_NAMESPACE_DELETE]->storage->list;
 	if ((ret = mailbox_move(list, name, dest_list, &destname)) < 0)
 		return -1;
 	if (ret == 0) {
@@ -465,9 +478,9 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	}
 
 	/* next move the expunged messages mailbox, if it exists */
-	list = lazy_namespaces[LAZY_NAMESPACE_EXPUNGE]->storage->list;
+	list = luser->lazy_ns[LAZY_NAMESPACE_EXPUNGE]->storage->list;
 	dest_list =
-		lazy_namespaces[LAZY_NAMESPACE_DELETE_EXPUNGE]->storage->list;
+		luser->lazy_ns[LAZY_NAMESPACE_DELETE_EXPUNGE]->storage->list;
 	(void)mailbox_move(list, name, dest_list, &destname);
 	return 0;
 }
@@ -526,12 +539,11 @@ static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
 static void
 lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 {
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT(namespaces->user);
 	struct lazy_expunge_mail_storage *lstorage;
 	const char *const *p;
 	int i;
-
-	if (lazy_expunge_next_hook_mail_namespaces_created != NULL)
-		lazy_expunge_next_hook_mail_namespaces_created(namespaces);
 
 	p = t_strsplit_spaces(getenv("LAZY_EXPUNGE"), " ");
 	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
@@ -540,20 +552,36 @@ lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 		if (name == NULL)
 			i_fatal("lazy_expunge: Missing namespace #%d", i + 1);
 
-		lazy_namespaces[i] =
+		luser->lazy_ns[i] =
 			mail_namespace_find_prefix(namespaces, name);
-		if (lazy_namespaces[i] == NULL)
+		if (luser->lazy_ns[i] == NULL)
 			i_fatal("lazy_expunge: Unknown namespace: '%s'", name);
-		if (strcmp(lazy_namespaces[i]->storage->name, "maildir") != 0) {
+		if (strcmp(luser->lazy_ns[i]->storage->name, "maildir") != 0) {
 			i_fatal("lazy_expunge: Namespace must be in maildir "
 				"format: %s", name);
 		}
 
 		/* we don't want to override these namespaces' expunge/delete
 		   operations. */
-		lstorage = LAZY_EXPUNGE_CONTEXT(lazy_namespaces[i]->storage);
+		lstorage = LAZY_EXPUNGE_CONTEXT(luser->lazy_ns[i]->storage);
 		lstorage->internal_namespace = TRUE;
 	}
+
+	if (lazy_expunge_next_hook_mail_namespaces_created != NULL)
+		lazy_expunge_next_hook_mail_namespaces_created(namespaces);
+}
+
+static void lazy_expunge_mail_user_created(struct mail_user *user)
+{
+	struct lazy_expunge_mail_user *luser;
+
+	luser = p_new(user->pool, struct lazy_expunge_mail_user, 1);
+	luser->module_ctx.super = user->v;
+
+	MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
+
+	if (lazy_expunge_next_hook_mail_user_created != NULL)
+		lazy_expunge_next_hook_mail_user_created(user);
 }
 
 void lazy_expunge_plugin_init(void)
@@ -571,6 +599,9 @@ void lazy_expunge_plugin_init(void)
 
 	lazy_expunge_next_hook_mailbox_list_created = hook_mailbox_list_created;
 	hook_mailbox_list_created = lazy_expunge_mailbox_list_created;
+
+	lazy_expunge_next_hook_mail_user_created = hook_mail_user_created;
+	hook_mail_user_created = lazy_expunge_mail_user_created;
 }
 
 void lazy_expunge_plugin_deinit(void)
@@ -582,4 +613,5 @@ void lazy_expunge_plugin_deinit(void)
 		lazy_expunge_hook_mail_namespaces_created;
 	hook_mail_storage_created = lazy_expunge_next_hook_mail_storage_created;
 	hook_mailbox_list_created = lazy_expunge_next_hook_mailbox_list_created;
+	hook_mail_user_created = lazy_expunge_next_hook_mail_user_created;
 }

@@ -23,7 +23,7 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 {
 	struct mail_namespace *ns;
 
-	ns = mail_namespace_find(cmd->client->namespaces, mailbox);
+	ns = mail_namespace_find(cmd->client->user->namespaces, mailbox);
 	if (ns != NULL)
 		return ns;
 

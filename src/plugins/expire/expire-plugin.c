@@ -294,6 +294,7 @@ void expire_plugin_init(void)
 		if (dict_uri == NULL)
 			i_fatal("expire plugin: expire_dict setting missing");
 
+		// FIXME: user should be per-mail_user?...
 		expire.username = getenv("USER");
 		expire.env = expire_env_init(expunge_env, altmove_env);
 		expire.db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, expire.username);

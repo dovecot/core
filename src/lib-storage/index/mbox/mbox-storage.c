@@ -185,12 +185,12 @@ static bool mbox_autodetect(const char *data, enum mail_storage_flags flags)
 	return FALSE;
 }
 
-static const char *get_root_dir(enum mail_storage_flags flags)
+static const char *get_root_dir(struct mail_storage *storage)
 {
 	const char *home, *path;
-	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 
-	home = getenv("HOME");
+	home = storage->ns->user->home;
 	if (home != NULL) {
 		path = t_strconcat(home, "/mail", NULL);
 		if (access(path, R_OK|W_OK|X_OK) == 0) {
@@ -213,7 +213,7 @@ static const char *get_root_dir(enum mail_storage_flags flags)
 
 	if (debug)
 		i_info("mbox: checking if we are chrooted:");
-	if (mbox_autodetect("", flags))
+	if (mbox_autodetect("", storage->flags))
 		return "/";
 
 	if (debug)
@@ -223,11 +223,12 @@ static const char *get_root_dir(enum mail_storage_flags flags)
 }
 
 static const char *
-get_inbox_file(const char *root_dir, bool only_root, bool debug)
+get_inbox_file(const char *user, const char *root_dir,
+	       bool only_root, bool debug)
 {
-	const char *user, *path;
+	const char *path;
 
-	if (!only_root && (user = getenv("USER")) != NULL) {
+	if (!only_root) {
 		path = t_strconcat("/var/mail/", user, NULL);
 		if (access(path, R_OK|W_OK) == 0) {
 			if (debug)
@@ -253,11 +254,12 @@ get_inbox_file(const char *root_dir, bool only_root, bool debug)
 	return path;
 }
 
-static const char *create_root_dir(bool debug, const char **error_r)
+static const char *create_root_dir(struct mail_storage *storage,
+				   const char **error_r)
 {
 	const char *home, *path;
 
-	home = getenv("HOME");
+	home = storage->ns->user->home;
 	if (home == NULL) {
 		*error_r = "Root mail directory not set and "
 			"home directory is missing";
@@ -270,16 +272,17 @@ static const char *create_root_dir(bool debug, const char **error_r)
 		return NULL;
 	}
 
-	if (debug)
+	if ((storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0)
 		i_info("mbox: root directory created: %s", path);
 	return path;
 }
 
 static int
 mbox_get_list_settings(struct mailbox_list_settings *list_set,
-		       const char *data, enum mail_storage_flags flags,
+		       const char *data, struct mail_storage *storage,
 		       const char **layout_r, const char **error_r)
 {
+	enum mail_storage_flags flags = storage->flags;
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	const char *p;
 	struct stat st;
@@ -300,8 +303,8 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 
 		/* we'll need to figure out the mail location ourself.
 		   it's root dir if we've already chroot()ed, otherwise
-		   either $HOME/mail or $HOME/Mail */
-		list_set->root_dir = get_root_dir(flags);
+		   either ~/mail or ~/Mail */
+		list_set->root_dir = get_root_dir(storage);
 	} else {
 		if (debug)
 			i_info("mbox: data=%s", data);
@@ -313,7 +316,7 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 			if (stat(data, &st) < 0 || S_ISDIR(st.st_mode))
 				list_set->root_dir = data;
 			else {
-				list_set->root_dir = get_root_dir(flags);
+				list_set->root_dir = get_root_dir(storage);
 				list_set->inbox_path = data;
 			}
 		} else {
@@ -330,7 +333,7 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 			return -1;
 		}
 
-		list_set->root_dir = create_root_dir(debug, error_r);
+		list_set->root_dir = create_root_dir(storage, error_r);
 		if (list_set->root_dir == NULL)
 			return -1;
 	} else {
@@ -360,7 +363,8 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 
 	if (list_set->inbox_path == NULL) {
 		list_set->inbox_path =
-			get_inbox_file(list_set->root_dir, !autodetect, debug);
+			get_inbox_file(storage->ns->user->username,
+				       list_set->root_dir, !autodetect, debug);
 	}
 	return 0;
 }
@@ -432,8 +436,8 @@ static int mbox_create(struct mail_storage *_storage, const char *data,
 	struct mailbox_list_settings list_set;
 	const char *layout;
 
-	if (mbox_get_list_settings(&list_set, data,
-				   _storage->flags, &layout, error_r) < 0)
+	if (mbox_get_list_settings(&list_set, data, _storage,
+				   &layout, error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;

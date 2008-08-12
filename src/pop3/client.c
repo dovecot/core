@@ -138,8 +138,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 	return FALSE;
 }
 
-struct client *client_create(int fd_in, int fd_out,
-			     struct mail_namespace *namespaces)
+struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 {
 	struct mail_storage *storage;
 	const char *inbox;
@@ -164,10 +163,10 @@ struct client *client_create(int fd_in, int fd_out,
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
 
-	client->namespaces = namespaces;
+	client->user = user;
 
 	inbox = "INBOX";
-	client->inbox_ns = mail_namespace_find(namespaces, &inbox);
+	client->inbox_ns = mail_namespace_find(user->namespaces, &inbox);
 	if (client->inbox_ns == NULL) {
 		client_send_line(client, "-ERR No INBOX namespace for user.");
 		client_destroy(client, "No INBOX namespace for user.");
@@ -273,7 +272,7 @@ void client_destroy(struct client *client, const char *reason)
 	}
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);
-	mail_namespaces_deinit(&client->namespaces);
+	mail_user_deinit(&client->user);
 
 	i_free(client->message_sizes);
 	i_free(client->deleted_bitmask);

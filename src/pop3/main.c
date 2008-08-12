@@ -180,7 +180,7 @@ static void drop_privileges(void)
 
 static bool main_init(void)
 {
-	struct mail_namespace *ns;
+	struct mail_user *user;
 	struct client *client;
 	const char *str;
 	bool ret = TRUE;
@@ -231,9 +231,11 @@ static bool main_init(void)
 			"%% variables.");
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
-	if (mail_namespaces_init(namespace_pool, getenv("USER"), &ns) < 0)
+	user = mail_user_init(getenv("USER"), getenv("HOME"));
+	if (mail_namespaces_init(namespace_pool, user) < 0)
 		i_fatal("Namespace initialization failed");
-	client = client_create(0, 1, ns);
+
+	client = client_create(0, 1, user);
 	if (client == NULL)
 		return FALSE;
 

@@ -1,6 +1,8 @@
 #ifndef MAIL_NAMESPACE_H
 #define MAIL_NAMESPACE_H
 
+#include "mail-user.h"
+
 enum namespace_type {
 	NAMESPACE_PRIVATE,
 	NAMESPACE_SHARED,
@@ -32,6 +34,7 @@ struct mail_namespace {
 	const char *prefix;
 	size_t prefix_len;
 
+	struct mail_user *user;
 	struct mailbox_list *list;
 	/* FIXME: we should support multiple storages in one namespace */
 	struct mail_storage *storage;
@@ -40,9 +43,9 @@ struct mail_namespace {
 /* Called after namespaces has been created */
 extern void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
 
-int mail_namespaces_init(pool_t pool, const char *user,
-			 struct mail_namespace **namespaces_r);
-struct mail_namespace *mail_namespaces_init_empty(pool_t pool);
+int mail_namespaces_init(pool_t pool, struct mail_user *user);
+struct mail_namespace *
+mail_namespaces_init_empty(pool_t pool, struct mail_user *user);
 void mail_namespaces_deinit(struct mail_namespace **namespaces);
 
 /* Update hierarchy separators in given name to real_sep characters. */

@@ -17,6 +17,14 @@
 	MODULE_CONTEXT(obj, quota_mail_module)
 #define QUOTA_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, quota_mailbox_list_module)
+#define QUOTA_USER_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, quota_user_module)
+
+struct quota_user {
+	union mail_user_module_context module_ctx;
+
+	struct quota *quota;
+};
 
 struct quota_mailbox_list {
 	union mailbox_list_module_context module_ctx;
@@ -41,6 +49,8 @@ static MODULE_CONTEXT_DEFINE_INIT(quota_storage_module,
 static MODULE_CONTEXT_DEFINE_INIT(quota_mail_module, &mail_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(quota_mailbox_list_module,
 				  &mailbox_list_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(quota_user_module,
+				  &mail_user_module_register);
 
 static void quota_mail_expunge(struct mail *_mail)
 {
@@ -74,7 +84,7 @@ quota_mailbox_transaction_begin(struct mailbox *box,
 	struct quota_transaction_context *qt;
 
 	t = qbox->module_ctx.super.transaction_begin(box, flags);
-	qt = quota_transaction_begin(quota_set, box);
+	qt = quota_transaction_begin(box);
 
 	MODULE_CONTEXT_SET(t, quota_storage_module, qt);
 	return t;
@@ -150,7 +160,7 @@ static int quota_check(struct mailbox_transaction_context *t, struct mail *mail)
 		return 0;
 	else if (ret == 0) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_NOSPACE,
-				       qt->quota->quota_exceeded_msg);
+				       qt->quota->set->quota_exceeded_msg);
 		return -1;
 	} else {
 		mail_storage_set_critical(t->box->storage,
@@ -212,7 +222,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 		if (ret == 0) {
 			mail_storage_set_error(t->box->storage,
 				MAIL_ERROR_NOSPACE,
-				qt->quota->quota_exceeded_msg);
+				qt->quota->set->quota_exceeded_msg);
 			return -1;
 		} else if (ret < 0) {
 			mail_storage_set_critical(t->box->storage,
@@ -294,7 +304,7 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 	}
 
 	if (qbox->expunge_qt == NULL)
-		qbox->expunge_qt = quota_transaction_begin(quota_set, box);
+		qbox->expunge_qt = quota_transaction_begin(box);
 
 	if (i != count) {
 		/* we already know the size */
@@ -436,16 +446,47 @@ static void quota_storage_destroy(struct mail_storage *storage)
 {
 	union mail_storage_module_context *qstorage = QUOTA_CONTEXT(storage);
 
-	quota_remove_user_storage(quota_set, storage);
+	quota_remove_user_storage(storage);
 
 	if (qstorage->super.destroy != NULL)
 		qstorage->super.destroy(storage);
+}
+
+struct quota *quota_get_mail_user_quota(struct mail_user *user)
+{
+	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
+
+	return quser->quota;
+}
+
+static void quota_user_deinit(struct mail_user *user)
+{
+	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
+
+	quota_deinit(&quser->quota);
+	quser->module_ctx.super.deinit(user);
+}
+
+void quota_mail_user_created(struct mail_user *user)
+{
+	struct quota_user *quser;
+
+	quser = p_new(user->pool, struct quota_user, 1);
+	quser->module_ctx.super = user->v;
+	user->v.deinit = quota_user_deinit;
+	quser->quota = quota_init(quota_set, user);
+
+	MODULE_CONTEXT_SET(user, quota_user_module, quser);
+
+	if (quota_next_hook_mail_user_created != NULL)
+		quota_next_hook_mail_user_created(user);
 }
 
 void quota_mail_storage_created(struct mail_storage *storage)
 {
 	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(storage->list);
 	union mail_storage_module_context *qstorage;
+	struct quota *quota;
 
 	qlist->storage = storage;
 
@@ -459,7 +500,8 @@ void quota_mail_storage_created(struct mail_storage *storage)
 	if (storage->ns->type == NAMESPACE_PRIVATE &&
 	    (storage->ns->flags & NAMESPACE_FLAG_INTERNAL) == 0) {
 		/* register to user's quota roots */
-		quota_add_user_storage(quota_set, storage);
+		quota = quota_get_mail_user_quota(storage->ns->user);
+		quota_add_user_storage(quota, storage);
 	}
 
 	if (quota_next_hook_mail_storage_created != NULL)

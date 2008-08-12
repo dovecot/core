@@ -3,14 +3,14 @@
 
 struct mail_storage;
 
+extern void (*quota_next_hook_mail_user_created)(struct mail_user *user);
 extern void (*quota_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
 extern void (*quota_next_hook_mailbox_list_created)(struct mailbox_list *list);
 
-/* "quota" symbol already exists in OSX, so we'll use this slightly uglier
-   name. */
-extern struct quota *quota_set;
+extern struct quota_settings *quota_set;
 
+void quota_mail_user_created(struct mail_user *user);
 void quota_mail_storage_created(struct mail_storage *storage);
 void quota_mailbox_list_created(struct mailbox_list *list);
 

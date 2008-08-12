@@ -21,9 +21,9 @@ struct trash_mailbox {
 	const char *name;
 	int priority; /* lower number = higher priority */
 
-	struct mail_storage *storage;
-
 	/* temporarily set while cleaning: */
+	const char *ns_name;
+	struct mail_storage *storage;
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *search_ctx;
@@ -45,7 +45,7 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
 	struct mail_search_args *search_args;
 
-	trash->box = mailbox_open(trash->storage, trash->name, NULL,
+	trash->box = mailbox_open(trash->storage, trash->ns_name, NULL,
 				  MAILBOX_OPEN_KEEP_RECENT);
 	if (trash->box == NULL)
 		return 0;
@@ -89,14 +89,17 @@ static int trash_clean_mailbox_get_next(struct trash_mailbox *trash,
 	return 1;
 }
 
-static void trash_find_storage(struct trash_mailbox *trash)
+static void trash_find_storage(struct quota *quota,
+			       struct trash_mailbox *trash)
 {
 	struct mail_storage *const *storages;
 	unsigned int i, count;
 
-	storages = array_get(&quota_set->storages, &count);
+	storages = array_get(&quota->storages, &count);
 	for (i = 0; i < count; i++) {
-		if (mail_namespace_update_name(storages[i]->ns, &trash->name)) {
+		trash->ns_name = trash->name;
+		if (mail_namespace_update_name(storages[i]->ns,
+					       &trash->ns_name)) {
 			trash->storage = storages[i];
 			return;
 		}
@@ -124,7 +127,7 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 				break;
 
 			if (trashes[j].storage == NULL)
-				trash_find_storage(&trashes[j]);
+				trash_find_storage(ctx->quota, &trashes[j]);
 
 			ret = trash_clean_mailbox_get_next(&trashes[j],
 							   &received);
@@ -177,6 +180,8 @@ err:
 		}
 
 		mailbox_close(&trash->box);
+		trash->storage = NULL;
+		trash->ns_name = NULL;
 	}
 
 	if (size_expunged < size_needed) {

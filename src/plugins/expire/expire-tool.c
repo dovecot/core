@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "env-util.h"
 #include "file-lock.h"
 #include "randgen.h"
 #include "lib-signals.h"
@@ -25,8 +26,8 @@ struct expire_context {
 	struct auth_connection *auth_conn;
 
 	char *user;
+	struct mail_user *mail_user;
 	pool_t namespace_pool;
-	struct mail_namespace *ns;
 	bool testrun;
 };
 
@@ -34,6 +35,7 @@ static int user_init(struct expire_context *ctx, const char *user)
 {
 	int ret;
 
+	env_clean();
 	if ((ret = auth_client_put_user_env(ctx->auth_conn, user)) <= 0) {
 		if (ret < 0)
 			return ret;
@@ -42,14 +44,15 @@ static int user_init(struct expire_context *ctx, const char *user)
 		return 0;
 	}
 
-	if (mail_namespaces_init(ctx->namespace_pool, user, &ctx->ns) < 0)
+	ctx->mail_user = mail_user_init(user, getenv("HOME"));
+	if (mail_namespaces_init(ctx->namespace_pool, ctx->mail_user) < 0)
 		return -1;
 	return 1;
 }
 
 static void user_deinit(struct expire_context *ctx)
 {
-	mail_namespaces_deinit(&ctx->ns);
+	mail_user_deinit(&ctx->mail_user);
 	i_free_and_null(ctx->user);
 	p_clear(ctx->namespace_pool);
 }
@@ -86,7 +89,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	}
 
 	ns_mailbox = mailbox;
-	ns = mail_namespace_find(ctx->ns, &ns_mailbox);
+	ns = mail_namespace_find(ctx->mail_user->namespaces, &ns_mailbox);
 	if (ns == NULL) {
 		/* entire namespace no longer exists, remove the entry */
 		if (ctx->testrun)

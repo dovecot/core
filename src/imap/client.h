@@ -74,7 +74,7 @@ struct client {
 	struct ostream *output;
 	struct timeout *to_idle, *to_idle_output;
 
-        struct mail_namespace *namespaces;
+	struct mail_user *user;
 	struct mailbox *mailbox;
         struct mailbox_keywords keywords;
 	unsigned int select_counter; /* increased when mailbox is changed */
@@ -124,8 +124,7 @@ struct client {
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out,
-			     struct mail_namespace *namespaces);
+struct client *client_create(int fd_in, int fd_out, struct mail_user *user);
 void client_destroy(struct client *client, const char *reason);
 
 /* Disconnect client connection */

@@ -61,7 +61,6 @@ struct mail_storage {
 	struct mail_namespace *ns;
 	struct mailbox_list *list;
 
-	const char *user; /* name of user accessing the storage */
 	enum mail_storage_flags flags;
 	enum file_lock_method lock_method;
 	unsigned int keyword_max_len;

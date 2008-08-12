@@ -415,10 +415,7 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	acl_env = getenv("ACL");
 	i_assert(acl_env != NULL);
 
-	owner_username = getenv("USER");
-	if (owner_username == NULL)
-		i_fatal("ACL: USER environment not set");
-
+	owner_username = list->ns->user->username;
 	current_username = getenv("MASTER_USER");
 	if (current_username == NULL)
 		current_username = owner_username;
@@ -432,7 +429,6 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	if (ns->type != NAMESPACE_PRIVATE)
 		owner = FALSE;
 
-	/* FIXME: set groups */
 	backend = acl_backend_init(acl_env, list, current_username,
 				   getenv("ACL_GROUPS") == NULL ? NULL :
 				   t_strsplit(getenv("ACL_GROUPS"), ","),

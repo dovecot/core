@@ -169,6 +169,7 @@ static bool virtual_mailbox_is_in_open_stack(struct virtual_storage *storage,
 static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 				  enum mailbox_open_flags open_flags)
 {
+	struct mail_user *user = mbox->storage->storage.ns->user;
 	struct virtual_backend_box *const *bboxes;
 	struct mail_namespace *ns;
 	unsigned int i, count;
@@ -180,7 +181,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
 		mailbox = bboxes[i]->name;
-		ns = mail_namespace_find(virtual_all_namespaces, &mailbox);
+		ns = mail_namespace_find(user->namespaces, &mailbox);
 		bboxes[i]->box = mailbox_open(ns->storage, mailbox,
 					      NULL, open_flags);
 

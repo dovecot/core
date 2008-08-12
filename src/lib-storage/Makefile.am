@@ -16,6 +16,7 @@ libstorage_a_SOURCES = \
 	mail-search.c \
 	mail-search-build.c \
 	mail-storage.c \
+	mail-user.c \
 	mailbox-list.c \
 	mailbox-search-result.c \
 	mailbox-tree.c
@@ -29,6 +30,7 @@ headers = \
 	mail-thread.h \
 	mail-storage.h \
 	mail-storage-private.h \
+	mail-user.h \
 	mailbox-list.h \
 	mailbox-list-private.h \
 	mailbox-search-result-private.h \

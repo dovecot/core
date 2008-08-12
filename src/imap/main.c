@@ -161,8 +161,8 @@ static void main_init(void)
 {
 	struct client *client;
 	struct ostream *output;
-	struct mail_namespace *ns;
-	const char *user, *str, *tag;
+	struct mail_user *user;
+	const char *username, *home, *str, *tag;
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
@@ -170,18 +170,16 @@ static void main_init(void)
         lib_signals_ignore(SIGPIPE, TRUE);
         lib_signals_ignore(SIGALRM, FALSE);
 
-	user = getenv("USER");
-	if (user == NULL) {
+	username = getenv("USER");
+	if (username == NULL) {
 		if (IS_STANDALONE())
-			user = getlogin();
-		if (user == NULL)
+			username = getlogin();
+		if (username == NULL)
 			i_fatal("USER environment missing");
 	}
 
+	home = getenv("HOME");
 	if (getenv("DEBUG") != NULL) {
-		const char *home;
-
-		home = getenv("HOME");
 		i_info("Effective uid=%s, gid=%s, home=%s",
 		       dec2str(geteuid()), dec2str(getegid()),
 		       home != NULL ? home : "(none)");
@@ -232,9 +230,10 @@ static void main_init(void)
         parse_workarounds();
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
-	if (mail_namespaces_init(namespace_pool, user, &ns) < 0)
+	user = mail_user_init(username, home);
+	if (mail_namespaces_init(namespace_pool, user) < 0)
 		i_fatal("Namespace initialization failed");
-	client = client_create(0, 1, ns);
+	client = client_create(0, 1, user);
 
 	output = client->output;
 	o_stream_ref(output);
@@ -246,7 +245,7 @@ static void main_init(void)
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY ",
 			str_c(capability_string), "] "
-			"Logged in as ", user, NULL));
+			"Logged in as ", user->username, NULL));
 	} else {
 		client_send_line(client, t_strconcat(
 			tag, " OK [CAPABILITY ",

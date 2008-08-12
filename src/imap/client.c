@@ -25,10 +25,10 @@ static void client_idle_timeout(struct client *client)
 	client_destroy(client, "Disconnected for inactivity");
 }
 
-struct client *client_create(int fd_in, int fd_out,
-			     struct mail_namespace *namespaces)
+struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 {
 	struct client *client;
+	struct mail_namespace *ns;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
@@ -48,12 +48,11 @@ struct client *client_create(int fd_in, int fd_out,
 				      client_idle_timeout, client);
 
 	client->command_pool = pool_alloconly_create("client command", 1024*12);
-	client->namespaces = namespaces;
+	client->user = user;
 
-	while (namespaces != NULL) {
-		mail_storage_set_callbacks(namespaces->storage,
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		mail_storage_set_callbacks(ns->storage,
 					   &mail_storage_callbacks, client);
-		namespaces = namespaces->next;
 	}
 
 	i_assert(my_client == NULL);
@@ -130,6 +129,7 @@ static const char *client_get_disconnect_reason(struct client *client)
 void client_destroy(struct client *client, const char *reason)
 {
 	struct client_command_context *cmd;
+
 	i_assert(!client->destroyed);
 	client->destroyed = TRUE;
 
@@ -161,7 +161,7 @@ void client_destroy(struct client *client, const char *reason)
 		client_search_updates_free(client);
 		mailbox_close(&client->mailbox);
 	}
-	mail_namespaces_deinit(&client->namespaces);
+	mail_user_deinit(&client->user);
 
 	if (client->free_parser != NULL)
 		imap_parser_destroy(&client->free_parser);

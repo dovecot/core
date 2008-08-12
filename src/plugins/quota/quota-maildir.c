@@ -149,7 +149,7 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 			if (ctx->info == NULL)
 				return NULL;
 
-			rule = quota_root_rule_find(&ctx->root->root,
+			rule = quota_root_rule_find(ctx->root->root.set,
 						    ctx->info->name);
 			if (rule != NULL && rule->ignore) {
 				/* mailbox not included in quota */
@@ -217,7 +217,7 @@ maildirs_check_have_changed(struct maildir_quota_root *root,
 
 static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 {
-	const struct quota_rule *rule = &root->root.default_rule;
+	const struct quota_rule *rule = &root->root.set->default_rule;
 	struct mail_storage *const *storages;
 	unsigned int i, count;
 	struct dotlock *dotlock;
@@ -319,7 +319,7 @@ static int maildirsize_recalculate_storage(struct maildir_quota_root *root,
 
 static void maildirsize_rebuild_later(struct maildir_quota_root *root)
 {
-	if (!root->root.force_default_rule) {
+	if (!root->root.set->force_default_rule) {
 		/* FIXME: can't unlink(), because the limits would be lost. */
 		return;
 	}
@@ -410,7 +410,7 @@ maildir_parse_limit(const char *str, uint64_t *bytes_r, uint64_t *count_r)
 static int maildirsize_parse(struct maildir_quota_root *root,
 			     int fd, const char *const *lines)
 {
-	struct quota_rule *rule = &root->root.default_rule;
+	struct quota_rule *rule = &root->root.set->default_rule;
 	uint64_t message_bytes_limit, message_count_limit;
 	long long bytes_diff, total_bytes;
 	int count_diff, total_count;
@@ -432,7 +432,7 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 	if (rule->bytes_limit == (int64_t)message_bytes_limit &&
 	    rule->count_limit == (int64_t)message_count_limit) {
 		/* limits haven't changed */
-	} else if (root->root.force_default_rule) {
+	} else if (root->root.set->force_default_rule) {
 		/* we know the limits and they've changed.
 		   the file must be rewritten. */
 		return 0;
@@ -440,7 +440,7 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 		/* we're using limits from the file. */
 		rule->bytes_limit = message_bytes_limit;
 		rule->count_limit = message_count_limit;
-		quota_root_recalculate_relative_rules(&root->root);
+		quota_root_recalculate_relative_rules(root->root.set);
 	}
 
 	if (*lines == NULL) {
@@ -603,8 +603,8 @@ static int maildirquota_refresh(struct maildir_quota_root *root)
 		ret = maildirsize_read(root);
 	} T_END;
 	if (ret == 0) {
-		if (root->root.default_rule.bytes_limit == 0 &&
-		    root->root.default_rule.count_limit == 0) {
+		if (root->root.set->default_rule.bytes_limit == 0 &&
+		    root->root.set->default_rule.count_limit == 0) {
 			/* no quota */
 			return 0;
 		}
@@ -661,7 +661,7 @@ static void maildir_quota_deinit(struct quota_root *_root)
 }
 
 static bool
-maildir_quota_parse_rule(struct quota_root *root ATTR_UNUSED,
+maildir_quota_parse_rule(struct quota_root_settings *root_set ATTR_UNUSED,
 			 struct quota_rule *rule,
 			 const char *str, const char **error_r)
 {

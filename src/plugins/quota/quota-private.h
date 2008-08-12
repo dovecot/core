@@ -9,9 +9,17 @@
 extern unsigned int quota_module_id;
 
 struct quota {
+	struct mail_user *user;
+	struct quota_settings *set;
+
 	ARRAY_DEFINE(roots, struct quota_root *);
 	ARRAY_DEFINE(storages, struct mail_storage *);
+};
 
+struct quota_settings {
+	pool_t pool;
+
+	ARRAY_DEFINE(root_sets, struct quota_root_settings *);
 	int (*test_alloc)(struct quota_transaction_context *ctx,
 			  uoff_t size, bool *too_large_r);
 
@@ -20,7 +28,7 @@ struct quota {
 };
 
 struct quota_rule {
-	char *mailbox_name;
+	const char *mailbox_name;
 
 	int64_t bytes_limit, count_limit;
 	/* relative to default_rule */
@@ -33,7 +41,7 @@ struct quota_rule {
 struct quota_warning_rule {
 	struct quota_rule rule;
 
-	char *command;
+	const char *command;
 };
 
 struct quota_backend_vfuncs {
@@ -41,7 +49,8 @@ struct quota_backend_vfuncs {
 	int (*init)(struct quota_root *root, const char *args);
 	void (*deinit)(struct quota_root *root);
 
-	bool (*parse_rule)(struct quota_root *root, struct quota_rule *rule,
+	bool (*parse_rule)(struct quota_root_settings *root_set,
+			   struct quota_rule *rule,
 			   const char *str, const char **error_r);
 
 	/* called once for each backend */
@@ -49,8 +58,8 @@ struct quota_backend_vfuncs {
 			      struct mail_storage *storage);
 
 	const char *const *(*get_resources)(struct quota_root *root);
-	int (*get_resource)(struct quota_root *root, const char *name,
-			    uint64_t *value_r);
+	int (*get_resource)(struct quota_root *root,
+			    const char *name, uint64_t *value_r);
 
 	int (*update)(struct quota_root *root, 
 		      struct quota_transaction_context *ctx);
@@ -64,27 +73,34 @@ struct quota_backend {
 	struct quota_backend_vfuncs v;
 };
 
-struct quota_root {
-	pool_t pool;
-
+struct quota_root_settings {
 	/* Unique quota root name. */
 	const char *name;
 
-	/* pointer to the quota that owns this root */
-	struct quota *quota;
+	struct quota_settings *set;
+	const char *args;
 
-	struct quota_backend backend;
+	const struct quota_backend *backend;
 	struct quota_rule default_rule;
 	ARRAY_DEFINE(rules, struct quota_rule);
 	ARRAY_DEFINE(warning_rules, struct quota_warning_rule);
+
+	/* Limits in default_rule override backend's quota limits */
+	unsigned int force_default_rule:1;
+};
+
+struct quota_root {
+	pool_t pool;
+
+	struct quota_root_settings *set;
+	struct quota *quota;
+	struct quota_backend backend;
 
 	/* Module-specific contexts. See quota_module_id. */
 	ARRAY_DEFINE(quota_module_contexts, void);
 
 	/* don't enforce quota when saving */
 	unsigned int no_enforcing:1;
-	/* Limits in default_rule override backend's quota limits */
-	unsigned int force_default_rule:1;
 };
 
 struct quota_transaction_context {
@@ -105,13 +121,14 @@ struct quota_transaction_context {
 
 /* Register storage to all user's quota roots. */
 void quota_add_user_storage(struct quota *quota, struct mail_storage *storage);
-void quota_remove_user_storage(struct quota *quota, 
-			       struct mail_storage *storage);
+void quota_remove_user_storage(struct mail_storage *storage);
+
+struct quota *quota_get_mail_user_quota(struct mail_user *user);
 
 struct quota_rule *
-quota_root_rule_find(struct quota_root *root, const char *name);
+quota_root_rule_find(struct quota_root_settings *root_set, const char *name);
 
-void quota_root_recalculate_relative_rules(struct quota_root *root);
+void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set);
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r);
 
 #endif

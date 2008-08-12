@@ -4,8 +4,6 @@
 struct mail_namespace;
 
 struct convert_settings {
-	const char *user;
-	const char *home;
 	bool skip_broken_mailboxes;
 	bool skip_dotdirs;
 	char alt_hierarchy_char;
