@@ -365,7 +365,7 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context **t);
 /* Return the number of active transactions for the mailbox. */
 unsigned int mailbox_transaction_get_count(const struct mailbox *box) ATTR_PURE;
 /* When committing transaction, drop flag/keyword updates for messages whose
-   mdoseq is larger than max_modseq. Save those messages' sequences to the
+   modseq is larger than max_modseq. Save those messages' sequences to the
    given array. */
 void mailbox_transaction_set_max_modseq(struct mailbox_transaction_context *t,
 					uint64_t max_modseq,
