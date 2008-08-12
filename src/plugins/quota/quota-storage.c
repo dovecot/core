@@ -448,8 +448,6 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	if (ret < 0) {
 		str = mail_storage_get_last_error(qlist->storage, &error);
 		mailbox_list_set_error(list, error, str);
-	} else {
-		ret = qlist->module_ctx.super.delete_mailbox(list, name);
 	}
 	if (box != NULL)
 		mailbox_close(&box);
