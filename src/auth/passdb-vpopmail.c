@@ -9,12 +9,45 @@
 #include "safe-memset.h"
 #include "passdb.h"
 #include "password-scheme.h"
+#include "auth-cache.h"
 
 #include "userdb-vpopmail.h"
 
 #include <stdlib.h>
 
 #define VPOPMAIL_DEFAULT_PASS_SCHEME "CRYPT"
+
+struct vpopmail_passdb_module {
+	struct passdb_module module;
+
+	struct ip_addr webmail_ip;
+};
+
+static bool vpopmail_is_disabled(struct auth_request *request,
+				 const struct vqpasswd *vpw)
+{
+        struct passdb_module *_module = request->passdb->passdb;
+	struct vpopmail_passdb_module *module =
+		(struct vpopmail_passdb_module *)_module;
+
+	if (strcmp(request->service, "IMAP") == 0) {
+		if ((vpw->pw_gid & NO_IMAP) != 0) {
+			/* IMAP from webmail IP may still be allowed */
+			if (!net_ip_compare(&module->webmail_ip,
+					    &request->remote_ip))
+				return TRUE;
+		}
+		if ((vpw->pw_gid & NO_WEBMAIL) != 0) {
+			if (net_ip_compare(&module->webmail_ip,
+					   &request->remote_ip))
+				return TRUE;
+		}
+	}
+	if ((vpw->pw_gid & NO_POP) != 0 &&
+	    strcmp(request->service, "POP3") == 0)
+		return TRUE;
+	return FALSE;
+}
 
 static char *
 vpopmail_password_lookup(struct auth_request *auth_request, bool cleartext,
@@ -30,10 +63,7 @@ vpopmail_password_lookup(struct auth_request *auth_request, bool cleartext,
 		return NULL;
 	}
 
-	if (((vpw->pw_gid & NO_IMAP) != 0 &&
-	     strcmp(auth_request->service, "IMAP") == 0) ||
-	    ((vpw->pw_gid & NO_POP) != 0 &&
-	     strcmp(auth_request->service, "POP3") == 0)) {
+	if (vpopmail_is_disabled(auth_request, vpw)) {
 		auth_request_log_info(auth_request, "vpopmail",
 				      "%s disabled", auth_request->service);
 		password = NULL;
@@ -125,17 +155,27 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 static struct passdb_module *
 vpopmail_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
-	struct passdb_module *module;
+	struct vpopmail_passdb_module *module;
+	const char *const *tmp;
 
-	module = p_new(auth_passdb->auth->pool, struct passdb_module, 1);
-	module->default_pass_scheme = VPOPMAIL_DEFAULT_PASS_SCHEME;
+	module = p_new(auth_passdb->auth->pool,
+		       struct vpopmail_passdb_module, 1);
+	module->module.default_pass_scheme = VPOPMAIL_DEFAULT_PASS_SCHEME;
 
-	if (strncmp(args, "cache_key=", 10) == 0) {
-		module->cache_key =
-			auth_cache_parse_key(auth_passdb->auth->pool,
-					     args + 10);
+	tmp = t_strsplit_spaces(args, " ");
+	for (; *tmp != NULL; tmp++) {
+		if (strncmp(*tmp, "cache_key=", 10) == 0) {
+			module->module.cache_key =
+				auth_cache_parse_key(auth_passdb->auth->pool,
+						     *tmp + 10);
+		} else if (strncmp(*tmp, "webmail=", 8) == 0) {
+			if (net_addr2ip(*tmp + 8, &module->webmail_ip) < 0)
+				i_fatal("vpopmail: Invalid webmail IP address");
+		} else {
+			i_fatal("vpopmail: Unknown setting: %s", *tmp);
+		}
 	}
-	return module;
+	return &module->module;
 }
 
 static void vpopmail_deinit(struct passdb_module *module ATTR_UNUSED)
