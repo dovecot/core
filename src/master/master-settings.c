@@ -90,7 +90,7 @@ static struct setting_def auth_setting_defs[] = {
 	DEF_BOOL(debug_passwords),
 	DEF_BOOL(ssl_require_client_cert),
 	DEF_BOOL(ssl_username_from_cert),
-	DEF_BOOL(ntlm_use_winbind),
+	DEF_BOOL(use_winbind),
 
 	DEF_INT(count),
 	DEF_INT(worker_max_count),
@@ -327,7 +327,7 @@ struct auth_settings default_auth_settings = {
 	MEMBER(debug_passwords) FALSE,
 	MEMBER(ssl_require_client_cert) FALSE,
 	MEMBER(ssl_username_from_cert) FALSE,
-	MEMBER(ntlm_use_winbind) FALSE,
+	MEMBER(use_winbind) FALSE,
 
 	MEMBER(count) 1,
 	MEMBER(worker_max_count) 30,

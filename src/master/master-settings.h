@@ -217,7 +217,7 @@ struct auth_settings {
 	bool verbose, debug, debug_passwords;
 	bool ssl_require_client_cert;
 	bool ssl_username_from_cert;
-	bool ntlm_use_winbind;
+	bool use_winbind;
 
 	unsigned int count;
 	unsigned int worker_max_count;

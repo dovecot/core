@@ -578,7 +578,8 @@ void mech_gssapi_init(void)
 {
 	mech_register_module(&mech_gssapi);
 #ifdef HAVE_GSSAPI_SPNEGO
-	mech_register_module(&mech_gssapi_spnego);
+	if (getenv("NTLM_USE_WINBIND") == NULL)
+		mech_register_module(&mech_gssapi_spnego);
 #endif
 }
 
@@ -586,7 +587,8 @@ void mech_gssapi_deinit(void)
 {
 	mech_unregister_module(&mech_gssapi);
 #ifdef HAVE_GSSAPI_SPNEGO
-	mech_unregister_module(&mech_gssapi_spnego);
+	if (getenv("NTLM_USE_WINBIND") == NULL)
+		mech_unregister_module(&mech_gssapi_spnego);
 #endif
 }
 #endif

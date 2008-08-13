@@ -485,8 +485,8 @@ static void auth_set_environment(struct auth_settings *set)
 		env_put("SSL_REQUIRE_CLIENT_CERT=1");
 	if (set->ssl_username_from_cert)
 		env_put("SSL_USERNAME_FROM_CERT=1");
-	if (set->ntlm_use_winbind)
-		env_put("NTLM_USE_WINBIND=1");
+	if (set->use_winbind)
+		env_put("USE_WINBIND=1");
 	if (*set->krb5_keytab != '\0') {
 		/* Environment may be used by Kerberos 5 library directly,
 		   although we also try to use it directly as well */

@@ -88,20 +88,21 @@ void mech_init(void)
 	mech_register_module(&mech_apop);
 	mech_register_module(&mech_cram_md5);
 	mech_register_module(&mech_digest_md5);
-	if (getenv("NTLM_USE_WINBIND") != NULL)
+	if (getenv("USE_WINBIND") != NULL) {
 		mech_register_module(&mech_winbind_ntlm);
-	else
+		mech_register_module(&mech_winbind_spnego);
+	} else {
 		mech_register_module(&mech_ntlm);
-	mech_register_module(&mech_winbind_spnego);
+#if defined(HAVE_GSSAPI_SPNEGO) && defined(BUILTIN_GSSAPI)
+		mech_register_module(&mech_gssapi_spnego);
+#endif
+	}
 	mech_register_module(&mech_otp);
 	mech_register_module(&mech_skey);
 	mech_register_module(&mech_rpa);
 	mech_register_module(&mech_anonymous);
 #ifdef BUILTIN_GSSAPI
 	mech_register_module(&mech_gssapi);
-#ifdef HAVE_GSSAPI_SPNEGO
-	mech_register_module(&mech_gssapi_spnego);
-#endif
 #endif
 }
 
@@ -112,19 +113,20 @@ void mech_deinit(void)
 	mech_unregister_module(&mech_apop);
 	mech_unregister_module(&mech_cram_md5);
 	mech_unregister_module(&mech_digest_md5);
-	if (getenv("NTLM_USE_WINBIND") != NULL)
+	if (getenv("NTLM_USE_WINBIND") != NULL) {
 		mech_unregister_module(&mech_winbind_ntlm);
-	else
+		mech_unregister_module(&mech_winbind_spnego);
+	} else {
 		mech_unregister_module(&mech_ntlm);
-	mech_unregister_module(&mech_winbind_spnego);
+#if defined(HAVE_GSSAPI_SPNEGO) && defined(BUILTIN_GSSAPI)
+		mech_unregister_module(&mech_gssapi_spnego);
+#endif
+	}
 	mech_unregister_module(&mech_otp);
 	mech_unregister_module(&mech_skey);
 	mech_unregister_module(&mech_rpa);
 	mech_unregister_module(&mech_anonymous);
 #ifdef BUILTIN_GSSAPI
 	mech_unregister_module(&mech_gssapi);
-#ifdef HAVE_GSSAPI_SPNEGO
-	mech_unregister_module(&mech_gssapi_spnego);
-#endif
 #endif
 }
