@@ -38,15 +38,15 @@ call_client_callback(struct client *client, enum sasl_server_reply reply,
 }
 
 static void
-master_callback(struct client *client, enum master_login_status status)
+master_callback(struct client *client, const struct master_login_reply *reply)
 {
-	enum sasl_server_reply reply = SASL_SERVER_REPLY_MASTER_FAILED;
+	enum sasl_server_reply sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
 	const char *data = NULL;
 
 	client->authenticating = FALSE;
-	switch (status) {
+	switch (reply->status) {
 	case MASTER_LOGIN_STATUS_OK:
-		reply = SASL_SERVER_REPLY_SUCCESS;
+		sasl_reply = SASL_SERVER_REPLY_SUCCESS;
 		break;
 	case MASTER_LOGIN_STATUS_INTERNAL_ERROR:
 		break;
@@ -54,7 +54,8 @@ master_callback(struct client *client, enum master_login_status status)
 		data = "Maximum number of connections from user+IP exceeded";
 		break;
 	}
-	call_client_callback(client, reply, data, NULL);
+	client->mail_pid = reply->mail_pid;
+	call_client_callback(client, sasl_reply, data, NULL);
 }
 
 static void authenticate_callback(struct auth_request *request, int status,

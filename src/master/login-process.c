@@ -102,7 +102,8 @@ void auth_master_callback(const char *user, const char *const *args,
 		master_reply.status =
 			create_mail_process(group->mail_process_type,
 					    group->set, &request->mail_request,
-					    user, args, request->data, FALSE);
+					    user, args, request->data, FALSE,
+					    &master_reply.mail_pid);
 	} T_END;
 
 	/* reply to login */

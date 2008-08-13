@@ -33,6 +33,7 @@ struct client {
 	sasl_server_callback_t *sasl_callback;
 
 	unsigned int auth_attempts;
+	pid_t mail_pid;
 
 	char *virtual_user;
 	unsigned int tls:1;

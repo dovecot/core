@@ -24,7 +24,7 @@ static char master_buf[sizeof(struct master_login_reply)];
 static struct client destroyed_client;
 
 static void client_call_master_callback(struct client *client,
-					enum master_login_status status)
+					const struct master_login_reply *reply)
 {
 	master_callback_t *master_callback;
 
@@ -32,7 +32,7 @@ static void client_call_master_callback(struct client *client,
 	client->master_tag = 0;
 	client->master_callback = NULL;
 
-	master_callback(client, status);
+	master_callback(client, reply);
 }
 
 static void request_handle(struct master_login_reply *reply)
@@ -52,7 +52,7 @@ static void request_handle(struct master_login_reply *reply)
 
 	hash_remove(master_requests, POINTER_CAST(reply->tag));
 	if (client != &destroyed_client) {
-		client_call_master_callback(client, reply->status);
+		client_call_master_callback(client, reply);
 		/* NOTE: client may be destroyed now */
 	}
 }
@@ -114,12 +114,16 @@ void master_request_login(struct client *client, master_callback_t *callback,
 
 void master_request_abort(struct client *client)
 {
+	struct master_login_reply reply;
+
 	/* we're still going to get the reply from the master, so just
 	   remember that we want to ignore it */
 	hash_update(master_requests, POINTER_CAST(client->master_tag),
 		    &destroyed_client);
 
-	client_call_master_callback(client, FALSE);
+	memset(&reply, 0, sizeof(reply));
+	reply.status = MASTER_LOGIN_STATUS_INTERNAL_ERROR;
+	client_call_master_callback(client, &reply);
 }
 
 void master_notify_state_change(enum master_login_state state)

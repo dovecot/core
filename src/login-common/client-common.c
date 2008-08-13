@@ -49,6 +49,7 @@ get_var_expand_table(struct client *client)
 		{ 'a', NULL },
 		{ 'b', NULL },
 		{ 'c', NULL },
+		{ 'e', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -85,6 +86,7 @@ get_var_expand_table(struct client *client)
 		tab[11].value = ssl_error == NULL ? ssl_state :
 			t_strdup_printf("%s: %s", ssl_state, ssl_error);
 	}
+	tab[12].value = dec2str(client->mail_pid);
 
 	return tab;
 }

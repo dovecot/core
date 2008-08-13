@@ -20,7 +20,8 @@ enum master_login_status
 create_mail_process(enum process_type process_type, struct settings *set,
 		    const struct mail_login_request *request,
 		    const char *user, const char *const *args,
-		    const unsigned char *data, bool dump_capability);
+		    const unsigned char *data, bool dump_capability,
+		    pid_t *pid_r);
 
 void mail_processes_init(void);
 void mail_processes_deinit(void);

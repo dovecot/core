@@ -620,6 +620,7 @@ static bool get_imap_capability(struct settings *set)
 	ssize_t ret;
 	unsigned int pos;
 	uid_t uid;
+	pid_t pid;
 
 	if (generated_capability != NULL) {
 		/* Reloading configuration. Don't try to execute the imap
@@ -648,7 +649,8 @@ static bool get_imap_capability(struct settings *set)
 	memset(&request, 0, sizeof(request));
 	request.fd = fd[1];
 	login_status = create_mail_process(PROCESS_TYPE_IMAP, set, &request,
-					   "dump-capability", args, NULL, TRUE);
+					   "dump-capability", args, NULL, TRUE,
+					   &pid);
 	if (login_status != MASTER_LOGIN_STATUS_OK) {
 		(void)close(fd[0]);
 		(void)close(fd[1]);
@@ -658,7 +660,7 @@ static bool get_imap_capability(struct settings *set)
 
 	alarm(5);
 	if (wait(&status) == -1)
-		i_fatal("imap dump-capability process got stuck");
+		i_fatal("imap dump-capability process %d got stuck", (int)pid);
 	alarm(0);
 
 	if (status != 0) {

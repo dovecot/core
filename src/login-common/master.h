@@ -6,7 +6,7 @@ struct client;
 #include "../master/master-login-interface.h"
 
 typedef void master_callback_t(struct client *client,
-			       enum master_login_status status);
+			       const struct master_login_reply *reply);
 
 void master_request_login(struct client *client, master_callback_t *callback,
 			  unsigned int auth_pid, unsigned int auth_id);

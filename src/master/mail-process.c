@@ -523,7 +523,8 @@ enum master_login_status
 create_mail_process(enum process_type process_type, struct settings *set,
 		    const struct mail_login_request *request,
 		    const char *user, const char *const *args,
-		    const unsigned char *data, bool dump_capability)
+		    const unsigned char *data, bool dump_capability,
+		    pid_t *pid_r)
 {
 	const struct var_expand_table *var_expand_table;
 	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
@@ -702,6 +703,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 			mail_process_group_add(process_group, pid);
 		}
 		(void)close(log_fd);
+		*pid_r = pid;
 		return MASTER_LOGIN_STATUS_OK;
 	}
 

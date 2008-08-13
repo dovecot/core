@@ -51,6 +51,8 @@ enum master_login_status {
 struct master_login_reply {
 	unsigned int tag;
 	enum master_login_status status;
+	/* PID of the post-login mail process handling this connection */
+	pid_t mail_pid;
 };
 
 #endif
