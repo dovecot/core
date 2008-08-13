@@ -552,6 +552,24 @@ const struct mech_module mech_gssapi = {
 	mech_gssapi_auth_free
 };
 
+/* MTI Kerberos v1.5+ and Heimdal v0.7+ supports SPNEGO for Kerberos tickets
+   internally. Nothing else needs to be done here. Note however that this does
+   not support SPNEGO when the only available credential is NTLM.. */
+const struct mech_module mech_gssapi_spnego = {
+	"GSS-SPNEGO",
+
+	MEMBER(flags) 0,
+
+	MEMBER(passdb_need_plain) FALSE,
+	MEMBER(passdb_need_credentials) FALSE,
+	MEMBER(passdb_need_set_credentials) FALSE,
+
+	mech_gssapi_auth_new,
+        mech_gssapi_auth_initial,
+        mech_gssapi_auth_continue,
+        mech_gssapi_auth_free
+};
+
 #ifndef BUILTIN_GSSAPI
 void mech_gssapi_init(void);
 void mech_gssapi_deinit(void);
@@ -559,11 +577,17 @@ void mech_gssapi_deinit(void);
 void mech_gssapi_init(void)
 {
 	mech_register_module(&mech_gssapi);
+#ifdef HAVE_GSSAPI_SPNEGO
+	mech_register_module(&mech_gssapi_spnego);
+#endif
 }
 
 void mech_gssapi_deinit(void)
 {
 	mech_unregister_module(&mech_gssapi);
+#ifdef HAVE_GSSAPI_SPNEGO
+	mech_unregister_module(&mech_gssapi_spnego);
+#endif
 }
 #endif
 

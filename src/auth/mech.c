@@ -75,6 +75,9 @@ extern const struct mech_module mech_anonymous;
 #ifdef HAVE_GSSAPI
 extern const struct mech_module mech_gssapi;
 #endif
+#ifdef HAVE_GSSAPI_SPNEGO
+extern const struct mech_module mech_gssapi_spnego;
+#endif
 extern const struct mech_module mech_winbind_ntlm;
 extern const struct mech_module mech_winbind_spnego;
 
@@ -96,6 +99,9 @@ void mech_init(void)
 	mech_register_module(&mech_anonymous);
 #ifdef BUILTIN_GSSAPI
 	mech_register_module(&mech_gssapi);
+#ifdef HAVE_GSSAPI_SPNEGO
+	mech_register_module(&mech_gssapi_spnego);
+#endif
 #endif
 }
 
@@ -117,5 +123,8 @@ void mech_deinit(void)
 	mech_unregister_module(&mech_anonymous);
 #ifdef BUILTIN_GSSAPI
 	mech_unregister_module(&mech_gssapi);
+#ifdef HAVE_GSSAPI_SPNEGO
+	mech_unregister_module(&mech_gssapi_spnego);
+#endif
 #endif
 }

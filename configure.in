@@ -1805,6 +1805,41 @@ if test $want_gssapi != no; then
 				old_LIBS=$LIBS
 				LIBS="$LIBS $KRB5_LIBS"
 				AC_CHECK_FUNCS(gsskrb5_register_acceptor_identity krb5_gss_register_acceptor_identity)
+
+				# does the kerberos library support SPNEGO?
+				AC_CACHE_CHECK([whether GSSAPI supports SPNEGO],i_cv_gssapi_spnego,[
+				  AC_TRY_RUN([
+				    #ifdef HAVE_GSSAPI_H
+				    #  include <gssapi.h>
+				    #else
+				    #  include <gssapi/gssapi.h>
+				    #endif
+				    #include <krb5.h>
+				    #include <string.h>
+				    int main(void) {
+				      OM_uint32 minor_status;
+				      gss_OID_set mech_set;
+				      unsigned char spnego_oid[] = { 0x2b, 0x06, 0x01, 0x05, 0x05, 0x02 };
+				      unsigned int i;
+    
+				      gss_indicate_mechs(&minor_status, &mech_set);
+				      for (i = 0; i < mech_set->count; i++) {
+					if (mech_set->elements[i].length == 6 &&
+					    memcmp(mech_set->elements[i].elements,
+						   spnego_oid, 6) == 0)
+					      return 0;
+				      }
+				      return 1;
+				    }
+				  ], [
+				    i_cv_gssapi_spnego=yes
+				  ], [
+				    i_cv_gssapi_spnego=no
+				  ])
+				])
+				if test "$i_cv_gssapi_spnego" = "yes"; then
+				  AC_DEFINE(HAVE_GSSAPI_SPNEGO,, GSSAPI supports SPNEGO)
+				fi
 				LIBS=$old_LIBS
 
 				if test x$want_gssapi_plugin != xyes; then
