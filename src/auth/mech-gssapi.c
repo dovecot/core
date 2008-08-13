@@ -139,6 +139,13 @@ static OM_uint32 obtain_service_credentials(struct auth_request *request,
 	gss_name_t gss_principal;
 	const char *service_name;
 
+	if (strcmp(request->auth->gssapi_hostname, "$ALL") == 0) {
+		auth_request_log_info(request, "gssapi",
+				      "Using all keytab entries");
+		*ret = GSS_C_NO_CREDENTIAL;
+		return GSS_S_COMPLETE;
+	}
+
 	if (strcasecmp(request->service, "POP3") == 0) {
 		/* The standard POP3 service name with GSSAPI is called
 		   just "pop". */
