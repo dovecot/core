@@ -96,6 +96,11 @@ struct quota_root {
 	struct quota *quota;
 	struct quota_backend backend;
 
+	/* initially the same as set->default_rule.*_limit, but some backends
+	   may change these by reading the limits elsewhere (e.g. Maildir++,
+	   FS quota) */
+	int64_t bytes_limit, count_limit;
+
 	/* Module-specific contexts. See quota_module_id. */
 	ARRAY_DEFINE(quota_module_contexts, void);
 

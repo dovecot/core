@@ -661,9 +661,9 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 
 	/* update limit */
 	if (bytes)
-		_root->default_rule.bytes_limit = limit;
+		_root->bytes_limit = limit;
 	else
-		_root->default_rule.count_limit = limit;
+		_root->count_limit = limit;
 	return 1;
 }
 

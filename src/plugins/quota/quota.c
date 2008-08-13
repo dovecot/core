@@ -143,6 +143,8 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota)
 	root->set = root_set;
 	root->quota = quota;
 	root->backend = *root_set->backend;
+	root->bytes_limit = root_set->default_rule.bytes_limit;
+	root->count_limit = root_set->default_rule.count_limit;
 
 	array_create(&root->quota_module_contexts, root->pool,
 		     sizeof(void *), 10);
@@ -424,7 +426,7 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 	return ret;
 }
 
-static bool quota_root_get_rule_limits(struct quota_root_settings *root_set,
+static bool quota_root_get_rule_limits(struct quota_root *root,
 				       const char *mailbox_name,
 				       uint64_t *bytes_limit_r,
 				       uint64_t *count_limit_r)
@@ -433,14 +435,14 @@ static bool quota_root_get_rule_limits(struct quota_root_settings *root_set,
 	int64_t bytes_limit, count_limit;
 	bool found;
 
-	bytes_limit = root_set->default_rule.bytes_limit;
-	count_limit = root_set->default_rule.count_limit;
+	bytes_limit = root->bytes_limit;
+	count_limit = root->count_limit;
 
 	/* if default rule limits are 0, this rule applies only to specific
 	   mailboxes */
 	found = bytes_limit != 0 || count_limit != 0;
 
-	rule = quota_root_rule_find(root_set, mailbox_name);
+	rule = quota_root_rule_find(root->set, mailbox_name);
 	if (rule != NULL) {
 		if (!rule->ignore) {
 			bytes_limit += rule->bytes_limit;
@@ -685,7 +687,7 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	if (ret <= 0)
 		return ret;
 
-	(void)quota_root_get_rule_limits(root->set, mailbox_name,
+	(void)quota_root_get_rule_limits(root, mailbox_name,
 					 &bytes_limit, &count_limit);
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*limit_r = bytes_limit;
@@ -914,7 +916,7 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
 			continue;
 
-		if (!quota_root_get_rule_limits(roots[i]->set,
+		if (!quota_root_get_rule_limits(roots[i],
 						mailbox_get_name(ctx->box),
 						&bytes_limit, &count_limit))
 			continue;
