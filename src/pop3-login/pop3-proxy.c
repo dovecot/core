@@ -15,7 +15,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			struct pop3_client *client)
 {
 	string_t *str;
-	const char *line, *msg;
+	const char *line;
 
 	if (input == NULL) {
 		if (client->io != NULL) {
@@ -102,10 +102,17 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		line = t_strconcat(line, "\r\n", NULL);
 		(void)o_stream_send_str(client->output, line);
 
-		msg = t_strdup_printf("proxy(%s): started proxying to %s:%u",
-				      client->common.virtual_user,
-				      login_proxy_get_host(client->proxy),
-				      login_proxy_get_port(client->proxy));
+		str = t_str_new(128);
+		str_printfa(str, "proxy(%s): started proxying to %s:%u",
+			    client->common.virtual_user,
+			    login_proxy_get_host(client->proxy),
+			    login_proxy_get_port(client->proxy));
+		if (strcmp(client->common.virtual_user,
+			   client->proxy_user) != 0) {
+			/* remote username is different, log it */
+			str_append_c(str, '/');
+			str_append(str, client->proxy_user);
+		}
 
 		login_proxy_detach(client->proxy, client->common.input,
 				   client->output);
@@ -114,7 +121,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		client->common.input = NULL;
 		client->output = NULL;
 		client->common.fd = -1;
-		client_destroy_success(client, msg);
+		client_destroy_success(client, str_c(str));
 		return;
 	}
 

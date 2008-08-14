@@ -50,7 +50,6 @@ static int proxy_input_line(struct imap_client *client,
 			    struct ostream *output, const char *line)
 {
 	string_t *str;
-	const char *msg;
 
 	i_assert(!client->destroyed);
 
@@ -91,10 +90,17 @@ static int proxy_input_line(struct imap_client *client,
 		(void)o_stream_send(client->output,
 				    str_data(str), str_len(str));
 
-		msg = t_strdup_printf("proxy(%s): started proxying to %s:%u",
-				      client->common.virtual_user,
-				      login_proxy_get_host(client->proxy),
-				      login_proxy_get_port(client->proxy));
+		str_truncate(str, 0);
+		str_printfa(str, "proxy(%s): started proxying to %s:%u",
+			    client->common.virtual_user,
+			    login_proxy_get_host(client->proxy),
+			    login_proxy_get_port(client->proxy));
+		if (strcmp(client->common.virtual_user,
+			   client->proxy_user) != 0) {
+			/* remote username is different, log it */
+			str_append_c(str, '/');
+			str_append(str, client->proxy_user);
+		}
 
 		(void)client_skip_line(client);
 		login_proxy_detach(client->proxy, client->common.input,
@@ -104,7 +110,7 @@ static int proxy_input_line(struct imap_client *client,
 		client->common.input = NULL;
 		client->output = NULL;
 		client->common.fd = -1;
-		client_destroy_success(client, msg);
+		client_destroy_success(client, str_c(str));
 		return -1;
 	} else if (strncmp(line, "P ", 2) == 0) {
 		/* If the backend server isn't Dovecot, the error message may
