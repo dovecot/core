@@ -528,7 +528,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 {
 	const struct var_expand_table *var_expand_table;
 	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
-	const char *system_user;
+	const char *system_user, *master_user;
 	struct mail_process_group *process_group;
 	char title[1024];
 	struct log_io *log;
@@ -549,18 +549,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	}
 
-	/* check process limit for this user */
-	process_group = dump_capability ? NULL :
-		mail_process_group_lookup(process_type, user,
-					  &request->remote_ip);
-	process_count = process_group == NULL ? 0 :
-		array_count(&process_group->processes);
-	if (process_count >= set->mail_max_userip_connections &&
-	    set->mail_max_userip_connections != 0)
-		return MASTER_LOGIN_STATUS_MAX_CONNECTIONS;
-
 	t_array_init(&extra_args, 16);
-	mail = home_dir = chroot_dir = system_user = "";
+	mail = home_dir = chroot_dir = system_user = ""; master_user = NULL;
 	uid = (uid_t)-1; gid = (gid_t)-1; nice_value = 0;
 	home_given = FALSE;
 	for (; *args != NULL; args++) {
@@ -582,13 +572,30 @@ create_mail_process(enum process_type process_type, struct settings *set,
 				return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 			}
 			uid = (uid_t)strtoul(*args + 4, NULL, 10);
-		} else if (strncmp(*args, "gid=", 4) == 0)
+		} else if (strncmp(*args, "gid=", 4) == 0) {
 			gid = (gid_t)strtoul(*args + 4, NULL, 10);
-		else {
+		} else if (strncmp(*args, "master_user=", 12) == 0) {
+			const char *arg = *args;
+
+			master_user = arg + 12;
+			array_append(&extra_args, &arg, 1);
+		} else {
 			const char *arg = *args;
 			array_append(&extra_args, &arg, 1);
 		}
 	}
+
+	/* check process limit for this user, but not if this is a master
+	   user login. */
+	process_group = dump_capability ? NULL :
+		mail_process_group_lookup(process_type, user,
+					  &request->remote_ip);
+	process_count = process_group == NULL ? 0 :
+		array_count(&process_group->processes);
+	if (process_count >= set->mail_max_userip_connections &&
+	    set->mail_max_userip_connections != 0 &&
+	    master_user == NULL)
+		return MASTER_LOGIN_STATUS_MAX_CONNECTIONS;
 
 	/* if uid/gid wasn't returned, use the defaults */
 	if (uid == (uid_t)-1) {
