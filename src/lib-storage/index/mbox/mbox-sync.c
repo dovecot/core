@@ -406,6 +406,9 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 	if (!sync_ctx->delay_writes) {
 		/* changes are written to the mbox file */
 		mbox_flags &= ~MAIL_INDEX_MAIL_FLAG_DIRTY;
+	} else if (mail_ctx->need_rewrite) {
+		/* make sure this message gets written later */
+		mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
 	}
 
 	if (rec == NULL) {
