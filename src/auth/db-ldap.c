@@ -851,14 +851,17 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 		conn->pending_count = 0;
 	}
 
-	if (conn->io != NULL)
-		io_remove(&conn->io);
-
 	if (conn->ld != NULL) {
 		ldap_unbind(conn->ld);
 		conn->ld = NULL;
 	}
 	conn->fd = -1;
+
+	if (conn->io != NULL) {
+		/* the fd may have already been closed before ldap_unbind(),
+		   so we'll have to use io_remove_closed(). */
+		io_remove_closed(&conn->io);
+	}
 
 	if (aqueue_count(conn->request_queue) == 0) {
 		if (conn->to != NULL)
