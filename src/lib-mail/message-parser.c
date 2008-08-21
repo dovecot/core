@@ -336,6 +336,7 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 		}
 	}
 
+	i_assert(block_r->size > 0);
 	for (i = boundary_start = 0; i < block_r->size; i++) {
 		/* skip to beginning of the next line. the first line was
 		   handled already. */
@@ -380,6 +381,9 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 			ret = 0;
 			ctx->want_count = (block_r->size - boundary_start) + 1;
 		}
+	} else if (ret == 0 && eof) {
+		/* we can't get any more data */
+		ret = -1;
 	}
 	i_assert(!(ret == 0 && full));
 
