@@ -124,6 +124,9 @@ static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 {
 	struct sqlite_db *db = (struct sqlite_db *)_db;
 
+	if (driver_sqlite_connect(_db) < 0)
+		return;
+
 	db->rc = sqlite3_exec(db->sqlite, query, NULL, 0, NULL);
 	if (db->rc != SQLITE_OK) {
 		i_error("sqlite: exec(%s) failed: %s (%d)",
@@ -152,15 +155,21 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 
 	result = i_new(struct sqlite_result, 1);
 
-	rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
-	if (rc == SQLITE_OK) {
-		result->api = driver_sqlite_result;
-		result->cols = sqlite3_column_count(result->stmt);
-		result->row = i_new(const char *, result->cols);
-	} else {
+	if (driver_sqlite_connect(_db) < 0) {
 		result->api = driver_sqlite_error_result;
 		result->stmt = NULL;
 		result->cols = 0;
+	} else {
+		rc = sqlite3_prepare(db->sqlite, query, -1, &result->stmt, NULL);
+		if (rc == SQLITE_OK) {
+			result->api = driver_sqlite_result;
+			result->cols = sqlite3_column_count(result->stmt);
+			result->row = i_new(const char *, result->cols);
+		} else {
+			result->api = driver_sqlite_error_result;
+			result->stmt = NULL;
+			result->cols = 0;
+		}
 	}
 	result->api.db = _db;
 
