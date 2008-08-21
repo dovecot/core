@@ -54,7 +54,8 @@ void io_loop_handle_timeouts(struct ioloop *ioloop);
 
 /* I/O handler calls */
 void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io);
-void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io);
+void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io,
+			   bool closed);
 
 void io_loop_handler_init(struct ioloop *ioloop);
 void io_loop_handler_deinit(struct ioloop *ioloop);

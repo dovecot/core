@@ -64,7 +64,7 @@ static void io_file_unlink(struct io_file *io)
 		current_ioloop->next_io_file = io->next;
 }
 
-void io_remove(struct io **_io)
+static void io_remove_full(struct io **_io, bool closed)
 {
 	struct io *io = *_io;
 
@@ -82,8 +82,20 @@ void io_remove(struct io **_io)
 		struct io_file *io_file = (struct io_file *)io;
 
 		io_file_unlink(io_file);
-		io_loop_handle_remove(current_ioloop, io_file);
+		io_loop_handle_remove(current_ioloop, io_file, closed);
 	}
+}
+
+void io_remove(struct io **io)
+{
+	io_remove_full(io, FALSE);
+}
+
+void io_remove_closed(struct io **io)
+{
+	i_assert(((*io)->condition & IO_NOTIFY) == 0);
+
+	io_remove_full(io, TRUE);
 }
 
 static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)

@@ -63,6 +63,9 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 
 /* Remove I/O handler, and set io pointer to NULL. */
 void io_remove(struct io **io);
+/* Like io_remove(), but assume that the file descriptor is already closed.
+   With some backends this simply frees the memory. */
+void io_remove_closed(struct io **io);
 
 /* Timeout handlers */
 struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,

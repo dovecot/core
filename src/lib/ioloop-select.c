@@ -74,7 +74,8 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 		ctx->highest_fd = io->fd;
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io)
+void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io,
+			   bool closed ATTR_UNUSED)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	enum io_condition condition = io->io.condition;

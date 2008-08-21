@@ -94,7 +94,8 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 		ctx->fds[index].events |= IO_POLL_ERROR;
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop,  struct io_file *io)
+void io_loop_handle_remove(struct ioloop *ioloop,  struct io_file *io,
+			   bool closed ATTR_UNUSED)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	enum io_condition condition = io->io.condition;
@@ -104,15 +105,18 @@ void io_loop_handle_remove(struct ioloop *ioloop,  struct io_file *io)
 	i_assert(index >= 0 && (unsigned int) index < ctx->fds_count);
 
 #ifdef DEBUG
-	/* io_remove() is required to be called before fd is closed.
-	   This is required by kqueue, but since poll is more commonly used
-	   while developing, this check here should catch the error early
-	   enough not to cause problems for kqueue users. */
-	if (fcntl(io->fd, F_GETFD, 0) < 0) {
-		if (errno == EBADF)
-			i_panic("io_remove(%d) called too late", io->fd);
-		else
-			i_error("fcntl(%d, F_GETFD) failed: %m", io->fd);
+	if (!closed) {
+		/* io_remove() is required to be called before fd is closed.
+		   This is required by epoll/kqueue, but since poll is more
+		   commonly used while developing, this check here should catch
+		   the error early enough not to cause problems for kqueue
+		   users. */
+		if (fcntl(io->fd, F_GETFD, 0) < 0) {
+			if (errno == EBADF)
+				i_panic("io_remove(%d) called too late", io->fd);
+			else
+				i_error("fcntl(%d, F_GETFD) failed: %m", io->fd);
+		}
 	}
 #endif
 	i_free(io);

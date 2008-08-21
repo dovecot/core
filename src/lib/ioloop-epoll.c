@@ -118,7 +118,8 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 	}
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io)
+void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io,
+			   bool closed)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct io_list **list;
@@ -129,17 +130,18 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io)
 	list = array_idx_modifiable(&ctx->fd_index, io->fd);
 	last = ioloop_iolist_del(*list, io);
 
-	memset(&event, 0, sizeof(event));
-	event.data.ptr = *list;
-	event.events = epoll_event_mask(*list);
+	if (!closed) {
+		memset(&event, 0, sizeof(event));
+		event.data.ptr = *list;
+		event.events = epoll_event_mask(*list);
 
-	op = last ? EPOLL_CTL_DEL : EPOLL_CTL_MOD;
+		op = last ? EPOLL_CTL_DEL : EPOLL_CTL_MOD;
 
-	if (epoll_ctl(ctx->epfd, op, io->fd, &event) < 0) {
-		i_error("io_loop_handle_remove: epoll_ctl(%d, %d): %m",
-			op, io->fd);
+		if (epoll_ctl(ctx->epfd, op, io->fd, &event) < 0) {
+			i_error("io_loop_handle_remove: epoll_ctl(%d, %d): %m",
+				op, io->fd);
+		}
 	}
-
 	if (last) {
 		/* since we're not freeing memory in any case, just increase
 		   deleted counter so next handle_add() can just decrease it

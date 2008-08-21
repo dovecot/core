@@ -80,17 +80,18 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 		(void)array_append_space(&ctx->events);
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io)
+void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io,
+			   bool closed)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct kevent ev;
 
-	if ((io->io.condition & (IO_READ | IO_ERROR)) != 0) {
+	if ((io->io.condition & (IO_READ | IO_ERROR)) != 0 && !closed) {
 		MY_EV_SET(&ev, io->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
 	}
-	if ((io->io.condition & IO_WRITE) != 0) {
+	if ((io->io.condition & IO_WRITE) != 0 && !closed) {
 		MY_EV_SET(&ev, io->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
