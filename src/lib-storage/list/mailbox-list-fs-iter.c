@@ -174,12 +174,46 @@ static int list_opendir(struct fs_list_iterate_context *ctx,
 	return -1;
 }
 
+static const char *list_get_rootdir(struct fs_list_iterate_context *ctx,
+				    const char **vpath)
+{
+	const char *const *patterns, *name, *p, *last;
+
+	if ((ctx->ctx.list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) == 0)
+		return NULL;
+
+	/* see if there are any absolute paths in patterns */
+	patterns = (const void *)array_idx(&ctx->valid_patterns, 0);
+	for (; *patterns != NULL; patterns++) {
+		name = *patterns;
+
+		if (*name == '/') {
+			*vpath = "/";
+			return "/";
+		}
+		if (*name == '~') {
+			for (p = last = name; *p != '\0'; p++) {
+				if (*p == '%' || *p == '*')
+					break;
+				if (*p == '/')
+					last = p;
+			}
+			name = p = t_strdup_until(name, last+1);
+			if (home_try_expand(&name) == 0) {
+				*vpath = p;
+				return name;
+			}
+		}
+	}
+	return NULL;
+}
+
 struct mailbox_list_iterate_context *
 fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		  enum mailbox_list_iter_flags flags)
 {
 	struct fs_list_iterate_context *ctx;
-	const char *path, *vpath;
+	const char *path, *vpath, *rootdir;
 	char *pattern;
 	DIR *dirp;
 	int ret;
@@ -235,7 +269,8 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 
 	vpath = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
 		_list->ns->prefix : "";
-	path = mailbox_list_get_path(_list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
+	rootdir = list_get_rootdir(ctx, &vpath);
+	path = mailbox_list_get_path(_list, rootdir, MAILBOX_LIST_PATH_TYPE_DIR);
 	if ((ret = list_opendir(ctx, path, vpath, &dirp)) < 0)
 		return &ctx->ctx;
 
