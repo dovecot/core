@@ -439,7 +439,7 @@ static void client_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 
 	pool_unref(&ctx->pool);
 	i_free(ctx);
-	dict->in_iteration = TRUE;
+	dict->in_iteration = FALSE;
 }
 
 static struct dict_transaction_context *
