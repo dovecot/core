@@ -547,8 +547,10 @@ void client_destroy(struct imap_client *client, const char *reason)
 	client->destroyed = TRUE;
 
 	if (!client->login_success && reason != NULL) {
-		reason = t_strdup_printf("%s (auth failed, %u attempts)",
-					 reason, client->common.auth_attempts);
+		reason = client->common.auth_attempts == 0 ?
+			t_strdup_printf("%s (no auth attempts)", reason) :
+			t_strdup_printf("%s (auth failed, %u attempts)",
+					reason, client->common.auth_attempts);
 	}
 	if (reason != NULL)
 		client_syslog(&client->common, reason);
