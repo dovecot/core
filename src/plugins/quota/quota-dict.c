@@ -97,7 +97,7 @@ dict_quota_count(struct dict_quota_root *root,
 		dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
 	} T_END;
 
-	if (dict_transaction_commit(dt) < 0)
+	if (dict_transaction_commit(&dt) < 0)
 		i_error("dict_quota: Couldn't update quota");
 
 	*value_r = want_bytes ? bytes : count;
@@ -167,7 +167,7 @@ dict_quota_update(struct quota_root *_root,
 		}
 	}
 	
-	if (dict_transaction_commit(dt) < 0)
+	if (dict_transaction_commit(&dt) < 0)
 		return -1;
 	return 0;
 }

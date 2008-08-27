@@ -147,7 +147,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				new_stamp += xpr_box->expire_secs;
 				dict_set(dctx, key, dec2str(new_stamp));
 			}
-			dict_transaction_commit(dctx);
+			dict_transaction_commit(&dctx);
 		}
 	} T_END;
 	i_free(xt);

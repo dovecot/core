@@ -103,8 +103,11 @@ int dict_iterate(struct dict_iterate_context *ctx,
 	return ctx->dict->v.iterate(ctx, key_r, value_r);
 }
 
-void dict_iterate_deinit(struct dict_iterate_context *ctx)
+void dict_iterate_deinit(struct dict_iterate_context **_ctx)
 {
+	struct dict_iterate_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	ctx->dict->v.iterate_deinit(ctx);
 }
 
@@ -113,13 +116,19 @@ struct dict_transaction_context *dict_transaction_begin(struct dict *dict)
 	return dict->v.transaction_init(dict);
 }
 
-int dict_transaction_commit(struct dict_transaction_context *ctx)
+int dict_transaction_commit(struct dict_transaction_context **_ctx)
 {
+	struct dict_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	return ctx->dict->v.transaction_commit(ctx);
 }
 
-void dict_transaction_rollback(struct dict_transaction_context *ctx)
+void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 {
+	struct dict_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	ctx->dict->v.transaction_rollback(ctx);
 }
 

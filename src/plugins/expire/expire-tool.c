@@ -278,11 +278,11 @@ static void expire_run(bool testrun)
 			}
 		}
 	}
-	dict_iterate_deinit(iter);
+	dict_iterate_deinit(&iter);
 	if (!testrun)
-		dict_transaction_commit(trans);
+		dict_transaction_commit(&trans);
 	else
-		dict_transaction_rollback(trans);
+		dict_transaction_rollback(&trans);
 	dict_deinit(&dict);
 
 	if (ctx.user != NULL)

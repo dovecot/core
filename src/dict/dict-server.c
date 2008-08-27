@@ -99,7 +99,7 @@ static int cmd_iterate(struct dict_client_connection *conn, const char *line)
 			o_stream_send_str(conn->output, reply);
 		} T_END;
 	}
-	dict_iterate_deinit(ctx);
+	dict_iterate_deinit(&ctx);
 
 	o_stream_send_str(conn->output, "\n");
 	o_stream_uncork(conn->output);
@@ -196,7 +196,7 @@ static int cmd_commit(struct dict_client_connection *conn, const char *line)
 	if (dict_server_transaction_lookup_parse(conn, line, &trans) < 0)
 		return -1;
 
-	ret = dict_transaction_commit(trans->ctx);
+	ret = dict_transaction_commit(&trans->ctx);
 	reply = t_strdup_printf("%c\n", ret == 0 ? DICT_PROTOCOL_REPLY_OK :
 				DICT_PROTOCOL_REPLY_FAIL);
 	o_stream_send_str(conn->output, reply);
@@ -211,7 +211,7 @@ static int cmd_rollback(struct dict_client_connection *conn, const char *line)
 	if (dict_server_transaction_lookup_parse(conn, line, &trans) < 0)
 		return -1;
 
-	dict_transaction_rollback(trans->ctx);
+	dict_transaction_rollback(&trans->ctx);
 	dict_server_transaction_array_remove(conn, trans);
 	return 0;
 }
@@ -414,7 +414,7 @@ static void dict_client_connection_input(struct dict_client_connection *conn)
 
 static void dict_client_connection_deinit(struct dict_client_connection *conn)
 {
-	const struct dict_server_transaction *transactions;
+	struct dict_server_transaction *transactions;
 	unsigned int i, count;
 
 	if (conn->prev == NULL)
@@ -425,9 +425,9 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn)
 		conn->next->prev = conn->prev;
 
 	if (array_is_created(&conn->transactions)) {
-		transactions = array_get(&conn->transactions, &count);
+		transactions = array_get_modifiable(&conn->transactions, &count);
 		for (i = 0; i < count; i++)
-			dict_transaction_rollback(transactions[i].ctx);
+			dict_transaction_rollback(&transactions[i].ctx);
 		array_free(&conn->transactions);
 	}
 
