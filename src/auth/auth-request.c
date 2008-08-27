@@ -39,6 +39,7 @@ auth_request_new(struct auth *auth, const struct mech_module *mech,
 
 	request->auth = auth;
 	request->mech = mech;
+	request->mech_name = mech == NULL ? NULL : mech->mech_name;
 	request->callback = callback;
 	request->context = context;
 	return request;
@@ -146,6 +147,8 @@ void auth_request_export(struct auth_request *request,
 		auth_stream_reply_add(reply, "secured", "1");
 	if (request->skip_password_check)
 		auth_stream_reply_add(reply, "skip_password_check", "1");
+	if (request->mech_name != NULL)
+		auth_stream_reply_add(reply, "mech", request->mech_name);
 }
 
 bool auth_request_import(struct auth_request *request,
@@ -179,7 +182,9 @@ bool auth_request_import(struct auth_request *request,
 	else if (strcmp(key, "skip_password_check") == 0) {
 		i_assert(request->master_user !=  NULL);
 		request->skip_password_check = TRUE;
-	} else
+	} else if (strcmp(key, "mech") == 0)
+		request->mech_name = p_strdup(request->pool, value);
+	else
 		return FALSE;
 
 	return TRUE;
@@ -1373,8 +1378,8 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		tab[9].value = auth_request->passdb == NULL ? "" :
 			dec2str(auth_request->passdb->id);
 	}
-	tab[10].value = auth_request->mech == NULL ? "" :
-		auth_request->mech->mech_name;
+	tab[10].value = auth_request->mech_name == NULL ? "" :
+		auth_request->mech_name;
 	tab[11].value = auth_request->secured ? "secured" : "";
 	tab[12].value = dec2str(auth_request->local_port);
 	tab[13].value = dec2str(auth_request->remote_port);

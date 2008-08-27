@@ -62,7 +62,7 @@ struct auth_request {
 	unsigned int id;
 	time_t last_access;
 
-	const char *service;
+	const char *service, *mech_name;
 	struct ip_addr local_ip, remote_ip;
 	unsigned int local_port, remote_port;
 
