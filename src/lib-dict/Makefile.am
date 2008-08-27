@@ -5,6 +5,7 @@ dict_drivers = @dict_drivers@
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-sql \
+	-I$(top_srcdir)/src/lib-settings \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	$(SQL_CFLAGS)
 
@@ -14,7 +15,8 @@ base_sources = \
 
 backend_sources = \
 	dict-db.c \
-	dict-sql.c
+	dict-sql.c \
+	dict-sql-settings.c
 
 libdict_a_SOURCES = \
 	$(base_sources)
@@ -27,7 +29,8 @@ headers = \
 	dict.h \
 	dict-client.h \
 	dict-private.h \
-	dict-sql.h
+	dict-sql.h \
+	dict-sql-settings.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/lib-dict

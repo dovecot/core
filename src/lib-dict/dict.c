@@ -84,9 +84,16 @@ void dict_deinit(struct dict **_dict)
 	dict->v.deinit(dict);
 }
 
+static bool dict_key_prefix_is_valid(const char *key)
+{
+	return strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0 ||
+		strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0;
+}
+
 int dict_lookup(struct dict *dict, pool_t pool, const char *key,
 		const char **value_r)
 {
+	i_assert(dict_key_prefix_is_valid(key));
 	return dict->v.lookup(dict, pool, key, value_r);
 }
 
@@ -94,6 +101,7 @@ struct dict_iterate_context *
 dict_iterate_init(struct dict *dict, const char *path, 
 		  enum dict_iterate_flags flags)
 {
+	i_assert(dict_key_prefix_is_valid(path));
 	return dict->v.iterate_init(dict, path, flags);
 }
 
@@ -135,6 +143,8 @@ void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 void dict_set(struct dict_transaction_context *ctx,
 	      const char *key, const char *value)
 {
+	i_assert(dict_key_prefix_is_valid(key));
+
 	ctx->dict->v.set(ctx, key, value);
 	ctx->changed = TRUE;
 }
@@ -142,6 +152,8 @@ void dict_set(struct dict_transaction_context *ctx,
 void dict_unset(struct dict_transaction_context *ctx,
 		const char *key)
 {
+	i_assert(dict_key_prefix_is_valid(key));
+
 	ctx->dict->v.unset(ctx, key);
 	ctx->changed = TRUE;
 }
@@ -149,6 +161,8 @@ void dict_unset(struct dict_transaction_context *ctx,
 void dict_atomic_inc(struct dict_transaction_context *ctx,
 		     const char *key, long long diff)
 {
+	i_assert(dict_key_prefix_is_valid(key));
+
 	if (diff != 0) {
 		ctx->dict->v.atomic_inc(ctx, key, diff);
 		ctx->changed = TRUE;

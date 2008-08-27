@@ -15,6 +15,7 @@ libs = \
 	../lib-dict/libdict_backend.a \
 	../lib-dict/libdict.a \
 	../lib-sql/libsql.a \
+	../lib-settings/libsettings.a \
 	../lib/liblib.a
 
 dict_LDADD = \
