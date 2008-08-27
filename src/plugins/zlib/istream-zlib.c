@@ -19,6 +19,8 @@
    this pretty large */
 #define DEFAULT_MAX_BUFFER_SIZE (1024*1024)
 
+#include <unistd.h>
+
 struct zlib_istream {
 	struct istream_private istream;
 
@@ -124,7 +126,17 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 
 #ifndef HAVE_GZSEEK
 	if (v_offset < start_offset) {
+		/* need to reopen, but since closing the file closes the
+		   file descriptor we'll have to duplicate it first. */
+		int fd = dup(zstream->fd);
+		if (fd == -1) {
+			stream->istream.stream_errno = errno;
+			i_error("zlib istream: dup() failed: %m");
+			i_stream_close(&stream->istream);
+			return;
+		}
 		gzclose(zstream->file);
+		zstream->fd = fd;
 		zstream->file = gzdopen(zstream->fd, "r");
 	}
 #else
