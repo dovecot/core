@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "mail-storage-private.h"
+#include "mail-namespace.h"
 #include "solr-connection.h"
 #include "fts-solr-plugin.h"
 
@@ -93,7 +94,7 @@ static int fts_backend_solr_get_last_uid(struct fts_backend *backend,
 	str_printfa(str, "uidv:%u%%20box:", status.uidvalidity);
 	solr_quote_str(str, backend->box->name);
 	str_append(str, "%20user:");
-	solr_quote_str(str, backend->box->storage->user);
+	solr_quote_str(str, backend->box->storage->ns->user->username);
 
 	t_array_init(&uids, 1);
 	if (solr_connection_select(solr_conn, str_c(str), &uids, NULL) < 0)
@@ -160,11 +161,11 @@ fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
 		str_append(cmd, "<field name=\"box\">");
 		xml_encode(cmd, box->name);
 		str_append(cmd, "</field><field name=\"user\">");
-		xml_encode(cmd, box->storage->user);
+		xml_encode(cmd, box->storage->ns->user->username);
 
 		str_printfa(cmd, "</field><field name=\"id\">%u/%u/",
 			    uid, ctx->uid_validity);
-		xml_encode(cmd, box->storage->user);
+		xml_encode(cmd, box->storage->ns->user->username);
 		str_append_c(cmd, '/');
 		xml_encode(cmd, box->name);
 		str_append(cmd, "</field>");
@@ -228,7 +229,7 @@ fts_backend_solr_expunge(struct fts_backend *backend ATTR_UNUSED,
 		cmd = t_str_new(256);
 		str_printfa(cmd, "<delete><id>%u/%u/",
 			    mail->uid, status.uidvalidity);
-		xml_encode(cmd, mail->box->storage->user);
+		xml_encode(cmd, mail->box->storage->ns->user->username);
 		str_append_c(cmd, '/');
 		xml_encode(cmd, mail->box->name);
 		str_append(cmd, "</id></delete>");
@@ -300,7 +301,7 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 	str_printfa(str, "&fq=uidv:%u%%20box:", status.uidvalidity);
 	solr_quote_str(str, box->name);
 	str_append(str, "%20user:");
-	solr_quote_str(str, box->storage->user);
+	solr_quote_str(str, box->storage->ns->user->username);
 
 	array_clear(maybe_uids);
 	return solr_connection_select(solr_conn, str_c(str),
