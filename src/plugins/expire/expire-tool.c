@@ -208,14 +208,14 @@ static void expire_run(bool testrun)
 		i_fatal("dict_init() failed");
 
 	trans = dict_transaction_begin(dict);
-	iter = dict_iterate_init(dict, DICT_PATH_SHARED,
+	iter = dict_iterate_init(dict, DICT_EXPIRE_PREFIX,
 				 DICT_ITERATE_FLAG_RECURSE |
 				 DICT_ITERATE_FLAG_SORT_BY_VALUE);
 
 	/* We'll get the oldest values (timestamps) first */
 	while (dict_iterate(iter, &key, &value) > 0) {
-		/* key = DICT_PATH_SHARED<user>/<mailbox> */
-		userp = key + strlen(DICT_PATH_SHARED);
+		/* key = DICT_EXPIRE_PREFIX<user>/<mailbox> */
+		userp = key + strlen(DICT_EXPIRE_PREFIX);
 
 		p = strchr(userp, '/');
 		if (p == NULL) {

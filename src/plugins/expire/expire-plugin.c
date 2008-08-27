@@ -122,7 +122,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	if (xt->first_expunged || xt->saves) T_BEGIN {
 		const char *key, *value;
 
-		key = t_strconcat(DICT_PATH_SHARED, expire.username, "/",
+		key = t_strconcat(DICT_EXPIRE_PREFIX, expire.username, "/",
 				  mailbox_name, NULL);
 		if (!xt->first_expunged && xt->saves) {
 			/* saved new mails. dict needs to be updated only if

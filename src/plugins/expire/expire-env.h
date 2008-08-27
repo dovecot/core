@@ -1,6 +1,8 @@
 #ifndef EXPIRE_ENV_H
 #define EXPIRE_ENV_H
 
+#define DICT_EXPIRE_PREFIX DICT_PATH_SHARED"expire/"
+
 struct expire_env;
 
 struct expire_env *expire_env_init(const char *expunges, const char *altmoves);
