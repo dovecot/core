@@ -6,12 +6,15 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "str.h"
 #include "dict.h"
 #include "dict-client.h"
 #include "dict-server.h"
 
 #include <stdlib.h>
 #include <unistd.h>
+
+#define DICT_OUTPUT_OPTIMAL_SIZE 1024
 
 struct dict_server_transaction {
 	unsigned int id;
@@ -31,6 +34,8 @@ struct dict_client_connection {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+
+	struct dict_iterate_context *iter_ctx;
 
 	/* There are only a few transactions per client, so keeping them in
 	   array is fast enough */
@@ -58,6 +63,11 @@ static int cmd_lookup(struct dict_client_connection *conn, const char *line)
 	const char *value;
 	int ret;
 
+	if (conn->iter_ctx != NULL) {
+		i_error("dict client: LOOKUP: Can't lookup while iterating");
+		return -1;
+	}
+
 	/* <key> */
 	ret = dict_lookup(conn->dict, pool_datastack_create(), line, &value);
 	if (ret > 0) {
@@ -73,12 +83,45 @@ static int cmd_lookup(struct dict_client_connection *conn, const char *line)
 	return 0;
 }
 
-static int cmd_iterate(struct dict_client_connection *conn, const char *line)
+static int cmd_iterate_flush(struct dict_client_connection *conn)
 {
-	struct dict_iterate_context *ctx;
-	const char *const *args;
+	string_t *str;
 	const char *key, *value;
 	int ret;
+
+	str = t_str_new(256);
+	o_stream_cork(conn->output);
+	while ((ret = dict_iterate(conn->iter_ctx, &key, &value)) > 0) {
+		str_truncate(str, 0);
+		str_printfa(str, "%s\t%s\n", key, value);
+		o_stream_send(conn->output, str_data(str), str_len(str));
+
+		if (o_stream_get_buffer_used_size(conn->output) >
+		    DICT_OUTPUT_OPTIMAL_SIZE) {
+			if (o_stream_flush(conn->output) <= 0)
+				break;
+			/* flushed everything, continue */
+		}
+	}
+
+	if (ret <= 0) {
+		/* finished iterating */
+		o_stream_unset_flush_callback(conn->output);
+		dict_iterate_deinit(&conn->iter_ctx);
+		o_stream_send(conn->output, "\n", 1);
+	}
+	o_stream_uncork(conn->output);
+	return ret <= 0 ? 1 : 0;
+}
+
+static int cmd_iterate(struct dict_client_connection *conn, const char *line)
+{
+	const char *const *args;
+
+	if (conn->iter_ctx != NULL) {
+		i_error("dict client: ITERATE: Already iterating");
+		return -1;
+	}
 
 	args = t_strsplit(line, "\t");
 	if (str_array_length(args) != 2) {
@@ -87,22 +130,10 @@ static int cmd_iterate(struct dict_client_connection *conn, const char *line)
 	}
 
 	/* <flags> <path> */
-	o_stream_cork(conn->output);
-	ctx = dict_iterate_init(conn->dict, args[1], atoi(args[0]));
-	while ((ret = dict_iterate(ctx, &key, &value)) > 0) {
-		/* FIXME: we don't want to keep blocking here. set a flush
-		   function and send the replies there when buffer gets full */
-		T_BEGIN {
-			const char *reply;
+	conn->iter_ctx = dict_iterate_init(conn->dict, args[1], atoi(args[0]));
 
-			reply = t_strdup_printf("%s\t%s\n", key, value);
-			o_stream_send_str(conn->output, reply);
-		} T_END;
-	}
-	dict_iterate_deinit(&ctx);
-
-	o_stream_send_str(conn->output, "\n");
-	o_stream_uncork(conn->output);
+	o_stream_set_flush_callback(conn->output, cmd_iterate_flush, conn);
+	cmd_iterate_flush(conn);
 	return 0;
 }
 
@@ -192,6 +223,11 @@ static int cmd_commit(struct dict_client_connection *conn, const char *line)
 	struct dict_server_transaction *trans;
 	const char *reply;
 	int ret;
+
+	if (conn->iter_ctx != NULL) {
+		i_error("dict client: COMMIT: Can't commit while iterating");
+		return -1;
+	}
 
 	if (dict_server_transaction_lookup_parse(conn, line, &trans) < 0)
 		return -1;
@@ -430,6 +466,9 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn)
 			dict_transaction_rollback(&transactions[i].ctx);
 		array_free(&conn->transactions);
 	}
+
+	if (conn->iter_ctx != NULL)
+		dict_iterate_deinit(&conn->iter_ctx);
 
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
