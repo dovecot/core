@@ -62,8 +62,8 @@ void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size);
    TCP_CORK on if supported. */
 void o_stream_cork(struct ostream *stream);
 void o_stream_uncork(struct ostream *stream);
-/* Flush the output stream, blocks until everything is sent.
-   Returns 1 if ok, -1 if error. */
+/* Try to flush the output stream. Returns 1 if all sent, 0 if not,
+   -1 if error. */
 int o_stream_flush(struct ostream *stream);
 /* Set "flush pending" state of stream. If set, the flush callback is called
    when more data is allowed to be sent, even if the buffer itself is empty. */
