@@ -127,9 +127,9 @@ static void tview_lookup_seq_range(struct mail_index_view *view,
 	if (*first_seq_r == 0) {
 		seq = tview->t->first_new_seq;
 		for (; seq <= tview->t->last_new_seq; seq++) {
+			rec = mail_index_transaction_lookup(tview->t, seq);
 			if (first_uid <= rec->uid)
 				break;
-			rec = mail_index_transaction_lookup(tview->t, seq);
 		}
 		if (seq > tview->t->last_new_seq) {
 			/* no messages in range */
