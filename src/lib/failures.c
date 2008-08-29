@@ -90,6 +90,7 @@ static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
 		}
 		if (ret == 0) {
 			/* out of disk space? */
+			errno = ENOSPC;
 			return -1;
 		}
 		if (errno != EAGAIN)
@@ -166,8 +167,14 @@ void default_error_handler(enum log_type type, const char *format, va_list args)
 	int fd = type == LOG_TYPE_INFO ? log_info_fd : log_fd;
 
 	if (default_handler(failure_log_type_prefixes[type],
-			    fd, format, args) < 0)
-		failure_exit(FATAL_LOGWRITE);
+			    fd, format, args) < 0) {
+		if (fd == log_fd)
+			failure_exit(FATAL_LOGWRITE);
+		/* we failed to log to info log, try to log the write error
+		   to error log - maybe that'll work. */
+		i_fatal_status(FATAL_LOGWRITE,
+			       "write() failed to info log: %m");
+	}
 }
 
 void i_log_type(enum log_type type, const char *format, ...)
