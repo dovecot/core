@@ -639,17 +639,27 @@ static struct istream *create_raw_stream(int fd, time_t *mtime_r)
 
 static void failure_exit_callback(int *status)
 {
-	/* we want all our exit codes to be sysexits.h compatible */
+	/* we want all our exit codes to be sysexits.h compatible.
+	   if we failed because of a logging related error, we most likely
+	   aren't writing to stderr, so try writing there to give some kind of
+	   a clue what's wrong. FATAL_LOGOPEN failure already wrote to
+	   stderr, so don't duplicate it. */
 	switch (*status) {
-	case FATAL_LOGOPEN:
 	case FATAL_LOGWRITE:
+		fputs("Failed to write to log file", stderr);
+		break;
 	case FATAL_LOGERROR:
+		fputs("Internal logging error", stderr);
+		break;
+	case FATAL_LOGOPEN:
 	case FATAL_OUTOFMEM:
 	case FATAL_EXEC:
 	case FATAL_DEFAULT:
-		*status = EX_TEMPFAIL;
 		break;
+	default:
+		return;
 	}
+	*status = EX_TEMPFAIL;
 }
 
 static void open_logfile(const char *username)
