@@ -15,6 +15,7 @@ struct mail_index_view_transaction {
 
 	struct mail_index_map *lookup_map;
 	struct mail_index_header hdr;
+	buffer_t *lookup_return_data;
 };
 
 static void tview_close(struct mail_index_view *view)
@@ -25,6 +26,8 @@ static void tview_close(struct mail_index_view *view)
 
 	if (tview->lookup_map != NULL)
 		mail_index_unmap(&tview->lookup_map);
+	if (tview->lookup_return_data != NULL)
+		buffer_free(&tview->lookup_return_data);
 
 	tview->super->close(view);
 	mail_index_transaction_unref(&t);
@@ -186,6 +189,38 @@ tview_get_lookup_map(struct mail_index_view_transaction *tview)
 	return tview->lookup_map;
 }
 
+static const void *
+tview_return_updated_ext(struct mail_index_view_transaction *tview,
+			 const void *data, uint32_t ext_id)
+{
+	const struct mail_index_ext *ext;
+	uint32_t ext_idx;
+
+	/* data begins with a 32bit sequence, followed by the actual
+	   extension data */
+	data = CONST_PTR_OFFSET(data, sizeof(uint32_t));
+
+	if (!mail_index_map_get_ext_idx(tview->lookup_map, ext_id, &ext_idx))
+		i_unreached();
+
+	ext = array_idx(&tview->lookup_map->extensions, ext_idx);
+	if (ext->record_align <= sizeof(uint32_t)) {
+		/* data is 32bit aligned already */
+		return data;
+	} else {
+		/* assume we want 64bit alignment - copy the data to
+		   temporary buffer and return it */
+		if (tview->lookup_return_data == NULL) {
+			tview->lookup_return_data =
+				buffer_create_dynamic(default_pool,
+						      ext->record_size + 64);
+		}
+		buffer_write(tview->lookup_return_data,
+			     0, data, ext->record_size);
+		return tview->lookup_return_data->data;
+	}
+}
+
 static void
 tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		      uint32_t ext_id, struct mail_index_map **map_r,
@@ -210,7 +245,8 @@ tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		    mail_index_seq_array_lookup(ext_buf, seq, &idx)) {
 			data = array_idx(ext_buf, idx);
 			*map_r = tview_get_lookup_map(tview);
-			*data_r = CONST_PTR_OFFSET(data, sizeof(uint32_t));
+			*data_r = tview_return_updated_ext(tview, data,
+							   ext_id);
 			return;
 		}
 	}
