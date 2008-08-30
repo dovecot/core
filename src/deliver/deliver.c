@@ -61,6 +61,7 @@ static const char *default_mailbox_name = NULL;
 static bool saved_mail = FALSE;
 static bool tried_default_save = FALSE;
 static bool no_mailbox_autocreate = FALSE;
+static bool mailbox_autosubscribe = FALSE;
 static char *explicit_envelope_sender = NULL;
 
 static struct module *modules;
@@ -175,6 +176,10 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	/* try creating it. */
 	if (mail_storage_mailbox_create(ns->storage, name, FALSE) < 0)
 		return NULL;
+	if (mailbox_autosubscribe) {
+		/* (try to) subscribe to it */
+		(void)mailbox_list_set_subscribed(ns->list, name, TRUE);
+	}
 
 	/* and try opening again */
 	box = mailbox_open(ns->storage, name, NULL, MAILBOX_OPEN_FAST |
@@ -694,7 +699,7 @@ static void print_help(void)
 {
 	printf(
 "Usage: deliver [-c <config file>] [-a <address>] [-d <username>] [-p <path>]\n"
-"               [-f <envelope sender>] [-m <mailbox>] [-n] [-e] [-k]\n");
+"               [-f <envelope sender>] [-m <mailbox>] [-n] [-s] [-e] [-k]\n");
 }
 
 void deliver_env_clean(void)
@@ -860,8 +865,9 @@ int main(int argc, char *argv[])
 			if (*argv[i] != '\0')
 				mailbox = argv[i];
 		} else if (strcmp(argv[i], "-n") == 0) {
-			/* destination mailbox */
 			no_mailbox_autocreate = TRUE;
+		} else if (strcmp(argv[i], "-s") == 0) {
+			mailbox_autosubscribe = TRUE;
 		} else if (strcmp(argv[i], "-f") == 0) {
 			/* envelope sender address */
 			i++;
