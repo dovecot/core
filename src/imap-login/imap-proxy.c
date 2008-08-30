@@ -128,6 +128,26 @@ static int proxy_input_line(struct imap_client *client,
 		   be using only Dovecot as their backend :) */
 		client_send_tagline(client, line + 2);
 
+		if (verbose_auth) {
+			str = t_str_new(128);
+			str_printfa(str, "proxy(%s): Login failed to %s:%u",
+				    client->common.virtual_user,
+				    login_proxy_get_host(client->proxy),
+				    login_proxy_get_port(client->proxy));
+			if (strcmp(client->common.virtual_user,
+				   client->proxy_user) != 0) {
+				/* remote username is different, log it */
+				str_append_c(str, '/');
+				str_append(str, client->proxy_user);
+			}
+			str_append(str, ": ");
+			if (strncasecmp(line + 2, "NO ", 3) == 0)
+				str_append(str, line + 2 + 3);
+			else
+				str_append(str, line + 2);
+			i_info("%s", str_c(str));
+		}
+
 		/* allow client input again */
 		i_assert(client->io == NULL);
 		client->io = io_add(client->common.fd, IO_READ,

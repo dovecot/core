@@ -132,6 +132,26 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	else
 		client_send_line(client, line);
 
+	if (verbose_auth) {
+		str = t_str_new(128);
+		str_printfa(str, "proxy(%s): Login failed to %s:%u",
+			    client->common.virtual_user,
+			    login_proxy_get_host(client->proxy),
+			    login_proxy_get_port(client->proxy));
+		if (strcmp(client->common.virtual_user,
+			   client->proxy_user) != 0) {
+			/* remote username is different, log it */
+			str_append_c(str, '/');
+			str_append(str, client->proxy_user);
+		}
+		str_append(str, ": ");
+		if (strncmp(line, "-ERR ", 5) == 0)
+			str_append(str, line + 5);
+		else
+			str_append(str, line);
+		i_info("%s", str_c(str));
+	}
+
 	/* allow client input again */
 	i_assert(client->io == NULL);
 	client->io = io_add(client->common.fd, IO_READ,
