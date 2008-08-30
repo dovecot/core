@@ -198,6 +198,11 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 			if (mail_cache_map(cache, offset,
 					   sizeof(*field_hdr)) < 0)
 				return -1;
+			if (offset >= cache->mmap_length) {
+				mail_cache_set_corrupted(cache,
+					"header field next_offset points outside file");
+				return -1;
+			}
 
 			field_hdr = CONST_PTR_OFFSET(cache->data, offset);
 		} else {
@@ -212,7 +217,7 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 			}
 			if (ret == 0) {
 				mail_cache_set_corrupted(cache,
-					"next_offset points outside file");
+					"header field next_offset points outside file");
 				return -1;
 			}
 			field_hdr = &tmp_field_hdr;
