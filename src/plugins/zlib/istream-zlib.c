@@ -137,6 +137,7 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		}
 		gzclose(zstream->file);
 		zstream->fd = fd;
+		stream->fd = fd;
 		zstream->file = gzdopen(zstream->fd, "r");
 	}
 #else
