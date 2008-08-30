@@ -49,6 +49,7 @@ get_var_expand_table(struct client *client)
 		{ 'a', NULL },
 		{ 'b', NULL },
 		{ 'c', NULL },
+		{ 'k', NULL },
 		{ 'e', NULL },
 		{ '\0', NULL }
 	};
@@ -78,6 +79,7 @@ get_var_expand_table(struct client *client)
 	tab[10].value = dec2str(client->remote_port);
 	if (!client->tls) {
 		tab[11].value = client->secured ? "secured" : NULL;
+		tab[12].value = "";
 	} else {
 		const char *ssl_state = ssl_proxy_is_handshaked(client->proxy) ?
 			"TLS" : "TLS handshaking";
@@ -85,8 +87,9 @@ get_var_expand_table(struct client *client)
 
 		tab[11].value = ssl_error == NULL ? ssl_state :
 			t_strdup_printf("%s: %s", ssl_state, ssl_error);
+		tab[12].value = ssl_proxy_get_security_string(client->proxy);
 	}
-	tab[12].value = dec2str(client->mail_pid);
+	tab[13].value = dec2str(client->mail_pid);
 
 	return tab;
 }

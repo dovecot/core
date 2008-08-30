@@ -36,6 +36,11 @@ const char *ssl_proxy_get_last_error(const struct ssl_proxy *proxy ATTR_UNUSED)
 	return NULL;
 }
 
+const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy)
+{
+	return "";
+}
+
 void ssl_proxy_free(struct ssl_proxy *proxy ATTR_UNUSED) {}
 
 unsigned int ssl_proxy_get_count(void)
