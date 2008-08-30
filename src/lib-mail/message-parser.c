@@ -43,6 +43,7 @@ struct message_parser_ctx {
 
 	unsigned int part_seen_content_type:1;
 	unsigned int broken:1;
+	unsigned int eof:1;
 };
 
 message_part_header_callback_t *null_message_part_header_callback = NULL;
@@ -104,7 +105,7 @@ static void parse_body_add_block(struct message_parser_ctx *ctx,
 }
 
 static int message_parser_read_more(struct message_parser_ctx *ctx,
-				    struct message_block *block_r)
+				    struct message_block *block_r, bool *full_r)
 {
 	int ret;
 
@@ -113,19 +114,32 @@ static int message_parser_read_more(struct message_parser_ctx *ctx,
 		ctx->skip = 0;
 	}
 
+	*full_r = FALSE;
 	ret = i_stream_read_data(ctx->input, &block_r->data,
 				 &block_r->size, ctx->want_count);
 	if (ret <= 0) {
-		if (ret == -1 && block_r->size != 0) {
-			/* EOF, but we still have some data. return it. */
-			return 1;
-		}
-		if (ret < 0)
-			return ret;
-
-		if (!ctx->input->eof) {
-			i_assert(!ctx->input->blocking);
-			return 0;
+		switch (ret) {
+		case 0:
+			if (!ctx->input->eof) {
+				i_assert(!ctx->input->blocking);
+				return 0;
+			}
+			break;
+		case -1:
+			i_assert(ctx->input->eof ||
+				 ctx->input->stream_errno != 0);
+			ctx->eof = TRUE;
+			if (block_r->size != 0) {
+				/* EOF, but we still have some data.
+				   return it. */
+				return 1;
+			}
+			return -1;
+		case -2:
+			*full_r = TRUE;
+			break;
+		default:
+			i_unreached();
 		}
 	}
 
@@ -239,8 +253,9 @@ static int parse_next_body_skip_boundary_line(struct message_parser_ctx *ctx,
 {
 	size_t i;
 	int ret;
+	bool full;
 
-	if ((ret = message_parser_read_more(ctx, block_r)) <= 0)
+	if ((ret = message_parser_read_more(ctx, block_r, &full)) <= 0)
 		return ret;
 
 	for (i = 0; i < block_r->size; i++) {
@@ -267,11 +282,6 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 			     struct message_block *block_r, bool first_line)
 {
 	struct message_part *part;
-
-	if (boundary == NULL) {
-		/* message ended unexpectedly */
-		return -1;
-	}
 
 	/* get back to parent MIME part, summing the child MIME part sizes
 	   into parent's body sizes */
@@ -315,12 +325,10 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	const unsigned char *data;
 	size_t i, boundary_start;
 	int ret;
-	bool eof, full;
+	bool full;
 
-	if ((ret = message_parser_read_more(ctx, block_r)) <= 0)
+	if ((ret = message_parser_read_more(ctx, block_r, &full)) <= 0)
 		return ret;
-	eof = ret == -1;
-	full = ret == -2;
 
 	data = block_r->data;
 	if (ctx->last_chr == '\n') {
@@ -329,10 +337,8 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 		ret = boundary_line_find(ctx, block_r->data,
 					 block_r->size, full, &boundary);
 		if (ret >= 0) {
-			if (ret == 0)
-				return 0;
-
-			return parse_part_finish(ctx, boundary, block_r, TRUE);
+			return ret == 0 ? 0 :
+				parse_part_finish(ctx, boundary, block_r, TRUE);
 		}
 	}
 
@@ -375,19 +381,15 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	if (i >= block_r->size) {
 		/* the boundary wasn't found from this data block,
 		   we'll need more data. */
-		if (eof)
-			ret = -1;
-		else {
-			ret = 0;
-			ctx->want_count = (block_r->size - boundary_start) + 1;
-		}
-	} else if (ret == 0 && eof) {
-		/* we can't get any more data */
-		ret = -1;
+		ret = 0;
+		ctx->want_count = (block_r->size - boundary_start) + 1;
+	} else {
+		/* found / need more data */
+		i_assert(ret >= 0);
 	}
 	i_assert(!(ret == 0 && full));
 
-	if (ret >= 0) {
+	if (ret >= 0 && !ctx->eof) {
 		/* leave CR+LF + last line to buffer */
 		block_r->size = boundary_start;
 	}
@@ -402,9 +404,10 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 static int parse_next_body_to_eof(struct message_parser_ctx *ctx,
 				  struct message_block *block_r)
 {
+	bool full;
 	int ret;
 
-	if ((ret = message_parser_read_more(ctx, block_r)) <= 0)
+	if ((ret = message_parser_read_more(ctx, block_r, &full)) <= 0)
 		return ret;
 
 	parse_body_add_block(ctx, block_r);
@@ -605,9 +608,10 @@ static int preparsed_parse_body_more(struct message_parser_ctx *ctx,
 	uoff_t end_offset = ctx->part->physical_pos +
 		ctx->part->header_size.physical_size +
 		ctx->part->body_size.physical_size;
+	bool full;
 	int ret;
 
-	if ((ret = message_parser_read_more(ctx, block_r)) <= 0)
+	if ((ret = message_parser_read_more(ctx, block_r, &full)) <= 0)
 		return ret;
 
 	if (ctx->input->v_offset + block_r->size >= end_offset) {
@@ -757,10 +761,10 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 				    struct message_block *block_r)
 {
 	int ret;
-	bool eof = FALSE;
+	bool eof = FALSE, full;
 
 	while ((ret = ctx->parse_next_block(ctx, block_r)) == 0) {
-		ret = message_parser_read_more(ctx, block_r);
+		ret = message_parser_read_more(ctx, block_r, &full);
 		if (ret == 0) {
 			i_assert(!ctx->input->blocking);
 			return 0;
