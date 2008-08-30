@@ -12,6 +12,7 @@
 #include "mbox-lock.h"
 #include "mbox-file.h"
 #include "mbox-sync-private.h"
+#include "istream-raw-mbox.h"
 #include "mail-copy.h"
 #include "index-mail.h"
 
@@ -762,7 +763,14 @@ static int mbox_storage_mailbox_close(struct mailbox *box)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 	const struct mail_index_header *hdr;
+	enum mbox_sync_flags sync_flags = 0;
 	int ret = 0;
+
+	if (mbox->mbox_stream != NULL &&
+	    istream_raw_mbox_is_corrupted(mbox->mbox_stream)) {
+		/* clear the corruption by forcing a full resync */
+		sync_flags |= MBOX_SYNC_UNDIRTY | MBOX_SYNC_FORCE_SYNC;
+	}
 
 	if (mbox->ibox.view != NULL) {
 		hdr = mail_index_get_header(mbox->ibox.view);
@@ -770,9 +778,12 @@ static int mbox_storage_mailbox_close(struct mailbox *box)
 		    !mbox->mbox_readonly) {
 			/* we've done changes to mbox which haven't been
 			   written yet. do it now. */
-			if (mbox_sync(mbox, MBOX_SYNC_REWRITE) < 0)
-				ret = -1;
+			sync_flags |= MBOX_SYNC_REWRITE;
 		}
+	}
+	if (sync_flags != 0) {
+		if (mbox_sync(mbox, sync_flags) < 0)
+			ret = -1;
 	}
 
 	if (mbox->mbox_global_lock_id != 0)

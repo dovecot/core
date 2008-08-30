@@ -647,3 +647,11 @@ bool istream_raw_mbox_is_eof(struct istream *stream)
 
 	return rstream->eof;
 }
+
+bool istream_raw_mbox_is_corrupted(struct istream *stream)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+
+	return rstream->corrupted;
+}

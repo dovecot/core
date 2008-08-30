@@ -42,5 +42,7 @@ void istream_raw_mbox_set_next_offset(struct istream *stream, uoff_t offset);
 
 /* Returns TRUE if we've read the whole mbox. */
 bool istream_raw_mbox_is_eof(struct istream *stream);
+/* Returns TRUE if we've noticed corruption in used offsets/sizes. */
+bool istream_raw_mbox_is_corrupted(struct istream *stream);
 
 #endif

@@ -42,6 +42,12 @@ static int mbox_mail_seek(struct index_mail *mail)
 	if (mail->mail.mail.expunged || mbox->syncing)
 		return -1;
 
+	if (mbox->mbox_stream != NULL &&
+	    istream_raw_mbox_is_corrupted(mbox->mbox_stream)) {
+		/* clear the corruption by forcing a full resync */
+		sync_flags |= MBOX_SYNC_UNDIRTY | MBOX_SYNC_FORCE_SYNC;
+	}
+
 	for (try = 0; try < 2; try++) {
 		if (mbox->mbox_lock_type == F_UNLCK) {
 			sync_flags |= MBOX_SYNC_LOCK_READING;
@@ -60,6 +66,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 		} else if ((sync_flags & MBOX_SYNC_FORCE_SYNC) != 0) {
 			/* dirty offsets are broken and mbox is write-locked.
 			   sync it to update offsets. */
+			mbox_prepare_resync(mail);
 			if (mbox_sync(mbox, sync_flags) < 0)
 				return -1;
 		}
@@ -80,7 +87,6 @@ static int mbox_mail_seek(struct index_mail *mail)
 		}
 
 		/* we'll need to re-sync it completely */
-		mbox_prepare_resync(mail);
 		sync_flags |= MBOX_SYNC_UNDIRTY | MBOX_SYNC_FORCE_SYNC;
 	}
 	if (ret == 0) {
