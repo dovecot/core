@@ -678,8 +678,10 @@ static int preparsed_parse_next_header(struct message_parser_ctx *ctx,
 
 	i_assert(ctx->skip == 0);
 	if (ctx->input->v_offset != ctx->part->physical_pos +
-	    ctx->part->header_size.physical_size)
+	    ctx->part->header_size.physical_size) {
 		ctx->broken = TRUE;
+		return -1;
+	}
 	return 1;
 }
 
