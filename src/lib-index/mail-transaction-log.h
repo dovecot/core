@@ -5,7 +5,7 @@ struct mail_index;
 struct mail_index_transaction;
 
 #define MAIL_TRANSACTION_LOG_MAJOR_VERSION 1
-#define MAIL_TRANSACTION_LOG_MINOR_VERSION 1
+#define MAIL_TRANSACTION_LOG_MINOR_VERSION 2
 #define MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE 24
 
 struct mail_transaction_log_header {
@@ -18,7 +18,10 @@ struct mail_transaction_log_header {
 	uint32_t prev_file_seq;
 	uint32_t prev_file_offset;
 	uint32_t create_stamp;
-	uint64_t initial_modseq;
+	uint64_t initial_modseq; /* v1.1+ */
+
+	uint8_t compat_flags; /* enum mail_index_header_compat_flags, v1.2+ */
+	uint8_t unused[3];
 };
 
 enum mail_transaction_type {

@@ -180,6 +180,9 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	hdr->hdr_size = sizeof(struct mail_transaction_log_header);
 	hdr->indexid = log->index->indexid;
 	hdr->create_stamp = ioloop_time;
+#ifndef WORDS_BIGENDIAN
+	hdr->compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+#endif
 
 	if (index->fd != -1) {
 		/* not creating index - make sure we have latest header */
@@ -345,6 +348,27 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 	file_unlock(&file->file_lock);
 }
 
+static ssize_t
+mail_transaction_log_file_read_header(struct mail_transaction_log_file *file)
+{
+	ssize_t pos;
+	int ret;
+
+	memset(&file->hdr, 0, sizeof(file->hdr));
+
+        /* try to read the whole header, but it's not necessarily an error to
+	   read less since the older versions of the log format could be
+	   smaller. */
+        pos = 0;
+	do {
+		ret = pread(file->fd, PTR_OFFSET(&file->hdr, pos),
+			    sizeof(file->hdr) - pos, pos);
+		if (ret > 0)
+			pos += ret;
+	} while (ret > 0 && pos < (ssize_t)sizeof(file->hdr));
+	return ret < 0 ? -1 : pos;
+}
+
 static int
 mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 				   bool ignore_estale)
@@ -357,24 +381,40 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	if (file->corrupted)
 		return 0;
 
-	ret = pread_full(file->fd, &file->hdr, sizeof(file->hdr), 0);
+	ret = mail_transaction_log_file_read_header(file);
 	if (ret < 0) {
                 if (errno != ESTALE || !ignore_estale) {
                         mail_index_file_set_syscall_error(file->log->index,
                                                           file->filepath,
-                                                          "pread_full()");
+                                                          "pread()");
                 }
 		return -1;
 	}
-	if (ret == 0) {
+	if (file->hdr.major_version != MAIL_TRANSACTION_LOG_MAJOR_VERSION) {
+		/* incompatible version - fix silently */
+		return 0;
+	}
+	if (ret < MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE) {
 		mail_transaction_log_file_set_corrupted(file,
 			"unexpected end of file while reading header");
 		return 0;
 	}
 
-	if (file->hdr.major_version != MAIL_TRANSACTION_LOG_MAJOR_VERSION) {
-		/* incompatible version - fix silently */
-		return 0;
+	if (file->hdr.minor_version >= 2 || file->hdr.major_version > 1) {
+		/* we have compatibility flags */
+		enum mail_index_header_compat_flags compat_flags = 0;
+
+#ifndef WORDS_BIGENDIAN
+		compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+#endif
+		if (file->hdr.compat_flags != compat_flags) {
+			/* architecture change */
+			mail_index_set_error(file->log->index,
+					     "Rebuilding index file %s: "
+					     "CPU architecture changed",
+					     file->log->index->filepath);
+			return 0;
+		}
 	}
 	if (file->hdr.hdr_size < MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE) {
 		mail_transaction_log_file_set_corrupted(file,

@@ -45,6 +45,7 @@ static void dump_hdr(int fd, uint64_t *modseq_r)
 	printf("create stamp = %u\n", hdr.create_stamp);
 	printf("initial modseq = %llu\n",
 	       (unsigned long long)hdr.initial_modseq);
+	printf("compat flags = %x\n", hdr.compat_flags);
 	*modseq_r = hdr.initial_modseq;
 }
 
