@@ -447,9 +447,20 @@ imap_envelope_parse_callback(struct message_header_line *hdr,
 
 int index_mail_headers_get_envelope(struct index_mail *mail)
 {
+	const unsigned int cache_field_envelope =
+		mail->ibox->cache_fields[MAIL_CACHE_IMAP_ENVELOPE].idx;
 	struct mailbox_header_lookup_ctx *header_ctx;
 	struct istream *stream;
 	uoff_t old_offset;
+	string_t *str;
+
+	str = str_new(mail->data_pool, 256);
+	if (mail_cache_lookup_field(mail->trans->cache_view, str,
+				    mail->data.seq, cache_field_envelope) > 0) {
+		mail->data.envelope = str_c(str);
+		return 0;
+	}
+	str_free(&str);
 
 	old_offset = mail->data.stream == NULL ? 0 :
 		mail->data.stream->v_offset;
