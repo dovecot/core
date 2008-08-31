@@ -280,7 +280,7 @@ index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 						     hdr->next_uid - 1);
 	}
 #ifdef DEBUG
-	{
+	if (!mail_index_view_is_inconsistent(ibox->view)) {
 		const struct seq_range *range;
 		unsigned int i, count;
 
