@@ -59,6 +59,9 @@ struct mail_transaction_log_file {
 	   max_tail_offset automatically by making it skip external transactions
 	   after the last saved offset (to avoid re-reading them unneededly). */
 	uoff_t saved_tail_offset, max_tail_offset;
+	/* don't give warnings about saved_tail_offset shrinking if
+	   sync_offset is less than this. */
+	uoff_t saved_tail_sync_offset;
 
 	struct modseq_cache modseq_cache[LOG_FILE_MODSEQ_CACHE_SIZE];
 

@@ -146,6 +146,7 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 		file->sync_highest_modseq = modseq_hdr->highest_modseq;
 	}
 	file->saved_tail_offset = log->index->map->hdr.log_file_tail_offset;
+	file->saved_tail_sync_offset = file->saved_tail_offset;
 }
 
 static void
@@ -767,6 +768,12 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 		       sizeof(sync_offset));
 
 		if (sync_offset < file->saved_tail_offset) {
+			if (file->sync_offset < file->saved_tail_sync_offset) {
+				/* saved_tail_offset was already set in header,
+				   but we still had to resync the file to find
+				   modseqs. ignore this record. */
+				return 1;
+			}
 			mail_transaction_log_file_set_corrupted(file,
 				"log_file_tail_offset shrank");
 			return -1;
