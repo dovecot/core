@@ -1,4 +1,3 @@
- - recent assert. both with mbox and maildir.
  - sieve-cmu.c crash: i_assert(buf->used - 1 == part->body_size.physical_size);
  - convert plugin: Create a r/w lock for a file. It's read-locked if
    conversion isn't wanted and released when process dies. If conversion is
@@ -23,7 +22,6 @@
  - DEBUG: buffer overflow checking code probably doesn't handle a successful
    t_try_realloc() or pool_alloconly_realloc() properly
  - cache: compress when we can drop temporary fields.
- - POP3 UIDL caching
  - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"
  - new %modifier for reverse DNS lookups with a cache
    - auth_gssapi_hostname = %Xl
@@ -147,8 +145,6 @@
 	 eg. allowing max. 20 hierarchies.
 
  - login
-    - when pipelining login command + post-login commands, login process should
-      pass the command to imap/pop3 process (at least one pop3 client does this)
     - imap-login: Master sent reply with unknown tag 1. client closed
       connection at the exact same time master was logging it in?
       see master_request_abort()
@@ -231,8 +227,6 @@
     - stop using atol(), atoi(), strtoul() etc. in places where we actually
       care about what they return, and rather create our own function which
       checks if the input overflows the integer, and if so call i_fatal()
-    - rfc2231 continuation support (useless?)
-    - rfc2557 support for BODYSTRUCTURE, as specified by RFC3501
     - LMTP server
     - ability to build plugins statically into the binaries
     - ~/.dovecotrc to override system wide settings. namespace settings should
@@ -244,14 +238,6 @@ capabilities:
  - possibility to disable them from config file
  - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
  - acl (rfc4314)
- - id (rfc2971)
-     - must be configurable what gets sent, default to only name=Dovecot
-     - separate pre/post-login settings
-     - optionally log configured parts of the client information, but only
-       once, probably at the same time as logging "Logged in",
-       "Disconnected", etc.
-     - remember to force truncating values longer than 30 chars,
-       especially before logging
  - mailbox-referrals (rfc2193)
      - this is useful whenever we would otherwise need to make the
        connection ourself. for example load balancing and shared mailboxes
