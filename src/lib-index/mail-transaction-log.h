@@ -88,8 +88,9 @@ struct mail_transaction_header_update {
 };
 
 enum {
-	/* Ignore hdr_size, record_size and record_align */
-	MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_RESIZE = 0x01
+	/* Don't shrink hdr_size, record_size or record_align but grow them
+	   if necessary. */
+	MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_SHRINK = 0x01
 };
 
 struct mail_transaction_ext_intro {
