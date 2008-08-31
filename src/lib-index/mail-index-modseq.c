@@ -494,9 +494,16 @@ void mail_index_modseq_sync_end(struct mail_index_modseq_sync **_ctx)
 	struct mail_index_modseq_sync *ctx = *_ctx;
 
 	*_ctx = NULL;
-	if (ctx->mmap != NULL)
+	if (ctx->mmap != NULL) {
+		i_assert(ctx->mmap == ctx->view->map->rec_map->modseq);
 		mail_index_modseq_update_header(ctx);
+	}
 	i_free(ctx);
+}
+
+void mail_index_modseq_sync_map_replaced(struct mail_index_modseq_sync *ctx)
+{
+	ctx->mmap = mail_index_map_modseq(ctx->view);
 }
 
 void mail_index_modseq_hdr_update(struct mail_index_modseq_sync *ctx)
@@ -601,10 +608,26 @@ void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
 		modseqs_idx_update(ctx, i, seq1, seq2);
 }
 
-void mail_index_map_modseq_free(struct mail_index_map_modseq *mmap)
+struct mail_index_map_modseq *
+mail_index_map_modseq_clone(const struct mail_index_map_modseq *mmap)
 {
+	struct mail_index_map_modseq *new_mmap;
+
+	new_mmap = i_new(struct mail_index_map_modseq, 1);
+	i_array_init(&new_mmap->metadata_modseqs,
+		     array_count(&mmap->metadata_modseqs) + 16);
+	array_append_array(&new_mmap->metadata_modseqs,
+			   &mmap->metadata_modseqs);
+	return new_mmap;
+}
+
+void mail_index_map_modseq_free(struct mail_index_map_modseq **_mmap)
+{
+	struct mail_index_map_modseq *mmap = *_mmap;
 	struct metadata_modseqs *metadata;
 	unsigned int i, count;
+
+	*_mmap = NULL;
 
 	metadata = array_get_modifiable(&mmap->metadata_modseqs, &count);
 	for (i = 0; i < count; i++) {

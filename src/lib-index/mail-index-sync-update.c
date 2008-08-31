@@ -65,6 +65,8 @@ static void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 
 	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW)
 		view->index->map = map;
+
+	mail_index_modseq_sync_map_replaced(ctx->modseq_ctx);
 }
 
 static void
@@ -82,6 +84,7 @@ mail_index_sync_move_to_private_memory(struct mail_index_sync_map_ctx *ctx)
 
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(ctx->view->map))
 		mail_index_map_move_to_memory(ctx->view->map);
+	mail_index_modseq_sync_map_replaced(ctx->modseq_ctx);
 }
 
 struct mail_index_map *
@@ -89,6 +92,7 @@ mail_index_sync_get_atomic_map(struct mail_index_sync_map_ctx *ctx)
 {
 	mail_index_sync_move_to_private_memory(ctx);
 	mail_index_record_map_move_to_private(ctx->view->map);
+	mail_index_modseq_sync_map_replaced(ctx->modseq_ctx);
 	ctx->view->map->write_atomic = TRUE;
 	return ctx->view->map;
 }

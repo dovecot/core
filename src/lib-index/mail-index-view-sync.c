@@ -559,8 +559,6 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		return ctx;
 	}
 
-	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
-				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 	if (ret == 0) {
 		ctx->log_was_lost = TRUE;
 		if (!sync_expunges)
@@ -629,6 +627,8 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 			ctx->sync_new_map->refcount++;
 		}
 	}
+	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
+				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
 #ifdef DEBUG
 	mail_index_map_check(view->map);
