@@ -250,17 +250,17 @@ void index_mail_parse_header_init(struct index_mail *mail,
 
 static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
 {
+	const unsigned int cache_field_envelope =
+		mail->ibox->cache_fields[MAIL_CACHE_IMAP_ENVELOPE].idx;
 	string_t *str;
-	unsigned int cache_field;
 
 	str = str_new(mail->data_pool, 256);
 	imap_envelope_write_part_data(mail->data.envelope_data, str);
 	mail->data.envelope = str_c(str);
 
-	cache_field = mail->ibox->cache_fields[MAIL_CACHE_IMAP_ENVELOPE].idx;
-	if (mail_cache_field_want_add(mail->trans->cache_trans,
-				      mail->data.seq, cache_field)) {
-		index_mail_cache_add_idx(mail, cache_field,
+	if (mail_cache_field_can_add(mail->trans->cache_trans,
+				     mail->data.seq, cache_field_envelope)) {
+		index_mail_cache_add_idx(mail, cache_field_envelope,
 					 str_data(str), str_len(str));
 	}
 }
