@@ -22,6 +22,7 @@ struct mail_transaction_log_header {
 
 	uint8_t compat_flags; /* enum mail_index_header_compat_flags, v1.2+ */
 	uint8_t unused[3];
+	uint32_t unused2; /* so that this struct is 64bit aligned */
 };
 
 enum mail_transaction_type {
