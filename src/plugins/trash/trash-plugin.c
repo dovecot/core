@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
-#include "home-expand.h"
 #include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "quota-private.h"

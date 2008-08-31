@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "str.h"
-#include "home-expand.h"
 #include "imap-match.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"

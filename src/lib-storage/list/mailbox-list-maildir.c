@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "hostpid.h"
-#include "home-expand.h"
 #include "subscription-file.h"
 #include "mailbox-list-maildir.h"
 
@@ -71,7 +70,7 @@ maildir_list_get_absolute_path(struct mailbox_list *list, const char *name)
 {
 	const char *p;
 
-	if (home_try_expand(&name) < 0) {
+	if (!mailbox_list_try_get_absolute_path(list, &name)) {
 		/* fallback to using as ~name */
 		return name;
 	}

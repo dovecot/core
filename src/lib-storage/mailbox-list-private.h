@@ -116,6 +116,7 @@ void mailbox_lists_deinit(void);
 
 int mailbox_list_settings_parse(const char *data,
 				struct mailbox_list_settings *set,
+				struct mail_namespace *ns,
 				const char **layout, const char **alt_dir_r,
 				const char **error_r);
 
@@ -127,6 +128,8 @@ void mailbox_list_iter_update(struct mailbox_list_iter_update_context *ctx,
 
 bool mailbox_list_name_is_too_large(const char *name, char sep);
 enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);
+bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
+					const char **name);
 
 void mailbox_list_clear_error(struct mailbox_list *list);
 void mailbox_list_set_error(struct mailbox_list *list,

@@ -46,11 +46,11 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 
 static int
 dbox_get_list_settings(struct mailbox_list_settings *list_set,
-		       const char *data, enum mail_storage_flags flags,
+		       const char *data, struct mail_storage *storage,
 		       const char **layout_r, const char **alt_dir_r,
 		       const char **error_r)
 {
-	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 
 	*layout_r = "fs";
 
@@ -68,8 +68,8 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 
 	if (debug)
 		i_info("dbox: data=%s", data);
-	return mailbox_list_settings_parse(data, list_set, layout_r, alt_dir_r,
-					   error_r);
+	return mailbox_list_settings_parse(data, list_set, storage->ns,
+					   layout_r, alt_dir_r, error_r);
 }
 
 static struct mail_storage *dbox_alloc(void)
@@ -93,7 +93,7 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 	struct stat st;
 	const char *layout, *alt_dir;
 
-	if (dbox_get_list_settings(&list_set, data, _storage->flags,
+	if (dbox_get_list_settings(&list_set, data, _storage,
 				   &layout, &alt_dir, error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;

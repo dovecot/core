@@ -168,10 +168,11 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 static void mbox_snarf_mail_storage_created(struct mail_storage *storage)
 {
 	struct mbox_snarf_mail_storage *mstorage;
+	const char *path;
 
+	path = mail_user_home_expand(storage->ns->user, getenv("MBOX_SNARF"));
 	mstorage = p_new(storage->pool, struct mbox_snarf_mail_storage, 1);
-	mstorage->snarf_inbox_path =
-		p_strdup(storage->pool, home_expand(getenv("MBOX_SNARF")));
+	mstorage->snarf_inbox_path = p_strdup(storage->pool, path);
 	mstorage->module_ctx.super = storage->v;
 	storage->v.mailbox_open = mbox_snarf_mailbox_open;
 

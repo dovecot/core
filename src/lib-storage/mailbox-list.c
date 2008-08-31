@@ -108,17 +108,18 @@ int mailbox_list_alloc(const char *driver, struct mailbox_list **list_r,
 	return 0;
 }
 
-static const char *fix_path(const char *path)
+static const char *fix_path(struct mail_namespace *ns, const char *path)
 {
 	size_t len = strlen(path);
 
 	if (len > 1 && path[len-1] == '/')
 		path = t_strndup(path, len-1);
-	return home_expand(path);
+	return mail_user_home_expand(ns->user, path);
 }
 
 int mailbox_list_settings_parse(const char *data,
 				struct mailbox_list_settings *set,
+				struct mail_namespace *ns,
 				const char **layout, const char **alt_dir_r,
 				const char **error_r)
 {
@@ -132,7 +133,7 @@ int mailbox_list_settings_parse(const char *data,
 
 	/* <root dir> */
 	tmp = t_strsplit(data, ":");
-	set->root_dir = fix_path(*tmp);
+	set->root_dir = fix_path(ns, *tmp);
 	tmp++;
 
 	for (; *tmp != NULL; tmp++) {
@@ -146,17 +147,17 @@ int mailbox_list_settings_parse(const char *data,
 		}
 
 		if (strcmp(key, "INBOX") == 0)
-			set->inbox_path = fix_path(value);
+			set->inbox_path = fix_path(ns, value);
 		else if (strcmp(key, "INDEX") == 0)
-			set->index_dir = fix_path(value);
+			set->index_dir = fix_path(ns, value);
 		else if (strcmp(key, "CONTROL") == 0)
-			set->control_dir = fix_path(value);
+			set->control_dir = fix_path(ns, value);
 		else if (strcmp(key, "ALT") == 0 && alt_dir_r != NULL)
-			*alt_dir_r = fix_path(value);
+			*alt_dir_r = fix_path(ns, value);
 		else if (strcmp(key, "LAYOUT") == 0)
 			*layout = value;
 		else if (strcmp(key, "SUBSCRIPTIONS") == 0)
-			set->subscription_fname = fix_path(value);
+			set->subscription_fname = fix_path(ns, value);
 		else if (strcmp(key, "DIRNAME") == 0)
 			set->maildir_name = value;
 		else {
@@ -690,6 +691,31 @@ mailbox_list_get_file_type(const struct dirent *d ATTR_UNUSED)
 	type = MAILBOX_LIST_FILE_TYPE_UNKNOWN;
 #endif
 	return type;
+}
+
+bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
+					const char **name)
+{
+	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) == 0)
+		return FALSE;
+
+	if (**name == '/')
+		return TRUE;
+	if (**name != '~')
+		return FALSE;
+
+	/* try to expand home directory */
+	if ((*name)[1] == '/') {
+		/* ~/dir - use the configured home directory */
+		if (mail_user_try_home_expand(list->ns->user, name) == 0)
+			return TRUE;
+	} else {
+		/* ~otheruser/dir - assume we're using system users */
+		if (home_try_expand(name) == 0)
+			return TRUE;
+	}
+	/* fallback to using ~dir */
+	return FALSE;
 }
 
 const char *mailbox_list_get_last_error(struct mailbox_list *list,

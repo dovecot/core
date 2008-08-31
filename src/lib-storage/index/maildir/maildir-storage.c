@@ -5,7 +5,6 @@
 #include "array.h"
 #include "hostpid.h"
 #include "str.h"
-#include "home-expand.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "unlink-old-files.h"
@@ -109,8 +108,8 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 	} else {
 		if (debug)
 			i_info("maildir: data=%s", data);
-		if (mailbox_list_settings_parse(data, list_set, layout_r, NULL,
-						error_r) < 0)
+		if (mailbox_list_settings_parse(data, list_set, storage->ns,
+						layout_r, NULL, error_r) < 0)
 			return -1;
 	}
 

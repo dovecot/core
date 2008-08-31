@@ -41,3 +41,22 @@ void mail_user_deinit(struct mail_user **_user)
 	*_user = NULL;
 	user->v.deinit(user);
 }
+
+const char *mail_user_home_expand(struct mail_user *user, const char *path)
+{
+	(void)mail_user_try_home_expand(user, &path);
+	return path;
+}
+
+int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
+{
+	const char *path = *pathp;
+
+	if (path[0] == '~' && (path[1] == '/' || path[1] == '\0')) {
+		if (user->home == NULL)
+			return -1;
+
+		*pathp = t_strconcat(user->home, path + 1, NULL);
+	}
+	return 0;
+}

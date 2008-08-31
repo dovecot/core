@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "home-expand.h"
 #include "unlink-directory.h"
 #include "imap-match.h"
 #include "mailbox-tree.h"
@@ -199,7 +198,8 @@ static const char *list_get_rootdir(struct fs_list_iterate_context *ctx,
 					last = p;
 			}
 			name = p = t_strdup_until(name, last+1);
-			if (home_try_expand(&name) == 0) {
+			if (mailbox_list_try_get_absolute_path(ctx->ctx.list,
+							       &name)) {
 				*vpath = p;
 				return name;
 			}

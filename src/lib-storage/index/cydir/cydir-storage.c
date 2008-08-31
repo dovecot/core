@@ -34,10 +34,10 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 
 static int
 cydir_get_list_settings(struct mailbox_list_settings *list_set,
-			const char *data, enum mail_storage_flags flags,
+			const char *data, struct mail_storage *storage,
 			const char **layout_r, const char **error_r)
 {
-	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 
 	*layout_r = "fs";
 
@@ -55,8 +55,8 @@ cydir_get_list_settings(struct mailbox_list_settings *list_set,
 
 	if (debug)
 		i_info("cydir: data=%s", data);
-	return mailbox_list_settings_parse(data, list_set, layout_r, NULL,
-					   error_r);
+	return mailbox_list_settings_parse(data, list_set, storage->ns,
+					   layout_r, NULL, error_r);
 }
 
 static struct mail_storage *cydir_alloc(void)
@@ -80,7 +80,7 @@ static int cydir_create(struct mail_storage *_storage, const char *data,
 	struct stat st;
 	const char *layout;
 
-	if (cydir_get_list_settings(&list_set, data, _storage->flags,
+	if (cydir_get_list_settings(&list_set, data, _storage,
 				    &layout, error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;

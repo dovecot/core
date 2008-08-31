@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "istream-zlib.h"
-#include "home-expand.h"
 #include "istream.h"
 #include "maildir/maildir-storage.h"
 #include "maildir/maildir-uidlist.h"

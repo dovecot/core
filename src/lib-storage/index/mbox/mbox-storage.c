@@ -7,7 +7,6 @@
 #include "restrict-access.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
-#include "home-expand.h"
 #include "mbox-storage.h"
 #include "mbox-lock.h"
 #include "mbox-file.h"
@@ -313,7 +312,7 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) == 0 &&
 		    p == NULL && data[strlen(data)-1] != '/') {
 			/* if the data points to a file, treat it as an INBOX */
-			data = home_expand(data);
+			data = mail_user_home_expand(storage->ns->user, data);
 			if (stat(data, &st) < 0 || S_ISDIR(st.st_mode))
 				list_set->root_dir = data;
 			else {
@@ -322,6 +321,7 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 			}
 		} else {
 			if (mailbox_list_settings_parse(data, list_set,
+							storage->ns,
 							layout_r, NULL,
 							error_r) < 0)
 				return -1;

@@ -36,4 +36,9 @@ extern void (*hook_mail_user_created)(struct mail_user *user);
 struct mail_user *mail_user_init(const char *username, const char *home);
 void mail_user_deinit(struct mail_user **user);
 
+/* Replace ~/ at the beginning of the path with the user's home directory. */
+const char *mail_user_home_expand(struct mail_user *user, const char *path);
+/* Returns 0 if ok, -1 if home directory isn't set. */
+int mail_user_try_home_expand(struct mail_user *user, const char **path);
+
 #endif
