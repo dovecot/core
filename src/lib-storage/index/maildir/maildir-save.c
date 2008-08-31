@@ -237,6 +237,7 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 		return FALSE;
 	}
 
+	i_assert(ctx->keywords_sync_ctx != NULL || mf->keywords_count == 0);
 	buffer_update_const_data(ctx->keywords_buffer, mf + 1,
 				 mf->keywords_count * sizeof(unsigned int));
 	*fname_r = maildir_filename_set_flags(ctx->keywords_sync_ctx, basename,
