@@ -298,6 +298,7 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 							 &next_offset);
 			}
 			array_append(&names, &name, 1);
+			offset = next_offset;
 			continue;
 		}
 
@@ -307,7 +308,6 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 			    map->hdr_copy_buf, next_offset, (size_t)-1);
 		buffer_set_used_size(map->hdr_copy_buf, hdr->header_size);
 		map->hdr_base = map->hdr_copy_buf->data;
-		next_offset = offset;
 	}
 }
 
