@@ -31,6 +31,7 @@ liblib_a_SOURCES = \
 	file-lock.c \
 	file-set-size.c \
 	hash.c \
+	hash2.c \
 	hex-binary.c \
 	hex-dec.c \
 	hmac-md5.c \
@@ -130,6 +131,7 @@ headers = \
 	file-lock.h \
 	file-set-size.h \
 	hash.h \
+	hash2.h \
 	hex-binary.h \
 	hex-dec.h \
 	hmac-md5.h \
