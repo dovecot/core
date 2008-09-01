@@ -186,13 +186,13 @@ void *hash2_insert_hash(struct hash2_table *hash, unsigned int key_hash)
 static void hash2_remove_value_p(struct hash2_table *hash,
 				 struct hash2_value **valuep)
 {
-	struct hash2_value *value;
+	struct hash2_value *deleted_value;
 
-	value = *valuep;
-	*valuep = value->next;
+	deleted_value = *valuep;
+	*valuep = deleted_value->next;
 
-	value->next = hash->deleted_values;
-	hash->deleted_values = value;
+	deleted_value->next = hash->deleted_values;
+	hash->deleted_values = deleted_value;
 
 	hash->count--;
 	hash2_resize(hash, FALSE);
@@ -218,14 +218,15 @@ void hash2_remove(struct hash2_table *hash, const void *key)
 
 void hash2_remove_iter(struct hash2_table *hash, struct hash2_iter *iter)
 {
-	struct hash2_value **valuep;
+	struct hash2_value **valuep, *next;
 
 	valuep = array_idx_modifiable(&hash->hash_table,
 				      iter->key_hash % hash->hash_table_size);
 	while (*valuep != NULL) {
 		if (*valuep == iter->value) {
+			next = (*valuep)->next;
 			hash2_remove_value_p(hash, valuep);
-			iter->next_value = *valuep;
+			iter->next_value = next;
 			return;
 		}
 		valuep = &(*valuep)->next;
