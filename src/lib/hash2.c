@@ -183,8 +183,9 @@ void *hash2_insert_hash(struct hash2_table *hash, unsigned int key_hash)
 	return value + 1;
 }
 
-static void hash2_remove_value_p(struct hash2_table *hash,
-				 struct hash2_value **valuep)
+static void
+hash2_remove_value_p(struct hash2_table *hash, struct hash2_value **valuep,
+		     bool allow_resize)
 {
 	struct hash2_value *deleted_value;
 
@@ -195,7 +196,8 @@ static void hash2_remove_value_p(struct hash2_table *hash,
 	hash->deleted_values = deleted_value;
 
 	hash->count--;
-	hash2_resize(hash, FALSE);
+	if (allow_resize)
+		hash2_resize(hash, FALSE);
 }
 
 void hash2_remove(struct hash2_table *hash, const void *key)
@@ -208,7 +210,7 @@ void hash2_remove(struct hash2_table *hash, const void *key)
 	while (*valuep != NULL) {
 		if ((*valuep)->key_hash == key_hash &&
 		    hash->key_compare_cb(key, (*valuep) + 1, hash->context)) {
-			hash2_remove_value_p(hash, valuep);
+			hash2_remove_value_p(hash, valuep, TRUE);
 			return;
 		}
 		valuep = &(*valuep)->next;
@@ -225,7 +227,9 @@ void hash2_remove_iter(struct hash2_table *hash, struct hash2_iter *iter)
 	while (*valuep != NULL) {
 		if (*valuep == iter->value) {
 			next = (*valuep)->next;
-			hash2_remove_value_p(hash, valuep);
+			/* don't allow resizing, otherwise iterating would
+			   break completely */
+			hash2_remove_value_p(hash, valuep, FALSE);
 			iter->next_value = next;
 			return;
 		}
