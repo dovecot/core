@@ -69,7 +69,7 @@ node {
     nodes. When this refcount reaches 0, it means we must detach from our
     parent.
   expunge_rebuilds: If this message gets expunged, rebuild the thread tree.
-  parent_unref_rebuilds: If a link between this node and its child gets
+  child_unref_rebuilds: If a link between this node and its child gets
     unreferenced, rebuild the thread tree.
 }
 
@@ -85,7 +85,7 @@ link_reference(parent_node, child_node)
     //   #3: c -> a -> b  (a.ref=3, b.ref=3, c.ref=1)
     // Expunging #3 wouldn't break the loop, but expunging #1 would.
     for node in nodes[parent_node.parent .. child_node]
-      node.parent_unref_rebuilds = true
+      node.child_unref_rebuilds = true
   else if child_node.parent == parent_node
     // The same link already exists
   else
@@ -109,7 +109,7 @@ link_reference(parent_node, child_node)
 	//  b) Link to this node gets unreferenced
 	//  c) Any of the child nodes gets expunged
 	// b) is probably the least likely to happen, so use it
-	child_node.parent_unref_rebuilds = true
+	child_node.child_unref_rebuilds = true
 
 thread_add_msg(uid)
   // get the Message-IDs as specified by the thread spec
@@ -143,7 +143,7 @@ thread_add_msg(uid)
     link_reference(nodes[ref_parent], nodes[ref_child])
 
 unref_link(parent, child)
-  if parent.parent_unref_rebuilds
+  if parent.child_unref_rebuilds
     return false
 
   child.parent_link_refcount--
