@@ -205,7 +205,7 @@ array_copy(struct array *dest, unsigned int dest_idx,
 	i_assert(dest->element_size == src->element_size);
 
 	buffer_copy(dest->buffer, dest_idx * dest->element_size,
-		    dest->buffer, src_idx * src->element_size,
+		    src->buffer, src_idx * src->element_size,
 		    count * dest->element_size);
 }
 
