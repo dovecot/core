@@ -80,27 +80,18 @@ static int imap_thread(struct client_command_context *cmd,
 {
 	struct mail_thread_context *ctx;
 	string_t *str;
-	bool reset = FALSE;
 	int ret;
 
 	i_assert(thread_type == MAIL_THREAD_REFERENCES ||
 		 thread_type == MAIL_THREAD_REFERENCES2);
 
 	str = str_new(default_pool, 1024);
-	for (;;) {
-		ret = mail_thread_init(cmd->client->mailbox, reset,
-				       search_args, &ctx);
-		if (ret == 0) {
-			ret = imap_thread_write_reply(ctx, str, thread_type,
-						      !cmd->uid);
-			mail_thread_deinit(&ctx);
-		}
-
-		if (ret == 0 || reset)
-			break;
-		/* try again with in-memory hash */
-		reset = TRUE;
-		str_truncate(str, 0);
+	ret = mail_thread_init(cmd->client->mailbox,
+			       search_args, &ctx);
+	if (ret == 0) {
+		ret = imap_thread_write_reply(ctx, str, thread_type,
+					      !cmd->uid);
+		mail_thread_deinit(&ctx);
 	}
 
 	if (ret == 0) {

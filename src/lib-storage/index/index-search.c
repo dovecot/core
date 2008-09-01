@@ -986,8 +986,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 
 	mail_search_args_reset(ctx->mail_ctx.args->args, TRUE);
 	if (args->have_inthreads) {
-		if (mail_thread_init(_t->box, FALSE, NULL,
-				     &ctx->thread_ctx) < 0)
+		if (mail_thread_init(_t->box, NULL, &ctx->thread_ctx) < 0)
 			ctx->failed = TRUE;
 		if (search_build_inthreads(ctx, args->args) < 0)
 			ctx->failed = TRUE;

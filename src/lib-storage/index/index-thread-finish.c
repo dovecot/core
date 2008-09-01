@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hash.h"
 #include "imap-base-subject.h"
 #include "mail-storage-private.h"
 #include "index-thread-private.h"
@@ -36,8 +37,7 @@ struct thread_finish_context {
 	unsigned int refcount;
 
 	struct mail *tmp_mail;
-	struct mail_hash_transaction *hash_trans;
-	struct mail_thread_list_context *hash_list_ctx;
+	struct mail_thread_cache *cache;
 
 	ARRAY_DEFINE(roots, struct mail_thread_root_node);
 	ARRAY_DEFINE(shadow_nodes, struct mail_thread_shadow_node);
@@ -133,13 +133,13 @@ thread_lookup_existing(struct thread_finish_context *ctx, uint32_t idx)
 {
 	const struct mail_thread_node *node;
 
-	node = mail_hash_lookup_idx(ctx->hash_trans, idx);
-	i_assert(MAIL_INDEX_NODE_EXISTS(node));
-	i_assert(node->uid_or_id != 0);
-	return node->uid_or_id;
+	node = array_idx(&ctx->cache->thread_nodes, idx);
+	i_assert(MAIL_THREAD_NODE_EXISTS(node));
+	i_assert(node->uid != 0);
+	return node->uid;
 }
 
-static int
+static void
 thread_child_node_fill(struct thread_finish_context *ctx,
 		       struct mail_thread_child_node *child)
 {
@@ -150,9 +150,7 @@ thread_child_node_fill(struct thread_finish_context *ctx,
 	if (!mail_set_uid(ctx->tmp_mail, child->uid)) {
 		/* the UID should have existed. we would have rebuild
 		   the thread tree otherwise. */
-		mail_hash_transaction_set_corrupted(ctx->hash_trans,
-			t_strdup_printf("Found expunged UID %u", child->uid));
-		return -1;
+		i_unreached();
 	}
 
 	/* get sent date if we want to use it and if it's valid */
@@ -165,10 +163,9 @@ thread_child_node_fill(struct thread_finish_context *ctx,
 		/* fallback to received date */
 		(void)mail_get_received_date(ctx->tmp_mail, &child->sort_date);
 	}
-	return 0;
 }
 
-static int
+static void
 thread_sort_children(struct thread_finish_context *ctx, uint32_t parent_idx,
 		     ARRAY_TYPE(mail_thread_child_node) *sorted_children)
 {
@@ -188,11 +185,10 @@ thread_sort_children(struct thread_finish_context *ctx, uint32_t parent_idx,
 		child.uid = thread_lookup_existing(ctx, child.idx);
 
 		array_append(sorted_children, &child, 1);
-		return 0;
+		return;
 	}
 	while (child.idx != 0) {
-		if (thread_child_node_fill(ctx, &child) < 0)
-			return -1;
+		thread_child_node_fill(ctx, &child);
 
 		array_append(sorted_children, &child, 1);
 		child.idx = shadows[child.idx].next_sibling_idx;
@@ -201,10 +197,9 @@ thread_sort_children(struct thread_finish_context *ctx, uint32_t parent_idx,
 	/* sort the children */
 	children = array_get_modifiable(sorted_children, &count);
 	qsort(children, count, sizeof(*children), mail_thread_child_node_cmp);
-	return 0;
 }
 
-static int gather_base_subjects(struct thread_finish_context *ctx)
+static void gather_base_subjects(struct thread_finish_context *ctx)
 {
 	struct subject_gather_context gather_ctx;
 	struct mail_thread_root_node *roots;
@@ -213,12 +208,13 @@ static int gather_base_subjects(struct thread_finish_context *ctx)
 	ARRAY_TYPE(mail_thread_child_node) sorted_children;
 	const struct mail_thread_child_node *children;
 	uint32_t idx, uid;
-	int ret = 0;
 
 	memset(&gather_ctx, 0, sizeof(gather_ctx));
 	gather_ctx.ctx = ctx;
 
 	roots = array_get_modifiable(&ctx->roots, &count);
+	if (count == 0)
+		return;
 	gather_ctx.subject_pool =
 		pool_alloconly_create(MEMPOOL_GROWING"base subjects",
 				      nearest_power(count * 20));
@@ -233,11 +229,8 @@ static int gather_base_subjects(struct thread_finish_context *ctx)
 			idx = roots[i].node.idx;
 		else if (!roots[i].ignore) {
 			/* find the oldest child */
-			if (thread_sort_children(ctx, roots[i].node.idx,
-						 &sorted_children) < 0) {
-				ret = -1;
-				break;
-			}
+			thread_sort_children(ctx, roots[i].node.idx,
+					     &sorted_children);
 			children = array_idx(&sorted_children, 0);
 			idx = children[0].idx;
 		} else {
@@ -249,10 +242,7 @@ static int gather_base_subjects(struct thread_finish_context *ctx)
 		if (!mail_set_uid(ctx->tmp_mail, uid)) {
 			/* the UID should have existed. we would have rebuild
 			   the thread tree otherwise. */
-			mail_hash_transaction_set_corrupted(ctx->hash_trans,
-				"Found expunged UID");
-			ret = -1;
-			break;
+			i_unreached();
 		}
 		if (mail_get_first_header(ctx->tmp_mail, HDR_SUBJECT,
 					  &subject) > 0) T_BEGIN {
@@ -263,8 +253,6 @@ static int gather_base_subjects(struct thread_finish_context *ctx)
 	array_free(&sorted_children);
 	hash_destroy(&gather_ctx.subject_hash);
 	pool_unref(&gather_ctx.subject_pool);
-
-	return ret;
 }
 
 static void thread_add_shadow_child(struct thread_finish_context *ctx,
@@ -374,19 +362,18 @@ static bool merge_subject_threads(struct thread_finish_context *ctx)
 	return changed;
 }
 
-static int sort_root_nodes(struct thread_finish_context *ctx)
+static void sort_root_nodes(struct thread_finish_context *ctx)
 {
 	ARRAY_TYPE(mail_thread_child_node) sorted_children;
 	const struct mail_thread_child_node *children;
 	const struct mail_thread_shadow_node *shadows;
 	struct mail_thread_root_node *roots;
 	unsigned int i, count, child_count;
-	int ret = 0;
 
 	i_array_init(&sorted_children, 64);
 	shadows = array_idx(&ctx->shadow_nodes, 0);
 	roots = array_get_modifiable(&ctx->roots, &count);
-	for (i = 0; i < count && ret == 0; i++) {
+	for (i = 0; i < count; i++) {
 		if (roots[i].ignore)
 			continue;
 		if (roots[i].dummy) {
@@ -396,33 +383,25 @@ static int sort_root_nodes(struct thread_finish_context *ctx)
 				roots[i].ignore = TRUE;
 				continue;
 			}
-			if (thread_sort_children(ctx, roots[i].node.idx,
-						 &sorted_children) < 0) {
-				ret = -1;
-				break;
-			}
+			thread_sort_children(ctx, roots[i].node.idx,
+					     &sorted_children);
 			children = array_get(&sorted_children, &child_count);
 			if (child_count == 1) {
 				/* only one child - deferred step (3).
 				   promote the child to the root. */
 				roots[i].node = children[0];
-				ret = thread_child_node_fill(ctx,
-							     &roots[i].node);
+				thread_child_node_fill(ctx, &roots[i].node);
 				roots[i].dummy = FALSE;
 			} else {
 				roots[i].node.uid = children[0].uid;
 				roots[i].node.sort_date = children[0].sort_date;
 			}
 		} else {
-			ret = thread_child_node_fill(ctx, &roots[i].node);
+			thread_child_node_fill(ctx, &roots[i].node);
 		}
 	}
 	array_free(&sorted_children);
-	if (ret < 0)
-		return -1;
-
 	qsort(roots, count, sizeof(*roots), mail_thread_child_node_cmp);
-	return 0;
 }
 
 static int mail_thread_root_node_idx_cmp(const void *key, const void *value)
@@ -434,10 +413,10 @@ static int mail_thread_root_node_idx_cmp(const void *key, const void *value)
 		*idx > root->node.idx ? 1 : 0;
 }
 
-static int sort_root_nodes_ref2(struct thread_finish_context *ctx,
-				uint32_t record_count)
+static void sort_root_nodes_ref2(struct thread_finish_context *ctx,
+				 uint32_t record_count)
 {
-	struct mail_thread_node *node;
+	const struct mail_thread_node *node;
 	struct mail_thread_root_node *roots, *root;
 	struct mail_thread_child_node child;
 	unsigned int root_count;
@@ -445,20 +424,18 @@ static int sort_root_nodes_ref2(struct thread_finish_context *ctx,
 
 	roots = array_get_modifiable(&ctx->roots, &root_count);
 	for (idx = 1; idx < record_count; idx++) {
-		node = mail_hash_lookup_idx(ctx->hash_trans, idx);
-		if (MAIL_HASH_RECORD_IS_DELETED(&node->rec) ||
-		    !MAIL_INDEX_NODE_EXISTS(node))
+		node = array_idx(&ctx->cache->thread_nodes, idx);
+		if (!MAIL_THREAD_NODE_EXISTS(node))
 			continue;
 
 		child.idx = idx;
-		if (thread_child_node_fill(ctx, &child) < 0)
-			return -1;
+		thread_child_node_fill(ctx, &child);
 
 		parent_idx = idx;
 		while (node->parent_idx != 0) {
 			parent_idx = node->parent_idx;
-			node = mail_hash_lookup_idx(ctx->hash_trans,
-						    node->parent_idx);
+			node = array_idx(&ctx->cache->thread_nodes,
+					 node->parent_idx);
 		}
 		root = bsearch(&parent_idx, roots, root_count, sizeof(*roots),
 			       mail_thread_root_node_idx_cmp);
@@ -468,66 +445,45 @@ static int sort_root_nodes_ref2(struct thread_finish_context *ctx,
 			root->node.sort_date = child.sort_date;
 	}
 	qsort(roots, root_count, sizeof(*roots), mail_thread_child_node_cmp);
-	return 0;
 }
 
-static int mail_thread_create_shadows(struct thread_finish_context *ctx,
-				      uint32_t record_count)
+static void mail_thread_create_shadows(struct thread_finish_context *ctx,
+				       uint32_t record_count)
 {
-	struct mail_thread_list_update_context *thread_list_ctx;
-	struct mail_thread_node *node, *parent;
+	const struct mail_thread_node *node, *parent;
 	struct mail_thread_root_node root;
 	struct mail_thread_child_node child;
-	struct mail_hash *hash;
-	uint8_t *referenced;
-	uint32_t idx, i, j, parent_idx, alloc_size, max;
-	int ret = 0;
+	uint32_t idx, parent_idx;
 
 	ctx->use_sent_date = FALSE;
 
 	memset(&root, 0, sizeof(root));
 	memset(&child, 0, sizeof(child));
 
-	alloc_size = record_count/8 + 1;
-	referenced = i_new(uint8_t, alloc_size);
+	/* We may see dummy messages without parents or children. We can't
+	   free them since the nodes are in an array, but they may get reused
+	   later so just leave them be. With the current algorithm when this
+	   happens all the struct fields are always zero at that point, so
+	   we don't even have to try to zero them. */
 	for (idx = 1; idx < record_count; idx++) {
-		node = mail_hash_lookup_idx(ctx->hash_trans, idx);
-		if (MAIL_HASH_RECORD_IS_DELETED(&node->rec)) {
-			/* @UNSAFE: mark deleted records as referenced, so we
-			   don't waste time with them */
-			referenced[idx / 8] |= 1 << (idx % 8);
-			continue;
-		}
-
-		if (MAIL_INDEX_NODE_EXISTS(node)) {
-			/* @UNSAFE: don't remove existing nodes */
-			referenced[idx / 8] |= 1 << (idx % 8);
-		}
+		node = array_idx(&ctx->cache->thread_nodes, idx);
 
 		if (node->parent_idx == 0) {
 			/* root node - add to roots list */
 			root.node.idx = idx;
-			if (!MAIL_INDEX_NODE_EXISTS(node)) {
+			if (!MAIL_THREAD_NODE_EXISTS(node)) {
 				root.dummy = TRUE;
 				root.node.uid = 0;
 			} else {
 				root.dummy = FALSE;
-				root.node.uid = node->uid_or_id;
+				root.node.uid = node->uid;
 			}
 			array_append(&ctx->roots, &root, 1);
 			continue;
 		}
-		if (node->parent_idx >= record_count) {
-			mail_hash_transaction_set_corrupted(ctx->hash_trans,
-				"parent_idx too large");
-			ret = -1;
-			break;
-		}
+		i_assert(node->parent_idx < record_count);
 
-		/* @UNSAFE: keep track of referenced nodes */
-		referenced[node->parent_idx / 8] |= 1 << (node->parent_idx % 8);
-
-		if (!MAIL_INDEX_NODE_EXISTS(node)) {
+		if (!MAIL_THREAD_NODE_EXISTS(node)) {
 			/* dummy node */
 			continue;
 		}
@@ -536,96 +492,52 @@ static int mail_thread_create_shadows(struct thread_finish_context *ctx,
 		   node as its child. If there are no non-dummy
 		   parents, add it as the highest dummy's child. */
 		parent_idx = node->parent_idx;
-		parent = mail_hash_lookup_idx(ctx->hash_trans, parent_idx);
-		while (!MAIL_INDEX_NODE_EXISTS(parent) &&
+		parent = array_idx(&ctx->cache->thread_nodes, parent_idx);
+		while (!MAIL_THREAD_NODE_EXISTS(parent) &&
 		       parent->parent_idx != 0) {
 			parent_idx = parent->parent_idx;
-			parent = mail_hash_lookup_idx(ctx->hash_trans,
-						      parent_idx);
+			parent = array_idx(&ctx->cache->thread_nodes,
+					   parent_idx);
 		}
 		thread_add_shadow_child(ctx, parent_idx, idx);
 	}
-
-	/* remove unneeded records from hash */
-	hash = mail_hash_transaction_get_hash(ctx->hash_trans);
-	if (ret < 0 || mail_hash_get_lock_type(hash) != F_WRLCK) {
-		/* thread index isn't locked, can't delete anything */
-		i_free(referenced);
-		return ret;
-	}
-
-	/* FIXME: we could remove everything from thread list by pointing to
-	   existing messages' References: headers */
-	thread_list_ctx = mail_thread_list_update_begin(ctx->hash_list_ctx,
-							ctx->hash_trans);
-	for (i = 0; i < alloc_size; i++) {
-		if (referenced[i] == 0xff)
-			continue;
-
-		j = i == 0 ? 1 : 0;
-		max = i+1 < alloc_size ? 8 : (record_count % 8);
-		for (; j < max; j++) {
-			if ((referenced[i] & (1 << j)) != 0)
-				continue;
-
-			idx = i*8 + j;
-			node = mail_hash_lookup_idx(ctx->hash_trans, idx);
-
-			if (node->ref_index == MAIL_INDEX_NODE_REF_EXT) {
-				mail_thread_list_remove(thread_list_ctx,
-							node->uid_or_id);
-			}
-			mail_hash_remove(ctx->hash_trans, idx,
-					 node->msgid_crc32);
-		}
-	}
-	i_free(referenced);
-	return mail_thread_list_commit(&thread_list_ctx);
 }
 
-static int mail_thread_finish(struct thread_finish_context *ctx,
-			      enum mail_thread_type thread_type)
+static void mail_thread_finish(struct thread_finish_context *ctx,
+			       enum mail_thread_type thread_type)
 {
-	const struct mail_hash_header *hdr;
+	unsigned int record_count = array_count(&ctx->cache->thread_nodes);
 
-	hdr = mail_hash_get_header(ctx->hash_trans);
-	i_assert(hdr->record_count > 0);
-	ctx->next_new_root_idx = hdr->record_count + 1;
+	ctx->next_new_root_idx = record_count + 1;
 
 	/* (2) save root nodes and (3) remove dummy messages */
-	i_array_init(&ctx->roots, I_MIN(128, hdr->record_count));
-	i_array_init(&ctx->shadow_nodes, hdr->record_count);
+	i_array_init(&ctx->roots, I_MIN(128, record_count));
+	i_array_init(&ctx->shadow_nodes, record_count);
 	/* make sure all shadow indexes are accessible directly. */
-	(void)array_idx_modifiable(&ctx->shadow_nodes, hdr->record_count);
+	(void)array_idx_modifiable(&ctx->shadow_nodes, record_count);
 
-	if (mail_thread_create_shadows(ctx, hdr->record_count) < 0)
-		return -1;
+	mail_thread_create_shadows(ctx, record_count);
 
 	/* (4) */
 	ctx->use_sent_date = TRUE;
 	switch (thread_type) {
 	case MAIL_THREAD_REFERENCES:
-		if (sort_root_nodes(ctx) < 0)
-			return -1;
+		sort_root_nodes(ctx);
 		/* (5) Gather together messages under the root that have
 		   the same base subject text. */
-		if (gather_base_subjects(ctx) < 0)
-			return -1;
+		gather_base_subjects(ctx);
 		/* (5.C) Merge threads with the same thread subject. */
 		if (merge_subject_threads(ctx)) {
 			/* root ordering may have changed, sort them again. */
-			if (sort_root_nodes(ctx) < 0)
-				return -1;
+			sort_root_nodes(ctx);
 		}
 		break;
 	case MAIL_THREAD_REFERENCES2:
-		if (sort_root_nodes_ref2(ctx, hdr->record_count) < 0)
-			return -1;
+		sort_root_nodes_ref2(ctx, record_count);
 		break;
 	default:
 		i_unreached();
 	}
-	return 0;
 }
 
 static void
@@ -643,15 +555,10 @@ nodes_change_uids_to_seqs(struct mail_thread_iterate_context *iter, bool root)
 			/* dummy root */
 			if (root)
 				continue;
+			i_unreached();
 		} else {
 			mailbox_get_seq_range(box, uid, uid, &seq, &seq);
-		}
-		if (uid == 0) {
-			mail_hash_transaction_set_corrupted(
-				iter->ctx->hash_trans,
-				t_strdup_printf("Found expunged UID %u", uid));
-			iter->failed = TRUE;
-			seq = 0;
+			i_assert(seq != 0);
 		}
 		children[i].uid = seq;
 	}
@@ -685,45 +592,33 @@ mail_thread_iterate_children(struct mail_thread_iterate_context *parent_iter,
 	child_iter->ctx->refcount++;
 
 	i_array_init(&child_iter->children, 8);
-	if (thread_sort_children(child_iter->ctx, parent_idx,
-				 &child_iter->children) < 0) {
-		child_iter->failed = TRUE;
-		array_clear(&child_iter->children);
-	} else {
-		if (child_iter->ctx->return_seqs)
-			nodes_change_uids_to_seqs(child_iter, FALSE);
-	}
+	thread_sort_children(child_iter->ctx, parent_idx,
+			     &child_iter->children);
+	if (child_iter->ctx->return_seqs)
+		nodes_change_uids_to_seqs(child_iter, FALSE);
 	return child_iter;
 }
 
 struct mail_thread_iterate_context *
-mail_thread_iterate_init_full(struct mail *tmp_mail,
-			      struct mail_hash_transaction *hash_trans,
-			      struct mail_thread_list_context *hash_list_ctx,
+mail_thread_iterate_init_full(struct mail_thread_cache *cache,
+			      struct mail *tmp_mail,
 			      enum mail_thread_type thread_type,
 			      bool return_seqs)
 {
 	struct mail_thread_iterate_context *iter;
 	struct thread_finish_context *ctx;
-	struct mail_hash *hash;
 
 	iter = i_new(struct mail_thread_iterate_context, 1);
 	ctx = iter->ctx = i_new(struct thread_finish_context, 1);
 	ctx->refcount = 1;
+	ctx->cache = cache;
 	ctx->tmp_mail = tmp_mail;
-	ctx->hash_trans = hash_trans;
-	ctx->hash_list_ctx = hash_list_ctx;
 	ctx->return_seqs = return_seqs;
-	if (mail_thread_finish(ctx, thread_type) < 0)
-		iter->failed = TRUE;
-	else {
-		hash = mail_hash_transaction_get_hash(hash_trans);
-		if (mail_hash_get_lock_type(hash) == F_WRLCK)
-			(void)mail_hash_transaction_write(hash_trans);
-		mail_thread_iterate_fill_root(iter);
-		if (return_seqs)
-			nodes_change_uids_to_seqs(iter, TRUE);
-	}
+	mail_thread_finish(ctx, thread_type);
+
+	mail_thread_iterate_fill_root(iter);
+	if (return_seqs)
+		nodes_change_uids_to_seqs(iter, TRUE);
 	return iter;
 }
 
@@ -756,14 +651,9 @@ unsigned int mail_thread_iterate_count(struct mail_thread_iterate_context *iter)
 int mail_thread_iterate_deinit(struct mail_thread_iterate_context **_iter)
 {
 	struct mail_thread_iterate_context *iter = *_iter;
-	int ret = iter->failed ? -1 : 0;
 
 	*_iter = NULL;
 
-	if (ret < 0) {
-		struct mail *mail = iter->ctx->tmp_mail;
-		mail_storage_set_internal_error(mail->box->storage);
-	}
 	if (--iter->ctx->refcount == 0) {
 		array_free(&iter->ctx->roots);
 		array_free(&iter->ctx->shadow_nodes);
@@ -771,5 +661,5 @@ int mail_thread_iterate_deinit(struct mail_thread_iterate_context **_iter)
 	}
 	array_free(&iter->children);
 	i_free(iter);
-	return ret;
+	return 0;
 }

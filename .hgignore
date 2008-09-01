@@ -78,5 +78,6 @@ src/util/listview
 src/util/logview
 src/util/maildirlock
 src/util/rawlog
+src/util/threadview
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h

@@ -1,6 +1,14 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
-pkglibexec_PROGRAMS = rawlog gdbhelper idxview listview logview maildirlock
+pkglibexec_PROGRAMS = \
+	rawlog \
+	gdbhelper \
+	idxview \
+	listview \
+	logview \
+	maildirlock \
+	threadview
+
 sbin_PROGRAMS = dovecotpw
 
 AM_CPPFLAGS = \
@@ -40,6 +48,11 @@ maildirlock_LDADD = \
 	../lib/liblib.a
 maildirlock_SOURCES = \
 	maildirlock.c
+
+threadview_LDADD = \
+	../lib/liblib.a
+threadview_SOURCES = \
+	threadview.c
 
 dovecotpw_LDADD = \
 	../auth/libpassword.a \

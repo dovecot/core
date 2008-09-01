@@ -26,10 +26,8 @@ ARRAY_DEFINE_TYPE(mail_thread_child_node, struct mail_thread_child_node);
    unknown. */
 bool mail_thread_type_parse(const char *str, enum mail_thread_type *type_r);
 
-/* Build thread from given search arguments. If reset=TRUE, build a new thread
-   tree to memory even if thread index exists. args=NULL searches everything. */
-int mail_thread_init(struct mailbox *box, bool reset,
-		     struct mail_search_args *args,
+/* Build thread from given search arguments. args=NULL searches everything. */
+int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 		     struct mail_thread_context **ctx_r);
 void mail_thread_deinit(struct mail_thread_context **ctx);
 

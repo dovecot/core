@@ -332,4 +332,9 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 uint32_t mail_index_uint32_to_offset(uint32_t offset);
 uint32_t mail_index_offset_to_uint32(uint32_t offset);
 
+#define MAIL_INDEX_PACK_MAX_SIZE ((sizeof(uint32_t) * 8 + 7) / 7)
+void mail_index_pack_num(uint8_t **p, uint32_t num);
+int mail_index_unpack_num(const uint8_t **p, const uint8_t *end,
+			  uint32_t *num_r);
+
 #endif
