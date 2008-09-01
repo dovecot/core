@@ -432,7 +432,15 @@ static void mail_thread_cache_update_adds(struct mail_thread_mailbox *tbox,
 	   should already be in msgid_map. */
 	msgid_map = array_get(tbox->msgid_map, &map_count);
 	uids = array_get(added_uids, &uid_count);
-	i_assert(uid_count == 0 || msgid_map[j].uid <= uids[0].seq1);
+	if (uid_count == 0)
+		return;
+
+	(void)bsearch_insert_pos(&uids[0].seq1, msgid_map, map_count,
+				 sizeof(*msgid_map), msgid_map_cmp, &j);
+	i_assert(j < map_count);
+	while (j > 0 && msgid_map[j-1].uid == msgid_map[j].uid)
+		j--;
+
 	for (i = 0; i < uid_count; i++) {
 		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++) {
 			while (j < map_count && msgid_map[j].uid < uid)
