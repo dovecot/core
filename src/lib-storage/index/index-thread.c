@@ -430,11 +430,11 @@ static void mail_thread_cache_update_adds(struct mail_thread_mailbox *tbox,
 
 	/* everything removed successfully, add the new messages. all of them
 	   should already be in msgid_map. */
-	msgid_map = array_get(tbox->msgid_map, &map_count);
 	uids = array_get(added_uids, &uid_count);
 	if (uid_count == 0)
 		return;
 
+	msgid_map = array_get(tbox->msgid_map, &map_count);
 	(void)bsearch_insert_pos(&uids[0].seq1, msgid_map, map_count,
 				 sizeof(*msgid_map), msgid_map_cmp, &j);
 	i_assert(j < map_count);
