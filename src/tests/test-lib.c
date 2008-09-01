@@ -7,6 +7,7 @@
 #include "bsearch-insert-pos.h"
 #include "aqueue.h"
 #include "network.h"
+#include "primes.h"
 #include "priorityq.h"
 #include "seq-range-array.h"
 #include "str-sanitize.h"
@@ -449,6 +450,26 @@ static int cmp_int(const void *p1, const void *p2)
 	return i1->num - i2->num;
 }
 
+static void test_primes(void)
+{
+	unsigned int i, j, num;
+	bool success;
+
+	success = primes_closest(0) > 0;
+	for (num = 1; num < 1024; num++) {
+		if (primes_closest(num) < num)
+			success = FALSE;
+	}
+	for (i = 10; i < 32; i++) {
+		num = (1 << i) - 100;
+		for (j = 0; j < 200; j++, num++) {
+			if (primes_closest(num) < num)
+				success = FALSE;
+		}
+	}
+	test_out("primes_closest()", success);
+}
+
 static void test_priorityq(void)
 {
 #define PQ_MAX_ITEMS 100
@@ -791,6 +812,7 @@ int main(void)
 		test_buffer,
 		test_mempool_alloconly,
 		test_net_is_in_network,
+		test_primes,
 		test_priorityq,
 		test_seq_range_array,
 		test_str_sanitize,

@@ -2,40 +2,36 @@
 #include "primes.h"
 
 static const unsigned int primes[] = {
-	11,
-	19,
+#define PRIME_SKIP_COUNT 3
+	17,
 	37,
-	73,
-	109,
-	163,
-	251,
-	367,
-	557,
-	823,
-	1237,
-	1861,
-	2777,
-	4177,
-	6247,
-	9371,
-	14057,
-	21089,
-	31627,
-	47431,
-	71143,
-	106721,
-	160073,
-	240101,
-	360163,
-	540217,
-	810343,
-	1215497,
-	1823231,
-	2734867,
-	4102283,
-	6153409,
-	9230113,
-	13845163
+	67,
+	131,
+	257, /* next from 2^8 */
+	521,
+	1031,
+	2053,
+	4099,
+	8209,
+	16411,
+	32771,
+	65537, /* next from 2^16 */
+	131101,
+	262147,
+	524309,
+	1048583,
+	2097169,
+	4194319,
+	8388617,
+	16777259, /* next from 2^24 */
+	33554467,
+	67108879,
+	134217757,
+	268435459,
+	536870923,
+	1073741827,
+	2147483659,
+	4294967291 /* previous from 2^32 */
 };
 
 static const unsigned int primes_count = N_ELEMENTS(primes);
@@ -44,9 +40,9 @@ unsigned int primes_closest(unsigned int num)
 {
 	unsigned int i;
 
-	for (i = 0; i < primes_count; i++)
-		if (primes[i] >= num)
-			return primes[i];
-
-	return primes[primes_count - 1];
+	for (i = 31; i > PRIME_SKIP_COUNT; i--) {
+		if ((num & (1 << i)) != 0)
+			return primes[i - PRIME_SKIP_COUNT];
+	}
+	return primes[0];
 }

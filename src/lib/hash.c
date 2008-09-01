@@ -8,7 +8,7 @@
 
 #include <ctype.h>
 
-#define HASH_TABLE_MIN_SIZE 109
+#define HASH_TABLE_MIN_SIZE 131
 
 struct hash_node {
 	struct hash_node *next;
