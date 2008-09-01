@@ -7,6 +7,9 @@
 #include "mail-storage.h"
 #include "mail-search.h"
 
+static bool mail_search_arg_equals(const struct mail_search_arg *arg1,
+				   const struct mail_search_arg *arg2);
+
 static void
 mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
 		      const ARRAY_TYPE(seq_range) *search_saved_uidset)
@@ -614,4 +617,100 @@ void mail_search_args_simplify(struct mail_search_args *args)
 		/* we may have added some extra SUBs that could be dropped */
 		mail_search_args_simplify_sub(args->args, TRUE);
 	}
+}
+
+static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
+				       const struct mail_search_arg *arg2)
+{
+	if (arg1->type != arg2->type ||
+	    arg1->not != arg2->not)
+		return FALSE;
+
+	switch (arg1->type) {
+	case SEARCH_OR:
+	case SEARCH_SUB:
+		return mail_search_arg_equals(arg1->value.subargs,
+					      arg2->value.subargs);
+
+	case SEARCH_ALL:
+		return TRUE;
+	case SEARCH_SEQSET:
+		/* sequences may point to different messages at different times,
+		   never assume they match */
+		return FALSE;
+	case SEARCH_UIDSET:
+		return array_cmp(&arg1->value.seqset, &arg2->value.seqset);
+
+	case SEARCH_FLAGS:
+		return arg1->value.flags == arg2->value.flags;
+	case SEARCH_KEYWORDS:
+		return strcasecmp(arg1->value.str, arg2->value.str);
+
+	case SEARCH_BEFORE:
+	case SEARCH_ON:
+	case SEARCH_SINCE:
+	case SEARCH_SENTBEFORE:
+	case SEARCH_SENTON:
+	case SEARCH_SENTSINCE:
+		return arg1->value.time == arg2->value.time;
+
+	case SEARCH_SMALLER:
+	case SEARCH_LARGER:
+		return arg1->value.size == arg2->value.size;
+
+	case SEARCH_HEADER:
+	case SEARCH_HEADER_ADDRESS:
+	case SEARCH_HEADER_COMPRESS_LWSP:
+		if (strcasecmp(arg1->hdr_field_name, arg2->hdr_field_name) != 0)
+			return FALSE;
+		/* fall through */
+	case SEARCH_BODY:
+	case SEARCH_TEXT:
+	case SEARCH_BODY_FAST:
+	case SEARCH_TEXT_FAST:
+	case SEARCH_GUID:
+	case SEARCH_MAILBOX:
+		/* don't bother doing case-insensitive comparison. it must not
+		   be done for guid/mailbox, and for others we should support
+		   full i18n case-insensitivity (or the active comparator
+		   in future). */
+		return strcmp(arg1->value.str, arg2->value.str);
+
+	case SEARCH_MODSEQ: {
+		const struct mail_search_modseq *m1 = arg1->value.modseq;
+		const struct mail_search_modseq *m2 = arg2->value.modseq;
+
+		return m1->modseq == m2->modseq &&
+			m1->type == m2->type;
+	}
+	case SEARCH_INTHREAD:
+		return mail_search_args_equal(arg1->value.search_args,
+					      arg2->value.search_args);
+	}
+	i_unreached();
+	return FALSE;
+}
+
+static bool mail_search_arg_equals(const struct mail_search_arg *arg1,
+				   const struct mail_search_arg *arg2)
+{
+	while (arg1 != NULL && arg2 != NULL) {
+		if (!mail_search_arg_one_equals(arg1, arg2))
+			return FALSE;
+		arg1 = arg1->next;
+		arg2 = arg2->next;
+	}
+	return arg1 == NULL && arg2 == NULL;
+}
+
+bool mail_search_args_equal(const struct mail_search_args *args1,
+			    const struct mail_search_args *args2)
+{
+	i_assert(args1->simplified == args2->simplified);
+	i_assert(args1->box == args2->box);
+
+	if (null_strcmp(args1->charset, args2->charset) != 0)
+		return FALSE;
+
+	return mail_search_arg_equals(args1->args, args2->args);
 }
