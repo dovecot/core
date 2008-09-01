@@ -50,8 +50,16 @@ static void thread_link_reference(struct mail_thread_cache *cache,
 
 	i_assert(parent_idx < cache->first_invalid_msgid_str_idx);
 
-	parent = array_idx_modifiable(&cache->thread_nodes, parent_idx);
-	child = array_idx_modifiable(&cache->thread_nodes, child_idx);
+	/* either child_idx or parent_idx may cause thread_nodes array to
+	   grow. in such situation the other pointer may become invalid if
+	   we don't get the pointers in correct order. */
+	if (child_idx < parent_idx) {
+		parent = array_idx_modifiable(&cache->thread_nodes, parent_idx);
+		child = array_idx_modifiable(&cache->thread_nodes, child_idx);
+	} else {
+		child = array_idx_modifiable(&cache->thread_nodes, child_idx);
+		parent = array_idx_modifiable(&cache->thread_nodes, parent_idx);
+	}
 
 	child->parent_link_refcount++;
 	if (thread_node_has_ancestor(cache, parent, child)) {
