@@ -546,6 +546,9 @@ static int mail_thread_cache_sync_add(struct mail_thread_mailbox *tbox,
 			MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC);
 
 	msgid_map = array_get(tbox->msgid_map, &count);
+	/* we're relying on the array being zero-terminated (outside used
+	   count - kind of kludgy) */
+	i_assert(msgid_map[count].uid == 0);
 	i = 0;
 	while (i < count && mailbox_search_next(search_ctx, mail) > 0) {
 		while (msgid_map[i].uid < mail->uid)

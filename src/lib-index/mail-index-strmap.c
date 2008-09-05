@@ -789,6 +789,14 @@ void mail_index_strmap_view_sync_add_unique(struct mail_index_strmap_view_sync *
 	view->last_ref_index = ref_index;
 }
 
+static void
+mail_index_strmap_zero_terminate(struct mail_index_strmap_view *view)
+{
+	/* zero-terminate the records array */
+	(void)array_append_space(&view->recs);
+	array_delete(&view->recs, array_count(&view->recs)-1, 1);
+}
+
 static void mail_index_strmap_view_renumber(struct mail_index_strmap_view *view)
 {
 	struct mail_index_strmap_read_context ctx;
@@ -835,6 +843,7 @@ static void mail_index_strmap_view_renumber(struct mail_index_strmap_view *view)
 	i_assert(renumber_map[0] == 0);
 	array_delete(&view->recs, dest, i-dest);
 	array_delete(&view->recs_crc32, dest, i-dest);
+	mail_index_strmap_zero_terminate(view);
 
 	/* notify caller of the renumbering */
 	i_assert(str_idx <= view->next_str_idx);
@@ -1207,6 +1216,7 @@ void mail_index_strmap_view_sync_commit(struct mail_index_strmap_view_sync **_sy
 	i_free(sync);
 
 	(void)mail_index_strmap_write(view);
+	mail_index_strmap_zero_terminate(view);
 
 	/* zero-terminate the records array */
 	(void)array_append_space(&view->recs);
@@ -1220,5 +1230,6 @@ void mail_index_strmap_view_sync_rollback(struct mail_index_strmap_view_sync **_
 	*_sync = NULL;
 
 	mail_index_strmap_view_reset(sync->view);
+	mail_index_strmap_zero_terminate(sync->view);
 	i_free(sync);
 }
