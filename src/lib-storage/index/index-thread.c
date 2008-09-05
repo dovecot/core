@@ -197,6 +197,9 @@ static void mail_thread_strmap_remap(const uint32_t *idx_map,
 	old_nodes = array_get(&cache->thread_nodes, &nodes_count);
 	i_array_init(&new_nodes, new_count + invalid_count + 32);
 
+	/* optimization: allocate all nodes initially */
+	(void)array_idx_modifiable(&new_nodes, new_count-1);
+
 	/* renumber existing valid nodes. all existing records in old_nodes
 	   should also exist in idx_map since we've removed expunged messages
 	   from the cache before committing the sync. */
@@ -217,11 +220,19 @@ static void mail_thread_strmap_remap(const uint32_t *idx_map,
 	}
 
 	/* copy invalid nodes, if any. no other messages point to them,
-	   so this is safe. */
+	   so this is safe. we still need to update their parent_idx
+	   pointers though. */
 	new_first_invalid = new_count + 1 +
 		THREAD_INVALID_MSGID_STR_IDX_SKIP_COUNT;
-	array_copy(&new_nodes.arr, new_first_invalid, &cache->thread_nodes.arr,
-		   cache->first_invalid_msgid_str_idx, invalid_count);
+	i = cache->first_invalid_msgid_str_idx;
+	for (i = 0; i < invalid_count; i++) {
+		node = array_idx_modifiable(&new_nodes, new_first_invalid + i);
+		*node = old_nodes[cache->first_invalid_msgid_str_idx + i];
+		if (node->parent_idx != 0) {
+			node->parent_idx = idx_map[node->parent_idx];
+			i_assert(node->parent_idx != 0);
+		}
+	}
 	cache->first_invalid_msgid_str_idx = new_first_invalid;
 	cache->next_invalid_msgid_str_idx = new_first_invalid + invalid_count;
 
@@ -411,6 +422,10 @@ static bool mail_thread_cache_update_removes(struct mail_thread_mailbox *tbox,
 
 		/* remove the messages from cache */
 		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++) {
+			if (j == map_count) {
+				i_assert(uid > cache->last_uid);
+				break;
+			}
 			i_assert(msgid_map[j].uid == uid);
 			if (!mail_thread_remove(cache, msgid_map + j, &j))
 				return FALSE;
