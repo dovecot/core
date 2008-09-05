@@ -73,6 +73,7 @@ void hash2_clear(struct hash2_table *hash)
 	hash2_alloc_table(hash, hash->initial_size);
 	p_clear(hash->value_pool);
 	hash->count = 0;
+	hash->deleted_values = NULL;
 }
 
 static void hash2_resize(struct hash2_table *hash, bool grow)
