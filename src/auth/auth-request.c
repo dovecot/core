@@ -1154,6 +1154,9 @@ void auth_request_set_userdb_field(struct auth_request *request,
 	} else if (strcmp(name, "uidgid_file") == 0) {
 		auth_request_set_uidgid_file(request, value);
 		return;
+	} else if (strcmp(name, "userdb_import") == 0) {
+		auth_stream_reply_import(request->userdb_reply, value);
+		return;
 	}
 
 	auth_stream_reply_add(request->userdb_reply, name, value);
