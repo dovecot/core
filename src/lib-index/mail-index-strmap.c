@@ -632,10 +632,44 @@ strmap_view_sync_handle_conflict(struct mail_index_strmap_read_context *ctx,
 }
 
 static int
-mail_index_strmap_view_sync_block(struct mail_index_strmap_read_context *ctx)
+strmap_view_sync_block_check_conflicts(struct mail_index_strmap_read_context *ctx,
+				       uint32_t crc32)
 {
 	struct mail_index_strmap_rec *hash_rec;
 	struct hash2_iter iter;
+
+	if (crc32 == 0) {
+		/* unique string - there are no conflicts */
+		return 0;
+	}
+
+	/* check for conflicting string indexes. they may happen if
+
+	1) msgid exists only for a message X that has been expunged
+	2) another process doesn't see X, but sees msgid for another
+	   message and writes it using a new string index
+	3) if we still see X, we now see the same msgid with two
+	   string indexes.
+
+	if we detect such a conflict, we can't continue using the
+	strmap index until X has been expunged. */
+	memset(&iter, 0, sizeof(iter));
+	while ((hash_rec = hash2_iterate(ctx->view->hash,
+					 crc32, &iter)) != NULL &&
+	       hash_rec->str_idx != ctx->rec.str_idx) {
+		/* CRC32 matches, but string index doesn't */
+		if (!strmap_view_sync_handle_conflict(ctx, hash_rec, &iter)) {
+			ctx->lost_expunged_uid = hash_rec->uid;
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static int
+mail_index_strmap_view_sync_block(struct mail_index_strmap_read_context *ctx)
+{
+	struct mail_index_strmap_rec *hash_rec;
 	uint32_t crc32, prev_uid = 0;
 	int ret;
 
@@ -649,29 +683,10 @@ mail_index_strmap_view_sync_block(struct mail_index_strmap_read_context *ctx)
 		}
 		prev_uid = ctx->rec.uid;
 
-		/* check for conflicting string indexes. they may happen if
-
-		   1) msgid exists only for a message X that has been expunged
-		   2) another process doesn't see X, but sees msgid for another
-		      message and writes it using a new string index
-		   3) if we still see X, we now see the same msgid with two
-		      string indexes.
-
-		   if we detect such a conflict, we can't continue using the
-		   strmap index until X has been expunged. */
-		memset(&iter, 0, sizeof(iter));
-		while ((hash_rec = hash2_iterate(ctx->view->hash,
-						 crc32, &iter)) != NULL &&
-		       hash_rec->str_idx != ctx->rec.str_idx) {
-			/* CRC32 matches, but string index doesn't */
-			if (!strmap_view_sync_handle_conflict(ctx, hash_rec,
-							      &iter)) {
-				ctx->lost_expunged_uid = hash_rec->uid;
-				ret = -1;
-				goto error;
-			}
+		if (strmap_view_sync_block_check_conflicts(ctx, crc32) < 0) {
+			ret = -1;
+			break;
 		}
-
 		ctx->view->last_added_uid = ctx->rec.uid;
 
 		/* add the record to records array */
@@ -682,7 +697,6 @@ mail_index_strmap_view_sync_block(struct mail_index_strmap_read_context *ctx)
 		hash_rec = hash2_insert_hash(ctx->view->hash, crc32);
 		memcpy(hash_rec, &ctx->rec, sizeof(*hash_rec));
 	}
-error:
 	return strmap_read_block_deinit(ctx, ret, TRUE);
 }
 
