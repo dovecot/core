@@ -1,3 +1,29 @@
+ - new primes code: are hash tables now being resized too often?
+ - auth_log_prefix setting similar to mail_log_prefix
+ - LDAP attrs: uid=foo,uid=bar doesn't work
+
+ - thread indexes: if we expunge a duplicate message-id: and we have a sibling
+   with identical message-id:, we can probably just move the children?
+   (unless there are non-sibling duplicates)
+ - SEARCH INTHREAD requires no thread sorting by date - don't do it
+ - virtual: keep MD5 of search parameters. if it changes, rebuild all.
+ - CONDSTORE: use per-flag/per-keyword conflict checking
+ - should modseq header be updated even when modseqs aren't used? otherwise
+   log reads always at beginning of file? are there other performance
+   issues?
+ - QRESYNC: Should we send HIGHESTMODSEQ in tagged reply for EXPUNGE
+   even when it was already returned in FETCH MODSEQs?
+ - QRESYNC: Drop expunges from the middle of given seq sets if possible
+ - use universal hash functions?
+
+ - UIDVALIDITY changed while saving -> sync errors
+   - mbox: copy to Trash, manually delete copied msg, change uidvalidity,
+     set nextuid=1, copy again -> error
+   - recent_uids assert at least with mbox
+ - quota fs: Should values returned by quota be divided by the actual
+   filesystem block size instead of hardcoded DEV_BSIZE? not with AIX..
+ - mailbox list fs: Listing subscriptions with children return options doesn't
+   work unless iter_is_mailbox() returns the children flags
  - sieve-cmu.c crash: i_assert(buf->used - 1 == part->body_size.physical_size);
  - convert plugin: Create a r/w lock for a file. It's read-locked if
    conversion isn't wanted and released when process dies. If conversion is
@@ -220,9 +246,6 @@
       Hello world!" 2 "Hello, I'm ...". This would be especially useful with
       the above attachment scanning.
 
- - deliver
-    - recipient_delimiter setting so user+mailbox@domain works directly
-
  - general
     - stop using atol(), atoi(), strtoul() etc. in places where we actually
       care about what they return, and rather create our own function which
@@ -234,8 +257,6 @@
     - things break if next_uid gets to 2^32
 
 capabilities:
- - preferrably all should be implemented as plugins
- - possibility to disable them from config file
  - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
  - acl (rfc4314)
  - mailbox-referrals (rfc2193)
