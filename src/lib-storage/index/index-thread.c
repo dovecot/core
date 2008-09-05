@@ -346,6 +346,7 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	if (seq1 == 0) {
 		/* nothing is missing */
 		mailbox_header_lookup_unref(&headers_ctx);
+		mail_index_strmap_view_sync_commit(&ctx->strmap_sync);
 		return 0;
 	}
 
