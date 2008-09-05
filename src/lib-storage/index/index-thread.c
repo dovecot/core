@@ -69,7 +69,6 @@ mail_strmap_rec_get_msgid(struct mail_thread_context *ctx,
 			  const struct mail_index_strmap_rec *rec,
 			  const char **msgid_r)
 {
-	const char *orig_msgids;
 	const char *msgids = NULL, *msgid;
 	unsigned int n = 0;
 	int ret;
@@ -107,7 +106,6 @@ mail_strmap_rec_get_msgid(struct mail_thread_context *ctx,
 	}
 
 	/* get the nth message-id */
-	orig_msgids = msgids;
 	msgid = message_id_get_next(&msgids);
 	if (msgid != NULL) {
 		for (; n > 0 && *msgids != '\0'; n--)
