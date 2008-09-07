@@ -108,7 +108,7 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 
 	if (*ctx->parser.data == '@') {
 		if (parse_domain_list(ctx) <= 0 || *ctx->parser.data != ':') {
-			ctx->addr.route = p_strdup(ctx->pool, "INVALID_ROUTE");
+			ctx->addr.route = "INVALID_ROUTE";
 			return -1;
 		}
 		ctx->parser.data++;
@@ -148,7 +148,8 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 	}
 	if (parse_angle_addr(ctx) < 0) {
 		/* broken */
-		ctx->addr.domain = p_strdup(ctx->pool, "SYNTAX_ERROR");
+		ctx->addr.domain = "SYNTAX_ERROR";
+		ctx->addr.invalid_syntax = TRUE;
 	}
 	return ctx->parser.data != ctx->parser.end;
 }
@@ -176,10 +177,14 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 
 static void add_fixed_address(struct message_address_parser_context *ctx)
 {
-	if (ctx->addr.mailbox == NULL)
+	if (ctx->addr.mailbox == NULL) {
 		ctx->addr.mailbox = !ctx->fill_missing ? "" : "MISSING_MAILBOX";
-	if (ctx->addr.domain == NULL)
+		ctx->addr.invalid_syntax = TRUE;
+	}
+	if (ctx->addr.domain == NULL) {
 		ctx->addr.domain = !ctx->fill_missing ? "" : "MISSING_DOMAIN";
+		ctx->addr.invalid_syntax = TRUE;
+	}
 	add_address(ctx);
 }
 
