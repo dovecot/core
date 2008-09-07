@@ -132,7 +132,10 @@ int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str)
 	   atext           =
 	     ; Any character except controls, SP, and specials.
 	*/
-	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+	if (ctx->data == ctx->end || !IS_ATEXT(*ctx->data))
+		return -1;
+
+	for (start = ctx->data++; ctx->data != ctx->end; ctx->data++) {
 		if (IS_ATEXT(*ctx->data))
 			continue;
 
@@ -158,7 +161,10 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 
 	   For RFC-822 compatibility allow LWSP around '.'
 	*/
-	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+	if (ctx->data == ctx->end || !IS_ATEXT(*ctx->data))
+		return -1;
+
+	for (start = ctx->data++; ctx->data != ctx->end; ctx->data++) {
 		if (IS_ATEXT(*ctx->data))
 			continue;
 
