@@ -40,8 +40,7 @@ static int parse_local_part(struct message_address_parser_context *ctx)
 	   local-part      = dot-atom / quoted-string / obs-local-part
 	   obs-local-part  = word *("." word)
 	*/
-	if (ctx->parser.data == ctx->parser.end)
-		return 0;
+	i_assert(ctx->parser.data != ctx->parser.end);
 
 	str_truncate(ctx->str, 0);
 	if (*ctx->parser.data == '"')
@@ -157,15 +156,15 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 static int parse_addr_spec(struct message_address_parser_context *ctx)
 {
 	/* addr-spec       = local-part "@" domain */
-	int ret;
+	int ret, ret2;
 
 	str_truncate(ctx->parser.last_comment, 0);
 
-	if ((ret = parse_local_part(ctx)) < 0)
-		return ret;
-	if (ret > 0 && *ctx->parser.data == '@') {
-		if ((ret = parse_domain(ctx)) < 0)
-			return ret;
+	ret = parse_local_part(ctx);
+	if (ret != 0 && *ctx->parser.data == '@') {
+		ret2 = parse_domain(ctx);
+		if (ret2 <= 0)
+			ret = ret2;
 	}
 
 	if (str_len(ctx->parser.last_comment) > 0) {
@@ -193,18 +192,16 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 	const unsigned char *start;
 	int ret;
 
-	if (ctx->parser.data == ctx->parser.end)
-		return 0;
-
 	/* mailbox         = name-addr / addr-spec */
 	start = ctx->parser.data;
 	if ((ret = parse_name_addr(ctx)) < 0) {
 		/* nope, should be addr-spec */
 		ctx->parser.data = start;
-		if ((ret = parse_addr_spec(ctx)) < 0)
-			return -1;
+		ret = parse_addr_spec(ctx);
 	}
 
+	if (ret < 0)
+		ctx->addr.invalid_syntax = TRUE;
 	add_fixed_address(ctx);
 	return ret;
 }
@@ -214,17 +211,20 @@ static int parse_mailbox_list(struct message_address_parser_context *ctx)
 	int ret;
 
 	/* mailbox-list    = (mailbox *("," mailbox)) / obs-mbox-list */
-	while ((ret = parse_mailbox(ctx)) > 0) {
+	while ((ret = parse_mailbox(ctx)) != 0) {
 		if (*ctx->parser.data != ',')
 			break;
 		ctx->parser.data++;
-		rfc822_skip_lwsp(&ctx->parser);
+		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
+			break;
 	}
 	return ret;
 }
 
 static int parse_group(struct message_address_parser_context *ctx)
 {
+	int ret;
+
 	/*
 	   group           = display-name ":" [mailbox-list / CFWS] ";" [CFWS]
 	   display-name    = phrase
@@ -237,20 +237,25 @@ static int parse_group(struct message_address_parser_context *ctx)
 	/* from now on don't return -1 even if there are problems, so that
 	   the caller knows this is a group */
 	ctx->parser.data++;
-	(void)rfc822_skip_lwsp(&ctx->parser);
+	if (rfc822_skip_lwsp(&ctx->parser) < 0)
+		ctx->addr.invalid_syntax = TRUE;
 
 	ctx->addr.mailbox = p_strdup(ctx->pool, str_c(ctx->str));
 	add_address(ctx);
 
-	if (parse_mailbox_list(ctx) > 0) {
-		if (*ctx->parser.data == ';') {
+	if ((ret = parse_mailbox_list(ctx)) > 0) {
+		if (*ctx->parser.data != ';')
+			ret = -1;
+		else {
 			ctx->parser.data++;
-			(void)rfc822_skip_lwsp(&ctx->parser);
+			ret = rfc822_skip_lwsp(&ctx->parser);
 		}
 	}
+	if (ret < 0)
+		ctx->addr.invalid_syntax = TRUE;
 
 	add_address(ctx);
-	return 1;
+	return ret == 0 ? 0 : 1;
 }
 
 static int parse_address(struct message_address_parser_context *ctx)
@@ -265,7 +270,6 @@ static int parse_address(struct message_address_parser_context *ctx)
 		ctx->parser.data = start;
 		ret = parse_mailbox(ctx);
 	}
-
 	return ret;
 }
 
@@ -276,15 +280,20 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 
 	/* address-list    = (address *("," address)) / obs-addr-list */
 	while (max_addresses-- > 0) {
-		if ((ret = parse_address(ctx)) <= 0)
+		if ((ret = parse_address(ctx)) == 0)
 			break;
 		if (*ctx->parser.data != ',') {
 			ret = -1;
 			break;
 		}
 		ctx->parser.data++;
-		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
+		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0) {
+			if (ret < 0) {
+				/* ends with some garbage */
+				add_fixed_address(ctx);
+			}
 			break;
+		}
 	}
 	return ret;
 }
@@ -308,14 +317,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 		/* no addresses */
 		return NULL;
 	}
-	if (ret < 0 || parse_address_list(&ctx, max_addresses) < 0) {
-		if (ctx.first_addr == NULL) {
-			/* we had some input - we'll have to return something
-			   so that we can set invalid_syntax */
-			add_fixed_address(&ctx);
-		}
-		ctx.first_addr->invalid_syntax = TRUE;
-	}
+	(void)parse_address_list(&ctx, max_addresses);
 	return ctx.first_addr;
 }
 
