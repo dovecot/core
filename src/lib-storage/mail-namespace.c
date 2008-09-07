@@ -33,7 +33,7 @@ namespace_add_env(const char *data, unsigned int num,
 		  enum file_lock_method lock_method)
 {
         struct mail_namespace *ns;
-	const char *sep, *type, *prefix, *error;
+	const char *sep, *type, *prefix, *driver, *error;
 
 	ns = p_new(user->pool, struct mail_namespace, 1);
 
@@ -79,7 +79,14 @@ namespace_add_env(const char *data, unsigned int num,
 	ns->prefix = p_strdup(user->pool, prefix);
 	ns->user = user;
 
-	if (mail_storage_create(ns, NULL, data, flags, lock_method,
+	if (ns->type == NAMESPACE_SHARED && strchr(ns->prefix, '%') != NULL) {
+		/* dynamic shared namespace */
+		driver = "shared";
+	} else {
+		driver = NULL;
+	}
+
+	if (mail_storage_create(ns, driver, data, flags, lock_method,
 				&error) < 0) {
 		i_error("Namespace '%s': %s", ns->prefix, error);
 		return NULL;
@@ -160,24 +167,6 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 	return TRUE;
 }
 
-static struct mail_namespace *
-namespaces_sort(struct mail_namespace *src)
-{
-	struct mail_namespace **tmp, *next, *dest = NULL;
-
-	for (; src != NULL; src = next) {
-		next = src->next;
-
-		for (tmp = &dest; *tmp != NULL; tmp = &(*tmp)->next) {
-			if (strlen(src->prefix) < strlen((*tmp)->prefix))
-				break;
-		}
-		src->next = *tmp;
-		*tmp = src;
-	}
-	return dest;
-}
-
 int mail_namespaces_init(struct mail_user *user)
 {
 	struct mail_namespace *namespaces, *ns, **ns_p;
@@ -212,8 +201,7 @@ int mail_namespaces_init(struct mail_user *user)
 	if (namespaces != NULL) {
 		if (!namespaces_check(namespaces))
 			return -1;
-		namespaces = namespaces_sort(namespaces);
-		user->namespaces = namespaces;
+		mail_user_add_namespace(user, namespaces);
 
 		if (hook_mail_namespaces_created != NULL) {
 			T_BEGIN {

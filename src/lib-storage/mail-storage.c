@@ -119,7 +119,7 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 		i_fatal("Unknown lock_method: %s", str);
 }
 
-static struct mail_storage *mail_storage_find(const char *name)
+struct mail_storage *mail_storage_find_class(const char *name)
 {
 	struct mail_storage *const *classes;
 	unsigned int i, count;
@@ -199,7 +199,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		classes = &storage_class;
 		count = 1;
 	} else {
-		storage_class = mail_storage_find(driver);
+		storage_class = mail_storage_find_class(driver);
 		if (storage_class == NULL) {
 			*error_r = t_strdup_printf(
 				"Unknown mail storage driver %s", driver);

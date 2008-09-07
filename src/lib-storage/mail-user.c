@@ -42,6 +42,23 @@ void mail_user_deinit(struct mail_user **_user)
 	user->v.deinit(user);
 }
 
+void mail_user_add_namespace(struct mail_user *user, struct mail_namespace *ns)
+{
+	struct mail_namespace **tmp, *next;
+
+	for (; ns != NULL; ns = next) {
+		next = ns->next;
+
+		tmp = &user->namespaces;
+		for (; *tmp != NULL; tmp = &(*tmp)->next) {
+			if (strlen(ns->prefix) < strlen((*tmp)->prefix))
+				break;
+		}
+		ns->next = *tmp;
+		*tmp = ns;
+	}
+}
+
 const char *mail_user_home_expand(struct mail_user *user, const char *path)
 {
 	(void)mail_user_try_home_expand(user, &path);

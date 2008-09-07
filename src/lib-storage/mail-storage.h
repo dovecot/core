@@ -238,6 +238,8 @@ void mail_storage_register_all(void);
    are set to default methods */
 void mail_storage_class_register(struct mail_storage *storage_class);
 void mail_storage_class_unregister(struct mail_storage *storage_class);
+/* Find mail storage class by name */
+struct mail_storage *mail_storage_find_class(const char *name);
 
 /* Returns flags and lock_method based on environment settings. */
 void mail_storage_parse_env(enum mail_storage_flags *flags_r,

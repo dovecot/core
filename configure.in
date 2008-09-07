@@ -362,12 +362,12 @@ AM_CONDITIONAL(BUILD_DELIVER, test "$want_deliver" = "yes")
 
 AC_ARG_WITH(storages,
 [  --with-storages         Build with specified mail storage formats
-                          (maildir mbox dbox cydir raw)], [
+                          (maildir mbox dbox cydir shared raw)], [
 	if test "$withval" = "yes" -o "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
 	mail_storages=`echo "$withval"|sed 's/,/ /g'` ],
-	mail_storages="maildir mbox dbox cydir raw")
+	mail_storages="maildir mbox dbox cydir shared raw")
 AC_SUBST(mail_storages)
 
 AC_ARG_WITH(sql-drivers,
@@ -2238,6 +2238,7 @@ mbox_libs='$(top_builddir)/src/lib-storage/index/mbox/libstorage_mbox.a'
 dbox_libs='$(top_builddir)/src/lib-storage/index/dbox/libstorage_dbox.a'
 cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.a'
 raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.a'
+shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.a'
 CORE_LIBS='$(top_builddir)/src/lib-storage/index/libstorage_index.a $(top_builddir)/src/lib-storage/libstorage.a $(top_builddir)/src/lib-index/libindex.a'
 
 deliver_storage="raw"
@@ -2404,6 +2405,7 @@ src/lib-storage/index/mbox/Makefile
 src/lib-storage/index/dbox/Makefile
 src/lib-storage/index/cydir/Makefile
 src/lib-storage/index/raw/Makefile
+src/lib-storage/index/shared/Makefile
 src/lib-storage/register/Makefile
 src/auth/Makefile
 src/deliver/Makefile

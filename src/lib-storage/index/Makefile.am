@@ -1,4 +1,4 @@
-SUBDIRS = maildir mbox dbox cydir raw
+SUBDIRS = maildir mbox dbox cydir raw shared
 
 noinst_LIBRARIES = libstorage_index.a
 
