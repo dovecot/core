@@ -98,7 +98,8 @@ static int next_token(struct message_date_parser_context *ctx,
 	int ret;
 
 	str_truncate(ctx->str, 0);
-	ret = rfc822_parse_atom(&ctx->parser, ctx->str);
+	ret = ctx->parser.data == ctx->parser.end ? 0 :
+		rfc822_parse_atom(&ctx->parser, ctx->str);
 
 	*value = str_data(ctx->str);
 	*value_len = str_len(ctx->str);
