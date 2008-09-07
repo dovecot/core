@@ -503,8 +503,6 @@ struct cmd_uidl_context {
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 	unsigned int message;
-
-	struct mail_search_arg search_arg;
 };
 
 static void pop3_get_uid(struct cmd_uidl_context *ctx,
@@ -601,7 +599,6 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 
 	if (ctx->message == 0)
 		client_send_line(client, ".");
-	array_free(&ctx->search_arg.value.seqset);
 	i_free(ctx);
 	return found;
 }
