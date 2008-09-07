@@ -38,7 +38,7 @@ void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
 }
 
 int acl_storage_rights_ctx_have_right(struct acl_storage_rights_context *ctx,
-				      const char *name,
+				      const char *name, bool parent,
 				      unsigned int acl_storage_right_idx,
 				      bool *can_see_r)
 {
@@ -48,7 +48,9 @@ int acl_storage_rights_ctx_have_right(struct acl_storage_rights_context *ctx,
 	int ret, ret2;
 
 	ns = mailbox_list_get_namespace(ctx->backend->list);
-	aclobj = acl_object_init_from_name(ctx->backend, ns->storage, name);
+	aclobj = !parent ?
+		acl_object_init_from_name(ctx->backend, ns->storage, name) :
+		acl_object_init_from_parent(ctx->backend, ns->storage, name);
 	ret = acl_object_have_right(aclobj, idx_arr[acl_storage_right_idx]);
 
 	if (can_see_r != NULL) {
@@ -70,7 +72,7 @@ acl_storage_have_right(struct mail_storage *storage, const char *name,
 	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
 	int ret;
 
-	ret = acl_storage_rights_ctx_have_right(&astorage->rights, name,
+	ret = acl_storage_rights_ctx_have_right(&astorage->rights, name, FALSE,
 						acl_storage_right_idx,
 						can_see_r);
 	if (ret < 0) 
@@ -131,13 +133,11 @@ static int acl_mailbox_create(struct mail_storage *storage, const char *name,
 			      bool directory)
 {
 	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
-	struct mailbox_list *list = mail_storage_get_list(storage);
 	int ret;
 
 	T_BEGIN {
-		ret = acl_storage_have_right(storage,
-			acl_mailbox_list_get_parent_mailbox_name(list, name),
-			ACL_STORAGE_RIGHT_CREATE, NULL);
+		ret = acl_storage_rights_ctx_have_right(&astorage->rights, name,
+				TRUE, ACL_STORAGE_RIGHT_CREATE, NULL);
 	} T_END;
 
 	if (ret <= 0) {
@@ -147,6 +147,8 @@ static int acl_mailbox_create(struct mail_storage *storage, const char *name,
 			   existence. Can't help it. */
 			mail_storage_set_error(storage, MAIL_ERROR_PERM,
 					       MAIL_ERRSTR_NO_PERMISSION);
+		} else {
+			mail_storage_set_internal_error(storage);
 		}
 		return -1;
 	}

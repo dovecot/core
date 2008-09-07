@@ -44,13 +44,11 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box);
 void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
 				 struct acl_backend *backend);
 int acl_storage_rights_ctx_have_right(struct acl_storage_rights_context *ctx,
-				      const char *name,
+				      const char *name, bool parent,
 				      unsigned int acl_storage_right_idx,
 				      bool *can_see_r);
 
 struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list);
-const char *acl_mailbox_list_get_parent_mailbox_name(struct mailbox_list *list,
-						     const char *name);
 
 void acl_plugin_init(void);
 void acl_plugin_deinit(void);

@@ -30,6 +30,7 @@ struct acl_vfile_validity {
 
 struct acl_backend_vfile_validity {
 	struct acl_vfile_validity global_validity, local_validity;
+	struct acl_vfile_validity mailbox_validity;
 };
 
 struct acl_letter_map {
@@ -106,6 +107,20 @@ static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 	pool_unref(&backend->backend.pool);
 }
 
+static const char *
+acl_backend_vfile_get_local_dir(struct mail_storage *storage, const char *name)
+{
+	const char *dir;
+	bool is_file;
+
+	dir = mail_storage_get_mailbox_path(storage, name, &is_file);
+	if (is_file) {
+		dir = mailbox_list_get_path(storage->list, name,
+					    MAILBOX_LIST_PATH_TYPE_CONTROL);
+	}
+	return dir;
+}
+
 static struct acl_object *
 acl_backend_vfile_object_init(struct acl_backend *_backend,
 			      struct mail_storage *storage, const char *name)
@@ -114,7 +129,6 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 		(struct acl_backend_vfile *)_backend;
 	struct acl_object_vfile *aclobj;
 	const char *dir;
-	bool is_file;
 
 	aclobj = i_new(struct acl_object_vfile, 1);
 	aclobj->aclobj.backend = _backend;
@@ -127,14 +141,111 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 		dir = mailbox_list_get_path(_backend->list, NULL,
 					    MAILBOX_LIST_PATH_TYPE_DIR);
 	} else {
-		dir = mail_storage_get_mailbox_path(storage, name, &is_file);
-		if (is_file) {
-			dir = mailbox_list_get_path(_backend->list, name,
-					MAILBOX_LIST_PATH_TYPE_CONTROL);
-		}
+		dir = acl_backend_vfile_get_local_dir(storage, name);
 	}
 	aclobj->local_path = i_strconcat(dir, "/"ACL_FILENAME, NULL);
 	return &aclobj->aclobj;
+}
+
+static const char *
+get_parent_mailbox(struct mail_storage *storage, const char *name)
+{
+	const char *p;
+	char sep;
+
+	sep = mailbox_list_get_hierarchy_sep(storage->list);
+	p = strrchr(name, sep);
+	return p == NULL ? NULL : t_strdup_until(name, p);
+}
+
+static int
+acl_backend_vfile_exists(struct acl_backend_vfile *backend, const char *path,
+			 struct acl_vfile_validity *validity)
+{
+	struct stat st;
+
+	if (validity->last_check + (time_t)backend->cache_secs > ioloop_time) {
+		/* use the cached value */
+		return validity->last_mtime != VALIDITY_MTIME_NOTFOUND;
+	}
+
+	validity->last_check = ioloop_time;
+	if (stat(path, &st) < 0) {
+		if (errno == ENOENT) {
+			validity->last_mtime = VALIDITY_MTIME_NOTFOUND;
+			return 0;
+		}
+		if (errno == EACCES) {
+			validity->last_mtime = VALIDITY_MTIME_NOACCESS;
+			return 1;
+		}
+		i_error("stat(%s) failed: %m", path);
+		return -1;
+	}
+	validity->last_mtime = st.st_mtime;
+	validity->last_size = st.st_size;
+	return 1;
+}
+
+static bool
+acl_backend_vfile_has_acl(struct acl_backend *_backend,
+			  struct mail_storage *storage, const char *name)
+{
+	struct acl_backend_vfile *backend =
+		(struct acl_backend_vfile *)_backend;
+	struct acl_backend_vfile_validity *old_validity, new_validity;
+	const char *path, *local_path, *global_path, *dir;
+	int ret;
+
+	old_validity = acl_cache_get_validity(_backend->cache, name);
+	if (old_validity != NULL)
+		new_validity = *old_validity;
+	else
+		memset(&new_validity, 0, sizeof(new_validity));
+
+	/* See if the mailbox exists. If we wanted recursive lookups we could
+	   skip this, but at least for now we assume that if an existing
+	   mailbox has no ACL it's equivalent to default ACLs. */
+	path = mailbox_list_get_path(storage->list, name,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	ret = acl_backend_vfile_exists(backend, path,
+				       &new_validity.mailbox_validity);
+	if (ret == 0) {
+		dir = acl_backend_vfile_get_local_dir(storage, name);
+		local_path = t_strconcat(dir, "/", name, NULL);
+		ret = acl_backend_vfile_exists(backend, local_path,
+					       &new_validity.local_validity);
+	}
+	if (ret == 0 && backend->global_dir != NULL) {
+		global_path = t_strconcat(backend->global_dir, "/", name, NULL);
+		ret = acl_backend_vfile_exists(backend, global_path,
+					       &new_validity.global_validity);
+	}
+	acl_cache_set_validity(_backend->cache, name, &new_validity);
+	return ret > 0;
+}
+
+static struct acl_object *
+acl_backend_vfile_object_init_parent(struct acl_backend *backend,
+				     struct mail_storage *storage,
+				     const char *child_name)
+{
+	const char *parent;
+
+	/* stop at the first parent that
+	   a) has global ACL file
+	   b) has local ACL file
+	   c) exists */
+	while ((parent = get_parent_mailbox(storage, child_name)) != NULL) {
+		if (acl_backend_vfile_has_acl(backend, storage, parent))
+			break;
+		child_name = parent;
+	}
+	if (parent == NULL) {
+		/* use the root */
+		parent = "";
+	}
+	return acl_backend_vfile_object_init(backend, storage, parent);
 }
 
 static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
@@ -470,8 +581,9 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 		   seconds) */
 		time_t cache_secs = backend->cache_secs;
 
-		if (st.st_mtime < validity->last_read_time - cache_secs ||
-		    ioloop_time - validity->last_read_time <= cache_secs)
+		if (validity->last_read_time != 0 &&
+		    (st.st_mtime < validity->last_read_time - cache_secs ||
+		     ioloop_time - validity->last_read_time <= cache_secs))
 			return 0;
 	}
 
@@ -591,6 +703,7 @@ struct acl_backend_vfuncs acl_backend_vfile = {
 	acl_backend_vfile_nonowner_iter_next,
 	acl_backend_vfile_nonowner_iter_deinit,
 	acl_backend_vfile_object_init,
+	acl_backend_vfile_object_init_parent,
 	acl_backend_vfile_object_deinit,
 	acl_backend_vfile_object_refresh_cache,
 	acl_backend_vfile_object_update,

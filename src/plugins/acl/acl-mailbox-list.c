@@ -42,24 +42,19 @@ struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list)
 	return alist->rights.backend;
 }
 
-const char *acl_mailbox_list_get_parent_mailbox_name(struct mailbox_list *list,
-						     const char *name)
-{
-	const char *p;
-	char sep;
-
-	sep = mailbox_list_get_hierarchy_sep(list);
-	p = strrchr(name, sep);
-	return p == NULL ? "" : t_strdup_until(name, p);
-}
-
 static int
-acl_mailbox_list_have_right(struct acl_mailbox_list *alist, const char *name,
+acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 			    unsigned int acl_storage_right_idx, bool *can_see_r)
 {
-	return acl_storage_rights_ctx_have_right(&alist->rights, name,
-						 acl_storage_right_idx,
-						 can_see_r);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
+	int ret;
+
+	ret = acl_storage_rights_ctx_have_right(&alist->rights, name, FALSE,
+						acl_storage_right_idx,
+						can_see_r);
+	if (ret < 0)
+		mailbox_list_set_internal_error(list);
+	return ret;
 }
 
 static void
@@ -185,7 +180,6 @@ static int
 acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx,
 				 const struct mailbox_info *info)
 {
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ctx->ctx.list);
 	const char *acl_name;
 	int ret;
 
@@ -195,7 +189,7 @@ acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx,
 	}
 
 	acl_name = acl_mailbox_list_iter_get_name(&ctx->ctx, info->name);
-	ret = acl_mailbox_list_have_right(alist, acl_name,
+	ret = acl_mailbox_list_have_right(ctx->ctx.list, acl_name,
 					  ACL_STORAGE_RIGHT_LOOKUP,
 					  NULL);
 	if (ret != 0)
@@ -255,7 +249,7 @@ acl_mailbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 		return ret;
 
 	mailbox_name = acl_mailbox_list_iter_get_name(ctx, mailbox_name);
-	return acl_mailbox_list_have_right(alist, mailbox_name,
+	return acl_mailbox_list_have_right(ctx->list, mailbox_name,
 					   ACL_STORAGE_RIGHT_LOOKUP, NULL);
 }
 
@@ -283,14 +277,14 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 	int ret;
 
-	ret = acl_mailbox_list_have_right(alist, name, ACL_STORAGE_RIGHT_LOOKUP,
+	ret = acl_mailbox_list_have_right(list, name, ACL_STORAGE_RIGHT_LOOKUP,
 					  NULL);
 	if (ret < 0)
 		return -1;
 	if (ret == 0) {
 		/* If we have INSERT right for the mailbox, we'll need to
 		   reveal its existence so that APPEND and COPY works. */
-		ret = acl_mailbox_list_have_right(alist, name,
+		ret = acl_mailbox_list_have_right(list, name,
 						  ACL_STORAGE_RIGHT_INSERT,
 						  NULL);
 		if (ret < 0)
@@ -314,16 +308,14 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 	case MAILBOX_NAME_NOINFERIORS:
 		/* have to check if we are allowed to see the parent */
 		T_BEGIN {
-			const char *parent;
-
-			parent = acl_mailbox_list_get_parent_mailbox_name(list,
-									  name);
-			ret = acl_mailbox_list_have_right(alist, parent,
-						ACL_STORAGE_RIGHT_LOOKUP, NULL);
+			ret = acl_storage_rights_ctx_have_right(&alist->rights, name,
+					TRUE, ACL_STORAGE_RIGHT_LOOKUP, NULL);
 		} T_END;
 
-		if (ret < 0)
+		if (ret < 0) {
+			mailbox_list_set_internal_error(list);
 			return -1;
+		}
 		if (ret == 0) {
 			/* no permission to see the parent */
 			*status = MAILBOX_NAME_VALID;
@@ -340,7 +332,7 @@ acl_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	bool can_see;
 	int ret;
 
-	ret = acl_mailbox_list_have_right(alist, name, ACL_STORAGE_RIGHT_DELETE,
+	ret = acl_mailbox_list_have_right(list, name, ACL_STORAGE_RIGHT_DELETE,
 					  &can_see);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -367,7 +359,7 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 	int ret;
 
 	/* renaming requires rights to delete the old mailbox */
-	ret = acl_mailbox_list_have_right(alist, oldname,
+	ret = acl_mailbox_list_have_right(list, oldname,
 					  ACL_STORAGE_RIGHT_DELETE, &can_see);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -384,9 +376,8 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 
 	/* and create the new one under the parent mailbox */
 	T_BEGIN {
-		ret = acl_mailbox_list_have_right(alist,
-			acl_mailbox_list_get_parent_mailbox_name(list, newname),
-			ACL_STORAGE_RIGHT_CREATE, NULL);
+		ret = acl_storage_rights_ctx_have_right(&alist->rights, newname,
+				TRUE, ACL_STORAGE_RIGHT_CREATE, NULL);
 	} T_END;
 
 	if (ret <= 0) {
@@ -396,6 +387,8 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 			   existence. Can't help it. */
 			mailbox_list_set_error(list, MAIL_ERROR_PERM,
 					       MAIL_ERRSTR_NO_PERMISSION);
+		} else {
+			mailbox_list_set_internal_error(list);
 		}
 		return -1;
 	}

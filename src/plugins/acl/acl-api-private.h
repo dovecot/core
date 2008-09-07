@@ -18,6 +18,9 @@ struct acl_backend_vfuncs {
 	struct acl_object *(*object_init)(struct acl_backend *backend,
 					  struct mail_storage *storage,
 					  const char *name);
+	struct acl_object *(*object_init_parent)(struct acl_backend *backend,
+						 struct mail_storage *storage,
+						 const char *child_name);
 	void (*object_deinit)(struct acl_object *aclobj);
 
 	int (*object_refresh_cache)(struct acl_object *aclobj);

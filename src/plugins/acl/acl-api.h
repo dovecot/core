@@ -108,6 +108,9 @@ acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **ctx);
 struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
 					     struct mail_storage *storage,
 					     const char *name);
+struct acl_object *acl_object_init_from_parent(struct acl_backend *backend,
+					       struct mail_storage *storage,
+					       const char *child_name);
 void acl_object_deinit(struct acl_object **aclobj);
 
 /* Returns 1 if we have the requested rights, 0 if not, or -1 if internal

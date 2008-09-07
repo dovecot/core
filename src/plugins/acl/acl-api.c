@@ -12,6 +12,13 @@ struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
 	return backend->v.object_init(backend, storage, name);
 }
 
+struct acl_object *acl_object_init_from_parent(struct acl_backend *backend,
+					       struct mail_storage *storage,
+					       const char *child_name)
+{
+	return backend->v.object_init_parent(backend, storage, child_name);
+}
+
 void acl_object_deinit(struct acl_object **_aclobj)
 {
 	struct acl_object *aclobj = *_aclobj;
