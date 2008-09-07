@@ -174,6 +174,15 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 	return ret;
 }
 
+static void add_fixed_address(struct message_address_parser_context *ctx)
+{
+	if (ctx->addr.mailbox == NULL)
+		ctx->addr.mailbox = !ctx->fill_missing ? "" : "MISSING_MAILBOX";
+	if (ctx->addr.domain == NULL)
+		ctx->addr.domain = !ctx->fill_missing ? "" : "MISSING_DOMAIN";
+	add_address(ctx);
+}
+
 static int parse_mailbox(struct message_address_parser_context *ctx)
 {
 	const unsigned char *start;
@@ -191,16 +200,7 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 			return -1;
 	}
 
-	if (ctx->addr.mailbox == NULL) {
-		ctx->addr.mailbox = !ctx->fill_missing ? "" :
-			p_strdup(ctx->pool, "MISSING_MAILBOX");
-	}
-	if (ctx->addr.domain == NULL) {
-		ctx->addr.domain = !ctx->fill_missing ? "" :
-			p_strdup(ctx->pool, "MISSING_DOMAIN");
-	}
-	add_address(ctx);
-
+	add_fixed_address(ctx);
 	return ret;
 }
 
@@ -289,6 +289,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 			   unsigned int max_addresses, bool fill_missing)
 {
 	struct message_address_parser_context ctx;
+	int ret;
 
 	memset(&ctx, 0, sizeof(ctx));
 
@@ -297,10 +298,19 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 	ctx.str = t_str_new(128);
 	ctx.fill_missing = fill_missing;
 
-	rfc822_skip_lwsp(&ctx.parser);
-
-	if (parse_address_list(&ctx, max_addresses) < 0)
+	ret = rfc822_skip_lwsp(&ctx.parser);
+	if (ret == 0) {
+		/* no addresses */
+		return NULL;
+	}
+	if (ret < 0 || parse_address_list(&ctx, max_addresses) < 0) {
+		if (ctx.first_addr == NULL) {
+			/* we had some input - we'll have to return something
+			   so that we can set invalid_syntax */
+			add_fixed_address(&ctx);
+		}
 		ctx.first_addr->invalid_syntax = TRUE;
+	}
 	return ctx.first_addr;
 }
 
