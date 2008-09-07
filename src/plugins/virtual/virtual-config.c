@@ -59,8 +59,10 @@ virtual_config_add_rule(struct virtual_parse_context *ctx, const char **error_r)
 	struct mail_search_args *search_args;
 	unsigned int i, count;
 
-	if (str_len(ctx->rule) == 0)
+	if (ctx->rule_idx == array_count(&ctx->mbox->backend_boxes)) {
+		i_assert(str_len(ctx->rule) == 0);
 		return 0;
+	}
 
 	search_args = virtual_search_args_parse(ctx->rule, error_r);
 	str_truncate(ctx->rule, 0);
@@ -257,6 +259,8 @@ void virtual_config_free(struct virtual_mailbox *mbox)
 	unsigned int i, count;
 
 	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
-	for (i = 0; i < count; i++)
-		mail_search_args_unref(&bboxes[i]->search_args);
+	for (i = 0; i < count; i++) {
+		if (bboxes[i]->search_args != NULL)
+			mail_search_args_unref(&bboxes[i]->search_args);
+	}
 }
