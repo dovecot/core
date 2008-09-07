@@ -8,6 +8,7 @@ struct message_address {
 	struct message_address *next;
 
 	const char *name, *route, *mailbox, *domain;
+	bool invalid_syntax;
 };
 
 /* Parse message addresses from given data. If fill_missing is TRUE, missing

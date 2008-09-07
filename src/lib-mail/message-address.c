@@ -264,17 +264,24 @@ static int parse_address(struct message_address_parser_context *ctx)
 	return ret;
 }
 
-static void parse_address_list(struct message_address_parser_context *ctx,
-			       unsigned int max_addresses)
+static int parse_address_list(struct message_address_parser_context *ctx,
+			      unsigned int max_addresses)
 {
+	int ret = 0;
+
 	/* address-list    = (address *("," address)) / obs-addr-list */
-	while (max_addresses-- > 0 && parse_address(ctx) > 0) {
-		if (*ctx->parser.data != ',')
+	while (max_addresses-- > 0) {
+		if ((ret = parse_address(ctx)) <= 0)
 			break;
+		if (*ctx->parser.data != ',') {
+			ret = -1;
+			break;
+		}
 		ctx->parser.data++;
-		if (rfc822_skip_lwsp(&ctx->parser) <= 0)
+		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
 			break;
 	}
+	return ret;
 }
 
 static struct message_address *
@@ -292,7 +299,8 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 
 	rfc822_skip_lwsp(&ctx.parser);
 
-	(void)parse_address_list(&ctx, max_addresses);
+	if (parse_address_list(&ctx, max_addresses) < 0)
+		ctx.first_addr->invalid_syntax = TRUE;
 	return ctx.first_addr;
 }
 
