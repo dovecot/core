@@ -437,6 +437,13 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 
 	if (!mail_error_from_errno(&error, &error_string))
 		return FALSE;
+	if ((storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0 &&
+	    error != MAIL_ERROR_NOTFOUND) {
+		/* debugging is enabled - admin may be debugging a
+		   (permission) problem, so return FALSE to get the caller to
+		   log the full error message. */
+		return FALSE;
+	}
 
 	mail_storage_set_error(storage, error, error_string);
 	return TRUE;
