@@ -387,10 +387,8 @@ acl_cache_my_current_rights_recalculate(struct acl_object_cache *obj_cache)
 			   rights. */
 			right_size = obj_cache->my_neg_rights[i]->size;
 			p = buffer_get_space_unsafe(bitmask, 0, right_size);
-			for (j = 0; j < right_size; j++) {
-				p[j] |=
-					obj_cache->my_neg_rights[i]->mask[j];
-			}
+			for (j = 0; j < right_size; j++)
+				p[j] &= ~obj_cache->my_neg_rights[i]->mask[j];
 		}
 	}
 
