@@ -24,14 +24,25 @@ struct subsfile_list_context {
 	bool failed;
 };
 
-static void subsfile_set_syscall_error(struct mailbox_list *list,
+static void subsread_set_syscall_error(struct mailbox_list *list,
 				       const char *function, const char *path)
 {
-	i_assert(function != NULL);
-
 	if (errno == EACCES) {
 		mailbox_list_set_error(list, MAIL_ERROR_PERM,
-				       MAIL_ERRSTR_NO_PERMISSION);
+				       "No permission to read subscriptions");
+	} else {
+		mailbox_list_set_critical(list,
+			"%s failed with subscription file %s: %m",
+			function, path);
+	}
+}
+
+static void subswrite_set_syscall_error(struct mailbox_list *list,
+					const char *function, const char *path)
+{
+	if (errno == EACCES) {
+		mailbox_list_set_error(list, MAIL_ERROR_PERM,
+				       "No permission to modify subscriptions");
 	} else {
 		mailbox_list_set_critical(list,
 			"%s failed with subscription file %s: %m",
@@ -54,8 +65,8 @@ static const char *next_line(struct mailbox_list *list, const char *path,
 		case -1:
                         if (input->stream_errno != 0 &&
                             (input->stream_errno != ESTALE || !ignore_estale)) {
-                                subsfile_set_syscall_error(list,
-                                                           "read()", path);
+                                subswrite_set_syscall_error(list,
+							    "read()", path);
                                 *failed_r = TRUE;
                         }
 			return NULL;
@@ -109,7 +120,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		if (dir != NULL &&
 		    mkdir_parents_chown(dir, dir_mode, (uid_t)-1, gid) < 0 &&
 		    errno != EEXIST) {
-			subsfile_set_syscall_error(list, "mkdir()", dir);
+			subswrite_set_syscall_error(list, "mkdir()", dir);
 			return -1;
 		}
 		fd_out = file_dotlock_open_mode(&dotlock_set, path, 0,
@@ -120,15 +131,15 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 			mailbox_list_set_error(list, MAIL_ERROR_TEMP,
 				"Timeout waiting for subscription file lock");
 		} else {
-			subsfile_set_syscall_error(list,
-						   "file_dotlock_open()", path);
+			subswrite_set_syscall_error(list, "file_dotlock_open()",
+						    path);
 		}
 		return -1;
 	}
 
 	fd_in = nfs_safe_open(path, O_RDONLY);
 	if (fd_in == -1 && errno != ENOENT) {
-		subsfile_set_syscall_error(list, "open()", path);
+		subswrite_set_syscall_error(list, "open()", path);
 		(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}
@@ -148,7 +159,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 
 		if (o_stream_send_str(output, line) < 0 ||
 		    o_stream_send(output, "\n", 1) < 0) {
-			subsfile_set_syscall_error(list, "write()", path);
+			subswrite_set_syscall_error(list, "write()", path);
 			failed = TRUE;
 			break;
 		}
@@ -158,13 +169,13 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		/* append subscription */
 		line = t_strconcat(name, "\n", NULL);
 		if (o_stream_send_str(output, line) < 0) {
-			subsfile_set_syscall_error(list, "write()", path);
+			subswrite_set_syscall_error(list, "write()", path);
 			failed = TRUE;
 		}
 	}
 
 	if (!failed && fsync(fd_out) < 0) {
-		subsfile_set_syscall_error(list, "fsync()", path);
+		subswrite_set_syscall_error(list, "fsync()", path);
 		failed = TRUE;
 	}
 
@@ -174,7 +185,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 
 	if (failed || (set && found) || (!set && !found)) {
 		if (file_dotlock_delete(&dotlock) < 0) {
-			subsfile_set_syscall_error(list,
+			subswrite_set_syscall_error(list,
 				"file_dotlock_delete()", path);
 			failed = TRUE;
 		}
@@ -182,7 +193,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		enum dotlock_replace_flags flags =
 			DOTLOCK_REPLACE_FLAG_VERIFY_OWNER;
 		if (file_dotlock_replace(&dotlock, flags) < 0) {
-			subsfile_set_syscall_error(list,
+			subswrite_set_syscall_error(list,
 				"file_dotlock_replace()", path);
 			failed = TRUE;
 		}
@@ -202,7 +213,7 @@ subsfile_list_init(struct mailbox_list *list, const char *path)
 	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno != ENOENT) {
-			subsfile_set_syscall_error(list, "open()", path);
+			subsread_set_syscall_error(list, "open()", path);
 			ctx->failed = TRUE;
 		}
 	} else {
@@ -252,8 +263,8 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
                            Just return end of subscriptions list in that
                            case. */
                         if (errno != ENOENT) {
-                                subsfile_set_syscall_error(ctx->list, "open()",
-                                                           ctx->path);
+                                subsread_set_syscall_error(ctx->list, "open()",
+							   ctx->path);
                                 ctx->failed = TRUE;
                         }
                         return NULL;
