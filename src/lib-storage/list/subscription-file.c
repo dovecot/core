@@ -27,7 +27,8 @@ struct subsfile_list_context {
 static void subsread_set_syscall_error(struct mailbox_list *list,
 				       const char *function, const char *path)
 {
-	if (errno == EACCES) {
+	if (errno == EACCES &&
+	    (list->flags & MAILBOX_LIST_FLAG_DEBUG) == 0) {
 		mailbox_list_set_error(list, MAIL_ERROR_PERM,
 				       "No permission to read subscriptions");
 	} else {
@@ -40,7 +41,8 @@ static void subsread_set_syscall_error(struct mailbox_list *list,
 static void subswrite_set_syscall_error(struct mailbox_list *list,
 					const char *function, const char *path)
 {
-	if (errno == EACCES) {
+	if (errno == EACCES &&
+	    (list->flags & MAILBOX_LIST_FLAG_DEBUG) == 0) {
 		mailbox_list_set_error(list, MAIL_ERROR_PERM,
 				       "No permission to modify subscriptions");
 	} else {
