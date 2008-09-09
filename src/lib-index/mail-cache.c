@@ -538,7 +538,7 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 				break;
 		}
 
-		if (mail_cache_lock_file(cache) <= 0) {
+		if ((ret = mail_cache_lock_file(cache)) <= 0) {
 			ret = -1;
 			break;
 		}
