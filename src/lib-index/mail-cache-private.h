@@ -36,8 +36,8 @@
 /* When allocating space for transactions, don't use blocks larger than this. */
 #define MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE (1024*512)
 
-#define MAIL_CACHE_LOCK_TIMEOUT 120
-#define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 60
+#define MAIL_CACHE_LOCK_TIMEOUT 2
+#define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 300
 
 #define CACHE_RECORD(cache, offset) \
 	((const struct mail_cache_record *) \
