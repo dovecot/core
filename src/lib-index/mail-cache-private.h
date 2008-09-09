@@ -220,8 +220,8 @@ struct mail_cache_lookup_iterate_ctx {
 
 int mail_cache_open_and_verify(struct mail_cache *cache);
 
-/* Explicitly lock the cache file. Returns -1 if error, 1 if ok, 0 if we
-   couldn't lock */
+/* Explicitly lock the cache file. Returns -1 if error / timed out,
+   1 if ok, 0 if cache is broken/doesn't exist */
 int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id);
 /* Returns -1 if cache is / just got corrupted, 0 if ok. */
 int mail_cache_unlock(struct mail_cache *cache);
