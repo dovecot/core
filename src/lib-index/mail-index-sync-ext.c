@@ -464,7 +464,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 
 	/* default to ignoring the following extension updates in case this
 	   intro is corrupted */
-	ctx->cur_ext_map_idx = 0;
+	ctx->cur_ext_map_idx = (uint32_t)-2;
 	ctx->cur_ext_ignore = TRUE;
 
 	if (u->ext_id != (uint32_t)-1 &&
@@ -576,6 +576,10 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	if (ctx->cur_ext_map_idx == (uint32_t)-1) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension reset without intro prefix");
+		return -1;
+	}
+	if (ctx->cur_ext_map_idx == (uint32_t)-2 && ctx->cur_ext_ignore) {
+		/* previous extension intro was broken */
 		return -1;
 	}
 	/* since we're resetting the extension, don't check cur_ext_ignore */
