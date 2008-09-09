@@ -851,6 +851,9 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 	struct mailbox_status status;
 	int ret;
 
+	if (!bbox->box->opened)
+		index_storage_mailbox_open(ibox);
+
 	/* if we already did some changes to index, commit them before
 	   syncing starts. */
 	virtual_backend_box_sync_mail_unset(bbox);
