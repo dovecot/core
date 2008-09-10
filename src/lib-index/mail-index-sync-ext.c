@@ -350,6 +350,11 @@ mail_index_sync_ext_unknown_complain(struct mail_index_sync_map_ctx *ctx,
 {
 	unsigned char *p;
 
+	if (ext_map_idx >= 1024) {
+		/* don't try to track too high values */
+		return TRUE;
+	}
+
 	if (ctx->unknown_extensions == NULL) {
 		ctx->unknown_extensions =
 			buffer_create_dynamic(default_pool, ext_map_idx + 8);
