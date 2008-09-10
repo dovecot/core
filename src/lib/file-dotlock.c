@@ -760,8 +760,9 @@ int file_dotlock_open_mode(const struct dotlock_settings *set, const char *path,
 
 	if (fd != -1) {
 		if (fchown(fd, uid, gid) < 0) {
-			i_error("fchown(%s) failed: %m",
-				file_dotlock_get_lock_path(dotlock));
+			i_error("fchown(%s, %ld, %ld) failed: %m",
+				file_dotlock_get_lock_path(dotlock),
+				(long)uid, (long)gid);
 			file_dotlock_delete(&dotlock);
 			return -1;
 		}
