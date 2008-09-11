@@ -361,11 +361,12 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 
 	old_mask = umask(cache->index->mode ^ 0666);
 	fd = file_dotlock_open(&cache->dotlock_settings, cache->filepath,
-			       0, &dotlock);
+			       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
 	umask(old_mask);
 
 	if (fd == -1) {
-		mail_cache_set_syscall_error(cache, "file_dotlock_open()");
+		if (errno != EAGAIN)
+			mail_cache_set_syscall_error(cache, "file_dotlock_open()");
 		return -1;
 	}
 
@@ -467,7 +468,7 @@ int mail_cache_compress(struct mail_cache *cache,
 						    FALSE);
 		}
 	} else {
-		switch (mail_cache_lock(cache, FALSE)) {
+		switch (mail_cache_try_lock(cache)) {
 		case -1:
 			return -1;
 		case 0:

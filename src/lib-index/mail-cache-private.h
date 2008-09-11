@@ -224,6 +224,7 @@ int mail_cache_open_and_verify(struct mail_cache *cache);
 /* Explicitly lock the cache file. Returns -1 if error / timed out,
    1 if ok, 0 if cache is broken/doesn't exist */
 int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id);
+int mail_cache_try_lock(struct mail_cache *cache);
 /* Returns -1 if cache is / just got corrupted, 0 if ok. */
 int mail_cache_unlock(struct mail_cache *cache);
 

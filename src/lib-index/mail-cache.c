@@ -460,7 +460,7 @@ void mail_cache_free(struct mail_cache **_cache)
 	i_free(cache);
 }
 
-static int mail_cache_lock_file(struct mail_cache *cache)
+static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 {
 	int ret;
 
@@ -468,12 +468,16 @@ static int mail_cache_lock_file(struct mail_cache *cache)
 		i_assert(cache->file_lock == NULL);
 		ret = mail_index_lock_fd(cache->index, cache->filepath,
 					 cache->fd, F_WRLCK,
-					 MAIL_CACHE_LOCK_TIMEOUT,
+					 nonblock ? 0 : MAIL_CACHE_LOCK_TIMEOUT,
 					 &cache->file_lock);
 	} else {
+		enum dotlock_create_flags flags =
+			nonblock ? DOTLOCK_CREATE_FLAG_NONBLOCK : 0;
+
 		i_assert(cache->dotlock == NULL);
 		ret = file_dotlock_create(&cache->dotlock_settings,
-					  cache->filepath, 0, &cache->dotlock);
+					  cache->filepath, flags,
+					  &cache->dotlock);
 		if (ret <= 0) {
 			mail_cache_set_syscall_error(cache,
 						     "file_dotlock_create()");
@@ -496,7 +500,9 @@ static void mail_cache_unlock_file(struct mail_cache *cache)
 		(void)file_dotlock_delete(&cache->dotlock);
 }
 
-int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
+static int
+mail_cache_lock_full(struct mail_cache *cache, bool require_same_reset_id,
+		     bool nonblock)
 {
 	const struct mail_index_ext *ext;
 	struct mail_index_view *iview;
@@ -538,7 +544,7 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 				break;
 		}
 
-		if ((ret = mail_cache_lock_file(cache)) <= 0) {
+		if ((ret = mail_cache_lock_file(cache, nonblock)) <= 0) {
 			ret = -1;
 			break;
 		}
@@ -571,6 +577,16 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 
 	i_assert((ret <= 0 && !cache->locked) || (ret > 0 && cache->locked));
 	return ret;
+}
+
+int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
+{
+	return mail_cache_lock_full(cache, require_same_reset_id, FALSE);
+}
+
+int mail_cache_try_lock(struct mail_cache *cache)
+{
+	return mail_cache_lock_full(cache, FALSE, TRUE);
 }
 
 static void mail_cache_update_need_compress(struct mail_cache *cache)
