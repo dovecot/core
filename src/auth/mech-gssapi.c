@@ -21,6 +21,8 @@
 #include "hex-binary.h"
 #include "safe-memset.h"
 
+#include <stdlib.h>
+
 #ifdef HAVE_GSSAPI
 
 #ifndef HAVE___GSS_USEROK
