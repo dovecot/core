@@ -667,7 +667,8 @@ void mail_cache_view_close(struct mail_cache_view *view)
 {
 	i_assert(view->trans_view == NULL);
 
-	if (view->cache->field_header_write_pending)
+	if (view->cache->field_header_write_pending &&
+	    !view->cache->compressing)
                 (void)mail_cache_header_fields_update(view->cache);
 
 	buffer_free(&view->cached_exists_buf);

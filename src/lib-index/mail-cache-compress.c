@@ -433,6 +433,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	cache->fd = fd;
 	cache->st_ino = st.st_ino;
 	cache->st_dev = st.st_dev;
+	cache->field_header_write_pending = FALSE;
 
 	if (cache->file_cache != NULL)
 		file_cache_set_fd(cache->file_cache, cache->fd);
@@ -452,6 +453,8 @@ int mail_cache_compress(struct mail_cache *cache,
 	bool unlock = FALSE;
 	int ret;
 
+	i_assert(!cache->compressing);
+
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index) || cache->index->readonly)
 		return 0;
 
@@ -463,26 +466,27 @@ int mail_cache_compress(struct mail_cache *cache,
 						    cache->filepath, cache->fd,
 						    FALSE);
 		}
-		return mail_cache_compress_locked(cache, trans, &unlock);
-	}
-
-	switch (mail_cache_lock(cache, FALSE)) {
-	case -1:
-		return -1;
-	case 0:
-		/* couldn't lock, either it's broken or doesn't exist.
-		   just start creating it. */
-		return mail_cache_compress_locked(cache, trans, &unlock);
-	default:
-		/* locking succeeded. */
-		unlock = TRUE;
-		ret = mail_cache_compress_locked(cache, trans, &unlock);
-		if (unlock) {
-			if (mail_cache_unlock(cache) < 0)
-				ret = -1;
+	} else {
+		switch (mail_cache_lock(cache, FALSE)) {
+		case -1:
+			return -1;
+		case 0:
+			/* couldn't lock, either it's broken or doesn't exist.
+			   just start creating it. */
+			break;
+		default:
+			/* locking succeeded. */
+			unlock = TRUE;
 		}
-		return ret;
 	}
+	cache->compressing = TRUE;
+	ret = mail_cache_compress_locked(cache, trans, &unlock);
+	cache->compressing = FALSE;
+	if (unlock) {
+		if (mail_cache_unlock(cache) < 0)
+			ret = -1;
+	}
+	return ret;
 }
 
 bool mail_cache_need_compress(struct mail_cache *cache)

@@ -173,6 +173,7 @@ struct mail_cache {
 	unsigned int locked:1;
 	unsigned int hdr_modified:1;
 	unsigned int field_header_write_pending:1;
+	unsigned int compressing:1;
 };
 
 struct mail_cache_loop_track {
