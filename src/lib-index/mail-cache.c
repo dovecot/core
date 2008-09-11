@@ -478,12 +478,15 @@ static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 		ret = file_dotlock_create(&cache->dotlock_settings,
 					  cache->filepath, flags,
 					  &cache->dotlock);
-		if (ret <= 0) {
+		if (ret < 0) {
 			mail_cache_set_syscall_error(cache,
 						     "file_dotlock_create()");
 		}
 	}
 
+	/* don't bother warning if locking failed due to a timeout. since cache
+	   updating isn't all that important we're using a very short timeout
+	   so it can be triggered sometimes on heavy load */
 	if (ret <= 0)
 		return ret;
 
