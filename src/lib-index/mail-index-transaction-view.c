@@ -194,16 +194,36 @@ tview_return_updated_ext(struct mail_index_view_transaction *tview,
 			 const void *data, uint32_t ext_id)
 {
 	const struct mail_index_ext *ext;
+	const struct mail_index_registered_ext *rext;
+	const struct mail_transaction_ext_intro *intro;
+	unsigned int record_align, record_size;
 	uint32_t ext_idx;
 
 	/* data begins with a 32bit sequence, followed by the actual
 	   extension data */
 	data = CONST_PTR_OFFSET(data, sizeof(uint32_t));
 
-	if (!mail_index_map_get_ext_idx(tview->lookup_map, ext_id, &ext_idx))
-		i_unreached();
+	if (!mail_index_map_get_ext_idx(tview->lookup_map, ext_id, &ext_idx)) {
+		/* we're adding the extension now. */
+		rext = array_idx(&tview->view.index->extensions, ext_id);
+		record_align = ext->record_align;
+		record_size = ext->record_size;
+	} else {
+		ext = array_idx(&tview->lookup_map->extensions, ext_idx);
+		record_align = ext->record_align;
+		record_size = ext->record_size;
+	}
 
-	ext = array_idx(&tview->lookup_map->extensions, ext_idx);
+	/* see if the extension has been resized within this transaction */
+	if (array_is_created(&tview->t->ext_resizes) &&
+	    ext_id < array_count(&tview->t->ext_resizes)) {
+		intro = array_idx(&tview->t->ext_resizes, ext_id);
+		if (intro[ext_id].name_size != 0) {
+			record_align = intro->record_align;
+			record_size = intro->record_size;
+		}
+	}
+
 	if (ext->record_align <= sizeof(uint32_t)) {
 		/* data is 32bit aligned already */
 		return data;
