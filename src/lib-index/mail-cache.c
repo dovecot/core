@@ -464,6 +464,12 @@ static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 {
 	int ret;
 
+	if (cache->last_lock_failed) {
+		/* previous locking failed. don't waste time waiting on it
+		   again, just try once to see if it's available now. */
+		nonblock = TRUE;
+	}
+
 	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 		i_assert(cache->file_lock == NULL);
 		ret = mail_index_lock_fd(cache->index, cache->filepath,
@@ -483,6 +489,7 @@ static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 						     "file_dotlock_create()");
 		}
 	}
+	cache->last_lock_failed = ret <= 0;
 
 	/* don't bother warning if locking failed due to a timeout. since cache
 	   updating isn't all that important we're using a very short timeout

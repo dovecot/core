@@ -36,7 +36,7 @@
 /* When allocating space for transactions, don't use blocks larger than this. */
 #define MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE (1024*512)
 
-#define MAIL_CACHE_LOCK_TIMEOUT 2
+#define MAIL_CACHE_LOCK_TIMEOUT 10
 #define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 300
 
 #define CACHE_RECORD(cache, offset) \
@@ -171,6 +171,7 @@ struct mail_cache {
 
 	unsigned int opened:1;
 	unsigned int locked:1;
+	unsigned int last_lock_failed:1;
 	unsigned int hdr_modified:1;
 	unsigned int field_header_write_pending:1;
 	unsigned int compressing:1;
