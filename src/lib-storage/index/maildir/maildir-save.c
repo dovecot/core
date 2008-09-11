@@ -675,7 +675,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	}
 	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags,
 					&ctx->uidlist_sync_ctx);
-	if (ret < 0) {
+	if (ret <= 0 &&
+	    (ret < 0 || (sync_flags & MAILDIR_UIDLIST_SYNC_TRYLOCK) == 0)) {
 		maildir_transaction_save_rollback(ctx);
 		return -1;
 	}
