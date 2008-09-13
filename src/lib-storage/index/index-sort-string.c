@@ -607,7 +607,11 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 			   messages */
 			skip = (right_sort_id - left_sort_id) /
 				(right_idx - i + 2);
-			i_assert(skip > 0);
+			if (skip == 0) {
+				/* broken sort IDs (we previously assigned
+				   left_sort_id=right_sort_id) */
+				return -1;
+			}
 			left_sort_id += skip;
 			i_assert(left_sort_id < right_sort_id);
 
