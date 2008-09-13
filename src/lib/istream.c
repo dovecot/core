@@ -290,10 +290,16 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 	if (ret == -2)
 		return -2;
 
-	if (read_more || ret == 0) {
-		i_assert(!stream->blocking || stream->eof);
+	if (ret == 0) {
+		/* need to read more */
+		i_assert(!stream->blocking);
 		return 0;
 	}
+	if (read_more && stream->eof) {
+		/* we read at least some new data */
+		return 0;
+	}
+	i_assert(stream->stream_errno != 0);
 	return -1;
 }
 
