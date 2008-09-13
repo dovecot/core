@@ -92,7 +92,8 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 
 		/* we can generate anything out of plaintext passwords */
 		plaintext = t_strndup(*credentials_r, *size_r);
-		if (!password_generate(plaintext, auth_request->user,
+		if (!password_generate(plaintext,
+				       auth_request->original_username,
 				       wanted_scheme, credentials_r, size_r)) {
 			auth_request_log_error(auth_request, "password",
 				"Requested unknown scheme %s", wanted_scheme);
