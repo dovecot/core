@@ -68,7 +68,8 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 		i_assert(mbox->mbox_fd == -1 && mbox->mbox_readonly);
 
 		mbox->mbox_stream =
-			i_stream_create_raw_mbox(mbox->mbox_file_stream);
+			i_stream_create_raw_mbox(mbox->mbox_file_stream,
+						 mbox->path);
 		return 0;
 	}
 
@@ -85,7 +86,8 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 					   MAIL_READ_BLOCK_SIZE, FALSE);
 	}
 
-	mbox->mbox_stream = i_stream_create_raw_mbox(mbox->mbox_file_stream);
+	mbox->mbox_stream = i_stream_create_raw_mbox(mbox->mbox_file_stream,
+						     mbox->path);
 	return 0;
 }
 

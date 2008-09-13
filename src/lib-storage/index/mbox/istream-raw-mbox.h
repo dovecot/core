@@ -2,8 +2,10 @@
 #define ISTREAM_RAW_MBOX_H
 
 /* Create a mbox stream for parsing mbox. Reading stops before From-line,
-   you'll have to call istream_raw_mbox_next() to get to next message. */
-struct istream *i_stream_create_raw_mbox(struct istream *input);
+   you'll have to call istream_raw_mbox_next() to get to next message.
+   path is used only for logging purposes. */
+struct istream *i_stream_create_raw_mbox(struct istream *input,
+					 const char *path);
 
 /* Return offset to beginning of the "\nFrom"-line. */
 uoff_t istream_raw_mbox_get_start_offset(struct istream *stream);

@@ -10,7 +10,7 @@ struct raw_mbox_istream {
 	struct istream_private istream;
 
 	time_t received_time, next_received_time;
-	char *sender, *next_sender;
+	char *path, *sender, *next_sender;
 
 	uoff_t from_offset, hdr_offset, body_offset, mail_size;
 	uoff_t input_peak_offset;
@@ -26,6 +26,7 @@ static void i_stream_raw_mbox_destroy(struct iostream_private *stream)
 
 	i_free(rstream->sender);
 	i_free(rstream->next_sender);
+	i_free(rstream->path);
 
 	i_stream_seek(rstream->istream.parent,
 		      rstream->istream.istream.v_offset);
@@ -303,7 +304,8 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	    rstream->hdr_offset + new_pos > rstream->mail_size) {
 		/* istream_raw_mbox_set_next_offset() used invalid
 		   cached next_offset? */
-		i_error("Next message unexpectedly lost from %"PRIuUOFF_T,
+		i_error("Next message unexpectedly lost from mbox file "
+			"%s at %"PRIuUOFF_T, rstream->path,
 			rstream->hdr_offset + rstream->mail_size);
 		rstream->eof = TRUE;
 		rstream->corrupted = TRUE;
@@ -362,14 +364,17 @@ i_stream_raw_mbox_stat(struct istream_private *stream, bool exact)
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_raw_mbox(struct istream *input)
+struct istream *
+i_stream_create_raw_mbox(struct istream *input, const char *path)
 {
 	struct raw_mbox_istream *rstream;
 
+	i_assert(path != NULL);
 	i_assert(input->v_offset == 0);
 
 	rstream = i_new(struct raw_mbox_istream, 1);
 
+	rstream->path = i_strdup(path);
 	rstream->body_offset = (uoff_t)-1;
 	rstream->mail_size = (uoff_t)-1;
 	rstream->received_time = (time_t)-1;
@@ -451,8 +456,8 @@ uoff_t istream_raw_mbox_get_header_offset(struct istream *stream)
 		(void)i_stream_raw_mbox_read(&rstream->istream);
 
 	if (rstream->corrupted) {
-		i_error("Unexpectedly lost From-line at "
-			"%"PRIuUOFF_T, rstream->from_offset);
+		i_error("Unexpectedly lost From-line from mbox file %s at "
+			"%"PRIuUOFF_T, rstream->path, rstream->from_offset);
 		return (uoff_t)-1;
 	}
 
@@ -477,8 +482,9 @@ uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
 
 		if (i_stream_raw_mbox_read(&rstream->istream) < 0) {
 			if (rstream->corrupted) {
-				i_error("Unexpectedly lost From-line at "
-					"%"PRIuUOFF_T, rstream->from_offset);
+				i_error("Unexpectedly lost From-line from mbox file "
+					"%s at %"PRIuUOFF_T, rstream->path,
+					rstream->from_offset);
 			} else {
 				i_assert(rstream->body_offset != (uoff_t)-1);
 			}
