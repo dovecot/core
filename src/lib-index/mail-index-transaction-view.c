@@ -224,7 +224,7 @@ tview_return_updated_ext(struct mail_index_view_transaction *tview,
 		}
 	}
 
-	if (ext->record_align <= sizeof(uint32_t)) {
+	if (record_align <= sizeof(uint32_t)) {
 		/* data is 32bit aligned already */
 		return data;
 	} else {
@@ -233,10 +233,9 @@ tview_return_updated_ext(struct mail_index_view_transaction *tview,
 		if (tview->lookup_return_data == NULL) {
 			tview->lookup_return_data =
 				buffer_create_dynamic(default_pool,
-						      ext->record_size + 64);
+						      record_size + 64);
 		}
-		buffer_write(tview->lookup_return_data,
-			     0, data, ext->record_size);
+		buffer_write(tview->lookup_return_data, 0, data, record_size);
 		return tview->lookup_return_data->data;
 	}
 }
