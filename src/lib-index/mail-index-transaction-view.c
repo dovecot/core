@@ -206,8 +206,8 @@ tview_return_updated_ext(struct mail_index_view_transaction *tview,
 	if (!mail_index_map_get_ext_idx(tview->lookup_map, ext_id, &ext_idx)) {
 		/* we're adding the extension now. */
 		rext = array_idx(&tview->view.index->extensions, ext_id);
-		record_align = ext->record_align;
-		record_size = ext->record_size;
+		record_align = rext->record_align;
+		record_size = rext->record_size;
 	} else {
 		ext = array_idx(&tview->lookup_map->extensions, ext_idx);
 		record_align = ext->record_align;
