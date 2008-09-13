@@ -92,6 +92,7 @@ read_mixed(struct header_filter_istream *mstream, size_t body_highwater_size)
 
 	mstream->istream.buffer = buffer_get_data(mstream->hdr_buf, &pos);
 	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
+	i_assert(ret > 0);
 	mstream->istream.pos = pos;
 	return ret;
 }
@@ -244,8 +245,10 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
 	mstream->istream.pos = pos;
 
-	if (hdr_ret == 0)
+	if (hdr_ret == 0) {
+		i_assert(ret > 0);
 		return ret;
+	}
 
 	if (hdr == NULL) {
 		/* finished */

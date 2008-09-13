@@ -61,7 +61,11 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 
 	while ((p = memchr(buf+skip, '\n', pos-skip)) == NULL) {
 		if (i_stream_read(rstream->istream.parent) < 0) {
-			/* EOF - shouldn't happen */
+			/* EOF shouldn't happen */
+			rstream->istream.istream.eof =
+				rstream->istream.parent->eof;
+			rstream->istream.istream.stream_errno =
+				rstream->istream.parent->stream_errno;
 			return -1;
 		}
 		buf = i_stream_get_data(rstream->istream.parent, &pos);
@@ -79,6 +83,7 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 	    mbox_from_parse(buf+5, pos-5, &received_time, &tz, &sender) < 0) {
 		/* broken From - should happen only at beginning of
 		   file if this isn't a mbox.. */
+		rstream->istream.istream.stream_errno = EBADMSG;
 		return -1;
 	}
 
@@ -302,6 +307,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 			rstream->hdr_offset + rstream->mail_size);
 		rstream->eof = TRUE;
 		rstream->corrupted = TRUE;
+		rstream->istream.istream.stream_errno = EBADMSG;
 		return -1;
 	}
 

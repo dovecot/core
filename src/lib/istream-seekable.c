@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "close-keep-errno.h"
 #include "hex-binary.h"
 #include "randgen.h"
 #include "write-full.h"
@@ -107,14 +108,14 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	if (unlink(path) < 0) {
 		/* shouldn't happen.. */
 		i_error("unlink(%s) failed: %m", path);
-		(void)close(fd);
+		close_keep_errno(fd);
 		return -1;
 	}
 
 	/* copy our currently read buffer to it */
 	if (write_full(fd, sstream->buffer->data, sstream->buffer->used) < 0) {
 		i_error("write_full(%s) failed: %m", path);
-		(void)close(fd);
+		close_keep_errno(fd);
 		return -1;
 	}
 	sstream->write_peak = sstream->buffer->used;
@@ -139,10 +140,10 @@ static ssize_t read_more(struct seekable_istream *sstream)
 
 	while ((ret = i_stream_read(sstream->cur_input)) < 0) {
 		if (!sstream->cur_input->eof) {
-			/* error */
+			/* full / error */
 			sstream->istream.istream.stream_errno =
 				sstream->cur_input->stream_errno;
-			return -1;
+			return ret;
 		}
 
 		/* go to next stream */
@@ -161,7 +162,7 @@ static ssize_t read_more(struct seekable_istream *sstream)
 	return ret;
 }
 
-static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret)
+static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 {
 	struct istream_private *stream = &sstream->istream;
 	const unsigned char *data;
@@ -174,8 +175,8 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret)
 			return FALSE;
 
 		/* read more to buffer */
-		*ret = read_more(sstream);
-		if (*ret <= 0)
+		*ret_r = read_more(sstream);
+		if (*ret_r <= 0)
 			return TRUE;
 
 		/* we should have more now. */
@@ -188,7 +189,8 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret)
 	stream->buffer = CONST_PTR_OFFSET(sstream->buffer->data, offset);
 	pos = sstream->buffer->used - offset;
 
-	*ret = pos - stream->pos;
+	*ret_r = pos - stream->pos;
+	i_assert(*ret_r > 0);
 	stream->pos = pos;
 	return TRUE;
 }
@@ -210,6 +212,8 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 
 		/* copy everything to temp file and use it as the stream */
 		if (copy_to_temp_file(sstream) < 0) {
+			i_assert(errno != 0);
+			stream->istream.stream_errno = errno;
 			i_stream_close(&stream->istream);
 			return -1;
 		}
@@ -225,6 +229,8 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 		/* save to our file */
 		data = i_stream_get_data(sstream->cur_input, &size);
 		if (write_full(sstream->fd, data, size) < 0) {
+			i_assert(errno != 0);
+			stream->istream.stream_errno = errno;
 			i_error("write_full(%s...) failed: %m",
 				sstream->temp_prefix);
 			i_stream_close(&stream->istream);
@@ -255,7 +261,6 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 static void i_stream_seekable_seek(struct istream_private *stream,
 				   uoff_t v_offset, bool mark ATTR_UNUSED)
 {
-	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 }

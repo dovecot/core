@@ -51,7 +51,7 @@ void i_stream_close(struct istream *stream)
 	stream->closed = TRUE;
 
 	if (stream->stream_errno == 0)
-		stream->stream_errno = ECONNRESET;
+		stream->stream_errno = EBADFD;
 }
 
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
@@ -62,12 +62,27 @@ void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
 ssize_t i_stream_read(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
+	ssize_t ret;
 
 	if (unlikely(stream->closed))
 		return -1;
 
 	stream->eof = FALSE;
-	return _stream->read(_stream);
+	stream->stream_errno = 0;
+
+	ret = _stream->read(_stream);
+	if (ret < 0) {
+		if (stream->stream_errno != 0) {
+			/* error handling should be easier if we now just
+			   assume the stream is now at EOF */
+			stream->eof = TRUE;
+		} else {
+			i_assert(stream->eof);
+		}
+	} else {
+		i_assert(ret != 0 || !stream->blocking);
+	}
+	return ret;
 }
 
 void i_stream_skip(struct istream *stream, uoff_t count)
@@ -91,6 +106,7 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	if (unlikely(stream->closed))
 		return;
 
+	stream->stream_errno = 0;
 	_stream->seek(_stream, stream->v_offset + count, FALSE);
 }
 
@@ -295,11 +311,14 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 		i_assert(!stream->blocking);
 		return 0;
 	}
-	if (read_more && stream->eof) {
-		/* we read at least some new data */
-		return 0;
+	if (stream->eof) {
+		if (read_more) {
+			/* we read at least some new data */
+			return 0;
+		}
+	} else {
+		i_assert(stream->stream_errno != 0);
 	}
-	i_assert(stream->stream_errno != 0);
 	return -1;
 }
 

@@ -46,7 +46,6 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 	size_t size;
 	ssize_t ret;
 
-	stream->istream.stream_errno = 0;
 	if (!i_stream_get_buffer_space(stream, 1, &size))
 		return -2;
 
@@ -78,7 +77,7 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 			i_assert(!stream->istream.blocking);
 			ret = 0;
 		} else {
-			stream->istream.eof = TRUE;
+			i_assert(errno != 0);
 			stream->istream.stream_errno = errno;
 			return -1;
 		}
@@ -101,6 +100,7 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 
 	stream->pos += ret;
 	i_assert(ret != 0 || !fstream->file);
+	i_assert(ret != -1);
 	return ret;
 }
 
@@ -117,7 +117,6 @@ static void i_stream_file_seek(struct istream_private *stream, uoff_t v_offset,
 		fstream->skip_left += v_offset - stream->istream.v_offset;
 	}
 
-	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 	fstream->seen_eof = FALSE;

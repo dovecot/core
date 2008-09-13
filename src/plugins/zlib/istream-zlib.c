@@ -55,11 +55,6 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	size_t size;
 	int ret;
 
-	if (stream->istream.closed)
-		return -1;
-
-	stream->istream.stream_errno = 0;
-
 	if (stream->pos == stream->buffer_size) {
 		if (!zstream->marked && stream->skip > 0) {
 			/* don't try to keep anything cached if we don't
@@ -104,7 +99,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 			i_assert(!stream->istream.blocking);
 			ret = 0;
 		} else {
-			stream->istream.eof = TRUE;
+			i_assert(errno != 0);
 			stream->istream.stream_errno = errno;
 			return -1;
 		}
@@ -112,7 +107,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 
 	zstream->seek_offset += ret;
 	stream->pos += ret;
-	i_assert(ret != 0);
+	i_assert(ret > 0);
 	return ret;
 }
 
@@ -121,8 +116,6 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
 	uoff_t start_offset = stream->istream.v_offset - stream->skip;
-
-	stream->istream.stream_errno = 0;
 
 #ifndef HAVE_GZSEEK
 	if (v_offset < start_offset) {

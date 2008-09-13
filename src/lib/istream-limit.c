@@ -80,6 +80,8 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
 		(ret == 0 ? 0 : -1);
 	stream->pos = pos;
+	i_assert(ret != -1 || stream->istream.eof ||
+		 stream->istream.stream_errno != 0);
 	return ret;
 }
 
@@ -90,7 +92,6 @@ static void i_stream_limit_seek(struct istream_private *stream, uoff_t v_offset,
 
 	i_assert(v_offset <= lstream->v_size);
 
-	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 }

@@ -87,7 +87,7 @@ static ssize_t i_stream_crlf_read_crlf(struct istream_private *stream)
 	i_stream_skip(stream->parent, i);
 
 	ret = dest - stream->pos;
-	i_assert(ret != 0);
+	i_assert(ret > 0);
 	stream->pos = dest;
 	return ret;
 }
@@ -147,6 +147,7 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 		i_assert(cstream->pending_cr && size == 1);
 		return i_stream_crlf_read_lf(stream);
 	}
+	i_assert(ret > 0);
 	stream->pos = dest;
 	return ret;
 }

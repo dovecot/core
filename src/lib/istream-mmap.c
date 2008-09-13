@@ -66,8 +66,6 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 	size_t aligned_skip;
 	uoff_t top;
 
-	stream->istream.stream_errno = 0;
-
 	if (stream->pos < stream->buffer_size) {
 		/* more bytes available without needing to mmap() */
 		stream->pos = stream->buffer_size;
@@ -108,6 +106,7 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 			mmap(NULL, stream->buffer_size, PROT_READ, MAP_PRIVATE,
 			     stream->fd, mstream->mmap_offset);
 		if (mstream->mmap_base == MAP_FAILED) {
+			i_assert(errno != 0);
 			stream->istream.stream_errno = errno;
 			mstream->mmap_base = NULL;
 			stream->buffer = NULL;
@@ -126,7 +125,7 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 	}
 
 	stream->pos = stream->buffer_size;
-	i_assert(stream->pos - stream->skip != 0);
+	i_assert(stream->pos - stream->skip > 0);
 	return stream->pos - stream->skip;
 }
 

@@ -138,6 +138,7 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 		}
 
 		stream->istream.eof = cstream->cur_input->eof && last_stream;
+		i_assert(ret != -1 || stream->istream.eof);
 		data = i_stream_get_data(cstream->cur_input, &pos);
 	}
 
@@ -198,7 +199,6 @@ static void i_stream_concat_seek(struct istream_private *stream,
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
 
-	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 	cstream->prev_size = 0;
