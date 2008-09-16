@@ -246,7 +246,9 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	mstream->istream.pos = pos;
 
 	if (hdr_ret == 0) {
-		i_assert(ret > 0);
+		/* need more data to finish parsing headers. we may have some
+		   data already available though. */
+		i_assert(ret >= 0);
 		return ret;
 	}
 
