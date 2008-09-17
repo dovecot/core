@@ -86,7 +86,7 @@ static int parse_domain_list(struct message_address_parser_context *ctx)
 		if ((ret = rfc822_parse_domain(&ctx->parser, ctx->str)) <= 0)
 			return ret;
 
-		while (rfc822_skip_lwsp(&ctx->parser) &&
+		while (rfc822_skip_lwsp(&ctx->parser) > 0 &&
 		       *ctx->parser.data == ',')
 			ctx->parser.data++;
 	}
@@ -237,18 +237,20 @@ static int parse_group(struct message_address_parser_context *ctx)
 	/* from now on don't return -1 even if there are problems, so that
 	   the caller knows this is a group */
 	ctx->parser.data++;
-	if (rfc822_skip_lwsp(&ctx->parser) < 0)
+	if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
 		ctx->addr.invalid_syntax = TRUE;
 
 	ctx->addr.mailbox = p_strdup(ctx->pool, str_c(ctx->str));
 	add_address(ctx);
 
-	if ((ret = parse_mailbox_list(ctx)) > 0) {
-		if (*ctx->parser.data != ';')
-			ret = -1;
-		else {
-			ctx->parser.data++;
-			ret = rfc822_skip_lwsp(&ctx->parser);
+	if (ret > 0) {
+		if ((ret = parse_mailbox_list(ctx)) > 0) {
+			if (*ctx->parser.data != ';')
+				ret = -1;
+			else {
+				ctx->parser.data++;
+				ret = rfc822_skip_lwsp(&ctx->parser);
+			}
 		}
 	}
 	if (ret < 0)
