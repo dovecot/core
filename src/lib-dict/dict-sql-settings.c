@@ -72,12 +72,12 @@ static const char *dict_sql_fields_map(struct setting_parser_ctx *ctx)
 	const char *p, *name;
 	unsigned int i, count;
 
-	p_array_init(&ctx->cur_map.sql_fields, ctx->pool, count);
-
 	/* go through the variables in the pattern, replace them with plain
 	   '$' character and add its sql field */
 	pattern = t_str_new(strlen(ctx->cur_map.pattern) + 1);
 	fields = array_get_modifiable(&ctx->cur_fields, &count);
+
+	p_array_init(&ctx->cur_map.sql_fields, ctx->pool, count);
 	for (p = ctx->cur_map.pattern; *p != '\0';) {
 		if (*p != '$') {
 			str_append_c(pattern, *p);
