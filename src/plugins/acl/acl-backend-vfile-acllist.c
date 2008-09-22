@@ -51,6 +51,11 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 
 	rootdir = mailbox_list_get_path(backend->backend.list, NULL,
 					MAILBOX_LIST_PATH_TYPE_DIR);
+	if (rootdir == NULL) {
+		/* we're never going to build acllist for this namespace. */
+		i_array_init(&backend->acllist, 1);
+		return 0;
+	}
 	path = t_strdup_printf("%s/"ACLLIST_FILENAME, rootdir);
 
 	if (backend->acllist_mtime != 0) {
@@ -191,16 +196,18 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	gid_t gid;
 	int fd, ret;
 
-	mailbox_list_get_permissions(list, &mode, &gid);
-
-	path = t_str_new(256);
 	rootdir = mailbox_list_get_path(list, NULL,
 					MAILBOX_LIST_PATH_TYPE_DIR);
+	if (rootdir == NULL)
+		return 0;
+
+	path = t_str_new(256);
 	str_printfa(path, "%s/%s", rootdir, mailbox_list_get_temp_prefix(list));
 
 	/* Build it into a temporary file and rename() over. There's no need
 	   to use locking, because even if multiple processes are rebuilding
 	   the file at the same time the result should be the same. */
+	mailbox_list_get_permissions(list, &mode, &gid);
 	fd = safe_mkstemp(path, mode, (uid_t)-1, gid);
 	if (fd == -1) {
 		if (errno == EACCES) {

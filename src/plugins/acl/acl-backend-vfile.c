@@ -143,7 +143,8 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 	} else {
 		dir = acl_backend_vfile_get_local_dir(storage, name);
 	}
-	aclobj->local_path = i_strconcat(dir, "/"ACL_FILENAME, NULL);
+	aclobj->local_path = dir == NULL ? NULL :
+		i_strconcat(dir, "/"ACL_FILENAME, NULL);
 	return &aclobj->aclobj;
 }
 
@@ -208,8 +209,9 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend,
 	   mailbox has no ACL it's equivalent to default ACLs. */
 	path = mailbox_list_get_path(storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	ret = acl_backend_vfile_exists(backend, path,
-				       &new_validity.mailbox_validity);
+	ret = path == NULL ? 0 :
+		acl_backend_vfile_exists(backend, path,
+					 &new_validity.mailbox_validity);
 	if (ret == 0) {
 		dir = acl_backend_vfile_get_local_dir(storage, name);
 		local_path = t_strconcat(dir, "/", name, NULL);
