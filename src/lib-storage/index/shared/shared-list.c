@@ -73,7 +73,7 @@ shared_list_get_path(struct mailbox_list *list, const char *name,
 {
 	struct mail_namespace *ns;
 
-	if (list->ns->storage == NULL ||
+	if (list->ns->storage == NULL || name == NULL ||
 	    shared_storage_get_namespace(list->ns->storage, &name, &ns) < 0) {
 		switch (type) {
 		case MAILBOX_LIST_PATH_TYPE_DIR:
@@ -84,8 +84,8 @@ shared_list_get_path(struct mailbox_list *list, const char *name,
 			/* we can safely say we don't use indexes */
 			return "";
 		}
-		i_panic("shared mailbox list: Can't return path for '%s'",
-			list->ns->prefix);
+		/* we don't have a directory we can use. */
+		return NULL;
 	}
 	return mailbox_list_get_path(ns->list, name, type);
 }
