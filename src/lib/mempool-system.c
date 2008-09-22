@@ -79,8 +79,8 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 	mem = GC_malloc(size);
 #endif
 	if (unlikely(mem == NULL)) {
-		i_fatal_status(FATAL_OUTOFMEM,
-			       "pool_system_malloc(): Out of memory");
+		i_fatal_status(FATAL_OUTOFMEM, "pool_system_malloc(%"PRIuSIZE_T
+			       "): Out of memory", size);
 	}
 	return mem;
 }
@@ -110,8 +110,8 @@ static void *pool_system_realloc(pool_t pool ATTR_UNUSED, void *mem,
 	mem = GC_realloc(mem, new_size);
 #endif
 	if (unlikely(mem == NULL)) {
-		i_fatal_status(FATAL_OUTOFMEM,
-			       "pool_system_realloc(): Out of memory");
+		i_fatal_status(FATAL_OUTOFMEM, "pool_system_realloc(%"PRIuSIZE_T
+			       "): Out of memory", new_size);
 	}
 
 	if (old_size < new_size) {

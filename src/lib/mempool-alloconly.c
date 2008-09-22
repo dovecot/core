@@ -255,8 +255,10 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 #else
 	block = GC_malloc(size);
 #endif
-	if (unlikely(block == NULL))
-		i_fatal_status(FATAL_OUTOFMEM, "block_alloc(): Out of memory");
+	if (unlikely(block == NULL)) {
+		i_fatal_status(FATAL_OUTOFMEM, "block_alloc(%"PRIuSIZE_T
+			       "): Out of memory", size);
+	}
 	block->prev = apool->block;
 	apool->block = block;
 

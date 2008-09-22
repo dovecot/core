@@ -105,8 +105,8 @@ static void *pool_system_clean_malloc(pool_t pool ATTR_UNUSED, size_t size)
 	mem = calloc(size, 1);
 #endif
 	if (unlikely(mem == NULL)) {
-		i_fatal_status(FATAL_OUTOFMEM,
-			       "pool_system_clean_malloc(): Out of memory");
+		i_fatal_status(FATAL_OUTOFMEM, "pool_system_malloc(%"PRIuSIZE_T
+			       "): Out of memory", size);
 	}
 #if !defined(USE_GC) && !defined(HAVE_MALLOC_USABLE_SIZE)
 	{
