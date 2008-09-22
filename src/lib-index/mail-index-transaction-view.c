@@ -109,8 +109,14 @@ static void tview_lookup_seq_range(struct mail_index_view *view,
 	const struct mail_index_record *rec;
 	uint32_t seq;
 
-	tview->super->lookup_seq_range(view, first_uid, last_uid,
-				       first_seq_r, last_seq_r);
+	if (!tview->t->reset) {
+		tview->super->lookup_seq_range(view, first_uid, last_uid,
+					       first_seq_r, last_seq_r);
+	} else {
+		/* index is being reset. we never want to return old
+		   sequences. */
+		*first_seq_r = *last_seq_r = 0;
+	}
 	if (tview->t->last_new_seq == 0) {
 		/* no new messages, the results are final. */
 		return;
