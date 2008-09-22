@@ -168,9 +168,13 @@ static void tview_lookup_first(struct mail_index_view *view,
 	unsigned int append_count;
 	uint32_t seq, message_count;
 
-	tview->super->lookup_first(view, flags, flags_mask, seq_r);
-	if (*seq_r != 0)
-		return;
+	if (!tview->t->reset) {
+		tview->super->lookup_first(view, flags, flags_mask, seq_r);
+		if (*seq_r != 0)
+			return;
+	} else {
+		*seq_r = 0;
+	}
 
 	rec = array_get(&tview->t->appends, &append_count);
 	seq = tview->t->first_new_seq;
