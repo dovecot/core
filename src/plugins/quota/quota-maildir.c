@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "nfs-workarounds.h"
 #include "file-dotlock.h"
+#include "mkdir-parents.h"
 #include "read-full.h"
 #include "write-full.h"
 #include "str.h"
@@ -221,6 +222,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	struct mail_storage *const *storages;
 	unsigned int i, count;
 	struct dotlock *dotlock;
+	const char *p, *dir;
 	string_t *str;
 	mode_t mode;
 	gid_t gid;
@@ -246,6 +248,18 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	fd = file_dotlock_open_mode(&dotlock_settings, path,
 				    DOTLOCK_CREATE_FLAG_NONBLOCK,
 				    mode, (uid_t)-1, gid, &dotlock);
+	if (fd == -1 && errno == ENOENT) {
+		/* the control directory doesn't exist yet? create it */
+		p = strrchr(path, '/');
+		dir = t_strdup_until(path, p);
+		if (mkdir_parents(dir, 0700) < 0 && errno != EEXIST) {
+			i_error("mkdir_parents(%s) failed: %m", dir);
+			return -1;
+		}
+		fd = file_dotlock_open_mode(&dotlock_settings, path,
+					    DOTLOCK_CREATE_FLAG_NONBLOCK,
+					    mode, (uid_t)-1, gid, &dotlock);
+	}
 	if (fd == -1) {
 		if (errno == EAGAIN) {
 			/* someone's just in the middle of updating it */
