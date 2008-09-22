@@ -71,7 +71,7 @@ ssize_t i_stream_read(struct istream *stream)
 	stream->stream_errno = 0;
 
 	ret = _stream->read(_stream);
-	if (ret < 0) {
+	if (ret == -1) {
 		if (stream->stream_errno != 0) {
 			/* error handling should be easier if we now just
 			   assume the stream is now at EOF */
