@@ -78,7 +78,8 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 	backend->trie =
 		squat_trie_init(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL),
 				status.uidvalidity, storage->lock_method,
-				flags);
+				flags, box->file_create_mode,
+				box->file_create_gid);
 
 	env = getenv("FTS_SQUAT");
 	if (env != NULL)

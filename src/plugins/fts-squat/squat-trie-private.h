@@ -118,6 +118,8 @@ struct squat_trie {
 
 	enum squat_index_flags flags;
 	enum file_lock_method lock_method;
+	mode_t create_mode;
+	gid_t create_gid;
 	uint32_t uidvalidity;
 
 	char *path;
@@ -184,6 +186,7 @@ static inline uint32_t squat_unpack_num(const uint8_t **p, const uint8_t *end)
 	return value;
 }
 
+int squat_trie_create_fd(struct squat_trie *trie, const char *path, int flags);
 void squat_trie_delete(struct squat_trie *trie);
 
 #endif

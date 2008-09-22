@@ -128,7 +128,8 @@ static void node_free(struct squat_trie *trie, struct squat_node *node)
 
 struct squat_trie *
 squat_trie_init(const char *path, uint32_t uidvalidity,
-		enum file_lock_method lock_method, enum squat_index_flags flags)
+		enum file_lock_method lock_method, enum squat_index_flags flags,
+		mode_t mode, gid_t gid)
 {
 	struct squat_trie *trie;
 
@@ -139,6 +140,8 @@ squat_trie_init(const char *path, uint32_t uidvalidity,
 	trie->lock_method = lock_method;
 	trie->uidvalidity = uidvalidity;
 	trie->flags = flags;
+	trie->create_mode = mode;
+	trie->create_gid = gid;
 	squat_trie_normalize_map_build(trie);
 
 	trie->dotlock_set.use_excl_lock =
@@ -1532,6 +1535,28 @@ static int squat_trie_map(struct squat_trie *trie, bool building)
 		node_read_children(trie, &trie->root, 1);
 }
 
+int squat_trie_create_fd(struct squat_trie *trie, const char *path, int flags)
+{
+	mode_t old_mask;
+	int fd;
+
+	old_mask = umask(0);
+	fd = open(path, O_RDWR | O_CREAT | flags, trie->create_mode);
+	umask(old_mask);
+	if (fd == -1) {
+		i_error("creat(%s) failed: %m", path);
+		return -1;
+	}
+	if (trie->create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, trie->create_gid) < 0) {
+			i_error("fchown(%s, -1, %ld) failed: %m",
+				path, (long)trie->create_gid);
+			return -1;
+		}
+	}
+	return fd;
+}
+
 int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
 			  struct squat_trie_build_context **ctx_r)
 {
@@ -1539,11 +1564,10 @@ int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
 	struct squat_uidlist_build_context *uidlist_build_ctx;
 
 	if (trie->fd == -1) {
-		trie->fd = open(trie->path, O_RDWR | O_CREAT, 0600);
-		if (trie->fd == -1) {
-			i_error("creat(%s) failed: %m", trie->path);
+		trie->fd = squat_trie_create_fd(trie, trie->path, 0);
+		if (trie->fd == -1)
 			return -1;
-		}
+
 		if (trie->file_cache != NULL)
 			file_cache_set_fd(trie->file_cache, trie->fd);
 		i_assert(trie->locked_file_size == 0);
@@ -1593,11 +1617,10 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 		ctx->compress_nodes = TRUE;
 
 		path = t_strconcat(trie->path, ".tmp", NULL);
-		fd = open(path, O_RDWR | O_CREAT, 0600);
-		if (fd == -1) {
-			i_error("creat(%s) failed: %m", path);
+		fd = squat_trie_create_fd(trie, path, O_TRUNC);
+		if (fd == -1)
 			return -1;
-		}
+
 		if (trie->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 			ret = file_wait_lock(fd, path, F_WRLCK,
 					     trie->lock_method,

@@ -56,7 +56,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	(void)unlink(trie_path);
 	(void)unlink(uidlist_path);
 	trie = squat_trie_init(trie_path, time(NULL),
-			       FILE_LOCK_METHOD_FCNTL, FALSE);
+			       FILE_LOCK_METHOD_FCNTL, FALSE, 0600, (gid_t)-1);
 
 	clock_start = clock();
 	gettimeofday(&tv_start, NULL);

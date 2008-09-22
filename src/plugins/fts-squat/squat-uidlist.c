@@ -638,11 +638,10 @@ static int squat_uidlist_lock(struct squat_uidlist *uidlist)
 			return -1;
 
 		squat_uidlist_close(uidlist);
-		uidlist->fd = open(uidlist->path, O_RDWR | O_CREAT, 0600);
-		if (uidlist->fd == -1) {
-			i_error("open(%s) failed: %m", uidlist->path);
+		uidlist->fd = squat_trie_create_fd(uidlist->trie,
+						   uidlist->path, 0);
+		if (uidlist->fd == -1)
 			return -1;
-		}
 	}
 	return 1;
 }
@@ -652,11 +651,10 @@ static int squat_uidlist_open_or_create(struct squat_uidlist *uidlist)
 	int ret;
 
 	if (uidlist->fd == -1) {
-		uidlist->fd = open(uidlist->path, O_RDWR | O_CREAT, 0600);
-		if (uidlist->fd == -1) {
-			i_error("creat(%s) failed: %m", uidlist->path);
+		uidlist->fd = squat_trie_create_fd(uidlist->trie,
+						   uidlist->path, 0);
+		if (uidlist->fd == -1)
 			return -1;
-		}
 	}
 	if (squat_uidlist_lock(uidlist) <= 0)
 		return -1;
@@ -920,11 +918,9 @@ int squat_uidlist_rebuild_init(struct squat_uidlist_build_context *build_ctx,
 		return -1;
 
 	temp_path = t_strconcat(build_ctx->uidlist->path, ".tmp", NULL);
-	fd = open(temp_path, O_RDWR | O_TRUNC | O_CREAT, 0600);
-	if (fd < 0) {
-		i_error("open(%s) failed: %m", temp_path);
+	fd = squat_trie_create_fd(build_ctx->uidlist->trie, temp_path, O_TRUNC);
+	if (fd == -1)
 		return -1;
-	}
 
 	ctx = i_new(struct squat_uidlist_rebuild_context, 1);
 	ctx->uidlist = build_ctx->uidlist;

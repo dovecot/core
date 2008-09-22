@@ -20,7 +20,7 @@ struct squat_trie_build_context;
 struct squat_trie *
 squat_trie_init(const char *path, uint32_t uidvalidity,
 		enum file_lock_method lock_method,
-		enum squat_index_flags flags);
+		enum squat_index_flags flags, mode_t mode, gid_t gid);
 void squat_trie_deinit(struct squat_trie **trie);
 
 void squat_trie_set_partial_len(struct squat_trie *trie, unsigned int len);
