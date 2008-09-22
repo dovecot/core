@@ -224,21 +224,23 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	struct dotlock *dotlock;
 	const char *p, *dir;
 	string_t *str;
-	mode_t mode;
-	gid_t gid;
+	mode_t mode, dir_mode;
+	gid_t gid, dir_gid;
 	int fd;
 
 	i_assert(root->fd == -1);
 
 	/* figure out what permissions we should use for maildirsize.
 	   use the inbox namespace's permissions if possible. */
-	mode = 0600;
-	gid = (gid_t)-1;
+	mode = 0600; dir_mode = 0700;
+	gid = dir_gid = (gid_t)-1;
 	storages = array_get(&root->root.quota->storages, &count);
 	for (i = 0; i < count; i++) {
 		if ((storages[i]->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			mailbox_list_get_permissions(storages[i]->ns->list,
 						     &mode, &gid);
+			mailbox_list_get_dir_permissions(storages[i]->ns->list,
+							 &dir_mode, &dir_gid);
 			break;
 		}
 	}
@@ -252,9 +254,15 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 		/* the control directory doesn't exist yet? create it */
 		p = strrchr(path, '/');
 		dir = t_strdup_until(path, p);
-		if (mkdir_parents(dir, 0700) < 0 && errno != EEXIST) {
+		if (mkdir_parents(dir, dir_mode) < 0 && errno != EEXIST) {
 			i_error("mkdir_parents(%s) failed: %m", dir);
 			return -1;
+		}
+		if (dir_gid != (gid_t)-1) {
+			if (chown(dir, (uid_t)-1, dir_gid) < 0) {
+				i_error("chown(%s,-1,%ld) failed: %m",
+					dir, (long)dir_gid);
+			}
 		}
 		fd = file_dotlock_open_mode(&dotlock_settings, path,
 					    DOTLOCK_CREATE_FLAG_NONBLOCK,
