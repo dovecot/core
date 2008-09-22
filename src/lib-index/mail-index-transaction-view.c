@@ -40,7 +40,7 @@ static uint32_t tview_get_message_count(struct mail_index_view *view)
 
 	return view->map->hdr.messages_count +
 		(tview->t->last_new_seq == 0 ? 0 :
-		 tview->t->last_new_seq - tview->t->first_new_seq);
+		 tview->t->last_new_seq - tview->t->first_new_seq + 1);
 }
 
 static const struct mail_index_header *
