@@ -319,6 +319,10 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 				list_set->root_dir = get_root_dir(storage);
 				list_set->inbox_path = data;
 			}
+		} else if (strncmp(data, "INBOX=", 6) == 0) {
+			/* the most common misconfiguration */
+			*error_r = "Root mail directory not given";
+			return -1;
 		} else {
 			if (mailbox_list_settings_parse(data, list_set,
 							storage->ns,
