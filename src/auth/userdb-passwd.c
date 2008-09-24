@@ -1,10 +1,10 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "userdb.h"
 
 #ifdef USERDB_PASSWD
 
-#include "userdb.h"
 #include "userdb-static.h"
 
 #include <pwd.h>
@@ -92,5 +92,8 @@ struct userdb_module_interface userdb_passwd = {
 
 	passwd_lookup
 };
-
+#else
+struct userdb_module_interface userdb_passwd = {
+	MEMBER(name) "passwd"
+};
 #endif

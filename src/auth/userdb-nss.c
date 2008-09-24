@@ -3,11 +3,11 @@
 /* Currently supports only GLIBC-compatible NSS modules */
 
 #include "common.h"
+#include "userdb.h"
 
 #ifdef USERDB_NSS
 
 #include "module-dir.h"
-#include "userdb.h"
 
 #include <pwd.h>
 #include <unistd.h>
@@ -148,5 +148,8 @@ struct userdb_module_interface userdb_nss = {
 
 	userdb_nss_lookup
 };
-
+#else
+struct userdb_module_interface userdb_nss = {
+	MEMBER(name) "nss"
+};
 #endif

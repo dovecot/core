@@ -1,6 +1,7 @@
 /* Copyright (c) 2003-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_LDAP
 
@@ -11,7 +12,6 @@
 #include "password-scheme.h"
 #include "auth-cache.h"
 #include "db-ldap.h"
-#include "passdb.h"
 
 #include <ldap.h>
 #include <stdlib.h>
@@ -430,5 +430,8 @@ struct passdb_module_interface passdb_ldap = {
 	ldap_lookup_credentials,
 	NULL
 };
-
+#else
+struct passdb_module_interface passdb_ldap = {
+	MEMBER(name) "ldap"
+};
 #endif

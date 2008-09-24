@@ -116,10 +116,10 @@ void userdb_preinit(struct auth *auth, const char *driver, const char *args)
 	*dest = auth_userdb;
 
 	iface = userdb_interface_find(driver);
-	if (iface == NULL) {
-		i_fatal("Unknown userdb driver '%s' "
-			"(typo, or Dovecot was built without support for it? "
-			"Check with dovecot --build-options)",
+	if (iface == NULL)
+		i_fatal("Unknown userdb driver '%s'", driver);
+	if (iface->lookup == NULL) {
+		i_fatal("Support not compiled in for userdb driver '%s'",
 			driver);
 	}
 
@@ -162,30 +162,14 @@ extern struct userdb_module_interface userdb_nss;
 void userdbs_init(void)
 {
 	i_array_init(&userdb_interfaces, 16);
-#ifdef USERDB_PASSWD
 	userdb_register_module(&userdb_passwd);
-#endif
-#ifdef USERDB_PASSWD_FILE
 	userdb_register_module(&userdb_passwd_file);
-#endif
-#ifdef USERDB_PREFETCH
 	userdb_register_module(&userdb_prefetch);
-#endif
-#ifdef USERDB_STATIC
 	userdb_register_module(&userdb_static);
-#endif
-#ifdef USERDB_VPOPMAIL
 	userdb_register_module(&userdb_vpopmail);
-#endif
-#if defined(USERDB_LDAP) && defined(BUILTIN_LDAP)
 	userdb_register_module(&userdb_ldap);
-#endif
-#ifdef USERDB_SQL
 	userdb_register_module(&userdb_sql);
-#endif
-#ifdef USERDB_NSS
 	userdb_register_module(&userdb_nss);
-#endif
 }
 
 void userdbs_deinit(void)

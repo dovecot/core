@@ -238,5 +238,8 @@ struct userdb_module_interface userdb_static = {
 
 	static_lookup
 };
-
+#else
+struct userdb_module_interface userdb_static = {
+	MEMBER(name) "static"
+};
 #endif

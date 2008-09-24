@@ -1,11 +1,11 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_BSDAUTH
 
 #include "safe-memset.h"
-#include "passdb.h"
 #include "mycrypt.h"
 
 #include <login_cap.h>
@@ -78,5 +78,8 @@ struct passdb_module_interface passdb_bsdauth = {
 	NULL,
 	NULL
 };
-
+#else
+struct passdb_module_interface passdb_bsdauth = {
+	MEMBER(name) "bsdauth"
+};
 #endif

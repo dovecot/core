@@ -139,10 +139,10 @@ struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
         auth_passdb->id = id;
 
 	iface = passdb_interface_find(driver);
-	if (iface == NULL) {
-		i_fatal("Unknown passdb driver '%s' "
-			"(typo, or Dovecot was built without support for it? "
-			"Check with dovecot --build-options)",
+	if (iface == NULL)
+		i_fatal("Unknown passdb driver '%s'", driver);
+	if (iface->verify_plain == NULL) {
+		i_fatal("Support not compiled in for passdb driver '%s'",
 			driver);
 	}
 
@@ -191,36 +191,16 @@ extern struct passdb_module_interface passdb_sia;
 void passdbs_init(void)
 {
 	i_array_init(&passdb_interfaces, 16);
-#ifdef PASSDB_PASSWD
 	passdb_register_module(&passdb_passwd);
-#endif
-#ifdef PASSDB_BSDAUTH
 	passdb_register_module(&passdb_bsdauth);
-#endif
-#ifdef PASSDB_PASSWD_FILE
 	passdb_register_module(&passdb_passwd_file);
-#endif
-#ifdef PASSDB_PAM
 	passdb_register_module(&passdb_pam);
-#endif
-#ifdef PASSDB_CHECKPASSWORD
 	passdb_register_module(&passdb_checkpassword);
-#endif
-#ifdef PASSDB_SHADOW
 	passdb_register_module(&passdb_shadow);
-#endif
-#ifdef PASSDB_VPOPMAIL
 	passdb_register_module(&passdb_vpopmail);
-#endif
-#if defined(PASSDB_LDAP) && defined(BUILTIN_LDAP)
 	passdb_register_module(&passdb_ldap);
-#endif
-#ifdef PASSDB_SQL
 	passdb_register_module(&passdb_sql);
-#endif
-#ifdef PASSDB_SIA
 	passdb_register_module(&passdb_sia);
-#endif
 }
 
 void passdbs_deinit(void)

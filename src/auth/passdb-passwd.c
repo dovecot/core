@@ -1,11 +1,11 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_PASSWD
 
 #include "safe-memset.h"
-#include "passdb.h"
 
 #include <pwd.h>
 
@@ -83,4 +83,8 @@ struct passdb_module_interface passdb_passwd = {
 	NULL
 };
 
+#else
+struct passdb_module_interface passdb_passwd = {
+	MEMBER(name) "passwd"
+};
 #endif

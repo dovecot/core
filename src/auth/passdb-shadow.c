@@ -1,11 +1,11 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_SHADOW
 
 #include "safe-memset.h"
-#include "passdb.h"
 
 #include <shadow.h>
 
@@ -82,5 +82,8 @@ struct passdb_module_interface passdb_shadow = {
 	NULL,
 	NULL
 };
-
+#else
+struct passdb_module_interface passdb_shadow = {
+	MEMBER(name) "shadow"
+};
 #endif

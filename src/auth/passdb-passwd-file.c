@@ -1,13 +1,13 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_PASSWD_FILE
 
 #include "str.h"
 #include "auth-cache.h"
 #include "var-expand.h"
-#include "passdb.h"
 #include "password-scheme.h"
 #include "db-passwd-file.h"
 
@@ -187,5 +187,8 @@ struct passdb_module_interface passdb_passwd_file = {
 	passwd_file_lookup_credentials,
 	NULL
 };
-
+#else
+struct passdb_module_interface passdb_passwd_file = {
+	MEMBER(name) "passwd-file"
+};
 #endif

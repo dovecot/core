@@ -1,6 +1,7 @@
 /* Copyright (c) 2004-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_SQL
 
@@ -11,7 +12,6 @@
 #include "password-scheme.h"
 #include "auth-cache.h"
 #include "db-sql.h"
-#include "passdb.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -273,5 +273,8 @@ struct passdb_module_interface passdb_sql = {
 	sql_lookup_credentials,
 	sql_set_credentials
 };
-
+#else
+struct passdb_module_interface passdb_sql = {
+	MEMBER(name) "sql"
+};
 #endif

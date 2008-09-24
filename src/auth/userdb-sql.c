@@ -1,6 +1,7 @@
 /* Copyright (c) 2004-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "userdb.h"
 
 #ifdef USERDB_SQL
 
@@ -9,7 +10,6 @@
 #include "var-expand.h"
 #include "auth-cache.h"
 #include "db-sql.h"
-#include "userdb.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -151,5 +151,8 @@ struct userdb_module_interface userdb_sql = {
 
 	userdb_sql_lookup
 };
-
+#else
+struct userdb_module_interface userdb_sql = {
+	MEMBER(name) "sql"
+};
 #endif

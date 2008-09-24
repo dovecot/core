@@ -8,6 +8,7 @@
 */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_PAM
 
@@ -15,7 +16,6 @@
 #include "str.h"
 #include "var-expand.h"
 #include "network.h"
-#include "passdb.h"
 #include "safe-memset.h"
 #include "auth-cache.h"
 
@@ -320,5 +320,8 @@ struct passdb_module_interface passdb_pam = {
 	NULL,
 	NULL
 };
-
+#else
+struct passdb_module_interface passdb_pam = {
+	MEMBER(name) "pam"
+};
 #endif

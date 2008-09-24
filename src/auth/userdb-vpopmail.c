@@ -3,11 +3,11 @@
 /* Thanks to Courier-IMAP for showing how the vpopmail API should be used */
 
 #include "common.h"
+#include "userdb.h"
 
 #if defined(PASSDB_VPOPMAIL) || defined(USERDB_VPOPMAIL)
 #include "str.h"
 #include "var-expand.h"
-#include "userdb.h"
 #include "userdb-vpopmail.h"
 
 struct vpopmail_userdb_module {
@@ -48,9 +48,9 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 
 	return vpw;
 }
+#endif
 
 #ifdef USERDB_VPOPMAIL
-
 static const char *
 userdb_vpopmail_get_quota(const char *template, const char *vpop_str)
 {
@@ -172,6 +172,8 @@ struct userdb_module_interface userdb_vpopmail = {
 
 	vpopmail_lookup
 };
-
-#endif
+#else
+struct userdb_module_interface userdb_vpopmail = {
+	MEMBER(name) "vpopmail"
+};
 #endif

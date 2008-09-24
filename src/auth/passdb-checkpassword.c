@@ -1,6 +1,7 @@
 /* Copyright (c) 2004-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_CHECKPASSWORD
 
@@ -10,7 +11,6 @@
 #include "ioloop.h"
 #include "hash.h"
 #include "env-util.h"
-#include "passdb.h"
 #include "safe-memset.h"
 
 #include <stdlib.h>
@@ -478,5 +478,8 @@ struct passdb_module_interface passdb_checkpassword = {
 	NULL,
 	NULL
 };
-
+#else
+struct passdb_module_interface passdb_checkpassword = {
+	MEMBER(name) "checkpassword"
+};
 #endif

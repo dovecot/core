@@ -3,11 +3,11 @@
 /* Thanks to Courier-IMAP for showing how the vpopmail API should be used */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_VPOPMAIL
 
 #include "safe-memset.h"
-#include "passdb.h"
 #include "password-scheme.h"
 #include "auth-cache.h"
 
@@ -194,5 +194,8 @@ struct passdb_module_interface passdb_vpopmail = {
 	vpopmail_lookup_credentials,
 	NULL
 };
-
+#else
+struct passdb_module_interface passdb_vpopmail = {
+	MEMBER(name) "vpopmail"
+};
 #endif

@@ -1,6 +1,7 @@
 /* Copyright (c) 2003-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "userdb.h"
 
 #ifdef USERDB_LDAP
 
@@ -9,7 +10,6 @@
 #include "var-expand.h"
 #include "auth-cache.h"
 #include "db-ldap.h"
-#include "userdb.h"
 
 #include <ldap.h>
 #include <stdlib.h>
@@ -161,5 +161,8 @@ struct userdb_module_interface userdb_ldap = {
 
 	userdb_ldap_lookup
 };
-
+#else
+struct userdb_module_interface userdb_ldap = {
+	MEMBER(name) "ldap"
+};
 #endif

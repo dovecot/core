@@ -1,12 +1,12 @@
 /* Copyright (c) 2004-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "userdb.h"
 
 #ifdef USERDB_PREFETCH
 
 #include "str.h"
 #include "var-expand.h"
-#include "userdb.h"
 
 #include <stdlib.h>
 
@@ -44,5 +44,8 @@ struct userdb_module_interface userdb_prefetch = {
 
 	prefetch_lookup
 };
-
+#else
+struct userdb_module_interface userdb_prefetch = {
+	MEMBER(name) "prefetch"
+};
 #endif

@@ -3,11 +3,11 @@
 /* Tru64 SIA support */
 
 #include "common.h"
+#include "passdb.h"
 
 #ifdef PASSDB_SIA
 
 #include "safe-memset.h"
-#include "passdb.h"
 
 #include <sia.h>
 #include <siad.h>
@@ -59,5 +59,8 @@ struct passdb_module_interface passdb_sia = {
 	NULL,
 	NULL
 };
-
+#else
+struct passdb_module_interface passdb_sia = {
+	MEMBER(name) "sia"
+};
 #endif

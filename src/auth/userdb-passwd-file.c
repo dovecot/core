@@ -1,13 +1,13 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "userdb.h"
 
 #ifdef USERDB_PASSWD_FILE
 
 #include "str.h"
 #include "auth-cache.h"
 #include "var-expand.h"
-#include "userdb.h"
 #include "db-passwd-file.h"
 
 #define PASSWD_FILE_CACHE_KEY "%u"
@@ -137,5 +137,8 @@ struct userdb_module_interface userdb_passwd_file = {
 
 	passwd_file_lookup
 };
-
+#else
+struct userdb_module_interface userdb_passwd_file = {
+	MEMBER(name) "passwd-file"
+};
 #endif
