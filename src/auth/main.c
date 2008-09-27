@@ -101,7 +101,7 @@ static int create_unix_listener(const char *env, int backlog)
 	unsigned int mask;
 	uid_t uid;
 	gid_t gid;
-	int fd, i;
+	int fd;
 
 	path = getenv(env);
 	if (path == NULL)
@@ -117,23 +117,14 @@ static int create_unix_listener(const char *env, int backlog)
 	}
 
 	old_umask = umask(mask);
-	for (i = 0; i < 5; i++) {
-		fd = net_listen_unix(path, backlog);
-		if (fd != -1)
-			break;
-
-		if (errno != EADDRINUSE)
-			i_fatal("net_listen_unix(%s) failed: %m", path);
-
-		/* see if it really exists */
-		if (net_connect_unix(path) != -1 || errno != ECONNREFUSED)
-			i_fatal("Socket already exists: %s", path);
-
-		/* delete and try again */
-		if (unlink(path) < 0)
-			i_fatal("unlink(%s) failed: %m", path);
-	}
+	fd = net_listen_unix_unlink_stale(path, backlog);
 	umask(old_umask);
+	if (fd == -1) {
+		if (errno == EADDRINUSE)
+			i_fatal("Socket already exists: %s", path);
+		else
+			i_fatal("net_listen_unix(%s) failed: %m", path);
+	}
 
 	user = getenv(t_strdup_printf("%s_USER", env));
 	group = getenv(t_strdup_printf("%s_GROUP", env));

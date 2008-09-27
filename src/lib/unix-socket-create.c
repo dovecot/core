@@ -13,10 +13,8 @@ int unix_socket_create(const char *path, int mode,
 	mode_t old_umask;
 	int fd;
 
-	(void)unlink(path);
-
 	old_umask = umask(0777 ^ mode);
-	fd = net_listen_unix(path, backlog);
+	fd = net_listen_unix_unlink_stale(path, backlog);
 	umask(old_umask);
 
 	if (fd < 0) {

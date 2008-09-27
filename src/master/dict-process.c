@@ -114,37 +114,17 @@ static void dict_process_listen_input(struct dict_process *process)
 static int dict_process_listen(struct dict_process *process)
 {
 	mode_t old_umask;
-	int fd, i = 0;
 
-	for (;;) {
-		old_umask = umask(0);
-		process->fd = net_listen_unix(process->path, 64);
-		umask(old_umask);
-
-		if (process->fd != -1)
-			break;
-
-		if (errno != EADDRINUSE || ++i == 2) {
-			i_error("net_listen_unix(%s) failed: %m",
-				process->path);
-			return -1;
-		}
-
-		/* see if it really exists */
-		fd = net_connect_unix(process->path);
-		if (fd != -1 || errno != ECONNREFUSED) {
-			if (fd != -1) (void)close(fd);
+	old_umask = umask(0);
+	process->fd = net_listen_unix_unlink_stale(process->path, 64);
+	umask(old_umask);
+	if (process->fd == -1) {
+		if (errno == EADDRINUSE)
 			i_error("Socket already exists: %s", process->path);
-			return -1;
-		}
-
-		/* delete and try again */
-		if (unlink(process->path) < 0 && errno != ENOENT) {
-			i_error("unlink(%s) failed: %m", process->path);
-			return -1;
-		}
+		else
+			i_error("net_listen_unix(%s) failed: %m", process->path);
+		return -1;
 	}
-
 	fd_close_on_exec(process->fd, TRUE);
 	process->io = io_add(process->fd, IO_READ,
 			     dict_process_listen_input, process);

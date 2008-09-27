@@ -521,27 +521,17 @@ static void dict_server_listener_accept(struct dict_server *server)
 struct dict_server *dict_server_init(const char *path, int fd)
 {
 	struct dict_server *server;
-	int i= 0;
 
 	server = i_new(struct dict_server, 1);
 	server->path = i_strdup(path);
 	server->fd = fd;
 
-	while (server->fd == -1) {
-		server->fd = net_listen_unix(path, 64);
-		if (server->fd != -1)
-			break;
-
-		if (errno != EADDRINUSE || ++i == 2)
-			i_fatal("net_listen_unix(%s) failed: %m", path);
-
-		/* see if it really exists */
-		if (net_connect_unix(path) != -1 || errno != ECONNREFUSED)
+	server->fd = net_listen_unix_unlink_stale(path, 64);
+	if (server->fd == -1) {
+		if (errno == EADDRINUSE)
 			i_fatal("Socket already exists: %s", path);
-
-		/* delete and try again */
-		if (unlink(path) < 0)
-			i_fatal("unlink(%s) failed: %m", path);
+		else
+			i_fatal("net_listen_unix(%s) failed: %m", path);
 	}
 
 	server->io = io_add(server->fd, IO_READ,

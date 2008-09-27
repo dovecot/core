@@ -395,6 +395,33 @@ int net_listen_unix(const char *path, int backlog)
 	return -1;
 }
 
+int net_listen_unix_unlink_stale(const char *path, int backlog)
+{
+	unsigned int i = 0;
+	int fd;
+
+	while ((fd = net_listen_unix(path, backlog)) == -1) {
+		if (errno != EADDRINUSE || ++i == 2)
+			return -1;
+
+		/* see if it really exists */
+		fd = net_connect_unix(path);
+		if (fd != -1 || errno != ECONNREFUSED) {
+			if (fd != -1) (void)close(fd);
+			errno = EADDRINUSE;
+			return -1;
+		}
+
+		/* delete and try again */
+		if (unlink(path) < 0 && errno != ENOENT) {
+			i_error("unlink(%s) failed: %m", path);
+			errno = EADDRINUSE;
+			return -1;
+		}
+	}
+	return fd;
+}
+
 int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
 {
 	union sockaddr_union so;
