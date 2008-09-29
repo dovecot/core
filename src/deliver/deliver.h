@@ -25,6 +25,7 @@ struct deliver_settings {
 };
 
 extern struct deliver_settings *deliver_set;
+extern bool tried_default_save;
 
 typedef int deliver_mail_func_t(struct mail_namespace *namespaces,
 				struct mail_storage **storage_r,

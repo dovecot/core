@@ -55,11 +55,11 @@ static const char *wanted_headers[] = {
 
 struct deliver_settings *deliver_set;
 deliver_mail_func_t *deliver_mail = NULL;
+bool tried_default_save = FALSE;
 
 /* FIXME: these two should be in some context struct instead of as globals.. */
 static const char *default_mailbox_name = NULL;
 static bool saved_mail = FALSE;
-static bool tried_default_save = FALSE;
 static char *explicit_envelope_sender = NULL;
 
 static struct module *modules;
