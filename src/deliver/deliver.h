@@ -20,6 +20,8 @@ struct deliver_settings {
 	const char *sendmail_path;
 	const char *rejection_reason;
 	const char *log_format;
+	bool mailbox_autosubscribe;
+	bool mailbox_autocreate;
 };
 
 extern struct deliver_settings *deliver_set;

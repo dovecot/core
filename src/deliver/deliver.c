@@ -60,8 +60,6 @@ deliver_mail_func_t *deliver_mail = NULL;
 static const char *default_mailbox_name = NULL;
 static bool saved_mail = FALSE;
 static bool tried_default_save = FALSE;
-static bool no_mailbox_autocreate = FALSE;
-static bool mailbox_autosubscribe = FALSE;
 static char *explicit_envelope_sender = NULL;
 
 static struct module *modules;
@@ -166,7 +164,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 
 	box = mailbox_open(ns->storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT);
-	if (box != NULL || no_mailbox_autocreate)
+	if (box != NULL || !deliver_set->mailbox_autocreate)
 		return box;
 
 	(void)mail_storage_get_last_error(ns->storage, &error);
@@ -176,7 +174,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	/* try creating it. */
 	if (mail_storage_mailbox_create(ns->storage, name, FALSE) < 0)
 		return NULL;
-	if (mailbox_autosubscribe) {
+	if (deliver_set->mailbox_autosubscribe) {
 		/* (try to) subscribe to it */
 		(void)mailbox_list_set_subscribed(ns->list, name, TRUE);
 	}
@@ -822,6 +820,9 @@ int main(int argc, char *argv[])
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 
+	deliver_set = i_new(struct deliver_settings, 1);
+	deliver_set->mailbox_autocreate = TRUE;
+
 	destaddr = user = path = NULL;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-a") == 0) {
@@ -865,9 +866,9 @@ int main(int argc, char *argv[])
 			if (*argv[i] != '\0')
 				mailbox = argv[i];
 		} else if (strcmp(argv[i], "-n") == 0) {
-			no_mailbox_autocreate = TRUE;
+			deliver_set->mailbox_autocreate = FALSE;
 		} else if (strcmp(argv[i], "-s") == 0) {
-			mailbox_autosubscribe = TRUE;
+			deliver_set->mailbox_autosubscribe = TRUE;
 		} else if (strcmp(argv[i], "-f") == 0) {
 			/* envelope sender address */
 			i++;
@@ -988,7 +989,6 @@ int main(int argc, char *argv[])
 		i = 0077;
 	(void)umask(i);
 
-	deliver_set = i_new(struct deliver_settings, 1);
 	deliver_set->hostname = getenv("HOSTNAME");
 	if (deliver_set->hostname == NULL)
 		deliver_set->hostname = my_hostname;
