@@ -545,7 +545,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		 process_type == PROCESS_TYPE_POP3);
 
 	if (mail_process_count == set->max_mail_processes) {
-		i_error("Maximum number of mail processes exceeded");
+		i_error("Maximum number of mail processes exceeded "
+			"(see max_mail_processes setting)");
 		return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	}
 
