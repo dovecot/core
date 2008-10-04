@@ -711,12 +711,31 @@ static void ssl_clean_free(void *ptr)
 	p_free(system_clean_pool, ptr);
 }
 
+static bool is_pem_key_file(const char *path)
+{
+	char buf[4096];
+	int fd, ret;
+
+	/* this code is used only for giving a better error message,
+	   so it needs to catch only the normal key files */
+	fd = open(path, O_RDONLY);
+	if (fd == -1)
+		return FALSE;
+	ret = read(fd, buf, sizeof(buf)-1);
+	close(fd);
+	if (ret <= 0)
+		return FALSE;
+	buf[ret] = '\0';
+	return strstr(buf, "PRIVATE KEY---") != NULL;
+}
+
 void ssl_proxy_init(void)
 {
 	static char dovecot[] = "dovecot";
 	const char *cafile, *certfile, *keyfile, *cipher_list, *username_field;
 	char *password;
 	unsigned char buf;
+	unsigned long err;
 
 	memset(&ssl_params, 0, sizeof(ssl_params));
 
@@ -759,8 +778,21 @@ void ssl_proxy_init(void)
 	}
 
 	if (SSL_CTX_use_certificate_chain_file(ssl_ctx, certfile) != 1) {
-		i_fatal("Can't load certificate file %s: %s",
-			certfile, ssl_last_error());
+		err = ERR_peek_error();
+		if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
+		    ERR_GET_REASON(err) != PEM_R_NO_START_LINE) {
+			i_fatal("Can't load certificate file %s: %s",
+				certfile, ssl_last_error());
+		} else if (is_pem_key_file(certfile)) {
+			i_fatal("Can't load certificate file %s: "
+				"The file contains a private key "
+				"(you've mixed ssl_cert_file and ssl_key_file settings)",
+				certfile);
+		} else {
+			i_fatal("Can't load certificate file %s: "
+				"The file doesn't contain a certificate.",
+				certfile);
+		}
 	}
 
         SSL_CTX_set_default_passwd_cb(ssl_ctx, pem_password_callback);
