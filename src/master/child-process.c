@@ -89,7 +89,8 @@ void client_process_exec_argv(const char *executable, const char **argv)
 	execv(executable, (char **)argv);
 }
 
-static const char *get_exit_status_message(enum fatal_exit_status status)
+static const char *get_exit_status_message(enum fatal_exit_status status,
+					   enum process_type process_type)
 {
 	switch (status) {
 	case FATAL_LOGOPEN:
@@ -99,6 +100,21 @@ static const char *get_exit_status_message(enum fatal_exit_status status)
 	case FATAL_LOGERROR:
 		return "Internal logging error";
 	case FATAL_OUTOFMEM:
+		switch (process_type) {
+		case PROCESS_TYPE_AUTH:
+		case PROCESS_TYPE_AUTH_WORKER:
+			return "Out of memory - see auth_process_size setting";
+		case PROCESS_TYPE_LOGIN:
+			return "Out of memory - see login_process_size setting";
+		case PROCESS_TYPE_IMAP:
+		case PROCESS_TYPE_POP3:
+			return "Out of memory - see mail_process_size setting";
+		case PROCESS_TYPE_UNKNOWN:
+		case PROCESS_TYPE_SSL_PARAM:
+		case PROCESS_TYPE_DICT:
+		case PROCESS_TYPE_MAX:
+			break;
+		}
 		return "Out of memory";
 	case FATAL_EXEC:
 		return "exec() failed";
@@ -148,7 +164,8 @@ static void sigchld_handler(int signo ATTR_UNUSED,
 				   process->seen_fatal) {
 				/* the error was already logged. */
 			} else {
-				msg = get_exit_status_message(status);
+				msg = get_exit_status_message(status,
+							      process_type);
 				msg = msg == NULL ? "" :
 					t_strconcat(" (", msg, ")", NULL);
 				i_error("child %s (%s) returned error %d%s",
