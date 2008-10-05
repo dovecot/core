@@ -100,7 +100,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 		errstr = mail_storage_get_last_error(ns->storage, &error);
 		if (error != MAIL_ERROR_NOTFOUND) {
 			i_error("%s: Opening mailbox %s failed: %s",
-				user, ns_mailbox, errstr);
+				user, mailbox, errstr);
 			return -1;
 		}
 		
