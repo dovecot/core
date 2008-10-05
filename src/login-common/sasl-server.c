@@ -51,7 +51,8 @@ master_callback(struct client *client, const struct master_login_reply *reply)
 	case MASTER_LOGIN_STATUS_INTERNAL_ERROR:
 		break;
 	case MASTER_LOGIN_STATUS_MAX_CONNECTIONS:
-		data = "Maximum number of connections from user+IP exceeded";
+		data = "Maximum number of connections from user+IP exceeded "
+			"(mail_max_userip_connections)";
 		break;
 	}
 	client->mail_pid = reply->mail_pid;
