@@ -46,8 +46,7 @@ int file_set_size(int fd, off_t size)
 		if (posix_fallocate(fd, st.st_size, size - st.st_size) == 0)
 			return 0;
 
-		if (errno != EINVAL /* Solaris */ &&
-		    errno != ENOPROTOOPT /* AIX */) {
+		if (errno != EINVAL /* Solaris */) {
 			if (!ENOSPACE(errno))
 				i_error("posix_fallocate() failed: %m");
 			return -1;
