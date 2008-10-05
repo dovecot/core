@@ -310,6 +310,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		rstream->eof = TRUE;
 		rstream->corrupted = TRUE;
 		rstream->istream.istream.stream_errno = EBADMSG;
+		stream->pos = 0;
 		return -1;
 	}
 
