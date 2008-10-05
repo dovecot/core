@@ -16,6 +16,11 @@
  - QRESYNC: Drop expunges from the middle of given seq sets if possible
  - use universal hash functions?
 
+ - mbox + in-memory indexes give errors with stress testing
+ - dict quota: syncing may cause quota recalculation, which in turn syncs
+   all mailboxes and then we'll assert-crash to avoid infinite looping
+ - sieve: mailbox names should be utf-7 encoded
+ - fts-squat: support ORs
  - UIDVALIDITY changed while saving -> sync errors
    - mbox: copy to Trash, manually delete copied msg, change uidvalidity,
      set nextuid=1, copy again -> error
@@ -195,6 +200,7 @@
       maybe just log the IP immediately.
 
  - auth
+    - v2.0: add auth_plugins setting, put all plugins into the same dir
     - with blocking passdb we're not caching lookups if the password was wrong
     - non-plaintext authentication doesn't support all features:
         - multiple passdbs don't work, only the first one is used
