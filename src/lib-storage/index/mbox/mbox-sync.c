@@ -1553,7 +1553,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	index_sync_changes_reset(sync_ctx->sync_changes);
 
 	if (sync_ctx->base_uid_last != sync_ctx->next_uid-1 &&
-	    ret == 0 && !sync_ctx->delay_writes &&
+	    ret > 0 && !sync_ctx->delay_writes &&
 	    sync_ctx->base_uid_last_offset != 0) {
 		/* Rewrite uid_last in X-IMAPbase header if we've seen it
 		   (ie. the file isn't empty) */
