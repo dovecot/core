@@ -628,7 +628,10 @@ static int maildirquota_refresh(struct maildir_quota_root *root)
 		if (root->root.set->default_rule.bytes_limit == 0 &&
 		    root->root.set->default_rule.count_limit == 0) {
 			/* no quota */
-			return 0;
+			if (!root->root.set->force_default_rule)
+				return 0;
+			/* explicitly specified 0 as quota. keep the quota
+			   updated even if it's not enforced. */
 		}
 
 		ret = maildirsize_recalculate(root);
