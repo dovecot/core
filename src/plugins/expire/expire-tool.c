@@ -230,8 +230,10 @@ static void expire_run(bool testrun)
 			/* we're no longer expunging old messages from here */
 			if (!testrun)
 				dict_unset(trans, key);
-			else
-				i_info("%s: removed from config", mailbox);
+			else {
+				i_info("%s: mailbox '%s' removed from config",
+				       userp, mailbox);
+			}
 			continue;
 		}
 		if (time(NULL) < (time_t)strtoul(value, NULL, 10)) {
@@ -239,7 +241,7 @@ static void expire_run(bool testrun)
 			   so stop processing */
 			if (testrun) {
 				i_info("%s: stop, expire time in future: %s",
-				       mailbox, value);
+				       userp, value);
 			}
 			break;
 		}
@@ -260,7 +262,7 @@ static void expire_run(bool testrun)
 			if (!testrun)
 				dict_unset(trans, key);
 			else
-				i_info("%s: no messages left", mailbox);
+				i_info("%s: no messages left", userp);
 		} else {
 			char new_value[MAX_INT_STRLEN];
 
@@ -274,7 +276,7 @@ static void expire_run(bool testrun)
 				dict_set(trans, key, new_value);
 			else {
 				i_info("%s: timestamp %s -> %s",
-				       mailbox, value, new_value);
+				       userp, value, new_value);
 			}
 		}
 	}
