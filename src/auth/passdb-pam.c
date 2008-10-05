@@ -20,6 +20,7 @@
 #include "auth-cache.h"
 
 #include <stdlib.h>
+#include <sys/stat.h>
 
 #ifdef HAVE_SECURITY_PAM_APPL_H
 #  include <security/pam_appl.h>
@@ -31,6 +32,10 @@
 /* Sun's PAM doesn't use const. we use a bit dirty hack to check it.
    Originally it was just __sun__ check, but HP/UX also uses Sun's PAM
    so I thought this might work better. */
+#  define SUNPAM
+#endif
+
+#ifdef SUNPAM
 #  define linux_const
 #else
 #  define linux_const			const
@@ -117,17 +122,66 @@ pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	return PAM_SUCCESS;
 }
 
-static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh)
+static const char *
+pam_get_missing_service_file_path(const char *service ATTR_UNUSED)
+{
+#ifdef SUNPAM
+	/* Uses /etc/pam.conf - we're not going to parse that */
+	return NULL;
+#else
+	static bool service_checked = FALSE;
+	const char *path;
+	struct stat st;
+
+	if (service_checked) {
+		/* check and complain only once */
+		return NULL;
+	}
+	service_checked = TRUE;
+
+	path = t_strdup_printf("/etc/pam.d/%s", service);
+	if (stat(path, &st) < 0 && errno == ENOENT) {
+		/* looks like it's missing. but before assuming that the system
+		   even uses /etc/pam.d, make sure that it exists. */
+		if (stat("/etc/pam.d", &st) == 0)
+			return path;
+	}
+	/* exists or is unknown */
+	return NULL;
+}
+#endif
+
+static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
+			const char *service)
 {
         struct passdb_module *_module = request->passdb->passdb;
         struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
+	const char *path, *str;
 	pam_item_t item;
 	int status;
 
 	if ((status = pam_authenticate(pamh, 0)) != PAM_SUCCESS) {
-		auth_request_log_error(request, "pam",
-				       "pam_authenticate() failed: %s",
-				       pam_strerror(pamh, status));
+		path = pam_get_missing_service_file_path(service);
+		switch (status) {
+		case PAM_USER_UNKNOWN:
+			str = "unknown user";
+			break;
+		default:
+			str = t_strconcat("pam_authenticate() failed: ",
+					  pam_strerror(pamh, status), NULL);
+			break;
+		}
+		if (path != NULL) {
+			/* log this as error, since it probably is */
+			str = t_strdup_printf("%s (%s missing?)", str, path);
+			auth_request_log_error(request, "pam", "%s", str);
+		} else {
+			if (status == PAM_AUTH_ERR) {
+				str = t_strconcat(str, " (password mismatch?)",
+						  NULL);
+			}
+			auth_request_log_info(request, "pam", "%s", str);
+		}
 		return status;
 	}
 
@@ -215,7 +269,7 @@ pam_verify_plain_call(struct auth_request *request, const char *service,
 	}
 
 	set_pam_items(request, pamh);
-	status = try_pam_auth(request, pamh);
+	status = try_pam_auth(request, pamh, service);
 	if ((status2 = pam_end(pamh, status)) != PAM_SUCCESS) {
 		auth_request_log_error(request, "pam", "pam_end() failed: %s",
 				       pam_strerror(pamh, status2));
