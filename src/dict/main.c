@@ -74,10 +74,12 @@ static void main_init(void)
 	/* If master dies, the log fd gets closed and we'll quit */
 	log_io = io_add(STDERR_FILENO, IO_ERROR, log_error_callback, NULL);
 
-	dict_drivers_register_all();
-
 	modules = module_dir_load(DICT_MODULE_DIR, NULL, TRUE, version);
 	module_dir_init(modules);
+
+	/* Register only after loading modules. They may contain SQL drivers,
+	   which we'll need to register. */
+	dict_drivers_register_all();
 
 	path = getenv("DICT_LISTEN_FROM_FD");
 	fd = path == NULL ? -1 : DICT_MASTER_LISTENER_FD;
