@@ -1044,7 +1044,7 @@ index_mail_alloc(struct mailbox_transaction_context *t,
 	struct index_mail *mail;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mail", 1024);
+	pool = pool_alloconly_create("mail", 2048);
 	mail = p_new(pool, struct index_mail, 1);
 	mail->mail.pool = pool;
 
