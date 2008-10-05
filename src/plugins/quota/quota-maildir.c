@@ -556,23 +556,22 @@ static int maildirsize_read(struct maildir_quota_root *root)
 
 	/* @UNSAFE */
 	size = 0;
-	while (size < sizeof(buf)-1 &&
-	       (ret = read(root->fd, buf + size, sizeof(buf)-1 - size)) != 0) {
+	while ((ret = read(root->fd, buf + size, sizeof(buf)-1 - size)) != 0) {
 		if (ret < 0) {
 			if (errno == ESTALE)
 				break;
 			i_error("read(%s) failed: %m", root->maildirsize_path);
+			break;
 		}
 		size += ret;
-	}
-	if (ret < 0 || size >= sizeof(buf)-1) {
-		/* error / recalculation needed. */
-		(void)close(root->fd);
-		root->fd = -1;
-		return ret < 0 ? -1 : 0;
+		if (size >= sizeof(buf)-1) {
+			/* we'll need to recalculate the quota */
+			break;
+		}
 	}
 
-	/* file is smaller than 5120 bytes, which means we can use it */
+	/* try to use the file even if we ran into some error. if we don't have
+	   forced limits, we'll need to read the header to get them */
 	root->total_bytes = root->total_count = 0;
 	root->last_size = size;
 
@@ -582,6 +581,13 @@ static int maildirsize_read(struct maildir_quota_root *root)
 	if (size > 0) size--;
 	buf[size] = '\0';
 
+	if (ret < 0 && size == 0) {
+		/* the read failed and there's no usable header, fail. */
+		(void)close(root->fd);
+		root->fd = -1;
+		return -1;
+	}
+
 	/* If there are any NUL bytes, the file is broken. */
 	for (i = 0; i < size; i++) {
 		if (buf[i] == '\0')
@@ -589,7 +595,8 @@ static int maildirsize_read(struct maildir_quota_root *root)
 	}
 
 	if (i == size &&
-	    maildirsize_parse(root, root->fd, t_strsplit(buf, "\n")) > 0)
+	    maildirsize_parse(root, root->fd, t_strsplit(buf, "\n")) > 0 &&
+	    ret == 0)
 		ret = 1;
 	else {
 		/* broken file / need recalculation */
