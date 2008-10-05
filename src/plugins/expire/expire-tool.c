@@ -67,7 +67,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	struct mailbox_transaction_context *t;
 	struct mail_search_args *search_args;
 	struct mail *mail;
-	const char *ns_mailbox;
+	const char *ns_mailbox, *errstr;
 	time_t now, save_time;
 	enum mail_error error;
 	enum mail_flags flags;
@@ -97,9 +97,12 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 
 	box = mailbox_open(ns->storage, ns_mailbox, NULL, 0);
 	if (box == NULL) {
-		(void)mail_storage_get_last_error(ns->storage, &error);
-		if (error != MAIL_ERROR_NOTFOUND)
+		errstr = mail_storage_get_last_error(ns->storage, &error);
+		if (error != MAIL_ERROR_NOTFOUND) {
+			i_error("%s: Opening mailbox %s failed: %s",
+				user, ns_mailbox, errstr);
 			return -1;
+		}
 		
 		/* mailbox no longer exists, remove the entry */
 		return 0;
@@ -119,9 +122,9 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 		if (mail_get_save_date(mail, &save_time) < 0) {
 			/* maybe just got expunged. anyway try again later. */
 			if (ctx->testrun) {
-				i_info("%s: seq=%u uid=%u: "
+				i_info("%s/%s: seq=%u uid=%u: "
 				       "Save date lookup failed",
-				       mailbox, mail->seq, mail->uid);
+				       user, mailbox, mail->seq, mail->uid);
 			}
 			ret = -1;
 			break;
@@ -132,8 +135,8 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 			if (!ctx->testrun)
 				mail_expunge(mail);
 			else {
-				i_info("%s: seq=%u uid=%u: Expunge",
-				       mailbox, mail->seq, mail->uid);
+				i_info("%s/%s: seq=%u uid=%u: Expunge",
+				       user, mailbox, mail->seq, mail->uid);
 			}
 		} else if (save_time + (time_t)altmove_secs <= now &&
 			   altmove_secs != 0) {
@@ -145,8 +148,8 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 				mail_update_flags(mail, MODIFY_ADD,
 						  MAIL_INDEX_MAIL_FLAG_BACKEND);
 			} else {
-				i_info("%s: seq=%u uid=%u: Move to alt dir",
-				       mailbox, mail->seq, mail->uid);
+				i_info("%s/%s: seq=%u uid=%u: Move to alt dir",
+				       user, mailbox, mail->seq, mail->uid);
 			}
 		} else {
 			/* first non-expired one. */
