@@ -137,17 +137,26 @@ static void print_try_uint(const void *data, size_t size)
 	}
 	case 2: {
 		const uint16_t *n = data;
-		printf("%u", *n);
+		uint32_t n16;
+
+		memcpy(&n16, n, sizeof(n16));
+		printf("%u", n16);
 		break;
 	}
 	case 4: {
 		const uint32_t *n = data;
-		printf("%u", *n);
+		uint32_t n32;
+
+		memcpy(&n32, n, sizeof(n32));
+		printf("%u", n32);
 		break;
 	}
 	case 8: {
 		const uint64_t *n = data;
-		printf("%llu", (unsigned long long)*n);
+		uint64_t n64;
+
+		memcpy(&n64, n, sizeof(n64));
+		printf("%llu", (unsigned long long)n64);
 		break;
 	}
 	default:
