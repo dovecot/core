@@ -1150,7 +1150,7 @@ AC_CACHE_CHECK([whether shared mmaps get updated by write()s],i_cv_mmap_plays_wi
     #include <sys/mman.h>
     int main() {
       /* return 0 if we're signed */
-      int f = open("conftest.mmap", O_RDWR|O_CREAT|O_TRUNC);
+      int f = open("conftest.mmap", O_RDWR|O_CREAT|O_TRUNC, 0600);
       void *mem;
       if (f == -1) {
 	perror("open()");
@@ -1205,7 +1205,7 @@ AC_CACHE_CHECK([whether fd passing works],i_cv_fd_passing,[
 	      struct stat st, st2;
 	      char data;
       
-	      send_fd = open("conftest.fdpass", O_CREAT|O_WRONLY);
+	      send_fd = creat("conftest.fdpass", 0600);
 	      if (send_fd == -1) return 2;
 	      unlink("conftest.fdpass");
 	      if (fstat(send_fd, &st) < 0) return 2;
