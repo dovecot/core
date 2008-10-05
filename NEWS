@@ -5,10 +5,11 @@ v1.2.UNSTABLE  Timo Sirainen <tss@iki.fi>
 	+ SEARCH supports INTHREAD search key, but the rest of the INTHREAD
 	  draft isn't implemented yet and isn't advertised.
 	+ THREAD X-REFERENCES2 algorithm where threads are sorted by their
-	  latest message instead of the thread root message.
+	  latest message instead of the thread root message. There is also no
+	  base subject merging.
 	+ Thread indexes for optimizing IMAP THREAD command and INTHREAD
 	  search key.
-	+ Virtual mailboxes
+	+ Virtual mailboxes: http://wiki.dovecot.org/Plugins/Virtual
 
 v1.1.3 2008-09-02  Timo Sirainen <tss@iki.fi>
 
