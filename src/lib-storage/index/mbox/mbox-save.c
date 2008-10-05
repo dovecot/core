@@ -790,7 +790,8 @@ void mbox_transaction_save_rollback(struct mbox_save_context *ctx)
 		/* failed, truncate file back to original size.
 		   output stream needs to be flushed before truncating
 		   so unref() won't write anything. */
-		o_stream_flush(ctx->output);
+		if (ctx->output != NULL)
+			o_stream_flush(ctx->output);
 
 		if (ftruncate(mbox->mbox_fd, (off_t)ctx->append_offset) < 0)
 			mbox_set_syscall_error(mbox, "ftruncate()");
