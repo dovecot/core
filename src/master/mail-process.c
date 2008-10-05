@@ -224,12 +224,6 @@ expand_mail_env(const char *env, const struct var_expand_table *table)
 		str_append_c(str, *env++);
 	}
 
-	if (env[0] == '~' &&
-	    (env[1] == '/' || env[1] == '\0' || env[1] == ':')) {
-		/* expand home */
-		env = t_strconcat("%h", env+1, NULL);
-	}
-
 	/* expand %vars */
 	var_expand(str, env, table);
 	return str_c(str);
