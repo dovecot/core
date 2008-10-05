@@ -12,7 +12,8 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
-#define DEFAULT_QUOTA_EXCEEDED_MSG "Quota exceeded"
+#define DEFAULT_QUOTA_EXCEEDED_MSG \
+	"Quota exceeded (mailbox for user is full)"
 #define RULE_NAME_DEFAULT_FORCE "*"
 #define RULE_NAME_DEFAULT_NONFORCE "?"
 
