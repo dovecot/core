@@ -286,6 +286,8 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 {
 	int ret;
 
+	i_assert(trie->fd != -1);
+
 	*file_lock_r = NULL;
 	*dotlock_r = NULL;
 
@@ -1396,7 +1398,8 @@ squat_trie_renumber_uidlists(struct squat_trie_build_context *ctx,
 	} else {
 		ret = squat_trie_renumber_uidlists2(ctx, rebuild_ctx, iter);
 	}
-	squat_trie_iterate_deinit(iter);
+	if (squat_trie_iterate_deinit(iter) < 0)
+		ret = -1;
 
 	/* lock the trie before we rename uidlist */
 	i_assert(ctx->file_lock == NULL && ctx->dotlock == NULL);
@@ -1644,18 +1647,19 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 		path = trie->path;
 		ctx->compress_nodes =
 			trie->hdr.used_file_size == sizeof(trie->hdr);
+
+		if (trie->hdr.used_file_size == 0) {
+			/* lock before opening the file, in case we reopen it */
+			if (squat_trie_write_lock(ctx) < 0)
+				return -1;
+		}
 		output = o_stream_create_fd(trie->fd, 0, FALSE);
 		o_stream_cork(output);
 
 		if (trie->hdr.used_file_size != 0)
 			o_stream_seek(output, trie->hdr.used_file_size);
-		else {
-			if (squat_trie_write_lock(ctx) < 0) {
-				o_stream_unref(&output);
-				return -1;
-			}
+		else
 			o_stream_send(output, &trie->hdr, sizeof(trie->hdr));
-		}
 	}
 
 	ctx->output = output;
