@@ -389,8 +389,10 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	}
 	i_assert(!(ret == 0 && full));
 
-	if (ret >= 0 && !ctx->eof) {
-		/* leave CR+LF + last line to buffer */
+	if (ret > 0 || (ret == 0 && !ctx->eof)) {
+		/* a) we found the boundary
+		   b) we need more data and haven't reached EOF yet
+		   so leave CR+LF + last line to buffer */
 		block_r->size = boundary_start;
 	}
 	if (block_r->size != 0) {
