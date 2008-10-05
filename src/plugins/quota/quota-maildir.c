@@ -279,7 +279,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	}
 
 	str = t_str_new(128);
-	if (_root->bytes_limit != 0) {
+	/* if we have no limits, write 0S instead of an empty line */
+	if (_root->bytes_limit != 0 || _root->count_limit == 0) {
 		str_printfa(str, "%lluS",
 			    (unsigned long long)_root->bytes_limit);
 	}
