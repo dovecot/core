@@ -148,8 +148,8 @@ pam_get_missing_service_file_path(const char *service ATTR_UNUSED)
 	}
 	/* exists or is unknown */
 	return NULL;
-}
 #endif
+}
 
 static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
 			const char *service)
