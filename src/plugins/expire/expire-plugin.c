@@ -99,6 +99,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 {
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
+	struct mailbox *box = t->box;
 	time_t new_stamp;
 	bool update_dict = FALSE;
 	int ret;
@@ -117,13 +118,14 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 		i_free(xt);
 		return -1;
 	}
+	/* transaction is freed now */
+	t = NULL;
 
 	if (xt->first_expunged || xt->saves) T_BEGIN {
 		const char *key, *value;
 
 		key = t_strconcat(DICT_EXPIRE_PREFIX, expire.username, "/",
-				  t->box->storage->ns->prefix,
-				  t->box->name, NULL);
+				  box->storage->ns->prefix, box->name, NULL);
 		if (!xt->first_expunged && xt->saves) {
 			/* saved new mails. dict needs to be updated only if
 			   this is the first mail in the database */
