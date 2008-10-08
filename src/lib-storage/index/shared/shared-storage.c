@@ -171,7 +171,7 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 
 	ns = mail_namespace_find_prefix(user->namespaces, str_c(prefix));
 	if (ns != NULL) {
-		*_name = name;
+		*_name = mail_namespace_fix_sep(ns, name);
 		*ns_r = ns;
 		return 0;
 	}
@@ -182,6 +182,7 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	ns->user = user;
 	ns->prefix = p_strdup(user->pool, str_c(prefix));
 	ns->flags = NAMESPACE_FLAG_LIST | NAMESPACE_FLAG_HIDDEN;
+	ns->sep = _storage->ns->sep;
 
 	location = t_str_new(256);
 	var_expand(location, storage->location, tab);
@@ -194,7 +195,7 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	   mailboxes. otherwise the memory usage could just keep growing. */
 	mail_user_add_namespace(user, ns);
 
-	*_name = name;
+	*_name = mail_namespace_fix_sep(ns, name);
 	*ns_r = ns;
 	return 0;
 }
