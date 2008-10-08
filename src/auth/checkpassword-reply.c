@@ -11,7 +11,8 @@ int main(void)
 {
 	string_t *str;
 	const char *user, *home;
-	const char *extra_env, *value, *const *tmp;
+	const char *extra_env, *key, *value, *const *tmp;
+	bool uid_found = FALSE, gid_found = FALSE;
 
 	lib_init();
 	str = t_str_new(1024);
@@ -34,19 +35,24 @@ int main(void)
 		str_printfa(str, "userdb_home=%s\t", home);
 	}
 
-	str_printfa(str, "userdb_uid=%s\tuserdb_gid=%s\t",
-		    dec2str(getuid()), dec2str(getgid()));
-
 	extra_env = getenv("EXTRA");
 	if (extra_env != NULL) {
 		for (tmp = t_strsplit(extra_env, " "); *tmp != NULL; tmp++) {
 			value = getenv(*tmp);
 			if (value != NULL) {
-				str_printfa(str, "%s=%s\t",
-					    t_str_lcase(*tmp), value);
+				key = t_str_lcase(*tmp);
+				if (strcmp(key, "userdb_uid") == 0)
+					uid_found = TRUE;
+				else if (strcmp(key, "userdb_gid") == 0)
+					gid_found = TRUE;
+				str_printfa(str, "%s=%s\t", key, value);
 			}
 		}
 	}
+	if (!uid_found)
+		str_printfa(str, "userdb_uid=%s\t",  dec2str(getuid()));
+	if (!gid_found)
+		str_printfa(str, "userdb_gid=%s\t",  dec2str(getgid()));
 
 	if (write_full(4, str_data(str), str_len(str)) < 0) {
 		i_error("checkpassword: write_full() failed: %m");
