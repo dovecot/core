@@ -391,8 +391,13 @@ void db_ldap_request(struct ldap_connection *conn,
 	if (conn->request_queue->full &&
 	    aqueue_count(conn->request_queue) >= DB_LDAP_MAX_QUEUE_SIZE) {
 		/* Queue is full already, fail this request */
+		struct ldap_request *const *first_requestp;
+
+		first_requestp = array_idx(&conn->request_array,
+					   aqueue_idx(conn->request_queue, 0));
 		auth_request_log_error(request->auth_request, "ldap",
-				       "Request queue is full");
+			"Request queue is full (oldest added %d secs ago)",
+			(int)(time(NULL) - (*first_requestp)->create_time));
 		request->callback(conn, request, NULL);
 		return;
 	}
