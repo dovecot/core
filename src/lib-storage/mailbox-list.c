@@ -203,7 +203,8 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 
 	if ((flags & MAILBOX_LIST_FLAG_DEBUG) != 0) {
 		i_info("%s: root=%s, index=%s, control=%s, inbox=%s",
-		       list->name, list->set.root_dir,
+		       list->name,
+		       list->set.root_dir == NULL ? "" : list->set.root_dir,
 		       list->set.index_dir == NULL ? "" : list->set.index_dir,
 		       list->set.control_dir == NULL ?
 		       "" : list->set.control_dir,
