@@ -118,14 +118,20 @@ shared_list_join_refpattern(struct mailbox_list *list,
 			    const char *ref, const char *pattern)
 {
 	struct mail_namespace *ns;
+	const char *ns_ref, *prefix = list->ns->prefix;
+	unsigned int prefix_len = strlen(prefix);
 
-	if (*ref != '\0' &&
-	    shared_storage_get_namespace(list->ns->storage, &ref, &ns) == 0)
+	if (*ref != '\0' && strncmp(ref, prefix, prefix_len) == 0)
+		ns_ref = ref + prefix_len;
+	else if (*ref == '\0' && strncmp(pattern, prefix, prefix_len) == 0)
+		ns_ref = pattern + prefix_len;
+	else
+		ns_ref = NULL;
+
+	if (ns_ref != NULL &&
+	    shared_storage_get_namespace(list->ns->storage,
+					 &ns_ref, &ns) == 0)
 		return mailbox_list_join_refpattern(ns->list, ref, pattern);
-
-	if (*ref == '\0' &&
-	    shared_storage_get_namespace(list->ns->storage, &pattern, &ns) == 0)
-		return mailbox_list_join_refpattern(ns->list, "", pattern);
 
 	/* fallback to default behavior */
 	if (*ref != '\0')
@@ -162,7 +168,7 @@ static int shared_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		(struct shared_mailbox_list_iterate_context *)_ctx;
 
 	i_free(ctx);
-	return -1;
+	return 0;
 }
 
 static int shared_list_set_subscribed(struct mailbox_list *list,
