@@ -56,6 +56,9 @@ enum mailbox_open_flags {
 	MAILBOX_OPEN_NO_INDEX_FILES	= 0x10,
 	/* Keep mailbox exclusively locked all the time while it's open */
 	MAILBOX_OPEN_KEEP_LOCKED	= 0x20,
+	/* Enable if mailbox is used for serving POP3. This allows making
+	   better caching decisions. */
+	MAILBOX_OPEN_POP3_SESSION	= 0x40
 };
 
 enum mailbox_feature {

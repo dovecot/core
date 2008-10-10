@@ -175,7 +175,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 
 	storage = client->inbox_ns->storage;
 
-	flags = 0;
+	flags = MAILBOX_OPEN_POP3_SESSION;
 	if (no_flag_updates)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
 	if (lock_session)
