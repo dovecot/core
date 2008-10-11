@@ -8,6 +8,7 @@
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "unlink-old-files.h"
+#include "mailbox-uidvalidity.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
@@ -996,6 +997,16 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 		ret = 1;
 	}
 	return ret;
+}
+
+uint32_t maildir_get_uidvalidity_next(struct mail_storage *storage)
+{
+	const char *path;
+
+	path = mailbox_list_get_path(storage->list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = t_strconcat(path, "/"MAILDIR_UIDVALIDITY_FNAME, NULL);
+	return mailbox_uidvalidity_next(path);
 }
 
 static void maildir_class_init(void)

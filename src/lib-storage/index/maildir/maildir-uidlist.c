@@ -1189,6 +1189,7 @@ static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
 static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
+	struct mail_storage *storage = uidlist->ibox->box.storage;
 	struct stat st;
 	uoff_t file_size;
 
@@ -1198,7 +1199,8 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 
 		hdr = mail_index_get_header(uidlist->ibox->view);
 		uidlist->uid_validity = hdr->uid_validity != 0 ?
-			hdr->uid_validity : (uint32_t)ioloop_time;
+			hdr->uid_validity :
+			maildir_get_uidvalidity_next(storage);
 	}
 
 
@@ -1211,7 +1213,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 
 		uidlist->fd = nfs_safe_open(uidlist->path, O_RDWR);
 		if (uidlist->fd == -1) {
-			mail_storage_set_critical(uidlist->ibox->box.storage,
+			mail_storage_set_critical(storage,
 				"open(%s) failed: %m", uidlist->path);
 			return -1;
 		}
@@ -1220,7 +1222,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 	i_assert(ctx->first_unwritten_pos != (unsigned int)-1);
 
 	if (lseek(uidlist->fd, 0, SEEK_END) < 0) {
-		mail_storage_set_critical(uidlist->ibox->box.storage,
+		mail_storage_set_critical(storage,
 			"lseek(%s) failed: %m", uidlist->path);
 		return -1;
 	}
@@ -1230,7 +1232,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 		return -1;
 
 	if (fstat(uidlist->fd, &st) < 0) {
-		mail_storage_set_critical(uidlist->ibox->box.storage,
+		mail_storage_set_critical(storage,
 			"fstat(%s) failed: %m", uidlist->path);
 		return -1;
 	}

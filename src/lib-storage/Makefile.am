@@ -19,7 +19,8 @@ libstorage_a_SOURCES = \
 	mail-user.c \
 	mailbox-list.c \
 	mailbox-search-result.c \
-	mailbox-tree.c
+	mailbox-tree.c \
+	mailbox-uidvalidity.c
 
 headers = \
 	mail-copy.h \
@@ -34,7 +35,8 @@ headers = \
 	mailbox-list.h \
 	mailbox-list-private.h \
 	mailbox-search-result-private.h \
-	mailbox-tree.h
+	mailbox-tree.h \
+	mailbox-uidvalidity.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/lib-storage

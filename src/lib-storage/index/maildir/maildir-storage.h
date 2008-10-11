@@ -5,6 +5,7 @@
 #define MAILDIR_SUBSCRIPTION_FILE_NAME "subscriptions"
 #define MAILDIR_INDEX_PREFIX "dovecot.index"
 #define MAILDIR_UNLINK_DIRNAME "DOVECOT-TRASHED"
+#define MAILDIR_UIDVALIDITY_FNAME "dovecot-uidvalidity"
 
 /* "base,S=123:2," means:
    <base> [<extra sep> <extra data> [..]] <info sep> 2 <flags sep> */
@@ -122,6 +123,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 #endif
 
 bool maildir_set_deleted(struct maildir_mailbox *mbox);
+uint32_t maildir_get_uidvalidity_next(struct mail_storage *storage);
 
 void maildir_transaction_class_init(void);
 void maildir_transaction_class_deinit(void);

@@ -9,6 +9,7 @@
 #include "write-full.h"
 #include "nfs-workarounds.h"
 #include "safe-mkstemp.h"
+#include "mailbox-uidvalidity.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
 #include "dbox-index.h"
@@ -151,15 +152,27 @@ dbox_index_set_corrupted(struct dbox_index *index, const char *reason)
 	return -1;
 }
 
+static uint32_t dbox_get_uidvalidity_next(struct mail_storage *storage)
+{
+	const char *path;
+
+	path = mailbox_list_get_path(storage->list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = t_strconcat(path, "/"DBOX_UIDVALIDITY_FILE_NAME, NULL);
+	return mailbox_uidvalidity_next(path);
+}
+
 static void dbox_index_header_init(struct dbox_index *index,
 				   struct dbox_index_file_header *hdr)
 {
 	if (index->uid_validity == 0) {
+		struct index_mailbox *ibox = &index->mbox->ibox;
 		const struct mail_index_header *idx_hdr;
 
-		idx_hdr = mail_index_get_header(index->mbox->ibox.view);
+		idx_hdr = mail_index_get_header(ibox->view);
 		index->uid_validity = idx_hdr->uid_validity != 0 ?
-			idx_hdr->uid_validity : (uint32_t)ioloop_time;
+			idx_hdr->uid_validity :
+			dbox_get_uidvalidity_next(ibox->box.storage);
 	}
 
 	memset(hdr, ' ', sizeof(*hdr));

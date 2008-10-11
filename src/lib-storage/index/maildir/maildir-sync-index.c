@@ -465,8 +465,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		mbox->maildir_hdr.cur_mtime = time(NULL);
 
 	if (uid_validity == 0) {
-		uid_validity = hdr->uid_validity != 0 ?
-			hdr->uid_validity : (uint32_t)ioloop_time;
+		uid_validity = hdr->uid_validity != 0 ? hdr->uid_validity :
+			maildir_get_uidvalidity_next(mbox->ibox.box.storage);
 		maildir_uidlist_set_uid_validity(mbox->uidlist, uid_validity);
 	}
 	maildir_uidlist_set_next_uid(mbox->uidlist, hdr_next_uid, FALSE);

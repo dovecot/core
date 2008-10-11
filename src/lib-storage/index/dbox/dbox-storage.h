@@ -6,6 +6,7 @@
 
 #define DBOX_STORAGE_NAME "dbox"
 #define DBOX_SUBSCRIPTION_FILE_NAME ".dbox-subscriptions"
+#define DBOX_UIDVALIDITY_FILE_NAME ".dbox-uidvalidity"
 #define DBOX_INDEX_PREFIX "dovecot.index"
 
 #define DBOX_MAILDIR_NAME "dbox-Mails"
