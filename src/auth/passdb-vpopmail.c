@@ -65,7 +65,8 @@ vpopmail_password_lookup(struct auth_request *auth_request, bool cleartext,
 
 	if (vpopmail_is_disabled(auth_request, vpw)) {
 		auth_request_log_info(auth_request, "vpopmail",
-				      "%s disabled", auth_request->service);
+				      "%s disabled in vpopmail for this user",
+				      auth_request->service);
 		password = NULL;
 		*result_r = PASSDB_RESULT_USER_DISABLED;
 	} else {
