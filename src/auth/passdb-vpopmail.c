@@ -17,6 +17,11 @@
 
 #define VPOPMAIL_DEFAULT_PASS_SCHEME "CRYPT"
 
+/* pw_flags was added in vpopmail 5.4, olders use pw_gid field */
+#ifndef VQPASSWD_HAS_PW_FLAGS
+#  define pw_flags pw_gid
+#endif
+
 struct vpopmail_passdb_module {
 	struct passdb_module module;
 
@@ -31,19 +36,19 @@ static bool vpopmail_is_disabled(struct auth_request *request,
 		(struct vpopmail_passdb_module *)_module;
 
 	if (strcmp(request->service, "IMAP") == 0) {
-		if ((vpw->pw_gid & NO_IMAP) != 0) {
+		if ((vpw->pw_flags & NO_IMAP) != 0) {
 			/* IMAP from webmail IP may still be allowed */
 			if (!net_ip_compare(&module->webmail_ip,
 					    &request->remote_ip))
 				return TRUE;
 		}
-		if ((vpw->pw_gid & NO_WEBMAIL) != 0) {
+		if ((vpw->pw_flags & NO_WEBMAIL) != 0) {
 			if (net_ip_compare(&module->webmail_ip,
 					   &request->remote_ip))
 				return TRUE;
 		}
 	}
-	if ((vpw->pw_gid & NO_POP) != 0 &&
+	if ((vpw->pw_flags & NO_POP) != 0 &&
 	    strcmp(request->service, "POP3") == 0)
 		return TRUE;
 	return FALSE;
