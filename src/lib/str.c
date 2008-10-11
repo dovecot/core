@@ -27,6 +27,11 @@ string_t *t_str_new(size_t initial_size)
 	return str_new(pool_datastack_create(), initial_size);
 }
 
+string_t *t_str_new_const(const char *str, size_t len)
+{
+	return str_new_const(pool_datastack_create(), str, len);
+}
+
 void str_free(string_t **str)
 {
 	buffer_free(str);
