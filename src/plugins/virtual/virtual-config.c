@@ -106,8 +106,12 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		str_append(ctx->rule, line);
 		return 0;
 	}
-	if (virtual_config_add_rule(ctx, error_r) < 0)
-		return -1;
+	/* if there is no rule yet, it means we want the previous mailboxes
+	   to use the rule that comes later */
+	if (str_len(ctx->rule) > 0) {
+		if (virtual_config_add_rule(ctx, error_r) < 0)
+			return -1;
+	}
 
 	/* new mailbox. the search args are added to it later. */
 	bbox = p_new(ctx->pool, struct virtual_backend_box, 1);
