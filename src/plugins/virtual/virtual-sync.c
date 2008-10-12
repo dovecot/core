@@ -153,7 +153,8 @@ static bool virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 
 	ctx->mbox->sync_initialized = TRUE;
 	ctx->mbox->prev_uid_validity = hdr->uid_validity;
-	if (ext_hdr == NULL) {
+	if (ext_hdr == NULL ||
+	    ctx->mbox->search_args_crc32 != ext_hdr->search_args_crc32) {
 		mailboxes = NULL;
 		ext_name_offset = 0;
 		ext_mailbox_count = 0;
@@ -254,6 +255,7 @@ static void virtual_sync_ext_header_rewrite(struct virtual_sync_context *ctx)
 	ext_hdr.change_counter = ++ctx->mbox->prev_change_counter;
 	ext_hdr.mailbox_count = count;
 	ext_hdr.highest_mailbox_id = ctx->mbox->highest_mailbox_id;
+	ext_hdr.search_args_crc32 = ctx->mbox->search_args_crc32;
 
 	buf = buffer_create_dynamic(pool_datastack_create(), name_pos + 256);
 	buffer_append(buf, &ext_hdr, sizeof(ext_hdr));

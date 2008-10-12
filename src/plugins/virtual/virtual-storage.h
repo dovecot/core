@@ -19,7 +19,9 @@ struct virtual_mail_index_header {
 	uint32_t mailbox_count;
 	/* Highest used mailbox ID. IDs are never reused. */
 	uint32_t highest_mailbox_id;
-	uint32_t unused_padding;
+	/* CRC32 of all the search parameters. If it changes, the mailbox is
+	   rebuilt. */
+	uint32_t search_args_crc32;
 };
 
 struct virtual_mail_index_mailbox_record {
@@ -96,6 +98,7 @@ struct virtual_mailbox {
 	uint32_t prev_uid_validity;
 	uint32_t prev_change_counter;
 	uint32_t highest_mailbox_id;
+	uint32_t search_args_crc32;
 
 	/* Mailboxes this virtual mailbox consists of, sorted by mailbox_id */
 	ARRAY_TYPE(virtual_backend_box) backend_boxes;

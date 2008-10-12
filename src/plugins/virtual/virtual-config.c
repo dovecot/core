@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "crc32.h"
 #include "istream.h"
 #include "str.h"
 #include "imap-parser.h"
@@ -64,6 +65,8 @@ virtual_config_add_rule(struct virtual_parse_context *ctx, const char **error_r)
 		return 0;
 	}
 
+	ctx->mbox->search_args_crc32 =
+		crc32_str_more(ctx->mbox->search_args_crc32, str_c(ctx->rule));
 	search_args = virtual_search_args_parse(ctx->rule, error_r);
 	str_truncate(ctx->rule, 0);
 	if (search_args == NULL) {
@@ -201,6 +204,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	int fd, ret = 0;
 
 	i_array_init(&mbox->backend_boxes, 8);
+	mbox->search_args_crc32 = (uint32_t)-1;
 
 	path = t_strconcat(mbox->path, "/"VIRTUAL_CONFIG_FNAME, NULL);
 	fd = open(path, O_RDWR);
