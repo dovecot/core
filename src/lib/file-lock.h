@@ -14,6 +14,10 @@ enum file_lock_method {
 	FILE_LOCK_METHOD_DOTLOCK
 };
 
+/* Parse lock method from given string. Returns TRUE if ok,
+   FALSE if name is unknown. */
+bool file_lock_method_parse(const char *name, enum file_lock_method *method_r);
+
 /* Lock the file. Returns 1 if successful, 0 if file is already locked,
    or -1 if error. lock_type is F_WRLCK or F_RDLCK. */
 int file_try_lock(int fd, const char *path, int lock_type,

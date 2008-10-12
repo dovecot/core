@@ -15,6 +15,19 @@ struct file_lock {
 	enum file_lock_method lock_method;
 };
 
+bool file_lock_method_parse(const char *name, enum file_lock_method *method_r)
+{
+	if (strcasecmp(name, "fcntl") == 0)
+		*method_r = FILE_LOCK_METHOD_FCNTL;
+	else if (strcasecmp(name, "flock") == 0)
+		*method_r = FILE_LOCK_METHOD_FLOCK;
+	else if (strcasecmp(name, "dotlock") == 0)
+		*method_r = FILE_LOCK_METHOD_DOTLOCK;
+	else
+		return FALSE;
+	return TRUE;
+}
+
 int file_try_lock(int fd, const char *path, int lock_type,
 		  enum file_lock_method lock_method,
 		  struct file_lock **lock_r)

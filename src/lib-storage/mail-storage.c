@@ -109,13 +109,9 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 		*flags_r |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
 
 	str = getenv("LOCK_METHOD");
-	if (str == NULL || strcmp(str, "fcntl") == 0)
+	if (str == NULL)
 		*lock_method_r = FILE_LOCK_METHOD_FCNTL;
-	else if (strcmp(str, "flock") == 0)
-		*lock_method_r = FILE_LOCK_METHOD_FLOCK;
-	else if (strcmp(str, "dotlock") == 0)
-		*lock_method_r = FILE_LOCK_METHOD_DOTLOCK;
-	else
+	else if (!file_lock_method_parse(str, lock_method_r))
 		i_fatal("Unknown lock_method: %s", str);
 }
 
