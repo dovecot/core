@@ -18,7 +18,7 @@ struct mail_transaction_log_header {
 	uint32_t prev_file_seq;
 	uint32_t prev_file_offset;
 	uint32_t create_stamp;
-	uint64_t initial_modseq; /* v1.1+ */
+	uint64_t initial_modseq; /* v1.1+ (note: log's major/minor version) */
 
 	uint8_t compat_flags; /* enum mail_index_header_compat_flags, v1.2+ */
 	uint8_t unused[3];
