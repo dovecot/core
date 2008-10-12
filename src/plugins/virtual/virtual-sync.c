@@ -118,11 +118,11 @@ virtual_backend_box_sync_mail_unset(struct virtual_backend_box *bbox)
 
 static int bbox_mailbox_id_cmp(const void *p1, const void *p2)
 {
-	const struct virtual_backend_box *b1 = p1, *b2 = p2;
+	const struct virtual_backend_box *const *b1 = p1, *const *b2 = p2;
 
-	if (b1->mailbox_id < b2->mailbox_id)
+	if ((*b1)->mailbox_id < (*b2)->mailbox_id)
 		return -1;
-	if (b1->mailbox_id > b2->mailbox_id)
+	if ((*b1)->mailbox_id > (*b2)->mailbox_id)
 		return 1;
 	return 0;
 }
