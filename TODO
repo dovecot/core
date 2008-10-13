@@ -6,13 +6,7 @@
    with identical message-id:, we can probably just move the children?
    (unless there are non-sibling duplicates)
  - SEARCH INTHREAD requires no thread sorting by date - don't do it
- - virtual: keep MD5 of search parameters. if it changes, rebuild all.
  - CONDSTORE: use per-flag/per-keyword conflict checking
- - should modseq header be updated even when modseqs aren't used? otherwise
-   log reads always at beginning of file? are there other performance
-   issues?
- - QRESYNC: Should we send HIGHESTMODSEQ in tagged reply for EXPUNGE
-   even when it was already returned in FETCH MODSEQs?
  - QRESYNC: Drop expunges from the middle of given seq sets if possible
  - use universal hash functions?
 
