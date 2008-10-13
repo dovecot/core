@@ -213,9 +213,10 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		  enum mailbox_list_iter_flags flags)
 {
 	struct fs_list_iterate_context *ctx;
-	const char *path, *vpath, *rootdir;
+	const char *path, *vpath, *rootdir, *test_pattern;
 	char *pattern;
 	DIR *dirp;
+	unsigned int prefix_len;
 	int ret;
 
 	ctx = i_new(struct fs_list_iterate_context, 1);
@@ -226,10 +227,20 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->sep = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
 		_list->ns->sep : _list->ns->real_sep;
 
+	prefix_len = strlen(_list->ns->prefix);
 	i_array_init(&ctx->valid_patterns, 8);
 	for (; *patterns != NULL; patterns++) {
 		/* check that we're not trying to do any "../../" lists */
-		if (mailbox_list_is_valid_pattern(_list, *patterns)) {
+		test_pattern = *patterns;
+		if ((flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
+			/* skip namespace prefix if possible. this allows using
+			   e.g. ~/mail/ prefix and have it pass the pattern
+			   validation. */
+			if (strncmp(test_pattern, _list->ns->prefix,
+				    prefix_len) == 0)
+				test_pattern += prefix_len;
+		}
+		if (mailbox_list_is_valid_pattern(_list, test_pattern)) {
 			if (strcasecmp(*patterns, "INBOX") == 0) {
 				ctx->inbox_match = TRUE;
 				continue;
