@@ -159,19 +159,23 @@ mail_cache_transaction_open_if_needed(struct mail_cache_transaction_ctx *ctx)
 			return;
 
 		if (!mail_index_map_get_ext_idx(cache->index->map,
-						cache->ext_id, &idx))
-			return;
-
-		ext = array_idx(&cache->index->map->extensions, idx);
-		if (ext->reset_id == cache->hdr->file_seq || i == 2)
-			break;
-
-		/* index offsets don't match the cache file */
-		if (ext->reset_id > cache->hdr->file_seq) {
-			/* the cache file appears to be too old.
-			   reopening should help. */
-			if (mail_cache_reopen(cache) != 0)
+						cache->ext_id, &idx)) {
+			/* index doesn't have a cache extension, but the cache
+			   file exists (corrupted indexes fixed?). fix it. */
+			if (i == 2)
 				break;
+		} else {
+			ext = array_idx(&cache->index->map->extensions, idx);
+			if (ext->reset_id == cache->hdr->file_seq || i == 2)
+				break;
+
+			/* index offsets don't match the cache file */
+			if (ext->reset_id > cache->hdr->file_seq) {
+				/* the cache file appears to be too old.
+				   reopening should help. */
+				if (mail_cache_reopen(cache) != 0)
+					break;
+			}
 		}
 
 		/* cache file sequence might be broken. it's also possible
