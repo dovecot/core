@@ -271,7 +271,7 @@ static void imap_sync_add_modseq(struct imap_sync_context *ctx, string_t *str)
 	modseq = mail_get_modseq(ctx->mail);
 	if (ctx->client->highest_fetch_modseq < modseq)
 		ctx->client->highest_fetch_modseq = modseq;
-	str_printfa(str, "MODSEQ %llu", (unsigned long long)modseq);
+	str_printfa(str, "MODSEQ (%llu)", (unsigned long long)modseq);
 }
 
 static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)

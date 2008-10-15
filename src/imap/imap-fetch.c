@@ -749,7 +749,7 @@ static int fetch_modseq(struct imap_fetch_context *ctx, struct mail *mail,
 	modseq = mail_get_modseq(mail);
 	if (ctx->client->highest_fetch_modseq < modseq)
 		ctx->client->highest_fetch_modseq = modseq;
-	str_printfa(ctx->cur_str, "MODSEQ %llu ",
+	str_printfa(ctx->cur_str, "MODSEQ (%llu) ",
 		    (unsigned long long)modseq);
 	return 1;
 }
