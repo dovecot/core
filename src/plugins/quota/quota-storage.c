@@ -283,11 +283,8 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 	if (qbox->module_ctx.super.sync_notify != NULL)
 		qbox->module_ctx.super.sync_notify(box, uid, sync_type);
 
-	if (sync_type != MAILBOX_SYNC_TYPE_EXPUNGE || qbox->recalculate) {
-		if (uid == 0)
-			quota_mailbox_sync_finish(qbox);
+	if (sync_type != MAILBOX_SYNC_TYPE_EXPUNGE || qbox->recalculate)
 		return;
-	}
 
 	/* we're in the middle of syncing the mailbox, so it's a bad idea to
 	   try and get the message sizes at this point. Rely on sizes that
@@ -335,11 +332,14 @@ static int quota_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 				     struct mailbox_status *status_r)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
+	int ret;
 
-	/* just in case sync_notify() wasn't called with uid=0 */
+	ret = qbox->module_ctx.super.sync_deinit(ctx, status_items, status_r);
+	/* update quota only after syncing is finished. the quota commit may
+	   recalculate the quota and cause all mailboxes to be synced,
+	   including the one we're already syncing. */
 	quota_mailbox_sync_finish(qbox);
-
-	return qbox->module_ctx.super.sync_deinit(ctx, status_items, status_r);
+	return ret;
 }
 
 static int quota_mailbox_close(struct mailbox *box)
