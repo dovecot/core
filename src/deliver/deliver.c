@@ -723,7 +723,7 @@ void deliver_env_clean(void)
 static void expand_envs(const char *user)
 {
         const struct var_expand_table *table;
-	const char *mail_env, *const *envs, *home, *env_name;
+	const char *value, *const *envs, *home, *env_name;
 	unsigned int i, count;
 	string_t *str;
 
@@ -748,19 +748,27 @@ static void expand_envs(const char *user)
 		home = getenv("HOME");
 	table = get_var_expand_table(user, home);
 
-	mail_env = getenv("MAIL_LOCATION");
-	if (mail_env != NULL)
-		mail_env = expand_mail_env(mail_env, table);
-	env_put(t_strconcat("MAIL=", mail_env, NULL));
+	value = getenv("MAIL_LOCATION");
+	if (value != NULL)
+		value = expand_mail_env(value, table);
+	env_put(t_strconcat("MAIL=", value, NULL));
 
 	for (i = 1;; i++) {
 		env_name = t_strdup_printf("NAMESPACE_%u", i);
-		mail_env = getenv(env_name);
-		if (mail_env == NULL)
+		value = getenv(env_name);
+		if (value == NULL)
 			break;
 
-		mail_env = expand_mail_env(mail_env, table);
-		env_put(t_strconcat(env_name, "=", mail_env, NULL));
+		value = expand_mail_env(value, table);
+		env_put(t_strconcat(env_name, "=", value, NULL));
+
+		env_name = t_strdup_printf("NAMESPACE_%u_PREFIX", i);
+		value = getenv(env_name);
+		if (value != NULL) {
+			str_truncate(str, 0);
+			var_expand(str, value, table);
+			env_put(t_strconcat(env_name, "=", str_c(str), NULL));
+		}
 	}
 }
 
