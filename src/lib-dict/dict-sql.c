@@ -349,7 +349,7 @@ static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 
 		if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0) {
 			str_append(query, " ORDER BY ");
-			for (i = array_count(&values); i < count; i++) {
+			for (i = 0; i < count; i++) {
 				str_printfa(query, "%s", sql_fields[i]);
 				if (i < count-1)
 					str_append_c(query, ',');
