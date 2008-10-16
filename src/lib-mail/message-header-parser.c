@@ -110,6 +110,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				/* stream is nonblocking - need more data */
 				return 0;
 			}
+			i_assert(size > 0);
 
 			if (msg[0] == '\n' ||
 			    (msg[0] == '\r' && size > 1 && msg[1] == '\n')) {
