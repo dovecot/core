@@ -243,12 +243,12 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	   the body will be returned in separate read() call. */
 	mstream->istream.buffer = buffer_get_data(mstream->hdr_buf, &pos);
 	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
+	i_assert(ret >= 0);
 	mstream->istream.pos = pos;
 
 	if (hdr_ret == 0) {
 		/* need more data to finish parsing headers. we may have some
 		   data already available though. */
-		i_assert(ret >= 0);
 		return ret;
 	}
 
@@ -310,8 +310,10 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 
 	stream->buffer = i_stream_get_data(stream->parent, &pos);
 	if (pos <= stream->pos) {
-		if ((ret = i_stream_read(stream->parent)) == -2)
+		if ((ret = i_stream_read(stream->parent)) == -2) {
+			i_assert(stream->skip != stream->pos);
 			return -2;
+		}
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		stream->istream.eof = stream->parent->eof;
 		stream->buffer = i_stream_get_data(stream->parent, &pos);
