@@ -607,7 +607,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		const char *query;
 
 		query = sql_dict_set_query(dict, map, &values, key,
-					   dec2str(diff), TRUE);
+					   t_strdup_printf("%lld", diff), TRUE);
 		sql_update(ctx->sql_ctx, query);
 	} T_END;
 }
