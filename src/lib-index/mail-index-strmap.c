@@ -1121,7 +1121,7 @@ mail_index_strmap_write_append(struct mail_index_strmap_view *view)
 
 	i_stream_sync(view->strmap->input);
 	i_stream_seek(view->strmap->input, view->last_read_block_offset);
-	full_block = TRUE;
+	full_block = TRUE; ret = 0;
 	while (i < old_count &&
 	       (ret = strmap_read_block_init(view, &ctx)) > 0) {
 		while ((ret = strmap_read_block_next(&ctx, &crc32)) > 0) {
