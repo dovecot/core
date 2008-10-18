@@ -55,13 +55,13 @@ int main(int argc, const char *argv[])
 	}
 	parent_pid = getpid();
 	if (pipe(fd) != 0) {
-		fprintf(stderr, "pipe() failed: %m");
+		fprintf(stderr, "pipe() failed: %s", strerror(errno));
 		return 1;
 	}
 
 	pid = fork();
 	if (pid == (pid_t)-1) {
-		fprintf(stderr, "fork() failed: %m");
+		fprintf(stderr, "fork() failed: %s", strerror(errno));
 		return 1;
 	}
 
@@ -76,7 +76,7 @@ int main(int argc, const char *argv[])
 		close(fd[1]);
 		ret = read(fd[0], &c, 1);
 		if (ret < 0) {
-			fprintf(stderr, "read(pipe) failed: %m");
+			i_error("read(pipe) failed: %m");
 			return 1;
 		}
 		if (ret != 1) {
