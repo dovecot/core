@@ -42,6 +42,7 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 			   to sync it over and over again. */
 			prev_offset = ctx->ext_intro_offset;
 		}
+		map->hdr.log_file_seq = prev_seq;
 	} else {
 		i_assert(ctx->view->index->log->head->hdr.file_seq == prev_seq);
 		if (map->hdr.log_file_seq != prev_seq) {

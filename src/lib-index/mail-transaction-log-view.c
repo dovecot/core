@@ -221,14 +221,14 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 	if (min_file_offset == 0) {
 		/* beginning of the file */
-		min_file_offset = view->head->hdr.hdr_size;
+		min_file_offset = view->tail->hdr.hdr_size;
 		if (min_file_offset > max_file_offset &&
 		    min_file_seq == max_file_seq) {
 			/* we don't actually want to show anything */
 			max_file_offset = min_file_offset;
 		}
 	}
-	i_assert(min_file_offset >= view->head->hdr.hdr_size);
+	i_assert(min_file_offset >= view->tail->hdr.hdr_size);
 
 	/* we have all of them. update refcounts. */
 	mail_transaction_log_view_unref_all(view);
