@@ -70,6 +70,16 @@ void master_request_login(struct client *client, master_callback_t *callback,
 
 	i_assert(auth_pid != 0);
 
+	if (master_fd == -1) {
+		struct master_login_reply reply;
+
+		i_assert(closing_down);
+		memset(&reply, 0, sizeof(reply));
+		reply.status = MASTER_LOGIN_STATUS_INTERNAL_ERROR;
+		callback(client, &reply);
+		return;
+	}
+
 	data = i_stream_get_data(client->input, &size);
 	cmd_tag_size = client->auth_command_tag == NULL ? 0 :
 		strlen(client->auth_command_tag);
