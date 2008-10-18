@@ -152,7 +152,7 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota)
 
 	if (root->backend.v.init != NULL) {
 		if (root->backend.v.init(root, root_set->args) < 0)
-			return NULL;
+			i_fatal("Quota root %s init() failed", root_set->name);
 	} else if (root_set->args != NULL) {
 		tmp = t_strsplit_spaces(root_set->args, " ");
 		for (; *tmp != NULL; tmp++) {
