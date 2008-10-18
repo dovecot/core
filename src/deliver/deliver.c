@@ -288,6 +288,8 @@ static bool setting_is_bool(const char *name)
 			strstr(name, "_hidden") != NULL ||
 			strstr(name, "_subscriptions") != NULL;
 	}
+	if (strcmp(name, "quota_full_tempfail") == 0)
+		return TRUE;
 	return FALSE;
 }
 
