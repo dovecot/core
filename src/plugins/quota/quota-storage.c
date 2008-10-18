@@ -254,20 +254,24 @@ static int quota_save_finish(struct mail_save_context *ctx)
 	return quota_check(ctx->transaction, ctx->dest_mail);
 }
 
-static void quota_mailbox_sync_finish(struct quota_mailbox *qbox)
+static void quota_mailbox_sync_cleanup(struct quota_mailbox *qbox)
 {
 	if (array_is_created(&qbox->expunge_uids)) {
 		array_clear(&qbox->expunge_uids);
 		array_clear(&qbox->expunge_sizes);
 	}
 
-	if (qbox->expunge_qt != NULL) {
-		if (qbox->expunge_qt->tmp_mail != NULL) {
-			mail_free(&qbox->expunge_qt->tmp_mail);
-			mailbox_transaction_rollback(&qbox->expunge_trans);
-		}
-		(void)quota_transaction_commit(&qbox->expunge_qt);
+	if (qbox->expunge_qt != NULL && qbox->expunge_qt->tmp_mail != NULL) {
+		mail_free(&qbox->expunge_qt->tmp_mail);
+		mailbox_transaction_rollback(&qbox->expunge_trans);
 	}
+}
+
+static void quota_mailbox_sync_commit(struct quota_mailbox *qbox)
+{
+	quota_mailbox_sync_cleanup(qbox);
+	if (qbox->expunge_qt != NULL)
+		(void)quota_transaction_commit(&qbox->expunge_qt);
 	qbox->recalculate = FALSE;
 }
 
@@ -283,8 +287,14 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 	if (qbox->module_ctx.super.sync_notify != NULL)
 		qbox->module_ctx.super.sync_notify(box, uid, sync_type);
 
-	if (sync_type != MAILBOX_SYNC_TYPE_EXPUNGE || qbox->recalculate)
+	if (sync_type != MAILBOX_SYNC_TYPE_EXPUNGE || qbox->recalculate) {
+		if (uid == 0) {
+			/* free the transaction before view syncing begins,
+			   otherwise it'll crash. */
+			quota_mailbox_sync_cleanup(qbox);
+		}
 		return;
+	}
 
 	/* we're in the middle of syncing the mailbox, so it's a bad idea to
 	   try and get the message sizes at this point. Rely on sizes that
@@ -338,7 +348,7 @@ static int quota_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 	/* update quota only after syncing is finished. the quota commit may
 	   recalculate the quota and cause all mailboxes to be synced,
 	   including the one we're already syncing. */
-	quota_mailbox_sync_finish(qbox);
+	quota_mailbox_sync_commit(qbox);
 	return ret;
 }
 
