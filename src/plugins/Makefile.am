@@ -18,6 +18,7 @@ SUBDIRS = \
 	fts \
 	fts-squat \
 	lazy-expunge \
+	listescape \
 	mail-log \
 	mbox-snarf \
 	quota \

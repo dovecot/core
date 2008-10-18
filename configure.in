@@ -2448,6 +2448,7 @@ src/plugins/fts-lucene/Makefile
 src/plugins/fts-solr/Makefile
 src/plugins/fts-squat/Makefile
 src/plugins/lazy-expunge/Makefile
+src/plugins/listescape/Makefile
 src/plugins/mail-log/Makefile
 src/plugins/mbox-snarf/Makefile
 src/plugins/quota/Makefile
