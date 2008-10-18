@@ -2440,6 +2440,7 @@ src/tests/Makefile
 src/util/Makefile
 src/plugins/Makefile
 src/plugins/acl/Makefile
+src/plugins/autocreate/Makefile
 src/plugins/convert/Makefile
 src/plugins/expire/Makefile
 src/plugins/fts/Makefile

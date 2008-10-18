@@ -11,6 +11,19 @@ FTS_LUCENE = fts-solr
 endif
 
 SUBDIRS = \
-	acl convert expire fts fts-squat lazy-expunge mail-log mbox-snarf \
-	quota imap-quota trash virtual \
-	$(ZLIB) $(FTS_LUCENE) $(FTS_SOLR)
+	acl \
+	autocreate \
+	convert \
+	expire \
+	fts \
+	fts-squat \
+	lazy-expunge \
+	mail-log \
+	mbox-snarf \
+	quota \
+	imap-quota \
+	trash \
+	virtual \
+	$(ZLIB) \
+	$(FTS_LUCENE) \
+	$(FTS_SOLR)
