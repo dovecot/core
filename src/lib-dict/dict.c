@@ -51,6 +51,18 @@ void dict_driver_unregister(struct dict *driver)
 		array_free(&dict_drivers);
 }
 
+void dict_drivers_register_builtin(void)
+{
+	dict_driver_register(&dict_driver_client);
+	dict_driver_register(&dict_driver_file);
+}
+
+void dict_drivers_unregister_builtin(void)
+{
+	dict_driver_unregister(&dict_driver_client);
+	dict_driver_unregister(&dict_driver_file);
+}
+
 struct dict *dict_init(const char *uri, enum dict_data_type value_type,
 		       const char *username)
 {

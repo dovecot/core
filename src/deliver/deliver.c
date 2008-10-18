@@ -24,7 +24,7 @@
 #include "message-address.h"
 #include "mail-namespace.h"
 #include "raw-storage.h"
-#include "dict-client.h"
+#include "dict.h"
 #include "auth-client.h"
 #include "mail-send.h"
 #include "duplicate.h"
@@ -1019,7 +1019,7 @@ int main(int argc, char *argv[])
 	if (deliver_set->log_format == NULL)
 		deliver_set->log_format = DEFAULT_LOG_FORMAT;
 
-	dict_driver_register(&dict_driver_client);
+	dict_drivers_register_builtin();
         duplicate_init();
         mail_storage_init();
 	mail_storage_register_all();
@@ -1147,7 +1147,7 @@ int main(int argc, char *argv[])
 	mail_storage_deinit();
 
 	duplicate_deinit();
-	dict_driver_unregister(&dict_driver_client);
+	dict_drivers_unregister_builtin();
 	lib_signals_deinit();
 
 	io_loop_destroy(&ioloop);

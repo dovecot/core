@@ -20,6 +20,9 @@ enum dict_data_type {
 void dict_driver_register(struct dict *driver);
 void dict_driver_unregister(struct dict *driver);
 
+void dict_drivers_register_builtin(void);
+void dict_drivers_unregister_builtin(void);
+
 void dict_drivers_register_all(void);
 void dict_drivers_unregister_all(void);
 

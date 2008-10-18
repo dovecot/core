@@ -6,7 +6,7 @@
 #include "file-lock.h"
 #include "randgen.h"
 #include "lib-signals.h"
-#include "dict-client.h"
+#include "dict.h"
 #include "mail-index.h"
 #include "mail-search-build.h"
 #include "mail-storage.h"
@@ -188,7 +188,7 @@ static void expire_run(bool testrun)
 	const char *userp, *mailbox;
 	int ret;
 
-	dict_driver_register(&dict_driver_client);
+	dict_drivers_register_builtin();
 	mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
@@ -295,7 +295,7 @@ static void expire_run(bool testrun)
 	auth_connection_deinit(ctx.auth_conn);
 
 	mail_storage_deinit();
-	dict_driver_unregister(&dict_driver_client);
+	dict_drivers_unregister_builtin();
 }
 
 int main(int argc ATTR_UNUSED, const char *argv[])

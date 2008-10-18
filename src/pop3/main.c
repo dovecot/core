@@ -13,7 +13,7 @@
 #include "process-title.h"
 #include "module-dir.h"
 #include "var-expand.h"
-#include "dict-client.h"
+#include "dict.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
 
@@ -204,7 +204,7 @@ static bool main_init(void)
 				log_error_callback, NULL);
 	}
 
-	dict_driver_register(&dict_driver_client);
+	dict_drivers_register_builtin();
         mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
@@ -261,7 +261,7 @@ static void main_deinit(void)
 
 	module_dir_unload(&modules);
 	mail_storage_deinit();
-	dict_driver_unregister(&dict_driver_client);
+	dict_drivers_unregister_builtin();
 
 	lib_signals_deinit();
 	closelog();

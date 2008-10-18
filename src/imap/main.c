@@ -12,7 +12,7 @@
 #include "fd-close-on-exec.h"
 #include "process-title.h"
 #include "module-dir.h"
-#include "dict-client.h"
+#include "dict.h"
 #include "mail-storage.h"
 #include "commands.h"
 #include "mail-namespace.h"
@@ -193,7 +193,7 @@ static void main_init(void)
 	capability_string = str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
 	str_append(capability_string, CAPABILITY_STRING);
 
-	dict_driver_register(&dict_driver_client);
+	dict_drivers_register_builtin();
         mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
@@ -272,7 +272,7 @@ static void main_deinit(void)
 	module_dir_unload(&modules);
 	commands_deinit();
         mail_storage_deinit();
-	dict_driver_unregister(&dict_driver_client);
+	dict_drivers_unregister_builtin();
 
 	str_free(&capability_string);
 

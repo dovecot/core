@@ -33,8 +33,6 @@ enum {
 	DICT_PROTOCOL_REPLY_FAIL = 'F'
 };
 
-extern struct dict dict_driver_client;
-
 const char *dict_client_escape(const char *src);
 const char *dict_client_unescape(const char *src);
 

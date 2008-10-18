@@ -11,7 +11,8 @@ AM_CPPFLAGS = \
 
 base_sources = \
 	dict.c \
-	dict-client.c
+	dict-client.c \
+	dict-file.c
 
 backend_sources = \
 	dict-db.c \
