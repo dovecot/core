@@ -394,6 +394,10 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	}
 
 	if (mail_cache_copy(cache, trans, fd, &file_seq, &ext_offsets) < 0) {
+		/* the fields may have been updated in memory already.
+		   reverse those changes by re-reading them from file. */
+		if (mail_cache_header_fields_read(cache) < 0)
+			return -1;
 		(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}

@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
-#define MAIL_TRANSACTION_LOG_SUFFIX ".log"
 #define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
 
 static void

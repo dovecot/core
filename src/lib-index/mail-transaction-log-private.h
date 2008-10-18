@@ -4,6 +4,8 @@
 #include "file-dotlock.h"
 #include "mail-transaction-log.h"
 
+#define MAIL_TRANSACTION_LOG_SUFFIX ".log"
+
 /* Synchronization can take a while sometimes, especially when copying lots of
    mails. */
 #define MAIL_TRANSCATION_LOG_LOCK_TIMEOUT (3*60)

@@ -188,6 +188,29 @@ int mail_cache_reopen(struct mail_cache *cache)
 	return 1;
 }
 
+static void mail_cache_update_need_compress(struct mail_cache *cache)
+{
+	const struct mail_cache_header *hdr = cache->hdr;
+	unsigned int cont_percentage;
+	uoff_t max_del_space;
+
+        cont_percentage = hdr->continued_record_count * 100 /
+		(cache->index->map->rec_map->records_count == 0 ? 1 :
+		 cache->index->map->rec_map->records_count);
+	if (cont_percentage >= MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE &&
+	    hdr->used_file_size >= MAIL_CACHE_COMPRESS_MIN_SIZE) {
+		/* too many continued rows, compress */
+		cache->need_compress_file_seq = hdr->file_seq;
+	}
+
+	/* see if we've reached the max. deleted space in file */
+	max_del_space = hdr->used_file_size / 100 *
+		MAIL_CACHE_COMPRESS_PERCENTAGE;
+	if (hdr->deleted_space >= max_del_space &&
+	    hdr->used_file_size >= MAIL_CACHE_COMPRESS_MIN_SIZE)
+		cache->need_compress_file_seq = hdr->file_seq;
+}
+
 static bool mail_cache_verify_header(struct mail_cache *cache)
 {
 	const struct mail_cache_header *hdr = cache->data;
@@ -282,6 +305,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 			       sizeof(cache->hdr_ro_copy));
 		}
 		cache->hdr = &cache->hdr_ro_copy;
+		if (offset == 0)
+			mail_cache_update_need_compress(cache);
 		return 0;
 	}
 
@@ -326,6 +351,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 	}
 
 	cache->hdr = cache->data;
+	if (offset == 0)
+		mail_cache_update_need_compress(cache);
 	return 0;
 }
 
@@ -597,29 +624,6 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 int mail_cache_try_lock(struct mail_cache *cache)
 {
 	return mail_cache_lock_full(cache, FALSE, TRUE);
-}
-
-static void mail_cache_update_need_compress(struct mail_cache *cache)
-{
-	const struct mail_cache_header *hdr = cache->hdr;
-	unsigned int cont_percentage;
-	uoff_t max_del_space;
-
-        cont_percentage = hdr->continued_record_count * 100 /
-		(cache->index->map->rec_map->records_count == 0 ? 1 :
-		 cache->index->map->rec_map->records_count);
-	if (cont_percentage >= MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE &&
-	    hdr->used_file_size >= MAIL_CACHE_COMPRESS_MIN_SIZE) {
-		/* too many continued rows, compress */
-		cache->need_compress_file_seq = hdr->file_seq;
-	}
-
-	/* see if we've reached the max. deleted space in file */
-	max_del_space = hdr->used_file_size / 100 *
-		MAIL_CACHE_COMPRESS_PERCENTAGE;
-	if (hdr->deleted_space >= max_del_space &&
-	    hdr->used_file_size >= MAIL_CACHE_COMPRESS_MIN_SIZE)
-		cache->need_compress_file_seq = hdr->file_seq;
 }
 
 int mail_cache_unlock(struct mail_cache *cache)

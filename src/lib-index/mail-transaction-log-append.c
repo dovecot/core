@@ -87,6 +87,8 @@ static int log_buffer_move_to_memory(struct log_append_context *ctx)
 	i_assert(file->buffer_offset + file->buffer->used ==
 		 file->sync_offset);
 	buffer_append_buf(file->buffer, ctx->output, 0, (size_t)-1);
+	buffer_write(file->buffer, file->sync_offset - file->buffer_offset,
+		     &ctx->first_append_size, sizeof(uint32_t));
 	file->sync_offset = file->buffer_offset + file->buffer->used;
 	return 0;
 }

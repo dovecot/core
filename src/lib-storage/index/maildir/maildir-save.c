@@ -441,8 +441,10 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 
 	path = t_strconcat(ctx->tmpdir, "/", ctx->file_last->basename, NULL);
 	if (o_stream_flush(ctx->output) < 0) {
-		mail_storage_set_critical(storage,
-			"o_stream_flush(%s) failed: %m", path);
+		if (!mail_storage_set_error_from_errno(storage)) {
+			mail_storage_set_critical(storage,
+				"o_stream_flush(%s) failed: %m", path);
+		}
 		ctx->failed = TRUE;
 	}
 

@@ -1555,4 +1555,8 @@ void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
 						  file->filepath, "close()");
 	}
 	file->fd = -1;
+
+	i_free(file->filepath);
+	file->filepath = i_strconcat(file->log->index->filepath,
+				     MAIL_TRANSACTION_LOG_SUFFIX, NULL);
 }
