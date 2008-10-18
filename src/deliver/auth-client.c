@@ -194,6 +194,7 @@ static void auth_input(struct auth_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
+		i_error("Auth lookup disconnected unexpectedly");
 		auth_connection_destroy(conn);
 		return;
 	case -2:
@@ -225,9 +226,10 @@ static void auth_input(struct auth_connection *conn)
 			auth_parse_input(conn, line + 7);
 		} else if (strcmp(line, "NOTFOUND\t1") == 0)
 			return_value = EX_NOUSER;
-		else if (strncmp(line, "FAIL\t1", 6) == 0)
+		else if (strncmp(line, "FAIL\t1", 6) == 0) {
+			i_error("Auth lookup returned failure");
 			return_value = EX_TEMPFAIL;
-		else if (strncmp(line, "CUID\t", 5) == 0) {
+		} else if (strncmp(line, "CUID\t", 5) == 0) {
 			i_error("%s is an auth client socket. "
 				"It should be a master socket.",
 				conn->auth_socket);
