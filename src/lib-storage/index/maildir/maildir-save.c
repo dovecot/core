@@ -121,6 +121,7 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx->mbox = mbox;
 	ctx->trans = t->ictx.trans;
 	ctx->files_tail = &ctx->files;
+	ctx->fd = -1;
 
 	ctx->tmpdir = p_strconcat(pool, mbox->path, "/tmp", NULL);
 	ctx->newdir = p_strconcat(pool, mbox->path, "/new", NULL);
