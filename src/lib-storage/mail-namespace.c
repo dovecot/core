@@ -382,7 +382,15 @@ mail_namespace_find_subscribable(struct mail_namespace *namespaces,
 {
 	return mail_namespace_find_mask(namespaces, mailbox,
 					NAMESPACE_FLAG_SUBSCRIPTIONS,
-					 NAMESPACE_FLAG_SUBSCRIPTIONS);
+					NAMESPACE_FLAG_SUBSCRIPTIONS);
+}
+
+struct mail_namespace *
+mail_namespace_find_unsubscribable(struct mail_namespace *namespaces,
+				   const char **mailbox)
+{
+	return mail_namespace_find_mask(namespaces, mailbox,
+					0, NAMESPACE_FLAG_SUBSCRIPTIONS);
 }
 
 struct mail_namespace *

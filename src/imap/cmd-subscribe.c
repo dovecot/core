@@ -27,19 +27,36 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 
 bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
-	struct mail_namespace *ns;
-	const char *mailbox, *verify_name;
+	struct mail_namespace *ns, *real_ns;
+	struct mail_storage *storage;
+	const char *mailbox, *verify_name, *real_name;
 
 	/* <mailbox> */
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
-
 	verify_name = mailbox;
+
+	real_name = mailbox;
+	storage = client_find_storage(cmd, &real_name);
+	if (storage == NULL)
+		return TRUE;
+
+	/* now find a namespace where the subscription can be added to */
 	ns = mail_namespace_find_subscribable(cmd->client->user->namespaces,
 					      &mailbox);
 	if (ns == NULL) {
-		client_send_tagline(cmd, "NO Unknown namespace.");
+		client_send_tagline(cmd, "NO Unknown subscription namespace.");
 		return TRUE;
+	}
+
+	real_ns = mail_storage_get_namespace(storage);
+	if (ns != real_ns) {
+		/* subscription is being written to a different namespace
+		   than where the mailbox exists. */
+		mailbox = t_strconcat(real_ns->prefix, real_name, NULL);
+		/* drop the common prefix */
+		i_assert(strncmp(ns->prefix, mailbox, strlen(ns->prefix)) == 0);
+		mailbox += strlen(ns->prefix);
 	}
 
 	if ((client_workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&

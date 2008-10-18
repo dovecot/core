@@ -12,10 +12,12 @@ mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
 				     struct imap_match_glob *glob,
 				     bool update_only)
 {
-	struct mail_namespace *ns = ctx->list->ns;
+	struct mail_namespace *default_ns = ctx->list->ns;
+	struct mail_namespace *namespaces = default_ns->user->namespaces;
 	struct mailbox_list_iter_update_context update_ctx;
 	struct subsfile_list_context *subsfile_ctx;
-	const char *path, *name;
+	struct mail_namespace *ns;
+	const char *path, *name, *name2, *full_name;
 	string_t *vname;
 
 	vname = t_str_new(256);
@@ -35,10 +37,26 @@ mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
 	update_ctx.match_parents =
 		(ctx->flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0;
 
-	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) {
+	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) T_BEGIN {
+		full_name = name2 =
+			t_strconcat(default_ns->prefix, name, NULL);
+		ns = mail_namespace_find_unsubscribable(namespaces, &name2);
+		if (ns == NULL)
+			ns = default_ns;
+		else if (ns->type == NAMESPACE_SHARED &&
+			 (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+			/* we'll need to get the namespace autocreated. */
+			(void)mailbox_list_is_valid_existing_name(ns->list,
+								  name2);
+			name = full_name;
+			ns = mail_namespace_find_unsubscribable(namespaces,
+								&name);
+		} else {
+			name = name2;
+		}
 		name = mail_namespace_get_vname(ns, vname, name);
 		mailbox_list_iter_update(&update_ctx, name);
-	}
+	} T_END;
 	return subsfile_list_deinit(subsfile_ctx);
 }
 

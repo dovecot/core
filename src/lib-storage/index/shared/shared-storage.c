@@ -181,7 +181,8 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	ns->type = NAMESPACE_SHARED;
 	ns->user = user;
 	ns->prefix = p_strdup(user->pool, str_c(prefix));
-	ns->flags = NAMESPACE_FLAG_LIST | NAMESPACE_FLAG_HIDDEN;
+	ns->flags = NAMESPACE_FLAG_LIST | NAMESPACE_FLAG_HIDDEN |
+		NAMESPACE_FLAG_AUTOCREATED;
 	ns->sep = _storage->ns->sep;
 
 	location = t_str_new(256);

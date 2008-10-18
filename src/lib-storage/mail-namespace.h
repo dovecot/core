@@ -20,7 +20,9 @@ enum namespace_flags {
 	NAMESPACE_FLAG_SUBSCRIPTIONS	= 0x10,
 
 	/* Namespace is created for internal use only. */
-	NAMESPACE_FLAG_INTERNAL		= 0x1000
+	NAMESPACE_FLAG_INTERNAL		= 0x1000,
+	/* Namespace was created automatically (for shared mailboxes) */
+	NAMESPACE_FLAG_AUTOCREATED	= 0x2000
 };
 
 struct mail_namespace {
@@ -71,6 +73,10 @@ mail_namespace_find_visible(struct mail_namespace *namespaces,
 struct mail_namespace *
 mail_namespace_find_subscribable(struct mail_namespace *namespaces,
 				 const char **mailbox);
+/* Like above, but find only from namespaces with subscriptions flag not set. */
+struct mail_namespace *
+mail_namespace_find_unsubscribable(struct mail_namespace *namespaces,
+				   const char **mailbox);
 /* Returns the INBOX namespace */
 struct mail_namespace *
 mail_namespace_find_inbox(struct mail_namespace *namespaces);
