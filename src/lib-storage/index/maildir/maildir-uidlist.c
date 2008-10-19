@@ -346,18 +346,20 @@ static void maildir_uidlist_update_hdr(struct maildir_uidlist *uidlist,
 	mhdr->uidlist_size = st->st_size;
 }
 
-static void
+static unsigned int
 maildir_uidlist_records_array_delete(struct maildir_uidlist *uidlist,
 				     struct maildir_uidlist_rec *rec)
 {
 	struct maildir_uidlist_rec *const *recs, *const *pos;
-	unsigned int count;
+	unsigned int idx, count;
 
 	recs = array_get(&uidlist->records, &count);
 	pos = bsearch(&rec, recs, count, sizeof(*recs), maildir_uid_cmp);
 	i_assert(pos != NULL);
 
-	array_delete(&uidlist->records, pos - recs, 1);
+	idx = pos - recs;
+	array_delete(&uidlist->records, idx, 1);
+	return idx;
 }
 
 static bool
@@ -1462,24 +1464,25 @@ void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 				 const char *filename)
 {
 	struct maildir_uidlist_rec *rec;
+	unsigned int idx;
 
 	i_assert(ctx->partial);
-
-	if (ctx->first_unwritten_pos != (unsigned int)-1) {
-		i_assert(ctx->first_unwritten_pos > 0);
-		ctx->first_unwritten_pos--;
-	}
-	if (ctx->first_nouid_pos != (unsigned int)-1) {
-		i_assert(ctx->first_nouid_pos > 0);
-		ctx->first_nouid_pos--;
-	}
 
 	rec = hash_lookup(ctx->uidlist->files, filename);
 	i_assert(rec != NULL);
 	i_assert(rec->uid != (uint32_t)-1);
 
 	hash_remove(ctx->uidlist->files, filename);
-	maildir_uidlist_records_array_delete(ctx->uidlist, rec);
+	idx = maildir_uidlist_records_array_delete(ctx->uidlist, rec);
+
+	if (ctx->first_unwritten_pos != (unsigned int)-1) {
+		i_assert(ctx->first_unwritten_pos > idx);
+		ctx->first_unwritten_pos--;
+	}
+	if (ctx->first_nouid_pos != (unsigned int)-1) {
+		i_assert(ctx->first_nouid_pos > idx);
+		ctx->first_nouid_pos--;
+	}
 
 	ctx->changed = TRUE;
 	ctx->uidlist->recreate = TRUE;
