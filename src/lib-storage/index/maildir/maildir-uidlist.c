@@ -90,6 +90,7 @@ struct maildir_uidlist {
 	unsigned int initial_read:1;
 	unsigned int initial_hdr_read:1;
 	unsigned int initial_sync:1;
+	unsigned int retry_rewind:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -305,9 +306,17 @@ maildir_uidlist_set_corrupted(struct maildir_uidlist *uidlist,
 	va_list args;
 
 	va_start(args, fmt);
-	mail_storage_set_critical(storage, "Broken file %s line %u: %s",
-				  uidlist->path, uidlist->read_line_count,
-				  t_strdup_vprintf(fmt, args));
+	if (uidlist->retry_rewind) {
+		mail_storage_set_critical(storage,
+			"Broken or unexpectedly changed file %s "
+			"line %u: %s - re-reading from beginning",
+			uidlist->path, uidlist->read_line_count,
+			t_strdup_vprintf(fmt, args));
+	} else {
+		mail_storage_set_critical(storage, "Broken file %s line %u: %s",
+			uidlist->path, uidlist->read_line_count,
+			t_strdup_vprintf(fmt, args));
+	}
 	va_end(args);
 }
 
@@ -405,7 +414,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	}
 	if (uid <= uidlist->prev_read_uid) {
 		maildir_uidlist_set_corrupted(uidlist, 
-					      "UIDs not ordered (%u > %u)",
+					      "UIDs not ordered (%u >= %u)",
 					      uid, uidlist->prev_read_uid);
 		return FALSE;
 	}
@@ -627,16 +636,23 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 		uidlist->prev_read_uid = 0;
 		uidlist->change_counter++;
 		uidlist->read_records_count = 0;
+		uidlist->retry_rewind = last_read_offset != 0 && try_retry;
 
 		ret = 1;
 		while ((line = i_stream_read_next_line(input)) != NULL) {
 			uidlist->read_records_count++;
 			uidlist->read_line_count++;
 			if (!maildir_uidlist_next(uidlist, line)) {
-				ret = 0;
+				if (!uidlist->retry_rewind)
+					ret = 0;
+				else {
+					ret = -1;
+					*retry_r = TRUE;
+				}
 				break;
 			}
                 }
+		uidlist->retry_rewind = FALSE;
 		if (input->stream_errno != 0)
                         ret = -1;
 
@@ -663,7 +679,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 		uidlist->fd_size = st.st_size;
 		uidlist->last_read_offset = input->v_offset;
 		maildir_uidlist_update_hdr(uidlist, &st);
-        } else {
+        } else if (!*retry_r) {
                 /* I/O error */
                 if (input->stream_errno == ESTALE && try_retry)
 			*retry_r = TRUE;
