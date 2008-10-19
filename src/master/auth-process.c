@@ -19,6 +19,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <pwd.h>
 #include <syslog.h>
 
@@ -123,6 +124,17 @@ auth_process_input_user(struct auth_process *process, const char *args)
 		i_error("BUG: Auth process %s sent unrequested reply with ID "
 			"%u", dec2str(process->pid), id);
 		return FALSE;
+	}
+
+	if (!auth_success_written) {
+		int fd;
+
+		fd = creat(AUTH_SUCCESS_PATH, 0666);
+		if (fd == -1)
+			i_error("creat(%s) failed: %m", AUTH_SUCCESS_PATH);
+		else
+			(void)close(fd);
+		auth_success_written = TRUE;
 	}
 
 	auth_master_callback(list[1], list + 2, request);

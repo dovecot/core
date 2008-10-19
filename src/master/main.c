@@ -42,6 +42,7 @@ uid_t master_uid;
 char program_path[PATH_MAX];
 char ssl_manual_key_password[100];
 const char *env_tz;
+bool auth_success_written;
 #ifdef DEBUG
 bool gdb;
 #endif
@@ -97,6 +98,19 @@ static void fatal_log_check(void)
 	close(fd);
 	if (unlink(path) < 0)
 		i_error("unlink(%s) failed: %m", path);
+}
+
+static void auth_warning_print(void)
+{
+	struct stat st;
+
+	auth_success_written = stat(AUTH_SUCCESS_PATH, &st) == 0;
+	if (!auth_success_written) {
+		i_info("If you have trouble with authentication failures,\n"
+		       "enable auth_debug setting. "
+		       "See http://wiki.dovecot.org/WhyDoesItNotWork");
+
+	}
 }
 
 static void set_logfile(struct settings *set)
@@ -559,6 +573,8 @@ int main(int argc, char *argv[])
 		open_fds();
 
 	fatal_log_check();
+	if (strcmp(settings_root->defaults->protocols, "none") != 0)
+		auth_warning_print();
 	if (!foreground)
 		daemonize(settings_root->defaults);
 
