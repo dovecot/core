@@ -143,12 +143,7 @@ static bool cmd_stls(struct pop3_client *client)
 static bool cmd_quit(struct pop3_client *client)
 {
 	client_send_line(client, "+OK Logging out");
-	if (client->common.auth_tried_disabled_plaintext) {
-		client_destroy(client, "Aborted login "
-			"(tried to use disabled plaintext authentication)");
-	} else {
-		client_destroy(client, "Aborted login");
-	}
+	client_destroy(client, "Aborted login");
 	return TRUE;
 }
 
@@ -352,10 +347,9 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	client->destroyed = TRUE;
 
 	if (!client->login_success && reason != NULL) {
-		reason = client->common.auth_attempts == 0 ?
-			t_strdup_printf("%s (no auth attempts)", reason) :
-			t_strdup_printf("%s (auth failed, %u attempts)",
-					reason, client->common.auth_attempts);
+		reason = t_strconcat(reason, " ",
+			client_get_extra_disconnect_reason(&client->common),
+			NULL);
 	}
 	if (reason != NULL)
 		client_syslog(&client->common, reason);

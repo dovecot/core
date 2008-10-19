@@ -15,6 +15,7 @@ extern const char *login_protocol;
 
 extern bool disable_plaintext_auth, process_per_connection;
 extern bool verbose_proctitle, verbose_ssl, verbose_auth;
+extern bool ssl_require_client_cert;
 extern const char *greeting, *log_format;
 extern const char *const *log_format_elements;
 extern const char *capability_string;

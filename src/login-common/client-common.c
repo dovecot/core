@@ -179,3 +179,25 @@ bool client_is_trusted(struct client *client)
 	}
 	return FALSE;
 }
+
+const char *client_get_extra_disconnect_reason(struct client *client)
+{
+	if (ssl_require_client_cert && client->proxy != NULL) {
+		if (ssl_proxy_has_broken_client_cert(client->proxy))
+			return "(client sent an invalid cert)";
+		if (!ssl_proxy_has_valid_client_cert(client->proxy))
+			return "(client didn't send a cert)";
+	}
+
+	if (client->auth_attempts == 0)
+		return "(no auth attempts)";
+
+	/* some auth attempts without SSL/TLS */
+	if (client->auth_tried_disabled_plaintext)
+		return "(tried to use disabled plaintext auth)";
+	if (ssl_require_client_cert)
+		return "(cert required, client didn't start TLS)";
+
+	return t_strdup_printf("(auth failed, %u attempts)",
+			       client->auth_attempts);
+}

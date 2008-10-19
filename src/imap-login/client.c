@@ -256,12 +256,7 @@ static int cmd_logout(struct imap_client *client)
 {
 	client_send_line(client, "* BYE Logging out");
 	client_send_tagline(client, "OK Logout completed.");
-	if (client->common.auth_tried_disabled_plaintext) {
-		client_destroy(client, "Aborted login "
-			"(tried to use disabled plaintext authentication)");
-	} else {
-		client_destroy(client, "Aborted login");
-	}
+	client_destroy(client, "Aborted login");
 	return 1;
 }
 
@@ -547,10 +542,9 @@ void client_destroy(struct imap_client *client, const char *reason)
 	client->destroyed = TRUE;
 
 	if (!client->login_success && reason != NULL) {
-		reason = client->common.auth_attempts == 0 ?
-			t_strdup_printf("%s (no auth attempts)", reason) :
-			t_strdup_printf("%s (auth failed, %u attempts)",
-					reason, client->common.auth_attempts);
+		reason = t_strconcat(reason, " ",
+			client_get_extra_disconnect_reason(&client->common),
+			NULL);
 	}
 	if (reason != NULL)
 		client_syslog(&client->common, reason);

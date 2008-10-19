@@ -517,6 +517,11 @@ bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy)
 	return proxy->cert_received && !proxy->cert_broken;
 }
 
+bool ssl_proxy_has_broken_client_cert(struct ssl_proxy *proxy)
+{
+	return proxy->cert_received && proxy->cert_broken;
+}
+
 const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
 {
 	X509 *x509;

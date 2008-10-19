@@ -21,6 +21,7 @@
 
 bool disable_plaintext_auth, process_per_connection;
 bool verbose_proctitle, verbose_ssl, verbose_auth;
+bool ssl_require_client_cert;
 const char *greeting, *log_format;
 const char *const *log_format_elements;
 const char *trusted_networks;
@@ -317,6 +318,7 @@ static void main_init(void)
 	verbose_proctitle = getenv("VERBOSE_PROCTITLE") != NULL;
         verbose_ssl = getenv("VERBOSE_SSL") != NULL;
         verbose_auth = getenv("VERBOSE_AUTH") != NULL;
+	ssl_require_client_cert = getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
 
 	greeting = getenv("GREETING");
 	if (greeting == NULL)

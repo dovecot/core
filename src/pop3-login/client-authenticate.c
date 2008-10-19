@@ -276,6 +276,7 @@ static bool check_plaintext_auth(struct pop3_client *client)
 	}
 	client_send_line(client, "-ERR "AUTH_PLAINTEXT_DISABLED_MSG);
 	client->common.auth_tried_disabled_plaintext = TRUE;
+	client->common.auth_attempts++;
 	return FALSE;
 }
 

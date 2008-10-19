@@ -530,6 +530,8 @@ static void login_process_unref(struct login_process *p)
 static void login_process_init_env(struct login_group *group, pid_t pid)
 {
 	struct settings *set = group->set;
+	const struct auth_settings *auth;
+	bool require_cert;
 
 	child_process_init_env();
 
@@ -579,6 +581,13 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 		env_put("VERBOSE_SSL=1");
 	if (set->server->auths->verbose)
 		env_put("VERBOSE_AUTH=1");
+	require_cert = TRUE;
+	for (auth = set->server->auths; auth != NULL; auth = auth->next) {
+		if (!auth->ssl_require_client_cert)
+			require_cert = FALSE;
+	}
+	if (require_cert)
+		env_put("SSL_REQUIRE_CLIENT_CERT=1");
 
 	if (set->login_process_per_connection) {
 		env_put("PROCESS_PER_CONNECTION=1");
