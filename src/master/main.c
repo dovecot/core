@@ -100,12 +100,13 @@ static void fatal_log_check(void)
 		i_error("unlink(%s) failed: %m", path);
 }
 
-static void auth_warning_print(void)
+static void auth_warning_print(const struct server_settings *set)
 {
 	struct stat st;
 
 	auth_success_written = stat(AUTH_SUCCESS_PATH, &st) == 0;
-	if (!auth_success_written) {
+	if (!auth_success_written && !set->auths->debug &&
+	    strcmp(set->defaults->protocols, "none") != 0) {
 		i_info("If you have trouble with authentication failures,\n"
 		       "enable auth_debug setting. "
 		       "See http://wiki.dovecot.org/WhyDoesItNotWork");
@@ -573,8 +574,7 @@ int main(int argc, char *argv[])
 		open_fds();
 
 	fatal_log_check();
-	if (strcmp(settings_root->defaults->protocols, "none") != 0)
-		auth_warning_print();
+	auth_warning_print(settings_root);
 	if (!foreground)
 		daemonize(settings_root->defaults);
 
