@@ -15,6 +15,7 @@ liblib_a_SOURCES = \
 	base64.c \
 	bsearch-insert-pos.c \
 	buffer.c \
+	child-wait.c \
 	close-keep-errno.c \
 	compat.c \
 	crc32.c \
@@ -115,6 +116,7 @@ headers = \
 	base64.h \
 	bsearch-insert-pos.h \
 	buffer.h \
+	child-wait.h \
 	close-keep-errno.h \
 	compat.h \
 	crc32.h \
