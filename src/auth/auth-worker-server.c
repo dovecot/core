@@ -260,7 +260,7 @@ static void worker_input(struct auth_worker_connection *conn)
 			auth_worker_handle_request(conn, request, line + 1);
 	}
 
-	if (conn->requests_left == 0 && array_count(&conn->requests) == 0) {
+	if (conn->requests_left == 0 && conn->request_count == 0) {
 		auth_worker_destroy(conn, "Max requests limit");
 		if (idle_count == 0)
 			auth_worker_create();
