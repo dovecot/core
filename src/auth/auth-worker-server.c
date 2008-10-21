@@ -14,7 +14,8 @@
 #include <unistd.h>
 
 #define AUTH_WORKER_MAX_OUTBUF_SIZE 10240
-#define AUTH_WORKER_MAX_IDLE_TIME (60*30)
+#define AUTH_WORKER_LOOKUP_TIMEOUT_SECS 60
+#define AUTH_WORKER_MAX_IDLE_SECS (60*30)
 
 struct auth_worker_request {
 	unsigned int id;
@@ -28,11 +29,11 @@ struct auth_worker_connection {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct timeout *to;
 
 	unsigned int id_counter;
         ARRAY_DEFINE(requests, struct auth_worker_request);
 
-	time_t last_used;
 	unsigned int request_count;
 	unsigned int requests_left;
 };
@@ -43,9 +44,20 @@ static unsigned int auth_workers_max;
 static unsigned int auth_workers_max_request_count;
 
 static char *worker_socket_path;
-static struct timeout *to;
 
 static void worker_input(struct auth_worker_connection *conn);
+static void auth_worker_destroy(struct auth_worker_connection *conn,
+				const char *reason);
+
+static void auth_worker_idle_timeout(struct auth_worker_connection *conn)
+{
+	i_assert(array_count(&conn->requests) == 0);
+
+	if (idle_count > 1)
+		auth_worker_destroy(conn, NULL);
+	else
+		timeout_reset(conn->to);
+}
 
 static struct auth_worker_connection *auth_worker_create(void)
 {
@@ -87,6 +99,8 @@ static struct auth_worker_connection *auth_worker_create(void)
 	conn->io = io_add(fd, IO_READ, worker_input, conn);
 	i_array_init(&conn->requests, 16);
 	conn->requests_left = auth_workers_max_request_count;
+	conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
+			       auth_worker_idle_timeout, conn);
 
 	idle_count++;
 
@@ -94,8 +108,8 @@ static struct auth_worker_connection *auth_worker_create(void)
 	return conn;
 }
 
-static void
-auth_worker_destroy(struct auth_worker_connection *conn, const char *reason)
+static void auth_worker_destroy(struct auth_worker_connection *conn,
+				const char *reason)
 {
 	struct auth_worker_connection **connp;
 	struct auth_worker_request *requests;
@@ -135,6 +149,7 @@ auth_worker_destroy(struct auth_worker_connection *conn, const char *reason)
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
+	timeout_remove(&conn->to);
 
 	if (close(conn->fd) < 0)
 		i_error("close(auth worker) failed: %m");
@@ -198,8 +213,14 @@ static void auth_worker_handle_request(struct auth_worker_connection *conn,
 
 	/* update counters */
 	conn->request_count--;
-	if (conn->request_count == 0)
+	if (conn->request_count > 0)
+		timeout_reset(conn->to);
+	else {
+		timeout_remove(&conn->to);
+		conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
+				       auth_worker_idle_timeout, conn);
 		idle_count++;
+	}
 }
 
 static void worker_input(struct auth_worker_connection *conn)
@@ -253,6 +274,13 @@ auth_worker_request_get(struct auth_worker_connection *conn)
 
 	request = auth_worker_request_lookup(conn, 0);
 	return request != NULL ? request : array_append_space(&conn->requests);
+}
+
+static void auth_worker_call_timeout(struct auth_worker_connection *conn)
+{
+	i_assert(array_count(&conn->requests) > 0);
+
+	auth_worker_destroy(conn, "Lookup timed out");
 }
 
 void auth_worker_call(struct auth_request *auth_request,
@@ -313,33 +341,14 @@ void auth_worker_call(struct auth_request *auth_request,
 		auth_worker_create();
 	}
 
-	conn->last_used = ioloop_time;
-	conn->requests_left--;
-	if (conn->request_count++ == 0)
+	if (conn->request_count == 0) {
+		timeout_remove(&conn->to);
+		conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
+				       auth_worker_call_timeout, conn);
 		idle_count--;
-}
-
-static void auth_worker_timeout(void *context ATTR_UNUSED)
-{
-	struct auth_worker_connection **conn;
-	unsigned int i, count;
-
-	if (idle_count <= 1)
-		return;
-
-	/* remove connections which we haven't used for a long time.
-	   this works because auth_worker_find_free() always returns the
-	   first free connection. */
-	conn = array_get_modifiable(&connections, &count);
-	for (i = 0; i < count; i++) {
-		if (conn[i]->last_used +
-		    AUTH_WORKER_MAX_IDLE_TIME < ioloop_time) {
-			/* remove just one. easier.. Also in case of buggy,
-			   this */
-			auth_worker_destroy(conn[i], "Timed out");
-			break;
-		}
 	}
+	conn->request_count++;
+	conn->requests_left--;
 }
 
 void auth_worker_server_init(void)
@@ -369,8 +378,6 @@ void auth_worker_server_init(void)
 		auth_workers_max_request_count = (unsigned int)-1;
 
 	i_array_init(&connections, 16);
-	to = timeout_add(1000 * 60, auth_worker_timeout, NULL);
-
 	auth_worker_create();
 }
 
@@ -387,6 +394,5 @@ void auth_worker_server_deinit(void)
 	}
 	array_free(&connections);
 
-	timeout_remove(&to);
 	i_free(worker_socket_path);
 }
