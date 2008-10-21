@@ -1,5 +1,5 @@
 AC_PREREQ([2.59])
-AC_INIT([Dovecot],[1.2.alpha2],[dovecot@dovecot.org])
+AC_INIT([Dovecot],[1.2.alpha3],[dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AM_INIT_AUTOMAKE
@@ -1762,7 +1762,9 @@ fi
 
 if test $want_checkpassword != no; then
         AC_DEFINE(PASSDB_CHECKPASSWORD,, Build with checkpassword passdb support)
+        AC_DEFINE(USERDB_CHECKPASSWORD,, Build with checkpassword userdb support)
 	passdb="$passdb checkpassword"
+	userdb="$userdb checkpassword"
 fi
 
 if test $want_bsdauth != no; then

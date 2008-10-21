@@ -67,6 +67,7 @@ dovecot_auth_SOURCES = \
 	auth-stream.c \
 	auth-worker-client.c \
 	auth-worker-server.c \
+	db-checkpassword.c \
 	db-sql.c \
 	db-passwd-file.c \
 	main.c \
@@ -98,6 +99,7 @@ dovecot_auth_SOURCES = \
 	passdb-sql.c \
 	userdb.c \
 	userdb-blocking.c \
+	userdb-checkpassword.c \
 	userdb-nss.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
@@ -125,6 +127,7 @@ headers = \
 	db-sql.h \
 	db-passwd-file.h \
 	common.h \
+	db-checkpassword.h \
 	mech.h \
 	mycrypt.h \
 	otp-skey-common.h \

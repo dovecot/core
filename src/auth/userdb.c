@@ -158,6 +158,7 @@ extern struct userdb_module_interface userdb_vpopmail;
 extern struct userdb_module_interface userdb_ldap;
 extern struct userdb_module_interface userdb_sql;
 extern struct userdb_module_interface userdb_nss;
+extern struct userdb_module_interface userdb_checkpassword;
 
 void userdbs_init(void)
 {
@@ -170,6 +171,7 @@ void userdbs_init(void)
 	userdb_register_module(&userdb_ldap);
 	userdb_register_module(&userdb_sql);
 	userdb_register_module(&userdb_nss);
+	userdb_register_module(&userdb_checkpassword);
 }
 
 void userdbs_deinit(void)

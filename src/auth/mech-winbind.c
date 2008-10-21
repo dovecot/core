@@ -67,6 +67,7 @@ static void winbind_wait_pid(struct winbind_helper *winbind)
 	if (winbind->pid == -1)
 		return;
 
+	/* FIXME: use child-wait.h API */
 	if ((ret = waitpid(winbind->pid, &status, WNOHANG)) <= 0) {
 		if (ret < 0 && errno != ECHILD && errno != EINTR)
 			i_error("waitpid() failed: %m");

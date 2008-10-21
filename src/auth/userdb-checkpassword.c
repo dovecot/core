@@ -1,39 +1,40 @@
 /* Copyright (c) 2004-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
-#include "passdb.h"
+#include "userdb.h"
 
-#ifdef PASSDB_CHECKPASSWORD 
+#ifdef USERDB_CHECKPASSWORD
 
 #include "db-checkpassword.h"
 
-struct checkpassword_passdb_module {
-	struct passdb_module module;
+struct checkpassword_userdb_module {
+	struct userdb_module module;
 
 	const char *checkpassword_path, *checkpassword_reply_path;
 	struct hash_table *clients;
 };
 
-static struct child_wait *checkpassword_passdb_children = NULL;
+static struct child_wait *checkpassword_userdb_children = NULL;
 
 static void checkpassword_request_finish(struct chkpw_auth_request *request,
-					 enum passdb_result result)
+					 enum userdb_result result)
 {
-	struct passdb_module *_module = request->request->passdb->passdb;
-	struct checkpassword_passdb_module *module =
-		(struct checkpassword_passdb_module *)_module;
-	verify_plain_callback_t *callback =
-		(verify_plain_callback_t *)request->callback;
+	struct userdb_module *_module = request->request->userdb->userdb;
+	struct checkpassword_userdb_module *module =
+		(struct checkpassword_userdb_module *)_module;
+	userdb_callback_t *callback =
+		(userdb_callback_t *)request->callback;
 
 	hash_remove(module->clients, POINTER_CAST(request->pid));
 
-	if (result == PASSDB_RESULT_OK) {
+	if (result == USERDB_RESULT_OK) {
 		if (strchr(str_c(request->input_buf), '\n') != NULL) {
 			auth_request_log_error(request->request,
-				"checkpassword",
+				"userdb-checkpassword",
 				"LF characters in checkpassword reply");
-			result = PASSDB_RESULT_INTERNAL_FAILURE;
+			result = USERDB_RESULT_INTERNAL_FAILURE;
 		} else {
+			auth_request_init_userdb_reply(request->request);
 			auth_request_set_fields(request->request,
 				t_strsplit(str_c(request->input_buf), "\t"),
 				NULL);
@@ -53,50 +54,34 @@ checkpassword_request_half_finish(struct chkpw_auth_request *request)
 		return;
 
 	switch (request->exit_status) {
-	/* vpopmail exit codes: */
-	case 3:		/* password fail / vpopmail user not found */
-	case 12: 	/* null user name given */
-	case 13:	/* null password given */
-	case 15:	/* user has no password */
-	case 20:	/* invalid user/domain characters */
-	case 21:	/* system user not found */
-	case 22:	/* system user shadow entry not found */
-	case 23:	/* system password fail */
-
-	/* standard checkpassword exit codes: */
-	case 1:
-		/* (1 is additionally defined in vpopmail for
-		   "pop/smtp/webmal/ imap/access denied") */
-		auth_request_log_info(request->request, "checkpassword",
-				      "Login failed (status=%d)",
-				      request->exit_status);
+	case 3:
+		/* User does not exist. */
+		auth_request_log_info(request->request, "userdb-checkpassword",
+				      "User unknown");
 		checkpassword_request_finish(request,
-					     PASSDB_RESULT_PASSWORD_MISMATCH);
+					     USERDB_RESULT_USER_UNKNOWN);
 		break;
-	case 0:
+	case 2:
+		/* This is intentionally not 0. checkpassword-reply exits with
+		   2 on success when AUTHORIZED is set. */
 		if (request->input_buf != NULL) {
-			checkpassword_request_finish(request, PASSDB_RESULT_OK);
+			checkpassword_request_finish(request, USERDB_RESULT_OK);
 			break;
 		}
 		/* missing input - fall through */
-	case 2:
-		/* checkpassword is called with wrong
-		   parameters? unlikely */
-	case 111:
-		/* temporary problem, treat as internal error */
 	default:
-		/* whatever error.. */
-		auth_request_log_error(request->request, "checkpassword",
+		/* whatever error... */
+		auth_request_log_error(request->request, "userdb-checkpassword",
 			"Child %s exited with status %d",
 			dec2str(request->pid), request->exit_status);
 		checkpassword_request_finish(request,
-					     PASSDB_RESULT_INTERNAL_FAILURE);
+					     USERDB_RESULT_INTERNAL_FAILURE);
 		break;
 	}
 }
 
 static void sigchld_handler(const struct child_wait_status *status,
-			    struct checkpassword_passdb_module *module)
+			    struct checkpassword_userdb_module *module)
 {
 	struct chkpw_auth_request *request = 
 		hash_lookup(module->clients, POINTER_CAST(status->pid));
@@ -107,7 +92,7 @@ static void sigchld_handler(const struct child_wait_status *status,
 		break;
 	case SIGCHLD_RESULT_UNKNOWN_ERROR:
 		checkpassword_request_finish(request,
-					     PASSDB_RESULT_INTERNAL_FAILURE);
+					     USERDB_RESULT_INTERNAL_FAILURE);
 		break;
 	case SIGCHLD_RESULT_OK:
 		checkpassword_request_half_finish(request);
@@ -117,47 +102,53 @@ static void sigchld_handler(const struct child_wait_status *status,
 }
 
 static void ATTR_NORETURN
-checkpassword_verify_plain_child(struct auth_request *request,
-				 struct checkpassword_passdb_module *module,
-				 int fd_in, int fd_out)
+checkpassword_lookup_child(struct auth_request *request,
+			   struct checkpassword_userdb_module *module,
+			   int fd_in, int fd_out)
 {
 	const char *cmd, *const *args;
 
 	if (dup2(fd_out, 3) < 0 || dup2(fd_in, 4) < 0) {
-		auth_request_log_error(request, "checkpassword",
+		auth_request_log_error(request, "userdb-checkpassword",
 				       "dup2() failed: %m");
 	} else {
+		/* We want to retrieve user data and don't do
+		   authorization, so we need to signalize the
+		   checkpassword program that the password shall be
+		   ignored by setting AUTHORIZED.  This needs a
+		   special checkpassword program which knows how to
+		   handle this. */
+		env_put("AUTHORIZED=YES");
 		checkpassword_setup_env(request);
 		/* very simple argument splitting. */
 		cmd = t_strconcat(module->checkpassword_path, " ",
 				  module->checkpassword_reply_path, NULL);
-		auth_request_log_debug(request, "checkpassword",
+		auth_request_log_debug(request, "userdb-checkpassword",
 				       "execute: %s", cmd);
 
 		args = t_strsplit(cmd, " ");
 		execv(args[0], (char **)args);
-		auth_request_log_error(request, "checkpassword",
+		auth_request_log_error(request, "userdb-checkpassword",
 				       "execv(%s) failed: %m", args[0]);
 	}
 	exit(2);
 }
 
 static void
-checkpassword_verify_plain(struct auth_request *request, const char *password,
-			   verify_plain_callback_t *callback)
+checkpassword_lookup(struct auth_request *request, userdb_callback_t *callback)
 {
-	struct passdb_module *_module = request->passdb->passdb;
-	struct checkpassword_passdb_module *module =
-		(struct checkpassword_passdb_module *)_module;
+	struct userdb_module *_module = request->userdb->userdb;
+	struct checkpassword_userdb_module *module =
+		(struct checkpassword_userdb_module *)_module;
 	struct chkpw_auth_request *chkpw_auth_request;
 	int fd_in[2], fd_out[2];
 	pid_t pid;
 
 	fd_in[0] = -1;
 	if (pipe(fd_in) < 0 || pipe(fd_out) < 0) {
-		auth_request_log_error(request, "checkpassword",
+		auth_request_log_error(request, "userdb-checkpassword",
 				       "pipe() failed: %m");
-		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, request);
 		if (fd_in[0] != -1) {
 			(void)close(fd_in[0]);
 			(void)close(fd_in[1]);
@@ -167,9 +158,9 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 
 	pid = fork();
 	if (pid == -1) {
-		auth_request_log_error(request, "checkpassword",
+		auth_request_log_error(request, "userdb-checkpassword",
 				       "fork() failed: %m");
-		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, request);
 		(void)close(fd_in[0]);
 		(void)close(fd_in[1]);
 		(void)close(fd_out[0]);
@@ -180,17 +171,17 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 	if (pid == 0) {
 		(void)close(fd_in[0]);
 		(void)close(fd_out[1]);
-		checkpassword_verify_plain_child(request, module,
+		checkpassword_lookup_child(request, module,
 						 fd_in[1], fd_out[0]);
 		/* not reached */
 	}
 
 	if (close(fd_in[1]) < 0) {
-		auth_request_log_error(request, "checkpassword",
+		auth_request_log_error(request, "userdb-checkpassword",
 				       "close(fd_in[1]) failed: %m");
 	}
 	if (close(fd_out[0]) < 0) {
-		auth_request_log_error(request, "checkpassword",
+		auth_request_log_error(request, "userdb-checkpassword",
 				       "close(fd_out[0]) failed: %m");
 	}
 
@@ -199,7 +190,6 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 	chkpw_auth_request->fd_in = fd_in[0];
 	chkpw_auth_request->fd_out = fd_out[1];
 	chkpw_auth_request->pid = pid;
-	chkpw_auth_request->password = i_strdup(password);
 	chkpw_auth_request->request = request;
 	chkpw_auth_request->callback = callback;
 	chkpw_auth_request->half_finish_callback =
@@ -207,7 +197,7 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 	chkpw_auth_request->finish_callback =
 		checkpassword_request_finish;
 	chkpw_auth_request->internal_failure_code =
-		PASSDB_RESULT_INTERNAL_FAILURE;
+		USERDB_RESULT_INTERNAL_FAILURE;
 
 	chkpw_auth_request->io_in =
 		io_add(fd_in[0], IO_READ, checkpassword_child_input,
@@ -218,22 +208,22 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 
 	hash_insert(module->clients, POINTER_CAST(pid), chkpw_auth_request);
 
-	if (checkpassword_passdb_children != NULL)
-		child_wait_add_pid(checkpassword_passdb_children, pid);
+	if (checkpassword_userdb_children != NULL)
+		child_wait_add_pid(checkpassword_userdb_children, pid);
 	else {
-		checkpassword_passdb_children =
+		checkpassword_userdb_children =
 			child_wait_new_with_pid(pid, sigchld_handler, module);
 	}
 }
 
-static struct passdb_module *
-checkpassword_preinit(struct auth_passdb *auth_passdb, const char *args)
+static struct userdb_module *
+checkpassword_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
-	struct checkpassword_passdb_module *module;
+	struct checkpassword_userdb_module *module;
 
-	module = p_new(auth_passdb->auth->pool,
-		       struct checkpassword_passdb_module, 1);
-	module->checkpassword_path = p_strdup(auth_passdb->auth->pool, args);
+	module = p_new(auth_userdb->auth->pool,
+		       struct checkpassword_userdb_module, 1);
+	module->checkpassword_path = p_strdup(auth_userdb->auth->pool, args);
 	module->checkpassword_reply_path =
 		PKG_LIBEXECDIR"/checkpassword-reply";
 
@@ -243,38 +233,36 @@ checkpassword_preinit(struct auth_passdb *auth_passdb, const char *args)
 	return &module->module;
 }
 
-static void checkpassword_deinit(struct passdb_module *_module)
+static void checkpassword_deinit(struct userdb_module *_module)
 {
-	struct checkpassword_passdb_module *module =
-		(struct checkpassword_passdb_module *)_module;
+	struct checkpassword_userdb_module *module =
+		(struct checkpassword_userdb_module *)_module;
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
 	iter = hash_iterate_init(module->clients);
 	while (hash_iterate(iter, &key, &value)) {
 		checkpassword_request_finish(value,
-					     PASSDB_RESULT_INTERNAL_FAILURE);
+					     USERDB_RESULT_INTERNAL_FAILURE);
 	}
 	hash_iterate_deinit(&iter);
 	hash_destroy(&module->clients);
 
-	if (checkpassword_passdb_children != NULL)
-		child_wait_free(&checkpassword_passdb_children);
+	if (checkpassword_userdb_children != NULL)
+		child_wait_free(&checkpassword_userdb_children);
 }
 
-struct passdb_module_interface passdb_checkpassword = {
+struct userdb_module_interface userdb_checkpassword = {
 	"checkpassword",
 
 	checkpassword_preinit,
 	NULL,
 	checkpassword_deinit,
 
-	checkpassword_verify_plain,
-	NULL,
-	NULL
+	checkpassword_lookup,
 };
 #else
-struct passdb_module_interface passdb_checkpassword = {
+struct userdb_module_interface userdb_checkpassword = {
 	MEMBER(name) "checkpassword"
 };
 #endif
