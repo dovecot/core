@@ -1174,7 +1174,7 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 	if (file->next != NULL &&
 	    file->hdr.file_seq == file->next->hdr.prev_file_seq &&
 	    file->next->hdr.prev_file_offset != file->sync_offset) {
-		mail_index_set_error(file->log->index,
+		mail_transaction_log_file_set_corrupted(file,
 			"Invalid transaction log size "
 			"(%"PRIuUOFF_T" vs %u): %s", file->sync_offset,
 			file->log->head->hdr.prev_file_offset, file->filepath);
