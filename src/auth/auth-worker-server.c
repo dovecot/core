@@ -94,7 +94,8 @@ static struct auth_worker_connection *auth_worker_create(void)
 	return conn;
 }
 
-static void auth_worker_destroy(struct auth_worker_connection *conn)
+static void
+auth_worker_destroy(struct auth_worker_connection *conn, const char *reason)
 {
 	struct auth_worker_connection **connp;
 	struct auth_worker_request *requests;
@@ -118,6 +119,9 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 	requests = array_get_modifiable(&conn->requests, &count);
 	for (i = 0; i < count; i++) {
 		if (requests[i].id != 0) {
+			auth_request_log_error(requests[i].auth_request,
+					       "worker-server",
+					       "Aborted: %s", reason);
 			T_BEGIN {
 				requests[i].callback(requests[i].auth_request,
 						     reply);
@@ -209,13 +213,13 @@ static void worker_input(struct auth_worker_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		auth_worker_destroy(conn);
+		auth_worker_destroy(conn, "Worker process died unexpectedly");
 		return;
 	case -2:
 		/* buffer full */
 		i_error("BUG: Auth worker sent us more than %d bytes",
 			(int)AUTH_WORKER_MAX_LINE_LENGTH);
-		auth_worker_destroy(conn);
+		auth_worker_destroy(conn, "Worker is buggy");
 		return;
 	}
 
@@ -236,7 +240,7 @@ static void worker_input(struct auth_worker_connection *conn)
 	}
 
 	if (conn->requests_left == 0) {
-		auth_worker_destroy(conn);
+		auth_worker_destroy(conn, "Max requests limit");
 		if (idle_count == 0)
 			auth_worker_create();
 	}
@@ -330,8 +334,9 @@ static void auth_worker_timeout(void *context ATTR_UNUSED)
 	for (i = 0; i < count; i++) {
 		if (conn[i]->last_used +
 		    AUTH_WORKER_MAX_IDLE_TIME < ioloop_time) {
-			/* remove just one. easier.. */
-			auth_worker_destroy(conn[i]);
+			/* remove just one. easier.. Also in case of buggy,
+			   this */
+			auth_worker_destroy(conn[i], "Timed out");
 			break;
 		}
 	}
@@ -378,7 +383,7 @@ void auth_worker_server_deinit(void)
 
 	while (array_count(&connections) > 0) {
 		connp = array_idx_modifiable(&connections, 0);
-		auth_worker_destroy(*connp);
+		auth_worker_destroy(*connp, "Shutting down");
 	}
 	array_free(&connections);
 
