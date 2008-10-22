@@ -1,5 +1,8 @@
 v1.2.UNSTABLE  Timo Sirainen <tss@iki.fi>
 
+	* SQL dictionary (quota) configuration file is different than in v1.1.
+	  See doc/dovecot-dict-sql-example.conf for the new format.
+
 	+ IMAP: Added support for extensions: CONDSTORE, QRESYNC, ESEARCH,
 	  SEARCHRES, WITHIN, ID and CONTEXT=SEARCH.
 	+ SEARCH supports INTHREAD search key, but the rest of the INTHREAD
@@ -9,7 +12,49 @@ v1.2.UNSTABLE  Timo Sirainen <tss@iki.fi>
 	  base subject merging.
 	+ Thread indexes for optimizing IMAP THREAD command and INTHREAD
 	  search key.
+	+ Added userdb checkpassword (by Sascha Wilde)
 	+ Virtual mailboxes: http://wiki.dovecot.org/Plugins/Virtual
+	+ Autocreate plugin: http://wiki.dovecot.org/Plugins/Autocreate
+	+ Listescape plugin: http://wiki.dovecot.org/Plugins/Listescape
+
+v1.1.5 2008-10-22  Timo Sirainen <tss@iki.fi>
+
+	* Dovecot prints an informational message about authentication problems
+	  at startup. The message goes away after the first successful
+	  authentication. This hopefully reduces the number of "Why doesn't
+	  my authentication work?" questions.
+
+	+ Maildir/dbox: Try harder to assign unique UIDVALIDITY values to
+	  mailboxes to avoid potential problems when recreating or renaming
+	  mailboxes. The UIDVALIDITY is tracked using dovecot-uidvalidity*
+	  files in the mail root directory.
+	+ Many logging improvements
+	- In some conditions Dovecot could have stopped using existing cache
+	  file and never used it again until it was deleted.
+	- pop3 + Maildir: Make sure virtual sizes are always written to
+	  dovecot-uidlist. This way if the indexes are lost Dovecot will never
+	  do a huge amount of work to recalculate them.
+	- mbox: Fixed listing mailboxes in namespaces with prefix beginning
+	  with '~' or '/' (i.e. UW-IMAP compatibility namespaces didn't work).
+	- dict quota: Don't crash when recalculating quota (when quota warnings
+	  enabled).
+	- Fixes to handling "out of disk space/quota" failures.
+	- Blocking passdbs/userdbs (e.g. PAM, MySQL) could have failed lookups
+	  sometimes when auth_worker_max_request_count was non-zero.
+	- Fixed compiling with OpenBSD
+
+v1.1.4 2008-10-05  Timo Sirainen <tss@iki.fi>
+
+	- SORT: Yet another assert-crashfix when renumbering index sort IDs.
+	- ACL plugin fixes: Negative rights were actually treated as positive
+	  rights. 'k' right didn't prevent creating parent/child/child mailbox.
+	  ACL groups weren't working.
+	- Maildir++ quota: Fixes to rebuilding when quota limit wasn't
+	  specified in Dovecot (0 limit or limit read from maildirsize).
+	- mbox: Several bugfixes causing errors and crashes.
+	- Several fixes to expire plugin / expire-tool.
+	- lock_method=dotlock could have deadlocked with itself.
+	- Many error handling fixes and log message improvements.
 
 v1.1.3 2008-09-02  Timo Sirainen <tss@iki.fi>
 

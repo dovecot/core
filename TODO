@@ -1,3 +1,4 @@
+ - implement draft-gulbrandsen-imap-response-codes
  - new primes code: are hash tables now being resized too often?
  - auth_log_prefix setting similar to mail_log_prefix
  - LDAP attrs: uid=foo,uid=bar doesn't work
