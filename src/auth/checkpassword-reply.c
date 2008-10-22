@@ -10,7 +10,7 @@
 int main(void)
 {
 	string_t *str;
-	const char *user, *home;
+	const char *user, *home, *authorized;
 	const char *extra_env, *key, *value, *const *tmp;
 	bool uid_found = FALSE, gid_found = FALSE;
 
@@ -58,5 +58,6 @@ int main(void)
 		i_error("checkpassword: write_full() failed: %m");
 		exit(111);
 	}
-	return 0;
+	authorized = getenv("AUTHORIZED");
+	return authorized != NULL && strcmp(authorized, "2") == 0 ? 2 : 0;
 }

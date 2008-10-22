@@ -118,7 +118,7 @@ checkpassword_lookup_child(struct auth_request *request,
 		   ignored by setting AUTHORIZED.  This needs a
 		   special checkpassword program which knows how to
 		   handle this. */
-		env_put("AUTHORIZED=YES");
+		env_put("AUTHORIZED=1");
 		checkpassword_setup_env(request);
 		/* very simple argument splitting. */
 		cmd = t_strconcat(module->checkpassword_path, " ",
