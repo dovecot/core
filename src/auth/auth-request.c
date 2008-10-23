@@ -147,6 +147,8 @@ void auth_request_export(struct auth_request *request,
 		auth_stream_reply_add(reply, "secured", "1");
 	if (request->skip_password_check)
 		auth_stream_reply_add(reply, "skip_password_check", "1");
+	if (request->valid_client_cert)
+		auth_stream_reply_add(reply, "valid-client-cert", "1");
 	if (request->mech_name != NULL)
 		auth_stream_reply_add(reply, "mech", request->mech_name);
 }
@@ -179,6 +181,8 @@ bool auth_request_import(struct auth_request *request,
 		request->secured = TRUE;
 	else if (strcmp(key, "nologin") == 0)
 		request->no_login = TRUE;
+	else if (strcmp(key, "valid-client-cert") == 0)
+		request->valid_client_cert = TRUE;
 	else if (strcmp(key, "skip_password_check") == 0) {
 		i_assert(request->master_user !=  NULL);
 		request->skip_password_check = TRUE;
@@ -1347,6 +1351,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		{ 'c', NULL },
 		{ 'a', NULL },
 		{ 'b', NULL },
+		{ 'k', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -1386,6 +1391,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	tab[11].value = auth_request->secured ? "secured" : "";
 	tab[12].value = dec2str(auth_request->local_port);
 	tab[13].value = dec2str(auth_request->remote_port);
+	tab[14].value = auth_request->valid_client_cert ? "valid" : "";
 	return tab;
 }
 

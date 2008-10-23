@@ -276,7 +276,6 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	size_t initial_resp_len;
 	unsigned int id;
 	buffer_t *buf;
-	bool valid_client_cert;
 
 	/* <id> <mechanism> [...] */
 	list = t_strsplit(args, "\t");
@@ -304,7 +303,6 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 	/* parse optional parameters */
 	initial_resp = NULL;
-	valid_client_cert = FALSE;
 	for (list += 2; *list != NULL; list++) {
 		arg = strchr(*list, '=');
 		if (arg == NULL) {
@@ -317,8 +315,6 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 		if (auth_request_import(request, name, arg))
 			;
-		else if (strcmp(name, "valid-client-cert") == 0)
-			valid_client_cert = TRUE;
 		else if (strcmp(name, "resp") == 0) {
 			initial_resp = arg;
 			/* this must be the last parameter */
@@ -343,7 +339,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 	hash_insert(handler->requests, POINTER_CAST(id), request);
 
-	if (request->auth->ssl_require_client_cert && !valid_client_cert) {
+	if (request->auth->ssl_require_client_cert &&
+	    !request->valid_client_cert) {
 		/* we fail without valid certificate */
                 auth_request_handler_auth_fail(handler, request,
 			"Client didn't present valid SSL certificate");
