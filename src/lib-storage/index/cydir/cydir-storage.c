@@ -68,6 +68,7 @@ static struct mail_storage *cydir_alloc(void)
 	storage = p_new(pool, struct cydir_storage, 1);
 	storage->storage = cydir_storage;
 	storage->storage.pool = pool;
+	storage->storage.storage_class = &cydir_storage;
 
 	return &storage->storage;
 }

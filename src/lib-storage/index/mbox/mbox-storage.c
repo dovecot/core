@@ -403,6 +403,7 @@ static struct mail_storage *mbox_alloc(void)
 	storage = p_new(pool, struct mbox_storage, 1);
 	storage->storage = mbox_storage;
 	storage->storage.pool = pool;
+	storage->storage.storage_class = &mbox_storage;
 
 	return &storage->storage;
 }

@@ -58,6 +58,7 @@ struct mail_storage {
 	char *error_string;
 	enum mail_error error;
 
+        const struct mail_storage *storage_class;
 	struct mail_namespace *ns;
 	struct mailbox_list *list;
 

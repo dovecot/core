@@ -178,6 +178,7 @@ static struct mail_storage *maildir_alloc(void)
 	storage = p_new(pool, struct maildir_storage, 1);
 	storage->storage = maildir_storage;
 	storage->storage.pool = pool;
+	storage->storage.storage_class = &maildir_storage;
 
 	return &storage->storage;
 }

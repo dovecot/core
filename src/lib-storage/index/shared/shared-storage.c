@@ -24,6 +24,7 @@ static struct mail_storage *shared_alloc(void)
 	storage = p_new(pool, struct shared_storage, 1);
 	storage->storage = shared_storage;
 	storage->storage.pool = pool;
+	storage->storage.storage_class = &shared_storage;
 
 	return &storage->storage;
 }
@@ -227,7 +228,10 @@ shared_mailbox_open(struct mail_storage *storage, const char *name,
 	if (shared_storage_get_namespace(storage, &name, &ns) < 0)
 		return NULL;
 
-	box = mailbox_open(ns->storage, name, NULL, flags);
+	/* if we call the normal mailbox_open() here the plugins will see
+	   mailbox_open() called twice and they could break. */
+	box = ns->storage->storage_class->v.
+		mailbox_open(ns->storage, name, NULL, flags);
 	if (box == NULL)
 		shared_mailbox_copy_error(storage, ns);
 	return box;

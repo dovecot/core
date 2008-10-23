@@ -81,6 +81,7 @@ static struct mail_storage *dbox_alloc(void)
 	storage = p_new(pool, struct dbox_storage, 1);
 	storage->storage = dbox_storage;
 	storage->storage.pool = pool;
+	storage->storage.storage_class = &dbox_storage;
 
 	return &storage->storage;
 }
