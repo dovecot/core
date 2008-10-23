@@ -314,8 +314,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 	ctx.str = t_str_new(128);
 	ctx.fill_missing = fill_missing;
 
-	ret = rfc822_skip_lwsp(&ctx.parser);
-	if (ret == 0) {
+	if (rfc822_skip_lwsp(&ctx.parser) <= 0) {
 		/* no addresses */
 		return NULL;
 	}
