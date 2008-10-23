@@ -207,26 +207,34 @@ int rfc822_parse_mime_token(struct rfc822_parser_context *ctx, string_t *str)
 int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 {
 	const unsigned char *start;
+	size_t len;
 
 	i_assert(*ctx->data == '"');
 	ctx->data++;
 
 	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
-		if (*ctx->data == '"') {
+		switch (*ctx->data) {
+		case '"':
 			str_append_n(str, start, ctx->data - start);
 			ctx->data++;
 			return rfc822_skip_lwsp(ctx);
+		case '\n':
+			/* folding whitespace, remove the (CR)LF */
+			len = ctx->data - start;
+			if (len > 0 && start[len-1] == '\r')
+				len--;
+			str_append_n(str, start, len);
+			start = ctx->data + 1;
+			break;
+		case '\\':
+			ctx->data++;
+			if (ctx->data == ctx->end)
+				return -1;
+
+			str_append_n(str, start, ctx->data - start);
+			start = ctx->data;
+			break;
 		}
-
-		if (*ctx->data != '\\')
-			continue;
-
-		ctx->data++;
-		if (ctx->data == ctx->end)
-			return -1;
-
-		str_append_n(str, start, ctx->data - start);
-		start = ctx->data;
 	}
 
 	/* missing '"' */
