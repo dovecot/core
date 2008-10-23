@@ -7,6 +7,7 @@
 #include "lib-signals.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
+#include "child-wait.h"
 #include "sql-api.h"
 #include "module-dir.h"
 #include "randgen.h"
@@ -227,6 +228,7 @@ static void main_init(bool nodaemon)
 	lib_signals_ignore(SIGHUP, TRUE);
 	lib_signals_ignore(SIGUSR2, TRUE);
 
+	child_wait_init();
 	mech_init();
 	password_schemes_init();
 	auth_init(auth);
@@ -287,6 +289,7 @@ static void main_deinit(void)
 	sql_drivers_deinit();
 	random_deinit();
 
+	child_wait_deinit();
 	lib_signals_deinit();
 	closelog();
 }
