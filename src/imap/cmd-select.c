@@ -232,7 +232,7 @@ static int select_qresync(struct imap_select_context *ctx)
 	fetch_ctx->qresync_sample_seqset = &ctx->qresync_sample_seqset;
 	fetch_ctx->qresync_sample_uidset = &ctx->qresync_sample_uidset;
 
-	if (!imap_fetch_add_unchanged_since(fetch_ctx, ctx->qresync_modseq) ||
+	if (!imap_fetch_add_changed_since(fetch_ctx, ctx->qresync_modseq) ||
 	    !imap_fetch_init_handler(fetch_ctx, "UID", NULL) ||
 	    !imap_fetch_init_handler(fetch_ctx, "FLAGS", NULL) ||
 	    !imap_fetch_init_handler(fetch_ctx, "MODSEQ", NULL)) {

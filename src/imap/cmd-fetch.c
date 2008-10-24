@@ -82,7 +82,7 @@ fetch_parse_modifier(struct imap_fetch_context *ctx,
 		}
 		num = strtoull(imap_arg_string(*args), NULL, 10);
 		*args += 1;
-		return imap_fetch_add_unchanged_since(ctx, num);
+		return imap_fetch_add_changed_since(ctx, num);
 	}
 	if (strcmp(name, "VANISHED") == 0 && ctx->cmd->uid) {
 		if ((ctx->client->enabled_features &

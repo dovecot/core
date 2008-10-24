@@ -101,8 +101,8 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx);
 bool imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
 			     const struct imap_arg **args);
 
-bool imap_fetch_add_unchanged_since(struct imap_fetch_context *ctx,
-				    uint64_t modseq);
+bool imap_fetch_add_changed_since(struct imap_fetch_context *ctx,
+				  uint64_t modseq);
 
 int imap_fetch_begin(struct imap_fetch_context *ctx);
 int imap_fetch_more(struct imap_fetch_context *ctx);

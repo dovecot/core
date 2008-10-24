@@ -110,8 +110,8 @@ imap_fetch_init(struct client_command_context *cmd, struct mailbox *box)
 	return ctx;
 }
 
-bool imap_fetch_add_unchanged_since(struct imap_fetch_context *ctx,
-				    uint64_t modseq)
+bool imap_fetch_add_changed_since(struct imap_fetch_context *ctx,
+				  uint64_t modseq)
 {
 	struct mail_search_arg *search_arg;
 
@@ -119,7 +119,7 @@ bool imap_fetch_add_unchanged_since(struct imap_fetch_context *ctx,
 	search_arg->type = SEARCH_MODSEQ;
 	search_arg->value.modseq =
 		p_new(ctx->cmd->pool, struct mail_search_modseq, 1);
-	search_arg->value.modseq->modseq = modseq;
+	search_arg->value.modseq->modseq = modseq + 1;
 
 	search_arg->next = ctx->search_args->args->next;
 	ctx->search_args->args->next = search_arg;
