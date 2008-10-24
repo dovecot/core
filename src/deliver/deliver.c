@@ -789,7 +789,6 @@ static void putenv_extra_fields(ARRAY_TYPE(string) *extra_fields)
 			key = t_str_ucase(t_strdup_until(fields[i], p));
 			env_put(t_strconcat(key, p, NULL));
 		}
-		i_free(fields[i]);
 	}
 }
 
@@ -799,7 +798,7 @@ int main(int argc, char *argv[])
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
 	const char *home, *destaddr, *user, *value, *errstr, *path;
-	ARRAY_TYPE(string) extra_fields;
+	ARRAY_TYPE(string) *extra_fields;
 	struct mail_user *mail_user, *raw_mail_user;
 	struct mail_namespace *raw_ns;
 	struct mail_storage *storage;
@@ -815,6 +814,7 @@ int main(int argc, char *argv[])
 	bool user_auth = FALSE;
 	time_t mtime;
 	int i, ret;
+	pool_t userdb_pool;
 
 	i_set_failure_exit_callback(failure_exit_callback);
 
@@ -945,7 +945,8 @@ int main(int argc, char *argv[])
 					  TRUE, version);
 	}
 
-	t_array_init(&extra_fields, 64);
+	userdb_pool = pool_alloconly_create("userdb lookup replys", 512);
+
 	if (user_auth) {
 		auth_socket = getenv("AUTH_SOCKET_PATH");
 		if (auth_socket == NULL) {
@@ -956,8 +957,9 @@ int main(int argc, char *argv[])
 						  NULL);
 		}
 
-		ret = auth_client_lookup_and_restrict(ioloop, auth_socket,
+		ret = auth_client_lookup_and_restrict(auth_socket,
 						      user, process_euid,
+						      userdb_pool,
 						      &extra_fields);
 		if (ret != 0)
 			return ret;
@@ -966,7 +968,9 @@ int main(int argc, char *argv[])
 		destaddr = user;
 
 	expand_envs(user);
-	putenv_extra_fields(&extra_fields);
+	putenv_extra_fields(extra_fields);
+
+	pool_unref(&userdb_pool);
 
 	/* Fix namespaces with empty locations */
 	for (i = 1;; i++) {

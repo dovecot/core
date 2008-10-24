@@ -5,11 +5,13 @@ AM_CPPFLAGS = \
 
 libauth_a_SOURCES = \
 	auth-client.c \
+	auth-master.c \
 	auth-server-connection.c \
 	auth-server-request.c
 
 headers = \
 	auth-client.h \
+	auth-master.h \
 	auth-server-connection.h \
 	auth-server-request.h
 
