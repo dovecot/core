@@ -141,7 +141,11 @@ virtual_mail_get_parts(struct mail *mail, const struct message_part **parts_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
-	return mail_get_parts(vmail->backend_mail, parts_r);
+	if (mail_get_parts(vmail->backend_mail, parts_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -153,35 +157,55 @@ virtual_mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r)
 	if (timezone_r == NULL)
 		timezone_r = &tz;
 
-	return mail_get_date(vmail->backend_mail, date_r, timezone_r);
+	if (mail_get_date(vmail->backend_mail, date_r, timezone_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static int virtual_mail_get_received_date(struct mail *mail, time_t *date_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
-	return mail_get_received_date(vmail->backend_mail, date_r);
+	if (mail_get_received_date(vmail->backend_mail, date_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static int virtual_mail_get_save_date(struct mail *mail, time_t *date_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
-	return mail_get_save_date(vmail->backend_mail, date_r);
+	if (mail_get_save_date(vmail->backend_mail, date_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static int virtual_mail_get_virtual_mail_size(struct mail *mail, uoff_t *size_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
-	return mail_get_virtual_size(vmail->backend_mail, size_r);
+	if (mail_get_virtual_size(vmail->backend_mail, size_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static int virtual_mail_get_physical_size(struct mail *mail, uoff_t *size_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
-	return mail_get_physical_size(vmail->backend_mail, size_r);
+	if (mail_get_physical_size(vmail->backend_mail, size_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -191,8 +215,12 @@ virtual_mail_get_first_header(struct mail *mail, const char *field,
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail_private *p = (struct mail_private *)vmail->backend_mail;
 
-	return p->v.get_first_header(vmail->backend_mail, field,
-				     decode_to_utf8, value_r);
+	if (p->v.get_first_header(vmail->backend_mail, field,
+				  decode_to_utf8, value_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -202,8 +230,12 @@ virtual_mail_get_headers(struct mail *mail, const char *field,
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail_private *p = (struct mail_private *)vmail->backend_mail;
 
-	return p->v.get_headers(vmail->backend_mail, field,
-				decode_to_utf8, value_r);
+	if (p->v.get_headers(vmail->backend_mail, field,
+			     decode_to_utf8, value_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -219,6 +251,11 @@ virtual_mail_get_header_stream(struct mail *mail,
 						     headers->headers);
 	ret = mail_get_header_stream(vmail->backend_mail, headers, stream_r);
 	mailbox_header_lookup_unref(&backend_headers);
+	if (ret < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 	return ret;
 }
 
@@ -229,7 +266,12 @@ virtual_mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
-	return mail_get_stream(vmail->backend_mail, hdr_size, body_size, stream_r);
+	if (mail_get_stream(vmail->backend_mail, hdr_size, body_size,
+			    stream_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -242,7 +284,11 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 		*value_r = vmail->backend_mail->box->name;
 		return 0;
 	}
-	return mail_get_special(vmail->backend_mail, field, value_r);
+	if (mail_get_special(vmail->backend_mail, field, value_r) < 0) {
+		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static void virtual_mail_expunge(struct mail *mail)

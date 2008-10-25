@@ -129,6 +129,9 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 struct mailbox_sync_context *
 virtual_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 
+void virtual_copy_error(struct mail_storage *dest, struct mail_storage *src);
+void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src);
+
 void virtual_transaction_class_init(void);
 void virtual_transaction_class_deinit(void);
 

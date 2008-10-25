@@ -36,6 +36,34 @@ virtual_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 			     enum mailbox_list_file_type type,
 			     enum mailbox_info_flags *flags);
 
+void virtual_copy_error(struct mail_storage *dest, struct mail_storage *src)
+{
+	const char *str;
+	enum mail_error error;
+
+	str = mail_storage_get_last_error(src, &error);
+	if ((src->ns->flags & NAMESPACE_FLAG_HIDDEN) != 0) {
+		str = t_strdup_printf("%s (namespace %s)", str,
+				      src->ns->prefix);
+	}
+	mail_storage_set_error(dest, error, str);
+}
+
+void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src)
+{
+	const char *str;
+	enum mail_error error;
+
+	str = mail_storage_get_last_error(src->storage, &error);
+	if ((src->storage->ns->flags & NAMESPACE_FLAG_HIDDEN) != 0)
+		str = t_strdup_printf("%s (mailbox %s)", str, src->name);
+	else {
+		str = t_strdup_printf("%s (mailbox %s%s)", str,
+				      src->storage->ns->prefix, src->name);
+	}
+	mail_storage_set_error(dest->storage, error, str);
+}
+
 static int
 virtual_get_list_settings(struct mailbox_list_settings *list_set,
 			  const char *data, struct mail_storage *storage,
@@ -203,7 +231,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	else {
 		/* failed */
 		for (; i > 0; i--) {
-			mailbox_close(&bboxes[i-1]->box);
+			(void)mailbox_close(&bboxes[i-1]->box);
 			array_free(&bboxes[i-1]->uids);
 		}
 		return -1;
@@ -300,6 +328,7 @@ virtual_mailbox_open(struct mail_storage *_storage, const char *name,
 static int virtual_storage_mailbox_close(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct mail_storage *storage;
 	struct virtual_backend_box **bboxes;
 	unsigned int i, count;
 	int ret = 0;
@@ -310,8 +339,12 @@ static int virtual_storage_mailbox_close(struct mailbox *box)
 	for (i = 0; i < count; i++) {
 		if (bboxes[i]->search_result != NULL)
 			mailbox_search_result_free(&bboxes[i]->search_result);
-		if (mailbox_close(&bboxes[i]->box) < 0)
+
+		storage = bboxes[i]->box->storage;
+		if (mailbox_close(&bboxes[i]->box) < 0) {
+			virtual_copy_error(box->storage, storage);
 			ret = -1;
+		}
 		array_free(&bboxes[i]->sync_pending_removes);
 		array_free(&bboxes[i]->uids);
 	}

@@ -1112,8 +1112,12 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 	i_array_init(&ctx->all_adds, 128);
 	bboxes = array_get(&ctx->mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
-		if (virtual_sync_backend_box(ctx, bboxes[i]) < 0)
+		if (virtual_sync_backend_box(ctx, bboxes[i]) < 0) {
+			/* backend failed, copy the error */
+			virtual_box_copy_error(&ctx->mbox->ibox.box,
+					       bboxes[i]->box);
 			return -1;
+		}
 	}
 
 	if (!ctx->mbox->uids_mapped) {
@@ -1151,7 +1155,7 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
 	i_free(ctx);
-	return 0;
+	return ret;
 }
 
 static int virtual_sync(struct virtual_mailbox *mbox,
