@@ -276,8 +276,9 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 
 	if (new_size < old_size) {
 		/* header shrank */
-		if (!no_shrink) {
+		if (no_shrink)
 			new_size = old_size;
+		else {
 			buffer_delete(map->hdr_copy_buf,
 				      ext->hdr_offset + new_size,
 				      old_size - new_size);
