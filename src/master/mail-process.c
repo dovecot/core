@@ -849,7 +849,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 	env_put("LOGGED_IN=1");
-	env_put(t_strconcat("HOME=", home_dir, NULL));
+	if (*home_dir != '\0')
+		env_put(t_strconcat("HOME=", home_dir, NULL));
 	env_put(t_strconcat("USER=", user, NULL));
 
 	addr = net_ip2addr(&request->remote_ip);
