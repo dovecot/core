@@ -110,6 +110,10 @@ static bool client_handle_args(struct imap_client *client,
 			destuser = *args + 9;
 		else if (strncmp(*args, "pass=", 5) == 0)
 			pass = *args + 5;
+		else if (auth_debug) {
+			i_info("Ignoring unknown passdb extra field: %s",
+			       *args);
+		}
 	}
 
 	if (destuser == NULL)

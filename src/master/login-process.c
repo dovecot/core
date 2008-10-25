@@ -581,6 +581,8 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 		env_put("VERBOSE_SSL=1");
 	if (set->server->auths->verbose)
 		env_put("VERBOSE_AUTH=1");
+	if (set->server->auths->debug)
+		env_put("AUTH_DEBUG=1");
 	require_cert = TRUE;
 	for (auth = set->server->auths; auth != NULL; auth = auth->next) {
 		if (!auth->ssl_require_client_cert)
