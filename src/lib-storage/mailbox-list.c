@@ -108,13 +108,17 @@ int mailbox_list_alloc(const char *driver, struct mailbox_list **list_r,
 	return 0;
 }
 
-static const char *fix_path(struct mail_namespace *ns, const char *path)
+static int fix_path(struct mail_namespace *ns, const char *path,
+		    const char **path_r)
 {
 	size_t len = strlen(path);
 
 	if (len > 1 && path[len-1] == '/')
 		path = t_strndup(path, len-1);
-	return mail_user_home_expand(ns->user, path);
+	if (mail_user_try_home_expand(ns->user, &path) < 0)
+		return -1;
+	*path_r = path;
+	return 0;
 }
 
 int mailbox_list_settings_parse(const char *data,
@@ -123,7 +127,7 @@ int mailbox_list_settings_parse(const char *data,
 				const char **layout, const char **alt_dir_r,
 				const char **error_r)
 {
-	const char *const *tmp, *key, *value;
+	const char *const *tmp, *key, *value, **dest;
 
 	i_assert(*data != '\0');
 
@@ -133,7 +137,12 @@ int mailbox_list_settings_parse(const char *data,
 
 	/* <root dir> */
 	tmp = t_strsplit(data, ":");
-	set->root_dir = fix_path(ns, *tmp);
+	if (fix_path(ns, *tmp, &set->root_dir) < 0) {
+		*error_r = t_strdup_printf(
+			"Home directory not set, can't expand ~/ for "
+			"mail root dir in: %s", data);
+		return -1;
+	}
 	tmp++;
 
 	for (; *tmp != NULL; tmp++) {
@@ -147,21 +156,27 @@ int mailbox_list_settings_parse(const char *data,
 		}
 
 		if (strcmp(key, "INBOX") == 0)
-			set->inbox_path = fix_path(ns, value);
+			dest = &set->inbox_path;
 		else if (strcmp(key, "INDEX") == 0)
-			set->index_dir = fix_path(ns, value);
+			dest = &set->index_dir;
 		else if (strcmp(key, "CONTROL") == 0)
-			set->control_dir = fix_path(ns, value);
+			dest = &set->control_dir;
 		else if (strcmp(key, "ALT") == 0 && alt_dir_r != NULL)
-			*alt_dir_r = fix_path(ns, value);
+			dest = alt_dir_r;
 		else if (strcmp(key, "LAYOUT") == 0)
-			*layout = value;
+			dest = layout;
 		else if (strcmp(key, "SUBSCRIPTIONS") == 0)
-			set->subscription_fname = fix_path(ns, value);
+			dest = &set->subscription_fname;
 		else if (strcmp(key, "DIRNAME") == 0)
-			set->maildir_name = value;
+			dest = &set->maildir_name;
 		else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
+			return -1;
+		}
+		if (fix_path(ns, value, dest) < 0) {
+			*error_r = t_strdup_printf(
+				"Home directory not set, can't expand ~/ for "
+				"%s in: %s", key, data);
 			return -1;
 		}
 	}
