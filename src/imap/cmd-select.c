@@ -359,14 +359,15 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	client->mailbox_change_lock = cmd;
 
 	if (client->mailbox != NULL) {
+		struct mail_storage *old_storage =
+			mailbox_get_storage(client->mailbox);
+
 		client_search_updates_free(client);
 		box = client->mailbox;
 		client->mailbox = NULL;
 
-		if (mailbox_close(&box) < 0) {
-			client_send_untagged_storage_error(client,
-				mailbox_get_storage(box));
-		}
+		if (mailbox_close(&box) < 0)
+			client_send_untagged_storage_error(client, old_storage);
 		/* CLOSED response is required by QRESYNC */
 		client_send_line(client, "* OK [CLOSED]");
 	}
