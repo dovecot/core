@@ -226,6 +226,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->next = fs_list_next;
 	ctx->sep = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
 		_list->ns->sep : _list->ns->real_sep;
+	ctx->info.ns = _list->ns;
 
 	prefix_len = strlen(_list->ns->prefix);
 	i_array_init(&ctx->valid_patterns, 8);
