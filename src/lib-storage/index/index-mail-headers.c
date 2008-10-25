@@ -808,13 +808,14 @@ index_header_lookup_init_real(struct mailbox *box, const char *const headers[])
 	ctx->count = count;
 
 	ctx->idx = p_new(pool, unsigned int, count);
-	ctx->name = p_new(pool, const char *, count);
+	ctx->name = p_new(pool, const char *, count + 1);
 
 	/* @UNSAFE */
 	for (i = 0; i < count; i++) {
 		ctx->idx[i] = fields[i].idx;
 		ctx->name[i] = p_strdup(pool, headers[i]);
 	}
+	ctx->ctx.headers = ctx->name;
 	return &ctx->ctx;
 }
 

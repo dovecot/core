@@ -332,6 +332,7 @@ struct mailbox_sync_context {
 
 struct mailbox_header_lookup_ctx {
 	struct mailbox *box;
+	const char *const *headers;
 };
 
 /* Modules should use do "my_id = mail_storage_module_id++" and
