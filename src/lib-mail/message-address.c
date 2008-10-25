@@ -305,7 +305,6 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 			   unsigned int max_addresses, bool fill_missing)
 {
 	struct message_address_parser_context ctx;
-	int ret;
 
 	memset(&ctx, 0, sizeof(ctx));
 
