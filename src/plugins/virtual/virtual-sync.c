@@ -558,7 +558,8 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 	virtual_sync_backend_remove_expunged_uids(result);
 
 	/* get list of changed messages */
-	if (!mail_index_lookup_seq_range(ibox->view, 1, bbox->sync_next_uid-1,
+	if (bbox->sync_next_uid <= 1 ||
+	    !mail_index_lookup_seq_range(ibox->view, 1, bbox->sync_next_uid-1,
 					 &seq, &old_msg_count))
 		old_msg_count = 0;
 	t_array_init(&flag_updates, I_MIN(128, old_msg_count));
