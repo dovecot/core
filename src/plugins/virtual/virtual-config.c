@@ -186,7 +186,11 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 					MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		for (i = 0; i < count; i++) {
+			/* we match only one namespace for each pattern.
+			   skip non-selectable mailboxes (especially mbox
+			   directories) */
 			if (wboxes[i]->ns == info->ns &&
+			    (info->flags & MAILBOX_NOSELECT) == 0 &&
 			    imap_match(wboxes[i]->glob,
 				       info->name) == IMAP_MATCH_YES) {
 				virtual_config_copy_expanded(ctx, wboxes[i],
