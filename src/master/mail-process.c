@@ -173,6 +173,7 @@ get_var_expand_table(const char *protocol,
 		     const char *local_ip, const char *remote_ip,
 		     pid_t pid, uid_t uid)
 {
+#define VAR_EXPAND_HOME_IDX 4
 	static struct var_expand_table static_tab[] = {
 		{ 'u', NULL },
 		{ 'n', NULL },
@@ -195,14 +196,22 @@ get_var_expand_table(const char *protocol,
 	tab[2].value = user == NULL ? NULL : strchr(user, '@');
 	if (tab[2].value != NULL) tab[2].value++;
 	tab[3].value = t_str_ucase(protocol);
-	tab[4].value = home != NULL ? home :
-		"/HOME_DIRECTORY_USED_BUT_NOT_GIVEN_BY_USERDB";
+	tab[VAR_EXPAND_HOME_IDX].value = home;
 	tab[5].value = local_ip;
 	tab[6].value = remote_ip;
 	tab[7].value = dec2str(pid);
 	tab[8].value = dec2str(uid);
 
 	return tab;
+}
+
+static bool
+has_missing_used_home(const char *str, const struct var_expand_table *table)
+{
+	i_assert(table[VAR_EXPAND_HOME_IDX].key == 'h');
+
+	return table[VAR_EXPAND_HOME_IDX].value == NULL &&
+		var_has_key(str, 'h');
 }
 
 static const char *
@@ -222,6 +231,11 @@ expand_mail_env(const char *env, const struct var_expand_table *table)
 		}
 
 		str_append_c(str, *env++);
+	}
+
+	if (has_missing_used_home(env, table)) {
+		i_fatal("userdb didn't return a home directory, "
+			"but mail location used it (%%h): %s", env);
 	}
 
 	/* expand %vars */
@@ -402,6 +416,12 @@ mail_process_set_environment(struct settings *set, const char *mail,
 	for (i = 0; i < count; i += 2) {
 		str_truncate(str, 0);
 		var_expand(str, envs[i+1], var_expand_table);
+
+		if (has_missing_used_home(envs[i+1], var_expand_table)) {
+			i_error("userdb didn't return a home directory, "
+				"but it's used in plugin setting %s: %s",
+				envs[i], envs[i+1]);
+		}
 
 		env_put(t_strconcat(t_str_ucase(envs[i]), "=",
 				    str_c(str), NULL));
