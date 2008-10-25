@@ -283,6 +283,18 @@ char var_get_key(const char *str)
 	return *str;
 }
 
+bool var_has_key(const char *str, char key)
+{
+	for (; *str != '\0'; str++) {
+		if (*str == '%' && str[1] != '\0') {
+			str++;
+			if (var_get_key(str) == key)
+				return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 const struct var_expand_table *
 var_expand_table_build(char key, const char *value, char key2, ...)
 {
