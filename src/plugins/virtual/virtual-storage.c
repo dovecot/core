@@ -308,7 +308,8 @@ static int virtual_storage_mailbox_close(struct mailbox *box)
 
 	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
-		mailbox_search_result_free(&bboxes[i]->search_result);
+		if (bboxes[i]->search_result != NULL)
+			mailbox_search_result_free(&bboxes[i]->search_result);
 		if (mailbox_close(&bboxes[i]->box) < 0)
 			ret = -1;
 		array_free(&bboxes[i]->sync_pending_removes);
