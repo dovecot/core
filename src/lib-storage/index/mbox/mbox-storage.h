@@ -42,6 +42,7 @@ struct mbox_mailbox {
 	uint32_t mbox_ext_idx;
 
 	unsigned int no_mbox_file:1;
+	unsigned int invalid_mbox_file:1;
 	unsigned int mbox_sync_dirty:1;
 	unsigned int mbox_do_dirty_syncs:1;
 	unsigned int mbox_very_dirty_syncs:1;

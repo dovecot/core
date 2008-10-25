@@ -808,6 +808,7 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 
 	if (seq == 0) {
 		if (istream_raw_mbox_seek(mbox->mbox_stream, 0) < 0) {
+			mbox->invalid_mbox_file = TRUE;
 			mail_storage_set_error(&mbox->storage->storage,
 				MAIL_ERROR_NOTPOSSIBLE,
 				"Mailbox isn't a valid mbox file");

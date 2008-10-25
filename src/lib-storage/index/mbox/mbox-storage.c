@@ -786,7 +786,7 @@ static int mbox_storage_mailbox_close(struct mailbox *box)
 			sync_flags |= MBOX_SYNC_REWRITE;
 		}
 	}
-	if (sync_flags != 0) {
+	if (sync_flags != 0 && !mbox->invalid_mbox_file) {
 		if (mbox_sync(mbox, sync_flags) < 0)
 			ret = -1;
 	}
