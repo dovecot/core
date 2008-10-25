@@ -35,6 +35,7 @@
 #define FATAL_FILENAME "master-fatal.lastlog"
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
+static pid_t master_original_pid;
 
 struct ioloop *ioloop;
 int null_fd = -1, inetd_login_fd;
@@ -56,14 +57,18 @@ master_fatal_callback(enum log_type type, int status,
 	va_list args2;
 	int fd;
 
-	/* write the error message to a file */
-	path = t_strconcat(set->base_dir, "/"FATAL_FILENAME, NULL);
-	fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, 0600);
-	if (fd != -1) {
-		VA_COPY(args2, args);
-		str = t_strdup_vprintf(format, args2);
-		write_full(fd, str, strlen(str));
-		(void)close(fd);
+	/* if we already forked a child process, this isn't fatal for the
+	   main process and there's no need to write the fatal file. */
+	if (getpid() == master_original_pid) {
+		/* write the error message to a file */
+		path = t_strconcat(set->base_dir, "/"FATAL_FILENAME, NULL);
+		fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+		if (fd != -1) {
+			VA_COPY(args2, args);
+			str = t_strdup_vprintf(format, args2);
+			write_full(fd, str, strlen(str));
+			(void)close(fd);
+		}
 	}
 
 	/* write it to log as well */
@@ -577,6 +582,7 @@ int main(int argc, char *argv[])
 	auth_warning_print(settings_root);
 	if (!foreground)
 		daemonize(settings_root->defaults);
+	master_original_pid = getpid();
 
 	ioloop = io_loop_create();
 
