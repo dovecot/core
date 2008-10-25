@@ -24,7 +24,7 @@ struct mail_user *mail_user_init(const char *username, const char *home)
 	pool = pool_alloconly_create("mail user", 512);
 	user = p_new(pool, struct mail_user, 1);
 	user->pool = pool;
-	user->username = p_strdup(pool, username);
+	user->username = p_strdup_empty(pool, username);
 	user->home = p_strdup(pool, home);
 	user->v.deinit = mail_user_deinit_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
