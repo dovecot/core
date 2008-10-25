@@ -730,6 +730,8 @@ int index_mail_get_header_stream(struct mail *_mail,
 	struct istream *input;
 	string_t *dest;
 
+	i_assert(_headers->box == _mail->box);
+
 	if (mail->data.save_bodystructure_header) {
 		/* we have to parse the header. */
 		if (index_mail_parse_headers(mail, _headers) < 0)

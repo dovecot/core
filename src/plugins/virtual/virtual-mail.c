@@ -81,6 +81,7 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)mail->box;
 	struct virtual_backend_box *bbox;
 	struct mailbox_transaction_context *backend_trans;
+	struct mailbox_header_lookup_ctx *backend_headers;
 	const struct virtual_mail_index_record *vrec;
 	const struct mail_index_record *rec;
 	const void *data;
@@ -95,9 +96,15 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 	if (vmail->backend_mail == NULL) {
 		backend_trans =
 			virtual_transaction_get(mail->transaction, bbox->box);
+
+		backend_headers = vmail->wanted_headers == NULL ? NULL :
+			mailbox_header_lookup_init(bbox->box,
+						vmail->wanted_headers->headers);
 		vmail->backend_mail = mail_alloc(backend_trans,
 						 vmail->wanted_fields,
-						 vmail->wanted_headers);
+						 backend_headers);
+		if (backend_headers != NULL)
+			mailbox_header_lookup_unref(&backend_headers);
 		array_append(&vmail->backend_mails, &vmail->backend_mail, 1);
 	}
 	mail_set_uid(vmail->backend_mail, vrec->real_uid);
@@ -205,8 +212,14 @@ virtual_mail_get_header_stream(struct mail *mail,
 			       struct istream **stream_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mailbox_header_lookup_ctx *backend_headers;
+	int ret;
 
-	return mail_get_header_stream(vmail->backend_mail, headers, stream_r);
+	backend_headers = mailbox_header_lookup_init(vmail->backend_mail->box,
+						     headers->headers);
+	ret = mail_get_header_stream(vmail->backend_mail, headers, stream_r);
+	mailbox_header_lookup_unref(&backend_headers);
+	return ret;
 }
 
 static int
