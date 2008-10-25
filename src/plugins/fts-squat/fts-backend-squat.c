@@ -61,6 +61,8 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 						  mailbox_get_name(box));
 	if (*path == '\0') {
 		/* in-memory indexes */
+		if ((storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0)
+			i_info("fts squat: Disabled with in-memory indexes");
 		return NULL;
 	}
 
