@@ -126,10 +126,8 @@ void auth_request_export(struct auth_request *request,
 		auth_stream_reply_add(reply, "master_user",
 				      request->master_user);
 	}
-	if (request->original_username != NULL) {
-		auth_stream_reply_add(reply, "original_username",
-				      request->original_username);
-	}
+	auth_stream_reply_add(reply, "original_username",
+			      request->original_username);
 
 	if (request->local_ip.family != 0) {
 		auth_stream_reply_add(reply, "lip",
@@ -1013,12 +1011,6 @@ void auth_request_set_field(struct auth_request *request,
 		}
 
 		if (strcmp(request->user, value) != 0) {
-			/* remember the original username for cache */
-			if (request->original_username == NULL) {
-				request->original_username =
-					p_strdup(request->pool, request->user);
-			}
-
 			auth_request_log_debug(request, "auth",
 				"username changed %s -> %s",
 				request->user, value);
@@ -1270,7 +1262,6 @@ int auth_request_password_verify(struct auth_request *request,
 {
 	const unsigned char *raw_password;
 	size_t raw_password_size;
-	const char *user;
 	int ret;
 
 	if (request->skip_password_check) {
@@ -1303,13 +1294,11 @@ int auth_request_password_verify(struct auth_request *request,
 		return -1;
 	}
 
-	/* If original_username is set, use it. It may be important for some
+	/* Use original_username since it may be important for some
 	   password schemes (eg. digest-md5). Otherwise the username is used
 	   only for logging purposes. */
-	user = request->original_username != NULL ?
-		request->original_username : request->user;
-	ret = password_verify(plain_password, user, scheme,
-			      raw_password, raw_password_size);
+	ret = password_verify(plain_password, request->original_username,
+			      scheme, raw_password, raw_password_size);
 	i_assert(ret >= 0);
 	if (ret == 0) {
 		auth_request_log_info(request, subsystem,
