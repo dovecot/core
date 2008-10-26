@@ -107,7 +107,9 @@ static bool client_handle_args(struct pop3_client *client,
 			destuser = *args + 9;
 		else if (strncmp(*args, "pass=", 5) == 0)
 			pass = *args + 5;
-		else if (auth_debug) {
+		else if (strncmp(*args, "user=", 5) == 0) {
+			/* already handled in login-common */
+		} else if (auth_debug) {
 			i_info("Ignoring unknown passdb extra field: %s",
 			       *args);
 		}
