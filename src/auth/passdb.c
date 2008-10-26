@@ -52,7 +52,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			    const unsigned char **credentials_r, size_t *size_r)
 {
 	const char *wanted_scheme = auth_request->credentials_scheme;
-	const char *plaintext;
+	const char *plaintext, *username;
 	int ret;
 
 	ret = password_decode(input, input_scheme, credentials_r, size_r);
@@ -92,8 +92,9 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 
 		/* we can generate anything out of plaintext passwords */
 		plaintext = t_strndup(*credentials_r, *size_r);
-		if (!password_generate(plaintext,
-				       auth_request->original_username,
+		username = auth_request->original_username != NULL ?
+			auth_request->original_username : auth_request->user;
+		if (!password_generate(plaintext, username,
 				       wanted_scheme, credentials_r, size_r)) {
 			auth_request_log_error(auth_request, "password",
 				"Requested unknown scheme %s", wanted_scheme);
