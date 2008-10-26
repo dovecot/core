@@ -249,7 +249,8 @@ virtual_mail_get_header_stream(struct mail *mail,
 
 	backend_headers = mailbox_header_lookup_init(vmail->backend_mail->box,
 						     headers->headers);
-	ret = mail_get_header_stream(vmail->backend_mail, headers, stream_r);
+	ret = mail_get_header_stream(vmail->backend_mail, backend_headers,
+				     stream_r);
 	mailbox_header_lookup_unref(&backend_headers);
 	if (ret < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
