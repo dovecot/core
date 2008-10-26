@@ -257,7 +257,6 @@ virtual_mail_get_header_stream(struct mail *mail,
 		return -1;
 	}
 	return 0;
-	return ret;
 }
 
 static int
