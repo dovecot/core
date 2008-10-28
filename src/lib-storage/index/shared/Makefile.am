@@ -2,11 +2,13 @@ noinst_LIBRARIES = libstorage_shared.a
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
-	-I$(top_srcdir)/src/lib-storage/index
+	-I$(top_srcdir)/src/lib-storage/index \
+	-DPKG_RUNDIR=\""$(rundir)"\"
 
 libstorage_shared_a_SOURCES = \
 	shared-list.c \

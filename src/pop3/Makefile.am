@@ -22,6 +22,7 @@ libs = \
 	$(STORAGE_LIBS) \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
+	../lib-auth/libauth.a \
 	../lib-dict/libdict.a \
 	../lib-charset/libcharset.a \
 	../lib/liblib.a \
