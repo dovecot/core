@@ -192,14 +192,17 @@ void client_input(struct pop3_client *client)
 {
 	char *line, *args;
 
-	timeout_reset(client->to_idle_disconnect);
+	i_assert(!client->common.authenticating);
 
+	timeout_reset(client->to_idle_disconnect);
 	if (!client_read(client))
 		return;
 
 	client_ref(client);
 
 	o_stream_cork(client->output);
+	/* if a command starts an authentication, stop processing further
+	   commands until the authentication is finished. */
 	while (!client->output->closed && !client->common.authenticating &&
 	       (line = i_stream_next_line(client->common.input)) != NULL) {
 		args = strchr(line, ' ');
