@@ -18,6 +18,7 @@ struct raw_mbox_istream {
 	unsigned int crlf_ending:1;
 	unsigned int corrupted:1;
 	unsigned int eof:1;
+	unsigned int header_missing_eoh:1;
 };
 
 static void i_stream_raw_mbox_destroy(struct iostream_private *stream)
@@ -111,13 +112,18 @@ static void handle_end_of_mail(struct raw_mbox_istream *rstream, size_t pos)
 		rstream->hdr_offset;
 
 	if (rstream->hdr_offset + rstream->mail_size < rstream->body_offset) {
-		/* a) Header didn't have ending \n
-		   b) "headers\n\nFrom ..", the second \n belongs to next
-		   message which we didn't know at the time yet.
-
-		   The +2 check is for CR+LF linefeeds */
 		uoff_t new_body_offset =
 			rstream->hdr_offset + rstream->mail_size;
+
+		if (rstream->body_offset != (uoff_t)-1) {
+			/* Header didn't have ending \n */
+			rstream->header_missing_eoh = TRUE;
+		} else {
+			/* "headers\n\nFrom ..", the second \n belongs to next
+			   message which we didn't know at the time yet. */
+		}
+
+		/* The +2 check is for CR+LF linefeeds */
 		i_assert(rstream->body_offset == (uoff_t)-1 ||
 			 rstream->body_offset == new_body_offset + 1 ||
 			 rstream->body_offset == new_body_offset + 2);
@@ -521,15 +527,16 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream,
 			return body_size;
 
 		next_body_offset = rstream->body_offset + expected_body_size;
-		/* If the body_size is zero but the expected_body_size is
-		   non-zero, that means that the first line of the message's
-		   body is likely a From_-line and that the body_offset is
-		   pointing to the line *before* the first line of the body,
-		   i.e. the empty line separating the headers from the body.
-		   If that is the case, we'll have to skip over the empty
-		   line to get the correct next_body_offset. */
-		if (body_size == 0)
+		/* If header_missing_eoh is set, the message body begins with
+		   a From_-line and the body_offset is pointing to the line
+		   *before* the first line of the body, i.e. the empty line
+		   separating the headers from the body. If that is the case,
+		   we'll have to skip over the empty line to get the correct
+		   next_body_offset. */
+		if (rstream->header_missing_eoh) {
+			i_assert(body_size == 0);
 			next_body_offset += rstream->crlf_ending ? 2 : 1;
+		}
 
 		i_stream_seek(rstream->istream.parent, next_body_offset);
 		if (istream_raw_mbox_is_valid_from(rstream) > 0) {
@@ -600,6 +607,7 @@ void istream_raw_mbox_next(struct istream *stream, uoff_t expected_body_size)
 	rstream->from_offset = rstream->body_offset + body_size;
 	rstream->hdr_offset = rstream->from_offset;
 	rstream->body_offset = (uoff_t)-1;
+	rstream->header_missing_eoh = FALSE;
 
 	if (stream->v_offset != rstream->from_offset)
 		i_stream_seek_mark(stream, rstream->from_offset);
@@ -634,6 +642,7 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 		rstream->mail_size = (uoff_t)-1;
 		rstream->received_time = (time_t)-1;
 		rstream->next_received_time = (time_t)-1;
+		rstream->header_missing_eoh = FALSE;
 
 		i_free(rstream->sender);
 		rstream->sender = NULL;
