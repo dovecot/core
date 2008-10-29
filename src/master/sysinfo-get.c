@@ -62,6 +62,8 @@ static const char *distro_get(void)
 		"", "/etc/SuSE-release",
 		"", "/etc/mandriva-release",
 		"", "/etc/fedora-release",
+		"", "/etc/sourcemage-release",
+		"", "/etc/slackware-version",
 		"Debian ", "/etc/debian_version",
 		NULL
 	};
