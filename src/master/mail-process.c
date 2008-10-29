@@ -855,6 +855,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	addr = net_ip2addr(&request->remote_ip);
 	env_put(t_strconcat("IP=", addr, NULL));
+	env_put(t_strconcat("LOCAL_IP=", net_ip2addr(&request->local_ip), NULL));
 
 	i_assert(request->cmd_tag_size <= request->data_size);
 	if (request->cmd_tag_size > 0) {
