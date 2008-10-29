@@ -773,10 +773,14 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	return 0;
 }
 
-static void quota_warning_execute(const char *cmd)
+static void quota_warning_execute(struct quota_root *root, const char *cmd)
 {
-	int ret = system(cmd);
+	int ret;
 
+	if (root->quota->set->debug)
+		i_info("quota: Executing warning: %s", cmd);
+
+	ret = system(cmd);
 	if (ret < 0) {
 		i_error("system(%s) failed: %m", cmd);
 	} else if (WIFSIGNALED(ret)) {
@@ -813,7 +817,7 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 		     bytes_current >= (uint64_t)warnings[i].rule.bytes_limit) ||
 		    (count_before < (uint64_t)warnings[i].rule.count_limit &&
 		     count_current >= (uint64_t)warnings[i].rule.count_limit)) {
-			quota_warning_execute(warnings[i].command);
+			quota_warning_execute(root, warnings[i].command);
 			break;
 		}
 	}
