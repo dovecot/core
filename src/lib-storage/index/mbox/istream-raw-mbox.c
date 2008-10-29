@@ -504,7 +504,7 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream,
 		(struct raw_mbox_istream *)stream->real_stream;
 	const unsigned char *data;
 	size_t size;
-	uoff_t old_offset, body_size;
+	uoff_t old_offset, body_size, next_body_offset;
 
 	i_assert(rstream->hdr_offset != (uoff_t)-1);
 	i_assert(rstream->body_offset != (uoff_t)-1);
@@ -520,11 +520,21 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream,
 		if (body_size != (uoff_t)-1 && body_size >= expected_body_size)
 			return body_size;
 
-		i_stream_seek(rstream->istream.parent,
-			      rstream->body_offset + expected_body_size);
+		next_body_offset = rstream->body_offset + expected_body_size;
+		/* If the body_size is zero but the expected_body_size is
+		   non-zero, that means that the first line of the message's
+		   body is likely a From_-line and that the body_offset is
+		   pointing to the line *before* the first line of the body,
+		   i.e. the empty line separating the headers from the body.
+		   If that is the case, we'll have to skip over the empty
+		   line to get the correct next_body_offset. */
+		if (body_size == 0)
+			next_body_offset += rstream->crlf_ending ? 2 : 1;
+
+		i_stream_seek(rstream->istream.parent, next_body_offset);
 		if (istream_raw_mbox_is_valid_from(rstream) > 0) {
-			rstream->mail_size = expected_body_size +
-				(rstream->body_offset - rstream->hdr_offset);
+			rstream->mail_size =
+				next_body_offset - rstream->hdr_offset;
 			i_stream_seek(stream, old_offset);
 			return expected_body_size;
 		}
