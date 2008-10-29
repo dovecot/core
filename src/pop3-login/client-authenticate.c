@@ -152,6 +152,7 @@ static bool client_handle_args(struct pop3_client *client,
 			io_remove(&client->io);
 		client->io = io_add(client->common.fd, IO_READ,
 				    client_input, client);
+		client_input(client);
 	}
 	return TRUE;
 }
@@ -194,6 +195,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				io_remove(&client->io);
 			client->io = io_add(client->common.fd, IO_READ,
 					    client_input, client);
+			client_input(client);
 		}
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:

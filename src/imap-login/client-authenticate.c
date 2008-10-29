@@ -83,6 +83,7 @@ static void client_auth_failed(struct imap_client *client)
 	client->io = io_add(client->common.fd, IO_READ,
 			    client_input, client);
 	client->common.auth_command_tag = NULL;
+	client_input(client);
 }
 
 static bool client_handle_args(struct imap_client *client,
