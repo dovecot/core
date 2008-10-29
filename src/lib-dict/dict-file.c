@@ -192,7 +192,7 @@ static int file_dict_iterate(struct dict_iterate_context *_ctx,
 			continue;
 
 		if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
-		    strchr(key + ctx->path_len, '/') != NULL)
+		    strchr((char *)key + ctx->path_len, '/') != NULL)
 			continue;
 
 		*key_r = key;

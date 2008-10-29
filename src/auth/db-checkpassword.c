@@ -60,7 +60,8 @@ checkpassword_sigchld_handler(const struct child_wait_status *child_wait_status,
 	pid_t pid = child_wait_status->pid;
 
 	if (request == NULL) {
-		i_error("checkpassword: sighandler called for unknown child %d", pid);
+		i_error("checkpassword: sighandler called for unknown child %s",
+			dec2str(pid));
 		return SIGCHLD_RESULT_UNKNOWN_CHILD;
 	}
 
