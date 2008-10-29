@@ -32,7 +32,8 @@ dovecot_SOURCES = \
 	main.c \
 	master-settings.c \
 	syslog-util.c \
-	ssl-init.c
+	ssl-init.c \
+	sysinfo-get.c
 
 noinst_HEADERS = \
 	auth-process.h \
@@ -49,7 +50,8 @@ noinst_HEADERS = \
 	master-login-interface.h \
 	master-settings.h \
 	syslog-util.h \
-	ssl-init.h
+	ssl-init.h \
+	sysinfo-get.h
 
 EXTRA_DIST = \
 	master-settings-defs.c

@@ -20,6 +20,7 @@
 #include "listener.h"
 #include "ssl-init.h"
 #include "log.h"
+#include "sysinfo-get.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -527,6 +528,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (dump_config) {
+
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
 		printf("# "VERSION": %s\n", configfile);
@@ -541,6 +543,12 @@ int main(int argc, char *argv[])
 	} T_END;
 
 	if (dump_config) {
+		const char *info;
+
+		info = sysinfo_get(settings_root->defaults->mail_location);
+		if (*info != '\0')
+			printf("# %s\n", info);
+
 		master_settings_dump(settings_root, dump_config_nondefaults);
 		return 0;
 	}
