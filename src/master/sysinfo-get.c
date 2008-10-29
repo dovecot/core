@@ -63,6 +63,7 @@ static const char *distro_get(void)
 		"", "/etc/fedora-release",
 		"", "/etc/sourcemage-release",
 		"", "/etc/slackware-version",
+		"", "/etc/gentoo-release",
 		"Debian ", "/etc/debian_version",
 		NULL
 	};
