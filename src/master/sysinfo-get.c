@@ -1,7 +1,6 @@
 /* Copyright (c) 2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "home-expand.h"
 #include "mountpoint.h"
 #include "strescape.h"
 #include "sysinfo-get.h"
@@ -91,8 +90,15 @@ static const char *filesystem_get(const char *mail_location)
 		path = mail_location;
 	else
 		path = t_strcut(path + 1, ':');
-	path = home_expand(path);
+	if (*path == '~') {
+		/* we don't know where users' home dirs are */
+		return "";
+	}
+	path = t_strcut(path, '%');
+	if (strlen(path) <= 1)
+		return "";
 
+	/* all in all it seems we can support only /<path>/%u style location */
 	if (mountpoint_get(path, pool_datastack_create(), &mp) < 0)
 		return "";
 	return mp.type == NULL ? "" : mp.type;
