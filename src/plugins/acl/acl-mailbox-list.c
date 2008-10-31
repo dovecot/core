@@ -177,9 +177,9 @@ acl_mailbox_list_iter_get_name(struct mailbox_list_iterate_context *ctx,
 }
 
 static int
-acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx,
-				 const struct mailbox_info *info)
+acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx)
 {
+	struct mailbox_info *info = &ctx->info;
 	const char *acl_name;
 	int ret;
 
@@ -196,14 +196,9 @@ acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx,
 		return ret;
 
 	/* no permission to see this mailbox */
-	if ((ctx->info.flags & MAILBOX_SUBSCRIBED) != 0) {
+	if ((info->flags & MAILBOX_SUBSCRIBED) != 0) {
 		/* it's subscribed, show it as non-existent */
-		if (info != &ctx->info) {
-			ctx->info = *info;
-			info = &ctx->info;
-		}
-		ctx->info.flags = MAILBOX_NONEXISTENT |
-			MAILBOX_SUBSCRIBED;
+		info->flags = MAILBOX_NONEXISTENT | MAILBOX_SUBSCRIBED;
 		return 1;
 	}
 	return 0;
@@ -218,8 +213,9 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	int ret;
 
 	while ((info = acl_mailbox_list_iter_next_info(ctx)) != NULL) {
+		ctx->info = *info;
 		T_BEGIN {
-			ret = acl_mailbox_list_info_is_visible(ctx, info);
+			ret = acl_mailbox_list_info_is_visible(ctx);
 		} T_END;
 		if (ret > 0)
 			break;
@@ -229,7 +225,7 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		}
 		/* skip to next one */
 	}
-	return info;
+	return &ctx->info;
 }
 
 static int
