@@ -609,9 +609,9 @@ static bool get_imap_capability(struct settings *set)
 	   automatically */
 	static const char *generated_capability = NULL;
 	static const char *args[] = {
-		"home=/tmp",
 		"uid=65534",
 		"gid=65534",
+		"home=/tmp",
 		NULL
 	};
 	enum master_login_status login_status;
