@@ -225,7 +225,7 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		}
 		/* skip to next one */
 	}
-	return &ctx->info;
+	return info == NULL ? NULL : &ctx->info;
 }
 
 static int
