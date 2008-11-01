@@ -91,4 +91,7 @@ struct ioloop *io_loop_create(void);
 /* Destroy I/O loop and set ioloop pointer to NULL. */
 void io_loop_destroy(struct ioloop **ioloop);
 
+/* Change the current_ioloop. */
+void io_loop_set_current(struct ioloop *ioloop);
+
 #endif

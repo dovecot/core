@@ -53,9 +53,9 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
         i_free(ioloop->handler_context);
 }
 
-void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
+void io_loop_handle_add(struct io_file *io)
 {
-	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
 	enum io_condition condition = io->io.condition;
 	int fd = io->fd;
 
@@ -74,10 +74,9 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 		ctx->highest_fd = io->fd;
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io,
-			   bool closed ATTR_UNUSED)
+void io_loop_handle_remove(struct io_file *io, bool closed ATTR_UNUSED)
 {
-	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
 	enum io_condition condition = io->io.condition;
 	int fd = io->fd;
 
@@ -93,7 +92,7 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io,
 
 		/* check if we removed the highest fd */
 		if (io->fd == ctx->highest_fd)
-			update_highest_fd(ioloop);
+			update_highest_fd(io->io.ioloop);
 	}
 	i_free(io);
 }

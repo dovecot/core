@@ -33,18 +33,19 @@ struct io *io_add(int fd, enum io_condition condition,
         io->io.condition = condition;
 	io->io.callback = callback;
         io->io.context = context;
+	io->io.ioloop = current_ioloop;
 	io->refcount = 1;
 	io->fd = fd;
 
-	if (current_ioloop->handler_context == NULL)
-		io_loop_handler_init(current_ioloop);
-	io_loop_handle_add(current_ioloop, io);
+	if (io->io.ioloop->handler_context == NULL)
+		io_loop_handler_init(io->io.ioloop);
+	io_loop_handle_add(io);
 
-	if (current_ioloop->io_files != NULL) {
-		current_ioloop->io_files->prev = io;
-		io->next = current_ioloop->io_files;
+	if (io->io.ioloop->io_files != NULL) {
+		io->io.ioloop->io_files->prev = io;
+		io->next = io->io.ioloop->io_files;
 	}
-	current_ioloop->io_files = io;
+	io->io.ioloop->io_files = io;
 	return &io->io;
 }
 
@@ -53,15 +54,15 @@ static void io_file_unlink(struct io_file *io)
 	if (io->prev != NULL)
 		io->prev->next = io->next;
 	else
-		current_ioloop->io_files = io->next;
+		io->io.ioloop->io_files = io->next;
 
 	if (io->next != NULL)
 		io->next->prev = io->prev;
 
 	/* if we got here from an I/O handler callback, make sure we
 	   don't try to handle this one next. */
-	if (current_ioloop->next_io_file == io)
-		current_ioloop->next_io_file = io->next;
+	if (io->io.ioloop->next_io_file == io)
+		io->io.ioloop->next_io_file = io->next;
 }
 
 static void io_remove_full(struct io **_io, bool closed)
@@ -77,12 +78,12 @@ static void io_remove_full(struct io **_io, bool closed)
 	io->callback = NULL;
 
 	if ((io->condition & IO_NOTIFY) != 0)
-		io_loop_notify_remove(current_ioloop, io);
+		io_loop_notify_remove(io);
 	else {
 		struct io_file *io_file = (struct io_file *)io;
 
 		io_file_unlink(io_file);
-		io_loop_handle_remove(current_ioloop, io_file, closed);
+		io_loop_handle_remove(io_file, closed);
 	}
 }
 
@@ -129,13 +130,14 @@ struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 
 	timeout = i_new(struct timeout, 1);
         timeout->msecs = msecs;
+	timeout->ioloop = current_ioloop;
 
 	timeout->callback = callback;
 	timeout->context = context;
 
-	timeout_update_next(timeout, current_ioloop->running ?
+	timeout_update_next(timeout, timeout->ioloop->running ?
 			    NULL : &ioloop_timeval);
-	priorityq_add(current_ioloop->timeouts, &timeout->item);
+	priorityq_add(timeout->ioloop->timeouts, &timeout->item);
 	return timeout;
 }
 
@@ -144,7 +146,7 @@ void timeout_remove(struct timeout **_timeout)
 	struct timeout *timeout = *_timeout;
 
 	*_timeout = NULL;
-	priorityq_remove(current_ioloop->timeouts, &timeout->item);
+	priorityq_remove(timeout->ioloop->timeouts, &timeout->item);
 	i_free(timeout);
 }
 
@@ -166,13 +168,13 @@ timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 		 timeout->next_run.tv_sec > tv_now->tv_sec ||
 		 (timeout->next_run.tv_sec == tv_now->tv_sec &&
 		  timeout->next_run.tv_usec > tv_now->tv_usec));
-	priorityq_remove(current_ioloop->timeouts, &timeout->item);
-	priorityq_add(current_ioloop->timeouts, &timeout->item);
+	priorityq_remove(timeout->ioloop->timeouts, &timeout->item);
+	priorityq_add(timeout->ioloop->timeouts, &timeout->item);
 }
 
 void timeout_reset(struct timeout *timeout)
 {
-	timeout_reset_timeval(timeout, current_ioloop->running ? NULL :
+	timeout_reset_timeval(timeout, timeout->ioloop->running ? NULL :
 			      &ioloop_timeval);
 }
 
@@ -382,9 +384,14 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	if (ioloop->handler_context != NULL)
 		io_loop_handler_deinit(ioloop);
 
-        /* ->prev won't work unless loops are destroyed in create order */
+	/* ->prev won't work unless loops are destroyed in create order */
         i_assert(ioloop == current_ioloop);
 	current_ioloop = current_ioloop->prev;
 
 	i_free(ioloop);
+}
+
+void io_loop_set_current(struct ioloop *ioloop)
+{
+	current_ioloop = ioloop;
 }

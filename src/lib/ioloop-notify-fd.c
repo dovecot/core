@@ -15,6 +15,7 @@ struct io *io_notify_fd_add(struct ioloop_notify_fd_context *ctx, int fd,
 	io->io.condition = IO_NOTIFY;
 	io->io.callback = callback;
 	io->io.context = context;
+	io->io.ioloop = current_ioloop;
 	io->fd = fd;
 
 	if (ctx->notifies != NULL) {

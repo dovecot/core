@@ -56,9 +56,9 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 	i_free(ioloop->handler_context);
 }
 
-void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
+void io_loop_handle_add(struct io_file *io)
 {
-	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
 	struct kevent ev;
 
 	if ((io->io.condition & (IO_READ | IO_ERROR)) != 0) {
@@ -80,10 +80,9 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 		(void)array_append_space(&ctx->events);
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io,
-			   bool closed)
+void io_loop_handle_remove(struct io_file *io, bool closed)
 {
-	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
 	struct kevent ev;
 
 	if ((io->io.condition & (IO_READ | IO_ERROR)) != 0 && !closed) {

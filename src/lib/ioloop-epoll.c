@@ -83,9 +83,9 @@ static int epoll_event_mask(struct io_list *list)
 	return events;
 }
 
-void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
+void io_loop_handle_add(struct io_file *io)
 {
-	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
 	struct io_list **list;
 	struct epoll_event event;
 	int op;
@@ -118,10 +118,9 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 	}
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io,
-			   bool closed)
+void io_loop_handle_remove(struct io_file *io, bool closed)
 {
-	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
 	struct io_list **list;
 	struct epoll_event event;
 	int op;

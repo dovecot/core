@@ -148,10 +148,10 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 	return IO_NOTIFY_ADDED;
 }
 
-void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
+void io_loop_notify_remove(struct io *_io)
 {
 	struct ioloop_notify_handler_context *ctx =
-		ioloop->notify_handler_context;
+		_io->ioloop->notify_handler_context;
 	struct io_notify *io = (struct io_notify *)_io;
 
 	if (fcntl(io->fd, F_NOTIFY, 0) < 0)

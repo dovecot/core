@@ -130,6 +130,7 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 	io->io.condition = IO_NOTIFY;
 	io->io.callback = callback;
 	io->io.context = context;
+	io->io.ioloop = current_ioloop;
 	io->refcount = 1;
 	io->fd = fd;
 
@@ -147,16 +148,16 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 
 	if (ctx->event_io == NULL) {
 		ctx->event_io = io_add(ctx->kq, IO_READ, event_callback,
-				       current_ioloop->notify_handler_context);
+				       io->io.ioloop->notify_handler_context);
 	}
 	*io_r = &io->io;
 	return IO_NOTIFY_ADDED;
 }
 
-void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
+void io_loop_notify_remove(struct io *_io)
 {
 	struct ioloop_notify_handler_context *ctx =
-		ioloop->notify_handler_context;
+		_io->ioloop->notify_handler_context;
 	struct io_notify *io = (struct io_notify *)_io;
 	struct kevent ev;
 

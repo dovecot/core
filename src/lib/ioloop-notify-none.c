@@ -15,8 +15,7 @@ io_add_notify(const char *path ATTR_UNUSED,
 	return IO_NOTIFY_NOSUPPORT;
 }
 
-void io_loop_notify_remove(struct ioloop *ioloop ATTR_UNUSED,
-			   struct io *io ATTR_UNUSED)
+void io_loop_notify_remove(struct io *io ATTR_UNUSED)
 {
 }
 
