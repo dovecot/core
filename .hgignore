@@ -74,6 +74,7 @@ src/tests/test-imap
 src/util/dovecotpw
 src/util/gdbhelper
 src/util/idxview
+src/util/imap_utf7
 src/util/listview
 src/util/logview
 src/util/maildirlock

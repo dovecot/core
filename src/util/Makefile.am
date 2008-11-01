@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = \
 	rawlog \
 	gdbhelper \
 	idxview \
+	imap_utf7 \
 	listview \
 	logview \
 	maildirlock \
@@ -14,6 +15,7 @@ sbin_PROGRAMS = dovecotpw
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage/index/maildir \
 	-I$(top_srcdir)/src/auth
@@ -33,6 +35,12 @@ idxview_LDADD = \
 	../lib/liblib.a
 idxview_SOURCES = \
 	idxview.c
+
+imap_utf7_LDADD = \
+	../lib-imap/imap-utf7.o \
+	../lib/liblib.a
+imap_utf7_SOURCES = \
+	imap-utf7.c
 
 listview_LDADD = \
 	../lib/liblib.a
