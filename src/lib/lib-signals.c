@@ -187,6 +187,14 @@ void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 		signo, (void *)handler, context);
 }
 
+void lib_signals_reset_ioloop(void)
+{
+	if (io_sig != NULL) {
+		io_remove(&io_sig);
+		io_sig = io_add(sig_pipe_fd[0], IO_READ, signal_read, NULL);
+	}
+}
+
 void lib_signals_init(void)
 {
 	int i;

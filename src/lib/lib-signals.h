@@ -14,6 +14,10 @@ void lib_signals_ignore(int signo, bool restart_syscalls);
 void lib_signals_unset_handler(int signo,
 			       signal_handler_t *handler, void *context);
 
+/* Remove and add the internal I/O handler back. This is necessary to get
+   the delayed signals to work when using multiple I/O loops. */
+void lib_signals_reset_ioloop(void);
+
 void lib_signals_init(void);
 void lib_signals_deinit(void);
 
