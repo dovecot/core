@@ -317,6 +317,11 @@ static int mkdir_verify(struct mail_storage *storage,
 	} else if (errno == ENOENT) {
 		mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
 			"Mailbox was deleted while it was being created");
+	} else if (errno == EACCES && storage->ns->type == NAMESPACE_SHARED) {
+		/* shared namespace, don't log permission errors */
+		mail_storage_set_error(storage, MAIL_ERROR_PERM,
+				       MAIL_ERRSTR_NO_PERMISSION);
+		return -1;
 	} else {
 		mail_storage_set_critical(storage,
 					  "mkdir(%s) failed: %m", dir);

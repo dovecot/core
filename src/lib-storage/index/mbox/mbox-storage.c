@@ -353,6 +353,10 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 			*error_r = t_strdup_printf("lstat(%s) failed: %m",
 						   list_set->root_dir);
 			return -1;
+		} else if (errno == ENOENT &&
+			   storage->ns->type == NAMESPACE_SHARED) {
+			/* can't create a new user, but we don't want to fail
+			   the storage creation. */
 		} else if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
 			*error_r = t_strdup_printf(
 					"Root mail directory doesn't exist: %s",
