@@ -24,6 +24,7 @@
 #include "message-address.h"
 #include "mail-namespace.h"
 #include "raw-storage.h"
+#include "imap-utf7.h"
 #include "dict.h"
 #include "auth-client.h"
 #include "mail-send.h"
@@ -815,6 +816,7 @@ int main(int argc, char *argv[])
 	time_t mtime;
 	int i, ret;
 	pool_t userdb_pool = NULL;
+	string_t *str;
 
 	i_set_failure_exit_callback(failure_exit_callback);
 
@@ -873,8 +875,14 @@ int main(int argc, char *argv[])
 				i_fatal_status(EX_USAGE, "Missing -m argument");
 			/* Ignore -m "". This allows doing -m ${extension}
 			   in Postfix to handle user+mailbox */
-			if (*argv[i] != '\0')
-				mailbox = argv[i];
+			if (*argv[i] != '\0') {
+				str = t_str_new(256);
+				if (imap_utf8_to_utf7(argv[i], str) < 0) {
+					i_fatal("Mailbox name not UTF-8: %s",
+						mailbox);
+				}
+				mailbox = str_c(str);
+			}
 		} else if (strcmp(argv[i], "-n") == 0) {
 			deliver_set->mailbox_autocreate = FALSE;
 		} else if (strcmp(argv[i], "-s") == 0) {
