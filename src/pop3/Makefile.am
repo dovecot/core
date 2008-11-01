@@ -17,15 +17,8 @@ unused_objects = \
 	../lib/mountpoint.o
 
 libs = \
-	../lib-storage/register/libstorage-register.a \
-	../lib-storage/list/libstorage_list.a \
 	$(STORAGE_LIBS) \
-	../lib-imap/libimap.a \
-	../lib-mail/libmail.a \
-	../lib-auth/libauth.a \
 	../lib-dict/libdict.a \
-	../lib-charset/libcharset.a \
-	../lib/liblib.a \
 	$(unused_objects)
 
 pop3_LDADD = \

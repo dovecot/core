@@ -2261,7 +2261,18 @@ dbox_libs='$(top_builddir)/src/lib-storage/index/dbox/libstorage_dbox.a'
 cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.a'
 raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.a'
 shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.a'
-CORE_LIBS='$(top_builddir)/src/lib-storage/index/libstorage_index.a $(top_builddir)/src/lib-storage/libstorage.a $(top_builddir)/src/lib-index/libindex.a'
+
+REGISTER_LIBS='$(top_builddir)/src/lib-storage/register/libstorage-register.a '\
+'$(top_builddir)/src/lib-storage/list/libstorage_list.a'
+
+CORE_LIBS='$(top_builddir)/src/lib-storage/index/libstorage_index.a '\
+'$(top_builddir)/src/lib-storage/libstorage.a '\
+'$(top_builddir)/src/lib-index/libindex.a '\
+'$(top_builddir)/src/lib-imap/libimap.a '\
+'$(top_builddir)/src/lib-mail/libmail.a '\
+'$(top_builddir)/src/lib-auth/libauth.a '\
+'$(top_builddir)/src/lib-charset/libcharset.a '\
+'$(top_builddir)/src/lib/liblib.a'
 
 deliver_storage="raw"
 STORAGE_LIBS=
@@ -2271,7 +2282,7 @@ for storage in $mail_storages; do
   fi
   STORAGE_LIBS="$STORAGE_LIBS `eval echo \\$${storage}_libs`"
 done
-STORAGE_LIBS="$STORAGE_LIBS $CORE_LIBS"
+STORAGE_LIBS="$REGISTER_LIBS $STORAGE_LIBS $CORE_LIBS"
 AC_SUBST(STORAGE_LIBS)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
 

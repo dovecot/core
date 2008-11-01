@@ -28,15 +28,7 @@ convert_tool_SOURCES = \
 common_objects = \
 	convert-storage.lo
 
-libs = \
-	$(top_builddir)/src/lib-storage/register/libstorage-register.a \
-	$(top_builddir)/src/lib-storage/list/libstorage_list.a \
-	$(STORAGE_LIBS) \
-	$(top_builddir)/src/lib-imap/libimap.a \
-	$(top_builddir)/src/lib-mail/libmail.a \
-	$(top_builddir)/src/lib-auth/libauth.a \
-	$(top_builddir)/src/lib-charset/libcharset.a \
-	$(top_builddir)/src/lib/liblib.a
+libs = $(STORAGE_LIBS)
 
 convert_tool_LDADD = \
 	$(common_objects) \

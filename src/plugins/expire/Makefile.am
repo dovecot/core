@@ -32,16 +32,8 @@ expire_tool_SOURCES = \
 	expire-tool.c
 
 libs = \
-	$(top_builddir)/src/lib-storage/register/libstorage-register.a \
-	$(top_builddir)/src/lib-storage/list/libstorage_list.a \
 	$(STORAGE_LIBS) \
-	$(top_builddir)/src/lib-imap/libimap.a \
-	$(top_builddir)/src/lib-mail/libmail.a \
-	$(top_builddir)/src/lib-auth/libauth.a \
-	$(top_builddir)/src/lib-dict/libdict.a \
-	$(top_builddir)/src/lib-auth/libauth.a \
-	$(top_builddir)/src/lib-charset/libcharset.a \
-	$(top_builddir)/src/lib/liblib.a
+	$(top_builddir)/src/lib-dict/libdict.a
 
 expire_tool_LDADD = \
 	$(libs) \
