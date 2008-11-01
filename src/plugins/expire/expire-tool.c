@@ -204,7 +204,7 @@ static void expire_run(bool testrun)
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.testrun = testrun;
-	ctx.auth_conn = auth_connection_init(auth_socket);
+	ctx.auth_conn = auth_master_init(auth_socket, getenv("DEBUG") != NULL);
 	env = expire_env_init(getenv("EXPIRE"), getenv("EXPIRE_ALTMOVE"));
 	dict = dict_init(getenv("EXPIRE_DICT"), DICT_DATA_TYPE_UINT32, "");
 	if (dict == NULL)
@@ -292,7 +292,7 @@ static void expire_run(bool testrun)
 
 	if (ctx.user != NULL)
 		user_deinit(&ctx);
-	auth_connection_deinit(ctx.auth_conn);
+	auth_master_deinit(&ctx.auth_conn);
 
 	mail_storage_deinit();
 	dict_drivers_unregister_builtin();
