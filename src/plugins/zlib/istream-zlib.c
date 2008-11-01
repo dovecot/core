@@ -3,6 +3,11 @@
 #ifdef BZLIB_INCLUDE
 #  define BUILD_SOURCE
 #else
+#  include "config.h"
+#  undef HAVE_CONFIG_H
+#  if _FILE_OFFSET_BITS == 64
+#    define _LARGEFILE64_SOURCE
+#  endif
 #  include "lib.h"
 #  include "istream-internal.h"
 #  include "istream-zlib.h"
