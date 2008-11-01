@@ -291,7 +291,8 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 	if (dbox_cleanup_if_exists(_storage, path))
 		return dbox_open(storage, name, flags);
 	else if (errno == ENOENT) {
-		if (strcmp(name, "INBOX") == 0) {
+		if (strcmp(name, "INBOX") == 0 &&
+		    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			/* INBOX always exists, create it */
 			if (create_dbox(_storage, path) < 0)
 				return NULL;

@@ -666,7 +666,8 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 	if (input != NULL)
 		return mbox_mailbox_open_stream(storage, name, input, flags);
 
-	if (strcmp(name, "INBOX") == 0) {
+	if (strcmp(name, "INBOX") == 0 &&
+	    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		/* make sure INBOX exists */
 		if (verify_inbox(_storage) < 0)
 			return NULL;
