@@ -15,6 +15,7 @@ libimap_a_SOURCES = \
 	imap-parser.c \
 	imap-quote.c \
 	imap-seqset.c \
+	imap-utf7.c \
 	imap-util.c
 
 headers = \
@@ -27,6 +28,7 @@ headers = \
 	imap-parser.h \
 	imap-quote.h \
 	imap-seqset.h \
+	imap-utf7.h \
 	imap-util.h
 
 if INSTALL_HEADERS
