@@ -579,18 +579,22 @@ maildir_transaction_unlink_copied_files(struct maildir_save_context *ctx,
 static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 					  bool new_changed, bool cur_changed)
 {
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
+
 	if (ctx->mbox->ibox.fsync_disable)
 		return 0;
 
 	if (new_changed) {
 		if (fdatasync_path(ctx->newdir) < 0) {
-			i_error("fdatasync_path(%s) failed: %m", ctx->newdir);
+			mail_storage_set_critical(storage,
+				"fdatasync_path(%s) failed: %m", ctx->newdir);
 			return -1;
 		}
 	}
 	if (cur_changed) {
 		if (fdatasync_path(ctx->curdir) < 0) {
-			i_error("fdatasync_path(%s) failed: %m", ctx->curdir);
+			mail_storage_set_critical(storage,
+				"fdatasync_path(%s) failed: %m", ctx->curdir);
 			return -1;
 		}
 	}

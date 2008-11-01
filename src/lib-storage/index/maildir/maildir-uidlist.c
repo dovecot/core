@@ -260,9 +260,13 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 
 static void maildir_uidlist_close(struct maildir_uidlist *uidlist)
 {
+	struct mail_storage *storage = uidlist->ibox->box.storage;
+
 	if (uidlist->fd != -1) {
-		if (close(uidlist->fd) < 0)
-			i_error("close(%s) failed: %m", uidlist->path);
+		if (close(uidlist->fd) < 0) {
+			mail_storage_set_critical(storage,
+				"close(%s) failed: %m", uidlist->path);
+		}
 		uidlist->fd = -1;
 		uidlist->fd_ino = 0;
 	}
@@ -694,8 +698,10 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 
 	i_stream_destroy(&input);
 	if (ret <= 0) {
-		if (close(fd) < 0)
-			i_error("close(%s) failed: %m", uidlist->path);
+		if (close(fd) < 0) {
+			mail_storage_set_critical(storage,
+				"close(%s) failed: %m", uidlist->path);
+		}
 	}
 	return ret;
 }

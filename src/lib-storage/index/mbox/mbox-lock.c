@@ -260,7 +260,8 @@ static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 
 	orig_dir_fd = open(".", O_RDONLY);
 	if (orig_dir_fd == -1) {
-		i_error("open(.) failed: %m");
+		mail_storage_set_critical(&mbox->storage->storage,
+					  "open(.) failed: %m");
 		return -1;
 	}
 
@@ -279,7 +280,8 @@ static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 	} else {
 		dir = t_strdup_until(mbox->path, fname);
 		if (chdir(dir) < 0) {
-			i_error("chdir(%s) failed: %m", dir);
+			mail_storage_set_critical(&mbox->storage->storage,
+				"chdir(%s) failed: %m", dir);
 			(void)close(orig_dir_fd);
 			return -1;
 		}
@@ -287,7 +289,8 @@ static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 	}
 	if (op == MBOX_DOTLOCK_OP_LOCK) {
 		if (access(fname, R_OK) < 0) {
-			i_error("access(%s) failed: %m", mbox->path);
+			mail_storage_set_critical(&mbox->storage->storage,
+				"access(%s) failed: %m", mbox->path);
 			return -1;
 		}
 	}
@@ -322,8 +325,10 @@ static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 
 	restrict_access_drop_priv_gid();
 
-	if (fchdir(orig_dir_fd) < 0)
-		i_error("fchdir() failed: %m");
+	if (fchdir(orig_dir_fd) < 0) {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"fchdir() failed: %m");
+	}
 	(void)close(orig_dir_fd);
 	return ret;
 }

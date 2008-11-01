@@ -53,7 +53,7 @@ void mbox_file_close(struct mbox_mailbox *mbox)
 
 	if (mbox->mbox_fd != -1) {
 		if (close(mbox->mbox_fd) < 0)
-			i_error("close(mbox) failed: %m");
+			mbox_set_syscall_error(mbox, "close()");
 		mbox->mbox_fd = -1;
 	}
 }

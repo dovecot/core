@@ -608,7 +608,8 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 			"Mailbox was deleted while it was being created");
 		return -1;
 	} else {
-		i_error("open(%s, O_CREAT) failed: %m", path);
+		mail_storage_set_critical(_storage,
+			"open(%s, O_CREAT) failed: %m", path);
 	}
 	return 0;
 }

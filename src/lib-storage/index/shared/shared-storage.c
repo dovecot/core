@@ -190,7 +190,8 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	var_expand(location, storage->location, tab);
 	if (mail_storage_create(ns, NULL, str_c(location), _storage->flags,
 				_storage->lock_method, &error) < 0) {
-		i_error("Namespace '%s': %s", ns->prefix, error);
+		mail_storage_set_critical(_storage, "Namespace '%s': %s",
+					  ns->prefix, error);
 		return -1;
 	}
 	/* FIXME: we could remove namespaces here that don't have usable

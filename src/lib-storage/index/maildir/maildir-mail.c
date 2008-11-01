@@ -478,7 +478,8 @@ static void maildir_mail_set_cache_corrupted(struct mail *_mail,
 					       _mail->uid, &flags);
 		if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
 					      &size)) {
-			i_error("Maildir filename has wrong W value: %s/%s",
+			mail_storage_set_critical(_mail->box->storage,
+				"Maildir filename has wrong W value: %s/%s",
 				mbox->path, fname);
 		} else if (maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 				MAILDIR_UIDLIST_REC_EXT_VSIZE) != NULL) {
