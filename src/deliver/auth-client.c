@@ -9,15 +9,13 @@
 #include "env-util.h"
 #include "restrict-access.h"
 #include "auth-client.h"
-#include "../lib-auth/auth-master.h"
+#include "auth-master.h"
 
 #include <stdlib.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <grp.h>
 #include <sysexits.h>
-
-static int return_value;
 
 static bool parse_uid(const char *str, uid_t *uid_r)
 {
@@ -57,44 +55,51 @@ static bool parse_gid(const char *str, gid_t *gid_r)
 	return TRUE;
 }
 
-static void set_env(struct auth_user_reply *reply, const char *user, uid_t euid)
+static int set_env(struct auth_user_reply *reply,
+		   const char *user, uid_t euid)
 {
 	const char *extra_groups;
 	unsigned int len;
 
 	if (reply->uid == 0) {
 		i_error("userdb(%s) returned 0 as uid", user);
-		return;
+		return -1;
 	} else if (reply->uid == (uid_t)-1) {
 		if (getenv("MAIL_UID") != NULL) {
-			if (!parse_uid(getenv("MAIL_UID"), &reply->uid) || reply->uid == 0) {
+			if (!parse_uid(getenv("MAIL_UID"), &reply->uid) ||
+			    reply->uid == 0) {
 				i_error("mail_uid setting is invalid");
-				return;
+				return -1;
 			}
 		} else {
 			i_error("User %s is missing UID (set mail_uid)", user);
-			return;
+			return -1;
 		}
 	}
 	if (reply->gid == 0) {
 		i_error("userdb(%s) returned 0 as gid", user);
-		return;
+		return -1;
 	} else if (reply->gid == (gid_t)-1) {
 		if (getenv("MAIL_GID") != NULL) {
-			if (!parse_gid(getenv("MAIL_GID"), &reply->gid) || reply->gid == 0) {
+			if (!parse_gid(getenv("MAIL_GID"), &reply->gid) ||
+			    reply->gid == 0) {
 				i_error("mail_gid setting is invalid");
-				return;
+				return -1;
 			}
 		} else {
 			i_error("User %s is missing GID (set mail_gid)", user);
-			return;
+			return -1;
 		}
 	}
 
-	if (euid != reply->uid)
-		env_put(t_strconcat("RESTRICT_SETUID=", dec2str(reply->uid), NULL));
-	if (euid == 0 || getegid() != reply->gid)
-		env_put(t_strconcat("RESTRICT_SETGID=", dec2str(reply->gid), NULL));
+	if (euid != reply->uid) {
+		env_put(t_strconcat("RESTRICT_SETUID=",
+				    dec2str(reply->uid), NULL));
+	}
+	if (euid == 0 || getegid() != reply->gid) {
+		env_put(t_strconcat("RESTRICT_SETGID=",
+				    dec2str(reply->gid), NULL));
+	}
 
 	if (reply->chroot == NULL)
 		reply->chroot = getenv("MAIL_CHROOT");
@@ -116,40 +121,32 @@ static void set_env(struct auth_user_reply *reply, const char *user, uid_t euid)
 		env_put(t_strconcat("RESTRICT_SETEXTRAGROUPS=",
 				    extra_groups, NULL));
 	}
-
-	return_value = EX_OK;
+	return 0;
 }
 
 int auth_client_lookup_and_restrict(const char *auth_socket,
-				    const char *user, uid_t euid,
-				    pool_t pool,
-				    ARRAY_TYPE(string) **extra_fields_r)
+				    const char *user, uid_t euid, pool_t pool,
+				    ARRAY_TYPE(const_string) *extra_fields_r)
 {
         struct auth_connection *conn;
-	struct auth_user_reply *reply;
+	struct auth_user_reply reply;
 	bool debug = getenv("DEBUG") != NULL;
+	int ret = EX_TEMPFAIL;
 
 	conn = auth_master_init(auth_socket, debug);
-	reply = i_new(struct auth_user_reply, 1);
-
-	return_value = EX_TEMPFAIL;
-
-	switch (auth_master_user_lookup(conn, user, "deliver", pool, reply)) {
-	case -1:
-		break;
+	switch (auth_master_user_lookup(conn, user, "deliver", pool, &reply)) {
 	case 0:
-		return_value = EX_NOUSER;
+		ret = EX_NOUSER;
 		break;
 	case 1:
-		set_env(reply, user, euid);
-		if (return_value == EX_OK)
+		if (set_env(&reply, user, euid) == 0) {
 			restrict_access_by_env(TRUE);
+			ret = EX_OK;
+		}
 		break;
 	}
-	
-	*extra_fields_r = reply->extra_fields;
-	i_free(reply);
-	auth_master_deinit(conn);
 
-	return return_value;
+	*extra_fields_r = reply.extra_fields;
+	auth_master_deinit(conn);
+	return ret;
 }

@@ -75,7 +75,7 @@ static void sig_die(int signo, void *context ATTR_UNUSED)
 	   which is too common at least while testing :) */
 	if (signo != SIGINT)
 		i_warning("Killed with signal %d", signo);
-	io_loop_stop(ioloop);
+	io_loop_stop(current_ioloop);
 }
 
 static const char *deliver_get_address(struct mail *mail, const char *header)
@@ -774,13 +774,13 @@ static void expand_envs(const char *user)
 	}
 }
 
-static void putenv_extra_fields(ARRAY_TYPE(string) *extra_fields)
+static void putenv_extra_fields(const ARRAY_TYPE(const_string) *extra_fields)
 {
-	char **fields;
+	const char *const *fields;
 	const char *key, *p;
 	unsigned int i, count;
 
-	fields = array_get_modifiable(extra_fields, &count);
+	fields = array_get(extra_fields, &count);
 	for (i = 0; i < count; i++) {
 		p = strchr(fields[i], '=');
 		if (p == NULL)
@@ -798,7 +798,7 @@ int main(int argc, char *argv[])
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
 	const char *home, *destaddr, *user, *value, *errstr, *path;
-	ARRAY_TYPE(string) *extra_fields;
+	ARRAY_TYPE(const_string) extra_fields = ARRAY_INIT;
 	struct mail_user *mail_user, *raw_mail_user;
 	struct mail_namespace *raw_ns;
 	struct mail_storage *storage;
@@ -814,7 +814,7 @@ int main(int argc, char *argv[])
 	bool user_auth = FALSE;
 	time_t mtime;
 	int i, ret;
-	pool_t userdb_pool;
+	pool_t userdb_pool = NULL;
 
 	i_set_failure_exit_callback(failure_exit_callback);
 
@@ -945,8 +945,6 @@ int main(int argc, char *argv[])
 					  TRUE, version);
 	}
 
-	userdb_pool = pool_alloconly_create("userdb lookup replys", 512);
-
 	if (user_auth) {
 		auth_socket = getenv("AUTH_SOCKET_PATH");
 		if (auth_socket == NULL) {
@@ -957,6 +955,7 @@ int main(int argc, char *argv[])
 						  NULL);
 		}
 
+		userdb_pool = pool_alloconly_create("userdb lookup replys", 512);
 		ret = auth_client_lookup_and_restrict(auth_socket,
 						      user, process_euid,
 						      userdb_pool,
@@ -968,9 +967,10 @@ int main(int argc, char *argv[])
 		destaddr = user;
 
 	expand_envs(user);
-	putenv_extra_fields(extra_fields);
-
-	pool_unref(&userdb_pool);
+	if (userdb_pool != NULL) {
+		putenv_extra_fields(&extra_fields);
+		pool_unref(&userdb_pool);
+	}
 
 	/* Fix namespaces with empty locations */
 	for (i = 1;; i++) {

@@ -2,8 +2,7 @@
 #define AUTH_CLIENT_H
 
 int auth_client_lookup_and_restrict(const char *auth_socket,
-				    const char *user, uid_t euid,
-				    pool_t pool,
-				    ARRAY_TYPE(string) **extra_fields_r);
+				    const char *user, uid_t euid, pool_t pool,
+				    ARRAY_TYPE(const_string) *extra_fields_r);
 
 #endif
