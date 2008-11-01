@@ -147,6 +147,6 @@ int auth_client_lookup_and_restrict(const char *auth_socket,
 	}
 
 	*extra_fields_r = reply.extra_fields;
-	auth_master_deinit(conn);
+	auth_master_deinit(&conn);
 	return ret;
 }

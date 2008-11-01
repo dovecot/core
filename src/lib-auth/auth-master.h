@@ -10,7 +10,7 @@ struct auth_user_reply {
 
 struct auth_connection *
 auth_master_init(const char *auth_socket_path, bool debug);
-void auth_master_deinit(struct auth_connection *conn);
+void auth_master_deinit(struct auth_connection **conn);
 
 /* Returns -1 = error, 0 = user not found, 1 = ok */
 int auth_master_user_lookup(struct auth_connection *conn,

@@ -71,8 +71,11 @@ static void auth_connection_close(struct auth_connection *conn)
 	conn->handshaked = FALSE;
 }
 
-void auth_master_deinit(struct auth_connection *conn)
+void auth_master_deinit(struct auth_connection **_conn)
 {
+	struct auth_connection *conn = *_conn;
+
+	*_conn = NULL;
 	auth_connection_close(conn);
 	i_free(conn->auth_socket_path);
 	i_free(conn);
