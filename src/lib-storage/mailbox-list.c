@@ -3,9 +3,11 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "str.h"
 #include "home-expand.h"
 #include "unlink-directory.h"
 #include "imap-match.h"
+#include "imap-utf7.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-private.h"
 
@@ -346,7 +348,14 @@ bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
 				       const char *name)
 {
-	return list->v.is_valid_create_name(list, name);
+	int ret;
+
+	T_BEGIN {
+		string_t *str = t_str_new(256);
+		ret = imap_utf7_to_utf8(name, str);
+	} T_END;
+	return ret < 0 ? FALSE :
+		list->v.is_valid_create_name(list, name);
 }
 
 const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
