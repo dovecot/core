@@ -53,17 +53,34 @@ static void test_base64_encode(void)
 		"Zm9vIGJhcml0cw==",
 		"anVzdCBuaWlu"
 	};
-	string_t *str;
-	unsigned int i;
+	string_t *str, *dest;
+	unsigned int i, j, max;
+	char buf[10];
 	bool success;
 
 	str = t_str_new(256);
+	dest = t_str_new(256);
 	for (i = 0; i < N_ELEMENTS(input); i++) {
 		str_truncate(str, 0);
 		base64_encode(input[i], strlen(input[i]), str);
 		success = strcmp(output[i], str_c(str)) == 0;
 		test_out(t_strdup_printf("base64_encode(%d)", i), success);
 	}
+
+	for (i = 0; i < 1000; i++) {
+		max = rand() % sizeof(buf);
+		for (j = 0; j < max; j++)
+			buf[j] = rand();
+
+		str_truncate(str, 0);
+		str_truncate(dest, 0);
+		base64_encode(buf, max, str);
+		base64_decode(str_data(str), str_len(str), NULL, dest);
+		if (str_len(dest) != max &&
+		    memcmp(buf, str_data(dest), max) != 0)
+			break;
+	}
+	test_out("base64 random", success);
 }
 
 struct test_base64_decode_output {
