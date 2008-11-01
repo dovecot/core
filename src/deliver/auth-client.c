@@ -128,7 +128,7 @@ int auth_client_lookup_and_restrict(const char *auth_socket,
 				    const char *user, uid_t euid, pool_t pool,
 				    ARRAY_TYPE(const_string) *extra_fields_r)
 {
-        struct auth_connection *conn;
+        struct auth_master_connection *conn;
 	struct auth_user_reply reply;
 	bool debug = getenv("DEBUG") != NULL;
 	int ret = EX_TEMPFAIL;

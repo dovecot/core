@@ -65,7 +65,7 @@ static void auth_set_env(const char *user, struct auth_user_reply *reply)
 	env_put(t_strconcat("HOME=", reply->home, NULL));
 }
 
-int auth_client_put_user_env(struct auth_connection *conn,
+int auth_client_put_user_env(struct auth_master_connection *conn,
 			     const char *user)
 {
 	struct auth_user_reply reply;
@@ -73,7 +73,8 @@ int auth_client_put_user_env(struct auth_connection *conn,
 	int ret;
 
 	pool = pool_alloconly_create("userdb lookup", 512);
-	ret = auth_master_user_lookup(conn, user, "expire", pool, &reply);
+	ret = auth_master_user_lookup(conn, user, AUTH_SERVICE_INTERNAL,
+				      pool, &reply);
 	if (ret > 0)
 		auth_set_env(user, &reply);
 	pool_unref(&pool);

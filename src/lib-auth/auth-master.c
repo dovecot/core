@@ -21,7 +21,7 @@
 #define MAX_INBUF_SIZE 8192
 #define MAX_OUTBUF_SIZE 1024
 
-struct auth_connection {
+struct auth_master_connection {
 	char *auth_socket_path;
 
 	int fd;
@@ -43,21 +43,21 @@ struct auth_connection {
 	unsigned int aborted:1;
 };
 
-static void auth_input(struct auth_connection *conn);
+static void auth_input(struct auth_master_connection *conn);
 
-struct auth_connection *
+struct auth_master_connection *
 auth_master_init(const char *auth_socket_path, bool debug)
 {
-	struct auth_connection *conn;
+	struct auth_master_connection *conn;
 
-	conn = i_new(struct auth_connection, 1);
+	conn = i_new(struct auth_master_connection, 1);
 	conn->auth_socket_path = i_strdup(auth_socket_path);
 	conn->fd = -1;
 	conn->debug = debug;
 	return conn;
 }
 
-static void auth_connection_close(struct auth_connection *conn)
+static void auth_connection_close(struct auth_master_connection *conn)
 {
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
@@ -71,9 +71,9 @@ static void auth_connection_close(struct auth_connection *conn)
 	conn->handshaked = FALSE;
 }
 
-void auth_master_deinit(struct auth_connection **_conn)
+void auth_master_deinit(struct auth_master_connection **_conn)
 {
-	struct auth_connection *conn = *_conn;
+	struct auth_master_connection *conn = *_conn;
 
 	*_conn = NULL;
 	auth_connection_close(conn);
@@ -81,13 +81,13 @@ void auth_master_deinit(struct auth_connection **_conn)
 	i_free(conn);
 }
 
-static void auth_request_lookup_abort(struct auth_connection *conn)
+static void auth_request_lookup_abort(struct auth_master_connection *conn)
 {
 	io_loop_stop(conn->ioloop);
 	conn->aborted = TRUE;
 }
 
-static void auth_parse_input(struct auth_connection *conn,
+static void auth_parse_input(struct auth_master_connection *conn,
 			     const char *const *args)
 {
 	struct auth_user_reply *reply = conn->user_reply;
@@ -116,7 +116,7 @@ static void auth_parse_input(struct auth_connection *conn,
 	}
 }
 
-static int auth_input_handshake(struct auth_connection *conn)
+static int auth_input_handshake(struct auth_master_connection *conn)
 {
 	const char *line, *const *tmp;
 
@@ -140,7 +140,7 @@ static int auth_input_handshake(struct auth_connection *conn)
 	return 0;
 }
 
-static void auth_input(struct auth_connection *conn)
+static void auth_input(struct auth_master_connection *conn)
 {
 	const char *line, *cmd, *const *args, *id, *wanted_id;
 
@@ -210,7 +210,7 @@ static void auth_input(struct auth_connection *conn)
 	auth_request_lookup_abort(conn);
 }
 
-static int auth_master_connect(struct auth_connection *conn)
+static int auth_master_connect(struct auth_master_connection *conn)
 {
 	int fd, try;
 
@@ -234,7 +234,7 @@ static int auth_master_connect(struct auth_connection *conn)
 	return 0;
 }
 
-static void auth_request_timeout(struct auth_connection *conn)
+static void auth_request_timeout(struct auth_master_connection *conn)
 {
 	if (!conn->handshaked)
 		i_error("userdb lookup(%s): Connecting timed out", conn->user);
@@ -243,12 +243,12 @@ static void auth_request_timeout(struct auth_connection *conn)
 	auth_request_lookup_abort(conn);
 }
 
-static void auth_idle_timeout(struct auth_connection *conn)
+static void auth_idle_timeout(struct auth_master_connection *conn)
 {
 	auth_connection_close(conn);
 }
 
-static void auth_master_set_io(struct auth_connection *conn)
+static void auth_master_set_io(struct auth_master_connection *conn)
 {
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
@@ -262,7 +262,7 @@ static void auth_master_set_io(struct auth_connection *conn)
 	lib_signals_reset_ioloop();
 }
 
-static void auth_master_unset_io(struct auth_connection *conn,
+static void auth_master_unset_io(struct auth_master_connection *conn,
 				 struct ioloop *prev_ioloop)
 {
 	io_loop_set_current(prev_ioloop);
@@ -292,7 +292,7 @@ static bool is_valid_string(const char *str)
 	return TRUE;
 }
 
-int auth_master_user_lookup(struct auth_connection *conn,
+int auth_master_user_lookup(struct auth_master_connection *conn,
 			    const char *user, const char *service,
 			    pool_t pool, struct auth_user_reply *reply_r)
 {

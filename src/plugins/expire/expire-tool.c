@@ -12,6 +12,7 @@
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "auth-client.h"
+#include "auth-master.h"
 #include "expire-env.h"
 
 #include <stdlib.h>
@@ -23,7 +24,7 @@
 #define DEFAULT_AUTH_SOCKET_PATH PKG_RUNDIR"/auth-master"
 
 struct expire_context {
-	struct auth_connection *auth_conn;
+	struct auth_master_connection *auth_conn;
 
 	char *user;
 	struct mail_user *mail_user;
