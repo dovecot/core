@@ -4,6 +4,24 @@
 /* Character used to replace invalid input. */
 #define UNICODE_REPLACEMENT_CHAR 0xfffd
 
+/* Characters >= base require surrogates */
+#define UTF16_SURROGATE_BASE 0x10000
+
+#define UTF16_SURROGATE_SHIFT 10
+#define UTF16_SURROGATE_MASK 0x03ff
+#define UTF16_SURROGATE_HIGH_FIRST 0xd800
+#define UTF16_SURROGATE_HIGH_LAST 0xdbff
+#define UTF16_SURROGATE_HIGH_MAX 0xdfff
+#define UTF16_SURROGATE_LOW_FIRST 0xdc00
+#define UTF16_SURROGATE_LOW_LAST 0xdfff
+
+#define UTF16_SURROGATE_HIGH(chr) \
+	(UTF16_SURROGATE_HIGH_FIRST + \
+	 (((chr) - UTF16_SURROGATE_BASE) >> UTF16_SURROGATE_SHIFT))
+#define UTF16_SURROGATE_LOW(chr) \
+	(UTF16_SURROGATE_LOW_FIRST + \
+	 (((chr) - UTF16_SURROGATE_BASE) & UTF16_SURROGATE_MASK))
+
 typedef uint32_t unichar_t;
 ARRAY_DEFINE_TYPE(unichars, unichar_t);
 
