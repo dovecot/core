@@ -302,6 +302,7 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	file_dict_apply_changes(ctx);
 
 	output = o_stream_create_fd(fd, 0, FALSE);
+	o_stream_cork(output);
 	iter = hash_iterate_init(dict->hash);
 	while (hash_iterate(iter, &key, &value)) {
 		o_stream_send_str(output, key);
