@@ -187,7 +187,8 @@ static int fts_build_init(struct fts_search_context *fctx)
 		/* no new messages */
 		return 0;
 	}
-	if (fctx->best_arg->type == SEARCH_HEADER) {
+	if (fctx->best_arg->type == SEARCH_HEADER ||
+	    fctx->best_arg->type == SEARCH_HEADER_COMPRESS_LWSP) {
 		/* we're not updating the index just for header lookups */
 		return 0;
 	}
