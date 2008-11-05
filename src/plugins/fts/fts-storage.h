@@ -22,6 +22,7 @@ struct fts_search_context {
 	ARRAY_TYPE(seq_range) definite_seqs, maybe_seqs;
 	ARRAY_TYPE(fts_score_map) score_map;
 	unsigned int definite_idx, maybe_idx;
+	uint32_t first_nonindexed_seq;
 
 	struct fts_backend *build_backend;
 	struct fts_storage_build_context *build_ctx;

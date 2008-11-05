@@ -183,10 +183,12 @@ static int fts_build_init(struct fts_search_context *fctx)
 		return -1;
 
 	mailbox_get_seq_range(t->box, last_uid+1, (uint32_t)-1, &seq1, &seq2);
+	fctx->first_nonindexed_seq = seq1;
 	if (seq1 == 0) {
 		/* no new messages */
 		return 0;
 	}
+
 	if (fctx->best_arg->type == SEARCH_HEADER ||
 	    fctx->best_arg->type == SEARCH_HEADER_COMPRESS_LWSP) {
 		/* we're not updating the index just for header lookups */
@@ -202,6 +204,7 @@ static int fts_build_init(struct fts_search_context *fctx)
 		last_uid = last_uid_locked;
 		mailbox_get_seq_range(t->box, last_uid+1, (uint32_t)-1,
 				      &seq1, &seq2);
+		fctx->first_nonindexed_seq = seq1;
 		if (seq1 == 0) {
 			/* no new messages */
 			(void)fts_backend_build_deinit(&build);
@@ -389,9 +392,12 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		}
 
 		/* finished / error */
-		fts_build_deinit(&fctx->build_ctx);
-		if (ret > 0)
+		if (fts_build_deinit(&fctx->build_ctx) < 0)
+			ret = -1;
+		if (ret > 0) {
+			fctx->first_nonindexed_seq = 0;
 			fts_search_lookup(fctx);
+		}
 	}
 
 	/* if we're here, the indexes are either built or they're not used */
@@ -449,8 +455,13 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 		/* use whichever is lower of definite/maybe */
 		if (fctx->definite_idx == def_count) {
 			if (fctx->maybe_idx == maybe_count) {
-				/* we're finished */
-				return 0;
+				/* look for the non-indexed mails */
+				if (fctx->first_nonindexed_seq == 0)
+					return 0;
+				fctx->seqs_set = FALSE;
+				ctx->seq = fctx->first_nonindexed_seq - 1;
+				return fbox->module_ctx.super.
+					search_next_update_seq(ctx);
 			}
 			use_maybe = TRUE;
 		} else if (fctx->maybe_idx == maybe_count) {
@@ -505,7 +516,7 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 
 	if (fctx->build_ctx != NULL) {
 		/* the search was cancelled */
-		fts_build_deinit(&fctx->build_ctx);
+		(void)fts_build_deinit(&fctx->build_ctx);
 	}
 
 	if (array_is_created(&fctx->definite_seqs))
