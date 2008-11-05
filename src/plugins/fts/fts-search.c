@@ -54,6 +54,7 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 
 	switch (arg->type) {
 	case SEARCH_HEADER:
+	case SEARCH_HEADER_COMPRESS_LWSP:
 		/* we can filter out messages that don't have the header,
 		   but we can't trust definite results list. */
 		flags = FTS_LOOKUP_FLAG_HEADER;
@@ -201,9 +202,11 @@ static bool arg_is_better(const struct mail_search_arg *new_arg,
 
 	/* prefer not to use headers. they have a larger possibility of
 	   having lots of identical strings */
-	if (old_arg->type == SEARCH_HEADER)
+	if (old_arg->type == SEARCH_HEADER ||
+	    old_arg->type == SEARCH_HEADER_COMPRESS_LWSP)
 		return TRUE;
-	else if (new_arg->type == SEARCH_HEADER)
+	else if (new_arg->type == SEARCH_HEADER ||
+		 new_arg->type == SEARCH_HEADER_COMPRESS_LWSP)
 		return FALSE;
 
 	return strlen(new_arg->value.str) > strlen(old_arg->value.str);
@@ -224,6 +227,7 @@ fts_search_args_find_best(struct mail_search_arg *args,
 		case SEARCH_BODY:
 		case SEARCH_TEXT:
 		case SEARCH_HEADER:
+		case SEARCH_HEADER_COMPRESS_LWSP:
 			if (arg_is_better(args, *best_substr_arg))
 				*best_substr_arg = args;
 			break;
