@@ -496,14 +496,18 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 
 	if (!ctx->mbox->ibox.fsync_disable && !ctx->failed) {
 		if (fsync(ctx->fd) < 0) {
-			mail_storage_set_critical(storage,
+			if (!mail_storage_set_error_from_errno(storage)) {
+				mail_storage_set_critical(storage,
 						  "fsync(%s) failed: %m", path);
+			}
 			ctx->failed = TRUE;
 		}
 	}
 	if (close(ctx->fd) < 0) {
-		mail_storage_set_critical(storage,
-					  "close(%s) failed: %m", path);
+		if (!mail_storage_set_error_from_errno(storage)) {
+			mail_storage_set_critical(storage,
+						  "close(%s) failed: %m", path);
+		}
 		ctx->failed = TRUE;
 	}
 	ctx->fd = -1;
