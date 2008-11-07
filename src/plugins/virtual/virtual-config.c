@@ -96,6 +96,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 {
 	struct mail_user *user = ctx->mbox->storage->storage.ns->user;
 	struct virtual_backend_box *bbox;
+	const char *name;
 
 	if (*line == ' ') {
 		/* continues the previous search rule */
@@ -118,8 +119,8 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 	bbox->name = p_strdup(ctx->pool, line);
 	if (strchr(bbox->name, '*') != NULL ||
 	    strchr(bbox->name, '%') != NULL) {
-		bbox->glob = imap_match_init(ctx->pool, bbox->name,
-					     TRUE, ctx->sep);
+		name = bbox->name[0] == '-' ? bbox->name +1 : bbox->name;
+		bbox->glob = imap_match_init(ctx->pool, name, TRUE, ctx->sep);
 		bbox->ns = mail_namespace_find(user->namespaces, &line);
 		ctx->have_wildcards = TRUE;
 	}
@@ -129,18 +130,28 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 
 static void
 separate_wildcard_mailboxes(struct virtual_mailbox *mbox,
-			    ARRAY_TYPE(virtual_backend_box) *wildcard_boxes)
+			    ARRAY_TYPE(virtual_backend_box) *wildcard_boxes,
+			    ARRAY_TYPE(virtual_backend_box) *neg_boxes)
 {
 	struct virtual_backend_box *const *bboxes;
+	ARRAY_TYPE(virtual_backend_box) *dest;
 	unsigned int i, count;
 
 	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
 	t_array_init(wildcard_boxes, I_MIN(16, count));
+	t_array_init(neg_boxes, 4);
 	for (i = 0; i < count;) {
-		if (bboxes[i]->glob == NULL)
-			i++;
+		if (*bboxes[i]->name == '-')
+			dest = neg_boxes;
+		else if (bboxes[i]->glob != NULL)
+			dest = wildcard_boxes;
 		else {
-			array_append(wildcard_boxes, &bboxes[i], 1);
+			dest = NULL;
+			i++;
+		}
+
+		if (dest != NULL) {
+			array_append(dest, &bboxes[i], 1);
 			array_delete(&mbox->backend_boxes, i, 1);
 			bboxes = array_get_modifiable(&mbox->backend_boxes,
 						      &count);
@@ -162,17 +173,45 @@ static void virtual_config_copy_expanded(struct virtual_parse_context *ctx,
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 }
 
+static bool virtual_config_match(const struct mailbox_info *info,
+				 ARRAY_TYPE(virtual_backend_box) *boxes_arr,
+				 unsigned int *idx_r)
+{
+	struct virtual_backend_box *const *boxes;
+	unsigned int i, count;
+
+	boxes = array_get_modifiable(boxes_arr, &count);
+	for (i = 0; i < count; i++) {
+		if (boxes[i]->glob != NULL) {
+			/* we match only one namespace for each pattern. */
+			if (boxes[i]->ns == info->ns &&
+			    imap_match(boxes[i]->glob,
+				       info->name) == IMAP_MATCH_YES) {
+				*idx_r = i;
+				return TRUE;
+			}
+		} else {
+			i_assert(boxes[i]->name[0] == '-');
+			if (strcmp(boxes[i]->name + 1, info->name) == 0) {
+				*idx_r = i;
+				return TRUE;
+			}
+		}
+	}
+	return FALSE;
+}
+
 static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 {
 	struct mail_user *user = ctx->mbox->storage->storage.ns->user;
-	ARRAY_TYPE(virtual_backend_box) wildcard_boxes;
+	ARRAY_TYPE(virtual_backend_box) wildcard_boxes, neg_boxes;
 	struct mailbox_list_iterate_context *iter;
 	struct virtual_backend_box *const *wboxes;
 	const char **patterns;
 	const struct mailbox_info *info;
-	unsigned int i, count;
+	unsigned int i, j, count;
 
-	separate_wildcard_mailboxes(ctx->mbox, &wildcard_boxes);
+	separate_wildcard_mailboxes(ctx->mbox, &wildcard_boxes, &neg_boxes);
 
 	/* get patterns we want to list */
 	wboxes = array_get_modifiable(&wildcard_boxes, &count);
@@ -185,17 +224,15 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 					MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 					MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		for (i = 0; i < count; i++) {
-			/* we match only one namespace for each pattern.
-			   skip non-selectable mailboxes (especially mbox
-			   directories) */
-			if (wboxes[i]->ns == info->ns &&
-			    (info->flags & MAILBOX_NOSELECT) == 0 &&
-			    imap_match(wboxes[i]->glob,
-				       info->name) == IMAP_MATCH_YES) {
-				virtual_config_copy_expanded(ctx, wboxes[i],
-							     info->name);
-			}
+		/* skip non-selectable mailboxes (especially mbox
+		   directories) */
+		if ((info->flags & MAILBOX_NOSELECT) != 0)
+			continue;
+
+		if (virtual_config_match(info, &wildcard_boxes, &i) &&
+		    !virtual_config_match(info, &neg_boxes, &j)) {
+			virtual_config_copy_expanded(ctx, wboxes[i],
+						     info->name);
 		}
 	}
 	for (i = 0; i < count; i++)
