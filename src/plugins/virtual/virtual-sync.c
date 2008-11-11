@@ -974,8 +974,16 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 		else {
 			/* exists - update uidmap and flags */
 			uidmap[j++].virtual_uid = vuid;
-			virtual_sync_external_flags(ctx, bbox, vseq,
-						    vrec->real_uid);
+			/* if ctx->retry is set, we're just opening the virtual
+			   mailbox and using a continued search using modseq.
+			   some messages in uidmap may already be expunged, so
+			   we can't go looking at the real messages yet.
+			   after retrying the sync we'll get back here and
+			   really do it. */
+			if (!ctx->retry) {
+				virtual_sync_external_flags(ctx, bbox, vseq,
+							    vrec->real_uid);
+			}
 		}
 	}
 	i_free(vmails);
