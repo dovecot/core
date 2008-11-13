@@ -402,6 +402,47 @@ static bool ssha_verify(const char *plaintext, const char *user,
 }
 
 static void
+ssha256_generate(const char *plaintext, const char *user ATTR_UNUSED,
+		 const unsigned char **raw_password_r, size_t *size_r)
+{
+#define SSHA256_SALT_LEN 4
+	unsigned char *digest, *salt;
+	struct sha256_ctx ctx;
+
+	digest = t_malloc(SHA256_RESULTLEN + SSHA256_SALT_LEN);
+	salt = digest + SHA256_RESULTLEN;
+	random_fill(salt, SSHA256_SALT_LEN);
+
+	sha256_init(&ctx);
+	sha256_loop(&ctx, plaintext, strlen(plaintext));
+	sha256_loop(&ctx, salt, SSHA256_SALT_LEN);
+	sha256_result(&ctx, digest);
+
+	*raw_password_r = digest;
+	*size_r = SHA256_RESULTLEN + SSHA256_SALT_LEN;
+}
+
+static bool ssha256_verify(const char *plaintext, const char *user,
+			   const unsigned char *raw_password, size_t size)
+{
+	unsigned char sha256_digest[SHA256_RESULTLEN];
+	struct sha256_ctx ctx;
+
+	/* format: <SHA256 hash><salt> */
+	if (size <= SHA256_RESULTLEN) {
+		i_error("ssha256_verify(%s): SSHA256 password too short", user);
+		return FALSE;
+	}
+
+	sha256_init(&ctx);
+	sha256_loop(&ctx, plaintext, strlen(plaintext));
+	sha256_loop(&ctx, raw_password + SHA256_RESULTLEN,
+		    size - SHA256_RESULTLEN);
+	sha256_result(&ctx, sha256_digest);
+	return memcmp(sha256_digest, raw_password, SHA256_RESULTLEN) == 0;
+}
+
+static void
 smd5_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	      const unsigned char **raw_password_r, size_t *size_r)
 {
@@ -596,6 +637,7 @@ static const struct password_scheme builtin_schemes[] = {
 	  NULL, sha256_generate },
 	{ "SMD5", PW_ENCODING_BASE64, 0, smd5_verify, smd5_generate },
 	{ "SSHA", PW_ENCODING_BASE64, 0, ssha_verify, ssha_generate },
+	{ "SSHA256", PW_ENCODING_BASE64, 0, ssha256_verify, ssha256_generate },
 	{ "PLAIN", PW_ENCODING_NONE, 0, NULL, plain_generate },
 	{ "CLEARTEXT", PW_ENCODING_NONE, 0, NULL, plain_generate },
 	{ "CRAM-MD5", PW_ENCODING_HEX, 0, NULL, cram_md5_generate },
