@@ -45,7 +45,7 @@ struct sha256_ctx {
 };
 
 void sha256_init(struct sha256_ctx *ctx);
-void sha256_loop(struct sha256_ctx *ctx, const unsigned char *data, size_t len);
+void sha256_loop(struct sha256_ctx *ctx, const void *data, size_t len);
 void sha256_result(struct sha256_ctx *ctx,
 		   unsigned char digest[SHA256_RESULTLEN]);
 

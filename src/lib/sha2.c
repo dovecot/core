@@ -178,7 +178,7 @@ void sha256_init(struct sha256_ctx *ctx)
 	ctx->tot_len = 0;
 }
 
-void sha256_loop(struct sha256_ctx *ctx, const unsigned char *data,
+void sha256_loop(struct sha256_ctx *ctx, const void *data,
 		 size_t len)
 {
 	const unsigned char *shifted_message;
@@ -198,7 +198,7 @@ void sha256_loop(struct sha256_ctx *ctx, const unsigned char *data,
 	new_len = len - rem_len;
 	block_nb = new_len / SHA256_BLOCK_SIZE;
 
-	shifted_message = data + rem_len;
+	shifted_message = CONST_PTR_OFFSET(data, rem_len);
 
 	sha256_transf(ctx, ctx->block, 1);
 	sha256_transf(ctx, shifted_message, block_nb);
