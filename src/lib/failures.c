@@ -284,16 +284,13 @@ syslog_handler(int level, enum log_type type, const char *format, va_list args)
 
 	/* syslogs don't generatelly bother to log the level in any way,
 	   so make sure fatals and panics are shown clearly */
-	if (type == LOG_TYPE_FATAL || type == LOG_TYPE_PANIC) {
-		T_BEGIN {
-			syslog(level, "%s%s", failure_log_type_prefixes[type],
-			       t_strdup_vprintf(format, args));
-		} T_END;
-	} else {
-		/* make sure there's no %n in there. vsyslog() supports %m, but
-		   since we'll convert it ourself anyway, we might as well it */
-		vsyslog(level, printf_format_fix_unsafe(format), args);
-	}
+	T_BEGIN {
+		syslog(level, "%s%s%s",
+		       log_prefix == NULL ? "" : log_prefix,
+		       type == LOG_TYPE_FATAL || type == LOG_TYPE_PANIC ?
+		       failure_log_type_prefixes[type] : "",
+		       t_strdup_vprintf(format, args));
+	} T_END;
 	recursed--;
 	return 0;
 }
