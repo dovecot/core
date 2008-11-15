@@ -456,7 +456,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	}
 
 	sync_flags = MAILBOX_SYNC_FLAG_FAST;
-	if (cmd->uid && !ctx->have_seqsets)
+	if (!cmd->uid || ctx->have_seqsets)
 		sync_flags |= MAILBOX_SYNC_FLAG_NO_EXPUNGES;
 	return cmd_sync(cmd, sync_flags, 0,
 			t_strdup_printf("OK Search completed (%d.%03d secs).",
