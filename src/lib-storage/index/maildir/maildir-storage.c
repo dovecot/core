@@ -883,8 +883,8 @@ maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 			     enum mailbox_list_file_type type,
 			     enum mailbox_info_flags *flags)
 {
-	struct stat st;
-	const char *path;
+	struct stat st, st2;
+	const char *path, *cur_path;
 
 	if (maildir_is_internal_name(fname)) {
 		*flags |= MAILBOX_NONEXISTENT;
@@ -906,26 +906,46 @@ maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 
 	path = t_strdup_printf("%s/%s", dir, fname);
 	if (stat(path, &st) == 0) {
-		if (S_ISDIR(st.st_mode))
-			return 1;
-		else if (strncmp(fname, ".nfs", 4) == 0) {
-			/* temporary NFS file */
-			*flags |= MAILBOX_NONEXISTENT;
-			return 0;
-		} else {
-			*flags |= MAILBOX_NOSELECT;
+		if (!S_ISDIR(st.st_mode)) {
+			if (strncmp(fname, ".nfs", 4) == 0) {
+				/* temporary NFS file */
+				*flags |= MAILBOX_NONEXISTENT;
+			} else {
+				*flags |= MAILBOX_NOSELECT |
+					MAILBOX_NOINFERIORS;
+			}
 			return 0;
 		}
 	} else if (errno == ENOENT) {
 		/* doesn't exist - probably a non-existing subscribed mailbox */
 		*flags |= MAILBOX_NONEXISTENT;
-		return 1;
 	} else {
 		/* non-selectable. probably either access denied, or symlink
 		   destination not found. don't bother logging errors. */
 		*flags |= MAILBOX_NOSELECT;
-		return 0;
 	}
+	if ((*flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) == 0) {
+		/* make sure it's a selectable mailbox */
+		cur_path = t_strconcat(path, "/cur", NULL);
+		if (stat(cur_path, &st2) < 0 || !S_ISDIR(st2.st_mode))
+			*flags |= MAILBOX_NOSELECT;
+
+		/* now we can figure out based on the link count if we have
+		   child mailboxes or not. for a selectable mailbox we have
+		   3 more links (cur/, new/ and tmp/) than non-selectable. */
+		if ((*flags & MAILBOX_NOSELECT) == 0) {
+			if (st.st_nlink > 5)
+				*flags |= MAILBOX_CHILDREN;
+			else
+				*flags |= MAILBOX_NOCHILDREN;
+		} else {
+			if (st.st_nlink > 2)
+				*flags |= MAILBOX_CHILDREN;
+			else
+				*flags |= MAILBOX_NOCHILDREN;
+		}
+	}
+	return 1;
 }
 
 static int
