@@ -672,7 +672,7 @@ static void open_logfile(const char *username)
 {
 	const char *prefix, *log_path, *stamp;
 
-	prefix = t_strdup_printf("deliver(%s)", username);
+	prefix = t_strdup_printf("deliver(%s): ", username);
 	log_path = getenv("LOG_PATH");
 	if (log_path == NULL || *log_path == '\0') {
 		const char *env = getenv("SYSLOG_FACILITY");
@@ -680,10 +680,11 @@ static void open_logfile(const char *username)
 
 		if (env == NULL || !syslog_facility_find(env, &facility))
 			facility = LOG_MAIL;
-		i_set_failure_syslog(prefix, LOG_NDELAY, facility);
+		i_set_failure_prefix(prefix);
+		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
 	} else {
 		/* log to file or stderr */
-		i_set_failure_file(log_path, t_strconcat(prefix, ": ", NULL));
+		i_set_failure_file(log_path, prefix);
 	}
 
 	log_path = getenv("INFO_LOG_PATH");
