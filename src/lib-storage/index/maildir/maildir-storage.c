@@ -933,7 +933,7 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				const char *dir, const char *fname,
 				const char *mailbox_name ATTR_UNUSED,
 				enum mailbox_list_file_type type,
-				enum mailbox_info_flags *flags_r)
+				enum mailbox_info_flags *flags)
 {
 	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(ctx->list);
 	struct mail_storage *_storage = &storage->storage;
@@ -953,7 +953,7 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 		    st.st_mtime < ioloop_time - 3600)
 			(void)unlink_directory(path, TRUE);
 
-		*flags_r = MAILBOX_NONEXISTENT;
+		*flags |= MAILBOX_NONEXISTENT;
 		return 0;
 	}
 
@@ -965,7 +965,7 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	case MAILBOX_LIST_FILE_TYPE_FILE:
 	case MAILBOX_LIST_FILE_TYPE_OTHER:
 		/* non-directories are not */
-		*flags_r = MAILBOX_NOSELECT;
+		*flags |= MAILBOX_NOSELECT;
 		return 0;
 
 	case MAILBOX_LIST_FILE_TYPE_UNKNOWN:
@@ -989,17 +989,17 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				ret = 1;
 			else {
 				if (strncmp(fname, ".nfs", 4) == 0)
-					*flags_r = MAILBOX_NONEXISTENT;
+					*flags |= MAILBOX_NONEXISTENT;
 				else
-					*flags_r = MAILBOX_NOSELECT;
+					*flags |= MAILBOX_NOSELECT;
 				ret = 0;
 			}
 		} else if (errno == ENOENT) {
 			/* just deleted? */
-			*flags_r = MAILBOX_NONEXISTENT;
+			*flags |= MAILBOX_NONEXISTENT;
 			ret = 0;
 		} else {
-			*flags_r = MAILBOX_NOSELECT;
+			*flags |= MAILBOX_NOSELECT;
 			ret = 0;
 		}
 	} else {
