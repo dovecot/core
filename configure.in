@@ -366,8 +366,8 @@ AC_ARG_WITH(storages,
 	if test "$withval" = "yes" -o "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
-	mail_storages=`echo "$withval"|sed 's/,/ /g'` ],
-	mail_storages="maildir mbox dbox cydir raw")
+	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
+	mail_storages="shared maildir mbox dbox cydir raw")
 AC_SUBST(mail_storages)
 
 AC_ARG_WITH(sql-drivers,
@@ -2275,7 +2275,7 @@ CORE_LIBS='$(top_builddir)/src/lib-storage/index/libstorage_index.a '\
 '$(top_builddir)/src/lib/liblib.a'
 
 deliver_storage="raw"
-STORAGE_LIBS=$shared_libs
+STORAGE_LIBS=
 for storage in $mail_storages; do
   if test "$storage" = "$deliver_storage"; then
     deliver_storage=""
