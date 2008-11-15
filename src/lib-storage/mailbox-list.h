@@ -7,6 +7,11 @@ struct mail_namespace;
 struct mailbox_list;
 struct mailbox_list_iterate_context;
 
+enum mailbox_list_properties {
+	/* maildir_name must always be empty */
+	MAILBOX_LIST_PROP_NO_MAILDIR_NAME       = 0x01
+};
+
 enum mailbox_list_flags {
 	/* Print debugging information while initializing the driver */
 	MAILBOX_LIST_FLAG_DEBUG			= 0x01,

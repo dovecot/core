@@ -463,6 +463,11 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 			if (dbox_delete_nonrecursive(list, alt_path, name) < 0)
 				return -1;
 		}
+		if (*list->set.maildir_name == '\0') {
+			/* everything was in the one directory that was
+			   already deleted succesfully. */
+			return 0;
+		}
 		/* try to delete the directory also */
 		deleted = TRUE;
 		path = mailbox_list_get_path(list, name,

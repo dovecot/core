@@ -213,7 +213,9 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.subscription_fname =
 		p_strdup(list->pool, set->subscription_fname);
-	list->set.maildir_name = p_strdup(list->pool, set->maildir_name);
+	list->set.maildir_name =
+		(list->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 ? "" :
+		p_strdup(list->pool, set->maildir_name);
 
 	list->set.mail_storage_flags = set->mail_storage_flags;
 	list->set.lock_method = set->lock_method;

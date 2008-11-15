@@ -356,6 +356,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 struct mailbox_list fs_mailbox_list = {
 	MEMBER(name) "fs",
 	MEMBER(hierarchy_sep) '/',
+	MEMBER(props) 0,
 	MEMBER(mailbox_name_max_length) PATH_MAX,
 
 	{

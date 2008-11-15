@@ -67,6 +67,7 @@ union mailbox_list_module_context {
 struct mailbox_list {
 	const char *name;
 	char hierarchy_sep;
+	enum mailbox_list_properties props;
 	size_t mailbox_name_max_length;
 
 	struct mailbox_list_vfuncs v;
