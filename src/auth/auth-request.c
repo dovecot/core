@@ -704,8 +704,14 @@ void auth_request_userdb_callback(enum userdb_result result,
 		   request->client_pid != 0) {
 		/* this was an actual login attempt, the user should
 		   have been found. */
-		auth_request_log_error(request, "userdb",
-				       "user not found from userdb");
+		if (request->auth->userdbs->next == NULL) {
+			auth_request_log_error(request, "userdb",
+				"user not found from userdb %s",
+				request->auth->userdbs->userdb->iface->name);
+		} else {
+			auth_request_log_error(request, "userdb",
+				"user not found from any userdbs");
+		}
 	}
 
 	if (result != USERDB_RESULT_INTERNAL_FAILURE)
