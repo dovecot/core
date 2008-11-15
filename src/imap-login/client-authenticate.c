@@ -9,6 +9,7 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "imap-resp-code.h"
 #include "imap-parser.h"
 #include "auth-client.h"
 #include "client.h"
@@ -18,7 +19,7 @@
 #include <stdlib.h>
 
 #define IMAP_SERVICE_NAME "imap"
-#define IMAP_AUTH_FAILED_MSG "[AUTHENTICATIONFAILED] "AUTH_FAILED_MSG
+#define IMAP_AUTH_FAILED_MSG "["IMAP_RESP_CODE_AUTHFAILED"] "AUTH_FAILED_MSG
 
 const char *client_authenticate_get_capabilities(bool secured)
 {
@@ -180,7 +181,7 @@ static bool client_handle_args(struct imap_client *client,
 		if (reason != NULL)
 			str_printfa(reply, "NO %s", reason);
 		else if (temp || proxy_self) {
-			str_append(reply, "NO [UNAVAILABLE] "
+			str_append(reply, "NO ["IMAP_RESP_CODE_UNAVAILABLE"] "
 				   AUTH_TEMP_FAILED_MSG);
 		} else {
 			str_append(reply, "NO "IMAP_AUTH_FAILED_MSG);
@@ -337,7 +338,7 @@ int cmd_login(struct imap_client *client, const struct imap_arg *args)
 			"* BAD [ALERT] Plaintext authentication is disabled, "
 			"but your client sent password in plaintext anyway. "
 			"If anyone was listening, the password was exposed.");
-		client_send_tagline(client, "NO [CLIENTBUG] "
+		client_send_tagline(client, "NO ["IMAP_RESP_CODE_CLIENTBUG"] "
 				    AUTH_PLAINTEXT_DISABLED_MSG);
 		return 1;
 	}

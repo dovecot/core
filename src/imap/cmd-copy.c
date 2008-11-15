@@ -3,6 +3,7 @@
 #include "common.h"
 #include "str.h"
 #include "ostream.h"
+#include "imap-resp-code.h"
 #include "commands.h"
 #include "imap-search.h"
 
@@ -171,7 +172,8 @@ bool cmd_copy(struct client_command_context *cmd)
 		return cmd_sync(cmd, sync_flags, imap_flags, msg);
 	else if (ret == 0) {
 		/* some messages were expunged, sync them */
-		return cmd_sync(cmd, 0, 0, "NO [EXPUNGEISSUED] "
+		return cmd_sync(cmd, 0, 0,
+			"NO ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
 			"Some of the requested messages no longer exist.");
 	} else {
 		client_send_storage_error(cmd, storage);

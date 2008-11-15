@@ -4,11 +4,12 @@
 #include "ostream.h"
 #include "str.h"
 #include "seq-range-array.h"
-#include "commands.h"
-#include "mail-search-build.h"
+#include "imap-resp-code.h"
 #include "imap-quote.h"
 #include "imap-seqset.h"
 #include "imap-util.h"
+#include "mail-search-build.h"
+#include "commands.h"
 #include "imap-search.h"
 
 enum search_return_options {
@@ -366,6 +367,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	const struct seq_range *range;
 	unsigned int count;
 	uint32_t id, id_min, id_max;
+	const char *ok_reply;
 	bool tryagain, minmax, lost_data;
 
 	if (cmd->cancel) {
@@ -459,11 +461,10 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	sync_flags = MAILBOX_SYNC_FLAG_FAST;
 	if (!cmd->uid || ctx->have_seqsets)
 		sync_flags |= MAILBOX_SYNC_FLAG_NO_EXPUNGES;
-	return cmd_sync(cmd, sync_flags, 0,
-			t_strdup_printf("OK %sSearch completed (%d.%03d secs).",
-					lost_data ? "[EXPUNGEISSUED] " : "",
-					(int)end_time.tv_sec,
-					(int)(end_time.tv_usec/1000)));
+	ok_reply = t_strdup_printf("OK %sSearch completed (%d.%03d secs).",
+		lost_data ? "["IMAP_RESP_CODE_EXPUNGEISSUED"] " : "",
+		(int)end_time.tv_sec, (int)(end_time.tv_usec/1000));
+	return cmd_sync(cmd, sync_flags, 0, ok_reply);
 }
 
 static void cmd_search_more_callback(struct client_command_context *cmd)

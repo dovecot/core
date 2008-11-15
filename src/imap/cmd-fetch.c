@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ostream.h"
+#include "imap-resp-code.h"
 #include "commands.h"
 #include "imap-fetch.h"
 #include "imap-search.h"
@@ -132,7 +133,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 	static const char *ok_message = "OK Fetch completed.";
 
 	if (ctx->partial_fetch) {
-		ok_message = "OK [EXPUNGEISSUED] "
+		ok_message = "OK ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
 			"Some messages were already expunged.";
 	}
 

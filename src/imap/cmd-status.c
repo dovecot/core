@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2008 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "imap-resp-code.h"
 #include "commands.h"
 #include "imap-sync.h"
 #include "imap-status.h"
@@ -45,7 +46,7 @@ bool cmd_status(struct client_command_context *cmd)
 	if (!selected_mailbox)
 		client_send_tagline(cmd, "OK Status completed.");
 	else {
-		client_send_tagline(cmd, "OK [CLIENTBUG] "
+		client_send_tagline(cmd, "OK ["IMAP_RESP_CODE_CLIENTBUG"] "
 				    "Status on selected mailbox completed.");
 	}
 	return TRUE;

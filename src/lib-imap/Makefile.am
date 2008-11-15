@@ -26,6 +26,7 @@ headers = \
 	imap-id.h \
 	imap-match.h \
 	imap-parser.h \
+	imap-resp-code.h \
 	imap-quote.h \
 	imap-seqset.h \
 	imap-utf7.h \

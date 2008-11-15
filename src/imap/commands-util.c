@@ -5,12 +5,13 @@
 #include "buffer.h"
 #include "str.h"
 #include "str-sanitize.h"
-#include "mail-storage.h"
-#include "commands-util.h"
+#include "imap-resp-code.h"
 #include "imap-parser.h"
 #include "imap-sync.h"
 #include "imap-util.h"
+#include "mail-storage.h"
 #include "mail-namespace.h"
+#include "commands-util.h"
 
 /* Maximum length for mailbox name, including it's path. This isn't fully
    exact since the user can create folder hierarchy with small names, then
@@ -152,29 +153,29 @@ get_error_string(const char *error_string, enum mail_error error)
 	case MAIL_ERROR_NONE:
 		break;
 	case MAIL_ERROR_TEMP:
-		resp_code = "SERVERBUG";
+		resp_code = IMAP_RESP_CODE_SERVERBUG;
 		break;
 	case MAIL_ERROR_NOTPOSSIBLE:
 	case MAIL_ERROR_PARAMS:
-		resp_code = "CANNOT";
+		resp_code = IMAP_RESP_CODE_CANNOT;
 		break;
 	case MAIL_ERROR_PERM:
-		resp_code = "ACL";
+		resp_code = IMAP_RESP_CODE_ACL;
 		break;
 	case MAIL_ERROR_NOSPACE:
-		resp_code = "OVERQUOTA";
+		resp_code = IMAP_RESP_CODE_OVERQUOTA;
 		break;
 	case MAIL_ERROR_NOTFOUND:
-		resp_code = "NONEXISTENT";
+		resp_code = IMAP_RESP_CODE_NONEXISTENT;
 		break;
 	case MAIL_ERROR_EXISTS:
-		resp_code = "ALREADYEXISTS";
+		resp_code = IMAP_RESP_CODE_ALREADYEXISTS;
 		break;
 	case MAIL_ERROR_EXPUNGED:
-		resp_code = "EXPUNGEISSUED";
+		resp_code = IMAP_RESP_CODE_EXPUNGEISSUED;
 		break;
 	case MAIL_ERROR_INUSE:
-		resp_code = "INUSE";
+		resp_code = IMAP_RESP_CODE_INUSE;
 		break;
 	}
 	if (resp_code == NULL || *error_string == '[')

@@ -8,8 +8,9 @@
 #include "istream.h"
 #include "ostream.h"
 #include "var-expand.h"
-#include "commands.h"
+#include "imap-resp-code.h"
 #include "mail-namespace.h"
+#include "commands.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -409,7 +410,8 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 	}
 
 	if (broken_client) {
-		client_send_line(cmd->client, "* BAD [CLIENTBUG] "
+		client_send_line(cmd->client,
+				 "* BAD ["IMAP_RESP_CODE_CLIENTBUG"] "
 				 "Command pipelining results in ambiguity.");
 	}
 
