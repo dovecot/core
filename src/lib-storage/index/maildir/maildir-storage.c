@@ -930,19 +930,33 @@ maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 		if (stat(cur_path, &st2) < 0 || !S_ISDIR(st2.st_mode))
 			*flags |= MAILBOX_NOSELECT;
 
-		/* now we can figure out based on the link count if we have
-		   child mailboxes or not. for a selectable mailbox we have
-		   3 more links (cur/, new/ and tmp/) than non-selectable. */
-		if ((*flags & MAILBOX_NOSELECT) == 0) {
-			if (st.st_nlink > 5)
-				*flags |= MAILBOX_CHILDREN;
-			else
-				*flags |= MAILBOX_NOCHILDREN;
+		if (*ctx->list->set.maildir_name == '\0') {
+			/* now we can figure out based on the link count if we
+			   have child mailboxes or not. for a selectable
+			   mailbox we have 3 more links (cur/, new/ and tmp/)
+			   than non-selectable. */
+			if ((*flags & MAILBOX_NOSELECT) == 0) {
+				if (st.st_nlink > 5)
+					*flags |= MAILBOX_CHILDREN;
+				else
+					*flags |= MAILBOX_NOCHILDREN;
+			} else {
+				if (st.st_nlink > 2)
+					*flags |= MAILBOX_CHILDREN;
+				else
+					*flags |= MAILBOX_NOCHILDREN;
+			}
 		} else {
-			if (st.st_nlink > 2)
+			/* link count 3 may mean either a selectable mailbox
+			   or a non-selectable mailbox with 1 child. */
+			if (st.st_nlink > 3)
 				*flags |= MAILBOX_CHILDREN;
-			else
-				*flags |= MAILBOX_NOCHILDREN;
+			else if (st.st_nlink == 3) {
+				if ((*flags & MAILBOX_NOSELECT) != 0)
+					*flags |= MAILBOX_CHILDREN;
+				else
+					*flags |= MAILBOX_NOCHILDREN;
+			}
 		}
 	}
 	return 1;
