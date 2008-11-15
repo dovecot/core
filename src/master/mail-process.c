@@ -290,7 +290,7 @@ env_put_namespace(struct namespace_settings *ns, const char *default_location,
 static void
 mail_process_set_environment(struct settings *set, const char *mail,
 			     const struct var_expand_table *var_expand_table,
-			     bool dump_capability, bool exec_mail)
+			     bool exec_mail)
 {
 	const char *const *envs;
 	string_t *str;
@@ -369,11 +369,11 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("MBOX_VERY_DIRTY_SYNCS=1");
 	if (set->mbox_lazy_writes)
 		env_put("MBOX_LAZY_WRITES=1");
-	/* when running dump-capability log still points to stderr,
-	   and io_add()ing it might break (epoll_ctl() gives EPERM).
-	   with --exec-mail there's no benefit in adding an extra stderr
-	   listener, but it might cause problems. */
-	if (set->shutdown_clients && !dump_capability && !exec_mail)
+	/* when we're not certain that the log fd points to the master
+	   process's log pipe (dump-capability, --exec-mail), don't let
+	   the imap process listen for stderr since it might break
+	   (e.g. epoll_ctl() gives EPERM). */
+	if (set->shutdown_clients && !exec_mail)
 		env_put("STDERR_CLOSE_SHUTDOWN=1");
 	(void)umask(set->umask);
 
@@ -488,7 +488,7 @@ void mail_process_exec(const char *protocol, const char **args)
 	}
 
 	mail_process_set_environment(set, getenv("MAIL"), var_expand_table,
-				     FALSE, TRUE);
+				     TRUE);
 	if (args == NULL)
 		client_process_exec(executable, "");
 	else
@@ -818,7 +818,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 	mail_process_set_environment(set, mail, var_expand_table,
-				     dump_capability, FALSE);
+				     dump_capability);
 
 	/* extra args. uppercase key value. */
 	args = array_get(&extra_args, &count);
