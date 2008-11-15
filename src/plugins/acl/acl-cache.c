@@ -10,13 +10,12 @@
    IMAP ACLs define only 10 standard rights and 10 user-defined rights. */
 #define DEFAULT_ACL_RIGHTS_COUNT 64
 
+#define ACL_GLOBAL_COUNT 2
+
 struct acl_object_cache {
 	char *name;
 
-	struct acl_mask *my_rights[ACL_ID_TYPE_COUNT];
-	struct acl_mask *my_neg_rights[ACL_ID_TYPE_COUNT];
-
-	/* Needs to be calculated from my_*rights if NULL. */
+	struct acl_mask *my_rights, *my_neg_rights;
 	struct acl_mask *my_current_rights;
 };
 
@@ -73,14 +72,6 @@ void acl_cache_deinit(struct acl_cache **_cache)
 
 static void acl_cache_free_object_cache(struct acl_object_cache *obj_cache)
 {
-	unsigned int i;
-
-	for (i = 0; i < ACL_ID_TYPE_COUNT; i++) {
-		if (obj_cache->my_rights[i] != NULL)
-			acl_cache_mask_deinit(&obj_cache->my_rights[i]);
-		if (obj_cache->my_neg_rights[i] != NULL)
-			acl_cache_mask_deinit(&obj_cache->my_neg_rights[i]);
-	}
 	if (obj_cache->my_current_rights != NULL &&
 	    obj_cache->my_current_rights != &negative_cache_entry)
 		acl_cache_mask_deinit(&obj_cache->my_current_rights);
@@ -265,14 +256,12 @@ acl_cache_update_rights(struct acl_cache *cache,
 			struct acl_object_cache *obj_cache,
 			const struct acl_rights_update *rights)
 {
-	enum acl_id_type id_type = rights->rights.id_type;
-
 	acl_cache_update_rights_mask(cache, obj_cache, rights->modify_mode,
 				     rights->rights.rights,
-				     &obj_cache->my_rights[id_type]);
+				     &obj_cache->my_rights);
 	acl_cache_update_rights_mask(cache, obj_cache, rights->neg_modify_mode,
 				     rights->rights.neg_rights,
-				     &obj_cache->my_neg_rights[id_type]);
+				     &obj_cache->my_neg_rights);
 }
 
 static struct acl_object_cache *
@@ -367,37 +356,26 @@ static void
 acl_cache_my_current_rights_recalculate(struct acl_object_cache *obj_cache)
 {
 	struct acl_mask *mask;
-	buffer_t *bitmask;
-	unsigned char *p;
-	unsigned int i, j, right_size;
-
-	bitmask = buffer_create_dynamic(pool_datastack_create(),
-					DEFAULT_ACL_RIGHTS_COUNT / CHAR_BIT);
-	for (i = 0; i < ACL_ID_TYPE_COUNT; i++) {
-		if (obj_cache->my_rights[i] != NULL) {
-			/* apply the positive rights */
-			right_size = obj_cache->my_rights[i]->size;
-			p = buffer_get_space_unsafe(bitmask, 0, right_size);
-			for (j = 0; j < right_size; j++)
-				p[j] |= obj_cache->my_rights[i]->mask[j];
-		}
-
-		if (obj_cache->my_neg_rights[i] != NULL) {
-			/* apply the negative rights. they override positive
-			   rights. */
-			right_size = obj_cache->my_neg_rights[i]->size;
-			p = buffer_get_space_unsafe(bitmask, 0, right_size);
-			for (j = 0; j < right_size; j++)
-				p[j] &= ~obj_cache->my_neg_rights[i]->mask[j];
-		}
-	}
+	unsigned int i, size;
 
 	/* @UNSAFE */
-	obj_cache->my_current_rights = mask =
-		i_malloc(SIZEOF_ACL_MASK(bitmask->used));
-	memcpy(mask->mask, bitmask->data, bitmask->used);
+	size = obj_cache->my_rights == NULL ? 0 :
+		obj_cache->my_rights->size;
+	mask = i_malloc(SIZEOF_ACL_MASK(size));
 	mask->pool = default_pool;
-	mask->size = bitmask->used;
+	mask->size = size;
+
+	/* apply the positive rights */
+	if (obj_cache->my_rights != NULL)
+		memcpy(mask->mask, obj_cache->my_rights->mask, mask->size);
+	if (obj_cache->my_neg_rights != NULL) {
+		/* apply the negative rights. they override positive rights. */
+		size = I_MIN(mask->size, obj_cache->my_neg_rights->size);
+		for (i = 0; i < size; i++)
+			mask->mask[i] &= ~obj_cache->my_neg_rights->mask[i];
+	}
+
+	obj_cache->my_current_rights = mask;
 }
 
 const struct acl_mask *

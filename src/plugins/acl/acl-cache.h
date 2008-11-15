@@ -31,7 +31,8 @@ void acl_cache_flush(struct acl_cache *cache, const char *objname);
 /* Flush cache for all objects */
 void acl_cache_flush_all(struct acl_cache *cache);
 
-/* Update object ACLs. */
+/* Update object ACLs. The new rights are always applied on top of the
+   existing rights. The ordering by acl_id_type must be done by the caller. */
 void acl_cache_update(struct acl_cache *cache, const char *objname,
 		      const struct acl_rights_update *rights);
 /* Return ACL object validity, or NULL if object doesn't exit. */

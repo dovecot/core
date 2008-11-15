@@ -66,6 +66,9 @@ struct acl_rights {
 	const char *const *rights;
 	/* Negative rights assigned */
 	const char *const *neg_rights;
+
+	/* These rights are global for all users */
+	unsigned int global:1;
 };
 
 struct acl_rights_update {
