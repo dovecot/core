@@ -554,7 +554,7 @@ static int mailbox_list_try_delete(struct mailbox_list *list, const char *dir)
 	if (errno == ENOTEMPTY) {
 		/* We're most likely using NFS and we can't delete
 		   .nfs* files. */
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+		mailbox_list_set_error(list, MAIL_ERROR_INUSE,
 			"Mailbox is still open in another session, "
 			"can't delete it.");
 	} else {

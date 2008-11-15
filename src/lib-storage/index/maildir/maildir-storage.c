@@ -312,7 +312,7 @@ static int mkdir_verify(struct mail_storage *storage,
 	if (errno == EEXIST) {
 		if (verify)
 			return 0;
-		mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
+		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 	} else if (errno == ENOENT) {
 		mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
@@ -370,7 +370,7 @@ static int create_maildir(struct mail_storage *storage,
 	ret = maildir_check_tmp(storage, dir);
 	if (ret > 0) {
 		if (!verify) {
-			mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
+			mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
 					       "Mailbox already exists");
 			return -1;
 		}
@@ -718,7 +718,7 @@ maildir_delete_nonrecursive(struct mailbox_list *list, const char *path,
 	}
 
 	if (!unlinked_something) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			t_strdup_printf("Directory %s isn't empty, "
 					"can't delete it.", name));
 		return -1;

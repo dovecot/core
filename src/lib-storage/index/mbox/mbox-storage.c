@@ -715,7 +715,7 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
-		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+		mail_storage_set_error(_storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
@@ -760,7 +760,7 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 
 	if (errno == EEXIST) {
 		/* mailbox was just created between stat() and open() call.. */
-		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+		mail_storage_set_error(_storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 	} else if (!mail_storage_set_error_from_errno(_storage)) {
 		mail_storage_set_critical(_storage,
@@ -947,7 +947,7 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		} else if (errno == ENOTEMPTY) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 				t_strdup_printf("Directory %s isn't empty, "
 						"can't delete it.", name));
 		} else if (!mailbox_list_set_error_from_errno(list)) {

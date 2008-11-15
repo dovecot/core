@@ -409,8 +409,8 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 	}
 
 	if (broken_client) {
-		client_send_line(cmd->client,
-			"* BAD Command pipelining results in ambiguity.");
+		client_send_line(cmd->client, "* BAD [CLIENTBUG] "
+				 "Command pipelining results in ambiguity.");
 	}
 
 	return TRUE;

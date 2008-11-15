@@ -305,7 +305,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	   possibility that someone actually tries to rename two mailboxes
 	   to same new one */
 	if (lstat(newpath, &st) == 0) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
 				       "Target mailbox already exists");
 		return -1;
 	} else if (errno == ENOTDIR) {

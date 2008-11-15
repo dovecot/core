@@ -344,7 +344,7 @@ static int dbox_mailbox_create(struct mail_storage *_storage,
 				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
-		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+		mail_storage_set_error(_storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
@@ -355,7 +355,7 @@ static int dbox_mailbox_create(struct mail_storage *_storage,
 	   it. */
 	alt_path = directory ? NULL : dbox_get_alt_path(storage, path);
 	if (alt_path != NULL && stat(alt_path, &st) == 0) {
-		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+		mail_storage_set_error(_storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
@@ -426,7 +426,7 @@ dbox_delete_nonrecursive(struct mailbox_list *list, const char *path,
 	}
 
 	if (!unlinked_something) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			t_strdup_printf("Directory %s isn't empty, "
 					"can't delete it.", name));
 		return -1;
@@ -501,7 +501,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	else if (errno == ENOTEMPTY) {
 		if (deleted)
 			return 0;
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			t_strdup_printf("Directory %s isn't empty, "
 					"can't delete it.", name));
 	} else if (!mailbox_list_set_error_from_errno(list)) {
@@ -547,7 +547,7 @@ dbox_list_rename_mailbox_pre(struct mailbox_list *list,
 	if (stat(alt_newpath, &st) == 0) {
 		/* race condition or a directory left there lying around?
 		   safest to just report error. */
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
 				       "Target mailbox already exists");
 		return -1;
 	} else if (errno != ENOENT) {

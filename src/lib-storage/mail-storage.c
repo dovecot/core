@@ -699,6 +699,11 @@ int mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	return ret;
 }
 
+bool mailbox_search_seen_lost_data(struct mail_search_context *ctx)
+{
+	return ctx->seen_lost_data;
+}
+
 int mailbox_search_result_build(struct mailbox_transaction_context *t,
 				struct mail_search_args *args,
 				enum mailbox_search_result_flags flags,

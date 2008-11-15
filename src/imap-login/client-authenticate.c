@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 #define IMAP_SERVICE_NAME "imap"
+#define IMAP_AUTH_FAILED_MSG "[AUTHENTICATIONFAILED] "AUTH_FAILED_MSG
 
 const char *client_authenticate_get_capabilities(bool secured)
 {
@@ -178,10 +179,12 @@ static bool client_handle_args(struct imap_client *client,
 		reply = t_str_new(128);
 		if (reason != NULL)
 			str_printfa(reply, "NO %s", reason);
-		else if (temp || proxy_self)
-			str_append(reply, "NO "AUTH_TEMP_FAILED_MSG);
-		else
-			str_append(reply, "NO "AUTH_FAILED_MSG);
+		else if (temp || proxy_self) {
+			str_append(reply, "NO [UNAVAILABLE] "
+				   AUTH_TEMP_FAILED_MSG);
+		} else {
+			str_append(reply, "NO "IMAP_AUTH_FAILED_MSG);
+		}
 		client_send_tagline(client, str_c(reply));
 	} else {
 		/* normal login/failure */
@@ -227,8 +230,8 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		}
 
 		msg = reply == SASL_SERVER_REPLY_AUTH_FAILED ? "NO " : "BAD ";
-		msg = t_strconcat(msg, data != NULL ? data : AUTH_FAILED_MSG,
-				  NULL);
+		msg = t_strconcat(msg, data != NULL ? data :
+				  IMAP_AUTH_FAILED_MSG, NULL);
 		client_send_tagline(client, msg);
 
 		if (!client->destroyed)
@@ -334,7 +337,8 @@ int cmd_login(struct imap_client *client, const struct imap_arg *args)
 			"* BAD [ALERT] Plaintext authentication is disabled, "
 			"but your client sent password in plaintext anyway. "
 			"If anyone was listening, the password was exposed.");
-		client_send_tagline(client, "NO "AUTH_PLAINTEXT_DISABLED_MSG);
+		client_send_tagline(client, "NO [CLIENTBUG] "
+				    AUTH_PLAINTEXT_DISABLED_MSG);
 		return 1;
 	}
 

@@ -131,6 +131,11 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 	struct client_command_context *cmd = ctx->cmd;
 	static const char *ok_message = "OK Fetch completed.";
 
+	if (ctx->partial_fetch) {
+		ok_message = "OK [EXPUNGEISSUED] "
+			"Some messages were already expunged.";
+	}
+
 	if (imap_fetch_deinit(ctx) < 0)
 		ctx->failed = TRUE;
 

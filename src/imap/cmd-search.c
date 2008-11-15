@@ -366,7 +366,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	const struct seq_range *range;
 	unsigned int count;
 	uint32_t id, id_min, id_max;
-	bool tryagain, minmax;
+	bool tryagain, minmax, lost_data;
 
 	if (cmd->cancel) {
 		(void)imap_search_deinit(ctx);
@@ -440,6 +440,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 		}
 	}
 
+	lost_data = mailbox_search_seen_lost_data(ctx->search_ctx);
 	if (imap_search_deinit(ctx) < 0) {
 		client_send_storage_error(cmd,
 			mailbox_get_storage(cmd->client->mailbox));
@@ -459,7 +460,8 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	if (!cmd->uid || ctx->have_seqsets)
 		sync_flags |= MAILBOX_SYNC_FLAG_NO_EXPUNGES;
 	return cmd_sync(cmd, sync_flags, 0,
-			t_strdup_printf("OK Search completed (%d.%03d secs).",
+			t_strdup_printf("OK %sSearch completed (%d.%03d secs).",
+					lost_data ? "[EXPUNGEISSUED] " : "",
 					(int)end_time.tv_sec,
 					(int)(end_time.tv_usec/1000)));
 }

@@ -1207,6 +1207,9 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 		} else T_BEGIN {
 			ret = search_match_next(ctx) ? 1 : 0;
 
+			if (ctx->mail->expunged)
+				_ctx->seen_lost_data = TRUE;
+
 			if (ret == 0 &&
 			    search_has_static_nonmatches(_ctx->args->args)) {
 				/* if there are saved search results remember

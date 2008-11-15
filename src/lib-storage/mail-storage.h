@@ -431,6 +431,10 @@ int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
    finished, and TRUE if more results will by calling the function again. */
 int mailbox_search_next_nonblock(struct mail_search_context *ctx,
 				 struct mail *mail, bool *tryagain_r);
+/* Returns TRUE if some messages were already expunged and we couldn't
+   determine correctly if those messages should have been returned in this
+   search. */
+bool mailbox_search_seen_lost_data(struct mail_search_context *ctx);
 
 /* Remember the search result for future use. This must be called before the
    first mailbox_search_next*() call. */

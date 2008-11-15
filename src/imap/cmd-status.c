@@ -13,6 +13,7 @@ bool cmd_status(struct client_command_context *cmd)
 	enum mailbox_status_items items;
 	struct mail_storage *storage;
 	const char *mailbox, *real_mailbox;
+	bool selected_mailbox;
 
 	/* <mailbox> <status items> */
 	if (!client_read_args(cmd, 2, 0, &args))
@@ -33,13 +34,19 @@ bool cmd_status(struct client_command_context *cmd)
 	if (storage == NULL)
 		return TRUE;
 
+	selected_mailbox = client->mailbox != NULL &&
+		mailbox_equals(client->mailbox, storage, real_mailbox);
 	if (!imap_status_get(client, storage, real_mailbox, items, &status)) {
 		client_send_storage_error(cmd, storage);
 		return TRUE;
 	}
 
 	imap_status_send(client, mailbox, items, &status);
-	client_send_tagline(cmd, "OK Status completed.");
-
+	if (!selected_mailbox)
+		client_send_tagline(cmd, "OK Status completed.");
+	else {
+		client_send_tagline(cmd, "OK [CLIENTBUG] "
+				    "Status on selected mailbox completed.");
+	}
 	return TRUE;
 }

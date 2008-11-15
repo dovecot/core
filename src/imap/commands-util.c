@@ -143,6 +143,46 @@ bool client_verify_open_mailbox(struct client_command_context *cmd)
 	}
 }
 
+static const char *
+get_error_string(const char *error_string, enum mail_error error)
+{
+	const char *resp_code = NULL;
+
+	switch (error) {
+	case MAIL_ERROR_NONE:
+		break;
+	case MAIL_ERROR_TEMP:
+		resp_code = "SERVERBUG";
+		break;
+	case MAIL_ERROR_NOTPOSSIBLE:
+	case MAIL_ERROR_PARAMS:
+		resp_code = "CANNOT";
+		break;
+	case MAIL_ERROR_PERM:
+		resp_code = "ACL";
+		break;
+	case MAIL_ERROR_NOSPACE:
+		resp_code = "OVERQUOTA";
+		break;
+	case MAIL_ERROR_NOTFOUND:
+		resp_code = "NONEXISTENT";
+		break;
+	case MAIL_ERROR_EXISTS:
+		resp_code = "ALREADYEXISTS";
+		break;
+	case MAIL_ERROR_EXPUNGED:
+		resp_code = "EXPUNGEISSUED";
+		break;
+	case MAIL_ERROR_INUSE:
+		resp_code = "INUSE";
+		break;
+	}
+	if (resp_code == NULL || *error_string == '[')
+		return t_strconcat("NO ", error_string, NULL);
+	else
+		return t_strdup_printf("NO [%s] %s", resp_code, error_string);
+}
+
 void client_send_list_error(struct client_command_context *cmd,
 			    struct mailbox_list *list)
 {
@@ -150,7 +190,7 @@ void client_send_list_error(struct client_command_context *cmd,
 	enum mail_error error;
 
 	error_string = mailbox_list_get_last_error(list, &error);
-	client_send_tagline(cmd, t_strconcat("NO ", error_string, NULL));
+	client_send_tagline(cmd, get_error_string(error_string, error));
 }
 
 void client_send_storage_error(struct client_command_context *cmd,
@@ -168,7 +208,7 @@ void client_send_storage_error(struct client_command_context *cmd,
 	}
 
 	error_string = mail_storage_get_last_error(storage, &error);
-	client_send_tagline(cmd, t_strconcat("NO ", error_string, NULL));
+	client_send_tagline(cmd, get_error_string(error_string, error));
 }
 
 void client_send_untagged_storage_error(struct client *client,

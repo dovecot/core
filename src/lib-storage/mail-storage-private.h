@@ -311,6 +311,8 @@ struct mail_search_context {
 
 	uint32_t seq;
 	ARRAY_DEFINE(module_contexts, union mail_search_module_context *);
+
+	unsigned int seen_lost_data:1;
 };
 
 struct mail_save_context {

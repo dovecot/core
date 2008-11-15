@@ -426,7 +426,7 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 	}
 
 	if (EDESTDIREXISTS(errno)) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
 				       "Target mailbox already exists");
 	} else {
 		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",

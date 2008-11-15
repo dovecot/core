@@ -26,10 +26,15 @@ enum mail_error {
 	MAIL_ERROR_PERM,
 	/* Out of disk space or quota */
 	MAIL_ERROR_NOSPACE,
-	/* Item (eg. mailbox) doesn't exist or it's not visible to us */
+	/* Item (e.g. mailbox) doesn't exist or it's not visible to us */
 	MAIL_ERROR_NOTFOUND,
+	/* Item (e.g. mailbox) already exists */
+	MAIL_ERROR_EXISTS,
 	/* Tried to access an expunged message */
-	MAIL_ERROR_EXPUNGED
+	MAIL_ERROR_EXPUNGED,
+	/* Operation cannot be done because another session prevents it
+	   (e.g. lock timeout) */
+	MAIL_ERROR_INUSE
 };
 
 /* Convert errno to mail_error and an error string. Returns TRUE if successful,
