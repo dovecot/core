@@ -56,8 +56,7 @@ bool imap_status_get(struct client *client, struct mail_storage *storage,
 	if (client->mailbox != NULL &&
 	    mailbox_equals(client->mailbox, storage, mailbox)) {
 		/* this mailbox is selected */
-		box = client->mailbox;
-		mailbox_get_status(box, items, status_r);
+		mailbox_get_status(client->mailbox, items, status_r);
 		return TRUE;
 	}
 
