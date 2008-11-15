@@ -397,8 +397,9 @@ void solr_connection_post_more(struct solr_connection_post *post,
 	fd_set fdexcep;
 	struct timeval timeout_tv;
 	long timeout;
+	CURLMsg *msg;
 	CURLMcode merr;
-	int ret, handles, maxfd;
+	int ret, handles, maxfd, n;
 
 	i_assert(post->conn->posting);
 
@@ -422,6 +423,13 @@ void solr_connection_post_more(struct solr_connection_post *post,
 		    (handles == 0 && post->size == 0)) {
 			/* everything sent successfully */
 			return;
+		}
+		msg = curl_multi_info_read(post->conn->curlm, &n);
+		if (msg != NULL && msg->msg == CURLMSG_DONE &&
+		    msg->data.result != CURLE_OK) {
+			i_error("fts_solr: curl post failed: %s",
+				curl_easy_strerror(msg->data.result));
+			break;
 		}
 
 		/* everything wasn't sent - wait. just use select,
