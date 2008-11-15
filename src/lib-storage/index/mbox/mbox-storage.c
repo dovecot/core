@@ -835,7 +835,7 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
 				     const char *mailbox_name ATTR_UNUSED,
 				     enum mailbox_list_file_type type,
-				     enum mailbox_info_flags *flags_r)
+				     enum mailbox_info_flags *flags)
 {
 	struct mail_storage *storage = MBOX_LIST_CONTEXT(ctx->list);
 	const char *path, *root_dir;
@@ -843,14 +843,14 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	struct stat st;
 
 	if (strcmp(fname, MBOX_INDEX_DIR_NAME) == 0) {
-		*flags_r = MAILBOX_NOSELECT;
+		*flags |= MAILBOX_NOSELECT;
 		return 0;
 	}
 	if (strcmp(fname, MBOX_SUBSCRIPTION_FILE_NAME) == 0) {
 		root_dir = mailbox_list_get_path(storage->list, NULL,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (strcmp(root_dir, dir) == 0) {
-			*flags_r = MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
+			*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
 			return 0;
 		}
 	}
@@ -858,19 +858,19 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	/* skip all .lock files */
 	len = strlen(fname);
 	if (len > 5 && strcmp(fname+len-5, ".lock") == 0) {
-		*flags_r = MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
+		*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
 		return 0;
 	}
 
 	/* try to avoid stat() with these checks */
 	if (type == MAILBOX_LIST_FILE_TYPE_DIR) {
-		*flags_r = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
+		*flags |= MAILBOX_NOSELECT | MAILBOX_CHILDREN;
 		return 1;
 	}
 	if (type != MAILBOX_LIST_FILE_TYPE_SYMLINK &&
 	    type != MAILBOX_LIST_FILE_TYPE_UNKNOWN &&
 	    (ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
-		*flags_r = MAILBOX_NOINFERIORS;
+		*flags |= MAILBOX_NOINFERIORS;
 		return 1;
 	}
 
@@ -878,27 +878,27 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	path = t_strconcat(dir, "/", fname, NULL);
 	if (stat(path, &st) == 0) {
 		if (S_ISDIR(st.st_mode))
-			*flags_r = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
+			*flags |= MAILBOX_NOSELECT | MAILBOX_CHILDREN;
 		else {
-			*flags_r = MAILBOX_NOINFERIORS | STAT_GET_MARKED(st);
+			*flags |= MAILBOX_NOINFERIORS | STAT_GET_MARKED(st);
 			if (is_inbox_file(ctx->list, path, fname) &&
 			    strcmp(fname, "INBOX") != 0) {
 				/* it's possible for INBOX to have child
 				   mailboxes as long as the inbox file itself
 				   isn't in <mail root>/INBOX */
-				*flags_r &= ~MAILBOX_NOINFERIORS;
+				*flags &= ~MAILBOX_NOINFERIORS;
 			}
 		}
 		return 1;
-	} else if (errno == EACCES || errno == ELOOP) {
-		*flags_r = MAILBOX_NOSELECT;
+	} else if (errno == ENOENT) {
+		/* doesn't exist - probably a non-existing subscribed mailbox */
+		*flags |= MAILBOX_NONEXISTENT;
 		return 1;
-	} else if (ENOTFOUND(errno)) {
-		*flags_r = MAILBOX_NONEXISTENT;
-		return 0;
 	} else {
-		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
-		return -1;
+		/* non-selectable. probably either access denied, or symlink
+		   destination not found. don't bother logging errors. */
+		*flags |= MAILBOX_NOSELECT;
+		return 0;
 	}
 }
 

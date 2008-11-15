@@ -881,13 +881,13 @@ maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 			     const char *dir, const char *fname,
 			     const char *mailbox_name ATTR_UNUSED,
 			     enum mailbox_list_file_type type,
-			     enum mailbox_info_flags *flags_r)
+			     enum mailbox_info_flags *flags)
 {
 	struct stat st;
 	const char *path;
 
 	if (maildir_is_internal_name(fname)) {
-		*flags_r = MAILBOX_NONEXISTENT;
+		*flags |= MAILBOX_NONEXISTENT;
 		return 0;
 	}
 
@@ -895,7 +895,7 @@ maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	case MAILBOX_LIST_FILE_TYPE_FILE:
 	case MAILBOX_LIST_FILE_TYPE_OTHER:
 		/* non-directories are not */
-		*flags_r = MAILBOX_NOSELECT;
+		*flags |= MAILBOX_NOSELECT;
 		return 0;
 
 	case MAILBOX_LIST_FILE_TYPE_DIR:
@@ -910,18 +910,20 @@ maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 			return 1;
 		else if (strncmp(fname, ".nfs", 4) == 0) {
 			/* temporary NFS file */
-			*flags_r = MAILBOX_NONEXISTENT;
+			*flags |= MAILBOX_NONEXISTENT;
 			return 0;
 		} else {
-			*flags_r = MAILBOX_NOSELECT;
+			*flags |= MAILBOX_NOSELECT;
 			return 0;
 		}
 	} else if (errno == ENOENT) {
-		/* this was a directory. maybe it has children. */
-		*flags_r = MAILBOX_NOSELECT;
+		/* doesn't exist - probably a non-existing subscribed mailbox */
+		*flags |= MAILBOX_NONEXISTENT;
 		return 1;
 	} else {
-		*flags_r = MAILBOX_NOSELECT;
+		/* non-selectable. probably either access denied, or symlink
+		   destination not found. don't bother logging errors. */
+		*flags |= MAILBOX_NOSELECT;
 		return 0;
 	}
 }
