@@ -478,6 +478,11 @@ static bool auth_settings_verify(struct auth_settings *auth)
 	}
 
 	for (s = auth->sockets; s != NULL; s = s->next) {
+		if (auth->count > 1 && strcmp(s->type, "listen") == 0) {
+			i_error("Currently auth process count must be 1 if "
+				"you're using auth socket listeners.");
+			return FALSE;
+		}
 		fix_base_path(auth->parent->defaults, &s->master.path);
 		fix_base_path(auth->parent->defaults, &s->client.path);
 	}
