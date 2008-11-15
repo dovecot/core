@@ -237,8 +237,14 @@ static void auth_callback(struct auth_request *request,
 		auth_stream_reply_add(reply, NULL, dec2str(request->id));
 		if (request->user != NULL)
 			auth_stream_reply_add(reply, "user", request->user);
+
 		if (request->internal_failure)
 			auth_stream_reply_add(reply, "temp", NULL);
+		else if (request->master_user != NULL) {
+			/* authentication succeeded, but we can't log in
+			   as the wanted user */
+			auth_stream_reply_add(reply, "authz", NULL);
+		}
 		get_client_extra_fields(request, reply);
 
 		auth_request_handle_failure(request, reply);

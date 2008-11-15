@@ -111,12 +111,18 @@ AUTH parameters are:
 		       security holes if user-given data is directly put to
 		       base64 string without filtering out tabs.
 
-FAIL parameters may contain "reason=.." parameter which should be sent to
-remote user instead of a standard "Authentication failed" message. For
-example "invalid base64 data". It should NOT be used to give exact reason
-for authentication failure (ie. "user not found" vs. "password mismatch").
-Sending "temp" parameter indicates that the error was a temporary internal
-failure, eg. connection was lost to SQL database.
+FAIL parameters may contain:
+
+ - reason=<str> : <str> should be sent to remote user instead of the standard
+                  "Authentication failed" messages. For example "invalid base64
+		  data". It must NOT be used to give exact reason for
+		  authentication failure (i.e. "user not found" vs. "password
+		  mismatch").
+ - temp         : This is a temporary internal failure, e.g. connection was
+                  lost to SQL database.
+ - authz        : Authentication succeeded, but authorization failed (master
+                  user's password was ok, but destnation user was not ok).
+		  Added in Dovecot v1.2.
 
 CONT command means that the authentication continues, and more data is
 expected from client to finish the authentication. Given base64 data should
@@ -124,7 +130,7 @@ be sent to client.
 
 FAIL and OK may contain multiple unspecified parameters which
 authentication client may handle specially. The only one specified here is
-"user=<userid>" parameter, which should always be sent if userid is known.
+"user=<userid>" parameter, which should always be sent if the userid is known.
 
 
 Server <-> Master

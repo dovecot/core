@@ -20,6 +20,8 @@
 
 #define IMAP_SERVICE_NAME "imap"
 #define IMAP_AUTH_FAILED_MSG "["IMAP_RESP_CODE_AUTHFAILED"] "AUTH_FAILED_MSG
+#define IMAP_AUTHZ_FAILED_MSG \
+	"["IMAP_RESP_CODE_AUTHZFAILED"] Authorization failed"
 
 const char *client_authenticate_get_capabilities(bool secured)
 {
@@ -95,6 +97,7 @@ static bool client_handle_args(struct imap_client *client,
 	string_t *reply;
 	unsigned int port = 143;
 	bool proxy = FALSE, temp = FALSE, nologin = !success, proxy_self;
+	bool authz_failure = FALSE;
 
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
@@ -103,6 +106,8 @@ static bool client_handle_args(struct imap_client *client,
 			proxy = TRUE;
 		else if (strcmp(*args, "temp") == 0)
 			temp = TRUE;
+		else if (strcmp(*args, "authz") == 0)
+			authz_failure = TRUE;
 		else if (strncmp(*args, "reason=", 7) == 0)
 			reason = *args + 7;
 		else if (strncmp(*args, "host=", 5) == 0)
@@ -183,6 +188,8 @@ static bool client_handle_args(struct imap_client *client,
 		else if (temp || proxy_self) {
 			str_append(reply, "NO ["IMAP_RESP_CODE_UNAVAILABLE"] "
 				   AUTH_TEMP_FAILED_MSG);
+		} else if (authz_failure) {
+			str_append(reply, "NO "IMAP_AUTHZ_FAILED_MSG);
 		} else {
 			str_append(reply, "NO "IMAP_AUTH_FAILED_MSG);
 		}
