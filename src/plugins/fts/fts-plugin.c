@@ -16,7 +16,7 @@ void fts_plugin_init(void)
 		fts_next_hook_mailbox_opened = hook_mailbox_opened;
 		hook_mailbox_opened = fts_mailbox_opened;
 	} else if (getenv("DEBUG") != NULL)
-		i_info("fts: Missing fts setting, disabled");
+		i_info("fts: No fts setting - plugin disabled");
 }
 
 void fts_plugin_deinit(void)

@@ -306,7 +306,7 @@ trash_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 	env = getenv("TRASH");
 	if (env == NULL) {
 		if (getenv("DEBUG") != NULL)
-			i_info("trash plugin: No trash setting, disabled");
+			i_info("trash: No trash setting - plugin disabled");
 		return;
 	}
 

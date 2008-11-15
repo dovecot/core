@@ -41,6 +41,8 @@ convert_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 	convert_mail = getenv("CONVERT_MAIL");
 	if (convert_mail != NULL)
 		convert_mail_storage(namespaces, convert_mail);
+	else if (getenv("DEBUG") != NULL)
+		i_info("convert: No convert_mail setting - plugin disabled");
 
 	if (convert_next_hook_mail_namespaces_created != NULL)
 		convert_next_hook_mail_namespaces_created(namespaces);

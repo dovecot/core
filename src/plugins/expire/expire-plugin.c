@@ -306,6 +306,9 @@ void expire_plugin_init(void)
 		expire.next_hook_mail_storage_created =
 			hook_mail_storage_created;
 		hook_mail_storage_created = expire_mail_storage_created;
+	} else if (getenv("DEBUG") != NULL) {
+		i_info("expire: No expire or expire_altmove settings - "
+		       "plugin disabled");
 	}
 }
 

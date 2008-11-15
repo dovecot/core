@@ -67,8 +67,11 @@ void quota_plugin_init(void)
 	const char *env;
 
 	env = getenv("QUOTA");
-	if (env == NULL)
+	if (env == NULL) {
+		if (getenv("DEBUG") != NULL)
+			i_info("quota: No quota setting - plugin disabled");
 		return;
+	}
 
 	quota_set = quota_settings_init();
 

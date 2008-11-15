@@ -191,7 +191,8 @@ void mbox_snarf_plugin_init(void)
 		mbox_snarf_next_hook_mail_storage_created =
 			hook_mail_storage_created;
 		hook_mail_storage_created = mbox_snarf_mail_storage_created;
-	}
+	} else if (getenv("DEBUG") != NULL)
+		i_info("mbox_snarf: No mbox_snarf setting - plugin disabled");
 }
 
 void mbox_snarf_plugin_deinit(void)

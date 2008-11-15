@@ -586,8 +586,13 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 
 void lazy_expunge_plugin_init(void)
 {
-	if (getenv("LAZY_EXPUNGE") == NULL)
+	if (getenv("LAZY_EXPUNGE") == NULL) {
+		if (getenv("DEBUG") != NULL) {
+			i_info("lazy_expunge: No lazy_expunge setting - "
+			       "plugin disabled");
+		}
 		return;
+	}
 
 	lazy_expunge_next_hook_mail_namespaces_created =
 		hook_mail_namespaces_created;
@@ -606,7 +611,7 @@ void lazy_expunge_plugin_init(void)
 
 void lazy_expunge_plugin_deinit(void)
 {
-	if (getenv("LAZY_EXPUNGE") == NULL)
+	if (getenv("LAZY_EXPUNGE") != NULL)
 		return;
 
 	hook_mail_namespaces_created =
