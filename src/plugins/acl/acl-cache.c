@@ -4,7 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "acl-cache.h"
-#include "acl-api.h"
+#include "acl-api-private.h"
 
 /* Give more than enough so that the arrays should never have to be grown.
    IMAP ACLs define only 10 standard rights and 10 user-defined rights. */
@@ -113,6 +113,18 @@ struct acl_mask *acl_cache_mask_init(struct acl_cache *cache, pool_t pool,
 	T_BEGIN {
 		mask = acl_cache_mask_init_real(cache, pool, rights);
 	} T_END;
+	return mask;
+}
+
+static struct acl_mask *
+acl_cache_mask_dup(pool_t pool, const struct acl_mask *src)
+{
+	struct acl_mask *mask;
+
+	mask = p_malloc(pool, SIZEOF_ACL_MASK(src->size));
+	memcpy(mask->mask, src->mask, src->size);
+	mask->pool = pool;
+	mask->size = src->size;
 	return mask;
 }
 
@@ -251,19 +263,6 @@ acl_cache_update_rights_mask(struct acl_cache *cache,
 	}
 }
 
-static void
-acl_cache_update_rights(struct acl_cache *cache,
-			struct acl_object_cache *obj_cache,
-			const struct acl_rights_update *rights)
-{
-	acl_cache_update_rights_mask(cache, obj_cache, rights->modify_mode,
-				     rights->rights.rights,
-				     &obj_cache->my_rights);
-	acl_cache_update_rights_mask(cache, obj_cache, rights->neg_modify_mode,
-				     rights->rights.neg_rights,
-				     &obj_cache->my_neg_rights);
-}
-
 static struct acl_object_cache *
 acl_cache_object_get(struct acl_cache *cache, const char *objname,
 		     bool *created_r)
@@ -283,8 +282,9 @@ acl_cache_object_get(struct acl_cache *cache, const char *objname,
 	return obj_cache;
 }
 
-void acl_cache_update(struct acl_cache *cache, const char *objname,
-		      const struct acl_rights_update *rights)
+static void
+acl_cache_update_rights(struct acl_cache *cache, const char *objname,
+			const struct acl_rights_update *update)
 {
 	struct acl_object_cache *obj_cache;
 	bool created;
@@ -292,28 +292,47 @@ void acl_cache_update(struct acl_cache *cache, const char *objname,
 	obj_cache = acl_cache_object_get(cache, objname, &created);
 	i_assert(obj_cache->my_current_rights != &negative_cache_entry);
 
-	switch (rights->rights.id_type) {
+	if (created && update->modify_mode != ACL_MODIFY_MODE_REPLACE) {
+		/* since the rights aren't being replaced, start with our
+		   default rights */
+		obj_cache->my_rights =
+			acl_cache_mask_dup(default_pool,
+					   cache->backend->default_aclmask);
+	}
+
+	acl_cache_update_rights_mask(cache, obj_cache, update->modify_mode,
+				     update->rights.rights,
+				     &obj_cache->my_rights);
+	acl_cache_update_rights_mask(cache, obj_cache, update->neg_modify_mode,
+				     update->rights.neg_rights,
+				     &obj_cache->my_neg_rights);
+}
+
+void acl_cache_update(struct acl_cache *cache, const char *objname,
+		      const struct acl_rights_update *update)
+{
+	switch (update->rights.id_type) {
 	case ACL_ID_ANYONE:
-		acl_cache_update_rights(cache, obj_cache, rights);
+		acl_cache_update_rights(cache, objname, update);
 		break;
 	case ACL_ID_AUTHENTICATED:
 		if (acl_backend_user_is_authenticated(cache->backend))
-			acl_cache_update_rights(cache, obj_cache, rights);
+			acl_cache_update_rights(cache, objname, update);
 		break;
 	case ACL_ID_GROUP:
 	case ACL_ID_GROUP_OVERRIDE:
 		if (acl_backend_user_is_in_group(cache->backend,
-						 rights->rights.identifier))
-			acl_cache_update_rights(cache, obj_cache, rights);
+						 update->rights.identifier))
+			acl_cache_update_rights(cache, objname, update);
 		break;
 	case ACL_ID_USER:
 		if (acl_backend_user_name_equals(cache->backend,
-						 rights->rights.identifier))
-			acl_cache_update_rights(cache, obj_cache, rights);
+						 update->rights.identifier))
+			acl_cache_update_rights(cache, objname, update);
 		break;
 	case ACL_ID_OWNER:
 		if (acl_backend_user_is_owner(cache->backend))
-			acl_cache_update_rights(cache, obj_cache, rights);
+			acl_cache_update_rights(cache, objname, update);
 		break;
 	case ACL_ID_TYPE_COUNT:
 		i_unreached();

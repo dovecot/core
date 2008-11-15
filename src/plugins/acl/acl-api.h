@@ -62,7 +62,8 @@ struct acl_rights {
 	/* Identifier, eg. username / group name */
 	const char *identifier;
 
-	/* Rights assigned */
+	/* Rights assigned. NULL entry can be ignored, but { NULL } means user
+	   has no rights. */
 	const char *const *rights;
 	/* Negative rights assigned */
 	const char *const *neg_rights;

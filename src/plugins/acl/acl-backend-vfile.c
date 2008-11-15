@@ -632,10 +632,14 @@ acl_rights_merge(pool_t pool, const char *const **destp, const char *const *src)
 	unsigned int i;
 
 	t_array_init(&rights, 64);
-	for (i = 0; dest[i] != NULL; i++)
-		array_append(&rights, &dest[i], 1);
-	for (i = 0; src[i] != NULL; i++)
-		array_append(&rights, &src[i], 1);
+	if (dest != NULL) {
+		for (i = 0; dest[i] != NULL; i++)
+			array_append(&rights, &dest[i], 1);
+	}
+	if (src != NULL) {
+		for (i = 0; src[i] != NULL; i++)
+			array_append(&rights, &src[i], 1);
+	}
 
 	*destp = acl_rights_alloc(pool, &rights);
 }
@@ -679,6 +683,7 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 	struct acl_rights_update ru;
 	const struct acl_rights *rights;
 	unsigned int i, count;
+	bool first_global = TRUE;
 
 	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
 
@@ -688,9 +693,20 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 	memset(&ru, 0, sizeof(ru));
 	rights = array_get(&aclobj->rights, &count);
 	for (i = 0; i < count; i++) {
-		ru.modify_mode = ACL_MODIFY_MODE_REPLACE;
-		ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
+		/* If [neg_]rights is NULL it needs to be ignored.
+		   The easiest way to do that is to just mark it with
+		   REMOVE mode */
+		ru.modify_mode = rights[i].rights == NULL ?
+			ACL_MODIFY_MODE_REMOVE : ACL_MODIFY_MODE_REPLACE;
+		ru.neg_modify_mode = rights[i].neg_rights == NULL ?
+			ACL_MODIFY_MODE_REMOVE : ACL_MODIFY_MODE_REPLACE;
 		ru.rights = rights[i];
+		if (rights[i].global && first_global) {
+			/* first global: reset negative ACLs so local ACLs
+			   can't mess things up via them */
+			first_global = FALSE;
+			ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
+		}
 		acl_cache_update(_aclobj->backend->cache, _aclobj->name, &ru);
 	}
 }
