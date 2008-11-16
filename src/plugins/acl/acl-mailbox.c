@@ -30,6 +30,13 @@ struct acl_transaction_context {
 static MODULE_CONTEXT_DEFINE_INIT(acl_mail_module, &mail_module_register);
 static struct acl_transaction_context acl_transaction_failure;
 
+struct acl_backend *acl_storage_get_backend(struct mail_storage *storage)
+{
+	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
+
+	return astorage->rights.backend;
+}
+
 struct acl_object *acl_storage_get_default_aclobj(struct mail_storage *storage)
 {
 	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);

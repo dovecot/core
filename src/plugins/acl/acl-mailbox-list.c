@@ -7,11 +7,10 @@
 #include "mailbox-tree.h"
 #include "mail-namespace.h"
 #include "mailbox-list-private.h"
-#include "acl-cache.h"
 #include "acl-api-private.h"
+#include "acl-cache.h"
+#include "acl-shared-storage.h"
 #include "acl-plugin.h"
-
-#include <stdlib.h>
 
 #define ACL_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, acl_mailbox_list_module)
@@ -133,6 +132,14 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 	ctx = i_new(struct acl_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
+
+	if (list->ns->type == NAMESPACE_SHARED &&
+	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+		/* before listing anything add namespaces for all users
+		   who may have visible mailboxes */
+		if (acl_shared_namespaces_add(list->ns) < 0)
+			ctx->ctx.failed = TRUE;
+	}
 
 	T_BEGIN {
 		acl_mailbox_try_list_fast(ctx, patterns);
@@ -394,11 +401,12 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 
 void acl_mailbox_list_created(struct mailbox_list *list)
 {
+	struct acl_user *auser = ACL_USER_CONTEXT(list->ns->user);
 	struct acl_mailbox_list *alist;
 	struct acl_backend *backend;
 	struct mail_namespace *ns;
 	enum mailbox_list_flags flags;
-	const char *acl_env, *current_username, *owner_username;
+	const char *current_username, *owner_username;
 	bool owner = TRUE;
 
 	if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
@@ -406,11 +414,8 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 		return;
 	}
 
-	acl_env = getenv("ACL");
-	i_assert(acl_env != NULL);
-
 	owner_username = list->ns->user->username;
-	current_username = getenv("MASTER_USER");
+	current_username = auser->master_user;
 	if (current_username == NULL)
 		current_username = owner_username;
 	else
@@ -423,10 +428,8 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	if (ns->type != NAMESPACE_PRIVATE)
 		owner = FALSE;
 
-	backend = acl_backend_init(acl_env, list, current_username,
-				   getenv("ACL_GROUPS") == NULL ? NULL :
-				   t_strsplit(getenv("ACL_GROUPS"), ","),
-				   owner);
+	backend = acl_backend_init(auser->acl_env, list, current_username,
+				   auser->groups, owner);
 	if (backend == NULL)
 		i_fatal("ACL backend initialization failed");
 

@@ -10,6 +10,7 @@
 #include "mail-storage.h"
 #include "acl-plugin.h"
 #include "acl-cache.h"
+#include "acl-lookup-dict.h"
 #include "acl-backend-vfile.h"
 
 #include <stdio.h>
@@ -241,8 +242,12 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 		}
 	}
 	if (ret == 0) {
+		struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
+
 		backend->acllist_mtime = st.st_mtime;
 		backend->acllist_last_check = ioloop_time;
+		/* FIXME: dict reubild is expensive, try to avoid it */
+		(void)acl_lookup_dict_rebuild(auser->acl_lookup_dict);
 	} else {
 		acllist_clear(backend, 0);
 		if (unlink(str_c(path)) < 0 && errno != ENOENT)

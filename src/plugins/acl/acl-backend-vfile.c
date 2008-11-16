@@ -999,32 +999,7 @@ vfile_write_right(string_t *dest, const struct acl_rights *right,
 	const char *const *rights = neg ? right->neg_rights : right->rights;
 
 	if (neg) str_append_c(dest,'-');
-
-	switch (right->id_type) {
-	case ACL_ID_ANYONE:
-		str_append(dest, ACL_ID_NAME_ANYONE);
-		break;
-	case ACL_ID_AUTHENTICATED:
-		str_append(dest, ACL_ID_NAME_AUTHENTICATED);
-		break;
-	case ACL_ID_OWNER:
-		str_append(dest, ACL_ID_NAME_OWNER);
-		break;
-	case ACL_ID_USER:
-		str_append(dest, ACL_ID_NAME_USER_PREFIX);
-		str_append(dest, right->identifier);
-		break;
-	case ACL_ID_GROUP:
-		str_append(dest, ACL_ID_NAME_GROUP_PREFIX);
-		str_append(dest, right->identifier);
-		break;
-	case ACL_ID_GROUP_OVERRIDE:
-		str_append(dest, ACL_ID_NAME_GROUP_OVERRIDE_PREFIX);
-		str_append(dest, right->identifier);
-		break;
-	case ACL_ID_TYPE_COUNT:
-		i_unreached();
-	}
+	acl_rights_write_id(dest, right);
 	str_append_c(dest, ' ');
 	vfile_write_rights_list(dest, rights);
 	str_append_c(dest, '\n');

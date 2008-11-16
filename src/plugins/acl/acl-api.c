@@ -1,6 +1,7 @@
 /* Copyright (c) 2006-2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "hash.h"
 #include "acl-cache.h"
 #include "acl-api-private.h"
@@ -170,6 +171,35 @@ acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **_ctx)
 
 	*_ctx = NULL;
 	ctx->backend->v.nonowner_lookups_iter_deinit(ctx);
+}
+
+void acl_rights_write_id(string_t *dest, const struct acl_rights *right)
+{
+	switch (right->id_type) {
+	case ACL_ID_ANYONE:
+		str_append(dest, ACL_ID_NAME_ANYONE);
+		break;
+	case ACL_ID_AUTHENTICATED:
+		str_append(dest, ACL_ID_NAME_AUTHENTICATED);
+		break;
+	case ACL_ID_OWNER:
+		str_append(dest, ACL_ID_NAME_OWNER);
+		break;
+	case ACL_ID_USER:
+		str_append(dest, ACL_ID_NAME_USER_PREFIX);
+		str_append(dest, right->identifier);
+		break;
+	case ACL_ID_GROUP:
+		str_append(dest, ACL_ID_NAME_GROUP_PREFIX);
+		str_append(dest, right->identifier);
+		break;
+	case ACL_ID_GROUP_OVERRIDE:
+		str_append(dest, ACL_ID_NAME_GROUP_OVERRIDE_PREFIX);
+		str_append(dest, right->identifier);
+		break;
+	case ACL_ID_TYPE_COUNT:
+		i_unreached();
+	}
 }
 
 bool acl_rights_has_nonowner_lookup_changes(const struct acl_rights *rights)

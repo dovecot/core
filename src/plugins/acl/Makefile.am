@@ -1,5 +1,6 @@
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
@@ -16,9 +17,11 @@ lib01_acl_plugin_la_SOURCES = \
 	acl-backend-vfile.c \
 	acl-backend-vfile-acllist.c \
 	acl-cache.c \
+	acl-lookup-dict.c \
 	acl-mailbox.c \
 	acl-mailbox-list.c \
 	acl-plugin.c \
+	acl-shared-storage.c \
 	acl-storage.c
 
 noinst_HEADERS = \
@@ -26,7 +29,9 @@ noinst_HEADERS = \
 	acl-api-private.h \
 	acl-backend-vfile.h \
 	acl-cache.h \
+	acl-lookup-dict.h \
 	acl-plugin.h \
+	acl-shared-storage.h \
 	acl-storage.h
 
 install-exec-local:

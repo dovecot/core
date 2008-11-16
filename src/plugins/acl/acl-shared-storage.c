@@ -1,0 +1,73 @@
+/* Copyright (c) 2008 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "array.h"
+#include "ioloop.h"
+#include "str.h"
+#include "var-expand.h"
+#include "acl-plugin.h"
+#include "acl-lookup-dict.h"
+#include "acl-shared-storage.h"
+#include "index/shared/shared-storage.h"
+
+#define SHARED_NS_RETRY_SECS (60*60)
+
+static void
+acl_shared_namespace_add(struct mail_user *user,
+			 struct shared_storage *sstorage,
+			 const char *userdomain)
+{
+	static struct var_expand_table static_tab[] = {
+		{ 'u', NULL },
+		{ 'n', NULL },
+		{ 'd', NULL },
+		{ '\0', NULL }
+	};
+	struct var_expand_table *tab;
+	struct mail_namespace *ns;
+	const char *p, *mailbox;
+	string_t *str;
+
+	if (strcmp(user->username, userdomain) == 0) {
+		/* skip ourself */
+		return;
+	}
+
+	p = strchr(userdomain, '@');
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+	tab[0].value = userdomain;
+	tab[1].value = p == NULL ? userdomain : t_strdup_until(userdomain, p);
+	tab[2].value = p == NULL ? "" : p + 1;
+
+	str = t_str_new(128);
+	var_expand(str, sstorage->ns_prefix_pattern, tab);
+	mailbox = str_c(str);
+	shared_storage_get_namespace(&sstorage->storage, &mailbox, &ns);
+}
+
+int acl_shared_namespaces_add(struct mail_namespace *ns)
+{
+	struct shared_storage *sstorage = (struct shared_storage *)ns->storage;
+	struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
+	struct acl_lookup_dict_iter *iter;
+	const char *name;
+
+	i_assert(ns->type == NAMESPACE_SHARED);
+	i_assert(strcmp(ns->storage->name, SHARED_STORAGE_NAME) == 0);
+
+	if (ioloop_time < auser->last_shared_add_check + SHARED_NS_RETRY_SECS) {
+		/* already added, don't bother rechecking */
+		return 0;
+	}
+	auser->last_shared_add_check = ioloop_time;
+
+	iter = acl_lookup_dict_iterate_visible_init(auser->acl_lookup_dict);
+	while ((name = acl_lookup_dict_iterate_visible_next(iter)) != NULL) {
+		T_BEGIN {
+			acl_shared_namespace_add(ns->user, sstorage, name);
+		} T_END;
+	}
+	return acl_lookup_dict_iterate_visible_deinit(&iter);
+}

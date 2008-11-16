@@ -6,10 +6,15 @@
 #include "mail-namespace.h"
 #include "mailbox-list-private.h"
 #include "acl-api-private.h"
+#include "acl-lookup-dict.h"
 #include "acl-plugin.h"
+
+#include <stdlib.h>
 
 struct acl_storage_module acl_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
+struct acl_user_module acl_user_module =
+	MODULE_CONTEXT_INIT(&mail_user_module_register);
 
 static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
 	MAIL_ACL_LOOKUP,
@@ -185,5 +190,39 @@ void acl_mail_storage_created(struct mail_storage *storage)
 
 	if (acl_next_hook_mail_storage_created != NULL)
 		acl_next_hook_mail_storage_created(storage);
+}
+
+static void acl_user_deinit(struct mail_user *user)
+{
+	struct acl_user *auser = ACL_USER_CONTEXT(user);
+
+	acl_lookup_dict_deinit(&auser->acl_lookup_dict);
+	auser->module_ctx.super.deinit(user);
+}
+
+void acl_mail_user_created(struct mail_user *user)
+{
+	struct acl_user *auser;
+	const char *env;
+
+	auser = p_new(user->pool, struct acl_user, 1);
+	auser->module_ctx.super = user->v;
+	user->v.deinit = acl_user_deinit;
+	auser->acl_lookup_dict = acl_lookup_dict_init(user);
+
+	auser->acl_env = getenv("ACL");
+	i_assert(auser->acl_env != NULL);
+	auser->master_user = getenv("MASTER_USER");
+
+	env = getenv("ACL_GROUPS");
+	if (env != NULL) {
+		auser->groups =
+			(const char *const *)p_strsplit(user->pool, env, ",");
+	}
+
+	MODULE_CONTEXT_SET(user, acl_user_module, auser);
+
+	if (acl_next_hook_mail_user_created != NULL)
+		acl_next_hook_mail_user_created(user);
 }
 

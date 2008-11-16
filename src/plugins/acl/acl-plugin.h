@@ -1,11 +1,25 @@
 #ifndef ACL_PLUGIN_H
 #define ACL_PLUGIN_H
 
+#include "mail-user.h"
 #include "mail-storage-private.h"
 #include "acl-storage.h"
 
 #define ACL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, acl_storage_module)
+#define ACL_USER_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, acl_user_module)
+
+struct acl_user {
+	union mail_user_module_context module_ctx;
+
+	const char *master_user;
+	const char *acl_env;
+	const char *const *groups;
+
+	struct acl_lookup_dict *acl_lookup_dict;
+	time_t last_shared_add_check;
+};
 
 struct acl_storage_rights_context {
 	struct acl_backend *backend;
@@ -17,13 +31,15 @@ struct acl_mail_storage {
 	struct acl_storage_rights_context rights;
 };
 
-extern void (*acl_next_hook_mail_storage_created)
-	(struct mail_storage *storage);
+extern void (*acl_next_hook_mail_storage_created)(struct mail_storage *storage);
 extern void (*acl_next_hook_mailbox_list_created)(struct mailbox_list *list);
+extern void (*acl_next_hook_mail_user_created)(struct mail_user *user);
 extern MODULE_CONTEXT_DEFINE(acl_storage_module, &mail_storage_module_register);
+extern MODULE_CONTEXT_DEFINE(acl_user_module, &mail_user_module_register);
 
 void acl_mail_storage_created(struct mail_storage *storage);
 void acl_mailbox_list_created(struct mailbox_list *list);
+void acl_mail_user_created(struct mail_user *list);
 
 struct mailbox *acl_mailbox_open_box(struct mailbox *box);
 
