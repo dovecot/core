@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "auth-master.h"
 #include "var-expand.h"
+#include "index-storage.h"
 #include "shared-storage.h"
 
 #include <stdlib.h>

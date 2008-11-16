@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mailbox-list-private.h"
+#include "index-storage.h"
 #include "shared-storage.h"
 
 struct shared_mailbox_list_iterate_context {
