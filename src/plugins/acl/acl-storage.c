@@ -99,7 +99,9 @@ acl_mailbox_open(struct mail_storage *storage, const char *name,
 	int ret;
 
 	/* mailbox can be opened either for reading or appending new messages */
-	if ((flags & MAILBOX_OPEN_SAVEONLY) != 0) {
+	if ((flags & MAIL_STORAGE_FLAG_IGNORE_ACLS) != 0) {
+		ret = 1;
+	} else if ((flags & MAILBOX_OPEN_SAVEONLY) != 0) {
 		ret = acl_storage_have_right(storage, name,
 					     ACL_STORAGE_RIGHT_INSERT,
 					     &can_see);
