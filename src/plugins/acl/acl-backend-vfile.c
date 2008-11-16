@@ -1068,6 +1068,24 @@ acl_backend_vfile_update_write(struct acl_object_vfile *aclobj,
 	return ret;
 }
 
+static void acl_backend_vfile_update_cache(struct acl_object *_aclobj, int fd)
+{
+	struct acl_backend_vfile_validity *validity;
+	struct stat st;
+
+	if (fstat(fd, &st) < 0) {
+		/* we'll just recalculate or fail it later */
+		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
+		return;
+	}
+
+	validity = acl_cache_get_validity(_aclobj->backend->cache,
+					  _aclobj->name);
+	validity->local_validity.last_read_time = ioloop_time;
+	validity->local_validity.last_mtime = st.st_mtime;
+	validity->local_validity.last_size = st.st_size;
+}
+
 static int
 acl_backend_vfile_object_update(struct acl_object *_aclobj,
 				const struct acl_rights_update *update)
@@ -1097,14 +1115,18 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 		file_dotlock_delete(&dotlock);
 		return 0;
 	} else {
-		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-
 		path = file_dotlock_get_lock_path(dotlock);
 		if (acl_backend_vfile_update_write(aclobj, fd, path) < 0) {
 			file_dotlock_delete(&dotlock);
+			acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
 			return -1;
 		}
-		return file_dotlock_replace(&dotlock, 0);
+		acl_backend_vfile_update_cache(_aclobj, fd);
+		if (file_dotlock_replace(&dotlock, 0) < 0) {
+			acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
+			return -1;
+		}
+		return 0;
 	}
 }
 
