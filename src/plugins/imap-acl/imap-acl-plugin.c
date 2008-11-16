@@ -74,8 +74,7 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 			"["IMAP_RESP_CODE_NONEXISTENT"] "
 			MAIL_ERRSTR_MAILBOX_NOT_FOUND, name));
 	} else {
-		client_send_tagline(cmd, "["IMAP_RESP_CODE_ACL"] "
-				    ERROR_NOT_ADMIN);
+		client_send_tagline(cmd, ERROR_NOT_ADMIN);
 	}
 	mailbox_close(&box);
 	return NULL;
