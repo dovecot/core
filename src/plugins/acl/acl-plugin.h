@@ -2,24 +2,10 @@
 #define ACL_PLUGIN_H
 
 #include "mail-storage-private.h"
+#include "acl-storage.h"
 
 #define ACL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, acl_storage_module)
-
-enum acl_storage_rights {
-	ACL_STORAGE_RIGHT_LOOKUP,
-	ACL_STORAGE_RIGHT_READ,
-	ACL_STORAGE_RIGHT_WRITE,
-	ACL_STORAGE_RIGHT_WRITE_SEEN,
-	ACL_STORAGE_RIGHT_WRITE_DELETED,
-	ACL_STORAGE_RIGHT_INSERT,
-	ACL_STORAGE_RIGHT_EXPUNGE,
-	ACL_STORAGE_RIGHT_CREATE,
-	ACL_STORAGE_RIGHT_DELETE,
-	ACL_STORAGE_RIGHT_ADMIN,
-
-	ACL_STORAGE_RIGHT_COUNT
-};
 
 struct acl_storage_rights_context {
 	struct acl_backend *backend;

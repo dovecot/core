@@ -52,30 +52,13 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 	return acl_cache_mask_isset(have_mask, right_idx);
 }
 
-static int acl_object_get_my_rights_real(struct acl_object *aclobj, pool_t pool,
-					 const char *const **rights_r)
+const char *const *
+acl_backend_mask_get_names(struct acl_backend *backend,
+			   const struct acl_mask *mask, pool_t pool)
 {
-	struct acl_backend *backend = aclobj->backend;
-	const struct acl_mask *mask;
 	const char *const *names;
 	const char **buf, **rights;
 	unsigned int names_count, count, i, j, name_idx;
-
-	if (*aclobj->name == '\0') {
-		/* we want to look up default rights */
-		if (acl_backend_get_default_rights(backend, &mask) < 0)
-			return -1;
-	} else {
-		if (backend->v.object_refresh_cache(aclobj) < 0)
-			return -1;
-
-		mask = acl_cache_get_my_rights(backend->cache,
-					       aclobj->name);
-		if (mask == NULL) {
-			if (acl_backend_get_default_rights(backend, &mask) < 0)
-				return -1;
-		}
-	}
 
 	names = acl_cache_get_names(backend->cache, &names_count);
 	buf = t_new(const char *, (mask->size * CHAR_BIT) + 1);
@@ -98,7 +81,32 @@ static int acl_object_get_my_rights_real(struct acl_object *aclobj, pool_t pool,
 	/* @UNSAFE */
 	rights = p_new(pool, const char *, count + 1);
 	memcpy(rights, buf, count * sizeof(const char *));
-	*rights_r = rights;
+	return rights;
+}
+
+static int acl_object_get_my_rights_real(struct acl_object *aclobj, pool_t pool,
+					 const char *const **rights_r)
+{
+	struct acl_backend *backend = aclobj->backend;
+	const struct acl_mask *mask;
+
+	if (*aclobj->name == '\0') {
+		/* we want to look up default rights */
+		if (acl_backend_get_default_rights(backend, &mask) < 0)
+			return -1;
+	} else {
+		if (backend->v.object_refresh_cache(aclobj) < 0)
+			return -1;
+
+		mask = acl_cache_get_my_rights(backend->cache,
+					       aclobj->name);
+		if (mask == NULL) {
+			if (acl_backend_get_default_rights(backend, &mask) < 0)
+				return -1;
+		}
+	}
+
+	*rights_r = acl_backend_mask_get_names(backend, mask, pool);
 	return 0;
 }
 
@@ -116,9 +124,9 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 }
 
 int acl_object_update(struct acl_object *aclobj,
-		      const struct acl_rights_update *rights)
+		      const struct acl_rights_update *update)
 {
-        return aclobj->backend->v.object_update(aclobj, rights);
+        return aclobj->backend->v.object_update(aclobj, update);
 }
 
 struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj)

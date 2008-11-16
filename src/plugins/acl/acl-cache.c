@@ -244,6 +244,8 @@ acl_cache_update_rights_mask(struct acl_cache *cache,
 			changed = FALSE;
 		new_mask = change_mask;
 		break;
+	case ACL_MODIFY_MODE_CLEAR:
+		i_unreached();
 	}
 
 	if (new_mask != old_mask) {

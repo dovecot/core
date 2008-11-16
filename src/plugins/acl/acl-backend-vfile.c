@@ -3,9 +3,14 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "bsearch-insert-pos.h"
+#include "str.h"
 #include "istream.h"
+#include "ostream.h"
+#include "file-dotlock.h"
 #include "nfs-workarounds.h"
 #include "mail-storage-private.h"
+#include "mail-namespace.h"
 #include "acl-cache.h"
 #include "acl-backend-vfile.h"
 
@@ -50,6 +55,14 @@ static const struct acl_letter_map acl_letter_map[] = {
 	{ 'x', MAIL_ACL_DELETE },
 	{ 'a', MAIL_ACL_ADMIN },
 	{ '\0', NULL }
+};
+
+static struct dotlock_settings dotlock_set = {
+	MEMBER(temp_prefix) NULL,
+	MEMBER(lock_suffix) NULL,
+
+	MEMBER(timeout) 30,
+	MEMBER(stale_timeout) 120
 };
 
 static struct acl_backend *acl_backend_vfile_alloc(void)
@@ -266,7 +279,8 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 }
 
 static const char *const *
-acl_rights_alloc(pool_t pool, ARRAY_TYPE(const_string) *rights_arr)
+acl_rights_alloc(pool_t pool, ARRAY_TYPE(const_string) *rights_arr,
+		 bool dup_strings)
 {
 	const char **ret, **rights;
 	unsigned int i, dest, count;
@@ -282,6 +296,11 @@ acl_rights_alloc(pool_t pool, ARRAY_TYPE(const_string) *rights_arr)
 		for (i = dest = 1; i < count; i++) {
 			if (strcmp(rights[i-1], rights[i]) != 0)
 				ret[dest++] = rights[i];
+		}
+		ret[dest] = NULL;
+		if (dup_strings) {
+			for (i = 0; i < dest; i++)
+				ret[i] = p_strdup(pool, ret[i]);
 		}
 	}
 	return ret;
@@ -326,7 +345,7 @@ acl_parse_rights(pool_t pool, const char *acl, const char **error_r)
 		}
 	}
 
-	return acl_rights_alloc(pool, &rights);
+	return acl_rights_alloc(pool, &rights, FALSE);
 }
 
 static int
@@ -362,31 +381,34 @@ acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, bool global,
 
 	switch (*line) {
 	case 'u':
-		if (strncmp(line, "user=", 5) == 0) {
+		if (strncmp(line, ACL_ID_NAME_USER_PREFIX,
+			    strlen(ACL_ID_NAME_USER_PREFIX)) == 0) {
 			rights.id_type = ACL_ID_USER;
 			rights.identifier = line + 5;
 			break;
 		}
 	case 'o':
-		if (strcmp(line, "owner") == 0) {
+		if (strcmp(line, ACL_ID_NAME_OWNER) == 0) {
 			rights.id_type = ACL_ID_OWNER;
 			break;
 		}
 	case 'g':
-		if (strncmp(line, "group=", 6) == 0) {
+		if (strncmp(line, ACL_ID_NAME_GROUP_PREFIX,
+			    strlen(ACL_ID_NAME_GROUP_PREFIX)) == 0) {
 			rights.id_type = ACL_ID_GROUP;
 			rights.identifier = line + 6;
 			break;
-		} else if (strncmp(line, "group-override=", 15) == 0) {
+		} else if (strncmp(line, ACL_ID_NAME_GROUP_OVERRIDE_PREFIX,
+				   strlen(ACL_ID_NAME_GROUP_OVERRIDE_PREFIX)) == 0) {
 			rights.id_type = ACL_ID_GROUP_OVERRIDE;
 			rights.identifier = line + 15;
 			break;
 		}
 	case 'a':
-		if (strcmp(line, "authenticated") == 0) {
+		if (strcmp(line, ACL_ID_NAME_AUTHENTICATED) == 0) {
 			rights.id_type = ACL_ID_AUTHENTICATED;
 			break;
-		} else if (strcmp(line, "anyone") == 0 ||
+		} else if (strcmp(line, ACL_ID_NAME_ANYONE) == 0 ||
 			   strcmp(line, "anonymous") == 0) {
 			rights.id_type = ACL_ID_ANYONE;
 			break;
@@ -615,17 +637,23 @@ int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
 static int acl_rights_cmp(const void *p1, const void *p2)
 {
 	const struct acl_rights *r1 = p1, *r2 = p2;
+	int ret;
 
 	if (r1->global != r2->global) {
 		/* globals have higher priority than locals */
 		return r1->global ? 1 : -1;
 	}
 
-	return r1->id_type - r2->id_type;
+	ret = r1->id_type - r2->id_type;
+	if (ret != 0)
+		return ret;
+
+	return null_strcmp(r1->identifier, r2->identifier);
 }
 
 static void
-acl_rights_merge(pool_t pool, const char *const **destp, const char *const *src)
+acl_rights_merge(pool_t pool, const char *const **destp, const char *const *src,
+		 bool dup_strings)
 {
 	const char *const *dest = *destp;
 	ARRAY_TYPE(const_string) rights;
@@ -641,7 +669,7 @@ acl_rights_merge(pool_t pool, const char *const **destp, const char *const *src)
 			array_append(&rights, &src[i], 1);
 	}
 
-	*destp = acl_rights_alloc(pool, &rights);
+	*destp = acl_rights_alloc(pool, &rights, dup_strings);
 }
 
 static void acl_backend_vfile_rights_sort(struct acl_object_vfile *aclobj)
@@ -657,17 +685,14 @@ static void acl_backend_vfile_rights_sort(struct acl_object_vfile *aclobj)
 
 	/* merge identical identifiers */
 	for (dest = 0, i = 1; i < count; i++) {
-		if (rights[i].global == rights[dest].global &&
-		    rights[i].id_type == rights[dest].id_type &&
-		    null_strcmp(rights[i].identifier,
-				rights[dest].identifier) == 0) {
+		if (acl_rights_cmp(&rights[i], &rights[dest]) == 0) {
 			/* add i's rights to dest and delete i */
 			acl_rights_merge(aclobj->rights_pool,
 					 &rights[dest].rights,
-					 rights[i].rights);
+					 rights[i].rights, FALSE);
 			acl_rights_merge(aclobj->rights_pool,
 					 &rights[dest].neg_rights,
-					 rights[i].neg_rights);
+					 rights[i].neg_rights, FALSE);
 		} else {
 			if (++dest != i)
 				rights[dest] = rights[i];
@@ -763,24 +788,306 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 	return 0;
 }
 
-static int
-acl_backend_vfile_object_update(struct acl_object *aclobj ATTR_UNUSED,
-				const struct acl_rights_update *rights
-					ATTR_UNUSED)
+static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
+					  struct dotlock **dotlock_r)
 {
-	/* FIXME */
-	return -1;
+	struct acl_object *_aclobj = &aclobj->aclobj;
+	mode_t mode;
+	gid_t gid;
+	int fd;
+
+	/* first lock the ACL file */
+	mailbox_list_get_permissions(_aclobj->backend->list, &mode, &gid);
+	fd = file_dotlock_open_mode(&dotlock_set, aclobj->local_path, 0,
+				    mode, (uid_t)-1, gid, dotlock_r);
+	if (fd == -1) {
+		i_error("file_dotlock_open_mode(%s) failed: %m",
+			aclobj->local_path);
+		return -1;
+	}
+
+	/* locked successfully, re-read the existing file to make sure we
+	   don't lose any changes. */
+	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
+	if (acl_backend_vfile_object_refresh_cache(_aclobj) < 0) {
+		file_dotlock_delete(dotlock_r);
+		return -1;
+	}
+	return fd;
+}
+
+static bool modify_right_list(pool_t pool,
+			      const char *const **rightsp,
+			      const char *const *modify_rights,
+			      enum acl_modify_mode modify_mode)
+{
+	const char *const *old_rights = *rightsp;
+	const char *const *new_rights;
+	const char *null = NULL;
+	ARRAY_TYPE(const_string) rights;
+	unsigned int i, j;
+
+	if (modify_rights == NULL && modify_mode != ACL_MODIFY_MODE_CLEAR) {
+		/* nothing to do here */
+		return FALSE;
+	}
+
+	if (old_rights == NULL)
+		old_rights = &null;
+
+	switch (modify_mode) {
+	case ACL_MODIFY_MODE_REMOVE:
+		if (*old_rights == NULL) {
+			/* nothing to do */
+			return FALSE;
+		}
+		t_array_init(&rights, 64);
+		for (i = 0; old_rights[i] != NULL; i++) {
+			for (j = 0; modify_rights[j] != NULL; j++) {
+				if (strcmp(old_rights[i], modify_rights[j]) == 0)
+					break;
+			}
+			if (modify_rights[j] == NULL)
+				array_append(&rights, &old_rights[i], 1);
+		}
+		new_rights = &null;
+		modify_rights = array_idx(&rights, 0);
+		acl_rights_merge(pool, &new_rights, modify_rights, TRUE);
+		break;
+	case ACL_MODIFY_MODE_ADD:
+		new_rights = old_rights;
+		acl_rights_merge(pool, &new_rights, modify_rights, TRUE);
+		break;
+	case ACL_MODIFY_MODE_REPLACE:
+		new_rights = &null;
+		acl_rights_merge(pool, &new_rights, modify_rights, TRUE);
+		break;
+	case ACL_MODIFY_MODE_CLEAR:
+		if (*rightsp == NULL) {
+			/* ACL didn't exist before either */
+			return FALSE;
+		}
+		*rightsp = NULL;
+		return TRUE;
+	}
+	*rightsp = new_rights;
+
+	/* see if anything changed */
+	for (i = 0; old_rights[i] != NULL && new_rights[i] != NULL; i++) {
+		if (strcmp(old_rights[i], new_rights[i]) != 0)
+			return TRUE;
+	}
+	return old_rights[i] != NULL || new_rights[i] != NULL;
+}
+
+static bool
+vfile_object_modify_right(struct acl_object_vfile *aclobj, unsigned int idx,
+			  const struct acl_rights_update *update)
+{
+	struct acl_rights *right;
+	bool c1, c2;
+
+	right = array_idx_modifiable(&aclobj->rights, idx);
+	c1 = modify_right_list(aclobj->rights_pool, &right->rights,
+			       update->rights.rights, update->modify_mode);
+	c2 = modify_right_list(aclobj->rights_pool, &right->neg_rights,
+			       update->rights.neg_rights,
+			       update->neg_modify_mode);
+
+	if (right->rights == NULL && right->neg_rights == NULL) {
+		/* this identifier no longer exists */
+		array_delete(&aclobj->rights, idx, 1);
+		c1 = TRUE;
+	}
+	return c1 || c2;
+}
+
+static bool
+vfile_object_add_right(struct acl_object_vfile *aclobj, unsigned int idx,
+		       const struct acl_rights_update *update)
+{
+	struct acl_rights right;
+
+	if (update->modify_mode == ACL_MODIFY_MODE_REMOVE &&
+	    update->neg_modify_mode == ACL_MODIFY_MODE_REMOVE) {
+		/* nothing to do */
+		return FALSE;
+	}
+
+	memset(&right, 0, sizeof(right));
+	right.id_type = update->rights.id_type;
+	right.identifier = p_strdup(aclobj->rights_pool,
+				    update->rights.identifier);
+	array_insert(&aclobj->rights, idx, &right, 1);
+	return vfile_object_modify_right(aclobj, idx, update);
+}
+
+static void vfile_write_rights_list(string_t *dest, const char *const *rights)
+{
+	char c2[2];
+	unsigned int i, j, pos;
+
+	c2[1] = '\0';
+	pos = str_len(dest);
+	for (i = 0; rights[i] != NULL; i++) {
+		/* use letters if possible */
+		for (j = 0; acl_letter_map[j].name != NULL; j++) {
+			if (strcmp(rights[i], acl_letter_map[j].name) == 0) {
+				c2[0] = acl_letter_map[j].letter;
+				str_insert(dest, pos, c2);
+				pos++;
+				break;
+			}
+		}
+		if (acl_letter_map[j].name == NULL) {
+			/* fallback to full name */
+			str_append_c(dest, ' ');
+			str_append(dest, rights[j]);
+		}
+	}
+}
+
+static void
+vfile_write_right(string_t *dest, const struct acl_rights *right,
+		  bool neg)
+{
+	const char *const *rights = neg ? right->neg_rights : right->rights;
+
+	if (neg) str_append_c(dest,'-');
+
+	switch (right->id_type) {
+	case ACL_ID_ANYONE:
+		str_append(dest, ACL_ID_NAME_ANYONE);
+		break;
+	case ACL_ID_AUTHENTICATED:
+		str_append(dest, ACL_ID_NAME_AUTHENTICATED);
+		break;
+	case ACL_ID_OWNER:
+		str_append(dest, ACL_ID_NAME_OWNER);
+		break;
+	case ACL_ID_USER:
+		str_append(dest, ACL_ID_NAME_USER_PREFIX);
+		str_append(dest, right->identifier);
+		break;
+	case ACL_ID_GROUP:
+		str_append(dest, ACL_ID_NAME_GROUP_PREFIX);
+		str_append(dest, right->identifier);
+		break;
+	case ACL_ID_GROUP_OVERRIDE:
+		str_append(dest, ACL_ID_NAME_GROUP_OVERRIDE_PREFIX);
+		str_append(dest, right->identifier);
+		break;
+	case ACL_ID_TYPE_COUNT:
+		i_unreached();
+	}
+	str_append_c(dest, ' ');
+	vfile_write_rights_list(dest, rights);
+	str_append_c(dest, '\n');
+}
+
+static int
+acl_backend_vfile_update_write(struct acl_object_vfile *aclobj,
+			       int fd, const char *path)
+{
+	struct ostream *output;
+	string_t *str;
+	const struct acl_rights *rights;
+	unsigned int i, count;
+	int ret = 0;
+
+	output = o_stream_create_fd_file(fd, 0, FALSE);
+	o_stream_cork(output);
+
+	str = t_str_new(256);
+	/* rights are sorted with globals at the end, so we can stop at the
+	   first global */
+	rights = array_get(&aclobj->rights, &count);
+	for (i = 0; i < count && !rights[i].global; i++) {
+		if (rights[i].rights != NULL)
+			vfile_write_right(str, &rights[i], FALSE);
+		if (rights[i].neg_rights != NULL)
+			vfile_write_right(str, &rights[i], TRUE);
+		o_stream_send(output, str_data(str), str_len(str));
+		str_truncate(str, 0);
+	}
+	if (o_stream_flush(output) < 0) {
+		i_error("write(%s) failed: %m", path);
+		ret = -1;
+	}
+	o_stream_destroy(&output);
+	/* we really don't want to lose ACL files' contents, so fsync() always
+	   before renaming */
+	if (fsync(fd) < 0) {
+		i_error("fsync(%s) failed: %m", path);
+		ret = -1;
+	}
+	return ret;
+}
+
+static int
+acl_backend_vfile_object_update(struct acl_object *_aclobj,
+				const struct acl_rights_update *update)
+{
+	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
+	const struct acl_rights *rights;
+	struct dotlock *dotlock;
+	const char *path;
+	unsigned int i, count;
+	int fd;
+	bool changed;
+
+	/* global ACLs can't be updated here */
+	i_assert(!update->rights.global);
+
+	fd = acl_backend_vfile_update_begin(aclobj, &dotlock);
+	if (fd == -1)
+		return -1;
+
+	rights = array_get(&aclobj->rights, &count);
+	if (!bsearch_insert_pos(&update->rights, rights, count, sizeof(*rights),
+				acl_rights_cmp, &i))
+		changed = vfile_object_add_right(aclobj, i, update);
+	else
+		changed = vfile_object_modify_right(aclobj, i, update);
+	if (!changed) {
+		file_dotlock_delete(&dotlock);
+		return 0;
+	} else {
+		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
+
+		path = file_dotlock_get_lock_path(dotlock);
+		if (acl_backend_vfile_update_write(aclobj, fd, path) < 0) {
+			file_dotlock_delete(&dotlock);
+			return -1;
+		}
+		return file_dotlock_replace(&dotlock, 0);
+	}
 }
 
 static struct acl_object_list_iter *
-acl_backend_vfile_object_list_init(struct acl_object *aclobj)
+acl_backend_vfile_object_list_init(struct acl_object *_aclobj)
 {
+	struct acl_object_vfile *aclobj =
+		(struct acl_object_vfile *)_aclobj;
 	struct acl_object_list_iter *iter;
+	struct mail_namespace *ns;
 
 	iter = i_new(struct acl_object_list_iter, 1);
-	iter->aclobj = aclobj;
+	iter->aclobj = _aclobj;
 
-	if (aclobj->backend->v.object_refresh_cache(aclobj) < 0)
+	if (!array_is_created(&aclobj->rights)) {
+		/* we may have the object cached, but we don't have all the
+		   rights read into memory */
+		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
+	}
+
+	/* be sure to return owner for private namespaces.
+	   (other namespaces don't have an owner) */
+	ns = mailbox_list_get_namespace(_aclobj->backend->list);
+	if (ns->type != NAMESPACE_PRIVATE)
+		iter->returned_owner = TRUE;
+
+	if (_aclobj->backend->v.object_refresh_cache(_aclobj) < 0)
 		iter->failed = TRUE;
 	return iter;
 }
@@ -793,11 +1100,26 @@ acl_backend_vfile_object_list_next(struct acl_object_list_iter *iter,
 		(struct acl_object_vfile *)iter->aclobj;
 	const struct acl_rights *rights;
 
-	if (!array_is_created(&aclobj->rights) ||
-	    iter->idx == array_count(&aclobj->rights))
-		return 0;
+	if (iter->idx == array_count(&aclobj->rights)) {
+		struct acl_backend *backend = iter->aclobj->backend;
+
+		if (iter->returned_owner)
+			return 0;
+
+		/* return missing owner based on the default ACLs */
+		iter->returned_owner = TRUE;
+		memset(rights_r, 0, sizeof(*rights_r));
+		rights_r->id_type = ACL_ID_OWNER;
+		rights_r->rights =
+			acl_backend_mask_get_names(backend,
+						   backend->default_aclmask,
+						   pool_datastack_create());
+		return 1;
+	}
 
 	rights = array_idx(&aclobj->rights, iter->idx++);
+	if (rights->id_type == ACL_ID_OWNER && rights->rights != NULL)
+		iter->returned_owner = TRUE;
 	*rights_r = *rights;
 	return 1;
 }

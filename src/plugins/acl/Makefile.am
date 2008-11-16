@@ -26,7 +26,8 @@ noinst_HEADERS = \
 	acl-api-private.h \
 	acl-backend-vfile.h \
 	acl-cache.h \
-	acl-plugin.h
+	acl-plugin.h \
+	acl-storage.h
 
 install-exec-local:
 	for d in imap lda; do \

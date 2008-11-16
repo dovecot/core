@@ -12,6 +12,7 @@ endif
 
 SUBDIRS = \
 	acl \
+	imap-acl \
 	autocreate \
 	convert \
 	expire \

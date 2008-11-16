@@ -1,0 +1,20 @@
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-imap \
+	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/imap \
+	-I$(top_srcdir)/src/plugins/acl
+
+imap_moduledir = $(moduledir)/imap
+
+lib02_imap_acl_plugin_la_LDFLAGS = -module -avoid-version
+
+imap_module_LTLIBRARIES = \
+	lib02_imap_acl_plugin.la
+
+lib02_imap_acl_plugin_la_SOURCES = \
+	imap-acl-plugin.c
+
+noinst_HEADERS = \
+	imap-acl-plugin.h

@@ -3,6 +3,7 @@
 
 struct mailbox_list;
 struct mail_storage;
+struct mailbox;
 struct acl_object;
 
 /* Show mailbox in mailbox list. Allow subscribing to it. */
@@ -48,12 +49,14 @@ enum acl_id_type {
 };
 
 enum acl_modify_mode {
-	/* Add rights to existing ACL (or create a new one) */
-	ACL_MODIFY_MODE_ADD = 0,
 	/* Remove rights from existing ACL */
-	ACL_MODIFY_MODE_REMOVE,
+	ACL_MODIFY_MODE_REMOVE = 0,
+	/* Add rights to existing ACL (or create a new one) */
+	ACL_MODIFY_MODE_ADD,
 	/* Replace existing ACL with given rights */
-	ACL_MODIFY_MODE_REPLACE
+	ACL_MODIFY_MODE_REPLACE,
+	/* Clear all the rights from an existing ACL */
+	ACL_MODIFY_MODE_CLEAR
 };
 
 struct acl_rights {
@@ -126,7 +129,7 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 
 /* Update ACL of given object. */
 int acl_object_update(struct acl_object *aclobj,
-		      const struct acl_rights_update *rights);
+		      const struct acl_rights_update *update);
 
 /* List all identifiers. */
 struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj);

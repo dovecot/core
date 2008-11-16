@@ -3,6 +3,13 @@
 
 #include "acl-api.h"
 
+#define ACL_ID_NAME_ANYONE "anyone"
+#define ACL_ID_NAME_AUTHENTICATED "authenticated"
+#define ACL_ID_NAME_OWNER "owner"
+#define ACL_ID_NAME_USER_PREFIX "user="
+#define ACL_ID_NAME_GROUP_PREFIX "group="
+#define ACL_ID_NAME_GROUP_OVERRIDE_PREFIX "group-override="
+
 struct acl_backend_vfuncs {
 	struct acl_backend *(*alloc)(void);
 	int (*init)(struct acl_backend *backend, const char *data);
@@ -25,7 +32,7 @@ struct acl_backend_vfuncs {
 
 	int (*object_refresh_cache)(struct acl_object *aclobj);
 	int (*object_update)(struct acl_object *aclobj,
-			     const struct acl_rights_update *rights);
+			     const struct acl_rights_update *update);
 
 	struct acl_object_list_iter *
 		(*object_list_init)(struct acl_object *aclobj);
@@ -65,9 +72,13 @@ struct acl_object_list_iter {
 	struct acl_object *aclobj;
 
 	unsigned int idx;
+	unsigned int returned_owner:1;
 	unsigned int failed:1;
 };
 
+const char *const *
+acl_backend_mask_get_names(struct acl_backend *backend,
+			   const struct acl_mask *mask, pool_t pool);
 int acl_backend_get_default_rights(struct acl_backend *backend,
 				   const struct acl_mask **mask_r);
 

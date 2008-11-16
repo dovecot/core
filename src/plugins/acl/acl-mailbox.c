@@ -30,7 +30,21 @@ struct acl_transaction_context {
 static MODULE_CONTEXT_DEFINE_INIT(acl_mail_module, &mail_module_register);
 static struct acl_transaction_context acl_transaction_failure;
 
-static int mailbox_acl_right_lookup(struct mailbox *box, unsigned int right_idx)
+struct acl_object *acl_storage_get_default_aclobj(struct mail_storage *storage)
+{
+	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
+
+	return astorage->rights.backend->default_aclobj;
+}
+
+struct acl_object *acl_mailbox_get_aclobj(struct mailbox *box)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+
+	return abox->aclobj;
+}
+
+int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 	struct acl_mail_storage *astorage = ACL_CONTEXT(box->storage);
@@ -57,19 +71,19 @@ static bool acl_is_readonly(struct mailbox *box)
 	if (abox->module_ctx.super.is_readonly(box))
 		return TRUE;
 
-	if (mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) > 0)
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) > 0)
 		return FALSE;
-	if (mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_EXPUNGE) > 0)
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_EXPUNGE) > 0)
 		return FALSE;
 
 	/* Next up is the "shared flag rights" */
-	if (mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0)
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0)
 		return FALSE;
 	if ((box->private_flags_mask & MAIL_DELETED) == 0 &&
-	    mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_DELETED) > 0)
+	    acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_DELETED) > 0)
 		return FALSE;
 	if ((box->private_flags_mask & MAIL_SEEN) == 0 &&
-	    mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN) > 0)
+	    acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN) > 0)
 		return FALSE;
 
 	return TRUE;
@@ -82,7 +96,7 @@ static bool acl_allow_new_keywords(struct mailbox *box)
 	if (!abox->module_ctx.super.allow_new_keywords(box))
 		return FALSE;
 
-	return mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0;
+	return acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0;
 }
 
 static int acl_mailbox_close(struct mailbox *box)
@@ -99,17 +113,17 @@ acl_get_write_rights(struct mailbox *box,
 {
 	int ret;
 
-	ret = mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE);
+	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE);
 	if (ret < 0)
 		return -1;
 	*flags_r = ret > 0;
 
-	ret = mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN);
+	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN);
 	if (ret < 0)
 		return -1;
 	*flag_seen_r = ret > 0;
 
-	ret = mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_DELETED);
+	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_DELETED);
 	if (ret < 0)
 		return -1;
 	*flag_del_r = ret > 0;
@@ -171,7 +185,7 @@ acl_mail_update_keywords(struct mail *_mail, enum modify_type modify_type,
 	union mail_module_context *amail = ACL_MAIL_CONTEXT(mail);
 	int ret;
 
-	ret = mailbox_acl_right_lookup(_mail->box, ACL_STORAGE_RIGHT_WRITE);
+	ret = acl_mailbox_right_lookup(_mail->box, ACL_STORAGE_RIGHT_WRITE);
 	if (ret <= 0) {
 		/* if we don't have permission, just silently return success. */
 		if (ret < 0)
@@ -188,7 +202,7 @@ static void acl_mail_expunge(struct mail *_mail)
 	union mail_module_context *amail = ACL_MAIL_CONTEXT(mail);
 	int ret;
 
-	ret = mailbox_acl_right_lookup(_mail->box, ACL_STORAGE_RIGHT_EXPUNGE);
+	ret = acl_mailbox_right_lookup(_mail->box, ACL_STORAGE_RIGHT_EXPUNGE);
 	if (ret <= 0) {
 		/* if we don't have permission, silently return success so
 		   users won't see annoying error messages in case their
@@ -251,7 +265,7 @@ acl_save_begin(struct mail_save_context *ctx, struct istream *input)
 	struct mailbox *box = ctx->transaction->box;
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 
-	if (mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) <= 0)
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) <= 0)
 		return -1;
 	if (acl_save_get_flags(box, &ctx->flags, &ctx->keywords) < 0)
 		return -1;
@@ -266,7 +280,7 @@ acl_copy(struct mailbox_transaction_context *t, struct mail *mail,
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
 
-	if (mailbox_acl_right_lookup(t->box, ACL_STORAGE_RIGHT_INSERT) <= 0)
+	if (acl_mailbox_right_lookup(t->box, ACL_STORAGE_RIGHT_INSERT) <= 0)
 		return -1;
 	if (acl_save_get_flags(t->box, &flags, &keywords) < 0)
 		return -1;
@@ -299,7 +313,7 @@ acl_keywords_create(struct mailbox *box, const char *const keywords[],
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 	int ret;
 
-	ret = mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE);
+	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE);
 	if (ret < 0) {
 		if (!skip_invalid)
 			return -1;
