@@ -24,11 +24,6 @@
 #define MAILBOX_MAX_HIERARCHY_LEVELS 20
 #define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 200
 
-/* Message to show to users when critical error occurs */
-#define CRITICAL_MSG \
-	"Internal error occurred. Refer to server log for more information."
-#define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
-
 struct ns_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 	struct mailbox_list_iterate_context *backend_ctx;
@@ -780,8 +775,9 @@ void mailbox_list_set_internal_error(struct mailbox_list *list)
 
 	i_free(list->error_string);
 	list->error_string =
-		strftime(str, sizeof(str), CRITICAL_MSG_STAMP, tm) > 0 ?
-		i_strdup(str) : i_strdup(CRITICAL_MSG);
+		strftime(str, sizeof(str),
+			 MAIL_ERRSTR_CRITICAL_MSG_STAMP, tm) > 0 ?
+		i_strdup(str) : i_strdup(MAIL_ERRSTR_CRITICAL_MSG);
 	list->error = MAIL_ERROR_TEMP;
 }
 

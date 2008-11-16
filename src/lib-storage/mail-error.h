@@ -10,6 +10,12 @@
 #define MAIL_ERRSTR_NO_SPACE "Not enough disk space"
 #define MAIL_ERRSTR_LOCK_TIMEOUT "Timeout while waiting for lock"
 
+/* Message to show to users when critical error occurs */
+#define MAIL_ERRSTR_CRITICAL_MSG \
+	"Internal error occurred. Refer to server log for more information."
+#define MAIL_ERRSTR_CRITICAL_MSG_STAMP \
+	MAIL_ERRSTR_CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
+
 #define T_MAIL_ERR_MAILBOX_NOT_FOUND(name) \
 	t_strdup_printf(MAIL_ERRSTR_MAILBOX_NOT_FOUND, name)
 

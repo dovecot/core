@@ -16,11 +16,6 @@
 #include <time.h>
 #include <ctype.h>
 
-/* Message to show to users when critical error occurs */
-#define CRITICAL_MSG \
-	"Internal error occurred. Refer to server log for more information."
-#define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
-
 #define DEFAULT_MAX_KEYWORD_LENGTH 50
 
 struct mail_storage_module_register mail_storage_module_register = { 0 };
@@ -294,8 +289,9 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 
 	i_free(storage->error_string);
 	storage->error_string =
-		strftime(str, sizeof(str), CRITICAL_MSG_STAMP, tm) > 0 ?
-		i_strdup(str) : i_strdup(CRITICAL_MSG);
+		strftime(str, sizeof(str),
+			 MAIL_ERRSTR_CRITICAL_MSG_STAMP, tm) > 0 ?
+		i_strdup(str) : i_strdup(MAIL_ERRSTR_CRITICAL_MSG);
 	storage->error = MAIL_ERROR_TEMP;
 }
 

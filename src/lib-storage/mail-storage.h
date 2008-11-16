@@ -39,7 +39,9 @@ enum mail_storage_flags {
 	MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE	= 0x800,
 	MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX	= 0x1000,
 	/* Don't use fsync() or fdatasync() */
-	MAIL_STORAGE_FLAG_FSYNC_DISABLE		= 0x2000
+	MAIL_STORAGE_FLAG_FSYNC_DISABLE		= 0x2000,
+	/* Force opening mailbox and ignoring any ACLs */
+	MAIL_STORAGE_FLAG_IGNORE_ACLS		= 0x4000
 };
 
 enum mailbox_open_flags {
