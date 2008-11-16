@@ -16,6 +16,7 @@ static const char *const owner_mailbox_rights[] = {
 	MAIL_ACL_WRITE_SEEN,
 	MAIL_ACL_WRITE_DELETED,
 	MAIL_ACL_INSERT,
+	MAIL_ACL_POST,
 	MAIL_ACL_EXPUNGE,
 	MAIL_ACL_CREATE,
 	MAIL_ACL_DELETE,

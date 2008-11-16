@@ -19,6 +19,8 @@ struct acl_object;
 #define MAIL_ACL_WRITE_DELETED	"write-deleted"
 /* Allow saving and copying mails into the mailbox */
 #define MAIL_ACL_INSERT		"insert"
+/* Allow posting mails to the mailbox (e.g. Sieve fileinto) */
+#define MAIL_ACL_POST		"post"
 /* Allow expunging mails */
 #define MAIL_ACL_EXPUNGE	"expunge"
 /* Allow creating child mailboxes */

@@ -401,6 +401,11 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	const char *acl_env, *current_username, *owner_username;
 	bool owner = TRUE;
 
+	if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
+		/* no ACL checks for internal namespaces (deliver) */
+		return;
+	}
+
 	acl_env = getenv("ACL");
 	i_assert(acl_env != NULL);
 
@@ -427,7 +432,7 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 
 	flags = mailbox_list_get_flags(list);
 	if ((flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0) {
-		/* not necessarily, but safer to do this for now.. */
+		/* not necessarily, but safer to do this for now. */
 		i_fatal("mail_full_filesystem_access=yes is "
 			"incompatible with ACLs");
 	}

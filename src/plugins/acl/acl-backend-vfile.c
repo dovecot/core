@@ -50,6 +50,7 @@ static const struct acl_letter_map acl_letter_map[] = {
 	{ 's', MAIL_ACL_WRITE_SEEN },
 	{ 't', MAIL_ACL_WRITE_DELETED },
 	{ 'i', MAIL_ACL_INSERT },
+	{ 'p', MAIL_ACL_POST },
 	{ 'e', MAIL_ACL_EXPUNGE },
 	{ 'k', MAIL_ACL_CREATE },
 	{ 'x', MAIL_ACL_DELETE },

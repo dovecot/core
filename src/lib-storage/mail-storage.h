@@ -59,8 +59,11 @@ enum mailbox_open_flags {
 	/* Enable if mailbox is used for serving POP3. This allows making
 	   better caching decisions. */
 	MAILBOX_OPEN_POP3_SESSION	= 0x40,
+	/* Enable if mailbox is used for saving a mail delivery using MDA.
+	   This causes ACL plugin to use POST right rather than INSERT. */
+	MAILBOX_OPEN_POST_SESSION	= 0x80,
 	/* Force opening mailbox and ignoring any ACLs */
-	MAILBOX_OPEN_IGNORE_ACLS	= 0x80
+	MAILBOX_OPEN_IGNORE_ACLS	= 0x100
 };
 
 enum mailbox_feature {

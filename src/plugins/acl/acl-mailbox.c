@@ -67,11 +67,14 @@ int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx)
 static bool acl_is_readonly(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	enum acl_storage_rights save_right;
 
 	if (abox->module_ctx.super.is_readonly(box))
 		return TRUE;
 
-	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) > 0)
+	save_right = (box->open_flags & MAILBOX_OPEN_POST_SESSION) != 0 ?
+		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
+	if (acl_mailbox_right_lookup(box, save_right) > 0)
 		return FALSE;
 	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_EXPUNGE) > 0)
 		return FALSE;
@@ -264,8 +267,11 @@ acl_save_begin(struct mail_save_context *ctx, struct istream *input)
 {
 	struct mailbox *box = ctx->transaction->box;
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	enum acl_storage_rights save_right;
 
-	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) <= 0)
+	save_right = (box->open_flags & MAILBOX_OPEN_POST_SESSION) != 0 ?
+		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
+	if (acl_mailbox_right_lookup(box, save_right) <= 0)
 		return -1;
 	if (acl_save_get_flags(box, &ctx->flags, &ctx->keywords) < 0)
 		return -1;
@@ -279,8 +285,11 @@ acl_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	 struct mail *dest_mail)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
+	enum acl_storage_rights save_right;
 
-	if (acl_mailbox_right_lookup(t->box, ACL_STORAGE_RIGHT_INSERT) <= 0)
+	save_right = (t->box->open_flags & MAILBOX_OPEN_POST_SESSION) != 0 ?
+		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
+	if (acl_mailbox_right_lookup(t->box, save_right) <= 0)
 		return -1;
 	if (acl_save_get_flags(t->box, &flags, &keywords) < 0)
 		return -1;

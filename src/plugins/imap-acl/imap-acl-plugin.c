@@ -38,6 +38,7 @@ static const struct imap_acl_letter_map imap_acl_letter_map[] = {
 	{ 's', MAIL_ACL_WRITE_SEEN },
 	{ 't', MAIL_ACL_WRITE_DELETED },
 	{ 'i', MAIL_ACL_INSERT },
+	{ 'p', MAIL_ACL_POST },
 	{ 'e', MAIL_ACL_EXPUNGE },
 	{ 'k', MAIL_ACL_CREATE },
 	{ 'x', MAIL_ACL_DELETE },
@@ -244,7 +245,10 @@ static bool cmd_myrights(struct client_command_context *cmd)
 		mailbox_close(&box);
 		return TRUE;
 	}
-	if (*rights == NULL) {
+	/* Post right alone doesn't give permissions to see if the mailbox
+	   exists or not. Only mail deliveries care about that. */
+	if (*rights == NULL ||
+	    (strcmp(*rights, MAIL_ACL_POST) == 0 && rights[1] == NULL)) {
 		client_send_tagline(cmd, t_strdup_printf(
 			"NO ["IMAP_RESP_CODE_NONEXISTENT"] "
 			MAIL_ERRSTR_MAILBOX_NOT_FOUND, real_mailbox));

@@ -452,6 +452,7 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 
 	ibox->box.storage = storage;
 	ibox->box.name = p_strdup(ibox->box.pool, name);
+	ibox->box.open_flags = flags;
 	if (ibox->box.file_create_mode == 0) {
 		ibox->box.file_create_mode = 0600;
 		ibox->box.dir_create_mode = 0700;
@@ -462,7 +463,6 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 	array_create(&ibox->box.module_contexts,
 		     ibox->box.pool, sizeof(void *), 5);
 
-	ibox->open_flags = flags;
 	ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
 	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
 	ibox->keep_locked = (flags & MAILBOX_OPEN_KEEP_LOCKED) != 0;

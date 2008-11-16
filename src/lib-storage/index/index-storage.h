@@ -26,7 +26,6 @@ struct index_mailbox {
 	union mail_index_view_module_context view_module_ctx;
 
 	struct mail_storage *storage;
-	enum mailbox_open_flags open_flags;
 
 	struct mail_index *index;
 	struct mail_index_view *view;

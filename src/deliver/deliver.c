@@ -149,6 +149,15 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	enum mail_error error;
+	enum mailbox_open_flags open_flags = MAILBOX_OPEN_FAST |
+		MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_SAVEONLY |
+		MAILBOX_OPEN_POST_SESSION;
+
+	if (strcasecmp(name, "INBOX") == 0) {
+		/* deliveries to INBOX must always succeed,
+		   regardless of ACLs */
+		open_flags |= MAILBOX_OPEN_IGNORE_ACLS;
+	}
 
 	ns = mail_namespace_find(namespaces, &name);
 	if (ns == NULL) {
@@ -163,8 +172,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 		return NULL;
 	}
 
-	box = mailbox_open(ns->storage, name, NULL, MAILBOX_OPEN_FAST |
-			   MAILBOX_OPEN_KEEP_RECENT);
+	box = mailbox_open(ns->storage, name, NULL, open_flags);
 	if (box != NULL || !deliver_set->mailbox_autocreate)
 		return box;
 
@@ -181,8 +189,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	}
 
 	/* and try opening again */
-	box = mailbox_open(ns->storage, name, NULL, MAILBOX_OPEN_FAST |
-			   MAILBOX_OPEN_KEEP_RECENT);
+	box = mailbox_open(ns->storage, name, NULL, open_flags);
 	if (box == NULL)
 		return NULL;
 

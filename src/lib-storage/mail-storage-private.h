@@ -187,6 +187,7 @@ struct mailbox {
 /* private: */
 	pool_t pool;
 
+	enum mailbox_open_flags open_flags;
 	unsigned int transaction_count;
 	enum mailbox_feature enabled_features;
 

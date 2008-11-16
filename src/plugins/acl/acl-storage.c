@@ -18,6 +18,7 @@ static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
 	MAIL_ACL_WRITE_SEEN,
 	MAIL_ACL_WRITE_DELETED,
 	MAIL_ACL_INSERT,
+	MAIL_ACL_POST,
 	MAIL_ACL_EXPUNGE,
 	MAIL_ACL_CREATE,
 	MAIL_ACL_DELETE,
@@ -95,19 +96,21 @@ acl_mailbox_open(struct mail_storage *storage, const char *name,
 {
 	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
 	struct mailbox *box;
+	enum acl_storage_rights save_right;
 	bool can_see;
 	int ret;
 
 	/* mailbox can be opened either for reading or appending new messages */
 	if ((flags & MAILBOX_OPEN_IGNORE_ACLS) != 0) {
 		ret = 1;
-	} else if ((flags & MAILBOX_OPEN_SAVEONLY) != 0) {
-		ret = acl_storage_have_right(storage, name,
-					     ACL_STORAGE_RIGHT_INSERT,
-					     &can_see);
-	} else {
+	} else if ((flags & MAILBOX_OPEN_SAVEONLY) == 0) {
 		ret = acl_storage_have_right(storage, name,
 					     ACL_STORAGE_RIGHT_READ,
+					     &can_see);
+	} else {
+		save_right = (flags & MAILBOX_OPEN_POST_SESSION) != 0 ?
+			ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
+		ret = acl_storage_have_right(storage, name, save_right,
 					     &can_see);
 	}
 	if (ret <= 0) {
@@ -128,6 +131,8 @@ acl_mailbox_open(struct mail_storage *storage, const char *name,
 	if (box == NULL)
 		return NULL;
 
+	if ((flags & MAILBOX_OPEN_IGNORE_ACLS) != 0)
+		return box;
 	return acl_mailbox_open_box(box);
 }
 
@@ -163,6 +168,11 @@ void acl_mail_storage_created(struct mail_storage *storage)
 {
 	struct acl_mail_storage *astorage;
 	struct acl_backend *backend;
+
+	if ((storage->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
+		/* no ACL checks for internal namespaces (deliver) */
+		return;
+	}
 
 	astorage = p_new(storage->pool, struct acl_mail_storage, 1);
 	astorage->module_ctx.super = storage->v;

@@ -220,7 +220,8 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 		/* either nothing is cached, or only vsize is cached. */
 		mail->pop3_state = 1;
 	} else if (vsize_dec != MAIL_CACHE_DECISION_YES &&
-		   (mail->ibox->open_flags & MAILBOX_OPEN_POP3_SESSION) == 0) {
+		   (mail->ibox->box.open_flags &
+		    MAILBOX_OPEN_POP3_SESSION) == 0) {
 		/* if virtual size isn't cached permanently,
 		   POP3 isn't being used */
 		mail->pop3_state = -1;
