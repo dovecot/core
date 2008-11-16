@@ -85,7 +85,7 @@ static int acl_object_get_my_rights_real(struct acl_object *aclobj, pool_t pool,
 			name_idx += CHAR_BIT;
 		else {
 			for (j = 1; j < (1 << CHAR_BIT); j <<= 1, name_idx++) {
-				if ((mask->mask[j] & j) == 0)
+				if ((mask->mask[i] & j) == 0)
 					continue;
 
 				/* @UNSAFE */
