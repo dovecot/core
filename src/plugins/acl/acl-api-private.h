@@ -52,6 +52,7 @@ struct acl_backend {
 
 	struct acl_object *default_aclobj;
 	struct acl_mask *default_aclmask;
+	const char *const *default_rights;
 
 	struct acl_backend_vfuncs v;
 

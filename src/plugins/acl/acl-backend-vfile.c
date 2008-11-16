@@ -702,6 +702,20 @@ static void acl_backend_vfile_rights_sort(struct acl_object_vfile *aclobj)
 		array_delete(&aclobj->rights, dest, count - dest);
 }
 
+static void apply_owner_rights(struct acl_object *_aclobj)
+{
+	struct acl_rights_update ru;
+	const char *null = NULL;
+
+	memset(&ru, 0, sizeof(ru));
+	ru.modify_mode = ACL_MODIFY_MODE_REPLACE;
+	ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
+	ru.rights.id_type = ACL_ID_OWNER;
+	ru.rights.rights = _aclobj->backend->default_rights;
+	ru.rights.neg_rights = &null;
+	acl_cache_update(_aclobj->backend->cache, _aclobj->name, &ru);
+}
+
 static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 {
 	static const char *const admin_rights[] = { MAIL_ACL_ADMIN, NULL };
@@ -710,7 +724,7 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 	struct acl_rights_update ru, ru2;
 	const struct acl_rights *rights;
 	unsigned int i, count;
-	bool first_global = TRUE;
+	bool owner_applied, first_global = TRUE;
 
 	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
 
@@ -723,9 +737,20 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 	ru2.rights.id_type = ACL_ID_OWNER;
 	ru2.rights.rights = admin_rights;
 
+	owner_applied = ns->type != NAMESPACE_PRIVATE;
+
 	memset(&ru, 0, sizeof(ru));
 	rights = array_get(&aclobj->rights, &count);
 	for (i = 0; i < count; i++) {
+		if (!owner_applied &&
+		    (rights[i].id_type >= ACL_ID_OWNER || rights[i].global)) {
+			owner_applied = TRUE;
+			if (rights[i].id_type != ACL_ID_OWNER) {
+				/* owner rights weren't explicitly specified.
+				   replace all the current rights  */
+				apply_owner_rights(_aclobj);
+			}
+		}
 		/* If [neg_]rights is NULL it needs to be ignored.
 		   The easiest way to do that is to just mark it with
 		   REMOVE mode */
@@ -749,7 +774,9 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 		}
 		acl_cache_update(_aclobj->backend->cache, _aclobj->name, &ru);
 	}
-	if (first_global && ns->type == NAMESPACE_PRIVATE)
+	if (!owner_applied && count > 0)
+		apply_owner_rights(_aclobj);
+	else if (first_global && ns->type == NAMESPACE_PRIVATE)
 		acl_cache_update(_aclobj->backend->cache, _aclobj->name, &ru2);
 }
 

@@ -73,10 +73,11 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 				data);
 	} T_END;
 
+	backend->default_rights = owner ? owner_mailbox_rights :
+		non_owner_mailbox_rights;
 	backend->default_aclmask =
 		acl_cache_mask_init(backend->cache, backend->pool,
-				    owner ? owner_mailbox_rights :
-				    non_owner_mailbox_rights);
+				    backend->default_rights);
 
 	backend->default_aclobj = acl_object_init_from_name(backend, NULL, "");
 	return backend;
