@@ -24,6 +24,7 @@
 #define IMAP_ACL_OWNER "owner"
 #define IMAP_ACL_GROUP_PREFIX "$"
 #define IMAP_ACL_GROUP_OVERRIDE_PREFIX "!$"
+#define IMAP_ACL_GLOBAL_PREFIX "#"
 
 struct imap_acl_letter_map {
 	char letter;
@@ -125,6 +126,8 @@ imap_acl_write_right(string_t *dest, string_t *tmp,
 	if (neg) str_append_c(dest,'-');
 
 	str_truncate(tmp, 0);
+	if (right->global)
+		str_append(tmp, IMAP_ACL_GLOBAL_PREFIX);
 	switch (right->id_type) {
 	case ACL_ID_ANYONE:
 		str_append(tmp, IMAP_ACL_ANYONE);
@@ -306,8 +309,16 @@ imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 }
 
 static int
-imap_acl_identifier_parse(const char *id, struct acl_rights *rights)
+imap_acl_identifier_parse(const char *id, struct acl_rights *rights,
+			  const char **error_r)
 {
+	if (strncmp(id, IMAP_ACL_GLOBAL_PREFIX,
+		    strlen(IMAP_ACL_GLOBAL_PREFIX)) == 0) {
+		*error_r = t_strdup_printf("Global ACLs can't be modified: %s",
+					   id);
+		return -1;
+	}
+
 	if (strcmp(id, IMAP_ACL_ANYONE) == 0)
 		rights->id_type = ACL_ID_ANYONE;
 	else if (strcmp(id, IMAP_ACL_AUTHENTICATED) == 0)
@@ -349,9 +360,8 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		identifier++;
 	}
 
-	if (imap_acl_identifier_parse(identifier, &update.rights) < 0) {
-		client_send_command_error(cmd,
-			t_strdup_printf("Invalid identifier: %s", identifier));
+	if (imap_acl_identifier_parse(identifier, &update.rights, &error) < 0) {
+		client_send_command_error(cmd, error);
 		return TRUE;
 	}
 	if (imap_acl_letters_parse(rights, &update.rights.rights, &error) < 0) {
@@ -396,7 +406,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 {
 	struct mailbox *box;
 	struct acl_rights_update update;
-	const char *mailbox, *identifier;
+	const char *mailbox, *identifier, *error;
 
 	if (!client_read_string_args(cmd, 2, &mailbox, &identifier) ||
 	    *identifier == '\0') {
@@ -412,9 +422,8 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 		identifier++;
 	}
 
-	if (imap_acl_identifier_parse(identifier, &update.rights) < 0) {
-		client_send_command_error(cmd,
-			t_strdup_printf("Invalid identifier: %s", identifier));
+	if (imap_acl_identifier_parse(identifier, &update.rights, &error) < 0) {
+		client_send_command_error(cmd, error);
 		return TRUE;
 	}
 
