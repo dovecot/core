@@ -74,10 +74,10 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 	/* not an administrator. */
 	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_LOOKUP) <= 0) {
 		client_send_tagline(cmd, t_strdup_printf(
-			"["IMAP_RESP_CODE_NONEXISTENT"] "
+			"NO ["IMAP_RESP_CODE_NONEXISTENT"] "
 			MAIL_ERRSTR_MAILBOX_NOT_FOUND, name));
 	} else {
-		client_send_tagline(cmd, ERROR_NOT_ADMIN);
+		client_send_tagline(cmd, "NO "ERROR_NOT_ADMIN);
 	}
 	mailbox_close(&box);
 	return NULL;
@@ -231,7 +231,8 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	if (storage == NULL)
 		return TRUE;
 
-	box = mailbox_open(storage, real_mailbox, NULL, ACL_MAILBOX_OPEN_FLAGS);
+	box = mailbox_open(storage, real_mailbox, NULL, ACL_MAILBOX_OPEN_FLAGS |
+			   MAIL_STORAGE_FLAG_IGNORE_ACLS);
 	if (box == NULL) {
 		client_send_storage_error(cmd, storage);
 		return TRUE;
@@ -240,6 +241,13 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
 				     pool_datastack_create(), &rights) < 0) {
 		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
+		mailbox_close(&box);
+		return TRUE;
+	}
+	if (*rights == NULL) {
+		client_send_tagline(cmd, t_strdup_printf(
+			"NO ["IMAP_RESP_CODE_NONEXISTENT"] "
+			MAIL_ERRSTR_MAILBOX_NOT_FOUND, real_mailbox));
 		mailbox_close(&box);
 		return TRUE;
 	}
