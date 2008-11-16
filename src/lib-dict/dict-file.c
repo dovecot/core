@@ -170,6 +170,7 @@ file_dict_iterate_init(struct dict *_dict, const char *path,
 	struct file_dict *dict = (struct file_dict *)_dict;
 
 	ctx = i_new(struct file_dict_iterate_context, 1);
+	ctx->ctx.dict = _dict;
 	ctx->path = i_strdup(path);
 	ctx->path_len = strlen(path);
 	ctx->flags = flags;
