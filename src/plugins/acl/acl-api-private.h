@@ -82,5 +82,6 @@ acl_backend_mask_get_names(struct acl_backend *backend,
 			   const struct acl_mask *mask, pool_t pool);
 int acl_backend_get_default_rights(struct acl_backend *backend,
 				   const struct acl_mask **mask_r);
+bool acl_rights_has_nonowner_lookup_changes(const struct acl_rights *rights);
 
 #endif

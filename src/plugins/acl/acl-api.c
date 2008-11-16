@@ -171,3 +171,22 @@ acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **_ctx)
 	*_ctx = NULL;
 	ctx->backend->v.nonowner_lookups_iter_deinit(ctx);
 }
+
+bool acl_rights_has_nonowner_lookup_changes(const struct acl_rights *rights)
+{
+	const char *const *p;
+
+	if (rights->id_type == ACL_ID_OWNER) {
+		/* ignore owner rights */
+		return FALSE;
+	}
+
+	if (rights->rights == NULL)
+		return FALSE;
+
+	for (p = rights->rights; *p != NULL; p++) {
+		if (strcmp(*p, MAIL_ACL_LOOKUP) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}

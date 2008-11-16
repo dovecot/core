@@ -1092,6 +1092,8 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 				const struct acl_rights_update *update)
 {
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
+	struct acl_backend_vfile *backend =
+		(struct acl_backend_vfile *)_aclobj->backend;
 	const struct acl_rights *rights;
 	struct dotlock *dotlock;
 	const char *path;
@@ -1115,20 +1117,25 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 	if (!changed) {
 		file_dotlock_delete(&dotlock);
 		return 0;
-	} else {
-		path = file_dotlock_get_lock_path(dotlock);
-		if (acl_backend_vfile_update_write(aclobj, fd, path) < 0) {
-			file_dotlock_delete(&dotlock);
-			acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-			return -1;
-		}
-		acl_backend_vfile_update_cache(_aclobj, fd);
-		if (file_dotlock_replace(&dotlock, 0) < 0) {
-			acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-			return -1;
-		}
-		return 0;
 	}
+
+	/* ACLs were really changed, write the new ones */
+	path = file_dotlock_get_lock_path(dotlock);
+	if (acl_backend_vfile_update_write(aclobj, fd, path) < 0) {
+		file_dotlock_delete(&dotlock);
+		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
+		return -1;
+	}
+	acl_backend_vfile_update_cache(_aclobj, fd);
+	if (file_dotlock_replace(&dotlock, 0) < 0) {
+		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
+		return -1;
+	}
+	/* make sure dovecot-acl-list gets updated if we added any
+	   lookup rights. */
+	if (acl_rights_has_nonowner_lookup_changes(&update->rights))
+		(void)acl_backend_vfile_acllist_rebuild(backend);
+	return 0;
 }
 
 static struct acl_object_list_iter *

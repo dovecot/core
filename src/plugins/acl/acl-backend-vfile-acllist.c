@@ -125,25 +125,6 @@ void acl_backend_vfile_acllist_refresh(struct acl_backend_vfile *backend)
 	}
 }
 
-static bool rights_has_lookup_changes(const struct acl_rights *rights)
-{
-	const char *const *p;
-
-	if (rights->id_type == ACL_ID_OWNER) {
-		/* ignore owner rights */
-		return FALSE;
-	}
-
-	if (rights->rights == NULL)
-		return FALSE;
-
-	for (p = rights->rights; *p != NULL; p++) {
-		if (strcmp(*p, MAIL_ACL_LOOKUP) == 0)
-			return TRUE;
-	}
-	return FALSE;
-}
-
 static int
 acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 	       struct mail_storage *storage, const char *name)
@@ -159,7 +140,7 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 
 	iter = acl_object_list_init(aclobj);
 	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
-		if (rights_has_lookup_changes(&rights))
+		if (acl_rights_has_nonowner_lookup_changes(&rights))
 			break;
 	}
 	acl_object_list_deinit(&iter);
