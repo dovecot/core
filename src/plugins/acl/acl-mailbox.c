@@ -354,15 +354,17 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 	abox->aclobj = acl_object_init_from_name(astorage->rights.backend,
 						 box->storage,
 						 mailbox_get_name(box));
-	
-	box->v.is_readonly = acl_is_readonly;
-	box->v.allow_new_keywords = acl_allow_new_keywords;
-	box->v.close = acl_mailbox_close;
-	box->v.mail_alloc = acl_mail_alloc;
-	box->v.save_begin = acl_save_begin;
-	box->v.keywords_create = acl_keywords_create;
-	box->v.copy = acl_copy;
-	box->v.transaction_commit = acl_transaction_commit;
+
+	if ((box->open_flags & MAILBOX_OPEN_IGNORE_ACLS) == 0) {
+		box->v.is_readonly = acl_is_readonly;
+		box->v.allow_new_keywords = acl_allow_new_keywords;
+		box->v.close = acl_mailbox_close;
+		box->v.mail_alloc = acl_mail_alloc;
+		box->v.save_begin = acl_save_begin;
+		box->v.keywords_create = acl_keywords_create;
+		box->v.copy = acl_copy;
+		box->v.transaction_commit = acl_transaction_commit;
+	}
 	MODULE_CONTEXT_SET(box, acl_storage_module, abox);
 	return box;
 }

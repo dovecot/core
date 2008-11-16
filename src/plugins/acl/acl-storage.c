@@ -131,8 +131,6 @@ acl_mailbox_open(struct mail_storage *storage, const char *name,
 	if (box == NULL)
 		return NULL;
 
-	if ((flags & MAILBOX_OPEN_IGNORE_ACLS) != 0)
-		return box;
 	return acl_mailbox_open_box(box);
 }
 
