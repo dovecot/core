@@ -252,6 +252,7 @@ shared_list_rename_mailbox_pre(struct mailbox_list *list,
 struct mailbox_list shared_mailbox_list = {
 	MEMBER(name) "shared",
 	MEMBER(hierarchy_sep) '/',
+	MEMBER(props) 0,
 	MEMBER(mailbox_name_max_length) PATH_MAX,
 
 	{
