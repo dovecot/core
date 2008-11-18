@@ -10,7 +10,7 @@ struct mail_user;
 /* Message storage size bytes. This is used only internally. */
 #define QUOTA_NAME_STORAGE_BYTES "STORAGE_BYTES"
 /* Number of messages. */
-#define QUOTA_NAME_MESSAGES "MESSAGES"
+#define QUOTA_NAME_MESSAGES "MESSAGE"
 
 struct quota;
 struct quota_root;
