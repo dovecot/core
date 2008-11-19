@@ -492,7 +492,12 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 {
-	return ctx->list->v.iter_next(ctx);
+	const struct mailbox_info *info;
+
+	info = ctx->list->v.iter_next(ctx);
+	if (info != NULL)
+		ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
+	return info;
 }
 
 int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)

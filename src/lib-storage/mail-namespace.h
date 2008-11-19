@@ -22,7 +22,10 @@ enum namespace_flags {
 	/* Namespace is created for internal use only. */
 	NAMESPACE_FLAG_INTERNAL		= 0x1000,
 	/* Namespace was created automatically (for shared mailboxes) */
-	NAMESPACE_FLAG_AUTOCREATED	= 0x2000
+	NAMESPACE_FLAG_AUTOCREATED	= 0x2000,
+	/* Namespace has at least some usable mailboxes. Autocreated namespaces
+	   that don't have usable mailboxes may be removed automatically. */
+	NAMESPACE_FLAG_USABLE		= 0x4000
 };
 
 struct mail_namespace {
