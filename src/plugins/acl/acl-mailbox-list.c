@@ -29,6 +29,10 @@ struct acl_mailbox_list_iterate_context {
 
 	struct mailbox_tree_context *lookup_boxes;
 	struct mailbox_info info;
+
+	struct imap_match_glob *glob;
+	char sep;
+	unsigned int simple_star_glob:1;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(acl_mailbox_list_module,
@@ -57,8 +61,7 @@ acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 }
 
 static void
-acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
-			  const char *const *patterns)
+acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ctx->ctx.list);
 	struct acl_backend *backend = alist->rights.backend;
@@ -68,8 +71,7 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 	struct mailbox_list_iter_update_context update_ctx;
 	const char *name;
-	string_t *vname;
-	char sep;
+	string_t *vname = NULL;
 	int ret;
 
 	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_RAW_LIST |
@@ -84,20 +86,14 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 		return;
 
 	/* no LOOKUP right by default, we can optimize this */
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
-		sep = ns->sep;
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0)
 		vname = t_str_new(256);
-	} else {
-		sep = ns->real_sep;
-		vname = NULL;
-	}
 
 	memset(&update_ctx, 0, sizeof(update_ctx));
 	update_ctx.iter_ctx = &ctx->ctx;
-	update_ctx.glob = imap_match_init_multiple(pool_datastack_create(),
-						   patterns, TRUE, sep);
+	update_ctx.glob = ctx->glob;
 	update_ctx.match_parents = TRUE;
-	update_ctx.tree_ctx = mailbox_tree_init(sep);
+	update_ctx.tree_ctx = mailbox_tree_init(ctx->sep);
 
 	nonowner_list_ctx = acl_backend_nonowner_lookups_iter_init(backend);
 	while ((ret = acl_backend_nonowner_lookups_iter_next(nonowner_list_ctx,
@@ -121,10 +117,29 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 	struct acl_mailbox_list_iterate_context *ctx;
+	const char *p;
+	unsigned int i;
+	bool inboxcase;
 
 	ctx = i_new(struct acl_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
+
+	inboxcase = (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0;
+	ctx->sep = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
+		list->ns->sep : list->ns->real_sep;
+	ctx->glob = imap_match_init_multiple(default_pool, patterns,
+					     inboxcase, ctx->sep);
+	/* see if all patterns have only a single '*' and it's at the end.
+	   we can use it to do some optimizations. */
+	ctx->simple_star_glob = TRUE;
+	for (i = 0; patterns[i] != NULL; i++) {
+		p = strchr(patterns[i], '*');
+		if (p == NULL || p[1] != '\0') {
+			ctx->simple_star_glob = FALSE;
+			break;
+		}
+	}
 
 	if (list->ns->type == NAMESPACE_SHARED &&
 	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
@@ -138,7 +153,7 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 	   list of mailboxes that have even potential to be visible. If we
 	   couldn't get such a list, we'll go through all mailboxes. */
 	T_BEGIN {
-		acl_mailbox_try_list_fast(ctx, patterns);
+		acl_mailbox_try_list_fast(ctx);
 	} T_END;
 	ctx->super_ctx = alist->module_ctx.super.
 		iter_init(list, patterns, flags);
@@ -180,9 +195,63 @@ acl_mailbox_list_iter_get_name(struct mailbox_list_iterate_context *ctx,
 	return mail_namespace_fix_sep(ns, name);
 }
 
+static bool
+iter_is_listing_all_children(struct acl_mailbox_list_iterate_context *ctx)
+{
+	const char *child;
+
+	/* If all patterns (with '.' separator) are in "name*", "name.*" or
+	   "%.*" style format, simple_star_glob=TRUE and we can easily test
+	   this by simply checking if name/child mailbox matches. */
+	child = t_strdup_printf("%s%cx", ctx->info.name, ctx->sep);
+	return ctx->simple_star_glob &&
+		imap_match(ctx->glob, child) == IMAP_MATCH_YES;
+}
+
+static bool
+iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx)
+{
+	struct mailbox_list_iterate_context *iter;
+	const struct mailbox_info *info;
+	enum mailbox_list_iter_flags flags;
+	const char *pattern;
+	bool ret = FALSE;
+
+	/* do we have child mailboxes with LOOKUP right that don't match
+	   the list pattern? */
+	if (ctx->lookup_boxes != NULL) {
+		/* we have a list of mailboxes with LOOKUP rights. before
+		   starting the slow list iteration, check check first
+		   if there even are any children with LOOKUP rights. */
+		struct mailbox_node *node;
+
+		node = mailbox_tree_lookup(ctx->lookup_boxes, ctx->info.name);
+		i_assert(node != NULL);
+		if (node->children == NULL)
+			return FALSE;
+	}
+
+	pattern = t_strdup_printf("%s%c*", ctx->info.name, ctx->sep);
+	flags = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) |
+		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
+	iter = mailbox_list_iter_init(ctx->ctx.list, pattern, flags);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		if (imap_match(ctx->glob, info->name) == IMAP_MATCH_YES) {
+			/* at least one child matches also the original list
+			   patterns. we don't need to show this mailbox. */
+			ret = FALSE;
+			break;
+		}
+		ret = TRUE;
+	}
+	(void)mailbox_list_iter_deinit(&iter);
+	return ret;
+}
+
 static int
 acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx)
 {
+#define PRESERVE_MAILBOX_FLAGS (MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED)
 	struct mailbox_info *info = &ctx->info;
 	const char *acl_name;
 	int ret;
@@ -200,9 +269,23 @@ acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx)
 		return ret;
 
 	/* no permission to see this mailbox */
-	if ((info->flags & MAILBOX_SUBSCRIBED) != 0) {
-		/* it's subscribed, show it as non-existent */
-		info->flags = MAILBOX_NONEXISTENT | MAILBOX_SUBSCRIBED;
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+		/* we're listing subscribed mailboxes. this one or its child
+		   is subscribed, so we'll need to list it. but since we don't
+		   have LOOKUP right, we'll need to show it as nonexistent. */
+		i_assert((info->flags & PRESERVE_MAILBOX_FLAGS) != 0);
+		info->flags = MAILBOX_NONEXISTENT |
+			(info->flags & PRESERVE_MAILBOX_FLAGS);
+		return 1;
+	}
+
+	if (!iter_is_listing_all_children(ctx) &&
+	    iter_mailbox_has_visible_children(ctx)) {
+		/* no child mailboxes match the list pattern(s), but mailbox
+		   has visible children. we'll need to show this as
+		   non-existent. */
+		info->flags = MAILBOX_NONEXISTENT |
+			(info->flags & PRESERVE_MAILBOX_FLAGS);
 		return 1;
 	}
 	return 0;
@@ -233,27 +316,6 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 }
 
 static int
-acl_mailbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
-				 const char *dir, const char *fname,
-				 const char *mailbox_name,
-				 enum mailbox_list_file_type type,
-				 enum mailbox_info_flags *flags_r)
-{
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ctx->list);
-	int ret;
-
-	ret = alist->module_ctx.super.iter_is_mailbox(ctx, dir, fname,
-						      mailbox_name,
-						      type, flags_r);
-	if (ret <= 0 || (ctx->flags & MAILBOX_LIST_ITER_RAW_LIST) != 0)
-		return ret;
-
-	mailbox_name = acl_mailbox_list_iter_get_name(ctx, mailbox_name);
-	return acl_mailbox_list_have_right(ctx->list, mailbox_name,
-					   ACL_STORAGE_RIGHT_LOOKUP, NULL);
-}
-
-static int
 acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 {
 	struct acl_mailbox_list_iterate_context *ctx =
@@ -265,7 +327,8 @@ acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		ret = -1;
 	if (ctx->lookup_boxes != NULL)
 		mailbox_tree_deinit(&ctx->lookup_boxes);
-
+	if (ctx->glob != NULL)
+		imap_match_deinit(&ctx->glob);
 	i_free(ctx);
 	return ret;
 }
@@ -442,7 +505,6 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	list->v.iter_init = acl_mailbox_list_iter_init;
 	list->v.iter_next = acl_mailbox_list_iter_next;
 	list->v.iter_deinit = acl_mailbox_list_iter_deinit;
-	list->v.iter_is_mailbox = acl_mailbox_list_iter_is_mailbox;
 	list->v.get_mailbox_name_status = acl_get_mailbox_name_status;
 	list->v.delete_mailbox = acl_mailbox_list_delete;
 	list->v.rename_mailbox = acl_mailbox_list_rename;
