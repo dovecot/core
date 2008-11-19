@@ -25,6 +25,8 @@ acl_shared_namespace_add(struct mail_user *user,
 	};
 	struct var_expand_table *tab;
 	struct mail_namespace *ns;
+	struct mailbox_list_iterate_context *iter;
+	const struct mailbox_info *info;
 	const char *p, *mailbox;
 	string_t *str;
 
@@ -45,6 +47,18 @@ acl_shared_namespace_add(struct mail_user *user,
 	var_expand(str, sstorage->ns_prefix_pattern, tab);
 	mailbox = str_c(str);
 	shared_storage_get_namespace(&sstorage->storage, &mailbox, &ns);
+
+	/* check if there are any mailboxes really visible to us */
+	iter = mailbox_list_iter_init(ns->list, "*",
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL)
+		break;
+	(void)mailbox_list_iter_deinit(&iter);
+
+	if (info == NULL) {
+		/* no visible mailboxes, remove the namespace */
+		mail_namespace_destroy(ns);
+	}
 }
 
 int acl_shared_namespaces_add(struct mail_namespace *ns)
