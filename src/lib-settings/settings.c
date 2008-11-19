@@ -9,7 +9,15 @@
 #include <stdio.h>
 #include <fcntl.h>
 
-#define SECTION_ERRORMSG "%s (section changed at line %d)"
+#define SECTION_ERRORMSG "%s (section changed in %s at line %d)"
+
+struct input_stack {
+	struct input_stack *prev;
+
+	struct istream *input;
+	const char *path;
+	unsigned int linenum;
+};
 
 settings_section_callback_t *null_settings_section_callback = NULL;
 
@@ -69,12 +77,13 @@ settings_read_real(const char *path, const char *section,
 		   settings_callback_t *callback,
 		   settings_section_callback_t *sect_callback, void *context)
 {
-	struct istream *input;
-	const char *errormsg, *next_section, *name;
+	/* pretty horrible code, but v2.0 will have this rewritten anyway.. */
+	struct input_stack root, *input, *new_input;
+	const char *errormsg, *next_section, *name, *last_section_path = NULL;
 	char *line, *key, *p, quote;
 	string_t *full_line;
 	size_t len;
-	int fd, linenum, last_section_line = 0, skip, sections, root_section;
+	int fd, last_section_line = 0, skip, sections, root_section;
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
@@ -90,12 +99,18 @@ settings_read_real(const char *path, const char *section,
 		next_section = t_strcut(section, '/');
 	}
 
+	memset(&root, 0, sizeof(root));
+	root.path = path;
+	input = &root;
+
 	full_line = t_str_new(512);
-	linenum = 0; sections = 0; root_section = 0; errormsg = NULL;
-	input = i_stream_create_fd(fd, 2048, TRUE);
-	i_stream_set_return_partial_line(input, TRUE);
-	while ((line = i_stream_read_next_line(input)) != NULL) {
-		linenum++;
+	sections = 0; root_section = 0; errormsg = NULL;
+newfile:
+	input->input = i_stream_create_fd(fd, 2048, TRUE);
+	i_stream_set_return_partial_line(input->input, TRUE);
+prevfile:
+	while ((line = i_stream_read_next_line(input->input)) != NULL) {
+		input->linenum++;
 
 		/* @UNSAFE: line is modified */
 
@@ -151,7 +166,30 @@ settings_read_real(const char *path, const char *section,
 			while (IS_WHITE(*line)) line++;
 		}
 
-		if (*line == '=') {
+		if (strcmp(key, "!include_try") == 0 ||
+		    strcmp(key, "!include") == 0) {
+			struct input_stack *tmp;
+
+			for (tmp = input; tmp != NULL; tmp = tmp->prev) {
+				if (strcmp(tmp->path, line) == 0)
+					break;
+			}
+			if (tmp != NULL) {
+				errormsg = "Recursive include";
+			} else if ((fd = open(line, O_RDONLY)) != -1) {
+				new_input = t_new(struct input_stack, 1);
+				new_input->prev = input;
+				new_input->path = t_strdup(line);
+				input = new_input;
+				goto newfile;
+			} else {
+				/* failed, but ignore failures with include_try. */
+				if (strcmp(key, "!include") == 0) {
+					errormsg = t_strdup_printf(
+						"Couldn't open include file %s: %m", line);
+				}
+			}
+		} else if (*line == '=') {
 			/* a) */
 			*line++ = '\0';
 			while (IS_WHITE(*line)) line++;
@@ -215,10 +253,12 @@ settings_read_real(const char *path, const char *section,
 						errormsg = t_strdup_printf(
 							SECTION_ERRORMSG,
 							errormsg,
+							last_section_path,
 							last_section_line);
 					}
 				}
-				last_section_line = linenum;
+				last_section_path = input->path;
+				last_section_line = input->linenum;
 			}
 		} else {
 			/* c) */
@@ -237,20 +277,25 @@ settings_read_real(const char *path, const char *section,
 						break;
 					}
 				}
-				last_section_line = linenum;
+				last_section_path = input->path;
+				last_section_line = input->linenum;
 				sections--;
 			}
 		}
 
 		if (errormsg != NULL) {
 			i_error("Error in configuration file %s line %d: %s",
-				path, linenum, errormsg);
+				input->path, input->linenum, errormsg);
 			break;
 		}
 		str_truncate(full_line, 0);
 	}
 
-	i_stream_destroy(&input);
+	i_stream_destroy(&input->input);
+	input = input->prev;
+	if (line == NULL && input != NULL)
+		goto prevfile;
+
 	return errormsg == NULL;
 }
 
