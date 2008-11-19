@@ -217,8 +217,10 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx)
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
 	enum mailbox_list_iter_flags flags;
-	const char *pattern;
-	bool ret = FALSE;
+	string_t *pattern;
+	const char *prefix;
+	unsigned int i, prefix_len;
+	bool stars = FALSE, ret = FALSE;
 
 	/* do we have child mailboxes with LOOKUP right that don't match
 	   the list pattern? */
@@ -234,10 +236,26 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx)
 			return FALSE;
 	}
 
-	pattern = t_strdup_printf("%s%c*", ctx->info.name, ctx->sep);
+	/* if mailbox name has '*' characters in it, they'll conflict with the
+	   LIST wildcard. replace then with '%' and verify later that all
+	   results have the correct prefix. */
+	pattern = t_str_new(128);
+	for (i = 0; ctx->info.name[i] != '\0'; i++) {
+		if (ctx->info.name[i] != '*')
+			str_append_c(pattern, ctx->info.name[i]);
+		else {
+			stars = TRUE;
+			str_append_c(pattern, '%');
+		}
+	}
+	str_append_c(pattern, ctx->sep);
+	str_append_c(pattern, '*');
+	prefix = str_c(pattern);
+	prefix_len = str_len(pattern) - 1;
+
 	flags = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	iter = mailbox_list_iter_init(ctx->ctx.list, pattern, flags);
+	iter = mailbox_list_iter_init(ctx->ctx.list, str_c(pattern), flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (imap_match(ctx->glob, info->name) == IMAP_MATCH_YES) {
 			/* at least one child matches also the original list
@@ -245,7 +263,8 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx)
 			ret = FALSE;
 			break;
 		}
-		ret = TRUE;
+		if (!stars || strncmp(info->name, prefix, prefix_len) == 0)
+			ret = TRUE;
 	}
 	(void)mailbox_list_iter_deinit(&iter);
 	return ret;
