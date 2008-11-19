@@ -382,20 +382,6 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		identifier++;
 	}
 
-	if (imap_acl_identifier_parse(identifier, &update.rights,
-				      TRUE, &error) < 0) {
-		client_send_command_error(cmd, error);
-		return TRUE;
-	}
-	if (imap_acl_letters_parse(rights, &update.rights.rights, &error) < 0) {
-		client_send_command_error(cmd, error);
-		return TRUE;
-	}
-
-	box = acl_mailbox_open_as_admin(cmd, mailbox);
-	if (box == NULL)
-		return TRUE;
-
 	switch (*rights) {
 	case '-':
 		update.modify_mode = ACL_MODIFY_MODE_REMOVE;
@@ -409,6 +395,20 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		update.modify_mode = ACL_MODIFY_MODE_REPLACE;
 		break;
 	}
+
+	if (imap_acl_identifier_parse(identifier, &update.rights,
+				      TRUE, &error) < 0) {
+		client_send_command_error(cmd, error);
+		return TRUE;
+	}
+	if (imap_acl_letters_parse(rights, &update.rights.rights, &error) < 0) {
+		client_send_command_error(cmd, error);
+		return TRUE;
+	}
+
+	box = acl_mailbox_open_as_admin(cmd, mailbox);
+	if (box == NULL)
+		return TRUE;
 
 	if (negative) {
 		update.neg_modify_mode = update.modify_mode;
