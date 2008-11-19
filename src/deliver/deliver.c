@@ -368,6 +368,13 @@ static void config_file_init(const char *path)
 			len--;
 		line[len] = '\0';
 
+		if (strncmp(line, "!include_try ", 13) == 0)
+			continue;
+		if (strncmp(line, "!include ", 9) == 0) {
+			i_fatal_status(EX_CONFIG, "Error in config file %s: "
+				       "deliver doesn't support !include directive", path);
+		}
+
 		value = p = strchr(line, '=');
 		if (value == NULL) {
 			if (strchr(line, '{') != NULL) {
