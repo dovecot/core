@@ -470,7 +470,9 @@ void auth_request_verify_plain(struct auth_request *request,
                 /* no masterdbs, master logins not supported */
                 i_assert(request->requested_login_user != NULL);
 		auth_request_log_info(request, "passdb",
-			"Attempted master login with no master passdbs");
+			"Attempted master login with no master passdbs "
+			"(trying to log in as user: %s)",
+			request->requested_login_user);
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
