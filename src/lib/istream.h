@@ -56,6 +56,9 @@ void i_stream_sync(struct istream *stream);
 /* Change the maximum size for stream's input buffer to grow. Useful only
    for buffered streams (currently only file). */
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size);
+/* Enable/disable i_stream[_read]_next_line() returning the last line if it
+   doesn't end with LF. */
+void i_stream_set_return_partial_line(struct istream *stream, bool set);
 
 /* Returns number of bytes read if read was ok, -1 if EOF or error, -2 if the
    input buffer is full. */
@@ -83,8 +86,8 @@ const struct stat *i_stream_stat(struct istream *stream, bool exact);
 bool i_stream_have_bytes_left(const struct istream *stream) ATTR_PURE;
 
 /* Gets the next line from stream and returns it, or NULL if more data is
-   needed to make a full line. Note that if the stream ends with LF not being
-   the last character, this function doesn't return the last line. */
+   needed to make a full line. i_stream_set_return_partial_line() specifies
+   if the last line should be returned if it doesn't end with LF. */
 char *i_stream_next_line(struct istream *stream);
 /* Like i_stream_next_line(), but reads for more data if needed. Returns NULL
    if more data is needed or error occurred. */

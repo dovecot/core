@@ -34,6 +34,7 @@ struct istream_private {
 	uoff_t parent_start_offset;
 
 	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
+	unsigned int return_nolf_line:1;
 };
 
 struct istream *

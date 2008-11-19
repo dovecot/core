@@ -59,6 +59,11 @@ void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
 	io_stream_set_max_buffer_size(&stream->real_stream->iostream, max_size);
 }
 
+void i_stream_set_return_partial_line(struct istream *stream, bool set)
+{
+	stream->real_stream->return_nolf_line = set;
+}
+
 ssize_t i_stream_read(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
@@ -213,10 +218,21 @@ static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 		ret = str_c_modifiable(stream->line_str);
 	}
 
-	i++;
+	if (i < stream->pos)
+		i++;
 	stream->istream.v_offset += i - stream->skip;
 	stream->skip = i;
 	return ret;
+}
+
+static char *i_stream_last_line(struct istream_private *_stream)
+{
+	if (_stream->istream.eof && _stream->skip != _stream->pos &&
+	    _stream->return_nolf_line) {
+		/* the last line is missing LF and we want to return it. */
+		return i_stream_next_line_finish(_stream, _stream->pos);
+	}
+	return NULL;
 }
 
 char *i_stream_next_line(struct istream *stream)
@@ -244,7 +260,8 @@ char *i_stream_next_line(struct istream *stream)
                         break;
 		}
 	}
-
+	if (ret_buf == NULL)
+		return i_stream_last_line(_stream);
         return ret_buf;
 }
 
@@ -258,7 +275,7 @@ char *i_stream_read_next_line(struct istream *stream)
 			break;
 
 		if (i_stream_read(stream) <= 0)
-			return NULL;
+			return i_stream_last_line(stream->real_stream);
 	}
 	return line;
 }
