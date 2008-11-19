@@ -220,6 +220,9 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
 	unsigned int i, dest, count;
 	int ret = 0;
 
+	if (acl_dict == NULL)
+		return 0;
+
 	/* get all ACL identifiers with a positive lookup right */
 	t_array_init(&ids_arr, 128);
 	for (ns = dict->user->namespaces; ns != NULL; ns = ns->next) {
@@ -292,7 +295,8 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 
 	/* iterate through all identifiers that match us, start with the
 	   first one */
-	acl_lookup_dict_iterate_start(iter);
+	if (acl_dict != NULL)
+		acl_lookup_dict_iterate_start(iter);
 	return iter;
 }
 
@@ -301,6 +305,9 @@ acl_lookup_dict_iterate_visible_next(struct acl_lookup_dict_iter *iter)
 {
 	const char *key, *value;
 	int ret;
+
+	if (iter->dict_iter == NULL)
+		return 0;
 
 	ret = dict_iterate(iter->dict_iter, &key, &value);
 	if (ret > 0) {
