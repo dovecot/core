@@ -496,6 +496,7 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 		i_info("acl vfile: reading file %s", path);
 
 	input = i_stream_create_fd(fd, 4096, FALSE);
+	i_stream_set_return_partial_line(input, TRUE);
 	linenum = 1;
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		T_BEGIN {

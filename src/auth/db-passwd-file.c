@@ -183,6 +183,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 				str_hash, (hash_cmp_callback_t *)strcmp);
 
 	input = i_stream_create_fd(pw->fd, 4096, FALSE);
+	i_stream_set_return_partial_line(input, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (*line == '\0' || *line == ':' || *line == '#')
 			continue; /* no username or comment */

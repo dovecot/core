@@ -334,6 +334,7 @@ static void config_file_init(const char *path)
 		i_fatal_status(EX_CONFIG, "open(%s) failed: %m", path);
 
 	input = i_stream_create_fd(fd, 1024, TRUE);
+	i_stream_set_return_partial_line(input, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		/* @UNSAFE: line is modified */
 

@@ -271,6 +271,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	ctx.pool = mbox->ibox.box.pool;
 	ctx.rule = t_str_new(256);
 	ctx.input = i_stream_create_fd(fd, (size_t)-1, FALSE);
+	i_stream_set_return_partial_line(ctx.input, TRUE);
 	while ((line = i_stream_read_next_line(ctx.input)) != NULL) {
 		linenum++;
 		if (*line == '#')
