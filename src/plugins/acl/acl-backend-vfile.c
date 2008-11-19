@@ -337,9 +337,12 @@ acl_parse_rights(pool_t pool, const char *acl, const char **error_r)
 
 	if (*acl != '\0') {
 		/* parse our own extended ACLs */
-		i_assert(*acl == ':');
+		if (*acl != ':') {
+			*error_r = "Missing ':' prefix in ACL extensions";
+			return NULL;
+		}
 
-		names = t_strsplit_spaces(acl, ", ");
+		names = t_strsplit_spaces(acl + 1, ", ");
 		for (; *names != NULL; names++) {
 			const char *name = p_strdup(pool, *names);
 			array_append(&rights, &name, 1);
@@ -373,9 +376,9 @@ acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, bool global,
 	rights.global = global;
 
 	right_names = acl_parse_rights(aclobj->rights_pool, p, &error);
-	if (*line != '-') {
+	if (*line != '-')
 		rights.rights = right_names;
-	} else {
+	else {
 		line++;
 		rights.neg_rights = right_names;
 	}
@@ -988,8 +991,12 @@ static void vfile_write_rights_list(string_t *dest, const char *const *rights)
 		if (acl_letter_map[j].name == NULL) {
 			/* fallback to full name */
 			str_append_c(dest, ' ');
-			str_append(dest, rights[j]);
+			str_append(dest, rights[i]);
 		}
+	}
+	if (pos + 1 < str_len(dest)) {
+		c2[0] = ':';
+		str_insert(dest, pos + 1, c2);
 	}
 }
 
