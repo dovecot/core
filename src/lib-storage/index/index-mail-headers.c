@@ -650,30 +650,60 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 	return 0;
 }
 
+static const char *unfold_header(pool_t pool, const char *str)
+{
+	char *new_str;
+	unsigned int i, j;
+
+	for (i = 0; str[i] != '\0'; i++) {
+		if (str[i] == '\n')
+			break;
+	}
+	if (str[i] == '\0')
+		return str;
+
+	/* @UNSAFE */
+	new_str = p_malloc(pool, i + strlen(str+i) + 1);
+	memcpy(new_str, str, i);
+	for (j = i; str[i] != '\0'; i++) {
+		if (str[i] == '\n') {
+			new_str[j++] = ' ';
+			i++;
+			if (str[i] == '\0')
+				break;
+			i_assert(str[i] == ' ' || str[i] == '\t');
+		} else {
+			new_str[j++] = str[i];
+		}
+	}
+	new_str[j] = '\0';
+	return new_str;
+}
+
 static const char *const *
 index_mail_headers_decode(struct index_mail *mail, const char *const *list,
 			  unsigned int max_count)
 {
-	const char **decoded_list;
+	const char **decoded_list, *input;
 	unsigned int i, count;
-	buffer_t *buf;
+	string_t *str;
 
 	count = str_array_length(list);
 	if (count > max_count)
 		count = max_count;
 	decoded_list = p_new(mail->data_pool, const char *, count + 1);
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 512);
-
+	str = t_str_new(512);
 	for (i = 0; i < count; i++) {
-		buffer_set_used_size(buf, 0);
-		if (!message_header_decode_utf8((const unsigned char *)list[i],
-						strlen(list[i]), buf, FALSE))
-			decoded_list[i] = list[i];
-		else {
-			decoded_list[i] = p_strndup(mail->data_pool,
-						    buf->data, buf->used);
-		}
+		str_truncate(str, 0);
+		input = list[i];
+		if (message_header_decode_utf8((const unsigned char *)input,
+					       strlen(list[i]), str, FALSE))
+			input = str_c(str);
+		input = unfold_header(mail->data_pool, input);
+		if (input == str->data)
+			input = p_strdup(mail->data_pool, input);
+		decoded_list[i] = input;
 	}
 	return decoded_list;
 }

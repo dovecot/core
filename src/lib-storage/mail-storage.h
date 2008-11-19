@@ -554,13 +554,15 @@ int mail_get_physical_size(struct mail *mail, uoff_t *size_r);
    Returns 1 if header was found, 0 if not, -1 if error. */
 int mail_get_first_header(struct mail *mail, const char *field,
 			  const char **value_r);
-/* Like mail_get_first_header(), but decode MIME encoded words to UTF-8 */
+/* Like mail_get_first_header(), but decode MIME encoded words to UTF-8.
+   Also multiline headers are returned unfolded. */
 int mail_get_first_header_utf8(struct mail *mail, const char *field,
 			       const char **value_r);
 /* Return a NULL-terminated list of values for each found field. */
 int mail_get_headers(struct mail *mail, const char *field,
 		     const char *const **value_r);
-/* Like mail_get_headers(), but decode MIME encoded words to UTF-8 */
+/* Like mail_get_headers(), but decode MIME encoded words to UTF-8.
+   Also multiline headers are returned unfolded. */
 int mail_get_headers_utf8(struct mail *mail, const char *field,
 			  const char *const **value_r);
 /* Returns stream containing specified headers. */
