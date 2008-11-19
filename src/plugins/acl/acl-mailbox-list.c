@@ -91,7 +91,10 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 
 	memset(&update_ctx, 0, sizeof(update_ctx));
 	update_ctx.iter_ctx = &ctx->ctx;
-	update_ctx.glob = ctx->glob;
+	update_ctx.glob =
+		imap_match_init(pool_datastack_create(), "*",
+				(ns->flags & NAMESPACE_FLAG_INBOX) != 0,
+				ctx->sep);
 	update_ctx.match_parents = TRUE;
 	update_ctx.tree_ctx = mailbox_tree_init(ctx->sep);
 
