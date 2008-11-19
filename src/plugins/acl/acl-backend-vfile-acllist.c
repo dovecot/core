@@ -21,14 +21,12 @@
 struct acl_mailbox_list_context_vfile {
 	struct acl_mailbox_list_context ctx;
 
-	unsigned int acllist_change_counter;
 	unsigned int idx;
 };
 
 static void
 acllist_clear(struct acl_backend_vfile *backend, uoff_t file_size)
 {
-	backend->acllist_change_counter++;
 	if (backend->acllist_pool == NULL) {
 		backend->acllist_pool =
 			pool_alloconly_create("vfile acllist",
@@ -294,7 +292,6 @@ acl_backend_vfile_nonowner_iter_init(struct acl_backend *_backend)
 
 	ctx = i_new(struct acl_mailbox_list_context_vfile, 1);
 	ctx->ctx.backend = _backend;
-	ctx->acllist_change_counter = backend->acllist_change_counter;
 	return &ctx->ctx;
 }
 
@@ -307,9 +304,6 @@ int acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *_ctx,
 		(struct acl_backend_vfile *)_ctx->backend;
 	const struct acl_backend_vfile_acllist *acllist;
 	unsigned int count;
-
-	if (ctx->acllist_change_counter != backend->acllist_change_counter)
-		return -1;
 
 	acllist = array_get(&backend->acllist, &count);
 	if (ctx->idx == count)
