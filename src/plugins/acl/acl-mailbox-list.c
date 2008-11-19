@@ -94,7 +94,7 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 	update_ctx.iter_ctx = &ctx->ctx;
 	update_ctx.glob =
 		imap_match_init_multiple(pool_datastack_create(), patterns,
-					 TRUE, sep);;
+					 TRUE, sep);
 	update_ctx.match_parents = TRUE;
 
 	for (try = 0; try < 2; try++) {

@@ -250,7 +250,7 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 	}
 
 	node->key = key;
-	node->value = value;;
+	node->value = value;
 
 	table->nodes_count++;
 	return node;

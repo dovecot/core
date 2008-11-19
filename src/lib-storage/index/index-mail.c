@@ -1261,7 +1261,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		if (mail_cache_field_exists(cache_view, seq,
 					    cache_field) <= 0) {
 			data->access_part |= PARSE_HDR;
-			data->save_sent_date = TRUE;;
+			data->save_sent_date = TRUE;
 		}
 	}
 
