@@ -485,6 +485,9 @@ void imap_acl_plugin_init(void)
 
 void imap_acl_plugin_deinit(void)
 {
+	if (getenv("ACL") == NULL)
+		return;
+
 	command_unregister("GETACL");
 	command_unregister("MYRIGHTS");
 	command_unregister("SETACL");
