@@ -27,7 +27,7 @@ struct acl_mailbox_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 	struct mailbox_list_iterate_context *super_ctx;
 
-	struct mailbox_tree_context *tree;
+	struct mailbox_tree_context *lookup_boxes;
 	struct mailbox_info info;
 };
 
@@ -62,8 +62,7 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ctx->ctx.list);
 	struct acl_backend *backend = alist->rights.backend;
-	const unsigned int *idxp =
-		alist->rights.acl_storage_right_idx + ACL_STORAGE_RIGHT_LOOKUP;
+	const unsigned int *idxp;
 	const struct acl_mask *acl_mask;
 	struct acl_mailbox_list_context *nonowner_list_ctx;
 	struct mail_namespace *ns = ctx->ctx.list->ns;
@@ -71,17 +70,20 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 	const char *name;
 	string_t *vname;
 	char sep;
-	int try, ret;
+	int ret;
 
 	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_RAW_LIST |
 			       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0)
 		return;
 
+	/* if this namespace's default rights contain LOOKUP, we'll need to
+	   go through all mailboxes in any case. */
+	idxp = alist->rights.acl_storage_right_idx + ACL_STORAGE_RIGHT_LOOKUP;
 	if (acl_backend_get_default_rights(backend, &acl_mask) < 0 ||
 	    acl_cache_mask_isset(acl_mask, *idxp))
 		return;
 
-	/* default is to not list mailboxes. we can optimize this. */
+	/* no LOOKUP right by default, we can optimize this */
 	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
 		sep = ns->sep;
 		vname = t_str_new(256);
@@ -92,33 +94,24 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 
 	memset(&update_ctx, 0, sizeof(update_ctx));
 	update_ctx.iter_ctx = &ctx->ctx;
-	update_ctx.glob =
-		imap_match_init_multiple(pool_datastack_create(), patterns,
-					 TRUE, sep);
+	update_ctx.glob = imap_match_init_multiple(pool_datastack_create(),
+						   patterns, TRUE, sep);
 	update_ctx.match_parents = TRUE;
+	update_ctx.tree_ctx = mailbox_tree_init(sep);
 
-	for (try = 0; try < 2; try++) {
-		nonowner_list_ctx =
-			acl_backend_nonowner_lookups_iter_init(backend);
-		ctx->tree = mailbox_tree_init(sep);
-		update_ctx.tree_ctx = ctx->tree;
-
-		while ((ret = acl_backend_nonowner_lookups_iter_next(
-					nonowner_list_ctx, &name)) > 0) {
-			if (vname != NULL) {
-				name = mail_namespace_get_vname(ns, vname,
-								name);
-			}
-			mailbox_list_iter_update(&update_ctx, name);
-		}
-		acl_backend_nonowner_lookups_iter_deinit(&nonowner_list_ctx);
-
-		if (ret == 0)
-			break;
-
-		/* try again */
-		mailbox_tree_deinit(&ctx->tree);
+	nonowner_list_ctx = acl_backend_nonowner_lookups_iter_init(backend);
+	while ((ret = acl_backend_nonowner_lookups_iter_next(nonowner_list_ctx,
+							     &name)) > 0) {
+		if (vname != NULL)
+			name = mail_namespace_get_vname(ns, vname, name);
+		mailbox_list_iter_update(&update_ctx, name);
 	}
+	acl_backend_nonowner_lookups_iter_deinit(&nonowner_list_ctx);
+
+	if (ret == 0)
+		ctx->lookup_boxes = update_ctx.tree_ctx;
+	else
+		mailbox_tree_deinit(&update_ctx.tree_ctx);
 }
 
 static struct mailbox_list_iterate_context *
@@ -141,6 +134,9 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 			ctx->ctx.failed = TRUE;
 	}
 
+	/* Try to avoid reading ACLs from all mailboxes by getting a smaller
+	   list of mailboxes that have even potential to be visible. If we
+	   couldn't get such a list, we'll go through all mailboxes. */
 	T_BEGIN {
 		acl_mailbox_try_list_fast(ctx, patterns);
 	} T_END;
@@ -159,10 +155,11 @@ acl_mailbox_list_iter_next_info(struct acl_mailbox_list_iterate_context *ctx)
 		info = alist->module_ctx.super.iter_next(ctx->super_ctx);
 		if (info == NULL)
 			return NULL;
-		/* if the mailbox isn't in shared mailboxes list, it's not
-		   visible to us. */
-	} while (ctx->tree != NULL &&
-		 mailbox_tree_lookup(ctx->tree, info->name) == NULL);
+		/* if we've a list of mailboxes with LOOKUP rights, skip the
+		   mailboxes not in the list (since we know they can't be
+		   visible to us). */
+	} while (ctx->lookup_boxes != NULL &&
+		 mailbox_tree_lookup(ctx->lookup_boxes, info->name) == NULL);
 
 	return info;
 }
@@ -266,8 +263,8 @@ acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 
 	if (alist->module_ctx.super.iter_deinit(ctx->super_ctx) < 0)
 		ret = -1;
-	if (ctx->tree != NULL)
-		mailbox_tree_deinit(&ctx->tree);
+	if (ctx->lookup_boxes != NULL)
+		mailbox_tree_deinit(&ctx->lookup_boxes);
 
 	i_free(ctx);
 	return ret;
