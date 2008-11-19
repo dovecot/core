@@ -45,6 +45,7 @@ static int shared_create(struct mail_storage *_storage, const char *data,
 	struct shared_storage *storage = (struct shared_storage *)_storage;
 	struct mailbox_list_settings list_set;
 	const char *driver, *p;
+	char *wildcardp;
 	bool have_username;
 
 	/* data must begin with the actual mailbox driver */
@@ -63,14 +64,13 @@ static int shared_create(struct mail_storage *_storage, const char *data,
 	}
 	_storage->mailbox_is_file = storage->storage_class->mailbox_is_file;
 
-	p = strchr(_storage->ns->prefix, '%');
-	if (p == NULL) {
+	wildcardp = strchr(_storage->ns->prefix, '%');
+	if (wildcardp == NULL) {
 		*error_r = "Shared namespace prefix doesn't contain %";
 		return -1;
 	}
-	storage->ns_prefix_pattern = p_strdup(_storage->pool, p);
-	_storage->ns->prefix = p_strdup_until(_storage->ns->user->pool,
-					      _storage->ns->prefix, p);
+	storage->ns_prefix_pattern = p_strdup(_storage->pool, wildcardp);
+	*wildcardp = '\0';
 
 	have_username = FALSE;
 	for (p = storage->ns_prefix_pattern; *p != '\0'; p++) {
@@ -265,10 +265,10 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	}
 
 	/* create the new namespace */
-	ns = p_new(user->pool, struct mail_namespace, 1);
+	ns = i_new(struct mail_namespace, 1);
 	ns->type = NAMESPACE_SHARED;
 	ns->user = user;
-	ns->prefix = p_strdup(user->pool, str_c(prefix));
+	ns->prefix = i_strdup(str_c(prefix));
 	ns->flags = NAMESPACE_FLAG_LIST | NAMESPACE_FLAG_HIDDEN |
 		NAMESPACE_FLAG_AUTOCREATED;
 	ns->sep = _storage->ns->sep;

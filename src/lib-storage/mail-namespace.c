@@ -27,6 +27,12 @@ void mail_namespace_init_storage(struct mail_namespace *ns)
 	}
 }
 
+static void mail_namespace_free(struct mail_namespace *ns)
+{
+	i_free(ns->prefix);
+	i_free(ns);
+}
+
 static struct mail_namespace *
 namespace_add_env(const char *data, unsigned int num,
 		  struct mail_user *user, enum mail_storage_flags flags,
@@ -35,7 +41,7 @@ namespace_add_env(const char *data, unsigned int num,
         struct mail_namespace *ns;
 	const char *sep, *type, *prefix, *driver, *error;
 
-	ns = p_new(user->pool, struct mail_namespace, 1);
+	ns = i_new(struct mail_namespace, 1);
 
 	sep = getenv(t_strdup_printf("NAMESPACE_%u_SEP", num));
 	type = getenv(t_strdup_printf("NAMESPACE_%u_TYPE", num));
@@ -57,6 +63,7 @@ namespace_add_env(const char *data, unsigned int num,
 		ns->type = NAMESPACE_PUBLIC;
 	else {
 		i_error("Unknown namespace type: %s", type);
+		mail_namespace_free(ns);
 		return NULL;
 	}
 
@@ -76,7 +83,7 @@ namespace_add_env(const char *data, unsigned int num,
 
 	if (sep != NULL)
 		ns->sep = *sep;
-	ns->prefix = p_strdup(user->pool, prefix);
+	ns->prefix = i_strdup(prefix);
 	ns->user = user;
 
 	if (ns->type == NAMESPACE_SHARED && strchr(ns->prefix, '%') != NULL) {
@@ -89,6 +96,7 @@ namespace_add_env(const char *data, unsigned int num,
 	if (mail_storage_create(ns, driver, data, flags, lock_method,
 				&error) < 0) {
 		i_error("Namespace '%s': %s", ns->prefix, error);
+		mail_namespace_free(ns);
 		return NULL;
 	}
 	return ns;
@@ -199,8 +207,14 @@ int mail_namespaces_init(struct mail_user *user)
 	}
 
 	if (namespaces != NULL) {
-		if (!namespaces_check(namespaces))
+		if (!namespaces_check(namespaces)) {
+			while (namespaces != NULL) {
+				ns = namespaces;
+				namespaces = ns->next;
+				mail_namespace_free(ns);
+			}
 			return -1;
+		}
 		mail_user_add_namespace(user, namespaces);
 
 		if (hook_mail_namespaces_created != NULL) {
@@ -220,11 +234,11 @@ int mail_namespaces_init(struct mail_user *user)
 			mail = t_strconcat("maildir:", mail, NULL);
 	}
 
-	ns = p_new(user->pool, struct mail_namespace, 1);
+	ns = i_new(struct mail_namespace, 1);
 	ns->type = NAMESPACE_PRIVATE;
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
-	ns->prefix = "";
+	ns->prefix = i_strdup("");
 	ns->user = user;
 
 	if (mail_storage_create(ns, NULL, mail, flags, lock_method,
@@ -235,6 +249,7 @@ int mail_namespaces_init(struct mail_user *user)
 			i_error("mail_location not set and "
 				"autodetection failed: %s", error);
 		}
+		mail_namespace_free(ns);
 		return -1;
 	}
 	user->namespaces = ns;
@@ -252,9 +267,9 @@ mail_namespaces_init_empty(struct mail_user *user)
 {
 	struct mail_namespace *ns;
 
-	ns = p_new(user->pool, struct mail_namespace, 1);
+	ns = i_new(struct mail_namespace, 1);
 	ns->user = user;
-	ns->prefix = "";
+	ns->prefix = i_strdup("");
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
 	user->namespaces = ns;
@@ -263,14 +278,34 @@ mail_namespaces_init_empty(struct mail_user *user)
 
 void mail_namespaces_deinit(struct mail_namespace **_namespaces)
 {
-	struct mail_namespace *namespaces = *_namespaces;
+	struct mail_namespace *ns, *namespaces = *_namespaces;
 
 	*_namespaces = NULL;
 	while (namespaces != NULL) {
-		if (namespaces->storage != NULL)
-			mail_storage_destroy(&namespaces->storage);
+		ns = namespaces;
 		namespaces = namespaces->next;
+
+		if (ns->storage != NULL)
+			mail_storage_destroy(&ns->storage);
+		mail_namespace_free(ns);
 	}
+}
+
+void mail_namespace_destroy(struct mail_namespace *ns)
+{
+	struct mail_namespace **nsp;
+
+	/* remove from user's namespaces list */
+	for (nsp = &ns->user->namespaces; *nsp != NULL; nsp = &(*nsp)->next) {
+		if (*nsp == ns) {
+			*nsp = ns->next;
+			break;
+		}
+	}
+
+	if (ns->storage != NULL)
+		mail_storage_destroy(&ns->storage);
+	mail_namespace_free(ns);
 }
 
 const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name)

@@ -33,7 +33,7 @@ struct mail_namespace {
 	char sep, real_sep, sep_str[3];
 	enum namespace_flags flags;
 
-	const char *prefix;
+	char *prefix;
 	size_t prefix_len;
 
 	struct mail_user *user;
@@ -48,6 +48,9 @@ extern void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
 int mail_namespaces_init(struct mail_user *user);
 struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
 void mail_namespaces_deinit(struct mail_namespace **namespaces);
+
+/* Destroy a single namespace and remove it from user's namespaces list. */
+void mail_namespace_destroy(struct mail_namespace *ns);
 
 /* Update hierarchy separators in given name to real_sep characters. */
 const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name);
