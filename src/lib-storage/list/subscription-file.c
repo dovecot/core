@@ -221,6 +221,7 @@ subsfile_list_init(struct mailbox_list *list, const char *path)
 	} else {
 		ctx->input = i_stream_create_fd(fd,
 					list->mailbox_name_max_length+1, TRUE);
+		i_stream_set_return_partial_line(ctx->input, TRUE);
 	}
 	ctx->path = i_strdup(path);
 	return ctx;
@@ -275,6 +276,7 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
 		ctx->input = i_stream_create_fd(fd,
 					ctx->list->mailbox_name_max_length+1,
 					TRUE);
+		i_stream_set_return_partial_line(ctx->input, TRUE);
         }
         return line;
 }
