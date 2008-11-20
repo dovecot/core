@@ -38,6 +38,8 @@ void mail_user_deinit(struct mail_user **user);
 
 /* Add a new namespace to user's namespaces. */
 void mail_user_add_namespace(struct mail_user *user, struct mail_namespace *ns);
+/* Drop autocreated shared namespaces that don't have any "usable" mailboxes. */
+void mail_user_drop_useless_namespaces(struct mail_user *user);
 
 /* Replace ~/ at the beginning of the path with the user's home directory. */
 const char *mail_user_home_expand(struct mail_user *user, const char *path);

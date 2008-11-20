@@ -4,6 +4,7 @@
 #include "str.h"
 #include "ostream.h"
 #include "mail-storage.h"
+#include "mail-user.h"
 #include "imap-quote.h"
 #include "imap-util.h"
 #include "imap-sync.h"
@@ -137,6 +138,10 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->client = client;
 	ctx->box = box;
 	ctx->imap_flags = imap_flags;
+
+	/* make sure user can't DoS the system by causing Dovecot to create
+	   tons of useless namespaces. */
+	mail_user_drop_useless_namespaces(client->user);
 
 	ctx->sync_ctx = mailbox_sync_init(box, flags);
 	ctx->t = mailbox_transaction_begin(box, 0);

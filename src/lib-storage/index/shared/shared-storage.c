@@ -163,20 +163,6 @@ static void get_nonexisting_user_location(struct shared_storage *storage,
 	str_append(location, PKG_RUNDIR"/user-not-found");
 }
 
-static void drop_unusable_shared_namespaces(struct mail_user *user)
-{
-#define NS_UNUSABLE_FLAGS (NAMESPACE_FLAG_AUTOCREATED | )
-	struct mail_namespace *ns, *next;
-
-	for (ns = user->namespaces; ns != NULL; ns = next) {
-		next = ns->next;
-
-		if ((ns->flags & NAMESPACE_FLAG_USABLE) == 0 &&
-		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0)
-			mail_namespace_destroy(ns);
-	}
-}
-
 int shared_storage_get_namespace(struct mail_storage *_storage,
 				 const char **_name,
 				 struct mail_namespace **ns_r)
@@ -298,7 +284,6 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 					  ns->prefix, error);
 		return -1;
 	}
-	drop_unusable_shared_namespaces(user);
 	mail_user_add_namespace(user, ns);
 
 	*_name = mail_namespace_fix_sep(ns, name);
