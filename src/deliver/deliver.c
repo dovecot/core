@@ -814,7 +814,7 @@ int main(int argc, char *argv[])
 	const char *config_path = DEFAULT_CONFIG_FILE;
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
-	const char *home, *destaddr, *user, *value, *errstr, *path;
+	const char *home, *destaddr, *user, *value, *errstr, *path, *orig_user;
 	ARRAY_TYPE(const_string) extra_fields = ARRAY_INIT;
 	struct mail_user *mail_user, *raw_mail_user;
 	struct mail_namespace *raw_ns;
@@ -980,21 +980,30 @@ int main(int argc, char *argv[])
 		}
 
 		userdb_pool = pool_alloconly_create("userdb lookup replys", 512);
+		orig_user = user;
 		ret = auth_client_lookup_and_restrict(auth_socket,
-						      user, process_euid,
+						      &user, process_euid,
 						      userdb_pool,
 						      &extra_fields);
 		if (ret != 0)
 			return ret;
+
+		if (strcmp(user, orig_user) != 0) {
+			/* auth lookup changed the user. */
+			if (getenv("DEBUG") != NULL)
+				i_info("userdb changed username to %s", user);
+			i_set_failure_prefix(t_strdup_printf("deliver(%s): ",
+							     user));
+		}
 	}
-	if (destaddr == NULL)
-		destaddr = user;
 
 	expand_envs(user);
 	if (userdb_pool != NULL) {
 		putenv_extra_fields(&extra_fields);
 		pool_unref(&userdb_pool);
 	}
+	if (destaddr == NULL)
+		destaddr = user;
 
 	/* Fix namespaces with empty locations */
 	for (i = 1;; i++) {

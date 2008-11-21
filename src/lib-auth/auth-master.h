@@ -6,7 +6,7 @@
 struct auth_user_reply {
 	uid_t uid;
 	gid_t gid;
-	const char *home, *chroot;
+	const char *user, *home, *chroot;
 	ARRAY_TYPE(const_string) extra_fields;
 };
 

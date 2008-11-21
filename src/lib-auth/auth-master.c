@@ -97,7 +97,8 @@ static void auth_parse_input(struct auth_master_connection *conn,
 	reply->gid = (gid_t)-1;
 	p_array_init(&reply->extra_fields, conn->pool, 64);
 
-	for (; *args != NULL; args++) {
+	reply->user = p_strdup(conn->pool, *args);
+	for (args++; *args != NULL; args++) {
 		if (conn->debug)
 			i_info("auth input: %s", *args);
 

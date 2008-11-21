@@ -125,7 +125,7 @@ static int set_env(struct auth_user_reply *reply,
 }
 
 int auth_client_lookup_and_restrict(const char *auth_socket,
-				    const char *user, uid_t euid, pool_t pool,
+				    const char **user, uid_t euid, pool_t pool,
 				    ARRAY_TYPE(const_string) *extra_fields_r)
 {
         struct auth_master_connection *conn;
@@ -134,12 +134,13 @@ int auth_client_lookup_and_restrict(const char *auth_socket,
 	int ret = EX_TEMPFAIL;
 
 	conn = auth_master_init(auth_socket, debug);
-	switch (auth_master_user_lookup(conn, user, "deliver", pool, &reply)) {
+	switch (auth_master_user_lookup(conn, *user, "deliver", pool, &reply)) {
 	case 0:
 		ret = EX_NOUSER;
 		break;
 	case 1:
-		if (set_env(&reply, user, euid) == 0) {
+		if (set_env(&reply, *user, euid) == 0) {
+			*user = p_strdup(pool, reply.user);
 			restrict_access_by_env(TRUE);
 			ret = EX_OK;
 		}
