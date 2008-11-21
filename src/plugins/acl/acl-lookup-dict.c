@@ -112,6 +112,9 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 	string_t *id;
 	int ret, ret2 = 0;
 
+	if ((ns->flags & NAMESPACE_FLAG_INTERNAL) != 0)
+		return 0;
+
 	id = t_str_new(128);
 	backend = acl_storage_get_backend(ns->storage);
 	ctx = acl_backend_nonowner_lookups_iter_init(backend);
