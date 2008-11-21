@@ -343,7 +343,7 @@ void auth_worker_call(struct auth_request *auth_request,
 
 	if (conn->request_count == 0) {
 		timeout_remove(&conn->to);
-		conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
+		conn->to = timeout_add(AUTH_WORKER_LOOKUP_TIMEOUT_SECS * 1000,
 				       auth_worker_call_timeout, conn);
 		idle_count--;
 	}
