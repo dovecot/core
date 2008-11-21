@@ -397,7 +397,7 @@ int convert_storage(const char *source_data,
 	struct dotlock *dotlock;
         enum mail_storage_flags src_flags;
         enum file_lock_method lock_method;
-	const char *path, *error;
+	const char *home, *path, *error;
 	int ret;
 
 	source_ns = mail_namespaces_init_empty(user);
@@ -412,7 +412,9 @@ int convert_storage(const char *source_data,
 		return 0;
 	}
 
-        path = t_strconcat(user->home, "/"CONVERT_LOCK_FILENAME, NULL);
+	if (mail_user_get_home(user, &home) <= 0)
+		i_unreached();
+        path = t_strconcat(home, "/"CONVERT_LOCK_FILENAME, NULL);
 	dotlock_settings.use_excl_lock =
 		(source_ns->storage->flags &
 		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;

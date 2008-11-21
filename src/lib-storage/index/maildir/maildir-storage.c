@@ -66,7 +66,7 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 	enum mail_storage_flags flags = storage->flags;
 	struct mail_user *user = storage->ns->user;
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
-	const char *path;
+	const char *path, *home;
 
 	*layout_r = MAILDIR_PLUSPLUS_DRIVER_NAME;
 
@@ -82,8 +82,8 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 
 		/* we'll need to figure out the maildir location ourself.
 		   It's ~/Maildir unless we are chrooted. */
-		if (user->home != NULL) {
-			path = t_strconcat(user->home, "/Maildir", NULL);
+		if (mail_user_get_home(user, &home) > 0) {
+			path = t_strconcat(home, "/Maildir", NULL);
 			if (access(path, R_OK|W_OK|X_OK) == 0) {
 				if (debug) {
 					i_info("maildir: root exists (%s)",

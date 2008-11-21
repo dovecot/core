@@ -44,7 +44,8 @@ static int user_init(struct expire_context *ctx, const char *user)
 		return 0;
 	}
 
-	ctx->mail_user = mail_user_init(user, getenv("HOME"));
+	ctx->mail_user = mail_user_init(user);
+	mail_user_set_home(ctx->mail_user, getenv("HOME"));
 	if (mail_namespaces_init(ctx->mail_user) < 0)
 		return -1;
 	return 1;
@@ -52,7 +53,7 @@ static int user_init(struct expire_context *ctx, const char *user)
 
 static void user_deinit(struct expire_context *ctx)
 {
-	mail_user_deinit(&ctx->mail_user);
+	mail_user_unref(&ctx->mail_user);
 	i_free_and_null(ctx->user);
 }
 
@@ -190,6 +191,7 @@ static void expire_run(bool testrun)
 	int ret;
 
 	dict_drivers_register_builtin();
+	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
 	mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
@@ -296,6 +298,7 @@ static void expire_run(bool testrun)
 	auth_master_deinit(&ctx.auth_conn);
 
 	mail_storage_deinit();
+	mail_users_deinit();
 	dict_drivers_unregister_builtin();
 }
 

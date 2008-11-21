@@ -10,14 +10,19 @@ struct mail_user_vfuncs {
 struct mail_user {
 	pool_t pool;
 	struct mail_user_vfuncs v;
+	int refcount;
 
 	const char *username;
-	const char *home;
+	/* don't access the home directly. It may be set lazily. */
+	const char *_home;
 
 	struct mail_namespace *namespaces;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mail_user_module_context *);
+
+	/* Either home is set or there is no home for the user. */
+	unsigned int home_looked_up:1;
 };
 
 struct mail_user_module_register {
@@ -33,8 +38,21 @@ extern struct mail_user_module_register mail_user_module_register;
 /* Called after user has been created */
 extern void (*hook_mail_user_created)(struct mail_user *user);
 
-struct mail_user *mail_user_init(const char *username, const char *home);
-void mail_user_deinit(struct mail_user **user);
+void mail_users_init(const char *auth_socket_path, bool debug);
+void mail_users_deinit(void);
+
+struct mail_user *mail_user_init(const char *username);
+void mail_user_ref(struct mail_user *user);
+void mail_user_unref(struct mail_user **user);
+
+/* Specify the user's home directory. This should be called also when it's
+   known that the user doesn't have a home directory to avoid the internal
+   lookup. */
+void mail_user_set_home(struct mail_user *user, const char *home);
+/* Get the home directory for the user. Returns 1 if home directory looked up
+   successfully, 0 if there is no home directory (either user doesn't exist or
+   has no home directory) or -1 if lookup failed. */
+int mail_user_get_home(struct mail_user *user, const char **home_r);
 
 /* Add a new namespace to user's namespaces. */
 void mail_user_add_namespace(struct mail_user *user, struct mail_namespace *ns);

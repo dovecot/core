@@ -162,7 +162,7 @@ void client_destroy(struct client *client, const char *reason)
 		client_search_updates_free(client);
 		mailbox_close(&client->mailbox);
 	}
-	mail_user_deinit(&client->user);
+	mail_user_unref(&client->user);
 
 	if (client->free_parser != NULL)
 		imap_parser_destroy(&client->free_parser);

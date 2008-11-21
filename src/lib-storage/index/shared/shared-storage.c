@@ -4,7 +4,6 @@
 #include "array.h"
 #include "str.h"
 #include "ioloop.h"
-#include "auth-master.h"
 #include "var-expand.h"
 #include "index-storage.h"
 #include "shared-storage.h"
@@ -105,53 +104,9 @@ static int shared_create(struct mail_storage *_storage, const char *data,
 	return 0;
 }
 
-static void shared_storage_destroy(struct mail_storage *_storage)
-{
-	struct shared_storage *storage = (struct shared_storage *)_storage;
-
-	if (storage->auth_master_conn != NULL)
-		auth_master_deinit(&storage->auth_master_conn);
-	index_storage_destroy(_storage);
-}
-
-static void shared_storage_auth_master_init(struct shared_storage *storage)
-{
-	const char *auth_socket_path;
-	bool debug;
-
-	auth_socket_path = getenv("AUTH_SOCKET_PATH");
-	if (auth_socket_path == NULL) {
-		auth_socket_path = t_strconcat(storage->base_dir,
-					       "/auth-master", NULL);
-	}
-
-	debug = (storage->storage.flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
-	storage->auth_master_conn = auth_master_init(auth_socket_path, debug);
-}
-
-static int
-shared_storage_lookup_home(struct shared_storage *storage,
-			   const char *user, const char **home_r)
-{
-	struct auth_user_reply reply;
-	pool_t userdb_pool;
-	int ret;
-
-	if (storage->auth_master_conn == NULL)
-		shared_storage_auth_master_init(storage);
-
-	userdb_pool = pool_alloconly_create("userdb lookup", 512);
-	ret = auth_master_user_lookup(storage->auth_master_conn, user,
-				      AUTH_SERVICE_INTERNAL,
-				      userdb_pool, &reply);
-	if (ret > 0)
-		*home_r = t_strdup(reply.home);
-	pool_unref(&userdb_pool);
-	return ret;
-}
-
-static void get_nonexisting_user_location(struct shared_storage *storage,
-					  string_t *location)
+static void
+get_nonexisting_user_location(struct shared_storage *storage,
+			      const char *username, string_t *location)
 {
 	/* user wasn't found. we'll still need to create the storage
 	   to avoid exposing which users exist and which don't. */
@@ -160,7 +115,8 @@ static void get_nonexisting_user_location(struct shared_storage *storage,
 
 	/* use a reachable but non-existing path as the mail root directory */
 	str_append(location, storage->base_dir);
-	str_append(location, PKG_RUNDIR"/user-not-found");
+	str_append(location, "/user-not-found/");
+	str_append(location, username);
 }
 
 int shared_storage_get_namespace(struct mail_storage *_storage,
@@ -178,6 +134,7 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	};
 	struct var_expand_table *tab;
 	struct mail_namespace *ns;
+	struct mail_user *owner;
 	const char *domain = NULL, *username = NULL, *userdomain = NULL;
 	const char *name, *p, *next, **dest, *error;
 	string_t *prefix, *location;
@@ -250,16 +207,16 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 		return 0;
 	}
 
+	owner = mail_user_init(userdomain);
 	if (!var_has_key(storage->location, 'h'))
 		ret = 1;
 	else {
 		/* we'll need to look up the user's home directory */
-		ret = shared_storage_lookup_home(storage, userdomain,
-						 &tab[3].value);
-		if (ret < 0) {
+		if ((ret = mail_user_get_home(owner, &tab[3].value)) < 0) {
 			mail_storage_set_critical(_storage, "Namespace '%s': "
 				"Could not lookup home for user %s",
 				_storage->ns->prefix, userdomain);
+			mail_user_unref(&owner);
 			return -1;
 		}
 	}
@@ -269,7 +226,7 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	ns->type = NAMESPACE_SHARED;
 	ns->user = user;
 	ns->prefix = i_strdup(str_c(prefix));
-	ns->owner = i_strdup(userdomain);
+	ns->owner = owner;
 	ns->flags = NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_HIDDEN |
 		NAMESPACE_FLAG_AUTOCREATED;
 	ns->sep = _storage->ns->sep;
@@ -278,11 +235,12 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	if (ret > 0)
 		var_expand(location, storage->location, tab);
 	else
-		get_nonexisting_user_location(storage, location);
+		get_nonexisting_user_location(storage, userdomain, location);
 	if (mail_storage_create(ns, NULL, str_c(location), _storage->flags,
 				_storage->lock_method, &error) < 0) {
 		mail_storage_set_critical(_storage, "Namespace '%s': %s",
 					  ns->prefix, error);
+		mail_namespace_destroy(ns);
 		return -1;
 	}
 	mail_user_add_namespace(user, ns);
@@ -354,7 +312,7 @@ struct mail_storage shared_storage = {
 		NULL,
 		shared_alloc,
 		shared_create,
-		shared_storage_destroy,
+		index_storage_destroy,
 		NULL,
 		shared_mailbox_open,
 		shared_mailbox_create

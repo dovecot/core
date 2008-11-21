@@ -4,9 +4,11 @@ noinst_LIBRARIES = libstorage.a
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
-	-I$(top_srcdir)/src/lib-index
+	-I$(top_srcdir)/src/lib-index \
+	-DPKG_RUNDIR=\""$(rundir)"\"
 
 libstorage_a_SOURCES = \
 	mail.c \

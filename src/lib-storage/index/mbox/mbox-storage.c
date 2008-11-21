@@ -190,8 +190,7 @@ static const char *get_root_dir(struct mail_storage *storage)
 	const char *home, *path;
 	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 
-	home = storage->ns->user->home;
-	if (home != NULL) {
+	if (mail_user_get_home(storage->ns->user, &home) > 0) {
 		path = t_strconcat(home, "/mail", NULL);
 		if (access(path, R_OK|W_OK|X_OK) == 0) {
 			if (debug)
@@ -259,8 +258,7 @@ static const char *create_root_dir(struct mail_storage *storage,
 {
 	const char *home, *path;
 
-	home = storage->ns->user->home;
-	if (home == NULL) {
+	if (mail_user_get_home(storage->ns->user, &home) <= 0) {
 		*error_r = "Root mail directory not set and "
 			"home directory is missing";
 		return NULL;

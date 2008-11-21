@@ -28,6 +28,7 @@ int main(int argc, const char *argv[])
 	lib_init();
 	lib_signals_init();
 	random_init();
+	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
 	mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
@@ -48,7 +49,8 @@ int main(int argc, const char *argv[])
 	}
 
 	mail_storage_parse_env(&dest_flags, &lock_method);
-	user = mail_user_init(argv[1], argv[2]);
+	user = mail_user_init(argv[1]);
+	mail_user_set_home(user, argv[2]);
 	dest_ns = mail_namespaces_init_empty(user);
 
 	if (mail_storage_create(dest_ns, NULL, argv[4],
@@ -64,10 +66,11 @@ int main(int argc, const char *argv[])
 		i_error("Source storage not found");
 	else
 		i_error("Internal failure");
-	mail_user_deinit(&user);
+	mail_user_unref(&user);
 
 	io_loop_destroy(&ioloop);
 	mail_storage_deinit();
+	mail_users_deinit();
 	lib_signals_deinit();
 	lib_deinit();
 	return ret <= 0 ? 1 : 0;

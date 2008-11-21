@@ -228,7 +228,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			return -1;
 		}
 
-		home = ns->user->home;
+		(void)mail_user_get_home(ns->user, &home);
 		if (home == NULL || *home == '\0') home = "(not set)";
 
 		*error_r = t_strdup_printf(

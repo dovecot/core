@@ -205,6 +205,7 @@ static bool main_init(void)
 	}
 
 	dict_drivers_register_builtin();
+	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
         mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
@@ -229,7 +230,8 @@ static bool main_init(void)
 		i_fatal("pop3_uidl_format setting doesn't contain any "
 			"%% variables.");
 
-	user = mail_user_init(getenv("USER"), getenv("HOME"));
+	user = mail_user_init(getenv("USER"));
+	mail_user_set_home(user, getenv("HOME"));
 	if (mail_namespaces_init(user) < 0)
 		i_fatal("Namespace initialization failed");
 
@@ -261,6 +263,7 @@ static void main_deinit(void)
 
 	module_dir_unload(&modules);
 	mail_storage_deinit();
+	mail_users_deinit();
 	dict_drivers_unregister_builtin();
 
 	lib_signals_deinit();

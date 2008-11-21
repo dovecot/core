@@ -194,6 +194,7 @@ static void main_init(void)
 	str_append(capability_string, CAPABILITY_STRING);
 
 	dict_drivers_register_builtin();
+	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
         mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
@@ -228,7 +229,8 @@ static void main_init(void)
 
         parse_workarounds();
 
-	user = mail_user_init(username, home);
+	user = mail_user_init(username);
+	mail_user_set_home(user, home);
 	if (mail_namespaces_init(user) < 0)
 		i_fatal("Namespace initialization failed");
 	client = client_create(0, 1, user);
@@ -271,7 +273,8 @@ static void main_deinit(void)
 
 	module_dir_unload(&modules);
 	commands_deinit();
-        mail_storage_deinit();
+	mail_storage_deinit();
+	mail_users_deinit();
 	dict_drivers_unregister_builtin();
 
 	str_free(&capability_string);

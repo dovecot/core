@@ -19,7 +19,7 @@ static void convert_mail_storage(struct mail_namespace *namespaces,
 	struct convert_settings set;
 
 	memset(&set, 0, sizeof(set));
-	if (namespaces->user->home == NULL)
+	if (mail_user_get_home(namespaces->user, &str) <= 0)
 		i_fatal("convert plugin: HOME unset");
 
 	set.skip_broken_mailboxes =

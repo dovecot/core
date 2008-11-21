@@ -1058,18 +1058,21 @@ int main(int argc, char *argv[])
 
 	dict_drivers_register_builtin();
         duplicate_init();
+	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
         mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
 
 	module_dir_init(modules);
 
-	mail_user = mail_user_init(user, home);
+	mail_user = mail_user_init(user);
+	mail_user_set_home(mail_user, home);
 	if (mail_namespaces_init(mail_user) < 0)
 		i_fatal("Namespace initialization failed");
 
 	/* create a separate mail user for the internal namespace */
-	raw_mail_user = mail_user_init(user, NULL);
+	raw_mail_user = mail_user_init(user);
+	mail_user_set_home(raw_mail_user, NULL);
 	raw_ns = mail_namespaces_init_empty(raw_mail_user);
 	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
 
@@ -1177,11 +1180,12 @@ int main(int argc, char *argv[])
 	mailbox_transaction_rollback(&t);
 	mailbox_close(&box);
 
-	mail_user_deinit(&mail_user);
-	mail_user_deinit(&raw_mail_user);
+	mail_user_unref(&mail_user);
+	mail_user_unref(&raw_mail_user);
 
 	module_dir_unload(&modules);
 	mail_storage_deinit();
+	mail_users_deinit();
 
 	duplicate_deinit();
 	dict_drivers_unregister_builtin();

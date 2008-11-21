@@ -272,7 +272,7 @@ void client_destroy(struct client *client, const char *reason)
 	}
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);
-	mail_user_deinit(&client->user);
+	mail_user_unref(&client->user);
 
 	i_free(client->message_sizes);
 	i_free(client->deleted_bitmask);

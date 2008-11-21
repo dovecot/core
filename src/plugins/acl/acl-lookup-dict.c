@@ -127,7 +127,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 				str_truncate(id, 0);
 				acl_lookup_dict_write_rights_id(id, &rights);
 				str_append_c(id, '/');
-				str_append(id, ns->owner);
+				str_append(id, ns->owner->username);
 				id_dup = t_strdup(str_c(id));
 				array_append(ids, &id_dup, 1);
 			}

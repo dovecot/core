@@ -12,7 +12,6 @@ struct shared_storage {
 	const char *base_dir;
 	const char *ns_prefix_pattern;
 	const char *location;
-	struct auth_master_connection *auth_master_conn;
 
 	struct mail_storage *storage_class;
 };
