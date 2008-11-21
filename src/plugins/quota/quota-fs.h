@@ -23,7 +23,7 @@
 
 #ifdef HAVE_QUOTACTL
 #  ifdef HAVE_SYS_QUOTA_H
-#    ifdef QCMD
+#    ifndef _HPUX_SOURCE
 #      define FS_QUOTA_LINUX
 #    else
 #      define FS_QUOTA_HPUX
