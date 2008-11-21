@@ -112,7 +112,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 	string_t *id;
 	int ret, ret2 = 0;
 
-	if ((ns->flags & NAMESPACE_FLAG_INTERNAL) != 0)
+	if ((ns->flags & NAMESPACE_FLAG_INTERNAL) != 0 || ns->owner == NULL)
 		return 0;
 
 	id = t_str_new(128);
@@ -126,6 +126,8 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 			if (acl_rights_has_nonowner_lookup_changes(&rights)) {
 				str_truncate(id, 0);
 				acl_lookup_dict_write_rights_id(id, &rights);
+				str_append_c(id, '/');
+				str_append(id, ns->owner);
 				id_dup = t_strdup(str_c(id));
 				array_append(ids, &id_dup, 1);
 			}
@@ -154,7 +156,11 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	unsigned int prefix_len;
 	int ret;
 
-	/* get all existing identifiers for the user */
+	/* get all existing identifiers for the user. we might be able to
+	   sync identifiers also for other users whose shared namespaces we
+	   have, but it's possible that the other users have other namespaces
+	   that aren't visible to us, so we don't want to remove anything
+	   that could break them. */
 	t_array_init(&old_ids_arr, 128);
 	prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
 	prefix_len = strlen(prefix);
@@ -194,8 +200,6 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			/* new identifier, add it */
 			str_truncate(path, prefix_len);
 			str_append(path, new_ids[newi]);
-			str_append_c(path, '/');
-			str_append(path, username);
 			dict_set(dt, str_c(path), "1");
 			newi++;
 		} else if (!no_removes) {
