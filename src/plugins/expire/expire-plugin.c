@@ -21,7 +21,6 @@
 struct expire {
 	struct dict *db;
 	struct expire_env *env;
-	const char *username;
 
 	void (*next_hook_mail_storage_created)(struct mail_storage *storage);
 };
@@ -124,7 +123,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	if (xt->first_expunged || xt->saves) T_BEGIN {
 		const char *key, *value;
 
-		key = t_strconcat(DICT_EXPIRE_PREFIX, expire.username, "/",
+		key = t_strconcat(DICT_EXPIRE_PREFIX,
+				  box->storage->ns->user->username, "/",
 				  box->storage->ns->prefix, box->name, NULL);
 		if (!xt->first_expunged && xt->saves) {
 			/* saved new mails. dict needs to be updated only if
@@ -296,10 +296,10 @@ void expire_plugin_init(void)
 		if (dict_uri == NULL)
 			i_fatal("expire plugin: expire_dict setting missing");
 
-		// FIXME: user should be per-mail_user?...
-		expire.username = getenv("USER");
 		expire.env = expire_env_init(expunge_env, altmove_env);
-		expire.db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, expire.username);
+		/* we're using only shared dictionary, the username
+		   doesn't matter. */
+		expire.db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "");
 		if (expire.db == NULL)
 			i_fatal("expire plugin: dict_init() failed");
 
