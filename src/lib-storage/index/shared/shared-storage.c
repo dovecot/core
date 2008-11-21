@@ -269,6 +269,7 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	ns->type = NAMESPACE_SHARED;
 	ns->user = user;
 	ns->prefix = i_strdup(str_c(prefix));
+	ns->owner = i_strdup(userdomain);
 	ns->flags = NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_HIDDEN |
 		NAMESPACE_FLAG_AUTOCREATED;
 	ns->sep = _storage->ns->sep;

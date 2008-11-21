@@ -38,7 +38,7 @@ struct mail_namespace {
 	char sep, real_sep, sep_str[3];
 	enum namespace_flags flags;
 
-	char *prefix;
+	char *prefix, *owner;
 	size_t prefix_len;
 
 	struct mail_user *user;

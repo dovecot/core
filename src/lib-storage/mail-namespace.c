@@ -29,6 +29,7 @@ void mail_namespace_init_storage(struct mail_namespace *ns)
 
 static void mail_namespace_free(struct mail_namespace *ns)
 {
+	i_free(ns->owner);
 	i_free(ns->prefix);
 	i_free(ns);
 }
@@ -60,9 +61,10 @@ namespace_add_env(const char *data, unsigned int num,
 	if (getenv(t_strdup_printf("NAMESPACE_%u_SUBSCRIPTIONS", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_SUBSCRIPTIONS;
 
-	if (type == NULL || *type == '\0' || strncmp(type, "private", 7) == 0)
+	if (type == NULL || *type == '\0' || strncmp(type, "private", 7) == 0) {
 		ns->type = NAMESPACE_PRIVATE;
-	else if (strncmp(type, "shared", 6) == 0)
+		ns->owner = i_strdup(user->username);
+	} else if (strncmp(type, "shared", 6) == 0)
 		ns->type = NAMESPACE_SHARED;
 	else if (strncmp(type, "public", 6) == 0)
 		ns->type = NAMESPACE_PUBLIC;
@@ -242,6 +244,7 @@ int mail_namespaces_init(struct mail_user *user)
 	}
 
 	ns = i_new(struct mail_namespace, 1);
+	ns->owner = i_strdup(user->username);
 	ns->type = NAMESPACE_PRIVATE;
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST_PREFIX |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
@@ -277,6 +280,7 @@ mail_namespaces_init_empty(struct mail_user *user)
 	ns = i_new(struct mail_namespace, 1);
 	ns->user = user;
 	ns->prefix = i_strdup("");
+	ns->owner = i_strdup(user->username);
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST_PREFIX |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
 	user->namespaces = ns;
