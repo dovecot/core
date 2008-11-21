@@ -16,6 +16,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_storage *storage,
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct mail_search_args *search_args;
+	enum mail_error error;
 	uoff_t size;
 	int ret = 0;
 
@@ -27,8 +28,13 @@ quota_count_mailbox(struct quota_root *root, struct mail_storage *storage,
 
 	box = mailbox_open(&storage, name, NULL,
 			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
-	if (box == NULL)
-		return -1;
+	if (box == NULL) {
+		mail_storage_get_last_error(storage, &error);
+		if (error == MAIL_ERROR_TEMP)
+			return -1;
+		/* non-temporary error, e.g. ACLs denied access. */
+		return 0;
+	}
 
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0) {
 		mailbox_close(&box);
