@@ -82,7 +82,7 @@ mailbox_open_or_create(struct mail_storage *storage, const char *name)
 	struct mailbox *box;
 	enum mail_error error;
 
-	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
+	box = mailbox_open(&storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT |
 			   MAILBOX_OPEN_NO_INDEX_FILES);
 	if (box != NULL)
@@ -97,7 +97,7 @@ mailbox_open_or_create(struct mail_storage *storage, const char *name)
 		return NULL;
 
 	/* and try opening again */
-	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
+	box = mailbox_open(&storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT);
 	return box;
 }

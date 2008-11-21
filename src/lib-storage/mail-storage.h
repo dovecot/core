@@ -305,8 +305,11 @@ const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
    tried to be used, NULL is returned.
 
    Note that append and copy may open the selected mailbox again
-   with possibly different readonly-state. */
-struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
+   with possibly different readonly-state.
+
+   Given storage is a pointer-to-pointer because it may change as a result of
+   a new namespace being created for shared mailboxes. */
+struct mailbox *mailbox_open(struct mail_storage **storage, const char *name,
 			     struct istream *input,
 			     enum mailbox_open_flags flags);
 /* Close the box. Returns -1 if some cleanup errors occurred, but

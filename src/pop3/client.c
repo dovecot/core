@@ -180,7 +180,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
 	if (lock_session)
 		flags |= MAILBOX_OPEN_KEEP_LOCKED;
-	client->mailbox = mailbox_open(storage, "INBOX", NULL, flags);
+	client->mailbox = mailbox_open(&storage, "INBOX", NULL, flags);
 	if (client->mailbox == NULL) {
 		errmsg = t_strdup_printf("Couldn't open INBOX: %s",
 				mail_storage_get_last_error(storage,

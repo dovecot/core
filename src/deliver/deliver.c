@@ -172,16 +172,16 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 		return NULL;
 	}
 
-	box = mailbox_open(ns->storage, name, NULL, open_flags);
+	box = mailbox_open(storage_r, name, NULL, open_flags);
 	if (box != NULL || !deliver_set->mailbox_autocreate)
 		return box;
 
-	(void)mail_storage_get_last_error(ns->storage, &error);
+	(void)mail_storage_get_last_error(*storage_r, &error);
 	if (error != MAIL_ERROR_NOTFOUND)
 		return NULL;
 
 	/* try creating it. */
-	if (mail_storage_mailbox_create(ns->storage, name, FALSE) < 0)
+	if (mail_storage_mailbox_create(*storage_r, name, FALSE) < 0)
 		return NULL;
 	if (deliver_set->mailbox_autosubscribe) {
 		/* (try to) subscribe to it */
@@ -189,7 +189,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	}
 
 	/* and try opening again */
-	box = mailbox_open(ns->storage, name, NULL, open_flags);
+	box = mailbox_open(storage_r, name, NULL, open_flags);
 	if (box == NULL)
 		return NULL;
 
@@ -1082,12 +1082,12 @@ int main(int argc, char *argv[])
 		i_fatal("Couldn't create internal raw storage: %s", errstr);
 	if (path == NULL) {
 		input = create_raw_stream(0, &mtime);
-		box = mailbox_open(raw_ns->storage, "Dovecot Delivery Mail",
+		box = mailbox_open(&raw_ns->storage, "Dovecot Delivery Mail",
 				   input, MAILBOX_OPEN_NO_INDEX_FILES);
 		i_stream_unref(&input);
 	} else {
 		mtime = (time_t)-1;
-		box = mailbox_open(raw_ns->storage, path, NULL,
+		box = mailbox_open(&raw_ns->storage, path, NULL,
 				   MAILBOX_OPEN_NO_INDEX_FILES);
 	}
 	if (box == NULL)

@@ -100,13 +100,15 @@ mbox_snarf_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct mbox_snarf_mail_storage *mstorage =
 		MBOX_SNARF_CONTEXT(box->storage);
+	struct mail_storage *storage;
 	struct mbox_snarf_mailbox *mbox = MBOX_SNARF_CONTEXT(box);
 
 	if (mbox->spool_mbox == NULL) {
 		/* try to open the spool mbox */
 		mstorage->open_spool_inbox = TRUE;
+		storage = box->storage;
 		mbox->spool_mbox =
-			mailbox_open(box->storage, "INBOX", NULL,
+			mailbox_open(&storage, "INBOX", NULL,
 				     MAILBOX_OPEN_KEEP_RECENT |
 				     MAILBOX_OPEN_NO_INDEX_FILES);
 		mstorage->open_spool_inbox = FALSE;

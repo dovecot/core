@@ -63,9 +63,9 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	if (storage == NULL)
 		return TRUE;
 
-	box = mailbox_open(storage, mailbox, NULL, (MAILBOX_OPEN_READONLY |
-						    MAILBOX_OPEN_FAST |
-						    MAILBOX_OPEN_KEEP_RECENT));
+	box = mailbox_open(&storage, mailbox, NULL, (MAILBOX_OPEN_READONLY |
+						     MAILBOX_OPEN_FAST |
+						     MAILBOX_OPEN_KEEP_RECENT));
 	if (box == NULL) {
 		client_send_storage_error(cmd, storage);
 		return TRUE;

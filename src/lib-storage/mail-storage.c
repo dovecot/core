@@ -441,10 +441,11 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 	return TRUE;
 }
 
-struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
+struct mailbox *mailbox_open(struct mail_storage **_storage, const char *name,
 			     struct istream *input,
 			     enum mailbox_open_flags flags)
 {
+	struct mail_storage *storage = *_storage;
 	struct mailbox *box;
 
 	mail_storage_clear_error(storage);
@@ -460,6 +461,9 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 		if (hook_mailbox_opened != NULL && box != NULL)
 			hook_mailbox_opened(box);
 	} T_END;
+
+	if (box != NULL)
+		*_storage = box->storage;
 	return box;
 }
 

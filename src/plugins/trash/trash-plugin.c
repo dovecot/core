@@ -52,9 +52,10 @@ static int (*trash_next_quota_test_alloc)(struct quota_transaction_context *,
 
 static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
+	struct mail_storage *storage = trash->storage;
 	struct mail_search_args *search_args;
 
-	trash->box = mailbox_open(trash->storage, trash->name, NULL,
+	trash->box = mailbox_open(&storage, trash->name, NULL,
 				  MAILBOX_OPEN_KEEP_RECENT);
 	if (trash->box == NULL)
 		return 0;

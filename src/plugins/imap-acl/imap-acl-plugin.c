@@ -61,7 +61,7 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 
 	/* Force opening the mailbox so that we can give a nicer error message
 	   if mailbox isn't selectable but is listable. */
-	box = mailbox_open(storage, name, NULL, ACL_MAILBOX_OPEN_FLAGS |
+	box = mailbox_open(&storage, name, NULL, ACL_MAILBOX_OPEN_FLAGS |
 			   MAILBOX_OPEN_IGNORE_ACLS);
 	if (box == NULL) {
 		client_send_storage_error(cmd, storage);
@@ -232,8 +232,8 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	if (storage == NULL)
 		return TRUE;
 
-	box = mailbox_open(storage, real_mailbox, NULL, ACL_MAILBOX_OPEN_FLAGS |
-			   MAILBOX_OPEN_IGNORE_ACLS);
+	box = mailbox_open(&storage, real_mailbox, NULL,
+			   ACL_MAILBOX_OPEN_FLAGS | MAILBOX_OPEN_IGNORE_ACLS);
 	if (box == NULL) {
 		client_send_storage_error(cmd, storage);
 		return TRUE;

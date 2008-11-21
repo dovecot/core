@@ -200,6 +200,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	struct mail_user *user = mbox->storage->storage.ns->user;
 	struct virtual_backend_box *const *bboxes;
 	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	unsigned int i, count;
 	enum mail_error error;
 	const char *str, *mailbox;
@@ -210,13 +211,14 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	for (i = 0; i < count; i++) {
 		mailbox = bboxes[i]->name;
 		ns = mail_namespace_find(user->namespaces, &mailbox);
-		bboxes[i]->box = mailbox_open(ns->storage, mailbox,
+		storage = ns->storage;
+		bboxes[i]->box = mailbox_open(&storage, mailbox,
 					      NULL, open_flags);
 
 		if (bboxes[i]->box == NULL) {
-			if (ns->storage != mbox->ibox.box.storage) {
+			if (storage != mbox->ibox.box.storage) {
 				/* copy the error */
-				str = mail_storage_get_last_error(ns->storage,
+				str = mail_storage_get_last_error(storage,
 								  &error);
 				mail_storage_set_error(mbox->ibox.box.storage,
 						       error, str);

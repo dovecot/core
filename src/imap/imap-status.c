@@ -61,7 +61,7 @@ bool imap_status_get(struct client *client, struct mail_storage *storage,
 	}
 
 	/* open the mailbox */
-	box = mailbox_open(storage, mailbox, NULL, MAILBOX_OPEN_FAST |
+	box = mailbox_open(&storage, mailbox, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
 	if (box == NULL)
 		return FALSE;

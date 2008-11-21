@@ -25,7 +25,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_storage *storage,
 		return 0;
 	}
 
-	box = mailbox_open(storage, name, NULL,
+	box = mailbox_open(&storage, name, NULL,
 			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
 	if (box == NULL)
 		return -1;

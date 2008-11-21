@@ -282,7 +282,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 
 	/* First open the source mailbox. If we can't open it, don't create
 	   the destination mailbox either. */
-	srcbox = mailbox_open(source_storage, name, NULL,
+	srcbox = mailbox_open(&source_storage, name, NULL,
 			      MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
 	if (srcbox == NULL) {
 		if (set->skip_broken_mailboxes)
@@ -306,7 +306,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 		}
 	}
 
-	destbox = mailbox_open(dest_storage, dest_name, NULL,
+	destbox = mailbox_open(&dest_storage, dest_name, NULL,
 			       MAILBOX_OPEN_KEEP_RECENT);
 	if (destbox == NULL) {
 		i_error("Mailbox conversion: Couldn't open dest mailbox %s: %s",

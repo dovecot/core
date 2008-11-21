@@ -433,6 +433,7 @@ static int
 quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 {
 	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(list);
+	struct mail_storage *storage;
 	struct mailbox *box;
 	enum mail_error error;
 	const char *str;
@@ -442,7 +443,8 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	   and free the quota for all the messages existing in it. Open the
 	   mailbox locked so that other processes can't mess up the quota
 	   calculations by adding/removing mails while we're doing this. */
-	box = mailbox_open(qlist->storage, name, NULL, MAILBOX_OPEN_FAST |
+	storage = qlist->storage;
+	box = mailbox_open(&storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_KEEP_LOCKED);
 	if (box == NULL) {
 		str = mail_storage_get_last_error(qlist->storage, &error);

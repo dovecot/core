@@ -121,7 +121,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (mailbox_equals(client->mailbox, storage, mailbox))
 		destbox = client->mailbox;
 	else {
-		destbox = mailbox_open(storage, mailbox, NULL,
+		destbox = mailbox_open(&storage, mailbox, NULL,
 				       MAILBOX_OPEN_SAVEONLY |
 				       MAILBOX_OPEN_FAST |
 				       MAILBOX_OPEN_KEEP_RECENT);

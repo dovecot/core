@@ -64,6 +64,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 			 time_t *oldest_r)
 {
 	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	struct mailbox *box;
 	struct mail_search_context *search_ctx;
 	struct mailbox_transaction_context *t;
@@ -97,9 +98,10 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 		return 0;
 	}
 
-	box = mailbox_open(ns->storage, ns_mailbox, NULL, 0);
+	storage = ns->storage;
+	box = mailbox_open(&storage, ns_mailbox, NULL, 0);
 	if (box == NULL) {
-		errstr = mail_storage_get_last_error(ns->storage, &error);
+		errstr = mail_storage_get_last_error(storage, &error);
 		if (error != MAIL_ERROR_NOTFOUND) {
 			i_error("%s: Opening mailbox %s failed: %s",
 				user, mailbox, errstr);

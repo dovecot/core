@@ -264,7 +264,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 
 	if (readonly)
 		open_flags |= MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT;
-	ctx->box = mailbox_open(ctx->storage, mailbox, NULL, open_flags);
+	ctx->box = mailbox_open(&ctx->storage, mailbox, NULL, open_flags);
 	if (ctx->box == NULL)
 		return -1;
 
