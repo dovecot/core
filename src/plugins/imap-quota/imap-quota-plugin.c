@@ -3,6 +3,7 @@
 #include "common.h"
 #include "str.h"
 #include "imap-quote.h"
+#include "mail-namespace.h"
 #include "commands.h"
 #include "quota.h"
 #include "quota-plugin.h"
@@ -10,12 +11,28 @@
 
 #include <stdlib.h>
 
+#define QUOTA_USER_SEPARATOR ':'
+
 const char *imap_quota_plugin_version = PACKAGE_VERSION;
 
-static void
-quota_send(struct client_command_context *cmd, struct quota_root *root)
+static const char *
+imap_quota_root_get_name(struct mail_user *user, struct mail_user *owner,
+			 struct quota_root *root)
 {
-        const char *const *list;
+	const char *name;
+
+	name = quota_root_get_name(root);
+	if (user == owner)
+		return name;
+	return t_strdup_printf("%s%c%s", owner->username,
+			       QUOTA_USER_SEPARATOR, name);
+}
+
+static void
+quota_send(struct client_command_context *cmd, struct mail_user *owner,
+	   struct quota_root *root)
+{
+        const char *name, *const *list;
 	string_t *str;
 	unsigned int i;
 	uint64_t value, limit;
@@ -23,7 +40,8 @@ quota_send(struct client_command_context *cmd, struct quota_root *root)
 
 	str = t_str_new(128);
 	str_append(str, "* QUOTA ");
-	imap_quote_append_string(str, quota_root_get_name(root), FALSE);
+	name = imap_quota_root_get_name(cmd->client->user, owner, root);
+	imap_quote_append_string(str, name, FALSE);
 
 	str_append(str, " (");
 	list = quota_root_get_resources(root);
@@ -47,11 +65,13 @@ quota_send(struct client_command_context *cmd, struct quota_root *root)
 
 static bool cmd_getquotaroot(struct client_command_context *cmd)
 {
+	struct client *client = cmd->client;
 	struct mail_storage *storage;
+	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct quota_root_iter *iter;
         struct quota_root *root;
-	const char *orig_mailbox, *mailbox;
+	const char *orig_mailbox, *mailbox, *name;
 	string_t *str;
 
 	/* <mailbox> */
@@ -71,9 +91,15 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (quota_set == NULL) {
+	ns = mail_storage_get_namespace(storage);
+	if (quota_set == NULL || ns->owner == NULL) {
 		mailbox_close(&box);
 		client_send_tagline(cmd, "OK No quota.");
+		return TRUE;
+	}
+	if (ns->owner != client->user && !client->user->admin) {
+		mailbox_close(&box);
+		client_send_tagline(cmd, "NO Not showing other users' quota.");
 		return TRUE;
 	}
 
@@ -85,15 +111,16 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	iter = quota_root_iter_init(box);
 	while ((root = quota_root_iter_next(iter)) != NULL) {
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, quota_root_get_name(root), FALSE);
+		name = imap_quota_root_get_name(client->user, ns->owner, root);
+		imap_quote_append_string(str, name, FALSE);
 	}
 	quota_root_iter_deinit(&iter);
-	client_send_line(cmd->client, str_c(str));
+	client_send_line(client, str_c(str));
 
 	/* send QUOTA reply for each quotaroot */
 	iter = quota_root_iter_init(box);
 	while ((root = quota_root_iter_next(iter)) != NULL)
-		quota_send(cmd, root);
+		quota_send(cmd, ns->owner, root);
 	quota_root_iter_deinit(&iter);
 	mailbox_close(&box);
 
@@ -103,8 +130,9 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 
 static bool cmd_getquota(struct client_command_context *cmd)
 {
-	const char *root_name;
+	struct mail_user *owner = cmd->client->user;
         struct quota_root *root;
+	const char *root_name, *p;
 
 	/* <quota root> */
 	if (!client_read_string_args(cmd, 1, &root_name))
@@ -116,12 +144,23 @@ static bool cmd_getquota(struct client_command_context *cmd)
 	}
 
 	root = quota_root_lookup(cmd->client->user, root_name);
+	if (root == NULL && cmd->client->user->admin) {
+		/* we're an admin. see if there's a quota root for another
+		   user. */
+		p = strchr(root_name, QUOTA_USER_SEPARATOR);
+		if (p != NULL) {
+			owner = mail_user_find(cmd->client->user,
+					       t_strdup_until(root_name, p));
+			root = owner == NULL ? NULL :
+				quota_root_lookup(owner, p + 1);
+		}
+	}
 	if (root == NULL) {
 		client_send_tagline(cmd, "NO Quota root doesn't exist.");
 		return TRUE;
 	}
 
-	quota_send(cmd, root);
+	quota_send(cmd, owner, root);
 	client_send_tagline(cmd, "OK Getquota completed.");
 	return TRUE;
 }

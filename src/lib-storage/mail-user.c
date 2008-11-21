@@ -57,6 +57,17 @@ void mail_user_unref(struct mail_user **_user)
 		user->v.deinit(user);
 }
 
+struct mail_user *mail_user_find(struct mail_user *user, const char *name)
+{
+	struct mail_namespace *ns;
+
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if (ns->owner != NULL && strcmp(ns->owner->username, name) == 0)
+			return ns->owner;
+	}
+	return NULL;
+}
+
 void mail_user_set_home(struct mail_user *user, const char *home)
 {
 	user->_home = p_strdup(user->pool, home);

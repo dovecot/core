@@ -524,7 +524,8 @@ void quota_remove_user_storage(struct mail_storage *storage)
 	struct mail_storage *const *storages;
 	unsigned int i, count;
 
-	quota = quota_get_mail_user_quota(storage->ns->user);
+	quota = storage->ns->owner == NULL ? NULL :
+		quota_get_mail_user_quota(storage->ns->owner);
 	if (quota == NULL) {
 		/* no quota for this storage */
 		return;
@@ -579,7 +580,7 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 struct quota_root_iter *
 quota_root_iter_init(struct mailbox *box)
 {
-	struct mail_user *user = box->storage->ns->user;
+	struct mail_user *user = box->storage->ns->owner;
 	struct quota_root_iter *iter;
 
 	iter = i_new(struct quota_root_iter, 1);
@@ -717,7 +718,7 @@ int quota_set_resource(struct quota_root *root ATTR_UNUSED,
 
 struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 {
-	struct mail_user *user = box->storage->ns->user;
+	struct mail_user *user = box->storage->ns->owner;
 	struct quota_transaction_context *ctx;
 
 	ctx = i_new(struct quota_transaction_context, 1);

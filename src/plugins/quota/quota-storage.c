@@ -524,10 +524,10 @@ void quota_mail_storage_created(struct mail_storage *storage)
 
 	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
 
-	if (storage->ns->type == NAMESPACE_PRIVATE &&
+	if (storage->ns->owner != NULL &&
 	    (storage->ns->flags & NAMESPACE_FLAG_INTERNAL) == 0) {
-		/* register to user's quota roots */
-		quota = quota_get_mail_user_quota(storage->ns->user);
+		/* register to owner's quota roots */
+		quota = quota_get_mail_user_quota(storage->ns->owner);
 		quota_add_user_storage(quota, storage);
 	}
 

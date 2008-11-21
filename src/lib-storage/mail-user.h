@@ -23,6 +23,9 @@ struct mail_user {
 
 	/* Either home is set or there is no home for the user. */
 	unsigned int home_looked_up:1;
+	/* User is an administrator. Allow operations not normally allowed
+	   for other people. */
+	unsigned int admin:1;
 };
 
 struct mail_user_module_register {
@@ -44,6 +47,9 @@ void mail_users_deinit(void);
 struct mail_user *mail_user_init(const char *username);
 void mail_user_ref(struct mail_user *user);
 void mail_user_unref(struct mail_user **user);
+
+/* Find another user from the given user's namespaces. */
+struct mail_user *mail_user_find(struct mail_user *user, const char *name);
 
 /* Specify the user's home directory. This should be called also when it's
    known that the user doesn't have a home directory to avoid the internal
