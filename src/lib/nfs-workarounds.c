@@ -214,10 +214,14 @@ static bool nfs_flush_fchown_uid(const char *path, int fd)
 #endif
 
 #ifdef READ_CACHE_FLUSH_FCNTL
-static void nfs_flush_fcntl(const char *path, int fd)
+static bool nfs_flush_fcntl(const char *path, int fd)
 {
+	static bool locks_disabled = FALSE;
 	struct flock fl;
 	int ret;
+
+	if (locks_disabled)
+		return FALSE;
 
 	/* If the file was already locked, we'll just get the same lock
 	   again. It should succeed just fine. If was was unlocked, we'll
@@ -233,12 +237,17 @@ static void nfs_flush_fcntl(const char *path, int fd)
 	alarm(0);
 
 	if (unlikely(ret < 0)) {
+		if (errno == ENOLCK) {
+			locks_disabled = TRUE;
+			return FALSE;
+		}
 		i_error("nfs_flush_fcntl: fcntl(%s, F_RDLCK) failed: %m", path);
-		return;
+		return FALSE;
 	}
 
 	fl.l_type = F_UNLCK;
 	(void)fcntl(fd, F_SETLKW, &fl);
+	return TRUE;
 }
 #endif
 
@@ -376,7 +385,8 @@ void nfs_flush_read_cache_locked(const char *path ATTR_UNUSED,
 void nfs_flush_read_cache_unlocked(const char *path, int fd)
 {
 #ifdef READ_CACHE_FLUSH_FCNTL
-	nfs_flush_fcntl(path, fd);
+	if (!nfs_flush_fcntl(path, fd))
+		nfs_flush_attr_cache_fd_locked(path, fd);
 #else
 	nfs_flush_read_cache_locked(path, fd);
 #endif
