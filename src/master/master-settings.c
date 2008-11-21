@@ -160,7 +160,7 @@ static struct setting_def namespace_setting_defs[] = {
 	DEF_STR(location),
 	DEF_BOOL(inbox),
 	DEF_BOOL(hidden),
-	DEF_BOOL(list),
+	DEF_STR(list),
 	DEF_BOOL(subscriptions),
 
 	{ 0, NULL, 0 }
@@ -362,7 +362,7 @@ struct namespace_settings default_namespace_settings = {
 
 	MEMBER(inbox) FALSE,
 	MEMBER(hidden) FALSE,
-	MEMBER(list) TRUE,
+	MEMBER(list) "yes",
 	MEMBER(subscriptions) TRUE
 };
 
@@ -500,6 +500,13 @@ static bool namespace_settings_verify(struct namespace_settings *ns)
 		i_error("Namespace '%s': "
 			"Hierarchy separator must be only one character long",
 			name);
+		return FALSE;
+	}
+	if (strcmp(ns->list, "yes") != 0 &&
+	    strcmp(ns->list, "no") != 0 &&
+	    strcmp(ns->list, "children") != 0) {
+		i_error("Namespace '%s': Invalid list value: %s",
+			name, ns->list);
 		return FALSE;
 	}
 

@@ -14,8 +14,10 @@ enum namespace_flags {
 	NAMESPACE_FLAG_INBOX		= 0x01,
 	/* Namespace is visible only by explicitly using its full prefix */
 	NAMESPACE_FLAG_HIDDEN		= 0x02,
-	/* Namespace is visible with LIST */
-	NAMESPACE_FLAG_LIST		= 0x04,
+	/* Namespace prefix is visible with LIST */
+	NAMESPACE_FLAG_LIST_PREFIX	= 0x04,
+	/* Namespace prefix isn't visible with LIST, but child mailboxes are */
+	NAMESPACE_FLAG_LIST_CHILDREN	= 0x08,
 	/* Namespace uses its own subscriptions. */
 	NAMESPACE_FLAG_SUBSCRIPTIONS	= 0x10,
 

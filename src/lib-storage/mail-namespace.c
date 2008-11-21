@@ -39,19 +39,24 @@ namespace_add_env(const char *data, unsigned int num,
 		  enum file_lock_method lock_method)
 {
         struct mail_namespace *ns;
-	const char *sep, *type, *prefix, *driver, *error;
+	const char *sep, *type, *prefix, *driver, *error, *list;
 
 	ns = i_new(struct mail_namespace, 1);
 
 	sep = getenv(t_strdup_printf("NAMESPACE_%u_SEP", num));
 	type = getenv(t_strdup_printf("NAMESPACE_%u_TYPE", num));
 	prefix = getenv(t_strdup_printf("NAMESPACE_%u_PREFIX", num));
+	list = getenv(t_strdup_printf("NAMESPACE_%u_LIST", num));
 	if (getenv(t_strdup_printf("NAMESPACE_%u_INBOX", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_INBOX;
 	if (getenv(t_strdup_printf("NAMESPACE_%u_HIDDEN", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_HIDDEN;
-	if (getenv(t_strdup_printf("NAMESPACE_%u_LIST", num)) != NULL)
-		ns->flags |= NAMESPACE_FLAG_LIST;
+	if (list != NULL) {
+		if (strcmp(list, "children") == 0)
+			ns->flags |= NAMESPACE_FLAG_LIST_CHILDREN;
+		else
+			ns->flags |= NAMESPACE_FLAG_LIST_PREFIX;
+	}
 	if (getenv(t_strdup_printf("NAMESPACE_%u_SUBSCRIPTIONS", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_SUBSCRIPTIONS;
 
@@ -76,7 +81,7 @@ namespace_add_env(const char *data, unsigned int num,
 		       type == NULL ? "" : type, prefix, sep == NULL ? "" : sep,
 		       (ns->flags & NAMESPACE_FLAG_INBOX) ? "yes" : "no",
 		       (ns->flags & NAMESPACE_FLAG_HIDDEN) ? "yes" : "no",
-		       (ns->flags & NAMESPACE_FLAG_LIST) ? "yes" : "no",
+		       list,
 		       (ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) ?
 		       "yes" : "no");
 	}
@@ -88,6 +93,7 @@ namespace_add_env(const char *data, unsigned int num,
 
 	if (ns->type == NAMESPACE_SHARED && strchr(ns->prefix, '%') != NULL) {
 		/* dynamic shared namespace */
+		ns->flags |= NAMESPACE_FLAG_INTERNAL;
 		driver = "shared";
 	} else {
 		driver = NULL;
@@ -124,14 +130,15 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 			private_ns_count++;
 		}
 		if (*ns->prefix != '\0' &&
-		    (ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
+		    (ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0 &&
 		    ns->prefix[strlen(ns->prefix)-1] != ns->sep) {
 			i_error("namespace configuration error: "
 				"list=yes requires prefix=%s "
 				"to end with separator", ns->prefix);
 			return FALSE;
 		}
-		if ((ns->flags & NAMESPACE_FLAG_LIST) != 0) {
+		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0) {
 			if (list_sep == '\0')
 				list_sep = ns->sep;
 			else if (list_sep != ns->sep) {
@@ -142,7 +149,7 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 			}
 		}
 		if (*ns->prefix == '\0' &&
-		    (ns->flags & NAMESPACE_FLAG_LIST) == 0) {
+		    (ns->flags & NAMESPACE_FLAG_LIST_PREFIX) == 0) {
 			i_error("namespace configuration error: "
 				"Empty prefix requires list=yes");
 			return FALSE;
@@ -236,7 +243,7 @@ int mail_namespaces_init(struct mail_user *user)
 
 	ns = i_new(struct mail_namespace, 1);
 	ns->type = NAMESPACE_PRIVATE;
-	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |
+	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST_PREFIX |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
 	ns->prefix = i_strdup("");
 	ns->user = user;
@@ -270,7 +277,7 @@ mail_namespaces_init_empty(struct mail_user *user)
 	ns = i_new(struct mail_namespace, 1);
 	ns->user = user;
 	ns->prefix = i_strdup("");
-	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST |
+	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST_PREFIX |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
 	user->namespaces = ns;
 	return ns;
@@ -342,7 +349,7 @@ const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
 
 char mail_namespace_get_root_sep(const struct mail_namespace *namespaces)
 {
-	while ((namespaces->flags & NAMESPACE_FLAG_LIST) == 0)
+	while ((namespaces->flags & NAMESPACE_FLAG_LIST_PREFIX) == 0)
 		namespaces = namespaces->next;
 	return namespaces->sep;
 }

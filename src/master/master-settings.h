@@ -243,7 +243,7 @@ struct namespace_settings {
 
 	bool inbox;
 	bool hidden;
-	bool list;
+	const char *list;
 	bool subscriptions;
 };
 

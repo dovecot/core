@@ -222,7 +222,7 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	enum mailbox_info_flags flags;
 	const char *name;
 	string_t *str;
-	
+
 	ctx->cur_ns_send_prefix = FALSE;
 
 	/* see if we already listed this as a valid mailbox in another
@@ -255,6 +255,19 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 		} else {
 			flags |= MAILBOX_NOCHILDREN;
 		}
+	}
+
+	if ((ctx->ns->flags & NAMESPACE_FLAG_LIST_CHILDREN) != 0) {
+		if (have_children) {
+			/* children are going to be listed. */
+			return;
+		}
+		if ((flags & MAILBOX_CHILDREN) == 0) {
+			/* namespace has no children. don't show it. */
+			return;
+		}
+		/* namespace has children but they don't match the list
+		   pattern. the prefix itself matches though, so show it. */
 	}
 
 	name = ctx->cur_ns_skip_trailing_sep ?
@@ -504,8 +517,10 @@ list_want_send_prefix(struct cmd_list_context *ctx, const char *pattern)
 	if ((ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
 		return FALSE;
 
-	/* send the prefix if namespace is listable.. */
-	if ((ctx->ns->flags & NAMESPACE_FLAG_LIST) != 0)
+	/* send the prefix if namespace is listable. if children are listable
+	   we may or may not need to send it. */
+	if ((ctx->ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+			       NAMESPACE_FLAG_LIST_CHILDREN)) != 0)
 		return TRUE;
 
 	/* ..or if pattern is exactly the same as namespace prefix.
@@ -550,7 +565,8 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 	}
 
 	/* hidden and non-listable namespaces are invisible to wildcards */
-	if ((ns->flags & NAMESPACE_FLAG_LIST) == 0 &&
+	if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+			  NAMESPACE_FLAG_LIST_CHILDREN)) == 0 &&
 	    list_pattern_has_wildcards(cur_pattern))
 		return FALSE;
 
@@ -623,7 +639,7 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 			/* it's possible that the namespace prefix matched,
 			   even though its children didn't */
 			if (ctx->cur_ns_send_prefix)
-				list_namespace_send_prefix(ctx, TRUE);
+				list_namespace_send_prefix(ctx, FALSE);
 			return;
 		}
 		/* we should still list INBOX */

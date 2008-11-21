@@ -1,12 +1,16 @@
 /* Copyright (c) 2008 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "imap-match.h"
 #include "mailbox-list-private.h"
 #include "index-storage.h"
 #include "shared-storage.h"
 
 struct shared_mailbox_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
+	struct mail_namespace *cur_ns;
+	struct imap_match_glob *glob;
+	struct mailbox_info info;
 };
 
 extern struct mailbox_list shared_mailbox_list;
@@ -149,8 +153,11 @@ shared_list_iter_init(struct mailbox_list *list, const char *const *patterns,
 	ctx = i_new(struct shared_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
-
-	/* FIXME */
+	ctx->cur_ns = list->ns->user->namespaces;
+	ctx->info.ns = list->ns;
+	ctx->info.flags = MAILBOX_NONEXISTENT;
+	ctx->glob = imap_match_init_multiple(default_pool, patterns,
+					     FALSE, list->ns->sep);
 	return &ctx->ctx;
 }
 
@@ -159,7 +166,34 @@ shared_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
 	struct shared_mailbox_list_iterate_context *ctx =
 		(struct shared_mailbox_list_iterate_context *)_ctx;
+	struct mail_namespace *ns = ctx->cur_ns;
 
+	for (; ns != NULL; ns = ns->next) {
+		if (ns->type != NAMESPACE_SHARED ||
+		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0)
+			continue;
+		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+				  NAMESPACE_FLAG_LIST_CHILDREN)) == 0)
+			continue;
+
+		if (ns->prefix_len < ctx->info.ns->prefix_len ||
+		    strncmp(ns->prefix, ctx->info.ns->prefix,
+			    ctx->info.ns->prefix_len) != 0)
+			continue;
+
+		/* visible and listable namespace under ourself, see if the
+		   prefix matches without the trailing separator */
+		i_assert(ns->prefix_len > 0);
+		ctx->info.name = t_strndup(ns->prefix, ns->prefix_len - 1);
+		if ((_ctx->flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) == 0)
+			ctx->info.name += ctx->info.ns->prefix_len;
+		if (imap_match(ctx->glob, ctx->info.name) == IMAP_MATCH_YES) {
+			ctx->cur_ns = ns->next;
+			return &ctx->info;
+		}
+	}
+
+	ctx->cur_ns = NULL;
 	return NULL;
 }
 

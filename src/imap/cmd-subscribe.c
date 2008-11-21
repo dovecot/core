@@ -10,7 +10,8 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 	unsigned int name_len = strlen(name);
 
 	for (; ns != NULL; ns = ns->next) {
-		if ((ns->flags & NAMESPACE_FLAG_LIST) == 0)
+		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+				  NAMESPACE_FLAG_LIST_CHILDREN)) == 0)
 			continue;
 
 		if (ns->prefix_len <= name_len)
