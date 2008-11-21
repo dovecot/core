@@ -51,7 +51,7 @@ static void auth_worker_destroy(struct auth_worker_connection *conn,
 
 static void auth_worker_idle_timeout(struct auth_worker_connection *conn)
 {
-	i_assert(array_count(&conn->requests) == 0);
+	i_assert(conn->request_count == 0);
 
 	if (idle_count > 1)
 		auth_worker_destroy(conn, NULL);
@@ -278,7 +278,7 @@ auth_worker_request_get(struct auth_worker_connection *conn)
 
 static void auth_worker_call_timeout(struct auth_worker_connection *conn)
 {
-	i_assert(array_count(&conn->requests) > 0);
+	i_assert(conn->request_count > 0);
 
 	auth_worker_destroy(conn, "Lookup timed out");
 }
