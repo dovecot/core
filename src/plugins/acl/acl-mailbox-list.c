@@ -114,6 +114,25 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 }
 
 static struct mailbox_list_iterate_context *
+acl_mailbox_list_iter_init_shared(struct mailbox_list *list,
+				  const char *const *patterns,
+				  enum mailbox_list_iter_flags flags)
+{
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
+	struct mailbox_list_iterate_context *ctx;
+	int ret;
+
+	/* before listing anything add namespaces for all users
+	   who may have visible mailboxes */
+	ret = acl_shared_namespaces_add(list->ns);
+
+	ctx = alist->module_ctx.super.iter_init(list, patterns, flags);
+	if (ret < 0)
+		ctx->failed = TRUE;
+	return ctx;
+}
+
+static struct mailbox_list_iterate_context *
 acl_mailbox_list_iter_init(struct mailbox_list *list,
 			   const char *const *patterns,
 			   enum mailbox_list_iter_flags flags)
@@ -142,14 +161,6 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 			ctx->simple_star_glob = FALSE;
 			break;
 		}
-	}
-
-	if (list->ns->type == NAMESPACE_SHARED &&
-	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
-		/* before listing anything add namespaces for all users
-		   who may have visible mailboxes */
-		if (acl_shared_namespaces_add(list->ns) < 0)
-			ctx->ctx.failed = TRUE;
 	}
 
 	/* Try to avoid reading ACLs from all mailboxes by getting a smaller
@@ -481,7 +492,18 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 	return alist->module_ctx.super.rename_mailbox(list, oldname, newname);
 }
 
-void acl_mailbox_list_created(struct mailbox_list *list)
+static void acl_mailbox_list_init_shared(struct mailbox_list *list)
+{
+	struct acl_mailbox_list *alist;
+
+	alist = p_new(list->pool, struct acl_mailbox_list, 1);
+	alist->module_ctx.super = list->v;
+	list->v.iter_init = acl_mailbox_list_iter_init_shared;
+
+	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
+}
+
+static void acl_mailbox_list_init_default(struct mailbox_list *list)
 {
 	struct acl_user *auser = ACL_USER_CONTEXT(list->ns->user);
 	struct acl_mailbox_list *alist;
@@ -490,11 +512,6 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	enum mailbox_list_flags flags;
 	const char *current_username, *owner_username;
 	bool owner = TRUE;
-
-	if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
-		/* no ACL checks for internal namespaces (deliver) */
-		return;
-	}
 
 	owner_username = list->ns->user->username;
 	current_username = auser->master_user;
@@ -532,8 +549,18 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	list->v.rename_mailbox = acl_mailbox_list_rename;
 
 	acl_storage_rights_ctx_init(&alist->rights, backend);
-
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
+}
+
+void acl_mailbox_list_created(struct mailbox_list *list)
+{
+	if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
+		/* no ACL checks for internal namespaces (deliver, shared) */
+		if (list->ns->type == NAMESPACE_SHARED)
+			acl_mailbox_list_init_shared(list);
+	} else {
+		acl_mailbox_list_init_default(list);
+	}
 
 	if (acl_next_hook_mailbox_list_created != NULL)
 		acl_next_hook_mailbox_list_created(list);
