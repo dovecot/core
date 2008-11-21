@@ -585,7 +585,7 @@ int mailbox_list_delete_index_control(struct mailbox_list *list,
 	dir = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	if (*dir != '\0' && strcmp(dir, path) != 0 &&
 	    strcmp(dir, index_dir) != 0) {
-		if (mailbox_list_try_delete(list, index_dir) < 0)
+		if (mailbox_list_try_delete(list, dir) < 0)
 			return -1;
 	}
 	return 0;
