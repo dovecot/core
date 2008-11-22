@@ -435,6 +435,7 @@ mailbox_list_ns_iter_next(struct mailbox_list_iterate_context *_ctx)
 		/* go to the next namespace */
 		if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
 			_ctx->failed = TRUE;
+		ctx->ctx.list->ns = ctx->namespaces;
 		ctx->backend_ctx =
 			mailbox_list_iter_init_multiple(ctx->namespaces->list,
 							ctx->patterns,
@@ -483,6 +484,7 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 	for (i = 0; i < count; i++)
 		ctx->patterns[i] = p_strdup(pool, patterns[i]);
 
+	ctx->ctx.list->ns = namespaces;
 	ctx->backend_ctx = mailbox_list_iter_init_multiple(namespaces->list,
 							   patterns, flags);
 	ctx->namespaces = namespaces->next;
