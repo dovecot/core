@@ -1164,7 +1164,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	struct mailbox *box = _ctx->transaction->box;
 	unsigned int count = 0;
-	bool match, never;
+	bool match = FALSE, never;
 
 	*tryagain_r = FALSE;
 
@@ -1236,7 +1236,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	ctx->mail = NULL;
 	ctx->imail = NULL;
 
-	if (_ctx->sort_program != NULL && !ctx->failed) {
+	if (!match && _ctx->sort_program != NULL && !ctx->failed) {
 		/* finished searching the messages. now sort them and start
 		   returning the messages. */
 		ctx->sorted = TRUE;
@@ -1245,7 +1245,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 							  tryagain_r);
 	}
 
-	return ctx->failed ? -1 : 0;
+	return ctx->failed ? -1 : (match ? 1 : 0);
 }
 
 bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
