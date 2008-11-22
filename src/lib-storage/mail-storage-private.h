@@ -158,7 +158,7 @@ struct mailbox_vfuncs {
 	int (*search_next_nonblock)(struct mail_search_context *ctx,
 				    struct mail *mail, bool *tryagain_r);
 	/* Internal search function which updates ctx->seq */
-	int (*search_next_update_seq)(struct mail_search_context *ctx);
+	bool (*search_next_update_seq)(struct mail_search_context *ctx);
 
 	struct mail_save_context *
 		(*save_alloc)(struct mailbox_transaction_context *t);

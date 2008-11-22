@@ -424,15 +424,14 @@ fts_mailbox_search_args_definite_set(struct fts_search_context *fctx)
 	}
 }
 
-static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
+static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 	struct seq_range *def_range, *maybe_range, *range;
 	unsigned int def_count, maybe_count;
 	uint32_t wanted_seq;
-	bool use_maybe;
-	int ret;
+	bool use_maybe, ret;
 
 	if (!fctx->seqs_set)
 		return fbox->module_ctx.super.search_next_update_seq(ctx);
@@ -457,7 +456,7 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 			if (fctx->maybe_idx == maybe_count) {
 				/* look for the non-indexed mails */
 				if (fctx->first_nonindexed_seq == 0)
-					return 0;
+					return FALSE;
 				fctx->seqs_set = FALSE;
 				ctx->seq = fctx->first_nonindexed_seq - 1;
 				return fbox->module_ctx.super.
@@ -491,7 +490,7 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 		/* ctx->seq points to previous sequence we want */
 		ctx->seq = wanted_seq - 1;
 		ret = fbox->module_ctx.super.search_next_update_seq(ctx);
-		if (ret <= 0 || wanted_seq == ctx->seq)
+		if (!ret || wanted_seq == ctx->seq)
 			break;
 		wanted_seq = ctx->seq;
 		mail_search_args_reset(ctx->args->args, FALSE);

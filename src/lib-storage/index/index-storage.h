@@ -168,7 +168,7 @@ int index_storage_search_next(struct mail_search_context *ctx,
 			      struct mail *mail);
 int index_storage_search_next_nonblock(struct mail_search_context *ctx,
 				       struct mail *mail, bool *tryagain_r);
-int index_storage_search_next_update_seq(struct mail_search_context *ctx);
+bool index_storage_search_next_update_seq(struct mail_search_context *ctx);
 
 void index_transaction_init(struct index_transaction_context *t,
 			    struct index_mailbox *ibox);

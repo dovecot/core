@@ -1164,8 +1164,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	struct mailbox *box = _ctx->transaction->box;
 	unsigned int count = 0;
-	bool never;
-	int ret;
+	bool match, never;
 
 	*tryagain_r = FALSE;
 
@@ -1184,7 +1183,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	    SEARCH_NOTIFY_INTERVAL_SECS)
 		index_storage_search_notify(box, ctx);
 
-	while ((ret = box->v.search_next_update_seq(_ctx)) > 0) {
+	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
 
 		if (_ctx->update_result == NULL)
@@ -1203,14 +1202,14 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 		}
 
 		if (never) {
-			ret = 0;
+			match = FALSE;
 		} else T_BEGIN {
-			ret = search_match_next(ctx) ? 1 : 0;
+			match = search_match_next(ctx);
 
 			if (ctx->mail->expunged)
 				_ctx->seen_lost_data = TRUE;
 
-			if (ret == 0 &&
+			if (!match &&
 			    search_has_static_nonmatches(_ctx->args->args)) {
 				/* if there are saved search results remember
 				   that this message never matches */
@@ -1221,8 +1220,8 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 		mail_search_args_reset(_ctx->args->args, FALSE);
 
 		if (ctx->error != NULL)
-			ret = -1;
-		if (ret != 0) {
+			ctx->failed = TRUE;
+		else if (match) {
 			if (_ctx->sort_program == NULL)
 				break;
 
@@ -1234,12 +1233,10 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 			return 0;
 		}
 	}
-	if (ret < 0)
-		ctx->failed = TRUE;
 	ctx->mail = NULL;
 	ctx->imail = NULL;
 
-	if (_ctx->sort_program != NULL && ret == 0) {
+	if (_ctx->sort_program != NULL && !ctx->failed) {
 		/* finished searching the messages. now sort them and start
 		   returning the messages. */
 		ctx->sorted = TRUE;
@@ -1248,10 +1245,10 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 							  tryagain_r);
 	}
 
-	return ret;
+	return ctx->failed ? -1 : 0;
 }
 
-int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
+bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	int ret;
@@ -1264,7 +1261,7 @@ int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 	}
 
 	if (!ctx->have_seqsets && !ctx->have_index_args)
-		return _ctx->seq <= ctx->seq2 ? 1 : 0;
+		return _ctx->seq <= ctx->seq2;
 
 	ret = 0;
 	while (_ctx->seq <= ctx->seq2) {
@@ -1286,5 +1283,5 @@ int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 		_ctx->seq++;
 		mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
 	}
-	return ret == 0 ? 0 : 1;
+	return ret != 0;
 }
