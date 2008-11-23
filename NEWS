@@ -2,7 +2,11 @@ v1.2.UNSTABLE  Timo Sirainen <tss@iki.fi>
 
 	* SQL dictionary (quota) configuration file is different than in v1.1.
 	  See doc/dovecot-dict-sql-example.conf for the new format.
+	* deliver -m: Mailbox name is now assumed to be in UTF-8 format,
+	  not modified-UTF7. Stephan Bosch's new Sieve implementation also
+	  assumes UTF-8 format in fileinto parameters.
 
+	+ Full support for shared mailboxes and IMAP ACL extension.
 	+ IMAP: Added support for extensions: CONDSTORE, QRESYNC, ESEARCH,
 	  SEARCHRES, WITHIN, ID and CONTEXT=SEARCH.
 	+ SEARCH supports INTHREAD search key, but the rest of the INTHREAD
@@ -10,6 +14,7 @@ v1.2.UNSTABLE  Timo Sirainen <tss@iki.fi>
 	+ THREAD X-REFERENCES2 algorithm where threads are sorted by their
 	  latest message instead of the thread root message. There is also no
 	  base subject merging.
+	+ IMAP: Implemented imap-response-codes draft.
 	+ Thread indexes for optimizing IMAP THREAD command and INTHREAD
 	  search key.
 	+ Added userdb checkpassword (by Sascha Wilde)

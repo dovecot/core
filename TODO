@@ -1,8 +1,36 @@
- - implement draft-gulbrandsen-imap-response-codes
+ - solr: escape '/' in usernames
+ - virtual: "Searched n% of the mailbox" gives broken numbers since
+   ctx->seq jumps around
+ - how do shared mailboxes work with plugins?
+    - expire: not too well. would require knowing the mapping between shared
+      namespace and the original user's namespace to avoid duplication.
+    - lazy-expunge, fts, etc.?
+ - dovecot-acl-list:
+    - how does it work with global acls?
+    - update immediately after SETACL: add/remove entries, update timestamps
+    - read the entire file to memory only once and keep it there, stat() later
+      to see if it has changed. if not, perhaps don't even bother stat()ing
+      dovecot-acl files? at least not that often..
+ - virtual mailboxes search: search index-only stuff first. save all incomplete
+   results to a list. sort the list by backend mailbox + backend UID. search
+   the stuff in that order. somehow make fts searches work by doing the search
+   for each backend mailbox rather than for the virtual mailbox
+ - virtual mailboxes: backend mailbox where to save mails if they're tried to
+   be saved to the virtual mailbox.
+ - acl example in wiki with acl_dict = file:/var/mail/%d/dovecot.shared
+ - change auth_worker_max_request_count to non-zero by default? at least with
+   PAM it should be non-zero.. perhaps remove the entire setting and make it
+   a pam args?
+ - add anonymous environment for anon logins
+ - fs quota: getquotaroot inbox vs. other-box should return different quotas
+   if two quotas are defined
+ - deliver: log mailbox name using utf8, not mutf7
  - new primes code: are hash tables now being resized too often?
  - auth_log_prefix setting similar to mail_log_prefix
  - LDAP attrs: uid=foo,uid=bar doesn't work
 
+ - easily limit master users to be able to only log as other users within
+   their domain
  - thread indexes: if we expunge a duplicate message-id: and we have a sibling
    with identical message-id:, we can probably just move the children?
    (unless there are non-sibling duplicates)
@@ -11,10 +39,12 @@
  - QRESYNC: Drop expunges from the middle of given seq sets if possible
  - use universal hash functions?
 
+ - expire plugin: log more with mail_debug=yes
+  - expire-tool -v could log UID and expire timestamps and what messages got
+    expunged
  - mbox + in-memory indexes give errors with stress testing
  - dict quota: syncing may cause quota recalculation, which in turn syncs
    all mailboxes and then we'll assert-crash to avoid infinite looping
- - sieve: mailbox names should be utf-7 encoded
  - fts-squat: support ORs
  - UIDVALIDITY changed while saving -> sync errors
    - mbox: copy to Trash, manually delete copied msg, change uidvalidity,
@@ -48,7 +78,6 @@
  - DEBUG: buffer overflow checking code probably doesn't handle a successful
    t_try_realloc() or pool_alloconly_realloc() properly
  - cache: compress when we can drop temporary fields.
- - ACL: "foo/bar" in public namespace -> LIST "" % doesn't show "foo"
  - new %modifier for reverse DNS lookups with a cache
    - auth_gssapi_hostname = %Xl
    - proxying would also want DNS lookups, but not reverse..
@@ -259,7 +288,6 @@
 
 capabilities:
  - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
- - acl (rfc4314)
  - mailbox-referrals (rfc2193)
      - this is useful whenever we would otherwise need to make the
        connection ourself. for example load balancing and shared mailboxes
