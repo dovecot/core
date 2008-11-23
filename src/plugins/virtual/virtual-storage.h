@@ -10,6 +10,9 @@
 #define VIRTUAL_CONFIG_FNAME "dovecot-virtual"
 #define VIRTUAL_INDEX_PREFIX "dovecot.index"
 
+#define VIRTUAL_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, virtual_storage_module)
+
 struct virtual_mail_index_header {
 	/* Increased by one each time the header is modified */
 	uint32_t change_counter;
@@ -107,6 +110,9 @@ struct virtual_mailbox {
 	unsigned int sync_initialized:1;
 };
 
+extern MODULE_CONTEXT_DEFINE(virtual_storage_module,
+			     &mail_storage_module_register);
+
 extern struct mail_storage virtual_storage;
 extern struct mail_vfuncs virtual_mail_vfuncs;
 
@@ -120,6 +126,15 @@ virtual_backend_box_lookup(struct virtual_mailbox *mbox, uint32_t mailbox_id);
 struct mailbox_transaction_context *
 virtual_transaction_get(struct mailbox_transaction_context *trans,
 			struct mailbox *backend_box);
+
+struct mail_search_context *
+virtual_search_init(struct mailbox_transaction_context *t,
+		    struct mail_search_args *args,
+		    const enum mail_sort_type *sort_program);
+int virtual_search_deinit(struct mail_search_context *ctx);
+int virtual_search_next_nonblock(struct mail_search_context *ctx,
+				 struct mail *mail, bool *tryagain_r);
+bool virtual_search_next_update_seq(struct mail_search_context *ctx);
 
 struct mail *
 virtual_mail_alloc(struct mailbox_transaction_context *t,

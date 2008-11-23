@@ -15,6 +15,7 @@ lib20_virtual_plugin_la_SOURCES = \
 	virtual-config.c \
 	virtual-mail.c \
 	virtual-plugin.c \
+	virtual-search.c \
 	virtual-storage.c \
 	virtual-sync.c \
 	virtual-transaction.c

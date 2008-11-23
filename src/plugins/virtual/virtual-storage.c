@@ -24,6 +24,8 @@
 extern struct mail_storage virtual_storage;
 extern struct mailbox virtual_mailbox;
 
+struct virtual_storage_module virtual_storage_module =
+	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(virtual_mailbox_list_module,
 				  &mailbox_list_module_register);
 
@@ -584,10 +586,10 @@ struct mailbox virtual_mailbox = {
 		index_header_lookup_init,
 		index_header_lookup_ref,
 		index_header_lookup_unref,
-		index_storage_search_init,
-		index_storage_search_deinit,
-		index_storage_search_next_nonblock,
-		index_storage_search_next_update_seq,
+		virtual_search_init,
+		virtual_search_deinit,
+		virtual_search_next_nonblock,
+		virtual_search_next_update_seq,
 		NULL,
 		NULL,
 		NULL,
