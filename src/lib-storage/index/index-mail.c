@@ -1069,6 +1069,8 @@ void index_mail_init(struct index_mail *mail,
 	mail->mail.v = *t->ibox->mail_vfuncs;
 	mail->mail.mail.box = &t->ibox->box;
 	mail->mail.mail.transaction = &t->mailbox_ctx;
+	mail->mail.wanted_fields = wanted_fields;
+	mail->mail.wanted_headers = _wanted_headers;
 
 	hdr = mail_index_get_header(t->ibox->view);
 	mail->uid_validity = hdr->uid_validity;

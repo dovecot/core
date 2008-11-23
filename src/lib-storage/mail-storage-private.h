@@ -270,6 +270,9 @@ struct mail_private {
 	struct mail mail;
 	struct mail_vfuncs v;
 
+	enum mail_fetch_field wanted_fields;
+	struct mailbox_header_lookup_ctx *wanted_headers;
+
 	pool_t pool;
 	ARRAY_DEFINE(module_contexts, union mail_module_context *);
 };
