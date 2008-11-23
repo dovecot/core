@@ -416,6 +416,11 @@ void mailbox_get_uid_range(struct mailbox *box,
 bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 			       const ARRAY_TYPE(seq_range) *uids,
 			       ARRAY_TYPE(seq_range) *expunged_uids);
+/* If box is a virtual mailbox, look up UID for the given backend message.
+   Returns TRUE if found, FALSE if not. */
+bool mailbox_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
+			     uint32_t backend_uidvalidity,
+			     uint32_t backend_uid, uint32_t *uid_r);
 
 /* Initialize header lookup for given headers. */
 struct mailbox_header_lookup_ctx *

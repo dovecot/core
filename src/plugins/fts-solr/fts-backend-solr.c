@@ -11,6 +11,7 @@
 #include <curl/curl.h>
 
 #define SOLR_CMDBUF_SIZE (1024*64)
+#define SOLR_MAX_ROWS 100000
 
 struct solr_fts_backend_build_context {
 	struct fts_backend_build_context ctx;
@@ -97,7 +98,8 @@ static int fts_backend_solr_get_last_uid(struct fts_backend *backend,
 	solr_quote_str(str, backend->box->storage->ns->user->username);
 
 	t_array_init(&uids, 1);
-	if (solr_connection_select(solr_conn, str_c(str), &uids, NULL) < 0)
+	if (solr_connection_select(solr_conn, str_c(str),
+				   NULL, NULL, &uids, NULL) < 0)
 		return -1;
 
 	uidvals = array_get(&uids, &count);
@@ -256,6 +258,15 @@ static void fts_backend_solr_unlock(struct fts_backend *backend ATTR_UNUSED)
 {
 }
 
+static bool solr_virtual_uid_map(const char *mailbox, uint32_t uidvalidity,
+				 uint32_t *uid, void *context)
+{
+	struct mailbox *box = context;
+
+	return mailbox_get_virtual_uid(box, mailbox, uidvalidity,
+				       *uid, uid);
+}
+
 static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 				   ARRAY_TYPE(seq_range) *definite_uids,
 				   ARRAY_TYPE(seq_range) *maybe_uids,
@@ -266,12 +277,20 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 	unsigned int i, count;
 	struct mailbox_status status;
 	string_t *str;
+	bool virtual;
 
+	virtual = strcmp(box->storage->name, "virtual") == 0;
 	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
 
 	str = t_str_new(256);
-	str_printfa(str, "fl=uid,score&rows=%u&sort=uid%%20asc&q=",
-		    status.uidnext);
+	if (!virtual) {
+		str_printfa(str, "fl=uid,score&rows=%u&sort=uid%%20asc&q=",
+			    status.uidnext);
+	} else {
+		str_printfa(str, "fl=uid,score,box,uidv&rows=%u"
+			    "&sort=box%%20asc,uid%%20asc&q=",
+			    SOLR_MAX_ROWS);
+	}
 
 	/* build a lucene search query from the fields */
 	fields = array_get(&ctx->fields, &count);
@@ -298,14 +317,24 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 
 	/* use a separate filter query for selecting the mailbox. it shouldn't
 	   affect the score and there could be some caching benefits too. */
-	str_printfa(str, "&fq=uidv:%u%%20box:", status.uidvalidity);
-	solr_quote_str(str, box->name);
-	str_append(str, "%20user:");
+	str_append(str, "&fq=user:");
 	solr_quote_str(str, box->storage->ns->user->username);
 
+	/* FIXME: limit what mailboxes to search with virtual storage */
+	if (!virtual) {
+		str_printfa(str, "%%20uidv:%u%%20box:", status.uidvalidity);
+		solr_quote_str(str, box->name);
+	}
+
 	array_clear(maybe_uids);
-	return solr_connection_select(solr_conn, str_c(str),
-				      definite_uids, scores);
+	if (!virtual) {
+		return solr_connection_select(solr_conn, str_c(str), NULL, NULL,
+					      definite_uids, scores);
+	} else {
+		return solr_connection_select(solr_conn, str_c(str),
+					      solr_virtual_uid_map, box,
+					      definite_uids, scores);
+	}
 }
 
 struct fts_backend fts_backend_solr = {

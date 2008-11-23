@@ -22,7 +22,9 @@ enum solr_xml_response_state {
 enum solr_xml_content_state {
 	SOLR_XML_CONTENT_STATE_NONE = 0,
 	SOLR_XML_CONTENT_STATE_UID,
-	SOLR_XML_CONTENT_STATE_SCORE
+	SOLR_XML_CONTENT_STATE_SCORE,
+	SOLR_XML_CONTENT_STATE_MAILBOX,
+	SOLR_XML_CONTENT_STATE_UIDVALIDITY
 };
 
 struct solr_lookup_xml_context {
@@ -30,8 +32,12 @@ struct solr_lookup_xml_context {
 	enum solr_xml_content_state content_state;
 	int depth;
 
-	uint32_t uid;
+	uint32_t uid, uidvalidity;
 	float score;
+	char *mailbox;
+
+	solr_uid_map_callback_t *callback;
+	void *context;
 
 	ARRAY_TYPE(seq_range) *uids;
 	ARRAY_TYPE(fts_score_map) *scores;
@@ -234,6 +240,8 @@ solr_lookup_xml_start(void *context, const char *name, const char **attrs)
 			ctx->state++;
 			ctx->uid = 0;
 			ctx->score = 0;
+			i_free_and_null(ctx->mailbox);
+			ctx->uidvalidity = 0;
 		}
 		break;
 	case SOLR_XML_RESPONSE_STATE_DOC:
@@ -242,6 +250,10 @@ solr_lookup_xml_start(void *context, const char *name, const char **attrs)
 			ctx->content_state = SOLR_XML_CONTENT_STATE_UID;
 		else if (strcmp(name_attr, "score") == 0)
 			ctx->content_state = SOLR_XML_CONTENT_STATE_SCORE;
+		else if (strcmp(name_attr, "box") == 0)
+			ctx->content_state = SOLR_XML_CONTENT_STATE_MAILBOX;
+		else if (strcmp(name_attr, "uidv") == 0)
+			ctx->content_state = SOLR_XML_CONTENT_STATE_UIDVALIDITY;
 		else 
 			break;
 		ctx->state++;
@@ -256,8 +268,18 @@ static void solr_lookup_add_doc(struct solr_lookup_xml_context *ctx)
 	struct fts_score_map *score;
 
 	if (ctx->uid == 0) {
-		i_error("fts_solr: missing uid");
+		i_error("fts_solr: Query didn't return uid");
 		return;
+	}
+
+	if (ctx->callback != NULL) {
+		if (ctx->mailbox == NULL) {
+			i_error("fts_solr: Query didn't return mailbox");
+			return;
+		}
+		if (!ctx->callback(ctx->mailbox, ctx->uidvalidity,
+				   &ctx->uid, ctx->context))
+			return;
 	}
 
 	seq_range_array_add(ctx->uids, 0, ctx->uid);
@@ -283,36 +305,52 @@ static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 	ctx->depth--;
 }
 
+static int uint32_parse(const char *str, int len, uint32_t *value_r)
+{
+	uint32_t value = 0;
+	int i;
+
+	for (i = 0; i < len; i++) {
+		if (str[i] < '0' || str[i] > '9')
+			break;
+		value = value*10 + str[i]-'0';
+	}
+	if (i != len)
+		return -1;
+
+	*value_r = value;
+	return 0;
+}
+
 static void solr_lookup_xml_data(void *context, const char *str, int len)
 {
 	struct solr_lookup_xml_context *ctx = context;
-	uint32_t uid;
-	int i;
 
 	switch (ctx->content_state) {
 	case SOLR_XML_CONTENT_STATE_NONE:
 		break;
 	case SOLR_XML_CONTENT_STATE_UID:
-		for (i = 0, uid = 0; i < len; i++) {
-			if (str[i] < '0' || str[i] > '9')
-				break;
-			uid = uid*10 + str[i]-'0';
-		}
-		if (i != len) {
+		if (uint32_parse(str, len, &ctx->uid) < 0)
 			i_error("fts_solr: received invalid uid");
-			break;
-		}
-		ctx->uid = uid;
 		break;
 	case SOLR_XML_CONTENT_STATE_SCORE:
 		T_BEGIN {
 			ctx->score = strtod(t_strndup(str, len), NULL);
 		} T_END;
 		break;
+	case SOLR_XML_CONTENT_STATE_MAILBOX:
+		i_free(ctx->mailbox);
+		ctx->mailbox = i_strndup(str, len);
+		break;
+	case SOLR_XML_CONTENT_STATE_UIDVALIDITY:
+		if (uint32_parse(str, len, &ctx->uidvalidity) < 0)
+			i_error("fts_solr: received invalid uidvalidity");
+		break;
 	}
 }
 
 int solr_connection_select(struct solr_connection *conn, const char *query,
+			   solr_uid_map_callback_t *callback, void *context,
 			   ARRAY_TYPE(seq_range) *uids,
 			   ARRAY_TYPE(fts_score_map) *scores)
 {
@@ -326,6 +364,8 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	memset(&solr_lookup_context, 0, sizeof(solr_lookup_context));
 	solr_lookup_context.uids = uids;
 	solr_lookup_context.scores = scores;
+	solr_lookup_context.callback = callback;
+	solr_lookup_context.context = context;
 
 	i_free_and_null(conn->http_failure);
 	conn->xml_failed = FALSE;

@@ -103,6 +103,9 @@ struct virtual_mailbox {
 	uint32_t highest_mailbox_id;
 	uint32_t search_args_crc32;
 
+	char *vseq_lookup_prev_mailbox;
+	struct virtual_backend_box *vseq_lookup_prev_bbox;
+
 	/* Mailboxes this virtual mailbox consists of, sorted by mailbox_id */
 	ARRAY_TYPE(virtual_backend_box) backend_boxes;
 

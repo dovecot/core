@@ -7,6 +7,7 @@ struct fts_mailbox {
 	struct fts_backend *backend_fast;
 
 	const char *env;
+	unsigned int virtual:1;
 	unsigned int backend_set:1;
 };
 

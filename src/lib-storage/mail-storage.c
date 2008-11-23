@@ -630,6 +630,16 @@ bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 	return box->v.get_expunged_uids(box, modseq, uids, expunged_uids);
 }
 
+bool mailbox_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
+			     uint32_t backend_uidvalidity,
+			     uint32_t backend_uid, uint32_t *uid_r)
+{
+	if (box->v.get_virtual_uid == NULL)
+		return FALSE;
+	return box->v.get_virtual_uid(box, backend_mailbox, backend_uidvalidity,
+				      backend_uid, uid_r);
+}
+
 struct mailbox_header_lookup_ctx *
 mailbox_header_lookup_init(struct mailbox *box, const char *const headers[])
 {

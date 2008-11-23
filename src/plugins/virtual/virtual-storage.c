@@ -277,6 +277,7 @@ virtual_open(struct virtual_storage *storage, const char *name,
 
 	mbox->storage = storage;
 	mbox->path = p_strdup(pool, path);
+	mbox->vseq_lookup_prev_mailbox = i_strdup("");
 
 	mbox->virtual_ext_id =
 		mail_index_ext_register(index, "virtual", 0,
@@ -353,6 +354,7 @@ static int virtual_storage_mailbox_close(struct mailbox *box)
 		array_free(&bboxes[i]->uids);
 	}
 	array_free(&mbox->backend_boxes);
+	i_free(mbox->vseq_lookup_prev_mailbox);
 
 	return index_storage_mailbox_close(box) < 0 ? -1 : ret;
 }
@@ -529,6 +531,52 @@ virtual_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	return ret;
 }
 
+static int virtual_backend_uidmap_cmp(const void *key, const void *data)
+{
+	const uint32_t *uid = key;
+	const struct virtual_backend_uidmap *map = data;
+
+	return *uid < map->real_uid ? -1 :
+		*uid > map->real_uid ? 1 : 0;
+}
+
+static bool
+virtual_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
+			uint32_t backend_uidvalidity,
+			uint32_t backend_uid, uint32_t *uid_r)
+{
+	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_backend_box *bbox;
+	struct mailbox_status status;
+	const struct virtual_backend_uidmap *uids;
+	unsigned int count;
+
+	if (strcmp(mbox->vseq_lookup_prev_mailbox, backend_mailbox) == 0)
+		bbox = mbox->vseq_lookup_prev_bbox;
+	else {
+		i_free(mbox->vseq_lookup_prev_mailbox);
+		mbox->vseq_lookup_prev_mailbox = i_strdup(backend_mailbox);
+
+		bbox = virtual_backend_box_lookup_name(mbox, backend_mailbox);
+		mbox->vseq_lookup_prev_bbox = bbox;
+	}
+	if (bbox == NULL)
+		return FALSE;
+
+	mailbox_get_status(bbox->box, STATUS_UIDVALIDITY, &status);
+	if (status.uidvalidity != backend_uidvalidity)
+		return FALSE;
+
+	uids = array_get(&bbox->uids, &count);
+	uids = bsearch(&backend_uid, uids, count, sizeof(*uids),
+		       virtual_backend_uidmap_cmp);
+	if (uids == NULL)
+		return FALSE;
+
+	*uid_r = uids->virtual_uid;
+	return TRUE;
+}
+
 static void virtual_class_init(void)
 {
 	virtual_transaction_class_init();
@@ -582,6 +630,7 @@ struct mailbox virtual_mailbox = {
 		index_storage_get_seq_range,
 		index_storage_get_uid_range,
 		index_storage_get_expunged_uids,
+		virtual_get_virtual_uid,
 		virtual_mail_alloc,
 		index_header_lookup_init,
 		index_header_lookup_ref,

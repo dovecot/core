@@ -179,6 +179,11 @@ static int fts_build_init(struct fts_search_context *fctx)
 	struct fts_backend_build_context *build;
 	uint32_t last_uid, last_uid_locked, seq1, seq2;
 
+	if (fctx->fbox->virtual) {
+		/* FIXME: update all mailboxes */
+		return 0;
+	}
+
 	if (fts_backend_get_last_uid(backend, &last_uid) < 0)
 		return -1;
 
@@ -504,6 +509,29 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 	return ret;
 }
 
+static bool
+fts_mailbox_search_next_update_seq_virtual(struct mail_search_context *ctx)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
+	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
+
+	while (fbox->module_ctx.super.search_next_update_seq(ctx)) {
+		if (!fctx->seqs_set)
+			return TRUE;
+
+		/* virtual mailbox searches don't return sequences sorted.
+		   just check if the suggested sequence exists. */
+		if (seq_range_exists(&fctx->definite_seqs, ctx->seq)) {
+			fts_mailbox_search_args_definite_set(fctx);
+			return TRUE;
+		}
+		if (seq_range_exists(&fctx->maybe_seqs, ctx->seq))
+			return TRUE;
+		mail_search_args_reset(ctx->args->args, FALSE);
+	}
+	return FALSE;
+}
+
 static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 {
 	struct fts_transaction_context *ft = FTS_CONTEXT(ctx->transaction);
@@ -729,12 +757,15 @@ static void fts_mailbox_init(struct mailbox *box, const char *env)
 	struct fts_mailbox *fbox;
 
 	fbox = i_new(struct fts_mailbox, 1);
+	fbox->virtual = strcmp(box->storage->name, "virtual") == 0;
 	fbox->env = env;
 	fbox->module_ctx.super = box->v;
 	box->v.close = fts_mailbox_close;
 	box->v.search_init = fts_mailbox_search_init;
 	box->v.search_next_nonblock = fts_mailbox_search_next_nonblock;
-	box->v.search_next_update_seq = fts_mailbox_search_next_update_seq;
+	box->v.search_next_update_seq = fbox->virtual ?
+		fts_mailbox_search_next_update_seq_virtual :
+		fts_mailbox_search_next_update_seq;
 	box->v.search_deinit = fts_mailbox_search_deinit;
 	box->v.mail_alloc = fts_mail_alloc;
 	box->v.transaction_begin = fts_transaction_begin;
