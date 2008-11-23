@@ -1164,7 +1164,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	struct mailbox *box = _ctx->transaction->box;
 	unsigned int count = 0;
-	bool match = FALSE, never;
+	bool match = FALSE;
 
 	*tryagain_r = FALSE;
 
@@ -1186,24 +1186,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
 
-		if (_ctx->update_result == NULL)
-			never = FALSE;
-		else {
-			/* see if this message never matches */
-			never = seq_range_exists(&_ctx->update_result->never_uids,
-						 mail->uid);
-			if (!never &&
-			    seq_range_exists(&_ctx->update_result->uids,
-					     mail->uid)) {
-				/* we already know that the static data
-				   matches. mark it as such. */
-				search_set_static_matches(_ctx->args->args);
-			}
-		}
-
-		if (never) {
-			match = FALSE;
-		} else T_BEGIN {
+		T_BEGIN {
 			match = search_match_next(ctx);
 
 			if (ctx->mail->expunged)
@@ -1251,6 +1234,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
+	uint32_t uid;
 	int ret;
 
 	if (_ctx->seq == 0) {
@@ -1260,7 +1244,8 @@ bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 		_ctx->seq++;
 	}
 
-	if (!ctx->have_seqsets && !ctx->have_index_args)
+	if (!ctx->have_seqsets && !ctx->have_index_args &&
+	    _ctx->update_result == NULL)
 		return _ctx->seq <= ctx->seq2;
 
 	ret = 0;
@@ -1268,20 +1253,34 @@ bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 		/* check if the sequence matches */
 		ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
 					       search_seqset_arg, ctx);
-		if (ret != 0) {
+		if (ret != 0 && ctx->have_index_args) {
 			/* check if flags/keywords match before anything else
 			   is done. mail_set_seq() can be a bit slow. */
-			if (!ctx->have_index_args)
-				break;
 			ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
 						       search_index_arg, ctx);
-			if (ret != 0)
-				break;
 		}
+		if (ret != 0 && _ctx->update_result != NULL) {
+			/* see if this message never matches */
+			mail_index_lookup_uid(ctx->view, _ctx->seq, &uid);
+			if (seq_range_exists(&_ctx->update_result->never_uids,
+					     uid))
+				ret = 0;
+		}
+		if (ret != 0)
+			break;
 
 		/* doesn't, try next one */
 		_ctx->seq++;
 		mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
+	}
+
+	if (ret != 0 && _ctx->update_result != NULL) {
+		mail_index_lookup_uid(ctx->view, _ctx->seq, &uid);
+		if (seq_range_exists(&_ctx->update_result->uids, uid)) {
+			/* we already know that the static data
+			   matches. mark it as such. */
+			search_set_static_matches(_ctx->args->args);
+		}
 	}
 	return ret != 0;
 }
