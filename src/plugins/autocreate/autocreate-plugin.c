@@ -55,11 +55,11 @@ static void autosubscribe_mailboxes(struct mail_namespace *namespaces)
 static void
 autocreate_mail_namespaces_created(struct mail_namespace *namespaces)
 {
-	if (autocreate_next_hook_mail_namespaces_created != NULL)
-		autocreate_next_hook_mail_namespaces_created(namespaces);
-
 	autocreate_mailboxes(namespaces);
 	autosubscribe_mailboxes(namespaces);
+
+	if (autocreate_next_hook_mail_namespaces_created != NULL)
+		autocreate_next_hook_mail_namespaces_created(namespaces);
 }
 
 void autocreate_plugin_init(void)

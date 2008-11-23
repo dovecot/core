@@ -302,29 +302,25 @@ trash_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 	struct trash_user *tuser;
 	const char *env;
 
-	if (trash_next_hook_mail_namespaces_created != NULL)
-		trash_next_hook_mail_namespaces_created(namespaces);
-
 	env = getenv("TRASH");
 	if (env == NULL) {
 		if (getenv("DEBUG") != NULL)
 			i_info("trash: No trash setting - plugin disabled");
-		return;
-	}
-
-	if (quota_set == NULL) {
+	} else if (quota_set == NULL) {
 		i_error("trash plugin: quota plugin not initialized");
-		return;
+	} else {
+		tuser = p_new(user->pool, struct trash_user, 1);
+		tuser->module_ctx.super = user->v;
+		MODULE_CONTEXT_SET(user, trash_user_module, tuser);
+
+		if (read_configuration(user, env) == 0) {
+			trash_next_quota_test_alloc = quota_set->test_alloc;
+			quota_set->test_alloc = trash_quota_test_alloc;
+		}
 	}
 
-	tuser = p_new(user->pool, struct trash_user, 1);
-	tuser->module_ctx.super = user->v;
-	MODULE_CONTEXT_SET(user, trash_user_module, tuser);
-
-	if (read_configuration(user, env) == 0) {
-		trash_next_quota_test_alloc = quota_set->test_alloc;
-		quota_set->test_alloc = trash_quota_test_alloc;
-	}
+	if (trash_next_hook_mail_namespaces_created != NULL)
+		trash_next_hook_mail_namespaces_created(namespaces);
 }
 
 void trash_plugin_init(void)
