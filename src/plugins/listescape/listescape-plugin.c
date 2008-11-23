@@ -299,6 +299,9 @@ listescape_mail_namespaces_created(struct mail_namespace *namespaces)
 		if (namespaces->real_sep != namespaces->sep)
 			namespaces->real_sep = namespaces->sep;
 	}
+
+	if (listescape_next_hook_mail_namespaces_created != NULL)
+		listescape_next_hook_mail_namespaces_created(namespaces);
 }
 
 void listescape_plugin_init(void)
