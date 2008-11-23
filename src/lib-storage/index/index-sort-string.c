@@ -33,13 +33,14 @@ struct sort_string_context {
 	pool_t sort_string_pool;
 	unsigned int first_missing_sort_id_idx;
 
-	uint32_t ext_id, last_seq, highest_reset_id;
+	uint32_t ext_id, last_seq, highest_reset_id, prev_seq;
 	uint32_t lowest_nonexpunged_zero;
 
 	unsigned int regetting:1;
 	unsigned int have_all_wanted:1;
 	unsigned int no_writing:1;
 	unsigned int reverse:1;
+	unsigned int seqs_nonsorted:1;
 };
 
 static char expunged_msg;
@@ -79,6 +80,29 @@ void index_sort_list_init_string(struct mail_search_sort_program *program)
 					      sizeof(uint32_t));
 	i_array_init(&ctx->zero_nodes, 128);
 	i_array_init(&ctx->nonzero_nodes, 128);
+}
+
+static int sort_node_seq_cmp(const void *p1, const void *p2)
+{
+	const struct mail_sort_node *n1 = p1, *n2 = p2;
+
+	if (n1->seq < n2->seq)
+		return -1;
+	if (n1->seq > n2->seq)
+		return 1;
+	return 0;
+}
+
+static void index_sort_nodes_by_seq(struct sort_string_context *ctx)
+{
+	struct mail_sort_node *nodes;
+	unsigned int count;
+
+	nodes = array_get_modifiable(&ctx->zero_nodes, &count);
+	qsort(nodes, count, sizeof(struct mail_sort_node), sort_node_seq_cmp);
+
+	nodes = array_get_modifiable(&ctx->nonzero_nodes, &count);
+	qsort(nodes, count, sizeof(struct mail_sort_node), sort_node_seq_cmp);
 }
 
 static void index_sort_generate_seqs(struct sort_string_context *ctx)
@@ -203,13 +227,18 @@ static void index_sort_node_add(struct sort_string_context *ctx,
 void index_sort_list_add_string(struct mail_search_sort_program *program,
 				struct mail *mail)
 {
+	struct sort_string_context *ctx = program->context;
 	struct mail_sort_node node;
 
 	memset(&node, 0, sizeof(node));
 	node.seq = mail->seq;
 	node.wanted = TRUE;
 
-	index_sort_node_add(program->context, &node);
+	if (mail->seq < ctx->prev_seq)
+		ctx->seqs_nonsorted = TRUE;
+	ctx->prev_seq = mail->seq;
+
+	index_sort_node_add(ctx, &node);
 }
 
 static int sort_node_zero_string_cmp(const void *p1, const void *p2)
@@ -770,6 +799,11 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 		}
 		array_free(&ctx->nonzero_nodes);
 	} else {
+		if (ctx->seqs_nonsorted) {
+			/* the nodes need to be sorted by sequence initially */
+			index_sort_nodes_by_seq(ctx);
+		}
+
 		/* we have to add some sort IDs. we'll do this for all
 		   messages, so first remember what messages we wanted
 		   to know about. */
