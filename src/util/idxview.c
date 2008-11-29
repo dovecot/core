@@ -23,6 +23,11 @@ struct dbox_index_header {
 	uint32_t last_dirty_flush_stamp;
 };
 
+struct virtual_mail_index_record {
+	uint32_t mailbox_id;
+	uint32_t real_uid;
+};
+
 static const char *unixdate2str(time_t timestamp)
 {
 	static char buf[64];
@@ -394,6 +399,11 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 		str_printfa(str, " (%s)",
 			    binary_to_hex(data, ext[i].record_size));
 		printf("%s\n", str_c(str));
+		if (strcmp(ext[i].name, "virtual") == 0) {
+			const struct virtual_mail_index_record *vrec = data;
+			printf("                   : mailbox_id = %u\n", vrec->mailbox_id);
+			printf("                   : real_uid   = %u\n", vrec->real_uid);
+		}
 	}
 }
 
