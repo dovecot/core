@@ -79,8 +79,8 @@ static void fts_backend_solr_deinit(struct fts_backend *backend)
 	i_free(backend);
 }
 
-static int fts_backend_solr_get_last_uid(struct fts_backend *backend,
-					 uint32_t *last_uid_r)
+static int fts_backend_solr_get_last_uid_fallback(struct fts_backend *backend,
+						  uint32_t *last_uid_r)
 {
 	struct mailbox_status status;
 	ARRAY_TYPE(seq_range) uids;
@@ -115,6 +115,44 @@ static int fts_backend_solr_get_last_uid(struct fts_backend *backend,
 	return 0;
 }
 
+static int fts_backend_solr_get_last_uid(struct fts_backend *backend,
+					 uint32_t *last_uid_r)
+{
+	struct mailbox_status status;
+	ARRAY_TYPE(seq_range) uids;
+	const struct seq_range *uidvals;
+	unsigned int count;
+	string_t *str;
+
+	str = t_str_new(256);
+	str_append(str, "fl=uid&rows=1&q=last_uid:TRUE%20");
+
+	mailbox_get_status(backend->box, STATUS_UIDVALIDITY, &status);
+	str_printfa(str, "uidv:%u%%20box:", status.uidvalidity);
+	solr_quote_str(str, backend->box->name);
+	str_append(str, "%20user:");
+	solr_quote_str(str, backend->box->storage->ns->user->username);
+
+	t_array_init(&uids, 1);
+	if (solr_connection_select(solr_conn, str_c(str),
+				   NULL, NULL, &uids, NULL) < 0)
+		return -1;
+
+	uidvals = array_get(&uids, &count);
+	if (count == 0) {
+		/* either nothing is indexed or we're converting from an
+		   older database format without the last_uid fields */
+		return fts_backend_solr_get_last_uid_fallback(backend,
+							      last_uid_r);
+	} else if (count == 1 && uidvals[0].seq1 == uidvals[0].seq2) {
+		*last_uid_r = uidvals[0].seq1;
+	} else {
+		i_error("fts_solr: Last UID lookup returned multiple rows");
+		return -1;
+	}
+	return 0;
+}
+
 static int
 fts_backend_solr_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
 			    struct fts_backend_build_context **ctx_r)
@@ -136,6 +174,24 @@ fts_backend_solr_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
 	return 0;
 }
 
+static void
+fts_backend_solr_add_doc_prefix(struct solr_fts_backend_build_context *ctx,
+				uint32_t uid)
+{
+	struct mailbox *box = ctx->ctx.backend->box;
+
+	str_printfa(ctx->cmd, "<doc>"
+		    "<field name=\"uid\">%u</field>"
+		    "<field name=\"uidv\">%u</field>",
+		    uid, ctx->uid_validity);
+
+	str_append(ctx->cmd, "<field name=\"box\">");
+	xml_encode(ctx->cmd, box->name);
+	str_append(ctx->cmd, "</field><field name=\"user\">");
+	xml_encode(ctx->cmd, box->storage->ns->user->username);
+	str_append(ctx->cmd, "</field>");
+}
+
 static int
 fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
 			    uint32_t uid, const unsigned char *data,
@@ -155,17 +211,8 @@ fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
 			str_append(cmd, "</field></doc>");
 		ctx->prev_uid = uid;
 
-		str_printfa(cmd, "<doc>"
-			    "<field name=\"uid\">%u</field>"
-			    "<field name=\"uidv\">%u</field>",
-			    uid, ctx->uid_validity);
-
-		str_append(cmd, "<field name=\"box\">");
-		xml_encode(cmd, box->name);
-		str_append(cmd, "</field><field name=\"user\">");
-		xml_encode(cmd, box->storage->ns->user->username);
-
-		str_printfa(cmd, "</field><field name=\"id\">%u/%u/",
+		fts_backend_solr_add_doc_prefix(ctx, uid);
+		str_printfa(cmd, "<field name=\"id\">%u/%u/",
 			    uid, ctx->uid_validity);
 		xml_encode(cmd, box->storage->ns->user->username);
 		str_append_c(cmd, '/');
@@ -194,24 +241,48 @@ fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
 }
 
 static int
+fts_backed_solr_build_commit(struct solr_fts_backend_build_context *ctx)
+{
+	struct mailbox *box = ctx->ctx.backend->box;
+	int ret;
+
+	if (ctx->prev_uid == 0)
+		return 0;
+
+	str_append(ctx->cmd, "</field></doc>");
+
+	/* Update the mailbox's last_uid field, replacing the existing
+	   document. Note that since there is no locking, it's possible that
+	   if another session is indexing at the same time, the last_uid value
+	   may shrink. This doesn't really matter, we'll simply do more work
+	   in future by reindexing some messages. */
+	fts_backend_solr_add_doc_prefix(ctx, ctx->prev_uid);
+	str_printfa(ctx->cmd, "<field name=\"last_uid\">TRUE</field>"
+		    "<field name=\"id\">L/%u/", ctx->uid_validity);
+	xml_encode(ctx->cmd, box->storage->ns->user->username);
+	str_append_c(ctx->cmd, '/');
+	xml_encode(ctx->cmd, box->name);
+	str_append(ctx->cmd, "</field></doc></add>");
+
+	solr_connection_post_more(ctx->post, str_data(ctx->cmd),
+				  str_len(ctx->cmd));
+	ret = solr_connection_post_end(ctx->post);
+	/* commit and wait until the documents we just indexed are
+	   visible to the following search */
+	if (solr_connection_post(solr_conn, "<commit waitFlush=\"false\" "
+				 "waitSearcher=\"true\"/>") < 0)
+		ret = -1;
+	return ret;
+}
+
+static int
 fts_backend_solr_build_deinit(struct fts_backend_build_context *_ctx)
 {
 	struct solr_fts_backend_build_context *ctx =
 		(struct solr_fts_backend_build_context *)_ctx;
-	int ret = 0;
+	int ret;
 
-	if (ctx->prev_uid != 0) {
-		str_append(ctx->cmd, "</field></doc></add>");
-		solr_connection_post_more(ctx->post, str_data(ctx->cmd),
-					  str_len(ctx->cmd));
-		ret = solr_connection_post_end(ctx->post);
-		/* commit and wait until the documents we just indexed are
-		   visible to the following search */
-		if (solr_connection_post(solr_conn,
-					 "<commit waitFlush=\"false\" "
-					 "waitSearcher=\"true\"/>") < 0)
-			ret = -1;
-	}
+	ret = fts_backed_solr_build_commit(ctx);
 	str_free(&ctx->cmd);
 	i_free(ctx);
 	return ret;
