@@ -13,6 +13,11 @@
 #define SOLR_CMDBUF_SIZE (1024*64)
 #define SOLR_MAX_ROWS 100000
 
+struct solr_fts_backend {
+	struct fts_backend backend;
+	char *id_username;
+};
+
 struct solr_fts_backend_build_context {
 	struct fts_backend_build_context ctx;
 
@@ -57,26 +62,67 @@ static void xml_encode(string_t *dest, const char *str)
 	xml_encode_data(dest, (const unsigned char *)str, strlen(str));
 }
 
+static const char *solr_escape_id_str(const char *str)
+{
+	string_t *tmp;
+	const char *p;
+
+	for (p = str; *p != '\0'; p++) {
+		if (*p == '/' || *p == '!')
+			break;
+	}
+	if (*p == '\0')
+		return str;
+
+	tmp = t_str_new(64);
+	for (p = str; *p != '\0'; p++) {
+		switch (*p) {
+		case '/':
+			str_append(tmp, "!\\");
+			break;
+		case '!':
+			str_append(tmp, "!!");
+			break;
+		default:
+			str_append_c(tmp, *p);
+			break;
+		}
+	}
+	return str_c(tmp);
+}
+
 static struct fts_backend *
-fts_backend_solr_init(struct mailbox *box ATTR_UNUSED)
+fts_backend_solr_init(struct mailbox *box)
 {
 	const struct fts_solr_settings *set = &fts_solr_settings;
-	struct fts_backend *backend;
+	struct solr_fts_backend *backend;
+	const char *username = box->storage->ns->user->username;
 
 	if (solr_conn == NULL)
 		solr_conn = solr_connection_init(set->url, set->debug);
 
-	backend = i_new(struct fts_backend, 1);
-	*backend = fts_backend_solr;
+	backend = i_new(struct solr_fts_backend, 1);
+	backend->id_username = i_strdup(solr_escape_id_str(username));
+	backend->backend = fts_backend_solr;
 
 	if (set->substring_search)
-		backend->flags |= FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS;
-	return backend;
+		backend->backend.flags |= FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS;
+	return &backend->backend;
 }
 
-static void fts_backend_solr_deinit(struct fts_backend *backend)
+static void fts_backend_solr_deinit(struct fts_backend *_backend)
 {
+	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
+
+	i_free(backend->id_username);
 	i_free(backend);
+}
+
+static const char *fts_backend_solr_username(struct fts_backend *_backend)
+{
+	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
+
+	return backend->id_username;
 }
 
 static int fts_backend_solr_get_last_uid_fallback(struct fts_backend *backend,
@@ -214,7 +260,7 @@ fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
 		fts_backend_solr_add_doc_prefix(ctx, uid);
 		str_printfa(cmd, "<field name=\"id\">%u/%u/",
 			    uid, ctx->uid_validity);
-		xml_encode(cmd, box->storage->ns->user->username);
+		xml_encode(cmd, fts_backend_solr_username(ctx->ctx.backend));
 		str_append_c(cmd, '/');
 		xml_encode(cmd, box->name);
 		str_append(cmd, "</field>");
@@ -259,7 +305,7 @@ fts_backed_solr_build_commit(struct solr_fts_backend_build_context *ctx)
 	fts_backend_solr_add_doc_prefix(ctx, ctx->prev_uid);
 	str_printfa(ctx->cmd, "<field name=\"last_uid\">TRUE</field>"
 		    "<field name=\"id\">L/%u/", ctx->uid_validity);
-	xml_encode(ctx->cmd, box->storage->ns->user->username);
+	xml_encode(ctx->cmd, fts_backend_solr_username(ctx->ctx.backend));
 	str_append_c(ctx->cmd, '/');
 	xml_encode(ctx->cmd, box->name);
 	str_append(ctx->cmd, "</field></doc></add>");
@@ -289,8 +335,7 @@ fts_backend_solr_build_deinit(struct fts_backend_build_context *_ctx)
 }
 
 static void
-fts_backend_solr_expunge(struct fts_backend *backend ATTR_UNUSED,
-			 struct mail *mail)
+fts_backend_solr_expunge(struct fts_backend *backend, struct mail *mail)
 {
 	struct mailbox_status status;
 
@@ -302,7 +347,7 @@ fts_backend_solr_expunge(struct fts_backend *backend ATTR_UNUSED,
 		cmd = t_str_new(256);
 		str_printfa(cmd, "<delete><id>%u/%u/",
 			    mail->uid, status.uidvalidity);
-		xml_encode(cmd, mail->box->storage->ns->user->username);
+		xml_encode(cmd, fts_backend_solr_username(backend));
 		str_append_c(cmd, '/');
 		xml_encode(cmd, mail->box->name);
 		str_append(cmd, "</id></delete>");
