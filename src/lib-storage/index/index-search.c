@@ -1163,6 +1163,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	struct mailbox *box = _ctx->transaction->box;
+	struct mail_private *mail_private = (struct mail_private *)mail;
 	unsigned int count = 0;
 	bool match = FALSE;
 
@@ -1177,7 +1178,6 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	}
 
 	ctx->mail = mail;
-	ctx->imail = ((struct mail_private *)mail)->v.get_index_mail(mail);
 
 	if (ioloop_time - ctx->last_notify.tv_sec >=
 	    SEARCH_NOTIFY_INTERVAL_SECS)
@@ -1185,6 +1185,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 
 	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
+		ctx->imail = mail_private->v.get_index_mail(mail);
 
 		T_BEGIN {
 			match = search_match_next(ctx);
