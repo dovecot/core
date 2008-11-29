@@ -651,13 +651,16 @@ void mailbox_get_virtual_backend_boxes(struct mailbox *box,
 }
 
 void mailbox_get_virtual_box_patterns(struct mailbox *box,
-				      ARRAY_TYPE(const_string) *includes,
-				      ARRAY_TYPE(const_string) *excludes)
+				ARRAY_TYPE(mailbox_virtual_patterns) *includes,
+				ARRAY_TYPE(mailbox_virtual_patterns) *excludes)
 {
 	if (box->v.get_virtual_box_patterns == NULL) {
-		const char *name = box->name;
+		struct mailbox_virtual_pattern pat;
 
-		array_append(includes, &name, 1);
+		memset(&pat, 0, sizeof(pat));
+		pat.ns = box->storage->ns;
+		pat.pattern = box->name;
+		array_append(includes, &pat, 1);
 	} else {
 		box->v.get_virtual_box_patterns(box, includes, excludes);
 	}

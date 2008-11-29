@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "message-parser.h"
 #include "message-decoder.h"
+#include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "fts-api-private.h"
@@ -289,6 +290,8 @@ static int fts_build_init_virtual_next(struct fts_search_context *fctx)
 	struct mailbox *const *boxes;
 	const struct fts_backend_uid_map *last_uids;
 	unsigned int boxi, uidi, box_count, last_uid_count;
+	const char *vname;
+	string_t *tmp;
 	int ret, vret = 0;
 
 	if (vctx->pool == NULL)
@@ -300,10 +303,13 @@ static int fts_build_init_virtual_next(struct fts_search_context *fctx)
 	boxes = array_get(&vctx->mailboxes, &box_count);
 	last_uids = array_get(&vctx->last_uids, &last_uid_count);
 
+	tmp = t_str_new(256);
 	boxi = vctx->boxi;
 	uidi = vctx->uidi;
 	while (vret == 0 && boxi < box_count && uidi < last_uid_count) {
-		ret = strcmp(boxes[boxi]->name, last_uids[uidi].mailbox);
+		vname = mail_namespace_get_vname(boxes[boxi]->storage->ns, tmp,
+						 boxes[boxi]->name);
+		ret = strcmp(vname, last_uids[uidi].mailbox);
 		if (ret == 0) {
 			/* match. check also that uidvalidity matches. */
 			mailbox_get_status(boxes[boxi], STATUS_UIDVALIDITY,

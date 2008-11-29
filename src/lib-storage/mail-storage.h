@@ -234,6 +234,12 @@ struct mail_storage_callbacks {
 
 };
 
+struct mailbox_virtual_pattern {
+	struct mail_namespace *ns;
+	const char *pattern;
+};
+ARRAY_DEFINE_TYPE(mailbox_virtual_patterns, struct mailbox_virtual_pattern);
+
 ARRAY_DEFINE_TYPE(mailboxes, struct mailbox *);
 
 typedef void mailbox_notify_callback_t(struct mailbox *box, void *context);
@@ -432,8 +438,8 @@ void mailbox_get_virtual_backend_boxes(struct mailbox *box,
 /* If mailbox is a virtual mailbox, return all mailbox list patterns that
    are used to figure out which mailboxes belong to the virtual mailbox. */
 void mailbox_get_virtual_box_patterns(struct mailbox *box,
-				      ARRAY_TYPE(const_string) *includes,
-				      ARRAY_TYPE(const_string) *excludes);
+				ARRAY_TYPE(mailbox_virtual_patterns) *includes,
+				ARRAY_TYPE(mailbox_virtual_patterns) *excludes);
 
 /* Initialize header lookup for given headers. */
 struct mailbox_header_lookup_ctx *

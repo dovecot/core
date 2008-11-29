@@ -43,6 +43,7 @@ want to modify the tokenizers and filters.
    <field name="uidv" type="long" indexed="true" stored="true" required="true" /> 
    <field name="box" type="string" indexed="true" stored="true" required="true" /> 
    <field name="user" type="string" indexed="true" stored="true" required="true" /> 
+   <field name="ns" type="string" indexed="true" stored="true" required="false" /> 
    <field name="last_uid" type="boolean" indexed="true" stored="false" /> 
    <field name="hdr" type="text" indexed="true" stored="false" /> 
    <field name="body" type="text" indexed="true" stored="false" /> 

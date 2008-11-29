@@ -4,7 +4,7 @@
 #include "fts-api-private.h"
 
 struct fts_solr_settings {
-	char *url;
+	char *url, *default_ns_prefix;
 	bool debug;
 	bool substring_search;
 };

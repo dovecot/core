@@ -5,14 +5,13 @@
 #include "fts-api.h"
 
 /* Returns TRUE if UID conversion was done, FALSE if uid should be skipped. */
-typedef bool solr_uid_map_callback_t(const char *mailbox, uint32_t uidvalidity,
-				     uint32_t *uid, void *context);
+typedef bool solr_uid_map_callback_t(const char *ns_prefix, const char *mailbox,
+				     uint32_t uidvalidity, uint32_t *uid,
+				     void *context);
 
 struct solr_connection *solr_connection_init(const char *url, bool debug);
 void solr_connection_deinit(struct solr_connection *conn);
 
-void solr_connection_quote_str(struct solr_connection *conn, string_t *dest,
-			       const char *str);
 void solr_connection_http_escape(struct solr_connection *conn, string_t *dest,
 				 const char *str);
 

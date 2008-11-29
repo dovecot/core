@@ -595,8 +595,8 @@ virtual_get_virtual_backend_boxes(struct mailbox *box,
 
 static void
 virtual_get_virtual_box_patterns(struct mailbox *box,
-				 ARRAY_TYPE(const_string) *includes,
-				 ARRAY_TYPE(const_string) *excludes)
+				 ARRAY_TYPE(mailbox_virtual_patterns) *includes,
+				 ARRAY_TYPE(mailbox_virtual_patterns) *excludes)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
 

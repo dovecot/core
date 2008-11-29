@@ -146,8 +146,8 @@ struct mailbox_vfuncs {
 					  ARRAY_TYPE(mailboxes) *mailboxes,
 					  bool only_with_msgs);
 	void (*get_virtual_box_patterns)(struct mailbox *box,
-					 ARRAY_TYPE(const_string) *includes,
-					 ARRAY_TYPE(const_string) *excludes);
+				ARRAY_TYPE(mailbox_virtual_patterns) *includes,
+				ARRAY_TYPE(mailbox_virtual_patterns) *excludes);
 
 	struct mail *
 		(*mail_alloc)(struct mailbox_transaction_context *t,

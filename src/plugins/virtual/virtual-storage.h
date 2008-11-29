@@ -109,8 +109,8 @@ struct virtual_mailbox {
 	/* Mailboxes this virtual mailbox consists of, sorted by mailbox_id */
 	ARRAY_TYPE(virtual_backend_box) backend_boxes;
 
-	ARRAY_TYPE(const_string) list_include_patterns;
-	ARRAY_TYPE(const_string) list_exclude_patterns;
+	ARRAY_TYPE(mailbox_virtual_patterns) list_include_patterns;
+	ARRAY_TYPE(mailbox_virtual_patterns) list_exclude_patterns;
 
 	unsigned int uids_mapped:1;
 	unsigned int sync_initialized:1;

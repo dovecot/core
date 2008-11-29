@@ -24,6 +24,7 @@ enum solr_xml_content_state {
 	SOLR_XML_CONTENT_STATE_UID,
 	SOLR_XML_CONTENT_STATE_SCORE,
 	SOLR_XML_CONTENT_STATE_MAILBOX,
+	SOLR_XML_CONTENT_STATE_NAMESPACE,
 	SOLR_XML_CONTENT_STATE_UIDVALIDITY
 };
 
@@ -34,7 +35,7 @@ struct solr_lookup_xml_context {
 
 	uint32_t uid, uidvalidity;
 	float score;
-	char *mailbox;
+	char *mailbox, *ns;
 
 	solr_uid_map_callback_t *callback;
 	void *context;
@@ -192,16 +193,6 @@ void solr_connection_deinit(struct solr_connection *conn)
 	i_free(conn);
 }
 
-void solr_connection_quote_str(struct solr_connection *conn, string_t *dest,
-			       const char *str)
-{
-	char *encoded;
-
-	encoded = curl_easy_escape(conn->curl, str_escape(str), 0);
-	str_printfa(dest, "%%22%s%%22", encoded);
-	curl_free(encoded);
-}
-
 void solr_connection_http_escape(struct solr_connection *conn, string_t *dest,
 				 const char *str)
 {
@@ -251,6 +242,7 @@ solr_lookup_xml_start(void *context, const char *name, const char **attrs)
 			ctx->uid = 0;
 			ctx->score = 0;
 			i_free_and_null(ctx->mailbox);
+			i_free_and_null(ctx->ns);
 			ctx->uidvalidity = 0;
 		}
 		break;
@@ -262,6 +254,8 @@ solr_lookup_xml_start(void *context, const char *name, const char **attrs)
 			ctx->content_state = SOLR_XML_CONTENT_STATE_SCORE;
 		else if (strcmp(name_attr, "box") == 0)
 			ctx->content_state = SOLR_XML_CONTENT_STATE_MAILBOX;
+		else if (strcmp(name_attr, "ns") == 0)
+			ctx->content_state = SOLR_XML_CONTENT_STATE_NAMESPACE;
 		else if (strcmp(name_attr, "uidv") == 0)
 			ctx->content_state = SOLR_XML_CONTENT_STATE_UIDVALIDITY;
 		else 
@@ -287,7 +281,7 @@ static void solr_lookup_add_doc(struct solr_lookup_xml_context *ctx)
 			i_error("fts_solr: Query didn't return mailbox");
 			return;
 		}
-		if (!ctx->callback(ctx->mailbox, ctx->uidvalidity,
+		if (!ctx->callback(ctx->ns, ctx->mailbox, ctx->uidvalidity,
 				   &ctx->uid, ctx->context))
 			return;
 	}
@@ -356,6 +350,12 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 			i_strconcat(ctx->mailbox, t_strndup(str, len), NULL);
 		i_free(ctx->mailbox);
 		ctx->mailbox = new_name;
+		break;
+	case SOLR_XML_CONTENT_STATE_NAMESPACE:
+		new_name = ctx->ns == NULL ? i_strndup(str, len) :
+			i_strconcat(ctx->ns, t_strndup(str, len), NULL);
+		i_free(ctx->ns);
+		ctx->ns = new_name;
 		break;
 	case SOLR_XML_CONTENT_STATE_UIDVALIDITY:
 		if (uint32_parse(str, len, &ctx->uidvalidity) < 0)

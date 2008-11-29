@@ -24,6 +24,9 @@ static void fts_solr_plugin_init_settings(const char *str)
 			set->debug = TRUE;
 		} else if (strcmp(*tmp, "break-imap-search") == 0) {
 			set->substring_search = TRUE;
+		} else if (strcmp(*tmp, "default_ns=") == 0) {
+			i_free(set->default_ns_prefix);
+			set->default_ns_prefix = i_strdup(*tmp + 11);
 		} else {
 			i_fatal("fts_solr: Invalid setting: %s", *tmp);
 		}
