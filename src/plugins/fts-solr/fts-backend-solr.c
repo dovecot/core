@@ -3,12 +3,13 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "solr-connection.h"
 #include "fts-solr-plugin.h"
 
-#include <curl/curl.h>
+#include <ctype.h>
 
 #define SOLR_CMDBUF_SIZE (1024*64)
 #define SOLR_MAX_ROWS 100000
@@ -25,6 +26,11 @@ struct solr_fts_backend_build_context {
 	uint32_t prev_uid, uid_validity;
 	string_t *cmd;
 	bool headers;
+};
+
+struct fts_backend_solr_get_last_uids_context {
+	pool_t pool;
+	ARRAY_TYPE(fts_backend_uid_map) *last_uids;
 };
 
 static struct solr_connection *solr_conn = NULL;
@@ -199,6 +205,120 @@ static int fts_backend_solr_get_last_uid(struct fts_backend *backend,
 	return 0;
 }
 
+static bool
+solr_virtual_get_last_uids(const char *mailbox, uint32_t uidvalidity,
+			   uint32_t *uid, void *context)
+{
+	struct fts_backend_solr_get_last_uids_context *ctx = context;
+	struct fts_backend_uid_map *map;
+
+	map = array_append_space(ctx->last_uids);
+	map->mailbox = p_strdup(ctx->pool, mailbox);
+	map->uidvalidity = uidvalidity;
+	map->uid = *uid;
+	return FALSE;
+}
+
+static void add_pattern_as_solr(string_t *str, const char *pattern)
+{
+	const char *p;
+
+	/* first check if there are any wildcards in the pattern */
+	for (p = pattern; *p != '\0'; p++) {
+		if (*p == '%' || *p == '*')
+			break;
+	}
+	if (*p == '\0') {
+		/* full mailbox name */
+		str_append_c(str, '"');
+		str_append(str, str_escape(pattern));
+		str_append_c(str, '"');
+		return;
+	}
+
+	/* there are at least some wildcards. */
+	for (p = pattern; *p != '\0'; p++) {
+		if (*p == '%' || *p == '*') {
+			if (p == pattern || (p[-1] != '%' && p[-1] != '*'))
+				str_append_c(str, '*');
+		} else {
+			if (!i_isalnum(*p))
+				str_append_c(str, '\\');
+			str_append_c(str, *p);
+		}
+	}
+}
+
+static void
+fts_backend_solr_filter_mailboxes(struct solr_connection *solr_conn,
+				  string_t *str, struct mailbox *box)
+{
+	ARRAY_TYPE(const_string) includes_arr, excludes_arr;
+	const char *const *includes, *const *excludes;
+	unsigned int i, inc_count, exc_count;
+	string_t *fq;
+
+	t_array_init(&includes_arr, 16);
+	t_array_init(&excludes_arr, 16);
+	mailbox_get_virtual_box_patterns(box, &includes_arr, &excludes_arr);
+	includes = array_get(&includes_arr, &inc_count);
+	excludes = array_get(&excludes_arr, &exc_count);
+	i_assert(inc_count > 0);
+
+	/* First see if there are any patterns that begin with a wildcard.
+	   Solr doesn't allow them, so in that case we'll need to return
+	   all mailboxes. */
+	for (i = 0; i < inc_count; i++) {
+		if (*includes[i] == '*' || *includes[i] == '%')
+			break;
+	}
+
+	fq = t_str_new(128);
+	if (i == inc_count) {
+		/* we can filter what mailboxes we want returned */
+		str_append_c(fq, '(');
+		for (i = 0; i < inc_count; i++) {
+			if (i != 0)
+				str_append(fq, " OR ");
+			str_append(fq, "box:");
+			add_pattern_as_solr(fq, includes[i]);
+		}
+		str_append_c(fq, ')');
+	}
+	for (i = 0; i < exc_count; i++) {
+		if (str_len(fq) > 0)
+			str_append_c(fq, ' ');
+		str_append(fq, "-box:");
+		add_pattern_as_solr(fq, excludes[i]);
+	}
+	if (str_len(fq) > 0) {
+		str_append(str, "&fq=");
+		solr_connection_http_escape(solr_conn, str, str_c(fq));
+	}
+}
+
+static int
+fts_backend_solr_get_all_last_uids(struct fts_backend *backend, pool_t pool,
+				   ARRAY_TYPE(fts_backend_uid_map) *last_uids)
+{
+	struct fts_backend_solr_get_last_uids_context ctx;
+	string_t *str;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.pool = pool;
+	ctx.last_uids = last_uids;
+
+	str = t_str_new(256);
+	str_printfa(str, "fl=uid,box,uidv&rows=%u&q=last_uid:TRUE%%20user:",
+		    SOLR_MAX_ROWS);
+	solr_quote_str(str, backend->box->storage->ns->user->username);
+	fts_backend_solr_filter_mailboxes(solr_conn, str, backend->box);
+
+	return solr_connection_select(solr_conn, str_c(str),
+				      solr_virtual_get_last_uids, &ctx,
+				      NULL, NULL);
+}
+
 static int
 fts_backend_solr_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
 			    struct fts_backend_build_context **ctx_r)
@@ -210,7 +330,6 @@ fts_backend_solr_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
 
 	ctx = i_new(struct solr_fts_backend_build_context, 1);
 	ctx->ctx.backend = backend;
-	ctx->post = solr_connection_post_begin(solr_conn);
 	ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
 
 	mailbox_get_status(backend->box, STATUS_UIDVALIDITY, &status);
@@ -251,10 +370,12 @@ fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
 	/* body comes first, then headers */
 	if (ctx->prev_uid != uid) {
 		/* uid changed */
-		if (ctx->prev_uid == 0)
+		if (ctx->post == NULL) {
+			ctx->post = solr_connection_post_begin(solr_conn);
 			str_append(cmd, "<add>");
-		else
+		} else {
 			str_append(cmd, "</field></doc>");
+		}
 		ctx->prev_uid = uid;
 
 		fts_backend_solr_add_doc_prefix(ctx, uid);
@@ -292,7 +413,7 @@ fts_backed_solr_build_commit(struct solr_fts_backend_build_context *ctx)
 	struct mailbox *box = ctx->ctx.backend->box;
 	int ret;
 
-	if (ctx->prev_uid == 0)
+	if (ctx->post == NULL)
 		return 0;
 
 	str_append(ctx->cmd, "</field></doc>");
@@ -435,9 +556,9 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 	   affect the score and there could be some caching benefits too. */
 	str_append(str, "&fq=user:");
 	solr_quote_str(str, box->storage->ns->user->username);
-
-	/* FIXME: limit what mailboxes to search with virtual storage */
-	if (!virtual) {
+	if (virtual)
+		fts_backend_solr_filter_mailboxes(solr_conn, str, box);
+	else {
 		str_printfa(str, "%%20uidv:%u%%20box:", status.uidvalidity);
 		solr_quote_str(str, box->name);
 	}
@@ -461,6 +582,7 @@ struct fts_backend fts_backend_solr = {
 		fts_backend_solr_init,
 		fts_backend_solr_deinit,
 		fts_backend_solr_get_last_uid,
+		fts_backend_solr_get_all_last_uids,
 		fts_backend_solr_build_init,
 		fts_backend_solr_build_more,
 		fts_backend_solr_build_deinit,

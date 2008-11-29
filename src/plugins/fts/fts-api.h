@@ -13,6 +13,13 @@ enum fts_lookup_flags {
 	FTS_LOOKUP_FLAG_INVERT	= 0x04
 };
 
+struct fts_backend_uid_map {
+	const char *mailbox;
+	uint32_t uidvalidity;
+	uint32_t uid;
+};
+ARRAY_DEFINE_TYPE(fts_backend_uid_map, struct fts_backend_uid_map);
+
 struct fts_score_map {
 	uint32_t uid;
 	float score;
@@ -23,8 +30,14 @@ struct fts_backend *
 fts_backend_init(const char *backend_name, struct mailbox *box);
 void fts_backend_deinit(struct fts_backend **backend);
 
-/* Get the last_uid. */
+/* Get the last_uid for the mailbox. */
 int fts_backend_get_last_uid(struct fts_backend *backend, uint32_t *last_uid_r);
+/* Get last_uids for all mailboxes that might be backend mailboxes for a
+   virtual mailbox. Depending on virtual mailbox configuration, this function
+   may also return mailboxes that don't really even match the virtual mailbox
+   patterns. The caller should filter out the list itself. */
+int fts_backend_get_all_last_uids(struct fts_backend *backend, pool_t pool,
+				  ARRAY_TYPE(fts_backend_uid_map) *last_uids);
 
 /* Initialize adding new data to the index. last_uid_r is set to the last UID
    that exists in the index. */

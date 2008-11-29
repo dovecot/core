@@ -80,6 +80,12 @@ int fts_backend_get_last_uid(struct fts_backend *backend, uint32_t *last_uid_r)
 	return backend->v.get_last_uid(backend, last_uid_r);
 }
 
+int fts_backend_get_all_last_uids(struct fts_backend *backend, pool_t pool,
+				  ARRAY_TYPE(fts_backend_uid_map) *last_uids)
+{
+	return backend->v.get_all_last_uids(backend, pool, last_uids);
+}
+
 int fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
 			   struct fts_backend_build_context **ctx_r)
 {

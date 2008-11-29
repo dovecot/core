@@ -170,33 +170,21 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 	return ret;
 }
 
-static int fts_build_init(struct fts_search_context *fctx)
+static int fts_build_init_seq(struct fts_search_context *fctx,
+			      struct fts_backend *backend,
+			      struct mailbox_transaction_context *t,
+			      uint32_t seq1, uint32_t seq2, uint32_t last_uid)
 {
-	struct mailbox_transaction_context *t = fctx->t;
 	struct mail_search_args *search_args;
-	struct fts_backend *backend = fctx->build_backend;
 	struct fts_storage_build_context *ctx;
 	struct fts_backend_build_context *build;
-	uint32_t last_uid, last_uid_locked, seq1, seq2;
-
-	if (fctx->fbox->virtual) {
-		/* FIXME: update all mailboxes */
-		return 0;
-	}
-
-	if (fts_backend_get_last_uid(backend, &last_uid) < 0)
-		return -1;
-
-	mailbox_get_seq_range(t->box, last_uid+1, (uint32_t)-1, &seq1, &seq2);
-	fctx->first_nonindexed_seq = seq1;
-	if (seq1 == 0) {
-		/* no new messages */
-		return 0;
-	}
+	uint32_t last_uid_locked;
 
 	if (fctx->best_arg->type == SEARCH_HEADER ||
 	    fctx->best_arg->type == SEARCH_HEADER_COMPRESS_LWSP) {
 		/* we're not updating the index just for header lookups */
+		if (seq1 < fctx->first_nonindexed_seq)
+			fctx->first_nonindexed_seq = seq1;
 		return 0;
 	}
 
@@ -204,12 +192,9 @@ static int fts_build_init(struct fts_search_context *fctx)
 		return -1;
 	if (last_uid != last_uid_locked && last_uid_locked != (uint32_t)-1) {
 		/* changed, need to get again the sequences */
-		i_assert(last_uid < last_uid_locked);
-
 		last_uid = last_uid_locked;
 		mailbox_get_seq_range(t->box, last_uid+1, (uint32_t)-1,
 				      &seq1, &seq2);
-		fctx->first_nonindexed_seq = seq1;
 		if (seq1 == 0) {
 			/* no new messages */
 			(void)fts_backend_build_deinit(&build);
@@ -228,7 +213,176 @@ static int fts_build_init(struct fts_search_context *fctx)
 	ctx->search_args = search_args;
 
 	fctx->build_ctx = ctx;
-	return 0;
+	return 1;
+}
+
+static struct fts_backend *
+fts_mailbox_get_backend(struct fts_search_context *fctx,
+			struct mailbox *box)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT(box);
+
+	if (fctx->build_backend == fctx->fbox->backend_fast)
+		return fbox->backend_fast;
+	else {
+		i_assert(fctx->build_backend == fctx->fbox->backend_substr);
+		return fbox->backend_substr;
+	}
+}
+
+static int fts_build_init_trans(struct fts_search_context *fctx,
+				struct mailbox_transaction_context *t)
+{
+	struct fts_backend *backend;
+	uint32_t last_uid, seq1, seq2;
+	int ret;
+
+	backend = fts_mailbox_get_backend(fctx, t->box);
+	if (fts_backend_get_last_uid(backend, &last_uid) < 0)
+		return -1;
+
+	mailbox_get_seq_range(t->box, last_uid+1, (uint32_t)-1, &seq1, &seq2);
+	if (seq1 == 0) {
+		/* no new messages */
+		return 0;
+	}
+
+	ret = fts_build_init_seq(fctx, backend, t, seq1, seq2, last_uid);
+	return ret < 0 ? -1 : 0;
+}
+
+static int
+fts_build_init_box(struct fts_search_context *fctx, struct mailbox *box,
+		   uint32_t last_uid)
+{
+	struct fts_backend *backend;
+	uint32_t seq1, seq2;
+
+	mailbox_get_seq_range(box, last_uid + 1, (uint32_t)-1, &seq1, &seq2);
+	if (seq1 == 0)
+		return 0;
+
+	backend = fts_mailbox_get_backend(fctx, box);
+	fctx->virtual_ctx.trans = mailbox_transaction_begin(box, 0);
+	return fts_build_init_seq(fctx, backend, fctx->virtual_ctx.trans,
+				  seq1, seq2, last_uid);
+}
+
+static int mailbox_name_cmp(const void *p1, const void *p2)
+{
+	struct mailbox *const *box1 = p1, *const *box2 = p2;
+
+	return strcmp((*box1)->name, (*box2)->name);
+}
+
+static int fts_backend_uid_map_mailbox_cmp(const void *p1, const void *p2)
+{
+	const struct fts_backend_uid_map *map1 = p1, *map2 = p2;
+
+	return strcmp(map1->mailbox, map2->mailbox);
+}
+
+static int fts_build_init_virtual_next(struct fts_search_context *fctx)
+{
+	struct fts_search_virtual_context *vctx = &fctx->virtual_ctx;
+	struct mailbox_status status;
+	struct mailbox *const *boxes;
+	const struct fts_backend_uid_map *last_uids;
+	unsigned int boxi, uidi, box_count, last_uid_count;
+	int ret, vret = 0;
+
+	if (vctx->pool == NULL)
+		return 0;
+
+	if (fctx->virtual_ctx.trans != NULL)
+		(void)mailbox_transaction_commit(&fctx->virtual_ctx.trans);
+
+	boxes = array_get(&vctx->mailboxes, &box_count);
+	last_uids = array_get(&vctx->last_uids, &last_uid_count);
+
+	boxi = vctx->boxi;
+	uidi = vctx->uidi;
+	while (vret == 0 && boxi < box_count && uidi < last_uid_count) {
+		ret = strcmp(boxes[boxi]->name, last_uids[uidi].mailbox);
+		if (ret == 0) {
+			/* match. check also that uidvalidity matches. */
+			mailbox_get_status(boxes[boxi], STATUS_UIDVALIDITY,
+					   &status);
+			if (status.uidvalidity != last_uids[uidi].uidvalidity) {
+				uidi++;
+				continue;
+			}
+			vret = fts_build_init_box(fctx, boxes[boxi],
+						  last_uids[uidi].uid);
+			boxi++;
+			uidi++;
+		} else if (ret > 0) {
+			/* not part of this virtual mailbox */
+			uidi++;
+		} else {
+			/* no messages indexed in the mailbox */
+			vret = fts_build_init_box(fctx, boxes[boxi], 0);
+			boxi++;
+		}
+	}
+	while (vret == 0 && boxi < box_count) {
+		vret = fts_build_init_box(fctx, boxes[boxi], 0);
+		boxi++;
+	}
+	vctx->boxi = boxi;
+	vctx->uidi = uidi;
+	return vret;
+}
+
+static int fts_build_init_virtual(struct fts_search_context *fctx)
+{
+	struct fts_search_virtual_context *vctx = &fctx->virtual_ctx;
+	struct fts_backend_uid_map *last_uids;
+	struct mailbox **boxes;
+	unsigned int box_count, last_uid_count;
+	int ret;
+
+	vctx->pool = pool_alloconly_create("fts virtual build", 1024);
+	p_array_init(&vctx->mailboxes, vctx->pool, 64);
+	mailbox_get_virtual_backend_boxes(fctx->t->box, &vctx->mailboxes, TRUE);
+	boxes = array_get_modifiable(&vctx->mailboxes, &box_count);
+
+	if (box_count <= 0) {
+		if (box_count == 0) {
+			/* empty virtual mailbox */
+			return 0;
+		}
+		/* virtual mailbox is built from only a single mailbox
+		   (currently). check that directly. */
+		fctx->virtual_ctx.trans =
+			mailbox_transaction_begin(boxes[0], 0);
+		ret = fts_build_init_trans(fctx, fctx->virtual_ctx.trans);
+		return ret;
+	}
+
+	/* virtual mailbox is built from multiple mailboxes. figure out which
+	   ones need updating. */
+	p_array_init(&vctx->last_uids, vctx->pool, 64);
+	if (fts_backend_get_all_last_uids(fctx->build_backend, vctx->pool,
+					  &vctx->last_uids) < 0) {
+		pool_unref(&vctx->pool);
+		return -1;
+	}
+	last_uids = array_get_modifiable(&vctx->last_uids, &last_uid_count);
+
+	qsort(boxes, box_count, sizeof(*boxes), mailbox_name_cmp);
+	qsort(last_uids, last_uid_count, sizeof(*last_uids),
+	      fts_backend_uid_map_mailbox_cmp);
+
+	ret = fts_build_init_virtual_next(fctx);
+	return ret < 0 ? -1 : 0;
+}
+
+static int fts_build_init(struct fts_search_context *fctx)
+{
+	if (fctx->fbox->virtual)
+		return fts_build_init_virtual(fctx);
+	return fts_build_init_trans(fctx, fctx->t);
 }
 
 static int fts_build_deinit(struct fts_storage_build_context **_ctx)
@@ -360,6 +514,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	fctx->fbox = fbox;
 	fctx->t = t;
 	fctx->args = args;
+	fctx->first_nonindexed_seq = (uint32_t)-1;
 	MODULE_CONTEXT_SET(ctx, fts_storage_module, fctx);
 
 	if (fbox->backend_substr == NULL && fbox->backend_fast == NULL)
@@ -388,7 +543,7 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		}
 	}
 
-	if (fctx->build_ctx != NULL) {
+	while (fctx->build_ctx != NULL) {
 		/* this command is still building the indexes */
 		ret = fts_build_more(fctx->build_ctx);
 		if (ret == 0) {
@@ -400,8 +555,10 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		if (fts_build_deinit(&fctx->build_ctx) < 0)
 			ret = -1;
 		if (ret > 0) {
-			fctx->first_nonindexed_seq = 0;
-			fts_search_lookup(fctx);
+			if (fts_build_init_virtual_next(fctx) == 0) {
+				/* all finished */
+				fts_search_lookup(fctx);
+			}
 		}
 	}
 
@@ -460,12 +617,11 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 		if (fctx->definite_idx == def_count) {
 			if (fctx->maybe_idx == maybe_count) {
 				/* look for the non-indexed mails */
-				if (fctx->first_nonindexed_seq == 0)
+				if (fctx->first_nonindexed_seq == (uint32_t)-1)
 					return FALSE;
 				fctx->seqs_set = FALSE;
 				ctx->seq = fctx->first_nonindexed_seq - 1;
-				return fbox->module_ctx.super.
-					search_next_update_seq(ctx);
+				return fts_mailbox_search_next_update_seq(ctx);
 			}
 			use_maybe = TRUE;
 		} else if (fctx->maybe_idx == maybe_count) {
@@ -504,6 +660,17 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 	if (!use_maybe) {
 		/* we have definite results, update args */
 		fts_mailbox_search_args_definite_set(fctx);
+	}
+
+	if (ctx->seq + 1 >= fctx->first_nonindexed_seq) {
+		/* this is a virtual mailbox and we're searching headers.
+		   some mailboxes had more messages indexed than others.
+		   to avoid duplicates or jumping around, ignore the rest of
+		   the search results and just go through the messages in
+		   order. */
+		fctx->seqs_set = FALSE;
+		ctx->seq = fctx->first_nonindexed_seq - 1;
+		return fts_mailbox_search_next_update_seq(ctx);
 	}
 
 	return ret;
@@ -552,6 +719,10 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 		array_free(&fctx->maybe_seqs);
 	if (array_is_created(&fctx->score_map))
 		array_free(&fctx->score_map);
+	if (fctx->virtual_ctx.trans != NULL)
+		(void)mailbox_transaction_commit(&fctx->virtual_ctx.trans);
+	if (fctx->virtual_ctx.pool != NULL)
+		pool_unref(&fctx->virtual_ctx.pool);
 	i_free(fctx);
 	return fbox->module_ctx.super.search_deinit(ctx);
 }

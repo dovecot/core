@@ -234,6 +234,8 @@ struct mail_storage_callbacks {
 
 };
 
+ARRAY_DEFINE_TYPE(mailboxes, struct mailbox *);
+
 typedef void mailbox_notify_callback_t(struct mailbox *box, void *context);
 
 void mail_storage_init(void);
@@ -421,6 +423,17 @@ bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 bool mailbox_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
 			     uint32_t backend_uidvalidity,
 			     uint32_t backend_uid, uint32_t *uid_r);
+/* If box is a virtual mailbox, return all backend mailboxes. If
+   only_with_msgs=TRUE, return only those mailboxes that have at least one
+   message existing in the virtual mailbox. */
+void mailbox_get_virtual_backend_boxes(struct mailbox *box,
+				       ARRAY_TYPE(mailboxes) *mailboxes,
+				       bool only_with_msgs);
+/* If mailbox is a virtual mailbox, return all mailbox list patterns that
+   are used to figure out which mailboxes belong to the virtual mailbox. */
+void mailbox_get_virtual_box_patterns(struct mailbox *box,
+				      ARRAY_TYPE(const_string) *includes,
+				      ARRAY_TYPE(const_string) *excludes);
 
 /* Initialize header lookup for given headers. */
 struct mailbox_header_lookup_ctx *

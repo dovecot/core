@@ -210,6 +210,7 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_init,
 		fts_backend_lucene_deinit,
 		fts_backend_lucene_get_last_uid,
+		NULL,
 		fts_backend_lucene_build_init,
 		fts_backend_lucene_build_more,
 		fts_backend_lucene_build_deinit,

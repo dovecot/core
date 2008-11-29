@@ -11,6 +11,16 @@ struct fts_mailbox {
 	unsigned int backend_set:1;
 };
 
+struct fts_search_virtual_context {
+	pool_t pool;
+
+	struct mailbox_transaction_context *trans;
+	ARRAY_TYPE(mailboxes) mailboxes;
+	ARRAY_TYPE(fts_backend_uid_map) last_uids;
+
+	unsigned int boxi, uidi;
+};
+
 struct fts_search_context {
 	union mail_search_module_context module_ctx;
 
@@ -27,6 +37,7 @@ struct fts_search_context {
 
 	struct fts_backend *build_backend;
 	struct fts_storage_build_context *build_ctx;
+	struct fts_search_virtual_context virtual_ctx;
 
 	unsigned int build_initialized:1;
 	unsigned int seqs_set:1;

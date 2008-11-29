@@ -577,6 +577,33 @@ virtual_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
 	return TRUE;
 }
 
+static void
+virtual_get_virtual_backend_boxes(struct mailbox *box,
+				  ARRAY_TYPE(mailboxes) *mailboxes,
+				  bool only_with_msgs)
+{
+	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_backend_box *const *bboxes;
+	unsigned int i, count;
+
+	bboxes = array_get(&mbox->backend_boxes, &count);
+	for (i = 0; i < count; i++) {
+		if (!only_with_msgs || array_count(&bboxes[i]->uids) > 0)
+			array_append(mailboxes, &bboxes[i]->box, 1);
+	}
+}
+
+static void
+virtual_get_virtual_box_patterns(struct mailbox *box,
+				 ARRAY_TYPE(const_string) *includes,
+				 ARRAY_TYPE(const_string) *excludes)
+{
+	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+
+	array_append_array(includes, &mbox->list_include_patterns);
+	array_append_array(excludes, &mbox->list_exclude_patterns);
+}
+
 static void virtual_class_init(void)
 {
 	virtual_transaction_class_init();
@@ -631,6 +658,8 @@ struct mailbox virtual_mailbox = {
 		index_storage_get_uid_range,
 		index_storage_get_expunged_uids,
 		virtual_get_virtual_uid,
+		virtual_get_virtual_backend_boxes,
+		virtual_get_virtual_box_patterns,
 		virtual_mail_alloc,
 		index_header_lookup_init,
 		index_header_lookup_ref,

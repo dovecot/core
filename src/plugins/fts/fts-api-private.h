@@ -8,6 +8,8 @@ struct fts_backend_vfuncs {
 	void (*deinit)(struct fts_backend *backend);
 
 	int (*get_last_uid)(struct fts_backend *backend, uint32_t *last_uid_r);
+	int (*get_all_last_uids)(struct fts_backend *backend, pool_t pool,
+				 ARRAY_TYPE(fts_backend_uid_map) *last_uids);
 
 	int (*build_init)(struct fts_backend *backend, uint32_t *last_uid_r,
 			  struct fts_backend_build_context **ctx_r);

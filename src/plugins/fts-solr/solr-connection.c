@@ -202,6 +202,16 @@ void solr_connection_quote_str(struct solr_connection *conn, string_t *dest,
 	curl_free(encoded);
 }
 
+void solr_connection_http_escape(struct solr_connection *conn, string_t *dest,
+				 const char *str)
+{
+	char *encoded;
+
+	encoded = curl_easy_escape(conn->curl, str, 0);
+	str_append(dest, encoded);
+	curl_free(encoded);
+}
+
 static const char *attrs_get_name(const char **attrs)
 {
 	for (; *attrs != NULL; attrs += 2) {

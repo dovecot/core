@@ -13,6 +13,8 @@ void solr_connection_deinit(struct solr_connection *conn);
 
 void solr_connection_quote_str(struct solr_connection *conn, string_t *dest,
 			       const char *str);
+void solr_connection_http_escape(struct solr_connection *conn, string_t *dest,
+				 const char *str);
 
 int solr_connection_select(struct solr_connection *conn, const char *query,
 			   solr_uid_map_callback_t *callback, void *context,

@@ -247,6 +247,7 @@ struct fts_backend fts_backend_squat = {
 		fts_backend_squat_init,
 		fts_backend_squat_deinit,
 		fts_backend_squat_get_last_uid,
+		NULL,
 		fts_backend_squat_build_init,
 		fts_backend_squat_build_more,
 		fts_backend_squat_build_deinit,

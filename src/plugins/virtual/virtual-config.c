@@ -116,16 +116,38 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 
 	/* new mailbox. the search args are added to it later. */
 	bbox = p_new(ctx->pool, struct virtual_backend_box, 1);
+	if (strcasecmp(line, "INBOX") == 0)
+		line = "INBOX";
 	bbox->name = p_strdup(ctx->pool, line);
 	if (strchr(bbox->name, '*') != NULL ||
 	    strchr(bbox->name, '%') != NULL) {
-		name = bbox->name[0] == '-' ? bbox->name +1 : bbox->name;
+		name = bbox->name[0] == '-' ? bbox->name + 1 : bbox->name;
 		bbox->glob = imap_match_init(ctx->pool, name, TRUE, ctx->sep);
 		bbox->ns = mail_namespace_find(user->namespaces, &line);
 		ctx->have_wildcards = TRUE;
 	}
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 	return 0;
+}
+
+static void
+virtual_mailbox_get_list_patterns(struct virtual_parse_context *ctx)
+{
+	struct virtual_mailbox *mbox = ctx->mbox;
+	ARRAY_TYPE(const_string) *dest;
+	struct virtual_backend_box *const *bboxes;
+	unsigned int i, count;
+
+	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
+	p_array_init(&mbox->list_include_patterns, ctx->pool, count);
+	p_array_init(&mbox->list_exclude_patterns, ctx->pool, count);
+	for (i = 0; i < count; i++) {
+		if (*bboxes[i]->name == '-')
+			dest = &mbox->list_exclude_patterns;
+		else
+			dest = &mbox->list_include_patterns;
+		array_append(dest, &bboxes[i]->name, 1);
+	}
 }
 
 static void
@@ -290,6 +312,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	if (ret == 0)
 		ret = virtual_config_add_rule(&ctx, &error);
 
+	virtual_mailbox_get_list_patterns(&ctx);
 	if (ret == 0 && ctx.have_wildcards)
 		ret = virtual_config_expand_wildcards(&ctx);
 

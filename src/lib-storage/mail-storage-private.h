@@ -142,6 +142,12 @@ struct mailbox_vfuncs {
 				const char *backend_mailbox,
 				uint32_t backend_uidvalidity,
 				uint32_t backend_uid, uint32_t *uid_r);
+	void (*get_virtual_backend_boxes)(struct mailbox *box,
+					  ARRAY_TYPE(mailboxes) *mailboxes,
+					  bool only_with_msgs);
+	void (*get_virtual_box_patterns)(struct mailbox *box,
+					 ARRAY_TYPE(const_string) *includes,
+					 ARRAY_TYPE(const_string) *excludes);
 
 	struct mail *
 		(*mail_alloc)(struct mailbox_transaction_context *t,
