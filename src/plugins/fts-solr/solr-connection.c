@@ -325,6 +325,7 @@ static int uint32_parse(const char *str, int len, uint32_t *value_r)
 static void solr_lookup_xml_data(void *context, const char *str, int len)
 {
 	struct solr_lookup_xml_context *ctx = context;
+	char *new_name;
 
 	switch (ctx->content_state) {
 	case SOLR_XML_CONTENT_STATE_NONE:
@@ -339,8 +340,12 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 		} T_END;
 		break;
 	case SOLR_XML_CONTENT_STATE_MAILBOX:
+		/* this may be called multiple times, for example if input
+		   contains '&' characters */
+		new_name = ctx->mailbox == NULL ? i_strndup(str, len) :
+			i_strconcat(ctx->mailbox, t_strndup(str, len), NULL);
 		i_free(ctx->mailbox);
-		ctx->mailbox = i_strndup(str, len);
+		ctx->mailbox = new_name;
 		break;
 	case SOLR_XML_CONTENT_STATE_UIDVALIDITY:
 		if (uint32_parse(str, len, &ctx->uidvalidity) < 0)
