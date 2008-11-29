@@ -380,15 +380,35 @@ static int fts_build_init_virtual(struct fts_search_context *fctx)
 
 static int fts_build_init(struct fts_search_context *fctx)
 {
+	struct mailbox_status status;
+	int ret;
+
+	mailbox_get_status(fctx->t->box, STATUS_MESSAGES | STATUS_UIDNEXT,
+			   &status);
+	if (status.messages == fctx->fbox->last_messages_count &&
+	    status.uidnext == fctx->fbox->last_uidnext) {
+		/* no new messages since last check */
+		return 0;
+	}
+
 	if (fctx->fbox->virtual)
-		return fts_build_init_virtual(fctx);
-	return fts_build_init_trans(fctx, fctx->t);
+		ret = fts_build_init_virtual(fctx);
+	else
+		ret = fts_build_init_trans(fctx, fctx->t);
+	if (ret == 0 && fctx->build_ctx == NULL) {
+		/* index was up-to-date */
+		fctx->fbox->last_messages_count = status.messages;
+		fctx->fbox->last_uidnext = status.uidnext;
+	}
+	return ret;
 }
 
 static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 {
 	struct fts_storage_build_context *ctx = *_ctx;
 	struct mailbox *box = ctx->mail->transaction->box;
+	struct fts_mailbox *fbox = FTS_CONTEXT(box);
+	struct mailbox_status status;
 	int ret = 0;
 
 	*_ctx = NULL;
@@ -399,6 +419,13 @@ static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 
 	if (fts_backend_build_deinit(&ctx->build) < 0)
 		ret = -1;
+
+	if (ret == 0) {
+		mailbox_get_status(box, STATUS_MESSAGES | STATUS_UIDNEXT,
+				   &status);
+		fbox->last_messages_count = status.messages;
+		fbox->last_uidnext = status.uidnext;
+	}
 
 	if (ioloop_time - ctx->search_start_time.tv_sec >=
 	    FTS_BUILD_NOTIFY_INTERVAL_SECS) {

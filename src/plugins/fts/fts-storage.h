@@ -6,6 +6,8 @@ struct fts_mailbox {
 	struct fts_backend *backend_substr;
 	struct fts_backend *backend_fast;
 
+	unsigned int last_messages_count, last_uidnext;
+
 	const char *env;
 	unsigned int virtual:1;
 	unsigned int backend_set:1;
