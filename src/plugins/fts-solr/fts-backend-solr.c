@@ -183,7 +183,7 @@ solr_add_ns_query(string_t *str, struct fts_backend *_backend,
 	if (ns == backend->default_ns || *ns->prefix == '\0')
 		str_append(str, " -ns:[* TO *]");
 	else {
-		str_append(str, " ns:");
+		str_append(str, " %2Bns:");
 		solr_quote(str, ns->prefix);
 	}
 }
@@ -376,9 +376,9 @@ fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 		str_append_c(fq, '(');
 		for (i = 0; i < inc_count; i++) {
 			if (i != 0)
-				str_append(fq, " OR ");
+				str_append(fq, " OR %2B");
 			str_append_c(fq, '(');
-			str_append(fq, "box:");
+			str_append(fq, "%2Bbox:");
 			solr_add_pattern(fq, &includes[i]);
 			solr_add_ns_query(fq, _backend, includes[i].ns);
 			str_append_c(fq, ')');
@@ -706,12 +706,12 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 
 	/* use a separate filter query for selecting the mailbox. it shouldn't
 	   affect the score and there could be some caching benefits too. */
-	str_append(str, "&fq=user:");
+	str_append(str, "&fq=%2Buser:");
 	solr_quote_http(str, box->storage->ns->user->username);
 	if (virtual)
 		fts_backend_solr_filter_mailboxes(ctx->backend, str, box);
 	else {
-		str_printfa(str, "+uidv:%u+box:", status.uidvalidity);
+		str_printfa(str, "+%%2Buidv:%u+%%2Bbox:", status.uidvalidity);
 		solr_quote_http(str, box->name);
 		solr_add_ns_query_http(str, ctx->backend, box->storage->ns);
 	}
