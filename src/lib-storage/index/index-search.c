@@ -1074,7 +1074,8 @@ static void index_storage_search_notify(struct mailbox *box,
 		/* set the search time in here, in case a plugin
 		   already spent some time indexing the mailbox */
 		ctx->search_start_time = ioloop_timeval;
-	} else if (box->storage->callbacks->notify_ok != NULL) {
+	} else if (box->storage->callbacks->notify_ok != NULL &&
+		   !ctx->mail_ctx.progress_hidden) {
 		percentage = ctx->mail_ctx.progress_cur * 100.0 /
 			ctx->mail_ctx.progress_max;
 		msecs = (ioloop_timeval.tv_sec -

@@ -211,6 +211,7 @@ static int fts_build_init_seq(struct fts_search_context *fctx,
 	ctx->headers = str_new(default_pool, 512);
 	ctx->mail = mail_alloc(t, 0, NULL);
 	ctx->search_ctx = mailbox_search_init(t, search_args, NULL);
+	ctx->search_ctx->progress_hidden = TRUE;
 	ctx->search_args = search_args;
 
 	fctx->build_ctx = ctx;
@@ -529,6 +530,7 @@ static void fts_search_init_lookup(struct mail_search_context *ctx,
 		ctx->progress_max = array_count(&fctx->definite_seqs) +
 			array_count(&fctx->maybe_seqs);
 	}
+	ctx->progress_cur = 0;
 }
 
 static bool fts_try_build_init(struct mail_search_context *ctx,
@@ -553,6 +555,9 @@ static bool fts_try_build_init(struct mail_search_context *ctx,
 	if (fctx->build_ctx == NULL) {
 		/* the index was up to date */
 		fts_search_init_lookup(ctx, fctx);
+	} else {
+		/* hide "searching" notifications */
+		ctx->progress_hidden = TRUE;
 	}
 	return TRUE;
 }
@@ -611,6 +616,7 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		}
 
 		/* finished / error */
+		ctx->progress_hidden = FALSE;
 		if (fts_build_deinit(&fctx->build_ctx) < 0)
 			ret = -1;
 		if (ret > 0) {
