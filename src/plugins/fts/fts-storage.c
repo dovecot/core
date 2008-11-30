@@ -519,7 +519,20 @@ static int fts_build_more(struct fts_storage_build_context *ctx)
 	return 1;
 }
 
-static bool fts_try_build_init(struct fts_search_context *fctx)
+static void fts_search_init_lookup(struct mail_search_context *ctx,
+				   struct fts_search_context *fctx)
+{
+	fts_search_lookup(fctx);
+
+	if (fctx->seqs_set &&
+	    strcmp(ctx->transaction->box->storage->name, "virtual") != 0) {
+		ctx->progress_max = array_count(&fctx->definite_seqs) +
+			array_count(&fctx->maybe_seqs);
+	}
+}
+
+static bool fts_try_build_init(struct mail_search_context *ctx,
+			       struct fts_search_context *fctx)
 {
 	if (fctx->build_backend == NULL) {
 		fctx->build_initialized = TRUE;
@@ -539,7 +552,7 @@ static bool fts_try_build_init(struct fts_search_context *fctx)
 
 	if (fctx->build_ctx == NULL) {
 		/* the index was up to date */
-		fts_search_lookup(fctx);
+		fts_search_init_lookup(ctx, fctx);
 	}
 	return TRUE;
 }
@@ -569,7 +582,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	ft->score_map = &fctx->score_map;
 
 	fts_search_analyze(fctx);
-	(void)fts_try_build_init(fctx);
+	(void)fts_try_build_init(ctx, fctx);
 	return ctx;
 }
 
@@ -583,7 +596,7 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	if (!fctx->build_initialized) {
 		/* we're still waiting for this process (but another command)
 		   to finish building the indexes */
-		if (!fts_try_build_init(fctx)) {
+		if (!fts_try_build_init(ctx, fctx)) {
 			*tryagain_r = TRUE;
 			return 0;
 		}
@@ -603,7 +616,7 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		if (ret > 0) {
 			if (fts_build_init_virtual_next(fctx) == 0) {
 				/* all finished */
-				fts_search_lookup(fctx);
+				fts_search_init_lookup(ctx, fctx);
 			}
 		}
 	}
@@ -622,6 +635,10 @@ fts_mailbox_search_args_definite_set(struct fts_search_context *fctx)
 		switch (arg->type) {
 		case SEARCH_TEXT:
 		case SEARCH_BODY:
+			if (fctx->fbox->backend_substr == NULL) {
+				/* we're marking only fast args */
+				break;
+			}
 		case SEARCH_BODY_FAST:
 		case SEARCH_TEXT_FAST:
 			arg->result = 1;
@@ -630,6 +647,21 @@ fts_mailbox_search_args_definite_set(struct fts_search_context *fctx)
 			break;
 		}
 	}
+}
+
+static bool search_nonindexed(struct mail_search_context *ctx)
+{
+	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
+	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
+	struct mailbox_status status;
+
+	mailbox_get_status(ctx->transaction->box, STATUS_MESSAGES, &status);
+
+	fctx->seqs_set = FALSE;
+	ctx->seq = fctx->first_nonindexed_seq - 1;
+	ctx->progress_cur = ctx->seq;
+	ctx->progress_max = status.messages;
+	return fbox->module_ctx.super.search_next_update_seq(ctx);
 }
 
 static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
@@ -665,9 +697,7 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 				/* look for the non-indexed mails */
 				if (fctx->first_nonindexed_seq == (uint32_t)-1)
 					return FALSE;
-				fctx->seqs_set = FALSE;
-				ctx->seq = fctx->first_nonindexed_seq - 1;
-				return fts_mailbox_search_next_update_seq(ctx);
+				return search_nonindexed(ctx);
 			}
 			use_maybe = TRUE;
 		} else if (fctx->maybe_idx == maybe_count) {
@@ -714,11 +744,10 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 		   to avoid duplicates or jumping around, ignore the rest of
 		   the search results and just go through the messages in
 		   order. */
-		fctx->seqs_set = FALSE;
-		ctx->seq = fctx->first_nonindexed_seq - 1;
-		return fts_mailbox_search_next_update_seq(ctx);
+		return search_nonindexed(ctx);
 	}
 
+	ctx->progress_cur = fctx->definite_idx + fctx->maybe_idx;
 	return ret;
 }
 

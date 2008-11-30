@@ -972,6 +972,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 	struct index_search_context *ctx;
+	const struct mail_index_header *hdr;
 
 	ctx = i_new(struct index_search_context, 1);
 	ctx->mail_ctx.transaction = _t;
@@ -979,6 +980,9 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	ctx->view = t->trans_view;
 	ctx->mail_ctx.args = args;
 	ctx->mail_ctx.sort_program = index_sort_program_init(_t, sort_program);
+
+	hdr = mail_index_get_header(t->ibox->view);
+	ctx->mail_ctx.progress_max = hdr->messages_count;
 
 	i_array_init(&ctx->mail_ctx.results, 5);
 	array_create(&ctx->mail_ctx.module_contexts, default_pool,
@@ -1063,7 +1067,6 @@ static bool search_match_next(struct index_search_context *ctx)
 static void index_storage_search_notify(struct mailbox *box,
 					struct index_search_context *ctx)
 {
-	const struct mail_index_header *hdr;
 	float percentage;
 	unsigned int msecs, secs;
 
@@ -1072,9 +1075,8 @@ static void index_storage_search_notify(struct mailbox *box,
 		   already spent some time indexing the mailbox */
 		ctx->search_start_time = ioloop_timeval;
 	} else if (box->storage->callbacks->notify_ok != NULL) {
-		hdr = mail_index_get_header(ctx->ibox->view);
-
-		percentage = ctx->mail->seq * 100.0 / hdr->messages_count;
+		percentage = ctx->mail_ctx.progress_cur * 100.0 /
+			ctx->mail_ctx.progress_max;
 		msecs = (ioloop_timeval.tv_sec -
 			 ctx->search_start_time.tv_sec) * 1000 +
 			(ioloop_timeval.tv_usec -
@@ -1246,8 +1248,10 @@ bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 	}
 
 	if (!ctx->have_seqsets && !ctx->have_index_args &&
-	    _ctx->update_result == NULL)
+	    _ctx->update_result == NULL) {
+		ctx->mail_ctx.progress_cur = _ctx->seq;
 		return _ctx->seq <= ctx->seq2;
+	}
 
 	ret = 0;
 	while (_ctx->seq <= ctx->seq2) {
@@ -1283,5 +1287,6 @@ bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 			search_set_static_matches(_ctx->args->args);
 		}
 	}
+	ctx->mail_ctx.progress_cur = _ctx->seq;
 	return ret != 0;
 }

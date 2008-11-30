@@ -324,6 +324,8 @@ struct mail_search_context {
 	ARRAY_DEFINE(results, struct mail_search_result *);
 
 	uint32_t seq;
+	uint32_t progress_cur, progress_max;
+
 	ARRAY_DEFINE(module_contexts, union mail_search_module_context *);
 
 	unsigned int seen_lost_data:1;
