@@ -77,6 +77,8 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 			(arg->type == SEARCH_TEXT_FAST ||
 			 arg->type == SEARCH_BODY_FAST) ?
 			fctx->fbox->backend_fast : fctx->fbox->backend_substr;
+		if (backend == NULL)
+			return 0;
 		break;
 	default:
 		/* can't filter this */
