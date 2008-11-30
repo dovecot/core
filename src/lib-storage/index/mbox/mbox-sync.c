@@ -1585,11 +1585,19 @@ int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
 		/* read-only stream */
 		st = i_stream_stat(mbox->mbox_file_stream, FALSE);
 		if (st == NULL) {
+			if (errno == ENOENT) {
+				mailbox_set_deleted(&mbox->ibox.box);
+				return 0;
+			}
 			mbox_set_syscall_error(mbox, "i_stream_stat()");
 			return -1;
 		}
 	} else {
 		if (stat(mbox->path, &statbuf) < 0) {
+			if (errno == ENOENT) {
+				mailbox_set_deleted(&mbox->ibox.box);
+				return 0;
+			}
 			mbox_set_syscall_error(mbox, "stat()");
 			return -1;
 		}

@@ -184,7 +184,10 @@ static int mbox_file_open_latest(struct mbox_lock_context *ctx, int lock_type)
 		   deleted and the flushing might cause errors (e.g. EBUSY for
 		   trying to flush a /var/mail mountpoint) */
 		if (nfs_safe_stat(mbox->path, &st) < 0) {
-			mbox_set_syscall_error(mbox, "stat()");
+			if (errno == ENOENT)
+				mailbox_set_deleted(&mbox->ibox.box);
+			else
+				mbox_set_syscall_error(mbox, "stat()");
 			return -1;
 		}
 
