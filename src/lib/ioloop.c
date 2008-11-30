@@ -190,6 +190,8 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 		tv_r->tv_sec = tv_now->tv_sec;
 		tv_r->tv_usec = tv_now->tv_usec;
 	}
+	i_assert(tv_r->tv_sec > 0);
+	i_assert(timeout->next_run.tv_sec > 0);
 
 	tv_r->tv_sec = timeout->next_run.tv_sec - tv_r->tv_sec;
 	tv_r->tv_usec = timeout->next_run.tv_usec - tv_r->tv_usec;
@@ -198,14 +200,17 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 		tv_r->tv_usec += 1000000;
 	}
 
-	/* round wait times up to next millisecond */
-	ret = tv_r->tv_sec * 1000 + (tv_r->tv_usec + 999) / 1000;
-	if (ret <= 0) {
+	if (tv_r->tv_sec < 0 || (tv_r->tv_sec == 0 && tv_r->tv_usec < 1000)) {
 		tv_r->tv_sec = 0;
 		tv_r->tv_usec = 0;
 		return 0;
 	}
-	i_assert(tv_r->tv_sec >= 0 && tv_r->tv_usec >= 0);
+	if (tv_r->tv_sec > INT_MAX/1000-1)
+		tv_r->tv_sec = INT_MAX/1000-1;
+
+	/* round wait times up to next millisecond */
+	ret = tv_r->tv_sec * 1000 + (tv_r->tv_usec + 999) / 1000;
+	i_assert(ret > 0 && tv_r->tv_sec >= 0 && tv_r->tv_usec >= 0);
 	return ret;
 }
 
