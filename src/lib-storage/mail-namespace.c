@@ -38,10 +38,11 @@ static void mail_namespace_free(struct mail_namespace *ns)
 static struct mail_namespace *
 namespace_add_env(const char *data, unsigned int num,
 		  struct mail_user *user, enum mail_storage_flags flags,
-		  enum file_lock_method lock_method)
+		  enum file_lock_method lock_method,
+		  struct mail_namespace *prev_namespaces)
 {
         struct mail_namespace *ns;
-	const char *sep, *type, *prefix, *driver, *error, *list;
+	const char *sep, *type, *prefix, *driver, *error, *list, *alias_for;
 
 	ns = i_new(struct mail_namespace, 1);
 
@@ -49,6 +50,7 @@ namespace_add_env(const char *data, unsigned int num,
 	type = getenv(t_strdup_printf("NAMESPACE_%u_TYPE", num));
 	prefix = getenv(t_strdup_printf("NAMESPACE_%u_PREFIX", num));
 	list = getenv(t_strdup_printf("NAMESPACE_%u_LIST", num));
+	alias_for = getenv(t_strdup_printf("NAMESPACE_%u_ALIAS", num));
 	if (getenv(t_strdup_printf("NAMESPACE_%u_INBOX", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_INBOX;
 	if (getenv(t_strdup_printf("NAMESPACE_%u_HIDDEN", num)) != NULL)
@@ -73,6 +75,23 @@ namespace_add_env(const char *data, unsigned int num,
 		i_error("Unknown namespace type: %s", type);
 		mail_namespace_free(ns);
 		return NULL;
+	}
+
+	if (alias_for != NULL) {
+		ns->alias_for = mail_namespace_find_prefix(prev_namespaces,
+							   alias_for);
+		if (ns->alias_for == NULL) {
+			i_error("Invalid namespace alias_for: %s", alias_for);
+			mail_namespace_free(ns);
+			return NULL;
+		}
+		if (ns->alias_for->alias_for != NULL) {
+			i_error("Chained namespace alias_for: %s", alias_for);
+			mail_namespace_free(ns);
+			return NULL;
+		}
+		ns->alias_chain_next = ns->alias_for->alias_chain_next;
+		ns->alias_for->alias_chain_next = ns;
 	}
 
 	if (prefix == NULL)
@@ -207,7 +226,7 @@ int mail_namespaces_init(struct mail_user *user)
 
 		T_BEGIN {
 			*ns_p = namespace_add_env(data, i, user, flags,
-						  lock_method);
+						  lock_method, namespaces);
 		} T_END;
 
 		if (*ns_p == NULL)

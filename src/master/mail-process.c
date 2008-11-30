@@ -268,6 +268,10 @@ env_put_namespace(struct namespace_settings *ns, const char *default_location,
 			env_put(t_strdup_printf("NAMESPACE_%u_TYPE=%s",
 						i, ns->type));
 		}
+		if (ns->alias_for != NULL) {
+			env_put(t_strdup_printf("NAMESPACE_%u_ALIAS=%s",
+						i, ns->alias_for));
+		}
 		if (ns->prefix != NULL) {
 			/* expand variables, eg. ~%u/ can be useful */
 			str = t_str_new(256);

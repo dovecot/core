@@ -272,8 +272,21 @@ fts_build_init_box(struct fts_search_context *fctx, struct mailbox *box,
 static int mailbox_name_cmp(const void *p1, const void *p2)
 {
 	struct mailbox *const *box1 = p1, *const *box2 = p2;
+	int ret;
 
-	return strcmp((*box1)->name, (*box2)->name);
+	T_BEGIN {
+		string_t *tmp1, *tmp2;
+		const char *vname1, *vname2;
+
+		tmp1 = t_str_new(128);
+		tmp2 = t_str_new(128);
+		vname1 = mail_namespace_get_vname((*box1)->storage->ns, tmp1,
+						  (*box1)->name);
+		vname2 = mail_namespace_get_vname((*box2)->storage->ns, tmp2,
+						  (*box2)->name);
+		ret = strcmp(vname1, vname2);
+	} T_END;
+	return ret;
 }
 
 static int fts_backend_uid_map_mailbox_cmp(const void *p1, const void *p2)

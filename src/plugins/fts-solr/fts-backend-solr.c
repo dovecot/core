@@ -127,6 +127,9 @@ fts_backend_solr_init(struct mailbox *box)
 	struct mail_namespace *ns = box->storage->ns;
 	const char *str;
 
+	while (ns->alias_for != NULL)
+		ns = ns->alias_for;
+
 	if (solr_conn == NULL)
 		solr_conn = solr_connection_init(set->url, set->debug);
 
@@ -143,9 +146,12 @@ fts_backend_solr_init(struct mailbox *box)
 		backend->default_ns =
 			mail_namespace_find_inbox(ns->user->namespaces);
 	}
+	while (backend->default_ns->alias_for != NULL)
+		backend->default_ns = backend->default_ns->alias_for;
+
 	str = solr_escape_id_str(ns->user->username);
 	backend->id_username = i_strdup(str);
-	if (box->storage->ns != backend->default_ns) {
+	if (ns != backend->default_ns) {
 		str = solr_escape_id_str(ns->prefix);
 		backend->id_namespace = i_strdup(str);
 	}
@@ -170,6 +176,9 @@ solr_add_ns_query(string_t *str, struct fts_backend *_backend,
 		  struct mail_namespace *ns)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
+
+	while (ns->alias_for != NULL)
+		ns = ns->alias_for;
 
 	if (ns == backend->default_ns || *ns->prefix == '\0')
 		str_append(str, " -ns:[* TO *]");
@@ -268,23 +277,17 @@ static int fts_backend_solr_get_last_uid(struct fts_backend *backend,
 	return 0;
 }
 
-static const char *
-solr_get_vmailbox(struct fts_backend *_backend,
-		  struct mailbox *box, const char *ns_prefix,
-		  const char *mailbox, string_t *dest)
+static struct mail_namespace *
+solr_get_namespaces(struct fts_backend *_backend,
+		    struct mailbox *box, const char *ns_prefix)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct mail_namespace *namespaces = box->storage->ns->user->namespaces;
-	struct mail_namespace *ns;
 
 	if (ns_prefix == NULL)
-		ns = backend->default_ns;
-	else {
-		ns = mail_namespace_find_prefix(namespaces, ns_prefix);
-		if (ns == NULL)
-			return FALSE;
-	}
-	return mail_namespace_get_vname(ns, dest, mailbox);
+		return backend->default_ns;
+	else
+		return mail_namespace_find_prefix(namespaces, ns_prefix);
 }
 
 static bool
@@ -293,15 +296,17 @@ solr_virtual_get_last_uids(const char *ns_prefix, const char *mailbox,
 {
 	struct fts_backend_solr_get_last_uids_context *ctx = context;
 	struct fts_backend_uid_map *map;
+	struct mail_namespace *ns;
 	const char *vname;
 
-	vname = solr_get_vmailbox(ctx->backend, ctx->box, ns_prefix,
-				  mailbox, ctx->vname);
-
-	map = array_append_space(ctx->last_uids);
-	map->mailbox = p_strdup(ctx->pool, vname);
-	map->uidvalidity = uidvalidity;
-	map->uid = *uid;
+	ns = solr_get_namespaces(ctx->backend, ctx->box, ns_prefix);
+	for (; ns != NULL; ns = ns->alias_chain_next) {
+		vname = mail_namespace_get_vname(ns, ctx->vname, mailbox);
+		map = array_append_space(ctx->last_uids);
+		map->mailbox = p_strdup(ctx->pool, vname);
+		map->uidvalidity = uidvalidity;
+		map->uid = *uid;
+	}
 	return FALSE;
 }
 
@@ -344,6 +349,7 @@ fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	ARRAY_TYPE(mailbox_virtual_patterns) includes_arr, excludes_arr;
+	struct mail_namespace *ns;
 	const struct mailbox_virtual_pattern *includes, *excludes;
 	unsigned int i, inc_count, exc_count, len;
 	string_t *fq;
@@ -386,12 +392,15 @@ fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 		str_append_c(fq, '(');
 		str_append(fq, "-box:");
 		solr_add_pattern(fq, &excludes[i]);
-		if (excludes[i].ns == backend->default_ns) {
+
+		for (ns = excludes[i].ns; ns->alias_for != NULL; )
+			ns = ns->alias_for;
+		if (ns == backend->default_ns) {
 			str_append(fq, " OR NOT");
-			solr_add_ns_query(fq, _backend, excludes[i].ns);
-		} else if (*excludes[i].ns->prefix != '\0') {
+			solr_add_ns_query(fq, _backend, ns);
+		} else if (*ns->prefix != '\0') {
 			str_append(fq, " OR -ns:");
-			solr_quote(fq, excludes[i].ns->prefix);
+			solr_quote(fq, ns->prefix);
 		}
 		str_append_c(fq, ')');
 	}
@@ -453,21 +462,25 @@ fts_backend_solr_add_doc_prefix(struct solr_fts_backend_build_context *ctx,
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *)ctx->ctx.backend;
 	struct mailbox *box = ctx->ctx.backend->box;
+	struct mail_namespace *ns = box->storage->ns;
 
 	str_printfa(ctx->cmd, "<doc>"
 		    "<field name=\"uid\">%u</field>"
 		    "<field name=\"uidv\">%u</field>",
 		    uid, ctx->uid_validity);
 
-	if (box->storage->ns != backend->default_ns) {
+	while (ns->alias_for != NULL)
+		ns = ns->alias_for;
+
+	if (ns != backend->default_ns) {
 		str_append(ctx->cmd, "<field name=\"ns\">");
-		xml_encode(ctx->cmd, box->storage->ns->prefix);
+		xml_encode(ctx->cmd, ns->prefix);
 		str_append(ctx->cmd, "</field>");
 	}
 	str_append(ctx->cmd, "<field name=\"box\">");
 	xml_encode(ctx->cmd, box->name);
 	str_append(ctx->cmd, "</field><field name=\"user\">");
-	xml_encode(ctx->cmd, box->storage->ns->user->username);
+	xml_encode(ctx->cmd, ns->user->username);
 	str_append(ctx->cmd, "</field>");
 }
 
@@ -629,11 +642,17 @@ static bool solr_virtual_uid_map(const char *ns_prefix, const char *mailbox,
 				 void *context)
 {
 	struct solr_virtual_uid_map_context *ctx = context;
+	struct mail_namespace *ns;
 	const char *vname;
 
-	vname = solr_get_vmailbox(ctx->backend, ctx->box, ns_prefix,
-				  mailbox, ctx->vname);
-	return mailbox_get_virtual_uid(ctx->box, vname, uidvalidity, *uid, uid);
+	ns = solr_get_namespaces(ctx->backend, ctx->box, ns_prefix);
+	for (; ns != NULL; ns = ns->alias_chain_next) {
+		vname = mail_namespace_get_vname(ns, ctx->vname, mailbox);
+		if (mailbox_get_virtual_uid(ctx->box, vname, uidvalidity,
+					    *uid, uid))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,

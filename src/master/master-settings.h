@@ -240,6 +240,7 @@ struct namespace_settings {
 	const char *separator;
 	const char *prefix;
 	const char *location;
+	const char *alias_for;
 
 	bool inbox;
 	bool hidden;

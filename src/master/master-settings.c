@@ -158,6 +158,7 @@ static struct setting_def namespace_setting_defs[] = {
 	DEF_STR(separator),
 	DEF_STR(prefix),
 	DEF_STR(location),
+	DEF_STR(alias_for),
 	DEF_BOOL(inbox),
 	DEF_BOOL(hidden),
 	DEF_STR(list),
@@ -359,6 +360,7 @@ struct namespace_settings default_namespace_settings = {
 	MEMBER(separator) "",
 	MEMBER(prefix) "",
 	MEMBER(location) "",
+	MEMBER(alias_for) NULL,
 
 	MEMBER(inbox) FALSE,
 	MEMBER(hidden) FALSE,
@@ -489,8 +491,10 @@ static bool auth_settings_verify(struct auth_settings *auth)
 	return TRUE;
 }
 
-static bool namespace_settings_verify(struct namespace_settings *ns)
+static bool namespace_settings_verify(struct server_settings *server,
+				      struct namespace_settings *ns)
 {
+	struct namespace_settings *n;
 	const char *name;
 
 	name = ns->prefix != NULL ? ns->prefix : "";
@@ -508,6 +512,24 @@ static bool namespace_settings_verify(struct namespace_settings *ns)
 		i_error("Namespace '%s': Invalid list value: %s",
 			name, ns->list);
 		return FALSE;
+	}
+
+	if (ns->alias_for != NULL) {
+		for (n = server->namespaces; n != ns; n = n->next) {
+			if (strcmp(n->prefix, ns->alias_for) == 0)
+				break;
+		}
+		if (n == NULL) {
+			i_error("Namespace '%s': alias_for points to "
+				"unknown namespace: %s", name, ns->alias_for);
+			return FALSE;
+		}
+		if (n->alias_for != NULL) {
+			i_error("Namespace '%s': alias_for chaining isn't "
+				"allowed: %s -> %s", name, ns->alias_for,
+				n->alias_for);
+			return FALSE;
+		}
 	}
 
 	return TRUE;
@@ -1559,7 +1581,7 @@ bool master_settings_read(const char *path, bool nochecks, bool nofixes)
 				}
 				ns = server->namespaces;
 				for (; ns != NULL; ns = ns->next) {
-					if (!namespace_settings_verify(ns))
+					if (!namespace_settings_verify(server, ns))
 						return FALSE;
 				}
 			}

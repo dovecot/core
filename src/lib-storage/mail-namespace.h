@@ -41,6 +41,16 @@ struct mail_namespace {
 	char *prefix;
 	size_t prefix_len;
 
+	/* If non-NULL, this points to a namespace with identical mail location
+	   and it should be considered as the primary way to access the
+	   mailboxes. This allows for example FTS plugin to avoid duplicating
+	   indexes for same mailboxes when they're accessed via different
+	   namespaces. */
+	struct mail_namespace *alias_for;
+	/* alias_for->alias_chain_next starts each chain. The chain goes
+	   through all namespaces that have the same alias_for. */
+	struct mail_namespace *alias_chain_next;
+
 	struct mail_user *user, *owner;
 	struct mailbox_list *list;
 	/* FIXME: we should support multiple storages in one namespace */
