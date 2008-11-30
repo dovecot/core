@@ -116,6 +116,11 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 	pool_t userdb_pool;
 	int ret;
 
+	if (user->home_looked_up) {
+		*home_r = user->_home;
+		return user->_home != NULL ? 1 : 0;
+	}
+
 	userdb_pool = pool_alloconly_create("userdb lookup", 512);
 	ret = auth_master_user_lookup(auth_master_conn, user->username,
 				      AUTH_SERVICE_INTERNAL,
@@ -137,16 +142,14 @@ int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
 {
 	const char *home, *path = *pathp;
 
-	if (!user->home_looked_up) {
-		if (mail_user_get_home(user, &home) < 0)
-			return -1;
-	}
+	if (mail_user_get_home(user, &home) < 0)
+		return -1;
 
 	if (path[0] == '~' && (path[1] == '/' || path[1] == '\0')) {
-		if (user->_home == NULL)
+		if (home == NULL)
 			return -1;
 
-		*pathp = t_strconcat(user->_home, path + 1, NULL);
+		*pathp = t_strconcat(home, path + 1, NULL);
 	}
 	return 0;
 }
