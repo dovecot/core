@@ -21,7 +21,7 @@
 #define FTS_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_mail_module)
 
-#define FTS_SEARCH_NONBLOCK_COUNT 10
+#define FTS_SEARCH_NONBLOCK_COUNT 50
 #define FTS_BUILD_NOTIFY_INTERVAL_SECS 10
 
 struct fts_mail {

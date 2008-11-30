@@ -23,7 +23,7 @@
 #define TXT_UNKNOWN_CHARSET "[BADCHARSET] Unknown charset"
 #define TXT_INVALID_SEARCH_KEY "Invalid search key"
 
-#define SEARCH_NONBLOCK_COUNT 20
+#define SEARCH_NONBLOCK_COUNT 50
 #define SEARCH_NOTIFY_INTERVAL_SECS 10
 
 struct index_search_context {
