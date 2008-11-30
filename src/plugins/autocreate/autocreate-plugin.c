@@ -12,9 +12,31 @@ const char *autocreate_plugin_version = PACKAGE_VERSION;
 static void (*autocreate_next_hook_mail_namespaces_created)
 	(struct mail_namespace *ns);
 
-static void autocreate_mailboxes(struct mail_namespace *namespaces)
+static void
+autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 {
 	struct mail_namespace *ns;
+	const char *str;
+	enum mail_error error;
+
+	ns = mail_namespace_find(namespaces, &name);
+	if (ns == NULL) {
+		if (getenv("DEBUG") != NULL)
+			i_info("autocreate: No namespace found for %s", name);
+		return;
+	}
+
+	if (mail_storage_mailbox_create(ns->storage, name, FALSE) < 0) {
+		str = mail_storage_get_last_error(ns->storage, &error);
+		if (error != MAIL_ERROR_EXISTS && getenv("DEBUG") != NULL) {
+			i_info("autocreate: Failed to create mailbox %s: %s",
+			       name, str);
+		}
+	}
+}
+
+static void autocreate_mailboxes(struct mail_namespace *namespaces)
+{
 	char env_name[20];
 	const char *name;
 	unsigned int i;
@@ -22,11 +44,7 @@ static void autocreate_mailboxes(struct mail_namespace *namespaces)
 	i = 1;
 	name = getenv("AUTOCREATE");
 	while (name != NULL) {
-		ns = mail_namespace_find(namespaces, &name);
-		if (ns != NULL) {
-			(void)mail_storage_mailbox_create(ns->storage,
-							  name, FALSE);
-		}
+		autocreate_mailbox(namespaces, name);
 
 		i_snprintf(env_name, sizeof(env_name), "AUTOCREATE%d", ++i);
 		name = getenv(env_name);
