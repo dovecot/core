@@ -519,7 +519,7 @@ static bool namespace_settings_verify(struct server_settings *server,
 			if (strcmp(n->prefix, ns->alias_for) == 0)
 				break;
 		}
-		if (n == NULL) {
+		if (n == ns) {
 			i_error("Namespace '%s': alias_for points to "
 				"unknown namespace: %s", name, ns->alias_for);
 			return FALSE;
