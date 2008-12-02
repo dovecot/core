@@ -178,7 +178,7 @@ vpopmail_preinit(struct auth_passdb *auth_passdb, const char *args)
 			if (net_addr2ip(*tmp + 8, &module->webmail_ip) < 0)
 				i_fatal("vpopmail: Invalid webmail IP address");
 		} else {
-			i_fatal("vpopmail: Unknown setting: %s", *tmp);
+			i_fatal("passdb vpopmail: Unknown setting: %s", *tmp);
 		}
 	}
 	return &module->module;

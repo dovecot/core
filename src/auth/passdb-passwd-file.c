@@ -139,6 +139,8 @@ passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 			scheme = p_strdup(auth_passdb->auth->pool, value);
 		else if (strcmp(key, "username_format") == 0)
 			format = p_strdup(auth_passdb->auth->pool, value);
+		else
+			i_fatal("passdb passwd-file: Unknown setting: %s", key);
 	}
 
 	module = p_new(auth_passdb->auth->pool,

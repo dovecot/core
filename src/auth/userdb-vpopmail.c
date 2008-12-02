@@ -158,7 +158,7 @@ vpopmail_preinit(struct auth_userdb *auth_userdb, const char *args)
 				p_strdup_until(pool, *tmp + 15, p);
 			module->quota_template_value = p_strdup(pool, p + 1);
 		} else
-			i_fatal("vpopmail userdb: Unknown args: %s", *tmp);
+			i_fatal("userdb vpopmail: Unknown setting: %s", *tmp);
 	}
 	return &module->module;
 }

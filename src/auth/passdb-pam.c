@@ -357,7 +357,7 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 			module->service_name =
 				p_strdup(auth_passdb->auth->pool, t_args[i]);
 		} else {
-			i_fatal("Unexpected PAM parameter: %s", t_args[i]);
+			i_fatal("passdb pam: Unknown setting: %s", t_args[i]);
 		}
 	}
 	return &module->module;

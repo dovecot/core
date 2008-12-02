@@ -58,7 +58,8 @@ bsdauth_preinit(struct auth_passdb *auth_passdb, const char *args)
 		module->cache_key =
 			auth_cache_parse_key(auth_passdb->auth->pool,
 					     args + 10);
-	}
+	} else
+		i_fatal("passdb bsdauth: Unknown setting: %s", args);
 	return module;
 }
 

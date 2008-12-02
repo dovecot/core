@@ -152,6 +152,12 @@ struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
 			driver);
 	}
 
+	if (iface->preinit == NULL && iface->init == NULL &&
+	    *auth_passdb->args != '\0') {
+		i_fatal("passdb %s: No args are supported: %s",
+			driver, auth_passdb->args);
+	}
+
 	if (iface->preinit == NULL) {
 		auth_passdb->passdb =
 			p_new(auth->pool, struct passdb_module, 1);

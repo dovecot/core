@@ -123,6 +123,12 @@ void userdb_preinit(struct auth *auth, const char *driver, const char *args)
 			driver);
 	}
 
+	if (iface->preinit == NULL && iface->init == NULL &&
+	    *auth_userdb->args != '\0') {
+		i_fatal("userdb %s: No args are supported: %s",
+			driver, auth_userdb->args);
+	}
+
 	if (iface->preinit == NULL) {
 		auth_userdb->userdb =
 			p_new(auth->pool, struct userdb_module, 1);

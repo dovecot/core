@@ -61,6 +61,8 @@ static void shadow_init(struct passdb_module *module, const char *args)
 {
 	if (strcmp(args, "blocking=yes") == 0)
 		module->blocking = TRUE;
+	else
+		i_fatal("passdb shadow: Unknown setting: %s", args);
 
 	module->cache_key = SHADOW_CACHE_KEY;
 	module->default_pass_scheme = SHADOW_PASS_SCHEME;

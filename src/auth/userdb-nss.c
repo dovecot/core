@@ -116,7 +116,7 @@ userdb_nss_preinit(struct auth_userdb *auth_userdb, const char *args)
 		else if (strncmp(*tmp, "service=", 8) == 0)
 			module->nss_module.name = p_strdup(pool, *tmp + 8);
 		else
-			i_fatal("userdb nss: Unknown parameter: %s", *tmp);
+			i_fatal("userdb nss: Unknown setting: %s", *tmp);
 	}
 
 	if (module->nss_module.name == NULL)
