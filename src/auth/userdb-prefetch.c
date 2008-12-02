@@ -18,8 +18,13 @@ static void prefetch_lookup(struct auth_request *auth_request,
 	if (auth_request->userdb_reply == NULL) {
 		if (auth_request->auth->userdbs->next == NULL) {
 			/* no other userdbs */
-			auth_request_log_error(auth_request, "prefetch",
-				"passdb didn't return userdb entries");
+			if (auth_request->userdb_lookup) {
+				auth_request_log_error(auth_request, "prefetch",
+					"userdb lookup not possible with only userdb prefetch");
+			} else {
+				auth_request_log_error(auth_request, "prefetch",
+					"passdb didn't return userdb entries");
+			}
 		} else if (!auth_request->userdb_lookup ||
 			   auth_request->auth->verbose_debug) {
 			/* more userdbs, they may know the user */
