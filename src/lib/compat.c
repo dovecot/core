@@ -258,8 +258,13 @@ int my_vsnprintf(char *str, size_t size, const char *format, va_list ap)
 	if (tmp_size > size) {
 		tmp = t_buffer_get(tmp_size);
 		ret = vsnprintf(tmp, tmp_size, format, ap);
-		if (ret >= 0 && (size_t)ret+1 != size)
+		if (ret >= 0 && (size_t)ret+1 != tmp_size) {
+			if (size > 0) {
+				memcpy(str, tmp, size-1);
+				str[size-1] = '\0';
+			}
 			return ret;
+		}
 	} else {
 		tmp_size = size;
 	}
@@ -269,9 +274,15 @@ int my_vsnprintf(char *str, size_t size, const char *format, va_list ap)
 		tmp_size = nearest_power(tmp_size+1);
 		tmp = i_malloc(tmp_size);
 		ret = vsnprintf(tmp, tmp_size, format, ap);
-		i_free(tmp);
-		if (ret >= 0 && (size_t)ret+1 != size)
+		if (ret >= 0 && (size_t)ret+1 != tmp_size) {
+			if (size > 0) {
+				memcpy(str, tmp, size-1);
+				str[size-1] = '\0';
+			}
+			i_free(tmp);
 			return ret;
+		}
+		i_free(tmp);
 	} while (tmp_size < 1024*1024);
 
 	i_panic("my_vsnprintf(): Output string too big");
