@@ -344,8 +344,8 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		if (lstat(list_set->root_dir, &st) == 0) {
 			/* yep, go ahead */
 		} else if (errno == EACCES) {
-			*error_r = mail_storage_eacces_msg("lstat",
-							   list_set->root_dir);
+			*error_r = mail_error_eacces_msg("lstat",
+							 list_set->root_dir);
 			return -1;
 		} else if (errno != ENOENT && errno != ENOTDIR) {
 			*error_r = t_strdup_printf("lstat(%s) failed: %m",
@@ -502,7 +502,7 @@ static int verify_inbox(struct mail_storage *storage)
 		return -1;
 	} else if (errno == EACCES) {
 		mail_storage_set_critical(storage, "%s",
-			mail_storage_eacces_msg("open", inbox_path));
+			mail_error_eacces_msg("open", inbox_path));
 		return -1;
 	} else if (errno != EEXIST) {
 		mail_storage_set_critical(storage,

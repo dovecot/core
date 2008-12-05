@@ -380,8 +380,6 @@ const char *mail_generate_guid_string(void);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
 
-const char *mail_storage_eacces_msg(const char *func, const char *path);
-
 enum mailbox_list_flags
 mail_storage_get_list_flags(enum mail_storage_flags storage_flags);
 

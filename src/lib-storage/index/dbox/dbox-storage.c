@@ -107,7 +107,7 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 					"Root mail directory doesn't exist: %s",
 					list_set.root_dir);
 			} else if (errno == EACCES) {
-				*error_r = mail_storage_eacces_msg("stat",
+				*error_r = mail_error_eacces_msg("stat",
 							list_set.root_dir);
 			} else {
 				*error_r = t_strdup_printf(
@@ -120,8 +120,8 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 				 CREATE_MODE) == 0 || errno == EEXIST) {
 	} else if (errno == EACCES) {
 		if (_storage->ns->type != NAMESPACE_SHARED) {
-			*error_r = mail_storage_eacces_msg("mkdir",
-							   list_set.root_dir);
+			*error_r = mail_error_eacces_msg("mkdir",
+							 list_set.root_dir);
 			return -1;
 		}
 		/* can't create a new user, but we don't want to fail
@@ -308,7 +308,7 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 	} else if (errno == EACCES) {
 		mail_storage_set_critical(_storage, "%s",
-			mail_storage_eacces_msg("stat", path));
+			mail_error_eacces_msg("stat", path));
 	} else {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
 					  path);

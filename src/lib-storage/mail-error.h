@@ -48,4 +48,7 @@ enum mail_error {
 bool mail_error_from_errno(enum mail_error *error_r,
 			   const char **error_string_r);
 
+/* Build a helpful error message for a failed EACCESS syscall. */
+const char *mail_error_eacces_msg(const char *func, const char *path);
+
 #endif

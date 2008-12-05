@@ -211,8 +211,8 @@ maildir_create(struct mail_storage *_storage, const char *data,
 		if (stat(list_set.root_dir, &st) == 0) {
 			/* ok */
 		} else if (errno == EACCES) {
-			*error_r = mail_storage_eacces_msg("stat",
-							   list_set.root_dir);
+			*error_r = mail_error_eacces_msg("stat",
+							 list_set.root_dir);
 			return -1;
 		} else if (errno == ENOENT) {
 			*error_r = t_strdup_printf(
@@ -341,7 +341,7 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 			return 0;
 		if (errno == EACCES) {
 			mail_storage_set_critical(storage, "%s",
-				mail_storage_eacces_msg("stat", path));
+				mail_error_eacces_msg("stat", path));
 			return -1;
 		}
 		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);

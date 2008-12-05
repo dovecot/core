@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
-#include "str.h"
 #include "var-expand.h"
 #include "mail-index-private.h"
 #include "mailbox-list-private.h"
@@ -13,7 +12,6 @@
 #include "mailbox-search-result-private.h"
 
 #include <stdlib.h>
-#include <time.h>
 #include <ctype.h>
 
 #define DEFAULT_MAX_KEYWORD_LENGTH 50
@@ -930,33 +928,4 @@ void mailbox_set_deleted(struct mailbox *box)
 	mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			       "Mailbox was deleted under us");
 	box->mailbox_deleted = TRUE;
-}
-
-const char *mail_storage_eacces_msg(const char *func, const char *path)
-{
-	const char *prev_path = path, *dir = "/", *p;
-	string_t *errmsg = t_str_new(256);
-	struct stat st;
-	int ret = -1;
-
-	str_printfa(errmsg, "%s(%s) failed: Permission denied (euid=%s egid=%s",
-		    func, path, dec2str(geteuid()), dec2str(getegid()));
-	while ((p = strrchr(prev_path, '/')) != NULL) {
-		dir = t_strdup_until(prev_path, p);
-		ret = stat(dir, &st);
-		if (ret == 0 || errno != EACCES)
-			break;
-		prev_path = dir;
-		dir = "/";
-	}
-
-	if (ret == 0) {
-		if (access(dir, X_OK) < 0 && errno == EACCES)
-			str_printfa(errmsg, " missing +x perm: %s", dir);
-		else if (prev_path == path &&
-			 access(path, R_OK) < 0 && errno == EACCES)
-			str_printfa(errmsg, " missing +r perm: %s", path);
-	}
-	str_append_c(errmsg, ')');
-	return str_c(errmsg);
 }

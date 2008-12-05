@@ -133,7 +133,10 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 
 	dirp = opendir(ctx->dir);
 	if (dirp == NULL) {
-		if (errno != ENOENT) {
+		if (errno == EACCES) {
+			mailbox_list_set_critical(ctx->ctx.list, "%s",
+				mail_error_eacces_msg("opendir", ctx->dir));
+		} else if (errno != ENOENT) {
 			mailbox_list_set_critical(ctx->ctx.list,
 				"opendir(%s) failed: %m", ctx->dir);
 			return -1;
