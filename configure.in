@@ -6,21 +6,24 @@ AM_INIT_AUTOMAKE
 
 AM_MAINTAINER_MODE
 
-AC_ISC_POSIX
-AC_PROG_CC
-AC_PROG_CPP
-AC_PROG_CXX # lucene plugin needs this
-AC_HEADER_STDC
-AC_C_INLINE
-AC_PROG_LIBTOOL
-AM_ICONV
-
-AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
-  sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
-  sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h sys/fs/quota_common.h \
-  mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
-  xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h malloc_np.h sys/utsname.h \
-  sys/vmount.h sys/utsname.h)
+dnl TEST_WITH(name, value, [plugin])
+AC_DEFUN([TEST_WITH], [
+  want=want_`echo $1|sed s/-/_/g`
+  if test $2 = yes || test $2 = no || test $2 = auto; then
+    eval $want=$2
+  elif test $2 = plugin; then
+    if test "$3" = plugin; then
+      eval $want=plugin
+    else
+      AC_ERROR([--with-$1=plugin not supported])
+    fi
+  elif `echo $2|grep '^/' >/dev/null`; then
+    AC_ERROR([--with-$1=path not supported. You may want to use instead:
+CPPFLAGS=-I$2/include LDFLAGS=-L$2/lib ./configure --with-$1])
+  else
+    AC_ERROR([--with-$1: Unknown value: $2])
+  fi
+])
 
 AC_ARG_ENABLE(ipv6,
 [  --enable-ipv6           Enable IPv6 support (auto)],
@@ -70,103 +73,53 @@ AC_ARG_WITH(linux-quota,
 
 AC_ARG_WITH(passwd,
 [  --with-passwd           Build with /etc/passwd support (default)],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_passwd=$withval
-	else
-		want_passwd=yes
-	fi,
-	want_passwd=yes)
+  TEST_WITH(passwd, $withval),
+  want_passwd=yes)
 
 AC_ARG_WITH(nss,
 [  --with-nss              Build with NSS module support (auto)],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_nss=$withval
-	else
-		want_nss=yes
-	fi,
-	want_nss=auto)
+  TEST_WITH(nss, $withval),
+  want_nss=auto)
 
 AC_ARG_WITH(passwd-file,
 [  --with-passwd-file      Build with passwd-like file support (default)],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_passwd_file=$withval
-	else
-		want_passwd_file=yes
-	fi,
-	want_passwd_file=yes)
+  TEST_WITH(passwd-file, $withval),
+  want_passwd_file=yes)
 
 AC_ARG_WITH(shadow,
 [  --with-shadow           Build with shadow password support (auto)],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_shadow=$withval
-	else
-		want_shadow=yes
-	fi,
-	want_shadow=auto)
+  TEST_WITH(shadow, $withval),
+  want_shadow=auto)
 
 AC_ARG_WITH(pam,
 [  --with-pam              Build with PAM support (auto)],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_pam=$withval
-	else
-		want_pam=yes
-	fi,
-	want_pam=auto)
+  TEST_WITH(pam, $withval),
+  want_pam=auto)
 
 AC_ARG_WITH(checkpassword,
 [  --with-checkpassword    Build with checkpassword support (default)],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_checkpassword=$withval
-	else
-		want_checkpassword=yes
-	fi,
-	want_checkpassword=yes)
+  TEST_WITH(checkpassword, $withval),
+  want_checkpassword=yes)
 
 AC_ARG_WITH(bsdauth,
 [  --with-bsdauth          Build with BSD authentication support (auto)],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_bsdauth=$withval
-	else
-		want_bsdauth=yes
-	fi,
-	want_bsdauth=auto)
+  TEST_WITH(bsdauth, $withval),
+  want_bsdauth=auto)
 
 AC_ARG_WITH(gssapi,
 [  --with-gssapi=yes|plugin Build with GSSAPI authentication support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_gssapi=$withval
-		want_gssapi_plugin=no
-	elif test x$withval = xplugin; then
-		want_gssapi=yes
-		want_gssapi_plugin=yes
-	else
-		want_gssapi=yes
-		want_gssapi_plugin=no
-	fi,
-	want_gssapi=no)
+  TEST_WITH(gssapi, $withval, plugin),
+  want_gssapi=no)
 
 AC_ARG_WITH(sia,
 [  --with-sia              Build with Tru64 SIA support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_sia=$withval
-	else
-		want_sia=yes
-	fi,
-	want_sia=no)
+  TEST_WITH(sia, $withval),
+  want_sia=no)
 
 AC_ARG_WITH(ldap,
 [  --with-ldap=yes|plugin  Build with LDAP support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_ldap=$withval
-		want_ldap_plugin=no
-	elif test x$withval = xplugin; then
-		want_ldap=yes
-		want_ldap_plugin=yes
-	else
-		want_ldap=yes
-		want_ldap_plugin=no
-	fi,
-	want_ldap=no)
+  TEST_WITH(ldap, $withval, plugin),
+  want_ldap=no)
 
 AC_ARG_WITH(vpopmail,
 [  --with-vpopmail         Build with vpopmail support (auto)],
@@ -187,109 +140,61 @@ AC_ARG_WITH(vpopmail,
 
 AC_ARG_WITH(static-userdb,
 [  --with-static-userdb    Build with static userdb support (default)],
-	if test x$withval = xno; then
-		want_static_userdb=no
-	else
-		want_static_userdb=yes
-	fi,
-	want_static_userdb=yes)
+  TEST_WITH(static-userdb, $withval),
+  want_static_userdb=yes)
 
 AC_ARG_WITH(prefetch-userdb,
 [  --with-prefetch-userdb  Build with prefetch userdb support (default)],
-	if test x$withval = xno; then
-		want_prefetch_userdb=no
-	else
-		want_prefetch_userdb=yes
-	fi,
-	want_prefetch_userdb=yes)
+  TEST_WITH(prefetch-userdb, $withval),
+  want_prefetch_userdb=yes)
 
 AC_ARG_WITH(db,
 [  --with-db               Build with Berkeley DB support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_db=$withval
-	else
-		want_db=yes
-	fi,
-	want_db=no)
+  TEST_WITH(db, $withval),
+  want_db=no)
 
 dnl The --with-sql is useful only if Dovecot is being built with all the SQL
 dnl drivers as modules. If any SQL driver is built-in, this option is ignored.
 AC_ARG_WITH(sql,
 [  --with-sql=yes|plugin   Build with generic SQL support],
-	if test x$withval = xno; then
-		want_sql=no
-	elif test x$withval = xplugin; then
-		want_sql=yes
-		want_sql_plugins=yes
-	else
-		want_sql=yes
-		want_sql_plugins=no
-	fi,
-	want_sql=no)
+  TEST_WITH(sql, $withval, plugin),
+  want_sql=no)
 
 AC_ARG_WITH(pgsql,
 [  --with-pgsql            Build with PostgreSQL driver support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_pgsql=$withval
-	else
-		want_pgsql=yes
-	fi,
-	want_pgsql=no)
+  TEST_WITH(pgsql, $withval),
+  want_pgsql=no)
 
 AC_ARG_WITH(mysql,
 [  --with-mysql            Build with MySQL driver support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_mysql=$withval
-	else
-		want_mysql=yes
-	fi,
-	want_mysql=no)
+  TEST_WITH(mysql, $withval),
+  want_mysql=no)
 
 AC_ARG_WITH(sqlite,
 [  --with-sqlite           Build with SQLite3 driver support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_sqlite=$withval
-	else
-		want_sqlite=yes
-	fi,
-	want_sqlite=no)
+  TEST_WITH(sqlite, $withval),
+  want_sqlite=no)
 
 AC_ARG_WITH(lucene,
 [  --with-lucene           Build with CLucene full text search support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_lucene=$withval
-	else
-		want_lucene=yes
-	fi,
-	want_lucene=no)
+  TEST_WITH(lucene, $withval),
+  want_lucene=no)
 AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
 
 AC_ARG_WITH(solr,
 [  --with-solr             Build with Solr full text search support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_solr=$withval
-	else
-		want_solr=yes
-	fi,
-	want_solr=no)
+  TEST_WITH(solr, $withval),
+  want_solr=no)
 
 AC_ARG_WITH(zlib,
 [  --with-zlib             Build with zlib compression support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_zlib=$withval
-	else
-		want_zlib=yes
-	fi,
-	want_zlib=auto)
+  TEST_WITH(zlib, $withval),
+  want_zlib=auto)
 
 AC_ARG_WITH(bzlib,
 [  --with-bzlib            Build with bzlib compression support],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_bzlib=$withval
-	else
-		want_bzlib=yes
-	fi,
-	want_bzlib=auto)
+  TEST_WITH(bzlib, $withval),
+  want_bzlib=auto)
 
 AC_ARG_WITH(ssl,
 [  --with-ssl=gnutls|openssl Build with GNUTLS or OpenSSL (default)],
@@ -302,9 +207,11 @@ AC_ARG_WITH(ssl,
 	elif test x$withval = xopenssl; then
 		want_gnutls=no
 		want_openssl=yes
-	else
+	elif test x$withval = xyes; then
 		want_gnutls=no
 		want_openssl=yes
+	else
+		AC_ERROR([--with-ssl: Invalid value: $withval])
 	fi, [
 		want_gnutls=no
 		want_openssl=auto
@@ -333,37 +240,25 @@ AC_SUBST(statedir)
 
 AC_ARG_WITH(gc,
 [  --with-gc               Use Boehm garbage collector],
-	if test x$withval = xno || test x$withval = xauto; then
-		want_gc=$withval
-	else
-		want_gc=yes
-	fi,
-	want_gc=no)
+  TEST_WITH(gc, $withval),
+  want_gc=no)
 
 AC_ARG_WITH(pop3d,
 [  --with-pop3d            Build POP3 server (default)],
-	if test x$withval = xno; then
-		want_pop3d=no
-	else
-		want_pop3d=yes
-	fi,
-	want_pop3d=yes)
+  TEST_WITH(pop3d, $withval),
+  want_pop3d=yes)
 AM_CONDITIONAL(BUILD_POP3D, test "$want_pop3d" = "yes")
 
 AC_ARG_WITH(deliver,
 [  --with-deliver          Build mail delivery agent (default)],
-	if test x$withval = xno; then
-		want_deliver=no
-	else
-		want_deliver=yes
-	fi,
-	want_deliver=yes)
-AM_CONDITIONAL(BUILD_DELIVER, test "$want_deliver" = "yes")
+  TEST_WITH(deliver, $withval),
+  want_deliver=yes)
+AM_CONDITIONAL(BUILD_DELIVER, test "$want_deliver" != "no")
 
 AC_ARG_WITH(storages,
 [  --with-storages         Build with specified mail storage formats
                           (maildir mbox dbox cydir raw)], [
-	if test "$withval" = "yes" -o "$withval" = "no"; then
+	if test "$withval" = "yes" || test "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
 	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
@@ -375,7 +270,7 @@ AC_ARG_WITH(sql-drivers,
 	sql_drivers=`echo "$withval"|sed 's/,/ /g'` ],
 	sql_drivers="all")
 
-if test "$sql_drivers" = "all" -o "$sql_drivers" = "yes"; then
+if test "$sql_drivers" = "all" || test "$sql_drivers" = "yes"; then
   all_sql_drivers=yes
   sql_drivers=
 elif test "$sql_drivers" = "no"; then
@@ -409,6 +304,22 @@ AC_ARG_ENABLE(header-install,
 	fi,
 	want_headers=no)
 AM_CONDITIONAL(INSTALL_HEADERS, test "$want_headers" = "yes")
+
+AC_ISC_POSIX
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_CXX # lucene plugin needs this
+AC_HEADER_STDC
+AC_C_INLINE
+AC_PROG_LIBTOOL
+AM_ICONV
+
+AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
+  sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
+  sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h sys/fs/quota_common.h \
+  mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
+  xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h malloc_np.h sys/utsname.h \
+  sys/vmount.h sys/utsname.h)
 
 dnl * gcc specific options
 if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
@@ -1813,7 +1724,10 @@ if test $want_gssapi != no; then
 				AC_DEFINE(HAVE_GSSAPI_H,, GSSAPI headers in gssapi.h)
 				have_gssapi=yes
 			])
-			if test $have_gssapi = yes; then
+			if test $have_gssapi != no; then
+				if test $want_gssapi = plugin; then
+					have_gssapi=plugin
+				fi
 				AC_DEFINE(HAVE_GSSAPI,, Build with GSSAPI support)
 				AC_CHECK_HEADERS(gssapi/gssapi_ext.h gssapi_krb5.h gssapi/gssapi_krb5.h)
 				AC_CHECK_LIB(gss, __gss_userok, [
@@ -1864,7 +1778,7 @@ if test $want_gssapi != no; then
 				fi
 				LIBS=$old_LIBS
 
-				if test x$want_gssapi_plugin != xyes; then
+				if test $want_gssapi != plugin; then
 				  AUTH_LIBS="$AUTH_LIBS $KRB5_LIBS"
 				  AUTH_CFLAGS="$AUTH_CFLAGS $KRB5_CFLAGS"
 				  AC_DEFINE(BUILTIN_GSSAPI,, GSSAPI support is built in)
@@ -1872,14 +1786,14 @@ if test $want_gssapi != no; then
 				  have_gssapi_plugin=yes
 				fi
 			else
-			  if test $want_gssapi = yes; then
+			  if test $want_gssapi != auto; then
 			    AC_ERROR([Can't build with GSSAPI support: gssapi.h not found])
 			  fi
 			fi
 			CFLAGS=$old_CFLAGS
 		fi
 	else
-	  if test $want_gssapi = yes; then
+	  if test $want_gssapi != auto; then
 	    AC_ERROR([Can't build with GSSAPI support: krb5-config not found])
 	  fi
 	fi
@@ -1909,7 +1823,7 @@ if test $want_ldap != no; then
 			])
 			LDAP_LIBS=-lldap
 			AC_SUBST(LDAP_LIBS)
-			if test $want_ldap_plugin != yes; then
+			if test $want_ldap != plugin; then
 				AUTH_LIBS="$AUTH_LIBS $LDAP_LIBS"
 		        	AC_DEFINE(BUILTIN_LDAP,, LDAP support is built in)
 			fi
@@ -1918,18 +1832,18 @@ if test $want_ldap != no; then
 		        AC_DEFINE(PASSDB_LDAP,, Build with LDAP support)
 			userdb="$userdb ldap"
 			passdb="$passdb ldap"
-			if test $want_ldap_plugin = yes; then
+			if test $want_ldap = plugin; then
 				have_ldap_plugin=yes
 				userdb="$userdb (plugin)"
 				passdb="$passdb (plugin)"
 			fi
 		], [
-		  if test $want_ldap = yes; then
+		  if test $want_ldap != auto; then
 		    AC_ERROR([Can't build with LDAP support: ldap.h not found])
 		  fi
 		])
 	], [
-	  if test $want_ldap = yes; then
+	  if test $want_ldap != auto; then
 	    AC_ERROR([Can't build with LDAP support: libldap not found])
 	  fi
 	])
@@ -2114,11 +2028,11 @@ if test $want_sqlite != no; then
 fi
 	
 SQL_CFLAGS="$MYSQL_CFLAGS $PGSQL_CFLAGS $SQLITE_CFLAGS"
-if test "$want_sql_plugins" != "yes"; then
+if test "$want_sql" != "plugin"; then
 	SQL_LIBS="$MYSQL_LIBS $PGSQL_LIBS $SQLITE_LIBS"
 fi
 
-if test "$found_sql_drivers" != "" -o "$want_sql" != "no"; then
+if test "$found_sql_drivers" != "" || test "$want_sql" != "no"; then
 	if test "$all_sql_drivers" = "yes"; then
 	  sql_drivers="$found_sql_drivers"
 	fi
@@ -2286,7 +2200,7 @@ STORAGE_LIBS="$REGISTER_LIBS $STORAGE_LIBS $CORE_LIBS"
 AC_SUBST(STORAGE_LIBS)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
 
-if test -n "$deliver_storage" && test "$want_deliver" = yes; then
+if test -n "$deliver_storage" && test "$want_deliver" != no; then
   AC_ERROR([If you remove raw from storages, you need to build --without-deliver])
 fi
 
@@ -2314,7 +2228,7 @@ AC_SUBST(sql_drivers)
 AM_CONDITIONAL(BUILD_PGSQL, test "$build_pgsql" = "yes")
 AM_CONDITIONAL(BUILD_MYSQL, test "$build_mysql" = "yes")
 AM_CONDITIONAL(BUILD_SQLITE, test "$build_sqlite" = "yes")
-AM_CONDITIONAL(SQL_PLUGINS, test "$want_sql_plugins" = "yes")
+AM_CONDITIONAL(SQL_PLUGINS, test "$want_sql" = "plugin")
 
 dnl **
 dnl ** Plugins
@@ -2475,7 +2389,7 @@ dovecot-config.in])
 
 AC_OUTPUT
 
-if test "$want_sql_plugins" = "yes"; then
+if test "$want_sql" = "plugin"; then
   sql_drivers="$sql_drivers (plugins)"
 fi
 
