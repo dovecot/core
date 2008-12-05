@@ -351,7 +351,7 @@ fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 	ARRAY_TYPE(mailbox_virtual_patterns) includes_arr, excludes_arr;
 	struct mail_namespace *ns;
 	const struct mailbox_virtual_pattern *includes, *excludes;
-	unsigned int i, inc_count, exc_count, len;
+	unsigned int i, inc_count, exc_count;
 	string_t *fq;
 
 	t_array_init(&includes_arr, 16);
@@ -387,7 +387,7 @@ fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 	}
 	exc_count = I_MIN(FTS_SOLR_MAX_BOX_EXC_PATTERNS, exc_count);
 	for (i = 0; i < exc_count; i++) {
-		if (str_len(fq) > len)
+		if (str_len(fq) > 0)
 			str_append_c(fq, ' ');
 		str_append_c(fq, '(');
 		str_append(fq, "-box:");
