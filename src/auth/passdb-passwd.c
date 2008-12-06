@@ -61,7 +61,7 @@ static void passwd_init(struct passdb_module *module, const char *args)
 {
 	if (strcmp(args, "blocking=yes") == 0)
 		module->blocking = TRUE;
-	else
+	else if (*args != '\0')
 		i_fatal("passdb passwd: Unknown setting: %s", args);
 
 	module->cache_key = PASSWD_CACHE_KEY;
