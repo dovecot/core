@@ -624,14 +624,16 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	if (uid == (uid_t)-1) {
 		uid = set->mail_uid_t;
 		if (uid == (uid_t)-1) {
-			i_error("User %s is missing UID (set mail_uid)", user);
+			i_error("User %s is missing UID (see mail_uid setting)",
+				user);
 			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
 	}
 	if (gid == (gid_t)-1) {
 		gid = set->mail_gid_t;
 		if (gid == (gid_t)-1) {
-			i_error("User %s is missing GID (set mail_gid)", user);
+			i_error("User %s is missing GID (see mail_gid setting)",
+				user);
 			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
 	}
@@ -656,7 +658,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	if (*chroot_dir != '\0') {
 		if (!validate_chroot(set, chroot_dir)) {
 			i_error("Invalid chroot directory '%s' (user %s) "
-				"(see valid_chroot_dirs in config file)",
+				"(see valid_chroot_dirs setting)",
 				chroot_dir, user);
 			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
