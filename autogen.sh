@@ -30,9 +30,4 @@ cp -f Makefile.am.in Makefile.am
 echo *.txt | sed 's, , \\/	,g' | tr '/' '\n' >> Makefile.am
 cd ../..
 
-if test ! -f ChangeLog; then
-  # automake dies unless this exists. It's generated in Makefile
-  touch -t `date +%m%d`0000 ChangeLog
-fi
-
 autoreconf -i
