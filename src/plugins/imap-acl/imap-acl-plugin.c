@@ -13,7 +13,7 @@
 
 #include <stdlib.h>
 
-#define ERROR_NOT_ADMIN "["IMAP_RESP_CODE_ACL"] " \
+#define ERROR_NOT_ADMIN "["IMAP_RESP_CODE_NOPERM"] " \
 	"You lack administrator privileges on this mailbox."
 
 #define ACL_MAILBOX_OPEN_FLAGS \

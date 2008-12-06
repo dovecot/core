@@ -160,7 +160,7 @@ get_error_string(const char *error_string, enum mail_error error)
 		resp_code = IMAP_RESP_CODE_CANNOT;
 		break;
 	case MAIL_ERROR_PERM:
-		resp_code = IMAP_RESP_CODE_ACL;
+		resp_code = IMAP_RESP_CODE_NOPERM;
 		break;
 	case MAIL_ERROR_NOSPACE:
 		resp_code = IMAP_RESP_CODE_OVERQUOTA;
