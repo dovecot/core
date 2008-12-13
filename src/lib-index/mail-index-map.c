@@ -927,8 +927,8 @@ int mail_index_map(struct mail_index *index,
 		index->map = mail_index_map_alloc(index);
 
 	/* first try updating the existing mapping from transaction log. */
-	if (index->map->hdr.indexid != 0 && index->indexid != 0) {
-		/* we're not creating the index, or opening transaction log.
+	if (index->initial_mapped) {
+		/* we're not creating/opening the index.
 		   sync this as a view from transaction log. */
 		ret = mail_index_sync_map(&index->map, type, FALSE);
 	} else {
@@ -957,6 +957,7 @@ int mail_index_map(struct mail_index *index,
 		}
 	}
 
+	index->initial_mapped = TRUE;
 	index->mapping = FALSE;
 	return ret;
 }
