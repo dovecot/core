@@ -316,7 +316,7 @@ static struct {
 static void config_file_init(const char *path)
 {
 	struct istream *input;
-	const char *key, *value, *str;
+	const char *key, *value, *str, *ukey;
 	char *line, *p, quote;
 	int fd, sections = 0;
 	bool lda_section = FALSE, pop3_section = FALSE, plugin_section = FALSE;
@@ -465,28 +465,28 @@ static void config_file_init(const char *path)
 			value = str_unescape(p_strndup(unsafe_data_stack_pool,
 						       value+1, len - 2));
 		}
+		ukey = t_str_ucase(key);
 		if (setting_is_bool(key) && strcasecmp(value, "yes") != 0) {
 			for (i = 0; i < N_ELEMENTS(default_yes_settings); i++) {
 				if (strcmp(default_yes_settings[i].name,
 					   key) == 0)
 					default_yes_settings[i].set = FALSE;
 			}
+			env_remove(ukey);
 			continue;
 		}
 
 		if (lda_section) {
-			str = p_strconcat(plugin_pool,
-					  t_str_ucase(key), "=", value, NULL);
+			str = p_strconcat(plugin_pool, ukey, "=", value, NULL);
 			array_append(&lda_envs, &str, 1);
 		}
 		if (!plugin_section) {
-			env_put(t_strconcat(t_str_ucase(key), "=",
-					    value, NULL));
+			env_put(t_strconcat(ukey, "=", value, NULL));
 		} else {
 			/* %variables need to be expanded.
 			   store these for later. */
 			value = p_strconcat(plugin_pool,
-					    t_str_ucase(key), "=", value, NULL);
+					    ukey, "=", value, NULL);
 			array_append(&plugin_envs, &value, 1);
 		}
 	}
