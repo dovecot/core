@@ -194,9 +194,10 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 	}
 
 	/* We can't really trust trans_view. The next message may already be
-	   expunged from it. Also there hdr.messages_count may be incorrect.
+	   expunged from it. Also hdr.messages_count may be incorrect there.
 	   So refresh the index to get the latest changes and get the next
 	   message's offset using a new view. */
+	i_assert(mbox->mbox_lock_type != F_UNLCK);
 	if (mbox_sync_header_refresh(mbox) < 0)
 		return -1;
 

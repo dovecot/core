@@ -15,8 +15,11 @@ struct raw_mbox_istream {
 	uoff_t from_offset, hdr_offset, body_offset, mail_size;
 	uoff_t input_peak_offset;
 
+	unsigned int locked:1;
+	unsigned int seeked:1;
 	unsigned int crlf_ending:1;
 	unsigned int corrupted:1;
+	unsigned int mail_size_forced:1;
 	unsigned int eof:1;
 	unsigned int header_missing_eoh:1;
 };
@@ -144,6 +147,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	int eoh_char, tz;
 	bool crlf_ending = FALSE;
 
+	i_assert(rstream->seeked);
 	i_assert(stream->istream.v_offset >= rstream->from_offset);
 
 	if (stream->istream.eof)
@@ -315,8 +319,9 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		/* istream_raw_mbox_set_next_offset() used invalid
 		   cached next_offset? */
 		i_error("Next message unexpectedly lost from mbox file "
-			"%s at %"PRIuUOFF_T, rstream->path,
-			rstream->hdr_offset + rstream->mail_size);
+			"%s at %"PRIuUOFF_T" (%s)", rstream->path,
+			rstream->hdr_offset + rstream->mail_size,
+			rstream->mail_size_forced ? "cached" : "noncached");
 		rstream->eof = TRUE;
 		rstream->corrupted = TRUE;
 		rstream->istream.istream.stream_errno = EINVAL;
@@ -455,6 +460,8 @@ uoff_t istream_raw_mbox_get_start_offset(struct istream *stream)
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
 
+	i_assert(rstream->seeked);
+
 	return rstream->from_offset;
 }
 
@@ -462,6 +469,8 @@ uoff_t istream_raw_mbox_get_header_offset(struct istream *stream)
 {
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
+
+	i_assert(rstream->seeked);
 
 	if (rstream->hdr_offset == rstream->from_offset)
 		(void)i_stream_raw_mbox_read(&rstream->istream);
@@ -481,6 +490,8 @@ uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
 		(struct raw_mbox_istream *)stream->real_stream;
 	uoff_t offset;
 	size_t pos;
+
+	i_assert(rstream->seeked);
 
 	if (rstream->body_offset != (uoff_t)-1)
 		return rstream->body_offset;
@@ -516,6 +527,7 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream,
 	size_t size;
 	uoff_t old_offset, body_size, next_body_offset;
 
+	i_assert(rstream->seeked);
 	i_assert(rstream->hdr_offset != (uoff_t)-1);
 	i_assert(rstream->body_offset != (uoff_t)-1);
 
@@ -569,6 +581,8 @@ time_t istream_raw_mbox_get_received_time(struct istream *stream)
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
 
+	i_assert(rstream->seeked);
+
 	if (rstream->received_time == (time_t)-1)
 		(void)i_stream_raw_mbox_read(&rstream->istream);
 	return rstream->received_time;
@@ -579,6 +593,8 @@ const char *istream_raw_mbox_get_sender(struct istream *stream)
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
 
+	i_assert(rstream->seeked);
+
 	if (rstream->sender == NULL)
 		(void)i_stream_raw_mbox_read(&rstream->istream);
 	return rstream->sender == NULL ? "" : rstream->sender;
@@ -588,6 +604,8 @@ bool istream_raw_mbox_has_crlf_ending(struct istream *stream)
 {
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
+
+	i_assert(rstream->seeked);
 
 	return rstream->crlf_ending;
 }
@@ -627,17 +645,21 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 		(struct raw_mbox_istream *)stream->real_stream;
 	bool check;
 
+	i_assert(rstream->locked);
+
 	rstream->corrupted = FALSE;
 	rstream->eof = FALSE;
 	rstream->istream.istream.eof = FALSE;
 
-	if (rstream->mail_size != (uoff_t)-1 &&
+	/* if seeked is FALSE, we unlocked in the middle. don't try to use
+	   any cached state then. */
+	if (rstream->mail_size != (uoff_t)-1 && rstream->seeked &&
 	    rstream->hdr_offset + rstream->mail_size == offset) {
 		istream_raw_mbox_next(stream, (uoff_t)-1);
 		return 0;
 	}
 
-	if (offset == rstream->from_offset) {
+	if (offset == rstream->from_offset && rstream->seeked) {
 		/* back to beginning of current message */
 		offset = rstream->hdr_offset;
 		check = offset == 0;
@@ -657,6 +679,7 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 		rstream->hdr_offset = offset;
 		check = TRUE;
 	}
+	rstream->seeked = TRUE;
 
 	i_stream_seek_mark(stream, offset);
 	i_stream_seek_mark(rstream->istream.parent, offset);
@@ -673,6 +696,7 @@ void istream_raw_mbox_set_next_offset(struct istream *stream, uoff_t offset)
 
 	i_assert(rstream->hdr_offset != (uoff_t)-1);
 
+	rstream->mail_size_forced = TRUE;
 	rstream->mail_size = offset - rstream->hdr_offset;
 }
 
@@ -690,4 +714,21 @@ bool istream_raw_mbox_is_corrupted(struct istream *stream)
 		(struct raw_mbox_istream *)stream->real_stream;
 
 	return rstream->corrupted;
+}
+
+void istream_raw_mbox_set_locked(struct istream *stream)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+
+	rstream->locked = TRUE;
+}
+
+void istream_raw_mbox_set_unlocked(struct istream *stream)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+
+	rstream->locked = FALSE;
+	rstream->seeked = FALSE;
 }

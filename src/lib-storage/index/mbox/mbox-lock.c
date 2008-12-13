@@ -5,6 +5,7 @@
 #include "nfs-workarounds.h"
 #include "mail-index-private.h"
 #include "mbox-storage.h"
+#include "istream-raw-mbox.h"
 #include "mbox-file.h"
 #include "mbox-lock.h"
 
@@ -714,6 +715,8 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 		mbox->mbox_excl_locks++;
 		*lock_id_r = mbox->mbox_lock_id + 1;
 	}
+	if (mbox->mbox_stream != NULL)
+		istream_raw_mbox_set_locked(mbox->mbox_stream);
 	return 1;
 }
 
@@ -758,6 +761,10 @@ int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id)
 			return 0;
 	}
 	/* all locks gone */
+
+	/* make sure we don't read the stream while unlocked */
+	if (mbox->mbox_stream != NULL)
+		istream_raw_mbox_set_unlocked(mbox->mbox_stream);
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.mbox = mbox;

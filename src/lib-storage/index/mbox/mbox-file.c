@@ -66,28 +66,26 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 	if (mbox->mbox_file_stream != NULL) {
 		/* read-only mbox stream */
 		i_assert(mbox->mbox_fd == -1 && mbox->mbox_readonly);
+	} else {
+		if (mbox->mbox_fd == -1) {
+			if (mbox_file_open(mbox) < 0)
+				return -1;
+		}
 
-		mbox->mbox_stream =
-			i_stream_create_raw_mbox(mbox->mbox_file_stream,
-						 mbox->path);
-		return 0;
-	}
-
-	if (mbox->mbox_fd == -1) {
-		if (mbox_file_open(mbox) < 0)
-			return -1;
-	}
-
-	if (mbox->mbox_writeonly)
-		mbox->mbox_file_stream = i_stream_create_from_data(NULL, 0);
-	else {
-		mbox->mbox_file_stream =
-			i_stream_create_fd(mbox->mbox_fd,
-					   MAIL_READ_BLOCK_SIZE, FALSE);
+		if (mbox->mbox_writeonly) {
+			mbox->mbox_file_stream =
+				i_stream_create_from_data(NULL, 0);
+		} else {
+			mbox->mbox_file_stream =
+				i_stream_create_fd(mbox->mbox_fd,
+						   MAIL_READ_BLOCK_SIZE, FALSE);
+		}
 	}
 
 	mbox->mbox_stream = i_stream_create_raw_mbox(mbox->mbox_file_stream,
 						     mbox->path);
+	if (mbox->mbox_lock_type != F_UNLCK)
+		istream_raw_mbox_set_locked(mbox->mbox_stream);
 	return 0;
 }
 

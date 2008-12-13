@@ -46,5 +46,9 @@ void istream_raw_mbox_set_next_offset(struct istream *stream, uoff_t offset);
 bool istream_raw_mbox_is_eof(struct istream *stream);
 /* Returns TRUE if we've noticed corruption in used offsets/sizes. */
 bool istream_raw_mbox_is_corrupted(struct istream *stream);
+/* Change stream's locking state. We'll assert-crash if stream is tried to be
+   read while it's unlocked. */
+void istream_raw_mbox_set_locked(struct istream *stream);
+void istream_raw_mbox_set_unlocked(struct istream *stream);
 
 #endif
