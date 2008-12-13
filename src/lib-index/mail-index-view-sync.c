@@ -563,7 +563,12 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		ctx->log_was_lost = TRUE;
 		if (!sync_expunges)
 			i_array_init(&ctx->expunges, 64);
-		if (view_sync_get_log_lost_changes(ctx, &expunge_count) < 0) {
+		mail_index_sync_map_init(&ctx->sync_map_ctx, view,
+					 MAIL_INDEX_SYNC_HANDLER_VIEW);
+		ret = view_sync_get_log_lost_changes(ctx, &expunge_count);
+		mail_index_modseq_sync_end(&ctx->sync_map_ctx.modseq_ctx);
+		mail_index_sync_map_deinit(&ctx->sync_map_ctx);
+		if (ret < 0) {
 			mail_index_set_error(view->index,
 				"%s view syncing failed to apply changes",
 				view->index->filepath);
