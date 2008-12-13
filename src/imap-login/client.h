@@ -31,6 +31,7 @@ struct imap_client {
 	unsigned int destroyed:1;
 	unsigned int greeting_sent:1;
 	unsigned int id_logged:1;
+	unsigned int auth_initializing:1;
 };
 
 void client_destroy(struct imap_client *client, const char *reason);

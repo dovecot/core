@@ -329,8 +329,10 @@ bool cmd_pass(struct pop3_client *client, const char *args)
 	base64_encode(plain_login->data, plain_login->used, base64);
 
 	client_ref(client);
+	client->auth_initializing = TRUE;
 	sasl_server_auth_begin(&client->common, POP3_SERVICE_NAME, "PLAIN",
 			       str_c(base64), sasl_callback);
+	client->auth_initializing = FALSE;
 	if (!client->common.authenticating)
 		return TRUE;
 

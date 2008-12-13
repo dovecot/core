@@ -81,12 +81,16 @@ static void client_auth_input(struct imap_client *client)
 
 static void client_auth_failed(struct imap_client *client)
 {
+	client->common.auth_command_tag = NULL;
+
+	if (client->auth_initializing)
+		return;
+
 	/* get back to normal client input. */
 	if (client->io != NULL)
 		io_remove(&client->io);
 	client->io = io_add(client->common.fd, IO_READ,
 			    client_input, client);
-	client->common.auth_command_tag = NULL;
 	client_input(client);
 }
 
@@ -285,8 +289,10 @@ static int client_auth_begin(struct imap_client *client, const char *mech_name,
 	client->common.auth_command_tag = client->cmd_tag;
 
 	client_ref(client);
+	client->auth_initializing = TRUE;
 	sasl_server_auth_begin(&client->common, IMAP_SERVICE_NAME, mech_name,
 			       init_resp, sasl_callback);
+	client->auth_initializing = FALSE;
 	if (!client->common.authenticating)
 		return 1;
 

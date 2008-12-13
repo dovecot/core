@@ -29,6 +29,7 @@ struct pop3_client {
 
 	unsigned int login_success:1;
 	unsigned int auth_connected:1;
+	unsigned int auth_initializing:1;
 	unsigned int destroyed:1;
 };
 
