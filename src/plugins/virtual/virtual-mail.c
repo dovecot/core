@@ -107,7 +107,8 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 			mailbox_header_lookup_unref(&backend_headers);
 		array_append(&vmail->backend_mails, &vmail->backend_mail, 1);
 	}
-	mail_set_uid(vmail->backend_mail, vrec->real_uid);
+	if (!mail_set_uid(vmail->backend_mail, vrec->real_uid))
+		i_unreached();
 	memset(&vmail->imail.data, 0, sizeof(vmail->imail.data));
 	p_clear(vmail->imail.data_pool);
 

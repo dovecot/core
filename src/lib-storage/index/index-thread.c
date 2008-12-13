@@ -73,9 +73,8 @@ mail_strmap_rec_get_msgid(struct mail_thread_context *ctx,
 	unsigned int n = 0;
 	int ret;
 
-	ret = mail_set_uid(ctx->tmp_mail, rec->uid);
-	if (ret <= 0)
-		return ret;
+	if (!mail_set_uid(ctx->tmp_mail, rec->uid))
+		return 0;
 
 	switch (rec->ref_index) {
 	case MAIL_THREAD_NODE_REF_MSGID:
