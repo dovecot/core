@@ -17,6 +17,11 @@ void env_put(const char *env)
 		i_fatal("putenv(%s) failed: %m", env);
 }
 
+void env_remove(const char *name)
+{
+	unsetenv(name);
+}
+
 void env_clean(void)
 {
 #ifdef HAVE_CLEARENV
