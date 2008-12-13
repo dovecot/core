@@ -1002,8 +1002,6 @@ int main(int argc, char *argv[])
 		putenv_extra_fields(&extra_fields);
 		pool_unref(&userdb_pool);
 	}
-	if (destaddr == NULL)
-		destaddr = user;
 
 	/* Fix namespaces with empty locations */
 	for (i = 1;; i++) {
@@ -1107,6 +1105,15 @@ int main(int argc, char *argv[])
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
 	mail = mail_alloc(t, 0, headers_ctx);
 	mail_set_seq(mail, 1);
+
+	if (destaddr == NULL) {
+		destaddr = deliver_get_address(mail, "Envelope-To");
+		if (destaddr == NULL) {
+			destaddr = strchr(user, '@') == NULL ? user :
+				t_strconcat(user, "@",
+					    deliver_set->hostname, NULL);
+		}
+	}
 
 	storage = NULL;
 	default_mailbox_name = mailbox;
