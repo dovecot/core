@@ -1132,6 +1132,12 @@ static void index_mail_reset(struct index_mail *mail)
 	data->save_date = (time_t)-1;
 	data->received_date = (time_t)-1;
 	data->sent_date.time = (uint32_t)-1;
+
+	mail->mail.mail.seq = 0;
+	mail->mail.mail.uid = 0;
+	mail->mail.mail.expunged = FALSE;
+	mail->mail.mail.has_nuls = FALSE;
+	mail->mail.mail.has_no_nuls = FALSE;
 }
 
 static void check_envelope(struct index_mail *mail)
