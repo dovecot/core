@@ -189,7 +189,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				  data : AUTH_FAILED_MSG, NULL);
 		client_send_line(client, msg);
 
-		if (!client->destroyed) {
+		if (!client->destroyed && !client->auth_initializing) {
 			/* get back to normal client input. */
 			if (client->io != NULL)
 				io_remove(&client->io);
