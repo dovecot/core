@@ -1219,6 +1219,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 			*tryagain_r = TRUE;
 			return 0;
 		}
+		match = FALSE;
 	}
 	ctx->mail = NULL;
 	ctx->imail = NULL;
