@@ -25,7 +25,6 @@ static void mbox_prepare_resync(struct index_mail *mail)
 		if (mbox->mbox_lock_id == t->mbox_lock_id)
 			t->mbox_lock_id = 0;
 		(void)mbox_unlock(mbox, mbox->mbox_lock_id);
-		mbox->mbox_lock_id = 0;
 		i_assert(mbox->mbox_lock_type == F_UNLCK);
 	}
 }
@@ -49,10 +48,16 @@ static int mbox_mail_seek(struct index_mail *mail)
 	}
 
 	for (try = 0; try < 2; try++) {
+		if ((sync_flags & MBOX_SYNC_FORCE_SYNC) != 0) {
+			/* dirty offsets are broken. make sure we can sync. */
+			mbox_prepare_resync(mail);
+		}
 		if (mbox->mbox_lock_type == F_UNLCK) {
 			sync_flags |= MBOX_SYNC_LOCK_READING;
 			if (mbox_sync(mbox, sync_flags) < 0)
 				return -1;
+			t->mbox_lock_id = mbox->mbox_lock_id;
+			i_assert(t->mbox_lock_id != 0);
 
 			/* refresh index file after mbox has been locked to
 			   make sure we get only up-to-date mbox offsets. */
@@ -62,13 +67,13 @@ static int mbox_mail_seek(struct index_mail *mail)
 			}
 
 			i_assert(mbox->mbox_lock_type != F_UNLCK);
-			t->mbox_lock_id = mbox->mbox_lock_id;
-		} else if ((sync_flags & MBOX_SYNC_FORCE_SYNC) != 0) {
-			/* dirty offsets are broken and mbox is write-locked.
-			   sync it to update offsets. */
-			mbox_prepare_resync(mail);
-			if (mbox_sync(mbox, sync_flags) < 0)
-				return -1;
+		} else if (t->mbox_lock_id == 0) {
+			/* file is already locked by another transaction, but
+			   we must keep it locked for the entire transaction,
+			   so increase the lock counter. */
+			if (mbox_lock(mbox, mbox->mbox_lock_type,
+				      &t->mbox_lock_id) < 0)
+				i_unreached();
 		}
 
 		if (mbox_file_open_stream(mbox) < 0)

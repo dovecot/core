@@ -1661,14 +1661,14 @@ static void mbox_sync_context_free(struct mbox_sync_context *sync_ctx)
 	array_free(&sync_ctx->mails);
 }
 
-static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
+static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags,
+			 unsigned int *lock_id)
 {
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *trans;
 	struct mbox_sync_context sync_ctx;
 	enum mail_index_sync_flags sync_flags;
-	unsigned int lock_id = 0;
 	int ret, changed;
 	bool delay_writes;
 
@@ -1680,7 +1680,7 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 		flags |= MBOX_SYNC_UNDIRTY;
 
 	if ((flags & MBOX_SYNC_LOCK_READING) != 0) {
-		if (mbox_lock(mbox, F_RDLCK, &lock_id) <= 0)
+		if (mbox_lock(mbox, F_RDLCK, lock_id) <= 0)
 			return -1;
 	}
 
@@ -1691,11 +1691,8 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 		changed = 1;
 	} else {
 		bool leave_dirty = (flags & MBOX_SYNC_UNDIRTY) == 0;
-		if ((changed = mbox_sync_has_changed(mbox, leave_dirty)) < 0) {
-			if ((flags & MBOX_SYNC_LOCK_READING) != 0)
-				(void)mbox_unlock(mbox, lock_id);
+		if ((changed = mbox_sync_has_changed(mbox, leave_dirty)) < 0)
 			return -1;
-		}
 	}
 
 	if ((flags & MBOX_SYNC_LOCK_READING) != 0) {
@@ -1705,8 +1702,8 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 			return 0;
 
 		/* have to sync to make sure offsets have stayed the same */
-		(void)mbox_unlock(mbox, lock_id);
-		lock_id = 0;
+		(void)mbox_unlock(mbox, *lock_id);
+		*lock_id = 0;
 	}
 
 	/* reopen input stream to make sure it has nothing buffered */
@@ -1720,12 +1717,12 @@ again:
 		   don't have much choice either (well, easy ones anyway). */
 		int lock_type = mbox->mbox_readonly ? F_RDLCK : F_WRLCK;
 
-		if ((ret = mbox_lock(mbox, lock_type, &lock_id)) <= 0) {
+		if ((ret = mbox_lock(mbox, lock_type, lock_id)) <= 0) {
 			if (ret == 0 || lock_type == F_RDLCK)
 				return -1;
 
 			/* try as read-only */
-			if (mbox_lock(mbox, F_RDLCK, &lock_id) <= 0)
+			if (mbox_lock(mbox, F_RDLCK, lock_id) <= 0)
 				return -1;
 			mbox->mbox_readonly = TRUE;
 		}
@@ -1750,8 +1747,6 @@ again:
 	if (ret <= 0) {
 		if (ret < 0)
 			mail_storage_set_index_error(&mbox->ibox);
-		if (lock_id != 0)
-			(void)mbox_unlock(mbox, lock_id);
 		return ret;
 	}
 
@@ -1765,9 +1760,6 @@ again:
 	if (!changed && !mail_index_sync_have_more(index_sync_ctx)) {
 		/* nothing to do */
 	nothing_to_do:
-		if (lock_id != 0)
-			(void)mbox_unlock(mbox, lock_id);
-
 		/* index may need to do internal syncing though, so commit
 		   instead of rollbacking. */
 		if (mail_index_sync_commit(&index_sync_ctx) < 0) {
@@ -1821,7 +1813,7 @@ again:
 		}
 	}
 
-	if (lock_id == 0) {
+	if (*lock_id == 0) {
 		/* ok, we have something to do but no locks. we'll have to
 		   restart syncing to avoid deadlocking. */
 		mbox_sync_context_free(&sync_ctx);
@@ -1831,7 +1823,6 @@ again:
 
 	if (mbox_file_open_stream(mbox) < 0) {
 		mbox_sync_context_free(&sync_ctx);
-		(void)mbox_unlock(mbox, lock_id);
 		return -1;
 	}
 
@@ -1870,7 +1861,7 @@ again:
 		}
 	}
 
-	i_assert(lock_id != 0);
+	i_assert(*lock_id != 0);
 
 	if ((mbox->storage->storage.flags &
 	     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0 && mbox->mbox_fd != -1) {
@@ -1880,35 +1871,38 @@ again:
 		}
 	}
 
-	if (mbox->mbox_lock_type != F_RDLCK) {
-		/* drop to read lock */
-		unsigned int read_lock_id = 0;
-
-		if (mbox_lock(mbox, F_RDLCK, &read_lock_id) <= 0)
-			ret = -1;
-		else {
-			if (mbox_unlock(mbox, lock_id) < 0)
-				ret = -1;
-			lock_id = read_lock_id;
-		}
-	}
-
-	if ((flags & MBOX_SYNC_LOCK_READING) == 0) {
-		if (mbox_unlock(mbox, lock_id) < 0)
-			ret = -1;
-	}
-
 	mbox_sync_context_free(&sync_ctx);
 	return ret;
 }
 
 int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 {
+	unsigned int lock_id = 0;
 	int ret;
 
+	i_assert(mbox->mbox_lock_type != F_RDLCK);
+
 	mbox->syncing = TRUE;
-	ret = mbox_sync_int(mbox, flags);
+	ret = mbox_sync_int(mbox, flags, &lock_id);
 	mbox->syncing = FALSE;
+
+	if (lock_id != 0) {
+		if (ret < 0) {
+			/* syncing failed, don't leave it locked */
+			(void)mbox_unlock(mbox, lock_id);
+		} else if ((flags & MBOX_SYNC_LOCK_READING) == 0) {
+			if (mbox_unlock(mbox, lock_id) < 0)
+				ret = -1;
+		} else if (mbox->mbox_lock_type != F_RDLCK) {
+			/* drop to read lock */
+			unsigned int read_lock_id = 0;
+
+			if (mbox_lock(mbox, F_RDLCK, &read_lock_id) <= 0)
+				ret = -1;
+			if (mbox_unlock(mbox, lock_id) < 0)
+				ret = -1;
+		}
+	}
 
 	if (mbox->ibox.box.v.sync_notify != NULL)
 		mbox->ibox.box.v.sync_notify(&mbox->ibox.box, 0, 0);

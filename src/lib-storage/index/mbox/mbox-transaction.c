@@ -50,6 +50,8 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 		if (mbox_unlock(mbox, lock_id) < 0)
 			ret = -1;
 	}
+	i_assert(mbox->ibox.box.transaction_count > 0 ||
+		 mbox->mbox_lock_type == F_UNLCK);
 	return ret;
 }
 
@@ -64,6 +66,9 @@ static void mbox_transaction_rollback(struct mail_index_transaction *t)
 	if (mt->mbox_lock_id != 0)
 		(void)mbox_unlock(mbox, mt->mbox_lock_id);
 	index_transaction_finish_rollback(&mt->ictx);
+
+	i_assert(mbox->ibox.box.transaction_count > 0 ||
+		 mbox->mbox_lock_type == F_UNLCK);
 }
 
 static void mbox_transaction_created(struct mail_index_transaction *t)
