@@ -148,6 +148,10 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 
 	if (stream->istream.eof)
 		return -1;
+	if (rstream->corrupted) {
+		rstream->istream.istream.stream_errno = EINVAL;
+		return -1;
+	}
 
 	i_stream_seek(stream->parent, stream->istream.v_offset);
 
