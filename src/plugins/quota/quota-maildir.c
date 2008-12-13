@@ -183,7 +183,7 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 		}
 	}
 
-	*mtime_r = st.st_size;
+	*mtime_r = st.st_mtime;
 	return str_c(ctx->path);
 }
 
