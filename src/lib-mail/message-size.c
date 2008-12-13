@@ -5,11 +5,12 @@
 #include "message-parser.h"
 #include "message-size.h"
 
-void message_get_header_size(struct istream *input, struct message_size *hdr,
-			     bool *has_nuls)
+int message_get_header_size(struct istream *input, struct message_size *hdr,
+			    bool *has_nuls)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos, missing_cr_count;
+	int ret = 0;
 
 	memset(hdr, 0, sizeof(struct message_size));
 	if (has_nuls != NULL)
@@ -54,27 +55,31 @@ void message_get_header_size(struct istream *input, struct message_size *hdr,
 
 		hdr->physical_size += i - startpos;
 	}
+	if (input->stream_errno != 0)
+		ret = -1;
 	i_stream_skip(input, startpos);
 	hdr->physical_size += startpos;
 
 	hdr->virtual_size = hdr->physical_size + missing_cr_count;
 	i_assert(hdr->virtual_size >= hdr->physical_size);
+	return ret;
 }
 
-void message_get_body_size(struct istream *input, struct message_size *body,
-			   bool *has_nuls)
+int message_get_body_size(struct istream *input, struct message_size *body,
+			  bool *has_nuls)
 {
 	const unsigned char *msg;
 	size_t i, size, missing_cr_count;
 	bool last_cr;
+	int ret = 0;
 
 	memset(body, 0, sizeof(struct message_size));
 	if (has_nuls != NULL)
 		*has_nuls = FALSE;
 
 	missing_cr_count = 0; last_cr = FALSE;
-	if (i_stream_read_data(input, &msg, &size, 0) <= 0)
-		return;
+	if ((ret = i_stream_read_data(input, &msg, &size, 0)) <= 0)
+		return ret < 0 && input->stream_errno != 0 ? -1 : 0;
 
 	if (msg[0] == '\n')
 		missing_cr_count++;
@@ -104,11 +109,15 @@ void message_get_body_size(struct istream *input, struct message_size *body,
 		body->physical_size += i - 1;
 	} while (i_stream_read_data(input, &msg, &size, 1) > 0);
 
+	if (input->stream_errno != 0)
+		ret = -1;
+
 	i_stream_skip(input, 1);
 	body->physical_size++;
 
 	body->virtual_size = body->physical_size + missing_cr_count;
 	i_assert(body->virtual_size >= body->physical_size);
+	return ret;
 }
 
 void message_size_add(struct message_size *dest,

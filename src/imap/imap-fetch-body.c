@@ -43,12 +43,18 @@ struct partial_cache {
 
 static struct partial_cache last_partial = { 0, 0, 0, 0, { 0, 0, 0 } };
 
-static bool seek_partial(unsigned int select_counter, unsigned int uid,
-			 struct partial_cache *partial, struct istream *stream,
-			 uoff_t virtual_skip)
+static void fetch_read_error(struct imap_fetch_context *ctx)
 {
-	bool cr_skipped;
+	errno = ctx->cur_input->stream_errno;
+	i_error("FETCH for mailbox %s UID %u "
+		"failed to read message input: %m",
+		mailbox_get_name(ctx->mail->box), ctx->mail->uid);
+}
 
+static int seek_partial(unsigned int select_counter, unsigned int uid,
+			struct partial_cache *partial, struct istream *stream,
+			uoff_t virtual_skip, bool *cr_skipped_r)
+{
 	if (select_counter == partial->select_counter && uid == partial->uid &&
 	    stream->v_offset == partial->physical_start &&
 	    virtual_skip >= partial->pos.virtual_size) {
@@ -64,11 +70,12 @@ static bool seek_partial(unsigned int select_counter, unsigned int uid,
 
 	i_stream_seek(stream, partial->physical_start +
 		      partial->pos.physical_size);
-	message_skip_virtual(stream, virtual_skip, &partial->pos,
-			     partial->cr_skipped, &cr_skipped);
+	if (message_skip_virtual(stream, virtual_skip, &partial->pos,
+				 partial->cr_skipped, cr_skipped_r) < 0)
+		return -1;
 
 	partial->cr_skipped = FALSE;
-	return cr_skipped;
+	return 0;
 }
 
 static uoff_t get_send_size(const struct imap_fetch_body_data *body,
@@ -173,6 +180,10 @@ static off_t imap_fetch_send(struct imap_fetch_context *ctx,
 					i_stream_skip(input, 1);
 			}
 		}
+	}
+	if (input->stream_errno != 0) {
+		fetch_read_error(ctx);
+		return -1;
 	}
 
 	if (add_missing_eoh && sent + 2 == virtual_size) {
@@ -307,12 +318,18 @@ static int fetch_data(struct imap_fetch_context *ctx,
 		return -1;
 
 	if (!ctx->update_partial) {
-		message_skip_virtual(ctx->cur_input, body->skip, NULL, FALSE,
-				     &ctx->skip_cr);
+		if (message_skip_virtual(ctx->cur_input, body->skip, NULL,
+					 FALSE, &ctx->skip_cr) < 0) {
+			fetch_read_error(ctx);
+			return -1;
+		}
 	} else {
-		ctx->skip_cr =
-			seek_partial(ctx->select_counter, ctx->cur_mail->uid,
-				     &last_partial, ctx->cur_input, body->skip);
+		if (seek_partial(ctx->select_counter, ctx->cur_mail->uid,
+				 &last_partial, ctx->cur_input, body->skip,
+				 &ctx->skip_cr) < 0) {
+			fetch_read_error(ctx);
+			return -1;
+		}
 	}
 
 	return fetch_stream(ctx, size);
@@ -407,7 +424,10 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 	ctx->update_partial = FALSE;
 
 	old_offset = ctx->cur_input->v_offset;
-	message_get_header_size(ctx->cur_input, &msg_size, NULL);
+	if (message_get_header_size(ctx->cur_input, &msg_size, NULL) < 0) {
+		fetch_read_error(ctx);
+		return -1;
+	}
 	i_stream_seek(ctx->cur_input, old_offset);
 
 	if (!ctx->cur_have_eoh &&
@@ -455,7 +475,10 @@ fetch_body_header_fields(struct imap_fetch_context *ctx, struct mail *mail,
 	ctx->update_partial = FALSE;
 
 	old_offset = ctx->cur_input->v_offset;
-	message_get_body_size(ctx->cur_input, &size, NULL);
+	if (message_get_body_size(ctx->cur_input, &size, NULL) < 0) {
+		fetch_read_error(ctx);
+		return -1;
+	}
 	i_stream_seek(ctx->cur_input, old_offset);
 
 	/* FIXME: We'll just always add the end of headers line now.

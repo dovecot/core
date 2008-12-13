@@ -795,6 +795,7 @@ int index_mail_init_stream(struct index_mail *mail,
 			   struct istream **stream_r)
 {
 	struct index_mail_data *data = &mail->data;
+	int ret;
 
 	i_stream_set_destroy_callback(data->stream,
 				      index_mail_stream_destroy_callback, mail);
@@ -845,10 +846,11 @@ int index_mail_init_stream(struct index_mail *mail,
 		data->physical_size = data->hdr_size.physical_size +
 			data->body_size.physical_size;
 	}
+	ret = index_mail_stream_check_failure(mail);
 
 	i_stream_seek(data->stream, 0);
 	*stream_r = data->stream;
-	return 0;
+	return ret;
 }
 
 static int index_mail_parse_bodystructure(struct index_mail *mail,

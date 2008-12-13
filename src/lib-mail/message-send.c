@@ -7,21 +7,22 @@
 #include "message-send.h"
 #include "message-size.h"
 
-void message_skip_virtual(struct istream *input, uoff_t virtual_skip,
-			  struct message_size *msg_size,
-			  bool cr_skipped, bool *last_cr)
+int message_skip_virtual(struct istream *input, uoff_t virtual_skip,
+			 struct message_size *msg_size,
+			 bool cr_skipped, bool *last_cr)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos;
+	int ret;
 
 	if (virtual_skip == 0) {
 		*last_cr = cr_skipped;
-		return;
+		return 0;
 	}
 
 	*last_cr = FALSE;
 	startpos = 0;
-	while (i_stream_read_data(input, &msg, &size, startpos) > 0) {
+	while ((ret = i_stream_read_data(input, &msg, &size, startpos)) > 0) {
 		for (i = startpos; i < size && virtual_skip > 0; i++) {
 			virtual_skip--;
 
@@ -64,4 +65,6 @@ void message_skip_virtual(struct istream *input, uoff_t virtual_skip,
 
 		cr_skipped = msg[i-1] == '\r';
 	}
+	i_assert(ret == -1);
+	return input->stream_errno == 0 ? 0 : -1;
 }

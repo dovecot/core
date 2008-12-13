@@ -234,9 +234,18 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 	}
 
-	if (hdr_ret < 0 && !mstream->seen_eoh && mstream->add_missing_eoh) {
-		mstream->seen_eoh = TRUE;
-		add_eol(mstream);
+	if (hdr_ret < 0) {
+		if (mstream->istream.parent->stream_errno != 0) {
+			mstream->istream.istream.stream_errno =
+				mstream->istream.parent->stream_errno;
+			mstream->istream.istream.eof =
+				mstream->istream.parent->eof;
+			return -1;
+		}
+		if (!mstream->seen_eoh && mstream->add_missing_eoh) {
+			mstream->seen_eoh = TRUE;
+			add_eol(mstream);
+		}
 	}
 
 	/* don't copy eof here because we're only returning headers here.
