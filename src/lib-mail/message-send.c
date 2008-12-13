@@ -61,7 +61,7 @@ int message_skip_virtual(struct istream *input, uoff_t virtual_skip,
 		}
 
 		if (i < size)
-			break;
+			return 0;
 
 		cr_skipped = msg[i-1] == '\r';
 	}
