@@ -14,6 +14,12 @@
 #include "index-storage.h"
 #include "mailbox-list-private.h"
 
+struct mbox_index_header {
+	uint64_t sync_size;
+	uint32_t sync_mtime;
+	uint8_t dirty_flag;
+	uint8_t unused[3];
+};
 struct mbox_storage {
 	struct mail_storage storage;
 
@@ -36,14 +42,13 @@ struct mbox_mailbox {
 	unsigned int mbox_lock_id, mbox_global_lock_id;
 	struct timeout *keep_lock_to;
 	bool mbox_readonly, mbox_writeonly;
-	time_t mbox_dirty_stamp;
-	off_t mbox_dirty_size;
 
 	uint32_t mbox_ext_idx;
+	struct mbox_index_header mbox_hdr;
 
 	unsigned int no_mbox_file:1;
 	unsigned int invalid_mbox_file:1;
-	unsigned int mbox_sync_dirty:1;
+	unsigned int mbox_broken_offsets:1;
 	unsigned int mbox_do_dirty_syncs:1;
 	unsigned int mbox_very_dirty_syncs:1;
 	unsigned int mbox_save_md5:1;

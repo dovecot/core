@@ -146,6 +146,7 @@ struct mbox_sync_context {
 	unsigned int errors:1;
 };
 
+int mbox_sync_header_refresh(struct mbox_mailbox *mbox);
 int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags);
 int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty);
 int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,

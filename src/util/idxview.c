@@ -19,6 +19,12 @@ struct maildir_index_header {
 	uint32_t cur_check_time, cur_mtime, cur_mtime_nsecs;
 	uint32_t uidlist_mtime, uidlist_mtime_nsecs, uidlist_size;
 };
+struct mbox_index_header {
+	uint64_t sync_size;
+	uint32_t sync_mtime;
+	uint8_t dirty_flag;
+	uint8_t unused[3];
+};
 struct dbox_index_header {
 	uint32_t last_dirty_flush_stamp;
 };
@@ -95,6 +101,14 @@ static void dump_extension_header(struct mail_index *index,
 		printf(" - uidlist_mtime ..... = %s\n", unixdate2str(hdr->uidlist_mtime));
 		printf(" - uidlist_mtime_nsecs = %u\n", hdr->uidlist_mtime_nsecs);
 		printf(" - uidlist_size ...... = %u\n", hdr->uidlist_size);
+	} else if (strcmp(ext->name, "mbox") == 0) {
+		const struct mbox_index_header *hdr = data;
+
+		printf("header\n");
+		printf(" - sync_mtime = %s\n", unixdate2str(hdr->sync_mtime));
+		printf(" - sync_size = %llu\n",
+		       (unsigned long long)hdr->sync_size);
+		printf(" - dirty_flag = %d\n", hdr->dirty_flag);
 	} else if (strcmp(ext->name, "dbox-hdr") == 0) {
 		const struct dbox_index_header *hdr = data;
 

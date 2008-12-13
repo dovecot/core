@@ -935,7 +935,7 @@ static int mbox_sync_partial_seek_next(struct mbox_sync_context *sync_ctx,
 	} else {
 		/* if there's no sync records left, we can stop. except if
 		   this is a dirty sync, check if there are new messages. */
-		if (!sync_ctx->mbox->mbox_sync_dirty)
+		if (!sync_ctx->mbox->mbox_hdr.dirty_flag)
 			return 0;
 
 		messages_count =
@@ -1006,7 +1006,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 		if (mail_ctx->seq == 1) {
 			if (mbox_sync_uidvalidity_changed(sync_ctx)) {
-				sync_ctx->mbox->mbox_sync_dirty = TRUE;
+				sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
 				return 0;
 			}
 		}
@@ -1014,14 +1014,14 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (mail_ctx->mail.uid_broken && partial) {
 			/* UID ordering problems, resync everything to make
 			   sure we get everything right */
-			if (sync_ctx->mbox->mbox_sync_dirty)
+			if (sync_ctx->mbox->mbox_hdr.dirty_flag)
 				return 0;
 
 			mbox_sync_set_critical(sync_ctx,
 				"UIDs broken with partial sync in mbox file %s",
 				sync_ctx->mbox->path);
 
-			sync_ctx->mbox->mbox_sync_dirty = TRUE;
+			sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
 			return 0;
 		}
 		if (mail_ctx->mail.uid_broken)
@@ -1159,13 +1159,14 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	}
 
 	if (!skipped_mails)
-		sync_ctx->mbox->mbox_sync_dirty = FALSE;
+		sync_ctx->mbox->mbox_hdr.dirty_flag = FALSE;
+	sync_ctx->mbox->mbox_broken_offsets = FALSE;
 
 	if (uids_broken && sync_ctx->delay_writes) {
 		/* once we get around to writing the changes, we'll need to do
 		   a full sync to avoid the "UIDs broken in partial sync"
 		   error */
-		sync_ctx->mbox->mbox_sync_dirty = TRUE;
+		sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
 	}
 	return 1;
 }
@@ -1328,6 +1329,23 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
+static void
+mbox_sync_index_update_ext_header(struct mbox_sync_context *sync_ctx)
+{
+	struct mbox_mailbox *mbox = sync_ctx->mbox;
+	const void *data;
+	size_t data_size;
+
+	mail_index_get_header_ext(mbox->ibox.view, mbox->mbox_ext_idx,
+				  &data, &data_size);
+	if (data_size != sizeof(mbox->mbox_hdr) ||
+	    memcmp(data, &mbox->mbox_hdr, data_size) != 0) {
+		mail_index_update_header_ext(sync_ctx->t, mbox->mbox_ext_idx,
+					     0, &mbox->mbox_hdr,
+					     sizeof(mbox->mbox_hdr));
+	}
+}
+
 static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 {
 	struct mail_index_view *view;
@@ -1341,7 +1359,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	}
 
 	if (sync_ctx->moved_offsets &&
-	    ((uint64_t)st->st_size == sync_ctx->hdr->sync_size ||
+	    ((uint64_t)st->st_size == sync_ctx->mbox->mbox_hdr.sync_size ||
 	     (uint64_t)st->st_size == sync_ctx->orig_size)) {
 		/* We moved messages inside the mbox file without changing
 		   the file's size. If mtime doesn't change, another process
@@ -1372,6 +1390,10 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 		}
 	}
 
+	sync_ctx->mbox->mbox_hdr.sync_mtime = st->st_mtime;
+	sync_ctx->mbox->mbox_hdr.sync_size = st->st_size;
+	mbox_sync_index_update_ext_header(sync_ctx);
+
 	/* only reason not to have UID validity at this point is if the file
 	   is entirely empty. In that case just make up a new one if needed. */
 	i_assert(sync_ctx->base_uid_validity != 0 || st->st_size <= 0);
@@ -1394,24 +1416,6 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, next_uid),
 			&sync_ctx->next_uid, sizeof(sync_ctx->next_uid), FALSE);
-	}
-
-	if ((uint32_t)st->st_mtime != sync_ctx->hdr->sync_stamp &&
-	    !sync_ctx->mbox->mbox_sync_dirty) {
-		uint32_t sync_stamp = st->st_mtime;
-
-		mail_index_update_header(sync_ctx->t,
-			offsetof(struct mail_index_header, sync_stamp),
-			&sync_stamp, sizeof(sync_stamp), TRUE);
-	}
-
-	if ((uint64_t)st->st_size != sync_ctx->hdr->sync_size &&
-	    !sync_ctx->mbox->mbox_sync_dirty) {
-		uint64_t sync_size = st->st_size;
-
-		mail_index_update_header(sync_ctx->t,
-			offsetof(struct mail_index_header, sync_size),
-			&sync_size, sizeof(sync_size), TRUE);
 	}
 
 	if (sync_ctx->last_nonrecent_uid < sync_ctx->hdr->first_recent_uid) {
@@ -1437,10 +1441,6 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			offsetof(struct mail_index_header, first_recent_uid),
 			&first_recent_uid, sizeof(first_recent_uid), FALSE);
 	}
-
-	sync_ctx->mbox->mbox_dirty_stamp = st->st_mtime;
-	sync_ctx->mbox->mbox_dirty_size = st->st_size;
-
 	return 0;
 }
 
@@ -1481,6 +1481,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 			enum mbox_sync_flags flags)
 {
+	struct mbox_index_header *mbox_hdr = &sync_ctx->mbox->mbox_hdr;
 	struct mbox_sync_mail_context mail_ctx;
 	const struct stat *st;
 	unsigned int i;
@@ -1499,26 +1500,28 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	if ((flags & MBOX_SYNC_FORCE_SYNC) != 0) {
 		/* forcing a full sync. assume file has changed. */
 		partial = FALSE;
-		sync_ctx->mbox->mbox_sync_dirty = TRUE;
-	} else if ((uint32_t)st->st_mtime == sync_ctx->hdr->sync_stamp &&
-		   (uint64_t)st->st_size == sync_ctx->hdr->sync_size) {
+		mbox_hdr->dirty_flag = TRUE;
+	} else if ((uint32_t)st->st_mtime == mbox_hdr->sync_mtime &&
+		   (uint64_t)st->st_size == mbox_hdr->sync_size) {
 		/* file is fully synced */
-		partial = TRUE;
-		sync_ctx->mbox->mbox_sync_dirty = FALSE;
+		if (mbox_hdr->dirty_flag && (flags & MBOX_SYNC_UNDIRTY) != 0)
+			partial = FALSE;
+		else
+			partial = TRUE;
 	} else if ((flags & MBOX_SYNC_UNDIRTY) != 0 ||
-		   (uint64_t)st->st_size == sync_ctx->hdr->sync_size) {
+		   (uint64_t)st->st_size == mbox_hdr->sync_size) {
 		/* we want to do full syncing. always do this if
 		   file size hasn't changed but timestamp has. it most
 		   likely means that someone had modified some header
 		   and we probably want to know about it */
 		partial = FALSE;
-		sync_ctx->mbox->mbox_sync_dirty = TRUE;
+		sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
 	} else {
 		/* see if we can delay syncing the whole file.
 		   normally we only notice expunges and appends
 		   in partial syncing. */
 		partial = TRUE;
-		sync_ctx->mbox->mbox_sync_dirty = TRUE;
+		sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
 	}
 
 	mbox_sync_restart(sync_ctx);
@@ -1567,6 +1570,33 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
+int mbox_sync_header_refresh(struct mbox_mailbox *mbox)
+{
+	const struct mail_index_header *hdr;
+	const void *data;
+	size_t data_size;
+
+	if (mail_index_refresh(mbox->ibox.index) < 0) {
+		mail_storage_set_index_error(&mbox->ibox);
+		return -1;
+	}
+
+	mail_index_get_header_ext(mbox->ibox.view, mbox->mbox_ext_idx,
+				  &data, &data_size);
+	if (data_size == 0) {
+		/* doesn't exist. FIXME: backwards compatibility copying */
+		hdr = mail_index_get_header(mbox->ibox.view);
+		mbox->mbox_hdr.sync_mtime = hdr->sync_stamp;
+		mbox->mbox_hdr.sync_size = hdr->sync_size;
+		return 0;
+	}
+
+	memcpy(&mbox->mbox_hdr, data, I_MIN(sizeof(mbox->mbox_hdr), data_size));
+	if (mbox->mbox_broken_offsets)
+		mbox->mbox_hdr.dirty_flag = TRUE;
+	return 0;
+}
+
 int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 {
 	bool empty;
@@ -1577,7 +1607,6 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
 			       bool *empty_r)
 {
-	const struct mail_index_header *hdr;
 	const struct stat *st;
 	struct stat statbuf;
 
@@ -1605,22 +1634,19 @@ int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
 	}
 	*empty_r = st->st_size == 0;
 
-	hdr = mail_index_get_header(mbox->ibox.view);
+	if (mbox_sync_header_refresh(mbox) < 0)
+		return -1;
 
-	if ((uint32_t)st->st_mtime == hdr->sync_stamp &&
-	    (uint64_t)st->st_size == hdr->sync_size) {
+	if ((uint32_t)st->st_mtime == mbox->mbox_hdr.sync_mtime &&
+	    (uint64_t)st->st_size == mbox->mbox_hdr.sync_size) {
 		/* fully synced */
-		mbox->mbox_sync_dirty = FALSE;
-		return 0;
+		if (!mbox->mbox_hdr.dirty_flag || leave_dirty)
+			return 0;
+		/* flushing dirtyness */
 	}
 
-	if (!mbox->mbox_sync_dirty || !leave_dirty) {
-		mbox->mbox_sync_dirty = TRUE;
-		return 1;
-	}
-
-	return st->st_mtime != mbox->mbox_dirty_stamp ||
-		st->st_size != mbox->mbox_dirty_size;
+	/* file changed */
+	return 1;
 }
 
 static void mbox_sync_context_free(struct mbox_sync_context *sync_ctx)
@@ -1659,9 +1685,11 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	}
 
 	if ((flags & MBOX_SYNC_HEADER) != 0 ||
-	    (flags & MBOX_SYNC_FORCE_SYNC) != 0)
+	    (flags & MBOX_SYNC_FORCE_SYNC) != 0) {
+		if (mbox_sync_header_refresh(mbox) < 0)
+			return -1;
 		changed = 1;
-	else {
+	} else {
 		bool leave_dirty = (flags & MBOX_SYNC_UNDIRTY) == 0;
 		if ((changed = mbox_sync_has_changed(mbox, leave_dirty)) < 0) {
 			if ((flags & MBOX_SYNC_LOCK_READING) != 0)

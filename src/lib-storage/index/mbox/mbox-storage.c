@@ -565,7 +565,8 @@ mbox_alloc_mailbox(struct mbox_storage *storage, struct mail_index *index,
 	mbox->mbox_fd = -1;
 	mbox->mbox_lock_type = F_UNLCK;
 	mbox->mbox_ext_idx =
-		mail_index_ext_register(index, "mbox", 0,
+		mail_index_ext_register(index, "mbox",
+					sizeof(mbox->mbox_hdr),
 					sizeof(uint64_t), sizeof(uint64_t));
 
         mbox->mbox_very_dirty_syncs = getenv("MBOX_VERY_DIRTY_SYNCS") != NULL;

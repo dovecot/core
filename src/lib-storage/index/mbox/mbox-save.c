@@ -718,41 +718,34 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 {
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)ctx->ctx.transaction;
+	struct mbox_mailbox *mbox = ctx->mbox;
 	struct stat st;
 	int ret = 0;
 
 	i_assert(ctx->finished);
 
-	if (fstat(ctx->mbox->mbox_fd, &st) < 0) {
-		mbox_set_syscall_error(ctx->mbox, "fstat()");
+	if (fstat(mbox->mbox_fd, &st) < 0) {
+		mbox_set_syscall_error(mbox, "fstat()");
 		ret = -1;
 	}
 
 	if (ctx->synced) {
 		*t->ictx.saved_uid_validity = ctx->uid_validity;
 		*t->ictx.first_saved_uid = ctx->first_saved_uid;
+		*t->ictx.last_saved_uid = ctx->next_uid - 1;
 
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
 			&ctx->next_uid, sizeof(ctx->next_uid), FALSE);
 
-		if (!ctx->mbox->mbox_sync_dirty && ret == 0) {
-			uint32_t sync_stamp = st.st_mtime;
-
-			mail_index_update_header(ctx->trans,
-				offsetof(struct mail_index_header, sync_stamp),
-				&sync_stamp, sizeof(sync_stamp), TRUE);
-		}
 		if (ret == 0) {
-			/* sync_size is used in calculating the last message's
-			   size. it must be up-to-date. */
-			uint64_t sync_size = st.st_size;
-
-			mail_index_update_header(ctx->trans,
-				offsetof(struct mail_index_header, sync_size),
-				&sync_size, sizeof(sync_size), TRUE);
+			mbox->mbox_hdr.sync_mtime = st.st_mtime;
+			mbox->mbox_hdr.sync_size = st.st_size;
+			mail_index_update_header_ext(ctx->trans,
+						     mbox->mbox_ext_idx,
+						     0, &mbox->mbox_hdr,
+						     sizeof(mbox->mbox_hdr));
 		}
-		*t->ictx.last_saved_uid = ctx->next_uid - 1;
 	}
 
 	if (ret == 0 && ctx->orig_atime != st.st_atime) {
@@ -761,14 +754,14 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 
 		buf.modtime = st.st_mtime;
 		buf.actime = ctx->orig_atime;
-		if (utime(ctx->mbox->path, &buf) < 0)
-			mbox_set_syscall_error(ctx->mbox, "utime()");
+		if (utime(mbox->path, &buf) < 0)
+			mbox_set_syscall_error(mbox, "utime()");
 	}
 
-	if (!ctx->synced && ctx->mbox->mbox_fd != -1 &&
-	    !ctx->mbox->mbox_writeonly && !ctx->mbox->ibox.fsync_disable) {
-		if (fdatasync(ctx->mbox->mbox_fd) < 0) {
-			mbox_set_syscall_error(ctx->mbox, "fdatasync()");
+	if (!ctx->synced && mbox->mbox_fd != -1 &&
+	    !mbox->mbox_writeonly && !mbox->ibox.fsync_disable) {
+		if (fdatasync(mbox->mbox_fd) < 0) {
+			mbox_set_syscall_error(mbox, "fdatasync()");
 			ret = -1;
 		}
 	}

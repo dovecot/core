@@ -189,10 +189,11 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 	}
 
 	/* We can't really trust trans_view. The next message may already be
-	   expugned from it. hdr.sync_size may also be updated, but
-	   hdr.messages_count not. So refresh the index to get the latest
-	   changes and get the next message's offset using a new view. */
-	(void)mail_index_refresh(mail->ibox->index);
+	   expunged from it. Also there hdr.messages_count may be incorrect.
+	   So refresh the index to get the latest changes and get the next
+	   message's offset using a new view. */
+	if (mbox_sync_header_refresh(mbox) < 0)
+		return -1;
 
 	view = mail_index_view_open(mail->ibox->index);
 	hdr = mail_index_get_header(view);
@@ -203,7 +204,7 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 		/* last message, use the synced mbox size */
 		trailer_size = (mbox->storage->storage.flags &
 				MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ? 2 : 1;
-		*next_offset_r = hdr->sync_size - trailer_size;
+		*next_offset_r = mbox->mbox_hdr.sync_size - trailer_size;
 	} else {
 		if (mbox_file_lookup_offset(mbox, view, seq + 1,
 					    next_offset_r) <= 0)
