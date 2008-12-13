@@ -101,11 +101,11 @@ static const struct var_expand_table *
 get_log_var_expand_table(struct mail *mail, const char *message)
 {
 	static struct var_expand_table static_tab[] = {
-		{ '$', NULL },
-		{ 'm', NULL },
-		{ 's', NULL },
-		{ 'f', NULL },
-		{ '\0', NULL }
+		{ '$', NULL, NULL },
+		{ 'm', NULL, "msgid" },
+		{ 's', NULL, "subject" },
+		{ 'f', NULL, "from" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 	unsigned int i;
@@ -504,16 +504,16 @@ static const struct var_expand_table *
 get_var_expand_table(const char *user, const char *home)
 {
 	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL },
-		{ 'n', NULL },
-		{ 'd', NULL },
-		{ 's', NULL },
-		{ 'h', NULL },
-		{ 'l', NULL },
-		{ 'r', NULL },
-		{ 'p', NULL },
-		{ 'i', NULL },
-		{ '\0', NULL }
+		{ 'u', NULL, "user" },
+		{ 'n', NULL, "username" },
+		{ 'd', NULL, "domain" },
+		{ 's', NULL, "service" },
+		{ 'h', NULL, "home" },
+		{ 'l', NULL, "lip" },
+		{ 'r', NULL, "rip" },
+		{ 'p', NULL, "pid" },
+		{ 'i', NULL, "uid" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 

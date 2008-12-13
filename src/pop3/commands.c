@@ -551,11 +551,11 @@ static void pop3_get_uid(struct cmd_uidl_context *ctx,
 static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 {
 	static struct var_expand_table static_tab[] = {
-		{ 'v', NULL },
-		{ 'u', NULL },
-		{ 'm', NULL },
-		{ 'f', NULL },
-		{ '\0', NULL }
+		{ 'v', NULL, "uidvalidity" },
+		{ 'u', NULL, "uid" },
+		{ 'm', NULL, "md5" },
+		{ 'f', NULL, "filename" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 	string_t *str;

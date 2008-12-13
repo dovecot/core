@@ -18,10 +18,10 @@ acl_shared_namespace_add(struct mail_user *user,
 			 const char *userdomain)
 {
 	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL },
-		{ 'n', NULL },
-		{ 'd', NULL },
-		{ '\0', NULL }
+		{ 'u', NULL, "user" },
+		{ 'n', NULL, "username" },
+		{ 'd', NULL, "domain" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 	struct mail_namespace *ns;

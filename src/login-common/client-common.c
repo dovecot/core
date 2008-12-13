@@ -37,21 +37,21 @@ static const struct var_expand_table *
 get_var_expand_table(struct client *client)
 {
 	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL },
-		{ 'n', NULL },
-		{ 'd', NULL },
-		{ 's', NULL },
-		{ 'h', NULL },
-		{ 'l', NULL },
-		{ 'r', NULL },
-		{ 'p', NULL },
-		{ 'm', NULL },
-		{ 'a', NULL },
-		{ 'b', NULL },
-		{ 'c', NULL },
-		{ 'k', NULL },
-		{ 'e', NULL },
-		{ '\0', NULL }
+		{ 'u', NULL, "user" },
+		{ 'n', NULL, "username" },
+		{ 'd', NULL, "domain" },
+		{ 's', NULL, "service" },
+		{ 'h', NULL, "home" },
+		{ 'l', NULL, "lip" },
+		{ 'r', NULL, "rip" },
+		{ 'p', NULL, "pid" },
+		{ 'm', NULL, "mech" },
+		{ 'a', NULL, "lport" },
+		{ 'b', NULL, "rport" },
+		{ 'c', NULL, "secured" },
+		{ 'k', NULL, "ssl_security" },
+		{ 'e', NULL, "mail_pid" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 	unsigned int i;
@@ -112,9 +112,9 @@ static bool have_key(const struct var_expand_table *table, const char *str)
 static void client_syslog_real(struct client *client, const char *msg)
 {
 	static struct var_expand_table static_tab[3] = {
-		{ 's', NULL },
-		{ '$', NULL },
-		{ '\0', NULL }
+		{ 's', NULL, NULL },
+		{ '$', NULL, NULL },
+		{ '\0', NULL, NULL }
 	};
 	const struct var_expand_table *var_expand_table;
 	struct var_expand_table *tab;

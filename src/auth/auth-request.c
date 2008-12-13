@@ -1340,22 +1340,22 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 				  auth_request_escape_func_t *escape_func)
 {
 	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL },
-		{ 'n', NULL },
-		{ 'd', NULL },
-		{ 's', NULL },
-		{ 'h', NULL },
-		{ 'l', NULL },
-		{ 'r', NULL },
-		{ 'p', NULL },
-		{ 'w', NULL },
-		{ '!', NULL },
-		{ 'm', NULL },
-		{ 'c', NULL },
-		{ 'a', NULL },
-		{ 'b', NULL },
-		{ 'k', NULL },
-		{ '\0', NULL }
+		{ 'u', NULL, "user" },
+		{ 'n', NULL, "username" },
+		{ 'd', NULL, "domain" },
+		{ 's', NULL, "service" },
+		{ 'h', NULL, "home" },
+		{ 'l', NULL, "lip" },
+		{ 'r', NULL, "rip" },
+		{ 'p', NULL, "pid" },
+		{ 'w', NULL, "password" },
+		{ '!', NULL, NULL },
+		{ 'm', NULL, "mech" },
+		{ 'c', NULL, "secured" },
+		{ 'a', NULL, "lport" },
+		{ 'b', NULL, "rport" },
+		{ 'k', NULL, "cert" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 

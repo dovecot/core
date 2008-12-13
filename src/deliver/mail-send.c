@@ -25,11 +25,11 @@ get_var_expand_table(struct mail *mail, const char *reason,
 		     const char *recipient)
 {
 	static struct var_expand_table static_tab[] = {
-		{ 'n', NULL },
-		{ 'r', NULL },
-		{ 's', NULL },
-		{ 't', NULL },
-		{ '\0', NULL }
+		{ 'n', NULL, "crlf" },
+		{ 'r', NULL, "reason" },
+		{ 's', NULL, "subject" },
+		{ 't', NULL, "to" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 	const char *subject;

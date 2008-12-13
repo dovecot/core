@@ -208,16 +208,16 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 static const char *client_stats(struct client *client)
 {
 	static struct var_expand_table static_tab[] = {
-		{ 'p', NULL },
-		{ 't', NULL },
-		{ 'b', NULL },
-		{ 'r', NULL },
-		{ 'd', NULL },
-		{ 'm', NULL },
-		{ 's', NULL },
-		{ 'i', NULL },
-		{ 'o', NULL },
-		{ '\0', NULL }
+		{ 'p', NULL, "top_bytes" },
+		{ 't', NULL, "top_count" },
+		{ 'b', NULL, "retr_bytes" },
+		{ 'r', NULL, "retr_count" },
+		{ 'd', NULL, "deleted_count" },
+		{ 'm', NULL, "message_count" },
+		{ 's', NULL, "message_bytes" },
+		{ 'i', NULL, "input" },
+		{ 'o', NULL, "output" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 	string_t *str;

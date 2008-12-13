@@ -100,9 +100,9 @@ void client_command_cancel(struct client_command_context **_cmd)
 static const char *client_stats(struct client *client)
 {
 	static struct var_expand_table static_tab[] = {
-		{ 'i', NULL },
-		{ 'o', NULL },
-		{ '\0', NULL }
+		{ 'i', NULL, "input" },
+		{ 'o', NULL, "output" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 	string_t *str;

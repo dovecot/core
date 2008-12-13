@@ -126,11 +126,11 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	struct shared_storage *storage = (struct shared_storage *)_storage;
 	struct mail_user *user = _storage->ns->user;
 	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL },
-		{ 'n', NULL },
-		{ 'd', NULL },
-		{ 'h', NULL },
-		{ '\0', NULL }
+		{ 'u', NULL, "user" },
+		{ 'n', NULL, "username" },
+		{ 'd', NULL, "domain" },
+		{ 'h', NULL, "home" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 	struct mail_namespace *ns;
@@ -208,7 +208,7 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	}
 
 	owner = mail_user_init(userdomain);
-	if (!var_has_key(storage->location, 'h'))
+	if (!var_has_key(storage->location, 'h', "home"))
 		ret = 1;
 	else {
 		/* we'll need to look up the user's home directory */

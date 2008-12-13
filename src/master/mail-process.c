@@ -175,16 +175,16 @@ get_var_expand_table(const char *protocol,
 {
 #define VAR_EXPAND_HOME_IDX 4
 	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL },
-		{ 'n', NULL },
-		{ 'd', NULL },
-		{ 's', NULL },
-		{ 'h', NULL },
-		{ 'l', NULL },
-		{ 'r', NULL },
-		{ 'p', NULL },
-		{ 'i', NULL },
-		{ '\0', NULL }
+		{ 'u', NULL, "user" },
+		{ 'n', NULL, "username" },
+		{ 'd', NULL, "domain" },
+		{ 's', NULL, "service" },
+		{ 'h', NULL, "home" },
+		{ 'l', NULL, "lip" },
+		{ 'r', NULL, "rip" },
+		{ 'p', NULL, "pid" },
+		{ 'i', NULL, "uid" },
+		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 
@@ -211,7 +211,7 @@ has_missing_used_home(const char *str, const struct var_expand_table *table)
 	i_assert(table[VAR_EXPAND_HOME_IDX].key == 'h');
 
 	return table[VAR_EXPAND_HOME_IDX].value == NULL &&
-		var_has_key(str, 'h');
+		var_has_key(str, 'h', "home");
 }
 
 static const char *

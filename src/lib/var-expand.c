@@ -12,6 +12,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#define TABLE_LAST(t) \
+	((t)->key == '\0' && (t)->long_key == NULL)
+
 struct var_expand_context {
 	int offset;
 	unsigned int width;
@@ -142,7 +145,8 @@ void var_expand(string_t *dest, const char *str,
         struct var_expand_context ctx;
 	const char *(*modifier[MAX_MODIFIER_COUNT])
 		(const char *, struct var_expand_context *);
-	unsigned int i, modifier_count;
+	const char *end;
+	unsigned int i, len, modifier_count;
 
 	memset(&ctx, 0, sizeof(ctx));
 	for (; *str != '\0'; str++) {
@@ -209,10 +213,27 @@ void var_expand(string_t *dest, const char *str,
 				break;
 
 			var = NULL;
-			for (t = table; t->key != '\0'; t++) {
-				if (t->key == *str) {
-					var = t->value != NULL ? t->value : "";
-					break;
+			if (*str == '{' && (end = strchr(str, '}')) != NULL) {
+				/* %{long_key} */
+				len = end - (str + 1);
+				for (t = table; !TABLE_LAST(t); t++) {
+					if (t->long_key != NULL &&
+					    strncmp(t->long_key, str+1,
+						    len) == 0 &&
+					    t->long_key[len] == '\0') {
+						var = t->value != NULL ?
+							t->value : "";
+						str = end;
+						break;
+					}
+				}
+			} else {
+				for (t = table; !TABLE_LAST(t); t++) {
+					if (t->key == *str) {
+						var = t->value != NULL ?
+							t->value : "";
+						break;
+					}
 				}
 			}
 
@@ -283,13 +304,26 @@ char var_get_key(const char *str)
 	return *str;
 }
 
-bool var_has_key(const char *str, char key)
+bool var_has_key(const char *str, char key, const char *long_key)
 {
+	const char *end;
+	char c;
+
 	for (; *str != '\0'; str++) {
 		if (*str == '%' && str[1] != '\0') {
 			str++;
-			if (var_get_key(str) == key)
+			c = var_get_key(str);
+			if (c == key)
 				return TRUE;
+
+			if (c == '{' && long_key != NULL &&
+			    (str = strchr(str, '{')) != NULL &&
+			    (end = strchr(++str, '}')) != NULL) {
+				if (strncmp(str, long_key, end-str) == 0 &&
+				    long_key[end-str] == '\0')
+					return TRUE;
+				str = end;
+			}
 		}
 	}
 	return FALSE;
