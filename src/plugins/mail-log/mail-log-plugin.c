@@ -43,8 +43,7 @@ enum mail_log_event {
 	MAIL_LOG_EVENT_MAILBOX_DELETE	= 0x10,
 	MAIL_LOG_EVENT_MAILBOX_RENAME	= 0x20,
 	MAIL_LOG_EVENT_FLAG_CHANGE	= 0x40,
-
-	MAIL_LOG_EVENT_MASK_ALL		= 0x1f
+	MAIL_LOG_EVENT_APPEND		= 0x80
 };
 #define MAIL_LOG_DEFAULT_EVENTS \
 	(MAIL_LOG_EVENT_DELETE | MAIL_LOG_EVENT_UNDELETE | \
@@ -71,6 +70,7 @@ static const char *event_names[] = {
 	"mailbox_delete",
 	"mailbox_rename",
 	"flag_change",
+	"append",
 	NULL
 };
 
@@ -92,6 +92,7 @@ struct mail_log_group_changes {
 struct mail_log_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
 	pool_t pool;
+	struct mail *tmp_mail;
 
 	ARRAY_DEFINE(group_changes, struct mail_log_group_changes);
 
@@ -285,17 +286,10 @@ static void mail_log_action(struct mailbox_transaction_context *dest_trans,
 	struct mail_log_transaction_context *lt = MAIL_LOG_CONTEXT(dest_trans);
 	uoff_t size;
 	string_t *str;
-	pool_t pool;
 
 	if ((mail_log_set.events & event) == 0)
 		return;
 
-	if (lt == NULL) {
-		pool = pool_alloconly_create("mail log transaction", 1024);
-		lt = p_new(pool, struct mail_log_transaction_context, 1);
-		lt->pool = pool;
-		MODULE_CONTEXT_SET(dest_trans, mail_log_storage_module, lt);
-	}
 	lt->changes++;
 
 	if (mail_log_set.group_events) {
@@ -306,7 +300,7 @@ static void mail_log_action(struct mailbox_transaction_context *dest_trans,
 	str = t_str_new(128);
 	str_printfa(str, "%s: ", mail_log_event_get_name(event));
 
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_UID) != 0)
+	if ((mail_log_set.fields & MAIL_LOG_FIELD_UID) != 0 && mail->uid != 0)
 		str_printfa(str, "uid=%u, ", mail->uid);
 
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_BOX) != 0)
@@ -458,6 +452,56 @@ mail_log_copy(struct mailbox_transaction_context *t, struct mail *mail,
 }
 
 static int
+mail_log_save_begin(struct mail_save_context *ctx, struct istream *input)
+{
+	struct mail_log_transaction_context *lt =
+		MAIL_LOG_CONTEXT(ctx->transaction);
+	union mailbox_module_context *lbox =
+		MAIL_LOG_CONTEXT(ctx->transaction->box);
+
+	if (ctx->dest_mail == NULL) {
+		if (lt->tmp_mail == NULL)
+			lt->tmp_mail = mail_alloc(ctx->transaction, 0, NULL);
+		ctx->dest_mail = lt->tmp_mail;
+	}
+
+	return lbox->super.save_begin(ctx, input);
+}
+
+static int mail_log_save_finish(struct mail_save_context *ctx)
+{
+	union mailbox_module_context *lbox =
+		MAIL_LOG_CONTEXT(ctx->transaction->box);
+
+	if (lbox->super.save_finish(ctx) < 0)
+		return -1;
+
+	T_BEGIN {
+		mail_log_action(ctx->transaction, ctx->dest_mail,
+				MAIL_LOG_EVENT_APPEND, NULL);
+	} T_END;
+	return 0;
+}
+
+static struct mailbox_transaction_context *
+mail_log_transaction_begin(struct mailbox *box,
+			   enum mailbox_transaction_flags flags)
+{
+	union mailbox_module_context *lbox = MAIL_LOG_CONTEXT(box);
+	struct mailbox_transaction_context *t;
+	struct mail_log_transaction_context *lt;
+	pool_t pool;
+
+	t = lbox->super.transaction_begin(box, flags);
+
+	pool = pool_alloconly_create("mail log transaction", 1024);
+	lt = p_new(pool, struct mail_log_transaction_context, 1);
+	lt->pool = pool;
+	MODULE_CONTEXT_SET(t, mail_log_storage_module, lt);
+	return t;
+}
+
+static int
 mail_log_transaction_commit(struct mailbox_transaction_context *t,
 			    uint32_t *uid_validity_r,
 			    uint32_t *first_saved_uid_r,
@@ -466,11 +510,11 @@ mail_log_transaction_commit(struct mailbox_transaction_context *t,
 	struct mail_log_transaction_context *lt = MAIL_LOG_CONTEXT(t);
 	union mailbox_module_context *lbox = MAIL_LOG_CONTEXT(t->box);
 
-	if (lt != NULL) {
-		if (lt->changes > 0 && mail_log_set.group_events)
-			mail_log_group_changes(t->box, lt);
-		pool_unref(&lt->pool);
-	}
+	if (lt->changes > 0 && mail_log_set.group_events)
+		mail_log_group_changes(t->box, lt);
+	if (lt->tmp_mail != NULL)
+		mail_free(&lt->tmp_mail);
+	pool_unref(&lt->pool);
 
 	return lbox->super.transaction_commit(t, uid_validity_r,
 					      first_saved_uid_r,
@@ -483,13 +527,13 @@ mail_log_transaction_rollback(struct mailbox_transaction_context *t)
 	struct mail_log_transaction_context *lt = MAIL_LOG_CONTEXT(t);
 	union mailbox_module_context *lbox = MAIL_LOG_CONTEXT(t->box);
 
-	if (lt != NULL) {
-		if (lt->changes > 0 && !mail_log_set.group_events) {
-			i_info("Transaction rolled back: "
-			       "Ignore last %u changes", lt->changes);
-		}
-		pool_unref(&lt->pool);
+	if (lt->changes > 0 && !mail_log_set.group_events) {
+		i_info("Transaction rolled back: "
+		       "Ignore last %u changes", lt->changes);
 	}
+	if (lt->tmp_mail != NULL)
+		mail_free(&lt->tmp_mail);
+	pool_unref(&lt->pool);
 
 	lbox->super.transaction_rollback(t);
 }
@@ -511,6 +555,9 @@ mail_log_mailbox_open(struct mail_storage *storage, const char *name,
 
 	box->v.mail_alloc = mail_log_mail_alloc;
 	box->v.copy = mail_log_copy;
+	box->v.save_begin = mail_log_save_begin;
+	box->v.save_finish = mail_log_save_finish;
+	box->v.transaction_begin = mail_log_transaction_begin;
 	box->v.transaction_commit = mail_log_transaction_commit;
 	box->v.transaction_rollback = mail_log_transaction_rollback;
 	MODULE_CONTEXT_SET_SELF(box, mail_log_storage_module, lbox);
