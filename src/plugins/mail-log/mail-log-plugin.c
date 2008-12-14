@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "imap-util.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
 #include "mail-log-plugin.h"
@@ -25,7 +26,8 @@ enum mail_log_field {
 	MAIL_LOG_FIELD_BOX	= 0x02,
 	MAIL_LOG_FIELD_MSGID	= 0x04,
 	MAIL_LOG_FIELD_PSIZE	= 0x08,
-	MAIL_LOG_FIELD_VSIZE	= 0x10
+	MAIL_LOG_FIELD_VSIZE	= 0x10,
+	MAIL_LOG_FIELD_FLAGS	= 0x20
 };
 #define MAIL_LOG_DEFAULT_FIELDS \
 	(MAIL_LOG_FIELD_UID | MAIL_LOG_FIELD_BOX | \
@@ -38,10 +40,14 @@ enum mail_log_event {
 	MAIL_LOG_EVENT_COPY		= 0x08,
 	MAIL_LOG_EVENT_MAILBOX_DELETE	= 0x10,
 	MAIL_LOG_EVENT_MAILBOX_RENAME	= 0x20,
+	MAIL_LOG_EVENT_FLAG_CHANGE	= 0x40,
 
 	MAIL_LOG_EVENT_MASK_ALL		= 0x1f
 };
-#define MAIL_LOG_DEFAULT_EVENTS MAIL_LOG_EVENT_MASK_ALL
+#define MAIL_LOG_DEFAULT_EVENTS \
+	(MAIL_LOG_EVENT_DELETE | MAIL_LOG_EVENT_UNDELETE | \
+	 MAIL_LOG_EVENT_EXPUNGE | MAIL_LOG_EVENT_COPY | \
+	 MAIL_LOG_EVENT_MAILBOX_DELETE | MAIL_LOG_EVENT_MAILBOX_RENAME)
 
 static const char *field_names[] = {
 	"uid",
@@ -49,6 +55,7 @@ static const char *field_names[] = {
 	"msgid",
 	"size",
 	"vsize",
+	"flags",
 	NULL
 };
 
@@ -58,6 +65,8 @@ static const char *event_names[] = {
 	"expunge",
 	"copy",
 	"mailbox_delete",
+	"mailbox_rename",
+	"flag_change",
 	NULL
 };
 
@@ -289,7 +298,12 @@ static void mail_log_action(struct mailbox_transaction_context *dest_trans,
 
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_BOX) != 0)
 		mail_log_append_mailbox_name(str, mail->box);
-
+	if ((mail_log_set.fields & MAIL_LOG_FIELD_FLAGS) != 0) {
+		str_printfa(str, "flags=(");
+		imap_write_flags(str, mail_get_flags(mail),
+				 mail_get_keywords(mail));
+		str_append(str, "), ");
+	}
 	if (event == MAIL_LOG_EVENT_COPY)
 		str_printfa(str, "dest=%s, ", data);
 
@@ -350,15 +364,42 @@ mail_log_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		new_flags = flags;
 		break;
 	}
-	if (((old_flags ^ new_flags) & MAIL_DELETED) == 0)
-		return;
 
-	T_BEGIN {
+	if (((old_flags ^ new_flags) & MAIL_DELETED) != 0) T_BEGIN {
 		mail_log_action(_mail->transaction, _mail,
 				(new_flags & MAIL_DELETED) != 0 ?
 				MAIL_LOG_EVENT_DELETE :
 				MAIL_LOG_EVENT_UNDELETE, NULL);
 	} T_END;
+
+	if ((old_flags & ~MAIL_DELETED) != (new_flags & ~MAIL_DELETED)) {
+		mail_log_action(_mail->transaction, _mail,
+				MAIL_LOG_EVENT_FLAG_CHANGE, NULL);
+	}
+}
+
+static void
+mail_log_mail_update_keywords(struct mail *_mail, enum modify_type modify_type,
+			      struct mail_keywords *keywords)
+{
+	struct mail_private *mail = (struct mail_private *)_mail;
+	union mail_module_context *lmail = MAIL_LOG_MAIL_CONTEXT(mail);
+	const char *const *old_keywords, *const *new_keywords;
+	unsigned int i;
+
+	old_keywords = mail_get_keywords(_mail);
+	lmail->super.update_keywords(_mail, modify_type, keywords);
+	new_keywords = mail_get_keywords(_mail);
+
+	for (i = 0; old_keywords[i] != NULL && new_keywords[i] != NULL; i++) {
+		if (strcmp(old_keywords[i], new_keywords[i]) != 0)
+			break;
+	}
+
+	if (old_keywords[i] != NULL || new_keywords[i] != NULL) {
+		mail_log_action(_mail->transaction, _mail,
+				MAIL_LOG_EVENT_FLAG_CHANGE, NULL);
+	}
 }
 
 static struct mail *
@@ -378,6 +419,7 @@ mail_log_mail_alloc(struct mailbox_transaction_context *t,
 	lmail->super = mail->v;
 
 	mail->v.update_flags = mail_log_mail_update_flags;
+	mail->v.update_keywords = mail_log_mail_update_keywords;
 	mail->v.expunge = mail_log_mail_expunge;
 	MODULE_CONTEXT_SET_SELF(mail, mail_log_mail_module, lmail);
 	return _mail;
