@@ -41,6 +41,7 @@ static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 	struct mail_search_context *search_ctx;
         struct mailbox_transaction_context *src_trans, *dest_trans;
 	struct mail *mail;
+	enum mail_error error;
 	int ret;
 
 	if (mailbox_sync(srcbox, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
@@ -61,11 +62,15 @@ static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 		if (mail->expunged)
 			continue;
 
-		if (mailbox_copy(dest_trans, mail, 0, NULL, NULL) < 0) {
-			if (!mail->expunged) {
+		if (mailbox_copy(dest_trans, mail, 0, NULL, NULL) < 0 &&
+		    !mail->expunged) {
+			(void)mail_storage_get_last_error(destbox->storage,
+							  &error);
+			/* if we failed because of out of disk space, just
+			   move those messages we managed to move so far. */
+			if (error != MAIL_ERROR_NOSPACE)
 				ret = -1;
-				break;
-			}
+			break;
 		}
 		mail_expunge(mail);
 	}
