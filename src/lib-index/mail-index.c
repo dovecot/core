@@ -44,7 +44,8 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->gid = (gid_t)-1;
 
 	index->keywords_ext_id =
-		mail_index_ext_register(index, "keywords", 128, 2, 1);
+		mail_index_ext_register(index, MAIL_INDEX_EXT_KEYWORDS,
+					128, 2, 1);
 	index->keywords_pool = pool_alloconly_create("keywords", 512);
 	i_array_init(&index->keywords, 16);
 	index->keywords_hash =

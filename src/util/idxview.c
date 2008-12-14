@@ -84,7 +84,7 @@ static void dump_extension_header(struct mail_index *index,
 {
 	const void *data;
 
-	if (strcmp(ext->name, "keywords") == 0)
+	if (strcmp(ext->name, MAIL_INDEX_EXT_KEYWORDS) == 0)
 		return;
 
 	data = CONST_PTR_OFFSET(index->map->hdr_base, ext->hdr_offset);

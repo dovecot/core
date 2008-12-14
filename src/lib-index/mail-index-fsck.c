@@ -143,7 +143,7 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 	bool changed = FALSE;
 
 	hdr_offset = ext_offset +
-		mail_index_map_ext_hdr_offset(sizeof("keywords")-1);
+		mail_index_map_ext_hdr_offset(sizeof(MAIL_INDEX_EXT_KEYWORDS)-1);
 	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, hdr_offset);
 	keywords_count = kw_hdr->keywords_count;
 
@@ -292,7 +292,7 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 			/* name may change if header buffer is changed */
 			name = t_strdup(name);
 
-			if (strcmp(name, "keywords") == 0) {
+			if (strcmp(name, MAIL_INDEX_EXT_KEYWORDS) == 0) {
 				mail_index_fsck_keywords(index, map, hdr,
 							 ext_hdr, offset,
 							 &next_offset);

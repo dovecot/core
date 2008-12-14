@@ -36,6 +36,8 @@ struct mail_index_sync_map_ctx;
 	((((u)->add_flags | (u)->remove_flags) & \
 	  MAIL_INDEX_FLAGS_MASK) == 0)
 
+#define MAIL_INDEX_EXT_KEYWORDS "keywords"
+
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 					 uint32_t seq, const void *data,
 					 void **sync_context, void *context);

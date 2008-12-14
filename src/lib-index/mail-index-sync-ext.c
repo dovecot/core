@@ -502,7 +502,8 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	if (ext != NULL)
 		name = ext->name;
 
-	if (!ctx->internal_update && strcmp(name, "keywords") == 0) {
+	if (!ctx->internal_update &&
+	    strcmp(name, MAIL_INDEX_EXT_KEYWORDS) == 0) {
 		/* Keyword extension is handled internally by the keyword
 		   code. Any attempt to modify them directly could cause
 		   assert-crashes later, so prevent them immediately. */

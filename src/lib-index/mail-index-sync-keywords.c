@@ -82,8 +82,8 @@ static void keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 	i_assert(keywords_count > 0);
 
 	ext_intro_buf =
-		buffer_create_static_hard(pool_datastack_create(),
-					  sizeof(*u) + sizeof("keywords")-1);
+		buffer_create_static_hard(pool_datastack_create(), sizeof(*u) +
+					  sizeof(MAIL_INDEX_EXT_KEYWORDS)-1);
 
 	u = buffer_append_space_unsafe(ext_intro_buf, sizeof(*u));
 	u->ext_id = ext_map_idx;
@@ -98,8 +98,9 @@ static void keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 	u->record_align = 1;
 
 	if (ext_map_idx == (uint32_t)-1) {
-		u->name_size = strlen("keywords");
-		buffer_append(ext_intro_buf, "keywords", u->name_size);
+		u->name_size = strlen(MAIL_INDEX_EXT_KEYWORDS);
+		buffer_append(ext_intro_buf, MAIL_INDEX_EXT_KEYWORDS,
+			      u->name_size);
 	}
 
 	ctx->internal_update = TRUE;
@@ -126,7 +127,8 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	   making sure the header is updated atomically. */
 	map = mail_index_sync_get_atomic_map(ctx);
 
-	if (!mail_index_map_lookup_ext(map, "keywords", &ext_map_idx))
+	if (!mail_index_map_lookup_ext(map, MAIL_INDEX_EXT_KEYWORDS,
+				       &ext_map_idx))
 		ext_map_idx = (uint32_t)-1;
 	else {
 		/* update existing header */
@@ -175,7 +177,8 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 		/* map may have changed */
 		map = ctx->view->map;
 
-		if (!mail_index_map_lookup_ext(map, "keywords", &ext_map_idx))
+		if (!mail_index_map_lookup_ext(map, MAIL_INDEX_EXT_KEYWORDS,
+					       &ext_map_idx))
 			i_unreached();
 		ext = array_idx(&map->extensions, ext_map_idx);
 
@@ -275,7 +278,8 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 	/* if the keyword wasn't found, the "keywords" extension was created.
 	   if it was found, the record size should already be correct, but
 	   in case it isn't just fix it ourself. */
-	if (!mail_index_map_lookup_ext(view->map, "keywords", &ext_map_idx))
+	if (!mail_index_map_lookup_ext(view->map, MAIL_INDEX_EXT_KEYWORDS,
+				       &ext_map_idx))
 		i_unreached();
 
 	ext = array_idx(&view->map->extensions, ext_map_idx);
@@ -289,7 +293,8 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 		keywords_ext_register(ctx, ext_map_idx, ext->reset_id,
 				      ext->hdr_size,
 				      array_count(&view->map->keyword_idx_map));
-		if (!mail_index_map_lookup_ext(view->map, "keywords",
+		if (!mail_index_map_lookup_ext(view->map,
+					       MAIL_INDEX_EXT_KEYWORDS,
 					       &ext_map_idx))
 			i_unreached();
 		ext = array_idx(&view->map->extensions, ext_map_idx);
@@ -319,7 +324,8 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 	const struct mail_transaction_keyword_reset *end;
 	uint32_t ext_map_idx, seq1, seq2;
 
-	if (!mail_index_map_lookup_ext(map, "keywords", &ext_map_idx)) {
+	if (!mail_index_map_lookup_ext(map, MAIL_INDEX_EXT_KEYWORDS,
+				       &ext_map_idx)) {
 		/* nothing to do */
 		return 1;
 	}
