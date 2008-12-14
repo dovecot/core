@@ -19,7 +19,7 @@ datafiles = \
 	dovecot-config
 
 if INSTALL_HEADERS
-  pkginclude_HEADERS = config.h
+  nodist_pkginclude_HEADERS = config.h
   pkglib_DATA = $(datafiles)
 else
   noinst_DATA = $(datafiles)
