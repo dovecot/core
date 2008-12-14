@@ -12,7 +12,7 @@
 #include <stdlib.h>
 
 #define MAILBOX_NAME_LOG_LEN 64
-#define MSGID_LOG_LEN 80
+#define HEADER_LOG_LEN 80
 
 #define MAIL_LOG_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_log_storage_module)
@@ -27,7 +27,9 @@ enum mail_log_field {
 	MAIL_LOG_FIELD_MSGID	= 0x04,
 	MAIL_LOG_FIELD_PSIZE	= 0x08,
 	MAIL_LOG_FIELD_VSIZE	= 0x10,
-	MAIL_LOG_FIELD_FLAGS	= 0x20
+	MAIL_LOG_FIELD_FLAGS	= 0x20,
+	MAIL_LOG_FIELD_FROM	= 0x40,
+	MAIL_LOG_FIELD_SUBJECT	= 0x80
 };
 #define MAIL_LOG_DEFAULT_FIELDS \
 	(MAIL_LOG_FIELD_UID | MAIL_LOG_FIELD_BOX | \
@@ -56,6 +58,8 @@ static const char *field_names[] = {
 	"size",
 	"vsize",
 	"flags",
+	"from",
+	"subject",
 	NULL
 };
 
@@ -264,12 +268,21 @@ mail_log_group_changes(struct mailbox *box,
 	}
 }
 
+static void mail_log_add_hdr(struct mail *mail, string_t *str,
+			     const char *name, const char *header)
+{
+	const char *value;
+
+	if (mail_get_first_header(mail, header, &value) <= 0)
+		value = "";
+	str_printfa(str, "%s=%s, ", name, str_sanitize(value, HEADER_LOG_LEN));
+}
+
 static void mail_log_action(struct mailbox_transaction_context *dest_trans,
 			    struct mail *mail, enum mail_log_event event,
 			    const char *data)
 {
 	struct mail_log_transaction_context *lt = MAIL_LOG_CONTEXT(dest_trans);
-	const char *msgid;
 	uoff_t size;
 	string_t *str;
 	pool_t pool;
@@ -307,12 +320,12 @@ static void mail_log_action(struct mailbox_transaction_context *dest_trans,
 	if (event == MAIL_LOG_EVENT_COPY)
 		str_printfa(str, "dest=%s, ", data);
 
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_MSGID) != 0) {
-		if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
-			msgid = "(null)";
-		str_printfa(str, "msgid=%s, ",
-			    str_sanitize(msgid, MSGID_LOG_LEN));
-	}
+	if ((mail_log_set.fields & MAIL_LOG_FIELD_MSGID) != 0)
+		mail_log_add_hdr(mail, str, "msgid", "Message-ID");
+	if ((mail_log_set.fields & MAIL_LOG_FIELD_FROM) != 0)
+		mail_log_add_hdr(mail, str, "from", "From");
+	if ((mail_log_set.fields & MAIL_LOG_FIELD_SUBJECT) != 0)
+		mail_log_add_hdr(mail, str, "subject", "Subject");
 
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_PSIZE) != 0 &&
 	    (event & (MAIL_LOG_EVENT_EXPUNGE | MAIL_LOG_EVENT_COPY)) != 0) {
