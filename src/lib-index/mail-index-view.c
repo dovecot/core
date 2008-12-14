@@ -333,6 +333,62 @@ static void view_lookup_first(struct mail_index_view *view,
 }
 
 static void
+mail_index_data_lookup_keywords(struct mail_index_map *map,
+				const unsigned char *data,
+				ARRAY_TYPE(keyword_indexes) *keyword_idx)
+{
+	const unsigned int *keyword_idx_map;
+	unsigned int i, j, keyword_count, index_idx;
+	uint32_t idx;
+	uint16_t record_size;
+
+	array_clear(keyword_idx);
+	if (data == NULL) {
+		/* no keywords at all in index */
+		return;
+	}
+	(void)mail_index_ext_get_size(NULL, map->index->keywords_ext_id,
+				      map, NULL, &record_size, NULL);
+
+	/* keyword_idx_map[] contains file => index keyword mapping */
+	if (!array_is_created(&map->keyword_idx_map))
+		return;
+
+	keyword_idx_map = array_get(&map->keyword_idx_map, &keyword_count);
+	for (i = 0, idx = 0; i < record_size; i++) {
+		/* first do the quick check to see if there's keywords at all */
+		if (data[i] == 0)
+			continue;
+
+		idx = i * CHAR_BIT;
+		for (j = 0; j < CHAR_BIT; j++, idx++) {
+			if ((data[i] & (1 << j)) == 0)
+				continue;
+
+			if (idx >= keyword_count) {
+				/* extra bits set in keyword bytes.
+				   shouldn't happen, but just ignore. */
+				break;
+			}
+
+			index_idx = keyword_idx_map[idx];
+			array_append(keyword_idx, &index_idx, 1);
+		}
+	}
+}
+
+static void view_lookup_keywords(struct mail_index_view *view, uint32_t seq,
+				 ARRAY_TYPE(keyword_indexes) *keyword_idx)
+{
+	struct mail_index_map *map;
+	const void *data;
+
+	mail_index_lookup_ext_full(view, seq, view->index->keywords_ext_id,
+				   &map, &data, NULL);
+	mail_index_data_lookup_keywords(map, data, keyword_idx);
+}
+
+static void
 view_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		     uint32_t ext_id, struct mail_index_map **map_r,
 		     const void **data_r, bool *expunged_r)
@@ -442,51 +498,6 @@ bool mail_index_is_expunged(struct mail_index_view *view, uint32_t seq)
 	return expunged;
 }
 
-static void
-mail_index_data_lookup_keywords(struct mail_index_map *map,
-				const unsigned char *data,
-				ARRAY_TYPE(keyword_indexes) *keyword_idx)
-{
-	const unsigned int *keyword_idx_map;
-	unsigned int i, j, keyword_count, index_idx;
-	uint32_t idx;
-	uint16_t record_size;
-
-	array_clear(keyword_idx);
-	if (data == NULL) {
-		/* no keywords at all in index */
-		return;
-	}
-	(void)mail_index_ext_get_size(NULL, map->index->keywords_ext_id,
-				      map, NULL, &record_size, NULL);
-
-	/* keyword_idx_map[] contains file => index keyword mapping */
-	if (!array_is_created(&map->keyword_idx_map))
-		return;
-
-	keyword_idx_map = array_get(&map->keyword_idx_map, &keyword_count);
-	for (i = 0, idx = 0; i < record_size; i++) {
-		/* first do the quick check to see if there's keywords at all */
-		if (data[i] == 0)
-			continue;
-
-		idx = i * CHAR_BIT;
-		for (j = 0; j < CHAR_BIT; j++, idx++) {
-			if ((data[i] & (1 << j)) == 0)
-				continue;
-
-			if (idx >= keyword_count) {
-				/* extra bits set in keyword bytes.
-				   shouldn't happen, but just ignore. */
-				break;
-			}
-
-			index_idx = keyword_idx_map[idx];
-			array_append(keyword_idx, &index_idx, 1);
-		}
-	}
-}
-
 void mail_index_map_lookup_keywords(struct mail_index_map *map, uint32_t seq,
 				    ARRAY_TYPE(keyword_indexes) *keyword_idx)
 {
@@ -509,12 +520,7 @@ void mail_index_map_lookup_keywords(struct mail_index_map *map, uint32_t seq,
 void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 				ARRAY_TYPE(keyword_indexes) *keyword_idx)
 {
-	struct mail_index_map *map;
-	const void *data;
-
-	mail_index_lookup_ext_full(view, seq, view->index->keywords_ext_id,
-				   &map, &data, NULL);
-	mail_index_data_lookup_keywords(map, data, keyword_idx);
+	view->v.lookup_keywords(view, seq, keyword_idx);
 }
 
 void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -625,6 +631,7 @@ static struct mail_index_view_vfuncs view_vfuncs = {
 	view_lookup_uid,
 	view_lookup_seq_range,
 	view_lookup_first,
+	view_lookup_keywords,
 	view_lookup_ext_full,
 	view_get_header_ext,
 	view_ext_get_reset_id

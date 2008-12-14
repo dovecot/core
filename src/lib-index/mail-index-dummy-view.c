@@ -29,6 +29,7 @@ static struct mail_index_view_vfuncs dummy_view_vfuncs = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
 	NULL
 };
 

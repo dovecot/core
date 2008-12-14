@@ -805,10 +805,11 @@ mail_transaction_update_want_add(struct mail_index_transaction *t,
 	return FALSE;
 }
 
-static uint32_t
-mail_index_find_update_insert_pos(struct mail_index_transaction *t,
-				  unsigned int left_idx, unsigned int right_idx,
-				  uint32_t seq)
+unsigned int
+mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
+					   unsigned int left_idx,
+					   unsigned int right_idx,
+					   uint32_t seq)
 {
 	const struct mail_transaction_flag_update *updates;
 	unsigned int idx, count;
@@ -1038,8 +1039,8 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 			first_idx = 0;
 			count = t->last_update_idx + 1;
 		}
-		idx = mail_index_find_update_insert_pos(t, first_idx, count,
-							u.uid1);
+		idx = mail_index_transaction_get_flag_update_pos(t, first_idx,
+								 count, u.uid1);
 		mail_index_insert_flag_update(t, u, idx);
 	}
 }
@@ -1567,7 +1568,7 @@ mail_index_update_cancel(struct mail_index_transaction *t, uint32_t seq)
 		return ret;
 
 	updates = array_get_modifiable(&t->updates, &count);
-	i = mail_index_find_update_insert_pos(t, 0, count, seq);
+	i = mail_index_transaction_get_flag_update_pos(t, 0, count, seq);
 	if (i < count && updates[i].uid1 <= seq && updates[i].uid2 >= seq) {
 		/* exists */
 		ret = TRUE;

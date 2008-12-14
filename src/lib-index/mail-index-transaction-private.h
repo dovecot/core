@@ -100,6 +100,12 @@ uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t);
 void mail_index_transaction_convert_to_uids(struct mail_index_transaction *t);
 void mail_index_transaction_check_conflicts(struct mail_index_transaction *t);
 
+unsigned int
+mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
+					   unsigned int left_idx,
+					   unsigned int right_idx,
+					   uint32_t seq);
+
 bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 				 uint32_t seq, unsigned int *idx_r);
 

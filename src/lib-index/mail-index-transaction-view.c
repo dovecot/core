@@ -15,8 +15,12 @@ struct mail_index_view_transaction {
 
 	struct mail_index_map *lookup_map;
 	struct mail_index_header hdr;
+
 	buffer_t *lookup_return_data;
 	uint32_t lookup_prev_seq;
+
+	unsigned int recs_count;
+	struct mail_index_record *recs;
 };
 
 static void tview_close(struct mail_index_view *view)
@@ -29,6 +33,7 @@ static void tview_close(struct mail_index_view *view)
 		mail_index_unmap(&tview->lookup_map);
 	if (tview->lookup_return_data != NULL)
 		buffer_free(&tview->lookup_return_data);
+	i_free(tview->recs);
 
 	tview->super->close(view);
 	mail_index_transaction_unref(&t);
@@ -65,6 +70,42 @@ tview_get_header(struct mail_index_view *view)
 }
 
 static const struct mail_index_record *
+tview_apply_flag_updates(struct mail_index_view_transaction *tview,
+			 const struct mail_index_record *rec, uint32_t seq)
+{
+	struct mail_index_transaction *t = tview->t;
+	const struct mail_transaction_flag_update *updates;
+	unsigned int idx, count;
+
+	/* see if there are any flag updates */
+	if (seq < t->min_flagupdate_seq || seq > t->max_flagupdate_seq ||
+	    !array_is_created(&t->updates))
+		return rec;
+
+	updates = array_get(&t->updates, &count);
+	idx = mail_index_transaction_get_flag_update_pos(t, 0, count, seq);
+	if (seq < updates[idx].uid1 || seq > updates[idx].uid2)
+		return rec;
+
+	/* yes, we have flag updates. since we can't modify rec directly and
+	   we want to be able to handle multiple mail_index_lookup() calls
+	   without the second one overriding the first one's data, we'll
+	   create a records array and return data from there */
+	if (tview->recs == NULL) {
+		tview->recs_count = t->first_new_seq;
+		tview->recs = i_new(struct mail_index_record,
+				    tview->recs_count);
+	}
+	i_assert(tview->recs_count == t->first_new_seq);
+	i_assert(seq > 0 && seq <= tview->recs_count);
+
+	tview->recs[seq-1] = *rec;
+	tview->recs[seq-1].flags |= updates[idx].add_flags;
+	tview->recs[seq-1].flags &= ~updates[idx].remove_flags;
+	return &tview->recs[seq-1];
+}
+
+static const struct mail_index_record *
 tview_lookup_full(struct mail_index_view *view, uint32_t seq,
 		  struct mail_index_map **map_r, bool *expunged_r)
 {
@@ -81,8 +122,8 @@ tview_lookup_full(struct mail_index_view *view, uint32_t seq,
 	}
 
 	rec = tview->super->lookup_full(view, seq, map_r, expunged_r);
+	rec = tview_apply_flag_updates(tview, rec, seq);
 
-	/* if we're expunged within this transaction, return 0 */
 	if (array_is_created(&tview->t->expunges) &&
 	    seq_range_exists(&tview->t->expunges, seq))
 		*expunged_r = TRUE;
@@ -187,6 +228,73 @@ static void tview_lookup_first(struct mail_index_view *view,
 			*seq_r = seq;
 			break;
 		}
+	}
+}
+
+static void keyword_index_add(ARRAY_TYPE(keyword_indexes) *keywords,
+			      unsigned int idx)
+{
+	const unsigned int *indexes;
+	unsigned int i, count;
+
+	indexes = array_get(keywords, &count);
+	for (i = 0; i < count; i++) {
+		if (indexes[i] == idx)
+			return;
+	}
+	array_append(keywords, &idx, 1);
+}
+
+static void keyword_index_remove(ARRAY_TYPE(keyword_indexes) *keywords,
+				 unsigned int idx)
+{
+	const unsigned int *indexes;
+	unsigned int i, count;
+
+	indexes = array_get(keywords, &count);
+	for (i = 0; i < count; i++) {
+		if (indexes[i] == idx) {
+			array_delete(keywords, i, 1);
+			break;
+		}
+	}
+}
+
+static void tview_lookup_keywords(struct mail_index_view *view, uint32_t seq,
+				  ARRAY_TYPE(keyword_indexes) *keyword_idx)
+{
+	struct mail_index_view_transaction *tview =
+		(struct mail_index_view_transaction *)view;
+	struct mail_index_transaction *t = tview->t;
+	const struct mail_index_transaction_keyword_update *updates;
+	unsigned int i, count;
+
+	tview->super->lookup_keywords(view, seq, keyword_idx);
+
+	if (seq < t->min_flagupdate_seq || seq > t->max_flagupdate_seq) {
+		/* no keyword updates for this sequence */
+		return;
+	}
+
+	/* apply any keyword updates in this transaction */
+	if (array_is_created(&t->keyword_resets)) {
+		if (seq_range_exists(&t->keyword_resets, seq))
+			array_clear(keyword_idx);
+	}
+
+	if (array_is_created(&t->keyword_updates))
+		updates = array_get(&t->keyword_updates, &count);
+	else {
+		updates = NULL;
+		count = 0;
+	}
+	for (i = 0; i < count; i++) {
+		if (array_is_created(&updates[i].add_seq) &&
+		    seq_range_exists(&updates[i].add_seq, seq))
+			keyword_index_add(keyword_idx, i);
+		else if (array_is_created(&updates[i].remove_seq) &&
+			 seq_range_exists(&updates[i].remove_seq, seq))
+			keyword_index_remove(keyword_idx, i);
 	}
 }
 
@@ -336,6 +444,7 @@ static struct mail_index_view_vfuncs trans_view_vfuncs = {
 	tview_lookup_uid,
 	tview_lookup_seq_range,
 	tview_lookup_first,
+	tview_lookup_keywords,
 	tview_lookup_ext_full,
 	tview_get_header_ext,
 	tview_ext_get_reset_id

@@ -83,7 +83,6 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 	struct mailbox_transaction_context *backend_trans;
 	struct mailbox_header_lookup_ctx *backend_headers;
 	const struct virtual_mail_index_record *vrec;
-	const struct mail_index_record *rec;
 	const void *data;
 	bool expunged;
 
@@ -112,12 +111,9 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 	memset(&vmail->imail.data, 0, sizeof(vmail->imail.data));
 	p_clear(vmail->imail.data_pool);
 
-	rec = mail_index_lookup(mbox->ibox.view, seq);
 	vmail->imail.data.seq = seq;
-	vmail->imail.data.flags = rec->flags & MAIL_FLAGS_NONRECENT;
-
 	mail->seq = seq;
-	mail->uid = rec->uid;
+	mail_index_lookup_uid(mbox->ibox.view, seq, &mail->uid);
 
 	mail->expunged = vmail->backend_mail->expunged;
 	mail->has_nuls = vmail->backend_mail->has_nuls;

@@ -69,7 +69,6 @@ struct index_mail_line {
 struct message_header_line;
 
 struct index_mail_data {
-	enum mail_flags flags;
 	time_t date, received_date, save_date;
 	uoff_t virtual_size, physical_size;
 

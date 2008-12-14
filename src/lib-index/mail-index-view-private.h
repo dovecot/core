@@ -26,6 +26,8 @@ struct mail_index_view_vfuncs {
 	void (*lookup_first)(struct mail_index_view *view,
 			     enum mail_flags flags, uint8_t flags_mask,
 			     uint32_t *seq_r);
+	void (*lookup_keywords)(struct mail_index_view *view, uint32_t seq,
+				ARRAY_TYPE(keyword_indexes) *keyword_idx);
 	void (*lookup_ext_full)(struct mail_index_view *view, uint32_t seq,
 				uint32_t ext_id, struct mail_index_map **map_r,
 				const void **data_r, bool *expunged_r);

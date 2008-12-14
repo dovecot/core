@@ -122,12 +122,17 @@ bool index_mail_get_cached_uoff_t(struct index_mail *mail,
 enum mail_flags index_mail_get_flags(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct index_mail_data *data = &mail->data;
+	const struct mail_index_record *rec;
+	enum mail_flags flags;
+
+	rec = mail_index_lookup(mail->trans->trans_view, _mail->seq);
+	flags = rec->flags & (MAIL_FLAGS_NONRECENT |
+			      MAIL_INDEX_MAIL_FLAG_BACKEND);
 
 	if (index_mailbox_is_recent(mail->ibox, _mail->uid))
-		data->flags |= MAIL_RECENT;
+		flags |= MAIL_RECENT;
 
-	return data->flags;
+	return flags;
 }
 
 uint64_t index_mail_get_modseq(struct mail *_mail)
@@ -180,7 +185,8 @@ index_mail_get_keyword_indexes(struct mail *_mail)
 
 	if (!array_is_created(&data->keyword_indexes)) {
 		p_array_init(&data->keyword_indexes, mail->data_pool, 32);
-		mail_index_lookup_keywords(mail->ibox->view, mail->data.seq,
+		mail_index_lookup_keywords(mail->trans->trans_view,
+					   mail->data.seq,
 					   &data->keyword_indexes);
 	}
 	return &data->keyword_indexes;
@@ -1176,7 +1182,6 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	struct index_mail_data *data = &mail->data;
 	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
         struct mail_cache_view *cache_view = mail->trans->cache_view;
-	const struct mail_index_record *rec;
 	struct istream *input;
 
 	if (data->seq == seq)
@@ -1184,13 +1189,11 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 
 	index_mail_reset(mail);
 
-	rec = mail_index_lookup(mail->trans->trans_view, seq);
 	data->seq = seq;
-	data->flags = rec->flags & (MAIL_FLAGS_NONRECENT |
-				    MAIL_INDEX_MAIL_FLAG_BACKEND);
 
 	mail->mail.mail.seq = seq;
-	mail->mail.mail.uid = rec->uid;
+	mail_index_lookup_uid(mail->trans->trans_view, seq,
+			      &mail->mail.mail.uid);
 
 	if (mail_index_view_is_inconsistent(mail->trans->trans_view)) {
 		mail_set_expunged(&mail->mail.mail);
@@ -1394,6 +1397,18 @@ void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 				struct mail_keywords *keywords)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
+
+	if (array_is_created(&imail->data.keyword_indexes))
+		array_free(&imail->data.keyword_indexes);
+	if (array_is_created(&imail->data.keywords)) {
+		/* clear the keywords array so the next mail_get_keywords()
+		   returns the updated keywords. don't free the array, because
+		   then any existing mail_get_keywords() return values would
+		   point to broken data. this won't leak memory because the
+		   array is allocated from mail's memory pool. */
+		memset(&imail->data.keywords, 0,
+		       sizeof(imail->data.keywords));
+	}
 
 	mail_index_update_keywords(imail->trans->trans, mail->seq, modify_type,
 				   keywords);
