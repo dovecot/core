@@ -585,8 +585,8 @@ void client_destroy(struct imap_client *client, const char *reason)
 		client->proxy_password = NULL;
 	}
 
-	i_free(client->proxy_user);
-	client->proxy_user = NULL;
+	i_free_and_null(client->proxy_user);
+	i_free_and_null(client->proxy_master_user);
 
 	if (client->proxy != NULL) {
 		login_proxy_free(client->proxy);

@@ -17,7 +17,7 @@ struct pop3_client {
 	struct timeout *to_idle_disconnect;
 
 	struct login_proxy *proxy;
-	char *proxy_user, *proxy_password;
+	char *proxy_user, *proxy_master_user, *proxy_password;
 	int proxy_state;
 
 	unsigned int bad_counter;

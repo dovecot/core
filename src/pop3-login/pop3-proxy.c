@@ -11,6 +11,19 @@
 #include "client.h"
 #include "pop3-proxy.h"
 
+static void get_plain_auth(struct pop3_client *client, string_t *dest)
+{
+	string_t *str;
+
+	str = t_str_new(128);
+	str_append(str, client->proxy_user);
+	str_append_c(str, '\0');
+	str_append(str, client->proxy_master_user);
+	str_append_c(str, '\0');
+	str_append(str, client->proxy_password);
+	base64_encode(str_data(str), str_len(str), dest);
+}
+
 static void proxy_input(struct istream *input, struct ostream *output,
 			struct pop3_client *client)
 {
@@ -66,31 +79,43 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			return;
 		}
 
-		/* send USER command */
 		str = t_str_new(128);
-		str_append(str, "USER ");
-		str_append(str, client->proxy_user);
-		str_append(str, "\r\n");
+		if (client->proxy_master_user == NULL) {
+			/* send USER command */
+			str_append(str, "USER ");
+			str_append(str, client->proxy_user);
+			str_append(str, "\r\n");
+		} else {
+			/* master user login - use AUTH PLAIN. */
+			str_append(str, "AUTH PLAIN\r\n");
+		}
 		(void)o_stream_send(output, str_data(str), str_len(str));
 
 		client->proxy_state++;
 		return;
 	case 1:
-		if (strncmp(line, "+OK", 3) != 0)
-			break;
-
-		/* USER successful, send PASS */
 		str = t_str_new(128);
-		str_append(str, "PASS ");
-		str_append(str, client->proxy_password);
-		str_append(str, "\r\n");
+		if (client->proxy_master_user == NULL) {
+			if (strncmp(line, "+OK", 3) != 0)
+				break;
+
+			/* USER successful, send PASS */
+			str_append(str, "PASS ");
+			str_append(str, client->proxy_password);
+			str_append(str, "\r\n");
+		} else {
+			if (*line != '+')
+				break;
+			/* AUTH successful, send the authentication data */
+			get_plain_auth(client, str);
+			str_append(str, "\r\n");
+		}
 		(void)o_stream_send(output, str_data(str),
 				    str_len(str));
 
 		safe_memset(client->proxy_password, 0,
 			    strlen(client->proxy_password));
-		i_free(client->proxy_password);
-		client->proxy_password = NULL;
+		i_free_and_null(client->proxy_password);
 
 		client->proxy_state++;
 		return;
@@ -112,6 +137,10 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			/* remote username is different, log it */
 			str_append_c(str, '/');
 			str_append(str, client->proxy_user);
+		}
+		if (client->proxy_master_user != NULL) {
+			str_printfa(str, " (master %s)",
+				    client->proxy_master_user);
 		}
 
 		login_proxy_detach(client->proxy, client->common.input,
@@ -144,6 +173,10 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			str_append_c(str, '/');
 			str_append(str, client->proxy_user);
 		}
+		if (client->proxy_master_user != NULL) {
+			str_printfa(str, " (master %s)",
+				    client->proxy_master_user);
+		}
 		str_append(str, ": ");
 		if (strncmp(line, "-ERR ", 5) == 0)
 			str_append(str, line + 5);
@@ -163,16 +196,16 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	if (client->proxy_password != NULL) {
 		safe_memset(client->proxy_password, 0,
 			    strlen(client->proxy_password));
-		i_free(client->proxy_password);
-		client->proxy_password = NULL;
+		i_free_and_null(client->proxy_password);
 	}
 
-	i_free(client->proxy_user);
-	client->proxy_user = NULL;
+	i_free_and_null(client->proxy_user);
+	i_free_and_null(client->proxy_master_user);
 }
 
 int pop3_proxy_new(struct pop3_client *client, const char *host,
-		   unsigned int port, const char *user, const char *password)
+		   unsigned int port, const char *user, const char *master_user,
+		   const char *password)
 {
 	i_assert(user != NULL);
 	i_assert(!client->destroyed);
@@ -198,6 +231,7 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 
 	client->proxy_state = 0;
 	client->proxy_user = i_strdup(user);
+	client->proxy_master_user = i_strdup(master_user);
 	client->proxy_password = i_strdup(password);
 
 	/* disable input until authentication is finished */

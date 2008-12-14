@@ -17,7 +17,7 @@ struct imap_client {
 	struct timeout *to_idle_disconnect, *to_auth_waiting;
 
 	struct login_proxy *proxy;
-	char *proxy_user, *proxy_password;
+	char *proxy_user, *proxy_master_user, *proxy_password;
 
 	unsigned int bad_counter;
 

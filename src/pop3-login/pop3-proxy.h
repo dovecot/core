@@ -4,6 +4,7 @@
 #include "login-proxy.h"
 
 int pop3_proxy_new(struct pop3_client *client, const char *host,
-		   unsigned int port, const char *user, const char *password);
+		   unsigned int port, const char *user, const char *master_user,
+		   const char *password);
 
 #endif

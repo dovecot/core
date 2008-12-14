@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "base64.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "safe-memset.h"
@@ -46,6 +47,66 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 		    client->common.local_port);
 }
 
+static void proxy_free_password(struct imap_client *client)
+{
+	safe_memset(client->proxy_password, 0, strlen(client->proxy_password));
+	i_free_and_null(client->proxy_password);
+}
+
+static void get_plain_auth(struct imap_client *client, string_t *dest)
+{
+	string_t *str;
+
+	str = t_str_new(128);
+	str_append(str, client->proxy_user);
+	str_append_c(str, '\0');
+	str_append(str, client->proxy_master_user);
+	str_append_c(str, '\0');
+	str_append(str, client->proxy_password);
+	base64_encode(str_data(str), str_len(str), dest);
+}
+
+static int proxy_input_banner(struct imap_client *client,
+			      struct ostream *output, const char *line)
+{
+	string_t *str;
+
+	if (strncmp(line, "* OK ", 5) != 0) {
+		client_syslog(&client->common, t_strdup_printf(
+			"proxy: Remote returned invalid banner: %s",
+			str_sanitize(line, 160)));
+		client_destroy_internal_failure(client);
+		return -1;
+	}
+
+	str = t_str_new(128);
+	if (imap_banner_has_capability(line + 5, "ID"))
+		proxy_write_id(client, str);
+
+	if (client->proxy_master_user == NULL) {
+		/* logging in normally - use LOGIN command */
+		str_append(str, "L LOGIN ");
+		imap_quote_append_string(str, client->proxy_user, FALSE);
+		str_append_c(str, ' ');
+		imap_quote_append_string(str, client->proxy_password, FALSE);
+
+		proxy_free_password(client);
+	} else if (imap_banner_has_capability(line + 5, "SASL-IR")) {
+		/* master user login with SASL initial response support */
+		str_append(str, "L AUTHENTICATE PLAIN ");
+		get_plain_auth(client, str);
+		proxy_free_password(client);
+	} else {
+		/* master user login without SASL initial response */
+		str_append(str, "L AUTHENTICATE PLAIN");
+	}
+
+	str_append(str, "\r\n");
+	(void)o_stream_send(output, str_data(str), str_len(str));
+	client->proxy_login_sent = TRUE;
+	return 0;
+}
+
 static int proxy_input_line(struct imap_client *client,
 			    struct ostream *output, const char *line)
 {
@@ -55,33 +116,17 @@ static int proxy_input_line(struct imap_client *client,
 
 	if (!client->proxy_login_sent) {
 		/* this is a banner */
-		if (strncmp(line, "* OK ", 5) != 0) {
-			client_syslog(&client->common, t_strdup_printf(
-				"proxy: Remote returned invalid banner: %s",
-				str_sanitize(line, 160)));
-			client_destroy_internal_failure(client);
-			return -1;
-		}
-
+		return proxy_input_banner(client, output, line);
+	} else if (*line == '+') {
+		/* AUTHENTICATE started. finish it. */
 		str = t_str_new(128);
-		if (imap_banner_has_capability(line + 5, "ID"))
-			proxy_write_id(client, str);
-
-		/* send LOGIN command */
-		str_append(str, "P LOGIN ");
-		imap_quote_append_string(str, client->proxy_user, FALSE);
-		str_append_c(str, ' ');
-		imap_quote_append_string(str, client->proxy_password, FALSE);
+		get_plain_auth(client, str);
 		str_append(str, "\r\n");
-		(void)o_stream_send(output, str_data(str), str_len(str));
+		proxy_free_password(client);
 
-		safe_memset(client->proxy_password, 0,
-			    strlen(client->proxy_password));
-		i_free(client->proxy_password);
-		client->proxy_password = NULL;
-		client->proxy_login_sent = TRUE;
+		(void)o_stream_send(output, str_data(str), str_len(str));
 		return 0;
-	} else if (strncmp(line, "P OK ", 5) == 0) {
+	} else if (strncmp(line, "L OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
 		str = t_str_new(128);
 		str_append(str, client->cmd_tag);
@@ -101,6 +146,10 @@ static int proxy_input_line(struct imap_client *client,
 			str_append_c(str, '/');
 			str_append(str, client->proxy_user);
 		}
+		if (client->proxy_master_user != NULL) {
+			str_printfa(str, " (master %s)",
+				    client->proxy_master_user);
+		}
 
 		(void)client_skip_line(client);
 		login_proxy_detach(client->proxy, client->common.input,
@@ -112,7 +161,7 @@ static int proxy_input_line(struct imap_client *client,
 		client->common.fd = -1;
 		client_destroy_success(client, str_c(str));
 		return -1;
-	} else if (strncmp(line, "P ", 2) == 0) {
+	} else if (strncmp(line, "L ", 2) == 0) {
 		/* If the backend server isn't Dovecot, the error message may
 		   be different from Dovecot's "user doesn't exist" error. This
 		   would allow an attacker to find out what users exist in the
@@ -140,6 +189,10 @@ static int proxy_input_line(struct imap_client *client,
 				str_append_c(str, '/');
 				str_append(str, client->proxy_user);
 			}
+			if (client->proxy_master_user != NULL) {
+				str_printfa(str, " (master %s)",
+					    client->proxy_master_user);
+			}
 			str_append(str, ": ");
 			if (strncasecmp(line + 2, "NO ", 3) == 0)
 				str_append(str, line + 2 + 3);
@@ -156,8 +209,8 @@ static int proxy_input_line(struct imap_client *client,
 		login_proxy_free(client->proxy);
 		client->proxy = NULL;
 
-		i_free(client->proxy_user);
-		client->proxy_user = NULL;
+		i_free_and_null(client->proxy_user);
+		i_free_and_null(client->proxy_master_user);
 		return -1;
 	} else {
 		/* probably some untagged reply */
@@ -210,7 +263,8 @@ static void proxy_input(struct istream *input, struct ostream *output,
 }
 
 int imap_proxy_new(struct imap_client *client, const char *host,
-		   unsigned int port, const char *user, const char *password)
+		   unsigned int port, const char *user, const char *master_user,
+		   const char *password)
 {
 	i_assert(user != NULL);
 	i_assert(!client->destroyed);
@@ -236,6 +290,7 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 
 	client->proxy_login_sent = FALSE;
 	client->proxy_user = i_strdup(user);
+	client->proxy_master_user = i_strdup(master_user);
 	client->proxy_password = i_strdup(password);
 
 	/* disable input until authentication is finished */

@@ -145,10 +145,19 @@ static void get_client_extra_fields(struct auth_request *request,
 		}
 	}
 
-	if (request->proxy && !seen_pass && request->mech_password != NULL) {
-		/* we're proxying - send back the password that was
-		   sent by user (not the password in passdb). */
-		auth_stream_reply_add(reply, "pass", request->mech_password);
+	if (request->proxy) {
+		/* we're proxying */
+		if (!seen_pass && request->mech_password != NULL) {
+			/* send back the password that was sent by user
+			   (not the password in passdb). */
+			auth_stream_reply_add(reply, "pass",
+					      request->mech_password);
+		}
+		if (request->master_user != NULL) {
+			/* the master username needs to be forwarded */
+			auth_stream_reply_add(reply, "master",
+					      request->master_user);
+		}
 	}
 }
 

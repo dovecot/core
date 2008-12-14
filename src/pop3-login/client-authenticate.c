@@ -86,6 +86,7 @@ static bool client_handle_args(struct pop3_client *client,
 			       const char *const *args, bool success)
 {
 	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
+	const char *master_user = NULL;
 	string_t *reply;
 	unsigned int port = 110;
 	bool proxy = FALSE, temp = FALSE, nologin = !success;
@@ -107,6 +108,8 @@ static bool client_handle_args(struct pop3_client *client,
 			destuser = *args + 9;
 		else if (strncmp(*args, "pass=", 5) == 0)
 			pass = *args + 5;
+		else if (strncmp(*args, "master=", 7) == 0)
+			master_user = *args + 7;
 		else if (strncmp(*args, "user=", 5) == 0) {
 			/* already handled in login-common */
 		} else if (auth_debug) {
@@ -127,7 +130,8 @@ static bool client_handle_args(struct pop3_client *client,
 		   proxy host=.. [port=..] [destuser=..] pass=.. */
 		if (!success)
 			return FALSE;
-		if (pop3_proxy_new(client, host, port, destuser, pass) < 0)
+		if (pop3_proxy_new(client, host, port, destuser, master_user,
+				   pass) < 0)
 			client_destroy_internal_failure(client);
 		return TRUE;
 	}
