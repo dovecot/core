@@ -16,6 +16,7 @@ struct mail_index_view_transaction {
 	struct mail_index_map *lookup_map;
 	struct mail_index_header hdr;
 	buffer_t *lookup_return_data;
+	uint32_t lookup_prev_seq;
 };
 
 static void tview_close(struct mail_index_view *view)
@@ -201,13 +202,14 @@ tview_get_lookup_map(struct mail_index_view_transaction *tview)
 
 static const void *
 tview_return_updated_ext(struct mail_index_view_transaction *tview,
-			 const void *data, uint32_t ext_id)
+			 uint32_t seq, const void *data, uint32_t ext_id)
 {
 	const struct mail_index_ext *ext;
 	const struct mail_index_registered_ext *rext;
 	const struct mail_transaction_ext_intro *intro;
 	unsigned int record_align, record_size;
 	uint32_t ext_idx;
+	size_t pos;
 
 	/* data begins with a 32bit sequence, followed by the actual
 	   extension data */
@@ -244,9 +246,15 @@ tview_return_updated_ext(struct mail_index_view_transaction *tview,
 			tview->lookup_return_data =
 				buffer_create_dynamic(default_pool,
 						      record_size + 64);
+		} else if (seq != tview->lookup_prev_seq) {
+			/* clear the buffer between lookups for different
+			   messages */
+			buffer_set_used_size(tview->lookup_return_data, 0);
 		}
-		buffer_write(tview->lookup_return_data, 0, data, record_size);
-		return tview->lookup_return_data->data;
+		tview->lookup_prev_seq = seq;
+		pos = tview->lookup_return_data->used;
+		buffer_append(tview->lookup_return_data, data, record_size);
+		return CONST_PTR_OFFSET(tview->lookup_return_data->data, pos);
 	}
 }
 
@@ -274,7 +282,7 @@ tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		    mail_index_seq_array_lookup(ext_buf, seq, &idx)) {
 			data = array_idx(ext_buf, idx);
 			*map_r = tview_get_lookup_map(tview);
-			*data_r = tview_return_updated_ext(tview, data,
+			*data_r = tview_return_updated_ext(tview, seq, data,
 							   ext_id);
 			return;
 		}
