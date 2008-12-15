@@ -1287,13 +1287,20 @@ static void maildir_uidlist_mark_all(struct maildir_uidlist *uidlist,
 	}
 }
 
-int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
-			      enum maildir_uidlist_sync_flags sync_flags,
-			      struct maildir_uidlist_sync_ctx **sync_ctx_r)
+static int maildir_uidlist_sync_lock(struct maildir_uidlist *uidlist,
+				     enum maildir_uidlist_sync_flags sync_flags,
+				     bool *locked_r)
 {
-	struct maildir_uidlist_sync_ctx *ctx;
-	bool nonblock, refresh, locked;
+	bool nonblock, refresh;
 	int ret;
+
+	*locked_r = FALSE;
+
+	if ((sync_flags & MAILDIR_UIDLIST_SYNC_NOLOCK) != 0) {
+		if (maildir_uidlist_refresh(uidlist) < 0)
+			return -1;
+		return 1;
+	}
 
 	nonblock = (sync_flags & MAILDIR_UIDLIST_SYNC_TRYLOCK) != 0;
 	refresh = (sync_flags & MAILDIR_UIDLIST_SYNC_NOREFRESH) == 0;
@@ -1309,10 +1316,23 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 		/* forcing the sync anyway */
 		if (maildir_uidlist_refresh(uidlist) < 0)
 			return -1;
-		locked = FALSE;
 	} else {
-		locked = TRUE;
+		*locked_r = TRUE;
 	}
+	return 1;
+}
+
+int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
+			      enum maildir_uidlist_sync_flags sync_flags,
+			      struct maildir_uidlist_sync_ctx **sync_ctx_r)
+{
+	struct maildir_uidlist_sync_ctx *ctx;
+	bool locked;
+	int ret;
+
+	ret = maildir_uidlist_sync_lock(uidlist, sync_flags, &locked);
+	if (ret <= 0)
+		return ret;
 
 	*sync_ctx_r = ctx = i_new(struct maildir_uidlist_sync_ctx, 1);
 	ctx->uidlist = uidlist;

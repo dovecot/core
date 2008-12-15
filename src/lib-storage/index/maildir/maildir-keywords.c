@@ -194,9 +194,6 @@ maildir_keywords_lookup(struct maildir_keywords *mk, const char *name)
 {
 	void *p;
 
-	i_assert(mk->mbox == NULL ||
-		 maildir_uidlist_is_locked(mk->mbox->uidlist));
-
 	p = hash_lookup(mk->hash, name);
 	if (p == NULL) {
 		if (mk->synced)
@@ -256,6 +253,9 @@ maildir_keywords_lookup_or_create(struct maildir_keywords *mk, const char *name)
 	if (i == count && count >= MAILDIR_MAX_KEYWORDS)
 		return -1;
 
+	if (!maildir_uidlist_is_locked(mk->mbox->uidlist))
+		return -1;
+
         maildir_keywords_create(mk, name, i);
 	return i;
 }
@@ -265,9 +265,6 @@ maildir_keywords_idx(struct maildir_keywords *mk, unsigned int idx)
 {
 	const char *const *keywords;
 	unsigned int count;
-
-	i_assert(mk->mbox == NULL ||
-		 maildir_uidlist_is_locked(mk->mbox->uidlist));
 
 	keywords = array_get(&mk->list, &count);
 	if (idx >= count) {

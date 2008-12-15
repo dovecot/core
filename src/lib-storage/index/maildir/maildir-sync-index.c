@@ -105,15 +105,15 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	return -1;
 }
 
-static void maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
-					 enum maildir_uidlist_rec_flag uflags,
-					 const char *filename, uint32_t uid)
+static int maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
+					enum maildir_uidlist_rec_flag uflags,
+					const char *filename, uint32_t uid)
 {
 	int ret;
 
 	if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
 		/* partial syncing */
-		return;
+		return 0;
 	}
 
 	/* most likely a race condition: we read the maildir, then someone else
@@ -124,7 +124,7 @@ static void maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 		ctx->mbox->maildir_hdr.cur_check_time = 0;
 		maildir_uidlist_add_flags(ctx->mbox->uidlist, filename,
 					  MAILDIR_UIDLIST_REC_FLAG_RACING);
-		return;
+		return 0;
 	}
 
 	if (ctx->uidlist_sync_ctx == NULL) {
@@ -132,7 +132,8 @@ static void maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 						MAILDIR_UIDLIST_SYNC_PARTIAL |
 						MAILDIR_UIDLIST_SYNC_KEEP_STATE,
 						&ctx->uidlist_sync_ctx);
-		i_assert(ret > 0);
+		if (ret <= 0)
+			return -1;
 	}
 
 	uflags &= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
@@ -146,6 +147,7 @@ static void maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 
 	i_warning("Maildir %s: Expunged message reappeared, giving a new UID "
 		  "(old uid=%u, file=%s)", ctx->mbox->path, uid, filename);
+	return 0;
 }
 
 int maildir_sync_index_begin(struct maildir_mailbox *mbox,
@@ -283,7 +285,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	bool expunged, full_rescan = FALSE;
 
 	i_assert(!mbox->syncing_commit);
-	i_assert(maildir_uidlist_is_locked(mbox->uidlist));
 
 	first_uid = 1;
 	hdr = mail_index_get_header(view);
@@ -328,8 +329,10 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 		if (seq > hdr->messages_count) {
 			if (uid < hdr_next_uid) {
-				maildir_handle_uid_insertion(ctx, uflags,
-							     filename, uid);
+				if (maildir_handle_uid_insertion(ctx, uflags,
+								 filename,
+								 uid) < 0)
+					ret = -1;
 				seq--;
 				continue;
 			}
@@ -367,8 +370,9 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		}
 
 		if (uid < rec->uid) {
-			maildir_handle_uid_insertion(ctx, uflags,
-						     filename, uid);
+			if (maildir_handle_uid_insertion(ctx, uflags,
+							 filename, uid) < 0)
+				ret = -1;
 			seq--;
 			continue;
 		}

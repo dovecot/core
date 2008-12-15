@@ -670,7 +670,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 {
 	enum maildir_uidlist_sync_flags sync_flags;
 	enum maildir_uidlist_rec_flag flags;
-	bool new_changed, cur_changed;
+	bool new_changed, cur_changed, lock_failure;
 	int ret;
 
 	*lost_files_r = FALSE;
@@ -741,15 +741,39 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	}
 	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags,
 					&ctx->uidlist_sync_ctx);
+	lock_failure = ret <= 0;
 	if (ret <= 0) {
-		/* failure / timeout */
-		return ret;
+		struct mail_storage *storage = ctx->mbox->ibox.box.storage;
+
+		if (ret == 0) {
+			/* timeout */
+			return 0;
+		}
+		/* locking failed. sync anyway without locking so that it's
+		   possible to expunge messages when out of quota. */
+		if (forced) {
+			/* we're already forcing a sync, we're trying to find
+			   a message that was probably already expunged, don't
+			   loop for a long time trying to find it. */
+			return -1;
+		}
+		ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags |
+						MAILDIR_UIDLIST_SYNC_NOLOCK,
+						&ctx->uidlist_sync_ctx);
+		i_assert(ret > 0);
+
+		if (storage->callbacks->notify_no != NULL) {
+			storage->callbacks->notify_no(&ctx->mbox->ibox.box,
+				"Internal mailbox synchronization failure, "
+				"showing only old mails.",
+				storage->callback_context);
+		}
 	}
 	ctx->locked = maildir_uidlist_is_locked(ctx->mbox->uidlist);
 	if (!ctx->locked)
 		ctx->partial = TRUE;
 
-	if (!ctx->mbox->syncing_commit && ctx->locked) {
+	if (!ctx->mbox->syncing_commit && (ctx->locked || lock_failure)) {
 		if (maildir_sync_index_begin(ctx->mbox, ctx,
 					     &ctx->index_sync_ctx) < 0)
 			return -1;
@@ -787,7 +811,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		ctx->mbox->maildir_hdr.cur_mtime = 0;
 	}
 
-	if (!ctx->mbox->syncing_commit && ctx->locked) {
+	if (ctx->index_sync_ctx != NULL) {
 		/* NOTE: index syncing here might cause a re-sync due to
 		   files getting lost, so this function might be called
 		   re-entrantly. */
@@ -801,7 +825,8 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		if (ret == 0)
 			*lost_files_r = TRUE;
 
-		i_assert(maildir_uidlist_is_locked(ctx->mbox->uidlist));
+		i_assert(maildir_uidlist_is_locked(ctx->mbox->uidlist) ||
+			 lock_failure);
 	}
 
 	if (find_uid != NULL && *find_uid != 0) {
