@@ -1,6 +1,11 @@
- - solr: escape '/' in usernames
+ - i_panic("Message count decreased") happens - why?
+ - fts-solr: handle DELETE, RENAME
+ - fsck -> log_file_tail_offset 2273345664 -> 996 ->
+   mail-transaction-log.c: line 341 (mail_transaction_log_set_mailbox_sync_pos):
+   assertion failed: (file_offset >= log->head->saved_tail_offset)
  - virtual: "Searched n% of the mailbox" gives broken numbers since
-   ctx->seq jumps around
+   ctx->seq jumps around. And why is it also returned when fts is enabled
+   along with "Indexed n% of the mailbox"?
  - how do shared mailboxes work with plugins?
     - expire: not too well. would require knowing the mapping between shared
       namespace and the original user's namespace to avoid duplication.
@@ -11,13 +16,10 @@
     - read the entire file to memory only once and keep it there, stat() later
       to see if it has changed. if not, perhaps don't even bother stat()ing
       dovecot-acl files? at least not that often..
- - virtual mailboxes search: search index-only stuff first. save all incomplete
-   results to a list. sort the list by backend mailbox + backend UID. search
-   the stuff in that order. somehow make fts searches work by doing the search
-   for each backend mailbox rather than for the virtual mailbox
  - virtual mailboxes: backend mailbox where to save mails if they're tried to
    be saved to the virtual mailbox.
  - acl example in wiki with acl_dict = file:/var/mail/%d/dovecot.shared
+  - with list=children
  - change auth_worker_max_request_count to non-zero by default? at least with
    PAM it should be non-zero.. perhaps remove the entire setting and make it
    a pam args?
@@ -42,7 +44,6 @@
  - expire plugin: log more with mail_debug=yes
   - expire-tool -v could log UID and expire timestamps and what messages got
     expunged
- - mbox + in-memory indexes give errors with stress testing
  - dict quota: syncing may cause quota recalculation, which in turn syncs
    all mailboxes and then we'll assert-crash to avoid infinite looping
  - fts-squat: support ORs
@@ -118,7 +119,6 @@
    - UID renumbering doesn't really work after all?
    - still problems with CRLF mboxes..
 
- - mail_log: log appends. support from and subject fields
  - proxy: If remote server disconnects on login:
    login: tried to change state 2 -> 2
  - logging consistency:
@@ -156,10 +156,6 @@
       more space. all this to avoid cache file growing infinitely.
 
  - mbox
-    - dirty state should be stored to index (with mbox_very_dirty_syncs)
-    - after some locking timeouts: mbox-lock.c: line 518 (mbox_lock):
-      assertion failed: (lock_type == F_RDLCK || mbox->mbox_lock_type != F_RDLCK)
-    - controldir for mboxes too and place subscriptions file there?
     - syncing existing indexes takes 4x longer than creating new one, why?
     - how well does dirty sync + status work? it reads the last mail every
       time? not very good..
@@ -169,8 +165,6 @@
       in the file
     - Quote "From ", unquote ">From "
     - COPY doesn't work to itself (lock assert crash, for now just disallowed)
-    - if we can't create dotlock file for mbox, make sure it still can be
-      selected in read-only state
 
  - index
     - read-only support for mailboxes where we don't have write-access
