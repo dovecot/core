@@ -25,12 +25,13 @@ struct mail_user *mail_user_init(const char *username)
 	pool_t pool;
 
 	i_assert(username != NULL);
+	i_assert(*username != '\0');
 
 	pool = pool_alloconly_create("mail user", 512);
 	user = p_new(pool, struct mail_user, 1);
 	user->pool = pool;
 	user->refcount = 1;
-	user->username = p_strdup_empty(pool, username);
+	user->username = p_strdup(pool, username);
 	user->v.deinit = mail_user_deinit_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
 
