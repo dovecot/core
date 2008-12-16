@@ -995,6 +995,9 @@ int main(int argc, char *argv[])
 			i_set_failure_prefix(t_strdup_printf("deliver(%s): ",
 							     user));
 		}
+		/* if user was changed, it was allocated from userdb_pool
+		   which we'll free soon. */
+		user = t_strdup(user);
 	}
 
 	expand_envs(user);
