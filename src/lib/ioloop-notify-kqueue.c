@@ -63,7 +63,7 @@ static void event_callback(struct ioloop_notify_handler_context *ctx)
 
 	for (i = 0; i < ret; i++) {
 		io = (void *)events[i].udata;
-		i_assert(io->refcount == 1);
+		i_assert(io->refcount >= 1);
 		io->refcount++;
 	}
 	for (i = 0; i < ret; i++) {
