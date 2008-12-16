@@ -221,7 +221,6 @@ struct auth_settings {
 
 	unsigned int count;
 	unsigned int worker_max_count;
-	unsigned int worker_max_request_count;
 	unsigned int process_size;
 
 	/* .. */

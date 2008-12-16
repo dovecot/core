@@ -31,7 +31,7 @@
 #include <sys/stat.h>
 
 struct ioloop *ioloop;
-bool standalone = FALSE, worker = FALSE;
+bool standalone = FALSE, worker = FALSE, shutdown_request = FALSE;
 time_t process_start_time;
 
 static struct module *modules = NULL;

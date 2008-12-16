@@ -81,6 +81,14 @@ add_userdb_replies(struct auth_stream_reply *reply,
 	}
 }
 
+static void auth_worker_send_reply(struct auth_worker_client *client,
+				   string_t *str)
+{
+	if (shutdown_request)
+		o_stream_send_str(client->output, "SHUTDOWN\n");
+	o_stream_send(client->output, str_data(str), str_len(str));
+}
+
 static void verify_plain_callback(enum passdb_result result,
 				  struct auth_request *request)
 {
@@ -118,7 +126,7 @@ static void verify_plain_callback(enum passdb_result result,
 	}
 	str = auth_stream_reply_get_str(reply);
 	str_append_c(str, '\n');
-	o_stream_send(client->output, str_data(str), str_len(str));
+	auth_worker_send_reply(client, str);
 
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
@@ -217,7 +225,7 @@ lookup_credentials_callback(enum passdb_result result,
 	}
 	str = auth_stream_reply_get_str(reply);
 	str_append_c(str, '\n');
-	o_stream_send(client->output, str_data(str), str_len(str));
+	auth_worker_send_reply(client, str);
 
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
@@ -282,7 +290,7 @@ set_credentials_callback(bool success, struct auth_request *request)
 
 	str = t_str_new(64);
 	str_printfa(str, "%u\t%s\n", request->id, success ? "OK" : "FAIL");
-	o_stream_send(client->output, str_data(str), str_len(str));
+	auth_worker_send_reply(client, str);
 
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
@@ -357,7 +365,7 @@ lookup_user_callback(enum userdb_result result,
 	}
 	str_append_c(str, '\n');
 
-	o_stream_send(client->output, str_data(str), str_len(str));
+	auth_worker_send_reply(client, str);
 
 	auth_request_unref(&auth_request);
 	auth_worker_client_check_throttle(client);

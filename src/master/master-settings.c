@@ -94,7 +94,6 @@ static struct setting_def auth_setting_defs[] = {
 
 	DEF_INT(count),
 	DEF_INT(worker_max_count),
-	DEF_INT(worker_max_request_count),
 	DEF_INT(process_size),
 
 	{ 0, NULL, 0 }
@@ -332,7 +331,6 @@ struct auth_settings default_auth_settings = {
 
 	MEMBER(count) 1,
 	MEMBER(worker_max_count) 30,
-	MEMBER(worker_max_request_count) 0,
 	MEMBER(process_size) 256,
 
 	/* .. */

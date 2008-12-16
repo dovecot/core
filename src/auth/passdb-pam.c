@@ -42,10 +42,13 @@
 #endif
 typedef linux_const void *pam_item_t;
 
+#define PASSDB_PAM_DEFAULT_MAX_REQUESTS 100
+
 struct pam_passdb_module {
 	struct passdb_module module;
 
 	const char *service_name, *pam_cache_key;
+	unsigned int requests_left;
 
 	unsigned int pam_setcred:1;
 	unsigned int pam_session:1;
@@ -309,6 +312,11 @@ pam_verify_plain(struct auth_request *request, const char *password,
 	string_t *expanded_service;
 	const char *service;
 
+	if (module->requests_left > 0) {
+		if (--module->requests_left == 0)
+			shutdown_request = TRUE;
+	}
+
 	expanded_service = t_str_new(64);
 	var_expand(expanded_service, module->service_name,
 		   auth_request_get_var_expand_table(request, NULL));
@@ -333,6 +341,7 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 	   given by the auth mechanism */
 	module->module.default_pass_scheme = "PLAIN";
 	module->module.blocking = TRUE;
+	module->requests_left = PASSDB_PAM_DEFAULT_MAX_REQUESTS;
 
 	t_args = t_strsplit_spaces(args, " ");
 	for(i = 0; t_args[i] != NULL; i++) {
@@ -353,6 +362,8 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 		} else if (strcmp(t_args[i], "*") == 0) {
 			/* for backwards compatibility */
 			module->service_name = "%Ls";
+		} else if (strncmp(t_args[i], "max_requests=", 13) == 0) {
+			module->requests_left = atoi(t_args[i] + 13);
 		} else if (t_args[i+1] == NULL) {
 			module->service_name =
 				p_strdup(auth_passdb->auth->pool, t_args[i]);

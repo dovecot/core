@@ -35,16 +35,15 @@ struct auth_worker_connection {
 	struct ostream *output;
 	struct timeout *to;
 
+	struct auth_worker_request *request;
 	unsigned int id_counter;
-        struct auth_worker_request *request;
 
-	unsigned int requests_left;
+	unsigned int shutdown:1;
 };
 
 static ARRAY_DEFINE(connections, struct auth_worker_connection *) = ARRAY_INIT;
 static unsigned int idle_count;
 static unsigned int auth_workers_max;
-static unsigned int auth_workers_max_request_count;
 
 static ARRAY_DEFINE(worker_request_array, struct auth_worker_request *);
 static struct aqueue *worker_request_queue;
@@ -78,8 +77,6 @@ static void auth_worker_request_send(struct auth_worker_connection *conn,
 {
 	struct const_iovec iov[3];
 
-	i_assert(conn->requests_left > 0);
-
 	if (ioloop_time - request->created > AUTH_WORKER_DELAY_WARN_SECS &&
 	    ioloop_time - auth_worker_last_warn >
 	    AUTH_WORKER_DELAY_WARN_MIN_INTERVAL_SECS) {
@@ -102,7 +99,6 @@ static void auth_worker_request_send(struct auth_worker_connection *conn,
 	o_stream_sendv(conn->output, iov, 3);
 
 	conn->request = request;
-	conn->requests_left--;
 
 	timeout_remove(&conn->to);
 	conn->to = timeout_add(AUTH_WORKER_LOOKUP_TIMEOUT_SECS * 1000,
@@ -163,7 +159,6 @@ static struct auth_worker_connection *auth_worker_create(void)
 					 FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->io = io_add(fd, IO_READ, worker_input, conn);
-	conn->requests_left = auth_workers_max_request_count;
 	conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
 			       auth_worker_idle_timeout, conn);
 
@@ -272,6 +267,10 @@ static void worker_input(struct auth_worker_connection *conn)
 	}
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
+		if (strcmp(line, "SHUTDOWN") == 0) {
+			conn->shutdown = TRUE;
+			continue;
+		}
 		id_str = line;
 		line = strchr(line, '\t');
 		if (line == NULL)
@@ -295,7 +294,7 @@ static void worker_input(struct auth_worker_connection *conn)
 		}
 	}
 
-	if (conn->requests_left == 0)
+	if (conn->shutdown && conn->request == NULL)
 		auth_worker_destroy(&conn, "Max requests limit", TRUE);
 	else
 		auth_worker_request_send_next(conn);
@@ -353,13 +352,6 @@ void auth_worker_server_init(void)
 	if (env == NULL)
 		i_fatal("AUTH_WORKER_MAX_COUNT environment not set");
 	auth_workers_max = atoi(env);
-
-	env = getenv("AUTH_WORKER_MAX_REQUEST_COUNT");
-	if (env == NULL)
-		i_fatal("AUTH_WORKER_MAX_REQUEST_COUNT environment not set");
-	auth_workers_max_request_count = atoi(env);
-	if (auth_workers_max_request_count == 0)
-		auth_workers_max_request_count = (unsigned int)-1;
 
 	i_array_init(&worker_request_array, 128);
 	worker_request_queue = aqueue_init(&worker_request_array.arr);
