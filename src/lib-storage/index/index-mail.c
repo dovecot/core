@@ -1181,7 +1181,8 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
-        struct mail_cache_view *cache_view = mail->trans->cache_view;
+	struct mail_cache_view *cache_view = mail->trans->cache_view;
+	const struct mail_index_header *hdr;
 	struct istream *input;
 
 	if (data->seq == seq)
@@ -1287,7 +1288,11 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		if ((mail->wanted_fields & MAIL_FETCH_STREAM_BODY) != 0)
 			data->access_part |= READ_BODY;
 
-		(void)mail_get_stream(_mail, NULL, NULL, &input);
+		/* open the stream only if we didn't get here from
+		   mailbox_save_init() */
+		hdr = mail_index_get_header(mail->ibox->view);
+		if (_mail->uid != 0 && _mail->uid < hdr->next_uid)
+			(void)mail_get_stream(_mail, NULL, NULL, &input);
 	}
 }
 
