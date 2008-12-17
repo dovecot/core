@@ -1,3 +1,17 @@
+ - proxying: support fallbacking to local (or other?) server if the first
+   one is down
+user_attrs {
+  uid = %{ldap:uidNumber}
+  home = %{ldap:homeDirectory}
+  quota_bytes = *:bytes=%{ldap:quota}
+}
+
+fts_solr: select() failed: Interrupted system call
+fts_solr: Indexing failed: (null)
+
+imap(tss)(pid=12890): Error: dovecot-acl-list creation failed:
+safe_mkstemp(/usr/local/var/run/dovecot/user-not-found/test/temp.hurina.12890.87eb6b37b351b733) failed: No such file or directory
+
  - i_panic("Message count decreased") happens - why?
  - fts-solr: handle DELETE, RENAME
  - fsck -> log_file_tail_offset 2273345664 -> 996 ->
@@ -102,8 +116,6 @@
  - maildir
    - don't allow more than 26 keywords
    - physical separator could be configurable
-   - setting flags to same as they already are causes unnecessary
-     rename()s with identical parameters
    - deliver+maildir: if new mails are in new/ or cur/ they're not added to
      dovecot-uidlist but newly saved mails are, so UIDs will be in wrong order
    - maildir_copy_with_hardlinks: We're currently first hardlinking to tmp/ and

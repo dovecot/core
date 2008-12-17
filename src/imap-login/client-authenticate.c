@@ -352,8 +352,8 @@ int cmd_login(struct imap_client *client, const struct imap_arg *args)
 		client->common.auth_tried_disabled_plaintext = TRUE;
 		client->common.auth_attempts++;
 		client_send_line(client,
-			"* BAD [ALERT] Plaintext authentication is disabled, "
-			"but your client sent password in plaintext anyway. "
+			"* BAD [ALERT] Plaintext authentication not allowed "
+			"without SSL/TLS, but your client did it anyway. "
 			"If anyone was listening, the password was exposed.");
 		client_send_tagline(client, "NO ["IMAP_RESP_CODE_CLIENTBUG"] "
 				    AUTH_PLAINTEXT_DISABLED_MSG);
