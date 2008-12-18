@@ -434,7 +434,16 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	case MAIL_FETCH_UIDL_BACKEND:
 		uidl = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 					MAILDIR_UIDLIST_REC_EXT_POP3_UIDL);
-		*value_r = uidl != NULL ? uidl : "";
+		if (uidl == NULL) {
+			/* use the default */
+			*value_r = "";
+		} else if (*uidl == '\0') {
+			/* special optimization case: use the base file name */
+			return maildir_mail_get_special(_mail,
+					MAIL_FETCH_UIDL_FILE_NAME, value_r);
+		} else {
+			*value_r = uidl;
+		}
 		return 0;
 	default:
 		return index_mail_get_special(_mail, field, value_r);
