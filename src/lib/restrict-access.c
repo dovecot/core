@@ -11,6 +11,7 @@
 
 #include <stdlib.h>
 #include <time.h>
+#include <pwd.h>
 #include <grp.h>
 
 static gid_t process_primary_gid = (gid_t)-1;
@@ -49,6 +50,28 @@ void restrict_access_set_env(const char *user, uid_t uid,
 	}
 }
 
+static const char *get_uid_str(uid_t uid)
+{
+	const struct passwd *pw;
+
+	pw = getpwuid(uid);
+	if (pw == NULL)
+		return dec2str(uid);
+	else
+		return t_strdup_printf("%s(%s)", dec2str(uid), pw->pw_name);
+}
+
+static const char *get_gid_str(gid_t gid)
+{
+	const struct group *group;
+
+	group = getgrgid(gid);
+	if (group == NULL)
+		return dec2str(gid);
+	else
+		return t_strdup_printf("%s(%s)", dec2str(gid), group->gr_name);
+}
+
 static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid)
 {
 	if (privileged_gid == (gid_t)-1) {
@@ -60,8 +83,8 @@ static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid)
 		if (setgid(primary_gid) != 0) {
 			i_fatal("setgid(%s) failed with euid=%s, "
 				"gid=%s, egid=%s: %m",
-				dec2str(primary_gid), dec2str(geteuid()),
-				dec2str(getgid()), dec2str(getegid()));
+				get_gid_str(primary_gid), get_uid_str(geteuid()),
+				get_gid_str(getgid()), get_gid_str(getegid()));
 		}
 		return;
 	}
@@ -76,23 +99,23 @@ static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid)
 #ifdef HAVE_SETRESGID
 	if (setresgid(primary_gid, primary_gid, privileged_gid) != 0) {
 		i_fatal("setresgid(%s,%s,%s) failed with euid=%s: %m",
-			dec2str(primary_gid), dec2str(primary_gid),
-			dec2str(privileged_gid), dec2str(geteuid()));
+			get_gid_str(primary_gid), get_gid_str(primary_gid),
+			get_gid_str(privileged_gid), get_uid_str(geteuid()));
 	}
 #else
 	if (geteuid() == 0) {
 		/* real, effective, saved -> privileged_gid */
 		if (setgid(privileged_gid) < 0) {
 			i_fatal("setgid(%s) failed: %m",
-				dec2str(privileged_gid));
+				get_gid_str(privileged_gid));
 		}
 	}
 	/* real, effective -> primary_gid
 	   saved -> keep */
 	if (setregid(primary_gid, primary_gid) != 0) {
 		i_fatal("setregid(%s,%s) failed with euid=%s: %m",
-			dec2str(primary_gid), dec2str(privileged_gid),
-			dec2str(geteuid()));
+			get_gid_str(primary_gid), get_gid_str(privileged_gid),
+			get_uid_str(geteuid()));
 	}
 #endif
 }
@@ -249,7 +272,7 @@ void restrict_access_by_env(bool disallow_root)
 	if (env != NULL && *env != '\0' && is_root) {
 		if (initgroups(env, process_primary_gid) < 0) {
 			i_fatal("initgroups(%s, %s) failed: %m",
-				env, dec2str(process_primary_gid));
+				env, get_gid_str(process_primary_gid));
 		}
 		preserve_groups = TRUE;
 	}
@@ -291,7 +314,7 @@ void restrict_access_by_env(bool disallow_root)
 	if (uid != 0) {
 		if (setuid(uid) != 0) {
 			i_fatal("setuid(%s) failed with euid=%s: %m",
-				dec2str(uid), dec2str(geteuid()));
+				get_uid_str(uid), get_uid_str(geteuid()));
 		}
 	}
 
@@ -318,8 +341,8 @@ void restrict_access_by_env(bool disallow_root)
 				i_fatal("GID 0 isn't permitted");
 			i_fatal("We couldn't drop root group privileges "
 				"(wanted=%s, gid=%s, egid=%s)",
-				dec2str(process_primary_gid),
-				dec2str(getgid()), dec2str(getegid()));
+				get_gid_str(process_primary_gid),
+				get_gid_str(getgid()), get_gid_str(getegid()));
 		}
 	}
 
