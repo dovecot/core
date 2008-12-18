@@ -53,23 +53,31 @@ void restrict_access_set_env(const char *user, uid_t uid,
 static const char *get_uid_str(uid_t uid)
 {
 	const struct passwd *pw;
+	const char *ret;
+	int old_errno = errno;
 
 	pw = getpwuid(uid);
 	if (pw == NULL)
-		return dec2str(uid);
+		ret = dec2str(uid);
 	else
-		return t_strdup_printf("%s(%s)", dec2str(uid), pw->pw_name);
+		ret = t_strdup_printf("%s(%s)", dec2str(uid), pw->pw_name);
+	errno = old_errno;
+	return ret;
 }
 
 static const char *get_gid_str(gid_t gid)
 {
 	const struct group *group;
+	const char *ret;
+	int old_errno = errno;
 
 	group = getgrgid(gid);
 	if (group == NULL)
-		return dec2str(gid);
+		ret = dec2str(gid);
 	else
-		return t_strdup_printf("%s(%s)", dec2str(gid), group->gr_name);
+		ret = t_strdup_printf("%s(%s)", dec2str(gid), group->gr_name);
+	errno = old_errno;
+	return ret;
 }
 
 static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid)
