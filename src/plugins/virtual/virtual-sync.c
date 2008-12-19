@@ -827,7 +827,7 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 	bbox->sync_highest_modseq = status.highest_modseq;
 	bbox->sync_next_uid = status.uidnext;
 
-	if (!ctx->ext_header_rewrite) {
+	if (ctx->ext_header_rewrite) {
 		/* we'll rewrite the entire header later */
 		return;
 	}
@@ -1213,6 +1213,8 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 	ret = virtual_sync_backend_boxes(ctx);
 	if (ctx->retry && ret == 0) {
 		ctx->retry = FALSE;
+		/* map uids again to update changed message flags */
+		ctx->mbox->uids_mapped = FALSE;
 		ret = virtual_sync_backend_boxes(ctx);
 		i_assert(!ctx->retry);
 	}
