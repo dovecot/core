@@ -20,17 +20,17 @@ void otp_lock_init(void)
 	if (otp_lock_table != NULL)
 		return;
 
-	otp_lock_table = hash_create(system_pool, system_pool,
-				     128, strcase_hash,
-				     (hash_cmp_callback_t *)strcasecmp);
+	otp_lock_table = hash_table_create(system_pool, system_pool,
+					   128, strcase_hash,
+					   (hash_cmp_callback_t *)strcasecmp);
 }
 
 int otp_try_lock(struct auth_request *auth_request)
 {
-	if (hash_lookup(otp_lock_table, auth_request->user))
+	if (hash_table_lookup(otp_lock_table, auth_request->user))
 		return FALSE;
 
-	hash_insert(otp_lock_table, auth_request->user, auth_request);
+	hash_table_insert(otp_lock_table, auth_request->user, auth_request);
 
 	return TRUE;
 }
@@ -43,7 +43,7 @@ void otp_unlock(struct auth_request *auth_request)
 	if (!request->lock)
 		return;
 
-	hash_remove(otp_lock_table, auth_request->user);
+	hash_table_remove(otp_lock_table, auth_request->user);
 	request->lock = FALSE;
 }
 

@@ -46,11 +46,11 @@ static void request_handle(struct master_login_reply *reply)
 		return;
 	}
 
-	client = hash_lookup(master_requests, POINTER_CAST(reply->tag));
+	client = hash_table_lookup(master_requests, POINTER_CAST(reply->tag));
 	if (client == NULL)
 		i_fatal("Master sent reply with unknown tag %u", reply->tag);
 
-	hash_remove(master_requests, POINTER_CAST(reply->tag));
+	hash_table_remove(master_requests, POINTER_CAST(reply->tag));
 	if (client != &destroyed_client) {
 		client_call_master_callback(client, reply);
 		/* NOTE: client may be destroyed now */
@@ -119,7 +119,7 @@ void master_request_login(struct client *client, master_callback_t *callback,
 	client->master_tag = req->tag;
 	client->master_callback = callback;
 
-	hash_insert(master_requests, POINTER_CAST(req->tag), client);
+	hash_table_insert(master_requests, POINTER_CAST(req->tag), client);
 }
 
 void master_request_abort(struct client *client)
@@ -128,8 +128,8 @@ void master_request_abort(struct client *client)
 
 	/* we're still going to get the reply from the master, so just
 	   remember that we want to ignore it */
-	hash_update(master_requests, POINTER_CAST(client->master_tag),
-		    &destroyed_client);
+	hash_table_update(master_requests, POINTER_CAST(client->master_tag),
+			  &destroyed_client);
 
 	memset(&reply, 0, sizeof(reply));
 	reply.status = MASTER_LOGIN_STATUS_INTERNAL_ERROR;
@@ -295,8 +295,8 @@ void master_init(int fd)
 	main_ref();
 
 	master_fd = fd;
-	master_requests = hash_create(system_pool, system_pool,
-				      0, NULL, NULL);
+	master_requests = hash_table_create(system_pool, system_pool,
+					    0, NULL, NULL);
 
         master_pos = 0;
 	io_master = io_add(master_fd, IO_READ, master_input, NULL);
@@ -304,7 +304,7 @@ void master_init(int fd)
 
 void master_deinit(void)
 {
-	hash_destroy(&master_requests);
+	hash_table_destroy(&master_requests);
 
 	if (io_master != NULL)
 		io_remove(&io_master);

@@ -71,8 +71,8 @@ maildir_keywords_init_readonly(struct mailbox *box)
 	mk->path = i_strconcat(dir, "/" MAILDIR_KEYWORDS_NAME, NULL);
 	mk->pool = pool_alloconly_create("maildir keywords", 512);
 	i_array_init(&mk->list, MAILDIR_MAX_KEYWORDS);
-	mk->hash = hash_create(default_pool, mk->pool, 0,
-			       strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+	mk->hash = hash_table_create(default_pool, mk->pool, 0,
+				     strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 
 	mk->dotlock_settings.use_excl_lock =
 		(box->storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
@@ -91,7 +91,7 @@ void maildir_keywords_deinit(struct maildir_keywords **_mk)
 	struct maildir_keywords *mk = *_mk;
 
 	*_mk = NULL;
-	hash_destroy(&mk->hash);
+	hash_table_destroy(&mk->hash);
 	array_free(&mk->list);
 	pool_unref(&mk->pool);
 	i_free(mk->path);
@@ -101,7 +101,7 @@ void maildir_keywords_deinit(struct maildir_keywords **_mk)
 static void maildir_keywords_clear(struct maildir_keywords *mk)
 {
 	array_clear(&mk->list);
-	hash_clear(mk->hash, FALSE);
+	hash_table_clear(mk->hash, FALSE);
 	p_clear(mk->pool);
 }
 
@@ -172,7 +172,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 
 		/* save it */
 		new_name = p_strdup(mk->pool, p);
-		hash_insert(mk->hash, new_name, POINTER_CAST(idx + 1));
+		hash_table_insert(mk->hash, new_name, POINTER_CAST(idx + 1));
 
 		strp = array_idx_modifiable(&mk->list, idx);
 		*strp = new_name;
@@ -194,7 +194,7 @@ maildir_keywords_lookup(struct maildir_keywords *mk, const char *name)
 {
 	void *p;
 
-	p = hash_lookup(mk->hash, name);
+	p = hash_table_lookup(mk->hash, name);
 	if (p == NULL) {
 		if (mk->synced)
 			return -1;
@@ -202,7 +202,7 @@ maildir_keywords_lookup(struct maildir_keywords *mk, const char *name)
 		if (maildir_keywords_sync(mk) < 0)
 			return -1;
 
-		p = hash_lookup(mk->hash, name);
+		p = hash_table_lookup(mk->hash, name);
 		if (p == NULL)
 			return -1;
 	}
@@ -220,7 +220,7 @@ maildir_keywords_create(struct maildir_keywords *mk, const char *name,
 	i_assert(chridx < MAILDIR_MAX_KEYWORDS);
 
 	new_name = p_strdup(mk->pool, name);
-	hash_insert(mk->hash, new_name, POINTER_CAST(chridx + 1));
+	hash_table_insert(mk->hash, new_name, POINTER_CAST(chridx + 1));
 
 	strp = array_idx_modifiable(&mk->list, chridx);
 	*strp = new_name;

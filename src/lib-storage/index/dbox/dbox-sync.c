@@ -29,7 +29,7 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 			      &file_id, &offset))
 		return -1;
 
-	entry = hash_lookup(ctx->syncs, POINTER_CAST(file_id));
+	entry = hash_table_lookup(ctx->syncs, POINTER_CAST(file_id));
 	if (entry == NULL) {
 		if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE ||
 		    ctx->flush_dirty_flags) {
@@ -54,7 +54,7 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 
 		entry = p_new(ctx->pool, struct dbox_sync_file_entry, 1);
 		entry->file_id = file_id;
-		hash_insert(ctx->syncs, POINTER_CAST(file_id), entry);
+		hash_table_insert(ctx->syncs, POINTER_CAST(file_id), entry);
 	}
 	uid_file = (file_id & DBOX_FILE_ID_FLAG_UID) != 0;
 
@@ -205,7 +205,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 
 	/* read all changes and sort them to file_id order */
 	ctx->pool = pool_alloconly_create("dbox sync pool", 1024*32);
-	ctx->syncs = hash_create(default_pool, ctx->pool, 0, NULL, NULL);
+	ctx->syncs = hash_table_create(default_pool, ctx->pool, 0, NULL, NULL);
 	i_array_init(&ctx->expunge_files, 32);
 	i_array_init(&ctx->locked_files, 32);
 
@@ -225,14 +225,14 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 
 	if (ret > 0) {
 		/* now sync each file separately */
-		iter = hash_iterate_init(ctx->syncs);
-		while (hash_iterate(iter, &key, &value)) {
+		iter = hash_table_iterate_init(ctx->syncs);
+		while (hash_table_iterate(iter, &key, &value)) {
 			const struct dbox_sync_file_entry *entry = value;
 
 			if ((ret = dbox_sync_file(ctx, entry)) <= 0)
 				break;
 		}
-		hash_iterate_deinit(&iter);
+		hash_table_iterate_deinit(&iter);
 	}
 
 	if (ret > 0)
@@ -243,7 +243,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 
 	dbox_sync_unlock_files(ctx);
 	array_free(&ctx->locked_files);
-	hash_destroy(&ctx->syncs);
+	hash_table_destroy(&ctx->syncs);
 	pool_unref(&ctx->pool);
 	return ret;
 }

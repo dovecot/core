@@ -140,7 +140,7 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 	if (--proxy->refcount > 0)
 		return TRUE;
 
-	hash_remove(ssl_proxies, proxy);
+	hash_table_remove(ssl_proxies, proxy);
 
 	gnutls_deinit(proxy->session);
 
@@ -332,7 +332,7 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 	proxy->fd_plain = sfd[0];
 	proxy->ip = *ip;
 
-	hash_insert(ssl_proxies, proxy, proxy);
+	hash_table_insert(ssl_proxies, proxy, proxy);
 
 	proxy->refcount++;
 	ssl_handshake(proxy);
@@ -519,7 +519,8 @@ void ssl_proxy_init(void)
         gnutls_certificate_set_dh_params(x509_cred, dh_params);
         gnutls_certificate_set_rsa_export_params(x509_cred, rsa_params);
 
-        ssl_proxies = hash_create(system_pool, system_pool, 0, NULL, NULL);
+	ssl_proxies = hash_table_create(system_pool, system_pool, 0,
+					NULL, NULL);
 	ssl_initialized = TRUE;
 }
 
@@ -531,11 +532,11 @@ void ssl_proxy_deinit(void)
 	if (!ssl_initialized)
 		return;
 
-	iter = hash_iterate_init(ssl_proxies);
-	while (hash_iterate(iter, &key, &value))
+	iter = hash_table_iterate_init(ssl_proxies);
+	while (hash_table_iterate(iter, &key, &value))
 		ssl_proxy_destroy(value);
-	hash_iterate_deinit(iter);
-	hash_destroy(ssl_proxies);
+	hash_table_iterate_deinit(iter);
+	hash_table_destroy(ssl_proxies);
 
 	gnutls_certificate_free_credentials(x509_cred);
 	gnutls_global_deinit();

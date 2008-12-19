@@ -49,8 +49,8 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->keywords_pool = pool_alloconly_create("keywords", 512);
 	i_array_init(&index->keywords, 16);
 	index->keywords_hash =
-		hash_create(default_pool, index->keywords_pool, 0,
-			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+		hash_table_create(default_pool, index->keywords_pool, 0,
+				  strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 	index->log = mail_transaction_log_alloc(index);
 	mail_index_modseq_init(index);
 	return index;
@@ -64,7 +64,7 @@ void mail_index_free(struct mail_index **_index)
 	mail_index_close(index);
 
 	mail_transaction_log_free(&index->log);
-	hash_destroy(&index->keywords_hash);
+	hash_table_destroy(&index->keywords_hash);
 	pool_unref(&index->extension_pool);
 	pool_unref(&index->keywords_pool);
 
@@ -219,7 +219,8 @@ bool mail_index_keyword_lookup(struct mail_index *index,
 	/* keywords_hash keeps a name => index mapping of keywords.
 	   Keywords are never removed from it, so the index values are valid
 	   for the lifetime of the mail_index. */
-	if (hash_lookup_full(index->keywords_hash, keyword, NULL, &value)) {
+	if (hash_table_lookup_full(index->keywords_hash, keyword,
+				   NULL, &value)) {
 		*idx_r = POINTER_CAST_TO(value, unsigned int);
 		return TRUE;
 	}
@@ -242,7 +243,8 @@ void mail_index_keyword_lookup_or_create(struct mail_index *index,
 	keyword = keyword_dup = p_strdup(index->keywords_pool, keyword);
 	*idx_r = array_count(&index->keywords);
 
-	hash_insert(index->keywords_hash, keyword_dup, POINTER_CAST(*idx_r));
+	hash_table_insert(index->keywords_hash,
+			  keyword_dup, POINTER_CAST(*idx_r));
 	array_append(&index->keywords, &keyword, 1);
 }
 

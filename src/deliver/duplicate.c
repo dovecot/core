@@ -144,14 +144,15 @@ duplicate_read_records(struct duplicate_file *file, struct istream *input,
 			d->user = p_strndup(file->pool,
 					    data + hdr.id_size, hdr.user_size);
 			d->time = hdr.stamp;
-			hash_insert(file->hash, d, d);
+			hash_table_insert(file->hash, d, d);
 		} else {
                         change_count++;
 		}
 		i_stream_skip(input, hdr.id_size + hdr.user_size);
 	}
 
-	if (hash_count(file->hash) * COMPRESS_PERCENTAGE / 100 > change_count)
+	if (hash_table_count(file->hash) *
+	    COMPRESS_PERCENTAGE / 100 > change_count)
 		file->changed = TRUE;
 	return 0;
 }
@@ -212,8 +213,8 @@ static struct duplicate_file *duplicate_new(const char *path)
 					 &file->dotlock);
 	if (file->new_fd == -1)
 		i_error("file_dotlock_create(%s) failed: %m", path);
-	file->hash = hash_create(default_pool, pool, 0,
-				 duplicate_hash, duplicate_cmp);
+	file->hash = hash_table_create(default_pool, pool, 0,
+				       duplicate_hash, duplicate_cmp);
 	(void)duplicate_read(file);
 	return file;
 }
@@ -226,7 +227,7 @@ static void duplicate_free(struct duplicate_file **_file)
 	if (file->dotlock != NULL)
 		file_dotlock_delete(&file->dotlock);
 
-	hash_destroy(&file->hash);
+	hash_table_destroy(&file->hash);
 	pool_unref(&file->pool);
 }
 
@@ -241,7 +242,7 @@ int duplicate_check(const void *id, size_t id_size, const char *user)
 	d.id_size = id_size;
 	d.user = user;
 
-	return hash_lookup(duplicate_file->hash, &d) != NULL;
+	return hash_table_lookup(duplicate_file->hash, &d) != NULL;
 }
 
 void duplicate_mark(const void *id, size_t id_size,
@@ -263,7 +264,7 @@ void duplicate_mark(const void *id, size_t id_size,
 	d->time = timestamp;
 
 	duplicate_file->changed = TRUE;
-	hash_insert(duplicate_file->hash, d, d);
+	hash_table_insert(duplicate_file->hash, d, d);
 }
 
 void duplicate_flush(void)
@@ -285,8 +286,8 @@ void duplicate_flush(void)
 	o_stream_send(output, &hdr, sizeof(hdr));
 
 	memset(&rec, 0, sizeof(rec));
-	iter = hash_iterate_init(file->hash);
-	while (hash_iterate(iter, &key, &value)) {
+	iter = hash_table_iterate_init(file->hash);
+	while (hash_table_iterate(iter, &key, &value)) {
 		struct duplicate *d = value;
 
 		rec.stamp = d->time;
@@ -297,7 +298,7 @@ void duplicate_flush(void)
 		o_stream_send(output, d->id, rec.id_size);
 		o_stream_send(output, d->user, rec.user_size);
 	}
-	hash_iterate_deinit(&iter);
+	hash_table_iterate_deinit(&iter);
 	o_stream_unref(&output);
 
 	file->changed = FALSE;

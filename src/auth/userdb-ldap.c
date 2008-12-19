@@ -123,8 +123,8 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 	module = p_new(auth_userdb->auth->pool, struct ldap_userdb_module, 1);
 	module->conn = conn = db_ldap_init(args);
 	conn->user_attr_map =
-		hash_create(default_pool, conn->pool, 0, str_hash,
-			    (hash_cmp_callback_t *)strcmp);
+		hash_table_create(default_pool, conn->pool, 0, str_hash,
+				  (hash_cmp_callback_t *)strcmp);
 
 	db_ldap_set_attrs(conn, conn->set.user_attrs, &conn->user_attr_names,
 			  conn->user_attr_map, NULL);

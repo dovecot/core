@@ -78,7 +78,7 @@ mail_process_group_lookup(enum process_type type, const char *user,
 	lookup_group.user = t_strdup_noconst(user);
 	lookup_group.remote_ip = *ip;
 
-	return hash_lookup(mail_process_groups, &lookup_group);
+	return hash_table_lookup(mail_process_groups, &lookup_group);
 }
 
 static struct mail_process_group *
@@ -93,7 +93,7 @@ mail_process_group_create(enum process_type type, const char *user,
 	group->remote_ip = *ip;
 
 	i_array_init(&group->processes, 10);
-	hash_insert(mail_process_groups, group, group);
+	hash_table_insert(mail_process_groups, group, group);
 	return group;
 }
 
@@ -922,7 +922,7 @@ mail_process_destroyed(struct child_process *process,
 	if (count == 1) {
 		/* last process in this group */
 		i_assert(pids[0] == pid);
-		hash_remove(mail_process_groups, group);
+		hash_table_remove(mail_process_groups, group);
 		mail_process_group_free(group);
 	} else {
 		for (i = 0; i < count; i++) {
@@ -938,9 +938,9 @@ mail_process_destroyed(struct child_process *process,
 
 void mail_processes_init(void)
 {
-	mail_process_groups = hash_create(default_pool, default_pool, 0,
-					  mail_process_group_hash,
-					  mail_process_group_cmp);
+	mail_process_groups = hash_table_create(default_pool, default_pool, 0,
+						mail_process_group_hash,
+						mail_process_group_cmp);
 
 	child_process_set_destroy_callback(PROCESS_TYPE_IMAP,
 					   mail_process_destroyed);
@@ -953,12 +953,12 @@ void mail_processes_deinit(void)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	iter = hash_iterate_init(mail_process_groups);
-	while (hash_iterate(iter, &key, &value)) {
+	iter = hash_table_iterate_init(mail_process_groups);
+	while (hash_table_iterate(iter, &key, &value)) {
 		struct mail_process_group *group = value;
 		mail_process_group_free(group);
 	}
-	hash_iterate_deinit(&iter);
+	hash_table_iterate_deinit(&iter);
 
-	hash_destroy(&mail_process_groups);
+	hash_table_destroy(&mail_process_groups);
 }

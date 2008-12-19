@@ -29,7 +29,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	char *user;
 	size_t len;
 
-	if (hash_lookup(pw->users, username) != NULL) {
+	if (hash_table_lookup(pw->users, username) != NULL) {
 		i_error("passwd-file %s: User %s exists more than once",
 			pw->path, username);
 		return;
@@ -136,7 +136,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
                         p_strsplit_spaces(pw->pool, extra_fields, " ");
         }
 
-	hash_insert(pw->users, user, pu);
+	hash_table_insert(pw->users, user, pu);
 }
 
 static struct passwd_file *
@@ -150,7 +150,7 @@ passwd_file_new(struct db_passwd_file *db, const char *expanded_path)
 	pw->fd = -1;
 
 	if (db->files != NULL)
-		hash_insert(db->files, pw->path, pw);
+		hash_table_insert(db->files, pw->path, pw);
 	return pw;
 }
 
@@ -179,8 +179,8 @@ static bool passwd_file_open(struct passwd_file *pw)
 	pw->size = st.st_size;
 
 	pw->pool = pool_alloconly_create(MEMPOOL_GROWING"passwd_file", 10240);
-	pw->users = hash_create(default_pool, pw->pool, 100,
-				str_hash, (hash_cmp_callback_t *)strcmp);
+	pw->users = hash_table_create(default_pool, pw->pool, 100,
+				      str_hash, (hash_cmp_callback_t *)strcmp);
 
 	input = i_stream_create_fd(pw->fd, 4096, FALSE);
 	i_stream_set_return_partial_line(input, TRUE);
@@ -203,7 +203,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 
 	if (pw->db->debug) {
 		i_info("passwd-file %s: Read %u users",
-		       pw->path, hash_count(pw->users));
+		       pw->path, hash_table_count(pw->users));
 	}
 	return TRUE;
 }
@@ -217,7 +217,7 @@ static void passwd_file_close(struct passwd_file *pw)
 	}
 
 	if (pw->users != NULL)
-		hash_destroy(&pw->users);
+		hash_table_destroy(&pw->users);
 	if (pw->pool != NULL)
 		pool_unref(&pw->pool);
 }
@@ -225,7 +225,7 @@ static void passwd_file_close(struct passwd_file *pw)
 static void passwd_file_free(struct passwd_file *pw)
 {
 	if (pw->db->files != NULL)
-		hash_remove(pw->db->files, pw->path);
+		hash_table_remove(pw->db->files, pw->path);
 
 	passwd_file_close(pw);
 	i_free(pw->path);
@@ -309,9 +309,9 @@ db_passwd_file_init(const char *path, const char *username_format,
 
 	db->path = i_strdup(path);
 	if (db->vars) {
-		db->files = hash_create(default_pool, default_pool, 100,
-					str_hash,
-					(hash_cmp_callback_t *)strcmp);
+		db->files = hash_table_create(default_pool, default_pool, 100,
+					      str_hash,
+					      (hash_cmp_callback_t *)strcmp);
 	} else {
 		db->default_file = passwd_file_new(db, path);
 	}
@@ -352,14 +352,14 @@ void db_passwd_file_unref(struct db_passwd_file **_db)
 	if (db->default_file != NULL)
 		passwd_file_free(db->default_file);
 	else {
-		iter = hash_iterate_init(db->files);
-		while (hash_iterate(iter, &key, &value)) {
+		iter = hash_table_iterate_init(db->files);
+		while (hash_table_iterate(iter, &key, &value)) {
 			struct passwd_file *file = value;
 
 			passwd_file_free(file);
 		}
-		hash_iterate_deinit(&iter);
-		hash_destroy(&db->files);
+		hash_table_iterate_deinit(&iter);
+		hash_table_destroy(&db->files);
 	}
 	i_free(db->path);
 	i_free(db);
@@ -396,7 +396,7 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 		dest = t_str_new(256);
 		var_expand(dest, db->path, table);
 
-		pw = hash_lookup(db->files, str_c(dest));
+		pw = hash_table_lookup(db->files, str_c(dest));
 		if (pw == NULL) {
 			/* doesn't exist yet. create lookup for it. */
 			pw = passwd_file_new(db, str_c(dest));
@@ -420,7 +420,7 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 			       "lookup: user=%s file=%s",
 			       str_c(username), pw->path);
 
-	pu = hash_lookup(pw->users, str_c(username));
+	pu = hash_table_lookup(pw->users, str_c(username));
 	if (pu == NULL)
                 auth_request_log_info(request, "passwd-file", "unknown user");
 	return pu;

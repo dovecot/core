@@ -79,12 +79,12 @@ add_base_subject(struct subject_gather_context *ctx, const char *subject,
 
 	/* (iii) Look up the message associated with the thread
 	   subject in the subject table. */
-	if (!hash_lookup_full(ctx->subject_hash, subject, &key, &value)) {
+	if (!hash_table_lookup_full(ctx->subject_hash, subject, &key, &value)) {
 		/* (iv) If there is no message in the subject table with the
 		   thread subject, add the current message and the thread
 		   subject to the subject table. */
 		hash_subject = p_strdup(ctx->subject_pool, subject);
-		hash_insert(ctx->subject_hash, hash_subject, node);
+		hash_table_insert(ctx->subject_hash, hash_subject, node);
 	} else {
 		hash_subject = key;
 		hash_node = value;
@@ -103,7 +103,7 @@ add_base_subject(struct subject_gather_context *ctx, const char *subject,
 		    (node->dummy ||
 		     (hash_node->reply_or_forward && !is_reply_or_forward))) {
 			hash_node->parent_root_idx1 = node->root_idx1;
-			hash_update(ctx->subject_hash, hash_subject, node);
+			hash_table_update(ctx->subject_hash, hash_subject, node);
 		} else {
 			node->parent_root_idx1 = hash_node->root_idx1;
 		}
@@ -219,8 +219,9 @@ static void gather_base_subjects(struct thread_finish_context *ctx)
 		pool_alloconly_create(MEMPOOL_GROWING"base subjects",
 				      nearest_power(count * 20));
 	gather_ctx.subject_hash =
-		hash_create(default_pool, gather_ctx.subject_pool, count * 2,
-			    str_hash, (hash_cmp_callback_t *)strcmp);
+		hash_table_create(default_pool, gather_ctx.subject_pool,
+				  count * 2, str_hash,
+				  (hash_cmp_callback_t *)strcmp);
 
 	i_array_init(&sorted_children, 64);
 	for (i = 0; i < count; i++) {
@@ -251,7 +252,7 @@ static void gather_base_subjects(struct thread_finish_context *ctx)
 	}
 	i_assert(roots[count-1].parent_root_idx1 <= count);
 	array_free(&sorted_children);
-	hash_destroy(&gather_ctx.subject_hash);
+	hash_table_destroy(&gather_ctx.subject_hash);
 	pool_unref(&gather_ctx.subject_pool);
 }
 

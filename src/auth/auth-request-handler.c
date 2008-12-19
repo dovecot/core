@@ -52,7 +52,7 @@ auth_request_handler_create(struct auth *auth,
 	handler = p_new(pool, struct auth_request_handler, 1);
 	handler->refcount = 1;
 	handler->pool = pool;
-	handler->requests = hash_create(default_pool, pool, 0, NULL, NULL);
+	handler->requests = hash_table_create(default_pool, pool, 0, NULL, NULL);
 	handler->auth = auth;
 	handler->callback = callback;
 	handler->context = context;
@@ -71,18 +71,18 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 	if (--handler->refcount > 0)
 		return;
 
-	iter = hash_iterate_init(handler->requests);
-	while (hash_iterate(iter, &key, &value)) {
+	iter = hash_table_iterate_init(handler->requests);
+	while (hash_table_iterate(iter, &key, &value)) {
 		struct auth_request *auth_request = value;
 
 		auth_request_unref(&auth_request);
 	}
-	hash_iterate_deinit(&iter);
+	hash_table_iterate_deinit(&iter);
 
 	/* notify parent that we're done with all requests */
 	handler->callback(NULL, handler->context);
 
-	hash_destroy(&handler->requests);
+	hash_table_destroy(&handler->requests);
 	pool_unref(&handler->pool);
 }
 
@@ -97,7 +97,7 @@ void auth_request_handler_set(struct auth_request_handler *handler,
 static void auth_request_handler_remove(struct auth_request_handler *handler,
 					struct auth_request *request)
 {
-	hash_remove(handler->requests, POINTER_CAST(request->id));
+	hash_table_remove(handler->requests, POINTER_CAST(request->id));
 	auth_request_unref(&request);
 }
 
@@ -106,14 +106,14 @@ void auth_request_handler_check_timeouts(struct auth_request_handler *handler)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	iter = hash_iterate_init(handler->requests);
-	while (hash_iterate(iter, &key, &value)) {
+	iter = hash_table_iterate_init(handler->requests);
+	while (hash_table_iterate(iter, &key, &value)) {
 		struct auth_request *request = value;
 
 		if (request->last_access + AUTH_REQUEST_TIMEOUT < ioloop_time)
 			auth_request_handler_remove(handler, request);
 	}
-	hash_iterate_deinit(&iter);
+	hash_table_iterate_deinit(&iter);
 }
 
 static void get_client_extra_fields(struct auth_request *request,
@@ -352,7 +352,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return FALSE;
 	}
 
-	hash_insert(handler->requests, POINTER_CAST(id), request);
+	hash_table_insert(handler->requests, POINTER_CAST(id), request);
 
 	if (request->auth->ssl_require_client_cert &&
 	    !request->valid_client_cert) {
@@ -402,7 +402,7 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 
 	id = (unsigned int)strtoul(args, NULL, 10);
 
-	request = hash_lookup(handler->requests, POINTER_CAST(id));
+	request = hash_table_lookup(handler->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		struct auth_stream_reply *reply;
 
@@ -489,7 +489,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 
-	request = hash_lookup(handler->requests, POINTER_CAST(client_id));
+	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request == NULL) {
 		i_error("Master request %u.%u not found",
 			handler->client_pid, client_id);

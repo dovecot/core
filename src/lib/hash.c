@@ -36,7 +36,7 @@ struct hash_iterate_context {
 	unsigned int pos;
 };
 
-static bool hash_resize(struct hash_table *table, bool grow);
+static bool hash_table_resize(struct hash_table *table, bool grow);
 
 static int direct_cmp(const void *p1, const void *p2)
 {
@@ -50,8 +50,8 @@ static unsigned int direct_hash(const void *p)
 }
 
 struct hash_table *
-hash_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
-	    hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb)
+hash_table_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
+		  hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb)
 {
 	struct hash_table *table;
 
@@ -91,7 +91,7 @@ static void destroy_node_list(struct hash_table *table, struct hash_node *node)
 	}
 }
 
-static void hash_destroy_nodes(struct hash_table *table)
+static void hash_table_destroy_nodes(struct hash_table *table)
 {
 	unsigned int i;
 
@@ -101,14 +101,14 @@ static void hash_destroy_nodes(struct hash_table *table)
 	}
 }
 
-void hash_destroy(struct hash_table **_table)
+void hash_table_destroy(struct hash_table **_table)
 {
 	struct hash_table *table = *_table;
 
 	*_table = NULL;
 
 	if (!table->node_pool->alloconly_pool) {
-		hash_destroy_nodes(table);
+		hash_table_destroy_nodes(table);
 		destroy_node_list(table, table->free_nodes);
 	}
 
@@ -116,10 +116,10 @@ void hash_destroy(struct hash_table **_table)
 	p_free(table->table_pool, table);
 }
 
-void hash_clear(struct hash_table *table, bool free_nodes)
+void hash_table_clear(struct hash_table *table, bool free_nodes)
 {
 	if (!table->node_pool->alloconly_pool)
-		hash_destroy_nodes(table);
+		hash_table_destroy_nodes(table);
 
 	if (free_nodes) {
 		if (!table->node_pool->alloconly_pool)
@@ -134,8 +134,8 @@ void hash_clear(struct hash_table *table, bool free_nodes)
 }
 
 static struct hash_node *
-hash_lookup_node(const struct hash_table *table,
-		 const void *key, unsigned int hash)
+hash_table_lookup_node(const struct hash_table *table,
+		       const void *key, unsigned int hash)
 {
 	struct hash_node *node;
 
@@ -152,21 +152,22 @@ hash_lookup_node(const struct hash_table *table,
 	return NULL;
 }
 
-void *hash_lookup(const struct hash_table *table, const void *key)
+void *hash_table_lookup(const struct hash_table *table, const void *key)
 {
 	struct hash_node *node;
 
-	node = hash_lookup_node(table, key, table->hash_cb(key));
+	node = hash_table_lookup_node(table, key, table->hash_cb(key));
 	return node != NULL ? node->value : NULL;
 }
 
-bool hash_lookup_full(const struct hash_table *table, const void *lookup_key,
-		      void **orig_key, void **value)
+bool hash_table_lookup_full(const struct hash_table *table,
+			    const void *lookup_key,
+			    void **orig_key, void **value)
 {
 	struct hash_node *node;
 
-	node = hash_lookup_node(table, lookup_key,
-				table->hash_cb(lookup_key));
+	node = hash_table_lookup_node(table, lookup_key,
+				      table->hash_cb(lookup_key));
 	if (node == NULL)
 		return FALSE;
 
@@ -178,8 +179,8 @@ bool hash_lookup_full(const struct hash_table *table, const void *lookup_key,
 }
 
 static struct hash_node *
-hash_insert_node(struct hash_table *table, void *key, void *value,
-		 bool check_existing)
+hash_table_insert_node(struct hash_table *table, void *key, void *value,
+		       bool check_existing)
 {
 	struct hash_node *node, *prev;
 	unsigned int hash;
@@ -190,7 +191,7 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 
 	if (check_existing && table->removed_count > 0) {
 		/* there may be holes, have to check everything */
-		node = hash_lookup_node(table, key, hash);
+		node = hash_table_lookup_node(table, key, hash);
 		if (node != NULL) {
 			node->value = value;
 			return node;
@@ -234,9 +235,9 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 	}
 
 	if (node == NULL) {
-		if (table->frozen == 0 && hash_resize(table, TRUE)) {
+		if (table->frozen == 0 && hash_table_resize(table, TRUE)) {
 			/* resized table, try again */
-			return hash_insert_node(table, key, value, FALSE);
+			return hash_table_insert_node(table, key, value, FALSE);
 		}
 
 		if (table->free_nodes == NULL)
@@ -256,20 +257,21 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 	return node;
 }
 
-void hash_insert(struct hash_table *table, void *key, void *value)
+void hash_table_insert(struct hash_table *table, void *key, void *value)
 {
 	struct hash_node *node;
 
-	node = hash_insert_node(table, key, value, TRUE);
+	node = hash_table_insert_node(table, key, value, TRUE);
 	node->key = key;
 }
 
-void hash_update(struct hash_table *table, void *key, void *value)
+void hash_table_update(struct hash_table *table, void *key, void *value)
 {
-	(void)hash_insert_node(table, key, value, TRUE);
+	(void)hash_table_insert_node(table, key, value, TRUE);
 }
 
-static void hash_compress(struct hash_table *table, struct hash_node *root)
+static void
+hash_table_compress(struct hash_table *table, struct hash_node *root)
 {
 	struct hash_node *node, *next;
 
@@ -293,24 +295,24 @@ static void hash_compress(struct hash_table *table, struct hash_node *root)
 	}
 }
 
-static void hash_compress_removed(struct hash_table *table)
+static void hash_table_compress_removed(struct hash_table *table)
 {
 	unsigned int i;
 
 	for (i = 0; i < table->size; i++)
-		hash_compress(table, &table->nodes[i]);
+		hash_table_compress(table, &table->nodes[i]);
 
         table->removed_count = 0;
 }
 
-void hash_remove(struct hash_table *table, const void *key)
+void hash_table_remove(struct hash_table *table, const void *key)
 {
 	struct hash_node *node;
 	unsigned int hash;
 
 	hash = table->hash_cb(key);
 
-	node = hash_lookup_node(table, key, hash);
+	node = hash_table_lookup_node(table, key, hash);
 	if (unlikely(node == NULL))
 		i_panic("key not found from hash");
 
@@ -319,20 +321,20 @@ void hash_remove(struct hash_table *table, const void *key)
 
 	if (table->frozen != 0)
 		table->removed_count++;
-	else if (!hash_resize(table, FALSE))
-		hash_compress(table, &table->nodes[hash % table->size]);
+	else if (!hash_table_resize(table, FALSE))
+		hash_table_compress(table, &table->nodes[hash % table->size]);
 }
 
-unsigned int hash_count(const struct hash_table *table)
+unsigned int hash_table_count(const struct hash_table *table)
 {
 	return table->nodes_count;
 }
 
-struct hash_iterate_context *hash_iterate_init(struct hash_table *table)
+struct hash_iterate_context *hash_table_iterate_init(struct hash_table *table)
 {
 	struct hash_iterate_context *ctx;
 
-	hash_freeze(table);
+	hash_table_freeze(table);
 
 	ctx = i_new(struct hash_iterate_context, 1);
 	ctx->table = table;
@@ -340,8 +342,9 @@ struct hash_iterate_context *hash_iterate_init(struct hash_table *table)
 	return ctx;
 }
 
-static struct hash_node *hash_iterate_next(struct hash_iterate_context *ctx,
-					   struct hash_node *node)
+static struct hash_node *
+hash_table_iterate_next(struct hash_iterate_context *ctx,
+			struct hash_node *node)
 {
 	do {
 		node = node->next;
@@ -357,14 +360,14 @@ static struct hash_node *hash_iterate_next(struct hash_iterate_context *ctx,
 	return node;
 }
 
-bool hash_iterate(struct hash_iterate_context *ctx,
-		  void **key_r, void **value_r)
+bool hash_table_iterate(struct hash_iterate_context *ctx,
+			void **key_r, void **value_r)
 {
 	struct hash_node *node;
 
 	node = ctx->next;
 	if (node != NULL && node->key == NULL)
-		node = hash_iterate_next(ctx, node);
+		node = hash_table_iterate_next(ctx, node);
 	if (node == NULL) {
 		*key_r = *value_r = NULL;
 		return FALSE;
@@ -372,25 +375,25 @@ bool hash_iterate(struct hash_iterate_context *ctx,
 	*key_r = node->key;
 	*value_r = node->value;
 
-	ctx->next = hash_iterate_next(ctx, node);
+	ctx->next = hash_table_iterate_next(ctx, node);
 	return TRUE;
 }
 
-void hash_iterate_deinit(struct hash_iterate_context **_ctx)
+void hash_table_iterate_deinit(struct hash_iterate_context **_ctx)
 {
 	struct hash_iterate_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	hash_thaw(ctx->table);
+	hash_table_thaw(ctx->table);
 	i_free(ctx);
 }
 
-void hash_freeze(struct hash_table *table)
+void hash_table_freeze(struct hash_table *table)
 {
 	table->frozen++;
 }
 
-void hash_thaw(struct hash_table *table)
+void hash_table_thaw(struct hash_table *table)
 {
 	i_assert(table->frozen > 0);
 
@@ -398,12 +401,12 @@ void hash_thaw(struct hash_table *table)
 		return;
 
 	if (table->removed_count > 0) {
-		if (!hash_resize(table, FALSE))
-			hash_compress_removed(table);
+		if (!hash_table_resize(table, FALSE))
+			hash_table_compress_removed(table);
 	}
 }
 
-static bool hash_resize(struct hash_table *table, bool grow)
+static bool hash_table_resize(struct hash_table *table, bool grow)
 {
 	struct hash_node *old_nodes, *node, *next;
 	unsigned int next_size, old_size, i;
@@ -436,15 +439,17 @@ static bool hash_resize(struct hash_table *table, bool grow)
 	/* move the data */
 	for (i = 0; i < old_size; i++) {
 		node = &old_nodes[i];
-		if (node->key != NULL)
-			hash_insert_node(table, node->key, node->value, FALSE);
+		if (node->key != NULL) {
+			hash_table_insert_node(table, node->key,
+					       node->value, FALSE);
+		}
 
 		for (node = node->next; node != NULL; node = next) {
 			next = node->next;
 
 			if (node->key != NULL) {
-				hash_insert_node(table, node->key,
-						 node->value, FALSE);
+				hash_table_insert_node(table, node->key,
+						       node->value, FALSE);
 			}
 			free_node(table, node);
 		}
@@ -456,19 +461,19 @@ static bool hash_resize(struct hash_table *table, bool grow)
 	return TRUE;
 }
 
-void hash_copy(struct hash_table *dest, struct hash_table *src)
+void hash_table_copy(struct hash_table *dest, struct hash_table *src)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	hash_freeze(dest);
+	hash_table_freeze(dest);
 
-	iter = hash_iterate_init(src);
-	while (hash_iterate(iter, &key, &value))
-		hash_insert(dest, key, value);
-	hash_iterate_deinit(&iter);
+	iter = hash_table_iterate_init(src);
+	while (hash_table_iterate(iter, &key, &value))
+		hash_table_insert(dest, key, value);
+	hash_table_iterate_deinit(&iter);
 
-	hash_thaw(dest);
+	hash_table_thaw(dest);
 }
 
 /* a char* hash function from ASU -- from glib */

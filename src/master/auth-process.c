@@ -98,7 +98,8 @@ void auth_process_request(struct auth_process *process, unsigned int login_pid,
 		}
 		auth_process_destroy(process);
 	} else {
-		hash_insert(process->requests, POINTER_CAST(auth_tag), request);
+		hash_table_insert(process->requests,
+				  POINTER_CAST(auth_tag), request);
 	}
 }
 
@@ -119,7 +120,7 @@ auth_process_input_user(struct auth_process *process, const char *args)
 	}
 	id = (unsigned int)strtoul(list[0], NULL, 10);
 
-	request = hash_lookup(process->requests, POINTER_CAST(id));
+	request = hash_table_lookup(process->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		i_error("BUG: Auth process %s sent unrequested reply with ID "
 			"%u", dec2str(process->pid), id);
@@ -138,7 +139,7 @@ auth_process_input_user(struct auth_process *process, const char *args)
 	}
 
 	auth_master_callback(list[1], list + 2, request);
-	hash_remove(process->requests, POINTER_CAST(id));
+	hash_table_remove(process->requests, POINTER_CAST(id));
 	return TRUE;
 }
 
@@ -150,7 +151,7 @@ auth_process_input_notfound(struct auth_process *process, const char *args)
 
 	id = (unsigned int)strtoul(args, NULL, 10);
 
-	request = hash_lookup(process->requests, POINTER_CAST(id));
+	request = hash_table_lookup(process->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		i_error("BUG: Auth process %s sent unrequested reply with ID "
 			"%u", dec2str(process->pid), id);
@@ -158,7 +159,7 @@ auth_process_input_notfound(struct auth_process *process, const char *args)
 	}
 
 	auth_master_callback(NULL, NULL, request);
-	hash_remove(process->requests, POINTER_CAST(id));
+	hash_table_remove(process->requests, POINTER_CAST(id));
 	return TRUE;
 }
 
@@ -204,7 +205,7 @@ auth_process_input_fail(struct auth_process *process, const char *args)
 
 	id = (unsigned int)strtoul(args, NULL, 10);
 
-	request = hash_lookup(process->requests, POINTER_CAST(id));
+	request = hash_table_lookup(process->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		i_error("BUG: Auth process %s sent unrequested reply with ID "
 			"%u", dec2str(process->pid), id);
@@ -212,7 +213,7 @@ auth_process_input_fail(struct auth_process *process, const char *args)
 	}
 
 	auth_master_callback(NULL, NULL, request);
-	hash_remove(process->requests, POINTER_CAST(id));
+	hash_table_remove(process->requests, POINTER_CAST(id));
 	return TRUE;
 }
 
@@ -314,7 +315,8 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 	p->io = io_add(fd, IO_READ, auth_process_input, p);
 	p->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	p->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
-	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
+	p->requests = hash_table_create(default_pool, default_pool, 0,
+					NULL, NULL);
 
 	group->process_count++;
 
@@ -377,11 +379,11 @@ static void auth_process_destroy(struct auth_process *p)
 	if (close(p->worker_listen_fd) < 0)
 		i_error("close(worker_listen) failed: %m");
 
-	iter = hash_iterate_init(p->requests);
-	while (hash_iterate(iter, &key, &value))
+	iter = hash_table_iterate_init(p->requests);
+	while (hash_table_iterate(iter, &key, &value))
 		auth_master_callback(NULL, NULL, value);
-	hash_iterate_deinit(&iter);
-	hash_destroy(&p->requests);
+	hash_table_iterate_deinit(&iter);
+	hash_table_destroy(&p->requests);
 
 	i_stream_destroy(&p->input);
 	o_stream_destroy(&p->output);

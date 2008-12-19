@@ -228,9 +228,9 @@ maildir_uidlist_init_readonly(struct index_mailbox *ibox)
 	uidlist->ibox = ibox;
 	uidlist->path = i_strconcat(control_dir, "/"MAILDIR_UIDLIST_NAME, NULL);
 	i_array_init(&uidlist->records, 128);
-	uidlist->files = hash_create(default_pool, default_pool, 4096,
-				     maildir_filename_base_hash,
-				     maildir_filename_base_cmp);
+	uidlist->files = hash_table_create(default_pool, default_pool, 4096,
+					   maildir_filename_base_hash,
+					   maildir_filename_base_cmp);
 	uidlist->next_uid = 1;
 	uidlist->hdr_extensions = str_new(default_pool, 128);
 
@@ -284,7 +284,7 @@ void maildir_uidlist_deinit(struct maildir_uidlist **_uidlist)
 	maildir_uidlist_update(uidlist);
 	maildir_uidlist_close(uidlist);
 
-	hash_destroy(&uidlist->files);
+	hash_table_destroy(&uidlist->files);
 	if (uidlist->record_pool != NULL)
 		pool_unref(&uidlist->record_pool);
 
@@ -467,7 +467,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		return FALSE;
 	}
 
-	old_rec = hash_lookup(uidlist->files, line);
+	old_rec = hash_table_lookup(uidlist->files, line);
 	if (old_rec != NULL) {
 		/* This can happen if expunged file is moved back and the file
 		   was appended to uidlist. */
@@ -484,7 +484,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	}
 
 	rec->filename = p_strdup(uidlist->record_pool, line);
-	hash_insert(uidlist->files, rec->filename, rec);
+	hash_table_insert(uidlist->files, rec->filename, rec);
 	array_append(&uidlist->records, &rec, 1);
 	return TRUE;
 }
@@ -1353,9 +1353,9 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 
 	ctx->record_pool = pool_alloconly_create(MEMPOOL_GROWING
 						 "maildir_uidlist_sync", 16384);
-	ctx->files = hash_create(default_pool, ctx->record_pool, 4096,
-				 maildir_filename_base_hash,
-				 maildir_filename_base_cmp);
+	ctx->files = hash_table_create(default_pool, ctx->record_pool, 4096,
+				       maildir_filename_base_hash,
+				       maildir_filename_base_cmp);
 
 	i_array_init(&ctx->records, array_count(&uidlist->records));
 	return 1;
@@ -1370,7 +1370,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 	struct maildir_uidlist_rec *rec;
 
 	/* we'll update uidlist directly */
-	rec = hash_lookup(uidlist->files, filename);
+	rec = hash_table_lookup(uidlist->files, filename);
 	if (rec == NULL) {
 		/* doesn't exist in uidlist */
 		if (!ctx->locked) {
@@ -1398,7 +1398,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 
 	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	rec->filename = p_strdup(uidlist->record_pool, filename);
-	hash_insert(uidlist->files, rec->filename, rec);
+	hash_table_insert(uidlist->files, rec->filename, rec);
 
 	ctx->finished = FALSE;
 }
@@ -1446,7 +1446,7 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 		return 1;
 	}
 
-	rec = hash_lookup(ctx->files, filename);
+	rec = hash_table_lookup(ctx->files, filename);
 	if (rec != NULL) {
 		if ((rec->flags & (MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
 				   MAILDIR_UIDLIST_REC_FLAG_MOVED)) == 0) {
@@ -1460,7 +1460,7 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 		rec->flags &= ~(MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
 				MAILDIR_UIDLIST_REC_FLAG_MOVED);
 	} else {
-		old_rec = hash_lookup(uidlist->files, filename);
+		old_rec = hash_table_lookup(uidlist->files, filename);
 		i_assert(old_rec != NULL || UIDLIST_IS_LOCKED(uidlist));
 
 		rec = p_new(ctx->record_pool, struct maildir_uidlist_rec, 1);
@@ -1482,7 +1482,7 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 
 	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	rec->filename = p_strdup(ctx->record_pool, filename);
-	hash_insert(ctx->files, rec->filename, rec);
+	hash_table_insert(ctx->files, rec->filename, rec);
 	return 1;
 }
 
@@ -1494,11 +1494,11 @@ void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 
 	i_assert(ctx->partial);
 
-	rec = hash_lookup(ctx->uidlist->files, filename);
+	rec = hash_table_lookup(ctx->uidlist->files, filename);
 	i_assert(rec != NULL);
 	i_assert(rec->uid != (uint32_t)-1);
 
-	hash_remove(ctx->uidlist->files, filename);
+	hash_table_remove(ctx->uidlist->files, filename);
 	idx = maildir_uidlist_records_array_delete(ctx->uidlist, rec);
 
 	if (ctx->first_unwritten_pos != (unsigned int)-1) {
@@ -1520,7 +1520,7 @@ maildir_uidlist_sync_get_full_filename(struct maildir_uidlist_sync_ctx *ctx,
 {
 	struct maildir_uidlist_rec *rec;
 
-	rec = hash_lookup(ctx->files, filename);
+	rec = hash_table_lookup(ctx->files, filename);
 	return rec == NULL ? NULL : rec->filename;
 }
 
@@ -1529,7 +1529,7 @@ bool maildir_uidlist_get_uid(struct maildir_uidlist *uidlist,
 {
 	struct maildir_uidlist_rec *rec;
 
-	rec = hash_lookup(uidlist->files, filename);
+	rec = hash_table_lookup(uidlist->files, filename);
 	if (rec == NULL)
 		return FALSE;
 
@@ -1543,7 +1543,7 @@ maildir_uidlist_get_full_filename(struct maildir_uidlist *uidlist,
 {
 	struct maildir_uidlist_rec *rec;
 
-	rec = hash_lookup(uidlist->files, filename);
+	rec = hash_table_lookup(uidlist->files, filename);
 	return rec == NULL ? NULL : rec->filename;
 }
 
@@ -1598,7 +1598,7 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	uidlist->records = ctx->records;
 	ctx->records.arr.buffer = NULL;
 
-	hash_destroy(&uidlist->files);
+	hash_table_destroy(&uidlist->files);
 	uidlist->files = ctx->files;
 	ctx->files = NULL;
 
@@ -1652,7 +1652,7 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 		maildir_uidlist_unlock(ctx->uidlist);
 
 	if (ctx->files != NULL)
-		hash_destroy(&ctx->files);
+		hash_table_destroy(&ctx->files);
 	if (ctx->record_pool != NULL)
 		pool_unref(&ctx->record_pool);
 	if (array_is_created(&ctx->records))
@@ -1667,7 +1667,7 @@ void maildir_uidlist_add_flags(struct maildir_uidlist *uidlist,
 {
 	struct maildir_uidlist_rec *rec;
 
-	rec = hash_lookup(uidlist->files, filename);
+	rec = hash_table_lookup(uidlist->files, filename);
 	i_assert(rec != NULL);
 
 	rec->flags |= flags;

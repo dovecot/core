@@ -90,7 +90,7 @@ struct sql_db *sql_pool_new(struct sql_pool *pool,
 	char *key;
 
 	key = i_strdup_printf("%s\t%s", db_driver, connect_string);
-	db = hash_lookup(pool->dbs, key);
+	db = hash_table_lookup(pool->dbs, key);
 	if (db != NULL) {
 		ctx = SQL_POOL_CONTEXT(db);
 		if (ctx->refcount == 0) {
@@ -110,7 +110,7 @@ struct sql_db *sql_pool_new(struct sql_pool *pool,
 		db->v.deinit = sql_pool_db_deinit;
 
 		MODULE_CONTEXT_SET(db, sql_pool_module, ctx);
-		hash_insert(pool->dbs, ctx->key, db);
+		hash_table_insert(pool->dbs, ctx->key, db);
 	}
 
 	ctx->refcount++;
@@ -122,8 +122,8 @@ struct sql_pool *sql_pool_init(unsigned int max_unused_connections)
 	struct sql_pool *pool;
 
 	pool = i_new(struct sql_pool, 1);
-	pool->dbs = hash_create(default_pool, default_pool, 0, str_hash,
-				(hash_cmp_callback_t *)strcmp);
+	pool->dbs = hash_table_create(default_pool, default_pool, 0, str_hash,
+				      (hash_cmp_callback_t *)strcmp);
 	pool->max_unused_connections = max_unused_connections;
 	return pool;
 }
@@ -133,6 +133,6 @@ void sql_pool_deinit(struct sql_pool **_pool)
 	struct sql_pool *pool = *_pool;
 
 	*_pool = NULL;
-	hash_destroy(&pool->dbs);
+	hash_table_destroy(&pool->dbs);
 	i_free(pool);
 }

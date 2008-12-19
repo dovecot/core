@@ -86,7 +86,7 @@ auth_cache_node_destroy(struct auth_cache *cache, struct auth_cache_node *node)
 	auth_cache_node_unlink(cache, node);
 
 	cache->size_left += node->alloc_size;
-	hash_remove(cache->hash, node->data);
+	hash_table_remove(cache->hash, node->data);
 	i_free(node);
 }
 
@@ -119,8 +119,8 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs,
 	struct auth_cache *cache;
 
 	cache = i_new(struct auth_cache, 1);
-	cache->hash = hash_create(default_pool, default_pool, 0, str_hash,
-				  (hash_cmp_callback_t *)strcmp);
+	cache->hash = hash_table_create(default_pool, default_pool, 0, str_hash,
+					(hash_cmp_callback_t *)strcmp);
 	cache->size_left = max_size;
 	cache->ttl_secs = ttl_secs;
 	cache->neg_ttl_secs = neg_ttl_secs;
@@ -139,7 +139,7 @@ void auth_cache_free(struct auth_cache **_cache)
 	lib_signals_unset_handler(SIGUSR2, sig_auth_cache_stats, cache);
 
 	auth_cache_clear(cache);
-	hash_destroy(&cache->hash);
+	hash_table_destroy(&cache->hash);
 	i_free(cache);
 }
 
@@ -147,7 +147,7 @@ void auth_cache_clear(struct auth_cache *cache)
 {
 	while (cache->tail != NULL)
 		auth_cache_node_destroy(cache, cache->tail);
-	hash_clear(cache->hash, FALSE);
+	hash_table_clear(cache->hash, FALSE);
 }
 
 const char *
@@ -169,7 +169,7 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 		   auth_request_get_var_expand_table(request,
 						     auth_request_str_escape));
 
-	node = hash_lookup(cache->hash, str_c(str));
+	node = hash_table_lookup(cache->hash, str_c(str));
 	if (node == NULL) {
 		cache->miss_count++;
 		return NULL;
@@ -233,7 +233,7 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 	while (cache->size_left < alloc_size)
 		auth_cache_node_destroy(cache, cache->tail);
 
-	node = hash_lookup(cache->hash, str_c(str));
+	node = hash_table_lookup(cache->hash, str_c(str));
 	if (node != NULL) {
 		/* key is already in cache (probably expired), remove it */
 		auth_cache_node_destroy(cache, node);
@@ -250,7 +250,7 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 	auth_cache_node_link_head(cache, node);
 
 	cache->size_left -= alloc_size;
-	hash_insert(cache->hash, node->data, node);
+	hash_table_insert(cache->hash, node->data, node);
 }
 
 void auth_cache_remove(struct auth_cache *cache,
@@ -265,7 +265,7 @@ void auth_cache_remove(struct auth_cache *cache,
 		   auth_request_get_var_expand_table(request,
 		   				     auth_request_str_escape));
 
-	node = hash_lookup(cache->hash, str_c(str));
+	node = hash_table_lookup(cache->hash, str_c(str));
 	if (node == NULL)
 		return;
 

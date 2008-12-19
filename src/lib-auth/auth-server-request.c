@@ -62,8 +62,8 @@ auth_server_request_check_retry(struct auth_request *request, const char *data)
 			   try it for the next */
 			request->plaintext_data = i_strdup(data);
 
-			hash_insert(request->next_conn->requests,
-				    POINTER_CAST(request->id), request);
+			hash_table_insert(request->next_conn->requests,
+					  POINTER_CAST(request->id), request);
 			if (auth_server_send_new_request(request->next_conn,
 							 request, &error) == 0)
 				request->retrying = TRUE;
@@ -171,15 +171,17 @@ bool auth_client_input_ok(struct auth_server_connection *conn, const char *args)
 
 	id = (unsigned int)strtoul(list[0], NULL, 10);
 
-	request = hash_lookup(conn->requests, POINTER_CAST(id));
+	request = hash_table_lookup(conn->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		/* We've already destroyed the request */
 		return TRUE;
 	}
 
-	hash_remove(request->conn->requests, POINTER_CAST(id));
-	if (request->next_conn != NULL)
-		hash_remove(request->next_conn->requests, POINTER_CAST(id));
+	hash_table_remove(request->conn->requests, POINTER_CAST(id));
+	if (request->next_conn != NULL) {
+		hash_table_remove(request->next_conn->requests,
+				  POINTER_CAST(id));
+	}
 	request->conn = conn;
 	request->next_conn = NULL;
 
@@ -212,7 +214,7 @@ bool auth_client_input_cont(struct auth_server_connection *conn,
 
 	id = (unsigned int)strtoul(args, NULL, 10);
 
-	request = hash_lookup(conn->requests, POINTER_CAST(id));
+	request = hash_table_lookup(conn->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		/* We've already destroyed the request */
 		return TRUE;
@@ -243,13 +245,13 @@ bool auth_client_input_fail(struct auth_server_connection *conn,
 
 	id = (unsigned int)strtoul(list[0], NULL, 10);
 
-	request = hash_lookup(conn->requests, POINTER_CAST(id));
+	request = hash_table_lookup(conn->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		/* We've already destroyed the request */
 		return TRUE;
 	}
 
-	hash_remove(conn->requests, POINTER_CAST(request->id));
+	hash_table_remove(conn->requests, POINTER_CAST(request->id));
 	if (request->retrying) {
 		next = request->next_conn == NULL ? NULL :
 			get_next_plain_server(request->next_conn);
@@ -265,8 +267,8 @@ bool auth_client_input_fail(struct auth_server_connection *conn,
 			}
 			request->conn = conn;
 		} else {
-			hash_insert(next->requests, POINTER_CAST(request->id),
-				    request);
+			hash_table_insert(next->requests,
+					  POINTER_CAST(request->id), request);
 			request->next_conn = next;
 
 			T_BEGIN {
@@ -307,10 +309,10 @@ void auth_server_requests_remove_all(struct auth_server_connection *conn)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	iter = hash_iterate_init(conn->requests);
-	while (hash_iterate(iter, &key, &value))
+	iter = hash_table_iterate_init(conn->requests);
+	while (hash_table_iterate(iter, &key, &value))
 		request_hash_remove(conn, value);
-	hash_iterate_deinit(&iter);
+	hash_table_iterate_deinit(&iter);
 }
 
 struct auth_request *
@@ -367,8 +369,8 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 
 	T_BEGIN {
 		if (auth_server_send_new_request(conn, request, error_r) == 0) {
-			hash_insert(conn->requests, POINTER_CAST(request->id),
-				    request);
+			hash_table_insert(conn->requests,
+					  POINTER_CAST(request->id), request);
 		} else {
 			auth_client_request_free(request);
 			request = NULL;
@@ -398,9 +400,9 @@ void auth_client_request_abort(struct auth_request *request)
 {
 	void *id = POINTER_CAST(request->id);
 
-	hash_remove(request->conn->requests, id);
+	hash_table_remove(request->conn->requests, id);
 	if (request->next_conn != NULL)
-		hash_remove(request->next_conn->requests, id);
+		hash_table_remove(request->next_conn->requests, id);
 
 	request->callback(request, -1, NULL, NULL, request->context);
 	auth_client_request_free(request);

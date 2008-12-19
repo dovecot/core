@@ -76,8 +76,9 @@ void mail_cache_register_fields(struct mail_cache *cache,
 
 	new_idx = cache->fields_count;
 	for (i = 0; i < fields_count; i++) {
-		if (hash_lookup_full(cache->field_name_hash, fields[i].name,
-				     &orig_key, &orig_value)) {
+		if (hash_table_lookup_full(cache->field_name_hash,
+					   fields[i].name,
+					   &orig_key, &orig_value)) {
 			i_assert(fields[i].type < MAIL_CACHE_FIELD_COUNT);
 
 			fields[i].idx =
@@ -128,7 +129,8 @@ void mail_cache_register_fields(struct mail_cache *cache,
 		if (!field_has_fixed_size(cache->fields[idx].field.type))
 			cache->fields[idx].field.field_size = (unsigned int)-1;
 
-		hash_insert(cache->field_name_hash, name, POINTER_CAST(idx));
+		hash_table_insert(cache->field_name_hash,
+				  name, POINTER_CAST(idx));
 	}
 	cache->fields_count = new_idx;
 }
@@ -138,8 +140,8 @@ mail_cache_register_lookup(struct mail_cache *cache, const char *name)
 {
 	void *orig_key, *orig_value;
 
-	if (hash_lookup_full(cache->field_name_hash, name,
-			     &orig_key, &orig_value))
+	if (hash_table_lookup_full(cache->field_name_hash, name,
+				   &orig_key, &orig_value))
 		return POINTER_CAST_TO(orig_value, unsigned int);
 	else
 		return (unsigned int)-1;
@@ -341,8 +343,8 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			return -1;
 		}
 
-		if (hash_lookup_full(cache->field_name_hash, names,
-				     &orig_key, &orig_value)) {
+		if (hash_table_lookup_full(cache->field_name_hash, names,
+					   &orig_key, &orig_value)) {
 			/* already exists, see if decision can be updated */
 			fidx = POINTER_CAST_TO(orig_value, unsigned int);
 			if (!cache->fields[fidx].decision_dirty) {

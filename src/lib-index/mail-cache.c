@@ -409,8 +409,8 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 		i_strconcat(index->filepath, MAIL_CACHE_FILE_SUFFIX, NULL);
 	cache->field_pool = pool_alloconly_create("Cache fields", 1024);
 	cache->field_name_hash =
-		hash_create(default_pool, cache->field_pool, 0,
-			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+		hash_table_create(default_pool, cache->field_pool, 0,
+				  strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 
 	cache->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
 	cache->dotlock_settings.nfs_flush = index->nfs_flush;
@@ -478,7 +478,7 @@ void mail_cache_free(struct mail_cache **_cache)
 
 	mail_cache_file_close(cache);
 
-	hash_destroy(&cache->field_name_hash);
+	hash_table_destroy(&cache->field_name_hash);
 	pool_unref(&cache->field_pool);
 	i_free(cache->field_file_map);
 	i_free(cache->file_field_map);

@@ -248,7 +248,7 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	conn->input = i_stream_create_fd(fd, AUTH_CLIENT_MAX_LINE_LENGTH,
 					 FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
-	conn->requests = hash_create(default_pool, pool, 100, NULL, NULL);
+	conn->requests = hash_table_create(default_pool, pool, 100, NULL, NULL);
 	conn->auth_mechs_buf = buffer_create_dynamic(default_pool, 256);
 
 	conn->to = timeout_add(AUTH_HANDSHAKE_TIMEOUT,
@@ -324,7 +324,7 @@ static void auth_server_connection_unref(struct auth_server_connection *conn)
 		return;
 	i_assert(conn->refcount == 0);
 
-	hash_destroy(&conn->requests);
+	hash_table_destroy(&conn->requests);
 	buffer_free(&conn->auth_mechs_buf);
 
 	i_stream_unref(&conn->input);

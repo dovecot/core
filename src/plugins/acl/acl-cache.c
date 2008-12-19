@@ -47,11 +47,11 @@ struct acl_cache *acl_cache_init(struct acl_backend *backend,
 	cache->validity_rec_size = validity_rec_size;
 	cache->right_names_pool =
 		pool_alloconly_create("ACL right names", 1024);
-	cache->objects = hash_create(default_pool, default_pool, 0,
-				     str_hash, (hash_cmp_callback_t *)strcmp);
+	cache->objects = hash_table_create(default_pool, default_pool, 0,
+					   str_hash, (hash_cmp_callback_t *)strcmp);
 	cache->right_name_idx_map =
-		hash_create(default_pool, cache->right_names_pool, 0,
-			    str_hash, (hash_cmp_callback_t *)strcmp);
+		hash_table_create(default_pool, cache->right_names_pool, 0,
+				  str_hash, (hash_cmp_callback_t *)strcmp);
 	i_array_init(&cache->right_idx_name_map, DEFAULT_ACL_RIGHTS_COUNT);
 	return cache;
 }
@@ -64,8 +64,8 @@ void acl_cache_deinit(struct acl_cache **_cache)
 
 	acl_cache_flush_all(cache);
 	array_free(&cache->right_idx_name_map);
-	hash_destroy(&cache->right_name_idx_map);
-	hash_destroy(&cache->objects);
+	hash_table_destroy(&cache->right_name_idx_map);
+	hash_table_destroy(&cache->objects);
 	pool_unref(&cache->right_names_pool);
 	i_free(cache);
 }
@@ -145,15 +145,15 @@ unsigned int acl_cache_right_lookup(struct acl_cache *cache, const char *right)
 
 	/* use +1 for right_name_idx_map values because we can't add NULL
 	   values. */
-	idx_p = hash_lookup(cache->right_name_idx_map, right);
+	idx_p = hash_table_lookup(cache->right_name_idx_map, right);
 	if (idx_p == NULL) {
 		/* new right name, add it */
 		const_name = name = p_strdup(cache->right_names_pool, right);
 
 		idx = array_count(&cache->right_idx_name_map);
 		array_append(&cache->right_idx_name_map, &const_name, 1);
-		hash_insert(cache->right_name_idx_map, name,
-			    POINTER_CAST(idx + 1));
+		hash_table_insert(cache->right_name_idx_map, name,
+				  POINTER_CAST(idx + 1));
 	} else {
 		idx = POINTER_CAST_TO(idx_p, unsigned int)-1;
 	}
@@ -164,9 +164,9 @@ void acl_cache_flush(struct acl_cache *cache, const char *objname)
 {
 	struct acl_object_cache *obj_cache;
 
-	obj_cache = hash_lookup(cache->objects, objname);
+	obj_cache = hash_table_lookup(cache->objects, objname);
 	if (obj_cache != NULL) {
-		hash_remove(cache->objects, objname);
+		hash_table_remove(cache->objects, objname);
 		acl_cache_free_object_cache(obj_cache);
 	}
 }
@@ -176,15 +176,15 @@ void acl_cache_flush_all(struct acl_cache *cache)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	iter = hash_iterate_init(cache->objects);
-	while (hash_iterate(iter, &key, &value)) {
+	iter = hash_table_iterate_init(cache->objects);
+	while (hash_table_iterate(iter, &key, &value)) {
 		struct acl_object_cache *obj_cache = value;
 
 		acl_cache_free_object_cache(obj_cache);
 	}
-	hash_iterate_deinit(&iter);
+	hash_table_iterate_deinit(&iter);
 
-	hash_clear(cache->objects, FALSE);
+	hash_table_clear(cache->objects, FALSE);
 }
 
 static void
@@ -271,12 +271,12 @@ acl_cache_object_get(struct acl_cache *cache, const char *objname,
 {
 	struct acl_object_cache *obj_cache;
 
-	obj_cache = hash_lookup(cache->objects, objname);
+	obj_cache = hash_table_lookup(cache->objects, objname);
 	if (obj_cache == NULL) {
 		obj_cache = i_malloc(sizeof(struct acl_object_cache) +
 				     cache->validity_rec_size);
 		obj_cache->name = i_strdup(objname);
-		hash_insert(cache->objects, obj_cache->name, obj_cache);
+		hash_table_insert(cache->objects, obj_cache->name, obj_cache);
 		*created_r = TRUE;
 	} else {
 		*created_r = FALSE;
@@ -362,7 +362,7 @@ void *acl_cache_get_validity(struct acl_cache *cache, const char *objname)
 {
 	struct acl_object_cache *obj_cache;
 
-	obj_cache = hash_lookup(cache->objects, objname);
+	obj_cache = hash_table_lookup(cache->objects, objname);
 	return obj_cache == NULL ? NULL : (obj_cache + 1);
 }
 
@@ -404,7 +404,7 @@ acl_cache_get_my_rights(struct acl_cache *cache, const char *objname)
 {
 	struct acl_object_cache *obj_cache;
 
-	obj_cache = hash_lookup(cache->objects, objname);
+	obj_cache = hash_table_lookup(cache->objects, objname);
 	if (obj_cache == NULL ||
 	    obj_cache->my_current_rights == &negative_cache_entry)
 		return NULL;

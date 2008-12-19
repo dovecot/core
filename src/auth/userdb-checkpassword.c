@@ -25,7 +25,7 @@ static void checkpassword_request_finish(struct chkpw_auth_request *request,
 	userdb_callback_t *callback =
 		(userdb_callback_t *)request->callback;
 
-	hash_remove(module->clients, POINTER_CAST(request->pid));
+	hash_table_remove(module->clients, POINTER_CAST(request->pid));
 
 	if (result == USERDB_RESULT_OK) {
 		if (strchr(str_c(request->input_buf), '\n') != NULL) {
@@ -84,7 +84,7 @@ static void sigchld_handler(const struct child_wait_status *status,
 			    struct checkpassword_userdb_module *module)
 {
 	struct chkpw_auth_request *request = 
-		hash_lookup(module->clients, POINTER_CAST(status->pid));
+		hash_table_lookup(module->clients, POINTER_CAST(status->pid));
 
 	switch (checkpassword_sigchld_handler(status, request)) {
 	case SIGCHLD_RESULT_UNKNOWN_CHILD:
@@ -206,7 +206,8 @@ checkpassword_lookup(struct auth_request *request, userdb_callback_t *callback)
 		io_add(fd_out[1], IO_WRITE, checkpassword_child_output,
 		       chkpw_auth_request);
 
-	hash_insert(module->clients, POINTER_CAST(pid), chkpw_auth_request);
+	hash_table_insert(module->clients, POINTER_CAST(pid),
+			  chkpw_auth_request);
 
 	if (checkpassword_userdb_children != NULL)
 		child_wait_add_pid(checkpassword_userdb_children, pid);
@@ -228,7 +229,7 @@ checkpassword_preinit(struct auth_userdb *auth_userdb, const char *args)
 		PKG_LIBEXECDIR"/checkpassword-reply";
 
 	module->clients =
-		hash_create(default_pool, default_pool, 0, NULL, NULL);
+		hash_table_create(default_pool, default_pool, 0, NULL, NULL);
 
 	return &module->module;
 }
@@ -240,13 +241,13 @@ static void checkpassword_deinit(struct userdb_module *_module)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	iter = hash_iterate_init(module->clients);
-	while (hash_iterate(iter, &key, &value)) {
+	iter = hash_table_iterate_init(module->clients);
+	while (hash_table_iterate(iter, &key, &value)) {
 		checkpassword_request_finish(value,
 					     USERDB_RESULT_INTERNAL_FAILURE);
 	}
-	hash_iterate_deinit(&iter);
-	hash_destroy(&module->clients);
+	hash_table_iterate_deinit(&iter);
+	hash_table_destroy(&module->clients);
 
 	if (checkpassword_userdb_children != NULL)
 		child_wait_free(&checkpassword_userdb_children);

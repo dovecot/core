@@ -917,13 +917,13 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 
 		if (*name != '\0' &&
 		    (skip_attr == NULL || strcmp(skip_attr, value) != 0)) {
-			hash_insert(attr_map, name, value);
+			hash_table_insert(attr_map, name, value);
 			(*attr_names_r)[j++] = name;
 		}
 	}
 	if (str_len(static_data) > 0) {
-		hash_insert(attr_map, "",
-			    p_strdup(conn->pool, str_c(static_data)));
+		hash_table_insert(attr_map, "",
+				  p_strdup(conn->pool, str_c(static_data)));
 	}
 }
 
@@ -986,7 +986,7 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 	ctx->auth_request = auth_request;
 	ctx->attr_map = attr_map;
 
-	static_data = hash_lookup(attr_map, "");
+	static_data = hash_table_lookup(attr_map, "");
 	if (static_data != NULL) {
 		const struct var_expand_table *table;
 		string_t *str;
@@ -1023,7 +1023,7 @@ db_ldap_result_iterate_finish(struct db_ldap_result_iterate_context *ctx)
 static void
 db_ldap_result_change_attr(struct db_ldap_result_iterate_context *ctx)
 {
-	ctx->name = hash_lookup(ctx->attr_map, ctx->attr);
+	ctx->name = hash_table_lookup(ctx->attr_map, ctx->attr);
 	ctx->template = NULL;
 
 	if (ctx->debug != NULL) {
@@ -1260,9 +1260,9 @@ void db_ldap_unref(struct ldap_connection **_conn)
 	aqueue_deinit(&conn->request_queue);
 
 	if (conn->pass_attr_map != NULL)
-		hash_destroy(&conn->pass_attr_map);
+		hash_table_destroy(&conn->pass_attr_map);
 	if (conn->user_attr_map != NULL)
-		hash_destroy(&conn->user_attr_map);
+		hash_table_destroy(&conn->user_attr_map);
 	pool_unref(&conn->pool);
 }
 

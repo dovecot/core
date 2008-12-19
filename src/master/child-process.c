@@ -27,17 +27,17 @@ static child_process_destroy_callback_t *destroy_callbacks[PROCESS_TYPE_MAX];
 
 struct child_process *child_process_lookup(pid_t pid)
 {
-	return hash_lookup(processes, POINTER_CAST(pid));
+	return hash_table_lookup(processes, POINTER_CAST(pid));
 }
 
 void child_process_add(pid_t pid, struct child_process *process)
 {
-	hash_insert(processes, POINTER_CAST(pid), process);
+	hash_table_insert(processes, POINTER_CAST(pid), process);
 }
 
 void child_process_remove(pid_t pid)
 {
-	hash_remove(processes, POINTER_CAST(pid));
+	hash_table_remove(processes, POINTER_CAST(pid));
 }
 
 void child_process_init_env(void)
@@ -198,7 +198,7 @@ void child_process_set_destroy_callback(enum process_type type,
 
 void child_processes_init(void)
 {
-	processes = hash_create(default_pool, default_pool, 128, NULL, NULL);
+	processes = hash_table_create(default_pool, default_pool, 128, NULL, NULL);
 	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
 }
 
@@ -207,5 +207,5 @@ void child_processes_deinit(void)
 	/* make sure we log if child processes died unexpectedly */
 	sigchld_handler(SIGCHLD, NULL);
 	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
-	hash_destroy(&processes);
+	hash_table_destroy(&processes);
 }
