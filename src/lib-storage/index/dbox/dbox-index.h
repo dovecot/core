@@ -43,7 +43,9 @@ enum dbox_index_file_status {
 	DBOX_INDEX_FILE_STATUS_UNLINKED		= 'U',
 
 	/* File is a maildir file. Status-specific data contains
-	   <uid> <filename>. */
+	   old: <uid> <filename>
+	   new: <uid> [<maildir extra field>] :<filename>
+	*/
 	DBOX_INDEX_FILE_STATUS_MAILDIR		= 'M'
 };
 

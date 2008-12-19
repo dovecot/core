@@ -143,7 +143,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 {
 	uint32_t seq, uid;
 	uoff_t physical_size;
-	const char *path;
+	const char *path, *value;
 	bool expunged;
 	int ret;
 
@@ -189,6 +189,15 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 			return -1;
 		i_warning("%s: Ignoring broken file (metadata)", path);
 		return 0;
+	}
+	if (file->maildir_file) {
+		/* preserve POP3 UIDL */
+		value = maildir_uidlist_lookup_ext(ctx->maildir_uidlist, uid,
+					MAILDIR_UIDLIST_REC_EXT_POP3_UIDL);
+		if (value != NULL) {
+			dbox_file_metadata_set(file, DBOX_METADATA_POP3_UIDL,
+					       value);
+		}
 	}
 	if (!expunged) {
 		mail_index_append(ctx->trans, uid, &seq);

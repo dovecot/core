@@ -6,6 +6,7 @@
 #include "dbox-storage.h"
 #include "../maildir/maildir-storage.h"
 #include "../maildir/maildir-filename.h"
+#include "dbox-index.h"
 #include "dbox-file.h"
 #include "dbox-file-maildir.h"
 
@@ -33,6 +34,29 @@ dbox_file_maildir_get_flags(struct dbox_file *file, enum dbox_metadata_key key)
 		mail_index_keywords_free(&keywords);
 	}
 	return str_c(str);
+}
+
+static const char *
+dbox_file_maildir_get_old_metadata(struct dbox_file *file, char key)
+{
+	struct dbox_index_record *rec;
+	const char *p, *end;
+
+	rec = dbox_index_record_lookup(file->mbox->dbox_index, file->file_id);
+	if (rec == NULL)
+		return NULL;
+
+	for (p = strchr(rec->data, ' '); *p != '\0'; p++) {
+		if (*p == ' ') {
+			if (p[1] == key) {
+				end = strchr(p+2, ' ');
+				return t_strdup_until(p+2, end);
+			}
+			if (p[1] == ':')
+				break;
+		}
+	}
+	return NULL;
 }
 
 const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
@@ -77,8 +101,12 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 					      MAILDIR_EXTRA_VIRTUAL_SIZE,
 					      &size))
 			value = dec2str(size);
+		else
+			value = dbox_file_maildir_get_old_metadata(file, 'W');
 		break;
 	case DBOX_METADATA_POP3_UIDL:
+		value = dbox_file_maildir_get_old_metadata(file, 'P');
+		break;
 	case DBOX_METADATA_EXPUNGED:
 	case DBOX_METADATA_EXT_REF:
 	case DBOX_METADATA_SPACE:

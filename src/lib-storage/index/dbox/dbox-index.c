@@ -90,7 +90,7 @@ void dbox_index_deinit(struct dbox_index **_index)
 static int dbox_index_parse_maildir(struct dbox_index *index, const char *line,
 				    struct dbox_index_record *rec)
 {
-	char *p;
+	char *p, *p2;
 	unsigned long uid;
 
 	if (*line++ != ' ')
@@ -100,7 +100,14 @@ static int dbox_index_parse_maildir(struct dbox_index *index, const char *line,
 	if (*p++ != ' ' || *p == '\0' || uid == 0 || uid >= (uint32_t)-1)
 		return -1;
 
-	rec->data = p_strdup(index->record_data_pool, line);
+	p2 = strstr(p, " :");
+	if (p2 != NULL)
+		rec->data = p_strdup(index->record_data_pool, line);
+	else {
+		/* convert to new format */
+		rec->data = p_strconcat(index->record_data_pool,
+					t_strdup_until(line, p), ":", p, NULL);
+	}
 	return 0;
 }
 
@@ -762,6 +769,28 @@ void dbox_index_append_file(struct dbox_index_append_context *ctx,
 	array_append(&ctx->files, &file, 1);
 }
 
+static const char *dbox_file_maildir_get_index_data(struct dbox_file *file)
+{
+	const char *pop3_uidl = NULL, *const *changes;
+	unsigned int i, count;
+
+	changes = array_get(&file->metadata_changes, &count);
+	for (i = 0; i < count; i++) {
+		if (*changes[i] == DBOX_METADATA_POP3_UIDL) {
+			pop3_uidl = changes[i] + 1;
+			break;
+		}
+	}
+
+	if (pop3_uidl == NULL) {
+		return t_strdup_printf("%u :%s", file->last_append_uid,
+				       file->fname);
+	} else {
+		return t_strdup_printf("%u P%s :%s", file->last_append_uid,
+				       pop3_uidl, file->fname);
+	}
+}
+
 static int dbox_index_append_commit_new(struct dbox_index_append_context *ctx,
 					struct dbox_file *file, string_t *str)
 {
@@ -808,9 +837,8 @@ static int dbox_index_append_commit_new(struct dbox_index_append_context *ctx,
 	rec.file_offset = ctx->output_offset + str_len(str);
 	if (file->maildir_file) {
 		rec.status = DBOX_INDEX_FILE_STATUS_MAILDIR;
-		rec.data = p_strdup_printf(ctx->index->record_data_pool,
-					   "%u %s", file->last_append_uid,
-					   file->fname);
+		rec.data = p_strdup(ctx->index->record_data_pool,
+				    dbox_file_maildir_get_index_data(file));
 
 	} else {
 		rec.status = dbox_file_can_append(file, 0) ?

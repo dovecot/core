@@ -141,10 +141,11 @@ dbox_file_id_get_fname(struct dbox_mailbox *mbox, unsigned int file_id,
 
 	rec = dbox_index_record_lookup(mbox->dbox_index, file_id);
 	if (rec != NULL && rec->status == DBOX_INDEX_FILE_STATUS_MAILDIR) {
-		/* data contains <uid> <filename> */
+		/* data contains <uid> [<fields>] :<filename> */
 		*maildir_file_r = TRUE;
-		p = strchr(rec->data, ' ');
-		return i_strdup_printf("%s", p + 1);
+		p = strstr(rec->data, " :");
+		i_assert(p != NULL);
+		return i_strdup_printf("%s", p + 2);
 	}
 
 	return i_strdup_printf(DBOX_MAIL_FILE_MULTI_FORMAT, file_id);
