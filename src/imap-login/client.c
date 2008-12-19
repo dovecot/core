@@ -387,16 +387,18 @@ bool client_read(struct imap_client *client)
 		/* disconnected */
 		client_destroy(client, "Disconnected");
 		return FALSE;
+	case 0:
+		/* nothing new read */
+		return TRUE;
 	default:
 		/* something was read */
+		timeout_reset(client->to_idle_disconnect);
 		return TRUE;
 	}
 }
 
 void client_input(struct imap_client *client)
 {
-	timeout_reset(client->to_idle_disconnect);
-
 	if (!client_read(client))
 		return;
 

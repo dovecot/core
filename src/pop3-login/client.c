@@ -179,8 +179,12 @@ bool client_read(struct pop3_client *client)
 		/* disconnected */
 		client_destroy(client, "Disconnected");
 		return FALSE;
+	case 0:
+		/* nothing new read */
+		return TRUE;
 	default:
 		/* something was read */
+		timeout_reset(client->to_idle_disconnect);
 		return TRUE;
 	}
 }
@@ -191,7 +195,6 @@ void client_input(struct pop3_client *client)
 
 	i_assert(!client->common.authenticating);
 
-	timeout_reset(client->to_idle_disconnect);
 	if (!client_read(client))
 		return;
 

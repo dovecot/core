@@ -115,7 +115,6 @@ static void client_auth_failed(struct imap_client *client, bool nodelay)
 		AUTH_FAILURE_DELAY_INCREASE_MSECS;
 	if (delay_msecs > CLIENT_LOGIN_IDLE_TIMEOUT_MSECS)
 		delay_msecs = CLIENT_LOGIN_IDLE_TIMEOUT_MSECS - 1000;
-	timeout_reset(client->to_idle_disconnect);
 
 	i_assert(client->to_authfail_delay == NULL);
 	client->to_authfail_delay =
