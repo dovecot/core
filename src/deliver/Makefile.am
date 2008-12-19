@@ -22,7 +22,8 @@ deliver_LDFLAGS = -export-dynamic
 # get some functions included which only plugins use. liblib should probably
 # be a shared library so this wouldn't be needed..
 unused_objects = \
-	../lib/mountpoint.o
+	../lib/mountpoint.o \
+	../lib-imap/imap-util.o
 
 libs = \
 	$(STORAGE_LIBS) \
