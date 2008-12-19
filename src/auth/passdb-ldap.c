@@ -109,16 +109,13 @@ ldap_lookup_pass_callback(struct ldap_connection *conn,
 	password = NULL;
 
 	ldap_query_save_result(conn, entry, auth_request);
-	if (auth_request->passdb_password == NULL) {
-		auth_request_log_error(auth_request, "ldap",
-				       "No password in reply");
-	} else if (ldap_next_entry(conn->ld, entry) != NULL) {
+	if (ldap_next_entry(conn->ld, entry) != NULL) {
 		auth_request_log_error(auth_request, "ldap",
 			"pass_filter matched multiple objects, aborting");
 	} else if (auth_request->passdb_password == NULL &&
 		   !auth_request->no_password) {
 		auth_request_log_info(auth_request, "ldap",
-			"Empty password returned without nopassword");
+			"No password returned (and no nopassword)");
 		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 	} else {
 		/* passdb_password may change on the way,
