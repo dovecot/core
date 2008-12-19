@@ -111,6 +111,14 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 		break;
 	case DBOX_METADATA_POP3_UIDL:
 		value = dbox_file_maildir_get_old_metadata(file, 'P');
+		if (value != NULL && *value == '\0') {
+			/* special case: use base filename */
+			p = strchr(file->fname, MAILDIR_INFO_SEP);
+			if (p == NULL)
+				value = file->fname;
+			else
+				value = t_strdup_until(file->fname, p);
+		}
 		break;
 	case DBOX_METADATA_EXPUNGED:
 	case DBOX_METADATA_EXT_REF:
