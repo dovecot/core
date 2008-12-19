@@ -64,6 +64,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 			      struct maildir_index_sync_context *ctx)
 {
 	struct mailbox *box = &mbox->ibox.box;
+	struct stat st;
 	const char *dir, *fname, *newfname, *newpath;
 	enum mail_index_sync_type sync_type;
 	uint8_t flags8;
@@ -87,22 +88,34 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	newfname = maildir_filename_set_flags(ctx->keywords_sync_ctx, fname,
 					      ctx->flags, &ctx->keywords);
 	newpath = t_strconcat(dir, newfname, NULL);
-	if (rename(path, newpath) == 0) {
-		if (box->v.sync_notify != NULL) {
-			box->v.sync_notify(box, ctx->uid,
-					   index_sync_type_convert(sync_type));
+	if (strcmp(path, newpath) == 0) {
+		/* just make sure that the file still exists. avoid rename()
+		   here because it's slow on HFS. */
+		if (stat(path, &st) < 0) {
+			if (errno == ENOENT)
+				return 0;
+			mail_storage_set_critical(box->storage,
+				"stat(%s) failed: %m", path);
+			return -1;
 		}
-		ctx->changed = TRUE;
-		return 1;
+	} else {
+		if (rename(path, newpath) < 0) {
+			if (errno == ENOENT)
+				return 0;
+			if (!ENOSPACE(errno) && errno != EACCES) {
+				mail_storage_set_critical(box->storage,
+					"rename(%s, %s) failed: %m",
+					path, newpath);
+			}
+			return -1;
+		}
 	}
-	if (errno == ENOENT)
-		return 0;
-
-	if (!ENOSPACE(errno) && errno != EACCES) {
-		mail_storage_set_critical(box->storage,
-			"rename(%s, %s) failed: %m", path, newpath);
+	if (box->v.sync_notify != NULL) {
+		box->v.sync_notify(box, ctx->uid,
+				   index_sync_type_convert(sync_type));
 	}
-	return -1;
+	ctx->changed = TRUE;
+	return 1;
 }
 
 static int maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
