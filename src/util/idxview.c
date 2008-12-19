@@ -40,7 +40,7 @@ static const char *unixdate2str(time_t timestamp)
 	struct tm *tm;
 
 	tm = localtime(&timestamp);
-	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", tm);
+	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
 	return buf;
 }
 
@@ -262,7 +262,7 @@ static void dump_cache_hdr(struct mail_cache *cache)
 			printf("%4u ", field->field_size);
 		else
 			printf("   - ");
-		printf("%-4s %s\n",
+		printf("%-4s %.16s\n",
 		       cache_decision2str(field->decision),
 		       unixdate2str(cache->fields[cache_idx].last_used));
 	}
