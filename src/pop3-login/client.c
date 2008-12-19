@@ -21,9 +21,6 @@
    SASL authentication gives the largest output. */
 #define MAX_OUTBUF_SIZE 4096
 
-/* Disconnect client after idling this many milliseconds */
-#define CLIENT_LOGIN_IDLE_TIMEOUT_MSECS (3*60*1000)
-
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 10
 
@@ -378,6 +375,8 @@ void client_destroy(struct pop3_client *client, const char *reason)
 		io_remove(&client->io);
 	if (client->to_idle_disconnect != NULL)
 		timeout_remove(&client->to_idle_disconnect);
+	if (client->to_authfail_delay != NULL)
+		timeout_remove(&client->to_authfail_delay);
 
 	if (client->common.fd != -1) {
 		net_disconnect(client->common.fd);

@@ -18,6 +18,8 @@
 
 #include <stdlib.h>
 
+#define AUTH_FAILURE_DELAY_INCREASE_MSECS 5000
+
 #define IMAP_SERVICE_NAME "imap"
 #define IMAP_AUTH_FAILED_MSG "["IMAP_RESP_CODE_AUTHFAILED"] "AUTH_FAILED_MSG
 #define IMAP_AUTHZ_FAILED_MSG \
@@ -79,23 +81,50 @@ static void client_auth_input(struct imap_client *client)
 	}
 }
 
-static void client_auth_failed(struct imap_client *client)
+static void client_authfail_delay_timeout(struct imap_client *client)
 {
+	timeout_remove(&client->to_authfail_delay);
+
+	/* get back to normal client input. */
+	i_assert(client->io == NULL);
+	client->io = io_add(client->common.fd, IO_READ, client_input, client);
+	client_input(client);
+}
+
+static void client_auth_failed(struct imap_client *client, bool nodelay)
+{
+	unsigned int delay_msecs;
+
 	client->common.auth_command_tag = NULL;
 
 	if (client->auth_initializing)
 		return;
 
-	/* get back to normal client input. */
 	if (client->io != NULL)
 		io_remove(&client->io);
-	client->io = io_add(client->common.fd, IO_READ,
-			    client_input, client);
-	client_input(client);
+	if (nodelay) {
+		client->io = io_add(client->common.fd, IO_READ,
+				    client_input, client);
+		client_input(client);
+		return;
+	}
+
+	/* increase the timeout after each unsuccessful attempt, but don't
+	   increase it so high that the idle timeout would be triggered */
+	delay_msecs = client->common.auth_attempts *
+		AUTH_FAILURE_DELAY_INCREASE_MSECS;
+	if (delay_msecs > CLIENT_LOGIN_IDLE_TIMEOUT_MSECS)
+		delay_msecs = CLIENT_LOGIN_IDLE_TIMEOUT_MSECS - 1000;
+	timeout_reset(client->to_idle_disconnect);
+
+	i_assert(client->to_authfail_delay == NULL);
+	client->to_authfail_delay =
+		timeout_add(delay_msecs, client_authfail_delay_timeout, client);
 }
 
 static bool client_handle_args(struct imap_client *client,
-			       const char *const *args, bool success)
+			       const char *const *args, bool success,
+			       bool *nodelay_r)
 {
 	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	const char *master_user = NULL;
@@ -104,9 +133,12 @@ static bool client_handle_args(struct imap_client *client,
 	bool proxy = FALSE, temp = FALSE, nologin = !success, proxy_self;
 	bool authz_failure = FALSE;
 
+	*nodelay_r = FALSE;
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
 			nologin = TRUE;
+		else if (strcmp(*args, "nodelay") == 0)
+			*nodelay_r = TRUE;
 		else if (strcmp(*args, "proxy") == 0)
 			proxy = TRUE;
 		else if (strcmp(*args, "temp") == 0)
@@ -210,7 +242,7 @@ static bool client_handle_args(struct imap_client *client,
 	i_assert(nologin || proxy_self);
 
 	if (!client->destroyed)
-		client_auth_failed(client);
+		client_auth_failed(client, *nodelay_r);
 	return TRUE;
 }
 
@@ -221,6 +253,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	struct const_iovec iov[3];
 	const char *msg;
 	size_t data_len;
+	bool nodelay;
 
 	i_assert(!client->destroyed ||
 		 reply == SASL_SERVER_REPLY_CLIENT_ERROR ||
@@ -231,7 +264,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
-			if (client_handle_args(client, args, TRUE))
+			if (client_handle_args(client, args, TRUE, &nodelay))
 				break;
 		}
 		client_destroy_success(client, "Login");
@@ -241,7 +274,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
-			if (client_handle_args(client, args, FALSE))
+			if (client_handle_args(client, args, FALSE, &nodelay))
 				break;
 		}
 
@@ -251,7 +284,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		client_send_tagline(client, msg);
 
 		if (!client->destroyed)
-			client_auth_failed(client);
+			client_auth_failed(client, nodelay);
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:
 		if (data == NULL)

@@ -5,6 +5,9 @@
 #include "master.h"
 #include "client-common.h"
 
+/* Disconnect client after idling this many milliseconds */
+#define CLIENT_LOGIN_IDLE_TIMEOUT_MSECS (3*60*1000)
+
 struct imap_client {
 	struct client common;
 
@@ -15,6 +18,7 @@ struct imap_client {
 	struct ostream *output;
 	struct imap_parser *parser;
 	struct timeout *to_idle_disconnect, *to_auth_waiting;
+	struct timeout *to_authfail_delay;
 
 	struct login_proxy *proxy;
 	char *proxy_user, *proxy_master_user, *proxy_password;

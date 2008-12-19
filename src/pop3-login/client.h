@@ -6,6 +6,9 @@
 #include "client-common.h"
 #include "auth-client.h"
 
+/* Disconnect client after idling this many milliseconds */
+#define CLIENT_LOGIN_IDLE_TIMEOUT_MSECS (3*60*1000)
+
 struct pop3_client {
 	struct client common;
 
@@ -14,7 +17,7 @@ struct pop3_client {
 
 	struct io *io;
 	struct ostream *output;
-	struct timeout *to_idle_disconnect;
+	struct timeout *to_idle_disconnect, *to_authfail_delay;
 
 	struct login_proxy *proxy;
 	char *proxy_user, *proxy_master_user, *proxy_password;

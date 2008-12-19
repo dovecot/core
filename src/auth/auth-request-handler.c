@@ -254,6 +254,8 @@ static void auth_callback(struct auth_request *request,
 			   as the wanted user */
 			auth_stream_reply_add(reply, "authz", NULL);
 		}
+		if (request->no_failure_delay)
+			auth_stream_reply_add(reply, "nodelay", NULL);
 		get_client_extra_fields(request, reply);
 
 		auth_request_handle_failure(request, reply);

@@ -26,9 +26,6 @@
 /* maximum length for IMAP command line. */
 #define MAX_IMAP_LINE 8192
 
-/* Disconnect client after idling this many milliseconds */
-#define CLIENT_LOGIN_IDLE_TIMEOUT_MSECS (3*60*1000)
-
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 10
 
@@ -572,6 +569,8 @@ void client_destroy(struct imap_client *client, const char *reason)
 		timeout_remove(&client->to_idle_disconnect);
 	if (client->to_auth_waiting != NULL)
 		timeout_remove(&client->to_auth_waiting);
+	if (client->to_authfail_delay != NULL)
+		timeout_remove(&client->to_authfail_delay);
 
 	if (client->common.fd != -1) {
 		net_disconnect(client->common.fd);
