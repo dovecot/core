@@ -13,4 +13,6 @@ Jelmer Vernooij <jelmer@samba.org> (src/auth/mech-gssapi.c)
 Vaclav Haisman <v.haisman@sh.cvut.cz> (src/lib/ioloop-kqueue.c,
   src/lib/ioloop-notify-kqueue.c)
 
+Portions Copyright (c) 2008 Apple Inc.  All rights reserved.
+
 Grepping 'Patch by' from ChangeLog shows up more people.
