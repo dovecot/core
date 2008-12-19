@@ -10,6 +10,8 @@
 #include "dbox-file.h"
 #include "dbox-file-maildir.h"
 
+#include <stdlib.h>
+
 static const char *
 dbox_file_maildir_get_flags(struct dbox_file *file, enum dbox_metadata_key key)
 {
@@ -97,12 +99,15 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 			value = dec2str(st.st_ctime);
 		break;
 	case DBOX_METADATA_VIRTUAL_SIZE:
-		if (maildir_filename_get_size(file->fname,
-					      MAILDIR_EXTRA_VIRTUAL_SIZE,
-					      &size))
-			value = dec2str(size);
-		else
+		if (!maildir_filename_get_size(file->fname,
+					       MAILDIR_EXTRA_VIRTUAL_SIZE,
+					       &size)) {
 			value = dbox_file_maildir_get_old_metadata(file, 'W');
+			if (value == NULL)
+				break;
+			size = strtoull(value, NULL, 10);
+		}
+		value = t_strdup_printf("%llx", (unsigned long long)size);
 		break;
 	case DBOX_METADATA_POP3_UIDL:
 		value = dbox_file_maildir_get_old_metadata(file, 'P');
