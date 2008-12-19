@@ -368,7 +368,7 @@ static bool mail_index_check_header_compat(struct mail_index *index,
 {
         enum mail_index_header_compat_flags compat_flags = 0;
 
-#ifndef WORDS_BIGENDIAN
+#if !WORDS_BIGENDIAN
 	compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
 
@@ -785,7 +785,7 @@ static void mail_index_header_init(struct mail_index *index,
 	hdr->header_size = sizeof(*hdr);
 	hdr->record_size = sizeof(struct mail_index_record);
 
-#ifndef WORDS_BIGENDIAN
+#if !WORDS_BIGENDIAN
 	hdr->compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
 

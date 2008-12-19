@@ -2124,20 +2124,24 @@ AC_SUBST(DICT_LIBS)
 AC_SUBST(dict_drivers)
 
 dnl **
-dnl ** Index file compatibility flags
+dnl ** Endianess
 dnl **
 
-dnl * currently just checking for endianess
-
-AC_C_BIGENDIAN
-
-if test $ac_cv_c_bigendian = yes; then
-	flags=0
-else
-	flags=1
-fi
-
-AC_DEFINE_UNQUOTED(MAIL_INDEX_COMPAT_FLAGS, $flags, Index file compatibility flags)
+dnl At least Apple's gcc supports __BIG_ENDIAN__ and __LITTLE_ENDIAN__
+dnl defines. Use them if possible to allow cross-compiling.
+AC_MSG_CHECKING([if __BIG_ENDIAN__ or __LITTLE_ENDIAN__ is defined])
+AC_TRY_COMPILE([
+  #if !(__BIG_ENDIAN__ || __LITTLE_ENDIAN__)
+  #error nope
+  #endif
+], [
+], [
+  AC_DEFINE(WORDS_BIGENDIAN, __BIG_ENDIAN__, Define if your CPU is big endian)
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
+  AC_C_BIGENDIAN
+])
 
 dnl **
 dnl ** IPv6 support

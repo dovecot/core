@@ -80,7 +80,7 @@ sha1_step(struct sha1_ctxt *ctxt)
 	size_t t, s;
 	uint32_t	tmp;
 
-#ifndef WORDS_BIGENDIAN
+#if !WORDS_BIGENDIAN
 	struct sha1_ctxt tctxt;
 	memmove(&tctxt.m.b8[0], &ctxt->m.b8[0], 64);
 	ctxt->m.b8[0] = tctxt.m.b8[3]; ctxt->m.b8[1] = tctxt.m.b8[2];
@@ -189,7 +189,7 @@ sha1_pad(struct sha1_ctxt *ctxt)
 	memset(&ctxt->m.b8[padstart], 0, padlen - 8);
 	COUNT += (padlen - 8);
 	COUNT %= 64;
-#ifdef WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
 	PUTPAD(ctxt->c.b8[0]); PUTPAD(ctxt->c.b8[1]);
 	PUTPAD(ctxt->c.b8[2]); PUTPAD(ctxt->c.b8[3]);
 	PUTPAD(ctxt->c.b8[4]); PUTPAD(ctxt->c.b8[5]);
@@ -235,7 +235,7 @@ sha1_result(struct sha1_ctxt *ctxt, void *digest0)
 
 	digest = (uint8_t *)digest0;
 	sha1_pad(ctxt);
-#ifdef WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
 	memmove(digest, &ctxt->h.b8[0], 20);
 #else
 	digest[0] = ctxt->h.b8[3]; digest[1] = ctxt->h.b8[2];

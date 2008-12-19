@@ -641,7 +641,7 @@ void mail_index_reset_error(struct mail_index *index)
         index->index_lock_timeout = FALSE;
 }
 
-#ifdef WORDS_BIGENDIAN
+#if WORDS_BIGENDIAN
 /* FIXME: Unfortunately these functions were originally written to use
    endian-specific code and we can't avoid that without breaking backwards
    compatibility. When we do break it, just select one of these. */
