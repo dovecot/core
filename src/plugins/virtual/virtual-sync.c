@@ -988,6 +988,12 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 	}
 	i_free(vmails);
 
+	/* finish adding messages to the last mailbox */
+	for (; j < uidmap_count; j++) {
+		add_rec.rec.real_uid = uidmap[j].real_uid;
+		array_append(&ctx->all_adds, &add_rec, 1);
+	}
+
 	/* if there are any mailboxes we didn't yet sync, add new messages in
 	   them */
 	bboxes = array_get(&ctx->mbox->backend_boxes, &count);
