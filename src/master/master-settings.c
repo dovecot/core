@@ -581,6 +581,26 @@ static bool settings_have_connect_sockets(struct settings *set)
 	return FALSE;
 }
 
+static bool settings_have_nonplaintext_auths(struct settings *set)
+{
+	struct auth_settings *auth;
+	struct server_settings *server;
+	const char *const *tmp;
+
+	for (server = set->server; server != NULL; server = server->next) {
+		for (auth = server->auths; auth != NULL; auth = auth->next) {
+			tmp = t_strsplit_spaces(auth->mechanisms, " ");
+			for (; *tmp != NULL; tmp++) {
+				if (strcasecmp(*tmp, "PLAIN") != 0 &&
+				    strcasecmp(*tmp, "LOGIN") != 0)
+					return TRUE;
+			}
+		}
+	}
+
+	return FALSE;
+}
+
 static void unlink_auth_sockets(const char *path, const char *prefix)
 {
 	DIR *dirp;
@@ -838,6 +858,13 @@ static bool settings_verify(struct settings *set)
 		return FALSE;
 	}
 #endif
+	if (set->ssl_disable && set->disable_plaintext_auth &&
+	    strncmp(set->listen, "127.", 4) != 0 &&
+	    !settings_have_nonplaintext_auths(set)) {
+		i_warning("There is no way to login to this server: "
+			  "disable_plaintext_auth=yes, ssl_disable=yes, "
+			  "no non-plaintext auth mechanisms.");
+	}
 
 	if (set->max_mail_processes < 1) {
 		i_error("max_mail_processes must be at least 1");
