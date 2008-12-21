@@ -54,6 +54,7 @@ void client_unlink(struct client *client);
 unsigned int clients_get_count(void) ATTR_PURE;
 
 void client_syslog(struct client *client, const char *msg);
+void client_syslog_err(struct client *client, const char *msg);
 const char *client_get_extra_disconnect_reason(struct client *client);
 bool client_is_trusted(struct client *client);
 

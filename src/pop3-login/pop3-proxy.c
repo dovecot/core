@@ -11,6 +11,31 @@
 #include "client.h"
 #include "pop3-proxy.h"
 
+#define PROXY_FAILURE_MSG "-ERR [IN-USE] "AUTH_TEMP_FAILED_MSG
+
+static void proxy_free_password(struct pop3_client *client)
+{
+	if (client->proxy_password == NULL)
+		return;
+
+	safe_memset(client->proxy_password, 0, strlen(client->proxy_password));
+	i_free_and_null(client->proxy_password);
+}
+
+static void proxy_failed(struct pop3_client *client, bool send_line)
+{
+	if (send_line)
+		client_send_line(client, PROXY_FAILURE_MSG);
+
+	login_proxy_free(&client->proxy);
+	proxy_free_password(client);
+	i_free_and_null(client->proxy_user);
+	i_free_and_null(client->proxy_master_user);
+
+	/* call this last - it may destroy the client */
+	client_auth_failed(client, TRUE);
+}
+
 static void get_plain_auth(struct pop3_client *client, string_t *dest)
 {
 	string_t *str;
@@ -24,59 +49,22 @@ static void get_plain_auth(struct pop3_client *client, string_t *dest)
 	base64_encode(str_data(str), str_len(str), dest);
 }
 
-static void proxy_input(struct istream *input, struct ostream *output,
-			struct pop3_client *client)
+static int proxy_input_line(struct pop3_client *client,
+			    struct ostream *output, const char *line)
 {
 	string_t *str;
-	const char *line;
-
-	if (input == NULL) {
-		if (client->io != NULL) {
-			/* remote authentication failed, we're just
-			   freeing the proxy */
-			return;
-		}
-
-		if (client->destroyed) {
-			/* we came here from client_destroy() */
-			return;
-		}
-
-		/* failed for some reason, probably server disconnected */
-		client_send_line(client,
-				 "-ERR [IN-USE] Temporary login failure.");
-		client_destroy_success(client, NULL);
-		return;
-	}
 
 	i_assert(!client->destroyed);
-
-	switch (i_stream_read(input)) {
-	case -2:
-		/* buffer full */
-		client_syslog(&client->common,
-			      "proxy: Remote input buffer full");
-		client_destroy_internal_failure(client);
-		return;
-	case -1:
-		/* disconnected */
-		client_destroy_success(client, "Proxy: Remote disconnected");
-		return;
-	}
-
-	line = i_stream_next_line(input);
-	if (line == NULL)
-		return;
 
 	switch (client->proxy_state) {
 	case 0:
 		/* this is a banner */
 		if (strncmp(line, "+OK", 3) != 0) {
-			client_syslog(&client->common, t_strdup_printf(
+			client_syslog_err(&client->common, t_strdup_printf(
 				"proxy: Remote returned invalid banner: %s",
 				str_sanitize(line, 160)));
-			client_destroy_internal_failure(client);
-			return;
+			proxy_failed(client, TRUE);
+			return -1;
 		}
 
 		str = t_str_new(128);
@@ -92,7 +80,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		(void)o_stream_send(output, str_data(str), str_len(str));
 
 		client->proxy_state++;
-		return;
+		return 0;
 	case 1:
 		str = t_str_new(128);
 		if (client->proxy_master_user == NULL) {
@@ -110,15 +98,10 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			get_plain_auth(client, str);
 			str_append(str, "\r\n");
 		}
-		(void)o_stream_send(output, str_data(str),
-				    str_len(str));
-
-		safe_memset(client->proxy_password, 0,
-			    strlen(client->proxy_password));
-		i_free_and_null(client->proxy_password);
-
+		(void)o_stream_send(output, str_data(str), str_len(str));
+		proxy_free_password(client);
 		client->proxy_state++;
-		return;
+		return 0;
 	case 2:
 		if (strncmp(line, "+OK", 3) != 0)
 			break;
@@ -151,7 +134,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		client->output = NULL;
 		client->common.fd = -1;
 		client_destroy_success(client, str_c(str));
-		return;
+		return 0;
 	}
 
 	/* Login failed. Pass through the error message to client
@@ -184,23 +167,50 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			str_append(str, line);
 		i_info("%s", str_c(str));
 	}
+	proxy_failed(client, FALSE);
+	return -1;
+}
 
-	/* allow client input again */
-	i_assert(client->io == NULL);
-	client->io = io_add(client->common.fd, IO_READ,
-			    client_input, client);
+static void proxy_input(struct istream *input, struct ostream *output,
+			struct pop3_client *client)
+{
+	const char *line;
 
-	login_proxy_free(client->proxy);
-	client->proxy = NULL;
+	if (input == NULL) {
+		if (client->proxy == NULL) {
+			/* we're just freeing the proxy */
+			return;
+		}
 
-	if (client->proxy_password != NULL) {
-		safe_memset(client->proxy_password, 0,
-			    strlen(client->proxy_password));
-		i_free_and_null(client->proxy_password);
+		if (client->destroyed) {
+			/* we came here from client_destroy() */
+			return;
+		}
+
+		/* failed for some reason, probably server disconnected */
+		proxy_failed(client, TRUE);
+		return;
 	}
 
-	i_free_and_null(client->proxy_user);
-	i_free_and_null(client->proxy_master_user);
+	i_assert(!client->destroyed);
+
+	switch (i_stream_read(input)) {
+	case -2:
+		client_syslog_err(&client->common,
+				  "proxy: Remote input buffer full");
+		proxy_failed(client, TRUE);
+		return;
+	case -1:
+		client_syslog_err(&client->common,
+				  "proxy: Remote disconnected");
+		proxy_failed(client, TRUE);
+		return;
+	}
+
+	while ((line = i_stream_next_line(input)) != NULL) {
+		if (proxy_input_line(client, output, line) < 0)
+			break;
+	}
 }
 
 int pop3_proxy_new(struct pop3_client *client, const char *host,
@@ -211,7 +221,8 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 	i_assert(!client->destroyed);
 
 	if (password == NULL) {
-		client_syslog(&client->common, "proxy: password not given");
+		client_syslog_err(&client->common, "proxy: password not given");
+		client_send_line(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 
@@ -223,11 +234,18 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 		   connection and killed us. */
 		return -1;
 	}
+	if (login_proxy_is_ourself(&client->common, host, port, user)) {
+		client_syslog_err(&client->common, "Proxying loops to itself");
+		client_send_line(client, PROXY_FAILURE_MSG);
+		return -1;
+	}
 
 	client->proxy = login_proxy_new(&client->common, host, port,
 					proxy_input, client);
-	if (client->proxy == NULL)
+	if (client->proxy == NULL) {
+		client_send_line(client, PROXY_FAILURE_MSG);
 		return -1;
+	}
 
 	client->proxy_state = 0;
 	client->proxy_user = i_strdup(user);

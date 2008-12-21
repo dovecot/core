@@ -91,7 +91,7 @@ static void client_authfail_delay_timeout(struct imap_client *client)
 	client_input(client);
 }
 
-static void client_auth_failed(struct imap_client *client, bool nodelay)
+void client_auth_failed(struct imap_client *client, bool nodelay)
 {
 	unsigned int delay_msecs;
 
@@ -129,7 +129,7 @@ static bool client_handle_args(struct imap_client *client,
 	const char *master_user = NULL;
 	string_t *reply;
 	unsigned int port = 143;
-	bool proxy = FALSE, temp = FALSE, nologin = !success, proxy_self;
+	bool proxy = FALSE, temp = FALSE, nologin = !success;
 	bool authz_failure = FALSE;
 
 	*nodelay_r = FALSE;
@@ -167,9 +167,7 @@ static bool client_handle_args(struct imap_client *client,
 	if (destuser == NULL)
 		destuser = client->common.virtual_user;
 
-	proxy_self = proxy &&
-		login_proxy_is_ourself(&client->common, host, port, destuser);
-	if (proxy && !proxy_self) {
+	if (proxy) {
 		/* we want to proxy the connection to another server.
 		   don't do this unless authentication succeeded. with
 		   master user proxying we can get FAIL with proxy still set.
@@ -179,11 +177,11 @@ static bool client_handle_args(struct imap_client *client,
 			return FALSE;
 		if (imap_proxy_new(client, host, port, destuser, master_user,
 				   pass) < 0)
-			client_destroy_internal_failure(client);
+			client_auth_failed(client, TRUE);
 		return TRUE;
 	}
 
-	if (!proxy && host != NULL) {
+	if (host != NULL) {
 		/* IMAP referral
 
 		   [nologin] referral host=.. [port=..] [destuser=..]
@@ -213,18 +211,13 @@ static bool client_handle_args(struct imap_client *client,
 			client_destroy_success(client, "Login with referral");
 			return TRUE;
 		}
-	} else if (nologin || proxy_self) {
+	} else if (nologin) {
 		/* Authentication went ok, but for some reason user isn't
 		   allowed to log in. Shouldn't probably happen. */
-		if (proxy_self) {
-			client_syslog(&client->common,
-				      "Proxying loops to itself");
-		}
-
 		reply = t_str_new(128);
 		if (reason != NULL)
 			str_printfa(reply, "NO %s", reason);
-		else if (temp || proxy_self) {
+		else if (temp) {
 			str_append(reply, "NO ["IMAP_RESP_CODE_UNAVAILABLE"] "
 				   AUTH_TEMP_FAILED_MSG);
 		} else if (authz_failure) {
@@ -238,7 +231,7 @@ static bool client_handle_args(struct imap_client *client,
 		return FALSE;
 	}
 
-	i_assert(nologin || proxy_self);
+	i_assert(nologin);
 
 	if (!client->destroyed)
 		client_auth_failed(client, *nodelay_r);

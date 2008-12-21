@@ -9,8 +9,12 @@
 #include "str-sanitize.h"
 #include "safe-memset.h"
 #include "client.h"
+#include "imap-resp-code.h"
 #include "imap-quote.h"
 #include "imap-proxy.h"
+
+#define PROXY_FAILURE_MSG \
+	"NO ["IMAP_RESP_CODE_UNAVAILABLE"] "AUTH_TEMP_FAILED_MSG
 
 static bool imap_banner_has_capability(const char *line, const char *capability)
 {
@@ -49,8 +53,25 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 
 static void proxy_free_password(struct imap_client *client)
 {
+	if (client->proxy_password == NULL)
+		return;
+
 	safe_memset(client->proxy_password, 0, strlen(client->proxy_password));
 	i_free_and_null(client->proxy_password);
+}
+
+static void proxy_failed(struct imap_client *client, bool send_tagline)
+{
+	if (send_tagline)
+		client_send_tagline(client, PROXY_FAILURE_MSG);
+
+	login_proxy_free(&client->proxy);
+	proxy_free_password(client);
+	i_free_and_null(client->proxy_user);
+	i_free_and_null(client->proxy_master_user);
+
+	/* call this last - it may destroy the client */
+	client_auth_failed(client, TRUE);
 }
 
 static void get_plain_auth(struct imap_client *client, string_t *dest)
@@ -72,10 +93,9 @@ static int proxy_input_banner(struct imap_client *client,
 	string_t *str;
 
 	if (strncmp(line, "* OK ", 5) != 0) {
-		client_syslog(&client->common, t_strdup_printf(
+		client_syslog_err(&client->common, t_strdup_printf(
 			"proxy: Remote returned invalid banner: %s",
 			str_sanitize(line, 160)));
-		client_destroy_internal_failure(client);
 		return -1;
 	}
 
@@ -116,7 +136,11 @@ static int proxy_input_line(struct imap_client *client,
 
 	if (!client->proxy_login_sent) {
 		/* this is a banner */
-		return proxy_input_banner(client, output, line);
+		if (proxy_input_banner(client, output, line) < 0) {
+			proxy_failed(client, TRUE);
+			return -1;
+		}
+		return 0;
 	} else if (*line == '+') {
 		/* AUTHENTICATE started. finish it. */
 		str = t_str_new(128);
@@ -200,17 +224,7 @@ static int proxy_input_line(struct imap_client *client,
 				str_append(str, line + 2);
 			i_info("%s", str_c(str));
 		}
-
-		/* allow client input again */
-		i_assert(client->io == NULL);
-		client->io = io_add(client->common.fd, IO_READ,
-				    client_input, client);
-
-		login_proxy_free(client->proxy);
-		client->proxy = NULL;
-
-		i_free_and_null(client->proxy_user);
-		i_free_and_null(client->proxy_master_user);
+		proxy_failed(client, FALSE);
 		return -1;
 	} else {
 		/* probably some untagged reply */
@@ -224,9 +238,8 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	const char *line;
 
 	if (input == NULL) {
-		if (client->io != NULL) {
-			/* remote authentication failed, we're just
-			   freeing the proxy */
+		if (client->proxy == NULL) {
+			/* we're just freeing the proxy */
 			return;
 		}
 
@@ -236,8 +249,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		}
 
 		/* failed for some reason, probably server disconnected */
-		client_send_line(client, "* BYE Temporary login failure.");
-		client_destroy_success(client, NULL);
+		proxy_failed(client, TRUE);
 		return;
 	}
 
@@ -245,14 +257,14 @@ static void proxy_input(struct istream *input, struct ostream *output,
 
 	switch (i_stream_read(input)) {
 	case -2:
-		/* buffer full */
-		client_syslog(&client->common,
-			      "proxy: Remote input buffer full");
-		client_destroy_internal_failure(client);
+		client_syslog_err(&client->common,
+				  "proxy: Remote input buffer full");
+		proxy_failed(client, TRUE);
 		return;
 	case -1:
-		/* disconnected */
-		client_destroy_success(client, "Proxy: Remote disconnected");
+		client_syslog_err(&client->common,
+				  "proxy: Remote disconnected");
+		proxy_failed(client, TRUE);
 		return;
 	}
 
@@ -270,7 +282,8 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 	i_assert(!client->destroyed);
 
 	if (password == NULL) {
-		client_syslog(&client->common, "proxy: password not given");
+		client_syslog_err(&client->common, "proxy: password not given");
+		client_send_tagline(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 
@@ -282,11 +295,18 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 		   connection and killed us. */
 		return -1;
 	}
+	if (login_proxy_is_ourself(&client->common, host, port, user)) {
+		client_syslog_err(&client->common, "Proxying loops to itself");
+		client_send_tagline(client, PROXY_FAILURE_MSG);
+		return -1;
+	}
 
 	client->proxy = login_proxy_new(&client->common, host, port,
 					proxy_input, client);
-	if (client->proxy == NULL)
+	if (client->proxy == NULL) {
+		client_send_tagline(client, PROXY_FAILURE_MSG);
 		return -1;
+	}
 
 	client->proxy_login_sent = FALSE;
 	client->proxy_user = i_strdup(user);
@@ -296,6 +316,5 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 	/* disable input until authentication is finished */
 	if (client->io != NULL)
 		io_remove(&client->io);
-
 	return 0;
 }

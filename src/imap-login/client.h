@@ -53,5 +53,6 @@ void client_ref(struct imap_client *client);
 bool client_unref(struct imap_client *client);
 
 void client_set_auth_waiting(struct imap_client *client);
+void client_auth_failed(struct imap_client *client, bool nodelay);
 
 #endif

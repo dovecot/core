@@ -24,7 +24,7 @@ login_proxy_new(struct client *client, const char *host, unsigned int port,
 		(proxy_callback_t *)callback, context)
 #endif
 /* Free the proxy. This should be called if authentication fails. */
-void login_proxy_free(struct login_proxy *proxy);
+void login_proxy_free(struct login_proxy **proxy);
 
 /* Return TRUE if host/port/destuser combination points to same as current
    connection. */

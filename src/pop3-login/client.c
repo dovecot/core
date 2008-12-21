@@ -396,10 +396,8 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	i_free(client->proxy_user);
 	client->proxy_user = NULL;
 
-	if (client->proxy != NULL) {
-		login_proxy_free(client->proxy);
-		client->proxy = NULL;
-	}
+	if (client->proxy != NULL)
+		login_proxy_free(&client->proxy);
 
 	if (client->common.proxy != NULL) {
 		ssl_proxy_free(client->common.proxy);

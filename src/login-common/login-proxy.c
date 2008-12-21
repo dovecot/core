@@ -48,7 +48,7 @@ static void server_input(struct login_proxy *proxy)
 
 	ret = net_receive(proxy->server_fd, buf, sizeof(buf));
 	if (ret < 0 || o_stream_send(proxy->client_output, buf, ret) != ret)
-                login_proxy_free(proxy);
+                login_proxy_free(&proxy);
 }
 
 static void proxy_client_input(struct login_proxy *proxy)
@@ -66,13 +66,13 @@ static void proxy_client_input(struct login_proxy *proxy)
 
 	ret = net_receive(proxy->client_fd, buf, sizeof(buf));
 	if (ret < 0 || o_stream_send(proxy->server_output, buf, ret) != ret)
-                login_proxy_free(proxy);
+                login_proxy_free(&proxy);
 }
 
 static int server_output(struct login_proxy *proxy)
 {
 	if (o_stream_flush(proxy->server_output) < 0) {
-                login_proxy_free(proxy);
+                login_proxy_free(&proxy);
 		return 1;
 	}
 
@@ -90,7 +90,7 @@ static int server_output(struct login_proxy *proxy)
 static int proxy_client_output(struct login_proxy *proxy)
 {
 	if (o_stream_flush(proxy->client_output) < 0) {
-                login_proxy_free(proxy);
+                login_proxy_free(&proxy);
 		return 1;
 	}
 
@@ -119,7 +119,7 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 	if (err != 0) {
 		i_error("proxy: connect(%s, %u) failed: %s",
 			proxy->host, proxy->port, strerror(err));
-                login_proxy_free(proxy);
+                login_proxy_free(&proxy);
 		return;
 	}
 
@@ -178,9 +178,12 @@ login_proxy_new(struct client *client, const char *host, unsigned int port,
 	return proxy;
 }
 
-void login_proxy_free(struct login_proxy *proxy)
+void login_proxy_free(struct login_proxy **_proxy)
 {
+	struct login_proxy *proxy = *_proxy;
 	const char *ipstr;
+
+	*_proxy = NULL;
 
 	if (proxy->destroying)
 		return;
@@ -295,6 +298,10 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 
 void login_proxy_deinit(void)
 {
-	while (login_proxies != NULL)
-		login_proxy_free(login_proxies);
+	struct login_proxy *proxy;
+
+	while (login_proxies != NULL) {
+		proxy = login_proxies;
+		login_proxy_free(&proxy);
+	}
 }

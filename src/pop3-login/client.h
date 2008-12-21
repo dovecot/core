@@ -48,4 +48,6 @@ void client_input(struct pop3_client *client);
 void client_ref(struct pop3_client *client);
 bool client_unref(struct pop3_client *client);
 
+void client_auth_failed(struct pop3_client *client, bool nodelay);
+
 #endif

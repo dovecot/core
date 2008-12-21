@@ -109,7 +109,8 @@ static bool have_key(const struct var_expand_table *table, const char *str)
 	return FALSE;
 }
 
-static void client_syslog_real(struct client *client, const char *msg)
+static const char *
+client_get_log_str(struct client *client, const char *msg)
 {
 	static struct var_expand_table static_tab[3] = {
 		{ 's', NULL, NULL },
@@ -147,13 +148,20 @@ static void client_syslog_real(struct client *client, const char *msg)
 	str_truncate(str, 0);
 
 	var_expand(str, log_format, tab);
-	i_info("%s", str_c(str));
+	return str_c(str);
 }
 
 void client_syslog(struct client *client, const char *msg)
 {
 	T_BEGIN {
-		client_syslog_real(client, msg);
+		i_info("%s", client_get_log_str(client, msg));
+	} T_END;
+}
+
+void client_syslog_err(struct client *client, const char *msg)
+{
+	T_BEGIN {
+		i_error("%s", client_get_log_str(client, msg));
 	} T_END;
 }
 

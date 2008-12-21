@@ -93,7 +93,7 @@ static void client_authfail_delay_timeout(struct pop3_client *client)
 	client_input(client);
 }
 
-static void client_auth_failed(struct pop3_client *client, bool nodelay)
+void client_auth_failed(struct pop3_client *client, bool nodelay)
 {
 	unsigned int delay_msecs;
 
@@ -164,8 +164,7 @@ static bool client_handle_args(struct pop3_client *client,
 	if (destuser == NULL)
 		destuser = client->common.virtual_user;
 
-	if (proxy &&
-	    !login_proxy_is_ourself(&client->common, host, port, destuser)) {
+	if (proxy) {
 		/* we want to proxy the connection to another server.
 		   don't do this unless authentication succeeded. with
 		   master user proxying we can get FAIL with proxy still set.
@@ -175,7 +174,7 @@ static bool client_handle_args(struct pop3_client *client,
 			return FALSE;
 		if (pop3_proxy_new(client, host, port, destuser, master_user,
 				   pass) < 0)
-			client_destroy_internal_failure(client);
+			client_auth_failed(client, TRUE);
 		return TRUE;
 	}
 
@@ -187,7 +186,7 @@ static bool client_handle_args(struct pop3_client *client,
 	if (reason != NULL)
 		str_append(reply, reason);
 	else if (temp)
-		str_append(reply, AUTH_TEMP_FAILED_MSG);
+		str_append(reply, "[IN-USE] "AUTH_TEMP_FAILED_MSG);
 	else
 		str_append(reply, AUTH_FAILED_MSG);
 
