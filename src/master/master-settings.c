@@ -655,17 +655,18 @@ static void unlink_auth_sockets(const char *path, const char *prefix)
 }
 
 #ifdef HAVE_MODULES
-static bool get_imap_capability(struct settings *set)
+static const char *
+get_process_capability(enum process_type ptype, struct settings *set)
 {
 	/* FIXME: pretty ugly code just for getting the capability
 	   automatically */
-	static const char *generated_capability = NULL;
 	static const char *args[] = {
 		"uid=65534",
 		"gid=65534",
 		"home=/tmp",
 		NULL
 	};
+	const char *pname = process_names[ptype];
 	enum master_login_status login_status;
 	struct mail_login_request request;
 	char buf[4096];
@@ -674,6 +675,78 @@ static bool get_imap_capability(struct settings *set)
 	unsigned int pos;
 	uid_t uid;
 	pid_t pid;
+
+	uid = geteuid();
+	if (uid != 0) {
+		/* use the current user */
+		args[0] = t_strdup_printf("uid=%s", dec2str(uid));
+		args[1] = t_strdup_printf("gid=%s", dec2str(getegid()));
+	}
+
+	if (pipe(fd) < 0) {
+		i_error("pipe() failed: %m");
+		return NULL;
+	}
+	fd_close_on_exec(fd[0], TRUE);
+	fd_close_on_exec(fd[1], TRUE);
+
+	memset(&request, 0, sizeof(request));
+	request.fd = fd[1];
+	login_status = create_mail_process(ptype, set, &request,
+					   "dump-capability", args, NULL, TRUE,
+					   &pid);
+	if (login_status != MASTER_LOGIN_STATUS_OK) {
+		(void)close(fd[0]);
+		(void)close(fd[1]);
+		return NULL;
+	}
+	(void)close(fd[1]);
+
+	alarm(5);
+	if (wait(&status) == -1) {
+		i_fatal("%s dump-capability process %d got stuck",
+			pname, (int)pid);
+	}
+	alarm(0);
+
+	if (status != 0) {
+		(void)close(fd[0]);
+		if (WIFSIGNALED(status)) {
+			i_error("%s dump-capability process "
+				"killed with signal %d",
+				pname, WTERMSIG(status));
+		} else {
+			i_error("%s dump-capability process returned %d",
+				pname, WIFEXITED(status) ? WEXITSTATUS(status) :
+				status);
+		}
+		return NULL;
+	}
+
+	pos = 0;
+	while ((ret = read(fd[0], buf + pos, sizeof(buf) - pos)) > 0)
+		pos += ret;
+
+	if (ret < 0) {
+		i_error("read(%s dump-capability process) failed: %m", pname);
+		(void)close(fd[0]);
+		return NULL;
+	}
+	(void)close(fd[0]);
+
+	if (pos == 0 || buf[pos-1] != '\n') {
+		i_error("%s dump-capability: Couldn't read capability "
+			"(got %u bytes)", pname, pos);
+		return NULL;
+	}
+	buf[pos-1] = '\0';
+
+	return i_strdup(buf);
+}
+
+static bool get_imap_capability(struct settings *set)
+{
+	static const char *generated_capability = NULL;
 
 	if (generated_capability != NULL) {
 		/* Reloading configuration. Don't try to execute the imap
@@ -685,69 +758,10 @@ static bool get_imap_capability(struct settings *set)
 		return TRUE;
 	}
 
-	uid = geteuid();
-	if (uid != 0) {
-		/* use the current user */
-		args[0] = t_strdup_printf("uid=%s", dec2str(uid));
-		args[1] = t_strdup_printf("gid=%s", dec2str(getegid()));
-	}
-
-	if (pipe(fd) < 0) {
-		i_error("pipe() failed: %m");
+	generated_capability = get_process_capability(PROCESS_TYPE_IMAP, set);
+	if (generated_capability == NULL)
 		return FALSE;
-	}
-	fd_close_on_exec(fd[0], TRUE);
-	fd_close_on_exec(fd[1], TRUE);
 
-	memset(&request, 0, sizeof(request));
-	request.fd = fd[1];
-	login_status = create_mail_process(PROCESS_TYPE_IMAP, set, &request,
-					   "dump-capability", args, NULL, TRUE,
-					   &pid);
-	if (login_status != MASTER_LOGIN_STATUS_OK) {
-		(void)close(fd[0]);
-		(void)close(fd[1]);
-		return FALSE;
-	}
-	(void)close(fd[1]);
-
-	alarm(5);
-	if (wait(&status) == -1)
-		i_fatal("imap dump-capability process %d got stuck", (int)pid);
-	alarm(0);
-
-	if (status != 0) {
-		(void)close(fd[0]);
-		if (WIFSIGNALED(status)) {
-			i_error("imap dump-capability process "
-				"killed with signal %d", WTERMSIG(status));
-		} else {
-			i_error("imap dump-capability process returned %d",
-				WIFEXITED(status) ? WEXITSTATUS(status) :
-				status);
-		}
-		return FALSE;
-	}
-
-	pos = 0;
-	while ((ret = read(fd[0], buf + pos, sizeof(buf) - pos)) > 0)
-		pos += ret;
-
-	if (ret < 0) {
-		i_error("read(imap dump-capability process) failed: %m");
-		(void)close(fd[0]);
-		return FALSE;
-	}
-	(void)close(fd[0]);
-
-	if (pos == 0 || buf[pos-1] != '\n') {
-		i_error("imap dump-capability: Couldn't read capability "
-			"(got %u bytes)", pos);
-		return FALSE;
-	}
-	buf[pos-1] = '\0';
-
-	generated_capability = i_strdup(buf);
 	set->imap_generated_capability =
 		p_strdup(settings_pool, generated_capability);
 	return TRUE;
