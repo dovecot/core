@@ -719,14 +719,14 @@ static void print_help(void)
 "               [-f <envelope sender>] [-m <mailbox>] [-n] [-s] [-e] [-k]\n");
 }
 
-void deliver_env_clean(void)
+void deliver_env_clean(bool preserve_home)
 {
 	const char *tz, *home;
 
 	tz = getenv("TZ");
 	if (tz != NULL)
 		tz = t_strconcat("TZ=", tz, NULL);
-	home = getenv("HOME");
+	home = preserve_home ? getenv("HOME") : NULL;
 	if (home != NULL)
 		home = t_strconcat("HOME=", home, NULL);
 
@@ -920,7 +920,7 @@ int main(int argc, char *argv[])
 	if (user == NULL)
 		user = getenv("USER");
 	if (!keep_environment)
-		deliver_env_clean();
+		deliver_env_clean(!user_auth);
 
 	process_euid = geteuid();
 	if (user_auth)

@@ -34,7 +34,7 @@ typedef int deliver_mail_func_t(struct mail_namespace *namespaces,
 
 extern deliver_mail_func_t *deliver_mail;
 
-void deliver_env_clean(void);
+void deliver_env_clean(bool preserve_home);
 
 /* Save a mail into given mailbox with given flags and keywords. */
 int deliver_save(struct mail_namespace *namespaces,

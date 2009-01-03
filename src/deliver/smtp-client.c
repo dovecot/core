@@ -46,7 +46,7 @@ smtp_client_run_sendmail(const char *destination,
 	if (dup2(fd, STDIN_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
 
-	deliver_env_clean();
+	deliver_env_clean(TRUE);
 
 	(void)execv(sendmail_path, (void *)argv);
 	i_fatal("execv(%s) failed: %m", sendmail_path);
