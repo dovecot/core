@@ -40,7 +40,8 @@ rquota_xdr.c: Makefile $(RQUOTA_X)
 	 $(RPCGEN) -c $(RQUOTA_X) | \
 	  sed -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
 	    -e 's,/usr/include/rpcsvc/rquota.h,rquota.h,' \
-	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' ) > rquota_xdr.c
+	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' \
+	    -e 's/^static char rcsid.*//' ) > rquota_xdr.c
 
 rquota.h: Makefile $(RQUOTA_X)
 	$(RPCGEN) -h $(RQUOTA_X) > rquota.h
