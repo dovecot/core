@@ -6,6 +6,7 @@
 #ifdef PASSDB_BSDAUTH
 
 #include "safe-memset.h"
+#include "auth-cache.h"
 #include "mycrypt.h"
 
 #include <login_cap.h>
