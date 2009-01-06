@@ -774,7 +774,12 @@ static const char *dbox_file_maildir_get_index_data(struct dbox_file *file)
 	const char *pop3_uidl = NULL, *const *changes;
 	unsigned int i, count;
 
-	changes = array_get(&file->metadata_changes, &count);
+	if (array_is_created(&file->metadata_changes))
+		changes = array_get(&file->metadata_changes, &count);
+	else {
+		changes = NULL;
+		count = 0;
+	}
 	for (i = 0; i < count; i++) {
 		if (*changes[i] == DBOX_METADATA_POP3_UIDL) {
 			pop3_uidl = changes[i] + 1;
