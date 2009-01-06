@@ -33,14 +33,6 @@ static void passwd_lookup(struct auth_request *auth_request,
 		return;
 	}
 
-	if (strcasecmp(pw->pw_name, auth_request->user) != 0) {
-		/* try to catch broken NSS implementations (nss_ldap) */
-		i_fatal("BROKEN NSS IMPLEMENTATION: "
-			"getpwnam() lookup returned different user than was "
-			"requested (%s != %s).",
-			pw->pw_name, auth_request->user);
-	}
-
 	auth_request_set_field(auth_request, "user", pw->pw_name, NULL);
 
 	auth_request_init_userdb_reply(auth_request);
