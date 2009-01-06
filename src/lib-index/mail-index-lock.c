@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2008 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2009 Dovecot authors, see the included COPYING file */
 
 /*
    Locking should never fail or timeout. Exclusive locks must be kept as short
