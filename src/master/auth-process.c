@@ -327,7 +327,7 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 			       dec2str(pid));
 	p->worker_listen_fd =
 		unix_socket_create(path, 0600, group->set->uid,
-				   group->set->gid, 16);
+				   group->set->gid, 128);
 	if (p->worker_listen_fd == -1)
 		i_fatal("Couldn't create auth worker listener");
 
@@ -712,7 +712,7 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
 			   auth_set->name, NULL);
 	group->listen_fd = unix_socket_create(path, 0660, master_uid,
-					      auth_set->parent->login_gid, 16);
+					      auth_set->parent->login_gid, 128);
 	if (group->listen_fd == -1)
 		i_fatal("Couldn't create auth process listener");
 

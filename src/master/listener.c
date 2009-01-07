@@ -282,8 +282,8 @@ listener_array_listen_missing(const char *proto,
 			continue;
 
 		for (j = 0; j < 10; j++) {
-			listens[i].fd =
-				net_listen(&listens[i].ip, &listens[i].port, 8);
+			listens[i].fd = net_listen(&listens[i].ip,
+						   &listens[i].port, 128);
 			if (listens[i].fd != -1)
 				break;
 

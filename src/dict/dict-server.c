@@ -525,7 +525,7 @@ struct dict_server *dict_server_init(const char *path, int fd)
 	server = i_new(struct dict_server, 1);
 	server->path = i_strdup(path);
 	server->fd = fd != -1 ? fd :
-		net_listen_unix_unlink_stale(path, 64);
+		net_listen_unix_unlink_stale(path, 128);
 	if (server->fd == -1) {
 		if (errno == EADDRINUSE)
 			i_fatal("Socket already exists: %s", path);

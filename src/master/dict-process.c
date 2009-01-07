@@ -116,7 +116,7 @@ static int dict_process_listen(struct dict_process *process)
 	mode_t old_umask;
 
 	old_umask = umask(0);
-	process->fd = net_listen_unix_unlink_stale(process->path, 64);
+	process->fd = net_listen_unix_unlink_stale(process->path, 128);
 	umask(old_umask);
 	if (process->fd == -1) {
 		if (errno == EADDRINUSE)
