@@ -27,7 +27,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <netdb.h>
 #include <utime.h>
 
 #define MBOX_DELIVERY_ID_RAND_BYTES (64/8)
@@ -57,8 +56,6 @@ struct mbox_save_context {
 	unsigned int failed:1;
 	unsigned int finished:1;
 };
-
-static char my_hostdomain[256] = "";
 
 static int write_error(struct mbox_save_context *ctx)
 {
@@ -114,22 +111,7 @@ static int mbox_append_lf(struct mbox_save_context *ctx)
 static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 			   const char *from_envelope)
 {
-	const char *name;
 	int ret;
-
-	if (*my_hostdomain == '\0') {
-		struct hostent *hent;
-
-		hent = gethostbyname(my_hostname);
-
-		name = hent != NULL ? hent->h_name : NULL;
-		if (name == NULL) {
-			/* failed, use just the hostname */
-			name = my_hostname;
-		}
-
-		i_strocpy(my_hostdomain, name, sizeof(my_hostdomain));
-	}
 
 	T_BEGIN {
 		const char *line;
@@ -139,7 +121,7 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 				&ctx->mbox->storage->storage;
 
 			from_envelope = t_strconcat(storage->ns->user->username,
-						    "@", my_hostdomain, NULL);
+						    "@", my_hostdomain(), NULL);
 		}
 
 		/* save in local timezone, no matter what it was given with */
