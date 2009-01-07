@@ -803,8 +803,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		request->user = user;
 
 		dest = t_str_new(256);
-		table = auth_request_get_var_expand_table(request,
-						auth_request_str_escape);
+		table = auth_request_get_var_expand_table(request, NULL);
 		var_expand(dest, request->auth->username_format, table);
 		user = p_strdup(request->pool, str_c(dest));
 
