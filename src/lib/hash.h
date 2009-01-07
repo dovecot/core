@@ -12,7 +12,6 @@ typedef int hash_cmp_callback_t(const void *p1, const void *p2);
    table_pool is used to allocate/free large hash tables, node_pool is used
    for smaller allocations and can also be alloconly pool. The pools must not
    be free'd before hash_table_destroy() is called. */
-/* APPLE - renamed from hash_create/hash_destroy to avoid libc conflict */
 struct hash_table *
 hash_table_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
 		  hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb);
