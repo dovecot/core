@@ -21,6 +21,7 @@
 #include "ssl-init.h"
 #include "log.h"
 #include "sysinfo-get.h"
+#include "hostpid.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -151,6 +152,9 @@ static void settings_reload(void)
         login_processes_destroy_all();
         auth_processes_destroy_all();
         dict_process_kill();
+
+	/* see if hostname changed */
+	hostpid_init();
 
 	if (!master_settings_read(configfile, FALSE, FALSE))
 		i_warning("Invalid configuration, keeping old one");
