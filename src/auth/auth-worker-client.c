@@ -123,6 +123,11 @@ static void verify_plain_callback(enum passdb_result result,
 				auth_stream_reply_export(request->extra_fields);
 			auth_stream_reply_import(reply, fields);
 		}
+		if (request->extra_cache_fields != NULL) {
+			const char *fields =
+				auth_stream_reply_export(request->extra_cache_fields);
+			auth_stream_reply_import(reply, fields);
+		}
 	}
 	str = auth_stream_reply_get_str(reply);
 	str_append_c(str, '\n');
