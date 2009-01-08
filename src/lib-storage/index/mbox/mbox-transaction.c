@@ -50,8 +50,12 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 		if (mbox_unlock(mbox, lock_id) < 0)
 			ret = -1;
 	}
-	i_assert(mbox->ibox.box.transaction_count > 0 ||
-		 mbox->mbox_lock_type == F_UNLCK);
+	if (mbox->mbox_global_lock_id == 0) {
+		i_assert(mbox->ibox.box.transaction_count > 0 ||
+			 mbox->mbox_lock_type == F_UNLCK);
+	} else {
+		i_assert(mbox->mbox_lock_type == F_WRLCK);
+	}
 	return ret;
 }
 
