@@ -1055,9 +1055,11 @@ void auth_request_set_field(struct auth_request *request,
 		return;
 	}
 
-	if (passdb_cache != NULL &&
-	    request->passdb->passdb->cache_key != NULL) {
-		/* we'll need to get this field stored into cache */
+	if ((passdb_cache != NULL &&
+	     request->passdb->passdb->cache_key != NULL) || worker) {
+		/* we'll need to get this field stored into cache,
+		   or we're a worker and we'll need to send this to the main
+		   auth process that can store it in the cache. */
 		if (request->extra_cache_fields == NULL) {
 			request->extra_cache_fields =
 				auth_stream_reply_init(request->pool);

@@ -199,7 +199,9 @@ void auth_init(struct auth *auth)
 		passdb_init(passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_init(userdb);
-	passdb_cache_init();
+	/* caching is handled only by the main auth process */
+	if (!worker)
+		passdb_cache_init();
 
 	auth->mech_handshake = str_new(auth->pool, 512);
 
