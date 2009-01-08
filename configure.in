@@ -368,7 +368,7 @@ AC_DEFINE(PACKAGE_WEBPAGE, "http://www.dovecot.org/", Support URL)
 
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
-               strcasecmp stricmp vsyslog writev pread uname \
+               strcasecmp stricmp vsyslog writev pread uname unsetenv \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
 	       strtoull strtoll strtouq strtoq \
 	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \

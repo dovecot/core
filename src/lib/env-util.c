@@ -19,7 +19,24 @@ void env_put(const char *env)
 
 void env_remove(const char *name)
 {
+#ifdef HAVE_UNSETENV
 	unsetenv(name);
+#else
+	extern char **environ;
+	unsigned int len;
+	char **envp;
+
+	len = strlen(name);
+	for (envp = environ; *envp != NULL; envp++) {
+		if (strncmp(name, *envp, len) == 0 &&
+		    (*envp)[len] == '=') {
+			do {
+				envp[0] = envp[1];
+			} while (*++envp != NULL);
+			break;
+		}
+	}
+#endif
 }
 
 void env_clean(void)
