@@ -576,6 +576,9 @@ mbox_alloc_mailbox(struct mbox_storage *storage, struct mail_index *index,
 	if ((storage->storage.flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
 		mbox->mbox_save_md5 = TRUE;
 
+	index_storage_mailbox_init(&mbox->ibox, name, flags,
+				   want_memory_indexes(storage, path));
+
 	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {
 		if (mbox_lock(mbox, F_WRLCK, &mbox->mbox_global_lock_id) <= 0) {
 			struct mailbox *box = &mbox->ibox.box;
@@ -591,8 +594,6 @@ mbox_alloc_mailbox(struct mbox_storage *storage, struct mail_index *index,
 		}
 	}
 
-	index_storage_mailbox_init(&mbox->ibox, name, flags,
-				   want_memory_indexes(storage, path));
 	return mbox;
 }
 
