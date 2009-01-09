@@ -26,7 +26,7 @@ struct apop_auth_request {
 	char *challenge;
 
 	/* received: */
-	unsigned char digest[16];
+	unsigned char response_digest[16];
 };
 
 static bool verify_credentials(struct apop_auth_request *request,
@@ -40,7 +40,7 @@ static bool verify_credentials(struct apop_auth_request *request,
 	md5_update(&ctx, credentials, size);
 	md5_final(&ctx, digest);
 
-	return memcmp(digest, request->digest, 16) == 0;
+	return memcmp(digest, request->response_digest, 16) == 0;
 }
 
 static void
@@ -77,6 +77,9 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	unsigned long pid, connect_uid, timestamp;
 	const char *error;
 
+	/* pop3-login handles sending the challenge and getting the response.
+	   Our input here is: <challenge> \0 <username> \0 <response> */
+
 	if (data_size == 0) {
 		/* Should never happen */
 		auth_request_log_info(auth_request, "apop",
@@ -88,9 +91,10 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	tmp = data;
 	end = data + data_size;
 
-	/* skip the challenge */
+	/* get the challenge */
 	while (tmp != end && *tmp != '\0')
 		tmp++;
+	request->challenge = p_strdup_until(request->pool, data, tmp);
 
 	if (tmp != end) {
 		/* get the username */
@@ -105,14 +109,14 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		auth_request_fail(auth_request);
 		return;
 	}
-	tmp++;
+	memcpy(request->response_digest, tmp + 1, sizeof(request->digest));
 
 	/* the challenge must begin with trusted unique ID. we trust only
 	   ourself, so make sure it matches our connection specific UID
 	   which we told to client in handshake. Also require a timestamp
 	   which is later than this process's start time. */
 
-	if (sscanf((const char *)data, "<%lx.%lx.%lx.",
+	if (sscanf(request->challenge, "<%lx.%lx.%lx.",
 		   &pid, &connect_uid, &timestamp) != 3 ||
 	    connect_uid != auth_request->connect_uid ||
             pid != (unsigned long)getpid() ||
@@ -122,7 +126,6 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		auth_request_fail(auth_request);
 		return;
 	}
-	request->challenge = p_strdup(request->pool, (const char *)data);
 
 	if (!auth_request_set_username(auth_request, (const char *)username,
 				       &error)) {
@@ -130,8 +133,6 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		auth_request_fail(auth_request);
 		return;
 	}
-
-	memcpy(request->digest, tmp, sizeof(request->digest));
 
 	auth_request_lookup_credentials(auth_request, "PLAIN",
 					apop_credentials_callback);
