@@ -688,7 +688,7 @@ static void open_logfile(const char *username)
 	const char *prefix, *log_path, *stamp;
 
 	prefix = t_strdup_printf("deliver(%s): ", username);
-	log_path = getenv("LOG_PATH");
+	log_path = home_expand(getenv("LOG_PATH"));
 	if (log_path == NULL || *log_path == '\0') {
 		const char *env = getenv("SYSLOG_FACILITY");
 		int facility;
@@ -702,7 +702,7 @@ static void open_logfile(const char *username)
 		i_set_failure_file(log_path, prefix);
 	}
 
-	log_path = getenv("INFO_LOG_PATH");
+	log_path = home_expand(getenv("INFO_LOG_PATH"));
 	if (log_path != NULL && *log_path != '\0')
 		i_set_info_file(log_path);
 
