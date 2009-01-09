@@ -109,7 +109,8 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		auth_request_fail(auth_request);
 		return;
 	}
-	memcpy(request->response_digest, tmp + 1, sizeof(request->digest));
+	memcpy(request->response_digest, tmp + 1,
+	       sizeof(request->response_digest));
 
 	/* the challenge must begin with trusted unique ID. we trust only
 	   ourself, so make sure it matches our connection specific UID
