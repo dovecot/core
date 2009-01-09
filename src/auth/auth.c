@@ -125,7 +125,7 @@ static void auth_mech_register(struct auth *auth, const struct mech_module *mech
 	auth->mech_modules = list;
 }
 
-static bool auth_passdb_list_have_plain(struct auth *auth)
+static bool auth_passdb_list_have_verify_plain(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 
@@ -136,7 +136,7 @@ static bool auth_passdb_list_have_plain(struct auth *auth)
 	return FALSE;
 }
 
-static bool auth_passdb_list_have_credentials(struct auth *auth)
+static bool auth_passdb_list_have_lookup_credentials(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 
@@ -158,20 +158,38 @@ static int auth_passdb_list_have_set_credentials(struct auth *auth)
 	return FALSE;
 }
 
+static bool
+auth_mech_verify_passdb(struct auth *auth, struct mech_module_list *list)
+{
+	switch (list->module.passdb_need) {
+	case MECH_PASSDB_NEED_NOTHING:
+		break;
+	case MECH_PASSDB_NEED_VERIFY_PLAIN:
+		if (!auth_passdb_list_have_verify_plain(auth))
+			return FALSE;
+		break;
+	case MECH_PASSDB_NEED_VERIFY_RESPONSE:
+	case MECH_PASSDB_NEED_LOOKUP_CREDENTIALS:
+		if (!auth_passdb_list_have_lookup_credentials(auth))
+			return FALSE;
+		break;
+	case MECH_PASSDB_NEED_SET_CREDENTIALS:
+		if (!auth_passdb_list_have_lookup_credentials(auth))
+			return FALSE;
+		if (!auth_passdb_list_have_set_credentials(auth))
+			return FALSE;
+		break;
+	}
+	return TRUE;
+}
+
 static void auth_mech_list_verify_passdb(struct auth *auth)
 {
 	struct mech_module_list *list;
 
 	for (list = auth->mech_modules; list != NULL; list = list->next) {
-		if (list->module.passdb_need_plain &&
-		    !auth_passdb_list_have_plain(auth))
+		if (!auth_mech_verify_passdb(auth, list))
 			break;
-		if (list->module.passdb_need_credentials &&
-                    !auth_passdb_list_have_credentials(auth))
-			break;
- 		if (list->module.passdb_need_set_credentials &&
- 		    !auth_passdb_list_have_set_credentials(auth))
- 			break;
 	}
 
 	if (list != NULL) {

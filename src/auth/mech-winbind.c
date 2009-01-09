@@ -324,10 +324,7 @@ const struct mech_module mech_winbind_ntlm = {
 	"NTLM",
 
 	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
-
-	MEMBER(passdb_need_plain) FALSE,
-	MEMBER(passdb_need_credentials) FALSE,
-	MEMBER(passdb_need_set_credentials) FALSE,
+	MEMBER(passdb_need) MECH_PASSDB_NEED_NOTHING,
 
 	mech_winbind_ntlm_auth_new,
 	mech_generic_auth_initial,
@@ -339,10 +336,7 @@ const struct mech_module mech_winbind_spnego = {
 	"GSS-SPNEGO",
 
 	MEMBER(flags) 0,
-
-	MEMBER(passdb_need_plain) FALSE,
-	MEMBER(passdb_need_credentials) FALSE,
-	MEMBER(passdb_need_set_credentials) FALSE,
+	MEMBER(passdb_need) MECH_PASSDB_NEED_NOTHING,
 
 	mech_winbind_spnego_auth_new,
 	mech_generic_auth_initial,

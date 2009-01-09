@@ -38,10 +38,7 @@ const struct mech_module mech_anonymous = {
 	"ANONYMOUS",
 
 	MEMBER(flags) MECH_SEC_ANONYMOUS,
-
-	MEMBER(passdb_need_plain) FALSE,
-	MEMBER(passdb_need_credentials) FALSE,
-	MEMBER(passdb_need_set_credentials) FALSE,
+	MEMBER(passdb_need) MECH_PASSDB_NEED_NOTHING,
 
 	mech_anonymous_auth_new,
 	mech_generic_auth_initial,

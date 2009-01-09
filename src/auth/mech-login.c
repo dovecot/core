@@ -67,10 +67,7 @@ const struct mech_module mech_login = {
 	"LOGIN",
 
 	MEMBER(flags) MECH_SEC_PLAINTEXT,
-
-	MEMBER(passdb_need_plain) TRUE,
-	MEMBER(passdb_need_credentials) FALSE,
-	MEMBER(passdb_need_set_credentials) FALSE,
+	MEMBER(passdb_need) MECH_PASSDB_NEED_VERIFY_PLAIN,
 
 	mech_login_auth_new,
 	mech_login_auth_initial,

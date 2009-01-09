@@ -253,10 +253,7 @@ const struct mech_module mech_otp = {
 	"OTP",
 
 	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
-
-	MEMBER(passdb_need_plain) FALSE,
-	MEMBER(passdb_need_credentials) TRUE,
-	MEMBER(passdb_need_set_credentials) TRUE,
+	MEMBER(passdb_need) MECH_PASSDB_NEED_SET_CREDENTIALS,
 
 	mech_otp_auth_new,
 	mech_generic_auth_initial,

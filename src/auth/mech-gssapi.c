@@ -543,10 +543,7 @@ const struct mech_module mech_gssapi = {
 	"GSSAPI",
 
 	MEMBER(flags) 0,
-
-	MEMBER(passdb_need_plain) FALSE, 
-	MEMBER(passdb_need_credentials) FALSE, 
-	MEMBER(passdb_need_set_credentials) FALSE,
+	MEMBER(passdb_need) MECH_PASSDB_NEED_NOTHING,
 
 	mech_gssapi_auth_new,
 	mech_gssapi_auth_initial,
@@ -561,10 +558,7 @@ const struct mech_module mech_gssapi_spnego = {
 	"GSS-SPNEGO",
 
 	MEMBER(flags) 0,
-
-	MEMBER(passdb_need_plain) FALSE,
-	MEMBER(passdb_need_credentials) FALSE,
-	MEMBER(passdb_need_set_credentials) FALSE,
+	MEMBER(passdb_need) MECH_PASSDB_NEED_NOTHING,
 
 	mech_gssapi_auth_new,
         mech_gssapi_auth_initial,

@@ -603,10 +603,7 @@ const struct mech_module mech_digest_md5 = {
 
 	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
 		MECH_SEC_MUTUAL_AUTH,
-
-	MEMBER(passdb_need_plain) FALSE,
-	MEMBER(passdb_need_credentials) TRUE,
-	MEMBER(passdb_need_set_credentials) FALSE,
+	MEMBER(passdb_need) MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	mech_digest_md5_auth_new,
 	mech_digest_md5_auth_initial,

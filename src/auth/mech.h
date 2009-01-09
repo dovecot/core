@@ -20,13 +20,26 @@ typedef void mech_callback_t(struct auth_request *request,
 /* Used only for string sanitization. */
 #define MAX_MECH_NAME_LEN 64
 
+enum mech_passdb_need {
+	/* Mechanism doesn't need a passdb at all */
+	MECH_PASSDB_NEED_NOTHING = 0,
+	/* Mechanism just needs to verify a given plaintext password */
+	MECH_PASSDB_NEED_VERIFY_PLAIN,
+	/* Mechanism needs to verify a given challenge+response combination,
+	   i.e. there is only a single response from client.
+	   (Currently implemented the same as _LOOKUP_CREDENTIALS) */
+	MECH_PASSDB_NEED_VERIFY_RESPONSE,
+	/* Mechanism needs to look up credentials with appropriate scheme */
+	MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+	/* Mechanism needs to look up credentials and also modify them */
+	MECH_PASSDB_NEED_SET_CREDENTIALS
+};
+
 struct mech_module {
 	const char *mech_name;
 
-        enum mech_security_flags flags;
-	unsigned int passdb_need_plain:1;
-	unsigned int passdb_need_credentials:1;
-	unsigned int passdb_need_set_credentials:1;
+	enum mech_security_flags flags;
+	enum mech_passdb_need passdb_need;
 
 	struct auth_request *(*auth_new)(void);
 	void (*auth_initial)(struct auth_request *request,
