@@ -15,6 +15,7 @@ struct db_dict {
 	DB_ENV *db_env;
 	DB *pdb;
 	DB *sdb;
+	DB_TXN *tid;
 };
 
 struct db_dict_iterate_context {
@@ -60,103 +61,119 @@ static int uint32_t_compare(DB *db ATTR_UNUSED,
 		(*ua < *ub ? -1 : 0);
 }
 
-static struct dict *db_dict_init(struct dict *driver, const char *uri,
-				 enum dict_data_type value_type,
-				 const char *username ATTR_UNUSED)
+static int db_dict_open(struct db_dict *dict, const char *uri,
+			const char *username)
 {
-	struct db_dict *dict;
-	const char *hdir;
-	DB_TXN *tid = NULL;
-	pool_t pool;
+	const char *dir;
 	int ret;
-	
-	pool = pool_alloconly_create("db dict", 1024);
-	dict = p_new(pool, struct db_dict, 1);
-	dict->pool = pool;
-	dict->dict = *driver;
-
-	/* prepare the environment */
-	ret = db_env_create(&dict->db_env, 0);
-	if (ret != 0) {
-		i_error("db_env:%s\n", db_strerror(ret));
-		pool_unref(&pool);
-		return NULL;
-	}
 
 	dict->db_env->set_errfile(dict->db_env, stderr);
-	dict->db_env->set_errpfx(dict->db_env, "db_env");
+	dict->db_env->set_errpfx(dict->db_env,
+		p_strdup_printf(dict->pool, "db_env(%s)", username));
 
-	hdir = strrchr(uri, '/');
-	if (hdir != NULL)
-		hdir = t_strndup(uri, hdir - uri);
+	dir = strrchr(uri, '/');
+	if (dir != NULL)
+		dir = t_strdup_until(uri, dir);
+	else
+		dir = ".";
 
-	ret = dict->db_env->open(dict->db_env, hdir, DB_CREATE | 
+	ret = dict->db_env->open(dict->db_env, dir, DB_CREATE |
 				 DB_INIT_MPOOL | DB_INIT_TXN, 0);
 	if (ret != 0) {
-		pool_unref(&pool);
-		return NULL;
+		i_error("db_env.open(%s) failed: %s\n", dir, db_strerror(ret));
+		return -1;
 	}
 
-	ret = dict->db_env->txn_begin(dict->db_env, NULL, &tid, 0);
+	ret = dict->db_env->txn_begin(dict->db_env, NULL, &dict->tid, 0);
 	if (ret != 0) {
-		pool_unref(&pool);
-		return NULL;
+		i_error("db_env.txn_begin() failed: %s\n", db_strerror(ret));
+		return -1;
 	}
 
 	/* create both primary and secondary databases */
 	ret = db_create(&dict->pdb, dict->db_env, 0);
 	if (ret != 0) {
-		i_error("primary db:%s\n", db_strerror(ret));
-		db_dict_deinit(&dict->dict);
-		return NULL;
+		i_error("db_create(primary) failed: %s\n", db_strerror(ret));
+		return -1;
 	}
 	dict->pdb->set_errfile(dict->pdb, stderr);
-	dict->pdb->set_errpfx(dict->pdb, "primary db");
+	dict->pdb->set_errpfx(dict->pdb,
+		p_strdup_printf(dict->pool, "db(primary, %s)", username));
 
 	ret = db_create(&dict->sdb, dict->db_env, 0);
 	if (ret != 0) {
-		i_error("secondary db:%s\n", db_strerror(ret));
-		db_dict_deinit(&dict->dict);
-		return NULL;
+		i_error("db_create(secondary) failed: %s\n", db_strerror(ret));
+		return -1;
 	}
-	dict->pdb->set_errfile(dict->pdb, stderr);
-	dict->pdb->set_errpfx(dict->pdb, "secondary db");
+	dict->sdb->set_errfile(dict->sdb, stderr);
+	dict->sdb->set_errpfx(dict->sdb,
+		p_strdup_printf(dict->pool, "db(secondary, %s)", username));
 
-	if (dict->pdb->open(dict->pdb, tid, uri, NULL,
-			    DB_BTREE, DB_CREATE, 0) != 0) {
-		db_dict_deinit(&dict->dict);
-		return NULL;
+	if ((ret = dict->pdb->open(dict->pdb, dict->tid, uri, NULL,
+				   DB_BTREE, DB_CREATE, 0)) != 0) {
+		i_error("pdb.open() failed: %s\n", db_strerror(ret));
+		return -1;
 	}
-
-	if (dict->sdb->set_flags(dict->sdb, DB_DUP) != 0) {
-		db_dict_deinit(&dict->dict);
-		return NULL;
-	}
+	if (dict->sdb->set_flags(dict->sdb, DB_DUP) != 0)
+		return -1;
 	
-	/* by default db compare keys as if they are strings.
-	   if we store uint32_t, then we need a customized
-	   compare function */
+	/* by default keys are compared as strings. if we store uint32_t,
+	   we need a customized compare function */
+	if (dict->value_type == DICT_DATA_TYPE_UINT32) {
+		if (dict->sdb->set_bt_compare(dict->sdb, uint32_t_compare) != 0)
+			return -1;
+	}
+
+	if ((ret = dict->sdb->open(dict->sdb, dict->tid, NULL, NULL,
+				   DB_BTREE, DB_CREATE, 0)) != 0) {
+		i_error("sdb.open() failed: %s\n", db_strerror(ret));
+		return -1;
+	}
+	if ((ret = dict->pdb->associate(dict->pdb, dict->tid, dict->sdb,
+					associate_key, DB_CREATE)) != 0) {
+		i_error("pdb.associate() failed: %s\n", db_strerror(ret));
+		return -1;
+	}
+	return 0;
+}
+
+static struct dict *db_dict_init(struct dict *driver, const char *uri,
+				 enum dict_data_type value_type,
+				 const char *username)
+{
+	struct db_dict *dict;
+	pool_t pool;
+	int ret, major, minor, patch;
+
+	(void)db_version(&major, &minor, &patch);
+	if (major != DB_VERSION_MAJOR || minor != DB_VERSION_MINOR) {
+		i_error("Berkeley DB version mismatch: "
+			"Compiled against %d.%d.%d headers, "
+			"run-time linked against %d.%d.%d library",
+			DB_VERSION_MAJOR, DB_VERSION_MINOR, DB_VERSION_PATCH,
+			major, minor, patch);
+		return NULL;
+	}
+
+	pool = pool_alloconly_create("db dict", 1024);
+	dict = p_new(pool, struct db_dict, 1);
+	dict->pool = pool;
+	dict->dict = *driver;
 	dict->value_type = value_type;
-	if (value_type == DICT_DATA_TYPE_UINT32) {
-		if (dict->sdb->set_bt_compare(dict->sdb,
-					      uint32_t_compare) != 0) {
-			db_dict_deinit(&dict->dict);
-			return NULL;
-		}
+
+	/* prepare the environment */
+	ret = db_env_create(&dict->db_env, 0);
+	if (ret != 0) {
+		i_error("db_env_create() failed: %s\n", db_strerror(ret));
+		pool_unref(&pool);
+		return NULL;
 	}
 
-	if (dict->sdb->open(dict->sdb, tid, NULL, NULL,
-			    DB_BTREE, DB_CREATE, 0) != 0) {
+	if (db_dict_open(dict, uri, username) < 0) {
+		i_error("db(%s) open failed", uri);
 		db_dict_deinit(&dict->dict);
 		return NULL;
 	}
-	
-	if (dict->pdb->associate(dict->pdb, tid, dict->sdb,
-				 associate_key, DB_CREATE) != 0) {
-		db_dict_deinit(&dict->dict);
-		return NULL;
-	}
-	
 	return &dict->dict;
 }
 
@@ -164,10 +181,13 @@ static void db_dict_deinit(struct dict *_dict)
 {
 	struct db_dict *dict = (struct db_dict *)_dict;
 
+	if (dict->tid != NULL)
+		(void)dict->tid->commit(dict->tid, 0);
 	if (dict->pdb != NULL)
 		dict->pdb->close(dict->pdb, 0);
 	if (dict->sdb != NULL)
 		dict->sdb->close(dict->sdb, 0);
+	dict->db_env->close(dict->db_env, 0);
 	pool_unref(&dict->pool);
 }
 
