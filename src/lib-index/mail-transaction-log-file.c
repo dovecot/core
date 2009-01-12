@@ -913,7 +913,9 @@ log_get_synced_record(struct mail_transaction_log_file *file, uoff_t *offset,
 	if (trans_size < sizeof(*hdr) ||
 	    *offset - file->buffer_offset + trans_size > file->buffer->used) {
 		mail_transaction_log_file_set_corrupted(file,
-			"Transaction log corrupted unexpectedly");
+			"Transaction log corrupted unexpectedly at "
+			"%"PRIuUOFF_T": Invalid size %u (type=%x)",
+			*offset, trans_size, hdr->type);
 		return -1;
 	}
 	*offset += trans_size;
