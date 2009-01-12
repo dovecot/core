@@ -776,16 +776,21 @@ static const char *driver_pgsql_result_get_error(struct sql_result *_result)
 	const char *msg;
 	size_t len;
 
-	msg = PQresultErrorMessage(result->pgres);
-	if (msg == NULL)
-		return "(no error set)";
+	i_free_and_null(db->error);
 
-	/* Error message should contain trailing \n, we don't want it */
-	len = strlen(msg);
-	i_free(db->error);
-	db->error = len == 0 || msg[len-1] != '\n' ?
-		i_strdup(msg) : i_strndup(msg, len-1);
+	if (result->pgres == NULL) {
+		/* connection error */
+		db->error = i_strdup(last_error(db));
+	} else {
+		msg = PQresultErrorMessage(result->pgres);
+		if (msg == NULL)
+			return "(no error set)";
 
+		/* Error message should contain trailing \n, we don't want it */
+		len = strlen(msg);
+		db->error = len == 0 || msg[len-1] != '\n' ?
+			i_strdup(msg) : i_strndup(msg, len-1);
+	}
 	return db->error;
 }
 
