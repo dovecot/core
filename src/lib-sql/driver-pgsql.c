@@ -853,7 +853,7 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 
 	if (ctx->failed) {
 		*error_r = ctx->error;
-		if (!ctx->opened)
+		if (ctx->opened)
 			sql_exec(_ctx->db, "ROLLBACK");
 	} else if (!ctx->opened)
 		*error_r = NULL;
