@@ -85,12 +85,16 @@ static void result_finish(struct pgsql_result *result);
 
 static void driver_pgsql_close(struct pgsql_db *db)
 {
-	if (db->io != NULL)
-		io_remove(&db->io);
 	db->io_dir = 0;
 
 	PQfinish(db->pg);
 	db->pg = NULL;
+
+	if (db->io != NULL) {
+		/* The fd may be closed before call to PQfinish() already,
+		   so use io_remove_closed(). */
+		io_remove_closed(&db->io);
+	}
 
 	db->connecting = FALSE;
 	db->connected = FALSE;
