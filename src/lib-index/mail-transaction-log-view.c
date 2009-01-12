@@ -438,6 +438,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 				"expunge record missing protection mask");
 			return FALSE;
 		}
+		rec_type &= ~MAIL_TRANSACTION_EXPUNGE_PROT;
 	}
 
 	if (rec_size == 0) {
