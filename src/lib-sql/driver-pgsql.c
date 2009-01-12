@@ -46,6 +46,7 @@ struct pgsql_result {
 	struct sql_result api;
 	PGresult *pgres;
 
+	char *query;
 	unsigned int rownum, rows;
 	unsigned int fields_count;
 	const char **fields;
@@ -55,6 +56,8 @@ struct pgsql_result {
 
 	sql_query_callback_t *callback;
 	void *context;
+
+	unsigned int retry_query:1;
 };
 
 struct pgsql_queue {
@@ -80,6 +83,10 @@ struct pgsql_transaction_context {
 extern struct sql_db driver_pgsql_db;
 extern struct sql_result driver_pgsql_result;
 
+static void
+driver_pgsql_query_full(struct sql_db *db, const char *query,
+			sql_query_callback_t *callback, void *context,
+			bool retry_query);
 static void queue_send_next(struct pgsql_db *db);
 static void result_finish(struct pgsql_result *result);
 
@@ -280,6 +287,7 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 
 	i_free(result->fields);
 	i_free(result->values);
+	i_free(result->query);
 	i_free(result);
 
 	if (db->queue != NULL && !db->querying && db->connected)
@@ -289,9 +297,15 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 static void result_finish(struct pgsql_result *result)
 {
 	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
-	bool free_result = TRUE;
+	bool free_result = TRUE, retry = FALSE;
+	bool disconnected;
 
-	if (result->callback != NULL) {
+	disconnected = PQstatus(db->pg) == CONNECTION_BAD;
+	if (disconnected && result->pgres == NULL && result->retry_query) {
+		/* retry the query */
+		i_error("pgsql: Query failed, retrying: %s", last_error(db));
+		retry = TRUE;
+	} else if (result->callback != NULL) {
 		result->api.callback = TRUE;
 		T_BEGIN {
 			result->callback(&result->api, result->context);
@@ -299,13 +313,20 @@ static void result_finish(struct pgsql_result *result)
 		result->api.callback = FALSE;
 		free_result = db->sync_result != &result->api;
 	}
-	if (free_result)
-		driver_pgsql_result_free(&result->api);
 
-	if (PQstatus(db->pg) == CONNECTION_BAD) {
+	if (disconnected) {
 		/* disconnected */
 		driver_pgsql_close(db);
+
+		if (retry) {
+			/* retry the query */
+			driver_pgsql_query_full(&db->api, result->query,
+						result->callback,
+						result->context, FALSE);
+		}
 	}
+	if (free_result)
+		driver_pgsql_result_free(&result->api);
 }
 
 static void get_result(struct pgsql_result *result)
@@ -495,10 +516,10 @@ static void do_query(struct pgsql_result *result, const char *query)
 	}
 }
 
-static void exec_callback(struct sql_result *result,
+static void exec_callback(struct sql_result *_result,
 			  void *context ATTR_UNUSED)
 {
-        struct pgsql_db *db = (struct pgsql_db *)result->db;
+	struct pgsql_db *db = (struct pgsql_db *)_result->db;
 
 	i_error("pgsql: sql_exec() failed: %s", last_error(db));
 }
@@ -525,7 +546,8 @@ driver_pgsql_escape_string(struct sql_db *_db, const char *string)
 	return to;
 }
 
-static void driver_pgsql_exec(struct sql_db *db, const char *query)
+static void driver_pgsql_exec_full(struct sql_db *db, const char *query,
+				   bool retry_query)
 {
 	struct pgsql_result *result;
 
@@ -533,12 +555,22 @@ static void driver_pgsql_exec(struct sql_db *db, const char *query)
 	result->api = driver_pgsql_result;
 	result->api.db = db;
 	result->callback = exec_callback;
-
+	if (retry_query) {
+		result->query = i_strdup(query);
+		result->retry_query = TRUE;
+	}
 	do_query(result, query);
 }
 
-static void driver_pgsql_query(struct sql_db *db, const char *query,
-			       sql_query_callback_t *callback, void *context)
+static void driver_pgsql_exec(struct sql_db *db, const char *query)
+{
+	driver_pgsql_exec_full(db, query, TRUE);
+}
+
+static void
+driver_pgsql_query_full(struct sql_db *db, const char *query,
+			sql_query_callback_t *callback, void *context,
+			bool retry_query)
 {
 	struct pgsql_result *result;
 
@@ -547,8 +579,17 @@ static void driver_pgsql_query(struct sql_db *db, const char *query,
 	result->api.db = db;
 	result->callback = callback;
 	result->context = context;
-
+	if (retry_query) {
+		result->query = i_strdup(query);
+		result->retry_query = TRUE;
+	}
 	do_query(result, query);
+}
+
+static void driver_pgsql_query(struct sql_db *db, const char *query,
+			       sql_query_callback_t *callback, void *context)
+{
+	driver_pgsql_query_full(db, query, callback, context, TRUE);
 }
 
 static void pgsql_query_s_callback(struct sql_result *result, void *context)
@@ -840,7 +881,8 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 	ctx->callback = callback;
 	ctx->context = context;
 
-	sql_query(_ctx->db, "COMMIT", transaction_commit_callback, ctx);
+	driver_pgsql_query_full(_ctx->db, "COMMIT",
+				transaction_commit_callback, ctx, FALSE);
 }
 
 static int
@@ -884,9 +926,10 @@ driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
 }
 
 static void
-transaction_update_callback(struct sql_result *result,
-			    struct pgsql_transaction_context *ctx)
+transaction_update_callback(struct sql_result *result, void *context)
 {
+	struct pgsql_transaction_context *ctx = context;
+
 	if (sql_result_next_row(result) < 0) {
 		ctx->failed = TRUE;
 		ctx->error = sql_result_get_error(result);
@@ -907,7 +950,8 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query)
 		sql_query(_ctx->db, "BEGIN", transaction_update_callback, ctx);
 	}
 
-	sql_query(_ctx->db, query, transaction_update_callback, ctx);
+	driver_pgsql_query_full(_ctx->db, query,
+				transaction_update_callback, ctx, FALSE);
 }
 
 struct sql_db driver_pgsql_db = {
