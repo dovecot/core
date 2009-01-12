@@ -90,7 +90,7 @@ void dbox_index_deinit(struct dbox_index **_index)
 static int dbox_index_parse_maildir(struct dbox_index *index, const char *line,
 				    struct dbox_index_record *rec)
 {
-	char *p, *p2;
+	char *p;
 	unsigned long uid;
 
 	if (*line++ != ' ')
@@ -100,8 +100,7 @@ static int dbox_index_parse_maildir(struct dbox_index *index, const char *line,
 	if (*p++ != ' ' || *p == '\0' || uid == 0 || uid >= (uint32_t)-1)
 		return -1;
 
-	p2 = strstr(p, " :");
-	if (p2 != NULL)
+	if (*p == ':' || strstr(p, " :") != NULL)
 		rec->data = p_strdup(index->record_data_pool, line);
 	else {
 		/* convert to new format */

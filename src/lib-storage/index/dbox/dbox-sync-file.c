@@ -425,7 +425,8 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 	}
 
 	file = dbox_file_init(ctx->mbox, entry->file_id);
-	if (status == DBOX_INDEX_FILE_STATUS_SINGLE_MESSAGE &&
+	if ((status == DBOX_INDEX_FILE_STATUS_SINGLE_MESSAGE ||
+	     status == DBOX_INDEX_FILE_STATUS_MAILDIR) &&
 	    array_is_created(&entry->expunges)) {
 		/* fast path to expunging the whole file */
 		if (dbox_sync_file_unlink(file) < 0)
