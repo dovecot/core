@@ -77,6 +77,8 @@ static uid_t get_uid(const char *user)
 
 	if (user == NULL)
 		return (uid_t)-1;
+	if (is_numeric(user, '\0'))
+		return strtoul(user, NULL, 10);
 
 	if ((pw = getpwnam(user)) == NULL)
 		i_fatal("User doesn't exist: %s", user);
@@ -89,6 +91,8 @@ static gid_t get_gid(const char *group)
 
 	if (group == NULL)
 		return (gid_t)-1;
+	if (is_numeric(group, '\0'))
+		return strtoul(group, NULL, 10);
 
 	if ((gr = getgrnam(group)) == NULL)
 		i_fatal("Group doesn't exist: %s", group);
