@@ -1048,6 +1048,9 @@ int main(int argc, char *argv[])
 	deliver_set->sendmail_path = getenv("SENDMAIL_PATH");
 	if (deliver_set->sendmail_path == NULL)
 		deliver_set->sendmail_path = DEFAULT_SENDMAIL_PATH;
+	deliver_set->rejection_subject = getenv("REJECTION_SUBJECT");
+	if (deliver_set->rejection_subject == NULL)
+		deliver_set->rejection_subject = DEFAULT_MAIL_REJECTION_SUBJECT;
 	deliver_set->rejection_reason = getenv("REJECTION_REASON");
 	if (deliver_set->rejection_reason == NULL) {
 		deliver_set->rejection_reason =

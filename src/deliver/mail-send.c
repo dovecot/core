@@ -54,10 +54,10 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     struct smtp_client *smtp_client;
     FILE *f;
     struct message_size hdr_size;
-    const char *return_addr, *str;
+    const char *return_addr, *hdr;
     const unsigned char *data;
     const char *msgid, *orig_msgid, *boundary;
-    string_t *human_reason;
+    string_t *str;
     size_t size;
     int ret;
 
@@ -90,7 +90,12 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     fprintf(f, "Content-Type: "
 	    "multipart/report; report-type=disposition-notification;\r\n"
 	    "\tboundary=\"%s\"\r\n", boundary);
-    fprintf(f, "Subject: Automatically rejected mail\r\n");
+
+    str = t_str_new(256);
+    var_expand(str, deliver_set->rejection_subject,
+	       get_var_expand_table(mail, reason, recipient));
+    fprintf(f, "Subject: %s\r\n", str_c(str));
+
     fprintf(f, "Auto-Submitted: auto-replied (rejected)\r\n");
     fprintf(f, "Precedence: bulk\r\n");
     fprintf(f, "\r\nThis is a MIME-encapsulated message\r\n\r\n");
@@ -101,10 +106,10 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     fprintf(f, "Content-Disposition: inline\r\n");
     fprintf(f, "Content-Transfer-Encoding: 8bit\r\n\r\n");
 
-    human_reason = t_str_new(256);
-    var_expand(human_reason, deliver_set->rejection_reason,
+    str_truncate(str, 0);
+    var_expand(str, deliver_set->rejection_reason,
 	       get_var_expand_table(mail, reason, recipient));
-    fprintf(f, "%s\r\n", str_c(human_reason));
+    fprintf(f, "%s\r\n", str_c(str));
 
     /* MDN status report */
     fprintf(f, "--%s\r\n"
@@ -112,8 +117,8 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 	    boundary);
     fprintf(f, "Reporting-UA: %s; Dovecot Mail Delivery Agent\r\n",
 	    deliver_set->hostname);
-    if (mail_get_first_header(mail, "Original-Recipient", &str) > 0)
-	    fprintf(f, "Original-Recipient: rfc822; %s\r\n", str);
+    if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
+	    fprintf(f, "Original-Recipient: rfc822; %s\r\n", hdr);
     fprintf(f, "Final-Recipient: rfc822; %s\r\n", recipient);
 
     if (orig_msgid != NULL)
