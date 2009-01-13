@@ -617,6 +617,7 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 		env_put(t_strconcat("TRUSTED_NETWORKS=",
 				    set->login_trusted_networks, NULL));
 	}
+	env_put(t_strconcat("LOGIN_DIR=", set->login_dir, NULL));
 }
 
 static pid_t create_login_process(struct login_group *group)
@@ -713,14 +714,6 @@ static pid_t create_login_process(struct login_group *group)
 
 	env_put(t_strdup_printf("LISTEN_FDS=%u", listen_count));
 	env_put(t_strdup_printf("SSL_LISTEN_FDS=%u", ssl_listen_count));
-
-	if (!group->set->login_chroot) {
-		/* no chrooting, but still change to the directory */
-		if (chdir(group->set->login_dir) < 0) {
-			i_fatal("chdir(%s) failed: %m",
-				group->set->login_dir);
-		}
-	}
 
 	restrict_process_size(group->set->login_process_size, (unsigned int)-1);
 
@@ -890,16 +883,6 @@ static int login_process_send_env(struct login_process *p)
 			ret = -1;
 			break;
 		}
-	}
-
-	if (!p->group->set->login_chroot) {
-		/* if we're not chrooting, we need to tell login process
-		   where its base directory is */
-		const char *str = t_strdup_printf("LOGIN_DIR=%s\n",
-						  p->group->set->login_dir);
-		len = strlen(str);
-		if (o_stream_send(p->output, str, len) != len)
-			ret = -1;
 	}
 
 	if (ret == 0 && o_stream_send(p->output, "\n", 1) != 1)

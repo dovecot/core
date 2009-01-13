@@ -264,10 +264,10 @@ static void drop_privileges(void)
 
 		/* if we don't chroot, we must chdir */
 		value = getenv("LOGIN_DIR");
-		if (value != NULL) {
-			if (chdir(value) < 0)
-				i_error("chdir(%s) failed: %m", value);
-		}
+		if (value == NULL)
+			i_fatal("LOGIN_DIR environment missing");
+		if (chdir(value) < 0)
+			i_error("chdir(%s) failed: %m", value);
 	}
 
 	/* Initialize SSL proxy so it can read certificate and private
