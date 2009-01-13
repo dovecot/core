@@ -78,6 +78,13 @@ static void ssl_step(struct ssl_proxy *proxy);
 static void ssl_proxy_destroy(struct ssl_proxy *proxy);
 static void ssl_proxy_unref(struct ssl_proxy *proxy);
 
+static void ssl_params_corrupted(const char *path)
+{
+	i_fatal("Corrupted SSL parameters file: %s/%s "
+		"(delete it and also the one in %s)",
+		getenv("LOGIN_DIR"), path, PKG_STATEDIR);
+}
+
 static void read_next(struct ssl_parameters *params, void *data, size_t size)
 {
 	int ret;
@@ -85,7 +92,7 @@ static void read_next(struct ssl_parameters *params, void *data, size_t size)
 	if ((ret = read_full(params->fd, data, size)) < 0)
 		i_fatal("read(%s) failed: %m", params->fname);
 	if (ret == 0)
-		i_fatal("read(%s) failed: Unexpected EOF", params->fname);
+		ssl_params_corrupted(params->fname);
 }
 
 static bool read_dh_parameters_next(struct ssl_parameters *params)
@@ -104,7 +111,7 @@ static bool read_dh_parameters_next(struct ssl_parameters *params)
 	/* read data size. */
 	read_next(params, &len, sizeof(len));
 	if (len > 1024*100) /* should be enough? */
-		i_fatal("Corrupted SSL parameters file: %s", params->fname);
+		ssl_params_corrupted(params->fname);
 
 	buf = i_malloc(len);
 	read_next(params, buf, len);
@@ -117,6 +124,8 @@ static bool read_dh_parameters_next(struct ssl_parameters *params)
 	case 1024:
 		params->dh_1024 = d2i_DHparams(NULL, &cbuf, len);
 		break;
+	default:
+		ssl_params_corrupted(params->fname);
 	}
 
 	i_free(buf);
@@ -138,6 +147,8 @@ static void ssl_free_parameters(struct ssl_parameters *params)
 static void ssl_read_parameters(struct ssl_parameters *params)
 {
 	struct stat st;
+	ssize_t ret;
+	char c;
 	bool warned = FALSE;
 
 	/* we'll wait until parameter file exists */
@@ -166,6 +177,13 @@ static void ssl_read_parameters(struct ssl_parameters *params)
 
 	ssl_free_parameters(params);
 	while (read_dh_parameters_next(params)) ;
+
+	if ((ret = read_full(params->fd, &c, 1)) < 0)
+		i_fatal("read(%s) failed: %m", params->fname);
+	else if (ret != 0) {
+		/* more data than expected */
+		ssl_params_corrupted(params->fname);
+	}
 
 	if (close(params->fd) < 0)
 		i_error("close() failed: %m");
