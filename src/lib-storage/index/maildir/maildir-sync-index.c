@@ -11,6 +11,7 @@
 #include "maildir-sync.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 struct maildir_index_sync_context {
@@ -25,7 +26,7 @@ struct maildir_index_sync_context {
 	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
 	struct index_sync_changes_context *sync_changes;
 	enum mail_flags flags;
-	ARRAY_TYPE(keyword_indexes) keywords;
+	ARRAY_TYPE(keyword_indexes) keywords, idx_keywords;
 
 	uint32_t seq, uid;
 
@@ -276,6 +277,98 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_ctx,
 	return ret;
 }
 
+static int uint_cmp(const void *p1, const void *p2)
+{
+	const unsigned int *i1 = p1, *i2 = p2;
+
+	if (*i1 < *i2)
+		return -1;
+	else if (*i1 > *i2)
+		return -1;
+	else
+		return 0;
+}
+
+static void
+maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
+{
+	struct maildir_mailbox *mbox = ctx->mbox;
+	struct mail_keywords *kw;
+	unsigned int i, j, old_count, new_count, *old_indexes, *new_indexes;
+	bool have_indexonly_keywords;
+	int diff;
+
+	mail_index_lookup_keywords(ctx->view, seq, &ctx->idx_keywords);
+	if (index_keyword_array_cmp(&ctx->keywords, &ctx->idx_keywords)) {
+		/* no changes - we should get here usually */
+		return;
+	}
+
+	/* sort the keywords */
+	old_indexes = array_get_modifiable(&ctx->idx_keywords, &old_count);
+	qsort(old_indexes, old_count, sizeof(*old_indexes), uint_cmp);
+	new_indexes = array_get_modifiable(&ctx->keywords, &new_count);
+	qsort(new_indexes, new_count, sizeof(*new_indexes), uint_cmp);
+
+	/* drop keywords that are in index-only. we don't want to touch them. */
+	have_indexonly_keywords = FALSE;
+	for (i = old_count; i > 0; i--) {
+		if (old_indexes[i-1] < MAILDIR_MAX_KEYWORDS)
+			break;
+		have_indexonly_keywords = TRUE;
+		array_delete(&ctx->idx_keywords, i-1, 1);
+	}
+
+	if (!have_indexonly_keywords) {
+		/* no index-only keywords found, so something changed.
+		   just replace them all. */
+		kw = mail_index_keywords_create_from_indexes(mbox->ibox.index,
+							     &ctx->keywords);
+		mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE, kw);
+		mail_index_keywords_free(&kw);
+		return;
+	}
+
+	/* check again if non-index-only keywords changed */
+	if (index_keyword_array_cmp(&ctx->keywords, &ctx->idx_keywords))
+		return;
+
+	/* we can't reset all the keywords or we'd drop indexonly keywords too.
+	   so first remove the unwanted keywords and then add back the wanted
+	   ones. we can get these lists easily by removing common elements
+	   from old and new keywords. */
+	new_indexes = array_get_modifiable(&ctx->keywords, &new_count);
+	for (i = 0; i < old_count && j < new_count; ) {
+		diff = (int)old_indexes[i] - (int)new_indexes[j];
+		if (diff == 0) {
+			array_delete(&ctx->keywords, j, 1);
+			array_delete(&ctx->idx_keywords, i, 1);
+			old_indexes = array_get_modifiable(&ctx->idx_keywords,
+							   &old_count);
+			new_indexes = array_get_modifiable(&ctx->keywords,
+							   &new_count);
+		} else if (diff < 0) {
+			i++;
+		} else {
+			j++;
+		}
+	}
+
+	if (array_count(&ctx->idx_keywords) > 0) {
+		kw = mail_index_keywords_create_from_indexes(mbox->ibox.index,
+							     &ctx->idx_keywords);
+		mail_index_update_keywords(ctx->trans, seq, MODIFY_REMOVE, kw);
+		mail_index_keywords_free(&kw);
+	}
+
+	if (array_count(&ctx->keywords) > 0) {
+		kw = mail_index_keywords_create_from_indexes(mbox->ibox.index,
+							     &ctx->keywords);
+		mail_index_update_keywords(ctx->trans, seq, MODIFY_ADD, kw);
+		mail_index_keywords_free(&kw);
+	}
+}
+
 int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		       bool partial)
 {
@@ -290,7 +383,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	uint32_t seq, seq2, uid, prev_uid;
         enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
-	ARRAY_TYPE(keyword_indexes) idx_keywords;
 	uint32_t uid_validity, next_uid, hdr_next_uid, first_recent_uid;
 	uint32_t first_uid;
 	unsigned int changes = 0;
@@ -323,7 +415,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	mbox->syncing_commit = TRUE;
 	seq = prev_uid = 0; first_recent_uid = I_MAX(hdr->first_recent_uid, 1);
 	t_array_init(&ctx->keywords, MAILDIR_MAX_KEYWORDS);
-	t_array_init(&idx_keywords, MAILDIR_MAX_KEYWORDS);
+	t_array_init(&ctx->idx_keywords, MAILDIR_MAX_KEYWORDS);
 	iter = maildir_uidlist_iter_init(mbox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
 		maildir_filename_get_flags(ctx->keywords_sync_ctx, filename,
@@ -436,17 +528,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 						ctx->flags);
 		}
 
-		/* update keywords if they have changed */
-		mail_index_lookup_keywords(view, seq, &idx_keywords);
-		if (!index_keyword_array_cmp(&ctx->keywords, &idx_keywords)) {
-			struct mail_keywords *kw;
-
-			kw = mail_index_keywords_create_from_indexes(
-				mbox->ibox.index, &ctx->keywords);
-			mail_index_update_keywords(trans, seq,
-						   MODIFY_REPLACE, kw);
-			mail_index_keywords_free(&kw);
-		}
+		maildir_sync_mail_keywords(ctx, seq);
 	}
 	maildir_uidlist_iter_deinit(&iter);
 	mbox->syncing_commit = FALSE;
