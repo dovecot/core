@@ -469,11 +469,11 @@ mail_index_transaction_sort_appends_keywords(struct mail_index_transaction *t,
 	if (array_is_created(&t->keyword_updates)) {
 		updates = array_get_modifiable(&t->keyword_updates, &count);
 		for (i = 0; i < count; i++) {
-			if (array_is_created(&updates->add_seq)) {
+			if (array_is_created(&updates[i].add_seq)) {
 				sort_appends_seq_range(t, &updates[i].add_seq,
 						       old_to_newseq_map);
 			}
-			if (array_is_created(&updates->remove_seq)) {
+			if (array_is_created(&updates[i].remove_seq)) {
 				sort_appends_seq_range(t,
 						       &updates[i].remove_seq,
 						       old_to_newseq_map);
