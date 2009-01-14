@@ -1,6 +1,8 @@
 #ifndef FAILURES_H
 #define FAILURES_H
 
+struct ip_addr;
+
 /* Default exit status codes that we could use. */
 enum fatal_exit_status {
 	FATAL_LOGOPEN	= 80, /* Can't open log file */
@@ -78,9 +80,12 @@ void i_set_info_file(const char *path);
 
 /* Set the failure prefix. */
 void i_set_failure_prefix(const char *prefix);
-
 /* Prefix failures with a timestamp. fmt is in strftime() format. */
 void i_set_failure_timestamp_format(const char *fmt);
+/* When logging with internal error protocol, update the process's current
+   IP address. This is mainly used by the master process to log some IP
+   address if the process crash. */
+void i_set_failure_ip(const struct ip_addr *ip);
 
 /* Call the callback before exit()ing. The callback may update the status. */
 void i_set_failure_exit_callback(void (*callback)(int *status));

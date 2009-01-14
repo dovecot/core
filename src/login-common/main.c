@@ -90,6 +90,7 @@ static void login_accept(void *context)
 			i_error("accept() failed: %m");
 		return;
 	}
+	i_set_failure_ip(&remote_ip);
 
 	if (net_getsockname(fd, &local_ip, &local_port) < 0) {
 		memset(&local_ip, 0, sizeof(local_ip));
@@ -121,6 +122,7 @@ static void login_accept_ssl(void *context)
 			i_error("accept() failed: %m");
 		return;
 	}
+	i_set_failure_ip(&remote_ip);
 
 	if (net_getsockname(fd, &local_ip, &local_port) < 0) {
 		memset(&local_ip, 0, sizeof(local_ip));

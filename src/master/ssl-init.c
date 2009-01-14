@@ -18,7 +18,7 @@
 #include <sys/stat.h>
 
 static struct child_process ssl_param_child_process =
-	{ PROCESS_TYPE_SSL_PARAM, 0 };
+	{ MEMBER(type) PROCESS_TYPE_SSL_PARAM };
 
 static struct timeout *to;
 static char *generating_path = NULL;

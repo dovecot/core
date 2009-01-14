@@ -472,8 +472,11 @@ login_process_new(struct login_group *group, pid_t pid, int fd,
 	p->io = io_add(fd, IO_READ, login_process_input, p);
 	p->output = o_stream_create_fd(fd, sizeof(struct master_login_reply)*10,
 				       FALSE);
-	if (!inetd_child)
+	if (!inetd_child) {
+		if (!group->set->login_process_per_connection)
+			p->process.allow_change_ip = TRUE;
 		child_process_add(pid, &p->process);
+	}
 
 	p->state = LOGIN_STATE_LISTENING;
 

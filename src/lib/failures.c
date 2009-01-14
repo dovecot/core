@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "network.h"
 #include "backtrace-string.h"
 #include "printf-format-fix.h"
 #include "write-full.h"
@@ -454,6 +455,16 @@ void i_set_failure_timestamp_format(const char *fmt)
 {
 	i_free(log_stamp_format);
         log_stamp_format = i_strdup(fmt);
+}
+
+void i_set_failure_ip(const struct ip_addr *ip)
+{
+	const char *str;
+
+	if (error_handler == i_internal_error_handler) {
+		str = t_strdup_printf("\x01Oip=%s\n", net_ip2addr(ip));
+		(void)write_full(2, str, strlen(str));
+	}
 }
 
 void i_set_failure_exit_callback(void (*callback)(int *status))

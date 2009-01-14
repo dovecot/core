@@ -3,6 +3,7 @@
 #include "common.h"
 #include "lib-signals.h"
 #include "hash.h"
+#include "str.h"
 #include "env-util.h"
 #include "syslog-util.h"
 #include "child-process.h"
@@ -132,12 +133,15 @@ static void sigchld_handler(int signo ATTR_UNUSED,
 	struct child_process *process;
 	const char *process_type_name, *msg;
 	enum process_type process_type;
+	string_t *str;
 	pid_t pid;
 	int status;
 	bool abnormal_exit;
 
+	str = t_str_new(128);
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		/* get the type and remove from hash */
+		str_truncate(str, 0);
 		process = child_process_lookup(pid);
 		if (process == NULL)
 			process_type = PROCESS_TYPE_UNKNOWN;
@@ -168,14 +172,27 @@ static void sigchld_handler(int signo ATTR_UNUSED,
 							      process_type);
 				msg = msg == NULL ? "" :
 					t_strconcat(" (", msg, ")", NULL);
-				i_error("child %s (%s) returned error %d%s",
-					dec2str(pid), process_type_name,
-					status, msg);
+				str_printfa(str,
+					    "child %s (%s) returned error %d%s",
+					    dec2str(pid), process_type_name,
+					    status, msg);
 			}
 		} else if (WIFSIGNALED(status)) {
-			i_error("child %s (%s) killed with signal %d",
-				dec2str(pid), process_type_name,
-				WTERMSIG(status));
+			str_printfa(str, "child %s (%s) killed with signal %d",
+				    dec2str(pid), process_type_name,
+				    WTERMSIG(status));
+		}
+
+		if (str_len(str) > 0) {
+			if (process != NULL && process->ip.family != 0) {
+				if (!process->ip_changed)
+					str_append(str, " (ip=");
+				else
+					str_append(str, " (latest ip=");
+				str_printfa(str, "%s)",
+					    net_ip2addr(&process->ip));
+			}
+			i_error("%s", str_c(str));
 		}
 
 		if (destroy_callbacks[process_type] != NULL) {

@@ -17,6 +17,7 @@ struct log_io {
 	struct io *io;
 	struct istream *stream;
 	pid_t pid;
+	struct ip_addr ip;
 
 	time_t log_stamp;
 	unsigned int log_counter;
@@ -129,6 +130,20 @@ static int log_it(struct log_io *log_io, const char *line, bool continues)
 		if (process != NULL)
 			process->seen_fatal = TRUE;
 		break;
+	case 'O':
+		/* logging option. ignore unknown ones. */
+		if (strncmp(line, "ip=", 3) == 0) {
+			process = child_process_lookup(log_io->pid);
+			if (process != NULL &&
+			    (process->allow_change_ip ||
+			     process->ip.family == 0)) {
+				if (process->ip.family != 0)
+					process->ip_changed = TRUE;
+				net_addr2ip(line + 3, &process->ip);
+			}
+		}
+		log_io->next_log_type = '\0';
+		return 1;
 	default:
 		log_type = LOG_TYPE_ERROR;
 		break;

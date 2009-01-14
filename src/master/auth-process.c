@@ -60,9 +60,9 @@ struct auth_process {
 bool have_initialized_auth_processes = FALSE;
 
 static struct child_process auth_child_process =
-	{ PROCESS_TYPE_AUTH, 0 };
+	{ MEMBER(type) PROCESS_TYPE_AUTH };
 static struct child_process auth_worker_child_process =
-	{ PROCESS_TYPE_AUTH_WORKER, 0 };
+	{ MEMBER(type) PROCESS_TYPE_AUTH_WORKER };
 
 static struct timeout *to;
 static unsigned int auth_tag;

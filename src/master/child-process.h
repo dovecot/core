@@ -16,8 +16,10 @@ enum process_type {
 
 struct child_process {
 	enum process_type type;
-
+	struct ip_addr ip;
+	unsigned int allow_change_ip:1;
 	unsigned int seen_fatal:1;
+	unsigned int ip_changed:1;
 };
 
 typedef void child_process_destroy_callback_t(struct child_process *process,
