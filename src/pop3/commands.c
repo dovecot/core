@@ -373,10 +373,24 @@ static void fetch_callback(struct client *client)
 	client->cmd = NULL;
 }
 
-static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
+static int client_reply_msg_expunged(struct client *client, unsigned int msgnum)
+{
+	client_send_line(client, "-ERR Message %u expunged.", msgnum + 1);
+	if (msgnum <= client->highest_expunged_fetch_msgnum) {
+		/* client tried to fetch an expunged message again.
+		   treat this as error so we'll eventually disconnect the
+		   client instead of letting it loop forever. */
+		return -1;
+	}
+	client->highest_expunged_fetch_msgnum = msgnum;
+	return 1;
+}
+
+static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 {
         struct fetch_context *ctx;
 	struct mail_search_args *search_args;
+	int ret;
 
 	search_args = pop3_search_build(client, msgnum+1);
 
@@ -389,9 +403,9 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 
 	if (mailbox_search_next(ctx->search_ctx, ctx->mail) <= 0 ||
 	    mail_get_stream(ctx->mail, NULL, NULL, &ctx->stream) < 0) {
-		client_send_line(client, "-ERR Message not found.");
+		ret = client_reply_msg_expunged(client, msgnum);
 		fetch_deinit(ctx);
-		return;
+		return ret;
 	}
 
 	if (body_lines == (uoff_t)-1 && !no_flag_updates) {
@@ -414,6 +428,7 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 	client->cmd = fetch_callback;
 	client->cmd_context = ctx;
 	fetch_callback(client);
+	return 1;
 }
 
 static int cmd_retr(struct client *client, const char *args)
@@ -430,8 +445,7 @@ static int cmd_retr(struct client *client, const char *args)
 	client->byte_counter = &client->retr_bytes;
 	client->byte_counter_offset = client->output->offset;
 
-	fetch(client, msgnum, (uoff_t)-1);
-	return 1;
+	return fetch(client, msgnum, (uoff_t)-1);
 }
 
 static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
@@ -495,8 +509,7 @@ static int cmd_top(struct client *client, const char *args)
 	client->byte_counter = &client->top_bytes;
 	client->byte_counter_offset = client->output->offset;
 
-	fetch(client, msgnum, max_lines);
-	return 1;
+	return fetch(client, msgnum, max_lines);
 }
 
 struct cmd_uidl_context {
@@ -653,7 +666,7 @@ static int cmd_uidl(struct client *client, const char *args)
 
 		ctx = cmd_uidl_init(client, msgnum+1);
 		if (!list_uids_iter(client, ctx))
-			client_send_line(client, "-ERR Message not found.");
+			return client_reply_msg_expunged(client, msgnum);
 	}
 
 	return 1;

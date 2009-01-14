@@ -23,6 +23,7 @@ struct client {
 
 	time_t last_input, last_output;
 	unsigned int bad_counter;
+	unsigned int highest_expunged_fetch_msgnum;
 
 	unsigned int uid_validity;
 	unsigned int messages_count;
