@@ -99,7 +99,7 @@ static int cmd_dele(struct client *client, const char *args)
 	unsigned int msgnum;
 
 	if (get_msgnum(client, args, &msgnum) == NULL)
-		return 0;
+		return -1;
 
 	if (!client->deleted) {
 		client->deleted_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
@@ -162,7 +162,7 @@ static int cmd_list(struct client *client, const char *args)
 		unsigned int msgnum;
 
 		if (get_msgnum(client, args, &msgnum) == NULL)
-			return 0;
+			return -1;
 
 		client_send_line(client, "+OK %u %"PRIuUOFF_T, msgnum+1,
 				 client->message_sizes[msgnum]);
@@ -421,7 +421,7 @@ static int cmd_retr(struct client *client, const char *args)
 	unsigned int msgnum;
 
 	if (get_msgnum(client, args, &msgnum) == NULL)
-		return 0;
+		return -1;
 
 	if (client->last_seen <= msgnum)
 		client->last_seen = msgnum+1;
@@ -487,9 +487,9 @@ static int cmd_top(struct client *client, const char *args)
 
 	args = get_msgnum(client, args, &msgnum);
 	if (args == NULL)
-		return 0;
+		return -1;
 	if (get_size(client, args, &max_lines) == NULL)
-		return 0;
+		return -1;
 
 	client->top_count++;
 	client->byte_counter = &client->top_bytes;
@@ -587,7 +587,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		if (ret == 0 && ctx->message == 0) {
 			/* output is being buffered, continue when there's
 			   more space */
-			return 0;
+			return FALSE;
 		}
 	}
 
@@ -644,12 +644,12 @@ static int cmd_uidl(struct client *client, const char *args)
 	if (*args == '\0') {
 		client_send_line(client, "+OK");
 		ctx = cmd_uidl_init(client, 0);
-		list_uids_iter(client, ctx);
+		(void)list_uids_iter(client, ctx);
 	} else {
 		unsigned int msgnum;
 
 		if (get_msgnum(client, args, &msgnum) == NULL)
-			return 0;
+			return -1;
 
 		ctx = cmd_uidl_init(client, msgnum+1);
 		if (!list_uids_iter(client, ctx))
