@@ -468,7 +468,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 
 	if (access(t_strconcat(path, "/cur", NULL), W_OK) < 0 &&
 	    errno == EACCES)
-		mbox->ibox.readonly = TRUE;
+		mbox->ibox.backend_readonly = TRUE;
 
 	mbox->keywords = maildir_keywords_init(mbox);
 	return &mbox->ibox.box;

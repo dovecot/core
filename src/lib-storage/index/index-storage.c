@@ -463,7 +463,6 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 	array_create(&ibox->box.module_contexts,
 		     ibox->box.pool, sizeof(void *), 5);
 
-	ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
 	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
 	ibox->keep_locked = (flags & MAILBOX_OPEN_KEEP_LOCKED) != 0;
 	ibox->move_to_memory = move_to_memory;
@@ -514,15 +513,14 @@ bool index_storage_is_readonly(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
-	return ibox->readonly;
+	return (ibox->box.open_flags & MAILBOX_OPEN_READONLY) != 0 ||
+		ibox->backend_readonly;
 }
 
 bool index_storage_allow_new_keywords(struct mailbox *box)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *) box;
-
 	/* FIXME: return FALSE if we're full */
-	return !ibox->readonly;
+	return index_storage_is_readonly(box);
 }
 
 bool index_storage_is_inconsistent(struct mailbox *box)

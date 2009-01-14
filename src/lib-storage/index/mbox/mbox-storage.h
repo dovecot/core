@@ -41,7 +41,7 @@ struct mbox_mailbox {
 	struct dotlock *mbox_dotlock;
 	unsigned int mbox_lock_id, mbox_global_lock_id;
 	struct timeout *keep_lock_to;
-	bool mbox_readonly, mbox_writeonly;
+	bool mbox_writeonly;
 
 	uint32_t mbox_ext_idx;
 	struct mbox_index_header mbox_hdr;

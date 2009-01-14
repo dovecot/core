@@ -173,7 +173,7 @@ static void mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 	}
 
 	index_sync_changes_read(sync_ctx->sync_changes, uid, sync_expunge_r);
-	if (sync_ctx->mbox->mbox_readonly) {
+	if (sync_ctx->mbox->ibox.backend_readonly) {
 		/* we can't expunge anything from read-only mboxes */
 		*sync_expunge_r = FALSE;
 	}
@@ -1535,7 +1535,8 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		/* a) partial sync didn't work
 		   b) we ran out of UIDs
 		   c) syncing had errors */
-		if (sync_ctx->delay_writes && !sync_ctx->mbox->mbox_readonly &&
+		if (sync_ctx->delay_writes &&
+		    !sync_ctx->mbox->ibox.backend_readonly &&
 		    (sync_ctx->errors || sync_ctx->renumber_uids)) {
 			/* fixing a broken mbox state, be sure to write
 			   the changes. */
@@ -1672,7 +1673,7 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags,
 	int ret, changed;
 	bool delay_writes;
 
-	delay_writes = mbox->mbox_readonly ||
+	delay_writes = mbox->ibox.backend_readonly ||
 		((flags & MBOX_SYNC_REWRITE) == 0 &&
 		 getenv("MBOX_LAZY_WRITES") != NULL);
 
@@ -1715,7 +1716,7 @@ again:
 		   lock it for writing immediately. the mbox must be locked
 		   before index syncing is started to avoid deadlocks, so we
 		   don't have much choice either (well, easy ones anyway). */
-		int lock_type = mbox->mbox_readonly ? F_RDLCK : F_WRLCK;
+		int lock_type = mbox->ibox.backend_readonly ? F_RDLCK : F_WRLCK;
 
 		if ((ret = mbox_lock(mbox, lock_type, lock_id)) <= 0) {
 			if (ret == 0 || lock_type == F_RDLCK)
@@ -1724,7 +1725,7 @@ again:
 			/* try as read-only */
 			if (mbox_lock(mbox, F_RDLCK, lock_id) <= 0)
 				return -1;
-			mbox->mbox_readonly = TRUE;
+			mbox->ibox.backend_readonly = TRUE;
 		}
 	}
 
@@ -1790,7 +1791,8 @@ again:
 	i_array_init(&sync_ctx.mails, 64);
 
 	sync_ctx.flags = flags;
-	sync_ctx.delay_writes = delay_writes || sync_ctx.mbox->mbox_readonly;
+	sync_ctx.delay_writes = delay_writes ||
+		sync_ctx.mbox->ibox.backend_readonly;
 
 	sync_ctx.sync_changes =
 		index_sync_changes_init(&mbox->ibox, index_sync_ctx,
@@ -1846,7 +1848,7 @@ again:
 	sync_ctx.index_sync_ctx = NULL;
 
 	if (ret == 0 && mbox->mbox_fd != -1 && mbox->ibox.keep_recent &&
-	    !sync_ctx.mbox->mbox_readonly) {
+	    !sync_ctx.mbox->ibox.backend_readonly) {
 		/* try to set atime back to its original value */
 		struct utimbuf buf;
 		struct stat st;

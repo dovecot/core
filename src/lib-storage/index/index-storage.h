@@ -55,7 +55,8 @@ struct index_mailbox {
 
 	time_t sync_last_check;
 
-	unsigned int readonly:1;
+	/* we've discovered there aren't enough permissions to modify mailbox */
+	unsigned int backend_readonly:1;
 	unsigned int keep_recent:1;
 	unsigned int keep_locked:1;
 	unsigned int sent_diskspace_warning:1;

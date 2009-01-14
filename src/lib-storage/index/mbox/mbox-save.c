@@ -254,7 +254,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	bool empty = FALSE;
 	int ret;
 
-	if (ctx->mbox->mbox_readonly) {
+	if (ctx->mbox->ibox.backend_readonly) {
 		mail_storage_set_error(storage, MAIL_ERROR_PERM,
 				       "Read-only mbox");
 		return -1;

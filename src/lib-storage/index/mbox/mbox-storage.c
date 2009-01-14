@@ -615,10 +615,8 @@ mbox_open(struct mbox_storage *storage, const char *name,
 	if (access(path, R_OK|W_OK) < 0) {
 		if (errno < EACCES)
 			mbox_set_syscall_error(mbox, "access()");
-		else {
-			mbox->ibox.readonly = TRUE;
-			mbox->mbox_readonly = TRUE;
-		}
+		else
+			mbox->ibox.backend_readonly = TRUE;
 	}
 
 	if (strcmp(name, "INBOX") == 0) {
@@ -652,7 +650,7 @@ mbox_mailbox_open_stream(struct mbox_storage *storage, const char *name,
 
 	i_stream_ref(input);
 	mbox->mbox_file_stream = input;
-	mbox->mbox_readonly = TRUE;
+	mbox->ibox.backend_readonly = TRUE;
 	mbox->no_mbox_file = TRUE;
 
 	mbox->path = "(read-only mbox stream)";
@@ -785,7 +783,7 @@ static int mbox_storage_mailbox_close(struct mailbox *box)
 	if (mbox->ibox.view != NULL) {
 		hdr = mail_index_get_header(mbox->ibox.view);
 		if ((hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
-		    !mbox->mbox_readonly) {
+		    !mbox->ibox.backend_readonly) {
 			/* we've done changes to mbox which haven't been
 			   written yet. do it now. */
 			sync_flags |= MBOX_SYNC_REWRITE;

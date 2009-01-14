@@ -193,10 +193,10 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	ctx->trans = trans;
 	ctx->keywords_sync_ctx =
 		maildir_keywords_sync_init(mbox->keywords, mbox->ibox.index);
-
-	ctx->sync_changes = index_sync_changes_init(&mbox->ibox, ctx->sync_ctx,
-						    ctx->view, ctx->trans,
-						    mbox->ibox.readonly);
+	ctx->sync_changes =
+		index_sync_changes_init(&mbox->ibox, ctx->sync_ctx,
+					ctx->view, ctx->trans,
+					mbox->ibox.backend_readonly);
 
 	*ctx_r = ctx;
 	return 0;
