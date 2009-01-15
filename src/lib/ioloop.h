@@ -88,6 +88,8 @@ void io_loop_set_running(struct ioloop *ioloop);
 void io_loop_handler_run(struct ioloop *ioloop);
 
 struct ioloop *io_loop_create(void);
+/* Specify the maximum number of fds we're expecting to use. */
+void io_loop_set_max_fd_count(struct ioloop *ioloop, unsigned int max_fds);
 /* Destroy I/O loop and set ioloop pointer to NULL. */
 void io_loop_destroy(struct ioloop **ioloop);
 

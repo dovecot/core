@@ -19,6 +19,16 @@ struct timezone ioloop_timezone;
 
 struct ioloop *current_ioloop = NULL;
 
+static void io_loop_initialize_handler(struct ioloop *ioloop)
+{
+	unsigned int initial_fd_count;
+
+	initial_fd_count = ioloop->max_fd_count > 0 &&
+		ioloop->max_fd_count < IOLOOP_INITIAL_FD_COUNT ?
+		ioloop->max_fd_count : IOLOOP_INITIAL_FD_COUNT;
+	io_loop_handler_init(ioloop, initial_fd_count);
+}
+
 #undef io_add
 struct io *io_add(int fd, enum io_condition condition,
 		  io_callback_t *callback, void *context)
@@ -38,7 +48,7 @@ struct io *io_add(int fd, enum io_condition condition,
 	io->fd = fd;
 
 	if (io->io.ioloop->handler_context == NULL)
-		io_loop_handler_init(io->io.ioloop);
+		io_loop_initialize_handler(io->io.ioloop);
 	io_loop_handle_add(io);
 
 	if (io->io.ioloop->io_files != NULL) {
@@ -321,7 +331,7 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 void io_loop_run(struct ioloop *ioloop)
 {
 	if (ioloop->handler_context == NULL)
-		io_loop_handler_init(ioloop);
+		io_loop_initialize_handler(ioloop);
 
 	ioloop->running = TRUE;
 	while (ioloop->running)
@@ -336,6 +346,11 @@ void io_loop_stop(struct ioloop *ioloop)
 void io_loop_set_running(struct ioloop *ioloop)
 {
         ioloop->running = TRUE;
+}
+
+void io_loop_set_max_fd_count(struct ioloop *ioloop, unsigned int max_fds)
+{
+	ioloop->max_fd_count = max_fds;
 }
 
 bool io_loop_is_running(struct ioloop *ioloop)

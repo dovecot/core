@@ -35,7 +35,7 @@ struct ioloop_handler_context {
 	ARRAY_DEFINE(events, struct kevent);
 };
 
-void io_loop_handler_init(struct ioloop *ioloop)
+void io_loop_handler_init(struct ioloop *ioloop, unsigned int initial_fd_count)
 {
 	struct ioloop_handler_context *ctx;
 
@@ -45,7 +45,7 @@ void io_loop_handler_init(struct ioloop *ioloop)
 		i_fatal("kqueue() in io_loop_handler_init() failed: %m");
 	fd_close_on_exec(ctx->kq, TRUE);
 
-	i_array_init(&ctx->events, IOLOOP_INITIAL_FD_COUNT);
+	i_array_init(&ctx->events, initial_fd_count);
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)

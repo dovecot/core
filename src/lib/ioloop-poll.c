@@ -18,15 +18,15 @@ struct ioloop_handler_context {
 	int *fd_index;
 };
 
-void io_loop_handler_init(struct ioloop *ioloop)
+void io_loop_handler_init(struct ioloop *ioloop, unsigned int initial_fd_count)
 {
 	struct ioloop_handler_context *ctx;
 
 	ioloop->handler_context = ctx = i_new(struct ioloop_handler_context, 1);
-	ctx->fds_count = IOLOOP_INITIAL_FD_COUNT;
+	ctx->fds_count = initial_fd_count;
 	ctx->fds = i_new(struct pollfd, ctx->fds_count);
 
-	ctx->idx_count = IOLOOP_INITIAL_FD_COUNT;
+	ctx->idx_count = initial_fd_count;
 	ctx->fd_index = i_new(int, ctx->idx_count);
         memset(ctx->fd_index, 0xff, sizeof(int) * ctx->idx_count);
 }

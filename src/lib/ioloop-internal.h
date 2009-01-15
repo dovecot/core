@@ -17,6 +17,7 @@ struct ioloop {
 
         struct ioloop_handler_context *handler_context;
         struct ioloop_notify_handler_context *notify_handler_context;
+	unsigned int max_fd_count;
 
 	unsigned int running:1;
 };
@@ -60,7 +61,7 @@ void io_loop_handle_timeouts(struct ioloop *ioloop);
 void io_loop_handle_add(struct io_file *io);
 void io_loop_handle_remove(struct io_file *io, bool closed);
 
-void io_loop_handler_init(struct ioloop *ioloop);
+void io_loop_handler_init(struct ioloop *ioloop, unsigned int initial_fd_count);
 void io_loop_handler_deinit(struct ioloop *ioloop);
 
 void io_loop_notify_remove(struct io *io);

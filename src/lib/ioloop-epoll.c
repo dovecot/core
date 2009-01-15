@@ -25,16 +25,16 @@ struct ioloop_handler_context {
 	ARRAY_DEFINE(events, struct epoll_event);
 };
 
-void io_loop_handler_init(struct ioloop *ioloop)
+void io_loop_handler_init(struct ioloop *ioloop, unsigned int initial_fd_count)
 {
 	struct ioloop_handler_context *ctx;
 
 	ioloop->handler_context = ctx = i_new(struct ioloop_handler_context, 1);
 
-	i_array_init(&ctx->events, IOLOOP_INITIAL_FD_COUNT);
-	i_array_init(&ctx->fd_index, IOLOOP_INITIAL_FD_COUNT);
+	i_array_init(&ctx->events, initial_fd_count);
+	i_array_init(&ctx->fd_index, initial_fd_count);
 
-	ctx->epfd = epoll_create(IOLOOP_INITIAL_FD_COUNT);
+	ctx->epfd = epoll_create(initial_fd_count);
 	if (ctx->epfd < 0)
 		i_fatal("epoll_create(): %m");
 	fd_close_on_exec(ctx->epfd, TRUE);
