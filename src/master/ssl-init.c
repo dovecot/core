@@ -86,7 +86,7 @@ static bool check_parameters_file_set(struct settings *set)
 	struct stat st, st2;
 	time_t regen_time;
 
-	if (set->ssl_disable)
+	if (strcmp(set->ssl, "no") == 0)
 		return TRUE;
 
 	path = t_strconcat(set->login_dir, "/"SSL_PARAMETERS_FILENAME, NULL);

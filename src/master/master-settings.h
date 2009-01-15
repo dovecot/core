@@ -34,7 +34,7 @@ struct settings {
 	const char *listen;
 	const char *ssl_listen;
 
-	bool ssl_disable;
+	const char *ssl;
 	const char *ssl_ca_file;
 	const char *ssl_cert_file;
 	const char *ssl_key_file;

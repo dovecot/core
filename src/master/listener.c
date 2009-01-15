@@ -217,14 +217,14 @@ static void listen_parse_and_close_unneeded(struct settings *set)
 				nonssl_listen = TRUE;
 		} else if (strcasecmp(*proto, "imaps") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_IMAP &&
-			    !set->ssl_disable)
+			    strcmp(set->ssl, "no") != 0)
 				ssl_listen = TRUE;
 		} else if (strcasecmp(*proto, "pop3") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_POP3)
 				nonssl_listen = TRUE;
 		} else if (strcasecmp(*proto, "pop3s") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_POP3 &&
-			    !set->ssl_disable)
+			    strcmp(set->ssl, "no") != 0)
 				ssl_listen = TRUE;
 		}
 	}

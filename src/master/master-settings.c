@@ -182,7 +182,7 @@ struct settings default_settings = {
 	MEMBER(listen) "*",
 	MEMBER(ssl_listen) "",
 
-	MEMBER(ssl_disable) FALSE,
+	MEMBER(ssl) "yes",
 	MEMBER(ssl_ca_file) "",
 	MEMBER(ssl_cert_file) SSLDIR"/certs/dovecot.pem",
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
@@ -846,8 +846,14 @@ static bool settings_verify(struct settings *set)
 		return FALSE;
 	}
 
+	if (strcmp(set->ssl, "no") != 0 &&
+	    strcmp(set->ssl, "yes") != 0 &&
+	    strcmp(set->ssl, "required") != 0) {
+		i_error("ssl setting: Invalid value: %s", set->ssl);
+		return FALSE;
+	}
 #ifdef HAVE_SSL
-	if (!set->ssl_disable) {
+	if (strcmp(set->ssl, "no") != 0) {
 		if (*set->ssl_ca_file != '\0' &&
 		    access(set->ssl_ca_file, R_OK) < 0) {
 			i_fatal("Can't use SSL CA file %s: %m",
@@ -867,16 +873,16 @@ static bool settings_verify(struct settings *set)
 		}
 	}
 #else
-	if (!set->ssl_disable) {
-		i_error("SSL support not compiled in but ssl_disable=no");
+	if (strcmp(set->ssl, "no") != 0) {
+		i_error("SSL support not compiled in but ssl=%s", set->ssl);
 		return FALSE;
 	}
 #endif
-	if (set->ssl_disable && set->disable_plaintext_auth &&
+	if (strcmp(set->ssl, "no") == 0 && set->disable_plaintext_auth &&
 	    strncmp(set->listen, "127.", 4) != 0 &&
 	    !settings_have_nonplaintext_auths(set)) {
 		i_warning("There is no way to login to this server: "
-			  "disable_plaintext_auth=yes, ssl_disable=yes, "
+			  "disable_plaintext_auth=yes, ssl=no, "
 			  "no non-plaintext auth mechanisms.");
 	}
 

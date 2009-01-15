@@ -270,6 +270,17 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 	const struct auth_mech_desc *mech;
 	const char *mech_name, *p;
 
+	if (!client->common.secured && ssl_required) {
+		if (verbose_auth) {
+			client_syslog(&client->common, "Login failed: "
+				      "SSL required for authentication");
+		}
+		client->common.auth_attempts++;
+		client_send_line(client, "-ERR Authentication not allowed "
+				 "until SSL/TLS is enabled.");
+		return TRUE;
+	}
+
 	if (*args == '\0') {
 		/* Old-style SASL discovery, used by MS Outlook */
 		unsigned int i, count;

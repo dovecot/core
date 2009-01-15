@@ -20,7 +20,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(listen),
 	DEF_STR(ssl_listen),
 
-	DEF_BOOL(ssl_disable),
+	DEF_STR(ssl),
 	DEF_STR(ssl_ca_file),
 	DEF_STR(ssl_cert_file),
 	DEF_STR(ssl_key_file),

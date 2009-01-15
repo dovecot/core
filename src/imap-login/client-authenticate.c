@@ -347,6 +347,18 @@ int cmd_authenticate(struct imap_client *client, const struct imap_arg *args)
 		init_resp = IMAP_ARG_STR(&args[1]);
 	}
 
+	if (!client->common.secured && ssl_required) {
+		if (verbose_auth) {
+			client_syslog(&client->common, "Login failed: "
+				      "SSL required for authentication");
+		}
+		client->common.auth_attempts++;
+		client_send_tagline(client,
+			"NO ["IMAP_RESP_CODE_PRIVACYREQUIRED"] "
+			"Authentication not allowed until SSL/TLS is enabled.");
+		return 1;
+	}
+
 	mech_name = IMAP_ARG_STR(&args[0]);
 	if (*mech_name == '\0')
 		return -1;
