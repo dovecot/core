@@ -190,24 +190,27 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 }
 
 static int
-maildir_keywords_lookup(struct maildir_keywords *mk, const char *name)
+maildir_keywords_lookup(struct maildir_keywords *mk, const char *name,
+			unsigned int *chridx_r)
 {
 	void *p;
 
 	p = hash_table_lookup(mk->hash, name);
 	if (p == NULL) {
 		if (mk->synced)
-			return -1;
+			return 0;
 
 		if (maildir_keywords_sync(mk) < 0)
 			return -1;
+		i_assert(mk->synced);
 
 		p = hash_table_lookup(mk->hash, name);
 		if (p == NULL)
-			return -1;
+			return 0;
 	}
 
-	return POINTER_CAST_TO(p, int)-1;
+	*chridx_r = POINTER_CAST_TO(p, int)-1;
+	return 1;
 }
 
 static void
@@ -229,19 +232,15 @@ maildir_keywords_create(struct maildir_keywords *mk, const char *name,
 }
 
 static int
-maildir_keywords_lookup_or_create(struct maildir_keywords *mk, const char *name)
+maildir_keywords_lookup_or_create(struct maildir_keywords *mk, const char *name,
+				  unsigned int *chridx_r)
 {
 	const char *const *keywords;
 	unsigned int i, count;
-	int idx;
+	int ret;
 
-	idx = maildir_keywords_lookup(mk, name);
-	if (idx >= 0)
-		return idx;
-	if (!mk->synced) {
-		/* we couldn't open the dovecot-keywords file. */
-		return -1;
-	}
+	if ((ret = maildir_keywords_lookup(mk, name, chridx_r)) != 0)
+		return ret;
 
 	/* see if we are full */
 	keywords = array_get(&mk->list, &count);
@@ -273,6 +272,7 @@ maildir_keywords_idx(struct maildir_keywords *mk, unsigned int idx)
 
 		if (maildir_keywords_sync(mk) < 0)
 			return NULL;
+		i_assert(mk->synced);
 
 		keywords = array_get(&mk->list, &count);
 	}
@@ -435,7 +435,7 @@ unsigned int maildir_keywords_char_idx(struct maildir_keywords_sync_ctx *ctx,
 	if (name == NULL) {
 		/* name is lost. just generate one ourself. */
 		name = t_strdup_printf("unknown-%u", chridx);
-		while (maildir_keywords_lookup(ctx->mk, name) >= 0) {
+		while (maildir_keywords_lookup(ctx->mk, name, &idx) > 0) {
 			/* don't create a duplicate name.
 			   keep changing the name until it doesn't exist */
 			name = t_strconcat(name, "?", NULL);
@@ -453,15 +453,14 @@ char maildir_keywords_idx_char(struct maildir_keywords_sync_ctx *ctx,
 {
 	const char *const *name_p;
 	char *chr_p;
-	int chridx;
+	unsigned int chridx;
 
 	chr_p = array_idx_modifiable(&ctx->idx_to_chr, idx);
 	if (*chr_p != '\0')
 		return *chr_p;
 
 	name_p = array_idx(ctx->keywords, idx);
-	chridx = maildir_keywords_lookup_or_create(ctx->mk, *name_p);
-	if (chridx < 0)
+	if (maildir_keywords_lookup_or_create(ctx->mk, *name_p, &chridx) <= 0)
 		return '\0';
 
 	*chr_p = chridx + MAILDIR_KEYWORD_FIRST;
