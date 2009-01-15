@@ -263,14 +263,13 @@ static void drop_privileges(unsigned int *max_fds_r)
 		value = getenv("SYSLOG_FACILITY");
 		i_set_failure_syslog(process_name, LOG_NDELAY,
 				     value == NULL ? LOG_MAIL : atoi(value));
-
-		/* if we don't chroot, we must chdir */
-		value = getenv("LOGIN_DIR");
-		if (value == NULL)
-			i_fatal("LOGIN_DIR environment missing");
-		if (chdir(value) < 0)
-			i_error("chdir(%s) failed: %m", value);
 	}
+
+	value = getenv("LOGIN_DIR");
+	if (value == NULL)
+		i_fatal("LOGIN_DIR environment missing");
+	if (chdir(value) < 0)
+		i_error("chdir(%s) failed: %m", value);
 
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
