@@ -11,7 +11,7 @@
 #include "mail-storage.h"
 
 #define DEFAULT_MAIL_REJECTION_SUBJECT \
-	"Automatically rejected mail"
+	"Rejected: %s"
 #define DEFAULT_MAIL_REJECTION_HUMAN_REASON \
 	"Your message to <%t> was automatically rejected:%n%r"
 #define DEFAULT_LOG_FORMAT "msgid=%m: %$"
