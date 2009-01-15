@@ -338,7 +338,7 @@ maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 	   ones. we can get these lists easily by removing common elements
 	   from old and new keywords. */
 	new_indexes = array_get_modifiable(&ctx->keywords, &new_count);
-	for (i = 0; i < old_count && j < new_count; ) {
+	for (i = j = 0; i < old_count && j < new_count; ) {
 		diff = (int)old_indexes[i] - (int)new_indexes[j];
 		if (diff == 0) {
 			array_delete(&ctx->keywords, j, 1);
