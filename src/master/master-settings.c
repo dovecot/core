@@ -964,19 +964,6 @@ static bool settings_do_fixes(struct settings *set)
 		i_error("stat(%s) failed: %m", set->base_dir);
 		return FALSE;
 	}
-	if ((st.st_mode & 0310) != 0310 || (st.st_mode & 0777) == 0777) {
-		/* FIXME: backwards compatibility: fix permissions so that
-		   login processes can find ssl-parameters file. Group rx is
-		   enough, but change it to world-rx so that we don't have to
-		   start changing groups and causing possibly other problems.
-
-		   The second check is to fix 1.0beta1's accidental 0777
-		   mode change.. */
-		i_warning("Fixing permissions of %s to be world-readable",
-			  set->base_dir);
-		if (chmod(set->base_dir, 0755) < 0)
-			i_error("chmod(%s) failed: %m", set->base_dir);
-	}
 
 	/* remove auth worker sockets left by unclean exits */
 	unlink_auth_sockets(set->base_dir, "auth-worker.");
@@ -1214,19 +1201,6 @@ static const char *parse_setting(const char *key, const char *value,
 				 struct settings_parse_ctx *ctx)
 {
 	const char *error;
-
-	/* backwards compatibility */
-	if (strcmp(key, "auth") == 0) {
-		ctx->auth = parse_new_auth(ctx->server, value, &error);
-		return ctx->auth == NULL ? error : NULL;
-	}
-
-	if (strcmp(key, "login") == 0) {
-		i_warning("Ignoring deprecated 'login' section handling. "
-			  "Use protocol imap/pop3 { .. } instead. "
-			  "Some settings may have been read incorrectly.");
-		return NULL;
-	}
 
 	switch (ctx->type) {
 	case SETTINGS_TYPE_ROOT:
