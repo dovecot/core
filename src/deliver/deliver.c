@@ -834,6 +834,24 @@ int main(int argc, char *argv[])
 	pool_t userdb_pool = NULL;
 	string_t *str;
 
+	if (getuid() != geteuid() && geteuid() == 0) {
+		/* running setuid - don't allow this if deliver is
+		   executable by anyone */
+		struct stat st;
+
+		if (stat(argv[0], &st) < 0) {
+			fprintf(stderr, "stat(%s) failed: %s\n",
+				argv[0], strerror(errno));
+			return EX_CONFIG;
+		} else if ((st.st_mode & 1) != 0) {
+			fprintf(stderr, "%s must not be both world-executable "
+				"and setuid-root. This allows root exploits. "
+				"See http://wiki.dovecot.org/LDA#multipleuids\n",
+				argv[0]);
+			return EX_CONFIG;
+		}
+	}
+
 	i_set_failure_exit_callback(failure_exit_callback);
 
 	lib_init();
