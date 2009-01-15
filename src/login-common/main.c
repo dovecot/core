@@ -252,7 +252,7 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
                 clients_notify_auth_connected();
 }
 
-static void drop_privileges(void)
+static void drop_privileges(unsigned int *max_fds_r)
 {
 	const char *value;
 
@@ -287,9 +287,9 @@ static void drop_privileges(void)
 	/* set the number of fds we want to use. it may get increased or
 	   decreased. leave a couple of extra fds for auth sockets and such.
 	   normal connections each use one fd, but SSL connections use two */
-	restrict_fd_limit(LOGIN_MASTER_SOCKET_FD + 16 +
-			  listen_count + ssl_listen_count +
-			  max_connections*2);
+	*max_fds_r = LOGIN_MASTER_SOCKET_FD + 16 +
+		listen_count + ssl_listen_count + max_connections*2;
+	restrict_fd_limit(*max_fds_r);
 
 	/* Refuse to run as root - we should never need it and it's
 	   dangerous with SSL. */
@@ -393,7 +393,7 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 {
 	const char *group_name;
 	struct ip_addr remote_ip, local_ip;
-	unsigned int remote_port, local_port;
+	unsigned int remote_port, local_port, max_fds;
 	struct ssl_proxy *proxy = NULL;
 	struct client *client;
 	int i, fd = -1, master_fd = -1;
@@ -442,10 +442,11 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 		master_fd = master_connect(group_name);
 	}
 
-	drop_privileges();
+	drop_privileges(&max_fds);
 
 	process_title_init(argv, envp);
 	ioloop = io_loop_create();
+	io_loop_set_max_fd_count(ioloop, max_fds);
 	main_init();
 
 	if (is_inetd) {
