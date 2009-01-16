@@ -266,7 +266,7 @@ static const char *create_root_dir(struct mail_storage *storage,
 
 	path = t_strconcat(home, "/mail", NULL);
 	if (mkdir_parents(path, CREATE_MODE) < 0 && errno != EEXIST) {
-		*error_r = t_strdup_printf("mkdir(%s) failed: %m", path);
+		*error_r = mail_error_create_eacces_msg("mkdir", path);
 		return NULL;
 	}
 
@@ -362,8 +362,8 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 			return -1;
 		} else if (mkdir_parents(list_set->root_dir, CREATE_MODE) < 0 &&
 			   errno != EEXIST) {
-			*error_r = t_strdup_printf("mkdir(%s) failed: %m",
-						   list_set->root_dir);
+			*error_r = mail_error_create_eacces_msg("mkdir",
+							list_set->root_dir);
 			return -1;
 		}
 	}

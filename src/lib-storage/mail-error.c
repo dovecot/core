@@ -77,16 +77,16 @@ mail_error_eacces_msg_full(const char *func, const char *path, bool creating)
 				str_printfa(errmsg, " missing +x perm: %s", dir);
 			else
 				str_printfa(errmsg, " access(%s, x) failed: %m", dir);
-		} else if (prev_path == path && access(path, R_OK) < 0) {
-			if (errno == EACCES)
-				str_printfa(errmsg, " missing +r perm: %s", path);
-			else
-				str_printfa(errmsg, " access(%s, r) failed: %m", path);
 		} else if (creating && access(dir, W_OK) < 0) {
 			if (errno == EACCES)
 				str_printfa(errmsg, " missing +w perm: %s", dir);
 			else
 				str_printfa(errmsg, " access(%s, w) failed: %m", dir);
+		} else if (prev_path == path && access(path, R_OK) < 0) {
+			if (errno == EACCES)
+				str_printfa(errmsg, " missing +r perm: %s", path);
+			else
+				str_printfa(errmsg, " access(%s, r) failed: %m", path);
 		} else
 			str_printfa(errmsg, " UNIX perms seem ok, ACL problem?");
 	}
