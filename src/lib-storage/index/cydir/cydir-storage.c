@@ -106,7 +106,8 @@ static int cydir_create(struct mail_storage *_storage, const char *data,
 	} else if (mkdir_parents(list_set.root_dir,
 				 CREATE_MODE) == 0 || errno == EEXIST) {
 	} else if (errno == EACCES) {
-		*error_r = mail_error_eacces_msg("mkdir", list_set.root_dir);
+		*error_r = mail_error_create_eacces_msg("mkdir",
+							list_set.root_dir);
 		return -1;
 	} else {
 		*error_r = t_strdup_printf("mkdir(%s) failed: %m",

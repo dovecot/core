@@ -502,7 +502,7 @@ static int verify_inbox(struct mail_storage *storage)
 		return -1;
 	} else if (errno == EACCES) {
 		mail_storage_set_critical(storage, "%s",
-			mail_error_eacces_msg("open", inbox_path));
+			mail_error_create_eacces_msg("open", inbox_path));
 		return -1;
 	} else if (errno != EEXIST) {
 		mail_storage_set_critical(storage,

@@ -120,8 +120,8 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 				 CREATE_MODE) == 0 || errno == EEXIST) {
 	} else if (errno == EACCES) {
 		if (_storage->ns->type != NAMESPACE_SHARED) {
-			*error_r = mail_error_eacces_msg("mkdir",
-							 list_set.root_dir);
+			*error_r = mail_error_create_eacces_msg("mkdir",
+							list_set.root_dir);
 			return -1;
 		}
 		/* can't create a new user, but we don't want to fail
