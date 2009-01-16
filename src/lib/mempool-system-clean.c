@@ -136,6 +136,7 @@ static void *pool_system_clean_realloc(pool_t pool ATTR_UNUSED, void *mem,
 				       size_t old_size, size_t new_size)
 {
 	void *new_mem;
+	size_t old_alloc_size;
 
 	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
@@ -146,14 +147,15 @@ static void *pool_system_clean_realloc(pool_t pool ATTR_UNUSED, void *mem,
 		i_assert(old_size == (size_t)-1 ||
 			 old_size <= malloc_usable_size(mem));
 #endif
-		memcpy(new_mem, mem, mem_get_size(mem));
-		pool_system_clean_free(pool, mem);
+		old_alloc_size = mem_get_size(mem);
+		memcpy(new_mem, mem, I_MIN(old_alloc_size, new_size));
 
 		if (old_size < new_size) {
 			/* clear new data */
 			memset((char *)new_mem + old_size, 0,
 			       new_size - old_size);
 		}
+		pool_system_clean_free(pool, mem);
 	}
 
         return new_mem;
