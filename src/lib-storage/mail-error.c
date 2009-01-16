@@ -66,7 +66,7 @@ const char *mail_error_eacces_msg(const char *func, const char *path)
 			 access(path, R_OK) < 0 && errno == EACCES)
 			str_printfa(errmsg, " missing +r perm: %s", path);
 		else
-			str_printf(errmsg, " UNIX perms seem ok, ACL problem?");
+			str_printfa(errmsg, " UNIX perms seem ok, ACL problem?");
 	}
 	str_append_c(errmsg, ')');
 	return str_c(errmsg);
