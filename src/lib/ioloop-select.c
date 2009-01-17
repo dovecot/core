@@ -37,7 +37,8 @@ static void update_highest_fd(struct ioloop *ioloop)
 	}
 }
 
-void io_loop_handler_init(struct ioloop *ioloop)
+void io_loop_handler_init(struct ioloop *ioloop,
+			  unsigned int initial_fd_count ATTR_UNUSED)
 {
 	struct ioloop_handler_context *ctx;
 
