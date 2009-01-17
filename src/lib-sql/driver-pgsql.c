@@ -387,7 +387,6 @@ static void send_query(struct pgsql_result *result, const char *query)
 	i_assert(!db->querying);
 	i_assert(db->connected);
 
-	i_warning("%s", query);
 	if (!PQsendQuery(db->pg, query)) {
 		db->connected = FALSE;
 		result_finish(result);
