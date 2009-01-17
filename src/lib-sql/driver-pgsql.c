@@ -74,6 +74,7 @@ struct pgsql_transaction_context {
 	sql_commit_callback_t *callback;
 	void *context;
 
+	char *first_update;
 	const char *error;
 
 	unsigned int opened:1;
@@ -83,6 +84,8 @@ struct pgsql_transaction_context {
 extern struct sql_db driver_pgsql_db;
 extern struct sql_result driver_pgsql_result;
 
+static void
+transaction_update_callback(struct sql_result *result, void *context);
 static void
 driver_pgsql_query_full(struct sql_db *db, const char *query,
 			sql_query_callback_t *callback, void *context,
@@ -384,6 +387,7 @@ static void send_query(struct pgsql_result *result, const char *query)
 	i_assert(!db->querying);
 	i_assert(db->connected);
 
+	i_warning("%s", query);
 	if (!PQsendQuery(db->pg, query)) {
 		db->connected = FALSE;
 		result_finish(result);
@@ -893,6 +897,12 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 		(struct pgsql_transaction_context *)_ctx;
 	struct sql_result *result;
 
+	if (ctx->first_update != NULL) {
+		sql_query(_ctx->db, ctx->first_update,
+			  transaction_update_callback, ctx);
+		i_free_and_null(ctx->first_update);
+	}
+
 	if (ctx->failed) {
 		*error_r = ctx->error;
 		if (ctx->opened)
@@ -922,6 +932,7 @@ driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
 
 	if (ctx->opened)
 		sql_exec(_ctx->db, "ROLLBACK");
+	i_free(ctx->first_update);
 	i_free(ctx);
 }
 
@@ -946,8 +957,17 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query)
 		return;
 
 	if (!ctx->opened) {
+		if (ctx->first_update == NULL) {
+			/* delay sending the first update in case there is
+			   only one to be sent and we don't need BEGIN/COMMIT */
+			ctx->first_update = i_strdup(query);
+			return;
+		}
 		ctx->opened = TRUE;
 		sql_query(_ctx->db, "BEGIN", transaction_update_callback, ctx);
+		sql_query(_ctx->db, ctx->first_update,
+			  transaction_update_callback, ctx);
+		i_free_and_null(ctx->first_update);
 	}
 
 	driver_pgsql_query_full(_ctx->db, query,
