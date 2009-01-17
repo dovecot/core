@@ -70,6 +70,7 @@ struct pgsql_queue {
 
 struct pgsql_transaction_context {
 	struct sql_transaction_context ctx;
+	int refcount;
 
 	sql_commit_callback_t *callback;
 	void *context;
@@ -845,7 +846,19 @@ driver_pgsql_transaction_begin(struct sql_db *db)
 
 	ctx = i_new(struct pgsql_transaction_context, 1);
 	ctx->ctx.db = db;
+	ctx->refcount = 1;
 	return &ctx->ctx;
+}
+
+static void
+driver_pgsql_transaction_unref(struct pgsql_transaction_context *ctx)
+{
+	i_assert(ctx->refcount > 0);
+	if (--ctx->refcount > 0)
+		return;
+
+	i_free(ctx->first_update);
+	i_free(ctx);
 }
 
 static void
@@ -871,13 +884,14 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 		callback(ctx->error, context);
 		if (ctx->opened)
 			sql_exec(_ctx->db, "ROLLBACK");
-		i_free(ctx);
+		driver_pgsql_transaction_unref(ctx);
 		return;
 	}
 
 	if (!ctx->opened) {
 		/* nothing done */
 		ctx->callback(NULL, ctx->context);
+		driver_pgsql_transaction_unref(ctx);
 		return;
 	}
 
@@ -897,6 +911,7 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 	struct sql_result *result;
 
 	if (ctx->first_update != NULL) {
+		ctx->refcount++;
 		sql_query(_ctx->db, ctx->first_update,
 			  transaction_update_callback, ctx);
 		i_free_and_null(ctx->first_update);
@@ -919,7 +934,7 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 		sql_result_free(result);
 	}
 
-	i_free(ctx);
+	driver_pgsql_transaction_unref(ctx);
 	return *error_r == NULL ? 0 : -1;
 }
 
@@ -931,8 +946,7 @@ driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
 
 	if (ctx->opened)
 		sql_exec(_ctx->db, "ROLLBACK");
-	i_free(ctx->first_update);
-	i_free(ctx);
+	driver_pgsql_transaction_unref(ctx);
 }
 
 static void
@@ -944,6 +958,7 @@ transaction_update_callback(struct sql_result *result, void *context)
 		ctx->failed = TRUE;
 		ctx->error = sql_result_get_error(result);
 	}
+	driver_pgsql_transaction_unref(ctx);
 }
 
 static void
@@ -963,12 +978,14 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query)
 			return;
 		}
 		ctx->opened = TRUE;
+		ctx->refcount += 2;
 		sql_query(_ctx->db, "BEGIN", transaction_update_callback, ctx);
 		sql_query(_ctx->db, ctx->first_update,
 			  transaction_update_callback, ctx);
 		i_free_and_null(ctx->first_update);
 	}
 
+	ctx->refcount++;
 	driver_pgsql_query_full(_ctx->db, query,
 				transaction_update_callback, ctx, FALSE);
 }
