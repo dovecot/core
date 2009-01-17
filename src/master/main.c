@@ -151,7 +151,7 @@ static void settings_reload(void)
 	/* restart auth and login processes */
         login_processes_destroy_all();
         auth_processes_destroy_all();
-        dict_process_kill();
+        dict_processes_kill();
 
 	/* see if hostname changed */
 	hostpid_init();
@@ -304,7 +304,7 @@ static void main_init(bool log_error)
 	child_processes_init();
 	log_init();
 	ssl_init();
-	dict_process_init();
+	dict_processes_init();
 	auth_processes_init();
 	login_processes_init();
 	mail_processes_init();
@@ -323,7 +323,7 @@ static void main_deinit(void)
 	mail_processes_deinit();
 	login_processes_deinit();
 	auth_processes_deinit();
-	dict_process_deinit();
+	dict_processes_deinit();
 	ssl_deinit();
 	child_processes_deinit();
 

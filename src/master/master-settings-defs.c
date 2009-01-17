@@ -128,6 +128,7 @@ static struct setting_def setting_defs[] = {
 
 	/* dict */
 	DEF_STR(dict_db_config),
+	DEF_INT(dict_process_count),
 
 	{ 0, NULL, 0 }
 };

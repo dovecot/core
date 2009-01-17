@@ -16,26 +16,36 @@
 
 #define DICT_SERVER_SOCKET_NAME "dict-server"
 
-struct dict_process {
-	struct child_process process;
+struct dict_listener {
 	char *path;
 	int fd;
-
-	struct log_io *log;
 	struct io *io;
+
+	struct dict_process *processes;
 };
 
-static struct dict_process *dict_process;
+struct dict_process {
+	struct child_process process;
+	struct dict_process *next;
 
-static void dict_process_unlisten(struct dict_process *process);
+	struct dict_listener *listener;
+	struct log_io *log;
+};
 
-static int dict_process_start(struct dict_process *process)
+static struct dict_listener *dict_listener;
+
+static int dict_process_create(struct dict_listener *listener)
 {
+	struct dict_process *process;
 	struct log_io *log;
 	const char *executable, *const *dicts;
 	unsigned int i, count;
 	int log_fd;
 	pid_t pid;
+
+	process = i_new(struct dict_process, 1);
+	process->process.type = PROCESS_TYPE_DICT;
+	process->listener = listener;
 
 	log_fd = log_create_pipe(&log, 0);
 	if (log_fd < 0)
@@ -48,11 +58,15 @@ static int dict_process_start(struct dict_process *process)
 
 	if (pid < 0) {
 		(void)close(log_fd);
+		i_free(process);
 		return -1;
 	}
 
 	if (pid != 0) {
 		/* master */
+		process->next = process->listener->processes;
+		process->listener->processes = process;
+
 		child_process_add(pid, &process->process);
 		log_set_prefix(log, "dict: ");
 		log_set_pid(log, pid);
@@ -60,7 +74,6 @@ static int dict_process_start(struct dict_process *process)
 
 		process->log = log;
 		log_ref(process->log);
-                dict_process_unlisten(process);
 		return 0;
 	}
 	log_set_prefix(log, "master-dict: ");
@@ -75,14 +88,15 @@ static int dict_process_start(struct dict_process *process)
 	/* stderr = log, 3 = listener */
 	if (dup2(log_fd, 2) < 0)
 		i_fatal("dup2(stderr) failed: %m");
-	if (dup2(process->fd, 3) < 0)
+	if (dup2(process->listener->fd, 3) < 0)
 		i_fatal("dup2(3) failed: %m");
 
 	for (i = 0; i <= 3; i++)
 		fd_close_on_exec(i, FALSE);
 
 	child_process_init_env();
-	env_put(t_strconcat("DICT_LISTEN_FROM_FD=", process->path, NULL));
+	env_put(t_strconcat("DICT_LISTEN_FROM_FD=",
+			    process->listener->path, NULL));
 
 	if (settings_root->defaults->dict_db_config != NULL) {
 		env_put(t_strconcat("DB_CONFIG=",
@@ -105,92 +119,118 @@ static int dict_process_start(struct dict_process *process)
 	return -1;
 }
 
-static void dict_process_listen_input(struct dict_process *process)
+static void dict_process_deinit(struct dict_process *process)
 {
-	i_assert(process->log == NULL);
-	dict_process_start(process);
+	struct dict_process **p;
+
+	for (p = &process->listener->processes; *p != NULL; p++) {
+		if (*p == process) {
+			*p = process->next;
+			break;
+		}
+	}
+
+	if (process->log != NULL)
+		log_unref(process->log);
+	i_free(process);
 }
 
-static int dict_process_listen(struct dict_process *process)
+static void dict_listener_input(struct dict_listener *listener)
 {
+	unsigned int i;
+	int fd;
+
+	i_assert(listener->processes == NULL);
+
+	for (i = 0; i < settings_root->defaults->dict_process_count; i++) {
+		if (dict_process_create(listener) < 0)
+			break;
+	}
+	if (i > 0)
+		io_remove(&listener->io);
+	else {
+		/* failed to create dict process, so just reject this
+		   connection and try again later */
+		fd = net_accept(listener->fd, NULL, NULL);
+		if (fd >= 0)
+			(void)close(fd);
+	}
+}
+
+static struct dict_listener *dict_listener_init(const char *path)
+{
+	struct dict_listener *listener;
 	mode_t old_umask;
 
+	listener = i_new(struct dict_listener, 1);
+	listener->path = i_strdup(path);
 	old_umask = umask(0);
-	process->fd = net_listen_unix_unlink_stale(process->path, 128);
+	listener->fd = net_listen_unix_unlink_stale(path, 128);
 	umask(old_umask);
-	if (process->fd == -1) {
+	if (listener->fd == -1) {
 		if (errno == EADDRINUSE)
-			i_error("Socket already exists: %s", process->path);
+			i_fatal("Socket already exists: %s", path);
 		else
-			i_error("net_listen_unix(%s) failed: %m", process->path);
-		return -1;
+			i_fatal("net_listen_unix(%s) failed: %m", path);
 	}
-	fd_close_on_exec(process->fd, TRUE);
-	process->io = io_add(process->fd, IO_READ,
-			     dict_process_listen_input, process);
-
-	return process->fd != -1 ? 0 : -1;
+	fd_close_on_exec(listener->fd, TRUE);
+	listener->io = io_add(listener->fd, IO_READ,
+			      dict_listener_input, listener);
+	return listener;
 }
 
-static void dict_process_unlisten(struct dict_process *process)
+static void dict_listener_deinit(struct dict_listener *listener)
 {
-	if (process->fd == -1)
-		return;
+	if (listener->io != NULL)
+		io_remove(&listener->io);
+	if (close(listener->fd) < 0)
+		i_error("close(dict listener) failed: %m");
 
-	io_remove(&process->io);
-
-	if (close(process->fd) < 0)
-		i_error("close(dict) failed: %m");
-	process->fd = -1;
+	while (listener->processes != NULL)
+		dict_process_deinit(listener->processes);
 }
 
 static void
-dict_process_destroyed(struct child_process *process,
-		       pid_t pid ATTR_UNUSED,
-		       bool abnormal_exit ATTR_UNUSED)
+dict_process_destroyed(struct child_process *_process,
+		       pid_t pid ATTR_UNUSED, bool abnormal_exit ATTR_UNUSED)
 {
-	struct dict_process *p = (struct dict_process *)process;
+	struct dict_process *process = (struct dict_process *)_process;
+	struct dict_listener *listener = process->listener;
 
-	if (p->log != NULL) {
-		/* not killed by ourself */
-		log_unref(p->log);
-		p->log = NULL;
+	dict_process_deinit(process);
+	if (listener->processes == NULL) {
+		/* last listener died, create new ones */
+		listener->io = io_add(listener->fd, IO_READ,
+				      dict_listener_input, listener);
 	}
-	(void)dict_process_listen(p);
 }
 
-void dict_process_init(void)
+void dict_processes_init(void)
 {
-	struct dict_process *process;
+	const char *path;
 
-	process = dict_process = i_new(struct dict_process, 1);
-	process->process.type = PROCESS_TYPE_DICT;
-	process->fd = -1;
-	process->path = i_strconcat(settings_root->defaults->base_dir,
-				    "/"DICT_SERVER_SOCKET_NAME, NULL);
-	(void)dict_process_listen(process);
+	path = t_strconcat(settings_root->defaults->base_dir,
+			   "/"DICT_SERVER_SOCKET_NAME, NULL);
+	dict_listener = dict_listener_init(path);
 
 	child_process_set_destroy_callback(PROCESS_TYPE_DICT,
 					   dict_process_destroyed);
 }
 
-void dict_process_deinit(void)
+void dict_processes_deinit(void)
 {
-	struct dict_process *process = dict_process;
-
-	dict_process_unlisten(process);
-	if (process->log != NULL)
-		log_unref(process->log);
-	i_free(process->path);
-	i_free(process);
+	dict_listener_deinit(dict_listener);
 }
 
-void dict_process_kill(void)
+void dict_processes_kill(void)
 {
-	struct dict_process *process = dict_process;
+	struct dict_process *process;
 
-	if (process->log != NULL) {
-		log_unref(process->log);
-		process->log = NULL;
+	process = dict_listener->processes;
+	for (; process != NULL; process = process->next) {
+		if (process->log != NULL) {
+			log_unref(process->log);
+			process->log = NULL;
+		}
 	}
 }

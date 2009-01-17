@@ -294,6 +294,7 @@ struct settings default_settings = {
 
 	/* dict */
 	MEMBER(dict_db_config) NULL,
+	MEMBER(dict_process_count) 1,
 
 	/* .. */
 };

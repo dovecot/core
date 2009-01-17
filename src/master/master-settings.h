@@ -140,6 +140,7 @@ struct settings {
 
 	/* dict */
 	const char *dict_db_config;
+	unsigned int dict_process_count;
 
 	/* .. */
 	ARRAY_TYPE(listener) listens;
