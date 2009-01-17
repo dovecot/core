@@ -100,6 +100,9 @@ struct quota_root {
 	   may change these by reading the limits elsewhere (e.g. Maildir++,
 	   FS quota) */
 	int64_t bytes_limit, count_limit;
+	/* 1 = quota root has resources and should be returned when iterating
+	   quota roots, 0 = not, -1 = unknown. */
+	int resource_ret;
 
 	/* Module-specific contexts. See quota_module_id. */
 	ARRAY_DEFINE(quota_module_contexts, void);
