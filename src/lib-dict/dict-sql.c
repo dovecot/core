@@ -49,11 +49,17 @@ struct sql_dict_transaction_context {
 
 	struct sql_transaction_context *sql_ctx;
 
+	const struct dict_sql_map *prev_inc_map;
+	char *prev_inc_key;
+	long long prev_inc_diff;
+
 	unsigned int failed:1;
 	unsigned int changed:1;
 };
 
 static struct sql_pool *dict_sql_pool;
+
+static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx);
 
 static struct dict *
 sql_dict_init(struct dict *driver, const char *uri,
@@ -463,6 +469,9 @@ static int sql_dict_transaction_commit(struct dict_transaction_context *_ctx)
 	const char *error;
 	int ret;
 
+	if (ctx->prev_inc_map != NULL)
+		sql_dict_prev_inc_flush(ctx);
+
 	if (ctx->failed) {
 		sql_transaction_rollback(&ctx->sql_ctx);
 		ret = -1;
@@ -485,52 +494,89 @@ static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 
 	if (_ctx->changed)
 		sql_transaction_rollback(&ctx->sql_ctx);
+	i_free(ctx->prev_inc_key);
 	i_free(ctx);
 }
 
-static const char *
-sql_dict_set_query(struct sql_dict *dict, const struct dict_sql_map *map,
-		   const ARRAY_TYPE(const_string) *values_arr,
-		   const char *key, const char *value, bool inc)
+struct dict_sql_build_query_field {
+	const struct dict_sql_map *map;
+	const char *value;
+};
+
+struct dict_sql_build_query {
+	struct sql_dict *dict;
+
+	ARRAY_DEFINE(fields, struct dict_sql_build_query_field);
+	const ARRAY_TYPE(const_string) *extra_values;
+	char key1;
+	bool inc;
+};
+
+static const char *sql_dict_set_query(const struct dict_sql_build_query *build)
 {
-	const char *const *sql_fields, *const *values;
-	unsigned int i, count, count2;
+	struct sql_dict *dict = build->dict;
+	const struct dict_sql_build_query_field *fields;
+	const char *const *sql_fields, *const *extra_values;
+	unsigned int i, field_count, count, count2;
 	string_t *prefix, *suffix;
+
+	fields = array_get(&build->fields, &field_count);
+	i_assert(field_count > 0);
 
 	prefix = t_str_new(64);
 	suffix = t_str_new(256);
-	str_printfa(prefix, "INSERT INTO %s (%s", map->table, map->value_field);
+	str_printfa(prefix, "INSERT INTO %s (", fields[0].map->table);
 	str_append(suffix, ") VALUES (");
-	if (inc)
-		str_append(suffix, value);
-	else
-		str_printfa(suffix, "'%s'", sql_escape_string(dict->db, value));
-	if (*key == DICT_PATH_PRIVATE[0]) {
-		str_printfa(prefix, ",%s", map->username_field);
+	for (i = 0; i < field_count; i++) {
+		if (i > 0) {
+			str_append_c(prefix, ',');
+			str_append_c(suffix, ',');
+		}
+		str_append(prefix, fields[i].map->value_field);
+		if (build->inc)
+			str_append(suffix, fields[i].value);
+		else {
+			str_printfa(suffix, "'%s'",
+				sql_escape_string(dict->db, fields[i].value));
+		}
+	}
+	if (build->key1 == DICT_PATH_PRIVATE[0]) {
+		str_printfa(prefix, ",%s", fields[0].map->username_field);
 		str_printfa(suffix, ",'%s'",
 			    sql_escape_string(dict->db, dict->username));
 	}
 
 	/* add the other fields from the key */
-	sql_fields = array_get(&map->sql_fields, &count);
-	values = array_get(values_arr, &count2);
+	sql_fields = array_get(&fields[0].map->sql_fields, &count);
+	extra_values = array_get(build->extra_values, &count2);
 	i_assert(count == count2);
 	for (i = 0; i < count; i++) {
 		str_printfa(prefix, ",%s", sql_fields[i]);
 		str_printfa(suffix, ",'%s'",
-			    sql_escape_string(dict->db, values[i]));
+			    sql_escape_string(dict->db, extra_values[i]));
 	}
 
 	str_append_str(prefix, suffix);
 	str_append_c(prefix, ')');
-	if (dict->has_on_duplicate_key) {
-		str_printfa(prefix, " ON DUPLICATE KEY UPDATE %s =",
-			    map->value_field);
-		if (inc)
-			str_printfa(prefix, "%s+%s", map->value_field, value);
-		else {
-			str_printfa(prefix, "'%s'",
-				    sql_escape_string(dict->db, value));
+	if (!dict->has_on_duplicate_key)
+		return str_c(prefix);
+
+	str_append(prefix, " ON DUPLICATE KEY UPDATE ");
+	for (i = 0; i < field_count; i++) {
+		if (i > 0) {
+			str_append_c(prefix, ',');
+			str_append_c(suffix, ',');
+		}
+		str_append(prefix, fields[i].map->value_field);
+		str_append_c(prefix, '=');
+		if (build->inc) {
+			str_printfa(prefix, "%s+%s",
+				    fields[i].map->value_field,
+				    fields[i].value);
+			str_append(suffix, fields[i].value);
+		} else {
+			str_printfa(suffix, "'%s'",
+				sql_escape_string(dict->db, fields[i].value));
 		}
 	}
 	return str_c(prefix);
@@ -552,11 +598,25 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		return;
 	}
 
+	if (ctx->prev_inc_map != NULL)
+		sql_dict_prev_inc_flush(ctx);
+
 	T_BEGIN {
+		struct dict_sql_build_query build;
+		struct dict_sql_build_query_field field;
 		const char *query;
 
-		query = sql_dict_set_query(dict, map, &values, key, value,
-					   FALSE);
+		field.map = map;
+		field.value = value;
+
+		memset(&build, 0, sizeof(build));
+		build.dict = dict;
+		t_array_init(&build.fields, 1);
+		array_append(&build.fields, &field, 1);
+		build.extra_values = &values;
+		build.key1 = key[0];
+
+		query = sql_dict_set_query(&build);
 		sql_update(ctx->sql_ctx, query);
 	} T_END;
 }
@@ -569,6 +629,9 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
+
+	if (ctx->prev_inc_map != NULL)
+		sql_dict_prev_inc_flush(ctx);
 
 	map = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
@@ -587,6 +650,79 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	} T_END;
 }
 
+static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
+				     const char *key, long long diff)
+{
+	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
+	const struct dict_sql_map *map;
+	ARRAY_TYPE(const_string) values;
+
+	map = sql_dict_find_map(dict, key, &values);
+	i_assert(map != NULL);
+
+	T_BEGIN {
+		struct dict_sql_build_query build;
+		struct dict_sql_build_query_field field;
+		const char *query;
+
+		field.map = map;
+		field.value = t_strdup_printf("%lld", diff);
+
+		memset(&build, 0, sizeof(build));
+		build.dict = dict;
+		t_array_init(&build.fields, 1);
+		array_append(&build.fields, &field, 1);
+		build.extra_values = &values;
+		build.key1 = key[0];
+
+		query = sql_dict_set_query(&build);
+		sql_update(ctx->sql_ctx, query);
+	} T_END;
+}
+
+static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
+{
+	sql_dict_atomic_inc_real(ctx, ctx->prev_inc_key, ctx->prev_inc_diff);
+	i_free_and_null(ctx->prev_inc_key);
+	ctx->prev_inc_map = NULL;
+}
+
+static bool
+sql_dict_maps_are_mergeable(struct sql_dict *dict,
+			    const struct dict_sql_map *map1,
+			    const struct dict_sql_map *map2,
+			    const char *map1_key, const char *map2_key,
+			    const ARRAY_TYPE(const_string) *map2_values)
+{
+	const struct dict_sql_map *map3;
+	ARRAY_TYPE(const_string) map1_values;
+	const char *const *v1, *const *v2;
+	unsigned int i, count1, count2;
+
+	if (strcmp(map1->table, map2->table) != 0)
+		return FALSE;
+	if (map1_key[0] != map2_key[0])
+		return FALSE;
+	if (map1_key[0] == DICT_PATH_PRIVATE[0]) {
+		if (strcmp(map1->username_field, map2->username_field) != 0)
+			return FALSE;
+	}
+
+	map3 = sql_dict_find_map(dict, map1_key, &map1_values);
+	i_assert(map3 == map1);
+
+	v1 = array_get(&map1_values, &count1);
+	v2 = array_get(map2_values, &count2);
+	if (count1 != count2)
+		return FALSE;
+
+	for (i = 0; i < count1; i++) {
+		if (strcmp(v1[i], v2[i]) != 0)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 				const char *key, long long diff)
 {
@@ -603,12 +739,41 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	T_BEGIN {
+	if (ctx->prev_inc_map == NULL) {
+		/* see if we can merge this increment SQL query with the
+		   next one */
+		ctx->prev_inc_map = map;
+		ctx->prev_inc_key = i_strdup(key);
+		ctx->prev_inc_diff = diff;
+		return;
+	}
+	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_inc_map, map,
+					 ctx->prev_inc_key, key, &values)) {
+		sql_dict_prev_inc_flush(ctx);
+		sql_dict_atomic_inc_real(ctx, key, diff);
+	} else T_BEGIN {
+		struct dict_sql_build_query build;
+		struct dict_sql_build_query_field *field;
 		const char *query;
 
-		query = sql_dict_set_query(dict, map, &values, key,
-					   t_strdup_printf("%lld", diff), TRUE);
+		memset(&build, 0, sizeof(build));
+		build.dict = dict;
+		t_array_init(&build.fields, 1);
+		build.extra_values = &values;
+		build.key1 = key[0];
+
+		field = array_append_space(&build.fields);
+		field->map = ctx->prev_inc_map;
+		field->value = t_strdup_printf("%lld", ctx->prev_inc_diff);
+		field = array_append_space(&build.fields);
+		field->map = map;
+		field->value = t_strdup_printf("%lld", diff);
+
+		query = sql_dict_set_query(&build);
 		sql_update(ctx->sql_ctx, query);
+
+		i_free_and_null(ctx->prev_inc_key);
+		ctx->prev_inc_map = NULL;
 	} T_END;
 }
 
