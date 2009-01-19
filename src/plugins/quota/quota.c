@@ -741,7 +741,7 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	struct quota_root *const *roots;
 	const char *mailbox_name;
 	unsigned int i, count;
-	uint64_t current, limit, left;
+	uint64_t bytes_limit, count_limit, current, limit, left;
 	int ret;
 
 	ctx->limits_set = TRUE;
@@ -753,29 +753,37 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
 			continue;
 
-		ret = quota_get_resource(roots[i], mailbox_name,
-					 QUOTA_NAME_STORAGE_BYTES,
-					 &current, &limit);
-		if (ret > 0) {
-			current += ctx->bytes_used;
-			left = limit < current ? 0 : limit - current;
-			if (ctx->bytes_left > left)
-				ctx->bytes_left = left;
-		} else if (ret < 0) {
-			ctx->failed = TRUE;
-			return -1;
+		(void)quota_root_get_rule_limits(roots[i], mailbox_name,
+						 &bytes_limit, &count_limit);
+
+		if (bytes_limit > 0) {
+			ret = quota_get_resource(roots[i], mailbox_name,
+						 QUOTA_NAME_STORAGE_BYTES,
+						 &current, &limit);
+			if (ret > 0) {
+				current += ctx->bytes_used;
+				left = limit < current ? 0 : limit - current;
+				if (ctx->bytes_left > left)
+					ctx->bytes_left = left;
+			} else if (ret < 0) {
+				ctx->failed = TRUE;
+				return -1;
+			}
 		}
-		
-		ret = quota_get_resource(roots[i], mailbox_name,
-					 QUOTA_NAME_MESSAGES, &current, &limit);
-		if (ret > 0) {
-			current += ctx->count_used;
-			left = limit < current ? 0 : limit - current;
-			if (ctx->count_left > left)
-				ctx->count_left = left;
-		} else if (ret < 0) {
-			ctx->failed = TRUE;
-			return -1;
+
+		if (count_limit > 0) {
+			ret = quota_get_resource(roots[i], mailbox_name,
+						 QUOTA_NAME_MESSAGES,
+						 &current, &limit);
+			if (ret > 0) {
+				current += ctx->count_used;
+				left = limit < current ? 0 : limit - current;
+				if (ctx->count_left > left)
+					ctx->count_left = left;
+			} else if (ret < 0) {
+				ctx->failed = TRUE;
+				return -1;
+			}
 		}
 	}
 	return 0;
