@@ -82,6 +82,13 @@ checkpassword_request_half_finish(struct chkpw_auth_request *request)
 	case 2:
 		/* checkpassword is called with wrong
 		   parameters? unlikely */
+		auth_request_log_error(request->request, "checkpassword",
+			"Child %s exited with status 2 (tried to use "
+			"userdb-only checkpassword program for passdb?)",
+			dec2str(request->pid));
+		checkpassword_request_finish(request,
+					     PASSDB_RESULT_INTERNAL_FAILURE);
+		break;
 	case 111:
 		/* temporary problem, treat as internal error */
 	default:
