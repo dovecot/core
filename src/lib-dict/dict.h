@@ -52,6 +52,8 @@ void dict_iterate_deinit(struct dict_iterate_context **ctx);
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict);
 /* Commit the transaction. Returns 0 if ok, -1 if failed. */
 int dict_transaction_commit(struct dict_transaction_context **ctx);
+/* Commit the transaction, but don't wait to see if it finishes successfully. */
+void dict_transaction_commit_async(struct dict_transaction_context **ctx);
 /* Rollback all changes made in transaction. */
 void dict_transaction_rollback(struct dict_transaction_context **ctx);
 

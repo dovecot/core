@@ -141,7 +141,15 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx)
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	return ctx->dict->v.transaction_commit(ctx);
+	return ctx->dict->v.transaction_commit(ctx, FALSE);
+}
+
+void dict_transaction_commit_async(struct dict_transaction_context **_ctx)
+{
+	struct dict_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+	ctx->dict->v.transaction_commit(ctx, TRUE);
 }
 
 void dict_transaction_rollback(struct dict_transaction_context **_ctx)

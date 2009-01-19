@@ -462,7 +462,8 @@ sql_dict_transaction_init(struct dict *_dict)
 	return &ctx->ctx;
 }
 
-static int sql_dict_transaction_commit(struct dict_transaction_context *_ctx)
+static int sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
+				       bool async ATTR_UNUSED)
 {
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;

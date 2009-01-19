@@ -20,7 +20,8 @@ struct dict_vfuncs {
 	void (*iterate_deinit)(struct dict_iterate_context *ctx);
 
 	struct dict_transaction_context *(*transaction_init)(struct dict *dict);
-	int (*transaction_commit)(struct dict_transaction_context *ctx);
+	int (*transaction_commit)(struct dict_transaction_context *ctx,
+				  bool async);
 	void (*transaction_rollback)(struct dict_transaction_context *ctx);
 
 	void (*set)(struct dict_transaction_context *ctx,
