@@ -190,12 +190,12 @@ sql_dict_find_map(struct sql_dict *dict, const char *path,
 static void
 sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		     const ARRAY_TYPE(const_string) *values_arr,
-		     const char *key, enum sql_recurse_type recurse_type,
+		     char key1, enum sql_recurse_type recurse_type,
 		     string_t *query)
 {
 	const char *const *sql_fields, *const *values;
 	unsigned int i, count, count2, exact_count;
-	bool priv = *key == DICT_PATH_PRIVATE[0];
+	bool priv = key1 == DICT_PATH_PRIVATE[0];
 
 	sql_fields = array_get(&map->sql_fields, &count);
 	values = array_get(values_arr, &count2);
@@ -273,7 +273,7 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 
 		str_printfa(query, "SELECT %s FROM %s",
 			    map->value_field, map->table);
-		sql_dict_where_build(dict, map, &values, key,
+		sql_dict_where_build(dict, map, &values, key[0],
 				     SQL_DICT_RECURSE_NONE, query);
 		result = sql_query_s(dict->db, str_c(query));
 	} T_END;
@@ -350,7 +350,7 @@ static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 
 		recurse_type = (ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 ?
 			SQL_DICT_RECURSE_ONE : SQL_DICT_RECURSE_FULL;
-		sql_dict_where_build(dict, map, &values, ctx->path,
+		sql_dict_where_build(dict, map, &values, ctx->path[0],
 				     recurse_type, query);
 
 		if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0) {
@@ -563,23 +563,51 @@ static const char *sql_dict_set_query(const struct dict_sql_build_query *build)
 
 	str_append(prefix, " ON DUPLICATE KEY UPDATE ");
 	for (i = 0; i < field_count; i++) {
-		if (i > 0) {
+		if (i > 0)
 			str_append_c(prefix, ',');
-			str_append_c(suffix, ',');
-		}
 		str_append(prefix, fields[i].map->value_field);
 		str_append_c(prefix, '=');
 		if (build->inc) {
 			str_printfa(prefix, "%s+%s",
 				    fields[i].map->value_field,
 				    fields[i].value);
-			str_append(suffix, fields[i].value);
 		} else {
-			str_printfa(suffix, "'%s'",
+			str_printfa(prefix, "'%s'",
 				sql_escape_string(dict->db, fields[i].value));
 		}
 	}
 	return str_c(prefix);
+}
+
+static const char *
+sql_dict_update_query(const struct dict_sql_build_query *build)
+{
+	struct sql_dict *dict = build->dict;
+	const struct dict_sql_build_query_field *fields;
+	unsigned int i, field_count;
+	string_t *query;
+
+	i_assert(build->inc);
+
+	fields = array_get(&build->fields, &field_count);
+	i_assert(field_count > 0);
+
+	query = t_str_new(64);
+	str_printfa(query, "UPDATE %s SET ", fields[0].map->table);
+	for (i = 0; i < field_count; i++) {
+		if (i > 0)
+			str_append_c(query, ',');
+		str_printfa(query, "%s=%s", fields[i].map->value_field,
+			    fields[i].map->value_field);
+		if (fields[i].value[0] != '-')
+			str_append_c(query, '+');
+		else
+			str_append(query, fields[i].value);
+	}
+
+	sql_dict_where_build(dict, fields[0].map, build->extra_values,
+			     build->key1, SQL_DICT_RECURSE_NONE, query);
+	return str_c(query);
 }
 
 static void sql_dict_set(struct dict_transaction_context *_ctx,
@@ -644,7 +672,7 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 		string_t *query = t_str_new(256);
 
 		str_printfa(query, "DELETE FROM %s", map->table);
-		sql_dict_where_build(dict, map, &values, key,
+		sql_dict_where_build(dict, map, &values, key[0],
 				     SQL_DICT_RECURSE_NONE, query);
 		sql_update(ctx->sql_ctx, str_c(query));
 	} T_END;
@@ -674,8 +702,15 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 		array_append(&build.fields, &field, 1);
 		build.extra_values = &values;
 		build.key1 = key[0];
+		build.inc = TRUE;
 
-		query = sql_dict_set_query(&build);
+		if (diff >= 0)
+			query = sql_dict_set_query(&build);
+		else {
+			/* negative changes can't never be initial values,
+			   use UPDATE directly. */
+			query = sql_dict_update_query(&build);
+		}
 		sql_update(ctx->sql_ctx, query);
 	} T_END;
 }
@@ -761,6 +796,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		t_array_init(&build.fields, 1);
 		build.extra_values = &values;
 		build.key1 = key[0];
+		build.inc = TRUE;
 
 		field = array_append_space(&build.fields);
 		field->map = ctx->prev_inc_map;
@@ -769,7 +805,13 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		field->map = map;
 		field->value = t_strdup_printf("%lld", diff);
 
-		query = sql_dict_set_query(&build);
+		if (diff >= 0)
+			query = sql_dict_set_query(&build);
+		else {
+			/* negative changes can't never be initial values,
+			   use UPDATE directly. */
+			query = sql_dict_update_query(&build);
+		}
 		sql_update(ctx->sql_ctx, query);
 
 		i_free_and_null(ctx->prev_inc_key);
