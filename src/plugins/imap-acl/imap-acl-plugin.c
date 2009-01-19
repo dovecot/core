@@ -46,6 +46,8 @@ static const struct imap_acl_letter_map imap_acl_letter_map[] = {
 	{ '\0', NULL }
 };
 
+const char *imap_acl_plugin_version = PACKAGE_VERSION;
+
 static bool acl_anyone_allow = FALSE;
 
 static struct mailbox *
