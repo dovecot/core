@@ -60,8 +60,10 @@ void mail_user_set_home(struct mail_user *user, const char *home);
    has no home directory) or -1 if lookup failed. */
 int mail_user_get_home(struct mail_user *user, const char **home_r);
 
-/* Add a new namespace to user's namespaces. */
-void mail_user_add_namespace(struct mail_user *user, struct mail_namespace *ns);
+/* Add more namespaces to user's namespaces. The ->next pointers may be
+   changed, so the namespaces pointer will be updated to user->namespaces. */
+void mail_user_add_namespace(struct mail_user *user,
+			     struct mail_namespace **namespaces);
 /* Drop autocreated shared namespaces that don't have any "usable" mailboxes. */
 void mail_user_drop_useless_namespaces(struct mail_user *user);
 

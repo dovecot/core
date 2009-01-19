@@ -244,7 +244,7 @@ int mail_namespaces_init(struct mail_user *user)
 			}
 			return -1;
 		}
-		mail_user_add_namespace(user, namespaces);
+		mail_user_add_namespace(user, &namespaces);
 
 		if (hook_mail_namespaces_created != NULL) {
 			T_BEGIN {

@@ -75,9 +75,10 @@ void mail_user_set_home(struct mail_user *user, const char *home)
 	user->home_looked_up = TRUE;
 }
 
-void mail_user_add_namespace(struct mail_user *user, struct mail_namespace *ns)
+void mail_user_add_namespace(struct mail_user *user,
+			     struct mail_namespace **namespaces)
 {
-	struct mail_namespace **tmp, *next;
+	struct mail_namespace **tmp, *next, *ns = *namespaces;
 
 	for (; ns != NULL; ns = next) {
 		next = ns->next;
@@ -90,6 +91,7 @@ void mail_user_add_namespace(struct mail_user *user, struct mail_namespace *ns)
 		ns->next = *tmp;
 		*tmp = ns;
 	}
+	*namespaces = user->namespaces;
 }
 
 void mail_user_drop_useless_namespaces(struct mail_user *user)

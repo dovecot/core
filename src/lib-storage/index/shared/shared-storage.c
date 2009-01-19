@@ -243,11 +243,11 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 		mail_namespace_destroy(ns);
 		return -1;
 	}
-	mail_user_add_namespace(user, ns);
 	_storage->ns->flags |= NAMESPACE_FLAG_USABLE;
-
 	*_name = mail_namespace_fix_sep(ns, name);
 	*ns_r = ns;
+
+	mail_user_add_namespace(user, &ns);
 	return 0;
 }
 
