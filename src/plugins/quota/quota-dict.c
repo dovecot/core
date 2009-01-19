@@ -52,7 +52,7 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 		username = _root->quota->user->username;
 
 	if (_root->quota->set->debug) {
-		i_info("dict quota: user=%s, uri=%s, enforcing=%d",
+		i_info("dict quota: user=%s, uri=%s, noenforcing=%d",
 		       username, args, _root->no_enforcing);
 	}
 
