@@ -295,9 +295,11 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 static void
 listescape_mail_namespaces_created(struct mail_namespace *namespaces)
 {
-	for (; namespaces != NULL; namespaces = namespaces->next) {
-		if (namespaces->real_sep != namespaces->sep)
-			namespaces->real_sep = namespaces->sep;
+	struct mail_namespace *ns = namespaces;
+
+	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		if (ns->real_sep != ns->sep)
+			ns->real_sep = ns->sep;
 	}
 
 	if (listescape_next_hook_mail_namespaces_created != NULL)
