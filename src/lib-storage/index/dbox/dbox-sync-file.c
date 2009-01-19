@@ -392,12 +392,19 @@ static void
 dbox_sync_mark_single_file_expunged(struct dbox_sync_context *ctx,
 				    const struct dbox_sync_file_entry *entry)
 {
+	struct mailbox *box = &ctx->mbox->ibox.box;
 	const struct seq_range *expunges;
 	unsigned int count;
+	uint32_t uid;
 
 	expunges = array_get(&entry->expunges, &count);
 	i_assert(count == 1 && expunges[0].seq1 == expunges[0].seq2);
 	mail_index_expunge(ctx->trans, expunges[0].seq1);
+
+	if (box->v.sync_notify != NULL) {
+		mail_index_lookup_uid(ctx->sync_view, expunges[0].seq1, &uid);
+		box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
+	}
 }
 
 int dbox_sync_file(struct dbox_sync_context *ctx,
