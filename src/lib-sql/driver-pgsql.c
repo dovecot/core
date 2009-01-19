@@ -79,6 +79,8 @@ struct pgsql_transaction_context {
 	const char *error;
 
 	unsigned int opened:1;
+	unsigned int begin_succeeded:1;
+	unsigned int begin_failed:1;
 	unsigned int failed:1;
 };
 
@@ -882,15 +884,8 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 
 	if (ctx->failed) {
 		callback(ctx->error, context);
-		if (ctx->opened)
+		if (!ctx->begin_failed)
 			sql_exec(_ctx->db, "ROLLBACK");
-		driver_pgsql_transaction_unref(ctx);
-		return;
-	}
-
-	if (!ctx->opened) {
-		/* nothing done */
-		ctx->callback(NULL, ctx->context);
 		driver_pgsql_transaction_unref(ctx);
 		return;
 	}
@@ -898,8 +893,19 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 	ctx->callback = callback;
 	ctx->context = context;
 
-	driver_pgsql_query_full(_ctx->db, "COMMIT",
-				transaction_commit_callback, ctx, FALSE);
+	if (ctx->first_update != NULL) {
+		sql_query(_ctx->db, ctx->first_update,
+			  transaction_commit_callback, ctx);
+		i_free_and_null(ctx->first_update);
+	} else if (ctx->opened) {
+		driver_pgsql_query_full(_ctx->db, "COMMIT",
+					transaction_commit_callback, ctx,
+					FALSE);
+	} else {
+		/* nothing done */
+		ctx->callback(NULL, ctx->context);
+		driver_pgsql_transaction_unref(ctx);
+	}
 }
 
 static int
@@ -910,20 +916,21 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 		(struct pgsql_transaction_context *)_ctx;
 	struct sql_result *result;
 
-	if (ctx->first_update != NULL) {
-		ctx->refcount++;
-		sql_query(_ctx->db, ctx->first_update,
-			  transaction_update_callback, ctx);
-		i_free_and_null(ctx->first_update);
-	}
-
 	if (ctx->failed) {
 		*error_r = ctx->error;
-		if (ctx->opened)
+		if (!ctx->begin_failed)
 			sql_exec(_ctx->db, "ROLLBACK");
-	} else if (!ctx->opened)
+	} else if (ctx->first_update != NULL) {
+		result = sql_query_s(_ctx->db, ctx->first_update);
+		if (sql_result_next_row(result) < 0)
+			*error_r = sql_result_get_error(result);
+		else
+			*error_r = NULL;
+		i_free_and_null(ctx->first_update);
+		sql_result_free(result);
+	} else if (!ctx->opened) {
 		*error_r = NULL;
-	else {
+	} else {
 		result = sql_query_s(_ctx->db, "COMMIT");
 		if (ctx->failed)
 			*error_r = ctx->error;
@@ -944,7 +951,7 @@ driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct pgsql_transaction_context *ctx =
 		(struct pgsql_transaction_context *)_ctx;
 
-	if (ctx->opened)
+	if (!ctx->begin_failed)
 		sql_exec(_ctx->db, "ROLLBACK");
 	driver_pgsql_transaction_unref(ctx);
 }
@@ -955,8 +962,12 @@ transaction_update_callback(struct sql_result *result, void *context)
 	struct pgsql_transaction_context *ctx = context;
 
 	if (sql_result_next_row(result) < 0) {
+		if (!ctx->begin_succeeded)
+			ctx->begin_failed = TRUE;
 		ctx->failed = TRUE;
 		ctx->error = sql_result_get_error(result);
+	} else {
+		ctx->begin_succeeded = TRUE;
 	}
 	driver_pgsql_transaction_unref(ctx);
 }
