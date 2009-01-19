@@ -256,7 +256,7 @@ static void file_dict_apply_changes(struct file_dict_transaction_context *ctx)
 			diff += changes[i].value.diff;
 			tmp = t_strdup_printf("%lld", diff);
 			new_len = strlen(tmp);
-			if (new_len > strlen(old_value))
+			if (old_value == NULL || new_len > strlen(old_value))
 				value = p_strdup(dict->hash_pool, tmp);
 			else {
 				memcpy(old_value, tmp, new_len + 1);
