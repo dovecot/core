@@ -857,7 +857,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		mailbox_name = mailbox_get_name(ctx->box);
 		roots = array_get(&ctx->quota->roots, &count);
 		for (i = 0; i < count; i++) {
-			if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
+			if (!quota_root_is_visible(roots[i], ctx->box, FALSE))
 				continue;
 
 			rule = quota_root_rule_find(roots[i]->set,
