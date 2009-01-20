@@ -75,7 +75,6 @@ struct settings {
 
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
-	const char *mail_extra_groups;
 	const char *mail_access_groups;
 	const char *mail_privileged_group;
 	const char *mail_uid;
@@ -262,7 +261,6 @@ struct server_settings {
 	ARRAY_DEFINE(dicts, const char *);
 
 	gid_t login_gid;
-	unsigned int warned_mail_extra_groups:1;
 };
 
 extern struct server_settings *settings_root;
