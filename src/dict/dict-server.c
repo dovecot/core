@@ -240,6 +240,24 @@ static int cmd_commit(struct dict_client_connection *conn, const char *line)
 	return 0;
 }
 
+static int
+cmd_commit_async(struct dict_client_connection *conn, const char *line)
+{
+	struct dict_server_transaction *trans;
+
+	if (conn->iter_ctx != NULL) {
+		i_error("dict client: COMMIT: Can't commit while iterating");
+		return -1;
+	}
+
+	if (dict_server_transaction_lookup_parse(conn, line, &trans) < 0)
+		return -1;
+
+	dict_transaction_commit_async(&trans->ctx);
+	dict_server_transaction_array_remove(conn, trans);
+	return 0;
+}
+
 static int cmd_rollback(struct dict_client_connection *conn, const char *line)
 {
 	struct dict_server_transaction *trans;
@@ -319,6 +337,7 @@ static struct dict_client_cmd cmds[] = {
 	{ DICT_PROTOCOL_CMD_ITERATE, cmd_iterate },
 	{ DICT_PROTOCOL_CMD_BEGIN, cmd_begin },
 	{ DICT_PROTOCOL_CMD_COMMIT, cmd_commit },
+	{ DICT_PROTOCOL_CMD_COMMIT_ASYNC, cmd_commit_async },
 	{ DICT_PROTOCOL_CMD_ROLLBACK, cmd_rollback },
 	{ DICT_PROTOCOL_CMD_SET, cmd_set },
 	{ DICT_PROTOCOL_CMD_UNSET, cmd_unset },

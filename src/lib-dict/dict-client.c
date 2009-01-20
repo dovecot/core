@@ -25,7 +25,6 @@ struct client_dict {
 	struct istream *input;
 	struct ostream *output;
 
-	unsigned int skip_lines;
 	unsigned int connect_counter;
 	unsigned int transaction_id_counter;
 
@@ -225,12 +224,8 @@ static char *client_dict_read_line(struct client_dict *dict)
 
 	while ((ret = i_stream_read(dict->input)) > 0) {
 		line = i_stream_next_line(dict->input);
-		if (line != NULL) {
-			if (dict->skip_lines == 0)
-				return line;
-			/* ignore this reply and wait for the next line */
-			dict->skip_lines--;
-		}
+		if (line != NULL)
+			return line;
 	}
 	i_assert(ret < 0);
 
@@ -471,17 +466,15 @@ static int client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	if (ctx->sent_begin) T_BEGIN {
 		const char *query, *line;
 
-		query = t_strdup_printf("%c%u\n", !ctx->failed ?
-					DICT_PROTOCOL_CMD_COMMIT :
-					DICT_PROTOCOL_CMD_ROLLBACK, ctx->id);
+		query = t_strdup_printf("%c%u\n", ctx->failed ?
+					DICT_PROTOCOL_CMD_ROLLBACK :
+					(!async ? DICT_PROTOCOL_CMD_COMMIT :
+					 DICT_PROTOCOL_CMD_COMMIT_ASYNC),
+					ctx->id);
 		if (client_dict_send_transaction_query(ctx, query) < 0)
 			ret = -1;
 		else if (ret < 0) {
 			/* rollback sent, it has no reply */
-		} else if (async) {
-			/* don't wait for the reply. if we read it later,
-			   ignore it. */
-			dict->skip_lines++;
 		} else {
 			/* read reply */
 			line = client_dict_read_line(dict);
