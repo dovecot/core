@@ -23,6 +23,8 @@
 #include <syslog.h>
 #include <sys/stat.h>
 
+#define LOGIN_LIMIT_WARNING_MIN_INTERVAL (60*5)
+
 struct login_process {
 	struct child_process process;
 
@@ -801,6 +803,12 @@ static int login_group_start_missings(struct login_group *group)
 		if (group->oldest_prelogin_process != NULL &&
 		    group->oldest_prelogin_process->initialized)
 			login_process_destroy(group->oldest_prelogin_process);
+		else if (ioloop_time - group->last_limit_warning >
+			 LOGIN_LIMIT_WARNING_MIN_INTERVAL) {
+			group->last_limit_warning = ioloop_time;
+			i_warning("All login processes are in use. You may "
+				  "need to increase login_max_processes_count");
+		}
 	}
 
 	/* we want to respond fast when multiple clients are connecting

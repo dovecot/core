@@ -13,6 +13,7 @@ struct login_group {
 	unsigned int processes;
 	unsigned int listening_processes;
 	unsigned int wanted_processes_count;
+	time_t last_limit_warning;
 
 	/* if login_process_per_connection=yes this contains the list of
 	   processes that are in LOGIN_STATE_FULL_PRELOGINS state */
