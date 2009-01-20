@@ -865,6 +865,7 @@ static bool settings_verify(struct settings *set)
 #endif
 	if (strcmp(set->ssl, "no") == 0 && set->disable_plaintext_auth &&
 	    strncmp(set->listen, "127.", 4) != 0 &&
+	    strcmp(set->protocols, "none") != 0 &&
 	    !settings_have_nonplaintext_auths(set)) {
 		i_warning("There is no way to login to this server: "
 			  "disable_plaintext_auth=yes, ssl=no, "
