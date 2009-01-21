@@ -239,7 +239,7 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	struct index_mail_data *data = &mail->imail.data;
 	struct istream *input;
 	uoff_t offset, size;
-	uint32_t uid;
+	uint32_t uid = 0;
 	bool expunged;
 	int ret;
 
