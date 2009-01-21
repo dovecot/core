@@ -37,6 +37,7 @@ struct mail_index_transaction {
 	   mail_index_transaction_reset() to reset it. */
         ARRAY_DEFINE(appends, struct mail_index_record);
 	uint32_t first_new_seq, last_new_seq;
+	uint32_t highest_append_uid;
 	/* lowest/highest sequence that updates flags/keywords */
 	uint32_t min_flagupdate_seq, max_flagupdate_seq;
 

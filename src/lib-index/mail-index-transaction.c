@@ -537,8 +537,7 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
 {
 	const struct mail_index_header *head_hdr, *hdr;
-	const struct mail_index_record *recs;
-	unsigned int count, offset;
+	unsigned int offset;
 	uint32_t next_uid;
 
 	head_hdr = &t->view->index->map->hdr;
@@ -547,13 +546,8 @@ uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
 		1 : hdr->next_uid;
 	if (array_is_created(&t->appends)) {
 		/* get next_uid from appends if they have UIDs */
-		mail_index_transaction_sort_appends(t);
-
-		recs = array_get(&t->appends, &count);
-		if (count > 0 && recs[count-1].uid != 0) {
-			i_assert(recs[count-1].uid >= next_uid);
-			next_uid = recs[count-1].uid + 1;
-		}
+		i_assert(next_uid <= t->highest_append_uid);
+		next_uid = t->highest_append_uid;
 	}
 
 	/* see if it's been updated in pre/post header changes */
@@ -677,6 +671,8 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 			else if (rec->uid == uid)
 				i_panic("Duplicate UIDs added in transaction");
 		}
+		if (t->highest_append_uid < uid)
+			t->highest_append_uid = uid;
 	}
 }
 
