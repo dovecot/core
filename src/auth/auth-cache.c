@@ -19,6 +19,8 @@ struct auth_cache {
 	unsigned int ttl_secs, neg_ttl_secs;
 
 	unsigned int hit_count, miss_count;
+	unsigned int pos_entries, neg_entries;
+	unsigned long long pos_size, neg_size;
 };
 
 char *auth_cache_parse_key(pool_t pool, const char *query)
@@ -108,8 +110,15 @@ static void sig_auth_cache_stats(int signo ATTR_UNUSED, void *context)
 	       cache->hit_count, total_count,
 	       total_count == 0 ? 100 : (cache->hit_count * 100 / total_count));
 
-	/* reset hit counter */
+	i_info("Authentication cache inserts: "
+	       "positive: %u %lluB, negative: %u %lluB",
+	       cache->pos_entries, cache->pos_size,
+	       cache->neg_entries, cache->neg_size);
+
+	/* reset counters */
 	cache->hit_count = cache->miss_count = 0;
+	cache->pos_entries = cache->neg_entries = 0;
+	cache->pos_size = cache->neg_size = 0;
 }
 
 struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs,
@@ -249,6 +258,14 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 
 	cache->size_left -= alloc_size;
 	hash_table_insert(cache->hash, node->data, node);
+
+	if (*value != '\0') {
+		cache->pos_entries++;
+		cache->pos_size += alloc_size;
+	} else {
+		cache->neg_entries++;
+		cache->neg_size += alloc_size;
+	}
 }
 
 void auth_cache_remove(struct auth_cache *cache,
