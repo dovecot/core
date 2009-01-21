@@ -62,7 +62,7 @@ dbox_sync_index_copy_cache(struct dbox_sync_rebuild_context *ctx,
 		return;
 
 	if (!mail_index_ext_get_reset_id(ctx->view, map, ctx->cache_ext_id,
-					 &reset_id))
+					 &reset_id) || reset_id == 0)
 		return;
 
 	if (!ctx->cache_used) {
