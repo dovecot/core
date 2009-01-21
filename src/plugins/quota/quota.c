@@ -422,10 +422,14 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 	quota_root_recalculate_relative_rules(root_set);
 	if (root_set->set->debug) {
 		i_info("Quota rule: root=%s mailbox=%s "
-		       "bytes=%lld (%u%%) messages=%lld (%u%%)", root_set->name,
+		       "bytes=%lld%s messages=%lld%s", root_set->name,
 		       mailbox_name,
-		       (long long)rule->bytes_limit, rule->bytes_percent,
-		       (long long)rule->count_limit, rule->count_percent);
+		       (long long)rule->bytes_limit,
+		       rule->bytes_percent == 0 ? "" :
+		       t_strdup_printf(" (%u%%)", rule->bytes_percent),
+		       (long long)rule->count_limit,
+		       rule->count_percent == 0 ? "" :
+		       t_strdup_printf(" (%u%%)", rule->count_percent));
 	}
 	return ret;
 }
@@ -570,12 +574,15 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 
 	quota_root_recalculate_relative_rules(root_set);
 	if (root_set->set->debug) {
-		i_info("Quota warning: bytes=%llu (%u%%) "
-		       "messages=%llu (%u%%) command=%s",
+		i_info("Quota warning: bytes=%llu%s "
+		       "messages=%llu%s command=%s",
 		       (unsigned long long)warning->rule.bytes_limit,
-		       warning->rule.bytes_percent,
+		       warning->rule.bytes_percent == 0 ? "" :
+		       t_strdup_printf(" (%u%%)", warning->rule.bytes_percent),
 		       (unsigned long long)warning->rule.count_limit,
-		       warning->rule.count_percent, warning->command);
+		       warning->rule.count_percent == 0 ? "" :
+		       t_strdup_printf(" (%u%%)", warning->rule.count_percent),
+		       warning->command);
 	}
 	return 0;
 }
