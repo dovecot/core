@@ -339,30 +339,15 @@ static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 static int dbox_sync_new_maildir(struct dbox_sync_rebuild_context *ctx)
 {
 	struct mail_index_view *trans_view;
-	const struct mail_index_header *hdr;
 	char *const *fnames;
 	unsigned int i, count;
-	uint32_t next_uid, seq;
 	int ret = 0;
 
 	fnames = array_get(&ctx->maildir_new_files, &count);
 	if (count == 0)
 		return 0;
 
-	/* try to give them UIDs beginning from uidlist's next_uid */
-	next_uid = maildir_uidlist_get_next_uid(ctx->maildir_uidlist);
-	trans_view = mail_index_transaction_open_updated_view(ctx->trans);
-	for (i = 0; i < count; i++) {
-		if (mail_index_lookup_seq(trans_view, next_uid, &seq))
-			break;
-	}
-
-	if (i == count)
-		ctx->maildir_new_uid = next_uid;
-	else {
-		hdr = mail_index_get_header(trans_view);
-		ctx->maildir_new_uid = hdr->next_uid;
-	}
+	ctx->maildir_new_uid = mail_index_get_header(trans_view)->next_uid;
 	mail_index_view_close(&trans_view);
 
 	for (i = 0; i < count && ret == 0; i++) {
