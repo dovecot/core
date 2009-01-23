@@ -413,13 +413,6 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 		fd_debug_verify_leaks(i, 1024);
 	}
 #endif
-	/* clear all allocated memory before freeing it. this makes the login
-	   processes pretty safe to reuse for new connections since the
-	   attacker won't be able to find anything interesting from the
-	   memory. */
-	default_pool = system_clean_pool;
-	data_stack_set_clean_after_pop(TRUE);
-
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
