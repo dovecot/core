@@ -79,7 +79,7 @@ static int shared_create(struct mail_storage *_storage, const char *data,
 			break;
 		if (*p == 'u' || *p == 'n')
 			have_username = TRUE;
-		else if (*p != 'd')
+		else if (*p != '%' && *p != 'd')
 			break;
 	}
 	if (*p != '\0') {
