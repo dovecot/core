@@ -347,6 +347,7 @@ static int dbox_sync_new_maildir(struct dbox_sync_rebuild_context *ctx)
 	if (count == 0)
 		return 0;
 
+	trans_view = mail_index_transaction_open_updated_view(ctx->trans);
 	ctx->maildir_new_uid = mail_index_get_header(trans_view)->next_uid;
 	mail_index_view_close(&trans_view);
 
