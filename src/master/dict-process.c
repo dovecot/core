@@ -27,6 +27,7 @@ struct dict_listener {
 struct dict_process {
 	struct child_process process;
 	struct dict_process *next;
+	pid_t pid;
 
 	struct dict_listener *listener;
 	struct log_io *log;
@@ -64,6 +65,7 @@ static int dict_process_create(struct dict_listener *listener)
 
 	if (pid != 0) {
 		/* master */
+		process->pid = pid;
 		process->next = process->listener->processes;
 		process->listener->processes = process;
 
@@ -123,7 +125,7 @@ static void dict_process_deinit(struct dict_process *process)
 {
 	struct dict_process **p;
 
-	for (p = &process->listener->processes; *p != NULL; p++) {
+	for (p = &process->listener->processes; *p != NULL; p = &(*p)->next) {
 		if (*p == process) {
 			*p = process->next;
 			break;
@@ -186,8 +188,10 @@ static void dict_listener_deinit(struct dict_listener *listener)
 	if (close(listener->fd) < 0)
 		i_error("close(dict listener) failed: %m");
 
-	while (listener->processes != NULL)
+	while (listener->processes != NULL) {
+		child_process_remove(listener->processes->pid);
 		dict_process_deinit(listener->processes);
+	}
 }
 
 static void
