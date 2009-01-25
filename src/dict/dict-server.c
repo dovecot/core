@@ -551,6 +551,7 @@ struct dict_server *dict_server_init(const char *path, int fd)
 		else
 			i_fatal("net_listen_unix(%s) failed: %m", path);
 	}
+	net_set_nonblock(server->fd, TRUE);
 
 	server->io = io_add(server->fd, IO_READ,
 			    dict_server_listener_accept, server);
