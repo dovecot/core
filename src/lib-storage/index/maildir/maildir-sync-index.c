@@ -284,7 +284,7 @@ static int uint_cmp(const void *p1, const void *p2)
 	if (*i1 < *i2)
 		return -1;
 	else if (*i1 > *i2)
-		return -1;
+		return 1;
 	else
 		return 0;
 }
