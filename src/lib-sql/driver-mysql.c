@@ -654,10 +654,6 @@ driver_mysql_update(struct sql_transaction_context *_ctx, const char *query)
 		(struct mysql_transaction_context *)_ctx;
 	struct mysql_query_list *list;
 
-	/* FIXME: with mysql we're just appending everything into one big
-	   linked list which gets committed in sql_transaction_commit().
-	   we could avoid this if we knew for sure that transactions actually
-	   worked, but I don't know how to do that.. */
 	list = p_new(ctx->query_pool, struct mysql_query_list, 1);
 	list->query = p_strdup(ctx->query_pool, query);
 
