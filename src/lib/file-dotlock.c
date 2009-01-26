@@ -22,6 +22,8 @@
 
 /* 0.1 .. 0.2msec */
 #define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)rand() % 100000)
+/* Maximum 3 second wait between dotlock checks */
+#define LOCK_MAX_WAIT_USECS (1000000 * 3)
 
 /* If the dotlock is newer than this, don't verify that the PID it contains
    is valid (since it most likely is). */
@@ -62,6 +64,7 @@ struct lock_info {
 
 	time_t last_pid_check;
 	time_t last_change;
+	unsigned int wait_usecs;
 
 	unsigned int have_pid:1;
 	unsigned int pid_read:1;
@@ -417,7 +420,7 @@ static void dotlock_wait(struct lock_info *lock_info)
 	struct timeout *to;
 
 	if (!lock_info->use_io_notify) {
-		usleep(LOCK_RANDOM_USLEEP_TIME);
+		usleep(lock_info->wait_usecs);
 		return;
 	}
 
@@ -439,7 +442,7 @@ static void dotlock_wait(struct lock_info *lock_info)
 	}
 	/* timeout after a random time even when using notify, since it
 	   doesn't work reliably with e.g. NFS. */
-	to = timeout_add(LOCK_RANDOM_USLEEP_TIME/1000,
+	to = timeout_add(lock_info->wait_usecs/1000,
 			 dotlock_wait_end, ioloop);
 	io_loop_run(ioloop);
 	io_remove(&io);
@@ -458,6 +461,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 	unsigned int stale_notify_threshold;
 	unsigned int change_secs, wait_left;
 	time_t now, max_wait_time, last_notify;
+	time_t prev_last_change = 0, prev_wait_update = 0;
 	string_t *tmp_path;
 	int ret;
 	bool do_wait;
@@ -482,6 +486,19 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 
 	do {
 		if (do_wait) {
+			if (prev_last_change != lock_info.last_change) {
+				/* dotlock changed since last check,
+				   reset the wait time */
+				lock_info.wait_usecs = LOCK_RANDOM_USLEEP_TIME;
+				prev_last_change = lock_info.last_change;
+				prev_wait_update = now;
+			} else if (prev_wait_update != now &&
+				   lock_info.wait_usecs < LOCK_MAX_WAIT_USECS) {
+				/* we've been waiting for a while now, increase
+				   the wait time to avoid wasting CPU */
+				prev_wait_update = now;
+				lock_info.wait_usecs += lock_info.wait_usecs/2;
+			}
 			dotlock_wait(&lock_info);
 			do_wait = FALSE;
 		}
