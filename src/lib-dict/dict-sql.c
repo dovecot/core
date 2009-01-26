@@ -69,7 +69,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	struct sql_dict *dict;
 	pool_t pool;
 
-	pool = pool_alloconly_create("sql dict", 1024);
+	pool = pool_alloconly_create("sql dict", 2048);
 	dict = p_new(pool, struct sql_dict, 1);
 	dict->pool = pool;
 	dict->dict = *driver;

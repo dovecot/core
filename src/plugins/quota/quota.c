@@ -48,7 +48,7 @@ struct quota_settings *quota_settings_init(void)
 	struct quota_settings *quota_set;
 	pool_t pool;
 
-	pool = pool_alloconly_create("quota settings", 256);
+	pool = pool_alloconly_create("quota settings", 1024);
 	quota_set = p_new(pool, struct quota_settings, 1);
 	quota_set->pool = pool;
 	quota_set->test_alloc = quota_default_test_alloc;

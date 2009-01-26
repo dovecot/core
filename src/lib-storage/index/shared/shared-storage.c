@@ -25,7 +25,7 @@ static struct mail_storage *shared_alloc(void)
 	struct shared_storage *storage;
 	pool_t pool;
 
-	pool = pool_alloconly_create("shared storage", 256);
+	pool = pool_alloconly_create("shared storage", 1024);
 	storage = p_new(pool, struct shared_storage, 1);
 	storage->storage = shared_storage;
 	storage->storage.pool = pool;

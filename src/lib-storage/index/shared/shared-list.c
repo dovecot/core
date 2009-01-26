@@ -20,7 +20,7 @@ static struct mailbox_list *shared_list_alloc(void)
 	struct mailbox_list *list;
 	pool_t pool;
 
-	pool = pool_alloconly_create("shared list", 256);
+	pool = pool_alloconly_create("shared list", 1024);
 	list = p_new(pool, struct mailbox_list, 1);
 	*list = shared_mailbox_list;
 	list->pool = pool;
