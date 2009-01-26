@@ -27,7 +27,6 @@ struct dict_listener {
 struct dict_process {
 	struct child_process process;
 	struct dict_process *next;
-	pid_t pid;
 
 	struct dict_listener *listener;
 	struct log_io *log;
@@ -65,7 +64,6 @@ static int dict_process_create(struct dict_listener *listener)
 
 	if (pid != 0) {
 		/* master */
-		process->pid = pid;
 		process->next = process->listener->processes;
 		process->listener->processes = process;
 
@@ -121,11 +119,18 @@ static int dict_process_create(struct dict_listener *listener)
 	return -1;
 }
 
+static void dict_listener_unref(struct dict_listener *listener)
+{
+	if (listener->processes == NULL)
+		i_free(listener);
+}
+
 static void dict_process_deinit(struct dict_process *process)
 {
+	struct dict_listener *listener = process->listener;
 	struct dict_process **p;
 
-	for (p = &process->listener->processes; *p != NULL; p = &(*p)->next) {
+	for (p = &listener->processes; *p != NULL; p = &(*p)->next) {
 		if (*p == process) {
 			*p = process->next;
 			break;
@@ -135,6 +140,8 @@ static void dict_process_deinit(struct dict_process *process)
 	if (process->log != NULL)
 		log_unref(process->log);
 	i_free(process);
+
+	dict_listener_unref(listener);
 }
 
 static void dict_listener_input(struct dict_listener *listener)
@@ -188,10 +195,10 @@ static void dict_listener_deinit(struct dict_listener *listener)
 	if (close(listener->fd) < 0)
 		i_error("close(dict listener) failed: %m");
 
-	while (listener->processes != NULL) {
-		child_process_remove(listener->processes->pid);
-		dict_process_deinit(listener->processes);
-	}
+	/* don't try to free the dict processes here,
+	   let dict_process_destroyed() do it to avoid "unknown child exited"
+	   errors. */
+	dict_listener_unref(listener);
 }
 
 static void
