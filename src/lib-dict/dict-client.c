@@ -473,10 +473,10 @@ static int client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 					ctx->id);
 		if (client_dict_send_transaction_query(ctx, query) < 0)
 			ret = -1;
-		else if (ret < 0) {
-			/* rollback sent, it has no reply */
+		else if (ret < 0 || async) {
+			/* no reply */
 		} else {
-			/* read reply */
+			/* sync commit, read reply */
 			line = client_dict_read_line(dict);
 			if (line == NULL || *line != DICT_PROTOCOL_REPLY_OK)
 				ret = -1;
