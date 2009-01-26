@@ -223,6 +223,11 @@ lookup_credentials_callback(enum passdb_result result,
 				auth_stream_reply_export(request->extra_fields);
 			auth_stream_reply_import(reply, fields);
 		}
+		if (request->extra_cache_fields != NULL) {
+			const char *fields =
+				auth_stream_reply_export(request->extra_cache_fields);
+			auth_stream_reply_import(reply, fields);
+		}
 		if (request->userdb_reply != NULL)
 			add_userdb_replies(reply, request->userdb_reply);
 	}
