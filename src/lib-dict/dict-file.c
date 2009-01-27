@@ -326,7 +326,8 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	return 0;
 }
 
-static int file_dict_transaction_commit(struct dict_transaction_context *_ctx)
+static int file_dict_transaction_commit(struct dict_transaction_context *_ctx,
+					bool async ATTR_UNUSED)
 {
 	struct file_dict_transaction_context *ctx =
 		(struct file_dict_transaction_context *)_ctx;
