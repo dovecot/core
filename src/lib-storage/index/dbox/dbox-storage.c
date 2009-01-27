@@ -50,7 +50,7 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 		       const char **layout_r, const char **alt_dir_r,
 		       const char **error_r)
 {
-	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = storage->set->mail_debug;
 
 	*layout_r = "fs";
 
@@ -132,6 +132,8 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 		return -1;
 	}
 
+	storage->set = mail_storage_get_driver_settings(_storage);
+
 	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
 		return -1;
 	storage->list_module_ctx.super = _storage->list->v;
@@ -145,8 +147,7 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 				storage, &storage->list_module_ctx);
 
 	/* finish list init after we've overridden vfuncs */
-	mailbox_list_init(_storage->list, _storage->ns, &list_set,
-			  mail_storage_get_list_flags(_storage->flags));
+	mailbox_list_init(_storage->list, _storage->ns, &list_set, 0);
 	return 0;
 }
 
@@ -194,7 +195,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	struct mail_storage *_storage = &storage->storage;
 	struct dbox_mailbox *mbox;
 	struct mail_index *index;
-	const char *path, *value;
+	const char *path;
 	pool_t pool;
 
 	path = mailbox_list_get_path(_storage->list, name,
@@ -216,31 +217,8 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->storage = storage;
 	mbox->last_interactive_change = ioloop_time;
 
-	value = getenv("DBOX_ROTATE_SIZE");
-	if (value != NULL)
-		mbox->rotate_size = (uoff_t)strtoul(value, NULL, 10) * 1024;
-	else
-		mbox->rotate_size = DBOX_DEFAULT_ROTATE_SIZE;
-	mbox->rotate_size = 0; /* FIXME: currently anything else doesn't work */
-	value = getenv("DBOX_ROTATE_MIN_SIZE");
-	if (value != NULL)
-		mbox->rotate_min_size = (uoff_t)strtoul(value, NULL, 10) * 1024;
-	else
-		mbox->rotate_min_size = DBOX_DEFAULT_ROTATE_MIN_SIZE;
-	if (mbox->rotate_min_size > mbox->rotate_size)
-		mbox->rotate_min_size = mbox->rotate_size;
-	value = getenv("DBOX_ROTATE_DAYS");
-	if (value != NULL)
-		mbox->rotate_days = (unsigned int)strtoul(value, NULL, 10);
-	else
-		mbox->rotate_days = DBOX_DEFAULT_ROTATE_DAYS;
-
-	value = getenv("DBOX_MAX_OPEN_FILES");
-	if (value != NULL)
-		mbox->max_open_files = (unsigned int)strtoul(value, NULL, 10);
-	else
-		mbox->max_open_files = DBOX_DEFAULT_MAX_OPEN_FILES;
-	i_array_init(&mbox->open_files, I_MIN(mbox->max_open_files, 128));
+	i_array_init(&mbox->open_files,
+		     I_MIN(storage->set->dbox_max_open_files, 128));
 
 	mbox->dbox_ext_id =
 		mail_index_ext_register(index, "dbox", 0,
@@ -679,6 +657,7 @@ struct mail_storage dbox_storage = {
 	MEMBER(mailbox_is_file) FALSE,
 
 	{
+                dbox_get_setting_parser_info,
 		dbox_class_init,
 		dbox_class_deinit,
 		dbox_alloc,

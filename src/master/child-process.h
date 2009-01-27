@@ -32,7 +32,7 @@ struct child_process *child_process_lookup(pid_t pid);
 void child_process_add(pid_t pid, struct child_process *process);
 void child_process_remove(pid_t pid);
 
-void child_process_init_env(void);
+void child_process_init_env(const struct master_settings *set);
 void client_process_exec(const char *cmd, const char *title);
 void client_process_exec_argv(const char *executable, const char **argv);
 

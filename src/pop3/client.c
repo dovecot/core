@@ -138,7 +138,8 @@ static bool init_mailbox(struct client *client, const char **error_r)
 	return FALSE;
 }
 
-struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
+struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+			     const struct pop3_settings *set)
 {
 	struct mail_storage *storage;
 	const char *inbox;
@@ -152,6 +153,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 	net_set_nonblock(fd_out, TRUE);
 
 	client = i_new(struct client, 1);
+	client->set = set;
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE, FALSE);
@@ -176,9 +178,9 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 	storage = client->inbox_ns->storage;
 
 	flags = MAILBOX_OPEN_POP3_SESSION;
-	if (no_flag_updates)
+	if (set->pop3_no_flag_updates)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
-	if (lock_session)
+	if (set->pop3_lock_session)
 		flags |= MAILBOX_OPEN_KEEP_LOCKED;
 	client->mailbox = mailbox_open(&storage, "INBOX", NULL, flags);
 	if (client->mailbox == NULL) {
@@ -236,7 +238,7 @@ static const char *client_stats(struct client *client)
 	tab[8].value = dec2str(client->output->offset);
 
 	str = t_str_new(128);
-	var_expand(str, logout_format, tab);
+	var_expand(str, client->set->pop3_logout_format, tab);
 	return str_c(str);
 }
 

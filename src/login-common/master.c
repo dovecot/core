@@ -39,7 +39,7 @@ static void request_handle(struct master_login_reply *reply)
 {
 	struct client *client;
 
-	if (reply->tag == 0 && !process_per_connection) {
+	if (reply->tag == 0 && !login_settings->login_process_per_connection) {
 		/* this means we have to start listening again.
 		   we've reached maximum number of login processes. */
 		main_listen_start();

@@ -25,6 +25,7 @@
 #include "mail-namespace.h"
 #include "raw-storage.h"
 #include "imap-utf7.h"
+#include "settings-parser.h"
 #include "dict.h"
 #include "auth-client.h"
 #include "mail-send.h"
@@ -56,6 +57,8 @@ static const char *wanted_headers[] = {
 
 struct deliver_settings *deliver_set;
 deliver_mail_func_t *deliver_mail = NULL;
+bool mailbox_autosubscribe;
+bool mailbox_autocreate;
 bool tried_default_save = FALSE;
 
 /* FIXME: these two should be in some context struct instead of as globals.. */
@@ -65,10 +68,6 @@ static char *explicit_envelope_sender = NULL;
 
 static struct module *modules;
 static struct ioloop *ioloop;
-
-static pool_t plugin_pool;
-static ARRAY_DEFINE(lda_envs, const char *);
-static ARRAY_DEFINE(plugin_envs, const char *);
 
 static void sig_die(int signo, void *context ATTR_UNUSED)
 {
@@ -135,7 +134,7 @@ static void deliver_log(struct mail *mail, const char *fmt, ...)
 	msg = t_strdup_vprintf(fmt, args);
 
 	str = t_str_new(256);
-	var_expand(str, deliver_set->log_format,
+	var_expand(str, deliver_set->deliver_log_format,
 		   get_log_var_expand_table(mail, msg));
 	i_info("%s", str_c(str));
 	va_end(args);
@@ -173,7 +172,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	}
 
 	box = mailbox_open(storage_r, name, NULL, open_flags);
-	if (box != NULL || !deliver_set->mailbox_autocreate)
+	if (box != NULL || !mailbox_autocreate)
 		return box;
 
 	(void)mail_storage_get_last_error(*storage_r, &error);
@@ -183,7 +182,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	/* try creating it. */
 	if (mail_storage_mailbox_create(*storage_r, name, FALSE) < 0)
 		return NULL;
-	if (deliver_set->mailbox_autosubscribe) {
+	if (mailbox_autosubscribe) {
 		/* (try to) subscribe to it */
 		(void)mailbox_list_set_subscribed(ns->list, name, TRUE);
 	}
@@ -274,294 +273,6 @@ const char *deliver_get_new_message_id(void)
 			       dec2str(ioloop_timeval.tv_sec),
 			       dec2str(ioloop_timeval.tv_usec),
 			       count++, deliver_set->hostname);
-}
-
-#include "settings.h"
-#include "../master/master-settings.h"
-#include "../master/master-settings-defs.c"
-
-#define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
-
-static bool setting_is_bool(const char *name)
-{
-	const struct setting_def *def;
-
-	for (def = setting_defs; def->name != NULL; def++) {
-		if (strcmp(def->name, name) == 0)
-			return def->type == SET_BOOL;
-	}
-	if (strncmp(name, "NAMESPACE_", 10) == 0) {
-		return strstr(name, "_list") != NULL ||
-			strstr(name, "_inbox") != NULL ||
-			strstr(name, "_hidden") != NULL ||
-			strstr(name, "_subscriptions") != NULL;
-	}
-	if (strcmp(name, "quota_full_tempfail") == 0)
-		return TRUE;
-	return FALSE;
-}
-
-/* more ugly kludging because we have our own config parsing code.
-   hopefully this goes away in v1.2. */
-static struct {
-	const char *name;
-	bool set;
-} default_yes_settings[] = {
-	{ "dotlock_use_excl", TRUE },
-	{ "maildir_copy_with_hardlinks", TRUE },
-	{ "mbox_dirty_syncs", TRUE },
-	{ "mbox_lazy_writes", TRUE }
-};
-
-static void config_file_init(const char *path)
-{
-	struct istream *input;
-	const char *key, *value, *str, *ukey;
-	char *line, *p, quote;
-	int fd, sections = 0;
-	bool lda_section = FALSE, pop3_section = FALSE, plugin_section = FALSE;
-	bool ns_section = FALSE, ns_location = FALSE, ns_list = FALSE;
-	bool ns_subscriptions = FALSE;
-	unsigned int i, ns_idx = 0;
-	size_t len;
-
-	plugin_pool = pool_alloconly_create("Plugin strings", 512);
-	i_array_init(&lda_envs, 16);
-	i_array_init(&plugin_envs, 16);
-
-	fd = open(path, O_RDONLY);
-	if (fd < 0)
-		i_fatal_status(EX_CONFIG, "open(%s) failed: %m", path);
-
-	input = i_stream_create_fd(fd, 1024, TRUE);
-	i_stream_set_return_partial_line(input, TRUE);
-	while ((line = i_stream_read_next_line(input)) != NULL) {
-		/* @UNSAFE: line is modified */
-
-		/* skip whitespace */
-		while (IS_WHITE(*line))
-			line++;
-
-		/* ignore comments or empty lines */
-		if (*line == '#' || *line == '\0')
-			continue;
-
-		/* strip away comments. pretty kludgy way really.. */
-		for (p = line; *p != '\0'; p++) {
-			if (*p == '\'' || *p == '"') {
-				quote = *p;
-				for (p++; *p != quote && *p != '\0'; p++) {
-					if (*p == '\\' && p[1] != '\0')
-						p++;
-				}
-				if (*p == '\0')
-					break;
-			} else if (*p == '#') {
-				*p = '\0';
-				break;
-			}
-		}
-
-		/* remove whitespace from end of line */
-		len = strlen(line);
-		while (IS_WHITE(line[len-1]))
-			len--;
-		line[len] = '\0';
-
-		if (strncmp(line, "!include_try ", 13) == 0)
-			continue;
-		if (strncmp(line, "!include ", 9) == 0) {
-			i_fatal_status(EX_CONFIG, "Error in config file %s: "
-				       "deliver doesn't support !include directive", path);
-		}
-
-		value = p = strchr(line, '=');
-		if (value == NULL) {
-			if (strchr(line, '{') != NULL) {
-				if (strcmp(line, "protocol lda {") == 0)
-					lda_section = TRUE;
-				else if (strcmp(line, "plugin {") == 0)
-					plugin_section = TRUE;
-				else if (strcmp(line, "protocol pop3 {") == 0)
-					pop3_section = TRUE;
-				else if (strncmp(line, "namespace ", 10) == 0) {
-					ns_section = TRUE;
-					ns_idx++;
-					line += 10;
-					env_put(t_strdup_printf(
-						"NAMESPACE_%u_TYPE=%s", ns_idx,
-						t_strcut(line, ' ')));
-				}
-				sections++;
-			}
-			if (*line == '}') {
-				sections--;
-				lda_section = FALSE;
-				plugin_section = FALSE;
-				pop3_section = FALSE;
-				if (ns_section) {
-					ns_section = FALSE;
-					if (ns_location)
-						ns_location = FALSE;
-					else {
-						env_put(t_strdup_printf(
-							"NAMESPACE_%u=", ns_idx));
-					}
-					if (ns_list)
-						ns_list = FALSE;
-					else {
-						env_put(t_strdup_printf(
-							"NAMESPACE_%u_LIST=1", ns_idx));
-					}
-					if (ns_subscriptions)
-						ns_subscriptions = FALSE;
-					else {
-						env_put(t_strdup_printf(
-							"NAMESPACE_%u_SUBSCRIPTIONS=1",
-							ns_idx));
-					}
-				}
-			}
-			continue;
-		}
-
-		while (p > line && IS_WHITE(p[-1])) p--;
-		key = t_strdup_until(line, p);
-
-		if (sections > 0 && !lda_section && !plugin_section) {
-			if (pop3_section) {
-				if (strcmp(key, "pop3_uidl_format") != 0)
-					continue;
-			} else if (ns_section) {
-				if (strcmp(key, "separator") == 0) {
-					key = t_strdup_printf(
-						"NAMESPACE_%u_SEP", ns_idx);
-				} else if (strcmp(key, "location") == 0) {
-					ns_location = TRUE;
-					key = t_strdup_printf("NAMESPACE_%u",
-							      ns_idx);
-				} else {
-					if (strcmp(key, "list") == 0)
-						ns_list = TRUE;
-					if (strcmp(key, "subscriptions") == 0)
-						ns_subscriptions = TRUE;
-					key = t_strdup_printf("NAMESPACE_%u_%s",
-							      ns_idx, key);
-				}
-			} else {
-				/* unwanted section */
-				continue;
-			}
-		}
-
-		do {
-			value++;
-		} while (IS_WHITE(*value));
-
-		len = strlen(value);
-		if (len > 0 &&
-		    ((*value == '"' && value[len-1] == '"') ||
-		     (*value == '\'' && value[len-1] == '\''))) {
-			value = str_unescape(p_strndup(unsafe_data_stack_pool,
-						       value+1, len - 2));
-		}
-		ukey = t_str_ucase(key);
-		if (setting_is_bool(key) && strcasecmp(value, "yes") != 0) {
-			for (i = 0; i < N_ELEMENTS(default_yes_settings); i++) {
-				if (strcmp(default_yes_settings[i].name,
-					   key) == 0)
-					default_yes_settings[i].set = FALSE;
-			}
-			env_remove(ukey);
-			continue;
-		}
-
-		if (lda_section) {
-			str = p_strconcat(plugin_pool, ukey, "=", value, NULL);
-			array_append(&lda_envs, &str, 1);
-		}
-		if (!plugin_section) {
-			env_put(t_strconcat(ukey, "=", value, NULL));
-		} else {
-			/* %variables need to be expanded.
-			   store these for later. */
-			value = p_strconcat(plugin_pool,
-					    ukey, "=", value, NULL);
-			array_append(&plugin_envs, &value, 1);
-		}
-	}
-	i_stream_unref(&input);
-
-	for (i = 0; i < N_ELEMENTS(default_yes_settings); i++) {
-		if (default_yes_settings[i].set) {
-			key = default_yes_settings[i].name;
-			env_put(t_strconcat(t_str_ucase(key), "=1", NULL));
-		}
-	}
-}
-
-static const struct var_expand_table *
-get_var_expand_table(const char *user, const char *home)
-{
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ 's', NULL, "service" },
-		{ 'h', NULL, "home" },
-		{ 'l', NULL, "lip" },
-		{ 'r', NULL, "rip" },
-		{ 'p', NULL, "pid" },
-		{ 'i', NULL, "uid" },
-		{ '\0', NULL, NULL }
-	};
-	struct var_expand_table *tab;
-
-	tab = t_malloc(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-
-	tab[0].value = user;
-	tab[1].value = t_strcut(user, '@');
-	tab[2].value = strchr(user, '@');
-	if (tab[2].value != NULL) tab[2].value++;
-	tab[3].value = "DELIVER";
-	tab[4].value = home != NULL ? home :
-		"/HOME_DIRECTORY_USED_BUT_NOT_GIVEN_BY_USERDB";
-	tab[5].value = NULL;
-	tab[6].value = NULL;
-	tab[7].value = my_pid;
-	tab[8].value = dec2str(geteuid());
-
-	return tab;
-}
-
-static const char *
-expand_mail_env(const char *env, const struct var_expand_table *table)
-{
-	string_t *str;
-	const char *p;
-
-	str = t_str_new(256);
-
-	/* it's either type:data or just data */
-	p = strchr(env, ':');
-	if (p != NULL) {
-		while (env != p) {
-			str_append_c(str, *env);
-			env++;
-		}
-
-		str_append_c(str, *env++);
-	}
-
-	if (env[0] == '~' && env[1] == '/') {
-		/* expand home */
-		env = t_strconcat("%h", env+1, NULL);
-	}
-
-	/* expand %vars */
-	var_expand(str, env, table);
-	return str_c(str);
 }
 
 static const char *escape_local_part(const char *local_part)
@@ -685,15 +396,15 @@ static void failure_exit_callback(int *status)
 
 static void open_logfile(const char *username)
 {
-	const char *prefix, *log_path, *stamp;
+	const char *prefix, *log_path;
 
 	prefix = t_strdup_printf("deliver(%s): ", username);
-	log_path = home_expand(getenv("LOG_PATH"));
-	if (log_path == NULL || *log_path == '\0') {
-		const char *env = getenv("SYSLOG_FACILITY");
+	log_path = home_expand(deliver_set->log_path);
+	if (*log_path == '\0') {
 		int facility;
 
-		if (env == NULL || !syslog_facility_find(env, &facility))
+		if (!syslog_facility_find(deliver_set->syslog_facility,
+					  &facility))
 			facility = LOG_MAIL;
 		i_set_failure_prefix(prefix);
 		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
@@ -702,14 +413,11 @@ static void open_logfile(const char *username)
 		i_set_failure_file(log_path, prefix);
 	}
 
-	log_path = home_expand(getenv("INFO_LOG_PATH"));
-	if (log_path != NULL && *log_path != '\0')
+	log_path = home_expand(deliver_set->info_log_path);
+	if (*log_path != '\0')
 		i_set_info_file(log_path);
 
-	stamp = getenv("LOG_TIMESTAMP");
-	if (stamp == NULL)
-		stamp = DEFAULT_FAILURE_STAMP_FORMAT;
-	i_set_failure_timestamp_format(stamp);
+	i_set_failure_timestamp_format(deliver_set->log_timestamp);
 }
 
 static void print_help(void)
@@ -739,72 +447,20 @@ void deliver_env_clean(bool preserve_home)
 	if (home != NULL) env_put(home);
 }
 
-static void expand_envs(const char *user)
+static void plugin_get_home(void)
 {
-        const struct var_expand_table *table;
-	const char *value, *const *envs, *home, *env_name;
-	unsigned int i, count;
-	string_t *str;
-
-	home = getenv("HOME");
-
-	str = t_str_new(256);
-	table = get_var_expand_table(user, home);
-	envs = array_get(&plugin_envs, &count);
-	for (i = 0; i < count; i++) {
-		str_truncate(str, 0);
-		var_expand(str, envs[i], table);
-		env_put(str_c(str));
-	}
-	/* add LDA envs again to make sure they override plugin settings */
-	envs = array_get(&lda_envs, &count);
-	for (i = 0; i < count; i++)
-		env_put(envs[i]);
-
-	/* get the table again in case plugin envs provided the home
-	   directory (yea, kludgy) */
-	if (home == NULL)
-		home = getenv("HOME");
-	table = get_var_expand_table(user, home);
-
-	value = getenv("MAIL_LOCATION");
-	if (value != NULL)
-		value = expand_mail_env(value, table);
-	env_put(t_strconcat("MAIL=", value, NULL));
-
-	for (i = 1;; i++) {
-		env_name = t_strdup_printf("NAMESPACE_%u", i);
-		value = getenv(env_name);
-		if (value == NULL)
-			break;
-
-		value = expand_mail_env(value, table);
-		env_put(t_strconcat(env_name, "=", value, NULL));
-
-		env_name = t_strdup_printf("NAMESPACE_%u_PREFIX", i);
-		value = getenv(env_name);
-		if (value != NULL) {
-			str_truncate(str, 0);
-			var_expand(str, value, table);
-			env_put(t_strconcat(env_name, "=", str_c(str), NULL));
-		}
-	}
-}
-
-static void putenv_extra_fields(const ARRAY_TYPE(const_string) *extra_fields)
-{
-	const char *const *fields;
-	const char *key, *p;
+	const char *const *envs;
 	unsigned int i, count;
 
-	fields = array_get(extra_fields, &count);
-	for (i = 0; i < count; i++) {
-		p = strchr(fields[i], '=');
-		if (p == NULL)
-			env_put(t_strconcat(fields[i], "=1", NULL));
-		else {
-			key = t_str_ucase(t_strdup_until(fields[i], p));
-			env_put(t_strconcat(key, p, NULL));
+	/* kludgy. this should be removed some day, but for now don't break
+	   existing setups that rely on it. */
+	if (array_is_created(&deliver_set->plugin_envs)) {
+		envs = array_get(&deliver_set->plugin_envs, &count);
+		for (i = 0; i < count; i++) {
+			if (strncmp(envs[i], "home=", 5) == 0) {
+				env_put(t_strconcat("HOME=", envs[i]+5, NULL));
+				break;
+			}
 		}
 	}
 }
@@ -813,17 +469,20 @@ int main(int argc, char *argv[])
 {
 	const char *config_path = DEFAULT_CONFIG_FILE;
 	const char *mailbox = "INBOX";
-	const char *auth_socket;
-	const char *home, *destaddr, *user, *value, *errstr, *path, *orig_user;
+	const char *home, *destaddr, *user, *error, *path, *orig_user;
 	ARRAY_TYPE(const_string) extra_fields = ARRAY_INIT;
+	struct setting_parser_context *parser;
 	struct mail_user *mail_user, *raw_mail_user;
 	struct mail_namespace *raw_ns;
+	struct mail_namespace_settings raw_ns_set;
 	struct mail_storage *storage;
 	struct mailbox *box;
 	struct raw_mailbox *raw_box;
 	struct istream *input;
 	struct mailbox_transaction_context *t;
 	struct mailbox_header_lookup_ctx *headers_ctx;
+	struct mail_user_settings *user_set;
+	const struct mail_storage_settings *mail_set;
 	struct mail *mail;
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
@@ -867,7 +526,7 @@ int main(int argc, char *argv[])
 #endif
 
 	deliver_set = i_new(struct deliver_settings, 1);
-	deliver_set->mailbox_autocreate = TRUE;
+	mailbox_autocreate = TRUE;
 
 	destaddr = user = path = NULL;
 	for (i = 1; i < argc; i++) {
@@ -918,9 +577,9 @@ int main(int argc, char *argv[])
 				mailbox = str_c(str);
 			}
 		} else if (strcmp(argv[i], "-n") == 0) {
-			deliver_set->mailbox_autocreate = FALSE;
+			mailbox_autocreate = FALSE;
 		} else if (strcmp(argv[i], "-s") == 0) {
-			deliver_set->mailbox_autosubscribe = TRUE;
+			mailbox_autosubscribe = TRUE;
 		} else if (strcmp(argv[i], "-f") == 0) {
 			/* envelope sender address */
 			i++;
@@ -964,42 +623,29 @@ int main(int argc, char *argv[])
 			"destination user parameter (-d user) not given");
 	}
 
-	T_BEGIN {
-		config_file_init(config_path);
-	} T_END;
+        mail_storage_init();
+	mail_storage_register_all();
+	mailbox_list_register_all();
+
+	parser = deliver_settings_read(config_path, &deliver_set, &user_set);
 	open_logfile(user);
 
-	if (getenv("MAIL_DEBUG") != NULL)
-		env_put("DEBUG=1");
-
-	if (getenv("MAIL_PLUGINS") == NULL)
+	mail_set = mail_user_set_get_driver_settings(user_set, "MAIL");
+	if (deliver_set->mail_plugins == '\0')
 		modules = NULL;
 	else {
-		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
 		const char *version;
 
-		if (plugin_dir == NULL)
-			plugin_dir = MODULEDIR"/lda";
-
-		version = getenv("VERSION_IGNORE") != NULL ?
-			NULL : PACKAGE_VERSION;
-		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
+		version = deliver_set->version_ignore ? NULL : PACKAGE_VERSION;
+		modules = module_dir_load(deliver_set->mail_plugin_dir,
+					  deliver_set->mail_plugins,
 					  TRUE, version);
 	}
 
 	if (user_auth) {
-		auth_socket = getenv("AUTH_SOCKET_PATH");
-		if (auth_socket == NULL) {
-			const char *base_dir = getenv("BASE_DIR");
-			if (base_dir == NULL)
-				base_dir = PKG_RUNDIR;
-			auth_socket = t_strconcat(base_dir, "/auth-master",
-						  NULL);
-		}
-
 		userdb_pool = pool_alloconly_create("userdb lookup replys", 512);
 		orig_user = user;
-		ret = auth_client_lookup_and_restrict(auth_socket,
+		ret = auth_client_lookup_and_restrict(deliver_set->auth_socket_path,
 						      &user, process_euid,
 						      userdb_pool,
 						      &extra_fields);
@@ -1008,7 +654,7 @@ int main(int argc, char *argv[])
 
 		if (strcmp(user, orig_user) != 0) {
 			/* auth lookup changed the user. */
-			if (getenv("DEBUG") != NULL)
+			if (mail_set->mail_debug)
 				i_info("userdb changed username to %s", user);
 			i_set_failure_prefix(t_strdup_printf("deliver(%s): ",
 							     user));
@@ -1018,90 +664,62 @@ int main(int argc, char *argv[])
 		user = t_strdup(user);
 	}
 
-	expand_envs(user);
 	if (userdb_pool != NULL) {
-		putenv_extra_fields(&extra_fields);
+		settings_parse_set_expanded(parser, TRUE);
+		deliver_settings_add(parser, &extra_fields);
 		pool_unref(&userdb_pool);
 	}
 
-	/* Fix namespaces with empty locations */
-	for (i = 1;; i++) {
-		value = getenv(t_strdup_printf("NAMESPACE_%u", i));
-		if (value == NULL)
-			break;
-
-		if (*value == '\0') {
-			env_put(t_strdup_printf("NAMESPACE_%u=%s", i,
-						getenv("MAIL")));
-		}
+	home = getenv("HOME");
+	if (home == NULL) {
+		plugin_get_home();
+		home = getenv("HOME");
 	}
 
 	/* If possible chdir to home directory, so that core file
 	   could be written in case we crash. */
-	home = getenv("HOME");
 	if (home != NULL) {
 		if (chdir(home) < 0) {
 			if (errno != ENOENT)
 				i_error("chdir(%s) failed: %m", home);
-			else if (getenv("DEBUG") != NULL)
+			else if (mail_set->mail_debug)
 				i_info("Home dir not found: %s", home);
 		}
 	}
 
 	env_put(t_strconcat("USER=", user, NULL));
-
-	value = getenv("UMASK");
-	if (value == NULL || sscanf(value, "%i", &i) != 1 || i < 0)
-		i = 0077;
-	(void)umask(i);
-
-	deliver_set->hostname = getenv("HOSTNAME");
-	if (deliver_set->hostname == NULL)
-		deliver_set->hostname = my_hostname;
-	deliver_set->postmaster_address = getenv("POSTMASTER_ADDRESS");
-	if (deliver_set->postmaster_address == NULL) {
-		i_fatal_status(EX_CONFIG,
-			       "postmaster_address setting not given");
-	}
-	deliver_set->sendmail_path = getenv("SENDMAIL_PATH");
-	if (deliver_set->sendmail_path == NULL)
-		deliver_set->sendmail_path = DEFAULT_SENDMAIL_PATH;
-	deliver_set->rejection_subject = getenv("REJECTION_SUBJECT");
-	if (deliver_set->rejection_subject == NULL)
-		deliver_set->rejection_subject = DEFAULT_MAIL_REJECTION_SUBJECT;
-	deliver_set->rejection_reason = getenv("REJECTION_REASON");
-	if (deliver_set->rejection_reason == NULL) {
-		deliver_set->rejection_reason =
-			DEFAULT_MAIL_REJECTION_HUMAN_REASON;
-	}
-	deliver_set->log_format = getenv("DELIVER_LOG_FORMAT");
-	if (deliver_set->log_format == NULL)
-		deliver_set->log_format = DEFAULT_LOG_FORMAT;
+	(void)umask(deliver_set->umask);
 
 	dict_drivers_register_builtin();
         duplicate_init();
-	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
-        mail_storage_init();
-	mail_storage_register_all();
-	mailbox_list_register_all();
+	mail_users_init(deliver_set->auth_socket_path, mail_set->mail_debug);
 
 	module_dir_init(modules);
 
-	mail_user = mail_user_init(user);
+	mail_user = mail_user_alloc(user, user_set);
 	mail_user_set_home(mail_user, home);
-	if (mail_namespaces_init(mail_user) < 0)
-		i_fatal("Namespace initialization failed");
+	mail_user_set_vars(mail_user, geteuid(), "deliver", NULL, NULL);
+	if (mail_user_init(mail_user, &error) < 0)
+		i_fatal("Mail user initialization failed: %s", error);
+	if (mail_namespaces_init(mail_user, &error) < 0)
+		i_fatal("Namespace initialization failed: %s", error);
 
 	/* create a separate mail user for the internal namespace */
-	raw_mail_user = mail_user_init(user);
-	mail_user_set_home(raw_mail_user, NULL);
+	raw_mail_user = mail_user_alloc(user, user_set);
+	mail_user_set_home(raw_mail_user, "/");
+	if (mail_user_init(raw_mail_user, &error) < 0)
+		i_fatal("Raw user initialization failed: %s", error);
+
+	settings_parser_deinit(&parser);
+
+	memset(&raw_ns_set, 0, sizeof(raw_ns_set));
+	raw_ns_set.location = "/tmp";
+
 	raw_ns = mail_namespaces_init_empty(raw_mail_user);
 	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
-
-	if (mail_storage_create(raw_ns, "raw", "/tmp",
-				MAIL_STORAGE_FLAG_FULL_FS_ACCESS,
-				FILE_LOCK_METHOD_FCNTL, &errstr) < 0)
-		i_fatal("Couldn't create internal raw storage: %s", errstr);
+	raw_ns->set = &raw_ns_set;
+	if (mail_storage_create(raw_ns, "raw", 0, &error) < 0)
+		i_fatal("Couldn't create internal raw storage: %s", error);
 	if (path == NULL) {
 		input = create_raw_stream(0, &mtime);
 		box = mailbox_open(&raw_ns->storage, "Dovecot Delivery Mail",
@@ -1186,7 +804,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (error != MAIL_ERROR_NOSPACE ||
-		    getenv("QUOTA_FULL_TEMPFAIL") != NULL) {
+		    deliver_set->quota_full_tempfail) {
 			/* Saving to INBOX should always work unless
 			   we're over quota. If it didn't, it's probably a
 			   configuration problem. */

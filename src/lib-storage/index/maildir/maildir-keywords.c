@@ -75,10 +75,9 @@ maildir_keywords_init_readonly(struct mailbox *box)
 				     strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 
 	mk->dotlock_settings.use_excl_lock =
-		(box->storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
+		box->storage->set->dotlock_use_excl;
 	mk->dotlock_settings.nfs_flush =
-		(box->storage->flags &
-		 MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0;
+		box->storage->set->mail_nfs_storage;
 	mk->dotlock_settings.timeout = KEYWORDS_LOCK_STALE_TIMEOUT + 2;
 	mk->dotlock_settings.stale_timeout = KEYWORDS_LOCK_STALE_TIMEOUT;
 	mk->dotlock_settings.temp_prefix =
@@ -117,7 +116,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
            we rely on stat()'s timestamp and don't bother handling ESTALE
            errors. */
 
-	if ((mk->storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
+	if (mk->storage->set->mail_nfs_storage) {
 		/* file is updated only by replacing it, no need to flush
 		   attribute cache */
 		nfs_flush_file_handle_cache(mk->path);

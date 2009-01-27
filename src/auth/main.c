@@ -175,7 +175,7 @@ static void add_extra_listeners(void)
 
 static void drop_privileges(void)
 {
-	const char *version;
+	const char *version, *name;
 
 	version = getenv("DOVECOT_VERSION");
 	if (version != NULL && strcmp(version, PACKAGE_VERSION) != 0) {
@@ -191,6 +191,9 @@ static void drop_privileges(void)
 			"it standalone, you'll need to set AUTH_* "
 			"environment variables (AUTH_1 isn't set).");
 	}
+	name = getenv("AUTH_NAME");
+	if (name == NULL)
+		i_fatal("Missing AUTH_NAME environment");
 
 	open_logfile();
 
@@ -207,7 +210,7 @@ static void drop_privileges(void)
 	userdbs_init();
 	modules = module_dir_load(AUTH_MODULE_DIR, NULL, TRUE, version);
 	module_dir_init(modules);
-	auth = auth_preinit();
+	auth = auth_preinit(auth_settings_read(name));
 	auth_master_listeners_init();
 	if (!worker)
 		add_extra_listeners();
@@ -233,7 +236,7 @@ static void main_init(bool nodaemon)
 	lib_signals_ignore(SIGUSR2, TRUE);
 
 	child_wait_init();
-	mech_init();
+	mech_init(auth->set);
 	password_schemes_init();
 	auth_init(auth);
 	auth_request_handler_init();
@@ -283,11 +286,11 @@ static void main_deinit(void)
         auth_worker_server_deinit();
 	auth_master_listeners_deinit();
 
-	auth_deinit(&auth);
 	module_dir_unload(&modules);
 	userdbs_deinit();
 	passdbs_deinit();
-	mech_deinit();
+	mech_deinit(auth->set);
+	auth_deinit(&auth);
 
         password_schemes_deinit();
 	sql_drivers_deinit();

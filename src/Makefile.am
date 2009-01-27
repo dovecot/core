@@ -20,6 +20,7 @@ SUBDIRS = \
 	lib-storage \
 	lib-auth \
 	auth \
+	config \
 	dict \
 	master \
 	login-common \

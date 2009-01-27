@@ -2,6 +2,7 @@
 #define COMMON_H
 
 #include "lib.h"
+#include "login-settings.h"
 
 /* Used only for string sanitization */
 #define MAX_MECH_NAME 64
@@ -13,17 +14,11 @@
 
 extern const char *login_protocol;
 
-extern bool disable_plaintext_auth, process_per_connection;
-extern bool verbose_proctitle, verbose_ssl, verbose_auth, auth_debug;
-extern bool ssl_required, ssl_require_client_cert;
-extern const char *greeting, *log_format;
-extern const char *const *log_format_elements;
-extern const char *capability_string;
-extern const char *trusted_networks;
-extern unsigned int max_connections;
-extern unsigned int login_process_uid;
 extern struct auth_client *auth_client;
 extern bool closing_down;
+extern unsigned int login_process_uid;
+
+extern struct login_settings *login_settings;
 
 void main_ref(void);
 void main_unref(void);

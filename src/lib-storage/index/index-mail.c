@@ -418,13 +418,14 @@ void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
 void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 			      const void *data, size_t data_size)
 {
+	const struct mail_storage_settings *set = mail->ibox->box.storage->set;
 	const struct mail_index_header *hdr;
 
-	if (mail->ibox->mail_cache_min_mail_count > 0) {
+	if (set->mail_cache_min_mail_count > 0) {
 		/* First check if we've configured caching not to be used with
 		   low enough message count. */
 		hdr = mail_index_get_header(mail->ibox->view);
-		if (hdr->messages_count < mail->ibox->mail_cache_min_mail_count)
+		if (hdr->messages_count < set->mail_cache_min_mail_count)
 			return;
 	}
 

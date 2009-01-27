@@ -44,6 +44,11 @@ struct client {
 
 	unsigned char *deleted_bitmask;
 
+	/* settings: */
+	const struct pop3_settings *set;
+	enum client_workarounds workarounds;
+	enum uidl_keys uidl_keymask;
+
 	unsigned int disconnected:1;
 	unsigned int deleted:1;
 	unsigned int waiting_input:1;
@@ -51,7 +56,8 @@ struct client {
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out, struct mail_user *user);
+struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+			     const struct pop3_settings *set);
 void client_destroy(struct client *client, const char *reason);
 
 /* Disconnect client connection */

@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = imap
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
@@ -21,6 +22,7 @@ unused_objects = \
 libs = \
 	$(STORAGE_LIBS) \
 	../lib-dict/libdict.a \
+	../lib-settings/libsettings.a \
 	$(unused_objects)
 
 imap_LDADD = \
@@ -72,6 +74,7 @@ imap_SOURCES = \
 	imap-fetch.c \
 	imap-fetch-body.c \
 	imap-search.c \
+	imap-settings.c \
 	imap-sort.c \
 	imap-status.c \
 	imap-sync.c \
@@ -87,6 +90,7 @@ headers = \
 	imap-expunge.h \
 	imap-fetch.h \
 	imap-search.h \
+	imap-settings.h \
 	imap-sort.h \
 	imap-status.h \
 	imap-sync.h

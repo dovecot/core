@@ -912,7 +912,7 @@ static void fts_box_backends_init(struct mailbox *box)
 			fbox->backend_fast = backend;
 		}
 	}
-	if ((box->storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0 &&
+	if (box->storage->set->mail_debug &&
 	    fbox->backend_substr == NULL && fbox->backend_fast == NULL)
 		i_info("fts: No backends enabled by the fts setting");
 }

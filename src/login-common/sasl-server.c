@@ -149,7 +149,7 @@ void sasl_server_auth_begin(struct client *client,
 		return;
 	}
 
-	if (!client->secured && disable_plaintext_auth &&
+	if (!client->secured && login_settings->disable_plaintext_auth &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
 		sasl_server_auth_failed(client,
 			"Plaintext authentication disabled.");
@@ -182,7 +182,7 @@ static void sasl_server_auth_cancel(struct client *client, const char *reason,
 {
 	i_assert(client->authenticating);
 
-	if (verbose_auth && reason != NULL) {
+	if (login_settings->verbose_auth && reason != NULL) {
 		const char *auth_name =
 			str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
 		client_syslog(client,

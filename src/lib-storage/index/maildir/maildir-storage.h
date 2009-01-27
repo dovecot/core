@@ -1,6 +1,8 @@
 #ifndef MAILDIR_STORAGE_H
 #define MAILDIR_STORAGE_H
 
+#include "maildir-settings.h"
+
 #define MAILDIR_STORAGE_NAME "maildir"
 #define MAILDIR_SUBSCRIPTION_FILE_NAME "subscriptions"
 #define MAILDIR_INDEX_PREFIX "dovecot.index"
@@ -69,14 +71,12 @@ struct maildir_storage {
 	struct mail_storage storage;
 
 	union mailbox_list_module_context list_module_ctx;
+	const struct maildir_settings *set;
 	const char *temp_prefix;
 
 	uint32_t maildir_list_ext_id;
 
-	unsigned int copy_with_hardlinks:1;
-	unsigned int copy_preserve_filename:1;
 	unsigned int save_size_in_filename:1;
-	unsigned int stat_dirs:1;
 };
 
 struct maildir_mailbox {

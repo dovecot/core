@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 pop3_login_LDADD = \
 	../login-common/liblogin-common.a \
 	../lib-auth/libauth.a \
+	../lib-settings/libsettings.a \
 	../lib/liblib.a \
 	$(SSL_LIBS)
 

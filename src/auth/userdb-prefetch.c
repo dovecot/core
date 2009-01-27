@@ -26,7 +26,7 @@ static void prefetch_lookup(struct auth_request *auth_request,
 					"passdb didn't return userdb entries");
 			}
 		} else if (!auth_request->userdb_lookup ||
-			   auth_request->auth->verbose_debug) {
+			   auth_request->auth->set->debug) {
 			/* more userdbs, they may know the user */
 			auth_request_log_info(auth_request, "prefetch",
 				"passdb didn't return userdb entries, "

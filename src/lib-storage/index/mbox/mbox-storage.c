@@ -155,13 +155,13 @@ static bool mbox_is_dir(const char *path, const char *name, bool debug)
 	return TRUE;
 }
 
-static bool mbox_autodetect(const char *data, enum mail_storage_flags flags)
+static bool mbox_autodetect(const struct mail_namespace *ns)
 {
-	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = ns->mail_set->mail_debug;
+	const char *data = ns->set->location;
 	const char *path;
 
 	path = t_strcut(data, ':');
-
 	if (debug) {
 		if (strchr(data, ':') != NULL) {
 			i_info("mbox autodetect: data=%s, splitting ':' -> %s",
@@ -187,8 +187,10 @@ static bool mbox_autodetect(const char *data, enum mail_storage_flags flags)
 
 static const char *get_root_dir(struct mail_storage *storage)
 {
+	struct mail_namespace auto_ns;
+	struct mail_namespace_settings ns_set;
 	const char *home, *path;
-	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = storage->set->mail_debug;
 
 	if (mail_user_get_home(storage->ns->user, &home) > 0) {
 		path = t_strconcat(home, "/mail", NULL);
@@ -212,12 +214,17 @@ static const char *get_root_dir(struct mail_storage *storage)
 
 	if (debug)
 		i_info("mbox: checking if we are chrooted:");
-	if (mbox_autodetect("", storage->flags))
+
+	memset(&ns_set, 0, sizeof(ns_set));
+	ns_set.location = "";
+	memset(&auto_ns, 0, sizeof(auto_ns));
+	auto_ns.set = &ns_set;
+	auto_ns.mail_set = storage->set;
+	if (mbox_autodetect(&auto_ns))
 		return "/";
 
 	if (debug)
 		i_info("mbox: root mail directory not found");
-
 	return NULL;
 }
 
@@ -270,7 +277,7 @@ static const char *create_root_dir(struct mail_storage *storage,
 		return NULL;
 	}
 
-	if ((storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0)
+	if (storage->set->mail_debug)
 		i_info("mbox: root directory created: %s", path);
 	return path;
 }
@@ -281,7 +288,7 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		       const char **layout_r, const char **error_r)
 {
 	enum mail_storage_flags flags = storage->flags;
-	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = storage->set->mail_debug;
 	const char *p;
 	struct stat st;
 	bool autodetect;
@@ -453,6 +460,8 @@ static int mbox_create(struct mail_storage *_storage, const char *data,
 	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
 		return -1;
 
+	storage->set = mail_storage_get_driver_settings(_storage);
+
 	storage->list_module_ctx.super = _storage->list->v;
 	if (strcmp(layout, "fs") == 0 && *list_set.maildir_name == '\0') {
 		/* have to use .imap/ directories */
@@ -468,7 +477,6 @@ static int mbox_create(struct mail_storage *_storage, const char *data,
 
 	/* finish list init after we've overridden vfuncs */
 	mailbox_list_init(_storage->list, _storage->ns, &list_set,
-			  mail_storage_get_list_flags(_storage->flags) |
 			  MAILBOX_LIST_FLAG_MAILBOX_FILES);
 	return 0;
 }
@@ -515,16 +523,9 @@ static int verify_inbox(struct mail_storage *storage)
 
 static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
 {
-	const char *env;
 	struct stat st;
-	unsigned int min_size;
 
-	env = getenv("MBOX_MIN_INDEX_SIZE");
-	if (env == NULL)
-		return FALSE;
-
-	min_size = strtoul(env, NULL, 10);
-	if (min_size == 0)
+	if (storage->set->mbox_min_index_size == 0)
 		return FALSE;
 
 	if (stat(path, &st) < 0) {
@@ -536,7 +537,7 @@ static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
 			return FALSE;
 		}
 	}
-	return st.st_size / 1024 < min_size;
+	return st.st_size / 1024 < storage->set->mbox_min_index_size;
 }
 
 static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
@@ -568,10 +569,6 @@ mbox_alloc_mailbox(struct mbox_storage *storage, struct mail_index *index,
 		mail_index_ext_register(index, "mbox",
 					sizeof(mbox->mbox_hdr),
 					sizeof(uint64_t), sizeof(uint64_t));
-
-        mbox->mbox_very_dirty_syncs = getenv("MBOX_VERY_DIRTY_SYNCS") != NULL;
-	mbox->mbox_do_dirty_syncs = mbox->mbox_very_dirty_syncs ||
-		getenv("MBOX_DIRTY_SYNCS") != NULL;
 
 	if ((storage->storage.flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
 		mbox->mbox_save_md5 = TRUE;
@@ -989,6 +986,7 @@ struct mail_storage mbox_storage = {
 	MEMBER(mailbox_is_file) TRUE,
 
 	{
+                mbox_get_setting_parser_info,
 		mbox_class_init,
 		mbox_class_deinit,
 		mbox_alloc,

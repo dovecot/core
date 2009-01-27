@@ -16,6 +16,15 @@ struct mail_user {
 	/* don't access the home directly. It may be set lazily. */
 	const char *_home;
 
+	uid_t uid;
+	const char *service;
+	struct ip_addr *local_ip, *remote_ip;
+	const struct var_expand_table *var_expand_table;
+	/* error during initialization */
+	const char *error;
+
+	const struct mail_user_settings *unexpanded_set;
+	struct mail_user_settings *set;
 	struct mail_namespace *namespaces;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
@@ -26,6 +35,8 @@ struct mail_user {
 	/* User is an administrator. Allow operations not normally allowed
 	   for other people. */
 	unsigned int admin:1;
+	/* mail_user_init() has been called */
+	unsigned int initialized:1;
 };
 
 struct mail_user_module_register {
@@ -44,12 +55,24 @@ extern void (*hook_mail_user_created)(struct mail_user *user);
 void mail_users_init(const char *auth_socket_path, bool debug);
 void mail_users_deinit(void);
 
-struct mail_user *mail_user_init(const char *username);
+struct mail_user *mail_user_alloc(const char *username,
+				  const struct mail_user_settings *set);
+/* Returns -1 if settings were invalid. */
+int mail_user_init(struct mail_user *user, const char **error_r);
+
 void mail_user_ref(struct mail_user *user);
 void mail_user_unref(struct mail_user **user);
 
 /* Find another user from the given user's namespaces. */
 struct mail_user *mail_user_find(struct mail_user *user, const char *name);
+
+/* Specify mail location %variable expansion data. */
+void mail_user_set_vars(struct mail_user *user, uid_t uid, const char *service,
+			const struct ip_addr *local_ip,
+			const struct ip_addr *remote_ip);
+/* Return %variable expansion table for the user. */
+const struct var_expand_table *
+mail_user_var_expand_table(struct mail_user *user);
 
 /* Specify the user's home directory. This should be called also when it's
    known that the user doesn't have a home directory to avoid the internal

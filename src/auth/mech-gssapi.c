@@ -13,13 +13,13 @@
  */
 
 #include "common.h"
-#include "mech.h"
-#include "passdb.h"
+#include "env-util.h"
 #include "str.h"
 #include "str-sanitize.h"
-#include "buffer.h"
 #include "hex-binary.h"
 #include "safe-memset.h"
+#include "mech.h"
+#include "passdb.h"
 
 #include <stdlib.h>
 
@@ -98,12 +98,13 @@ static void auth_request_log_gss_error(struct auth_request *request,
 	} while (message_context != 0);
 }
 
-static void mech_gssapi_initialize(void)
+static void mech_gssapi_initialize(struct auth *auth)
 {
-	const char *path;
+	const char *path = auth->set->krb5_keytab;
 
-	path = getenv("KRB5_KTNAME");
-	if (path != NULL) {
+	if (*path != '\0') {
+		/* environment may be used by Kerberos 5 library directly */
+		env_put(t_strconcat("KRB5_KTNAME=", path, NULL));
 #ifdef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
 		gsskrb5_register_acceptor_identity(path);
 #elif defined (HAVE_KRB5_GSS_REGISTER_ACCEPTOR_IDENTITY)
@@ -116,11 +117,6 @@ static struct auth_request *mech_gssapi_auth_new(void)
 {
 	struct gssapi_auth_request *request;
 	pool_t pool;
-
-	if (!gssapi_initialized) {
-		gssapi_initialized = TRUE;
-		mech_gssapi_initialize();
-	}
 
 	pool = pool_alloconly_create("gssapi_auth_request", 1024);
 	request = p_new(pool, struct gssapi_auth_request, 1);
@@ -141,7 +137,12 @@ static OM_uint32 obtain_service_credentials(struct auth_request *request,
 	gss_name_t gss_principal;
 	const char *service_name;
 
-	if (strcmp(request->auth->gssapi_hostname, "$ALL") == 0) {
+	if (!gssapi_initialized) {
+		gssapi_initialized = TRUE;
+		mech_gssapi_initialize(request->auth);
+	}
+
+	if (strcmp(request->auth->set->gssapi_hostname, "$ALL") == 0) {
 		auth_request_log_info(request, "gssapi",
 				      "Using all keytab entries");
 		*ret = GSS_C_NO_CREDENTIAL;
@@ -159,7 +160,7 @@ static OM_uint32 obtain_service_credentials(struct auth_request *request,
 	principal_name = t_str_new(128);
 	str_append(principal_name, service_name);
 	str_append_c(principal_name, '@');
-	str_append(principal_name, request->auth->gssapi_hostname);
+	str_append(principal_name, request->auth->set->gssapi_hostname);
 
 	auth_request_log_info(request, "gssapi",
 		"Obtaining credentials for %s", str_c(principal_name));

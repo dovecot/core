@@ -12,6 +12,7 @@ imap_login_LDADD = \
 	../login-common/liblogin-common.a \
 	../lib-imap/libimap.a \
 	../lib-auth/libauth.a \
+	../lib-settings/libsettings.a \
 	../lib/liblib.a \
 	$(SSL_LIBS)
 

@@ -238,18 +238,17 @@ rpa_read_buffer(pool_t pool, const unsigned char **data,
 static bool
 rpa_verify_realm(struct rpa_auth_request *request, const char *realm)
 {
+	const struct auth *auth = request->auth_request.auth;
 	const char *default_realm;
-	char *const *tmp;
+	const char *const *tmp;
 
-	tmp = request->auth_request.auth->auth_realms;
-	for (; *tmp != NULL; tmp++) {
+	for (tmp = auth->auth_realms; *tmp != NULL; tmp++) {
 		if (strcasecmp(realm, *tmp) == 0)
 			return TRUE;
 	}
 
-	default_realm = request->auth_request.auth->default_realm != NULL ?
-			request->auth_request.auth->default_realm :
-			my_hostname;
+	default_realm = *auth->set->default_realm != '\0' ?
+		auth->set->default_realm : my_hostname;
 
 	return strcasecmp(realm, default_realm) == 0;
 }
@@ -353,7 +352,7 @@ mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
 	string_t *realms;
 	buffer_t *buf;
 	unsigned char timestamp[RPA_TIMESTAMP_LEN / 2];
-	char *const *tmp;
+	const char *const *tmp;
 
 	realms = t_str_new(64);
 	for (tmp = auth->auth_realms; *tmp != NULL; tmp++) {
@@ -361,8 +360,8 @@ mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
 	}
 
 	if (str_len(realms) == 0) {
-		rpa_add_realm(realms, auth->default_realm != NULL ?
-			      auth->default_realm : my_hostname,
+		rpa_add_realm(realms, *auth->set->default_realm != '\0' ?
+			      auth->set->default_realm : my_hostname,
 			      request->auth_request.service);
 	}
 

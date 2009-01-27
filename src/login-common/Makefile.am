@@ -2,14 +2,17 @@ noinst_LIBRARIES = liblogin-common.a
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
-	-DSBINDIR=\""$(sbindir)"\"
+	-DSBINDIR=\""$(sbindir)"\" \
+	-DSSLDIR=\""$(ssldir)\""
 
 liblogin_common_a_SOURCES = \
 	client-common.c \
 	login-proxy.c \
+	login-settings.c \
 	main.c \
 	master.c \
 	sasl-server.c \
@@ -20,6 +23,7 @@ liblogin_common_a_SOURCES = \
 noinst_HEADERS = \
 	client-common.h \
 	login-proxy.h \
+	login-settings.h \
 	common.h \
 	master.h \
 	sasl-server.h \

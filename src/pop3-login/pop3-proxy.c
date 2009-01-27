@@ -144,7 +144,7 @@ static int proxy_input_line(struct pop3_client *client,
 	else
 		client_send_line(client, line);
 
-	if (verbose_auth) {
+	if (login_settings->verbose_auth) {
 		str = t_str_new(128);
 		str_printfa(str, "proxy(%s): Login failed to %s:%u",
 			    client->common.virtual_user,

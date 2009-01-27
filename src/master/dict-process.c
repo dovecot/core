@@ -94,17 +94,17 @@ static int dict_process_create(struct dict_listener *listener)
 	for (i = 0; i <= 3; i++)
 		fd_close_on_exec(i, FALSE);
 
-	child_process_init_env();
+	child_process_init_env(master_set->defaults);
 	env_put(t_strconcat("DICT_LISTEN_FROM_FD=",
 			    process->listener->path, NULL));
 
-	if (settings_root->defaults->dict_db_config != NULL) {
+	if (master_set->defaults->dict_db_config != NULL) {
 		env_put(t_strconcat("DB_CONFIG=",
-				    settings_root->defaults->dict_db_config,
+				    master_set->defaults->dict_db_config,
 				    NULL));
 	}
 
-	dicts = array_get(&settings_root->dicts, &count);
+	dicts = array_get(&master_set->defaults->dicts, &count);
 	i_assert((count % 2) == 0);
 	for (i = 0; i < count; i += 2)
 		env_put(t_strdup_printf("DICT_%s=%s", dicts[i], dicts[i+1]));
@@ -146,14 +146,16 @@ static void dict_process_deinit(struct dict_process *process)
 
 static void dict_listener_input(struct dict_listener *listener)
 {
-	unsigned int i;
+	unsigned int i = 0;
 	int fd;
 
 	i_assert(listener->processes == NULL);
 
-	for (i = 0; i < settings_root->defaults->dict_process_count; i++) {
-		if (dict_process_create(listener) < 0)
-			break;
+	if (array_is_created(&master_set->defaults->dicts)) {
+		for (i = 0; i < master_set->defaults->dict_process_count; i++) {
+			if (dict_process_create(listener) < 0)
+				break;
+		}
 	}
 	if (i > 0)
 		io_remove(&listener->io);
@@ -220,7 +222,7 @@ void dict_processes_init(void)
 {
 	const char *path;
 
-	path = t_strconcat(settings_root->defaults->base_dir,
+	path = t_strconcat(master_set->defaults->base_dir,
 			   "/"DICT_SERVER_SOCKET_NAME, NULL);
 	dict_listener = dict_listener_init(path);
 

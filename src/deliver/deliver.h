@@ -9,25 +9,11 @@
 
 #include "lib.h"
 #include "mail-storage.h"
-
-#define DEFAULT_MAIL_REJECTION_SUBJECT \
-	"Rejected: %s"
-#define DEFAULT_MAIL_REJECTION_HUMAN_REASON \
-	"Your message to <%t> was automatically rejected:%n%r"
-#define DEFAULT_LOG_FORMAT "msgid=%m: %$"
-
-struct deliver_settings {
-	const char *hostname;
-	const char *postmaster_address;
-	const char *sendmail_path;
-	const char *rejection_subject;
-	const char *rejection_reason;
-	const char *log_format;
-	bool mailbox_autosubscribe;
-	bool mailbox_autocreate;
-};
+#include "deliver-settings.h"
 
 extern struct deliver_settings *deliver_set;
+extern bool mailbox_autosubscribe;
+extern bool mailbox_autocreate;
 extern bool tried_default_save;
 
 typedef int deliver_mail_func_t(struct mail_namespace *namespaces,

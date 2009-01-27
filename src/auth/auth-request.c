@@ -165,7 +165,7 @@ bool auth_request_import(struct auth_request *request,
 	else if (strcmp(key, "original_username") == 0)
 		request->original_username = p_strdup(request->pool, value);
 	else if (strcmp(key, "cert_username") == 0) {
-		if (request->auth->ssl_username_from_cert) {
+		if (request->auth->set->ssl_username_from_cert) {
 			/* get username from SSL certificate. it overrides
 			   the username given by the auth mechanism. */
 			request->user = p_strdup(request->pool, value);
@@ -521,7 +521,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 			request->credentials_scheme,
                 	request->private_callback.lookup_credentials);
 	} else {
-		if (request->auth->verbose_debug_passwords &&
+		if (request->auth->set->debug_passwords &&
 		    result == PASSDB_RESULT_OK) {
 			auth_request_log_debug(request, "password",
 				"Credentials: %s",
@@ -772,10 +772,10 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 	unsigned char *p;
         char *user;
 
-	if (strchr(username, '@') == NULL &&
-	    request->auth->default_realm != NULL) {
+	if (*request->auth->set->default_realm != '\0' &&
+	    strchr(username, '@') == NULL) {
 		user = p_strconcat(request->pool, username, "@",
-                                   request->auth->default_realm, NULL);
+                                   request->auth->set->default_realm, NULL);
 	} else {
 		user = p_strdup(request->pool, username);
 	}
@@ -791,7 +791,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		}
 	}
 
-	if (request->auth->username_format != NULL) {
+	if (*request->auth->set->username_format != '\0') {
 		/* username format given, put it through variable expansion.
 		   we'll have to temporarily replace request->user to get
 		   %u to be the wanted username */
@@ -804,7 +804,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 
 		dest = t_str_new(256);
 		table = auth_request_get_var_expand_table(request, NULL);
-		var_expand(dest, request->auth->username_format, table);
+		var_expand(dest, request->auth->set->username_format, table);
 		user = p_strdup(request->pool, str_c(dest));
 
 		request->user = old_username;
@@ -816,12 +816,12 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r)
 {
+	const struct auth_settings *set = request->auth->set;
 	const char *p, *login_username = NULL;
 
-	if (request->auth->master_user_separator != '\0' &&
-	    !request->userdb_lookup) {
+	if (*set->master_user_separator != '\0' && !request->userdb_lookup) {
 		/* check if the username contains a master user */
-		p = strchr(username, request->auth->master_user_separator);
+		p = strchr(username, *set->master_user_separator);
 		if (p != NULL) {
 			/* it does, set it. */
 			login_username = t_strdup_until(username, p);
@@ -1312,7 +1312,7 @@ int auth_request_password_verify(struct auth_request *request,
 	if (ret == 0) {
 		auth_request_log_info(request, subsystem,
 				      "Password mismatch");
-		if (request->auth->verbose_debug_passwords) {
+		if (request->auth->set->debug_passwords) {
 			auth_request_log_debug(request, subsystem,
 					       "%s(%s) != '%s'", scheme,
 					       plain_password,
@@ -1436,7 +1436,7 @@ void auth_request_log_debug(struct auth_request *auth_request,
 {
 	va_list va;
 
-	if (!auth_request->auth->verbose_debug)
+	if (!auth_request->auth->set->debug)
 		return;
 
 	va_start(va, format);
@@ -1452,7 +1452,7 @@ void auth_request_log_info(struct auth_request *auth_request,
 {
 	va_list va;
 
-	if (!auth_request->auth->verbose)
+	if (!auth_request->auth->set->verbose)
 		return;
 
 	va_start(va, format);

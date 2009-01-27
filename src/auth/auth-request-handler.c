@@ -14,7 +14,6 @@
 
 #include <stdlib.h>
 
-#define DEFAULT_AUTH_FAILURE_DELAY 2
 #define AUTH_FAILURE_DELAY_CHECK_MSECS 500
 
 struct auth_request_handler {
@@ -34,7 +33,6 @@ struct auth_request_handler {
 static ARRAY_DEFINE(auth_failures_arr, struct auth_request *);
 static struct aqueue *auth_failures;
 static struct timeout *to_auth_failures;
-static unsigned int auth_failure_delay;
 
 static void auth_failure_timeout(void *context);
 
@@ -356,7 +354,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 	hash_table_insert(handler->requests, POINTER_CAST(id), request);
 
-	if (request->auth->ssl_require_client_cert &&
+	if (request->auth->set->ssl_require_client_cert &&
 	    !request->valid_client_cert) {
 		/* we fail without valid certificate */
                 auth_request_handler_auth_fail(handler, request,
@@ -546,8 +544,10 @@ void auth_request_handler_flush_failures(bool flush_all)
 	for (i = 0; i < count; i++) {
 		auth_request = auth_requests[aqueue_idx(auth_failures, 0)];
 
+		/* FIXME: assumess that failure_delay is always the same. */
 		diff = ioloop_time - auth_request->last_access;
-		if (diff < (time_t)auth_failure_delay && !flush_all)
+		if (diff < (time_t)auth_request->auth->set->failure_delay &&
+		    !flush_all)
 			break;
 
 		aqueue_delete_tail(auth_failures);
@@ -566,12 +566,6 @@ static void auth_failure_timeout(void *context ATTR_UNUSED)
 
 void auth_request_handler_init(void)
 {
-	const char *env;
-
-	env = getenv("FAILURE_DELAY");
-	auth_failure_delay = env != NULL ? atoi(env) :
-		DEFAULT_AUTH_FAILURE_DELAY;
-
 	i_array_init(&auth_failures_arr, 128);
 	auth_failures = aqueue_init(&auth_failures_arr.arr);
 }

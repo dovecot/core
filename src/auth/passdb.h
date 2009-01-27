@@ -80,8 +80,9 @@ void passdb_handle_credentials(enum passdb_result result,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request);
 
-struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
-				   const char *args, unsigned int id);
+struct auth_passdb *
+	passdb_preinit(struct auth *auth, struct auth_passdb_settings *set);
+
 void passdb_init(struct auth_passdb *passdb);
 void passdb_deinit(struct auth_passdb *passdb);
 

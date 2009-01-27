@@ -1,0 +1,208 @@
+/* Copyright (c) 2005-2008 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "array.h"
+#include "settings-parser.h"
+#include "mail-index.h"
+#include "mail-user.h"
+#include "mail-namespace.h"
+#include "mail-storage-private.h"
+#include "mail-storage-settings.h"
+
+#include <stddef.h>
+
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct mail_storage_settings, name), NULL }
+
+static struct setting_define mail_storage_setting_defines[] = {
+	DEF(SET_STR_VARS, mail_location),
+	DEF(SET_STR, mail_cache_fields),
+	DEF(SET_STR, mail_never_cache_fields),
+	DEF(SET_UINT, mail_cache_min_mail_count),
+	DEF(SET_UINT, mailbox_idle_check_interval),
+	DEF(SET_UINT, mail_max_keyword_length),
+	DEF(SET_BOOL, mail_save_crlf),
+	DEF(SET_BOOL, fsync_disable),
+	DEF(SET_BOOL, mmap_disable),
+	DEF(SET_BOOL, dotlock_use_excl),
+	DEF(SET_BOOL, mail_nfs_storage),
+	DEF(SET_BOOL, mail_nfs_index),
+	DEF(SET_BOOL, mailbox_list_index_disable),
+	DEF(SET_BOOL, mail_debug),
+	DEF(SET_BOOL, mail_full_filesystem_access),
+	DEF(SET_ENUM, lock_method),
+	DEF(SET_STR, pop3_uidl_format),
+
+	SETTING_DEFINE_LIST_END
+};
+
+struct mail_storage_settings mail_storage_default_settings = {
+	MEMBER(mail_location) "",
+	MEMBER(mail_cache_fields) "flags",
+	MEMBER(mail_never_cache_fields) "imap.envelope",
+	MEMBER(mail_cache_min_mail_count) 0,
+	MEMBER(mailbox_idle_check_interval) 30,
+	MEMBER(mail_max_keyword_length) 50,
+	MEMBER(mail_save_crlf) FALSE,
+	MEMBER(fsync_disable) FALSE,
+	MEMBER(mmap_disable) FALSE,
+	MEMBER(dotlock_use_excl) FALSE,
+	MEMBER(mail_nfs_storage) FALSE,
+	MEMBER(mail_nfs_index) FALSE,
+	MEMBER(mailbox_list_index_disable) FALSE,
+	MEMBER(mail_debug) FALSE,
+	MEMBER(mail_full_filesystem_access) FALSE,
+	MEMBER(lock_method) "fcntl:flock:dotlock",
+	MEMBER(pop3_uidl_format) "%08Xu%08Xv"
+};
+
+struct setting_parser_info mail_storage_setting_parser_info = {
+	MEMBER(defines) mail_storage_setting_defines,
+	MEMBER(defaults) &mail_storage_default_settings,
+
+	MEMBER(parent) &mail_user_setting_parser_info,
+	MEMBER(dynamic_parsers) NULL,
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(type_offset) (size_t)-1,
+	MEMBER(struct_size) sizeof(struct mail_storage_settings)
+};
+
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct mail_namespace_settings, name), NULL }
+
+static struct setting_define mail_namespace_setting_defines[] = {
+	DEF(SET_ENUM, type),
+	DEF(SET_STR, separator),
+	DEF(SET_STR_VARS, prefix),
+	DEF(SET_STR_VARS, location),
+	DEF(SET_STR_VARS, alias_for),
+
+	DEF(SET_BOOL, inbox),
+	DEF(SET_BOOL, hidden),
+	DEF(SET_ENUM, list),
+	DEF(SET_BOOL, subscriptions),
+
+	SETTING_DEFINE_LIST_END
+};
+
+struct mail_namespace_settings mail_namespace_default_settings = {
+	MEMBER(type) "private:shared:public",
+	MEMBER(separator) "",
+	MEMBER(prefix) "",
+	MEMBER(location) "",
+	MEMBER(alias_for) NULL,
+
+	MEMBER(inbox) FALSE,
+	MEMBER(hidden) FALSE,
+	MEMBER(list) "yes:no:children",
+	MEMBER(subscriptions) TRUE
+};
+
+struct setting_parser_info mail_namespace_setting_parser_info = {
+	MEMBER(defines) mail_namespace_setting_defines,
+	MEMBER(defaults) &mail_namespace_default_settings,
+
+	MEMBER(parent) &mail_user_setting_parser_info,
+	MEMBER(dynamic_parsers) NULL,
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(type_offset) offsetof(struct mail_namespace_settings, type),
+	MEMBER(struct_size) sizeof(struct mail_namespace_settings)
+};
+
+#undef DEF
+#undef DEFLIST
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct mail_user_settings, name), NULL }
+#define DEFLIST(field, name, defines) \
+	{ SET_DEFLIST, name, \
+	  offsetof(struct mail_user_settings, field), defines }
+
+static struct setting_define mail_user_setting_defines[] = {
+	DEF(SET_UINT, umask),
+
+	DEFLIST(namespaces, "namespace", &mail_namespace_setting_parser_info),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static struct mail_user_settings mail_user_default_settings = {
+	MEMBER(umask) 0077,
+
+	MEMBER(namespaces) ARRAY_INIT
+};
+
+struct setting_parser_info mail_user_setting_parser_info = {
+	MEMBER(defines) mail_user_setting_defines,
+	MEMBER(defaults) &mail_user_default_settings,
+
+	MEMBER(parent) NULL,
+	MEMBER(dynamic_parsers) NULL,
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(type_offset) (size_t)-1,
+	MEMBER(struct_size) sizeof(struct mail_user_settings)
+};
+
+const void *
+mail_user_set_get_driver_settings(const struct mail_user_settings *set,
+				  const char *driver)
+{
+	const void *dset;
+
+	dset = settings_find_dynamic(&mail_user_setting_parser_info,
+				     set, driver);
+	if (dset == NULL) {
+		i_panic("Default settings not found for storage driver %s",
+			driver);
+	}
+	return dset;
+}
+
+const void *mail_storage_get_driver_settings(struct mail_storage *storage)
+{
+	return mail_user_set_get_driver_settings(storage->ns->user->set,
+						 storage->name);
+}
+
+enum mail_index_open_flags
+mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
+{
+	enum mail_index_open_flags index_flags = 0;
+
+	if (set->fsync_disable)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE;
+#ifndef MMAP_CONFLICTS_WRITE
+	if (set->mmap_disable)
+#endif
+		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
+	if (set->dotlock_use_excl)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL;
+	return index_flags;
+}
+
+void mail_storage_namespace_defines_init(pool_t pool)
+{
+	struct dynamic_settings_parser *parsers;
+	struct mail_storage *const *storages;
+	unsigned int i, j, count;
+
+	storages = array_get(&mail_storage_classes, &count);
+	parsers = t_new(struct dynamic_settings_parser, count + 1);
+	parsers[0].name = "MAIL";
+	parsers[0].info = &mail_storage_setting_parser_info;
+
+	for (i = 0, j = 1; i < count; i++) {
+		if (storages[i]->v.get_setting_parser_info == NULL)
+			continue;
+
+		parsers[j].name = storages[i]->name;
+		parsers[j].info = storages[i]->v.get_setting_parser_info();
+		j++;
+	}
+
+	settings_parser_info_update(pool, parsers[j-1].info->parent, parsers);
+}

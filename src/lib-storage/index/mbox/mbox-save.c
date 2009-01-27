@@ -393,8 +393,7 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 	}
 
 	/* convert linefeeds to wanted format */
-	ret = (ctx->mbox->storage->storage.flags &
-	       MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
+	ret = ctx->mbox->storage->storage.set->mail_save_crlf ?
 		i_stream_create_crlf(filter) : i_stream_create_lf(filter);
 	i_stream_unref(&filter);
 
@@ -542,8 +541,7 @@ static int mbox_save_body(struct mbox_save_context *ctx)
 		   this makes it impossible to save a mail that doesn't
 		   end with LF though. */
 		const char *linefeed =
-			(ctx->mbox->storage->storage.flags &
-			 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
+			ctx->mbox->storage->storage.set->mail_save_crlf ?
 			"\r\n" : "\n";
 		if (o_stream_send_str(ctx->output, linefeed) < 0)
 			return write_error(ctx);

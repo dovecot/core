@@ -147,8 +147,7 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 			/* use ~/mbox as the INBOX */
 			name = mstorage->snarf_inbox_path;
 			use_snarfing = TRUE;
-			storage->flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
-			list->flags |= MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
+			storage->set->mail_full_filesystem_access = TRUE;
 		} else if (errno != ENOENT) {
 			mail_storage_set_critical(storage,
 						  "stat(%s) failed: %m",

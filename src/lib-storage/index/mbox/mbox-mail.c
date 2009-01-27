@@ -208,8 +208,8 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 
 	if (seq == hdr->messages_count) {
 		/* last message, use the synced mbox size */
-		trailer_size = (mbox->storage->storage.flags &
-				MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ? 2 : 1;
+		trailer_size =
+			mbox->storage->storage.set->mail_save_crlf ? 2 : 1;
 		*next_offset_r = mbox->mbox_hdr.sync_size - trailer_size;
 	} else {
 		if (mbox_file_lookup_offset(mbox, view, seq + 1,

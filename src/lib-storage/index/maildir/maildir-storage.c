@@ -63,9 +63,8 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 			  const char *data, struct mail_storage *storage,
 			  const char **layout_r, const char **error_r)
 {
-	enum mail_storage_flags flags = storage->flags;
 	struct mail_user *user = storage->ns->user;
-	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = storage->set->mail_debug;
 	const char *path, *home;
 
 	*layout_r = MAILDIR_PLUSPLUS_DRIVER_NAME;
@@ -75,7 +74,8 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 	list_set->maildir_name = "";
 
 	if (data == NULL || *data == '\0') {
-		if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0) {
+		if ((storage->flags &
+		     MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0) {
 			*error_r = "Root mail directory not given";
 			return -1;
 		}
@@ -229,6 +229,8 @@ maildir_create(struct mail_storage *_storage, const char *data,
 	if (mailbox_list_alloc(layout, &list, error_r) < 0)
 		return -1;
 
+	storage->set = mail_storage_get_driver_settings(_storage);
+
 	_storage->list = list;
 	storage->list_module_ctx.super = list->v;
 	if (strcmp(layout, MAILDIR_PLUSPLUS_DRIVER_NAME) == 0) {
@@ -248,14 +250,7 @@ maildir_create(struct mail_storage *_storage, const char *data,
 				storage, &storage->list_module_ctx);
 
 	/* finish list init after we've overridden vfuncs */
-	mailbox_list_init(list, _storage->ns, &list_set,
-			  mail_storage_get_list_flags(flags));
-
-	storage->copy_with_hardlinks =
-		getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
-	storage->copy_preserve_filename =
-		getenv("MAILDIR_COPY_PRESERVE_FILENAME") != NULL;
-	storage->stat_dirs = getenv("MAILDIR_STAT_DIRS") != NULL;
+	mailbox_list_init(list, _storage->ns, &list_set, 0);
 
 	storage->temp_prefix = mailbox_list_get_temp_prefix(list);
 	if (list_set.control_dir == NULL) {
@@ -267,15 +262,13 @@ maildir_create(struct mail_storage *_storage, const char *data,
 	return 0;
 }
 
-static bool maildir_autodetect(const char *data, enum mail_storage_flags flags)
+static bool maildir_autodetect(const struct mail_namespace *ns)
 {
-	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = ns->mail_set->mail_debug;
 	struct stat st;
 	const char *path;
 
-	data = t_strcut(data, ':');
-
-	path = t_strconcat(data, "/cur", NULL);
+	path = t_strconcat(t_strcut(ns->set->location, ':'), "/cur", NULL);
 	if (stat(path, &st) < 0) {
 		if (debug)
 			i_info("maildir autodetect: stat(%s) failed: %m", path);
@@ -629,7 +622,7 @@ maildir_get_unlink_dest(struct mailbox_list *list, const char *name)
 	const char *root_dir;
 	char sep;
 
-	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
+	if (list->mail_set->mail_full_filesystem_access &&
 	    (*name == '/' || *name == '~'))
 		return NULL;
 
@@ -1014,7 +1007,7 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 
 	/* Check files beginning with .nfs always because they may be
 	   temporary files created by the kernel */
-	if (storage->stat_dirs || *fname == '\0' ||
+	if (storage->set->maildir_stat_dirs || *fname == '\0' ||
 	    strncmp(fname, ".nfs", 4) == 0) {
 		const char *path;
 		struct stat st;
@@ -1071,6 +1064,7 @@ struct mail_storage maildir_storage = {
 	MEMBER(mailbox_is_file) FALSE,
 
 	{
+                maildir_get_setting_parser_info,
 		maildir_class_init,
 		maildir_class_deinit,
 		maildir_alloc,

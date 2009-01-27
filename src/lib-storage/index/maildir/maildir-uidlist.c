@@ -236,10 +236,9 @@ maildir_uidlist_init_readonly(struct index_mailbox *ibox)
 
 	uidlist->dotlock_settings.use_io_notify = TRUE;
 	uidlist->dotlock_settings.use_excl_lock =
-		(box->storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
+		box->storage->set->dotlock_use_excl;
 	uidlist->dotlock_settings.nfs_flush =
-		(box->storage->flags &
-		 MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0;
+		box->storage->set->mail_nfs_storage;
 	uidlist->dotlock_settings.timeout =
 		MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT + 2;
 	uidlist->dotlock_settings.stale_timeout =
@@ -711,7 +710,7 @@ maildir_uidlist_stat(struct maildir_uidlist *uidlist, struct stat *st_r)
 {
 	struct mail_storage *storage = uidlist->ibox->box.storage;
 
-	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
+	if (storage->set->mail_nfs_storage) {
 		nfs_flush_file_handle_cache(uidlist->path);
 		nfs_flush_attr_cache_unlocked(uidlist->path);
 	}
@@ -745,7 +744,7 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 		return 1;
 	}
 
-	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
+	if (storage->set->mail_nfs_storage) {
 		/* NFS: either the file hasn't been changed, or it has already
 		   been deleted and the inodes just happen to be the same.
 		   check if the fd is still valid. */
@@ -1432,7 +1431,6 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 
 	if (ctx->failed)
 		return -1;
-
 	for (p = filename; *p != '\0'; p++) {
 		if (*p == 13 || *p == 10) {
 			i_warning("Maildir %s: Ignoring a file with #0x%x: %s",

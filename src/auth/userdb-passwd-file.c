@@ -97,7 +97,7 @@ passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 		       struct passwd_file_userdb_module, 1);
 	module->auth = auth_userdb->auth;
 	module->pwf = db_passwd_file_init(args, format, TRUE,
-					  module->auth->verbose_debug);
+					  module->auth->set->debug);
 
 	if (!module->pwf->vars)
 		module->module.cache_key = PASSWD_FILE_CACHE_KEY;

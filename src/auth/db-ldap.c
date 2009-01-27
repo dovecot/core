@@ -997,7 +997,7 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 		ctx->static_attrs = t_strsplit(str_c(str), ",");
 	}
 
-	if (auth_request->auth->verbose_debug)
+	if (auth_request->auth->set->debug)
 		ctx->debug = t_str_new(256);
 
 	ctx->attr = ldap_first_attribute(conn->ld, entry, &ctx->ber);
@@ -1069,7 +1069,7 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx)
 	if (ctx->debug != NULL) {
 		if (!first)
 			str_append_c(ctx->debug, '/');
-		if (ctx->auth_request->auth->verbose_debug_passwords ||
+		if (ctx->auth_request->auth->set->debug_passwords ||
 		    strcmp(ctx->name, "password") != 0)
 			str_append(ctx->debug, ctx->value);
 		else

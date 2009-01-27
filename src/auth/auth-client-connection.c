@@ -58,8 +58,8 @@ static void auth_client_send(struct auth_client_connection *conn,
 			io_remove(&conn->io);
 	}
 
-	if (conn->auth->verbose_debug) {
-		i_info("client out: %s", conn->auth->verbose_debug_passwords ?
+	if (conn->auth->set->debug) {
+		i_info("client out: %s", conn->auth->set->debug_passwords ?
 		       cmd : reply_line_hide_pass(cmd));
 	}
 }
@@ -117,7 +117,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	auth_request_handler_set(conn->request_handler, conn->connect_uid, pid);
 
 	conn->pid = pid;
-	if (conn->auth->verbose_debug)
+	if (conn->auth->set->debug)
 		i_info("new auth connection: pid=%u", conn->pid);
 	return TRUE;
 }
@@ -166,18 +166,18 @@ static bool
 auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 {
 	if (strncmp(line, "AUTH\t", 5) == 0) {
-		if (conn->auth->verbose_debug) {
+		if (conn->auth->set->debug) {
 			i_info("client in: %s",
-			       conn->auth->verbose_debug_passwords ? line :
+			       conn->auth->set->debug_passwords ? line :
 			       auth_line_hide_pass(line));
 		}
 		return auth_request_handler_auth_begin(conn->request_handler,
 						       line + 5);
 	}
 	if (strncmp(line, "CONT\t", 5) == 0) {
-		if (conn->auth->verbose_debug) {
+		if (conn->auth->set->debug) {
 			i_info("client in: %s",
-			       conn->auth->verbose_debug_passwords ? line :
+			       conn->auth->set->debug_passwords ? line :
 			       cont_line_hide_pass(line));
 		}
 		return auth_request_handler_auth_continue(conn->request_handler,

@@ -4,12 +4,12 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "mail-storage-settings.h"
 #include "commands.h"
 #include "imap-sync.h"
 
 #include <stdlib.h>
 
-#define DEFAULT_IDLE_CHECK_INTERVAL 30
 /* Send some noice to client every few minutes to avoid NATs and stateful
    firewalls from closing the connection */
 #define KEEPALIVE_TIMEOUT (2*60)
@@ -197,8 +197,6 @@ bool cmd_idle(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_idle_context *ctx;
-	const char *str;
-	unsigned int interval;
 
 	ctx = p_new(cmd->pool, struct cmd_idle_context, 1);
 	ctx->cmd = cmd;
@@ -207,13 +205,12 @@ bool cmd_idle(struct client_command_context *cmd)
 	ctx->keepalive_to = timeout_add(KEEPALIVE_TIMEOUT * 1000,
 					keepalive_timeout, ctx);
 
-	str = getenv("MAILBOX_IDLE_CHECK_INTERVAL");
-	interval = str == NULL ? 0 : (unsigned int)strtoul(str, NULL, 10);
-	if (interval == 0)
-		interval = DEFAULT_IDLE_CHECK_INTERVAL;
-
 	if (client->mailbox != NULL) {
-		mailbox_notify_changes(client->mailbox, interval,
+		const struct mail_storage_settings *set;
+
+		set = mailbox_get_settings(client->mailbox);
+		mailbox_notify_changes(client->mailbox,
+				       set->mailbox_idle_check_interval,
 				       idle_callback, ctx);
 	}
 	client_send_line(client, "+ idling");

@@ -11,7 +11,7 @@ void auth_worker_call(struct auth_request *auth_request,
 		      struct auth_stream_reply *data,
 		      auth_worker_callback_t *callback);
 
-void auth_worker_server_init(void);
+void auth_worker_server_init(struct auth *auth);
 void auth_worker_server_deinit(void);
 
 #endif

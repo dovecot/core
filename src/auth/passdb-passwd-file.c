@@ -147,7 +147,7 @@ passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 		       struct passwd_file_passdb_module, 1);
 	module->auth = auth_passdb->auth;
 	module->pwf = db_passwd_file_init(args, format, FALSE,
-					  module->auth->verbose_debug);
+					  module->auth->set->debug);
 
 	if (!module->pwf->vars)
 		module->module.cache_key = format;

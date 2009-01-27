@@ -97,7 +97,7 @@ fs_list_is_valid_common_nonfs(struct mailbox_list *list, const char *name)
 static bool
 fs_is_valid_pattern(struct mailbox_list *list, const char *pattern)
 {
-	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0)
+	if (list->mail_set->mail_full_filesystem_access)
 		return TRUE;
 
 	return fs_list_is_valid_common_nonfs(list, pattern);
@@ -111,7 +111,7 @@ fs_is_valid_existing_name(struct mailbox_list *list, const char *name)
 	if (!fs_list_is_valid_common(name, &len))
 		return FALSE;
 
-	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0)
+	if (list->mail_set->mail_full_filesystem_access)
 		return TRUE;
 
 	return fs_list_is_valid_common_nonfs(list, name);
@@ -127,7 +127,7 @@ fs_is_valid_create_name(struct mailbox_list *list, const char *name)
 	if (len > FS_MAX_CREATE_MAILBOX_NAME_LENGTH)
 		return FALSE;
 
-	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0)
+	if (list->mail_set->mail_full_filesystem_access)
 		return TRUE;
 
 	if (mailbox_list_name_is_too_large(name, '/'))

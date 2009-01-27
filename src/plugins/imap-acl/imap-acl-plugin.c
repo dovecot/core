@@ -48,6 +48,7 @@ static const struct imap_acl_letter_map imap_acl_letter_map[] = {
 
 const char *imap_acl_plugin_version = PACKAGE_VERSION;
 
+static void (*next_hook_client_created)(struct client **client);
 static bool acl_anyone_allow = FALSE;
 
 static struct mailbox *
@@ -465,6 +466,14 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	return TRUE;
 }
 
+static void imap_acl_client_created(struct client **client)
+{
+	str_append((*client)->capability_string, " ACL RIGHTS=texk");
+
+	if (next_hook_client_created != NULL)
+		next_hook_client_created(client);
+}
+
 void imap_acl_plugin_init(void)
 {
 	const char *env;
@@ -476,13 +485,14 @@ void imap_acl_plugin_init(void)
 	if (env != NULL)
 		acl_anyone_allow = strcmp(env, "allow") == 0;
 
-	str_append(capability_string, " ACL RIGHTS=texk");
-
 	command_register("LISTRIGHTS", cmd_listrights, 0);
 	command_register("GETACL", cmd_getacl, 0);
 	command_register("MYRIGHTS", cmd_myrights, 0);
 	command_register("SETACL", cmd_setacl, 0);
 	command_register("DELETEACL", cmd_deleteacl, 0);
+
+	next_hook_client_created = hook_client_created;
+	hook_client_created = imap_acl_client_created;
 }
 
 void imap_acl_plugin_deinit(void)
@@ -495,4 +505,6 @@ void imap_acl_plugin_deinit(void)
 	command_unregister("SETACL");
 	command_unregister("DELETEACL");
 	command_unregister("LISTRIGHTS");
+
+	hook_client_created = next_hook_client_created;
 }

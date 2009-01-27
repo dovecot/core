@@ -3,6 +3,7 @@
 
 #include "mail-namespace.h"
 #include "mailbox-list.h"
+#include "mail-storage-settings.h"
 
 struct dirent;
 struct imap_match_glob;
@@ -76,6 +77,7 @@ struct mailbox_list {
 	pool_t pool;
 	struct mail_namespace *ns;
 	struct mailbox_list_settings set;
+	const struct mail_storage_settings *mail_set;
 	enum mailbox_list_flags flags;
 
 	/* -1 if not set yet. use mailbox_list_get_permissions() to set them */

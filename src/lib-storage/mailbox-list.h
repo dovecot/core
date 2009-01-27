@@ -13,16 +13,8 @@ enum mailbox_list_properties {
 };
 
 enum mailbox_list_flags {
-	/* Print debugging information while initializing the driver */
-	MAILBOX_LIST_FLAG_DEBUG			= 0x01,
-	/* Allow full filesystem access with absolute or relative paths. */
-	MAILBOX_LIST_FLAG_FULL_FS_ACCESS	= 0x04,
-	/* Rely on O_EXCL when creating dotlocks */
-	MAILBOX_LIST_FLAG_DOTLOCK_USE_EXCL	= 0x08,
 	/* Mailboxes are files, not directories. */
-	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x10,
-	/* Flush NFS attribute cache when needed */
-	MAILBOX_LIST_FLAG_NFS_FLUSH		= 0x20
+	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x01
 };
 
 enum mailbox_info_flags {

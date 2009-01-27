@@ -51,6 +51,9 @@ doc/wiki/*.txt
 doc/wiki/Makefile.am
 src/auth/checkpassword-reply
 src/auth/dovecot-auth
+src/config/all-settings.c
+src/config/all-settings.h
+src/config/doveconf
 src/deliver/deliver
 src/dict/dict
 src/imap-login/imap-login

@@ -61,18 +61,17 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 						  mailbox_get_name(box));
 	if (*path == '\0') {
 		/* in-memory indexes */
-		if ((storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0)
+		if (storage->set->mail_debug)
 			i_info("fts squat: Disabled with in-memory indexes");
 		return NULL;
 	}
 
 	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
-	if ((storage->flags & (MAIL_STORAGE_FLAG_MMAP_DISABLE |
-			       MAIL_STORAGE_FLAG_MMAP_NO_WRITE)) != 0)
+	if (storage->set->mmap_disable || storage->set->mmap_no_write)
 		flags |= SQUAT_INDEX_FLAG_MMAP_DISABLE;
-	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX) != 0)
+	if (storage->set->mail_nfs_index)
 		flags |= SQUAT_INDEX_FLAG_NFS_FLUSH;
-	if ((storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0)
+	if (storage->set->dotlock_use_excl)
 		flags |= SQUAT_INDEX_FLAG_DOTLOCK_USE_EXCL;
 
 	backend = i_new(struct squat_fts_backend, 1);

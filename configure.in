@@ -2336,6 +2336,14 @@ fi
 AM_CONDITIONAL(BUILD_SOLR, test "$have_solr" = "yes")
 
 dnl **
+dnl ** Settings
+dnl **
+
+dnl get a list of setting .[ch] files, but list .h files first
+SETTING_FILES=`find $srcdir/src -name '*settings.[[ch]]' ! -name all-settings.[[ch]] | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g' -e 's/^\(.*\)\(.\)$/\2 \1\2/' | sort -r | sed s/^..//|tr '\n' ' '`
+AC_SUBST(SETTING_FILES)
+
+dnl **
 dnl ** capabilities
 dnl **
 
@@ -2380,6 +2388,7 @@ src/lib-storage/index/raw/Makefile
 src/lib-storage/index/shared/Makefile
 src/lib-storage/register/Makefile
 src/auth/Makefile
+src/config/Makefile
 src/deliver/Makefile
 src/dict/Makefile
 src/imap/Makefile

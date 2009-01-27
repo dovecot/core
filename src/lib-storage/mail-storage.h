@@ -13,33 +13,14 @@ struct message_size;
 #define MAIL_STORAGE_STAYALIVE_SECS 15
 
 enum mail_storage_flags {
-	/* Print debugging information while initializing the storage */
-	MAIL_STORAGE_FLAG_DEBUG			= 0x01,
-	/* Allow full filesystem access with absolute or relative paths. */
-	MAIL_STORAGE_FLAG_FULL_FS_ACCESS	= 0x02,
-	/* Don't try to mmap() files */
-	MAIL_STORAGE_FLAG_MMAP_DISABLE		= 0x04,
-	/* Don't try to write() to mmap()ed files. Required for the few
-	   OSes that don't have unified buffer cache
-	   (currently OpenBSD <= 3.5) */
-	MAIL_STORAGE_FLAG_MMAP_NO_WRITE		= 0x08,
 	/* Remember message headers' MD5 sum */
-	MAIL_STORAGE_FLAG_KEEP_HEADER_MD5	= 0x10,
-	/* Use CRLF linefeeds when saving mails. */
-	MAIL_STORAGE_FLAG_SAVE_CRLF		= 0x40,
+	MAIL_STORAGE_FLAG_KEEP_HEADER_MD5	= 0x01,
 	/* Don't try to autodetect anything, require that the given data 
 	   contains all the necessary information. */
-	MAIL_STORAGE_FLAG_NO_AUTODETECTION	= 0x100,
+	MAIL_STORAGE_FLAG_NO_AUTODETECTION	= 0x02,
 	/* Don't autocreate any directories. If they don't exist,
 	   fail to create the storage. */
-	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x200,
-	/* Rely on O_EXCL when creating dotlocks */
-	MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL	= 0x400,
-	/* Flush NFS caches for mail storage / index */
-	MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE	= 0x800,
-	MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX	= 0x1000,
-	/* Don't use fsync() or fdatasync() */
-	MAIL_STORAGE_FLAG_FSYNC_DISABLE		= 0x2000
+	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x04
 };
 
 enum mailbox_open_flags {
@@ -239,8 +220,10 @@ struct mailbox_virtual_pattern {
 	const char *pattern;
 };
 ARRAY_DEFINE_TYPE(mailbox_virtual_patterns, struct mailbox_virtual_pattern);
-
+ARRAY_DEFINE_TYPE(mail_storage, struct mail_storage *);
 ARRAY_DEFINE_TYPE(mailboxes, struct mailbox *);
+
+extern ARRAY_TYPE(mail_storage) mail_storage_classes;
 
 typedef void mailbox_notify_callback_t(struct mailbox *box, void *context);
 
@@ -257,25 +240,25 @@ void mail_storage_class_unregister(struct mail_storage *storage_class);
 /* Find mail storage class by name */
 struct mail_storage *mail_storage_find_class(const char *name);
 
-/* Returns flags and lock_method based on environment settings. */
-void mail_storage_parse_env(enum mail_storage_flags *flags_r,
-			    enum file_lock_method *lock_method_r);
-
 /* Create a new instance of registered mail storage class with given
    storage-specific data. If driver is NULL, it's tried to be autodetected
-   from data. If data is NULL, it uses the first storage that exists.
-   The storage is put into ns->storage. */
+   from ns location. If ns location is NULL, it uses the first storage that
+   exists. The storage is put into ns->storage. */
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
-			const char *data, enum mail_storage_flags flags,
-			enum file_lock_method lock_method,
-			const char **error_r);
+			enum mail_storage_flags flags, const char **error_r);
 void mail_storage_destroy(struct mail_storage **storage);
 
+/* Returns the storage's real hierarchy separator. */
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);
+/* Returns the storage's mailbox list backend. */
 struct mailbox_list *
 mail_storage_get_list(const struct mail_storage *storage) ATTR_PURE;
+/* Returns the storage's namespace. */
 struct mail_namespace *
 mail_storage_get_namespace(const struct mail_storage *storage) ATTR_PURE;
+/* Returns the mail storage settings. */
+const struct mail_storage_settings *
+mail_storage_get_settings(struct mail_storage *storage) ATTR_PURE;
 
 /* Set storage callback functions to use. */
 void mail_storage_set_callbacks(struct mail_storage *storage,
@@ -326,10 +309,15 @@ int mailbox_close(struct mailbox **box);
 
 /* Enable the given feature for the mailbox. */
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features);
-enum mailbox_feature mailbox_get_enabled_features(struct mailbox *box);
+/* Returns all enabled features. */
+enum mailbox_feature
+mailbox_get_enabled_features(struct mailbox *box) ATTR_PURE;
 
 /* Returns storage of given mailbox */
 struct mail_storage *mailbox_get_storage(const struct mailbox *box) ATTR_PURE;
+/* Returns the storage's settings. */
+const struct mail_storage_settings *
+mailbox_get_settings(struct mailbox *box) ATTR_PURE;
 
 /* Returns name of given mailbox */
 const char *mailbox_get_name(const struct mailbox *box) ATTR_PURE;

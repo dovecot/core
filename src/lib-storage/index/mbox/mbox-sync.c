@@ -1675,9 +1675,10 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags,
 
 	delay_writes = mbox->ibox.backend_readonly ||
 		((flags & MBOX_SYNC_REWRITE) == 0 &&
-		 getenv("MBOX_LAZY_WRITES") != NULL);
+		 mbox->storage->set->mbox_lazy_writes);
 
-	if (!mbox->mbox_do_dirty_syncs)
+	if (!mbox->storage->set->mbox_dirty_syncs &&
+	    !mbox->storage->set->mbox_very_dirty_syncs)
 		flags |= MBOX_SYNC_UNDIRTY;
 
 	if ((flags & MBOX_SYNC_LOCK_READING) != 0) {
@@ -1865,8 +1866,8 @@ again:
 
 	i_assert(*lock_id != 0);
 
-	if ((mbox->storage->storage.flags &
-	     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0 && mbox->mbox_fd != -1) {
+	if (mbox->storage->storage.set->mail_nfs_storage &&
+	    mbox->mbox_fd != -1) {
 		if (fdatasync(mbox->mbox_fd) < 0) {
 			mbox_set_syscall_error(mbox, "fdatasync()");
 			ret = -1;
@@ -1923,7 +1924,7 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	if (index_mailbox_want_full_sync(&mbox->ibox, flags)) {
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
-		    !mbox->mbox_very_dirty_syncs)
+		    !mbox->storage->set->mbox_very_dirty_syncs)
 			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_WRITE) != 0)
 			mbox_sync_flags |= MBOX_SYNC_REWRITE;

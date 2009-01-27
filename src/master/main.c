@@ -54,7 +54,7 @@ static void ATTR_NORETURN ATTR_FORMAT(3, 0)
 master_fatal_callback(enum log_type type, int status,
 		      const char *format, va_list args)
 {
-	const struct settings *set = settings_root->defaults;
+	const struct master_settings *set = master_set->defaults;
 	const char *path, *str;
 	va_list args2;
 	int fd;
@@ -82,7 +82,7 @@ master_fatal_callback(enum log_type type, int status,
 
 static void fatal_log_check(void)
 {
-	const struct settings *set = settings_root->defaults;
+	const struct master_settings *set = master_set->defaults;
 	const char *path;
 	char buf[1024];
 	ssize_t ret;
@@ -107,12 +107,15 @@ static void fatal_log_check(void)
 		i_error("unlink(%s) failed: %m", path);
 }
 
-static void auth_warning_print(const struct server_settings *set)
+static void auth_warning_print(const struct master_server_settings *set)
 {
+	struct master_auth_settings *const *auths;
+	unsigned int count;
 	struct stat st;
 
 	auth_success_written = stat(AUTH_SUCCESS_PATH, &st) == 0;
-	if (!auth_success_written && !set->auths->debug &&
+	auths = array_get(&set->defaults->auths, &count);
+	if (!auth_success_written && count > 0 && !auths[0]->debug &&
 	    strcmp(set->defaults->protocols, "none") != 0) {
 		i_info("If you have trouble with authentication failures,\n"
 		       "enable auth_debug setting. "
@@ -121,7 +124,7 @@ static void auth_warning_print(const struct server_settings *set)
 	}
 }
 
-static void set_logfile(struct settings *set)
+static void set_logfile(struct master_settings *set)
 {
 	int facility;
 
@@ -144,7 +147,9 @@ static void set_logfile(struct settings *set)
 
 static void settings_reload(void)
 {
-	struct server_settings *old_set = settings_root;
+	/* this old_set wrapping works because master settings are
+	   alternatingly read using two different pools */
+	struct master_server_settings *set, *old_set = master_set;
 
 	i_warning("SIGHUP received - reloading configuration");
 
@@ -156,12 +161,13 @@ static void settings_reload(void)
 	/* see if hostname changed */
 	hostpid_init();
 
-	if (!master_settings_read(configfile, FALSE, FALSE))
+	if (master_settings_read(configfile, &set) < 0 ||
+	    !master_settings_check(set, FALSE, FALSE))
 		i_warning("Invalid configuration, keeping old one");
 	else {
 		if (!IS_INETD())
 			listeners_open_fds(old_set, TRUE);
-                set_logfile(settings_root->defaults);
+                set_logfile(set->defaults);
 	}
 }
 
@@ -183,10 +189,10 @@ static void sig_reload_settings(int signo ATTR_UNUSED,
 static void sig_reopen_logs(int signo ATTR_UNUSED,
 			    void *context ATTR_UNUSED)
 {
-	set_logfile(settings_root->defaults);
+	set_logfile(master_set->defaults);
 }
 
-static bool have_stderr_set(struct settings *set)
+static bool have_stderr_set(struct master_settings *set)
 {
 	if (*set->log_path != '\0' &&
 	    strcmp(set->log_path, "/dev/stderr") == 0)
@@ -199,17 +205,12 @@ static bool have_stderr_set(struct settings *set)
 	return FALSE;
 }
 
-static bool have_stderr(struct server_settings *server)
+static bool have_stderr(struct master_server_settings *server)
 {
-	while (server != NULL) {
-		if (server->imap != NULL && have_stderr_set(server->imap))
-			return TRUE;
-		if (server->pop3 != NULL && have_stderr_set(server->pop3))
-			return TRUE;
-
-		server = server->next;
-	}
-
+	if (server->imap != NULL && have_stderr_set(server->imap))
+		return TRUE;
+	if (server->pop3 != NULL && have_stderr_set(server->pop3))
+		return TRUE;
 	return FALSE;
 }
 
@@ -259,6 +260,44 @@ static void create_pid_file(const char *path)
 	(void)close(fd);
 }
 
+static void pid_file_check_running(const struct master_settings *set)
+{
+	const char *path;
+	char buf[32];
+	int fd;
+	ssize_t ret;
+
+	path = t_strconcat(set->base_dir, "/master.pid", NULL);
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		if (errno == ENOENT)
+			return;
+		i_fatal("open(%s) failed: %m", path);
+	}
+
+	ret = read(fd, buf, sizeof(buf));
+	if (ret <= 0) {
+		if (ret == 0)
+			i_error("Empty PID file in %s, overriding", path);
+		else
+			i_fatal("read(%s) failed: %m", path);
+	} else {
+		pid_t pid;
+
+		if (buf[ret-1] == '\n')
+			ret--;
+		buf[ret] = '\0';
+		pid = atoi(buf);
+		if (pid == getpid() || (kill(pid, 0) < 0 && errno == ESRCH)) {
+			/* doesn't exist */
+		} else {
+			i_fatal("Dovecot is already running with PID %s "
+				"(read from %s)", buf, path);
+		}
+	}
+	(void)close(fd);
+}
+
 static void main_log_startup(void)
 {
 #define STARTUP_STRING PACKAGE_NAME" v"VERSION" starting up"
@@ -277,9 +316,9 @@ static void main_init(bool log_error)
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
 
-	set_logfile(settings_root->defaults);
+	set_logfile(master_set->defaults);
 	/* close stderr unless we're logging into /dev/stderr. */
-	if (!have_stderr(settings_root)) {
+	if (!have_stderr(master_set)) {
 		if (dup2(null_fd, 2) < 0)
 			i_fatal("dup2(2) failed: %m");
 	}
@@ -309,13 +348,13 @@ static void main_init(bool log_error)
 	login_processes_init();
 	mail_processes_init();
 
-	create_pid_file(t_strconcat(settings_root->defaults->base_dir,
+	create_pid_file(t_strconcat(master_set->defaults->base_dir,
 				    "/master.pid", NULL));
 }
 
 static void main_deinit(void)
 {
-	(void)unlink(t_strconcat(settings_root->defaults->base_dir,
+	(void)unlink(t_strconcat(master_set->defaults->base_dir,
 				 "/master.pid", NULL));
 
 	login_processes_destroy_all();
@@ -337,7 +376,7 @@ static void main_deinit(void)
 	closelog();
 }
 
-static void daemonize(struct settings *set)
+static void daemonize(struct master_settings *set)
 {
 	pid_t pid;
 
@@ -468,6 +507,7 @@ static void print_build_options(void)
 int main(int argc, char *argv[])
 {
 	/* parse arguments */
+	struct master_server_settings *set;
 	const char *exec_protocol = NULL, **exec_args = NULL, *user, *home;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
 	bool dump_config = FALSE, dump_config_nondefaults = FALSE;
@@ -541,28 +581,37 @@ int main(int argc, char *argv[])
 	/* read and verify settings before forking */
 	T_BEGIN {
 		master_settings_init();
-		if (!master_settings_read(configfile, exec_protocol != NULL,
-					  dump_config || log_error))
+		if (master_settings_read(configfile, &set) < 0)
 			i_fatal("Invalid configuration in %s", configfile);
 	} T_END;
+
+	if (!log_error && !dump_config && exec_protocol == NULL)
+		pid_file_check_running(set->defaults);
+
+	if (!master_settings_check(set, exec_protocol != NULL,
+				   dump_config || log_error))
+		i_fatal("Invalid configuration in %s", configfile);
 
 	if (dump_config) {
 		const char *info;
 
-		info = sysinfo_get(settings_root->defaults->mail_location);
+		info = sysinfo_get(master_set->defaults->mail_location);
 		if (*info != '\0')
 			printf("# %s\n", info);
 
-		master_settings_dump(settings_root, dump_config_nondefaults);
-		return 0;
+		if (dump_config_nondefaults)
+			client_process_exec(DOVECOT_CONFIG_BIN_PATH" -a", "");
+		else
+			client_process_exec(DOVECOT_CONFIG_BIN_PATH" -n", "");
+		i_fatal("exec(%s) failed: %m", DOVECOT_CONFIG_BIN_PATH);
 	}
 
-	if (ask_key_pass) T_BEGIN {
+	if (ask_key_pass && !log_error) T_BEGIN {
 		const char *prompt;
 
 		prompt = t_strdup_printf("Give the password for SSL key file "
 					 "%s: ",
-					 settings_root->defaults->ssl_key_file);
+					 master_set->defaults->ssl_key_file);
 		askpass(prompt, ssl_manual_key_password,
 			sizeof(ssl_manual_key_password));
 	} T_END;
@@ -591,9 +640,9 @@ int main(int argc, char *argv[])
 		open_fds();
 
 	fatal_log_check();
-	auth_warning_print(settings_root);
+	auth_warning_print(master_set);
 	if (!foreground)
-		daemonize(settings_root->defaults);
+		daemonize(master_set->defaults);
 	master_original_pid = getpid();
 
 	ioloop = io_loop_create();

@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = pop3
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage \
@@ -20,6 +21,7 @@ unused_objects = \
 libs = \
 	$(STORAGE_LIBS) \
 	../lib-dict/libdict.a \
+	../lib-settings/libsettings.a \
 	$(unused_objects)
 
 pop3_LDADD = \
@@ -32,13 +34,15 @@ pop3_DEPENDENCIES = $(libs)
 pop3_SOURCES = \
 	client.c \
 	commands.c \
-	main.c
+	main.c \
+	pop3-settings.c
 
 headers = \
 	capability.h \
 	client.h \
 	commands.h \
-	common.h
+	common.h \
+	pop3-settings.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/pop3

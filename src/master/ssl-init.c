@@ -60,7 +60,7 @@ static void start_generate_process(const char *fname)
 	if (dup2(log_fd, 2) < 0)
 		i_fatal("dup2(stderr) failed: %m");
 
-	child_process_init_env();
+	child_process_init_env(master_set->defaults);
 	client_process_exec(t_strconcat(binpath, " "SSL_PARAMETERS_PERM_PATH,
 					NULL), "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", binpath);
@@ -80,7 +80,7 @@ ssl_parameter_process_destroyed(struct child_process *process ATTR_UNUSED,
 	i_free_and_null(generating_path);
 }
 
-static bool check_parameters_file_set(struct settings *set)
+static bool check_parameters_file_set(struct master_settings *set)
 {
 	const char *path;
 	struct stat st, st2;
@@ -141,16 +141,10 @@ static bool check_parameters_file_set(struct settings *set)
 
 void ssl_check_parameters_file(void)
 {
-	struct server_settings *server;
-
 	if (generating_path != NULL)
 		return;
 
-	for (server = settings_root; server != NULL; server = server->next) {
-		if (server->defaults != NULL &&
-		    !check_parameters_file_set(server->defaults))
-			break;
-	}
+	(void)check_parameters_file_set(master_set->defaults);
 }
 
 static void check_parameters_file_timeout(void *context ATTR_UNUSED)

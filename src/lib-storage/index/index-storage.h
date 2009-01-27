@@ -47,7 +47,6 @@ struct index_mailbox {
 
 	const ARRAY_TYPE(keywords) *keyword_names;
 	struct mail_cache_field *cache_fields;
-	unsigned int mail_cache_min_mail_count;
 
 	ARRAY_TYPE(seq_range) recent_flags;
 	uint32_t recent_flags_prev_uid;

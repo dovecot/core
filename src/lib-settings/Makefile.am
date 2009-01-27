@@ -4,10 +4,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
 libsettings_a_SOURCES = \
-	settings.c
+	settings.c \
+	settings-parser.c
 
 headers = \
-	settings.h
+	settings.h \
+	settings-parser.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/lib-settings

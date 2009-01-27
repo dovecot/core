@@ -2,9 +2,9 @@
 
 #include "common.h"
 #include "network.h"
-#include "buffer.h"
+#include "array.h"
 #include "str.h"
-#include "hostpid.h"
+#include "env-util.h"
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
@@ -15,72 +15,65 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-struct auth *auth_preinit(void)
+struct auth_userdb_settings userdb_dummy_set = {
+	MEMBER(driver) "static",
+	MEMBER(args) ""
+};
+
+struct auth *auth_preinit(struct auth_settings *set)
 {
+	struct auth_passdb_settings *const *passdbs;
+	struct auth_userdb_settings *const *userdbs;
 	struct auth *auth;
-	struct auth_passdb *auth_passdb, **passdb_p, **masterdb_p;
-	const char *driver, *args;
 	pool_t pool;
-	unsigned int i;
+	unsigned int i, count, db_count, passdb_count, last_passdb = 0;
 
 	pool = pool_alloconly_create("auth", 2048);
 	auth = p_new(pool, struct auth, 1);
 	auth->pool = pool;
+	auth->set = set;
 
-	auth->verbose_debug_passwords =
-		getenv("VERBOSE_DEBUG_PASSWORDS") != NULL;
-	auth->verbose_debug = getenv("VERBOSE_DEBUG") != NULL ||
-		auth->verbose_debug_passwords;
-	auth->verbose = getenv("VERBOSE") != NULL || auth->verbose_debug;
-
-	passdb_p = &auth->passdbs;
-	masterdb_p = &auth->masterdbs;
-	auth_passdb = NULL;
-	for (i = 1; ; i++) {
-		driver = getenv(t_strdup_printf("PASSDB_%u_DRIVER", i));
-		if (driver == NULL)
-			break;
-
-                args = getenv(t_strdup_printf("PASSDB_%u_ARGS", i));
-		auth_passdb = passdb_preinit(auth, driver, args, i);
-
-                auth_passdb->deny =
-                        getenv(t_strdup_printf("PASSDB_%u_DENY", i)) != NULL;
-		auth_passdb->pass =
-                        getenv(t_strdup_printf("PASSDB_%u_PASS", i)) != NULL;
-
-		if (getenv(t_strdup_printf("PASSDB_%u_MASTER", i)) == NULL) {
-			*passdb_p = auth_passdb;
-			passdb_p = &auth_passdb->next;
-                } else {
-			if (auth_passdb->deny)
-				i_fatal("Master passdb can't have deny=yes");
-
-			*masterdb_p = auth_passdb;
-			masterdb_p = &auth_passdb->next;
-		}
+	if (array_is_created(&set->passdbs))
+		passdbs = array_get(&set->passdbs, &db_count);
+	else {
+		passdbs = NULL;
+		db_count = 0;
 	}
-	if (auth_passdb != NULL && auth_passdb->pass) {
-		if (masterdb_p != &auth_passdb->next)
-			i_fatal("Last passdb can't have pass=yes");
-		else if (auth->passdbs == NULL) {
+
+	/* initialize passdbs first and count them */
+	for (passdb_count = 0, i = 0; i < db_count; i++) {
+		if (passdbs[i]->master)
+			continue;
+
+		passdb_preinit(auth, passdbs[i]);
+		passdb_count++;
+		last_passdb = i;
+	}
+	if (passdb_count != 0 && passdbs[last_passdb]->pass)
+		i_fatal("Last passdb can't have pass=yes");
+
+	for (passdb_count = 0, i = 0; i < db_count; i++) {
+		if (!passdbs[i]->master)
+			continue;
+
+		if (passdbs[i]->deny)
+			i_fatal("Master passdb can't have deny=yes");
+		if (passdbs[i]->pass && passdb_count == 0) {
 			i_fatal("Master passdb can't have pass=yes "
 				"if there are no passdbs");
 		}
+		passdb_preinit(auth, passdbs[i]);
 	}
 
-	for (i = 1; ; i++) {
-		driver = getenv(t_strdup_printf("USERDB_%u_DRIVER", i));
-		if (driver == NULL)
-			break;
-
-                args = getenv(t_strdup_printf("USERDB_%u_ARGS", i));
-		userdb_preinit(auth, driver, args);
+	if (array_is_created(&set->userdbs)) {
+		userdbs = array_get(&set->userdbs, &count);
+		for (i = 0; i < count; i++)
+			userdb_preinit(auth, userdbs[i]);
 	}
 
 	if (auth->userdbs == NULL) {
 		/* use a dummy userdb static. */
-		userdb_preinit(auth, "static", "");
+		userdb_preinit(auth, &userdb_dummy_set);
 	}
 	return auth;
 }
@@ -209,7 +202,7 @@ void auth_init(struct auth *auth)
 	struct auth_userdb *userdb;
 	const struct mech_module *mech;
 	const char *const *mechanisms;
-	const char *env;
+	const char *p;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
 		passdb_init(passdb);
@@ -219,26 +212,17 @@ void auth_init(struct auth *auth)
 		userdb_init(userdb);
 	/* caching is handled only by the main auth process */
 	if (!worker)
-		passdb_cache_init();
+		passdb_cache_init(auth->set);
 
 	auth->mech_handshake = str_new(auth->pool, 512);
 
-	auth->anonymous_username = getenv("ANONYMOUS_USERNAME");
-	if (auth->anonymous_username != NULL &&
-	    *auth->anonymous_username == '\0')
-                auth->anonymous_username = NULL;
-
 	/* register wanted mechanisms */
-	env = getenv("MECHANISMS");
-	if (env == NULL)
-		i_fatal("MECHANISMS environment is unset");
-
-	mechanisms = t_strsplit_spaces(env, " ");
+	mechanisms = t_strsplit_spaces(auth->set->mechanisms, " ");
 	while (*mechanisms != NULL) {
 		if (strcasecmp(*mechanisms, "ANONYMOUS") == 0) {
-			if (auth->anonymous_username == NULL) {
+			if (*auth->set->anonymous_username == '\0') {
 				i_fatal("ANONYMOUS listed in mechanisms, "
-					"but anonymous_username not given");
+					"but anonymous_username not set");
 			}
 		}
 		mech = mech_module_find(*mechanisms);
@@ -255,48 +239,22 @@ void auth_init(struct auth *auth)
 		i_fatal("No authentication mechanisms configured");
 	auth_mech_list_verify_passdb(auth);
 
-	env = getenv("REALMS");
-	if (env == NULL)
-		env = "";
-	auth->auth_realms = p_strsplit_spaces(auth->pool, env, " ");
+	auth->auth_realms = (const char *const *)
+		p_strsplit_spaces(auth->pool, auth->set->realms, " ");
 
-	env = getenv("DEFAULT_REALM");
-	if (env != NULL && *env != '\0')
-		auth->default_realm = env;
-
-	env = getenv("USERNAME_CHARS");
-	if (env == NULL || *env == '\0') {
+	if (*auth->set->username_chars == '\0') {
 		/* all chars are allowed */
 		memset(auth->username_chars, 1, sizeof(auth->username_chars));
 	} else {
-		for (; *env != '\0'; env++)
-			auth->username_chars[(int)(uint8_t)*env] = 1;
+		for (p = auth->set->username_chars; *p != '\0'; p++)
+			auth->username_chars[(int)(uint8_t)*p] = 1;
 	}
 
-	env = getenv("USERNAME_TRANSLATION");
-	if (env != NULL) {
-		for (; *env != '\0' && env[1] != '\0'; env += 2)
-			auth->username_translation[(int)(uint8_t)*env] = env[1];
+	if (*auth->set->username_translation != '\0') {
+		p = auth->set->username_translation;
+		for (; *p != '\0' && p[1] != '\0'; p += 2)
+			auth->username_translation[(int)(uint8_t)*p] = p[1];
 	}
-
-	env = getenv("USERNAME_FORMAT");
-	if (env != NULL && *env != '\0')
-		auth->username_format = env;
-
-	env = getenv("GSSAPI_HOSTNAME");
-	if (env != NULL && *env != '\0')
-		auth->gssapi_hostname = env;
-	else
-		auth->gssapi_hostname = my_hostname;
-
-	env = getenv("MASTER_USER_SEPARATOR");
-	if (env != NULL)
-		auth->master_user_separator = env[0];
-
-	auth->ssl_require_client_cert =
-		getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
-	auth->ssl_username_from_cert =
-		getenv("SSL_USERNAME_FROM_CERT") != NULL;
 }
 
 void auth_deinit(struct auth **_auth)

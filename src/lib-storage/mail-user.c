@@ -2,7 +2,12 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hostpid.h"
+#include "network.h"
+#include "var-expand.h"
+#include "settings-parser.h"
 #include "auth-master.h"
+#include "mail-storage-settings.h"
 #include "mail-namespace.h"
 #include "mail-user.h"
 
@@ -19,7 +24,8 @@ static void mail_user_deinit_base(struct mail_user *user)
 	pool_unref(&user->pool);
 }
 
-struct mail_user *mail_user_init(const char *username)
+struct mail_user *mail_user_alloc(const char *username,
+				  const struct mail_user_settings *set)
 {
 	struct mail_user *user;
 	pool_t pool;
@@ -27,17 +33,39 @@ struct mail_user *mail_user_init(const char *username)
 	i_assert(username != NULL);
 	i_assert(*username != '\0');
 
-	pool = pool_alloconly_create("mail user", 512);
+	pool = pool_alloconly_create("mail user", 2048);
 	user = p_new(pool, struct mail_user, 1);
 	user->pool = pool;
 	user->refcount = 1;
 	user->username = p_strdup(pool, username);
+	user->unexpanded_set = set;
+	user->set = settings_dup(&mail_user_setting_parser_info, set, pool);
 	user->v.deinit = mail_user_deinit_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
+	return user;
+}
 
+int mail_user_init(struct mail_user *user, const char **error_r)
+{
+	const char *home, *key, *value;
+
+	if (user->_home == NULL &&
+	    settings_vars_have_key(&mail_user_setting_parser_info, user->set,
+				   'h', "home", &key, &value) &&
+	    mail_user_get_home(user, &home) <= 0) {
+		*error_r = t_strdup_printf(
+			"userdb didn't return a home directory, "
+			"but %s used it (%%h): %s", key, value);
+		return -1;
+	}
+
+	settings_var_expand(&mail_user_setting_parser_info, user->set,
+			    user->pool, mail_user_var_expand_table(user));
+
+	user->initialized = TRUE;
 	if (hook_mail_user_created != NULL)
 		hook_mail_user_created(user);
-	return user;
+	return 0;
 }
 
 void mail_user_ref(struct mail_user *user)
@@ -67,6 +95,62 @@ struct mail_user *mail_user_find(struct mail_user *user, const char *name)
 			return ns->owner;
 	}
 	return NULL;
+}
+
+void mail_user_set_vars(struct mail_user *user, uid_t uid, const char *service,
+			const struct ip_addr *local_ip,
+			const struct ip_addr *remote_ip)
+{
+	user->uid = uid;
+	user->service = p_strdup(user->pool, service);
+	if (local_ip != NULL) {
+		user->local_ip = p_new(user->pool, struct ip_addr, 1);
+		*user->local_ip = *local_ip;
+	}
+	if (remote_ip != NULL) {
+		user->remote_ip = p_new(user->pool, struct ip_addr, 1);
+		*user->remote_ip = *remote_ip;
+	}
+}
+
+const struct var_expand_table *
+mail_user_var_expand_table(struct mail_user *user)
+{
+	static struct var_expand_table static_tab[] = {
+		{ 'u', NULL, "user" },
+		{ 'n', NULL, "username" },
+		{ 'd', NULL, "domain" },
+		{ 's', NULL, "service" },
+		{ 'h', NULL, "home" },
+		{ 'l', NULL, "lip" },
+		{ 'r', NULL, "rip" },
+		{ 'p', NULL, "pid" },
+		{ 'i', NULL, "uid" },
+		{ '\0', NULL, NULL }
+	};
+	struct var_expand_table *tab;
+
+	if (user->var_expand_table != NULL)
+		return user->var_expand_table;
+
+	tab = p_malloc(user->pool, sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+
+	tab[0].value = user->username;
+	tab[1].value = p_strdup(user->pool, t_strcut(user->username, '@'));
+	tab[2].value = strchr(user->username, '@');
+	if (tab[2].value != NULL) tab[2].value++;
+	tab[3].value = user->service;
+	tab[4].value = user->_home; /* don't look it up unless we need it */
+	tab[5].value = user->local_ip == NULL ? NULL :
+		p_strdup(user->pool, net_ip2addr(user->local_ip));
+	tab[6].value = user->remote_ip == NULL ? NULL :
+		p_strdup(user->pool, net_ip2addr(user->remote_ip));
+	tab[7].value = my_pid;
+	tab[8].value = p_strdup(user->pool, dec2str(user->uid));
+
+	user->var_expand_table = tab;
+	return user->var_expand_table;
 }
 
 void mail_user_set_home(struct mail_user *user, const char *home)

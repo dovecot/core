@@ -41,7 +41,7 @@ void child_process_remove(pid_t pid)
 	hash_table_remove(processes, POINTER_CAST(pid));
 }
 
-void child_process_init_env(void)
+void child_process_init_env(const struct master_settings *set)
 {
 	int facility;
 
@@ -53,13 +53,12 @@ void child_process_init_env(void)
 	if (env_tz != NULL)
 		env_put(t_strconcat("TZ=", env_tz, NULL));
 
-	if (settings_root == NULL ||
-	    !syslog_facility_find(settings_root->defaults->syslog_facility,
-				  &facility))
+	if (master_set == NULL ||
+	    !syslog_facility_find(set->syslog_facility, &facility))
 		facility = LOG_MAIL;
 	env_put(t_strdup_printf("SYSLOG_FACILITY=%d", facility));
 
-	if (settings_root != NULL && !settings_root->defaults->version_ignore)
+	if (master_set != NULL && !set->version_ignore)
 		env_put("DOVECOT_VERSION="PACKAGE_VERSION);
 #ifdef DEBUG
 	if (gdb) env_put("GDB=1");

@@ -378,11 +378,10 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		if (ctx->fd == -1)
 			ctx->failed = TRUE;
 		else {
-			ctx->input = (ctx->mbox->storage->storage.flags &
-				      MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
-				i_stream_create_crlf(input) :
-				i_stream_create_lf(input);
-
+			if (ctx->mbox->storage->storage.set->mail_save_crlf)
+				ctx->input = i_stream_create_crlf(input);
+			else
+				ctx->input = i_stream_create_lf(input);
 			maildir_save_add(t, fname, _ctx->flags, _ctx->keywords,
 					 _ctx->dest_mail);
 		}

@@ -154,6 +154,7 @@ dbox_file_id_get_fname(struct dbox_mailbox *mbox, unsigned int file_id,
 struct dbox_file *
 dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id)
 {
+	const struct dbox_settings *set = mbox->storage->set;
 	struct dbox_file *file;
 	unsigned int count;
 	bool maildir;
@@ -166,8 +167,8 @@ dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id)
 	}
 
 	count = array_count(&mbox->open_files);
-	if (count > mbox->max_open_files)
-		dbox_close_open_files(mbox, count - mbox->max_open_files);
+	if (count > set->dbox_max_open_files)
+		dbox_close_open_files(mbox, count - set->dbox_max_open_files);
 
 	file = i_new(struct dbox_file, 1);
 	file->refcount = 1;
@@ -254,7 +255,8 @@ void dbox_file_unref(struct dbox_file **_file)
 
 	if (file->file_id != 0) {
 		files = array_get(&file->mbox->open_files, &count);
-		if (!file->deleted && count <= file->mbox->max_open_files) {
+		if (!file->deleted &&
+		    count <= file->mbox->storage->set->dbox_max_open_files) {
 			/* we can leave this file open for now */
 			return;
 		}
@@ -292,6 +294,8 @@ static time_t day_begin_stamp(unsigned int days)
 
 bool dbox_file_can_append(struct dbox_file *file, uoff_t mail_size)
 {
+	const struct dbox_settings *set = file->mbox->storage->set;
+
 	if (file->nonappendable)
 		return FALSE;
 
@@ -300,12 +304,12 @@ bool dbox_file_can_append(struct dbox_file *file, uoff_t mail_size)
 		return FALSE;
 	}
 
-	if (file->append_offset < file->mbox->rotate_min_size ||
+	if (file->append_offset < set->dbox_rotate_min_size ||
 	    file->append_offset == file->file_header_size)
 		return TRUE;
-	if (file->append_offset + mail_size >= file->mbox->rotate_size)
+	if (file->append_offset + mail_size >= set->dbox_rotate_size)
 		return FALSE;
-	return file->create_time >= day_begin_stamp(file->mbox->rotate_days);
+	return file->create_time >= day_begin_stamp(set->dbox_rotate_days);
 }
 
 static int dbox_file_parse_header(struct dbox_file *file, const char *line)
