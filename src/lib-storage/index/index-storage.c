@@ -520,7 +520,7 @@ bool index_storage_is_readonly(struct mailbox *box)
 bool index_storage_allow_new_keywords(struct mailbox *box)
 {
 	/* FIXME: return FALSE if we're full */
-	return index_storage_is_readonly(box);
+	return !index_storage_is_readonly(box);
 }
 
 bool index_storage_is_inconsistent(struct mailbox *box)
