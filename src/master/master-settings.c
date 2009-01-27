@@ -457,7 +457,7 @@ static bool auth_settings_verify(struct auth_settings *auth)
 	auth->gid = pw->pw_gid;
 
 	if (access(t_strcut(auth->executable, ' '), X_OK) < 0) {
-		i_error("Can't use auth executable %s: %m",
+		i_error("auth_executable: Can't use %s: %m",
 			t_strcut(auth->executable, ' '));
 		return FALSE;
 	}
@@ -803,7 +803,7 @@ static bool settings_verify(struct settings *set)
 
 	if (set->protocol != MAIL_PROTOCOL_ANY &&
 	    access(t_strcut(set->mail_executable, ' '), X_OK) < 0) {
-		i_error("Can't use mail executable %s: %m",
+		i_error("mail_executable: Can't use %s: %m",
 			t_strcut(set->mail_executable, ' '));
 		return FALSE;
 	}
@@ -811,7 +811,8 @@ static bool settings_verify(struct settings *set)
 	if (*set->log_path != '\0' && access(set->log_path, W_OK) < 0) {
 		dir = get_directory(set->log_path);
 		if (access(dir, W_OK) < 0) {
-			i_error("Can't write to log directory %s: %m", dir);
+			i_error("log_path: Can't write to directory %s: %m",
+				dir);
 			return FALSE;
 		}
 	}
@@ -820,14 +821,15 @@ static bool settings_verify(struct settings *set)
 	    access(set->info_log_path, W_OK) < 0) {
 		dir = get_directory(set->info_log_path);
 		if (access(dir, W_OK) < 0) {
-			i_error("Can't write to info log directory %s: %m",
+			i_error("info_log_path: Can't write to directory %s: %m",
 				dir);
 			return FALSE;
 		}
 	}
 
 	if (!syslog_facility_find(set->syslog_facility, &facility)) {
-		i_error("Unknown syslog_facility '%s'", set->syslog_facility);
+		i_error("syslog_facility: Unknown value: %s",
+			set->syslog_facility);
 		return FALSE;
 	}
 
@@ -841,18 +843,18 @@ static bool settings_verify(struct settings *set)
 	if (strcmp(set->ssl, "no") != 0) {
 		if (*set->ssl_ca_file != '\0' &&
 		    access(set->ssl_ca_file, R_OK) < 0) {
-			i_fatal("Can't use SSL CA file %s: %m",
+			i_fatal("ssl_ca_file: Can't use %s: %m",
 				set->ssl_ca_file);
 		}
 
 		if (access(set->ssl_cert_file, R_OK) < 0) {
-			i_error("Can't use SSL certificate %s: %m",
+			i_error("ssl_cert_file: Can't use %s: %m",
 				set->ssl_cert_file);
 			return FALSE;
 		}
 
 		if (access(set->ssl_key_file, R_OK) < 0) {
-			i_error("Can't use SSL key file %s: %m",
+			i_error("ssl_key_file: Can't use %s: %m",
 				set->ssl_key_file);
 			return FALSE;
 		}
@@ -895,7 +897,7 @@ static bool settings_verify(struct settings *set)
 
 	if (set->protocol != MAIL_PROTOCOL_ANY &&
 	    access(t_strcut(set->login_executable, ' '), X_OK) < 0) {
-		i_error("Can't use login executable %s: %m",
+		i_error("login_executable: Can't use %s: %m",
 			t_strcut(set->login_executable, ' '));
 		return FALSE;
 	}
@@ -921,14 +923,14 @@ static bool settings_verify(struct settings *set)
 #ifdef HAVE_MODULES
 	if (*set->mail_plugins != '\0' &&
 	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
-		i_error("Can't access mail module directory: %s: %m",
+		i_error("mail_plugin_dir: Can't access directory: %s: %m",
 			set->mail_plugin_dir);
 		return FALSE;
 	}
 #else
 	if (*set->mail_plugins != '\0') {
-		i_error("Module support wasn't built into Dovecot, "
-			"can't load modules: %s", set->mail_plugins);
+		i_error("mail_plugins: Plugin support wasn't built into Dovecot, "
+			"can't load plugins: %s", set->mail_plugins);
 		return FALSE;
 	}
 #endif
@@ -1537,7 +1539,8 @@ bool master_settings_read(const char *path, bool nochecks, bool nofixes)
 	for (server = ctx.root; server != NULL; server = server->next) {
 		if ((*server->imap->protocols == '\0' ||
 		     *server->pop3->protocols == '\0') && !nochecks) {
-			i_error("No protocols given in configuration file");
+			i_error("protocols: No protocols given "
+				"in configuration file");
 			return FALSE;
 		}
 		/* --exec-mail is used if nochecks=TRUE. Allow it regardless
