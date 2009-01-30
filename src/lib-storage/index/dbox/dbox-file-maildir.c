@@ -93,10 +93,9 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 				return NULL;
 			}
 		}
-		if (key == DBOX_METADATA_RECEIVED_TIME)
-			value = dec2str(st.st_mtime);
-		else
-			value = dec2str(st.st_ctime);
+		value = t_strdup_printf("%lx", (unsigned long)
+					(key == DBOX_METADATA_RECEIVED_TIME ?
+					 st.st_mtime : st.st_ctime));
 		break;
 	case DBOX_METADATA_VIRTUAL_SIZE:
 		if (!maildir_filename_get_size(file->fname,
