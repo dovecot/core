@@ -981,7 +981,7 @@ void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
 {
-	const char *p;
+	const char *p, *orig_value;
 
 	i_assert(*name != '\0');
 	i_assert(value != NULL);
@@ -999,6 +999,7 @@ void auth_request_set_field(struct auth_request *request,
 	if (strcmp(name, "user") == 0 ||
 	    strcmp(name, "username") == 0 || strcmp(name, "domain") == 0) {
 		/* update username */
+		orig_value = value;
 		if (strcmp(name, "username") == 0 &&
 		    strchr(value, '@') == NULL &&
 		    (p = strchr(request->user, '@')) != NULL) {
@@ -1023,6 +1024,9 @@ void auth_request_set_field(struct auth_request *request,
 				request->user, value);
 			request->user = p_strdup(request->pool, value);
 		}
+		/* restore the original value so it gets saved correctly to
+		   cache. */
+		value = orig_value;
 	} else if (strcmp(name, "nodelay") == 0) {
 		/* don't delay replying to client of the failure */
 		request->no_failure_delay = TRUE;
