@@ -65,22 +65,6 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 	return auth_request;
 }
 
-static void
-add_userdb_replies(struct auth_stream_reply *reply,
-		   struct auth_stream_reply *userdb_reply)
-{
-	const char *const *tmp;
-
-	tmp = auth_stream_split(userdb_reply);
-	i_assert(*tmp != NULL);
-	/* first field is the user name */
-	tmp++;
-	for (; *tmp != NULL; tmp++) {
-		auth_stream_reply_import(reply,
-					 t_strconcat("userdb_", *tmp, NULL));
-	}
-}
-
 static void auth_worker_send_reply(struct auth_worker_client *client,
 				   string_t *str)
 {
@@ -228,8 +212,6 @@ lookup_credentials_callback(enum passdb_result result,
 				auth_stream_reply_export(request->extra_cache_fields);
 			auth_stream_reply_import(reply, fields);
 		}
-		if (request->userdb_reply != NULL)
-			add_userdb_replies(reply, request->userdb_reply);
 	}
 	str = auth_stream_reply_get_str(reply);
 	str_append_c(str, '\n');
