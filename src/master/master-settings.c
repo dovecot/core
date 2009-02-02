@@ -878,6 +878,10 @@ static bool settings_verify(struct settings *set)
 		i_error("max_mail_processes must be at least 1");
 		return FALSE;
 	}
+	if (strcmp(set->login_dir, set->base_dir) == 0) {
+		i_error("login_dir can't be the same as base_dir");
+		return FALSE;
+	}
 
 	if (set->last_valid_uid != 0 &&
 	    set->first_valid_uid > set->last_valid_uid) {
