@@ -4,6 +4,9 @@
 struct mail_user_settings;
 
 struct pop3_settings {
+	const char *base_dir;
+	const char *auth_socket_path;
+
 	bool mail_debug;
 	bool shutdown_clients;
 	bool verbose_proctitle;

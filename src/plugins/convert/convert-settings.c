@@ -13,14 +13,17 @@
 	{ type, #name, offsetof(struct convert_settings, name), NULL }
 
 static struct setting_define convert_setting_defines[] = {
+	DEF(SET_STR, base_dir),
 	DEF(SET_STR, auth_socket_path),
+
 	{ SET_STRLIST, "plugin", offsetof(struct convert_settings, plugin_envs), NULL },
 
 	SETTING_DEFINE_LIST_END
 };
 
 static struct convert_settings convert_default_settings = {
-	MEMBER(auth_socket_path) PKG_RUNDIR"/auth-master"
+	MEMBER(base_dir) PKG_RUNDIR,
+	MEMBER(auth_socket_path) "auth-master"
 };
 
 struct setting_parser_info convert_setting_parser_info = {
@@ -35,6 +38,14 @@ struct setting_parser_info convert_setting_parser_info = {
 
 static pool_t settings_pool = NULL;
 
+static void fix_base_path(struct convert_settings *set, const char **str)
+{
+	if (*str != NULL && **str != '\0' && **str != '/') {
+		*str = p_strconcat(settings_pool,
+				   set->base_dir, "/", *str, NULL);
+	}
+}
+
 void convert_settings_read(const struct convert_settings **set_r,
 			   const struct mail_user_settings **user_set_r)
 {
@@ -43,7 +54,7 @@ void convert_settings_read(const struct convert_settings **set_r,
                 &mail_user_setting_parser_info
 	};
 	struct setting_parser_context *parser;
-	const char *const *expanded;
+	struct convert_settings *set;
 	void **sets;
 
 	if (settings_pool == NULL)
@@ -62,11 +73,11 @@ void convert_settings_read(const struct convert_settings **set_r,
 			settings_parser_get_error(parser));
 	}
 
-	expanded = t_strsplit(getenv("VARS_EXPANDED"), " ");
-	settings_parse_set_keys_expandeded(parser, settings_pool, expanded);
-
 	sets = settings_parser_get_list(parser);
-	*set_r = sets[0];
+	set = sets[0];
+	fix_base_path(set, &set->auth_socket_path);
+
+	*set_r = set;
 	*user_set_r = sets[1];
 	settings_parser_deinit(&parser);
 }

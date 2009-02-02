@@ -202,7 +202,7 @@ static bool main_init(const struct pop3_settings *set,
 	}
 
 	dict_drivers_register_builtin();
-	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
+	mail_users_init(set->auth_socket_path, set->mail_debug);
 	clients_init();
 
 	module_dir_init(modules);

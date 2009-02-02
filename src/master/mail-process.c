@@ -316,7 +316,7 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 		    pid_t *pid_r)
 {
 	const struct var_expand_table *var_expand_table;
-	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
+	const char *p, *addr, *chroot_dir, *home_dir, *full_home_dir;
 	const char *system_user, *master_user, *key;
 	struct mail_process_group *process_group;
 	char title[1024];
@@ -340,16 +340,19 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 	}
 
 	t_array_init(&extra_args, 16);
-	mail = home_dir = chroot_dir = system_user = ""; master_user = NULL;
+	home_dir = chroot_dir = system_user = ""; master_user = NULL;
 	uid = (uid_t)-1; gid = (gid_t)-1; nice_value = 0;
 	home_given = FALSE;
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "home=", 5) == 0) {
 			home_dir = *args + 5;
 			home_given = TRUE;
-		} else if (strncmp(*args, "mail=", 5) == 0)
-			mail = *args + 5;
-		else if (strncmp(*args, "chroot=", 7) == 0)
+		} else if (strncmp(*args, "mail=", 5) == 0) {
+			const char *arg;
+
+			arg = t_strconcat("mail_location=", *args + 5, NULL);
+			array_append(&extra_args, &arg, 1);
+		} else if (strncmp(*args, "chroot=", 7) == 0)
 			chroot_dir = *args + 7;
 		else if (strncmp(*args, "nice=", 5) == 0)
 			nice_value = atoi(*args + 5);

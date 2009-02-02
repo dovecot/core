@@ -403,6 +403,15 @@ static int settings_parse_keyvalue(struct setting_parser_context *ctx,
 	}
 }
 
+bool settings_parse_is_valid_key(struct setting_parser_context *ctx,
+				 const char *key)
+{
+	const struct setting_define *def;
+	struct setting_link *link;
+
+	return settings_find_key(ctx, key, &def, &link);
+}
+
 int settings_parse_line(struct setting_parser_context *ctx, const char *line)
 {
 	const char *key, *value;

@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
+	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DMODULEDIR=\""$(moduledir)"\"
 
 imap_LDFLAGS = -export-dynamic

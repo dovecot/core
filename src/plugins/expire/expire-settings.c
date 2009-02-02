@@ -13,14 +13,17 @@
 	{ type, #name, offsetof(struct expire_settings, name), NULL }
 
 static struct setting_define expire_setting_defines[] = {
+	DEF(SET_STR, base_dir),
 	DEF(SET_STR, auth_socket_path),
+
 	{ SET_STRLIST, "plugin", offsetof(struct expire_settings, plugin_envs), NULL },
 
 	SETTING_DEFINE_LIST_END
 };
 
 static struct expire_settings expire_default_settings = {
-	MEMBER(auth_socket_path) PKG_RUNDIR"/auth-master"
+	MEMBER(base_dir) PKG_RUNDIR,
+	MEMBER(auth_socket_path) "auth-master"
 };
 
 struct setting_parser_info expire_setting_parser_info = {
@@ -35,6 +38,14 @@ struct setting_parser_info expire_setting_parser_info = {
 
 static pool_t settings_pool = NULL;
 
+static void fix_base_path(struct expire_settings *set, const char **str)
+{
+	if (*str != NULL && **str != '\0' && **str != '/') {
+		*str = p_strconcat(settings_pool,
+				   set->base_dir, "/", *str, NULL);
+	}
+}
+
 void expire_settings_read(const struct expire_settings **set_r,
 			  const struct mail_user_settings **user_set_r)
 {
@@ -43,7 +54,8 @@ void expire_settings_read(const struct expire_settings **set_r,
                 &mail_user_setting_parser_info
 	};
 	struct setting_parser_context *parser;
-	const char *const *expanded;
+	struct expire_settings *set;
+	const char *const *expanded, *value;
 	void **sets;
 
 	if (settings_pool == NULL)
@@ -64,9 +76,25 @@ void expire_settings_read(const struct expire_settings **set_r,
 
 	expanded = t_strsplit(getenv("VARS_EXPANDED"), " ");
 	settings_parse_set_keys_expandeded(parser, settings_pool, expanded);
+	/* settings from userdb are in the VARS_EXPANDED list. for each
+	   unknown setting in the list assume it's a plugin setting. */
+	for (; *expanded != NULL; expanded++) {
+		if (settings_parse_is_valid_key(parser, *expanded))
+			continue;
+
+		value = getenv(t_str_ucase(*expanded));
+		if (value == NULL)
+			continue;
+
+		settings_parse_line(parser, t_strconcat("plugin/", *expanded,
+							"=", value, NULL));
+	}
 
 	sets = settings_parser_get_list(parser);
-	*set_r = sets[0];
+	set = sets[0];
+	fix_base_path(set, &set->auth_socket_path);
+
+	*set_r = set;
 	*user_set_r = sets[1];
 	settings_parser_deinit(&parser);
 }

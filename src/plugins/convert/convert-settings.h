@@ -4,6 +4,7 @@
 struct mail_user_settings;
 
 struct convert_settings {
+	const char *base_dir;
 	const char *auth_socket_path;
 
 	ARRAY_DEFINE(plugin_envs, const char *);
