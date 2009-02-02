@@ -67,6 +67,7 @@ quota_send(struct client_command_context *cmd, struct mail_user *owner,
 static bool cmd_getquotaroot(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
+	struct quota_user *quser = QUOTA_USER_CONTEXT(client->user);
 	struct mail_storage *storage;
 	struct mail_namespace *ns;
 	struct mailbox *box;
@@ -93,7 +94,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	}
 
 	ns = mail_storage_get_namespace(storage);
-	if (quota_set == NULL || ns->owner == NULL) {
+	if (quser == NULL || ns->owner == NULL) {
 		mailbox_close(&box);
 		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
@@ -139,11 +140,6 @@ static bool cmd_getquota(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 1, &root_name))
 		return FALSE;
 
-	if (quota_set == NULL) {
-		client_send_tagline(cmd, "OK No quota.");
-		return TRUE;
-	}
-
 	root = quota_root_lookup(cmd->client->user, root_name);
 	if (root == NULL && cmd->client->user->admin) {
 		/* we're an admin. see if there's a quota root for another
@@ -180,11 +176,6 @@ static bool cmd_setquota(struct client_command_context *cmd)
 	root_name = imap_arg_string(&args[0]);
 	if (args[1].type != IMAP_ARG_LIST || root_name == NULL) {
 		client_send_command_error(cmd, "Invalid arguments.");
-		return TRUE;
-	}
-
-	if (quota_set == NULL) {
-		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
 	}
 

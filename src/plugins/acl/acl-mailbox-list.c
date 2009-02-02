@@ -554,7 +554,11 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 
 void acl_mailbox_list_created(struct mailbox_list *list)
 {
-	if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
+	struct acl_user *auser = ACL_USER_CONTEXT(list->ns->user);
+
+	if (auser == NULL) {
+		/* ACLs disabled for this user */
+	} else if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
 		/* no ACL checks for internal namespaces (deliver, shared) */
 		if (list->ns->type == NAMESPACE_SHARED)
 			acl_mailbox_list_init_shared(list);

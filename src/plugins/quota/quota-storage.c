@@ -17,14 +17,6 @@
 	MODULE_CONTEXT(obj, quota_mail_module)
 #define QUOTA_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, quota_mailbox_list_module)
-#define QUOTA_USER_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, quota_user_module)
-
-struct quota_user {
-	union mail_user_module_context module_ctx;
-
-	struct quota *quota;
-};
 
 struct quota_mailbox_list {
 	union mailbox_list_module_context module_ctx;
@@ -44,13 +36,14 @@ struct quota_mailbox {
 	unsigned int recalculate:1;
 };
 
+struct quota_user_module quota_user_module =
+	MODULE_CONTEXT_INIT(&mail_user_module_register);
+
 static MODULE_CONTEXT_DEFINE_INIT(quota_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(quota_mail_module, &mail_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(quota_mailbox_list_module,
 				  &mailbox_list_module_register);
-static MODULE_CONTEXT_DEFINE_INIT(quota_user_module,
-				  &mail_user_module_register);
 
 static void quota_mail_expunge(struct mail *_mail)
 {
@@ -497,13 +490,19 @@ static void quota_user_deinit(struct mail_user *user)
 void quota_mail_user_created(struct mail_user *user)
 {
 	struct quota_user *quser;
+	struct quota_settings *set;
 
-	quser = p_new(user->pool, struct quota_user, 1);
-	quser->module_ctx.super = user->v;
-	user->v.deinit = quota_user_deinit;
-	quser->quota = quota_init(quota_set, user);
+	set = quota_user_read_settings(user);
+	if (set != NULL) {
+		quser = p_new(user->pool, struct quota_user, 1);
+		quser->module_ctx.super = user->v;
+		user->v.deinit = quota_user_deinit;
+		quser->quota = quota_init(set, user);
 
-	MODULE_CONTEXT_SET(user, quota_user_module, quser);
+		MODULE_CONTEXT_SET(user, quota_user_module, quser);
+	} else if (user->mail_debug) {
+		i_info("quota: No quota setting - plugin disabled");
+	}
 
 	if (quota_next_hook_mail_user_created != NULL)
 		quota_next_hook_mail_user_created(user);

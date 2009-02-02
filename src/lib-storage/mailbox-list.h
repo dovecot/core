@@ -133,6 +133,8 @@ enum mailbox_list_flags
 mailbox_list_get_flags(const struct mailbox_list *list) ATTR_PURE;
 struct mail_namespace *
 mailbox_list_get_namespace(const struct mailbox_list *list) ATTR_PURE;
+struct mail_user *
+mailbox_list_get_user(const struct mailbox_list *list) ATTR_PURE;
 
 /* Returns the mode and GID that should be used when creating new global files
    to the mailbox list root directories. (gid_t)-1 is returned if it's not

@@ -262,6 +262,12 @@ mailbox_list_get_namespace(const struct mailbox_list *list)
 	return list->ns;
 }
 
+struct mail_user *
+mailbox_list_get_user(const struct mailbox_list *list)
+{
+	return list->ns->user;
+}
+
 void mailbox_list_get_permissions(struct mailbox_list *list,
 				  mode_t *mode_r, gid_t *gid_r)
 {

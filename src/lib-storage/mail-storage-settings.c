@@ -125,6 +125,7 @@ static struct setting_define mail_user_setting_defines[] = {
 	DEF(SET_UINT, umask),
 
 	DEFLIST(namespaces, "namespace", &mail_namespace_setting_parser_info),
+	{ SET_STRLIST, "plugin", offsetof(struct mail_user_settings, plugin_envs), NULL },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -132,7 +133,8 @@ static struct setting_define mail_user_setting_defines[] = {
 static struct mail_user_settings mail_user_default_settings = {
 	MEMBER(umask) 0077,
 
-	MEMBER(namespaces) ARRAY_INIT
+	MEMBER(namespaces) ARRAY_INIT,
+	MEMBER(plugin_envs) ARRAY_INIT
 };
 
 struct setting_parser_info mail_user_setting_parser_info = {

@@ -108,7 +108,8 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 static const char *
 mailbox_name_convert(struct mail_storage *dest_storage,
 		     struct mail_storage *source_storage,
-		     const struct convert_settings *set, const char *name)
+		     const struct convert_plugin_settings *set,
+		     const char *name)
 {
 	char *dest_name, *p, src_sep, dest_sep;
 
@@ -241,7 +242,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 				     struct mail_storage *dest_storage,
 				     const struct mailbox_info *info,
 				     struct dotlock *dotlock,
-				     const struct convert_settings *set)
+				     const struct convert_plugin_settings *set)
 {
 	const char *name, *dest_name, *error;
 	struct mailbox *srcbox, *destbox;
@@ -328,7 +329,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 static int mailbox_list_copy(struct mail_storage *source_storage,
 			     struct mail_namespace *dest_namespaces,
 			     struct dotlock *dotlock,
-			     const struct convert_settings *set)
+			     const struct convert_plugin_settings *set)
 {
 	struct mailbox_list_iterate_context *iter;
 	struct mail_namespace *dest_ns;
@@ -359,7 +360,7 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 static int
 mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
 				struct mail_namespace *dest_namespaces,
-				const struct convert_settings *set)
+				const struct convert_plugin_settings *set)
 {
 	struct mailbox_list_iterate_context *iter;
 	struct mail_namespace *dest_ns;
@@ -390,24 +391,23 @@ mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
 
 int convert_storage(const char *source_data,
 		    struct mail_namespace *dest_namespaces,
-		    const struct convert_settings *set)
+		    const struct convert_plugin_settings *set)
 {
 	struct mail_user *user = dest_namespaces->user;
-	struct mail_namespace *source_ns, *dest_inbox_ns;
+	struct mail_namespace *source_ns;
 	struct dotlock *dotlock;
-        enum mail_storage_flags src_flags;
-        enum file_lock_method lock_method;
+	struct mail_namespace_settings ns_set;
 	const char *home, *path, *error;
 	int ret;
 
-	source_ns = mail_namespaces_init_empty(user);
-	dest_inbox_ns = mail_namespace_find_inbox(dest_namespaces);
-	src_flags = dest_inbox_ns->storage->flags;
-	lock_method = dest_inbox_ns->storage->lock_method;
+	memset(&ns_set, 0, sizeof(ns_set));
+	ns_set.location = source_data;
 
-	src_flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE;
-	if (mail_storage_create(source_ns, NULL, source_data,
-				src_flags, lock_method, &error) < 0) {
+	source_ns = mail_namespaces_init_empty(user);
+	source_ns->set = &ns_set;
+
+	if (mail_storage_create(source_ns, NULL,
+				MAIL_STORAGE_FLAG_NO_AUTOCREATE, &error) < 0) {
 		/* No need for conversion. */
 		return 0;
 	}
@@ -416,11 +416,9 @@ int convert_storage(const char *source_data,
 		i_unreached();
         path = t_strconcat(home, "/"CONVERT_LOCK_FILENAME, NULL);
 	dotlock_settings.use_excl_lock =
-		(source_ns->storage->flags &
-		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
+		source_ns->storage->set->dotlock_use_excl;
 	dotlock_settings.nfs_flush =
-		(source_ns->storage->flags &
-		 MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0;
+		source_ns->storage->set->mail_nfs_storage;
 	ret = file_dotlock_create(&dotlock_settings, path, 0, &dotlock);
 	if (ret <= 0) {
 		if (ret == 0)
@@ -433,8 +431,8 @@ int convert_storage(const char *source_data,
 	/* just in case if another process just had converted the mailbox,
 	   reopen the source storage */
 	mail_storage_destroy(&source_ns->storage);
-	if (mail_storage_create(source_ns, NULL, source_data,
-				src_flags, lock_method, &error) < 0) {
+	if (mail_storage_create(source_ns, NULL,
+				MAIL_STORAGE_FLAG_NO_AUTOCREATE, &error) < 0) {
 		/* No need for conversion anymore. */
 		file_dotlock_delete(&dotlock);
 		return 0;

@@ -2,6 +2,9 @@
 
 #include "lib.h"
 #include "hash.h"
+#include "mail-storage-settings.h"
+#include "mailbox-list.h"
+#include "mail-user.h"
 #include "acl-cache.h"
 #include "acl-api-private.h"
 
@@ -31,12 +34,11 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 		 const char *acl_username, const char *const *groups,
 		 bool owner)
 {
+	struct mail_user *user = mailbox_list_get_user(list);
 	struct acl_backend *backend;
 	unsigned int i, group_count;
-	bool debug;
 
-	debug = getenv("DEBUG") != NULL;
-	if (debug) {
+	if (user->mail_debug) {
 		i_info("acl: initializing backend with data: %s", data);
 		i_info("acl: acl username = %s", acl_username);
 		i_info("acl: owner = %d", owner);
@@ -52,7 +54,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 		i_fatal("Unknown ACL backend: %s", t_strcut(data, ':'));
 
 	backend = acl_backend_vfile.alloc();
-	backend->debug = debug;
+	backend->debug = user->mail_debug;
 	backend->v = acl_backend_vfile;
 	backend->list = list;
 	backend->username = p_strdup(backend->pool, acl_username);

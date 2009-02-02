@@ -41,6 +41,7 @@ struct mail_user_settings {
 	unsigned int umask;
 
 	ARRAY_DEFINE(namespaces, struct mail_namespace_settings *);
+	ARRAY_DEFINE(plugin_envs, const char *);
 };
 
 extern struct setting_parser_info mail_user_setting_parser_info;

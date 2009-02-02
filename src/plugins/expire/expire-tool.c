@@ -14,6 +14,7 @@
 #include "auth-client.h"
 #include "auth-master.h"
 #include "expire-env.h"
+#include "expire-settings.h"
 
 #include <stdlib.h>
 
@@ -21,18 +22,19 @@
    dynamic object.. */
 #include "expire-env.c"
 
-#define DEFAULT_AUTH_SOCKET_PATH PKG_RUNDIR"/auth-master"
-
 struct expire_context {
 	struct auth_master_connection *auth_conn;
 
 	char *user;
 	struct mail_user *mail_user;
+	const struct expire_settings *set;
 	bool testrun;
 };
 
 static int user_init(struct expire_context *ctx, const char *user)
 {
+	const struct mail_user_settings *user_set;
+	const char *error;
 	int ret;
 
 	env_clean();
@@ -44,10 +46,19 @@ static int user_init(struct expire_context *ctx, const char *user)
 		return 0;
 	}
 
-	ctx->mail_user = mail_user_init(user);
+	expire_settings_read(&ctx->set, &user_set);
+
+	ctx->mail_user = mail_user_alloc(user, user_set);
 	mail_user_set_home(ctx->mail_user, getenv("HOME"));
-	if (mail_namespaces_init(ctx->mail_user) < 0)
+	mail_user_set_vars(ctx->mail_user, geteuid(), "expire", NULL, NULL);
+	if (mail_user_init(ctx->mail_user, &error) < 0) {
+		i_error("Mail user initialization failed: %s", error);
 		return -1;
+	}
+	if (mail_namespaces_init(ctx->mail_user, &error) < 0) {
+		i_error("Namespace initialization failed: %s", error);
+		return -1;
+	}
 	return 1;
 }
 
@@ -179,39 +190,61 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	return ret < 0 ? -1 : 0;
 }
 
+static const char *expire_getenv(struct expire_context *ctx, const char *name)
+{
+	const char *const *envs;
+	unsigned int i, count, name_len = strlen(name);
+
+	if (!array_is_created(&ctx->set->plugin_envs))
+		return NULL;
+
+	envs = array_get(&ctx->set->plugin_envs, &count);
+	for (i = 0; i < count; i++) {
+		if (strncmp(envs[i], name, name_len) == 0 &&
+		    envs[i][name_len] == '=')
+			return envs[i] + name_len + 1;
+	}
+	return NULL;
+}
+
 static void expire_run(bool testrun)
 {
 	struct expire_context ctx;
 	struct dict *dict = NULL;
 	struct dict_transaction_context *trans;
+	const struct mail_user_settings *user_set;
+	const struct mail_storage_settings *mail_set;
 	struct dict_iterate_context *iter;
 	struct expire_env *env;
 	time_t oldest;
 	unsigned int expunge_secs, altmove_secs;
-	const char *auth_socket, *p, *key, *value;
+	const char *p, *key, *value;
 	const char *userp, *mailbox;
 	int ret;
 
 	dict_drivers_register_builtin();
-	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
 	mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
 
-	if (getenv("EXPIRE") == NULL && getenv("EXPIRE_ALTMOVE") == NULL)
+	memset(&ctx, 0, sizeof(ctx));
+	expire_settings_read(&ctx.set, &user_set);
+	mail_set = mail_user_set_get_driver_settings(user_set, "MAIL");
+	mail_users_init(ctx.set->auth_socket_path, mail_set->mail_debug);
+
+	if (expire_getenv(&ctx, "EXPIRE") == NULL &&
+	    expire_getenv(&ctx, "EXPIRE_ALTMOVE") == NULL)
 		i_fatal("expire and expire_altmove settings not set");
-	if (getenv("EXPIRE_DICT") == NULL)
+	if (expire_getenv(&ctx, "EXPIRE_DICT") == NULL)
 		i_fatal("expire_dict setting not set");
 
-	auth_socket = getenv("AUTH_SOCKET_PATH");
-	if (auth_socket == NULL)
-		auth_socket = DEFAULT_AUTH_SOCKET_PATH;
-
-	memset(&ctx, 0, sizeof(ctx));
 	ctx.testrun = testrun;
-	ctx.auth_conn = auth_master_init(auth_socket, getenv("DEBUG") != NULL);
-	env = expire_env_init(getenv("EXPIRE"), getenv("EXPIRE_ALTMOVE"));
-	dict = dict_init(getenv("EXPIRE_DICT"), DICT_DATA_TYPE_UINT32, "");
+	ctx.auth_conn = auth_master_init(ctx.set->auth_socket_path,
+					 mail_set->mail_debug);
+	env = expire_env_init(expire_getenv(&ctx, "EXPIRE"),
+			      expire_getenv(&ctx, "EXPIRE_ALTMOVE"));
+	dict = dict_init(expire_getenv(&ctx, "EXPIRE_DICT"),
+			 DICT_DATA_TYPE_UINT32, "");
 	if (dict == NULL)
 		i_fatal("dict_init() failed");
 

@@ -3,6 +3,7 @@ pkglibexecdir = $(libexecdir)/dovecot
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
@@ -23,16 +24,19 @@ lib20_expire_plugin_la_SOURCES = \
 noinst_HEADERS = \
 	auth-client.h \
 	expire-env.h \
-	expire-plugin.h
+	expire-plugin.h \
+	expire-settings.h
 
 pkglibexec_PROGRAMS = expire-tool
 
 expire_tool_SOURCES = \
 	auth-client.c \
+	expire-settings.c \
 	expire-tool.c
 
 libs = \
 	$(STORAGE_LIBS) \
+	$(top_builddir)/src/lib-settings/libsettings.a \
 	$(top_builddir)/src/lib-dict/libdict.a
 
 expire_tool_LDADD = \

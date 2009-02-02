@@ -169,24 +169,26 @@ static int acl_mailbox_create(struct mail_storage *storage, const char *name,
 
 void acl_mail_storage_created(struct mail_storage *storage)
 {
+	struct acl_user *auser = ACL_USER_CONTEXT(storage->ns->user);
 	struct acl_mail_storage *astorage;
 	struct acl_backend *backend;
 
-	if ((storage->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
+	if (auser == NULL) {
+		/* ACLs disabled for this user */
+	} else if ((storage->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
 		/* no ACL checks for internal namespaces (deliver) */
-		return;
+	} else {
+		astorage = p_new(storage->pool, struct acl_mail_storage, 1);
+		astorage->module_ctx.super = storage->v;
+		storage->v.destroy = acl_storage_destroy;
+		storage->v.mailbox_open = acl_mailbox_open;
+		storage->v.mailbox_create = acl_mailbox_create;
+
+		backend = acl_mailbox_list_get_backend(mail_storage_get_list(storage));
+		acl_storage_rights_ctx_init(&astorage->rights, backend);
+
+		MODULE_CONTEXT_SET(storage, acl_storage_module, astorage);
 	}
-
-	astorage = p_new(storage->pool, struct acl_mail_storage, 1);
-	astorage->module_ctx.super = storage->v;
-	storage->v.destroy = acl_storage_destroy;
-	storage->v.mailbox_open = acl_mailbox_open;
-	storage->v.mailbox_create = acl_mailbox_create;
-
-	backend = acl_mailbox_list_get_backend(mail_storage_get_list(storage));
-	acl_storage_rights_ctx_init(&astorage->rights, backend);
-
-	MODULE_CONTEXT_SET(storage, acl_storage_module, astorage);
 
 	if (acl_next_hook_mail_storage_created != NULL)
 		acl_next_hook_mail_storage_created(storage);
@@ -200,27 +202,38 @@ static void acl_user_deinit(struct mail_user *user)
 	auser->module_ctx.super.deinit(user);
 }
 
-void acl_mail_user_created(struct mail_user *user)
+static void acl_mail_user_create(struct mail_user *user, const char *env)
 {
 	struct acl_user *auser;
-	const char *env;
 
 	auser = p_new(user->pool, struct acl_user, 1);
 	auser->module_ctx.super = user->v;
 	user->v.deinit = acl_user_deinit;
 	auser->acl_lookup_dict = acl_lookup_dict_init(user);
 
-	auser->acl_env = getenv("ACL");
-	i_assert(auser->acl_env != NULL);
-	auser->master_user = getenv("MASTER_USER");
+	auser->acl_env = env;
+	auser->master_user = mail_user_plugin_getenv(user, "master_user");
 
-	env = getenv("ACL_GROUPS");
+	env = mail_user_plugin_getenv(user, "acl_groups");
 	if (env != NULL) {
 		auser->groups =
 			(const char *const *)p_strsplit(user->pool, env, ",");
 	}
 
 	MODULE_CONTEXT_SET(user, acl_user_module, auser);
+}
+
+void acl_mail_user_created(struct mail_user *user)
+{
+	const char *env;
+
+	env = mail_user_plugin_getenv(user, "acl");
+	if (env != NULL)
+		acl_mail_user_create(user, env);
+	else {
+		if (user->mail_debug)
+			i_info("acl: No acl setting - ACLs are disabled");
+	}
 
 	if (acl_next_hook_mail_user_created != NULL)
 		acl_next_hook_mail_user_created(user);

@@ -3,8 +3,6 @@
 
 #include "mail-user.h"
 
-struct mail_storage_root_settings;
-
 enum namespace_type {
 	NAMESPACE_PRIVATE,
 	NAMESPACE_SHARED,

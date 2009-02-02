@@ -3,7 +3,7 @@
 
 struct mail_namespace;
 
-struct convert_settings {
+struct convert_plugin_settings {
 	bool skip_broken_mailboxes;
 	bool skip_dotdirs;
 	char alt_hierarchy_char;
@@ -11,6 +11,6 @@ struct convert_settings {
 
 int convert_storage(const char *source_data,
 		    struct mail_namespace *dest_namespaces,
-		    const struct convert_settings *set);
+		    const struct convert_plugin_settings *set);
 
 #endif

@@ -1,14 +1,11 @@
+ - dict pooling
  - config rewrite
-   - deliver: plugin var expanding
-   - master: expands only known vars, not all_settings.. should it expand
-     anything after all? use the 1/0 prefix to mark which vars have been
-     expanded (config vs userdb)?
    - go through mail-process.c. nfs test?
    - support !include and !include_try
-   - check plugins to make sure they're using only internal getenv()s,
-     especially fix DEBUG env checks
    - add back all setting verification code from master
-   - put plugin settings to some plugins array, not envs, var expand
+   - plugins:
+      - backwards compatibility so userdb can continue returning quota_* etc?
+      - acl: master_user, acl_groups are now plugin envs..
  - proxying: support fallbacking to local (or other?) server if the first
    one is down
 user_attrs {

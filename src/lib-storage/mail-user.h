@@ -1,6 +1,8 @@
 #ifndef MAIL_USER_H
 #define MAIL_USER_H
 
+#include "mail-storage-settings.h"
+
 struct mail_user;
 
 struct mail_user_vfuncs {
@@ -37,6 +39,8 @@ struct mail_user {
 	unsigned int admin:1;
 	/* mail_user_init() has been called */
 	unsigned int initialized:1;
+	/* Shortcut to mail_storage_settings.mail_debug */
+	unsigned int mail_debug:1;
 };
 
 struct mail_user_module_register {
@@ -82,6 +86,8 @@ void mail_user_set_home(struct mail_user *user, const char *home);
    successfully, 0 if there is no home directory (either user doesn't exist or
    has no home directory) or -1 if lookup failed. */
 int mail_user_get_home(struct mail_user *user, const char **home_r);
+/* If name exists in plugin_envs, return its value. */
+const char *mail_user_plugin_getenv(struct mail_user *user, const char *name);
 
 /* Add more namespaces to user's namespaces. The ->next pointers may be
    changed, so the namespaces pointer will be updated to user->namespaces. */

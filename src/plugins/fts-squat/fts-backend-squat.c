@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "array.h"
+#include "mail-user.h"
+#include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "mail-search-build.h"
 #include "squat-trie.h"
@@ -67,7 +69,7 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 	}
 
 	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
-	if (storage->set->mmap_disable || storage->set->mmap_no_write)
+	if (storage->set->mmap_disable)
 		flags |= SQUAT_INDEX_FLAG_MMAP_DISABLE;
 	if (storage->set->mail_nfs_index)
 		flags |= SQUAT_INDEX_FLAG_NFS_FLUSH;
@@ -82,7 +84,7 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 				flags, box->file_create_mode,
 				box->file_create_gid);
 
-	env = getenv("FTS_SQUAT");
+	env = mail_user_plugin_getenv(box->storage->ns->user, "fts_squat");
 	if (env != NULL)
 		fts_backend_squat_set(backend, env);
 	return &backend->backend;

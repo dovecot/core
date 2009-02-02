@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hostpid.h"
 #include "network.h"
+#include "str.h"
 #include "var-expand.h"
 #include "settings-parser.h"
 #include "auth-master.h"
@@ -45,8 +46,39 @@ struct mail_user *mail_user_alloc(const char *username,
 	return user;
 }
 
+static int
+mail_user_expand_plugins_envs(struct mail_user *user, const char **error_r)
+{
+	const char **envs, *home;
+	string_t *str;
+	unsigned int i, count;
+
+	if (!array_is_created(&user->set->plugin_envs))
+		return 0;
+
+	str = t_str_new(256);
+	envs = array_get_modifiable(&user->set->plugin_envs, &count);
+	i_assert((count % 2) == 0);
+	for (i = 0; i < count; i += 2) {
+		if (user->_home == NULL &&
+		    var_has_key(envs[i+1], 'h', "home") &&
+		    mail_user_get_home(user, &home) <= 0) {
+			*error_r = t_strdup_printf(
+				"userdb didn't return a home directory, "
+				"but plugin setting %s used it (%%h): %s",
+				envs[i], envs[i+1]);
+			return -1;
+		}
+		str_truncate(str, 0);
+		var_expand(str, envs[i+1], mail_user_var_expand_table(user));
+		envs[i+1] = p_strdup(user->pool, str_c(str));
+	}
+	return 0;
+}
+
 int mail_user_init(struct mail_user *user, const char **error_r)
 {
+	const struct mail_storage_settings *mail_set;
 	const char *home, *key, *value;
 
 	if (user->_home == NULL &&
@@ -61,6 +93,11 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 
 	settings_var_expand(&mail_user_setting_parser_info, user->set,
 			    user->pool, mail_user_var_expand_table(user));
+	if (mail_user_expand_plugins_envs(user, error_r) < 0)
+		return -1;
+
+	mail_set = mail_user_set_get_driver_settings(user->set, "MAIL");
+	user->mail_debug = mail_set->mail_debug;
 
 	user->initialized = TRUE;
 	if (hook_mail_user_created != NULL)
@@ -223,6 +260,23 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 	}
 	pool_unref(&userdb_pool);
 	return ret;
+}
+
+const char *mail_user_plugin_getenv(struct mail_user *user, const char *name)
+{
+	const char *const *envs;
+	unsigned int i, count, name_len = strlen(name);
+
+	if (!array_is_created(&user->set->plugin_envs))
+		return NULL;
+
+	envs = array_get(&user->set->plugin_envs, &count);
+	for (i = 0; i < count; i++) {
+		if (strncmp(envs[i], name, name_len) == 0 &&
+		    envs[i][name_len] == '=')
+			return envs[i] + name_len + 1;
+	}
+	return NULL;
 }
 
 int mail_user_try_home_expand(struct mail_user *user, const char **pathp)

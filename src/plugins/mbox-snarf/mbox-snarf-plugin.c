@@ -6,6 +6,7 @@
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
+#include "mail-user.h"
 #include "mbox-snarf-plugin.h"
 
 #include <stdlib.h>
@@ -147,7 +148,7 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 			/* use ~/mbox as the INBOX */
 			name = mstorage->snarf_inbox_path;
 			use_snarfing = TRUE;
-			storage->set->mail_full_filesystem_access = TRUE;
+			//FIXME:storage->set->mail_full_filesystem_access = TRUE;
 		} else if (errno != ENOENT) {
 			mail_storage_set_critical(storage,
 						  "stat(%s) failed: %m",
@@ -171,18 +172,27 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 	return box;
 }
 
-static void mbox_snarf_mail_storage_created(struct mail_storage *storage)
+static void
+mbox_snarf_mail_storage_create(struct mail_storage *storage, const char *path)
 {
 	struct mbox_snarf_mail_storage *mstorage;
-	const char *path;
 
-	path = mail_user_home_expand(storage->ns->user, getenv("MBOX_SNARF"));
+	path = mail_user_home_expand(storage->ns->user, path);
 	mstorage = p_new(storage->pool, struct mbox_snarf_mail_storage, 1);
 	mstorage->snarf_inbox_path = p_strdup(storage->pool, path);
 	mstorage->module_ctx.super = storage->v;
 	storage->v.mailbox_open = mbox_snarf_mailbox_open;
 
 	MODULE_CONTEXT_SET(storage, mbox_snarf_storage_module, mstorage);
+}
+
+static void mbox_snarf_mail_storage_created(struct mail_storage *storage)
+{
+	const char *path;
+
+	path = mail_user_plugin_getenv(storage->ns->user, "mbox_snarf");
+	if (path != NULL)
+		mbox_snarf_mail_storage_create(storage, path);
 
 	if (mbox_snarf_next_hook_mail_storage_created != NULL)
 		mbox_snarf_next_hook_mail_storage_created(storage);
@@ -190,21 +200,11 @@ static void mbox_snarf_mail_storage_created(struct mail_storage *storage)
 
 void mbox_snarf_plugin_init(void)
 {
-	const char *path;
-
-	path = getenv("MBOX_SNARF");
-	if (path != NULL) {
-		mbox_snarf_next_hook_mail_storage_created =
-			hook_mail_storage_created;
-		hook_mail_storage_created = mbox_snarf_mail_storage_created;
-	} else if (getenv("DEBUG") != NULL)
-		i_info("mbox_snarf: No mbox_snarf setting - plugin disabled");
+	mbox_snarf_next_hook_mail_storage_created = hook_mail_storage_created;
+	hook_mail_storage_created = mbox_snarf_mail_storage_created;
 }
 
 void mbox_snarf_plugin_deinit(void)
 {
-	if (getenv("MBOX_SNARF") != NULL) {
-		hook_mail_storage_created =
-			mbox_snarf_next_hook_mail_storage_created;
-	}
+	hook_mail_storage_created = mbox_snarf_next_hook_mail_storage_created;
 }

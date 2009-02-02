@@ -21,14 +21,14 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 
 	ns = mail_namespace_find(namespaces, &name);
 	if (ns == NULL) {
-		if (getenv("DEBUG") != NULL)
+		if (namespaces->mail_set->mail_debug)
 			i_info("autocreate: No namespace found for %s", name);
 		return;
 	}
 
 	if (mail_storage_mailbox_create(ns->storage, name, FALSE) < 0) {
 		str = mail_storage_get_last_error(ns->storage, &error);
-		if (error != MAIL_ERROR_EXISTS && getenv("DEBUG") != NULL) {
+		if (error != MAIL_ERROR_EXISTS && ns->mail_set->mail_debug) {
 			i_info("autocreate: Failed to create mailbox %s: %s",
 			       name, str);
 		}
@@ -37,36 +37,38 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 
 static void autocreate_mailboxes(struct mail_namespace *namespaces)
 {
+	struct mail_user *user = namespaces->user;
 	char env_name[20];
 	const char *name;
 	unsigned int i;
 
 	i = 1;
-	name = getenv("AUTOCREATE");
+	name = mail_user_plugin_getenv(user, "autocreate");
 	while (name != NULL) {
 		autocreate_mailbox(namespaces, name);
 
-		i_snprintf(env_name, sizeof(env_name), "AUTOCREATE%d", ++i);
-		name = getenv(env_name);
+		i_snprintf(env_name, sizeof(env_name), "autocreate%d", ++i);
+		name = mail_user_plugin_getenv(user, env_name);
 	}
 }
 
 static void autosubscribe_mailboxes(struct mail_namespace *namespaces)
 {
+	struct mail_user *user = namespaces->user;
 	struct mail_namespace *ns;
 	char env_name[20];
 	const char *name;
 	unsigned int i;
 
 	i = 1;
-	name = getenv("AUTOSUBSCRIBE");
+	name = mail_user_plugin_getenv(user, "autosubscribe");
 	while (name != NULL) {
 		ns = mail_namespace_find(namespaces, &name);
 		if (ns != NULL)
 			(void)mailbox_list_set_subscribed(ns->list, name, TRUE);
 
-		i_snprintf(env_name, sizeof(env_name), "AUTOSUBSCRIBE%d", ++i);
-		name = getenv(env_name);
+		i_snprintf(env_name, sizeof(env_name), "autosubscribe%d", ++i);
+		name = mail_user_plugin_getenv(user, env_name);
 	}
 }
 
