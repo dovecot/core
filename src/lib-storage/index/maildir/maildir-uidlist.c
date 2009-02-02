@@ -603,6 +603,10 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 		/* the file was updated */
 		fd = uidlist->fd;
 		if (lseek(fd, 0, SEEK_SET) < 0) {
+			if (errno == ESTALE && try_retry) {
+				*retry_r = TRUE;
+				return -1;
+			}
 			mail_storage_set_critical(storage,
 				"lseek(%s) failed: %m", uidlist->path);
 			return -1;
