@@ -22,7 +22,6 @@ static struct setting_define imap_setting_defines[] = {
 
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
-	DEF(SET_STR_VARS, mail_log_prefix),
 
 	DEF(SET_UINT, imap_max_line_length),
 	DEF(SET_STR, imap_capability),
@@ -41,7 +40,6 @@ static struct imap_settings imap_default_settings = {
 
 	MEMBER(mail_plugins) "",
 	MEMBER(mail_plugin_dir) MODULEDIR"/imap",
-	MEMBER(mail_log_prefix) "%Us(%u): ",
 
 	/* RFC-2683 recommends at least 8000 bytes. Some clients however don't
 	   break large message sets to multiple commands, so we're pretty
@@ -76,6 +74,7 @@ void imap_settings_read(const struct imap_settings **set_r,
                 &mail_user_setting_parser_info
 	};
 	struct setting_parser_context *parser;
+	const char *const *expanded;
 	void **sets;
 
 	if (settings_pool == NULL)
@@ -89,11 +88,13 @@ void imap_settings_read(const struct imap_settings **set_r,
 				roots, N_ELEMENTS(roots),
 				SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
-	settings_parse_set_expanded(parser, TRUE);
 	if (settings_parse_environ(parser) < 0) {
 		i_fatal("Error reading configuration: %s",
 			settings_parser_get_error(parser));
 	}
+
+	expanded = t_strsplit(getenv("VARS_EXPANDED"), " ");
+	settings_parse_set_keys_expandeded(parser, settings_pool, expanded);
 
 	sets = settings_parser_get_list(parser);
 	*set_r = sets[0];

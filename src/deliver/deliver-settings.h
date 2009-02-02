@@ -14,7 +14,6 @@ struct deliver_settings {
 
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
-	const char *mail_log_prefix;
 
 	/* deliver: */
 	const char *postmaster_address;

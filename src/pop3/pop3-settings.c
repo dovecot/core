@@ -22,7 +22,6 @@ static struct setting_define pop3_setting_defines[] = {
 
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
-	DEF(SET_STR_VARS, mail_log_prefix),
 
 	DEF(SET_BOOL, pop3_no_flag_updates),
 	DEF(SET_BOOL, pop3_enable_last),
@@ -42,7 +41,6 @@ static struct pop3_settings pop3_default_settings = {
 
 	MEMBER(mail_plugins) "",
 	MEMBER(mail_plugin_dir) MODULEDIR"/pop3",
-	MEMBER(mail_log_prefix) "%Us(%u): ",
 
 	MEMBER(pop3_no_flag_updates) FALSE,
 	MEMBER(pop3_enable_last) FALSE,
@@ -75,6 +73,7 @@ void pop3_settings_read(const struct pop3_settings **set_r,
                 &mail_user_setting_parser_info
 	};
 	struct setting_parser_context *parser;
+	const char *const *expanded;
 	void **sets;
 
 	if (settings_pool == NULL)
@@ -88,11 +87,13 @@ void pop3_settings_read(const struct pop3_settings **set_r,
 				roots, N_ELEMENTS(roots),
 				SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
-	settings_parse_set_expanded(parser, TRUE);
 	if (settings_parse_environ(parser) < 0) {
 		i_fatal("Error reading configuration: %s",
 			settings_parser_get_error(parser));
 	}
+
+	expanded = t_strsplit(getenv("VARS_EXPANDED"), " ");
+	settings_parse_set_keys_expandeded(parser, settings_pool, expanded);
 
 	sets = settings_parser_get_list(parser);
 	*set_r = sets[0];

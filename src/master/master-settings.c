@@ -197,7 +197,7 @@ static struct setting_define master_setting_defines[] = {
 
 	DEF(SET_STR, mail_executable),
 	DEF(SET_UINT, mail_process_size),
-	DEF(SET_STR_VARS, mail_log_prefix),
+	DEF(SET_STR, mail_log_prefix),
 	DEF(SET_UINT, mail_log_max_lines_per_sec),
 
 	/* dict */
@@ -1023,8 +1023,10 @@ void master_settings_export_to_env(const struct master_settings *set)
 	unsigned int i, count;
 
 	sets = array_get(&set->all_settings, &count);
-	for (i = 0; i < count; i++)
-		env_put(sets[i]);
+	for (i = 0; i < count; i++) {
+		if (strncmp(sets[i], "plugin/", 7) != 0)
+			env_put(sets[i]);
+	}
 }
 
 void master_settings_init(void)

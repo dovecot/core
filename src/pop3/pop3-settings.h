@@ -10,7 +10,6 @@ struct pop3_settings {
 
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
-	const char *mail_log_prefix;
 
 	/* pop3: */
 	bool pop3_no_flag_updates;

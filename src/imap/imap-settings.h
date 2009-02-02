@@ -10,7 +10,6 @@ struct imap_settings {
 
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
-	const char *mail_log_prefix;
 
 	/* imap: */
 	unsigned int imap_max_line_length;

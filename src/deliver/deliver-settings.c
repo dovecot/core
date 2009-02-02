@@ -30,7 +30,6 @@ static struct setting_define deliver_setting_defines[] = {
 
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
-	DEF(SET_STR_VARS, mail_log_prefix),
 
 	DEF(SET_STR, postmaster_address),
 	DEF(SET_STR, hostname),
@@ -57,7 +56,6 @@ static struct deliver_settings deliver_default_settings = {
 
 	MEMBER(mail_plugins) "",
 	MEMBER(mail_plugin_dir) MODULEDIR"/lda",
-	MEMBER(mail_log_prefix) "%Us(%u): ",
 
 	MEMBER(postmaster_address) "",
 	MEMBER(hostname) "",

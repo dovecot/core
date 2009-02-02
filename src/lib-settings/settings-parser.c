@@ -336,52 +336,71 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	return -1;
 }
 
-static int settings_parse_keyvalue(struct setting_parser_context *ctx,
-				   const char *key, const char *value)
+static bool
+settings_find_key(struct setting_parser_context *ctx, const char *key,
+		  const struct setting_define **def_r,
+		  struct setting_link **link_r)
 {
-	const struct setting_define *def = NULL;
+	const struct setting_define *def;
+	struct setting_link *link;
+	const char *end;
 	unsigned int i;
-	int ret = 1;
 
 	/* try to find from roots */
 	for (i = 0; i < ctx->root_count; i++) {
 		def = setting_define_find(ctx->roots[i].info, key);
-		if (def != NULL)
-			break;
+		if (def != NULL) {
+			*def_r = def;
+			*link_r = &ctx->roots[i];
+			return TRUE;
+		}
 	}
-	if (def != NULL) {
-		if (settings_parse(ctx, &ctx->roots[i], def, key, value) < 0)
-			ret = -1;
-	} else {
-		/* try to find from links */
-		const char *end = strrchr(key, SETTINGS_SEPARATOR);
-		struct setting_link *link;
 
-		link = end == NULL ? NULL :
-			hash_table_lookup(ctx->links, t_strdup_until(key, end));
-		if (link == NULL)
-			def = NULL;
-		else if (link->info == &strlist_info) {
+	/* try to find from links */
+	end = strrchr(key, SETTINGS_SEPARATOR);
+	if (end == NULL)
+		return FALSE;
+
+	link = hash_table_lookup(ctx->links, t_strdup_until(key, end));
+	if (link == NULL)
+		return FALSE;
+
+	*link_r = link;
+	if (link->info == &strlist_info) {
+		*def_r = NULL;
+		return TRUE;
+	} else {
+		*def_r = setting_define_find(link->info, end + 1);
+		return *def_r != NULL;
+	}
+}
+
+static int settings_parse_keyvalue(struct setting_parser_context *ctx,
+				   const char *key, const char *value)
+{
+	const struct setting_define *def;
+	struct setting_link *link;
+
+	if (settings_find_key(ctx, key, &def, &link)) {
+		if (link->info == &strlist_info) {
 			void *vkey, *vvalue;
 
-			vkey = p_strdup(ctx->set_pool, end + 1);
+			vkey = p_strdup(ctx->set_pool,
+					strrchr(key, SETTINGS_SEPARATOR) + 1);
 			vvalue = p_strdup(ctx->set_pool, value);
 			array_append(link->array, &vkey, 1);
 			array_append(link->array, &vvalue, 1);
 			return 1;
-		} else {
-			def = setting_define_find(link->info, end + 1);
 		}
-		if (def != NULL) {
-			if (settings_parse(ctx, link, def, key, value) < 0)
-				ret = -1;
-		} else {
-			ctx->error = p_strconcat(ctx->parser_pool,
-				"Unknown setting: ", key, NULL);
-			ret = 0;
-		}
+
+		if (settings_parse(ctx, link, def, key, value) < 0)
+			return -1;
+		return 1;
+	} else {
+		ctx->error = p_strconcat(ctx->parser_pool,
+					 "Unknown setting: ", key, NULL);
+		return 0;
 	}
-	return ret;
 }
 
 int settings_parse_line(struct setting_parser_context *ctx, const char *line)
@@ -664,6 +683,27 @@ settings_var_expand_info(const struct setting_parser_info *info,
 		}
 		default:
 			break;
+		}
+	}
+}
+
+void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
+					pool_t pool, const char *const *keys)
+{
+	const struct setting_define *def;
+	struct setting_link *link;
+	const char **val;
+
+	for (; *keys != NULL; keys++) {
+		if (!settings_find_key(ctx, *keys, &def, &link))
+			continue;
+
+		val = PTR_OFFSET(link->set_struct, def->offset);
+		if (def->type == SET_STR_VARS && *val != NULL) {
+			i_assert(**val == SETTING_STRVAR_UNEXPANDED[0] ||
+				 **val == SETTING_STRVAR_EXPANDED[0]);
+			*val = p_strconcat(pool, SETTING_STRVAR_EXPANDED,
+					   *val + 1, NULL);
 		}
 	}
 }

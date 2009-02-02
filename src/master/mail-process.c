@@ -217,15 +217,20 @@ has_missing_used_home(const char *str, const struct var_expand_table *table)
 
 static void
 mail_process_set_environment(struct master_settings *set,
-			     const struct var_expand_table *table)
+			     const struct var_expand_table *table,
+			     string_t *expanded_vars)
 {
 
 	const char **envs;
 	string_t *str;
 	unsigned int i, count;
 
-	settings_var_expand(&master_setting_parser_info, set,
-			    system_pool, table);
+	str_append(expanded_vars, "VARS_EXPANDED=");
+
+	/* we don't know all the settings, so since we can't expand all of
+	   them just let the mail process expand all of them internally.
+	   except for plugin settings - we know all of them so expand them. */
+	master_settings_export_to_env(set);
 
 	(void)umask(set->umask);
 
@@ -245,10 +250,11 @@ mail_process_set_environment(struct master_settings *set,
 		}
 		str_truncate(str, 0);
 		var_expand(str, envs[i+1], table);
-		envs[i+1] = t_strdup(str_c(str));
-	}
+		env_put(t_strconcat(t_str_ucase(envs[i]), "=", str_c(str), NULL));
 
-	master_settings_export_to_env(set);
+		str_append(expanded_vars, envs[i]);
+		str_append_c(expanded_vars, ' ');
+	}
 }
 
 void mail_process_exec(const char *protocol, const char **args)
@@ -256,6 +262,7 @@ void mail_process_exec(const char *protocol, const char **args)
 	const struct var_expand_table *var_expand_table;
 	struct master_settings *set;
 	const char *executable;
+	string_t *expanded_vars;
 
 	if (strcmp(protocol, "ext") == 0) {
 		/* external binary. section contains path for it. */
@@ -296,7 +303,10 @@ void mail_process_exec(const char *protocol, const char **args)
 		env_put(str_c(str));
 	}
 
-	mail_process_set_environment(set, var_expand_table);
+	expanded_vars = t_str_new(128);
+	mail_process_set_environment(set, var_expand_table, expanded_vars);
+	env_put(str_c(expanded_vars));
+
 	if (args == NULL)
 		client_process_exec(executable, "");
 	else
@@ -352,11 +362,11 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 {
 	const struct var_expand_table *var_expand_table;
 	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
-	const char *system_user, *master_user;
+	const char *system_user, *master_user, *key;
 	struct mail_process_group *process_group;
 	char title[1024];
 	struct log_io *log;
-	string_t *str;
+	string_t *str, *expanded_vars;
 	pid_t pid;
 	uid_t uid;
 	gid_t gid;
@@ -627,7 +637,8 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 			i_fatal("chdir(/tmp) failed: %m");
 	}
 
-	mail_process_set_environment(set, var_expand_table);
+	expanded_vars = t_str_new(128);
+	mail_process_set_environment(set, var_expand_table, expanded_vars);
 
 	/* extra args. uppercase key value. */
 	args = array_get(&extra_args, &count);
@@ -640,14 +651,18 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 		p = strchr(args[i], '=');
 		if (p == NULL) {
 			/* boolean */
-			env_put(t_strconcat(t_str_ucase(args[i]), "=1", NULL));
+			key = args[i];
+			env_put(t_strconcat(t_str_ucase(key), "=1", NULL));
 
 		} else {
 			/* key=value */
-			env_put(t_strconcat(t_str_ucase(
-				t_strdup_until(args[i], p)), p, NULL));
+			key = t_strdup_until(args[i], p);
+			env_put(t_strconcat(t_str_ucase(key), p, NULL));
 		}
+		str_append(expanded_vars, key);
+		str_append_c(expanded_vars, ' ');
 	}
+	env_put(str_c(expanded_vars));
 
 	if (nfs_check) {
 		/* ideally we should check all of the namespaces,

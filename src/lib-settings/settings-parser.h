@@ -119,6 +119,9 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 /* While parsing values, specifies if STR_VARS strings are already expanded. */
 void settings_parse_set_expanded(struct setting_parser_context *ctx,
 				 bool is_expanded);
+/* Mark all the parsed settings with given keys as being already expanded. */
+void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
+					pool_t pool, const char *const *keys);
 /* Expand all unexpanded variables using the given table. Update the string
    pointers so that they can be used without skipping over the '1'. */
 void settings_var_expand(const struct setting_parser_info *info,
