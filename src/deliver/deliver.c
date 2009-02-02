@@ -1133,7 +1133,7 @@ int main(int argc, char *argv[])
 	if (destaddr == NULL) {
 		destaddr = deliver_get_address(mail, "Envelope-To");
 		if (destaddr == NULL) {
-			destaddr = strchr(user, '@') == NULL ? user :
+			destaddr = strchr(user, '@') != NULL ? user :
 				t_strconcat(user, "@",
 					    deliver_set->hostname, NULL);
 		}
