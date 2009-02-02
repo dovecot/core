@@ -325,15 +325,16 @@ static void main_deinit(void)
 	auth_processes_deinit();
 	dict_processes_deinit();
 	ssl_deinit();
-	child_processes_deinit();
 
 	listeners_close_fds();
 
 	if (close(null_fd) < 0)
 		i_error("close(null_fd) failed: %m");
 
-	lib_signals_deinit();
 	log_deinit();
+	/* log_deinit() may still want to look up child processes */
+	child_processes_deinit();
+	lib_signals_deinit();
 	closelog();
 }
 
