@@ -84,9 +84,6 @@ static const char *deliver_get_address(struct mail *mail, const char *header)
 	struct message_address *addr;
 	const char *str;
 
-	if (explicit_envelope_sender != NULL)
-		return explicit_envelope_sender;
-
 	if (mail_get_first_header(mail, header, &str) <= 0)
 		return NULL;
 	addr = message_address_parse(pool_datastack_create(),
@@ -263,6 +260,9 @@ int deliver_save(struct mail_namespace *namespaces,
 
 const char *deliver_get_return_address(struct mail *mail)
 {
+	if (explicit_envelope_sender != NULL)
+		return explicit_envelope_sender;
+
 	return deliver_get_address(mail, "Return-Path");
 }
 
