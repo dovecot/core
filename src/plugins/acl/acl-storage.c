@@ -174,19 +174,18 @@ void acl_mail_storage_created(struct mail_storage *storage)
 
 	if ((storage->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
 		/* no ACL checks for internal namespaces (deliver) */
-		return;
+	} else {
+		astorage = p_new(storage->pool, struct acl_mail_storage, 1);
+		astorage->module_ctx.super = storage->v;
+		storage->v.destroy = acl_storage_destroy;
+		storage->v.mailbox_open = acl_mailbox_open;
+		storage->v.mailbox_create = acl_mailbox_create;
+
+		backend = acl_mailbox_list_get_backend(mail_storage_get_list(storage));
+		acl_storage_rights_ctx_init(&astorage->rights, backend);
+
+		MODULE_CONTEXT_SET(storage, acl_storage_module, astorage);
 	}
-
-	astorage = p_new(storage->pool, struct acl_mail_storage, 1);
-	astorage->module_ctx.super = storage->v;
-	storage->v.destroy = acl_storage_destroy;
-	storage->v.mailbox_open = acl_mailbox_open;
-	storage->v.mailbox_create = acl_mailbox_create;
-
-	backend = acl_mailbox_list_get_backend(mail_storage_get_list(storage));
-	acl_storage_rights_ctx_init(&astorage->rights, backend);
-
-	MODULE_CONTEXT_SET(storage, acl_storage_module, astorage);
 
 	if (acl_next_hook_mail_storage_created != NULL)
 		acl_next_hook_mail_storage_created(storage);
