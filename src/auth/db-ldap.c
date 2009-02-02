@@ -130,7 +130,7 @@ static struct ldap_settings default_ldap_settings = {
 	MEMBER(deref) "never",
 	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
-	MEMBER(ldap_version) 2,
+	MEMBER(ldap_version) 3,
 	MEMBER(debug_level) "0",
 	MEMBER(ldaprc_path) "",
 	MEMBER(user_attrs) "homeDirectory=home,uidNumber=uid,gidNumber=gid",
