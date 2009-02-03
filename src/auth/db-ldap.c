@@ -828,8 +828,8 @@ int db_ldap_connect(struct ldap_connection *conn)
 static void db_ldap_disconnect_timeout(struct ldap_connection *conn)
 {
 	db_ldap_abort_requests(conn, -1U,
-			       DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS,
-			       FALSE, "LDAP server not connected");
+		DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS, FALSE,
+		"Aborting (timeout), we're not connected to LDAP server");
 
 	if (aqueue_count(conn->request_queue) == 0) {
 		/* no requests left, remove this timeout handler */
