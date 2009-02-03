@@ -209,8 +209,7 @@ get_var_expand_table(const char *protocol,
 static void mail_process_set_environment(struct master_settings *set)
 {
 	/* we don't know all the settings, so since we can't expand all of
-	   them just let the mail process expand all of them internally.
-	   except for plugin settings - we know all of them so expand them. */
+	   them just let the mail process expand all of them internally. */
 	master_settings_export_to_env(set);
 
 	(void)umask(set->umask);

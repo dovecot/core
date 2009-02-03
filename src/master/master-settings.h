@@ -116,7 +116,6 @@ struct master_settings {
 	ARRAY_DEFINE(auths, struct master_auth_settings *);
 
 	ARRAY_DEFINE(dicts, const char *);
-	ARRAY_DEFINE(plugin_envs, const char *);
 
 #ifndef CONFIG_BINARY
 	/* .. */

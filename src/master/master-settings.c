@@ -205,7 +205,6 @@ static struct setting_define master_setting_defines[] = {
 	DEF(SET_UINT, dict_process_count),
 	DEFLIST(auths, "auth", &master_auth_setting_parser_info),
 	{ SET_STRLIST, "dict", offsetof(struct master_settings, dicts), NULL },
-	{ SET_STRLIST, "plugin", offsetof(struct master_settings, plugin_envs), NULL },
 
 	SETTING_DEFINE_LIST_END
 };
