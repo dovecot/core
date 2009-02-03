@@ -65,7 +65,6 @@ struct master_settings {
 	const char *ssl;
 	const char *ssl_key_file;
 	unsigned int ssl_parameters_regenerate;
-	bool nfs_check;
 	bool version_ignore;
 
 	/* login */
@@ -100,7 +99,6 @@ struct master_settings {
 
 	const char *mail_location;
 	bool mail_debug;
-	bool mail_nfs_index;
 	unsigned int umask;
 	bool mail_drop_priv_before_exec;
 

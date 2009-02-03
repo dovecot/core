@@ -269,44 +269,6 @@ void mail_process_exec(const char *protocol, const char **args)
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 }
 
-static void nfs_warn_if_found(const char *mail, const char *full_home_dir)
-{
-	struct mountpoint point;
-	const char *path;
-
-	if (mail == NULL || *mail == '\0')
-		path = full_home_dir;
-	else {
-		path = strstr(mail, ":INDEX=");
-		if (path != NULL) {
-			/* indexes set separately */
-			path += 7;
-			if (strncmp(path, "MEMORY", 6) == 0)
-				return;
-		} else {
-			path = strchr(mail, ':');
-			if (path == NULL) {
-				/* autodetection for path */
-				path = mail;
-			} else {
-				/* format:path */
-				path++;
-			}
-		}
-		path = home_expand_tilde(t_strcut(path, ':'), full_home_dir);
-	}
-
-	if (mountpoint_get(path, pool_datastack_create(), &point) <= 0)
-		return;
-
-	if (point.type == NULL || strcasecmp(point.type, "NFS") != 0)
-		return;
-
-	i_fatal("Mailbox indexes in %s are in NFS mount. "
-		"You must set mail_nfs_index=yes to avoid index corruptions. "
-		"If you're sure this check was wrong, set nfs_check=no.", path);
-}
-
 enum master_login_status
 create_mail_process(enum process_type process_type, struct master_settings *set,
 		    const struct mail_login_request *request,
@@ -327,7 +289,7 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 	ARRAY_DEFINE(extra_args, const char *);
 	unsigned int i, len, count, left, process_count, throttle;
 	int ret, log_fd, nice_value, chdir_errno;
-	bool home_given, nfs_check;
+	bool home_given;
 
 	i_assert(process_type == PROCESS_TYPE_IMAP ||
 		 process_type == PROCESS_TYPE_POP3);
@@ -463,15 +425,6 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
 		fd_close_on_exec(log_fd, TRUE);
-	}
-
-	/* See if we need to do the initial NFS check. We want to do this only
-	   once, so the check code needs to be before fork(). */
-	if (set->nfs_check && !set->mail_nfs_index && !dump_capability) {
-		set->nfs_check = FALSE;
-		nfs_check = TRUE;
-	} else {
-		nfs_check = FALSE;
 	}
 
 	pid = fork();
@@ -621,16 +574,6 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 		str_append_c(expanded_vars, ' ');
 	}
 	env_put(str_c(expanded_vars));
-
-	if (nfs_check) {
-		/* ideally we should check all of the namespaces,
-		   but for now don't bother. */
-		const char *mail_location = getenv("NAMESPACE_1"); //FIXME
-
-		if (mail_location == NULL)
-			mail_location = getenv("MAIL");
-		nfs_warn_if_found(mail_location, full_home_dir);
-	}
 
 	env_put("LOGGED_IN=1");
 	if (*home_dir != '\0')

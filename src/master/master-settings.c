@@ -154,7 +154,6 @@ static struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, ssl),
 	DEF(SET_STR, ssl_key_file),
 	DEF(SET_UINT, ssl_parameters_regenerate),
-	DEF(SET_BOOL, nfs_check),
 	DEF(SET_BOOL, version_ignore),
 
 	/* login */
@@ -191,7 +190,6 @@ static struct setting_define master_setting_defines[] = {
 
 	DEF(SET_STR_VARS, mail_location),
 	DEF(SET_BOOL, mail_debug),
-	DEF(SET_BOOL, mail_nfs_index),
 	DEF(SET_UINT, umask),
 	DEF(SET_BOOL, mail_drop_priv_before_exec),
 
@@ -225,7 +223,6 @@ struct master_settings master_default_settings = {
 	MEMBER(ssl) "yes",
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
 	MEMBER(ssl_parameters_regenerate) 168,
-	MEMBER(nfs_check) TRUE,
 	MEMBER(version_ignore) FALSE,
 
 	/* login */
@@ -261,7 +258,6 @@ struct master_settings master_default_settings = {
 
 	MEMBER(mail_location) "",
 	MEMBER(mail_debug) FALSE,
-	MEMBER(mail_nfs_index) FALSE,
 	MEMBER(umask) 0077,
 	MEMBER(mail_drop_priv_before_exec) FALSE,
 
