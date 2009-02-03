@@ -536,8 +536,8 @@ static void nfs_warn_if_found(const char *mail, const char *full_home_dir)
 	if (point.type == NULL || strcasecmp(point.type, "NFS") != 0)
 		return;
 
-	i_fatal("Mailbox indexes in %s are in NFS mount. "
-		"You must set mail_nfs_index=yes to avoid index corruptions. "
+	i_fatal("Mailbox indexes in %s are in NFS mount. You must set "
+		"mail_nfs_index=yes (and mail_nfs_storage=yes) to avoid index corruptions. "
 		"If you're sure this check was wrong, set nfs_check=no.", path);
 }
 
