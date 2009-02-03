@@ -537,7 +537,7 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
 	restrict_access_set_env(system_user, uid, gid, set->mail_priv_gid_t,
-				chroot_dir,
+				dump_capability ? "" : chroot_dir,
 				set->first_valid_gid, set->last_valid_gid,
 				set->mail_access_groups);
 
@@ -546,7 +546,7 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 	if (dump_capability)
 		env_put("DUMP_CAPABILITY=1");
 
-	if (*home_dir == '\0' && *chroot_dir == '\0') {
+	if ((*home_dir == '\0' && *chroot_dir == '\0') || dump_capability) {
 		full_home_dir = "";
 		ret = -1;
 	} else {
