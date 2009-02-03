@@ -15,6 +15,14 @@
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
+struct input_stack {
+	struct input_stack *prev;
+
+	struct istream *input;
+	const char *path;
+	unsigned int linenum;
+};
+
 void config_parsers_fix_parents(pool_t pool)
 {
 #if 0
@@ -299,15 +307,15 @@ static const char *info_type_name_find(const struct setting_parser_info *info)
 
 void config_parse_file(string_t *dest, const char *path, const char *service)
 {
+	struct input_stack root, *input, *new_input;
 	ARRAY_DEFINE(pathlen_stack, unsigned int);
 	ARRAY_TYPE(const_string) auth_defaults;
 	const struct setting_parser_info *info;
 	unsigned int pathlen = 0;
 	unsigned int counter = 0, auth_counter = 0, cur_counter;
-	struct istream *input;
 	const char *errormsg, *name, *type_name;
 	char *line, *key, *p;
-	int fd, linenum, ret, ignore;
+	int fd, ret, ignore;
 	string_t *str, *full_line;
 	size_t len;
 	pool_t pool;
@@ -325,12 +333,19 @@ void config_parse_file(string_t *dest, const char *path, const char *service)
 	errormsg = config_parse_line(pool, "0", "auth=0", &info);
 	i_assert(errormsg == NULL);
 
+	memset(&root, 0, sizeof(root));
+	root.path = path;
+	input = &root;
+
 	str = t_str_new(256);
 	full_line = t_str_new(512);
-	linenum = 0; errormsg = NULL; ignore = 0; asis = FALSE;
-	input = i_stream_create_fd(fd, (size_t)-1, FALSE);
-	while ((line = i_stream_read_next_line(input)) != NULL) {
-		linenum++;
+	errormsg = NULL; ignore = 0; asis = FALSE;
+newfile:
+	input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	i_stream_set_return_partial_line(input->input, TRUE);
+prevfile:
+	while ((line = i_stream_read_next_line(input->input)) != NULL) {
+		input->linenum++;
 
 		/* @UNSAFE: line is modified */
 
@@ -387,7 +402,30 @@ void config_parse_file(string_t *dest, const char *path, const char *service)
 		}
 
 		ret = 1;
-		if (*line == '=') {
+		if (strcmp(key, "!include_try") == 0 ||
+		    strcmp(key, "!include") == 0) {
+			struct input_stack *tmp;
+
+			for (tmp = input; tmp != NULL; tmp = tmp->prev) {
+				if (strcmp(tmp->path, line) == 0)
+					break;
+			}
+			if (tmp != NULL) {
+				errormsg = "Recursive include";
+			} else if ((fd = open(line, O_RDONLY)) != -1) {
+				new_input = t_new(struct input_stack, 1);
+				new_input->prev = input;
+				new_input->path = t_strdup(line);
+				input = new_input;
+				goto newfile;
+			} else {
+				/* failed, but ignore failures with include_try. */
+				if (strcmp(key, "!include") == 0) {
+					errormsg = t_strdup_printf(
+						"Couldn't open include file %s: %m", line);
+				}
+			}
+		} else if (*line == '=') {
 			/* a) */
 			*line++ = '\0';
 			while (IS_WHITE(*line)) line++;
@@ -524,11 +562,16 @@ void config_parse_file(string_t *dest, const char *path, const char *service)
 
 		if (errormsg != NULL) {
 			i_fatal("Error in configuration file %s line %d: %s",
-				path, linenum, errormsg);
+				input->path, input->linenum, errormsg);
 			break;
 		}
 		str_truncate(full_line, 0);
 	}
-	i_stream_unref(&input);
+
+	i_stream_destroy(&input->input);
+	input = input->prev;
+	if (line == NULL && input != NULL)
+		goto prevfile;
+
 	config_export(dest);
 }
