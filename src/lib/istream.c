@@ -92,6 +92,10 @@ ssize_t i_stream_read(struct istream *stream)
 	case 0:
 		i_assert(!stream->blocking);
 		break;
+	default:
+		i_assert(ret > 0);
+		i_assert((size_t)ret <= _stream->pos - _stream->skip);
+		break;
 	}
 	return ret;
 }
