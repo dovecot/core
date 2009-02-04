@@ -155,6 +155,7 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 		(struct passdb_ldap_request *)ldap_request;
 	struct auth_request *auth_request = ldap_request->auth_request;
 	enum passdb_result passdb_result;
+	const char *str;
 	int ret;
 
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
@@ -164,8 +165,13 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 		if (ret == LDAP_SUCCESS)
 			passdb_result = PASSDB_RESULT_OK;
 		else if (ret == LDAP_INVALID_CREDENTIALS) {
-			auth_request_log_info(auth_request, "ldap",
-					      "invalid credentials");
+			str = "invalid credentials";
+			if (auth_request->auth->verbose_debug_passwords) {
+				str = t_strconcat(str, " (given password: ",
+						  auth_request->mech_password,
+						  ")", NULL);
+			}
+			auth_request_log_info(auth_request, "ldap", "%s", str);
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 		} else {
 			auth_request_log_error(auth_request, "ldap",
