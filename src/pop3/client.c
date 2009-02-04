@@ -197,6 +197,9 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 		return NULL;
 	}
 
+	if (!no_flag_updates)
+		client->seen_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
+
 	i_assert(my_client == NULL);
 	my_client = client;
 
@@ -276,6 +279,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	i_free(client->message_sizes);
 	i_free(client->deleted_bitmask);
+	i_free(client->seen_bitmask);
 
 	if (client->io != NULL)
 		io_remove(&client->io);

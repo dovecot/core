@@ -6,6 +6,9 @@ struct mail_storage;
 
 typedef void command_func_t(struct client *client);
 
+#define MSGS_BITMASK_SIZE(client) \
+	(((client)->messages_count + (CHAR_BIT-1)) / CHAR_BIT)
+
 struct client {
 	int fd_in, fd_out;
 	struct io *io;
@@ -27,8 +30,7 @@ struct client {
 
 	unsigned int uid_validity;
 	unsigned int messages_count;
-	unsigned int deleted_count;
-	unsigned int expunged_count;
+	unsigned int deleted_count, expunged_count, seen_change_count;
 	uoff_t *message_sizes;
 	uoff_t total_size;
 	uoff_t deleted_size;
@@ -43,6 +45,7 @@ struct client {
 	uoff_t byte_counter_offset;
 
 	unsigned char *deleted_bitmask;
+	unsigned char *seen_bitmask;
 
 	unsigned int disconnected:1;
 	unsigned int deleted:1;
