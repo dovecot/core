@@ -178,11 +178,15 @@ static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
 			/* log this as error, since it probably is */
 			str = t_strdup_printf("%s (%s missing?)", str, path);
 			auth_request_log_error(request, "pam", "%s", str);
-		} else {
-			if (status == PAM_AUTH_ERR) {
-				str = t_strconcat(str, " (password mismatch?)",
-						  NULL);
+		} else if (status == PAM_AUTH_ERR) {
+			str = t_strconcat(str, " (password mismatch?)", NULL);
+			if (request->auth->verbose_debug_passwords) {
+				str = t_strconcat(str, " (given password: ",
+						  request->mech_password,
+						  ")", NULL);
 			}
+			auth_request_log_info(request, "pam", "%s", str);
+		} else {
 			auth_request_log_info(request, "pam", "%s", str);
 		}
 		return status;
