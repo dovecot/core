@@ -112,12 +112,20 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 	uoff_t last_high_offset;
 	ssize_t ret;
 
+	if (stream->buffer == NULL) {
+		/* initial read */
+		tee_streams_update_buffer(tstream->tee);
+	}
 	data = i_stream_get_data(input, &size);
 
+	/* last_high_offset contains how far we have read this child tee stream
+	   so far. input->v_offset + size contains how much is available in
+	   the parent stream without having to read more. */
 	last_high_offset = stream->istream.v_offset +
-		(tstream->istream.pos - tstream->istream.skip);
+		(stream->pos - stream->skip);
 	i_assert(last_high_offset <= input->v_offset + size);
 	if (last_high_offset == input->v_offset + size) {
+		/* we've read everything, need to read more */
 		tee_streams_skip(tstream->tee);
 		ret = i_stream_read(input);
 		if (ret <= 0) {
@@ -133,9 +141,9 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 		}
 		tee_streams_update_buffer(tstream->tee);
 		data = i_stream_get_data(input, &size);
-	} else if (stream->buffer == NULL) {
-		tee_streams_update_buffer(tstream->tee);
 	} else {
+		/* there's still some data available from parent */
+		i_assert(stream->pos < size);
 		stream->buffer = data;
 	}
 
