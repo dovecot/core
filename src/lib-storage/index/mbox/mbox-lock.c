@@ -423,6 +423,7 @@ static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time)
 {
 	time_t now, last_notify;
+	unsigned int next_alarm;
 
 	if (mbox_file_open_latest(ctx, lock_type) < 0)
 		return -1;
@@ -437,26 +438,49 @@ static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 	else
 		lock_type = LOCK_UN;
 
+	if (max_wait_time == 0) {
+		/* usually we're waiting here, but if we came from
+		   mbox_lock_dotlock(), we just want to try locking */
+		lock_type |= LOCK_NB;
+	} else {
+		now = time(NULL);
+		if (now >= max_wait_time)
+			alarm(1);
+		else
+			alarm(I_MIN(max_wait_time - now, 5));
+	}
+
         last_notify = 0;
-	while (flock(ctx->mbox->mbox_fd, lock_type | LOCK_NB) < 0) {
-		if (errno != EWOULDBLOCK) {
+	while (flock(ctx->mbox->mbox_fd, lock_type) < 0) {
+		if (errno != EINTR) {
+			if (errno == EWOULDBLOCK && max_wait_time == 0) {
+				/* non-blocking lock trying failed */
+				return 0;
+			}
+			alarm(0);
 			mbox_set_syscall_error(ctx->mbox, "flock()");
 			return -1;
 		}
 
 		now = time(NULL);
-		if (now >= max_wait_time)
+		if (now >= max_wait_time) {
+			alarm(0);
 			return 0;
-
-		if (now != last_notify) {
-			index_storage_lock_notify(&ctx->mbox->ibox,
-				MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
-				max_wait_time - now);
 		}
 
-		usleep(LOCK_RANDOM_USLEEP_TIME);
+		/* notify locks once every 5 seconds.
+		   try to use rounded values. */
+		next_alarm = (max_wait_time - now) % 5;
+		if (next_alarm == 0)
+			next_alarm = 5;
+		alarm(next_alarm);
+
+		index_storage_lock_notify(&ctx->mbox->ibox,
+					  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
+					  max_wait_time - now);
 	}
 
+	alarm(0);
 	return 1;
 }
 #endif
@@ -466,6 +490,7 @@ static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time)
 {
 	time_t now, last_notify;
+	unsigned int next_alarm;
 
 	if (mbox_file_open_latest(ctx, lock_type) < 0)
 		return -1;
@@ -473,31 +498,53 @@ static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 	if (lock_type == F_UNLCK && ctx->mbox->mbox_fd == -1)
 		return 1;
 
-	if (lock_type != F_UNLCK)
-		lock_type = F_TLOCK;
-	else
+	if (lock_type == F_UNLCK)
 		lock_type = F_ULOCK;
+	else if (max_wait_time == 0) {
+		/* usually we're waiting here, but if we came from
+		   mbox_lock_dotlock(), we just want to try locking */
+		lock_type = F_TLOCK;
+	} else {
+		now = time(NULL);
+		if (now >= max_wait_time)
+			alarm(1);
+		else
+			alarm(I_MIN(max_wait_time - now, 5));
+		lock_type = F_LOCK;
+	}
 
         last_notify = 0;
 	while (lockf(ctx->mbox->mbox_fd, lock_type, 0) < 0) {
-		if (errno != EAGAIN) {
+		if (errno != EINTR) {
+			if ((errno == EACCES || errno == EAGAIN) &&
+			    max_wait_time == 0) {
+				/* non-blocking lock trying failed */
+				return 0;
+			}
+			alarm(0);
 			mbox_set_syscall_error(ctx->mbox, "lockf()");
 			return -1;
 		}
 
 		now = time(NULL);
-		if (now >= max_wait_time)
+		if (now >= max_wait_time) {
+			alarm(0);
 			return 0;
-
-		if (now != last_notify) {
-			index_storage_lock_notify(&ctx->mbox->ibox,
-				MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
-				max_wait_time - now);
 		}
 
-		usleep(LOCK_RANDOM_USLEEP_TIME);
+		/* notify locks once every 5 seconds.
+		   try to use rounded values. */
+		next_alarm = (max_wait_time - now) % 5;
+		if (next_alarm == 0)
+			next_alarm = 5;
+		alarm(next_alarm);
+
+		index_storage_lock_notify(&ctx->mbox->ibox,
+					  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
+					  max_wait_time - now);
 	}
 
+	alarm(0);
 	return 1;
 }
 #endif
