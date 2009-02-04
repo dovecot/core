@@ -28,11 +28,25 @@
 
 /* Disconnect client after idling this many milliseconds */
 #define CLIENT_IDLE_TIMEOUT_MSECS (10*60*1000)
+/* If client starts idling for this many milliseconds, commit the current
+   transaction. This allows the mailbox to become unlocked. */
+#define CLIENT_COMMIT_TIMEOUT_MSECS (10*1000)
 
 static struct client *my_client; /* we don't need more than one currently */
 
 static void client_input(struct client *client);
 static int client_output(struct client *client);
+
+static void client_commit_timeout(struct client *client)
+{
+	if (client->cmd != NULL) {
+		/* Can't commit while commands are running */
+		return;
+	}
+
+	(void)mailbox_transaction_commit(&client->trans);
+	client->trans = mailbox_transaction_begin(client->mailbox, 0);
+}
 
 static void client_idle_timeout(struct client *client)
 {
@@ -162,6 +176,10 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
+	if (!lock_session) {
+		client->to_commit = timeout_add(CLIENT_COMMIT_TIMEOUT_MSECS,
+						client_commit_timeout, client);
+	}
 
 	client->user = user;
 
@@ -284,6 +302,8 @@ void client_destroy(struct client *client, const char *reason)
 	if (client->io != NULL)
 		io_remove(&client->io);
 	timeout_remove(&client->to_idle);
+	if (client->to_commit != NULL)
+		timeout_remove(&client->to_commit);
 
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
@@ -429,6 +449,8 @@ static void client_input(struct client *client)
 	client->waiting_input = FALSE;
 	client->last_input = ioloop_time;
 	timeout_reset(client->to_idle);
+	if (client->to_commit != NULL)
+		timeout_reset(client->to_commit);
 
 	switch (i_stream_read(client->input)) {
 	case -1:
@@ -456,6 +478,8 @@ static int client_output(struct client *client)
 
 	client->last_output = ioloop_time;
 	timeout_reset(client->to_idle);
+	if (client->to_commit != NULL)
+		timeout_reset(client->to_commit);
 
 	if (client->cmd != NULL) {
 		o_stream_cork(client->output);
