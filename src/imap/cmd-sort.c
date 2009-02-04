@@ -4,7 +4,7 @@
 #include "buffer.h"
 #include "commands.h"
 #include "imap-search-args.h"
-#include "imap-sort.h"
+#include "imap-search.h"
 
 struct sort_name {
 	enum mail_sort_type type;
@@ -89,9 +89,9 @@ get_sort_program(struct client_command_context *cmd,
 
 bool cmd_sort(struct client_command_context *cmd)
 {
-	struct client *client = cmd->client;
+	struct imap_search_context *ctx;
 	struct mail_search_args *sargs;
-	enum mail_sort_type sorting[MAX_SORT_PROGRAM_SIZE];
+	enum mail_sort_type sort_program[MAX_SORT_PROGRAM_SIZE];
 	const struct imap_arg *args;
 	int args_count;
 	const char *charset;
@@ -100,7 +100,7 @@ bool cmd_sort(struct client_command_context *cmd)
 	args_count = imap_parser_read_args(cmd->parser, 0, 0, &args);
 	if (args_count == -2)
 		return FALSE;
-	client->input_lock = NULL;
+	cmd->client->input_lock = NULL;
 
 	if (args_count < 3) {
 		client_send_command_error(cmd, args_count < 0 ? NULL :
@@ -117,7 +117,7 @@ bool cmd_sort(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (get_sort_program(cmd, IMAP_ARG_LIST_ARGS(args), sorting) < 0)
+	if (get_sort_program(cmd, IMAP_ARG_LIST_ARGS(args), sort_program) < 0)
 		return TRUE;
 	args++;
 
@@ -130,19 +130,17 @@ bool cmd_sort(struct client_command_context *cmd)
 	charset = IMAP_ARG_STR(args);
 	args++;
 
+	ctx = p_new(cmd->pool, struct imap_search_context, 1);
+	ctx->cmd = cmd;
+
+	if ((ret = cmd_search_parse_return_if_found(ctx, &args)) <= 0) {
+		/* error / waiting for unambiguity */
+		return ret < 0;
+	}
+
 	ret = imap_search_args_build(cmd, args, charset, &sargs);
 	if (ret <= 0)
 		return ret < 0;
 
-	ret = imap_sort(cmd, sargs, sorting);
-	mail_search_args_unref(&sargs);
-	if (ret < 0) {
-		client_send_storage_error(cmd,
-					  mailbox_get_storage(client->mailbox));
-		return TRUE;
-	}
-
-	return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
-			(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
-			0, "OK Sort completed.");
+	return imap_search_start(ctx, sargs, sort_program);
 }

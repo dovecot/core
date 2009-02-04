@@ -1,3 +1,20 @@
+dovecot: Jan 17 17:04:38 Panic: dict: file driver-pgsql.c: line 202 (driver_pgsql_init_v): assertion failed: (connect_string != NULL)
+  ^ kun puuttui connect setting
+
+dovecot: Jan 17 17:05:58 Error: dict: io_loop_handle_remove: epoll_ctl(2, 9): No such file or directory
+dovecot: Jan 17 17:05:58 Error: dict: pgsql: Connect failed to mails: FATAL:  password authentication failed for user "timo"
+
+dovecot: Jan 17 17:13:07 Error: dict: dict sql lookup failed: FATAL:  terminating connection due to administrator command
+dovecot: Jan 17 17:13:07 Error: dict: io_loop_handle_remove: epoll_ctl(2, 9): Bad file descriptor
+
+Jan 16 02:30:12 vh3 dovecot: auth(default): sql(user@ex2.com): User query failed: FATAL:  terminating connection due to administrator command
+Jan 16 02:30:12 vh3 deliver(user@ex2.com): Auth lookup returned failure
+Jan 16 02:30:12 vh3 dovecot: auth(default): kevent(EV_DELETE, 10) failed: Bad file descriptor
+
+ - namespace shared: prefix = shared/%%d/%%u/: LIST shared/% doesn't work
+ - index_removal_timeout leak when copy&pasting:
+     10 myrights "INBOX"
+     11 getacl "INBOX"
  - proxying: support fallbacking to local (or other?) server if the first
    one is down
 user_attrs {
@@ -13,6 +30,8 @@ imap(tss)(pid=12890): Error: dovecot-acl-list creation failed:
 safe_mkstemp(/usr/local/var/run/dovecot/user-not-found/test/temp.hurina.12890.87eb6b37b351b733) failed: No such file or directory
 
  - i_panic("Message count decreased") happens - why?
+     - at least one backtrace shows client_destroy -> client_command_cancel ->
+       imap_sync_deinit
  - fts-solr: handle DELETE, RENAME
  - fsck -> log_file_tail_offset 2273345664 -> 996 ->
    mail-transaction-log.c: line 341 (mail_transaction_log_set_mailbox_sync_pos):
@@ -32,11 +51,8 @@ safe_mkstemp(/usr/local/var/run/dovecot/user-not-found/test/temp.hurina.12890.87
       dovecot-acl files? at least not that often..
  - virtual mailboxes: backend mailbox where to save mails if they're tried to
    be saved to the virtual mailbox.
- - acl example in wiki with acl_dict = file:/var/mail/%d/dovecot.shared
+ - acl example in wiki with acl_shared_dict = file:/var/mail/%d/dovecot.shared
   - with list=children
- - change auth_worker_max_request_count to non-zero by default? at least with
-   PAM it should be non-zero.. perhaps remove the entire setting and make it
-   a pam args?
  - add anonymous environment for anon logins
  - fs quota: getquotaroot inbox vs. other-box should return different quotas
    if two quotas are defined
