@@ -5,7 +5,7 @@
 #include "ostream.h"
 #include "imap-resp-code.h"
 #include "commands.h"
-#include "imap-search.h"
+#include "imap-search-args.h"
 
 #include <time.h>
 

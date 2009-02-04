@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "commands.h"
-#include "imap-search.h"
+#include "imap-search-args.h"
 #include "imap-expunge.h"
 
 static bool cmd_expunge_callback(struct client_command_context *cmd)

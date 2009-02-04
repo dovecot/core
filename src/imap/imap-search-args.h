@@ -1,5 +1,5 @@
-#ifndef IMAP_SEARCH_H
-#define IMAP_SEARCH_H
+#ifndef IMAP_SEARCH_ARGS_H
+#define IMAP_SEARCH_ARGS_H
 
 #include "mail-search.h"
 

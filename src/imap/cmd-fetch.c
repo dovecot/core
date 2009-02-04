@@ -5,7 +5,7 @@
 #include "imap-resp-code.h"
 #include "commands.h"
 #include "imap-fetch.h"
-#include "imap-search.h"
+#include "imap-search-args.h"
 #include "mail-search.h"
 
 #include <stdlib.h>

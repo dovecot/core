@@ -4,7 +4,7 @@
 #include "str.h"
 #include "ostream.h"
 #include "commands.h"
-#include "imap-search.h"
+#include "imap-search-args.h"
 #include "mail-thread.h"
 
 static int imap_thread_write(struct mail_thread_iterate_context *iter,

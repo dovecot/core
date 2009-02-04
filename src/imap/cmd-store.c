@@ -4,7 +4,7 @@
 #include "seq-range-array.h"
 #include "str.h"
 #include "commands.h"
-#include "imap-search.h"
+#include "imap-search-args.h"
 #include "imap-util.h"
 
 #include <stdlib.h>

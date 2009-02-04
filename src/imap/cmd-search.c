@@ -10,7 +10,7 @@
 #include "imap-util.h"
 #include "mail-search-build.h"
 #include "commands.h"
-#include "imap-search.h"
+#include "imap-search-args.h"
 
 enum search_return_options {
 	SEARCH_RETURN_ESEARCH		= 0x0001,

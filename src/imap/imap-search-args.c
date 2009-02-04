@@ -3,7 +3,7 @@
 #include "common.h"
 #include "mail-storage.h"
 #include "mail-search-build.h"
-#include "imap-search.h"
+#include "imap-search-args.h"
 #include "imap-parser.h"
 #include "imap-seqset.h"
 

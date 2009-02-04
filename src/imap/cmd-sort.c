@@ -3,7 +3,7 @@
 #include "common.h"
 #include "buffer.h"
 #include "commands.h"
-#include "imap-search.h"
+#include "imap-search-args.h"
 #include "imap-sort.h"
 
 struct sort_name {
