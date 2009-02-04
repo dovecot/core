@@ -59,7 +59,7 @@ imap_partial_range_parse(struct imap_search_context *ctx, const char *str)
 		ctx->partial1 = ctx->partial1 * 10 + *str-'0';
 	if (*str != ':')
 		return -1;
-	for (; *str >= '0' && *str <= '9'; str++)
+	for (str++; *str >= '0' && *str <= '9'; str++)
 		ctx->partial2 = ctx->partial2 * 10 + *str-'0';
 	return *str == '\0' ? 0 : -1;
 }
