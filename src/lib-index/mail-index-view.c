@@ -304,26 +304,27 @@ static void view_lookup_first(struct mail_index_view *view,
 {
 #define LOW_UPDATE(x) \
 	STMT_START { if ((x) > low_uid) low_uid = x; } STMT_END
+	const struct mail_index_header *hdr = &view->map->hdr;
 	const struct mail_index_record *rec;
-	uint32_t seq, low_uid = 1;
+	uint32_t seq, seq2, low_uid = 1;
 
 	*seq_r = 0;
 
 	if ((flags_mask & MAIL_SEEN) != 0 && (flags & MAIL_SEEN) == 0)
-		LOW_UPDATE(view->map->hdr.first_unseen_uid_lowwater);
+		LOW_UPDATE(hdr->first_unseen_uid_lowwater);
 	if ((flags_mask & MAIL_DELETED) != 0 && (flags & MAIL_DELETED) != 0)
-		LOW_UPDATE(view->map->hdr.first_deleted_uid_lowwater);
+		LOW_UPDATE(hdr->first_deleted_uid_lowwater);
 
 	if (low_uid == 1)
 		seq = 1;
 	else {
-		if (!mail_index_lookup_seq(view, low_uid, &seq))
+		if (!mail_index_lookup_seq_range(view, low_uid, hdr->next_uid,
+						 &seq, &seq2))
 			return;
 	}
 
-	i_assert(view->map->hdr.messages_count <=
-		 view->map->rec_map->records_count);
-	for (; seq <= view->map->hdr.messages_count; seq++) {
+	i_assert(hdr->messages_count <= view->map->rec_map->records_count);
+	for (; seq <= hdr->messages_count; seq++) {
 		rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 		if ((rec->flags & flags_mask) == (uint8_t)flags) {
 			*seq_r = seq;
