@@ -272,6 +272,9 @@ static const char *client_get_disconnect_reason(struct client *client)
 
 void client_destroy(struct client *client, const char *reason)
 {
+	if (client->seen_change_count > 0)
+		client_update_mails(client);
+
 	if (!client->disconnected) {
 		if (reason == NULL)
 			reason = client_get_disconnect_reason(client);

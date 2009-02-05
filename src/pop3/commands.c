@@ -195,7 +195,7 @@ pop3_search_build(struct client *client, uint32_t seq)
 	return search_args;
 }
 
-static bool update_mails(struct client *client)
+bool client_update_mails(struct client *client)
 {
 	struct mail_search_args *search_args;
 	struct mail_search_context *ctx;
@@ -226,13 +226,14 @@ static bool update_mails(struct client *client)
 	}
 	mail_free(&mail);
 
+	client->seen_change_count = 0;
 	return mailbox_search_deinit(&ctx) == 0;
 }
 
 static int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 {
 	if (client->deleted || client->seen_bitmask != NULL) {
-		if (!update_mails(client)) {
+		if (!client_update_mails(client)) {
 			client_send_storage_error(client);
 			client_disconnect(client,
 				"Storage error during logout.");

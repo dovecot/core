@@ -66,6 +66,7 @@ int client_send_line(struct client *client, const char *fmt, ...)
 void client_send_storage_error(struct client *client);
 
 bool client_handle_input(struct client *client);
+bool client_update_mails(struct client *client);
 
 void clients_init(void);
 void clients_deinit(void);
