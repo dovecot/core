@@ -254,7 +254,10 @@ static void consume_results(struct pgsql_db *db)
 			return;
 	} while (PQgetResult(db->pg) != NULL);
 
-	io_remove(&db->io);
+	if (PQstatus(db->pg) == CONNECTION_BAD)
+		io_remove_closed(&db->io);
+	else
+		io_remove(&db->io);
 
 	db->querying = FALSE;
 	if (db->queue != NULL && db->connected)
@@ -310,8 +313,12 @@ static void result_finish(struct pgsql_result *result)
 	bool free_result = TRUE, retry = FALSE;
 	bool disconnected;
 
-	disconnected = PQstatus(db->pg) == CONNECTION_BAD;
-	if (disconnected && result->pgres == NULL && result->retry_query) {
+	/* if connection to server was lost, we don't yet see that the
+	   connection is bad. we only see the fatal error, so assume it also
+	   means disconnection. */
+	disconnected = PQstatus(db->pg) == CONNECTION_BAD ||
+		PQresultStatus(result->pgres) == PGRES_FATAL_ERROR;
+	if (disconnected && result->retry_query) {
 		/* retry the query */
 		i_error("pgsql: Query failed, retrying: %s", last_error(db));
 		retry = TRUE;
@@ -328,6 +335,10 @@ static void result_finish(struct pgsql_result *result)
 
 	if (disconnected) {
 		/* disconnected */
+		if (result->pgres != NULL) {
+			PQclear(result->pgres);
+			result->pgres = NULL;
+		}
 		driver_pgsql_close(db);
 
 		if (retry) {
