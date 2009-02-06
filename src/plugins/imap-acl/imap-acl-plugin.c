@@ -266,6 +266,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 
 	client_send_line(cmd->client, str_c(str));
 	client_send_tagline(cmd, "OK Myrights completed.");
+	mailbox_close(&box);
 	return TRUE;
 }
 
@@ -294,6 +295,7 @@ static bool cmd_listrights(struct client_command_context *cmd)
 
 	client_send_line(cmd->client, str_c(str));
 	client_send_tagline(cmd, "OK Listrights completed.");
+	mailbox_close(&box);
 	return TRUE;
 }
 
