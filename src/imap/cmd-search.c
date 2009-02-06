@@ -9,19 +9,11 @@ bool cmd_search(struct client_command_context *cmd)
 	struct imap_search_context *ctx;
 	struct mail_search_args *sargs;
 	const struct imap_arg *args;
-	int ret, args_count;
 	const char *charset;
+	int ret;
 
-	args_count = imap_parser_read_args(cmd->parser, 0, 0, &args);
-	if (args_count < 1) {
-		if (args_count == -2)
-			return FALSE;
-
-		client_send_command_error(cmd, args_count < 0 ? NULL :
-					  "Missing SEARCH arguments.");
-		return TRUE;
-	}
-	cmd->client->input_lock = NULL;
+	if (!client_read_args(cmd, 0, 0, &args))
+		return FALSE;
 
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;

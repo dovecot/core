@@ -108,19 +108,11 @@ bool cmd_thread(struct client_command_context *cmd)
 	enum mail_thread_type thread_type;
 	struct mail_search_args *sargs;
 	const struct imap_arg *args;
-	int ret, args_count;
 	const char *charset, *str;
+	int ret;
 
-	args_count = imap_parser_read_args(cmd->parser, 0, 0, &args);
-	if (args_count == -2)
+	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
-	client->input_lock = NULL;
-
-	if (args_count < 3) {
-		client_send_command_error(cmd, args_count < 0 ? NULL :
-					  "Missing or invalid arguments.");
-		return TRUE;
-	}
 
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
@@ -140,8 +132,7 @@ bool cmd_thread(struct client_command_context *cmd)
 
 	/* charset */
 	if (args->type != IMAP_ARG_ATOM && args->type != IMAP_ARG_STRING) {
-		client_send_command_error(cmd,
-					  "Invalid charset argument.");
+		client_send_command_error(cmd, "Invalid charset argument.");
 		return TRUE;
 	}
 	charset = IMAP_ARG_STR(args);
