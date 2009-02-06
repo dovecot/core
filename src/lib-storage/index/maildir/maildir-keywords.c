@@ -255,8 +255,9 @@ maildir_keywords_lookup_or_create(struct maildir_keywords *mk, const char *name,
 	if (!maildir_uidlist_is_locked(mk->mbox->uidlist))
 		return -1;
 
-        maildir_keywords_create(mk, name, i);
-	return i;
+	maildir_keywords_create(mk, name, i);
+	*chridx_r = i;
+	return 1;
 }
 
 static const char *
