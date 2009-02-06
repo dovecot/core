@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 extern struct mail_storage_callbacks mail_storage_callbacks;
+struct imap_module_register imap_module_register = { 0 };
 
 static struct client *my_client; /* we don't need more than one currently */
 
@@ -433,6 +434,7 @@ client_command_new(struct client *client)
 	cmd = p_new(client->command_pool, struct client_command_context, 1);
 	cmd->client = client;
 	cmd->pool = client->command_pool;
+	p_array_init(&cmd->module_contexts, cmd->pool, 5);
 
 	if (client->free_parser != NULL) {
 		cmd->parser = client->free_parser;
