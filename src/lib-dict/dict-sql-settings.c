@@ -211,5 +211,11 @@ struct dict_sql_settings *dict_sql_settings_read(pool_t pool, const char *path)
 	if (!settings_read(path, NULL, parse_setting, parse_section, &ctx))
 		return NULL;
 
+	if (ctx.set->connect == NULL) {
+		i_error("Error in configuration file %s: "
+			"Missing connect setting", path);
+		return NULL;
+	}
+
 	return ctx.set;
 }
