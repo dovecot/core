@@ -204,6 +204,7 @@ int deliver_save(struct mail_namespace *namespaces,
 {
 	struct mailbox *box;
 	struct mailbox_transaction_context *t;
+	struct mail_save_context *save_ctx;
 	struct mail_keywords *kw;
 	enum mail_error error;
 	const char *mailbox_name;
@@ -237,7 +238,9 @@ int deliver_save(struct mail_namespace *namespaces,
 
 	kw = str_array_length(keywords) == 0 ? NULL :
 		mailbox_keywords_create_valid(box, keywords);
-	if (mailbox_copy(t, mail, flags, kw, NULL) < 0)
+	save_ctx = mailbox_save_alloc(t);
+	mailbox_save_set_flags(save_ctx, flags, kw);
+	if (mailbox_copy(&save_ctx, mail) < 0)
 		ret = -1;
 	mailbox_keywords_free(box, &kw);
 

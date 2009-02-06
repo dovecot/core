@@ -259,29 +259,28 @@ maildir_compatible_file_modes(struct mailbox *box1, struct mailbox *box2)
 		box1->file_create_gid == box2->file_create_gid;
 }
 
-int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
-		 enum mail_flags flags, struct mail_keywords *keywords,
-		 struct mail *dest_mail)
+int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct maildir_transaction_context *t =
-		(struct maildir_transaction_context *)_t;
+		(struct maildir_transaction_context *)ctx->transaction;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 	int ret;
 
 	if (mbox->storage->copy_with_hardlinks &&
 	    maildir_compatible_file_modes(&mbox->ibox.box, mail->box)) {
 		T_BEGIN {
-			ret = maildir_copy_hardlink(t, mail, flags,
-						    keywords, dest_mail);
+			ret = maildir_copy_hardlink(t, mail, ctx->flags,
+						    ctx->keywords,
+						    ctx->dest_mail);
 		} T_END;
 
-		if (ret > 0)
-			return 0;
-		if (ret < 0)
-			return -1;
+		if (ret != 0) {
+			index_save_context_free(ctx);
+			return ret > 0 ? 0 : -1;
+		}
 
 		/* non-fatal hardlinking failure, try the slow way */
 	}
 
-	return mail_storage_copy(_t, mail, flags, keywords, dest_mail);
+	return mail_storage_copy(ctx, mail);
 }

@@ -176,10 +176,7 @@ struct mailbox_vfuncs {
 	int (*save_continue)(struct mail_save_context *ctx);
 	int (*save_finish)(struct mail_save_context *ctx);
 	void (*save_cancel)(struct mail_save_context *ctx);
-
-	int (*copy)(struct mailbox_transaction_context *t, struct mail *mail,
-		    enum mail_flags flags, struct mail_keywords *keywords,
-		    struct mail *dest_mail);
+	int (*copy)(struct mail_save_context *ctx, struct mail *mail);
 
 	bool (*is_inconsistent)(struct mailbox *box);
 };

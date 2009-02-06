@@ -915,11 +915,12 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 	ctx->transaction->box->v.save_cancel(ctx);
 }
 
-int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
-		 enum mail_flags flags, struct mail_keywords *keywords,
-		 struct mail *dest_mail)
+int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 {
-	return t->box->v.copy(t, mail, flags, keywords, dest_mail);
+	struct mail_save_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+	return ctx->transaction->box->v.copy(ctx, mail);
 }
 
 bool mailbox_is_inconsistent(struct mailbox *box)

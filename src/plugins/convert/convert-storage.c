@@ -34,6 +34,7 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 {
 	struct mail_search_context *ctx;
 	struct mailbox_transaction_context *src_trans, *dest_trans;
+	struct mail_save_context *save_ctx;
 	struct mail *mail;
 	struct mail_search_args *search_args;
 	int ret = 0;
@@ -72,8 +73,10 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 		keywords = str_array_length(keywords_list) == 0 ? NULL :
 			mailbox_keywords_create_valid(destbox, keywords_list);
 
-		ret = mailbox_copy(dest_trans, mail, mail_get_flags(mail),
-				   keywords, NULL);
+		save_ctx = mailbox_save_alloc(dest_trans);
+		mailbox_save_set_flags(save_ctx, mail_get_flags(mail),
+				       keywords);
+		ret = mailbox_copy(&save_ctx, mail);
 		mailbox_keywords_free(destbox, &keywords);
 		if (ret < 0) {
 			*error_r = storage_error(destbox->storage);

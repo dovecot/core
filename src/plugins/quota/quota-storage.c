@@ -170,30 +170,28 @@ static int quota_check(struct mailbox_transaction_context *t, struct mail *mail)
 }
 
 static int
-quota_copy(struct mailbox_transaction_context *t, struct mail *mail,
-	   enum mail_flags flags, struct mail_keywords *keywords,
-	   struct mail *dest_mail)
+quota_copy(struct mail_save_context *ctx, struct mail *mail)
 {
+	struct mailbox_transaction_context *t = ctx->transaction;
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(t->box);
 
-	if (dest_mail == NULL) {
+	if (ctx->dest_mail == NULL) {
 		/* we always want to know the mail size */
 		if (qt->tmp_mail == NULL) {
 			qt->tmp_mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
 						  NULL);
 		}
-		dest_mail = qt->tmp_mail;
+		ctx->dest_mail = qt->tmp_mail;
 	}
 
 	qbox->save_hack = FALSE;
-	if (qbox->module_ctx.super.copy(t, mail, flags, keywords,
-					dest_mail) < 0)
+	if (qbox->module_ctx.super.copy(ctx, mail) < 0)
 		return -1;
 
 	/* if copying used saving internally, we already checked the quota
 	   and set qbox->save_hack = TRUE. */
-	return qbox->save_hack ? 0 : quota_check(t, dest_mail);
+	return qbox->save_hack ? 0 : quota_check(t, ctx->dest_mail);
 }
 
 static int

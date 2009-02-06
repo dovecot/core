@@ -433,20 +433,20 @@ mail_log_mail_alloc(struct mailbox_transaction_context *t,
 }
 
 static int
-mail_log_copy(struct mailbox_transaction_context *t, struct mail *mail,
-	      enum mail_flags flags, struct mail_keywords *keywords,
-	      struct mail *dest_mail)
+mail_log_copy(struct mail_save_context *ctx, struct mail *mail)
 {
-	union mailbox_module_context *lbox = MAIL_LOG_CONTEXT(t->box);
+	union mailbox_module_context *lbox =
+		MAIL_LOG_CONTEXT(ctx->transaction->box);
 	const char *name;
 
-	if (lbox->super.copy(t, mail, flags, keywords, dest_mail) < 0)
+	if (lbox->super.copy(ctx, mail) < 0)
 		return -1;
 
 	T_BEGIN {
-		name = str_sanitize(mailbox_get_name(t->box),
+		name = str_sanitize(mailbox_get_name(ctx->transaction->box),
 				    MAILBOX_NAME_LOG_LEN);
-		mail_log_action(t, mail, MAIL_LOG_EVENT_COPY, name);
+		mail_log_action(ctx->transaction, mail,
+				MAIL_LOG_EVENT_COPY, name);
 	} T_END;
 	return 0;
 }

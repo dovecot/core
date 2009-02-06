@@ -35,6 +35,7 @@ static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 {
 	struct mail_search_context *search_ctx;
         struct mailbox_transaction_context *src_trans;
+	struct mail_save_context *save_ctx;
 	struct mail_keywords *keywords;
 	const char *const *keywords_list;
 	struct mail *mail;
@@ -64,8 +65,12 @@ static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 		keywords_list = mail_get_keywords(mail);
 		keywords = str_array_length(keywords_list) == 0 ? NULL :
 			mailbox_keywords_create_valid(destbox, keywords_list);
-		if (mailbox_copy(t, mail, mail_get_flags(mail),
-				 keywords, NULL) < 0)
+
+		save_ctx = mailbox_save_alloc(t);
+		mailbox_save_set_flags(save_ctx, mail_get_flags(mail),
+				       keywords);
+
+		if (mailbox_copy(&save_ctx, mail) < 0)
 			ret = mail->expunged ? 0 : -1;
 		mailbox_keywords_free(destbox, &keywords);
 

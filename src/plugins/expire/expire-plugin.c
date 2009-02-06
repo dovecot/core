@@ -213,16 +213,14 @@ static int expire_save_finish(struct mail_save_context *ctx)
 }
 
 static int
-expire_copy(struct mailbox_transaction_context *t, struct mail *mail,
-	    enum mail_flags flags, struct mail_keywords *keywords,
-	    struct mail *dest_mail)
+expire_copy(struct mail_save_context *ctx, struct mail *mail)
 {
-	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
-	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
+	struct expire_transaction_context *xt =
+		EXPIRE_CONTEXT(ctx->transaction);
+	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(ctx->transaction->box);
 
 	xt->saves = TRUE;
-	return xpr_box->module_ctx.super.
-		copy(t, mail, flags, keywords, dest_mail);
+	return xpr_box->module_ctx.super.copy(ctx, mail);
 }
 
 static void

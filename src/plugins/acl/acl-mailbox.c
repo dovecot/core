@@ -287,10 +287,9 @@ acl_save_begin(struct mail_save_context *ctx, struct istream *input)
 }
 
 static int
-acl_copy(struct mailbox_transaction_context *t, struct mail *mail,
-	 enum mail_flags flags, struct mail_keywords *keywords,
-	 struct mail *dest_mail)
+acl_copy(struct mail_save_context *ctx, struct mail *mail)
 {
+	struct mailbox_transaction_context *t = ctx->transaction;
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
 	enum acl_storage_rights save_right;
 
@@ -298,10 +297,10 @@ acl_copy(struct mailbox_transaction_context *t, struct mail *mail,
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	if (acl_mailbox_right_lookup(t->box, save_right) <= 0)
 		return -1;
-	if (acl_save_get_flags(t->box, &flags, &keywords) < 0)
+	if (acl_save_get_flags(t->box, &ctx->flags, &ctx->keywords) < 0)
 		return -1;
 
-	return abox->module_ctx.super.copy(t, mail, flags, keywords, dest_mail);
+	return abox->module_ctx.super.copy(ctx, mail);
 }
 
 static int
