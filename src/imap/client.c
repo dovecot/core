@@ -9,6 +9,7 @@
 #include "ostream.h"
 #include "var-expand.h"
 #include "imap-resp-code.h"
+#include "imap-util.h"
 #include "mail-namespace.h"
 #include "commands.h"
 
@@ -300,6 +301,7 @@ void client_send_command_error(struct client_command_context *cmd,
 bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		      unsigned int flags, const struct imap_arg **args_r)
 {
+	string_t *str;
 	int ret;
 
 	i_assert(count <= INT_MAX);
@@ -309,6 +311,11 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		/* all parameters read successfully */
 		i_assert(cmd->client->input_lock == NULL ||
 			 cmd->client->input_lock == cmd);
+
+		str = t_str_new(256);
+		imap_args_to_str(str, *args_r);
+		cmd->args = p_strdup(cmd->pool, str_c(str));
+
 		cmd->client->input_lock = NULL;
 		return TRUE;
 	} else if (ret == -2) {

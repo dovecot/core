@@ -48,8 +48,14 @@ struct client_command_context {
 	struct client *client;
 
 	pool_t pool;
+	/* IMAP command tag */
 	const char *tag;
+	/* Name of this command */
 	const char *name;
+	/* Parameters for this command. These are generated from parsed IMAP
+	   arguments, so they may not be exactly the same as how client sent
+	   them. */
+	const char *args;
 	enum command_flags cmd_flags;
 
 	command_func_t *func;
