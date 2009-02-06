@@ -56,7 +56,7 @@ static const struct command imap_ext_commands[] = {
 };
 #define IMAP_EXT_COMMANDS_COUNT N_ELEMENTS(imap_ext_commands)
 
-static ARRAY_DEFINE(commands, struct command);
+ARRAY_TYPE(command) imap_commands;
 static bool commands_unsorted;
 
 void command_register(const char *name, command_func_t *func,
@@ -68,7 +68,7 @@ void command_register(const char *name, command_func_t *func,
 	cmd.name = name;
 	cmd.func = func;
 	cmd.flags = flags;
-	array_append(&commands, &cmd, 1);
+	array_append(&imap_commands, &cmd, 1);
 
 	commands_unsorted = TRUE;
 }
@@ -78,10 +78,10 @@ void command_unregister(const char *name)
 	const struct command *cmd;
 	unsigned int i, count;
 
-	cmd = array_get(&commands, &count);
+	cmd = array_get(&imap_commands, &count);
 	for (i = 0; i < count; i++) {
 		if (strcasecmp(cmd[i].name, name) == 0) {
-			array_delete(&commands, i, 1);
+			array_delete(&imap_commands, i, 1);
 			return;
 		}
 	}
@@ -92,7 +92,7 @@ void command_unregister(const char *name)
 void command_register_array(const struct command *cmdarr, unsigned int count)
 {
 	commands_unsorted = TRUE;
-	array_append(&commands, cmdarr, count);
+	array_append(&imap_commands, cmdarr, count);
 }
 
 void command_unregister_array(const struct command *cmdarr, unsigned int count)
@@ -122,7 +122,7 @@ struct command *command_find(const char *name)
 	void *base;
 	unsigned int count;
 
-	base = array_get_modifiable(&commands, &count);
+	base = array_get_modifiable(&imap_commands, &count);
 	if (commands_unsorted) {
 		qsort(base, count, sizeof(struct command), command_cmp);
                 commands_unsorted = FALSE;
@@ -134,7 +134,7 @@ struct command *command_find(const char *name)
 
 void commands_init(void)
 {
-	i_array_init(&commands, 64);
+	i_array_init(&imap_commands, 64);
 	commands_unsorted = FALSE;
 
         command_register_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);
@@ -145,5 +145,5 @@ void commands_deinit(void)
 {
         command_unregister_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);
         command_unregister_array(imap_ext_commands, IMAP_EXT_COMMANDS_COUNT);
-	array_free(&commands);
+	array_free(&imap_commands);
 }

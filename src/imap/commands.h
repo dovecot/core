@@ -29,6 +29,9 @@ struct command {
 
 	enum command_flags flags;
 };
+ARRAY_DEFINE_TYPE(command, struct command);
+
+extern ARRAY_TYPE(command) imap_commands;
 
 /* Register command. Given name parameter must be permanently stored until
    command is unregistered. */
