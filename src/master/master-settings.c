@@ -699,16 +699,8 @@ static bool settings_verify(struct master_settings *set)
 		return FALSE;
 	}
 
-	if (strcmp(set->ssl, "no") != 0 &&
-	    strcmp(set->ssl, "yes") != 0 &&
-	    strcmp(set->ssl, "required") != 0) {
-		i_error("ssl setting: Invalid value: %s", set->ssl);
-		return FALSE;
-	}
 #ifndef HAVE_SSL
 	if (strcmp(set->ssl, "no") != 0) {
-
-
 		i_error("SSL support not compiled in but ssl=%s", set->ssl);
 		return FALSE;
 	}
@@ -724,6 +716,10 @@ static bool settings_verify(struct master_settings *set)
 
 	if (set->max_mail_processes < 1) {
 		i_error("max_mail_processes must be at least 1");
+		return FALSE;
+	}
+	if (strcmp(set->login_dir, set->base_dir) == 0) {
+		i_error("login_dir can't be the same as base_dir");
 		return FALSE;
 	}
 
@@ -755,29 +751,12 @@ static bool settings_verify(struct master_settings *set)
 		return FALSE;
 	}
 
-#if 0 //FIXME
-	if (set->mail_nfs_index && !set->mmap_disable) {
-		i_error("mail_nfs_index=yes requires mmap_disable=yes");
-		return FALSE;
-	}
-	if (set->mail_nfs_index && set->fsync_disable) {
-		i_error("mail_nfs_index=yes requires fsync_disable=no");
-		return FALSE;
-	}
-#ifdef HAVE_MODULES
-	if (*set->mail_plugins != '\0' &&
-	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
-		i_error("mail_plugin_dir: Can't access directory: %s: %m",
-			set->mail_plugin_dir);
-		return FALSE;
-	}
-#else
+#ifndef HAVE_MODULES
 	if (*set->mail_plugins != '\0') {
 		i_error("mail_plugins: Plugin support wasn't built into Dovecot, "
 			"can't load plugins: %s", set->mail_plugins);
 		return FALSE;
 	}
-#endif
 #endif
 	return TRUE;
 }

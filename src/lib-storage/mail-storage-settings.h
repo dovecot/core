@@ -35,6 +35,8 @@ struct mail_namespace_settings {
 	bool hidden;
 	const char *list;
 	bool subscriptions;
+
+	struct mail_user_settings *user_set;
 };
 
 struct mail_user_settings {

@@ -642,6 +642,51 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 	return ret;
 }
 
+static bool settings_parser_check_info(const struct setting_parser_info *info,
+				       void *set, const char **error_r)
+{
+	const struct setting_define *def;
+	const ARRAY_TYPE(void_array) *val;
+	void *const *children;
+	unsigned int i, count;
+
+	if (info->check_func != NULL) {
+		if (!info->check_func(set, error_r))
+			return FALSE;
+	}
+
+	for (def = info->defines; def->key != NULL; def++) {
+		if (def->type != SET_DEFLIST)
+			continue;
+
+		val = CONST_PTR_OFFSET(set, def->offset);;
+		if (!array_is_created(val))
+			continue;
+
+		children = array_get(val, &count);
+		for (i = 0; i < count; i++) {
+			if (!settings_parser_check_info(def->list_info,
+							children[i], error_r))
+				return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+bool settings_parser_check(struct setting_parser_context *ctx,
+			   const char **error_r)
+{
+	unsigned int i;
+
+	for (i = 0; i < ctx->root_count; i++) {
+		if (!settings_parser_check_info(ctx->roots[i].info,
+						ctx->roots[i].set_struct,
+						error_r))
+		    return FALSE;
+	}
+	return TRUE;
+}
+
 void settings_parse_set_expanded(struct setting_parser_context *ctx,
 				 bool is_expanded)
 {

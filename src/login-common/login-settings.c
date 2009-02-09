@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include <unistd.h>
 
+static bool login_settings_check(void *_set, const char **error_r);
+
 #undef DEF
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct login_settings, name), NULL }
@@ -86,66 +88,58 @@ struct setting_parser_info login_setting_parser_info = {
 
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct login_settings)
+	MEMBER(struct_size) sizeof(struct login_settings),
+	MEMBER(check_func) login_settings_check
 };
 
 static pool_t settings_pool = NULL;
 
-static int ssl_settings_check(struct login_settings *set ATTR_UNUSED)
+/* <settings checks> */
+static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 {
+	struct login_settings *set = _set;
+
 #ifndef HAVE_SSL
-        i_error("SSL support not compiled in but ssl_disable=no");
+        *error_r = "SSL support not compiled in but ssl_disable=no";
 	return FALSE;
 #else
 	if (*set->ssl_cert_file == '\0') {
-		i_error("ssl_cert_file not set");
+		*error_r = "ssl_cert_file not set";
 		return FALSE;
 	}
 	if (access(set->ssl_cert_file, R_OK) < 0) {
-		i_error("ssl_cert_file: access(%s) failed: %m",
-			set->ssl_cert_file);
+		*error_r = t_strdup_printf("ssl_cert_file: access(%s) failed: %m",
+					   set->ssl_cert_file);
 		return FALSE;
 	}
 
 	if (*set->ssl_key_file == '\0') {
-		i_error("ssl_key_file not set");
+		*error_r = "ssl_key_file not set";
 		return FALSE;
 	}
 	if (access(set->ssl_key_file, R_OK) < 0) {
-		i_error("ssl_key_file: access(%s) failed: %m",
-			set->ssl_key_file);
+		*error_r = t_strdup_printf("ssl_key_file: access(%s) failed: %m",
+					   set->ssl_key_file);
 		return FALSE;
 	}
 
-	if (*set->ssl_ca_file != '\0' &&
-	    access(set->ssl_ca_file, R_OK) < 0) {
-		i_error("ssl_ca_file: access(%s) failed: %m",
-			set->ssl_ca_file);
+	if (*set->ssl_ca_file != '\0' && access(set->ssl_ca_file, R_OK) < 0) {
+		*error_r = t_strdup_printf("ssl_ca_file: access(%s) failed: %m",
+					   set->ssl_ca_file);
 		return FALSE;
 	}
 
 	if (set->ssl_verify_client_cert && *set->ssl_ca_file == '\0') {
-		i_error("ssl_verify_client_cert set, but ssl_ca_file not");
+		*error_r = "ssl_verify_client_cert set, but ssl_ca_file not";
 		return FALSE;
 	}
 	return TRUE;
 #endif
 }
 
-static void login_settings_check(struct login_settings *set)
+static bool login_settings_check(void *_set, const char **error_r)
 {
-	if (strcmp(set->ssl, "no") == 0) {
-		/* disabled */
-	} else if (strcmp(set->ssl, "yes") == 0) {
-		if (!ssl_settings_check(set))
-			set->ssl = "no";
-	} else if (strcmp(set->ssl, "required") == 0) {
-		if (!ssl_settings_check(set))
-			i_fatal("Couldn't initialize ssl with ssl=required");
-		set->disable_plaintext_auth = TRUE;
-	} else {
-		i_fatal("Unknown ssl setting value: %s", set->ssl);
-	}
+	struct login_settings *set = _set;
 
 	set->log_format_elements_split =
 		t_strsplit(set->login_log_format_elements, " ");
@@ -154,14 +148,34 @@ static void login_settings_check(struct login_settings *set)
 		/* if we require valid cert, make sure we also ask for it */
 		set->ssl_verify_client_cert = TRUE;
 	}
-	if (set->login_max_connections < 1)
-		i_fatal("login_max_connections must be at least 1");
+	if (set->login_max_connections < 1) {
+		*error_r = "login_max_connections must be at least 1";
+		return FALSE;
+	}
+
+	if (strcmp(set->ssl, "no") == 0) {
+		/* disabled */
+	} else if (strcmp(set->ssl, "yes") == 0) {
+		if (!ssl_settings_check(set, error_r))
+			return FALSE;
+	} else if (strcmp(set->ssl, "required") == 0) {
+		if (!ssl_settings_check(set, error_r))
+			return FALSE;
+		set->disable_plaintext_auth = TRUE;
+	} else {
+		*error_r = t_strdup_printf("Unknown ssl setting value: %s",
+					   set->ssl);
+		return FALSE;
+	}
+	return TRUE;
 }
+/* </settings checks> */
 
 struct login_settings *login_settings_read(void)
 {
 	struct setting_parser_context *parser;
         struct login_settings *set;
+	const char *error;
 
 	if (settings_pool == NULL)
 		settings_pool = pool_alloconly_create("settings pool", 512);
@@ -177,8 +191,10 @@ struct login_settings *login_settings_read(void)
 			settings_parser_get_error(parser));
 	}
 
+	if (settings_parser_check(parser, &error) < 0)
+		i_fatal("Invalid settings: %s", error);
+
 	set = settings_parser_get(parser);
 	settings_parser_deinit(&parser);
-	login_settings_check(set);
 	return set;
 }

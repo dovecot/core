@@ -311,6 +311,7 @@ void config_parse_file(string_t *dest, const char *path, const char *service)
 	ARRAY_DEFINE(pathlen_stack, unsigned int);
 	ARRAY_TYPE(const_string) auth_defaults;
 	const struct setting_parser_info *info;
+	struct config_setting_parser_list *l;
 	unsigned int pathlen = 0;
 	unsigned int counter = 0, auth_counter = 0, cur_counter;
 	const char *errormsg, *name, *type_name;
@@ -572,6 +573,16 @@ prevfile:
 	input = input->prev;
 	if (line == NULL && input != NULL)
 		goto prevfile;
+
+	for (l = config_setting_parsers; l->module_name != NULL; l++) {
+		if (l->parser == NULL)
+			continue;
+
+		if (!settings_parser_check(l->parser, &errormsg)) {
+			i_fatal("Error in configuration file %s: %s",
+				path, errormsg);
+		}
+	}
 
 	config_export(dest);
 }

@@ -12,6 +12,8 @@ extern struct setting_parser_info auth_socket_setting_parser_info;
 extern struct setting_parser_info auth_setting_parser_info;
 extern struct setting_parser_info auth_root_setting_parser_info;
 
+static bool auth_settings_check(void *_set, const char **error_r);
+
 #undef DEF
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct auth_socket_unix_settings, name), NULL }
@@ -239,7 +241,8 @@ struct setting_parser_info auth_setting_parser_info = {
 
 	MEMBER(parent_offset) offsetof(struct auth_settings, root),
 	MEMBER(type_offset) offsetof(struct auth_settings, name),
-	MEMBER(struct_size) sizeof(struct auth_settings)
+	MEMBER(struct_size) sizeof(struct auth_settings),
+	MEMBER(check_func) auth_settings_check
 };
 
 #undef DEF
@@ -283,14 +286,18 @@ static void fix_base_path(struct auth_settings *set, const char **str)
 	}
 }
 
-static void auth_settings_check(struct auth_settings *set)
+/* <settings checks> */
+static bool auth_settings_check(void *_set ATTR_UNUSED,
+				const char **error_r ATTR_UNUSED)
 {
+#ifndef CONFIG_BINARY
+	struct auth_settings *set = _set;
 	struct auth_socket_unix_settings *const *u;
 	struct auth_socket_settings *const *sockets;
 	unsigned int i, j, count, count2;
 
 	if (!array_is_created(&set->sockets))
-		return;
+		return TRUE;
 
 	sockets = array_get(&set->sockets, &count);
 	for (i = 0; i < count; i++) {
@@ -305,13 +312,17 @@ static void auth_settings_check(struct auth_settings *set)
 				fix_base_path(set, &u[j]->path);
 		}
 	}
+#endif
+	return TRUE;
 }
+/* </settings checks> */
 
 struct auth_settings *auth_settings_read(const char *name)
 {
 	struct setting_parser_context *parser;
 	struct auth_root_settings *set;
 	struct auth_settings *const *auths;
+	const char *error;
 	unsigned int i, count;
 
 	if (settings_pool == NULL)
@@ -330,16 +341,17 @@ struct auth_settings *auth_settings_read(const char *name)
 			settings_parser_get_error(parser));
 	}
 
+	if (settings_parser_check(parser, &error) < 0)
+		i_fatal("Invalid settings: %s", error);
+
 	set = settings_parser_get(parser);
 	settings_parser_deinit(&parser);
 
 	if (array_is_created(&set->auths)) {
 		auths = array_get(&set->auths, &count);
 		for (i = 0; i < count; i++) {
-			if (strcmp(auths[i]->name, name) == 0) {
-				auth_settings_check(auths[i]);
+			if (strcmp(auths[i]->name, name) == 0)
 				return auths[i];
-			}
 		}
 	}
 	i_fatal("Error reading configuration: No auth section: %s", name);

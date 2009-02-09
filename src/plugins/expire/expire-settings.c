@@ -46,6 +46,28 @@ static void fix_base_path(struct expire_settings *set, const char **str)
 	}
 }
 
+static void
+parse_expand_vars(struct setting_parser_context *parser, const char *value)
+{
+	const char *const *expanded;
+
+	expanded = t_strsplit(value, " ");
+	settings_parse_set_keys_expandeded(parser, settings_pool, expanded);
+	/* settings from userdb are in the VARS_EXPANDED list. for each
+	   unknown setting in the list assume it's a plugin setting. */
+	for (; *expanded != NULL; expanded++) {
+		if (settings_parse_is_valid_key(parser, *expanded))
+			continue;
+
+		value = getenv(t_str_ucase(*expanded));
+		if (value == NULL)
+			continue;
+
+		settings_parse_line(parser, t_strconcat("plugin/", *expanded,
+							"=", value, NULL));
+	}
+}
+
 void expire_settings_read(const struct expire_settings **set_r,
 			  const struct mail_user_settings **user_set_r)
 {
@@ -55,7 +77,7 @@ void expire_settings_read(const struct expire_settings **set_r,
 	};
 	struct setting_parser_context *parser;
 	struct expire_settings *set;
-	const char *const *expanded, *value;
+	const char *value;
 	void **sets;
 
 	if (settings_pool == NULL)
@@ -74,21 +96,9 @@ void expire_settings_read(const struct expire_settings **set_r,
 			settings_parser_get_error(parser));
 	}
 
-	expanded = t_strsplit(getenv("VARS_EXPANDED"), " ");
-	settings_parse_set_keys_expandeded(parser, settings_pool, expanded);
-	/* settings from userdb are in the VARS_EXPANDED list. for each
-	   unknown setting in the list assume it's a plugin setting. */
-	for (; *expanded != NULL; expanded++) {
-		if (settings_parse_is_valid_key(parser, *expanded))
-			continue;
-
-		value = getenv(t_str_ucase(*expanded));
-		if (value == NULL)
-			continue;
-
-		settings_parse_line(parser, t_strconcat("plugin/", *expanded,
-							"=", value, NULL));
-	}
+	value = getenv("VARS_EXPANDED");
+	if (value != NULL)
+		parse_expand_vars(parser, value);
 
 	sets = settings_parser_get_list(parser);
 	set = sets[0];

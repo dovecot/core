@@ -11,6 +11,9 @@
 
 #include <stddef.h>
 
+static bool mail_storage_settings_check(void *_set, const char **error_r);
+static bool namespace_settings_check(void *_set, const char **error_r);
+
 #undef DEF
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct mail_storage_settings, name), NULL }
@@ -66,7 +69,8 @@ struct setting_parser_info mail_storage_setting_parser_info = {
 
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct mail_storage_settings)
+	MEMBER(struct_size) sizeof(struct mail_storage_settings),
+	MEMBER(check_func) mail_storage_settings_check
 };
 
 #undef DEF
@@ -108,9 +112,10 @@ struct setting_parser_info mail_namespace_setting_parser_info = {
 	MEMBER(parent) &mail_user_setting_parser_info,
 	MEMBER(dynamic_parsers) NULL,
 
-	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent_offset) offsetof(struct mail_namespace_settings, user_set),
 	MEMBER(type_offset) offsetof(struct mail_namespace_settings, type),
-	MEMBER(struct_size) sizeof(struct mail_namespace_settings)
+	MEMBER(struct_size) sizeof(struct mail_namespace_settings),
+	MEMBER(check_func) namespace_settings_check
 };
 
 #undef DEF
@@ -208,3 +213,60 @@ void mail_storage_namespace_defines_init(pool_t pool)
 
 	settings_parser_info_update(pool, parsers[j-1].info->parent, parsers);
 }
+
+/* <settings checks> */
+static bool mail_storage_settings_check(void *_set, const char **error_r)
+{
+	const struct mail_storage_settings *set = _set;
+
+	if (set->mail_nfs_index && !set->mmap_disable) {
+		*error_r = "mail_nfs_index=yes requires mmap_disable=yes";
+		return FALSE;
+	}
+	if (set->mail_nfs_index && set->fsync_disable) {
+		*error_r = "mail_nfs_index=yes requires fsync_disable=no";
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool namespace_settings_check(void *_set, const char **error_r)
+{
+	struct mail_namespace_settings *ns = _set;
+	struct mail_namespace_settings *const *namespaces;
+	const char *name;
+	unsigned int i, count;
+
+	name = ns->prefix != NULL ? ns->prefix : "";
+
+	if (ns->separator != NULL &&
+	    ns->separator[0] != '\0' && ns->separator[1] != '\0') {
+		*error_r = t_strdup_printf("Namespace '%s': "
+			"Hierarchy separator must be only one character long",
+			name);
+		return FALSE;
+	}
+
+	if (ns->alias_for != NULL) {
+		namespaces = array_get(&ns->user_set->namespaces, &count);
+		for (i = 0; i < count; i++) {
+			if (strcmp(namespaces[i]->prefix, ns->alias_for) == 0)
+				break;
+		}
+		if (i == count) {
+			*error_r = t_strdup_printf(
+				"Namespace '%s': alias_for points to "
+				"unknown namespace: %s", name, ns->alias_for);
+			return FALSE;
+		}
+		if (namespaces[i]->alias_for != NULL) {
+			*error_r = t_strdup_printf(
+				"Namespace '%s': alias_for chaining isn't "
+				"allowed: %s -> %s", name, ns->alias_for,
+				namespaces[i]->alias_for);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+/* </settings checks> */

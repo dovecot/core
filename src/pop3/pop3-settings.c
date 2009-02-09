@@ -7,6 +7,9 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <unistd.h>
+
+static bool pop3_settings_check(void *_set, const char **error_r);
 
 #undef DEF
 #undef DEFLIST
@@ -66,7 +69,8 @@ struct setting_parser_info pop3_setting_parser_info = {
 
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct pop3_settings)
+	MEMBER(struct_size) sizeof(struct pop3_settings),
+	MEMBER(check_func) pop3_settings_check
 };
 
 static pool_t settings_pool = NULL;
@@ -79,6 +83,48 @@ static void fix_base_path(struct pop3_settings *set, const char **str)
 	}
 }
 
+/* <settings checks> */
+static bool pop3_settings_check(void *_set, const char **error_r)
+{
+	struct pop3_settings *set = _set;
+
+#ifndef CONFIG_BINARY
+	fix_base_path(set, &set->auth_socket_path);
+#endif
+
+	if (*set->mail_plugins != '\0' &&
+	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
+		*error_r = t_strdup_printf(
+			"mail_plugin_dir: access(%s) failed: %m",
+			set->mail_plugin_dir);
+		return FALSE;
+	}
+	return TRUE;
+}
+/* </settings checks> */
+
+static void
+parse_expand_vars(struct setting_parser_context *parser, const char *value)
+{
+	const char *const *expanded;
+
+	expanded = t_strsplit(value, " ");
+	settings_parse_set_keys_expandeded(parser, settings_pool, expanded);
+	/* settings from userdb are in the VARS_EXPANDED list. for each
+	   unknown setting in the list assume it's a plugin setting. */
+	for (; *expanded != NULL; expanded++) {
+		if (settings_parse_is_valid_key(parser, *expanded))
+			continue;
+
+		value = getenv(t_str_ucase(*expanded));
+		if (value == NULL)
+			continue;
+
+		settings_parse_line(parser, t_strconcat("plugin/", *expanded,
+							"=", value, NULL));
+	}
+}
+
 void pop3_settings_read(const struct pop3_settings **set_r,
 			const struct mail_user_settings **user_set_r)
 {
@@ -87,8 +133,7 @@ void pop3_settings_read(const struct pop3_settings **set_r,
                 &mail_user_setting_parser_info
 	};
 	struct setting_parser_context *parser;
-	struct pop3_settings *set;
-	const char *const *expanded, *value;
+	const char *value, *error;
 	void **sets;
 
 	if (settings_pool == NULL)
@@ -107,27 +152,15 @@ void pop3_settings_read(const struct pop3_settings **set_r,
 			settings_parser_get_error(parser));
 	}
 
-	expanded = t_strsplit(getenv("VARS_EXPANDED"), " ");
-	settings_parse_set_keys_expandeded(parser, settings_pool, expanded);
-	/* settings from userdb are in the VARS_EXPANDED list. for each
-	   unknown setting in the list assume it's a plugin setting. */
-	for (; *expanded != NULL; expanded++) {
-		if (settings_parse_is_valid_key(parser, *expanded))
-			continue;
+	value = getenv("VARS_EXPANDED");
+	if (value != NULL)
+		parse_expand_vars(parser, value);
 
-		value = getenv(t_str_ucase(*expanded));
-		if (value == NULL)
-			continue;
-
-		settings_parse_line(parser, t_strconcat("plugin/", *expanded,
-							"=", value, NULL));
-	}
+	if (settings_parser_check(parser, &error) < 0)
+		i_fatal("Invalid settings: %s", error);
 
 	sets = settings_parser_get_list(parser);
-	set = sets[0];
-	fix_base_path(set, &set->auth_socket_path);
-
-	*set_r = set;
+	*set_r = sets[0];
 	*user_set_r = sets[1];
 	settings_parser_deinit(&parser);
 }

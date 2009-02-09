@@ -57,6 +57,7 @@ struct setting_parser_info {
 	size_t parent_offset;
 	size_t type_offset;
 	size_t struct_size;
+	bool (*check_func)(void *set, const char **error_r);
 };
 ARRAY_DEFINE_TYPE(setting_parser_info, struct setting_parser_info);
 
@@ -118,6 +119,9 @@ int settings_parse_environ(struct setting_parser_context *ctx);
 int settings_parse_exec(struct setting_parser_context *ctx,
 			const char *bin_path, const char *config_path,
 			const char *service);
+/* Call all check_func()s to see if currently parsed settings are valid. */
+bool settings_parser_check(struct setting_parser_context *ctx,
+			   const char **error_r);
 
 /* While parsing values, specifies if STR_VARS strings are already expanded. */
 void settings_parse_set_expanded(struct setting_parser_context *ctx,

@@ -2,9 +2,11 @@
 use strict;
 
 print '#include "lib.h"'."\n";
+print '#include "array.h"'."\n";
 print '#include "settings-parser.h"'."\n";
 print '#include "all-settings.h"'."\n";
 print '#include <stddef.h>'."\n";
+print '#include <unistd.h>'."\n";
 print '#define CONFIG_BINARY'."\n";
 
 my %parsers = {};
@@ -16,6 +18,8 @@ foreach my $file (@ARGV) {
   my $state = 0;
   my $file_contents = "";
   my $externs = "";
+  my $code = "";
+  my %funcs;
   
   while (<$f>) {
     my $write = 0;
@@ -29,6 +33,9 @@ foreach my $file (@ARGV) {
 	$parsers{$2} = 1;
       } elsif (/^extern struct setting_parser_info (.*);/) {
 	$externs .= "extern struct setting_parser_info $1;\n";
+      } elsif (/\/\* <settings checks> \*\//) {
+	$state = 4;
+	$code .= $_;
       }
 
       if (/#define.*DEF/ || /^#undef.*DEF/) {
@@ -38,6 +45,9 @@ foreach my $file (@ARGV) {
     } elsif ($state == 2) {
       $write = 1;
       $state = 0 if (!/\\$/);
+    } elsif ($state == 4) {
+      $code .= $_;
+      $state = 0 if (/\/\* <\/settings checks> \*\//);
     }
     
     if ($state == 1 || $state == 3) {
@@ -68,6 +78,7 @@ foreach my $file (@ARGV) {
   
   print "/* $file */\n";
   print $externs;
+  print $code;
   print $file_contents;
 
   close $f;
