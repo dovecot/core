@@ -355,7 +355,7 @@ static void auth_process_destroy(struct auth_process *p)
 
 	if (!p->initialized && io_loop_is_running(ioloop) && !p->external) {
 		/* log the process exit and kill ourself */
-		child_processes_deinit();
+		child_processes_flush();
 		log_deinit();
 		i_fatal("Auth process died too early - shutting down");
 	}

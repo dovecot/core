@@ -219,10 +219,15 @@ void child_processes_init(void)
 	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
 }
 
-void child_processes_deinit(void)
+void child_processes_flush(void)
 {
 	/* make sure we log if child processes died unexpectedly */
 	sigchld_handler(SIGCHLD, NULL);
+}
+
+void child_processes_deinit(void)
+{
+	child_processes_flush();
 	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
 	hash_table_destroy(&processes);
 }

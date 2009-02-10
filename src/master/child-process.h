@@ -40,6 +40,7 @@ void child_process_set_destroy_callback(enum process_type type,
 					child_process_destroy_callback_t *cb);
 
 void child_processes_init(void);
+void child_processes_flush(void);
 void child_processes_deinit(void);
 
 #endif
