@@ -950,15 +950,8 @@ void mail_processes_init(void)
 
 void mail_processes_deinit(void)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
-
-	iter = hash_table_iterate_init(mail_process_groups);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct mail_process_group *group = value;
-		mail_process_group_free(group);
-	}
-	hash_table_iterate_deinit(&iter);
-
+	/* don't free() the mail process groups. child_process structs are
+	   still referenced in child-processes and we may need to look them up.
+	   This deinit code needs a redesign.. */
 	hash_table_destroy(&mail_process_groups);
 }
