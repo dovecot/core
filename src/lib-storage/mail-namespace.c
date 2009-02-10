@@ -132,8 +132,7 @@ namespace_add_env(const char *data, unsigned int num,
 
 static bool namespaces_check(struct mail_namespace *namespaces)
 {
-	struct mail_namespace *ns, *inbox_ns = NULL, *private_ns = NULL;
-	unsigned int private_ns_count = 0;
+	struct mail_namespace *ns, *inbox_ns = NULL;
 	unsigned int subscriptions_count = 0;
 	char list_sep = '\0';
 
@@ -146,10 +145,6 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 				return FALSE;
 			}
 			inbox_ns = ns;
-		}
-		if (ns->type == NAMESPACE_PRIVATE) {
-			private_ns = ns;
-			private_ns_count++;
 		}
 		if (*ns->prefix != '\0' &&
 		    (ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0 &&
@@ -181,15 +176,9 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 	}
 
 	if (inbox_ns == NULL) {
-		if (private_ns_count == 1) {
-			/* just one private namespace. we'll assume it's
-			   the INBOX namespace. */
-			private_ns->flags |= NAMESPACE_FLAG_INBOX;
-		} else {
-			i_error("namespace configuration error: "
-				"inbox=yes namespace missing");
-			return FALSE;
-		}
+		i_error("namespace configuration error: "
+			"inbox=yes namespace missing");
+		return FALSE;
 	}
 	if (list_sep == '\0') {
 		i_error("namespace configuration error: "
