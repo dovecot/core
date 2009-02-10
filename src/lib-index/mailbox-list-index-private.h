@@ -32,26 +32,30 @@ struct mailbox_list_dir_record {
 	/* If non-zero, contains a pointer to updated directory list.
 	   Stored using mail_index_uint32_to_offset(). */
 	uint32_t next_offset;
-	/* Bytes used by this record, including mailbox names. */
+	/* Bytes required to be able to fully read this directory's records.
+	   This includes also bytes used by mailbox names that follow the
+	   records (but doesn't include bytes for mailbox names that point
+	   to earlier offsets in the file). */
 	uint32_t dir_size;
 
 	uint32_t count;
-	/* The records are sorted by their name_hash */
+	/* The records are sorted 1) by their name_hash, 2) the actual name */
 	/* struct mailbox_list_record records[count]; */
 };
 
 struct mailbox_list_record {
 	/* CRC32 hash of the name */
 	uint32_t name_hash;
-	uint32_t uid:31;
+	unsigned int uid:31;
 	/* Set when this record has been marked as deleted. It will be removed
 	   permanently the next time a new record is added to this directory
 	   or on the next index compression. */
-	uint32_t deleted:1;
+	unsigned int deleted:1;
 
 	/* Points to a NUL-terminated record name */
 	uint32_t name_offset;
-	/* the dir offset is stored using mail_index_uint32_to_offset()
+	/* Pointer to child mailboxes or 0 if there are no children.
+	   The offset is stored using mail_index_uint32_to_offset()
 	   since it may change while we're reading */
 	uint32_t dir_offset;
 };

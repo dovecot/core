@@ -388,8 +388,9 @@ mailbox_list_get_name(struct mailbox_list_index *index, pool_t pool,
 	const char *name;
 
 	if (rec->name_offset >= index->mmap_size) {
-		mailbox_list_index_set_corrupted(index,
-			"record name_offset points outside file");
+		mailbox_list_index_set_corrupted(index, t_strdup_printf(
+			"record name_offset (%u) points outside file (%u)",
+			rec->name_offset, index->mmap_size));
 		return -1;
 	}
 	max_len = index->mmap_size - rec->name_offset;
@@ -398,32 +399,11 @@ mailbox_list_get_name(struct mailbox_list_index *index, pool_t pool,
 	   because practically it always is even if the file is corrupted.
 	   just make sure we don't crash if it happens. */
 	*name_r = p_strndup(pool, name, max_len);
-	return 0;
-}
-
-static int mailbox_list_record_cmp(const void *_key, const void *_rec)
-{
-	const struct mailbox_list_index_lookup_key *key = _key;
-	const struct mailbox_list_record *rec = _rec;
-	int ret;
-
-	if (key->name_hash < rec->name_hash)
+	if (*name_r == '\0') {
+		mailbox_list_index_set_corrupted(index, "Empty mailbox name");
 		return -1;
-	if (key->name_hash > rec->name_hash)
-		return 1;
-
-	T_BEGIN {
-		const char *name;
-
-		if (mailbox_list_get_name(key->index, unsafe_data_stack_pool,
-					  rec, &name) < 0) {
-			*key->failed = TRUE;
-			ret = -1;
-		} else {
-			ret = strcmp(key->name, name);
-		}
-	} T_END;
-	return ret;
+	}
+	return 0;
 }
 
 int mailbox_list_index_get_dir(struct mailbox_list_index_view *view,
@@ -457,6 +437,12 @@ int mailbox_list_index_get_dir(struct mailbox_list_index_view *view,
 			return mailbox_list_index_set_corrupted(index,
 				"next_offset points backwards");
 		}
+
+		if (dir->count >
+		    index->mmap_size / sizeof(struct mailbox_list_record)) {
+			return mailbox_list_index_set_corrupted(index,
+				"dir count too large");
+		}
 		if (dir->dir_size < sizeof(*dir) +
 		    dir->count * sizeof(struct mailbox_list_record)) {
 			return mailbox_list_index_set_corrupted(index,
@@ -465,13 +451,7 @@ int mailbox_list_index_get_dir(struct mailbox_list_index_view *view,
 		cur_offset = next_offset;
 	} while (cur_offset != 0);
 
-	if (dir->count > INT_MAX/sizeof(struct mailbox_list_record)) {
-		mailbox_list_index_set_corrupted(index, "dir count too large");
-		return -1;
-	}
-
 	cur_offset = (const char *)dir - (const char *)index->const_mmap_base;
-
 	ret = mailbox_list_index_map_area(index, cur_offset, dir->dir_size);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -483,6 +463,31 @@ int mailbox_list_index_get_dir(struct mailbox_list_index_view *view,
 	*offset = cur_offset;
 	*dir_r = dir;
 	return 0;
+}
+
+static int mailbox_list_record_cmp(const void *_key, const void *_rec)
+{
+	const struct mailbox_list_index_lookup_key *key = _key;
+	const struct mailbox_list_record *rec = _rec;
+	int ret;
+
+	if (key->name_hash < rec->name_hash)
+		return -1;
+	if (key->name_hash > rec->name_hash)
+		return 1;
+
+	T_BEGIN {
+		const char *name;
+
+		if (mailbox_list_get_name(key->index, unsafe_data_stack_pool,
+					  rec, &name) < 0) {
+			*key->failed = TRUE;
+			ret = 0;
+		} else {
+			ret = strcmp(key->name, name);
+		}
+	} T_END;
+	return ret;
 }
 
 int mailbox_list_index_dir_lookup_rec(struct mailbox_list_index *index,
@@ -578,7 +583,8 @@ int mailbox_list_index_view_init(struct mailbox_list_index *index,
 	const struct mail_index_header *mail_hdr;
 
 	mail_hdr = mail_view != NULL ? mail_index_get_header(mail_view) : NULL;
-	if (mail_hdr != NULL && index->hdr != NULL &&
+	if (mail_hdr != NULL && mail_hdr->uid_validity != 0 &&
+	    index->hdr != NULL &&
 	    mail_hdr->uid_validity != index->hdr->uid_validity) {
 		mail_index_set_error(index->mail_index,
 			"uid_validity mismatch in file %s: %u != %u",
