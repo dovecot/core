@@ -882,6 +882,8 @@ static int config_exec(const char *path, const char *service,
 	string_t *all_settings;
 	int ret;
 
+	env_put("LOG_TO_MASTER=1");
+
 	all_settings = str_new(default_pool, 10240);
 	parser = settings_parser_init(settings_pool,
 				      &master_setting_parser_info,

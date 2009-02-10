@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Timo Sirainen */
+/* Copyright (C) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
 #include "str.h"
@@ -6,6 +6,7 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "env-util.h"
 #include "config-connection.h"
 
 #include <stdlib.h>
@@ -120,4 +121,24 @@ void config_connection_dump_request(int fd, const char *service)
 	conn = config_connection_create(fd);
         config_connection_request(conn, args);
 	config_connection_destroy(conn);
+}
+
+void config_connection_putenv(void)
+{
+	const char *env, *p, *key, *value;
+
+	env = str_c(config_string);
+	for (; *env != '\0'; env = p + 1) {
+		p = strchr(env, '\n');
+		if (env == p || p == NULL)
+			break;
+
+		T_BEGIN {
+			value = strchr(env, '=');
+			i_assert(value != NULL && value < p);
+			key = t_str_ucase(t_strdup_until(env, value));
+			value = t_strdup_until(value, p);
+			env_put(t_strconcat(key, value, NULL));
+		} T_END;
+	}
 }

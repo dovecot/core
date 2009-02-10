@@ -1,8 +1,9 @@
-/* Copyright (C) 2005-2008 Timo Sirainen */
+/* Copyright (C) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
 #include "lib-signals.h"
 #include "ioloop.h"
+#include "env-util.h"
 #include "str.h"
 #include "config-connection.h"
 #include "config-parser.h"
@@ -17,7 +18,8 @@ static const char *config_path = SYSCONFDIR "/" PACKAGE ".conf";
 
 static void main_init(const char *service)
 {
-	i_set_failure_internal();
+	if (getenv("LOG_TO_MASTER") != NULL)
+		i_set_failure_internal();
 
 	parsers_pool = pool_alloconly_create("parent parsers", 2048);
 	config_parsers_fix_parents(parsers_pool);
@@ -30,39 +32,51 @@ static void main_init(const char *service)
 int main(int argc, char *argv[])
 {
 	struct ioloop *ioloop;
-	const char *path, *service = "";
+	const char *service = "";
+	char **exec_args = NULL;
 	bool dump_nondefaults = FALSE, human_readable = FALSE;
-	int c;
+	int i;
 
 	lib_init();
 
-	path = getenv("CONFIG_FILE_PATH");
-	if (path != NULL)
-		config_path = path;
-
-	while ((c = getopt(argc, argv, "c:s:na")) > 0) {
-		switch (c) {
-		case 'c':
-			config_path = optarg;
-			break;
-		case 's':
-			service = optarg;
-			break;
-		case 'n':
-			dump_nondefaults = TRUE;
-			/* fall through */
-		case 'a':
+	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "-a") == 0) {
 			/* FIXME: make it work */
 			human_readable = TRUE;
+		} else if (strcmp(argv[i], "-c") == 0) {
+			/* config file */
+			i++;
+			if (i == argc) i_fatal("Missing config file argument");
+			config_path = argv[i];
+		} else if (strcmp(argv[i], "-n") == 0) {
+			dump_nondefaults = TRUE;
+			human_readable = TRUE;
+		} else if (strcmp(argv[i], "-s") == 0) {
+			/* service */
+			i++;
+			if (i == argc) i_fatal("Missing service argument");
+			service = argv[i];
+		} else if (strcmp(argv[i], "--exec") == 0) {
+			/* <command> [<args>] */
+			i++;
+			if (i == argc) i_fatal("Missing exec binary argument");
+			exec_args = &argv[i];
 			break;
-		default:
-			i_fatal("Unknown parameter: %c", c);
+		} else {
+			i_fatal("Unknown parameter: %s", argv[i]);
 		}
 	}
 
 	main_init(service);
 	ioloop = io_loop_create();
-	config_connection_dump_request(STDOUT_FILENO, "master");
+	if (exec_args == NULL)
+		config_connection_dump_request(STDOUT_FILENO, "master");
+	else {
+		config_connection_putenv();
+		env_put("DOVECONF_ENV=1");
+		execvp(exec_args[0], exec_args);
+		i_fatal("execvp(%s) failed: %m", exec_args[0]);
+	}
 	io_loop_destroy(&ioloop);
 	lib_deinit();
         return 0;

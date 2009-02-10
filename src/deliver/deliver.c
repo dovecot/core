@@ -488,6 +488,7 @@ int main(int argc, char *argv[])
 	bool stderr_rejection = FALSE;
 	bool keep_environment = FALSE;
 	bool user_auth = FALSE;
+	bool doveconf_env;
 	time_t mtime;
 	int i, ret;
 	pool_t userdb_pool = NULL;
@@ -594,10 +595,29 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	doveconf_env = getenv("DOVECONF_ENV") != NULL;
 	if (user == NULL)
 		user = getenv("USER");
-	if (!keep_environment)
+	if (!keep_environment && !doveconf_env) {
 		deliver_env_clean(!user_auth);
+		env_put(t_strconcat("USER=", user, NULL));
+	}
+	if (!doveconf_env) {
+		/* currently we need to be executed via doveconf. */
+#define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
+		const char **conf_argv;
+
+		conf_argv = i_new(const char *, 6 + (argc + 1) + 1);
+		conf_argv[0] = DOVECOT_CONFIG_BIN_PATH;
+		conf_argv[1] = "-s";
+		conf_argv[2] = "lda";
+		conf_argv[3] = "-c";
+		conf_argv[4] = config_path;
+		conf_argv[5] = "--exec";
+		memcpy(conf_argv+6, argv, (argc+1) * sizeof(argv[0]));
+		execv(conf_argv[0], (char **)conf_argv);
+		i_fatal_status(EX_CONFIG, "execv(%s) failed: %m", conf_argv[0]);
+	}
 
 	process_euid = geteuid();
 	if (user_auth)
@@ -627,7 +647,7 @@ int main(int argc, char *argv[])
 	mail_storage_register_all();
 	mailbox_list_register_all();
 
-	parser = deliver_settings_read(config_path, &deliver_set, &user_set);
+	parser = deliver_settings_read(&deliver_set, &user_set);
 	open_logfile(user);
 
 	mail_set = mail_user_set_get_driver_settings(user_set, "MAIL");

@@ -9,8 +9,7 @@
 #include "deliver-settings.h"
 
 #include <stddef.h>
-
-#define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
+#include <stdlib.h>
 
 #undef DEF
 #undef DEFLIST
@@ -89,8 +88,7 @@ static void fix_base_path(struct deliver_settings *set, const char **str)
 }
 
 struct setting_parser_context *
-deliver_settings_read(const char *path,
-		      struct deliver_settings **set_r,
+deliver_settings_read(struct deliver_settings **set_r,
 		      struct mail_user_settings **user_set_r)
 {
 	static const struct setting_parser_info *roots[] = {
@@ -111,8 +109,8 @@ deliver_settings_read(const char *path,
 	parser = settings_parser_init_list(settings_pool,
 				roots, N_ELEMENTS(roots),
 				SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
-	if (settings_parse_exec(parser, DOVECOT_CONFIG_BIN_PATH,
-				path, "lda") < 0) {
+
+	if (settings_parse_environ(parser) < 0) {
 		i_fatal_status(EX_CONFIG, "Error reading configuration: %s",
 			       settings_parser_get_error(parser));
 	}

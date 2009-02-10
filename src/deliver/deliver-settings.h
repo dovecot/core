@@ -29,8 +29,7 @@ struct deliver_settings {
 };
 
 struct setting_parser_context *
-deliver_settings_read(const char *path,
-		      struct deliver_settings **set_r,
+deliver_settings_read(struct deliver_settings **set_r,
 		      struct mail_user_settings **user_set_r);
 void deliver_settings_add(struct setting_parser_context *parser,
 			  const ARRAY_TYPE(const_string) *extra_fields);
