@@ -35,6 +35,7 @@ static void (*failure_exit_callback)(int *) = NULL;
 
 static int log_fd = STDERR_FILENO, log_info_fd = STDERR_FILENO;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
+static bool failure_ignore_errors = FALSE;
 
 /* kludgy .. we want to trust log_stamp_format with -Wformat-nonliteral */
 static const char *get_log_stamp_format(const char *unused)
@@ -132,6 +133,9 @@ default_handler(const char *prefix, int fd, const char *format, va_list args)
 
 		ret = log_fd_write(fd, str_data(str), str_len(str));
 	} T_END;
+
+	if (ret < 0 && failure_ignore_errors)
+		ret = 0;
 
 	recursed--;
 	return ret;
@@ -413,6 +417,9 @@ internal_handler(char log_type, const char *format, va_list args)
 		ret = write_full(2, str_data(str), str_len(str));
 	} T_END;
 
+	if (ret < 0 && failure_ignore_errors)
+		ret = 0;
+
 	recursed--;
 	return ret;
 }
@@ -440,6 +447,11 @@ void i_set_failure_internal(void)
 	i_set_fatal_handler(i_internal_fatal_handler);
 	i_set_error_handler(i_internal_error_handler);
 	i_set_info_handler(i_internal_error_handler);
+}
+
+void i_set_failure_ignore_errors(bool ignore)
+{
+	failure_ignore_errors = ignore;
 }
 
 void i_set_info_file(const char *path)

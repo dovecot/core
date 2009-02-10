@@ -63,6 +63,9 @@ static void sig_die(int signo, void *context ATTR_UNUSED)
 
 static void log_error_callback(void *context ATTR_UNUSED)
 {
+	/* the log fd is closed, don't die when trying to log later */
+	i_set_failure_ignore_errors(TRUE);
+
 	io_loop_stop(ioloop);
 }
 

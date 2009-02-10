@@ -73,6 +73,9 @@ void i_set_failure_file(const char *path, const char *prefix);
 
 /* Send errors to stderr using internal error protocol. */
 void i_set_failure_internal(void);
+/* If writing to log fails, ignore it instead of existing with
+   FATAL_LOGWRITE or FATAL_LOGERROR. */
+void i_set_failure_ignore_errors(bool ignore);
 
 /* Send informational messages to specified log file. i_set_failure_*()
    functions modify the info file too, so call this function after them. */
