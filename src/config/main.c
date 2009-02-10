@@ -21,9 +21,6 @@ static void main_init(const char *service)
 	if (getenv("LOG_TO_MASTER") != NULL)
 		i_set_failure_internal();
 
-	parsers_pool = pool_alloconly_create("parent parsers", 2048);
-	config_parsers_fix_parents(parsers_pool);
-
 	config_string = str_new(default_pool, 10240);
 	config_parse_file(config_string, config_path, service);
 	str_append_c(config_string, '\n');

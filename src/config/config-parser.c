@@ -23,58 +23,6 @@ struct input_stack {
 	unsigned int linenum;
 };
 
-void config_parsers_fix_parents(pool_t pool)
-{
-#if 0
-	struct config_setting_parser_list *l;
-	const struct setting_define *d;
-	ARRAY_DEFINE(parents, ARRAY_TYPE(dynamic_settings_parsers));
-	ARRAY_TYPE(dynamic_settings_parsers) *parsers;
-	struct dynamic_settings_parsers *parser;
-	unsigned int i, count;
-
-	/* FIXME: currently we assume everyone are under a single parent */
-	t_push();
-	t_array_init(&parents, 4);
-	for (l = config_setting_parsers; l->module_name != NULL; l++) {
-		if (l->root->parent == NULL)
-			continue;
-
-		for (d = l->root->parent->defines; d->key != NULL; d++) {
-			if (d->list_info == l->root)
-				break;
-		}
-
-		if (d->key == NULL) {
-			parsers = array_get_modifiable(&parents, &count);
-			for (i = 0; i < count; i++) {
-				parser = array_idx_modifiable(&parsers[i], 0);
-				if (parser->info->parent == l->root->parent)
-					break;
-			}
-			if (i == count) {
-				parsers = array_append_space(&parents);
-				t_array_init(parsers, 16);
-			}
-
-			parser = array_append_space(parsers);
-			parser->name = l->module_name;
-			parser->info = l->root;
-		}
-	}
-
-	parsers = array_get_modifiable(&parents, &count);
-	for (i = 0; i < count; i++) {
-		(void)array_append_space(&parsers[i]); /* NULL-terminate */
-		parser = array_idx_modifiable(&parsers[i], 0);
-
-		settings_parser_info_update(pool, parser->info->parent, parser);
-	}
-
-	t_pop();
-#endif
-}
-
 static const char *
 config_parse_line(pool_t pool, const char *key, const char *line,
 		  const struct setting_parser_info **info_r)
