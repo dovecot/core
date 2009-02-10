@@ -950,8 +950,6 @@ void mail_processes_init(void)
 
 void mail_processes_deinit(void)
 {
-	/* don't free() the mail process groups. child_process structs are
-	   still referenced in child-processes and we may need to look them up.
-	   This deinit code needs a redesign.. */
-	hash_table_destroy(&mail_process_groups);
+	/* we may still end up in mail_process_destroyed(), so don't free
+	   anything. This deinit code needs a redesign.. */
 }
