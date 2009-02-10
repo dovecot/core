@@ -55,7 +55,7 @@ void imap_write_seq_range(string_t *dest, const ARRAY_TYPE(seq_range) *array)
 	}
 }
 
-void imap_args_to_str(string_t *dest, const struct imap_arg *args)
+void imap_write_args(string_t *dest, const struct imap_arg *args)
 {
 	const ARRAY_TYPE(imap_arg_list) *list;
 	bool first = TRUE;
@@ -88,7 +88,7 @@ void imap_args_to_str(string_t *dest, const struct imap_arg *args)
 		case IMAP_ARG_LIST:
 			str_append_c(dest, '(');
 			list = IMAP_ARG_LIST(args);
-			imap_args_to_str(dest, array_idx(list, 0));
+			imap_write_args(dest, array_idx(list, 0));
 			str_append_c(dest, ')');
 			break;
 		case IMAP_ARG_LITERAL_SIZE:
@@ -101,4 +101,13 @@ void imap_args_to_str(string_t *dest, const struct imap_arg *args)
 			i_unreached();
 		}
 	}
+}
+
+const char *imap_args_to_str(const struct imap_arg *args)
+{
+	string_t *str;
+
+	str = t_str_new(128);
+	imap_write_args(str, args);
+	return str_c(str);
 }
