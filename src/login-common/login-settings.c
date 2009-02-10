@@ -107,14 +107,19 @@ static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 		*error_r = "ssl_cert_file not set";
 		return FALSE;
 	}
-	if (access(set->ssl_cert_file, R_OK) < 0) {
-		*error_r = t_strdup_printf("ssl_cert_file: access(%s) failed: %m",
-					   set->ssl_cert_file);
+	if (*set->ssl_key_file == '\0') {
+		*error_r = "ssl_key_file not set";
+		return FALSE;
+	}
+	if (set->ssl_verify_client_cert && *set->ssl_ca_file == '\0') {
+		*error_r = "ssl_verify_client_cert set, but ssl_ca_file not";
 		return FALSE;
 	}
 
-	if (*set->ssl_key_file == '\0') {
-		*error_r = "ssl_key_file not set";
+#ifndef CONFIG_BINARY
+	if (access(set->ssl_cert_file, R_OK) < 0) {
+		*error_r = t_strdup_printf("ssl_cert_file: access(%s) failed: %m",
+					   set->ssl_cert_file);
 		return FALSE;
 	}
 	if (access(set->ssl_key_file, R_OK) < 0) {
@@ -122,17 +127,12 @@ static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 					   set->ssl_key_file);
 		return FALSE;
 	}
-
 	if (*set->ssl_ca_file != '\0' && access(set->ssl_ca_file, R_OK) < 0) {
 		*error_r = t_strdup_printf("ssl_ca_file: access(%s) failed: %m",
 					   set->ssl_ca_file);
 		return FALSE;
 	}
-
-	if (set->ssl_verify_client_cert && *set->ssl_ca_file == '\0') {
-		*error_r = "ssl_verify_client_cert set, but ssl_ca_file not";
-		return FALSE;
-	}
+#endif
 	return TRUE;
 #endif
 }
