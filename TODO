@@ -1,27 +1,6 @@
-dovecot: Jan 17 17:04:38 Panic: dict: file driver-pgsql.c: line 202 (driver_pgsql_init_v): assertion failed: (connect_string != NULL)
-  ^ kun puuttui connect setting
-
-dovecot: Jan 17 17:05:58 Error: dict: io_loop_handle_remove: epoll_ctl(2, 9): No such file or directory
-dovecot: Jan 17 17:05:58 Error: dict: pgsql: Connect failed to mails: FATAL:  password authentication failed for user "timo"
-
-dovecot: Jan 17 17:13:07 Error: dict: dict sql lookup failed: FATAL:  terminating connection due to administrator command
-dovecot: Jan 17 17:13:07 Error: dict: io_loop_handle_remove: epoll_ctl(2, 9): Bad file descriptor
-
-Jan 16 02:30:12 vh3 dovecot: auth(default): sql(user@ex2.com): User query failed: FATAL:  terminating connection due to administrator command
-Jan 16 02:30:12 vh3 deliver(user@ex2.com): Auth lookup returned failure
-Jan 16 02:30:12 vh3 dovecot: auth(default): kevent(EV_DELETE, 10) failed: Bad file descriptor
-
  - namespace shared: prefix = shared/%%d/%%u/: LIST shared/% doesn't work
- - index_removal_timeout leak when copy&pasting:
-     10 myrights "INBOX"
-     11 getacl "INBOX"
  - proxying: support fallbacking to local (or other?) server if the first
    one is down
-user_attrs {
-  uid = %{ldap:uidNumber}
-  home = %{ldap:homeDirectory}
-  quota_bytes = *:bytes=%{ldap:quota}
-}
 
 fts_solr: select() failed: Interrupted system call
 fts_solr: Indexing failed: (null)
@@ -112,9 +91,16 @@ safe_mkstemp(/usr/local/var/run/dovecot/user-not-found/test/temp.hurina.12890.87
  - new %modifier for reverse DNS lookups with a cache
    - auth_gssapi_hostname = %Xl
    - proxying would also want DNS lookups, but not reverse..
- - ldap domain lookups which set the base for user lookup
- - ldap: same attribute can't be used for multiple values.
- - ldap: multiple attributes can't be merged to a single value.
+ - ldap:
+   - domain lookups which set the base for user lookup
+   - same attribute can't be used for multiple values.
+   - multiple attributes can't be merged to a single value.
+   - implement something like:
+       user_attrs {
+	 uid = %{ldap:uidNumber}
+	 home = %{ldap:homeDirectory}
+	 quota_bytes = *:bytes=%{ldap:quota}
+       }
 
  - Per-user options:
    - Deny deleting non-empty mailboxes

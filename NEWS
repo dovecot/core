@@ -9,7 +9,7 @@ v1.2.UNSTABLE  Timo Sirainen <tss@iki.fi>
 	+ Full support for shared mailboxes and IMAP ACL extension.
 	  The code is mainly from Sascha Wilde and Bernhard Herzog.
 	+ IMAP: Added support for extensions: CONDSTORE, QRESYNC, ESEARCH,
-	  SEARCHRES, WITHIN, ID and CONTEXT=SEARCH.
+	  ESORT, SEARCHRES, WITHIN, ID and CONTEXT=SEARCH.
 	+ SEARCH supports INTHREAD search key, but the rest of the INTHREAD
 	  draft isn't implemented yet and isn't advertised.
 	+ THREAD X-REFERENCES2 algorithm where threads are sorted by their
