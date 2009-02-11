@@ -215,7 +215,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 		return NULL;
 	}
 
-	if (!no_flag_updates)
+	if (!no_flag_updates && client->messages_count > 0)
 		client->seen_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
 
 	i_assert(my_client == NULL);
