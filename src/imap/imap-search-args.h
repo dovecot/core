@@ -15,11 +15,13 @@ int imap_search_args_build(struct client_command_context *cmd,
 			   struct mail_search_args **search_args_r);
 
 /* Returns -1 if set is invalid, 0 if we have to wait for unambiguity,
-   1 if we can continue. */
-int imap_search_get_seqset(struct client_command_context *cmd,
+   1 if we were successful. search_args_r is set to contain either a seqset
+   or uidset. */
+int imap_search_get_anyset(struct client_command_context *cmd,
 			   const char *set, bool uid,
 			   struct mail_search_args **search_args_r);
-int imap_search_get_anyset(struct client_command_context *cmd,
+/* Like imap_search_get_anyset(), but always returns a seqset. */
+int imap_search_get_seqset(struct client_command_context *cmd,
 			   const char *set, bool uid,
 			   struct mail_search_args **search_args_r);
 
