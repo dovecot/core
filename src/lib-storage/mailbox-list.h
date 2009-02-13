@@ -202,7 +202,7 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 /* Get next mailbox. Returns the mailbox name */
 const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx);
-/* Deinitialize mailbox list request. Returns FALSE if some error
+/* Deinitialize mailbox list request. Returns -1 if some error
    occurred while listing. */
 int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **ctx);
 
