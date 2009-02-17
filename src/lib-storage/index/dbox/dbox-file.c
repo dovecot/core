@@ -549,18 +549,7 @@ dbox_file_get_maildir_data(struct dbox_file *file, uint32_t *uid_r,
 {
 	struct stat st;
 
-#if 0 //FIXME
-	uint32_t uid;
-
-	if ((file->file_id & DBOX_FILE_ID_FLAG_UID) == 0) {
-		i_assert(file->file_id == 0);
-		if (maildir_uidlist_get_uid(file->mbox->maildir_uidlist,
-					    file->fname, &uid))
-			file->file_id = uid | DBOX_FILE_ID_FLAG_UID;
-	}
-#else
 	i_assert((file->file_id & DBOX_FILE_ID_FLAG_UID) != 0);
-#endif
 
 	if (fstat(file->fd, &st) < 0) {
 		dbox_file_set_syscall_error(file, "fstat");
