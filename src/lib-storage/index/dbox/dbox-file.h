@@ -145,7 +145,7 @@ void dbox_files_free(struct dbox_mailbox *mbox);
 /* Assign a newly created file (file_id=0) a new id. */
 int dbox_file_assign_id(struct dbox_file *file, unsigned int file_id);
 
-/* If file_id is 0, open the file, otherwise create it. Returns 1 if ok,
+/* Open the file if file_id is not 0, otherwise create it. Returns 1 if ok,
    0 if read_header=TRUE and opened file was broken, -1 if error. If file is
    deleted, deleted_r=TRUE and 1 is returned. */
 int dbox_file_open_or_create(struct dbox_file *file, bool read_header,

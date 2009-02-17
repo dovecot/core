@@ -10,7 +10,6 @@
 #define DBOX_INDEX_PREFIX "dovecot.index"
 
 #define DBOX_MAILDIR_NAME "dbox-Mails"
-#define DBOX_INDEX_NAME "dbox.index"
 #define DBOX_MAIL_FILE_MULTI_PREFIX "m."
 #define DBOX_MAIL_FILE_UID_PREFIX "u."
 #define DBOX_MAIL_FILE_MULTI_FORMAT DBOX_MAIL_FILE_MULTI_PREFIX"%u"

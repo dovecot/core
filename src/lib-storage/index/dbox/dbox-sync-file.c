@@ -6,7 +6,6 @@
 #include "ostream.h"
 #include "str.h"
 #include "dbox-storage.h"
-#include "dbox-index.h"
 #include "dbox-file.h"
 #include "dbox-sync.h"
 
@@ -51,6 +50,8 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 	unsigned int i, count;
 	bool expunged;
 	int ret;
+
+	/* FIXME: lock the file first */
 
 	expunges = array_get(&entry->expunges, &count);
 	if (!dbox_file_lookup(ctx->mbox, ctx->sync_view, expunges[0].seq1,
@@ -276,29 +277,11 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 		   const struct dbox_sync_file_entry *entry)
 {
 	struct dbox_file *file;
-	struct dbox_index_record *rec;
-	enum dbox_index_file_status status;
-	bool locked, deleted;
+	bool deleted;
 	int ret;
 
-	if ((entry->file_id & DBOX_FILE_ID_FLAG_UID) != 0) {
-		locked = TRUE;
-		status = DBOX_INDEX_FILE_STATUS_SINGLE_MESSAGE;
-	} else {
-		rec = dbox_index_record_lookup(ctx->mbox->dbox_index,
-					       entry->file_id);
-		if (rec == NULL ||
-		    rec->status == DBOX_INDEX_FILE_STATUS_UNLINKED) {
-			/* file doesn't exist, nothing to do */
-			return 1;
-		}
-		locked = rec->locked;
-		status = rec->status;
-	}
-
 	file = dbox_file_init(ctx->mbox, entry->file_id);
-	if ((status == DBOX_INDEX_FILE_STATUS_SINGLE_MESSAGE ||
-	     status == DBOX_INDEX_FILE_STATUS_MAILDIR) &&
+	if ((file->file_id & DBOX_FILE_ID_FLAG_UID) != 0 &&
 	    array_is_created(&entry->expunges)) {
 		/* fast path to expunging the whole file */
 		if ((ret = dbox_sync_file_unlink(file)) == 0) {
@@ -310,7 +293,7 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 		ret = dbox_file_open_or_create(file, TRUE, &deleted);
 		if (ret > 0 && !deleted) {
 			dbox_sync_file_move_if_needed(file, entry);
-			if (array_is_created(&entry->expunges) && locked)
+			if (array_is_created(&entry->expunges))
 				ret = dbox_sync_file_expunge(ctx, file, entry);
 		}
 	}
