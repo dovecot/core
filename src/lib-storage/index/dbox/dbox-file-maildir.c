@@ -12,17 +12,6 @@
 
 #include <stdlib.h>
 
-static const char *
-dbox_maildir_file_get_ext(struct dbox_file *file,
-			  enum maildir_uidlist_rec_ext_key key)
-{
-	uint32_t uid;
-
-	uid = file->file_id & ~DBOX_FILE_ID_FLAG_UID;
-	return maildir_uidlist_lookup_ext(file->mbox->maildir_uidlist,
-					  uid, key);
-}
-
 const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 					   enum dbox_metadata_key key)
 {
@@ -59,8 +48,9 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 		if (!maildir_filename_get_size(file->fname,
 					       MAILDIR_EXTRA_VIRTUAL_SIZE,
 					       &size)) {
-			value = dbox_maildir_file_get_ext(file,
-					MAILDIR_UIDLIST_REC_EXT_VSIZE);
+			value = maildir_uidlist_lookup_ext(
+				file->single_mbox->maildir_uidlist,
+				file->uid, MAILDIR_UIDLIST_REC_EXT_VSIZE);
 			if (value == NULL)
 				break;
 			size = strtoull(value, NULL, 10);
@@ -68,8 +58,9 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 		value = t_strdup_printf("%llx", (unsigned long long)size);
 		break;
 	case DBOX_METADATA_POP3_UIDL:
-		value = dbox_maildir_file_get_ext(file,
-					MAILDIR_UIDLIST_REC_EXT_POP3_UIDL);
+		value = maildir_uidlist_lookup_ext(
+				file->single_mbox->maildir_uidlist,
+				file->uid, MAILDIR_UIDLIST_REC_EXT_POP3_UIDL);
 		if (value != NULL && *value == '\0') {
 			/* special case: use base filename */
 			p = strchr(file->fname, MAILDIR_INFO_SEP);
@@ -79,9 +70,9 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 				value = t_strdup_until(file->fname, p);
 		}
 		break;
-	case DBOX_METADATA_OLD_EXPUNGED:
-	case DBOX_METADATA_OLD_FLAGS:
-	case DBOX_METADATA_OLD_KEYWORDS:
+	case DBOX_METADATA_OLDV1_EXPUNGED:
+	case DBOX_METADATA_OLDV1_FLAGS:
+	case DBOX_METADATA_OLDV1_KEYWORDS:
 	case DBOX_METADATA_EXT_REF:
 	case DBOX_METADATA_SPACE:
 		break;

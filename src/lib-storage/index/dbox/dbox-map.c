@@ -4,14 +4,16 @@
 #include "array.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
-#include "dbox-index.h"
+#include "dbox-map.h"
 
-struct dbox_index {
-	struct dbox_mailbox *mbox;
+struct dbox_map {
+	struct dbox_storage *storage;
+	struct mail_index *index;
 };
 
-struct dbox_index_append_context {
-	struct dbox_index *index;
+struct dbox_map_append_context {
+	struct dbox_mailbox *mbox;
+
 	ARRAY_DEFINE(files, struct dbox_file *);
 
 	uoff_t output_offset;
@@ -21,40 +23,47 @@ struct dbox_index_append_context {
 	unsigned int locked_header:1;
 };
 
-struct dbox_index *dbox_index_init(struct dbox_mailbox *mbox)
+struct dbox_map *dbox_map_init(struct dbox_storage *storage)
 {
-	struct dbox_index *index;
+	struct dbox_map *map;
 
-	index = i_new(struct dbox_index, 1);
-	index->mbox = mbox;
-	return index;
+	map = i_new(struct dbox_map, 1);
+	map->storage = storage;
+	map->index = mail_index_alloc(storage->storage_dir,
+				      DBOX_GLOBAL_INDEX_PREFIX);
+	return map;
 }
 
-void dbox_index_deinit(struct dbox_index **_index)
+void dbox_map_deinit(struct dbox_map **_map)
 {
-	struct dbox_index *index = *_index;
+	struct dbox_map *map = *_map;
 
-	*_index = NULL;
+	*_map = NULL;
 
-	i_free(index);
+	mail_index_free(&map->index);
+	i_free(map);
 }
 
-struct dbox_index_append_context *
-dbox_index_append_begin(struct dbox_index *index)
+bool dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
+		     uint32_t *file_id_r, uoff_t *offset_r)
 {
-	struct dbox_index_append_context *ctx;
+	return FALSE;
+}
 
-	ctx = i_new(struct dbox_index_append_context, 1);
-	ctx->index = index;
+struct dbox_map_append_context *
+dbox_map_append_begin(struct dbox_mailbox *mbox)
+{
+	struct dbox_map_append_context *ctx;
+
+	ctx = i_new(struct dbox_map_append_context, 1);
+	ctx->mbox = mbox;
 	ctx->first_new_file_id = (uint32_t)-1;
 	i_array_init(&ctx->files, 64);
 	return ctx;
 }
 
-int dbox_index_append_next(struct dbox_index_append_context *ctx,
-			   uoff_t mail_size,
-			   struct dbox_file **file_r,
-			   struct ostream **output_r)
+int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
+			 struct dbox_file **file_r, struct ostream **output_r)
 {
 	struct dbox_file *const *files, *file = NULL;
 	unsigned int i, count;
@@ -74,7 +83,7 @@ int dbox_index_append_next(struct dbox_index_append_context *ctx,
 
 	if (file == NULL) {
 		/* create a new file */
-		file = dbox_file_init(ctx->index->mbox, 0);
+		file = dbox_file_init_single(ctx->mbox, 0);
 		if ((ret = dbox_file_get_append_stream(file, mail_size,
 						       output_r)) <= 0) {
 			i_assert(ret < 0);
@@ -89,26 +98,23 @@ int dbox_index_append_next(struct dbox_index_append_context *ctx,
 	return 0;
 }
 
-static int dbox_index_append_commit_new(struct dbox_index_append_context *ctx,
-					struct dbox_file *file)
+static int dbox_map_append_commit_new(struct dbox_map_append_context *ctx,
+				      struct dbox_file *file)
 {
-	unsigned int file_id;
-
 	i_assert(!file->maildir_file);
 	i_assert(file->append_count > 0);
 
-	if (file->append_count == 1 && !dbox_file_can_append(file, 0)) {
+	if (file->single_mbox != NULL) {
 		/* single UID message file */
 		i_assert(file->last_append_uid != 0);
-		file_id = file->last_append_uid | DBOX_FILE_ID_FLAG_UID;
-		return dbox_file_assign_id(file, file_id);
+		return dbox_file_assign_id(file, file->last_append_uid);
 	}
 
 	/* FIXME */
 	return -1;
 }
 
-int dbox_index_append_assign_file_ids(struct dbox_index_append_context *ctx)
+int dbox_map_append_assign_file_ids(struct dbox_map_append_context *ctx)
 {
 	struct dbox_file *const *files, *file;
 	unsigned int i, count;
@@ -118,8 +124,8 @@ int dbox_index_append_assign_file_ids(struct dbox_index_append_context *ctx)
 	for (i = 0; i < count; i++) {
 		file = files[i];
 
-		if (file->file_id == 0) {
-			if (dbox_index_append_commit_new(ctx, file) < 0) {
+		if (file->uid == 0 && file->file_id == 0) {
+			if (dbox_map_append_commit_new(ctx, file) < 0) {
 				ret = -1;
 				break;
 			}
@@ -132,9 +138,9 @@ int dbox_index_append_assign_file_ids(struct dbox_index_append_context *ctx)
 	return ret;
 }
 
-int dbox_index_append_commit(struct dbox_index_append_context **_ctx)
+int dbox_map_append_commit(struct dbox_map_append_context **_ctx)
 {
-	struct dbox_index_append_context *ctx = *_ctx;
+	struct dbox_map_append_context *ctx = *_ctx;
 	struct dbox_file **files;
 	unsigned int i, count;
 
@@ -149,9 +155,9 @@ int dbox_index_append_commit(struct dbox_index_append_context **_ctx)
 	return 0;
 }
 
-void dbox_index_append_rollback(struct dbox_index_append_context **_ctx)
+void dbox_map_append_rollback(struct dbox_map_append_context **_ctx)
 {
-	struct dbox_index_append_context *ctx = *_ctx;
+	struct dbox_map_append_context *ctx = *_ctx;
 	struct dbox_file *const *files, *file;
 	unsigned int i, count;
 

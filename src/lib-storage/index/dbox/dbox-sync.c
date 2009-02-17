@@ -6,39 +6,68 @@
 #include "str.h"
 #include "hash.h"
 #include "dbox-storage.h"
+#include "dbox-map.h"
 #include "dbox-file.h"
 #include "dbox-sync.h"
 
 #define DBOX_REBUILD_COUNT 3
 
+static unsigned int dbox_sync_file_entry_hash(const void *p)
+{
+	const struct dbox_sync_file_entry *entry = p;
+
+	if (entry->file_id != 0)
+		return entry->file_id | 0x80000000;
+	else
+		return entry->uid;
+}
+
+static int dbox_sync_file_entry_cmp(const void *p1, const void *p2)
+{
+	const struct dbox_sync_file_entry *entry1 = p1, *entry2 = p2;
+
+	/* this is only for hashing, don't bother ever returning 1. */
+	if (entry1->file_id != entry2->file_id)
+		return -1;
+	if (entry1->uid != entry2->uid)
+		return -1;
+	return 0;
+}
+
 static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 			     const struct mail_index_sync_rec *sync_rec,
 			     uint32_t seq)
 {
-	struct dbox_sync_file_entry *entry;
-	uint32_t file_id;
+	struct dbox_sync_file_entry *entry, lookup_entry;
+	uint32_t map_uid;
 	uoff_t offset;
-	bool uid_file;
 
 	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE ||
 		 sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 
-	if (!dbox_file_lookup(ctx->mbox, ctx->sync_view, seq,
-			      &file_id, &offset))
-		return -1;
+	memset(&lookup_entry, 0, sizeof(lookup_entry));
+	map_uid = dbox_mail_lookup(ctx->mbox, ctx->sync_view, seq);
+	if (map_uid == 0)
+		mail_index_lookup_uid(ctx->sync_view, seq, &lookup_entry.uid);
+	else {
+		if (!dbox_map_lookup(ctx->mbox->storage->map_index,
+				     map_uid, &lookup_entry.file_id, &offset)) {
+			// FIXME: now what?
+			return -1;
+		}
+	}
 
-	entry = hash_table_lookup(ctx->syncs, POINTER_CAST(file_id));
+	entry = hash_table_lookup(ctx->syncs, &lookup_entry);
 	if (entry == NULL) {
 		entry = p_new(ctx->pool, struct dbox_sync_file_entry, 1);
-		entry->file_id = file_id;
-		hash_table_insert(ctx->syncs, POINTER_CAST(file_id), entry);
+		*entry = lookup_entry;
+		hash_table_insert(ctx->syncs, entry, entry);
 	}
-	uid_file = (file_id & DBOX_FILE_ID_FLAG_UID) != 0;
 
 	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
 		if (!array_is_created(&entry->expunges)) {
 			p_array_init(&entry->expunges, ctx->pool,
-				     uid_file ? 1 : 3);
+				     lookup_entry.uid != 0 ? 1 : 3);
 		}
 		seq_range_array_add(&entry->expunges, 0, seq);
 	} else {
@@ -104,9 +133,11 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 					     seq1, seq2);
 	}
 
-	/* read all changes and sort them to file_id order */
+	/* read all changes and group changes to same file_id together */
 	ctx->pool = pool_alloconly_create("dbox sync pool", 1024*32);
-	ctx->syncs = hash_table_create(default_pool, ctx->pool, 0, NULL, NULL);
+	ctx->syncs = hash_table_create(default_pool, ctx->pool, 0,
+				       dbox_sync_file_entry_hash,
+				       dbox_sync_file_entry_cmp);
 
 	for (;;) {
 		if (!mail_index_sync_next(ctx->index_sync_ctx, &sync_rec))

@@ -11,27 +11,26 @@
 
 static int dbox_sync_file_unlink(struct dbox_file *file)
 {
-	const char *path;
-	int i = 0;
+	const char *path, *primary_path;
+	bool alt = FALSE;
 
-	path = t_strdup_printf("%s/%s", file->mbox->path, file->fname);
+	path = primary_path = dbox_file_get_primary_path(file);
 	while (unlink(path) < 0) {
 		if (errno != ENOENT) {
-			mail_storage_set_critical(file->mbox->ibox.box.storage,
+			mail_storage_set_critical(&file->storage->storage,
 				"unlink(%s) failed: %m", path);
 			return -1;
 		}
-		if (file->mbox->alt_path == NULL || i == 1) {
+		if (file->storage->alt_storage_dir == NULL || alt) {
 			/* not found */
 			i_warning("dbox: File unexpectedly lost: %s/%s",
-				  file->mbox->path, file->fname);
+				  primary_path, file->fname);
 			return 0;
 		}
 
 		/* try the alternative path */
-		path = t_strdup_printf("%s/%s", file->mbox->alt_path,
-				       file->fname);
-		i++;
+		path = dbox_file_get_alt_path(file);
+		alt = TRUE;
 	}
 	return 1;
 }
@@ -40,6 +39,7 @@ static int
 dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 		       const struct dbox_sync_file_entry *entry)
 {
+#if 0 //FIXME
 	const struct seq_range *expunges;
 	struct dbox_file *out_file = NULL;
 	struct istream *input;
@@ -62,10 +62,10 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 
 	offset = first_offset;
 	for (i = 0;;) {
-		if ((ret = dbox_file_seek_next(file, &offset, &uid,
+		if ((ret = dbox_file_seek_next(file, &offset,
 					       &physical_size)) <= 0)
 			break;
-		if (uid == 0) {
+		if (physical_size == 0) {
 			/* EOF */
 			break;
 		}
@@ -142,6 +142,8 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 	if (out_file != NULL)
 		dbox_file_unref(&out_file);
 	return ret;
+#endif
+	return -1;
 }
 
 #if 0
@@ -162,7 +164,6 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 	struct dbox_message_header dbox_msg_hdr;
 	struct dbox_mail_index_record rec;
 	const char *out_path, *value;
-	uint32_t uid;
 	uoff_t size, append_offset;
 	unsigned int i;
 	int ret;
@@ -171,7 +172,7 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 	/* FIXME: for now we handle only maildir file conversion */
 	i_assert(in_file->maildir_file);
 
-	ret = dbox_file_get_mail_stream(in_file, offset, &uid,
+	ret = dbox_file_get_mail_stream(in_file, offset,
 					&size, &input, &expunged);
 	if (ret <= 0)
 		return ret;
@@ -188,7 +189,7 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 		return -1;
 	}
 	append_offset = output->offset;
-	dbox_msg_header_fill(&dbox_msg_hdr, uid, size);
+	dbox_msg_header_fill(&dbox_msg_hdr, size);
 
 	/* set static metadata */
 	for (i = 0; i < N_ELEMENTS(maildir_metadata_keys); i++) {
@@ -280,9 +281,10 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 	bool deleted;
 	int ret;
 
-	file = dbox_file_init(ctx->mbox, entry->file_id);
-	if ((file->file_id & DBOX_FILE_ID_FLAG_UID) != 0 &&
-	    array_is_created(&entry->expunges)) {
+	file = entry->file_id != 0 ?
+		dbox_file_init_multi(ctx->mbox->storage, entry->file_id) :
+		dbox_file_init_single(ctx->mbox, entry->uid);
+	if (entry->uid != 0 && array_is_created(&entry->expunges)) {
 		/* fast path to expunging the whole file */
 		if ((ret = dbox_sync_file_unlink(file)) == 0) {
 			/* file was lost, delete it */

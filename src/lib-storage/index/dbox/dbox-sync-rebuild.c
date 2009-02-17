@@ -117,7 +117,6 @@ static void
 dbox_sync_index_copy_from_maildir(struct dbox_sync_rebuild_context *ctx,
 				  struct dbox_file *file, uint32_t seq)
 {
-	struct dbox_mailbox *mbox = file->mbox;
 	ARRAY_TYPE(keyword_indexes) keyword_indexes;
 	struct mail_keywords *keywords;
 	enum mail_flags flags;
@@ -127,7 +126,7 @@ dbox_sync_index_copy_from_maildir(struct dbox_sync_rebuild_context *ctx,
 				   file->fname, &flags, &keyword_indexes);
 	mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE, flags);
 
-	keywords = mail_index_keywords_create_from_indexes(mbox->ibox.index,
+	keywords = mail_index_keywords_create_from_indexes(ctx->mbox->ibox.index,
 							   &keyword_indexes);
 	mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE, keywords);
 	mail_index_keywords_free(&keywords);
@@ -153,36 +152,31 @@ dbox_sync_index_metadata(struct dbox_sync_rebuild_context *ctx,
 static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 				     struct dbox_file *file, uoff_t *offset)
 {
-	uint32_t seq, uid;
+	uint32_t seq;
 	uoff_t physical_size;
 	const char *path;
 	bool expunged;
 	int ret;
 
 	path = dbox_file_get_path(file);
-	ret = dbox_file_seek_next(file, offset, &uid, &physical_size);
+	ret = dbox_file_seek_next(file, offset, &physical_size);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
 
-		if (uid == 0 && (file->file_id & DBOX_FILE_ID_FLAG_UID) != 0) {
+#if 0 //FIXME: needed?
+		if (physical_size == 0 && file->uid != 0) {
 			/* EOF */
 			return 0;
 		}
+#endif
 
 		i_warning("%s: Ignoring broken file (header)", path);
 		return 0;
 	}
-	if ((file->file_id & DBOX_FILE_ID_FLAG_UID) != 0 &&
-	    uid != (file->file_id & ~DBOX_FILE_ID_FLAG_UID)) {
-		i_warning("%s: Header contains wrong UID %u", path, uid);
-		return 0;
-	}
 	if (file->maildir_file) {
-		i_assert(uid != 0);
-
 		file->append_count = 1;
-		file->last_append_uid = uid;
+		file->last_append_uid = file->uid;
 	}
 
 	ret = dbox_file_metadata_seek_mail_offset(file, *offset, &expunged);
@@ -193,8 +187,9 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 		return 0;
 	}
 	if (!expunged) {
-		mail_index_append(ctx->trans, uid, &seq);
-		dbox_sync_index_metadata(ctx, file, seq, uid);
+		/* FIXME: file->uid doesn't work for multi files */
+		mail_index_append(ctx->trans, file->uid, &seq);
+		dbox_sync_index_metadata(ctx, file, seq, file->uid);
 	}
 	return 1;
 }
@@ -220,7 +215,7 @@ dbox_sync_index_uid_file(struct dbox_sync_rebuild_context *ctx,
 	if (ctx->highest_uid < uid)
 		ctx->highest_uid = uid;
 
-	file = dbox_file_init(ctx->mbox, uid | DBOX_FILE_ID_FLAG_UID);
+	file = dbox_file_init_single(ctx->mbox, uid);
 	file->current_path = i_strdup_printf("%s/%s", dir, fname);
 
 	ret = dbox_sync_index_file_next(ctx, file, &offset) < 0 ? -1 : 0;
@@ -366,7 +361,7 @@ static int dbox_sync_maildir_finish(struct dbox_sync_rebuild_context *ctx)
 
 	iter = maildir_uidlist_iter_init(mbox->maildir_uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &flags, &fname)) {
-		file = dbox_file_init(mbox, uid | DBOX_FILE_ID_FLAG_UID);
+		file = dbox_file_init_single(mbox, uid);
 		file->current_path =
 			i_strdup_printf("%s/%s", ctx->mbox->path, fname);
 

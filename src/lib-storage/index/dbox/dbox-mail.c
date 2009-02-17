@@ -6,6 +6,7 @@
 #include "str.h"
 #include "index-mail.h"
 #include "dbox-storage.h"
+#include "dbox-map.h"
 #include "dbox-file.h"
 
 #include <stdlib.h>
@@ -43,20 +44,38 @@ static void dbox_mail_close(struct mail *_mail)
 	index_mail_close(_mail);
 }
 
-static int dbox_mail_lookup(struct dbox_mail *mail,
-			    uoff_t *offset_r, struct dbox_file **file_r)
+uint32_t dbox_mail_lookup(struct dbox_mailbox *mbox,
+			  struct mail_index_view *view, uint32_t seq)
+{
+	const struct dbox_mail_index_record *dbox_rec;
+	const void *data;
+	bool expunged;
+
+	mail_index_lookup_ext(view, seq, mbox->dbox_ext_id, &data, &expunged);
+	dbox_rec = data;
+	return dbox_rec == NULL ? 0 : dbox_rec->map_uid;
+}
+
+static int dbox_mail_open(struct dbox_mail *mail,
+			  uoff_t *offset_r, struct dbox_file **file_r)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
-	unsigned int file_id;
+	struct mail *_mail = &mail->imail.mail.mail;
+	uint32_t map_uid, file_id;
 
 	if (mail->open_file == NULL) {
-		if (!dbox_file_lookup(mbox, mbox->ibox.view,
-				      mail->imail.mail.mail.seq,
-				      &file_id, &mail->offset)) {
-			mail_set_expunged(&mail->imail.mail.mail);
+		map_uid = dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq);
+		if (map_uid == 0) {
+			mail->open_file =
+				dbox_file_init_single(mbox, _mail->uid);
+		} else if (!dbox_map_lookup(mbox->storage->map_index, map_uid,
+					    &file_id, &mail->offset)) {
+			mail_set_expunged(_mail);
 			return -1;
+		} else {
+			mail->open_file =
+				dbox_file_init_multi(mbox->storage, file_id);
 		}
-		mail->open_file = dbox_file_init(mbox, file_id);
 	}
 
 	*file_r = mail->open_file;
@@ -71,7 +90,7 @@ dbox_mail_metadata_seek(struct dbox_mail *mail, struct dbox_file **file_r)
 	bool expunged;
 	int ret;
 
-	if (dbox_mail_lookup(mail, &offset, file_r) < 0)
+	if (dbox_mail_open(mail, &offset, file_r) < 0)
 		return -1;
 
 	ret = dbox_file_metadata_seek_mail_offset(*file_r, offset, &expunged);
@@ -239,15 +258,14 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	struct index_mail_data *data = &mail->imail.data;
 	struct istream *input;
 	uoff_t offset, size;
-	uint32_t uid = 0;
 	bool expunged;
 	int ret;
 
 	if (data->stream == NULL) {
-		if (dbox_mail_lookup(mail, &offset, &mail->open_file) < 0)
+		if (dbox_mail_open(mail, &offset, &mail->open_file) < 0)
 			return -1;
 
-		ret = dbox_file_get_mail_stream(mail->open_file, offset, &uid,
+		ret = dbox_file_get_mail_stream(mail->open_file, offset,
 						&size, &input, &expunged);
 		if (ret < 0)
 			return -1;
@@ -255,13 +273,13 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			mail_set_expunged(_mail);
 			return -1;
 		}
-		if (ret == 0 || uid != _mail->uid) {
+		if (ret == 0) {
 			/* FIXME: broken file/offset */
 			if (ret > 0)
 				i_stream_unref(&input);
 			mail_storage_set_critical(_mail->box->storage,
-				"broken pointer to dbox file %s (uid %u vs %u)",
-				mail->open_file->current_path, uid, _mail->uid);
+				"broken pointer to dbox file %s",
+				mail->open_file->current_path);
 			return -1;
 		}
 		data->physical_size = size;

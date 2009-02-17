@@ -10,6 +10,8 @@
 #define DBOX_INDEX_PREFIX "dovecot.index"
 
 #define DBOX_MAILDIR_NAME "dbox-Mails"
+#define DBOX_GLOBAL_INDEX_PREFIX "dovecot.map.index"
+#define DBOX_GLOBAL_DIR_NAME "storage"
 #define DBOX_MAIL_FILE_MULTI_PREFIX "m."
 #define DBOX_MAIL_FILE_UID_PREFIX "u."
 #define DBOX_MAIL_FILE_MULTI_FORMAT DBOX_MAIL_FILE_MULTI_PREFIX"%u"
@@ -37,12 +39,25 @@ struct dbox_index_header {
 struct dbox_storage {
 	struct mail_storage storage;
 	union mailbox_list_module_context list_module_ctx;
+
+	/* root path for alt directory */
 	const char *alt_dir;
+	/* paths for storage directories */
+	const char *storage_dir, *alt_storage_dir;
+	struct dbox_map *map_index;
+
+	/* mode/gid to use for new dbox storage files */
+	mode_t create_mode;
+	gid_t create_gid;
+
+	uoff_t rotate_size, rotate_min_size;
+	unsigned int rotate_days;
+	unsigned int max_open_files;
+	ARRAY_DEFINE(open_files, struct dbox_file *);
 };
 
 struct dbox_mail_index_record {
-	uint32_t file_id;
-	uint32_t offset;
+	uint32_t map_uid;
 };
 
 struct dbox_mailbox {
@@ -52,14 +67,7 @@ struct dbox_mailbox {
 	struct maildir_uidlist *maildir_uidlist;
 	uint32_t highest_maildir_uid;
 
-	struct dbox_index *dbox_index;
 	uint32_t dbox_ext_id, dbox_hdr_ext_id;
-
-	uoff_t rotate_size, rotate_min_size;
-	unsigned int rotate_days;
-
-	ARRAY_DEFINE(open_files, struct dbox_file *);
-	unsigned int max_open_files;
 
 	const char *path, *alt_path;
 };
@@ -81,6 +89,10 @@ struct mail *
 dbox_mail_alloc(struct mailbox_transaction_context *t,
 		enum mail_fetch_field wanted_fields,
 		struct mailbox_header_lookup_ctx *wanted_headers);
+
+/* Get map_uid for wanted message. */
+uint32_t dbox_mail_lookup(struct dbox_mailbox *mbox,
+			  struct mail_index_view *view, uint32_t seq);
 
 struct mail_save_context *
 dbox_save_alloc(struct mailbox_transaction_context *_t);

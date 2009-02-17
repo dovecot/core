@@ -16,19 +16,16 @@
    There should be no duplicates for the current metadata, but future
    extensions may need them so they should be preserved.
 */
-#define DBOX_VERSION 1
+#define DBOX_VERSION 2
 #define DBOX_MAGIC_PRE "\001\002"
 #define DBOX_MAGIC_POST "\n\001\003\n"
-
-/* If file_id has this flag set, the file is a single file with file_id=UID. */
-#define DBOX_FILE_ID_FLAG_UID 0x80000000
 
 enum dbox_header_key {
 	/* Offset for appending next message. In %08x format so it can be
 	   updated without moving data in header. If messages have been
 	   expunged and file must not be appended anymore, the value is filled
 	   with 'X'. */
-	DBOX_HEADER_APPEND_OFFSET	= 'A',
+	DBOX_HEADER_OLDV1_APPEND_OFFSET	= 'A',
 	/* Must be sizeof(struct dbox_message_header) when appending (hex) */
 	DBOX_HEADER_MSG_HEADER_SIZE	= 'M',
 	/* Creation UNIX timestamp (hex) */
@@ -47,9 +44,9 @@ enum dbox_metadata_flags {
 
 enum dbox_metadata_key {
 	/* metadata used by old Dovecot versions */
-	DBOX_METADATA_OLD_EXPUNGED	= 'E',
-	DBOX_METADATA_OLD_FLAGS		= 'F',
-	DBOX_METADATA_OLD_KEYWORDS	= 'K',
+	DBOX_METADATA_OLDV1_EXPUNGED	= 'E',
+	DBOX_METADATA_OLDV1_FLAGS	= 'F',
+	DBOX_METADATA_OLDV1_KEYWORDS	= 'K',
 
 	/* Globally unique identifier for the message. Preserved when
 	   copying. */
@@ -83,7 +80,7 @@ struct dbox_message_header {
 	unsigned char magic_pre[2];
 	unsigned char type;
 	unsigned char space1;
-	unsigned char uid_hex[8];
+	unsigned char oldv1_uid_hex[8];
 	unsigned char space2;
 	unsigned char message_size_hex[16];
 	/* <space reserved for future extensions, LF is always last> */
@@ -95,13 +92,16 @@ struct dbox_metadata_header {
 };
 
 struct dbox_file {
-	struct dbox_mailbox *mbox;
+	struct dbox_storage *storage;
+	/* set only for single-msg-per-file */
+	struct dbox_mailbox *single_mbox;
+
 	int refcount;
-	unsigned int file_id;
+	/* uid is for single-msg-per-file, file_id for multi-msgs-per-file */
+	uint32_t uid, file_id;
 
 	unsigned int file_header_size;
 	unsigned int msg_header_size;
-	unsigned int append_offset_header_pos;
 
 	unsigned int append_count;
 	uint32_t last_append_uid;
@@ -111,7 +111,6 @@ struct dbox_file {
 	uoff_t output_stream_offset;
 
 	uoff_t cur_offset;
-	uint32_t cur_uid;
 	uoff_t cur_physical_size;
 
 	char *fname;
@@ -136,18 +135,21 @@ extern enum mail_flags dbox_mail_flags_map[DBOX_METADATA_FLAGS_COUNT];
 extern char dbox_mail_flag_chars[DBOX_METADATA_FLAGS_COUNT];
 
 struct dbox_file *
-dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id);
+dbox_file_init_single(struct dbox_mailbox *mbox, uint32_t uid);
+struct dbox_file *
+dbox_file_init_multi(struct dbox_storage *storage, uint32_t file_id);
 void dbox_file_unref(struct dbox_file **file);
 
 /* Free all currently opened files. */
-void dbox_files_free(struct dbox_mailbox *mbox);
+void dbox_files_free(struct dbox_storage *storage);
 
-/* Assign a newly created file (file_id=0) a new id. */
-int dbox_file_assign_id(struct dbox_file *file, unsigned int file_id);
+/* Assign a newly created file a new id. For single files assign UID,
+   for multi files assign map UID. */
+int dbox_file_assign_id(struct dbox_file *file, uint32_t id);
 
-/* Open the file if file_id is not 0, otherwise create it. Returns 1 if ok,
-   0 if read_header=TRUE and opened file was broken, -1 if error. If file is
-   deleted, deleted_r=TRUE and 1 is returned. */
+/* Open the file if uid or file_id is not 0, otherwise create it. Returns 1 if
+   ok, 0 if read_header=TRUE and opened file was broken, -1 if error. If file
+   is deleted, deleted_r=TRUE and 1 is returned. */
 int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
 			     bool *deleted_r);
 /* Open the file's fd if it's currently closed. Assumes that the file exists. */
@@ -159,17 +161,17 @@ void dbox_file_close(struct dbox_file *file);
    call this function for a non-opened file. */
 const char *dbox_file_get_path(struct dbox_file *file);
 
-/* Seek to given offset in file and return the message's input stream, UID
+/* Seek to given offset in file and return the message's input stream
    and physical size. Returns 1 if ok, 0 if file/offset is corrupted,
    -1 if I/O error. */
 int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
-			      uint32_t *uid_r, uoff_t *physical_size_r,
+			      uoff_t *physical_size_r,
 			      struct istream **stream_r, bool *expunged_r);
 /* Seek to next message after given offset, or to first message if offset=0.
-   If there are no more messages, uid_r is set to 0. Returns 1 if ok, 0 if
-   file/offset is corrupted, -1 if I/O error. */
+   If there are no more messages, physical_size_r is set to 0. Returns 1 if ok,
+   0 if file/offset is corrupted, -1 if I/O error. */
 int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset,
-			uint32_t *uid_r, uoff_t *physical_size_r);
+			uoff_t *physical_size_r);
 
 /* Returns TRUE if mail_size bytes can be appended to the file. */
 bool dbox_file_can_append(struct dbox_file *file, uoff_t mail_size);
@@ -203,18 +205,15 @@ const char *dbox_file_metadata_get(struct dbox_file *file,
 /* Write all metadata to output stream. Returns 0 if ok, -1 if I/O error. */
 int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output);
 
-/* Get file/offset for wanted message. Returns TRUE if found. */
-bool dbox_file_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
-		      uint32_t seq, uint32_t *file_id_r, uoff_t *offset_r);
-
 /* Move the file to alt path or back. */
 int dbox_file_move(struct dbox_file *file, bool alt_path);
 
-/* Fill dbox_message_header with given uid/size. */
+/* Fill dbox_message_header with given size. */
 void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
-			  uint32_t uid, uoff_t message_size);
+			  uoff_t message_size);
 
-int dbox_create_fd(struct dbox_mailbox *mbox, const char *path);
+const char *dbox_file_get_primary_path(struct dbox_file *file);
+const char *dbox_file_get_alt_path(struct dbox_file *file);
 void dbox_file_set_syscall_error(struct dbox_file *file, const char *function);
 
 #endif

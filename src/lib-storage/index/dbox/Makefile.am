@@ -11,8 +11,8 @@ AM_CPPFLAGS = \
 libstorage_dbox_a_SOURCES = \
 	dbox-file.c \
 	dbox-file-maildir.c \
-	dbox-index.c \
 	dbox-mail.c \
+	dbox-map.c \
 	dbox-save.c \
 	dbox-sync.c \
 	dbox-sync-file.c \
@@ -23,7 +23,7 @@ libstorage_dbox_a_SOURCES = \
 headers = \
 	dbox-file.h \
 	dbox-file-maildir.h \
-	dbox-index.h \
+	dbox-map.h \
 	dbox-storage.h \
 	dbox-sync.h
 

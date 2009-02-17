@@ -4,7 +4,7 @@
 struct mailbox;
 
 struct dbox_sync_file_entry {
-	uint32_t file_id;
+	uint32_t uid, file_id;
 
 	unsigned int move_from_alt:1;
 	unsigned int move_to_alt:1;
