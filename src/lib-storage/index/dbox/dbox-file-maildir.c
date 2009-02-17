@@ -1,8 +1,6 @@
 /* Copyright (c) 2007-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
-#include "str.h"
 #include "maildir/maildir-storage.h"
 #include "maildir/maildir-uidlist.h"
 #include "maildir/maildir-filename.h"
@@ -73,9 +71,18 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 	case DBOX_METADATA_OLDV1_EXPUNGED:
 	case DBOX_METADATA_OLDV1_FLAGS:
 	case DBOX_METADATA_OLDV1_KEYWORDS:
+	case DBOX_METADATA_OLDV1_SPACE:
 	case DBOX_METADATA_EXT_REF:
-	case DBOX_METADATA_SPACE:
 		break;
 	}
 	return value;
+}
+
+bool dbox_maildir_uid_get_fname(struct dbox_mailbox *mbox, uint32_t uid,
+				const char **fname_r)
+{
+	enum maildir_uidlist_rec_flag flags;
+
+	*fname_r = maildir_uidlist_lookup(mbox->maildir_uidlist, uid, &flags);
+	return *fname_r != NULL;
 }

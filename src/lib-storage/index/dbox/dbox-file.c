@@ -10,7 +10,6 @@
 #include "mkdir-parents.h"
 #include "fdatasync-path.h"
 #include "str.h"
-#include "maildir/maildir-uidlist.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
 #include "dbox-file-maildir.h"
@@ -19,18 +18,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-
-enum mail_flags dbox_mail_flags_map[DBOX_METADATA_FLAGS_COUNT] = {
-	MAIL_ANSWERED,
-	MAIL_FLAGGED,
-	MAIL_DELETED,
-	MAIL_SEEN,
-	MAIL_DRAFT
-};
-
-char dbox_mail_flag_chars[DBOX_METADATA_FLAGS_COUNT] = {
-	'A', 'F', 'D', 'S', 'T'
-};
 
 static int dbox_file_metadata_skip_header(struct dbox_file *file);
 
@@ -123,16 +110,6 @@ dbox_close_open_files(struct dbox_storage *storage, unsigned int close_count)
 			i++;
 		}
 	}
-}
-
-static bool
-dbox_maildir_uid_get_fname(struct dbox_mailbox *mbox, uint32_t uid,
-			   const char **fname_r)
-{
-	enum maildir_uidlist_rec_flag flags;
-
-	*fname_r = maildir_uidlist_lookup(mbox->maildir_uidlist, uid, &flags);
-	return *fname_r != NULL;
 }
 
 static char *
@@ -561,31 +538,22 @@ const char *dbox_file_get_path(struct dbox_file *file)
 }
 
 static int
-dbox_file_get_maildir_data(struct dbox_file *file, uoff_t *physical_size_r)
-{
-	struct stat st;
-
-	i_assert(file->uid != 0);
-
-	if (fstat(file->fd, &st) < 0) {
-		dbox_file_set_syscall_error(file, "fstat");
-		return -1;
-	}
-
-	*physical_size_r = st.st_size;
-	return 1;
-}
-
-static int
 dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 {
 	struct dbox_message_header hdr;
+	struct stat st;
 	const unsigned char *data;
 	size_t size;
 	int ret;
 
-	if (file->maildir_file)
-		return dbox_file_get_maildir_data(file, physical_size_r);
+	if (file->maildir_file) {
+		if (fstat(file->fd, &st) < 0) {
+			dbox_file_set_syscall_error(file, "fstat");
+			return -1;
+		}
+		*physical_size_r = st.st_size;
+		return 1;
+	}
 
 	ret = i_stream_read_data(file->input, &data, &size,
 				 file->msg_header_size - 1);
@@ -656,7 +624,7 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset,
 
 	/* skip over the actual metadata */
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
-		if (*line == DBOX_METADATA_SPACE) {
+		if (*line == DBOX_METADATA_OLDV1_SPACE) {
 			/* end of metadata */
 			break;
 		}
@@ -884,7 +852,7 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 		if ((line = i_stream_read_next_line(file->input)) == NULL)
 			break;
 
-		if (*line == DBOX_METADATA_SPACE || *line == '\0') {
+		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */
 			*expunged_r = FALSE;
 			break;

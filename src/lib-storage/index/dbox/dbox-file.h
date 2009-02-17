@@ -9,8 +9,7 @@
    <metadata>
 
    Metadata block begins with DBOX_MAGIC_POST, followed by zero or more lines
-   in format <key character><value><LF>. The block ends with a line containing
-   zero or more spaces. The spaces can be used for writing more headers.
+   in format <key character><value><LF>. The block ends with an empty line.
    Unknown metadata should be ignored, but preserved when copying.
 
    There should be no duplicates for the current metadata, but future
@@ -32,22 +31,7 @@ enum dbox_header_key {
 	DBOX_HEADER_CREATE_STAMP	= 'C'
 };
 
-enum dbox_metadata_flags {
-	DBOX_METADATA_FLAGS_ANSWERED = 0,
-	DBOX_METADATA_FLAGS_FLAGGED,
-	DBOX_METADATA_FLAGS_DELETED,
-	DBOX_METADATA_FLAGS_SEEN,
-	DBOX_METADATA_FLAGS_DRAFT,
-
-	DBOX_METADATA_FLAGS_COUNT
-};
-
 enum dbox_metadata_key {
-	/* metadata used by old Dovecot versions */
-	DBOX_METADATA_OLDV1_EXPUNGED	= 'E',
-	DBOX_METADATA_OLDV1_FLAGS	= 'F',
-	DBOX_METADATA_OLDV1_KEYWORDS	= 'K',
-
 	/* Globally unique identifier for the message. Preserved when
 	   copying. */
 	DBOX_METADATA_GUID		= 'G',
@@ -63,9 +47,11 @@ enum dbox_metadata_key {
 	   1*(<start offset> <byte count> <ref>) */
 	DBOX_METADATA_EXT_REF		= 'X',
 
-	/* End of metadata block. The spaces can be used for writing more
-	   metadata. */
-	DBOX_METADATA_SPACE		= ' '
+	/* metadata used by old Dovecot versions */
+	DBOX_METADATA_OLDV1_EXPUNGED	= 'E',
+	DBOX_METADATA_OLDV1_FLAGS	= 'F',
+	DBOX_METADATA_OLDV1_KEYWORDS	= 'K',
+	DBOX_METADATA_OLDV1_SPACE	= ' '
 };
 
 enum dbox_message_type {
@@ -130,9 +116,6 @@ struct dbox_file {
 	unsigned int nonappendable:1;
 	unsigned int deleted:1;
 };
-
-extern enum mail_flags dbox_mail_flags_map[DBOX_METADATA_FLAGS_COUNT];
-extern char dbox_mail_flag_chars[DBOX_METADATA_FLAGS_COUNT];
 
 struct dbox_file *
 dbox_file_init_single(struct dbox_mailbox *mbox, uint32_t uid);
