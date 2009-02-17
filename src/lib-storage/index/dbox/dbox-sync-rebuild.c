@@ -1,8 +1,8 @@
 /* Copyright (c) 2007-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "ioloop.h"
 #include "array.h"
+#include "mailbox-uidvalidity.h"
 #include "dbox-storage.h"
 #include "maildir/maildir-uidlist.h"
 #include "maildir/maildir-keywords.h"
@@ -30,15 +30,25 @@ struct dbox_sync_rebuild_context {
 	unsigned int cache_used:1;
 };
 
+static uint32_t dbox_get_uidvalidity_next(struct mail_storage *storage)
+{
+	const char *path;
+
+	path = mailbox_list_get_path(storage->list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = t_strconcat(path, "/"DBOX_UIDVALIDITY_FILE_NAME, NULL);
+	return mailbox_uidvalidity_next(path);
+}
+
 static void dbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
 {
-
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	uint32_t uid_validity;
 
 	/* if uidvalidity is set in the old index, use it */
 	uid_validity = mail_index_get_header(ctx->view)->uid_validity;
 	if (uid_validity == 0)
-		uid_validity = ioloop_time;
+		uid_validity = dbox_get_uidvalidity_next(storage);
 
 	mail_index_update_header(ctx->trans,
 		offsetof(struct mail_index_header, uid_validity),
