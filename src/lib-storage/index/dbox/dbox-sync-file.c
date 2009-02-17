@@ -13,13 +13,10 @@
 static int dbox_sync_file_unlink(struct dbox_file *file)
 {
 	const char *path;
-	int i;
+	int i = 0;
 
 	path = t_strdup_printf("%s/%s", file->mbox->path, file->fname);
-	for (i = 0;; i++) {
-		if (unlink(path) == 0)
-			break;
-
+	while (unlink(path) < 0) {
 		if (errno != ENOENT) {
 			mail_storage_set_critical(file->mbox->ibox.box.storage,
 				"unlink(%s) failed: %m", path);
@@ -29,58 +26,15 @@ static int dbox_sync_file_unlink(struct dbox_file *file)
 			/* not found */
 			i_warning("dbox: File unexpectedly lost: %s/%s",
 				  file->mbox->path, file->fname);
-			break;
+			return 0;
 		}
 
 		/* try the alternative path */
 		path = t_strdup_printf("%s/%s", file->mbox->alt_path,
 				       file->fname);
+		i++;
 	}
-	return 0;
-}
-
-static void
-dbox_sync_update_metadata(struct dbox_sync_context *ctx, struct dbox_file *file,
-			  const struct dbox_sync_file_entry *entry,
-			  uint32_t seq)
-{
-	const struct mail_index_record *rec;
-	ARRAY_TYPE(keyword_indexes) keyword_indexes;
-	struct mail_keywords *keywords;
-	string_t *value;
-	const char *old_value;
-
-	value = t_str_new(256);
-
-	/* flags */
-	rec = mail_index_lookup(ctx->sync_view, seq);
-	dbox_mail_metadata_flags_append(value, rec->flags);
-	dbox_file_metadata_set(file, DBOX_METADATA_FLAGS, str_c(value));
-
-	/* keywords */
-	t_array_init(&keyword_indexes, 32);
-	mail_index_lookup_keywords(ctx->sync_view, seq, &keyword_indexes);
-	old_value = dbox_file_metadata_get(file, DBOX_METADATA_KEYWORDS);
-	if (array_count(&keyword_indexes) > 0 ||
-	    (old_value != NULL && *old_value != '\0' &&
-	     array_count(&keyword_indexes) == 0)) {
-		str_truncate(value, 0);
-		keywords = mail_index_keywords_create_from_indexes(
-				ctx->mbox->ibox.index, &keyword_indexes);
-		dbox_mail_metadata_keywords_append(ctx->mbox, value, keywords);
-		mail_index_keywords_free(&keywords);
-
-		dbox_file_metadata_set(file, DBOX_METADATA_KEYWORDS,
-				       str_c(value));
-	}
-
-	/* expunge state */
-	if (entry != NULL &&
-	    array_is_created(&entry->expunges) &&
-	    seq_range_exists(&entry->expunges, seq)) {
-		dbox_file_metadata_set(file, DBOX_METADATA_EXPUNGED, "1");
-		mail_index_expunge(ctx->trans, seq);
-	}
+	return 1;
 }
 
 static int
@@ -152,9 +106,6 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 		/* write metadata */
 		(void)dbox_file_metadata_seek_mail_offset(file, offset,
 							  &expunged);
-		T_BEGIN {
-			dbox_sync_update_metadata(ctx, file, entry, seq);
-		} T_END;
 		if ((ret = dbox_file_metadata_write_to(file, output)) < 0)
 			break;
 
@@ -192,6 +143,7 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 	return ret;
 }
 
+#if 0
 static int
 dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 		     uoff_t offset, uint32_t seq)
@@ -236,9 +188,6 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 	}
 	append_offset = output->offset;
 	dbox_msg_header_fill(&dbox_msg_hdr, uid, size);
-	T_BEGIN {
-		dbox_sync_update_metadata(ctx, out_file, NULL, seq);
-	} T_END;
 
 	/* set static metadata */
 	for (i = 0; i < N_ELEMENTS(maildir_metadata_keys); i++) {
@@ -288,103 +237,19 @@ dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
 	}
 	return ret < 0 ? -1 : 1;
 }
-
-static int
-dbox_sync_file_changes(struct dbox_sync_context *ctx, struct dbox_file *file,
-		       const struct dbox_sync_file_entry *entry, uint32_t seq)
-{
-	uint32_t file_id;
-	uoff_t offset;
-	bool expunged;
-	int ret;
-
-	if (!dbox_file_lookup(ctx->mbox, ctx->sync_view, seq,
-			      &file_id, &offset))
-		return 0;
-	i_assert(file_id == file->file_id);
-
-	ret = dbox_file_metadata_seek_mail_offset(file, offset, &expunged);
-	if (ret <= 0)
-		return ret;
-	if (expunged) {
-		mail_index_expunge(ctx->trans, seq);
-		return 1;
-	}
-
-	T_BEGIN {
-		dbox_sync_update_metadata(ctx, file, entry, seq);
-	} T_END;
-	ret = dbox_file_metadata_write(file);
-	if (ret <= 0) {
-		return ret < 0 ? -1 :
-			dbox_sync_file_split(ctx, file, offset, seq);
-	}
-
-	mail_index_update_flags(ctx->trans, seq, MODIFY_REMOVE,
-				(enum mail_flags)MAIL_INDEX_MAIL_FLAG_DIRTY);
-	return 1;
-}
-
-static int
-dbox_sync_file_int(struct dbox_sync_context *ctx, struct dbox_file *file,
-		   const struct dbox_sync_file_entry *entry, bool full_expunge)
-{
-	const struct seq_range *seqs;
-	unsigned int i, count;
-	uint32_t seq, first_expunge_seq;
-	int ret;
-
-	if (array_is_created(&entry->expunges) && full_expunge) {
-		seqs = array_idx(&entry->expunges, 0);
-		first_expunge_seq = seqs->seq1;
-	} else {
-		first_expunge_seq = (uint32_t)-1;
-	}
-
-	if (array_is_created(&entry->changes)) {
-		seqs = array_get(&entry->changes, &count);
-	} else {
-		seqs = NULL;
-		count = 0;
-	}
-	for (i = 0; i < count; ) {
-		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
-			if (seq >= first_expunge_seq)
-				return dbox_sync_file_expunge(ctx, file, entry);
-
-			ret = dbox_sync_file_changes(ctx, file, entry, seq);
-			if (ret <= 0)
-				return ret;
-		}
-		i++;
-	}
-	if (first_expunge_seq != (uint32_t)-1)
-		return dbox_sync_file_expunge(ctx, file, entry);
-	return 1;
-}
+#endif
 
 static void
-dbox_sync_file_move_if_needed(struct dbox_sync_context *ctx,
-			      struct dbox_file *file,
+dbox_sync_file_move_if_needed(struct dbox_file *file,
 			      const struct dbox_sync_file_entry *entry)
 {
-	const struct seq_range *seq;
-	const struct mail_index_record *rec;
-	bool new_alt_path;
-
-	if (!array_is_created(&entry->changes))
+	if (!entry->move_to_alt && !entry->move_from_alt)
 		return;
 
-	/* check if we want to move the file to alt path or back.
-	   FIXME: change this check somehow when a file may contain
-	   multiple messages. */
-	seq = array_idx(&entry->changes, 0);
-	rec = mail_index_lookup(ctx->sync_view, seq[0].seq1);
-	new_alt_path = (rec->flags & DBOX_INDEX_FLAG_ALT) != 0;
-	if (new_alt_path != file->alt_path) {
+	if (entry->move_to_alt != file->alt_path) {
 		/* move the file. if it fails, nothing broke so
 		   don't worry about it. */
-		(void)dbox_file_move(file, new_alt_path);
+		(void)dbox_file_move(file, !file->alt_path);
 	}
 }
 
@@ -436,17 +301,17 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 	     status == DBOX_INDEX_FILE_STATUS_MAILDIR) &&
 	    array_is_created(&entry->expunges)) {
 		/* fast path to expunging the whole file */
-		if (dbox_sync_file_unlink(file) < 0)
-			ret = -1;
-		else {
+		if ((ret = dbox_sync_file_unlink(file)) == 0) {
+			/* file was lost, delete it */
 			dbox_sync_mark_single_file_expunged(ctx, entry);
 			ret = 1;
 		}
 	} else {
 		ret = dbox_file_open_or_create(file, TRUE, &deleted);
 		if (ret > 0 && !deleted) {
-			dbox_sync_file_move_if_needed(ctx, file, entry);
-			ret = dbox_sync_file_int(ctx, file, entry, locked);
+			dbox_sync_file_move_if_needed(file, entry);
+			if (array_is_created(&entry->expunges) && locked)
+				ret = dbox_sync_file_expunge(ctx, file, entry);
 		}
 	}
 	dbox_file_unref(&file);

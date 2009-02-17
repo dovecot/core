@@ -48,17 +48,6 @@ struct dbox_save_context {
 	unsigned int finished:1;
 };
 
-static void dbox_save_keywords(struct dbox_save_context *ctx,
-			       struct mail_keywords *keywords)
-{
-	if (ctx->cur_keywords == NULL)
-		ctx->cur_keywords = str_new(default_pool, 128);
-	else
-		str_truncate(ctx->cur_keywords, 0);
-	dbox_mail_metadata_keywords_append(ctx->mbox, ctx->cur_keywords,
-					   keywords);
-}
-
 struct mail_save_context *
 dbox_save_alloc(struct mailbox_transaction_context *_t)
 {
@@ -141,7 +130,6 @@ int dbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 	if (_ctx->received_date == (time_t)-1)
 		_ctx->received_date = ioloop_time;
-	dbox_save_keywords(ctx, _ctx->keywords);
 	return ctx->failed ? -1 : 0;
 }
 
@@ -177,7 +165,6 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 {
 	struct dbox_metadata_header metadata_hdr;
-	char space[DBOX_EXTRA_SPACE];
 	const char *guid;
 	string_t *str;
 	uoff_t vsize;
@@ -201,23 +188,9 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 	guid = ctx->ctx.guid != NULL ? ctx->ctx.guid :
 		mail_generate_guid_string();
 	str_printfa(str, "%c%s\n", DBOX_METADATA_GUID, guid);
-
-	/* flags */
-	str_append_c(str, DBOX_METADATA_FLAGS);
-	dbox_mail_metadata_flags_append(str, ctx->ctx.flags);
 	str_append_c(str, '\n');
 
-	/* keywords */
-	if (ctx->cur_keywords != NULL && str_len(ctx->cur_keywords) > 0) {
-		str_append_c(str, DBOX_METADATA_KEYWORDS);
-		str_append_str(str, ctx->cur_keywords);
-		str_append_c(str, '\n');
-	}
-
 	o_stream_send(ctx->cur_output, str_data(str), str_len(str));
-	memset(space, ' ', sizeof(space));
-	o_stream_send(ctx->cur_output, space, sizeof(space));
-	o_stream_send(ctx->cur_output, "\n", 1);
 }
 
 static int dbox_save_mail_write_header(struct dbox_save_mail *mail)
@@ -436,7 +409,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 
 	i_assert(ctx->finished);
 
-	if (dbox_sync_begin(ctx->mbox, &ctx->sync_ctx, FALSE, TRUE) < 0) {
+	if (dbox_sync_begin(ctx->mbox, TRUE, &ctx->sync_ctx) < 0) {
 		ctx->failed = TRUE;
 		dbox_transaction_save_rollback(ctx);
 		return -1;

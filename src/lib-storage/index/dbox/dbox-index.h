@@ -92,10 +92,6 @@ struct dbox_index_record {
 struct dbox_index *dbox_index_init(struct dbox_mailbox *mbox);
 void dbox_index_deinit(struct dbox_index **index);
 
-/* Get the current UIDVALIDITY. Returns 0 if ok, -1 if I/O error. */
-int dbox_index_get_uid_validity(struct dbox_index *index,
-				uint32_t *uid_validity_r);
-
 struct dbox_index_record *
 dbox_index_record_lookup(struct dbox_index *index, unsigned int file_id);
 
@@ -106,10 +102,6 @@ int dbox_index_try_lock_file(struct dbox_index *index, unsigned int file_id,
 			     enum dbox_index_file_lock_status *lock_status_r);
 void dbox_index_unlock_file(struct dbox_index *index, unsigned int file_id);
 
-/* Try to lock index file for recreating. Returns 1 if ok, 0 if file already
-   contains locks, -1 if error. */
-int dbox_index_try_lock_recreate(struct dbox_index *index);
-
 struct dbox_index_append_context *
 dbox_index_append_begin(struct dbox_index *index);
 /* Request file for saving a new message with given size. If an existing file
@@ -119,16 +111,10 @@ int dbox_index_append_next(struct dbox_index_append_context *ctx,
 			   uoff_t mail_size,
 			   struct dbox_file **file_r,
 			   struct ostream **output_r);
-void dbox_index_append_file(struct dbox_index_append_context *ctx,
-			    struct dbox_file *file);
 /* Assign file_ids to all appended files. */
 int dbox_index_append_assign_file_ids(struct dbox_index_append_context *ctx);
 /* Returns 0 if ok, -1 if error. */
 int dbox_index_append_commit(struct dbox_index_append_context **ctx);
 void dbox_index_append_rollback(struct dbox_index_append_context **ctx);
-
-/* Mark  */
-void dbox_index_mark_expunges(struct dbox_index *index, unsigned int file_id);
-void dbox_index_mark_dirty(struct dbox_index *index, unsigned int file_id);
 
 #endif

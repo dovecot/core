@@ -6,7 +6,8 @@ struct mailbox;
 struct dbox_sync_file_entry {
 	uint32_t file_id;
 
-	ARRAY_TYPE(seq_range) changes;
+	unsigned int move_from_alt:1;
+	unsigned int move_to_alt:1;
 	ARRAY_TYPE(seq_range) expunges;
 };
 
@@ -21,17 +22,12 @@ struct dbox_sync_context {
 
 	pool_t pool;
 	struct hash_table *syncs; /* struct dbox_sync_file_entry */
-	ARRAY_TYPE(seq_range) expunge_files;
-	ARRAY_TYPE(seq_range) locked_files;
-
-	unsigned int flush_dirty_flags:1;
 };
 
-int dbox_sync_begin(struct dbox_mailbox *mbox,
-		    struct dbox_sync_context **ctx_r,
-		    bool close_flush_dirty_flags, bool force);
+int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
+		    struct dbox_sync_context **ctx_r);
 int dbox_sync_finish(struct dbox_sync_context **ctx, bool success);
-int dbox_sync(struct dbox_mailbox *mbox, bool close_flush_dirty_flags);
+int dbox_sync(struct dbox_mailbox *mbox);
 
 int dbox_sync_file(struct dbox_sync_context *ctx,
 		   const struct dbox_sync_file_entry *entry);

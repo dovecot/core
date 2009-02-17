@@ -322,17 +322,6 @@ static int dbox_index_refresh(struct dbox_index *index)
 	return 0;
 }
 
-int dbox_index_get_uid_validity(struct dbox_index *index,
-				uint32_t *uid_validity_r)
-{
-	if (index->fd == -1) {
-		if (dbox_index_refresh(index) < 0)
-			return -1;
-	}
-	*uid_validity_r = index->uid_validity;
-	return 0;
-}
-
 static int dbox_index_record_cmp(const void *key, const void *data)
 {
 	const unsigned int *file_id = key;
@@ -462,28 +451,6 @@ void dbox_index_unlock_file(struct dbox_index *index, unsigned int file_id)
 
 	dbox_index_unlock_range(index, rec->file_offset, 1);
 	rec->locked = FALSE;
-}
-
-int dbox_index_try_lock_recreate(struct dbox_index *index)
-{
-	int i, ret;
-
-	if (index->fd == -1) {
-		if (dbox_index_refresh(index) < 0)
-			return 1;
-	}
-
-	for (i = 0; i < DBOX_INDEX_LOCK_RETRY_COUNT; i++) {
-		/* lock the whole file */
-		ret = dbox_index_lock_range(index, F_SETLK, F_WRLCK, 0, 0);
-		if (ret <= 0)
-			return ret;
-		if ((ret = dbox_index_refresh(index)) <= 0)
-			return ret < 0 ? -1 : 1;
-	}
-
-	i_warning("dbox index keeps getting recreated: %s", index->path);
-	return 0;
 }
 
 static int dbox_index_lock_header(struct dbox_index *index)
@@ -761,38 +728,10 @@ int dbox_index_append_next(struct dbox_index_append_context *ctx,
 	return 0;
 }
 
-void dbox_index_append_file(struct dbox_index_append_context *ctx,
-			    struct dbox_file *file)
-{
-	file->refcount++;
-	array_append(&ctx->files, &file, 1);
-}
-
 static const char *dbox_file_maildir_get_index_data(struct dbox_file *file)
 {
-	const char *pop3_uidl = NULL, *const *changes;
-	unsigned int i, count;
-
-	if (array_is_created(&file->metadata_changes))
-		changes = array_get(&file->metadata_changes, &count);
-	else {
-		changes = NULL;
-		count = 0;
-	}
-	for (i = 0; i < count; i++) {
-		if (*changes[i] == DBOX_METADATA_POP3_UIDL) {
-			pop3_uidl = changes[i] + 1;
-			break;
-		}
-	}
-
-	if (pop3_uidl == NULL) {
-		return t_strdup_printf("%u :%s", file->last_append_uid,
-				       file->fname);
-	} else {
-		return t_strdup_printf("%u P%s :%s", file->last_append_uid,
-				       pop3_uidl, file->fname);
-	}
+	return t_strdup_printf("%u :%s", file->last_append_uid,
+			       file->fname);
 }
 
 static int dbox_index_append_commit_new(struct dbox_index_append_context *ctx,

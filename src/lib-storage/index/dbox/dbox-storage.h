@@ -31,7 +31,8 @@
 #define DBOX_INDEX_FLAG_ALT MAIL_INDEX_MAIL_FLAG_BACKEND
 
 struct dbox_index_header {
-	uint32_t last_dirty_flush_stamp;
+	uint32_t unused; /* for backwards compatibility */
+	uint32_t highest_maildir_uid;
 };
 
 struct dbox_storage {
@@ -49,12 +50,11 @@ struct dbox_mailbox {
 	struct index_mailbox ibox;
 	struct dbox_storage *storage;
 
+	struct maildir_uidlist *maildir_uidlist;
+	uint32_t highest_maildir_uid;
+
 	struct dbox_index *dbox_index;
 	uint32_t dbox_ext_id, dbox_hdr_ext_id;
-	/* timestamp when the mailbox was last modified interactively */
-	time_t last_interactive_change;
-	/* set while rebuilding indexes with converted maildir files */
-	struct maildir_keywords_sync_ctx *maildir_sync_keywords;
 
 	uoff_t rotate_size, rotate_min_size;
 	unsigned int rotate_days;

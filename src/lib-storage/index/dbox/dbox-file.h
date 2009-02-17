@@ -20,7 +20,6 @@
 #define DBOX_MAGIC_PRE "\001\002"
 #define DBOX_MAGIC_POST "\n\001\003\n"
 
-#define DBOX_EXTRA_SPACE 64
 /* If file_id has this flag set, the file is a single file with file_id=UID. */
 #define DBOX_FILE_ID_FLAG_UID 0x80000000
 
@@ -47,16 +46,14 @@ enum dbox_metadata_flags {
 };
 
 enum dbox_metadata_key {
-	/* Message is marked as expunged. '0' = no, '1' = yes */
-	DBOX_METADATA_EXPUNGED		= 'E',
-	/* Message flags in dbox_metadata_flags order. '0' = not set, anything
-	   else = set. Unknown flags should be preserved. */
-	DBOX_METADATA_FLAGS		= 'F',
+	/* metadata used by old Dovecot versions */
+	DBOX_METADATA_OLD_EXPUNGED	= 'E',
+	DBOX_METADATA_OLD_FLAGS		= 'F',
+	DBOX_METADATA_OLD_KEYWORDS	= 'K',
+
 	/* Globally unique identifier for the message. Preserved when
 	   copying. */
 	DBOX_METADATA_GUID		= 'G',
-	/* Space separated list of keywords */
-	DBOX_METADATA_KEYWORDS		= 'K',
 	/* POP3 UIDL overriding the default format */
 	DBOX_METADATA_POP3_UIDL		= 'P',
 	/* Received UNIX timestamp in hex */
@@ -107,7 +104,7 @@ struct dbox_file {
 	unsigned int append_offset_header_pos;
 
 	unsigned int append_count;
-	uint32_t last_append_uid, maildir_append_seq;
+	uint32_t last_append_uid;
 
 	uoff_t append_offset;
 	time_t create_time;
@@ -127,11 +124,7 @@ struct dbox_file {
 	/* Metadata for the currently seeked metadata block. */
 	pool_t metadata_pool;
 	ARRAY_DEFINE(metadata, const char *);
-	ARRAY_DEFINE(metadata_changes, const char *);
 	uoff_t metadata_read_offset;
-	unsigned int metadata_space_pos;
-	/* Includes the trailing LF that shouldn't be used */
-	unsigned int metadata_len;
 
 	unsigned int alt_path:1;
 	unsigned int maildir_file:1;
@@ -144,8 +137,6 @@ extern char dbox_mail_flag_chars[DBOX_METADATA_FLAGS_COUNT];
 
 struct dbox_file *
 dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id);
-struct dbox_file *
-dbox_file_init_new_maildir(struct dbox_mailbox *mbox, const char *fname);
 void dbox_file_unref(struct dbox_file **file);
 
 /* Free all currently opened files. */
@@ -209,13 +200,6 @@ int dbox_file_metadata_seek_mail_offset(struct dbox_file *file, uoff_t offset,
 /* Return wanted metadata value, or NULL if not found. */
 const char *dbox_file_metadata_get(struct dbox_file *file,
 				   enum dbox_metadata_key key);
-/* Add key=value metadata update (not written yet, not visible to _get()).
-   The changes are reset by dbox_file_metadata_seek() call. */
-void dbox_file_metadata_set(struct dbox_file *file, enum dbox_metadata_key key,
-			    const char *value);
-/* Write all metadata updates to disk. Returns 1 if ok, 0 if metadata doesn't
-   fit to its reserved space and message isn't last in file, -1 if I/O error. */
-int dbox_file_metadata_write(struct dbox_file *file);
 /* Write all metadata to output stream. Returns 0 if ok, -1 if I/O error. */
 int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output);
 
@@ -225,13 +209,6 @@ bool dbox_file_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 
 /* Move the file to alt path or back. */
 int dbox_file_move(struct dbox_file *file, bool alt_path);
-
-/* Append flags as metadata value to given string */
-void dbox_mail_metadata_flags_append(string_t *str, enum mail_flags flags);
-/* Append keywords as metadata value to given string */
-void dbox_mail_metadata_keywords_append(struct dbox_mailbox *mbox,
-					string_t *str,
-					const struct mail_keywords *keywords);
 
 /* Fill dbox_message_header with given uid/size. */
 void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,

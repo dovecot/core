@@ -8,6 +8,7 @@
 #include "unlink-old-files.h"
 #include "index-mail.h"
 #include "mail-copy.h"
+#include "maildir/maildir-uidlist.h"
 #include "dbox-sync.h"
 #include "dbox-index.h"
 #include "dbox-file.h"
@@ -214,7 +215,6 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->path = p_strdup(pool, path);
 	mbox->alt_path = p_strdup(pool, dbox_get_alt_path(storage, path));
 	mbox->storage = storage;
-	mbox->last_interactive_change = ioloop_time;
 
 	value = getenv("DBOX_ROTATE_SIZE");
 	if (value != NULL)
@@ -252,6 +252,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->dbox_index = dbox_index_init(mbox);
 
 	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
+	mbox->maildir_uidlist = maildir_uidlist_init_readonly(&mbox->ibox);
 	return &mbox->ibox.box;
 }
 
@@ -319,18 +320,13 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 static int dbox_storage_mailbox_close(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
-	int ret = 0;
 
-	if (box->opened) {
-		/* see if we want to flush dirty flags */
-		ret = dbox_sync(mbox, TRUE);
-	}
-
+	maildir_uidlist_deinit(&mbox->maildir_uidlist);
 	dbox_index_deinit(&mbox->dbox_index);
 	dbox_files_free(mbox);
 	array_free(&mbox->open_files);
 
-	return index_storage_mailbox_close(box) < 0 ? -1 : ret;
+	return index_storage_mailbox_close(box);
 }
 
 static int dbox_mailbox_create(struct mail_storage *_storage,

@@ -11,8 +11,8 @@
 #include "fdatasync-path.h"
 #include "write-full.h"
 #include "str.h"
+#include "maildir/maildir-uidlist.h"
 #include "dbox-storage.h"
-#include "dbox-index.h"
 #include "dbox-file.h"
 #include "dbox-file-maildir.h"
 
@@ -126,26 +126,33 @@ dbox_close_open_files(struct dbox_mailbox *mbox, unsigned int close_count)
 	}
 }
 
+static bool
+dbox_maildir_uid_get_fname(struct dbox_mailbox *mbox, uint32_t uid,
+			   const char **fname_r)
+{
+	enum maildir_uidlist_rec_flag flags;
+
+	*fname_r = maildir_uidlist_lookup(mbox->maildir_uidlist, uid, &flags);
+	return *fname_r != NULL;
+}
+
 static char *
 dbox_file_id_get_fname(struct dbox_mailbox *mbox, unsigned int file_id,
 		       bool *maildir_file_r)
 {
-	struct dbox_index_record *rec;
-	const char *p;
+	const char *fname;
+	uint32_t uid;
 
 	*maildir_file_r = FALSE;
 	if ((file_id & DBOX_FILE_ID_FLAG_UID) != 0) {
-		file_id &= ~DBOX_FILE_ID_FLAG_UID;
-		return i_strdup_printf(DBOX_MAIL_FILE_UID_FORMAT, file_id);
-	}
-
-	rec = dbox_index_record_lookup(mbox->dbox_index, file_id);
-	if (rec != NULL && rec->status == DBOX_INDEX_FILE_STATUS_MAILDIR) {
-		/* data contains <uid> [<fields>] :<filename> */
-		*maildir_file_r = TRUE;
-		p = strstr(rec->data, " :");
-		i_assert(p != NULL);
-		return i_strdup_printf("%s", p + 2);
+		uid = file_id & ~DBOX_FILE_ID_FLAG_UID;
+		if (uid <= mbox->highest_maildir_uid &&
+		    dbox_maildir_uid_get_fname(mbox, uid, &fname)) {
+			*maildir_file_r = TRUE;
+			return i_strdup(fname);
+		} else {
+			return i_strdup_printf(DBOX_MAIL_FILE_UID_FORMAT, uid);
+		}
 	}
 
 	return i_strdup_printf(DBOX_MAIL_FILE_MULTI_FORMAT, file_id);
@@ -189,17 +196,6 @@ dbox_file_init(struct dbox_mailbox *mbox, unsigned int file_id)
 
 	if (file_id != 0)
 		array_append(&file->mbox->open_files, &file, 1);
-	return file;
-}
-
-struct dbox_file *
-dbox_file_init_new_maildir(struct dbox_mailbox *mbox, const char *fname)
-{
-	struct dbox_file *file;
-
-	file = dbox_file_init(mbox, 0);
-	file->maildir_file = TRUE;
-	file->fname = i_strdup(fname);
 	return file;
 }
 
@@ -551,22 +547,27 @@ static int
 dbox_file_get_maildir_data(struct dbox_file *file, uint32_t *uid_r,
 			   uoff_t *physical_size_r)
 {
-	struct dbox_index_record *rec;
 	struct stat st;
+
+#if 0 //FIXME
+	uint32_t uid;
+
+	if ((file->file_id & DBOX_FILE_ID_FLAG_UID) == 0) {
+		i_assert(file->file_id == 0);
+		if (maildir_uidlist_get_uid(file->mbox->maildir_uidlist,
+					    file->fname, &uid))
+			file->file_id = uid | DBOX_FILE_ID_FLAG_UID;
+	}
+#else
+	i_assert((file->file_id & DBOX_FILE_ID_FLAG_UID) != 0);
+#endif
 
 	if (fstat(file->fd, &st) < 0) {
 		dbox_file_set_syscall_error(file, "fstat");
 		return -1;
 	}
 
-	rec = dbox_index_record_lookup(file->mbox->dbox_index, file->file_id);
-	if (rec == NULL) {
-		/* should happen only when we're rebuilding the index */
-		*uid_r = 0;
-	} else {
-		i_assert(rec->status == DBOX_INDEX_FILE_STATUS_MAILDIR);
-		*uid_r = strtoul(rec->data, NULL, 10);
-	}
+	*uid_r = file->file_id & ~DBOX_FILE_ID_FLAG_UID;
 	*physical_size_r = st.st_size;
 	return 1;
 }
@@ -854,11 +855,9 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 
 	*expunged_r = FALSE;
 
-	if (file->metadata_pool != NULL) {
-		if (array_is_created(&file->metadata_changes))
-			array_free(&file->metadata_changes);
+	if (file->metadata_pool != NULL)
 		p_clear(file->metadata_pool);
-	} else {
+	else {
 		file->metadata_pool =
 			pool_alloconly_create("dbox metadata", 1024);
 	}
@@ -894,8 +893,6 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 
 		if (*line == DBOX_METADATA_SPACE || *line == '\0') {
 			/* end of metadata */
-			file->metadata_space_pos =
-				prev_offset - metadata_data_offset;
 			*expunged_r = FALSE;
 			break;
 		}
@@ -903,9 +900,6 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 		array_append(&file->metadata, &line, 1);
 	}
 	file->metadata_read_offset = metadata_offset;
-	file->metadata_len = file->input->v_offset - metadata_data_offset;
-	if (*expunged_r)
-		file->metadata_space_pos = file->metadata_len;
 	return 1;
 }
 
@@ -943,206 +937,11 @@ const char *dbox_file_metadata_get(struct dbox_file *file,
 	return NULL;
 }
 
-void dbox_file_metadata_set(struct dbox_file *file, enum dbox_metadata_key key,
-			    const char *value)
-{
-	const char **changes, *data;
-	unsigned int i, count;
-
-	data = file->maildir_file ? NULL : dbox_file_metadata_get(file, key);
-	if (data != NULL && strcmp(data, value) == 0) {
-		/* value didn't change */
-		return;
-	}
-
-	data = p_strdup_printf(file->metadata_pool, "%c%s", (char)key, value);
-
-	if (!array_is_created(&file->metadata_changes))
-		p_array_init(&file->metadata_changes, file->metadata_pool, 16);
-	else {
-		/* see if we have already changed this metadata */
-		changes = array_get_modifiable(&file->metadata_changes, &count);
-		for (i = 0; i < count; i++) {
-			if (*changes[i] == (char)key) {
-				changes[i] = data;
-				return;
-			}
-		}
-	}
-
-	array_append(&file->metadata_changes, &data, 1);
-}
-
-static int dbox_file_metadata_is_at_eof(struct dbox_file *file)
-{
-	uoff_t size;
-	uint32_t uid;
-	uoff_t offset;
-	int ret;
-
-	if ((file->file_id & DBOX_FILE_ID_FLAG_UID) != 0)
-		return 1;
-
-	offset = file->metadata_read_offset;
-	ret = dbox_file_seek_next_at_metadata(file, &offset, &uid, &size);
-	return ret <= 0 ? ret : uid == 0;
-}
-
-static int dbox_file_write_empty_block(struct dbox_file *file, uoff_t offset,
-				       unsigned int len)
-{
-	char space[256];
-
-	i_assert(len > 0);
-
-	len--;
-	memset(space, DBOX_METADATA_SPACE, I_MIN(sizeof(space), len));
-	while (len >= sizeof(space)) {
-		if (pwrite_full(file->fd, space, sizeof(space), offset) < 0) {
-			dbox_file_set_syscall_error(file, "pwrite");
-			return -1;
-		}
-	}
-	/* @UNSAFE: last block ends with LF */
-	space[len++] = '\n';
-	if (pwrite_full(file->fd, space, len, offset) < 0) {
-		dbox_file_set_syscall_error(file, "pwrite");
-		return -1;
-	}
-	file->metadata_len += len;
-	return 1;
-}
-
-static int dbox_file_grow_metadata(struct dbox_file *file, unsigned int len)
-{
-	enum dbox_index_file_lock_status lock_status;
-	uoff_t offset;
-	int ret;
-
-	ret = dbox_index_try_lock_file(file->mbox->dbox_index, file->file_id,
-				       &lock_status);
-	if (ret <= 0 || (ret = dbox_file_metadata_is_at_eof(file)) <= 0)
-		return ret;
-
-	offset = file->metadata_read_offset +
-		sizeof(struct dbox_metadata_header) + file->metadata_len;
-	i_stream_seek(file->input, offset);
-	(void)i_stream_read(file->input);
-	if (!i_stream_have_bytes_left(file->input)) {
-		len = len - file->metadata_len + DBOX_EXTRA_SPACE;
-		ret = dbox_file_write_empty_block(file, offset, len);
-	} else {
-		i_error("%s: Metadata changed unexpectedly",
-			dbox_file_get_path(file));
-		ret = -1;
-	}
-
-	dbox_index_unlock_file(file->mbox->dbox_index, file->file_id);
-	return ret;
-}
-
-static int dbox_file_metadata_write_real(struct dbox_file *file)
-{
-	const char *const *metadata, *const *changes;
-	unsigned int i, j, count, changes_count, space_needed, skip_pos;
-	char space[DBOX_EXTRA_SPACE];
-	string_t *str;
-	uoff_t offset;
-	int ret;
-
-	if (!array_is_created(&file->metadata_changes)) {
-		/* nothing to write */
-		return 1;
-	}
-	if (file->maildir_file)
-		return 0;
-
-	offset = file->metadata_read_offset +
-		sizeof(struct dbox_metadata_header);
-	metadata = array_get(&file->metadata, &count);
-	changes = array_get(&file->metadata_changes, &changes_count);
-
-	/* skip as many metadata fields from beginning as we can */
-	for (i = skip_pos = 0; i < count; i++) {
-		for (j = 0; j < changes_count; j++) {
-			if (*changes[j] == *metadata[i])
-				break;
-		}
-		if (j != changes_count)
-			break;
-		skip_pos += strlen(metadata[i]) + 1;
-	}
-
-	str = t_str_new(512);
-	/* overwrite existing metadata fields */
-	for (; i < count; i++) {
-		for (j = 0; j < changes_count; j++) {
-			if (*changes[j] == *metadata[i])
-				break;
-		}
-		if (j != changes_count) {
-			str_append(str, changes[j]);
-			str_append_c(str, '\n');
-		} else {
-			str_append(str, metadata[i]);
-			str_append_c(str, '\n');
-		}
-	}
-	/* add new metadata */
-	for (j = 0; j < changes_count; j++) {
-		for (i = 0; i < count; i++) {
-			if (*changes[j] == *metadata[i])
-				break;
-		}
-		if (i == count) {
-			str_append(str, changes[j]);
-			str_append_c(str, '\n');
-		}
-	}
-	if (skip_pos + str_len(str) >= file->metadata_len) {
-		if ((ret = dbox_file_grow_metadata(file, skip_pos +
-						   str_len(str))) <= 0)
-			return ret;
-	}
-
-	memset(space, DBOX_METADATA_SPACE, sizeof(space));
-	while (skip_pos + str_len(str) < file->metadata_space_pos) {
-		space_needed = file->metadata_space_pos -
-			(skip_pos + str_len(str));
-		str_append_n(str, space, I_MIN(sizeof(space), space_needed));
-	}
-	i_assert(skip_pos + str_len(str) <= file->metadata_len);
-
-	if (file->metadata_space_pos < skip_pos + str_len(str)) {
-		/* metadata was grown, update space position */
-		file->metadata_space_pos = skip_pos + str_len(str);
-	}
-
-	ret = pwrite_full(file->fd, str_data(str), str_len(str),
-			  offset + skip_pos);
-	if (ret < 0) {
-		dbox_file_set_syscall_error(file, "pwrite");
-		return -1;
-	}
-	return 1;
-}
-
-int dbox_file_metadata_write(struct dbox_file *file)
-{
-	int ret;
-
-	T_BEGIN {
-		ret = dbox_file_metadata_write_real(file);
-	} T_END;
-	return ret;
-}
-
 int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output)
 {
 	struct dbox_metadata_header metadata_hdr;
-	char space[DBOX_EXTRA_SPACE];
-	const char *const *metadata, *const *changes;
-	unsigned int i, j, count, changes_count;
+	const char *const *metadata;
+	unsigned int i, count;
 
 	memset(&metadata_hdr, 0, sizeof(metadata_hdr));
 	memcpy(metadata_hdr.magic_post, DBOX_MAGIC_POST,
@@ -1151,38 +950,13 @@ int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output)
 		return -1;
 
 	metadata = array_get(&file->metadata, &count);
-	if (!array_is_created(&file->metadata_changes)) {
-		for (i = 0; i < count; i++) {
-			if (o_stream_send_str(output, metadata[i]) < 0 ||
-			    o_stream_send(output, "\n", 1) < 0)
-				return -1;
-		}
-	} else {
-		changes = array_get(&file->metadata_changes, &changes_count);
-		/* write unmodified metadata */
-		for (i = 0; i < count; i++) {
-			for (j = 0; j < changes_count; j++) {
-				if (*changes[j] == *metadata[i])
-					break;
-			}
-			if (j == changes_count) {
-				if (o_stream_send_str(output, metadata[i]) < 0)
-					return -1;
-				if (o_stream_send(output, "\n", 1) < 0)
-					return -1;
-			}
-		}
-		/* write modified metadata */
-		for (i = 0; i < changes_count; i++) {
-			if (o_stream_send_str(output, changes[i]) < 0 ||
-			    o_stream_send(output, "\n", 1) < 0)
-				return -1;
-		}
+	for (i = 0; i < count; i++) {
+		if (o_stream_send_str(output, metadata[i]) < 0 ||
+		    o_stream_send(output, "\n", 1) < 0)
+			return -1;
 	}
 
-	memset(space, ' ', sizeof(space));
-	if (o_stream_send(output, space, sizeof(space)) < 0 ||
-	    o_stream_send(output, "\n", 1) < 0)
+	if (o_stream_send(output, "\n", 1) < 0)
 		return -1;
 	return 0;
 }
@@ -1204,6 +978,8 @@ bool dbox_file_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		mail_index_lookup_uid(view, seq, &uid);
 		if ((uid & DBOX_FILE_ID_FLAG_UID) != 0) {
 			/* something's broken, we can't handle this high UIDs */
+			mail_storage_set_critical(mbox->ibox.box.storage,
+						  "found too high uid=%u", uid);
 			return FALSE;
 		}
 		*file_id_r = DBOX_FILE_ID_FLAG_UID | uid;
@@ -1320,41 +1096,6 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 		return -1;
 	}
 	return 0;
-}
-
-void dbox_mail_metadata_flags_append(string_t *str, enum mail_flags flags)
-{
-	unsigned int i;
-
-	for (i = 0; i < DBOX_METADATA_FLAGS_COUNT; i++) {
-		if ((flags & dbox_mail_flags_map[i]) != 0)
-			str_append_c(str, dbox_mail_flag_chars[i]);
-		else
-			str_append_c(str, '0');
-	}
-}
-
-void dbox_mail_metadata_keywords_append(struct dbox_mailbox *mbox,
-					string_t *str,
-					const struct mail_keywords *keywords)
-{
-	const ARRAY_TYPE(keywords) *keyword_names_list;
-	const char *const *keyword_names;
-	unsigned int i, keyword_names_count;
-
-	if (keywords == NULL || keywords->count == 0)
-		return;
-
-	keyword_names_list = mail_index_get_keywords(mbox->ibox.index);
-	keyword_names = array_get(keyword_names_list, &keyword_names_count);
-
-	for (i = 0; i < keywords->count; i++) {
-		i_assert(keywords->idx[i] < keyword_names_count);
-
-		str_append(str, keyword_names[keywords->idx[i]]);
-		str_append_c(str, ' ');
-	}
-	str_truncate(str, str_len(str)-1);
 }
 
 void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
