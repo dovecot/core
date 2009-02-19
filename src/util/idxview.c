@@ -426,6 +426,8 @@ int main(int argc, const char *argv[])
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache_view *cache_view;
+	struct stat st;
+	const char *p;
 	unsigned int seq, uid = 0;
 
 	lib_init();
@@ -433,7 +435,12 @@ int main(int argc, const char *argv[])
 	if (argc < 2)
 		i_fatal("Usage: idxview <index dir> [<uid>]");
 
-	index = mail_index_alloc(argv[1], "dovecot.index");
+	if (stat(argv[1], &st) == 0 && S_ISDIR(st.st_mode))
+		index = mail_index_alloc(argv[1], "dovecot.index");
+	else if ((p = strrchr(argv[1], '/')) != NULL)
+		index = mail_index_alloc(t_strdup_until(argv[1], p), p + 1);
+	else
+		index = mail_index_alloc(".", argv[1]);
 	if (mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
 			    FILE_LOCK_METHOD_FCNTL) <= 0)
 		i_fatal("Couldn't open index %s", argv[1]);
