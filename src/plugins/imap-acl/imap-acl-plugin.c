@@ -173,11 +173,14 @@ static int imap_acl_write_aclobj(string_t *dest, struct acl_object *aclobj)
 	tmp = t_str_new(128);
 	iter = acl_object_list_init(aclobj);
 	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
-		str_append_c(dest, ' ');
-		if (rights.rights != NULL)
+		if (rights.rights != NULL) {
+			str_append_c(dest, ' ');
 			imap_acl_write_right(dest, tmp, &rights, FALSE);
-		if (rights.neg_rights != NULL)
+		}
+		if (rights.neg_rights != NULL) {
+			str_append_c(dest, ' ');
 			imap_acl_write_right(dest, tmp, &rights, TRUE);
+		}
 	}
 	acl_object_list_deinit(&iter);
 	return ret;
