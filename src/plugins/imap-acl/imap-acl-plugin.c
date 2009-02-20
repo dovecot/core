@@ -447,10 +447,51 @@ imap_acl_identifier_parse(const char *id, struct acl_rights *rights,
 	return 0;
 }
 
+static void imap_acl_update_ensure_keep_admins(struct acl_rights_update *update)
+{
+	static const char *acl_admin = MAIL_ACL_ADMIN;
+	const char *const *rights = update->rights.rights;
+	ARRAY_TYPE(const_string) new_rights;
+	unsigned int i;
+
+	t_array_init(&new_rights, 64);
+	for (i = 0; rights[i] != NULL; i++) {
+		if (strcmp(rights[i], MAIL_ACL_ADMIN) == 0)
+			break;
+		array_append(&new_rights, &rights[i], 1);
+	}
+
+	switch (update->modify_mode) {
+	case ACL_MODIFY_MODE_REMOVE:
+		if (rights[i] == NULL)
+			return;
+
+		/* skip over the ADMIN removal and add the rest */
+		for (i++; rights[i] != NULL; i++)
+			array_append(&new_rights, &rights[i], 1);
+		break;
+	case ACL_MODIFY_MODE_REPLACE:
+		if (rights[i] != NULL)
+			return;
+
+		/* add the missing ADMIN right */
+		array_append(&new_rights, &acl_admin, 1);
+		break;
+	default:
+		return;
+	}
+	(void)array_append_space(&new_rights);
+	update->rights.rights = array_idx(&new_rights, 0);
+}
+
 static bool cmd_setacl(struct client_command_context *cmd)
 {
+	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	struct mailbox *box;
+	struct acl_backend *backend;
 	struct acl_rights_update update;
+	struct acl_rights *r;
 	const char *mailbox, *identifier, *rights, *error;
 	bool negative = FALSE;
 
@@ -489,12 +530,22 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		client_send_command_error(cmd, error);
 		return TRUE;
 	}
+	r = &update.rights;
 
 	box = acl_mailbox_open_as_admin(cmd, mailbox);
 	if (box == NULL)
 		return TRUE;
 
-	if (update.rights.rights[0] == NULL) {
+	storage = mailbox_get_storage(box);
+	backend = acl_storage_get_backend(storage);
+	ns = mail_storage_get_namespace(storage);
+	if (ns->type == NAMESPACE_PUBLIC && r->id_type == ACL_ID_OWNER) {
+		client_send_tagline(cmd, "NO Public namespaces have no owner");
+		mailbox_close(&box);
+		return TRUE;
+	}
+
+	if (r->rights[0] == NULL) {
 		if (negative) {
 			update.modify_mode = 0;
 			update.rights.rights = NULL;
@@ -511,6 +562,15 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		update.modify_mode = ACL_MODIFY_MODE_REMOVE;
 		update.rights.neg_rights = update.rights.rights;
 		update.rights.rights = NULL;
+	} else if (ns->type == NAMESPACE_PRIVATE && r->rights != NULL &&
+		   ((r->id_type == ACL_ID_USER &&
+		     acl_backend_user_name_equals(backend, r->identifier)) ||
+		    (r->id_type == ACL_ID_OWNER &&
+		     strcmp(acl_backend_get_acl_username(backend),
+			    ns->user->username) == 0))) {
+		/* make sure client doesn't (accidentally) remove admin
+		   privileges from its own mailboxes */
+		imap_acl_update_ensure_keep_admins(&update);
 	}
 
 	if (acl_object_update(acl_mailbox_get_aclobj(box), &update) < 0)
