@@ -62,6 +62,8 @@ extern void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
 
 int mail_namespaces_init(struct mail_user *user);
 struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
+/* Deinitialize all namespaces. mail_user_deinit() calls this automatically
+   for user's namespaces. */
 void mail_namespaces_deinit(struct mail_namespace **namespaces);
 
 /* Destroy a single namespace and remove it from user's namespaces list. */

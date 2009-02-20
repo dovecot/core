@@ -118,7 +118,8 @@ typedef void mail_search_foreach_callback_t(struct mail_search_arg *arg,
 void mail_search_args_init(struct mail_search_args *args,
 			   struct mailbox *box, bool change_uidsets,
 			   const ARRAY_TYPE(seq_range) *search_saved_uidset);
-/* Free keywords. The args can initialized afterwards again if needed. */
+/* Free keywords. The args can initialized afterwards again if needed.
+   The args can be reused for other queries after calling this. */
 void mail_search_args_deinit(struct mail_search_args *args);
 /* Convert sequence sets in args to UIDs. */
 void mail_search_args_seq2uid(struct mail_search_args *args);
