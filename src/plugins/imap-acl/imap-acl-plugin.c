@@ -162,16 +162,51 @@ imap_acl_write_right(string_t *dest, string_t *tmp,
 	imap_acl_write_rights_list(dest, rights);
 }
 
-static int imap_acl_write_aclobj(string_t *dest, struct acl_object *aclobj)
+static int
+imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
+		      struct acl_object *aclobj, bool convert_owner)
 {
 	struct acl_object_list_iter *iter;
 	struct acl_rights rights;
 	string_t *tmp;
+	const char *username;
+	unsigned int orig_len = str_len(dest);
+	bool owner, seen_owner = FALSE, seen_positive_owner = FALSE;
 	int ret;
+
+	username = acl_backend_get_acl_username(backend);
+	if (username == NULL)
+		convert_owner = FALSE;
 
 	tmp = t_str_new(128);
 	iter = acl_object_list_init(aclobj);
 	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
+		if (rights.id_type == ACL_ID_USER &&
+		    acl_backend_user_name_equals(backend, rights.identifier))
+			owner = TRUE;
+		else if (rights.id_type == ACL_ID_OWNER) {
+			owner = TRUE;
+			if (convert_owner) {
+				rights.id_type = ACL_ID_USER;
+				rights.identifier = username;
+			}
+		} else {
+			owner = FALSE;
+		}
+
+		if (owner) {
+			if (seen_owner && convert_owner) {
+				/* oops, we have both owner and user=myself.
+				   can't do the conversion, so try again. */
+				str_truncate(dest, orig_len);
+				return imap_acl_write_aclobj(dest, backend,
+							     aclobj, FALSE);
+			}
+			seen_owner = TRUE;
+			if (rights.rights != NULL)
+				seen_positive_owner = TRUE;
+		}
+
 		if (rights.rights != NULL) {
 			str_append_c(dest, ' ');
 			imap_acl_write_right(dest, tmp, &rights, FALSE);
@@ -182,11 +217,28 @@ static int imap_acl_write_aclobj(string_t *dest, struct acl_object *aclobj)
 		}
 	}
 	acl_object_list_deinit(&iter);
+
+	if (!seen_positive_owner && username != NULL) {
+		/* no positive owner rights returned, write default ACLs */
+		memset(&rights, 0, sizeof(rights));
+		if (!convert_owner) {
+			rights.id_type = ACL_ID_OWNER;
+		} else {
+			rights.id_type = ACL_ID_USER;
+			rights.identifier = username;
+		}
+		rights.rights = acl_object_get_default_rights(aclobj);
+		if (rights.rights != NULL) {
+			str_append_c(dest, ' ');
+			imap_acl_write_right(dest, tmp, &rights, FALSE);
+		}
+	}
 	return ret;
 }
 
 static bool cmd_getacl(struct client_command_context *cmd)
 {
+	struct acl_backend *backend;
 	struct mailbox *box;
 	const char *mailbox;
 	string_t *str;
@@ -207,7 +259,9 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	imap_quote_append_string(str, mailbox, FALSE);
 	len = str_len(str);
 
-	ret = imap_acl_write_aclobj(str, acl_mailbox_get_aclobj(box));
+	backend = acl_storage_get_backend(mailbox_get_storage(box));
+	ret = imap_acl_write_aclobj(str, backend,
+				    acl_mailbox_get_aclobj(box), TRUE);
 	if (ret == 0) {
 		client_send_line(cmd->client, str_c(str));
 		client_send_tagline(cmd, "OK Getacl completed.");

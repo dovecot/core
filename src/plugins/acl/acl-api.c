@@ -124,6 +124,13 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 	return ret;
 }
 
+const char *const *acl_object_get_default_rights(struct acl_object *aclobj)
+{
+	return acl_backend_mask_get_names(aclobj->backend,
+					  aclobj->backend->default_aclmask,
+					  pool_datastack_create());
+}
+
 int acl_object_update(struct acl_object *aclobj,
 		      const struct acl_rights_update *update)
 {

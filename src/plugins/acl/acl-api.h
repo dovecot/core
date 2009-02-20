@@ -92,6 +92,11 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 		 const char *acl_username, const char *const *groups,
 		 bool owner);
 void acl_backend_deinit(struct acl_backend **backend);
+
+/* Returns the acl_username passed to acl_backend_init(). Note that with
+   anonymous users NULL is returned. */
+const char *acl_backend_get_acl_username(struct acl_backend *backend);
+
 /* Returns TRUE if user isn't anonymous. */
 bool acl_backend_user_is_authenticated(struct acl_backend *backend);
 /* Returns TRUE if user owns the storage. */
@@ -128,6 +133,8 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx);
 /* Returns 0 = ok, -1 = internal error */
 int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 			     const char *const **rights_r);
+/* Returns the default rights for the object. */
+const char *const *acl_object_get_default_rights(struct acl_object *aclobj);
 
 /* Update ACL of given object. */
 int acl_object_update(struct acl_object *aclobj,

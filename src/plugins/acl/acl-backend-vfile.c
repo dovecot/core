@@ -1127,7 +1127,6 @@ acl_backend_vfile_object_list_init(struct acl_object *_aclobj)
 	struct acl_object_vfile *aclobj =
 		(struct acl_object_vfile *)_aclobj;
 	struct acl_object_list_iter *iter;
-	struct mail_namespace *ns;
 
 	iter = i_new(struct acl_object_list_iter, 1);
 	iter->aclobj = _aclobj;
@@ -1137,12 +1136,6 @@ acl_backend_vfile_object_list_init(struct acl_object *_aclobj)
 		   rights read into memory */
 		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
 	}
-
-	/* be sure to return owner for private namespaces.
-	   (other namespaces don't have an owner) */
-	ns = mailbox_list_get_namespace(_aclobj->backend->list);
-	if (ns->type != NAMESPACE_PRIVATE)
-		iter->returned_owner = TRUE;
 
 	if (_aclobj->backend->v.object_refresh_cache(_aclobj) < 0)
 		iter->failed = TRUE;
@@ -1157,26 +1150,10 @@ acl_backend_vfile_object_list_next(struct acl_object_list_iter *iter,
 		(struct acl_object_vfile *)iter->aclobj;
 	const struct acl_rights *rights;
 
-	if (iter->idx == array_count(&aclobj->rights)) {
-		struct acl_backend *backend = iter->aclobj->backend;
-
-		if (iter->returned_owner)
-			return 0;
-
-		/* return missing owner based on the default ACLs */
-		iter->returned_owner = TRUE;
-		memset(rights_r, 0, sizeof(*rights_r));
-		rights_r->id_type = ACL_ID_OWNER;
-		rights_r->rights =
-			acl_backend_mask_get_names(backend,
-						   backend->default_aclmask,
-						   pool_datastack_create());
-		return 1;
-	}
+	if (iter->idx == array_count(&aclobj->rights))
+		return 0;
 
 	rights = array_idx(&aclobj->rights, iter->idx++);
-	if (rights->id_type == ACL_ID_OWNER && rights->rights != NULL)
-		iter->returned_owner = TRUE;
 	*rights_r = *rights;
 	return 1;
 }

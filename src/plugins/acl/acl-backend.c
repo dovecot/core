@@ -95,6 +95,11 @@ void acl_backend_deinit(struct acl_backend **_backend)
 	backend->v.deinit(backend);
 }
 
+const char *acl_backend_get_acl_username(struct acl_backend *backend)
+{
+	return backend->username;
+}
+
 bool acl_backend_user_is_authenticated(struct acl_backend *backend)
 {
 	return backend->username != NULL;

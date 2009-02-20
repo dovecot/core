@@ -73,7 +73,6 @@ struct acl_object_list_iter {
 	struct acl_object *aclobj;
 
 	unsigned int idx;
-	unsigned int returned_owner:1;
 	unsigned int failed:1;
 };
 
