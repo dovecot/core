@@ -128,9 +128,8 @@ imap_acl_write_right(string_t *dest, string_t *tmp,
 {
 	const char *const *rights = neg ? right->neg_rights : right->rights;
 
-	if (neg) str_append_c(dest,'-');
-
 	str_truncate(tmp, 0);
+	if (neg) str_append_c(tmp,'-');
 	if (right->global)
 		str_append(tmp, IMAP_ACL_GLOBAL_PREFIX);
 	switch (right->id_type) {
