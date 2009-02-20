@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "fd-close-on-exec.h"
+#include "eacces-error.h"
 #include "env-util.h"
 #include "base64.h"
 #include "str.h"
@@ -814,8 +815,13 @@ create_mail_process(enum process_type process_type, struct settings *set,
 				!(ENOTFOUND(chdir_errno) ||
 				  chdir_errno == EINTR))) {
 			errno = chdir_errno;
-			i_fatal("chdir(%s) failed with uid %s: %m",
-				full_home_dir, dec2str(uid));
+			if (errno != EACCES) {
+				i_fatal("chdir(%s) failed with uid %s: %m",
+					full_home_dir, dec2str(uid));
+			} else {
+				i_fatal("%s", eacces_error_get("chdir",
+							       full_home_dir));
+			}
 		}
 	}
 	if (ret < 0) {
