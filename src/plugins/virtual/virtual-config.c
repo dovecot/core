@@ -243,6 +243,11 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 
 	/* get patterns we want to list */
 	wboxes = array_get_modifiable(&wildcard_boxes, &count);
+	if (count == 0) {
+		/* only negative wildcards - doesn't really make sense.
+		   just ignore. */
+		return 0;
+	}
 	patterns = t_new(const char *, count + 1);
 	for (i = 0; i < count; i++)
 		patterns[i] = wboxes[i]->name;
