@@ -20,6 +20,7 @@ liblib_a_SOURCES = \
 	compat.c \
 	crc32.c \
 	data-stack.c \
+	eacces-error.c \
 	env-util.c \
 	failures.c \
 	fd-close-on-exec.c \
@@ -121,6 +122,7 @@ headers = \
 	compat.h \
 	crc32.h \
 	data-stack.h \
+	eacces-error.h \
 	env-util.h \
 	failures.h \
 	fd-close-on-exec.h \
