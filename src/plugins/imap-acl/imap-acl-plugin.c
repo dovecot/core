@@ -375,7 +375,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	bool negative = FALSE;
 
 	if (!client_read_string_args(cmd, 3, &mailbox, &identifier, &rights) ||
-	    *identifier == '\0' || *rights == '\0') {
+	    *identifier == '\0') {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
@@ -414,7 +414,19 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	if (box == NULL)
 		return TRUE;
 
-	if (negative) {
+	if (update.rights.rights[0] == NULL) {
+		if (negative) {
+			update.modify_mode = 0;
+			update.rights.rights = NULL;
+			update.neg_modify_mode = ACL_MODIFY_MODE_CLEAR;
+			update.rights.neg_rights = NULL;
+		} else {
+			update.modify_mode = ACL_MODIFY_MODE_CLEAR;
+			update.rights.rights = NULL;
+			update.neg_modify_mode = 0;
+			update.rights.neg_rights = NULL;
+		}
+	} else if (negative) {
 		update.neg_modify_mode = update.modify_mode;
 		update.modify_mode = ACL_MODIFY_MODE_REMOVE;
 		update.rights.neg_rights = update.rights.rights;
