@@ -305,6 +305,10 @@ static int
 imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 		       const char **error_r)
 {
+	static const char *acl_k = MAIL_ACL_CREATE;
+	static const char *acl_x = MAIL_ACL_DELETE;
+	static const char *acl_e = MAIL_ACL_EXPUNGE;
+	static const char *acl_t = MAIL_ACL_WRITE_DELETED;
 	ARRAY_TYPE(const_string) rights;
 	unsigned int i;
 
@@ -318,9 +322,22 @@ imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 			}
 		}
 		if (imap_acl_letter_map[i].name == NULL) {
-			*error_r = t_strdup_printf("Invalid ACL right: %c",
-						   *letters);
-			return -1;
+			/* Handling of obsolete rights as virtual
+			   rights according to RFC 4314 */
+			switch (*letters) {
+			case 'c':
+				array_append(&rights, &acl_k, 1);
+				array_append(&rights, &acl_x, 1);
+				break;
+			case 'd':
+				array_append(&rights, &acl_e, 1);
+				array_append(&rights, &acl_t, 1);
+				break;
+			default:
+				*error_r = t_strdup_printf(
+					"Invalid ACL right: %c", *letters);
+				return -1;
+			}
 		}
 	}
 	(void)array_append_space(&rights);
