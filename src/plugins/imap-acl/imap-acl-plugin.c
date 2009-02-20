@@ -164,7 +164,8 @@ imap_acl_write_right(string_t *dest, string_t *tmp,
 
 static int
 imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
-		      struct acl_object *aclobj, bool convert_owner)
+		      struct acl_object *aclobj, bool convert_owner,
+		      bool add_default)
 {
 	struct acl_object_list_iter *iter;
 	struct acl_rights rights;
@@ -200,7 +201,8 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 				   can't do the conversion, so try again. */
 				str_truncate(dest, orig_len);
 				return imap_acl_write_aclobj(dest, backend,
-							     aclobj, FALSE);
+							     aclobj, FALSE,
+							     add_default);
 			}
 			seen_owner = TRUE;
 			if (rights.rights != NULL)
@@ -218,7 +220,7 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 	}
 	acl_object_list_deinit(&iter);
 
-	if (!seen_positive_owner && username != NULL) {
+	if (!seen_positive_owner && username != NULL && add_default) {
 		/* no positive owner rights returned, write default ACLs */
 		memset(&rights, 0, sizeof(rights));
 		if (!convert_owner) {
@@ -239,6 +241,8 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 static bool cmd_getacl(struct client_command_context *cmd)
 {
 	struct acl_backend *backend;
+	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	struct mailbox *box;
 	const char *mailbox;
 	string_t *str;
@@ -259,9 +263,12 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	imap_quote_append_string(str, mailbox, FALSE);
 	len = str_len(str);
 
-	backend = acl_storage_get_backend(mailbox_get_storage(box));
+	storage = mailbox_get_storage(box);
+	backend = acl_storage_get_backend(storage);
+	ns = mail_storage_get_namespace(storage);
 	ret = imap_acl_write_aclobj(str, backend,
-				    acl_mailbox_get_aclobj(box), TRUE);
+				    acl_mailbox_get_aclobj(box), TRUE,
+				    ns->type == NAMESPACE_PRIVATE);
 	if (ret == 0) {
 		client_send_line(cmd->client, str_c(str));
 		client_send_tagline(cmd, "OK Getacl completed.");
