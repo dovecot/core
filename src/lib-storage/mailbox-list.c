@@ -194,6 +194,7 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 	list->ns = ns;
 	list->flags = flags;
 	list->file_create_mode = (mode_t)-1;
+	list->dir_create_mode = (mode_t)-1;
 	list->file_create_gid = (gid_t)-1;
 
 	/* copy settings */
@@ -289,10 +290,11 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 	}
 
 	list->file_create_mode = st.st_mode & 0666;
+	list->dir_create_mode = st.st_mode & 0777;
 	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
 		/* directory's GID is used automatically for new files */
 		list->file_create_gid = (gid_t)-1;
-	} else if ((st.st_mode & 0060) == 0) {
+	} else if ((st.st_mode & 0070) == 0) {
 		/* group doesn't have any permissions, so don't bother
 		   changing it */
 		list->file_create_gid = (gid_t)-1;
@@ -306,7 +308,7 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 	if ((list->flags & MAILBOX_LIST_FLAG_DEBUG) != 0 && name == NULL) {
 		i_info("Namespace %s: Using permissions from %s: "
 		       "mode=0%o gid=%ld", list->ns->prefix, path,
-		       (int)list->file_create_mode,
+		       (int)list->dir_create_mode,
 		       list->file_create_gid == (gid_t)-1 ? -1L :
 		       (long)list->file_create_gid);
 	}
@@ -322,13 +324,7 @@ void mailbox_list_get_dir_permissions(struct mailbox_list *list,
 	mode_t mode;
 
 	mailbox_list_get_permissions(list, name, &mode, gid_r);
-
-	/* add the execute bit if either read or write bit is set */
-	if ((mode & 0600) != 0) mode |= 0100;
-	if ((mode & 0060) != 0) mode |= 0010;
-	if ((mode & 0006) != 0) mode |= 0001;
-
-	*mode_r = mode;
+	*mode_r = list->dir_create_mode;
 }
 
 bool mailbox_list_is_valid_pattern(struct mailbox_list *list,

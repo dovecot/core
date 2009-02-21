@@ -79,7 +79,7 @@ struct mailbox_list {
 	enum mailbox_list_flags flags;
 
 	/* -1 if not set yet. use mailbox_list_get_permissions() to set them */
-	mode_t file_create_mode;
+	mode_t file_create_mode, dir_create_mode;
 	gid_t file_create_gid;
 
 	char *error_string;
