@@ -40,6 +40,8 @@ struct auth_request {
 	/* the username after doing all internal translations, but before
 	   being changed by a db lookup */
 	const char *translated_username;
+	/* realm for the request, may be specified by some auth mechanisms */
+	const char *realm;
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
         /* extra_fields are returned in authentication reply. Fields prefixed
@@ -84,6 +86,7 @@ struct auth_request {
 	unsigned int passdb_internal_failure:1;
 	unsigned int userdb_internal_failure:1;
 	unsigned int delayed_failure:1;
+	unsigned int domain_is_realm:1;
 	unsigned int accept_input:1;
 	unsigned int no_failure_delay:1;
 	unsigned int no_login:1;

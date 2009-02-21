@@ -52,7 +52,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			    const unsigned char **credentials_r, size_t *size_r)
 {
 	const char *wanted_scheme = auth_request->credentials_scheme;
-	const char *plaintext;
+	const char *plaintext, *username;
 	int ret;
 
 	if (auth_request->prefer_plain_credentials &&
@@ -99,14 +99,19 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 
 		/* we can generate anything out of plaintext passwords */
 		plaintext = t_strndup(*credentials_r, *size_r);
+		username = auth_request->original_username;
+		if (!auth_request->domain_is_realm &&
+		    strchr(username, '@') != NULL) {
+			/* domain must not be used as realm. add the @realm. */
+			username = t_strconcat(username, "@",
+					       auth_request->realm, NULL);
+		}
 		if (auth_request->auth->verbose_debug_passwords) {
 			auth_request_log_info(auth_request, "password",
-				"Generating %s from user %s password %s",
-				wanted_scheme, auth_request->original_username,
-				plaintext);
+				"Generating %s from user '%s', password '%s'",
+				wanted_scheme, username, plaintext);
 		}
-		if (!password_generate(plaintext,
-				       auth_request->original_username,
+		if (!password_generate(plaintext, username,
 				       wanted_scheme, credentials_r, size_r)) {
 			auth_request_log_error(auth_request, "password",
 				"Requested unknown scheme %s", wanted_scheme);

@@ -517,13 +517,21 @@ digest_md5_generate(const char *plaintext, const char *user,
 	if (user == NULL)
 		i_fatal("digest_md5_generate(): username not given");
 
-	/* user:realm:passwd */
-	realm = strchr(user, '@');
-	if (realm != NULL) realm++; else realm = "";
 
+	/* assume user@realm format for username. If user@domain is wanted
+	   in the username, allow also user@domain@realm. */
+	realm = strrchr(user, '@');
+	if (realm != NULL) {
+		user = t_strdup_until(user, realm);
+		realm++;
+	} else {
+		user = realm;
+		realm = "";
+	}
+
+	/* user:realm:passwd */
 	digest = t_malloc(MD5_RESULTLEN);
-	str = t_strdup_printf("%s:%s:%s", t_strcut(user, '@'),
-			      realm, plaintext);
+	str = t_strdup_printf("%s:%s:%s", user, realm, plaintext);
 	md5_get_digest(str, strlen(str), digest);
 
 	*raw_password_r = digest;

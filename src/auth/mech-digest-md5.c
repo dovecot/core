@@ -41,7 +41,6 @@ struct digest_auth_request {
 	enum qop_option qop;
 
 	/* received: */
-	char *realm; /* may be NULL */
 	char *username;
 	char *cnonce;
 	char *nonce_count;
@@ -300,8 +299,9 @@ static bool auth_handle_response(struct digest_auth_request *request,
 					str_sanitize(value, MAX_REALM_LEN));
 			return FALSE;
 		}
-		if (request->realm == NULL && *value != '\0')
-			request->realm = p_strdup(request->pool, value);
+		if (request->auth_request.realm == NULL && *value != '\0')
+			request->auth_request.realm =
+				p_strdup(request->pool, value);
 		return TRUE;
 	}
 
@@ -551,9 +551,14 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	}
 
 	if (parse_digest_response(request, data, data_size, &error)) {
-		username = request->realm == NULL ? request->username :
-			t_strconcat(request->username, "@",
-				    request->realm, NULL);
+		if (auth_request->realm != NULL &&
+		    strchr(request->username, '@') == NULL) {
+			username = t_strconcat(request->username, "@",
+					       auth_request->realm, NULL);
+			auth_request->domain_is_realm = TRUE;
+		} else {
+			username = request->username;
+		}
 
 		if (auth_request_set_username(auth_request, username, &error)) {
 			auth_request_lookup_credentials(auth_request,
