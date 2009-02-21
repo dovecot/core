@@ -98,8 +98,6 @@ static void verify_plain_callback(enum passdb_result result,
 		auth_stream_reply_add(reply, NULL,
 				      request->passdb_password == NULL ? "" :
 				      request->passdb_password);
-		if (request->no_password)
-			auth_stream_reply_add(reply, "nopassword", NULL);
 		if (request->extra_fields != NULL) {
 			const char *fields =
 				auth_stream_reply_export(request->extra_fields);
