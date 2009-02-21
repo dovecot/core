@@ -123,10 +123,15 @@ void passdb_handle_credentials(enum passdb_result result,
 		return;
 	}
 
-	if (password == NULL ||
-	    !passdb_get_credentials(auth_request, password, scheme,
-				    &credentials, &size))
+	if (password == NULL) {
+		auth_request_log_info(auth_request, "password",
+			"Requested %s scheme, but we have a NULL password",
+			auth_request->credentials_scheme);
 		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
+	} else if (!passdb_get_credentials(auth_request, password, scheme,
+					   &credentials, &size)) {
+		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
+	}
 
 	callback(result, credentials, size, auth_request);
 }
