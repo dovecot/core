@@ -265,6 +265,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 		return;
 	}
 
+	auth_request->prefer_plain_credentials = TRUE;
 	auth_request->passdb->passdb->iface.
 		lookup_credentials(auth_request, lookup_credentials_callback);
 }

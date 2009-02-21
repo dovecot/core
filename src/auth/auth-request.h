@@ -89,6 +89,7 @@ struct auth_request {
 	unsigned int no_login:1;
 	unsigned int no_password:1;
 	unsigned int skip_password_check:1;
+	unsigned int prefer_plain_credentials:1;
 	unsigned int proxy:1;
 	unsigned int proxy_maybe:1;
 	unsigned int valid_client_cert:1;

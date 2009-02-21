@@ -55,6 +55,13 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 	const char *plaintext;
 	int ret;
 
+	if (auth_request->prefer_plain_credentials &&
+	    password_scheme_is_alias(input_scheme, "PLAIN")) {
+		/* we've a plaintext scheme and we prefer to get it instead
+		   of converting it to the fallback scheme */
+		wanted_scheme = "";
+	}
+
 	ret = password_decode(input, input_scheme, credentials_r, size_r);
 	if (ret <= 0) {
 		if (ret < 0) {
