@@ -111,8 +111,8 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	dotlock_set.timeout = SUBSCRIPTION_FILE_LOCK_TIMEOUT;
 	dotlock_set.stale_timeout = SUBSCRIPTION_FILE_CHANGE_TIMEOUT;
 
-	mailbox_list_get_permissions(list, &mode, &gid);
-	mailbox_list_get_dir_permissions(list, &dir_mode, &gid);
+	mailbox_list_get_permissions(list, NULL, &mode, &gid);
+	mailbox_list_get_dir_permissions(list, NULL, &dir_mode, &gid);
 	fd_out = file_dotlock_open_mode(&dotlock_set, path, 0,
 					mode, (uid_t)-1, gid, &dotlock);
 	if (fd_out == -1 && errno == ENOENT) {

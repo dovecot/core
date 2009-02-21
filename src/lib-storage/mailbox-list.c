@@ -261,19 +261,19 @@ mailbox_list_get_namespace(const struct mailbox_list *list)
 	return list->ns;
 }
 
-void mailbox_list_get_permissions(struct mailbox_list *list,
+void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 				  mode_t *mode_r, gid_t *gid_r)
 {
 	const char *path;
 	struct stat st;
 
-	if (list->file_create_mode != (mode_t)-1) {
+	if (list->file_create_mode != (mode_t)-1 && name == NULL) {
 		*mode_r = list->file_create_mode;
 		*gid_r = list->file_create_gid;
 		return;
 	}
 
-	path = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
+	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
 	if (stat(path, &st) < 0) {
 		if (!ENOTFOUND(errno)) {
 			mailbox_list_set_critical(list, "stat(%s) failed: %m",
@@ -303,7 +303,7 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 		list->file_create_gid = st.st_gid;
 	}
 
-	if ((list->flags & MAILBOX_LIST_FLAG_DEBUG) != 0) {
+	if ((list->flags & MAILBOX_LIST_FLAG_DEBUG) != 0 && name == NULL) {
 		i_info("Namespace %s: Using permissions from %s: "
 		       "mode=0%o gid=%ld", list->ns->prefix, path,
 		       (int)list->file_create_mode,
@@ -316,11 +316,12 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 }
 
 void mailbox_list_get_dir_permissions(struct mailbox_list *list,
+				      const char *name,
 				      mode_t *mode_r, gid_t *gid_r)
 {
 	mode_t mode;
 
-	mailbox_list_get_permissions(list, &mode, gid_r);
+	mailbox_list_get_permissions(list, name, &mode, gid_r);
 
 	/* add the execute bit if either read or write bit is set */
 	if ((mode & 0600) != 0) mode |= 0100;

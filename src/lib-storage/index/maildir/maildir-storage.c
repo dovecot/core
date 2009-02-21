@@ -501,7 +501,8 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	if (strcmp(name, "INBOX") == 0 &&
 	    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		/* INBOX always exists */
-		mailbox_list_get_dir_permissions(_storage->list, &mode, &gid);
+		mailbox_list_get_dir_permissions(_storage->list, NULL,
+						 &mode, &gid);
 		if (create_maildir(_storage, path, mode, gid, TRUE) < 0)
 			return NULL;
 		return maildir_open(storage, "INBOX", flags);
@@ -520,7 +521,8 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	/* tmp/ directory doesn't exist. does the maildir? */
 	if (stat(path, &st) == 0) {
 		/* yes, we'll need to create the missing dirs */
-		mailbox_list_get_dir_permissions(_storage->list, &mode, &gid);
+		mailbox_list_get_dir_permissions(_storage->list, name,
+						 &mode, &gid);
 		if (create_maildir(_storage, path, mode, gid, TRUE) < 0)
 			return NULL;
 
@@ -591,7 +593,7 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 					  st.st_mode & 0666, st.st_gid) < 0)
 			return -1;
 	} else {
-		mailbox_list_get_dir_permissions(_storage->list,
+		mailbox_list_get_dir_permissions(_storage->list, NULL,
 						 &st.st_mode, &st.st_gid);
 		if (create_maildir(_storage, path, st.st_mode, st.st_gid,
 				   FALSE) < 0)

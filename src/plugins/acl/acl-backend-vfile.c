@@ -846,7 +846,8 @@ static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
 	int fd;
 
 	/* first lock the ACL file */
-	mailbox_list_get_permissions(_aclobj->backend->list, &mode, &gid);
+	mailbox_list_get_permissions(_aclobj->backend->list, _aclobj->name,
+				     &mode, &gid);
 	fd = file_dotlock_open_mode(&dotlock_set, aclobj->local_path, 0,
 				    mode, (uid_t)-1, gid, dotlock_r);
 	if (fd == -1) {

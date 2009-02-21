@@ -447,21 +447,28 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 				bool move_to_memory)
 {
 	struct mail_storage *storage = ibox->storage;
+	struct mailbox *box = &ibox->box;
+	gid_t dir_gid;
 
 	i_assert(name != NULL);
 
-	ibox->box.storage = storage;
-	ibox->box.name = p_strdup(ibox->box.pool, name);
-	ibox->box.open_flags = flags;
-	if (ibox->box.file_create_mode == 0) {
-		ibox->box.file_create_mode = 0600;
-		ibox->box.dir_create_mode = 0700;
-		ibox->box.file_create_gid = (gid_t)-1;
+	box->storage = storage;
+	box->name = p_strdup(box->pool, name);
+	box->open_flags = flags;
+	if (box->file_create_mode == 0) {
+		mailbox_list_get_permissions(box->storage->list, name,
+					     &box->file_create_mode,
+					     &box->file_create_gid);
+		mailbox_list_get_dir_permissions(box->storage->list, name,
+						 &box->dir_create_mode,
+						 &dir_gid);
+		mail_index_set_permissions(ibox->index, box->file_create_mode,
+					   box->file_create_gid);
 	}
 
-	p_array_init(&ibox->box.search_results, ibox->box.pool, 16);
-	array_create(&ibox->box.module_contexts,
-		     ibox->box.pool, sizeof(void *), 5);
+	p_array_init(&box->search_results, box->pool, 16);
+	array_create(&box->module_contexts,
+		     box->pool, sizeof(void *), 5);
 
 	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
 	ibox->keep_locked = (flags & MAILBOX_OPEN_KEEP_LOCKED) != 0;

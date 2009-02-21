@@ -287,7 +287,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	/* create the hierarchy */
 	p = strrchr(newpath, '/');
 	if (p != NULL) {
-		mailbox_list_get_dir_permissions(list, &mode, &gid);
+		mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
 		p = t_strdup_until(newpath, p);
 		if (mkdir_parents_chown(p, mode, (uid_t)-1, gid) < 0 &&
 		    errno != EEXIST) {

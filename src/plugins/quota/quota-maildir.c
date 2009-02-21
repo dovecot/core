@@ -238,8 +238,9 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	for (i = 0; i < count; i++) {
 		if ((storages[i]->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			mailbox_list_get_permissions(storages[i]->ns->list,
-						     &mode, &gid);
+						     NULL, &mode, &gid);
 			mailbox_list_get_dir_permissions(storages[i]->ns->list,
+							 NULL,
 							 &dir_mode, &dir_gid);
 			break;
 		}

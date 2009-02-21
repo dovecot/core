@@ -733,7 +733,8 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 	p = directory ? path + strlen(path) : strrchr(path, '/');
 	if (p != NULL) {
 		p = t_strdup_until(path, p);
-		mailbox_list_get_dir_permissions(_storage->list, &mode, &gid);
+		mailbox_list_get_dir_permissions(_storage->list, NULL,
+						 &mode, &gid);
 		if (mkdir_parents_chown(p, mode, (uid_t)-1, gid) < 0 &&
 		    errno != EEXIST) {
 			if (!mail_storage_set_error_from_errno(_storage)) {

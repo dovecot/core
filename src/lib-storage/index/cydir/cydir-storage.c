@@ -135,7 +135,7 @@ static int create_cydir(struct mail_storage *storage, const char *path)
 	mode_t mode;
 	gid_t gid;
 
-	mailbox_list_get_dir_permissions(storage->list, &mode, &gid);
+	mailbox_list_get_dir_permissions(storage->list, NULL, &mode, &gid);
 	if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) < 0 &&
 	    errno != EEXIST) {
 		if (!mail_storage_set_error_from_errno(storage)) {

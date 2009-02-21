@@ -187,7 +187,7 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	/* Build it into a temporary file and rename() over. There's no need
 	   to use locking, because even if multiple processes are rebuilding
 	   the file at the same time the result should be the same. */
-	mailbox_list_get_permissions(list, &mode, &gid);
+	mailbox_list_get_permissions(list, NULL, &mode, &gid);
 	fd = safe_mkstemp(path, mode, (uid_t)-1, gid);
 	if (fd == -1) {
 		if (errno == EACCES) {
