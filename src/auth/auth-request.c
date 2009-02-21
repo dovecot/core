@@ -1168,6 +1168,9 @@ void auth_request_set_userdb_field(struct auth_request *request,
 	} else if (strcmp(name, "userdb_import") == 0) {
 		auth_stream_reply_import(request->userdb_reply, value);
 		return;
+	} else if (strcmp(name, "system_user") == 0) {
+		/* FIXME: the system_user is for backwards compatibility */
+		name = "system_groups_user";
 	}
 
 	auth_stream_reply_add(request->userdb_reply, name, value);

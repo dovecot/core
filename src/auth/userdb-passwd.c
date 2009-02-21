@@ -38,9 +38,12 @@ static void passwd_lookup(struct auth_request *auth_request,
 	auth_request_init_userdb_reply(auth_request);
 	userdb_static_template_export(module->tmpl, auth_request);
 
-	if (!userdb_static_template_isset(module->tmpl, "system_user")) {
+	/* FIXME: the system_user is for backwards compatibility */
+	if (!userdb_static_template_isset(module->tmpl, "system_groups_user") &&
+	    !userdb_static_template_isset(module->tmpl, "system_user")) {
 		auth_request_set_userdb_field(auth_request,
-					      "system_user", pw->pw_name);
+					      "system_groups_user",
+					      pw->pw_name);
 	}
 	if (!userdb_static_template_isset(module->tmpl, "uid")) {
 		auth_request_set_userdb_field(auth_request,

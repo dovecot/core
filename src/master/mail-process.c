@@ -551,7 +551,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 {
 	const struct var_expand_table *var_expand_table;
 	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
-	const char *system_user, *master_user;
+	const char *system_groups_user, *master_user;
 	struct mail_process_group *process_group;
 	char title[1024];
 	struct log_io *log;
@@ -574,7 +574,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 	t_array_init(&extra_args, 16);
-	mail = home_dir = chroot_dir = system_user = ""; master_user = NULL;
+	mail = home_dir = chroot_dir = system_groups_user = "";
+	master_user = NULL;
 	uid = (uid_t)-1; gid = (gid_t)-1; nice_value = 0;
 	home_given = FALSE;
 	for (; *args != NULL; args++) {
@@ -587,8 +588,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 			chroot_dir = *args + 7;
 		else if (strncmp(*args, "nice=", 5) == 0)
 			nice_value = atoi(*args + 5);
-		else if (strncmp(*args, "system_user=", 12) == 0)
-			system_user = *args + 12;
+		else if (strncmp(*args, "system_groups_user=", 12) == 0)
+			system_groups_user = *args + 12;
 		else if (strncmp(*args, "uid=", 4) == 0) {
 			if (uid != (uid_t)-1) {
 				i_error("uid specified multiple times for %s",
@@ -768,7 +769,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
-	restrict_access_set_env(system_user, uid, gid, set->mail_priv_gid_t,
+	restrict_access_set_env(system_groups_user, uid, gid,
+				set->mail_priv_gid_t,
 				dump_capability ? "" : chroot_dir,
 				set->first_valid_gid, set->last_valid_gid,
 				set->mail_access_groups);
