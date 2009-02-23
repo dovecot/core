@@ -164,7 +164,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 		}
 		/* the control dir doesn't exist. create it unless the whole
 		   mailbox was just deleted. */
-		if (maildir_set_deleted(uidlist->mbox))
+		if (!maildir_set_deleted(uidlist->mbox))
 			return -1;
 	}
 
@@ -1119,7 +1119,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		}
 		/* the control dir doesn't exist. create it unless the whole
 		   mailbox was just deleted. */
-		if (maildir_set_deleted(uidlist->mbox))
+		if (!maildir_set_deleted(uidlist->mbox))
 			return -1;
 	}
 

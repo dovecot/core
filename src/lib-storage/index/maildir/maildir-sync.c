@@ -344,7 +344,7 @@ maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
 		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT)
 			break;
 
-		if (maildir_set_deleted(mbox))
+		if (!maildir_set_deleted(mbox))
 			return -1;
 		/* try again */
 	}
@@ -380,7 +380,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 			return -1;
 		}
 
-		if (maildir_set_deleted(ctx->mbox))
+		if (!maildir_set_deleted(ctx->mbox))
 			return -1;
 		/* try again */
 	}
