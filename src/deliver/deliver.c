@@ -828,6 +828,7 @@ int main(int argc, char *argv[])
 	struct mailbox_transaction_context *t;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail *mail;
+	char cwd[PATH_MAX];
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
 	bool keep_environment = FALSE;
@@ -893,6 +894,12 @@ int main(int argc, char *argv[])
 			if (i == argc)
 				i_fatal_status(EX_USAGE, "Missing -p argument");
 			path = argv[i];
+			if (*path != '/') {
+				/* expand relative paths before we chdir */
+				if (getcwd(cwd, sizeof(cwd)) == NULL)
+					i_fatal("getcwd() failed: %m");
+				path = t_strconcat(cwd, "/", path, NULL);
+			}
 		} else if (strcmp(argv[i], "-e") == 0) {
 			stderr_rejection = TRUE;
 		} else if (strcmp(argv[i], "-c") == 0) {
