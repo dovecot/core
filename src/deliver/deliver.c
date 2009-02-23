@@ -837,6 +837,7 @@ int main(int argc, char *argv[])
 	int i, ret;
 	pool_t userdb_pool = NULL;
 	string_t *str;
+	enum mail_error error;
 
 	if (getuid() != geteuid() && geteuid() == 0) {
 		/* running setuid - don't allow this if deliver is
@@ -1122,11 +1123,11 @@ int main(int argc, char *argv[])
 		box = mailbox_open(&raw_ns->storage, path, NULL,
 				   MAILBOX_OPEN_NO_INDEX_FILES);
 	}
-	if (box == NULL)
-		i_fatal("Can't open delivery mail as raw");
+	if (box == NULL) {
+		i_fatal("Can't open delivery mail as raw: %s",
+			mail_storage_get_last_error(raw_ns->storage, &error));
+	}
 	if (mailbox_sync(box, 0, 0, NULL) < 0) {
-		enum mail_error error;
-
 		i_fatal("Can't sync delivery mail: %s",
 			mail_storage_get_last_error(raw_ns->storage, &error));
 	}
