@@ -52,7 +52,7 @@ static const struct dotlock_settings default_dotlock_set = {
 int mailbox_list_index_set_syscall_error(struct mailbox_list_index *index,
 					 const char *function)
 {
-	i_error("%s failed with file %s: %m", index->filepath, function);
+	i_error("%s failed with file %s: %m", function, index->filepath);
 	return -1;
 }
 
