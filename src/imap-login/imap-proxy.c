@@ -184,7 +184,7 @@ static int proxy_input_line(struct imap_client *client,
 		client->output = NULL;
 		client->common.fd = -1;
 		client_destroy_success(client, str_c(str));
-		return -1;
+		return 1;
 	} else if (strncmp(line, "L ", 2) == 0) {
 		/* If the backend server isn't Dovecot, the error message may
 		   be different from Dovecot's "user doesn't exist" error. This
@@ -269,7 +269,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	}
 
 	while ((line = i_stream_next_line(input)) != NULL) {
-		if (proxy_input_line(client, output, line) < 0)
+		if (proxy_input_line(client, output, line) != 0)
 			break;
 	}
 }
