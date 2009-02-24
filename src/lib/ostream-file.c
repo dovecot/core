@@ -776,7 +776,7 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	const struct stat *st;
-	off_t ret;
+	off_t in_abs_offset, ret;
 	int in_fd;
 
 	in_fd = i_stream_get_fd(instream);
@@ -791,16 +791,17 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 		}
 		i_assert(instream->v_offset <= (uoff_t)st->st_size);
 
-		ret = (off_t)outstream->ostream.offset -
-			(off_t)(instream->real_stream->abs_start_offset +
-				instream->v_offset);
+		in_abs_offset = instream->real_stream->abs_start_offset +
+			instream->v_offset;
+		ret = (off_t)outstream->ostream.offset - in_abs_offset;
 		if (ret == 0) {
 			/* copying data over itself. we don't really
 			   need to do that, just fake it. */
 			return st->st_size - instream->v_offset;
 		}
-		if (ret > 0) {
+		if (ret > 0 && st->st_size > ret) {
 			/* overlapping */
+			i_assert(instream->seekable);
 			return io_stream_copy_backwards(outstream, instream,
 							st->st_size);
 		}
