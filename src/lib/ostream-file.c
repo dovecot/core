@@ -764,8 +764,10 @@ static off_t io_stream_copy_backwards(struct ostream_private *outstream,
 			outstream->ostream.stream_errno = errno;
 			return -1;
 		}
+		i_stream_skip(instream, size);
 	}
 
+	outstream->ostream.offset += in_size - in_start_offset;
 	return (off_t) (in_size - in_start_offset);
 }
 
