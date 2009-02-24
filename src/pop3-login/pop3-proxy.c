@@ -134,7 +134,7 @@ static int proxy_input_line(struct pop3_client *client,
 		client->output = NULL;
 		client->common.fd = -1;
 		client_destroy_success(client, str_c(str));
-		return 0;
+		return 1;
 	}
 
 	/* Login failed. Pass through the error message to client
@@ -208,7 +208,7 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	}
 
 	while ((line = i_stream_next_line(input)) != NULL) {
-		if (proxy_input_line(client, output, line) < 0)
+		if (proxy_input_line(client, output, line) != 0)
 			break;
 	}
 }
