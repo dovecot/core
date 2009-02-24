@@ -39,6 +39,7 @@ Makefile.in
 *.lo
 *.Po
 *.Plo
+*.Tpo
 *.a
 *.la
 *.lai
