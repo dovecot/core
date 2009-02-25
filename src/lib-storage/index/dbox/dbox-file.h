@@ -158,6 +158,7 @@ bool dbox_file_can_append(struct dbox_file *file, uoff_t mail_size);
    1 if ok, 0 if file can't be appended to (old file version or corruption)
    or -1 if error. */
 int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
+				uoff_t last_msg_size,
 				struct ostream **stream_r);
 /* Returns the next offset for append a message. dbox_file_get_append_stream()
    must have been called for this file already at least once. */

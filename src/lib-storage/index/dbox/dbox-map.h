@@ -13,11 +13,13 @@ int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 
 struct dbox_map_append_context *
 dbox_map_append_begin(struct dbox_mailbox *mbox);
-/* Request file for saving a new message with given size. If an existing file
-   can be used, the record is locked and updated in index. Returns 0 if ok,
-   -1 if error. */
+/* Request file for saving a new message with given size (if available). If an
+   existing file can be used, the record is locked and updated in index.
+   Returns 0 if ok, -1 if error. */
 int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
 			 struct dbox_file **file_r, struct ostream **output_r);
+/* Finished saving the last mail. Saves the message size. */
+void dbox_map_append_finish_mail(struct dbox_map_append_context *ctx);
 /* Assign map UIDs to all appended msgs to multi-files. */
 int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 				    uint32_t *first_map_uid_r,

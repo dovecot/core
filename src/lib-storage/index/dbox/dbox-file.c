@@ -658,32 +658,45 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset,
 }
 
 static int
-dbox_file_seek_append_pos(struct dbox_file *file, uoff_t last_msg_offset)
+dbox_file_seek_append_pos(struct dbox_file *file,
+			  uoff_t last_msg_offset, uoff_t last_msg_size)
 {
 	uoff_t offset, size;
+	struct stat st;
 	bool last;
 	int ret;
-
-	if ((ret = dbox_file_read_header(file)) <= 0)
-		return ret;
 
 	if (file->file_version != DBOX_VERSION ||
 	    file->msg_header_size != sizeof(struct dbox_message_header)) {
 		/* created by an incompatible version, can't append */
 		return 0;
 	}
-
-	offset = last_msg_offset;
-	ret = dbox_file_seek_next(file, &offset, &size, &last);
-	if (ret <= 0)
-		return ret;
-	if (!last) {
-		/* not end of file? previous write probably crashed. */
-		if (ftruncate(file->fd, offset) < 0) {
-			dbox_file_set_syscall_error(file, "ftruncate()");
+	if (last_msg_size > 0) {
+		/* if last_msg_offset + last_msg_size points to EOF,
+		   we can safely use it without reading the last message. */
+		if (fstat(file->fd, &st) < 0) {
+			dbox_file_set_syscall_error(file, "fstat()");
 			return -1;
 		}
-		i_stream_sync(file->input);
+	} else {
+		st.st_size = -1;
+	}
+
+	offset = last_msg_offset;
+	if (st.st_size == (off_t)(last_msg_offset + last_msg_size)) {
+		offset += last_msg_size;
+	} else {
+		ret = dbox_file_seek_next(file, &offset, &size, &last);
+		if (ret <= 0)
+			return ret;
+		if (!last) {
+			/* not end of file? previous write probably crashed. */
+			if (ftruncate(file->fd, offset) < 0) {
+				dbox_file_set_syscall_error(file, "ftruncate()");
+				return -1;
+			}
+			i_stream_sync(file->input);
+		}
 	}
 
 	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
@@ -692,7 +705,7 @@ dbox_file_seek_append_pos(struct dbox_file *file, uoff_t last_msg_offset)
 }
 
 int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
-				struct ostream **stream_r)
+				uoff_t last_msg_size, struct ostream **stream_r)
 {
 	bool deleted;
 	int ret;
@@ -711,7 +724,8 @@ int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
 	if (file->output == NULL) {
 		i_assert(file->lock != NULL || last_msg_offset == 0);
 
-		ret = dbox_file_seek_append_pos(file, last_msg_offset);
+		ret = dbox_file_seek_append_pos(file, last_msg_offset,
+						last_msg_size);
 		if (ret <= 0)
 			return ret;
 	}
