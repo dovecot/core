@@ -179,6 +179,23 @@ off_t o_stream_send_istream(struct ostream *outstream,
 	return ret;
 }
 
+int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
+		    uoff_t offset)
+{
+	int ret;
+
+	if (unlikely(stream->closed))
+		return -1;
+
+	ret = stream->real_stream->write_at(stream->real_stream,
+					    data, size, offset);
+	if (unlikely(ret < 0)) {
+		i_assert(stream->stream_errno != 0);
+		stream->last_failed_errno = stream->stream_errno;
+	}
+	return ret;
+}
+
 struct ostream *o_stream_create(struct ostream_private *_stream)
 {
 	_stream->ostream.real_stream = _stream;
