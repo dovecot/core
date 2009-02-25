@@ -200,11 +200,10 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	struct mailbox_transaction_context *t = ctx->transaction;
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(t->box);
-	const struct stat *st;
+	uoff_t size;
 	int ret;
 
-	st = i_stream_stat(input, TRUE);
-	if (st != NULL && st->st_size != -1) {
+	if (i_stream_get_size(input, TRUE, &size) > 0) {
 		/* Input size is known, check for quota immediately. This
 		   check isn't perfect, especially because input stream's
 		   linefeeds may contain CR+LFs while physical message would
@@ -216,7 +215,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 		   full mail. */
 		bool too_large;
 
-		ret = quota_test_alloc(qt, st->st_size, &too_large);
+		ret = quota_test_alloc(qt, size, &too_large);
 		if (ret == 0) {
 			mail_storage_set_error(t->box->storage,
 				MAIL_ERROR_NOSPACE,

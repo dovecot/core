@@ -112,6 +112,27 @@ i_stream_limit_stat(struct istream_private *stream, bool exact)
 	return &stream->statbuf;
 }
 
+static int i_stream_limit_get_size(struct istream_private *stream,
+				   bool exact, uoff_t *size_r)
+{
+	struct limit_istream *lstream = (struct limit_istream *) stream;
+	const struct stat *st;
+
+	if (lstream->v_size != (uoff_t)-1) {
+		*size_r = lstream->v_size;
+		return 1;
+	}
+
+	st = i_stream_stat(&stream->istream, exact);
+	if (st == NULL)
+		return -1;
+	if (st->st_size == -1)
+		return 0;
+
+	*size_r = st->st_size;
+	return 1;
+}
+
 struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 {
 	struct limit_istream *lstream;
@@ -130,6 +151,7 @@ struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 	lstream->istream.read = i_stream_limit_read;
 	lstream->istream.seek = i_stream_limit_seek;
 	lstream->istream.stat = i_stream_limit_stat;
+	lstream->istream.get_size = i_stream_limit_get_size;
 
 	lstream->istream.istream.blocking = input->blocking;
 	lstream->istream.istream.seekable = input->seekable;

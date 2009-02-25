@@ -82,6 +82,9 @@ void i_stream_seek_mark(struct istream *stream, uoff_t v_offset);
    returned values can be compared to see if anything had changed (eg. in
    compressed stream st_size could be compressed size) */
 const struct stat *i_stream_stat(struct istream *stream, bool exact);
+/* Similar to i_stream_stat() call. Returns 1 if size was successfully
+   set, 0 if size is unknown, -1 if error. */
+int i_stream_get_size(struct istream *stream, bool exact, uoff_t *size_r);
 /* Returns TRUE if there are any bytes left to be read or in buffer. */
 bool i_stream_have_bytes_left(const struct istream *stream) ATTR_PURE;
 

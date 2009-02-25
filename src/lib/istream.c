@@ -191,6 +191,16 @@ const struct stat *i_stream_stat(struct istream *stream, bool exact)
 	return _stream->stat(_stream, exact);
 }
 
+int i_stream_get_size(struct istream *stream, bool exact, uoff_t *size_r)
+{
+	struct istream_private *_stream = stream->real_stream;
+
+	if (unlikely(stream->closed))
+		return -1;
+
+	return _stream->get_size(_stream, exact, size_r);
+}
+
 bool i_stream_have_bytes_left(const struct istream *stream)
 {
 	const struct istream_private *_stream = stream->real_stream;
@@ -429,6 +439,22 @@ i_stream_default_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 	return &stream->statbuf;
 }
 
+static int
+i_stream_default_get_size(struct istream_private *stream,
+			  bool exact, uoff_t *size_r)
+{
+	const struct stat *st;
+
+	st = stream->stat(stream, exact);
+	if (st == NULL)
+		return -1;
+	if (st->st_size == -1)
+		return 0;
+
+	*size_r = st->st_size;
+	return 1;
+}
+
 struct istream *
 i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 {
@@ -443,6 +469,8 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 
 	if (_stream->stat == NULL)
 		_stream->stat = i_stream_default_stat;
+	if (_stream->get_size == NULL)
+		_stream->get_size = i_stream_default_get_size;
 	if (_stream->iostream.set_max_buffer_size == NULL) {
 		_stream->iostream.set_max_buffer_size =
 			i_stream_default_set_max_buffer_size;
