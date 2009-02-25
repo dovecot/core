@@ -533,10 +533,10 @@ bool imap_search_start(struct imap_search_context *ctx,
 		client_enable(cmd->client, MAILBOX_FEATURE_CONDSTORE);
 	}
 
+	ctx->box = cmd->client->mailbox;
 	wanted_fields_get(ctx->box, sort_program,
 			  &wanted_fields, &wanted_headers);
 
-	ctx->box = cmd->client->mailbox;
 	ctx->trans = mailbox_transaction_begin(ctx->box, 0);
 	ctx->sargs = sargs;
 	ctx->search_ctx = mailbox_search_init(ctx->trans, sargs, sort_program);
