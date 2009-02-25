@@ -34,6 +34,11 @@ struct virtual_mail_index_record {
 	uint32_t real_uid;
 };
 
+struct dbox_mail_index_map_record {
+	uint32_t file_id;
+	uint32_t offset;
+};
+
 static const char *unixdate2str(time_t timestamp)
 {
 	static char buf[64];
@@ -417,6 +422,10 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			const struct virtual_mail_index_record *vrec = data;
 			printf("                   : mailbox_id = %u\n", vrec->mailbox_id);
 			printf("                   : real_uid   = %u\n", vrec->real_uid);
+		} else if (strcmp(ext[i].name, "map") == 0) {
+			const struct dbox_mail_index_map_record *mrec = data;
+			printf("                   : file_id = %u\n", mrec->file_id);
+			printf("                   : offset  = %u\n", mrec->offset);
 		}
 	}
 }
