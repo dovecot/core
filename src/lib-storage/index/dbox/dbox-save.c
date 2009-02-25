@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "fdatasync-path.h"
+#include "hex-binary.h"
 #include "hex-dec.h"
 #include "str.h"
 #include "istream.h"
@@ -19,7 +20,7 @@
 
 struct dbox_save_mail {
 	struct dbox_file *file;
-	uint32_t seq, uid;
+	uint32_t seq;
 	uint32_t append_offset;
 	uoff_t message_size;
 };
@@ -37,12 +38,12 @@ struct dbox_save_context {
 	uint32_t seq;
 	struct istream *input;
 	struct mail *mail;
-	string_t *cur_keywords;
 
 	struct dbox_file *cur_file;
 	struct ostream *cur_output;
 
 	ARRAY_DEFINE(mails, struct dbox_save_mail);
+	unsigned int single_count;
 
 	unsigned int failed:1;
 	unsigned int finished:1;
@@ -124,7 +125,7 @@ int dbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 			  sizeof(dbox_msg_hdr)) < 0) {
 		mail_storage_set_critical(_ctx->transaction->box->storage,
 			"o_stream_send(%s) failed: %m", 
-			dbox_file_get_path(ctx->cur_file));
+			ctx->cur_file->current_path);
 		ctx->failed = TRUE;
 	}
 
@@ -137,18 +138,16 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
-	const char *cur_path;
 
 	if (ctx->failed)
 		return -1;
 
-	cur_path = dbox_file_get_path(ctx->cur_file);
 	do {
 		if (o_stream_send_istream(ctx->cur_output, ctx->input) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
 					"o_stream_send_istream(%s) failed: %m",
-					cur_path);
+					ctx->cur_file->current_path);
 			}
 			ctx->failed = TRUE;
 			return -1;
@@ -165,8 +164,10 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 {
 	struct dbox_metadata_header metadata_hdr;
+	uint8_t guid_128[16];
 	const char *guid;
 	string_t *str;
+	buffer_t *guid_buf;
 	uoff_t vsize;
 
 	memset(&metadata_hdr, 0, sizeof(metadata_hdr));
@@ -175,7 +176,6 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 	o_stream_send(ctx->cur_output, &metadata_hdr, sizeof(metadata_hdr));
 
 	str = t_str_new(256);
-	/* write first fields that don't change */
 	str_printfa(str, "%c%lx\n", DBOX_METADATA_RECEIVED_TIME,
 		    (unsigned long)ctx->ctx.received_date);
 	str_printfa(str, "%c%lx\n", DBOX_METADATA_SAVE_TIME,
@@ -185,11 +185,35 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
 		    (unsigned long long)vsize);
 
-	guid = ctx->ctx.guid != NULL ? ctx->ctx.guid :
-		mail_generate_guid_string();
-	str_printfa(str, "%c%s\n", DBOX_METADATA_GUID, guid);
-	str_append_c(str, '\n');
+	/* we can use user-given GUID if
+	   a) we're not saving to a multi-file,
+	   b) it's 128 bit hex-encoded */
+	guid = ctx->ctx.guid;
+	if (ctx->ctx.guid != NULL && ctx->cur_file->single_mbox == NULL) {
+		guid_buf = buffer_create_dynamic(pool_datastack_create(),
+						 sizeof(guid_128));
+		if (strlen(guid) != sizeof(guid_128)*2 ||
+		    hex_to_binary(guid, guid_buf) < 0 ||
+		    guid_buf->used != sizeof(guid_128))
+			guid = NULL;
+		else
+			memcpy(guid_128, guid_buf->data, sizeof(guid_128));
+	}
 
+	if (guid == NULL) {
+		mail_generate_guid_128(guid_128);
+		guid = binary_to_hex(guid_128, sizeof(guid_128));
+	}
+	if (ctx->cur_file->single_mbox == NULL) {
+		/* multi-file: save the 128bit GUID to index so if the map
+		   index gets corrupted we can still find the message */
+		mail_index_update_ext(ctx->trans, ctx->seq,
+				      ctx->mbox->guid_ext_id,
+				      guid_128, NULL);
+	}
+	str_printfa(str, "%c%s\n", DBOX_METADATA_GUID, guid);
+
+	str_append_c(str, '\n');
 	o_stream_send(ctx->cur_output, str_data(str), str_len(str));
 }
 
@@ -202,14 +226,15 @@ static int dbox_save_mail_write_header(struct dbox_save_mail *mail)
 	dbox_msg_header_fill(&dbox_msg_hdr, mail->message_size);
 	if (pwrite_full(mail->file->fd, &dbox_msg_hdr,
 			sizeof(dbox_msg_hdr), mail->append_offset) < 0) {
-		dbox_file_set_syscall_error(mail->file, "write");
+		dbox_file_set_syscall_error(mail->file, "write()");
 		return -1;
 	}
-	// FIXME: don't fsync here. especially with multi files
+	/* we're done writing to single-files now, so fsync them here. */
 	if ((mail->file->storage->storage.flags &
-	     MAIL_STORAGE_FLAG_FSYNC_DISABLE) == 0) {
+	     MAIL_STORAGE_FLAG_FSYNC_DISABLE) == 0 &&
+	    mail->file->single_mbox != NULL) {
 		if (fdatasync(mail->file->fd) < 0) {
-			dbox_file_set_syscall_error(mail->file, "fdatasync");
+			dbox_file_set_syscall_error(mail->file, "fdatasync()");
 			return -1;
 		}
 	}
@@ -221,7 +246,7 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	struct dbox_save_mail *save_mail;
-	uoff_t offset = 0;
+	uoff_t metadata_offset = 0;
 	unsigned int count;
 
 	ctx->finished = TRUE;
@@ -232,14 +257,12 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 				      _ctx->received_date, !ctx->failed);
 
 	if (!ctx->failed) T_BEGIN {
-		const char *cur_path;
-
-		cur_path = dbox_file_get_path(ctx->cur_file);
-		offset = ctx->cur_output->offset;
+		metadata_offset = ctx->cur_output->offset;
 		dbox_save_write_metadata(ctx);
 		if (o_stream_flush(ctx->cur_output) < 0) {
 			mail_storage_set_critical(storage,
-				"o_stream_flush(%s) failed: %m", cur_path);
+				"o_stream_flush(%s) failed: %m",
+				ctx->cur_file->current_path);
 			ctx->failed = TRUE;
 		}
 	} T_END;
@@ -249,21 +272,26 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 
 	count = array_count(&ctx->mails);
 	save_mail = array_idx_modifiable(&ctx->mails, count - 1);
+	if (!ctx->failed) {
+		dbox_file_finish_append(save_mail->file);
+		save_mail->message_size = metadata_offset -
+			save_mail->append_offset -
+			save_mail->file->msg_header_size;
+		if (dbox_save_mail_write_header(save_mail) < 0)
+			ctx->failed = TRUE;
+	}
 	if (ctx->failed) {
 		dbox_file_cancel_append(save_mail->file,
 					save_mail->append_offset);
 		array_delete(&ctx->mails, count - 1, 1);
 		return -1;
-	} else {
-		dbox_file_finish_append(save_mail->file);
-		save_mail->message_size = offset - save_mail->append_offset -
-			save_mail->file->msg_header_size;
-		dbox_save_mail_write_header(save_mail);
-
-		if (save_mail->file->single_mbox != NULL)
-			dbox_file_close(save_mail->file);
-		return 0;
 	}
+
+	if (save_mail->file->single_mbox != NULL) {
+		dbox_file_close(save_mail->file);
+		ctx->single_count++;
+	}
+	return 0;
 }
 
 int dbox_save_finish(struct mail_save_context *ctx)
@@ -283,68 +311,72 @@ void dbox_save_cancel(struct mail_save_context *_ctx)
 	(void)dbox_save_finish(_ctx);
 }
 
-static int dbox_save_commit(struct dbox_save_context *ctx, uint32_t first_uid)
-{
-	struct dbox_mail_index_record rec;
-	struct dbox_save_mail *mails;
-	unsigned int i, count;
-
-	/* assign UIDs to mails */
-	mails = array_get_modifiable(&ctx->mails, &count);
-	for (i = 0; i < count; i++) {
-		mails[i].uid = first_uid++;
-		mails[i].file->last_append_uid = mails[i].uid;
-	}
-	if (dbox_map_append_assign_file_ids(ctx->append_ctx) < 0)
-		return -1;
-
-	memset(&rec, 0, sizeof(rec));
-#if 0 //FIXME
-	for (i = 0; i < count; i++) {
-		rec.map_uid = mails[i].map_uid;
-		if (rec.map_uid != 0) {
-			mail_index_update_ext(ctx->trans, mails[i].seq,
-					      ctx->mbox->dbox_ext_id,
-					      &rec, NULL);
-		}
-	}
-#endif
-	return 0;
-}
-
 int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 {
 	struct dbox_transaction_context *t =
 		(struct dbox_transaction_context *)ctx->ctx.transaction;
 	const struct mail_index_header *hdr;
-	uint32_t uid, next_uid;
+	uint32_t uid, first_map_uid, last_map_uid, next_uid;
 
 	i_assert(ctx->finished);
 
-	if (dbox_sync_begin(ctx->mbox, TRUE, &ctx->sync_ctx) < 0) {
-		ctx->failed = TRUE;
+	/* get map UIDs for messages saved to multi-files */
+	if (dbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
+					    &last_map_uid) < 0) {
 		dbox_transaction_save_rollback(ctx);
 		return -1;
 	}
 
+	/* lock the mailbox */
+	if (dbox_sync_begin(ctx->mbox, TRUE, &ctx->sync_ctx) < 0) {
+		dbox_transaction_save_rollback(ctx);
+		return -1;
+	}
+
+	/* assign UIDs for new messages */
 	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
 	uid = hdr->next_uid;
 	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
 
-	if (dbox_save_commit(ctx, uid) < 0) {
-		ctx->failed = TRUE;
-		dbox_transaction_save_rollback(ctx);
-		return -1;
+	/* if we saved any single-files, rename the files to contain UIDs */
+	if (ctx->single_count > 0) {
+		uint32_t last_uid = uid + ctx->single_count - 1;
+
+		if (dbox_map_append_assign_uids(ctx->append_ctx, uid,
+						last_uid) < 0) {
+			dbox_transaction_save_rollback(ctx);
+			return -1;
+		}
 	}
+
+	/* add map_uids for all messages saved to multi-files */
+	if (first_map_uid != 0) {
+		struct dbox_mail_index_record rec;
+		const struct dbox_save_mail *mails;
+		unsigned int i, count;
+		uint32_t next_map_uid = first_map_uid;
+
+		memset(&rec, 0, sizeof(rec));
+		mails = array_get(&ctx->mails, &count);
+		for (i = 0; i < count; i++) {
+			if (mails[i].file->single_mbox != NULL)
+				continue;
+
+			rec.map_uid = next_map_uid++;
+			mail_index_update_ext(ctx->trans, mails[i].seq,
+					      ctx->mbox->dbox_ext_id,
+					      &rec, NULL);
+		}
+		i_assert(next_map_uid == last_map_uid + 1);
+	}
+
+	dbox_map_append_commit(&ctx->append_ctx);
+	if (ctx->mail != NULL)
+		mail_free(&ctx->mail);
 
 	*t->ictx.saved_uid_validity = hdr->uid_validity;
 	*t->ictx.first_saved_uid = uid;
 	*t->ictx.last_saved_uid = next_uid - 1;
-
-	dbox_map_append_commit(&ctx->append_ctx);
-
-	if (ctx->mail != NULL)
-		mail_free(&ctx->mail);
 	return 0;
 }
 
@@ -375,8 +407,6 @@ void dbox_transaction_save_rollback(struct dbox_save_context *ctx)
 
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
-	if (ctx->cur_keywords != NULL)
-		str_free(&ctx->cur_keywords);
 	array_free(&ctx->mails);
 	i_free(ctx);
 }

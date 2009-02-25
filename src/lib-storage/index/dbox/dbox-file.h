@@ -86,15 +86,10 @@ struct dbox_file {
 	/* uid is for single-msg-per-file, file_id for multi-msgs-per-file */
 	uint32_t uid, file_id;
 
+	time_t create_time;
+	unsigned int file_version;
 	unsigned int file_header_size;
 	unsigned int msg_header_size;
-
-	unsigned int append_count;
-	uint32_t last_append_uid;
-
-	uoff_t append_offset;
-	time_t create_time;
-	uoff_t output_stream_offset;
 
 	uoff_t cur_offset;
 	uoff_t cur_physical_size;
@@ -105,6 +100,7 @@ struct dbox_file {
 	int fd;
 	struct istream *input;
 	struct ostream *output;
+	struct file_lock *lock;
 
 	/* Metadata for the currently seeked metadata block. */
 	pool_t metadata_pool;
@@ -113,7 +109,6 @@ struct dbox_file {
 
 	unsigned int alt_path:1;
 	unsigned int maildir_file:1;
-	unsigned int nonappendable:1;
 	unsigned int deleted:1;
 };
 
@@ -131,18 +126,18 @@ void dbox_files_free(struct dbox_storage *storage);
 int dbox_file_assign_id(struct dbox_file *file, uint32_t id);
 
 /* Open the file if uid or file_id is not 0, otherwise create it. Returns 1 if
-   ok, 0 if read_header=TRUE and opened file was broken, -1 if error. If file
-   is deleted, deleted_r=TRUE and 1 is returned. */
-int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
-			     bool *deleted_r);
+   ok, 0 if file header is corrupted, -1 if error. If file is deleted,
+   deleted_r=TRUE and 1 is returned. */
+int dbox_file_open_or_create(struct dbox_file *file, bool *deleted_r);
 /* Open the file's fd if it's currently closed. Assumes that the file exists. */
 int dbox_file_open_if_needed(struct dbox_file *file);
 /* Close the file handle from the file, but don't free it. */
 void dbox_file_close(struct dbox_file *file);
 
-/* Returns the current fulle path for an opened/created file. It's an error to
-   call this function for a non-opened file. */
-const char *dbox_file_get_path(struct dbox_file *file);
+/* Try to lock the dbox file. Returns 1 if ok, 0 if already locked by someone
+   else, -1 if error. */
+int dbox_file_try_lock(struct dbox_file *file);
+void dbox_file_unlock(struct dbox_file *file);
 
 /* Seek to given offset in file and return the message's input stream
    and physical size. Returns 1 if ok, 0 if file/offset is corrupted,
@@ -151,17 +146,18 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 			      uoff_t *physical_size_r,
 			      struct istream **stream_r, bool *expunged_r);
 /* Seek to next message after given offset, or to first message if offset=0.
-   If there are no more messages, physical_size_r is set to 0. Returns 1 if ok,
+   If there are no more messages, last_r is set to TRUE. Returns 1 if ok,
    0 if file/offset is corrupted, -1 if I/O error. */
 int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset,
-			uoff_t *physical_size_r);
+			uoff_t *physical_size_r, bool *last_r);
 
 /* Returns TRUE if mail_size bytes can be appended to the file. */
 bool dbox_file_can_append(struct dbox_file *file, uoff_t mail_size);
-/* Get output stream for appending a new message. Returns 1 if ok, 0 if
-   file can't be appended to (limits reached, expunges, corrupted) or
-   -1 if error. If 0 is returned, index is also updated. */
-int dbox_file_get_append_stream(struct dbox_file *file, uoff_t mail_size,
+/* Get output stream for appending a new message. last_msg_offset points to
+   the beginning of the last message in the file, or 0 for new files. Returns
+   1 if ok, 0 if file can't be appended to (old file version or corruption)
+   or -1 if error. */
+int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
 				struct ostream **stream_r);
 /* Returns the next offset for append a message. dbox_file_get_append_stream()
    must have been called for this file already at least once. */

@@ -44,7 +44,7 @@ struct dbox_storage {
 	const char *alt_dir;
 	/* paths for storage directories */
 	const char *storage_dir, *alt_storage_dir;
-	struct dbox_map *map_index;
+	struct dbox_map *map;
 
 	/* mode/gid to use for new dbox storage files */
 	mode_t create_mode;
@@ -67,7 +67,7 @@ struct dbox_mailbox {
 	struct maildir_uidlist *maildir_uidlist;
 	uint32_t highest_maildir_uid;
 
-	uint32_t dbox_ext_id, dbox_hdr_ext_id;
+	uint32_t dbox_ext_id, dbox_hdr_ext_id, guid_ext_id;
 
 	const char *path, *alt_path;
 };

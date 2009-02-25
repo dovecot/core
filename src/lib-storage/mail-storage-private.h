@@ -374,6 +374,7 @@ void mail_storage_set_internal_error(struct mail_storage *storage);
 bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 
 const char *mail_generate_guid_string(void);
+void mail_generate_guid_128(uint8_t guid[16]);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
 

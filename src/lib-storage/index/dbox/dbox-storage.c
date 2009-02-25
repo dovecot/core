@@ -133,15 +133,6 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 		return -1;
 	}
 
-	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
-		return -1;
-	storage->list_module_ctx.super = _storage->list->v;
-	storage->alt_dir = p_strdup(_storage->pool, alt_dir);
-	_storage->list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
-	_storage->list->v.delete_mailbox = dbox_list_delete_mailbox;
-	_storage->list->v.rename_mailbox = dbox_list_rename_mailbox;
-	_storage->list->v.rename_mailbox_pre = dbox_list_rename_mailbox_pre;
-
 	value = getenv("DBOX_ROTATE_SIZE");
 	if (value != NULL)
 		storage->rotate_size = (uoff_t)strtoul(value, NULL, 10) * 1024;
@@ -159,12 +150,31 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 		storage->rotate_days = (unsigned int)strtoul(value, NULL, 10);
 	else
 		storage->rotate_days = DBOX_DEFAULT_ROTATE_DAYS;
-
 	value = getenv("DBOX_MAX_OPEN_FILES");
 	if (value != NULL)
 		storage->max_open_files = (unsigned int)strtoul(value, NULL, 10);
 	else
 		storage->max_open_files = DBOX_DEFAULT_MAX_OPEN_FILES;
+
+	if (storage->max_open_files <= 1) {
+		/* we store file offsets in a 32bit integer. */
+		*error_r = "dbox_max_open_files must be at least 2";
+		return -1;
+	}
+	if (storage->rotate_size > (uint32_t)-1) {
+		/* we store file offsets in a 32bit integer. */
+		*error_r = "dbox_rotate_size must be less than 4 GB";
+		return -1;
+	}
+
+	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
+		return -1;
+	storage->list_module_ctx.super = _storage->list->v;
+	storage->alt_dir = p_strdup(_storage->pool, alt_dir);
+	_storage->list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
+	_storage->list->v.delete_mailbox = dbox_list_delete_mailbox;
+	_storage->list->v.rename_mailbox = dbox_list_rename_mailbox;
+	_storage->list->v.rename_mailbox_pre = dbox_list_rename_mailbox_pre;
 
 	MODULE_CONTEXT_SET_FULL(_storage->list, dbox_mailbox_list_module,
 				storage, &storage->list_module_ctx);
@@ -181,7 +191,7 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 					       "/"DBOX_GLOBAL_DIR_NAME, NULL);
 	i_array_init(&storage->open_files, I_MIN(storage->max_open_files, 128));
 
-	storage->map_index = dbox_map_init(storage);
+	storage->map = dbox_map_init(storage);
 	mailbox_list_get_permissions(storage->storage.list,
 				     &storage->create_mode,
 				     &storage->create_gid);
@@ -193,7 +203,7 @@ static void dbox_destroy(struct mail_storage *_storage)
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 
 	dbox_files_free(storage);
-	dbox_map_deinit(&storage->map_index);
+	dbox_map_deinit(&storage->map);
 	array_free(&storage->open_files);
 	index_storage_destroy(_storage);
 }
@@ -270,6 +280,8 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->dbox_hdr_ext_id =
 		mail_index_ext_register(index, "dbox-hdr",
 					sizeof(struct dbox_index_header), 0, 0);
+	mbox->guid_ext_id =
+		mail_index_ext_register(index, "guid", 0, 16, 1);
 
 	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	mbox->maildir_uidlist = maildir_uidlist_init_readonly(&mbox->ibox);

@@ -391,28 +391,37 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
+enum mail_index_open_flags
+index_storage_get_index_open_flags(struct mail_storage *storage)
+{
+	enum mail_index_open_flags flags = 0;
+
+#ifndef MMAP_CONFLICTS_WRITE
+	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
+#endif
+		flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
+	if ((storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0)
+		flags |= MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL;
+	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX) != 0)
+		flags |= MAIL_INDEX_OPEN_FLAG_NFS_FLUSH;
+	if ((storage->flags & MAIL_STORAGE_FLAG_FSYNC_DISABLE) != 0)
+		flags |= MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE;
+	return flags;
+}
+
 void index_storage_mailbox_open(struct index_mailbox *ibox)
 {
 	struct mail_storage *storage = ibox->storage;
-	enum mail_index_open_flags index_flags = 0;
+	enum mail_index_open_flags index_flags;
 	int ret;
 
 	i_assert(!ibox->box.opened);
 
+	index_flags = index_storage_get_index_open_flags(storage);
 	if (!ibox->move_to_memory)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
-#ifndef MMAP_CONFLICTS_WRITE
-	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
-#endif
-		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
-	if ((storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL;
-	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX) != 0)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_NFS_FLUSH;
-	if ((storage->flags & MAIL_STORAGE_FLAG_FSYNC_DISABLE) != 0) {
-		index_flags |= MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE;
+	if ((index_flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0)
 		ibox->fsync_disable = TRUE;
-	}
 
 	ret = mail_index_open(ibox->index, index_flags, storage->lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {

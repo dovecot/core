@@ -7,6 +7,7 @@
 #include "hostpid.h"
 #include "istream.h"
 #include "ostream.h"
+#include "file-lock.h"
 #include "mkdir-parents.h"
 #include "fdatasync-path.h"
 #include "str.h"
@@ -17,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <fcntl.h>
 
 static int dbox_file_metadata_skip_header(struct dbox_file *file);
@@ -35,18 +37,17 @@ static char *dbox_generate_tmp_filename(void)
 void dbox_file_set_syscall_error(struct dbox_file *file, const char *function)
 {
 	mail_storage_set_critical(&file->storage->storage,
-				  "%s(%s) failed: %m", function,
-				  dbox_file_get_path(file));
+				  "%s failed for file %s: %m",
+				  function, file->current_path);
 }
 
-static void
-dbox_file_set_corrupted(struct dbox_file *file, const char *reason)
+static void dbox_file_set_corrupted(struct dbox_file *file, const char *reason)
 {
 	mail_storage_set_critical(&file->storage->storage,
-				  "%s corrupted: %s", dbox_file_get_path(file),
-				  reason);
+		"Corrupted dbox file %s (around offset=%"PRIuUOFF_T"): %s",
+		file->current_path,
+		file->input == NULL ? 0 : file->input->v_offset, reason);
 }
-
 
 static struct dbox_file *
 dbox_find_and_move_open_file(struct dbox_storage *storage, uint32_t file_id)
@@ -188,6 +189,7 @@ dbox_file_init_multi(struct dbox_storage *storage, uint32_t file_id)
 	file = i_new(struct dbox_file, 1);
 	file->refcount = 1;
 	file->storage = storage;
+	file->file_id = file_id;
 	file->fd = -1;
 	file->fname = file_id == 0 ? dbox_generate_tmp_filename() :
 		i_strdup_printf(DBOX_MAIL_FILE_MULTI_FORMAT, file_id);
@@ -209,7 +211,7 @@ int dbox_file_assign_id(struct dbox_file *file, uint32_t id)
 	i_assert(file->uid == 0 && file->file_id == 0);
 	i_assert(id != 0);
 
-	old_path = dbox_file_get_path(file);
+	old_path = file->current_path;
 	if (file->single_mbox != NULL) {
 		new_fname = dbox_file_uid_get_fname(file->single_mbox,
 						    id, &maildir);
@@ -245,7 +247,7 @@ int dbox_file_assign_id(struct dbox_file *file, uint32_t id)
 void dbox_file_unref(struct dbox_file **_file)
 {
 	struct dbox_file *file = *_file;
-	struct dbox_file *const *files;
+	struct dbox_file *const *files, *oldest_file;
 	unsigned int i, count;
 
 	*_file = NULL;
@@ -264,63 +266,32 @@ void dbox_file_unref(struct dbox_file **_file)
 			return;
 		}
 
+		/* close the oldest file with refcount=0 */
 		for (i = 0; i < count; i++) {
-			if (files[i] == file)
+			if (files[i]->refcount == 0)
 				break;
 		}
-		i_assert(i != count);
+		oldest_file = files[i];
 		array_delete(&file->storage->open_files, i, 1);
+		if (oldest_file != file) {
+			dbox_file_free(oldest_file);
+			return;
+		}
+		/* have to close ourself */
 	}
 
 	dbox_file_free(file);
 }
 
-static time_t day_begin_stamp(unsigned int days)
-{
-	struct tm tm;
-	time_t stamp;
-
-	if (days == 0)
-		return 0;
-
-	/* get beginning of today */
-	tm = *localtime(&ioloop_time);
-	tm.tm_hour = 0;
-	tm.tm_min = 0;
-	tm.tm_sec = 0;
-	stamp = mktime(&tm);
-	if (stamp == (time_t)-1)
-		i_panic("mktime(today) failed");
-
-	return stamp - (3600*24 * (days-1));
-}
-
-bool dbox_file_can_append(struct dbox_file *file, uoff_t mail_size)
-{
-	if (file->nonappendable)
-		return FALSE;
-
-	if (file->append_offset == 0) {
-		/* messages have been expunged */
-		return FALSE;
-	}
-
-	if (file->append_offset < file->storage->rotate_min_size ||
-	    file->append_offset == file->file_header_size)
-		return TRUE;
-	if (file->append_offset + mail_size >= file->storage->rotate_size)
-		return FALSE;
-	return file->create_time >= day_begin_stamp(file->storage->rotate_days);
-}
-
 static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 {
 	const char *const *tmp, *value;
-	unsigned int pos, version;
+	unsigned int pos;
 	enum dbox_header_key key;
 
-	version = *line - '0';
-	if (line[1] != ' ' || (version != 1 && version != DBOX_VERSION)) {
+	file->file_version = *line - '0';
+	if (!i_isdigit(line[0]) || line[1] != ' ' ||
+	    (file->file_version != 1 && file->file_version != DBOX_VERSION)) {
 		dbox_file_set_corrupted(file, "Invalid dbox version");
 		return -1;
 	}
@@ -350,9 +321,6 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 		dbox_file_set_corrupted(file, "Missing message header size");
 		return -1;
 	}
-
-	if (!file->nonappendable)
-		file->nonappendable = !dbox_file_can_append(file, 0);
 	return 0;
 }
 
@@ -364,10 +332,13 @@ static int dbox_file_read_header(struct dbox_file *file)
 	i_stream_seek(file->input, 0);
 	line = i_stream_read_next_line(file->input);
 	if (line == NULL) {
-		if (file->input->stream_errno == 0)
+		if (file->input->stream_errno == 0) {
+			dbox_file_set_corrupted(file,
+				"EOF while reading file header");
 			return 0;
+		}
 
-		dbox_file_set_syscall_error(file, "read");
+		dbox_file_set_syscall_error(file, "read()");
 		return -1;
 	}
 	file->file_header_size = file->input->v_offset;
@@ -406,8 +377,7 @@ static int dbox_file_open_fd(struct dbox_file *file)
 	return 1;
 }
 
-static int dbox_file_open(struct dbox_file *file, bool read_header,
-			  bool *deleted_r)
+static int dbox_file_open(struct dbox_file *file, bool *deleted_r)
 {
 	int ret;
 
@@ -428,7 +398,7 @@ static int dbox_file_open(struct dbox_file *file, bool read_header,
 	}
 
 	file->input = i_stream_create_fd(file->fd, MAIL_READ_BLOCK_SIZE, FALSE);
-	return !read_header || file->maildir_file ? 1 :
+	return file->maildir_file ? 1 :
 		dbox_file_read_header(file);
 }
 
@@ -473,17 +443,15 @@ static int dbox_file_create(struct dbox_file *file)
 
 	file->file_header_size = str_len(hdr);
 	file->msg_header_size = sizeof(struct dbox_message_header);
-	file->append_offset = str_len(hdr);
 
 	if (o_stream_send(file->output, str_data(hdr), str_len(hdr)) < 0) {
-		dbox_file_set_syscall_error(file, "write");
+		dbox_file_set_syscall_error(file, "write()");
 		return -1;
 	}
 	return 0;
 }
 
-int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
-			     bool *deleted_r)
+int dbox_file_open_or_create(struct dbox_file *file, bool *deleted_r)
 {
 	int ret;
 
@@ -497,7 +465,7 @@ int dbox_file_open_or_create(struct dbox_file *file, bool read_header,
 	} else if (file->input != NULL)
 		return 1;
 	else
-		return dbox_file_open(file, read_header, deleted_r);
+		return dbox_file_open(file, deleted_r);
 }
 
 int dbox_file_open_if_needed(struct dbox_file *file)
@@ -521,20 +489,32 @@ int dbox_file_open_if_needed(struct dbox_file *file)
 
 void dbox_file_close(struct dbox_file *file)
 {
+	i_assert(file->lock == NULL);
+
 	if (file->input != NULL)
 		i_stream_unref(&file->input);
 	if (file->output != NULL)
 		o_stream_unref(&file->output);
 	if (file->fd != -1) {
 		if (close(file->fd) < 0)
-			dbox_file_set_syscall_error(file, "close");
+			dbox_file_set_syscall_error(file, "close()");
 		file->fd = -1;
 	}
 }
 
-const char *dbox_file_get_path(struct dbox_file *file)
+int dbox_file_try_lock(struct dbox_file *file)
 {
-	return file->current_path;
+	i_assert(file->fd != -1);
+
+	return file_try_lock(file->fd, file->current_path, F_WRLCK,
+			     FILE_LOCK_METHOD_FCNTL, &file->lock);
+
+}
+
+void dbox_file_unlock(struct dbox_file *file)
+{
+	if (file->lock != NULL)
+		file_unlock(&file->lock);
 }
 
 static int
@@ -548,7 +528,7 @@ dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 
 	if (file->maildir_file) {
 		if (fstat(file->fd, &st) < 0) {
-			dbox_file_set_syscall_error(file, "fstat");
+			dbox_file_set_syscall_error(file, "fstat()");
 			return -1;
 		}
 		*physical_size_r = st.st_size;
@@ -559,18 +539,25 @@ dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 				 file->msg_header_size - 1);
 	if (ret <= 0) {
 		if (file->input->stream_errno == 0) {
-			/* EOF, broken offset */
+			/* EOF, broken offset or file truncated */
+			dbox_file_set_corrupted(file, t_strdup_printf(
+				"EOF reading msg header "
+				"(got %"PRIuSIZE_T"/%u bytes)",
+				size, file->msg_header_size));
 			return 0;
 		}
-		dbox_file_set_syscall_error(file, "read");
+		dbox_file_set_syscall_error(file, "read()");
 		return -1;
 	}
-	if (data[file->msg_header_size-1] != '\n')
+	if (data[file->msg_header_size-1] != '\n') {
+		dbox_file_set_corrupted(file, "msg header doesn't end with LF");
 		return 0;
+	}
 
 	memcpy(&hdr, data, I_MIN(sizeof(hdr), file->msg_header_size));
 	if (memcmp(hdr.magic_pre, DBOX_MAGIC_PRE, sizeof(hdr.magic_pre)) != 0) {
 		/* probably broken offset */
+		dbox_file_set_corrupted(file, "bad magic value");
 		return 0;
 	}
 
@@ -588,7 +575,7 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 	*expunged_r = FALSE;
 
 	if (file->input == NULL) {
-		if ((ret = dbox_file_open(file, TRUE, expunged_r)) <= 0 ||
+		if ((ret = dbox_file_open(file, expunged_r)) <= 0 ||
 		    *expunged_r)
 			return ret;
 	}
@@ -603,8 +590,8 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 		if (ret <= 0)
 			return ret;
 	}
+	i_stream_seek(file->input, offset + file->msg_header_size);
 	if (stream_r != NULL) {
-		i_stream_seek(file->input, offset + file->msg_header_size);
 		*stream_r = i_stream_create_limit(file->input,
 						  file->cur_physical_size);
 	}
@@ -641,12 +628,14 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset,
 }
 
 int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset,
-			uoff_t *physical_size_r)
+			uoff_t *physical_size_r, bool *last_r)
 {
 	uoff_t size;
 	bool first = *offset == 0;
 	bool deleted;
 	int ret;
+
+	*last_r = FALSE;
 
 	ret = dbox_file_get_mail_stream(file, *offset, &size, NULL,
 					&deleted);
@@ -654,7 +643,7 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset,
 		return ret;
 
 	if (deleted) {
-		*physical_size_r = 0;
+		*last_r = TRUE;
 		return 1;
 	}
 	if (first) {
@@ -666,51 +655,63 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset,
 	return dbox_file_seek_next_at_metadata(file, offset, physical_size_r);
 }
 
-static int dbox_file_seek_append_pos(struct dbox_file *file, uoff_t mail_size)
+static int
+dbox_file_seek_append_pos(struct dbox_file *file, uoff_t last_msg_offset)
 {
+	uoff_t offset, size;
+	bool last;
 	int ret;
 
 	if ((ret = dbox_file_read_header(file)) <= 0)
 		return ret;
 
-	if (file->append_offset == 0 ||
-	    file->msg_header_size != sizeof(struct dbox_message_header) ||
-	    !dbox_file_can_append(file, mail_size)) {
-		/* can't append */
+	if (file->file_version != DBOX_VERSION ||
+	    file->msg_header_size != sizeof(struct dbox_message_header)) {
+		/* created by an incompatible version, can't append */
 		return 0;
 	}
 
-	file->output = o_stream_create_fd_file(file->fd, (uoff_t)-2, FALSE);
-	o_stream_seek(file->output, file->append_offset);
+	offset = last_msg_offset;
+	ret = dbox_file_seek_next(file, &offset, &size, &last);
+	if (ret <= 0)
+		return ret;
+	if (!last) {
+		/* not end of file? previous write probably crashed. */
+		if (ftruncate(file->fd, offset) < 0) {
+			dbox_file_set_syscall_error(file, "ftruncate()");
+			return -1;
+		}
+		i_stream_sync(file->input);
+	}
+
+	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
+	o_stream_seek(file->output, offset);
 	return 1;
 }
 
-static int
-dbox_file_get_append_stream_int(struct dbox_file *file, uoff_t mail_size,
+int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
 				struct ostream **stream_r)
 {
 	bool deleted;
 	int ret;
 
 	if (file->fd == -1) {
+		/* creating a new file */
 		i_assert(file->output == NULL);
-		if ((ret = dbox_file_open_or_create(file, FALSE,
-						    &deleted)) <= 0 || deleted)
-			return ret;
-	}
 
-	if (file->output == NULL) {
-		ret = dbox_file_seek_append_pos(file, mail_size);
+		ret = dbox_file_open_or_create(file, &deleted);
 		if (ret <= 0)
 			return ret;
-	} else {
-		if (!dbox_file_can_append(file, mail_size))
+		if (deleted)
 			return 0;
 	}
 
-	if (file->output->offset > (uint32_t)-1) {
-		/* we use 32bit offsets to messages */
-		return 0;
+	if (file->output == NULL) {
+		i_assert(file->lock != NULL || last_msg_offset == 0);
+
+		ret = dbox_file_seek_append_pos(file, last_msg_offset);
+		if (ret <= 0)
+			return ret;
 	}
 
 	o_stream_ref(file->output);
@@ -718,51 +719,27 @@ dbox_file_get_append_stream_int(struct dbox_file *file, uoff_t mail_size,
 	return 1;
 }
 
-int dbox_file_get_append_stream(struct dbox_file *file, uoff_t mail_size,
-				struct ostream **stream_r)
-{
-	int ret;
-
-	if (file->append_count == 0) {
-		if (file->nonappendable)
-			return 0;
-	} else {
-		if (!dbox_file_can_append(file, mail_size))
-			return 0;
-	}
-
-	ret = dbox_file_get_append_stream_int(file, mail_size, stream_r);
-	if (ret == 0)
-		file->nonappendable = TRUE;
-	return ret;
-}
-
 uoff_t dbox_file_get_next_append_offset(struct dbox_file *file)
 {
-	i_assert(file->output_stream_offset != 0);
-	i_assert(file->output == NULL ||
-		 file->output_stream_offset == file->output->offset);
+	i_assert(file->output != NULL);
 
-	return file->output_stream_offset;
+	return file->output->offset;
 }
 
 void dbox_file_cancel_append(struct dbox_file *file, uoff_t append_offset)
 {
-	if (ftruncate(file->fd, append_offset) < 0) {
-		dbox_file_set_syscall_error(file, "ftruncate");
-		file->append_offset = 0;
-		file->nonappendable = TRUE;
-	}
+	if (ftruncate(file->fd, append_offset) < 0)
+		dbox_file_set_syscall_error(file, "ftruncate()");
+	if (file->input != NULL)
+		i_stream_sync(file->input);
 
 	o_stream_seek(file->output, append_offset);
-	file->output_stream_offset = append_offset;
 }
 
 void dbox_file_finish_append(struct dbox_file *file)
 {
-	file->output_stream_offset = file->output->offset;
-	file->append_offset = file->output->offset;
-	file->append_count++;
+	if (file->input != NULL)
+		i_stream_sync(file->input);
 }
 
 static uoff_t
@@ -793,7 +770,7 @@ static int dbox_file_metadata_skip_header(struct dbox_file *file)
 			/* EOF, broken offset */
 			return 0;
 		}
-		dbox_file_set_syscall_error(file, "read");
+		dbox_file_set_syscall_error(file, "read()");
 		return -1;
 	}
 	memcpy(&metadata_hdr, data, sizeof(metadata_hdr));
@@ -830,15 +807,12 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 	i_assert(!file->maildir_file); /* previous check should catch this */
 
 	if (file->input == NULL) {
-		if ((ret = dbox_file_open(file, TRUE, &deleted)) <= 0)
+		if ((ret = dbox_file_open(file, &deleted)) <= 0)
 			return ret;
 		if (deleted) {
 			*expunged_r = TRUE;
 			return 1;
 		}
-	} else {
-		/* make sure to flush any cached data */
-		i_stream_sync(file->input);
 	}
 
 	i_stream_seek(file->input, metadata_offset);
@@ -949,13 +923,15 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 	out_fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	if (out_fd == -1 && errno == ENOENT) {
 		if (mkdir_parents(dest_dir, 0700) < 0 && errno != EEXIST) {
-			i_error("mkdir_parents(%s) failed: %m", dest_dir);
+			mail_storage_set_critical(&file->storage->storage,
+				"mkdir_parents(%s) failed: %m", dest_dir);
 			return -1;
 		}
 		out_fd = open(temp_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	}
 	if (out_fd == -1) {
-		i_error("open(%s, O_CREAT) failed: %m", temp_path);
+		mail_storage_set_critical(&file->storage->storage,
+			"open(%s, O_CREAT) failed: %m", temp_path);
 		return -1;
 	}
 	output = o_stream_create_fd_file(out_fd, 0, FALSE);
@@ -965,14 +941,16 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 		ret = o_stream_flush(output);
 	if (output->stream_errno != 0) {
 		errno = output->stream_errno;
-		i_error("write(%s) failed: %m", temp_path);
+		mail_storage_set_critical(&file->storage->storage,
+					  "write(%s) failed: %m", temp_path);
 		ret = -1;
 	} else if (file->input->stream_errno != 0) {
 		errno = file->input->stream_errno;
-		i_error("read(%s) failed: %m", file->current_path);
+		dbox_file_set_syscall_error(file, "ftruncate()");
 		ret = -1;
 	} else if (ret < 0) {
-		i_error("o_stream_send_istream(%s, %s) "
+		mail_storage_set_critical(&file->storage->storage,
+			"o_stream_send_istream(%s, %s) "
 			"failed with unknown error",
 			temp_path, file->current_path);
 	}
@@ -981,12 +959,14 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 	if ((file->storage->storage.flags &
 	     MAIL_STORAGE_FLAG_FSYNC_DISABLE) == 0 && ret == 0) {
 		if (fsync(out_fd) < 0) {
-			i_error("fsync(%s) failed: %m", temp_path);
+			mail_storage_set_critical(&file->storage->storage,
+				"fsync(%s) failed: %m", temp_path);
 			ret = -1;
 		}
 	}
 	if (close(out_fd) < 0) {
-		i_error("close(%s) failed: %m", temp_path);
+		mail_storage_set_critical(&file->storage->storage,
+			"close(%s) failed: %m", temp_path);
 		ret = -1;
 	}
 	if (ret < 0) {
@@ -999,20 +979,22 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 	   its contents should be the same (except for maybe older metadata) */
 	dest_path = t_strdup_printf("%s/%s", dest_dir, file->fname);
 	if (rename(temp_path, dest_path) < 0) {
-		i_error("rename(%s, %s) failed: %m", temp_path, dest_path);
+		mail_storage_set_critical(&file->storage->storage,
+			"rename(%s, %s) failed: %m", temp_path, dest_path);
 		(void)unlink(temp_path);
 		return -1;
 	}
 	if ((file->storage->storage.flags &
 	     MAIL_STORAGE_FLAG_FSYNC_DISABLE) == 0) {
 		if (fdatasync_path(dest_dir) < 0) {
-			i_error("fdatasync(%s) failed: %m", dest_dir);
+			mail_storage_set_critical(&file->storage->storage,
+				"fdatasync(%s) failed: %m", dest_dir);
 			(void)unlink(dest_path);
 			return -1;
 		}
 	}
 	if (unlink(file->current_path) < 0) {
-		i_error("unlink(%s) failed: %m", file->current_path);
+		dbox_file_set_syscall_error(file, "unlink()");
 		if (errno == EACCES) {
 			/* configuration problem? revert the write */
 			(void)unlink(dest_path);
@@ -1024,8 +1006,9 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 
 	/* file was successfully moved - reopen it */
 	dbox_file_close(file);
-	if (dbox_file_open(file, TRUE, &deleted) <= 0) {
-		i_error("dbox_file_move(%s): reopening file failed", dest_path);
+	if (dbox_file_open(file, &deleted) <= 0) {
+		mail_storage_set_critical(&file->storage->storage,
+			"dbox_file_move(%s): reopening file failed", dest_path);
 		return -1;
 	}
 	return 0;

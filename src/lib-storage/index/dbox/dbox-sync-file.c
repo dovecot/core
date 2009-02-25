@@ -134,7 +134,7 @@ dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
 		ret = dbox_sync_file_unlink(file);
 	} else {
 		if (ftruncate(file->fd, first_offset) < 0) {
-			dbox_file_set_syscall_error(file, "ftruncate");
+			dbox_file_set_syscall_error(file, "ftruncate()");
 			ret = -1;
 		}
 	}
@@ -292,7 +292,7 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 			ret = 1;
 		}
 	} else {
-		ret = dbox_file_open_or_create(file, TRUE, &deleted);
+		ret = dbox_file_open_or_create(file, &deleted);
 		if (ret > 0 && !deleted) {
 			dbox_sync_file_move_if_needed(file, entry);
 			if (array_is_created(&entry->expunges))

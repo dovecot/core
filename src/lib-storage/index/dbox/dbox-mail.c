@@ -62,17 +62,22 @@ static int dbox_mail_open(struct dbox_mail *mail,
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
 	struct mail *_mail = &mail->imail.mail.mail;
 	uint32_t map_uid, file_id;
+	int ret;
 
 	if (mail->open_file == NULL) {
 		map_uid = dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq);
 		if (map_uid == 0) {
 			mail->open_file =
 				dbox_file_init_single(mbox, _mail->uid);
-		} else if (!dbox_map_lookup(mbox->storage->map_index, map_uid,
-					    &file_id, &mail->offset)) {
-			mail_set_expunged(_mail);
-			return -1;
 		} else {
+			ret = dbox_map_lookup(mbox->storage->map, map_uid,
+					      &file_id, &mail->offset);
+			if (ret <= 0) {
+				// FIXME: ret=0 case - should we resync?
+				if (ret == 0)
+					mail_set_expunged(_mail);
+				return -1;
+			}
 			mail->open_file =
 				dbox_file_init_multi(mbox->storage, file_id);
 		}
@@ -86,6 +91,7 @@ static int dbox_mail_open(struct dbox_mail *mail,
 static int
 dbox_mail_metadata_seek(struct dbox_mail *mail, struct dbox_file **file_r)
 {
+	struct mail *_mail = &mail->imail.mail.mail;
 	uoff_t offset;
 	bool expunged;
 	int ret;
@@ -98,10 +104,14 @@ dbox_mail_metadata_seek(struct dbox_mail *mail, struct dbox_file **file_r)
 		if (ret < 0)
 			return -1;
 		/* FIXME */
+		mail_storage_set_critical(mail->imail.ibox->storage,
+			"Broken metadata in dbox file %s offset %"PRIuUOFF_T
+			" (uid=%u)",
+			(*file_r)->current_path, offset, _mail->uid);
 		return -1;
 	}
 	if (expunged) {
-		mail_set_expunged(&mail->imail.mail.mail);
+		mail_set_expunged(_mail);
 		return -1;
 	}
 	return 0;
@@ -278,8 +288,10 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			if (ret > 0)
 				i_stream_unref(&input);
 			mail_storage_set_critical(_mail->box->storage,
-				"broken pointer to dbox file %s",
-				mail->open_file->current_path);
+				"broken pointer to dbox file %s "
+				"offset %"PRIuUOFF_T" (uid=%u)",
+				mail->open_file->current_path,
+				offset, _mail->uid);
 			return -1;
 		}
 		data->physical_size = size;

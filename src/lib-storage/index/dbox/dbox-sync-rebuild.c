@@ -154,36 +154,25 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 {
 	uint32_t seq;
 	uoff_t physical_size;
-	const char *path;
-	bool expunged;
+	bool expunged, last;
 	int ret;
 
-	path = dbox_file_get_path(file);
-	ret = dbox_file_seek_next(file, offset, &physical_size);
+	ret = dbox_file_seek_next(file, offset, &physical_size, &last);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
 
-#if 0 //FIXME: needed?
-		if (physical_size == 0 && file->uid != 0) {
-			/* EOF */
-			return 0;
-		}
-#endif
-
-		i_warning("%s: Ignoring broken file (header)", path);
+		i_warning("%s: Ignoring broken file (header)",
+			  file->current_path);
 		return 0;
-	}
-	if (file->maildir_file) {
-		file->append_count = 1;
-		file->last_append_uid = file->uid;
 	}
 
 	ret = dbox_file_metadata_seek_mail_offset(file, *offset, &expunged);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
-		i_warning("%s: Ignoring broken file (metadata)", path);
+		i_warning("%s: Ignoring broken file (metadata)",
+			  file->current_path);
 		return 0;
 	}
 	if (!expunged) {
@@ -339,6 +328,9 @@ static int dbox_sync_maildir_finish(struct dbox_sync_rebuild_context *ctx)
 	uint32_t uid, next_uid;
 	uoff_t offset;
 	int ret = 0;
+
+	if (ctx->maildir_sync_ctx == NULL)
+		return 0;
 
 	/* we'll need the uidlist to contain the latest filenames.
 	   since there's no easy way to figure out if they changed, just

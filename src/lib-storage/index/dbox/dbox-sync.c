@@ -41,6 +41,7 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 	struct dbox_sync_file_entry *entry, lookup_entry;
 	uint32_t map_uid;
 	uoff_t offset;
+	int ret;
 
 	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE ||
 		 sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
@@ -50,9 +51,10 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 	if (map_uid == 0)
 		mail_index_lookup_uid(ctx->sync_view, seq, &lookup_entry.uid);
 	else {
-		if (!dbox_map_lookup(ctx->mbox->storage->map_index,
-				     map_uid, &lookup_entry.file_id, &offset)) {
-			// FIXME: now what?
+		ret = dbox_map_lookup(ctx->mbox->storage->map, map_uid,
+				      &lookup_entry.file_id, &offset);
+		if (ret <= 0) {
+			// FIXME: ret=0 case - should we resync?
 			return -1;
 		}
 	}

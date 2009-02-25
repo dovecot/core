@@ -27,14 +27,14 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 	case DBOX_METADATA_SAVE_TIME:
 		if (file->fd != -1) {
 			if (fstat(file->fd, &st) < 0) {
-				dbox_file_set_syscall_error(file, "fstat");
+				dbox_file_set_syscall_error(file, "fstat()");
 				return NULL;
 			}
 		} else {
-			if (stat(dbox_file_get_path(file), &st) < 0) {
+			if (stat(file->current_path, &st) < 0) {
 				if (errno == ENOENT)
 					return NULL;
-				dbox_file_set_syscall_error(file, "stat");
+				dbox_file_set_syscall_error(file, "stat()");
 				return NULL;
 			}
 		}

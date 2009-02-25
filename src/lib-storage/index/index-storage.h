@@ -99,6 +99,8 @@ void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 void index_storage_destroy(struct mail_storage *storage ATTR_UNUSED);
 
+enum mail_index_open_flags
+index_storage_get_index_open_flags(struct mail_storage *storage);
 void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 				enum mailbox_open_flags flags,
 				bool move_to_memory);
