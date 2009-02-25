@@ -111,6 +111,7 @@ struct mail_vfuncs raw_mail_vfuncs = {
 	index_mail_free,
 	index_mail_set_seq,
 	index_mail_set_uid,
+	index_mail_set_uid_cache_updates,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

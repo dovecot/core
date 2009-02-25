@@ -228,6 +228,7 @@ struct mail_vfuncs {
 	void (*free)(struct mail *mail);
 	void (*set_seq)(struct mail *mail, uint32_t seq);
 	bool (*set_uid)(struct mail *mail, uint32_t uid);
+	void (*set_uid_cache_updates)(struct mail *mail, bool set);
 
 	enum mail_flags (*get_flags)(struct mail *mail);
 	const char *const *(*get_keywords)(struct mail *mail);

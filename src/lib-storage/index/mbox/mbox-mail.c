@@ -342,6 +342,7 @@ struct mail_vfuncs mbox_mail_vfuncs = {
 	index_mail_free,
 	mbox_mail_set_seq,
 	mbox_mail_set_uid,
+	index_mail_set_uid_cache_updates,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,
