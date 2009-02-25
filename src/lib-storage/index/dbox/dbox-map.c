@@ -222,9 +222,8 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 	struct dbox_storage *storage = map->storage;
 	const struct mail_index_header *hdr;
 	struct dbox_file *file;
-	struct stat st;
 	uint32_t seq, tmp_file_id;
-	uoff_t tmp_offset, tmp_size;
+	uoff_t tmp_offset, tmp_size, new_size;
 	bool deleted, file_too_old = FALSE;
 	int ret;
 
@@ -237,14 +236,9 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 	if (deleted)
 		return TRUE;
 
-	if (fstat(file->fd, &st) < 0) {
-		mail_storage_set_critical(&storage->storage,
-			"fstat(%s) failed: %m", file->current_path);
-	} else if (file->create_time < stamp)
+	if (file->create_time < stamp)
 		file_too_old = TRUE;
-	else if (st.st_size + mail_size > storage->rotate_size) {
-		/* file too large */
-	} else if ((ret = dbox_file_try_lock(file)) <= 0) {
+	else if ((ret = dbox_file_try_lock(file)) <= 0) {
 		/* locking failed */
 		*retry_later_r = ret == 0;
 	} else if (dbox_map_refresh(map) == 0) {
@@ -263,8 +257,9 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 			}
 		}
 
+		new_size = last_msg_offset + last_msg_size + mail_size;
 		if (seq > hdr->messages_count &&
-		    last_msg_offset + last_msg_size > storage->rotate_size &&
+		    new_size <= storage->rotate_size &&
 		    dbox_file_get_append_stream(file, last_msg_offset,
 						last_msg_size, output_r) > 0) {
 			/* success */
@@ -444,7 +439,7 @@ int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
 	return 0;
 }
 
-void dbox_map_append_finish_mail(struct dbox_map_append_context *ctx)
+void dbox_map_append_finish_multi_mail(struct dbox_map_append_context *ctx)
 {
 	struct dbox_map_append *appends;
 	unsigned int count;

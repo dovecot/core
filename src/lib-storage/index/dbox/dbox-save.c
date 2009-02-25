@@ -272,10 +272,11 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 		return -1;
 	}
 
-	dbox_map_append_finish_mail(ctx->append_ctx);
 	if (save_mail->file->single_mbox != NULL) {
 		dbox_file_close(save_mail->file);
 		ctx->single_count++;
+	} else {
+		dbox_map_append_finish_multi_mail(ctx->append_ctx);
 	}
 	return 0;
 }
