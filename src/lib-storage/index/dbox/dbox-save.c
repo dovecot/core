@@ -78,13 +78,11 @@ int dbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	struct dbox_save_mail *save_mail;
 	struct istream *crlf_input;
 	enum mail_flags save_flags;
-	const struct stat *st;
 	uoff_t mail_size;
 
 	/* get the size of the mail to be saved, if possible */
-	st = i_stream_stat(input, TRUE);
-	mail_size = st == NULL || st->st_size == -1 ? 0 : st->st_size;
-
+	if (i_stream_get_size(input, TRUE, &mail_size) <= 0)
+		mail_size = 0;
 	if (dbox_map_append_next(ctx->append_ctx, mail_size,
 				 &ctx->cur_file, &ctx->cur_output) < 0) {
 		ctx->failed = TRUE;
@@ -217,26 +215,24 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 	o_stream_send(ctx->cur_output, str_data(str), str_len(str));
 }
 
-static int dbox_save_mail_write_header(struct dbox_save_mail *mail)
+static int dbox_save_mail_write_metadata(struct dbox_save_context *ctx,
+					 struct dbox_save_mail *mail)
 {
 	struct dbox_message_header dbox_msg_hdr;
 
 	i_assert(mail->file->msg_header_size == sizeof(dbox_msg_hdr));
 
+	dbox_save_write_metadata(ctx);
 	dbox_msg_header_fill(&dbox_msg_hdr, mail->message_size);
-	if (pwrite_full(mail->file->fd, &dbox_msg_hdr,
-			sizeof(dbox_msg_hdr), mail->append_offset) < 0) {
-		dbox_file_set_syscall_error(mail->file, "write()");
+	if (o_stream_pwrite(ctx->cur_output, &dbox_msg_hdr,
+			    sizeof(dbox_msg_hdr), mail->append_offset) < 0) {
+		dbox_file_set_syscall_error(mail->file, "pwrite()");
 		return -1;
 	}
-	/* we're done writing to single-files now, so fsync them here. */
-	if ((mail->file->storage->storage.flags &
-	     MAIL_STORAGE_FLAG_FSYNC_DISABLE) == 0 &&
-	    mail->file->single_mbox != NULL) {
-		if (fdatasync(mail->file->fd) < 0) {
-			dbox_file_set_syscall_error(mail->file, "fdatasync()");
+	if (mail->file->single_mbox != NULL) {
+		/* we're done writing to single-files now */
+		if (dbox_file_flush_append(mail->file) < 0)
 			return -1;
-		}
 	}
 	return 0;
 }
@@ -244,9 +240,7 @@ static int dbox_save_mail_write_header(struct dbox_save_mail *mail)
 static int dbox_save_finish_write(struct mail_save_context *_ctx)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
-	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	struct dbox_save_mail *save_mail;
-	uoff_t metadata_offset = 0;
 	unsigned int count;
 
 	ctx->finished = TRUE;
@@ -256,30 +250,21 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 	index_mail_cache_parse_deinit(_ctx->dest_mail,
 				      _ctx->received_date, !ctx->failed);
 
+	count = array_count(&ctx->mails);
+	save_mail = array_idx_modifiable(&ctx->mails, count - 1);
+
 	if (!ctx->failed) T_BEGIN {
-		metadata_offset = ctx->cur_output->offset;
-		dbox_save_write_metadata(ctx);
-		if (o_stream_flush(ctx->cur_output) < 0) {
-			mail_storage_set_critical(storage,
-				"o_stream_flush(%s) failed: %m",
-				ctx->cur_file->current_path);
+		save_mail->message_size = ctx->cur_output->offset -
+			save_mail->append_offset -
+			save_mail->file->msg_header_size;
+
+		if (dbox_save_mail_write_metadata(ctx, save_mail) < 0)
 			ctx->failed = TRUE;
-		}
 	} T_END;
 
 	o_stream_unref(&ctx->cur_output);
 	i_stream_unref(&ctx->input);
 
-	count = array_count(&ctx->mails);
-	save_mail = array_idx_modifiable(&ctx->mails, count - 1);
-	if (!ctx->failed) {
-		dbox_file_finish_append(save_mail->file);
-		save_mail->message_size = metadata_offset -
-			save_mail->append_offset -
-			save_mail->file->msg_header_size;
-		if (dbox_save_mail_write_header(save_mail) < 0)
-			ctx->failed = TRUE;
-	}
 	if (ctx->failed) {
 		dbox_file_cancel_append(save_mail->file,
 					save_mail->append_offset);

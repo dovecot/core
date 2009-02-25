@@ -164,8 +164,8 @@ int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
 uoff_t dbox_file_get_next_append_offset(struct dbox_file *file);
 /* Truncate file to append_offset */
 void dbox_file_cancel_append(struct dbox_file *file, uoff_t append_offset);
-/* Finish appending the current mail. */
-void dbox_file_finish_append(struct dbox_file *file);
+/* Flush writes to dbox file. */
+int dbox_file_flush_append(struct dbox_file *file);
 
 /* Seek to given metadata block. Returns 1 if ok, 0 if file/offset is
    corrupted, -1 if I/O error. If message has already been expunged,

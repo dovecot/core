@@ -294,8 +294,6 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 			      struct ostream **output_r, bool *existing_r)
 {
 	struct dbox_map *map = ctx->map;
-	bool fsync_disable = (map->storage->storage.flags &
-			      MAIL_STORAGE_FLAG_FSYNC_DISABLE) != 0;
 	struct dbox_file *const *files;
 	const struct mail_index_header *hdr;
 	unsigned int i, count, backwards_lookup_count;
@@ -323,13 +321,8 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 		/* can't append to this file anymore */
 		if (files[i-1]->fd != -1) {
 			/* avoid wasting fds by closing the file */
-			if (!fsync_disable) {
-				if (fdatasync(files[i-1]->fd) < 0) {
-					dbox_file_set_syscall_error(files[i-1],
-						"fdatasync()");
-					return -1;
-				}
-			}
+			if (dbox_file_flush_append(files[i-1]) < 0)
+				return -1;
 			dbox_file_unlock(files[i-1]);
 			dbox_file_close(files[i-1]);
 		}
@@ -431,9 +424,10 @@ int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
 		append->file = file;
 		append->offset = (*output_r)->offset;
 	}
-	if (!existing)
+	if (!existing) {
+		i_assert(file->output != NULL);
 		array_append(&ctx->files, &file, 1);
-
+	}
 	*file_r = file;
 	return 0;
 }
@@ -467,8 +461,6 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 				    uint32_t *first_map_uid_r,
 				    uint32_t *last_map_uid_r)
 {
-	bool fsync_disable = (ctx->map->storage->storage.flags &
-			      MAIL_STORAGE_FLAG_FSYNC_DISABLE) != 0;
 	struct dbox_file *const *files;
 	const struct dbox_map_append *appends;
 	struct mail_index_sync_ctx *sync_ctx;
@@ -508,11 +500,8 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 		if (files[i]->single_mbox != NULL)
 			continue;
 
-		if (!fsync_disable && files[i]->single_mbox == NULL &&
-		    files[i]->fd != -1) {
-			if (fdatasync(files[i]->fd) < 0) {
-				dbox_file_set_syscall_error(files[i],
-							    "fdatasync()");
+		if (files[i]->single_mbox == NULL && files[i]->output != NULL) {
+			if (dbox_file_flush_append(files[i]) < 0) {
 				ret = -1;
 				break;
 			}
@@ -630,6 +619,11 @@ void dbox_map_append_rollback(struct dbox_map_append_context **_ctx)
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
 		file = files[i];
+
+		if (file->output != NULL) {
+			/* flush before truncating */
+			(void)o_stream_flush(file->output);
+		}
 
 		if (file->file_id != 0) {
 			/* FIXME: truncate? */

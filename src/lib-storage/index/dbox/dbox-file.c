@@ -515,6 +515,8 @@ void dbox_file_unlock(struct dbox_file *file)
 {
 	if (file->lock != NULL)
 		file_unlock(&file->lock);
+	if (file->input != NULL)
+		i_stream_sync(file->input);
 }
 
 static int
@@ -730,16 +732,27 @@ void dbox_file_cancel_append(struct dbox_file *file, uoff_t append_offset)
 {
 	if (ftruncate(file->fd, append_offset) < 0)
 		dbox_file_set_syscall_error(file, "ftruncate()");
-	if (file->input != NULL)
-		i_stream_sync(file->input);
 
 	o_stream_seek(file->output, append_offset);
 }
 
-void dbox_file_finish_append(struct dbox_file *file)
+int dbox_file_flush_append(struct dbox_file *file)
 {
-	if (file->input != NULL)
-		i_stream_sync(file->input);
+	i_assert(file->output != NULL);
+
+	if (o_stream_flush(file->output) < 0) {
+		dbox_file_set_syscall_error(file, "write()");
+		return -1;
+	}
+
+	if ((file->storage->storage.flags &
+	     MAIL_STORAGE_FLAG_FSYNC_DISABLE) == 0) {
+		if (fdatasync(file->fd) < 0) {
+			dbox_file_set_syscall_error(file, "fdatasync()");
+			return -1;
+		}
+	}
+	return 0;
 }
 
 static uoff_t
