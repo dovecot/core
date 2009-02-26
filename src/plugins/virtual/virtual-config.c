@@ -125,6 +125,14 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		name = bbox->name[0] == '-' ? bbox->name + 1 : bbox->name;
 		bbox->glob = imap_match_init(ctx->pool, name, TRUE, ctx->sep);
 		ctx->have_wildcards = TRUE;
+	} else if (bbox->name[0] == '!') {
+		/* save messages here */
+		if (ctx->mbox->save_bbox != NULL) {
+			*error_r = "Multiple save mailboxes defined";
+			return -1;
+		}
+		bbox->name++;
+		ctx->mbox->save_bbox = bbox;
 	}
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 	return 0;

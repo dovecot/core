@@ -4,6 +4,7 @@
 #include "array.h"
 #include "index-mail.h"
 #include "virtual-storage.h"
+#include "virtual-transaction.h"
 
 struct virtual_mail {
 	struct index_mail imail;
@@ -75,13 +76,32 @@ backend_mail_find(struct virtual_mail *vmail, struct mailbox *box)
 	return NULL;
 }
 
+struct mail *
+virtual_mail_set_backend_mail(struct mail *mail,
+			      struct virtual_backend_box *bbox)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mailbox_transaction_context *backend_trans;
+	struct mailbox_header_lookup_ctx *backend_headers;
+
+	backend_trans = virtual_transaction_get(mail->transaction, bbox->box);
+
+	backend_headers = vmail->wanted_headers == NULL ? NULL :
+		mailbox_header_lookup_init(bbox->box,
+					   vmail->wanted_headers->headers);
+	vmail->backend_mail = mail_alloc(backend_trans, vmail->wanted_fields,
+					 backend_headers);
+	if (backend_headers != NULL)
+		mailbox_header_lookup_unref(&backend_headers);
+	array_append(&vmail->backend_mails, &vmail->backend_mail, 1);
+	return vmail->backend_mail;
+}
+
 static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)mail->box;
 	struct virtual_backend_box *bbox;
-	struct mailbox_transaction_context *backend_trans;
-	struct mailbox_header_lookup_ctx *backend_headers;
 	const struct virtual_mail_index_record *vrec;
 	const void *data;
 	bool expunged;
@@ -92,20 +112,8 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 
 	bbox = virtual_backend_box_lookup(mbox, vrec->mailbox_id);
 	vmail->backend_mail = backend_mail_find(vmail, bbox->box);
-	if (vmail->backend_mail == NULL) {
-		backend_trans =
-			virtual_transaction_get(mail->transaction, bbox->box);
-
-		backend_headers = vmail->wanted_headers == NULL ? NULL :
-			mailbox_header_lookup_init(bbox->box,
-						vmail->wanted_headers->headers);
-		vmail->backend_mail = mail_alloc(backend_trans,
-						 vmail->wanted_fields,
-						 backend_headers);
-		if (backend_headers != NULL)
-			mailbox_header_lookup_unref(&backend_headers);
-		array_append(&vmail->backend_mails, &vmail->backend_mail, 1);
-	}
+	if (vmail->backend_mail == NULL)
+		virtual_mail_set_backend_mail(mail, bbox);
 	if (!mail_set_uid(vmail->backend_mail, vrec->real_uid))
 		i_unreached();
 	memset(&vmail->imail.data, 0, sizeof(vmail->imail.data));

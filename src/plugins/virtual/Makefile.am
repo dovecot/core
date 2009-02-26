@@ -17,12 +17,14 @@ lib20_virtual_plugin_la_SOURCES = \
 	virtual-plugin.c \
 	virtual-search.c \
 	virtual-storage.c \
+	virtual-save.c \
 	virtual-sync.c \
 	virtual-transaction.c
 
 noinst_HEADERS = \
 	virtual-plugin.h \
-	virtual-storage.h
+	virtual-storage.h \
+	virtual-transaction.h
 
 install-exec-local:
 	for d in imap pop3 lda; do \

@@ -10,6 +10,7 @@
 #include "mail-copy.h"
 #include "mail-search.h"
 #include "virtual-plugin.h"
+#include "virtual-transaction.h"
 #include "virtual-storage.h"
 
 #include <stdio.h>
@@ -668,11 +669,11 @@ struct mailbox virtual_mailbox = {
 		virtual_search_deinit,
 		virtual_search_next_nonblock,
 		virtual_search_next_update_seq,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
+		virtual_save_alloc,
+		virtual_save_begin,
+		virtual_save_continue,
+		virtual_save_finish,
+		virtual_save_cancel,
 		mail_storage_copy,
 		index_storage_is_inconsistent
 	}

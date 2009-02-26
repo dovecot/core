@@ -3,14 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "virtual-storage.h"
-
-struct virtual_transaction_context {
-	struct index_transaction_context ictx;
-	union mail_index_transaction_module_context module_ctx;
-
-	ARRAY_DEFINE(backend_transactions,
-		     struct mailbox_transaction_context *);
-};
+#include "virtual-transaction.h"
 
 static void (*next_hook_mail_index_transaction_created)
 	(struct mail_index_transaction *t) = NULL;
@@ -44,6 +37,9 @@ static int virtual_transaction_commit(struct mail_index_transaction *t,
 	unsigned int i, count;
 	int ret = 0;
 
+	if (dt->save_ctx != NULL)
+		virtual_save_free(dt->save_ctx);
+
 	bt = array_get_modifiable(&dt->backend_transactions, &count);
 	for (i = 0; i < count; i++) {
 		if (mailbox_transaction_commit(&bt[i]) < 0)
@@ -62,6 +58,9 @@ static void virtual_transaction_rollback(struct mail_index_transaction *t)
 	struct virtual_transaction_context *dt = MAIL_STORAGE_CONTEXT(t);
 	struct mailbox_transaction_context **bt;
 	unsigned int i, count;
+
+	if (dt->save_ctx != NULL)
+		virtual_save_free(dt->save_ctx);
 
 	bt = array_get_modifiable(&dt->backend_transactions, &count);
 	for (i = 0; i < count; i++)

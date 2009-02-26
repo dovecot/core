@@ -13,6 +13,8 @@
 #define VIRTUAL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, virtual_storage_module)
 
+struct virtual_save_context;
+
 struct virtual_mail_index_header {
 	/* Increased by one each time the header is modified */
 	uint32_t change_counter;
@@ -108,6 +110,8 @@ struct virtual_mailbox {
 
 	/* Mailboxes this virtual mailbox consists of, sorted by mailbox_id */
 	ARRAY_TYPE(virtual_backend_box) backend_boxes;
+	/* backend mailbox where to save messages when saving to this mailbox */
+	struct virtual_backend_box *save_bbox;
 
 	ARRAY_TYPE(mailbox_virtual_patterns) list_include_patterns;
 	ARRAY_TYPE(mailbox_virtual_patterns) list_exclude_patterns;
@@ -129,9 +133,6 @@ struct virtual_backend_box *
 virtual_backend_box_lookup_name(struct virtual_mailbox *mbox, const char *name);
 struct virtual_backend_box *
 virtual_backend_box_lookup(struct virtual_mailbox *mbox, uint32_t mailbox_id);
-struct mailbox_transaction_context *
-virtual_transaction_get(struct mailbox_transaction_context *trans,
-			struct mailbox *backend_box);
 
 struct mail_search_context *
 virtual_search_init(struct mailbox_transaction_context *t,
@@ -146,9 +147,20 @@ struct mail *
 virtual_mail_alloc(struct mailbox_transaction_context *t,
 		   enum mail_fetch_field wanted_fields,
 		   struct mailbox_header_lookup_ctx *wanted_headers);
+struct mail *
+virtual_mail_set_backend_mail(struct mail *mail,
+			      struct virtual_backend_box *bbox);
 
 struct mailbox_sync_context *
 virtual_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
+
+struct mail_save_context *
+virtual_save_alloc(struct mailbox_transaction_context *t);
+int virtual_save_begin(struct mail_save_context *ctx, struct istream *input);
+int virtual_save_continue(struct mail_save_context *ctx);
+int virtual_save_finish(struct mail_save_context *ctx);
+void virtual_save_cancel(struct mail_save_context *ctx);
+void virtual_save_free(struct virtual_save_context *ctx);
 
 void virtual_copy_error(struct mail_storage *dest, struct mail_storage *src);
 void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src);
