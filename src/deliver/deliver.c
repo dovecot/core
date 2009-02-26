@@ -606,7 +606,8 @@ static const char *address_sanitize(const char *address)
 }
 
 
-static struct istream *create_raw_stream(int fd, time_t *mtime_r)
+static struct istream *
+create_raw_stream(const char *temp_path_prefix, int fd, time_t *mtime_r)
 {
 	struct istream *input, *input2, *input_list[2];
 	const unsigned char *data;
@@ -656,7 +657,7 @@ static struct istream *create_raw_stream(int fd, time_t *mtime_r)
 
 	input_list[0] = input2; input_list[1] = NULL;
 	input = i_stream_create_seekable(input_list, MAIL_MAX_MEMORY_BUFFER,
-					 "/tmp/dovecot.deliver.");
+					 temp_path_prefix);
 	i_stream_unref(&input2);
 	return input;
 }
@@ -1114,7 +1115,8 @@ int main(int argc, char *argv[])
 				FILE_LOCK_METHOD_FCNTL, &errstr) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", errstr);
 	if (path == NULL) {
-		input = create_raw_stream(0, &mtime);
+		const char *prefix = mail_user_get_temp_prefix(mail_user);
+		input = create_raw_stream(prefix, 0, &mtime);
 		box = mailbox_open(&raw_ns->storage, "Dovecot Delivery Mail",
 				   input, MAILBOX_OPEN_NO_INDEX_FILES);
 		i_stream_unref(&input);
