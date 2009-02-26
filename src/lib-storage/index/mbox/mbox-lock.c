@@ -370,16 +370,22 @@ mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 	errmsg = eacces_error_get_creating("file_dotlock_create", path);
 	dir = strrchr(path, '/');
 	dir = dir == NULL ? "." : t_strdup_until(path, dir);
-	if (stat(dir, &st) == 0 &&
-	    (st.st_mode & 02) == 0 && /* not world-writable */
-	    (st.st_mode & 020) != 0) { /* group-writable */
+	if (!mbox->mbox_privileged_locking) {
+		dir = mailbox_list_get_path(mbox->storage->storage.list, NULL,
+					    MAILBOX_LIST_PATH_TYPE_DIR);
+		mail_storage_set_critical(&mbox->storage->storage,
+			"%s (under root dir %s -> no privileged locking)",
+			errmsg, dir);
+	} else if (stat(dir, &st) == 0 &&
+		   (st.st_mode & 02) == 0 && /* not world-writable */
+		   (st.st_mode & 020) != 0) { /* group-writable */
 		group = getgrgid(st.st_gid);
 		mail_storage_set_critical(&mbox->storage->storage,
 			"%s (set mail_privileged_group=%s)", errmsg,
 			group == NULL ? dec2str(st.st_gid) : group->gr_name);
 	} else {
 		mail_storage_set_critical(&mbox->storage->storage,
-			"%s (nonstandard permissions in %s)", errmsg, path);
+			"%s (nonstandard permissions in %s)", errmsg, dir);
 	}
 	errno = orig_errno;
 }
