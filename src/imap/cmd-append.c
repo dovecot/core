@@ -259,7 +259,9 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		}
 		i_assert(ctx->count == uid2 - uid1 + 1);
 
-		if (uid1 == uid2) {
+		if (uid1 == 0)
+			msg = "OK Append completed.";
+		else if (uid1 == uid2) {
 			msg = t_strdup_printf("OK [APPENDUID %u %u] "
 					      "Append completed.",
 					      uid_validity, uid1);

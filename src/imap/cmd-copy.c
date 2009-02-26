@@ -155,6 +155,8 @@ bool cmd_copy(struct client_command_context *cmd)
 	else {
 		i_assert(copy_count == uid2 - uid1 + 1);
 
+		if (uid1 == 0)
+			msg = "OK Copy completed.";
 		if (uid1 == uid2) {
 			msg = t_strdup_printf("OK [COPYUID %u %s %u] "
 					      "Copy completed.",
