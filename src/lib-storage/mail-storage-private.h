@@ -61,6 +61,7 @@ struct mail_storage {
         const struct mail_storage *storage_class;
 	struct mail_namespace *ns;
 	struct mailbox_list *list;
+	const char *temp_path_prefix;
 
 	enum mail_storage_flags flags;
 	enum file_lock_method lock_method;

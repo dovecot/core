@@ -2,8 +2,10 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hostpid.h"
 #include "auth-master.h"
 #include "mail-namespace.h"
+#include "mail-storage.h"
 #include "mail-user.h"
 
 #include <stdlib.h>
@@ -155,6 +157,21 @@ int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
 		*pathp = t_strconcat(home, path + 1, NULL);
 	}
 	return 0;
+}
+
+const char *mail_user_get_temp_prefix(struct mail_user *user)
+{
+	struct mail_namespace *ns;
+
+	if (user->_home != NULL) {
+		return t_strconcat(user->_home, "/.temp.", my_hostname, ".",
+				   my_pid, ".", NULL);
+	}
+
+	ns = mail_namespace_find_inbox(user->namespaces);
+	if (ns == NULL)
+		ns = user->namespaces;
+	return mail_storage_get_temp_prefix(ns->storage);
 }
 
 void mail_users_init(const char *auth_socket_path, bool debug)

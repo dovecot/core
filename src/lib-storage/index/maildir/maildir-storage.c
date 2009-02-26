@@ -191,7 +191,7 @@ maildir_create(struct mail_storage *_storage, const char *data,
 	enum mail_storage_flags flags = _storage->flags;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
-	const char *layout;
+	const char *layout, *dir;
 	struct stat st;
 
 	if (maildir_get_list_settings(&list_set, data, _storage, &layout,
@@ -258,12 +258,20 @@ maildir_create(struct mail_storage *_storage, const char *data,
 	storage->stat_dirs = getenv("MAILDIR_STAT_DIRS") != NULL;
 
 	storage->temp_prefix = mailbox_list_get_temp_prefix(list);
-	if (list_set.control_dir == NULL) {
+	if (list_set.control_dir == NULL &&
+	    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		/* put the temp files into tmp/ directory preferrably */
-		storage->temp_prefix =
-			p_strconcat(_storage->pool,
-				    "tmp/", storage->temp_prefix, NULL);
+		storage->temp_prefix = p_strconcat(_storage->pool, "tmp/",
+						   storage->temp_prefix, NULL);
+		dir = mailbox_list_get_path(list, NULL,
+					    MAILBOX_LIST_PATH_TYPE_DIR);
+	} else {
+		/* control dir should also be writable */
+		dir = mailbox_list_get_path(list, NULL,
+					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 	}
+	_storage->temp_path_prefix = p_strconcat(_storage->pool, dir, "/",
+						 storage->temp_prefix, NULL);
 	return 0;
 }
 

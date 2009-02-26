@@ -386,6 +386,9 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 	path = storage->list_module_ctx.super.get_path(list, name, type);
 	if (type == MAILBOX_LIST_PATH_TYPE_CONTROL ||
 	    type == MAILBOX_LIST_PATH_TYPE_INDEX) {
+		if (name == NULL)
+			return t_strconcat(path, "/"MBOX_INDEX_DIR_NAME, NULL);
+
 		p = strrchr(path, '/');
 		if (p == NULL)
 			return "";
@@ -442,7 +445,7 @@ static int mbox_create(struct mail_storage *_storage, const char *data,
 {
 	struct mbox_storage *storage = (struct mbox_storage *)_storage;
 	struct mailbox_list_settings list_set;
-	const char *layout;
+	const char *layout, *dir;
 
 	if (mbox_get_list_settings(&list_set, data, _storage,
 				   &layout, error_r) < 0)
@@ -470,6 +473,16 @@ static int mbox_create(struct mail_storage *_storage, const char *data,
 	mailbox_list_init(_storage->list, _storage->ns, &list_set,
 			  mail_storage_get_list_flags(_storage->flags) |
 			  MAILBOX_LIST_FLAG_MAILBOX_FILES);
+
+	dir = mailbox_list_get_path(_storage->list, NULL,
+				    MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*dir == '\0') {
+		/* no index directory. just fallback to writing to root. */
+		dir = mailbox_list_get_path(_storage->list, NULL,
+					    MAILBOX_LIST_PATH_TYPE_DIR);
+	}
+	_storage->temp_path_prefix = p_strconcat(_storage->pool, dir, "/",
+		mailbox_list_get_temp_prefix(_storage->list), NULL);
 	return 0;
 }
 

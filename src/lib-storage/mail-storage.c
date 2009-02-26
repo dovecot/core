@@ -237,7 +237,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 	value = getenv("MAIL_MAX_KEYWORD_LENGTH");
 	storage->keyword_max_len = value != NULL ?
 		atoi(value) : DEFAULT_MAX_KEYWORD_LENGTH;
-	
+
 	if (hook_mail_storage_created != NULL) {
 		T_BEGIN {
 			hook_mail_storage_created(storage);
@@ -402,6 +402,20 @@ const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
 
 	return mailbox_list_get_path(storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_INDEX);
+}
+
+const char *mail_storage_get_temp_prefix(struct mail_storage *storage)
+{
+	const char *dir;
+
+	if (storage->temp_path_prefix == NULL) {
+		dir = mailbox_list_get_path(storage->list, NULL,
+					    MAILBOX_LIST_PATH_TYPE_DIR);
+		storage->temp_path_prefix = p_strconcat(storage->pool, dir, "/",
+			mailbox_list_get_temp_prefix(storage->list), NULL);
+	}
+
+	return storage->temp_path_prefix;
 }
 
 enum mailbox_list_flags
