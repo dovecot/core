@@ -263,7 +263,9 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 			continue;
 
 		if (virtual_config_match(info, &wildcard_boxes, &i) &&
-		    !virtual_config_match(info, &neg_boxes, &j)) {
+		    !virtual_config_match(info, &neg_boxes, &j) &&
+		    virtual_backend_box_lookup_name(ctx->mbox,
+						    info->name) == NULL) {
 			virtual_config_copy_expanded(ctx, wboxes[i],
 						     info->name);
 		}
