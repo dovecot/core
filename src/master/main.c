@@ -365,7 +365,8 @@ static void print_help(void)
 
 static void print_build_options(void)
 {
-	printf("Build options:"
+	static const char *build_options =
+		"Build options:"
 #ifdef IOLOOP_EPOLL
 		" ioloop=epoll"
 #endif
@@ -463,7 +464,8 @@ static void print_build_options(void)
 #ifdef USERDB_VPOPMAIL
 		" vpopmail"
 #endif
-	"\n");
+	"\n";
+	puts(build_options);
 }
 
 int main(int argc, char *argv[])
