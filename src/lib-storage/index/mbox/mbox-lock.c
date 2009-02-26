@@ -370,7 +370,10 @@ mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 	errmsg = eacces_error_get_creating("file_dotlock_create", path);
 	dir = strrchr(path, '/');
 	dir = dir == NULL ? "." : t_strdup_until(path, dir);
-	if (!mbox->mbox_privileged_locking) {
+	if (strcmp(mbox->ibox.box.name, "INBOX") != 0) {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"%s (not INBOX -> no privileged locking)", errmsg);
+	} else if (!mbox->mbox_privileged_locking) {
 		dir = mailbox_list_get_path(mbox->storage->storage.list, NULL,
 					    MAILBOX_LIST_PATH_TYPE_DIR);
 		mail_storage_set_critical(&mbox->storage->storage,
