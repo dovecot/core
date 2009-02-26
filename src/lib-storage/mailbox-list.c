@@ -262,6 +262,15 @@ mailbox_list_get_namespace(const struct mailbox_list *list)
 	return list->ns;
 }
 
+static mode_t get_dir_mode(mode_t mode)
+{
+	/* add the execute bit if either read or write bit is set */
+	if ((mode & 0600) != 0) mode |= 0100;
+	if ((mode & 0060) != 0) mode |= 0010;
+	if ((mode & 0006) != 0) mode |= 0001;
+	return mode;
+}
+
 void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 				  mode_t *mode_r, gid_t *gid_r)
 {
@@ -291,6 +300,12 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 
 	list->file_create_mode = st.st_mode & 0666;
 	list->dir_create_mode = st.st_mode & 0777;
+	if (!S_ISDIR(st.st_mode)) {
+		/* we're getting permissions from a file.
+		   apply +x modes as necessary. */
+		list->dir_create_mode = get_dir_mode(list->dir_create_mode);
+	}
+
 	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
 		/* directory's GID is used automatically for new files */
 		list->file_create_gid = (gid_t)-1;
