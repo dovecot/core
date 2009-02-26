@@ -81,7 +81,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	/* create a temporary file */
 	for (;;) {
 		random_fill_weak(randbuf, sizeof(randbuf));
-		path = t_strconcat(sstream->temp_prefix, ".",
+		path = t_strconcat(sstream->temp_prefix,
 				   dec2str(time(NULL)), ".",
 				   dec2str(getpid()), ".",
 				   binary_to_hex(randbuf, sizeof(randbuf)),
