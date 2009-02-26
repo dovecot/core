@@ -197,8 +197,12 @@ static bool main_init(void)
 		i_fatal("USER environment missing");
 
 	if (getenv("DEBUG") != NULL) {
-		i_info("Effective uid=%s, gid=%s",
-		       dec2str(geteuid()), dec2str(getegid()));
+		const char *home;
+
+		home = getenv("HOME");
+		i_info("Effective uid=%s, gid=%s, home=%s",
+		       dec2str(geteuid()), dec2str(getegid()),
+		       home != NULL ? home : "(none)");
 	}
 
 	if (getenv("STDERR_CLOSE_SHUTDOWN") != NULL) {
