@@ -591,22 +591,6 @@ mbox_alloc_mailbox(struct mbox_storage *storage, struct mail_index *index,
 
 	index_storage_mailbox_init(&mbox->ibox, name, flags,
 				   want_memory_indexes(storage, path));
-
-	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {
-		if (mbox_lock(mbox, F_WRLCK, &mbox->mbox_global_lock_id) <= 0) {
-			struct mailbox *box = &mbox->ibox.box;
-
-			mailbox_close(&box);
-			return NULL;
-		}
-
-		if (mbox->mbox_dotlock != NULL) {
-			mbox->keep_lock_to =
-				timeout_add(MBOX_LOCK_TOUCH_MSECS,
-					    mbox_lock_touch_timeout, mbox);
-		}
-	}
-
 	return mbox;
 }
 
@@ -639,6 +623,20 @@ mbox_open(struct mbox_storage *storage, const char *name,
 						MAILBOX_LIST_PATH_TYPE_DIR);
 		if (strncmp(path, rootdir, strlen(rootdir)) != 0)
 			mbox->mbox_privileged_locking = TRUE;
+	}
+	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {
+		if (mbox_lock(mbox, F_WRLCK, &mbox->mbox_global_lock_id) <= 0) {
+			struct mailbox *box = &mbox->ibox.box;
+
+			mailbox_close(&box);
+			return NULL;
+		}
+
+		if (mbox->mbox_dotlock != NULL) {
+			mbox->keep_lock_to =
+				timeout_add(MBOX_LOCK_TOUCH_MSECS,
+					    mbox_lock_touch_timeout, mbox);
+		}
 	}
 	return &mbox->ibox.box;
 }
