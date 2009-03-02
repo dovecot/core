@@ -213,6 +213,17 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 	(void)file_dotlock_delete(&uidlist->dotlock);
 }
 
+static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
+{
+	struct index_mailbox *ibox = context;
+
+	index_storage_lock_notify(ibox, stale ?
+				  MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE :
+				  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
+				  secs_left);
+	return TRUE;
+}
+
 struct maildir_uidlist *
 maildir_uidlist_init_readonly(struct index_mailbox *ibox)
 {
@@ -244,6 +255,8 @@ maildir_uidlist_init_readonly(struct index_mailbox *ibox)
 		MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT + 2;
 	uidlist->dotlock_settings.stale_timeout =
 		MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT;
+	uidlist->dotlock_settings.callback = dotlock_callback;
+	uidlist->dotlock_settings.context = ibox;
 
 	return uidlist;
 }
