@@ -15,6 +15,10 @@ void restrict_access_set_env(const char *user, uid_t uid,
    environment settings and we have root uid or gid. */
 void restrict_access_by_env(bool disallow_root);
 
+/* Try to set up the process in a way that core dumps are still allowed
+   after calling restrict_access_by_env(). */
+void restrict_access_allow_coredumps(bool allow);
+
 /* If privileged_gid was set, these functions can be used to temporarily
    gain access to the group. */
 int restrict_access_use_priv_gid(void);

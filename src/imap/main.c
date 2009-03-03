@@ -157,6 +157,7 @@ static void drop_privileges(void)
 	}
 
 	restrict_access_by_env(!IS_STANDALONE());
+	restrict_access_allow_coredumps(TRUE);
 }
 
 static void main_init(void)
