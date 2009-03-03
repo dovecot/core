@@ -513,7 +513,7 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 
 	struct mail_sort_node *nodes;
 	unsigned int i, count, rightmost_idx, skip;
-	const char *left_str = NULL, *right_str = NULL, *str;
+	const char *left_str = NULL, *right_str = NULL, *str = NULL;
 	uint32_t left_sort_id, right_sort_id, diff;
 	bool no_left_str = FALSE, no_right_str = FALSE;
 	int ret;

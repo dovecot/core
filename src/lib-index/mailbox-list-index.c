@@ -389,8 +389,8 @@ mailbox_list_get_name(struct mailbox_list_index *index, pool_t pool,
 
 	if (rec->name_offset >= index->mmap_size) {
 		mailbox_list_index_set_corrupted(index, t_strdup_printf(
-			"record name_offset (%u) points outside file (%u)",
-			rec->name_offset, index->mmap_size));
+			"record name_offset (%u) points outside file "
+			"(%"PRIuSIZE_T")", rec->name_offset, index->mmap_size));
 		return -1;
 	}
 	max_len = index->mmap_size - rec->name_offset;

@@ -162,7 +162,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			enum file_lock_method lock_method,
 			const char **error_r)
 {
-	struct mail_storage *storage_class, *storage;
+	struct mail_storage *storage_class, *storage = NULL;
 	struct mail_storage *const *classes;
 	const char *home, *value;
 	unsigned int i, count;

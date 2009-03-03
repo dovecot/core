@@ -372,7 +372,7 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 	T_BEGIN {
 		/* create a new file in tmp/ directory */
-		const char *fname;
+		const char *fname = NULL;
 
 		ctx->fd = maildir_create_tmp(ctx->mbox, ctx->tmpdir, &fname);
 		if (ctx->fd == -1)
