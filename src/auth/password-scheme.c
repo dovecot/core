@@ -525,7 +525,6 @@ digest_md5_generate(const char *plaintext, const char *user,
 		user = t_strdup_until(user, realm);
 		realm++;
 	} else {
-		user = realm;
 		realm = "";
 	}
 
