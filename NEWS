@@ -1,5 +1,9 @@
 v1.2.UNSTABLE  Timo Sirainen <tss@iki.fi>
 
+	* When creating files or directories to mailboxes, Dovecot now uses
+	  the mailbox directory's permissions and GID for them. Previous
+	  versions simply used 0600 mode always. For backwards compatibility
+	  dovecot-shared file's permissions still override these with Maildir.
 	* SQL dictionary (quota) configuration file is different than in v1.1.
 	  See doc/dovecot-dict-sql-example.conf for the new format.
 	* deliver -m: Mailbox name is now assumed to be in UTF-8 format,
