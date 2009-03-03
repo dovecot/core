@@ -15,6 +15,7 @@ extern char program_path[];
 extern char ssl_manual_key_password[];
 extern const char *env_tz;
 extern bool auth_success_written;
+extern bool core_dumps_disabled;
 #ifdef DEBUG
 extern bool gdb;
 #endif

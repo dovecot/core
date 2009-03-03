@@ -127,6 +127,35 @@ static const char *get_exit_status_message(enum fatal_exit_status status,
 	return NULL;
 }
 
+static void
+log_coredump(string_t *str, enum process_type process_type, int status)
+{
+#ifdef WCOREDUMP
+	int signum = WTERMSIG(status);
+
+	if (WCOREDUMP(status)) {
+		str_append(str, " (core dumped)");
+		return;
+	}
+
+	if (signum != SIGABRT && signum != SIGSEGV && signum != SIGBUS)
+		return;
+
+	/* let's try to figure out why we didn't get a core dump */
+	if (process_type != PROCESS_TYPE_IMAP &&
+	    process_type != PROCESS_TYPE_POP3)
+		str_append(str, " (core not dumped)");
+#ifndef HAVE_PR_SET_DUMPABLE
+	else if (!settings_root->defaults->mail_drop_priv_before_exec)
+		str_append(str, " (core not dumped - set mail_drop_priv_before_exec=yes)");
+#endif
+	else if (core_dumps_disabled)
+		str_printfa(str, " (core dumps disabled)");
+	else
+		str_append(str, " (core not dumped - is home dir set?)");
+#endif
+}
+
 static void sigchld_handler(int signo ATTR_UNUSED,
 			    void *context ATTR_UNUSED)
 {
@@ -181,6 +210,7 @@ static void sigchld_handler(int signo ATTR_UNUSED,
 			str_printfa(str, "child %s (%s) killed with signal %d",
 				    dec2str(pid), process_type_name,
 				    WTERMSIG(status));
+			log_coredump(str, process_type, status);
 		}
 
 		if (str_len(str) > 0) {

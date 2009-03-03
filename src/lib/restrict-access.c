@@ -13,6 +13,9 @@
 #include <time.h>
 #include <pwd.h>
 #include <grp.h>
+#ifdef HAVE_PR_SET_DUMPABLE
+#  include <sys/prctl.h>
+#endif
 
 static gid_t process_primary_gid = (gid_t)-1;
 static gid_t process_privileged_gid = (gid_t)-1;
@@ -368,6 +371,13 @@ void restrict_access_by_env(bool disallow_root)
 	env_put("RESTRICT_SETEXTRAGROUPS=");
 	env_put("RESTRICT_GID_FIRST=");
 	env_put("RESTRICT_GID_LAST=");
+}
+
+void restrict_access_allow_coredumps(bool allow ATTR_UNUSED)
+{
+#ifdef HAVE_PR_SET_DUMPABLE
+	(void)prctl(PR_SET_DUMPABLE, allow, 0, 0, 0);
+#endif
 }
 
 int restrict_access_use_priv_gid(void)

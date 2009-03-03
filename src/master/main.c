@@ -46,6 +46,7 @@ char program_path[PATH_MAX];
 char ssl_manual_key_password[100];
 const char *env_tz;
 bool auth_success_written;
+bool core_dumps_disabled;
 #ifdef DEBUG
 bool gdb;
 #endif
@@ -264,7 +265,9 @@ static void main_log_startup(void)
 #define STARTUP_STRING PACKAGE_NAME" v"VERSION" starting up"
 	rlim_t core_limit;
 
-	if (restrict_get_core_limit(&core_limit) == 0 && core_limit == 0)
+	core_dumps_disabled = restrict_get_core_limit(&core_limit) == 0 &&
+		core_limit == 0;
+	if (core_dumps_disabled)
 		i_info(STARTUP_STRING" (core dumps disabled)");
 	else
 		i_info(STARTUP_STRING);
