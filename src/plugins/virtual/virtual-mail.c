@@ -133,6 +133,14 @@ static bool virtual_mail_set_uid(struct mail *mail, uint32_t uid)
 	return TRUE;
 }
 
+static void virtual_mail_set_uid_cache_updates(struct mail *mail, bool set)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mail_private *p = (struct mail_private *)vmail->backend_mail;
+
+	p->v.set_uid_cache_updates(vmail->backend_mail, set);
+}
+
 static int
 virtual_mail_get_parts(struct mail *mail, const struct message_part **parts_r)
 {
@@ -315,6 +323,7 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_free,
 	virtual_mail_set_seq,
 	virtual_mail_set_uid,
+	virtual_mail_set_uid_cache_updates,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,
