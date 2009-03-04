@@ -428,20 +428,15 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 	}
 }
 
-static void log_append_ext_rec_updates(struct log_append_context *ctx)
+static void log_append_ext_recs(struct log_append_context *ctx,
+				const ARRAY_TYPE(seq_array_array) *arr,
+				enum mail_transaction_type type)
 {
 	struct mail_index_transaction *t = ctx->trans;
-	ARRAY_TYPE(seq_array) *updates;
+	const ARRAY_TYPE(seq_array) *updates;
 	const uint32_t *reset_ids;
 	unsigned int ext_id, count, reset_id_count;
 	uint32_t reset_id;
-
-	if (!array_is_created(&t->ext_rec_updates)) {
-		updates = NULL;
-		count = 0;
-	} else {
-		updates = array_get_modifiable(&t->ext_rec_updates, &count);
-	}
 
 	if (!array_is_created(&t->ext_reset_ids)) {
 		reset_ids = NULL;
@@ -451,6 +446,7 @@ static void log_append_ext_rec_updates(struct log_append_context *ctx)
 						 &reset_id_count);
 	}
 
+	updates = array_get(arr, &count);
 	for (ext_id = 0; ext_id < count; ext_id++) {
 		if (!array_is_created(&updates[ext_id]))
 			continue;
@@ -458,8 +454,7 @@ static void log_append_ext_rec_updates(struct log_append_context *ctx)
 		reset_id = ext_id < reset_id_count ? reset_ids[ext_id] : 0;
 		log_append_ext_intro(ctx, ext_id, reset_id);
 
-		log_append_buffer(ctx, updates[ext_id].arr.buffer, NULL,
-				  MAIL_TRANSACTION_EXT_REC_UPDATE);
+		log_append_buffer(ctx, updates[ext_id].arr.buffer, NULL, type);
 	}
 }
 
@@ -637,8 +632,14 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 				  MAIL_TRANSACTION_FLAG_UPDATE);
 	}
 
-	if (array_is_created(&t->ext_rec_updates))
-		log_append_ext_rec_updates(&ctx);
+	if (array_is_created(&t->ext_rec_updates)) {
+		log_append_ext_recs(&ctx, &t->ext_rec_updates,
+				    MAIL_TRANSACTION_EXT_REC_UPDATE);
+	}
+	if (array_is_created(&t->ext_rec_atomics)) {
+		log_append_ext_recs(&ctx, &t->ext_rec_atomics,
+				    MAIL_TRANSACTION_EXT_ATOMIC_INC);
+	}
 
 	/* keyword resets before updates */
 	if (array_is_created(&t->keyword_resets)) {

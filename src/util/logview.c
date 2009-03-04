@@ -102,6 +102,9 @@ static const char *log_record_type(unsigned int type)
 	case MAIL_TRANSACTION_KEYWORD_RESET:
 		name = "keyword-reset";
 		break;
+	case MAIL_TRANSACTION_EXT_ATOMIC_INC:
+		name = "ext-atomic-inc";
+		break;
 	default:
 		name = t_strdup_printf("unknown: %x", type);
 		break;
@@ -320,6 +323,19 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 			print_data(rec + 1, prev_intro.record_size);
 			printf("\n");
 			rec = CONST_PTR_OFFSET(rec, record_size);
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_EXT_ATOMIC_INC: {
+		const struct mail_transaction_ext_atomic_inc *rec = data, *end;
+
+		end = CONST_PTR_OFFSET(data, size);
+		for (; rec < end; rec++) {
+			printf(" - %u: ", rec->uid);
+			if (rec->diff > 0)
+				printf("+%d\n", rec->diff);
+			else
+				printf("%d\n", rec->diff);
 		}
 		break;
 	}

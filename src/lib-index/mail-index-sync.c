@@ -504,6 +504,7 @@ static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 
 		switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 		case MAIL_TRANSACTION_EXT_REC_UPDATE:
+		case MAIL_TRANSACTION_EXT_ATOMIC_INC:
 			/* extension record updates aren't exactly needed
 			   to be synced, but cache syncing relies on tail
 			   offsets being updated. */

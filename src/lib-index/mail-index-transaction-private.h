@@ -4,6 +4,8 @@
 #include "seq-range-array.h"
 #include "mail-transaction-log.h"
 
+ARRAY_DEFINE_TYPE(seq_array_array, ARRAY_TYPE(seq_array));
+
 struct mail_index_transaction_keyword_update {
 	ARRAY_TYPE(seq_range) add_seq;
 	ARRAY_TYPE(seq_range) remove_seq;
@@ -52,7 +54,8 @@ struct mail_index_transaction {
 
 	ARRAY_DEFINE(ext_hdr_updates,
 		     struct mail_index_transaction_ext_hdr_update);
-	ARRAY_DEFINE(ext_rec_updates, ARRAY_TYPE(seq_array));
+	ARRAY_TYPE(seq_array_array) ext_rec_updates;
+	ARRAY_TYPE(seq_array_array) ext_rec_atomics;
 	ARRAY_DEFINE(ext_resizes, struct mail_transaction_ext_intro);
 	ARRAY_DEFINE(ext_resets, struct mail_transaction_ext_reset);
 	ARRAY_DEFINE(ext_reset_ids, uint32_t);

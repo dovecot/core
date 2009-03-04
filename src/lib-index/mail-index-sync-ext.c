@@ -686,3 +686,63 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	memcpy(old_data, u + 1, ext->record_size);
 	return 1;
 }
+
+int
+mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
+			       const struct mail_transaction_ext_atomic_inc *u)
+{
+	struct mail_index_view *view = ctx->view;
+	struct mail_index_record *rec;
+	const struct mail_index_ext *ext;
+	void *data;
+	uint32_t seq;
+
+	i_assert(ctx->cur_ext_map_idx != (uint32_t)-1);
+	i_assert(!ctx->cur_ext_ignore);
+
+	if (u->uid == 0 || u->uid >= view->map->hdr.next_uid) {
+		mail_index_sync_set_corrupted(ctx,
+			"Extension record inc for invalid uid=%u", u->uid);
+		return -1;
+	}
+
+	if (!mail_index_lookup_seq(view, u->uid, &seq))
+		return 1;
+
+	ext = array_idx(&view->map->extensions, ctx->cur_ext_map_idx);
+	i_assert(ext->record_offset + ext->record_size <=
+		 view->map->hdr.record_size);
+
+	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+	data = PTR_OFFSET(rec, ext->record_offset);
+
+	switch (ext->record_size) {
+	case 1: {
+		uint8_t *num = data;
+		*num += u->diff;
+		break;
+	}
+	case 2: {
+		uint16_t *num = data;
+		*num += u->diff;
+		break;
+	}
+	case 4: {
+		uint32_t *num = data;
+		*num += u->diff;
+		break;
+	}
+	case 8: {
+		uint64_t *num = data;
+		*num += u->diff;
+		break;
+	}
+	default:
+		mail_index_sync_set_corrupted(ctx,
+			"Extension record inc with invalid size=%u",
+			ext->record_size);
+		return -1;
+	}
+	mail_index_sync_write_seq_update(ctx, seq, seq);
+	return 1;
+}

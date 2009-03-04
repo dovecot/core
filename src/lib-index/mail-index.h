@@ -498,5 +498,8 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
    now overwriting. */
 void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 			   uint32_t ext_id, const void *data, void *old_data);
+/* Increase/decrease number in extension atomically. */
+void mail_index_atomic_inc_ext(struct mail_index_transaction *t, uint32_t seq,
+			       uint32_t ext_id, int diff);
 
 #endif
