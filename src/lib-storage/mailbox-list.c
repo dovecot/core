@@ -293,8 +293,12 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 			       list->ns->prefix, path);
 		}
 		/* return safe defaults */
-		*mode_r = 0600;
-		*gid_r = (gid_t)-1;
+		list->file_create_mode = 0600;
+		list->dir_create_mode = 0700;
+		list->file_create_gid = (gid_t)-1;
+
+		*mode_r = list->file_create_mode;
+		*gid_r = list->file_create_gid;
 		return;
 	}
 
