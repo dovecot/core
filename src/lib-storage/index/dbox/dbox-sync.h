@@ -8,7 +8,8 @@ struct dbox_sync_file_entry {
 
 	unsigned int move_from_alt:1;
 	unsigned int move_to_alt:1;
-	ARRAY_TYPE(seq_range) expunges;
+	ARRAY_TYPE(seq_range) expunge_seqs;
+	ARRAY_TYPE(seq_range) expunge_map_uids;
 };
 
 struct dbox_sync_context {

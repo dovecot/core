@@ -489,8 +489,8 @@ int dbox_file_open_if_needed(struct dbox_file *file)
 
 void dbox_file_close(struct dbox_file *file)
 {
-	i_assert(file->lock == NULL);
-
+	if (file->lock != NULL)
+		file_lock_free(&file->lock);
 	if (file->input != NULL)
 		i_stream_unref(&file->input);
 	if (file->output != NULL)

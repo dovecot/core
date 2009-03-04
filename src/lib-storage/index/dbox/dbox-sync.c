@@ -67,11 +67,14 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 	}
 
 	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
-		if (!array_is_created(&entry->expunges)) {
-			p_array_init(&entry->expunges, ctx->pool,
+		if (!array_is_created(&entry->expunge_map_uids)) {
+			p_array_init(&entry->expunge_map_uids, ctx->pool,
+				     lookup_entry.uid != 0 ? 1 : 3);
+			p_array_init(&entry->expunge_seqs, ctx->pool,
 				     lookup_entry.uid != 0 ? 1 : 3);
 		}
-		seq_range_array_add(&entry->expunges, 0, seq);
+		seq_range_array_add(&entry->expunge_seqs, 0, seq);
+		seq_range_array_add(&entry->expunge_map_uids, 0, map_uid);
 	} else {
 		if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) != 0)
 			entry->move_to_alt = TRUE;
@@ -310,4 +313,12 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		ret = dbox_sync(mbox);
 
 	return index_mailbox_sync_init(box, flags, ret < 0);
+}
+
+void dbox_sync_cleanup(struct dbox_storage *storage)
+{
+	const ARRAY_TYPE(seq_range) *ref0_file_ids;
+	unsigned int i = 0;
+
+	ref0_file_ids = dbox_map_get_zero_ref_files(storage->map);
 }

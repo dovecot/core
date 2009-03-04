@@ -25,6 +25,7 @@ struct dbox_map {
 	struct mail_index_view *view;
 
 	uint32_t map_ext_id, ref_ext_id;
+	ARRAY_TYPE(seq_range) ref0_file_ids;
 };
 
 struct dbox_map_append {
@@ -35,6 +36,10 @@ struct dbox_map_append {
 struct dbox_map_append_context {
 	struct dbox_mailbox *mbox;
 	struct dbox_map *map;
+
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *sync_view;
+	struct mail_index_transaction *trans;
 
 	ARRAY_DEFINE(files, struct dbox_file *);
 	ARRAY_DEFINE(appends, struct dbox_map_append);
@@ -71,6 +76,8 @@ void dbox_map_deinit(struct dbox_map **_map)
 
 	*_map = NULL;
 
+	if (array_is_created(&map->ref0_file_ids))
+		array_free(&map->ref0_file_ids);
 	if (map->view != NULL)
 		mail_index_view_close(&map->view);
 	mail_index_free(&map->index);
@@ -108,6 +115,11 @@ static int dbox_map_refresh(struct dbox_map *map)
 	struct mail_index_view_sync_ctx *ctx;
 	bool delayed_expunges;
 
+	if (mail_index_refresh(map->view->index) < 0) {
+		mail_storage_set_internal_error(&map->storage->storage);
+		mail_index_reset_error(map->index);
+		return -1;
+	}
 	ctx = mail_index_view_sync_begin(map->view,
 				MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
 	if (mail_index_view_sync_commit(&ctx, &delayed_expunges) < 0) {
@@ -144,11 +156,9 @@ static int dbox_map_lookup_seq(struct dbox_map *map, uint32_t seq,
 	return 0;
 }
 
-int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
-		    uint32_t *file_id_r, uoff_t *offset_r)
+static int
+dbox_map_get_seq(struct dbox_map *map, uint32_t map_uid, uint32_t *seq_r)
 {
-	uint32_t seq;
-	uoff_t size;
 	int ret;
 
 	if ((ret = dbox_map_open(map, FALSE)) <= 0) {
@@ -156,17 +166,139 @@ int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 		return ret;
 	}
 
-	if (!mail_index_lookup_seq(map->view, map_uid, &seq)) {
+	if (!mail_index_lookup_seq(map->view, map_uid, seq_r)) {
 		/* not found - try again after a refresh */
 		if (dbox_map_refresh(map) < 0)
 			return -1;
-		if (!mail_index_lookup_seq(map->view, map_uid, &seq))
+		if (!mail_index_lookup_seq(map->view, map_uid, seq_r))
 			return 0;
 	}
+	return 1;
+}
+
+int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
+		    uint32_t *file_id_r, uoff_t *offset_r)
+{
+	uint32_t seq;
+	uoff_t size;
+	int ret;
+
+	if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0)
+		return ret;
 
 	if (dbox_map_lookup_seq(map, seq, file_id_r, offset_r, &size) < 0)
 		return 0;
 	return 1;
+}
+
+int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
+			   ARRAY_TYPE(dbox_map_file_msg) *recs)
+{
+	const struct mail_index_header *hdr;
+	struct dbox_map_file_msg msg;
+	const struct dbox_mail_index_map_record *rec;
+	const uint16_t *ref16_p;
+	unsigned int seq;
+	const void *data;
+	bool expunged;
+
+	(void)dbox_map_refresh(map);
+	hdr = mail_index_get_header(map->view);
+
+	memset(&msg, 0, sizeof(msg));
+	for (seq = 1; seq <= hdr->messages_count; seq++) {
+		mail_index_lookup_uid(map->view, seq, &msg.map_uid);
+
+		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
+				      &data, &expunged);
+		if (data == NULL) {
+			// FIXME
+			break;
+		}
+		rec = data;
+		if (rec->file_id != file_id)
+			continue;
+
+		msg.offset = rec->offset;
+		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
+				      &data, &expunged);
+		if (data == NULL) {
+			// FIXME
+			break;
+		}
+		ref16_p = data;
+		msg.refcount = *ref16_p;
+
+		array_append(recs, &msg, 1);
+	}
+	return 0;
+}
+
+const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
+{
+	const struct mail_index_header *hdr;
+	const struct dbox_mail_index_map_record *rec;
+	const uint16_t *ref16_p;
+	const void *data;
+	uint32_t seq;
+	bool expunged;
+
+	(void)dbox_map_refresh(map);
+
+	if (array_is_created(&map->ref0_file_ids))
+		array_clear(&map->ref0_file_ids);
+	else
+		i_array_init(&map->ref0_file_ids, 64);
+	hdr = mail_index_get_header(map->view);
+	for (seq = 1; seq <= hdr->messages_count; seq++) {
+		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
+				      &data, &expunged);
+		if (data != NULL && !expunged) {
+			ref16_p = data;
+			if (*ref16_p != 0)
+				continue;
+		}
+
+		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
+				      &data, &expunged);
+		if (data != NULL && !expunged) {
+			rec = data;
+			seq_range_array_add(&map->ref0_file_ids, 0, seq);
+		}
+	}
+	return &map->ref0_file_ids;
+}
+
+int dbox_map_update_refcounts(struct dbox_map *map,
+			      const ARRAY_TYPE(seq_range) *map_uids, int diff)
+{
+	struct mail_index_transaction *trans;
+	struct seq_range_iter iter;
+	unsigned int i;
+	uint32_t map_uid, seq;
+	int ret = 0;
+
+	trans = mail_index_transaction_begin(map->view, 0);
+	seq_range_array_iter_init(&iter, map_uids); i = 0;
+	while (seq_range_array_iter_nth(&iter, i++, &map_uid)) {
+		if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0) {
+			if (ret < 0)
+				break;
+		} else {
+			mail_index_atomic_inc_ext(trans, seq,
+						  map->ref_ext_id, diff);
+		}
+	}
+	if (ret < 0) {
+		mail_index_transaction_rollback(&trans);
+		return -1;
+	} else {
+		uint32_t log_seq;
+		uoff_t log_offset;
+
+		return mail_index_transaction_commit(&trans, &log_seq,
+						     &log_offset);
+	}
 }
 
 struct dbox_map_append_context *
@@ -235,6 +367,12 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 		return TRUE;
 	if (deleted)
 		return TRUE;
+	if (file->lock != NULL) {
+		/* already locked, we're possibly in the middle of cleaning
+		   it up in which case we really don't want to write there. */
+		dbox_file_unref(&file);
+		return TRUE;
+	}
 
 	if (file->create_time < stamp)
 		file_too_old = TRUE;
@@ -475,19 +613,75 @@ dbox_map_get_next_file_id(struct dbox_map *map, struct mail_index_view *view,
 	return 0;
 }
 
+static int dbox_map_assign_file_ids(struct dbox_map_append_context *ctx)
+{
+	struct dbox_file *const *files;
+	unsigned int i, count;
+	uint32_t first_file_id, file_id;
+	int ret;
+
+	/* start the syncing. we'll need it even if there are no file ids to
+	   be assigned. */
+	ret = mail_index_sync_begin(ctx->map->index, &ctx->sync_ctx,
+				    &ctx->sync_view, &ctx->trans, 0);
+	if (ret <= 0) {
+		i_assert(ret != 0);
+		mail_storage_set_internal_error(&ctx->map->storage->storage);
+		mail_index_reset_error(ctx->map->index);
+		return -1;
+	}
+
+	if (dbox_map_get_next_file_id(ctx->map, ctx->sync_view, &file_id) < 0) {
+		mail_index_sync_rollback(&ctx->sync_ctx);
+		return -1;
+	}
+
+	/* assign file_ids for newly created multi-files */
+	first_file_id = file_id;
+	files = array_get(&ctx->files, &count);
+	for (i = 0; i < count; i++) {
+		if (files[i]->single_mbox != NULL)
+			continue;
+
+		if (files[i]->output != NULL) {
+			if (dbox_file_flush_append(files[i]) < 0) {
+				ret = -1;
+				break;
+			}
+		}
+
+		if (files[i]->file_id == 0) {
+			if (dbox_file_assign_id(files[i], file_id++) < 0) {
+				ret = -1;
+				break;
+			}
+		}
+	}
+
+	if (ret < 0) {
+		/* FIXME: we have to rollback the changes we made */
+		mail_index_sync_rollback(&ctx->sync_ctx);
+		return -1;
+	}
+
+	/* update the highest used file_id */
+	if (first_file_id != file_id) {
+		file_id--;
+		mail_index_update_header_ext(ctx->trans, ctx->map->map_ext_id,
+					     0, &file_id, sizeof(file_id));
+	}
+	return 0;
+}
+
 int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 				    uint32_t *first_map_uid_r,
 				    uint32_t *last_map_uid_r)
 {
-	struct dbox_file *const *files;
 	const struct dbox_map_append *appends;
-	struct mail_index_sync_ctx *sync_ctx;
-	struct mail_index_view *sync_view;
-	struct mail_index_transaction *trans;
 	const struct mail_index_header *hdr;
 	struct dbox_mail_index_map_record rec;
 	unsigned int i, count;
-	uint32_t seq, first_uid, next_uid, first_file_id, file_id;
+	uint32_t seq, first_uid, next_uid;
 	uint16_t ref16;
 	int ret = 0;
 
@@ -497,55 +691,8 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 		return 0;
 	}
 
-	ret = mail_index_sync_begin(ctx->map->index, &sync_ctx, &sync_view,
-				    &trans, 0);
-	if (ret <= 0) {
-		i_assert(ret != 0);
-		mail_storage_set_internal_error(&ctx->map->storage->storage);
-		mail_index_reset_error(ctx->map->index);
+	if (dbox_map_assign_file_ids(ctx) < 0)
 		return -1;
-	}
-
-	if (dbox_map_get_next_file_id(ctx->map, sync_view, &file_id) < 0) {
-		mail_index_sync_rollback(&sync_ctx);
-		return -1;
-	}
-
-	/* assign file_ids for newly created multi-files */
-	files = array_get(&ctx->files, &count);
-	first_file_id = file_id;
-	for (i = 0; i < count; i++) {
-		if (files[i]->single_mbox != NULL)
-			continue;
-
-		if (files[i]->single_mbox == NULL && files[i]->output != NULL) {
-			if (dbox_file_flush_append(files[i]) < 0) {
-				ret = -1;
-				break;
-			}
-		}
-
-		if (files[i]->file_id != 0)
-			continue;
-
-		if (dbox_file_assign_id(files[i], file_id++) < 0) {
-			ret = -1;
-			break;
-		}
-	}
-
-	if (ret < 0) {
-		/* FIXME: we have to rollback the changes we made */
-		mail_index_sync_rollback(&sync_ctx);
-		return -1;
-	}
-
-	/* update the highest used file_id */
-	if (first_file_id != file_id) {
-		file_id--;
-		mail_index_update_header_ext(trans, ctx->map->map_ext_id,
-					     0, &file_id, sizeof(file_id));
-	}
 
 	/* append map records to index */
 	memset(&rec, 0, sizeof(rec));
@@ -559,28 +706,28 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 		rec.offset = appends[i].offset;
 		rec.size = appends[i].size;
 
-		mail_index_append(trans, 0, &seq);
-		mail_index_update_ext(trans, seq, ctx->map->map_ext_id,
+		mail_index_append(ctx->trans, 0, &seq);
+		mail_index_update_ext(ctx->trans, seq, ctx->map->map_ext_id,
 				      &rec, NULL);
-		mail_index_update_ext(trans, seq, ctx->map->ref_ext_id,
+		mail_index_update_ext(ctx->trans, seq, ctx->map->ref_ext_id,
 				      &ref16, NULL);
 	}
 
 	/* assign map UIDs for appended records */
-	hdr = mail_index_get_header(sync_view);
+	hdr = mail_index_get_header(ctx->sync_view);
 	first_uid = hdr->next_uid;
-	mail_index_append_assign_uids(trans, first_uid, &next_uid);
+	mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
 	i_assert(next_uid - first_uid == count);
 
 	if (hdr->uid_validity == 0) {
 		/* we don't really care about uidvalidity, but it can't be 0 */
 		uint32_t uid_validity = ioloop_time;
-		mail_index_update_header(trans,
+		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 
-	if (mail_index_sync_commit(&sync_ctx) < 0) {
+	if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
 		mail_storage_set_internal_error(&ctx->map->storage->storage);
 		mail_index_reset_error(ctx->map->index);
 		return -1;
@@ -589,6 +736,51 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 	*first_map_uid_r = first_uid;
 	*last_map_uid_r = next_uid - 1;
 	return ret;
+}
+
+int dbox_map_append_move(struct dbox_map_append_context *ctx,
+			 ARRAY_TYPE(seq_range) *map_uids,
+			 ARRAY_TYPE(seq_range) *expunge_map_uids)
+{
+	const struct dbox_map_append *appends;
+	struct dbox_mail_index_map_record rec;
+	struct seq_range_iter iter;
+	unsigned int i, j, appends_count;
+	uint32_t uid, seq;
+
+	if (dbox_map_assign_file_ids(ctx) < 0)
+		return -1;
+
+	memset(&rec, 0, sizeof(rec));
+	appends = array_get(&ctx->appends, &appends_count);
+
+	seq_range_array_iter_init(&iter, map_uids); i = j = 0;
+	while (seq_range_array_iter_nth(&iter, i++, &uid)) {
+		i_assert(j < appends_count);
+		rec.file_id = appends[j].file->file_id;
+		rec.offset = appends[j].offset;
+		rec.size = appends[j].size;
+		j++;
+
+		if (!mail_index_lookup_seq(ctx->sync_view, uid, &seq))
+			i_unreached();
+		mail_index_update_ext(ctx->trans, seq, ctx->map->map_ext_id,
+				      &rec, NULL);
+	}
+
+	seq_range_array_iter_init(&iter, expunge_map_uids); i = 0;
+	while (seq_range_array_iter_nth(&iter, i++, &uid)) {
+		if (!mail_index_lookup_seq(ctx->sync_view, uid, &seq))
+			i_unreached();
+		mail_index_expunge(ctx->trans, seq);
+	}
+
+	if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
+		mail_storage_set_internal_error(&ctx->map->storage->storage);
+		mail_index_reset_error(ctx->map->index);
+		return -1;
+	}
+	return 0;
 }
 
 int dbox_map_append_assign_uids(struct dbox_map_append_context *ctx,
