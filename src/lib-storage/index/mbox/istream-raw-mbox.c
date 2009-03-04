@@ -183,9 +183,13 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		if (ret == -2) {
 			if (stream->istream.v_offset + pos ==
 			    rstream->input_peak_offset) {
+				/* we've read everything our parent stream
+				   has to offer. */
 				stream->buffer = buf;
 				return -2;
 			}
+			/* parent stream is full, but we haven't returned
+			   all its bytes to our caller yet. */
 		} else if (stream->istream.v_offset != 0 || pos == 0) {
 			/* we've read the whole file, final byte should be
 			   the \n trailer */
@@ -364,6 +368,7 @@ static void i_stream_raw_mbox_sync(struct istream_private *stream)
 
 	rstream->istream.skip = 0;
 	rstream->istream.pos = 0;
+	rstream->input_peak_offset = 0;
 }
 
 static const struct stat *
