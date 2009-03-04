@@ -5,6 +5,7 @@
 #include "array.h"
 #include "str.h"
 #include "seq-range-array.h"
+#include "mkdir-parents.h"
 #include "maildir-storage.h"
 #include "mail-namespace.h"
 #include "lazy-expunge-plugin.h"
@@ -379,15 +380,41 @@ mailbox_move(struct mailbox_list *src_list, const char *src_name,
 	     struct mailbox_list *dest_list, const char **_dest_name)
 {
 	const char *dest_name = *_dest_name;
-	const char *srcdir, *src2dir, *src3dir, *destdir;
+	const char *srcdir, *src2dir, *src3dir, *destdir, *p, *destparent;
+	struct stat st;
+	mode_t mode;
+	gid_t gid;
 
 	srcdir = mailbox_list_get_path(src_list, src_name,
 				       MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	destdir = mailbox_list_get_path(dest_list, dest_name,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	while (rename(srcdir, destdir) < 0) {
-		if (errno == ENOENT)
-			return 0;
+		if (errno == ENOENT) {
+			/* if this is because the destination parent directory
+			   didn't exist, create it. */
+			p = strrchr(destdir, '/');
+			if (p == NULL)
+				return 0;
+			destparent = t_strdup_until(destdir, p);
+			if (stat(destparent, &st) == 0)
+				return 0;
+
+			mailbox_list_get_dir_permissions(dest_list, NULL,
+							 &mode, &gid);
+			if (mkdir_parents_chown(destparent, mode,
+						(uid_t)-1, gid) < 0) {
+				if (errno == EEXIST) {
+					/* race condition */
+					continue;
+				}
+				mailbox_list_set_critical(src_list,
+					"mkdir(%s) failed: %m", destparent);
+				return -1;
+			}
+			/* created, try again. */
+			continue;
+		}
 
 		if (!EDESTDIREXISTS(errno)) {
 			mailbox_list_set_critical(src_list,
