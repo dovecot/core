@@ -2,6 +2,7 @@
 #define DBOX_MAP_H
 
 struct dbox_storage;
+struct dbox_mailbox;
 struct dbox_file;
 struct dbox_map_append_context;
 
@@ -30,6 +31,8 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map);
 
 struct dbox_map_append_context *
 dbox_map_append_begin(struct dbox_mailbox *mbox);
+struct dbox_map_append_context *
+dbox_map_append_begin_storage(struct dbox_storage *storage);
 /* Request file for saving a new message with given size (if available). If an
    existing file can be used, the record is locked and updated in index.
    Returns 0 if ok, -1 if error. */

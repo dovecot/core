@@ -242,13 +242,19 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 	const void *data;
 	uint32_t seq;
 	bool expunged;
-
-	(void)dbox_map_refresh(map);
+	int ret;
 
 	if (array_is_created(&map->ref0_file_ids))
 		array_clear(&map->ref0_file_ids);
 	else
 		i_array_init(&map->ref0_file_ids, 64);
+
+	if ((ret = dbox_map_open(map, FALSE)) <= 0) {
+		/* map doesn't exist or is broken */
+		return &map->ref0_file_ids;
+	}
+	(void)dbox_map_refresh(map);
+
 	hdr = mail_index_get_header(map->view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
@@ -263,7 +269,8 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 				      &data, &expunged);
 		if (data != NULL && !expunged) {
 			rec = data;
-			seq_range_array_add(&map->ref0_file_ids, 0, seq);
+			seq_range_array_add(&map->ref0_file_ids, 0,
+					    rec->file_id);
 		}
 	}
 	return &map->ref0_file_ids;
@@ -302,14 +309,13 @@ int dbox_map_update_refcounts(struct dbox_map *map,
 }
 
 struct dbox_map_append_context *
-dbox_map_append_begin(struct dbox_mailbox *mbox)
+dbox_map_append_begin_storage(struct dbox_storage *storage)
 {
 	struct dbox_map_append_context *ctx;
 	int ret;
 
 	ctx = i_new(struct dbox_map_append_context, 1);
-	ctx->map = mbox->storage->map;
-	ctx->mbox = mbox;
+	ctx->map = storage->map;
 	ctx->first_new_file_id = (uint32_t)-1;
 	i_array_init(&ctx->files, 64);
 	i_array_init(&ctx->appends, 128);
@@ -323,10 +329,21 @@ dbox_map_append_begin(struct dbox_mailbox *mbox)
 	return ctx;
 }
 
+struct dbox_map_append_context *
+dbox_map_append_begin(struct dbox_mailbox *mbox)
+{
+	struct dbox_map_append_context *ctx;
+
+	ctx = dbox_map_append_begin_storage(mbox->storage);
+	ctx->mbox = mbox;
+	return ctx;
+}
+
 static time_t day_begin_stamp(unsigned int days)
 {
 	struct tm tm;
 	time_t stamp;
+
 
 	if (days == 0)
 		return 0;

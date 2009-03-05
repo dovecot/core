@@ -42,8 +42,7 @@ static int dbox_sync_file_unlink(struct dbox_file *file)
 	return 1;
 }
 
-static int
-dbox_sync_file_cleanup(struct dbox_sync_context *ctx, struct dbox_file *file)
+int dbox_sync_file_cleanup(struct dbox_file *file)
 {
 	struct dbox_file *out_file;
 	struct istream *input;
@@ -64,10 +63,10 @@ dbox_sync_file_cleanup(struct dbox_sync_context *ctx, struct dbox_file *file)
 	if ((ret = dbox_file_try_lock(file)) <= 0)
 		return ret;
 
-	append_ctx = dbox_map_append_begin(ctx->mbox);
+	append_ctx = dbox_map_append_begin_storage(file->storage);
 
 	t_array_init(&msgs_arr, 128);
-	if (dbox_map_get_file_msgs(ctx->mbox->storage->map, file->file_id,
+	if (dbox_map_get_file_msgs(file->storage->map, file->file_id,
 				   &msgs_arr) < 0) {
 		// FIXME
 		return -1;
@@ -208,7 +207,6 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 		   const struct dbox_sync_file_entry *entry)
 {
 	struct dbox_file *file;
-	bool deleted;
 	int ret;
 
 	file = entry->file_id != 0 ?
@@ -230,11 +228,6 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 			return -1;
 
 		dbox_sync_mark_expunges(ctx, &entry->expunge_seqs);
-
-		/* FIXME: do this cleanup later */
-		ret = dbox_file_open_or_create(file, &deleted);
-		if (ret > 0 && !deleted)
-			ret = dbox_sync_file_cleanup(ctx, file);
 	}
 	dbox_file_unref(&file);
 	return ret;

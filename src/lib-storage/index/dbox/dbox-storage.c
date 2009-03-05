@@ -9,9 +9,9 @@
 #include "index-mail.h"
 #include "mail-copy.h"
 #include "maildir/maildir-uidlist.h"
-#include "dbox-sync.h"
 #include "dbox-map.h"
 #include "dbox-file.h"
+#include "dbox-sync.h"
 #include "dbox-storage.h"
 
 #include <stdio.h>
@@ -202,6 +202,7 @@ static void dbox_destroy(struct mail_storage *_storage)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 
+	dbox_sync_cleanup(storage);
 	dbox_files_free(storage);
 	dbox_map_deinit(&storage->map);
 	array_free(&storage->open_files);

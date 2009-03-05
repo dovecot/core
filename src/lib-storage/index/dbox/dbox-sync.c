@@ -318,7 +318,18 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 void dbox_sync_cleanup(struct dbox_storage *storage)
 {
 	const ARRAY_TYPE(seq_range) *ref0_file_ids;
+	struct dbox_file *file;
+	struct seq_range_iter iter;
 	unsigned int i = 0;
+	uint32_t file_id;
+	bool deleted;
 
 	ref0_file_ids = dbox_map_get_zero_ref_files(storage->map);
+	seq_range_array_iter_init(&iter, ref0_file_ids); i = 0;
+	while (seq_range_array_iter_nth(&iter, i++, &file_id)) {
+		file = dbox_file_init_multi(storage, file_id);
+		if (dbox_file_open_or_create(file, &deleted) > 0 && !deleted)
+			(void)dbox_sync_file_cleanup(file);
+		dbox_file_unref(&file);
+	}
 }

@@ -2,6 +2,7 @@
 #define DBOX_SYNC_H
 
 struct mailbox;
+struct dbox_mailbox;
 
 struct dbox_sync_file_entry {
 	uint32_t uid, file_id;
@@ -30,8 +31,10 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
 int dbox_sync_finish(struct dbox_sync_context **ctx, bool success);
 int dbox_sync(struct dbox_mailbox *mbox);
 
+void dbox_sync_cleanup(struct dbox_storage *storage);
 int dbox_sync_file(struct dbox_sync_context *ctx,
 		   const struct dbox_sync_file_entry *entry);
+int dbox_sync_file_cleanup(struct dbox_file *file);
 int dbox_sync_index_rebuild(struct dbox_mailbox *mbox);
 
 struct mailbox_sync_context *
