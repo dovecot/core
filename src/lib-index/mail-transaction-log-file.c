@@ -147,6 +147,8 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 	}
 	file->saved_tail_offset = log->index->map->hdr.log_file_tail_offset;
 	file->saved_tail_sync_offset = file->saved_tail_offset;
+	if (file->saved_tail_offset > file->max_tail_offset)
+		file->max_tail_offset = file->saved_tail_offset;
 }
 
 static void
@@ -775,7 +777,10 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 				return 1;
 			}
 			mail_transaction_log_file_set_corrupted(file,
-				"log_file_tail_offset shrank");
+				"log_file_tail_offset update shrank it "
+				"(%u vs %"PRIuUOFF_T", file_seq=%u)",
+				sync_offset, file->saved_tail_offset,
+				file->hdr.file_seq);
 			return -1;
 		}
 		file->saved_tail_offset = sync_offset;
