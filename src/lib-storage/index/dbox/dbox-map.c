@@ -481,6 +481,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 			return 1;
 		}
 		/* can't append to this file anymore */
+#if 0 /* FIXME: we can't close files, otherwise we lose the lock too early */
 		if (files[i-1]->fd != -1) {
 			/* avoid wasting fds by closing the file, but not if
 			   we're also reading from it. */
@@ -490,6 +491,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 			if (files[i-1]->refcount == 1)
 				dbox_file_close(files[i-1]);
 		}
+#endif
 	}
 	ctx->files_nonappendable_count = count;
 
