@@ -537,6 +537,7 @@ static void log_append_sync_offset_if_needed(struct log_append_context *ctx)
 
 	if (ctx->file->saved_tail_offset == offset)
 		return;
+	i_assert(offset > ctx->file->saved_tail_offset);
 
 	buf = buffer_create_static_hard(pool_datastack_create(),
 					sizeof(*u) + sizeof(offset));
