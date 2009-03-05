@@ -482,11 +482,13 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 		}
 		/* can't append to this file anymore */
 		if (files[i-1]->fd != -1) {
-			/* avoid wasting fds by closing the file */
+			/* avoid wasting fds by closing the file, but not if
+			   we're also reading from it. */
 			if (dbox_file_flush_append(files[i-1]) < 0)
 				return -1;
 			dbox_file_unlock(files[i-1]);
-			dbox_file_close(files[i-1]);
+			if (files[i-1]->refcount == 1)
+				dbox_file_close(files[i-1]);
 		}
 	}
 	ctx->files_nonappendable_count = count;
