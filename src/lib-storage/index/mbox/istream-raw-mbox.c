@@ -53,19 +53,32 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 	char *sender;
 	time_t received_time;
 	size_t pos, line_pos;
-	int skip, tz;
+	ssize_t ret;
+	unsigned int skip;
+	int tz;
 
 	buf = i_stream_get_data(rstream->istream.parent, &pos);
 	i_assert(pos > 0);
 
 	/* from_offset points to "\nFrom ", so unless we're at the beginning
 	   of the file, skip the initial \n */
-	skip = rstream->from_offset != 0;
-	if (skip && *buf == '\r')
-		skip++;
+	if (rstream->from_offset == 0)
+		skip = 0;
+	else {
+		skip = 1;
+		if (*buf == '\r')
+			skip++;
+	}
 
 	while ((p = memchr(buf+skip, '\n', pos-skip)) == NULL) {
-		if (i_stream_read(rstream->istream.parent) < 0) {
+		ret = i_stream_read(rstream->istream.parent);
+		buf = i_stream_get_data(rstream->istream.parent, &pos);
+		if (ret < 0) {
+			if (ret == -2) {
+				/* From_-line is too long, but we should be
+				   able to parse what we have so far. */
+				break;
+			}
 			/* EOF shouldn't happen */
 			rstream->istream.istream.eof =
 				rstream->istream.parent->eof;
@@ -73,19 +86,14 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 				rstream->istream.parent->stream_errno;
 			return -1;
 		}
-		buf = i_stream_get_data(rstream->istream.parent, &pos);
 		i_assert(pos > 0);
 	}
-	line_pos = (size_t)(p - buf);
-
-	if (rstream->from_offset != 0) {
-		buf += skip;
-		pos -= skip;
-	}
+	line_pos = p == NULL ? 0 : (size_t)(p - buf);
 
 	/* beginning of mbox */
-	if (memcmp(buf, "From ", 5) != 0 ||
-	    mbox_from_parse(buf+5, pos-5, &received_time, &tz, &sender) < 0) {
+	if (memcmp(buf+skip, "From ", 5) != 0 ||
+	    mbox_from_parse((buf+skip)+5, (pos-skip)-5,
+			    &received_time, &tz, &sender) < 0) {
 		/* broken From - should happen only at beginning of
 		   file if this isn't a mbox.. */
 		rstream->istream.istream.stream_errno = EINVAL;
@@ -102,9 +110,33 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 		rstream->next_sender = sender;
 	}
 
-	/* we'll skip over From-line */
+	/* skip over From-line */
+	if (line_pos == 0) {
+		/* line was too long. skip the input until we find LF. */
+		rstream->istream.istream.v_offset += pos;
+		i_stream_skip(rstream->istream.parent, pos);
+
+		while ((ret = i_stream_read(rstream->istream.parent)) > 0) {
+			p = memchr(buf, '\n', pos);
+			if (p != NULL)
+				break;
+			rstream->istream.istream.v_offset += pos;
+			i_stream_skip(rstream->istream.parent, pos);
+		}
+		if (ret <= 0) {
+			i_assert(ret == -1);
+			/* EOF shouldn't happen */
+			rstream->istream.istream.eof =
+				rstream->istream.parent->eof;
+			rstream->istream.istream.stream_errno =
+				rstream->istream.parent->stream_errno;
+			return -1;
+		}
+		line_pos = (size_t)(p - buf);
+	}
 	rstream->istream.istream.v_offset += line_pos+1;
 	i_stream_skip(rstream->istream.parent, line_pos+1);
+
 	rstream->hdr_offset = rstream->istream.istream.v_offset;
 	return 0;
 }
@@ -181,8 +213,11 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 
 	if (ret < 0) {
 		if (ret == -2) {
-			if (stream->istream.v_offset + pos ==
-			    rstream->input_peak_offset) {
+			if (stream->skip == stream->pos) {
+				/* From_-line is longer than our input buffer.
+				   finish the check without seeing the LF. */
+			} else if (stream->istream.v_offset + pos ==
+				   rstream->input_peak_offset) {
 				/* we've read everything our parent stream
 				   has to offer. */
 				stream->buffer = buf;
@@ -258,9 +293,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 		if (buf[i] == *fromp) {
 			if (*++fromp == '\0') {
 				/* potential From-line, see if we have the
-				   rest of the line buffered.
-				   FIXME: if From-line is longer than input
-				   buffer, we break. probably irrelevant.. */
+				   rest of the line buffered. */
 				i++;
 				if (rstream->hdr_offset + rstream->mail_size ==
 				    stream->istream.v_offset + i - 6 ||
@@ -275,11 +308,18 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 					} else {
 						crlf_ending = FALSE;
 					}
+					if (ret == -2) {
+						/* even if we don't have the
+						   whole line, we need to
+						   finish this check now. */
+						goto mbox_verify;
+					}
 				}
 				fromp = mbox_from;
 			} else if (from_start_pos != (size_t)-1) {
 				/* we have the whole From-line here now.
 				   See if it's a valid one. */
+			mbox_verify:
 				if (mbox_from_parse(buf + from_after_pos,
 						    pos - from_after_pos,
 						    &received_time, &tz,
