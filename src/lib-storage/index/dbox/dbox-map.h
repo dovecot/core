@@ -25,6 +25,8 @@ int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
 
 int dbox_map_update_refcounts(struct dbox_map *map,
 			      const ARRAY_TYPE(seq_range) *map_uids, int diff);
+/*  */
+int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id);
 
 /* Return all files containing messages with zero refcount. */
 const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map);

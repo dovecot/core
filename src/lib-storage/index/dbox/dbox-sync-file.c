@@ -65,15 +65,16 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 
 	append_ctx = dbox_map_append_begin_storage(file->storage);
 
-	t_array_init(&msgs_arr, 128);
+	i_array_init(&msgs_arr, 128);
 	if (dbox_map_get_file_msgs(file->storage->map, file->file_id,
 				   &msgs_arr) < 0) {
 		// FIXME
+		array_free(&msgs_arr);
 		return -1;
 	}
 	msgs = array_get(&msgs_arr, &count);
-	t_array_init(&copied_map_uids, I_MIN(count, 1));
-	t_array_init(&expunged_map_uids, I_MIN(count, 1));
+	i_array_init(&copied_map_uids, I_MIN(count, 1));
+	i_array_init(&expunged_map_uids, I_MIN(count, 1));
 	for (i = 0; i < count; i++) {
 		if (msgs[i].refcount == 0) {
 			seq_range_array_add(&expunged_map_uids, 0,
@@ -145,29 +146,31 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 		dbox_map_append_finish_multi_mail(append_ctx);
 		seq_range_array_add(&copied_map_uids, 0, msgs[i].map_uid);
 	}
+	array_free(&msgs_arr); msgs = NULL;
 
 	if (ret < 0) {
 		dbox_map_append_rollback(&append_ctx);
-		return -1;
-	}
-
-	if (output == NULL) {
+		ret = -1;
+	} else if (output == NULL) {
 		/* everything expunged in this file, unlink it */
 		dbox_map_append_rollback(&append_ctx);
-		if (dbox_sync_file_unlink(file) < 0)
-			return -1;
-		return 0;
+		ret = dbox_sync_file_unlink(file);
+	} else {
+		/* assign new file_id + offset to moved messages */
+		if (dbox_map_append_move(append_ctx, &copied_map_uids,
+					 &expunged_map_uids) < 0) {
+			// FIXME
+			dbox_map_append_rollback(&append_ctx);
+			ret = -1;
+		} else {
+			dbox_map_append_commit(&append_ctx);
+			(void)dbox_sync_file_unlink(file);
+			ret = 1;
+		}
 	}
-
-	/* assign new file_id + offset to moved messages */
-	if (dbox_map_append_move(append_ctx, &copied_map_uids,
-				 &expunged_map_uids) < 0) {
-		// FIXME
-		return -1;
-	}
-	dbox_map_append_commit(&append_ctx);
-	(void)dbox_sync_file_unlink(file);
-	return 1;
+	array_free(&copied_map_uids);
+	array_free(&expunged_map_uids);
+	return ret;
 }
 
 static void
@@ -207,7 +210,7 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 		   const struct dbox_sync_file_entry *entry)
 {
 	struct dbox_file *file;
-	int ret;
+	int ret = 1;
 
 	file = entry->file_id != 0 ?
 		dbox_file_init_multi(ctx->mbox->storage, entry->file_id) :
@@ -225,9 +228,9 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 	} else {
 		if (dbox_map_update_refcounts(ctx->mbox->storage->map,
 					      &entry->expunge_map_uids, -1) < 0)
-			return -1;
-
-		dbox_sync_mark_expunges(ctx, &entry->expunge_seqs);
+			ret = -1;
+		else
+			dbox_sync_mark_expunges(ctx, &entry->expunge_seqs);
 	}
 	dbox_file_unref(&file);
 	return ret;

@@ -489,8 +489,7 @@ int dbox_file_open_if_needed(struct dbox_file *file)
 
 void dbox_file_close(struct dbox_file *file)
 {
-	if (file->lock != NULL)
-		file_lock_free(&file->lock);
+	dbox_file_unlock(file);
 	if (file->input != NULL)
 		i_stream_unref(&file->input);
 	if (file->output != NULL)
@@ -513,8 +512,16 @@ int dbox_file_try_lock(struct dbox_file *file)
 
 void dbox_file_unlock(struct dbox_file *file)
 {
-	if (file->lock != NULL)
+	struct stat st;
+
+	if (file->lock != NULL) {
+		if (file->output != NULL) {
+			if (fstat(file->fd, &st) == 0 &&
+			    (uoff_t)st.st_size != file->output->offset)
+				i_panic("dbox file modified while locked");
+		}
 		file_unlock(&file->lock);
+	}
 	if (file->input != NULL)
 		i_stream_sync(file->input);
 }
@@ -661,10 +668,7 @@ static int
 dbox_file_seek_append_pos(struct dbox_file *file,
 			  uoff_t last_msg_offset, uoff_t last_msg_size)
 {
-	uoff_t offset, size;
 	struct stat st;
-	bool last;
-	int ret;
 
 	if (file->file_version != DBOX_VERSION ||
 	    file->msg_header_size != sizeof(struct dbox_message_header)) {
@@ -682,25 +686,15 @@ dbox_file_seek_append_pos(struct dbox_file *file,
 		st.st_size = -1;
 	}
 
-	offset = last_msg_offset;
-	if (st.st_size == (off_t)(last_msg_offset + last_msg_size)) {
-		offset += last_msg_size;
-	} else {
-		ret = dbox_file_seek_next(file, &offset, &size, &last);
-		if (ret <= 0)
-			return ret;
-		if (!last) {
-			/* not end of file? previous write probably crashed. */
-			if (ftruncate(file->fd, offset) < 0) {
-				dbox_file_set_syscall_error(file, "ftruncate()");
-				return -1;
-			}
-			i_stream_sync(file->input);
-		}
+	if (st.st_size != (off_t)(last_msg_offset + last_msg_size)) {
+		/* not end of file? either previous write crashed or map index
+		   got broken. play it safe and resync everything. */
+		i_warning("%d vs %d+%d", (int)st.st_size, (int)last_msg_offset, (int)last_msg_size);
+		return 0;
 	}
 
 	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
-	o_stream_seek(file->output, offset);
+	o_stream_seek(file->output, last_msg_offset + last_msg_size);
 	return 1;
 }
 

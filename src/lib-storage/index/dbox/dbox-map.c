@@ -45,10 +45,9 @@ struct dbox_map_append_context {
 	ARRAY_DEFINE(appends, struct dbox_map_append);
 
 	uint32_t first_new_file_id;
-	uint32_t orig_msg_count;
+	uint32_t orig_next_uid;
 
 	unsigned int files_nonappendable_count;
-	uint32_t retry_seq_min, retry_seq_max;
 
 	unsigned int failed:1;
 };
@@ -285,7 +284,8 @@ int dbox_map_update_refcounts(struct dbox_map *map,
 	uint32_t map_uid, seq;
 	int ret = 0;
 
-	trans = mail_index_transaction_begin(map->view, 0);
+	trans = mail_index_transaction_begin(map->view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	seq_range_array_iter_init(&iter, map_uids); i = 0;
 	while (seq_range_array_iter_nth(&iter, i++, &map_uid)) {
 		if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0) {
@@ -303,9 +303,46 @@ int dbox_map_update_refcounts(struct dbox_map *map,
 		uint32_t log_seq;
 		uoff_t log_offset;
 
-		return mail_index_transaction_commit(&trans, &log_seq,
-						     &log_offset);
+		if (mail_index_transaction_commit(&trans, &log_seq,
+						  &log_offset) < 0) {
+			mail_storage_set_internal_error(&map->storage->storage);
+			mail_index_reset_error(map->index);
+			return -1;
+		}
+		return 0;
 	}
+}
+
+int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
+{
+	struct mail_index_transaction *trans;
+	const struct mail_index_header *hdr;
+	const struct dbox_mail_index_map_record *rec;
+	const void *data;
+	bool expunged;
+	uint32_t seq;
+	uint32_t log_seq;
+	uoff_t log_offset;
+
+	trans = mail_index_transaction_begin(map->view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	hdr = mail_index_get_header(map->view);
+	for (seq = 1; seq <= hdr->messages_count; seq++) {
+		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
+				      &data, &expunged);
+		if (data == NULL)
+			break;
+
+		rec = data;
+		if (rec->file_id == file_id)
+			mail_index_expunge(trans, seq);
+	}
+	if (mail_index_transaction_commit(&trans, &log_seq, &log_offset) < 0) {
+		mail_storage_set_internal_error(&map->storage->storage);
+		mail_index_reset_error(map->index);
+		return -1;
+	}
+	return 0;
 }
 
 struct dbox_map_append_context *
@@ -363,7 +400,6 @@ static time_t day_begin_stamp(unsigned int days)
 static bool
 dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 			 uint32_t file_id, time_t stamp, uoff_t mail_size,
-			 uoff_t last_msg_offset, uoff_t last_msg_size,
 			 struct dbox_file **file_r, struct ostream **output_r,
 			 bool *retry_later_r)
 {
@@ -372,7 +408,7 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 	const struct mail_index_header *hdr;
 	struct dbox_file *file;
 	uint32_t seq, tmp_file_id;
-	uoff_t tmp_offset, tmp_size, new_size;
+	uoff_t tmp_offset, tmp_size, last_msg_offset, last_msg_size, new_size;
 	bool deleted, file_too_old = FALSE;
 	int ret;
 
@@ -380,10 +416,10 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 	*retry_later_r = FALSE;
 
 	file = dbox_file_init_multi(storage, file_id);
-	if (dbox_file_open_or_create(file, &deleted) <= 0)
+	if (dbox_file_open_or_create(file, &deleted) <= 0 || deleted) {
+		dbox_file_unref(&file);
 		return TRUE;
-	if (deleted)
-		return TRUE;
+	}
 	if (file->lock != NULL) {
 		/* already locked, we're possibly in the middle of cleaning
 		   it up in which case we really don't want to write there. */
@@ -398,22 +434,24 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 		*retry_later_r = ret == 0;
 	} else if (dbox_map_refresh(map) == 0) {
 		/* now that the file is locked and map is refreshed, make sure
-		   we still have the last msg's offset. */
+		   we still have the last msg's offset. we have to go through
+		   the whole map, because existing messages may have already
+		   been appended to this file. */
+		last_msg_offset = 0;
 		hdr = mail_index_get_header(map->view);
-		seq = ctx->orig_msg_count + 1;
-		for (; seq <= hdr->messages_count; seq++) {
+		for (seq = 1; seq <= hdr->messages_count; seq++) {
 			if (dbox_map_lookup_seq(map, seq, &tmp_file_id,
 						&tmp_offset, &tmp_size) < 0)
 				break;
-			if (tmp_file_id == file->file_id) {
-				i_assert(last_msg_offset < tmp_offset);
+			if (tmp_file_id == file->file_id &&
+			    last_msg_offset < tmp_offset) {
 				last_msg_offset = tmp_offset;
 				last_msg_size = tmp_size;
 			}
 		}
 
 		new_size = last_msg_offset + last_msg_size + mail_size;
-		if (seq > hdr->messages_count &&
+		if (seq > hdr->messages_count && last_msg_offset > 0 &&
 		    new_size <= storage->rotate_size &&
 		    dbox_file_get_append_stream(file, last_msg_offset,
 						last_msg_size, output_r) > 0) {
@@ -454,10 +492,10 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 	struct dbox_file *const *files;
 	const struct mail_index_header *hdr;
 	unsigned int i, count, backwards_lookup_count;
-	uint32_t seq, file_id, min_seen_file_id;
+	uint32_t seq, seq1, uid, file_id, min_seen_file_id;
 	uoff_t offset, append_offset, size;
 	time_t stamp;
-	bool retry_later, updated_retry_seq_min;
+	bool retry_later;
 
 	*existing_r = FALSE;
 
@@ -500,15 +538,9 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 	hdr = mail_index_get_header(map->view);
 	min_seen_file_id = (uint32_t)-1;
 
-	ctx->orig_msg_count = hdr->messages_count;
-	updated_retry_seq_min = FALSE;
+	ctx->orig_next_uid = hdr->next_uid;
 	backwards_lookup_count = 0;
 	for (seq = hdr->messages_count; seq > 0; seq--) {
-		if (seq == ctx->retry_seq_max) {
-			/* skip over files that we know won't match */
-			seq = ctx->retry_seq_min + 1;
-			continue;
-		}
 		if (dbox_map_lookup_seq(map, seq, &file_id, &offset, &size) < 0)
 			return -1;
 		if (file_id >= min_seen_file_id)
@@ -521,7 +553,8 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 		}
 
 		/* first lookup: this should be enough usually, but we can't
-		   be sure until after locking */
+		   be sure until after locking. also if messages were recently
+		   moved, this message might not be the last one in the file. */
 		if (offset + size + mail_size >= map->storage->rotate_size)
 			continue;
 
@@ -530,26 +563,21 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 			continue;
 		}
 
+		mail_index_lookup_uid(map->view, seq, &uid);
 		if (!dbox_map_file_try_append(ctx, file_id, stamp, mail_size,
-					      offset, size, file_r, output_r,
-					      &retry_later)) {
+					      file_r, output_r, &retry_later)) {
 			/* file is too old. the rest of the files are too. */
 			break;
 		}
-		if (*file_r != NULL) {
-			if (seq > ctx->retry_seq_min)
-				ctx->retry_seq_min = seq;
+		/* NOTE: we've now refreshed map view. there are no guarantees
+		   about sequences anymore. */
+		if (*file_r != NULL)
 			return 1;
-		}
-		if (retry_later) {
-			ctx->retry_seq_min = seq;
-			updated_retry_seq_min = TRUE;
-		}
-	}
-	ctx->retry_seq_max = ctx->orig_msg_count;
-	if (!updated_retry_seq_min) {
-		/* there are no files that can be appended to */
-		ctx->retry_seq_min = 0;
+		/* FIXME: use retry_later somehow */
+		if (!mail_index_lookup_seq_range(map->view, 1, uid-1,
+						 &seq1, &seq))
+			break;
+		seq++;
 	}
 	return 0;
 }
