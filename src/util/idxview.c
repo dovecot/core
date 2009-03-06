@@ -37,6 +37,7 @@ struct virtual_mail_index_record {
 struct dbox_mail_index_map_record {
 	uint32_t file_id;
 	uint32_t offset;
+	uint32_t size;
 };
 
 static const char *unixdate2str(time_t timestamp)
@@ -426,6 +427,7 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			const struct dbox_mail_index_map_record *mrec = data;
 			printf("                   : file_id = %u\n", mrec->file_id);
 			printf("                   : offset  = %u\n", mrec->offset);
+			printf("                   : size    = %u\n", mrec->size);
 		}
 	}
 }
