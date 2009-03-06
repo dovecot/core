@@ -503,11 +503,17 @@ void dbox_file_close(struct dbox_file *file)
 
 int dbox_file_try_lock(struct dbox_file *file)
 {
+	int ret;
+
 	i_assert(file->fd != -1);
 
-	return file_try_lock(file->fd, file->current_path, F_WRLCK,
-			     FILE_LOCK_METHOD_FCNTL, &file->lock);
-
+	ret = file_try_lock(file->fd, file->current_path, F_WRLCK,
+			    FILE_LOCK_METHOD_FCNTL, &file->lock);
+	if (ret < 0) {
+		mail_storage_set_critical(&file->storage->storage,
+			"file_try_lock(%s) failed: %m", file->current_path);
+	}
+	return ret;
 }
 
 void dbox_file_unlock(struct dbox_file *file)
@@ -516,9 +522,11 @@ void dbox_file_unlock(struct dbox_file *file)
 
 	if (file->lock != NULL) {
 		if (file->output != NULL) {
+			i_assert(o_stream_get_buffer_used_size(file->output) == 0);
 			if (fstat(file->fd, &st) == 0 &&
 			    (uoff_t)st.st_size != file->output->offset)
 				i_panic("dbox file modified while locked");
+			o_stream_unref(&file->output);
 		}
 		file_unlock(&file->lock);
 	}
@@ -689,7 +697,6 @@ dbox_file_seek_append_pos(struct dbox_file *file,
 	if (st.st_size != (off_t)(last_msg_offset + last_msg_size)) {
 		/* not end of file? either previous write crashed or map index
 		   got broken. play it safe and resync everything. */
-		i_warning("%d vs %d+%d", (int)st.st_size, (int)last_msg_offset, (int)last_msg_size);
 		return 0;
 	}
 
@@ -713,10 +720,26 @@ int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
 			return ret;
 		if (deleted)
 			return 0;
+
+		if (file->single_mbox == NULL) {
+			/* creating a new multi-file. even though we don't
+			   need it locked while writing to it, by the time
+			   we rename() it it needs to be locked. so we might
+			   as well do it here. */
+			if ((ret = dbox_file_try_lock(file)) <= 0) {
+				if (ret < 0)
+					return -1;
+				mail_storage_set_critical(
+					&file->storage->storage,
+					"dbox: Couldn't lock created file: %s",
+					file->current_path);
+				return -1;
+			}
+		}
 	}
 
 	if (file->output == NULL) {
-		i_assert(file->lock != NULL || last_msg_offset == 0);
+		i_assert(file->lock != NULL || file->single_mbox != NULL);
 
 		ret = dbox_file_seek_append_pos(file, last_msg_offset,
 						last_msg_size);
