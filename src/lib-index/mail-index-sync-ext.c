@@ -696,6 +696,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	const struct mail_index_ext *ext;
 	void *data;
 	uint32_t seq;
+	uint64_t orig_num;
 
 	i_assert(ctx->cur_ext_map_idx != (uint32_t)-1);
 	i_assert(!ctx->cur_ext_ignore);
@@ -719,21 +720,26 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	switch (ext->record_size) {
 	case 1: {
 		uint8_t *num = data;
+
+		orig_num = *num;
 		*num += u->diff;
 		break;
 	}
 	case 2: {
 		uint16_t *num = data;
+		orig_num = *num;
 		*num += u->diff;
 		break;
 	}
 	case 4: {
 		uint32_t *num = data;
+		orig_num = *num;
 		*num += u->diff;
 		break;
 	}
 	case 8: {
 		uint64_t *num = data;
+		orig_num = *num;
 		*num += u->diff;
 		break;
 	}
@@ -743,6 +749,14 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 			ext->record_size);
 		return -1;
 	}
+	if (u->diff < 0 && (uint32_t)(-u->diff) > orig_num) {
+		mail_index_sync_set_corrupted(ctx,
+			"Extension record inc drops number below zero "
+			"(uid=%u, diff=%d, orig=%llu)",
+			u->uid, u->diff, (unsigned long long)orig_num);
+		return -1;
+	}
+
 	mail_index_sync_write_seq_update(ctx, seq, seq);
 	return 1;
 }

@@ -1357,6 +1357,9 @@ void mail_index_atomic_inc_ext(struct mail_index_transaction *t, uint32_t seq,
 		 (seq <= mail_index_view_get_messages_count(t->view) ||
 		  seq <= t->last_new_seq));
 	i_assert(ext_id < array_count(&t->view->index->extensions));
+	/* currently non-external transactions can be applied multiple times,
+	   causing multiple increments. */
+	i_assert((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	t->log_ext_updates = TRUE;
 	if (!array_is_created(&t->ext_rec_atomics))
