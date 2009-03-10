@@ -407,6 +407,7 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 	struct dbox_storage *storage = map->storage;
 	const struct mail_index_header *hdr;
 	struct dbox_file *file;
+	struct stat st;
 	uint32_t seq, tmp_file_id;
 	uoff_t tmp_offset, tmp_size, last_msg_offset, last_msg_size, new_size;
 	bool deleted, file_too_old = FALSE;
@@ -432,6 +433,10 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 	else if ((ret = dbox_file_try_lock(file)) <= 0) {
 		/* locking failed */
 		*retry_later_r = ret == 0;
+	} else if (stat(file->current_path, &st) < 0) {
+		if (errno != ENOENT)
+			i_error("stat(%s) failed: %m", file->current_path);
+		/* the file was unlinked between opening and locking it. */
 	} else if (dbox_map_refresh(map) == 0) {
 		/* now that the file is locked and map is refreshed, make sure
 		   we still have the last msg's offset. we have to go through
