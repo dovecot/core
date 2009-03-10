@@ -324,6 +324,11 @@ int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 	uint32_t log_seq;
 	uoff_t log_offset;
 
+	/* make sure the map is refreshed, otherwise we might be expunging
+	   messages that have already been moved to other files. */
+	if (dbox_map_refresh(map) < 0)
+		return -1;
+
 	trans = mail_index_transaction_begin(map->view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	hdr = mail_index_get_header(map->view);
