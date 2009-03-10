@@ -27,7 +27,6 @@ struct cydir_save_context {
 	/* updated for each appended mail: */
 	uint32_t seq;
 	struct istream *input;
-	struct ostream *output;
 	struct mail *mail;
 	int fd;
 
@@ -90,9 +89,9 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		path = cydir_get_save_path(ctx, ctx->mail_count);
 		ctx->fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);
 		if (ctx->fd != -1) {
-			ctx->output =
+			_ctx->output =
 				o_stream_create_fd_file(ctx->fd, 0, FALSE);
-			o_stream_cork(ctx->output);
+			o_stream_cork(_ctx->output);
 		} else {
 			mail_storage_set_critical(trans->box->storage,
 						  "open(%s) failed: %m", path);
@@ -134,7 +133,7 @@ int cydir_save_continue(struct mail_save_context *_ctx)
 		return -1;
 
 	do {
-		if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
+		if (o_stream_send_istream(_ctx->output, ctx->input) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
 					"o_stream_send_istream(%s) failed: %m",
@@ -161,7 +160,7 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 
 	ctx->finished = TRUE;
 
-	if (o_stream_flush(ctx->output) < 0) {
+	if (o_stream_flush(_ctx->output) < 0) {
 		mail_storage_set_critical(storage,
 			"o_stream_flush(%s) failed: %m", path);
 		ctx->failed = TRUE;
@@ -195,7 +194,7 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 		}
 	}
 
-	o_stream_destroy(&ctx->output);
+	o_stream_destroy(&_ctx->output);
 	if (close(ctx->fd) < 0) {
 		mail_storage_set_critical(storage,
 					  "close(%s) failed: %m", path);

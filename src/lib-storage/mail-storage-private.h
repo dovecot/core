@@ -341,6 +341,7 @@ struct mail_save_context {
 	int received_tz_offset;
 
 	char *guid, *from_envelope;
+	struct ostream *output;
 };
 
 struct mailbox_sync_context {
