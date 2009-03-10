@@ -574,7 +574,8 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 		if (*file_r != NULL)
 			return 1;
 		/* FIXME: use retry_later somehow */
-		if (!mail_index_lookup_seq_range(map->view, 1, uid-1,
+		if (uid == 1 ||
+		    !mail_index_lookup_seq_range(map->view, 1, uid-1,
 						 &seq1, &seq))
 			break;
 		seq++;

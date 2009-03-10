@@ -45,6 +45,7 @@ static int dbox_sync_file_unlink(struct dbox_file *file)
 int dbox_sync_file_cleanup(struct dbox_file *file)
 {
 	struct dbox_file *out_file;
+	struct stat st;
 	struct istream *input;
 	struct ostream *output = NULL;
 	struct dbox_metadata_header meta_hdr;
@@ -62,6 +63,18 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 
 	if ((ret = dbox_file_try_lock(file)) <= 0)
 		return ret;
+
+	/* make sure the file still exists. another process may have already
+	   deleted it. */
+	if (stat(file->current_path, &st) < 0) {
+		dbox_file_unlock(file);
+		if (errno == ENOENT)
+			return 0;
+
+		mail_storage_set_critical(&file->storage->storage,
+			"stat(%s) failed: %m", file->current_path);
+		return -1;
+	}
 
 	append_ctx = dbox_map_append_begin_storage(file->storage);
 
@@ -153,8 +166,8 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 		ret = -1;
 	} else if (output == NULL) {
 		/* everything expunged in this file, unlink it */
-		dbox_map_append_rollback(&append_ctx);
 		ret = dbox_sync_file_unlink(file);
+		dbox_map_append_rollback(&append_ctx);
 	} else {
 		/* assign new file_id + offset to moved messages */
 		if (dbox_map_append_move(append_ctx, &copied_map_uids,
@@ -163,8 +176,8 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 			dbox_map_append_rollback(&append_ctx);
 			ret = -1;
 		} else {
-			dbox_map_append_commit(&append_ctx);
 			(void)dbox_sync_file_unlink(file);
+			dbox_map_append_commit(&append_ctx);
 			ret = 1;
 		}
 	}
