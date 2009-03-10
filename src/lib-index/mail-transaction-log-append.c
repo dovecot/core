@@ -512,6 +512,13 @@ static void log_append_sync_offset_if_needed(struct log_append_context *ctx)
 	buffer_t *buf;
 	uint32_t offset;
 
+	/* Update the tail offsets only when committing the sync transaction.
+	   Other transactions may not know the latest tail offset and might
+	   end up shrinking it. (Alternatively the shrinking tail offsets could
+	   just be ignored, which would probably work fine too.) */
+	if (!ctx->trans->sync_transaction)
+		return;
+
 	if (ctx->file->max_tail_offset == ctx->file->sync_offset) {
 		/* FIXME: when we remove exclusive log locking, we
 		   can't rely on this. then write non-changed offset + check
