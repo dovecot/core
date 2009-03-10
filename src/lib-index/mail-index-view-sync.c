@@ -918,7 +918,7 @@ int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx,
 		view->inconsistent = TRUE;
 		ret = -1;
 	}
-	if (ctx->sync_map_ctx.view != NULL)
+	if (ctx->sync_map_ctx.modseq_ctx != NULL)
 		mail_index_modseq_sync_end(&ctx->sync_map_ctx.modseq_ctx);
 
 	if (ctx->sync_new_map != NULL) {
