@@ -37,8 +37,10 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 	va_start(va, fmt);
 	T_BEGIN {
 		mail_index_set_error(file->log->index,
-				     "Corrupted transaction log file %s: %s",
-				     file->filepath, t_strdup_vprintf(fmt, va));
+			"Corrupted transaction log file %s seq %u: %s "
+			"(sync_offset=%"PRIuUOFF_T")",
+			file->filepath, file->hdr.file_seq,
+			t_strdup_vprintf(fmt, va), file->sync_offset);
 	} T_END;
 	va_end(va);
 }
