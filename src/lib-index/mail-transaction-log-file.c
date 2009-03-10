@@ -147,8 +147,11 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 		file->sync_offset = modseq_hdr->log_offset;
 		file->sync_highest_modseq = modseq_hdr->highest_modseq;
 	}
-	file->saved_tail_offset = log->index->map->hdr.log_file_tail_offset;
-	file->saved_tail_sync_offset = file->saved_tail_offset;
+	if (file->hdr.file_seq == log->index->map->hdr.log_file_seq) {
+		file->saved_tail_offset =
+			log->index->map->hdr.log_file_tail_offset;
+		file->saved_tail_sync_offset = file->saved_tail_offset;
+	}
 	if (file->saved_tail_offset > file->max_tail_offset)
 		file->max_tail_offset = file->saved_tail_offset;
 }
@@ -755,9 +758,9 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 	const unsigned int offset_pos =
 		offsetof(struct mail_index_header, log_file_tail_offset);
 	const unsigned int offset_size = sizeof(ihdr->log_file_tail_offset);
-	uint32_t sync_offset;
+	uint32_t tail_offset;
 
-	i_assert(offset_size == sizeof(sync_offset));
+	i_assert(offset_size == sizeof(tail_offset));
 
 	if (size < sizeof(*u) || size < sizeof(*u) + u->size) {
 		mail_transaction_log_file_set_corrupted(file,
@@ -767,28 +770,31 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 
 	if (u->offset <= offset_pos &&
 	    u->offset + u->size >= offset_pos + offset_size) {
-		memcpy(&sync_offset,
+		memcpy(&tail_offset,
 		       CONST_PTR_OFFSET(u + 1, offset_pos - u->offset),
-		       sizeof(sync_offset));
+		       sizeof(tail_offset));
 
-		if (sync_offset < file->saved_tail_offset) {
+		if (tail_offset < file->saved_tail_offset) {
 			if (file->sync_offset < file->saved_tail_sync_offset) {
 				/* saved_tail_offset was already set in header,
 				   but we still had to resync the file to find
 				   modseqs. ignore this record. */
 				return 1;
 			}
-			mail_transaction_log_file_set_corrupted(file,
+			mail_index_set_error(file->log->index,
+				"Transaction log file %s seq %u: "
 				"log_file_tail_offset update shrank it "
-				"(%u vs %"PRIuUOFF_T", file_seq=%u)",
-				sync_offset, file->saved_tail_offset,
-				file->hdr.file_seq);
-			return -1;
+				"(%u vs %"PRIuUOFF_T" "
+				"sync_offset=%"PRIuUOFF_T")",
+				file->filepath, file->hdr.file_seq,
+				tail_offset, file->saved_tail_offset,
+				file->sync_offset);
+		} else {
+			file->saved_tail_offset = tail_offset;
+			if (tail_offset > file->max_tail_offset)
+				file->max_tail_offset = tail_offset;
+			return 1;
 		}
-		file->saved_tail_offset = sync_offset;
-		if (sync_offset > file->max_tail_offset)
-			file->max_tail_offset = sync_offset;
-		return 1;
 	}
 	return 0;
 }
