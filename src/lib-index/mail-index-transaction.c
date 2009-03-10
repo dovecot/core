@@ -1699,7 +1699,6 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	t->v = trans_vfuncs;
 	t->view = view;
 	t->flags = flags;
-	t->sync_transaction = view->index_sync_view;
 
 	if (view->syncing) {
 		/* transaction view cannot work if new records are being added

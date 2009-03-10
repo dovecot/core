@@ -74,8 +74,6 @@ struct mail_index_transaction {
 	ARRAY_DEFINE(module_contexts,
 		     union mail_index_transaction_module_context *);
 
-	/* this transaction was created for index_sync_view view */
-	unsigned int sync_transaction:1;
 	unsigned int no_appends:1;
 
 	unsigned int appends_nonsorted:1;
