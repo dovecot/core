@@ -244,7 +244,7 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 	i_assert(ext_id != (uint32_t)-1);
 
 	if (t->reset ||
-	    !mail_index_map_get_ext_idx(t->view->map, ext_id, &idx)) {
+	    !mail_index_map_get_ext_idx(t->view->index->map, ext_id, &idx)) {
 		/* new extension */
 		idx = (uint32_t)-1;
 	}
@@ -283,7 +283,7 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 	} else if (idx != (uint32_t)-1) {
 		/* use the existing reset_id */
 		const struct mail_index_ext *map_ext =
-			array_idx(&t->view->map->extensions, idx);
+			array_idx(&t->view->index->map->extensions, idx);
 		intro->reset_id = map_ext->reset_id;
 	} else {
 		/* new extension, reset_id defaults to 0 */
