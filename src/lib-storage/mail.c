@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "crc32.h"
 #include "hostpid.h"
 #include "mail-storage-private.h"
 
