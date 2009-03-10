@@ -41,12 +41,17 @@ void dbox_file_set_syscall_error(struct dbox_file *file, const char *function)
 				  function, file->current_path);
 }
 
-static void dbox_file_set_corrupted(struct dbox_file *file, const char *reason)
+void dbox_file_set_corrupted(struct dbox_file *file, const char *reason, ...)
 {
+	va_list args;
+
+	va_start(args, reason);
 	mail_storage_set_critical(&file->storage->storage,
 		"Corrupted dbox file %s (around offset=%"PRIuUOFF_T"): %s",
 		file->current_path,
-		file->input == NULL ? 0 : file->input->v_offset, reason);
+		file->input == NULL ? 0 : file->input->v_offset,
+		t_strdup_vprintf(reason, args));
+	va_end(args);
 }
 
 static struct dbox_file *
@@ -557,10 +562,9 @@ dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 	if (ret <= 0) {
 		if (file->input->stream_errno == 0) {
 			/* EOF, broken offset or file truncated */
-			dbox_file_set_corrupted(file, t_strdup_printf(
-				"EOF reading msg header "
-				"(got %"PRIuSIZE_T"/%u bytes)",
-				size, file->msg_header_size));
+			dbox_file_set_corrupted(file, "EOF reading msg header "
+						"(got %"PRIuSIZE_T"/%u bytes)",
+						size, file->msg_header_size);
 			return 0;
 		}
 		dbox_file_set_syscall_error(file, "read()");
@@ -617,10 +621,10 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 }
 
 static int
-dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset,
-				uoff_t *physical_size_r)
+dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 {
 	const char *line;
+	uoff_t physical_size;
 	int ret;
 
 	if ((ret = dbox_file_metadata_skip_header(file)) <= 0)
@@ -636,16 +640,13 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset,
 	*offset = file->input->v_offset;
 
 	(void)i_stream_read(file->input);
-	if (!i_stream_have_bytes_left(file->input)) {
-		*physical_size_r = 0;
+	if (!i_stream_have_bytes_left(file->input))
 		return 1;
-	}
 
-	return dbox_file_read_mail_header(file, physical_size_r);
+	return dbox_file_read_mail_header(file, &physical_size);
 }
 
-int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset,
-			uoff_t *physical_size_r, bool *last_r)
+int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset, bool *last_r)
 {
 	uoff_t size;
 	bool first = *offset == 0;
@@ -661,15 +662,13 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset,
 
 	if (deleted) {
 		*last_r = TRUE;
-		return 1;
+		return 0;
 	}
-	if (first) {
-		*physical_size_r = size;
+	if (first)
 		return 1;
-	}
 
 	i_stream_skip(file->input, size);
-	return dbox_file_seek_next_at_metadata(file, offset, physical_size_r);
+	return dbox_file_seek_next_at_metadata(file, offset);
 }
 
 static int

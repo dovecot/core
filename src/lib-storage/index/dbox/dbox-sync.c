@@ -326,12 +326,12 @@ void dbox_sync_cleanup(struct dbox_storage *storage)
 
 	ref0_file_ids = dbox_map_get_zero_ref_files(storage->map);
 	seq_range_array_iter_init(&iter, ref0_file_ids); i = 0;
-	while (seq_range_array_iter_nth(&iter, i++, &file_id)) {
+	while (seq_range_array_iter_nth(&iter, i++, &file_id)) T_BEGIN {
 		file = dbox_file_init_multi(storage, file_id);
 		if (dbox_file_open_or_create(file, &deleted) > 0 && !deleted)
 			(void)dbox_sync_file_cleanup(file);
 		else
 			dbox_map_remove_file_id(storage->map, file_id);
 		dbox_file_unref(&file);
-	}
+	} T_END;
 }

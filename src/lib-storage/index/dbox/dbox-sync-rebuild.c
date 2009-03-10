@@ -153,11 +153,10 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 				     struct dbox_file *file, uoff_t *offset)
 {
 	uint32_t seq;
-	uoff_t physical_size;
 	bool expunged, last;
 	int ret;
 
-	ret = dbox_file_seek_next(file, offset, &physical_size, &last);
+	ret = dbox_file_seek_next(file, offset, &last);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;

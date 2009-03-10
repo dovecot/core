@@ -201,7 +201,8 @@ int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
 	const void *data;
 	bool expunged;
 
-	(void)dbox_map_refresh(map);
+	if (dbox_map_refresh(map) < 0)
+		return -1;
 	hdr = mail_index_get_header(map->view);
 
 	memset(&msg, 0, sizeof(msg));
