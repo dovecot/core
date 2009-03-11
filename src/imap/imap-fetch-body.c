@@ -207,8 +207,8 @@ static off_t imap_fetch_send(struct imap_fetch_context *ctx,
 		   and if it was just a temporary error the message would be
 		   permanently left corrupted in client's local cache. So, we
 		   disconnect the client and hope that next try works. */
-		i_error("FETCH for mailbox %s UID %u got too little data: "
-			"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
+		i_error("FETCH %s for mailbox %s UID %u got too little data: "
+			"%"PRIuUOFF_T" vs %"PRIuUOFF_T, ctx->cur_name,
 			mailbox_get_name(ctx->mail->box), ctx->mail->uid,
 			(uoff_t)sent, virtual_size);
 		mail_set_cache_corrupted(ctx->mail, ctx->cur_size_field);
@@ -269,10 +269,10 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 		/* unfinished */
 		if (!i_stream_have_bytes_left(ctx->cur_input)) {
 			/* Input stream gave less data than expected */
-			i_error("FETCH for mailbox %s UID %u "
-				"got too little data: "
+			i_error("FETCH %s for mailbox %s UID %u "
+				"got too little data (copying): "
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
-				mailbox_get_name(ctx->mail->box),
+				ctx->cur_name, mailbox_get_name(ctx->mail->box),
 				ctx->mail->uid, ctx->cur_offset, ctx->cur_size);
 			o_stream_close(ctx->client->output);
 			return -1;
@@ -310,6 +310,8 @@ static int fetch_data(struct imap_fetch_context *ctx,
 {
 	string_t *str;
 
+	ctx->cur_name = p_strconcat(ctx->cmd->pool,
+				    "[", body->section, "]", NULL);
 	ctx->cur_size = get_send_size(body, size->virtual_size);
 
 	str = get_prefix(ctx, body, ctx->cur_size);
@@ -922,6 +924,7 @@ static int fetch_rfc822(struct imap_fetch_context *ctx, struct mail *mail,
 			return -1;
 	}
 
+	ctx->cur_name = "RFC822";
         ctx->cur_size = size.virtual_size;
 	ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
 	return fetch_stream(ctx, &size);
@@ -947,6 +950,7 @@ static int fetch_rfc822_header(struct imap_fetch_context *ctx,
 	if (o_stream_send_str(ctx->client->output, str) < 0)
 		return -1;
 
+	ctx->cur_name = "RFC822.HEADER";
         ctx->cur_size = hdr_size.virtual_size;
 	ctx->cur_size_field = MAIL_FETCH_MESSAGE_PARTS;
 	return fetch_stream(ctx, &hdr_size);
@@ -973,6 +977,7 @@ static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 		return -1;
 
 	i_stream_seek(ctx->cur_input, hdr_size.physical_size);
+	ctx->cur_name = "RFC822.TEXT";
         ctx->cur_size = body_size.virtual_size;
 	ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
 	return fetch_stream(ctx, &body_size);
