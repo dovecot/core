@@ -428,10 +428,9 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 		if (mail_index_move_to_memory(ibox->index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now. */
-			index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
-			ret = mail_index_open(ibox->index, index_flags,
-					      storage->lock_method);
-			if (ret <= 0)
+			if (mail_index_open_or_create(ibox->index,
+						      index_flags,
+						      storage->lock_method) < 0)
 				i_panic("in-memory index creation failed");
 		}
 	}

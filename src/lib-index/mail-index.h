@@ -187,8 +187,14 @@ void mail_index_set_fsync_types(struct mail_index *index,
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid);
 
+/* Open index. Returns 1 if ok, 0 if index doesn't exist and CREATE flags
+   wasn't given, -1 if error. */
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 		    enum file_lock_method lock_method);
+/* Open or create index. Returns 0 if ok, -1 if error. */
+int mail_index_open_or_create(struct mail_index *index,
+			      enum mail_index_open_flags flags,
+			      enum file_lock_method lock_method);
 void mail_index_close(struct mail_index *index);
 
 /* Move the index into memory. Returns 0 if ok, -1 if error occurred. */

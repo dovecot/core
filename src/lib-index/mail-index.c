@@ -437,6 +437,18 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 	return 1;
 }
 
+int mail_index_open_or_create(struct mail_index *index,
+			      enum mail_index_open_flags flags,
+			      enum file_lock_method lock_method)
+{
+	int ret;
+
+	flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
+	ret = mail_index_open(index, flags, lock_method);
+	i_assert(ret != 0);
+	return ret < 0 ? -1 : 0;
+}
+
 void mail_index_close_file(struct mail_index *index)
 {
 	if (index->file_lock != NULL)

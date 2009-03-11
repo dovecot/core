@@ -456,26 +456,26 @@ static int index_mailbox_list_open_indexes(struct mailbox_list *list,
 {
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
 	const char *path;
-	enum mail_index_open_flags index_flags;
+	enum mail_index_open_flags index_flags = 0;
 	enum mail_storage_flags storage_flags;
 	int ret;
 
 	/* FIXME: a bit ugly way to get the flags, but this will do for now.. */
-	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
 	storage_flags = *list->set.mail_storage_flags;
 #ifndef MMAP_CONFLICTS_WRITE
 	if ((storage_flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
 #endif
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 
-	if (mail_index_open(ilist->mail_index, index_flags,
-			    *list->set.lock_method) < 0) {
+	if (mail_index_open_or_create(ilist->mail_index, index_flags,
+				      *list->set.lock_method) < 0) {
 		if (mail_index_move_to_memory(ilist->mail_index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now. */
-			ret = mail_index_open(ilist->mail_index, index_flags,
-					      *list->set.lock_method);
-			if (ret <= 0) {
+			ret = mail_index_open_or_create(ilist->mail_index,
+							index_flags,
+							*list->set.lock_method);
+			if (ret < 0) {
 				/* everything failed. there's a bug in the
 				   code, but just work around it by disabling
 				   the index completely */
