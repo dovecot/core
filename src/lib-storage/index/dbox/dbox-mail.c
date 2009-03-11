@@ -73,7 +73,6 @@ static int dbox_mail_open(struct dbox_mail *mail,
 			ret = dbox_map_lookup(mbox->storage->map, map_uid,
 					      &file_id, &mail->offset);
 			if (ret <= 0) {
-				// FIXME: ret=0 case - should we resync?
 				if (ret == 0)
 					mail_set_expunged(_mail);
 				return -1;
@@ -89,27 +88,17 @@ static int dbox_mail_open(struct dbox_mail *mail,
 }
 
 static int
-dbox_mail_metadata_seek(struct dbox_mail *mail, struct dbox_file **file_r)
+dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
 	uoff_t offset;
 	bool expunged;
-	int ret;
 
 	if (dbox_mail_open(mail, &offset, file_r) < 0)
 		return -1;
 
-	ret = dbox_file_metadata_seek_mail_offset(*file_r, offset, &expunged);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		/* FIXME */
-		mail_storage_set_critical(mail->imail.ibox->storage,
-			"Broken metadata in dbox file %s offset %"PRIuUOFF_T
-			" (uid=%u)",
-			(*file_r)->current_path, offset, _mail->uid);
+	if (dbox_file_metadata_read(*file_r, offset, &expunged) <= 0)
 		return -1;
-	}
 	if (expunged) {
 		mail_set_expunged(_mail);
 		return -1;
@@ -127,7 +116,7 @@ static int dbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 	if (index_mail_get_received_date(_mail, date_r) == 0)
 		return 0;
 
-	if (dbox_mail_metadata_seek(mail, &file) < 0)
+	if (dbox_mail_metadata_read(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_RECEIVED_TIME);
@@ -147,7 +136,7 @@ static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	if (index_mail_get_save_date(_mail, date_r) == 0)
 		return 0;
 
-	if (dbox_mail_metadata_seek(mail, &file) < 0)
+	if (dbox_mail_metadata_read(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_SAVE_TIME);
@@ -177,7 +166,7 @@ static int dbox_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 	if (index_mail_get_cached_virtual_size(&mail->imail, size_r))
 		return 0;
 
-	if (dbox_mail_metadata_seek(mail, &file) < 0)
+	if (dbox_mail_metadata_read(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_VIRTUAL_SIZE);
@@ -225,7 +214,7 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 		return 0;
 	}
 
-	if (dbox_mail_metadata_seek(mail, &file) < 0)
+	if (dbox_mail_metadata_read(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, key);
@@ -277,21 +266,16 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 
 		ret = dbox_file_get_mail_stream(mail->open_file, offset,
 						&size, &input, &expunged);
-		if (ret < 0)
-			return -1;
-		if (ret > 0 && expunged) {
-			mail_set_expunged(_mail);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
+			dbox_file_set_corrupted(mail->open_file,
+				"uid=%u points to broken data at offset="
+				"%"PRIuUOFF_T, _mail->uid, offset);
 			return -1;
 		}
-		if (ret == 0) {
-			/* FIXME: broken file/offset */
-			if (ret > 0)
-				i_stream_unref(&input);
-			mail_storage_set_critical(_mail->box->storage,
-				"broken pointer to dbox file %s "
-				"offset %"PRIuUOFF_T" (uid=%u)",
-				mail->open_file->current_path,
-				offset, _mail->uid);
+		if (expunged) {
+			mail_set_expunged(_mail);
 			return -1;
 		}
 		data->physical_size = size;

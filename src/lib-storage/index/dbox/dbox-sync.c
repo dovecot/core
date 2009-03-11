@@ -54,8 +54,14 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 		ret = dbox_map_lookup(ctx->mbox->storage->map, map_uid,
 				      &lookup_entry.file_id, &offset);
 		if (ret <= 0) {
-			// FIXME: ret=0 case - should we resync?
-			return -1;
+			if (ret < 0)
+				return -1;
+			/* mailbox is locked while syncing, so if ret=0 the
+			   message got expunged from storage before it was
+			   expunged from mailbox. that shouldn't happen. */
+			dbox_map_set_corrupted(ctx->mbox->storage->map,
+				"unexpectedly lost map_uid=%u", map_uid);
+			return 0;
 		}
 	}
 
@@ -81,13 +87,14 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 		else
 			entry->move_from_alt = TRUE;
 	}
-	return 0;
+	return 1;
 }
 
 static int dbox_sync_add(struct dbox_sync_context *ctx,
 			 const struct mail_index_sync_rec *sync_rec)
 {
 	uint32_t seq, seq1, seq2;
+	int ret;
 
 	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
 		/* we're interested */
@@ -95,24 +102,24 @@ static int dbox_sync_add(struct dbox_sync_context *ctx,
 		/* we care only about alt flag changes */
 		if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) == 0 &&
 		    (sync_rec->remove_flags & DBOX_INDEX_FLAG_ALT) == 0)
-			return 0;
+			return 1;
 	} else {
 		/* not interested */
-		return 0;
+		return 1;
 	}
 
 	if (!mail_index_lookup_seq_range(ctx->sync_view,
 					 sync_rec->uid1, sync_rec->uid2,
 					 &seq1, &seq2)) {
 		/* already expunged everything. nothing to do. */
-		return 0;
+		return 1;
 	}
 
 	for (seq = seq1; seq <= seq2; seq++) {
-		if (dbox_sync_add_seq(ctx, sync_rec, seq) < 0)
-			return -1;
+		if ((ret = dbox_sync_add_seq(ctx, sync_rec, seq)) <= 0)
+			return ret;
 	}
-	return 0;
+	return 1;
 }
 
 static int dbox_sync_index(struct dbox_sync_context *ctx)
@@ -147,10 +154,8 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	for (;;) {
 		if (!mail_index_sync_next(ctx->index_sync_ctx, &sync_rec))
 			break;
-		if (dbox_sync_add(ctx, &sync_rec) < 0) {
-			ret = 0;
+		if ((ret = dbox_sync_add(ctx, &sync_rec)) <= 0)
 			break;
-		}
 	}
 
 	if (ret > 0) {
@@ -193,6 +198,8 @@ static int dbox_refresh_header(struct dbox_mailbox *mbox)
 	hdr = data;
 
 	mbox->highest_maildir_uid = hdr->highest_maildir_uid;
+	if (mbox->storage->sync_rebuild)
+		return -1;
 	return 0;
 }
 
@@ -231,7 +238,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
 			return ret;
 		}
 
-		if (rebuild && dbox_refresh_header(mbox) < 0) {
+		if (rebuild && dbox_refresh_header(mbox) == 0) {
 			/* another process rebuilt it already */
 			rebuild = FALSE;
 		}

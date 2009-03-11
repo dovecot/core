@@ -54,6 +54,8 @@ struct dbox_storage {
 	unsigned int rotate_days;
 	unsigned int max_open_files;
 	ARRAY_DEFINE(open_files, struct dbox_file *);
+
+	unsigned int sync_rebuild:1;
 };
 
 struct dbox_mail_index_record {

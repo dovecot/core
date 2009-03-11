@@ -45,6 +45,9 @@ void dbox_file_set_corrupted(struct dbox_file *file, const char *reason, ...)
 {
 	va_list args;
 
+	if (file->single_mbox == NULL)
+		file->storage->sync_rebuild = TRUE;
+
 	va_start(args, reason);
 	mail_storage_set_critical(&file->storage->storage,
 		"Corrupted dbox file %s (around offset=%"PRIuUOFF_T"): %s",
@@ -262,7 +265,7 @@ void dbox_file_unref(struct dbox_file **_file)
 		return;
 
 	/* don't cache metadata seeks while file isn't being referenced */
-	file->metadata_read_offset = 0;
+	file->metadata_read_offset = (uoff_t)-1;
 
 	if (file->file_id != 0) {
 		files = array_get(&file->storage->open_files, &count);
@@ -473,25 +476,6 @@ int dbox_file_open_or_create(struct dbox_file *file, bool *deleted_r)
 		return dbox_file_open(file, deleted_r);
 }
 
-int dbox_file_open_if_needed(struct dbox_file *file)
-{
-	const char *path;
-	int ret;
-
-	if (file->fd != -1)
-		return 0;
-
-	T_BEGIN {
-		ret = dbox_file_open_fd(file);
-	} T_END;
-	if (ret == 0) {
-		path = dbox_file_get_primary_path(file);
-		mail_storage_set_critical(&file->storage->storage,
-					  "open(%s) failed: %m", path);
-	}
-	return ret <= 0 ? -1 : 0;
-}
-
 void dbox_file_close(struct dbox_file *file)
 {
 	dbox_file_unlock(file);
@@ -530,7 +514,7 @@ void dbox_file_unlock(struct dbox_file *file)
 			i_assert(o_stream_get_buffer_used_size(file->output) == 0);
 			if (fstat(file->fd, &st) == 0 &&
 			    (uoff_t)st.st_size != file->output->offset)
-				i_panic("dbox file modified while locked");
+				i_fatal("dbox file modified while locked");
 			o_stream_unref(&file->output);
 		}
 		file_unlock(&file->lock);
@@ -578,7 +562,7 @@ dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 	memcpy(&hdr, data, I_MIN(sizeof(hdr), file->msg_header_size));
 	if (memcmp(hdr.magic_pre, DBOX_MAGIC_PRE, sizeof(hdr.magic_pre)) != 0) {
 		/* probably broken offset */
-		dbox_file_set_corrupted(file, "bad magic value");
+		dbox_file_set_corrupted(file, "msg header has bad magic value");
 		return 0;
 	}
 
@@ -650,17 +634,17 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset, bool *last_r)
 {
 	uoff_t size;
 	bool first = *offset == 0;
-	bool deleted;
+	bool expunged;
 	int ret;
 
+	/* FIXME: see if we can get rid of this function. only rebuild needs it. */
 	*last_r = FALSE;
 
-	ret = dbox_file_get_mail_stream(file, *offset, &size, NULL,
-					&deleted);
+	ret = dbox_file_get_mail_stream(file, *offset, &size, NULL, &expunged);
 	if (ret <= 0)
 		return ret;
 
-	if (deleted) {
+	if (expunged) {
 		*last_r = TRUE;
 		return 0;
 	}
@@ -672,53 +656,48 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset, bool *last_r)
 }
 
 static int
-dbox_file_seek_append_pos(struct dbox_file *file,
-			  uoff_t last_msg_offset, uoff_t last_msg_size)
+dbox_file_seek_append_pos(struct dbox_file *file, uoff_t append_offset)
 {
 	struct stat st;
+
+	i_assert(append_offset != 0);
 
 	if (file->file_version != DBOX_VERSION ||
 	    file->msg_header_size != sizeof(struct dbox_message_header)) {
 		/* created by an incompatible version, can't append */
 		return 0;
 	}
-	if (last_msg_size > 0) {
-		/* if last_msg_offset + last_msg_size points to EOF,
-		   we can safely use it without reading the last message. */
-		if (fstat(file->fd, &st) < 0) {
-			dbox_file_set_syscall_error(file, "fstat()");
-			return -1;
-		}
-	} else {
-		st.st_size = -1;
-	}
 
-	if (st.st_size != (off_t)(last_msg_offset + last_msg_size)) {
+	if (fstat(file->fd, &st) < 0) {
+		dbox_file_set_syscall_error(file, "fstat()");
+		return -1;
+	}
+	if ((uoff_t)st.st_size != append_offset) {
 		/* not end of file? either previous write crashed or map index
 		   got broken. play it safe and resync everything. */
+		dbox_file_set_corrupted(file, "file size (%"PRIuUOFF_T
+					") not expected (%"PRIuUOFF_T")",
+					st.st_size, append_offset);
 		return 0;
 	}
 
 	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
-	o_stream_seek(file->output, last_msg_offset + last_msg_size);
+	o_stream_seek(file->output, append_offset);
 	return 1;
 }
 
 int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
 				uoff_t last_msg_size, struct ostream **stream_r)
 {
-	bool deleted;
 	int ret;
 
 	if (file->fd == -1) {
 		/* creating a new file */
 		i_assert(file->output == NULL);
+		i_assert(file->file_id == 0 && file->uid == 0);
 
-		ret = dbox_file_open_or_create(file, &deleted);
-		if (ret <= 0)
-			return ret;
-		if (deleted)
-			return 0;
+		if (dbox_file_create(file) < 0)
+			return -1;
 
 		if (file->single_mbox == NULL) {
 			/* creating a new multi-file. even though we don't
@@ -735,12 +714,11 @@ int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
 				return -1;
 			}
 		}
-	}
-
-	if (file->output == NULL) {
+		i_assert(file->output != NULL);
+	} else if (file->output == NULL) {
 		i_assert(file->lock != NULL || file->single_mbox != NULL);
 
-		ret = dbox_file_seek_append_pos(file, last_msg_offset,
+		ret = dbox_file_seek_append_pos(file, last_msg_offset +
 						last_msg_size);
 		if (ret <= 0)
 			return ret;
@@ -785,20 +763,6 @@ int dbox_file_flush_append(struct dbox_file *file)
 	return 0;
 }
 
-static uoff_t
-dbox_file_get_metadata_offset(struct dbox_file *file, uoff_t offset,
-			      uoff_t physical_size)
-{
-	if (offset == 0) {
-		if (file->maildir_file)
-			return 0;
-
-		i_assert(file->file_header_size != 0);
-		offset = file->file_header_size;
-	}
-	return offset + sizeof(struct dbox_message_header) + physical_size;
-}
-
 static int dbox_file_metadata_skip_header(struct dbox_file *file)
 {
 	struct dbox_metadata_header metadata_hdr;
@@ -811,6 +775,8 @@ static int dbox_file_metadata_skip_header(struct dbox_file *file)
 	if (ret <= 0) {
 		if (file->input->stream_errno == 0) {
 			/* EOF, broken offset */
+			dbox_file_set_corrupted(file,
+				"Unexpected EOF while reading metadata header");
 			return 0;
 		}
 		dbox_file_set_syscall_error(file, "read()");
@@ -820,21 +786,19 @@ static int dbox_file_metadata_skip_header(struct dbox_file *file)
 	if (memcmp(metadata_hdr.magic_post, DBOX_MAGIC_POST,
 		   sizeof(metadata_hdr.magic_post)) != 0) {
 		/* probably broken offset */
+		dbox_file_set_corrupted(file,
+			"metadata header has bad magic value");
 		return 0;
 	}
 	i_stream_skip(file->input, sizeof(metadata_hdr));
 	return 1;
 }
 
-int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
-			    bool *expunged_r)
+static int
+dbox_file_metadata_read_at(struct dbox_file *file, uoff_t metadata_offset)
 {
 	const char *line;
-	uoff_t metadata_data_offset, prev_offset;
-	bool deleted;
 	int ret;
-
-	*expunged_r = FALSE;
 
 	if (file->metadata_pool != NULL)
 		p_clear(file->metadata_pool);
@@ -842,59 +806,49 @@ int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
 		file->metadata_pool =
 			pool_alloconly_create("dbox metadata", 1024);
 	}
-	file->metadata_read_offset = 0;
 	p_array_init(&file->metadata, file->metadata_pool, 16);
-
-	if (file->metadata_read_offset == metadata_offset)
-		return 1;
-	i_assert(!file->maildir_file); /* previous check should catch this */
-
-	if (file->input == NULL) {
-		if ((ret = dbox_file_open(file, &deleted)) <= 0)
-			return ret;
-		if (deleted) {
-			*expunged_r = TRUE;
-			return 1;
-		}
-	}
 
 	i_stream_seek(file->input, metadata_offset);
 	if ((ret = dbox_file_metadata_skip_header(file)) <= 0)
 		return ret;
-	metadata_data_offset = file->input->v_offset;
 
-	*expunged_r = TRUE;
-	for (;;) {
-		prev_offset = file->input->v_offset;
-		if ((line = i_stream_read_next_line(file->input)) == NULL)
-			break;
-
+	ret = 0;
+	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */
-			*expunged_r = FALSE;
+			ret = 1;
 			break;
 		}
 		line = p_strdup(file->metadata_pool, line);
 		array_append(&file->metadata, &line, 1);
 	}
-	file->metadata_read_offset = metadata_offset;
-	return 1;
+	if (ret == 0)
+		dbox_file_set_corrupted(file, "missing end-of-metadata line");
+	return ret;
 }
 
-int dbox_file_metadata_seek_mail_offset(struct dbox_file *file, uoff_t offset,
-					bool *expunged_r)
+int dbox_file_metadata_read(struct dbox_file *file, uoff_t offset,
+			    bool *expunged_r)
 {
 	uoff_t physical_size, metadata_offset;
 	int ret;
+
+	if (file->metadata_read_offset == offset || file->maildir_file)
+		return 1;
+	i_assert(offset != 0);
 
 	ret = dbox_file_get_mail_stream(file, offset, &physical_size,
 					NULL, expunged_r);
 	if (ret <= 0 || *expunged_r)
 		return ret;
 
-	metadata_offset =
-		dbox_file_get_metadata_offset(file, offset, physical_size);
-	return dbox_file_metadata_seek(file, metadata_offset, expunged_r);
+	metadata_offset = offset + file->msg_header_size + physical_size;
+	ret = dbox_file_metadata_read_at(file, metadata_offset);
+	if (ret <= 0)
+		return ret;
+
+	file->metadata_read_offset = offset;
+	return 1;
 }
 
 const char *dbox_file_metadata_get(struct dbox_file *file,
@@ -914,30 +868,6 @@ const char *dbox_file_metadata_get(struct dbox_file *file,
 	return NULL;
 }
 
-int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output)
-{
-	struct dbox_metadata_header metadata_hdr;
-	const char *const *metadata;
-	unsigned int i, count;
-
-	memset(&metadata_hdr, 0, sizeof(metadata_hdr));
-	memcpy(metadata_hdr.magic_post, DBOX_MAGIC_POST,
-	       sizeof(metadata_hdr.magic_post));
-	if (o_stream_send(output, &metadata_hdr, sizeof(metadata_hdr)) < 0)
-		return -1;
-
-	metadata = array_get(&file->metadata, &count);
-	for (i = 0; i < count; i++) {
-		if (o_stream_send_str(output, metadata[i]) < 0 ||
-		    o_stream_send(output, "\n", 1) < 0)
-			return -1;
-	}
-
-	if (o_stream_send(output, "\n", 1) < 0)
-		return -1;
-	return 0;
-}
-
 int dbox_file_move(struct dbox_file *file, bool alt_path)
 {
 	struct ostream *output;
@@ -947,12 +877,14 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 	int out_fd, ret = 0;
 
 	i_assert(file->input != NULL);
+	i_assert(file->lock != NULL);
 
 	if (file->alt_path == alt_path)
 		return 0;
 
 	if (stat(file->current_path, &st) < 0 && errno == ENOENT) {
-		/* already expunged by another session */
+		/* already expunged/moved by another session */
+		dbox_file_unlock(file);
 		return 0;
 	}
 

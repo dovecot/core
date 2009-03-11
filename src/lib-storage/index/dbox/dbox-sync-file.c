@@ -254,7 +254,10 @@ dbox_sync_file_move_if_needed(struct dbox_file *file,
 	if (entry->move_to_alt != file->alt_path) {
 		/* move the file. if it fails, nothing broke so
 		   don't worry about it. */
-		(void)dbox_file_move(file, !file->alt_path);
+		if (dbox_file_try_lock(file) > 0) {
+			(void)dbox_file_move(file, !file->alt_path);
+			dbox_file_unlock(file);
+		}
 	}
 }
 

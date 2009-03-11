@@ -16,6 +16,8 @@ ARRAY_DEFINE_TYPE(dbox_map_file_msg, struct dbox_map_file_msg);
 struct dbox_map *dbox_map_init(struct dbox_storage *storage);
 void dbox_map_deinit(struct dbox_map **map);
 
+/* Look up file_id and offset for given map UID. Returns 1 if ok, 0 if UID
+   is already expunged, -1 if error. */
 int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 		    uint32_t *file_id_r, uoff_t *offset_r);
 
@@ -57,5 +59,8 @@ int dbox_map_append_move(struct dbox_map_append_context *ctx,
 /* Returns 0 if ok, -1 if error. */
 void dbox_map_append_commit(struct dbox_map_append_context **ctx);
 void dbox_map_append_rollback(struct dbox_map_append_context **ctx);
+
+void dbox_map_set_corrupted(struct dbox_map *map, const char *format, ...)
+	ATTR_FORMAT(2, 3);
 
 #endif

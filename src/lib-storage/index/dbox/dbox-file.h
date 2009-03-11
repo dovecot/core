@@ -129,8 +129,6 @@ int dbox_file_assign_id(struct dbox_file *file, uint32_t id);
    ok, 0 if file header is corrupted, -1 if error. If file is deleted,
    deleted_r=TRUE and 1 is returned. */
 int dbox_file_open_or_create(struct dbox_file *file, bool *deleted_r);
-/* Open the file's fd if it's currently closed. Assumes that the file exists. */
-int dbox_file_open_if_needed(struct dbox_file *file);
 /* Close the file handle from the file, but don't free it. */
 void dbox_file_close(struct dbox_file *file);
 
@@ -167,22 +165,15 @@ void dbox_file_cancel_append(struct dbox_file *file, uoff_t append_offset);
 /* Flush writes to dbox file. */
 int dbox_file_flush_append(struct dbox_file *file);
 
-/* Seek to given metadata block. Returns 1 if ok, 0 if file/offset is
+/* Read to given message's metadata. Returns 1 if ok, 0 if file/offset is
    corrupted, -1 if I/O error. If message has already been expunged,
    expunged_r=TRUE and 1 is returned. */
-int dbox_file_metadata_seek(struct dbox_file *file, uoff_t metadata_offset,
+int dbox_file_metadata_read(struct dbox_file *file, uoff_t offset,
 			    bool *expunged_r);
-/* Like dbox_file_metadata_seek(), but the offset points to beginning of the
-   message. The function internally reads the message header to find the
-   metadata offset. */
-int dbox_file_metadata_seek_mail_offset(struct dbox_file *file, uoff_t offset,
-					bool *expunged_r);
 
 /* Return wanted metadata value, or NULL if not found. */
 const char *dbox_file_metadata_get(struct dbox_file *file,
 				   enum dbox_metadata_key key);
-/* Write all metadata to output stream. Returns 0 if ok, -1 if I/O error. */
-int dbox_file_metadata_write_to(struct dbox_file *file, struct ostream *output);
 
 /* Move the file to alt path or back. */
 int dbox_file_move(struct dbox_file *file, bool alt_path);

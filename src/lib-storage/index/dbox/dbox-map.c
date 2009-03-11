@@ -52,6 +52,18 @@ struct dbox_map_append_context {
 	unsigned int failed:1;
 };
 
+void dbox_map_set_corrupted(struct dbox_map *map, const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	mail_storage_set_critical(&map->storage->storage,
+				  "dbox map %s corrupted: %s",
+				  map->index->filepath,
+				  t_strdup_vprintf(format, args));
+	va_end(args);
+}
+
 struct dbox_map *dbox_map_init(struct dbox_storage *storage)
 {
 	struct dbox_map *map;
@@ -83,7 +95,7 @@ void dbox_map_deinit(struct dbox_map **_map)
 	i_free(map);
 }
 
-static int dbox_map_open(struct dbox_map *map, bool create)
+static int dbox_map_open(struct dbox_map *map)
 {
 	struct mail_storage *storage = &map->storage->storage;
 	enum mail_index_open_flags open_flags;
@@ -91,22 +103,20 @@ static int dbox_map_open(struct dbox_map *map, bool create)
 
 	if (map->view != NULL) {
 		/* already opened */
-		return 1;
+		return 0;
 	}
 
 	open_flags = index_storage_get_index_open_flags(storage);
-	if (create)
-		open_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
-
-	ret = mail_index_open(map->index, open_flags, storage->lock_method);
-	if (ret <= 0) {
+	ret = mail_index_open_or_create(map->index, open_flags,
+					storage->lock_method);
+	if (ret < 0) {
 		mail_storage_set_internal_error(storage);
 		mail_index_reset_error(map->index);
-		return ret;
+		return -1;
 	}
 
 	map->view = mail_index_view_open(map->index);
-	return 1;
+	return 0;
 }
 
 static int dbox_map_refresh(struct dbox_map *map)
@@ -135,6 +145,7 @@ static int dbox_map_lookup_seq(struct dbox_map *map, uint32_t seq,
 {
 	const struct dbox_mail_index_map_record *rec;
 	const void *data;
+	uint32_t uid;
 	bool expunged;
 
 	mail_index_lookup_ext(map->view, seq, map->map_ext_id,
@@ -142,10 +153,8 @@ static int dbox_map_lookup_seq(struct dbox_map *map, uint32_t seq,
 	rec = data;
 
 	if (rec == NULL || rec->file_id == 0) {
-		/* corrupted */
-		mail_storage_set_critical(&map->storage->storage,
-			"dbox map %s corrupted: file_id=0 for seq=%u",
-			map->index->filepath, seq);
+		mail_index_lookup_uid(map->view, seq, &uid);
+		dbox_map_set_corrupted(map, "file_id=0 for map_uid=%u", uid);
 		return -1;
 	}
 
@@ -158,13 +167,6 @@ static int dbox_map_lookup_seq(struct dbox_map *map, uint32_t seq,
 static int
 dbox_map_get_seq(struct dbox_map *map, uint32_t map_uid, uint32_t *seq_r)
 {
-	int ret;
-
-	if ((ret = dbox_map_open(map, FALSE)) <= 0) {
-		/* map doesn't exist or is broken */
-		return ret;
-	}
-
 	if (!mail_index_lookup_seq(map->view, map_uid, seq_r)) {
 		/* not found - try again after a refresh */
 		if (dbox_map_refresh(map) < 0)
@@ -182,11 +184,14 @@ int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 	uoff_t size;
 	int ret;
 
+	if (dbox_map_open(map) < 0)
+		return -1;
+
 	if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0)
 		return ret;
 
 	if (dbox_map_lookup_seq(map, seq, file_id_r, offset_r, &size) < 0)
-		return 0;
+		return -1;
 	return 1;
 }
 
@@ -242,15 +247,14 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 	const void *data;
 	uint32_t seq;
 	bool expunged;
-	int ret;
 
 	if (array_is_created(&map->ref0_file_ids))
 		array_clear(&map->ref0_file_ids);
 	else
 		i_array_init(&map->ref0_file_ids, 64);
 
-	if ((ret = dbox_map_open(map, FALSE)) <= 0) {
-		/* map doesn't exist or is broken */
+	if (dbox_map_open(map) < 0) {
+		/* some internal error */
 		return &map->ref0_file_ids;
 	}
 	(void)dbox_map_refresh(map);
@@ -355,7 +359,6 @@ struct dbox_map_append_context *
 dbox_map_append_begin_storage(struct dbox_storage *storage)
 {
 	struct dbox_map_append_context *ctx;
-	int ret;
 
 	ctx = i_new(struct dbox_map_append_context, 1);
 	ctx->map = storage->map;
@@ -363,10 +366,9 @@ dbox_map_append_begin_storage(struct dbox_storage *storage)
 	i_array_init(&ctx->files, 64);
 	i_array_init(&ctx->appends, 128);
 
-	if ((ret = dbox_map_open(ctx->map, TRUE)) <= 0) {
-		i_assert(ret != 0);
+	if (dbox_map_open(ctx->map) < 0)
 		ctx->failed = TRUE;
-	}
+
 	/* refresh the map so we can try appending to the latest files */
 	(void)dbox_map_refresh(ctx->map);
 	return ctx;
@@ -660,9 +662,7 @@ dbox_map_get_next_file_id(struct dbox_map *map, struct mail_index_view *view,
 	mail_index_get_header_ext(view, map->map_ext_id, &data, &data_size);
 	if (data_size != sizeof(*hdr)) {
 		if (data_size != 0) {
-			mail_storage_set_critical(&map->storage->storage,
-				"dbox map %s corrupted: hdr size=%u",
-				map->index->filepath, data_size);
+			dbox_map_set_corrupted(map, "hdr size=%u", data_size);
 			return -1;
 		}
 		/* first file */

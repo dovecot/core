@@ -166,7 +166,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 		return 0;
 	}
 
-	ret = dbox_file_metadata_seek_mail_offset(file, *offset, &expunged);
+	ret = dbox_file_metadata_read(file, *offset, &expunged);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
@@ -439,5 +439,7 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 		maildir_keywords_sync_deinit(&ctx.maildir_sync_keywords);
 	if (ctx.mk != NULL)
 		maildir_keywords_deinit(&ctx.mk);
+	if (ret == 0)
+		mbox->storage->sync_rebuild = FALSE;
 	return ret;
 }
