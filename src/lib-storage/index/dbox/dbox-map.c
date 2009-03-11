@@ -217,8 +217,8 @@ int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
 		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
 				      &data, &expunged);
 		if (data == NULL) {
-			// FIXME
-			break;
+			dbox_map_set_corrupted(map, "missing map extension");
+			return -1;
 		}
 		rec = data;
 		if (rec->file_id != file_id)
@@ -228,8 +228,8 @@ int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
 		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
 				      &data, &expunged);
 		if (data == NULL) {
-			// FIXME
-			break;
+			dbox_map_set_corrupted(map, "missing ref extension");
+			return -1;
 		}
 		ref16_p = data;
 		msg.refcount = *ref16_p;
@@ -287,31 +287,31 @@ int dbox_map_update_refcounts(struct dbox_map *map,
 	struct seq_range_iter iter;
 	unsigned int i;
 	uint32_t map_uid, seq;
-	int ret = 0;
+	int ret;
 
 	trans = mail_index_transaction_begin(map->view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	seq_range_array_iter_init(&iter, map_uids); i = 0;
 	while (seq_range_array_iter_nth(&iter, i++, &map_uid)) {
 		if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0) {
-			if (ret < 0)
-				break;
-		} else {
-			mail_index_atomic_inc_ext(trans, seq,
-						  map->ref_ext_id, diff);
-		}
-	}
-	if (ret < 0) {
-		mail_index_transaction_rollback(&trans);
-		return -1;
-	} else {
-		if (mail_index_transaction_commit(&trans) < 0) {
-			mail_storage_set_internal_error(&map->storage->storage);
-			mail_index_reset_error(map->index);
+			if (ret == 0) {
+				dbox_map_set_corrupted(map,
+					"refcount update lost map_uid=%u",
+					map_uid);
+			}
+			mail_index_transaction_rollback(&trans);
 			return -1;
 		}
-		return 0;
+
+		mail_index_atomic_inc_ext(trans, seq, map->ref_ext_id, diff);
 	}
+
+	if (mail_index_transaction_commit(&trans) < 0) {
+		mail_storage_set_internal_error(&map->storage->storage);
+		mail_index_reset_error(map->index);
+		return -1;
+	}
+	return 0;
 }
 
 int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
@@ -334,8 +334,11 @@ int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
 				      &data, &expunged);
-		if (data == NULL)
-			break;
+		if (data == NULL) {
+			dbox_map_set_corrupted(map, "missing map extension");
+			mail_index_transaction_rollback(&trans);
+			return -1;
+		}
 
 		rec = data;
 		if (rec->file_id == file_id)
@@ -382,7 +385,6 @@ static time_t day_begin_stamp(unsigned int days)
 {
 	struct tm tm;
 	time_t stamp;
-
 
 	if (days == 0)
 		return 0;
@@ -627,7 +629,9 @@ int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
 		append->size = (uint32_t)-1;
 	}
 	if (!existing) {
+		i_assert(file->first_append_offset == 0);
 		i_assert(file->output != NULL);
+		file->first_append_offset = file->output->offset;
 		array_append(&ctx->files, &file, 1);
 	}
 	*file_r = file;
@@ -714,7 +718,6 @@ static int dbox_map_assign_file_ids(struct dbox_map_append_context *ctx)
 	}
 
 	if (ret < 0) {
-		/* FIXME: we have to rollback the changes we made */
 		mail_index_sync_rollback(&ctx->sync_ctx);
 		return -1;
 	}
@@ -868,6 +871,7 @@ void dbox_map_append_commit(struct dbox_map_append_context **_ctx)
 
 	files = array_get_modifiable(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
+		files[i]->first_append_offset = 0;
 		dbox_file_unlock(files[i]);
 		dbox_file_unref(&files[i]);
 	}
@@ -895,8 +899,14 @@ void dbox_map_append_rollback(struct dbox_map_append_context **_ctx)
 			(void)o_stream_flush(file->output);
 		}
 
-		if (file->file_id != 0) {
-			/* FIXME: truncate? */
+		if (file->file_id != 0 &&
+		    file->first_append_offset > file->file_header_size) {
+			if (ftruncate(file->fd, file->first_append_offset) < 0) {
+				mail_storage_set_critical(storage,
+					"ftruncate(%s, %"PRIuUOFF_T") failed: %m",
+					file->current_path,
+					file->first_append_offset);
+			}
 		} else {
 			if (unlink(file->current_path) < 0) {
 				mail_storage_set_critical(storage,
@@ -904,6 +914,8 @@ void dbox_map_append_rollback(struct dbox_map_append_context **_ctx)
 					file->current_path);
 			}
 		}
+		file->first_append_offset = 0;
+		dbox_file_unlock(files[i]);
 		dbox_file_unref(&file);
 	}
 	array_free(&ctx->appends);

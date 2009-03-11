@@ -93,6 +93,8 @@ struct dbox_file {
 
 	uoff_t cur_offset;
 	uoff_t cur_physical_size;
+	/* first appended message's offset (while appending) */
+	uoff_t first_append_offset;
 
 	char *fname;
 	char *current_path;

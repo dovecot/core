@@ -188,6 +188,7 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 			i_stream_unref(&input);
 			if (ret != (off_t)msg_size) {
 				// FIXME
+				i_error("FIXME");
 				ret = -1;
 				break;
 			}
@@ -213,13 +214,7 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 	}
 	array_free(&msgs_arr); msgs = NULL;
 
-	if (ret == 0) {
-		// FIXME: ..?
-		i_error("dbox corrupted");
-		dbox_map_append_rollback(&append_ctx);
-		ret = -1;
-	} else if (ret < 0) {
-		i_error("dbox error");
+	if (ret <= 0) {
 		dbox_map_append_rollback(&append_ctx);
 		ret = -1;
 	} else if (array_count(&copied_map_uids) == 0) {
@@ -230,7 +225,6 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 		/* assign new file_id + offset to moved messages */
 		if (dbox_map_append_move(append_ctx, &copied_map_uids,
 					 &expunged_map_uids) < 0) {
-			// FIXME
 			dbox_map_append_rollback(&append_ctx);
 			ret = -1;
 		} else {
