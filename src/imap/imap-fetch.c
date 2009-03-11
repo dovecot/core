@@ -102,7 +102,7 @@ imap_fetch_init(struct client_command_context *cmd, struct mailbox *box)
 	ctx->box = box;
 
 	ctx->cur_str = str_new(default_pool, 8192);
-	ctx->all_headers_buf = buffer_create_dynamic(cmd->pool, 128);
+	p_array_init(&ctx->all_headers, cmd->pool, 64);
 	p_array_init(&ctx->handlers, cmd->pool, 16);
 	p_array_init(&ctx->tmp_keywords, cmd->pool,
 		     client->keywords.announce_count + 8);
@@ -314,7 +314,6 @@ imap_fetch_send_vanished(struct imap_fetch_context *ctx)
 
 int imap_fetch_begin(struct imap_fetch_context *ctx)
 {
-	const void *null = NULL;
 	const void *data;
 
 	if (ctx->send_vanished) {
@@ -333,12 +332,12 @@ int imap_fetch_begin(struct imap_fetch_context *ctx)
 		}
 	}
 
-	if (buffer_get_used_size(ctx->all_headers_buf) != 0 &&
+	if (array_count(&ctx->all_headers) > 0 &&
 	    ((ctx->fetch_data & (MAIL_FETCH_STREAM_HEADER |
 				 MAIL_FETCH_STREAM_BODY)) == 0)) {
-		buffer_append(ctx->all_headers_buf, &null, sizeof(null));
+		(void)array_append_space(&ctx->all_headers);
 
-		data = buffer_get_data(ctx->all_headers_buf, NULL);
+		data = array_idx(&ctx->all_headers, 0);
 		ctx->all_headers_ctx =
 			mailbox_header_lookup_init(ctx->box, data);
 	}

@@ -655,8 +655,8 @@ static bool fetch_body_header_fields_init(struct imap_fetch_context *ctx,
 	}
 
 	for (arr = body->fields; *arr != NULL; arr++) {
-		char *hdr = p_strdup(ctx->cmd->pool, *arr);
-		buffer_append(ctx->all_headers_buf, &hdr, sizeof(hdr));
+		const char *hdr = p_strdup(ctx->cmd->pool, *arr);
+		array_append(&ctx->all_headers, &hdr, 1);
 	}
 
 	body->header_ctx = mailbox_header_lookup_init(ctx->box, body->fields);
