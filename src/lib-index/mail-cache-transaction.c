@@ -116,8 +116,6 @@ mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache *cache = ctx->cache;
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
-	uint32_t log_file_seq;
-	uoff_t log_file_offset;
 	int ret;
 
 	ctx->tried_compression = TRUE;
@@ -132,8 +130,7 @@ mail_cache_transaction_compress(struct mail_cache_transaction_ctx *ctx)
 		mail_index_transaction_rollback(&trans);
 		ret = -1;
 	} else {
-		ret = mail_index_transaction_commit(&trans, &log_file_seq,
-						    &log_file_offset);
+		ret = mail_index_transaction_commit(&trans);
 	}
 	mail_index_view_close(&view);
 	mail_cache_transaction_reset(ctx);

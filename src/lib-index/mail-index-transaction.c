@@ -622,9 +622,17 @@ static void mail_index_transaction_rollback_v(struct mail_index_transaction *t)
         mail_index_transaction_unref(&t);
 }
 
-int mail_index_transaction_commit(struct mail_index_transaction **_t,
-				  uint32_t *log_file_seq_r,
-				  uoff_t *log_file_offset_r)
+int mail_index_transaction_commit(struct mail_index_transaction **t)
+{
+	uint32_t log_seq;
+	uoff_t log_offset;
+
+	return mail_index_transaction_commit_get_pos(t, &log_seq, &log_offset);
+}
+
+int mail_index_transaction_commit_get_pos(struct mail_index_transaction **_t,
+					  uint32_t *log_file_seq_r,
+					  uoff_t *log_file_offset_r)
 {
 	struct mail_index_transaction *t = *_t;
 

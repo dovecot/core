@@ -412,8 +412,6 @@ static int dbox_sync_index_rebuild_ctx(struct dbox_sync_rebuild_context *ctx)
 int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 {
 	struct dbox_sync_rebuild_context ctx;
-	uint32_t seq;
-	uoff_t offset;
 	int ret;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -428,7 +426,7 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 	if ((ret = dbox_sync_index_rebuild_ctx(&ctx)) < 0)
 		mail_index_transaction_rollback(&ctx.trans);
 	else
-		ret = mail_index_transaction_commit(&ctx.trans, &seq, &offset);
+		ret = mail_index_transaction_commit(&ctx.trans);
 	mail_index_view_close(&ctx.view);
 
 	if (ctx.maildir_sync_ctx != NULL) {

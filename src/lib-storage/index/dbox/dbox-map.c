@@ -305,11 +305,7 @@ int dbox_map_update_refcounts(struct dbox_map *map,
 		mail_index_transaction_rollback(&trans);
 		return -1;
 	} else {
-		uint32_t log_seq;
-		uoff_t log_offset;
-
-		if (mail_index_transaction_commit(&trans, &log_seq,
-						  &log_offset) < 0) {
+		if (mail_index_transaction_commit(&trans) < 0) {
 			mail_storage_set_internal_error(&map->storage->storage);
 			mail_index_reset_error(map->index);
 			return -1;
@@ -326,8 +322,6 @@ int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 	const void *data;
 	bool expunged;
 	uint32_t seq;
-	uint32_t log_seq;
-	uoff_t log_offset;
 
 	/* make sure the map is refreshed, otherwise we might be expunging
 	   messages that have already been moved to other files. */
@@ -347,7 +341,7 @@ int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 		if (rec->file_id == file_id)
 			mail_index_expunge(trans, seq);
 	}
-	if (mail_index_transaction_commit(&trans, &log_seq, &log_offset) < 0) {
+	if (mail_index_transaction_commit(&trans) < 0) {
 		mail_storage_set_internal_error(&map->storage->storage);
 		mail_index_reset_error(map->index);
 		return -1;

@@ -95,8 +95,6 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 	struct mail_index_transaction *itrans = t->trans;
-	uint32_t seq;
-	uoff_t offset;
 
 	*uid_validity_r = 0;
 	*first_saved_uid_r = *last_saved_uid_r = 0;
@@ -105,7 +103,7 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 	t->first_saved_uid = first_saved_uid_r;
 	t->last_saved_uid = last_saved_uid_r;
 
-	return mail_index_transaction_commit(&itrans, &seq, &offset);
+	return mail_index_transaction_commit(&itrans);
 }
 
 void index_transaction_rollback(struct mailbox_transaction_context *_t)

@@ -723,8 +723,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
-	uint32_t seq, next_uid;
-	uoff_t offset;
+	uint32_t next_uid;
 	bool want_rotate;
 	int ret = 0;
 
@@ -746,7 +745,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		}
 	}
 
-	if (mail_index_transaction_commit(&ctx->ext_trans, &seq, &offset) < 0) {
+	if (mail_index_transaction_commit(&ctx->ext_trans) < 0) {
 		mail_index_sync_end(&ctx);
 		return -1;
 	}

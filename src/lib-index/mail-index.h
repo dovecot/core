@@ -229,9 +229,10 @@ bool mail_index_view_is_inconsistent(struct mail_index_view *view);
 struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
 			     enum mail_index_transaction_flags flags);
-int mail_index_transaction_commit(struct mail_index_transaction **t,
-				  uint32_t *log_file_seq_r,
-				  uoff_t *log_file_offset_r);
+int mail_index_transaction_commit(struct mail_index_transaction **t);
+int mail_index_transaction_commit_get_pos(struct mail_index_transaction **t,
+					  uint32_t *log_file_seq_r,
+					  uoff_t *log_file_offset_r);
 void mail_index_transaction_rollback(struct mail_index_transaction **t);
 /* Discard all changes in the transaction. */
 void mail_index_transaction_reset(struct mail_index_transaction *t);
