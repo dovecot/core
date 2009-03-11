@@ -114,7 +114,8 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 	struct dbox_map_append_context *append_ctx;
 	ARRAY_TYPE(dbox_map_file_msg) msgs_arr;
 	struct dbox_map_file_msg *msgs;
-	ARRAY_TYPE(seq_range) copied_map_uids, expunged_map_uids;
+	ARRAY_TYPE(seq_range) expunged_map_uids;
+	ARRAY_TYPE(uint32_t) copied_map_uids;
 	unsigned int i, count;
 	uoff_t offset, physical_size, msg_size;
 	bool expunged;
@@ -197,8 +198,10 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 		if ((ret = dbox_sync_file_copy_metadata(file, output)) <= 0)
 			break;
 
-		dbox_map_append_finish_multi_mail(append_ctx);
-		seq_range_array_add(&copied_map_uids, 0, msgs[i].map_uid);
+		if (output != NULL) {
+			dbox_map_append_finish_multi_mail(append_ctx);
+			array_append(&copied_map_uids, &msgs[i].map_uid, 1);
+		}
 		offset = file->input->v_offset;
 	}
 	if (offset != (uoff_t)st.st_size && ret > 0) {
@@ -207,7 +210,6 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 			"more messages available than in map "
 			"(%"PRIuUOFF_T" < %"PRIuUOFF_T")", offset, st.st_size);
 		ret = 0;
-		sleep(3600);
 	}
 	array_free(&msgs_arr); msgs = NULL;
 
@@ -220,7 +222,7 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 		i_error("dbox error");
 		dbox_map_append_rollback(&append_ctx);
 		ret = -1;
-	} else if (output == NULL) {
+	} else if (array_count(&copied_map_uids) == 0) {
 		/* everything expunged in this file, unlink it */
 		ret = dbox_sync_file_unlink(file);
 		dbox_map_append_rollback(&append_ctx);
@@ -288,7 +290,7 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 		/* no expunges - we want to move it */
 		dbox_sync_file_move_if_needed(file, entry);
 	} else if (entry->uid != 0) {
-		/* fast path to expunging the whole file */
+		/* single-message file, we can unlink it */
 		if ((ret = dbox_sync_file_unlink(file)) == 0) {
 			/* file was lost, delete it */
 			dbox_sync_mark_expunges(ctx, &entry->expunge_seqs);

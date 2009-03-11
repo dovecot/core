@@ -52,8 +52,8 @@ int dbox_map_append_assign_uids(struct dbox_map_append_context *ctx,
 /* The appends are existing messages that were simply moved to a new file.
    map_uids contains the moved messages' map UIDs. */
 int dbox_map_append_move(struct dbox_map_append_context *ctx,
-			 ARRAY_TYPE(seq_range) *map_uids,
-			 ARRAY_TYPE(seq_range) *expunge_map_uids);
+			 const ARRAY_TYPE(uint32_t) *map_uids,
+			 const ARRAY_TYPE(seq_range) *expunge_map_uids);
 /* Returns 0 if ok, -1 if error. */
 void dbox_map_append_commit(struct dbox_map_append_context **ctx);
 void dbox_map_append_rollback(struct dbox_map_append_context **ctx);
