@@ -282,7 +282,13 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	vpath = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
 		_list->ns->prefix : "";
 	rootdir = list_get_rootdir(ctx, &vpath);
-	path = mailbox_list_get_path(_list, rootdir, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (rootdir == NULL) {
+		path = mailbox_list_get_path(_list, NULL,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	} else {
+		path = mailbox_list_get_path(_list, rootdir,
+					     MAILBOX_LIST_PATH_TYPE_DIR);
+	}
 	if ((ret = list_opendir(ctx, path, vpath, &dirp)) < 0)
 		return &ctx->ctx;
 

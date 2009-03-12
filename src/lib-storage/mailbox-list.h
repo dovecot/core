@@ -107,6 +107,9 @@ struct mailbox_list_settings {
 	   If mailbox_name is "Maildir", you have a non-selectable mailbox
 	   "mail" and a selectable mailbox "mail/foo". */
 	const char *maildir_name;
+	/* if set, store mailboxes under root_dir/mailbox_dir_name/.
+	   this setting contains either "" or "dir/". */
+	const char *mailbox_dir_name;
 
 	/* If mailbox index is used, use these settings for it
 	   (pointers, so they're set to NULL after init is finished): */
