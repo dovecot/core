@@ -41,7 +41,6 @@ struct virtual_sync_context {
 	unsigned int ext_header_changed:1;
 	unsigned int ext_header_rewrite:1;
 	unsigned int expunge_removed:1;
-	unsigned int retry:1;
 };
 
 static void virtual_sync_set_uidvalidity(struct virtual_sync_context *ctx)
@@ -62,8 +61,10 @@ static void virtual_sync_external_flags(struct virtual_sync_context *ctx,
 	const char *const *kw_names;
 	struct mail_keywords *keywords;
 
-	if (!mail_set_uid(bbox->sync_mail, real_uid))
-		i_panic("UID lost unexpectedly");
+	if (!mail_set_uid(bbox->sync_mail, real_uid)) {
+		i_panic("UID %u lost unexpectedly from %s",
+			real_uid, bbox->box->name);
+	}
 
 	/* copy flags */
 	flags = mail_get_flags(bbox->sync_mail);
@@ -472,113 +473,6 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 	return ret;
 }
 
-static int virtual_backend_uidmap_cmp(const void *p1, const void *p2)
-{
-	const struct virtual_backend_uidmap *u1 = p1, *u2 = p2;
-
-	if (u1->real_uid < u2->real_uid)
-		return -1;
-	if (u1->real_uid > u2->real_uid)
-		return 1;
-	return 0;
-}
-
-static void
-virtual_sync_backend_add_existing_uids(struct virtual_sync_context *ctx,
-				       struct virtual_backend_box *bbox,
-				       struct mail_search_result *result)
-{
-	struct virtual_backend_uidmap uidmap, *uids;
-	const struct virtual_mail_index_record *vrec;
-	const void *data;
-	uint32_t vseq, vuid, messages;
-	unsigned int uid_count;
-	bool expunged;
-
-	/* add the currently existing UIDs to uidmap. */
-	memset(&uidmap, 0, sizeof(uidmap));
-	array_clear(&bbox->uids);
-
-	messages = mail_index_view_get_messages_count(ctx->sync_view);
-	for (vseq = 1; vseq <= messages; vseq++) {
-		mail_index_lookup_uid(ctx->sync_view, vseq, &vuid);
-		mail_index_lookup_ext(ctx->sync_view, vseq,
-				      ctx->mbox->virtual_ext_id,
-				      &data, &expunged);
-		vrec = data;
-		if (vrec->mailbox_id == bbox->mailbox_id) {
-			seq_range_array_add(&result->uids, 0, vrec->real_uid);
-			uidmap.real_uid = vrec->real_uid;
-			uidmap.virtual_uid = vuid;
-			array_append(&bbox->uids, &uidmap, 1);
-		}
-	}
-
-	/* the uidmap must be sorted by real_uids */
-	uids = array_get_modifiable(&bbox->uids, &uid_count);
-	qsort(uids, uid_count, sizeof(*uids), virtual_backend_uidmap_cmp);
-}
-
-static void
-virtual_sync_backend_remove_expunged_uids(struct mail_search_result *result)
-{
-	struct index_mailbox *ibox = (struct index_mailbox *)result->box;
-	const struct seq_range *range;
-	unsigned int i, count;
-	uint32_t seq, uid;
-
-	range = array_get(&result->uids, &count);
-	for (i = 0; i < count; i++) {
-		for (uid = range[i].seq1; uid <= range[i].seq2; uid++) {
-			if (!mail_index_lookup_seq(ibox->view, uid, &seq))
-				mailbox_search_result_remove(result, uid);
-		}
-	}
-}
-
-static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
-					     struct virtual_backend_box *bbox)
-{
-	const enum mailbox_search_result_flags result_flags =
-		MAILBOX_SEARCH_RESULT_FLAG_UPDATE |
-		MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC;
-	struct index_mailbox *ibox = (struct index_mailbox *)bbox->box;
-	struct mail_search_result *result;
-	ARRAY_TYPE(seq_range) flag_updates;
-	uint64_t modseq;
-	uint32_t seq, old_msg_count;
-
-	/* build the initial search result from the existing UIDs */
-	result = mailbox_search_result_alloc(bbox->box, bbox->search_args,
-					     result_flags);
-	mailbox_search_result_initial_done(result);
-	virtual_sync_backend_add_existing_uids(ctx, bbox, result);
-
-	/* changes done from now on must update the sync queue */
-	virtual_sync_backend_remove_expunged_uids(result);
-
-	/* get list of changed messages */
-	if (bbox->sync_next_uid <= 1 ||
-	    !mail_index_lookup_seq_range(ibox->view, 1, bbox->sync_next_uid-1,
-					 &seq, &old_msg_count))
-		old_msg_count = 0;
-	t_array_init(&flag_updates, I_MIN(128, old_msg_count));
-	for (seq = 1; seq <= old_msg_count; seq++) {
-		modseq = mail_index_modseq_lookup(ibox->view, seq);
-		if (modseq > bbox->sync_highest_modseq)
-			seq_range_array_add(&flag_updates, 0, seq);
-	}
-
-	if (index_search_result_update_flags(result, &flag_updates) < 0 ||
-	    index_search_result_update_appends(result, old_msg_count) < 0) {
-		mailbox_search_result_free(&result);
-		return -1;
-	}
-
-	bbox->search_result = result;
-	return 0;
-}
-
 static int virtual_backend_uidmap_bsearch_cmp(const void *key, const void *data)
 {
 	const uint32_t *uidp = key;
@@ -629,8 +523,7 @@ virtual_sync_mailbox_box_remove(struct virtual_sync_context *ctx,
 		}
 	}
 	left = rec_count - src;
-	memmove(uidmap + dest, uidmap + src, left);
-	array_delete(&bbox->uids, dest + left, src - dest);
+	array_delete(&bbox->uids, dest, src - dest);
 }
 
 static void
@@ -687,6 +580,114 @@ virtual_sync_mailbox_box_add(struct virtual_sync_context *ctx,
 			}
 		}
 	}
+}
+
+static int virtual_backend_uidmap_cmp(const void *p1, const void *p2)
+{
+	const struct virtual_backend_uidmap *u1 = p1, *u2 = p2;
+
+	if (u1->real_uid < u2->real_uid)
+		return -1;
+	if (u1->real_uid > u2->real_uid)
+		return 1;
+	return 0;
+}
+
+static void
+virtual_sync_backend_handle_old_vmsgs(struct virtual_sync_context *ctx,
+				      struct virtual_backend_box *bbox,
+				      struct mail_search_result *result)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *)bbox->box;
+	struct virtual_backend_uidmap uidmap, *uids;
+	const struct virtual_mail_index_record *vrec;
+	const void *data;
+	uint32_t seq, vseq, vuid, messages;
+	unsigned int uid_count;
+	bool expunged;
+
+	/* add the currently existing UIDs to uidmap. remember the messages
+	   that were already expunged */
+	memset(&uidmap, 0, sizeof(uidmap));
+	array_clear(&bbox->uids);
+
+	messages = mail_index_view_get_messages_count(ctx->sync_view);
+	for (vseq = 1; vseq <= messages; vseq++) {
+		mail_index_lookup_uid(ctx->sync_view, vseq, &vuid);
+		mail_index_lookup_ext(ctx->sync_view, vseq,
+				      ctx->mbox->virtual_ext_id,
+				      &data, &expunged);
+		vrec = data;
+		if (vrec->mailbox_id == bbox->mailbox_id) {
+			uidmap.real_uid = vrec->real_uid;
+			uidmap.virtual_uid = vuid;
+			array_append(&bbox->uids, &uidmap, 1);
+
+			if (mail_index_lookup_seq(ibox->view, vrec->real_uid,
+						  &seq)) {
+				seq_range_array_add(&result->uids, 0,
+						    vrec->real_uid);
+			} else {
+				seq_range_array_add(&result->removed_uids, 0,
+						    vrec->real_uid);
+			}
+		}
+	}
+
+	/* the uidmap must be sorted by real_uids */
+	uids = array_get_modifiable(&bbox->uids, &uid_count);
+	qsort(uids, uid_count, sizeof(*uids), virtual_backend_uidmap_cmp);
+}
+
+static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
+					     struct virtual_backend_box *bbox)
+{
+	const enum mailbox_search_result_flags result_flags =
+		MAILBOX_SEARCH_RESULT_FLAG_UPDATE |
+		MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC;
+	struct index_mailbox *ibox = (struct index_mailbox *)bbox->box;
+	struct mail_search_result *result;
+	ARRAY_TYPE(seq_range) removed_uids, added_uids, flag_updates;
+	uint64_t modseq;
+	uint32_t seq, old_msg_count;
+
+	/* initialize the search result from all the existing messages in
+	   virtual index. */
+	result = mailbox_search_result_alloc(bbox->box, bbox->search_args,
+					     result_flags);
+	mailbox_search_result_initial_done(result);
+	virtual_sync_backend_handle_old_vmsgs(ctx, bbox, result);
+
+	/* get list of changed old messages, based on modseq changes.
+	   (we'll assume all modseq changes are due to flag changes, which
+	   may not be true in future.) */
+	if (bbox->sync_next_uid <= 1 ||
+	    !mail_index_lookup_seq_range(ibox->view, 1, bbox->sync_next_uid-1,
+					 &seq, &old_msg_count))
+		old_msg_count = 0;
+	t_array_init(&flag_updates, I_MIN(128, old_msg_count));
+	for (seq = 1; seq <= old_msg_count; seq++) {
+		modseq = mail_index_modseq_lookup(ibox->view, seq);
+		if (modseq > bbox->sync_highest_modseq)
+			seq_range_array_add(&flag_updates, 0, seq);
+	}
+
+	/* update the search result based on the flag changes and
+	   new messages */
+	if (index_search_result_update_flags(result, &flag_updates) < 0 ||
+	    index_search_result_update_appends(result, old_msg_count) < 0) {
+		mailbox_search_result_free(&result);
+		return -1;
+	}
+
+	t_array_init(&removed_uids, 128);
+	t_array_init(&added_uids, 128);
+	mailbox_search_result_sync(result, &removed_uids, &added_uids);
+	virtual_sync_mailbox_box_remove(ctx, bbox, &removed_uids);
+	virtual_sync_mailbox_box_add(ctx, bbox, &added_uids);
+
+	bbox->search_result = result;
+	return 0;
 }
 
 static void virtual_sync_mailbox_box_update(struct virtual_sync_context *ctx,
@@ -768,11 +769,12 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 					 struct virtual_backend_box *bbox,
 					 enum mailbox_sync_flags sync_flags)
 {
+	struct index_mailbox *ibox = (struct index_mailbox *)bbox->box;
 	struct mailbox_sync_context *sync_ctx;
 	const struct virtual_backend_uidmap *uidmap;
 	struct mailbox_sync_rec sync_rec;
 	unsigned int idx1, idx2;
-	uint32_t vseq, vuid;
+	uint32_t vseq, vuid, uid1, uid2;
 
 	sync_ctx = mailbox_sync_init(bbox->box, sync_flags);
 	virtual_backend_box_sync_mail_set(bbox);
@@ -783,8 +785,10 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 				/* no need to keep track of expunges */
 				break;
 			}
+			mail_index_lookup_uid(ibox->view, sync_rec.seq1, &uid1);
+			mail_index_lookup_uid(ibox->view, sync_rec.seq2, &uid2);
 			seq_range_array_add_range(&ctx->sync_expunges,
-						  sync_rec.seq1, sync_rec.seq2);
+						  uid1, uid2);
 			break;
 		case MAILBOX_SYNC_TYPE_FLAGS:
 			if (!virtual_sync_find_seqs(bbox, &sync_rec,
@@ -884,12 +888,8 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 			   the first sync), do a full search */
 			ret = virtual_sync_backend_box_init(bbox);
 		} else {
-			/* build the initial search using the saved modseq.
-			   we can't directly update the search result because
-			   uidmap isn't finished for all messages yet, so
-			   mark the sync to be retried. */
+			/* build the initial search using the saved modseq. */
 			ret = virtual_sync_backend_box_continue(ctx, bbox);
-			ctx->retry = TRUE;
 		}
 	} else {
 		/* sync using the existing search result */
@@ -971,21 +971,13 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 			add_rec.rec.real_uid = uidmap[j].real_uid;
 			array_append(&ctx->all_adds, &add_rec, 1);
 		}
-		if (uidmap[j].real_uid != vrec->real_uid)
+		if (j == uidmap_count || uidmap[j].real_uid != vrec->real_uid)
 			mail_index_expunge(ctx->trans, vseq);
 		else {
 			/* exists - update uidmap and flags */
 			uidmap[j++].virtual_uid = vuid;
-			/* if ctx->retry is set, we're just opening the virtual
-			   mailbox and using a continued search using modseq.
-			   some messages in uidmap may already be expunged, so
-			   we can't go looking at the real messages yet.
-			   after retrying the sync we'll get back here and
-			   really do it. */
-			if (!ctx->retry) {
-				virtual_sync_external_flags(ctx, bbox, vseq,
-							    vrec->real_uid);
-			}
+			virtual_sync_external_flags(ctx, bbox, vseq,
+						    vrec->real_uid);
 		}
 	}
 	i_free(vmails);
@@ -1212,15 +1204,7 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 	/* apply changes from virtual index to backend mailboxes */
 	virtual_sync_index_changes(ctx);
 	/* update list of UIDs in backend mailboxes */
-	ret = virtual_sync_backend_boxes(ctx);
-	if (ctx->retry && ret == 0) {
-		ctx->retry = FALSE;
-		/* map uids again to update changed message flags */
-		ctx->mbox->uids_mapped = FALSE;
-		ret = virtual_sync_backend_boxes(ctx);
-		i_assert(!ctx->retry);
-	}
-	if (ret < 0)
+	if (virtual_sync_backend_boxes(ctx) < 0)
 		return virtual_sync_finish(ctx, FALSE);
 
 	virtual_sync_index_finish(ctx);
