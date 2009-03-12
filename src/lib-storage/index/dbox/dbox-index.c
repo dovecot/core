@@ -160,11 +160,14 @@ dbox_index_set_corrupted(struct dbox_index *index, const char *reason)
 
 static uint32_t dbox_get_uidvalidity_next(struct mail_storage *storage)
 {
+	const char *fname;
 	const char *path;
 
+	fname = *storage->list->set.mailbox_dir_name == '\0' ?
+		DBOX_OLD_UIDVALIDITY_FILE_NAME : DBOX_UIDVALIDITY_FILE_NAME;
 	path = mailbox_list_get_path(storage->list, NULL,
 				     MAILBOX_LIST_PATH_TYPE_CONTROL);
-	path = t_strconcat(path, "/"DBOX_UIDVALIDITY_FILE_NAME, NULL);
+	path = t_strconcat(path, "/", fname, NULL);
 	return mailbox_uidvalidity_next(path);
 }
 

@@ -50,13 +50,15 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 		       const char **layout_r, const char **alt_dir_r,
 		       const char **error_r)
 {
+	const char *subs_fname = DBOX_SUBSCRIPTION_FILE_NAME;
 	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 
 	*layout_r = "fs";
 
 	memset(list_set, 0, sizeof(*list_set));
-	list_set->subscription_fname = DBOX_SUBSCRIPTION_FILE_NAME;
+	list_set->subscription_fname = subs_fname;
 	list_set->maildir_name = DBOX_MAILDIR_NAME;
+	list_set->mailbox_dir_name = DBOX_MAILBOX_DIR_NAME;
 
 	if (data == NULL || *data == '\0' || *data == ':') {
 		/* we won't do any guessing for this format. */
@@ -68,8 +70,14 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 
 	if (debug)
 		i_info("dbox: data=%s", data);
-	return mailbox_list_settings_parse(data, list_set, storage->ns,
-					   layout_r, alt_dir_r, error_r);
+	if (mailbox_list_settings_parse(data, list_set, storage->ns,
+					layout_r, alt_dir_r, error_r) < 0)
+		return -1;
+
+	if (*list_set->mailbox_dir_name == '\0' &&
+	    list_set->subscription_fname == subs_fname)
+		list_set->subscription_fname = DBOX_OLD_SUBSCRIPTION_FILE_NAME;
+	return 0;
 }
 
 static struct mail_storage *dbox_alloc(void)
