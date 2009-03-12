@@ -144,12 +144,12 @@ bool maildir_set_deleted(struct maildir_mailbox *mbox)
 			mail_storage_set_critical(box->storage,
 				"stat(%s) failed: %m", mbox->path);
 		}
-		return TRUE;
+		return FALSE;
 	}
 	/* maildir itself exists. create all of its subdirectories in case
 	   they got lost. */
 	T_BEGIN {
 		ret = maildir_create_subdirs(mbox);
 	} T_END;
-	return ret < 0 ? TRUE : FALSE;
+	return ret < 0 ? FALSE : TRUE;
 }
