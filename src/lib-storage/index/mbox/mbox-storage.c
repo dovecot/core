@@ -858,7 +858,7 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	}
 	if (strcmp(fname, MBOX_SUBSCRIPTION_FILE_NAME) == 0) {
 		root_dir = mailbox_list_get_path(storage->list, NULL,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
+						 MAILBOX_LIST_PATH_TYPE_DIR);
 		if (strcmp(root_dir, dir) == 0) {
 			*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
 			return 0;

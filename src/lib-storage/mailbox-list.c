@@ -166,6 +166,8 @@ int mailbox_list_settings_parse(const char *data,
 			dest = &set->subscription_fname;
 		else if (strcmp(key, "DIRNAME") == 0)
 			dest = &set->maildir_name;
+		else if (strcmp(key, "MAILBOXDIR") == 0)
+			dest = &set->mailbox_dir_name;
 		else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
@@ -180,6 +182,13 @@ int mailbox_list_settings_parse(const char *data,
 
 	if (set->index_dir != NULL && strcmp(set->index_dir, "MEMORY") == 0)
 		set->index_dir = "";
+
+	if (set->mailbox_dir_name == NULL)
+		set->mailbox_dir_name = "";
+	else if (set->mailbox_dir_name[strlen(set->mailbox_dir_name)-1] != '/') {
+		set->mailbox_dir_name =
+			t_strconcat(set->mailbox_dir_name, "/", NULL);
+	}
 	return 0;
 }
 
@@ -212,6 +221,8 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 	list->set.maildir_name =
 		(list->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 ? "" :
 		p_strdup(list->pool, set->maildir_name);
+	list->set.mailbox_dir_name =
+		p_strdup(list->pool, set->mailbox_dir_name);
 
 	list->set.mail_storage_flags = set->mail_storage_flags;
 	list->set.lock_method = set->lock_method;
