@@ -462,7 +462,7 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 					request->authn_name,
 					request->authz_name,
 					&equal_authn_authz);
-	if (equal_authn_authz != 0) {
+	if (equal_authn_authz == 0) {
 		auth_request_log_error(&request->auth_request, "gssapi",
 			"authn_name and authz_name differ: not supported");
 		auth_request_fail(&request->auth_request);
