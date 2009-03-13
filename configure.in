@@ -2081,6 +2081,7 @@ if test $want_vpopmail != no; then
 	vpop_etc="$vpopmail_home/etc"
 	AC_MSG_CHECKING([for vpopmail configuration at $vpop_etc/lib_deps])
 	if ! test -f $vpop_etc/lib_deps; then
+		AC_MSG_RESULT(not found)
 		vpop_etc="$vpopmail_home"
 		AC_MSG_CHECKING([for vpopmail configuration at $vpop_etc/lib_deps])
 	fi
