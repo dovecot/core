@@ -80,8 +80,19 @@ static uid_t get_uid(const char *user)
 	if (is_numeric(user, '\0'))
 		return strtoul(user, NULL, 10);
 
-	if ((pw = getpwnam(user)) == NULL)
+	errno = 0;
+	if ((pw = getpwnam(user)) == NULL) {
+		if (errno != 0)
+			i_fatal("User '%s' lookup failed: %m", user);
+		setpwent();
+		if (getpwent() == NULL) {
+			if (errno != 0)
+				i_fatal("getpwent() failed: %m");
+			i_fatal("getpwnam() failed for some reason. "
+				"Is auth_process_size set to too low?");
+		}
 		i_fatal("User doesn't exist: %s", user);
+	}
 	return pw->pw_uid;
 }
 
@@ -94,8 +105,13 @@ static gid_t get_gid(const char *group)
 	if (is_numeric(group, '\0'))
 		return strtoul(group, NULL, 10);
 
-	if ((gr = getgrnam(group)) == NULL)
-		i_fatal("Group doesn't exist: %s", group);
+	errno = 0;
+	if ((gr = getgrnam(group)) == NULL) {
+		if (errno != 0)
+			i_fatal("Group '%s' lookup failed: %m", group);
+		else
+			i_fatal("Group doesn't exist: %s", group);
+	}
 	return gr->gr_gid;
 }
 
