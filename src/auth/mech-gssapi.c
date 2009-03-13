@@ -317,7 +317,9 @@ static void gssapi_wrap(struct gssapi_auth_request *request,
 }
 
 #ifdef USE_KRB5_USEROK
-static bool gssapi_krb5_userok(struct gssapi_auth_request *request)
+static bool
+gssapi_krb5_userok(struct gssapi_auth_request *request, gss_name_t name,
+		   bool check_name_type)
 {
 	krb5_context ctx;
 	krb5_principal princ;
@@ -329,7 +331,7 @@ static bool gssapi_krb5_userok(struct gssapi_auth_request *request)
 	bool ret = FALSE;
 
 	/* Parse out the principal's username */
-	major_status = gss_display_name(&minor_status, request->authn_name,
+	major_status = gss_display_name(&minor_status, name,
 					&princ_name, &name_type);
 	if (major_status != GSS_S_COMPLETE) {
 		auth_request_log_gss_error(&request->auth_request, major_status,
@@ -337,7 +339,7 @@ static bool gssapi_krb5_userok(struct gssapi_auth_request *request)
 					   "gssapi_krb5_userok");
 		return FALSE;
 	}
-	if (name_type != GSS_KRB5_NT_PRINCIPAL_NAME) {
+	if (name_type != GSS_KRB5_NT_PRINCIPAL_NAME && check_name_type) {
 		auth_request_log_error(&request->auth_request, "gssapi",
 				       "OID not kerberos principal name");
 		return FALSE;
@@ -376,8 +378,9 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 {
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc outbuf;
+#if defined(HAVE___GSS_USEROK) || !defined(USE_KRB5_USEROK)
 	int equal_authn_authz = 0;
-
+#endif
 	major_status = gss_unwrap(&minor_status, request->gss_ctx, 
 				  &inbuf, &outbuf, NULL, NULL);
 
@@ -440,20 +443,32 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 			  (unsigned char *)outbuf.value + 4,
 			  outbuf.length - 4);
 
+#ifdef USE_KRB5_USEROK
+	if (!gssapi_krb5_userok(request, request->authn_name, TRUE)) {
+		auth_request_log_error(&request->auth_request, "gssapi",
+			"authn_name not authorized");
+		auth_request_fail(&request->auth_request);
+		return;
+	}
+	
+	if (!gssapi_krb5_userok(request, request->authz_name, FALSE)) {
+		auth_request_log_error(&request->auth_request, "gssapi",
+			"authz_name not authorized");
+		auth_request_fail(&request->auth_request);
+		return;
+	}
+#else
 	major_status = gss_compare_name(&minor_status,
 					request->authn_name,
 					request->authz_name,
 					&equal_authn_authz);
-#ifdef USE_KRB5_USEROK
-	if (equal_authn_authz == 0)
-		equal_authn_authz = gssapi_krb5_userok(request);
-#endif
-	if (equal_authn_authz == 0) {
+	if (equal_authn_authz != 0) {
 		auth_request_log_error(&request->auth_request, "gssapi",
 			"authn_name and authz_name differ: not supported");
 		auth_request_fail(&request->auth_request);
 		return;
 	}
+#endif
 #endif
 	auth_request_success(&request->auth_request, NULL, 0);
 }
