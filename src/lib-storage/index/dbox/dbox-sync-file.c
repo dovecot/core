@@ -73,7 +73,8 @@ dbox_sync_file_copy_metadata(struct dbox_file *file, struct ostream *output)
 			dbox_file_set_corrupted(file, "missing metadata");
 			return 0;
 		}
-		// FIXME
+		mail_storage_set_critical(&file->storage->storage,
+			"read(%s) failed: %m", file->current_path);
 		return -1;
 	}
 
@@ -107,6 +108,7 @@ dbox_sync_file_copy_metadata(struct dbox_file *file, struct ostream *output)
 
 int dbox_sync_file_cleanup(struct dbox_file *file)
 {
+	struct mail_storage *storage = &file->storage->storage;
 	struct dbox_file *out_file;
 	struct stat st;
 	struct istream *input;
@@ -131,24 +133,23 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 		if (errno == ENOENT)
 			return 0;
 
-		mail_storage_set_critical(&file->storage->storage,
+		mail_storage_set_critical(storage,
 			"stat(%s) failed: %m", file->current_path);
 		return -1;
 	}
 
-	append_ctx = dbox_map_append_begin_storage(file->storage);
-
 	i_array_init(&msgs_arr, 128);
 	if (dbox_map_get_file_msgs(file->storage->map, file->file_id,
 				   &msgs_arr) < 0) {
-		// FIXME
 		array_free(&msgs_arr);
+		dbox_file_unlock(file);
 		return -1;
 	}
 	msgs = array_get_modifiable(&msgs_arr, &count);
 	/* sort messages by their offset */
 	qsort(msgs, count, sizeof(*msgs), dbox_map_file_msg_offset_cmp);
 
+	append_ctx = dbox_map_append_begin_storage(file->storage);
 	i_array_init(&copied_map_uids, I_MIN(count, 1));
 	i_array_init(&expunged_map_uids, I_MIN(count, 1));
 	offset = file->file_header_size;
@@ -185,13 +186,23 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 			i_stream_seek(file->input, offset);
 			input = i_stream_create_limit(file->input, msg_size);
 			ret = o_stream_send_istream(output, input);
-			i_stream_unref(&input);
-			if (ret != (off_t)msg_size) {
-				// FIXME
-				i_error("FIXME");
-				ret = -1;
+			if (input->stream_errno != 0) {
+				errno = input->stream_errno;
+				mail_storage_set_critical(storage,
+					"read(%s) failed: %m",
+					file->current_path);
+				i_stream_unref(&input);
 				break;
 			}
+			i_stream_unref(&input);
+			if (output->stream_errno != 0) {
+				errno = output->stream_errno;
+				mail_storage_set_critical(storage,
+					"write(%s) failed: %m",
+					out_file->current_path);
+				break;
+			}
+			i_assert(ret == (off_t)msg_size);
 		}
 
 		/* copy/skip metadata */
@@ -216,6 +227,7 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 
 	if (ret <= 0) {
 		dbox_map_append_rollback(&append_ctx);
+		dbox_file_unlock(file);
 		ret = -1;
 	} else if (array_count(&copied_map_uids) == 0) {
 		/* everything expunged in this file, unlink it */
@@ -225,6 +237,7 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 		/* assign new file_id + offset to moved messages */
 		if (dbox_map_append_move(append_ctx, &copied_map_uids,
 					 &expunged_map_uids) < 0) {
+			dbox_file_unlock(file);
 			dbox_map_append_rollback(&append_ctx);
 			ret = -1;
 		} else {
