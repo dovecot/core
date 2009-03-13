@@ -436,6 +436,9 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 
 	drop_privileges(&max_fds);
 
+	if (argv[1] != NULL && strcmp(argv[1], "-D") == 0)
+		restrict_access_allow_coredumps(TRUE);
+
 	process_title_init(argv, envp);
 	ioloop = io_loop_create();
 	io_loop_set_max_fd_count(ioloop, max_fds);
