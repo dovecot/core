@@ -941,6 +941,19 @@ static bool settings_verify(struct settings *set)
 	return TRUE;
 }
 
+static bool login_want_core_dumps(struct settings *set)
+{
+	const char *p;
+
+	p = strstr(set->server->pop3->login_executable, " -D");
+	if (p != NULL && p[3] == '\0')
+		return TRUE;
+	p = strstr(set->server->imap->login_executable, " -D");
+	if (p != NULL && p[3] == '\0')
+		return TRUE;
+	return FALSE;
+}
+
 static bool settings_do_fixes(struct settings *set)
 {
 	struct stat st;
@@ -972,7 +985,8 @@ static bool settings_do_fixes(struct settings *set)
 		   empty. with external auth we wouldn't want to delete
 		   existing sockets or break the permissions required by the
 		   auth server. */
-		if (safe_mkdir(set->login_dir, 0750,
+		mode_t mode = login_want_core_dumps(set) ? 0770 : 0750;
+		if (safe_mkdir(set->login_dir, mode,
 			       master_uid, set->server->login_gid) == 0) {
 			i_warning("Corrected permissions for login directory "
 				  "%s", set->login_dir);
