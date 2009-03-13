@@ -2078,12 +2078,15 @@ if test "$found_sql_drivers" != "" || test "$want_sql" != "no"; then
 fi
 
 if test $want_vpopmail != no; then
-	vpop_libdeps="$vpopmail_home/etc/lib_deps"
-
-	AC_MSG_CHECKING([for vpopmail configuration at $vpop_libdeps])
-	if test -f $vpop_libdeps; then
-		AUTH_CFLAGS="$AUTH_CFLAGS `cat $vpopmail_home/etc/inc_deps` $CFLAGS"
-		AUTH_LIBS="$AUTH_LIBS `cat $vpop_libdeps`"
+	vpop_etc="$vpopmail_home/etc"
+	AC_MSG_CHECKING([for vpopmail configuration at $vpop_etc/lib_deps])
+	if ! test -f $vpop_etc/lib_deps; then
+		vpop_etc="$vpopmail_home"
+		AC_MSG_CHECKING([for vpopmail configuration at $vpop_etc/lib_deps])
+	fi
+	if test -f $vpop_etc/lib_deps; then
+		AUTH_CFLAGS="$AUTH_CFLAGS `cat $vpop_etc/inc_deps` $CFLAGS"
+		AUTH_LIBS="$AUTH_LIBS `cat $vpop_etc/lib_deps`"
 		AC_DEFINE(USERDB_VPOPMAIL,, Build with vpopmail support)
 		AC_DEFINE(PASSDB_VPOPMAIL,, Build with vpopmail support)
 		userdb="$userdb vpopmail"
@@ -2092,7 +2095,7 @@ if test $want_vpopmail != no; then
 	else
 		AC_MSG_RESULT(not found)
 		if test $want_vpopmail = yes; then
-		  AC_ERROR([Can't build with vpopmail support: $vpop_libdeps not found])
+		  AC_ERROR([Can't build with vpopmail support: $vpop_etc/lib_deps not found])
 		fi
 	fi
 fi
