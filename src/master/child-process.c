@@ -142,8 +142,10 @@ log_coredump(string_t *str, enum process_type process_type, int status)
 		return;
 
 	/* let's try to figure out why we didn't get a core dump */
-	if (process_type != PROCESS_TYPE_IMAP &&
-	    process_type != PROCESS_TYPE_POP3)
+	if (process_type == PROCESS_TYPE_LOGIN)
+		str_append(str, " (core not dumped - add -D to login_executable)");
+	else if (process_type != PROCESS_TYPE_IMAP &&
+		 process_type != PROCESS_TYPE_POP3)
 		str_append(str, " (core not dumped)");
 #ifndef HAVE_PR_SET_DUMPABLE
 	else if (!settings_root->defaults->mail_drop_priv_before_exec)
