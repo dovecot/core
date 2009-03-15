@@ -330,20 +330,9 @@ static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 		mbox->mbox_used_privileges = FALSE;
 		break;
 	case MBOX_DOTLOCK_OP_TOUCH:
-		if (!file_dotlock_is_locked(mbox->mbox_dotlock)) {
-			if (file_dotlock_delete(&mbox->mbox_dotlock) < 0) {
-				mbox_set_syscall_error(mbox,
-						       "file_dotlock_delete()");
-			}
-			mbox->mbox_used_privileges = TRUE;
-			ret = -1;
-		} else {
-			ret = file_dotlock_touch(mbox->mbox_dotlock);
-			if (ret < 0) {
-				mbox_set_syscall_error(mbox,
-						       "file_dotlock_touch()");
-			}
-		}
+		ret = file_dotlock_touch(mbox->mbox_dotlock);
+		if (ret < 0)
+			mbox_set_syscall_error(mbox, "file_dotlock_touch()");
 		break;
 	}
 
