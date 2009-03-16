@@ -945,10 +945,12 @@ static bool login_want_core_dumps(struct settings *set)
 {
 	const char *p;
 
-	p = strstr(set->server->pop3->login_executable, " -D");
+	p = set->server->pop3 == NULL ? NULL :
+		strstr(set->server->pop3->login_executable, " -D");
 	if (p != NULL && p[3] == '\0')
 		return TRUE;
-	p = strstr(set->server->imap->login_executable, " -D");
+	p = set->server->imap == NULL ? NULL :
+		strstr(set->server->imap->login_executable, " -D");
 	if (p != NULL && p[3] == '\0')
 		return TRUE;
 	return FALSE;
