@@ -282,7 +282,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 		mail_index_ext_register(index, "dbox-hdr",
 					sizeof(struct dbox_index_header), 0, 0);
 	mbox->guid_ext_id =
-		mail_index_ext_register(index, "guid", 0, 16, 1);
+		mail_index_ext_register(index, "guid", 0, DBOX_GUID_BIN_LEN, 1);
 
 	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	mbox->maildir_uidlist = maildir_uidlist_init_readonly(&mbox->ibox);
@@ -312,7 +312,7 @@ dbox_cleanup_if_exists(struct mail_storage *storage, const char *path)
 	return TRUE;
 }
 
-static struct mailbox *
+struct mailbox *
 dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 		  struct istream *input, enum mailbox_open_flags flags)
 {

@@ -1,10 +1,23 @@
 #ifndef DBOX_MAP_H
 #define DBOX_MAP_H
 
+#include "seq-range-array.h"
+
 struct dbox_storage;
 struct dbox_mailbox;
 struct dbox_file;
 struct dbox_map_append_context;
+struct dbox_mail_lookup_rec;
+
+struct dbox_mail_index_map_header {
+	uint32_t highest_file_id;
+};
+
+struct dbox_mail_index_map_record {
+	uint32_t file_id;
+	uint32_t offset;
+	uint32_t size;
+};
 
 struct dbox_map_file_msg {
 	uint32_t map_uid;
@@ -27,7 +40,6 @@ int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
 
 int dbox_map_update_refcounts(struct dbox_map *map,
 			      const ARRAY_TYPE(seq_range) *map_uids, int diff);
-/*  */
 int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id);
 
 /* Return all files containing messages with zero refcount. */

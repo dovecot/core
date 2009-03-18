@@ -5,52 +5,9 @@
 #include "ostream.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
-#include "dbox-map.h"
+#include "dbox-map-private.h"
 
 #define MAX_BACKWARDS_LOOKUPS 10
-
-struct dbox_mail_index_map_header {
-	uint32_t highest_file_id;
-};
-
-struct dbox_mail_index_map_record {
-	uint32_t file_id;
-	uint32_t offset;
-	uint32_t size;
-};
-
-struct dbox_map {
-	struct dbox_storage *storage;
-	struct mail_index *index;
-	struct mail_index_view *view;
-
-	uint32_t map_ext_id, ref_ext_id;
-	ARRAY_TYPE(seq_range) ref0_file_ids;
-};
-
-struct dbox_map_append {
-	struct dbox_file *file;
-	uoff_t offset, size;
-};
-
-struct dbox_map_append_context {
-	struct dbox_mailbox *mbox;
-	struct dbox_map *map;
-
-	struct mail_index_sync_ctx *sync_ctx;
-	struct mail_index_view *sync_view;
-	struct mail_index_transaction *trans;
-
-	ARRAY_DEFINE(files, struct dbox_file *);
-	ARRAY_DEFINE(appends, struct dbox_map_append);
-
-	uint32_t first_new_file_id;
-	uint32_t orig_next_uid;
-
-	unsigned int files_nonappendable_count;
-
-	unsigned int failed:1;
-};
 
 void dbox_map_set_corrupted(struct dbox_map *map, const char *format, ...)
 {
@@ -119,7 +76,7 @@ static int dbox_map_open(struct dbox_map *map)
 	return 0;
 }
 
-static int dbox_map_refresh(struct dbox_map *map)
+int dbox_map_refresh(struct dbox_map *map)
 {
 	struct mail_index_view_sync_ctx *ctx;
 	bool delayed_expunges;
@@ -195,16 +152,40 @@ int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 	return 1;
 }
 
+int dbox_map_view_lookup_rec(struct dbox_map *map, struct mail_index_view *view,
+			     uint32_t seq, struct dbox_mail_lookup_rec *rec_r)
+{
+	const uint16_t *ref16_p;
+	const void *data;
+	bool expunged;
+
+	memset(rec_r, 0, sizeof(*rec_r));
+	mail_index_lookup_uid(view, seq, &rec_r->map_uid);
+
+	mail_index_lookup_ext(view, seq, map->map_ext_id, &data, &expunged);
+	if (data == NULL) {
+		dbox_map_set_corrupted(map, "missing map extension");
+		return -1;
+	}
+	memcpy(&rec_r->rec, data, sizeof(rec_r->rec));
+
+	mail_index_lookup_ext(view, seq, map->ref_ext_id, &data, &expunged);
+	if (data == NULL) {
+		dbox_map_set_corrupted(map, "missing ref extension");
+		return -1;
+	}
+	ref16_p = data;
+	rec_r->refcount = *ref16_p;
+	return 0;
+}
+
 int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
 			   ARRAY_TYPE(dbox_map_file_msg) *recs)
 {
 	const struct mail_index_header *hdr;
+	struct dbox_mail_lookup_rec rec;
 	struct dbox_map_file_msg msg;
-	const struct dbox_mail_index_map_record *rec;
-	const uint16_t *ref16_p;
-	unsigned int seq;
-	const void *data;
-	bool expunged;
+	uint32_t seq;
 
 	if (dbox_map_refresh(map) < 0)
 		return -1;
@@ -212,29 +193,15 @@ int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
 
 	memset(&msg, 0, sizeof(msg));
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		mail_index_lookup_uid(map->view, seq, &msg.map_uid);
-
-		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
-				      &data, &expunged);
-		if (data == NULL) {
-			dbox_map_set_corrupted(map, "missing map extension");
+		if (dbox_map_view_lookup_rec(map, map->view, seq, &rec) < 0)
 			return -1;
-		}
-		rec = data;
-		if (rec->file_id != file_id)
-			continue;
 
-		msg.offset = rec->offset;
-		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
-				      &data, &expunged);
-		if (data == NULL) {
-			dbox_map_set_corrupted(map, "missing ref extension");
-			return -1;
+		if (rec.rec.file_id == file_id) {
+			msg.map_uid = rec.map_uid;
+			msg.offset = rec.rec.offset;
+			msg.refcount = rec.refcount;
+			array_append(recs, &msg, 1);
 		}
-		ref16_p = data;
-		msg.refcount = *ref16_p;
-
-		array_append(recs, &msg, 1);
 	}
 	return 0;
 }

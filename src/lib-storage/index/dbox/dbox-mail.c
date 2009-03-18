@@ -91,18 +91,21 @@ static int
 dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
-	uoff_t offset;
+	uoff_t offset, size;
 	bool expunged;
 
 	if (dbox_mail_open(mail, &offset, file_r) < 0)
 		return -1;
 
-	if (dbox_file_metadata_read(*file_r, offset, &expunged) <= 0)
+	if (dbox_file_get_mail_stream(*file_r, offset, &size,
+				      NULL, &expunged) <= 0)
 		return -1;
 	if (expunged) {
 		mail_set_expunged(_mail);
 		return -1;
 	}
+	if (dbox_file_metadata_read(*file_r) <= 0)
+		return -1;
 	return 0;
 }
 

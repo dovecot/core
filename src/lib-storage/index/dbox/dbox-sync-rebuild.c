@@ -153,7 +153,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 				     struct dbox_file *file, uoff_t *offset)
 {
 	uint32_t seq;
-	bool expunged, last;
+	bool last;
 	int ret;
 
 	ret = dbox_file_seek_next(file, offset, &last);
@@ -166,7 +166,7 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 		return 0;
 	}
 
-	ret = dbox_file_metadata_read(file, *offset, &expunged);
+	ret = dbox_file_metadata_read(file);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
@@ -174,11 +174,10 @@ static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
 			  file->current_path);
 		return 0;
 	}
-	if (!expunged) {
-		/* FIXME: file->uid doesn't work for multi files */
-		mail_index_append(ctx->trans, file->uid, &seq);
-		dbox_sync_index_metadata(ctx, file, seq, file->uid);
-	}
+
+	/* FIXME: file->uid doesn't work for multi files */
+	mail_index_append(ctx->trans, file->uid, &seq);
+	dbox_sync_index_metadata(ctx, file, seq, file->uid);
 	return 1;
 }
 
@@ -212,9 +211,8 @@ dbox_sync_index_uid_file(struct dbox_sync_rebuild_context *ctx,
 }
 
 static int
-dbox_sync_index_multi_file(struct dbox_sync_rebuild_context *ctx ATTR_UNUSED,
-			   const char *dir ATTR_UNUSED,
-			   const char *fname ATTR_UNUSED)
+dbox_sync_index_multi_file(struct dbox_sync_rebuild_context *ctx,
+			   const char *dir, const char *fname)
 {
 	/* FIXME */
 	return 0;

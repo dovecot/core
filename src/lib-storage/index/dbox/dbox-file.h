@@ -144,15 +144,15 @@ int dbox_file_try_lock(struct dbox_file *file);
 void dbox_file_unlock(struct dbox_file *file);
 
 /* Seek to given offset in file and return the message's input stream
-   and physical size. Returns 1 if ok, 0 if file/offset is corrupted,
+   and physical size. Returns 1 if ok/expunged, 0 if file/offset is corrupted,
    -1 if I/O error. */
 int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 			      uoff_t *physical_size_r,
 			      struct istream **stream_r, bool *expunged_r);
-/* Seek to next message after given offset, or to first message if offset=0.
-   If there are no more messages, last_r is set to TRUE. Returns 1 if ok,
-   0 if file/offset is corrupted, -1 if I/O error. */
-int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset, bool *last_r);
+/* Seek to next message after current one. If there are no more messages,
+   returns 0 and last_r is set to TRUE. Returns 1 if ok, 0 if file/offset is
+   corrupted, -1 if I/O error. */
+int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r);
 
 /* Returns TRUE if mail_size bytes can be appended to the file. */
 bool dbox_file_can_append(struct dbox_file *file, uoff_t mail_size);
@@ -171,12 +171,9 @@ void dbox_file_cancel_append(struct dbox_file *file, uoff_t append_offset);
 /* Flush writes to dbox file. */
 int dbox_file_flush_append(struct dbox_file *file);
 
-/* Read to given message's metadata. Returns 1 if ok, 0 if file/offset is
-   corrupted, -1 if I/O error. If message has already been expunged,
-   expunged_r=TRUE and 1 is returned. */
-int dbox_file_metadata_read(struct dbox_file *file, uoff_t offset,
-			    bool *expunged_r);
-
+/* Read current message's metadata. Returns 1 if ok, 0 if metadata is
+   corrupted, -1 if I/O error. */
+int dbox_file_metadata_read(struct dbox_file *file);
 /* Return wanted metadata value, or NULL if not found. */
 const char *dbox_file_metadata_get(struct dbox_file *file,
 				   enum dbox_metadata_key key);

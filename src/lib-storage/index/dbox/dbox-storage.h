@@ -16,6 +16,7 @@
 #define DBOX_MAIL_FILE_UID_PREFIX "u."
 #define DBOX_MAIL_FILE_MULTI_FORMAT DBOX_MAIL_FILE_MULTI_PREFIX"%u"
 #define DBOX_MAIL_FILE_UID_FORMAT DBOX_MAIL_FILE_UID_PREFIX"%u"
+#define DBOX_GUID_BIN_LEN (128/8)
 
 /* How often to scan for stale temp files (based on dir's atime) */
 #define DBOX_TMP_SCAN_SECS (8*60*60)
@@ -86,6 +87,10 @@ extern struct mail_vfuncs dbox_mail_vfuncs;
 
 void dbox_transaction_class_init(void);
 void dbox_transaction_class_deinit(void);
+
+struct mailbox *
+dbox_mailbox_open(struct mail_storage *storage, const char *name,
+		  struct istream *input, enum mailbox_open_flags flags);
 
 struct mail *
 dbox_mail_alloc(struct mailbox_transaction_context *t,
