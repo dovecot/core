@@ -21,7 +21,8 @@ static const char *full_macro[] = {
 };
 
 static bool
-fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg)
+fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg,
+		 const struct imap_arg **next_arg_r)
 {
 	const char *str, *const *macro;
 
@@ -52,7 +53,9 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg)
 				macro++;
 			}
 		}
+		*next_arg_r = arg;
 	} else {
+		*next_arg_r = arg + 1;
 		arg = IMAP_ARG_LIST_ARGS(arg);
 		while (arg->type == IMAP_ARG_ATOM) {
 			str = t_str_ucase(IMAP_ARG_STR(arg));
@@ -180,7 +183,7 @@ bool cmd_fetch(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct imap_fetch_context *ctx;
-	const struct imap_arg *args;
+	const struct imap_arg *args, *next_arg;
 	struct mail_search_args *search_args;
 	const char *messageset;
 	int ret;
@@ -213,9 +216,9 @@ bool cmd_fetch(struct client_command_context *cmd)
 	}
 	ctx->search_args = search_args;
 
-	if (!fetch_parse_args(ctx, &args[1]) ||
-	    (args[2].type == IMAP_ARG_LIST &&
-	     !fetch_parse_modifiers(ctx, IMAP_ARG_LIST_ARGS(&args[2])))) {
+	if (!fetch_parse_args(ctx, &args[1], &next_arg) ||
+	    (next_arg->type == IMAP_ARG_LIST &&
+	     !fetch_parse_modifiers(ctx, IMAP_ARG_LIST_ARGS(next_arg)))) {
 		imap_fetch_deinit(ctx);
 		return TRUE;
 	}
