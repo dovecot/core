@@ -304,7 +304,8 @@ static int imap_parser_read_string(struct imap_parser *parser,
 		/* check linebreaks here, so escaping CR/LF isn't possible.
 		   string always ends with '"', so it's an error if we found
 		   a linebreak.. */
-		if (is_linebreak(data[i])) {
+		if (is_linebreak(data[i]) &&
+		    (parser->flags & IMAP_PARSE_FLAG_MULTILINE_STR) == 0) {
 			parser->error = "Missing '\"'";
 			return FALSE;
 		}
