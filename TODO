@@ -1,3 +1,4 @@
+ - when receiving a signal, log the sender PID and UID
  - lseek(Maildir/dovecot-uidlist) failed: Stale NFS file handle
  - acl vfile does lots of repeating open/stats, why?
  - convert plugin: convert_pop3_uidl_format setting? so old %f uidls could be
