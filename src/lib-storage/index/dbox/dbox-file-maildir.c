@@ -68,6 +68,7 @@ const char *dbox_file_maildir_metadata_get(struct dbox_file *file,
 				value = t_strdup_until(file->fname, p);
 		}
 		break;
+	case DBOX_METADATA_ORIG_MAILBOX:
 	case DBOX_METADATA_OLDV1_EXPUNGED:
 	case DBOX_METADATA_OLDV1_FLAGS:
 	case DBOX_METADATA_OLDV1_KEYWORDS:

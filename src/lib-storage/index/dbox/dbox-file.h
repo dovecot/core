@@ -46,6 +46,10 @@ enum dbox_metadata_key {
 	/* Pointer to external message data. Format is:
 	   1*(<start offset> <byte count> <ref>) */
 	DBOX_METADATA_EXT_REF		= 'X',
+	/* Mailbox name where this message was originally saved to.
+	   When rebuild finds a message whose mailbox is unknown, it's
+	   placed to this mailbox. */
+	DBOX_METADATA_ORIG_MAILBOX	= 'B',
 
 	/* metadata used by old Dovecot versions */
 	DBOX_METADATA_OLDV1_EXPUNGED	= 'E',

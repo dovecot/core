@@ -210,6 +210,15 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 				      guid_128, NULL);
 	}
 	str_printfa(str, "%c%s\n", DBOX_METADATA_GUID, guid);
+	if (ctx->cur_file->single_mbox == NULL &&
+	    strchr(ctx->mbox->ibox.box.name, '\r') == NULL &&
+	    strchr(ctx->mbox->ibox.box.name, '\n') == NULL) {
+		/* multi-file: save the original mailbox name so if mailbox
+		   indexes get corrupted we can place at least some
+		   (hopefully most) of the messages to correct mailboxes. */
+		str_printfa(str, "%c%s\n", DBOX_METADATA_ORIG_MAILBOX,
+			    ctx->mbox->ibox.box.name);
+	}
 
 	str_append_c(str, '\n');
 	o_stream_send(ctx->cur_output, str_data(str), str_len(str));
