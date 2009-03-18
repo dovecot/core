@@ -419,6 +419,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 		(flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0;
 	index->nfs_flush = (flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	index->readonly = (flags & MAIL_INDEX_OPEN_FLAG_READONLY) != 0;
+	index->keep_backups = (flags & MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS) != 0;
 	index->lock_method = lock_method;
 
 	if (index->nfs_flush && index->fsync_disable)

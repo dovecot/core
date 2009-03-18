@@ -13,6 +13,36 @@
 /* if we're updating >= count-n messages, recreate the index */
 #define MAIL_INDEX_MAX_OVERWRITE_NEG_SEQ_COUNT 10
 
+static int mail_index_create_backup(struct mail_index *index)
+{
+	const char *backup_path, *tmp_backup_path;
+	int ret;
+
+	backup_path = t_strconcat(index->filepath, ".backup", NULL);
+	tmp_backup_path = t_strconcat(backup_path, ".tmp", NULL);
+	ret = link(index->filepath, tmp_backup_path);
+	if (ret < 0 && errno == EEXIST) {
+		if (unlink(tmp_backup_path) < 0 && errno != ENOENT) {
+			mail_index_set_error(index, "unlink(%s) failed: %m",
+					     tmp_backup_path);
+			return -1;
+		}
+		ret = link(index->filepath, tmp_backup_path);
+	}
+	if (ret < 0) {
+		mail_index_set_error(index, "link(%s, %s) failed: %m",
+				     index->filepath, tmp_backup_path);
+		return -1;
+	}
+
+	if (rename(tmp_backup_path, backup_path) < 0) {
+		mail_index_set_error(index, "rename(%s, %s) failed: %m",
+				     tmp_backup_path, backup_path);
+		return -1;
+	}
+	return 0;
+}
+
 static int mail_index_recreate(struct mail_index *index)
 {
 	struct mail_index_map *map = index->map;
@@ -53,6 +83,9 @@ static int mail_index_recreate(struct mail_index *index)
 		mail_index_file_set_syscall_error(index, path, "close()");
 		ret = -1;
 	}
+
+	if (index->keep_backups)
+		mail_index_create_backup(index);
 
 	if (ret == 0 && rename(path, index->filepath) < 0) {
 		mail_index_set_error(index, "rename(%s, %s) failed: %m",
@@ -144,6 +177,8 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	struct stat st;
 	unsigned int lock_id;
 	int ret;
+
+	i_assert(index->log_locked);
 
 	if (!mail_index_map_has_changed(map))
 		return;

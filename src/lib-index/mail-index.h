@@ -22,7 +22,9 @@ enum mail_index_open_flags {
 	/* Flush NFS attr/data/write cache when necessary */
 	MAIL_INDEX_OPEN_FLAG_NFS_FLUSH		= 0x40,
 	/* Open the index read-only */
-	MAIL_INDEX_OPEN_FLAG_READONLY		= 0x80
+	MAIL_INDEX_OPEN_FLAG_READONLY		= 0x80,
+	/* Create backups of dovecot.index files once in a while */
+	MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS	= 0x100
 };
 
 enum mail_index_header_compat_flags {

@@ -422,6 +422,8 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((index_flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0)
 		ibox->fsync_disable = TRUE;
+	if (ibox->keep_index_backups)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS;
 
 	ret = mail_index_open(ibox->index, index_flags, storage->lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {

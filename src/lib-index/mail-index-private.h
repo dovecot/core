@@ -223,6 +223,7 @@ struct mail_index {
 	unsigned int use_excl_dotlocks:1;
 	unsigned int nfs_flush:1;
 	unsigned int readonly:1;
+	unsigned int keep_backups:1;
 	unsigned int mapping:1;
 	unsigned int syncing:1;
 	unsigned int need_recreate:1;
