@@ -82,6 +82,7 @@ static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
 	struct ioloop *ioloop;
 	struct io *io;
 	ssize_t ret;
+	unsigned int eintr_count = 0;
 
 	while ((ret = write(fd, data, len)) != (ssize_t)len) {
 		if (ret > 0) {
@@ -94,6 +95,11 @@ static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
 			/* out of disk space? */
 			errno = ENOSPC;
 			return -1;
+		}
+		if (errno == EINTR && ++eintr_count < 3) {
+			/* we don't want to die because of this.
+			   try again a couple of times. */
+			continue;
 		}
 		if (errno != EAGAIN)
 			return -1;
