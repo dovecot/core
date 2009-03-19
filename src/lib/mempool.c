@@ -13,5 +13,6 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size)
 
 	if (easy_size < exp_size && easy_size >= min_size)
 		exp_size = easy_size;
+	i_assert(exp_size >= min_size);
 	return exp_size;
 }

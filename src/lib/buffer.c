@@ -66,6 +66,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 
 	if (new_size > buf->used)
 		buf->used = new_size;
+	i_assert(buf->used <= buf->alloc);
 }
 
 buffer_t *buffer_create_static_hard(pool_t pool, size_t size)
