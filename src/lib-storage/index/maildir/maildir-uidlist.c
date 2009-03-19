@@ -924,13 +924,12 @@ maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 	const struct maildir_uidlist_rec *rec;
 	unsigned int idx;
 	const unsigned char *p;
-	const char *value;
 
 	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
 	if (rec == NULL || rec->extensions == NULL)
 		return NULL;
 
-	p = rec->extensions; value = NULL;
+	p = rec->extensions;
 	while (*p != '\0') {
 		/* <key><value>\0 */
 		if (*p == (char)key)

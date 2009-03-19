@@ -70,14 +70,13 @@ int message_get_body_size(struct istream *input, struct message_size *body,
 {
 	const unsigned char *msg;
 	size_t i, size, missing_cr_count;
-	bool last_cr;
 	int ret = 0;
 
 	memset(body, 0, sizeof(struct message_size));
 	if (has_nuls != NULL)
 		*has_nuls = FALSE;
 
-	missing_cr_count = 0; last_cr = FALSE;
+	missing_cr_count = 0;
 	if ((ret = i_stream_read_data(input, &msg, &size, 0)) <= 0)
 		return ret < 0 && input->stream_errno != 0 ? -1 : 0;
 
