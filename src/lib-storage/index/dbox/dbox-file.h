@@ -150,7 +150,7 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 			      uoff_t *physical_size_r,
 			      struct istream **stream_r, bool *expunged_r);
 /* Seek to next message after current one. If there are no more messages,
-   returns 0 and last_r is set to TRUE. Returns 1 if ok, 0 if file/offset is
+   returns 0 and last_r is set to TRUE. Returns 1 if ok, 0 if file is
    corrupted, -1 if I/O error. */
 int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r);
 

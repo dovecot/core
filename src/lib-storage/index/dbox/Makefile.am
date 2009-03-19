@@ -18,6 +18,7 @@ libstorage_dbox_a_SOURCES = \
 	dbox-sync-file.c \
 	dbox-sync-rebuild.c \
 	dbox-storage.c \
+	dbox-storage-rebuild.c \
 	dbox-transaction.c
 
 headers = \
@@ -25,6 +26,7 @@ headers = \
 	dbox-file-maildir.h \
 	dbox-map.h \
 	dbox-storage.h \
+	dbox-storage-rebuild.h \
 	dbox-sync.h
 
 if INSTALL_HEADERS

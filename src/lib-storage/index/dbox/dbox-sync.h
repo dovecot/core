@@ -35,6 +35,17 @@ void dbox_sync_cleanup(struct dbox_storage *storage);
 int dbox_sync_file(struct dbox_sync_context *ctx,
 		   const struct dbox_sync_file_entry *entry);
 int dbox_sync_file_cleanup(struct dbox_file *file);
+
+struct dbox_sync_rebuild_context *
+dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,
+			     struct mail_index_view *view,
+			     struct mail_index_transaction *trans);
+int dbox_sync_index_rebuild_singles(struct dbox_sync_rebuild_context *ctx);
+void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,
+				      struct dbox_file *file,
+				      uint32_t new_seq, uint32_t uid);
+void dbox_sync_index_rebuild_deinit(struct dbox_sync_rebuild_context **ctx);
+
 int dbox_sync_index_rebuild(struct dbox_mailbox *mbox);
 
 struct mailbox_sync_context *

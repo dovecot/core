@@ -6,6 +6,7 @@
 #include "str.h"
 #include "hash.h"
 #include "dbox-storage.h"
+#include "dbox-storage-rebuild.h"
 #include "dbox-map.h"
 #include "dbox-file.h"
 #include "dbox-sync.h"
@@ -211,9 +212,15 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
 	enum mail_index_sync_flags sync_flags = 0;
 	unsigned int i;
 	int ret;
-	bool rebuild;
+	bool rebuild, storage_rebuilt = FALSE;
 
 	rebuild = dbox_refresh_header(mbox) < 0;
+
+	if (mbox->storage->sync_rebuild) {
+		if (dbox_storage_rebuild(mbox->storage) < 0)
+			return -1;
+		storage_rebuilt = TRUE;
+	}
 
 	ctx = i_new(struct dbox_sync_context, 1);
 	ctx->mbox = mbox;
@@ -238,13 +245,16 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
 			return ret;
 		}
 
-		if (rebuild && dbox_refresh_header(mbox) == 0) {
-			/* another process rebuilt it already */
-			rebuild = FALSE;
-		}
-		if (rebuild) {
+		/* now that we're locked, check again if we want to rebuild */
+		if (dbox_refresh_header(mbox) < 0) {
+			if (!storage_rebuilt) {
+				/* we'll need to rebuild storage too.
+				   try again from the beginning. */
+				mail_index_sync_rollback(&ctx->index_sync_ctx);
+				i_free(ctx);
+				return dbox_sync_begin(mbox, force, ctx_r);
+			}
 			ret = 0;
-			rebuild = FALSE;
 		} else {
 			if ((ret = dbox_sync_index(ctx)) > 0)
 				break;

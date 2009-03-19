@@ -166,6 +166,7 @@ dbox_file_init_single(struct dbox_mailbox *mbox, uint32_t uid)
 	file->storage = mbox->storage;
 	file->single_mbox = mbox;
 	file->fd = -1;
+	file->cur_offset = (uoff_t)-1;
 	if (uid != 0) {
 		file->uid = uid;
 		file->fname = dbox_file_uid_get_fname(mbox, uid, &maildir);
@@ -199,6 +200,7 @@ dbox_file_init_multi(struct dbox_storage *storage, uint32_t file_id)
 	file->storage = storage;
 	file->file_id = file_id;
 	file->fd = -1;
+	file->cur_offset = (uoff_t)-1;
 	file->fname = file_id == 0 ? dbox_generate_tmp_filename() :
 		i_strdup_printf(DBOX_MAIL_FILE_MULTI_FORMAT, file_id);
 	file->current_path =
@@ -588,7 +590,7 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 	if (offset == 0)
 		offset = file->file_header_size;
 
-	if (offset != file->cur_offset || file->cur_physical_size == 0) {
+	if (offset != file->cur_offset) {
 		file->cur_offset = offset;
 		i_stream_seek(file->input, offset);
 		ret = dbox_file_read_mail_header(file, &file->cur_physical_size);
@@ -608,7 +610,6 @@ static int
 dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 {
 	const char *line;
-	uoff_t physical_size;
 	int ret;
 
 	if ((ret = dbox_file_metadata_skip_header(file)) <= 0)
@@ -616,48 +617,36 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 
 	/* skip over the actual metadata */
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
-		if (*line == DBOX_METADATA_OLDV1_SPACE) {
+		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */
 			break;
 		}
 	}
 	*offset = file->input->v_offset;
-
-	(void)i_stream_read(file->input);
-	if (!i_stream_have_bytes_left(file->input))
-		return 1;
-
-	return dbox_file_read_mail_header(file, &physical_size);
+	return 1;
 }
 
-int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset, bool *last_r)
+int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 {
-	uoff_t size;
-	bool first = *offset == 0;
+	uoff_t offset, size;
 	bool expunged;
 	int ret;
 
-	/* FIXME: see if we can get rid of this function. only rebuild needs it. */
+	if (file->cur_offset == (uoff_t)-1) {
+		/* first mail */
+		offset = file->file_header_size;
+	} else {
+		offset = file->cur_offset + file->cur_physical_size;
+		if ((ret = dbox_file_seek_next_at_metadata(file, &offset)) <= 0)
+			return ret;
+	}
+	*offset_r = offset;
 	*last_r = FALSE;
 
-	ret = dbox_file_get_mail_stream(file, *offset, &size, NULL, &expunged);
+	ret = dbox_file_get_mail_stream(file, offset, &size, NULL, &expunged);
 	if (ret <= 0)
 		return ret;
 
-	if (expunged) {
-		*last_r = TRUE;
-		return 0;
-	}
-	if (first)
-		return 1;
-
-	i_stream_skip(file->input, size);
-	if ((ret = dbox_file_seek_next_at_metadata(file, offset)) <= 0)
-		return ret;
-
-	ret = dbox_file_get_mail_stream(file, *offset, &size, NULL, &expunged);
-	if (ret <= 0)
-		return ret;
 	if (expunged) {
 		*last_r = TRUE;
 		return 0;
@@ -842,7 +831,7 @@ int dbox_file_metadata_read(struct dbox_file *file)
 	uoff_t metadata_offset;
 	int ret;
 
-	i_assert(file->cur_offset != 0 || file->maildir_file);
+	i_assert(file->cur_offset != (uoff_t)-1);
 
 	if (file->metadata_read_offset == file->cur_offset ||
 	    file->maildir_file)
