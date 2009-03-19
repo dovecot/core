@@ -972,7 +972,7 @@ int dbox_index_append_commit(struct dbox_index_append_context **_ctx)
 
 	array_free(&ctx->files);
 	i_free(ctx);
-	return 0;
+	return ret;
 }
 
 void dbox_index_append_rollback(struct dbox_index_append_context **_ctx)
