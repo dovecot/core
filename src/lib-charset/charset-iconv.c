@@ -117,9 +117,10 @@ charset_to_utf8_try(struct charset_translation *t,
 	} else {
 		size_t tmpsize = sizeof(tmpbuf) - destleft;
 
-		/* we just converted data to UTF-8, it can't be invalid */
-		if (uni_utf8_to_decomposed_titlecase(tmpbuf, tmpsize, dest) < 0)
-			i_unreached();
+		/* we just converted data to UTF-8. it shouldn't be invalid,
+		   but Solaris iconv appears to pass invalid data through
+		   sometimes (e.g. 8 bit characters with UTF-7) */
+		(void)uni_utf8_to_decomposed_titlecase(tmpbuf, tmpsize, dest);
 	}
 	return ret;
 }
