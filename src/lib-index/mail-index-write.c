@@ -30,6 +30,10 @@ static int mail_index_create_backup(struct mail_index *index)
 		ret = link(index->filepath, tmp_backup_path);
 	}
 	if (ret < 0) {
+		if (errno == ENOENT) {
+			/* no dovecot.index file, ignore */
+			return 0;
+		}
 		mail_index_set_error(index, "link(%s, %s) failed: %m",
 				     index->filepath, tmp_backup_path);
 		return -1;
