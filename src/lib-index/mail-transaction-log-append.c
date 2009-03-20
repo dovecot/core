@@ -686,7 +686,8 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		}
 	}
 
-	want_fsync = (view->index->fsync_mask & change_mask) != 0;
+	want_fsync = (view->index->fsync_mask & change_mask) != 0 ||
+		(t->flags & MAIL_INDEX_TRANSACTION_FLAG_FSYNC) != 0;
 	append_offset = file->sync_offset;
 	if (log_buffer_write(&ctx, want_fsync) < 0) {
 		buffer_free(&ctx.output);

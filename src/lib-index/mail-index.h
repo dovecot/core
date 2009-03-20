@@ -114,7 +114,9 @@ enum mail_index_transaction_flags {
 	/* Don't add flag updates unless they actually change something.
 	   This is reliable only when syncing, otherwise someone else might
 	   have already committed a transaction that had changed the flags. */
-	MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES	= 0x04
+	MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES	= 0x04,
+	/* fsync() this transaction (unless fsyncs are disabled) */
+	MAIL_INDEX_TRANSACTION_FLAG_FSYNC		= 0x08
 };
 
 enum mail_index_sync_type {
@@ -135,7 +137,9 @@ enum mail_index_sync_flags {
 	MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES	= 0x04,
 	/* If there are no new transactions and nothing else to do,
 	   return 0 in mail_index_sync_begin() */
-	MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES	= 0x08
+	MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES	= 0x08,
+	/* Create the transaction with FSYNC flag */
+	MAIL_INDEX_SYNC_FLAG_FSYNC		= 0x10
 };
 
 enum mail_index_view_sync_flags {

@@ -460,6 +460,8 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	trans_flags = MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
 	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) != 0)
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES;
+	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_FSYNC) != 0)
+		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
 	ctx->ext_trans = mail_index_transaction_begin(ctx->view, trans_flags);
 	ctx->ext_trans->sync_transaction = TRUE;
 
