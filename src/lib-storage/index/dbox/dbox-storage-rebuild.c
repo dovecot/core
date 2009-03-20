@@ -694,6 +694,9 @@ int dbox_storage_rebuild(struct dbox_storage *storage)
 		return -1;
 	}
 
+	if (storage->sync_rebuild)
+		i_warning("dbox %s: rebuilding indexes", storage->storage_dir);
+
 	ctx = dbox_storage_rebuild_init(storage);
 	ret = dbox_storage_rebuild_scan(ctx);
 	dbox_storage_rebuild_deinit(ctx);

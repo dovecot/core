@@ -4,6 +4,11 @@
 struct mailbox;
 struct dbox_mailbox;
 
+enum dbox_sync_flags {
+	DBOX_SYNC_FLAG_FORCE	= 0x01,
+	DBOX_SYNC_FLAG_FSYNC	= 0x02
+};
+
 struct dbox_sync_file_entry {
 	uint32_t uid, file_id;
 
@@ -18,6 +23,7 @@ struct dbox_sync_context {
         struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *trans;
+	struct dbox_map_transaction_context *map_trans;
 
 	string_t *path;
 	unsigned int path_dir_prefix_len;
@@ -26,7 +32,7 @@ struct dbox_sync_context {
 	struct hash_table *syncs; /* struct dbox_sync_file_entry */
 };
 
-int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
+int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 		    struct dbox_sync_context **ctx_r);
 int dbox_sync_finish(struct dbox_sync_context **ctx, bool success);
 int dbox_sync(struct dbox_mailbox *mbox);

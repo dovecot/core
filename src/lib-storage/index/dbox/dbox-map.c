@@ -9,6 +9,12 @@
 
 #define MAX_BACKWARDS_LOOKUPS 10
 
+struct dbox_map_transaction_context {
+	struct dbox_map *map;
+	struct mail_index_transaction *trans;
+	unsigned int changed:1;
+};
+
 void dbox_map_set_corrupted(struct dbox_map *map, const char *format, ...)
 {
 	va_list args;
@@ -247,17 +253,86 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 	return &map->ref0_file_ids;
 }
 
-int dbox_map_update_refcounts(struct dbox_map *map,
+struct dbox_map_transaction_context *
+dbox_map_transaction_begin(struct dbox_map *map)
+{
+	struct dbox_map_transaction_context *ctx;
+
+	ctx = i_new(struct dbox_map_transaction_context, 1);
+	ctx->map = map;
+	ctx->trans = mail_index_transaction_begin(map->view,
+					MAIL_INDEX_TRANSACTION_FLAG_FSYNC);
+	return ctx;
+}
+
+int dbox_map_transaction_commit(struct dbox_map_transaction_context **_ctx)
+{
+	struct dbox_map_transaction_context *ctx = *_ctx;
+	struct dbox_map *map = ctx->map;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *sync_trans, *trans = ctx->trans;
+	uint32_t seq1, seq2;
+	uoff_t offset1, offset2;
+	int ret;
+
+	*_ctx = NULL;
+	i_free(ctx);
+
+	if (!ctx->changed) {
+		mail_index_transaction_rollback(&trans);
+		return 0;
+	}
+
+	/* use syncing to lock the transaction log, so that we always see
+	   log's head_offset = tail_offset */
+	ret = mail_index_sync_begin(map->index, &sync_ctx,
+				    &view, &sync_trans, 0);
+	if (ret <= 0) {
+		i_assert(ret != 0);
+		mail_storage_set_internal_error(&map->storage->storage);
+		mail_index_reset_error(map->index);
+		mail_index_transaction_rollback(&trans);
+		return -1;
+	}
+
+	mail_index_sync_get_offsets(sync_ctx, &seq1, &offset1, &seq2, &offset2);
+	if (offset1 != offset2 || seq1 != seq2) {
+		/* something had crashed. need a full resync. */
+		i_warning("dbox %s: Inconsistency in map index",
+			  map->storage->storage_dir);
+		map->storage->sync_rebuild = TRUE;
+	}
+
+	if (mail_index_transaction_commit(&trans) < 0 ||
+	    mail_index_sync_commit(&sync_ctx) < 0) {
+		mail_storage_set_internal_error(&map->storage->storage);
+		mail_index_reset_error(map->index);
+		if (sync_ctx != NULL)
+			mail_index_sync_rollback(&sync_ctx);
+		return -1;
+	}
+	return 0;
+}
+
+void dbox_map_transaction_rollback(struct dbox_map_transaction_context **_ctx)
+{
+	struct dbox_map_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+	mail_index_transaction_rollback(&ctx->trans);
+	i_free(ctx);
+}
+
+int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 			      const ARRAY_TYPE(seq_range) *map_uids, int diff)
 {
-	struct mail_index_transaction *trans;
+	struct dbox_map *map = ctx->map;
 	struct seq_range_iter iter;
 	unsigned int i;
 	uint32_t map_uid, seq;
 	int ret;
 
-	trans = mail_index_transaction_begin(map->view,
-					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	seq_range_array_iter_init(&iter, map_uids); i = 0;
 	while (seq_range_array_iter_nth(&iter, i++, &map_uid)) {
 		if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0) {
@@ -266,24 +341,20 @@ int dbox_map_update_refcounts(struct dbox_map *map,
 					"refcount update lost map_uid=%u",
 					map_uid);
 			}
-			mail_index_transaction_rollback(&trans);
 			return -1;
 		}
 
-		mail_index_atomic_inc_ext(trans, seq, map->ref_ext_id, diff);
-	}
-
-	if (mail_index_transaction_commit(&trans) < 0) {
-		mail_storage_set_internal_error(&map->storage->storage);
-		mail_index_reset_error(map->index);
-		return -1;
+		ctx->changed = TRUE;
+		mail_index_atomic_inc_ext(ctx->trans, seq,
+					  map->ref_ext_id, diff);
 	}
 	return 0;
 }
 
-int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
+int dbox_map_remove_file_id(struct dbox_map_transaction_context *ctx,
+			    uint32_t file_id)
 {
-	struct mail_index_transaction *trans;
+	struct dbox_map *map = ctx->map;
 	const struct mail_index_header *hdr;
 	const struct dbox_mail_index_map_record *rec;
 	const void *data;
@@ -295,26 +366,20 @@ int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 	if (dbox_map_refresh(map) < 0)
 		return -1;
 
-	trans = mail_index_transaction_begin(map->view,
-					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	hdr = mail_index_get_header(map->view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
 				      &data, &expunged);
 		if (data == NULL) {
 			dbox_map_set_corrupted(map, "missing map extension");
-			mail_index_transaction_rollback(&trans);
 			return -1;
 		}
 
 		rec = data;
-		if (rec->file_id == file_id)
-			mail_index_expunge(trans, seq);
-	}
-	if (mail_index_transaction_commit(&trans) < 0) {
-		mail_storage_set_internal_error(&map->storage->storage);
-		mail_index_reset_error(map->index);
-		return -1;
+		if (rec->file_id == file_id) {
+			ctx->changed = TRUE;
+			mail_index_expunge(ctx->trans, seq);
+		}
 	}
 	return 0;
 }
@@ -639,22 +704,33 @@ dbox_map_get_next_file_id(struct dbox_map *map, struct mail_index_view *view,
 	return 0;
 }
 
-static int dbox_map_assign_file_ids(struct dbox_map_append_context *ctx)
+static int dbox_map_assign_file_ids(struct dbox_map_append_context *ctx,
+				    bool separate_transaction)
 {
 	struct dbox_file *const *files;
 	unsigned int i, count;
-	uint32_t first_file_id, file_id;
+	uint32_t first_file_id, file_id, seq1, seq2;
+	uoff_t offset1, offset2;
 	int ret;
 
 	/* start the syncing. we'll need it even if there are no file ids to
 	   be assigned. */
 	ret = mail_index_sync_begin(ctx->map->index, &ctx->sync_ctx,
-				    &ctx->sync_view, &ctx->trans, 0);
+				    &ctx->sync_view, &ctx->sync_trans, 0);
 	if (ret <= 0) {
 		i_assert(ret != 0);
 		mail_storage_set_internal_error(&ctx->map->storage->storage);
 		mail_index_reset_error(ctx->map->index);
 		return -1;
+	}
+
+	mail_index_sync_get_offsets(ctx->sync_ctx, &seq1, &offset1,
+				    &seq2, &offset2);
+	if (offset1 != offset2 || seq1 != seq2) {
+		/* something had crashed. need a full resync. */
+		i_warning("dbox %s: Inconsistency in map index",
+			  ctx->map->storage->storage_dir);
+		ctx->map->storage->sync_rebuild = TRUE;
 	}
 
 	if (dbox_map_get_next_file_id(ctx->map, ctx->sync_view, &file_id) < 0) {
@@ -689,10 +765,16 @@ static int dbox_map_assign_file_ids(struct dbox_map_append_context *ctx)
 		return -1;
 	}
 
+	ctx->trans = !separate_transaction ? NULL :
+		mail_index_transaction_begin(ctx->map->view,
+					MAIL_INDEX_TRANSACTION_FLAG_FSYNC);
+
 	/* update the highest used file_id */
 	if (first_file_id != file_id) {
 		file_id--;
-		mail_index_update_header_ext(ctx->trans, ctx->map->map_ext_id,
+		mail_index_update_header_ext(ctx->trans != NULL ? ctx->trans :
+					     ctx->sync_trans,
+					     ctx->map->map_ext_id,
 					     0, &file_id, sizeof(file_id));
 	}
 	return 0;
@@ -716,7 +798,7 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 		return 0;
 	}
 
-	if (dbox_map_assign_file_ids(ctx) < 0)
+	if (dbox_map_assign_file_ids(ctx, TRUE) < 0)
 		return -1;
 
 	/* append map records to index */
@@ -752,7 +834,7 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 
-	if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
+	if (mail_index_transaction_commit(&ctx->trans) < 0) {
 		mail_storage_set_internal_error(&ctx->map->storage->storage);
 		mail_index_reset_error(ctx->map->index);
 		return -1;
@@ -774,7 +856,7 @@ int dbox_map_append_move(struct dbox_map_append_context *ctx,
 	unsigned int i, j, map_uids_count, appends_count;
 	uint32_t uid, seq;
 
-	if (dbox_map_assign_file_ids(ctx) < 0)
+	if (dbox_map_assign_file_ids(ctx, FALSE) < 0)
 		return -1;
 
 	memset(&rec, 0, sizeof(rec));
@@ -790,8 +872,8 @@ int dbox_map_append_move(struct dbox_map_append_context *ctx,
 
 		if (!mail_index_lookup_seq(ctx->sync_view, uids[i], &seq))
 			i_unreached();
-		mail_index_update_ext(ctx->trans, seq, ctx->map->map_ext_id,
-				      &rec, NULL);
+		mail_index_update_ext(ctx->sync_trans, seq,
+				      ctx->map->map_ext_id, &rec, NULL);
 	}
 
 	seq_range_array_iter_init(&iter, expunge_map_uids); i = 0;
@@ -799,12 +881,6 @@ int dbox_map_append_move(struct dbox_map_append_context *ctx,
 		if (!mail_index_lookup_seq(ctx->sync_view, uid, &seq))
 			i_unreached();
 		mail_index_expunge(ctx->trans, seq);
-	}
-
-	if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
-		mail_storage_set_internal_error(&ctx->map->storage->storage);
-		mail_index_reset_error(ctx->map->index);
-		return -1;
 	}
 	return 0;
 }
@@ -828,7 +904,45 @@ int dbox_map_append_assign_uids(struct dbox_map_append_context *ctx,
 	return 0;
 }
 
-void dbox_map_append_commit(struct dbox_map_append_context **_ctx)
+int dbox_map_append_commit(struct dbox_map_append_context *ctx)
+{
+	i_assert(ctx->sync_ctx != NULL);
+	i_assert(ctx->trans == NULL);
+
+	if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
+		mail_storage_set_internal_error(&ctx->map->storage->storage);
+		mail_index_reset_error(ctx->map->index);
+		return -1;
+	}
+	ctx->committed = TRUE;
+	return 0;
+}
+
+static void dbox_map_append_file_rollback(struct dbox_file *file)
+{
+	struct mail_storage *storage = &file->storage->storage;
+
+	if (file->output != NULL) {
+		/* flush before truncating */
+		(void)o_stream_flush(file->output);
+	}
+
+	if (file->file_id != 0 &&
+	    file->first_append_offset > file->file_header_size) {
+		if (ftruncate(file->fd, file->first_append_offset) < 0) {
+			mail_storage_set_critical(storage,
+				"ftruncate(%s, %"PRIuUOFF_T") failed: %m",
+				file->current_path, file->first_append_offset);
+		}
+	} else {
+		if (unlink(file->current_path) < 0) {
+			mail_storage_set_critical(storage,
+				"unlink(%s) failed: %m", file->current_path);
+		}
+	}
+}
+
+void dbox_map_append_free(struct dbox_map_append_context **_ctx)
 {
 	struct dbox_map_append_context *ctx = *_ctx;
 	struct dbox_file **files;
@@ -836,54 +950,19 @@ void dbox_map_append_commit(struct dbox_map_append_context **_ctx)
 
 	*_ctx = NULL;
 
+	if (ctx->trans != NULL)
+		mail_index_transaction_rollback(&ctx->trans);
+	if (ctx->sync_ctx != NULL)
+		mail_index_sync_rollback(&ctx->sync_ctx);
+
 	files = array_get_modifiable(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
+		if (!ctx->committed)
+			dbox_map_append_file_rollback(files[i]);
+
 		files[i]->first_append_offset = 0;
 		dbox_file_unlock(files[i]);
 		dbox_file_unref(&files[i]);
-	}
-
-	array_free(&ctx->appends);
-	array_free(&ctx->files);
-	i_free(ctx);
-}
-
-void dbox_map_append_rollback(struct dbox_map_append_context **_ctx)
-{
-	struct dbox_map_append_context *ctx = *_ctx;
-	struct mail_storage *storage = &ctx->map->storage->storage;
-	struct dbox_file *const *files, *file;
-	unsigned int i, count;
-
-	*_ctx = NULL;
-
-	files = array_get(&ctx->files, &count);
-	for (i = 0; i < count; i++) {
-		file = files[i];
-
-		if (file->output != NULL) {
-			/* flush before truncating */
-			(void)o_stream_flush(file->output);
-		}
-
-		if (file->file_id != 0 &&
-		    file->first_append_offset > file->file_header_size) {
-			if (ftruncate(file->fd, file->first_append_offset) < 0) {
-				mail_storage_set_critical(storage,
-					"ftruncate(%s, %"PRIuUOFF_T") failed: %m",
-					file->current_path,
-					file->first_append_offset);
-			}
-		} else {
-			if (unlink(file->current_path) < 0) {
-				mail_storage_set_critical(storage,
-					"unlink(%s) failed: %m",
-					file->current_path);
-			}
-		}
-		file->first_append_offset = 0;
-		dbox_file_unlock(files[i]);
-		dbox_file_unref(&file);
 	}
 	array_free(&ctx->appends);
 	array_free(&ctx->files);

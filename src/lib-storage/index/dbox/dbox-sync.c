@@ -171,6 +171,9 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 		hash_table_iterate_deinit(&iter);
 	}
 
+	if (ret == 0)
+		ret = dbox_map_transaction_commit(&ctx->map_trans);
+
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
 
@@ -204,7 +207,7 @@ static int dbox_refresh_header(struct dbox_mailbox *mbox)
 	return 0;
 }
 
-int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
+int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 		    struct dbox_sync_context **ctx_r)
 {
 	struct mail_storage *storage = mbox->ibox.box.storage;
@@ -215,8 +218,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
 	bool rebuild, storage_rebuilt = FALSE;
 
 	rebuild = dbox_refresh_header(mbox) < 0;
-
-	if (mbox->storage->sync_rebuild) {
+	if (rebuild) {
 		if (dbox_storage_rebuild(mbox->storage) < 0)
 			return -1;
 		storage_rebuilt = TRUE;
@@ -227,8 +229,10 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
 
 	if (!mbox->ibox.keep_recent)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
-	if (!rebuild && !force)
+	if (!rebuild && (flags & DBOX_SYNC_FLAG_FORCE) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
+	if ((flags & DBOX_SYNC_FLAG_FSYNC) != 0)
+		sync_flags |= MAIL_INDEX_SYNC_FLAG_FSYNC;
 	/* don't write unnecessary dirty flag updates */
 	sync_flags |= MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
 
@@ -252,7 +256,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, bool force,
 				   try again from the beginning. */
 				mail_index_sync_rollback(&ctx->index_sync_ctx);
 				i_free(ctx);
-				return dbox_sync_begin(mbox, force, ctx_r);
+				return dbox_sync_begin(mbox, flags, ctx_r);
 			}
 			ret = 0;
 		} else {
@@ -291,6 +295,9 @@ int dbox_sync_finish(struct dbox_sync_context **_ctx, bool success)
 
 	*_ctx = NULL;
 
+	if (ctx->map_trans != NULL)
+		dbox_map_transaction_rollback(&ctx->map_trans);
+
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
 			mail_storage_set_index_error(&ctx->mbox->ibox);
@@ -302,14 +309,14 @@ int dbox_sync_finish(struct dbox_sync_context **_ctx, bool success)
 	if (ctx->path != NULL)
 		str_free(&ctx->path);
 	i_free(ctx);
-	return 0;
+	return ret;
 }
 
 int dbox_sync(struct dbox_mailbox *mbox)
 {
 	struct dbox_sync_context *sync_ctx;
 
-	if (dbox_sync_begin(mbox, FALSE, &sync_ctx) < 0)
+	if (dbox_sync_begin(mbox, 0, &sync_ctx) < 0)
 		return -1;
 
 	if (sync_ctx == NULL)
@@ -326,7 +333,8 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if (!box->opened)
 		index_storage_mailbox_open(&mbox->ibox);
 
-	if (index_mailbox_want_full_sync(&mbox->ibox, flags))
+	if (index_mailbox_want_full_sync(&mbox->ibox, flags) ||
+	    mbox->storage->sync_rebuild)
 		ret = dbox_sync(mbox);
 
 	return index_mailbox_sync_init(box, flags, ret < 0);
@@ -335,11 +343,14 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 void dbox_sync_cleanup(struct dbox_storage *storage)
 {
 	const ARRAY_TYPE(seq_range) *ref0_file_ids;
+	struct dbox_map_transaction_context *map_trans;
 	struct dbox_file *file;
 	struct seq_range_iter iter;
 	unsigned int i = 0;
 	uint32_t file_id;
 	bool deleted;
+
+	map_trans = dbox_map_transaction_begin(storage->map);
 
 	ref0_file_ids = dbox_map_get_zero_ref_files(storage->map);
 	seq_range_array_iter_init(&iter, ref0_file_ids); i = 0;
@@ -348,7 +359,9 @@ void dbox_sync_cleanup(struct dbox_storage *storage)
 		if (dbox_file_open_or_create(file, &deleted) > 0 && !deleted)
 			(void)dbox_sync_file_cleanup(file);
 		else
-			dbox_map_remove_file_id(storage->map, file_id);
+			dbox_map_remove_file_id(map_trans, file_id);
 		dbox_file_unref(&file);
 	} T_END;
+
+	(void)dbox_map_transaction_commit(&map_trans);
 }

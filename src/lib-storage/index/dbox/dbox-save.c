@@ -316,15 +316,18 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 
 	i_assert(ctx->finished);
 
-	/* get map UIDs for messages saved to multi-files */
-	if (dbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
-					    &last_map_uid) < 0) {
+	/* lock the mailbox before map to avoid deadlocks */
+	if (dbox_sync_begin(ctx->mbox, DBOX_SYNC_FLAG_FORCE |
+			    DBOX_SYNC_FLAG_FSYNC, &ctx->sync_ctx) < 0) {
 		dbox_transaction_save_rollback(ctx);
 		return -1;
 	}
 
-	/* lock the mailbox */
-	if (dbox_sync_begin(ctx->mbox, TRUE, &ctx->sync_ctx) < 0) {
+	/* get map UIDs for messages saved to multi-files. they're written
+	   to transaction log immediately within this function, but the map
+	   is left locked. */
+	if (dbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
+					    &last_map_uid) < 0) {
 		dbox_transaction_save_rollback(ctx);
 		return -1;
 	}
@@ -366,7 +369,6 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 		i_assert(next_map_uid == last_map_uid + 1);
 	}
 
-	dbox_map_append_commit(&ctx->append_ctx);
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
 
@@ -380,7 +382,13 @@ void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 {
 	ctx->ctx.transaction = NULL; /* transaction is already freed */
 
-	(void)dbox_sync_finish(&ctx->sync_ctx, TRUE);
+	/* finish writing the mailbox APPENDs */
+	if (dbox_sync_finish(&ctx->sync_ctx, TRUE) == 0) {
+		/* commit only updates the sync tail offset, everything else
+		   was already written at this point. */
+		(void)dbox_map_append_commit(ctx->append_ctx);
+	}
+	dbox_map_append_free(&ctx->append_ctx);
 
 	if (!ctx->mbox->ibox.fsync_disable) {
 		if (fdatasync_path(ctx->mbox->path) < 0) {
@@ -396,7 +404,7 @@ void dbox_transaction_save_rollback(struct dbox_save_context *ctx)
 	if (!ctx->finished)
 		dbox_save_cancel(&ctx->ctx);
 	if (ctx->append_ctx != NULL)
-		dbox_map_append_rollback(&ctx->append_ctx);
+		dbox_map_append_free(&ctx->append_ctx);
 
 	if (ctx->sync_ctx != NULL)
 		(void)dbox_sync_finish(&ctx->sync_ctx, FALSE);

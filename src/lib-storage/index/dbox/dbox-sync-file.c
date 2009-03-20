@@ -226,25 +226,25 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 	array_free(&msgs_arr); msgs = NULL;
 
 	if (ret <= 0) {
-		dbox_map_append_rollback(&append_ctx);
+		dbox_map_append_free(&append_ctx);
 		dbox_file_unlock(file);
 		ret = -1;
 	} else if (array_count(&copied_map_uids) == 0) {
 		/* everything expunged in this file, unlink it */
 		ret = dbox_sync_file_unlink(file);
-		dbox_map_append_rollback(&append_ctx);
+		dbox_map_append_free(&append_ctx);
 	} else {
 		/* assign new file_id + offset to moved messages */
 		if (dbox_map_append_move(append_ctx, &copied_map_uids,
-					 &expunged_map_uids) < 0) {
+					 &expunged_map_uids) < 0 ||
+		    dbox_map_append_commit(append_ctx) < 0) {
 			dbox_file_unlock(file);
-			dbox_map_append_rollback(&append_ctx);
 			ret = -1;
 		} else {
-			(void)dbox_sync_file_unlink(file);
-			dbox_map_append_commit(&append_ctx);
 			ret = 1;
+			(void)dbox_sync_file_unlink(file);
 		}
+		dbox_map_append_free(&append_ctx);
 	}
 	array_free(&copied_map_uids);
 	array_free(&expunged_map_uids);
@@ -290,12 +290,13 @@ dbox_sync_mark_expunges(struct dbox_sync_context *ctx,
 int dbox_sync_file(struct dbox_sync_context *ctx,
 		   const struct dbox_sync_file_entry *entry)
 {
+	struct dbox_mailbox *mbox = ctx->mbox;
 	struct dbox_file *file;
 	int ret = 1;
 
 	file = entry->file_id != 0 ?
-		dbox_file_init_multi(ctx->mbox->storage, entry->file_id) :
-		dbox_file_init_single(ctx->mbox, entry->uid);
+		dbox_file_init_multi(mbox->storage, entry->file_id) :
+		dbox_file_init_single(mbox, entry->uid);
 	if (!array_is_created(&entry->expunge_map_uids)) {
 		/* no expunges - we want to move it */
 		dbox_sync_file_move_if_needed(file, entry);
@@ -307,7 +308,11 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 			ret = 1;
 		}
 	} else {
-		if (dbox_map_update_refcounts(ctx->mbox->storage->map,
+		if (ctx->map_trans == NULL) {
+			ctx->map_trans =
+				dbox_map_transaction_begin(mbox->storage->map);
+		}
+		if (dbox_map_update_refcounts(ctx->map_trans,
 					      &entry->expunge_map_uids, -1) < 0)
 			ret = -1;
 		else
