@@ -208,6 +208,15 @@ bool i_stream_have_bytes_left(const struct istream *stream)
 	return !stream->eof || _stream->skip != _stream->pos;
 }
 
+bool i_stream_is_eof(struct istream *stream)
+{
+	const struct istream_private *_stream = stream->real_stream;
+
+	if (_stream->skip == _stream->pos)
+		(void)i_stream_read(stream);
+	return !i_stream_have_bytes_left(stream);
+}
+
 static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 {
 	char *ret;

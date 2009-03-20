@@ -87,6 +87,8 @@ const struct stat *i_stream_stat(struct istream *stream, bool exact);
 int i_stream_get_size(struct istream *stream, bool exact, uoff_t *size_r);
 /* Returns TRUE if there are any bytes left to be read or in buffer. */
 bool i_stream_have_bytes_left(const struct istream *stream) ATTR_PURE;
+/* Returns TRUE if there are no bytes buffered and read() returns EOF. */
+bool i_stream_is_eof(struct istream *stream);
 
 /* Gets the next line from stream and returns it, or NULL if more data is
    needed to make a full line. i_stream_set_return_partial_line() specifies
