@@ -706,8 +706,15 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 	uint32_t seq;
 	uoff_t offset;
 
-	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
-					       &seq, &offset);
+	if (!mail_transaction_log_view_is_last(ctx->view->log_view)) {
+		/* didn't sync everything */
+		mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
+						       &seq, &offset);
+	} else {
+		/* synced everything, but we might also have committed new
+		   transactions. include them also here. */
+		mail_transaction_log_get_head(ctx->index->log, &seq, &offset);
+	}
 	mail_transaction_log_set_mailbox_sync_pos(ctx->index->log, seq, offset);
 
 	/* If tail offset has changed, make sure it gets written to
