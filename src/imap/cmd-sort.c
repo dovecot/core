@@ -102,6 +102,14 @@ bool cmd_sort(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
+	ctx = p_new(cmd->pool, struct imap_search_context, 1);
+	ctx->cmd = cmd;
+
+	if ((ret = cmd_search_parse_return_if_found(ctx, &args)) <= 0) {
+		/* error / waiting for unambiguity */
+		return ret < 0;
+	}
+
 	/* sort program */
 	if (args->type != IMAP_ARG_LIST) {
 		client_send_command_error(cmd, "Invalid sort argument.");
@@ -120,14 +128,6 @@ bool cmd_sort(struct client_command_context *cmd)
 	}
 	charset = IMAP_ARG_STR(args);
 	args++;
-
-	ctx = p_new(cmd->pool, struct imap_search_context, 1);
-	ctx->cmd = cmd;
-
-	if ((ret = cmd_search_parse_return_if_found(ctx, &args)) <= 0) {
-		/* error / waiting for unambiguity */
-		return ret < 0;
-	}
 
 	ret = imap_search_args_build(cmd, args, charset, &sargs);
 	if (ret <= 0)
