@@ -535,6 +535,15 @@ bool mail_index_sync_have_any(struct mail_index *index,
 	return ret;
 }
 
+void mail_index_sync_get_offsets(struct mail_index_sync_ctx *ctx,
+				 uint32_t *seq1_r, uoff_t *offset1_r,
+				 uint32_t *seq2_r, uoff_t *offset2_r)
+{
+	*seq1_r = ctx->view->map->hdr.log_file_seq;
+	*offset1_r = ctx->view->map->hdr.log_file_tail_offset;
+	mail_transaction_log_get_head(ctx->view->index->log, seq2_r, offset2_r);
+}
+
 static void
 mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 			    const struct mail_transaction_expunge *exp)

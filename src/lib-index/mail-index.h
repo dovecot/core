@@ -301,6 +301,10 @@ int mail_index_sync_begin_to(struct mail_index *index,
 /* Returns TRUE if it currently looks like syncing would return changes. */
 bool mail_index_sync_have_any(struct mail_index *index,
 			      enum mail_index_sync_flags flags);
+/* Returns the log file seq+offsets for the area which this sync is handling. */
+void mail_index_sync_get_offsets(struct mail_index_sync_ctx *ctx,
+				 uint32_t *seq1_r, uoff_t *offset1_r,
+				 uint32_t *seq2_r, uoff_t *offset2_r);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			  struct mail_index_sync_rec *sync_rec);
