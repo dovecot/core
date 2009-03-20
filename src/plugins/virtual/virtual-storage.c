@@ -264,8 +264,6 @@ virtual_open(struct virtual_storage *storage, const char *name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	index = index_storage_alloc(_storage, name, flags,
 				    VIRTUAL_INDEX_PREFIX);
-	mail_index_set_fsync_types(index, MAIL_INDEX_SYNC_TYPE_APPEND |
-				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
 	pool = pool_alloconly_create("virtual mailbox", 1024+512);
 	mbox = p_new(pool, struct virtual_mailbox, 1);
