@@ -58,7 +58,7 @@ void dbox_map_deinit(struct dbox_map **_map)
 	i_free(map);
 }
 
-static int dbox_map_open(struct dbox_map *map)
+int dbox_map_open(struct dbox_map *map)
 {
 	struct mail_storage *storage = &map->storage->storage;
 	enum mail_index_open_flags open_flags;
@@ -265,6 +265,24 @@ dbox_map_transaction_begin(struct dbox_map *map)
 	return ctx;
 }
 
+static void
+dbox_map_sync_handle(struct dbox_map *map, struct mail_index_sync_ctx *sync_ctx)
+{
+	struct mail_index_sync_rec sync_rec;
+	uint32_t seq1, seq2;
+	uoff_t offset1, offset2;
+
+	mail_index_sync_get_offsets(sync_ctx, &seq1, &offset1, &seq2, &offset2);
+	if (offset1 != offset2 || seq1 != seq2) {
+		/* something had crashed. need a full resync. */
+		i_warning("dbox %s: Inconsistency in map index",
+			  map->storage->storage_dir);
+		map->storage->sync_rebuild = TRUE;
+	} else {
+		while (mail_index_sync_next(sync_ctx, &sync_rec)) ;
+	}
+}
+
 int dbox_map_transaction_commit(struct dbox_map_transaction_context **_ctx)
 {
 	struct dbox_map_transaction_context *ctx = *_ctx;
@@ -272,17 +290,15 @@ int dbox_map_transaction_commit(struct dbox_map_transaction_context **_ctx)
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *view;
 	struct mail_index_transaction *sync_trans, *trans = ctx->trans;
-	uint32_t seq1, seq2;
-	uoff_t offset1, offset2;
 	int ret;
 
 	*_ctx = NULL;
-	i_free(ctx);
-
 	if (!ctx->changed) {
 		mail_index_transaction_rollback(&trans);
+		i_free(ctx);
 		return 0;
 	}
+	i_free(ctx);
 
 	/* use syncing to lock the transaction log, so that we always see
 	   log's head_offset = tail_offset */
@@ -295,14 +311,7 @@ int dbox_map_transaction_commit(struct dbox_map_transaction_context **_ctx)
 		mail_index_transaction_rollback(&trans);
 		return -1;
 	}
-
-	mail_index_sync_get_offsets(sync_ctx, &seq1, &offset1, &seq2, &offset2);
-	if (offset1 != offset2 || seq1 != seq2) {
-		/* something had crashed. need a full resync. */
-		i_warning("dbox %s: Inconsistency in map index",
-			  map->storage->storage_dir);
-		map->storage->sync_rebuild = TRUE;
-	}
+	dbox_map_sync_handle(map, sync_ctx);
 
 	if (mail_index_transaction_commit(&trans) < 0 ||
 	    mail_index_sync_commit(&sync_ctx) < 0) {
@@ -351,20 +360,23 @@ int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 	return 0;
 }
 
-int dbox_map_remove_file_id(struct dbox_map_transaction_context *ctx,
-			    uint32_t file_id)
+int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 {
-	struct dbox_map *map = ctx->map;
+	struct dbox_map_transaction_context *map_trans;
 	const struct mail_index_header *hdr;
 	const struct dbox_mail_index_map_record *rec;
 	const void *data;
 	bool expunged;
 	uint32_t seq;
+	int ret = 0;
 
 	/* make sure the map is refreshed, otherwise we might be expunging
 	   messages that have already been moved to other files. */
 	if (dbox_map_refresh(map) < 0)
 		return -1;
+
+	/* we need a per-file transaction, otherwise we can't refresh the map */
+	map_trans = dbox_map_transaction_begin(map);
 
 	hdr = mail_index_get_header(map->view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
@@ -372,16 +384,21 @@ int dbox_map_remove_file_id(struct dbox_map_transaction_context *ctx,
 				      &data, &expunged);
 		if (data == NULL) {
 			dbox_map_set_corrupted(map, "missing map extension");
-			return -1;
+			ret = -1;
+			break;
 		}
 
 		rec = data;
 		if (rec->file_id == file_id) {
-			ctx->changed = TRUE;
-			mail_index_expunge(ctx->trans, seq);
+			map_trans->changed = TRUE;
+			mail_index_expunge(map_trans->trans, seq);
 		}
 	}
-	return 0;
+	if (ret < 0)
+		dbox_map_transaction_rollback(&map_trans);
+	else
+		(void)dbox_map_transaction_commit(&map_trans);
+	return ret;
 }
 
 struct dbox_map_append_context *
@@ -709,8 +726,7 @@ static int dbox_map_assign_file_ids(struct dbox_map_append_context *ctx,
 {
 	struct dbox_file *const *files;
 	unsigned int i, count;
-	uint32_t first_file_id, file_id, seq1, seq2;
-	uoff_t offset1, offset2;
+	uint32_t first_file_id, file_id;
 	int ret;
 
 	/* start the syncing. we'll need it even if there are no file ids to
@@ -723,15 +739,7 @@ static int dbox_map_assign_file_ids(struct dbox_map_append_context *ctx,
 		mail_index_reset_error(ctx->map->index);
 		return -1;
 	}
-
-	mail_index_sync_get_offsets(ctx->sync_ctx, &seq1, &offset1,
-				    &seq2, &offset2);
-	if (offset1 != offset2 || seq1 != seq2) {
-		/* something had crashed. need a full resync. */
-		i_warning("dbox %s: Inconsistency in map index",
-			  ctx->map->storage->storage_dir);
-		ctx->map->storage->sync_rebuild = TRUE;
-	}
+	dbox_map_sync_handle(ctx->map, ctx->sync_ctx);
 
 	if (dbox_map_get_next_file_id(ctx->map, ctx->sync_view, &file_id) < 0) {
 		mail_index_sync_rollback(&ctx->sync_ctx);

@@ -181,7 +181,9 @@ static int dbox_sync_add_file_index(struct dbox_sync_rebuild_context *ctx,
 	}
 
 	mail_index_append(ctx->trans, file->uid, &seq);
-	dbox_sync_rebuild_index_metadata(ctx, file, seq, file->uid);
+	T_BEGIN {
+		dbox_sync_rebuild_index_metadata(ctx, file, seq, file->uid);
+	} T_END;
 	return 0;
 }
 
@@ -406,7 +408,7 @@ dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,
 #endif
 		open_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 	if (mail_index_open(ctx->backup_index, open_flags,
-			    box->storage->lock_method) < 0)
+			    box->storage->lock_method) <= 0)
 		mail_index_free(&ctx->backup_index);
 	else
 		ctx->backup_view = mail_index_view_open(ctx->backup_index);
@@ -477,6 +479,6 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 	mail_index_view_close(&view);
 
 	if (ret == 0)
-		ctx->mbox->storage->sync_rebuild = FALSE;
+		mbox->storage->sync_rebuild = FALSE;
 	return ret;
 }

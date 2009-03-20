@@ -229,7 +229,7 @@ static int rebuild_apply_map(struct dbox_storage_rebuild_context *ctx)
 {
 	struct dbox_map *map = ctx->storage->map;
 	const struct mail_index_header *hdr;
-	struct dbox_rebuild_msg **msgs, *pos;
+	struct dbox_rebuild_msg **msgs, **pos;
 	struct dbox_rebuild_msg search_msg, *search_msgp = &search_msg;
 	struct dbox_mail_lookup_rec rec;
 	uint32_t seq;
@@ -254,8 +254,8 @@ static int rebuild_apply_map(struct dbox_storage_rebuild_context *ctx)
 			/* map record points to non-existing message. */
 			mail_index_expunge(ctx->trans, seq);
 		} else {
-			pos->map_uid = rec.map_uid;
-			pos->seen_zero_ref_in_map = rec.refcount == 0;
+			(*pos)->map_uid = rec.map_uid;
+			(*pos)->seen_zero_ref_in_map = rec.refcount == 0;
 		}
 	}
 	rebuild_add_missing_map_uids(ctx, hdr->next_uid);
@@ -271,13 +271,14 @@ rebuild_lookup_map_uid(struct dbox_storage_rebuild_context *ctx,
 		       uint32_t map_uid)
 {
 	struct dbox_rebuild_msg search_msg, *search_msgp = &search_msg;
-	struct dbox_rebuild_msg *const *msgs;
+	struct dbox_rebuild_msg *const *msgs, **pos;
 	unsigned int count;
 
 	search_msg.map_uid = map_uid;
 	msgs = array_get(&ctx->msgs, &count);
-	return bsearch(&search_msgp, msgs, count, sizeof(*msgs),
-		       dbox_rebuild_msg_uid_cmp);
+	pos = bsearch(&search_msgp, msgs, count, sizeof(*msgs),
+		      dbox_rebuild_msg_uid_cmp);
+	return pos == NULL ? NULL : *pos;
 }
 
 static void
@@ -334,7 +335,7 @@ rebuild_mailbox_multi(struct dbox_storage_rebuild_context *ctx,
 			/* everything was ok */
 		}
 
-		if (rec != NULL) {
+		if (rec != NULL) T_BEGIN {
 			/* keep this message */
 			rec->refcount++;
 
@@ -344,10 +345,10 @@ rebuild_mailbox_multi(struct dbox_storage_rebuild_context *ctx,
 							 NULL, new_seq, uid);
 
 			new_dbox_rec.map_uid = rec->map_uid;
-			mail_index_update_ext(ctx->trans, new_seq,
+			mail_index_update_ext(trans, new_seq,
 					      mbox->dbox_ext_id,
 					      &new_dbox_rec, NULL);
-		}
+		} T_END;
 	}
 }
 
@@ -411,7 +412,10 @@ static int rebuild_mailboxes(struct dbox_storage_rebuild_context *ctx)
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if ((info->flags & (MAILBOX_NONEXISTENT |
 				    MAILBOX_NOSELECT)) == 0) {
-			if (rebuild_mailbox(ctx, info->name) < 0) {
+			T_BEGIN {
+				ret = rebuild_mailbox(ctx, info->name);
+			} T_END;
+			if (ret < 0) {
 				ret = -1;
 				break;
 			}
@@ -621,6 +625,9 @@ static int dbox_storage_rebuild_scan(struct dbox_storage_rebuild_context *ctx)
 	unsigned int dir_len;
 	int ret = 0;
 
+	if (dbox_map_open(ctx->storage->map) < 0)
+		return -1;
+
 	/* begin by locking the map, so that other processes can't try to
 	   rebuild at the same time. */
 	ret = mail_index_sync_begin(ctx->storage->map->index, &ctx->sync_ctx,
@@ -649,7 +656,7 @@ static int dbox_storage_rebuild_scan(struct dbox_storage_rebuild_context *ctx)
 			str_truncate(path, dir_len);
 			str_append(path, d->d_name);
 			T_BEGIN {
-				ret = rebuild_add_file(ctx, d->d_name);
+				ret = rebuild_add_file(ctx, str_c(path));
 			} T_END;
 			if (ret < 0) {
 				ret = -1;

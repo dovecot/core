@@ -69,14 +69,28 @@ static int dbox_mail_open(struct dbox_mail *mail,
 		if (map_uid == 0) {
 			mail->open_file =
 				dbox_file_init_single(mbox, _mail->uid);
-		} else {
-			ret = dbox_map_lookup(mbox->storage->map, map_uid,
-					      &file_id, &mail->offset);
-			if (ret <= 0) {
-				if (ret == 0)
-					mail_set_expunged(_mail);
+		} else if ((ret = dbox_map_lookup(mbox->storage->map,
+						  map_uid, &file_id,
+						  &mail->offset)) <= 0) {
+			if (ret < 0)
+				return -1;
+
+			/* map_uid doesn't exist anymore. either it
+			   got just expunged or the map index is
+			   corrupted. see if the message still exists
+			   in the mailbox index. */
+			(void)mail_index_refresh(mbox->ibox.index);
+			if (mail_index_is_expunged(mbox->ibox.view,
+						   _mail->seq)) {
+				mail_set_expunged(_mail);
 				return -1;
 			}
+
+			dbox_map_set_corrupted(mbox->storage->map,
+				"Unexpectedly lost map_uid=%u", map_uid);
+			mbox->storage->sync_rebuild = TRUE;
+			return -1;
+		} else {
 			mail->open_file =
 				dbox_file_init_multi(mbox->storage, file_id);
 		}

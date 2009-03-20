@@ -136,6 +136,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
 		/* newly created index file */
+		i_warning("FIXME: newly created");
 		return 0;
 	}
 
@@ -152,9 +153,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 				       dbox_sync_file_entry_hash,
 				       dbox_sync_file_entry_cmp);
 
-	for (;;) {
-		if (!mail_index_sync_next(ctx->index_sync_ctx, &sync_rec))
-			break;
+	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
 		if ((ret = dbox_sync_add(ctx, &sync_rec)) <= 0)
 			break;
 	}
@@ -171,8 +170,10 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 		hash_table_iterate_deinit(&iter);
 	}
 
-	if (ret == 0)
-		ret = dbox_map_transaction_commit(&ctx->map_trans);
+	if (ret > 0 && ctx->map_trans != NULL) {
+		if (dbox_map_transaction_commit(&ctx->map_trans) < 0)
+			ret = -1;
+	}
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
@@ -196,7 +197,8 @@ static int dbox_refresh_header(struct dbox_mailbox *mbox)
 		if (data_size != 0 && data_size != 4) {
 			i_warning("dbox %s: Invalid dbox header size",
 				  mbox->path);
-		}
+		} else
+			i_warning("FIXME: initial sync");
 		return -1;
 	}
 	hdr = data;
@@ -259,6 +261,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 				return dbox_sync_begin(mbox, flags, ctx_r);
 			}
 			ret = 0;
+			i_warning("FIXME: poop");
 		} else {
 			if ((ret = dbox_sync_index(ctx)) > 0)
 				break;
@@ -274,6 +277,8 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 				ret = -1;
 			} else {
 				/* do a full resync and try again. */
+				i_warning("dbox %s: Rebuilding index",
+					  ctx->mbox->path);
 				ret = dbox_sync_index_rebuild(mbox);
 			}
 		}
@@ -343,14 +348,11 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 void dbox_sync_cleanup(struct dbox_storage *storage)
 {
 	const ARRAY_TYPE(seq_range) *ref0_file_ids;
-	struct dbox_map_transaction_context *map_trans;
 	struct dbox_file *file;
 	struct seq_range_iter iter;
 	unsigned int i = 0;
 	uint32_t file_id;
 	bool deleted;
-
-	map_trans = dbox_map_transaction_begin(storage->map);
 
 	ref0_file_ids = dbox_map_get_zero_ref_files(storage->map);
 	seq_range_array_iter_init(&iter, ref0_file_ids); i = 0;
@@ -359,9 +361,7 @@ void dbox_sync_cleanup(struct dbox_storage *storage)
 		if (dbox_file_open_or_create(file, &deleted) > 0 && !deleted)
 			(void)dbox_sync_file_cleanup(file);
 		else
-			dbox_map_remove_file_id(map_trans, file_id);
+			dbox_map_remove_file_id(storage->map, file_id);
 		dbox_file_unref(&file);
 	} T_END;
-
-	(void)dbox_map_transaction_commit(&map_trans);
 }

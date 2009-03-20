@@ -12,6 +12,7 @@
 #include "dbox-map.h"
 #include "dbox-file.h"
 #include "dbox-sync.h"
+#include "dbox-storage-rebuild.h"
 #include "dbox-storage.h"
 
 #include <stdio.h>
@@ -201,6 +202,11 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 static void dbox_destroy(struct mail_storage *_storage)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+
+	if (storage->sync_rebuild) {
+		if (dbox_storage_rebuild(storage) < 0)
+			return;
+	}
 
 	dbox_sync_cleanup(storage);
 	dbox_files_free(storage);
