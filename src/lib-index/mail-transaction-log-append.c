@@ -723,10 +723,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	index = mail_index_view_get_index(t->view);
-	if (index->log_locked) {
-		i_assert((t->flags &
-			  MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);
-	} else {
+	if (!index->log_locked) {
 		if (mail_transaction_log_lock_head(index->log) < 0)
 			return -1;
 	}
