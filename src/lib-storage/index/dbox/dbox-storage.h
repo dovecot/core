@@ -102,6 +102,7 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 /* Get map_uid for wanted message. */
 int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		     uint32_t seq, uint32_t *map_uid_r);
+uint32_t dbox_get_uidvalidity_next(struct mail_storage *storage);
 
 struct mail_save_context *
 dbox_save_alloc(struct mailbox_transaction_context *_t);

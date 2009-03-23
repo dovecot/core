@@ -717,8 +717,7 @@ int dbox_storage_rebuild(struct dbox_storage *storage)
 	}
 	storage->have_multi_msgs = TRUE;
 
-	if (storage->sync_rebuild)
-		i_warning("dbox %s: rebuilding indexes", storage->storage_dir);
+	i_warning("dbox %s: rebuilding indexes", storage->storage_dir);
 
 	ctx = dbox_storage_rebuild_init(storage);
 	ret = dbox_storage_rebuild_scan(ctx);

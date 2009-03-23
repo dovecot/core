@@ -264,6 +264,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 			if (!storage_rebuilt) {
 				/* we'll need to rebuild storage too.
 				   try again from the beginning. */
+				mbox->storage->sync_rebuild = TRUE;
 				mail_index_sync_rollback(&ctx->index_sync_ctx);
 				i_free(ctx);
 				return dbox_sync_begin(mbox, flags, ctx_r);

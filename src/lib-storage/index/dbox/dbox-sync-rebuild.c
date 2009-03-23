@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "mailbox-uidvalidity.h"
 #include "dbox-storage.h"
 #include "maildir/maildir-uidlist.h"
 #include "maildir/maildir-keywords.h"
@@ -34,16 +33,6 @@ struct dbox_sync_rebuild_context {
 	unsigned int cache_used:1;
 	unsigned int storage_rebuild:1;
 };
-
-static uint32_t dbox_get_uidvalidity_next(struct mail_storage *storage)
-{
-	const char *path;
-
-	path = mailbox_list_get_path(storage->list, NULL,
-				     MAILBOX_LIST_PATH_TYPE_CONTROL);
-	path = t_strconcat(path, "/"DBOX_UIDVALIDITY_FILE_NAME, NULL);
-	return mailbox_uidvalidity_next(path);
-}
 
 static void dbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
 {
