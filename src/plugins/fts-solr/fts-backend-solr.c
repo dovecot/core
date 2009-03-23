@@ -64,8 +64,20 @@ xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
 		case '>':
 			str_append(dest, "&gt;");
 			break;
-		default:
+		case '\t':
+		case '\n':
+		case '\r':
+			/* exceptions to the following control char check */
 			str_append_c(dest, data[i]);
+			break;
+		default:
+			if (data[i] < 32) {
+				/* SOLR doesn't like control characters.
+				   replace them with spaces. */
+				str_append_c(dest, ' ');
+			} else {
+				str_append_c(dest, data[i]);
+			}
 			break;
 		}
 	}
