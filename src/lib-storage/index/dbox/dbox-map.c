@@ -277,8 +277,10 @@ dbox_map_sync_handle(struct dbox_map *map, struct mail_index_sync_ctx *sync_ctx)
 	mail_index_sync_get_offsets(sync_ctx, &seq1, &offset1, &seq2, &offset2);
 	if (offset1 != offset2 || seq1 != seq2) {
 		/* something had crashed. need a full resync. */
-		i_warning("dbox %s: Inconsistency in map index",
-			  map->storage->storage_dir);
+		i_warning("dbox %s: Inconsistency in map index "
+			  "(%u,%"PRIuUOFF_T" != %u,%"PRIuUOFF_T")",
+			  map->storage->storage_dir,
+			  seq1, offset1, seq2, offset2);
 		map->storage->sync_rebuild = TRUE;
 	} else {
 		while (mail_index_sync_next(sync_ctx, &sync_rec)) ;
