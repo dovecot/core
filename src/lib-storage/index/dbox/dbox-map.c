@@ -256,14 +256,18 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 }
 
 struct dbox_map_transaction_context *
-dbox_map_transaction_begin(struct dbox_map *map)
+dbox_map_transaction_begin(struct dbox_map *map, bool external)
 {
 	struct dbox_map_transaction_context *ctx;
+	enum mail_index_transaction_flags flags =
+		MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
+
+	if (external)
+		flags |= MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
 
 	ctx = i_new(struct dbox_map_transaction_context, 1);
 	ctx->map = map;
-	ctx->trans = mail_index_transaction_begin(map->view,
-					MAIL_INDEX_TRANSACTION_FLAG_FSYNC);
+	ctx->trans = mail_index_transaction_begin(map->view, flags);
 	return ctx;
 }
 
@@ -380,7 +384,7 @@ int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 		return -1;
 
 	/* we need a per-file transaction, otherwise we can't refresh the map */
-	map_trans = dbox_map_transaction_begin(map);
+	map_trans = dbox_map_transaction_begin(map, TRUE);
 
 	hdr = mail_index_get_header(map->view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {

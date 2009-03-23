@@ -310,7 +310,8 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 	} else {
 		if (ctx->map_trans == NULL) {
 			ctx->map_trans =
-				dbox_map_transaction_begin(mbox->storage->map);
+				dbox_map_transaction_begin(mbox->storage->map,
+							   FALSE);
 		}
 		if (dbox_map_update_refcounts(ctx->map_trans,
 					      &entry->expunge_map_uids, -1) < 0)

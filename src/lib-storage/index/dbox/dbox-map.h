@@ -43,7 +43,7 @@ int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
 			   ARRAY_TYPE(dbox_map_file_msg) *recs);
 
 struct dbox_map_transaction_context *
-dbox_map_transaction_begin(struct dbox_map *map);
+dbox_map_transaction_begin(struct dbox_map *map, bool external);
 int dbox_map_transaction_commit(struct dbox_map_transaction_context **ctx);
 void dbox_map_transaction_rollback(struct dbox_map_transaction_context **ctx);
 
