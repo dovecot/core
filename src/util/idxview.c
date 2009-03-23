@@ -26,7 +26,8 @@ struct mbox_index_header {
 	uint8_t unused[3];
 };
 struct dbox_index_header {
-	uint32_t last_dirty_flush_stamp;
+	uint32_t map_uid_validity;
+	uint32_t highest_maildir_uid;
 };
 
 struct virtual_mail_index_record {
@@ -119,7 +120,8 @@ static void dump_extension_header(struct mail_index *index,
 		const struct dbox_index_header *hdr = data;
 
 		printf("header\n");
-		printf(" - last_dirty_flush_stamp = %s\n", unixdate2str(hdr->last_dirty_flush_stamp));
+		printf(" - map_uid_validity = %u\n", hdr->map_uid_validity);
+		printf(" - highest_maildir_uid = %u\n", hdr->highest_maildir_uid);
 	} else if (strcmp(ext->name, "modseq") == 0) {
 		const struct mail_index_modseq_header *hdr = data;
 
