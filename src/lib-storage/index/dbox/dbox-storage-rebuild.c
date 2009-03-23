@@ -632,7 +632,7 @@ static int dbox_storage_rebuild_scan(struct dbox_storage_rebuild_context *ctx)
 	uint32_t uid_validity;
 	int ret = 0;
 
-	if (dbox_map_open(ctx->storage->map) < 0)
+	if (dbox_map_open(ctx->storage->map, TRUE) < 0)
 		return -1;
 
 	/* begin by locking the map, so that other processes can't try to

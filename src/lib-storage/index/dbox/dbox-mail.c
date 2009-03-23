@@ -74,7 +74,7 @@ int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		hdr = data;
 		mbox->map_uid_validity = hdr->map_uid_validity;
 	}
-	if (dbox_map_open(mbox->storage->map) < 0)
+	if (dbox_map_open(mbox->storage->map, TRUE) < 0)
 		return -1;
 
 	cur_map_uid_validity = dbox_map_get_uid_validity(mbox->storage->map);

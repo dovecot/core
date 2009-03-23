@@ -31,7 +31,7 @@ void dbox_map_deinit(struct dbox_map **map);
 
 /* Open the map. This is done automatically for most operations.
    Returns 0 if ok, -1 if error. */
-int dbox_map_open(struct dbox_map *map);
+int dbox_map_open(struct dbox_map *map, bool create_missing);
 
 /* Look up file_id and offset for given map UID. Returns 1 if ok, 0 if UID
    is already expunged, -1 if error. */

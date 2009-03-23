@@ -59,7 +59,7 @@ void dbox_map_deinit(struct dbox_map **_map)
 	i_free(map);
 }
 
-int dbox_map_open(struct dbox_map *map)
+int dbox_map_open(struct dbox_map *map, bool create_missing)
 {
 	struct mail_storage *storage = &map->storage->storage;
 	enum mail_index_open_flags open_flags;
@@ -72,11 +72,16 @@ int dbox_map_open(struct dbox_map *map)
 
 	open_flags = MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY |
 		index_storage_get_index_open_flags(storage);
-	ret = mail_index_open_or_create(map->index, open_flags,
-					storage->lock_method);
+	if (create_missing)
+		open_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
+	ret = mail_index_open(map->index, open_flags, storage->lock_method);
 	if (ret < 0) {
 		mail_storage_set_internal_error(storage);
 		mail_index_reset_error(map->index);
+		return -1;
+	}
+	if (ret == 0) {
+		/* index not found - for now just return failure */
 		return -1;
 	}
 
@@ -149,7 +154,7 @@ int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 	uoff_t size;
 	int ret;
 
-	if (dbox_map_open(map) < 0)
+	if (dbox_map_open(map, TRUE) < 0)
 		return -1;
 
 	if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0)
@@ -228,7 +233,7 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 	else
 		i_array_init(&map->ref0_file_ids, 64);
 
-	if (dbox_map_open(map) < 0) {
+	if (dbox_map_open(map, FALSE) < 0) {
 		/* some internal error */
 		return &map->ref0_file_ids;
 	}
@@ -420,7 +425,7 @@ dbox_map_append_begin_storage(struct dbox_storage *storage)
 	i_array_init(&ctx->files, 64);
 	i_array_init(&ctx->appends, 128);
 
-	if (dbox_map_open(ctx->map) < 0)
+	if (dbox_map_open(ctx->map, TRUE) < 0)
 		ctx->failed = TRUE;
 
 	/* refresh the map so we can try appending to the latest files */
