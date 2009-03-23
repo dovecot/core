@@ -277,6 +277,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
 	mbox->ibox.index = index;
 	mbox->ibox.keep_index_backups = TRUE;
+	mbox->ibox.index_never_in_memory = TRUE;
 	mbox->path = p_strdup(pool, path);
 	mbox->alt_path = p_strdup(pool, dbox_get_alt_path(storage, path));
 	mbox->storage = storage;

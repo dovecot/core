@@ -24,7 +24,10 @@ enum mail_index_open_flags {
 	/* Open the index read-only */
 	MAIL_INDEX_OPEN_FLAG_READONLY		= 0x80,
 	/* Create backups of dovecot.index files once in a while */
-	MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS	= 0x100
+	MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS	= 0x100,
+	/* If we run out of disk space, fail modifications instead of moving
+	   indexes to memory. */
+	MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY	= 0x200
 };
 
 enum mail_index_header_compat_flags {

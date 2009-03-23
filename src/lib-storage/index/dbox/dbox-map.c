@@ -70,7 +70,8 @@ int dbox_map_open(struct dbox_map *map)
 		return 0;
 	}
 
-	open_flags = index_storage_get_index_open_flags(storage);
+	open_flags = MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY |
+		index_storage_get_index_open_flags(storage);
 	ret = mail_index_open_or_create(map->index, open_flags,
 					storage->lock_method);
 	if (ret < 0) {

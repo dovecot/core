@@ -420,6 +420,8 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 	index->nfs_flush = (flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	index->readonly = (flags & MAIL_INDEX_OPEN_FLAG_READONLY) != 0;
 	index->keep_backups = (flags & MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS) != 0;
+	index->never_in_memory =
+		(flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0;
 	index->lock_method = lock_method;
 
 	if (index->nfs_flush && index->fsync_disable)
@@ -560,6 +562,9 @@ int mail_index_move_to_memory(struct mail_index *index)
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return index->map == NULL ? -1 : 0;
 
+	if (index->never_in_memory)
+		return -1;
+
 	/* set the index as being into memory */
 	i_free_and_null(index->dir);
 
@@ -617,7 +622,8 @@ int mail_index_set_syscall_error(struct mail_index *index,
 
 	if (ENOSPACE(errno)) {
 		index->nodiskspace = TRUE;
-		return -1;
+		if (!index->never_in_memory)
+			return -1;
 	}
 
 	return mail_index_set_error(index, "%s failed with index file %s: %m",
@@ -633,7 +639,8 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 
 	if (ENOSPACE(errno)) {
 		index->nodiskspace = TRUE;
-		return -1;
+		if (!index->never_in_memory)
+			return -1;
 	}
 
 	return mail_index_set_error(index, "%s failed with file %s: %m",
