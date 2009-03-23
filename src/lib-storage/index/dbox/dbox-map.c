@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "ostream.h"
+#include "mkdir-parents.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
 #include "dbox-map-private.h"
@@ -59,6 +60,21 @@ void dbox_map_deinit(struct dbox_map **_map)
 	i_free(map);
 }
 
+static int dbox_map_mkdir_storage(struct dbox_storage *storage)
+{
+	mode_t mode;
+	gid_t gid;
+
+	mailbox_list_get_dir_permissions(storage->storage.list, &mode, &gid);
+	if (mkdir_parents_chown(storage->storage_dir, mode,
+				(uid_t)-1, gid) < 0 && errno != EEXIST) {
+		mail_storage_set_critical(&storage->storage,
+			"mkdir(%s) failed: %m", storage->storage_dir);
+		return -1;
+	}
+	return 0;
+}
+
 int dbox_map_open(struct dbox_map *map, bool create_missing)
 {
 	struct mail_storage *storage = &map->storage->storage;
@@ -72,8 +88,11 @@ int dbox_map_open(struct dbox_map *map, bool create_missing)
 
 	open_flags = MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY |
 		index_storage_get_index_open_flags(storage);
-	if (create_missing)
+	if (create_missing) {
 		open_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
+		if (dbox_map_mkdir_storage(map->storage) < 0)
+			return -1;
+	}
 	ret = mail_index_open(map->index, open_flags, storage->lock_method);
 	if (ret < 0) {
 		mail_storage_set_internal_error(storage);
@@ -427,9 +446,11 @@ dbox_map_append_begin_storage(struct dbox_storage *storage)
 
 	if (dbox_map_open(ctx->map, TRUE) < 0)
 		ctx->failed = TRUE;
-
-	/* refresh the map so we can try appending to the latest files */
-	(void)dbox_map_refresh(ctx->map);
+	else {
+		/* refresh the map so we can try appending to the
+		   latest files */
+		(void)dbox_map_refresh(ctx->map);
+	}
 	return ctx;
 }
 
