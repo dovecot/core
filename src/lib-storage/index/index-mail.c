@@ -428,7 +428,8 @@ void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 			return;
 	}
 
-	if (!mail->data.no_caching) {
+	if (!mail->data.no_caching &&
+	    mail->data.dont_cache_field_idx != field_idx) {
 		mail_cache_add(mail->trans->cache_trans, mail->data.seq,
 			       field_idx, data, data_size);
 	}
@@ -1138,6 +1139,7 @@ static void index_mail_reset(struct index_mail *mail)
 	data->save_date = (time_t)-1;
 	data->received_date = (time_t)-1;
 	data->sent_date.time = (uint32_t)-1;
+	data->dont_cache_field_idx = -1UL;
 
 	mail->mail.mail.seq = 0;
 	mail->mail.mail.uid = 0;

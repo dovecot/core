@@ -142,16 +142,20 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 			index_mail_cache_add_idx(mail, match_idx, NULL, 0);
 		}
 	}
+
+	mail->data.dont_cache_field_idx = -1UL;
 }
 
 static unsigned int
-get_header_field_idx(struct index_mailbox *ibox, const char *field)
+get_header_field_idx(struct index_mailbox *ibox, const char *field,
+		     enum mail_cache_decision_type decision)
 {
 	struct mail_cache_field header_field = {
 		NULL, 0, MAIL_CACHE_FIELD_HEADER, 0,
-		MAIL_CACHE_DECISION_TEMP
+		MAIL_CACHE_DECISION_NO
 	};
 
+	header_field.decision = decision;
 	T_BEGIN {
 		header_field.name = t_strconcat("hdr.", field, NULL);
 		mail_cache_register_fields(ibox->cache, &header_field, 1);
@@ -196,7 +200,8 @@ void index_mail_parse_header_init(struct index_mail *mail,
 {
 	struct index_header_lookup_ctx *headers =
 		(struct index_header_lookup_ctx *)_headers;
-	unsigned int i;
+	const uint8_t *match;
+	unsigned int i, field_idx, match_count;
 
 	mail->header_seq = mail->data.seq;
 	if (mail->header_data == NULL) {
@@ -235,17 +240,28 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		}
 	}
 
-	if ((mail->data.cache_fetch_fields & MAIL_FETCH_DATE) != 0 ||
-	    mail->data.save_sent_date) {
-		array_idx_set(&mail->header_match,
-			      get_header_field_idx(mail->ibox, "Date"),
-			      &mail->header_match_value);
-	}
-
 	/* register also all the other headers that exist in cache file */
 	T_BEGIN {
 		index_mail_parse_header_register_all_wanted(mail);
 	} T_END;
+
+	/* if we want sent date, it doesn't mean that we also want to cache
+	   Date: header. if we have Date field's index set at this point we
+	   know that we want it. otherwise add it and remember that we don't
+	   want it cached. */
+	field_idx = get_header_field_idx(mail->ibox, "Date",
+					 MAIL_CACHE_DECISION_NO);
+	match = array_get(&mail->header_match, &match_count);
+	if (field_idx < match_count &&
+	    match[field_idx] == mail->header_match_value) {
+		/* cache Date: header */
+	} else if ((mail->data.cache_fetch_fields & MAIL_FETCH_DATE) != 0 ||
+		   mail->data.save_sent_date) {
+		/* parse Date: header, but don't cache it. */
+		mail->data.dont_cache_field_idx = field_idx;
+		array_idx_set(&mail->header_match, field_idx,
+			      &mail->header_match_value);
+	}
 }
 
 static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
@@ -591,7 +607,8 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 
 	i_assert(field != NULL);
 
-	field_idx = get_header_field_idx(mail->ibox, field);
+	field_idx = get_header_field_idx(mail->ibox, field,
+					 MAIL_CACHE_DECISION_TEMP);
 
 	dest = str_new(mail->data_pool, 128);
 	if (mail_cache_lookup_headers(mail->trans->cache_view, dest,
