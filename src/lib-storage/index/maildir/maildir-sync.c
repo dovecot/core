@@ -176,6 +176,7 @@
 #include "buffer.h"
 #include "hash.h"
 #include "str.h"
+#include "eacces-error.h"
 #include "nfs-workarounds.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
@@ -375,8 +376,13 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 			break;
 
 		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT) {
-			mail_storage_set_critical(storage,
-				"opendir(%s) failed: %m", path);
+			if (errno == EACCES) {
+				mail_storage_set_critical(storage, "%s",
+					eacces_error_get("opendir", path));
+			} else {
+				mail_storage_set_critical(storage,
+					"opendir(%s) failed: %m", path);
+			}
 			return -1;
 		}
 
