@@ -33,7 +33,7 @@
 #define DBOX_INDEX_FLAG_ALT MAIL_INDEX_MAIL_FLAG_BACKEND
 
 struct dbox_index_header {
-	uint32_t unused; /* for backwards compatibility */
+	uint32_t map_uid_validity;
 	uint32_t highest_maildir_uid;
 };
 
@@ -57,6 +57,7 @@ struct dbox_storage {
 	ARRAY_DEFINE(open_files, struct dbox_file *);
 
 	unsigned int sync_rebuild:1;
+	unsigned int have_multi_msgs:1;
 };
 
 struct dbox_mail_index_record {
@@ -69,6 +70,7 @@ struct dbox_mailbox {
 
 	struct maildir_uidlist *maildir_uidlist;
 	uint32_t highest_maildir_uid;
+	uint32_t map_uid_validity;
 
 	uint32_t dbox_ext_id, dbox_hdr_ext_id, guid_ext_id;
 
@@ -98,8 +100,8 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 		struct mailbox_header_lookup_ctx *wanted_headers);
 
 /* Get map_uid for wanted message. */
-uint32_t dbox_mail_lookup(struct dbox_mailbox *mbox,
-			  struct mail_index_view *view, uint32_t seq);
+int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
+		     uint32_t seq, uint32_t *map_uid_r);
 
 struct mail_save_context *
 dbox_save_alloc(struct mailbox_transaction_context *_t);

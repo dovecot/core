@@ -634,8 +634,9 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 	int ret;
 
 	if (file->cur_offset == (uoff_t)-1) {
-		/* first mail */
-		offset = file->file_header_size;
+		/* first mail. we may not have read the file at all yet,
+		   so set the offset afterwards. */
+		offset = 0;
 	} else {
 		offset = file->cur_offset + file->msg_header_size +
 			file->cur_physical_size;
@@ -650,7 +651,13 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 	}
 	*last_r = FALSE;
 
-	return dbox_file_get_mail_stream(file, offset, &size, NULL, &expunged);
+	ret = dbox_file_get_mail_stream(file, offset, &size, NULL, &expunged);
+	if (ret <= 0)
+		return ret;
+
+	if (*offset_r == 0)
+		*offset_r = file->file_header_size;
+	return 1;
 }
 
 static int

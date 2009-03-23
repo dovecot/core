@@ -13,6 +13,7 @@ struct dbox_map {
 	struct dbox_storage *storage;
 	struct mail_index *index;
 	struct mail_index_view *view;
+	uint32_t created_uid_validity;
 
 	uint32_t map_ext_id, ref_ext_id;
 	ARRAY_TYPE(seq_range) ref0_file_ids;
@@ -43,7 +44,6 @@ struct dbox_map_append_context {
 	unsigned int committed:1;
 };
 
-int dbox_map_open(struct dbox_map *map);
 int dbox_map_refresh(struct dbox_map *map);
 int dbox_map_view_lookup_rec(struct dbox_map *map, struct mail_index_view *view,
 			     uint32_t seq, struct dbox_mail_lookup_rec *rec_r);

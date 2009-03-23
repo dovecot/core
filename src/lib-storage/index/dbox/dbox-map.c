@@ -41,6 +41,7 @@ struct dbox_map *dbox_map_init(struct dbox_storage *storage)
 				sizeof(uint32_t));
 	map->ref_ext_id = mail_index_ext_register(map->index, "ref", 0,
 				sizeof(uint16_t), sizeof(uint16_t));
+	map->created_uid_validity = ioloop_time;
 	return map;
 }
 
@@ -888,7 +889,7 @@ int dbox_map_append_move(struct dbox_map_append_context *ctx,
 	while (seq_range_array_iter_nth(&iter, i++, &uid)) {
 		if (!mail_index_lookup_seq(ctx->sync_view, uid, &seq))
 			i_unreached();
-		mail_index_expunge(ctx->trans, seq);
+		mail_index_expunge(ctx->sync_trans, seq);
 	}
 	return 0;
 }
@@ -975,4 +976,15 @@ void dbox_map_append_free(struct dbox_map_append_context **_ctx)
 	array_free(&ctx->appends);
 	array_free(&ctx->files);
 	i_free(ctx);
+}
+
+uint32_t dbox_map_get_uid_validity(struct dbox_map *map)
+{
+	const struct mail_index_header *hdr;
+
+	i_assert(map->view != NULL);
+
+	hdr = mail_index_get_header(map->view);
+	return hdr->uid_validity != 0 ? hdr->uid_validity :
+		map->created_uid_validity;
 }

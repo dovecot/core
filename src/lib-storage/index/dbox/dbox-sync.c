@@ -48,7 +48,8 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 		 sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 
 	memset(&lookup_entry, 0, sizeof(lookup_entry));
-	map_uid = dbox_mail_lookup(ctx->mbox, ctx->sync_view, seq);
+	if (dbox_mail_lookup(ctx->mbox, ctx->sync_view, seq, &map_uid) < 0)
+		return 0;
 	if (map_uid == 0)
 		mail_index_lookup_uid(ctx->sync_view, seq, &lookup_entry.uid);
 	else {
@@ -136,7 +137,6 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
 		/* newly created index file */
-		i_warning("FIXME: newly created");
 		return 0;
 	}
 
@@ -197,8 +197,7 @@ static int dbox_refresh_header(struct dbox_mailbox *mbox)
 		if (data_size != 0 && data_size != 4) {
 			i_warning("dbox %s: Invalid dbox header size",
 				  mbox->path);
-		} else
-			i_warning("FIXME: initial sync");
+		}
 		return -1;
 	}
 	hdr = data;
@@ -252,17 +251,9 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 		}
 
 		/* now that we're locked, check again if we want to rebuild */
-		if (dbox_refresh_header(mbox) < 0) {
-			if (!storage_rebuilt) {
-				/* we'll need to rebuild storage too.
-				   try again from the beginning. */
-				mail_index_sync_rollback(&ctx->index_sync_ctx);
-				i_free(ctx);
-				return dbox_sync_begin(mbox, flags, ctx_r);
-			}
+		if (dbox_refresh_header(mbox) < 0)
 			ret = 0;
-			i_warning("FIXME: poop");
-		} else {
+		else {
 			if ((ret = dbox_sync_index(ctx)) > 0)
 				break;
 		}
@@ -270,7 +261,19 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 		/* failure. keep the index locked while we're doing a
 		   rebuild. */
 		if (ret == 0) {
-			if (i >= DBOX_REBUILD_COUNT) {
+			if (!storage_rebuilt) {
+				/* we'll need to rebuild storage too.
+				   try again from the beginning. */
+				mail_index_sync_rollback(&ctx->index_sync_ctx);
+				i_free(ctx);
+				return dbox_sync_begin(mbox, flags, ctx_r);
+			}
+			if (mbox->storage->have_multi_msgs) {
+				mail_storage_set_critical(storage,
+					"dbox %s: Storage keeps breaking",
+					ctx->mbox->path);
+				ret = -1;
+			} else if (i >= DBOX_REBUILD_COUNT) {
 				mail_storage_set_critical(storage,
 					"dbox %s: Index keeps breaking",
 					ctx->mbox->path);

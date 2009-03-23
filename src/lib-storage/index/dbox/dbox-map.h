@@ -16,7 +16,7 @@ struct dbox_mail_index_map_header {
 struct dbox_mail_index_map_record {
 	uint32_t file_id;
 	uint32_t offset;
-	uint32_t size;
+	uint32_t size; /* including pre/post metadata */
 };
 
 struct dbox_map_file_msg {
@@ -28,6 +28,10 @@ ARRAY_DEFINE_TYPE(dbox_map_file_msg, struct dbox_map_file_msg);
 
 struct dbox_map *dbox_map_init(struct dbox_storage *storage);
 void dbox_map_deinit(struct dbox_map **map);
+
+/* Open the map. This is done automatically for most operations.
+   Returns 0 if ok, -1 if error. */
+int dbox_map_open(struct dbox_map *map);
 
 /* Look up file_id and offset for given map UID. Returns 1 if ok, 0 if UID
    is already expunged, -1 if error. */
@@ -76,6 +80,10 @@ int dbox_map_append_move(struct dbox_map_append_context *ctx,
 /* Returns 0 if ok, -1 if error. */
 int dbox_map_append_commit(struct dbox_map_append_context *ctx);
 void dbox_map_append_free(struct dbox_map_append_context **ctx);
+
+/* Get either existing uidvalidity or create a new one if map was
+   just created. */
+uint32_t dbox_map_get_uid_validity(struct dbox_map *map);
 
 void dbox_map_set_corrupted(struct dbox_map *map, const char *format, ...)
 	ATTR_FORMAT(2, 3);

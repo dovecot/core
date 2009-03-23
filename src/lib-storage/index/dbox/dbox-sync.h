@@ -45,7 +45,8 @@ int dbox_sync_file_cleanup(struct dbox_file *file);
 struct dbox_sync_rebuild_context *
 dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,
 			     struct mail_index_view *view,
-			     struct mail_index_transaction *trans);
+			     struct mail_index_transaction *trans,
+			     bool storage_rebuild);
 int dbox_sync_index_rebuild_singles(struct dbox_sync_rebuild_context *ctx);
 void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,
 				      struct dbox_file *file,

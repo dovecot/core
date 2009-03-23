@@ -44,16 +44,50 @@ static void dbox_mail_close(struct mail *_mail)
 	index_mail_close(_mail);
 }
 
-uint32_t dbox_mail_lookup(struct dbox_mailbox *mbox,
-			  struct mail_index_view *view, uint32_t seq)
+int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
+		     uint32_t seq, uint32_t *map_uid_r)
 {
 	const struct dbox_mail_index_record *dbox_rec;
+	const struct dbox_index_header *hdr;
 	const void *data;
+	size_t data_size;
+	uint32_t cur_map_uid_validity;
 	bool expunged;
 
 	mail_index_lookup_ext(view, seq, mbox->dbox_ext_id, &data, &expunged);
 	dbox_rec = data;
-	return dbox_rec == NULL ? 0 : dbox_rec->map_uid;
+	if (dbox_rec == NULL || dbox_rec->map_uid == 0) {
+		*map_uid_r = 0;
+		return 0;
+	}
+
+	if (mbox->map_uid_validity == 0) {
+		mail_index_get_header_ext(mbox->ibox.view,
+					  mbox->dbox_hdr_ext_id,
+					  &data, &data_size);
+		if (data_size != sizeof(*hdr)) {
+			mail_storage_set_critical(&mbox->storage->storage,
+				"dbox %s: Invalid dbox header size", mbox->path);
+			mbox->storage->sync_rebuild = TRUE;
+			return -1;
+		}
+		hdr = data;
+		mbox->map_uid_validity = hdr->map_uid_validity;
+	}
+	if (dbox_map_open(mbox->storage->map) < 0)
+		return -1;
+
+	cur_map_uid_validity = dbox_map_get_uid_validity(mbox->storage->map);
+	if (cur_map_uid_validity != mbox->map_uid_validity) {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"dbox %s: map uidvalidity mismatch (%u vs %u)",
+			mbox->path, mbox->map_uid_validity,
+			cur_map_uid_validity);
+		mbox->storage->sync_rebuild = TRUE;
+		return -1;
+	}
+	*map_uid_r = dbox_rec->map_uid;
+	return 0;
 }
 
 static int dbox_mail_open(struct dbox_mail *mail,
@@ -65,7 +99,9 @@ static int dbox_mail_open(struct dbox_mail *mail,
 	int ret;
 
 	if (mail->open_file == NULL) {
-		map_uid = dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq);
+		if (dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq,
+				     &map_uid) < 0)
+			return -1;
 		if (map_uid == 0) {
 			mail->open_file =
 				dbox_file_init_single(mbox, _mail->uid);

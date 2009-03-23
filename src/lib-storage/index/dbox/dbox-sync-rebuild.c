@@ -7,6 +7,7 @@
 #include "maildir/maildir-uidlist.h"
 #include "maildir/maildir-keywords.h"
 #include "maildir/maildir-filename.h"
+#include "dbox-map.h"
 #include "dbox-file.h"
 #include "dbox-sync.h"
 
@@ -31,6 +32,7 @@ struct dbox_sync_rebuild_context {
 	uint32_t highest_uid;
 
 	unsigned int cache_used:1;
+	unsigned int storage_rebuild:1;
 };
 
 static uint32_t dbox_get_uidvalidity_next(struct mail_storage *storage)
@@ -365,16 +367,14 @@ static void dbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 				  ctx->mbox->dbox_hdr_ext_id,
 				  &data, &data_size);
 	hdr = data;
-	if (data_size == sizeof(*hdr)) {
-		if (hdr->highest_maildir_uid >= ctx->mbox->highest_maildir_uid) {
-			/* nothing to change */
-			return;
-		}
+	if (data_size == sizeof(*hdr))
 		new_hdr = *hdr;
-	} else {
+	else
 		memset(&new_hdr, 0, sizeof(new_hdr));
-	}
-	new_hdr.highest_maildir_uid = ctx->mbox->highest_maildir_uid;
+	if (new_hdr.highest_maildir_uid < ctx->mbox->highest_maildir_uid)
+		new_hdr.highest_maildir_uid = ctx->mbox->highest_maildir_uid;
+	new_hdr.map_uid_validity = !ctx->storage_rebuild ? 0 :
+		dbox_map_get_uid_validity(ctx->mbox->storage->map);
 	mail_index_update_header_ext(ctx->trans, ctx->mbox->dbox_hdr_ext_id, 0,
 				     &new_hdr, sizeof(new_hdr));
 }
@@ -382,7 +382,8 @@ static void dbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 struct dbox_sync_rebuild_context *
 dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,
 			     struct mail_index_view *view,
-			     struct mail_index_transaction *trans)
+			     struct mail_index_transaction *trans,
+			     bool storage_rebuild)
 {
 	struct mailbox *box = &mbox->ibox.box;
 	struct dbox_sync_rebuild_context *ctx;
@@ -393,6 +394,7 @@ dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,
 	ctx->mbox = mbox;
 	ctx->view = view;
 	ctx->trans = trans;
+	ctx->storage_rebuild = storage_rebuild;
 	mail_index_reset(ctx->trans);
 	index_mailbox_reset_uidvalidity(&mbox->ibox);
 	mail_index_ext_lookup(mbox->ibox.index, "cache", &ctx->cache_ext_id);
@@ -468,7 +470,7 @@ int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 	trans = mail_index_transaction_begin(view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 
-	ctx = dbox_sync_index_rebuild_init(mbox, view, trans);
+	ctx = dbox_sync_index_rebuild_init(mbox, view, trans, FALSE);
 	ret = dbox_sync_index_rebuild_singles(ctx);
 	dbox_sync_index_rebuild_deinit(&ctx);
 
