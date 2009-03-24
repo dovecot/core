@@ -649,7 +649,7 @@ static pid_t create_login_process(struct login_group *group)
 
 	max_log_lines_per_sec =
 		group->set->login_process_per_connection ? 10 : 0;
-	log_fd = log_create_pipe(&log, /*max_log_lines_per_sec*/0);
+	log_fd = log_create_pipe(&log, max_log_lines_per_sec);
 	if (log_fd < 0)
 		pid = -1;
 	else {
