@@ -1359,7 +1359,7 @@ void mail_index_atomic_inc_ext(struct mail_index_transaction *t, uint32_t seq,
 			       uint32_t ext_id, int diff)
 {
 	ARRAY_TYPE(seq_array) *array;
-	int32_t diff32 = diff;
+	int32_t old_diff32, diff32 = diff;
 
 	i_assert(seq > 0 &&
 		 (seq <= mail_index_view_get_messages_count(t->view) ||
@@ -1373,7 +1373,13 @@ void mail_index_atomic_inc_ext(struct mail_index_transaction *t, uint32_t seq,
 	if (!array_is_created(&t->ext_rec_atomics))
 		i_array_init(&t->ext_rec_atomics, ext_id + 2);
 	array = array_idx_modifiable(&t->ext_rec_atomics, ext_id);
-	mail_index_seq_array_add(array, seq, &diff32, sizeof(diff32), NULL);
+	if (mail_index_seq_array_add(array, seq, &diff32, sizeof(diff32),
+				     &old_diff32)) {
+		/* already incremented this sequence in this transaction */
+		diff32 += old_diff32;
+		mail_index_seq_array_add(array, seq, &diff32, sizeof(diff32),
+					 NULL);
+	}
 }
 
 struct mail_keywords *
