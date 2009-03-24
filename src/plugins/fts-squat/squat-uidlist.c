@@ -1611,7 +1611,7 @@ int squat_uidlist_filter(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 
 	array_free(&relative_uids);
 	array_free(&dest_uids);
-	return 0;
+	return ret;
 }
 
 size_t squat_uidlist_mem_used(struct squat_uidlist *uidlist,
