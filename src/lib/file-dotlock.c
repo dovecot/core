@@ -793,12 +793,10 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 {
 	struct dotlock *dotlock;
 	const char *lock_path;
-	int fd;
 
 	dotlock = *dotlock_p;
 	*dotlock_p = NULL;
 
-	fd = dotlock->fd;
 	if ((flags & DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) != 0)
 		dotlock->fd = -1;
 

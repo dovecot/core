@@ -32,11 +32,10 @@ i_stream_crlf_set_max_buffer_size(struct iostream_private *stream,
 static int i_stream_crlf_read_common(struct crlf_istream *cstream)
 {
 	struct istream_private *stream = &cstream->istream;
-	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
 
-	data = i_stream_get_data(stream->parent, &size);
+	(void)i_stream_get_data(stream->parent, &size);
 	if (size == 0) {
 		ret = i_stream_read(stream->parent);
 		if (ret <= 0 && (ret != -2 || stream->skip == 0)) {
@@ -45,7 +44,7 @@ static int i_stream_crlf_read_common(struct crlf_istream *cstream)
 			stream->istream.eof = stream->parent->eof;
 			return ret;
 		}
-		data = i_stream_get_data(stream->parent, &size);
+		(void)i_stream_get_data(stream->parent, &size);
 		i_assert(size != 0);
 	}
 
