@@ -530,6 +530,11 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	if (storage->list_module_ctx.super.delete_mailbox(list, name) < 0)
 		return -1;
 
+	if (*list_set->mailbox_dir_name == '\0') {
+		*error_r = "dbox: MAILBOXDIR must not be empty";
+		return -1;
+	}
+
 	/* check if the mailbox actually exists */
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
