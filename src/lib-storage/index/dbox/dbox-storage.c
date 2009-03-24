@@ -74,6 +74,11 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 					layout_r, alt_dir_r, error_r) < 0)
 		return -1;
 
+	if (*list_set->mailbox_dir_name == '\0') {
+		*error_r = "dbox: MAILBOXDIR must not be empty";
+		return -1;
+	}
+
 	if (*list_set->mailbox_dir_name == '\0' &&
 	    list_set->subscription_fname == subs_fname)
 		list_set->subscription_fname = DBOX_OLD_SUBSCRIPTION_FILE_NAME;
