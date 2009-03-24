@@ -294,7 +294,9 @@ dbox_map_transaction_begin(struct dbox_map *map, bool external)
 
 	ctx = i_new(struct dbox_map_transaction_context, 1);
 	ctx->map = map;
-	ctx->trans = mail_index_transaction_begin(map->view, flags);
+	if (dbox_map_open(map, FALSE) == 0 &&
+	    dbox_map_refresh(map) == 0)
+		ctx->trans = mail_index_transaction_begin(map->view, flags);
 	return ctx;
 }
 
@@ -376,16 +378,17 @@ int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 	const uint32_t *uids;
 	unsigned int i, count;
 	uint32_t seq;
-	int ret;
+
+	if (ctx->trans == NULL)
+		return -1;
 
 	uids = array_get(map_uids, &count);
 	for (i = 0; i < count; i++) {
-		if ((ret = dbox_map_get_seq(map, uids[i], &seq)) <= 0) {
-			if (ret == 0) {
-				dbox_map_set_corrupted(map,
-					"refcount update lost map_uid=%u",
-					uids[i]);
-			}
+		if (!mail_index_lookup_seq(map->view, uids[i], &seq)) {
+			/* we can't refresh map here since view has a
+			   transaction open. */
+			dbox_map_set_corrupted(map,
+				"refcount update lost map_uid=%u", uids[i]);
 			return -1;
 		}
 
@@ -408,8 +411,6 @@ int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 
 	/* make sure the map is refreshed, otherwise we might be expunging
 	   messages that have already been moved to other files. */
-	if (dbox_map_refresh(map) < 0)
-		return -1;
 
 	/* we need a per-file transaction, otherwise we can't refresh the map */
 	map_trans = dbox_map_transaction_begin(map, TRUE);

@@ -4,7 +4,10 @@
 #include "array.h"
 #include "ioloop.h"
 #include "str.h"
+#include "hex-binary.h"
+#include "randgen.h"
 #include "mkdir-parents.h"
+#include "unlink-directory.h"
 #include "unlink-old-files.h"
 #include "index-mail.h"
 #include "mail-copy.h"
@@ -75,6 +78,11 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 	if (mailbox_list_settings_parse(data, list_set, storage->ns,
 					layout_r, alt_dir_r, error_r) < 0)
 		return -1;
+
+	if (*list_set->mailbox_dir_name == '\0') {
+		*error_r = "dbox: MAILBOXDIR must not be empty";
+		return -1;
+	}
 	return 0;
 }
 
@@ -318,7 +326,7 @@ static void dbox_write_index_header(struct mailbox *box)
 }
 
 static int create_dbox(struct mail_storage *_storage, const char *path,
-		       const char *name)
+		       const char *name, bool directory)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	struct mailbox *box;
@@ -327,10 +335,13 @@ static int create_dbox(struct mail_storage *_storage, const char *path,
 
 	mailbox_list_get_dir_permissions(_storage->list, &mode, &gid);
 	if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) == 0) {
-		/* create indexes immediately with the dbox header */
-		box = dbox_open(storage, name, MAILBOX_OPEN_KEEP_RECENT);
-		dbox_write_index_header(box);
-		mailbox_close(&box);
+		if (!directory) {
+			/* create indexes immediately with the dbox header */
+			box = dbox_open(storage, name,
+					MAILBOX_OPEN_KEEP_RECENT);
+			dbox_write_index_header(box);
+			mailbox_close(&box);
+		}
 	} else if (errno != EEXIST) {
 		if (!mail_storage_set_error_from_errno(_storage)) {
 			mail_storage_set_critical(_storage,
@@ -385,7 +396,7 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 		if (strcmp(name, "INBOX") == 0 &&
 		    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			/* INBOX always exists, create it */
-			if (create_dbox(_storage, path, "INBOX") < 0)
+			if (create_dbox(_storage, path, "INBOX", FALSE) < 0)
 				return NULL;
 			return dbox_open(storage, name, flags);
 		}
@@ -437,78 +448,72 @@ static int dbox_mailbox_create(struct mail_storage *_storage,
 		return -1;
 	}
 
-	return create_dbox(_storage, path, name);
+	return create_dbox(_storage, path, name, directory);
 }
 
 static int
-dbox_delete_nonrecursive(struct mailbox_list *list, const char *path,
-			 const char *name)
+dbox_mailbox_unref_mails(struct dbox_storage *storage, const char *path)
 {
-	DIR *dir;
-	struct dirent *d;
-	string_t *full_path;
-	unsigned int dir_len;
-	bool unlinked_something = FALSE;
+	struct mailbox_list *list = storage->storage.list;
+	struct mailbox *box;
+	struct dbox_mailbox *mbox;
+	const struct mail_index_header *hdr;
+	const struct dbox_mail_index_record *dbox_rec;
+	struct dbox_map_transaction_context *map_trans;
+	ARRAY_TYPE(uint32_t) map_uids;
+	const void *data;
+	bool expunged, old_fs_access;
+	uint32_t seq;
+	int ret;
 
-	dir = opendir(path);
-	if (dir == NULL) {
-		if (errno == ENOENT)
-			return 0;
-		if (!mailbox_list_set_error_from_errno(list)) {
-			mailbox_list_set_critical(list,
-				"opendir(%s) failed: %m", path);
-		}
+	old_fs_access = (list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0;
+	list->flags |= MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
+	box = dbox_open(storage, path, MAILBOX_OPEN_IGNORE_ACLS |
+			MAILBOX_OPEN_KEEP_RECENT);
+	if (!old_fs_access)
+		list->flags &= ~MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
+	if (box == NULL)
 		return -1;
-	}
+	mbox = (struct dbox_mailbox *)box;
 
-	full_path = t_str_new(256);
-	str_append(full_path, path);
-	str_append_c(full_path, '/');
-	dir_len = str_len(full_path);
-
-	errno = 0;
-	while ((d = readdir(dir)) != NULL) {
-		if (d->d_name[0] == '.') {
-			/* skip . and .. */
-			if (d->d_name[1] == '\0')
-				continue;
-			if (d->d_name[1] == '.' && d->d_name[2] == '\0')
-				continue;
+	/* get a list of all map_uids in this mailbox */
+	i_array_init(&map_uids, 128);
+	hdr = mail_index_get_header(mbox->ibox.view);
+	for (seq = 1; seq <= hdr->messages_count; hdr++) {
+		mail_index_lookup_ext(mbox->ibox.view, seq, mbox->dbox_ext_id,
+				      &data, &expunged);
+		dbox_rec = data;
+		if (dbox_rec == NULL) {
+			/* no multi-mails */
+			break;
 		}
-
-		str_truncate(full_path, dir_len);
-		str_append(full_path, d->d_name);
-
-		/* trying to unlink() a directory gives either EPERM or EISDIR
-		   (non-POSIX). it doesn't really work anywhere in practise,
-		   so don't bother stat()ing the file first */
-		if (unlink(str_c(full_path)) == 0)
-			unlinked_something = TRUE;
-		else if (errno != ENOENT && errno != EISDIR && errno != EPERM) {
-			mailbox_list_set_critical(list, "unlink(%s) failed: %m",
-						  str_c(full_path));
-		}
+		if (dbox_rec->map_uid != 0)
+			array_append(&map_uids, &dbox_rec->map_uid, 1);
 	}
 
-	if (closedir(dir) < 0) {
-		mailbox_list_set_critical(list, "closedir(%s) failed: %m",
-					  path);
-	}
+	/* unreference the map_uids */
+	map_trans = dbox_map_transaction_begin(storage->map, FALSE);
+	ret = dbox_map_update_refcounts(map_trans, &map_uids, -1);
+	if (ret == 0)
+		ret = dbox_map_transaction_commit(map_trans);
+	dbox_map_transaction_free(&map_trans);
+	array_free(&map_uids);
+	mailbox_close(&box);
+	return ret;
+}
 
-	if (rmdir(path) == 0)
-		unlinked_something = TRUE;
-	else if (errno != ENOENT && errno != ENOTEMPTY) {
-		mailbox_list_set_critical(list, "rmdir(%s) failed: %m", path);
-		return -1;
-	}
+static const char *dbox_get_trash_dest(const char *trash_dir)
+{
+	const char *path;
+	unsigned char randbuf[16];
+	struct stat st;
 
-	if (!unlinked_something) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			t_strdup_printf("Directory %s isn't empty, "
-					"can't delete it.", name));
-		return -1;
-	}
-	return 1;
+	do {
+		random_fill_weak(randbuf, sizeof(randbuf));
+		path = t_strconcat(trash_dir, "/",
+			binary_to_hex(randbuf, sizeof(randbuf)), NULL);
+	} while (lstat(path, &st) == 0);
+	return path;
 }
 
 static int
@@ -516,7 +521,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
 	struct stat st;
-	const char *path, *alt_path;
+	const char *path, *alt_path, *trash_dir, *trash_dest;
 	bool deleted = FALSE;
 	int ret;
 
@@ -530,27 +535,51 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	if (storage->list_module_ctx.super.delete_mailbox(list, name) < 0)
 		return -1;
 
-	if (*list_set->mailbox_dir_name == '\0') {
-		*error_r = "dbox: MAILBOXDIR must not be empty";
-		return -1;
-	}
-
-	/* check if the mailbox actually exists */
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if ((ret = dbox_delete_nonrecursive(list, path, name)) > 0) {
-		/* delete the mailbox first */
+	trash_dir = mailbox_list_get_path(list, NULL,
+					  MAILBOX_LIST_PATH_TYPE_DIR);
+	trash_dir = t_strconcat(trash_dir, "/"DBOX_TRASH_DIR_NAME, NULL);
+	trash_dest = dbox_get_trash_dest(trash_dir);
+
+	/* first try renaming the actual mailbox to trash directory */
+	ret = rename(path, trash_dest);
+	if (ret < 0 && errno == ENOENT) {
+		/* either source mailbox doesn't exist or trash directory
+		   doesn't exist. try creating the trash and retrying. */
+		mode_t mode;
+		gid_t gid;
+
+		mailbox_list_get_dir_permissions(list, &mode, &gid);
+		if (mkdir_parents_chown(trash_dir, mode, (uid_t)-1, gid) < 0 &&
+		    errno != EEXIST) {
+			mailbox_list_set_critical(list,
+				"mkdir(%s) failed: %m", trash_dir);
+			return -1;
+		}
+		ret = rename(path, trash_dest);
+	}
+	if (ret == 0) {
+		if (dbox_mailbox_unref_mails(storage, trash_dest) < 0) {
+			/* we've already renamed it. there's no going back. */
+			mailbox_list_set_internal_error(list);
+			ret = -1;
+		}
+		if (unlink_directory(trash_dest, TRUE) < 0) {
+			mailbox_list_set_critical(list,
+				"unlink_directory(%s) failed: %m", trash_dest);
+			ret = -1;
+		}
+		/* if there's an alt path, delete it too */
 		alt_path = dbox_get_alt_path(storage, path);
 		if (alt_path != NULL) {
-			if (dbox_delete_nonrecursive(list, alt_path, name) < 0)
-				return -1;
+			if (unlink_directory(alt_path, TRUE) < 0) {
+				mailbox_list_set_critical(list,
+					"unlink_directory(%s) failed: %m", alt_path);
+				ret = -1;
+			}
 		}
-		if (*list->set.maildir_name == '\0') {
-			/* everything was in the one directory that was
-			   already deleted succesfully. */
-			return 0;
-		}
-		/* try to delete the directory also */
+		/* try to delete the parent directory also */
 		deleted = TRUE;
 		path = mailbox_list_get_path(list, name,
 					     MAILBOX_LIST_PATH_TYPE_DIR);
@@ -572,6 +601,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 						  path);
 			return -1;
 		}
+		ret = 0;
 	}
 
 	alt_path = dbox_get_alt_path(storage, path);
@@ -579,10 +609,10 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		(void)rmdir(alt_path);
 
 	if (rmdir(path) == 0)
-		return 0;
+		return ret;
 	else if (errno == ENOTEMPTY) {
 		if (deleted)
-			return 0;
+			return ret;
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			t_strdup_printf("Directory %s isn't empty, "
 					"can't delete it.", name));
