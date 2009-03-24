@@ -807,7 +807,7 @@ struct mailbox dbox_mailbox = {
 		dbox_save_continue,
 		dbox_save_finish,
 		dbox_save_cancel,
-		mail_storage_copy,
+		dbox_copy,
 		index_storage_is_inconsistent
 	}
 };

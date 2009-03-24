@@ -17,6 +17,7 @@ struct dbox_mail {
 
 	struct dbox_file *open_file;
 	uoff_t offset;
+	uint32_t map_uid;
 };
 
 struct mail *
@@ -90,41 +91,53 @@ int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 	return 0;
 }
 
+static void dbox_mail_set_expunged(struct dbox_mail *mail)
+{
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
+	struct mail *_mail = &mail->imail.mail.mail;
+
+	(void)mail_index_refresh(mbox->ibox.index);
+	if (mail_index_is_expunged(mbox->ibox.view, _mail->seq)) {
+		mail_set_expunged(_mail);
+		return;
+	}
+
+	if (mail->map_uid != 0) {
+		dbox_map_set_corrupted(mbox->storage->map,
+			"Unexpectedly lost uid=%u map_uid=%u",
+			_mail->uid, mail->map_uid);
+	} else {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"Unexpectedly lost uid=%u", _mail->uid);
+	}
+	mbox->storage->sync_rebuild = TRUE;
+}
+
 static int dbox_mail_open(struct dbox_mail *mail,
 			  uoff_t *offset_r, struct dbox_file **file_r)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
 	struct mail *_mail = &mail->imail.mail.mail;
-	uint32_t map_uid, file_id;
+	uint32_t file_id;
 	int ret;
 
 	if (mail->open_file == NULL) {
 		if (dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq,
-				     &map_uid) < 0)
+				     &mail->map_uid) < 0)
 			return -1;
-		if (map_uid == 0) {
+		if (mail->map_uid == 0) {
 			mail->open_file =
 				dbox_file_init_single(mbox, _mail->uid);
 		} else if ((ret = dbox_map_lookup(mbox->storage->map,
-						  map_uid, &file_id,
+						  mail->map_uid, &file_id,
 						  &mail->offset)) <= 0) {
 			if (ret < 0)
 				return -1;
 
 			/* map_uid doesn't exist anymore. either it
 			   got just expunged or the map index is
-			   corrupted. see if the message still exists
-			   in the mailbox index. */
-			(void)mail_index_refresh(mbox->ibox.index);
-			if (mail_index_is_expunged(mbox->ibox.view,
-						   _mail->seq)) {
-				mail_set_expunged(_mail);
-				return -1;
-			}
-
-			dbox_map_set_corrupted(mbox->storage->map,
-				"Unexpectedly lost map_uid=%u", map_uid);
-			mbox->storage->sync_rebuild = TRUE;
+			   corrupted. */
+			dbox_mail_set_expunged(mail);
 			return -1;
 		} else {
 			mail->open_file =
@@ -140,7 +153,6 @@ static int dbox_mail_open(struct dbox_mail *mail,
 static int
 dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 {
-	struct mail *_mail = &mail->imail.mail.mail;
 	uoff_t offset, size;
 	bool expunged;
 
@@ -151,7 +163,7 @@ dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 				      NULL, &expunged) <= 0)
 		return -1;
 	if (expunged) {
-		mail_set_expunged(_mail);
+		dbox_mail_set_expunged(mail);
 		return -1;
 	}
 	if (dbox_file_metadata_read(*file_r) <= 0)
@@ -328,7 +340,7 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			return -1;
 		}
 		if (expunged) {
-			mail_set_expunged(_mail);
+			dbox_mail_set_expunged(mail);
 			return -1;
 		}
 		data->physical_size = size;

@@ -115,4 +115,6 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx);
 void dbox_transaction_save_commit_post(struct dbox_save_context *ctx);
 void dbox_transaction_save_rollback(struct dbox_save_context *ctx);
 
+int dbox_copy(struct mail_save_context *ctx, struct mail *mail);
+
 #endif

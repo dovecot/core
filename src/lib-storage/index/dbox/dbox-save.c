@@ -11,6 +11,7 @@
 #include "ostream.h"
 #include "write-full.h"
 #include "index-mail.h"
+#include "mail-copy.h"
 #include "dbox-storage.h"
 #include "dbox-map.h"
 #include "dbox-file.h"
@@ -33,6 +34,9 @@ struct dbox_save_context {
 
 	struct dbox_map_append_context *append_ctx;
 	struct dbox_sync_context *sync_ctx;
+
+	ARRAY_TYPE(uint32_t) copy_map_uids;
+	struct dbox_map_transaction_context *map_trans;
 
 	/* updated for each appended mail: */
 	uint32_t seq;
@@ -59,8 +63,11 @@ dbox_save_alloc(struct mailbox_transaction_context *_t)
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
-	if (t->save_ctx != NULL)
+	if (t->save_ctx != NULL) {
+		/* use the existing allocated structure */
+		t->save_ctx->finished = FALSE;
 		return &t->save_ctx->ctx;
+	}
 
 	ctx = t->save_ctx = i_new(struct dbox_save_context, 1);
 	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
@@ -71,13 +78,26 @@ dbox_save_alloc(struct mailbox_transaction_context *_t)
 	return &ctx->ctx;
 }
 
+static void dbox_save_add_to_index(struct dbox_save_context *ctx)
+{
+	enum mail_flags save_flags;
+
+	save_flags = ctx->ctx.flags & ~MAIL_RECENT;
+	mail_index_append(ctx->trans, 0, &ctx->seq);
+	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
+				save_flags);
+	if (ctx->ctx.keywords != NULL) {
+		mail_index_update_keywords(ctx->trans, ctx->seq,
+					   MODIFY_REPLACE, ctx->ctx.keywords);
+	}
+}
+
 int dbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct dbox_message_header dbox_msg_hdr;
 	struct dbox_save_mail *save_mail;
 	struct istream *crlf_input;
-	enum mail_flags save_flags;
 	uoff_t mail_size;
 
 	/* get the size of the mail to be saved, if possible */
@@ -89,15 +109,7 @@ int dbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		return -1;
 	}
 
-	/* add to index */
-	save_flags = _ctx->flags & ~MAIL_RECENT;
-	mail_index_append(ctx->trans, 0, &ctx->seq);
-	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
-				save_flags);
-	if (_ctx->keywords != NULL) {
-		mail_index_update_keywords(ctx->trans, ctx->seq,
-					   MODIFY_REPLACE, _ctx->keywords);
-	}
+	dbox_save_add_to_index(ctx);
 
 	if (_ctx->dest_mail == NULL) {
 		if (ctx->mail == NULL)
@@ -395,6 +407,18 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 		i_assert(next_map_uid == last_map_uid + 1);
 	}
 
+	/* increase map's refcount for copied mails */
+	if (array_is_created(&ctx->copy_map_uids)) {
+		ctx->map_trans =
+			dbox_map_transaction_begin(ctx->mbox->storage->map,
+						   FALSE);
+		if (dbox_map_update_refcounts(ctx->map_trans,
+					      &ctx->copy_map_uids, 1) < 0) {
+			dbox_transaction_save_rollback(ctx);
+			return -1;
+		}
+	}
+
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
 
@@ -410,6 +434,8 @@ void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 
 	/* finish writing the mailbox APPENDs */
 	if (dbox_sync_finish(&ctx->sync_ctx, TRUE) == 0) {
+		if (ctx->map_trans != NULL)
+			(void)dbox_map_transaction_commit(ctx->map_trans);
 		/* commit only updates the sync tail offset, everything else
 		   was already written at this point. */
 		(void)dbox_map_append_commit(ctx->append_ctx);
@@ -431,6 +457,10 @@ void dbox_transaction_save_rollback(struct dbox_save_context *ctx)
 		dbox_save_cancel(&ctx->ctx);
 	if (ctx->append_ctx != NULL)
 		dbox_map_append_free(&ctx->append_ctx);
+	if (ctx->map_trans != NULL)
+		dbox_map_transaction_free(&ctx->map_trans);
+	if (array_is_created(&ctx->copy_map_uids))
+		array_free(&ctx->copy_map_uids);
 
 	if (ctx->sync_ctx != NULL)
 		(void)dbox_sync_finish(&ctx->sync_ctx, FALSE);
@@ -439,4 +469,47 @@ void dbox_transaction_save_rollback(struct dbox_save_context *ctx)
 		mail_free(&ctx->mail);
 	array_free(&ctx->mails);
 	i_free(ctx);
+}
+
+int dbox_copy(struct mail_save_context *_ctx, struct mail *mail)
+{
+	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
+	struct dbox_mailbox *src_mbox;
+	struct dbox_mail_index_record rec;
+	const void *data;
+	bool expunged;
+
+	ctx->finished = TRUE;
+
+	if (mail->box->storage != _ctx->transaction->box->storage)
+		return mail_storage_copy(_ctx, mail);
+	src_mbox = (struct dbox_mailbox *)mail->box;
+
+	memset(&rec, 0, sizeof(rec));
+	if (dbox_mail_lookup(src_mbox, src_mbox->ibox.view, mail->seq,
+			     &rec.map_uid) < 0)
+		return -1;
+
+	if (rec.map_uid == 0) {
+		/* FIXME: we could hard link */
+		return mail_storage_copy(_ctx, mail);
+	}
+
+	/* remember the map_uid so we can later increase its refcount */
+	if (!array_is_created(&ctx->copy_map_uids))
+		i_array_init(&ctx->copy_map_uids, 32);
+	array_append(&ctx->copy_map_uids, &rec.map_uid, 1);
+
+	/* add message to mailbox index */
+	dbox_save_add_to_index(ctx);
+	mail_index_update_ext(ctx->trans, ctx->seq, ctx->mbox->dbox_ext_id,
+			      &rec, NULL);
+
+	mail_index_lookup_ext(src_mbox->ibox.view, mail->seq,
+			      src_mbox->guid_ext_id, &data, &expunged);
+	if (data != NULL) {
+		mail_index_update_ext(ctx->trans, ctx->seq,
+				      ctx->mbox->guid_ext_id, data, NULL);
+	}
+	return 0;
 }

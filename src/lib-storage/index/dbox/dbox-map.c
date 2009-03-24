@@ -13,7 +13,10 @@
 struct dbox_map_transaction_context {
 	struct dbox_map *map;
 	struct mail_index_transaction *trans;
+	struct mail_index_sync_ctx *sync_ctx;
+
 	unsigned int changed:1;
+	unsigned int success:1;
 };
 
 void dbox_map_set_corrupted(struct dbox_map *map, const char *format, ...)
@@ -315,72 +318,73 @@ dbox_map_sync_handle(struct dbox_map *map, struct mail_index_sync_ctx *sync_ctx)
 	}
 }
 
-int dbox_map_transaction_commit(struct dbox_map_transaction_context **_ctx)
+int dbox_map_transaction_commit(struct dbox_map_transaction_context *ctx)
 {
-	struct dbox_map_transaction_context *ctx = *_ctx;
 	struct dbox_map *map = ctx->map;
-	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *view;
-	struct mail_index_transaction *sync_trans, *trans = ctx->trans;
+	struct mail_index_transaction *sync_trans;
 	int ret;
 
-	*_ctx = NULL;
-	if (!ctx->changed) {
-		mail_index_transaction_rollback(&trans);
-		i_free(ctx);
+	if (!ctx->changed)
 		return 0;
-	}
-	i_free(ctx);
 
 	/* use syncing to lock the transaction log, so that we always see
 	   log's head_offset = tail_offset */
-	ret = mail_index_sync_begin(map->index, &sync_ctx,
+	ret = mail_index_sync_begin(map->index, &ctx->sync_ctx,
 				    &view, &sync_trans, 0);
 	if (ret <= 0) {
 		i_assert(ret != 0);
 		mail_storage_set_internal_error(&map->storage->storage);
 		mail_index_reset_error(map->index);
-		mail_index_transaction_rollback(&trans);
+		mail_index_transaction_rollback(&ctx->trans);
 		return -1;
 	}
-	dbox_map_sync_handle(map, sync_ctx);
+	dbox_map_sync_handle(map, ctx->sync_ctx);
 
-	if (mail_index_transaction_commit(&trans) < 0 ||
-	    mail_index_sync_commit(&sync_ctx) < 0) {
+	if (mail_index_transaction_commit(&ctx->trans) < 0) {
 		mail_storage_set_internal_error(&map->storage->storage);
 		mail_index_reset_error(map->index);
-		if (sync_ctx != NULL)
-			mail_index_sync_rollback(&sync_ctx);
 		return -1;
 	}
+	ctx->success = TRUE;
 	return 0;
 }
 
-void dbox_map_transaction_rollback(struct dbox_map_transaction_context **_ctx)
+void dbox_map_transaction_free(struct dbox_map_transaction_context **_ctx)
 {
 	struct dbox_map_transaction_context *ctx = *_ctx;
+	struct dbox_map *map = ctx->map;
 
 	*_ctx = NULL;
-	mail_index_transaction_rollback(&ctx->trans);
+	if (ctx->success) {
+		if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
+			mail_storage_set_internal_error(&map->storage->storage);
+			mail_index_reset_error(map->index);
+		}
+	} else if (ctx->sync_ctx != NULL) {
+		mail_index_sync_rollback(&ctx->sync_ctx);
+	}
+	if (ctx->trans != NULL)
+		mail_index_transaction_rollback(&ctx->trans);
 	i_free(ctx);
 }
 
 int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
-			      const ARRAY_TYPE(seq_range) *map_uids, int diff)
+			      const ARRAY_TYPE(uint32_t) *map_uids, int diff)
 {
 	struct dbox_map *map = ctx->map;
-	struct seq_range_iter iter;
-	unsigned int i;
-	uint32_t map_uid, seq;
+	const uint32_t *uids;
+	unsigned int i, count;
+	uint32_t seq;
 	int ret;
 
-	seq_range_array_iter_init(&iter, map_uids); i = 0;
-	while (seq_range_array_iter_nth(&iter, i++, &map_uid)) {
-		if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0) {
+	uids = array_get(map_uids, &count);
+	for (i = 0; i < count; i++) {
+		if ((ret = dbox_map_get_seq(map, uids[i], &seq)) <= 0) {
 			if (ret == 0) {
 				dbox_map_set_corrupted(map,
 					"refcount update lost map_uid=%u",
-					map_uid);
+					uids[i]);
 			}
 			return -1;
 		}
@@ -426,10 +430,9 @@ int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 			mail_index_expunge(map_trans->trans, seq);
 		}
 	}
-	if (ret < 0)
-		dbox_map_transaction_rollback(&map_trans);
-	else
-		(void)dbox_map_transaction_commit(&map_trans);
+	if (ret == 0)
+		(void)dbox_map_transaction_commit(map_trans);
+	dbox_map_transaction_free(&map_trans);
 	return ret;
 }
 
@@ -948,13 +951,16 @@ int dbox_map_append_assign_uids(struct dbox_map_append_context *ctx,
 
 int dbox_map_append_commit(struct dbox_map_append_context *ctx)
 {
-	i_assert(ctx->sync_ctx != NULL);
+	struct dbox_map *map = ctx->map;
+
 	i_assert(ctx->trans == NULL);
 
-	if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
-		mail_storage_set_internal_error(&ctx->map->storage->storage);
-		mail_index_reset_error(ctx->map->index);
-		return -1;
+	if (ctx->sync_ctx != NULL) {
+		if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
+			mail_storage_set_internal_error(&map->storage->storage);
+			mail_index_reset_error(map->index);
+			return -1;
+		}
 	}
 	ctx->committed = TRUE;
 	return 0;

@@ -44,11 +44,13 @@ int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
 
 struct dbox_map_transaction_context *
 dbox_map_transaction_begin(struct dbox_map *map, bool external);
-int dbox_map_transaction_commit(struct dbox_map_transaction_context **ctx);
-void dbox_map_transaction_rollback(struct dbox_map_transaction_context **ctx);
+/* Write transaction to map and leave it locked. Call _free() to update tail
+   offset and unlock. */
+int dbox_map_transaction_commit(struct dbox_map_transaction_context *ctx);
+void dbox_map_transaction_free(struct dbox_map_transaction_context **ctx);
 
 int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
-			      const ARRAY_TYPE(seq_range) *map_uids, int diff);
+			      const ARRAY_TYPE(uint32_t) *map_uids, int diff);
 int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id);
 
 /* Return all files containing messages with zero refcount. */

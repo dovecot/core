@@ -82,7 +82,7 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 				     lookup_entry.uid != 0 ? 1 : 3);
 		}
 		seq_range_array_add(&entry->expunge_seqs, 0, seq);
-		seq_range_array_add(&entry->expunge_map_uids, 0, map_uid);
+		array_append(&entry->expunge_map_uids, &map_uid, 1);
 	} else {
 		if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) != 0)
 			entry->move_to_alt = TRUE;
@@ -171,8 +171,9 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	}
 
 	if (ret > 0 && ctx->map_trans != NULL) {
-		if (dbox_map_transaction_commit(&ctx->map_trans) < 0)
+		if (dbox_map_transaction_commit(ctx->map_trans) < 0)
 			ret = -1;
+		dbox_map_transaction_free(&ctx->map_trans);
 	}
 
 	if (box->v.sync_notify != NULL)
@@ -305,7 +306,7 @@ int dbox_sync_finish(struct dbox_sync_context **_ctx, bool success)
 	*_ctx = NULL;
 
 	if (ctx->map_trans != NULL)
-		dbox_map_transaction_rollback(&ctx->map_trans);
+		dbox_map_transaction_free(&ctx->map_trans);
 
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
