@@ -60,6 +60,7 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 	memset(list_set, 0, sizeof(*list_set));
 	list_set->subscription_fname = DBOX_SUBSCRIPTION_FILE_NAME;
 	list_set->maildir_name = DBOX_MAILDIR_NAME;
+	list_set->mailbox_dir_name = DBOX_MAILBOX_DIR_NAME;
 
 	if (data == NULL || *data == '\0' || *data == ':') {
 		/* we won't do any guessing for this format. */
@@ -71,8 +72,10 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 
 	if (debug)
 		i_info("dbox: data=%s", data);
-	return mailbox_list_settings_parse(data, list_set, storage->ns,
-					   layout_r, alt_dir_r, error_r);
+	if (mailbox_list_settings_parse(data, list_set, storage->ns,
+					layout_r, alt_dir_r, error_r) < 0)
+		return -1;
+	return 0;
 }
 
 static struct mail_storage *dbox_alloc(void)

@@ -5,10 +5,11 @@
 #include "mailbox-list-private.h"
 
 #define DBOX_STORAGE_NAME "dbox"
-#define DBOX_SUBSCRIPTION_FILE_NAME ".dbox-subscriptions"
-#define DBOX_UIDVALIDITY_FILE_NAME ".dbox-uidvalidity"
+#define DBOX_SUBSCRIPTION_FILE_NAME "subscriptions"
+#define DBOX_UIDVALIDITY_FILE_NAME "dovecot-uidvalidity"
 #define DBOX_INDEX_PREFIX "dovecot.index"
 
+#define DBOX_MAILBOX_DIR_NAME "mailboxes"
 #define DBOX_MAILDIR_NAME "dbox-Mails"
 #define DBOX_GLOBAL_INDEX_PREFIX "dovecot.map.index"
 #define DBOX_GLOBAL_DIR_NAME "storage"
