@@ -256,6 +256,13 @@ static void drop_privileges(unsigned int *max_fds_r)
 {
 	const char *value;
 
+	value = getenv("DOVECOT_VERSION");
+	if (value != NULL && strcmp(value, PACKAGE_VERSION) != 0) {
+		i_fatal("Dovecot version mismatch: "
+			"Master is v%s, login is v"PACKAGE_VERSION" "
+			"(if you don't care, set version_ignore=yes)", value);
+	}
+
 	if (!is_inetd)
 		i_set_failure_internal();
 	else {
@@ -301,13 +308,6 @@ static void drop_privileges(unsigned int *max_fds_r)
 static void main_init(void)
 {
 	const char *value;
-
-	value = getenv("DOVECOT_VERSION");
-	if (value != NULL && strcmp(value, PACKAGE_VERSION) != 0) {
-		i_fatal("Dovecot version mismatch: "
-			"Master is v%s, login is v"PACKAGE_VERSION" "
-			"(if you don't care, set version_ignore=yes)", value);
-	}
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
