@@ -408,8 +408,11 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 
 		str_truncate(str, 0);
 		str_printfa(str, " - ext %d %-10s: ", i, ext[i].name);
-		if (ext[i].record_size == sizeof(uint32_t) &&
-		    ext[i].record_align == sizeof(uint32_t))
+		if (ext[i].record_size == sizeof(uint16_t) &&
+		    ext[i].record_align == sizeof(uint16_t))
+			str_printfa(str, "%10u", *((const uint16_t *)data));
+		else if (ext[i].record_size == sizeof(uint32_t) &&
+			 ext[i].record_align == sizeof(uint32_t))
 			str_printfa(str, "%10u", *((const uint32_t *)data));
 		else if (ext[i].record_size == sizeof(uint64_t) &&
 			 ext[i].record_align == sizeof(uint64_t)) {
