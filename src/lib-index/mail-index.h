@@ -243,9 +243,9 @@ mail_index_transaction_get_view(struct mail_index_transaction *t);
 bool mail_index_transaction_is_expunged(struct mail_index_transaction *t,
 					uint32_t seq);
 
-/* Returns a view to transaction. Currently this differs from normal view only
-   in that it contains newly appended messages in transaction. The view can
-   still be used after transaction has been committed. */
+/* Returns a view containing the mailbox state after changes in transaction
+   are applied. The view can still be used after transaction has been
+   committed. */
 struct mail_index_view *
 mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
 
