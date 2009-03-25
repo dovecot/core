@@ -135,7 +135,6 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 	struct maildir_mailbox *src_mbox;
 	struct hardlink_ctx do_ctx;
 	const char *path, *filename = NULL;
-	uint32_t seq;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
