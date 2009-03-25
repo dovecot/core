@@ -16,7 +16,7 @@
 #  include <libgen.h>
 #endif
 
-#define DEFAULT_SCHEME "HMAC-MD5"
+#define DEFAULT_SCHEME "CRAM-MD5"
 
 static void ATTR_NORETURN
 usage(const char *s)
