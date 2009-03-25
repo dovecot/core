@@ -990,7 +990,7 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 
 	if (array_count(&view->recs) == 0) {
 		/* everything expunged - just unlink the existing index */
-		if (unlink(strmap->path) < 0)
+		if (unlink(strmap->path) < 0 && errno != ENOENT)
 			mail_index_strmap_set_syscall_error(strmap, "unlink()");
 		return 0;
 	}
