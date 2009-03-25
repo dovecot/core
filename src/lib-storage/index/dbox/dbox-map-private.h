@@ -44,7 +44,6 @@ struct dbox_map_append_context {
 	unsigned int committed:1;
 };
 
-int dbox_map_refresh(struct dbox_map *map);
 int dbox_map_view_lookup_rec(struct dbox_map *map, struct mail_index_view *view,
 			     uint32_t seq, struct dbox_mail_lookup_rec *rec_r);
 

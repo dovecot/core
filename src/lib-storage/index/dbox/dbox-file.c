@@ -387,13 +387,13 @@ static int dbox_file_open_fd(struct dbox_file *file)
 	return 1;
 }
 
-static int dbox_file_open(struct dbox_file *file, bool *deleted_r)
+int dbox_file_open(struct dbox_file *file, bool *deleted_r)
 {
 	int ret;
 
-	i_assert(file->input == NULL);
-
 	*deleted_r = FALSE;
+	if (file->input != NULL)
+		return 1;
 
 	if (file->fd == -1) {
 		T_BEGIN {

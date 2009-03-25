@@ -131,9 +131,10 @@ void dbox_files_free(struct dbox_storage *storage);
    for multi files assign map UID. */
 int dbox_file_assign_id(struct dbox_file *file, uint32_t id);
 
-/* Open the file if uid or file_id is not 0, otherwise create it. Returns 1 if
-   ok, 0 if file header is corrupted, -1 if error. If file is deleted,
-   deleted_r=TRUE and 1 is returned. */
+/* Open the file. Returns 1 if ok, 0 if file header is corrupted, -1 if error.
+   If file is deleted, deleted_r=TRUE and 1 is returned. */
+int dbox_file_open(struct dbox_file *file, bool *deleted_r);
+/* Open the file if uid or file_id is not 0, otherwise create it. */
 int dbox_file_open_or_create(struct dbox_file *file, bool *deleted_r);
 /* Close the file handle from the file, but don't free it. */
 void dbox_file_close(struct dbox_file *file);

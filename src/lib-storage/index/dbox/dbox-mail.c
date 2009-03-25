@@ -113,37 +113,62 @@ static void dbox_mail_set_expunged(struct dbox_mail *mail)
 	mbox->storage->sync_rebuild = TRUE;
 }
 
-static int dbox_mail_open(struct dbox_mail *mail,
-			  uoff_t *offset_r, struct dbox_file **file_r)
+static int dbox_mail_open_init(struct dbox_mail *mail)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
 	struct mail *_mail = &mail->imail.mail.mail;
 	uint32_t file_id;
 	int ret;
 
-	if (mail->open_file == NULL) {
-		if (dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq,
-				     &mail->map_uid) < 0)
+	if (mail->map_uid == 0)
+		mail->open_file = dbox_file_init_single(mbox, _mail->uid);
+	else if ((ret = dbox_map_lookup(mbox->storage->map, mail->map_uid,
+					&file_id, &mail->offset)) <= 0) {
+		if (ret < 0)
 			return -1;
-		if (mail->map_uid == 0) {
-			mail->open_file =
-				dbox_file_init_single(mbox, _mail->uid);
-		} else if ((ret = dbox_map_lookup(mbox->storage->map,
-						  mail->map_uid, &file_id,
-						  &mail->offset)) <= 0) {
-			if (ret < 0)
-				return -1;
 
-			/* map_uid doesn't exist anymore. either it
-			   got just expunged or the map index is
-			   corrupted. */
-			dbox_mail_set_expunged(mail);
-			return -1;
-		} else {
-			mail->open_file =
-				dbox_file_init_multi(mbox->storage, file_id);
-		}
+		/* map_uid doesn't exist anymore. either it
+		   got just expunged or the map index is
+		   corrupted. */
+		dbox_mail_set_expunged(mail);
+		return -1;
+	} else {
+		mail->open_file = dbox_file_init_multi(mbox->storage, file_id);
 	}
+	return 0;
+}
+
+static int dbox_mail_open(struct dbox_mail *mail,
+			  uoff_t *offset_r, struct dbox_file **file_r)
+{
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
+	struct mail *_mail = &mail->imail.mail.mail;
+	uint32_t prev_file_id = 0;
+	bool deleted;
+
+	do {
+		if (mail->open_file == NULL) {
+			if (dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq,
+					     &mail->map_uid) < 0)
+				return -1;
+			if (dbox_mail_open_init(mail) < 0)
+				return -1;
+		}
+
+		if (dbox_file_open(mail->open_file, &deleted) <= 0)
+			return -1;
+		if (deleted) {
+			/* either it's expunged now or moved to another file. */
+			if (mail->open_file->file_id == prev_file_id) {
+				dbox_mail_set_expunged(mail);
+				return -1;
+			}
+			prev_file_id = mail->open_file->file_id;
+			if (dbox_map_refresh(mbox->storage->map) < 0)
+				return -1;
+			dbox_file_unref(&mail->open_file);
+		}
+	} while (mail->open_file == NULL);
 
 	*file_r = mail->open_file;
 	*offset_r = mail->offset;
@@ -162,10 +187,7 @@ dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 	if (dbox_file_get_mail_stream(*file_r, offset, &size,
 				      NULL, &expunged) <= 0)
 		return -1;
-	if (expunged) {
-		dbox_mail_set_expunged(mail);
-		return -1;
-	}
+	i_assert(!expunged);
 	if (dbox_file_metadata_read(*file_r) <= 0)
 		return -1;
 	return 0;
@@ -339,10 +361,7 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 				"%"PRIuUOFF_T, _mail->uid, offset);
 			return -1;
 		}
-		if (expunged) {
-			dbox_mail_set_expunged(mail);
-			return -1;
-		}
+		i_assert(!expunged);
 		data->physical_size = size;
 		data->stream = input;
 	}
