@@ -162,6 +162,10 @@ log_coredump(string_t *str, enum process_type process_type, int status)
 			str_append(str, " (core not dumped - set mail_drop_priv_before_exec=yes)");
 			return;
 		}
+		if (*settings_root->defaults->mail_privileged_group != '\0') {
+			str_append(str, " (core not dumped - mail_privileged_group prevented it)");
+			return;
+		}
 #endif
 		str_append(str, " (core not dumped - is home dir set?)");
 		return;

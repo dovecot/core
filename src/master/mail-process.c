@@ -905,8 +905,9 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	if (set->mail_drop_priv_before_exec) {
 		restrict_access_by_env(TRUE);
 		/* privileged GID is now only in saved-GID. if we want to
-		   preserve it accross exec, it needs to be temporarily
-		   in effective gid */
+		   preserve it across exec, it needs to be temporarily
+		   in effective gid. unfortunately this also causes kernel
+		   to think we're a setgid-program. */
 		restrict_access_use_priv_gid();
 	}
 
