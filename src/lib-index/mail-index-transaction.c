@@ -1355,8 +1355,8 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 	}
 }
 
-void mail_index_atomic_inc_ext(struct mail_index_transaction *t, uint32_t seq,
-			       uint32_t ext_id, int diff)
+int mail_index_atomic_inc_ext(struct mail_index_transaction *t,
+			      uint32_t seq, uint32_t ext_id, int diff)
 {
 	ARRAY_TYPE(seq_array) *array;
 	int32_t old_diff32, diff32 = diff;
@@ -1380,6 +1380,7 @@ void mail_index_atomic_inc_ext(struct mail_index_transaction *t, uint32_t seq,
 		mail_index_seq_array_add(array, seq, &diff32, sizeof(diff32),
 					 NULL);
 	}
+	return diff32;
 }
 
 struct mail_keywords *
