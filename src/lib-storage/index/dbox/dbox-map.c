@@ -377,7 +377,10 @@ int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 	struct dbox_map *map = ctx->map;
 	const uint32_t *uids;
 	unsigned int i, count;
+	const void *data;
 	uint32_t seq;
+	bool expunged;
+	int cur_diff;
 
 	if (ctx->trans == NULL)
 		return -1;
@@ -391,10 +394,21 @@ int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 				"refcount update lost map_uid=%u", uids[i]);
 			return -1;
 		}
-
+		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
+				      &data, &expunged);
+		cur_diff = data == NULL ? 0 : *((const uint16_t *)data);
 		ctx->changed = TRUE;
-		mail_index_atomic_inc_ext(ctx->trans, seq,
-					  map->ref_ext_id, diff);
+		cur_diff += mail_index_atomic_inc_ext(ctx->trans, seq,
+						      map->ref_ext_id, diff);
+		if (cur_diff >= 32768) {
+			/* we're getting close to the 64k limit. fail early
+			   to make it less likely that two processes increase
+			   the refcount enough times to cross the limit */
+			mail_storage_set_error(&map->storage->storage,
+				MAIL_ERROR_NOTPOSSIBLE,
+				"Message has been copied too many times");
+			return -1;
+		}
 	}
 	return 0;
 }
