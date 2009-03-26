@@ -501,7 +501,7 @@ list_file_subdir(struct fs_list_iterate_context *ctx,
 	else
 		ctx->info.name = NULL;
 
-	scan_subdir = (match & (IMAP_MATCH_YES | IMAP_MATCH_CHILDREN)) != 0;
+	scan_subdir = (match2 & (IMAP_MATCH_YES | IMAP_MATCH_CHILDREN)) != 0;
 	if ((match == IMAP_MATCH_YES || scan_subdir) &&
 	    ctx->info.name != NULL &&
 	    (ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) != 0 &&
