@@ -23,7 +23,7 @@
 
 #include <stdlib.h>
 
-#ifdef HAVE_GSSAPI
+#if defined(BUILTIN_GSSAPI) || defined(PLUGIN_BUILD)
 
 #ifndef HAVE___GSS_USEROK
 #  define USE_KRB5_USEROK

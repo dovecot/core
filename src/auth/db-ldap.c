@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-#if defined(PASSDB_LDAP) || defined(USERDB_LDAP)
+#if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
 
 #include "network.h"
 #include "ioloop.h"

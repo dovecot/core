@@ -3,7 +3,7 @@
 #include "common.h"
 #include "userdb.h"
 
-#ifdef USERDB_LDAP
+#if defined(USERDB_LDAP) && (defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD))
 
 #include "hash.h"
 #include "str.h"
