@@ -207,7 +207,13 @@ match_sub(struct imap_match_context *ctx, const char **data_p,
 	data += i;
 	pattern += i;
 
-        match = IMAP_MATCH_NO;
+	if (*data == '\0' && *data_p != data && data[-1] == ctx->sep &&
+	    *pattern != '\0') {
+		/* data="/" pattern="/%..." */
+		match = IMAP_MATCH_CHILDREN;
+	} else {
+		match = IMAP_MATCH_NO;
+	}
 	while (*pattern == '%') {
 		pattern++;
 

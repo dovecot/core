@@ -37,7 +37,7 @@ static void test_imap_match(void)
 		{ "foo*bar", "foobar/baz", IMAP_MATCH_CHILDREN | IMAP_MATCH_PARENT },
 		{ "*foo*", "fobo", IMAP_MATCH_CHILDREN },
 		{ "%/%/%", "foo/", IMAP_MATCH_CHILDREN },
-		{ "%/%o/%", "foo/", IMAP_MATCH_NO },
+		{ "%/%o/%", "foo/", IMAP_MATCH_CHILDREN },
 		{ "%/%o/%", "foo", IMAP_MATCH_CHILDREN },
 		{ "inbox", "inbox", IMAP_MATCH_YES },
 		{ "inbox", "INBOX", IMAP_MATCH_NO }
