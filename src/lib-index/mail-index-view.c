@@ -142,7 +142,7 @@ view_lookup_full(struct mail_index_view *view, uint32_t seq,
 
 	/* look up the record */
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
-	if (rec->uid == 0) {
+	if (unlikely(rec->uid == 0)) {
 		if (!view->inconsistent) {
 			mail_index_set_error(view->index,
 				"Corrupted Index file %s: Record [%u].uid=0",
