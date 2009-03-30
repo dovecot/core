@@ -157,12 +157,9 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r);
 
 /* Returns TRUE if mail_size bytes can be appended to the file. */
 bool dbox_file_can_append(struct dbox_file *file, uoff_t mail_size);
-/* Get output stream for appending a new message. last_msg_offset points to
-   the beginning of the last message in the file, or 0 for new files. Returns
-   1 if ok, 0 if file can't be appended to (old file version or corruption)
-   or -1 if error. */
-int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
-				uoff_t last_msg_size,
+/* Get output stream for appending a new message. Returns 1 if ok, 0 if file
+   can't be appended to (old file version or corruption) or -1 if error. */
+int dbox_file_get_append_stream(struct dbox_file *file, uoff_t *append_offset_r,
 				struct ostream **stream_r);
 /* Returns the next offset for append a message. dbox_file_get_append_stream()
    must have been called for this file already at least once. */

@@ -510,11 +510,9 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 {
 	struct dbox_map *map = ctx->map;
 	struct dbox_storage *storage = map->storage;
-	const struct mail_index_header *hdr;
 	struct dbox_file *file;
 	struct stat st;
-	uint32_t seq, tmp_file_id;
-	uoff_t tmp_offset, tmp_size, last_msg_offset, last_msg_size, new_size;
+	uoff_t append_offset;
 	bool deleted, file_too_old = FALSE;
 	int ret;
 
@@ -542,33 +540,16 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 		if (errno != ENOENT)
 			i_error("stat(%s) failed: %m", file->current_path);
 		/* the file was unlinked between opening and locking it. */
-	} else if (dbox_map_refresh(map) == 0) {
-		/* now that the file is locked and map is refreshed, make sure
-		   we still have the last msg's offset. we have to go through
-		   the whole map, because existing messages may have already
-		   been appended to this file. */
-		last_msg_offset = 0;
-		hdr = mail_index_get_header(map->view);
-		for (seq = 1; seq <= hdr->messages_count; seq++) {
-			if (dbox_map_lookup_seq(map, seq, &tmp_file_id,
-						&tmp_offset, &tmp_size) < 0)
-				break;
-			if (tmp_file_id == file->file_id &&
-			    last_msg_offset < tmp_offset) {
-				last_msg_offset = tmp_offset;
-				last_msg_size = tmp_size;
-			}
-		}
-
-		new_size = last_msg_offset + last_msg_size + mail_size;
-		if (seq > hdr->messages_count && last_msg_offset > 0 &&
-		    new_size <= storage->rotate_size &&
-		    dbox_file_get_append_stream(file, last_msg_offset,
-						last_msg_size, output_r) > 0) {
-			/* success */
-			*file_r = file;
-			return TRUE;
-		}
+	} else if (dbox_file_get_append_stream(file, &append_offset,
+					       output_r) <= 0) {
+		/* couldn't append to this file */
+	} else if (append_offset + mail_size > storage->rotate_size) {
+		/* file was too large after all */
+		dbox_file_cancel_append(file, append_offset);
+	} else {
+		/* success */
+		*file_r = file;
+		return TRUE;
 	}
 
 	/* failure */
@@ -622,7 +603,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 
 		append_offset = dbox_file_get_next_append_offset(files[i-1]);
 		if (append_offset + mail_size <= map->storage->rotate_size &&
-		    dbox_file_get_append_stream(files[i-1], 0, 0,
+		    dbox_file_get_append_stream(files[i-1], &append_offset,
 						output_r) > 0) {
 			*file_r = files[i-1];
 			*existing_r = TRUE;
@@ -698,6 +679,7 @@ int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
 {
 	struct dbox_file *file = NULL;
 	struct dbox_map_append *append;
+	uoff_t append_offset;
 	bool existing;
 	int ret;
 
@@ -714,7 +696,8 @@ int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
 		file = ctx->map->storage->rotate_size == 0 ?
 			dbox_file_init_single(ctx->mbox, 0) :
 			dbox_file_init_multi(ctx->map->storage, 0);
-		ret = dbox_file_get_append_stream(file, 0, 0, output_r);
+		ret = dbox_file_get_append_stream(file, &append_offset,
+						  output_r);
 		if (ret <= 0) {
 			i_assert(ret < 0);
 			(void)unlink(file->current_path);

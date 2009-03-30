@@ -661,11 +661,9 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 }
 
 static int
-dbox_file_seek_append_pos(struct dbox_file *file, uoff_t append_offset)
+dbox_file_seek_append_pos(struct dbox_file *file, uoff_t *append_offset_r)
 {
 	struct stat st;
-
-	i_assert(append_offset != 0);
 
 	if (file->file_version != DBOX_VERSION ||
 	    file->msg_header_size != sizeof(struct dbox_message_header)) {
@@ -677,22 +675,15 @@ dbox_file_seek_append_pos(struct dbox_file *file, uoff_t append_offset)
 		dbox_file_set_syscall_error(file, "fstat()");
 		return -1;
 	}
-	if ((uoff_t)st.st_size != append_offset) {
-		/* not end of file? either previous write crashed or map index
-		   got broken. play it safe and resync everything. */
-		dbox_file_set_corrupted(file, "file size (%"PRIuUOFF_T
-					") not expected (%"PRIuUOFF_T")",
-					st.st_size, append_offset);
-		return 0;
-	}
+	*append_offset_r = st.st_size;
 
 	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
-	o_stream_seek(file->output, append_offset);
+	o_stream_seek(file->output, st.st_size);
 	return 1;
 }
 
-int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
-				uoff_t last_msg_size, struct ostream **stream_r)
+int dbox_file_get_append_stream(struct dbox_file *file, uoff_t *append_offset_r,
+				struct ostream **stream_r)
 {
 	int ret;
 
@@ -723,8 +714,7 @@ int dbox_file_get_append_stream(struct dbox_file *file, uoff_t last_msg_offset,
 	} else if (file->output == NULL) {
 		i_assert(file->lock != NULL || file->single_mbox != NULL);
 
-		ret = dbox_file_seek_append_pos(file, last_msg_offset +
-						last_msg_size);
+		ret = dbox_file_seek_append_pos(file, append_offset_r);
 		if (ret <= 0)
 			return ret;
 	}
@@ -743,10 +733,13 @@ uoff_t dbox_file_get_next_append_offset(struct dbox_file *file)
 
 void dbox_file_cancel_append(struct dbox_file *file, uoff_t append_offset)
 {
-	if (ftruncate(file->fd, append_offset) < 0)
-		dbox_file_set_syscall_error(file, "ftruncate()");
+	(void)o_stream_flush(file->output);
 
-	o_stream_seek(file->output, append_offset);
+	if (file->output->offset != append_offset) {
+		if (ftruncate(file->fd, append_offset) < 0)
+			dbox_file_set_syscall_error(file, "ftruncate()");
+		o_stream_seek(file->output, append_offset);
+	}
 }
 
 int dbox_file_flush_append(struct dbox_file *file)
