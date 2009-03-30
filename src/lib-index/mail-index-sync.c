@@ -710,7 +710,8 @@ static bool mail_index_sync_want_index_write(struct mail_index *index)
 
 	log_diff = index->map->hdr.log_file_tail_offset -
 		index->last_read_log_file_tail_offset;
-	if (log_diff > 1024)
+	if (log_diff > MAIL_INDEX_MAX_WRITE_BYTES ||
+	    (index->index_min_write && log_diff > MAIL_INDEX_MIN_WRITE_BYTES))
 		return TRUE;
 
 	if (index->need_recreate)
@@ -760,6 +761,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	if (ret == 0 &&
 	    (want_rotate || mail_index_sync_want_index_write(index))) {
 		index->need_recreate = FALSE;
+		index->index_min_write = FALSE;
 		mail_index_write(index, want_rotate);
 	}
 	mail_index_sync_end(_ctx);
