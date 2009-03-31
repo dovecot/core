@@ -206,21 +206,6 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 	return ret;
 }
 
-static int parse_mailbox_list(struct message_address_parser_context *ctx)
-{
-	int ret;
-
-	/* mailbox-list    = (mailbox *("," mailbox)) / obs-mbox-list */
-	while ((ret = parse_mailbox(ctx)) != 0) {
-		if (*ctx->parser.data != ',')
-			break;
-		ctx->parser.data++;
-		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
-			break;
-	}
-	return ret;
-}
-
 static int parse_group(struct message_address_parser_context *ctx)
 {
 	int ret;
@@ -243,15 +228,28 @@ static int parse_group(struct message_address_parser_context *ctx)
 	ctx->addr.mailbox = p_strdup(ctx->pool, str_c(ctx->str));
 	add_address(ctx);
 
-	if (ret > 0) {
-		if ((ret = parse_mailbox_list(ctx)) > 0) {
-			if (*ctx->parser.data != ';')
+	if (ret > 0 && *ctx->parser.data != ';') {
+		for (;;) {
+			/* mailbox-list    =
+			   	(mailbox *("," mailbox)) / obs-mbox-list */
+			if (parse_mailbox(ctx) <= 0) {
 				ret = -1;
-			else {
-				ctx->parser.data++;
-				ret = rfc822_skip_lwsp(&ctx->parser);
+				break;
+			}
+			if (*ctx->parser.data != ',')
+				break;
+			ctx->parser.data++;
+			if (rfc822_skip_lwsp(&ctx->parser) <= 0) {
+				ret = -1;
+				break;
 			}
 		}
+	}
+	if (*ctx->parser.data != ';')
+		ret = -1;
+	else {
+		ctx->parser.data++;
+		ret = rfc822_skip_lwsp(&ctx->parser);
 	}
 	if (ret < 0)
 		ctx->addr.invalid_syntax = TRUE;
