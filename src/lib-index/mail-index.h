@@ -343,6 +343,12 @@ void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 /* Return keywords from given map. */
 void mail_index_map_lookup_keywords(struct mail_index_map *map, uint32_t seq,
 				    ARRAY_TYPE(keyword_indexes) *keyword_idx);
+/* mail_index_lookup[_keywords]() returns the latest flag changes.
+   This function instead attempts to return the flags and keywords done by the
+   last view sync. */
+void mail_index_lookup_view_flags(struct mail_index_view *view, uint32_t seq,
+				  enum mail_flags *flags_r,
+				  ARRAY_TYPE(keyword_indexes) *keyword_idx);
 /* Returns the UID for given message. May be slightly faster than
    mail_index_lookup()->uid. */
 void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,

@@ -389,25 +389,30 @@ static void view_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 	mail_index_data_lookup_keywords(map, data, keyword_idx);
 }
 
+static const void *
+view_map_lookup_ext_full(struct mail_index_map *map,
+			 const struct mail_index_record *rec, uint32_t ext_id)
+{
+	const struct mail_index_ext *ext;
+	uint32_t idx;
+
+	if (!mail_index_map_get_ext_idx(map, ext_id, &idx))
+		return NULL;
+
+	ext = array_idx(&map->extensions, idx);
+	return ext->record_offset == 0 ? NULL :
+		CONST_PTR_OFFSET(rec, ext->record_offset);
+}
+
 static void
 view_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		     uint32_t ext_id, struct mail_index_map **map_r,
 		     const void **data_r, bool *expunged_r)
 {
-	const struct mail_index_ext *ext;
 	const struct mail_index_record *rec;
-	uint32_t idx, offset;
 
 	rec = view->v.lookup_full(view, seq, map_r, expunged_r);
-	if (!mail_index_map_get_ext_idx(*map_r, ext_id, &idx)) {
-		*data_r = NULL;
-		return;
-	}
-
-	ext = array_idx(&(*map_r)->extensions, idx);
-	offset = ext->record_offset;
-
-	*data_r = offset == 0 ? NULL : CONST_PTR_OFFSET(rec, offset);
+	*data_r = view_map_lookup_ext_full(*map_r, rec, ext_id);
 }
 
 static void view_get_header_ext(struct mail_index_view *view,
@@ -522,6 +527,23 @@ void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 				ARRAY_TYPE(keyword_indexes) *keyword_idx)
 {
 	view->v.lookup_keywords(view, seq, keyword_idx);
+}
+
+void mail_index_lookup_view_flags(struct mail_index_view *view, uint32_t seq,
+				  enum mail_flags *flags_r,
+				  ARRAY_TYPE(keyword_indexes) *keyword_idx)
+{
+	const struct mail_index_record *rec;
+	const unsigned char *keyword_data;
+
+	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(view));
+
+	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+	*flags_r = rec->flags;
+
+	keyword_data = view_map_lookup_ext_full(view->map, rec,
+						view->index->keywords_ext_id);
+	mail_index_data_lookup_keywords(view->map, keyword_data, keyword_idx);
 }
 
 void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
