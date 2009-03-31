@@ -387,6 +387,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	uint32_t first_uid;
 	unsigned int changes = 0;
 	int ret = 0;
+	time_t time_before_sync;
+	struct stat st;
 	bool expunged, full_rescan = FALSE;
 
 	i_assert(!mbox->syncing_commit);
@@ -412,6 +414,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	}
 	hdr_next_uid = hdr->next_uid;
 
+	time_before_sync = time(NULL);
 	mbox->syncing_commit = TRUE;
 	seq = prev_uid = 0; first_recent_uid = I_MAX(hdr->first_recent_uid, 1);
 	t_array_init(&ctx->keywords, MAILDIR_MAX_KEYWORDS);
@@ -560,8 +563,12 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	if (mbox->ibox.box.v.sync_notify != NULL)
 		mbox->ibox.box.v.sync_notify(&mbox->ibox.box, 0, 0);
 
-	if (ctx->changed)
-		mbox->maildir_hdr.cur_mtime = time(NULL);
+	if (stat(t_strconcat(mbox->path, "/cur", NULL), &st) == 0) {
+		mbox->maildir_hdr.new_check_time =
+			I_MAX(st.st_mtime, time_before_sync);
+		mbox->maildir_hdr.cur_mtime = st.st_mtime;
+		mbox->maildir_hdr.cur_mtime_nsecs = ST_MTIME_NSEC(st);
+	}
 
 	if (uid_validity == 0) {
 		uid_validity = hdr->uid_validity != 0 ? hdr->uid_validity :

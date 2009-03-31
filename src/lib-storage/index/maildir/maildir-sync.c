@@ -500,10 +500,23 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	}
 
 	if (dir_changed) {
-		if (new_dir)
-			ctx->mbox->maildir_hdr.new_mtime = now;
-		else
-			ctx->mbox->maildir_hdr.cur_mtime = now;
+		/* save the exact new times. the new mtimes should be >=
+		   "now", but just in case something weird happens and mtime
+		   doesn't update, use "now". */
+		if (stat(ctx->new_dir, &st) == 0) {
+			ctx->mbox->maildir_hdr.new_check_time =
+				I_MAX(st.st_mtime, now);
+			ctx->mbox->maildir_hdr.new_mtime = st.st_mtime;
+			ctx->mbox->maildir_hdr.new_mtime_nsecs =
+				ST_MTIME_NSEC(st);
+		}
+		if (stat(ctx->cur_dir, &st) == 0) {
+			ctx->mbox->maildir_hdr.new_check_time =
+				I_MAX(st.st_mtime, now);
+			ctx->mbox->maildir_hdr.cur_mtime = st.st_mtime;
+			ctx->mbox->maildir_hdr.cur_mtime_nsecs =
+				ST_MTIME_NSEC(st);
+		}
 	}
 
 	return ret < 0 ? -1 :
@@ -564,7 +577,7 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 
 	/* try to avoid stat()ing by first checking delayed changes */
 	if (DIR_DELAYED_REFRESH(hdr, new) ||
-	    DIR_DELAYED_REFRESH(hdr, cur)) {
+	    (DIR_DELAYED_REFRESH(hdr, cur) && !mbox->very_dirty_syncs)) {
 		/* refresh index and try again */
 		if (maildir_sync_header_refresh(mbox) < 0)
 			return -1;
@@ -572,7 +585,7 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 
 		if (DIR_DELAYED_REFRESH(hdr, new))
 			*new_changed_r = TRUE;
-		if (DIR_DELAYED_REFRESH(hdr, cur))
+		if (DIR_DELAYED_REFRESH(hdr, cur) && !mbox->very_dirty_syncs)
 			*cur_changed_r = TRUE;
 		if (*new_changed_r && *cur_changed_r)
 			return 0;
@@ -901,6 +914,32 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		}
 	}
 
+	if (mbox->very_dirty_syncs) {
+		struct mail_index_view_sync_ctx *sync_ctx;
+		bool b;
+
+		if (mbox->flags_view == NULL) {
+			mbox->flags_view =
+				mail_index_view_open(mbox->ibox.index);
+		}
+		sync_ctx = mail_index_view_sync_begin(mbox->flags_view,
+				MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
+		if (mail_index_view_sync_commit(&sync_ctx, &b) < 0) {
+			mail_storage_set_index_error(&mbox->ibox);
+			ret = -1;
+		}
+		/* make sure the map stays in private memory */
+		if (mbox->flags_view->map->refcount > 1) {
+			struct mail_index_map *map;
+
+			map = mail_index_map_clone(mbox->flags_view->map);
+			mail_index_unmap(&mbox->flags_view->map);
+			mbox->flags_view->map = map;
+		}
+		mail_index_record_map_move_to_private(mbox->flags_view->map);
+		mail_index_map_move_to_memory(mbox->flags_view->map);
+		maildir_uidlist_set_all_nonsynced(mbox->uidlist);
+	}
 	return index_mailbox_sync_init(box, flags, ret < 0);
 }
 

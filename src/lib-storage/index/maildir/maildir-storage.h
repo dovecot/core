@@ -82,6 +82,7 @@ struct maildir_storage {
 struct maildir_mailbox {
 	struct index_mailbox ibox;
 	struct maildir_storage *storage;
+	struct mail_index_view *flags_view;
 
 	const char *path;
 	struct timeout *keep_lock_to;
@@ -94,6 +95,7 @@ struct maildir_mailbox {
 	uint32_t maildir_ext_id;
 
 	unsigned int syncing_commit:1;
+	unsigned int very_dirty_syncs:1;
 };
 
 struct maildir_transaction_context {

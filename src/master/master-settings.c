@@ -253,6 +253,7 @@ struct settings default_settings = {
 	MEMBER(maildir_stat_dirs) FALSE,
 	MEMBER(maildir_copy_with_hardlinks) TRUE,
 	MEMBER(maildir_copy_preserve_filename) FALSE,
+	MEMBER(maildir_very_dirty_syncs) FALSE,
 	MEMBER(mbox_read_locks) "fcntl",
 	MEMBER(mbox_write_locks) "dotlock fcntl",
 	MEMBER(mbox_lock_timeout) 300,

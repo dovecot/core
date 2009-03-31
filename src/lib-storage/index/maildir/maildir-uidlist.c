@@ -1338,6 +1338,11 @@ static int maildir_uidlist_sync_lock(struct maildir_uidlist *uidlist,
 	return 1;
 }
 
+void maildir_uidlist_set_all_nonsynced(struct maildir_uidlist *uidlist)
+{
+	maildir_uidlist_mark_all(uidlist, TRUE);
+}
+
 int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 			      enum maildir_uidlist_sync_flags sync_flags,
 			      struct maildir_uidlist_sync_ctx **sync_ctx_r)

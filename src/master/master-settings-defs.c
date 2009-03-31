@@ -87,6 +87,7 @@ static struct setting_def setting_defs[] = {
 	DEF_BOOL(maildir_stat_dirs),
 	DEF_BOOL(maildir_copy_with_hardlinks),
 	DEF_BOOL(maildir_copy_preserve_filename),
+	DEF_BOOL(maildir_very_dirty_syncs),
 	DEF_STR(mbox_read_locks),
 	DEF_STR(mbox_write_locks),
 	DEF_INT(mbox_lock_timeout),

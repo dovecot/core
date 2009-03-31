@@ -366,6 +366,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("MAILDIR_COPY_WITH_HARDLINKS=1");
 	if (set->maildir_copy_preserve_filename)
 		env_put("MAILDIR_COPY_PRESERVE_FILENAME=1");
+	if (set->maildir_very_dirty_syncs)
+		env_put("MAILDIR_VERY_DIRTY_SYNCS=1");
 	if (set->mail_debug)
 		env_put("DEBUG=1");
 	if (set->mail_full_filesystem_access)

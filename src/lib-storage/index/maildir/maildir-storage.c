@@ -442,6 +442,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	index = index_storage_alloc(&storage->storage, name, flags,
 				    MAILDIR_INDEX_PREFIX);
 	mbox->ibox.index = index;
+	mbox->very_dirty_syncs = getenv("MAILDIR_VERY_DIRTY_SYNCS") != NULL;
 
 	/* for shared mailboxes get the create mode from the
 	   permissions of dovecot-shared file. */
@@ -869,6 +870,8 @@ static int maildir_storage_mailbox_close(struct mailbox *box)
 		timeout_remove(&mbox->keep_lock_to);
 	}
 
+	if (mbox->flags_view != NULL)
+		mail_index_view_close(&mbox->flags_view);
 	if (mbox->keywords != NULL)
 		maildir_keywords_deinit(&mbox->keywords);
 	maildir_uidlist_deinit(&mbox->uidlist);

@@ -19,6 +19,10 @@ maildir_keywords_init_readonly(struct mailbox *box);
 struct maildir_keywords_sync_ctx *
 maildir_keywords_sync_init(struct maildir_keywords *mk,
 			   struct mail_index *index);
+/* Don't try to add any nonexisting keywords */
+struct maildir_keywords_sync_ctx *
+maildir_keywords_sync_init_readonly(struct maildir_keywords *mk,
+				    struct mail_index *index);
 void maildir_keywords_sync_deinit(struct maildir_keywords_sync_ctx **ctx);
 
 /* Returns keyword index. */

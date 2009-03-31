@@ -1,11 +1,14 @@
 /* Copyright (c) 2004-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "ioloop.h"
 #include "str.h"
 #include "mkdir-parents.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
+#include "maildir-keywords.h"
+#include "maildir-filename.h"
 #include "maildir-sync.h"
 
 #include <unistd.h>
@@ -16,35 +19,69 @@
 
 #define MAILDIR_RESYNC_RETRY_COUNT 10
 
+static const char *
+maildir_filename_guess(struct maildir_mailbox *mbox, uint32_t uid,
+		       const char *fname, bool *have_flags_r)
+
+{
+	struct mail_index_view *view = mbox->flags_view;
+	struct maildir_keywords_sync_ctx *kw_ctx;
+	enum mail_flags flags;
+	ARRAY_TYPE(keyword_indexes) keywords;
+	uint32_t seq;
+
+	if (view == NULL || !mail_index_lookup_seq(view, uid, &seq)) {
+		*have_flags_r = FALSE;
+		return fname;
+	}
+
+	t_array_init(&keywords, 32);
+	mail_index_lookup_view_flags(view, seq, &flags, &keywords);
+	if (array_count(&keywords) == 0) {
+		*have_flags_r = (flags & MAIL_FLAGS_NONRECENT) != 0;
+		fname = maildir_filename_set_flags(NULL, fname, flags, NULL);
+	} else {
+		*have_flags_r = TRUE;
+		kw_ctx = maildir_keywords_sync_init_readonly(mbox->keywords,
+							     mbox->ibox.index);
+		fname = maildir_filename_set_flags(kw_ctx, fname,
+						   flags, &keywords);
+		maildir_keywords_sync_deinit(&kw_ctx);
+	}
+	return fname;
+}
+
 static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 			       maildir_file_do_func *callback, void *context)
 {
-	const char *fname;
-        enum maildir_uidlist_rec_flag flags;
+	const char *path, *fname;
+	enum maildir_uidlist_rec_flag flags;
+	bool have_flags;
 	int ret;
 
 	fname = maildir_uidlist_lookup(mbox->uidlist, uid, &flags);
 	if (fname == NULL)
 		return -2; /* expunged */
 
+	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
+		/* let's see if we can guess the filename based on index */
+		fname = maildir_filename_guess(mbox, uid, fname, &have_flags);
+		if (have_flags) {
+			/* don't even bother looking into new/ dir */
+			flags &= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
+		}
+	}
+
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
-		T_BEGIN {
-			const char *path;
-
-			path = t_strconcat(mbox->path, "/new/", fname, NULL);
-			ret = callback(mbox, path, context);
-		} T_END;
+		path = t_strconcat(mbox->path, "/new/", fname, NULL);
+		ret = callback(mbox, path, context);
 		if (ret != 0)
 			return ret;
 	}
 
-	T_BEGIN {
-		const char *path;
-
-		path = t_strconcat(mbox->path, "/cur/", fname, NULL);
-		ret = callback(mbox, path, context);
-	} T_END;
+	path = t_strconcat(mbox->path, "/cur/", fname, NULL);
+	ret = callback(mbox, path, context);
 	return ret;
 }
 
@@ -71,7 +108,9 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 {
 	int i, ret;
 
-	ret = maildir_file_do_try(mbox, uid, callback, context);
+	T_BEGIN {
+		ret = maildir_file_do_try(mbox, uid, callback, context);
+	} T_END;
 	for (i = 0; i < MAILDIR_RESYNC_RETRY_COUNT && ret == 0; i++) {
 		/* file is either renamed or deleted. sync the maildir and
 		   see which one. if file appears to be renamed constantly,
@@ -79,11 +118,14 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		if (maildir_storage_sync_force(mbox, uid) < 0)
 			return -1;
 
-		ret = maildir_file_do_try(mbox, uid, callback, context);
+		T_BEGIN {
+			ret = maildir_file_do_try(mbox, uid, callback, context);
+		} T_END;
 	}
 
-	if (i == MAILDIR_RESYNC_RETRY_COUNT)
+	if (i == MAILDIR_RESYNC_RETRY_COUNT) T_BEGIN {
 		ret = maildir_file_do_try(mbox, uid, do_racecheck, context);
+	} T_END;
 
 	return ret == -2 ? 0 : ret;
 }
