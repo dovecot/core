@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 
 libstorage_dbox_a_SOURCES = \
 	dbox-file.c \
+	dbox-file-fix.c \
 	dbox-file-maildir.c \
 	dbox-mail.c \
 	dbox-map.c \

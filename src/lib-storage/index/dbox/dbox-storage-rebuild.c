@@ -134,8 +134,8 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 	struct dbox_rebuild_msg *rec;
 	uint32_t file_id;
 	buffer_t *guid_buf;
-	uoff_t offset;
-	bool last;
+	uoff_t offset, prev_offset, size;
+	bool last, expunged, first, fixed = FALSE;
 	int ret = 0;
 
 	fname = strrchr(path, '/');
@@ -158,9 +158,38 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 					 DBOX_GUID_BIN_LEN);
 
 	file = dbox_file_init_multi(ctx->storage, file_id);
-	while ((ret = dbox_file_seek_next(file, &offset, &last)) > 0) {
-		if ((ret = dbox_file_metadata_read(file)) <= 0)
-			break;
+	prev_offset = 0;
+	dbox_file_seek_rewind(file);
+	while ((ret = dbox_file_seek_next(file, &offset, &last)) >= 0) {
+		if (ret > 0) {
+			if ((ret = dbox_file_metadata_read(file)) < 0)
+				break;
+		}
+
+		if (ret == 0) {
+			/* file is corrupted. fix it and retry. */
+			if (fixed || last)
+				break;
+			first = prev_offset == 0;
+			if (prev_offset == 0) {
+				/* use existing file header if it was ok */
+				prev_offset = offset;
+			}
+			if (dbox_file_fix(file, prev_offset) < 0) {
+				ret = -1;
+				break;
+			}
+			fixed = TRUE;
+			if (!first) {
+				/* seek to the offset where we last left off */
+				ret = dbox_file_get_mail_stream(file,
+					prev_offset, &size, NULL, &expunged);
+				if (ret <= 0)
+					break;
+			}
+			continue;
+		}
+		prev_offset = offset;
 
 		guid = dbox_file_metadata_get(file, DBOX_METADATA_GUID);
 		if (guid == NULL) {
@@ -193,9 +222,8 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 			hash_table_insert(ctx->guid_hash, rec->guid_128, rec);
 		}
 	}
-	if (ret == 0) {
-		/* FIXME: file is corrupted. should we try to fix it? */
-	}
+	if (ret == 0 && !last)
+		i_error("dbox rebuild: Failed to fix file %s", path);
 	dbox_file_unref(&file);
 	return ret < 0 ? -1 : 0;
 }

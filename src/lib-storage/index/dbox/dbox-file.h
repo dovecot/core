@@ -116,6 +116,7 @@ struct dbox_file {
 	unsigned int alt_path:1;
 	unsigned int maildir_file:1;
 	unsigned int deleted:1;
+	unsigned int corrupted:1;
 };
 
 struct dbox_file *
@@ -150,6 +151,8 @@ void dbox_file_unlock(struct dbox_file *file);
 int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 			      uoff_t *physical_size_r,
 			      struct istream **stream_r, bool *expunged_r);
+/* Start seeking at the beginning of the file. */
+void dbox_file_seek_rewind(struct dbox_file *file);
 /* Seek to next message after current one. If there are no more messages,
    returns 0 and last_r is set to TRUE. Returns 1 if ok, 0 if file is
    corrupted, -1 if I/O error. */
@@ -178,6 +181,10 @@ const char *dbox_file_metadata_get(struct dbox_file *file,
 
 /* Move the file to alt path or back. */
 int dbox_file_move(struct dbox_file *file, bool alt_path);
+/* Fix a broken dbox file by rename()ing over it with a fixed file. Everything
+   before start_offset is assumed to be valid and is simply copied. The file
+   is reopened afterwards. Returns 0 if ok, -1 if I/O error. */
+int dbox_file_fix(struct dbox_file *file, uoff_t start_offset);
 
 /* Fill dbox_message_header with given size. */
 void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
@@ -188,5 +195,12 @@ const char *dbox_file_get_alt_path(struct dbox_file *file);
 void dbox_file_set_syscall_error(struct dbox_file *file, const char *function);
 void dbox_file_set_corrupted(struct dbox_file *file, const char *reason, ...)
 	ATTR_FORMAT(2, 3);
+
+/* private: */
+char *dbox_generate_tmp_filename(void);
+int dbox_create_fd(struct dbox_storage *storage, const char *path);
+int dbox_file_header_write(struct dbox_file *file, struct ostream *output);
+int dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r);
+int dbox_file_metadata_skip_header(struct dbox_file *file);
 
 #endif

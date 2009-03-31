@@ -21,9 +21,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 
-static int dbox_file_metadata_skip_header(struct dbox_file *file);
-
-static char *dbox_generate_tmp_filename(void)
+char *dbox_generate_tmp_filename(void)
 {
 	static unsigned int create_count = 0;
 
@@ -337,6 +335,7 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 static int dbox_file_read_header(struct dbox_file *file)
 {
 	const char *line;
+	unsigned int hdr_size;
 	int ret;
 
 	i_stream_seek(file->input, 0);
@@ -351,10 +350,12 @@ static int dbox_file_read_header(struct dbox_file *file)
 		dbox_file_set_syscall_error(file, "read()");
 		return -1;
 	}
-	file->file_header_size = file->input->v_offset;
+	hdr_size = file->input->v_offset;
 	T_BEGIN {
 		ret = dbox_file_parse_header(file, line) < 0 ? 0 : 1;
 	} T_END;
+	if (ret > 0)
+		file->file_header_size = hdr_size;
 	return ret;
 }
 
@@ -412,7 +413,7 @@ int dbox_file_open(struct dbox_file *file, bool *deleted_r)
 		dbox_file_read_header(file);
 }
 
-static int dbox_create_fd(struct dbox_storage *storage, const char *path)
+int dbox_create_fd(struct dbox_storage *storage, const char *path)
 {
 	mode_t old_mask;
 	int fd;
@@ -434,16 +435,9 @@ static int dbox_create_fd(struct dbox_storage *storage, const char *path)
 	return fd;
 }
 
-static int dbox_file_create(struct dbox_file *file)
+int dbox_file_header_write(struct dbox_file *file, struct ostream *output)
 {
 	string_t *hdr;
-
-	i_assert(file->fd == -1);
-
-	file->fd = dbox_create_fd(file->storage, file->current_path);
-	if (file->fd == -1)
-		return -1;
-	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
 
 	hdr = t_str_new(128);
 	str_printfa(hdr, "%u %c%x %c%x\n", DBOX_VERSION,
@@ -453,8 +447,18 @@ static int dbox_file_create(struct dbox_file *file)
 
 	file->file_header_size = str_len(hdr);
 	file->msg_header_size = sizeof(struct dbox_message_header);
+	return o_stream_send(output, str_data(hdr), str_len(hdr));
+}
 
-	if (o_stream_send(file->output, str_data(hdr), str_len(hdr)) < 0) {
+static int dbox_file_create(struct dbox_file *file)
+{
+	i_assert(file->fd == -1);
+
+	file->fd = dbox_create_fd(file->storage, file->current_path);
+	if (file->fd == -1)
+		return -1;
+	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
+	if (dbox_file_header_write(file, file->output) < 0) {
 		dbox_file_set_syscall_error(file, "write()");
 		return -1;
 	}
@@ -490,6 +494,7 @@ void dbox_file_close(struct dbox_file *file)
 			dbox_file_set_syscall_error(file, "close()");
 		file->fd = -1;
 	}
+	file->cur_offset = (uoff_t)-1;
 }
 
 int dbox_file_try_lock(struct dbox_file *file)
@@ -525,8 +530,7 @@ void dbox_file_unlock(struct dbox_file *file)
 		i_stream_sync(file->input);
 }
 
-static int
-dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
+int dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 {
 	struct dbox_message_header hdr;
 	struct stat st;
@@ -556,15 +560,15 @@ dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 		dbox_file_set_syscall_error(file, "read()");
 		return -1;
 	}
-	if (data[file->msg_header_size-1] != '\n') {
-		dbox_file_set_corrupted(file, "msg header doesn't end with LF");
-		return 0;
-	}
-
 	memcpy(&hdr, data, I_MIN(sizeof(hdr), file->msg_header_size));
 	if (memcmp(hdr.magic_pre, DBOX_MAGIC_PRE, sizeof(hdr.magic_pre)) != 0) {
 		/* probably broken offset */
 		dbox_file_set_corrupted(file, "msg header has bad magic value");
+		return 0;
+	}
+
+	if (data[file->msg_header_size-1] != '\n') {
+		dbox_file_set_corrupted(file, "msg header doesn't end with LF");
 		return 0;
 	}
 
@@ -577,6 +581,7 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 			      uoff_t *physical_size_r,
 			      struct istream **stream_r, bool *expunged_r)
 {
+	uoff_t size;
 	int ret;
 
 	*expunged_r = FALSE;
@@ -591,11 +596,12 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 		offset = file->file_header_size;
 
 	if (offset != file->cur_offset) {
-		file->cur_offset = offset;
 		i_stream_seek(file->input, offset);
-		ret = dbox_file_read_mail_header(file, &file->cur_physical_size);
+		ret = dbox_file_read_mail_header(file, &size);
 		if (ret <= 0)
 			return ret;
+		file->cur_offset = offset;
+		file->cur_physical_size = size;
 	}
 	i_stream_seek(file->input, offset + file->msg_header_size);
 	if (stream_r != NULL) {
@@ -627,6 +633,11 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 	return 1;
 }
 
+void dbox_file_seek_rewind(struct dbox_file *file)
+{
+	file->cur_offset = (uoff_t)-1;
+}
+
 int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 {
 	uoff_t offset, size;
@@ -640,8 +651,10 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 	} else {
 		offset = file->cur_offset + file->msg_header_size +
 			file->cur_physical_size;
-		if ((ret = dbox_file_seek_next_at_metadata(file, &offset)) <= 0)
+		if ((ret = dbox_file_seek_next_at_metadata(file, &offset)) <= 0) {
+			*offset_r = file->cur_offset;
 			return ret;
+		}
 	}
 	*offset_r = offset;
 
@@ -652,12 +665,9 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 	*last_r = FALSE;
 
 	ret = dbox_file_get_mail_stream(file, offset, &size, NULL, &expunged);
-	if (ret <= 0)
-		return ret;
-
 	if (*offset_r == 0)
 		*offset_r = file->file_header_size;
-	return 1;
+	return ret;
 }
 
 static int
@@ -761,7 +771,7 @@ int dbox_file_flush_append(struct dbox_file *file)
 	return 0;
 }
 
-static int dbox_file_metadata_skip_header(struct dbox_file *file)
+int dbox_file_metadata_skip_header(struct dbox_file *file)
 {
 	struct dbox_metadata_header metadata_hdr;
 	const unsigned char *data;
