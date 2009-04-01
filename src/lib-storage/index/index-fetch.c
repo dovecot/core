@@ -46,7 +46,6 @@ bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 #define EXPUNGE_MASK (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXTERNAL)
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct mail_transaction_log_view *log_view;
-	const struct mail_index_header *hdr;
 	const struct mail_transaction_header *thdr;
 	const struct mail_transaction_expunge *rec, *end;
 	const struct seq_range *uid_range;
@@ -66,7 +65,6 @@ bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 		return TRUE;
 	}
 
-	hdr = mail_index_get_header(ibox->view);
 	log_view = mail_transaction_log_view_open(ibox->index->log);
 	if (mail_transaction_log_view_set(log_view, log_seq, log_offset,
 					  ibox->view->log_file_head_seq,

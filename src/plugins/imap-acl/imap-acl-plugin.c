@@ -246,7 +246,6 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	struct mailbox *box;
 	const char *mailbox;
 	string_t *str;
-	unsigned int len;
 	int ret;
 
 	if (!client_read_string_args(cmd, 1, &mailbox)) {
@@ -261,7 +260,6 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	str = t_str_new(128);
 	str_append(str, "* ACL ");
 	imap_quote_append_string(str, mailbox, FALSE);
-	len = str_len(str);
 
 	storage = mailbox_get_storage(box);
 	backend = acl_storage_get_backend(storage);
