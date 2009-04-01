@@ -26,7 +26,13 @@ static struct userdb_module_interface *userdb_interface_find(const char *name)
 
 void userdb_register_module(struct userdb_module_interface *iface)
 {
-	if (userdb_interface_find(iface->name) != NULL) {
+	struct userdb_module_interface *old_iface;
+
+	old_iface = userdb_interface_find(iface->name);
+	if (old_iface != NULL && old_iface->lookup == NULL) {
+		/* replacing a "support not compiled in" userdb */
+		userdb_unregister_module(old_iface);
+	} else if (old_iface != NULL) {
 		i_panic("userdb_register_module(%s): Already registered",
 			iface->name);
 	}

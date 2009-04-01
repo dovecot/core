@@ -25,7 +25,13 @@ static struct passdb_module_interface *passdb_interface_find(const char *name)
 
 void passdb_register_module(struct passdb_module_interface *iface)
 {
-	if (passdb_interface_find(iface->name) != NULL) {
+	struct passdb_module_interface *old_iface;
+
+	old_iface = passdb_interface_find(iface->name);
+	if (old_iface != NULL && old_iface->verify_plain == NULL) {
+		/* replacing a "support not compiled in" passdb */
+		passdb_unregister_module(old_iface);
+	} else if (old_iface != NULL) {
 		i_panic("passdb_register_module(%s): Already registered",
 			iface->name);
 	}
