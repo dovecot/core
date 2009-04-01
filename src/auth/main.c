@@ -42,8 +42,12 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
 	   which is too common at least while testing :) */
-	if (si->si_signo != SIGINT)
-		i_warning("Killed with signal %d", si->si_signo);
+	if (si->si_signo != SIGINT) {
+		i_warning("Killed with signal %d (by pid=%s uid=%s code=%s)",
+			  si->si_signo, dec2str(si->si_pid),
+			  dec2str(si->si_uid),
+			  lib_signal_code_to_str(si->si_signo, si->si_code));
+	}
 	io_loop_stop(ioloop);
 }
 

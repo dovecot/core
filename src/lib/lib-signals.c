@@ -27,6 +27,42 @@ static int sig_pipe_fd[2] = { -1, -1 };
 static bool signals_initialized = FALSE;
 static struct io *io_sig = NULL;
 
+const char *lib_signal_code_to_str(int signo, int si_code)
+{
+	/* common */
+	switch (si_code) {
+	case SI_USER:
+		return "kill";
+#ifdef SI_KERNEL
+	case SI_KERNEL:
+		return "kernel";
+#endif
+	case SI_TIMER:
+		return "timer";
+	}
+
+	switch (signo) {
+	case SIGSEGV:
+		switch (si_code) {
+		case SEGV_MAPERR:
+			return "address not mapped";
+		case SEGV_ACCERR:
+			return "invalid permissions";
+		}
+		break;
+	case SIGBUS:
+		switch (si_code) {
+		case BUS_ADRALN:
+			return "invalid address alignment";
+		case BUS_ADRERR:
+			return "nonexistent physical address";
+		case BUS_OBJERR:
+			return "object-specific hardware error";
+		}
+	}
+	return t_strdup_printf("unknown %d", si_code);
+}
+
 static void sig_handler(int signo, siginfo_t *si, void *context ATTR_UNUSED)
 {
 	struct signal_handler *h;
