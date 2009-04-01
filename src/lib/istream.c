@@ -67,6 +67,7 @@ void i_stream_set_return_partial_line(struct istream *stream, bool set)
 ssize_t i_stream_read(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
+	size_t old_size;
 	ssize_t ret;
 
 	if (unlikely(stream->closed))
@@ -75,6 +76,7 @@ ssize_t i_stream_read(struct istream *stream)
 	stream->eof = FALSE;
 	stream->stream_errno = 0;
 
+	old_size = _stream->pos - _stream->skip;
 	ret = _stream->read(_stream);
 	switch (ret) {
 	case -2:
@@ -94,7 +96,7 @@ ssize_t i_stream_read(struct istream *stream)
 		break;
 	default:
 		i_assert(ret > 0);
-		i_assert((size_t)ret <= _stream->pos - _stream->skip);
+		i_assert((size_t)ret+old_size == _stream->pos - _stream->skip);
 		break;
 	}
 	return ret;
