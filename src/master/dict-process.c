@@ -78,6 +78,10 @@ static int dict_process_create(struct dict_listener *listener)
 	}
 	log_set_prefix(log, "master-dict: ");
 
+	/* make sure we don't leak syslog fd. try to do it as late as possible,
+	   but also before dup2()s in case syslog fd is one of them. */
+	closelog();
+
 	/* set stdin and stdout to /dev/null, so anything written into it
 	   gets ignored. */
 	if (dup2(null_fd, 0) < 0)
@@ -108,10 +112,6 @@ static int dict_process_create(struct dict_listener *listener)
 	i_assert((count % 2) == 0);
 	for (i = 0; i < count; i += 2)
 		env_put(t_strdup_printf("DICT_%s=%s", dicts[i], dicts[i+1]));
-
-	/* make sure we don't leak syslog fd, but do it last so that
-	   any errors above will be logged */
-	closelog();
 
 	executable = PKG_LIBEXECDIR"/dict";
 	client_process_exec(executable, "");

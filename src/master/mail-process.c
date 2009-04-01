@@ -758,17 +758,6 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	child_process_init_env();
 
-	/* move the client socket into stdin and stdout fds, log to stderr */
-	if (dup2(dump_capability ? null_fd : request->fd, 0) < 0)
-		i_fatal("dup2(stdin) failed: %m");
-	if (dup2(request->fd, 1) < 0)
-		i_fatal("dup2(stdout) failed: %m");
-	if (dup2(log_fd, 2) < 0)
-		i_fatal("dup2(stderr) failed: %m");
-
-	for (i = 0; i < 3; i++)
-		fd_close_on_exec(i, FALSE);
-
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
 	restrict_access_set_env(system_groups_user, uid, gid,
@@ -900,9 +889,20 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		i_snprintf(title, sizeof(title), "[%s %s]", user, addr);
 	}
 
-	/* make sure we don't leak syslog fd, but do it last so that
-	   any errors above will be logged */
+	/* make sure we don't leak syslog fd. try to do it as late as possible,
+	   but also before dup2()s in case syslog fd is one of them. */
 	closelog();
+
+	/* move the client socket into stdin and stdout fds, log to stderr */
+	if (dup2(dump_capability ? null_fd : request->fd, 0) < 0)
+		i_fatal("dup2(stdin) failed: %m");
+	if (dup2(request->fd, 1) < 0)
+		i_fatal("dup2(stdout) failed: %m");
+	if (dup2(log_fd, 2) < 0)
+		i_fatal("dup2(stderr) failed: %m");
+
+	for (i = 0; i < 3; i++)
+		fd_close_on_exec(i, FALSE);
 
 	if (set->mail_drop_priv_before_exec) {
 		restrict_access_by_env(TRUE);

@@ -576,6 +576,10 @@ static int create_auth_process(struct auth_process_group *group)
 	(void)close(fd[0]);
 	(void)close(fd[1]);
 
+	/* make sure we don't leak syslog fd. try to do it as late as possible,
+	   but also before dup2()s in case syslog fd is one of them. */
+	closelog();
+
 	/* set stdout to /dev/null, so anything written into it gets ignored. */
 	if (dup2(null_fd, 1) < 0)
 		i_fatal("dup2(stdout) failed: %m");
@@ -602,10 +606,6 @@ static int create_auth_process(struct auth_process_group *group)
 				dec2str(getpid())));
 	env_put(t_strdup_printf("AUTH_WORKER_MAX_COUNT=%u",
 				group->set->worker_max_count));
-
-	/* make sure we don't leak syslog fd, but do it last so that
-	   any errors above will be logged */
-	closelog();
 
 	executable = group->set->executable;
 	client_process_exec(executable, "");
@@ -649,6 +649,10 @@ static int create_auth_worker(struct auth_process *process, int fd)
 				 process->group->set->name);
 	log_set_prefix(log, prefix);
 
+	/* make sure we don't leak syslog fd. try to do it as late as possible,
+	   but also before dup2()s in case syslog fd is one of them. */
+	closelog();
+
 	/* set stdin and stdout to /dev/null, so anything written into it
 	   gets ignored. */
 	if (dup2(null_fd, 0) < 0)
@@ -668,10 +672,6 @@ static int create_auth_worker(struct auth_process *process, int fd)
 
 	child_process_init_env();
         auth_set_environment(process->group->set);
-
-	/* make sure we don't leak syslog fd, but do it last so that
-	   any errors above will be logged */
-	closelog();
 
 	executable = t_strconcat(process->group->set->executable, " -w", NULL);
 	client_process_exec(executable, "");

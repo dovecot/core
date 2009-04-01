@@ -707,6 +707,10 @@ static pid_t create_login_process(struct login_group *group)
 			dup2_append(&dups, listens[i].fd, cur_fd);
 	}
 
+	/* make sure we don't leak syslog fd. try to do it as late as possible,
+	   but also before dup2()s in case syslog fd is one of them. */
+	closelog();
+
 	if (dup2_array(&dups) < 0)
 		i_fatal("Failed to dup2() fds");
 
@@ -723,10 +727,6 @@ static pid_t create_login_process(struct login_group *group)
 	env_put(t_strdup_printf("SSL_LISTEN_FDS=%u", ssl_listen_count));
 
 	restrict_process_size(group->set->login_process_size, (unsigned int)-1);
-
-	/* make sure we don't leak syslog fd, but do it last so that
-	   any errors above will be logged */
-	closelog();
 
 	client_process_exec(group->set->login_executable, "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
