@@ -24,7 +24,7 @@ static struct dotlock_settings dotlock_settings = {
 
 static struct ioloop *ioloop;
 
-static void sig_die(int signo ATTR_UNUSED, void *context ATTR_UNUSED)
+static void sig_die(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
 	io_loop_stop(ioloop);
 }

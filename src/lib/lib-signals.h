@@ -3,7 +3,7 @@
 
 #include <signal.h>
 
-typedef void signal_handler_t(int signo, void *context);
+typedef void signal_handler_t(const siginfo_t *si, void *context);
 
 /* Set signal handler for specific signal. If delayed is TRUE, the handler
    will be called later, ie. not as a real signal handler. */

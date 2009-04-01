@@ -176,7 +176,7 @@ log_coredump(string_t *str, enum process_type process_type, int status)
 #endif
 }
 
-static void sigchld_handler(int signo ATTR_UNUSED,
+static void sigchld_handler(const siginfo_t *si ATTR_UNUSED,
 			    void *context ATTR_UNUSED)
 {
 	struct child_process *process;
@@ -272,7 +272,7 @@ void child_processes_init(void)
 void child_processes_flush(void)
 {
 	/* make sure we log if child processes died unexpectedly */
-	sigchld_handler(SIGCHLD, NULL);
+	sigchld_handler(NULL, NULL);
 }
 
 void child_processes_deinit(void)

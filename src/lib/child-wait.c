@@ -69,7 +69,7 @@ void child_wait_remove_pid(struct child_wait *wait, pid_t pid)
 }
 
 static void
-sigchld_handler(int signo ATTR_UNUSED, void *context ATTR_UNUSED)
+sigchld_handler(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
 	struct child_wait_status status;
 

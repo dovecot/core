@@ -166,22 +166,22 @@ static void settings_reload(void)
 	}
 }
 
-static void sig_die(int signo, void *context ATTR_UNUSED)
+static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
 	   which is too common at least while testing :) */
-	if (signo != SIGINT)
-		i_warning("Killed with signal %d", signo);
+	if (si->si_signo != SIGINT)
+		i_warning("Killed with signal %d", si->si_signo);
 	io_loop_stop(ioloop);
 }
 
-static void sig_reload_settings(int signo ATTR_UNUSED,
+static void sig_reload_settings(const siginfo_t *si ATTR_UNUSED,
 				void *context ATTR_UNUSED)
 {
 	settings_reload();
 }
 
-static void sig_reopen_logs(int signo ATTR_UNUSED,
+static void sig_reopen_logs(const siginfo_t *si ATTR_UNUSED,
 			    void *context ATTR_UNUSED)
 {
 	set_logfile(settings_root->defaults);

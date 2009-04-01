@@ -23,12 +23,12 @@ static struct io *log_io;
 static struct module *modules;
 static struct dict_server *dict_server;
 
-static void sig_die(int signo, void *context ATTR_UNUSED)
+static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
 	   which is too common at least while testing :) */
-	if (signo != SIGINT)
-		i_warning("Killed with signal %d", signo);
+	if (si->si_signo != SIGINT)
+		i_warning("Killed with signal %d", si->si_signo);
 	io_loop_stop(ioloop);
 }
 
