@@ -194,6 +194,7 @@ static void dict_listener_deinit(struct dict_listener *listener)
 		io_remove(&listener->io);
 	if (close(listener->fd) < 0)
 		i_error("close(dict listener) failed: %m");
+	listener->fd = -1;
 
 	/* don't try to free the dict processes here,
 	   let dict_process_destroyed() do it to avoid "unknown child exited"
@@ -209,7 +210,7 @@ dict_process_destroyed(struct child_process *_process,
 	struct dict_listener *listener = process->listener;
 
 	dict_process_deinit(process);
-	if (listener->processes == NULL) {
+	if (listener->processes == NULL && listener->fd != -1) {
 		/* last listener died, create new ones */
 		listener->io = io_add(listener->fd, IO_READ,
 				      dict_listener_input, listener);
