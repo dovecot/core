@@ -388,9 +388,9 @@ fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 		str_append_c(fq, '(');
 		for (i = 0; i < inc_count; i++) {
 			if (i != 0)
-				str_append(fq, " OR %2B");
+				str_append(fq, " OR +");
 			str_append_c(fq, '(');
-			str_append(fq, "%2Bbox:");
+			str_append(fq, "+box:");
 			solr_add_pattern(fq, &includes[i]);
 			solr_add_ns_query(fq, _backend, includes[i].ns);
 			str_append_c(fq, ')');
