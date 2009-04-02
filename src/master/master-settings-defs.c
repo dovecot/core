@@ -99,7 +99,6 @@ static struct setting_def setting_defs[] = {
 	DEF_INT(dbox_rotate_size),
 	DEF_INT(dbox_rotate_min_size),
 	DEF_INT(dbox_rotate_days),
-	DEF_INT(umask),
 	DEF_BOOL(mail_drop_priv_before_exec),
 
 	DEF_STR(mail_executable),

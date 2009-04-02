@@ -384,7 +384,7 @@ mail_process_set_environment(struct settings *set, const char *mail,
 	   (e.g. epoll_ctl() gives EPERM). */
 	if (set->shutdown_clients && !exec_mail)
 		env_put("STDERR_CLOSE_SHUTDOWN=1");
-	(void)umask(set->umask);
+	(void)umask(0077);
 
 	env_put(t_strconcat("LOCK_METHOD=", set->lock_method, NULL));
 	env_put(t_strconcat("MBOX_READ_LOCKS=", set->mbox_read_locks, NULL));
