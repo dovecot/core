@@ -348,7 +348,8 @@ const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
 {
 	str_truncate(dest, 0);
 	if ((ns->flags & NAMESPACE_FLAG_INBOX) == 0 ||
-	    strcasecmp(name, "INBOX") != 0)
+	    strcasecmp(name, "INBOX") != 0 ||
+	    ns->user != ns->owner)
 		str_append(dest, ns->prefix);
 
 	for (; *name != '\0'; name++) {

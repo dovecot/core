@@ -235,31 +235,27 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 	}
 
 	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
-		/* make sure INBOX is there */
+		/* make sure INBOX is listed */
+		if (!virtual_names)
+			mailbox_name = "INBOX";
+		else {
+			mailbox_name = mail_namespace_get_vname(ns, mailbox,
+								"INBOX");
+		}
+
 		created = FALSE;
 		node = update_only ?
-			mailbox_tree_lookup(ctx->tree_ctx, "INBOX") :
-			mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
+			mailbox_tree_lookup(ctx->tree_ctx, mailbox_name) :
+			mailbox_tree_get(ctx->tree_ctx, mailbox_name, &created);
 		if (created)
 			node->flags = MAILBOX_NOCHILDREN;
 		else if (node != NULL)
 			node->flags &= ~MAILBOX_NONEXISTENT;
 
-		match = imap_match(glob, "INBOX");
+		match = imap_match(glob, mailbox_name);
 		if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0) {
 			if (!update_only)
 				node->flags |= MAILBOX_MATCHED;
-		}
-	} else if (mailbox_tree_lookup(ctx->tree_ctx, "INBOX") == NULL &&
-		   imap_match(glob, "INBOX") == IMAP_MATCH_YES) {
-		/* see if INBOX exists. */
-		ret = ctx->ctx.list->v.
-			iter_is_mailbox(&ctx->ctx, ctx->dir, "", "INBOX",
-					MAILBOX_LIST_FILE_TYPE_UNKNOWN, &flags);
-		if (ret > 0) {
-			node = mailbox_tree_get(ctx->tree_ctx,
-				t_strconcat(ns->prefix, "INBOX", NULL), NULL);
-			node->flags = MAILBOX_NOCHILDREN | MAILBOX_MATCHED;
 		}
 	}
 	return 0;
