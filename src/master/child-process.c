@@ -169,6 +169,19 @@ log_coredump(string_t *str, enum process_type process_type, int status)
 #endif
 		str_append(str, " (core not dumped - is home dir set?)");
 		return;
+	case PROCESS_TYPE_AUTH:
+	case PROCESS_TYPE_AUTH_WORKER:
+		if (settings_root->auths->uid == 0)
+			break;
+#ifdef HAVE_PR_SET_DUMPABLE
+		str_printfa(str, " (core not dumped - "
+			    "no permissions for auth user %s in %s?)",
+			    settings_root->auths->user,
+			    settings_root->defaults->base_dir);
+#else
+		str_append(str, " (core not dumped - auth user is not root)");
+#endif
+		return;
 	default:
 		break;
 	}

@@ -234,6 +234,7 @@ static void drop_privileges(void)
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(FALSE);
+	restrict_access_allow_coredumps(TRUE);
 }
 
 static void main_init(bool nodaemon)
