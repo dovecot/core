@@ -35,8 +35,14 @@ void io_loop_handler_init(struct ioloop *ioloop, unsigned int initial_fd_count)
 	i_array_init(&ctx->fd_index, initial_fd_count);
 
 	ctx->epfd = epoll_create(initial_fd_count);
-	if (ctx->epfd < 0)
-		i_fatal("epoll_create(): %m");
+	if (ctx->epfd < 0) {
+		if (errno != EMFILE)
+			i_fatal("epoll_create(): %m");
+		else {
+			i_fatal("epoll_create(): %m (you may need to increase "
+				"/proc/sys/fs/epoll/max_user_instances)");
+		}
+	}
 	fd_close_on_exec(ctx->epfd, TRUE);
 }
 
