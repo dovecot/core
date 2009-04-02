@@ -27,7 +27,9 @@ enum namespace_flags {
 	NAMESPACE_FLAG_AUTOCREATED	= 0x2000,
 	/* Namespace has at least some usable mailboxes. Autocreated namespaces
 	   that don't have usable mailboxes may be removed automatically. */
-	NAMESPACE_FLAG_USABLE		= 0x4000
+	NAMESPACE_FLAG_USABLE		= 0x4000,
+	/* Automatically created namespace for a user that doesn't exist. */
+	NAMESPACE_FLAG_UNUSABLE		= 0x8000
 };
 
 struct mail_namespace {

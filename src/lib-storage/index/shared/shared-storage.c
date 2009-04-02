@@ -234,8 +234,10 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	location = t_str_new(256);
 	if (ret > 0)
 		var_expand(location, storage->location, tab);
-	else
+	else {
 		get_nonexisting_user_location(storage, userdomain, location);
+		ns->flags |= NAMESPACE_FLAG_UNUSABLE;
+	}
 	if (mail_storage_create(ns, NULL, str_c(location), _storage->flags,
 				_storage->lock_method, &error) < 0) {
 		mail_storage_set_critical(_storage, "Namespace '%s': %s",

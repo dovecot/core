@@ -185,6 +185,12 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	if (rootdir == NULL)
 		return 0;
 
+	ns = mailbox_list_get_namespace(list);
+	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
+		/* we can't write anything here */
+		return 0;
+	}
+
 	path = t_str_new(256);
 	str_printfa(path, "%s/%s", rootdir, mailbox_list_get_temp_prefix(list));
 
@@ -206,7 +212,6 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 
 	ret = 0;
 	acllist_clear(backend, 0);
-	ns = mailbox_list_get_namespace(list);
 
 	backend->rebuilding_acllist = TRUE;
 	iter = mailbox_list_iter_init(list, "*", MAILBOX_LIST_ITER_RAW_LIST |
