@@ -33,6 +33,7 @@ struct acl_backend_vfile {
 
 	unsigned int cache_secs;
 	unsigned int rebuilding_acllist:1;
+	unsigned int iterating_acllist:1;
 };
 
 void acl_backend_vfile_acllist_refresh(struct acl_backend_vfile *backend);

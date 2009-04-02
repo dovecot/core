@@ -113,6 +113,8 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 
 void acl_backend_vfile_acllist_refresh(struct acl_backend_vfile *backend)
 {
+	i_assert(!backend->iterating_acllist);
+
 	if (backend->acllist_last_check +
 	    (time_t)backend->cache_secs > ioloop_time)
 		return;
@@ -176,6 +178,8 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	gid_t gid;
 	int fd, ret;
 
+	i_assert(!backend->rebuilding_acllist);
+
 	rootdir = mailbox_list_get_path(list, NULL,
 					MAILBOX_LIST_PATH_TYPE_DIR);
 	if (rootdir == NULL)
@@ -218,7 +222,6 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	if (mailbox_list_iter_deinit(&iter) < 0)
 		ret = -1;
 	o_stream_destroy(&output);
-	backend->rebuilding_acllist = FALSE;
 
 	if (ret == 0) {
 		if (fstat(fd, &st) < 0) {
@@ -251,6 +254,7 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 		if (unlink(str_c(path)) < 0 && errno != ENOENT)
 			i_error("unlink(%s) failed: %m", str_c(path));
 	}
+	backend->rebuilding_acllist = FALSE;
 	return ret;
 }
 
@@ -274,10 +278,12 @@ void acl_backend_vfile_acllist_verify(struct acl_backend_vfile *backend,
 {
 	const struct acl_backend_vfile_acllist *acllist;
 
+	if (backend->rebuilding_acllist || backend->iterating_acllist)
+		return;
+
 	acl_backend_vfile_acllist_refresh(backend);
 	acllist = acl_backend_vfile_acllist_find(backend, name);
-	if (acllist != NULL && acllist->mtime != mtime &&
-	    !backend->rebuilding_acllist)
+	if (acllist != NULL && acllist->mtime != mtime)
 		(void)acl_backend_vfile_acllist_rebuild(backend);
 }
 
@@ -292,6 +298,7 @@ acl_backend_vfile_nonowner_iter_init(struct acl_backend *_backend)
 
 	ctx = i_new(struct acl_mailbox_list_context_vfile, 1);
 	ctx->ctx.backend = _backend;
+	backend->iterating_acllist = TRUE;
 	return &ctx->ctx;
 }
 
@@ -316,5 +323,9 @@ int acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *_ctx,
 void
 acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx)
 {
+	struct acl_backend_vfile *backend =
+		(struct acl_backend_vfile *)ctx->backend;
+
+	backend->iterating_acllist = FALSE;
 	i_free(ctx);
 }
