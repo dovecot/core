@@ -479,11 +479,12 @@ void clients_notify_auth_connected(void)
 
 void clients_destroy_all(void)
 {
-	struct client *client;
+	struct client *client, *next;
 
-	for (client = clients; client != NULL; client = client->next) {
+	for (client = clients; client != NULL; client = next) {
 		struct pop3_client *pop3_client = (struct pop3_client *)client;
 
+		next = client->next;
 		client_destroy(pop3_client, "Disconnected: Shutting down");
 	}
 }

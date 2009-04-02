@@ -687,11 +687,12 @@ void clients_notify_auth_connected(void)
 
 void clients_destroy_all(void)
 {
-	struct client *client;
+	struct client *client, *next;
 
-	for (client = clients; client != NULL; client = client->next) {
+	for (client = clients; client != NULL; client = next) {
 		struct imap_client *imap_client = (struct imap_client *)client;
 
+		next = client->next;
 		client_destroy(imap_client, "Disconnected: Shutting down");
 	}
 }
