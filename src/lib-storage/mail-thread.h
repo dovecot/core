@@ -9,7 +9,7 @@ enum mail_thread_type {
 	MAIL_THREAD_NONE,
 	MAIL_THREAD_ORDEREDSUBJECT,
 	MAIL_THREAD_REFERENCES,
-	MAIL_THREAD_REFERENCES2
+	MAIL_THREAD_REFS
 };
 
 struct mail_thread_child_node {

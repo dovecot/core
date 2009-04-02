@@ -83,7 +83,7 @@ static int imap_thread(struct client_command_context *cmd,
 	int ret;
 
 	i_assert(thread_type == MAIL_THREAD_REFERENCES ||
-		 thread_type == MAIL_THREAD_REFERENCES2);
+		 thread_type == MAIL_THREAD_REFS);
 
 	str = str_new(default_pool, 1024);
 	ret = mail_thread_init(cmd->client->mailbox,

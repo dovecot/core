@@ -543,7 +543,7 @@ static void mail_thread_finish(struct thread_finish_context *ctx,
 			sort_root_nodes(ctx);
 		}
 		break;
-	case MAIL_THREAD_REFERENCES2:
+	case MAIL_THREAD_REFS:
 		sort_root_nodes_ref2(ctx, record_count);
 		break;
 	default:
