@@ -152,8 +152,7 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 
 	if (storage == NULL) {
 		/* the default ACL for mailbox list */
-		dir = mailbox_list_get_path(_backend->list, NULL,
-					    MAILBOX_LIST_PATH_TYPE_DIR);
+		dir = NULL;
 	} else {
 		dir = acl_backend_vfile_get_local_dir(storage, name);
 	}
