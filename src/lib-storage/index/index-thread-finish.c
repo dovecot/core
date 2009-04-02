@@ -420,10 +420,20 @@ static void sort_root_nodes_ref2(struct thread_finish_context *ctx,
 	const struct mail_thread_node *node;
 	struct mail_thread_root_node *roots, *root;
 	struct mail_thread_child_node child;
+	const struct mail_thread_shadow_node *shadows;
 	unsigned int root_count;
 	uint32_t idx, parent_idx;
 
 	roots = array_get_modifiable(&ctx->roots, &root_count);
+
+	/* drop childless dummy nodes */
+	shadows = array_idx(&ctx->shadow_nodes, 0);
+	for (idx = 1; idx < root_count; idx++) {
+		if (roots[idx].dummy &&
+		    shadows[roots[idx].node.idx].first_child_idx == 0)
+			roots[idx].ignore = TRUE;
+	}
+
 	for (idx = 1; idx < record_count; idx++) {
 		node = array_idx(&ctx->cache->thread_nodes, idx);
 		if (!MAIL_THREAD_NODE_EXISTS(node))
