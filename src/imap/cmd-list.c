@@ -214,6 +214,33 @@ static bool list_namespace_has_children(struct cmd_list_context *ctx)
 	return ret;
 }
 
+static const char *ns_get_listed_prefix(struct cmd_list_context *ctx,
+					bool *have_children)
+{
+	struct imap_match_glob *glob;
+	enum imap_match_result match;
+	const char *ns_prefix, *p;
+
+	glob = imap_match_init_multiple(pool_datastack_create(),
+					ctx->patterns, FALSE, ctx->ns->sep);
+	ns_prefix = ctx->ns->prefix;
+	match = imap_match(glob, ns_prefix);
+	if (match == IMAP_MATCH_YES) {
+		return !ctx->cur_ns_skip_trailing_sep ? ns_prefix :
+			t_strndup(ns_prefix, strlen(ns_prefix)-1);
+	}
+
+	while ((match & IMAP_MATCH_PARENT) != 0) {
+		p = strrchr(ns_prefix, ctx->ns->sep);
+		i_assert(p != NULL);
+		ns_prefix = t_strdup_until(ns_prefix, p);
+		match = imap_match(glob, ns_prefix);
+	}
+	i_assert(match == IMAP_MATCH_YES);
+	*have_children = TRUE;
+	return ns_prefix;
+}
+
 static void
 list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 {
@@ -248,6 +275,8 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 		flags = MAILBOX_NONEXISTENT;
 	}
 
+	name = ns_get_listed_prefix(ctx, &have_children);
+
 	if ((flags & MAILBOX_CHILDREN) == 0) {
 		if (have_children || list_namespace_has_children(ctx)) {
 			flags |= MAILBOX_CHILDREN;
@@ -269,9 +298,6 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 		/* namespace has children but they don't match the list
 		   pattern. the prefix itself matches though, so show it. */
 	}
-
-	name = ctx->cur_ns_skip_trailing_sep ?
-		t_strndup(ctx->ns->prefix, len-1) : ctx->ns->prefix;
 
 	str = t_str_new(128);
 	str_append(str, "* LIST (");
@@ -583,6 +609,21 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 		for (p = orig_cur_pattern; *p != '\0'; p++) {
 			if (*p == '*')
 				return TRUE;
+		}
+	} else {
+		while ((match & IMAP_MATCH_PARENT) != 0) {
+			p = strrchr(cur_ns_prefix, ns->sep);
+			if (p == NULL)
+				break;
+			cur_ns_prefix = t_strdup_until(cur_ns_prefix, p);
+			match = imap_match(pat_glob, cur_ns_prefix);
+		}
+		if (match == IMAP_MATCH_YES &&
+		    mail_namespace_find_prefix_nosep(ns->user->namespaces,
+						     cur_ns_prefix) == NULL) {
+			/* ns prefix="foo/bar/" and we're listing e.g. % */
+			if (list_want_send_prefix(ctx, orig_cur_pattern))
+				ctx->cur_ns_send_prefix = TRUE;
 		}
 	}
 
