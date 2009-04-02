@@ -223,7 +223,8 @@ iter_is_listing_all_children(struct acl_mailbox_list_iterate_context *ctx)
 }
 
 static bool
-iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx)
+iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx,
+				  bool only_nonpatterns)
 {
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
@@ -268,7 +269,8 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx)
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	iter = mailbox_list_iter_init(ctx->ctx.list, str_c(pattern), flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (imap_match(ctx->glob, info->name) == IMAP_MATCH_YES) {
+		if (only_nonpatterns &&
+		    imap_match(ctx->glob, info->name) == IMAP_MATCH_YES) {
 			/* at least one child matches also the original list
 			   patterns. we don't need to show this mailbox. */
 			ret = FALSE;
@@ -298,8 +300,14 @@ acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx)
 	ret = acl_mailbox_list_have_right(ctx->ctx.list, acl_name,
 					  ACL_STORAGE_RIGHT_LOOKUP,
 					  NULL);
-	if (ret != 0)
+	if (ret != 0) {
+		if ((info->flags & MAILBOX_CHILDREN) != 0 &&
+		    !iter_mailbox_has_visible_children(ctx, FALSE)) {
+			info->flags &= ~MAILBOX_CHILDREN;
+			info->flags |= MAILBOX_NOCHILDREN;
+		}
 		return ret;
+	}
 
 	/* no permission to see this mailbox */
 	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
@@ -313,11 +321,11 @@ acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx)
 	}
 
 	if (!iter_is_listing_all_children(ctx) &&
-	    iter_mailbox_has_visible_children(ctx)) {
+	    iter_mailbox_has_visible_children(ctx, TRUE)) {
 		/* no child mailboxes match the list pattern(s), but mailbox
 		   has visible children. we'll need to show this as
 		   non-existent. */
-		info->flags = MAILBOX_NONEXISTENT |
+		info->flags = MAILBOX_NONEXISTENT | MAILBOX_CHILDREN |
 			(info->flags & PRESERVE_MAILBOX_FLAGS);
 		return 1;
 	}
