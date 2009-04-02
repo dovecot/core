@@ -163,6 +163,15 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 #ifdef FS_QUOTA_SOLARIS
 	mount->fd = -1;
 #endif
+
+	if (strcmp(mount->type, "nfs") == 0) {
+		if (strchr(mount->device_path, ':') == NULL) {
+			i_error("quota-fs: %s is not a valid NFS device path",
+				mount->device_path);
+			fs_quota_mountpoint_free(mount);
+			return NULL;
+		}
+	}
 	return mount;
 }
 
@@ -287,9 +296,8 @@ fs_quota_root_get_resources(struct quota_root *_root)
 }
 
 #ifdef HAVE_RQUOTA
-/* retrieve user quota from a remote host */
-static int do_rquota(struct fs_quota_root *root, bool bytes,
-		     uint64_t *value_r, uint64_t *limit_r)
+static int do_rquota_user(struct fs_quota_root *root, bool bytes,
+			  uint64_t *value_r, uint64_t *limit_r)
 {
 	struct getquota_rslt result;
 	struct getquota_args args;
@@ -301,11 +309,7 @@ static int do_rquota(struct fs_quota_root *root, bool bytes,
 	char *path;
 
 	path = strchr(mount->device_path, ':');
-	if (path == NULL) {
-		i_error("quota-fs: %s is not a valid NFS device path",
-			mount->device_path);
-		return -1;
-	}
+	i_assert(path != NULL);
 
 	host = t_strdup_until(mount->device_path, path);
 	path++;
@@ -353,7 +357,7 @@ static int do_rquota(struct fs_quota_root *root, bool bytes,
 	switch (result.status) {
 	case Q_OK: {
 		/* convert the results from blocks to bytes */
-		rquota *rq = &result.getquota_rslt_u.gqr_rquota;
+		const rquota *rq = &result.getquota_rslt_u.gqr_rquota;
 
 		if (rq->rq_active) {
 			if (bytes) {
@@ -388,6 +392,110 @@ static int do_rquota(struct fs_quota_root *root, bool bytes,
 			"from rquota service", result.status);
 		return -1;
 	}
+}
+
+static int do_rquota_group(struct fs_quota_root *root, bool bytes,
+			   uint64_t *value_r, uint64_t *limit_r)
+{
+#ifdef EXT_RQUOTAVERS
+	struct getquota_rslt result;
+	ext_getquota_args args;
+	struct timeval timeout;
+	enum clnt_stat call_status;
+	CLIENT *cl;
+	struct fs_quota_mountpoint *mount = root->mount;
+	const char *host;
+	char *path;
+
+	path = strchr(mount->device_path, ':');
+	i_assert(path != NULL);
+
+	host = t_strdup_until(mount->device_path, path);
+	path++;
+
+	if (root->root.quota->set->debug) {
+		i_info("quota-fs: host=%s, path=%s, gid=%s",
+			host, path, dec2str(root->gid));
+	}
+
+	/* clnt_create() polls for a while to establish a connection */
+	cl = clnt_create(host, RQUOTAPROG, EXT_RQUOTAVERS, "udp");
+	if (cl == NULL) {
+		i_error("quota-fs: could not contact RPC service on %s (group)",
+			host);
+		return -1;
+	}
+
+	/* Establish some RPC credentials */
+	auth_destroy(cl->cl_auth);
+	cl->cl_auth = authunix_create_default();
+
+	/* make the rquota call on the remote host */
+	args.gqa_pathp = path;
+	args.gqa_id = root->gid;
+	args.gqa_type = GRPQUOTA;
+	timeout.tv_sec = RQUOTA_GETQUOTA_TIMEOUT_SECS;
+	timeout.tv_usec = 0;
+
+	call_status = clnt_call(cl, RQUOTAPROC_GETQUOTA,
+				(xdrproc_t)xdr_ext_getquota_args, (char *)&args,
+				(xdrproc_t)xdr_getquota_rslt, (char *)&result,
+				timeout);
+
+	/* the result has been deserialized, let the client go */
+	auth_destroy(cl->cl_auth);
+	clnt_destroy(cl);
+
+	if (call_status != RPC_SUCCESS) {
+		const char *rpc_error_msg = clnt_sperrno(call_status);
+
+		i_error("quota-fs: remote ext rquota call failed: %s",
+			rpc_error_msg);
+		return -1;
+	}
+
+	switch (result.status) {
+	case Q_OK: {
+		/* convert the results from blocks to bytes */
+		const rquota *rq = &result.getquota_rslt_u.gqr_rquota;
+
+		if (rq->rq_active) {
+			if (bytes) {
+				*value_r = (uint64_t)rq->rq_curblocks *
+					(uint64_t)rq->rq_bsize;
+				*limit_r = (uint64_t)rq->rq_bsoftlimit *
+					(uint64_t)rq->rq_bsize;
+			} else {
+				*value_r = rq->rq_curfiles;
+				*limit_r = rq->rq_fsoftlimit;
+			}
+		}
+		if (root->root.quota->set->debug) {
+			i_info("quota-fs: gid=%s, value=%llu, "
+			       "limit=%llu, active=%d", dec2str(root->gid),
+			       (unsigned long long)*value_r,
+			       (unsigned long long)*limit_r, rq->rq_active);
+		}
+		return 1;
+	}
+	case Q_NOQUOTA:
+		if (root->root.quota->set->debug) {
+			i_info("quota-fs: gid=%s, limit=unlimited",
+			       dec2str(root->gid));
+		}
+		return 1;
+	case Q_EPERM:
+		i_error("quota-fs: permission denied to ext rquota service");
+		return -1;
+	default:
+		i_error("quota-fs: unrecognized status code (%d) "
+			"from ext rquota service", result.status);
+		return -1;
+	}
+#else
+	i_error("quota-fs: rquota not compiled with group support");
+	return -1;
+#endif
 }
 #endif
 
@@ -643,7 +751,9 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 #ifdef HAVE_RQUOTA
 	if (strcmp(root->mount->type, "nfs") == 0) {
 		T_BEGIN {
-			ret = do_rquota(root, bytes, value_r, &limit);
+			ret = root->group_disabled ?
+				do_rquota_user(root, bytes, value_r, &limit) :
+				do_rquota_group(root, bytes, value_r, &limit);
 		} T_END;
 	} else
 #endif
