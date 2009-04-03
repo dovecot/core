@@ -47,7 +47,6 @@ struct index_mailbox {
 
 	const ARRAY_TYPE(keywords) *keyword_names;
 	struct mail_cache_field *cache_fields;
-	unsigned int mail_cache_min_mail_count;
 
 	ARRAY_TYPE(seq_range) recent_flags;
 	uint32_t recent_flags_prev_uid;
@@ -63,7 +62,6 @@ struct index_mailbox {
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int notify_pending:1;
 	unsigned int move_to_memory:1;
-	unsigned int fsync_disable:1;
 	unsigned int keep_index_backups:1;
 	unsigned int index_never_in_memory:1;
 };
@@ -101,8 +99,6 @@ void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 void index_storage_destroy(struct mail_storage *storage ATTR_UNUSED);
 
-enum mail_index_open_flags
-index_storage_get_index_open_flags(struct mail_storage *storage);
 void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 				enum mailbox_open_flags flags,
 				bool move_to_memory);

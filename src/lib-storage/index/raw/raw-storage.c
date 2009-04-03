@@ -30,7 +30,7 @@ raw_get_list_settings(struct mailbox_list_settings *list_set,
 		      const char *data, struct mail_storage *storage,
 		      const char **layout_r, const char **error_r)
 {
-	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = storage->set->mail_debug;
 
 	*layout_r = "fs";
 
@@ -102,7 +102,7 @@ static int raw_create(struct mail_storage *_storage, const char *data,
 
 	/* finish list init after we've overridden vfuncs */
 	mailbox_list_init(_storage->list, _storage->ns, &list_set,
-			  mail_storage_get_list_flags(_storage->flags));
+			  MAILBOX_LIST_FLAG_MAILBOX_FILES);
 	return 0;
 }
 
@@ -258,6 +258,7 @@ struct mail_storage raw_storage = {
 	MEMBER(mailbox_is_file) TRUE,
 
 	{
+		NULL,
 		raw_class_init,
 		raw_class_deinit,
 		raw_alloc,

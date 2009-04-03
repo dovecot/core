@@ -37,8 +37,6 @@ cydir_get_list_settings(struct mailbox_list_settings *list_set,
 			const char *data, struct mail_storage *storage,
 			const char **layout_r, const char **error_r)
 {
-	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
-
 	*layout_r = "fs";
 
 	memset(list_set, 0, sizeof(*list_set));
@@ -47,13 +45,13 @@ cydir_get_list_settings(struct mailbox_list_settings *list_set,
 
 	if (data == NULL || *data == '\0' || *data == ':') {
 		/* we won't do any guessing for this format. */
-		if (debug)
+		if (storage->set->mail_debug)
 			i_info("cydir: mailbox location not given");
 		*error_r = "Root mail directory not given";
 		return -1;
 	}
 
-	if (debug)
+	if (storage->set->mail_debug)
 		i_info("cydir: data=%s", data);
 	return mailbox_list_settings_parse(data, list_set, storage->ns,
 					   layout_r, NULL, error_r);
@@ -125,8 +123,7 @@ static int cydir_create(struct mail_storage *_storage, const char *data,
 				storage, &storage->list_module_ctx);
 
 	/* finish list init after we've overridden vfuncs */
-	mailbox_list_init(_storage->list, _storage->ns, &list_set,
-			  mail_storage_get_list_flags(_storage->flags));
+	mailbox_list_init(_storage->list, _storage->ns, &list_set, 0);
 	return 0;
 }
 
@@ -409,6 +406,7 @@ struct mail_storage cydir_storage = {
 	MEMBER(mailbox_is_file) FALSE,
 
 	{
+		NULL,
 		cydir_class_init,
 		cydir_class_deinit,
 		cydir_alloc,

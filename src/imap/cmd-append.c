@@ -514,7 +514,7 @@ bool cmd_append(struct client_command_context *cmd)
 	o_stream_unset_flush_callback(client->output);
 
 	ctx->save_parser = imap_parser_create(client->input, client->output,
-					      imap_max_line_length);
+					      client->set->imap_max_line_length);
 
 	cmd->func = cmd_append_continue_parsing;
 	cmd->context = ctx;

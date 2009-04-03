@@ -94,7 +94,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			const char *error = t_strdup_printf(
 				"Requested %s scheme, but we have only %s",
 				wanted_scheme, input_scheme);
-			if (auth_request->auth->verbose_debug_passwords) {
+			if (auth_request->auth->set->debug_passwords) {
 				error = t_strdup_printf("%s (input: %s)",
 							error, input);
 			}
@@ -112,7 +112,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			username = t_strconcat(username, "@",
 					       auth_request->realm, NULL);
 		}
-		if (auth_request->auth->verbose_debug_passwords) {
+		if (auth_request->auth->set->debug_passwords) {
 			auth_request_log_info(auth_request, "password",
 				"Generating %s from user '%s', password '%s'",
 				wanted_scheme, username, plaintext);
@@ -154,31 +154,34 @@ void passdb_handle_credentials(enum passdb_result result,
 	callback(result, credentials, size, auth_request);
 }
 
-struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
-				   const char *args, unsigned int id)
+struct auth_passdb *
+passdb_preinit(struct auth *auth, struct auth_passdb_settings *set)
 {
 	struct passdb_module_interface *iface;
-        struct auth_passdb *auth_passdb;
-
-	if (args == NULL) args = "";
+        struct auth_passdb *auth_passdb, **dest;
 
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
 	auth_passdb->auth = auth;
-        auth_passdb->args = p_strdup(auth->pool, args);
-        auth_passdb->id = id;
+	auth_passdb->args = set->args == NULL ? "" :
+		p_strdup(auth->pool, set->args);
+	auth_passdb->deny = set->deny;
 
-	iface = passdb_interface_find(driver);
+	for (dest = &auth->passdbs; *dest != NULL; dest = &(*dest)->next)
+		auth_passdb->id++;
+	*dest = auth_passdb;
+
+	iface = passdb_interface_find(set->driver);
 	if (iface == NULL)
-		i_fatal("Unknown passdb driver '%s'", driver);
+		i_fatal("Unknown passdb driver '%s'", set->driver);
 	if (iface->verify_plain == NULL) {
 		i_fatal("Support not compiled in for passdb driver '%s'",
-			driver);
+			set->driver);
 	}
 
 	if (iface->preinit == NULL && iface->init == NULL &&
 	    *auth_passdb->args != '\0') {
 		i_fatal("passdb %s: No args are supported: %s",
-			driver, auth_passdb->args);
+			set->driver, auth_passdb->args);
 	}
 
 	if (iface->preinit == NULL) {
@@ -202,7 +205,7 @@ void passdb_init(struct auth_passdb *passdb)
 
 	if (passdb->passdb->blocking && !worker) {
 		/* blocking passdb - we need an auth server */
-		auth_worker_server_init();
+		auth_worker_server_init(passdb->auth);
 	}
 }
 

@@ -1,3 +1,10 @@
+ - dict pooling
+ - config rewrite
+   - go through mail-process.c. nfs test?
+   - support !include and !include_try
+   - add back all setting verification code from master
+   - master_user, acl_groups are now plugin envs.. is it correct?
+
 	/* currently non-external transactions can be applied multiple times,
 	   causing multiple increments. */
 	//FIXME:i_assert((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);

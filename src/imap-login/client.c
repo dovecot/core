@@ -52,7 +52,8 @@ static void client_set_title(struct imap_client *client)
 {
 	const char *addr;
 
-	if (!verbose_proctitle || !process_per_connection)
+	if (!login_settings->verbose_proctitle ||
+	    !login_settings->login_process_per_connection)
 		return;
 
 	addr = net_ip2addr(&client->common.ip);
@@ -99,7 +100,8 @@ static const char *get_capability(struct imap_client *client, bool full)
 	return t_strconcat(full ? capability_string : CAPABILITY_BANNER_STRING,
 			   (ssl_initialized && !client->common.tls) ?
 			   " STARTTLS" : "",
-			   disable_plaintext_auth && !client->common.secured ?
+			   login_settings->disable_plaintext_auth &&
+			   !client->common.secured ?
 			   " LOGINDISABLED" : "", auths, NULL);
 }
 
@@ -423,6 +425,7 @@ void client_input(struct imap_client *client)
 
 void client_destroy_oldest(void)
 {
+	unsigned int max_connections = login_settings->login_max_connections;
 	struct client *client;
 	struct imap_client *destroy_buf[CLIENT_DESTROY_OLDEST_COUNT];
 	unsigned int i, destroy_count;
@@ -465,7 +468,7 @@ static void client_send_greeting(struct imap_client *client)
 	greet = t_str_new(128);
 	str_append(greet, "* OK ");
 	str_printfa(greet, "[CAPABILITY %s] ", get_capability(client, FALSE));
-	str_append(greet, greeting);
+	str_append(greet, login_settings->login_greeting);
 
 	client_send_line(client, str_c(greet));
 	client->greeting_sent = TRUE;

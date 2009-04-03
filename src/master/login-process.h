@@ -8,7 +8,7 @@ struct login_group {
 	int refcount;
 
 	enum process_type mail_process_type;
-	struct settings *set;
+	struct master_settings *set;
 
 	unsigned int processes;
 	unsigned int listening_processes;

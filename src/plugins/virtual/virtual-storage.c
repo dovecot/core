@@ -72,7 +72,7 @@ virtual_get_list_settings(struct mailbox_list_settings *list_set,
 			  const char *data, struct mail_storage *storage,
 			  const char **layout_r, const char **error_r)
 {
-	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = storage->set->mail_debug;
 
 	*layout_r = "fs";
 
@@ -147,8 +147,7 @@ static int virtual_create(struct mail_storage *_storage, const char *data,
 				storage, &storage->list_module_ctx);
 
 	/* finish list init after we've overridden vfuncs */
-	mailbox_list_init(_storage->list, _storage->ns, &list_set,
-			  mail_storage_get_list_flags(_storage->flags));
+	mailbox_list_init(_storage->list, _storage->ns, &list_set, 0);
 	return 0;
 }
 
@@ -618,6 +617,7 @@ struct mail_storage virtual_storage = {
 	MEMBER(mailbox_is_file) FALSE,
 
 	{
+		NULL,
 		virtual_class_init,
 		virtual_class_deinit,
 		virtual_alloc,

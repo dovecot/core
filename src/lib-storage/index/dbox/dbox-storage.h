@@ -3,6 +3,7 @@
 
 #include "index-storage.h"
 #include "mailbox-list-private.h"
+#include "dbox-settings.h"
 
 #define DBOX_STORAGE_NAME "dbox"
 #define DBOX_SUBSCRIPTION_FILE_NAME "subscriptions"
@@ -25,13 +26,6 @@
 /* Delete temp files having ctime older than this. */
 #define DBOX_TMP_DELETE_SECS (36*60*60)
 
-/* Default dbox settings */
-#define DBOX_DEFAULT_ROTATE_SIZE (2*1024*1024)
-#define DBOX_DEFAULT_ROTATE_MIN_SIZE (1024*16)
-#define DBOX_DEFAULT_ROTATE_DAYS 0
-#define DBOX_DEFAULT_MAX_OPEN_FILES 64
-#define DBOX_DEFAULT_PURGE_MIN_PERCENTAGE 0
-
 /* Flag specifies if the message should be in primary or alternative storage */
 #define DBOX_INDEX_FLAG_ALT MAIL_INDEX_MAIL_FLAG_BACKEND
 
@@ -43,6 +37,7 @@ struct dbox_index_header {
 struct dbox_storage {
 	struct mail_storage storage;
 	union mailbox_list_module_context list_module_ctx;
+	const struct dbox_settings *set;
 
 	/* root path for alt directory */
 	const char *alt_dir;
@@ -54,10 +49,6 @@ struct dbox_storage {
 	mode_t create_mode;
 	gid_t create_gid;
 
-	uoff_t rotate_size, rotate_min_size;
-	unsigned int rotate_days;
-	unsigned int max_open_files;
-	unsigned int purge_min_percentage;
 	ARRAY_DEFINE(open_files, struct dbox_file *);
 
 	unsigned int sync_rebuild:1;

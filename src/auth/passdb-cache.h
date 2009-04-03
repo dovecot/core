@@ -14,7 +14,7 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 				     enum passdb_result *result_r,
 				     bool use_expired);
 
-void passdb_cache_init(void);
+void passdb_cache_init(const struct auth_settings *set);
 void passdb_cache_deinit(void);
 
 #endif

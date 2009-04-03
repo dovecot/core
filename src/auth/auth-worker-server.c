@@ -28,6 +28,7 @@ struct auth_worker_request {
 };
 
 struct auth_worker_connection {
+	struct auth *auth;
 	int fd;
 
 	struct io *io;
@@ -43,8 +44,6 @@ struct auth_worker_connection {
 
 static ARRAY_DEFINE(connections, struct auth_worker_connection *) = ARRAY_INIT;
 static unsigned int idle_count;
-static unsigned int auth_workers_max;
-
 static ARRAY_DEFINE(worker_request_array, struct auth_worker_request *);
 static struct aqueue *worker_request_queue;
 static time_t auth_worker_last_warn;
@@ -120,12 +119,12 @@ static void auth_worker_request_send_next(struct auth_worker_connection *conn)
 	auth_worker_request_send(conn, request);
 }
 
-static struct auth_worker_connection *auth_worker_create(void)
+static struct auth_worker_connection *auth_worker_create(struct auth *auth)
 {
 	struct auth_worker_connection *conn;
 	int fd, try;
 
-	if (array_count(&connections) >= auth_workers_max)
+	if (array_count(&connections) >= auth->set->worker_max_count)
 		return NULL;
 
 	for (try = 0;; try++) {
@@ -154,6 +153,7 @@ static struct auth_worker_connection *auth_worker_create(void)
 	}
 
 	conn = i_new(struct auth_worker_connection, 1);
+	conn->auth = auth;
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, AUTH_WORKER_MAX_LINE_LENGTH,
 					 FALSE);
@@ -172,6 +172,7 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 				const char *reason, bool restart)
 {
 	struct auth_worker_connection *conn = *_conn;
+	struct auth *auth = conn->auth;
 	struct auth_worker_connection **connp;
 	unsigned int i, count;
 
@@ -208,7 +209,7 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 	i_free(conn);
 
 	if (idle_count == 0 && restart) {
-		conn = auth_worker_create();
+		conn = auth_worker_create(auth);
 		if (conn != NULL)
 			auth_worker_request_send_next(conn);
 	}
@@ -323,7 +324,7 @@ void auth_worker_call(struct auth_request *auth_request,
 		conn = auth_worker_find_free();
 		if (conn == NULL) {
 			/* no free connections, create a new one */
-			conn = auth_worker_create();
+			conn = auth_worker_create(auth_request->auth);
 		}
 	}
 	if (conn != NULL)
@@ -334,7 +335,7 @@ void auth_worker_call(struct auth_request *auth_request,
 	}
 }
 
-void auth_worker_server_init(void)
+void auth_worker_server_init(struct auth *auth)
 {
 	const char *env;
 
@@ -348,16 +349,11 @@ void auth_worker_server_init(void)
 		i_fatal("AUTH_WORKER_PATH environment not set");
 	worker_socket_path = i_strdup(env);
 
-	env = getenv("AUTH_WORKER_MAX_COUNT");
-	if (env == NULL)
-		i_fatal("AUTH_WORKER_MAX_COUNT environment not set");
-	auth_workers_max = atoi(env);
-
 	i_array_init(&worker_request_array, 128);
 	worker_request_queue = aqueue_init(&worker_request_array.arr);
 
 	i_array_init(&connections, 16);
-	(void)auth_worker_create();
+	(void)auth_worker_create(auth);
 }
 
 void auth_worker_server_deinit(void)

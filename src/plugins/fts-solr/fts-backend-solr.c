@@ -134,7 +134,9 @@ static void solr_quote_http(string_t *dest, const char *str)
 static struct fts_backend *
 fts_backend_solr_init(struct mailbox *box)
 {
-	const struct fts_solr_settings *set = &fts_solr_settings;
+	struct fts_solr_user *fuser =
+		FTS_SOLR_USER_CONTEXT(box->storage->ns->user);
+	const struct fts_solr_settings *set = &fuser->set;
 	struct solr_fts_backend *backend;
 	struct mail_namespace *ns = box->storage->ns;
 	const char *str;
@@ -146,10 +148,10 @@ fts_backend_solr_init(struct mailbox *box)
 		solr_conn = solr_connection_init(set->url, set->debug);
 
 	backend = i_new(struct solr_fts_backend, 1);
-	str = fts_solr_settings.default_ns_prefix;
-	if (str != NULL) {
+	if (set->default_ns_prefix != NULL) {
 		backend->default_ns =
-			mail_namespace_find_prefix(ns->user->namespaces, str);
+			mail_namespace_find_prefix(ns->user->namespaces,
+						   set->default_ns_prefix);
 		if (backend->default_ns == NULL) {
 			i_fatal("fts_solr: default_ns setting points to "
 				"nonexisting namespace");

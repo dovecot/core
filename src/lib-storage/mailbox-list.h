@@ -13,16 +13,8 @@ enum mailbox_list_properties {
 };
 
 enum mailbox_list_flags {
-	/* Print debugging information while initializing the driver */
-	MAILBOX_LIST_FLAG_DEBUG			= 0x01,
-	/* Allow full filesystem access with absolute or relative paths. */
-	MAILBOX_LIST_FLAG_FULL_FS_ACCESS	= 0x04,
-	/* Rely on O_EXCL when creating dotlocks */
-	MAILBOX_LIST_FLAG_DOTLOCK_USE_EXCL	= 0x08,
 	/* Mailboxes are files, not directories. */
-	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x10,
-	/* Flush NFS attribute cache when needed */
-	MAILBOX_LIST_FLAG_NFS_FLUSH		= 0x20
+	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x01
 };
 
 enum mailbox_info_flags {
@@ -144,6 +136,8 @@ enum mailbox_list_flags
 mailbox_list_get_flags(const struct mailbox_list *list) ATTR_PURE;
 struct mail_namespace *
 mailbox_list_get_namespace(const struct mailbox_list *list) ATTR_PURE;
+struct mail_user *
+mailbox_list_get_user(const struct mailbox_list *list) ATTR_PURE;
 
 /* Returns the mode and GID that should be used when creating new files to
    the specified mailbox, or to mailbox list root if name is NULL. (gid_t)-1 is

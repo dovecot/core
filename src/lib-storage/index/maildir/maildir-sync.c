@@ -577,7 +577,8 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 
 	/* try to avoid stat()ing by first checking delayed changes */
 	if (DIR_DELAYED_REFRESH(hdr, new) ||
-	    (DIR_DELAYED_REFRESH(hdr, cur) && !mbox->very_dirty_syncs)) {
+	    (DIR_DELAYED_REFRESH(hdr, cur) &&
+	     !mbox->storage->set->maildir_very_dirty_syncs)) {
 		/* refresh index and try again */
 		if (maildir_sync_header_refresh(mbox) < 0)
 			return -1;
@@ -585,7 +586,8 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 
 		if (DIR_DELAYED_REFRESH(hdr, new))
 			*new_changed_r = TRUE;
-		if (DIR_DELAYED_REFRESH(hdr, cur) && !mbox->very_dirty_syncs)
+		if (DIR_DELAYED_REFRESH(hdr, cur) &&
+		    !mbox->storage->set->maildir_very_dirty_syncs)
 			*cur_changed_r = TRUE;
 		if (*new_changed_r && *cur_changed_r)
 			return 0;
@@ -914,7 +916,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		}
 	}
 
-	if (mbox->very_dirty_syncs) {
+	if (mbox->storage->set->maildir_very_dirty_syncs) {
 		struct mail_index_view_sync_ctx *sync_ctx;
 		bool b;
 

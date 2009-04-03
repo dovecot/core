@@ -11,6 +11,7 @@
 #include "message-size.h"
 #include "duplicate.h"
 #include "istream-header-filter.h"
+#include "mail-storage-settings.h"
 #include "smtp-client.h"
 #include "deliver.h"
 #include "mail-send.h"
@@ -71,7 +72,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 	    return 0;
     }
 
-    if (getenv("DEBUG") != NULL) {
+    if (mailbox_get_settings(mail->box)->mail_debug) {
 	    i_info("Sending a rejection to %s: %s", recipient,
 		   str_sanitize(reason, 512));
     }
@@ -178,7 +179,7 @@ int mail_send_forward(struct mail *mail, const char *forwardto)
     if (mail_get_first_header(mail, "Return-Path", &return_path) <= 0)
 	    return_path = "";
 
-    if (getenv("DEBUG") != NULL) {
+    if (mailbox_get_settings(mail->box)->mail_debug) {
 	    i_info("Sending a forward to <%s> with return path <%s>",
 		   forwardto, return_path);
     }

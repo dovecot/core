@@ -377,11 +377,10 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		if (ctx->fd == -1)
 			ctx->failed = TRUE;
 		else {
-			ctx->input = (ctx->mbox->storage->storage.flags &
-				      MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
-				i_stream_create_crlf(input) :
-				i_stream_create_lf(input);
-
+			if (ctx->mbox->storage->storage.set->mail_save_crlf)
+				ctx->input = i_stream_create_crlf(input);
+			else
+				ctx->input = i_stream_create_lf(input);
 			maildir_save_add(t, fname, _ctx->flags, _ctx->keywords,
 					 _ctx->dest_mail);
 		}
@@ -493,7 +492,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	output_errno = _ctx->output->stream_errno;
 	o_stream_destroy(&_ctx->output);
 
-	if (!ctx->mbox->ibox.fsync_disable && !ctx->failed) {
+	if (!storage->set->fsync_disable && !ctx->failed) {
 		if (fsync(ctx->fd) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
@@ -584,7 +583,7 @@ static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 {
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 
-	if (ctx->mbox->ibox.fsync_disable)
+	if (storage->set->fsync_disable)
 		return 0;
 
 	if (new_changed) {

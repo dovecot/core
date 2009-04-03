@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "array.h"
 #include "hash.h"
 #include "ioloop.h"
 #include "env-util.h"
@@ -30,7 +31,8 @@ struct auth_process_group {
 	struct auth_process_group *next;
 
 	int listen_fd;
-	struct auth_settings *set;
+	const struct master_settings *master_set;
+	const struct master_auth_settings *set;
 
 	unsigned int process_count;
 	struct auth_process *processes;
@@ -323,7 +325,7 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 	path = t_strdup_printf("%s/auth-worker.%s",
 			       *group->set->chroot != '\0' ?
 			       group->set->chroot :
-			       group->set->parent->defaults->base_dir,
+			       group->master_set->base_dir,
 			       dec2str(pid));
 	p->worker_listen_fd =
 		unix_socket_create(path, 0600, group->set->uid,
@@ -371,7 +373,7 @@ static void auth_process_destroy(struct auth_process *p)
 	path = t_strdup_printf("%s/auth-worker.%s",
 			       *p->group->set->chroot != '\0' ?
 			       p->group->set->chroot :
-			       p->group->set->parent->defaults->base_dir,
+			       p->group->master_set->base_dir,
 			       dec2str(p->pid));
 	(void)unlink(path);
 
@@ -393,21 +395,6 @@ static void auth_process_destroy(struct auth_process *p)
 	i_free(p);
 }
 
-static void
-socket_settings_env_put(const char *env_base, struct socket_settings *set)
-{
-	if (!set->used)
-		return;
-
-	env_put(t_strdup_printf("%s=%s", env_base, set->path));
-	if (set->mode != 0)
-		env_put(t_strdup_printf("%s_MODE=%o", env_base, set->mode));
-	if (*set->user != '\0')
-		env_put(t_strdup_printf("%s_USER=%s", env_base, set->user));
-	if (*set->group != '\0')
-		env_put(t_strdup_printf("%s_GROUP=%s", env_base, set->group));
-}
-
 static int connect_auth_socket(struct auth_process_group *group,
 			       const char *path)
 {
@@ -427,13 +414,10 @@ static int connect_auth_socket(struct auth_process_group *group,
 	return 0;
 }
 
-static void auth_set_environment(struct auth_settings *set)
+static void auth_set_environment(const struct master_settings *master_set,
+				 const struct master_auth_settings *set)
 {
-	struct auth_socket_settings *as;
-	struct auth_passdb_settings *ap;
-	struct auth_userdb_settings *au;
-	const char *str;
-	int i;
+	master_settings_export_to_env(master_set);
 
 	/* setup access environment */
 	restrict_access_set_env(set->user, set->uid, set->gid,
@@ -442,93 +426,42 @@ static void auth_set_environment(struct auth_settings *set)
 	/* set other environment */
 	env_put("DOVECOT_MASTER=1");
 	env_put(t_strconcat("AUTH_NAME=", set->name, NULL));
-	env_put(t_strconcat("MECHANISMS=", set->mechanisms, NULL));
-	env_put(t_strconcat("REALMS=", set->realms, NULL));
-	env_put(t_strconcat("DEFAULT_REALM=", set->default_realm, NULL));
-	env_put(t_strconcat("USERNAME_CHARS=", set->username_chars, NULL));
-	env_put(t_strconcat("ANONYMOUS_USERNAME=",
-			    set->anonymous_username, NULL));
-	env_put(t_strconcat("USERNAME_TRANSLATION=",
-			    set->username_translation, NULL));
-	env_put(t_strconcat("USERNAME_FORMAT=", set->username_format, NULL));
-	env_put(t_strconcat("MASTER_USER_SEPARATOR=",
-			    set->master_user_separator, NULL));
-	env_put(t_strdup_printf("CACHE_SIZE=%u", set->cache_size));
-	env_put(t_strdup_printf("CACHE_TTL=%u", set->cache_ttl));
-	env_put(t_strdup_printf("CACHE_NEGATIVE_TTL=%u",
-				set->cache_negative_ttl));
-
-	for (ap = set->passdbs, i = 1; ap != NULL; ap = ap->next, i++) {
-		env_put(t_strdup_printf("PASSDB_%u_DRIVER=%s", i, ap->driver));
-		if (ap->args != NULL) {
-			env_put(t_strdup_printf("PASSDB_%u_ARGS=%s",
-						i, ap->args));
-		}
-		if (ap->deny)
-			env_put(t_strdup_printf("PASSDB_%u_DENY=1", i));
-                if (ap->pass)
-                        env_put(t_strdup_printf("PASSDB_%u_PASS=1", i));
-		if (ap->master)
-                        env_put(t_strdup_printf("PASSDB_%u_MASTER=1", i));
-	}
-	for (au = set->userdbs, i = 1; au != NULL; au = au->next, i++) {
-		env_put(t_strdup_printf("USERDB_%u_DRIVER=%s", i, au->driver));
-		if (au->args != NULL) {
-			env_put(t_strdup_printf("USERDB_%u_ARGS=%s",
-						i, au->args));
-		}
-	}
-
-	for (as = set->sockets, i = 1; as != NULL; as = as->next, i++) {
-		if (strcmp(as->type, "listen") != 0)
-			continue;
-
-		str = t_strdup_printf("AUTH_%u", i);
-		socket_settings_env_put(str, &as->client);
-		socket_settings_env_put(t_strconcat(str, "_MASTER", NULL),
-					&as->master);
-	}
-
-	if (set->verbose)
-		env_put("VERBOSE=1");
-	if (set->debug)
-		env_put("VERBOSE_DEBUG=1");
-	if (set->debug_passwords)
-		env_put("VERBOSE_DEBUG_PASSWORDS=1");
-	if (set->ssl_require_client_cert)
-		env_put("SSL_REQUIRE_CLIENT_CERT=1");
-	if (set->ssl_username_from_cert)
-		env_put("SSL_USERNAME_FROM_CERT=1");
-	if (set->use_winbind)
-		env_put("USE_WINBIND=1");
-	if (*set->krb5_keytab != '\0') {
-		/* Environment may be used by Kerberos 5 library directly,
-		   although we also try to use it directly as well */
-		env_put(t_strconcat("KRB5_KTNAME=", set->krb5_keytab, NULL));
-	}
-	if (*set->gssapi_hostname != '\0') {
-		env_put(t_strconcat("GSSAPI_HOSTNAME=",
-				    set->gssapi_hostname, NULL));
-	}
-	env_put(t_strconcat("WINBIND_HELPER_PATH=",
-			    set->winbind_helper_path, NULL));
-	env_put(t_strdup_printf("FAILURE_DELAY=%u", set->failure_delay));
-
 	restrict_process_size(set->process_size, (unsigned int)-1);
+}
+
+static const struct master_auth_socket_settings *
+get_connect_socket(const struct master_auth_settings *auth_set)
+{
+	struct master_auth_socket_settings *const *as;
+	unsigned int count;
+
+	if (!array_is_created(&auth_set->sockets))
+		return NULL;
+
+	as = array_get(&auth_set->sockets, &count);
+	if (count > 0 && strcmp(as[0]->type, "connect") == 0)
+		return as[0];
+	else
+		return NULL;
 }
 
 static int create_auth_process(struct auth_process_group *group)
 {
-	struct auth_socket_settings *as;
+	const struct master_auth_socket_settings *as;
+	struct master_auth_socket_unix_settings *const *masters;
 	const char *prefix, *executable;
 	struct log_io *log;
 	pid_t pid;
+	unsigned int count;
 	int fd[2], log_fd, i;
 
 	/* see if this is a connect socket */
-	as = group->set->sockets;
-	if (as != NULL && strcmp(as->type, "connect") == 0)
-		return connect_auth_socket(group, as->master.path);
+	as = get_connect_socket(group->set);
+	if (as != NULL) {
+		masters = array_get(&as->masters, &count);
+		if (count > 0)
+			return connect_auth_socket(group, masters[0]->path);
+	}
 
 	/* create communication to process with a socket pair */
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) {
@@ -587,7 +520,7 @@ static int create_auth_process(struct auth_process_group *group)
 	if (dup2(log_fd, 2) < 0)
 		i_fatal("dup2(stderr) failed: %m");
 
-	child_process_init_env();
+	child_process_init_env(group->master_set);
 
 	if (group->listen_fd != 3) {
 		if (dup2(group->listen_fd, 3) < 0)
@@ -598,14 +531,12 @@ static int create_auth_process(struct auth_process_group *group)
 	for (i = 0; i <= 2; i++)
 		fd_close_on_exec(i, FALSE);
 
-        auth_set_environment(group->set);
+        auth_set_environment(group->master_set, group->set);
 
 	env_put(t_strdup_printf("AUTH_WORKER_PATH=%s/auth-worker.%s",
 				*group->set->chroot != '\0' ? "" :
-				group->set->parent->defaults->base_dir,
+				group->master_set->base_dir,
 				dec2str(getpid())));
-	env_put(t_strdup_printf("AUTH_WORKER_MAX_COUNT=%u",
-				group->set->worker_max_count));
 
 	executable = group->set->executable;
 	client_process_exec(executable, "");
@@ -670,8 +601,8 @@ static int create_auth_worker(struct auth_process *process, int fd)
 		fd_close_on_exec(i, FALSE);
 	fd_close_on_exec(4, FALSE);
 
-	child_process_init_env();
-        auth_set_environment(process->group->set);
+	child_process_init_env(process->group->master_set);
+        auth_set_environment(process->group->master_set, process->group->set);
 
 	executable = t_strconcat(process->group->set->executable, " -w", NULL);
 	client_process_exec(executable, "");
@@ -694,25 +625,25 @@ struct auth_process *auth_process_find(unsigned int pid)
 	return NULL;
 }
 
-static void auth_process_group_create(struct auth_settings *auth_set)
+static void auth_process_group_create(struct master_settings *set,
+				      struct master_auth_settings *auth_set)
 {
 	struct auth_process_group *group;
 	const char *path;
 
 	group = i_new(struct auth_process_group, 1);
+	group->master_set = set;
 	group->set = auth_set;
 
 	group->next = process_groups;
 	process_groups = group;
 
-	if (auth_set->sockets != NULL &&
-	    strcmp(auth_set->sockets->type, "connect") == 0)
+	if (get_connect_socket(auth_set) != NULL)
 		return;
 
-	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
-			   auth_set->name, NULL);
+	path = t_strconcat(set->login_dir, "/", auth_set->name, NULL);
 	group->listen_fd = unix_socket_create(path, 0660, master_uid,
-					      auth_set->parent->login_gid, 128);
+					      set->server->login_gid, 128);
 	if (group->listen_fd == -1)
 		i_fatal("Couldn't create auth process listener");
 
@@ -731,7 +662,7 @@ static void auth_process_group_destroy(struct auth_process_group *group)
                 group->processes = next;
 	}
 
-	path = t_strconcat(group->set->parent->defaults->login_dir, "/",
+	path = t_strconcat(group->master_set->login_dir, "/",
 			   group->set->name, NULL);
 	(void)unlink(path);
 
@@ -753,17 +684,14 @@ void auth_processes_destroy_all(void)
 	have_initialized_auth_processes = FALSE;
 }
 
-static void auth_process_groups_create(struct server_settings *server)
+static void auth_process_groups_create(struct master_settings *set)
 {
-	struct auth_settings *auth_set;
+	struct master_auth_settings *const *auth_sets;
+	unsigned int i, count;
 
-	while (server != NULL) {
-		auth_set = server->auths;
-		for (; auth_set != NULL; auth_set = auth_set->next)
-			auth_process_group_create(auth_set);
-
-                server = server->next;
-	}
+	auth_sets = array_get(&set->auths, &count);
+	for (i = 0; i < count; i++)
+		auth_process_group_create(set, auth_sets[i]);
 }
 
 static void auth_processes_stall(void)
@@ -787,7 +715,7 @@ auth_processes_start_missing(void *context ATTR_UNUSED)
 
 	if (process_groups == NULL) {
 		/* first time here, create the groups */
-		auth_process_groups_create(settings_root);
+		auth_process_groups_create(master_set->defaults);
 	}
 
 	for (group = process_groups; group != NULL; group = group->next) {

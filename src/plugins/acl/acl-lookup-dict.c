@@ -17,6 +17,7 @@
 
 struct acl_lookup_dict {
 	struct mail_user *user;
+	struct dict *dict;
 };
 
 struct acl_lookup_dict_iter {
@@ -33,38 +34,23 @@ struct acl_lookup_dict_iter {
 	unsigned int failed:1;
 };
 
-static struct dict *acl_dict;
-
-void acl_lookup_dicts_init(void)
-{
-	const char *uri;
-
-	uri = getenv("ACL_SHARED_DICT");
-	if (uri == NULL) {
-		if (getenv("DEBUG") != NULL) {
-			i_info("acl: No acl_shared_dict setting - "
-			       "shared mailbox listing is disabled");
-		}
-		return;
-	}
-
-	acl_dict = dict_init(uri, DICT_DATA_TYPE_STRING, "");
-	if (acl_dict == NULL)
-		i_fatal("acl: dict_init(%s) failed", uri);
-}
-
-void acl_lookup_dicts_deinit(void)
-{
-	if (acl_dict != NULL)
-		dict_deinit(&acl_dict);
-}
-
 struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 {
 	struct acl_lookup_dict *dict;
+	const char *uri;
 
 	dict = i_new(struct acl_lookup_dict, 1);
 	dict->user = user;
+
+	uri = mail_user_plugin_getenv(user, "acl_shared_dict");
+	if (uri != NULL) {
+		dict->dict = dict_init(uri, DICT_DATA_TYPE_STRING, "");
+		if (dict->dict == NULL)
+			i_error("acl: dict_init(%s) failed", uri);
+	} else if (user->mail_debug) {
+		i_info("acl: No acl_shared_dict setting - "
+		       "shared mailbox listing is disabled");
+	}
 	return dict;
 }
 
@@ -73,6 +59,8 @@ void acl_lookup_dict_deinit(struct acl_lookup_dict **_dict)
 	struct acl_lookup_dict *dict = *_dict;
 
 	*_dict = NULL;
+	if (dict->dict != NULL)
+		dict_deinit(&dict->dict);
 	i_free(dict);
 }
 
@@ -164,7 +152,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	t_array_init(&old_ids_arr, 128);
 	prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
 	prefix_len = strlen(prefix);
-	iter = dict_iterate_init(acl_dict, prefix, DICT_ITERATE_FLAG_RECURSE);
+	iter = dict_iterate_init(dict->dict, prefix, DICT_ITERATE_FLAG_RECURSE);
 	while ((ret = dict_iterate(iter, &key, &value)) > 0) {
 		/* prefix/$dest/$source */
 		key += prefix_len;
@@ -188,7 +176,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	path = t_str_new(256);
 	str_append(path, prefix);
 
-	dt = dict_transaction_begin(acl_dict);
+	dt = dict_transaction_begin(dict->dict);
 	new_ids = array_get(new_ids_arr, &new_count);
 	for (newi = oldi = 0; newi < new_count || oldi < old_count; ) {
 		ret = newi == new_count ? 1 :
@@ -227,7 +215,7 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
 	unsigned int i, dest, count;
 	int ret = 0;
 
-	if (acl_dict == NULL)
+	if (dict->dict == NULL)
 		return 0;
 
 	/* get all ACL identifiers with a positive lookup right */
@@ -267,7 +255,7 @@ static void acl_lookup_dict_iterate_start(struct acl_lookup_dict_iter *iter)
 				   DICT_SHARED_BOXES_PATH, *idp, "/", NULL);
 	iter->prefix_len = strlen(iter->prefix);
 
-	iter->dict_iter = dict_iterate_init(acl_dict, iter->prefix,
+	iter->dict_iter = dict_iterate_init(iter->dict->dict, iter->prefix,
 					    DICT_ITERATE_FLAG_RECURSE);
 }
 
@@ -302,7 +290,7 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 
 	/* iterate through all identifiers that match us, start with the
 	   first one */
-	if (acl_dict != NULL)
+	if (dict->dict != NULL)
 		acl_lookup_dict_iterate_start(iter);
 	return iter;
 }

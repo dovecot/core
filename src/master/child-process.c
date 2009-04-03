@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "lib-signals.h"
+#include "array.h"
 #include "hash.h"
 #include "str.h"
 #include "env-util.h"
@@ -41,7 +42,7 @@ void child_process_remove(pid_t pid)
 	hash_table_remove(processes, POINTER_CAST(pid));
 }
 
-void child_process_init_env(void)
+void child_process_init_env(const struct master_settings *set)
 {
 	int facility;
 
@@ -53,13 +54,12 @@ void child_process_init_env(void)
 	if (env_tz != NULL)
 		env_put(t_strconcat("TZ=", env_tz, NULL));
 
-	if (settings_root == NULL ||
-	    !syslog_facility_find(settings_root->defaults->syslog_facility,
-				  &facility))
+	if (master_set == NULL ||
+	    !syslog_facility_find(set->syslog_facility, &facility))
 		facility = LOG_MAIL;
 	env_put(t_strdup_printf("SYSLOG_FACILITY=%d", facility));
 
-	if (settings_root != NULL && !settings_root->defaults->version_ignore)
+	if (master_set != NULL && !set->version_ignore)
 		env_put("DOVECOT_VERSION="PACKAGE_VERSION);
 #ifdef DEBUG
 	if (gdb) env_put("GDB=1");
@@ -131,6 +131,7 @@ static void
 log_coredump(string_t *str, enum process_type process_type, int status)
 {
 #ifdef WCOREDUMP
+	struct master_auth_settings *const *auth_set;
 	int signum = WTERMSIG(status);
 
 	if (WCOREDUMP(status)) {
@@ -158,11 +159,11 @@ log_coredump(string_t *str, enum process_type process_type, int status)
 	case PROCESS_TYPE_IMAP:
 	case PROCESS_TYPE_POP3:
 #ifndef HAVE_PR_SET_DUMPABLE
-		if (!settings_root->defaults->mail_drop_priv_before_exec) {
+		if (!master_set->defaults->mail_drop_priv_before_exec) {
 			str_append(str, " (core not dumped - set mail_drop_priv_before_exec=yes)");
 			return;
 		}
-		if (*settings_root->defaults->mail_privileged_group != '\0') {
+		if (*master_set->defaults->mail_privileged_group != '\0') {
 			str_append(str, " (core not dumped - mail_privileged_group prevented it)");
 			return;
 		}
@@ -171,13 +172,13 @@ log_coredump(string_t *str, enum process_type process_type, int status)
 		return;
 	case PROCESS_TYPE_AUTH:
 	case PROCESS_TYPE_AUTH_WORKER:
-		if (settings_root->auths->uid == 0)
+		auth_set = array_idx(&master_set->defaults->auths, 0);
+		if (auth_set[0]->uid == 0)
 			break;
 #ifdef HAVE_PR_SET_DUMPABLE
 		str_printfa(str, " (core not dumped - "
 			    "no permissions for auth user %s in %s?)",
-			    settings_root->auths->user,
-			    settings_root->defaults->base_dir);
+			    auth_set[0]->user, master_set->defaults->base_dir);
 #else
 		str_append(str, " (core not dumped - auth user is not root)");
 #endif

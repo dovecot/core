@@ -2,6 +2,7 @@ noinst_LIBRARIES = libstorage_maildir.a
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
@@ -14,6 +15,7 @@ libstorage_maildir_a_SOURCES = \
 	maildir-keywords.c \
 	maildir-mail.c \
 	maildir-save.c \
+	maildir-settings.c \
 	maildir-storage.c \
 	maildir-sync.c \
 	maildir-sync-index.c \
@@ -25,6 +27,7 @@ headers = \
 	maildir-filename.h \
 	maildir-keywords.h \
 	maildir-storage.h \
+	maildir-settings.h \
 	maildir-sync.h \
 	maildir-uidlist.h
 

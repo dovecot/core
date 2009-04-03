@@ -57,12 +57,15 @@ struct mail_namespace {
 	struct mailbox_list *list;
 	/* FIXME: we should support multiple storages in one namespace */
 	struct mail_storage *storage;
+
+	const struct mail_namespace_settings *set;
+	const struct mail_storage_settings *mail_set;
 };
 
 /* Called after namespaces has been created */
 extern void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
 
-int mail_namespaces_init(struct mail_user *user);
+int mail_namespaces_init(struct mail_user *user, const char **error_r);
 struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
 /* Deinitialize all namespaces. mail_user_deinit() calls this automatically
    for user's namespaces. */

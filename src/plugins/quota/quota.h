@@ -17,7 +17,7 @@ struct quota_root;
 struct quota_root_iter;
 struct quota_transaction_context;
 
-struct quota_settings *quota_settings_init(void);
+struct quota_settings *quota_user_read_settings(struct mail_user *user);
 void quota_settings_deinit(struct quota_settings **quota_set);
 
 /* Set up a new quota root. */

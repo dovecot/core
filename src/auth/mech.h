@@ -63,7 +63,7 @@ void mech_generic_auth_initial(struct auth_request *request,
 			       const unsigned char *data, size_t data_size);
 void mech_generic_auth_free(struct auth_request *request);
 
-void mech_init(void);
-void mech_deinit(void);
+void mech_init(const struct auth_settings *set);
+void mech_deinit(const struct auth_settings *set);
 
 #endif

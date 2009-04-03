@@ -26,6 +26,7 @@ struct listescape_mailbox_list {
 	union mailbox_list_module_context module_ctx;
 	struct mailbox_info info;
 	string_t *list_name;
+	char escape_char;
 	bool name_escaped;
 };
 
@@ -37,7 +38,6 @@ static void (*listescape_next_hook_mailbox_list_created)
 	(struct mailbox_list *list);
 static void (*listescape_next_hook_mail_namespaces_created)
 	(struct mail_namespace *namespaces);
-static char escape_char = DEFAULT_ESCAPE_CHAR;
 
 static MODULE_CONTEXT_DEFINE_INIT(listescape_storage_module,
 				  &mail_storage_module_register);
@@ -47,18 +47,20 @@ static MODULE_CONTEXT_DEFINE_INIT(listescape_list_module,
 static const char *list_escape(struct mail_namespace *ns,
 			       const char *str, bool change_sep)
 {
+	struct listescape_mailbox_list *mlist =
+		LIST_ESCAPE_LIST_CONTEXT(ns->list);
 	string_t *esc = t_str_new(64);
 
 	if (*str == '~') {
-		str_printfa(esc, "%c%02x", escape_char, *str);
+		str_printfa(esc, "%c%02x", mlist->escape_char, *str);
 		str++;
 	}
 	for (; *str != '\0'; str++) {
 		if (*str == ns->sep && change_sep)
 			str_append_c(esc, ns->list->hierarchy_sep);
 		else if (*str == ns->list->hierarchy_sep ||
-			 *str == escape_char || *str == '/')
-			str_printfa(esc, "%c%02x", escape_char, *str);
+			 *str == mlist->escape_char || *str == '/')
+			str_printfa(esc, "%c%02x", mlist->escape_char, *str);
 		else
 			str_append_c(esc, *str);
 	}
@@ -68,10 +70,12 @@ static const char *list_escape(struct mail_namespace *ns,
 static void list_unescape_str(struct mail_namespace *ns,
 			      const char *str, string_t *dest)
 {
+	struct listescape_mailbox_list *mlist =
+		LIST_ESCAPE_LIST_CONTEXT(ns->list);
 	unsigned int num;
 
 	for (; *str != '\0'; str++) {
-		if (*str == escape_char &&
+		if (*str == mlist->escape_char &&
 		    i_isxdigit(str[1]) && i_isxdigit(str[2])) {
 			if (str[1] >= '0' && str[1] <= '9')
 				num = str[1] - '0';
@@ -269,6 +273,7 @@ static void listescape_mail_storage_created(struct mail_storage *storage)
 static void listescape_mailbox_list_created(struct mailbox_list *list)
 {
 	struct listescape_mailbox_list *mlist;
+	const char *env;
 
 	if (listescape_next_hook_mailbox_list_created != NULL)
 		listescape_next_hook_mailbox_list_created(list);
@@ -289,6 +294,10 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 	list->v.is_valid_existing_name = listescape_is_valid_existing_name;
 	list->v.is_valid_create_name = listescape_is_valid_create_name;
 
+	env = mail_user_plugin_getenv(list->ns->user, "listescape_char");
+	mlist->escape_char = env != NULL && *env != '\0' ?
+		env[0] : DEFAULT_ESCAPE_CHAR;
+
 	MODULE_CONTEXT_SET(list, listescape_list_module, mlist);
 }
 
@@ -308,12 +317,6 @@ listescape_mail_namespaces_created(struct mail_namespace *namespaces)
 
 void listescape_plugin_init(void)
 {
-	const char *env;
-
-	env = getenv("LISTESCAPE_CHAR");
-	if (env != NULL && *env != '\0')
-		escape_char = env[0];
-
 	listescape_next_hook_mail_storage_created = hook_mail_storage_created;
 	hook_mail_storage_created = listescape_mail_storage_created;
 

@@ -17,9 +17,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define DEFAULT_CACHE_FIELDS ""
-#define DEFAULT_NEVER_CACHE_FIELDS "imap.envelope"
-
 /* How many seconds to keep index opened for reuse after it's been closed */
 #define INDEX_CACHE_TIMEOUT 10
 /* How many closed indexes to keep */
@@ -275,29 +272,20 @@ static void set_cache_decisions(const char *set, const char *fields,
 
 static void index_cache_register_defaults(struct index_mailbox *ibox)
 {
+	const struct mail_storage_settings *set = ibox->box.storage->set;
 	static bool initialized = FALSE;
 	struct mail_cache *cache = ibox->cache;
-	const char *cache_env, *never_env, *env;
 
 	if (!initialized) {
 		initialized = TRUE;
 
-		cache_env = getenv("MAIL_CACHE_FIELDS");
-		if (cache_env == NULL)
-			cache_env = DEFAULT_CACHE_FIELDS;
-		never_env = getenv("MAIL_NEVER_CACHE_FIELDS");
-		if (never_env == NULL)
-			never_env = DEFAULT_NEVER_CACHE_FIELDS;
-
-		set_cache_decisions("mail_cache_fields", cache_env,
+		set_cache_decisions("mail_cache_fields",
+				    set->mail_cache_fields,
 				    MAIL_CACHE_DECISION_TEMP);
-		set_cache_decisions("mail_never_cache_fields", never_env,
+		set_cache_decisions("mail_never_cache_fields",
+				    set->mail_never_cache_fields,
 				    MAIL_CACHE_DECISION_NO |
 				    MAIL_CACHE_DECISION_FORCED);
-
-		env = getenv("MAIL_CACHE_MIN_MAIL_COUNT");
-		if (env != NULL)
-			ibox->mail_cache_min_mail_count = atoi(env);
 	}
 
 	ibox->cache_fields = i_malloc(sizeof(global_cache_fields));
@@ -361,24 +349,6 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
-enum mail_index_open_flags
-index_storage_get_index_open_flags(struct mail_storage *storage)
-{
-	enum mail_index_open_flags flags = 0;
-
-#ifndef MMAP_CONFLICTS_WRITE
-	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
-#endif
-		flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
-	if ((storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0)
-		flags |= MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL;
-	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX) != 0)
-		flags |= MAIL_INDEX_OPEN_FLAG_NFS_FLUSH;
-	if ((storage->flags & MAIL_STORAGE_FLAG_FSYNC_DISABLE) != 0)
-		flags |= MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE;
-	return flags;
-}
-
 void index_storage_mailbox_open(struct index_mailbox *ibox)
 {
 	struct mail_storage *storage = ibox->storage;
@@ -387,11 +357,9 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 
 	i_assert(!ibox->box.opened);
 
-	index_flags = index_storage_get_index_open_flags(storage);
+	index_flags = mail_storage_settings_to_index_flags(storage->set);
 	if (!ibox->move_to_memory)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
-	if ((index_flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0)
-		ibox->fsync_disable = TRUE;
 	if (ibox->keep_index_backups)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS;
 	if (ibox->index_never_in_memory)
@@ -552,7 +520,7 @@ bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
 			return FALSE;
 		}
 	}
-	if (i > ibox->box.storage->keyword_max_len) {
+	if (i > ibox->box.storage->set->mail_max_keyword_length) {
 		*error_r = "Keyword length too long";
 		return FALSE;
 	}

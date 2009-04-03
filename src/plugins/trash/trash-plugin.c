@@ -173,7 +173,7 @@ err:
 	}
 
 	if (size_expunged < size_needed) {
-		if (getenv("DEBUG") != NULL) {
+		if (ctx->quota->user->mail_debug) {
 			i_info("trash plugin: Failed to remove enough messages "
 			       "(needed %llu bytes, expunged only %llu bytes)",
 			       (unsigned long long)size_needed,
@@ -198,7 +198,7 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 	for (i = 0; ; i++) {
 		ret = trash_next_quota_test_alloc(ctx, size, too_large_r);
 		if (ret != 0 || *too_large_r) {
-			if (getenv("DEBUG") != NULL && *too_large_r) {
+			if (ctx->quota->user->mail_debug && *too_large_r) {
 				i_info("trash plugin: Mail is larger than "
 				       "quota, won't even try to handle");
 			}
@@ -282,7 +282,7 @@ static int read_configuration(struct mail_user *user, const char *path)
 			ret = -1;
 		}
 
-		if (getenv("DEBUG") != NULL) {
+		if (user->mail_debug) {
 			i_info("trash plugin: Added '%s' with priority %d",
 			       trash->name, trash->priority);
 		}
@@ -299,14 +299,15 @@ static void
 trash_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	struct mail_user *user = namespaces->user;
+	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct trash_user *tuser;
 	const char *env;
 
-	env = getenv("TRASH");
+	env = mail_user_plugin_getenv(user, "trash");
 	if (env == NULL) {
-		if (getenv("DEBUG") != NULL)
+		if (user->mail_debug)
 			i_info("trash: No trash setting - plugin disabled");
-	} else if (quota_set == NULL) {
+	} else if (quser == NULL) {
 		i_error("trash plugin: quota plugin not initialized");
 	} else {
 		tuser = p_new(user->pool, struct trash_user, 1);
@@ -314,8 +315,9 @@ trash_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 		MODULE_CONTEXT_SET(user, trash_user_module, tuser);
 
 		if (read_configuration(user, env) == 0) {
-			trash_next_quota_test_alloc = quota_set->test_alloc;
-			quota_set->test_alloc = trash_quota_test_alloc;
+			trash_next_quota_test_alloc =
+				quser->quota->set->test_alloc;
+			quser->quota->set->test_alloc = trash_quota_test_alloc;
 		}
 	}
 
@@ -332,5 +334,4 @@ void trash_plugin_init(void)
 void trash_plugin_deinit(void)
 {
 	hook_mail_namespaces_created = trash_hook_mail_namespaces_created;
-	quota_set->test_alloc = trash_next_quota_test_alloc;
 }

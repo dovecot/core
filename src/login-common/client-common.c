@@ -128,7 +128,7 @@ client_get_log_str(struct client *client, const char *msg)
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	str = t_str_new(256);
-	for (e = log_format_elements; *e != NULL; e++) {
+	for (e = login_settings->log_format_elements_split; *e != NULL; e++) {
 		for (p = *e; *p != '\0'; p++) {
 			if (*p != '%' || p[1] == '\0')
 				continue;
@@ -147,7 +147,7 @@ client_get_log_str(struct client *client, const char *msg)
 	tab[1].value = msg;
 	str_truncate(str, 0);
 
-	var_expand(str, log_format, tab);
+	var_expand(str, login_settings->login_log_format, tab);
 	return str_c(str);
 }
 
@@ -171,10 +171,10 @@ bool client_is_trusted(struct client *client)
 	struct ip_addr net_ip;
 	unsigned int bits;
 
-	if (trusted_networks == NULL)
+	if (login_settings->login_trusted_networks == NULL)
 		return FALSE;
 
-	net = t_strsplit_spaces(trusted_networks, ", ");
+	net = t_strsplit_spaces(login_settings->login_trusted_networks, ", ");
 	for (; *net != NULL; net++) {
 		if (net_parse_range(*net, &net_ip, &bits) < 0) {
 			i_error("login_trusted_networks: "
@@ -190,7 +190,7 @@ bool client_is_trusted(struct client *client)
 
 const char *client_get_extra_disconnect_reason(struct client *client)
 {
-	if (ssl_require_client_cert && client->proxy != NULL) {
+	if (login_settings->ssl_require_client_cert && client->proxy != NULL) {
 		if (ssl_proxy_has_broken_client_cert(client->proxy))
 			return "(client sent an invalid cert)";
 		if (!ssl_proxy_has_valid_client_cert(client->proxy))
@@ -203,7 +203,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	/* some auth attempts without SSL/TLS */
 	if (client->auth_tried_disabled_plaintext)
 		return "(tried to use disabled plaintext auth)";
-	if (ssl_require_client_cert)
+	if (login_settings->ssl_require_client_cert)
 		return "(cert required, client didn't start TLS)";
 
 	return t_strdup_printf("(auth failed, %u attempts)",

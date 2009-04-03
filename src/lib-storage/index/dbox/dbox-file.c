@@ -190,8 +190,10 @@ dbox_file_init_multi(struct dbox_storage *storage, uint32_t file_id)
 	}
 
 	count = array_count(&storage->open_files);
-	if (count > storage->max_open_files)
-		dbox_close_open_files(storage, count - storage->max_open_files);
+	if (count > storage->set->dbox_max_open_files) {
+		dbox_close_open_files(storage, count -
+				      storage->set->dbox_max_open_files);
+	}
 
 	file = i_new(struct dbox_file, 1);
 	file->refcount = 1;
@@ -269,7 +271,8 @@ void dbox_file_unref(struct dbox_file **_file)
 
 	if (file->file_id != 0) {
 		files = array_get(&file->storage->open_files, &count);
-		if (!file->deleted && count <= file->storage->max_open_files) {
+		if (!file->deleted &&
+		    count <= file->storage->set->dbox_max_open_files) {
 			/* we can leave this file open for now */
 			return;
 		}
@@ -761,8 +764,7 @@ int dbox_file_flush_append(struct dbox_file *file)
 		return -1;
 	}
 
-	if ((file->storage->storage.flags &
-	     MAIL_STORAGE_FLAG_FSYNC_DISABLE) == 0) {
+	if (!file->storage->storage.set->fsync_disable) {
 		if (fdatasync(file->fd) < 0) {
 			dbox_file_set_syscall_error(file, "fdatasync()");
 			return -1;
@@ -936,8 +938,7 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 	}
 	o_stream_unref(&output);
 
-	if ((file->storage->storage.flags &
-	     MAIL_STORAGE_FLAG_FSYNC_DISABLE) == 0 && ret == 0) {
+	if (!file->storage->storage.set->fsync_disable && ret == 0) {
 		if (fsync(out_fd) < 0) {
 			mail_storage_set_critical(&file->storage->storage,
 				"fsync(%s) failed: %m", temp_path);
@@ -964,8 +965,7 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 		(void)unlink(temp_path);
 		return -1;
 	}
-	if ((file->storage->storage.flags &
-	     MAIL_STORAGE_FLAG_FSYNC_DISABLE) == 0) {
+	if (!file->storage->storage.set->fsync_disable) {
 		if (fdatasync_path(dest_dir) < 0) {
 			mail_storage_set_critical(&file->storage->storage,
 				"fdatasync(%s) failed: %m", dest_dir);

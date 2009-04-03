@@ -235,6 +235,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	mode = 0600; dir_mode = 0700;
 	gid = dir_gid = (gid_t)-1;
 	storages = array_get(&root->root.quota->storages, &count);
+	i_assert(count > 0);
 	for (i = 0; i < count; i++) {
 		if ((storages[i]->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			mailbox_list_get_permissions(storages[i]->ns->list,
@@ -246,8 +247,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 		}
 	}
 
-	dotlock_settings.use_excl_lock = getenv("DOTLOCK_USE_EXCL") != NULL;
-	dotlock_settings.nfs_flush = getenv("MAIL_NFS_STORAGE") != NULL;
+	dotlock_settings.use_excl_lock = storages[0]->set->dotlock_use_excl;
+	dotlock_settings.nfs_flush = storages[0]->set->mail_nfs_storage;
 	fd = file_dotlock_open_mode(&dotlock_settings, path,
 				    DOTLOCK_CREATE_FLAG_NONBLOCK,
 				    mode, (uid_t)-1, gid, &dotlock);

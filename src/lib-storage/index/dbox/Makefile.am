@@ -2,6 +2,7 @@ noinst_LIBRARIES = libstorage_dbox.a
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
@@ -15,6 +16,7 @@ libstorage_dbox_a_SOURCES = \
 	dbox-mail.c \
 	dbox-map.c \
 	dbox-save.c \
+	dbox-settings.c \
 	dbox-sync.c \
 	dbox-sync-file.c \
 	dbox-sync-rebuild.c \
@@ -26,6 +28,7 @@ headers = \
 	dbox-file.h \
 	dbox-file-maildir.h \
 	dbox-map.h \
+	dbox-settings.h \
 	dbox-storage.h \
 	dbox-storage-rebuild.h \
 	dbox-sync.h

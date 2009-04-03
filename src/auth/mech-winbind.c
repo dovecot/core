@@ -95,7 +95,8 @@ static void sigchld_handler(const siginfo_t *si ATTR_UNUSED,
 	winbind_wait_pid(&winbind_spnego_context);
 }
 
-static void winbind_helper_connect(struct winbind_helper *winbind)
+static void
+winbind_helper_connect(struct auth *auth, struct winbind_helper *winbind)
 {
 	int infd[2], outfd[2];
 	pid_t pid;
@@ -122,7 +123,7 @@ static void winbind_helper_connect(struct winbind_helper *winbind)
 
 	if (pid == 0) {
 		/* child */
-		const char *helper_path, *args[3];
+		const char *args[3];
 
 		(void)close(infd[0]);
 		(void)close(outfd[1]);
@@ -131,11 +132,7 @@ static void winbind_helper_connect(struct winbind_helper *winbind)
 		    dup2(infd[1], STDOUT_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
 
-		helper_path = getenv("WINBIND_HELPER_PATH");
-		if (helper_path == NULL)
-			helper_path = DEFAULT_WINBIND_HELPER_PATH;
-
-		args[0] = helper_path;
+		args[0] = auth->set->winbind_helper_path;
 		args[1] = winbind->param;
 		args[2] = NULL;
 		execv(args[0], (void *)args);
@@ -281,6 +278,17 @@ do_auth_continue(struct auth_request *auth_request,
 }
 
 static void
+mech_winbind_auth_initial(struct auth_request *auth_request,
+			  const unsigned char *data, size_t data_size)
+{
+	struct winbind_auth_request *request =
+		(struct winbind_auth_request *)auth_request;
+
+	winbind_helper_connect(auth_request->auth, request->winbind);
+	mech_generic_auth_initial(auth_request, data, data_size);
+}
+
+static void
 mech_winbind_auth_continue(struct auth_request *auth_request,
 			   const unsigned char *data, size_t data_size)
 {
@@ -306,7 +314,6 @@ static struct auth_request *do_auth_new(struct winbind_helper *winbind)
 	request->auth_request.pool = pool;
 
 	request->winbind = winbind;
-	winbind_helper_connect(request->winbind);
 	return &request->auth_request;
 }
 
@@ -339,7 +346,7 @@ const struct mech_module mech_winbind_spnego = {
 	MEMBER(passdb_need) MECH_PASSDB_NEED_NOTHING,
 
 	mech_winbind_spnego_auth_new,
-	mech_generic_auth_initial,
+	mech_winbind_auth_initial,
 	mech_winbind_auth_continue,
 	mech_generic_auth_free
 };

@@ -81,14 +81,14 @@ extern const struct mech_module mech_gssapi_spnego;
 extern const struct mech_module mech_winbind_ntlm;
 extern const struct mech_module mech_winbind_spnego;
 
-void mech_init(void)
+void mech_init(const struct auth_settings *set)
 {
 	mech_register_module(&mech_plain);
 	mech_register_module(&mech_login);
 	mech_register_module(&mech_apop);
 	mech_register_module(&mech_cram_md5);
 	mech_register_module(&mech_digest_md5);
-	if (getenv("USE_WINBIND") != NULL) {
+	if (set->use_winbind) {
 		mech_register_module(&mech_winbind_ntlm);
 		mech_register_module(&mech_winbind_spnego);
 	} else {
@@ -106,14 +106,14 @@ void mech_init(void)
 #endif
 }
 
-void mech_deinit(void)
+void mech_deinit(const struct auth_settings *set)
 {
 	mech_unregister_module(&mech_plain);
 	mech_unregister_module(&mech_login);
 	mech_unregister_module(&mech_apop);
 	mech_unregister_module(&mech_cram_md5);
 	mech_unregister_module(&mech_digest_md5);
-	if (getenv("NTLM_USE_WINBIND") != NULL) {
+	if (set->use_winbind) {
 		mech_unregister_module(&mech_winbind_ntlm);
 		mech_unregister_module(&mech_winbind_spnego);
 	} else {

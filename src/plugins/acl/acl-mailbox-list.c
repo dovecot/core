@@ -541,7 +541,7 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 		i_fatal("ACL backend initialization failed");
 
 	flags = mailbox_list_get_flags(list);
-	if ((flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0) {
+	if (list->mail_set->mail_full_filesystem_access) {
 		/* not necessarily, but safer to do this for now. */
 		i_fatal("mail_full_filesystem_access=yes is "
 			"incompatible with ACLs");
@@ -562,7 +562,11 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 
 void acl_mailbox_list_created(struct mailbox_list *list)
 {
-	if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
+	struct acl_user *auser = ACL_USER_CONTEXT(list->ns->user);
+
+	if (auser == NULL) {
+		/* ACLs disabled for this user */
+	} else if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
 		/* no ACL checks for internal namespaces (deliver, shared) */
 		if (list->ns->type == NAMESPACE_SHARED)
 			acl_mailbox_list_init_shared(list);

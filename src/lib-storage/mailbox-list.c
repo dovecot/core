@@ -201,6 +201,7 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 		 *set->subscription_fname != '\0');
 
 	list->ns = ns;
+	list->mail_set = ns->mail_set;
 	list->flags = flags;
 	list->file_create_mode = (mode_t)-1;
 	list->dir_create_mode = (mode_t)-1;
@@ -237,7 +238,7 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 	list->set.mail_storage_flags = set->mail_storage_flags;
 	list->set.lock_method = set->lock_method;
 
-	if ((flags & MAILBOX_LIST_FLAG_DEBUG) != 0) {
+	if (ns->mail_set->mail_debug) {
 		i_info("%s: root=%s, index=%s, control=%s, inbox=%s",
 		       list->name,
 		       list->set.root_dir == NULL ? "" : list->set.root_dir,
@@ -292,6 +293,12 @@ static mode_t get_dir_mode(mode_t mode)
 	return mode;
 }
 
+struct mail_user *
+mailbox_list_get_user(const struct mailbox_list *list)
+{
+	return list->ns->user;
+}
+
 void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 				  mode_t *mode_r, gid_t *gid_r)
 {
@@ -309,7 +316,7 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 		if (!ENOTFOUND(errno)) {
 			mailbox_list_set_critical(list, "stat(%s) failed: %m",
 						  path);
-		} else if ((list->flags & MAILBOX_LIST_FLAG_DEBUG) != 0) {
+		} else if (list->mail_set->mail_debug) {
 			i_info("Namespace %s: Permission lookup failed from %s",
 			       list->ns->prefix, path);
 		}
@@ -345,7 +352,7 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 		list->file_create_gid = st.st_gid;
 	}
 
-	if ((list->flags & MAILBOX_LIST_FLAG_DEBUG) != 0 && name == NULL) {
+	if (list->mail_set->mail_debug && name == NULL) {
 		i_info("Namespace %s: Using permissions from %s: "
 		       "mode=0%o gid=%ld", list->ns->prefix, path,
 		       (int)list->dir_create_mode,
@@ -763,7 +770,7 @@ mailbox_list_get_file_type(const struct dirent *d ATTR_UNUSED)
 bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 					const char **name)
 {
-	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) == 0)
+	if (!list->mail_set->mail_full_filesystem_access)
 		return FALSE;
 
 	if (**name == '/')

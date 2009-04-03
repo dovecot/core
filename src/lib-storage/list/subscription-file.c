@@ -27,8 +27,7 @@ struct subsfile_list_context {
 static void subsread_set_syscall_error(struct mailbox_list *list,
 				       const char *function, const char *path)
 {
-	if (errno == EACCES &&
-	    (list->flags & MAILBOX_LIST_FLAG_DEBUG) == 0) {
+	if (errno == EACCES && !list->mail_set->mail_debug) {
 		mailbox_list_set_error(list, MAIL_ERROR_PERM,
 				       "No permission to read subscriptions");
 	} else {
@@ -41,8 +40,7 @@ static void subsread_set_syscall_error(struct mailbox_list *list,
 static void subswrite_set_syscall_error(struct mailbox_list *list,
 					const char *function, const char *path)
 {
-	if (errno == EACCES &&
-	    (list->flags & MAILBOX_LIST_FLAG_DEBUG) == 0) {
+	if (errno == EACCES && !list->mail_set->mail_debug) {
 		mailbox_list_set_error(list, MAIL_ERROR_PERM,
 				       "No permission to modify subscriptions");
 	} else {
@@ -103,10 +101,8 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		name = "INBOX";
 
 	memset(&dotlock_set, 0, sizeof(dotlock_set));
-	dotlock_set.use_excl_lock =
-		(list->flags & MAILBOX_LIST_FLAG_DOTLOCK_USE_EXCL) != 0;
-	dotlock_set.nfs_flush =
-		(list->flags & MAILBOX_LIST_FLAG_NFS_FLUSH) != 0;
+	dotlock_set.use_excl_lock = list->mail_set->dotlock_use_excl;
+	dotlock_set.nfs_flush = list->mail_set->mail_nfs_storage;
 	dotlock_set.temp_prefix = temp_prefix;
 	dotlock_set.timeout = SUBSCRIPTION_FILE_LOCK_TIMEOUT;
 	dotlock_set.stale_timeout = SUBSCRIPTION_FILE_CHANGE_TIMEOUT;

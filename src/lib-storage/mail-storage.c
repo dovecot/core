@@ -7,14 +7,13 @@
 #include "mail-index-private.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
+#include "mail-storage-settings.h"
 #include "mail-namespace.h"
 #include "mail-search.h"
 #include "mailbox-search-result-private.h"
 
 #include <stdlib.h>
 #include <ctype.h>
-
-#define DEFAULT_MAX_KEYWORD_LENGTH 50
 
 struct mail_storage_module_register mail_storage_module_register = { 0 };
 struct mail_module_register mail_module_register = { 0 };
@@ -26,28 +25,30 @@ void (*hook_mail_storage_created)(struct mail_storage *storage);
 void (*hook_mailbox_opened)(struct mailbox *box) = NULL;
 void (*hook_mailbox_index_opened)(struct mailbox *box) = NULL;
 
-static ARRAY_DEFINE(storages, struct mail_storage *);
+ARRAY_TYPE(mail_storage) mail_storage_classes;
 
 void mail_storage_init(void)
 {
 	mailbox_lists_init();
-	i_array_init(&storages, 8);
+	i_array_init(&mail_storage_classes, 8);
 }
 
 void mail_storage_deinit(void)
 {
-	if (array_is_created(&storages))
-		array_free(&storages);
+	if (array_is_created(&mail_storage_classes))
+		array_free(&mail_storage_classes);
 	mailbox_lists_deinit();
 }
 
 void mail_storage_class_register(struct mail_storage *storage_class)
 {
+	i_assert(mail_storage_find_class(storage_class->name) == NULL);
+
 	if (storage_class->v.class_init != NULL)
 		storage_class->v.class_init();
 
 	/* append it after the list, so the autodetection order is correct */
-	array_append(&storages, &storage_class, 1);
+	array_append(&mail_storage_classes, &storage_class, 1);
 }
 
 void mail_storage_class_unregister(struct mail_storage *storage_class)
@@ -55,57 +56,15 @@ void mail_storage_class_unregister(struct mail_storage *storage_class)
 	struct mail_storage *const *classes;
 	unsigned int i, count;
 
-	classes = array_get(&storages, &count);
+	classes = array_get(&mail_storage_classes, &count);
 	for (i = 0; i < count; i++) {
 		if (classes[i] == storage_class) {
-			array_delete(&storages, i, 1);
+			array_delete(&mail_storage_classes, i, 1);
 			break;
 		}
 	}
 
 	storage_class->v.class_deinit();
-}
-
-void mail_storage_parse_env(enum mail_storage_flags *flags_r,
-			    enum file_lock_method *lock_method_r)
-{
-	const char *str;
-
-	*flags_r = 0;
-	if (getenv("FULL_FILESYSTEM_ACCESS") != NULL)
-		*flags_r |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
-	if (getenv("DEBUG") != NULL)
-		*flags_r |= MAIL_STORAGE_FLAG_DEBUG;
-	if (getenv("MMAP_DISABLE") != NULL)
-		*flags_r |= MAIL_STORAGE_FLAG_MMAP_DISABLE;
-	if (getenv("MMAP_NO_WRITE") != NULL)
-		*flags_r |= MAIL_STORAGE_FLAG_MMAP_NO_WRITE;
-	if (getenv("DOTLOCK_USE_EXCL") != NULL)
-		*flags_r |= MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL;
-	if (getenv("MAIL_SAVE_CRLF") != NULL)
-		*flags_r |= MAIL_STORAGE_FLAG_SAVE_CRLF;
-	if (getenv("FSYNC_DISABLE") != NULL)
-		*flags_r |= MAIL_STORAGE_FLAG_FSYNC_DISABLE;
-	if (getenv("MAIL_NFS_STORAGE") != NULL)
-		*flags_r |= MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE;
-	if (getenv("MAIL_NFS_INDEX") != NULL) {
-		*flags_r |= MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX;
-		if ((*flags_r & MAIL_STORAGE_FLAG_MMAP_DISABLE) == 0)
-			i_fatal("mail_nfs_index=yes requires mmap_disable=yes");
-		if ((*flags_r & MAIL_STORAGE_FLAG_FSYNC_DISABLE) != 0)
-			i_fatal("mail_nfs_index=yes requires fsync_disable=no");
-	}
-
-	str = getenv("POP3_UIDL_FORMAT");
-	if (str != NULL && (str = strchr(str, '%')) != NULL &&
-	    str != NULL && var_get_key(str + 1) == 'm')
-		*flags_r |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
-
-	str = getenv("LOCK_METHOD");
-	if (str == NULL)
-		*lock_method_r = FILE_LOCK_METHOD_FCNTL;
-	else if (!file_lock_method_parse(str, lock_method_r))
-		i_fatal("Unknown lock_method: %s", str);
 }
 
 struct mail_storage *mail_storage_find_class(const char *name)
@@ -115,7 +74,7 @@ struct mail_storage *mail_storage_find_class(const char *name)
 
 	i_assert(name != NULL);
 
-	classes = array_get(&storages, &count);
+	classes = array_get(&mail_storage_classes, &count);
 	for (i = 0; i < count; i++) {
 		if (strcasecmp(classes[i]->name, name) == 0)
 			return classes[i];
@@ -124,15 +83,15 @@ struct mail_storage *mail_storage_find_class(const char *name)
 }
 
 static struct mail_storage *
-mail_storage_autodetect(const char *data, enum mail_storage_flags flags)
+mail_storage_autodetect(const struct mail_namespace *ns)
 {
 	struct mail_storage *const *classes;
 	unsigned int i, count;
 
-	classes = array_get(&storages, &count);
+	classes = array_get(&mail_storage_classes, &count);
 	for (i = 0; i < count; i++) {
 		if (classes[i]->v.autodetect != NULL &&
-		    classes[i]->v.autodetect(data, flags))
+		    classes[i]->v.autodetect(ns))
 			return classes[i];
 	}
 	return NULL;
@@ -158,14 +117,29 @@ mail_storage_set_autodetection(const char **data, const char **driver,
 }
 
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
-			const char *data, enum mail_storage_flags flags,
-			enum file_lock_method lock_method,
-			const char **error_r)
+			enum mail_storage_flags flags, const char **error_r)
 {
 	struct mail_storage *storage_class, *storage = NULL;
 	struct mail_storage *const *classes;
-	const char *home, *value;
+	const char *data = ns->set->location;
+	const char *home, *p;
 	unsigned int i, count;
+
+	if ((flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) == 0 &&
+	    ns->mail_set->pop3_uidl_format != NULL) {
+		/* if pop3_uidl_format contains %m, we want to keep the
+		   header MD5 sums stored even if we're not running POP3
+		   right now. */
+		p = ns->mail_set->pop3_uidl_format;
+		while ((p = strchr(p, '%')) != NULL) {
+			if (p[1] == '%')
+				p += 2;
+			else if (var_get_key(++p) == 'm') {
+				flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
+				break;
+			}
+		}
+	}
 
 	if (data == NULL)
 		data = "";
@@ -174,9 +148,9 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 
 	if (*data == '\0' && driver == NULL) {
 		/* use the first driver that works */
-		classes = array_get(&storages, &count);
+		classes = array_get(&mail_storage_classes, &count);
 	} else if (driver == NULL) {
-		storage_class = mail_storage_autodetect(data, flags);
+		storage_class = mail_storage_autodetect(ns);
 		if (storage_class == NULL) {
 			*error_r = t_strdup_printf(
 				"Ambiguous mail location setting, "
@@ -200,8 +174,13 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 
 	for (i = 0; i < count; i++) {
 		storage = classes[i]->v.alloc();
+		storage->set = ns->mail_set;
 		storage->flags = flags;
-		storage->lock_method = lock_method;
+		if (!file_lock_method_parse(storage->set->lock_method,
+					    &storage->lock_method)) {
+			i_fatal("Unknown lock_method: %s",
+				storage->set->lock_method);
+		}
 		storage->ns = ns;
 
 		storage->callbacks =
@@ -211,7 +190,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		if (classes[i]->v.create(storage, data, error_r) == 0)
 			break;
 
-		if ((flags & MAIL_STORAGE_FLAG_DEBUG) != 0 && count > 1) {
+		if (ns->mail_set->mail_debug && count > 1) {
 			i_info("%s: Couldn't create mail storage %s: %s",
 			       classes[i]->name, data, *error_r);
 		}
@@ -234,9 +213,6 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		return -1;
 	}
 
-	value = getenv("MAIL_MAX_KEYWORD_LENGTH");
-	storage->keyword_max_len = value != NULL ?
-		atoi(value) : DEFAULT_MAX_KEYWORD_LENGTH;
 
 	if (hook_mail_storage_created != NULL) {
 		T_BEGIN {
@@ -325,6 +301,12 @@ struct mail_namespace *
 mail_storage_get_namespace(const struct mail_storage *storage)
 {
 	return storage->ns;
+}
+
+const struct mail_storage_settings *
+mail_storage_get_settings(struct mail_storage *storage)
+{
+	return storage->set;
 }
 
 void mail_storage_set_callbacks(struct mail_storage *storage,
@@ -418,22 +400,6 @@ const char *mail_storage_get_temp_prefix(struct mail_storage *storage)
 	return storage->temp_path_prefix;
 }
 
-enum mailbox_list_flags
-mail_storage_get_list_flags(enum mail_storage_flags storage_flags)
-{
-	enum mailbox_list_flags list_flags = 0;
-
-	if ((storage_flags & MAIL_STORAGE_FLAG_DEBUG) != 0)
-		list_flags |= MAILBOX_LIST_FLAG_DEBUG;
-	if ((storage_flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0)
-		list_flags |= MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
-	if ((storage_flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0)
-		list_flags |= MAILBOX_LIST_FLAG_DOTLOCK_USE_EXCL;
-	if ((storage_flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
-		list_flags |= MAILBOX_LIST_FLAG_NFS_FLUSH;
-	return list_flags;
-}
-
 bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 {
 	const char *error_string;
@@ -441,8 +407,7 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 
 	if (!mail_error_from_errno(&error, &error_string))
 		return FALSE;
-	if ((storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0 &&
-	    error != MAIL_ERROR_NOTFOUND) {
+	if (storage->set->mail_debug && error != MAIL_ERROR_NOTFOUND) {
 		/* debugging is enabled - admin may be debugging a
 		   (permission) problem, so return FALSE to get the caller to
 		   log the full error message. */
@@ -505,6 +470,11 @@ int mailbox_close(struct mailbox **_box)
 struct mail_storage *mailbox_get_storage(const struct mailbox *box)
 {
 	return box->storage;
+}
+
+const struct mail_storage_settings *mailbox_get_settings(struct mailbox *box)
+{
+	return box->storage->set;
 }
 
 const char *mailbox_get_name(const struct mailbox *box)

@@ -4,6 +4,7 @@
 #include "array.h"
 #include "env-util.h"
 #include "restrict-access.h"
+#include "str.h"
 #include "auth-client.h"
 #include "auth-master.h"
 
@@ -14,6 +15,7 @@ static uid_t current_uid = 0;
 static void auth_set_env(const char *user, struct auth_user_reply *reply)
 {
 	const char *const *fields, *key, *value;
+	string_t *expanded_vars;
 	unsigned int i, count;
 
 	if (reply->gid != (gid_t)-1 && getegid() != reply->gid) {
@@ -52,16 +54,22 @@ static void auth_set_env(const char *user, struct auth_user_reply *reply)
 		current_uid = reply->uid;
 	}
 
+	expanded_vars = t_str_new(128);
+	str_append(expanded_vars, "VARS_EXPANDED=");
 	fields = array_get(&reply->extra_fields, &count);
 	for (i = 0; i < count; i++) {
-		key = t_str_ucase(t_strcut(fields[i], '='));
+		key = t_strcut(fields[i], '=');
 		value = strchr(fields[i], '=');
 		if (value != NULL)
 			value++;
 		else
 			value = "1";
-		env_put(t_strconcat(key, "=", value, NULL));
+		env_put(t_strconcat(t_str_ucase(key), "=", value, NULL));
+
+		str_append(expanded_vars, key);
+		str_append_c(expanded_vars, ' ');
 	}
+	env_put(str_c(expanded_vars));
 	env_put(t_strconcat("HOME=", reply->home, NULL));
 }
 

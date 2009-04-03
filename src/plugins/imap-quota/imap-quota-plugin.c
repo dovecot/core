@@ -14,6 +14,7 @@
 #define QUOTA_USER_SEPARATOR ':'
 
 const char *imap_quota_plugin_version = PACKAGE_VERSION;
+static void (*next_hook_client_created)(struct client **client);
 
 static const char *
 imap_quota_root_get_name(struct mail_user *user, struct mail_user *owner,
@@ -66,6 +67,7 @@ quota_send(struct client_command_context *cmd, struct mail_user *owner,
 static bool cmd_getquotaroot(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
+	struct quota_user *quser = QUOTA_USER_CONTEXT(client->user);
 	struct mail_storage *storage;
 	struct mail_namespace *ns;
 	struct mailbox *box;
@@ -92,7 +94,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	}
 
 	ns = mail_storage_get_namespace(storage);
-	if (quota_set == NULL || ns->owner == NULL) {
+	if (quser == NULL || ns->owner == NULL) {
 		mailbox_close(&box);
 		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
@@ -138,11 +140,6 @@ static bool cmd_getquota(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 1, &root_name))
 		return FALSE;
 
-	if (quota_set == NULL) {
-		client_send_tagline(cmd, "OK No quota.");
-		return TRUE;
-	}
-
 	root = quota_root_lookup(cmd->client->user, root_name);
 	if (root == NULL && cmd->client->user->admin) {
 		/* we're an admin. see if there's a quota root for another
@@ -182,11 +179,6 @@ static bool cmd_setquota(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (quota_set == NULL) {
-		client_send_tagline(cmd, "OK No quota.");
-		return TRUE;
-	}
-
 	root = quota_root_lookup(cmd->client->user, root_name);
 	if (root == NULL) {
 		client_send_tagline(cmd, "NO Quota root doesn't exist.");
@@ -213,12 +205,22 @@ static bool cmd_setquota(struct client_command_context *cmd)
 	return TRUE;
 }
 
+static void imap_quota_client_created(struct client **client)
+{
+	str_append((*client)->capability_string, " QUOTA");
+
+	if (next_hook_client_created != NULL)
+		next_hook_client_created(client);
+}
+
 void imap_quota_plugin_init(void)
 {
 	command_register("GETQUOTAROOT", cmd_getquotaroot, 0);
 	command_register("GETQUOTA", cmd_getquota, 0);
 	command_register("SETQUOTA", cmd_setquota, 0);
-	str_append(capability_string, " QUOTA");
+
+	next_hook_client_created = hook_client_created;
+	hook_client_created = imap_quota_client_created;
 }
 
 void imap_quota_plugin_deinit(void)
@@ -226,4 +228,6 @@ void imap_quota_plugin_deinit(void)
 	command_unregister("GETQUOTAROOT");
 	command_unregister("GETQUOTA");
 	command_unregister("SETQUOTA");
+
+	hook_client_created = next_hook_client_created;
 }

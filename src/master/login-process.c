@@ -16,6 +16,7 @@
 #include "auth-process.h"
 #include "mail-process.h"
 #include "master-login-interface.h"
+#include "master-settings.h"
 #include "log.h"
 #include "ssl-init.h"
 
@@ -65,7 +66,7 @@ static void login_process_unref(struct login_process *p);
 static bool login_process_init_group(struct login_process *p);
 static void login_processes_start_missing(void *context);
 
-static void login_group_create(struct settings *set)
+static void login_group_create(struct master_settings *set)
 {
 	struct login_group *group;
 
@@ -217,18 +218,14 @@ login_process_set_state(struct login_process *p, enum master_login_state state)
 
 static void login_process_groups_create(void)
 {
-	struct server_settings *server;
-
-	for (server = settings_root; server != NULL; server = server->next) {
-		if (server->imap != NULL)
-			login_group_create(server->imap);
-		if (server->pop3 != NULL)
-			login_group_create(server->pop3);
-	}
+	if (master_set->imap != NULL)
+		login_group_create(master_set->imap);
+	if (master_set->pop3 != NULL)
+		login_group_create(master_set->pop3);
 }
 
 static struct login_group *
-login_group_process_find(const char *name, enum mail_protocol protocol)
+login_group_process_find(enum mail_protocol protocol)
 {
 	struct login_group *group;
 
@@ -236,8 +233,7 @@ login_group_process_find(const char *name, enum mail_protocol protocol)
                 login_process_groups_create();
 
 	for (group = login_groups; group != NULL; group = group->next) {
-		if (strcmp(group->set->server->name, name) == 0 &&
-		    group->set->protocol == protocol)
+		if (group->set->protocol == protocol)
 			return group;
 	}
 
@@ -247,7 +243,7 @@ login_group_process_find(const char *name, enum mail_protocol protocol)
 static bool login_process_read_group(struct login_process *p)
 {
 	struct login_group *group;
-	const char *name, *proto;
+	const char *proto;
 	unsigned char buf[256];
 	enum mail_protocol protocol;
 	unsigned int len;
@@ -272,15 +268,7 @@ static bool login_process_read_group(struct login_process *p)
 	else if (len == 0 || (size_t)ret != len)
 		i_error("login: Server name wasn't sent");
 	else {
-		name = t_strndup(buf, len);
-		proto = strchr(name, '/');
-		if (proto == NULL) {
-			proto = name;
-			name = "default";
-		} else {
-			name = t_strdup_until(name, proto++);
-		}
-
+		proto = t_strndup(buf, len);
 		if (strcmp(proto, "imap") == 0)
 			protocol = MAIL_PROTOCOL_IMAP;
 		else if (strcmp(proto, "pop3") == 0)
@@ -290,9 +278,9 @@ static bool login_process_read_group(struct login_process *p)
 			return FALSE;
 		}
 
-		group = login_group_process_find(name, protocol);
+		group = login_group_process_find(protocol);
 		if (group == NULL) {
-			i_error("login: Unknown server name '%s'", name);
+			i_error("login: No group for protocol '%s'", proto);
 			return FALSE;
 		}
 
@@ -534,11 +522,9 @@ static void login_process_unref(struct login_process *p)
 
 static void login_process_init_env(struct login_group *group, pid_t pid)
 {
-	struct settings *set = group->set;
-	const struct auth_settings *auth;
-	bool require_cert;
+	struct master_settings *set = group->set;
 
-	child_process_init_env();
+	child_process_init_env(group->set);
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment. Don't set user
@@ -551,78 +537,16 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 
 	env_put("DOVECOT_MASTER=1");
 
-	if (strcmp(set->ssl, "no") != 0) {
-		const char *ssl_key_password;
-
-		ssl_key_password = *set->ssl_key_password != '\0' ?
-			set->ssl_key_password : ssl_manual_key_password;
-
-		if (*set->ssl_ca_file != '\0') {
-			env_put(t_strconcat("SSL_CA_FILE=",
-					    set->ssl_ca_file, NULL));
-		}
-		if (strcmp(set->ssl, "required") == 0)
-			env_put("SSL_REQUIRED=1");
-		env_put(t_strconcat("SSL_CERT_FILE=",
-				    set->ssl_cert_file, NULL));
-		env_put(t_strconcat("SSL_KEY_FILE=",
-				    set->ssl_key_file, NULL));
-		env_put(t_strconcat("SSL_KEY_PASSWORD=",
-				    ssl_key_password, NULL));
-		env_put("SSL_PARAM_FILE="SSL_PARAMETERS_FILENAME);
-		if (*set->ssl_cipher_list != '\0') {
-			env_put(t_strconcat("SSL_CIPHER_LIST=",
-					    set->ssl_cipher_list, NULL));
-		}
-		env_put(t_strconcat("SSL_CERT_USERNAME_FIELD=",
-				    set->ssl_cert_username_field, NULL));
-		if (set->ssl_verify_client_cert)
-			env_put("SSL_VERIFY_CLIENT_CERT=1");
-	}
-
-	if (set->disable_plaintext_auth)
-		env_put("DISABLE_PLAINTEXT_AUTH=1");
-	if (set->verbose_proctitle)
-		env_put("VERBOSE_PROCTITLE=1");
-	if (set->verbose_ssl)
-		env_put("VERBOSE_SSL=1");
-	if (set->server->auths->verbose)
-		env_put("VERBOSE_AUTH=1");
-	if (set->server->auths->debug)
-		env_put("AUTH_DEBUG=1");
-	require_cert = TRUE;
-	for (auth = set->server->auths; auth != NULL; auth = auth->next) {
-		if (!auth->ssl_require_client_cert)
-			require_cert = FALSE;
-	}
-	if (require_cert)
-		env_put("SSL_REQUIRE_CLIENT_CERT=1");
-
-	if (set->login_process_per_connection) {
-		env_put("PROCESS_PER_CONNECTION=1");
-		env_put("MAX_CONNECTIONS=1");
-	} else {
-		env_put(t_strdup_printf("MAX_CONNECTIONS=%u",
-					set->login_max_connections));
+	master_settings_export_to_env(group->set);
+	if (ssl_manual_key_password != NULL) {
+		env_put(t_strconcat("SSL_MANUAL_KEY_PASSWORD=",
+				    ssl_manual_key_password, NULL));
 	}
 
 	env_put(t_strconcat("PROCESS_UID=", dec2str(pid), NULL));
-	env_put(t_strconcat("GREETING=", set->login_greeting, NULL));
-	env_put(t_strconcat("LOG_FORMAT_ELEMENTS=",
-			    set->login_log_format_elements, NULL));
-	env_put(t_strconcat("LOG_FORMAT=", set->login_log_format, NULL));
-	env_put(t_strconcat("IMAP_ID_SEND=", set->imap_id_send, NULL));
-	env_put(t_strconcat("IMAP_ID_LOG=", set->imap_id_log, NULL));
-
 	if (group->mail_process_type == PROCESS_TYPE_IMAP) {
-		env_put(t_strconcat("CAPABILITY_STRING=",
-				    *set->imap_capability != '\0' ?
-				    set->imap_capability :
+		env_put(t_strconcat("GENERATED_CAPABILITY=",
 				    set->imap_generated_capability, NULL));
-	}
-	if (*set->login_trusted_networks != '\0') {
-		env_put(t_strconcat("TRUSTED_NETWORKS=",
-				    set->login_trusted_networks, NULL));
 	}
 	env_put(t_strconcat("LOGIN_DIR=", set->login_dir, NULL));
 }

@@ -457,15 +457,16 @@ static int index_mailbox_list_open_indexes(struct mailbox_list *list,
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
 	const char *path;
 	enum mail_index_open_flags index_flags = 0;
-	enum mail_storage_flags storage_flags;
+	enum file_lock_method lock_method;
 	int ret;
 
-	/* FIXME: a bit ugly way to get the flags, but this will do for now.. */
-	storage_flags = *list->set.mail_storage_flags;
-#ifndef MMAP_CONFLICTS_WRITE
-	if ((storage_flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
-#endif
-		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
+	index_flags = mail_storage_settings_to_index_flags(list->mail_set);
+
+	if (!file_lock_method_parse(list->mail_set->lock_method,
+				    &lock_method)) {
+		i_error("Unknown lock_method: %s", list->mail_set->lock_method);
+		return -1;
+	}
 
 	if (mail_index_open_or_create(ilist->mail_index, index_flags,
 				      *list->set.lock_method) < 0) {
@@ -507,7 +508,7 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 
 	/* FIXME: always disabled for now */
 	dir = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*dir == '\0' || getenv("MAILBOX_LIST_INDEX_DISABLE") != NULL ||
+	if (*dir == '\0' || list->mail_set->mailbox_list_index_disable ||
 	    strcmp(list->name, "maildir++") != 0 || 1) {
 		/* reserve the module context anyway, so syncing code knows
 		   that the index is disabled */

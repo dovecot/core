@@ -25,6 +25,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-otp \
 	-DAUTH_MODULE_DIR=\""$(auth_moduledir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
+	-DPKG_RUNDIR=\""$(rundir)"\" \
 	$(AUTH_CFLAGS)
 
 dovecot_auth_LDFLAGS = -export-dynamic
@@ -56,6 +57,7 @@ dovecot_auth_SOURCES = \
 	auth-master-listener.c \
 	auth-request.c \
 	auth-request-handler.c \
+	auth-settings.c \
 	auth-stream.c \
 	auth-worker-client.c \
 	auth-worker-server.c \
@@ -112,6 +114,7 @@ headers = \
 	auth-master-listener.h \
 	auth-request.h \
 	auth-request-handler.h \
+	auth-settings.h \
 	auth-stream.h \
 	auth-worker-client.h \
 	auth-worker-server.h \

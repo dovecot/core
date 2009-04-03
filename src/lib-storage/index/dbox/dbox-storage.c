@@ -56,25 +56,22 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 		       const char **layout_r, const char **alt_dir_r,
 		       const char **error_r)
 {
-	const char *subs_fname = DBOX_SUBSCRIPTION_FILE_NAME;
-	bool debug = (storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
-
 	*layout_r = "fs";
 
 	memset(list_set, 0, sizeof(*list_set));
-	list_set->subscription_fname = subs_fname;
+	list_set->subscription_fname = DBOX_SUBSCRIPTION_FILE_NAME;
 	list_set->maildir_name = DBOX_MAILDIR_NAME;
 	list_set->mailbox_dir_name = DBOX_MAILBOX_DIR_NAME;
 
 	if (data == NULL || *data == '\0' || *data == ':') {
 		/* we won't do any guessing for this format. */
-		if (debug)
+		if (storage->set->mail_debug)
 			i_info("dbox: mailbox location not given");
 		*error_r = "Root mail directory not given";
 		return -1;
 	}
 
-	if (debug)
+	if (storage->set->mail_debug)
 		i_info("dbox: data=%s", data);
 	if (mailbox_list_settings_parse(data, list_set, storage->ns,
 					layout_r, alt_dir_r, error_r) < 0)
@@ -107,7 +104,7 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	struct mailbox_list_settings list_set;
 	struct stat st;
-	const char *layout, *alt_dir, *dir, *value;
+	const char *layout, *alt_dir, *dir;
 
 	if (dbox_get_list_settings(&list_set, data, _storage,
 				   &layout, &alt_dir, error_r) < 0)
@@ -147,42 +144,10 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 		return -1;
 	}
 
-	value = getenv("DBOX_ROTATE_SIZE");
-	if (value != NULL)
-		storage->rotate_size = (uoff_t)strtoul(value, NULL, 10) * 1024;
-	else
-		storage->rotate_size = DBOX_DEFAULT_ROTATE_SIZE;
-	value = getenv("DBOX_ROTATE_MIN_SIZE");
-	if (value != NULL)
-		storage->rotate_min_size = (uoff_t)strtoul(value, NULL, 10) * 1024;
-	else
-		storage->rotate_min_size = DBOX_DEFAULT_ROTATE_MIN_SIZE;
-	if (storage->rotate_min_size > storage->rotate_size)
-		storage->rotate_min_size = storage->rotate_size;
-	value = getenv("DBOX_ROTATE_DAYS");
-	if (value != NULL)
-		storage->rotate_days = (unsigned int)strtoul(value, NULL, 10);
-	else
-		storage->rotate_days = DBOX_DEFAULT_ROTATE_DAYS;
-	value = getenv("DBOX_MAX_OPEN_FILES");
-	if (value != NULL)
-		storage->max_open_files = (unsigned int)strtoul(value, NULL, 10);
-	else
-		storage->max_open_files = DBOX_DEFAULT_MAX_OPEN_FILES;
-	value = getenv("DBOX_PURGE_MIN_PERCENTAGE");
-	if (value != NULL)
-		storage->purge_min_percentage = (unsigned int)strtoul(value, NULL, 10);
-	else
-		storage->purge_min_percentage = DBOX_DEFAULT_PURGE_MIN_PERCENTAGE;
-
-	if (storage->max_open_files <= 1) {
+	storage->set = mail_storage_get_driver_settings(_storage);
+	if (storage->set->dbox_max_open_files <= 1) {
 		/* we store file offsets in a 32bit integer. */
 		*error_r = "dbox_max_open_files must be at least 2";
-		return -1;
-	}
-	if (storage->rotate_size > (uint32_t)-1) {
-		/* we store file offsets in a 32bit integer. */
-		*error_r = "dbox_rotate_size must be less than 4 GB";
 		return -1;
 	}
 
@@ -199,8 +164,7 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 				storage, &storage->list_module_ctx);
 
 	/* finish list init after we've overridden vfuncs */
-	mailbox_list_init(_storage->list, _storage->ns, &list_set,
-			  mail_storage_get_list_flags(_storage->flags));
+	mailbox_list_init(_storage->list, _storage->ns, &list_set, 0);
 
 	dir = mailbox_list_get_path(storage->storage.list, NULL,
 				    MAILBOX_LIST_PATH_TYPE_DIR);
@@ -208,7 +172,8 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 					   "/"DBOX_GLOBAL_DIR_NAME, NULL);
 	storage->alt_storage_dir = p_strconcat(_storage->pool, alt_dir,
 					       "/"DBOX_GLOBAL_DIR_NAME, NULL);
-	i_array_init(&storage->open_files, I_MIN(storage->max_open_files, 128));
+	i_array_init(&storage->open_files,
+		     I_MIN(storage->set->dbox_max_open_files, 128));
 
 	storage->map = dbox_map_init(storage);
 	mailbox_list_get_permissions(storage->storage.list, NULL,
@@ -461,6 +426,8 @@ static int
 dbox_mailbox_unref_mails(struct dbox_storage *storage, const char *path)
 {
 	struct mailbox_list *list = storage->storage.list;
+	const struct mail_storage_settings *old_set;
+	struct mail_storage_settings tmp_set;
 	struct mailbox *box;
 	struct dbox_mailbox *mbox;
 	const struct mail_index_header *hdr;
@@ -468,16 +435,17 @@ dbox_mailbox_unref_mails(struct dbox_storage *storage, const char *path)
 	struct dbox_map_transaction_context *map_trans;
 	ARRAY_TYPE(uint32_t) map_uids;
 	const void *data;
-	bool expunged, old_fs_access;
+	bool expunged;
 	uint32_t seq;
 	int ret;
 
-	old_fs_access = (list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0;
-	list->flags |= MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
+	old_set = list->mail_set;
+	tmp_set = *list->mail_set;
+	tmp_set.mail_full_filesystem_access = TRUE;
+	list->mail_set = &tmp_set;
 	box = dbox_open(storage, path, MAILBOX_OPEN_IGNORE_ACLS |
 			MAILBOX_OPEN_KEEP_RECENT);
-	if (!old_fs_access)
-		list->flags &= ~MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
+	list->mail_set = old_set;
 	if (box == NULL)
 		return -1;
 	mbox = (struct dbox_mailbox *)box;
@@ -485,7 +453,7 @@ dbox_mailbox_unref_mails(struct dbox_storage *storage, const char *path)
 	/* get a list of all map_uids in this mailbox */
 	i_array_init(&map_uids, 128);
 	hdr = mail_index_get_header(mbox->ibox.view);
-	for (seq = 1; seq <= hdr->messages_count; hdr++) {
+	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		mail_index_lookup_ext(mbox->ibox.view, seq, mbox->dbox_ext_id,
 				      &data, &expunged);
 		dbox_rec = data;
@@ -797,6 +765,7 @@ struct mail_storage dbox_storage = {
 	MEMBER(mailbox_is_file) FALSE,
 
 	{
+                dbox_get_setting_parser_info,
 		dbox_class_init,
 		dbox_class_deinit,
 		dbox_alloc,

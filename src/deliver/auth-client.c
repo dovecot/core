@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "env-util.h"
 #include "restrict-access.h"
+#include "deliver.h"
 #include "auth-client.h"
 #include "auth-master.h"
 
@@ -65,8 +66,8 @@ static int set_env(struct auth_user_reply *reply,
 		i_error("userdb(%s) returned 0 as uid", user);
 		return -1;
 	} else if (reply->uid == (uid_t)-1) {
-		if (getenv("MAIL_UID") != NULL) {
-			if (!parse_uid(getenv("MAIL_UID"), &reply->uid) ||
+		if (*deliver_set->mail_uid != '\0') {
+			if (!parse_uid(deliver_set->mail_uid, &reply->uid) ||
 			    reply->uid == 0) {
 				i_error("mail_uid setting is invalid");
 				return -1;
@@ -80,8 +81,8 @@ static int set_env(struct auth_user_reply *reply,
 		i_error("userdb(%s) returned 0 as gid", user);
 		return -1;
 	} else if (reply->gid == (gid_t)-1) {
-		if (getenv("MAIL_GID") != NULL) {
-			if (!parse_gid(getenv("MAIL_GID"), &reply->gid) ||
+		if (*deliver_set->mail_gid != '\0') {
+			if (!parse_gid(deliver_set->mail_gid, &reply->gid) ||
 			    reply->gid == 0) {
 				i_error("mail_gid setting is invalid");
 				return -1;
@@ -102,7 +103,7 @@ static int set_env(struct auth_user_reply *reply,
 	}
 
 	if (reply->chroot == NULL)
-		reply->chroot = getenv("MAIL_CHROOT");
+		reply->chroot = deliver_set->mail_chroot;
 	if (reply->chroot != NULL) {
 		len = strlen(reply->chroot);
 		if (len > 2 && strcmp(reply->chroot + len - 2, "/.") == 0 &&
@@ -116,7 +117,7 @@ static int set_env(struct auth_user_reply *reply,
 	if (reply->home != NULL)
 		env_put(t_strconcat("HOME=", reply->home, NULL));
 
-	extra_groups = getenv("MAIL_EXTRA_GROUPS");
+	extra_groups = deliver_set->mail_access_groups;
 	if (extra_groups != NULL) {
 		env_put(t_strconcat("RESTRICT_SETEXTRAGROUPS=",
 				    extra_groups, NULL));
@@ -124,13 +125,12 @@ static int set_env(struct auth_user_reply *reply,
 	return 0;
 }
 
-int auth_client_lookup_and_restrict(const char *auth_socket,
+int auth_client_lookup_and_restrict(const char *auth_socket, bool debug,
 				    const char **user, uid_t euid, pool_t pool,
 				    ARRAY_TYPE(const_string) *extra_fields_r)
 {
         struct auth_master_connection *conn;
 	struct auth_user_reply reply;
-	bool debug = getenv("DEBUG") != NULL;
 	int ret = EX_TEMPFAIL;
 
 	conn = auth_master_init(auth_socket, debug);

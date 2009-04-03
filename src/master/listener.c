@@ -79,7 +79,7 @@ static void resolve_ip(const char *set_name, const char *name,
 }
 
 static void
-check_conflicts_set(const struct settings *set, const struct ip_addr *ip,
+check_conflicts_set(const struct master_settings *set, const struct ip_addr *ip,
 		    unsigned int port, const char *name1, const char *name2)
 {
 	const struct listener *listens = NULL;
@@ -115,17 +115,13 @@ check_conflicts_set(const struct settings *set, const struct ip_addr *ip,
 static void check_conflicts(const struct ip_addr *ip, unsigned int port,
 			    const char *proto)
 {
-	struct server_settings *server;
-
-	for (server = settings_root; server != NULL; server = server->next) {
-		if (server->imap != NULL) {
-			check_conflicts_set(server->imap, ip, port,
-					    "imap", proto);
-		}
-		if (server->pop3 != NULL) {
-			check_conflicts_set(server->pop3, ip, port,
-					    "pop3", proto);
-		}
+	if (master_set->imap != NULL) {
+		check_conflicts_set(master_set->imap, ip, port,
+				    "imap", proto);
+	}
+	if (master_set->pop3 != NULL) {
+		check_conflicts_set(master_set->pop3, ip, port,
+				    "pop3", proto);
 	}
 }
 
@@ -200,7 +196,7 @@ static void listener_close_fds(ARRAY_TYPE(listener) *listens_arr)
 	array_free(listens_arr);
 }
 
-static void listen_parse_and_close_unneeded(struct settings *set)
+static void listen_parse_and_close_unneeded(struct master_settings *set)
 {
 	const char *const *proto;
 	unsigned int default_port;
@@ -246,7 +242,8 @@ static void listen_parse_and_close_unneeded(struct settings *set)
 	}
 }
 
-static void listen_copy_old(struct settings *old_set, struct settings *new_set)
+static void listen_copy_old(struct master_settings *old_set,
+			    struct master_settings *new_set)
 {
 	if (old_set == NULL || new_set == NULL) {
 		if (old_set != NULL) {
@@ -317,49 +314,37 @@ listener_array_listen_missing(const char *proto,
 }
 
 static void
-listener_listen_missing(struct settings *set, const char *proto, bool retry)
+listener_listen_missing(struct master_settings *set,
+			const char *proto, bool retry)
 {
 	listener_array_listen_missing(proto, &set->listens, retry);
 	listener_array_listen_missing(t_strconcat(proto, "s", NULL),
 				      &set->ssl_listens, retry);
 }
 
-void listeners_open_fds(struct server_settings *old_set, bool retry)
+void listeners_open_fds(struct master_server_settings *old_set, bool retry)
 {
-	struct server_settings *server;
-
-	for (server = settings_root; server != NULL; server = server->next) {
-		if (old_set != NULL) {
-			listen_copy_old(old_set->imap, server->imap);
-			listen_copy_old(old_set->pop3, server->pop3);
-		}
-		listen_parse_and_close_unneeded(server->imap);
-		listen_parse_and_close_unneeded(server->pop3);
-
-		if (old_set != NULL)
-			old_set = old_set->next;
+	if (old_set != NULL) {
+		listen_copy_old(old_set->imap, master_set->imap);
+		listen_copy_old(old_set->pop3, master_set->pop3);
 	}
+	listen_parse_and_close_unneeded(master_set->imap);
+	listen_parse_and_close_unneeded(master_set->pop3);
 
-	for (server = settings_root; server != NULL; server = server->next) {
-		if (server->imap != NULL)
-			listener_listen_missing(server->imap, "imap", retry);
-		if (server->pop3 != NULL)
-			listener_listen_missing(server->pop3, "pop3", retry);
-	}
+	if (master_set->imap != NULL)
+		listener_listen_missing(master_set->imap, "imap", retry);
+	if (master_set->pop3 != NULL)
+		listener_listen_missing(master_set->pop3, "pop3", retry);
 }
 
 void listeners_close_fds(void)
 {
-	struct server_settings *server;
-
-	for (server = settings_root; server != NULL; server = server->next) {
-		if (server->imap != NULL) {
-			listener_close_fds(&server->imap->listens);
-			listener_close_fds(&server->imap->ssl_listens);
-		}
-		if (server->pop3 != NULL) {
-			listener_close_fds(&server->pop3->listens);
-			listener_close_fds(&server->pop3->ssl_listens);
-		}
+	if (master_set->imap != NULL) {
+		listener_close_fds(&master_set->imap->listens);
+		listener_close_fds(&master_set->imap->ssl_listens);
+	}
+	if (master_set->pop3 != NULL) {
+		listener_close_fds(&master_set->pop3->listens);
+		listener_close_fds(&master_set->pop3->ssl_listens);
 	}
 }

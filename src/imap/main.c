@@ -39,18 +39,12 @@ static struct client_workaround_list client_workaround_list[] = {
 };
 
 struct ioloop *ioloop;
-unsigned int imap_max_line_length;
-enum client_workarounds client_workarounds = 0;
-const char *logout_format;
-const char *imap_id_send, *imap_id_log;
 
 static struct io *log_io = NULL;
 static struct module *modules = NULL;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 
 void (*hook_client_created)(struct client **client) = NULL;
-
-string_t *capability_string;
 
 static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 {
@@ -73,16 +67,15 @@ static void log_error_callback(void *context ATTR_UNUSED)
 	io_loop_stop(ioloop);
 }
 
-static void parse_workarounds(void)
+static enum client_workarounds
+parse_workarounds(const struct imap_settings *set)
 {
+        enum client_workarounds client_workarounds = 0;
         struct client_workaround_list *list;
-	const char *env, *const *str;
+	const char *const *str;
 
-	env = getenv("IMAP_CLIENT_WORKAROUNDS");
-	if (env == NULL)
-		return;
-
-	for (str = t_strsplit_spaces(env, " ,"); *str != NULL; str++) {
+        str = t_strsplit_spaces(set->imap_client_workarounds, " ,");
+	for (; *str != NULL; str++) {
 		list = client_workaround_list;
 		for (; list->name != NULL; list++) {
 			if (strcasecmp(*str, list->name) == 0) {
@@ -93,6 +86,8 @@ static void parse_workarounds(void)
 		if (list->name == NULL)
 			i_fatal("Unknown client workaround: %s", *str);
 	}
+
+	return client_workarounds;
 }
 
 static void open_logfile(void)
@@ -136,7 +131,8 @@ static void open_logfile(void)
 	i_set_failure_timestamp_format(getenv("LOGSTAMP"));
 }
 
-static void drop_privileges(void)
+static void main_preinit(const struct imap_settings **set_r,
+			 const struct mail_user_settings **user_set_r)
 {
 	const char *version;
 
@@ -150,32 +146,39 @@ static void drop_privileges(void)
 	/* Log file or syslog opening probably requires roots */
 	open_logfile();
 
-	/* Load the plugins before chrooting. Their init() is called later. */
-	if (getenv("MAIL_PLUGINS") != NULL) {
-		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
+        mail_storage_init();
+	mail_storage_register_all();
+	mailbox_list_register_all();
 
-		if (plugin_dir == NULL)
-			plugin_dir = MODULEDIR"/imap";
-		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
-					  TRUE, version);
-	}
+	/* read settings after registering storages so they can have their
+	   own setting definitions too */
+	imap_settings_read(set_r, user_set_r);
+
+	/* Load the plugins before chrooting. Their init() is called later. */
+	modules = *(*set_r)->mail_plugins == '\0' ? NULL :
+		module_dir_load((*set_r)->mail_plugin_dir,
+				(*set_r)->mail_plugins, TRUE, version);
 
 	restrict_access_by_env(!IS_STANDALONE());
 	restrict_access_allow_coredumps(TRUE);
 }
 
-static void main_init(void)
+static void main_init(const struct imap_settings *set,
+		      const struct mail_user_settings *user_set)
 {
 	struct client *client;
 	struct ostream *output;
 	struct mail_user *user;
-	const char *username, *home, *str, *tag;
+	const char *username, *home, *str, *tag, *error;
+	bool dump_capability;
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
         lib_signals_ignore(SIGPIPE, TRUE);
         lib_signals_ignore(SIGALRM, FALSE);
+	
+	dump_capability = getenv("DUMP_CAPABILITY") != NULL;
 
 	username = getenv("USER");
 	if (username == NULL) {
@@ -186,62 +189,39 @@ static void main_init(void)
 	}
 
 	home = getenv("HOME");
-	if (getenv("DEBUG") != NULL) {
+	if (set->mail_debug) {
+		home = getenv("HOME");
 		i_info("Effective uid=%s, gid=%s, home=%s",
 		       dec2str(geteuid()), dec2str(getegid()),
 		       home != NULL ? home : "(none)");
 	}
 
-	if (getenv("STDERR_CLOSE_SHUTDOWN") != NULL) {
+	if (set->shutdown_clients && !dump_capability) {
 		/* If master dies, the log fd gets closed and we'll quit */
 		log_io = io_add(STDERR_FILENO, IO_ERROR,
 				log_error_callback, NULL);
 	}
 
-	capability_string = str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
-	str_append(capability_string, CAPABILITY_STRING);
-
 	dict_drivers_register_builtin();
-	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
-        mail_storage_init();
-	mail_storage_register_all();
-	mailbox_list_register_all();
+	mail_users_init(set->auth_socket_path, set->mail_debug);
 	clients_init();
 	commands_init();
 
 	module_dir_init(modules);
 
-	if (getenv("DUMP_CAPABILITY") != NULL) {
-		printf("%s\n", str_c(capability_string));
+	user = mail_user_alloc(username, user_set);
+	mail_user_set_home(user, home);
+	if (mail_user_init(user, &error) < 0)
+		i_fatal("Mail user initialization failed: %s", error);
+	if (mail_namespaces_init(user, &error) < 0)
+		i_fatal("Namespace initialization failed: %s", error);
+	client = client_create(0, 1, user, set);
+        client->workarounds = parse_workarounds(set);
+
+	if (dump_capability) {
+		printf("%s\n", str_c(client->capability_string));
 		exit(0);
 	}
-
-	str = getenv("IMAP_CAPABILITY");
-	if (str != NULL && *str != '\0') {
-		/* Overrides all capabilities */
-		str_truncate(capability_string, 0);
-		str_append(capability_string, str);
-	}
-
-	str = getenv("IMAP_MAX_LINE_LENGTH");
-	imap_max_line_length = str != NULL ?
-		(unsigned int)strtoul(str, NULL, 10) :
-		DEFAULT_IMAP_MAX_LINE_LENGTH;
-
-	logout_format = getenv("IMAP_LOGOUT_FORMAT");
-	if (logout_format == NULL)
-		logout_format = "bytes=%i/%o";
-
-	imap_id_send = getenv("IMAP_ID_SEND");
-	imap_id_log = getenv("IMAP_ID_LOG");
-
-        parse_workarounds();
-
-	user = mail_user_init(username);
-	mail_user_set_home(user, home);
-	if (mail_namespaces_init(user) < 0)
-		i_fatal("Namespace initialization failed");
-	client = client_create(0, 1, user);
 
 	output = client->output;
 	o_stream_ref(output);
@@ -252,12 +232,12 @@ static void main_init(void)
 	if (tag == NULL) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY ",
-			str_c(capability_string), "] "
+			str_c(client->capability_string), "] "
 			"Logged in as ", user->username, NULL));
 	} else {
 		client_send_line(client, t_strconcat(
 			tag, " OK [CAPABILITY ",
-			str_c(capability_string), "] Logged in", NULL));
+			str_c(client->capability_string), "] Logged in", NULL));
 	}
 	str = getenv("CLIENT_INPUT");
 	if (str != NULL) T_BEGIN {
@@ -285,14 +265,15 @@ static void main_deinit(void)
 	mail_users_deinit();
 	dict_drivers_unregister_builtin();
 
-	str_free(&capability_string);
-
 	lib_signals_deinit();
 	closelog();
 }
 
 int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 {
+	const struct imap_settings *set;
+	const struct mail_user_settings *user_set;
+
 #ifdef DEBUG
 	if (!IS_STANDALONE() && getenv("GDB") == NULL)
 		fd_debug_verify_leaks(3, 1024);
@@ -307,7 +288,7 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
-	drop_privileges();
+	main_preinit(&set, &user_set);
 
         process_title_init(argv, envp);
 	ioloop = io_loop_create();
@@ -315,7 +296,7 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 	/* fake that we're running, so we know if client was destroyed
 	   while initializing */
 	io_loop_set_running(ioloop);
-	main_init();
+	main_init(set, user_set);
 	if (io_loop_is_running(ioloop))
 		io_loop_run(ioloop);
 	main_deinit();

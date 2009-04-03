@@ -137,7 +137,7 @@ maildir_is_valid_existing_name(struct mailbox_list *list, const char *name)
 	if (!maildir_list_is_valid_common(list, name, &len))
 		return FALSE;
 
-	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0)
+	if (list->mail_set->mail_full_filesystem_access)
 		return TRUE;
 
 	return maildir_list_is_valid_common_nonfs(name);
@@ -153,7 +153,7 @@ maildir_is_valid_create_name(struct mailbox_list *list, const char *name)
 	if (len > MAILDIR_MAX_CREATE_MAILBOX_NAME_LENGTH)
 		return FALSE;
 
-	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0)
+	if (list->mail_set->mail_full_filesystem_access)
 		return TRUE;
 
 	if (!maildir_list_is_valid_common_nonfs(name))
@@ -168,9 +168,6 @@ static const char *
 maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		      enum mailbox_list_path_type type)
 {
-	struct maildir_mailbox_list *list =
-		(struct maildir_mailbox_list *)_list;
-
 	if (name == NULL) {
 		/* return root directories */
 		switch (type) {
@@ -187,7 +184,7 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		i_unreached();
 	}
 
-	if ((list->list.flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
+	if (_list->mail_set->mail_full_filesystem_access &&
 	    (*name == '/' || *name == '~'))
 		return maildir_list_get_absolute_path(_list, name);
 

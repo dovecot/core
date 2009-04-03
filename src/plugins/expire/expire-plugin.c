@@ -17,12 +17,14 @@
 	MODULE_CONTEXT(obj, expire_storage_module)
 #define EXPIRE_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, expire_mail_module)
+#define EXPIRE_USER_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, expire_mail_user_module)
 
-struct expire {
+struct expire_mail_user {
+	union mail_user_module_context module_ctx;
+
 	struct dict *db;
 	struct expire_env *env;
-
-	void (*next_hook_mail_storage_created)(struct mail_storage *storage);
 };
 
 struct expire_mailbox {
@@ -40,10 +42,14 @@ struct expire_transaction_context {
 
 const char *expire_plugin_version = PACKAGE_VERSION;
 
-static struct expire expire;
+static void (*next_hook_mail_storage_created)(struct mail_storage *storage);
+static void (*next_hook_mail_user_created)(struct mail_user *user);
+
 static MODULE_CONTEXT_DEFINE_INIT(expire_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(expire_mail_module, &mail_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(expire_mail_user_module,
+				  &mail_user_module_register);
 
 static struct mailbox_transaction_context *
 expire_mailbox_transaction_begin(struct mailbox *box,
@@ -96,6 +102,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				  uint32_t *first_saved_uid_r,
 				  uint32_t *last_saved_uid_r)
 {
+	struct expire_mail_user *euser =
+		EXPIRE_USER_CONTEXT(t->box->storage->ns->user);
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
 	struct mailbox *box = t->box;
@@ -129,7 +137,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 		if (!xt->first_expunged && xt->saves) {
 			/* saved new mails. dict needs to be updated only if
 			   this is the first mail in the database */
-			ret = dict_lookup(expire.db, pool_datastack_create(),
+			ret = dict_lookup(euser->db, pool_datastack_create(),
 					  key, &value);
 			update_dict = ret == 0 ||
 				(ret > 0 && strtoul(value, NULL, 10) == 0);
@@ -141,7 +149,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 		if (update_dict) {
 			struct dict_transaction_context *dctx;
 
-			dctx = dict_transaction_begin(expire.db);
+			dctx = dict_transaction_begin(euser->db);
 			if (new_stamp == 0) {
 				/* everything expunged */
 				dict_unset(dctx, key);
@@ -248,6 +256,7 @@ static struct mailbox *
 expire_mailbox_open(struct mail_storage *storage, const char *name,
 		    struct istream *input, enum mailbox_open_flags flags)
 {
+	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(storage->ns->user);
 	union mail_storage_module_context *xpr_storage =
 		EXPIRE_CONTEXT(storage);
 	struct mailbox *box;
@@ -260,7 +269,7 @@ expire_mailbox_open(struct mail_storage *storage, const char *name,
 		vname = t_str_new(128);
 		(void)mail_namespace_get_vname(storage->ns, vname, name);
 
-		secs = expire_box_find_min_secs(expire.env, str_c(vname),
+		secs = expire_box_find_min_secs(euser->env, str_c(vname),
 						&altmove);
 		if (secs != 0)
 			mailbox_expire_hook(box, secs, altmove);
@@ -270,53 +279,78 @@ expire_mailbox_open(struct mail_storage *storage, const char *name,
 
 static void expire_mail_storage_created(struct mail_storage *storage)
 {
+	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(storage->ns->user);
 	union mail_storage_module_context *xpr_storage;
 
-	xpr_storage =
-		p_new(storage->pool, union mail_storage_module_context, 1);
-	xpr_storage->super = storage->v;
-	storage->v.mailbox_open = expire_mailbox_open;
+	if (euser != NULL) {
+		xpr_storage = p_new(storage->pool,
+				    union mail_storage_module_context, 1);
+		xpr_storage->super = storage->v;
+		storage->v.mailbox_open = expire_mailbox_open;
 
-	MODULE_CONTEXT_SET_SELF(storage, expire_storage_module, xpr_storage);
+		MODULE_CONTEXT_SET_SELF(storage, expire_storage_module,
+					xpr_storage);
+	}
 
-	if (expire.next_hook_mail_storage_created != NULL)
-		expire.next_hook_mail_storage_created(storage);
+	if (next_hook_mail_storage_created != NULL)
+		next_hook_mail_storage_created(storage);
+}
+
+static void expire_mail_user_deinit(struct mail_user *user)
+{
+	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(user);
+
+	dict_deinit(&euser->db);
+	expire_env_deinit(euser->env);
+
+	euser->module_ctx.super.deinit(user);
+}
+
+static void expire_mail_user_created(struct mail_user *user)
+{
+	struct expire_mail_user *euser;
+	const char *expunge_env, *altmove_env, *dict_uri;
+
+	expunge_env = mail_user_plugin_getenv(user, "expire");
+	altmove_env = mail_user_plugin_getenv(user, "expire_altmove");
+	dict_uri = mail_user_plugin_getenv(user, "expire_dict");
+	if (expunge_env == NULL && altmove_env == NULL) {
+		if (user->mail_debug) {
+			i_info("expire: No expire or expire_altmove settings - "
+			       "plugin disabled");
+		}
+	} else if (dict_uri == NULL) {
+		i_error("expire plugin: expire_dict setting missing");
+	} else {
+		euser = p_new(user->pool, struct expire_mail_user, 1);
+		euser->module_ctx.super = user->v;
+		user->v.deinit = expire_mail_user_deinit;
+
+		euser->env = expire_env_init(expunge_env, altmove_env);
+		/* we're using only shared dictionary, the username
+		   doesn't matter. */
+		euser->db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "");
+		if (euser->db == NULL)
+			i_error("expire plugin: dict_init(%s) failed", dict_uri);
+		else
+			MODULE_CONTEXT_SET(user, expire_mail_user_module, euser);
+	}
+
+	if (next_hook_mail_user_created != NULL)
+		next_hook_mail_user_created(user);
 }
 
 void expire_plugin_init(void)
 {
-	const char *expunge_env, *altmove_env, *dict_uri;
+	next_hook_mail_storage_created = hook_mail_storage_created;
+	hook_mail_storage_created = expire_mail_storage_created;
 
-	expunge_env = getenv("EXPIRE");
-	altmove_env = getenv("EXPIRE_ALTMOVE");
-	if (expunge_env != NULL || altmove_env != NULL) {
-		dict_uri = getenv("EXPIRE_DICT");
-		if (dict_uri == NULL)
-			i_fatal("expire plugin: expire_dict setting missing");
-
-		expire.env = expire_env_init(expunge_env, altmove_env);
-		/* we're using only shared dictionary, the username
-		   doesn't matter. */
-		expire.db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "");
-		if (expire.db == NULL)
-			i_fatal("expire plugin: dict_init() failed");
-
-		expire.next_hook_mail_storage_created =
-			hook_mail_storage_created;
-		hook_mail_storage_created = expire_mail_storage_created;
-	} else if (getenv("DEBUG") != NULL) {
-		i_info("expire: No expire or expire_altmove settings - "
-		       "plugin disabled");
-	}
+	next_hook_mail_user_created = hook_mail_user_created;
+	hook_mail_user_created = expire_mail_user_created;
 }
 
 void expire_plugin_deinit(void)
 {
-	if (expire.db != NULL) {
-		hook_mail_storage_created =
-			expire.next_hook_mail_storage_created;
-
-		dict_deinit(&expire.db);
-		expire_env_deinit(expire.env);
-	}
+	hook_mail_storage_created = next_hook_mail_storage_created;
+	hook_mail_user_created = next_hook_mail_user_created;
 }

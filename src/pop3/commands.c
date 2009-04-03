@@ -8,6 +8,7 @@
 #include "var-expand.h"
 #include "message-size.h"
 #include "mail-storage.h"
+#include "mail-storage-settings.h"
 #include "mail-search-build.h"
 #include "capability.h"
 #include "commands.h"
@@ -320,7 +321,7 @@ static void fetch_callback(struct client *client)
 				add = '.';
 				break;
 			} else if (data[i] == '\0' &&
-				   (client_workarounds &
+				   (client->workarounds &
 				    WORKAROUND_OUTLOOK_NO_NULS) != 0) {
 				add = 0x80;
 				break;
@@ -358,7 +359,8 @@ static void fetch_callback(struct client *client)
 		(void)o_stream_send(client->output, "\r\n", 2);
 	}
 
-	if (!ctx->in_body && (client_workarounds & WORKAROUND_OE_NS_EOH) != 0) {
+	if (!ctx->in_body &&
+	    (client->workarounds & WORKAROUND_OE_NS_EOH) != 0) {
 		/* Add the missing end of headers line. */
 		(void)o_stream_send(client->output, "\r\n", 2);
 	}
@@ -466,7 +468,7 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 		client->seen_change_count = 0;
 	}
 
-	if (enable_last_command) {
+	if (client->set->pop3_enable_last) {
 		/* remove all \Seen flags (as specified by RFC 1460) */
 		search_args = pop3_search_build(client, 0);
 		search_ctx = mailbox_search_init(client->trans,
@@ -519,7 +521,7 @@ struct cmd_uidl_context {
 	unsigned int message;
 };
 
-static void pop3_get_uid(struct cmd_uidl_context *ctx,
+static void pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
 			 struct var_expand_table *tab, string_t *str)
 {
 	char uid_str[MAX_INT_STRLEN];
@@ -531,18 +533,18 @@ static void pop3_get_uid(struct cmd_uidl_context *ctx,
 		return;
 	}
 
-	if (reuse_xuidl &&
+	if (client->set->pop3_reuse_xuidl &&
 	    mail_get_first_header(ctx->mail, "X-UIDL", &uidl) > 0) {
 		str_append(str, uidl);
 		return;
 	}
 
-	if ((uidl_keymask & UIDL_UID) != 0) {
+	if ((client->uidl_keymask & UIDL_UID) != 0) {
 		i_snprintf(uid_str, sizeof(uid_str), "%u",
 			   ctx->mail->uid);
 		tab[1].value = uid_str;
 	}
-	if ((uidl_keymask & UIDL_MD5) != 0) {
+	if ((client->uidl_keymask & UIDL_MD5) != 0) {
 		if (mail_get_special(ctx->mail, MAIL_FETCH_HEADER_MD5,
 				     &tab[2].value) < 0 ||
 		    *tab[2].value == '\0') {
@@ -550,7 +552,7 @@ static void pop3_get_uid(struct cmd_uidl_context *ctx,
 			i_fatal("UIDL: Header MD5 not found");
 		}
 	}
-	if ((uidl_keymask & UIDL_FILE_NAME) != 0) {
+	if ((client->uidl_keymask & UIDL_FILE_NAME) != 0) {
 		if (mail_get_special(ctx->mail,
 				     MAIL_FETCH_UIDL_FILE_NAME,
 				     &tab[3].value) < 0 ||
@@ -559,7 +561,7 @@ static void pop3_get_uid(struct cmd_uidl_context *ctx,
 			i_fatal("UIDL: File name not found");
 		}
 	}
-	var_expand(str, uidl_format, tab);
+	var_expand(str, client->set->pop3_uidl_format, tab);
 }
 
 static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
@@ -593,7 +595,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		str_truncate(str, 0);
 		str_printfa(str, ctx->message == 0 ? "%u " : "+OK %u ",
 			    ctx->mail->seq);
-		pop3_get_uid(ctx, tab, str);
+		pop3_get_uid(client, ctx, tab, str);
 
 		ret = client_send_line(client, "%s", str_c(str));
 		if (ret < 0)
@@ -637,7 +639,7 @@ cmd_uidl_init(struct client *client, unsigned int message)
 	ctx->message = message;
 
 	wanted_fields = 0;
-	if ((uidl_keymask & UIDL_MD5) != 0)
+	if ((client->uidl_keymask & UIDL_MD5) != 0)
 		wanted_fields |= MAIL_FETCH_HEADER_MD5;
 
 	ctx->search_ctx = mailbox_search_init(client->trans, search_args, NULL);
@@ -693,7 +695,7 @@ int client_command_execute(struct client *client,
 	case 'L':
 		if (strcmp(name, "LIST") == 0)
 			return cmd_list(client, args);
-		if (strcmp(name, "LAST") == 0 && enable_last_command)
+		if (strcmp(name, "LAST") == 0 && client->set->pop3_enable_last)
 			return cmd_last(client, args);
 		break;
 	case 'N':

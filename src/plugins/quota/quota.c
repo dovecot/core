@@ -43,20 +43,84 @@ static const struct quota_backend *quota_backends[] = {
 static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 				    uoff_t size, bool *too_large_r);
 
-struct quota_settings *quota_settings_init(void)
+static void quota_root_add_rules(struct mail_user *user, const char *root_name, 
+				 struct quota_root_settings *root_set)
+{
+	const char *rule_name, *rule, *error;
+	unsigned int i;
+
+	rule_name = t_strconcat(root_name, "_rule", NULL);
+	for (i = 2;; i++) {
+		rule = mail_user_plugin_getenv(user, rule_name);
+		if (rule == NULL)
+			break;
+
+		if (quota_root_add_rule(root_set, rule, &error) < 0) {
+			i_fatal("Quota root %s: Invalid rule %s: %s",
+				root_name, rule, error);
+		}
+		rule_name = t_strdup_printf("%s_rule%d", root_name, i);
+	}
+}
+
+static void
+quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
+			     struct quota_root_settings *root_set)
+{
+	const char *rule_name, *rule, *error;
+	unsigned int i;
+
+	rule_name = t_strconcat(root_name, "_warning", NULL);
+	for (i = 2;; i++) {
+		rule = mail_user_plugin_getenv(user, rule_name);
+		if (rule == NULL)
+			break;
+
+		if (quota_root_add_warning_rule(root_set, rule, &error) < 0) {
+			i_fatal("Quota root %s: Invalid warning rule: %s",
+				root_name, rule);
+		}
+		rule_name = t_strdup_printf("%s_warning%d", root_name, i);
+	}
+}
+
+struct quota_settings *quota_user_read_settings(struct mail_user *user)
 {
 	struct quota_settings *quota_set;
+	struct quota_root_settings *root_set;
+	char root_name[6 + MAX_INT_STRLEN];
+	const char *env;
+	unsigned int i;
 	pool_t pool;
 
 	pool = pool_alloconly_create("quota settings", 1024);
 	quota_set = p_new(pool, struct quota_settings, 1);
 	quota_set->pool = pool;
 	quota_set->test_alloc = quota_default_test_alloc;
-	quota_set->debug = getenv("DEBUG") != NULL;
-	quota_set->quota_exceeded_msg = getenv("QUOTA_EXCEEDED_MESSAGE");
+	quota_set->debug = user->mail_debug;
+	quota_set->quota_exceeded_msg =
+		mail_user_plugin_getenv(user, "quota_exceeded_message");
 	if (quota_set->quota_exceeded_msg == NULL)
 		quota_set->quota_exceeded_msg = DEFAULT_QUOTA_EXCEEDED_MSG;
+
 	p_array_init(&quota_set->root_sets, pool, 4);
+	i_strocpy(root_name, "quota", sizeof(root_name));
+	for (i = 2;; i++) {
+		env = mail_user_plugin_getenv(user, root_name);
+		if (env == NULL)
+			break;
+
+		root_set = quota_root_settings_init(quota_set, env);
+		if (root_set == NULL) {
+			i_fatal("Couldn't create quota root %s: %s",
+				root_name, env);
+		}
+		quota_root_add_rules(user, root_name, root_set);
+		quota_root_add_warning_rules(user, root_name, root_set);
+
+		i_snprintf(root_name, sizeof(root_name), "quota%d", i);
+	}
+
 	return quota_set;
 }
 

@@ -201,7 +201,7 @@ static int proxy_input_line(struct imap_client *client,
 		   be using only Dovecot as their backend :) */
 		client_send_tagline(client, line + 2);
 
-		if (verbose_auth) {
+		if (login_settings->verbose_auth) {
 			str = t_str_new(128);
 			str_printfa(str, "proxy(%s): Login failed to %s:%u",
 				    client->common.virtual_user,

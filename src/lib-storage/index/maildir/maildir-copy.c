@@ -94,8 +94,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 			do_save_mail_vsize(path, ctx);
 	}
 
-	if ((mbox->storage->storage.flags &
-	     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
+	if (mbox->storage->storage.set->mail_nfs_storage)
 		ret = nfs_safe_link(path, str_c(ctx->dest_path), FALSE);
 	else
 		ret = link(path, str_c(ctx->dest_path));
@@ -159,7 +158,8 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path = str_new(default_pool, 512);
 
-	if (dest_mbox->storage->copy_preserve_filename && src_mbox != NULL) {
+	if (dest_mbox->storage->set->maildir_copy_preserve_filename &&
+	    src_mbox != NULL) {
 		enum maildir_uidlist_rec_flag src_flags;
 		const char *src_fname;
 
@@ -263,7 +263,7 @@ int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 	int ret;
 
-	if (mbox->storage->copy_with_hardlinks &&
+	if (mbox->storage->set->maildir_copy_with_hardlinks &&
 	    maildir_compatible_file_modes(&mbox->ibox.box, mail->box)) {
 		T_BEGIN {
 			ret = maildir_copy_hardlink(t, mail, ctx->flags,

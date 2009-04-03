@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
+	-DBINDIR=\""$(bindir)"\" \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
 
@@ -29,8 +30,8 @@ dovecot_SOURCES = \
 	log.c \
 	login-process.c \
 	mail-process.c \
-	main.c \
 	master-settings.c \
+	main.c \
 	syslog-util.c \
 	ssl-init.c \
 	sysinfo-get.c
@@ -52,9 +53,6 @@ noinst_HEADERS = \
 	syslog-util.h \
 	ssl-init.h \
 	sysinfo-get.h
-
-EXTRA_DIST = \
-	master-settings-defs.c
 
 ssl_build_param_SOURCES = \
 	ssl-init-main.c \

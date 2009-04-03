@@ -912,7 +912,7 @@ static void fts_box_backends_init(struct mailbox *box)
 			fbox->backend_fast = backend;
 		}
 	}
-	if ((box->storage->flags & MAIL_STORAGE_FLAG_DEBUG) != 0 &&
+	if (box->storage->set->mail_debug &&
 	    fbox->backend_substr == NULL && fbox->backend_fast == NULL)
 		i_info("fts: No backends enabled by the fts setting");
 }
@@ -1031,9 +1031,9 @@ void fts_mailbox_opened(struct mailbox *box)
 {
 	const char *env;
 
-	env = getenv("FTS");
-	i_assert(env != NULL);
-	fts_mailbox_init(box, env);
+	env = mail_user_plugin_getenv(box->storage->ns->user, "fts");
+	if (env != NULL)
+		fts_mailbox_init(box, env);
 
 	if (fts_next_hook_mailbox_opened != NULL)
 		fts_next_hook_mailbox_opened(box);

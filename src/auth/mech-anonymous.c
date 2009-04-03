@@ -7,9 +7,9 @@ static void
 mech_anonymous_auth_continue(struct auth_request *request,
 			     const unsigned char *data, size_t data_size)
 {
-	i_assert(request->auth->anonymous_username != NULL);
+	i_assert(*request->auth->set->anonymous_username != '\0');
 
-	if (request->auth->verbose) {
+	if (request->auth->set->verbose) {
 		/* temporarily set the user to the one that was given,
 		   so that the log message goes right */
 		request->user =
@@ -18,7 +18,7 @@ mech_anonymous_auth_continue(struct auth_request *request,
 	}
 
 	request->user = p_strdup(request->pool,
-				 request->auth->anonymous_username);
+				 request->auth->set->anonymous_username);
 
 	auth_request_success(request, NULL, 0);
 }

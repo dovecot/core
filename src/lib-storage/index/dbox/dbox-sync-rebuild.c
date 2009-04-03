@@ -395,7 +395,7 @@ dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,
 		mail_index_alloc(index_dir, DBOX_INDEX_PREFIX".backup");
 
 #ifndef MMAP_CONFLICTS_WRITE
-	if ((box->storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
+	if (box->storage->set->mmap_disable)
 #endif
 		open_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 	if (mail_index_open(ctx->backup_index, open_flags,

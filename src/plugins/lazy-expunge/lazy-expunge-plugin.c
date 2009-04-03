@@ -35,6 +35,7 @@ struct lazy_expunge_mail_user {
 	union mail_user_module_context module_ctx;
 
 	struct mail_namespace *lazy_ns[LAZY_NAMESPACE_COUNT];
+	const char *env;
 };
 
 struct lazy_expunge_mailbox_list {
@@ -514,15 +515,20 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 
 static void lazy_expunge_mail_storage_init(struct mail_storage *storage)
 {
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT(storage->ns->user);
 	struct lazy_expunge_mailbox_list *llist =
 		LAZY_EXPUNGE_LIST_CONTEXT(storage->list);
 	struct lazy_expunge_mail_storage *lstorage;
 	const char *const *p;
 	unsigned int i;
 
+	if (llist == NULL)
+		return;
+
 	/* if this is one of our internal storages, mark it as such before
 	   quota plugin sees it */
-	p = t_strsplit_spaces(getenv("LAZY_EXPUNGE"), " ");
+	p = t_strsplit_spaces(luser->env, " ");
 	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
 		if (strcmp(storage->ns->prefix, *p) == 0) {
 			storage->ns->flags |= NAMESPACE_FLAG_INTERNAL;
@@ -551,16 +557,21 @@ static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
 
 static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
 {
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT(list->ns->user);
 	struct lazy_expunge_mailbox_list *llist;
+
+	if (luser != NULL) {
+		llist = p_new(list->pool, struct lazy_expunge_mailbox_list, 1);
+		llist->module_ctx.super = list->v;
+		list->v.delete_mailbox = lazy_expunge_mailbox_list_delete;
+
+		MODULE_CONTEXT_SET(list, lazy_expunge_mailbox_list_module,
+				   llist);
+	}
 
 	if (lazy_expunge_next_hook_mailbox_list_created != NULL)
 		lazy_expunge_next_hook_mailbox_list_created(list);
-
-	llist = p_new(list->pool, struct lazy_expunge_mailbox_list, 1);
-	llist->module_ctx.super = list->v;
-	list->v.delete_mailbox = lazy_expunge_mailbox_list_delete;
-
-	MODULE_CONTEXT_SET(list, lazy_expunge_mailbox_list_module, llist);
 }
 
 static void
@@ -572,7 +583,10 @@ lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 	const char *const *p;
 	int i;
 
-	p = t_strsplit_spaces(getenv("LAZY_EXPUNGE"), " ");
+	if (luser == NULL)
+		return;
+
+	p = t_strsplit_spaces(luser->env, " ");
 	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
 		const char *name = *p;
 
@@ -601,11 +615,19 @@ lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 static void lazy_expunge_mail_user_created(struct mail_user *user)
 {
 	struct lazy_expunge_mail_user *luser;
+	const char *env;
 
-	luser = p_new(user->pool, struct lazy_expunge_mail_user, 1);
-	luser->module_ctx.super = user->v;
+	env = mail_user_plugin_getenv(user, "lazy_expunge");
+	if (env != NULL) {
+		luser = p_new(user->pool, struct lazy_expunge_mail_user, 1);
+		luser->module_ctx.super = user->v;
+		luser->env = env;
 
-	MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
+		MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
+	} else if (user->mail_debug) {
+		i_info("lazy_expunge: No lazy_expunge setting - "
+		       "plugin disabled");
+	}
 
 	if (lazy_expunge_next_hook_mail_user_created != NULL)
 		lazy_expunge_next_hook_mail_user_created(user);
@@ -613,14 +635,6 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 
 void lazy_expunge_plugin_init(void)
 {
-	if (getenv("LAZY_EXPUNGE") == NULL) {
-		if (getenv("DEBUG") != NULL) {
-			i_info("lazy_expunge: No lazy_expunge setting - "
-			       "plugin disabled");
-		}
-		return;
-	}
-
 	lazy_expunge_next_hook_mail_namespaces_created =
 		hook_mail_namespaces_created;
 	hook_mail_namespaces_created =
@@ -638,9 +652,6 @@ void lazy_expunge_plugin_init(void)
 
 void lazy_expunge_plugin_deinit(void)
 {
-	if (getenv("LAZY_EXPUNGE") != NULL)
-		return;
-
 	hook_mail_namespaces_created =
 		lazy_expunge_hook_mail_namespaces_created;
 	hook_mail_storage_created = lazy_expunge_next_hook_mail_storage_created;

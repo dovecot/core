@@ -92,7 +92,7 @@ int dbox_map_open(struct dbox_map *map, bool create_missing)
 	}
 
 	open_flags = MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY |
-		index_storage_get_index_open_flags(storage);
+		mail_storage_settings_to_index_flags(storage->set);
 	if (create_missing) {
 		open_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
 		if (dbox_map_mkdir_storage(map->storage) < 0)
@@ -305,7 +305,7 @@ static void dbox_map_filter_zero_refs(struct dbox_map *map)
 	while (seq_range_array_iter_nth(&iter, i++, &file_id)) {
 		size = hash_table_lookup(hash, POINTER_CAST(file_id));
 		if (size->ref0_size*100 / size->file_size >=
-		    map->storage->purge_min_percentage)
+		    map->storage->set->dbox_purge_min_percentage)
 			seq_range_array_add(&new_ref0_file_ids, 0, file_id);
 	}
 	seq_range_array_intersect(&map->ref0_file_ids, &new_ref0_file_ids);
@@ -328,7 +328,7 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 	else
 		i_array_init(&map->ref0_file_ids, 64);
 
-	if (map->storage->purge_min_percentage >= 100) {
+	if (map->storage->set->dbox_purge_min_percentage >= 100) {
 		/* we're never purging anything */
 		return &map->ref0_file_ids;
 	}
@@ -357,7 +357,7 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 					    rec->file_id);
 		}
 	}
-	if (map->storage->purge_min_percentage > 0 &&
+	if (map->storage->set->dbox_purge_min_percentage > 0 &&
 	    array_count(&map->ref0_file_ids) > 0)
 		dbox_map_filter_zero_refs(map);
 	return &map->ref0_file_ids;
@@ -624,7 +624,7 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 	} else if (dbox_file_get_append_stream(file, &append_offset,
 					       output_r) <= 0) {
 		/* couldn't append to this file */
-	} else if (append_offset + mail_size > storage->rotate_size) {
+	} else if (append_offset + mail_size > storage->set->dbox_rotate_size) {
 		/* file was too large after all */
 		dbox_file_cancel_append(file, append_offset);
 	} else {
@@ -661,6 +661,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 			      struct ostream **output_r, bool *existing_r)
 {
 	struct dbox_map *map = ctx->map;
+	const struct dbox_settings *set = map->storage->set;
 	struct dbox_file *const *files;
 	const struct mail_index_header *hdr;
 	unsigned int i, count, backwards_lookup_count;
@@ -671,7 +672,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 
 	*existing_r = FALSE;
 
-	if (mail_size >= map->storage->rotate_size)
+	if (mail_size >= set->dbox_rotate_size)
 		return 0;
 
 	/* first try to use files already used in this append */
@@ -683,7 +684,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 		}
 
 		append_offset = dbox_file_get_next_append_offset(files[i-1]);
-		if (append_offset + mail_size <= map->storage->rotate_size &&
+		if (append_offset + mail_size <= set->dbox_rotate_size &&
 		    dbox_file_get_append_stream(files[i-1], &append_offset,
 						output_r) > 0) {
 			*file_r = files[i-1];
@@ -706,7 +707,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 	ctx->files_nonappendable_count = count;
 
 	/* try to find an existing appendable file */
-	stamp = day_begin_stamp(map->storage->rotate_days);
+	stamp = day_begin_stamp(set->dbox_rotate_days);
 	hdr = mail_index_get_header(map->view);
 	min_seen_file_id = (uint32_t)-1;
 
@@ -727,7 +728,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 		/* first lookup: this should be enough usually, but we can't
 		   be sure until after locking. also if messages were recently
 		   moved, this message might not be the last one in the file. */
-		if (offset + size + mail_size >= map->storage->rotate_size)
+		if (offset + size + mail_size >= set->dbox_rotate_size)
 			continue;
 
 		if (dbox_map_is_appending(ctx, file_id)) {
@@ -774,7 +775,7 @@ int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
 
 	if (ret == 0) {
 		/* create a new file */
-		file = ctx->map->storage->rotate_size == 0 ?
+		file = ctx->map->storage->set->dbox_rotate_size == 0 ?
 			dbox_file_init_single(ctx->mbox, 0) :
 			dbox_file_init_multi(ctx->map->storage, 0);
 		ret = dbox_file_get_append_stream(file, &append_offset,

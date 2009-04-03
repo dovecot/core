@@ -14,7 +14,7 @@ passdb_cache_log_hit(struct auth_request *request, const char *value)
 {
 	const char *p;
 
-	if (!request->auth->verbose_debug_passwords &&
+	if (!request->auth->set->debug_passwords &&
 	    *value != '\0' && *value != '\t') {
 		/* hide the password */
 		p = strchr(value, '\t');
@@ -122,31 +122,13 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 	return TRUE;
 }
 
-void passdb_cache_init(void)
+void passdb_cache_init(const struct auth_settings *set)
 {
-	const char *env;
-	size_t max_size;
-	unsigned int cache_ttl, neg_cache_ttl;
-
-	env = getenv("CACHE_SIZE");
-	if (env == NULL)
+	if (set->cache_size == 0 || set->cache_ttl == 0)
 		return;
 
-	max_size = (size_t)strtoul(env, NULL, 10) * 1024;
-	if (max_size == 0)
-		return;
-
-	env = getenv("CACHE_TTL");
-	if (env == NULL)
-		return;
-
-	cache_ttl = (unsigned int)strtoul(env, NULL, 10);
-	if (cache_ttl == 0)
-		return;
-
-	env = getenv("CACHE_NEGATIVE_TTL");
-	neg_cache_ttl = env == NULL ? 0 : (unsigned int)strtoul(env, NULL, 10);
-	passdb_cache = auth_cache_new(max_size, cache_ttl, neg_cache_ttl);
+	passdb_cache = auth_cache_new(set->cache_size * 1024UL, set->cache_ttl,
+				      set->cache_negative_ttl);
 }
 
 void passdb_cache_deinit(void)

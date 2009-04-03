@@ -28,7 +28,8 @@ static void client_idle_timeout(struct client *client)
 	client_destroy(client, "Disconnected for inactivity");
 }
 
-struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
+struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+			     const struct imap_settings *set)
 {
 	struct client *client;
 	struct mail_namespace *ns;
@@ -38,9 +39,11 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 	net_set_nonblock(fd_out, TRUE);
 
 	client = i_new(struct client, 1);
+	client->set = set;
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
-	client->input = i_stream_create_fd(fd_in, imap_max_line_length, FALSE);
+	client->input = i_stream_create_fd(fd_in,
+					   set->imap_max_line_length, FALSE);
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
 
 	o_stream_set_flush_callback(client->output, client_output, client);
@@ -57,6 +60,11 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user)
 		mail_storage_set_callbacks(ns->storage,
 					   &mail_storage_callbacks, client);
 	}
+
+	client->capability_string =
+		str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
+	str_append(client->capability_string, *set->imap_capability != '\0' ?
+		   set->imap_capability : CAPABILITY_STRING);
 
 	i_assert(my_client == NULL);
 	my_client = client;
@@ -116,7 +124,7 @@ static const char *client_stats(struct client *client)
 	tab[1].value = dec2str(client->output->offset);
 
 	str = t_str_new(128);
-	var_expand(str, logout_format, tab);
+	var_expand(str, client->set->imap_logout_format, tab);
 	return str_c(str);
 }
 
@@ -188,6 +196,7 @@ void client_destroy(struct client *client, const char *reason)
 		array_free(&client->search_saved_uidset);
 	if (array_is_created(&client->search_updates))
 		array_free(&client->search_updates);
+	str_free(&client->capability_string);
 	pool_unref(&client->command_pool);
 	i_free(client);
 
@@ -440,8 +449,9 @@ client_command_new(struct client *client)
 		cmd->parser = client->free_parser;
 		client->free_parser = NULL;
 	} else {
-		cmd->parser = imap_parser_create(client->input, client->output,
-						 imap_max_line_length);
+		cmd->parser =
+			imap_parser_create(client->input, client->output,
+					   client->set->imap_max_line_length);
 	}
 
 	DLLIST_PREPEND(&client->command_queue, cmd);

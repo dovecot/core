@@ -9,6 +9,7 @@
 #include "mail-namespace.h"
 #include "acl-api.h"
 #include "acl-storage.h"
+#include "acl-plugin.h"
 #include "imap-acl-plugin.h"
 
 #include <stdlib.h>
@@ -48,7 +49,7 @@ static const struct imap_acl_letter_map imap_acl_letter_map[] = {
 
 const char *imap_acl_plugin_version = PACKAGE_VERSION;
 
-static bool acl_anyone_allow = FALSE;
+static void (*next_hook_client_created)(struct client **client);
 
 static struct mailbox *
 acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
@@ -56,6 +57,11 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 	struct mail_storage *storage;
 	struct mailbox *box;
 	int ret;
+
+	if (ACL_USER_CONTEXT(cmd->client->user) == NULL) {
+		client_send_command_error(cmd, "ACLs disabled.");
+		return NULL;
+	}
 
 	storage = client_find_storage(cmd, &name);
 	if (storage == NULL)
@@ -290,6 +296,11 @@ static bool cmd_myrights(struct client_command_context *cmd)
 		return TRUE;
 	}
 
+	if (ACL_USER_CONTEXT(cmd->client->user) == NULL) {
+		client_send_command_error(cmd, "ACLs disabled.");
+		return TRUE;
+	}
+
 	real_mailbox = mailbox;
 	storage = client_find_storage(cmd, &real_mailbox);
 	if (storage == NULL)
@@ -404,10 +415,21 @@ imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 	return 0;
 }
 
+static bool acl_anyone_allow(struct mail_user *user)
+{
+	const char *env;
+
+	env = mail_user_plugin_getenv(user, "acl_anyone");
+	return env != NULL && strcmp(env, "allow") == 0;
+}
+
 static int
-imap_acl_identifier_parse(const char *id, struct acl_rights *rights,
+imap_acl_identifier_parse(struct client_command_context *cmd,
+			  const char *id, struct acl_rights *rights,
 			  bool check_anyone, const char **error_r)
 {
+	struct mail_user *user = cmd->client->user;
+
 	if (strncmp(id, IMAP_ACL_GLOBAL_PREFIX,
 		    strlen(IMAP_ACL_GLOBAL_PREFIX)) == 0) {
 		*error_r = t_strdup_printf("Global ACLs can't be modified: %s",
@@ -416,13 +438,13 @@ imap_acl_identifier_parse(const char *id, struct acl_rights *rights,
 	}
 
 	if (strcmp(id, IMAP_ACL_ANYONE) == 0) {
-		if (!acl_anyone_allow && check_anyone) {
+		if (check_anyone && !acl_anyone_allow(user)) {
 			*error_r = "'anyone' identifier is disallowed";
 			return -1;
 		}
 		rights->id_type = ACL_ID_ANYONE;
 	} else if (strcmp(id, IMAP_ACL_AUTHENTICATED) == 0) {
-		if (!acl_anyone_allow && check_anyone) {
+		if (check_anyone && !acl_anyone_allow(user)) {
 			*error_r = "'authenticated' identifier is disallowed";
 			return -1;
 		}
@@ -519,7 +541,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		break;
 	}
 
-	if (imap_acl_identifier_parse(identifier, &update.rights,
+	if (imap_acl_identifier_parse(cmd, identifier, &update.rights,
 				      TRUE, &error) < 0) {
 		client_send_command_error(cmd, error);
 		return TRUE;
@@ -599,7 +621,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 		identifier++;
 	}
 
-	if (imap_acl_identifier_parse(identifier, &update.rights,
+	if (imap_acl_identifier_parse(cmd, identifier, &update.rights,
 				      FALSE, &error) < 0) {
 		client_send_command_error(cmd, error);
 		return TRUE;
@@ -617,34 +639,33 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	return TRUE;
 }
 
+static void imap_acl_client_created(struct client **client)
+{
+	str_append((*client)->capability_string, " ACL RIGHTS=texk");
+
+	if (next_hook_client_created != NULL)
+		next_hook_client_created(client);
+}
+
 void imap_acl_plugin_init(void)
 {
-	const char *env;
-
-	if (getenv("ACL") == NULL)
-		return;
-
-	env = getenv("ACL_ANYONE");
-	if (env != NULL)
-		acl_anyone_allow = strcmp(env, "allow") == 0;
-
-	str_append(capability_string, " ACL RIGHTS=texk");
-
 	command_register("LISTRIGHTS", cmd_listrights, 0);
 	command_register("GETACL", cmd_getacl, 0);
 	command_register("MYRIGHTS", cmd_myrights, 0);
 	command_register("SETACL", cmd_setacl, 0);
 	command_register("DELETEACL", cmd_deleteacl, 0);
+
+	next_hook_client_created = hook_client_created;
+	hook_client_created = imap_acl_client_created;
 }
 
 void imap_acl_plugin_deinit(void)
 {
-	if (getenv("ACL") == NULL)
-		return;
-
 	command_unregister("GETACL");
 	command_unregister("MYRIGHTS");
 	command_unregister("SETACL");
 	command_unregister("DELETEACL");
 	command_unregister("LISTRIGHTS");
+
+	hook_client_created = next_hook_client_created;
 }

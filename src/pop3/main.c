@@ -44,14 +44,6 @@ static struct module *modules = NULL;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 static struct io *log_io = NULL;
 
-enum client_workarounds client_workarounds = 0;
-bool enable_last_command = FALSE;
-bool no_flag_updates = FALSE;
-bool reuse_xuidl = FALSE;
-bool lock_session = FALSE;
-const char *uidl_format, *logout_format;
-enum uidl_keys uidl_keymask;
-
 static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 {
 	/* warn about being killed because of some signal, except SIGINT (^C)
@@ -73,16 +65,15 @@ static void log_error_callback(void *context ATTR_UNUSED)
 	io_loop_stop(ioloop);
 }
 
-static void parse_workarounds(void)
+static enum client_workarounds
+parse_workarounds(const struct pop3_settings *set)
 {
-        struct client_workaround_list *list;
-	const char *env, *const *str;
+        enum client_workarounds client_workarounds = 0;
+	struct client_workaround_list *list;
+	const char *const *str;
 
-	env = getenv("POP3_CLIENT_WORKAROUNDS");
-	if (env == NULL)
-		return;
-
-	for (str = t_strsplit_spaces(env, " ,"); *str != NULL; str++) {
+        str = t_strsplit_spaces(set->pop3_client_workarounds, " ,");
+	for (; *str != NULL; str++) {
 		list = client_workaround_list;
 		for (; list->name != NULL; list++) {
 			if (strcasecmp(*str, list->name) == 0) {
@@ -93,6 +84,7 @@ static void parse_workarounds(void)
 		if (list->name == NULL)
 			i_fatal("Unknown client workaround: %s", *str);
 	}
+	return client_workarounds;
 }
 
 static enum uidl_keys parse_uidl_keymask(const char *format)
@@ -157,7 +149,8 @@ static void open_logfile(void)
 	i_set_failure_timestamp_format(getenv("LOGSTAMP"));
 }
 
-static void drop_privileges(void)
+static void main_preinit(const struct pop3_settings **set_r,
+			 const struct mail_user_settings **user_set_r)
 {
 	const char *version;
 
@@ -171,25 +164,29 @@ static void drop_privileges(void)
 	/* Log file or syslog opening probably requires roots */
 	open_logfile();
 
-	/* Load the plugins before chrooting. Their init() is called later. */
-	if (getenv("MAIL_PLUGINS") != NULL) {
-		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
+        mail_storage_init();
+	mail_storage_register_all();
+	mailbox_list_register_all();
 
-		if (plugin_dir == NULL)
-			plugin_dir = MODULEDIR"/pop3";
-		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
-					  TRUE, version);
-	}
+	/* read settings after registering storages so they can have their
+	   own setting definitions too */
+	pop3_settings_read(set_r, user_set_r);
+
+	/* Load the plugins before chrooting. Their init() is called later. */
+	modules = *(*set_r)->mail_plugins == '\0' ? NULL :
+		module_dir_load((*set_r)->mail_plugin_dir,
+				(*set_r)->mail_plugins, TRUE, version);
 
 	restrict_access_by_env(!IS_STANDALONE());
 	restrict_access_allow_coredumps(TRUE);
 }
 
-static bool main_init(void)
+static bool main_init(const struct pop3_settings *set,
+		      const struct mail_user_settings *user_set)
 {
 	struct mail_user *user;
 	struct client *client;
-	const char *str;
+	const char *str, *error;
 	bool ret = TRUE;
 
 	lib_signals_init();
@@ -201,7 +198,7 @@ static bool main_init(void)
 	if (getenv("USER") == NULL)
 		i_fatal("USER environment missing");
 
-	if (getenv("DEBUG") != NULL) {
+	if (set->mail_debug) {
 		const char *home;
 
 		home = getenv("HOME");
@@ -210,46 +207,34 @@ static bool main_init(void)
 		       home != NULL ? home : "(none)");
 	}
 
-	if (getenv("STDERR_CLOSE_SHUTDOWN") != NULL) {
+	if (set->shutdown_clients) {
 		/* If master dies, the log fd gets closed and we'll quit */
 		log_io = io_add(STDERR_FILENO, IO_ERROR,
 				log_error_callback, NULL);
 	}
 
 	dict_drivers_register_builtin();
-	mail_users_init(getenv("AUTH_SOCKET_PATH"), getenv("DEBUG") != NULL);
-        mail_storage_init();
-	mail_storage_register_all();
-	mailbox_list_register_all();
+	mail_users_init(set->auth_socket_path, set->mail_debug);
 	clients_init();
 
 	module_dir_init(modules);
 
-	parse_workarounds();
-	enable_last_command = getenv("POP3_ENABLE_LAST") != NULL;
-	no_flag_updates = getenv("POP3_NO_FLAG_UPDATES") != NULL;
-	reuse_xuidl = getenv("POP3_REUSE_XUIDL") != NULL;
-	lock_session = getenv("POP3_LOCK_SESSION") != NULL;
-
-	uidl_format = getenv("POP3_UIDL_FORMAT");
-	if (uidl_format == NULL || *uidl_format == '\0')
-		uidl_format = "%08Xu%08Xv";
-	logout_format = getenv("POP3_LOGOUT_FORMAT");
-	if (logout_format == NULL)
-		logout_format = "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s";
-	uidl_keymask = parse_uidl_keymask(uidl_format);
-	if (uidl_keymask == 0)
-		i_fatal("pop3_uidl_format setting doesn't contain any "
-			"%% variables.");
-
-	user = mail_user_init(getenv("USER"));
+	user = mail_user_alloc(getenv("USER"), user_set);
 	mail_user_set_home(user, getenv("HOME"));
-	if (mail_namespaces_init(user) < 0)
-		i_fatal("Namespace initialization failed");
+	if (mail_user_init(user, &error) < 0)
+		i_fatal("Mail user initialization failed: %s", error);
+	if (mail_namespaces_init(user, &error) < 0)
+		i_fatal("Namespace initialization failed: %s", error);
 
-	client = client_create(0, 1, user);
+	client = client_create(0, 1, user, set);
 	if (client == NULL)
 		return FALSE;
+	client->workarounds = parse_workarounds(set);
+	client->uidl_keymask = parse_uidl_keymask(set->pop3_uidl_format);
+	if (client->uidl_keymask == 0) {
+		i_fatal("pop3_uidl_format setting doesn't contain any "
+			"%% variables.");
+	}
 
 	if (!IS_STANDALONE())
 		client_send_line(client, "+OK Logged in.");
@@ -284,8 +269,11 @@ static void main_deinit(void)
 
 int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 {
+	const struct pop3_settings *set;
+	const struct mail_user_settings *user_set;
+
 #ifdef DEBUG
-	if (getenv("LOGGED_IN") != NULL && getenv("GDB") == NULL)
+	if (!IS_STANDALONE() && getenv("GDB") == NULL)
 		fd_debug_verify_leaks(3, 1024);
 #endif
 	if (IS_STANDALONE() && getuid() == 0 &&
@@ -298,12 +286,12 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
-	drop_privileges();
+	main_preinit(&set, &user_set);
 
         process_title_init(argv, envp);
 	ioloop = io_loop_create();
 
-	if (main_init())
+	if (main_init(set, user_set))
 		io_loop_run(ioloop);
 	main_deinit();
 

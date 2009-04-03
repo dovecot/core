@@ -39,7 +39,8 @@ static void client_set_title(struct pop3_client *client)
 {
 	const char *addr;
 
-	if (!verbose_proctitle || !process_per_connection)
+	if (!login_settings->verbose_proctitle ||
+	    !login_settings->login_process_per_connection)
 		return;
 
 	addr = net_ip2addr(&client->common.ip);
@@ -225,6 +226,7 @@ void client_input(struct pop3_client *client)
 
 void client_destroy_oldest(void)
 {
+	unsigned int max_connections = login_settings->login_max_connections;
 	struct client *client;
 	struct pop3_client *destroy_buf[CLIENT_DESTROY_OLDEST_COUNT];
 	unsigned int i, destroy_count;
@@ -286,7 +288,8 @@ static void client_auth_ready(struct pop3_client *client)
 	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 
 	client->apop_challenge = get_apop_challenge(client);
-	client_send_line(client, t_strconcat("+OK ", greeting,
+	client_send_line(client, t_strconcat("+OK ",
+					     login_settings->login_greeting,
 					     client->apop_challenge != NULL ?
 					     " " : NULL,
 					     client->apop_challenge, NULL));

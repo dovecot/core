@@ -106,33 +106,32 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	return gr->gr_gid;
 }
 
-void userdb_preinit(struct auth *auth, const char *driver, const char *args)
+void userdb_preinit(struct auth *auth, struct auth_userdb_settings *set)
 {
 	struct userdb_module_interface *iface;
         struct auth_userdb *auth_userdb, **dest;
 
-	if (args == NULL) args = "";
-
 	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
 	auth_userdb->auth = auth;
-	auth_userdb->args = p_strdup(auth->pool, args);
+	auth_userdb->args = set->args == NULL ? "" :
+		p_strdup(auth->pool, set->args);
 
 	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next)
 		auth_userdb->num++;
 	*dest = auth_userdb;
 
-	iface = userdb_interface_find(driver);
+	iface = userdb_interface_find(set->driver);
 	if (iface == NULL)
-		i_fatal("Unknown userdb driver '%s'", driver);
+		i_fatal("Unknown userdb driver '%s'", set->driver);
 	if (iface->lookup == NULL) {
 		i_fatal("Support not compiled in for userdb driver '%s'",
-			driver);
+			set->driver);
 	}
 
 	if (iface->preinit == NULL && iface->init == NULL &&
 	    *auth_userdb->args != '\0') {
 		i_fatal("userdb %s: No args are supported: %s",
-			driver, auth_userdb->args);
+			set->driver, auth_userdb->args);
 	}
 
 	if (iface->preinit == NULL) {
@@ -152,7 +151,7 @@ void userdb_init(struct auth_userdb *userdb)
 
 	if (userdb->userdb->blocking && !worker) {
 		/* blocking userdb - we need an auth server */
-		auth_worker_server_init();
+		auth_worker_server_init(userdb->auth);
 	}
 }
 

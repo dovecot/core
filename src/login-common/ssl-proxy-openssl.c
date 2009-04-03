@@ -6,6 +6,7 @@
 #include "network.h"
 #include "ostream.h"
 #include "read-full.h"
+#include "safe-memset.h"
 #include "llist.h"
 #include "ssl-proxy.h"
 
@@ -22,7 +23,6 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
-#define DOVECOT_SSL_DEFAULT_CIPHER_LIST "ALL:!LOW:!SSLv2"
 /* Check every 30 minutes if parameters file has been updated */
 #define SSL_PARAMFILE_CHECK_INTERVAL (60*30)
 
@@ -679,7 +679,8 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	proxy = SSL_get_ex_data(ssl, extdata_index);
 	proxy->cert_received = TRUE;
 
-	if (verbose_ssl || (verbose_auth && !preverify_ok)) {
+	if (login_settings->verbose_ssl ||
+	    (login_settings->verbose_auth && !preverify_ok)) {
 		char buf[1024];
 		X509_NAME *subject;
 
@@ -755,23 +756,13 @@ static bool is_pem_key_file(const char *path)
 void ssl_proxy_init(void)
 {
 	static char dovecot[] = "dovecot";
-	const char *cafile, *certfile, *keyfile, *cipher_list, *username_field;
-	char *password;
+	const struct login_settings *set = login_settings;
 	unsigned char buf;
+	char *password;
 	unsigned long err;
 
-	memset(&ssl_params, 0, sizeof(ssl_params));
-
-	cafile = getenv("SSL_CA_FILE");
-	certfile = getenv("SSL_CERT_FILE");
-	keyfile = getenv("SSL_KEY_FILE");
-	ssl_params.fname = getenv("SSL_PARAM_FILE");
-	password = getenv("SSL_KEY_PASSWORD");
-
-	if (certfile == NULL || keyfile == NULL || ssl_params.fname == NULL) {
-		/* SSL support is disabled */
+	if (strcmp(set->ssl, "no") == 0)
 		return;
-	}
 
 	CRYPTO_set_mem_functions(ssl_clean_malloc, ssl_clean_realloc,
 				 ssl_clean_free);
@@ -785,55 +776,56 @@ void ssl_proxy_init(void)
 
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
 
-	cipher_list = getenv("SSL_CIPHER_LIST");
-	if (cipher_list == NULL)
-		cipher_list = DOVECOT_SSL_DEFAULT_CIPHER_LIST;
-	if (SSL_CTX_set_cipher_list(ssl_ctx, cipher_list) != 1) {
+	if (SSL_CTX_set_cipher_list(ssl_ctx, set->ssl_cipher_list) != 1) {
 		i_fatal("Can't set cipher list to '%s': %s",
-			cipher_list, ssl_last_error());
+			set->ssl_cipher_list, ssl_last_error());
 	}
 
-	if (cafile != NULL) {
-		if (SSL_CTX_load_verify_locations(ssl_ctx, cafile, NULL) != 1) {
+	if (*set->ssl_ca_file != '\0') {
+		if (SSL_CTX_load_verify_locations(ssl_ctx, set->ssl_ca_file,
+						  NULL) != 1) {
 			i_fatal("Can't load CA file %s: %s",
-				cafile, ssl_last_error());
+				set->ssl_ca_file, ssl_last_error());
 		}
 	}
 
-	if (SSL_CTX_use_certificate_chain_file(ssl_ctx, certfile) != 1) {
+	if (SSL_CTX_use_certificate_chain_file(ssl_ctx,
+					       set->ssl_cert_file) != 1) {
 		err = ERR_peek_error();
 		if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
 		    ERR_GET_REASON(err) != PEM_R_NO_START_LINE) {
 			i_fatal("Can't load certificate file %s: %s",
-				certfile, ssl_last_error());
-		} else if (is_pem_key_file(certfile)) {
+			set->ssl_cert_file, ssl_last_error());
+		} else if (is_pem_key_file(set->ssl_cert_file)) {
 			i_fatal("Can't load certificate file %s: "
 				"The file contains a private key "
 				"(you've mixed ssl_cert_file and ssl_key_file settings)",
-				certfile);
+				set->ssl_cert_file);
 		} else {
 			i_fatal("Can't load certificate file %s: "
 				"The file doesn't contain a certificate.",
-				certfile);
+				set->ssl_cert_file);
 		}
 	}
 
+	password = t_strdup_noconst(set->ssl_key_password);
         SSL_CTX_set_default_passwd_cb(ssl_ctx, pem_password_callback);
         SSL_CTX_set_default_passwd_cb_userdata(ssl_ctx, password);
-	if (SSL_CTX_use_PrivateKey_file(ssl_ctx, keyfile,
+	if (SSL_CTX_use_PrivateKey_file(ssl_ctx, set->ssl_key_file,
 					SSL_FILETYPE_PEM) != 1) {
 		i_fatal("Can't load private key file %s: %s",
-			keyfile, ssl_last_error());
+			set->ssl_key_file, ssl_last_error());
 	}
+	safe_memset(password, 0, strlen(password));
 
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
 
-	if (verbose_ssl)
+	if (set->verbose_ssl)
 		SSL_CTX_set_info_callback(ssl_ctx, ssl_info_callback);
 
-	if (getenv("SSL_VERIFY_CLIENT_CERT") != NULL) {
+	if (set->ssl_verify_client_cert) {
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
 		X509_STORE *store;
 
@@ -845,18 +837,13 @@ void ssl_proxy_init(void)
 				   SSL_VERIFY_CLIENT_ONCE,
 				   ssl_verify_client_cert);
 		SSL_CTX_set_client_CA_list(ssl_ctx,
-					   SSL_load_client_CA_file(cafile));
+			SSL_load_client_CA_file(set->ssl_ca_file));
 	}
 
-	username_field = getenv("SSL_CERT_USERNAME_FIELD");
-	if (username_field == NULL)
-		ssl_username_nid = NID_commonName;
-	else {
-		ssl_username_nid = OBJ_txt2nid(username_field);
-		if (ssl_username_nid == NID_undef) {
-			i_fatal("Invalid ssl_cert_username_field: %s",
-				username_field);
-		}
+	ssl_username_nid = OBJ_txt2nid(set->ssl_cert_username_field);
+	if (ssl_username_nid == NID_undef) {
+		i_fatal("Invalid ssl_cert_username_field: %s",
+			set->ssl_cert_username_field);
 	}
 
 	/* PRNG initialization might want to use /dev/urandom, make sure it

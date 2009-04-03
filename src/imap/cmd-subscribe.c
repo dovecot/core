@@ -60,7 +60,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		mailbox += strlen(ns->prefix);
 	}
 
-	if ((client_workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
+	if ((cmd->client->workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
 	    *mailbox != '\0' && mailbox[strlen(mailbox)-1] ==
 	    mail_storage_get_hierarchy_sep(ns->storage)) {
 		/* verify the validity without the trailing '/' */

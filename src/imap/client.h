@@ -92,7 +92,11 @@ struct client {
 	struct ostream *output;
 	struct timeout *to_idle, *to_idle_output;
 
-	struct mail_user *user;
+        const struct imap_settings *set;
+	enum client_workarounds workarounds;
+	string_t *capability_string;
+
+        struct mail_user *user;
 	struct mailbox *mailbox;
         struct mailbox_keywords keywords;
 	unsigned int select_counter; /* increased when mailbox is changed */
@@ -142,7 +146,8 @@ struct client {
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out, struct mail_user *user);
+struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+			     const struct imap_settings *set);
 void client_destroy(struct client *client, const char *reason);
 
 /* Disconnect client connection */

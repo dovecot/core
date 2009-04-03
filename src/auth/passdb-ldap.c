@@ -166,7 +166,7 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 			passdb_result = PASSDB_RESULT_OK;
 		else if (ret == LDAP_INVALID_CREDENTIALS) {
 			str = "invalid credentials";
-			if (auth_request->auth->verbose_debug_passwords) {
+			if (auth_request->auth->set->debug_passwords) {
 				str = t_strconcat(str, " (given password: ",
 						  auth_request->mech_password,
 						  ")", NULL);

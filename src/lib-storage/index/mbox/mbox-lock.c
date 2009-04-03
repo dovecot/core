@@ -24,14 +24,6 @@
 /* 0.1 .. 0.2msec */
 #define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)rand() % 100000)
 
-/* lock methods to use in wanted order */
-#define DEFAULT_READ_LOCK_METHODS "fcntl"
-#define DEFAULT_WRITE_LOCK_METHODS "dotlock fcntl"
-/* lock timeout */
-#define MBOX_DEFAULT_LOCK_TIMEOUT (5*60)
-/* assume stale dotlock if mbox file hasn't changed for n seconds */
-#define DEFAULT_DOTLOCK_CHANGE_TIMEOUT (120)
-
 enum mbox_lock_type {
 	MBOX_LOCK_DOTLOCK,
 	MBOX_LOCK_DOTLOCK_TRY,
@@ -94,11 +86,6 @@ static struct mbox_lock_data lock_data[] = {
 	{ 0, NULL, NULL }
 };
 
-static bool lock_settings_initialized = FALSE;
-static enum mbox_lock_type read_locks[MBOX_LOCK_COUNT+1];
-static enum mbox_lock_type write_locks[MBOX_LOCK_COUNT+1];
-static int lock_timeout, dotlock_change_timeout;
-
 static int mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
 			  time_t max_wait_time, int idx);
 static int mbox_unlock_files(struct mbox_lock_context *ctx);
@@ -135,18 +122,16 @@ static void mbox_read_lock_methods(const char *str, const char *env,
 	locks[dest] = (enum mbox_lock_type)-1;
 }
 
-static void mbox_init_lock_settings(void)
+static void mbox_init_lock_settings(struct mbox_storage *storage)
 {
-	const char *str;
+	enum mbox_lock_type read_locks[MBOX_LOCK_COUNT+1];
+	enum mbox_lock_type write_locks[MBOX_LOCK_COUNT+1];
 	int r, w;
 
-	str = getenv("MBOX_READ_LOCKS");
-	if (str == NULL) str = DEFAULT_READ_LOCK_METHODS;
-	mbox_read_lock_methods(str, "MBOX_READ_LOCKS", read_locks);
-
-	str = getenv("MBOX_WRITE_LOCKS");
-	if (str == NULL) str = DEFAULT_WRITE_LOCK_METHODS;
-	mbox_read_lock_methods(str, "MBOX_WRITE_LOCKS", write_locks);
+	mbox_read_lock_methods(storage->set->mbox_read_locks,
+			       "mbox_read_locks", read_locks);
+	mbox_read_lock_methods(storage->set->mbox_write_locks,
+			       "mbox_write_locks", write_locks);
 
 	/* check that read/write list orders match. write_locks must contain
 	   at least read_locks and possibly more. */
@@ -163,14 +148,17 @@ static void mbox_init_lock_settings(void)
 			"(and possibly more)");
 	}
 
-	str = getenv("MBOX_LOCK_TIMEOUT");
-	lock_timeout = str == NULL ? MBOX_DEFAULT_LOCK_TIMEOUT : atoi(str);
+	storage->read_locks = p_new(storage->storage.pool,
+				    enum mbox_lock_type, MBOX_LOCK_COUNT+1);
+	memcpy(storage->read_locks, read_locks,
+	       sizeof(*storage->read_locks) * (MBOX_LOCK_COUNT+1));
 
-	str = getenv("MBOX_DOTLOCK_CHANGE_TIMEOUT");
-	dotlock_change_timeout = str == NULL ?
-		DEFAULT_DOTLOCK_CHANGE_TIMEOUT : atoi(str);
+	storage->write_locks = p_new(storage->storage.pool,
+				     enum mbox_lock_type, MBOX_LOCK_COUNT+1);
+	memcpy(storage->write_locks, write_locks,
+	       sizeof(*storage->write_locks) * (MBOX_LOCK_COUNT+1));
 
-        lock_settings_initialized = TRUE;
+        storage->lock_settings_initialized = TRUE;
 }
 
 static int mbox_file_open_latest(struct mbox_lock_context *ctx, int lock_type)
@@ -223,7 +211,8 @@ static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
 		lock_types = ctx->lock_type == F_WRLCK ||
 			(ctx->lock_type == F_UNLCK &&
 			 ctx->mbox->mbox_lock_type == F_WRLCK) ?
-			write_locks : read_locks;
+			ctx->mbox->storage->write_locks :
+			ctx->mbox->storage->read_locks;
 
 		for (i = 0; lock_types[i] != (enum mbox_lock_type)-1; i++) {
 			if (lock_types[i] == MBOX_LOCK_DOTLOCK)
@@ -414,12 +403,10 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
         ctx->dotlock_last_stale = -1;
 
 	memset(&set, 0, sizeof(set));
-	set.use_excl_lock = (mbox->storage->storage.flags &
-			     MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
-	set.nfs_flush = (mbox->storage->storage.flags &
-			 MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0;
-	set.timeout = lock_timeout;
-	set.stale_timeout = dotlock_change_timeout;
+	set.use_excl_lock = mbox->storage->storage.set->dotlock_use_excl;
+	set.nfs_flush = mbox->storage->storage.set->mail_nfs_storage;
+	set.timeout = mbox->storage->set->mbox_lock_timeout;
+	set.stale_timeout = mbox->storage->set->mbox_dotlock_change_timeout;
 	set.callback = dotlock_callback;
 	set.context = ctx;
 
@@ -682,7 +669,8 @@ static int mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
 
 	lock_types = lock_type == F_WRLCK ||
 		(lock_type == F_UNLCK && ctx->mbox->mbox_lock_type == F_WRLCK) ?
-		write_locks : read_locks;
+		ctx->mbox->storage->write_locks :
+		ctx->mbox->storage->read_locks;
 	for (i = idx; lock_types[i] != (enum mbox_lock_type)-1; i++) {
 		type = lock_types[i];
 		lock_status = lock_type != F_UNLCK;
@@ -710,8 +698,8 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 
         index_storage_lock_notify_reset(&mbox->ibox);
 
-	if (!lock_settings_initialized)
-                mbox_init_lock_settings();
+	if (!mbox->storage->lock_settings_initialized)
+                mbox_init_lock_settings(mbox->storage);
 
 	if (mbox->mbox_fd == -1 && mbox->mbox_file_stream != NULL) {
 		/* read-only mbox stream. no need to lock. */
@@ -720,7 +708,7 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 		return 1;
 	}
 
-	max_wait_time = time(NULL) + lock_timeout;
+	max_wait_time = time(NULL) + mbox->storage->set->mbox_lock_timeout;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.mbox = mbox;
@@ -728,6 +716,9 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 	if (mbox->mbox_lock_type == F_WRLCK) {
 		/* dropping to shared lock. first drop those that we
 		   don't remove completely. */
+		const enum mbox_lock_type *read_locks =
+                        mbox->storage->read_locks;
+
 		for (i = 0; i < MBOX_LOCK_COUNT; i++)
 			ctx.lock_status[i] = 1;
 		for (i = 0; read_locks[i] != (enum mbox_lock_type)-1; i++)
@@ -752,6 +743,11 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 	if (drop_locks) {
 		/* dropping to shared lock: drop the locks that are only
 		   in write list */
+		const enum mbox_lock_type *read_locks =
+                        mbox->storage->read_locks;
+		const enum mbox_lock_type *write_locks =
+			mbox->storage->write_locks;
+
 		memset(ctx.lock_status, 0, sizeof(ctx.lock_status));
 		for (i = 0; write_locks[i] != (enum mbox_lock_type)-1; i++)
 			ctx.lock_status[write_locks[i]] = 1;
@@ -785,8 +781,7 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 		if (ret <= 0)
 			return ret;
 
-		if ((mbox->storage->storage.flags &
-		     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
+		if (mbox->storage->storage.set->mail_nfs_storage) {
 			if (fcntl_locked) {
 				nfs_flush_attr_cache_fd_locked(mbox->path,
 							       mbox->mbox_fd);

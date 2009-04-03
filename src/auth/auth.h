@@ -1,6 +1,8 @@
 #ifndef AUTH_H
 #define AUTH_H
 
+#include "auth-settings.h"
+
 #define PASSWORD_HIDDEN_STR "<hidden>"
 
 struct auth_passdb {
@@ -29,6 +31,7 @@ struct auth_userdb {
 
 struct auth {
 	pool_t pool;
+	const struct auth_settings *set;
 
 	struct mech_module_list *mech_modules;
 	buffer_t *mech_handshake;
@@ -37,23 +40,14 @@ struct auth {
 	struct auth_passdb *passdbs;
 	struct auth_userdb *userdbs;
 
-	char *const *auth_realms;
-	const char *default_realm;
-	const char *anonymous_username;
-	const char *username_format;
-	const char *gssapi_hostname;
+	const char *const *auth_realms;
 	char username_chars[256];
 	char username_translation[256];
-	char master_user_separator;
-	bool ssl_require_client_cert;
-	bool ssl_username_from_cert;
-
-	bool verbose, verbose_debug, verbose_debug_passwords;
 };
 
 const string_t *auth_mechanisms_get_list(struct auth *auth);
 
-struct auth *auth_preinit(void);
+struct auth *auth_preinit(struct auth_settings *set);
 void auth_init(struct auth *auth);
 void auth_deinit(struct auth **auth);
 

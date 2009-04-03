@@ -178,7 +178,7 @@ static const char *list_get_rootdir(struct fs_list_iterate_context *ctx,
 {
 	const char *const *patterns, *name, *p, *last;
 
-	if ((ctx->ctx.list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) == 0)
+	if (!ctx->ctx.list->mail_set->mail_full_filesystem_access)
 		return NULL;
 
 	/* see if there are any absolute paths in patterns */

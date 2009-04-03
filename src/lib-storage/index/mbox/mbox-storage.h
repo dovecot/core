@@ -1,6 +1,10 @@
 #ifndef MBOX_STORAGE_H
 #define MBOX_STORAGE_H
 
+#include "index-storage.h"
+#include "mbox-settings.h"
+#include "mailbox-list-private.h"
+
 /* Padding to leave in X-Keywords header when rewriting mbox */
 #define MBOX_HEADER_PADDING 50
 /* Don't write Content-Length header unless it's value is larger than this. */
@@ -11,9 +15,6 @@
 #define MBOX_INDEX_PREFIX "dovecot.index"
 #define MBOX_INDEX_DIR_NAME ".imap"
 
-#include "index-storage.h"
-#include "mailbox-list-private.h"
-
 struct mbox_index_header {
 	uint64_t sync_size;
 	uint32_t sync_mtime;
@@ -22,6 +23,11 @@ struct mbox_index_header {
 };
 struct mbox_storage {
 	struct mail_storage storage;
+
+	const struct mbox_settings *set;
+	enum mbox_lock_type *read_locks;
+	enum mbox_lock_type *write_locks;
+	unsigned int lock_settings_initialized:1;
 
 	union mailbox_list_module_context list_module_ctx;
 };
@@ -49,8 +55,6 @@ struct mbox_mailbox {
 	unsigned int no_mbox_file:1;
 	unsigned int invalid_mbox_file:1;
 	unsigned int mbox_broken_offsets:1;
-	unsigned int mbox_do_dirty_syncs:1;
-	unsigned int mbox_very_dirty_syncs:1;
 	unsigned int mbox_save_md5:1;
 	unsigned int mbox_dotlocked:1;
 	unsigned int mbox_used_privileges:1;

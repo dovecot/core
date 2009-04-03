@@ -19,13 +19,7 @@
 #include <unistd.h>
 #include <syslog.h>
 
-bool disable_plaintext_auth, process_per_connection;
-bool verbose_proctitle, verbose_ssl, verbose_auth, auth_debug;
-bool ssl_required, ssl_require_client_cert;
-const char *greeting, *log_format;
-const char *const *log_format_elements;
-const char *trusted_networks;
-unsigned int max_connections;
+struct login_settings *login_settings;
 unsigned int login_process_uid;
 struct auth_client *auth_client;
 bool closing_down;
@@ -105,7 +99,7 @@ static void login_accept(void *context)
 	client->remote_port = remote_port;
 	client->local_port = local_port;
 
-	if (process_per_connection) {
+	if (login_settings->login_process_per_connection) {
 		closing_down = TRUE;
 		main_listen_stop();
 	}
@@ -143,7 +137,7 @@ static void login_accept_ssl(void *context)
 		client->local_port = local_port;
 	}
 
-	if (process_per_connection) {
+	if (login_settings->login_process_per_connection) {
 		closing_down = TRUE;
 		main_listen_stop();
 	}
@@ -165,7 +159,7 @@ void main_listen_start(void)
 	}
 
 	current_count = ssl_proxy_get_count() + login_proxy_get_count();
-	if (current_count >= max_connections) {
+	if (current_count >= login_settings->login_max_connections) {
 		/* can't accept any more connections until existing proxies
 		   get destroyed */
 		return;
@@ -224,9 +218,10 @@ void main_listen_stop(void)
 
 void connection_queue_add(unsigned int connection_count)
 {
+	unsigned int max_connections = login_settings->login_max_connections;
 	unsigned int current_count;
 
-	if (process_per_connection)
+	if (login_settings->login_process_per_connection)
 		return;
 
 	current_count = clients_get_count() + ssl_proxy_get_count() +
@@ -260,6 +255,8 @@ static void drop_privileges(unsigned int *max_fds_r)
 {
 	const char *value;
 
+        login_settings = login_settings_read();
+
 	if (!is_inetd)
 		i_set_failure_internal();
 	else {
@@ -291,14 +288,13 @@ static void drop_privileges(unsigned int *max_fds_r)
 	listen_count = value == NULL ? 0 : atoi(value);
 	value = getenv("SSL_LISTEN_FDS");
 	ssl_listen_count = value == NULL ? 0 : atoi(value);
-	value = getenv("MAX_CONNECTIONS");
-	max_connections = value == NULL ? 1 : strtoul(value, NULL, 10);
 
 	/* set the number of fds we want to use. it may get increased or
 	   decreased. leave a couple of extra fds for auth sockets and such.
 	   normal connections each use one fd, but SSL connections use two */
 	*max_fds_r = LOGIN_MASTER_SOCKET_FD + 16 +
-		listen_count + ssl_listen_count + max_connections*2;
+		listen_count + ssl_listen_count +
+		login_settings->login_max_connections*2;
 	restrict_fd_limit(*max_fds_r);
 
 	/* Refuse to run as root - we should never need it and it's
@@ -318,42 +314,12 @@ static void main_init(void)
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
         lib_signals_ignore(SIGPIPE, TRUE);
 
-	process_per_connection = getenv("PROCESS_PER_CONNECTION") != NULL;
-	verbose_proctitle = getenv("VERBOSE_PROCTITLE") != NULL;
-        verbose_ssl = getenv("VERBOSE_SSL") != NULL;
-        verbose_auth = getenv("VERBOSE_AUTH") != NULL;
-        auth_debug = getenv("AUTH_DEBUG") != NULL;
-	ssl_required = getenv("SSL_REQUIRED") != NULL;
-	ssl_require_client_cert = getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
-	disable_plaintext_auth = ssl_required ||
-		getenv("DISABLE_PLAINTEXT_AUTH") != NULL;
-
-	greeting = getenv("GREETING");
-	if (greeting == NULL)
-		greeting = PACKAGE" ready.";
-
-	value = getenv("LOG_FORMAT_ELEMENTS");
-	if (value == NULL)
-		value = "user=<%u> method=%m rip=%r lip=%l %c : %$";
-	log_format_elements = t_strsplit(value, " ");
-
-	log_format = getenv("LOG_FORMAT");
-	if (log_format == NULL)
-		log_format = "%$: %s";
-
-	trusted_networks = getenv("TRUSTED_NETWORKS");
-
 	value = getenv("PROCESS_UID");
 	if (value == NULL)
 		i_fatal("BUG: PROCESS_UID environment not given");
         login_process_uid = strtoul(value, NULL, 10);
 	if (login_process_uid == 0)
 		i_fatal("BUG: PROCESS_UID environment is 0");
-
-	/* capability default is set in imap/pop3-login */
-	value = getenv("CAPABILITY_STRING");
-	if (value != NULL && *value != '\0')
-		capability_string = value;
 
         closing_down = FALSE;
 	main_refcount = 0;

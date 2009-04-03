@@ -4,6 +4,7 @@
 #include "module-context.h"
 #include "file-lock.h"
 #include "mail-storage.h"
+#include "mail-storage-settings.h"
 #include "mail-index-private.h"
 
 /* Called after mail storage has been created */
@@ -22,6 +23,8 @@ struct mail_module_register {
 };
 
 struct mail_storage_vfuncs {
+	const struct setting_parser_info *(*get_setting_parser_info)(void);
+
 	void (*class_init)(void);
 	void (*class_deinit)(void);
 
@@ -30,7 +33,7 @@ struct mail_storage_vfuncs {
 		      const char **error_r);
 	void (*destroy)(struct mail_storage *storage);
 
-	bool (*autodetect)(const char *data, enum mail_storage_flags flags);
+	bool (*autodetect)(const struct mail_namespace *ns);
 
 	struct mailbox *(*mailbox_open)(struct mail_storage *storage,
 					const char *name,
@@ -62,10 +65,10 @@ struct mail_storage {
 	struct mail_namespace *ns;
 	struct mailbox_list *list;
 	const char *temp_path_prefix;
+	const struct mail_storage_settings *set;
 
 	enum mail_storage_flags flags;
 	enum file_lock_method lock_method;
-	unsigned int keyword_max_len;
 
 	struct mail_storage_callbacks *callbacks;
 	void *callback_context;
@@ -381,7 +384,5 @@ void mail_generate_guid_128(uint8_t guid[16]);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
 
-enum mailbox_list_flags
-mail_storage_get_list_flags(enum mail_storage_flags storage_flags);
 
 #endif

@@ -2,6 +2,7 @@ noinst_LIBRARIES = libstorage_mbox.a
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
@@ -15,6 +16,7 @@ libstorage_mbox_a_SOURCES = \
 	mbox-mail.c \
 	mbox-md5.c \
 	mbox-save.c \
+	mbox-settings.c \
 	mbox-sync-parse.c \
 	mbox-sync-rewrite.c \
 	mbox-sync-update.c \
@@ -27,6 +29,7 @@ headers = \
 	mbox-file.h \
 	mbox-lock.h \
 	mbox-md5.h \
+	mbox-settings.h \
 	mbox-storage.h \
 	mbox-sync-private.h
 
