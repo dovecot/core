@@ -182,6 +182,13 @@ int mailbox_list_settings_parse(const char *data,
 
 	if (set->index_dir != NULL && strcmp(set->index_dir, "MEMORY") == 0)
 		set->index_dir = "";
+
+	if (set->mailbox_dir_name == NULL)
+		set->mailbox_dir_name = "";
+	else if (set->mailbox_dir_name[strlen(set->mailbox_dir_name)-1] != '/') {
+		set->mailbox_dir_name =
+			t_strconcat(set->mailbox_dir_name, "/", NULL);
+	}
 	return 0;
 }
 
@@ -214,6 +221,8 @@ void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
 	list->set.maildir_name =
 		(list->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 ? "" :
 		p_strdup(list->pool, set->maildir_name);
+	list->set.mailbox_dir_name =
+		p_strdup(list->pool, set->mailbox_dir_name);
 
 	if (set->mailbox_dir_name == NULL)
 		list->set.mailbox_dir_name = "";

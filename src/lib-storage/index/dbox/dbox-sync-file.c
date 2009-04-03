@@ -6,448 +6,318 @@
 #include "ostream.h"
 #include "str.h"
 #include "dbox-storage.h"
-#include "dbox-index.h"
 #include "dbox-file.h"
+#include "dbox-map.h"
 #include "dbox-sync.h"
+
+#include <stdlib.h>
+
+struct dbox_mail_move {
+	struct dbox_file *file;
+	uint32_t offset;
+};
+ARRAY_DEFINE_TYPE(dbox_mail_move, struct dbox_mail_move);
 
 static int dbox_sync_file_unlink(struct dbox_file *file)
 {
-	const char *path;
-	int i;
+	const char *path, *primary_path;
+	bool alt = FALSE;
 
-	path = t_strdup_printf("%s/%s", file->mbox->path, file->fname);
-	for (i = 0;; i++) {
-		if (unlink(path) == 0)
-			break;
-
+	path = primary_path = dbox_file_get_primary_path(file);
+	while (unlink(path) < 0) {
 		if (errno != ENOENT) {
-			mail_storage_set_critical(file->mbox->ibox.box.storage,
+			mail_storage_set_critical(&file->storage->storage,
 				"unlink(%s) failed: %m", path);
 			return -1;
 		}
-		if (file->mbox->alt_path == NULL || i == 1) {
+		if (file->storage->alt_storage_dir == NULL || alt) {
 			/* not found */
 			i_warning("dbox: File unexpectedly lost: %s/%s",
-				  file->mbox->path, file->fname);
-			break;
+				  primary_path, file->fname);
+			return 0;
 		}
 
 		/* try the alternative path */
-		path = t_strdup_printf("%s/%s", file->mbox->alt_path,
-				       file->fname);
+		path = dbox_file_get_alt_path(file);
+		alt = TRUE;
 	}
-	return 0;
+	return 1;
 }
 
-static void
-dbox_sync_update_metadata(struct dbox_sync_context *ctx, struct dbox_file *file,
-			  const struct dbox_sync_file_entry *entry,
-			  uint32_t seq)
+static int dbox_map_file_msg_offset_cmp(const void *p1, const void *p2)
 {
-	const struct mail_index_record *rec;
-	ARRAY_TYPE(keyword_indexes) keyword_indexes;
-	struct mail_keywords *keywords;
-	string_t *value;
-	const char *old_value;
+	const struct dbox_map_file_msg *m1 = p1, *m2 = p2;
 
-	value = t_str_new(256);
-
-	/* flags */
-	rec = mail_index_lookup(ctx->sync_view, seq);
-	dbox_mail_metadata_flags_append(value, rec->flags);
-	dbox_file_metadata_set(file, DBOX_METADATA_FLAGS, str_c(value));
-
-	/* keywords */
-	t_array_init(&keyword_indexes, 32);
-	mail_index_lookup_keywords(ctx->sync_view, seq, &keyword_indexes);
-	old_value = dbox_file_metadata_get(file, DBOX_METADATA_KEYWORDS);
-	if (array_count(&keyword_indexes) > 0 ||
-	    (old_value != NULL && *old_value != '\0' &&
-	     array_count(&keyword_indexes) == 0)) {
-		str_truncate(value, 0);
-		keywords = mail_index_keywords_create_from_indexes(
-				ctx->mbox->ibox.index, &keyword_indexes);
-		dbox_mail_metadata_keywords_append(ctx->mbox, value, keywords);
-		mail_index_keywords_free(&keywords);
-
-		dbox_file_metadata_set(file, DBOX_METADATA_KEYWORDS,
-				       str_c(value));
-	}
-
-	/* expunge state */
-	if (entry != NULL &&
-	    array_is_created(&entry->expunges) &&
-	    seq_range_exists(&entry->expunges, seq)) {
-		dbox_file_metadata_set(file, DBOX_METADATA_EXPUNGED, "1");
-		mail_index_expunge(ctx->trans, seq);
-	}
+	if (m1->offset < m2->offset)
+		return -1;
+	else if (m1->offset > m2->offset)
+		return 1;
+	else
+		return 0;
 }
 
 static int
-dbox_sync_file_expunge(struct dbox_sync_context *ctx, struct dbox_file *file,
-		       const struct dbox_sync_file_entry *entry)
+dbox_sync_file_copy_metadata(struct dbox_file *file, struct ostream *output)
 {
-	const struct seq_range *expunges;
-	struct dbox_file *out_file = NULL;
+	struct dbox_metadata_header meta_hdr;
+	const char *line;
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	ret = i_stream_read_data(file->input, &data, &size,
+				 sizeof(meta_hdr));
+	if (ret <= 0) {
+		i_assert(ret == -1);
+		if (file->input->stream_errno == 0) {
+			dbox_file_set_corrupted(file, "missing metadata");
+			return 0;
+		}
+		mail_storage_set_critical(&file->storage->storage,
+			"read(%s) failed: %m", file->current_path);
+		return -1;
+	}
+
+	memcpy(&meta_hdr, data, sizeof(meta_hdr));
+	if (memcmp(meta_hdr.magic_post, DBOX_MAGIC_POST,
+		   sizeof(meta_hdr.magic_post)) != 0) {
+		dbox_file_set_corrupted(file, "invalid metadata magic");
+		return 0;
+	}
+	i_stream_skip(file->input, sizeof(meta_hdr));
+	if (output != NULL)
+		o_stream_send(output, &meta_hdr, sizeof(meta_hdr));
+	while ((line = i_stream_read_next_line(file->input)) != NULL) {
+		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
+			/* end of metadata */
+			break;
+		}
+		if (output != NULL) {
+			o_stream_send_str(output, line);
+			o_stream_send(output, "\n", 1);
+		}
+	}
+	if (line == NULL) {
+		dbox_file_set_corrupted(file, "missing end-of-metadata line");
+		return 0;
+	}
+	if (output != NULL)
+		o_stream_send(output, "\n", 1);
+	return 1;
+}
+
+int dbox_sync_file_purge(struct dbox_file *file)
+{
+	struct mail_storage *storage = &file->storage->storage;
+	struct dbox_file *out_file;
+	struct stat st;
 	struct istream *input;
-	struct ostream *output;
-	uint32_t file_id, seq, uid;
-	uoff_t first_offset, offset, physical_size;
-	const char *out_path;
+	struct ostream *output = NULL;
+	struct dbox_map_append_context *append_ctx;
+	ARRAY_TYPE(dbox_map_file_msg) msgs_arr;
+	struct dbox_map_file_msg *msgs;
+	ARRAY_TYPE(seq_range) expunged_map_uids;
+	ARRAY_TYPE(uint32_t) copied_map_uids;
 	unsigned int i, count;
+	uoff_t offset, physical_size, msg_size;
 	bool expunged;
 	int ret;
 
-	expunges = array_get(&entry->expunges, &count);
-	if (!dbox_file_lookup(ctx->mbox, ctx->sync_view, expunges[0].seq1,
-			      &file_id, &first_offset))
-		return 0;
-	i_assert(file_id == file->file_id);
-	mail_index_expunge(ctx->trans, expunges[0].seq1);
+	if ((ret = dbox_file_try_lock(file)) <= 0)
+		return ret;
 
-	offset = first_offset;
-	for (i = 0;;) {
-		if ((ret = dbox_file_seek_next(file, &offset, &uid,
-					       &physical_size)) <= 0)
+	/* make sure the file still exists. another process may have already
+	   deleted it. */
+	if (stat(file->current_path, &st) < 0) {
+		dbox_file_unlock(file);
+		if (errno == ENOENT)
+			return 0;
+
+		mail_storage_set_critical(storage,
+			"stat(%s) failed: %m", file->current_path);
+		return -1;
+	}
+
+	i_array_init(&msgs_arr, 128);
+	if (dbox_map_get_file_msgs(file->storage->map, file->file_id,
+				   &msgs_arr) < 0) {
+		array_free(&msgs_arr);
+		dbox_file_unlock(file);
+		return -1;
+	}
+	msgs = array_get_modifiable(&msgs_arr, &count);
+	/* sort messages by their offset */
+	qsort(msgs, count, sizeof(*msgs), dbox_map_file_msg_offset_cmp);
+
+	append_ctx = dbox_map_append_begin_storage(file->storage);
+	i_array_init(&copied_map_uids, I_MIN(count, 1));
+	i_array_init(&expunged_map_uids, I_MIN(count, 1));
+	offset = file->file_header_size;
+	for (i = 0; i < count; i++) {
+		if ((ret = dbox_file_get_mail_stream(file, offset,
+						     &physical_size,
+						     NULL, &expunged)) <= 0)
 			break;
-		if (uid == 0) {
-			/* EOF */
+		msg_size = file->msg_header_size + physical_size;
+
+		if (msgs[i].offset != offset) {
+			/* map doesn't match file's actual contents */
+			dbox_file_set_corrupted(file,
+				"purging found mismatched offsets "
+				"(%"PRIuUOFF_T" vs %u, %u/%u)",
+				offset, msgs[i].offset, i, count);
+			ret = 0;
 			break;
 		}
 
-		if (i < count) {
-			mail_index_lookup_seq(ctx->sync_view, uid, &seq);
-			while (seq > expunges[i].seq2) {
-				if (++i == count)
-					break;
-			}
-		}
-		if (seq == 0 || (i < count && seq >= expunges[i].seq1 &&
-				 seq <= expunges[i].seq2)) {
-			/* this message gets expunged */
-			if (seq != 0)
-				mail_index_expunge(ctx->trans, seq);
-			continue;
-		}
-
-		/* non-expunged message. write it to output file. */
-		if (out_file == NULL) {
-			out_file = dbox_file_init(ctx->mbox, 0);
-			ret = dbox_file_get_append_stream(out_file,
-							  physical_size,
-							  &output);
-			if (ret <= 0)
+		if (msgs[i].refcount == 0) {
+			seq_range_array_add(&expunged_map_uids, 0,
+					    msgs[i].map_uid);
+			output = NULL;
+		} else {
+			/* non-expunged message. write it to output file. */
+			if (dbox_map_append_next(append_ctx, physical_size,
+						 &out_file, &output) < 0) {
+				ret = -1;
 				break;
+			}
+			i_assert(file->file_id != out_file->file_id);
+
+			i_stream_seek(file->input, offset);
+			input = i_stream_create_limit(file->input, msg_size);
+			ret = o_stream_send_istream(output, input);
+			if (input->stream_errno != 0) {
+				errno = input->stream_errno;
+				mail_storage_set_critical(storage,
+					"read(%s) failed: %m",
+					file->current_path);
+				i_stream_unref(&input);
+				break;
+			}
+			i_stream_unref(&input);
+			if (output->stream_errno != 0) {
+				errno = output->stream_errno;
+				mail_storage_set_critical(storage,
+					"write(%s) failed: %m",
+					out_file->current_path);
+				break;
+			}
+			i_assert(ret == (off_t)msg_size);
 		}
 
-		i_stream_seek(file->input, offset);
-		input = i_stream_create_limit(file->input,
-					      file->msg_header_size +
-					      physical_size);
-		ret = o_stream_send_istream(output, input) < 0 ? -1 : 0;
-		i_stream_unref(&input);
-		if (ret < 0)
+		/* copy/skip metadata */
+		i_stream_seek(file->input, offset + msg_size);
+		if ((ret = dbox_sync_file_copy_metadata(file, output)) <= 0)
 			break;
 
-		/* write metadata */
-		(void)dbox_file_metadata_seek_mail_offset(file, offset,
-							  &expunged);
-		T_BEGIN {
-			dbox_sync_update_metadata(ctx, file, entry, seq);
-		} T_END;
-		if ((ret = dbox_file_metadata_write_to(file, output)) < 0)
-			break;
-
-		mail_index_update_flags(ctx->trans, seq, MODIFY_REMOVE,
-			(enum mail_flags)MAIL_INDEX_MAIL_FLAG_DIRTY);
+		if (output != NULL) {
+			dbox_map_append_finish_multi_mail(append_ctx);
+			array_append(&copied_map_uids, &msgs[i].map_uid, 1);
+		}
+		offset = file->input->v_offset;
 	}
+	if (offset != (uoff_t)st.st_size && ret > 0) {
+		/* file has more messages than what map tells us */
+		dbox_file_set_corrupted(file,
+			"more messages available than in map "
+			"(%"PRIuUOFF_T" < %"PRIuUOFF_T")", offset, st.st_size);
+		ret = 0;
+	}
+	array_free(&msgs_arr); msgs = NULL;
 
-	out_path = out_file == NULL ? NULL :
-		dbox_file_get_path(out_file);
 	if (ret <= 0) {
-		if (out_file != NULL) {
-			if (unlink(out_path) < 0)
-				i_error("unlink(%s) failed: %m", out_path);
-			o_stream_unref(&output);
-		}
-	} else if (out_file != NULL) {
-		/* FIXME: rename out_file and add to index */
-		o_stream_unref(&output);
-	}
-
-	if (ret <= 0)
-		;
-	else if (first_offset == file->file_header_size) {
-		/* nothing exists in this file anymore */
+		dbox_map_append_free(&append_ctx);
+		dbox_file_unlock(file);
+		ret = -1;
+	} else if (array_count(&copied_map_uids) == 0) {
+		/* everything expunged in this file, unlink it */
 		ret = dbox_sync_file_unlink(file);
+		dbox_map_append_free(&append_ctx);
 	} else {
-		if (ftruncate(file->fd, first_offset) < 0) {
-			dbox_file_set_syscall_error(file, "ftruncate");
+		/* assign new file_id + offset to moved messages */
+		if (dbox_map_append_move(append_ctx, &copied_map_uids,
+					 &expunged_map_uids) < 0 ||
+		    dbox_map_append_commit(append_ctx) < 0) {
+			dbox_file_unlock(file);
 			ret = -1;
+		} else {
+			ret = 1;
+			(void)dbox_sync_file_unlink(file);
 		}
+		dbox_map_append_free(&append_ctx);
 	}
-
-	if (out_file != NULL)
-		dbox_file_unref(&out_file);
+	array_free(&copied_map_uids);
+	array_free(&expunged_map_uids);
 	return ret;
 }
 
-static int
-dbox_sync_file_split(struct dbox_sync_context *ctx, struct dbox_file *in_file,
-		     uoff_t offset, uint32_t seq)
-{
-	static enum dbox_metadata_key maildir_metadata_keys[] = {
-		DBOX_METADATA_VIRTUAL_SIZE,
-		DBOX_METADATA_RECEIVED_TIME,
-		DBOX_METADATA_SAVE_TIME,
-		DBOX_METADATA_POP3_UIDL
-	};
-	struct dbox_index_append_context *append_ctx;
-	struct dbox_file *out_file;
-	struct istream *input;
-	struct ostream *output;
-	struct dbox_message_header dbox_msg_hdr;
-	struct dbox_mail_index_record rec;
-	const char *out_path, *value;
-	uint32_t uid;
-	uoff_t size, append_offset;
-	unsigned int i;
-	int ret;
-	bool expunged;
-
-	/* FIXME: for now we handle only maildir file conversion */
-	i_assert(in_file->maildir_file);
-
-	ret = dbox_file_get_mail_stream(in_file, offset, &uid,
-					&size, &input, &expunged);
-	if (ret <= 0)
-		return ret;
-	if (expunged) {
-		mail_index_expunge(ctx->trans, seq);
-		return 1;
-	}
-
-	append_ctx = dbox_index_append_begin(ctx->mbox->dbox_index);
-	if (dbox_index_append_next(append_ctx, size, &out_file, &output) < 0 ||
-	    dbox_file_metadata_seek(out_file, 0, &expunged) < 0) {
-		dbox_index_append_rollback(&append_ctx);
-		i_stream_unref(&input);
-		return -1;
-	}
-	append_offset = output->offset;
-	dbox_msg_header_fill(&dbox_msg_hdr, uid, size);
-	T_BEGIN {
-		dbox_sync_update_metadata(ctx, out_file, NULL, seq);
-	} T_END;
-
-	/* set static metadata */
-	for (i = 0; i < N_ELEMENTS(maildir_metadata_keys); i++) {
-		value = dbox_file_metadata_get(in_file,
-					       maildir_metadata_keys[i]);
-		if (value != NULL) {
-			dbox_file_metadata_set(out_file,
-					       maildir_metadata_keys[i], value);
-		}
-	}
-
-	/* copy the message */
-	out_path = dbox_file_get_path(out_file);
-	o_stream_cork(output);
-	if (o_stream_send(output, &dbox_msg_hdr, sizeof(dbox_msg_hdr)) < 0 ||
-	    o_stream_send_istream(output, input) < 0 ||
-	    dbox_file_metadata_write_to(out_file, output) < 0 ||
-	    o_stream_flush(output) < 0) {
-		mail_storage_set_critical(&ctx->mbox->storage->storage,
-			"write(%s) failed: %m", out_path);
-		ret = -1;
-	} else {
-		dbox_file_finish_append(out_file);
-		out_file->last_append_uid = uid;
-
-		ret = dbox_index_append_assign_file_ids(append_ctx);
-	}
-
-	if (ret < 0)
-		dbox_index_append_rollback(&append_ctx);
-	else
-		ret = dbox_index_append_commit(&append_ctx);
-	i_stream_unref(&input);
-
-	if (ret == 0) {
-		/* update message position in index file */
-		memset(&rec, 0, sizeof(rec));
-		if ((rec.file_id & DBOX_FILE_ID_FLAG_UID) == 0) {
-			rec.file_id = out_file->file_id;
-			rec.offset = append_offset;
-		}
-		mail_index_update_ext(ctx->trans, seq, ctx->mbox->dbox_ext_id,
-				      &rec, NULL);
-
-		/* when everything is done, unlink the old file */
-		ret = dbox_sync_file_unlink(in_file);
-	}
-	return ret < 0 ? -1 : 1;
-}
-
-static int
-dbox_sync_file_changes(struct dbox_sync_context *ctx, struct dbox_file *file,
-		       const struct dbox_sync_file_entry *entry, uint32_t seq)
-{
-	uint32_t file_id;
-	uoff_t offset;
-	bool expunged;
-	int ret;
-
-	if (!dbox_file_lookup(ctx->mbox, ctx->sync_view, seq,
-			      &file_id, &offset))
-		return 0;
-	i_assert(file_id == file->file_id);
-
-	ret = dbox_file_metadata_seek_mail_offset(file, offset, &expunged);
-	if (ret <= 0)
-		return ret;
-	if (expunged) {
-		mail_index_expunge(ctx->trans, seq);
-		return 1;
-	}
-
-	T_BEGIN {
-		dbox_sync_update_metadata(ctx, file, entry, seq);
-	} T_END;
-	ret = dbox_file_metadata_write(file);
-	if (ret <= 0) {
-		return ret < 0 ? -1 :
-			dbox_sync_file_split(ctx, file, offset, seq);
-	}
-
-	mail_index_update_flags(ctx->trans, seq, MODIFY_REMOVE,
-				(enum mail_flags)MAIL_INDEX_MAIL_FLAG_DIRTY);
-	return 1;
-}
-
-static int
-dbox_sync_file_int(struct dbox_sync_context *ctx, struct dbox_file *file,
-		   const struct dbox_sync_file_entry *entry, bool full_expunge)
-{
-	const struct seq_range *seqs;
-	unsigned int i, count;
-	uint32_t seq, first_expunge_seq;
-	int ret;
-
-	if (array_is_created(&entry->expunges) && full_expunge) {
-		seqs = array_idx(&entry->expunges, 0);
-		first_expunge_seq = seqs->seq1;
-	} else {
-		first_expunge_seq = (uint32_t)-1;
-	}
-
-	if (array_is_created(&entry->changes)) {
-		seqs = array_get(&entry->changes, &count);
-	} else {
-		seqs = NULL;
-		count = 0;
-	}
-	for (i = 0; i < count; ) {
-		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
-			if (seq >= first_expunge_seq)
-				return dbox_sync_file_expunge(ctx, file, entry);
-
-			ret = dbox_sync_file_changes(ctx, file, entry, seq);
-			if (ret <= 0)
-				return ret;
-		}
-		i++;
-	}
-	if (first_expunge_seq != (uint32_t)-1)
-		return dbox_sync_file_expunge(ctx, file, entry);
-	return 1;
-}
-
 static void
-dbox_sync_file_move_if_needed(struct dbox_sync_context *ctx,
-			      struct dbox_file *file,
+dbox_sync_file_move_if_needed(struct dbox_file *file,
 			      const struct dbox_sync_file_entry *entry)
 {
-	const struct seq_range *seq;
-	const struct mail_index_record *rec;
-	bool new_alt_path;
-
-	if (!array_is_created(&entry->changes))
+	if (!entry->move_to_alt && !entry->move_from_alt)
 		return;
 
-	/* check if we want to move the file to alt path or back.
-	   FIXME: change this check somehow when a file may contain
-	   multiple messages. */
-	seq = array_idx(&entry->changes, 0);
-	rec = mail_index_lookup(ctx->sync_view, seq[0].seq1);
-	new_alt_path = (rec->flags & DBOX_INDEX_FLAG_ALT) != 0;
-	if (new_alt_path != file->alt_path) {
+	if (entry->move_to_alt != file->alt_path) {
 		/* move the file. if it fails, nothing broke so
 		   don't worry about it. */
-		(void)dbox_file_move(file, new_alt_path);
+		if (dbox_file_try_lock(file) > 0) {
+			(void)dbox_file_move(file, !file->alt_path);
+			dbox_file_unlock(file);
+		}
 	}
 }
 
 static void
-dbox_sync_mark_single_file_expunged(struct dbox_sync_context *ctx,
-				    const struct dbox_sync_file_entry *entry)
+dbox_sync_mark_expunges(struct dbox_sync_context *ctx,
+			const ARRAY_TYPE(seq_range) *seqs)
 {
 	struct mailbox *box = &ctx->mbox->ibox.box;
-	const struct seq_range *expunges;
-	unsigned int count;
-	uint32_t uid;
+	struct seq_range_iter iter;
+	unsigned int i;
+	uint32_t seq, uid;
 
-	expunges = array_get(&entry->expunges, &count);
-	i_assert(count == 1 && expunges[0].seq1 == expunges[0].seq2);
-	mail_index_expunge(ctx->trans, expunges[0].seq1);
-
-	if (box->v.sync_notify != NULL) {
-		mail_index_lookup_uid(ctx->sync_view, expunges[0].seq1, &uid);
-		box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
+	seq_range_array_iter_init(&iter, seqs); i = 0;
+	while (seq_range_array_iter_nth(&iter, i++, &seq)) {
+		mail_index_expunge(ctx->trans, seq);
+		if (box->v.sync_notify != NULL) {
+			mail_index_lookup_uid(ctx->sync_view, seq, &uid);
+			box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
+		}
 	}
 }
 
 int dbox_sync_file(struct dbox_sync_context *ctx,
 		   const struct dbox_sync_file_entry *entry)
 {
+	struct dbox_mailbox *mbox = ctx->mbox;
 	struct dbox_file *file;
-	struct dbox_index_record *rec;
-	enum dbox_index_file_status status;
-	bool locked, deleted;
-	int ret;
+	int ret = 1;
 
-	if ((entry->file_id & DBOX_FILE_ID_FLAG_UID) != 0) {
-		locked = TRUE;
-		status = DBOX_INDEX_FILE_STATUS_SINGLE_MESSAGE;
-	} else {
-		rec = dbox_index_record_lookup(ctx->mbox->dbox_index,
-					       entry->file_id);
-		if (rec == NULL ||
-		    rec->status == DBOX_INDEX_FILE_STATUS_UNLINKED) {
-			/* file doesn't exist, nothing to do */
-			return 1;
-		}
-		locked = rec->locked;
-		status = rec->status;
-	}
-
-	file = dbox_file_init(ctx->mbox, entry->file_id);
-	if ((status == DBOX_INDEX_FILE_STATUS_SINGLE_MESSAGE ||
-	     status == DBOX_INDEX_FILE_STATUS_MAILDIR) &&
-	    array_is_created(&entry->expunges)) {
-		/* fast path to expunging the whole file */
-		if (dbox_sync_file_unlink(file) < 0)
-			ret = -1;
-		else {
-			dbox_sync_mark_single_file_expunged(ctx, entry);
+	file = entry->file_id != 0 ?
+		dbox_file_init_multi(mbox->storage, entry->file_id) :
+		dbox_file_init_single(mbox, entry->uid);
+	if (!array_is_created(&entry->expunge_map_uids)) {
+		/* no expunges - we want to move it */
+		dbox_sync_file_move_if_needed(file, entry);
+	} else if (entry->uid != 0) {
+		/* single-message file, we can unlink it */
+		if ((ret = dbox_sync_file_unlink(file)) == 0) {
+			/* file was lost, delete it */
+			dbox_sync_mark_expunges(ctx, &entry->expunge_seqs);
 			ret = 1;
 		}
 	} else {
-		ret = dbox_file_open_or_create(file, TRUE, &deleted);
-		if (ret > 0 && !deleted) {
-			dbox_sync_file_move_if_needed(ctx, file, entry);
-			ret = dbox_sync_file_int(ctx, file, entry, locked);
+		if (ctx->map_trans == NULL) {
+			ctx->map_trans =
+				dbox_map_transaction_begin(mbox->storage->map,
+							   FALSE);
 		}
+		if (dbox_map_update_refcounts(ctx->map_trans,
+					      &entry->expunge_map_uids, -1) < 0)
+			ret = -1;
+		else
+			dbox_sync_mark_expunges(ctx, &entry->expunge_seqs);
 	}
 	dbox_file_unref(&file);
 	return ret;

@@ -10,7 +10,7 @@ int message_get_header_size(struct istream *input, struct message_size *hdr,
 {
 	const unsigned char *msg;
 	size_t i, size, startpos, missing_cr_count;
-	int ret = 0;
+	int ret;
 
 	memset(hdr, 0, sizeof(struct message_size));
 	if (has_nuls != NULL)
@@ -55,8 +55,7 @@ int message_get_header_size(struct istream *input, struct message_size *hdr,
 
 		hdr->physical_size += i - startpos;
 	}
-	if (input->stream_errno != 0)
-		ret = -1;
+	ret = input->stream_errno != 0 ? -1 : 0;
 	i_stream_skip(input, startpos);
 	hdr->physical_size += startpos;
 
@@ -70,7 +69,7 @@ int message_get_body_size(struct istream *input, struct message_size *body,
 {
 	const unsigned char *msg;
 	size_t i, size, missing_cr_count;
-	int ret = 0;
+	int ret;
 
 	memset(body, 0, sizeof(struct message_size));
 	if (has_nuls != NULL)
@@ -108,8 +107,7 @@ int message_get_body_size(struct istream *input, struct message_size *body,
 		body->physical_size += i - 1;
 	} while (i_stream_read_data(input, &msg, &size, 1) > 0);
 
-	if (input->stream_errno != 0)
-		ret = -1;
+	ret = input->stream_errno != 0 ? -1 : 0;
 
 	i_stream_skip(input, 1);
 	body->physical_size++;

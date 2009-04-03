@@ -3,9 +3,10 @@
 #include "lib.h"
 #include "array.h"
 #include "dbox-storage.h"
-#include "../maildir/maildir-uidlist.h"
-#include "../maildir/maildir-keywords.h"
-#include "dbox-index.h"
+#include "maildir/maildir-uidlist.h"
+#include "maildir/maildir-keywords.h"
+#include "maildir/maildir-filename.h"
+#include "dbox-map.h"
 #include "dbox-file.h"
 #include "dbox-sync.h"
 
@@ -14,38 +15,43 @@
 
 struct dbox_sync_rebuild_context {
 	struct dbox_mailbox *mbox;
-	struct dbox_index_append_context *append_ctx;
 
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 	uint32_t cache_ext_id;
 	uint32_t cache_reset_id;
 
-	struct maildir_uidlist *maildir_uidlist;
-	struct maildir_keywords *mk;
+	struct mail_index *backup_index;
+	struct mail_index_view *backup_view;
 
-	ARRAY_DEFINE(maildir_new_files, char *);
-	uint32_t maildir_new_uid;
+	struct maildir_uidlist_sync_ctx *maildir_sync_ctx;
+	struct maildir_keywords *mk;
+	struct maildir_keywords_sync_ctx *maildir_sync_keywords;
+
+	uint32_t highest_uid;
 
 	unsigned int cache_used:1;
+	unsigned int storage_rebuild:1;
 };
 
-static int dbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
+static void dbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
 {
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	uint32_t uid_validity;
 
-	if (dbox_index_get_uid_validity(ctx->mbox->dbox_index,
-					&uid_validity) < 0)
-		return -1;
+	/* if uidvalidity is set in the old index, use it */
+	uid_validity = mail_index_get_header(ctx->view)->uid_validity;
+	if (uid_validity == 0)
+		uid_validity = dbox_get_uidvalidity_next(storage);
 
 	mail_index_update_header(ctx->trans,
 		offsetof(struct mail_index_header, uid_validity),
 		&uid_validity, sizeof(uid_validity), TRUE);
-	return 0;
 }
 
 static void
 dbox_sync_index_copy_cache(struct dbox_sync_rebuild_context *ctx,
+			   struct mail_index_view *view,
 			   uint32_t old_seq, uint32_t new_seq)
 {
 	struct mail_index_map *map;
@@ -56,12 +62,12 @@ dbox_sync_index_copy_cache(struct dbox_sync_rebuild_context *ctx,
 	if (ctx->cache_ext_id == (uint32_t)-1)
 		return;
 
-	mail_index_lookup_ext_full(ctx->view, old_seq, ctx->cache_ext_id,
+	mail_index_lookup_ext_full(view, old_seq, ctx->cache_ext_id,
 				   &map, &data, &expunged);
 	if (expunged)
 		return;
 
-	if (!mail_index_ext_get_reset_id(ctx->view, map, ctx->cache_ext_id,
+	if (!mail_index_ext_get_reset_id(view, map, ctx->cache_ext_id,
 					 &reset_id) || reset_id == 0)
 		return;
 
@@ -80,144 +86,108 @@ dbox_sync_index_copy_cache(struct dbox_sync_rebuild_context *ctx,
 
 static void
 dbox_sync_index_copy_from_old(struct dbox_sync_rebuild_context *ctx,
+			      struct mail_index_view *view,
 			      uint32_t old_seq, uint32_t new_seq)
 {
-	struct mail_index *index = mail_index_view_get_index(ctx->view);
+	struct mail_index *index = mail_index_view_get_index(view);
 	const struct mail_index_record *rec;
 	ARRAY_TYPE(keyword_indexes) old_keywords;
 	struct mail_keywords *kw;
 
 	/* copy flags */
-	rec = mail_index_lookup(ctx->view, old_seq);
+	rec = mail_index_lookup(view, old_seq);
 	mail_index_update_flags(ctx->trans, new_seq,
 				MODIFY_REPLACE, rec->flags);
 
 	/* copy keywords */
 	t_array_init(&old_keywords, 32);
-	mail_index_lookup_keywords(ctx->view, old_seq, &old_keywords);
+	mail_index_lookup_keywords(view, old_seq, &old_keywords);
 	kw = mail_index_keywords_create_from_indexes(index, &old_keywords);
 	mail_index_update_keywords(ctx->trans, new_seq, MODIFY_REPLACE, kw);
 	mail_index_keywords_free(&kw);
 
-	dbox_sync_index_copy_cache(ctx, old_seq, new_seq);
+	dbox_sync_index_copy_cache(ctx, view, old_seq, new_seq);
 }
 
 static void
-dbox_sync_index_metadata(struct dbox_sync_rebuild_context *ctx,
-			 struct dbox_file *file, uint32_t seq, uint32_t uid)
+dbox_sync_index_copy_from_maildir(struct dbox_sync_rebuild_context *ctx,
+				  struct dbox_file *file, uint32_t seq)
 {
-	const char *value;
+	ARRAY_TYPE(keyword_indexes) keyword_indexes;
 	struct mail_keywords *keywords;
-	enum mail_flags flags = 0;
+	enum mail_flags flags;
+
+	t_array_init(&keyword_indexes, 32);
+	maildir_filename_get_flags(ctx->maildir_sync_keywords,
+				   file->fname, &flags, &keyword_indexes);
+	mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE, flags);
+
+	keywords = mail_index_keywords_create_from_indexes(ctx->mbox->ibox.index,
+							   &keyword_indexes);
+	mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE, keywords);
+	mail_index_keywords_free(&keywords);
+}
+
+void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,
+				      struct dbox_file *file,
+				      uint32_t new_seq, uint32_t uid)
+{
 	uint32_t old_seq;
-	unsigned int i;
 
 	if (mail_index_lookup_seq(ctx->view, uid, &old_seq)) {
 		/* the message exists in the old index.
 		   copy the metadata from it. */
-		dbox_sync_index_copy_from_old(ctx, old_seq, seq);
-		return;
+		dbox_sync_index_copy_from_old(ctx, ctx->view, old_seq, new_seq);
+	} else if (ctx->backup_view != NULL &&
+		   mail_index_lookup_seq(ctx->backup_view, uid, &old_seq)) {
+		/* copy the metadata from backup index. */
+		dbox_sync_index_copy_from_old(ctx, ctx->backup_view,
+					      old_seq, new_seq);
+	} else if (file != NULL && file->maildir_file) {
+		/* we're probably doing initial sync after migration from
+		   maildir. preserve the old flags. */
+		dbox_sync_index_copy_from_maildir(ctx, file, new_seq);
 	}
-
-	value = dbox_file_metadata_get(file, DBOX_METADATA_FLAGS);
-	if (value != NULL) {
-		for (i = 0; value[i] != '\0'; i++) {
-			if (value[i] != '0' && i < DBOX_METADATA_FLAGS_COUNT)
-				flags |= dbox_mail_flags_map[i];
-		}
-		mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE, flags);
-	}
-
-	value = dbox_file_metadata_get(file, DBOX_METADATA_KEYWORDS);
-	if (value != NULL) T_BEGIN {
-		keywords = mail_index_keywords_create(ctx->mbox->ibox.index,
-						t_strsplit_spaces(value, " "));
-		mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE,
-					   keywords);
-		mail_index_keywords_free(&keywords);
-	} T_END;
 }
 
-static int dbox_sync_index_file_next(struct dbox_sync_rebuild_context *ctx,
-				     struct dbox_file *file, uoff_t *offset)
+static int dbox_sync_add_file_index(struct dbox_sync_rebuild_context *ctx,
+				    struct dbox_file *file)
 {
-	uint32_t seq, uid;
-	uoff_t physical_size;
-	const char *path, *value;
+	uint32_t seq;
+	uoff_t size;
 	bool expunged;
 	int ret;
 
-	path = dbox_file_get_path(file);
-	ret = dbox_file_seek_next(file, offset, &uid, &physical_size);
+	ret = dbox_file_get_mail_stream(file, 0, &size, NULL, &expunged);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
 
-		if (uid == 0 && (file->file_id & DBOX_FILE_ID_FLAG_UID) != 0) {
-			/* EOF */
-			return 0;
-		}
-
-		i_warning("%s: Ignoring broken file (header)", path);
+		i_warning("dbox: Ignoring broken file: %s", file->current_path);
 		return 0;
 	}
-	if ((file->file_id & DBOX_FILE_ID_FLAG_UID) != 0 &&
-	    uid != (file->file_id & ~DBOX_FILE_ID_FLAG_UID)) {
-		i_warning("%s: Header contains wrong UID %u", path, uid);
+	if (expunged) {
+		/* the file just got deleted? */
 		return 0;
-	}
-	if (file->maildir_file) {
-		i_assert(uid == 0);
-		if (!maildir_uidlist_get_uid(ctx->maildir_uidlist, file->fname,
-					     &uid)) {
-			if (ctx->maildir_new_uid == 0) {
-				/* not in uidlist, give it an uid later */
-				char *fname = i_strdup(file->fname);
-				array_append(&ctx->maildir_new_files,
-					     &fname, 1);
-				return 0;
-			}
-			uid = ctx->maildir_new_uid++;
-		}
-		file->append_count = 1;
-		file->last_append_uid = uid;
 	}
 
-	ret = dbox_file_metadata_seek_mail_offset(file, *offset, &expunged);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		i_warning("%s: Ignoring broken file (metadata)", path);
-		return 0;
-	}
-	if (file->maildir_file) {
-		/* preserve POP3 UIDL */
-		value = maildir_uidlist_lookup_ext(ctx->maildir_uidlist, uid,
-					MAILDIR_UIDLIST_REC_EXT_POP3_UIDL);
-		if (value != NULL) {
-			dbox_file_metadata_set(file, DBOX_METADATA_POP3_UIDL,
-					       value);
-		}
-	}
-	if (!expunged) {
-		mail_index_append(ctx->trans, uid, &seq);
-		file->maildir_append_seq = seq;
-		dbox_sync_index_metadata(ctx, file, seq, uid);
-	}
-	return 1;
+	mail_index_append(ctx->trans, file->uid, &seq);
+	T_BEGIN {
+		dbox_sync_rebuild_index_metadata(ctx, file, seq, file->uid);
+	} T_END;
+	return 0;
 }
 
 static int
-dbox_sync_index_uid_file(struct dbox_sync_rebuild_context *ctx,
-			 const char *dir, const char *fname)
+dbox_sync_add_uid_file(struct dbox_sync_rebuild_context *ctx,
+		       const char *dir, const char *fname)
 {
 	struct dbox_file *file;
 	unsigned long uid;
 	char *p;
-	uoff_t offset = 0;
 	int ret;
 
-	fname += sizeof(DBOX_MAIL_FILE_MULTI_PREFIX)-1;
+	fname += sizeof(DBOX_MAIL_FILE_UID_PREFIX)-1;
 	uid = strtoul(fname, &p, 10);
 	if (*p != '\0' || uid == 0 || uid >= (uint32_t)-1) {
 		i_warning("dbox %s: Ignoring invalid filename %s",
@@ -225,68 +195,60 @@ dbox_sync_index_uid_file(struct dbox_sync_rebuild_context *ctx,
 		return 0;
 	}
 
-	file = dbox_file_init(ctx->mbox, uid | DBOX_FILE_ID_FLAG_UID);
+	if (ctx->highest_uid < uid)
+		ctx->highest_uid = uid;
+
+	file = dbox_file_init_single(ctx->mbox, uid);
 	file->current_path = i_strdup_printf("%s/%s", dir, fname);
 
-	ret = dbox_sync_index_file_next(ctx, file, &offset) < 0 ? -1 : 0;
+	ret = dbox_sync_add_file_index(ctx, file);
 	dbox_file_unref(&file);
 	return ret;
 }
 
 static int
-dbox_sync_index_multi_file(struct dbox_sync_rebuild_context *ctx ATTR_UNUSED,
-			   const char *dir ATTR_UNUSED,
-			   const char *fname ATTR_UNUSED)
+dbox_sync_add_maildir_file(struct dbox_sync_rebuild_context *ctx,
+			   const char *fname)
 {
-	/* FIXME */
-	return 0;
-}
-
-static int
-dbox_sync_index_maildir_file(struct dbox_sync_rebuild_context *ctx,
-			     const char *fname)
-{
-	struct dbox_file *file;
-	uoff_t offset = 0;
 	int ret;
 
-	if (ctx->mbox->maildir_sync_keywords == NULL) {
-		ctx->maildir_uidlist =
-			maildir_uidlist_init_readonly(&ctx->mbox->ibox);
+	if (ctx->maildir_sync_ctx == NULL) {
+		i_assert(ctx->mk == NULL);
+
 		ctx->mk = maildir_keywords_init_readonly(&ctx->mbox->ibox.box);
-		ctx->mbox->maildir_sync_keywords =
+		ctx->maildir_sync_keywords =
 			maildir_keywords_sync_init(ctx->mk,
 						   ctx->mbox->ibox.index);
 
-		if (maildir_uidlist_refresh(ctx->maildir_uidlist) < 0)
+		ret = maildir_uidlist_sync_init(ctx->mbox->maildir_uidlist,
+						MAILDIR_UIDLIST_SYNC_NOLOCK,
+						&ctx->maildir_sync_ctx);
+		if (ret <= 0) {
+			i_assert(ret < 0);
 			return -1;
+		}
 	}
 
-	file = dbox_file_init_new_maildir(ctx->mbox, fname);
-	if ((ret = dbox_sync_index_file_next(ctx, file, &offset)) > 0) {
-		dbox_index_append_file(ctx->append_ctx, file);
-		/* appending referenced the file, so make sure it gets closed
-		   so we don't have too many open files. */
-		dbox_file_close(file);
+	/* sync all maildir files first and let maildir uidlist code assign
+	   UIDs for unseen files. */
+	ret = maildir_uidlist_sync_next(ctx->maildir_sync_ctx, fname, 0);
+	if (ret == 0) {
+		i_warning("%s: Ignoring duplicate maildir file: %s",
+			  ctx->mbox->path, fname);
 	}
-	dbox_file_unref(&file);
-	return ret < 0 ? -1 : 0;
+	return ret;
 }
 
 static int
-dbox_sync_index_file(struct dbox_sync_rebuild_context *ctx,
-		     const char *path, const char *fname, bool primary)
+dbox_sync_add_file(struct dbox_sync_rebuild_context *ctx,
+		   const char *path, const char *fname, bool primary)
 {
 	if (strncmp(fname, DBOX_MAIL_FILE_UID_PREFIX,
 		    sizeof(DBOX_MAIL_FILE_UID_PREFIX)-1) == 0)
-		return dbox_sync_index_uid_file(ctx, path, fname);
-
-	if (strncmp(fname, DBOX_MAIL_FILE_MULTI_PREFIX,
-		    sizeof(DBOX_MAIL_FILE_MULTI_PREFIX)-1) == 0)
-		return dbox_sync_index_multi_file(ctx, path, fname);
+		return dbox_sync_add_uid_file(ctx, path, fname);
 
 	if (primary && strstr(fname, ":2,") != NULL)
-		return dbox_sync_index_maildir_file(ctx, fname);
+		return dbox_sync_add_maildir_file(ctx, fname);
 	return 0;
 }
 
@@ -312,16 +274,15 @@ static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 			"opendir(%s) failed: %m", path);
 		return -1;
 	}
-	for (;;) {
+	do {
 		errno = 0;
 		if ((d = readdir(dir)) == NULL)
 			break;
 
 		T_BEGIN {
-			ret = dbox_sync_index_file(ctx, path, d->d_name,
-						   primary);
+			ret = dbox_sync_add_file(ctx, path, d->d_name, primary);
 		} T_END;
-	}
+	} while (ret >= 0);
 	if (errno != 0) {
 		mail_storage_set_critical(storage,
 			"readdir(%s) failed: %m", path);
@@ -336,113 +297,179 @@ static int dbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 	return ret;
 }
 
-static int dbox_sync_new_maildir(struct dbox_sync_rebuild_context *ctx)
+static int dbox_sync_maildir_finish(struct dbox_sync_rebuild_context *ctx)
 {
+	struct dbox_mailbox *mbox = ctx->mbox;
+	struct maildir_uidlist_iter_ctx *iter;
 	struct mail_index_view *trans_view;
-	char *const *fnames;
-	unsigned int i, count;
+	struct dbox_file *file;
+	const char *fname;
+	enum maildir_uidlist_rec_flag flags;
+	uint32_t uid, next_uid;
 	int ret = 0;
 
-	fnames = array_get(&ctx->maildir_new_files, &count);
-	if (count == 0)
+	if (ctx->maildir_sync_ctx == NULL)
 		return 0;
 
-	trans_view = mail_index_transaction_open_updated_view(ctx->trans);
-	ctx->maildir_new_uid = mail_index_get_header(trans_view)->next_uid;
-	mail_index_view_close(&trans_view);
+	/* we'll need the uidlist to contain the latest filenames.
+	   since there's no easy way to figure out if they changed, just
+	   recreate the uidlist always. */
+	maildir_uidlist_sync_recreate(ctx->maildir_sync_ctx);
 
-	for (i = 0; i < count && ret == 0; i++) {
-		T_BEGIN {
-			ret = dbox_sync_index_maildir_file(ctx, fnames[i]);
-		} T_END;
+	/* update the maildir uidlist's next_uid if we have seen higher
+	   dbox UIDs */
+	trans_view = mail_index_transaction_open_updated_view(ctx->trans);
+	next_uid = mail_index_get_header(trans_view)->next_uid;
+	mail_index_view_close(&trans_view);
+	maildir_uidlist_set_next_uid(mbox->maildir_uidlist, next_uid, FALSE);
+	maildir_uidlist_set_next_uid(mbox->maildir_uidlist,
+				     ctx->highest_uid + 1, FALSE);
+	/* assign UIDs for new maildir mails before iterating */
+	maildir_uidlist_sync_finish(ctx->maildir_sync_ctx);
+
+	mbox->highest_maildir_uid =
+		maildir_uidlist_get_next_uid(mbox->maildir_uidlist);
+
+	iter = maildir_uidlist_iter_init(mbox->maildir_uidlist);
+	while (maildir_uidlist_iter_next(iter, &uid, &flags, &fname)) {
+		file = dbox_file_init_single(mbox, uid);
+		file->current_path =
+			i_strdup_printf("%s/%s", ctx->mbox->path, fname);
+
+		ret = dbox_sync_add_file_index(ctx, file);
+		dbox_file_unref(&file);
+		if (ret < 0)
+			break;
 	}
+	maildir_uidlist_iter_deinit(&iter);
+	return ret < 0 ? -1 : 0;
+}
+
+static void dbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
+{
+	const struct dbox_index_header *hdr;
+	struct dbox_index_header new_hdr;
+	const void *data;
+	size_t data_size;
+
+	mail_index_get_header_ext(ctx->mbox->ibox.view,
+				  ctx->mbox->dbox_hdr_ext_id,
+				  &data, &data_size);
+	hdr = data;
+	if (data_size == sizeof(*hdr))
+		new_hdr = *hdr;
+	else
+		memset(&new_hdr, 0, sizeof(new_hdr));
+	if (new_hdr.highest_maildir_uid < ctx->mbox->highest_maildir_uid)
+		new_hdr.highest_maildir_uid = ctx->mbox->highest_maildir_uid;
+	new_hdr.map_uid_validity = !ctx->storage_rebuild ? 0 :
+		dbox_map_get_uid_validity(ctx->mbox->storage->map);
+	mail_index_update_header_ext(ctx->trans, ctx->mbox->dbox_hdr_ext_id, 0,
+				     &new_hdr, sizeof(new_hdr));
+}
+
+struct dbox_sync_rebuild_context *
+dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,
+			     struct mail_index_view *view,
+			     struct mail_index_transaction *trans,
+			     bool storage_rebuild)
+{
+	struct mailbox *box = &mbox->ibox.box;
+	struct dbox_sync_rebuild_context *ctx;
+	const char *index_dir;
+	enum mail_index_open_flags open_flags = MAIL_INDEX_OPEN_FLAG_READONLY;
+
+	ctx = i_new(struct dbox_sync_rebuild_context, 1);
+	ctx->mbox = mbox;
+	ctx->view = view;
+	ctx->trans = trans;
+	ctx->storage_rebuild = storage_rebuild;
+	mail_index_reset(ctx->trans);
+	index_mailbox_reset_uidvalidity(&mbox->ibox);
+	mail_index_ext_lookup(mbox->ibox.index, "cache", &ctx->cache_ext_id);
+
+	/* if backup index file exists, try to use it */
+	index_dir = mailbox_list_get_path(box->storage->list, box->name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX);
+	ctx->backup_index =
+		mail_index_alloc(index_dir, DBOX_INDEX_PREFIX".backup");
+
+#ifndef MMAP_CONFLICTS_WRITE
+	if ((box->storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
+#endif
+		open_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
+	if (mail_index_open(ctx->backup_index, open_flags,
+			    box->storage->lock_method) <= 0)
+		mail_index_free(&ctx->backup_index);
+	else
+		ctx->backup_view = mail_index_view_open(ctx->backup_index);
+	return ctx;
+}
+
+int dbox_sync_index_rebuild_singles(struct dbox_sync_rebuild_context *ctx)
+{
+	int ret = 0;
+
+	dbox_sync_set_uidvalidity(ctx);
+	if (dbox_sync_index_rebuild_dir(ctx, ctx->mbox->path, TRUE) < 0)
+		ret = -1;
+	else if (ctx->mbox->alt_path != NULL) {
+		if (dbox_sync_index_rebuild_dir(ctx, ctx->mbox->alt_path,
+						FALSE) < 0)
+			ret = -1;
+	}
+
+	if (ret == 0) {
+		if (dbox_sync_maildir_finish(ctx) < 0)
+			ret = -1;
+	}
+
+	if (ctx->maildir_sync_ctx != NULL) {
+		if (maildir_uidlist_sync_deinit(&ctx->maildir_sync_ctx) < 0)
+			ret = -1;
+	}
+	if (ctx->maildir_sync_keywords != NULL)
+		maildir_keywords_sync_deinit(&ctx->maildir_sync_keywords);
+	if (ctx->mk != NULL)
+		maildir_keywords_deinit(&ctx->mk);
 	return ret;
 }
 
-static int dbox_sync_index_rebuild_ctx(struct dbox_sync_rebuild_context *ctx)
+void dbox_sync_index_rebuild_deinit(struct dbox_sync_rebuild_context **_ctx)
 {
-	if (dbox_sync_set_uidvalidity(ctx) < 0)
-		return -1;
+	struct dbox_sync_rebuild_context *ctx = *_ctx;
 
-	if (dbox_sync_index_rebuild_dir(ctx, ctx->mbox->path, TRUE) < 0)
-		return -1;
-
-	if (ctx->mbox->alt_path != NULL) {
-		if (dbox_sync_index_rebuild_dir(ctx, ctx->mbox->alt_path,
-						FALSE) < 0)
-			return -1;
+	*_ctx = NULL;
+	if (ctx->backup_index != NULL) {
+		mail_index_view_close(&ctx->backup_view);
+		mail_index_free(&ctx->backup_index);
 	}
-
-	/* finally give UIDs to newly seen maildir files */
-	return dbox_sync_new_maildir(ctx);
-}
-
-static void dbox_sync_update_maildir_ids(struct dbox_sync_rebuild_context *ctx)
-{
-	struct dbox_mail_index_record rec;
-	struct dbox_file *const *files;
-	unsigned int i, count;
-
-	memset(&rec, 0, sizeof(rec));
-	files = array_get(&ctx->mbox->open_files, &count);
-	for (i = 0; i < count; i++) {
-		if (!files[i]->maildir_file)
-			continue;
-
-		i_assert(files[i]->file_id != 0);
-		rec.file_id = files[i]->file_id;
-		mail_index_update_ext(ctx->trans, files[i]->maildir_append_seq,
-				      ctx->mbox->dbox_ext_id, &rec, NULL);
-	}
+	dbox_sync_update_header(ctx);
+	i_free(ctx);
 }
 
 int dbox_sync_index_rebuild(struct dbox_mailbox *mbox)
 {
-	struct dbox_sync_rebuild_context ctx;
-	uint32_t seq;
-	uoff_t offset;
-	char **fnames;
-	unsigned int i, count;
+	struct dbox_sync_rebuild_context *ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
 	int ret;
 
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.mbox = mbox;
-	ctx.append_ctx = dbox_index_append_begin(mbox->dbox_index);
-	ctx.view = mail_index_view_open(mbox->ibox.index);
-	ctx.trans = mail_index_transaction_begin(ctx.view,
+	view = mail_index_view_open(mbox->ibox.index);
+	trans = mail_index_transaction_begin(view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-	i_array_init(&ctx.maildir_new_files, 8);
-	mail_index_reset(ctx.trans);
-	index_mailbox_reset_uidvalidity(&mbox->ibox);
-	mail_index_ext_lookup(mbox->ibox.index, "cache", &ctx.cache_ext_id);
 
-	if ((ret = dbox_sync_index_rebuild_ctx(&ctx)) < 0)
-		mail_index_transaction_rollback(&ctx.trans);
-	else {
-		ret = dbox_index_append_assign_file_ids(ctx.append_ctx);
-		if (ret == 0) {
-			dbox_sync_update_maildir_ids(&ctx);
-			ret = mail_index_transaction_commit(&ctx.trans,
-							    &seq, &offset);
-		}
-	}
-	mail_index_view_close(&ctx.view);
+	ctx = dbox_sync_index_rebuild_init(mbox, view, trans, FALSE);
+	ret = dbox_sync_index_rebuild_singles(ctx);
+	dbox_sync_index_rebuild_deinit(&ctx);
 
-	fnames = array_get_modifiable(&ctx.maildir_new_files, &count);
-	for (i = 0; i < count; i++)
-		i_free(fnames[i]);
-	array_free(&ctx.maildir_new_files);
+	if (ret < 0)
+		mail_index_transaction_rollback(&trans);
+	else
+		ret = mail_index_transaction_commit(&trans);
+	mail_index_view_close(&view);
 
 	if (ret == 0)
-		ret = dbox_index_append_commit(&ctx.append_ctx);
-	else
-		dbox_index_append_rollback(&ctx.append_ctx);
-
-	if (mbox->maildir_sync_keywords != NULL)
-		maildir_keywords_sync_deinit(&mbox->maildir_sync_keywords);
-	if (ctx.mk != NULL)
-		maildir_keywords_deinit(&ctx.mk);
-	if (ctx.maildir_uidlist != NULL)
-		maildir_uidlist_deinit(&ctx.maildir_uidlist);
+		mbox->storage->sync_rebuild = FALSE;
 	return ret;
 }

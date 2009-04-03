@@ -6,6 +6,7 @@
 #include "str.h"
 #include "index-mail.h"
 #include "dbox-storage.h"
+#include "dbox-map.h"
 #include "dbox-file.h"
 
 #include <stdlib.h>
@@ -16,6 +17,7 @@ struct dbox_mail {
 
 	struct dbox_file *open_file;
 	uoff_t offset;
+	uint32_t map_uid;
 };
 
 struct mail *
@@ -43,21 +45,130 @@ static void dbox_mail_close(struct mail *_mail)
 	index_mail_close(_mail);
 }
 
-static int dbox_mail_lookup(struct dbox_mail *mail,
-			    uoff_t *offset_r, struct dbox_file **file_r)
+int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
+		     uint32_t seq, uint32_t *map_uid_r)
 {
-	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
-	unsigned int file_id;
+	const struct dbox_mail_index_record *dbox_rec;
+	const struct dbox_index_header *hdr;
+	const void *data;
+	size_t data_size;
+	uint32_t cur_map_uid_validity;
+	bool expunged;
 
-	if (mail->open_file == NULL) {
-		if (!dbox_file_lookup(mbox, mbox->ibox.view,
-				      mail->imail.mail.mail.seq,
-				      &file_id, &mail->offset)) {
-			mail_set_expunged(&mail->imail.mail.mail);
+	mail_index_lookup_ext(view, seq, mbox->dbox_ext_id, &data, &expunged);
+	dbox_rec = data;
+	if (dbox_rec == NULL || dbox_rec->map_uid == 0) {
+		*map_uid_r = 0;
+		return 0;
+	}
+
+	if (mbox->map_uid_validity == 0) {
+		mail_index_get_header_ext(mbox->ibox.view,
+					  mbox->dbox_hdr_ext_id,
+					  &data, &data_size);
+		if (data_size != sizeof(*hdr)) {
+			mail_storage_set_critical(&mbox->storage->storage,
+				"dbox %s: Invalid dbox header size", mbox->path);
+			mbox->storage->sync_rebuild = TRUE;
 			return -1;
 		}
-		mail->open_file = dbox_file_init(mbox, file_id);
+		hdr = data;
+		mbox->map_uid_validity = hdr->map_uid_validity;
 	}
+	if (dbox_map_open(mbox->storage->map, TRUE) < 0)
+		return -1;
+
+	cur_map_uid_validity = dbox_map_get_uid_validity(mbox->storage->map);
+	if (cur_map_uid_validity != mbox->map_uid_validity) {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"dbox %s: map uidvalidity mismatch (%u vs %u)",
+			mbox->path, mbox->map_uid_validity,
+			cur_map_uid_validity);
+		mbox->storage->sync_rebuild = TRUE;
+		return -1;
+	}
+	*map_uid_r = dbox_rec->map_uid;
+	return 0;
+}
+
+static void dbox_mail_set_expunged(struct dbox_mail *mail)
+{
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
+	struct mail *_mail = &mail->imail.mail.mail;
+
+	(void)mail_index_refresh(mbox->ibox.index);
+	if (mail_index_is_expunged(mbox->ibox.view, _mail->seq)) {
+		mail_set_expunged(_mail);
+		return;
+	}
+
+	if (mail->map_uid != 0) {
+		dbox_map_set_corrupted(mbox->storage->map,
+			"Unexpectedly lost uid=%u map_uid=%u",
+			_mail->uid, mail->map_uid);
+	} else {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"Unexpectedly lost uid=%u", _mail->uid);
+	}
+	mbox->storage->sync_rebuild = TRUE;
+}
+
+static int dbox_mail_open_init(struct dbox_mail *mail)
+{
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
+	struct mail *_mail = &mail->imail.mail.mail;
+	uint32_t file_id;
+	int ret;
+
+	if (mail->map_uid == 0)
+		mail->open_file = dbox_file_init_single(mbox, _mail->uid);
+	else if ((ret = dbox_map_lookup(mbox->storage->map, mail->map_uid,
+					&file_id, &mail->offset)) <= 0) {
+		if (ret < 0)
+			return -1;
+
+		/* map_uid doesn't exist anymore. either it
+		   got just expunged or the map index is
+		   corrupted. */
+		dbox_mail_set_expunged(mail);
+		return -1;
+	} else {
+		mail->open_file = dbox_file_init_multi(mbox->storage, file_id);
+	}
+	return 0;
+}
+
+static int dbox_mail_open(struct dbox_mail *mail,
+			  uoff_t *offset_r, struct dbox_file **file_r)
+{
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->imail.ibox;
+	struct mail *_mail = &mail->imail.mail.mail;
+	uint32_t prev_file_id = 0;
+	bool deleted;
+
+	do {
+		if (mail->open_file == NULL) {
+			if (dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq,
+					     &mail->map_uid) < 0)
+				return -1;
+			if (dbox_mail_open_init(mail) < 0)
+				return -1;
+		}
+
+		if (dbox_file_open(mail->open_file, &deleted) <= 0)
+			return -1;
+		if (deleted) {
+			/* either it's expunged now or moved to another file. */
+			if (mail->open_file->file_id == prev_file_id) {
+				dbox_mail_set_expunged(mail);
+				return -1;
+			}
+			prev_file_id = mail->open_file->file_id;
+			if (dbox_map_refresh(mbox->storage->map) < 0)
+				return -1;
+			dbox_file_unref(&mail->open_file);
+		}
+	} while (mail->open_file == NULL);
 
 	*file_r = mail->open_file;
 	*offset_r = mail->offset;
@@ -65,26 +176,20 @@ static int dbox_mail_lookup(struct dbox_mail *mail,
 }
 
 static int
-dbox_mail_metadata_seek(struct dbox_mail *mail, struct dbox_file **file_r)
+dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 {
-	uoff_t offset;
+	uoff_t offset, size;
 	bool expunged;
-	int ret;
 
-	if (dbox_mail_lookup(mail, &offset, file_r) < 0)
+	if (dbox_mail_open(mail, &offset, file_r) < 0)
 		return -1;
 
-	ret = dbox_file_metadata_seek_mail_offset(*file_r, offset, &expunged);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		/* FIXME */
+	if (dbox_file_get_mail_stream(*file_r, offset, &size,
+				      NULL, &expunged) <= 0)
 		return -1;
-	}
-	if (expunged) {
-		mail_set_expunged(&mail->imail.mail.mail);
+	i_assert(!expunged);
+	if (dbox_file_metadata_read(*file_r) <= 0)
 		return -1;
-	}
 	return 0;
 }
 
@@ -98,7 +203,7 @@ static int dbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 	if (index_mail_get_received_date(_mail, date_r) == 0)
 		return 0;
 
-	if (dbox_mail_metadata_seek(mail, &file) < 0)
+	if (dbox_mail_metadata_read(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_RECEIVED_TIME);
@@ -118,7 +223,7 @@ static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	if (index_mail_get_save_date(_mail, date_r) == 0)
 		return 0;
 
-	if (dbox_mail_metadata_seek(mail, &file) < 0)
+	if (dbox_mail_metadata_read(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_SAVE_TIME);
@@ -148,7 +253,7 @@ static int dbox_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 	if (index_mail_get_cached_virtual_size(&mail->imail, size_r))
 		return 0;
 
-	if (dbox_mail_metadata_seek(mail, &file) < 0)
+	if (dbox_mail_metadata_read(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, DBOX_METADATA_VIRTUAL_SIZE);
@@ -196,7 +301,7 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 		return 0;
 	}
 
-	if (dbox_mail_metadata_seek(mail, &file) < 0)
+	if (dbox_mail_metadata_read(mail, &file) < 0)
 		return -1;
 
 	value = dbox_file_metadata_get(file, key);
@@ -239,31 +344,24 @@ dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	struct index_mail_data *data = &mail->imail.data;
 	struct istream *input;
 	uoff_t offset, size;
-	uint32_t uid = 0;
 	bool expunged;
 	int ret;
 
 	if (data->stream == NULL) {
-		if (dbox_mail_lookup(mail, &offset, &mail->open_file) < 0)
+		if (dbox_mail_open(mail, &offset, &mail->open_file) < 0)
 			return -1;
 
-		ret = dbox_file_get_mail_stream(mail->open_file, offset, &uid,
+		ret = dbox_file_get_mail_stream(mail->open_file, offset,
 						&size, &input, &expunged);
-		if (ret < 0)
-			return -1;
-		if (ret > 0 && expunged) {
-			mail_set_expunged(_mail);
-			return -1;
-		}
-		if (ret == 0 || uid != _mail->uid) {
-			/* FIXME: broken file/offset */
-			if (ret > 0)
-				i_stream_unref(&input);
-			mail_storage_set_critical(_mail->box->storage,
-				"broken pointer to dbox file %s (uid %u vs %u)",
-				mail->open_file->current_path, uid, _mail->uid);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
+			dbox_file_set_corrupted(mail->open_file,
+				"uid=%u points to broken data at offset="
+				"%"PRIuUOFF_T, _mail->uid, offset);
 			return -1;
 		}
+		i_assert(!expunged);
 		data->physical_size = size;
 		data->stream = input;
 	}
@@ -277,6 +375,7 @@ struct mail_vfuncs dbox_mail_vfuncs = {
 	index_mail_free,
 	index_mail_set_seq,
 	index_mail_set_uid,
+	index_mail_set_uid_cache_updates,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

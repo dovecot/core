@@ -92,6 +92,20 @@ o_stream_file_set_max_buffer_size(struct iostream_private *stream,
 	fstream->max_buffer_size = max_size;
 }
 
+static size_t file_buffer_get_used_size(struct file_ostream *fstream)
+{
+	if (fstream->head == fstream->tail)
+		return fstream->full ? fstream->buffer_size : 0;
+	else if (fstream->head < fstream->tail) {
+		/* ...HXXXT... */
+		return fstream->tail - fstream->head;
+	} else {
+		/* XXXT...HXXX */
+		return fstream->tail +
+			(fstream->buffer_size - fstream->head);
+	}
+}
+
 static void update_buffer(struct file_ostream *fstream, size_t size)
 {
 	size_t used;
@@ -578,6 +592,90 @@ static ssize_t o_stream_file_sendv(struct ostream_private *stream,
 	return ret;
 }
 
+static size_t
+o_stream_file_update_buffer(struct file_ostream *fstream,
+			    const void *data, size_t size, size_t pos)
+{
+	size_t avail, copy_size;
+
+	if (fstream->head < fstream->tail) {
+		/* ...HXXXT... */
+		i_assert(pos < fstream->tail);
+		avail = fstream->tail - pos;
+	} else {
+		/* XXXT...HXXX */
+		avail = fstream->buffer_size - pos;
+	}
+	copy_size = I_MIN(size, avail);
+	memcpy(fstream->buffer + pos, data, copy_size);
+	data = CONST_PTR_OFFSET(data, copy_size);
+	size -= copy_size;
+
+	if (size > 0 && fstream->head >= fstream->tail) {
+		/* wraps to beginning of the buffer */
+		copy_size = I_MIN(size, fstream->tail);
+		memcpy(fstream->buffer, data, copy_size);
+		size -= copy_size;
+	}
+	return size;
+}
+
+static int
+o_stream_file_write_at(struct ostream_private *stream,
+		       const void *data, size_t size, uoff_t offset)
+{
+	struct file_ostream *fstream = (struct file_ostream *)stream;
+	size_t used, pos, skip, left;
+
+	/* update buffer if the write overlaps it */
+	used = file_buffer_get_used_size(fstream);
+	if (fstream->buffer_offset < offset + size &&
+	    fstream->buffer_offset + used > offset) {
+		if (fstream->buffer_offset <= offset) {
+			/* updating from the beginning */
+			skip = 0;
+		} else {
+			skip = fstream->buffer_offset - offset;
+		}
+		pos = (fstream->head + offset + skip - fstream->buffer_offset) %
+			fstream->buffer_size;
+		left = o_stream_file_update_buffer(fstream,
+				CONST_PTR_OFFSET(data, skip), size - skip, pos);
+		if (left > 0) {
+			/* didn't write all of it */
+			if (skip > 0) {
+				/* we also have to write a prefix. don't
+				   bother with two syscalls, just write all
+				   of it in one pwrite(). */
+			} else {
+				/* write only the suffix */
+				data = CONST_PTR_OFFSET(data, skip);
+				size -= skip;
+				offset += skip;
+			}
+		} else if (skip == 0) {
+			/* everything done */
+			return 0;
+		} else {
+			/* still have to write prefix */
+			size = skip;
+
+		}
+	}
+
+	/* we couldn't write everything to the buffer. flush the buffer
+	   and pwrite() the rest. */
+	if (o_stream_file_flush(stream) < 0)
+		return -1;
+
+	if (pwrite_full(fstream->fd, data, size, offset) < 0) {
+		stream->ostream.stream_errno = errno;
+		stream_closed(fstream);
+		return -1;
+	}
+	return 0;
+}
+
 static off_t io_stream_sendfile(struct ostream_private *outstream,
 				struct istream *instream, int in_fd)
 {
@@ -640,55 +738,30 @@ static off_t io_stream_copy(struct ostream_private *outstream,
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	uoff_t start_offset;
-	struct const_iovec iov[3];
-	int iov_len;
+	struct const_iovec iov;
 	const unsigned char *data;
-	size_t size, skip_size;
 	ssize_t ret;
-	int pos;
-
-	iov_len = o_stream_fill_iovec(foutstream, iov);
-
-        skip_size = 0;
-	for (pos = 0; pos < iov_len; pos++)
-		skip_size += iov[pos].iov_len;
 
 	start_offset = instream->v_offset;
 	for (;;) {
-		(void)i_stream_read_data(instream, &data, &size,
+		(void)i_stream_read_data(instream, &data, &iov.iov_len,
 					 foutstream->optimal_block_size-1);
-		if (size == 0) {
+		if (iov.iov_len == 0) {
 			/* all sent */
 			break;
 		}
 
-		pos = iov_len++;
-		iov[pos].iov_base = (void *) data;
-		iov[pos].iov_len = size;
-
-		ret = o_stream_writev(foutstream, iov, iov_len);
-		if (ret < 0)
+		iov.iov_base = data;
+		ret = o_stream_file_sendv(outstream, &iov, 1);
+		if (ret <= 0) {
+			if (ret == 0)
+				break;
 			return -1;
-
-		if (skip_size > 0) {
-			if ((size_t)ret < skip_size) {
-				update_buffer(foutstream, ret);
-				skip_size -= ret;
-				ret = 0;
-			} else {
-				update_buffer(foutstream, skip_size);
-				ret -= skip_size;
-				skip_size = 0;
-			}
 		}
-		outstream->ostream.offset += ret;
 		i_stream_skip(instream, ret);
 
-		if ((size_t)ret != iov[pos].iov_len)
+		if ((size_t)ret != iov.iov_len)
 			break;
-
-		i_assert(skip_size == 0);
-		iov_len = 0;
 	}
 
 	return (off_t) (instream->v_offset - start_offset);
@@ -776,7 +849,7 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	const struct stat *st;
-	off_t ret;
+	off_t in_abs_offset, ret;
 	int in_fd;
 
 	in_fd = i_stream_get_fd(instream);
@@ -791,16 +864,17 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 		}
 		i_assert(instream->v_offset <= (uoff_t)st->st_size);
 
-		ret = (off_t)outstream->ostream.offset -
-			(off_t)(instream->real_stream->abs_start_offset +
-				instream->v_offset);
+		in_abs_offset = instream->real_stream->abs_start_offset +
+			instream->v_offset;
+		ret = (off_t)outstream->ostream.offset - in_abs_offset;
 		if (ret == 0) {
 			/* copying data over itself. we don't really
 			   need to do that, just fake it. */
 			return st->st_size - instream->v_offset;
 		}
-		if (ret > 0) {
+		if (ret > 0 && st->st_size > ret) {
 			/* overlapping */
+			i_assert(instream->seekable);
 			return io_stream_copy_backwards(outstream, instream,
 							st->st_size);
 		}
@@ -841,6 +915,7 @@ o_stream_create_fd_common(int fd, bool autoclose_fd)
 	fstream->ostream.get_used_size = o_stream_file_get_used_size;
 	fstream->ostream.seek = o_stream_file_seek;
 	fstream->ostream.sendv = o_stream_file_sendv;
+	fstream->ostream.write_at = o_stream_file_write_at;
 	fstream->ostream.send_istream = o_stream_file_send_istream;
 
 	return fstream;

@@ -236,7 +236,7 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 {
 	struct mail_index_transaction *t = ctx->trans;
 	const struct mail_index_registered_ext *rext;
-        struct mail_transaction_ext_intro *intro;
+        struct mail_transaction_ext_intro *intro, *resizes;
 	buffer_t *buf;
 	uint32_t idx;
 	unsigned int count;
@@ -251,16 +251,16 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 
 	rext = array_idx(&t->view->index->extensions, ext_id);
 	if (!array_is_created(&t->ext_resizes)) {
-		intro = NULL;
+		resizes = NULL;
 		count = 0;
 	} else {
-		intro = array_get_modifiable(&t->ext_resizes, &count);
+		resizes = array_get_modifiable(&t->ext_resizes, &count);
 	}
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
-	if (ext_id < count && intro[ext_id].name_size != 0) {
-		/* we're resizing it */
-		intro += ext_id;
+	if (ext_id < count && resizes[ext_id].name_size != 0) {
+		/* we're resizing the extension. use the resize struct. */
+		intro = &resizes[ext_id];
 
 		i_assert(intro->ext_id == idx);
 		intro->name_size = idx != (uint32_t)-1 ? 0 :
@@ -344,21 +344,12 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
         const struct mail_transaction_ext_intro *resize;
 	const struct mail_index_transaction_ext_hdr_update *hdrs;
 	struct mail_transaction_ext_reset ext_reset;
-	unsigned int update_count, resize_count, ext_count = 0;
+	unsigned int resize_count, ext_count = 0;
 	unsigned int hdrs_count, reset_id_count, reset_count;
 	uint32_t ext_id, reset_id;
 	const struct mail_transaction_ext_reset *reset;
 	const uint32_t *reset_ids;
-	const ARRAY_TYPE(seq_array) *update;
-	buffer_t *buf;
-
-	if (!array_is_created(&t->ext_rec_updates)) {
-		update = NULL;
-		update_count = 0;
-	} else {
-		update = array_get(&t->ext_rec_updates, &update_count);
-		ext_count = update_count;
-	}
+	buffer_t *reset_buf;
 
 	if (!array_is_created(&t->ext_resizes)) {
 		resize = NULL;
@@ -395,9 +386,9 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 	}
 
 	memset(&ext_reset, 0, sizeof(ext_reset));
-	buf = buffer_create_data(pool_datastack_create(),
-				 &ext_reset, sizeof(ext_reset));
-	buffer_set_used_size(buf, sizeof(ext_reset));
+	reset_buf = buffer_create_data(pool_datastack_create(),
+				       &ext_reset, sizeof(ext_reset));
+	buffer_set_used_size(reset_buf, sizeof(ext_reset));
 
 	for (ext_id = 0; ext_id < ext_count; ext_id++) {
 		if (ext_id < reset_count)
@@ -405,19 +396,22 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 		else
 			ext_reset.new_reset_id = 0;
 		if ((ext_id < resize_count && resize[ext_id].name_size) ||
-		    (ext_id < update_count &&
-		     array_is_created(&update[ext_id])) ||
 		    ext_reset.new_reset_id != 0 ||
 		    (ext_id < hdrs_count && hdrs[ext_id].alloc_size > 0)) {
-			reset_id = ext_id < reset_id_count &&
-				ext_reset.new_reset_id == 0 ?
-				reset_ids[ext_id] : 0;
+			if (ext_reset.new_reset_id != 0) {
+				/* we're going to reset this extension
+				   immediately after the intro */
+				reset_id = 0;
+			} else {
+				reset_id = ext_id < reset_id_count ?
+					reset_ids[ext_id] : 0;
+			}
 			log_append_ext_intro(ctx, ext_id, reset_id);
 		}
 		if (ext_reset.new_reset_id != 0) {
 			i_assert(ext_id < reset_id_count &&
 				 ext_reset.new_reset_id == reset_ids[ext_id]);
-			log_append_buffer(ctx, buf, NULL,
+			log_append_buffer(ctx, reset_buf, NULL,
 					  MAIL_TRANSACTION_EXT_RESET);
 		}
 		if (ext_id < hdrs_count && hdrs[ext_id].alloc_size > 0) {
@@ -428,20 +422,15 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 	}
 }
 
-static void log_append_ext_rec_updates(struct log_append_context *ctx)
+static void log_append_ext_recs(struct log_append_context *ctx,
+				const ARRAY_TYPE(seq_array_array) *arr,
+				enum mail_transaction_type type)
 {
 	struct mail_index_transaction *t = ctx->trans;
-	ARRAY_TYPE(seq_array) *updates;
+	const ARRAY_TYPE(seq_array) *updates;
 	const uint32_t *reset_ids;
 	unsigned int ext_id, count, reset_id_count;
 	uint32_t reset_id;
-
-	if (!array_is_created(&t->ext_rec_updates)) {
-		updates = NULL;
-		count = 0;
-	} else {
-		updates = array_get_modifiable(&t->ext_rec_updates, &count);
-	}
 
 	if (!array_is_created(&t->ext_reset_ids)) {
 		reset_ids = NULL;
@@ -451,6 +440,7 @@ static void log_append_ext_rec_updates(struct log_append_context *ctx)
 						 &reset_id_count);
 	}
 
+	updates = array_get(arr, &count);
 	for (ext_id = 0; ext_id < count; ext_id++) {
 		if (!array_is_created(&updates[ext_id]))
 			continue;
@@ -458,8 +448,7 @@ static void log_append_ext_rec_updates(struct log_append_context *ctx)
 		reset_id = ext_id < reset_id_count ? reset_ids[ext_id] : 0;
 		log_append_ext_intro(ctx, ext_id, reset_id);
 
-		log_append_buffer(ctx, updates[ext_id].arr.buffer, NULL,
-				  MAIL_TRANSACTION_EXT_REC_UPDATE);
+		log_append_buffer(ctx, updates[ext_id].arr.buffer, NULL, type);
 	}
 }
 
@@ -645,8 +634,14 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 				  MAIL_TRANSACTION_FLAG_UPDATE);
 	}
 
-	if (array_is_created(&t->ext_rec_updates))
-		log_append_ext_rec_updates(&ctx);
+	if (array_is_created(&t->ext_rec_updates)) {
+		log_append_ext_recs(&ctx, &t->ext_rec_updates,
+				    MAIL_TRANSACTION_EXT_REC_UPDATE);
+	}
+	if (array_is_created(&t->ext_rec_atomics)) {
+		log_append_ext_recs(&ctx, &t->ext_rec_atomics,
+				    MAIL_TRANSACTION_EXT_ATOMIC_INC);
+	}
 
 	/* keyword resets before updates */
 	if (array_is_created(&t->keyword_resets)) {
@@ -691,7 +686,8 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		}
 	}
 
-	want_fsync = (view->index->fsync_mask & change_mask) != 0;
+	want_fsync = (view->index->fsync_mask & change_mask) != 0 ||
+		(t->flags & MAIL_INDEX_TRANSACTION_FLAG_FSYNC) != 0;
 	append_offset = file->sync_offset;
 	if (log_buffer_write(&ctx, want_fsync) < 0) {
 		buffer_free(&ctx.output);
@@ -727,10 +723,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	index = mail_index_view_get_index(t->view);
-	if (index->log_locked) {
-		i_assert((t->flags &
-			  MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);
-	} else {
+	if (!index->log_locked) {
 		if (mail_transaction_log_lock_head(index->log) < 0)
 			return -1;
 	}

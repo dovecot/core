@@ -16,6 +16,7 @@ struct istream_private {
 		     uoff_t v_offset, bool mark);
 	void (*sync)(struct istream_private *stream);
 	const struct stat *(*stat)(struct istream_private *stream, bool exact);
+	int (*get_size)(struct istream_private *stream, bool exact, uoff_t *size_r);
 
 /* data: */
 	struct istream istream;

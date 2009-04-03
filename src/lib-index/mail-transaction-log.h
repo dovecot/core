@@ -36,12 +36,14 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_EXT_REC_UPDATE		= 0x00000200,
 	MAIL_TRANSACTION_KEYWORD_UPDATE		= 0x00000400,
 	MAIL_TRANSACTION_KEYWORD_RESET		= 0x00000800,
+	MAIL_TRANSACTION_EXT_ATOMIC_INC		= 0x00001000,
 
 	MAIL_TRANSACTION_TYPE_MASK		= 0x0000ffff,
 
 #define MAIL_TRANSACTION_EXT_MASK \
 	(MAIL_TRANSACTION_EXT_INTRO | MAIL_TRANSACTION_EXT_RESET | \
-	MAIL_TRANSACTION_EXT_HDR_UPDATE | MAIL_TRANSACTION_EXT_REC_UPDATE)
+	MAIL_TRANSACTION_EXT_HDR_UPDATE | MAIL_TRANSACTION_EXT_REC_UPDATE | \
+	MAIL_TRANSACTION_EXT_ATOMIC_INC)
 
 	/* since we'll expunge mails based on data read from transaction log,
 	   try to avoid the possibility of corrupted transaction log expunging
@@ -123,6 +125,10 @@ struct mail_transaction_ext_hdr_update {
 struct mail_transaction_ext_rec_update {
 	uint32_t uid;
 	/* unsigned char data[]; */
+};
+struct mail_transaction_ext_atomic_inc {
+	uint32_t uid;
+	int32_t diff;
 };
 
 #define LOG_IS_BEFORE(seq1, offset1, seq2, offset2) \

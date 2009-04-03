@@ -19,7 +19,8 @@ void mail_cache_set_syscall_error(struct mail_cache *cache,
 
 	if (ENOSPACE(errno)) {
 		cache->index->nodiskspace = TRUE;
-		return;
+		if (!cache->index->never_in_memory)
+			return;
 	}
 
 	mail_index_set_error(cache->index,

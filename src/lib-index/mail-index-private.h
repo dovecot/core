@@ -228,6 +228,7 @@ struct mail_index {
 	unsigned int use_excl_dotlocks:1;
 	unsigned int nfs_flush:1;
 	unsigned int readonly:1;
+	unsigned int keep_backups:1;
 	unsigned int mapping:1;
 	unsigned int syncing:1;
 	unsigned int need_recreate:1;
@@ -235,6 +236,7 @@ struct mail_index {
 	unsigned int modseqs_enabled:1;
 	unsigned int initial_create:1;
 	unsigned int initial_mapped:1;
+	unsigned int never_in_memory:1;
 };
 
 extern struct mail_index_module_register mail_index_module_register;

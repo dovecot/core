@@ -107,6 +107,7 @@ struct index_mail_data {
 	unsigned int messageparts_saved_to_cache:1;
 	unsigned int header_parsed:1;
 	unsigned int no_caching:1;
+	unsigned int forced_no_caching:1;
 	unsigned int destroying_stream:1;
 };
 
@@ -150,6 +151,7 @@ void index_mail_init(struct index_mail *mail,
 
 void index_mail_set_seq(struct mail *mail, uint32_t seq);
 bool index_mail_set_uid(struct mail *mail, uint32_t uid);
+void index_mail_set_uid_cache_updates(struct mail *mail, bool set);
 void index_mail_close(struct mail *mail);
 void index_mail_free(struct mail *mail);
 

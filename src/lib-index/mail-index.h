@@ -22,7 +22,12 @@ enum mail_index_open_flags {
 	/* Flush NFS attr/data/write cache when necessary */
 	MAIL_INDEX_OPEN_FLAG_NFS_FLUSH		= 0x40,
 	/* Open the index read-only */
-	MAIL_INDEX_OPEN_FLAG_READONLY		= 0x80
+	MAIL_INDEX_OPEN_FLAG_READONLY		= 0x80,
+	/* Create backups of dovecot.index files once in a while */
+	MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS	= 0x100,
+	/* If we run out of disk space, fail modifications instead of moving
+	   indexes to memory. */
+	MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY	= 0x200
 };
 
 enum mail_index_header_compat_flags {
@@ -112,7 +117,9 @@ enum mail_index_transaction_flags {
 	/* Don't add flag updates unless they actually change something.
 	   This is reliable only when syncing, otherwise someone else might
 	   have already committed a transaction that had changed the flags. */
-	MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES	= 0x04
+	MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES	= 0x04,
+	/* fsync() this transaction (unless fsyncs are disabled) */
+	MAIL_INDEX_TRANSACTION_FLAG_FSYNC		= 0x08
 };
 
 enum mail_index_sync_type {
@@ -133,7 +140,9 @@ enum mail_index_sync_flags {
 	MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES	= 0x04,
 	/* If there are no new transactions and nothing else to do,
 	   return 0 in mail_index_sync_begin() */
-	MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES	= 0x08
+	MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES	= 0x08,
+	/* Create the transaction with FSYNC flag */
+	MAIL_INDEX_SYNC_FLAG_FSYNC		= 0x10
 };
 
 enum mail_index_view_sync_flags {
@@ -187,8 +196,14 @@ void mail_index_set_fsync_types(struct mail_index *index,
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid);
 
+/* Open index. Returns 1 if ok, 0 if index doesn't exist and CREATE flags
+   wasn't given, -1 if error. */
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 		    enum file_lock_method lock_method);
+/* Open or create index. Returns 0 if ok, -1 if error. */
+int mail_index_open_or_create(struct mail_index *index,
+			      enum mail_index_open_flags flags,
+			      enum file_lock_method lock_method);
 void mail_index_close(struct mail_index *index);
 
 /* Move the index into memory. Returns 0 if ok, -1 if error occurred. */
@@ -223,9 +238,10 @@ bool mail_index_view_is_inconsistent(struct mail_index_view *view);
 struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
 			     enum mail_index_transaction_flags flags);
-int mail_index_transaction_commit(struct mail_index_transaction **t,
-				  uint32_t *log_file_seq_r,
-				  uoff_t *log_file_offset_r);
+int mail_index_transaction_commit(struct mail_index_transaction **t);
+int mail_index_transaction_commit_get_pos(struct mail_index_transaction **t,
+					  uint32_t *log_file_seq_r,
+					  uoff_t *log_file_offset_r);
 void mail_index_transaction_rollback(struct mail_index_transaction **t);
 /* Discard all changes in the transaction. */
 void mail_index_transaction_reset(struct mail_index_transaction *t);
@@ -292,6 +308,10 @@ int mail_index_sync_begin_to(struct mail_index *index,
 /* Returns TRUE if it currently looks like syncing would return changes. */
 bool mail_index_sync_have_any(struct mail_index *index,
 			      enum mail_index_sync_flags flags);
+/* Returns the log file seq+offsets for the area which this sync is handling. */
+void mail_index_sync_get_offsets(struct mail_index_sync_ctx *ctx,
+				 uint32_t *seq1_r, uoff_t *offset1_r,
+				 uint32_t *seq2_r, uoff_t *offset2_r);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			  struct mail_index_sync_rec *sync_rec);
@@ -504,5 +524,9 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
    now overwriting. */
 void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 			   uint32_t ext_id, const void *data, void *old_data);
+/* Increase/decrease number in extension atomically. Returns the sum of the
+   diffs for this seq. */
+int mail_index_atomic_inc_ext(struct mail_index_transaction *t,
+			      uint32_t seq, uint32_t ext_id, int diff);
 
 #endif

@@ -93,4 +93,8 @@ ssize_t o_stream_send_str(struct ostream *stream, const char *str);
 off_t o_stream_send_istream(struct ostream *outstream,
 			    struct istream *instream);
 
+/* Write data to specified offset. Returns 0 if successful, -1 if error. */
+int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
+		    uoff_t offset);
+
 #endif

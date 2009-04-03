@@ -258,8 +258,8 @@ index_list_update(struct index_mailbox_list *ilist, struct mailbox *box,
 		return -1;
 	}
 
-	return mail_index_transaction_commit(&trans, &ibox->log_seq,
-					     &ibox->log_offset);
+	return mail_index_transaction_commit_get_pos(&trans, &ibox->log_seq,
+						     &ibox->log_offset);
 }
 
 static struct mailbox_sync_context *

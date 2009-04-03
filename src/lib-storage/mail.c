@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "crc32.h"
 #include "hostpid.h"
 #include "mail-storage-private.h"
 
@@ -225,4 +226,44 @@ const char *mail_generate_guid_string(void)
 			       (unsigned int)ts.tv_nsec,
 			       (unsigned long)ts.tv_sec,
 			       pid, my_hostname);
+}
+
+void mail_generate_guid_128(uint8_t guid[16])
+{
+	static struct timespec ts = { 0, 0 };
+	static uint8_t guid_static[8];
+	uint32_t pid, host_crc;
+
+	/* we'll use the current time in nanoseconds as the initial 64bit
+	   counter. */
+	if (ts.tv_sec == 0) {
+		if (clock_gettime(CLOCK_REALTIME, &ts) < 0)
+			i_fatal("clock_gettime() failed: %m");
+		pid = getpid();
+		host_crc = crc32_str(my_hostname);
+
+		guid_static[0] = (pid & 0x000000ff);
+		guid_static[1] = (pid & 0x0000ff00) >> 8;
+		guid_static[2] = (pid & 0x00ff0000) >> 16;
+		guid_static[3] = (pid & 0xff000000) >> 24;
+		guid_static[4] = (host_crc & 0x000000ff);
+		guid_static[5] = (host_crc & 0x0000ff00) >> 8;
+		guid_static[6] = (host_crc & 0x00ff0000) >> 16;
+		guid_static[7] = (host_crc & 0xff000000) >> 24;
+	} else if ((uint32_t)ts.tv_nsec < (uint32_t)-1) {
+		ts.tv_nsec++;
+	} else {
+		ts.tv_sec++;
+		ts.tv_nsec = 0;
+	}
+
+	guid[0] = (ts.tv_nsec & 0x000000ff);
+	guid[1] = (ts.tv_nsec & 0x0000ff00) >> 8;
+	guid[2] = (ts.tv_nsec & 0x00ff0000) >> 16;
+	guid[3] = (ts.tv_nsec & 0xff000000) >> 24;
+	guid[4] = (ts.tv_sec & 0x000000ff);
+	guid[5] = (ts.tv_sec & 0x0000ff00) >> 8;
+	guid[6] = (ts.tv_sec & 0x00ff0000) >> 16;
+	guid[7] = (ts.tv_sec & 0xff000000) >> 24;
+	memcpy(guid + 8, guid_static, 8);
 }

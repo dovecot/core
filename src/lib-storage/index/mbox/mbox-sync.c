@@ -866,22 +866,24 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 {
 	struct mail_index_view *sync_view = sync_ctx->sync_view;
 	uint32_t seq1, seq2;
-	const struct stat *st;
+	uoff_t size;
+	int ret;
 
 	i_assert(!sync_ctx->index_reset);
 
 	if (!mail_index_lookup_seq_range(sync_view, uid, (uint32_t)-1,
 					 &seq1, &seq2)) {
 		/* doesn't exist anymore, seek to end of file */
-		st = i_stream_stat(sync_ctx->file_input, TRUE);
-		if (st == NULL) {
+		ret = i_stream_get_size(sync_ctx->file_input, TRUE, &size);
+		if (ret < 0) {
 			mbox_set_syscall_error(sync_ctx->mbox,
-					       "i_stream_stat()");
+					       "i_stream_get_size()");
 			return -1;
 		}
+		i_assert(ret != 0);
 
 		if (istream_raw_mbox_seek(sync_ctx->mbox->mbox_stream,
-					  st->st_size) < 0) {
+					  size) < 0) {
 			mbox_sync_set_critical(sync_ctx,
 				"Error seeking to end of mbox file %s",
 				sync_ctx->mbox->path);
@@ -1218,8 +1220,8 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 					struct mbox_sync_mail_context *mail_ctx)
 {
-	const struct stat *st;
 	uoff_t file_size, offset, padding, trailer_size;
+	int ret;
 
 	if (!istream_raw_mbox_is_eof(sync_ctx->input)) {
 		i_assert(sync_ctx->need_space_seq == 0);
@@ -1227,17 +1229,16 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		return 0;
 	}
 
-	st = i_stream_stat(sync_ctx->file_input, TRUE);
-	if (st == NULL) {
-		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
+	ret = i_stream_get_size(sync_ctx->file_input, TRUE, &file_size);
+	if (ret < 0) {
+		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_get_size()");
 		return -1;
 	}
-	if (st->st_size < 0) {
+	if (ret == 0) {
 		/* Not a file - allow anyway */
 		return 0;
 	}
 
-	file_size = st->st_size;
 	if (file_size < sync_ctx->file_input->v_offset) {
 		mbox_sync_set_critical(sync_ctx,
 			"file size unexpectedly shrank in mbox file %s "

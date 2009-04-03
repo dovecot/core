@@ -7,9 +7,14 @@
 
 int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
 {
+	struct mail_private *pmail = (struct mail_private *)mail;
 	struct istream *input;
 	const char *from_envelope, *guid;
 	time_t received_date;
+
+	/* we need to open the file in any case. caching metadata is unlikely
+	   to help anything. */
+	pmail->v.set_uid_cache_updates(mail, TRUE);
 
 	if (mail_get_stream(mail, NULL, NULL, &input) < 0)
 		return -1;

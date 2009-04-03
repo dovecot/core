@@ -57,8 +57,7 @@ void mail_index_modseq_enable(struct mail_index *index)
 	struct mail_index_transaction *trans;
 	struct mail_index_view *view;
 	struct mail_index_modseq_header hdr;
-	uint32_t ext_map_idx, log_seq;
-	uoff_t log_offset;
+	uint32_t ext_map_idx;
 
 	if (index->modseqs_enabled)
 		return;
@@ -75,8 +74,7 @@ void mail_index_modseq_enable(struct mail_index *index)
 					     0, &hdr, sizeof(hdr));
 
 		/* commit also refreshes the index, which syncs the modseqs */
-		(void)mail_index_transaction_commit(&trans,
-						    &log_seq, &log_offset);
+		(void)mail_index_transaction_commit(&trans);
 		mail_index_view_close(&view);
 
 		/* get the modseq extension to index map */

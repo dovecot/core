@@ -1,3 +1,17 @@
+	/* currently non-external transactions can be applied multiple times,
+	   causing multiple increments. */
+	//FIXME:i_assert((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);
+  ^ appears to work now though, probably because of the added syncing stuff..
+
+ - dbox: save some stuff to map index header so we don't need to keep retrying
+   it. like when saving the lowest file_id which to bother checking.
+ - transaction log corruption should make sure dovecot.index is rewritten
+   and perhaps not delete the file.
+ - dbox: test crash-fixing
+ - dbox: cleanup tool / remove automatic cleanup. resyncing tool.
+ - use backup index in mail_index_fsck()
+ - dbox: mail_index_fsck() should perhaps cause dbox to be resynced?
+
  - convert plugin: convert_pop3_uidl_format setting? so old %f uidls could be
    converted to dbox..
  - proxying: support fallbacking to local (or other?) server if the first

@@ -460,6 +460,8 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	trans_flags = MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
 	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) != 0)
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES;
+	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_FSYNC) != 0)
+		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
 	ctx->ext_trans = mail_index_transaction_begin(ctx->view, trans_flags);
 	ctx->ext_trans->sync_transaction = TRUE;
 
@@ -505,6 +507,7 @@ static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 
 		switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 		case MAIL_TRANSACTION_EXT_REC_UPDATE:
+		case MAIL_TRANSACTION_EXT_ATOMIC_INC:
 			/* extension record updates aren't exactly needed
 			   to be synced, but cache syncing relies on tail
 			   offsets being updated. */
@@ -532,6 +535,17 @@ bool mail_index_sync_have_any(struct mail_index *index,
 	ret = mail_index_sync_view_have_any(view, flags);
 	mail_index_view_close(&view);
 	return ret;
+}
+
+void mail_index_sync_get_offsets(struct mail_index_sync_ctx *ctx,
+				 uint32_t *seq1_r, uoff_t *offset1_r,
+				 uint32_t *seq2_r, uoff_t *offset2_r)
+{
+	*seq1_r = ctx->view->map->hdr.log_file_seq;
+	*offset1_r = ctx->view->map->hdr.log_file_tail_offset != 0 ?
+		ctx->view->map->hdr.log_file_tail_offset :
+		ctx->view->index->log->head->hdr.hdr_size;
+	mail_transaction_log_get_head(ctx->view->index->log, seq2_r, offset2_r);
 }
 
 static void
@@ -694,8 +708,15 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 	uint32_t seq;
 	uoff_t offset;
 
-	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
-					       &seq, &offset);
+	if (!mail_transaction_log_view_is_last(ctx->view->log_view)) {
+		/* didn't sync everything */
+		mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
+						       &seq, &offset);
+	} else {
+		/* synced everything, but we might also have committed new
+		   transactions. include them also here. */
+		mail_transaction_log_get_head(ctx->index->log, &seq, &offset);
+	}
 	mail_transaction_log_set_mailbox_sync_pos(ctx->index->log, seq, offset);
 
 	/* If tail offset has changed, make sure it gets written to
@@ -723,8 +744,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
-	uint32_t seq, next_uid;
-	uoff_t offset;
+	uint32_t next_uid;
 	bool want_rotate;
 	int ret = 0;
 
@@ -746,7 +766,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		}
 	}
 
-	if (mail_index_transaction_commit(&ctx->ext_trans, &seq, &offset) < 0) {
+	if (mail_index_transaction_commit(&ctx->ext_trans) < 0) {
 		mail_index_sync_end(&ctx);
 		return -1;
 	}

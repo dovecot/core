@@ -13,6 +13,8 @@ struct str_find_context {
 	unsigned int *matches;
 	unsigned int match_count;
 
+	size_t match_end_pos;
+
 	int badtab[UCHAR_MAX+1];
 	int goodtab[FLEXIBLE_ARRAY_MEMBER];
 };
@@ -79,6 +81,8 @@ struct str_find_context *str_find_init(pool_t pool, const char *key)
 	struct str_find_context *ctx;
 	unsigned int key_len = strlen(key);
 
+	i_assert(key_len > 0);
+
 	ctx = p_malloc(pool, sizeof(struct str_find_context) +
 		       sizeof(ctx->goodtab[0]) * key_len);
 	ctx->pool = pool;
@@ -118,8 +122,10 @@ bool str_find_more(struct str_find_context *ctx,
 					break;
 			}
 
-			if (a == key_len)
+			if (a == key_len) {
+				ctx->match_end_pos = key_len - ctx->matches[i];
 				return TRUE;
+			}
 		} else {
 			for (b = 0; b < size; b++) {
 				if (ctx->key[a+b] != data[b])
@@ -140,8 +146,10 @@ bool str_find_more(struct str_find_context *ctx,
 		while (j + key_len <= size) {
 			i = key_len - 1;
 			while (ctx->key[i] == data[i + j]) {
-				if (i == 0)
+				if (i == 0) {
+					ctx->match_end_pos = j + key_len;
 					return TRUE;
+				}
 				i--;
 			}
 
@@ -161,6 +169,11 @@ bool str_find_more(struct str_find_context *ctx,
 			ctx->matches[ctx->match_count++] = size - j;
 	}
 	return FALSE;
+}
+
+size_t str_find_get_match_end_pos(struct str_find_context *ctx)
+{
+	return ctx->match_end_pos;
 }
 
 void str_find_reset(struct str_find_context *ctx)

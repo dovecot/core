@@ -125,7 +125,8 @@ mail_index_strmap_set_syscall_error(struct mail_index_strmap *strmap,
 
 	if (ENOSPACE(errno)) {
 		strmap->index->nodiskspace = TRUE;
-		return;
+		if (!strmap->index->never_in_memory)
+			return;
 	}
 
 	mail_index_set_error(strmap->index,

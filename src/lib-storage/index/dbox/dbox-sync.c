@@ -6,178 +6,122 @@
 #include "str.h"
 #include "hash.h"
 #include "dbox-storage.h"
-#include "dbox-index.h"
+#include "dbox-storage-rebuild.h"
+#include "dbox-map.h"
 #include "dbox-file.h"
 #include "dbox-sync.h"
 
-#define DBOX_FLUSH_SECS_INTERACTIVE (4*60*60)
-#define DBOX_FLUSH_SECS_CLOSE (4*60*60)
-#define DBOX_FLUSH_SECS_IMMEDIATE (24*60*60)
-
 #define DBOX_REBUILD_COUNT 3
+
+static unsigned int dbox_sync_file_entry_hash(const void *p)
+{
+	const struct dbox_sync_file_entry *entry = p;
+
+	if (entry->file_id != 0)
+		return entry->file_id | 0x80000000;
+	else
+		return entry->uid;
+}
+
+static int dbox_sync_file_entry_cmp(const void *p1, const void *p2)
+{
+	const struct dbox_sync_file_entry *entry1 = p1, *entry2 = p2;
+
+	/* this is only for hashing, don't bother ever returning 1. */
+	if (entry1->file_id != entry2->file_id)
+		return -1;
+	if (entry1->uid != entry2->uid)
+		return -1;
+	return 0;
+}
 
 static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 			     const struct mail_index_sync_rec *sync_rec,
 			     uint32_t seq)
 {
-	struct dbox_sync_file_entry *entry;
-	uint32_t file_id;
+	struct dbox_sync_file_entry *entry, lookup_entry;
+	uint32_t map_uid;
 	uoff_t offset;
-	bool uid_file, add;
+	int ret;
 
-	if (!dbox_file_lookup(ctx->mbox, ctx->sync_view, seq,
-			      &file_id, &offset))
-		return -1;
+	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE ||
+		 sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 
-	entry = hash_table_lookup(ctx->syncs, POINTER_CAST(file_id));
-	if (entry == NULL) {
-		if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE ||
-		    ctx->flush_dirty_flags) {
-			/* expunges / flushing dirty flags */
-			add = TRUE;
-		} else if (sync_rec->type != MAIL_INDEX_SYNC_TYPE_FLAGS) {
-			/* keywords, not flushing dirty flags */
-			add = FALSE;
-		} else {
-			/* add if we're moving from/to alternative storage
-			   and we actually have an alt directory specified */
-			add = ((sync_rec->add_flags | sync_rec->remove_flags) &
-			       DBOX_INDEX_FLAG_ALT) != 0 &&
-				ctx->mbox->alt_path != NULL;
-		}
-
-		if (!add) {
-			mail_index_update_flags(ctx->trans, seq, MODIFY_ADD,
-				(enum mail_flags)MAIL_INDEX_MAIL_FLAG_DIRTY);
+	memset(&lookup_entry, 0, sizeof(lookup_entry));
+	if (dbox_mail_lookup(ctx->mbox, ctx->sync_view, seq, &map_uid) < 0)
+		return 0;
+	if (map_uid == 0)
+		mail_index_lookup_uid(ctx->sync_view, seq, &lookup_entry.uid);
+	else {
+		ret = dbox_map_lookup(ctx->mbox->storage->map, map_uid,
+				      &lookup_entry.file_id, &offset);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
+			/* mailbox is locked while syncing, so if ret=0 the
+			   message got expunged from storage before it was
+			   expunged from mailbox. that shouldn't happen. */
+			dbox_map_set_corrupted(ctx->mbox->storage->map,
+				"unexpectedly lost map_uid=%u", map_uid);
 			return 0;
 		}
-
-		entry = p_new(ctx->pool, struct dbox_sync_file_entry, 1);
-		entry->file_id = file_id;
-		hash_table_insert(ctx->syncs, POINTER_CAST(file_id), entry);
 	}
-	uid_file = (file_id & DBOX_FILE_ID_FLAG_UID) != 0;
+
+	entry = hash_table_lookup(ctx->syncs, &lookup_entry);
+	if (entry == NULL) {
+		entry = p_new(ctx->pool, struct dbox_sync_file_entry, 1);
+		*entry = lookup_entry;
+		hash_table_insert(ctx->syncs, entry, entry);
+	}
 
 	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
-		if (!array_is_created(&entry->expunges)) {
-			p_array_init(&entry->expunges, ctx->pool,
-				     uid_file ? 1 : 3);
-			seq_range_array_add(&ctx->expunge_files, 0, file_id);
+		if (!array_is_created(&entry->expunge_map_uids)) {
+			p_array_init(&entry->expunge_map_uids, ctx->pool,
+				     lookup_entry.uid != 0 ? 1 : 3);
+			p_array_init(&entry->expunge_seqs, ctx->pool,
+				     lookup_entry.uid != 0 ? 1 : 3);
 		}
-		seq_range_array_add(&entry->expunges, 0, seq);
+		seq_range_array_add(&entry->expunge_seqs, 0, seq);
+		array_append(&entry->expunge_map_uids, &map_uid, 1);
 	} else {
-		if (!array_is_created(&entry->changes)) {
-			p_array_init(&entry->changes, ctx->pool,
-				     uid_file ? 1 : 8);
-		}
-		seq_range_array_add(&entry->changes, 0, seq);
+		if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) != 0)
+			entry->move_to_alt = TRUE;
+		else
+			entry->move_from_alt = TRUE;
 	}
-	return 0;
+	return 1;
 }
 
 static int dbox_sync_add(struct dbox_sync_context *ctx,
 			 const struct mail_index_sync_rec *sync_rec)
 {
 	uint32_t seq, seq1, seq2;
+	int ret;
 
-	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_APPEND) {
-		/* don't care about appends */
-		return 0;
+	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
+		/* we're interested */
+	} else if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS) {
+		/* we care only about alt flag changes */
+		if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) == 0 &&
+		    (sync_rec->remove_flags & DBOX_INDEX_FLAG_ALT) == 0)
+			return 1;
+	} else {
+		/* not interested */
+		return 1;
 	}
-
-	/* we assume that anything else than appends are interactive changes */
-	ctx->mbox->last_interactive_change = ioloop_time;
 
 	if (!mail_index_lookup_seq_range(ctx->sync_view,
 					 sync_rec->uid1, sync_rec->uid2,
 					 &seq1, &seq2)) {
 		/* already expunged everything. nothing to do. */
-		return 0;
+		return 1;
 	}
 
 	for (seq = seq1; seq <= seq2; seq++) {
-		if (dbox_sync_add_seq(ctx, sync_rec, seq) < 0)
-			return -1;
+		if ((ret = dbox_sync_add_seq(ctx, sync_rec, seq)) <= 0)
+			return ret;
 	}
-	return 0;
-}
-
-static int
-dbox_sync_lock_expunge_file(struct dbox_sync_context *ctx, unsigned int file_id)
-{
-	struct dbox_index_record *rec;
-	enum dbox_index_file_lock_status lock_status;
-	int ret;
-
-	ret = dbox_index_try_lock_file(ctx->mbox->dbox_index, file_id,
-				       &lock_status);
-	if (ret < 0)
-		return -1;
-
-	rec = dbox_index_record_lookup(ctx->mbox->dbox_index, file_id);
-	switch (lock_status) {
-	case DBOX_INDEX_FILE_LOCKED:
-		seq_range_array_add(&ctx->locked_files, 0, file_id);
-		rec->status = DBOX_INDEX_FILE_STATUS_NONAPPENDABLE;
-		break;
-	case DBOX_INDEX_FILE_LOCK_NOT_NEEDED:
-	case DBOX_INDEX_FILE_LOCK_UNLINKED:
-		i_assert(rec == NULL ||
-			 rec->status != DBOX_INDEX_FILE_STATUS_APPENDABLE);
-		break;
-	case DBOX_INDEX_FILE_LOCK_TRY_AGAIN:
-		rec->expunges = TRUE;
-		break;
-	}
-	return 0;
-}
-
-static int dbox_sync_lock_expunge_files(struct dbox_sync_context *ctx)
-{
-	const struct seq_range *range;
-	unsigned int i, count, id;
-
-	range = array_get(&ctx->expunge_files, &count);
-	for (i = 0; i < count; i++) {
-		for (id = range[i].seq1; id <= range[i].seq2; id++) {
-			if (dbox_sync_lock_expunge_file(ctx, id) < 0)
-				return -1;
-		}
-	}
-	return 0;
-}
-
-static void dbox_sync_unlock_files(struct dbox_sync_context *ctx)
-{
-	const struct seq_range *range;
-	unsigned int i, count, id;
-
-	range = array_get(&ctx->locked_files, &count);
-	for (i = 0; i < count; i++) {
-		for (id = range[i].seq1; id <= range[i].seq2; id++)
-			dbox_index_unlock_file(ctx->mbox->dbox_index, id);
-	}
-}
-
-static void dbox_sync_update_header(struct dbox_sync_context *ctx)
-{
-	struct dbox_index_header hdr;
-	const void *data;
-	size_t data_size;
-
-	if (!ctx->flush_dirty_flags) {
-		/* write the header if it doesn't exist yet */
-		mail_index_get_header_ext(ctx->mbox->ibox.view,
-					  ctx->mbox->dbox_hdr_ext_id,
-					  &data, &data_size);
-		if (data_size != 0)
-			return;
-	}
-
-	hdr.last_dirty_flush_stamp = ioloop_time;
-	mail_index_update_header_ext(ctx->trans, ctx->mbox->dbox_hdr_ext_id, 0,
-				     &hdr.last_dirty_flush_stamp,
-				     sizeof(hdr.last_dirty_flush_stamp));
+	return 1;
 }
 
 static int dbox_sync_index(struct dbox_sync_context *ctx)
@@ -203,25 +147,16 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 					     seq1, seq2);
 	}
 
-	/* read all changes and sort them to file_id order */
+	/* read all changes and group changes to same file_id together */
 	ctx->pool = pool_alloconly_create("dbox sync pool", 1024*32);
-	ctx->syncs = hash_table_create(default_pool, ctx->pool, 0, NULL, NULL);
-	i_array_init(&ctx->expunge_files, 32);
-	i_array_init(&ctx->locked_files, 32);
+	ctx->syncs = hash_table_create(default_pool, ctx->pool, 0,
+				       dbox_sync_file_entry_hash,
+				       dbox_sync_file_entry_cmp);
 
-	for (;;) {
-		if (!mail_index_sync_next(ctx->index_sync_ctx, &sync_rec))
+	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
+		if ((ret = dbox_sync_add(ctx, &sync_rec)) <= 0)
 			break;
-		if (dbox_sync_add(ctx, &sync_rec) < 0) {
-			ret = 0;
-			break;
-		}
 	}
-	if (ret > 0) {
-		if (dbox_sync_lock_expunge_files(ctx) < 0)
-			ret = -1;
-	}
-	array_free(&ctx->expunge_files);
 
 	if (ret > 0) {
 		/* now sync each file separately */
@@ -235,35 +170,32 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 		hash_table_iterate_deinit(&iter);
 	}
 
-	if (ret > 0)
-		dbox_sync_update_header(ctx);
+	if (ret > 0 && ctx->map_trans != NULL) {
+		if (dbox_map_transaction_commit(ctx->map_trans) < 0)
+			ret = -1;
+		dbox_map_transaction_free(&ctx->map_trans);
+	}
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
 
-	dbox_sync_unlock_files(ctx);
-	array_free(&ctx->locked_files);
 	hash_table_destroy(&ctx->syncs);
 	pool_unref(&ctx->pool);
 	return ret;
 }
 
-static int dbox_sync_want_flush_dirty(struct dbox_mailbox *mbox,
-				      bool close_flush_dirty_flags)
+static int dbox_refresh_header(struct dbox_mailbox *mbox)
 {
 	const struct dbox_index_header *hdr;
 	const void *data;
 	size_t data_size;
 
-	if (mbox->last_interactive_change <
-	    ioloop_time - DBOX_FLUSH_SECS_INTERACTIVE)
-		return 1;
-
 	mail_index_get_header_ext(mbox->ibox.view, mbox->dbox_hdr_ext_id,
 				  &data, &data_size);
 	if (data_size != sizeof(*hdr)) {
-		/* data_size=0 means it's never been synced as dbox */
-		if (data_size != 0) {
+		/* data_size=0 means it's never been synced as dbox.
+		   data_size=4 is for backwards compatibility */
+		if (data_size != 0 && data_size != 4) {
 			i_warning("dbox %s: Invalid dbox header size",
 				  mbox->path);
 		}
@@ -271,51 +203,38 @@ static int dbox_sync_want_flush_dirty(struct dbox_mailbox *mbox,
 	}
 	hdr = data;
 
-	if (!close_flush_dirty_flags) {
-		if ((time_t)hdr->last_dirty_flush_stamp <
-		    ioloop_time - DBOX_FLUSH_SECS_IMMEDIATE)
-			return 1;
-	} else {
-		if ((time_t)hdr->last_dirty_flush_stamp <
-		    ioloop_time - DBOX_FLUSH_SECS_CLOSE)
-			return 1;
-	}
+	mbox->highest_maildir_uid = hdr->highest_maildir_uid;
+	if (mbox->storage->sync_rebuild)
+		return -1;
 	return 0;
 }
 
-int dbox_sync_begin(struct dbox_mailbox *mbox,
-		    struct dbox_sync_context **ctx_r,
-		    bool close_flush_dirty_flags, bool force)
+int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
+		    struct dbox_sync_context **ctx_r)
 {
 	struct mail_storage *storage = mbox->ibox.box.storage;
 	struct dbox_sync_context *ctx;
 	enum mail_index_sync_flags sync_flags = 0;
 	unsigned int i;
 	int ret;
-	bool rebuild = FALSE;
+	bool rebuild, storage_rebuilt = FALSE;
 
-	ret = dbox_sync_want_flush_dirty(mbox, close_flush_dirty_flags);
-	if (ret > 0)
-		sync_flags |= MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
-	else if (ret < 0)
-		rebuild = TRUE;
-	else {
-		if (close_flush_dirty_flags) {
-			/* no need to sync */
-			*ctx_r = NULL;
-			return 0;
-		}
+	rebuild = dbox_refresh_header(mbox) < 0;
+	if (rebuild) {
+		if (dbox_storage_rebuild(mbox->storage) < 0)
+			return -1;
+		storage_rebuilt = TRUE;
 	}
 
 	ctx = i_new(struct dbox_sync_context, 1);
 	ctx->mbox = mbox;
-	ctx->flush_dirty_flags =
-		(sync_flags & MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY) != 0;
 
 	if (!mbox->ibox.keep_recent)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
-	if (!rebuild && !force)
+	if (!rebuild && (flags & DBOX_SYNC_FLAG_FORCE) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
+	if ((flags & DBOX_SYNC_FLAG_FSYNC) != 0)
+		sync_flags |= MAIL_INDEX_SYNC_FLAG_FSYNC;
 	/* don't write unnecessary dirty flag updates */
 	sync_flags |= MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
 
@@ -332,14 +251,10 @@ int dbox_sync_begin(struct dbox_mailbox *mbox,
 			return ret;
 		}
 
-		if (rebuild && dbox_sync_want_flush_dirty(mbox, FALSE) >= 0) {
-			/* another process rebuilt it already */
-			rebuild = FALSE;
-		}
-		if (rebuild) {
+		/* now that we're locked, check again if we want to rebuild */
+		if (dbox_refresh_header(mbox) < 0)
 			ret = 0;
-			rebuild = FALSE;
-		} else {
+		else {
 			if ((ret = dbox_sync_index(ctx)) > 0)
 				break;
 		}
@@ -347,13 +262,28 @@ int dbox_sync_begin(struct dbox_mailbox *mbox,
 		/* failure. keep the index locked while we're doing a
 		   rebuild. */
 		if (ret == 0) {
-			if (i >= DBOX_REBUILD_COUNT) {
+			if (!storage_rebuilt) {
+				/* we'll need to rebuild storage too.
+				   try again from the beginning. */
+				mbox->storage->sync_rebuild = TRUE;
+				mail_index_sync_rollback(&ctx->index_sync_ctx);
+				i_free(ctx);
+				return dbox_sync_begin(mbox, flags, ctx_r);
+			}
+			if (mbox->storage->have_multi_msgs) {
+				mail_storage_set_critical(storage,
+					"dbox %s: Storage keeps breaking",
+					ctx->mbox->path);
+				ret = -1;
+			} else if (i >= DBOX_REBUILD_COUNT) {
 				mail_storage_set_critical(storage,
 					"dbox %s: Index keeps breaking",
 					ctx->mbox->path);
 				ret = -1;
 			} else {
 				/* do a full resync and try again. */
+				i_warning("dbox %s: Rebuilding index",
+					  ctx->mbox->path);
 				ret = dbox_sync_index_rebuild(mbox);
 			}
 		}
@@ -375,6 +305,9 @@ int dbox_sync_finish(struct dbox_sync_context **_ctx, bool success)
 
 	*_ctx = NULL;
 
+	if (ctx->map_trans != NULL)
+		dbox_map_transaction_free(&ctx->map_trans);
+
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
 			mail_storage_set_index_error(&ctx->mbox->ibox);
@@ -386,15 +319,14 @@ int dbox_sync_finish(struct dbox_sync_context **_ctx, bool success)
 	if (ctx->path != NULL)
 		str_free(&ctx->path);
 	i_free(ctx);
-	return 0;
+	return ret;
 }
 
-int dbox_sync(struct dbox_mailbox *mbox, bool close_flush_dirty_flags)
+int dbox_sync(struct dbox_mailbox *mbox)
 {
 	struct dbox_sync_context *sync_ctx;
 
-	if (dbox_sync_begin(mbox, &sync_ctx,
-			    close_flush_dirty_flags, FALSE) < 0)
+	if (dbox_sync_begin(mbox, 0, &sync_ctx) < 0)
 		return -1;
 
 	if (sync_ctx == NULL)
@@ -411,8 +343,30 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if (!box->opened)
 		index_storage_mailbox_open(&mbox->ibox);
 
-	if (index_mailbox_want_full_sync(&mbox->ibox, flags))
-		ret = dbox_sync(mbox, FALSE);
+	if (index_mailbox_want_full_sync(&mbox->ibox, flags) ||
+	    mbox->storage->sync_rebuild)
+		ret = dbox_sync(mbox);
 
 	return index_mailbox_sync_init(box, flags, ret < 0);
+}
+
+void dbox_sync_purge(struct dbox_storage *storage)
+{
+	const ARRAY_TYPE(seq_range) *ref0_file_ids;
+	struct dbox_file *file;
+	struct seq_range_iter iter;
+	unsigned int i = 0;
+	uint32_t file_id;
+	bool deleted;
+
+	ref0_file_ids = dbox_map_get_zero_ref_files(storage->map);
+	seq_range_array_iter_init(&iter, ref0_file_ids); i = 0;
+	while (seq_range_array_iter_nth(&iter, i++, &file_id)) T_BEGIN {
+		file = dbox_file_init_multi(storage, file_id);
+		if (dbox_file_open_or_create(file, &deleted) > 0 && !deleted)
+			(void)dbox_sync_file_purge(file);
+		else
+			dbox_map_remove_file_id(storage->map, file_id);
+		dbox_file_unref(&file);
+	} T_END;
 }
