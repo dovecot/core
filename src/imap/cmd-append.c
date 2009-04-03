@@ -12,6 +12,12 @@
 
 #include <sys/time.h>
 
+/* Don't allow internaldates to be too far in the future. At least with Maildir
+   they can cause problems with incremental backups since internaldate is
+   stored in file's mtime. But perhaps there are also some other reasons why
+   it might not be wanted. */
+#define INTERNALDATE_MAX_FUTURE_SECS (2*3600)
+
 struct cmd_append_context {
 	struct client *client;
         struct client_command_context *cmd;
@@ -319,6 +325,13 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 					&internal_date, &timezone_offset)) {
 		client_send_tagline(cmd, "BAD Invalid internal date.");
 		return cmd_append_cancel(ctx, nonsync);
+	}
+
+	if (internal_date != (time_t)-1 &&
+	    internal_date > ioloop_time + INTERNALDATE_MAX_FUTURE_SECS) {
+		/* the client specified a time in the future, set it to now. */
+		internal_date = (time_t)-1;
+		timezone_offset = 0;
 	}
 
 	if (ctx->msg_size == 0) {
