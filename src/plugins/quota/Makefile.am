@@ -34,7 +34,7 @@ lib10_quota_plugin_la_SOURCES = \
 if HAVE_RQUOTA
 RQUOTA_XDR = rquota_xdr.c
 #RQUOTA_X = /usr/include/rpcsvc/rquota.x
-RQUOTA_X = rquota.x
+RQUOTA_X = $(srcdir)/rquota.x
 rquota_xdr.c: Makefile $(RQUOTA_X)
 	(echo '#include "lib.h"'; \
 	 echo '#include <rpc/rpc.h>'; \
