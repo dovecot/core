@@ -220,7 +220,7 @@ static void dbox_destroy(struct mail_storage *_storage)
 			return;
 	}
 
-	dbox_sync_cleanup(storage);
+	dbox_sync_purge(storage);
 	dbox_files_free(storage);
 	dbox_map_deinit(&storage->map);
 	array_free(&storage->open_files);

@@ -106,7 +106,7 @@ dbox_sync_file_copy_metadata(struct dbox_file *file, struct ostream *output)
 	return 1;
 }
 
-int dbox_sync_file_cleanup(struct dbox_file *file)
+int dbox_sync_file_purge(struct dbox_file *file)
 {
 	struct mail_storage *storage = &file->storage->storage;
 	struct dbox_file *out_file;
@@ -163,7 +163,7 @@ int dbox_sync_file_cleanup(struct dbox_file *file)
 		if (msgs[i].offset != offset) {
 			/* map doesn't match file's actual contents */
 			dbox_file_set_corrupted(file,
-				"cleanup found mismatched offsets "
+				"purging found mismatched offsets "
 				"(%"PRIuUOFF_T" vs %u, %u/%u)",
 				offset, msgs[i].offset, i, count);
 			ret = 0;

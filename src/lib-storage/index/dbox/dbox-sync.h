@@ -37,10 +37,10 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 int dbox_sync_finish(struct dbox_sync_context **ctx, bool success);
 int dbox_sync(struct dbox_mailbox *mbox);
 
-void dbox_sync_cleanup(struct dbox_storage *storage);
+void dbox_sync_purge(struct dbox_storage *storage);
 int dbox_sync_file(struct dbox_sync_context *ctx,
 		   const struct dbox_sync_file_entry *entry);
-int dbox_sync_file_cleanup(struct dbox_file *file);
+int dbox_sync_file_purge(struct dbox_file *file);
 
 struct dbox_sync_rebuild_context *
 dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,

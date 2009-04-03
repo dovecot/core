@@ -525,8 +525,8 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 		return TRUE;
 	}
 	if (file->lock != NULL) {
-		/* already locked, we're possibly in the middle of cleaning
-		   it up in which case we really don't want to write there. */
+		/* already locked, we're possibly in the middle of purging it
+		   in which case we really don't want to write there. */
 		dbox_file_unref(&file);
 		return TRUE;
 	}
