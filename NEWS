@@ -1,4 +1,4 @@
-v1.2.UNSTABLE  Timo Sirainen <tss@iki.fi>
+v1.2.rc1  Timo Sirainen <tss@iki.fi>
 
 	* When creating files or directories to mailboxes, Dovecot now uses
 	  the mailbox directory's permissions and GID for them. Previous
@@ -15,10 +15,10 @@ v1.2.UNSTABLE  Timo Sirainen <tss@iki.fi>
 	+ IMAP: Added support for extensions: CONDSTORE, QRESYNC, ESEARCH,
 	  ESORT, SEARCHRES, WITHIN, ID and CONTEXT=SEARCH.
 	+ SEARCH supports INTHREAD search key, but the rest of the INTHREAD
-	  draft isn't implemented yet and isn't advertised.
-	+ THREAD X-REFERENCES2 algorithm where threads are sorted by their
-	  latest message instead of the thread root message. There is also no
-	  base subject merging.
+	  draft isn't implemented yet so it's not advertised in capability.
+	+ THREAD REFS algorithm where threads are sorted by their latest
+	  message instead of the thread root message. There is also no base
+	  subject merging.
 	+ IMAP: Implemented imap-response-codes draft.
 	+ Thread indexes for optimizing IMAP THREAD command and INTHREAD
 	  search key.
