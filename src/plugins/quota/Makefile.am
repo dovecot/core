@@ -64,6 +64,8 @@ install-exec-local:
 	  $(LN_S) ../lib10_quota_plugin$(MODULE_SUFFIX) $(DESTDIR)$(moduledir)/$$d; \
 	done
 
+EXTRA_DIST = rquota.x
+
 DISTFILES = $(DIST_COMMON) $(quota_dist_sources) $(TEXINFOS) $(EXTRA_DIST)
 
 clean-generic:
