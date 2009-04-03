@@ -145,8 +145,12 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	p = storage->ns_prefix_pattern;
 	for (name = *_name; *p != '\0';) {
 		if (*p != '%') {
-			if (*p != *name)
+			if (*p != *name) {
+				mail_storage_set_critical(_storage,
+					"Invalid namespace prefix %s vs %s",
+					storage->ns_prefix_pattern, *_name);
 				return -1;
+			}
 			p++; name++;
 			continue;
 		}
@@ -167,8 +171,12 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 		p++;
 
 		next = strchr(name, *p != '\0' ? *p : _storage->ns->sep);
-		if (next == NULL)
+		if (next == NULL) {
+			mail_storage_set_critical(_storage,
+				"Invalid namespace prefix %s vs %s",
+				storage->ns_prefix_pattern, *_name);
 			return -1;
+		}
 
 		*dest = t_strdup_until(name, next);
 		name = next;
