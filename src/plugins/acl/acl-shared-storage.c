@@ -46,7 +46,8 @@ acl_shared_namespace_add(struct mail_user *user,
 	str = t_str_new(128);
 	var_expand(str, sstorage->ns_prefix_pattern, tab);
 	mailbox = str_c(str);
-	shared_storage_get_namespace(&sstorage->storage, &mailbox, &ns);
+	if (shared_storage_get_namespace(&sstorage->storage, &mailbox, &ns) < 0)
+		return;
 
 	/* check if there are any mailboxes really visible to us */
 	iter = mailbox_list_iter_init(ns->list, "*",
