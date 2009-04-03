@@ -1,10 +1,10 @@
-noinst_LIBRARIES = libmail.a
+noinst_LTLIBRARIES = libmail.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-charset
 
-libmail_a_SOURCES = \
+libmail_la_SOURCES = \
 	istream-header-filter.c \
 	mbox-from.c \
 	message-address.c \

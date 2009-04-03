@@ -1,6 +1,6 @@
 SUBDIRS = list index register
 
-noinst_LIBRARIES = libstorage.a
+pkglib_LTLIBRARIES = libdovecot-storage.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -11,7 +11,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
-libstorage_a_SOURCES = \
+libdovecot_storage_la_SOURCES = \
 	mail.c \
 	mail-copy.c \
 	mail-error.c \
@@ -25,6 +25,16 @@ libstorage_a_SOURCES = \
 	mailbox-search-result.c \
 	mailbox-tree.c \
 	mailbox-uidvalidity.c
+
+libs = \
+	list/libstorage_list.la \
+	index/libstorage_index.la \
+	register/libstorage_register.la	
+
+libdovecot_storage_la_LIBADD = $(libs)
+libdovecot_storage_la_DEPENDENCIES = $(libs)
+
+libdovecot_storage_la_LDFLAGS = -export-dynamic
 
 headers = \
 	mail-copy.h \

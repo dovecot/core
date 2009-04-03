@@ -1,11 +1,11 @@
-noinst_LIBRARIES = libimap.a
+noinst_LTLIBRARIES = libimap.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-charset \
 	-I$(top_srcdir)/src/lib-mail
 
-libimap_a_SOURCES = \
+libimap_la_SOURCES = \
 	imap-base-subject.c \
 	imap-bodystructure.c \
 	imap-date.c \

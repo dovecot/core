@@ -35,9 +35,8 @@ expire_tool_SOURCES = \
 	expire-tool.c
 
 libs = \
-	$(STORAGE_LIBS) \
-	$(top_builddir)/src/lib-settings/libsettings.a \
-	$(top_builddir)/src/lib-dict/libdict.a
+	$(top_builddir)/src/lib-storage/libdovecot-storage.la \
+	$(top_builddir)/src/lib-dovecot/libdovecot.la
 
 expire_tool_LDADD = \
 	$(libs) \

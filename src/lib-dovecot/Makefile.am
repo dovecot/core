@@ -1,0 +1,21 @@
+pkglib_LTLIBRARIES = libdovecot.la
+
+libdovecot_la_SOURCES = 
+
+libs = \
+	../lib-settings/libsettings.la \
+	../lib-dict/libdict.la \
+	../lib-index/libindex.la \
+	../lib-imap/libimap.la \
+	../lib-mail/libmail.la \
+	../lib-auth/libauth.la \
+	../lib-charset/libcharset.la \
+	../lib/liblib.la
+
+libdovecot_la_LIBADD = \
+	$(libs) \
+	$(MODULE_LIBS)
+
+libdovecot_la_DEPENDENCIES = $(libs)
+
+libdovecot_la_LDFLAGS = -export-dynamic

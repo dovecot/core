@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libsql.a
+noinst_LTLIBRARIES = libsql.la
 
 SQL_DRIVER_PLUGINS =
 
@@ -42,7 +42,7 @@ driver_sources = \
 	driver-sqlite.c
 endif
 
-libsql_a_SOURCES = \
+libsql_la_SOURCES = \
 	$(dist_sources) \
 	$(driver_sources) \
 	sql-drivers-register.c

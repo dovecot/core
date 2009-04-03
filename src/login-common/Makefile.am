@@ -1,4 +1,4 @@
-noinst_LIBRARIES = liblogin-common.a
+pkglib_LTLIBRARIES = libdovecot-login.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-DSBINDIR=\""$(sbindir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
 
-liblogin_common_a_SOURCES = \
+libdovecot_login_la_SOURCES = \
 	client-common.c \
 	login-proxy.c \
 	login-settings.c \
@@ -19,6 +19,9 @@ liblogin_common_a_SOURCES = \
 	ssl-proxy.c \
 	ssl-proxy-gnutls.c \
 	ssl-proxy-openssl.c
+
+libdovecot_login_la_LIBADD = \
+	$(SSL_LIBS)
 
 noinst_HEADERS = \
 	client-common.h \

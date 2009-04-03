@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libstorage-register.a
+noinst_LTLIBRARIES = libstorage_register.la
 
 BUILT_SOURCES = mail-storage-register.c
 mail_storages = @mail_storages@
@@ -40,7 +40,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage
 
-libstorage_register_a_SOURCES = \
+libstorage_register_la_SOURCES = \
 	mail-storage-register.c \
 	mailbox-list-register.c
 

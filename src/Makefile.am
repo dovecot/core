@@ -8,6 +8,7 @@ endif
 
 SUBDIRS = \
 	lib \
+	lib-auth \
 	lib-dict \
 	lib-sql \
 	lib-ntlm \
@@ -17,8 +18,8 @@ SUBDIRS = \
 	lib-mail \
 	lib-imap \
 	lib-index \
+	lib-dovecot \
 	lib-storage \
-	lib-auth \
 	auth \
 	config \
 	dict \

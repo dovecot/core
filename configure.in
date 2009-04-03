@@ -2210,35 +2210,25 @@ dnl **
 dnl ** storage classes
 dnl **
 
-maildir_libs='$(top_builddir)/src/lib-storage/index/maildir/libstorage_maildir.a'
-mbox_libs='$(top_builddir)/src/lib-storage/index/mbox/libstorage_mbox.a'
-dbox_libs='$(top_builddir)/src/lib-storage/index/dbox/libstorage_dbox.a'
-cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.a'
-raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.a'
-shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.a'
+maildir_libs='$(top_builddir)/src/lib-storage/index/maildir/libstorage_maildir.la'
+mbox_libs='$(top_builddir)/src/lib-storage/index/mbox/libstorage_mbox.la'
+dbox_libs='$(top_builddir)/src/lib-storage/index/dbox/libstorage_dbox.la'
+cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.la'
+raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.la'
+shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.la'
 
-REGISTER_LIBS='$(top_builddir)/src/lib-storage/register/libstorage-register.a '\
-'$(top_builddir)/src/lib-storage/list/libstorage_list.a'
-
-CORE_LIBS='$(top_builddir)/src/lib-storage/index/libstorage_index.a '\
-'$(top_builddir)/src/lib-storage/libstorage.a '\
-'$(top_builddir)/src/lib-index/libindex.a '\
-'$(top_builddir)/src/lib-imap/libimap.a '\
-'$(top_builddir)/src/lib-mail/libmail.a '\
-'$(top_builddir)/src/lib-auth/libauth.a '\
-'$(top_builddir)/src/lib-charset/libcharset.a '\
-'$(top_builddir)/src/lib/liblib.a'
+CORE_LIBS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
+STORAGE_LIB='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
 
 deliver_storage="raw"
-STORAGE_LIBS=
+LINKED_STORAGE_LIBS=
 for storage in $mail_storages; do
   if test "$storage" = "$deliver_storage"; then
     deliver_storage=""
   fi
-  STORAGE_LIBS="$STORAGE_LIBS `eval echo \\$${storage}_libs`"
+  LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS `eval echo \\$${storage}_libs`"
 done
-STORAGE_LIBS="$REGISTER_LIBS $STORAGE_LIBS $CORE_LIBS"
-AC_SUBST(STORAGE_LIBS)
+AC_SUBST(LINKED_STORAGE_LIBS)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
 
 if test -n "$deliver_storage" && test "$want_deliver" != no; then
@@ -2392,6 +2382,7 @@ src/lib-index/Makefile
 src/lib-mail/Makefile
 src/lib-ntlm/Makefile
 src/lib-otp/Makefile
+src/lib-dovecot/Makefile
 src/lib-settings/Makefile
 src/lib-storage/Makefile
 src/lib-storage/list/Makefile

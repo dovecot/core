@@ -39,11 +39,10 @@ libpassword_a_SOURCES = \
 
 dovecot_auth_LDADD = \
 	libpassword.a \
-	../lib-settings/libsettings.a \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a \
-	../lib-sql/libsql.a \
-	../lib/liblib.a \
+	../lib-sql/libsql.la \
+	../lib-dovecot/libdovecot.la \
 	$(AUTH_LIBS) \
 	$(MODULE_LIBS)
 
@@ -158,7 +157,7 @@ else
 endif
 
 checkpassword_reply_LDADD = \
-	../lib/liblib.a
+	../lib-dovecot/libdovecot.la
 
 checkpassword_reply_sources = \
 	checkpassword-reply.c

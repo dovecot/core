@@ -8,11 +8,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/login-common
 
 pop3_login_LDADD = \
-	../login-common/liblogin-common.a \
-	../lib-auth/libauth.a \
-	../lib-settings/libsettings.a \
-	../lib/liblib.a \
-	$(SSL_LIBS)
+	../login-common/libdovecot-login.la \
+	../lib-dovecot/libdovecot.la
 
 pop3_login_SOURCES = \
 	client.c \

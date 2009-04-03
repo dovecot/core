@@ -1,10 +1,10 @@
-noinst_LIBRARIES = libindex.a
+noinst_LTLIBRARIES = libindex.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-mail
 
-libindex_a_SOURCES = \
+libindex_la_SOURCES = \
 	mail-cache.c \
 	mail-cache-compress.c \
 	mail-cache-decisions.c \

@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libstorage_list.a
+noinst_LTLIBRARIES = libstorage_list.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -8,7 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index
 
-libstorage_list_a_SOURCES = \
+libstorage_list_la_SOURCES = \
 	index-mailbox-list.c \
 	index-mailbox-list-sync.c \
 	mailbox-list-fs.c \

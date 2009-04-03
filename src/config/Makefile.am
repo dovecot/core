@@ -10,8 +10,7 @@ AM_CPPFLAGS = \
 	-DSSLDIR=\""$(ssldir)\""
 
 doveconf_LDADD = \
-	../lib-settings/libsettings.a \
-	../lib/liblib.a \
+	../lib-dovecot/libdovecot.la \
 	$(RAND_LIBS)
 
 doveconf_SOURCES = \

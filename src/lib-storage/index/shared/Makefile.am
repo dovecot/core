@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libstorage_shared.a
+noinst_LTLIBRARIES = libstorage_shared.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
-libstorage_shared_a_SOURCES = \
+libstorage_shared_la_SOURCES = \
 	shared-list.c \
 	shared-storage.c
 

@@ -13,17 +13,9 @@ AM_CPPFLAGS = \
 
 pop3_LDFLAGS = -export-dynamic
 
-# get some functions included which only plugins use. liblib should probably
-# be a shared library so this wouldn't be needed..
-unused_objects = \
-	../lib/mountpoint.o \
-	../lib-imap/imap-util.o
-
 libs = \
-	$(STORAGE_LIBS) \
-	../lib-dict/libdict.a \
-	../lib-settings/libsettings.a \
-	$(unused_objects)
+	../lib-storage/libdovecot-storage.la \
+	../lib-dovecot/libdovecot.la
 
 pop3_LDADD = \
 	$(libs) \

@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libstorage_mbox.a
+noinst_LTLIBRARIES = libstorage_mbox.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index
 
-libstorage_mbox_a_SOURCES = \
+libstorage_mbox_la_SOURCES = \
 	istream-raw-mbox.c \
 	mbox-file.c \
 	mbox-lock.c \

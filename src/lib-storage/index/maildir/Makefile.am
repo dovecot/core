@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libstorage_maildir.a
+noinst_LTLIBRARIES = libstorage_maildir.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index
 
-libstorage_maildir_a_SOURCES = \
+libstorage_maildir_la_SOURCES = \
 	maildir-copy.c \
 	maildir-filename.c \
 	maildir-keywords.c \

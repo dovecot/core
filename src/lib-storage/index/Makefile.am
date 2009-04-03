@@ -1,6 +1,6 @@
 SUBDIRS = maildir mbox dbox cydir raw shared
 
-noinst_LIBRARIES = libstorage_index.a
+noinst_LTLIBRARIES = libstorage_index.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage
 
-libstorage_index_a_SOURCES = \
+libstorage_index_la_SOURCES = \
 	index-fetch.c \
 	index-mail.c \
 	index-mail-headers.c \
@@ -27,6 +27,9 @@ libstorage_index_a_SOURCES = \
 	index-thread-finish.c \
 	index-thread-links.c \
 	index-transaction.c
+
+libstorage_index_la_LIBADD = @LINKED_STORAGE_LIBS@
+libstorage_index_la_DEPENDENCIES = @LINKED_STORAGE_LIBS@
 
 headers = \
 	index-mail.h \

@@ -1,9 +1,9 @@
-noinst_LIBRARIES = libcharset.a
+noinst_LTLIBRARIES = libcharset.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
-libcharset_a_SOURCES = \
+libcharset_la_SOURCES = \
 	charset-iconv.c \
 	charset-utf8.c
 

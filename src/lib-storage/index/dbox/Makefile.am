@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libstorage_dbox.a
+noinst_LTLIBRARIES = libstorage_dbox.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index
 
-libstorage_dbox_a_SOURCES = \
+libstorage_dbox_la_SOURCES = \
 	dbox-file.c \
 	dbox-file-fix.c \
 	dbox-file-maildir.c \

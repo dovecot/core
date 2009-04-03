@@ -1,4 +1,5 @@
-noinst_LIBRARIES = libdict.a libdict_backend.a
+noinst_LTLIBRARIES = libdict.la
+noinst_LIBRARIES = libdict_backend.a
 
 dict_drivers = @dict_drivers@
 
@@ -19,7 +20,7 @@ backend_sources = \
 	dict-sql.c \
 	dict-sql-settings.c
 
-libdict_a_SOURCES = \
+libdict_la_SOURCES = \
 	$(base_sources)
 
 libdict_backend_a_SOURCES = \

@@ -32,8 +32,9 @@ convert_tool_SOURCES = \
 common_objects = \
 	convert-storage.lo
 
-libs = $(STORAGE_LIBS) \
-	$(top_builddir)/src/lib-settings/libsettings.a
+libs = \
+	$(top_builddir)/src/lib-storage/libdovecot-storage.la \
+	$(top_builddir)/src/lib-dovecot/libdovecot.la
 
 convert_tool_LDADD = \
 	$(common_objects) \

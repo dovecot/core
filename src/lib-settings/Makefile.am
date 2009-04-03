@@ -1,9 +1,9 @@
-noinst_LIBRARIES = libsettings.a
+noinst_LTLIBRARIES = libsettings.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
-libsettings_a_SOURCES = \
+libsettings_la_SOURCES = \
 	settings.c \
 	settings-parser.c
 

@@ -1,4 +1,4 @@
-noinst_LIBRARIES = liblib.a
+noinst_LTLIBRARIES = liblib.la
 
 BUILT_SOURCES = unicodemap.c
 
@@ -8,7 +8,7 @@ $(srcdir)/unicodemap.c:
 	test -f UnicodeData.txt || wget http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
 	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
 
-liblib_a_SOURCES = \
+liblib_la_SOURCES = \
 	array.c \
 	aqueue.c \
 	backtrace-string.c \
