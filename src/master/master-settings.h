@@ -110,6 +110,7 @@ struct settings {
 	unsigned int dbox_rotate_size;
 	unsigned int dbox_rotate_min_size;
 	unsigned int dbox_rotate_days;
+	unsigned int dbox_purge_min_percentage;
 	unsigned int umask;
 	bool mail_drop_priv_before_exec;
 

@@ -399,6 +399,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 				set->dbox_rotate_min_size));
 	env_put(t_strdup_printf("DBOX_ROTATE_DAYS=%u",
 				set->dbox_rotate_days));
+	env_put(t_strdup_printf("DBOX_PURGE_MIN_PERCENTAGE=%u",
+				set->dbox_purge_min_percentage));
 
 	if (*set->mail_plugins != '\0') {
 		env_put(t_strconcat("MAIL_PLUGIN_DIR=",

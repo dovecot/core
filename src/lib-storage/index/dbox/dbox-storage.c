@@ -168,6 +168,11 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 		storage->max_open_files = (unsigned int)strtoul(value, NULL, 10);
 	else
 		storage->max_open_files = DBOX_DEFAULT_MAX_OPEN_FILES;
+	value = getenv("DBOX_PURGE_MIN_PERCENTAGE");
+	if (value != NULL)
+		storage->purge_min_percentage = (unsigned int)strtoul(value, NULL, 10);
+	else
+		storage->purge_min_percentage = DBOX_DEFAULT_PURGE_MIN_PERCENTAGE;
 
 	if (storage->max_open_files <= 1) {
 		/* we store file offsets in a 32bit integer. */

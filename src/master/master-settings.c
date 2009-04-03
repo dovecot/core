@@ -264,6 +264,7 @@ struct settings default_settings = {
 	MEMBER(dbox_rotate_size) 2048,
 	MEMBER(dbox_rotate_min_size) 16,
 	MEMBER(dbox_rotate_days) 1,
+	MEMBER(dbox_purge_min_percentage) 0,
 	MEMBER(umask) 0077,
 	MEMBER(mail_drop_priv_before_exec) FALSE,
 

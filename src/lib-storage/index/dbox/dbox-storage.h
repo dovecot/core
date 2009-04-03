@@ -25,11 +25,12 @@
 /* Delete temp files having ctime older than this. */
 #define DBOX_TMP_DELETE_SECS (36*60*60)
 
-/* Default rotation settings */
+/* Default dbox settings */
 #define DBOX_DEFAULT_ROTATE_SIZE (2*1024*1024)
 #define DBOX_DEFAULT_ROTATE_MIN_SIZE (1024*16)
 #define DBOX_DEFAULT_ROTATE_DAYS 0
 #define DBOX_DEFAULT_MAX_OPEN_FILES 64
+#define DBOX_DEFAULT_PURGE_MIN_PERCENTAGE 0
 
 /* Flag specifies if the message should be in primary or alternative storage */
 #define DBOX_INDEX_FLAG_ALT MAIL_INDEX_MAIL_FLAG_BACKEND
@@ -56,6 +57,7 @@ struct dbox_storage {
 	uoff_t rotate_size, rotate_min_size;
 	unsigned int rotate_days;
 	unsigned int max_open_files;
+	unsigned int purge_min_percentage;
 	ARRAY_DEFINE(open_files, struct dbox_file *);
 
 	unsigned int sync_rebuild:1;
