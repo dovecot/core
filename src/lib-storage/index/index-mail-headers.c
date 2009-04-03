@@ -143,7 +143,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 		}
 	}
 
-	mail->data.dont_cache_field_idx = -1UL;
+	mail->data.dont_cache_field_idx = -1U;
 }
 
 static unsigned int

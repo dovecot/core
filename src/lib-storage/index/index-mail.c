@@ -1140,7 +1140,7 @@ static void index_mail_reset(struct index_mail *mail)
 	data->save_date = (time_t)-1;
 	data->received_date = (time_t)-1;
 	data->sent_date.time = (uint32_t)-1;
-	data->dont_cache_field_idx = -1UL;
+	data->dont_cache_field_idx = -1U;
 
 	mail->mail.mail.seq = 0;
 	mail->mail.mail.uid = 0;
