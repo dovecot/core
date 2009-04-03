@@ -185,7 +185,7 @@ acl_backend_vfile_exists(struct acl_backend_vfile *backend, const char *path,
 
 	validity->last_check = ioloop_time;
 	if (stat(path, &st) < 0) {
-		if (errno == ENOENT) {
+		if (errno == ENOENT || errno == ENOTDIR) {
 			validity->last_mtime = VALIDITY_MTIME_NOTFOUND;
 			return 0;
 		}
@@ -457,7 +457,7 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 
 	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1) {
-		if (errno == ENOENT) {
+		if (errno == ENOENT || errno == ENOTDIR) {
 			if (aclobj->aclobj.backend->debug)
 				i_info("acl vfile: file %s not found", path);
 			validity->last_mtime = VALIDITY_MTIME_NOTFOUND;
@@ -592,7 +592,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 
 	validity->last_check = ioloop_time;
 	if (stat(path, &st) < 0) {
-		if (errno == ENOENT) {
+		if (errno == ENOENT || errno == ENOTDIR) {
 			/* if the file used to exist, we have to re-read it */
 			return validity->last_mtime != VALIDITY_MTIME_NOTFOUND;
 		} 
