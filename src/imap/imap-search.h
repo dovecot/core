@@ -1,6 +1,8 @@
 #ifndef IMAP_SEARCH_H
 #define IMAP_SEARCH_H
 
+#include <sys/time.h>
+
 enum search_return_options {
 	SEARCH_RETURN_ESEARCH		= 0x0001,
 	SEARCH_RETURN_MIN		= 0x0002,
