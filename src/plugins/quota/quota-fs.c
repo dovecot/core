@@ -397,7 +397,7 @@ static int do_rquota_user(struct fs_quota_root *root, bool bytes,
 static int do_rquota_group(struct fs_quota_root *root, bool bytes,
 			   uint64_t *value_r, uint64_t *limit_r)
 {
-#ifdef EXT_RQUOTAVERS
+#if defined(EXT_RQUOTAVERS) && defined(GRPQUOTA)
 	struct getquota_rslt result;
 	ext_getquota_args args;
 	struct timeval timeout;
