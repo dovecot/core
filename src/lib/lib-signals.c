@@ -41,6 +41,9 @@ const char *lib_signal_code_to_str(int signo, int sicode)
 		return "timer";
 	}
 
+	/* If SEGV_MAPERR is supported, the rest of them must be too.
+	   FreeBSD 6 at least doesn't support these. */
+#ifdef SEGV_MAPERR
 	switch (signo) {
 	case SIGSEGV:
 		switch (sicode) {
@@ -60,6 +63,7 @@ const char *lib_signal_code_to_str(int signo, int sicode)
 			return "object-specific hardware error";
 		}
 	}
+#endif
 	return t_strdup_printf("unknown %d", sicode);
 }
 
