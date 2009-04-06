@@ -31,11 +31,9 @@ noinst_HEADERS = \
 	test-lib.h
 
 test_mail_LDADD = \
-	$(LIBICONV) \
 	libtest.a \
 	../lib-dovecot/libdovecot.la
 
 test_imap_LDADD = \
-	$(LIBICONV) \
 	libtest.a \
 	../lib-dovecot/libdovecot.la

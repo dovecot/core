@@ -43,8 +43,7 @@ dovecot_auth_LDADD = \
 	../lib-otp/libotp.a \
 	../lib-sql/libsql.la \
 	../lib-dovecot/libdovecot.la \
-	$(AUTH_LIBS) \
-	$(MODULE_LIBS)
+	$(AUTH_LIBS)
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
 

@@ -13,7 +13,8 @@ libs = \
 
 libdovecot_la_LIBADD = \
 	$(libs) \
-	$(MODULE_LIBS)
+	$(MODULE_LIBS) \
+	$(LIBICONV)
 
 libdovecot_la_DEPENDENCIES = $(libs)
 

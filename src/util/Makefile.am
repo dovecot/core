@@ -66,8 +66,7 @@ dovecotpw_LDADD = \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a \
 	../lib-dovecot/libdovecot.la \
-	$(AUTH_LIBS) \
-	$(MODULE_LIBS)
+	$(AUTH_LIBS)
 
 dovecotpw_SOURCES = \
 	dovecotpw.c

@@ -20,9 +20,7 @@ libs = \
 	../lib-dovecot/libdovecot.la
 
 imap_LDADD = \
-	$(libs) \
-	$(LIBICONV) \
-	$(MODULE_LIBS)
+	$(libs)
 
 imap_DEPENDENCIES = $(libs)
 

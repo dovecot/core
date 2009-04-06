@@ -25,10 +25,7 @@ libs = \
 	../lib-storage/libdovecot-storage.la \
 	../lib-dovecot/libdovecot.la
 
-deliver_LDADD = \
-	$(libs) \
-	$(LIBICONV) \
-	$(MODULE_LIBS)
+deliver_LDADD = $(libs)
 
 deliver_DEPENDENCIES = $(libs)
 

@@ -18,7 +18,6 @@ libs = \
 
 dict_LDADD = \
 	$(libs) \
-	$(MODULE_LIBS) \
 	$(DICT_LIBS) \
 	$(SQL_LIBS)
 

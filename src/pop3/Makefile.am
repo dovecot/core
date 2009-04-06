@@ -17,10 +17,7 @@ libs = \
 	../lib-storage/libdovecot-storage.la \
 	../lib-dovecot/libdovecot.la
 
-pop3_LDADD = \
-	$(libs) \
-	$(LIBICONV) \
-	$(MODULE_LIBS)
+pop3_LDADD = $(libs)
 
 pop3_DEPENDENCIES = $(libs)
 
