@@ -362,7 +362,8 @@ void module_dir_unload(struct module **modules)
 
 struct module *module_dir_load(const char *dir ATTR_UNUSED,
 			       const char *module_names ATTR_UNUSED,
-			       bool require_init_funcs ATTR_UNUSED)
+			       bool require_init_funcs ATTR_UNUSED,
+			       const char *version ATTR_UNUSED)
 {
 	i_error("Dynamically loadable module support not built in");
 	return NULL;
