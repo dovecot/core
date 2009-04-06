@@ -323,8 +323,8 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 			chroot_dir = *args + 7;
 		else if (strncmp(*args, "nice=", 5) == 0)
 			nice_value = atoi(*args + 5);
-		else if (strncmp(*args, "system_groups_user=", 12) == 0)
-			system_groups_user = *args + 12;
+		else if (strncmp(*args, "system_groups_user=", 19) == 0)
+			system_groups_user = *args + 19;
 		else if (strncmp(*args, "uid=", 4) == 0) {
 			if (uid != (uid_t)-1) {
 				i_error("uid specified multiple times for %s",
