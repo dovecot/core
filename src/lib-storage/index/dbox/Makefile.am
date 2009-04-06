@@ -28,6 +28,7 @@ headers = \
 	dbox-file.h \
 	dbox-file-maildir.h \
 	dbox-map.h \
+	dbox-map-private.h \
 	dbox-settings.h \
 	dbox-storage.h \
 	dbox-storage-rebuild.h \
