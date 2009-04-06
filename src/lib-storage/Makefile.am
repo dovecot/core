@@ -27,6 +27,7 @@ libdovecot_storage_la_SOURCES = \
 	mailbox-uidvalidity.c
 
 libs = \
+	../lib-index/libindex.la \
 	list/libstorage_list.la \
 	index/libstorage_index.la \
 	register/libstorage_register.la	

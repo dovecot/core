@@ -5,7 +5,6 @@ libdovecot_la_SOURCES =
 libs = \
 	../lib-settings/libsettings.la \
 	../lib-dict/libdict.la \
-	../lib-index/libindex.la \
 	../lib-imap/libimap.la \
 	../lib-mail/libmail.la \
 	../lib-auth/libauth.la \

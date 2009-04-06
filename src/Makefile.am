@@ -6,20 +6,23 @@ if BUILD_DELIVER
 DELIVER = deliver
 endif
 
-SUBDIRS = \
+LIBDOVECOT_SUBDIRS = \
 	lib \
 	lib-auth \
-	lib-dict \
-	lib-sql \
-	lib-ntlm \
-	lib-otp \
-	lib-settings \
 	lib-charset \
 	lib-mail \
 	lib-imap \
-	lib-index \
+	lib-dict \
+	lib-settings
+
+SUBDIRS = \
+	$(LIBDOVECOT_SUBDIRS) \
 	lib-dovecot \
+	lib-index \
 	lib-storage \
+	lib-sql \
+	lib-ntlm \
+	lib-otp \
 	auth \
 	config \
 	dict \

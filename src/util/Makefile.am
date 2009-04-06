@@ -31,7 +31,8 @@ gdbhelper_SOURCES = \
 	gdbhelper.c
 
 idxview_LDADD = \
-	../lib-dovecot/libdovecot.la
+	../lib-dovecot/libdovecot.la \
+	../lib-storage/libdovecot-storage.la
 idxview_SOURCES = \
 	idxview.c
 
