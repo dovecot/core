@@ -82,6 +82,8 @@ struct setting_parser_info deliver_setting_parser_info = {
 	MEMBER(defaults) &deliver_default_settings,
 
 	MEMBER(parent) NULL,
+	MEMBER(dynamic_parsers) NULL,
+
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct deliver_settings)

@@ -112,9 +112,9 @@ static struct master_auth_settings master_auth_default_settings = {
 	MEMBER(user) "root",
 	MEMBER(chroot) "",
 	MEMBER(count) 1,
+	MEMBER(process_size) 256,
 	MEMBER(mechanisms) "plain",
-	MEMBER(debug) FALSE,
-	MEMBER(process_size) 256
+	MEMBER(debug) FALSE
 
 	/* .. */
 };

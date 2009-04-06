@@ -31,6 +31,8 @@ struct setting_parser_info expire_setting_parser_info = {
 	MEMBER(defaults) &expire_default_settings,
 
 	MEMBER(parent) NULL,
+	MEMBER(dynamic_parsers) NULL,
+
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct expire_settings)
