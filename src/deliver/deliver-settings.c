@@ -25,7 +25,6 @@ static struct setting_define deliver_setting_defines[] = {
 	DEF(SET_STR, log_timestamp),
 	DEF(SET_STR, syslog_facility),
 	DEF(SET_BOOL, version_ignore),
-	DEF(SET_UINT, umask),
 
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
@@ -56,7 +55,6 @@ static struct deliver_settings deliver_default_settings = {
 	MEMBER(log_timestamp) DEFAULT_FAILURE_STAMP_FORMAT,
 	MEMBER(syslog_facility) "mail",
 	MEMBER(version_ignore) FALSE,
-	MEMBER(umask) 0077,
 
 	MEMBER(mail_plugins) "",
 	MEMBER(mail_plugin_dir) MODULEDIR"/lda",

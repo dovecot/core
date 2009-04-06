@@ -725,7 +725,7 @@ int main(int argc, char *argv[])
 	}
 
 	env_put(t_strconcat("USER=", user, NULL));
-	(void)umask(deliver_set->umask);
+	(void)umask(0077);
 
 	dict_drivers_register_builtin();
         duplicate_init(mail_set);

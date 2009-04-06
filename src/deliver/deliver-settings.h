@@ -10,7 +10,6 @@ struct deliver_settings {
 	const char *log_timestamp;
 	const char *syslog_facility;
 	bool version_ignore;
-	unsigned int umask;
 
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
