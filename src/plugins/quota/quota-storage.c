@@ -511,22 +511,21 @@ void quota_mail_storage_created(struct mail_storage *storage)
 	union mail_storage_module_context *qstorage;
 	struct quota *quota;
 
-	if (qlist == NULL)
-		return;
+	if (qlist != NULL) {
+		qlist->storage = storage;
+		qstorage = p_new(storage->pool,
+				 union mail_storage_module_context, 1);
+		qstorage->super = storage->v;
+		storage->v.destroy = quota_storage_destroy;
+		storage->v.mailbox_open = quota_mailbox_open;
 
-	qlist->storage = storage;
+		MODULE_CONTEXT_SET_SELF(storage, quota_storage_module,
+					qstorage);
 
-	qstorage = p_new(storage->pool,
-			 union mail_storage_module_context, 1);
-	qstorage->super = storage->v;
-	storage->v.destroy = quota_storage_destroy;
-	storage->v.mailbox_open = quota_mailbox_open;
-
-	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
-
-	/* register to owner's quota roots */
-	quota = quota_get_mail_user_quota(storage->ns->owner);
-	quota_add_user_storage(quota, storage);
+		/* register to owner's quota roots */
+		quota = quota_get_mail_user_quota(storage->ns->owner);
+		quota_add_user_storage(quota, storage);
+	}
 
 	if (quota_next_hook_mail_storage_created != NULL)
 		quota_next_hook_mail_storage_created(storage);
