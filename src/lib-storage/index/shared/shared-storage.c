@@ -148,12 +148,8 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 	p = storage->ns_prefix_pattern;
 	for (name = *_name; *p != '\0';) {
 		if (*p != '%') {
-			if (*p != *name) {
-				mail_storage_set_critical(_storage,
-					"Invalid namespace prefix %s vs %s",
-					storage->ns_prefix_pattern, *_name);
-				return -1;
-			}
+			if (*p != *name)
+				break;
 			p++; name++;
 			continue;
 		}
@@ -175,14 +171,24 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 
 		next = strchr(name, *p != '\0' ? *p : _storage->ns->sep);
 		if (next == NULL) {
-			mail_storage_set_critical(_storage,
-				"Invalid namespace prefix %s vs %s",
-				storage->ns_prefix_pattern, *_name);
-			return -1;
+			*dest = name;
+			name = "";
+			break;
 		}
-
 		*dest = t_strdup_until(name, next);
 		name = next;
+	}
+	if (*p != '\0') {
+		if (*name == '\0' ||
+		    (name[1] == '\0' && *name == _storage->ns->sep)) {
+			/* trying to open <prefix>/<user> mailbox */
+			name = "INBOX";
+		} else {
+			mail_storage_set_critical(_storage,
+					"Invalid namespace prefix %s vs %s",
+					storage->ns_prefix_pattern, *_name);
+			return -1;
+		}
 	}
 	/* successfully matched the name. */
 	if (userdomain == NULL) {
