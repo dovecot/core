@@ -427,7 +427,7 @@ struct mailbox *mailbox_open(struct mail_storage **_storage, const char *name,
 	struct mailbox *box;
 
 	if (list->v.get_storage != NULL) {
-		if (list->v.get_storage(list, name, &storage) < 0)
+		if (list->v.get_storage(list, &name, &storage) < 0)
 			return NULL;
 		*_storage = storage;
 	}
