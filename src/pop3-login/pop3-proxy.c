@@ -137,8 +137,21 @@ static int proxy_input_line(struct pop3_client *client,
 		return 1;
 	}
 
-	/* Login failed. Pass through the error message to client
-	   (see imap-proxy code for potential problems with this) */
+	/* Login failed. Pass through the error message to client.
+
+	   If the backend server isn't Dovecot, the error message may
+	   be different from Dovecot's "user doesn't exist" error. This
+	   would allow an attacker to find out what users exist in the
+	   system.
+
+	   The optimal way to handle this would be to replace the
+	   backend's "password failed" error message with Dovecot's
+	   AUTH_FAILED_MSG, but this would require a new setting and
+	   the sysadmin to actually bother setting it properly.
+
+	   So for now we'll just forward the error message. This
+	   shouldn't be a real problem since of course everyone will
+	   be using only Dovecot as their backend :) */
 	if (strncmp(line, "-ERR ", 5) != 0)
 		client_send_line(client, "-ERR "AUTH_FAILED_MSG);
 	else

@@ -9,6 +9,7 @@
 #include "str-sanitize.h"
 #include "safe-memset.h"
 #include "client.h"
+#include "client-authenticate.h"
 #include "imap-resp-code.h"
 #include "imap-quote.h"
 #include "imap-proxy.h"
@@ -186,21 +187,7 @@ static int proxy_input_line(struct imap_client *client,
 		client_destroy_success(client, str_c(str));
 		return 1;
 	} else if (strncmp(line, "L ", 2) == 0) {
-		/* If the backend server isn't Dovecot, the error message may
-		   be different from Dovecot's "user doesn't exist" error. This
-		   would allow an attacker to find out what users exist in the
-		   system.
-
-		   The optimal way to handle this would be to replace the
-		   backend's "password failed" error message with Dovecot's
-		   AUTH_FAILED_MSG, but this would require a new setting and
-		   the sysadmin to actually bother setting it properly.
-
-		   So for now we'll just forward the error message. This
-		   shouldn't be a real problem since of course everyone will
-		   be using only Dovecot as their backend :) */
-		client_send_tagline(client, line + 2);
-
+		line += 2;
 		if (login_settings->verbose_auth) {
 			str = t_str_new(128);
 			str_printfa(str, "proxy(%s): Login failed to %s:%u",
@@ -218,12 +205,35 @@ static int proxy_input_line(struct imap_client *client,
 					    client->proxy_master_user);
 			}
 			str_append(str, ": ");
-			if (strncasecmp(line + 2, "NO ", 3) == 0)
-				str_append(str, line + 2 + 3);
+			if (strncasecmp(line, "NO ", 3) == 0)
+				str_append(str, line + 3);
 			else
-				str_append(str, line + 2);
+				str_append(str, line);
 			i_info("%s", str_c(str));
 		}
+#define STR_NO_IMAP_RESP_CODE_AUTHFAILED "NO ["IMAP_RESP_CODE_AUTHFAILED"]"
+		if (strncmp(line, STR_NO_IMAP_RESP_CODE_AUTHFAILED,
+			    strlen(STR_NO_IMAP_RESP_CODE_AUTHFAILED)) == 0) {
+			/* the remote sent a generic "authentication failed"
+			   error. replace it with our one, so that in case
+			   the remote is sending a different error message
+			   an attacker can't find out what users exist in
+			   the system. */
+			line = "NO "IMAP_AUTH_FAILED_MSG;
+		} else if (strncmp(line, "NO [", 4) == 0) {
+			/* remote sent some other resp-code. forward it. */
+		} else {
+			/* there was no [resp-code], so remote isn't Dovecot
+			   v1.2+. we could either forward the line as-is and
+			   leak information about what users exist in this
+			   system, or we could hide other errors than password
+			   failures. since other errors are pretty rare,
+			   it's safer to just hide them. they're still
+			   available in logs though. */
+			line = "NO "IMAP_AUTH_FAILED_MSG;
+		}
+		client_send_tagline(client, line);
+
 		proxy_failed(client, FALSE);
 		return -1;
 	} else {

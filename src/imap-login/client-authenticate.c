@@ -21,9 +21,6 @@
 #define AUTH_FAILURE_DELAY_INCREASE_MSECS 5000
 
 #define IMAP_SERVICE_NAME "imap"
-#define IMAP_AUTH_FAILED_MSG "["IMAP_RESP_CODE_AUTHFAILED"] "AUTH_FAILED_MSG
-#define IMAP_AUTHZ_FAILED_MSG \
-	"["IMAP_RESP_CODE_AUTHZFAILED"] Authorization failed"
 
 const char *client_authenticate_get_capabilities(bool secured)
 {
