@@ -38,8 +38,7 @@ libs = \
 
 convert_tool_LDADD = \
 	$(common_objects) \
-	$(libs) \
-	$(LIBICONV)
+	$(libs)
 
 convert_tool_DEPENDENCIES = $(libs) $(common_objects)
 

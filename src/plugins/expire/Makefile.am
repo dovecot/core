@@ -38,9 +38,7 @@ libs = \
 	$(top_builddir)/src/lib-storage/libdovecot-storage.la \
 	$(top_builddir)/src/lib-dovecot/libdovecot.la
 
-expire_tool_LDADD = \
-	$(libs) \
-	$(LIBICONV)
+expire_tool_LDADD = $(libs)
 
 expire_tool_DEPENDENCIES = $(libs)
 
