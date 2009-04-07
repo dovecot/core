@@ -21,7 +21,7 @@ sql_module_LTLIBRARIES = \
 	$(PGSQL_LIB) \
 	$(SQLITE_LIB)
 
-sql_moduledir = $(moduledir)/sql
+sql_moduledir = $(moduledir)
 endif
 
 sql_drivers = @sql_drivers@
@@ -104,7 +104,7 @@ install-exec-local:
 	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
 	  for driver in $(SQL_DRIVER_PLUGINS); do \
 	    rm -f $(DESTDIR)$(moduledir)/$$d/libdriver_$$driver.so; \
-	    $(LN_S) ../sql/libdriver_$$driver.so $(DESTDIR)$(moduledir)/$$d; \
+	    $(LN_S) ../libdriver_$$driver.so $(DESTDIR)$(moduledir)/$$d; \
 	  done; \
 	done
 endif

@@ -15,11 +15,3 @@ lib20_listescape_plugin_la_SOURCES = \
 
 noinst_HEADERS = \
 	listescape-plugin.h
-
-install-exec-local:
-	for d in imap pop3 lda; do \
-	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib20_listescape_plugin$(MODULE_SUFFIX); \
-	  $(LN_S) ../lib20_listescape_plugin$(MODULE_SUFFIX) $(DESTDIR)$(moduledir)/$$d; \
-	done
-

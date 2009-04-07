@@ -49,7 +49,7 @@ static struct pop3_settings pop3_default_settings = {
 	MEMBER(verbose_proctitle) FALSE,
 
 	MEMBER(mail_plugins) "",
-	MEMBER(mail_plugin_dir) MODULEDIR"/pop3",
+	MEMBER(mail_plugin_dir) MODULEDIR,
 
 	MEMBER(pop3_no_flag_updates) FALSE,
 	MEMBER(pop3_enable_last) FALSE,

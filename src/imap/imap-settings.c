@@ -48,7 +48,7 @@ static struct imap_settings imap_default_settings = {
 	MEMBER(verbose_proctitle) FALSE,
 
 	MEMBER(mail_plugins) "",
-	MEMBER(mail_plugin_dir) MODULEDIR"/imap",
+	MEMBER(mail_plugin_dir) MODULEDIR,
 
 	/* RFC-2683 recommends at least 8000 bytes. Some clients however don't
 	   break large message sets to multiple commands, so we're pretty

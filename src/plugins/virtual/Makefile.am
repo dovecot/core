@@ -25,10 +25,3 @@ noinst_HEADERS = \
 	virtual-plugin.h \
 	virtual-storage.h \
 	virtual-transaction.h
-
-install-exec-local:
-	for d in imap pop3 lda; do \
-	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib20_virtual_plugin.so; \
-	  $(LN_S) ../lib20_virtual_plugin.so $(DESTDIR)$(moduledir)/$$d; \
-	done

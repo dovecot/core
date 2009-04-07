@@ -57,7 +57,7 @@ static struct deliver_settings deliver_default_settings = {
 	MEMBER(version_ignore) FALSE,
 
 	MEMBER(mail_plugins) "",
-	MEMBER(mail_plugin_dir) MODULEDIR"/lda",
+	MEMBER(mail_plugin_dir) MODULEDIR,
 
 	MEMBER(mail_uid) "",
 	MEMBER(mail_gid) "",

@@ -7,7 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/imap \
 	-I$(top_srcdir)/src/plugins/acl
 
-imap_moduledir = $(moduledir)/imap
+imap_moduledir = $(moduledir)
 
 lib02_imap_acl_plugin_la_LDFLAGS = -module -avoid-version
 

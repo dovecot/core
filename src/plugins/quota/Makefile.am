@@ -57,13 +57,6 @@ noinst_HEADERS = \
 	quota-plugin.h \
 	quota-private.h
 
-install-exec-local:
-	for d in imap pop3 lda; do \
-	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib10_quota_plugin$(MODULE_SUFFIX); \
-	  $(LN_S) ../lib10_quota_plugin$(MODULE_SUFFIX) $(DESTDIR)$(moduledir)/$$d; \
-	done
-
 EXTRA_DIST = rquota.x
 
 DISTFILES = $(DIST_COMMON) $(quota_dist_sources) $(TEXINFOS) $(EXTRA_DIST)
