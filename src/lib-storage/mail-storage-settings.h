@@ -40,8 +40,6 @@ struct mail_namespace_settings {
 };
 
 struct mail_user_settings {
-	unsigned int umask;
-
 	ARRAY_DEFINE(namespaces, struct mail_namespace_settings *);
 	ARRAY_DEFINE(plugin_envs, const char *);
 };
