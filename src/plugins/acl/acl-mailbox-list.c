@@ -517,7 +517,6 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	struct acl_mailbox_list *alist;
 	struct acl_backend *backend;
 	struct mail_namespace *ns;
-	enum mailbox_list_flags flags;
 	const char *current_username, *owner_username;
 	bool owner = TRUE;
 
@@ -540,7 +539,6 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	if (backend == NULL)
 		i_fatal("ACL backend initialization failed");
 
-	flags = mailbox_list_get_flags(list);
 	if (list->mail_set->mail_full_filesystem_access) {
 		/* not necessarily, but safer to do this for now. */
 		i_fatal("mail_full_filesystem_access=yes is "
