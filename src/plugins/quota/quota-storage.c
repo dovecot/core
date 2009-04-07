@@ -511,21 +511,22 @@ void quota_mail_storage_created(struct mail_storage *storage)
 	union mail_storage_module_context *qstorage;
 	struct quota *quota;
 
+	if (qlist == NULL)
+		return;
+
 	qlist->storage = storage;
 
-	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
+	qstorage = p_new(storage->pool,
+			 union mail_storage_module_context, 1);
 	qstorage->super = storage->v;
 	storage->v.destroy = quota_storage_destroy;
 	storage->v.mailbox_open = quota_mailbox_open;
 
 	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
 
-	if (storage->ns->owner != NULL &&
-	    (storage->ns->flags & NAMESPACE_FLAG_INTERNAL) == 0) {
-		/* register to owner's quota roots */
-		quota = quota_get_mail_user_quota(storage->ns->owner);
-		quota_add_user_storage(quota, storage);
-	}
+	/* register to owner's quota roots */
+	quota = quota_get_mail_user_quota(storage->ns->owner);
+	quota_add_user_storage(quota, storage);
 
 	if (quota_next_hook_mail_storage_created != NULL)
 		quota_next_hook_mail_storage_created(storage);
@@ -535,12 +536,14 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 {
 	struct quota_mailbox_list *qlist;
 
-	qlist = p_new(list->pool, struct quota_mailbox_list, 1);
-	qlist->module_ctx.super = list->v;
-	list->v.delete_mailbox = quota_mailbox_list_delete;
+	if (list->ns->owner != NULL &&
+	    (list->ns->flags & NAMESPACE_FLAG_INTERNAL) == 0) {
+		qlist = p_new(list->pool, struct quota_mailbox_list, 1);
+		qlist->module_ctx.super = list->v;
+		list->v.delete_mailbox = quota_mailbox_list_delete;
 
-	MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
-
+		MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
+	}
 	if (quota_next_hook_mailbox_list_created != NULL)
 		quota_next_hook_mailbox_list_created(list);
 }
