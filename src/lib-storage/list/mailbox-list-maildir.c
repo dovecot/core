@@ -441,6 +441,7 @@ struct mailbox_list maildir_mailbox_list = {
 	{
 		maildir_list_alloc,
 		maildir_list_deinit,
+		NULL,
 		maildir_is_valid_pattern,
 		maildir_is_valid_existing_name,
 		maildir_is_valid_create_name,
@@ -468,6 +469,7 @@ struct mailbox_list imapdir_mailbox_list = {
 	{
 		imapdir_list_alloc,
 		maildir_list_deinit,
+		NULL,
 		maildir_is_valid_pattern,
 		maildir_is_valid_existing_name,
 		maildir_is_valid_create_name,

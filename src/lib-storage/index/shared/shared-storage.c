@@ -291,33 +291,6 @@ static void shared_mailbox_copy_error(struct mail_storage *shared_storage,
 	mail_storage_set_error(shared_storage, error, str);
 }
 
-static struct mailbox *
-shared_mailbox_open(struct mail_storage *storage, const char *name,
-		    struct istream *input, enum mailbox_open_flags flags)
-{
-	struct mail_namespace *ns;
-	struct mailbox *box;
-
-	if (input != NULL) {
-		mail_storage_set_critical(storage,
-			"Shared storage doesn't support streamed mailboxes");
-		return NULL;
-	}
-
-	if (shared_storage_get_namespace(storage, &name, &ns) < 0)
-		return NULL;
-
-	/* if we call the normal mailbox_open() here the plugins will see
-	   mailbox_open() called twice and they could break. */
-	box = ns->storage->storage_class->v.
-		mailbox_open(ns->storage, name, NULL, flags);
-	if (box == NULL)
-		shared_mailbox_copy_error(storage, ns);
-	else
-		ns->flags |= NAMESPACE_FLAG_USABLE;
-	return box;
-}
-
 static int shared_mailbox_create(struct mail_storage *storage,
 				 const char *name, bool directory)
 {
@@ -345,7 +318,7 @@ struct mail_storage shared_storage = {
 		shared_create,
 		index_storage_destroy,
 		NULL,
-		shared_mailbox_open,
+		NULL,
 		shared_mailbox_create
 	}
 };

@@ -370,6 +370,7 @@ struct mailbox_list fs_mailbox_list = {
 	{
 		fs_list_alloc,
 		fs_list_deinit,
+		NULL,
 		fs_is_valid_pattern,
 		fs_is_valid_existing_name,
 		fs_is_valid_create_name,

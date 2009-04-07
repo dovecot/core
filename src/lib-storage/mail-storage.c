@@ -423,11 +423,18 @@ struct mailbox *mailbox_open(struct mail_storage **_storage, const char *name,
 			     enum mailbox_open_flags flags)
 {
 	struct mail_storage *storage = *_storage;
+	struct mailbox_list *list = storage->list;
 	struct mailbox *box;
+
+	if (list->v.get_storage != NULL) {
+		if (list->v.get_storage(list, name, &storage) < 0)
+			return NULL;
+		*_storage = storage;
+	}
 
 	mail_storage_clear_error(storage);
 
-	if (!mailbox_list_is_valid_existing_name(storage->list, name)) {
+	if (!mailbox_list_is_valid_existing_name(list, name)) {
 		mail_storage_set_error(storage, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return NULL;
@@ -438,9 +445,6 @@ struct mailbox *mailbox_open(struct mail_storage **_storage, const char *name,
 		if (hook_mailbox_opened != NULL && box != NULL)
 			hook_mailbox_opened(box);
 	} T_END;
-
-	if (box != NULL)
-		*_storage = box->storage;
 	return box;
 }
 

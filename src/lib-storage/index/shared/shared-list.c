@@ -42,6 +42,18 @@ static void shared_list_copy_error(struct mailbox_list *shared_list,
 	mailbox_list_set_error(shared_list, error, str);
 }
 
+static int
+shared_get_storage(struct mailbox_list *list, const char *name,
+		   struct mail_storage **storage_r)
+{
+	struct mail_namespace *ns;
+
+	if (shared_storage_get_namespace(list->ns->storage, &name, &ns) < 0)
+		return -1;
+	*storage_r = ns->storage;
+	return 0;
+}
+
 static bool
 shared_is_valid_pattern(struct mailbox_list *list, const char *pattern)
 {
@@ -292,6 +304,7 @@ struct mailbox_list shared_mailbox_list = {
 	{
 		shared_list_alloc,
 		shared_list_deinit,
+		shared_get_storage,
 		shared_is_valid_pattern,
 		shared_is_valid_existing_name,
 		shared_is_valid_create_name,

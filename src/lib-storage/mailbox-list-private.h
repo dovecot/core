@@ -13,6 +13,8 @@ struct mailbox_list_vfuncs {
 	struct mailbox_list *(*alloc)(void);
 	void (*deinit)(struct mailbox_list *list);
 
+	int (*get_storage)(struct mailbox_list *list,
+			   const char *name, struct mail_storage **storage_r);
 	bool (*is_valid_pattern)(struct mailbox_list *list,
 				 const char *pattern);
 	bool (*is_valid_existing_name)(struct mailbox_list *list,
