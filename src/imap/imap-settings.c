@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-static bool imap_settings_check(void *_set, const char **error_r);
+static bool imap_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #undef DEFLIST
@@ -85,7 +85,8 @@ static void fix_base_path(struct imap_settings *set, const char **str)
 }
 
 /* <settings checks> */
-static bool imap_settings_check(void *_set, const char **error_r)
+static bool imap_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				const char **error_r)
 {
 	struct imap_settings *set = _set;
 
@@ -157,7 +158,7 @@ void imap_settings_read(const struct imap_settings **set_r,
 	if (value != NULL)
 		parse_expand_vars(parser, value);
 
-	if (settings_parser_check(parser, &error) < 0)
+	if (settings_parser_check(parser, settings_pool, &error) < 0)
 		i_fatal("Invalid settings: %s", error);
 
 	sets = settings_parser_get_list(parser);

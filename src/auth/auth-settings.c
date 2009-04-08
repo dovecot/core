@@ -12,7 +12,7 @@ extern struct setting_parser_info auth_socket_setting_parser_info;
 extern struct setting_parser_info auth_setting_parser_info;
 extern struct setting_parser_info auth_root_setting_parser_info;
 
-static bool auth_settings_check(void *_set, const char **error_r);
+static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
@@ -287,7 +287,7 @@ static void fix_base_path(struct auth_settings *set, const char **str)
 }
 
 /* <settings checks> */
-static bool auth_settings_check(void *_set ATTR_UNUSED,
+static bool auth_settings_check(void *_set ATTR_UNUSED, pool_t pool ATTR_UNUSED,
 				const char **error_r ATTR_UNUSED)
 {
 #ifndef CONFIG_BINARY
@@ -341,7 +341,7 @@ struct auth_settings *auth_settings_read(const char *name)
 			settings_parser_get_error(parser));
 	}
 
-	if (settings_parser_check(parser, &error) < 0)
+	if (settings_parser_check(parser, settings_pool, &error) < 0)
 		i_fatal("Invalid settings: %s", error);
 
 	set = settings_parser_get(parser);

@@ -526,7 +526,7 @@ prevfile:
 		if (l->parser == NULL)
 			continue;
 
-		if (!settings_parser_check(l->parser, &errormsg)) {
+		if (!settings_parser_check(l->parser, pool, &errormsg)) {
 			i_fatal("Error in configuration file %s: %s",
 				path, errormsg);
 		}

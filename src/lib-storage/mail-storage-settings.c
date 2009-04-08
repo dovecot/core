@@ -11,8 +11,8 @@
 
 #include <stddef.h>
 
-static bool mail_storage_settings_check(void *_set, const char **error_r);
-static bool namespace_settings_check(void *_set, const char **error_r);
+static bool mail_storage_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool namespace_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
@@ -213,7 +213,8 @@ void mail_storage_namespace_defines_init(pool_t pool)
 }
 
 /* <settings checks> */
-static bool mail_storage_settings_check(void *_set, const char **error_r)
+static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+					const char **error_r)
 {
 	const struct mail_storage_settings *set = _set;
 
@@ -228,7 +229,8 @@ static bool mail_storage_settings_check(void *_set, const char **error_r)
 	return TRUE;
 }
 
-static bool namespace_settings_check(void *_set, const char **error_r)
+static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				     const char **error_r)
 {
 	struct mail_namespace_settings *ns = _set;
 	struct mail_namespace_settings *const *namespaces;

@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-static bool pop3_settings_check(void *_set, const char **error_r);
+static bool pop3_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #undef DEFLIST
@@ -84,7 +84,8 @@ static void fix_base_path(struct pop3_settings *set, const char **str)
 }
 
 /* <settings checks> */
-static bool pop3_settings_check(void *_set, const char **error_r)
+static bool pop3_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				const char **error_r)
 {
 	struct pop3_settings *set = _set;
 
@@ -156,7 +157,7 @@ void pop3_settings_read(const struct pop3_settings **set_r,
 	if (value != NULL)
 		parse_expand_vars(parser, value);
 
-	if (settings_parser_check(parser, &error) < 0)
+	if (settings_parser_check(parser, settings_pool, &error) < 0)
 		i_fatal("Invalid settings: %s", error);
 
 	sets = settings_parser_get_list(parser);

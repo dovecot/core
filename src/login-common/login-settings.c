@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <unistd.h>
 
-static bool login_settings_check(void *_set, const char **error_r);
+static bool login_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
@@ -137,7 +137,8 @@ static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 #endif
 }
 
-static bool login_settings_check(void *_set, const char **error_r)
+static bool login_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				 const char **error_r)
 {
 	struct login_settings *set = _set;
 
@@ -191,7 +192,7 @@ struct login_settings *login_settings_read(void)
 			settings_parser_get_error(parser));
 	}
 
-	if (settings_parser_check(parser, &error) < 0)
+	if (settings_parser_check(parser, settings_pool, &error) < 0)
 		i_fatal("Invalid settings: %s", error);
 
 	set = settings_parser_get(parser);
