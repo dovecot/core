@@ -320,7 +320,7 @@ static void rawlog_open(enum rawlog_flags flags)
 	}
 	(void)close(sfd[1]);
 
-	restrict_access_by_env(TRUE);
+	restrict_access_by_env(getenv("HOME"), TRUE);
 
 	process_title_set(t_strdup_printf("[%s:%s rawlog]", getenv("USER"),
 					  dec2str(getppid())));

@@ -177,7 +177,7 @@ static void main_preinit(const struct pop3_settings **set_r,
 		module_dir_load((*set_r)->mail_plugin_dir,
 				(*set_r)->mail_plugins, TRUE, version);
 
-	restrict_access_by_env(!IS_STANDALONE());
+	restrict_access_by_env(getenv("HOME"), !IS_STANDALONE());
 	restrict_access_allow_coredumps(TRUE);
 }
 

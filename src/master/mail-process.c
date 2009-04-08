@@ -285,6 +285,7 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 	const char *p, *addr, *chroot_dir, *home_dir, *full_home_dir;
 	const char *system_groups_user, *master_user, *key;
 	struct mail_process_group *process_group;
+	struct restrict_access_settings rset;
 	char title[1024];
 	struct log_io *log;
 	string_t *str, *expanded_vars;
@@ -484,11 +485,16 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */
-	restrict_access_set_env(system_groups_user, uid, gid,
-				set->mail_priv_gid_t,
-				dump_capability ? "" : chroot_dir,
-				set->first_valid_gid, set->last_valid_gid,
-				set->mail_access_groups);
+	restrict_access_init(&rset);
+	rset.uid = uid;
+	rset.gid = gid;
+	rset.privileged_gid = set->mail_priv_gid_t;
+	rset.extra_groups = set->mail_access_groups;
+	rset.system_groups_user = system_groups_user;
+	rset.first_valid_gid = set->first_valid_gid;
+	rset.last_valid_gid = set->last_valid_gid;
+	rset.chroot_dir = dump_capability ? NULL : chroot_dir;
+	restrict_access_set_env(&rset);
 
 	restrict_process_size(set->mail_process_size, (unsigned int)-1);
 
@@ -624,7 +630,7 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 		fd_close_on_exec(i, FALSE);
 
 	if (set->mail_drop_priv_before_exec) {
-		restrict_access_by_env(TRUE);
+		restrict_access_by_env(home_dir, TRUE);
 		/* privileged GID is now only in saved-GID. if we want to
 		   preserve it across exec, it needs to be temporarily
 		   in effective gid. unfortunately this also causes kernel

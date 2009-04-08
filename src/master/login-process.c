@@ -523,6 +523,7 @@ static void login_process_unref(struct login_process *p)
 static void login_process_init_env(struct login_group *group, pid_t pid)
 {
 	struct master_settings *set = group->set;
+	struct restrict_access_settings rset;
 
 	child_process_init_env(group->set);
 
@@ -530,10 +531,12 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	   clean_child_process() since it clears environment. Don't set user
 	   parameter since we don't want to call initgroups() for login
 	   processes. */
-	restrict_access_set_env(NULL, set->login_uid,
-				set->server->login_gid, (gid_t)-1,
-				set->login_chroot ? set->login_dir : NULL,
-				0, 0, NULL);
+	restrict_access_init(&rset);
+	rset.uid = set->login_uid;
+	rset.gid = set->server->login_gid;
+	if (set->login_chroot)
+		rset.chroot_dir = set->login_dir;
+	restrict_access_set_env(&rset);
 
 	env_put("DOVECOT_MASTER=1");
 

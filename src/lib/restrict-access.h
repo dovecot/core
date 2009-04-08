@@ -1,19 +1,41 @@
 #ifndef RESTRICT_ACCESS_H
 #define RESTRICT_ACCESS_H
 
-/* set environment variables so they can be read with
-   restrict_access_by_env(). If privileged_gid != (gid_t)-1,
-   the privileged GID can be temporarily enabled/disabled. */
-void restrict_access_set_env(const char *user, uid_t uid,
-			     gid_t gid, gid_t privileged_gid,
-			     const char *chroot_dir,
-			     gid_t first_valid_gid, gid_t last_valid_gid,
-			     const char *extra_groups);
+struct restrict_access_settings {
+	/* UID to use, or (uid_t)-1 if you don't want to change it */
+	uid_t uid;
+	/* Effective GID to use, or (gid_t)-1 if you don't want to change it */
+	gid_t gid;
+	/* If not (gid_t)-1, the privileged GID can be temporarily
+	   enabled/disabled. */
+	gid_t privileged_gid;
 
-/* chroot, setuid() and setgid() based on environment variables.
+	/* Add access to these space or comma -separated extra groups */
+	const char *extra_groups;
+	/* Add access to groups this system user belongs to */
+	const char *system_groups_user;
+
+	/* All specified GIDs must be in this range. If extra_groups or system
+	   group user contains other GIDs, they're silently dropped. */
+	gid_t first_valid_gid, last_valid_gid;
+
+	/* Chroot directory */
+	const char *chroot_dir;
+};
+
+/* Initialize settings with values that don't change anything. */
+void restrict_access_init(struct restrict_access_settings *set);
+/* Restrict access as specified by the settings. If home is not NULL,
+   it's chdir()ed after chrooting, otherwise it chdirs to / (the chroot). */
+void restrict_access(const struct restrict_access_settings *set,
+		     const char *home);
+/* Set environment variables so they can be read with
+   restrict_access_by_env(). */
+void restrict_access_set_env(const struct restrict_access_settings *set);
+/* Read restrictions from environment and call restrict_access().
    If disallow_roots is TRUE, we'll kill ourself if we didn't have the
-   environment settings and we have root uid or gid. */
-void restrict_access_by_env(bool disallow_root);
+   environment settings. */
+void restrict_access_by_env(const char *home, bool disallow_root);
 
 /* Try to set up the process in a way that core dumps are still allowed
    after calling restrict_access_by_env(). */

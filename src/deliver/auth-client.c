@@ -141,7 +141,7 @@ int auth_client_lookup_and_restrict(const char *auth_socket, bool debug,
 	case 1:
 		if (set_env(&reply, *user, euid) == 0) {
 			*user = p_strdup(pool, reply.user);
-			restrict_access_by_env(TRUE);
+			restrict_access_by_env(getenv("HOME"), TRUE);
 			ret = EX_OK;
 		}
 		break;

@@ -57,7 +57,7 @@ static void drop_privileges(void)
 	sql_drivers_init();
 	sql_drivers_register_all();
 
-	restrict_access_by_env(FALSE);
+	restrict_access_by_env(NULL, FALSE);
 }
 
 static void main_init(void)

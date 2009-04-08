@@ -8,6 +8,7 @@
 #include "auth-client.h"
 #include "auth-master.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 
 static uid_t current_uid = 0;
@@ -43,7 +44,7 @@ static void auth_set_env(const char *user, struct auth_user_reply *reply)
 	}
 
 	/* change GID */
-	restrict_access_by_env(FALSE);
+	restrict_access_by_env(getenv("HOME"), FALSE);
 
 	/* we'll change only effective UID. This is a bit unfortunate since
 	   it allows reverting back to root, but we'll have to be able to

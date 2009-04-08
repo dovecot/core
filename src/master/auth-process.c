@@ -417,11 +417,17 @@ static int connect_auth_socket(struct auth_process_group *group,
 static void auth_set_environment(const struct master_settings *master_set,
 				 const struct master_auth_settings *set)
 {
+	struct restrict_access_settings rset;
+
 	master_settings_export_to_env(master_set);
 
 	/* setup access environment */
-	restrict_access_set_env(set->user, set->uid, set->gid,
-				(gid_t)-1, set->chroot, 0, 0, NULL);
+	restrict_access_init(&rset);
+	rset.system_groups_user = set->user;
+	rset.uid = set->uid;
+	rset.gid = set->gid;
+	rset.chroot_dir = set->chroot;
+	restrict_access_set_env(&rset);
 
 	/* set other environment */
 	env_put("DOVECOT_MASTER=1");

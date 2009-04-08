@@ -236,7 +236,7 @@ static void drop_privileges(void)
 		add_extra_listeners();
 
 	/* Password lookups etc. may require roots, allow it. */
-	restrict_access_by_env(FALSE);
+	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
 }
 
