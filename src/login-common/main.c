@@ -127,6 +127,8 @@ static void login_accept_ssl(void *context)
 		local_port = 0;
 	}
 
+	connection_queue_add(1);
+
 	fd_ssl = ssl_proxy_new(fd, &remote_ip, &proxy);
 	if (fd_ssl == -1)
 		net_disconnect(fd);
