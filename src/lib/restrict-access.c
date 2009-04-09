@@ -396,19 +396,19 @@ void restrict_access_by_env(const char *home, bool disallow_root)
 	restrict_access(&set, home);
 
 	/* clear the environment, so we don't fail if we get back here */
-	env_put("RESTRICT_SETUID=");
+	env_remove("RESTRICT_SETUID");
 	if (process_privileged_gid == (gid_t)-1) {
 		/* if we're dropping privileges before executing and
 		   a privileged group is set, the groups must be fixed
 		   after exec */
-		env_put("RESTRICT_SETGID=");
-		env_put("RESTRICT_SETGID_PRIV=");
+		env_remove("RESTRICT_SETGID");
+		env_remove("RESTRICT_SETGID_PRIV");
 	}
-	env_put("RESTRICT_GID_FIRST=");
-	env_put("RESTRICT_GID_LAST=");
-	env_put("RESTRICT_SETEXTRAGROUPS=");
-	env_put("RESTRICT_USER=");
-	env_put("RESTRICT_CHROOT=");
+	env_remove("RESTRICT_GID_FIRST");
+	env_remove("RESTRICT_GID_LAST");
+	env_remove("RESTRICT_SETEXTRAGROUPS");
+	env_remove("RESTRICT_USER");
+	env_remove("RESTRICT_CHROOT");
 }
 
 void restrict_access_allow_coredumps(bool allow ATTR_UNUSED)
