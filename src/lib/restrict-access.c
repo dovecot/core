@@ -297,7 +297,7 @@ void restrict_access(const struct restrict_access_settings *set,
 	}
 
 	/* verify that we actually dropped the privileges */
-	if (set->uid != 0 || disallow_root) {
+	if ((set->uid != (uid_t)-1 && set->uid != 0) || disallow_root) {
 		if (setuid(0) == 0) {
 			if (disallow_root &&
 			    (set->uid == 0 || set->uid == (uid_t)-1))
