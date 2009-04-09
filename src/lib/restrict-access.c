@@ -28,8 +28,6 @@ void restrict_access_init(struct restrict_access_settings *set)
 	set->uid = (uid_t)-1;
 	set->gid = (gid_t)-1;
 	set->privileged_gid = (gid_t)-1;
-	set->first_valid_gid = 0;
-	set->last_valid_gid = (gid_t)-1;
 }
 
 static const char *get_uid_str(uid_t uid)
@@ -136,7 +134,7 @@ static void drop_restricted_groups(const struct restrict_access_settings *set,
 
 	for (i = 0, used = 0; i < *gid_count; i++) {
 		if (gid_list[i] >= set->first_valid_gid &&
-		    (set->last_valid_gid == (gid_t)-1 ||
+		    (set->last_valid_gid == 0 ||
 		     gid_list[i] <= set->last_valid_gid)) {
 			if (gid_list[i] == 0)
 				*have_root_group = TRUE;
