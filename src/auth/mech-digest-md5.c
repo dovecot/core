@@ -472,6 +472,11 @@ static bool parse_digest_response(struct digest_auth_request *request,
 	*error = NULL;
 	failed = FALSE;
 
+	if (size == 0) {
+		*error = "Client sent no input";
+		return FALSE;
+	}
+
 	copy = t_strdup_noconst(t_strndup(data, size));
 	while (*copy != '\0') {
 		if (parse_next(&copy, &key, &value)) {
