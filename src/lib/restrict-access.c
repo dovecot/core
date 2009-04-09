@@ -297,12 +297,9 @@ void restrict_access(const struct restrict_access_settings *set,
 	}
 
 	/* verify that we actually dropped the privileges */
-	if (set->uid != (uid_t)-1) {
-		if (setuid(0) == 0) {
-			if (set->uid == 0)
-				i_fatal("This process must not be run as root");
+	if (set->uid != (uid_t)-1 && set->uid != 0) {
+		if (setuid(0) == 0)
 			i_fatal("We couldn't drop root privileges");
-		}
 	}
 
 	if (set->first_valid_gid != 0)
