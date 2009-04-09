@@ -720,21 +720,6 @@ unsigned int ssl_proxy_get_count(void)
 	return ssl_proxy_count;
 }
 
-static void *ssl_clean_malloc(size_t size)
-{
-	return p_malloc(system_clean_pool, size);
-}
-
-static void *ssl_clean_realloc(void *ptr, size_t size)
-{
-	return p_realloc(system_clean_pool, ptr, (size_t)-1, size);
-}
-
-static void ssl_clean_free(void *ptr)
-{
-	p_free(system_clean_pool, ptr);
-}
-
 static bool is_pem_key_file(const char *path)
 {
 	char buf[4096];
@@ -764,8 +749,6 @@ void ssl_proxy_init(void)
 	if (strcmp(set->ssl, "no") == 0)
 		return;
 
-	CRYPTO_set_mem_functions(ssl_clean_malloc, ssl_clean_realloc,
-				 ssl_clean_free);
 	SSL_library_init();
 	SSL_load_error_strings();
 
