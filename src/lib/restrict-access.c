@@ -225,7 +225,7 @@ static void fix_groups_list(const struct restrict_access_settings *set,
 }
 
 void restrict_access(const struct restrict_access_settings *set,
-		     const char *home)
+		     const char *home, bool disallow_root)
 {
 	bool is_root, have_root_group, preserve_groups = FALSE;
 	bool allow_root_gid;
@@ -297,9 +297,14 @@ void restrict_access(const struct restrict_access_settings *set,
 	}
 
 	/* verify that we actually dropped the privileges */
-	if (set->uid != (uid_t)-1 && set->uid != 0) {
-		if (setuid(0) == 0)
+	if (set->uid != 0 || disallow_root) {
+		if (setuid(0) == 0) {
+			if (disallow_root &&
+			    (set->uid == 0 || set->uid == (uid_t)-1))
+				i_fatal("This process must not be run as root");
+
 			i_fatal("We couldn't drop root privileges");
+		}
 	}
 
 	if (set->first_valid_gid != 0)
@@ -381,16 +386,11 @@ void restrict_access_by_env(const char *home, bool disallow_root)
 	if ((value = getenv("RESTRICT_GID_LAST")) != NULL)
 		set.last_valid_gid = (gid_t)strtol(value, NULL, 10);
 
-	if (disallow_root) {
-		if (set.uid == (uid_t)-1 || set.uid == 0)
-			i_fatal("This process must not be run as root");
-	}
-
 	set.extra_groups = null_if_empty(getenv("RESTRICT_SETEXTRAGROUPS"));
 	set.system_groups_user = null_if_empty(getenv("RESTRICT_USER"));
 	set.chroot_dir = null_if_empty(getenv("RESTRICT_CHROOT"));
 
-	restrict_access(&set, home);
+	restrict_access(&set, home, disallow_root);
 
 	/* clear the environment, so we don't fail if we get back here */
 	env_remove("RESTRICT_SETUID");
