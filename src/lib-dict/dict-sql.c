@@ -395,7 +395,7 @@ static int sql_dict_iterate(struct dict_iterate_context *_ctx,
 {
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
-	const char *p;
+	const char *p, *value;
 	unsigned int i, count;
 	int ret;
 
@@ -426,8 +426,9 @@ static int sql_dict_iterate(struct dict_iterate_context *_ctx,
 			str_append_c(ctx->key, *p);
 		else {
 			i_assert(i < count);
-			str_append(ctx->key,
-				   sql_result_get_field_value(ctx->result, i));
+			value = sql_result_get_field_value(ctx->result, i);
+			if (value != NULL)
+				str_append(ctx->key, value);
 			i++;
 		}
 	}
