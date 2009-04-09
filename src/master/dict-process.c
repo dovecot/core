@@ -22,6 +22,7 @@ struct dict_listener {
 	struct io *io;
 
 	struct dict_process *processes;
+	unsigned int destroyed:1;
 };
 
 struct dict_process {
@@ -121,7 +122,7 @@ static int dict_process_create(struct dict_listener *listener)
 
 static void dict_listener_unref(struct dict_listener *listener)
 {
-	if (listener->processes == NULL)
+	if (listener->processes == NULL && listener->destroyed)
 		i_free(listener);
 }
 
@@ -192,6 +193,8 @@ static struct dict_listener *dict_listener_init(const char *path)
 
 static void dict_listener_deinit(struct dict_listener *listener)
 {
+	listener->destroyed = TRUE;
+
 	if (listener->io != NULL)
 		io_remove(&listener->io);
 	if (close(listener->fd) < 0)
@@ -211,12 +214,12 @@ dict_process_destroyed(struct child_process *_process,
 	struct dict_process *process = (struct dict_process *)_process;
 	struct dict_listener *listener = process->listener;
 
-	dict_process_deinit(process);
 	if (listener->processes == NULL && listener->fd != -1) {
 		/* last listener died, create new ones */
 		listener->io = io_add(listener->fd, IO_READ,
 				      dict_listener_input, listener);
 	}
+	dict_process_deinit(process);
 }
 
 void dict_processes_init(void)
