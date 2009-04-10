@@ -127,6 +127,8 @@ void dbox_file_unref(struct dbox_file **file);
 
 /* Free all currently opened files. */
 void dbox_files_free(struct dbox_storage *storage);
+/* Flush all cached input data from opened files. */
+void dbox_files_sync_input(struct dbox_storage *storage);
 
 /* Assign a newly created file a new id. For single files assign UID,
    for multi files assign map UID. */

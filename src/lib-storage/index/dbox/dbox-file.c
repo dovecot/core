@@ -97,6 +97,18 @@ void dbox_files_free(struct dbox_storage *storage)
 	array_clear(&storage->open_files);
 }
 
+void dbox_files_sync_input(struct dbox_storage *storage)
+{
+	struct dbox_file *const *files;
+	unsigned int i, count;
+
+	files = array_get(&storage->open_files, &count);
+	for (i = 0; i < count; i++) {
+		if (files[i]->input != NULL)
+			i_stream_sync(files[i]->input);
+	}
+}
+
 static void
 dbox_close_open_files(struct dbox_storage *storage, unsigned int close_count)
 {

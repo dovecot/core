@@ -121,6 +121,11 @@ int dbox_map_refresh(struct dbox_map *map)
 	struct mail_index_view_sync_ctx *ctx;
 	bool delayed_expunges;
 
+	/* some open files may have read partially written mails. now that
+	   map syncing makes the new mails visible, we need to make sure the
+	   partial data is flushed out of memory */
+	dbox_files_sync_input(map->storage);
+
 	if (mail_index_refresh(map->view->index) < 0) {
 		mail_storage_set_internal_error(&map->storage->storage);
 		mail_index_reset_error(map->index);
