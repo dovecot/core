@@ -31,6 +31,9 @@ struct dbox_sync_context {
 
 	pool_t pool;
 	struct hash_table *syncs; /* struct dbox_sync_file_entry */
+
+	unsigned int have_storage_expunges:1;
+	unsigned int purge:1;
 };
 
 int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,

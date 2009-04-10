@@ -83,6 +83,8 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 		}
 		seq_range_array_add(&entry->expunge_seqs, 0, seq);
 		array_append(&entry->expunge_map_uids, &map_uid, 1);
+		if (entry->file_id != 0)
+			ctx->have_storage_expunges = TRUE;
 	} else {
 		if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) != 0)
 			entry->move_to_alt = TRUE;
@@ -159,6 +161,18 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	}
 
 	if (ret > 0) {
+		if (ctx->have_storage_expunges) {
+			/* prevent a user from saving + expunging messages
+			   all the time and using lots of disk space.
+			   but avoid doing this in situations where a user
+			   simply expunges a lot of mail for the first time.
+			   that's why we do this calculation before current
+			   sync: the purging is triggered only after the
+			   second expunge. */
+			if (dbox_map_want_purge(ctx->mbox->storage->map))
+				ctx->purge = TRUE;
+		}
+
 		/* now sync each file separately */
 		iter = hash_table_iterate_init(ctx->syncs);
 		while (hash_table_iterate(iter, &key, &value)) {
@@ -319,6 +333,9 @@ int dbox_sync_finish(struct dbox_sync_context **_ctx, bool success)
 	}
 	if (ctx->path != NULL)
 		str_free(&ctx->path);
+
+	if (ctx->purge)
+		(void)dbox_sync_purge(&ctx->mbox->storage->storage);
 	i_free(ctx);
 	return ret;
 }
