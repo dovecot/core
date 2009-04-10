@@ -893,16 +893,17 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	struct maildir_sync_context *ctx;
-	bool lost_files;
+	bool lost_files, force_resync;
 	int ret = 0;
 
 	if (!box->opened)
 		index_storage_mailbox_open(&mbox->ibox);
 
+	force_resync = (flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0;
 	if (index_mailbox_want_full_sync(&mbox->ibox, flags)) {
 		T_BEGIN {
 			ctx = maildir_sync_context_new(mbox, flags);
-			ret = maildir_sync_context(ctx, FALSE, NULL,
+			ret = maildir_sync_context(ctx, force_resync, NULL,
 						   &lost_files);
 			maildir_sync_deinit(ctx);
 		} T_END;

@@ -151,7 +151,9 @@ enum mailbox_sync_flags {
 	MAILBOX_SYNC_FLAG_FIX_INCONSISTENT	= 0x40,
 	/* Syncing after an EXPUNGE command. This is just an informational
 	   flag for plugins. */
-	MAILBOX_SYNC_FLAG_EXPUNGE		= 0x80
+	MAILBOX_SYNC_FLAG_EXPUNGE		= 0x80,
+	/* Force doing a full resync of indexes. */
+	MAILBOX_SYNC_FLAG_FORCE_RESYNC		= 0x100
 };
 
 enum mailbox_sync_type {

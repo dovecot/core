@@ -16,21 +16,66 @@ static struct mail_user *mail_user;
 static void ATTR_NORETURN
 usage(void)
 {
-	i_fatal("usage: doveadm purge <user>\n");
+	i_fatal(
+"usage: doveadm \n"
+"  purge <user>\n"
+"  force-resync <user> <mailbox>\n"
+);
 }
 
-static int cmd_purge(struct mail_user *user)
+static void cmd_purge(struct mail_user *user)
 {
 	struct mail_namespace *ns;
-	int ret = 0;
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->type == NAMESPACE_PRIVATE && ns->alias_for == NULL) {
-			if (mail_storage_purge(ns->storage) < 0)
-				ret = -1;
+		if (ns->type != NAMESPACE_PRIVATE || ns->alias_for != NULL)
+			continue;
+
+		if (mail_storage_purge(ns->storage) < 0) {
+			i_error("Purging namespace '%s' failed: %s", ns->prefix,
+				mail_storage_get_last_error(ns->storage, NULL));
 		}
 	}
-	return ret;
+}
+
+static struct mailbox *
+mailbox_find_and_open(struct mail_user *user, const char *mailbox)
+{
+	struct mail_namespace *ns;
+	struct mail_storage *storage;
+	struct mailbox *box;
+	const char *orig_mailbox = mailbox;
+
+	ns = mail_namespace_find(user->namespaces, &mailbox);
+	if (ns == NULL)
+		i_fatal("Can't find namespace for mailbox %s", mailbox);
+
+	storage = ns->storage;
+	box = mailbox_open(&storage, mailbox, NULL, MAILBOX_OPEN_KEEP_RECENT |
+			   MAILBOX_OPEN_IGNORE_ACLS);
+	if (box == NULL) {
+		i_fatal("Opening mailbox %s failed: %s", orig_mailbox,
+			mail_storage_get_last_error(storage, NULL));
+	}
+	return box;
+}
+
+static void cmd_force_resync(struct mail_user *user, const char *mailbox)
+{
+	struct mail_storage *storage;
+	struct mailbox *box;
+
+	if (mailbox == NULL)
+		usage();
+
+	box = mailbox_find_and_open(user, mailbox);
+	storage = mailbox_get_storage(box);
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
+			 MAILBOX_SYNC_FLAG_FIX_INCONSISTENT, 0, NULL) < 0) {
+		i_fatal("Forcing a resync on mailbox %s failed: %s", mailbox,
+			mail_storage_get_last_error(storage, NULL));
+	}
+	mailbox_close(&box);
 }
 
 int main(int argc, char *argv[])
@@ -38,7 +83,7 @@ int main(int argc, char *argv[])
 	enum mail_storage_service_flags service_flags = 0;
 	struct master_service *service;
 	const char *getopt_str, *user;
-	int c, ret = 0;
+	int c;
 
 	service = master_service_init("doveadm", MASTER_SERVICE_FLAG_STANDALONE,
 				      argc, argv);
@@ -71,12 +116,14 @@ int main(int argc, char *argv[])
 					     mail_user->username));
 
 	if (strcmp(argv[optind], "purge") == 0)
-		ret = cmd_purge(mail_user);
+		cmd_purge(mail_user);
+	else if (strcmp(argv[optind], "force-resync") == 0)
+		cmd_force_resync(mail_user, argv[optind+2]);
 	else
 		usage();
 
 	mail_user_unref(&mail_user);
 	mail_storage_service_deinit_user();
 	master_service_deinit(&service);
-	return ret < 0 ? 1 : 0;
+	return 0;
 }

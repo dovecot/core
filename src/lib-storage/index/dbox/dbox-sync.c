@@ -219,7 +219,8 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 	int ret;
 	bool rebuild, storage_rebuilt = FALSE;
 
-	rebuild = dbox_refresh_header(mbox) < 0;
+	rebuild = dbox_refresh_header(mbox) < 0 ||
+		(flags & DBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
 	if (rebuild) {
 		if (dbox_storage_rebuild(mbox->storage) < 0)
 			return -1;
@@ -322,11 +323,11 @@ int dbox_sync_finish(struct dbox_sync_context **_ctx, bool success)
 	return ret;
 }
 
-int dbox_sync(struct dbox_mailbox *mbox)
+int dbox_sync(struct dbox_mailbox *mbox, enum dbox_sync_flags flags)
 {
 	struct dbox_sync_context *sync_ctx;
 
-	if (dbox_sync_begin(mbox, 0, &sync_ctx) < 0)
+	if (dbox_sync_begin(mbox, flags, &sync_ctx) < 0)
 		return -1;
 
 	if (sync_ctx == NULL)
@@ -338,14 +339,18 @@ struct mailbox_sync_context *
 dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
+	enum dbox_sync_flags dbox_sync_flags = 0;
 	int ret = 0;
 
 	if (!box->opened)
 		index_storage_mailbox_open(&mbox->ibox);
 
 	if (index_mailbox_want_full_sync(&mbox->ibox, flags) ||
-	    mbox->storage->sync_rebuild)
-		ret = dbox_sync(mbox);
+	    mbox->storage->sync_rebuild) {
+		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)
+			dbox_sync_flags |= DBOX_SYNC_FLAG_FORCE_REBUILD;
+		ret = dbox_sync(mbox, dbox_sync_flags);
+	}
 
 	return index_mailbox_sync_init(box, flags, ret < 0);
 }

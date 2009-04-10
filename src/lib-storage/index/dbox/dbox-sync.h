@@ -5,8 +5,9 @@ struct mailbox;
 struct dbox_mailbox;
 
 enum dbox_sync_flags {
-	DBOX_SYNC_FLAG_FORCE	= 0x01,
-	DBOX_SYNC_FLAG_FSYNC	= 0x02
+	DBOX_SYNC_FLAG_FORCE		= 0x01,
+	DBOX_SYNC_FLAG_FSYNC		= 0x02,
+	DBOX_SYNC_FLAG_FORCE_REBUILD	= 0x04
 };
 
 struct dbox_sync_file_entry {
@@ -35,7 +36,7 @@ struct dbox_sync_context {
 int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 		    struct dbox_sync_context **ctx_r);
 int dbox_sync_finish(struct dbox_sync_context **ctx, bool success);
-int dbox_sync(struct dbox_mailbox *mbox);
+int dbox_sync(struct dbox_mailbox *mbox, enum dbox_sync_flags flags);
 
 int dbox_sync_purge(struct mail_storage *storage);
 int dbox_sync_file(struct dbox_sync_context *ctx,

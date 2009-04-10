@@ -346,7 +346,8 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 	   error. If storage->error is NONE, it means we forgot to set it at
 	   some point.. */
 	if (storage->error == MAIL_ERROR_NONE) {
-		*error_r = MAIL_ERROR_TEMP;
+		if (error_r != NULL)
+			*error_r = MAIL_ERROR_TEMP;
 		return storage->error_string != NULL ? storage->error_string :
 			"BUG: Unknown internal error";
 	}
@@ -358,7 +359,8 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 					storage->error);
 	}
 
-	*error_r = storage->error;
+	if (error_r != NULL)
+		*error_r = storage->error;
 	return storage->error_string;
 }
 

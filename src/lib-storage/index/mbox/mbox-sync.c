@@ -1929,6 +1929,11 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_WRITE) != 0)
 			mbox_sync_flags |= MBOX_SYNC_REWRITE;
+		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0) {
+			mbox_sync_flags |= MBOX_SYNC_UNDIRTY |
+				MBOX_SYNC_REWRITE | MBOX_SYNC_FORCE_SYNC;
+		}
+
 		ret = mbox_sync(mbox, mbox_sync_flags);
 	}
 
