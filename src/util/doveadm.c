@@ -85,7 +85,9 @@ int main(int argc, char *argv[])
 	const char *getopt_str, *user;
 	int c;
 
-	service = master_service_init("doveadm", MASTER_SERVICE_FLAG_STANDALONE,
+	service = master_service_init("doveadm",
+				      MASTER_SERVICE_FLAG_STANDALONE |
+				      MASTER_SERVICE_FLAG_LOG_TO_STDERR,
 				      argc, argv);
 
 	user = getenv("USER");

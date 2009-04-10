@@ -113,6 +113,11 @@ void master_service_init_log(struct master_service *service, const char *prefix)
 {
 	const char *path;
 
+	if ((service->flags & MASTER_SERVICE_FLAG_LOG_TO_STDERR) != 0) {
+		i_set_failure_file("/dev/stderr", "");
+		return;
+	}
+
 	if (getenv("LOG_TO_MASTER") != NULL && !service->log_directly) {
 		/* logging via master process */
 		i_set_failure_internal();
