@@ -2,9 +2,12 @@
 
 #include "lib.h"
 #include "array.h"
-#include "dict.h"
+#include "hostpid.h"
 #include "module-dir.h"
 #include "restrict-access.h"
+#include "str.h"
+#include "var-expand.h"
+#include "dict.h"
 #include "settings-parser.h"
 #include "auth-master.h"
 #include "master-service-private.h"
@@ -206,7 +209,7 @@ static bool parse_gid(const char *str, gid_t *gid_r)
 
 static void
 service_drop_privileges(const struct mail_user_settings *set,
-			const char *system_groups_user,
+			const char *system_groups_user, const char *home,
 			bool disallow_root, bool keep_setuid_root)
 {
 	struct restrict_access_settings rset;
@@ -264,8 +267,7 @@ service_drop_privileges(const struct mail_user_settings *set,
 		setuid_uid = rset.uid;
 		rset.uid = (uid_t)-1;
 	}
-	restrict_access(&rset, *set->mail_home == '\0' ? NULL : set->mail_home,
-			disallow_root);
+	restrict_access(&rset, *home == '\0' ? NULL : home, disallow_root);
 	if (keep_setuid_root) {
 		if (seteuid(setuid_uid) < 0)
 			i_fatal("seteuid(%s) failed: %m", dec2str(setuid_uid));
@@ -299,20 +301,25 @@ mail_storage_service_init_settings(struct master_service *service,
 }
 
 static int
-mail_storage_service_init_post(struct master_service *service, const char *user,
+mail_storage_service_init_post(struct master_service *service,
+			       const char *user, const char *home,
 			       const struct mail_user_settings *user_set,
 			       struct mail_user **mail_user_r,
 			       const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
 	struct mail_user *mail_user;
-	const char *home;
 
 	mail_set = mail_user_set_get_storage_set(user_set);
 
+	if (mail_set->mail_debug) {
+		i_info("Effective uid=%s, gid=%s, home=%s",
+		       dec2str(geteuid()), dec2str(getegid()),
+		       home != NULL ? home : "(none)");
+	}
+
 	/* If possible chdir to home directory, so that core file
 	   could be written in case we crash. */
-	home = user_set->mail_home;
 	if (*home != '\0') {
 		if (chdir(home) < 0) {
 			if (errno != ENOENT)
@@ -334,6 +341,49 @@ mail_storage_service_init_post(struct master_service *service, const char *user,
 	}
 	*mail_user_r = mail_user;
 	return 0;
+}
+
+static const struct var_expand_table *
+get_var_expand_table(struct master_service *service, const char *user)
+{
+	static struct var_expand_table static_tab[] = {
+		{ 'u', NULL, "user" },
+		{ 'n', NULL, "username" },
+		{ 'd', NULL, "domain" },
+		{ 's', NULL, "service" },
+		{ 'p', NULL, "pid" },
+		{ 'i', NULL, "uid" },
+		{ '\0', NULL, NULL }
+	};
+	struct var_expand_table *tab;
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+
+	tab[0].value = user;
+	tab[1].value = t_strcut(user, '@');
+	tab[2].value = strchr(user, '@');
+	if (tab[2].value != NULL) tab[2].value++;
+	tab[3].value = service->name;
+	tab[4].value = my_pid;
+	tab[5].value = dec2str(geteuid());
+	return tab;
+}
+
+static const char *
+user_expand_varstr(struct master_service *service, const char *user,
+		   const char *str)
+{
+	string_t *ret;
+
+	if (*str == SETTING_STRVAR_EXPANDED[0])
+		return str + 1;
+
+	i_assert(*str == SETTING_STRVAR_UNEXPANDED[0]);
+
+	ret = t_str_new(256);
+	var_expand(ret, str + 1, get_var_expand_table(service, user));
+	return str_c(ret);
 }
 
 struct mail_user *
@@ -372,16 +422,21 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 		if (service_auth_userdb_lookup(service, mail_set->mail_debug,
 					       user_set, &user,
 					       &system_groups_user,
-					       &error) <= 0) {
+					       &error) <= 0)
 			i_fatal("%s", error);
-		}
-	} else {
-		home = getenv("HOME");
-		system_groups_user = NULL;
-		if (*user_set->mail_home == '\0' && home != NULL)
-			master_service_set(service, "mail_home", home);
 	}
-	home = user_set->mail_home;
+
+	/* variable strings are expanded in mail_user_init(),
+	   but we need the home sooner so do it separately here. */
+	home = user_expand_varstr(service, user, user_set->mail_home);
+
+	if (!userdb_lookup) {
+		system_groups_user = NULL;
+		if (*home == '\0' && getenv("HOME") != NULL) {
+			home = getenv("HOME");
+			master_service_set(service, "mail_home", home);
+		}
+	}
 
 	len = strlen(user_set->mail_chroot);
 	if (len > 2 && strcmp(user_set->mail_chroot + len - 2, "/.") == 0 &&
@@ -396,14 +451,14 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 				user_set->mail_plugins, TRUE,
 				master_service_get_version_string(service));
 
-	service_drop_privileges(user_set, system_groups_user,
+	service_drop_privileges(user_set, system_groups_user, home,
 		(flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0, FALSE);
 	/* privileges are now dropped */
 
 	dict_drivers_register_builtin();
 	module_dir_init(modules);
 	mail_users_init(user_set->auth_socket_path, mail_set->mail_debug);
-	if (mail_storage_service_init_post(service, user, user_set,
+	if (mail_storage_service_init_post(service, user, home, user_set,
 					   &mail_user, &error) < 0)
 		i_fatal("%s", error);
 	return mail_user;
@@ -461,7 +516,7 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 {
 	const struct mail_user_settings *user_set;
 	const struct mail_storage_settings *mail_set;
-	const char *orig_user, *system_groups_user;
+	const char *orig_user, *system_groups_user, *home;
 	void **sets;
 	unsigned int len;
 	int ret;
@@ -483,7 +538,11 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 		system_groups_user = NULL;
 	}
 
-	service_drop_privileges(user_set, system_groups_user,
+	/* variable strings are expanded in mail_user_init(),
+	   but we need the home sooner so do it separately here. */
+	home = user_expand_varstr(ctx->service, user, user_set->mail_home);
+
+	service_drop_privileges(user_set, system_groups_user, home,
 		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0, TRUE);
 
 	if (!ctx->modules_initialized) {
@@ -497,14 +556,13 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 	   the home directory */
 	len = strlen(user_set->mail_chroot);
 	if (len > 2 && strcmp(user_set->mail_chroot + len - 2, "/.") == 0 &&
-	    strncmp(user_set->mail_home, user_set->mail_chroot, len - 2) == 0) {
+	    strncmp(home, user_set->mail_chroot, len - 2) == 0) {
 		/* home dir already contains the chroot dir */
 	} else if (len > 0) {
 		master_service_set(ctx->service, "mail_home",
-				   t_strconcat(user_set->mail_chroot, "/",
-					       user_set->mail_home, NULL));
+			t_strconcat(user_set->mail_chroot, "/", home, NULL));
 	}
-	if (mail_storage_service_init_post(ctx->service, user,
+	if (mail_storage_service_init_post(ctx->service, user, home,
 					   user_set, mail_user_r, error_r) < 0)
 		return -1;
 	return 1;
