@@ -625,7 +625,8 @@ struct mail_storage virtual_storage = {
 		index_storage_destroy,
 		NULL,
 		virtual_mailbox_open,
-		virtual_mailbox_create
+		virtual_mailbox_create,
+		NULL
 	}
 };
 
