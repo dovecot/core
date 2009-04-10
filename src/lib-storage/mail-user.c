@@ -8,6 +8,7 @@
 #include "var-expand.h"
 #include "settings-parser.h"
 #include "auth-master.h"
+#include "master-service.h"
 #include "mail-storage-settings.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
@@ -35,7 +36,7 @@ struct mail_user *mail_user_alloc(const char *username,
 	i_assert(username != NULL);
 	i_assert(*username != '\0');
 
-	pool = pool_alloconly_create("mail user", 2048);
+	pool = pool_alloconly_create("mail user", 4096);
 	user = p_new(pool, struct mail_user, 1);
 	user->pool = pool;
 	user->refcount = 1;
@@ -97,7 +98,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	if (mail_user_expand_plugins_envs(user, error_r) < 0)
 		return -1;
 
-	mail_set = mail_user_set_get_driver_settings(user->set, "MAIL");
+	mail_set = mail_user_set_get_storage_set(user->set);
 	user->mail_debug = mail_set->mail_debug;
 
 	user->initialized = TRUE;
@@ -248,8 +249,7 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 
 	userdb_pool = pool_alloconly_create("userdb lookup", 512);
 	ret = auth_master_user_lookup(auth_master_conn, user->username,
-				      AUTH_SERVICE_INTERNAL,
-				      userdb_pool, &reply);
+				      "lib-storage", userdb_pool, &reply);
 	if (ret < 0)
 		*home_r = NULL;
 	else {
@@ -265,17 +265,22 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 
 const char *mail_user_plugin_getenv(struct mail_user *user, const char *name)
 {
-	const char *const *envs;
-	unsigned int i, count, name_len = strlen(name);
+	return mail_user_set_plugin_getenv(user->set, name);
+}
 
-	if (!array_is_created(&user->set->plugin_envs))
+const char *mail_user_set_plugin_getenv(const struct mail_user_settings *set,
+					const char *name)
+{
+	const char *const *envs;
+	unsigned int i, count;
+
+	if (!array_is_created(&set->plugin_envs))
 		return NULL;
 
-	envs = array_get(&user->set->plugin_envs, &count);
-	for (i = 0; i < count; i++) {
-		if (strncmp(envs[i], name, name_len) == 0 &&
-		    envs[i][name_len] == '=')
-			return envs[i] + name_len + 1;
+	envs = array_get(&set->plugin_envs, &count);
+	for (i = 0; i < count; i += 2) {
+		if (strcmp(envs[i], name) == 0)
+			return envs[i+1];
 	}
 	return NULL;
 }
@@ -313,14 +318,6 @@ const char *mail_user_get_temp_prefix(struct mail_user *user)
 
 void mail_users_init(const char *auth_socket_path, bool debug)
 {
-	const char *base_dir;
-
-	if (auth_socket_path == NULL) {
-		base_dir = getenv("BASE_DIR");
-		if (base_dir == NULL)
-			base_dir = PKG_RUNDIR;
-		auth_socket_path = t_strconcat(base_dir, "/auth-master", NULL);
-	}
 	auth_master_conn = auth_master_init(auth_socket_path, debug);
 }
 

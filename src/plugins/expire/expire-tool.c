@@ -1,72 +1,26 @@
 /* Copyright (c) 2006-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "ioloop.h"
 #include "env-util.h"
-#include "file-lock.h"
-#include "randgen.h"
-#include "lib-signals.h"
 #include "dict.h"
+#include "master-service.h"
+#include "master-service-settings.h"
 #include "mail-index.h"
 #include "mail-search-build.h"
 #include "mail-storage.h"
+#include "mail-storage-service.h"
 #include "mail-namespace.h"
 #include "auth-client.h"
 #include "auth-master.h"
 #include "expire-env.h"
-#include "expire-settings.h"
 
 #include <stdlib.h>
 
-/* ugly, but automake doesn't like having it built as both static and
-   dynamic object.. */
-#include "expire-env.c"
-
 struct expire_context {
-	struct auth_master_connection *auth_conn;
-
-	char *user;
+	struct mail_storage_service_multi_ctx *multi;
 	struct mail_user *mail_user;
-	const struct expire_settings *set;
 	bool testrun;
 };
-
-static int user_init(struct expire_context *ctx, const char *user)
-{
-	const struct mail_user_settings *user_set;
-	const char *error;
-	int ret;
-
-	env_clean();
-	if ((ret = auth_client_put_user_env(ctx->auth_conn, user)) <= 0) {
-		if (ret < 0)
-			return ret;
-
-		/* user no longer exists */
-		return 0;
-	}
-
-	expire_settings_read(&ctx->set, &user_set);
-
-	ctx->mail_user = mail_user_alloc(user, user_set);
-	mail_user_set_home(ctx->mail_user, getenv("HOME"));
-	mail_user_set_vars(ctx->mail_user, geteuid(), "expire", NULL, NULL);
-	if (mail_user_init(ctx->mail_user, &error) < 0) {
-		i_error("Mail user initialization failed: %s", error);
-		return -1;
-	}
-	if (mail_namespaces_init(ctx->mail_user, &error) < 0) {
-		i_error("Namespace initialization failed: %s", error);
-		return -1;
-	}
-	return 1;
-}
-
-static void user_deinit(struct expire_context *ctx)
-{
-	mail_user_unref(&ctx->mail_user);
-	i_free_and_null(ctx->user);
-}
 
 static int
 mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
@@ -89,15 +43,20 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 
 	*oldest_r = 0;
 
-	if (ctx->user != NULL && strcmp(user, ctx->user) != 0)
-		user_deinit(ctx);
-	if (ctx->user == NULL) {
-		if ((ret = user_init(ctx, user)) <= 0) {
-			if (ctx->testrun)
-				i_info("User lookup failed: %s", user);
+	if (ctx->mail_user != NULL &&
+	    strcmp(user, ctx->mail_user->username) != 0)
+		mail_user_unref(&ctx->mail_user);
+	if (ctx->mail_user == NULL) {
+		i_set_failure_prefix(t_strdup_printf("expire-tool(%s): ",
+						     user));
+		ret = mail_storage_service_multi_next(ctx->multi, user,
+						      &ctx->mail_user, &errstr);
+		if (ret <= 0) {
+			if (ret < 0 || ctx->testrun)
+				i_error("User init failed: %s", errstr);
 			return ret;
 		}
-		ctx->user = i_strdup(user);
+		i_info("success: %s %d", ctx->mail_user->username, (int)geteuid());
 	}
 
 	ns_mailbox = mailbox;
@@ -190,61 +149,40 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	return ret < 0 ? -1 : 0;
 }
 
-static const char *expire_getenv(struct expire_context *ctx, const char *name)
-{
-	const char *const *envs;
-	unsigned int i, count, name_len = strlen(name);
-
-	if (!array_is_created(&ctx->set->plugin_envs))
-		return NULL;
-
-	envs = array_get(&ctx->set->plugin_envs, &count);
-	for (i = 0; i < count; i++) {
-		if (strncmp(envs[i], name, name_len) == 0 &&
-		    envs[i][name_len] == '=')
-			return envs[i] + name_len + 1;
-	}
-	return NULL;
-}
-
-static void expire_run(bool testrun)
+static void expire_run(struct master_service *service, bool testrun)
 {
 	struct expire_context ctx;
 	struct dict *dict = NULL;
-	struct dict_transaction_context *trans;
 	const struct mail_user_settings *user_set;
-	const struct mail_storage_settings *mail_set;
+	void **sets;
+	struct dict_transaction_context *trans;
 	struct dict_iterate_context *iter;
 	struct expire_env *env;
 	time_t oldest;
 	unsigned int expunge_secs, altmove_secs;
-	const char *p, *key, *value;
-	const char *userp, *mailbox;
+	const char *p, *key, *value, *expire, *expire_altmove, *expire_dict;
+	const char *userp = NULL, *mailbox;
 	int ret;
 
-	dict_drivers_register_builtin();
-	mail_storage_init();
-	mail_storage_register_all();
-	mailbox_list_register_all();
-
 	memset(&ctx, 0, sizeof(ctx));
-	expire_settings_read(&ctx.set, &user_set);
-	mail_set = mail_user_set_get_driver_settings(user_set, "MAIL");
-	mail_users_init(ctx.set->auth_socket_path, mail_set->mail_debug);
+	ctx.multi = mail_storage_service_multi_init(service, NULL,
+				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
 
-	if (expire_getenv(&ctx, "EXPIRE") == NULL &&
-	    expire_getenv(&ctx, "EXPIRE_ALTMOVE") == NULL)
+	sets = master_service_settings_get_others(service);
+	user_set = sets[0];
+
+	expire = mail_user_set_plugin_getenv(user_set, "expire");
+	expire_altmove = mail_user_set_plugin_getenv(user_set, "expire_altmove");
+	expire_dict = mail_user_set_plugin_getenv(user_set, "expire_dict");
+
+	if (expire == NULL && expire_altmove == NULL)
 		i_fatal("expire and expire_altmove settings not set");
-	if (expire_getenv(&ctx, "EXPIRE_DICT") == NULL)
+	if (expire_dict == NULL)
 		i_fatal("expire_dict setting not set");
 
 	ctx.testrun = testrun;
-	ctx.auth_conn = auth_master_init(ctx.set->auth_socket_path,
-					 mail_set->mail_debug);
-	env = expire_env_init(expire_getenv(&ctx, "EXPIRE"),
-			      expire_getenv(&ctx, "EXPIRE_ALTMOVE"));
-	dict = dict_init(expire_getenv(&ctx, "EXPIRE_DICT"),
-			 DICT_DATA_TYPE_UINT32, "");
+	env = expire_env_init(expire, expire_altmove);
+	dict = dict_init(expire_dict, DICT_DATA_TYPE_UINT32, "");
 	if (dict == NULL)
 		i_fatal("dict_init() failed");
 
@@ -321,6 +259,9 @@ static void expire_run(bool testrun)
 			}
 		}
 	}
+	if (testrun && userp == NULL)
+		i_info("No entries in dictionary");
+
 	dict_iterate_deinit(&iter);
 	if (!testrun)
 		dict_transaction_commit(&trans);
@@ -328,37 +269,39 @@ static void expire_run(bool testrun)
 		dict_transaction_rollback(&trans);
 	dict_deinit(&dict);
 
-	if (ctx.user != NULL)
-		user_deinit(&ctx);
-	auth_master_deinit(&ctx.auth_conn);
-
-	mail_storage_deinit();
-	mail_users_deinit();
-	dict_drivers_unregister_builtin();
+	if (ctx.mail_user != NULL)
+		mail_user_unref(&ctx.mail_user);
+	mail_storage_service_multi_deinit(&ctx.multi);
 }
 
-int main(int argc ATTR_UNUSED, const char *argv[])
+int main(int argc, char *argv[])
 {
-	struct ioloop *ioloop;
+	struct master_service *service;
+	const char *getopt_str;
 	bool test = FALSE;
+	int c;
 
-	lib_init();
-	lib_signals_init();
-	random_init();
+	service = master_service_init("expire-tool",
+				      MASTER_SERVICE_FLAG_STANDALONE,
+				      argc, argv);
 
-	while (argv[1] != NULL) {
-		if (strcmp(argv[1], "--test") == 0)
+	getopt_str = t_strconcat("t", master_service_getopt_string(), NULL);
+	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+		switch (c) {
+		case 't':
 			test = TRUE;
-		else
-			i_fatal("Unknown parameter: %s", argv[1]);
-		argv++;
+			break;
+		default:
+			if (!master_service_parse_option(service, c, optarg))
+				i_fatal("Unknown parameter: -%c", c);
+			break;
+		}
 	}
+	if (optind != argc)
+		i_fatal("Unknown parameter: %s", argv[optind]);
 
-	ioloop = io_loop_create();
-	expire_run(test);
-	io_loop_destroy(&ioloop);
+	expire_run(service, test);
 
-	lib_signals_deinit();
-	lib_deinit();
+	master_service_deinit(&service);
 	return 0;
 }

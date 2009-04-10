@@ -4,15 +4,9 @@
 struct mail_user_settings;
 
 struct imap_settings {
-	const char *base_dir;
-	const char *auth_socket_path;
-
 	bool mail_debug;
 	bool shutdown_clients;
 	bool verbose_proctitle;
-
-	const char *mail_plugins;
-	const char *mail_plugin_dir;
 
 	/* imap: */
 	unsigned int imap_max_line_length;

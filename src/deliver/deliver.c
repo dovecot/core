@@ -1,49 +1,32 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
-/* This is getting pretty horrible. Especially the config file parsing.
-   Dovecot v2.0 should have a config file handling process which should help
-   with this.. */
-
 #include "lib.h"
 #include "lib-signals.h"
-#include "file-lock.h"
-#include "array.h"
 #include "ioloop.h"
-#include "hostpid.h"
-#include "home-expand.h"
 #include "env-util.h"
 #include "fd-set-nonblock.h"
 #include "istream.h"
 #include "istream-seekable.h"
-#include "module-dir.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "strescape.h"
 #include "var-expand.h"
 #include "rfc822-parser.h"
 #include "message-address.h"
+#include "imap-utf7.h"
+#include "master-service.h"
+#include "mail-storage-service.h"
 #include "mail-namespace.h"
 #include "raw-storage.h"
-#include "imap-utf7.h"
-#include "settings-parser.h"
-#include "dict.h"
-#include "auth-client.h"
 #include "mail-send.h"
 #include "duplicate.h"
 #include "mbox-from.h"
-#include "../master/syslog-util.h"
-#include "../master/syslog-util.c" /* ugly, ugly.. */
 #include "deliver.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <pwd.h>
-#include <syslog.h>
 
-#define DEFAULT_CONFIG_FILE SYSCONFDIR"/dovecot.conf"
-#define DEFAULT_SENDMAIL_PATH "/usr/lib/sendmail"
 #define DEFAULT_ENVELOPE_SENDER "MAILER-DAEMON"
 
 /* After buffer grows larger than this, create a temporary file to /tmp
@@ -55,7 +38,7 @@ static const char *wanted_headers[] = {
 	NULL
 };
 
-struct deliver_settings *deliver_set;
+const struct deliver_settings *deliver_set;
 deliver_mail_func_t *deliver_mail = NULL;
 bool mailbox_autosubscribe;
 bool mailbox_autocreate;
@@ -66,21 +49,7 @@ static const char *default_mailbox_name = NULL;
 static bool saved_mail = FALSE;
 static char *explicit_envelope_sender = NULL;
 
-static struct module *modules;
-static struct ioloop *ioloop;
-
-static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	/* warn about being killed because of some signal, except SIGINT (^C)
-	   which is too common at least while testing :) */
-	if (si->si_signo != SIGINT) {
-		i_warning("Killed with signal %d (by pid=%s uid=%s code=%s)",
-			  si->si_signo, dec2str(si->si_pid),
-			  dec2str(si->si_uid),
-			  lib_signal_code_to_str(si->si_signo, si->si_code));
-	}
-	io_loop_stop(current_ioloop);
-}
+static struct master_service *service;
 
 static const char *deliver_get_address(struct mail *mail, const char *header)
 {
@@ -402,32 +371,6 @@ static void failure_exit_callback(int *status)
 	*status = EX_TEMPFAIL;
 }
 
-static void open_logfile(const char *username)
-{
-	const char *prefix, *log_path;
-
-	prefix = t_strdup_printf("deliver(%s): ", username);
-	log_path = home_expand(deliver_set->log_path);
-	if (*log_path == '\0') {
-		int facility;
-
-		if (!syslog_facility_find(deliver_set->syslog_facility,
-					  &facility))
-			facility = LOG_MAIL;
-		i_set_failure_prefix(prefix);
-		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
-	} else {
-		/* log to file or stderr */
-		i_set_failure_file(log_path, prefix);
-	}
-
-	log_path = home_expand(deliver_set->info_log_path);
-	if (*log_path != '\0')
-		i_set_info_file(log_path);
-
-	i_set_failure_timestamp_format(deliver_set->log_timestamp);
-}
-
 static void print_help(void)
 {
 	printf(
@@ -435,51 +378,11 @@ static void print_help(void)
 "               [-f <envelope sender>] [-m <mailbox>] [-n] [-s] [-e] [-k]\n");
 }
 
-void deliver_env_clean(bool preserve_home)
-{
-	const char *tz, *home;
-
-	tz = getenv("TZ");
-	if (tz != NULL)
-		tz = t_strconcat("TZ=", tz, NULL);
-	home = preserve_home ? getenv("HOME") : NULL;
-	if (home != NULL)
-		home = t_strconcat("HOME=", home, NULL);
-
-	/* Note that if the original environment was set with env_put(), the
-	   environment strings will be invalid after env_clean(). That's why
-	   we t_strconcat() them above. */
-	env_clean();
-
-	if (tz != NULL) env_put(tz);
-	if (home != NULL) env_put(home);
-}
-
-static void plugin_get_home(void)
-{
-	const char *const *envs;
-	unsigned int i, count;
-
-	/* kludgy. this should be removed some day, but for now don't break
-	   existing setups that rely on it. */
-	if (array_is_created(&deliver_set->plugin_envs)) {
-		envs = array_get(&deliver_set->plugin_envs, &count);
-		for (i = 0; i < count; i++) {
-			if (strncmp(envs[i], "home=", 5) == 0) {
-				env_put(t_strconcat("HOME=", envs[i]+5, NULL));
-				break;
-			}
-		}
-	}
-}
-
 int main(int argc, char *argv[])
 {
-	const char *config_path = DEFAULT_CONFIG_FILE;
+	enum mail_storage_service_flags service_flags = 0;
 	const char *mailbox = "INBOX";
-	const char *home, *destaddr, *user, *errstr, *path, *orig_user;
-	ARRAY_TYPE(const_string) extra_fields = ARRAY_INIT;
-	struct setting_parser_context *parser;
+	const char *destaddr, *user, *errstr, *path, *getopt_str;
 	struct mail_user *mail_user, *raw_mail_user;
 	struct mail_namespace *raw_ns;
 	struct mail_namespace_settings raw_ns_set;
@@ -489,18 +392,12 @@ int main(int argc, char *argv[])
 	struct istream *input;
 	struct mailbox_transaction_context *t;
 	struct mailbox_header_lookup_ctx *headers_ctx;
-	struct mail_user_settings *user_set;
-	const struct mail_storage_settings *mail_set;
 	struct mail *mail;
 	char cwd[PATH_MAX];
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
-	bool keep_environment = FALSE;
-	bool user_auth = FALSE;
-	bool doveconf_env;
 	time_t mtime;
-	int i, ret;
-	pool_t userdb_pool = NULL;
+	int ret, c;
 	string_t *str;
 	enum mail_error error;
 
@@ -524,123 +421,87 @@ int main(int argc, char *argv[])
 
 	i_set_failure_exit_callback(failure_exit_callback);
 
-	lib_init();
-	ioloop = io_loop_create();
-
-	lib_signals_init();
-        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
-        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
-        lib_signals_ignore(SIGPIPE, TRUE);
-        lib_signals_ignore(SIGALRM, FALSE);
+	service = master_service_init("lda", MASTER_SERVICE_FLAG_STANDALONE,
+				      argc, argv);
 #ifdef SIGXFSZ
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 
-	deliver_set = i_new(struct deliver_settings, 1);
 	mailbox_autocreate = TRUE;
+	destaddr = path = NULL;
 
-	destaddr = user = path = NULL;
-	for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-a") == 0) {
+	user = getenv("USER");
+	getopt_str = t_strconcat("a:d:p:ekm:nsf:",
+				 master_service_getopt_string(), NULL);
+	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+		switch (c) {
+		case 'a':
 			/* destination address */
-			i++;
-			if (i == argc)
-				i_fatal_status(EX_USAGE, "Missing -a argument");
-			destaddr = argv[i];
-		} else if (strcmp(argv[i], "-d") == 0) {
+			destaddr = optarg;
+			break;
+		case 'd':
 			/* destination user */
-			i++;
-			if (i == argc)
-				i_fatal_status(EX_USAGE, "Missing -d argument");
-			user = argv[i];
-			user_auth = TRUE;
-		} else if (strcmp(argv[i], "-p") == 0) {
+			user = optarg;
+			service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+			break;
+		case 'p':
 			/* input path */
-			i++;
-			if (i == argc)
-				i_fatal_status(EX_USAGE, "Missing -p argument");
-			path = argv[i];
+			path = optarg;
 			if (*path != '/') {
 				/* expand relative paths before we chdir */
 				if (getcwd(cwd, sizeof(cwd)) == NULL)
 					i_fatal("getcwd() failed: %m");
 				path = t_strconcat(cwd, "/", path, NULL);
 			}
-		} else if (strcmp(argv[i], "-e") == 0) {
+			break;
+		case 'e':
 			stderr_rejection = TRUE;
-		} else if (strcmp(argv[i], "-c") == 0) {
-			/* config file path */
-			i++;
-			if (i == argc) {
-				i_fatal_status(EX_USAGE,
-					"Missing config file path argument");
-			}
-			config_path = argv[i];
-		} else if (strcmp(argv[i], "-k") == 0) {
-			keep_environment = TRUE;
-		} else if (strcmp(argv[i], "-m") == 0) {
-			/* destination mailbox */
-			i++;
-			if (i == argc)
-				i_fatal_status(EX_USAGE, "Missing -m argument");
-			/* Ignore -m "". This allows doing -m ${extension}
+			break;
+		case 'm':
+			/* destination mailbox.
+			   Ignore -m "". This allows doing -m ${extension}
 			   in Postfix to handle user+mailbox */
-			if (*argv[i] != '\0') {
+			if (*optarg != '\0') {
 				str = t_str_new(256);
-				if (imap_utf8_to_utf7(argv[i], str) < 0) {
+				if (imap_utf8_to_utf7(optarg, str) < 0) {
 					i_fatal("Mailbox name not UTF-8: %s",
 						mailbox);
 				}
 				mailbox = str_c(str);
 			}
-		} else if (strcmp(argv[i], "-n") == 0) {
+			break;
+		case 'n':
 			mailbox_autocreate = FALSE;
-		} else if (strcmp(argv[i], "-s") == 0) {
+			break;
+		case 's':
 			mailbox_autosubscribe = TRUE;
-		} else if (strcmp(argv[i], "-f") == 0) {
+			break;
+		case 'f':
 			/* envelope sender address */
-			i++;
-			if (i == argc)
-				i_fatal_status(EX_USAGE, "Missing -f argument");
 			explicit_envelope_sender =
-				i_strdup(address_sanitize(argv[i]));
-		} else if (argv[i][0] != '\0') {
-			print_help();
-			i_fatal_status(EX_USAGE,
-				       "Unknown argument: %s", argv[i]);
+				i_strdup(address_sanitize(optarg));
+			break;
+		default:
+			if (!master_service_parse_option(service, c, optarg)) {
+				print_help();
+				i_fatal_status(EX_USAGE,
+					       "Unknown argument: %c", c);
+			}
+			break;
 		}
 	}
-
-	doveconf_env = getenv("DOVECONF_ENV") != NULL;
-	if (user == NULL)
-		user = getenv("USER");
-	if (!keep_environment && !doveconf_env) {
-		deliver_env_clean(!user_auth);
-		env_put(t_strconcat("USER=", user, NULL));
-	}
-	if (!doveconf_env) {
-		/* currently we need to be executed via doveconf. */
-#define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
-		const char **conf_argv;
-
-		conf_argv = i_new(const char *, 6 + (argc + 1) + 1);
-		conf_argv[0] = DOVECOT_CONFIG_BIN_PATH;
-		conf_argv[1] = "-s";
-		conf_argv[2] = "lda";
-		conf_argv[3] = "-c";
-		conf_argv[4] = config_path;
-		conf_argv[5] = "--exec";
-		memcpy(conf_argv+6, argv, (argc+1) * sizeof(argv[0]));
-		execv(conf_argv[0], (char **)conf_argv);
-		i_fatal_status(EX_CONFIG, "execv(%s) failed: %m", conf_argv[0]);
+	if (optind != argc) {
+		print_help();
+		i_fatal_status(EX_USAGE, "Unknown argument: %s", argv[optind]);
 	}
 
 	process_euid = geteuid();
-	if (user_auth)
+	if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0)
 		;
 	else if (process_euid != 0) {
 		/* we're non-root. get our username and possibly our home. */
 		struct passwd *pw;
+		const char *home;
 
 		home = getenv("HOME");
 		if (user != NULL && home != NULL) {
@@ -659,95 +520,17 @@ int main(int argc, char *argv[])
 			"destination user parameter (-d user) not given");
 	}
 
-        mail_storage_init();
-	mail_storage_register_all();
-	mailbox_list_register_all();
-
-	parser = deliver_settings_read(&deliver_set, &user_set);
-	open_logfile(user);
-
-	mail_set = mail_user_set_get_driver_settings(user_set, "MAIL");
-	if (deliver_set->mail_plugins == '\0')
-		modules = NULL;
-	else {
-		const char *version;
-
-		version = deliver_set->version_ignore ? NULL : PACKAGE_VERSION;
-		modules = module_dir_load(deliver_set->mail_plugin_dir,
-					  deliver_set->mail_plugins,
-					  TRUE, version);
-	}
-
-	if (user_auth) {
-		userdb_pool = pool_alloconly_create("userdb lookup replys", 512);
-		orig_user = user;
-		ret = auth_client_lookup_and_restrict(deliver_set->auth_socket_path,
-						      mail_set->mail_debug,
-						      &user, process_euid,
-						      userdb_pool,
-						      &extra_fields);
-		if (ret != 0)
-			return ret;
-
-		if (strcmp(user, orig_user) != 0) {
-			/* auth lookup changed the user. */
-			if (mail_set->mail_debug)
-				i_info("userdb changed username to %s", user);
-			i_set_failure_prefix(t_strdup_printf("deliver(%s): ",
-							     user));
-		}
-		/* if user was changed, it was allocated from userdb_pool
-		   which we'll free soon. */
-		user = t_strdup(user);
-	}
-
-	if (userdb_pool != NULL) {
-		settings_parse_set_expanded(parser, TRUE);
-		deliver_settings_add(parser, &extra_fields);
-		pool_unref(&userdb_pool);
-	}
-
-	home = getenv("HOME");
-	if (home == NULL) {
-		plugin_get_home();
-		home = getenv("HOME");
-	}
-
-	/* If possible chdir to home directory, so that core file
-	   could be written in case we crash. */
-	if (home != NULL) {
-		if (chdir(home) < 0) {
-			if (errno != ENOENT)
-				i_error("chdir(%s) failed: %m", home);
-			else if (mail_set->mail_debug)
-				i_info("Home dir not found: %s", home);
-		}
-	}
-
-	env_put(t_strconcat("USER=", user, NULL));
-	(void)umask(0077);
-
-	dict_drivers_register_builtin();
-        duplicate_init(mail_set);
-	mail_users_init(deliver_set->auth_socket_path, mail_set->mail_debug);
-
-	module_dir_init(modules);
-
-	mail_user = mail_user_alloc(user, user_set);
-	mail_user_set_home(mail_user, home);
-	mail_user_set_vars(mail_user, geteuid(), "deliver", NULL, NULL);
-	if (mail_user_init(mail_user, &errstr) < 0)
-		i_fatal("Mail user initialization failed: %s", errstr);
-	if (mail_namespaces_init(mail_user, &errstr) < 0)
-		i_fatal("Namespace initialization failed: %s", errstr);
+	service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+	mail_user = mail_storage_service_init_user(service, user,
+				&deliver_setting_parser_info, service_flags);
+	deliver_set = mail_storage_service_get_settings(service);
+        duplicate_init(mail_user_set_get_storage_set(mail_user->set));
 
 	/* create a separate mail user for the internal namespace */
-	raw_mail_user = mail_user_alloc(user, user_set);
+	raw_mail_user = mail_user_alloc(user, mail_user->unexpanded_set);
 	mail_user_set_home(raw_mail_user, "/");
 	if (mail_user_init(raw_mail_user, &errstr) < 0)
 		i_fatal("Raw user initialization failed: %s", errstr);
-
-	settings_parser_deinit(&parser);
 
 	memset(&raw_ns_set, 0, sizeof(raw_ns_set));
 	raw_ns_set.location = "/tmp";
@@ -866,17 +649,9 @@ int main(int argc, char *argv[])
 
 	mail_user_unref(&mail_user);
 	mail_user_unref(&raw_mail_user);
-
-	module_dir_unload(&modules);
-	mail_storage_deinit();
-	mail_users_deinit();
-
 	duplicate_deinit();
-	dict_drivers_unregister_builtin();
-	lib_signals_deinit();
 
-	io_loop_destroy(&ioloop);
-	lib_deinit();
-
+	mail_storage_service_deinit_user();
+	master_service_deinit(&service);
         return EX_OK;
 }

@@ -7,9 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
-	-I$(top_srcdir)/src/lib-storage \
-	-DPKG_RUNDIR=\""$(rundir)"\" \
-	-DMODULEDIR=\""$(moduledir)"\"
+	-I$(top_srcdir)/src/lib-storage
 
 pop3_LDFLAGS = -export-dynamic
 

@@ -4,20 +4,15 @@ pkglibexec_PROGRAMS = deliver
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
-	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/raw \
-	-DBINDIR=\""$(bindir)"\" \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DPKG_RUNDIR=\""$(rundir)"\" \
-	-DMODULEDIR=\""$(moduledir)"\"
+	-DPKG_RUNDIR=\""$(rundir)"\"
 
 deliver_LDFLAGS = -export-dynamic
 
@@ -30,7 +25,6 @@ deliver_LDADD = $(libs)
 deliver_DEPENDENCIES = $(libs)
 
 deliver_SOURCES = \
-	auth-client.c \
 	deliver.c \
 	deliver-settings.c \
 	duplicate.c \
@@ -38,7 +32,6 @@ deliver_SOURCES = \
 	smtp-client.c
 
 headers = \
-	auth-client.h \
 	deliver.h \
 	deliver-settings.h \
 	duplicate.h \

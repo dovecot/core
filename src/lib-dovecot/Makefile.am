@@ -9,6 +9,7 @@ libs = \
 	../lib-mail/libmail.la \
 	../lib-auth/libauth.la \
 	../lib-charset/libcharset.la \
+	../lib-master/libmaster.la \
 	../lib/liblib.la
 
 libdovecot_la_LIBADD = \

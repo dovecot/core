@@ -11,8 +11,11 @@
 
 #include <stddef.h>
 
+#define MAIL_STORAGE_SET_DRIVER_NAME "MAIL"
+
 static bool mail_storage_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool namespace_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
@@ -127,6 +130,25 @@ struct setting_parser_info mail_namespace_setting_parser_info = {
 	  offsetof(struct mail_user_settings, field), defines }
 
 static struct setting_define mail_user_setting_defines[] = {
+	DEF(SET_STR, base_dir),
+	DEF(SET_STR, auth_socket_path),
+
+	DEF(SET_STR, mail_uid),
+	DEF(SET_STR, mail_gid),
+	DEF(SET_STR_VARS, mail_home),
+	DEF(SET_STR, mail_chroot),
+	DEF(SET_STR, mail_access_groups),
+	DEF(SET_STR, mail_privileged_group),
+	DEF(SET_STR, valid_chroot_dirs),
+
+	DEF(SET_UINT, first_valid_uid),
+	DEF(SET_UINT, last_valid_uid),
+	DEF(SET_UINT, first_valid_gid),
+	DEF(SET_UINT, last_valid_gid),
+
+	DEF(SET_STR, mail_plugins),
+	DEF(SET_STR, mail_plugin_dir),
+
 	DEFLIST(namespaces, "namespace", &mail_namespace_setting_parser_info),
 	{ SET_STRLIST, "plugin", offsetof(struct mail_user_settings, plugin_envs), NULL },
 
@@ -134,6 +156,25 @@ static struct setting_define mail_user_setting_defines[] = {
 };
 
 static struct mail_user_settings mail_user_default_settings = {
+	MEMBER(base_dir) PKG_RUNDIR,
+	MEMBER(auth_socket_path) "auth-master",
+
+	MEMBER(mail_uid) "",
+	MEMBER(mail_gid) "",
+	MEMBER(mail_home) "",
+	MEMBER(mail_chroot) "",
+	MEMBER(mail_access_groups) "",
+	MEMBER(mail_privileged_group) "",
+	MEMBER(valid_chroot_dirs) "",
+
+	MEMBER(first_valid_uid) 500,
+	MEMBER(last_valid_uid) 0,
+	MEMBER(first_valid_gid) 1,
+	MEMBER(last_valid_gid) 0,
+
+	MEMBER(mail_plugins) "",
+	MEMBER(mail_plugin_dir) MODULEDIR,
+
 	MEMBER(namespaces) ARRAY_INIT,
 	MEMBER(plugin_envs) ARRAY_INIT
 };
@@ -147,7 +188,8 @@ struct setting_parser_info mail_user_setting_parser_info = {
 
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct mail_user_settings)
+	MEMBER(struct_size) sizeof(struct mail_user_settings),
+	MEMBER(check_func) mail_user_settings_check
 };
 
 const void *
@@ -163,6 +205,13 @@ mail_user_set_get_driver_settings(const struct mail_user_settings *set,
 			driver);
 	}
 	return dset;
+}
+
+const struct mail_storage_settings *
+mail_user_set_get_storage_set(const struct mail_user_settings *set)
+{
+	return mail_user_set_get_driver_settings(set,
+						 MAIL_STORAGE_SET_DRIVER_NAME);
 }
 
 const void *mail_storage_get_driver_settings(struct mail_storage *storage)
@@ -189,7 +238,7 @@ mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
 	return index_flags;
 }
 
-void mail_storage_namespace_defines_init(pool_t pool)
+const struct dynamic_settings_parser *mail_storage_get_dynamic_parsers(void)
 {
 	struct dynamic_settings_parser *parsers;
 	struct mail_storage *const *storages;
@@ -197,7 +246,7 @@ void mail_storage_namespace_defines_init(pool_t pool)
 
 	storages = array_get(&mail_storage_classes, &count);
 	parsers = t_new(struct dynamic_settings_parser, count + 1);
-	parsers[0].name = "MAIL";
+	parsers[0].name = MAIL_STORAGE_SET_DRIVER_NAME;
 	parsers[0].info = &mail_storage_setting_parser_info;
 
 	for (i = 0, j = 1; i < count; i++) {
@@ -208,8 +257,14 @@ void mail_storage_namespace_defines_init(pool_t pool)
 		parsers[j].info = storages[i]->v.get_setting_parser_info();
 		j++;
 	}
+	return parsers;
+}
 
-	settings_parser_info_update(pool, parsers[j-1].info->parent, parsers);
+static void
+fix_base_path(struct mail_user_settings *set, pool_t pool, const char **str)
+{
+	if (*str != NULL && **str != '\0' && **str != '/')
+		*str = p_strconcat(pool, set->base_dir, "/", *str, NULL);
 }
 
 /* <settings checks> */
@@ -266,6 +321,25 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				namespaces[i]->alias_for);
 			return FALSE;
 		}
+	}
+	return TRUE;
+}
+
+static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				     const char **error_r)
+{
+	struct mail_user_settings *set = _set;
+
+#ifndef CONFIG_BINARY
+	fix_base_path(set, pool, &set->auth_socket_path);
+#endif
+
+	if (*set->mail_plugins != '\0' &&
+	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
+		*error_r = t_strdup_printf(
+			"mail_plugin_dir: access(%s) failed: %m",
+			set->mail_plugin_dir);
+		return FALSE;
 	}
 	return TRUE;
 }

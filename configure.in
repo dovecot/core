@@ -2380,6 +2380,7 @@ src/lib-dict/Makefile
 src/lib-imap/Makefile
 src/lib-index/Makefile
 src/lib-mail/Makefile
+src/lib-master/Makefile
 src/lib-ntlm/Makefile
 src/lib-otp/Makefile
 src/lib-dovecot/Makefile

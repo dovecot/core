@@ -9,8 +9,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-static bool pop3_settings_check(void *_set, pool_t pool, const char **error_r);
-
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
@@ -19,15 +17,9 @@ static bool pop3_settings_check(void *_set, pool_t pool, const char **error_r);
 	{ SET_DEFLIST, name, offsetof(struct pop3_settings, field), defines }
 
 static struct setting_define pop3_setting_defines[] = {
-	DEF(SET_STR, base_dir),
-	DEF(SET_STR, auth_socket_path),
-
 	DEF(SET_BOOL, mail_debug),
 	DEF(SET_BOOL, shutdown_clients),
 	DEF(SET_BOOL, verbose_proctitle),
-
-	DEF(SET_STR, mail_plugins),
-	DEF(SET_STR, mail_plugin_dir),
 
 	DEF(SET_BOOL, pop3_no_flag_updates),
 	DEF(SET_BOOL, pop3_enable_last),
@@ -41,15 +33,9 @@ static struct setting_define pop3_setting_defines[] = {
 };
 
 static struct pop3_settings pop3_default_settings = {
-	MEMBER(base_dir) PKG_RUNDIR,
-	MEMBER(auth_socket_path) "auth-master",
-
 	MEMBER(mail_debug) FALSE,
 	MEMBER(shutdown_clients) FALSE,
 	MEMBER(verbose_proctitle) FALSE,
-
-	MEMBER(mail_plugins) "",
-	MEMBER(mail_plugin_dir) MODULEDIR,
 
 	MEMBER(pop3_no_flag_updates) FALSE,
 	MEMBER(pop3_enable_last) FALSE,
@@ -70,39 +56,10 @@ struct setting_parser_info pop3_setting_parser_info = {
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct pop3_settings),
-	MEMBER(check_func) pop3_settings_check
+	MEMBER(check_func) NULL
 };
 
 static pool_t settings_pool = NULL;
-
-static void fix_base_path(struct pop3_settings *set, const char **str)
-{
-	if (*str != NULL && **str != '\0' && **str != '/') {
-		*str = p_strconcat(settings_pool,
-				   set->base_dir, "/", *str, NULL);
-	}
-}
-
-/* <settings checks> */
-static bool pop3_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				const char **error_r)
-{
-	struct pop3_settings *set = _set;
-
-#ifndef CONFIG_BINARY
-	fix_base_path(set, &set->auth_socket_path);
-#endif
-
-	if (*set->mail_plugins != '\0' &&
-	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
-		*error_r = t_strdup_printf(
-			"mail_plugin_dir: access(%s) failed: %m",
-			set->mail_plugin_dir);
-		return FALSE;
-	}
-	return TRUE;
-}
-/* </settings checks> */
 
 static void
 parse_expand_vars(struct setting_parser_context *parser, const char *value)
@@ -142,7 +99,8 @@ void pop3_settings_read(const struct pop3_settings **set_r,
 	else
 		p_clear(settings_pool);
 
-	mail_storage_namespace_defines_init(settings_pool);
+	settings_parser_info_update(settings_pool,
+				    mail_storage_get_dynamic_parsers());
 
 	parser = settings_parser_init_list(settings_pool,
 				roots, N_ELEMENTS(roots),

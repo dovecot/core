@@ -1,8 +1,6 @@
 #ifndef AUTH_MASTER_H
 #define AUTH_MASTER_H
 
-#define AUTH_SERVICE_INTERNAL "internal"
-
 struct auth_user_reply {
 	uid_t uid;
 	gid_t gid;

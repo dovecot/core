@@ -217,7 +217,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 
         namespaces = NULL; ns_p = &namespaces;
 
-	mail_set = mail_user_set_get_driver_settings(user->set, "MAIL");
+	mail_set = mail_user_set_get_storage_set(user->set);
 	if (array_is_created(&user->set->namespaces))
 		ns_set = array_get(&user->set->namespaces, &count);
 	else {
@@ -313,7 +313,7 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)
 	ns->prefix = i_strdup("");
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST_PREFIX |
 		NAMESPACE_FLAG_SUBSCRIPTIONS;
-	ns->mail_set = mail_user_set_get_driver_settings(user->set, "MAIL");
+	ns->mail_set = mail_user_set_get_storage_set(user->set);
 	user->namespaces = ns;
 	return ns;
 }

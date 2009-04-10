@@ -6,12 +6,12 @@ pkglibexec_PROGRAMS = ssl-build-param
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-master \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DBINDIR=\""$(bindir)"\" \
-	-DMODULEDIR=\""$(moduledir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
 
 dovecot_LDADD = \
@@ -31,7 +31,6 @@ dovecot_SOURCES = \
 	mail-process.c \
 	master-settings.c \
 	main.c \
-	syslog-util.c \
 	ssl-init.c \
 	sysinfo-get.c
 
@@ -49,7 +48,6 @@ noinst_HEADERS = \
 	mail-process.h \
 	master-login-interface.h \
 	master-settings.h \
-	syslog-util.h \
 	ssl-init.h \
 	sysinfo-get.h
 

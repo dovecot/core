@@ -6,7 +6,6 @@
 #include "hash.h"
 #include "str.h"
 #include "env-util.h"
-#include "syslog-util.h"
 #include "child-process.h"
 
 #include <unistd.h>
@@ -44,8 +43,6 @@ void child_process_remove(pid_t pid)
 
 void child_process_init_env(const struct master_settings *set)
 {
-	int facility;
-
 	/* remove all environment, we don't need them */
 	env_clean();
 
@@ -53,11 +50,6 @@ void child_process_init_env(const struct master_settings *set)
 	env_put("LOG_TO_MASTER=1");
 	if (env_tz != NULL)
 		env_put(t_strconcat("TZ=", env_tz, NULL));
-
-	if (master_set == NULL ||
-	    !syslog_facility_find(set->syslog_facility, &facility))
-		facility = LOG_MAIL;
-	env_put(t_strdup_printf("SYSLOG_FACILITY=%d", facility));
 
 	if (master_set != NULL && !set->version_ignore)
 		env_put("DOVECOT_VERSION="PACKAGE_VERSION);

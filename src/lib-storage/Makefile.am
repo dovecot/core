@@ -5,11 +5,14 @@ pkglib_LTLIBRARIES = libdovecot-storage.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-dict \
+	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
-	-DPKG_RUNDIR=\""$(rundir)"\"
+	-DPKG_RUNDIR=\""$(rundir)"\" \
+	-DMODULEDIR=\""$(moduledir)"\"
 
 libdovecot_storage_la_SOURCES = \
 	mail.c \
@@ -19,6 +22,7 @@ libdovecot_storage_la_SOURCES = \
 	mail-search.c \
 	mail-search-build.c \
 	mail-storage.c \
+	mail-storage-service.c \
 	mail-storage-settings.c \
 	mail-user.c \
 	mailbox-list.c \
@@ -46,6 +50,7 @@ headers = \
 	mail-thread.h \
 	mail-storage.h \
 	mail-storage-private.h \
+	mail-storage-service.h \
 	mail-storage-settings.h \
 	mail-user.h \
 	mailbox-list.h \

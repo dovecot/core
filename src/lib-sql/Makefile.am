@@ -28,7 +28,6 @@ sql_drivers = @sql_drivers@
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-DMODULEDIR=\""$(moduledir)"\" \
 	$(SQL_CFLAGS)
 
 dist_sources = \

@@ -1,64 +1,58 @@
 /* Copyright (c) 2006-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "ioloop.h"
-#include "randgen.h"
-#include "lib-signals.h"
+#include "env-util.h"
+#include "master-service.h"
 #include "mail-namespace.h"
-#include "mail-storage-private.h"
-#include "convert-settings.h"
+#include "mail-storage.h"
+#include "mail-storage-service.h"
 #include "convert-storage.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 
 #define USAGE_STRING \
 "Usage: <username> <home dir> <source mail env> <dest mail env>\n" \
 "       [skip_broken_mailboxes] [skip_dotfiles] [alt_hierarchy_char=<c>]"
 
-int main(int argc, const char *argv[])
+int main(int argc, char *argv[])
 {
-	struct ioloop *ioloop;
+	struct master_service *service;
 	struct mail_user *user;
-	const struct convert_settings *set;
-	const struct mail_user_settings *user_set;
-	const struct mail_storage_settings *mail_set;
-	struct convert_plugin_settings set2;
+	struct convert_plugin_settings set;
 	struct mail_namespace *dest_ns;
 	struct mail_namespace_settings ns_set;
 	const char *error;
-	int i, ret = 0;
+	int i, c, ret = 0;
 
-	lib_init();
-	lib_signals_init();
-	random_init();
-	mail_storage_init();
-	mail_storage_register_all();
-	mailbox_list_register_all();
+	service = master_service_init("convert-tool",
+				      MASTER_SERVICE_FLAG_STANDALONE,
+				      argc, argv);
 
-	convert_settings_read(&set, &user_set);
-	mail_set = mail_user_set_get_driver_settings(user_set, "MAIL");
-	mail_users_init(set->auth_socket_path, mail_set->mail_debug);
-
-	if (argc <= 4)
+	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
+		if (!master_service_parse_option(service, c, optarg))
+			i_fatal(USAGE_STRING);
+	}
+	if (argc - optind < 4)
 		i_fatal(USAGE_STRING);
 
-	ioloop = io_loop_create();
+	env_put(t_strconcat("HOME=", argv[optind+1], NULL));
 
-	memset(&set2, 0, sizeof(set2));
-	for (i = 5; i < argc; i++) {
+	memset(&set, 0, sizeof(set));
+	for (i = optind + 4; i < argc; i++) {
 		if (strcmp(argv[i], "skip_broken_mailboxes") != 0)
-			set2.skip_broken_mailboxes = TRUE;
+			set.skip_broken_mailboxes = TRUE;
 		else if (strcmp(argv[i], "skip_dotdirs") != 0)
-			set2.skip_dotdirs = TRUE;
+			set.skip_dotdirs = TRUE;
 		else if (strncmp(argv[i], "alt_hierarchy_char=", 19) != 0)
-			set2.alt_hierarchy_char = argv[i][19];
+			set.alt_hierarchy_char = argv[i][19];
+		else
+			i_fatal(USAGE_STRING);
 	}
 
-	user = mail_user_alloc(argv[1], user_set);
-	mail_user_set_home(user, argv[2]);
-	mail_user_set_vars(user, geteuid(), "convert", NULL, NULL);
-	if (mail_user_init(user, &error) < 0)
-		i_fatal("Mail user initialization failed: %s", error);
+	master_service_init_log(service,
+		t_strdup_printf("convert-tool(%s): ", argv[optind]));
+	user = mail_storage_service_init_user(service, argv[optind], NULL, 0);
 
 	memset(&ns_set, 0, sizeof(ns_set));
 	ns_set.location = argv[4];
@@ -71,19 +65,16 @@ int main(int argc, const char *argv[])
 			"mail storage with data '%s': %s", argv[4], error);
 	}
 
-	ret = convert_storage(argv[3], dest_ns, &set2);
+	ret = convert_storage(argv[3], dest_ns, &set);
 	if (ret > 0)
 		i_info("Successfully converted");
 	else if (ret == 0)
 		i_error("Source storage not found");
 	else
 		i_error("Internal failure");
-	mail_user_unref(&user);
 
-	io_loop_destroy(&ioloop);
-	mail_storage_deinit();
-	mail_users_deinit();
-	lib_signals_deinit();
-	lib_deinit();
+	mail_user_unref(&user);
+	mail_storage_service_deinit_user();
+	master_service_deinit(&service);
 	return ret <= 0 ? 1 : 0;
 }

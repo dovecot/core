@@ -155,9 +155,9 @@ static void main_preinit(const struct imap_settings **set_r,
 	imap_settings_read(set_r, user_set_r);
 
 	/* Load the plugins before chrooting. Their init() is called later. */
-	modules = *(*set_r)->mail_plugins == '\0' ? NULL :
-		module_dir_load((*set_r)->mail_plugin_dir,
-				(*set_r)->mail_plugins, TRUE, version);
+	modules = *(*user_set_r)->mail_plugins == '\0' ? NULL :
+		module_dir_load((*user_set_r)->mail_plugin_dir,
+				(*user_set_r)->mail_plugins, TRUE, version);
 
 	restrict_access_by_env(getenv("HOME"), !IS_STANDALONE());
 	restrict_access_allow_coredumps(TRUE);
@@ -202,12 +202,11 @@ static void main_init(const struct imap_settings *set,
 				log_error_callback, NULL);
 	}
 
+	module_dir_init(modules);
 	dict_drivers_register_builtin();
-	mail_users_init(set->auth_socket_path, set->mail_debug);
+	mail_users_init(user_set->auth_socket_path, set->mail_debug);
 	clients_init();
 	commands_init();
-
-	module_dir_init(modules);
 
 	user = mail_user_alloc(username, user_set);
 	mail_user_set_home(user, home);

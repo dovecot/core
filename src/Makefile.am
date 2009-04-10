@@ -12,6 +12,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-charset \
 	lib-mail \
 	lib-imap \
+	lib-master \
 	lib-dict \
 	lib-settings
 
@@ -24,7 +25,6 @@ SUBDIRS = \
 	lib-ntlm \
 	lib-otp \
 	auth \
-	config \
 	dict \
 	master \
 	login-common \
@@ -32,6 +32,7 @@ SUBDIRS = \
 	imap \
 	$(POP3D) \
 	$(DELIVER) \
+	config \
 	tests \
 	util \
 	plugins

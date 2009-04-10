@@ -10,14 +10,17 @@ pkglibexec_PROGRAMS = \
 	maildirlock \
 	threadview
 
-sbin_PROGRAMS = dovecotpw
+sbin_PROGRAMS = dovecotpw doveadm
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-dict \
+	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
-	-I$(top_srcdir)/src/lib-storage/index/maildir \
+	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/auth
 
 rawlog_LDADD = \
@@ -70,3 +73,10 @@ dovecotpw_LDADD = \
 
 dovecotpw_SOURCES = \
 	dovecotpw.c
+
+doveadm_LDADD = \
+	../lib-dovecot/libdovecot.la \
+	../lib-storage/libdovecot-storage.la
+doveadm_SOURCES = \
+	doveadm.c
+

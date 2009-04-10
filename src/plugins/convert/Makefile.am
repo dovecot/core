@@ -2,11 +2,10 @@ pkglibexecdir = $(libexecdir)/dovecot
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
-	-I$(top_srcdir)/src/lib-storage/index \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
 lib20_convert_plugin_la_LDFLAGS = -module -avoid-version
@@ -19,14 +18,12 @@ lib20_convert_plugin_la_SOURCES = \
 	convert-plugin.c
 
 noinst_HEADERS = \
-	convert-settings.h \
 	convert-storage.h \
 	convert-plugin.h
 
 pkglibexec_PROGRAMS = convert-tool
 
 convert_tool_SOURCES = \
-	convert-settings.c \
 	convert-tool.c
 
 common_objects = \

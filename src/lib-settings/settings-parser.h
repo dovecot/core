@@ -143,11 +143,10 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 void *settings_dup(const struct setting_parser_info *info,
 		   const void *set, pool_t pool);
 /* parsers is a name=NULL -terminated list. The parsers are appended as
-   dynamic_settings_list structures to parent. The new structures are allocated
-   from the given pool. */
-void
-settings_parser_info_update(pool_t pool, struct setting_parser_info *parent,
-			    const struct dynamic_settings_parser *parsers);
+   dynamic_settings_list structures to their parent. All must have the same
+   parent. The new structures are allocated from the given pool. */
+void settings_parser_info_update(pool_t pool,
+				 const struct dynamic_settings_parser *parsers);
 
 /* Return pointer to beginning of settings for given name, or NULL if there is
    no such registered name. */

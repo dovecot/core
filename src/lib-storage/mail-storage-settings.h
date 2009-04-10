@@ -40,6 +40,23 @@ struct mail_namespace_settings {
 };
 
 struct mail_user_settings {
+	const char *base_dir;
+	const char *auth_socket_path;
+
+	const char *mail_uid;
+	const char *mail_gid;
+	const char *mail_home;
+	const char *mail_chroot;
+	const char *mail_access_groups;
+	const char *mail_privileged_group;
+	const char *valid_chroot_dirs;
+
+	unsigned int first_valid_uid, last_valid_uid;
+	unsigned int first_valid_gid, last_valid_gid;
+
+	const char *mail_plugins;
+	const char *mail_plugin_dir;
+
 	ARRAY_DEFINE(namespaces, struct mail_namespace_settings *);
 	ARRAY_DEFINE(plugin_envs, const char *);
 };
@@ -52,11 +69,13 @@ extern struct mail_namespace_settings mail_namespace_default_settings;
 const void *
 mail_user_set_get_driver_settings(const struct mail_user_settings *set,
 				  const char *driver);
+const struct mail_storage_settings *
+mail_user_set_get_storage_set(const struct mail_user_settings *set);
 const void *mail_storage_get_driver_settings(struct mail_storage *storage);
 
 enum mail_index_open_flags
 mail_storage_settings_to_index_flags(const struct mail_storage_settings *set);
 
-void mail_storage_namespace_defines_init(pool_t pool);
+const struct dynamic_settings_parser *mail_storage_get_dynamic_parsers(void);
 
 #endif

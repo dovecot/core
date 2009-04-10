@@ -82,7 +82,7 @@ int auth_client_put_user_env(struct auth_master_connection *conn,
 	int ret;
 
 	pool = pool_alloconly_create("userdb lookup", 512);
-	ret = auth_master_user_lookup(conn, user, AUTH_SERVICE_INTERNAL,
+	ret = auth_master_user_lookup(conn, user, MASTER_SERVICE_INTERNAL,
 				      pool, &reply);
 	if (ret > 0)
 		auth_set_env(user, &reply);

@@ -91,6 +91,8 @@ int mail_user_get_home(struct mail_user *user, const char **home_r);
 const char *mail_user_get_temp_prefix(struct mail_user *user);
 /* If name exists in plugin_envs, return its value. */
 const char *mail_user_plugin_getenv(struct mail_user *user, const char *name);
+const char *mail_user_set_plugin_getenv(const struct mail_user_settings *set,
+					const char *name);
 
 /* Add more namespaces to user's namespaces. The ->next pointers may be
    changed, so the namespaces pointer will be updated to user->namespaces. */

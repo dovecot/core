@@ -899,10 +899,10 @@ void settings_parse_save_input(struct setting_parser_context *ctx,
 }
 
 static void
-info_update_real(pool_t pool, struct setting_parser_info *parent,
-		 const struct dynamic_settings_parser *parsers)
+info_update_real(pool_t pool, const struct dynamic_settings_parser *parsers)
 {
 	/* @UNSAFE */
+	struct setting_parser_info *parent;
 	ARRAY_DEFINE(defines, struct setting_define);
 	ARRAY_TYPE(dynamic_settings_parser) dynamic_parsers;
 	struct dynamic_settings_parser new_parser;
@@ -911,6 +911,8 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 	void *parent_defaults;
 	unsigned int i, j;
 	size_t offset, new_struct_size;
+
+	parent = parsers[0].info->parent;
 
 	t_array_init(&defines, 128);
 	/* add existing defines */
@@ -971,12 +973,11 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 	parent->struct_size = new_struct_size;
 }
 
-void
-settings_parser_info_update(pool_t pool, struct setting_parser_info *parent,
-			    const struct dynamic_settings_parser *parsers)
+void settings_parser_info_update(pool_t pool,
+				 const struct dynamic_settings_parser *parsers)
 {
-	T_BEGIN {
-		info_update_real(pool, parent, parsers);
+	if (parsers[0].name != NULL) T_BEGIN {
+		info_update_real(pool, parsers);
 	} T_END;
 }
 
