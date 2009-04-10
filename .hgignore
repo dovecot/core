@@ -75,6 +75,7 @@ src/pop3/pop3
 src/tests/test-lib
 src/tests/test-mail
 src/tests/test-imap
+src/util/doveadm
 src/util/dovecotpw
 src/util/gdbhelper
 src/util/idxview
