@@ -1,7 +1,7 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
-#include "buffer.h"
+#include "array.h"
 #include "ioloop.h"
 #include "network.h"
 #include "lib-signals.h"
@@ -79,7 +79,7 @@ static uid_t get_uid(const char *user)
 {
 	struct passwd *pw;
 
-	if (user == NULL)
+	if (*user == '\0')
 		return (uid_t)-1;
 	if (is_numeric(user, '\0'))
 		return strtoul(user, NULL, 10);
@@ -104,7 +104,7 @@ static gid_t get_gid(const char *group)
 {
 	struct group *gr;
 
-	if (group == NULL)
+	if (*group == '\0')
 		return (gid_t)-1;
 	if (is_numeric(group, '\0'))
 		return strtoul(group, NULL, 10);
@@ -119,76 +119,70 @@ static gid_t get_gid(const char *group)
 	return gr->gr_gid;
 }
 
-static int create_unix_listener(const char *env, int backlog)
+static int create_unix_listener(const struct auth_socket_unix_settings *set,
+				int backlog)
 {
-	const char *path, *mode, *user, *group;
 	mode_t old_umask;
-	unsigned int mask;
 	uid_t uid;
 	gid_t gid;
 	int fd;
 
-	path = getenv(env);
-	if (path == NULL)
-		return -1;
-
-	mode = getenv(t_strdup_printf("%s_MODE", env));
-	if (mode == NULL)
-		mask = 0177; /* default to 0600 */
-	else {
-		if (sscanf(mode, "%o", &mask) != 1)
-			i_fatal("%s: Invalid mode %s", env, mode);
-		mask = (mask ^ 0777) & 0777;
-	}
-
-	old_umask = umask(mask);
-	fd = net_listen_unix_unlink_stale(path, backlog);
+	old_umask = umask((set->mode ^ 0777) & 0777);
+	fd = net_listen_unix_unlink_stale(set->path, backlog);
 	umask(old_umask);
 	if (fd == -1) {
 		if (errno == EADDRINUSE)
-			i_fatal("Socket already exists: %s", path);
+			i_fatal("Socket already exists: %s", set->path);
 		else
-			i_fatal("net_listen_unix(%s) failed: %m", path);
+			i_fatal("net_listen_unix(%s) failed: %m", set->path);
 	}
 
-	user = getenv(t_strdup_printf("%s_USER", env));
-	group = getenv(t_strdup_printf("%s_GROUP", env));
-
-	uid = get_uid(user); gid = get_gid(group);
-	if (chown(path, uid, gid) < 0) {
-		i_fatal("chown(%s, %s, %s) failed: %m",
-			path, dec2str(uid), dec2str(gid));
+	uid = get_uid(set->user); gid = get_gid(set->group);
+	if (chown(set->path, uid, gid) < 0) {
+		i_fatal("chown(%s, %s(%s), %s(%s)) failed: %m",
+			set->path, dec2str(uid), set->user,
+			dec2str(gid), set->group);
 	}
-
 	return fd;
 }
 
-static void add_extra_listeners(void)
+static void
+add_extra_unix_listeners(struct auth_master_listener *listener,
+			 struct auth_socket_unix_settings *const *sets,
+			 unsigned int count, enum listener_type type)
+{
+	unsigned int i;
+	int fd;
+
+	for (i = 0; i < count; i++) {
+		fd = create_unix_listener(sets[i], 128);
+		auth_master_listener_add(listener, fd, sets[i]->path, type);
+	}
+}
+
+static void add_extra_listeners(struct auth *auth)
 {
 	struct auth_master_listener *listener;
-	const char *str, *client_path, *master_path;
-	int client_fd, master_fd;
-	unsigned int i;
+	struct auth_socket_settings *const *sockets;
+	struct auth_socket_unix_settings *const *unix_sockets;
+	unsigned int i, count, count2;
 
-	for (i = 1;; i++) {
-		client_path = getenv(t_strdup_printf("AUTH_%u", i));
-		master_path = getenv(t_strdup_printf("AUTH_%u_MASTER", i));
-		if (client_path == NULL && master_path == NULL)
-			break;
-
-		str = t_strdup_printf("AUTH_%u", i);
-		client_fd = create_unix_listener(str, 128);
-		str = t_strdup_printf("AUTH_%u_MASTER", i);
-		master_fd = create_unix_listener(str, 128);
+	sockets = array_get(&auth->set->sockets, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(sockets[i]->type, "listen") != 0)
+			continue;
 
 		listener = auth_master_listener_create(auth);
-		if (master_fd != -1) {
-			auth_master_listener_add(listener, master_fd,
-						 master_path, LISTENER_MASTER);
+
+		if (array_is_created(&sockets[i]->masters)) {
+			unix_sockets = array_get(&sockets[i]->masters, &count2);
+			add_extra_unix_listeners(listener, unix_sockets, count2,
+						 LISTENER_MASTER);
 		}
-		if (client_fd != -1) {
-			auth_master_listener_add(listener, client_fd,
-						 client_path, LISTENER_CLIENT);
+		if (array_is_created(&sockets[i]->clients)) {
+			unix_sockets = array_get(&sockets[i]->clients, &count2);
+			add_extra_unix_listeners(listener, unix_sockets, count2,
+						 LISTENER_CLIENT);
 		}
 	}
 }
@@ -233,7 +227,7 @@ static void drop_privileges(void)
 	auth = auth_preinit(auth_settings_read(name));
 	auth_master_listeners_init();
 	if (!worker)
-		add_extra_listeners();
+		add_extra_listeners(auth);
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(NULL, FALSE);

@@ -86,7 +86,7 @@ struct setting_parser_info auth_socket_master_setting_parser_info = {
 	{ SET_DEFLIST, name, offsetof(struct auth_socket_settings, field), defines }
 
 static struct setting_define auth_socket_setting_defines[] = {
-	DEF(SET_STR, type),
+	DEF(SET_ENUM, type),
 
 	DEFLIST(clients, "client", &auth_socket_client_setting_parser_info),
 	DEFLIST(masters, "master", &auth_socket_master_setting_parser_info),
@@ -95,7 +95,7 @@ static struct setting_define auth_socket_setting_defines[] = {
 };
 
 static struct auth_socket_settings auth_socket_default_settings = {
-	MEMBER(type) "listen"
+	MEMBER(type) "listen:connect"
 };
 
 struct setting_parser_info auth_socket_setting_parser_info = {
