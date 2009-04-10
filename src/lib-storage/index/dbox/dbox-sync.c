@@ -169,7 +169,8 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 			   that's why we do this calculation before current
 			   sync: the purging is triggered only after the
 			   second expunge. */
-			if (dbox_map_want_purge(ctx->mbox->storage->map))
+			if ((ctx->flags & DBOX_SYNC_FLAG_NO_PURGE) == 0 &&
+			    dbox_map_want_purge(ctx->mbox->storage->map))
 				ctx->purge = TRUE;
 		}
 
@@ -243,6 +244,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 
 	ctx = i_new(struct dbox_sync_context, 1);
 	ctx->mbox = mbox;
+	ctx->flags = flags;
 
 	if (!mbox->ibox.keep_recent)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;

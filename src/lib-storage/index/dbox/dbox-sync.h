@@ -7,7 +7,8 @@ struct dbox_mailbox;
 enum dbox_sync_flags {
 	DBOX_SYNC_FLAG_FORCE		= 0x01,
 	DBOX_SYNC_FLAG_FSYNC		= 0x02,
-	DBOX_SYNC_FLAG_FORCE_REBUILD	= 0x04
+	DBOX_SYNC_FLAG_FORCE_REBUILD	= 0x04,
+	DBOX_SYNC_FLAG_NO_PURGE		= 0x08
 };
 
 struct dbox_sync_file_entry {
@@ -25,6 +26,7 @@ struct dbox_sync_context {
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *trans;
 	struct dbox_map_transaction_context *map_trans;
+	enum dbox_sync_flags flags;
 
 	string_t *path;
 	unsigned int path_dir_prefix_len;

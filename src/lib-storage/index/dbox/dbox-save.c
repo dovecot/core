@@ -353,7 +353,8 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	i_assert(ctx->finished);
 
 	/* lock the mailbox before map to avoid deadlocks */
-	if (dbox_sync_begin(ctx->mbox, DBOX_SYNC_FLAG_FORCE |
+	if (dbox_sync_begin(ctx->mbox, DBOX_SYNC_FLAG_NO_PURGE |
+			    DBOX_SYNC_FLAG_FORCE |
 			    DBOX_SYNC_FLAG_FSYNC, &ctx->sync_ctx) < 0) {
 		dbox_transaction_save_rollback(ctx);
 		return -1;
