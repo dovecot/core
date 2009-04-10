@@ -712,10 +712,11 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 {
 	struct dbox_map *map = ctx->map;
 	const struct dbox_settings *set = map->storage->set;
+	ARRAY_TYPE(seq_range) checked_file_ids;
 	struct dbox_file *const *files;
 	const struct mail_index_header *hdr;
 	unsigned int i, count, backwards_lookup_count;
-	uint32_t seq, seq1, uid, file_id, min_seen_file_id;
+	uint32_t seq, seq1, uid, file_id;
 	uoff_t offset, append_offset, size;
 	time_t stamp;
 	bool retry_later;
@@ -759,16 +760,17 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 	/* try to find an existing appendable file */
 	stamp = day_begin_stamp(set->dbox_rotate_days);
 	hdr = mail_index_get_header(map->view);
-	min_seen_file_id = (uint32_t)-1;
 
 	ctx->orig_next_uid = hdr->next_uid;
 	backwards_lookup_count = 0;
+	t_array_init(&checked_file_ids, 16);
 	for (seq = hdr->messages_count; seq > 0; seq--) {
 		if (dbox_map_lookup_seq(map, seq, &file_id, &offset, &size) < 0)
 			return -1;
-		if (file_id >= min_seen_file_id)
+
+		if (seq_range_exists(&checked_file_ids, file_id))
 			continue;
-		min_seen_file_id = file_id;
+		seq_range_array_add(&checked_file_ids, 0, file_id);
 
 		if (++backwards_lookup_count > MAX_BACKWARDS_LOOKUPS) {
 			/* we've wasted enough time here */
