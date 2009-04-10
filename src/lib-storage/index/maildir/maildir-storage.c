@@ -1084,7 +1084,8 @@ struct mail_storage maildir_storage = {
 		index_storage_destroy,
 		maildir_autodetect,
 		maildir_mailbox_open,
-		maildir_mailbox_create
+		maildir_mailbox_create,
+		NULL
 	}
 };
 

@@ -42,6 +42,7 @@ struct mail_storage_vfuncs {
 
 	int (*mailbox_create)(struct mail_storage *storage, const char *name,
 			      bool directory);
+	int (*purge)(struct mail_storage *storage);
 };
 
 union mail_storage_module_context {

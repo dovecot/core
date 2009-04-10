@@ -353,6 +353,9 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 	userdb_lookup = (flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0;
 	mail_storage_service_init_settings(service, set_root, !userdb_lookup);
 
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
+		master_service_set(service, "mail_debug", "yes");
+
 	/* now that we've read settings, we can set up logging */
 	master_service_init_log(service,
 		t_strdup_printf("%s(%s): ", service->name, user));

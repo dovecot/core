@@ -325,6 +325,7 @@ struct mail_storage shared_storage = {
 		index_storage_destroy,
 		NULL,
 		NULL,
-		shared_mailbox_create
+		shared_mailbox_create,
+		NULL
 	}
 };

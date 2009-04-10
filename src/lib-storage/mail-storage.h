@@ -271,6 +271,9 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
    created as long as it shows in LIST. */
 int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 				bool directory);
+/* Purge storage's mailboxes (freeing disk space from expunged mails),
+   if supported by the storage. Otherwise just a no-op. */
+int mail_storage_purge(struct mail_storage *storage);
 
 /* Returns the error message of last occurred error. */
 const char *mail_storage_get_last_error(struct mail_storage *storage,

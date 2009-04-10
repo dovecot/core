@@ -331,6 +331,14 @@ int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 	return storage->v.mailbox_create(storage, name, directory);
 }
 
+int mail_storage_purge(struct mail_storage *storage)
+{
+	mail_storage_clear_error(storage);
+
+	return storage->v.purge == NULL ? 0 :
+		storage->v.purge(storage);
+}
+
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					enum mail_error *error_r)
 {
