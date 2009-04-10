@@ -53,7 +53,8 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
 
-	client->command_pool = pool_alloconly_create("client command", 1024*12);
+	client->command_pool =
+		pool_alloconly_create(MEMPOOL_GROWING"client command", 1024*12);
 	client->user = user;
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {

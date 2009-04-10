@@ -96,7 +96,7 @@ void imap_settings_read(const struct imap_settings **set_r,
 	void **sets;
 
 	if (settings_pool == NULL)
-		settings_pool = pool_alloconly_create("imap settings", 2048);
+		settings_pool = pool_alloconly_create("imap settings", 4096);
 	else
 		p_clear(settings_pool);
 

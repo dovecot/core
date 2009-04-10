@@ -95,7 +95,7 @@ void pop3_settings_read(const struct pop3_settings **set_r,
 	void **sets;
 
 	if (settings_pool == NULL)
-		settings_pool = pool_alloconly_create("pop3 settings", 1024);
+		settings_pool = pool_alloconly_create("pop3 settings", 4096);
 	else
 		p_clear(settings_pool);
 
