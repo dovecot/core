@@ -312,7 +312,8 @@ void restrict_access(const struct restrict_access_settings *set,
 	else
 		allow_root_gid = FALSE;
 
-	if (!allow_root_gid && set->uid != 0) {
+	if (!allow_root_gid && set->uid != 0 &&
+	    (set->uid != (uid_t)-1 || !is_root)) {
 		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0) {
 			if (process_primary_gid == 0)
 				i_fatal("GID 0 isn't permitted");
