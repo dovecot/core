@@ -5,7 +5,7 @@
 #include "ioloop.h"
 #include "write-full.h"
 #include "file-dotlock.h"
-#include "maildir-uidlist.h"
+#include "index/maildir/maildir-uidlist.h"
 
 #include <stdio.h>
 #include <stdlib.h>
