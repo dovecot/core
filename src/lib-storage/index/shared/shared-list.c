@@ -214,6 +214,7 @@ static int shared_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	struct shared_mailbox_list_iterate_context *ctx =
 		(struct shared_mailbox_list_iterate_context *)_ctx;
 
+	imap_match_deinit(&ctx->glob);
 	i_free(ctx);
 	return 0;
 }

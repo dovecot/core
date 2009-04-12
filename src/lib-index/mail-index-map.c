@@ -1146,12 +1146,10 @@ void mail_index_record_map_move_to_private(struct mail_index_map *map)
 					    map->hdr.record_size);
 		mail_index_record_map_unlink(map);
 		map->rec_map = new_map;
+		if (map->rec_map->modseq != NULL)
+			new_map->modseq = mail_index_map_modseq_clone(map->rec_map->modseq);
 	} else {
 		new_map = map->rec_map;
-	}
-	if (map->rec_map->modseq != NULL) {
-		new_map->modseq =
-			mail_index_map_modseq_clone(map->rec_map->modseq);
 	}
 
 	if (new_map->records_count != map->hdr.messages_count) {
