@@ -2,25 +2,19 @@
 
 #include "common.h"
 #include "ioloop.h"
-#include "file-lock.h"
-#include "network.h"
-#include "lib-signals.h"
+#include "istream.h"
+#include "buffer.h"
+#include "base64.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
-#include "base64.h"
-#include "buffer.h"
-#include "istream.h"
 #include "process-title.h"
-#include "module-dir.h"
+#include "master-service.h"
 #include "var-expand.h"
-#include "dict.h"
-#include "mail-storage.h"
-#include "mail-namespace.h"
+#include "mail-storage-service.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <syslog.h>
 
 #define IS_STANDALONE() \
         (getenv("LOGGED_IN") == NULL)
@@ -36,33 +30,17 @@ static struct client_workaround_list client_workaround_list[] = {
 	{ NULL, 0 }
 };
 
-struct ioloop *ioloop;
-
+struct master_service *service;
 void (*hook_client_created)(struct client **client) = NULL;
 
-static struct module *modules = NULL;
-static char log_prefix[128]; /* syslog() needs this to be permanent */
 static struct io *log_io = NULL;
-
-static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	/* warn about being killed because of some signal, except SIGINT (^C)
-	   which is too common at least while testing :) */
-	if (si->si_signo != SIGINT) {
-		i_warning("Killed with signal %d (by pid=%s uid=%s code=%s)",
-			  si->si_signo, dec2str(si->si_pid),
-			  dec2str(si->si_uid),
-			  lib_signal_code_to_str(si->si_signo, si->si_code));
-	}
-	io_loop_stop(ioloop);
-}
 
 static void log_error_callback(void *context ATTR_UNUSED)
 {
 	/* the log fd is closed, don't die when trying to log later */
 	i_set_failure_ignore_errors(TRUE);
 
-	io_loop_stop(ioloop);
+	master_service_stop(service);
 }
 
 static enum client_workarounds
@@ -112,100 +90,11 @@ static enum uidl_keys parse_uidl_keymask(const char *format)
 	return mask;
 }
 
-static void open_logfile(void)
+static bool main_init(const struct pop3_settings *set, struct mail_user *user)
 {
-	const char *user;
-
-	if (getenv("LOG_TO_MASTER") != NULL) {
-		i_set_failure_internal();
-		return;
-	}
-
-	if (getenv("LOG_PREFIX") != NULL)
-		i_strocpy(log_prefix, getenv("LOG_PREFIX"), sizeof(log_prefix));
-	else {
-		user = getenv("USER");
-		if (user == NULL) user = "??";
-		if (strlen(user) >= sizeof(log_prefix)-6) {
-			/* quite a long user name, cut it */
-			user = t_strndup(user, sizeof(log_prefix)-6-2);
-			user = t_strconcat(user, "..", NULL);
-		}
-		i_snprintf(log_prefix, sizeof(log_prefix), "pop3(%s): ", user);
-	}
-
-	if (getenv("USE_SYSLOG") != NULL) {
-		const char *env = getenv("SYSLOG_FACILITY");
-		i_set_failure_syslog(log_prefix, LOG_NDELAY,
-				     env == NULL ? LOG_MAIL : atoi(env));
-	} else {
-		/* log to file or stderr */
-		i_set_failure_file(getenv("LOGFILE"), log_prefix);
-	}
-
-	if (getenv("INFOLOGFILE") != NULL)
-		i_set_info_file(getenv("INFOLOGFILE"));
-
-	i_set_failure_timestamp_format(getenv("LOGSTAMP"));
-}
-
-static void main_preinit(const struct pop3_settings **set_r,
-			 const struct mail_user_settings **user_set_r)
-{
-	const char *version;
-
-	version = getenv("DOVECOT_VERSION");
-	if (version != NULL && strcmp(version, PACKAGE_VERSION) != 0) {
-		i_fatal("Dovecot version mismatch: "
-			"Master is v%s, pop3 is v"PACKAGE_VERSION" "
-			"(if you don't care, set version_ignore=yes)", version);
-	}
-
-	/* Log file or syslog opening probably requires roots */
-	open_logfile();
-
-        mail_storage_init();
-	mail_storage_register_all();
-	mailbox_list_register_all();
-
-	/* read settings after registering storages so they can have their
-	   own setting definitions too */
-	pop3_settings_read(set_r, user_set_r);
-
-	/* Load the plugins before chrooting. Their init() is called later. */
-	modules = *(*user_set_r)->mail_plugins == '\0' ? NULL :
-		module_dir_load((*user_set_r)->mail_plugin_dir,
-				(*user_set_r)->mail_plugins, TRUE, version);
-
-	restrict_access_by_env(getenv("HOME"), !IS_STANDALONE());
-	restrict_access_allow_coredumps(TRUE);
-}
-
-static bool main_init(const struct pop3_settings *set,
-		      const struct mail_user_settings *user_set)
-{
-	struct mail_user *user;
 	struct client *client;
-	const char *str, *error;
+	const char *str;
 	bool ret = TRUE;
-
-	lib_signals_init();
-        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
-        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
-        lib_signals_ignore(SIGPIPE, TRUE);
-        lib_signals_ignore(SIGALRM, FALSE);
-
-	if (getenv("USER") == NULL)
-		i_fatal("USER environment missing");
-
-	if (set->mail_debug) {
-		const char *home;
-
-		home = getenv("HOME");
-		i_info("Effective uid=%s, gid=%s, home=%s",
-		       dec2str(geteuid()), dec2str(getegid()),
-		       home != NULL ? home : "(none)");
-	}
 
 	if (set->shutdown_clients) {
 		/* If master dies, the log fd gets closed and we'll quit */
@@ -213,18 +102,7 @@ static bool main_init(const struct pop3_settings *set,
 				log_error_callback, NULL);
 	}
 
-	dict_drivers_register_builtin();
-	mail_users_init(user_set->auth_socket_path, set->mail_debug);
 	clients_init();
-
-	module_dir_init(modules);
-
-	user = mail_user_alloc(getenv("USER"), user_set);
-	mail_user_set_home(user, getenv("HOME"));
-	if (mail_user_init(user, &error) < 0)
-		i_fatal("Mail user initialization failed: %s", error);
-	if (mail_namespaces_init(user, &error) < 0)
-		i_fatal("Namespace initialization failed: %s", error);
 
 	client = client_create(0, 1, user, set);
 	if (client == NULL)
@@ -257,20 +135,17 @@ static void main_deinit(void)
 	if (log_io != NULL)
 		io_remove(&log_io);
 	clients_deinit();
-
-	module_dir_unload(&modules);
-	mail_storage_deinit();
-	mail_users_deinit();
-	dict_drivers_unregister_builtin();
-
-	lib_signals_deinit();
-	closelog();
 }
 
-int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
+int main(int argc, char *argv[], char *envp[])
 {
+	enum master_service_flags service_flags = 0;
+	enum mail_storage_service_flags storage_service_flags =
+		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+	struct mail_user *mail_user;
 	const struct pop3_settings *set;
-	const struct mail_user_settings *user_set;
+	const char *user;
+	int c;
 
 #ifdef DEBUG
 	if (!IS_STANDALONE() && getenv("GDB") == NULL)
@@ -283,20 +158,41 @@ int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
 		return 1;
 	}
 
-	/* NOTE: we start rooted, so keep the code minimal until
-	   restrict_access_by_env() is called */
-	lib_init();
-	main_preinit(&set, &user_set);
+	if (IS_STANDALONE())
+		service_flags |= MASTER_SERVICE_FLAG_STANDALONE;
+	else
+		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+
+	service = master_service_init("pop3", service_flags, argc, argv);
+	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
+		if (!master_service_parse_option(service, c, optarg))
+			i_fatal("Unknown argument: %c", c);
+	}
+	user = getenv("USER");
+	if (user == NULL) {
+		if (IS_STANDALONE())
+			user = getlogin();
+		if (user == NULL)
+			i_fatal("USER environment missing");
+	}
+
+	mail_user = mail_storage_service_init_user(service, user,
+						   &pop3_setting_parser_info,
+						   storage_service_flags);
+	set = mail_storage_service_get_settings(service);
+	restrict_access_allow_coredumps(TRUE);
 
         process_title_init(argv, envp);
-	ioloop = io_loop_create();
 
-	if (main_init(set, user_set))
-		io_loop_run(ioloop);
+	/* fake that we're running, so we know if client was destroyed
+	   while initializing */
+	io_loop_set_running(current_ioloop);
+
+	if (main_init(set, mail_user))
+		master_service_run(service);
+
 	main_deinit();
-
-	io_loop_destroy(&ioloop);
-	lib_deinit();
-
+	mail_storage_service_deinit_user();
+	master_service_deinit(&service);
 	return 0;
 }

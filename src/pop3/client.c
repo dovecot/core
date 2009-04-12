@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "var-expand.h"
+#include "master-service.h"
 #include "mail-storage.h"
 #include "commands.h"
 #include "mail-search-build.h"
@@ -324,7 +325,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	/* quit the program */
 	my_client = NULL;
-	io_loop_stop(ioloop);
+	master_service_stop(service);
 }
 
 void client_disconnect(struct client *client, const char *reason)

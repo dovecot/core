@@ -48,6 +48,7 @@ void child_process_init_env(const struct master_settings *set)
 
 	/* we'll log through master process */
 	env_put("LOG_TO_MASTER=1");
+	env_put("DOVECONF_ENV=1");
 	if (env_tz != NULL)
 		env_put(t_strconcat("TZ=", env_tz, NULL));
 

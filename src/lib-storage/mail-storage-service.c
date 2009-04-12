@@ -340,9 +340,11 @@ mail_storage_service_init_post(struct master_service *service,
 	if (*home != '\0')
 		mail_user_set_home(mail_user, home);
 	mail_user_set_vars(mail_user, geteuid(), service->name, NULL, NULL);
-	if (mail_user_init(mail_user, error_r) < 0 ||
-	    mail_namespaces_init(mail_user, error_r) < 0) {
-		*error_r = t_strdup(*error_r);
+	if (mail_user_init(mail_user, error_r) < 0) {
+		mail_user_unref(&mail_user);
+		return -1;
+	}
+	if (mail_namespaces_init(mail_user, error_r) < 0) {
 		mail_user_unref(&mail_user);
 		return -1;
 	}
@@ -458,8 +460,11 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 				user_set->mail_plugins, TRUE,
 				master_service_get_version_string(service));
 
-	service_drop_privileges(user_set, system_groups_user, home,
-		(flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0, FALSE);
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
+		service_drop_privileges(user_set, system_groups_user, home,
+			(flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0,
+			FALSE);
+	}
 	/* privileges are now dropped */
 
 	dict_drivers_register_builtin();
@@ -549,9 +554,11 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 	   but we need the home sooner so do it separately here. */
 	home = user_expand_varstr(ctx->service, user, user_set->mail_home);
 
-	service_drop_privileges(user_set, system_groups_user, home,
-		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0, TRUE);
-
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
+		service_drop_privileges(user_set, system_groups_user, home,
+			(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0,
+			TRUE);
+	}
 	if (!ctx->modules_initialized) {
 		/* privileges dropped for the first time. initialize the
 		   modules now to avoid code running as root. */
@@ -569,8 +576,8 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 		master_service_set(ctx->service, "mail_home",
 			t_strconcat(user_set->mail_chroot, "/", home, NULL));
 	}
-	if (mail_storage_service_init_post(ctx->service, user, home,
-					   user_set, mail_user_r, error_r) < 0)
+	if (mail_storage_service_init_post(ctx->service, user, home, user_set,
+					   mail_user_r, error_r) < 0)
 		return -1;
 	return 1;
 }

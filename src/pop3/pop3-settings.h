@@ -18,7 +18,6 @@ struct pop3_settings {
 	const char *pop3_uidl_format;
 };
 
-void pop3_settings_read(const struct pop3_settings **set_r,
-			const struct mail_user_settings **user_set_r);
+extern struct setting_parser_info pop3_setting_parser_info;
 
 #endif

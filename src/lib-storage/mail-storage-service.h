@@ -7,7 +7,9 @@ enum mail_storage_service_flags {
 	/* Lookup user from userdb */
 	MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP		= 0x02,
 	/* Force mail_debug=yes */
-	MAIL_STORAGE_SERVICE_FLAG_DEBUG			= 0x04
+	MAIL_STORAGE_SERVICE_FLAG_DEBUG			= 0x04,
+	/* Keep the current process permissions */
+	MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS	= 0x08
 };
 
 struct setting_parser_info;

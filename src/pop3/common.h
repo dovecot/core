@@ -17,7 +17,7 @@ enum uidl_keys {
 #include "client.h"
 #include "pop3-settings.h"
 
-extern struct ioloop *ioloop;
+extern struct master_service *service;
 
 extern void (*hook_client_created)(struct client **client);
 

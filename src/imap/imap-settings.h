@@ -17,7 +17,6 @@ struct imap_settings {
 	const char *imap_id_log;
 };
 
-void imap_settings_read(const struct imap_settings **set_r,
-			const struct mail_user_settings **user_set_r);
+extern struct setting_parser_info imap_setting_parser_info;
 
 #endif
