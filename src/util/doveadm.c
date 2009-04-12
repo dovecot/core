@@ -114,8 +114,6 @@ int main(int argc, char *argv[])
 
 	mail_user = mail_storage_service_init_user(service, user, NULL,
 						   service_flags);
-	i_set_failure_prefix(t_strdup_printf("doveadm(%s): ",
-					     mail_user->username));
 
 	if (strcmp(argv[optind], "purge") == 0)
 		cmd_purge(mail_user);
