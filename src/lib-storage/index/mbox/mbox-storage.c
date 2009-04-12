@@ -310,6 +310,10 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		   it's root dir if we've already chroot()ed, otherwise
 		   either ~/mail or ~/Mail */
 		list_set->root_dir = get_root_dir(storage);
+		if (list_set->root_dir == NULL) {
+			*error_r = "Autodetection failed";
+			return -1;
+		}
 	} else {
 		if (debug)
 			i_info("mbox: data=%s", data);
