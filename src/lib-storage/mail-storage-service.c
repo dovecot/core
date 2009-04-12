@@ -71,7 +71,7 @@ user_reply_handle(struct master_service *service,
 		  const struct auth_user_reply *reply,
 		  const char **system_groups_user_r, const char **error_r)
 {
-	const char *const *str, *p, *line;
+	const char *const *str, *p, *line, *key;
 	unsigned int i, count;
 	int ret = 0;
 
@@ -114,6 +114,13 @@ user_reply_handle(struct master_service *service,
 			line = t_strconcat(str[i], "=yes", NULL);
 		else
 			line = str[i];
+
+		key = t_strcut(line, '=');
+		if (!settings_parse_is_valid_key(service->set_parser, key)) {
+			/* assume it's a plugin setting */
+			line = t_strconcat("plugin/", line, NULL);
+		}
+
 		ret = settings_parse_line(service->set_parser, line);
 	} T_END;
 
