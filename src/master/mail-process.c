@@ -207,17 +207,28 @@ get_var_expand_table(const char *protocol,
 	return tab;
 }
 
-static void mail_process_set_environment(struct master_settings *set)
+static void mail_process_set_environment(struct master_settings *set,
+					 bool dump_capability)
 {
-	/* we don't know all the settings, so since we can't expand all of
-	   them just let the mail process expand all of them internally. */
-	master_settings_export_to_env(set);
+	if (dump_capability) {
+		/* the only settings we need to have are what plugins to load
+		   and from where. the rest will only make the dump-capability
+		   more likely to fail. */
+		const char *const *sets;
+		unsigned int i, count;
 
-	if (set->maildir_very_dirty_syncs)
-		env_put("MAILDIR_VERY_DIRTY_SYNCS=1");
-	(void)umask(0077);
-	env_put(t_strdup_printf("DBOX_PURGE_MIN_PERCENTAGE=%u",
-				set->dbox_purge_min_percentage));
+		env_put("MAIL=raw:/tmp");
+		sets = array_get(&set->all_settings, &count);
+		for (i = 0; i < count; i++) {
+			if (strncmp(sets[i], "mail_plugin", 11) == 0)
+				env_put(sets[i]);
+		}
+	} else {
+		/* we don't know all the settings, so since we can't expand all
+		   of them just let the mail process expand all of them
+		   internally. */
+		master_settings_export_to_env(set);
+	}
 }
 
 void mail_process_exec(const char *protocol, const char **args)
@@ -265,7 +276,7 @@ void mail_process_exec(const char *protocol, const char **args)
 		env_put(str_c(str));
 	}
 
-	mail_process_set_environment(set);
+	mail_process_set_environment(set, FALSE);
 	if (args == NULL)
 		client_process_exec(executable, "");
 	else
@@ -554,7 +565,7 @@ create_mail_process(enum process_type process_type, struct master_settings *set,
 			i_fatal("chdir(/tmp) failed: %m");
 	}
 
-	mail_process_set_environment(set);
+	mail_process_set_environment(set, dump_capability);
 
 	/* extra args. uppercase key value. */
 	expanded_vars = t_str_new(128);
