@@ -11,6 +11,7 @@
 #include "settings-parser.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -567,14 +568,25 @@ int settings_parse_file(struct setting_parser_context *ctx,
 int settings_parse_environ(struct setting_parser_context *ctx)
 {
 	extern char **environ;
+	ARRAY_TYPE(string) sorted_envs_arr;
 	const char *key, *value;
-	unsigned int i;
+	char **sorted_envs;
+	unsigned int i, count;
 	int ret = 0;
 
-	for (i = 0; environ[i] != NULL && ret == 0; i++) {
-		value = strchr(environ[i], '=');
+	/* sort the settings first. this is necessary for putenv()
+	   implementations (e.g. valgrind) which change the order of strings
+	   in environ[] */
+	i_array_init(&sorted_envs_arr, 128);
+	for (i = 0; environ[i] != NULL; i++)
+		array_append(&sorted_envs_arr, &environ[i], 1);
+	sorted_envs = array_get_modifiable(&sorted_envs_arr, &count);
+	qsort(sorted_envs, count, sizeof(*sorted_envs), i_strcmp_p);
+
+	for (i = 0; i < count && ret == 0; i++) {
+		value = strchr(sorted_envs[i], '=');
 		if (value != NULL) T_BEGIN {
-			key = t_strdup_until(environ[i], value++);
+			key = t_strdup_until(sorted_envs[i], value++);
 			key = t_str_lcase(key);
 			if (settings_parse_keyvalue(ctx, key, value) < 0) {
 				ctx->error = p_strdup_printf(ctx->parser_pool,
@@ -584,6 +596,7 @@ int settings_parse_environ(struct setting_parser_context *ctx)
 			}
 		} T_END;
 	}
+	array_free(&sorted_envs_arr);
 	return ret;
 }
 
