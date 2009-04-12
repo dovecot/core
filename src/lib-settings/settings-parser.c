@@ -565,6 +565,13 @@ int settings_parse_file(struct setting_parser_context *ctx,
 	return ret;
 }
 
+static int environ_cmp(const void *p1, const void *p2)
+{
+	const char *const *s1 = p1, *const *s2 = p2;
+
+	return -strcmp(*s1, *s2);
+}
+
 int settings_parse_environ(struct setting_parser_context *ctx)
 {
 	extern char **environ;
@@ -581,7 +588,7 @@ int settings_parse_environ(struct setting_parser_context *ctx)
 	for (i = 0; environ[i] != NULL; i++)
 		array_append(&sorted_envs_arr, &environ[i], 1);
 	sorted_envs = array_get_modifiable(&sorted_envs_arr, &count);
-	qsort(sorted_envs, count, sizeof(*sorted_envs), i_strcmp_p);
+	qsort(sorted_envs, count, sizeof(*sorted_envs), environ_cmp);
 
 	for (i = 0; i < count && ret == 0; i++) {
 		value = strchr(sorted_envs[i], '=');
