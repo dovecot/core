@@ -820,9 +820,13 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 {
 	const struct maildir_index_header *mhdr = &uidlist->mbox->maildir_hdr;
+	struct mail_index *index = uidlist->mbox->ibox.index;
+	struct mail_index_view *view;
 	const struct mail_index_header *hdr;
 	struct stat st;
 	int ret;
+
+	i_assert(UIDLIST_IS_LOCKED(uidlist));
 
 	if (uidlist->fd != -1)
 		return maildir_uidlist_refresh(uidlist);
@@ -832,12 +836,17 @@ int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 
 	if (st.st_size == mhdr->uidlist_size &&
 	    st.st_mtime == (time_t)mhdr->uidlist_mtime &&
-	    ST_NTIMES_EQUAL(ST_MTIME_NSEC(st), mhdr->uidlist_mtime_nsecs)) {
-		/* index is up-to-date */
-		hdr = mail_index_get_header(uidlist->mbox->ibox.view);
+	    ST_NTIMES_EQUAL(ST_MTIME_NSEC(st), mhdr->uidlist_mtime_nsecs) &&
+	    (!mail_index_is_in_memory(index) || st.st_mtime < ioloop_time-1)) {
+		/* index is up-to-date. look up the uidvalidity and next-uid
+		   from it. we'll need to create a new view temporarily to
+		   make sure we get the latest values. */
+		view = mail_index_view_open(index);
+		hdr = mail_index_get_header(view);
 		uidlist->uid_validity = hdr->uid_validity;
 		uidlist->next_uid = hdr->next_uid;
 		uidlist->initial_hdr_read = TRUE;
+		mail_index_view_close(&view);
 		return 1;
 	} else {
 		return maildir_uidlist_refresh(uidlist);

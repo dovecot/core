@@ -555,6 +555,11 @@ int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	return -1;
 }
 
+bool mail_index_is_in_memory(struct mail_index *index)
+{
+	return MAIL_INDEX_IS_IN_MEMORY(index);
+}
+
 int mail_index_move_to_memory(struct mail_index *index)
 {
 	struct mail_index_map *map;
