@@ -606,11 +606,6 @@ int mail_index_move_to_memory(struct mail_index *index)
 	return 0;
 }
 
-bool mail_index_is_in_memory(struct mail_index *index)
-{
-	return MAIL_INDEX_IS_IN_MEMORY(index);
-}
-
 void mail_index_mark_corrupted(struct mail_index *index)
 {
 	index->indexid = 0;
