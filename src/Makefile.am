@@ -16,6 +16,7 @@ SUBDIRS = \
 	lib-sql \
 	lib-ntlm \
 	lib-otp \
+	lib-lda \
 	auth \
 	dict \
 	master \
