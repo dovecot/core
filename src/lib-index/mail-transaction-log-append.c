@@ -98,6 +98,10 @@ static int log_buffer_write(struct log_append_context *ctx, bool want_fsync)
 	struct mail_transaction_log_file *file = ctx->file;
 
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
+		if (file->buffer == NULL) {
+			file->buffer = buffer_create_dynamic(default_pool, 4096);
+			file->buffer_offset = sizeof(file->hdr);
+		}
 		buffer_append_buf(file->buffer, ctx->output, 0, (size_t)-1);
 		file->sync_offset = file->buffer_offset + file->buffer->used;
 		return 0;

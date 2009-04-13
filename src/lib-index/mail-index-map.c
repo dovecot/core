@@ -942,11 +942,8 @@ int mail_index_map(struct mail_index *index,
 		   logs (which we'll also do even if the reopening succeeds).
 		   if index files are unusable (e.g. major version change)
 		   don't even try to use the transaction log. */
-		if (mail_index_map_latest_file(index) == 0) {
-			/* make sure we don't try to open the file again */
-			if (unlink(index->filepath) < 0 && errno != ENOENT)
-				mail_index_set_syscall_error(index, "unlink()");
-		} else {
+		ret = mail_index_map_latest_file(index);
+		if (ret > 0) {
 			/* if we're creating the index file, we don't have any
 			   logs yet */
 			if (index->log->head != NULL && index->indexid != 0) {
@@ -955,10 +952,15 @@ int mail_index_map(struct mail_index *index,
 				ret = mail_index_sync_map(&index->map, type,
 							  TRUE);
 			}
+		} else if (ret == 0) {
+			/* make sure we don't try to open the file again */
+			if (unlink(index->filepath) < 0 && errno != ENOENT)
+				mail_index_set_syscall_error(index, "unlink()");
 		}
 	}
 
-	index->initial_mapped = TRUE;
+	if (ret >= 0)
+		index->initial_mapped = TRUE;
 	index->mapping = FALSE;
 	return ret;
 }

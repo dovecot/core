@@ -1566,6 +1566,7 @@ void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
 		/* we don't have the full log in the memory. read it. */
 		(void)mail_transaction_log_file_read(file, 0, FALSE);
 	}
+	file->last_size = 0;
 
 	if (close(file->fd) < 0) {
 		mail_index_file_set_syscall_error(file->log->index,

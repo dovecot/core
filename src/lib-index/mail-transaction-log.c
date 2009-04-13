@@ -160,6 +160,13 @@ void mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file;
 
+	if (!log->index->initial_mapped && log->files != NULL &&
+	    log->files->hdr.prev_file_seq != 0) {
+		/* we couldn't read dovecot.index and we don't have the first
+		   .log file, so just start from scratch */
+		mail_transaction_log_close(log);
+	}
+
 	if (log->head != NULL)
 		mail_transaction_log_file_move_to_memory(log->head);
 	else {
