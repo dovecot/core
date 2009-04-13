@@ -31,14 +31,13 @@ struct mail_storage_service_multi_ctx {
 
 static struct module *modules = NULL;
 
-static void
-master_service_set(struct master_service *service,
-		   const char *key, const char *value)
+static void set_keyval(struct master_service *service,
+		       const char *key, const char *value)
 {
 	const char *str;
 
 	str = t_strconcat(key, "=", value, NULL);
-	if (settings_parse_line(service->set_parser, str) < 0) {
+	if (master_service_set(service, str) < 0) {
 		i_fatal("Invalid userdb input '%s': %s", str,
 			settings_parser_get_error(service->set_parser));
 	}
@@ -82,13 +81,13 @@ user_reply_handle(struct master_service *service,
 			*error_r = "userdb returned 0 as uid";
 			return -1;
 		}
-		master_service_set(service, "mail_uid", dec2str(reply->uid));
+		set_keyval(service, "mail_uid", dec2str(reply->uid));
 	}
 	if (reply->gid != (uid_t)-1)
-		master_service_set(service, "mail_gid", dec2str(reply->gid));
+		set_keyval(service, "mail_gid", dec2str(reply->gid));
 
 	if (reply->home != NULL)
-		master_service_set(service, "mail_home", reply->home);
+		set_keyval(service, "mail_home", reply->home);
 
 	if (reply->chroot != NULL) {
 		if (!validate_chroot(user_set, reply->chroot)) {
@@ -98,7 +97,7 @@ user_reply_handle(struct master_service *service,
 				reply->chroot);
 			return -1;
 		}
-		master_service_set(service, "mail_chroot", reply->chroot);
+		set_keyval(service, "mail_chroot", reply->chroot);
 	}
 
 	str = array_get(&reply->extra_fields, &count);
@@ -413,7 +412,7 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 	mail_storage_service_init_settings(service, set_root, !userdb_lookup);
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
-		master_service_set(service, "mail_debug", "yes");
+		set_keyval(service, "mail_debug", "yes");
 
 	/* now that we've read settings, we can set up logging */
 	master_service_init_log(service,
@@ -443,7 +442,7 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 		system_groups_user = NULL;
 		if (*home == '\0' && getenv("HOME") != NULL) {
 			home = getenv("HOME");
-			master_service_set(service, "mail_home", home);
+			set_keyval(service, "mail_home", home);
 		}
 	}
 
@@ -452,7 +451,7 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 	    strncmp(home, user_set->mail_chroot, len - 2) == 0) {
 		/* If chroot ends with "/.", strip chroot dir from home dir */
 		home += len - 2;
-		master_service_set(service, "mail_home", home);
+		set_keyval(service, "mail_home", home);
 	}
 
 	modules = *user_set->mail_plugins == '\0' ? NULL :
@@ -573,7 +572,7 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 	    strncmp(home, user_set->mail_chroot, len - 2) == 0) {
 		/* home dir already contains the chroot dir */
 	} else if (len > 0) {
-		master_service_set(ctx->service, "mail_home",
+		set_keyval(ctx->service, "mail_home",
 			t_strconcat(user_set->mail_chroot, "/", home, NULL));
 	}
 	if (mail_storage_service_init_post(ctx->service, user, home, user_set,

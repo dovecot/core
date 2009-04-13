@@ -142,3 +142,8 @@ void **master_service_settings_get_others(struct master_service *service)
 {
 	return settings_parser_get_list(service->set_parser) + 1;
 }
+
+int master_service_set(struct master_service *service, const char *line)
+{
+	return settings_parse_line(service->set_parser, line);
+}

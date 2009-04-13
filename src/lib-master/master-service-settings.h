@@ -20,4 +20,6 @@ const struct master_service_settings *
 master_service_settings_get(struct master_service *service);
 void **master_service_settings_get_others(struct master_service *service);
 
+int master_service_set(struct master_service *service, const char *line);
+
 #endif
