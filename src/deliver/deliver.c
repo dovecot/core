@@ -386,7 +386,6 @@ int main(int argc, char *argv[])
 	const char *mailbox = "INBOX";
 	const char *destaddr, *user, *errstr, *path, *getopt_str;
 	struct mail_user *mail_user, *raw_mail_user;
-	struct mail_user_settings *raw_user_set;
 	struct mail_namespace *raw_ns;
 	struct mail_namespace_settings raw_ns_set;
 	struct mail_storage *storage;
@@ -397,7 +396,7 @@ int main(int argc, char *argv[])
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail *mail;
 	char cwd[PATH_MAX];
-	pool_t settings_pool;
+	void **sets;
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
 	time_t mtime;
@@ -533,11 +532,8 @@ int main(int argc, char *argv[])
 	/* create a separate mail user for the internal namespace */
 	if (master_service_set(service, "mail_full_filesystem_access=yes") < 0)
 		i_unreached();
-
-	settings_pool = pool_alloconly_create("raw settings pool", 4096);
-	raw_user_set = settings_dup(&mail_user_setting_parser_info,
-				    mail_user->unexpanded_set, settings_pool);
-	raw_mail_user = mail_user_alloc(user, raw_user_set);
+	sets = master_service_settings_get_others(service);
+	raw_mail_user = mail_user_alloc(user, sets[0]);
 	mail_user_set_home(raw_mail_user, "/");
 	if (mail_user_init(raw_mail_user, &errstr) < 0)
 		i_fatal("Raw user initialization failed: %s", errstr);
@@ -660,7 +656,6 @@ int main(int argc, char *argv[])
 	mail_user_unref(&mail_user);
 	mail_user_unref(&raw_mail_user);
 	duplicate_deinit();
-	pool_unref(&settings_pool);
 
 	mail_storage_service_deinit_user();
 	master_service_deinit(&service);
