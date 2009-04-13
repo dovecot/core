@@ -41,7 +41,8 @@ struct mail_user *mail_user_alloc(const char *username,
 	user->pool = pool;
 	user->refcount = 1;
 	user->username = p_strdup(pool, username);
-	user->unexpanded_set = set;
+	user->unexpanded_set =
+		settings_dup(&mail_user_setting_parser_info, set, pool);
 	user->set = settings_dup(&mail_user_setting_parser_info, set, pool);
 	user->v.deinit = mail_user_deinit_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
