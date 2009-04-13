@@ -100,7 +100,8 @@ static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 	struct login_settings *set = _set;
 
 #ifndef HAVE_SSL
-        *error_r = "SSL support not compiled in but ssl_disable=no";
+	*error_r = t_strdup_printf("SSL support not compiled in but ssl=%s",
+				   set->ssl);
 	return FALSE;
 #else
 	if (*set->ssl_cert_file == '\0') {
