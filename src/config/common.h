@@ -4,6 +4,6 @@
 #include "lib.h"
 
 extern struct master_service *service;
-extern string_t *config_string;
+extern ARRAY_TYPE(const_string) config_strings;
 
 #endif

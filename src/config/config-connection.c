@@ -1,6 +1,7 @@
 /* Copyright (C) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "array.h"
 #include "str.h"
 #include "ioloop.h"
 #include "network.h"
@@ -41,13 +42,24 @@ config_connection_next_line(struct config_connection *conn)
 }
 
 static void config_connection_request(struct config_connection *conn,
-				      const char *const *args)
+				      const char *const *args,
+				      enum config_dump_flags flags)
 {
+	const char *const *strings;
+	unsigned int i, count;
+	string_t *str;
+
 	/* <process> [<args>] */
-	// FIXME
-	o_stream_send(conn->output, str_data(config_string),
-		      str_len(config_string));
-	o_stream_flush(conn->output);
+	str = t_str_new(256);
+	strings = array_get(&config_strings, &count);
+	o_stream_cork(conn->output);
+	for (i = 0; i < count; i += 2) {
+		str_truncate(str, 0);
+		str_printfa(str, "%s=%s\n", strings[i], strings[i+1]);
+		o_stream_send(conn->output, str_data(str), str_len(str));
+	}
+	o_stream_send_str(conn->output, "\n");
+	o_stream_uncork(conn->output);
 }
 
 static void config_connection_input(void *context)
@@ -86,7 +98,7 @@ static void config_connection_input(void *context)
 		if (args[0] == NULL)
 			continue;
 		if (strcmp(args[0], "REQ") == 0)
-			config_connection_request(conn, args + 1);
+			config_connection_request(conn, args + 1, 0);
 	}
 	t_pop();
 }
@@ -113,32 +125,25 @@ void config_connection_destroy(struct config_connection *conn)
 	i_free(conn);
 }
 
-void config_connection_dump_request(int fd, const char *service)
+void config_connection_dump_request(int fd, const char *service,
+				    enum config_dump_flags flags)
 {
 	struct config_connection *conn;
 	const char *args[2] = { service, NULL };
 
 	conn = config_connection_create(fd);
-        config_connection_request(conn, args);
+        config_connection_request(conn, args, flags);
 	config_connection_destroy(conn);
 }
 
 void config_connection_putenv(void)
 {
-	const char *env, *p, *key, *value;
+	const char *const *strings;
+	unsigned int i, count;
 
-	env = str_c(config_string);
-	for (; *env != '\0'; env = p + 1) {
-		p = strchr(env, '\n');
-		if (env == p || p == NULL)
-			break;
-
-		T_BEGIN {
-			value = strchr(env, '=');
-			i_assert(value != NULL && value < p);
-			key = t_str_ucase(t_strdup_until(env, value));
-			value = t_strdup_until(value, p);
-			env_put(t_strconcat(key, value, NULL));
-		} T_END;
-	}
+	strings = array_get(&config_strings, &count);
+	for (i = 0; i < count; i += 2) T_BEGIN {
+		env_put(t_strconcat(t_str_ucase(strings[i]), "=",
+				    strings[i+1], NULL));
+	} T_END;
 }

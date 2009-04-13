@@ -52,11 +52,11 @@ config_parse_line(pool_t pool, const char *key, const char *line,
 }
 
 struct settings_export_context {
-	string_t *dest;
+	pool_t pool;
+	ARRAY_TYPE(const_string) *dest;
 	string_t *value;
 	string_t *prefix;
 	struct hash_table *keys;
-	pool_t pool;
 	bool export_defaults;
 };
 
@@ -68,6 +68,7 @@ static void settings_export(struct settings_export_context *ctx,
 	const void *value, *default_value;
 	void *const *children = NULL;
 	unsigned int i, count, prefix_len;
+	const char *str;
 	char *key;
 
 	for (def = info->defines; def->key != NULL; def++) {
@@ -148,57 +149,50 @@ static void settings_export(struct settings_export_context *ctx,
 		}
 		case SET_STRLIST: {
 			const ARRAY_TYPE(const_string) *val = value;
-			unsigned int pos = str_len(ctx->dest);
 			const char *const *strings;
 
 			if (!array_is_created(val))
 				break;
 
-			str_append_str(ctx->dest, ctx->prefix);
-			str_append(ctx->dest, def->key);
-			str_append(ctx->dest, "=0\n");
+			key = p_strconcat(ctx->pool, str_c(ctx->prefix),
+					  def->key, NULL);
 
-			if (hash_table_lookup(ctx->keys,
-					      str_c(ctx->dest) + pos) != NULL) {
+			if (hash_table_lookup(ctx->keys, key) != NULL) {
 				/* already added all of these */
-				str_truncate(ctx->dest, pos);
 				break;
 			}
-			key = p_strdup(ctx->pool, str_c(ctx->dest) + pos);
 			hash_table_insert(ctx->keys, key, key);
+
+			str = key;
+			array_append(ctx->dest, &str, 1);
+			str = "0";
+			array_append(ctx->dest, &str, 1);
 
 			strings = array_get(val, &count);
 			i_assert(count % 2 == 0);
 			for (i = 0; i < count; i += 2) {
-				str_append_str(ctx->dest, ctx->prefix);
-				str_append(ctx->dest, def->key);
-				str_append_c(ctx->dest, SETTINGS_SEPARATOR);
-				str_append_c(ctx->dest, '0');
-				str_append_c(ctx->dest, SETTINGS_SEPARATOR);
-				str_append(ctx->dest, strings[i+0]);
-				str_append_c(ctx->dest, '=');
-				str_append(ctx->dest, strings[i+1]);
-				str_append_c(ctx->dest, '\n');
+				str = p_strdup_printf(ctx->pool, "%s%s%c0%c%s",
+						      str_c(ctx->prefix),
+						      def->key,
+						      SETTINGS_SEPARATOR,
+						      SETTINGS_SEPARATOR,
+						      strings[i]);
+				array_append(ctx->dest, &str, 1);
+				str = p_strdup(ctx->pool, strings[i+1]);
+				array_append(ctx->dest, &str, 1);
 			}
 			count = 0;
 			break;
 		}
 		}
 		if (str_len(ctx->value) > 0) {
-			unsigned int pos = str_len(ctx->dest);
-			str_append_str(ctx->dest, ctx->prefix);
-			str_append(ctx->dest, def->key);
-
-			if (hash_table_lookup(ctx->keys,
-					      str_c(ctx->dest) + pos) != NULL) {
-				/* already exists */
-				str_truncate(ctx->dest, pos);
-			} else {
-				str_append_c(ctx->dest, '=');
-				str_append_str(ctx->dest, ctx->value);
-				str_append_c(ctx->dest, '\n');
-				key = p_strconcat(ctx->pool, str_c(ctx->prefix),
-						  def->key, NULL);
+			key = p_strconcat(ctx->pool, str_c(ctx->prefix),
+					  def->key, NULL);
+			if (hash_table_lookup(ctx->keys, key) == NULL) {
+				str = key;
+				array_append(ctx->dest, &str, 1);
+				str = p_strdup(ctx->pool, str_c(ctx->value));
+				array_append(ctx->dest, &str, 1);
 				hash_table_insert(ctx->keys, key, key);
 			}
 		}
@@ -216,18 +210,18 @@ static void settings_export(struct settings_export_context *ctx,
 	}
 }
 
-static void config_export(string_t *dest)
+static void config_export(pool_t pool, ARRAY_TYPE(const_string) *dest)
 {
 	struct config_setting_parser_list *l;
 	struct settings_export_context ctx;
 	const void *set;
 
 	memset(&ctx, 0, sizeof(ctx));
+	ctx.pool = pool;
 	ctx.dest = dest;
 	ctx.export_defaults = FALSE;
 	ctx.value = t_str_new(256);
 	ctx.prefix = t_str_new(64);
-	ctx.pool = pool_alloconly_create("config keys", 10240);
 	ctx.keys = hash_table_create(default_pool, ctx.pool, 0,
 				     str_hash, (hash_cmp_callback_t *)strcmp);
 
@@ -238,7 +232,6 @@ static void config_export(string_t *dest)
 		}
 	}
 	hash_table_destroy(&ctx.keys);
-	pool_unref(&ctx.pool);
 }
 
 static const char *info_type_name_find(const struct setting_parser_info *info)
@@ -253,7 +246,8 @@ static const char *info_type_name_find(const struct setting_parser_info *info)
 	return NULL;
 }
 
-void config_parse_file(string_t *dest, const char *path, const char *service)
+void config_parse_file(pool_t dest_pool, ARRAY_TYPE(const_string) *dest,
+		       const char *path, const char *service)
 {
 	struct input_stack root, *input, *new_input;
 	ARRAY_DEFINE(pathlen_stack, unsigned int);
@@ -268,7 +262,6 @@ void config_parse_file(string_t *dest, const char *path, const char *service)
 	string_t *str, *full_line;
 	size_t len;
 	pool_t pool;
-	bool asis;
 
 	pool = pool_alloconly_create("config file parser", 10240);
 
@@ -288,7 +281,7 @@ void config_parse_file(string_t *dest, const char *path, const char *service)
 
 	str = t_str_new(256);
 	full_line = t_str_new(512);
-	errormsg = NULL; ignore = 0; asis = FALSE;
+	errormsg = NULL; ignore = 0;
 newfile:
 	input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(input->input, TRUE);
@@ -403,10 +396,6 @@ prevfile:
 				str_printfa(str, "auth/0/%s=%s", key + 5, line);
 				errormsg = config_parse_line(pool, key + 5, str_c(str), &info);
 				array_append(&auth_defaults, &s, 1);
-			} else if (asis) {
-				/* don't do any parsing, just add it */
-				str_append(dest, str_c(str));
-				str_append_c(dest, '\n');
 			} else {
 				errormsg = config_parse_line(pool, key, str_c(str), &info);
 			}
@@ -497,7 +486,6 @@ prevfile:
 
 			if (ignore > 0)
 				ignore--;
-			asis = FALSE;
 
 			arr = array_get(&pathlen_stack, &pathlen_count);
 			if (pathlen_count == 0)
@@ -532,5 +520,5 @@ prevfile:
 		}
 	}
 
-	config_export(dest);
+	config_export(dest_pool, dest);
 }
