@@ -284,6 +284,10 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		 max_file_seq == view->head->hdr.file_seq);
 	i_assert(max_file_offset == (uoff_t)-1 ||
 		 max_file_offset <= view->head->sync_offset);
+	i_assert(min_file_seq != max_file_seq ||
+		 max_file_seq != view->head->hdr.file_seq ||
+		 max_file_offset != (uoff_t)-1 ||
+		 min_file_offset <= view->head->sync_offset);
 
 	view->prev_file_seq = view->cur->hdr.file_seq;
 	view->prev_file_offset = view->cur_offset;
