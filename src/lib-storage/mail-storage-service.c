@@ -336,8 +336,7 @@ mail_storage_service_init_post(struct master_service *service,
 	}
 
 	mail_user = mail_user_alloc(user, user_set);
-	if (*home != '\0')
-		mail_user_set_home(mail_user, home);
+	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
 	mail_user_set_vars(mail_user, geteuid(), service->name, NULL, NULL);
 	if (mail_user_init(mail_user, error_r) < 0) {
 		mail_user_unref(&mail_user);
