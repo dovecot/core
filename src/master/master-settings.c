@@ -987,7 +987,7 @@ bool master_settings_check(struct master_server_settings *set,
 	if (!settings_fix(set->defaults, nochecks, nofixes))
 		return FALSE;
 
-	if (!nochecks) {
+	if (!nofixes) {
 		settings_verify_master(set);
 		auths = array_get(&set->defaults->auths, &count);
 		if (count == 0) {
