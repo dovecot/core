@@ -290,7 +290,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 {
 	struct ostream *output;
-	const char *temp_path;
+	const char *temp_path, *broken_path;
 	char *temp_fname;
 	bool deleted;
 	int fd, ret;
@@ -320,6 +320,18 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 				"unlink(%s) failed: %m", temp_path);
 		}
 		return -1;
+	}
+	/* keep a copy of the original file in case someone wants to look
+	   at it */
+	broken_path = t_strconcat(file->current_path,
+				  DBOX_MAIL_FILE_BROKEN_COPY_SUFFIX, NULL);
+	if (link(file->current_path, broken_path) < 0) {
+		mail_storage_set_critical(&file->storage->storage,
+					  "link(%s, %s) failed: %m",
+					  file->current_path, broken_path);
+	} else {
+		i_warning("dbox: Copy of the broken file saved to %s",
+			  broken_path);
 	}
 	if (rename(temp_path, file->current_path) < 0) {
 		mail_storage_set_critical(&file->storage->storage,

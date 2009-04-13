@@ -19,6 +19,7 @@
 #define DBOX_MAIL_FILE_UID_PREFIX "u."
 #define DBOX_MAIL_FILE_MULTI_FORMAT DBOX_MAIL_FILE_MULTI_PREFIX"%u"
 #define DBOX_MAIL_FILE_UID_FORMAT DBOX_MAIL_FILE_UID_PREFIX"%u"
+#define DBOX_MAIL_FILE_BROKEN_COPY_SUFFIX ".broken"
 #define DBOX_GUID_BIN_LEN (128/8)
 
 /* How often to scan for stale temp files (based on dir's atime) */
