@@ -624,7 +624,7 @@ maildir_transaction_save_commit_pre_sync(struct maildir_save_context *ctx)
 	if (maildir_sync_header_refresh(mbox) < 0)
 		return -1;
 	if (maildir_uidlist_refresh_fast_init(mbox->uidlist) < 0)
-		return 1;
+		return -1;
 
 	/* now that uidlist is locked, make sure all the existing mails
 	   have been added to index. we don't really look into the
