@@ -9,11 +9,12 @@
 #include "var-expand.h"
 #include "message-date.h"
 #include "message-size.h"
-#include "duplicate.h"
 #include "istream-header-filter.h"
+#include "mail-storage.h"
 #include "mail-storage-settings.h"
+#include "lda-settings.h"
+#include "mail-deliver.h"
 #include "smtp-client.h"
-#include "deliver.h"
 #include "mail-send.h"
 
 #include <stdlib.h>
@@ -48,9 +49,10 @@ get_var_expand_table(struct mail *mail, const char *reason,
 	return tab;
 }
 
-int mail_send_rejection(struct mail *mail, const char *recipient,
+int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			const char *reason)
 {
+    struct mail *mail = ctx->src_mail;
     struct istream *input;
     struct smtp_client *smtp_client;
     FILE *f;
@@ -64,7 +66,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 
     if (mail_get_first_header(mail, "Message-ID", &orig_msgid) < 0)
 	    orig_msgid = NULL;
-    return_addr = deliver_get_return_address(mail);
+    return_addr = mail_deliver_get_return_address(ctx);
     if (return_addr == NULL) {
 	    i_info("msgid=%s: Return-Path missing, rejection reason: %s",
 		   orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
@@ -77,15 +79,15 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 		   str_sanitize(reason, 512));
     }
 
-    smtp_client = smtp_client_open(return_addr, NULL, &f);
+    smtp_client = smtp_client_open(ctx, return_addr, NULL, &f);
 
-    msgid = deliver_get_new_message_id();
-    boundary = t_strdup_printf("%s/%s", my_pid, deliver_set->hostname);
+    msgid = mail_deliver_get_new_message_id(ctx);
+    boundary = t_strdup_printf("%s/%s", my_pid, ctx->set->hostname);
 
     fprintf(f, "Message-ID: %s\r\n", msgid);
     fprintf(f, "Date: %s\r\n", message_date_create(ioloop_time));
     fprintf(f, "From: Mail Delivery Subsystem <%s>\r\n",
-	    deliver_set->postmaster_address);
+	    ctx->set->postmaster_address);
     fprintf(f, "To: <%s>\r\n", return_addr);
     fprintf(f, "MIME-Version: 1.0\r\n");
     fprintf(f, "Content-Type: "
@@ -93,7 +95,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 	    "\tboundary=\"%s\"\r\n", boundary);
 
     str = t_str_new(256);
-    var_expand(str, deliver_set->rejection_subject,
+    var_expand(str, ctx->set->rejection_subject,
 	       get_var_expand_table(mail, reason, recipient));
     fprintf(f, "Subject: %s\r\n", str_c(str));
 
@@ -108,7 +110,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     fprintf(f, "Content-Transfer-Encoding: 8bit\r\n\r\n");
 
     str_truncate(str, 0);
-    var_expand(str, deliver_set->rejection_reason,
+    var_expand(str, ctx->set->rejection_reason,
 	       get_var_expand_table(mail, reason, recipient));
     fprintf(f, "%s\r\n", str_c(str));
 
@@ -117,7 +119,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 	    "Content-Type: message/disposition-notification\r\n\r\n",
 	    boundary);
     fprintf(f, "Reporting-UA: %s; Dovecot Mail Delivery Agent\r\n",
-	    deliver_set->hostname);
+	    ctx->set->hostname);
     if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 	    fprintf(f, "Original-Recipient: rfc822; %s\r\n", hdr);
     fprintf(f, "Final-Recipient: rfc822; %s\r\n", recipient);
@@ -160,7 +162,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     return smtp_client_close(smtp_client);
 }
 
-int mail_send_forward(struct mail *mail, const char *forwardto)
+int mail_send_forward(struct mail_deliver_context *ctx, const char *forwardto)
 {
     static const char *hide_headers[] = {
         "Return-Path"
@@ -173,18 +175,18 @@ int mail_send_forward(struct mail *mail, const char *forwardto)
     size_t size;
     int ret;
 
-    if (mail_get_stream(mail, NULL, NULL, &input) < 0)
+    if (mail_get_stream(ctx->src_mail, NULL, NULL, &input) < 0)
 	    return -1;
 
-    if (mail_get_first_header(mail, "Return-Path", &return_path) <= 0)
+    if (mail_get_first_header(ctx->src_mail, "Return-Path", &return_path) <= 0)
 	    return_path = "";
 
-    if (mailbox_get_settings(mail->box)->mail_debug) {
+    if (mailbox_get_settings(ctx->src_mail->box)->mail_debug) {
 	    i_info("Sending a forward to <%s> with return path <%s>",
 		   forwardto, return_path);
     }
 
-    smtp_client = smtp_client_open(forwardto, return_path, &f);
+    smtp_client = smtp_client_open(ctx, forwardto, return_path, &f);
 
     input = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
                                           HEADER_FILTER_NO_CR, hide_headers,
@@ -200,4 +202,3 @@ int mail_send_forward(struct mail *mail, const char *forwardto)
 
     return smtp_client_close(smtp_client);
 }
-

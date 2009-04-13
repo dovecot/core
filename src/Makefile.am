@@ -24,7 +24,7 @@ SUBDIRS = \
 	imap \
 	pop3-login \
 	pop3 \
-	deliver \
+	lda \
 	config \
 	tests \
 	util \

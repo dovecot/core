@@ -1,12 +1,14 @@
 /* Copyright (c) 2006-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "deliver.h"
 #include "master-service.h"
+#include "lda-settings.h"
+#include "mail-deliver.h"
 #include "smtp-client.h"
 
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sysexits.h>
 
 struct smtp_client {
 	FILE *f;
@@ -26,14 +28,15 @@ static struct smtp_client *smtp_client_devnull(FILE **file_r)
 }
 
 static void ATTR_NORETURN
-smtp_client_run_sendmail(const char *destination,
+smtp_client_run_sendmail(struct mail_deliver_context *ctx,
+			 const char *destination,
 			 const char *return_path, int fd)
 {
 	const char *argv[7], *sendmail_path;
 
 	/* deliver_set's contents may point to environment variables.
 	   deliver_env_clean() cleans them up, so they have to be copied. */
-	sendmail_path = t_strdup(deliver_set->sendmail_path);
+	sendmail_path = t_strdup(ctx->set->sendmail_path);
 
 	argv[0] = sendmail_path;
 	argv[1] = "-i"; /* ignore dots */
@@ -53,7 +56,8 @@ smtp_client_run_sendmail(const char *destination,
 	i_fatal("execv(%s) failed: %m", sendmail_path);
 }
 
-struct smtp_client *smtp_client_open(const char *destination,
+struct smtp_client *smtp_client_open(struct mail_deliver_context *ctx,
+				     const char *destination,
 				     const char *return_path, FILE **file_r)
 {
 	struct smtp_client *client;
@@ -73,7 +77,7 @@ struct smtp_client *smtp_client_open(const char *destination,
 	if (pid == 0) {
 		/* child */
 		(void)close(fd[1]);
-		smtp_client_run_sendmail(destination, return_path, fd[0]);
+		smtp_client_run_sendmail(ctx, destination, return_path, fd[0]);
 	}
 	(void)close(fd[0]);
 

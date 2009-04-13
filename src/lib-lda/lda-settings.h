@@ -1,9 +1,9 @@
-#ifndef DELIVER_SETTINGS_H
-#define DELIVER_SETTINGS_H
+#ifndef LDA_SETTINGS_H
+#define LDA_SETTINGS_H
 
 struct mail_user_settings;
 
-struct deliver_settings {
+struct lda_settings {
 	const char *postmaster_address;
 	const char *hostname;
 	const char *sendmail_path;
@@ -11,10 +11,12 @@ struct deliver_settings {
 	const char *rejection_reason;
 	const char *deliver_log_format;
 	bool quota_full_tempfail;
+	bool lda_mailbox_autocreate;
+	bool lda_mailbox_autosubscribe;
 
 	ARRAY_DEFINE(plugin_envs, const char *);
 };
 
-extern struct setting_parser_info deliver_setting_parser_info;
+extern struct setting_parser_info lda_setting_parser_info;
 
 #endif

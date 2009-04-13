@@ -1,26 +1,21 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
-#include "deliver.h"
-#include "array.h"
-#include "hostpid.h"
-#include "istream.h"
+#include "lib.h"
 #include "settings-parser.h"
-#include "mail-storage-settings.h"
-#include "deliver-settings.h"
+#include "lda-settings.h"
 
 #include <stddef.h>
-#include <stdlib.h>
 
-static bool deliver_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool lda_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct deliver_settings, name), NULL }
+	{ type, #name, offsetof(struct lda_settings, name), NULL }
 #define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct deliver_settings, field), defines }
+	{ SET_DEFLIST, name, offsetof(struct lda_settings, field), defines }
 
-static struct setting_define deliver_setting_defines[] = {
+static struct setting_define lda_setting_defines[] = {
 	DEF(SET_STR, postmaster_address),
 	DEF(SET_STR, hostname),
 	DEF(SET_STR, sendmail_path),
@@ -28,13 +23,15 @@ static struct setting_define deliver_setting_defines[] = {
 	DEF(SET_STR, rejection_reason),
 	DEF(SET_STR, deliver_log_format),
 	DEF(SET_BOOL, quota_full_tempfail),
+	DEF(SET_BOOL, lda_mailbox_autocreate),
+	DEF(SET_BOOL, lda_mailbox_autosubscribe),
 
-	{ SET_STRLIST, "plugin", offsetof(struct deliver_settings, plugin_envs), NULL },
+	{ SET_STRLIST, "plugin", offsetof(struct lda_settings, plugin_envs), NULL },
 
 	SETTING_DEFINE_LIST_END
 };
 
-static struct deliver_settings deliver_default_settings = {
+static struct lda_settings lda_default_settings = {
 	MEMBER(postmaster_address) "",
 	MEMBER(hostname) "",
 	MEMBER(sendmail_path) "/usr/lib/sendmail",
@@ -42,30 +39,32 @@ static struct deliver_settings deliver_default_settings = {
 	MEMBER(rejection_reason)
 		"Your message to <%t> was automatically rejected:%n%r",
 	MEMBER(deliver_log_format) "msgid=%m: %$",
-	MEMBER(quota_full_tempfail) FALSE
+	MEMBER(quota_full_tempfail) FALSE,
+	MEMBER(lda_mailbox_autocreate) FALSE,
+	MEMBER(lda_mailbox_autosubscribe) FALSE
 };
 
-struct setting_parser_info deliver_setting_parser_info = {
-	MEMBER(defines) deliver_setting_defines,
-	MEMBER(defaults) &deliver_default_settings,
+struct setting_parser_info lda_setting_parser_info = {
+	MEMBER(defines) lda_setting_defines,
+	MEMBER(defaults) &lda_default_settings,
 
 	MEMBER(parent) NULL,
 	MEMBER(dynamic_parsers) NULL,
 
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct deliver_settings),
+	MEMBER(struct_size) sizeof(struct lda_settings),
 #ifdef CONFIG_BINARY
 	MEMBER(check_func) NULL
 #else
-	MEMBER(check_func) deliver_settings_check
+	MEMBER(check_func) lda_settings_check
 #endif
 };
 
-static bool deliver_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				   const char **error_r)
+static bool lda_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			       const char **error_r)
 {
-	struct deliver_settings *set = _set;
+	struct lda_settings *set = _set;
 
 	if (*set->postmaster_address == '\0') {
 		*error_r = "postmaster_address setting not given";

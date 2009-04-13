@@ -55,7 +55,7 @@ src/auth/checkpassword-reply
 src/auth/dovecot-auth
 src/config/all-settings.c
 src/config/doveconf
-src/deliver/deliver
+src/lda/dovecot-lda
 src/dict/dict
 src/imap-login/imap-login
 src/imap/imap

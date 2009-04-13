@@ -1,7 +1,7 @@
 #ifndef DUPLICATE_H
 #define DUPLICATE_H
 
-#include "mail-storage-settings.h"
+struct mail_storage_settings;
 
 #define DUPLICATE_DEFAULT_KEEP (3600 * 24)
 

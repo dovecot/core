@@ -2360,6 +2360,7 @@ src/lib-charset/Makefile
 src/lib-dict/Makefile
 src/lib-imap/Makefile
 src/lib-index/Makefile
+src/lib-lda/Makefile
 src/lib-mail/Makefile
 src/lib-master/Makefile
 src/lib-ntlm/Makefile
@@ -2378,7 +2379,7 @@ src/lib-storage/index/shared/Makefile
 src/lib-storage/register/Makefile
 src/auth/Makefile
 src/config/Makefile
-src/deliver/Makefile
+src/lda/Makefile
 src/dict/Makefile
 src/imap/Makefile
 src/imap-login/Makefile

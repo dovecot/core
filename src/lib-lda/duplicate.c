@@ -7,6 +7,7 @@
 #include "home-expand.h"
 #include "file-dotlock.h"
 #include "hash.h"
+#include "mail-storage-settings.h"
 #include "duplicate.h"
 
 #include <stdlib.h>
