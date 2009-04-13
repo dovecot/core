@@ -243,26 +243,14 @@ AC_ARG_WITH(gc,
   TEST_WITH(gc, $withval),
   want_gc=no)
 
-AC_ARG_WITH(pop3d,
-[  --with-pop3d            Build POP3 server (default)],
-  TEST_WITH(pop3d, $withval),
-  want_pop3d=yes)
-AM_CONDITIONAL(BUILD_POP3D, test "$want_pop3d" = "yes")
-
-AC_ARG_WITH(deliver,
-[  --with-deliver          Build mail delivery agent (default)],
-  TEST_WITH(deliver, $withval),
-  want_deliver=yes)
-AM_CONDITIONAL(BUILD_DELIVER, test "$want_deliver" != "no")
-
 AC_ARG_WITH(storages,
 [  --with-storages         Build with specified mail storage formats
-                          (maildir mbox dbox cydir raw)], [
+                          (maildir mbox dbox cydir)], [
 	if test "$withval" = "yes" || test "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
 	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
-	mail_storages="shared maildir mbox dbox cydir raw")
+	mail_storages="shared maildir mbox dbox cydir")
 AC_SUBST(mail_storages)
 
 AC_ARG_WITH(sql-drivers,
@@ -2220,20 +2208,13 @@ shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.la'
 CORE_LIBS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
 STORAGE_LIB='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
 
-deliver_storage="raw"
 LINKED_STORAGE_LIBS=
+mail_storages="$mail_storages raw"
 for storage in $mail_storages; do
-  if test "$storage" = "$deliver_storage"; then
-    deliver_storage=""
-  fi
   LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS `eval echo \\$${storage}_libs`"
 done
 AC_SUBST(LINKED_STORAGE_LIBS)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
-
-if test -n "$deliver_storage" && test "$want_deliver" != no; then
-  AC_ERROR([If you remove raw from storages, you need to build --without-deliver])
-fi
 
 dnl **
 dnl ** SQL drivers
@@ -2442,8 +2423,6 @@ echo "I/O loop method ..................... : $ioloop"
 echo "File change notification method ..... : $have_notify"
 echo "Building with SSL support ........... : $have_ssl"
 echo "Building with IPv6 support .......... : $have_ipv6"
-echo "Building with pop3 server ........... : $want_pop3d"
-echo "Building with mail delivery agent  .. : $want_deliver"
 echo "Building with GSSAPI support ........ : $have_gssapi"
 echo "Building with user database modules . :$userdb"
 echo "Building with password lookup modules :$passdb"
