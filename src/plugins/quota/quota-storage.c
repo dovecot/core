@@ -434,8 +434,8 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	   mailbox locked so that other processes can't mess up the quota
 	   calculations by adding/removing mails while we're doing this. */
 	storage = qlist->storage;
-	box = mailbox_open(&storage, name, NULL, MAILBOX_OPEN_FAST |
-			   MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_KEEP_LOCKED);
+	box = mailbox_open(&storage, name, NULL, MAILBOX_OPEN_KEEP_RECENT |
+			   MAILBOX_OPEN_KEEP_LOCKED);
 	if (box == NULL) {
 		str = mail_storage_get_last_error(qlist->storage, &error);
 		if (error != MAIL_ERROR_NOTPOSSIBLE) {

@@ -11,8 +11,7 @@ void index_storage_get_status(struct mailbox *box,
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	const struct mail_index_header *hdr;
 
-	if (!box->opened)
-		index_storage_mailbox_open(ibox);
+	i_assert(box->opened);
 
 	memset(status_r, 0, sizeof(struct mailbox_status));
 

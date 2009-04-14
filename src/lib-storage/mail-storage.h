@@ -28,8 +28,8 @@ enum mailbox_open_flags {
 	MAILBOX_OPEN_READONLY		= 0x01,
 	/* Only saving/copying mails to mailbox works. */
 	MAILBOX_OPEN_SAVEONLY		= 0x02,
-	/* Any extra time consuming operations shouldn't be performed
-	   (eg. when opening mailbox just for STATUS). */
+	/* Delay opening index files (and possibly other files) until mailbox
+	   is being synchronized. */
 	MAILBOX_OPEN_FAST		= 0x04,
 	/* Don't reset MAIL_RECENT flags when syncing */
 	MAILBOX_OPEN_KEEP_RECENT	= 0x08,

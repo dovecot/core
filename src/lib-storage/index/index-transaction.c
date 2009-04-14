@@ -66,8 +66,7 @@ index_transaction_begin(struct mailbox *box,
 	struct index_transaction_context *it;
 	enum mail_index_transaction_flags trans_flags;
 
-	if (!box->opened)
-		index_storage_mailbox_open(ibox);
+	i_assert(box->opened);
 
 	trans_flags = MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES;
 	if ((flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0)

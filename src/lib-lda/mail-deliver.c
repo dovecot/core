@@ -78,7 +78,7 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	enum mail_error error;
-	enum mailbox_open_flags open_flags = MAILBOX_OPEN_FAST |
+	enum mailbox_open_flags open_flags =
 		MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_SAVEONLY |
 		MAILBOX_OPEN_POST_SESSION;
 
