@@ -49,7 +49,7 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 
 	memset(&lookup_entry, 0, sizeof(lookup_entry));
 	if (dbox_mail_lookup(ctx->mbox, ctx->sync_view, seq, &map_uid) < 0)
-		return 0;
+		return ctx->mbox->storage->sync_rebuild ? 0 : -1;
 	if (map_uid == 0)
 		mail_index_lookup_uid(ctx->sync_view, seq, &lookup_entry.uid);
 	else {
@@ -361,11 +361,13 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	enum dbox_sync_flags dbox_sync_flags = 0;
 	int ret = 0;
 
-	if (!box->opened)
-		index_storage_mailbox_open(&mbox->ibox);
+	if (!box->opened) {
+		if (index_storage_mailbox_open(&mbox->ibox) < 0)
+			ret = -1;
+	}
 
-	if (index_mailbox_want_full_sync(&mbox->ibox, flags) ||
-	    mbox->storage->sync_rebuild) {
+	if (ret == 0 && (index_mailbox_want_full_sync(&mbox->ibox, flags) ||
+			 mbox->storage->sync_rebuild)) {
 		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)
 			dbox_sync_flags |= DBOX_SYNC_FLAG_FORCE_REBUILD;
 		ret = dbox_sync(mbox, dbox_sync_flags);

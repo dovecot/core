@@ -349,7 +349,7 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
-void index_storage_mailbox_open(struct index_mailbox *ibox)
+int index_storage_mailbox_open(struct index_mailbox *ibox)
 {
 	struct mail_storage *storage = ibox->storage;
 	enum mail_index_open_flags index_flags;
@@ -367,6 +367,11 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 
 	ret = mail_index_open(ibox->index, index_flags, storage->lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {
+		if (ibox->index_never_in_memory) {
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
+
 		if (mail_index_move_to_memory(ibox->index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now. */
@@ -390,11 +395,12 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 	index_thread_mailbox_index_opened(ibox);
 	if (hook_mailbox_index_opened != NULL)
 		hook_mailbox_index_opened(&ibox->box);
+	return 0;
 }
 
-void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
-				enum mailbox_open_flags flags,
-				bool move_to_memory)
+int index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
+			       enum mailbox_open_flags flags,
+			       bool move_to_memory)
 {
 	struct mail_storage *storage = ibox->storage;
 	struct mailbox *box = &ibox->box;
@@ -431,7 +437,8 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
 
 	if ((flags & MAILBOX_OPEN_FAST) == 0)
-		index_storage_mailbox_open(ibox);
+		return index_storage_mailbox_open(ibox);
+	return 0;
 }
 
 int index_storage_mailbox_enable(struct mailbox *box,
@@ -441,11 +448,13 @@ int index_storage_mailbox_enable(struct mailbox *box,
 
 	if ((feature & MAILBOX_FEATURE_CONDSTORE) != 0) {
 		box->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
-		if (!box->opened)
-			index_storage_mailbox_open(ibox);
+		if (!box->opened) {
+			if (index_storage_mailbox_open(ibox) < 0)
+				return -1;
+		}
 		mail_index_modseq_enable(ibox->index);
 	}
-	return TRUE;
+	return 0;
 }
 
 int index_storage_mailbox_close(struct mailbox *box)

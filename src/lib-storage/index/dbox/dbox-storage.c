@@ -223,9 +223,11 @@ dbox_open(struct dbox_storage *storage, const char *name,
 {
 	struct mail_storage *_storage = &storage->storage;
 	struct dbox_mailbox *mbox;
+	struct mailbox *box;
 	struct mail_index *index;
 	const char *path;
 	pool_t pool;
+	int ret;
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -257,9 +259,13 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->guid_ext_id =
 		mail_index_ext_register(index, "guid", 0, DBOX_GUID_BIN_LEN, 1);
 
-	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
+	ret = index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	mbox->maildir_uidlist = maildir_uidlist_init_readonly(&mbox->ibox);
-	return &mbox->ibox.box;
+
+	box = &mbox->ibox.box;
+	if (ret < 0)
+		mailbox_close(&box);
+	return box;
 }
 
 uint32_t dbox_get_uidvalidity_next(struct mail_storage *storage)
@@ -309,8 +315,11 @@ static int create_dbox(struct mail_storage *_storage, const char *path,
 			/* create indexes immediately with the dbox header */
 			box = dbox_open(storage, name,
 					MAILBOX_OPEN_KEEP_RECENT);
+			if (box == NULL)
+				return -1;
 			dbox_write_index_header(box);
 			mailbox_close(&box);
+			return 0;
 		}
 	} else if (errno != EEXIST) {
 		if (!mail_storage_set_error_from_errno(_storage)) {
@@ -360,9 +369,9 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (dbox_cleanup_if_exists(_storage, path))
+	if (dbox_cleanup_if_exists(_storage, path)) {
 		return dbox_open(storage, name, flags);
-	else if (errno == ENOENT) {
+	} else if (errno == ENOENT) {
 		if (strcmp(name, "INBOX") == 0 &&
 		    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			/* INBOX always exists, create it */
