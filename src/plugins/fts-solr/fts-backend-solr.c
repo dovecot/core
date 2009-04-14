@@ -187,17 +187,23 @@ static void fts_backend_solr_deinit(struct fts_backend *_backend)
 
 static void
 solr_add_ns_query(string_t *str, struct fts_backend *_backend,
-		  struct mail_namespace *ns)
+		  struct mail_namespace *ns, bool neg)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 
 	while (ns->alias_for != NULL)
 		ns = ns->alias_for;
 
-	if (ns == backend->default_ns || *ns->prefix == '\0')
-		str_append(str, " -ns:[* TO *]");
-	else {
-		str_append(str, " %2Bns:");
+	if (ns == backend->default_ns || *ns->prefix == '\0') {
+		if (!neg)
+			str_append(str, " -ns:[* TO *]");
+		else
+			str_append(str, " +ns:[* TO *]");
+	} else {
+		if (!neg)
+			str_append(str, " +ns:");
+		else
+			str_append(str, " -ns:");
 		solr_quote(str, ns->prefix);
 	}
 }
@@ -209,7 +215,7 @@ solr_add_ns_query_http(string_t *str, struct fts_backend *backend,
 	string_t *tmp;
 
 	tmp = t_str_new(64);
-	solr_add_ns_query(tmp, backend, ns);
+	solr_add_ns_query(tmp, backend, ns, FALSE);
 	solr_connection_http_escape(solr_conn, str, str_c(tmp));
 }
 
@@ -333,6 +339,11 @@ solr_add_pattern(string_t *str, const struct mailbox_virtual_pattern *pattern)
 	if (!mail_namespace_update_name(pattern->ns, &name))
 		name = mail_namespace_fix_sep(pattern->ns, name);
 
+	if (strcmp(name, "*") == 0) {
+		str_append(str, "[* TO *]");
+		return;
+	}
+
 	/* first check if there are any wildcards in the pattern */
 	for (p = name; *p != '\0'; p++) {
 		if (*p == '%' || *p == '*')
@@ -361,7 +372,6 @@ static void
 fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 				  string_t *str, struct mailbox *box)
 {
-	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	ARRAY_TYPE(mailbox_virtual_patterns) includes_arr, excludes_arr;
 	struct mail_namespace *ns;
 	const struct mailbox_virtual_pattern *includes, *excludes;
@@ -394,7 +404,7 @@ fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 			str_append_c(fq, '(');
 			str_append(fq, "+box:");
 			solr_add_pattern(fq, &includes[i]);
-			solr_add_ns_query(fq, _backend, includes[i].ns);
+			solr_add_ns_query(fq, _backend, includes[i].ns, FALSE);
 			str_append_c(fq, ')');
 		}
 		str_append_c(fq, ')');
@@ -403,19 +413,13 @@ fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 	for (i = 0; i < exc_count; i++) {
 		if (str_len(fq) > 0)
 			str_append_c(fq, ' ');
-		str_append_c(fq, '(');
-		str_append(fq, "-box:");
+		str_append(fq, "NOT (");
+		str_append(fq, "box:");
 		solr_add_pattern(fq, &excludes[i]);
 
 		for (ns = excludes[i].ns; ns->alias_for != NULL; )
 			ns = ns->alias_for;
-		if (ns == backend->default_ns) {
-			str_append(fq, " OR NOT");
-			solr_add_ns_query(fq, _backend, ns);
-		} else if (*ns->prefix != '\0') {
-			str_append(fq, " OR -ns:");
-			solr_quote(fq, ns->prefix);
-		}
+		solr_add_ns_query(fq, _backend, ns, FALSE);
 		str_append_c(fq, ')');
 	}
 	if (str_len(fq) > 0) {
