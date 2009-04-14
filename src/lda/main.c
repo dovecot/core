@@ -170,8 +170,8 @@ static void failure_exit_callback(int *status)
 static void print_help(void)
 {
 	printf(
-"Usage: deliver [-c <config file>] [-a <address>] [-d <username>] [-p <path>]\n"
-"               [-f <envelope sender>] [-m <mailbox>] [-e] [-k]\n");
+"Usage: dovecot-lda [-c <config file>] [-a <address>] [-d <username>] [-p <path>]\n"
+"                   [-f <envelope sender>] [-m <mailbox>] [-e] [-k]\n");
 }
 
 int main(int argc, char *argv[])
@@ -198,7 +198,7 @@ int main(int argc, char *argv[])
 	enum mail_error error;
 
 	if (getuid() != geteuid() && geteuid() == 0) {
-		/* running setuid - don't allow this if deliver is
+		/* running setuid - don't allow this if the binary is
 		   executable by anyone */
 		struct stat st;
 

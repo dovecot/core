@@ -140,7 +140,7 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 	if (strcmp(mail->box->storage->name, MAILDIR_STORAGE_NAME) == 0)
 		src_mbox = (struct maildir_mailbox *)mail->box;
 	else if (strcmp(mail->box->storage->name, "raw") == 0) {
-		/* deliver uses raw format */
+		/* lda uses raw format */
 		src_mbox = NULL;
 	} else {
 		/* Can't hard link files from the source storage */
@@ -220,7 +220,7 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 				    do_hardlink, &do_ctx) < 0)
 			return -1;
 	} else {
-		/* raw / deliver */
+		/* raw / lda */
 		if (mail_get_special(mail, MAIL_FETCH_UIDL_FILE_NAME,
 				     &path) < 0 || *path == '\0')
 			return 0;

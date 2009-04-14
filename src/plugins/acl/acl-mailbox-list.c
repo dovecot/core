@@ -565,7 +565,7 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	if (auser == NULL) {
 		/* ACLs disabled for this user */
 	} else if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
-		/* no ACL checks for internal namespaces (deliver, shared) */
+		/* no ACL checks for internal namespaces (lda, shared) */
 		if (list->ns->type == NAMESPACE_SHARED)
 			acl_mailbox_list_init_shared(list);
 	} else {
