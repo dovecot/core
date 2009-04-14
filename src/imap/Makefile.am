@@ -15,12 +15,10 @@ AM_CPPFLAGS = \
 imap_LDFLAGS = -export-dynamic
 
 libs = \
-	../lib-storage/libdovecot-storage.la \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
 
-imap_LDADD = \
-	$(libs)
-
+imap_LDADD = $(libs) $(MODULE_LIBS)
 imap_DEPENDENCIES = $(libs)
 
 cmds = \

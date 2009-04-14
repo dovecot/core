@@ -18,7 +18,7 @@ test_lib_SOURCES = \
 
 test_lib_LDADD = \
 	libtest.a \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT)
 
 test_mail_SOURCES = \
 	test-mail.c
@@ -32,8 +32,8 @@ noinst_HEADERS = \
 
 test_mail_LDADD = \
 	libtest.a \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT)
 
 test_imap_LDADD = \
 	libtest.a \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT)

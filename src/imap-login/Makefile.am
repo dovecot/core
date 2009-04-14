@@ -9,8 +9,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/login-common
 
 imap_login_LDADD = \
-	../login-common/libdovecot-login.la \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT_LOGIN) \
+	$(LIBDOVECOT)
 
 imap_login_SOURCES = \
 	client.c \

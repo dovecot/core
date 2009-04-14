@@ -1,6 +1,6 @@
 SUBDIRS = list index register
 
-pkglib_LTLIBRARIES = libdovecot-storage.la
+noinst_LTLIBRARIES = libstorage.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -14,7 +14,7 @@ AM_CPPFLAGS = \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DMODULEDIR=\""$(moduledir)"\"
 
-libdovecot_storage_la_SOURCES = \
+libstorage_la_SOURCES = \
 	mail.c \
 	mail-copy.c \
 	mail-error.c \
@@ -36,10 +36,8 @@ libs = \
 	index/libstorage_index.la \
 	register/libstorage_register.la	
 
-libdovecot_storage_la_LIBADD = $(libs)
-libdovecot_storage_la_DEPENDENCIES = $(libs)
-
-libdovecot_storage_la_LDFLAGS = -export-dynamic
+libstorage_la_LIBADD = $(libs)
+libstorage_la_DEPENDENCIES = $(libs)
 
 headers = \
 	mail-copy.h \
@@ -58,6 +56,12 @@ headers = \
 	mailbox-search-result-private.h \
 	mailbox-tree.h \
 	mailbox-uidvalidity.h
+
+pkglib_LTLIBRARIES = libdovecot-storage.la
+libdovecot_storage_la_SOURCES = 
+libdovecot_storage_la_LIBADD = libstorage.la
+libdovecot_storage_la_DEPENDENCIES = libstorage.la
+libdovecot_storage_la_LDFLAGS = -export-dynamic
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/lib-storage

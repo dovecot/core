@@ -1,7 +1,3 @@
-pkglib_LTLIBRARIES = libdovecot.la
-
-libdovecot_la_SOURCES = 
-
 libs = \
 	../lib-settings/libsettings.la \
 	../lib-dict/libdict.la \
@@ -11,6 +7,10 @@ libs = \
 	../lib-charset/libcharset.la \
 	../lib-master/libmaster.la \
 	../lib/liblib.la
+
+pkglib_LTLIBRARIES = libdovecot.la
+
+libdovecot_la_SOURCES = 
 
 libdovecot_la_LIBADD = \
 	$(libs) \

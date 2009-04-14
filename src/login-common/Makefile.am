@@ -1,4 +1,4 @@
-pkglib_LTLIBRARIES = libdovecot-login.la
+noinst_LTLIBRARIES = liblogin.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-DSBINDIR=\""$(sbindir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
 
-libdovecot_login_la_SOURCES = \
+liblogin_la_SOURCES = \
 	client-common.c \
 	login-proxy.c \
 	login-settings.c \
@@ -20,7 +20,7 @@ libdovecot_login_la_SOURCES = \
 	ssl-proxy-gnutls.c \
 	ssl-proxy-openssl.c
 
-libdovecot_login_la_LIBADD = \
+liblogin_la_LIBADD = \
 	$(SSL_LIBS)
 
 noinst_HEADERS = \
@@ -31,3 +31,9 @@ noinst_HEADERS = \
 	master.h \
 	sasl-server.h \
 	ssl-proxy.h
+
+pkglib_LTLIBRARIES = libdovecot-login.la
+libdovecot_login_la_SOURCES = 
+libdovecot_login_la_LIBADD = liblogin.la
+libdovecot_login_la_DEPENDENCIES = liblogin.la
+libdovecot_login_la_LDFLAGS = -export-dynamic

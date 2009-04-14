@@ -46,6 +46,12 @@ AC_ARG_ENABLE(asserts,
 		AC_DEFINE(DISABLE_ASSERTS,, Disable asserts)
 	fi)
 
+AC_ARG_WITH(shared-libs,
+[  --with-shared-libs      Link binaries using shared Dovecot libraries (default)],
+	want_shared_libs=$withval,
+	want_shared_libs=yes)
+AM_CONDITIONAL(BUILD_SHARED_LIBS, test "$want_shared_libs" = "yes")
+
 AC_ARG_WITH(mem-align,
 [  --with-mem-align=BYTES  Set the memory alignment (default: 8)],
 	mem_align=$withval,
@@ -2215,6 +2221,26 @@ for storage in $mail_storages; do
 done
 AC_SUBST(LINKED_STORAGE_LIBS)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
+
+dnl **
+dnl ** Shared libraries usage
+dnl **
+
+if test "$want_shared_libs" = "yes"; then
+  LIBDOVECOT='$(top_builddir)/src/lib-dovecot/libdovecot.la'
+  LIBDOVECOT_STORAGE='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
+  LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/libdovecot-login.la'
+else
+  LIBDOVECOT='$(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib/liblib.la $(LIBICONV)'
+  LIBDOVECOT_STORAGE_BASE='$(top_builddir)/src/lib-storage/libstorage.la $(top_builddir)/src/lib-storage/register/libstorage_register.la $(top_builddir)/src/lib-storage/list/libstorage_list.la $(top_builddir)/src/lib-storage/index/libstorage_index.la $(top_builddir)/src/lib-index/libindex.la'
+  LIBDOVECOT_STORAGE="$LINKED_STORAGE_LIBS $LIBDOVECOT_STORAGE_BASE"
+  LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la'
+fi
+LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
+AC_SUBST(LIBDOVECOT)
+AC_SUBST(LIBDOVECOT_STORAGE)
+AC_SUBST(LIBDOVECOT_LOGIN)
+AC_SUBST(LIBDOVECOT_SQL)
 
 dnl **
 dnl ** SQL drivers

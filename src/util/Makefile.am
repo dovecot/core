@@ -23,44 +23,37 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/auth
 
-rawlog_LDADD = \
-	../lib-dovecot/libdovecot.la
+rawlog_LDADD = $(LIBDOVECOT)
 rawlog_SOURCES = \
 	rawlog.c
 
-gdbhelper_LDADD = \
-	../lib-dovecot/libdovecot.la
+gdbhelper_LDADD = $(LIBDOVECOT)
 gdbhelper_SOURCES = \
 	gdbhelper.c
 
 idxview_LDADD = \
-	../lib-dovecot/libdovecot.la \
-	../lib-storage/libdovecot-storage.la
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
 idxview_SOURCES = \
 	idxview.c
 
-imap_utf7_LDADD = \
-	../lib-dovecot/libdovecot.la
+imap_utf7_LDADD = $(LIBDOVECOT)
 imap_utf7_SOURCES = \
 	imap-utf7.c
 
-listview_LDADD = \
-	../lib-dovecot/libdovecot.la
+listview_LDADD = $(LIBDOVECOT)
 listview_SOURCES = \
 	listview.c
 
-logview_LDADD = \
-	../lib-dovecot/libdovecot.la
+logview_LDADD = $(LIBDOVECOT)
 logview_SOURCES = \
 	logview.c
 
-maildirlock_LDADD = \
-	../lib-dovecot/libdovecot.la
+maildirlock_LDADD = $(LIBDOVECOT)
 maildirlock_SOURCES = \
 	maildirlock.c
 
-threadview_LDADD = \
-	../lib-dovecot/libdovecot.la
+threadview_LDADD = $(LIBDOVECOT)
 threadview_SOURCES = \
 	threadview.c
 
@@ -68,15 +61,16 @@ dovecotpw_LDADD = \
 	../auth/libpassword.a \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a \
-	../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT) \
 	$(AUTH_LIBS)
 
 dovecotpw_SOURCES = \
 	dovecotpw.c
 
 doveadm_LDADD = \
-	../lib-dovecot/libdovecot.la \
-	../lib-storage/libdovecot-storage.la
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
 doveadm_SOURCES = \
 	doveadm.c
 

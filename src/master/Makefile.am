@@ -16,7 +16,7 @@ AM_CPPFLAGS = \
 
 dovecot_LDADD = \
 	$(LIBCAP) \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT)
 
 dovecot_SOURCES = \
 	auth-process.c \
@@ -57,6 +57,6 @@ ssl_build_param_SOURCES = \
 	ssl-init-gnutls.c
 
 ssl_build_param_LDADD = \
-	../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT) \
 	$(SSL_LIBS)
 

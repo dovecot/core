@@ -41,8 +41,9 @@ dovecot_auth_LDADD = \
 	libpassword.a \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a \
-	../lib-sql/libsql.la \
-	../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT_SQL) \
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS) \
 	$(AUTH_LIBS)
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
@@ -155,8 +156,7 @@ else
   noinst_HEADERS = $(headers)
 endif
 
-checkpassword_reply_LDADD = \
-	../lib-dovecot/libdovecot.la
+checkpassword_reply_LDADD = $(LIBDOVECOT)
 
 checkpassword_reply_sources = \
 	checkpassword-reply.c

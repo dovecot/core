@@ -13,11 +13,10 @@ AM_CPPFLAGS = \
 pop3_LDFLAGS = -export-dynamic
 
 libs = \
-	../lib-storage/libdovecot-storage.la \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
 
-pop3_LDADD = $(libs)
-
+pop3_LDADD = $(libs) $(MODULE_LIBS)
 pop3_DEPENDENCIES = $(libs)
 
 pop3_SOURCES = \

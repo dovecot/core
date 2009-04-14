@@ -19,10 +19,10 @@ dovecot_lda_LDFLAGS = -export-dynamic
 
 libs = \
 	../lib-lda/liblda.a \
-	../lib-storage/libdovecot-storage.la \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
 
-dovecot_lda_LDADD = $(libs)
+dovecot_lda_LDADD = $(libs) $(MODULE_LIBS)
 
 dovecot_lda_DEPENDENCIES = $(libs)
 

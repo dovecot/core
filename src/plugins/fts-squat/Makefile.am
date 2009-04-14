@@ -32,8 +32,8 @@ common_objects = \
 	squat-uidlist.lo
 
 libs = \
-	$(top_builddir)/src/lib-storage/libdovecot-storage.la \
-	$(top_builddir)/src/lib-dovecot/libdovecot.la
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
 
 squat_test_LDADD = \
 	$(common_objects) \

@@ -13,11 +13,12 @@ dict_LDFLAGS = -export-dynamic
 
 libs = \
 	../lib-dict/libdict_backend.a \
-	../lib-sql/libsql.la \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT_SQL) \
+	$(LIBDOVECOT)
 
 dict_LDADD = \
 	$(libs) \
+	$(MODULE_LIBS) \
 	$(DICT_LIBS) \
 	$(SQL_LIBS)
 

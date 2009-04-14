@@ -30,10 +30,11 @@ common_objects = \
 	convert-storage.lo
 
 libs = \
-	$(top_builddir)/src/lib-storage/libdovecot-storage.la \
-	$(top_builddir)/src/lib-dovecot/libdovecot.la
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
 
 convert_tool_LDADD = \
+	$(MODULE_LIBS) \
 	$(common_objects) \
 	$(libs)
 
