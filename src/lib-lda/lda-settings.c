@@ -26,8 +26,6 @@ static struct setting_define lda_setting_defines[] = {
 	DEF(SET_BOOL, lda_mailbox_autocreate),
 	DEF(SET_BOOL, lda_mailbox_autosubscribe),
 
-	{ SET_STRLIST, "plugin", offsetof(struct lda_settings, plugin_envs), NULL },
-
 	SETTING_DEFINE_LIST_END
 };
 
