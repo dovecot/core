@@ -292,13 +292,16 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 			 const char **value_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mailbox *box = vmail->backend_mail->box;
 
 	if (field == MAIL_FETCH_MAILBOX_NAME) {
-		*value_r = vmail->backend_mail->box->name;
+		*value_r = p_strconcat(vmail->imail.data_pool,
+				       box->storage->ns->prefix,
+				       box->name, NULL);
 		return 0;
 	}
 	if (mail_get_special(vmail->backend_mail, field, value_r) < 0) {
-		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
+		virtual_box_copy_error(mail->box, box);
 		return -1;
 	}
 	return 0;
