@@ -13,11 +13,17 @@ struct fts_mailbox {
 	unsigned int backend_set:1;
 };
 
+struct fts_orig_mailboxes {
+	const char *name;
+	struct mail_namespace *ns;
+	struct mailbox *box;
+};
+
 struct fts_search_virtual_context {
 	pool_t pool;
 
 	struct mailbox_transaction_context *trans;
-	ARRAY_TYPE(mailboxes) mailboxes;
+	ARRAY_DEFINE(orig_mailboxes, struct fts_orig_mailboxes);
 	ARRAY_TYPE(fts_backend_uid_map) last_uids;
 
 	unsigned int boxi, uidi;

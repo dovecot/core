@@ -272,7 +272,7 @@ fts_build_init_box(struct fts_search_context *fctx, struct mailbox *box,
 
 static int mailbox_name_cmp(const void *p1, const void *p2)
 {
-	struct mailbox *const *box1 = p1, *const *box2 = p2;
+	const struct fts_orig_mailboxes *box1 = p1, *box2 = p2;
 	int ret;
 
 	T_BEGIN {
@@ -281,10 +281,8 @@ static int mailbox_name_cmp(const void *p1, const void *p2)
 
 		tmp1 = t_str_new(128);
 		tmp2 = t_str_new(128);
-		vname1 = mail_namespace_get_vname((*box1)->storage->ns, tmp1,
-						  (*box1)->name);
-		vname2 = mail_namespace_get_vname((*box2)->storage->ns, tmp2,
-						  (*box2)->name);
+		vname1 = mail_namespace_get_vname(box1->ns, tmp1, box1->name);
+		vname2 = mail_namespace_get_vname(box2->ns, tmp2, box2->name);
 		ret = strcmp(vname1, vname2);
 	} T_END;
 	return ret;
@@ -301,7 +299,7 @@ static int fts_build_init_virtual_next(struct fts_search_context *fctx)
 {
 	struct fts_search_virtual_context *vctx = &fctx->virtual_ctx;
 	struct mailbox_status status;
-	struct mailbox *const *boxes;
+	const struct fts_orig_mailboxes *boxes;
 	const struct fts_backend_uid_map *last_uids;
 	unsigned int boxi, uidi, box_count, last_uid_count;
 	const char *vname;
@@ -314,25 +312,25 @@ static int fts_build_init_virtual_next(struct fts_search_context *fctx)
 	if (fctx->virtual_ctx.trans != NULL)
 		(void)mailbox_transaction_commit(&fctx->virtual_ctx.trans);
 
-	boxes = array_get(&vctx->mailboxes, &box_count);
+	boxes = array_get(&vctx->orig_mailboxes, &box_count);
 	last_uids = array_get(&vctx->last_uids, &last_uid_count);
 
 	tmp = t_str_new(256);
 	boxi = vctx->boxi;
 	uidi = vctx->uidi;
 	while (vret == 0 && boxi < box_count && uidi < last_uid_count) {
-		vname = mail_namespace_get_vname(boxes[boxi]->storage->ns, tmp,
-						 boxes[boxi]->name);
+		vname = mail_namespace_get_vname(boxes[boxi].ns, tmp,
+						 boxes[boxi].name);
 		ret = strcmp(vname, last_uids[uidi].mailbox);
 		if (ret == 0) {
 			/* match. check also that uidvalidity matches. */
-			mailbox_get_status(boxes[boxi], STATUS_UIDVALIDITY,
+			mailbox_get_status(boxes[boxi].box, STATUS_UIDVALIDITY,
 					   &status);
 			if (status.uidvalidity != last_uids[uidi].uidvalidity) {
 				uidi++;
 				continue;
 			}
-			vret = fts_build_init_box(fctx, boxes[boxi],
+			vret = fts_build_init_box(fctx, boxes[boxi].box,
 						  last_uids[uidi].uid);
 			boxi++;
 			uidi++;
@@ -341,12 +339,12 @@ static int fts_build_init_virtual_next(struct fts_search_context *fctx)
 			uidi++;
 		} else {
 			/* no messages indexed in the mailbox */
-			vret = fts_build_init_box(fctx, boxes[boxi], 0);
+			vret = fts_build_init_box(fctx, boxes[boxi].box, 0);
 			boxi++;
 		}
 	}
 	while (vret == 0 && boxi < box_count) {
-		vret = fts_build_init_box(fctx, boxes[boxi], 0);
+		vret = fts_build_init_box(fctx, boxes[boxi].box, 0);
 		boxi++;
 	}
 	vctx->boxi = boxi;
@@ -354,18 +352,50 @@ static int fts_build_init_virtual_next(struct fts_search_context *fctx)
 	return vret;
 }
 
+static const char *
+fts_box_get_root(struct mailbox *box, struct mail_namespace **ns_r)
+{
+	struct mail_namespace *ns = box->storage->ns;
+	const char *name = box->name;
+
+	while (ns->alias_for != NULL)
+		ns = ns->alias_for;
+	*ns_r = ns;
+
+	if (*name == '\0' && ns != box->storage->ns &&
+	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		/* ugly workaround to allow selecting INBOX from a Maildir/
+		   when it's not in the inbox=yes namespace. */
+		return "INBOX";
+	}
+	return name;
+}
+
 static int fts_build_init_virtual(struct fts_search_context *fctx)
 {
 	struct fts_search_virtual_context *vctx = &fctx->virtual_ctx;
 	struct fts_backend_uid_map *last_uids;
-	struct mailbox **boxes;
-	unsigned int box_count, last_uid_count;
+	ARRAY_TYPE(mailboxes) mailboxes;
+	struct mailbox *const *boxes;
+	struct fts_orig_mailboxes *orig_boxes;
+	struct fts_orig_mailboxes orig_box;
+	unsigned int i, box_count, last_uid_count;
 	int ret;
 
+	t_array_init(&mailboxes, 64);
+	mailbox_get_virtual_backend_boxes(fctx->t->box, &mailboxes, TRUE);
+	boxes = array_get_modifiable(&mailboxes, &box_count);
+
 	vctx->pool = pool_alloconly_create("fts virtual build", 1024);
-	p_array_init(&vctx->mailboxes, vctx->pool, 64);
-	mailbox_get_virtual_backend_boxes(fctx->t->box, &vctx->mailboxes, TRUE);
-	boxes = array_get_modifiable(&vctx->mailboxes, &box_count);
+	p_array_init(&vctx->orig_mailboxes, vctx->pool, box_count);
+	memset(&orig_box, 0, sizeof(orig_box));
+	for (i = 0; i < box_count; i++) {
+		orig_box.box = boxes[i];
+		orig_box.name = fts_box_get_root(boxes[i], &orig_box.ns);
+		array_append(&vctx->orig_mailboxes, &orig_box, 1);
+	}
+
+	orig_boxes = array_get_modifiable(&vctx->orig_mailboxes, &box_count);
 
 	if (box_count <= 0) {
 		if (box_count == 0) {
@@ -375,7 +405,7 @@ static int fts_build_init_virtual(struct fts_search_context *fctx)
 		/* virtual mailbox is built from only a single mailbox
 		   (currently). check that directly. */
 		fctx->virtual_ctx.trans =
-			mailbox_transaction_begin(boxes[0], 0);
+			mailbox_transaction_begin(orig_boxes[0].box, 0);
 		ret = fts_build_init_trans(fctx, fctx->virtual_ctx.trans);
 		return ret;
 	}
@@ -390,7 +420,7 @@ static int fts_build_init_virtual(struct fts_search_context *fctx)
 	}
 	last_uids = array_get_modifiable(&vctx->last_uids, &last_uid_count);
 
-	qsort(boxes, box_count, sizeof(*boxes), mailbox_name_cmp);
+	qsort(orig_boxes, box_count, sizeof(*orig_boxes), mailbox_name_cmp);
 	qsort(last_uids, last_uid_count, sizeof(*last_uids),
 	      fts_backend_uid_map_mailbox_cmp);
 
