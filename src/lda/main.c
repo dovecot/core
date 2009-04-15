@@ -176,6 +176,10 @@ static void print_help(void)
 
 int main(int argc, char *argv[])
 {
+	const struct setting_parser_info *set_roots[] = {
+		&lda_setting_parser_info,
+		NULL
+	};
 	struct mail_deliver_context ctx;
 	enum mail_storage_service_flags service_flags = 0;
 	const char *user, *errstr, *path, *getopt_str;
@@ -314,8 +318,8 @@ int main(int argc, char *argv[])
 	}
 
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
-	ctx.dest_user = mail_storage_service_init_user(service, user,
-				&lda_setting_parser_info, service_flags);
+	ctx.dest_user = mail_storage_service_init_user(service, user, set_roots,
+						       service_flags);
 	ctx.set = mail_storage_service_get_settings(service);
         duplicate_init(mail_user_set_get_storage_set(ctx.dest_user->set));
 

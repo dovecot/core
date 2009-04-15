@@ -282,11 +282,13 @@ service_drop_privileges(const struct mail_user_settings *set,
 
 static void
 mail_storage_service_init_settings(struct master_service *service,
-				   const struct setting_parser_info *set_root,
+				   const struct setting_parser_info *set_roots[],
 				   bool preserve_home)
 {
-	const struct setting_parser_info *set_roots[3];
+	ARRAY_DEFINE(all_set_roots, const struct setting_parser_info *);
+	const struct setting_parser_info *info = &mail_user_setting_parser_info;
 	const char *error;
+	unsigned int i;
 
 	(void)umask(0077);
 
@@ -294,12 +296,15 @@ mail_storage_service_init_settings(struct master_service *service,
 	mail_storage_register_all();
 	mailbox_list_register_all();
 
-	set_roots[0] = &mail_user_setting_parser_info;
-	set_roots[1] = set_root;
-	set_roots[2] = NULL;
+	t_array_init(&all_set_roots, 5);
+	array_append(&all_set_roots, &info, 1);
+	for (i = 0; set_roots[i] != NULL; i++)
+		array_append(&all_set_roots, &set_roots[i], 1);
+	(void)array_append_space(&all_set_roots);
 
 	/* read settings after registering storages so they can have their
 	   own setting definitions too */
+	set_roots = array_idx_modifiable(&all_set_roots, 0);
 	if (master_service_settings_read(service, set_roots,
 					 mail_storage_get_dynamic_parsers(),
 					 preserve_home, &error) < 0)
@@ -395,7 +400,7 @@ user_expand_varstr(struct master_service *service, const char *user,
 
 struct mail_user *
 mail_storage_service_init_user(struct master_service *service, const char *user,
-			       const struct setting_parser_info *set_root,
+			       const struct setting_parser_info *set_roots[],
 			       enum mail_storage_service_flags flags)
 {
 	const struct master_service_settings *set;
@@ -408,7 +413,7 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 	bool userdb_lookup;
 
 	userdb_lookup = (flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0;
-	mail_storage_service_init_settings(service, set_root, !userdb_lookup);
+	mail_storage_service_init_settings(service, set_roots, !userdb_lookup);
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		set_keyval(service, "mail_debug", "yes");
@@ -484,7 +489,7 @@ void mail_storage_service_deinit_user(void)
 
 struct mail_storage_service_multi_ctx *
 mail_storage_service_multi_init(struct master_service *service,
-				const struct setting_parser_info *set_root,
+				const struct setting_parser_info *set_roots[],
 				enum mail_storage_service_flags flags)
 {
 	struct mail_storage_service_multi_ctx *ctx;
@@ -497,7 +502,7 @@ mail_storage_service_multi_init(struct master_service *service,
 	ctx->service = service;
 	ctx->flags = flags;
 
-	mail_storage_service_init_settings(service, set_root, FALSE);
+	mail_storage_service_init_settings(service, set_roots, FALSE);
 
 	/* do all the global initialization. delay initializing plugins until
 	   we drop privileges the first time. */

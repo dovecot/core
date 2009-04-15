@@ -139,6 +139,10 @@ static void main_deinit(void)
 
 int main(int argc, char *argv[], char *envp[])
 {
+	const struct setting_parser_info *set_roots[] = {
+		&pop3_setting_parser_info,
+		NULL
+	};
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
@@ -176,8 +180,7 @@ int main(int argc, char *argv[], char *envp[])
 			i_fatal("USER environment missing");
 	}
 
-	mail_user = mail_storage_service_init_user(service, user,
-						   &pop3_setting_parser_info,
+	mail_user = mail_storage_service_init_user(service, user, set_roots,
 						   storage_service_flags);
 	set = mail_storage_service_get_settings(service);
 	restrict_access_allow_coredumps(TRUE);
