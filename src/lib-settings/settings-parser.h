@@ -142,6 +142,10 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 /* Duplicate the entire settings structure. */
 void *settings_dup(const struct setting_parser_info *info,
 		   const void *set, pool_t pool);
+/* Duplicate the entire setting parser. */
+struct setting_parser_context *
+settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool);
+
 /* parsers is a name=NULL -terminated list. The parsers are appended as
    dynamic_settings_list structures to their parent. All must have the same
    parent. The new structures are allocated from the given pool. */

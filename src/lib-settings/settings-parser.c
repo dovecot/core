@@ -23,6 +23,9 @@ struct setting_link {
         struct setting_link *parent;
 	const struct setting_parser_info *info;
 
+	/* Points to array inside parent->set_struct.
+	   SET_DEFLIST : array of set_structs
+	   SET_STRLIST : array of const_strings */
 	ARRAY_TYPE(void_array) *array;
 	void *set_struct;
 };
@@ -117,7 +120,7 @@ settings_parser_init_list(pool_t set_pool,
 	ctx->flags = flags;
 
 	ctx->root_count = count;
-	ctx->roots = p_new(ctx->set_pool, struct setting_link, count);
+	ctx->roots = p_new(ctx->parser_pool, struct setting_link, count);
 	for (i = 0; i < count; i++) {
 		ctx->roots[i].info = roots[i];
 		ctx->roots[i].set_struct =
@@ -1016,4 +1019,97 @@ const void *settings_find_dynamic(struct setting_parser_info *info,
 		}
 	}
 	return NULL;
+}
+
+static struct setting_link *
+settings_link_get_new(struct setting_parser_context *new_ctx,
+		      struct hash_table *links,
+		      struct setting_link *old_link)
+{
+	struct setting_link *new_link;
+	void *const *old_sets, **new_sets;
+	unsigned int i, count;
+	size_t diff;
+
+	new_link = hash_table_lookup(links, old_link);
+	if (new_link != NULL)
+		return new_link;
+
+	i_assert(old_link->parent != NULL);
+	i_assert(old_link->array != NULL);
+
+	new_link = p_new(new_ctx->parser_pool, struct setting_link, 1);
+	new_link->info = old_link->info;
+	new_link->parent = settings_link_get_new(new_ctx, links,
+						 old_link->parent);
+
+	/* find the array from parent struct */
+	diff = (char *)old_link->array - (char *)old_link->parent->set_struct;
+	i_assert(diff + sizeof(*old_link->array) <= old_link->info->struct_size);
+	new_link->array = PTR_OFFSET(new_link->parent->set_struct, diff);
+
+	/* find our struct from array */
+	old_sets = array_get(old_link->array, &count);
+	new_sets = array_get_modifiable(new_link->array, &count);
+	for (i = 0; i < count; i++) {
+		if (old_sets[i] == old_link->set_struct) {
+			new_link->set_struct = new_sets[i];
+			break;
+		}
+	}
+	i_assert(i < count);
+	hash_table_insert(links, old_link, new_link);
+	return new_link;
+}
+
+struct setting_parser_context *
+settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
+{
+	struct setting_parser_context *new_ctx;
+	struct hash_iterate_context *iter;
+	struct setting_link *new_link;
+	struct hash_table *links;
+	void *key, *value;
+	unsigned int i;
+
+	new_ctx = p_new(new_pool, struct setting_parser_context, 1);
+	new_ctx->set_pool = new_pool;
+	new_ctx->parser_pool = pool_alloconly_create("settings parser", 1024);
+	new_ctx->flags = old_ctx->flags;
+	new_ctx->str_vars_are_expanded = old_ctx->str_vars_are_expanded;
+	new_ctx->linenum = old_ctx->linenum;
+	new_ctx->error = p_strdup(new_ctx->parser_pool, old_ctx->error);
+	new_ctx->prev_info = old_ctx->prev_info;
+
+	links = hash_table_create(default_pool, default_pool, 0, NULL, NULL);
+
+	new_ctx->root_count = old_ctx->root_count;
+	new_ctx->roots = p_new(new_ctx->parser_pool, struct setting_link,
+			       new_ctx->root_count);
+	for (i = 0; i < new_ctx->root_count; i++) {
+		i_assert(old_ctx->roots[i].parent == NULL);
+		i_assert(old_ctx->roots[i].array == NULL);
+
+		new_ctx->roots[i].info = old_ctx->roots[i].info;
+		new_ctx->roots[i].set_struct =
+			settings_dup(old_ctx->roots[i].info,
+				     old_ctx->roots[i].set_struct,
+				     new_ctx->set_pool);
+		hash_table_insert(links, &old_ctx->roots[i],
+				  &new_ctx->roots[i]);
+	}
+
+	new_ctx->links =
+		hash_table_create(default_pool, new_ctx->parser_pool, 0,
+				  str_hash, (hash_cmp_callback_t *)strcmp);
+
+	iter = hash_table_iterate_init(new_ctx->links);
+	while (hash_table_iterate(iter, &key, &value)) {
+		new_link = settings_link_get_new(new_ctx, links, value);
+		hash_table_insert(new_ctx->links,
+				  p_strdup(new_ctx->parser_pool, key),
+				  new_link);
+	}
+	hash_table_iterate_deinit(&iter);
+	return new_ctx;
 }
