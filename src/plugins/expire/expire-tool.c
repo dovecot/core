@@ -17,6 +17,7 @@
 #include <stdlib.h>
 
 struct expire_context {
+	pool_t multi_user_pool;
 	struct mail_storage_service_multi_ctx *multi;
 	struct mail_user *mail_user;
 	bool testrun;
@@ -28,6 +29,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 			 unsigned int expunge_secs, unsigned int altmove_secs,
 			 time_t *oldest_r)
 {
+	struct mail_storage_service_multi_user *multi_user;
 	struct mail_namespace *ns;
 	struct mail_storage *storage;
 	struct mailbox *box;
@@ -49,14 +51,21 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	if (ctx->mail_user == NULL) {
 		i_set_failure_prefix(t_strdup_printf("expire-tool(%s): ",
 						     user));
-		ret = mail_storage_service_multi_next(ctx->multi, user,
-						      &ctx->mail_user, &errstr);
+		p_clear(ctx->multi_user_pool);
+		ret = mail_storage_service_multi_lookup(ctx->multi, user,
+							ctx->multi_user_pool,
+							&multi_user, &errstr);
 		if (ret <= 0) {
 			if (ret < 0 || ctx->testrun)
-				i_error("User init failed: %s", errstr);
+				i_error("User lookup failed: %s", errstr);
 			return ret;
 		}
-		i_info("success: %s %d", ctx->mail_user->username, (int)geteuid());
+		ret = mail_storage_service_multi_next(ctx->multi, multi_user,
+						      &ctx->mail_user, &errstr);
+		if (ret < 0) {
+			i_error("User init failed: %s", errstr);
+			return ret;
+		}
 	}
 
 	ns_mailbox = mailbox;
@@ -165,6 +174,7 @@ static void expire_run(struct master_service *service, bool testrun)
 	int ret;
 
 	memset(&ctx, 0, sizeof(ctx));
+	ctx.multi_user_pool = pool_alloconly_create("multi user pool", 512);
 	ctx.multi = mail_storage_service_multi_init(service, NULL,
 				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
 
@@ -272,6 +282,7 @@ static void expire_run(struct master_service *service, bool testrun)
 	if (ctx.mail_user != NULL)
 		mail_user_unref(&ctx.mail_user);
 	mail_storage_service_multi_deinit(&ctx.multi);
+	pool_unref(&ctx.multi_user_pool);
 }
 
 int main(int argc, char *argv[])
