@@ -529,34 +529,39 @@ virtual_sync_mailbox_box_remove(struct virtual_sync_context *ctx,
 static void
 virtual_sync_mailbox_box_add(struct virtual_sync_context *ctx,
 			     struct virtual_backend_box *bbox,
-			     const ARRAY_TYPE(seq_range) *added_uids)
+			     const ARRAY_TYPE(seq_range) *added_uids_arr)
 {
-	const struct seq_range *uids;
+	const struct seq_range *added_uids;
 	struct virtual_backend_uidmap *uidmap;
 	struct virtual_add_record rec;
 	unsigned int i, src, dest, uid_count, add_count, rec_count;
-	uint32_t uid;
+	uint32_t add_uid;
 
-	uids = array_get(added_uids, &uid_count);
+	added_uids = array_get(added_uids_arr, &uid_count);
 	if (uid_count == 0)
 		return;
-	add_count = seq_range_count(added_uids);
+	add_count = seq_range_count(added_uids_arr);
 
 	/* none of added_uids should exist in bbox->uids. find the position
 	   of the first inserted index. */
 	uidmap = array_get_modifiable(&bbox->uids, &rec_count);
-	if (rec_count == 0 || uids[0].seq1 > uidmap[rec_count-1].real_uid) {
+	if (rec_count == 0 ||
+	    added_uids[0].seq1 > uidmap[rec_count-1].real_uid) {
 		/* fast path: usually messages are appended */
 		dest = rec_count;
-	} else if (bsearch_insert_pos(&uids[0].seq1, uidmap, rec_count,
+	} else if (bsearch_insert_pos(&added_uids[0].seq1, uidmap, rec_count,
 				      sizeof(*uidmap),
 				      virtual_backend_uidmap_bsearch_cmp,
 				      &dest))
 		i_unreached();
 
 	/* make space for all added UIDs. */
-	array_copy(&bbox->uids.arr, dest + add_count,
-		   &bbox->uids.arr, dest, rec_count - dest);
+	if (rec_count == dest)
+		array_idx_clear(&bbox->uids, dest + add_count-1);
+	else {
+		array_copy(&bbox->uids.arr, dest + add_count,
+			   &bbox->uids.arr, dest, rec_count - dest);
+	}
 	uidmap = array_get_modifiable(&bbox->uids, &rec_count);
 	src = dest + add_count;
 
@@ -564,18 +569,18 @@ virtual_sync_mailbox_box_add(struct virtual_sync_context *ctx,
 	memset(&rec, 0, sizeof(rec));
 	rec.rec.mailbox_id = bbox->mailbox_id;
 	for (i = 0; i < uid_count; i++) {
-		uid = uids[i].seq1;
-		while (src < rec_count && uidmap[src].real_uid < uid) {
+		add_uid = added_uids[i].seq1;
+		while (src < rec_count && uidmap[src].real_uid < add_uid) {
 			uidmap[dest++] = uidmap[src++];
 			i_assert(src < rec_count);
 		}
 
-		for (; uid <= uids[i].seq2; uid++, dest++) {
-			uidmap[dest].real_uid = uid;
+		for (; add_uid <= added_uids[i].seq2; add_uid++, dest++) {
+			uidmap[dest].real_uid = add_uid;
 			uidmap[dest].virtual_uid = 0;
 
 			if (ctx->mbox->uids_mapped) {
-				rec.rec.real_uid = uid;
+				rec.rec.real_uid = add_uid;
 				array_append(&ctx->all_adds, &rec, 1);
 			}
 		}
