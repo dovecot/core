@@ -1,6 +1,8 @@
 #ifndef MAIL_STORAGE_SERVICE_H
 #define MAIL_STORAGE_SERVICE_H
 
+struct master_service;
+
 enum mail_storage_service_flags {
 	/* Fail if we don't drop root privileges */
 	MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT		= 0x01,
@@ -35,6 +37,10 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 				    struct mail_user **mail_user_r,
 				    const char **error_r);
 void mail_storage_service_multi_deinit(struct mail_storage_service_multi_ctx **ctx);
+
+/* Return the settings pointed to by set_root parameter in _init().
+   The settings contain all the changes done by userdb lookups. */
+void *mail_storage_service_multi_user_get_set(struct mail_storage_service_multi_user *user);
 
 /* Return the settings pointed to by set_root parameter in _init() */
 void *mail_storage_service_get_settings(struct master_service *service);

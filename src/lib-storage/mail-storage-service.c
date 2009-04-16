@@ -275,19 +275,29 @@ service_drop_privileges(const struct mail_user_settings *set,
 	    (rset.uid == 0 || (rset.uid == (uid_t)-1 && current_euid == 0)))
 		i_fatal("Mail access not allowed for root");
 
-	if (keep_setuid_root && current_euid != rset.uid) {
-		if (current_euid != 0) {
-			/* we're changing the UID, switch back to root first */
-			if (seteuid(0) < 0)
-				i_fatal("seteuid(0) failed: %m");
+	if (keep_setuid_root) {
+		if (current_euid != rset.uid) {
+			if (current_euid != 0) {
+				/* we're changing the UID,
+				   switch back to root first */
+				if (seteuid(0) < 0)
+					i_fatal("seteuid(0) failed: %m");
+			}
+			setuid_uid = rset.uid;
 		}
-		setuid_uid = rset.uid;
 		rset.uid = (uid_t)-1;
+		disallow_root = FALSE;
 	}
 	restrict_access(&rset, *home == '\0' ? NULL : home, disallow_root);
-	if (keep_setuid_root) {
+	if (setuid_uid != 0) {
 		if (seteuid(setuid_uid) < 0)
 			i_fatal("seteuid(%s) failed: %m", dec2str(setuid_uid));
+	}
+	if (rset.chroot_dir == NULL) {
+		/* enable core dumps only when we can be sure that the core
+		   file is written to a safe directory. with chrooting we're
+		   chrooting to user's home dir. */
+		restrict_access_allow_coredumps(TRUE);
 	}
 }
 
@@ -328,7 +338,7 @@ static int
 mail_storage_service_init_post(struct master_service *service,
 			       const char *user, const char *home,
 			       const struct mail_user_settings *user_set,
-			       struct mail_user **mail_user_r,
+			       bool setuid_root, struct mail_user **mail_user_r,
 			       const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
@@ -342,10 +352,14 @@ mail_storage_service_init_post(struct master_service *service,
 		       home != NULL ? home : "(none)");
 	}
 
-	/* If possible chdir to home directory, so that core file
-	   could be written in case we crash. */
-	if (*home != '\0') {
-		if (chdir(home) < 0) {
+	if (setuid_root) {
+		/* we don't want to write core files to any users' home
+		   directories since they could contain information about other
+		   users' mails as well. so do no chdiring to home. */
+	} else if (*home != '\0') {
+		/* If possible chdir to home directory, so that core file
+		   could be written in case we crash. */
+		if (chdir(user_set->base_dir) < 0) {
 			if (errno != ENOENT)
 				i_error("chdir(%s) failed: %m", home);
 			else if (mail_set->mail_debug)
@@ -486,7 +500,7 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 	dict_drivers_register_builtin();
 	module_dir_init(modules);
 	mail_users_init(user_set->auth_socket_path, mail_set->mail_debug);
-	if (mail_storage_service_init_post(service, user, home, user_set,
+	if (mail_storage_service_init_post(service, user, home, user_set, FALSE,
 					   &mail_user, &error) < 0)
 		i_fatal("%s", error);
 	return mail_user;
@@ -567,6 +581,7 @@ int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx
 		if (ret <= 0)
 			return ret;
 	}
+	user->user = p_strdup(pool, user->user);
 	*user_r = user;
 	return 1;
 }
@@ -608,7 +623,8 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 			t_strconcat(user_set->mail_chroot, "/", home, NULL));
 	}
 	if (mail_storage_service_init_post(ctx->service, user->user, home,
-					   user_set, mail_user_r, error_r) < 0)
+					   user_set, TRUE,
+					   mail_user_r, error_r) < 0)
 		return -1;
 	return 0;
 }
@@ -620,6 +636,11 @@ void mail_storage_service_multi_deinit(struct mail_storage_service_multi_ctx **_
 	*_ctx = NULL;
 	i_free(ctx);
 	mail_storage_service_deinit_user();
+}
+
+void *mail_storage_service_multi_user_get_set(struct mail_storage_service_multi_user *user)
+{
+	return settings_parser_get_list(user->set_parser) + 1;
 }
 
 void *mail_storage_service_get_settings(struct master_service *service)
