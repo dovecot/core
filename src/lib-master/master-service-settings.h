@@ -3,6 +3,7 @@
 
 struct setting_parser_info;
 struct dynamic_settings_parser;
+struct master_service;
 
 struct master_service_settings {
 	const char *log_path;
