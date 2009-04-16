@@ -10,10 +10,6 @@
 
 #include <stdlib.h>
 
-/* Send some noice to client every few minutes to avoid NATs and stateful
-   firewalls from closing the connection */
-#define KEEPALIVE_TIMEOUT (2*60)
-
 struct cmd_idle_context {
 	struct client *client;
 	struct client_command_context *cmd;
@@ -134,6 +130,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_idle_context *ctx = cmd->context;
+	uoff_t orig_offset = client->output->offset;
 
 	if (cmd->cancel) {
 		idle_finish(ctx, FALSE, FALSE);
@@ -164,6 +161,9 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		}
 		ctx->sync_ctx = NULL;
 	}
+	if (client->output->offset != orig_offset &&
+	    ctx->keepalive_to != NULL)
+		timeout_reset(ctx->keepalive_to);
 
 	if (ctx->sync_pending) {
 		/* more changes occurred while we were sending changes to
@@ -202,8 +202,9 @@ bool cmd_idle(struct client_command_context *cmd)
 	ctx->cmd = cmd;
 	ctx->client = client;
 
-	ctx->keepalive_to = timeout_add(KEEPALIVE_TIMEOUT * 1000,
-					keepalive_timeout, ctx);
+	ctx->keepalive_to = client->set->imap_idle_notify_interval == 0 ? NULL :
+		timeout_add(client->set->imap_idle_notify_interval * 1000,
+			    keepalive_timeout, ctx);
 
 	if (client->mailbox != NULL) {
 		const struct mail_storage_settings *set;

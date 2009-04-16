@@ -22,6 +22,7 @@ static struct setting_define imap_setting_defines[] = {
 	DEF(SET_BOOL, verbose_proctitle),
 
 	DEF(SET_UINT, imap_max_line_length),
+	DEF(SET_UINT, imap_idle_notify_interval),
 	DEF(SET_STR, imap_capability),
 	DEF(SET_STR, imap_client_workarounds),
 	DEF(SET_STR, imap_logout_format),
@@ -40,6 +41,7 @@ static struct imap_settings imap_default_settings = {
 	   break large message sets to multiple commands, so we're pretty
 	   liberal by default. */
 	MEMBER(imap_max_line_length) 65536,
+	MEMBER(imap_idle_notify_interval) 120,
 	MEMBER(imap_capability) "",
 	MEMBER(imap_client_workarounds) "outlook-idle",
 	MEMBER(imap_logout_format) "bytes=%i/%o",
