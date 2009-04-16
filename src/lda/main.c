@@ -40,7 +40,7 @@
 #define MAIL_MAX_MEMORY_BUFFER (1024*128)
 
 static const char *wanted_headers[] = {
-	"From", "Message-ID", "Subject", "Return-Path",
+	"From", "To", "Message-ID", "Subject", "Return-Path",
 	NULL
 };
 
@@ -367,6 +367,7 @@ int main(int argc, char *argv[])
 	t = mailbox_transaction_begin(box, 0);
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
 	ctx.src_mail = mail_alloc(t, 0, headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
 	mail_set_seq(ctx.src_mail, 1);
 
 	if (ctx.dest_addr == NULL) {
@@ -377,11 +378,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	ret = mail_deliver(&ctx, &storage);
-	if (ret < 0) {
+	if (mail_deliver(&ctx, &storage) < 0) {
 		if (storage == NULL) {
 			/* This shouldn't happen */
-			i_error("BUG: Saving failed for unknown storage");
+			i_error("BUG: Saving failed to unknown storage");
 			return EX_TEMPFAIL;
 		}
 
@@ -414,7 +414,6 @@ int main(int argc, char *argv[])
 	}
 
 	mail_free(&ctx.src_mail);
-	mailbox_header_lookup_unref(&headers_ctx);
 	mailbox_transaction_rollback(&t);
 	mailbox_close(&box);
 
