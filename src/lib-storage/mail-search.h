@@ -93,13 +93,13 @@ struct mail_search_arg {
 };
 
 struct mail_search_args {
-	int refcount;
+	int refcount, init_refcount;
+
 	pool_t pool;
 	struct mailbox *box;
 	struct mail_search_arg *args;
 	const char *charset;
 
-	unsigned int initialized:1;
 	unsigned int simplified:1;
 	unsigned int have_inthreads:1;
 };

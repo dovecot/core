@@ -122,7 +122,7 @@ void mail_search_args_init(struct mail_search_args *args,
 			   struct mailbox *box, bool change_uidsets,
 			   const ARRAY_TYPE(seq_range) *search_saved_uidset)
 {
-	if (args->initialized) {
+	if (args->init_refcount++ > 0) {
 		i_assert(args->box == box);
 		return;
 	}
@@ -167,11 +167,10 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 
 void mail_search_args_deinit(struct mail_search_args *args)
 {
-	if (args->refcount > 1 || !args->initialized)
+	if (--args->init_refcount > 0)
 		return;
 
 	mail_search_args_deinit_sub(args, args->args);
-	args->initialized = FALSE;
 	args->box = NULL;
 }
 
@@ -229,10 +228,13 @@ void mail_search_args_unref(struct mail_search_args **_args)
 	i_assert(args->refcount > 0);
 
 	*_args = NULL;
-	if (--args->refcount > 0)
+	if (--args->refcount > 0) {
+		i_assert(args->init_refcount <= args->refcount);
 		return;
-
-	mail_search_args_deinit(args);
+	}
+	i_assert(args->init_refcount <= 1);
+	if (args->init_refcount == 1)
+		mail_search_args_deinit(args);
 	pool_unref(&args->pool);
 }
 
