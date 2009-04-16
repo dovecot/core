@@ -50,7 +50,7 @@ struct login_auth_request {
 	unsigned int login_tag;
 
 	struct mail_login_request mail_request;
-	unsigned char data[];
+	unsigned char data[FLEXIBLE_ARRAY_MEMBER];
 };
 
 static unsigned int auth_id_counter, login_pid_counter;
