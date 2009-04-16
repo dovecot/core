@@ -190,6 +190,7 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 			return -1;
 		}
 	}
+
 	/* successfully matched the name. */
 	if (userdomain == NULL) {
 		i_assert(username != NULL);
@@ -203,6 +204,11 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 			username = t_strdup_until(userdomain, domain);
 			domain++;
 		}
+	}
+	if (*userdomain == '\0') {
+		mail_storage_set_error(_storage, MAIL_ERROR_PARAMS,
+				       "Empty username doesn't exist");
+		return -1;
 	}
 
 	/* expand the namespace prefix and see if it already exists.
