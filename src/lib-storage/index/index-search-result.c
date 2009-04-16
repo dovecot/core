@@ -68,6 +68,8 @@ search_result_update_search(struct mail_search_result *result,
 	next_seq = search_seqs[0].seq1;
 	seqpos = 0;
 
+	mail_search_args_init(result->search_args, result->box, FALSE, NULL);
+
 	t = mailbox_transaction_begin(result->box, 0);
 	search_ctx = mailbox_search_init(t, result->search_args, NULL);
 	/* tell search that we're updating an existing search result,
@@ -99,6 +101,7 @@ search_result_update_search(struct mail_search_result *result,
 	}
 	mail_free(&mail);
 	ret = mailbox_search_deinit(&search_ctx);
+	mail_search_args_deinit(result->search_args);
 
 	if (next_seq != 0 && ret == 0) {
 		/* last message(s) didn't match. make sure they don't exist
