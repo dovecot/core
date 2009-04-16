@@ -2406,6 +2406,7 @@ src/lib-storage/register/Makefile
 src/auth/Makefile
 src/config/Makefile
 src/lda/Makefile
+src/lmtp/Makefile
 src/dict/Makefile
 src/imap/Makefile
 src/imap-login/Makefile

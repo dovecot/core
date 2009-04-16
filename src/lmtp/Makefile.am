@@ -1,0 +1,36 @@
+pkglibexecdir = $(libexecdir)/dovecot
+
+pkglibexec_PROGRAMS = lmtp
+
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-imap \
+	-I$(top_srcdir)/src/lib-index \
+	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-lda \
+	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-storage/index \
+	-I$(top_srcdir)/src/lib-storage/index/raw \
+	-DPKG_RUNDIR=\""$(rundir)"\"
+
+lmtp_LDFLAGS = -export-dynamic
+
+libs = \
+	../lib-lda/liblda.a \
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
+
+lmtp_LDADD = $(libs) $(MODULE_LIBS)
+
+lmtp_DEPENDENCIES = $(libs)
+
+lmtp_SOURCES = \
+	main.c \
+	client.c \
+	commands.c
+
+noinst_HEADERS = \
+	client.h \
+	commands.h

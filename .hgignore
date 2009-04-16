@@ -65,6 +65,7 @@ src/lib-dict/dict-drivers-register.c
 src/lib-sql/sql-drivers-register.c
 src/lib-storage/register/mail-storage-register.c
 src/lib-storage/register/mailbox-list-register.c
+src/lmtp/lmtp
 src/master/dovecot
 src/master/ssl-build-param
 src/plugins/convert/convert-tool
