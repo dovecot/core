@@ -21,8 +21,14 @@ struct mail_deliver_context {
 	   something to it. */
 	const char *dest_mailbox_name;
 
+	/* Filled with destination mail, if save_dest_mail=TRUE.
+	   The caller must free the mail, its transaction and close
+	   the mailbox. */
+	struct mail *dest_mail;
+
 	bool tried_default_save;
 	bool saved_mail;
+	bool save_dest_mail;
 };
 
 typedef int deliver_mail_func_t(struct mail_deliver_context *ctx,
