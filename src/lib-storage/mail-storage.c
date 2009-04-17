@@ -455,6 +455,9 @@ struct mailbox *mailbox_open(struct mail_storage **_storage, const char *name,
 		if (hook_mailbox_opened != NULL && box != NULL)
 			hook_mailbox_opened(box);
 	} T_END;
+
+	if (box != NULL)
+		box->storage->ns->flags |= NAMESPACE_FLAG_USABLE;
 	return box;
 }
 
