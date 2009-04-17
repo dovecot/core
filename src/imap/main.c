@@ -84,7 +84,6 @@ static void main_init(const struct imap_settings *set, struct mail_user *user,
 	}
 
 	clients_init();
-	commands_init();
 
 	client = client_create(0, 1, user, set);
         client->workarounds = parse_workarounds(set);
@@ -129,7 +128,6 @@ static void main_deinit(void)
 	if (log_io != NULL)
 		io_remove(&log_io);
 	clients_deinit();
-	commands_deinit();
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -182,6 +180,9 @@ int main(int argc, char *argv[], char *envp[])
 			i_fatal("USER environment missing");
 	}
 
+	/* plugins may want to add commands, so this needs to be called early */
+	commands_init();
+
 	mail_user = mail_storage_service_init_user(service, user, set_roots,
 						   storage_service_flags);
 	set = mail_storage_service_get_settings(service);
@@ -199,6 +200,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	main_deinit();
 	mail_storage_service_deinit_user();
+	commands_deinit();
+
 	master_service_deinit(&service);
 	return 0;
 }
