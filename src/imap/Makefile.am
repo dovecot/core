@@ -14,9 +14,15 @@ AM_CPPFLAGS = \
 
 imap_LDFLAGS = -export-dynamic
 
+if !BUILD_SHARED_LIBS
+unused_objects = \
+	../lib/mountpoint.o
+endif
+
 libs = \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT) \
+	$(unused_objects)
 
 imap_LDADD = $(libs) $(MODULE_LIBS)
 imap_DEPENDENCIES = $(libs)

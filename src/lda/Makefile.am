@@ -17,10 +17,17 @@ AM_CPPFLAGS = \
 
 dovecot_lda_LDFLAGS = -export-dynamic
 
+if !BUILD_SHARED_LIBS
+unused_objects = \
+	../lib/mountpoint.o \
+	../lib-imap/imap-util.o
+endif
+
 libs = \
 	../lib-lda/liblda.a \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT) \
+	$(unused_objects)
 
 dovecot_lda_LDADD = $(libs) $(MODULE_LIBS)
 
