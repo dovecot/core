@@ -30,10 +30,6 @@
 #include <syslog.h>
 #include <sys/stat.h>
 
-/* Try to raise our fd limit this high at startup. If the limit is already
-   higher, it's not dropped. */
-#define DOVECOT_MASTER_FD_MIN_LIMIT 65536
-
 #define FATAL_FILENAME "master-fatal.lastlog"
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
