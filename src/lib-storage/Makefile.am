@@ -1,6 +1,6 @@
 SUBDIRS = list index register
 
-noinst_LTLIBRARIES = libstorage.la
+noinst_LTLIBRARIES = libstorage.la libstorage_service.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -22,7 +22,6 @@ libstorage_la_SOURCES = \
 	mail-search.c \
 	mail-search-build.c \
 	mail-storage.c \
-	mail-storage-service.c \
 	mail-storage-settings.c \
 	mail-user.c \
 	mailbox-list.c \
@@ -30,14 +29,8 @@ libstorage_la_SOURCES = \
 	mailbox-tree.c \
 	mailbox-uidvalidity.c
 
-libs = \
-	../lib-index/libindex.la \
-	list/libstorage_list.la \
-	index/libstorage_index.la \
-	register/libstorage_register.la	
-
-libstorage_la_LIBADD = $(libs)
-libstorage_la_DEPENDENCIES = $(libs)
+libstorage_service_la_SOURCES = \
+	mail-storage-service.c
 
 headers = \
 	mail-copy.h \
@@ -57,10 +50,18 @@ headers = \
 	mailbox-tree.h \
 	mailbox-uidvalidity.h
 
+shlibs = \
+	libstorage.la \
+	libstorage_service.la \
+	../lib-index/libindex.la \
+	list/libstorage_list.la \
+	index/libstorage_index.la \
+	register/libstorage_register.la	
+
 pkglib_LTLIBRARIES = libdovecot-storage.la
 libdovecot_storage_la_SOURCES = 
-libdovecot_storage_la_LIBADD = libstorage.la
-libdovecot_storage_la_DEPENDENCIES = libstorage.la
+libdovecot_storage_la_LIBADD = $(shlibs)
+libdovecot_storage_la_DEPENDENCIES = $(shlibs)
 libdovecot_storage_la_LDFLAGS = -export-dynamic
 
 if INSTALL_HEADERS
