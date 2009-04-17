@@ -3,7 +3,10 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "str.h"
 #include "istream.h"
+#include "ostream.h"
+#include "safe-mkstemp.h"
 #include "mail-storage-service.h"
 #include "index/raw/raw-storage.h"
 #include "lda-settings.h"
@@ -256,8 +259,14 @@ static int client_open_raw_mail(struct client *client)
 	struct istream *input;
 	enum mail_error error;
 
-	input = i_stream_create_from_data(client->state.mail_data->data,
-					  client->state.mail_data->used);
+	if (client->state.mail_data_output != NULL) {
+		o_stream_unref(&client->state.mail_data_output);
+		input = i_stream_create_fd(client->state.mail_data_fd,
+					   MAIL_READ_BLOCK_SIZE, FALSE);
+	} else {
+		input = i_stream_create_from_data(client->state.mail_data->data,
+						  client->state.mail_data->used);
+	}
 	client->state.raw_box = box =
 		mailbox_open(&raw_storage, "Dovecot Delivery Mail", input,
 			     MAILBOX_OPEN_NO_INDEX_FILES);
@@ -325,10 +334,55 @@ static void client_input_data_finish(struct client *client)
 	}
 }
 
-static void
+static int client_input_add_file(struct client *client,
+				 const unsigned char *data, size_t size)
+{
+	string_t *path;
+	int fd;
+
+	if (client->state.mail_data_output != NULL) {
+		/* continue writing to file */
+		if (o_stream_send(client->state.mail_data_output,
+				  data, size) != (ssize_t)size)
+			return -1;
+		return 0;
+	}
+
+	/* move everything to a temporary file. FIXME: it really shouldn't
+	   be in /tmp.. */
+	path = t_str_new(256);
+	str_append(path, "/tmp/dovecot.lmtp.");
+	fd = safe_mkstemp_hostpid(path, 0600, (uid_t)-1, (gid_t)-1);
+	if (fd == -1)
+		return -1;
+
+	/* we just want the fd, unlink it */
+	if (unlink(str_c(path)) < 0) {
+		/* shouldn't happen.. */
+		i_error("unlink(%s) failed: %m", str_c(path));
+		(void)close(fd);
+		return -1;
+	}
+
+	client->state.mail_data_fd = fd;
+	client->state.mail_data_output = o_stream_create_fd_file(fd, 0, FALSE);
+	o_stream_cork(client->state.mail_data_output);
+	if (o_stream_send(client->state.mail_data_output,
+			  data, size) != (ssize_t)size)
+		return -1;
+	return 0;
+}
+
+static int
 client_input_add(struct client *client, const unsigned char *data, size_t size)
 {
-	buffer_append(client->state.mail_data, data, size);
+	if (client->state.mail_data->used + size <=
+	    CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE) {
+		buffer_append(client->state.mail_data, data, size);
+		return 0;
+	} else {
+		return client_input_add_file(client, data, size);
+	}
 }
 
 static void client_input_data_handle(struct client *client)
@@ -353,7 +407,11 @@ static void client_input_data_handle(struct client *client)
 			}
 		} else if (client->state.data_end_idx == DATA_DOT_NEXT_POS) {
 			/* saw a dot at the beginning of line. drop it. */
-			client_input_add(client, data, i-1);
+			if (client_input_add(client, data, i-1) < 0) {
+				client_destroy(client, "451 4.3.0",
+					       "Temporary internal failure");
+				return;
+			}
 			start = i;
 			client->state.data_end_idx = 0;
 		} else {
@@ -366,7 +424,11 @@ static void client_input_data_handle(struct client *client)
 		rewind = client->state.data_end_idx - DATA_DOT_NEXT_POS + 1;
 		i -= rewind; size -= rewind;
 	}
-	client_input_add(client, data + start, i-start);
+	if (client_input_add(client, data + start, i-start) < 0) {
+		client_destroy(client, "451 4.3.0",
+			       "Temporary internal failure");
+		return;
+	}
 	i_stream_skip(client->input, skip == 0 ? i : skip);
 
 	if (i < size) {
