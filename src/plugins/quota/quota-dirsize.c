@@ -158,6 +158,9 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 	t_array_init(&paths, 8);
 	storages = array_get(&root->quota->storages, &count);
 	for (i = 0; i < count; i++) {
+		if (!quota_root_is_storage_visible(root, storages[i]))
+			continue;
+
 		path = mail_storage_get_mailbox_path(storages[i], "", &is_file);
 		quota_count_path_add(&paths, path, FALSE);
 

@@ -102,6 +102,9 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 
 	storages = array_get(&root->quota->storages, &count);
 	for (i = 0; i < count; i++) {
+		if (!quota_root_is_storage_visible(root, storages[i]))
+			continue;
+
 		ret = quota_count_storage(root, storages[i], bytes_r, count_r);
 		if (ret < 0)
 			break;

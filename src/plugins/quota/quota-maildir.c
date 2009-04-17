@@ -378,6 +378,9 @@ static int maildirsize_recalculate(struct maildir_quota_root *root)
 	/* count mails from all storages */
 	storages = array_get(&root->root.quota->storages, &count);
 	for (i = 0; i < count; i++) {
+		if (!quota_root_is_storage_visible(&root->root, storages[i]))
+			continue;
+
 		if (maildirsize_recalculate_storage(root, storages[i]) < 0) {
 			ret = -1;
 			break;
@@ -387,6 +390,10 @@ static int maildirsize_recalculate(struct maildir_quota_root *root)
 	if (ret == 0) {
 		/* check if any of the directories have changed */
 		for (i = 0; i < count; i++) {
+			if (!quota_root_is_storage_visible(&root->root,
+							   storages[i]))
+				continue;
+
 			ret = maildirs_check_have_changed(root, storages[i],
 						root->recalc_last_stamp);
 			if (ret != 0)
@@ -686,6 +693,26 @@ static struct quota_root *maildir_quota_alloc(void)
 	return &root->root;
 }
 
+static int maildir_quota_init(struct quota_root *_root, const char *args)
+{
+	const char *const *tmp;
+
+	if (args == NULL)
+		return 0;
+
+	for (tmp = t_strsplit(args, ":"); *tmp != NULL; tmp++) {
+		if (strcmp(*tmp, "noenforcing") == 0)
+			_root->no_enforcing = TRUE;
+		else if (strncmp(*tmp, "ns=", 3) == 0)
+			_root->ns_prefix = p_strdup(_root->pool, *tmp + 3);
+		else {
+			i_error("maildir quota: Invalid parameter: %s", *tmp);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static void maildir_quota_deinit(struct quota_root *_root)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
@@ -739,7 +766,9 @@ maildir_quota_storage_added(struct quota *quota, struct mail_storage *storage)
 
 	roots = array_get_modifiable(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		if (roots[i]->backend.name == quota_backend_maildir.name)
+		if (roots[i]->backend.name == quota_backend_maildir.name &&
+		    (roots[i]->ns_prefix == NULL ||
+		     roots[i]->ns == storage->ns))
 			maildir_quota_root_storage_added(roots[i], storage);
 	}
 }
@@ -805,7 +834,7 @@ struct quota_backend quota_backend_maildir = {
 
 	{
 		maildir_quota_alloc,
-		NULL,
+		maildir_quota_init,
 		maildir_quota_deinit,
 		maildir_quota_parse_rule,
 		maildir_quota_storage_added,

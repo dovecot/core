@@ -96,6 +96,12 @@ struct quota_root {
 	struct quota *quota;
 	struct quota_backend backend;
 
+	/* this quota root applies only to this namespace. it may also be
+	   a public namespace without an owner. */
+	struct mail_namespace *ns;
+	/* this is set in quota init(), because namespaces aren't known yet */
+	const char *ns_prefix;
+
 	/* initially the same as set->default_rule.*_limit, but some backends
 	   may change these by reading the limits elsewhere (e.g. Maildir++,
 	   FS quota) */
@@ -133,6 +139,8 @@ void quota_remove_user_storage(struct mail_storage *storage);
 
 struct quota *quota_get_mail_user_quota(struct mail_user *user);
 
+bool quota_root_is_storage_visible(struct quota_root *root,
+				   struct mail_storage *storage);
 struct quota_rule *
 quota_root_rule_find(struct quota_root_settings *root_set, const char *name);
 

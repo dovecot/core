@@ -523,7 +523,9 @@ void quota_mail_storage_created(struct mail_storage *storage)
 					qstorage);
 
 		/* register to owner's quota roots */
-		quota = quota_get_mail_user_quota(storage->ns->owner);
+		quota = storage->ns->owner != NULL ?
+			quota_get_mail_user_quota(storage->ns->owner) :
+			quota_get_mail_user_quota(storage->ns->user);
 		quota_add_user_storage(quota, storage);
 	}
 
@@ -531,12 +533,43 @@ void quota_mail_storage_created(struct mail_storage *storage)
 		quota_next_hook_mail_storage_created(storage);
 }
 
+static struct quota_root *
+quota_find_root_for_ns(struct quota *quota, struct mail_namespace *ns)
+{
+	struct quota_root *const *roots;
+	unsigned int i, count;
+
+	roots = array_get(&quota->roots, &count);
+	for (i = 0; i < count; i++) {
+		if (roots[i]->ns_prefix != NULL &&
+		    strcmp(roots[i]->ns_prefix, ns->prefix) == 0)
+			return roots[i];
+	}
+	return NULL;
+}
+
 void quota_mailbox_list_created(struct mailbox_list *list)
 {
 	struct quota_mailbox_list *qlist;
+	struct quota *quota;
+	struct quota_root *root;
+	bool add;
 
-	if (list->ns->owner != NULL &&
-	    (list->ns->flags & NAMESPACE_FLAG_INTERNAL) == 0) {
+	if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0)
+		add = FALSE;
+	else if (list->ns->owner == NULL) {
+		/* see if we have a quota explicitly defined for
+		   this namespace */
+		quota = quota_get_mail_user_quota(list->ns->user);
+		root = quota_find_root_for_ns(quota, list->ns);
+		add = root != NULL;
+		if (root != NULL)
+			root->ns = list->ns;
+	} else {
+		add = TRUE;
+	}
+
+	if (add) {
 		qlist = p_new(list->pool, struct quota_mailbox_list, 1);
 		qlist->module_ctx.super = list->v;
 		list->v.delete_mailbox = quota_mailbox_list_delete;
@@ -545,4 +578,25 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 	}
 	if (quota_next_hook_mailbox_list_created != NULL)
 		quota_next_hook_mailbox_list_created(list);
+}
+
+void quota_mail_namespaces_created(struct mail_namespace *namespaces)
+{
+	struct quota *quota;
+	struct quota_root *const *roots;
+	unsigned int i, count;
+
+	quota = quota_get_mail_user_quota(namespaces->user);
+	roots = array_get(&quota->roots, &count);
+	for (i = 0; i < count; i++) {
+		if (roots[i]->ns_prefix == NULL || roots[i]->ns != NULL)
+			continue;
+
+		roots[i]->ns = mail_namespace_find_prefix(namespaces,
+							  roots[i]->ns_prefix);
+		if (roots[i]->ns == NULL) {
+			i_error("maildir quota: Unknown namespace: %s",
+				roots[i]->ns_prefix);
+		}
+	}
 }

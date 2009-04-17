@@ -595,8 +595,9 @@ void quota_remove_user_storage(struct mail_storage *storage)
 	struct mail_storage *const *storages;
 	unsigned int i, count;
 
-	quota = storage->ns->owner == NULL ? NULL :
-		quota_get_mail_user_quota(storage->ns->owner);
+	quota = storage->ns->owner != NULL ?
+		quota_get_mail_user_quota(storage->ns->owner) :
+		quota_get_mail_user_quota(storage->ns->user);
 	if (quota == NULL) {
 		/* no quota for this storage */
 		return;
@@ -654,13 +655,27 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 struct quota_root_iter *
 quota_root_iter_init(struct mailbox *box)
 {
-	struct mail_user *user = box->storage->ns->owner;
 	struct quota_root_iter *iter;
 
 	iter = i_new(struct quota_root_iter, 1);
-	iter->quota = quota_get_mail_user_quota(user);
+	iter->quota = box->storage->ns->owner != NULL ?
+		quota_get_mail_user_quota(box->storage->ns->owner) :
+		quota_get_mail_user_quota(box->storage->ns->user);
 	iter->box = box;
 	return iter;
+}
+
+bool quota_root_is_storage_visible(struct quota_root *root,
+				   struct mail_storage *storage)
+{
+	if (root->ns != NULL) {
+		if (root->ns != storage->ns)
+			return FALSE;
+	} else {
+		if (storage->ns->owner == NULL)
+			return FALSE;
+	}
+	return TRUE;
 }
 
 static bool
@@ -671,6 +686,8 @@ quota_root_is_visible(struct quota_root *root, struct mailbox *box,
 		/* we don't want to include this root in quota enforcing */
 		return FALSE;
 	}
+	if (!quota_root_is_storage_visible(root, box->storage))
+		return FALSE;
 	if (array_count(&root->quota->roots) == 1) {
 		/* a single quota root: don't bother checking further */
 		return TRUE;
@@ -796,11 +813,12 @@ int quota_set_resource(struct quota_root *root ATTR_UNUSED,
 
 struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 {
-	struct mail_user *user = box->storage->ns->owner;
 	struct quota_transaction_context *ctx;
 
 	ctx = i_new(struct quota_transaction_context, 1);
-	ctx->quota = quota_get_mail_user_quota(user);
+	ctx->quota = box->storage->ns->owner != NULL ?
+		quota_get_mail_user_quota(box->storage->ns->owner) :
+		quota_get_mail_user_quota(box->storage->ns->user);
 	ctx->box = box;
 	ctx->bytes_left = (uint64_t)-1;
 	ctx->count_left = (uint64_t)-1;

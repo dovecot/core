@@ -4,6 +4,7 @@
 #include "str.h"
 #include "dict.h"
 #include "mail-user.h"
+#include "mail-namespace.h"
 #include "quota-private.h"
 
 #include <stdlib.h>
@@ -41,12 +42,25 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 	username = t_strdup_until(args, p);
 	args = p+1;
 
-	if (strncmp(args, "noenforcing:", 12) == 0) {
+	do {
 		/* FIXME: pretty ugly in here. the parameters should have
 		   been designed to be extensible. do it in a future version */
-		_root->no_enforcing = TRUE;
-		args += 12;
-	}
+		if (strncmp(args, "noenforcing:", 12) == 0) {
+			_root->no_enforcing = TRUE;
+			args += 12;
+			continue;
+		}
+		if (strncmp(args, "ns=", 3) == 0) {
+			p = strchr(args, ':');
+			if (p == NULL)
+				break;
+
+			_root->ns_prefix = p_strdup_until(_root->pool,
+							  args + 3, p);
+			args = p + 1;
+			continue;
+		}
+	} while (0);
 
 	if (*username == '\0')
 		username = _root->quota->user->username;

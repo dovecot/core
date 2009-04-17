@@ -14,6 +14,7 @@ extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 void (*quota_next_hook_mail_user_created)(struct mail_user *user);
 void (*quota_next_hook_mail_storage_created)(struct mail_storage *storage);
 void (*quota_next_hook_mailbox_list_created)(struct mailbox_list *list);
+void (*quota_next_hook_mail_namespaces_created)(struct mail_namespace *namespaces);
 
 const char *quota_plugin_version = PACKAGE_VERSION;
 
@@ -27,6 +28,9 @@ void quota_plugin_init(void)
 
 	quota_next_hook_mailbox_list_created = hook_mailbox_list_created;
 	hook_mailbox_list_created = quota_mailbox_list_created;
+
+	quota_next_hook_mail_namespaces_created = hook_mail_namespaces_created;
+	hook_mail_namespaces_created = quota_mail_namespaces_created;
 }
 
 void quota_plugin_deinit(void)
@@ -34,4 +38,5 @@ void quota_plugin_deinit(void)
 	hook_mail_user_created = quota_next_hook_mail_user_created;
 	hook_mail_storage_created = quota_next_hook_mail_storage_created;
 	hook_mailbox_list_created = quota_next_hook_mailbox_list_created;
+	hook_mail_namespaces_created = quota_next_hook_mail_namespaces_created;
 }

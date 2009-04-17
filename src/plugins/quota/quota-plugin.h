@@ -24,6 +24,7 @@ extern MODULE_CONTEXT_DEFINE(quota_user_module, &mail_user_module_register);
 void quota_mail_user_created(struct mail_user *user);
 void quota_mail_storage_created(struct mail_storage *storage);
 void quota_mailbox_list_created(struct mailbox_list *list);
+void quota_mail_namespaces_created(struct mail_namespace *namespaces);
 
 void quota_plugin_init(void);
 void quota_plugin_deinit(void);
