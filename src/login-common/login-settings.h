@@ -1,5 +1,5 @@
-#ifndef __LOGIN_SETTINGS_H
-#define __LOGIN_SETTINGS_H
+#ifndef LOGIN_SETTINGS_H
+#define LOGIN_SETTINGS_H
 
 struct login_settings {
 	const char *login_dir;

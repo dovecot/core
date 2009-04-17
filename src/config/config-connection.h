@@ -1,5 +1,5 @@
-#ifndef __CONFIG_CONNECTION_H
-#define __CONFIG_CONNECTION_H
+#ifndef CONFIG_CONNECTION_H
+#define CONFIG_CONNECTION_H
 
 enum config_dump_flags {
 	CONFIG_DUMP_FLAG_HUMAN		= 0x01,
