@@ -906,8 +906,10 @@ void *settings_dup(const struct setting_parser_info *info,
 
 			strings = array_get(src_arr, &count);
 			p_array_init(dest_arr, pool, count);
-			for (i = 0; i < count; i += 2)
+			for (i = 0; i < count; i++) {
 				dup = p_strdup(pool, strings[i]);
+				array_append(dest_arr, &dup, 1);
+			}
 			break;
 		}
 		}
