@@ -48,6 +48,7 @@ struct solr_connection_post {
 	struct solr_connection *conn;
 	const unsigned char *data;
 	size_t size, pos;
+	char *url;
 
 	unsigned int failed:1;
 };
@@ -60,7 +61,7 @@ struct solr_connection {
 	struct curl_slist *headers, *headers_post;
 	XML_Parser xml_parser;
 
-	char *url;
+	char *url, *last_sent_url;
 	char *http_failure;
 
 	unsigned int debug:1;
@@ -189,6 +190,7 @@ void solr_connection_deinit(struct solr_connection *conn)
 	curl_slist_free_all(conn->headers_post);
 	curl_multi_cleanup(conn->curlm);
 	curl_easy_cleanup(conn->curl);
+	i_free(conn->last_sent_url);
 	i_free(conn->url);
 	i_free(conn);
 }
@@ -370,7 +372,6 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 			   ARRAY_TYPE(fts_score_map) *scores)
 {
 	struct solr_lookup_xml_context solr_lookup_context;
-	string_t *str;
 	CURLcode ret;
 	long httpret;
 
@@ -390,12 +391,11 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	XML_SetCharacterDataHandler(conn->xml_parser, solr_lookup_xml_data);
 	XML_SetUserData(conn->xml_parser, &solr_lookup_context);
 
-	str = t_str_new(256);
-	str_append(str, conn->url);
-	str_append(str, "select?");
-	str_append(str, query);
+	/* curl v7.16 and older don't strdup() the URL */
+	i_free(conn->last_sent_url);
+	conn->last_sent_url = i_strconcat(conn->url, "select?", query, NULL);
 
-	curl_easy_setopt(conn->curl, CURLOPT_URL, str_c(str));
+	curl_easy_setopt(conn->curl, CURLOPT_URL, conn->last_sent_url);
 	ret = curl_easy_perform(conn->curl);
 	if (ret != 0) {
 		i_error("fts_solr: HTTP GET failed: %s",
@@ -415,7 +415,6 @@ solr_connection_post_begin(struct solr_connection *conn)
 {
 	struct solr_connection_post *post;
 	CURLMcode merr;
-	string_t *str;
 
 	post = i_new(struct solr_connection_post, 1);
 	post->conn = conn;
@@ -432,11 +431,9 @@ solr_connection_post_begin(struct solr_connection *conn)
 			curl_multi_strerror(merr));
 		post->failed = TRUE;
 	} else {
-		str = t_str_new(256);
-		str_append(str, conn->url);
-		str_append(str, "update");
-
-		curl_easy_setopt(conn->curl, CURLOPT_URL, str_c(str));
+		/* curl v7.16 and older don't strdup() the URL */
+		post->url = i_strconcat(conn->url, "update", NULL);
+		curl_easy_setopt(conn->curl, CURLOPT_URL, post->url);
 		curl_easy_setopt(conn->curl, CURLOPT_HTTPHEADER,
 				 conn->headers_post);
 		curl_easy_setopt(conn->curl, CURLOPT_POST, (long)1);
@@ -546,6 +543,7 @@ int solr_connection_post_end(struct solr_connection_post *post)
 	curl_easy_setopt(conn->curl, CURLOPT_HTTPHEADER, conn->headers);
 
 	(void)curl_multi_remove_handle(conn->curlm, conn->curl);
+	i_free(post->url);
 	i_free(post);
 
 	conn->posting = FALSE;
