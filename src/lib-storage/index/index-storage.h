@@ -5,11 +5,6 @@
 #include "mail-storage-private.h"
 #include "mail-index-private.h"
 
-/* Max. mmap()ed size for a message */
-#define MAIL_MMAP_BLOCK_SIZE (1024*256)
-/* Block size when read()ing message. */
-#define MAIL_READ_BLOCK_SIZE (1024*8)
-
 #define MAILBOX_FULL_SYNC_INTERVAL 5
 
 enum mailbox_lock_notify_type {

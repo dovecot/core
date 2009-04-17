@@ -7,6 +7,9 @@
 #include "mail-storage-settings.h"
 #include "mail-index-private.h"
 
+/* Block size when read()ing message. */
+#define MAIL_READ_BLOCK_SIZE (1024*8)
+
 /* Called after mail storage has been created */
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 /* Called after mailbox has been opened */
