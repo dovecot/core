@@ -23,7 +23,7 @@ imap_quota_root_get_name(struct mail_user *user, struct mail_user *owner,
 	const char *name;
 
 	name = quota_root_get_name(root);
-	if (user == owner)
+	if (user == owner || owner == NULL)
 		return name;
 	return t_strdup_printf("%s%c%s", owner->username,
 			       QUOTA_USER_SEPARATOR, name);
@@ -94,12 +94,13 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	}
 
 	ns = mail_storage_get_namespace(storage);
-	if (quser == NULL || ns->owner == NULL) {
+	if (quser == NULL) {
 		mailbox_close(&box);
 		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
 	}
-	if (ns->owner != client->user && !client->user->admin) {
+	if (ns->owner != NULL && ns->owner != client->user &&
+	    !client->user->admin) {
 		mailbox_close(&box);
 		client_send_tagline(cmd, "NO Not showing other users' quota.");
 		return TRUE;
