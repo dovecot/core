@@ -214,8 +214,7 @@ static bool list_namespace_has_children(struct cmd_list_context *ctx)
 	return ret;
 }
 
-static const char *ns_get_listed_prefix(struct cmd_list_context *ctx,
-					bool *have_children)
+static const char *ns_get_listed_prefix(struct cmd_list_context *ctx)
 {
 	struct imap_match_glob *glob;
 	enum imap_match_result match;
@@ -237,7 +236,6 @@ static const char *ns_get_listed_prefix(struct cmd_list_context *ctx,
 		match = imap_match(glob, ns_prefix);
 	}
 	i_assert(match == IMAP_MATCH_YES);
-	*have_children = TRUE;
 	return ns_prefix;
 }
 
@@ -275,7 +273,7 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 		flags = MAILBOX_NONEXISTENT;
 	}
 
-	name = ns_get_listed_prefix(ctx, &have_children);
+	name = ns_get_listed_prefix(ctx);
 
 	if ((flags & MAILBOX_CHILDREN) == 0) {
 		if (have_children || list_namespace_has_children(ctx)) {
