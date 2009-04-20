@@ -140,15 +140,13 @@ shared_list_join_refpattern(struct mailbox_list *list,
 
 	if (*ref != '\0' && strncmp(ref, prefix, prefix_len) == 0)
 		ns_ref = ref + prefix_len;
-	else if (*ref == '\0' && strncmp(pattern, prefix, prefix_len) == 0)
-		ns_ref = pattern + prefix_len;
 	else
 		ns_ref = NULL;
 
 	if (ns_ref != NULL &&
 	    shared_storage_get_namespace(list->ns->storage,
 					 &ns_ref, &ns) == 0)
-		return mailbox_list_join_refpattern(ns->list, ref, pattern);
+		return mailbox_list_join_refpattern(ns->list, ns_ref, pattern);
 
 	/* fallback to default behavior */
 	if (*ref != '\0')
