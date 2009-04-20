@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "dict.h"
+#include "dict-settings.h"
 #include "dict-client.h"
 #include "dict-server.h"
 
@@ -395,14 +396,22 @@ static int dict_client_parse_handshake(struct dict_client_connection *conn,
 
 static int dict_client_dict_init(struct dict_client_connection *conn)
 {
+	const char *const *strlist;
+	unsigned int i, count;
 	const char *uri;
 
-	uri = getenv(t_strconcat("DICT_", conn->name, NULL));
-	if (uri == NULL) {
+	strlist = array_get(&dict_settings->dicts, &count);
+	for (i = 0; i < count; i += 2) {
+		if (strcmp(strlist[i], conn->name) == 0)
+			break;
+	}
+
+	if (i == count) {
 		i_error("dict client: Unconfigured dictionary name '%s'",
 			conn->name);
 		return -1;
 	}
+	uri = strlist[i+1];
 
 	conn->dict = dict_init(uri, conn->value_type, conn->username);
 	if (conn->dict == NULL) {

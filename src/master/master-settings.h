@@ -109,12 +109,9 @@ struct master_settings {
 	unsigned int mail_log_max_lines_per_sec;
 
 	/* dict */
-	const char *dict_db_config;
 	unsigned int dict_process_count;
 
 	ARRAY_DEFINE(auths, struct master_auth_settings *);
-
-	ARRAY_DEFINE(dicts, const char *);
 
 #ifndef CONFIG_BINARY
 	/* .. */

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "lib-signals.h"
 #include "ioloop.h"
+#include "env-util.h"
 #include "fd-close-on-exec.h"
 #include "restrict-access.h"
 #include "randgen.h"
@@ -10,11 +11,11 @@
 #include "dict.h"
 #include "dict-client.h"
 #include "dict-server.h"
+#include "dict-settings.h"
 #include "module-dir.h"
 
 #include <stdlib.h>
 #include <unistd.h>
-#include <syslog.h>
 
 #define DICT_MASTER_LISTENER_FD 3
 
@@ -79,6 +80,14 @@ static void main_init(void)
         lib_signals_ignore(SIGPIPE, TRUE);
         lib_signals_ignore(SIGALRM, FALSE);
 
+	dict_settings = dict_settings_read();
+
+	if (*dict_settings->dict_db_config != '\0') {
+		/* for berkeley db library */
+		env_put(t_strconcat("DB_CONFIG=", dict_settings->dict_db_config,
+				    NULL));
+	}
+
 	/* If master dies, the log fd gets closed and we'll quit */
 	log_io = io_add(STDERR_FILENO, IO_ERROR, log_error_callback, NULL);
 
@@ -109,7 +118,6 @@ static void main_deinit(void)
 	sql_drivers_deinit();
 	random_deinit();
 	lib_signals_deinit();
-	closelog();
 }
 
 int main(void)

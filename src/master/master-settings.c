@@ -198,10 +198,8 @@ static struct setting_define master_setting_defines[] = {
 	DEF(SET_UINT, mail_log_max_lines_per_sec),
 
 	/* dict */
-	DEF(SET_STR, dict_db_config),
 	DEF(SET_UINT, dict_process_count),
 	DEFLIST(auths, "auth", &master_auth_setting_parser_info),
-	{ SET_STRLIST, "dict", offsetof(struct master_settings, dicts), NULL },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -267,8 +265,7 @@ struct master_settings master_default_settings = {
 	MEMBER(mail_log_max_lines_per_sec) 10,
 
 	/* dict */
-	MEMBER(dict_db_config) NULL,
-	MEMBER(dict_process_count) 1,
+	MEMBER(dict_process_count) 1
 
 	/* .. */
 };

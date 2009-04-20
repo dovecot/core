@@ -39,8 +39,8 @@ static int dict_process_create(struct dict_listener *listener)
 {
 	struct dict_process *process;
 	struct log_io *log;
-	const char *executable, *const *dicts;
-	unsigned int i, count;
+	const char *executable;
+	unsigned int i;
 	int log_fd;
 	pid_t pid;
 
@@ -100,19 +100,9 @@ static int dict_process_create(struct dict_listener *listener)
 		fd_close_on_exec(i, FALSE);
 
 	child_process_init_env(master_set->defaults);
+	master_settings_export_to_env(master_set->defaults);
 	env_put(t_strconcat("DICT_LISTEN_FROM_FD=",
 			    process->listener->path, NULL));
-
-	if (master_set->defaults->dict_db_config != NULL) {
-		env_put(t_strconcat("DB_CONFIG=",
-				    master_set->defaults->dict_db_config,
-				    NULL));
-	}
-
-	dicts = array_get(&master_set->defaults->dicts, &count);
-	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2)
-		env_put(t_strdup_printf("DICT_%s=%s", dicts[i], dicts[i+1]));
 
 	executable = PKG_LIBEXECDIR"/dict";
 	client_process_exec(executable, "");
@@ -152,11 +142,9 @@ static void dict_listener_input(struct dict_listener *listener)
 
 	i_assert(listener->processes == NULL);
 
-	if (array_is_created(&master_set->defaults->dicts)) {
-		for (i = 0; i < master_set->defaults->dict_process_count; i++) {
-			if (dict_process_create(listener) < 0)
-				break;
-		}
+	for (i = 0; i < master_set->defaults->dict_process_count; i++) {
+		if (dict_process_create(listener) < 0)
+			break;
 	}
 	if (i > 0)
 		io_remove(&listener->io);
