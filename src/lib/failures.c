@@ -397,7 +397,6 @@ void i_set_failure_prefix(const char *prefix)
 {
 	i_free(log_prefix);
 	log_prefix = i_strdup(prefix);
-	i_warning("new prefix=%s", prefix);
 }
 
 static int ATTR_FORMAT(2, 0)
