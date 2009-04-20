@@ -35,7 +35,8 @@ void array_idx_clear_i(struct array *array, unsigned int idx)
 	pos = idx * array->element_size;
 	if (pos > array->buffer->used) {
 		/* index doesn't exist yet, initialize with zero */
-		buffer_append_zero(array->buffer, pos - array->buffer->used);
+		buffer_append_zero(array->buffer, pos - array->buffer->used +
+				   array->element_size);
 	} else {
 		buffer_write_zero(array->buffer, pos, array->element_size);
 	}
