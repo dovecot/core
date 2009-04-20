@@ -13,6 +13,7 @@ doveconf_LDADD = \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS) \
 	$(RAND_LIBS)
+doveconf_DEPENDENCIES = $(LIBDOVECOT)
 
 doveconf_SOURCES = \
 	all-settings.c \

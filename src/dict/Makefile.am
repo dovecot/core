@@ -21,7 +21,6 @@ dict_LDADD = \
 	$(MODULE_LIBS) \
 	$(DICT_LIBS) \
 	$(SQL_LIBS)
-
 dict_DEPENDENCIES = $(libs)
 
 dict_SOURCES = \

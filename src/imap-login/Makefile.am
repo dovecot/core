@@ -11,6 +11,9 @@ AM_CPPFLAGS = \
 imap_login_LDADD = \
 	$(LIBDOVECOT_LOGIN) \
 	$(LIBDOVECOT)
+imap_login_DEPENDENCIES = \
+	$(LIBDOVECOT_LOGIN) \
+	$(LIBDOVECOT)
 
 imap_login_SOURCES = \
 	client.c \

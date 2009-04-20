@@ -10,6 +10,9 @@ AM_CPPFLAGS = \
 pop3_login_LDADD = \
 	$(LIBDOVECOT_LOGIN) \
 	$(LIBDOVECOT)
+pop3_login_DEPENDENCIES = \
+	$(LIBDOVECOT_LOGIN) \
+	$(LIBDOVECOT)
 
 pop3_login_SOURCES = \
 	client.c \

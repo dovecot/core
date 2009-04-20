@@ -59,4 +59,4 @@ ssl_build_param_SOURCES = \
 ssl_build_param_LDADD = \
 	$(LIBDOVECOT) \
 	$(SSL_LIBS)
-
+ssl_build_param_DEPENDENCIES = $(LIBDOVECOT)

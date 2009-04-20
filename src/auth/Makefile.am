@@ -37,14 +37,15 @@ libpassword_a_SOURCES = \
 	password-scheme-otp.c \
 	password-scheme-rpa.c
 
-dovecot_auth_LDADD = \
+dovecot_auth_libs = \
 	libpassword.a \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a \
 	$(LIBDOVECOT_SQL) \
-	$(LIBDOVECOT) \
-	$(MODULE_LIBS) \
-	$(AUTH_LIBS)
+	$(LIBDOVECOT)
+
+dovecot_auth_LDADD = $(dovecot_auth_libs) $(MODULE_LIBS) $(AUTH_LIBS)
+dovecot_auth_DEPENDENCIES = $(dovecot_auth_libs)
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
 
@@ -157,6 +158,7 @@ else
 endif
 
 checkpassword_reply_LDADD = $(LIBDOVECOT)
+checkpassword_reply_DEPENDENCIES = $(LIBDOVECOT)
 
 checkpassword_reply_sources = \
 	checkpassword-reply.c

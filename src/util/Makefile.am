@@ -24,45 +24,55 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/auth
 
 rawlog_LDADD = $(LIBDOVECOT)
+rawlog_DEPENDENCIES = $(LIBDOVECOT)
 rawlog_SOURCES = \
 	rawlog.c
 
 gdbhelper_LDADD = $(LIBDOVECOT)
+gdbhelper_DEPENDENCIES = $(LIBDOVECOT)
 gdbhelper_SOURCES = \
 	gdbhelper.c
 
-idxview_LDADD = \
-	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+idxview_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
+idxview_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
 idxview_SOURCES = \
 	idxview.c
 
 imap_utf7_LDADD = $(LIBDOVECOT)
+imap_utf7_DEPENDENCIES = $(LIBDOVECOT)
 imap_utf7_SOURCES = \
 	imap-utf7.c
 
 listview_LDADD = $(LIBDOVECOT)
+listview_DEPENDENCIES = $(LIBDOVECOT)
 listview_SOURCES = \
 	listview.c
 
 logview_LDADD = $(LIBDOVECOT)
+logview_DEPENDENCIES = $(LIBDOVECOT)
 logview_SOURCES = \
 	logview.c
 
 maildirlock_LDADD = $(LIBDOVECOT)
+maildirlock_DEPENDENCIES = $(LIBDOVECOT)
 maildirlock_SOURCES = \
 	maildirlock.c
 
 threadview_LDADD = $(LIBDOVECOT)
+threadview_DEPENDENCIES = $(LIBDOVECOT)
 threadview_SOURCES = \
 	threadview.c
 
-dovecotpw_LDADD = \
+dovecotpw_libs = \
 	../auth/libpassword.a \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a \
-	$(LIBDOVECOT) \
+	$(LIBDOVECOT)
+
+dovecotpw_LDADD = \
+	$(dovecotpw_libs) \
 	$(AUTH_LIBS)
+dovecotpw_DEPENDENCIES = $(dovecotpw_libs)
 
 dovecotpw_SOURCES = \
 	dovecotpw.c
@@ -71,6 +81,7 @@ doveadm_LDADD = \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)
+doveadm_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
 doveadm_SOURCES = \
 	doveadm.c
 
