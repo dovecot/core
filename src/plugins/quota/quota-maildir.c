@@ -642,7 +642,9 @@ static int maildirquota_refresh(struct maildir_quota_root *root)
 		ret = maildirsize_read(root);
 	} T_END;
 	if (ret == 0) {
-		if (root->root.set->default_rule.bytes_limit == 0 &&
+		if (root->root.bytes_limit == 0 &&
+		    root->root.count_limit == 0 &&
+		    root->root.set->default_rule.bytes_limit == 0 &&
 		    root->root.set->default_rule.count_limit == 0) {
 			/* no quota */
 			if (!root->root.set->force_default_rule)
