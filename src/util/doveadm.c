@@ -82,7 +82,8 @@ int main(int argc, char *argv[])
 {
 	enum mail_storage_service_flags service_flags = 0;
 	struct master_service *service;
-	const char *getopt_str, *user;
+	struct mail_storage_service_input input;
+	const char *getopt_str;
 	int c;
 
 	service = master_service_init("doveadm",
@@ -90,12 +91,13 @@ int main(int argc, char *argv[])
 				      MASTER_SERVICE_FLAG_LOG_TO_STDERR,
 				      argc, argv);
 
-	user = getenv("USER");
+	memset(&input, 0, sizeof(input));
+	input.username = getenv("USER");
 	getopt_str = t_strconcat("u:v", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		switch (c) {
 		case 'u':
-			user = optarg;
+			input.username = optarg;
 			service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			break;
 		case 'v':
@@ -109,10 +111,10 @@ int main(int argc, char *argv[])
 	if (optind == argc)
 		usage();
 
-	if (user == NULL)
+	if (input.username == NULL)
 		i_fatal("USER environment is missing and -u option not used");
 
-	mail_user = mail_storage_service_init_user(service, user, NULL,
+	mail_user = mail_storage_service_init_user(service, &input, NULL,
 						   service_flags);
 
 	if (strcmp(argv[optind], "purge") == 0)

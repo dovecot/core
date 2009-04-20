@@ -31,7 +31,8 @@ struct mail_storage_service_multi_ctx {
 
 struct mail_storage_service_multi_user {
 	pool_t pool;
-	const char *user;
+	struct mail_storage_service_input input;
+
 	const char *system_groups_user;
 	const struct mail_user_settings *user_set;
 	struct setting_parser_context *set_parser;
@@ -178,7 +179,6 @@ service_auth_userdb_lookup(struct setting_parser_context *set_parser,
 	if (ret > 0 && strcmp(*user, orig_user) != 0) {
 		if (mail_user_set_get_storage_set(user_set)->mail_debug)
 			i_info("changed username to %s", *user);
-		i_set_failure_prefix(t_strdup_printf("%s(%s): ", name, *user));
 	}
 
 	auth_master_deinit(&conn);
@@ -336,7 +336,8 @@ mail_storage_service_init_settings(struct master_service *service,
 
 static int
 mail_storage_service_init_post(struct master_service *service,
-			       const char *user, const char *home,
+			       const struct mail_storage_service_input *input,
+			       const char *home,
 			       const struct mail_user_settings *user_set,
 			       bool setuid_root, struct mail_user **mail_user_r,
 			       const char **error_r)
@@ -367,9 +368,10 @@ mail_storage_service_init_post(struct master_service *service,
 		}
 	}
 
-	mail_user = mail_user_alloc(user, user_set);
+	mail_user = mail_user_alloc(input->username, user_set);
 	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
-	mail_user_set_vars(mail_user, geteuid(), service->name, NULL, NULL);
+	mail_user_set_vars(mail_user, geteuid(), service->name,
+			   &input->local_ip, &input->remote_ip);
 	if (mail_user_init(mail_user, error_r) < 0) {
 		mail_user_unref(&mail_user);
 		return -1;
@@ -383,13 +385,16 @@ mail_storage_service_init_post(struct master_service *service,
 }
 
 static const struct var_expand_table *
-get_var_expand_table(struct master_service *service, const char *user)
+get_var_expand_table(struct master_service *service,
+		     struct mail_storage_service_input *input)
 {
 	static struct var_expand_table static_tab[] = {
 		{ 'u', NULL, "user" },
 		{ 'n', NULL, "username" },
 		{ 'd', NULL, "domain" },
 		{ 's', NULL, "service" },
+		{ 'l', NULL, "lip" },
+		{ 'r', NULL, "rip" },
 		{ 'p', NULL, "pid" },
 		{ 'i', NULL, "uid" },
 		{ '\0', NULL, NULL }
@@ -399,19 +404,21 @@ get_var_expand_table(struct master_service *service, const char *user)
 	tab = t_malloc(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
-	tab[0].value = user;
-	tab[1].value = t_strcut(user, '@');
-	tab[2].value = strchr(user, '@');
+	tab[0].value = input->username;
+	tab[1].value = t_strcut(input->username, '@');
+	tab[2].value = strchr(input->username, '@');
 	if (tab[2].value != NULL) tab[2].value++;
 	tab[3].value = service->name;
-	tab[4].value = my_pid;
-	tab[5].value = dec2str(geteuid());
+	tab[4].value = net_ip2addr(&input->local_ip);
+	tab[5].value = net_ip2addr(&input->remote_ip);
+	tab[6].value = my_pid;
+	tab[7].value = dec2str(geteuid());
 	return tab;
 }
 
 static const char *
-user_expand_varstr(struct master_service *service, const char *user,
-		   const char *str)
+user_expand_varstr(struct master_service *service,
+		   struct mail_storage_service_input *input, const char *str)
 {
 	string_t *ret;
 
@@ -421,21 +428,43 @@ user_expand_varstr(struct master_service *service, const char *user,
 	i_assert(*str == SETTING_STRVAR_UNEXPANDED[0]);
 
 	ret = t_str_new(256);
-	var_expand(ret, str + 1, get_var_expand_table(service, user));
+	var_expand(ret, str + 1, get_var_expand_table(service, input));
 	return str_c(ret);
 }
 
+static void
+mail_storage_service_init_log(struct master_service *service,
+			      struct mail_storage_service_input *input)
+{
+	const struct mail_user_settings *user_set;
+	void **sets;
+
+	sets = master_service_settings_get_others(service);
+	user_set = sets[0];
+
+	T_BEGIN {
+		string_t *str;
+
+		str = t_str_new(256);
+		var_expand(str, user_set->mail_log_prefix,
+			   get_var_expand_table(service, input));
+		master_service_init_log(service, str_c(str));
+	} T_END;
+}
+
 struct mail_user *
-mail_storage_service_init_user(struct master_service *service, const char *user,
+mail_storage_service_init_user(struct master_service *service,
+			       const struct mail_storage_service_input *_input,
 			       const struct setting_parser_info *set_roots[],
 			       enum mail_storage_service_flags flags)
 {
+	struct mail_storage_service_input input = *_input;
 	const struct master_service_settings *set;
 	const struct mail_user_settings *user_set;
 	const struct mail_storage_settings *mail_set;
 	struct mail_user *mail_user;
 	void **sets;
-	const char *orig_user, *home, *system_groups_user, *error;
+	const char *user, *orig_user, *home, *system_groups_user, *error;
 	unsigned int len;
 	bool userdb_lookup;
 
@@ -446,8 +475,7 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 		set_keyval(service->set_parser, "mail_debug", "yes");
 
 	/* now that we've read settings, we can set up logging */
-	master_service_init_log(service,
-		t_strdup_printf("%s(%s): ", service->name, user));
+	mail_storage_service_init_log(service, &input);
 
 	set = master_service_settings_get(service);
 	sets = master_service_settings_get_others(service);
@@ -457,17 +485,21 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 	if (userdb_lookup) {
 		/* userdb lookup may change settings, do it as soon as
 		   possible. */
-		orig_user = user;
+		orig_user = user = input.username;
 		if (service_auth_userdb_lookup(service->set_parser,
 					       service->name, user_set, &user,
 					       &system_groups_user,
 					       &error) <= 0)
 			i_fatal("%s", error);
+		input.username = user;
+
+		/* set up logging again in case username changed */
+		mail_storage_service_init_log(service, &input);
 	}
 
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home sooner so do it separately here. */
-	home = user_expand_varstr(service, user, user_set->mail_home);
+	home = user_expand_varstr(service, &input, user_set->mail_home);
 
 	if (!userdb_lookup) {
 		system_groups_user = NULL;
@@ -500,8 +532,8 @@ mail_storage_service_init_user(struct master_service *service, const char *user,
 	dict_drivers_register_builtin();
 	module_dir_init(modules);
 	mail_users_init(user_set->auth_socket_path, mail_set->mail_debug);
-	if (mail_storage_service_init_post(service, user, home, user_set, FALSE,
-					   &mail_user, &error) < 0)
+	if (mail_storage_service_init_post(service, &input, home, user_set,
+					   FALSE, &mail_user, &error) < 0)
 		i_fatal("%s", error);
 	return mail_user;
 }
@@ -552,36 +584,37 @@ mail_storage_service_multi_init(struct master_service *service,
 }
 
 int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx,
-				      const char *username, pool_t pool,
+				      const struct mail_storage_service_input *input,
+				      pool_t pool,
 				      struct mail_storage_service_multi_user **user_r,
 				      const char **error_r)
 {
 	struct mail_storage_service_multi_user *user;
-	const char *orig_user;
+	const char *orig_user, *username;
 	void **sets;
 	int ret;
 
 	user = p_new(pool, struct mail_storage_service_multi_user, 1);
 	memset(user_r, 0, sizeof(user_r));
 	user->pool = pool;
-	user->user = username;
+	user->input = *input;
+	user->input.username = p_strdup(pool, input->username);
 
 	user->set_parser = settings_parser_dup(ctx->service->set_parser, pool);
 	sets = settings_parser_get_list(user->set_parser);
 	user->user_set = sets[1];
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
-		orig_user = user->user;
+		orig_user = username = user->input.username;
 		ret = service_auth_userdb_lookup(user->set_parser,
 						 ctx->service->name,
-						 user->user_set,
-						 &user->user,
+						 user->user_set, &username,
 						 &user->system_groups_user,
 						 error_r);
 		if (ret <= 0)
 			return ret;
+		user->input.username = p_strdup(pool, username);
 	}
-	user->user = p_strdup(pool, user->user);
 	*user_r = user;
 	return 1;
 }
@@ -597,8 +630,10 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home sooner so do it separately here. */
-	home = user_expand_varstr(ctx->service, user->user,
+	home = user_expand_varstr(ctx->service, &user->input,
 				  user_set->mail_home);
+
+	mail_storage_service_init_log(ctx->service, &user->input);
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
 		service_drop_privileges(user_set, user->system_groups_user, home,
@@ -622,8 +657,8 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 		set_keyval(user->set_parser, "mail_home",
 			t_strconcat(user_set->mail_chroot, "/", home, NULL));
 	}
-	if (mail_storage_service_init_post(ctx->service, user->user, home,
-					   user_set, TRUE,
+	if (mail_storage_service_init_post(ctx->service, &user->input,
+					   home, user_set, TRUE,
 					   mail_user_r, error_r) < 0)
 		return -1;
 	return 0;

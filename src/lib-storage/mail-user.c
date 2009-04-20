@@ -143,11 +143,11 @@ void mail_user_set_vars(struct mail_user *user, uid_t uid, const char *service,
 {
 	user->uid = uid;
 	user->service = p_strdup(user->pool, service);
-	if (local_ip != NULL) {
+	if (local_ip != NULL && local_ip->family != 0) {
 		user->local_ip = p_new(user->pool, struct ip_addr, 1);
 		*user->local_ip = *local_ip;
 	}
-	if (remote_ip != NULL) {
+	if (remote_ip != NULL && remote_ip->family != 0) {
 		user->remote_ip = p_new(user->pool, struct ip_addr, 1);
 		*user->remote_ip = *remote_ip;
 	}

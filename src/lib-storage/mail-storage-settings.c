@@ -149,6 +149,8 @@ static struct setting_define mail_user_setting_defines[] = {
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
 
+	DEF(SET_STR, mail_log_prefix),
+
 	DEFLIST(namespaces, "namespace", &mail_namespace_setting_parser_info),
 	{ SET_STRLIST, "plugin", offsetof(struct mail_user_settings, plugin_envs), NULL },
 
@@ -174,6 +176,8 @@ static struct mail_user_settings mail_user_default_settings = {
 
 	MEMBER(mail_plugins) "",
 	MEMBER(mail_plugin_dir) MODULEDIR,
+
+	MEMBER(mail_log_prefix) "%Us(%u): ",
 
 	MEMBER(namespaces) ARRAY_INIT,
 	MEMBER(plugin_envs) ARRAY_INIT

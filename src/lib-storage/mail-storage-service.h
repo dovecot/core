@@ -1,6 +1,8 @@
 #ifndef MAIL_STORAGE_SERVICE_H
 #define MAIL_STORAGE_SERVICE_H
 
+#include "network.h"
+
 struct master_service;
 
 enum mail_storage_service_flags {
@@ -14,11 +16,17 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS	= 0x08
 };
 
+struct mail_storage_service_input {
+	const char *username;
+	struct ip_addr local_ip, remote_ip;
+};
+
 struct setting_parser_info;
 struct mail_storage_service_multi_user;
 
 struct mail_user *
-mail_storage_service_init_user(struct master_service *service, const char *user,
+mail_storage_service_init_user(struct master_service *service,
+			       const struct mail_storage_service_input *input,
 			       const struct setting_parser_info *set_roots[],
 			       enum mail_storage_service_flags flags);
 void mail_storage_service_deinit_user(void);
@@ -29,7 +37,8 @@ mail_storage_service_multi_init(struct master_service *service,
 				enum mail_storage_service_flags flags);
 /* Returns 1 if ok, 0 if user wasn't found, -1 if error. */
 int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx,
-				      const char *username, pool_t pool,
+				      const struct mail_storage_service_input *input,
+				      pool_t pool,
 				      struct mail_storage_service_multi_user **user_r,
 				      const char **error_r);
 int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,

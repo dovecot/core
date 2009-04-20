@@ -183,6 +183,7 @@ int main(int argc, char *argv[])
 	struct mail_deliver_context ctx;
 	enum mail_storage_service_flags service_flags = 0;
 	const char *user, *errstr, *path, *getopt_str;
+	struct mail_storage_service_input service_input;
 	struct mail_user *raw_mail_user;
 	struct mail_namespace *raw_ns;
 	struct mail_namespace_settings raw_ns_set;
@@ -317,8 +318,12 @@ int main(int argc, char *argv[])
 			"destination user parameter (-d user) not given");
 	}
 
+	memset(&service_input, 0, sizeof(service_input));
+	service_input.username = user;
+
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
-	ctx.dest_user = mail_storage_service_init_user(service, user, set_roots,
+	ctx.dest_user = mail_storage_service_init_user(service, &service_input,
+						       set_roots,
 						       service_flags);
 	ctx.set = mail_storage_service_get_settings(service);
         duplicate_init(mail_user_set_get_storage_set(ctx.dest_user->set));

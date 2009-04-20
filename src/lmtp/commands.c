@@ -79,6 +79,7 @@ static bool rcpt_is_duplicate(struct client *client, const char *name)
 int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient rcpt;
+	struct mail_storage_service_input input;
 	const char *name, *error;
 	unsigned int len;
 	int ret;
@@ -102,7 +103,12 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 
-	ret = mail_storage_service_multi_lookup(multi_service, name,
+	memset(&input, 0, sizeof(input));
+	input.username = name;
+	input.local_ip = client->local_ip;
+	input.remote_ip = client->remote_ip;
+
+	ret = mail_storage_service_multi_lookup(multi_service, &input,
 						client->state_pool,
 						&rcpt.multi_user, &error);
 	if (ret < 0) {

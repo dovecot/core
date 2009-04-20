@@ -29,6 +29,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 			 unsigned int expunge_secs, unsigned int altmove_secs,
 			 time_t *oldest_r)
 {
+	struct mail_storage_service_input input;
 	struct mail_storage_service_multi_user *multi_user;
 	struct mail_namespace *ns;
 	struct mail_storage *storage;
@@ -43,6 +44,9 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	enum mail_flags flags;
 	int ret;
 
+	memset(&input, 0, sizeof(input));
+	input.username = user;
+
 	*oldest_r = 0;
 
 	if (ctx->mail_user != NULL &&
@@ -52,7 +56,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 		i_set_failure_prefix(t_strdup_printf("expire-tool(%s): ",
 						     user));
 		p_clear(ctx->multi_user_pool);
-		ret = mail_storage_service_multi_lookup(ctx->multi, user,
+		ret = mail_storage_service_multi_lookup(ctx->multi, &input,
 							ctx->multi_user_pool,
 							&multi_user, &errstr);
 		if (ret <= 0) {

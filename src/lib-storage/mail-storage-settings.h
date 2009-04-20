@@ -57,6 +57,8 @@ struct mail_user_settings {
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
 
+	const char *mail_log_prefix;
+
 	ARRAY_DEFINE(namespaces, struct mail_namespace_settings *);
 	ARRAY_DEFINE(plugin_envs, const char *);
 };

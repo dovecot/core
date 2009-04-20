@@ -146,9 +146,10 @@ int main(int argc, char *argv[], char *envp[])
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+	struct mail_storage_service_input input;
 	struct mail_user *mail_user;
 	const struct pop3_settings *set;
-	const char *user;
+	const char *value;
 	int c;
 
 #ifdef DEBUG
@@ -172,15 +173,21 @@ int main(int argc, char *argv[], char *envp[])
 		if (!master_service_parse_option(service, c, optarg))
 			i_fatal("Unknown argument: %c", c);
 	}
-	user = getenv("USER");
-	if (user == NULL) {
+
+	memset(&input, 0, sizeof(input));
+	input.username = getenv("USER");
+	if (input.username == NULL) {
 		if (IS_STANDALONE())
-			user = getlogin();
-		if (user == NULL)
+			input.username = getlogin();
+		if (input.username == NULL)
 			i_fatal("USER environment missing");
 	}
+	if ((value = getenv("IP")) != NULL)
+		net_addr2ip(value, &input.remote_ip);
+	if ((value = getenv("LOCAL_IP")) != NULL)
+		net_addr2ip(value, &input.local_ip);
 
-	mail_user = mail_storage_service_init_user(service, user, set_roots,
+	mail_user = mail_storage_service_init_user(service, &input, set_roots,
 						   storage_service_flags);
 	set = mail_storage_service_get_settings(service);
 	restrict_access_allow_coredumps(TRUE);

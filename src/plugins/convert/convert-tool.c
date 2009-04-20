@@ -18,6 +18,7 @@
 int main(int argc, char *argv[])
 {
 	struct master_service *service;
+	struct mail_storage_service_input input;
 	struct mail_user *user;
 	struct convert_plugin_settings set;
 	struct mail_namespace *dest_ns;
@@ -50,9 +51,12 @@ int main(int argc, char *argv[])
 			i_fatal(USAGE_STRING);
 	}
 
+	memset(&input, 0, sizeof(input));
+	input.username = argv[optind];
+
 	master_service_init_log(service,
-		t_strdup_printf("convert-tool(%s): ", argv[optind]));
-	user = mail_storage_service_init_user(service, argv[optind], NULL, 0);
+		t_strdup_printf("convert-tool(%s): ", input.username));
+	user = mail_storage_service_init_user(service, &input, NULL, 0);
 
 	memset(&ns_set, 0, sizeof(ns_set));
 	ns_set.location = argv[4];
