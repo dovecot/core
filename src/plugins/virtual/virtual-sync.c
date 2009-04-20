@@ -525,7 +525,7 @@ virtual_sync_mailbox_box_remove(struct virtual_sync_context *ctx,
 			mail_index_expunge(ctx->trans, vseq);
 		}
 	}
-	array_delete(&bbox->uids, dest, rec_count - dest);
+	array_delete(&bbox->uids, dest, src - dest);
 }
 
 static void
