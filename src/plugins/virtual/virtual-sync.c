@@ -489,7 +489,7 @@ virtual_sync_mailbox_box_remove(struct virtual_sync_context *ctx,
 {
 	const struct seq_range *uids;
 	struct virtual_backend_uidmap *uidmap;
-	unsigned int i, src, dest, uid_count, rec_count, left;
+	unsigned int i, src, dest, uid_count, rec_count;
 	uint32_t uid, vseq;
 
 	uids = array_get(removed_uids, &uid_count);
@@ -507,7 +507,8 @@ virtual_sync_mailbox_box_remove(struct virtual_sync_context *ctx,
 		i_unreached();
 
 	/* remove the unwanted messages */
-	for (i = src = dest = 0; i < uid_count; i++) {
+	dest = src;
+	for (i = 0; i < uid_count; i++) {
 		uid = uids[i].seq1;
 		while (uidmap[src].real_uid != uid) {
 			uidmap[dest++] = uidmap[src++];
@@ -515,6 +516,8 @@ virtual_sync_mailbox_box_remove(struct virtual_sync_context *ctx,
 		}
 
 		for (; uid <= uids[i].seq2; uid++, src++) {
+			i_assert(src < rec_count);
+			i_assert(uidmap[src].real_uid == uid);
 			if (!mail_index_lookup_seq(ctx->sync_view,
 						   uidmap[src].virtual_uid,
 						   &vseq))
@@ -522,8 +525,7 @@ virtual_sync_mailbox_box_remove(struct virtual_sync_context *ctx,
 			mail_index_expunge(ctx->trans, vseq);
 		}
 	}
-	left = rec_count - src;
-	array_delete(&bbox->uids, dest, src - dest);
+	array_delete(&bbox->uids, dest, rec_count - dest);
 }
 
 static void
@@ -576,6 +578,8 @@ virtual_sync_mailbox_box_add(struct virtual_sync_context *ctx,
 		}
 
 		for (; add_uid <= added_uids[i].seq2; add_uid++, dest++) {
+			i_assert(dest < rec_count);
+
 			uidmap[dest].real_uid = add_uid;
 			uidmap[dest].virtual_uid = 0;
 
