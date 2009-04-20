@@ -178,9 +178,7 @@ int mail_send_forward(struct mail_deliver_context *ctx, const char *forwardto)
     if (mail_get_stream(ctx->src_mail, NULL, NULL, &input) < 0)
 	    return -1;
 
-    if (mail_get_first_header(ctx->src_mail, "Return-Path", &return_path) <= 0)
-	    return_path = "";
-
+    return_path = mail_deliver_get_return_address(ctx);
     if (mailbox_get_settings(ctx->src_mail->box)->mail_debug) {
 	    i_info("Sending a forward to <%s> with return path <%s>",
 		   forwardto, return_path);
