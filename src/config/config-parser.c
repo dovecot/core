@@ -246,6 +246,21 @@ static const char *info_type_name_find(const struct setting_parser_info *info)
 	return NULL;
 }
 
+static const char *
+fix_relative_path(const char *path, struct input_stack *input)
+{
+	const char *p;
+
+	if (*path == '/')
+		return path;
+
+	p = strrchr(input->path, '/');
+	if (p == NULL)
+		return path;
+
+	return t_strconcat(t_strdup_until(input->path, p+1), path, NULL);
+}
+
 void config_parse_file(pool_t dest_pool, ARRAY_TYPE(const_string) *dest,
 		       const char *path, const char *service)
 {
@@ -347,17 +362,19 @@ prevfile:
 		if (strcmp(key, "!include_try") == 0 ||
 		    strcmp(key, "!include") == 0) {
 			struct input_stack *tmp;
+			const char *path;
 
+			path = fix_relative_path(line, input);
 			for (tmp = input; tmp != NULL; tmp = tmp->prev) {
-				if (strcmp(tmp->path, line) == 0)
+				if (strcmp(tmp->path, path) == 0)
 					break;
 			}
 			if (tmp != NULL) {
 				errormsg = "Recursive include";
-			} else if ((fd = open(line, O_RDONLY)) != -1) {
+			} else if ((fd = open(path, O_RDONLY)) != -1) {
 				new_input = t_new(struct input_stack, 1);
 				new_input->prev = input;
-				new_input->path = t_strdup(line);
+				new_input->path = t_strdup(path);
 				input = new_input;
 				goto newfile;
 			} else {
