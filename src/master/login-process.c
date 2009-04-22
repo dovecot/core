@@ -547,8 +547,9 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	}
 
 	env_put(t_strconcat("PROCESS_UID=", dec2str(pid), NULL));
-	if (group->mail_process_type == PROCESS_TYPE_IMAP) {
-		env_put(t_strconcat("GENERATED_CAPABILITY=",
+	if (group->mail_process_type == PROCESS_TYPE_IMAP &&
+	    set->imap_generated_capability != NULL) {
+		env_put(t_strconcat("CAPABILITY_STRING=",
 				    set->imap_generated_capability, NULL));
 	}
 	env_put(t_strconcat("LOGIN_DIR=", set->login_dir, NULL));

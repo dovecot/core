@@ -46,7 +46,6 @@
 	"* OK Waiting for authentication process to respond.."
 
 const char *login_protocol = "IMAP";
-const char *capability_string = CAPABILITY_STRING;
 
 static void client_set_title(struct imap_client *client)
 {
@@ -97,7 +96,8 @@ static const char *get_capability(struct imap_client *client, bool full)
 	const char *auths;
 
 	auths = client_authenticate_get_capabilities(client->common.secured);
-	return t_strconcat(full ? capability_string : CAPABILITY_BANNER_STRING,
+	return t_strconcat(full ? login_settings->capability_string :
+			   CAPABILITY_BANNER_STRING,
 			   (ssl_initialized && !client->common.tls) ?
 			   " STARTTLS" : "",
 			   login_settings->disable_plaintext_auth &&
