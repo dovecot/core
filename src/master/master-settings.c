@@ -499,7 +499,12 @@ static bool auth_settings_verify(struct master_settings *set,
 		return FALSE;
 	}
 
-	sockets = array_get(&auth->sockets, &count);
+	if (array_is_created(&auth->sockets))
+		sockets = array_get(&auth->sockets, &count);
+	else {
+		sockets = NULL;
+		count = 0;
+	}
 	for (i = 0; i < count; i++) {
 		if (auth->count > 1 &&
 		    strcmp(sockets[i]->type, "listen") == 0) {
@@ -551,6 +556,8 @@ static bool settings_have_connect_sockets(struct master_settings *set)
 
 	auths = array_get(&set->auths, &count);
 	for (i = 0; i < count; i++) {
+		if (!array_is_created(&auths[i]->sockets))
+			continue;
 		sockets = array_get(&auths[i]->sockets, &count2);
 		if (count2 > 0 && strcmp(sockets[0]->type, "connect") == 0)
 			return TRUE;

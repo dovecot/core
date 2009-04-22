@@ -167,6 +167,9 @@ static void add_extra_listeners(struct auth *auth)
 	struct auth_socket_unix_settings *const *unix_sockets;
 	unsigned int i, count, count2;
 
+	if (!array_is_created(&auth->set->sockets))
+		return;
+
 	sockets = array_get(&auth->set->sockets, &count);
 	for (i = 0; i < count; i++) {
 		if (strcmp(sockets[i]->type, "listen") != 0)
