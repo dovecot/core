@@ -22,6 +22,7 @@ struct imap_client {
 
 	struct login_proxy *proxy;
 	char *proxy_user, *proxy_master_user, *proxy_password;
+	char *proxy_backend_capability;
 
 	unsigned int bad_counter;
 
@@ -36,6 +37,7 @@ struct imap_client {
 	unsigned int greeting_sent:1;
 	unsigned int id_logged:1;
 	unsigned int auth_initializing:1;
+	unsigned int capability_command_used:1;
 };
 
 void client_destroy(struct imap_client *client, const char *reason);

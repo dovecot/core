@@ -107,6 +107,7 @@ static const char *get_capability(struct imap_client *client, bool full)
 
 static int cmd_capability(struct imap_client *client)
 {
+	client->capability_command_used = TRUE;
 	client_send_line(client, t_strconcat(
 		"* CAPABILITY ", get_capability(client, TRUE), NULL));
 	client_send_tagline(client, "OK Capability completed.");
@@ -591,6 +592,7 @@ void client_destroy(struct imap_client *client, const char *reason)
 
 	i_free_and_null(client->proxy_user);
 	i_free_and_null(client->proxy_master_user);
+	i_free_and_null(client->proxy_backend_capability);
 
 	if (client->proxy != NULL)
 		login_proxy_free(&client->proxy);

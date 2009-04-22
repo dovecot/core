@@ -1,6 +1,7 @@
 /* Copyright (c) 2004-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "array.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -14,26 +15,35 @@
 #include "imap-quote.h"
 #include "imap-proxy.h"
 
+#include <stdlib.h>
+
 #define PROXY_FAILURE_MSG \
 	"NO ["IMAP_RESP_CODE_UNAVAILABLE"] "AUTH_TEMP_FAILED_MSG
 
-static bool imap_banner_has_capability(const char *line, const char *capability)
+static const char *const *
+capabilities_strip_prelogin(const char *const *capabilities)
 {
-	unsigned int capability_len = strlen(capability);
+	ARRAY_TYPE(const_string) new_caps_arr;
+	const char **new_caps, *str;
+	unsigned int count;
 
-	while (strncasecmp(line, capability, capability_len) != 0 ||
-	       (line[capability_len] != ' ' &&
-		line[capability_len] != '\0' &&
-		line[capability_len] != ']')) {
-		/* skip over the capability */
-		while (*line != ' ') {
-			if (*line == '\0')
-				return FALSE;
-			line++;
-		}
-		line++;
+	t_array_init(&new_caps_arr, 64);
+	for (; *capabilities != NULL; capabilities++) {
+		if (strncasecmp(*capabilities, "AUTH=", 5) == 0 ||
+		    strcasecmp(*capabilities, "STARTTLS") == 0 ||
+		    strcasecmp(*capabilities, "SASL-IR") == 0 ||
+		    strcasecmp(*capabilities, "LOGINDISABLED") == 0 ||
+		    strcasecmp(*capabilities, "LOGIN-REFERRALS") == 0)
+			continue;
+
+		str = *capabilities;
+		array_append(&new_caps_arr, &str, 1);
 	}
-	return TRUE;
+	new_caps = array_get_modifiable(&new_caps_arr, &count);
+	qsort(new_caps, count, sizeof(*new_caps), i_strcasecmp_p);
+
+	(void)array_append_space(&new_caps_arr);
+	return array_idx(&new_caps_arr, 0);
 }
 
 static void proxy_write_id(struct imap_client *client, string_t *str)
@@ -85,9 +95,51 @@ static void get_plain_auth(struct imap_client *client, string_t *dest)
 	base64_encode(str_data(str), str_len(str), dest);
 }
 
+static bool str_array_icmp(const char *const *arr1, const char *const *arr2)
+{
+	unsigned int i;
+
+	for (i = 0; arr1[i] != NULL; i++) {
+		if (arr2[i] == NULL || strcasecmp(arr1[i], arr2[i]) != 0)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static void
+client_send_capability_if_needed(struct imap_client *client, string_t *str,
+				 const char *capability)
+{
+	const char *const *backend_capabilities;
+	const char *const *proxy_capabilities;
+
+	if (!client->capability_command_used || capability == NULL)
+		return;
+
+	/* reset this so that we don't re-send the CAPABILITY in case server
+	   sends it multiple times */
+	client->capability_command_used = FALSE;
+
+	/* client has used CAPABILITY command, so it didn't understand the
+	   capabilities in the banner. if backend server has different
+	   capabilities than we advertised already, there's a problem.
+	   to solve that we'll send the backend's untagged CAPABILITY reply
+	   and hope that the client understands it */
+	backend_capabilities =
+		capabilities_strip_prelogin(t_strsplit(capability, " "));
+	proxy_capabilities =
+		capabilities_strip_prelogin(t_strsplit(login_settings->capability_string, " "));
+
+	if (str_array_icmp(backend_capabilities, proxy_capabilities))
+		return;
+
+	str_printfa(str, "* CAPABILITY %s\r\n", capability);
+}
+
 static int proxy_input_banner(struct imap_client *client,
 			      struct ostream *output, const char *line)
 {
+	const char *const *capabilities = NULL;
 	string_t *str;
 
 	if (strncmp(line, "* OK ", 5) != 0) {
@@ -99,9 +151,12 @@ static int proxy_input_banner(struct imap_client *client,
 
 	str = t_str_new(128);
 	if (strncmp(line + 5, "[CAPABILITY ", 12) == 0) {
-		if (imap_banner_has_capability(line + 5 + 12, "ID"))
+		capabilities = t_strsplit(t_strcut(line + 5 + 12, ']'), " ");
+		if (str_array_icase_find(capabilities, "ID"))
 			proxy_write_id(client, str);
 	}
+	if (client->capability_command_used)
+		str_append(str, "C CAPABILITY\r\n");
 
 	if (client->proxy_master_user == NULL) {
 		/* logging in normally - use LOGIN command */
@@ -111,7 +166,8 @@ static int proxy_input_banner(struct imap_client *client,
 		imap_quote_append_string(str, client->proxy_password, FALSE);
 
 		proxy_free_password(client);
-	} else if (imap_banner_has_capability(line + 5, "SASL-IR")) {
+	} else if (capabilities != NULL &&
+		   str_array_icase_find(capabilities, "SASL-IR")) {
 		/* master user login with SASL initial response support */
 		str_append(str, "L AUTHENTICATE PLAIN ");
 		get_plain_auth(client, str);
@@ -120,7 +176,6 @@ static int proxy_input_banner(struct imap_client *client,
 		/* master user login without SASL initial response */
 		str_append(str, "L AUTHENTICATE PLAIN");
 	}
-
 	str_append(str, "\r\n");
 	(void)o_stream_send(output, str_data(str), str_len(str));
 	client->proxy_login_sent = TRUE;
@@ -130,6 +185,7 @@ static int proxy_input_banner(struct imap_client *client,
 static int proxy_input_line(struct imap_client *client,
 			    struct ostream *output, const char *line)
 {
+	const char *capability;
 	string_t *str;
 
 	i_assert(!client->destroyed);
@@ -152,7 +208,12 @@ static int proxy_input_line(struct imap_client *client,
 		return 0;
 	} else if (strncmp(line, "L OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
+		capability = client->proxy_backend_capability;
+		if (strncmp(line + 5, "[CAPABILITY ", 12) == 0)
+			capability = t_strcut(line + 5 + 12, ']');
+
 		str = t_str_new(128);
+		client_send_capability_if_needed(client, str, capability);
 		str_append(str, client->cmd_tag);
 		str_append(str, line + 1);
 		str_append(str, "\r\n");
@@ -235,6 +296,10 @@ static int proxy_input_line(struct imap_client *client,
 
 		proxy_failed(client, FALSE);
 		return -1;
+	} else if (strncasecmp(line, "* CAPABILITY ", 13) == 0) {
+		i_free(client->proxy_backend_capability);
+		client->proxy_backend_capability = i_strdup(line + 13);
+		return 0;
 	} else {
 		/* probably some untagged reply */
 		return 0;
