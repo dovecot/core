@@ -21,13 +21,10 @@ static bool imap_banner_has_capability(const char *line, const char *capability)
 {
 	unsigned int capability_len = strlen(capability);
 
-	if (strncmp(line, "[CAPABILITY ", 12) != 0)
-		return FALSE;
-
-	line += 12;
-	while (strncmp(line, capability, capability_len) != 0 ||
+	while (strncasecmp(line, capability, capability_len) != 0 ||
 	       (line[capability_len] != ' ' &&
-		line[capability_len] != '\0')) {
+		line[capability_len] != '\0' &&
+		line[capability_len] != ']')) {
 		/* skip over the capability */
 		while (*line != ' ') {
 			if (*line == '\0')
@@ -101,8 +98,10 @@ static int proxy_input_banner(struct imap_client *client,
 	}
 
 	str = t_str_new(128);
-	if (imap_banner_has_capability(line + 5, "ID"))
-		proxy_write_id(client, str);
+	if (strncmp(line + 5, "[CAPABILITY ", 12) == 0) {
+		if (imap_banner_has_capability(line + 5 + 12, "ID"))
+			proxy_write_id(client, str);
+	}
 
 	if (client->proxy_master_user == NULL) {
 		/* logging in normally - use LOGIN command */
