@@ -284,7 +284,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			   Exception to this is if the value consists only of
 			   LWSP, then skip only the one LWSP after ':'. */
 			for (pos = 0; pos < line->value_len; pos++) {
-				if (!IS_LWSP(line->value[0]))
+				if (!IS_LWSP(line->value[pos]))
 					break;
 			}
 
