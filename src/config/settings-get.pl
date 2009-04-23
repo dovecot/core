@@ -38,7 +38,7 @@ foreach my $file (@ARGV) {
 	$code .= $_;
       }
 
-      if (/#define.*DEF/ || /^#undef.*DEF/) {
+      if (/#define.*DEF/ || /^#undef.*DEF/ || /ARRAY_DEFINE_TYPE.*_settings/) {
 	$write = 1;
 	$state = 2 if (/\\$/);
       }

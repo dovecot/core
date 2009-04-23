@@ -9,7 +9,7 @@ bool ssl_initialized = FALSE;
 
 /* no SSL support */
 
-int ssl_proxy_new(int fd ATTR_UNUSED, struct ip_addr *ip ATTR_UNUSED,
+int ssl_proxy_new(int fd ATTR_UNUSED, const struct ip_addr *ip ATTR_UNUSED,
 		  struct ssl_proxy **proxy_r ATTR_UNUSED)
 {
 	i_error("Dovecot wasn't built with SSL support");

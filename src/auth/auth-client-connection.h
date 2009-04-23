@@ -3,7 +3,6 @@
 
 struct auth_client_connection {
 	struct auth *auth;
-	struct auth_master_listener *listener;
 	int refcount;
 
 	int fd;
@@ -19,14 +18,13 @@ struct auth_client_connection {
 };
 
 struct auth_client_connection *
-auth_client_connection_create(struct auth_master_listener *listener, int fd);
+auth_client_connection_create(struct auth *auth, int fd);
 void auth_client_connection_destroy(struct auth_client_connection **conn);
 
 struct auth_client_connection *
-auth_client_connection_lookup(struct auth_master_listener *listener,
-			      unsigned int pid);
+auth_client_connection_lookup(unsigned int pid);
 
-void auth_client_connections_init(struct auth_master_listener *listener);
-void auth_client_connections_deinit(struct auth_master_listener *listener);
+void auth_client_connections_init(void);
+void auth_client_connections_deinit(void);
 
 #endif

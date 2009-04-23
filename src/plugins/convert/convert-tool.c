@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 	input.username = argv[optind];
 
 	master_service_init_log(service,
-		t_strdup_printf("convert-tool(%s): ", input.username));
+		t_strdup_printf("convert-tool(%s): ", input.username), 0);
 	user = mail_storage_service_init_user(service, &input, NULL, 0);
 
 	memset(&ns_set, 0, sizeof(ns_set));

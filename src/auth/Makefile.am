@@ -23,6 +23,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-ntlm \
 	-I$(top_srcdir)/src/lib-otp \
+	-I$(top_srcdir)/src/lib-master \
 	-DAUTH_MODULE_DIR=\""$(auth_moduledir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
@@ -44,7 +45,7 @@ dovecot_auth_libs = \
 	$(LIBDOVECOT_SQL) \
 	$(LIBDOVECOT)
 
-dovecot_auth_LDADD = $(dovecot_auth_libs) $(MODULE_LIBS) $(AUTH_LIBS)
+dovecot_auth_LDADD = $(dovecot_auth_libs) $(AUTH_LIBS) $(MODULE_LIBS)
 dovecot_auth_DEPENDENCIES = $(dovecot_auth_libs)
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
@@ -54,7 +55,6 @@ dovecot_auth_SOURCES = \
 	auth-cache.c \
 	auth-client-connection.c \
 	auth-master-connection.c \
-	auth-master-listener.c \
 	auth-request.c \
 	auth-request-handler.c \
 	auth-settings.c \
@@ -111,7 +111,6 @@ headers = \
 	auth-client-interface.h \
 	auth-master-interface.h \
 	auth-master-connection.h \
-	auth-master-listener.h \
 	auth-request.h \
 	auth-request-handler.h \
 	auth-settings.h \

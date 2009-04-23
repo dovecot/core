@@ -244,6 +244,7 @@ static int proxy_input_line(struct imap_client *client,
 		client->common.input = NULL;
 		client->output = NULL;
 		client->common.fd = -1;
+		client->common.proxying = TRUE;
 		client_destroy_success(client, str_c(str));
 		return 1;
 	} else if (strncmp(line, "L ", 2) == 0) {
@@ -362,7 +363,6 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 	}
 
 	i_assert(client->refcount > 1);
-	connection_queue_add(1);
 
 	if (client->destroyed) {
 		/* connection_queue_add() decided that we were the oldest

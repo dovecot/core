@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "master-service.h"
 #include "auth-request.h"
 #include "auth-worker-client.h"
 
@@ -504,7 +505,7 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 	net_disconnect(client->fd);
 	client->fd = -1;
 
-	io_loop_stop(ioloop);
+        master_service_client_connection_destroyed(service);
 }
 
 void auth_worker_client_unref(struct auth_worker_client **_client)

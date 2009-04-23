@@ -37,6 +37,10 @@ void restrict_access_set_env(const struct restrict_access_settings *set);
    environment settings. */
 void restrict_access_by_env(const char *home, bool disallow_root);
 
+/* Return the chrooted directory if restrict_access*() chrooted,
+   otherwise NULL. */
+const char *restrict_access_get_current_chroot(void);
+
 /* Try to set up the process in a way that core dumps are still allowed
    after calling restrict_access_by_env(). */
 void restrict_access_allow_coredumps(bool allow);

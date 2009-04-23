@@ -8,6 +8,7 @@
 #include "read-full.h"
 #include "safe-memset.h"
 #include "llist.h"
+#include "master-service.h"
 #include "ssl-proxy.h"
 
 #include <fcntl.h>
@@ -473,7 +474,7 @@ static void ssl_step(struct ssl_proxy *proxy)
 	ssl_proxy_unref(proxy);
 }
 
-int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
+int ssl_proxy_new(int fd, const struct ip_addr *ip, struct ssl_proxy **proxy_r)
 {
 	struct ssl_proxy *proxy;
 	SSL *ssl;
@@ -524,7 +525,6 @@ int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 	DLLIST_PREPEND(&ssl_proxies, proxy);
 
 	ssl_step(proxy);
-	main_ref();
 
 	*proxy_r = proxy;
 	return sfd[1];
@@ -602,8 +602,6 @@ static void ssl_proxy_unref(struct ssl_proxy *proxy)
 
 	SSL_free(proxy->ssl);
 	i_free(proxy);
-
-	main_unref();
 }
 
 static void ssl_proxy_destroy(struct ssl_proxy *proxy)
@@ -631,7 +629,7 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 
 	ssl_proxy_unref(proxy);
 
-	main_listen_start();
+        master_service_client_connection_destroyed(service);
 }
 
 static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,

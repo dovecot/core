@@ -1,5 +1,5 @@
 AC_PREREQ([2.59])
-AC_INIT([Dovecot],[1.3.UNSTABLE],[dovecot@dovecot.org])
+AC_INIT([Dovecot],[2.0.UNSTABLE],[dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AM_INIT_AUTOMAKE([foreign])
@@ -2200,7 +2200,7 @@ if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_STORAGE='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/libdovecot-login.la'
 else
-  LIBDOVECOT='$(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib/liblib.la $(LIBICONV)'
+  LIBDOVECOT='$(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib/liblib.la $(LIBICONV)'
   LIBDOVECOT_STORAGE_LAST='$(top_builddir)/src/lib-storage/list/libstorage_list.la $(top_builddir)/src/lib-storage/index/libstorage_index.la $(top_builddir)/src/lib-storage/libstorage.la $(top_builddir)/src/lib-index/libindex.la'
   LIBDOVECOT_STORAGE_FIRST='$(top_builddir)/src/lib-storage/libstorage_service.la $(top_builddir)/src/lib-storage/register/libstorage_register.la'
   LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_FIRST $LINKED_STORAGE_LIBS $LIBDOVECOT_STORAGE_LAST"
@@ -2376,6 +2376,7 @@ src/lib-storage/register/Makefile
 src/auth/Makefile
 src/config/Makefile
 src/lda/Makefile
+src/log/Makefile
 src/lmtp/Makefile
 src/dict/Makefile
 src/imap/Makefile

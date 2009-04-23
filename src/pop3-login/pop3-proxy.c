@@ -133,6 +133,7 @@ static int proxy_input_line(struct pop3_client *client,
 		client->common.input = NULL;
 		client->output = NULL;
 		client->common.fd = -1;
+		client->common.proxying = TRUE;
 		client_destroy_success(client, str_c(str));
 		return 1;
 	}
@@ -240,7 +241,6 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 	}
 
 	i_assert(client->refcount > 1);
-	connection_queue_add(1);
 
 	if (client->destroyed) {
 		/* connection_queue_add() decided that we were the oldest

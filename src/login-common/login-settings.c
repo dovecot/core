@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "login-settings.h"
 
 #include <stddef.h>
@@ -92,8 +93,6 @@ struct setting_parser_info login_setting_parser_info = {
 	MEMBER(check_func) login_settings_check
 };
 
-static pool_t settings_pool = NULL;
-
 /* <settings checks> */
 static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 {
@@ -173,30 +172,19 @@ static bool login_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 /* </settings checks> */
 
-struct login_settings *login_settings_read(void)
+struct login_settings *login_settings_read(struct master_service *service)
 {
-	struct setting_parser_context *parser;
-        struct login_settings *set;
+	static const struct setting_parser_info *set_roots[] = {
+		&login_setting_parser_info,
+		NULL
+	};
 	const char *error;
+	void **sets;
 
-	if (settings_pool == NULL)
-		settings_pool = pool_alloconly_create("settings pool", 512);
-	else
-		p_clear(settings_pool);
+	if (master_service_settings_read(service, set_roots, NULL, FALSE,
+					 &error) < 0)
+		i_fatal("Error reading configuration: %s", error);
 
-	parser = settings_parser_init(settings_pool,
-				      &login_setting_parser_info,
-				      SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
-
-	if (settings_parse_environ(parser) < 0) {
-		i_fatal("Error reading configuration: %s",
-			settings_parser_get_error(parser));
-	}
-
-	if (settings_parser_check(parser, settings_pool, &error) < 0)
-		i_fatal("Invalid settings: %s", error);
-
-	set = settings_parser_get(parser);
-	settings_parser_deinit(&parser);
-	return set;
+	sets = master_service_settings_get_others(service);
+	return sets[0];
 }

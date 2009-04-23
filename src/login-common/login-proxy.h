@@ -39,9 +39,6 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 const char *login_proxy_get_host(const struct login_proxy *proxy) ATTR_PURE;
 unsigned int login_proxy_get_port(const struct login_proxy *proxy) ATTR_PURE;
 
-/* Return number of active detached login proxies */
-unsigned int login_proxy_get_count(void) ATTR_PURE;
-
 void login_proxy_deinit(void);
 
 #endif

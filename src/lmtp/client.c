@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "hostpid.h"
+#include "master-service.h"
 #include "master-service-settings.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
@@ -195,7 +196,7 @@ void client_destroy(struct client *client, const char *prefix,
 	pool_unref(&client->state_pool);
 	i_free(client);
 
-	listener_client_destroyed();
+	master_service_client_connection_destroyed(service);
 }
 
 static const char *client_get_disconnect_reason(struct client *client)

@@ -11,6 +11,8 @@
 #include "strescape.h"
 #include "imap-parser.h"
 #include "imap-id.h"
+#include "master-service.h"
+#include "master-auth.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
@@ -42,10 +44,13 @@
 #  error client idle timeout must be smaller than authentication timeout
 #endif
 
-#define AUTH_WAITING_MSG \
+#define AUTH_SERVER_WAITING_MSG \
 	"* OK Waiting for authentication process to respond.."
+#define AUTH_MASTER_WAITING_MSG \
+	"* OK Waiting for authentication master process to respond.."
 
 const char *login_protocol = "IMAP";
+const char *login_process_name = "imap-login";
 
 static void client_set_title(struct imap_client *client)
 {
@@ -119,7 +124,6 @@ static void client_start_tls(struct imap_client *client)
 	int fd_ssl;
 
 	client_ref(client);
-	connection_queue_add(1);
 	if (!client_unref(client) || client->destroyed)
 		return;
 
@@ -132,6 +136,7 @@ static void client_start_tls(struct imap_client *client)
 		return;
 	}
 
+	client->common.proxying = TRUE;
 	client->common.tls = TRUE;
 	client->common.secured = TRUE;
 	client_set_title(client);
@@ -410,7 +415,7 @@ void client_input(struct imap_client *client)
 	if (!auth_client_is_connected(auth_client)) {
 		/* we're not yet connected to auth process -
 		   don't allow any commands */
-		client_send_line(client, AUTH_WAITING_MSG);
+		client_send_line(client, AUTH_SERVER_WAITING_MSG);
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);
 
@@ -483,7 +488,8 @@ static void client_idle_disconnect_timeout(struct imap_client *client)
 
 static void client_auth_waiting_timeout(struct imap_client *client)
 {
-	client_send_line(client, AUTH_WAITING_MSG);
+	client_send_line(client, client->common.master_tag == 0 ?
+			 AUTH_SERVER_WAITING_MSG : AUTH_MASTER_WAITING_MSG);
 	timeout_remove(&client->to_auth_waiting);
 }
 
@@ -502,7 +508,11 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 
 	i_assert(fd != -1);
 
-	connection_queue_add(1);
+	if (clients_get_count() >= login_settings->login_max_connections) {
+		/* reached max. users count, kill few of the
+		   oldest connections */
+		client_destroy_oldest();
+	}
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd, TRUE);
@@ -523,8 +533,6 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 	client->io = io_add(fd, IO_READ, client_input, client);
 
 	client_link(&client->common);
-
-	main_ref();
 
 	if (auth_client_is_connected(auth_client))
 		client_send_greeting(client);
@@ -559,10 +567,11 @@ void client_destroy(struct imap_client *client, const char *reason)
 	if (client->output != NULL)
 		o_stream_close(client->output);
 
-	if (client->common.master_tag != 0)
-		master_request_abort(&client->common);
-
-	if (client->common.auth_request != NULL) {
+	if (client->common.master_tag != 0) {
+		i_assert(client->common.auth_request == NULL);
+		i_assert(client->common.authenticating);
+		master_auth_request_abort(service, client->common.master_tag);
+	} else if (client->common.auth_request != NULL) {
 		i_assert(client->common.authenticating);
 		sasl_server_auth_client_error(&client->common, NULL);
 	} else {
@@ -602,9 +611,6 @@ void client_destroy(struct imap_client *client, const char *reason)
 		client->common.proxy = NULL;
 	}
 	client_unref(client);
-
-	main_listen_start();
-	main_unref();
 }
 
 void client_destroy_success(struct imap_client *client, const char *reason)
@@ -640,10 +646,14 @@ bool client_unref(struct imap_client *client)
 	if (client->output != NULL)
 		o_stream_unref(&client->output);
 
+	if (!client->common.proxying) {
+		i_assert(client->common.proxy == NULL);
+		master_service_client_connection_destroyed(service);
+	}
+
 	i_free(client->common.virtual_user);
 	i_free(client->common.auth_mech_name);
 	i_free(client);
-
 	return FALSE;
 }
 

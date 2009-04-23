@@ -2,7 +2,6 @@
 #define CLIENT_H
 
 #include "network.h"
-#include "master.h"
 #include "client-common.h"
 
 /* Disconnect client after idling this many milliseconds */

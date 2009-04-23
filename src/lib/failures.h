@@ -19,7 +19,21 @@ enum log_type {
 	LOG_TYPE_WARNING,
 	LOG_TYPE_ERROR,
 	LOG_TYPE_FATAL,
-	LOG_TYPE_PANIC
+	LOG_TYPE_PANIC,
+
+	/* Special message from master to log process: Log message begins with
+	   "<pid> " and if <pid> has already logged a fatal/panic, this message
+	   shouldn't be written to the log. Otherwise log as an error. */
+	LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL,
+
+	LOG_TYPE_COUNT,
+	LOG_TYPE_OPTION
+};
+
+struct failure_line {
+	pid_t pid;
+	enum log_type log_type;
+	const char *text;
 };
 
 #define DEFAULT_FAILURE_STAMP_FORMAT "%b %d %H:%M:%S "
@@ -94,6 +108,9 @@ void i_set_failure_ip(const struct ip_addr *ip);
 void i_set_failure_exit_callback(void (*callback)(int *status));
 /* Call the exit callback and exit() */
 void failure_exit(int status) ATTR_NORETURN;
+
+/* Parse a line logged using internal failure handler */
+void i_failure_parse_line(const char *line, struct failure_line *failure);
 
 void failures_deinit(void);
 

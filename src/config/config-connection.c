@@ -3,6 +3,7 @@
 #include "common.h"
 #include "array.h"
 #include "str.h"
+#include "llist.h"
 #include "ioloop.h"
 #include "network.h"
 #include "istream.h"
@@ -20,6 +21,8 @@
 #define CONFIG_CLIENT_PROTOCOL_MINOR_VERSION 0
 
 struct config_connection {
+	struct config_connection *prev, *next;
+
 	int fd;
 	struct istream *input;
 	struct ostream *output;
@@ -28,6 +31,8 @@ struct config_connection {
 	unsigned int version_received:1;
 	unsigned int handshaked:1;
 };
+
+struct config_connection *config_connections = NULL;
 
 static const char *const *
 config_connection_next_line(struct config_connection *conn)
@@ -93,14 +98,12 @@ static void config_connection_input(void *context)
 		conn->version_received = TRUE;
 	}
 
-	t_push();
 	while ((args = config_connection_next_line(conn)) != NULL) {
 		if (args[0] == NULL)
 			continue;
 		if (strcmp(args[0], "REQ") == 0)
 			config_connection_request(conn, args + 1, 0);
 	}
-	t_pop();
 }
 
 struct config_connection *config_connection_create(int fd)
@@ -112,11 +115,14 @@ struct config_connection *config_connection_create(int fd)
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->io = io_add(fd, IO_READ, config_connection_input, conn);
+	DLLIST_PREPEND(&config_connections, conn);
 	return conn;
 }
 
 void config_connection_destroy(struct config_connection *conn)
 {
+	DLLIST_REMOVE(&config_connections, conn);
+
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
@@ -146,4 +152,10 @@ void config_connection_putenv(void)
 		env_put(t_strconcat(t_str_ucase(strings[i]), "=",
 				    strings[i+1], NULL));
 	} T_END;
+}
+
+void config_connections_destroy_all(void)
+{
+	while (config_connections != NULL)
+		config_connection_destroy(config_connections);
 }

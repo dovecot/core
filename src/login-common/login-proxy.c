@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "llist.h"
 #include "str-sanitize.h"
+#include "master-service.h"
 #include "client-common.h"
 #include "login-proxy.h"
 
@@ -31,7 +32,6 @@ struct login_proxy {
 };
 
 static struct login_proxy *login_proxies = NULL;
-static unsigned int login_proxy_count = 0;
 
 static void server_input(struct login_proxy *proxy)
 {
@@ -191,9 +191,7 @@ void login_proxy_free(struct login_proxy **_proxy)
 
 	if (proxy->client_fd != -1) {
 		/* detached proxy */
-		main_unref();
 		DLLIST_REMOVE(&login_proxies, proxy);
-		login_proxy_count--;
 
 		ipstr = net_ip2addr(&proxy->ip);
 		i_info("proxy(%s): disconnecting %s",
@@ -224,7 +222,7 @@ void login_proxy_free(struct login_proxy **_proxy)
 	i_free(proxy->user);
 	i_free(proxy);
 
-	main_listen_start();
+	master_service_client_connection_destroyed(service);
 }
 
 bool login_proxy_is_ourself(const struct client *client, const char *host,
@@ -251,11 +249,6 @@ const char *login_proxy_get_host(const struct login_proxy *proxy)
 unsigned int login_proxy_get_port(const struct login_proxy *proxy)
 {
 	return proxy->port;
-}
-
-unsigned int login_proxy_get_count(void)
-{
-	return login_proxy_count;
 }
 
 void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
@@ -291,9 +284,7 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 	proxy->callback = NULL;
 	proxy->context = NULL;
 
-	login_proxy_count++;
 	DLLIST_PREPEND(&login_proxies, proxy);
-	main_ref();
 }
 
 void login_proxy_deinit(void)

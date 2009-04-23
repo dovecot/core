@@ -1,19 +1,7 @@
 #ifndef AUTH_SETTINGS_H
 #define AUTH_SETTINGS_H
 
-struct auth_socket_unix_settings {
-	const char *path;
-	unsigned int mode;
-	const char *user;
-	const char *group;
-};
-
-struct auth_socket_settings {
-	const char *type;
-
-	ARRAY_DEFINE(clients, struct auth_socket_unix_settings *);
-	ARRAY_DEFINE(masters, struct auth_socket_unix_settings *);
-};
+struct master_service;
 
 struct auth_passdb_settings {
 	const char *driver;
@@ -55,17 +43,15 @@ struct auth_settings {
 
 	unsigned int worker_max_count;
 
-	ARRAY_DEFINE(sockets, struct auth_socket_settings *);
 	ARRAY_DEFINE(passdbs, struct auth_passdb_settings *);
 	ARRAY_DEFINE(userdbs, struct auth_userdb_settings *);
 };
 
 struct auth_root_settings {
-	const char *base_dir;
-
 	ARRAY_DEFINE(auths, struct auth_settings *);
 };
 
-struct auth_settings *auth_settings_read(const char *name);
+struct auth_settings *
+auth_settings_read(struct master_service *service, const char *name);
 
 #endif

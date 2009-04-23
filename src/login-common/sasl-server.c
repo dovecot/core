@@ -3,11 +3,13 @@
 #include "common.h"
 #include "base64.h"
 #include "buffer.h"
+#include "istream.h"
 #include "str-sanitize.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
+#include "master-interface.h"
+#include "master-auth.h"
 #include "client-common.h"
-#include "master.h"
 
 static enum auth_request_flags
 client_get_auth_flags(struct client *client)
@@ -38,25 +40,56 @@ call_client_callback(struct client *client, enum sasl_server_reply reply,
 }
 
 static void
-master_callback(struct client *client, const struct master_login_reply *reply)
+master_auth_callback(const struct master_auth_reply *reply, void *context)
 {
+	struct client *client = context;
 	enum sasl_server_reply sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
 	const char *data = NULL;
 
+	client->master_tag = 0;
 	client->authenticating = FALSE;
 	switch (reply->status) {
-	case MASTER_LOGIN_STATUS_OK:
+	case MASTER_AUTH_STATUS_OK:
 		sasl_reply = SASL_SERVER_REPLY_SUCCESS;
 		break;
-	case MASTER_LOGIN_STATUS_INTERNAL_ERROR:
+	case MASTER_AUTH_STATUS_INTERNAL_ERROR:
 		break;
-	case MASTER_LOGIN_STATUS_MAX_CONNECTIONS:
+	case MASTER_AUTH_STATUS_MAX_CONNECTIONS:
 		data = "Maximum number of connections from user+IP exceeded "
 			"(mail_max_userip_connections)";
 		break;
 	}
 	client->mail_pid = reply->mail_pid;
 	call_client_callback(client, sasl_reply, data, NULL);
+}
+
+static void
+master_send_request(struct client *client, struct auth_request *request)
+{
+	struct master_auth_request req;
+	const unsigned char *data;
+	size_t size;
+	buffer_t *buf;
+
+	memset(&req, 0, sizeof(req));
+	req.auth_pid = auth_client_request_get_server_pid(request);
+	req.auth_id = auth_client_request_get_id(request);
+	req.local_ip = client->local_ip;
+	req.remote_ip = client->ip;
+
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	if (client->auth_command_tag != NULL) {
+		buffer_append(buf, client->auth_command_tag,
+			      strlen(client->auth_command_tag)+1);
+	}
+
+	data = i_stream_get_data(client->input, &size);
+	buffer_append(buf, data, size);
+	req.data_size = buf->used;
+
+	client->master_tag =
+		master_auth_request(service, client->fd, &req, buf->data,
+				    master_auth_callback, client);
 }
 
 static void authenticate_callback(struct auth_request *request, int status,
@@ -101,9 +134,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 			call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
 					     NULL, args);
 		} else {
-			master_request_login(client, master_callback,
-				auth_client_request_get_server_pid(request),
-				auth_client_request_get_id(request));
+			master_send_request(client, request);
 		}
 		break;
 	case -1:

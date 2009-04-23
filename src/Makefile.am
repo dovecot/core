@@ -27,6 +27,7 @@ SUBDIRS = \
 	pop3 \
 	lda \
 	lmtp \
+	log \
 	config \
 	tests \
 	util \

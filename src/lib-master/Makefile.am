@@ -8,11 +8,14 @@ AM_CPPFLAGS = \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
 libmaster_la_SOURCES = \
+	master-auth.c \
 	master-service.c \
 	master-service-settings.c \
 	syslog-util.c
 
 noinst_HEADERS = \
+	master-auth.h \
+	master-interface.h \
 	master-service.h \
 	master-service-private.h \
 	master-service-settings.h \

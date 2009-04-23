@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "hostpid.h"
 #include "network.h"
 #include "backtrace-string.h"
 #include "printf-format-fix.h"
@@ -15,15 +16,13 @@
 #include <syslog.h>
 #include <time.h>
 
-const char *failure_log_type_prefixes[] = {
+const char *failure_log_type_prefixes[LOG_TYPE_COUNT] = {
 	"Info: ",
 	"Warning: ",
 	"Error: ",
 	"Fatal: ",
-	"Panic: "
-};
-static char log_type_internal_chars[] = {
-	'I', 'W', 'E', 'F', 'P'
+	"Panic: ",
+	"Error: "
 };
 
 /* Initialize working defaults */
@@ -36,6 +35,9 @@ static void (*failure_exit_callback)(int *) = NULL;
 static int log_fd = STDERR_FILENO, log_info_fd = STDERR_FILENO;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
 static bool failure_ignore_errors = FALSE;
+
+static void ATTR_FORMAT(2, 0)
+i_internal_error_handler(enum log_type type, const char *fmt, va_list args);
 
 /* kludgy .. we want to trust log_stamp_format with -Wformat-nonliteral */
 static const char *get_log_stamp_format(const char *unused)
@@ -59,9 +61,6 @@ static void log_prefix_add(string_t *str)
 	char buf[256];
 	time_t now;
 
-	if (log_prefix != NULL)
-		str_append(str, log_prefix);
-
 	if (log_stamp_format != NULL) {
 		now = time(NULL);
 		tm = localtime(&now);
@@ -70,6 +69,8 @@ static void log_prefix_add(string_t *str)
 			     get_log_stamp_format("unused"), tm) > 0)
 			str_append(str, buf);
 	}
+	if (log_prefix != NULL)
+		str_append(str, log_prefix);
 }
 
 static void log_fd_flush_stop(struct ioloop *ioloop)
@@ -193,6 +194,23 @@ void i_log_type(enum log_type type, const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
+
+	if (type == LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL &&
+	    error_handler != i_internal_error_handler) {
+		/* this is handled specially only by internal logging.
+		   skip over the pid. */
+		T_BEGIN {
+			const char *str;
+
+			str = t_strdup_vprintf(format, args);
+			while (*str >= '0' && *str <= '9') str++;
+			if (*str == ' ') str++;
+
+			i_error("%s", str);
+		} T_END;
+		return;
+	}
+
 	if (type == LOG_TYPE_INFO)
 		info_handler(type, format, args);
 	else
@@ -328,12 +346,16 @@ void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
 		level = LOG_WARNING;
 		break;
 	case LOG_TYPE_ERROR:
+	case LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL:
 		level = LOG_ERR;
 		break;
 	case LOG_TYPE_FATAL:
 	case LOG_TYPE_PANIC:
 		level = LOG_CRIT;
 		break;
+	case LOG_TYPE_COUNT:
+	case LOG_TYPE_OPTION:
+		i_unreached();
 	}
 
 	if (syslog_handler(level, type, fmt, args) < 0)
@@ -399,8 +421,28 @@ void i_set_failure_prefix(const char *prefix)
 	log_prefix = i_strdup(prefix);
 }
 
+static int internal_send_split(string_t *full_str, unsigned int prefix_len)
+{
+	string_t *str;
+	unsigned int max_text_len, pos = prefix_len;
+
+	str = t_str_new(PIPE_BUF);
+	str_append_n(str, str_c(full_str), prefix_len);
+	max_text_len = PIPE_BUF - prefix_len - 1;
+
+	while (pos < str_len(full_str)) {
+		str_truncate(str, prefix_len);
+		str_append_n(str, str_c(full_str) + pos, max_text_len);
+		str_append_c(str, '\n');
+		if (log_fd_write(2, str_data(str), str_len(str)) < 0)
+			return -1;
+		pos += max_text_len;
+	}
+	return 0;
+}
+
 static int ATTR_FORMAT(2, 0)
-internal_handler(char log_type, const char *format, va_list args)
+internal_handler(enum log_type log_type, const char *format, va_list args)
 {
 	static int recursed = 0;
 	int ret;
@@ -414,13 +456,18 @@ internal_handler(char log_type, const char *format, va_list args)
 	recursed++;
 	T_BEGIN {
 		string_t *str;
+		unsigned int prefix_len;
 
 		str = t_str_new(512);
-		str_append_c(str, 1);
-		str_append_c(str, log_type);
+		str_printfa(str, "\001%c%s ", log_type + 1, my_pid);
+		prefix_len = str_len(str);
+
 		str_vprintfa(str, format, args);
 		str_append_c(str, '\n');
-		ret = write_full(2, str_data(str), str_len(str));
+		if (str_len(str) <= PIPE_BUF)
+			ret = log_fd_write(2, str_data(str), str_len(str));
+		else
+			ret = internal_send_split(str, prefix_len);
 	} T_END;
 
 	if (ret < 0 && failure_ignore_errors)
@@ -430,21 +477,62 @@ internal_handler(char log_type, const char *format, va_list args)
 	return ret;
 }
 
+static bool line_is_ok(const char *line)
+{
+	if (*line != 1)
+		return FALSE;
+
+	if (line[1] == '\0') {
+		i_warning("Broken log line follows (type=NUL)");
+		return FALSE;
+	}
+
+	if (line[1]-1 > LOG_TYPE_OPTION) {
+		i_warning("Broken log line follows (type=%d)", line[1]-1);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+void i_failure_parse_line(const char *line, struct failure_line *failure)
+{
+	memset(failure, 0, sizeof(*failure));
+	if (!line_is_ok(line)) {
+		failure->log_type = LOG_TYPE_ERROR;
+		failure->text = line;
+		return;
+	}
+	failure->log_type = line[1] - 1;
+
+	line += 2;
+	failure->text = line;
+	while (*line >= '0' && *line <= '9') {
+		failure->pid = failure->pid*10 + (*line - '0');
+		line++;
+	}
+	if (*line != ' ') {
+		/* some old protocol? */
+		failure->pid = 0;
+		return;
+	}
+	failure->text = line + 1;
+}
+
 static void ATTR_NORETURN ATTR_FORMAT(3, 0)
 i_internal_fatal_handler(enum log_type type, int status,
 			 const char *fmt, va_list args)
 {
-	if (internal_handler(log_type_internal_chars[type], fmt, args) < 0 &&
+	if (internal_handler(type, fmt, args) < 0 &&
 	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 
 	default_fatal_finish(type, status);
 }
 
-static void ATTR_FORMAT(2, 0)
+static void
 i_internal_error_handler(enum log_type type, const char *fmt, va_list args)
 {
-	if (internal_handler(log_type_internal_chars[type], fmt, args) < 0)
+	if (internal_handler(type, fmt, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 }
 
@@ -480,7 +568,8 @@ void i_set_failure_ip(const struct ip_addr *ip)
 	const char *str;
 
 	if (error_handler == i_internal_error_handler) {
-		str = t_strdup_printf("\x01Oip=%s\n", net_ip2addr(ip));
+		str = t_strdup_printf("\001%c%s ip=%s\n",
+				      LOG_TYPE_OPTION, my_pid, net_ip2addr(ip));
 		(void)write_full(2, str, strlen(str));
 	}
 }

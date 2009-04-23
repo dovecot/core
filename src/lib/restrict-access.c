@@ -20,6 +20,7 @@
 static gid_t process_primary_gid = (gid_t)-1;
 static gid_t process_privileged_gid = (gid_t)-1;
 static bool process_using_priv_gid = FALSE;
+static char *chroot_dir = NULL;
 
 void restrict_access_init(struct restrict_access_settings *set)
 {
@@ -273,6 +274,7 @@ void restrict_access(const struct restrict_access_settings *set,
 
 		if (chroot(set->chroot_dir) != 0)
 			i_fatal("chroot(%s) failed: %m", set->chroot_dir);
+		chroot_dir = i_strdup(set->chroot_dir);
 
 		if (home != NULL) {
 			if (chdir(home) < 0) {
@@ -405,6 +407,11 @@ void restrict_access_by_env(const char *home, bool disallow_root)
 	env_remove("RESTRICT_SETEXTRAGROUPS");
 	env_remove("RESTRICT_USER");
 	env_remove("RESTRICT_CHROOT");
+}
+
+const char *restrict_access_get_current_chroot(void)
+{
+	return chroot_dir;
 }
 
 void restrict_access_allow_coredumps(bool allow ATTR_UNUSED)

@@ -448,7 +448,8 @@ mail_storage_service_init_log(struct master_service *service,
 		str = t_str_new(256);
 		var_expand(str, user_set->mail_log_prefix,
 			   get_var_expand_table(service, input));
-		master_service_init_log(service, str_c(str));
+		master_service_init_log(service, str_c(str),
+					user_set->mail_log_max_lines_per_sec);
 	} T_END;
 }
 
@@ -474,9 +475,7 @@ mail_storage_service_init_user(struct master_service *service,
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		set_keyval(service->set_parser, "mail_debug", "yes");
 
-	/* now that we've read settings, we can set up logging */
 	mail_storage_service_init_log(service, &input);
-
 	set = master_service_settings_get(service);
 	sets = master_service_settings_get_others(service);
 	user_set = sets[0];
@@ -563,15 +562,15 @@ mail_storage_service_multi_init(struct master_service *service,
 
 	mail_storage_service_init_settings(service, set_roots, FALSE);
 
-	/* do all the global initialization. delay initializing plugins until
-	   we drop privileges the first time. */
-	master_service_init_log(service,
-				t_strdup_printf("%s: ", service->name));
-
 	set = master_service_settings_get(service);
 	sets = master_service_settings_get_others(service);
 	user_set = sets[0];
 	mail_set = mail_user_set_get_storage_set(user_set);
+
+	/* do all the global initialization. delay initializing plugins until
+	   we drop privileges the first time. */
+	master_service_init_log(service, t_strconcat(service->name, ": ", NULL),
+				user_set->mail_log_max_lines_per_sec);
 
 	modules = *user_set->mail_plugins == '\0' ? NULL :
 		module_dir_load(user_set->mail_plugin_dir,

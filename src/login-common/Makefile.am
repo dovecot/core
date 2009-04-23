@@ -4,6 +4,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-master \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DSBINDIR=\""$(sbindir)"\" \
@@ -14,7 +15,6 @@ liblogin_la_SOURCES = \
 	login-proxy.c \
 	login-settings.c \
 	main.c \
-	master.c \
 	sasl-server.c \
 	ssl-proxy.c \
 	ssl-proxy-gnutls.c \
@@ -28,7 +28,6 @@ noinst_HEADERS = \
 	login-proxy.h \
 	login-settings.h \
 	common.h \
-	master.h \
 	sasl-server.h \
 	ssl-proxy.h
 

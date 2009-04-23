@@ -18,6 +18,7 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #define HAVE_LDAP_SASL
 #ifdef HAVE_SASL_SASL_H
@@ -657,7 +658,7 @@ static void db_ldap_get_fd(struct ldap_connection *conn)
 		i_fatal("LDAP: Can't get connection fd: %s",
 			ldap_err2string(ret));
 	}
-	if (conn->fd <= CLIENT_LISTEN_FD) {
+	if (conn->fd <= STDERR_FILENO) {
 		/* Solaris LDAP library seems to be broken */
 		i_fatal("LDAP: Buggy LDAP library returned wrong fd: %d",
 			conn->fd);

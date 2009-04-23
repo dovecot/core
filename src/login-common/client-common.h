@@ -2,7 +2,6 @@
 #define CLIENT_COMMON_H
 
 #include "network.h"
-#include "master.h"
 #include "sasl-server.h"
 
 /* max. size of input buffer. this means:
@@ -29,7 +28,6 @@ struct client {
 	struct auth_request *auth_request;
 
 	unsigned int master_tag;
-	master_callback_t *master_callback;
 	sasl_server_callback_t *sasl_callback;
 
 	unsigned int auth_attempts;
@@ -39,6 +37,7 @@ struct client {
 	unsigned int tls:1;
 	unsigned int secured:1;
 	unsigned int trusted:1;
+	unsigned int proxying:1;
 	unsigned int authenticating:1;
 	unsigned int auth_tried_disabled_plaintext:1;
 	/* ... */

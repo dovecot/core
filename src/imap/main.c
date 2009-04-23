@@ -19,7 +19,7 @@
 #include <unistd.h>
 
 #define IS_STANDALONE() \
-        (getenv("IMAPLOGINTAG") == NULL)
+        (getenv("CLIENT_INPUT") == NULL)
 
 struct client_workaround_list {
 	const char *name;
@@ -70,12 +70,44 @@ parse_workarounds(const struct imap_settings *set)
 	return client_workarounds;
 }
 
+static void client_add_input(struct client *client, const char *input)
+{
+	buffer_t *buf;
+	const char *tag;
+	unsigned int data_pos;
+
+	buf = input == NULL ? NULL : t_base64_decode_str(input);
+	if (buf != NULL && buf->used > 0) {
+		tag = t_strndup(buf->data, buf->used);
+		data_pos = strlen(tag) + 1;
+		if (data_pos > buf->used &&
+		    !i_stream_add_data(client->input,
+				       CONST_PTR_OFFSET(buf->data, data_pos),
+				       buf->used - data_pos))
+			i_panic("Couldn't add client input to stream");
+	} else {
+		/* IMAPLOGINTAG environment is compatible with mailfront */
+		tag = getenv("IMAPLOGINTAG");
+	}
+
+	if (tag == NULL) {
+		client_send_line(client, t_strconcat(
+			"* PREAUTH [CAPABILITY ",
+			str_c(client->capability_string), "] "
+			"Logged in as ", client->user->username, NULL));
+	} else {
+		client_send_line(client, t_strconcat(
+			tag, " OK [CAPABILITY ",
+			str_c(client->capability_string), "] Logged in", NULL));
+	}
+	(void)client_handle_input(client);
+}
+
 static void main_init(const struct imap_settings *set, struct mail_user *user,
 		      bool dump_capability)
 {
 	struct client *client;
 	struct ostream *output;
-	const char *str, *tag;
 
 	if (set->shutdown_clients && !dump_capability) {
 		/* If master dies, the log fd gets closed and we'll quit */
@@ -96,29 +128,7 @@ static void main_init(const struct imap_settings *set, struct mail_user *user,
 	output = client->output;
 	o_stream_ref(output);
 	o_stream_cork(output);
-
-	/* IMAPLOGINTAG environment is compatible with mailfront */
-	tag = getenv("IMAPLOGINTAG");
-	if (tag == NULL) {
-		client_send_line(client, t_strconcat(
-			"* PREAUTH [CAPABILITY ",
-			str_c(client->capability_string), "] "
-			"Logged in as ", user->username, NULL));
-	} else {
-		client_send_line(client, t_strconcat(
-			tag, " OK [CAPABILITY ",
-			str_c(client->capability_string), "] Logged in", NULL));
-	}
-	str = getenv("CLIENT_INPUT");
-	if (str != NULL) T_BEGIN {
-		buffer_t *buf = t_base64_decode_str(str);
-		if (buf->used > 0) {
-			if (!i_stream_add_data(client->input, buf->data,
-					       buf->used))
-				i_panic("Couldn't add client input to stream");
-			(void)client_handle_input(client);
-		}
-	} T_END;
+	client_add_input(client, getenv("CLIENT_INPUT"));
         o_stream_uncork(output);
 	o_stream_unref(&output);
 }
@@ -128,6 +138,12 @@ static void main_deinit(void)
 	if (log_io != NULL)
 		io_remove(&log_io);
 	clients_deinit();
+}
+
+static void client_connected(const struct master_service_connection *conn)
+{
+	/* FIXME: we can't handle this yet */
+	(void)close(conn->fd);
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -145,10 +161,6 @@ int main(int argc, char *argv[], char *envp[])
 	const char *value;
 	int c;
 
-#ifdef DEBUG
-	if (!IS_STANDALONE() && getenv("GDB") == NULL)
-		fd_debug_verify_leaks(3, 1024);
-#endif
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {
 		printf("* BAD [ALERT] imap binary must not be started from "
@@ -170,7 +182,7 @@ int main(int argc, char *argv[], char *envp[])
 	service = master_service_init("imap", service_flags, argc, argv);
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
 		if (!master_service_parse_option(service, c, optarg))
-			i_fatal("Unknown argument: %c", c);
+			exit(FATAL_DEFAULT);
 	}
 
 	memset(&input, 0, sizeof(input));
@@ -200,9 +212,11 @@ int main(int argc, char *argv[], char *envp[])
 	   while initializing */
 	io_loop_set_running(current_ioloop);
 
-	main_init(set, mail_user, dump_capability);
+	T_BEGIN {
+		main_init(set, mail_user, dump_capability);
+	} T_END;
 	if (io_loop_is_running(current_ioloop))
-		master_service_run(service);
+		master_service_run(service, client_connected);
 
 	main_deinit();
 	mail_storage_service_deinit_user();

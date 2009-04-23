@@ -13,6 +13,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <syslog.h>
 
 #define DEFAULT_CONFIG_FILE_PATH SYSCONFDIR"/dovecot.conf"
@@ -23,9 +24,13 @@
 /* getenv(MASTER_DOVECOT_VERSION_ENV) provides master's version number */
 #define MASTER_DOVECOT_VERSION_ENV "DOVECOT_VERSION"
 
+static void io_listeners_add(struct master_service *service);
+static void io_listeners_remove(struct master_service *service);
+static void master_status_update(struct master_service *service);
+
 const char *master_service_getopt_string(void)
 {
-	return "c:Lk";
+	return "c:ks:L";
 }
 
 static void sig_die(const siginfo_t *si, void *context)
@@ -69,7 +74,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	   is properly initialized */
 	i_set_failure_prefix(t_strdup_printf("%s(init): ", name));
 
-	if (getenv("LOG_TO_MASTER") == NULL)
+	if (getenv(MASTER_UID_ENV) == NULL)
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
 
 	service = i_new(struct master_service, 1);
@@ -78,18 +83,22 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->name = i_strdup(name);
 	service->flags = flags;
 	service->ioloop = io_loop_create();
+	service->service_count_left = (unsigned int)-1;
+
 	service->config_path = getenv(MASTER_CONFIG_FILE_ENV);
 	if (service->config_path == NULL)
 		service->config_path = DEFAULT_CONFIG_FILE_PATH;
 
-	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0)
+	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		service->version_string = getenv(MASTER_DOVECOT_VERSION_ENV);
-	else
+		service->socket_count = 1;
+	} else {
 		service->version_string = PACKAGE_VERSION;
+	}
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
-	if (getenv("LOG_TO_MASTER") != NULL)
+	if (getenv("LOG_SERVICE") != NULL)
 		i_set_failure_internal();
 	if (getenv("USER") != NULL) {
 		i_set_failure_prefix(t_strdup_printf("%s(%s): ",
@@ -98,18 +107,12 @@ master_service_init(const char *name, enum master_service_flags flags,
 		i_set_failure_prefix(t_strdup_printf("%s: ", name));
 	}
 
-	/* set default signal handlers */
-	lib_signals_init();
-        lib_signals_ignore(SIGPIPE, TRUE);
-        lib_signals_ignore(SIGALRM, FALSE);
-        lib_signals_set_handler(SIGINT, TRUE, sig_die, service);
-	lib_signals_set_handler(SIGTERM, TRUE, sig_die, service);
-
 	master_service_verify_version(service);
 	return service;
 }
 
-void master_service_init_log(struct master_service *service, const char *prefix)
+void master_service_init_log(struct master_service *service, const char *prefix,
+			     unsigned int max_lines_per_sec)
 {
 	const char *path;
 
@@ -118,10 +121,15 @@ void master_service_init_log(struct master_service *service, const char *prefix)
 		return;
 	}
 
-	if (getenv("LOG_TO_MASTER") != NULL && !service->log_directly) {
-		/* logging via master process */
+	if (getenv("LOG_SERVICE") != NULL && !service->log_directly) {
+		/* logging via log service */
 		i_set_failure_internal();
 		i_set_failure_prefix(prefix);
+		return;
+	}
+
+	if (service->set == NULL) {
+		i_set_failure_file("/dev/stderr", prefix);
 		return;
 	}
 
@@ -149,12 +157,19 @@ void master_service_init_log(struct master_service *service, const char *prefix)
 bool master_service_parse_option(struct master_service *service,
 				 int opt, const char *arg)
 {
+	int i;
+
 	switch (opt) {
 	case 'c':
 		service->config_path = arg;
 		break;
 	case 'k':
 		service->keep_environment = TRUE;
+		break;
+	case 's':
+		if ((i = atoi(arg)) < 0)
+			i_fatal("Invalid socket count: %s", arg);
+                service->socket_count = i;
 		break;
 	case 'L':
 		service->log_directly = TRUE;
@@ -163,6 +178,77 @@ bool master_service_parse_option(struct master_service *service,
 		return FALSE;
 	}
 	return TRUE;
+}
+
+static void master_status_error(void *context)
+{
+	struct master_service *service = context;
+
+	/* status fd is a write-only pipe, so if we're here it means the
+	   master wants us to die (or died itself). don't die until all
+	   service connections are finished. */
+	io_remove(&service->io_status_error);
+
+	/* the log fd may also be closed already, don't die when trying to
+	   log later */
+	i_set_failure_ignore_errors(TRUE);
+
+	if (service->master_status.available_count ==
+	    service->total_available_count)
+		master_service_stop(service);
+}
+
+void master_service_init_finish(struct master_service *service)
+{
+	struct stat st;
+	const char *value;
+	unsigned int count;
+
+	i_assert(service->total_available_count == 0);
+	i_assert(service->service_count_left == (unsigned int)-1);
+
+	/* set default signal handlers */
+	lib_signals_init();
+        lib_signals_ignore(SIGPIPE, TRUE);
+        lib_signals_ignore(SIGALRM, FALSE);
+        lib_signals_set_handler(SIGINT, TRUE, sig_die, service);
+	lib_signals_set_handler(SIGTERM, TRUE, sig_die, service);
+
+	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
+		if (fstat(MASTER_STATUS_FD, &st) < 0 || !S_ISFIFO(st.st_mode))
+			i_fatal("Must be started by dovecot master process");
+
+		/* initialize master_status structure */
+		value = getenv(MASTER_UID_ENV);
+		if (value == NULL)
+			i_fatal(MASTER_UID_ENV" not set");
+		service->master_status.pid = getpid();
+		service->master_status.uid =
+			(unsigned int)strtoul(value, NULL, 10);
+
+		/* set the default limit */
+		value = getenv(MASTER_CLIENT_LIMIT_ENV);
+		count = value == NULL ? 0 :
+			(unsigned int)strtoul(value, NULL, 10);
+		if (count == 0)
+			i_fatal(MASTER_CLIENT_LIMIT_ENV" not set");
+		master_service_set_client_limit(service, count);
+
+		/* start listening errors for status fd, it means master died */
+		service->io_status_error = io_add(MASTER_STATUS_FD, IO_ERROR,
+						  master_status_error, service);
+	} else {
+		master_service_set_client_limit(service, 1);
+		master_service_set_service_count(service, 1);
+	}
+
+	io_listeners_add(service);
+
+	if ((service->flags & MASTER_SERVICE_FLAG_STD_CLIENT) != 0) {
+		/* we already have a connection to be served */
+		service->master_status.available_count--;
+	}
+	master_status_update(service);
 }
 
 void master_service_env_clean(bool preserve_home)
@@ -189,6 +275,47 @@ void master_service_env_clean(bool preserve_home)
 	if (home != NULL) env_put(home);
 }
 
+void master_service_set_client_limit(struct master_service *service,
+				     unsigned int client_limit)
+{
+	i_assert(service->master_status.available_count ==
+		 service->total_available_count);
+
+	service->total_available_count = client_limit;
+	service->master_status.available_count = client_limit;
+}
+
+unsigned int master_service_get_client_limit(struct master_service *service)
+{
+	return service->total_available_count;
+}
+
+void master_service_set_service_count(struct master_service *service,
+				      unsigned int count)
+{
+	unsigned int used;
+
+	used = service->total_available_count -
+		service->master_status.available_count;
+	i_assert(count >= used);
+
+	if (service->total_available_count > count) {
+		service->total_available_count = count;
+		service->master_status.available_count = count - used;
+	}
+	service->service_count_left = count;
+}
+
+unsigned int master_service_get_service_count(struct master_service *service)
+{
+	return service->service_count_left;
+}
+
+unsigned int master_service_get_socket_count(struct master_service *service)
+{
+	return service->socket_count;
+}
+
 const char *master_service_get_config_path(struct master_service *service)
 {
 	return service->config_path;
@@ -199,9 +326,12 @@ const char *master_service_get_version_string(struct master_service *service)
 	return service->version_string;
 }
 
-void master_service_run(struct master_service *service)
+void master_service_run(struct master_service *service,
+			master_service_connection_callback_t *callback)
 {
+	service->callback = callback;
 	io_loop_run(service->ioloop);
+	service->callback = NULL;
 }
 
 void master_service_stop(struct master_service *service)
@@ -209,11 +339,54 @@ void master_service_stop(struct master_service *service)
         io_loop_stop(service->ioloop);
 }
 
+void master_service_client_connection_destroyed(struct master_service *service)
+{
+	if (service->listeners == NULL) {
+		/* we can listen again */
+		io_listeners_add(service);
+	}
+
+	i_assert(service->total_available_count > 0);
+
+	if (service->service_count_left != service->total_available_count) {
+		i_assert(service->service_count_left == (unsigned int)-1);
+		service->master_status.available_count++;
+	} else {
+		/* we have only limited amount of service requests left */
+		i_assert(service->service_count_left > 0);
+                service->service_count_left--;
+		service->total_available_count--;
+
+		if (service->service_count_left == 0) {
+			i_assert(service->master_status.available_count ==
+				 service->total_available_count);
+			master_service_stop(service);
+		}
+	}
+	master_status_update(service);
+
+	if (service->io_status_error == NULL &&
+	    service->master_status.available_count ==
+	    service->total_available_count) {
+		/* master has closed the connection and we have nothing else
+		   to do anymore. */
+		master_service_stop(service);
+	}
+}
+
 void master_service_deinit(struct master_service **_service)
 {
 	struct master_service *service = *_service;
 
 	*_service = NULL;
+
+	io_listeners_remove(service);
+
+	if (service->io_status_error != NULL)
+		io_remove(&service->io_status_error);
+	if (service->io_status_write != NULL)
+		io_remove(&service->io_status_write);
+
 	lib_signals_deinit();
 	io_loop_destroy(&service->ioloop);
 
@@ -221,4 +394,116 @@ void master_service_deinit(struct master_service **_service)
 	i_free(service);
 
 	lib_deinit();
+}
+
+static void master_service_listen(struct master_service_listener *l)
+{
+	struct master_service_connection conn;
+
+	if (l->service->master_status.available_count == 0) {
+		/* we are full. stop listening for now. */
+		io_listeners_remove(l->service);
+		return;
+	}
+
+	memset(&conn, 0, sizeof(conn));
+	conn.listen_fd = l->fd;
+	conn.fd = net_accept(l->fd, &conn.remote_ip, &conn.remote_port);
+	if (conn.fd < 0) {
+		if (conn.fd == -1)
+			return;
+
+		if (errno != ENOTSOCK) {
+			i_error("net_accept() failed: %m");
+			io_listeners_remove(l->service);
+			return;
+		}
+		/* it's not a socket. probably a fifo. use the "listener"
+		   as the connection fd */
+		io_remove(&l->io);
+		conn.fd = l->fd;
+	}
+
+	l->service->master_status.available_count--;
+        master_status_update(l->service);
+
+        l->service->callback(&conn);
+}
+
+static void io_listeners_add(struct master_service *service)
+{
+	unsigned int i;
+
+	if (service->socket_count == 0)
+		return;
+
+	service->listeners =
+		i_new(struct master_service_listener, service->socket_count);
+
+	for (i = 0; i < service->socket_count; i++) {
+		struct master_service_listener *l = &service->listeners[i];
+
+		l->service = service;
+		l->fd = MASTER_LISTEN_FD_FIRST + i;
+		l->io = io_add(MASTER_LISTEN_FD_FIRST + i, IO_READ,
+			       master_service_listen, l);
+	}
+}
+
+static void io_listeners_remove(struct master_service *service)
+{
+	unsigned int i;
+
+	if (service->listeners != NULL) {
+		for (i = 0; i < service->socket_count; i++) {
+			if (service->listeners[i].io != NULL)
+				io_remove(&service->listeners[i].io);
+		}
+		i_free_and_null(service->listeners);
+	}
+}
+
+static bool master_status_update_is_important(struct master_service *service)
+{
+	if (service->master_status.available_count == 0)
+		return TRUE;
+	if (!service->initial_status_sent)
+		return TRUE;
+	return FALSE;
+}
+
+static void master_status_update(struct master_service *service)
+{
+	ssize_t ret;
+
+	if (service->master_status.pid == 0)
+		return; /* closed */
+
+	ret = write(MASTER_STATUS_FD, &service->master_status,
+		    sizeof(service->master_status));
+	if (ret > 0) {
+		/* success */
+		if (service->io_status_write != NULL) {
+			/* delayed important update sent successfully */
+			io_remove(&service->io_status_write);
+		}
+		service->initial_status_sent = TRUE;
+	} else if (ret == 0) {
+		/* shouldn't happen? */
+		i_error("write(master_status_fd) returned 0");
+		service->master_status.pid = 0;
+	} else if (errno != EAGAIN) {
+		/* failure */
+		if (errno != EPIPE)
+			i_error("write(master_status_fd) failed: %m");
+		service->master_status.pid = 0;
+	} else if (master_status_update_is_important(service)) {
+		/* reader is busy, but it's important to get this notification
+		   through. send it when possible. */
+		if (service->io_status_write == NULL) {
+			service->io_status_write =
+				io_add(MASTER_STATUS_FD, IO_WRITE,
+				       master_status_update, service);
+		}
+	}
 }

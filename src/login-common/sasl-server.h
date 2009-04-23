@@ -1,6 +1,8 @@
 #ifndef SASL_SERVER_H
 #define SASL_SERVER_H
 
+struct client;
+
 enum sasl_server_reply {
 	SASL_SERVER_REPLY_SUCCESS,
 	SASL_SERVER_REPLY_AUTH_FAILED,

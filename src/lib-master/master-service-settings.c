@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "array.h"
+#include "istream.h"
+#include "write-full.h"
 #include "settings-parser.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
@@ -9,8 +11,12 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
+
+#define CONFIG_HANDSHAKE "VERSION\t1\t0\n"
+#define CONFIG_REQUEST_SERVICE "REQ\tservice=%s\n"
 
 #undef DEF
 #define DEF(type, name) \
@@ -57,15 +63,47 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 	/* @UNSAFE */
 	conf_argv = t_new(const char *, 6 + (service->argc + 1) + 1);
 	conf_argv[0] = DOVECOT_CONFIG_BIN_PATH;
-	conf_argv[1] = "-s";
+	conf_argv[1] = "-p";
 	conf_argv[2] = service->name;
 	conf_argv[3] = "-c";
 	conf_argv[4] = service->config_path;
-	conf_argv[5] = "--exec";
+	conf_argv[5] = "-e";
 	memcpy(conf_argv+6, service->argv,
 	       (service->argc+1) * sizeof(conf_argv[0]));
 	execv(conf_argv[0], (char **)conf_argv);
 	i_fatal("execv(%s) failed: %m", conf_argv[0]);
+}
+
+static int
+master_service_read_config(struct master_service *service, bool preserve_home,
+			   const char **error_r)
+{
+	const char *path, *str;
+	int fd;
+
+	path = master_service_get_config_path(service);
+	fd = net_connect_unix(path);
+	if (fd < 0) {
+		struct stat st;
+
+		*error_r = t_strdup_printf("net_connect_unix(%s) failed: %m",
+					   path);
+
+		if (stat(path, &st) == 0 && !S_ISFIFO(st.st_mode)) {
+			/* it's a file, not a socket */
+			master_service_exec_config(service, preserve_home);
+		}
+		return -1;
+	}
+	net_set_nonblock(fd, FALSE);
+
+	str = t_strdup_printf(CONFIG_HANDSHAKE CONFIG_REQUEST_SERVICE,
+			      service->name);
+	if (write_full(fd, str, strlen(str)) < 0) {
+		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
+		return -1;
+	}
+	return fd;
 }
 
 int master_service_settings_read(struct master_service *service,
@@ -76,12 +114,18 @@ int master_service_settings_read(struct master_service *service,
 	ARRAY_DEFINE(all_roots, const struct setting_parser_info *);
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
+	struct istream *input;
 	const char *error;
 	void **sets;
 	unsigned int i;
+	int ret, fd = -1;
 
-	if (getenv("DOVECONF_ENV") == NULL)
-		master_service_exec_config(service, preserve_home);
+	if (getenv("DOVECONF_ENV") == NULL) {
+		fd = master_service_read_config(service, preserve_home,
+						error_r);
+		if (fd == -1)
+			return -1;
+	}
 
 	if (service->set_pool != NULL)
 		p_clear(service->set_pool);
@@ -96,16 +140,29 @@ int master_service_settings_read(struct master_service *service,
 	p_array_init(&all_roots, service->set_pool, 8);
 	tmp_root = &master_service_setting_parser_info;
 	array_append(&all_roots, &tmp_root, 1);
-	for (i = 0; roots[i] != NULL; i++)
-		array_append(&all_roots, &roots[i], 1);
+	if (roots != NULL) {
+		for (i = 0; roots[i] != NULL; i++)
+			array_append(&all_roots, &roots[i], 1);
+	}
 
 	parser = settings_parser_init_list(service->set_pool,
 			array_idx(&all_roots, 0), array_count(&all_roots),
 			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
-	if (settings_parse_environ(parser) < 0) {
-		*error_r = settings_parser_get_error(parser);
-		return -1;
+	if (fd != -1) {
+		input = i_stream_create_fd(fd, (size_t)-1, FALSE);
+		ret = settings_parse_stream_read(parser, input);
+		i_stream_unref(&input);
+		i_assert(ret <= 0);
+		if (ret < 0) {
+			*error_r = settings_parser_get_error(parser);
+			return -1;
+		}
+	} else {
+		if (settings_parse_environ(parser) < 0) {
+			*error_r = settings_parser_get_error(parser);
+			return -1;
+		}
 	}
 
 	if (settings_parser_check(parser, service->set_pool, &error) < 0) {

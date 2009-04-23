@@ -1,8 +1,11 @@
+pkglibexecdir = $(libexecdir)/dovecot
+
 bin_PROGRAMS = doveconf
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-master \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \

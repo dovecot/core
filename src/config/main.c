@@ -1,11 +1,9 @@
 /* Copyright (C) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
-#include "lib-signals.h"
-#include "ioloop.h"
 #include "array.h"
 #include "env-util.h"
-#include "str.h"
+#include "master-service.h"
 #include "config-connection.h"
 #include "config-parser.h"
 
@@ -14,59 +12,62 @@
 
 ARRAY_TYPE(const_string) config_strings;
 
-static const char *config_path = SYSCONFDIR "/" PACKAGE ".conf";
+static struct master_service *service;
 static pool_t config_pool;
 
-static void main_init(const char *service)
+static void main_init(const char *service_name)
 {
-	if (getenv("LOG_TO_MASTER") != NULL)
-		i_set_failure_internal();
-
 	config_pool = pool_alloconly_create("config parser", 10240);
 	p_array_init(&config_strings, config_pool, 256);
-	config_parse_file(config_pool, &config_strings, config_path, service);
+	config_parse_file(config_pool, &config_strings,
+			  master_service_get_config_path(service),
+			  service_name);
+}
+
+static void client_connected(const struct master_service_connection *conn)
+{
+	config_connection_create(conn->fd);
 }
 
 int main(int argc, char *argv[])
 {
 	enum config_dump_flags flags = 0;
-	struct ioloop *ioloop;
-	const char *service = "";
+	const char *getopt_str, *service_name = "";
 	char **exec_args = NULL;
-	int i;
+	int c;
 
-	lib_init();
+	service = master_service_init("config", 0, argc, argv);
 
-	for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-a") == 0) {
+	getopt_str = t_strconcat("anp:e", master_service_getopt_string(), NULL);
+	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+		if (c == 'e')
+			break;
+		switch (c) {
+		case 'a':
 			flags |= CONFIG_DUMP_FLAG_HUMAN |
 				CONFIG_DUMP_FLAG_DEFAULTS;
-		} else if (strcmp(argv[i], "-c") == 0) {
-			/* config file */
-			i++;
-			if (i == argc) i_fatal("Missing config file argument");
-			config_path = argv[i];
-		} else if (strcmp(argv[i], "-n") == 0) {
-			flags |= CONFIG_DUMP_FLAG_HUMAN;
-		} else if (strcmp(argv[i], "-s") == 0) {
-			/* service */
-			i++;
-			if (i == argc) i_fatal("Missing service argument");
-			service = argv[i];
-		} else if (strcmp(argv[i], "--exec") == 0) {
-			/* <command> [<args>] */
-			i++;
-			if (i == argc) i_fatal("Missing exec binary argument");
-			exec_args = &argv[i];
 			break;
-		} else {
-			i_fatal("Unknown parameter: %s", argv[i]);
+		case 'n':
+			flags |= CONFIG_DUMP_FLAG_HUMAN;
+			break;
+		case 'p':
+			service_name = optarg;
+			break;
+		default:
+			if (!master_service_parse_option(service, c, optarg))
+				exit(FATAL_DEFAULT);
 		}
 	}
+	if (argv[optind] != NULL)
+		exec_args = &argv[optind];
 
-	main_init(service);
-	ioloop = io_loop_create();
-	if (exec_args == NULL)
+	master_service_init_log(service, "doveconf: ", 0);
+	master_service_init_finish(service);
+	main_init(service_name);
+
+	if (master_service_get_socket_count(service) > 0)
+		master_service_run(service, client_connected);
+	else if (exec_args == NULL)
 		config_connection_dump_request(STDOUT_FILENO, "master", flags);
 	else {
 		config_connection_putenv();
@@ -74,8 +75,8 @@ int main(int argc, char *argv[])
 		execvp(exec_args[0], exec_args);
 		i_fatal("execvp(%s) failed: %m", exec_args[0]);
 	}
+	config_connections_destroy_all();
 	pool_unref(&config_pool);
-	io_loop_destroy(&ioloop);
-	lib_deinit();
+	master_service_deinit(&service);
         return 0;
 }

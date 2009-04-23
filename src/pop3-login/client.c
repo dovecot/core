@@ -10,6 +10,8 @@
 #include "process-title.h"
 #include "safe-memset.h"
 #include "strescape.h"
+#include "master-service.h"
+#include "master-auth.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
@@ -34,6 +36,7 @@
 #endif
 
 const char *login_protocol = "POP3";
+const char *login_process_name = "pop3-login";
 
 static void client_set_title(struct pop3_client *client)
 {
@@ -63,7 +66,6 @@ static void client_start_tls(struct pop3_client *client)
 	int fd_ssl;
 
 	client_ref(client);
-	connection_queue_add(1);
 	if (!client_unref(client) || client->destroyed)
 		return;
 
@@ -76,6 +78,7 @@ static void client_start_tls(struct pop3_client *client)
 		return;
 	}
 
+	client->common.proxying = TRUE;
 	client->common.tls = TRUE;
 	client->common.secured = TRUE;
 	client_set_title(client);
@@ -307,7 +310,11 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 
 	i_assert(fd != -1);
 
-	connection_queue_add(1);
+	if (clients_get_count() >= login_settings->login_max_connections) {
+		/* reached max. users count, kill few of the
+		   oldest connections */
+		client_destroy_oldest();
+	}
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd, TRUE);
@@ -326,8 +333,6 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 
 	client_open_streams(client, fd);
 	client_link(&client->common);
-
-	main_ref();
 
 	client->auth_connected = auth_client_is_connected(auth_client);
 	if (client->auth_connected)
@@ -367,10 +372,11 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	if (client->output != NULL)
 		o_stream_close(client->output);
 
-	if (client->common.master_tag != 0)
-		master_request_abort(&client->common);
-
-	if (client->common.auth_request != NULL) {
+	if (client->common.master_tag != 0) {
+		i_assert(client->common.auth_request == NULL);
+		i_assert(client->common.authenticating);
+		master_auth_request_abort(service, client->common.master_tag);
+	} else if (client->common.auth_request != NULL) {
 		i_assert(client->common.authenticating);
 		sasl_server_auth_client_error(&client->common, NULL);
 	} else {
@@ -407,9 +413,6 @@ void client_destroy(struct pop3_client *client, const char *reason)
 		client->common.proxy = NULL;
 	}
 	client_unref(client);
-
-	main_listen_start();
-	main_unref();
 }
 
 void client_destroy_internal_failure(struct pop3_client *client)
@@ -437,12 +440,16 @@ bool client_unref(struct pop3_client *client)
 	if (client->output != NULL)
 		o_stream_unref(&client->output);
 
+	if (!client->common.proxying) {
+		i_assert(client->common.proxy == NULL);
+		master_service_client_connection_destroyed(service);
+	}
+
 	i_free(client->last_user);
 	i_free(client->apop_challenge);
 	i_free(client->common.virtual_user);
 	i_free(client->common.auth_mech_name);
 	i_free(client);
-
 	return FALSE;
 }
 

@@ -1,249 +1,67 @@
-/* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
-#include "array.h"
-#include "ioloop.h"
 #include "lib-signals.h"
-#include "network.h"
-#include "env-util.h"
 #include "fd-close-on-exec.h"
 #include "write-full.h"
-#include "restrict-process-size.h"
-
-#include "askpass.h"
-#include "auth-process.h"
-#include "capabilities.h"
-#include "dict-process.h"
-#include "login-process.h"
-#include "mail-process.h"
-#include "syslog-util.h"
-#include "listener.h"
-#include "ssl-init.h"
-#include "log.h"
-#include "sysinfo-get.h"
+#include "env-util.h"
 #include "hostpid.h"
+#include "restrict-process-size.h"
+#include "master-service.h"
+#include "master-service-settings.h"
+#include "capabilities.h"
+#include "service.h"
+#include "service-listen.h"
+#include "service-monitor.h"
+#include "service-log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <syslog.h>
 #include <sys/stat.h>
 
-#define FATAL_FILENAME "master-fatal.lastlog"
-
-static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
-static pid_t master_original_pid;
-
-struct ioloop *ioloop;
-int null_fd = -1, inetd_login_fd;
+struct master_service *master_service;
 uid_t master_uid;
-char program_path[PATH_MAX];
-char ssl_manual_key_password[100];
-const char *env_tz;
-bool auth_success_written;
+gid_t master_gid;
 bool core_dumps_disabled;
-#ifdef DEBUG
-bool gdb;
-#endif
+int null_fd;
 
-static void ATTR_NORETURN ATTR_FORMAT(3, 0)
-master_fatal_callback(enum log_type type, int status,
-		      const char *format, va_list args)
+static char *pidfile_path;
+static struct service_list *services;
+
+static const char *child_process_env[3]; /* @UNSAFE */
+
+void process_exec(const char *cmd, const char *extra_args[])
 {
-	const struct master_settings *set = master_set->defaults;
-	const char *path, *str;
-	va_list args2;
-	int fd;
+	const char *executable, *p, **argv;
 
-	/* if we already forked a child process, this isn't fatal for the
-	   main process and there's no need to write the fatal file. */
-	if (getpid() == master_original_pid) {
-		/* write the error message to a file */
-		path = t_strconcat(set->base_dir, "/"FATAL_FILENAME, NULL);
-		fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, 0600);
-		if (fd != -1) {
-			VA_COPY(args2, args);
-			str = t_strdup_vprintf(format, args2);
-			write_full(fd, str, strlen(str));
-			(void)close(fd);
-		}
+	argv = t_strsplit(cmd, " ");
+	executable = argv[0];
+
+	if (extra_args != NULL) {
+		unsigned int count1, count2;
+		const char **new_argv;
+
+		/* @UNSAFE */
+		count1 = str_array_length(argv);
+		count2 = str_array_length(extra_args);
+		new_argv = t_new(const char *, count1 + count2 + 1);
+		memcpy(new_argv, argv, sizeof(const char *) * count1);
+		memcpy(new_argv + count1, extra_args,
+		       sizeof(const char *) * count2);
+		argv = new_argv;
 	}
 
-	/* write it to log as well */
-	if (*set->log_path == '\0')
-		i_syslog_fatal_handler(type, status, format, args);
-	else
-		default_fatal_handler(type, status, format, args);
-}
+	/* hide the path, it's ugly */
+	p = strrchr(argv[0], '/');
+	if (p != NULL) argv[0] = p+1;
 
-static void fatal_log_check(void)
-{
-	const struct master_settings *set = master_set->defaults;
-	const char *path;
-	char buf[1024];
-	ssize_t ret;
-	int fd;
+	/* prefix with dovecot/ */
+	argv[0] = t_strconcat(PACKAGE"/", argv[0], NULL);
 
-	path = t_strconcat(set->base_dir, "/"FATAL_FILENAME, NULL);
-	fd = open(path, O_RDONLY);
-	if (fd == -1)
-		return;
-
-	ret = read(fd, buf, sizeof(buf));
-	if (ret < 0)
-		i_error("read(%s) failed: %m", path);
-	else {
-		buf[ret] = '\0';
-		i_warning("Last died with error (see error log for more "
-			  "information): %s", buf);
-	}
-
-	close(fd);
-	if (unlink(path) < 0)
-		i_error("unlink(%s) failed: %m", path);
-}
-
-static void auth_warning_print(const struct master_server_settings *set)
-{
-	struct master_auth_settings *const *auths;
-	unsigned int count;
-	struct stat st;
-
-	auth_success_written = stat(AUTH_SUCCESS_PATH, &st) == 0;
-	auths = array_get(&set->defaults->auths, &count);
-	if (!auth_success_written && count > 0 && !auths[0]->debug &&
-	    strcmp(set->defaults->protocols, "none") != 0) {
-		i_info("If you have trouble with authentication failures,\n"
-		       "enable auth_debug setting. "
-		       "See http://wiki.dovecot.org/WhyDoesItNotWork");
-
-	}
-}
-
-static void set_logfile(struct master_settings *set)
-{
-	int facility;
-
-	if (*set->log_path == '\0') {
-		if (!syslog_facility_find(set->syslog_facility, &facility))
-			facility = LOG_MAIL;
-
-		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
-	} else {
-		/* log to file or stderr */
-		i_set_failure_file(set->log_path, "dovecot: ");
-	}
-	i_set_fatal_handler(master_fatal_callback);
-
-	if (*set->info_log_path != '\0')
-		i_set_info_file(set->info_log_path);
-
-	i_set_failure_timestamp_format(set->log_timestamp);
-}
-
-static void settings_reload(void)
-{
-	/* this old_set wrapping works because master settings are
-	   alternatingly read using two different pools */
-	struct master_server_settings *set, *old_set = master_set;
-
-	i_warning("SIGHUP received - reloading configuration");
-
-	/* restart auth and login processes */
-        login_processes_destroy_all();
-        auth_processes_destroy_all();
-        dict_processes_kill();
-
-	/* see if hostname changed */
-	hostpid_init();
-
-	if (master_settings_read(configfile, &set) < 0 ||
-	    !master_settings_check(set, FALSE, FALSE))
-		i_warning("Invalid configuration, keeping old one");
-	else {
-		if (!IS_INETD())
-			listeners_open_fds(old_set, TRUE);
-                set_logfile(set->defaults);
-	}
-}
-
-static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	/* warn about being killed because of some signal, except SIGINT (^C)
-	   which is too common at least while testing :) */
-	if (si->si_signo != SIGINT) {
-		i_warning("Killed with signal %d (by pid=%s uid=%s code=%s)",
-			  si->si_signo, dec2str(si->si_pid),
-			  dec2str(si->si_uid),
-			  lib_signal_code_to_str(si->si_signo, si->si_code));
-	}
-	io_loop_stop(ioloop);
-}
-
-static void sig_reload_settings(const siginfo_t *si ATTR_UNUSED,
-				void *context ATTR_UNUSED)
-{
-	settings_reload();
-}
-
-static void sig_reopen_logs(const siginfo_t *si ATTR_UNUSED,
-			    void *context ATTR_UNUSED)
-{
-	set_logfile(master_set->defaults);
-}
-
-static bool have_stderr_set(struct master_settings *set)
-{
-	if (*set->log_path != '\0' &&
-	    strcmp(set->log_path, "/dev/stderr") == 0)
-		return TRUE;
-
-	if (*set->info_log_path != '\0' &&
-	    strcmp(set->info_log_path, "/dev/stderr") == 0)
-		return TRUE;
-
-	return FALSE;
-}
-
-static bool have_stderr(struct master_server_settings *server)
-{
-	if (server->imap != NULL && have_stderr_set(server->imap))
-		return TRUE;
-	if (server->pop3 != NULL && have_stderr_set(server->pop3))
-		return TRUE;
-	return FALSE;
-}
-
-static void open_null_fd(void)
-{
-	null_fd = open("/dev/null", O_RDONLY);
-	if (null_fd == -1)
-		i_fatal("Can't open /dev/null: %m");
-	fd_close_on_exec(null_fd, TRUE);
-}
-
-static void open_fds(void)
-{
-	/* make sure all fds between 0..3 are used. */
-	while (null_fd < 4) {
-		null_fd = dup(null_fd);
-		if (null_fd == -1)
-			i_fatal("dup(null_fd) failed: %m");
-		fd_close_on_exec(null_fd, TRUE);
-	}
-
-	if (!IS_INETD()) {
-		T_BEGIN {
-			listeners_open_fds(NULL, FALSE);
-		} T_END;
-	}
-
-	/* close stdin and stdout. */
-	if (dup2(null_fd, 0) < 0)
-		i_fatal("dup2(0) failed: %m");
-	if (dup2(null_fd, 1) < 0)
-		i_fatal("dup2(1) failed: %m");
+	execv(executable, (char **)argv);
+	i_fatal_status(FATAL_EXEC, "execvp(%s) failed: %m", executable);
 }
 
 static void create_pid_file(const char *path)
@@ -261,42 +79,58 @@ static void create_pid_file(const char *path)
 	(void)close(fd);
 }
 
-static void pid_file_check_running(const struct master_settings *set)
+static void
+sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
+		    void *context ATTR_UNUSED)
 {
-	const char *path;
-	char buf[32];
-	int fd;
-	ssize_t ret;
+	struct master_settings *new_set;
+	struct service_list *new_services;
+	const char *error;
+	pool_t pool;
 
-	path = t_strconcat(set->base_dir, "/master.pid", NULL);
-	fd = open(path, O_RDONLY);
-	if (fd == -1) {
-		if (errno == ENOENT)
-			return;
-		i_fatal("open(%s) failed: %m", path);
+	/* see if hostname changed */
+	hostpid_init();
+
+#if 0 // FIXME
+	/* FIXME: this loses process structures for existing processes.
+	   figure out something. */
+	new_set = master_settings_read(pool, config_binary, config_path);
+	new_services = new_set == NULL ? NULL :
+		services_create(new_set, child_process_env, &error);
+#endif
+	if (new_services == NULL) {
+		/* new configuration is invalid, keep the old */
+		i_error("Config reload failed: %s", error);
+		return;
 	}
 
-	ret = read(fd, buf, sizeof(buf));
-	if (ret <= 0) {
-		if (ret == 0)
-			i_error("Empty PID file in %s, overriding", path);
-		else
-			i_fatal("read(%s) failed: %m", path);
-	} else {
-		pid_t pid;
+	/* switch to new configuration. */
+	(void)services_listen_using(new_services, services);
+	services_destroy(services);
+	services = new_services;
 
-		if (buf[ret-1] == '\n')
-			ret--;
-		buf[ret] = '\0';
-		pid = atoi(buf);
-		if (pid == getpid() || (kill(pid, 0) < 0 && errno == ESRCH)) {
-			/* doesn't exist */
-		} else {
-			i_fatal("Dovecot is already running with PID %s "
-				"(read from %s)", buf, path);
-		}
-	}
-	(void)close(fd);
+        services_monitor_start(services);
+}
+
+static void
+sig_log_reopen(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
+{
+        service_signal(services->log, SIGUSR1);
+}
+
+static void
+sig_reap_children(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
+{
+	services_monitor_reap_children(services);
+}
+
+static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
+{
+	i_warning("Killed with signal %d (by pid=%s uid=%s code=%s)",
+		  si->si_signo, dec2str(si->si_pid),
+		  dec2str(si->si_uid),
+		  lib_signal_code_to_str(si->si_signo, si->si_code));
+	master_service_stop(master_service);
 }
 
 static void main_log_startup(void)
@@ -312,19 +146,12 @@ static void main_log_startup(void)
 		i_info(STARTUP_STRING);
 }
 
-static void main_init(bool log_error)
+static void main_init(const struct master_settings *set, bool log_error)
 {
 	drop_capabilities();
 
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
-
-	set_logfile(master_set->defaults);
-	/* close stderr unless we're logging into /dev/stderr. */
-	if (!have_stderr(master_set)) {
-		if (dup2(null_fd, 2) < 0)
-			i_fatal("dup2(2) failed: %m");
-	}
 
 	if (log_error) {
 		printf("Writing to error logs and killing myself..\n");
@@ -336,51 +163,44 @@ static void main_init(bool log_error)
 	main_log_startup();
 
 	lib_signals_init();
-        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
-        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
         lib_signals_ignore(SIGPIPE, TRUE);
         lib_signals_ignore(SIGALRM, FALSE);
-        lib_signals_set_handler(SIGHUP, TRUE, sig_reload_settings, NULL);
-        lib_signals_set_handler(SIGUSR1, TRUE, sig_reopen_logs, NULL);
+        lib_signals_set_handler(SIGHUP, TRUE, sig_settings_reload, NULL);
+        lib_signals_set_handler(SIGUSR1, TRUE, sig_log_reopen, NULL);
+        lib_signals_set_handler(SIGCHLD, TRUE, sig_reap_children, NULL);
+        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
 
-	child_processes_init();
-	log_init();
-	ssl_init();
-	dict_processes_init();
-	auth_processes_init();
-	login_processes_init();
-	mail_processes_init();
+        pidfile_path = i_strconcat(set->base_dir, "/master.pid", NULL);
+	create_pid_file(pidfile_path);
 
-	create_pid_file(t_strconcat(master_set->defaults->base_dir,
-				    "/master.pid", NULL));
+	services_monitor_start(services);
 }
 
 static void main_deinit(void)
 {
-	(void)unlink(t_strconcat(master_set->defaults->base_dir,
-				 "/master.pid", NULL));
+	if (unlink(pidfile_path) < 0)
+		i_error("unlink(%s) failed: %m", pidfile_path);
+	i_free(pidfile_path);
 
-	login_processes_destroy_all();
-
-	mail_processes_deinit();
-	login_processes_deinit();
-	auth_processes_deinit();
-	dict_processes_deinit();
-	ssl_deinit();
-
-	listeners_close_fds();
-
-	if (close(null_fd) < 0)
-		i_error("close(null_fd) failed: %m");
-
-	log_deinit();
-	/* log_deinit() may still want to look up child processes */
-	child_processes_deinit();
-	lib_signals_deinit();
-	closelog();
+	services_destroy(services);
 }
 
-static void daemonize(struct master_settings *set)
+static const char *get_full_config_path(struct service_list *list)
+{
+	const char *path;
+	char cwd[PATH_MAX];
+
+	path = master_service_get_config_path(master_service);
+	if (*path == '/')
+		return path;
+
+	if (getcwd(cwd, sizeof(cwd)) == NULL)
+		i_fatal("getcwd() failed: %m");
+	return p_strconcat(list->pool, cwd, "/", path, NULL);
+}
+
+static void daemonize(void)
 {
 	pid_t pid;
 
@@ -394,21 +214,20 @@ static void daemonize(struct master_settings *set)
 	if (setsid() < 0)
 		i_fatal("setsid() failed: %m");
 
-	if (chdir(set->base_dir) < 0)
-		i_fatal("chdir(%s) failed: %m", set->base_dir);
+	/* update my_pid */
+	hostpid_init();
 }
 
 static void print_help(void)
 {
 	printf(
 "Usage: dovecot [-F] [-c <config file>] [-p] [-n] [-a]\n"
-"       [--version] [--build-options] [--exec-mail <protocol> [<args>]]\n");
+"       [-cb <config binary path>] [--version] [--build-options]\n");
 }
 
 static void print_build_options(void)
 {
-	static const char *build_options =
-		"Build options:"
+	printf("Build options:"
 #ifdef IOLOOP_EPOLL
 		" ioloop=epoll"
 #endif
@@ -439,8 +258,7 @@ static void print_build_options(void)
 #ifdef HAVE_OPENSSL
 		" openssl"
 #endif
-	"\nMail storages: "MAIL_STORAGES"\n"
-	"SQL drivers:"
+	"\nSQL drivers:"
 #ifdef BUILD_MYSQL
 		" mysql"
 #endif
@@ -472,9 +290,6 @@ static void print_build_options(void)
 #ifdef PASSDB_SHADOW 
 		" shadow"
 #endif
-#ifdef PASSDB_SIA
-		" sia"
-#endif
 #ifdef PASSDB_SQL 
 		" sql"
 #endif
@@ -482,8 +297,8 @@ static void print_build_options(void)
 		" vpopmail"
 #endif
 	"\nUserdb:"
-#ifdef USERDB_NSS
-		" nss"
+#ifdef USERDB_CHECKPASSWORD
+		" checkpassword"
 #endif
 #ifdef USERDB_LDAP
 		" ldap"
@@ -491,11 +306,11 @@ static void print_build_options(void)
 #ifdef USERDB_PASSWD
 		" passwd"
 #endif
-#ifdef USERDB_PASSWD_FILE
-		" passwd-file"
-#endif
 #ifdef USERDB_PREFETCH
 		" prefetch"
+#endif
+#ifdef USERDB_PASSWD_FILE
+		" passwd-file"
 #endif
 #ifdef USERDB_SQL 
 		" sql"
@@ -506,160 +321,139 @@ static void print_build_options(void)
 #ifdef USERDB_VPOPMAIL
 		" vpopmail"
 #endif
-	"\n";
-	puts(build_options);
+	"\n");
 }
 
 int main(int argc, char *argv[])
 {
-	/* parse arguments */
-	struct master_server_settings *set;
-	const char *exec_protocol = NULL, **exec_args = NULL, *user, *home;
+	static const struct setting_parser_info *set_roots[] = {
+		&master_setting_parser_info,
+		NULL
+	};
+	struct master_settings *set;
+	unsigned int child_process_env_idx = 0;
+	const char *getopt_str, *error, *env_tz;
+	void **sets;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
-	bool dump_config = FALSE, dump_config_nondefaults = FALSE;
-	int i;
+	int c;
 
 #ifdef DEBUG
-	gdb = getenv("GDB") != NULL;
+	if (getenv("GDB") == NULL)
+		fd_debug_verify_leaks(3, 1024);
+	else
+		child_process_env[child_process_env_idx++] = "GDB=1";
 #endif
-	lib_init();
+	master_service = master_service_init("master", 0, argc, argv);
 
 	master_uid = geteuid();
-        inetd_login_fd = -1;
-	for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-F") == 0) {
-			/* foreground */
+	master_gid = getegid();
+
+	getopt_str = t_strconcat("Fp", master_service_getopt_string(), NULL);
+	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+		switch (c) {
+		case 'F':
 			foreground = TRUE;
-		} else if (strcmp(argv[i], "-a") == 0) {
-			dump_config = TRUE;
-		} else if (strcmp(argv[i], "-c") == 0) {
-			/* config file */
-			i++;
-			if (i == argc) i_fatal("Missing config file argument");
-			configfile = argv[i];
-		} else if (strcmp(argv[i], "-n") == 0) {
-			dump_config_nondefaults = dump_config = TRUE;
-		} else if (strcmp(argv[i], "-p") == 0) {
+			break;
+		case 'p':
 			/* Ask SSL private key password */
 			ask_key_pass = TRUE;
-		} else if (strcmp(argv[i], "--exec-mail") == 0) {
-			/* <protocol> [<args>]
-			   read configuration and execute mail process */
-			i++;
-			if (i == argc) i_fatal("Missing protocol argument");
-			exec_protocol = argv[i];
-			exec_args = (const char **)&argv[i+1];
 			break;
-		} else if (strcmp(argv[i], "--version") == 0) {
+		default:
+			if (!master_service_parse_option(master_service,
+							 c, optarg)) {
+				print_help();
+				exit(FATAL_DEFAULT);
+			}
+			break;
+		}
+	}
+
+	if (optind < argc) {
+		if (strcmp(argv[optind], "--version") == 0) {
 			printf("%s\n", VERSION);
 			return 0;
-		} else if (strcmp(argv[i], "--build-options") == 0) {
+		} else if (strcmp(argv[optind], "--build-options") == 0) {
 			print_build_options();
 			return 0;
-		} else if (strcmp(argv[i], "--log-error") == 0) {
+		} else if (strcmp(argv[optind], "--log-error") == 0) {
 			log_error = TRUE;
 			foreground = TRUE;
 		} else {
 			print_help();
-			i_fatal("Unknown argument: %s", argv[1]);
+			i_fatal("Unknown argument: %s", argv[optind]);
 		}
 	}
 
-	/* need to have this open before reading settings */
-	open_null_fd();
+	do {
+		null_fd = open("/dev/null", O_WRONLY);
+		if (null_fd == -1)
+			i_fatal("Can't open /dev/null: %m");
+		fd_close_on_exec(null_fd, TRUE);
+	} while (null_fd <= STDERR_FILENO);
 
-	if (getenv("DOVECOT_INETD") != NULL) {
-		/* starting through inetd. */
-		inetd_login_fd = dup(0);
-		if (inetd_login_fd == -1)
-			i_fatal("dup(0) failed: %m");
-		fd_close_on_exec(inetd_login_fd, TRUE);
-		foreground = TRUE;
-	}
+	if (dup2(null_fd, STDIN_FILENO) < 0 ||
+	    dup2(null_fd, STDOUT_FILENO) < 0)
+		i_fatal("dup2(null_fd) failed: %m");
 
-	if (dump_config) {
+	if (master_service_settings_read(master_service, set_roots, NULL, FALSE,
+					 &error) < 0)
+		i_fatal("Error reading configuration: %s", error);
+	sets = master_service_settings_get_others(master_service);
+	set = sets[0];
 
-		/* print the config file path before parsing it, so in case
-		   of errors it's still shown */
-		printf("# "VERSION": %s\n", configfile);
-	}
+	master_service_init_log(master_service, "dovecot: ", 0);
+	if (!log_error)
+		master_settings_do_fixes(set);
 
-	/* read and verify settings before forking */
-	T_BEGIN {
-		master_settings_init();
-		if (master_settings_read(configfile, &set) < 0)
-			i_fatal("Invalid configuration in %s", configfile);
-	} T_END;
-
-	if (!log_error && !dump_config && exec_protocol == NULL)
-		pid_file_check_running(set->defaults);
-
-	if (!master_settings_check(set, exec_protocol != NULL,
-				   dump_config || log_error))
-		i_fatal("Invalid configuration in %s", configfile);
-
-	if (dump_config) {
-		const char *info;
-
-		info = sysinfo_get(master_set->defaults->mail_location);
-		if (*info != '\0')
-			printf("# %s\n", info);
-
-		if (dump_config_nondefaults)
-			client_process_exec(DOVECOT_CONFIG_BIN_PATH" -a", "");
-		else
-			client_process_exec(DOVECOT_CONFIG_BIN_PATH" -n", "");
-		i_fatal("exec(%s) failed: %m", DOVECOT_CONFIG_BIN_PATH);
-	}
-
-	if (ask_key_pass && !log_error) T_BEGIN {
+#if 0 // FIXME
+	if (ask_key_pass) {
 		const char *prompt;
 
 		prompt = t_strdup_printf("Give the password for SSL key file "
-					 "%s: ",
-					 master_set->defaults->ssl_key_file);
+					 "%s: ", set->ssl_key_file);
 		askpass(prompt, ssl_manual_key_password,
 			sizeof(ssl_manual_key_password));
-	} T_END;
+	}
+#endif
 
 	/* save TZ environment. AIX depends on it to get the timezone
 	   correctly. */
 	env_tz = getenv("TZ");
-	user = getenv("USER");
-	home = getenv("HOME");
 
 	/* clean up the environment of everything */
 	env_clean();
 
 	/* put back the TZ */
-	if (env_tz != NULL)
-		env_put(t_strconcat("TZ=", env_tz, NULL));
+	if (env_tz != NULL) {
+		const char *env = t_strconcat("TZ=", env_tz, NULL);
 
-	if (exec_protocol != NULL) {
-		/* Put back user and home */
-		env_put(t_strconcat("USER=", user, NULL));
-		env_put(t_strconcat("HOME=", home, NULL));
-		mail_process_exec(exec_protocol, exec_args);
+		env_put(env);
+		child_process_env[child_process_env_idx++] = env;
 	}
+	i_assert(child_process_env_idx <
+		 sizeof(child_process_env) / sizeof(child_process_env[0]));
+	child_process_env[child_process_env_idx++] = NULL;
 
-	if (!log_error)
-		open_fds();
+	/* create service structures from settings. if there are any errors in
+	   service configuration we'll catch it here. */
+	services = services_create(set, child_process_env, &error);
+	if (services == NULL)
+		i_fatal("%s", error);
 
-	fatal_log_check();
-	auth_warning_print(master_set);
+	services->config->config_file_path = get_full_config_path(services);
+
+	/* if any listening fails, fail completely */
+	if (services_listen(services) <= 0)
+		return FATAL_DEFAULT;
+
 	if (!foreground)
-		daemonize(master_set->defaults);
-	master_original_pid = getpid();
+		daemonize();
+	if (chdir(set->base_dir) < 0)
+		i_fatal("chdir(%s) failed: %m", set->base_dir);
 
-	ioloop = io_loop_create();
-
-	main_init(log_error);
-        io_loop_run(ioloop);
+	main_init(set, log_error);
+	master_service_run(master_service, NULL);
 	main_deinit();
-
-	master_settings_deinit();
-	io_loop_destroy(&ioloop);
-	lib_deinit();
-
+	master_service_deinit(&master_service);
         return 0;
 }

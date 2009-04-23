@@ -224,9 +224,6 @@ int main(int argc, char *argv[])
 
 	service = master_service_init("lda", MASTER_SERVICE_FLAG_STANDALONE,
 				      argc, argv);
-#ifdef SIGXFSZ
-        lib_signals_ignore(SIGXFSZ, TRUE);
-#endif
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("mail deliver context", 256);
@@ -282,8 +279,7 @@ int main(int argc, char *argv[])
 		default:
 			if (!master_service_parse_option(service, c, optarg)) {
 				print_help();
-				i_fatal_status(EX_USAGE,
-					       "Unknown argument: %c", c);
+				exit(EX_USAGE);
 			}
 			break;
 		}
@@ -325,6 +321,9 @@ int main(int argc, char *argv[])
 	ctx.dest_user = mail_storage_service_init_user(service, &service_input,
 						       set_roots,
 						       service_flags);
+#ifdef SIGXFSZ
+        lib_signals_ignore(SIGXFSZ, TRUE);
+#endif
 	ctx.set = mail_storage_service_get_settings(service);
         duplicate_init(mail_user_set_get_storage_set(ctx.dest_user->set));
 

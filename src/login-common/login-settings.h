@@ -1,6 +1,8 @@
 #ifndef LOGIN_SETTINGS_H
 #define LOGIN_SETTINGS_H
 
+struct master_service;
+
 struct login_settings {
 	const char *login_dir;
 	bool login_chroot;
@@ -35,6 +37,6 @@ struct login_settings {
 	const char *const *log_format_elements_split;
 };
 
-struct login_settings *login_settings_read(void);
+struct login_settings *login_settings_read(struct master_service *service);
 
 #endif

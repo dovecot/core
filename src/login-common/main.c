@@ -2,14 +2,13 @@
 
 #include "common.h"
 #include "ioloop.h"
-#include "array.h"
-#include "lib-signals.h"
 #include "randgen.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "process-title.h"
-#include "fd-close-on-exec.h"
-#include "master.h"
+#include "master-auth.h"
+#include "master-service.h"
+#include "master-interface.h"
 #include "client-common.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
@@ -19,231 +18,45 @@
 #include <unistd.h>
 #include <syslog.h>
 
-struct login_settings *login_settings;
-unsigned int login_process_uid;
 struct auth_client *auth_client;
 bool closing_down;
 
-static const char *process_name;
-static struct ioloop *ioloop;
-static int main_refcount;
-static bool is_inetd, listening;
+struct master_service *service;
+struct login_settings *login_settings;
 
-static ARRAY_DEFINE(listen_ios, struct io *);
-static unsigned int listen_count, ssl_listen_count;
+static bool ssl_connections = FALSE;
 
-void main_ref(void)
+static void client_connected(const struct master_service_connection *conn)
 {
-	main_refcount++;
-}
-
-void main_unref(void)
-{
-	if (--main_refcount == 0) {
-		/* nothing to do, quit */
-		io_loop_stop(ioloop);
-	} else if (closing_down && clients_get_count() == 0) {
-		/* last login finished, close all communications
-		   to master process */
-		master_close();
-		/* we might still be proxying. close the connection to
-		   dovecot-auth, since it's not needed anymore. */
-		if (auth_client != NULL)
-			auth_client_free(&auth_client);
-	} else if (clients_get_count() == 0) {
-		/* make sure we clear all the memory used by the
-		   authentication connections. also this makes sure that if
-		   this connection's authentication was finished but the master
-		   login wasn't, the next connection won't be able to log in
-		   as this user by finishing the master login. */
-		if (auth_client != NULL)
-			auth_client_reconnect(auth_client);
-	}
-}
-
-static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	/* warn about being killed because of some signal, except SIGINT (^C)
-	   which is too common at least while testing :) */
-	if (si->si_signo != SIGINT) {
-		i_warning("Killed with signal %d (by pid=%s uid=%s code=%s)",
-			  si->si_signo, dec2str(si->si_pid),
-			  dec2str(si->si_uid),
-			  lib_signal_code_to_str(si->si_signo, si->si_code));
-	}
-	io_loop_stop(ioloop);
-}
-
-static void login_accept(void *context)
-{
-	int listen_fd = POINTER_CAST_TO(context, int);
-	struct ip_addr remote_ip, local_ip;
-	unsigned int remote_port, local_port;
-	struct client *client;
-	int fd;
-
-	fd = net_accept(listen_fd, &remote_ip, &remote_port);
-	if (fd < 0) {
-		if (fd < -1)
-			i_error("accept() failed: %m");
-		return;
-	}
-	i_set_failure_ip(&remote_ip);
-
-	if (net_getsockname(fd, &local_ip, &local_port) < 0) {
-		memset(&local_ip, 0, sizeof(local_ip));
-		local_port = 0;
-	}
-
-	client = client_create(fd, FALSE, &local_ip, &remote_ip);
-	client->remote_port = remote_port;
-	client->local_port = local_port;
-
-	if (login_settings->login_process_per_connection) {
-		closing_down = TRUE;
-		main_listen_stop();
-	}
-}
-
-static void login_accept_ssl(void *context)
-{
-	int listen_fd = POINTER_CAST_TO(context, int);
-	struct ip_addr remote_ip, local_ip;
-	unsigned int remote_port, local_port;
 	struct client *client;
 	struct ssl_proxy *proxy;
-	int fd, fd_ssl;
+	struct ip_addr local_ip;
+	unsigned int local_port;
+	int fd_ssl;
 
-	fd = net_accept(listen_fd, &remote_ip, &remote_port);
-	if (fd < 0) {
-		if (fd < -1)
-			i_error("accept() failed: %m");
-		return;
-	}
-	i_set_failure_ip(&remote_ip);
-
-	if (net_getsockname(fd, &local_ip, &local_port) < 0) {
+	if (net_getsockname(conn->fd, &local_ip, &local_port) < 0) {
 		memset(&local_ip, 0, sizeof(local_ip));
 		local_port = 0;
 	}
 
-	connection_queue_add(1);
+	// FIXME: a global ssl_connections isn't enough!
+	if (!ssl_connections) {
+		client = client_create(conn->fd, FALSE, &local_ip,
+				       &conn->remote_ip);
+	} else {
+		fd_ssl = ssl_proxy_new(conn->fd, &conn->remote_ip, &proxy);
+		if (fd_ssl == -1) {
+			net_disconnect(conn->fd);
+			return;
+		}
 
-	fd_ssl = ssl_proxy_new(fd, &remote_ip, &proxy);
-	if (fd_ssl == -1)
-		net_disconnect(fd);
-	else {
-		client = client_create(fd_ssl, TRUE, &local_ip, &remote_ip);
+		client = client_create(fd_ssl, TRUE,
+				       &local_ip, &conn->remote_ip);
+		client->proxying = TRUE;
 		client->proxy = proxy;
-		client->remote_port = remote_port;
-		client->local_port = local_port;
 	}
-
-	if (login_settings->login_process_per_connection) {
-		closing_down = TRUE;
-		main_listen_stop();
-	}
-}
-
-void main_listen_start(void)
-{
-	struct io *io;
-	unsigned int i, current_count;
-	int cur_fd;
-
-	if (listening)
-		return;
-	if (closing_down) {
-		/* typically happens only with
-		   login_process_per_connection=yes after client logs in */
-		master_notify_state_change(LOGIN_STATE_FULL_LOGINS);
-		return;
-	}
-
-	current_count = ssl_proxy_get_count() + login_proxy_get_count();
-	if (current_count >= login_settings->login_max_connections) {
-		/* can't accept any more connections until existing proxies
-		   get destroyed */
-		return;
-	}
-
-	cur_fd = LOGIN_MASTER_SOCKET_FD + 1;
-	i_array_init(&listen_ios, listen_count + ssl_listen_count);
-	for (i = 0; i < listen_count; i++, cur_fd++) {
-		io = io_add(cur_fd, IO_READ, login_accept,
-			    POINTER_CAST(cur_fd));
-		array_append(&listen_ios, &io, 1);
-	}
-	for (i = 0; i < ssl_listen_count; i++, cur_fd++) {
-		io = io_add(cur_fd, IO_READ, login_accept_ssl,
-			    POINTER_CAST(cur_fd));
-		array_append(&listen_ios, &io, 1);
-	}
-	listening = TRUE;
-
-	/* the initial notification tells master that we're ok. if we die
-	   before sending it, the master should shutdown itself. */
-	master_notify_state_change(LOGIN_STATE_LISTENING);
-}
-
-void main_listen_stop(void)
-{
-	struct io **ios;
-	unsigned int i, count;
-	int cur_fd;
-
-	if (!listening)
-		return;
-
-	ios = array_get_modifiable(&listen_ios, &count);
-	for (i = 0; i < count; i++)
-		io_remove(&ios[i]);
-	array_free(&listen_ios);
-
-	if (closing_down) {
-		cur_fd = LOGIN_MASTER_SOCKET_FD + 1;
-		for (i = 0; i < count; i++, cur_fd++) {
-			if (close(cur_fd) < 0) {
-				i_fatal("close(listener %d) failed: %m",
-					cur_fd);
-			}
-		}
-	}
-
-	listening = FALSE;
-	if (io_loop_is_running(ioloop)) {
-		master_notify_state_change(clients_get_count() == 0 ?
-					   LOGIN_STATE_FULL_LOGINS :
-					   LOGIN_STATE_FULL_PRELOGINS);
-	}
-}
-
-void connection_queue_add(unsigned int connection_count)
-{
-	unsigned int max_connections = login_settings->login_max_connections;
-	unsigned int current_count;
-
-	if (login_settings->login_process_per_connection)
-		return;
-
-	current_count = clients_get_count() + ssl_proxy_get_count() +
-		login_proxy_get_count();
-	if (current_count + connection_count + 2 >= max_connections) {
-		/* after this client we've reached max users count,
-		   so stop listening for more. reserve +2 extra for SSL with
-		   login proxy connections. */
-		main_listen_stop();
-
-		if (current_count >= max_connections) {
-			/* already reached max. users count, kill few of the
-			   oldest connections.
-
-			   this happens when we've maxed out the login process
-			   count and master has told us to start listening for
-			   new connections even though we're full. */
-			client_destroy_oldest();
-		}
-	}
+	client->remote_port = conn->remote_port;
+	client->local_port = local_port;
 }
 
 static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
@@ -253,211 +66,101 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
                 clients_notify_auth_connected();
 }
 
-static void drop_privileges(unsigned int *max_fds_r)
+static void main_preinit(void)
 {
-	const char *value;
+	unsigned int max_fds;
 
-        login_settings = login_settings_read();
-
-	if (!is_inetd)
-		i_set_failure_internal();
-	else {
-		/* log to syslog */
-		value = getenv("SYSLOG_FACILITY");
-		i_set_failure_syslog(process_name, LOG_NDELAY,
-				     value == NULL ? LOG_MAIL : atoi(value));
-	}
-
-	value = getenv("DOVECOT_VERSION");
-	if (value != NULL && strcmp(value, PACKAGE_VERSION) != 0) {
-		i_fatal("Dovecot version mismatch: "
-			"Master is v%s, login is v"PACKAGE_VERSION" "
-			"(if you don't care, set version_ignore=yes)", value);
-	}
-
-	value = getenv("LOGIN_DIR");
-	if (value == NULL)
-		i_fatal("LOGIN_DIR environment missing");
-	if (chdir(value) < 0)
-		i_error("chdir(%s) failed: %m", value);
-
+	random_init();
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
-	random_init();
 	ssl_proxy_init();
-
-	value = getenv("LISTEN_FDS");
-	listen_count = value == NULL ? 0 : atoi(value);
-	value = getenv("SSL_LISTEN_FDS");
-	ssl_listen_count = value == NULL ? 0 : atoi(value);
 
 	/* set the number of fds we want to use. it may get increased or
 	   decreased. leave a couple of extra fds for auth sockets and such.
 	   normal connections each use one fd, but SSL connections use two */
-	*max_fds_r = LOGIN_MASTER_SOCKET_FD + 16 +
-		listen_count + ssl_listen_count +
+	max_fds = MASTER_LISTEN_FD_FIRST + 16 +
+		master_service_get_socket_count(service) +
 		login_settings->login_max_connections*2;
-	restrict_fd_limit(*max_fds_r);
+	restrict_fd_limit(max_fds);
+	io_loop_set_max_fd_count(current_ioloop, max_fds);
 
-	/* Refuse to run as root - we should never need it and it's
-	   dangerous with SSL. */
+	i_assert(strcmp(login_settings->ssl, "no") == 0 || ssl_initialized);
+
 	restrict_access_by_env(NULL, TRUE);
-
-	/* make sure we can't fork() */
-	restrict_process_size((unsigned int)-1, 1);
 }
 
 static void main_init(void)
 {
-	const char *value;
+	/* make sure we can't fork() */
+	restrict_process_size((unsigned int)-1, 1);
 
-	lib_signals_init();
-        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
-        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
-        lib_signals_ignore(SIGPIPE, TRUE);
+	if (restrict_access_get_current_chroot() == NULL) {
+		if (chdir("login") < 0)
+			i_fatal("chdir(login) failed: %m");
+	}
 
-	value = getenv("PROCESS_UID");
-	if (value == NULL)
-		i_fatal("BUG: PROCESS_UID environment not given");
-        login_process_uid = strtoul(value, NULL, 10);
-	if (login_process_uid == 0)
-		i_fatal("BUG: PROCESS_UID environment is 0");
-
-        closing_down = FALSE;
-	main_refcount = 0;
-
-	auth_client = auth_client_new(login_process_uid);
+	auth_client = auth_client_new((unsigned int)getpid());
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
+
 	clients_init();
-
-	if (!ssl_initialized && ssl_listen_count > 0) {
-		/* this shouldn't happen, master should have
-		   disabled the ssl socket.. */
-		i_fatal("BUG: SSL initialization parameters not given "
-			"while they should have been");
-	}
-
-	if (!is_inetd) {
-		master_init(LOGIN_MASTER_SOCKET_FD);
-		main_listen_start();
-	}
+	master_auth_init(service);
 }
 
 static void main_deinit(void)
 {
-	closing_down = TRUE;
-	main_listen_stop();
-
 	ssl_proxy_deinit();
 	login_proxy_deinit();
 
 	if (auth_client != NULL)
 		auth_client_free(&auth_client);
 	clients_deinit();
-	master_deinit();
-
-	lib_signals_deinit();
-	closelog();
+	master_auth_deinit(service);
 }
 
-int main(int argc ATTR_UNUSED, char *argv[], char *envp[])
+int main(int argc, char *argv[], char *envp[])
 {
-	const char *group_name;
-	struct ip_addr remote_ip, local_ip;
-	unsigned int remote_port, local_port, max_fds;
-	struct ssl_proxy *proxy = NULL;
-	struct client *client;
-	int i, fd = -1, master_fd = -1;
-	bool ssl = FALSE;
+	const char *getopt_str;
+	int c;
 
-	is_inetd = getenv("DOVECOT_MASTER") == NULL;
+	//FIXME:is_inetd = getenv("DOVECOT_MASTER") == NULL;
 
-#ifdef DEBUG
-	if (!is_inetd && getenv("GDB") == NULL) {
-		const char *env;
+	service = master_service_init(login_process_name, 0, argc, argv);
+	master_service_init_log(service, t_strconcat(login_process_name, ": ",
+						     NULL), 0);
 
-		i = LOGIN_MASTER_SOCKET_FD + 1;
-		env = getenv("LISTEN_FDS");
-		if (env != NULL) i += atoi(env);
-		env = getenv("SSL_LISTEN_FDS");
-		if (env != NULL) i += atoi(env);
-
-		fd_debug_verify_leaks(i, 1024);
+        getopt_str = t_strconcat("DS", master_service_getopt_string(), NULL);
+	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+		switch (c) {
+		case 'D':
+			restrict_access_allow_coredumps(TRUE);
+			break;
+		case 'S':
+			ssl_connections = TRUE;
+			break;
+		default:
+			if (!master_service_parse_option(service, c, optarg))
+				exit(FATAL_DEFAULT);
+			break;
+		}
 	}
-#endif
-	/* NOTE: we start rooted, so keep the code minimal until
-	   restrict_access_by_env() is called */
-	lib_init();
 
+#if 0
 	if (is_inetd) {
 		/* running from inetd. create master process before
 		   dropping privileges. */
-		process_name = strrchr(argv[0], '/');
-		process_name = process_name == NULL ? argv[0] : process_name+1;
-		group_name = t_strcut(process_name, '-');
-
-		for (i = 1; i < argc; i++) {
-			if (strncmp(argv[i], "--group=", 8) == 0) {
-				group_name = argv[1]+8;
-				break;
-			}
-		}
-
-		master_fd = master_connect(group_name);
+		master_fd = master_connect(t_strcut(login_process_name, '-'));
 	}
-
-	drop_privileges(&max_fds);
-
-	if (argv[1] != NULL && strcmp(argv[1], "-D") == 0)
-		restrict_access_allow_coredumps(TRUE);
+#endif
 
 	process_title_init(argv, envp);
-	ioloop = io_loop_create();
-	io_loop_set_max_fd_count(ioloop, max_fds);
+        login_settings = login_settings_read(service);
+
+	main_preinit();
+	master_service_init_finish(service);
 	main_init();
 
-	if (is_inetd) {
-		if (net_getpeername(1, &remote_ip, &remote_port) < 0) {
-			i_fatal("%s can be started only through dovecot "
-				"master process, inetd or equivalent", argv[0]);
-		}
-		if (net_getsockname(1, &local_ip, &local_port) < 0) {
-			memset(&local_ip, 0, sizeof(local_ip));
-			local_port = 0;
-		}
-
-		fd = 1;
-		for (i = 1; i < argc; i++) {
-			if (strcmp(argv[i], "--ssl") == 0)
-				ssl = TRUE;
-			else if (strncmp(argv[i], "--group=", 8) != 0)
-				i_fatal("Unknown parameter: %s", argv[i]);
-		}
-
-		/* hardcoded imaps and pop3s ports to be SSL by default */
-		if (local_port == 993 || local_port == 995 || ssl) {
-			ssl = TRUE;
-			fd = ssl_proxy_new(fd, &remote_ip, &proxy);
-			if (fd == -1)
-				return 1;
-		}
-
-		master_init(master_fd);
-		closing_down = TRUE;
-
-		if (fd != -1) {
-			client = client_create(fd, ssl, &local_ip, &remote_ip);
-			client->proxy = proxy;
-			client->remote_port = remote_port;
-			client->local_port = local_port;
-		}
-	}
-
-	io_loop_run(ioloop);
+	master_service_run(service, client_connected);
 	main_deinit();
-
-	io_loop_destroy(&ioloop);
-	lib_deinit();
-
+	master_service_deinit(&service);
         return 0;
 }

@@ -108,7 +108,7 @@ int settings_parse_line(struct setting_parser_context *ctx, const char *line);
 int settings_parse_stream(struct setting_parser_context *ctx,
 			  struct istream *input);
 /* Read data from input stream and parser it. returns -1 = error,
-   0 = eof/stream error, 1 = not finished yet (stream is non-blocking) */
+   0 = done, 1 = not finished yet (stream is non-blocking) */
 int settings_parse_stream_read(struct setting_parser_context *ctx,
          		       struct istream *input);
 /* Open file and parse it. */

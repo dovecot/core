@@ -4,7 +4,7 @@
 struct auth_stream_reply;
 
 struct auth_master_connection {
-	struct auth_master_listener *listener;
+	struct auth *auth;
 	int refcount;
 
 	int fd;
@@ -15,18 +15,21 @@ struct auth_master_connection {
 	unsigned int version_received:1;
 	unsigned int destroyed:1;
 };
+ARRAY_DEFINE_TYPE(auth_master_connections, struct auth_master_connection *);
+
+extern ARRAY_TYPE(auth_master_connections) auth_master_connections;
 
 struct auth_master_connection *
-auth_master_connection_create(struct auth_master_listener *listener, int fd);
+auth_master_connection_create(struct auth *auth, int fd);
 void auth_master_connection_destroy(struct auth_master_connection **conn);
 
 void auth_master_connection_ref(struct auth_master_connection *conn);
 void auth_master_connection_unref(struct auth_master_connection **conn);
 
-void auth_master_connection_send_handshake(struct auth_master_connection *conn);
-void auth_master_connections_send_handshake(void);
-
 void auth_master_request_callback(struct auth_stream_reply *reply,
 				  void *context);
+
+void auth_master_connections_init(void);
+void auth_master_connections_deinit(void);
 
 #endif

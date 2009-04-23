@@ -635,7 +635,7 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 		static const char *argv[] = {
 			NULL,
 			"-c", NULL,
-			"-s", NULL,
+			"-p", NULL,
 			NULL
 		};
 		argv[0] = bin_path;

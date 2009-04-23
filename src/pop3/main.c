@@ -137,6 +137,12 @@ static void main_deinit(void)
 	clients_deinit();
 }
 
+static void client_connected(const struct master_service_connection *conn)
+{
+	/* we can't handle this yet */
+	(void)close(conn->fd);
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	const struct setting_parser_info *set_roots[] = {
@@ -171,7 +177,7 @@ int main(int argc, char *argv[], char *envp[])
 	service = master_service_init("pop3", service_flags, argc, argv);
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
 		if (!master_service_parse_option(service, c, optarg))
-			i_fatal("Unknown argument: %c", c);
+			exit(FATAL_DEFAULT);
 	}
 
 	memset(&input, 0, sizeof(input));
@@ -199,7 +205,7 @@ int main(int argc, char *argv[], char *envp[])
 	io_loop_set_running(current_ioloop);
 
 	if (main_init(set, mail_user))
-		master_service_run(service);
+		master_service_run(service, client_connected);
 
 	main_deinit();
 	mail_storage_service_deinit_user();
