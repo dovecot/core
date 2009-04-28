@@ -559,29 +559,35 @@ static void search_body(struct mail_search_arg *arg,
 	ARG_SET_RESULT(arg, ret > 0);
 }
 
-static bool search_arg_match_text(struct mail_search_arg *args,
-				  struct index_search_context *ctx)
+static int search_arg_match_text(struct mail_search_arg *args,
+				 struct index_search_context *ctx)
 {
 	struct istream *input;
 	struct mailbox_header_lookup_ctx *headers_ctx;
+	struct mail_search_arg *arg;
 	const char *const *headers;
 	bool have_headers, have_body;
+	int ret;
 
 	/* first check what we need to use */
 	headers = mail_search_args_analyze(args, &have_headers, &have_body);
 	if (!have_headers && !have_body)
-		return TRUE;
+		return 1;
 
 	if (have_headers) {
 		struct search_header_context hdr_ctx;
 
-		if (have_body)
+		if (have_body &&
+		    ctx->mail->lookup_abort == MAIL_LOOKUP_ABORT_NEVER) {
+			/* just open the mail bypassing any caching, since
+			   we're going to read through the body anyway */
 			headers = NULL;
+		}
 
 		if (headers == NULL) {
 			headers_ctx = NULL;
 			if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
-				return FALSE;
+				return -1;
 		} else {
 			/* FIXME: do this once in init */
 			i_assert(*headers != NULL);
@@ -591,7 +597,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 			if (mail_get_header_stream(ctx->mail, headers_ctx,
 						   &input) < 0) {
 				mailbox_header_lookup_unref(&headers_ctx);
-				return FALSE;
+				return -1;
 			}
 		}
 
@@ -612,7 +618,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 		struct message_size hdr_size;
 
 		if (mail_get_stream(ctx->mail, &hdr_size, NULL, &input) < 0)
-			return FALSE;
+			return -1;
 
 		i_stream_seek(input, hdr_size.physical_size);
 	}
@@ -625,9 +631,21 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 		body_ctx.input = input;
 		(void)mail_get_parts(ctx->mail, &body_ctx.part);
 
-		mail_search_args_foreach(args, search_body, &body_ctx);
+		ret = mail_search_args_foreach(args, search_body, &body_ctx);
+	} else {
+		/* see if we have a decision */
+		ret = 1;
+		arg = ctx->mail_ctx.args->args;
+		for (; arg != NULL; arg = arg->next) {
+			if (arg->result == 0) {
+				ret = 0;
+				break;
+			}
+			if (arg->result < 0)
+				ret = -1;
+		}
 	}
-	return TRUE;
+	return ret;
 }
 
 static bool search_msgset_fix_limits(const struct mail_index_header *hdr,
@@ -1043,25 +1061,28 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 
 static bool search_match_next(struct index_search_context *ctx)
 {
-        struct mail_search_arg *arg;
-	int ret;
+	static enum mail_lookup_abort cache_lookups[] = {
+		MAIL_LOOKUP_ABORT_NOT_IN_CACHE,
+		MAIL_LOOKUP_ABORT_READ_MAIL,
+		MAIL_LOOKUP_ABORT_NEVER
+	};
+	unsigned int i;
+	int ret = -1;
 
-	/* next search only from cached arguments */
-	ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
-				       search_cached_arg, ctx);
-	if (ret >= 0)
-		return ret > 0;
+	/* try to avoid doing extra work for as long as possible */
+	for (i = 0; i < N_ELEMENTS(cache_lookups) && ret < 0; i++) {
+		ctx->mail->lookup_abort = cache_lookups[i];
+		ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
+					       search_cached_arg, ctx);
+		if (ret >= 0)
+			break;
 
-	/* open the mail file and check the rest */
-	if (!search_arg_match_text(ctx->mail_ctx.args->args, ctx))
-		return FALSE;
-
-	for (arg = ctx->mail_ctx.args->args; arg != NULL; arg = arg->next) {
-		if (arg->result != 1)
-			return FALSE;
+		ret = search_arg_match_text(ctx->mail_ctx.args->args, ctx);
+		if (ret >= 0)
+			break;
 	}
-
-	return TRUE;
+	ctx->mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
+	return ret > 0;
 }
 
 static void index_storage_search_notify(struct mailbox *box,
