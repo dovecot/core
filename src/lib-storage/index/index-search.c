@@ -23,8 +23,18 @@
 #define TXT_UNKNOWN_CHARSET "[BADCHARSET] Unknown charset"
 #define TXT_INVALID_SEARCH_KEY "Invalid search key"
 
-#define SEARCH_NONBLOCK_COUNT 50
 #define SEARCH_NOTIFY_INTERVAL_SECS 10
+
+#define SEARCH_COST_DENTRY 3ULL
+#define SEARCH_COST_ATTR 1ULL
+#define SEARCH_COST_FILES_READ 25ULL
+#define SEARCH_COST_KBYTE 15ULL
+#define SEARCH_COST_CACHE 1ULL
+
+#define SEARCH_MIN_NONBLOCK_USECS 200000
+#define SEARCH_MAX_NONBLOCK_USECS 250000
+#define SEARCH_INITIAL_MAX_COST 30000
+#define SEARCH_RECALC_MIN_USECS 50000
 
 struct index_search_context {
         struct mail_search_context mail_ctx;
@@ -39,6 +49,8 @@ struct index_search_context {
 	const char *error;
 
 	struct timeval search_start_time, last_notify;
+	struct timeval last_nonblock_timeval;
+	unsigned long long cost, next_time_check_cost;
 
 	unsigned int failed:1;
 	unsigned int sorted:1;
@@ -239,6 +251,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		   in searches. date is returned as UTC, so change it. */
 		if (mail_get_date(ctx->mail, &date, &timezone_offset) < 0)
 			return -1;
+
 		if ((arg->value.search_flags &
 		     MAIL_SEARCH_ARG_FLAG_USE_TZ) == 0)
 			date += timezone_offset * 60;
@@ -560,19 +573,18 @@ static void search_body(struct mail_search_arg *arg,
 }
 
 static int search_arg_match_text(struct mail_search_arg *args,
-				 struct index_search_context *ctx)
+				 struct index_search_context *ctx, int ret)
 {
 	struct istream *input;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail_search_arg *arg;
 	const char *const *headers;
 	bool have_headers, have_body;
-	int ret;
 
 	/* first check what we need to use */
 	headers = mail_search_args_analyze(args, &have_headers, &have_body);
 	if (!have_headers && !have_body)
-		return 1;
+		return ret;
 
 	if (have_headers) {
 		struct search_header_context hdr_ctx;
@@ -625,6 +637,9 @@ static int search_arg_match_text(struct mail_search_arg *args,
 
 	if (have_body) {
 		struct search_body_context body_ctx;
+
+		if (ctx->mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
+			return -1;
 
 		memset(&body_ctx, 0, sizeof(body_ctx));
 		body_ctx.index_ctx = ctx;
@@ -998,6 +1013,9 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	ctx->view = t->trans_view;
 	ctx->mail_ctx.args = args;
 	ctx->mail_ctx.sort_program = index_sort_program_init(_t, sort_program);
+	ctx->next_time_check_cost = SEARCH_INITIAL_MAX_COST;
+	if (gettimeofday(&ctx->last_nonblock_timeval, NULL) < 0)
+		i_fatal("gettimeofday() failed: %m");
 
 	hdr = mail_index_get_header(t->ibox->view);
 	ctx->mail_ctx.progress_max = hdr->messages_count;
@@ -1077,7 +1095,7 @@ static bool search_match_next(struct index_search_context *ctx)
 		if (ret >= 0)
 			break;
 
-		ret = search_arg_match_text(ctx->mail_ctx.args->args, ctx);
+		ret = search_arg_match_text(ctx->mail_ctx.args->args, ctx, ret);
 		if (ret >= 0)
 			break;
 	}
@@ -1182,14 +1200,68 @@ static bool search_has_static_nonmatches(struct mail_search_arg *arg)
 	return FALSE;
 }
 
+static unsigned long long search_mail_get_cost(struct mail_private *mail)
+{
+	return mail->stats_dentry_lookup_count * SEARCH_COST_DENTRY +
+		mail->stats_attr_lookup_count * SEARCH_COST_ATTR +
+		mail->stats_cache_hit_count * SEARCH_COST_CACHE +
+		mail->stats_files_read_count * SEARCH_COST_FILES_READ +
+		(mail->stats_files_read_bytes/1024) * SEARCH_COST_KBYTE;
+}
+
+static bool search_would_block(struct index_search_context *ctx)
+{
+	struct timeval now;
+	unsigned long long guess_cost;
+	long usecs;
+	bool ret;
+
+	if (ctx->cost < ctx->next_time_check_cost)
+		return FALSE;
+
+	if (gettimeofday(&now, NULL) < 0)
+		i_fatal("gettimeofday() failed: %m");
+	usecs = (now.tv_sec - ctx->last_nonblock_timeval.tv_sec) * 1000000 +
+		(now.tv_usec - ctx->last_nonblock_timeval.tv_usec);
+	if (usecs < 0 || now.tv_sec < 0) {
+		/* clock moved backwards. */
+		ctx->last_nonblock_timeval = now;
+		ctx->next_time_check_cost = SEARCH_INITIAL_MAX_COST;
+		return TRUE;
+	} else if (usecs < SEARCH_MIN_NONBLOCK_USECS) {
+		/* not finished yet. estimate the next time lookup */
+		ret = FALSE;
+	} else {
+		/* done, or close enough anyway */
+		ctx->last_nonblock_timeval = now;
+		ret = TRUE;
+	}
+	guess_cost = ctx->cost *
+		(SEARCH_MAX_NONBLOCK_USECS / (double)usecs);
+	if (usecs < SEARCH_RECALC_MIN_USECS) {
+		/* the estimate may not be very good since we spent
+		   so little time doing this search. don't allow huge changes
+		   to the guess, but allow anyway large enough so that we can
+		   move to right direction. */
+		if (guess_cost > ctx->next_time_check_cost*3)
+			guess_cost = ctx->next_time_check_cost*3;
+		else if (guess_cost < ctx->next_time_check_cost/3)
+			guess_cost = ctx->next_time_check_cost/3;
+	}
+	if (ret)
+		ctx->cost = 0;
+	ctx->next_time_check_cost = guess_cost;
+	return ret;
+}
+
 int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 				       struct mail *mail, bool *tryagain_r)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	struct mailbox *box = _ctx->transaction->box;
 	struct mail_private *mail_private = (struct mail_private *)mail;
-	unsigned int count = 0;
-	bool match = FALSE;
+	unsigned long long cost1, cost2;
+	bool old_stats_track, match = FALSE;
 
 	*tryagain_r = FALSE;
 
@@ -1201,12 +1273,22 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 		return 1;
 	}
 
+	if (search_would_block(ctx)) {
+		/* this lookup is useful when a large number of
+		   messages match */
+		*tryagain_r = TRUE;
+		return 0;
+	}
+
 	ctx->mail = mail;
 
 	if (ioloop_time - ctx->last_notify.tv_sec >=
 	    SEARCH_NOTIFY_INTERVAL_SECS)
 		index_storage_search_notify(box, ctx);
 
+	old_stats_track = mail_private->stats_track;
+	mail_private->stats_track = TRUE;
+	cost1 = search_mail_get_cost(mail_private);
 	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
 		ctx->imail = mail_private->v.get_index_mail(mail);
@@ -1224,6 +1306,9 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 				mailbox_search_results_never(_ctx, mail->uid);
 			}
 		} T_END;
+		cost2 = search_mail_get_cost(mail_private);
+		ctx->cost += cost2 - cost1;
+		cost1 = cost2;
 
 		mail_search_args_reset(_ctx->args->args, FALSE);
 
@@ -1235,17 +1320,19 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 
 			index_sort_list_add(_ctx->sort_program, mail);
 		}
-
-		if (++count == SEARCH_NONBLOCK_COUNT) {
-			*tryagain_r = TRUE;
-			return 0;
-		}
 		match = FALSE;
+
+		if (search_would_block(ctx)) {
+			*tryagain_r = TRUE;
+			break;
+		}
 	}
 	ctx->mail = NULL;
 	ctx->imail = NULL;
+	mail_private->stats_track = old_stats_track;
 
-	if (!match && _ctx->sort_program != NULL && !ctx->failed) {
+	if (!match && _ctx->sort_program != NULL &&
+	    !*tryagain_r && !ctx->failed) {
 		/* finished searching the messages. now sort them and start
 		   returning the messages. */
 		ctx->sorted = TRUE;
