@@ -55,7 +55,21 @@ struct setting_parser_info master_service_setting_parser_info = {
 static void ATTR_NORETURN
 master_service_exec_config(struct master_service *service, bool preserve_home)
 {
-	const char **conf_argv;
+	const char **conf_argv, *path, *const *paths, *binary_path;
+
+	binary_path = service->argv[0];
+	path = getenv("PATH");
+	if (*service->argv[0] != '/') {
+		/* we have to find our executable from path */
+		paths = t_strsplit(path, ":");
+		for (; *paths != NULL; paths++) {
+			path = t_strconcat(*paths, "/", binary_path, NULL);
+			if (access(path, X_OK) == 0) {
+				binary_path = path;
+				break;
+			}
+		}
+	}
 
 	if (!service->keep_environment)
 		master_service_env_clean(preserve_home);
@@ -68,8 +82,9 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 	conf_argv[3] = "-c";
 	conf_argv[4] = service->config_path;
 	conf_argv[5] = "-e";
-	memcpy(conf_argv+6, service->argv,
-	       (service->argc+1) * sizeof(conf_argv[0]));
+	conf_argv[6] = binary_path;
+	memcpy(conf_argv+7, service->argv + 1,
+	       (service->argc) * sizeof(conf_argv[0]));
 	execv(conf_argv[0], (char **)conf_argv);
 	i_fatal("execv(%s) failed: %m", conf_argv[0]);
 }
