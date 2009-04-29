@@ -51,7 +51,7 @@ struct ssl_proxy {
 	unsigned int sslout_size;
 
 	ssl_handshake_callback_t *handshake_callback;
-	void *handshake_callback_context;
+	void *handshake_context;
 
 	char *last_error;
 	unsigned int handshaked:1;
@@ -421,8 +421,10 @@ static void ssl_handshake(struct ssl_proxy *proxy)
 	ssl_set_io(proxy, SSL_ADD_INPUT);
 	plain_block_input(proxy, FALSE);
 
-	if (proxy->handshake_callback(proxy->handshake_callback_context) < 0)
-		ssl_proxy_destroy(proxy);
+	if (proxy->handshake_callback != NULL) {
+		if (proxy->handshake_callback(proxy->handshake_context) < 0)
+			ssl_proxy_destroy(proxy);
+	}
 }
 
 static void ssl_read(struct ssl_proxy *proxy)
@@ -567,7 +569,7 @@ int ssl_proxy_client_new(int fd, struct ip_addr *ip,
 		return -1;
 
 	(*proxy_r)->handshake_callback = callback;
-	(*proxy_r)->handshake_callback_context = context;
+	(*proxy_r)->handshake_context = context;
 	(*proxy_r)->client = TRUE;
 	ssl_step(*proxy_r);
 	return ret;
