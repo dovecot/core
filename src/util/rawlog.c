@@ -291,10 +291,15 @@ static void rawlog_open(enum rawlog_flags flags)
 	if (lstat(path, &st) < 0) {
 		if (errno != ENOENT)
 			i_warning("lstat() failed for %s: %m", path);
+		else if (getenv("DEBUG") != NULL)
+			i_info("rawlog: %s doesn't exist", path);
 		return;
 	}
-	if (!S_ISDIR(st.st_mode))
+	if (!S_ISDIR(st.st_mode)) {
+		if (getenv("DEBUG") != NULL)
+			i_info("rawlog: %s is not a directory", path);
 		return;
+	}
 
 	if (chroot_dir != NULL) {
 		/* we'll chroot soon. skip over the chroot in the path. */
@@ -342,6 +347,7 @@ int main(int argc, char *argv[], char *envp[])
 	flags = RAWLOG_FLAG_LOG_INPUT | RAWLOG_FLAG_LOG_OUTPUT;
 
 	lib_init();
+	i_set_failure_internal();
 	process_title_init(argv, envp);
 
 	argc--;
