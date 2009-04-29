@@ -381,6 +381,36 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 	}
 }
 
+static bool
+db_ldap_check_limits(struct ldap_connection *conn, struct ldap_request *request)
+{
+	struct ldap_request *const *first_requestp;
+	unsigned int count;
+	time_t secs_diff;
+
+	count = aqueue_count(conn->request_queue);
+	if (count == 0)
+		return TRUE;
+
+	first_requestp = array_idx(&conn->request_array,
+				   aqueue_idx(conn->request_queue, 0));
+	secs_diff = ioloop_time - (*first_requestp)->create_time;
+	if (secs_diff > DB_LDAP_REQUEST_LOST_TIMEOUT_SECS) {
+		auth_request_log_error(request->auth_request, "ldap",
+			"Connection appears to be hanging, reconnecting");
+		ldap_conn_reconnect(conn);
+		return TRUE;
+	}
+	if (conn->request_queue->full && count >= DB_LDAP_MAX_QUEUE_SIZE) {
+		/* Queue is full already, fail this request */
+		auth_request_log_error(request->auth_request, "ldap",
+			"Request queue is full (oldest added %d secs ago)",
+			(int)secs_diff);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 void db_ldap_request(struct ldap_connection *conn,
 		     struct ldap_request *request)
 {
@@ -389,16 +419,7 @@ void db_ldap_request(struct ldap_connection *conn,
 	request->msgid = -1;
 	request->create_time = ioloop_time;
 
-	if (conn->request_queue->full &&
-	    aqueue_count(conn->request_queue) >= DB_LDAP_MAX_QUEUE_SIZE) {
-		/* Queue is full already, fail this request */
-		struct ldap_request *const *first_requestp;
-
-		first_requestp = array_idx(&conn->request_array,
-					   aqueue_idx(conn->request_queue, 0));
-		auth_request_log_error(request->auth_request, "ldap",
-			"Request queue is full (oldest added %d secs ago)",
-			(int)(time(NULL) - (*first_requestp)->create_time));
+	if (!db_ldap_check_limits(conn, request)) {
 		request->callback(conn, request, NULL);
 		return;
 	}
