@@ -146,6 +146,9 @@ static int dbox_mail_open(struct dbox_mail *mail,
 	uint32_t prev_file_id = 0;
 	bool deleted;
 
+	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
+		return mail_set_aborted(_mail);
+
 	do {
 		if (mail->open_file == NULL) {
 			if (dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq,

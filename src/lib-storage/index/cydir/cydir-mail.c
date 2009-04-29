@@ -22,6 +22,9 @@ static int cydir_mail_stat(struct mail *mail, struct stat *st_r)
 {
 	const char *path;
 
+	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
+		return mail_set_aborted(mail);
+
 	path = cydir_mail_get_path(mail);
 	if (stat(path, st_r) < 0) {
 		if (errno == ENOENT)

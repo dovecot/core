@@ -196,6 +196,15 @@ struct mailbox_sync_rec {
 	enum mailbox_sync_type type;
 };
 
+enum mail_lookup_abort {
+	/* Perform everything no matter what it takes */
+	MAIL_LOOKUP_ABORT_NEVER = 0,
+	/* Abort if the operation would require reading message header/body */
+	MAIL_LOOKUP_ABORT_READ_MAIL,
+	/* Abort if the operation can't be done fully using cache file */
+	MAIL_LOOKUP_ABORT_NOT_IN_CACHE
+};
+
 struct mail {
 	/* always set */
 	struct mailbox *box;
@@ -205,6 +214,8 @@ struct mail {
 	unsigned int expunged:1;
 	unsigned int has_nuls:1; /* message data is known to contain NULs */
 	unsigned int has_no_nuls:1; /* -''- known to not contain NULs */
+
+	enum mail_lookup_abort lookup_abort;
 };
 
 struct mail_storage_callbacks {

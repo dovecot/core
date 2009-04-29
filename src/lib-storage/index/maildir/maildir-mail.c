@@ -73,6 +73,9 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 	const char *path;
 	int fd, ret;
 
+	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
+		return mail_set_aborted(mail);
+
 	if (data->access_part != 0 && data->stream == NULL) {
 		/* we're going to open the mail anyway */
 		struct istream *input;
