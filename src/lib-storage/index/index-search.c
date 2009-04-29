@@ -1202,8 +1202,9 @@ static bool search_has_static_nonmatches(struct mail_search_arg *arg)
 
 static unsigned long long search_mail_get_cost(struct mail_private *mail)
 {
-	return mail->stats_dentry_lookup_count * SEARCH_COST_DENTRY +
-		mail->stats_attr_lookup_count * SEARCH_COST_ATTR +
+	return mail->stats_open_lookup_count * SEARCH_COST_DENTRY +
+		mail->stats_stat_lookup_count * SEARCH_COST_DENTRY +
+		mail->stats_fstat_lookup_count * SEARCH_COST_ATTR +
 		mail->stats_cache_hit_count * SEARCH_COST_CACHE +
 		mail->stats_files_read_count * SEARCH_COST_FILES_READ +
 		(mail->stats_files_read_bytes/1024) * SEARCH_COST_KBYTE;

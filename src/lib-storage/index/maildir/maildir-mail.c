@@ -50,7 +50,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 
 	*deleted_r = FALSE;
 
-	p->stats_dentry_lookup_count++;
+	p->stats_open_lookup_count++;
 	if (mail->uid != 0) {
 		if (maildir_file_do(mbox, mail->uid, do_open, &fd) < 0)
 			return NULL;
@@ -89,14 +89,14 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 		fd = i_stream_get_fd(imail->data.stream);
 		i_assert(fd != -1);
 
-		imail->mail.stats_attr_lookup_count++;
+		imail->mail.stats_fstat_lookup_count++;
 		if (fstat(fd, st) < 0) {
 			mail_storage_set_critical(&mbox->storage->storage,
 						  "fstat(maildir) failed: %m");
 			return -1;
 		}
 	} else if (mail->uid != 0) {
-		imail->mail.stats_dentry_lookup_count++;
+		imail->mail.stats_stat_lookup_count++;
 		ret = maildir_file_do(mbox, mail->uid, do_stat, st);
 		if (ret <= 0) {
 			if (ret == 0)
@@ -104,7 +104,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 			return -1;
 		}
 	} else {
-		imail->mail.stats_dentry_lookup_count++;
+		imail->mail.stats_stat_lookup_count++;
 		path = maildir_save_file_get_path(mail->transaction, mail->seq);
 		if (stat(path, st) < 0) {
 			mail_storage_set_critical(mail->box->storage,

@@ -294,10 +294,9 @@ struct mail_private {
 
 	/* these statistics are never reset by mail-storage API: */
 
-	/* open(), stat(), .. */
-	unsigned long stats_dentry_lookup_count;
-	/* fstat() mostly */
-	unsigned long stats_attr_lookup_count;
+	unsigned long stats_open_lookup_count;
+	unsigned long stats_stat_lookup_count;
+	unsigned long stats_fstat_lookup_count;
 	/* number of files we've opened and read */
 	unsigned long stats_files_read_count;
 	/* number of bytes we've had to read from files */

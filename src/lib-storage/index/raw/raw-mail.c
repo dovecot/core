@@ -18,7 +18,7 @@ static int raw_mail_stat(struct mail *mail)
 	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
 		return mail_set_aborted(mail);
 
-	p->stats_attr_lookup_count++;
+	p->stats_fstat_lookup_count++;
 	st = i_stream_stat(mbox->input, TRUE);
 	if (st == NULL) {
 		mail_storage_set_critical(mail->box->storage,

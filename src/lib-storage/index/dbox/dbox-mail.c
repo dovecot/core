@@ -159,7 +159,7 @@ static int dbox_mail_open(struct dbox_mail *mail,
 		}
 
 		if (!dbox_file_is_open(mail->open_file))
-			mail->imail.mail.stats_dentry_lookup_count++;
+			mail->imail.mail.stats_open_lookup_count++;
 		if (dbox_file_open(mail->open_file, &deleted) <= 0)
 			return -1;
 		if (deleted) {
@@ -237,7 +237,7 @@ static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	if (data->save_date == 0) {
 		/* missing / corrupted save time - use the file's ctime */
 		i_assert(file->fd != -1);
-		mail->imail.mail.stats_attr_lookup_count++;
+		mail->imail.mail.stats_fstat_lookup_count++;
 		if (fstat(file->fd, &st) < 0) {
 			mail_storage_set_critical(_mail->box->storage,
 				"fstat(%s) failed: %m", file->current_path);
