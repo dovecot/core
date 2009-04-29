@@ -44,11 +44,13 @@ static struct istream *
 maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 		  bool *deleted_r)
 {
+	struct mail_private *p = (struct mail_private *)mail;
 	const char *path;
 	int fd = -1;
 
 	*deleted_r = FALSE;
 
+	p->stats_dentry_lookup_count++;
 	if (mail->uid != 0) {
 		if (maildir_file_do(mbox, mail->uid, do_open, &fd) < 0)
 			return NULL;
@@ -69,30 +71,32 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 static int maildir_mail_stat(struct mail *mail, struct stat *st)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
-	struct index_mail_data *data = &((struct index_mail *)mail)->data;
+	struct index_mail *imail = (struct index_mail *)mail;
 	const char *path;
 	int fd, ret;
 
 	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
 		return mail_set_aborted(mail);
 
-	if (data->access_part != 0 && data->stream == NULL) {
+	if (imail->data.access_part != 0 && imail->data.stream == NULL) {
 		/* we're going to open the mail anyway */
 		struct istream *input;
 
 		(void)mail_get_stream(mail, NULL, NULL, &input);
 	}
 
-	if (data->stream != NULL) {
-		fd = i_stream_get_fd(data->stream);
+	if (imail->data.stream != NULL) {
+		fd = i_stream_get_fd(imail->data.stream);
 		i_assert(fd != -1);
 
+		imail->mail.stats_attr_lookup_count++;
 		if (fstat(fd, st) < 0) {
 			mail_storage_set_critical(&mbox->storage->storage,
 						  "fstat(maildir) failed: %m");
 			return -1;
 		}
 	} else if (mail->uid != 0) {
+		imail->mail.stats_dentry_lookup_count++;
 		ret = maildir_file_do(mbox, mail->uid, do_stat, st);
 		if (ret <= 0) {
 			if (ret == 0)
@@ -100,6 +104,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 			return -1;
 		}
 	} else {
+		imail->mail.stats_dentry_lookup_count++;
 		path = maildir_save_file_get_path(mail->transaction, mail->seq);
 		if (stat(path, st) < 0) {
 			mail_storage_set_critical(mail->box->storage,

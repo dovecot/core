@@ -471,8 +471,8 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 	string_t *str;
 
 	str = str_new(mail->data_pool, 256);
-	if (mail_cache_lookup_field(mail->trans->cache_view, str,
-				    mail->data.seq, cache_field_envelope) > 0) {
+	if (index_mail_cache_lookup_field(mail, str,
+					  cache_field_envelope) > 0) {
 		mail->data.envelope = str_c(str);
 		return 0;
 	}
@@ -637,6 +637,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 		*value_r = index_mail_get_parsed_header(mail, field_idx);
 		return 0;
 	}
+	mail->mail.stats_cache_hit_count++;
 	data = buffer_get_modifiable_data(dest, &len);
 
 	if (len == 0) {
@@ -819,6 +820,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 	if (mail_cache_lookup_headers(mail->trans->cache_view, dest,
 				      mail->data.seq, headers->idx,
 				      headers->count) > 0) {
+		mail->mail.stats_cache_hit_count++;
 		if (mail->data.filter_stream != NULL)
 			i_stream_destroy(&mail->data.filter_stream);
 		mail->data.filter_stream =

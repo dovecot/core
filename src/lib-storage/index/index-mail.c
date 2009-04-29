@@ -15,6 +15,7 @@
 #include "mail-cache.h"
 #include "mail-index-modseq.h"
 #include "index-storage.h"
+#include "istream-mail-stats.h"
 #include "index-mail.h"
 
 struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
@@ -40,6 +41,18 @@ struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 static int index_mail_parse_body(struct index_mail *mail,
 				 enum index_cache_field field);
 
+int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
+				  unsigned int field_idx)
+{
+	int ret;
+
+	ret = mail_cache_lookup_field(mail->trans->cache_view, buf,
+				      mail->data.seq, field_idx);
+	if (ret > 0)
+		mail->mail.stats_cache_hit_count++;
+	return ret;
+}
+
 static struct message_part *get_unserialized_parts(struct index_mail *mail)
 {
 	unsigned int field_idx =
@@ -50,8 +63,7 @@ static struct message_part *get_unserialized_parts(struct index_mail *mail)
 	int ret;
 
 	part_buf = buffer_create_dynamic(pool_datastack_create(), 128);
-	ret = mail_cache_lookup_field(mail->trans->cache_view, part_buf,
-				      mail->data.seq, field_idx);
+	ret = index_mail_cache_lookup_field(mail, part_buf, field_idx);
 	if (ret <= 0)
 		return NULL;
 
@@ -100,8 +112,7 @@ static bool index_mail_get_fixed_field(struct index_mail *mail,
 		buf = buffer_create_data(pool_datastack_create(),
 					 data, data_size);
 
-		if (mail_cache_lookup_field(mail->trans->cache_view, buf,
-					    mail->data.seq, field_idx) <= 0)
+		if (index_mail_cache_lookup_field(mail, buf, field_idx) <= 0)
 			ret = FALSE;
 		else {
 			i_assert(buf->used == data_size);
@@ -803,7 +814,16 @@ int index_mail_init_stream(struct index_mail *mail,
 			   struct istream **stream_r)
 {
 	struct index_mail_data *data = &mail->data;
+	struct istream *input;
 	int ret;
+
+	if (!data->initialized_wrapper_stream && mail->mail.stats_track) {
+		input = i_stream_create_mail_stats_counter(&mail->mail,
+							   data->stream);
+		i_stream_unref(&data->stream);
+		data->stream = input;
+		data->initialized_wrapper_stream = TRUE;
+	}
 
 	i_stream_set_destroy_callback(data->stream,
 				      index_mail_stream_destroy_callback, mail);
@@ -954,11 +974,10 @@ int index_mail_get_special(struct mail *_mail,
 		    get_cached_parts(mail)) {
 			index_mail_get_plain_bodystructure(mail, str, FALSE);
 			data->body = str_c(str);
-		} else if (mail_cache_lookup_field(mail->trans->cache_view, str,
-					mail->data.seq, body_cache_field) > 0)
+		} else if (index_mail_cache_lookup_field(mail, str,
+							 body_cache_field) > 0)
 			data->body = str_c(str);
-		else if (mail_cache_lookup_field(mail->trans->cache_view, str,
-					mail->data.seq,
+		else if (index_mail_cache_lookup_field(mail, str,
 					bodystructure_cache_field) > 0) {
 			data->bodystructure =
 				p_strdup(mail->data_pool, str_c(str));
@@ -999,8 +1018,7 @@ int index_mail_get_special(struct mail *_mail,
 		    get_cached_parts(mail)) {
 			index_mail_get_plain_bodystructure(mail, str, TRUE);
 			data->bodystructure = str_c(str);
-		} else if (mail_cache_lookup_field(mail->trans->cache_view, str,
-					mail->data.seq,
+		} else if (index_mail_cache_lookup_field(mail, str,
 					bodystructure_cache_field) > 0) {
 			data->bodystructure = str_c(str);
 		} else {

@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage
 
 libstorage_index_la_SOURCES = \
+	istream-mail-stats.c \
 	index-fetch.c \
 	index-mail.c \
 	index-mail-headers.c \
@@ -32,6 +33,7 @@ libstorage_index_la_LIBADD = @LINKED_STORAGE_LIBS@
 libstorage_index_la_DEPENDENCIES = @LINKED_STORAGE_LIBS@
 
 headers = \
+	istream-mail-stats.h \
 	index-mail.h \
 	index-search-result.h \
 	index-sort.h \

@@ -109,6 +109,7 @@ struct index_mail_data {
 	unsigned int no_caching:1;
 	unsigned int forced_no_caching:1;
 	unsigned int destroying_stream:1;
+	unsigned int initialized_wrapper_stream:1;
 };
 
 struct index_mail {
@@ -216,5 +217,8 @@ struct istream *index_mail_cache_parse_init(struct mail *mail,
 void index_mail_cache_parse_continue(struct mail *mail);
 void index_mail_cache_parse_deinit(struct mail *mail, time_t received_date,
 				   bool success);
+
+int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
+				  unsigned int field_idx);
 
 #endif

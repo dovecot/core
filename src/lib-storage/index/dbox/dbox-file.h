@@ -119,6 +119,8 @@ struct dbox_file {
 	unsigned int corrupted:1;
 };
 
+#define dbox_file_is_open(file) ((file)->input != NULL)
+
 struct dbox_file *
 dbox_file_init_single(struct dbox_mailbox *mbox, uint32_t uid);
 struct dbox_file *
