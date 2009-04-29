@@ -338,8 +338,14 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 			break;
 		}
 	}
-	if (ret == 0)
+	if (ret == 0) {
 		ret = virtual_config_add_rule(&ctx, &error);
+		if (ret < 0) {
+			mail_storage_set_critical(mbox->ibox.storage,
+						  "%s: Error at line %u: %s",
+						  path, linenum, error);
+		}
+	}
 
 	virtual_mailbox_get_list_patterns(&ctx);
 	if (ret == 0 && ctx.have_wildcards)
