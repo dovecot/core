@@ -140,6 +140,8 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 		return 1;
 	}
 
+        index_storage_lock_notify_reset(&uidlist->mbox->ibox);
+
 	control_dir = mailbox_list_get_path(box->storage->list, box->name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
