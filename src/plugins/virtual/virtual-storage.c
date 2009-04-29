@@ -289,7 +289,7 @@ virtual_open(struct virtual_storage *storage, const char *name,
 		     array_count(&storage->open_stack)-1, 1);
 	if (failed) {
 		virtual_config_free(mbox);
-		pool_unref(&pool);
+		index_storage_mailbox_close(&mbox->ibox.box);
 		return NULL;
 	}
 
