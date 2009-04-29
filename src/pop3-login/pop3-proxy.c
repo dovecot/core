@@ -49,15 +49,35 @@ static void get_plain_auth(struct pop3_client *client, string_t *dest)
 	base64_encode(str_data(str), str_len(str), dest);
 }
 
-static int proxy_input_line(struct pop3_client *client,
-			    struct ostream *output, const char *line)
+static void proxy_send_login(struct pop3_client *client, struct ostream *output)
 {
+	string_t *str;
+
+	str = t_str_new(128);
+	if (client->proxy_master_user == NULL) {
+		/* send USER command */
+		str_append(str, "USER ");
+		str_append(str, client->proxy_user);
+		str_append(str, "\r\n");
+	} else {
+		/* master user login - use AUTH PLAIN. */
+		str_append(str, "AUTH PLAIN\r\n");
+	}
+	(void)o_stream_send(output, str_data(str), str_len(str));
+	client->proxy_state = POP3_PROXY_LOGIN1;
+}
+
+static int proxy_input_line(struct pop3_client *client, const char *line)
+{
+	struct ostream *output;
+	enum login_proxy_ssl_flags ssl_flags;
 	string_t *str;
 
 	i_assert(!client->destroyed);
 
+	output = login_proxy_get_ostream(client->proxy);
 	switch (client->proxy_state) {
-	case 0:
+	case POP3_PROXY_BANNER:
 		/* this is a banner */
 		if (strncmp(line, "+OK", 3) != 0) {
 			client_syslog_err(&client->common, t_strdup_printf(
@@ -67,21 +87,31 @@ static int proxy_input_line(struct pop3_client *client,
 			return -1;
 		}
 
-		str = t_str_new(128);
-		if (client->proxy_master_user == NULL) {
-			/* send USER command */
-			str_append(str, "USER ");
-			str_append(str, client->proxy_user);
-			str_append(str, "\r\n");
+		ssl_flags = login_proxy_get_ssl_flags(client->proxy);
+		if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
+			proxy_send_login(client, output);
 		} else {
-			/* master user login - use AUTH PLAIN. */
-			str_append(str, "AUTH PLAIN\r\n");
+			(void)o_stream_send_str(output, "STLS\r\n");
+			client->proxy_state = POP3_PROXY_STARTTLS;
 		}
-		(void)o_stream_send(output, str_data(str), str_len(str));
-
-		client->proxy_state++;
 		return 0;
-	case 1:
+	case POP3_PROXY_STARTTLS:
+		if (strncmp(line, "+OK", 3) != 0) {
+			client_syslog_err(&client->common, t_strdup_printf(
+				"proxy: Remote STLS failed: %s",
+				str_sanitize(line, 160)));
+			proxy_failed(client, TRUE);
+			return -1;
+		}
+		if (login_proxy_starttls(client->proxy) < 0) {
+			proxy_failed(client, TRUE);
+			return -1;
+		}
+		/* i/ostreams changed. */
+		output = login_proxy_get_ostream(client->proxy);
+		proxy_send_login(client, output);
+		return 1;
+	case POP3_PROXY_LOGIN1:
 		str = t_str_new(128);
 		if (client->proxy_master_user == NULL) {
 			if (strncmp(line, "+OK", 3) != 0)
@@ -100,9 +130,9 @@ static int proxy_input_line(struct pop3_client *client,
 		}
 		(void)o_stream_send(output, str_data(str), str_len(str));
 		proxy_free_password(client);
-		client->proxy_state++;
+		client->proxy_state = POP3_PROXY_LOGIN2;
 		return 0;
-	case 2:
+	case POP3_PROXY_LOGIN2:
 		if (strncmp(line, "+OK", 3) != 0)
 			break;
 
@@ -185,17 +215,18 @@ static int proxy_input_line(struct pop3_client *client,
 	return -1;
 }
 
-static void proxy_input(struct istream *input, struct ostream *output,
-			struct pop3_client *client)
+static void proxy_input(struct pop3_client *client)
 {
+	struct istream *input;
 	const char *line;
 
-	if (input == NULL) {
-		if (client->proxy == NULL) {
-			/* we're just freeing the proxy */
-			return;
-		}
+	if (client->proxy == NULL) {
+		/* we're just freeing the proxy */
+		return;
+	}
 
+	input = login_proxy_get_istream(client->proxy);
+	if (input == NULL) {
 		if (client->destroyed) {
 			/* we came here from client_destroy() */
 			return;
@@ -222,14 +253,14 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	}
 
 	while ((line = i_stream_next_line(input)) != NULL) {
-		if (proxy_input_line(client, output, line) != 0)
+		if (proxy_input_line(client, line) != 0)
 			break;
 	}
 }
 
 int pop3_proxy_new(struct pop3_client *client, const char *host,
 		   unsigned int port, const char *user, const char *master_user,
-		   const char *password)
+		   const char *password, enum login_proxy_ssl_flags ssl_flags)
 {
 	i_assert(user != NULL);
 	i_assert(!client->destroyed);
@@ -253,14 +284,14 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 		return -1;
 	}
 
-	client->proxy = login_proxy_new(&client->common, host, port,
+	client->proxy = login_proxy_new(&client->common, host, port, ssl_flags,
 					proxy_input, client);
 	if (client->proxy == NULL) {
 		client_send_line(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 
-	client->proxy_state = 0;
+	client->proxy_state = POP3_PROXY_BANNER;
 	client->proxy_user = i_strdup(user);
 	client->proxy_master_user = i_strdup(master_user);
 	client->proxy_password = i_strdup(password);

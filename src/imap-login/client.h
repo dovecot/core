@@ -29,7 +29,8 @@ struct imap_client {
 
 	unsigned int login_success:1;
 	unsigned int cmd_finished:1;
-	unsigned int proxy_login_sent:1;
+	unsigned int proxy_sasl_ir:1;
+	unsigned int proxy_seen_banner:1;
 	unsigned int skip_line:1;
 	unsigned int input_blocked:1;
 	unsigned int destroyed:1;

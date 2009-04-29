@@ -8,6 +8,13 @@
 /* Disconnect client after idling this many milliseconds */
 #define CLIENT_LOGIN_IDLE_TIMEOUT_MSECS (3*60*1000)
 
+enum pop3_proxy_state {
+	POP3_PROXY_BANNER = 0,
+	POP3_PROXY_STARTTLS,
+	POP3_PROXY_LOGIN1,
+	POP3_PROXY_LOGIN2
+};
+
 struct pop3_client {
 	struct client common;
 
@@ -20,7 +27,7 @@ struct pop3_client {
 
 	struct login_proxy *proxy;
 	char *proxy_user, *proxy_master_user, *proxy_password;
-	int proxy_state;
+	enum pop3_proxy_state proxy_state;
 
 	unsigned int bad_counter;
 

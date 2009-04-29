@@ -50,11 +50,15 @@ struct ssl_proxy {
 	unsigned char sslout_buf[1024];
 	unsigned int sslout_size;
 
+	ssl_handshake_callback_t *handshake_callback;
+	void *handshake_callback_context;
+
 	char *last_error;
 	unsigned int handshaked:1;
 	unsigned int destroyed:1;
 	unsigned int cert_received:1;
 	unsigned int cert_broken:1;
+	unsigned int client:1;
 };
 
 struct ssl_parameters {
@@ -66,7 +70,8 @@ struct ssl_parameters {
 };
 
 static int extdata_index;
-static SSL_CTX *ssl_ctx;
+static SSL_CTX *ssl_server_ctx;
+static SSL_CTX *ssl_client_ctx;
 static unsigned int ssl_proxy_count;
 static struct ssl_proxy *ssl_proxies;
 static struct ssl_parameters ssl_params;
@@ -397,16 +402,27 @@ static void ssl_handshake(struct ssl_proxy *proxy)
 {
 	int ret;
 
-	ret = SSL_accept(proxy->ssl);
-	if (ret != 1)
-		ssl_handle_error(proxy, ret, "SSL_accept()");
-	else {
-		i_free_and_null(proxy->last_error);
-		proxy->handshaked = TRUE;
-
-		ssl_set_io(proxy, SSL_ADD_INPUT);
-		plain_block_input(proxy, FALSE);
+	if (proxy->client) {
+		ret = SSL_connect(proxy->ssl);
+		if (ret != 1) {
+			ssl_handle_error(proxy, ret, "SSL_connect()");
+			return;
+		}
+	} else {
+		ret = SSL_accept(proxy->ssl);
+		if (ret != 1) {
+			ssl_handle_error(proxy, ret, "SSL_accept()");
+			return;
+		}
 	}
+	i_free_and_null(proxy->last_error);
+	proxy->handshaked = TRUE;
+
+	ssl_set_io(proxy, SSL_ADD_INPUT);
+	plain_block_input(proxy, FALSE);
+
+	if (proxy->handshake_callback(proxy->handshake_callback_context) < 0)
+		ssl_proxy_destroy(proxy);
 }
 
 static void ssl_read(struct ssl_proxy *proxy)
@@ -474,7 +490,9 @@ static void ssl_step(struct ssl_proxy *proxy)
 	ssl_proxy_unref(proxy);
 }
 
-int ssl_proxy_new(int fd, const struct ip_addr *ip, struct ssl_proxy **proxy_r)
+static int
+ssl_proxy_new_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
+		     struct ssl_proxy **proxy_r)
 {
 	struct ssl_proxy *proxy;
 	SSL *ssl;
@@ -524,10 +542,35 @@ int ssl_proxy_new(int fd, const struct ip_addr *ip, struct ssl_proxy **proxy_r)
 	ssl_proxy_count++;
 	DLLIST_PREPEND(&ssl_proxies, proxy);
 
-	ssl_step(proxy);
-
 	*proxy_r = proxy;
 	return sfd[1];
+}
+
+int ssl_proxy_new(int fd, const struct ip_addr *ip, struct ssl_proxy **proxy_r)
+{
+	int ret;
+
+	if ((ret = ssl_proxy_new_common(ssl_server_ctx, fd, ip, proxy_r)) < 0)
+		return -1;
+
+	ssl_step(*proxy_r);
+	return ret;
+}
+
+int ssl_proxy_client_new(int fd, struct ip_addr *ip,
+			 ssl_handshake_callback_t *callback, void *context,
+			 struct ssl_proxy **proxy_r)
+{
+	int ret;
+
+	if ((ret = ssl_proxy_new_common(ssl_client_ctx, fd, ip, proxy_r)) < 0)
+		return -1;
+
+	(*proxy_r)->handshake_callback = callback;
+	(*proxy_r)->handshake_callback_context = context;
+	(*proxy_r)->client = TRUE;
+	ssl_step(*proxy_r);
+	return ret;
 }
 
 bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy)
@@ -736,31 +779,10 @@ static bool is_pem_key_file(const char *path)
 	return strstr(buf, "PRIVATE KEY---") != NULL;
 }
 
-void ssl_proxy_init(void)
+static void
+ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set)
 {
-	static char dovecot[] = "dovecot";
-	const struct login_settings *set = login_settings;
-	unsigned char buf;
-	char *password;
-	unsigned long err;
-
-	if (strcmp(set->ssl, "no") == 0)
-		return;
-
-	SSL_library_init();
-	SSL_load_error_strings();
-
-	extdata_index = SSL_get_ex_new_index(0, dovecot, NULL, NULL, NULL);
-
-	if ((ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL)
-		i_fatal("SSL_CTX_new() failed");
-
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
-
-	if (SSL_CTX_set_cipher_list(ssl_ctx, set->ssl_cipher_list) != 1) {
-		i_fatal("Can't set cipher list to '%s': %s",
-			set->ssl_cipher_list, ssl_last_error());
-	}
 
 	if (*set->ssl_ca_file != '\0') {
 		if (SSL_CTX_load_verify_locations(ssl_ctx, set->ssl_ca_file,
@@ -769,8 +791,44 @@ void ssl_proxy_init(void)
 				set->ssl_ca_file, ssl_last_error());
 		}
 	}
+	if (set->verbose_ssl)
+		SSL_CTX_set_info_callback(ssl_ctx, ssl_info_callback);
+	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
+		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
+	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
+}
 
-	if (SSL_CTX_use_certificate_chain_file(ssl_ctx,
+static void
+ssl_proxy_ctx_verify_client(SSL_CTX *ssl_ctx, const struct login_settings *set)
+{
+#if OPENSSL_VERSION_NUMBER >= 0x00907000L
+	X509_STORE *store;
+
+	store = SSL_CTX_get_cert_store(ssl_ctx);
+	X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK |
+			     X509_V_FLAG_CRL_CHECK_ALL);
+#endif
+	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE,
+			   ssl_verify_client_cert);
+	SSL_CTX_set_client_CA_list(ssl_ctx,
+				   SSL_load_client_CA_file(set->ssl_ca_file));
+}
+
+static void ssl_proxy_init_server(const struct login_settings *set)
+{
+	char *password;
+	unsigned long err;
+
+	if ((ssl_server_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL)
+		i_fatal("SSL_CTX_new() failed");
+	ssl_proxy_ctx_init(ssl_server_ctx, set);
+
+	if (SSL_CTX_set_cipher_list(ssl_server_ctx, set->ssl_cipher_list) != 1) {
+		i_fatal("Can't set cipher list to '%s': %s",
+			set->ssl_cipher_list, ssl_last_error());
+	}
+
+	if (SSL_CTX_use_certificate_chain_file(ssl_server_ctx,
 					       set->ssl_cert_file) != 1) {
 		err = ERR_peek_error();
 		if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
@@ -790,42 +848,51 @@ void ssl_proxy_init(void)
 	}
 
 	password = t_strdup_noconst(set->ssl_key_password);
-        SSL_CTX_set_default_passwd_cb(ssl_ctx, pem_password_callback);
-        SSL_CTX_set_default_passwd_cb_userdata(ssl_ctx, password);
-	if (SSL_CTX_use_PrivateKey_file(ssl_ctx, set->ssl_key_file,
+        SSL_CTX_set_default_passwd_cb(ssl_server_ctx, pem_password_callback);
+        SSL_CTX_set_default_passwd_cb_userdata(ssl_server_ctx, password);
+	if (SSL_CTX_use_PrivateKey_file(ssl_server_ctx, set->ssl_key_file,
 					SSL_FILETYPE_PEM) != 1) {
 		i_fatal("Can't load private key file %s: %s",
 			set->ssl_key_file, ssl_last_error());
 	}
 	safe_memset(password, 0, strlen(password));
 
-	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
-		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
-	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
-
 	if (set->verbose_ssl)
-		SSL_CTX_set_info_callback(ssl_ctx, ssl_info_callback);
+		SSL_CTX_set_info_callback(ssl_server_ctx, ssl_info_callback);
 
-	if (set->ssl_verify_client_cert) {
-#if OPENSSL_VERSION_NUMBER >= 0x00907000L
-		X509_STORE *store;
-
-		store = SSL_CTX_get_cert_store(ssl_ctx);
-		X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK |
-				     X509_V_FLAG_CRL_CHECK_ALL);
-#endif
-		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER |
-				   SSL_VERIFY_CLIENT_ONCE,
-				   ssl_verify_client_cert);
-		SSL_CTX_set_client_CA_list(ssl_ctx,
-			SSL_load_client_CA_file(set->ssl_ca_file));
-	}
+	if (set->ssl_verify_client_cert)
+		ssl_proxy_ctx_verify_client(ssl_server_ctx, set);
 
 	ssl_username_nid = OBJ_txt2nid(set->ssl_cert_username_field);
 	if (ssl_username_nid == NID_undef) {
 		i_fatal("Invalid ssl_cert_username_field: %s",
 			set->ssl_cert_username_field);
 	}
+}
+
+static void ssl_proxy_init_client(const struct login_settings *set)
+{
+	if ((ssl_client_ctx = SSL_CTX_new(SSLv23_client_method())) == NULL)
+		i_fatal("SSL_CTX_new() failed");
+	ssl_proxy_ctx_init(ssl_client_ctx, set);
+	ssl_proxy_ctx_verify_client(ssl_client_ctx, set);
+}
+
+void ssl_proxy_init(void)
+{
+	const struct login_settings *set = login_settings;
+	static char dovecot[] = "dovecot";
+	unsigned char buf;
+
+	if (strcmp(set->ssl, "no") == 0)
+		return;
+
+	SSL_library_init();
+	SSL_load_error_strings();
+
+	extdata_index = SSL_get_ex_new_index(0, dovecot, NULL, NULL, NULL);
+	ssl_proxy_init_server(set);
+	ssl_proxy_init_client(set);
 
 	/* PRNG initialization might want to use /dev/urandom, make sure it
 	   does it before chrooting. We might not have enough entropy at
@@ -847,7 +914,8 @@ void ssl_proxy_deinit(void)
 		ssl_proxy_destroy(ssl_proxies);
 
 	ssl_free_parameters(&ssl_params);
-	SSL_CTX_free(ssl_ctx);
+	SSL_CTX_free(ssl_server_ctx);
+	SSL_CTX_free(ssl_client_ctx);
 	EVP_cleanup();
 	ERR_free_strings();
 }

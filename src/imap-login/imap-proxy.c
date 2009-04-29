@@ -136,9 +136,35 @@ client_send_capability_if_needed(struct imap_client *client, string_t *str,
 	str_printfa(str, "* CAPABILITY %s\r\n", capability);
 }
 
+static void proxy_write_login(struct imap_client *client, string_t *str)
+{
+	if (client->capability_command_used)
+		str_append(str, "C CAPABILITY\r\n");
+
+	if (client->proxy_master_user == NULL) {
+		/* logging in normally - use LOGIN command */
+		str_append(str, "L LOGIN ");
+		imap_quote_append_string(str, client->proxy_user, FALSE);
+		str_append_c(str, ' ');
+		imap_quote_append_string(str, client->proxy_password, FALSE);
+
+		proxy_free_password(client);
+	} else if (client->proxy_sasl_ir) {
+		/* master user login with SASL initial response support */
+		str_append(str, "L AUTHENTICATE PLAIN ");
+		get_plain_auth(client, str);
+		proxy_free_password(client);
+	} else {
+		/* master user login without SASL initial response */
+		str_append(str, "L AUTHENTICATE PLAIN");
+	}
+	str_append(str, "\r\n");
+}
+
 static int proxy_input_banner(struct imap_client *client,
 			      struct ostream *output, const char *line)
 {
+	enum login_proxy_ssl_flags ssl_flags;
 	const char *const *capabilities = NULL;
 	string_t *str;
 
@@ -154,44 +180,39 @@ static int proxy_input_banner(struct imap_client *client,
 		capabilities = t_strsplit(t_strcut(line + 5 + 12, ']'), " ");
 		if (str_array_icase_find(capabilities, "ID"))
 			proxy_write_id(client, str);
+		if (str_array_icase_find(capabilities, "SASL-IR"))
+			client->proxy_sasl_ir = TRUE;
 	}
-	if (client->capability_command_used)
-		str_append(str, "C CAPABILITY\r\n");
 
-	if (client->proxy_master_user == NULL) {
-		/* logging in normally - use LOGIN command */
-		str_append(str, "L LOGIN ");
-		imap_quote_append_string(str, client->proxy_user, FALSE);
-		str_append_c(str, ' ');
-		imap_quote_append_string(str, client->proxy_password, FALSE);
-
-		proxy_free_password(client);
-	} else if (capabilities != NULL &&
-		   str_array_icase_find(capabilities, "SASL-IR")) {
-		/* master user login with SASL initial response support */
-		str_append(str, "L AUTHENTICATE PLAIN ");
-		get_plain_auth(client, str);
-		proxy_free_password(client);
+	ssl_flags = login_proxy_get_ssl_flags(client->proxy);
+	if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) != 0) {
+		if (capabilities != NULL &&
+		    !str_array_icase_find(capabilities, "STARTTLS")) {
+			client_syslog_err(&client->common,
+				"proxy: Remote doesn't support STARTTLS");
+			return -1;
+		}
+		str_append(str, "S STARTTLS\r\n");
 	} else {
-		/* master user login without SASL initial response */
-		str_append(str, "L AUTHENTICATE PLAIN");
+		proxy_write_login(client, str);
 	}
-	str_append(str, "\r\n");
+
 	(void)o_stream_send(output, str_data(str), str_len(str));
-	client->proxy_login_sent = TRUE;
 	return 0;
 }
 
-static int proxy_input_line(struct imap_client *client,
-			    struct ostream *output, const char *line)
+static int proxy_input_line(struct imap_client *client, const char *line)
 {
+	struct ostream *output;
 	const char *capability;
 	string_t *str;
 
 	i_assert(!client->destroyed);
 
-	if (!client->proxy_login_sent) {
+	output = login_proxy_get_ostream(client->proxy);
+	if (!client->proxy_seen_banner) {
 		/* this is a banner */
+		client->proxy_seen_banner = TRUE;
 		if (proxy_input_banner(client, output, line) < 0) {
 			proxy_failed(client, TRUE);
 			return -1;
@@ -206,6 +227,26 @@ static int proxy_input_line(struct imap_client *client,
 
 		(void)o_stream_send(output, str_data(str), str_len(str));
 		return 0;
+	} else if (strncmp(line, "S ", 2) == 0) {
+		if (strncmp(line, "S OK ", 5) != 0) {
+			/* STARTTLS failed */
+			client_syslog_err(&client->common, t_strdup_printf(
+				"proxy: Remote STARTTLS failed: %s",
+				str_sanitize(line + 5, 160)));
+			proxy_failed(client, TRUE);
+			return -1;
+		}
+		/* STARTTLS successful, begin TLS negotiation. */
+		if (login_proxy_starttls(client->proxy) < 0) {
+			proxy_failed(client, TRUE);
+			return -1;
+		}
+		/* i/ostreams changed. */
+		output = login_proxy_get_ostream(client->proxy);
+		str = t_str_new(128);
+		proxy_write_login(client, str);
+		(void)o_stream_send(output, str_data(str), str_len(str));
+		return 1;
 	} else if (strncmp(line, "L OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
 		capability = client->proxy_backend_capability;
@@ -307,17 +348,18 @@ static int proxy_input_line(struct imap_client *client,
 	}
 }
 
-static void proxy_input(struct istream *input, struct ostream *output,
-			struct imap_client *client)
+static void proxy_input(struct imap_client *client)
 {
+	struct istream *input;
 	const char *line;
 
-	if (input == NULL) {
-		if (client->proxy == NULL) {
-			/* we're just freeing the proxy */
-			return;
-		}
+	if (client->proxy == NULL) {
+		/* we're just freeing the proxy */
+		return;
+	}
 
+	input = login_proxy_get_istream(client->proxy);
+	if (input == NULL) {
 		if (client->destroyed) {
 			/* we came here from client_destroy() */
 			return;
@@ -344,14 +386,14 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	}
 
 	while ((line = i_stream_next_line(input)) != NULL) {
-		if (proxy_input_line(client, output, line) != 0)
+		if (proxy_input_line(client, line) != 0)
 			break;
 	}
 }
 
 int imap_proxy_new(struct imap_client *client, const char *host,
 		   unsigned int port, const char *user, const char *master_user,
-		   const char *password)
+		   const char *password, enum login_proxy_ssl_flags ssl_flags)
 {
 	i_assert(user != NULL);
 	i_assert(!client->destroyed);
@@ -375,14 +417,15 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 		return -1;
 	}
 
-	client->proxy = login_proxy_new(&client->common, host, port,
+	client->proxy = login_proxy_new(&client->common, host, port, ssl_flags,
 					proxy_input, client);
 	if (client->proxy == NULL) {
 		client_send_tagline(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 
-	client->proxy_login_sent = FALSE;
+	client->proxy_sasl_ir = FALSE;
+	client->proxy_seen_banner = FALSE;
 	client->proxy_user = i_strdup(user);
 	client->proxy_master_user = i_strdup(master_user);
 	client->proxy_password = i_strdup(password);

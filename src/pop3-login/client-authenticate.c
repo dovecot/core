@@ -128,38 +128,46 @@ static bool client_handle_args(struct pop3_client *client,
 {
 	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	const char *master_user = NULL;
+	const char *key, *value, *p;
+	enum login_proxy_ssl_flags ssl_flags = 0;
 	string_t *reply;
 	unsigned int port = 110;
 	bool proxy = FALSE, temp = FALSE, nologin = !success;
 
 	*nodelay_r = FALSE;
 	for (; *args != NULL; args++) {
-		if (strcmp(*args, "nologin") == 0)
-			nologin = TRUE;
-		else if (strcmp(*args, "nodelay") == 0)
-			*nodelay_r = TRUE;
-		else if (strcmp(*args, "proxy") == 0)
-			proxy = TRUE;
-		else if (strcmp(*args, "temp") == 0)
-			temp = TRUE;
-		else if (strncmp(*args, "reason=", 7) == 0)
-			reason = *args + 7;
-		else if (strncmp(*args, "host=", 5) == 0)
-			host = *args + 5;
-		else if (strncmp(*args, "port=", 5) == 0)
-			port = atoi(*args + 5);
-		else if (strncmp(*args, "destuser=", 9) == 0)
-			destuser = *args + 9;
-		else if (strncmp(*args, "pass=", 5) == 0)
-			pass = *args + 5;
-		else if (strncmp(*args, "master=", 7) == 0)
-			master_user = *args + 7;
-		else if (strncmp(*args, "user=", 5) == 0) {
-			/* already handled in login-common */
-		} else if (login_settings->auth_debug) {
-			i_info("Ignoring unknown passdb extra field: %s",
-			       *args);
+		p = strchr(*args, '=');
+		if (p == NULL) {
+			key = *args;
+			value = "";
+		} else {
+			key = t_strdup_until(*args, p);
+			value = p + 1;
 		}
+		if (strcmp(key, "nologin") == 0)
+			nologin = TRUE;
+		else if (strcmp(key, "nodelay") == 0)
+			*nodelay_r = TRUE;
+		else if (strcmp(key, "proxy") == 0)
+			proxy = TRUE;
+		else if (strcmp(key, "temp") == 0)
+			temp = TRUE;
+		else if (strcmp(key, "reason") == 0)
+			reason = value;
+		else if (strcmp(key, "host") == 0)
+			host = value;
+		else if (strcmp(key, "port") == 0)
+			port = atoi(value);
+		else if (strcmp(key, "destuser") == 0)
+			destuser = value;
+		else if (strcmp(key, "pass") == 0)
+			pass = value;
+		else if (strcmp(key, "master") == 0)
+			master_user = value;
+		else if (strcmp(key, "user") == 0) {
+			/* already handled in login-common */
+		} else if (login_settings->auth_debug)
+			i_info("Ignoring unknown passdb extra field: %s", key);
 	}
 
 	if (destuser == NULL)
@@ -174,7 +182,7 @@ static bool client_handle_args(struct pop3_client *client,
 		if (!success)
 			return FALSE;
 		if (pop3_proxy_new(client, host, port, destuser, master_user,
-				   pass) < 0)
+				   pass, ssl_flags) < 0)
 			client_auth_failed(client, TRUE);
 		return TRUE;
 	}

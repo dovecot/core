@@ -5,6 +5,6 @@
 
 int pop3_proxy_new(struct pop3_client *client, const char *host,
 		   unsigned int port, const char *user, const char *master_user,
-		   const char *password);
+		   const char *password, enum login_proxy_ssl_flags ssl_flags);
 
 #endif

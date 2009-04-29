@@ -16,6 +16,15 @@ int ssl_proxy_new(int fd ATTR_UNUSED, const struct ip_addr *ip ATTR_UNUSED,
 	return -1;
 }
 
+int ssl_proxy_client_new(int fd ATTR_UNUSED, struct ip_addr *ip ATTR_UNUSED,
+			 ssl_handshake_callback_t *callback ATTR_UNUSED,
+			 void *context ATTR_UNUSED,
+			 struct ssl_proxy **proxy_r ATTR_UNUSED)
+{
+	i_error("Dovecot wasn't built with SSL support");
+	return -1;
+}
+
 bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy ATTR_UNUSED)
 {
 	return FALSE;
