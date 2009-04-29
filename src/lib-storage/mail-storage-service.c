@@ -469,6 +469,8 @@ mail_storage_service_init_user(struct master_service *service,
 	unsigned int len;
 	bool userdb_lookup;
 
+	master_service_init_finish(service);
+
 	userdb_lookup = (flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0;
 	mail_storage_service_init_settings(service, set_roots, !userdb_lookup);
 
@@ -555,6 +557,8 @@ mail_storage_service_multi_init(struct master_service *service,
 	const struct mail_user_settings *user_set;
 	const struct mail_storage_settings *mail_set;
 	void **sets;
+
+	master_service_init_finish(service);
 
 	ctx = i_new(struct mail_storage_service_multi_ctx, 1);
 	ctx->service = service;
