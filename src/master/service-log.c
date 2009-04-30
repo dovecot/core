@@ -1,9 +1,12 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
-#include "fd-close-on-exec.h"
 #include "array.h"
+#include "hash.h"
+#include "ioloop.h"
+#include "fd-close-on-exec.h"
 #include "service.h"
+#include "service-process.h"
 #include "service-log.h"
 
 #include <unistd.h>
@@ -62,6 +65,21 @@ int services_log_init(struct service_list *service_list)
 	return 0;
 }
 
+static void service_remove_log_io_writes(struct service *service)
+{
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
+	iter = hash_table_iterate_init(service->list->pids);
+	while (hash_table_iterate(iter, &key, &value)) {
+		struct service_process *process = value;
+
+		if (process->io_log_write != NULL)
+			io_remove(&process->io_log_write);
+	}
+	hash_table_iterate_deinit(&iter);
+}
+
 void services_log_deinit(struct service_list *service_list)
 {
 	struct service *const *services;
@@ -80,6 +98,7 @@ void services_log_deinit(struct service_list *service_list)
 			}
 			services[i]->log_fd[0] = -1;
 			services[i]->log_fd[1] = -1;
+			service_remove_log_io_writes(services[i]);
 		}
 	}
 }

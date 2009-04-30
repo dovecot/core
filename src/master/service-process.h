@@ -19,6 +19,8 @@ struct service_process {
 
 	/* kill the process if it doesn't send initial status notification */
 	struct timeout *to_status;
+	/* we're waiting to be able to send "bye" to log process */
+	struct io *io_log_write;
 
 	unsigned int destroyed:1;
 };

@@ -372,10 +372,37 @@ service_process_create(struct service *service, const char *const *auth_args,
 	return process;
 }
 
+static void service_process_log_bye(struct service_process *process)
+{
+	const char *data;
+
+	if (process->service->log_fd[1] == -1) {
+		/* stopping all services */
+		return;
+	}
+
+	data = t_strdup_printf("\001%c%s bye\n",
+			       LOG_TYPE_OPTION+1, dec2str(process->pid));
+	if (write(process->service->log_fd[1], data, strlen(data)) < 0) {
+		if (errno != EAGAIN)
+			i_error("write(log process) failed: %m");
+		else {
+			process->io_log_write =
+				io_add(process->service->log_fd[1], IO_WRITE,
+				       service_process_log_bye, process);
+			service_process_ref(process);
+		}
+	} else {
+		if (process->io_log_write != NULL) {
+			io_remove(&process->io_log_write);
+			service_process_unref(process);
+		}
+	}
+}
+
 void service_process_destroy(struct service_process *process)
 {
 	struct service *service = process->service;
-	const char *data;
 
 	hash_table_remove(service->list->pids, &process->pid);
 
@@ -398,16 +425,7 @@ void service_process_destroy(struct service_process *process)
 		break;
 	}
 
-	data = t_strdup_printf("\001%c%s bye\n",
-			       LOG_TYPE_OPTION+1, dec2str(process->pid));
-	if (write(process->service->log_fd[1], data, strlen(data)) < 0) {
-		if (errno != EAGAIN)
-			i_error("write(log process) failed: %m");
-		else {
-			//FIXME:process->io_log_write = io_add();
-			//return;
-		}
-	}
+	service_process_log_bye(process);
 
 	process->destroyed = TRUE;
 	service_process_unref(process);
@@ -427,6 +445,7 @@ int service_process_unref(struct service_process *process)
 	if (--process->refcount > 0)
 		return TRUE;
 
+	i_assert(process->io_log_write == NULL);
 	i_assert(process->destroyed);
 
 	i_free(process);
@@ -543,7 +562,7 @@ static void service_process_log(struct service_process *process,
 	   this process's logging */
 	data = t_strdup_printf("\001%c%s %s %s\n",
 			       type+1, my_pid, dec2str(process->pid), str);
-	if (write_full(process->service->log_fd[1], data, strlen(data)) < 0) {
+	if (write(process->service->log_fd[1], data, strlen(data)) < 0) {
 		i_error("write(log process) failed: %m");
 		i_log_type(type, "%s", str);
 	}
