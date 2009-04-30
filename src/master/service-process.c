@@ -146,6 +146,11 @@ static void auth_args_apply(const char *const *args,
 			    struct restrict_access_settings *rset,
 			    const char **home)
 {
+	const char *key, *value;
+	string_t *expanded_vars;
+
+	expanded_vars = t_str_new(128);
+	str_append(expanded_vars, "VARS_EXPANDED=");
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "uid=", 4) == 0)
 			rset->uid = (uid_t)strtoul(*args + 4, NULL, 10);
@@ -165,11 +170,26 @@ static void auth_args_apply(const char *const *args,
 					    rset->extra_groups, NULL);
 		} else {
 			/* unknown, set as environment */
-			//FIXME
-			env_put(t_strconcat("set_", *args, NULL));
+			value = strchr(*args, '=');
+			if (value == NULL) {
+				/* boolean */
+				key = *args;
+				value = "=1";
+			} else {
+				key = t_strdup_until(*args, value);
+				if (strcmp(key, "mail") == 0) {
+					/* FIXME: kind of ugly to have it
+					   here.. */
+					key = "mail_location";
+				}
+			}
+			str_append(expanded_vars, key);
+			str_append_c(expanded_vars, ' ');
+			env_put(t_strconcat(t_str_ucase(key), value, NULL));
 		}
 	}
-}
+	env_put(str_c(expanded_vars));
+}        
 
 static void drop_privileges(struct service *service,
 			    const char *const *auth_args)

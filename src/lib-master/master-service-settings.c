@@ -130,7 +130,7 @@ int master_service_settings_read(struct master_service *service,
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
 	struct istream *input;
-	const char *error;
+	const char *error, *env, *const *keys;
 	void **sets;
 	unsigned int i;
 	int ret, fd = -1;
@@ -173,11 +173,18 @@ int master_service_settings_read(struct master_service *service,
 			*error_r = settings_parser_get_error(parser);
 			return -1;
 		}
-	} else {
-		if (settings_parse_environ(parser) < 0) {
-			*error_r = settings_parser_get_error(parser);
-			return -1;
-		}
+	}
+	/* let environment override settings. especially useful for the
+	   settings from userdb. */
+	if (settings_parse_environ(parser) < 0) {
+		*error_r = settings_parser_get_error(parser);
+		return -1;
+	}
+	env = getenv("VARS_EXPANDED");
+	if (env != NULL) {
+		keys = t_strsplit(env, " ");
+		settings_parse_set_keys_expandeded(parser, service->set_pool,
+						   keys);
 	}
 
 	if (settings_parser_check(parser, service->set_pool, &error) < 0) {
