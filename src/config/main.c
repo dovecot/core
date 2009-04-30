@@ -1,26 +1,21 @@
 /* Copyright (C) 2005-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "lib.h"
 #include "array.h"
 #include "env-util.h"
 #include "master-service.h"
 #include "config-connection.h"
 #include "config-parser.h"
+#include "config-request.h"
 
 #include <stdlib.h>
 #include <unistd.h>
 
-ARRAY_TYPE(const_string) config_strings;
-
 static struct master_service *service;
-static pool_t config_pool;
 
 static void main_init(const char *service_name)
 {
-	config_pool = pool_alloconly_create("config parser", 10240);
-	p_array_init(&config_strings, config_pool, 256);
-	config_parse_file(config_pool, &config_strings,
-			  master_service_get_config_path(service),
+	config_parse_file(master_service_get_config_path(service),
 			  service_name);
 }
 
@@ -67,16 +62,16 @@ int main(int argc, char *argv[])
 
 	if (master_service_get_socket_count(service) > 0)
 		master_service_run(service, client_connected);
-	else if (exec_args == NULL)
-		config_connection_dump_request(STDOUT_FILENO, "master", flags);
-	else {
-		config_connection_putenv();
+	else if (exec_args == NULL) {
+		config_connection_dump_request(STDOUT_FILENO,
+					       service_name, flags);
+	} else {
+		config_connection_putenv(service_name);
 		env_put("DOVECONF_ENV=1");
 		execvp(exec_args[0], exec_args);
 		i_fatal("execvp(%s) failed: %m", exec_args[0]);
 	}
 	config_connections_destroy_all();
-	pool_unref(&config_pool);
 	master_service_deinit(&service);
         return 0;
 }

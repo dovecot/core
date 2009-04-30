@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "settings-parser.h"
+#include "mail-storage-settings.h"
 #include "lda-settings.h"
 
 #include <stddef.h>
@@ -42,6 +43,11 @@ static struct lda_settings lda_default_settings = {
 	MEMBER(lda_mailbox_autosubscribe) FALSE
 };
 
+static struct setting_parser_info *lda_setting_dependencies[] = {
+	&mail_user_setting_parser_info,
+	NULL
+};
+
 struct setting_parser_info lda_setting_parser_info = {
 	MEMBER(defines) lda_setting_defines,
 	MEMBER(defaults) &lda_default_settings,
@@ -53,10 +59,11 @@ struct setting_parser_info lda_setting_parser_info = {
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct lda_settings),
 #ifdef CONFIG_BINARY
-	MEMBER(check_func) NULL
+	MEMBER(check_func) NULL,
 #else
-	MEMBER(check_func) lda_settings_check
+	MEMBER(check_func) lda_settings_check,
 #endif
+	MEMBER(dependencies) lda_setting_dependencies
 };
 
 static bool lda_settings_check(void *_set, pool_t pool ATTR_UNUSED,

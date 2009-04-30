@@ -49,6 +49,11 @@ static struct imap_settings imap_default_settings = {
 	MEMBER(imap_id_log) ""
 };
 
+static struct setting_parser_info *imap_setting_dependencies[] = {
+	&mail_user_setting_parser_info,
+	NULL
+};
+
 struct setting_parser_info imap_setting_parser_info = {
 	MEMBER(defines) imap_setting_defines,
 	MEMBER(defaults) &imap_default_settings,
@@ -59,5 +64,6 @@ struct setting_parser_info imap_setting_parser_info = {
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct imap_settings),
-	MEMBER(check_func) NULL
+	MEMBER(check_func) NULL,
+	MEMBER(dependencies) imap_setting_dependencies
 };

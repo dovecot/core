@@ -58,6 +58,8 @@ struct setting_parser_info {
 	size_t type_offset;
 	size_t struct_size;
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
+	struct setting_parser_info *const *dependencies;
+
 };
 ARRAY_DEFINE_TYPE(setting_parser_info, struct setting_parser_info);
 

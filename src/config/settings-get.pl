@@ -31,7 +31,8 @@ foreach my $file (@ARGV) {
 	$state++;
       } elsif (/^(static )?struct setting_parser_info (.*) = {/) {
 	$state++;
-	$parsers{$2} = 1;
+	my $name = $2;
+	$parsers{$name} = 1 if ($name !~ /\*/);
       } elsif (/^extern struct setting_parser_info (.*);/) {
 	$externs .= "extern struct setting_parser_info $1;\n";
       } elsif (/\/\* <settings checks> \*\//) {

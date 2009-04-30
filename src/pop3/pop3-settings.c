@@ -44,6 +44,11 @@ static struct pop3_settings pop3_default_settings = {
 	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s"
 };
 
+static struct setting_parser_info *pop3_setting_dependencies[] = {
+	&mail_user_setting_parser_info,
+	NULL
+};
+
 struct setting_parser_info pop3_setting_parser_info = {
 	MEMBER(defines) pop3_setting_defines,
 	MEMBER(defaults) &pop3_default_settings,
@@ -54,5 +59,6 @@ struct setting_parser_info pop3_setting_parser_info = {
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct pop3_settings),
-	MEMBER(check_func) NULL
+	MEMBER(check_func) NULL,
+	MEMBER(dependencies) pop3_setting_dependencies
 };

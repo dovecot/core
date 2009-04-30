@@ -22,11 +22,11 @@ doveconf_SOURCES = \
 	all-settings.c \
 	config-connection.c \
 	config-parser.c \
+	config-request.c \
 	main.c
 
 noinst_HEADERS = \
 	all-settings.h \
-	common.h \
 	config-connection.h \
 	config-parser.h
 
