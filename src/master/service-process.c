@@ -177,6 +177,7 @@ static void drop_privileges(struct service *service,
 	struct master_settings *master_set = service->set->master_set;
 	struct restrict_access_settings rset;
 	const char *user, *home = NULL;
+	bool disallow_root;
 
 	restrict_access_init(&rset);
 	rset.uid = service->uid;
@@ -204,15 +205,17 @@ static void drop_privileges(struct service *service,
 	}
 
 	if (home != NULL) {
-		// FIXME: warn ENOENT if mail_debug=yes
 		if (chdir(home) < 0 && errno != ENOENT)
 			i_error("chdir(%s) failed: %m", home);
 	}
 
-	if (service->set->drop_priv_before_exec)
-		restrict_access(&rset, home, FALSE); //FIXME: disallow_root?
-	else
+	if (service->set->drop_priv_before_exec) {
+		disallow_root = service->type == SERVICE_TYPE_AUTH_SERVER ||
+			service->type == SERVICE_TYPE_AUTH_SOURCE;
+		restrict_access(&rset, home, disallow_root);
+	} else {
 		restrict_access_set_env(&rset);
+	}
 }
 
 static void
