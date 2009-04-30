@@ -11,6 +11,7 @@ libauth_la_SOURCES = \
 
 headers = \
 	auth-client.h \
+	auth-client-interface.h \
 	auth-master.h \
 	auth-server-connection.h \
 	auth-server-request.h

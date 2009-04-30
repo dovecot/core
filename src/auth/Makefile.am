@@ -19,6 +19,7 @@ pkglibexec_PROGRAMS = dovecot-auth checkpassword-reply
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-ntlm \
@@ -108,7 +109,6 @@ headers = \
 	auth.h \
 	auth-cache.h \
 	auth-client-connection.h \
-	auth-client-interface.h \
 	auth-master-interface.h \
 	auth-master-connection.h \
 	auth-request.h \

@@ -2,7 +2,7 @@
 #define AUTH_CLIENT_H
 
 #include "network.h"
-#include "../auth/auth-client-interface.h"
+#include "auth-client-interface.h"
 
 struct auth_client;
 struct auth_request;
