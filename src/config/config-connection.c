@@ -203,9 +203,11 @@ static void config_connection_request(struct config_connection *conn,
 {
 	const char *service = "";
 
-	/* [<service> [<args>]] */
-	if (args[0] != NULL)
-		service = args[0];
+	/* [<args>] */
+	for (; *args != NULL; args++) {
+		if (strncmp(*args, "service=", 8) == 0)
+			service = *args + 8;
+	}
 
 	o_stream_cork(conn->output);
 	if ((flags & CONFIG_DUMP_FLAG_HUMAN) == 0) {
