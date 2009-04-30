@@ -17,6 +17,7 @@ struct array {
 ARRAY_DEFINE_TYPE(string, char *);
 ARRAY_DEFINE_TYPE(const_string, const char *);
 ARRAY_DEFINE_TYPE(uint32_t, uint32_t);
+ARRAY_DEFINE_TYPE(uint, unsigned int);
 ARRAY_DEFINE_TYPE(void_array, void *);
 
 #endif
