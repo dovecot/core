@@ -781,7 +781,10 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags |
 						MAILDIR_UIDLIST_SYNC_NOLOCK,
 						&ctx->uidlist_sync_ctx);
-		i_assert(ret > 0);
+		if (ret <= 0) {
+			i_assert(ret != 0);
+			return -1;
+		}
 
 		if (storage->callbacks->notify_no != NULL) {
 			storage->callbacks->notify_no(&ctx->mbox->ibox.box,
