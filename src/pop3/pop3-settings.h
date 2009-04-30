@@ -15,7 +15,6 @@ struct pop3_settings {
 	bool pop3_lock_session;
 	const char *pop3_client_workarounds;
 	const char *pop3_logout_format;
-	const char *pop3_uidl_format;
 };
 
 extern struct setting_parser_info pop3_setting_parser_info;

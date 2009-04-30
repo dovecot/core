@@ -19,17 +19,6 @@
 #define IS_STANDALONE() \
         (getenv("LOGGED_IN") == NULL)
 
-struct client_workaround_list {
-	const char *name;
-	enum client_workarounds num;
-};
-
-static struct client_workaround_list client_workaround_list[] = {
-	{ "outlook-no-nuls", WORKAROUND_OUTLOOK_NO_NULS },
-	{ "oe-ns-eoh", WORKAROUND_OE_NS_EOH },
-	{ NULL, 0 }
-};
-
 struct master_service *service;
 void (*hook_client_created)(struct client **client) = NULL;
 
@@ -41,53 +30,6 @@ static void log_error_callback(void *context ATTR_UNUSED)
 	i_set_failure_ignore_errors(TRUE);
 
 	master_service_stop(service);
-}
-
-static enum client_workarounds
-parse_workarounds(const struct pop3_settings *set)
-{
-        enum client_workarounds client_workarounds = 0;
-	struct client_workaround_list *list;
-	const char *const *str;
-
-        str = t_strsplit_spaces(set->pop3_client_workarounds, " ,");
-	for (; *str != NULL; str++) {
-		list = client_workaround_list;
-		for (; list->name != NULL; list++) {
-			if (strcasecmp(*str, list->name) == 0) {
-				client_workarounds |= list->num;
-				break;
-			}
-		}
-		if (list->name == NULL)
-			i_fatal("Unknown client workaround: %s", *str);
-	}
-	return client_workarounds;
-}
-
-static enum uidl_keys parse_uidl_keymask(const char *format)
-{
-	enum uidl_keys mask = 0;
-
-	for (; *format != '\0'; format++) {
-		if (format[0] == '%' && format[1] != '\0') {
-			switch (var_get_key(++format)) {
-			case 'v':
-				mask |= UIDL_UIDVALIDITY;
-				break;
-			case 'u':
-				mask |= UIDL_UID;
-				break;
-			case 'm':
-				mask |= UIDL_MD5;
-				break;
-			case 'f':
-				mask |= UIDL_FILE_NAME;
-				break;
-			}
-		}
-	}
-	return mask;
 }
 
 static bool main_init(const struct pop3_settings *set, struct mail_user *user)
@@ -107,12 +49,6 @@ static bool main_init(const struct pop3_settings *set, struct mail_user *user)
 	client = client_create(0, 1, user, set);
 	if (client == NULL)
 		return FALSE;
-	client->workarounds = parse_workarounds(set);
-	client->uidl_keymask = parse_uidl_keymask(set->pop3_uidl_format);
-	if (client->uidl_keymask == 0) {
-		i_fatal("pop3_uidl_format setting doesn't contain any "
-			"%% variables.");
-	}
 
 	if (!IS_STANDALONE())
 		client_send_line(client, "+OK Logged in.");

@@ -561,7 +561,7 @@ static void pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
 			i_fatal("UIDL: File name not found");
 		}
 	}
-	var_expand(str, client->set->pop3_uidl_format, tab);
+	var_expand(str, client->mail_set->pop3_uidl_format, tab);
 }
 
 static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)

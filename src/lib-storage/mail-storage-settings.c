@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "var-expand.h"
 #include "settings-parser.h"
 #include "mail-index.h"
 #include "mail-user.h"
@@ -279,6 +280,9 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					const char **error_r)
 {
 	const struct mail_storage_settings *set = _set;
+	const char *p;
+	bool uidl_format_ok;
+	char c;
 
 	if (set->mail_nfs_index && !set->mmap_disable) {
 		*error_r = "mail_nfs_index=yes requires mmap_disable=yes";
@@ -286,6 +290,33 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 	if (set->mail_nfs_index && set->fsync_disable) {
 		*error_r = "mail_nfs_index=yes requires fsync_disable=no";
+		return FALSE;
+	}
+
+	uidl_format_ok = FALSE;
+	for (p = set->pop3_uidl_format; *p != '\0'; p++) {
+		if (p[0] != '%' || p[1] == '\0')
+			continue;
+
+		c = var_get_key(++p);
+		switch (c) {
+		case 'v':
+		case 'u':
+		case 'm':
+		case 'f':
+			uidl_format_ok = TRUE;
+			break;
+		case '%':
+			break;
+		default:
+			*error_r = t_strdup_printf(
+				"Unknown pop3_uidl_format variable: %%%c", c);
+			return FALSE;
+		}
+	}
+	if (!uidl_format_ok) {
+		*error_r = "pop3_uidl_format setting doesn't contain any "
+			"%% variables.";
 		return FALSE;
 	}
 	return TRUE;

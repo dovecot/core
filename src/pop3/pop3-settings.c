@@ -27,7 +27,6 @@ static struct setting_define pop3_setting_defines[] = {
 	DEF(SET_BOOL, pop3_lock_session),
 	DEF(SET_STR, pop3_client_workarounds),
 	DEF(SET_STR, pop3_logout_format),
-	DEF(SET_STR, pop3_uidl_format),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -42,8 +41,7 @@ static struct pop3_settings pop3_default_settings = {
 	MEMBER(pop3_reuse_xuidl) FALSE,
 	MEMBER(pop3_lock_session) FALSE,
 	MEMBER(pop3_client_workarounds) "",
-	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s",
-	MEMBER(pop3_uidl_format) "%08Xu%08Xv"
+	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s"
 };
 
 struct setting_parser_info pop3_setting_parser_info = {

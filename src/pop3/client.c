@@ -33,6 +33,17 @@
    transaction. This allows the mailbox to become unlocked. */
 #define CLIENT_COMMIT_TIMEOUT_MSECS (10*1000)
 
+struct client_workaround_list {
+	const char *name;
+	enum client_workarounds num;
+};
+
+static struct client_workaround_list client_workaround_list[] = {
+	{ "outlook-no-nuls", WORKAROUND_OUTLOOK_NO_NULS },
+	{ "oe-ns-eoh", WORKAROUND_OE_NS_EOH },
+	{ NULL, 0 }
+};
+
 static struct client *my_client; /* we don't need more than one currently */
 
 static void client_input(struct client *client);
@@ -153,6 +164,53 @@ static bool init_mailbox(struct client *client, const char **error_r)
 	return FALSE;
 }
 
+static enum client_workarounds
+parse_workarounds(const struct pop3_settings *set)
+{
+        enum client_workarounds client_workarounds = 0;
+	struct client_workaround_list *list;
+	const char *const *str;
+
+        str = t_strsplit_spaces(set->pop3_client_workarounds, " ,");
+	for (; *str != NULL; str++) {
+		list = client_workaround_list;
+		for (; list->name != NULL; list++) {
+			if (strcasecmp(*str, list->name) == 0) {
+				client_workarounds |= list->num;
+				break;
+			}
+		}
+		if (list->name == NULL)
+			i_fatal("Unknown client workaround: %s", *str);
+	}
+	return client_workarounds;
+}
+
+static enum uidl_keys parse_uidl_keymask(const char *format)
+{
+	enum uidl_keys mask = 0;
+
+	for (; *format != '\0'; format++) {
+		if (format[0] == '%' && format[1] != '\0') {
+			switch (var_get_key(++format)) {
+			case 'v':
+				mask |= UIDL_UIDVALIDITY;
+				break;
+			case 'u':
+				mask |= UIDL_UID;
+				break;
+			case 'm':
+				mask |= UIDL_MD5;
+				break;
+			case 'f':
+				mask |= UIDL_FILE_NAME;
+				break;
+			}
+		}
+	}
+	return mask;
+}
+
 struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 			     const struct pop3_settings *set)
 {
@@ -196,6 +254,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 
 	storage = client->inbox_ns->storage;
 
+	client->mail_set = mail_storage_get_settings(storage);
 	flags = MAILBOX_OPEN_POP3_SESSION;
 	if (set->pop3_no_flag_updates)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
@@ -217,6 +276,12 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		client_destroy(client, "Mailbox init failed");
 		return NULL;
 	}
+
+	client->workarounds = parse_workarounds(set);
+	client->uidl_keymask =
+		parse_uidl_keymask(client->mail_set->pop3_uidl_format);
+	if (client->uidl_keymask == 0)
+		i_fatal("Invalid pop3_uidl_format");
 
 	if (!set->pop3_no_flag_updates && client->messages_count > 0)
 		client->seen_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));

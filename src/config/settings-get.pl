@@ -3,6 +3,7 @@ use strict;
 
 print '#include "lib.h"'."\n";
 print '#include "array.h"'."\n";
+print '#include "var-expand.h"'."\n";
 print '#include "settings-parser.h"'."\n";
 print '#include "all-settings.h"'."\n";
 print '#include <stddef.h>'."\n";
