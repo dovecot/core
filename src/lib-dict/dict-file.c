@@ -292,7 +292,8 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	fd = file_dotlock_open(&file_dict_dotlock_settings, dict->path, 0,
 			       &dotlock);
 	if (fd == -1) {
-		i_error("file dict commit: file_dotlock_open() failed: %m");
+		i_error("file dict commit: file_dotlock_open(%s) failed: %m",
+			dict->path);
 		return -1;
 	}
 	/* refresh once more now that we're locked */
