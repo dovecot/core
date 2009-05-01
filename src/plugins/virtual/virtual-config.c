@@ -98,7 +98,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 	struct virtual_backend_box *bbox;
 	const char *name;
 
-	if (*line == ' ') {
+	if (*line == ' ' || *line == '\t') {
 		/* continues the previous search rule */
 		if (ctx->rule_idx == array_count(&ctx->mbox->backend_boxes)) {
 			*error_r = "Search rule without a mailbox";
