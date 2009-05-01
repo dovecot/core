@@ -295,7 +295,6 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
 	ssize_t ret;
-	size_t pos;
 
 	if (!mstream->header_read ||
 	    stream->istream.v_offset < mstream->header_size.virtual_size) {
@@ -313,27 +312,7 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 		      stream->istream.v_offset -
 		      mstream->header_size.virtual_size +
 		      mstream->header_size.physical_size);
-
-	stream->pos -= stream->skip;
-	stream->skip = 0;
-
-	stream->buffer = i_stream_get_data(stream->parent, &pos);
-	if (pos <= stream->pos) {
-		if ((ret = i_stream_read(stream->parent)) == -2) {
-			i_assert(stream->skip != stream->pos);
-			return -2;
-		}
-		stream->istream.stream_errno = stream->parent->stream_errno;
-		stream->istream.eof = stream->parent->eof;
-		stream->buffer = i_stream_get_data(stream->parent, &pos);
-	} else {
-		ret = 0;
-	}
-
-	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
-		(ret == 0 ? 0 : -1);
-	stream->pos = pos;
-	return ret;
+	return i_stream_read_copy_from_parent(&stream->istream);
 }
 
 static void parse_header(struct header_filter_istream *mstream)

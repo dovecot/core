@@ -102,6 +102,38 @@ ssize_t i_stream_read(struct istream *stream)
 	return ret;
 }
 
+ssize_t i_stream_read_copy_from_parent(struct istream *istream)
+{
+	struct istream_private *stream = istream->real_stream;
+	size_t pos;
+	ssize_t ret;
+
+	stream->pos -= stream->skip;
+	stream->skip = 0;
+
+	stream->buffer = i_stream_get_data(stream->parent, &pos);
+	if (pos > stream->pos)
+		ret = 0;
+	else do {
+		if ((ret = i_stream_read(stream->parent)) == -2)
+			return -2;
+
+		stream->istream.stream_errno = stream->parent->stream_errno;
+		stream->istream.eof = stream->parent->eof;
+		stream->buffer = i_stream_get_data(stream->parent, &pos);
+		/* check again, in case the parent stream had been seeked
+		   backwards and the previous read() didn't get us far
+		   enough. */
+	} while (pos <= stream->pos && ret > 0);
+
+	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
+		(ret == 0 ? 0 : -1);
+	stream->pos = pos;
+	i_assert(ret != -1 || stream->istream.eof ||
+		 stream->istream.stream_errno != 0);
+	return ret;
+}
+
 void i_stream_skip(struct istream *stream, uoff_t count)
 {
 	struct istream_private *_stream = stream->real_stream;

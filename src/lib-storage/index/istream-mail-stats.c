@@ -36,7 +36,6 @@ i_stream_mail_stats_read_mail_stats(struct istream_private *stream)
 {
 	struct mail_stats_istream *mstream =
 		(struct mail_stats_istream *)stream;
-	size_t pos;
 	ssize_t ret;
 
 	if (stream->parent->v_offset !=
@@ -45,34 +44,14 @@ i_stream_mail_stats_read_mail_stats(struct istream_private *stream)
 			      stream->istream.v_offset);
 	}
 
-	stream->buffer = i_stream_get_data(stream->parent, &pos);
-	if (pos <= stream->pos) {
-		if ((ret = i_stream_read(stream->parent)) == -2)
-			return -2;
-
-		if (ret > 0) {
-			mstream->mail->stats_files_read_bytes+= ret;
-			if (!mstream->files_read_increased) {
-				mstream->files_read_increased = TRUE;
-				mstream->mail->stats_files_read_count++;
-			}
+	ret = i_stream_read_copy_from_parent(&stream->istream);
+	if (ret > 0) {
+		mstream->mail->stats_files_read_bytes += ret;
+		if (!mstream->files_read_increased) {
+			mstream->files_read_increased = TRUE;
+			mstream->mail->stats_files_read_count++;
 		}
-
-		stream->istream.stream_errno = stream->parent->stream_errno;
-		stream->istream.eof = stream->parent->eof;
-		stream->buffer = i_stream_get_data(stream->parent, &pos);
-	} else {
-		ret = 0;
 	}
-
-	stream->pos -= stream->skip;
-	stream->skip = 0;
-
-	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
-		(ret == 0 ? 0 : -1);
-	stream->pos = pos;
-	i_assert(ret != -1 || stream->istream.eof ||
-		 stream->istream.stream_errno != 0);
 	return ret;
 }
 

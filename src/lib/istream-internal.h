@@ -45,5 +45,6 @@ void i_stream_compress(struct istream_private *stream);
 void i_stream_grow_buffer(struct istream_private *stream, size_t bytes);
 bool i_stream_get_buffer_space(struct istream_private *stream,
 			       size_t wanted_size, size_t *size_r);
+ssize_t i_stream_read_copy_from_parent(struct istream *istream);
 
 #endif

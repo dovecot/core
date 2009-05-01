@@ -54,20 +54,20 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 			      stream->istream.v_offset);
 	}
 
+	stream->pos -= stream->skip;
+	stream->skip = 0;
+
 	stream->buffer = i_stream_get_data(stream->parent, &pos);
-	if (pos <= stream->pos) {
+	if (pos > stream->pos)
+		ret = 0;
+	else do {
 		if ((ret = i_stream_read(stream->parent)) == -2)
 			return -2;
 
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		stream->istream.eof = stream->parent->eof;
 		stream->buffer = i_stream_get_data(stream->parent, &pos);
-	} else {
-		ret = 0;
-	}
-
-	stream->pos -= stream->skip;
-	stream->skip = 0;
+	} while (pos <= stream->pos && ret > 0);
 
 	if (lstream->v_size != (uoff_t)-1) {
 		left = lstream->v_size - stream->istream.v_offset;
