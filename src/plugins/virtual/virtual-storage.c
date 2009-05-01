@@ -523,7 +523,7 @@ virtual_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	if ((*flags & MAILBOX_NOSELECT) == 0) {
 		/* make sure it's a selectable mailbox */
 		maildir_path = t_strconcat(path, "/"VIRTUAL_CONFIG_FNAME, NULL);
-		if (stat(maildir_path, &st) < 0 || !S_ISDIR(st.st_mode))
+		if (stat(maildir_path, &st) < 0)
 			*flags |= MAILBOX_NOSELECT;
 	}
 	return ret;
