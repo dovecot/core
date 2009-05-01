@@ -193,7 +193,13 @@ int shared_storage_get_namespace(struct mail_storage *_storage,
 
 	/* successfully matched the name. */
 	if (userdomain == NULL) {
-		i_assert(username != NULL);
+		if (username == NULL) {
+			/* trying to open namespace "shared/domain"
+			   namespace prefix. */
+			mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(*_name));
+			return -1;
+		}
 		userdomain = domain == NULL ? username :
 			t_strconcat(username, "@", domain, NULL);
 	} else {
