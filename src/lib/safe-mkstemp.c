@@ -16,6 +16,7 @@ int safe_mkstemp(string_t *prefix, mode_t mode, uid_t uid, gid_t gid)
 	size_t prefix_len;
 	struct stat st;
 	unsigned char randbuf[8];
+	mode_t old_umask;
 	int fd;
 
 	prefix_len = str_len(prefix);
@@ -32,7 +33,9 @@ int safe_mkstemp(string_t *prefix, mode_t mode, uid_t uid, gid_t gid)
 			return -1;
 		}
 
-		fd = open(str_c(prefix), O_RDWR | O_EXCL | O_CREAT, mode);
+		old_umask = umask(0666 ^ mode);
+		fd = open(str_c(prefix), O_RDWR | O_EXCL | O_CREAT, 0666);
+		umask(old_umask);
 		if (fd != -1)
 			break;
 
