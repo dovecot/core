@@ -127,6 +127,15 @@ mbox_snarf_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	return mbox->module_ctx.super.sync_init(box, flags);
 }
 
+static int mbox_snarf_close(struct mailbox *box)
+{
+	struct mbox_snarf_mailbox *mbox = MBOX_SNARF_CONTEXT(box);
+
+	if (mbox->spool_mbox != NULL)
+		mailbox_close(&mbox->spool_mbox);
+	return mbox->module_ctx.super.close(box);
+}
+
 static struct mailbox *
 mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 			struct istream *input, enum mailbox_open_flags flags)
@@ -169,6 +178,7 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 	mbox->module_ctx.super = box->v;
 
 	box->v.sync_init = mbox_snarf_sync_init;
+	box->v.close = mbox_snarf_close;
 	MODULE_CONTEXT_SET(box, mbox_snarf_storage_module, mbox);
 	return box;
 }
