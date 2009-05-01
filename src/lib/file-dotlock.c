@@ -535,7 +535,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 					/* we don't want to override */
 					lock_info.last_change = now;
 				}
-			} else {
+			} else if (wait_left > 0) {
 				(void)set->callback(wait_left, FALSE,
 						    set->context);
 			}
