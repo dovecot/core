@@ -295,19 +295,19 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 				/* potential From-line, see if we have the
 				   rest of the line buffered. */
 				i++;
+				if (i >= 7 && buf[i-7] == '\r') {
+					/* CR also belongs to it. */
+					crlf_ending = TRUE;
+					from_start_pos = i - 7;
+				} else {
+					crlf_ending = FALSE;
+					from_start_pos = i - 6;
+				}
+
 				if (rstream->hdr_offset + rstream->mail_size ==
-				    stream->istream.v_offset + i - 6 ||
+				    stream->istream.v_offset + from_start_pos ||
 				    rstream->mail_size == (uoff_t)-1) {
 					from_after_pos = i;
-					from_start_pos = i - 6;
-					if (from_start_pos > 0 &&
-					    buf[from_start_pos-1] == '\r') {
-						/* CR also belongs to it. */
-						crlf_ending = TRUE;
-						from_start_pos--;
-					} else {
-						crlf_ending = FALSE;
-					}
 					if (ret == -2) {
 						/* even if we don't have the
 						   whole line, we need to
@@ -316,7 +316,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 					}
 				}
 				fromp = mbox_from;
-			} else if (from_start_pos != (size_t)-1) {
+			} else if (from_after_pos != (size_t)-1) {
 				/* we have the whole From-line here now.
 				   See if it's a valid one. */
 			mbox_verify:
