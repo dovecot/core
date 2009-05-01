@@ -1303,6 +1303,12 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 			/* everything deleted, the trailer_size still contains
 			   the \n trailer though */
 			trailer_size = 0;
+		} else if (sync_ctx->expunged_space == (off_t)file_size + 1 ||
+			   sync_ctx->expunged_space == (off_t)file_size + 2) {
+			/* everything deleted and we didn't have a proper
+			   trailer. */
+			trailer_size = 0;
+			sync_ctx->expunged_space = file_size;
 		}
 
 		i_assert(file_size >= sync_ctx->expunged_space + trailer_size);
