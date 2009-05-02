@@ -84,7 +84,7 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 		if (client->input_skip_line)
 			client->input_skip_line = FALSE;
 		else {
-			idle_finish(ctx, strcmp(line, "DONE") == 0, TRUE);
+			idle_finish(ctx, strcasecmp(line, "DONE") == 0, TRUE);
 			client_continue_pending_input(&client);
 			break;
 		}
