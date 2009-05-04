@@ -860,9 +860,10 @@ int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 	}
 }
 
-static struct maildir_uidlist_rec *
+static int
 maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
-			   unsigned int *idx_r)
+			   unsigned int *idx_r,
+			   struct maildir_uidlist_rec **rec_r)
 {
 	struct maildir_uidlist_rec *const *recs;
 	unsigned int idx, left_idx, right_idx;
@@ -870,7 +871,7 @@ maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
 	if (!uidlist->initial_read) {
 		/* first time we need to read uidlist */
 		if (maildir_uidlist_refresh(uidlist) < 0)
-			return NULL;
+			return -1;
 	}
 
 	idx = left_idx = 0;
@@ -884,66 +885,72 @@ maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
 			right_idx = idx;
 		else {
 			*idx_r = idx;
-			return recs[idx];
+			*rec_r = recs[idx];
+			return 1;
 		}
 	}
 
 	if (idx > 0) idx--;
 	*idx_r = idx;
-	return NULL;
+	return 0;
 }
 
-const char *
-maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
-		       enum maildir_uidlist_rec_flag *flags_r)
+int maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
+			   enum maildir_uidlist_rec_flag *flags_r,
+			   const char **fname_r)
 {
-	const char *fname;
+	int ret;
 
-	fname = maildir_uidlist_lookup_nosync(uidlist, uid, flags_r);
-	if (fname == NULL) {
+	ret = maildir_uidlist_lookup_nosync(uidlist, uid, flags_r, fname_r);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
 		if (uidlist->fd != -1 || uidlist->mbox == NULL) {
 			/* refresh uidlist and check again in case it was added
 			   after the last mailbox sync */
 			if (maildir_uidlist_refresh(uidlist) < 0)
-				return NULL;
+				return -1;
 		} else {
 			/* the uidlist doesn't exist. */
 			if (maildir_storage_sync_force(uidlist->mbox, uid) < 0)
-				return NULL;
+				return -1;
 		}
 
 		/* try again */
-		fname = maildir_uidlist_lookup_nosync(uidlist, uid, flags_r);
+		ret = maildir_uidlist_lookup_nosync(uidlist, uid,
+						    flags_r, fname_r);
 	}
 
-	return fname;
+	return ret;
 }
 
-const char *
-maildir_uidlist_lookup_nosync(struct maildir_uidlist *uidlist, uint32_t uid,
-			      enum maildir_uidlist_rec_flag *flags_r)
+int maildir_uidlist_lookup_nosync(struct maildir_uidlist *uidlist, uint32_t uid,
+				  enum maildir_uidlist_rec_flag *flags_r,
+				  const char **fname_r)
 {
-	const struct maildir_uidlist_rec *rec;
+	struct maildir_uidlist_rec *rec;
 	unsigned int idx;
+	int ret;
 
-	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
-	if (rec == NULL)
-		return NULL;
+	if ((ret = maildir_uidlist_lookup_rec(uidlist, uid, &idx, &rec)) <= 0)
+		return ret;
 
 	*flags_r = rec->flags;
-	return rec->filename;
+	*fname_r = rec->filename;
+	return 1;
 }
 
 const char *
 maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 			   enum maildir_uidlist_rec_ext_key key)
 {
-	const struct maildir_uidlist_rec *rec;
+	struct maildir_uidlist_rec *rec;
 	unsigned int idx;
 	const unsigned char *p;
+	int ret;
 
-	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
-	if (rec == NULL || rec->extensions == NULL)
+	ret = maildir_uidlist_lookup_rec(uidlist, uid, &idx, &rec);
+	if (ret <= 0 || rec->extensions == NULL)
 		return NULL;
 
 	p = rec->extensions;
@@ -992,14 +999,17 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 	const unsigned char *p;
 	buffer_t *buf;
 	unsigned int len;
+	int ret;
 
-	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
-	if (rec == NULL) {
+	ret = maildir_uidlist_lookup_rec(uidlist, uid, &idx, &rec);
+	if (ret <= 0) {
+		if (ret < 0)
+			return;
+
 		/* maybe it's a new message */
 		if (maildir_uidlist_refresh(uidlist) < 0)
 			return;
-		rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
-		if (rec == NULL) {
+		if (maildir_uidlist_lookup_rec(uidlist, uid, &idx, &rec) <= 0) {
 			/* message is already expunged, ignore */
 			return;
 		}

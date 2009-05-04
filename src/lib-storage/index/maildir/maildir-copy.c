@@ -167,9 +167,9 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		   uidlist. if it doesn't, we can use it. otherwise generate
 		   a new filename. FIXME: There's a race condition here if
 		   another process is just doing the same copy. */
-		src_fname = maildir_uidlist_lookup(src_mbox->uidlist,
-						   mail->uid, &src_flags);
-		if (src_fname != NULL &&
+		if (maildir_uidlist_lookup(src_mbox->uidlist,
+					   mail->uid, &src_flags,
+					   &src_fname) > 0 &&
 		    maildir_uidlist_refresh(dest_mbox->uidlist) >= 0 &&
 		    maildir_uidlist_get_full_filename(dest_mbox->uidlist,
 						      src_fname) == NULL)

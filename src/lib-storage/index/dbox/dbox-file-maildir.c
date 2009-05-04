@@ -84,6 +84,8 @@ bool dbox_maildir_uid_get_fname(struct dbox_mailbox *mbox, uint32_t uid,
 {
 	enum maildir_uidlist_rec_flag flags;
 
-	*fname_r = maildir_uidlist_lookup(mbox->maildir_uidlist, uid, &flags);
-	return *fname_r != NULL;
+	if (maildir_uidlist_lookup(mbox->maildir_uidlist, uid, &flags,
+				   fname_r) <= 0)
+		return FALSE;
+	return TRUE;
 }

@@ -64,13 +64,14 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist);
    fill in the uidvalidity/nextuid from index file instead. */
 int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist);
 
-/* Returns uidlist record for given filename, or NULL if not found. */
-const char *
-maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
-		       enum maildir_uidlist_rec_flag *flags_r);
-const char *
-maildir_uidlist_lookup_nosync(struct maildir_uidlist *uidlist, uint32_t uid,
-			      enum maildir_uidlist_rec_flag *flags_r);
+/* Look up uidlist record for given filename. Returns 1 if found,
+   0 if not found, -1 if error */
+int maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
+			   enum maildir_uidlist_rec_flag *flags_r,
+			   const char **fname_r);
+int maildir_uidlist_lookup_nosync(struct maildir_uidlist *uidlist, uint32_t uid,
+				  enum maildir_uidlist_rec_flag *flags_r,
+				  const char **fname_r);
 /* Returns extension's value or NULL if it doesn't exist. */
 const char *
 maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,

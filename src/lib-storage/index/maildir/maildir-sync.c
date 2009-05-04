@@ -692,6 +692,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	enum maildir_uidlist_sync_flags sync_flags;
 	enum maildir_uidlist_rec_flag flags;
 	bool new_changed, cur_changed, lock_failure;
+	const char *fname;
 	int ret;
 
 	*lost_files_r = FALSE;
@@ -854,8 +855,11 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	}
 
 	if (find_uid != NULL && *find_uid != 0) {
-		if (maildir_uidlist_lookup_nosync(ctx->mbox->uidlist, *find_uid,
-						  &flags) == NULL) {
+		ret = maildir_uidlist_lookup_nosync(ctx->mbox->uidlist,
+						    *find_uid, &flags, &fname);
+		if (ret < 0)
+			return -1;
+		if (ret == 0) {
 			/* UID is expunged */
 			*find_uid = 0;
 		} else if ((flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) == 0) {

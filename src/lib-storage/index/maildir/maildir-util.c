@@ -59,9 +59,9 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 	bool have_flags;
 	int ret;
 
-	fname = maildir_uidlist_lookup(mbox->uidlist, uid, &flags);
-	if (fname == NULL)
-		return -2; /* expunged */
+	ret = maildir_uidlist_lookup(mbox->uidlist, uid, &flags, &fname);
+	if (ret <= 0)
+		return ret == 0 ? -2 : -1;
 
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
 		/* let's see if we can guess the filename based on index */

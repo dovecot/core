@@ -147,7 +147,7 @@ static int maildir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	return data->save_date;
 }
 
-static bool
+static int
 maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 		       const char **fname_r)
 {
@@ -155,10 +155,11 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 	struct mail_index_view *view;
 	uint32_t seq;
 	bool exists;
+	int ret;
 
-	*fname_r = maildir_uidlist_lookup(mbox->uidlist, mail->uid, &flags);
-	if (*fname_r != NULL)
-		return TRUE;
+	ret = maildir_uidlist_lookup(mbox->uidlist, mail->uid, &flags, fname_r);
+	if (ret != 0)
+		return ret;
 
 	/* file exists in index file, but not in dovecot-uidlist anymore. */
 	mail_set_expunged(mail);
@@ -177,7 +178,7 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 		   the same as in index. fix this by forcing a resync. */
 		(void)maildir_storage_sync_force(mbox, mail->uid);
 	}
-	return FALSE;
+	return 0;
 }
 
 static int maildir_get_pop3_state(struct index_mail *mail)
@@ -252,7 +253,7 @@ static int maildir_quick_size_lookup(struct index_mail *mail, bool vsize,
 	char *p;
 
 	if (_mail->uid != 0) {
-		if (!maildir_mail_get_fname(mbox, _mail, &fname))
+		if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
 			return -1;
 	} else {
 		path = maildir_save_file_get_path(_mail->transaction,
@@ -428,7 +429,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	case MAIL_FETCH_UIDL_FILE_NAME:
 	case MAIL_FETCH_GUID:
 		if (_mail->uid != 0) {
-			if (!maildir_mail_get_fname(mbox, _mail, &fname))
+			if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
 				return -1;
 		} else {
 			path = maildir_save_file_get_path(_mail->transaction,
@@ -488,12 +489,15 @@ static void maildir_mail_set_cache_corrupted(struct mail *_mail,
 	enum maildir_uidlist_rec_flag flags;
 	const char *fname;
 	uoff_t size;
+	int ret;
 
 	if (field == MAIL_FETCH_VIRTUAL_SIZE) {
 		/* make sure it gets removed from uidlist.
 		   if it's in file name, we can't really do more than log it. */
-		fname = maildir_uidlist_lookup(mbox->uidlist,
-					       _mail->uid, &flags);
+		ret = maildir_uidlist_lookup(mbox->uidlist, _mail->uid,
+					     &flags, &fname);
+		if (ret <= 0)
+			return;
 		if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
 					      &size)) {
 			const char *subdir =
