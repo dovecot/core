@@ -37,12 +37,12 @@ int services_log_init(struct service_list *service_list)
 		fd_close_on_exec(services[i]->log_fd[0], TRUE);
 		fd_close_on_exec(services[i]->log_fd[1], TRUE);
 
-		handshake.prefix_len = strlen(services[i]->name) + 2;
+		handshake.prefix_len = strlen(services[i]->set->name) + 2;
 
 		buffer_set_used_size(handshake_buf, 0);
 		buffer_append(handshake_buf, &handshake, sizeof(handshake));
-		buffer_append(handshake_buf, services[i]->name,
-			      strlen(services[i]->name));
+		buffer_append(handshake_buf, services[i]->set->name,
+			      strlen(services[i]->set->name));
 		buffer_append(handshake_buf, ": ", 2);
 
 		ret = write(services[i]->log_fd[1],
@@ -89,12 +89,12 @@ void services_log_deinit(struct service_list *service_list)
 	for (i = 0; i < count; i++) {
 		if (services[i]->log_fd[0] != -1) {
 			if (close(services[i]->log_fd[0]) < 0) {
-				i_error("service(%s): close(log_fd) failed: %m",
-					services[i]->name);
+				service_error(services[i],
+					      "close(log_fd) failed: %m");
 			}
 			if (close(services[i]->log_fd[1]) < 0) {
-				i_error("service(%s): close(log_fd) failed: %m",
-					services[i]->name);
+				service_error(services[i],
+					      "close(log_fd) failed: %m");
 			}
 			services[i]->log_fd[0] = -1;
 			services[i]->log_fd[1] = -1;

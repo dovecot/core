@@ -99,7 +99,7 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd)
 	closelog();
 
 	if (dup2_array(&dups) < 0)
-		i_fatal("service(%s): dup2s failed", service->name);
+		service_error(service, "dup2s failed");
 
 #ifdef DEBUG
 	env_put(t_strdup_printf("SOCKET_COUNT=%d", socket_listener_count));
@@ -290,12 +290,13 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 
 static void service_process_status_timeout(struct service_process *process)
 {
-	i_error("service(%s): Initial status notification not received in %d "
-		"seconds, killing the process", process->service->name,
-		SERVICE_FIRST_STATUS_TIMEOUT_SECS);
+	service_error(process->service,
+		      "Initial status notification not received in %d "
+		      "seconds, killing the process",
+		      SERVICE_FIRST_STATUS_TIMEOUT_SECS);
 	if (kill(process->pid, SIGKILL) < 0 && errno != ESRCH) {
-		i_error("service(%s): kill(%s, SIGKILL) failed: %m",
-			process->service->name, dec2str(process->pid));
+		service_error(process->service, "kill(%s, SIGKILL) failed: %m",
+			      dec2str(process->pid));
 	}
 	timeout_remove(&process->to_status);
 }
@@ -315,8 +316,7 @@ service_process_create(struct service *service, const char *const *auth_args,
 	case SERVICE_TYPE_AUTH_SOURCE:
 	case SERVICE_TYPE_AUTH_SERVER:
 		if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) {
-			i_error("service(%s): socketpair() failed: %m",
-				service->name);
+			service_error(service, "socketpair() failed: %m");
 			return NULL;
 		}
 		fd_close_on_exec(fd[0], TRUE);
@@ -329,7 +329,7 @@ service_process_create(struct service *service, const char *const *auth_args,
 
 	pid = fork();
 	if (pid < 0) {
-		i_error("service(%s): fork() failed: %m", service->name);
+		service_error(service, "fork() failed: %m");
 		if (fd[0] != -1) {
 			(void)close(fd[0]);
 			(void)close(fd[1]);
@@ -543,7 +543,7 @@ service_process_get_status_error(string_t *str, struct service_process *process,
 
 	*type_r = LOG_TYPE_ERROR;
 
-	str_printfa(str, "service(%s): child %s ", service->name,
+	str_printfa(str, "service(%s): child %s ", service->set->name,
 		    dec2str(process->pid));
 	if (WIFSIGNALED(status)) {
 		str_printfa(str, "killed with signal %d", WTERMSIG(status));

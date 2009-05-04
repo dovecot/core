@@ -13,6 +13,16 @@
 #include <pwd.h>
 #include <grp.h>
 
+void service_error(struct service *service, const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	i_error("service(%s): %s", service->set->name,
+		t_strdup_vprintf(format, args));
+	va_end(args);
+}
+
 static int get_uid(const char *user, uid_t *uid_r, const char **error_r)
 {
 	struct passwd *pw;
@@ -148,7 +158,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	struct inet_listener_settings *const *inet_listeners;
 	struct service *service;
         struct service_listener *l;
-	const char *p, *const *tmp;
+	const char *const *tmp;
 	string_t *str;
 	unsigned int i, unix_count, fifo_count, inet_count;
 
@@ -158,15 +168,12 @@ service_create(pool_t pool, const struct service_settings *set,
 
 	service->type = SERVICE_TYPE_UNKNOWN;
 	if (*set->type != '\0') {
-		service->name = set->type;
 		if (strcmp(set->type, "log") == 0)
 			service->type = SERVICE_TYPE_LOG;
 		else if (strcmp(set->type, "config") == 0)
 			service->type = SERVICE_TYPE_CONFIG;
 		else if (strcmp(set->type, "auth") == 0)
 			service->type = SERVICE_TYPE_AUTH_SERVER;
-		else
-			service->name = NULL;
 	}
 
 	if (*set->auth_dest_service != '\0')
@@ -186,17 +193,6 @@ service_create(pool_t pool, const struct service_settings *set,
 	if (set->executable == NULL) {
 		*error_r = "executable not given";
 		return NULL;
-	}
-
-	/* get service name from some of the unique types, fallback to
-	   executable name without path and parameters */
-	if (service->name == NULL) {
-		p = strrchr(set->executable, '/');
-		if (p == NULL)
-			service->name = t_strcut(set->executable, ' ');
-		else
-			service->name = t_strcut(p + 1, ' ');
-		service->name = p_strdup(pool, service->name);
 	}
 
 	if (get_uid(set->user, &service->uid, error_r) < 0)
@@ -318,7 +314,7 @@ service_lookup(struct service_list *service_list, const char *name)
 
 	services = array_get(&service_list->services, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(services[i]->name, name) == 0)
+		if (strcmp(services[i]->set->name, name) == 0)
 			return services[i];
 	}
 	return NULL;
@@ -349,8 +345,7 @@ services_create(const struct master_settings *set,
 					 service_list, &error);
 		if (service == NULL) {
 			*error_r = t_strdup_printf("service(%s) %s",
-				service_settings[i]->type == NULL ? "unknown" :
-				service_settings[i]->type, error);
+				service_settings[i]->name, error);
 			return NULL;
 		}
 
@@ -421,8 +416,8 @@ void service_signal(struct service *service, int signo)
 			continue;
 
 		if (kill(process->pid, signo) < 0 && errno != ESRCH) {
-			i_error("service(%s): kill(%s, %d) failed: %m",
-				service->name, dec2str(process->pid), signo);
+			service_error(service, "kill(%s, %d) failed: %m",
+				      dec2str(process->pid), signo);
 		}
 	}
 	hash_table_iterate_deinit(&iter);

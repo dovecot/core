@@ -17,6 +17,7 @@ struct inet_listener_settings {
 struct service_settings {
 	struct master_settings *master_set;
 
+	const char *name;
 	const char *type;
 	const char *executable;
 	const char *user;

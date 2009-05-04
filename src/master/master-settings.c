@@ -82,6 +82,7 @@ static struct setting_parser_info inet_listener_setting_parser_info = {
 
 static struct setting_define service_setting_defines[] = {
 	DEF(SET_INTERNAL, master_set),
+	DEF(SET_STR, name),
 	DEF(SET_STR, type),
 	DEF(SET_STR, executable),
 	DEF(SET_STR, user),
@@ -110,6 +111,7 @@ static struct setting_define service_setting_defines[] = {
 static struct service_settings service_default_settings = {
 	MEMBER(master_set) NULL,
 
+	MEMBER(name) "",
 	MEMBER(type) "",
 	MEMBER(executable) "",
 	MEMBER(user) "",
@@ -138,7 +140,7 @@ struct setting_parser_info service_setting_parser_info = {
 	MEMBER(dynamic_parsers) NULL,
 
 	MEMBER(parent_offset) offsetof(struct service_settings, master_set),
-	MEMBER(type_offset) (size_t)-1,
+	MEMBER(type_offset) offsetof(struct service_settings, name),
 	MEMBER(struct_size) sizeof(struct service_settings)
 };
 
@@ -217,7 +219,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
 	const struct master_settings *set = _set;
 	struct service_settings *const *services;
-	unsigned int i, count;
+	unsigned int i, j, count;
 
 	if (set->last_valid_uid != 0 &&
 	    set->first_valid_uid > set->last_valid_uid) {
@@ -238,6 +240,21 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		return FALSE;
 	}
 	for (i = 0; i < count; i++) {
+		if (*services[i]->name == '\0') {
+			*error_r = t_strdup_printf(
+				"Service #%d is missing name", i);
+			return FALSE;
+		}
+		for (j = 0; j < i; j++) {
+			if (strcmp(services[i]->name, services[j]->name) == 0) {
+				*error_r = t_strdup_printf(
+					"Duplicate service name: %s",
+					services[i]->name);
+				return FALSE;
+			}
+		}
+	}
+	for (i = 0; i < count; i++) {
 		if (*services[i]->executable != '/') {
 			services[i]->executable =
 				p_strconcat(pool, set->libexec_dir, "/",
@@ -253,7 +270,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		    *services[i]->chroot != '\0') {
 			*error_r = t_strdup_printf("service(%s): "
 				"drop_priv_before_exec=yes can't be "
-				"used with chroot", services[i]->executable);
+				"used with chroot", services[i]->name);
 			return FALSE;
 		}
 		fix_file_listener_paths(&services[i]->unix_listeners,

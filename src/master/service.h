@@ -45,7 +45,6 @@ struct service {
 	struct service_list *list;
 
 	enum service_type type;
-	const char *name;
 
 	const struct service_settings *set;
 	const char *config_file_path;
@@ -106,5 +105,8 @@ void services_destroy(struct service_list *service_list);
 
 /* Send a signal to all processes in a given service */
 void service_signal(struct service *service, int signo);
+
+void service_error(struct service *service, const char *format, ...)
+	ATTR_FORMAT(2, 3);
 
 #endif

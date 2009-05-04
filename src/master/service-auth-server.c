@@ -66,10 +66,10 @@ auth_process_lookup_request(struct service_process_auth_server *process,
 
 	request = hash_table_lookup(process->auth_requests, POINTER_CAST(id));
 	if (request == NULL) {
-		i_error("service(%s): authentication service %s "
-			"sent reply with unknown ID %u",
-			process->process.service->name,
-			dec2str(process->process.pid), id);
+		service_error(process->process.service,
+			      "authentication service %s "
+			      "sent reply with unknown ID %u",
+			      dec2str(process->process.pid), id);
 		return NULL;
 	}
 
@@ -181,9 +181,10 @@ service_process_auth_server_input(struct service_process_auth_server *process)
 		return;
 	case -2:
 		/* buffer full */
-		i_error("service(%s): authentication server process %s "
-			"sent us too long line", process->process.service->name,
-			dec2str(process->process.pid));
+		service_error(process->process.service,
+			      "authentication server process %s "
+			      "sent us too long line",
+			      dec2str(process->process.pid));
 		service_process_auth_server_close(process);
 		return;
 	}
@@ -197,11 +198,11 @@ service_process_auth_server_input(struct service_process_auth_server *process)
 		if (strncmp(line, "VERSION\t", 8) != 0 ||
 		    atoi(t_strcut(line + 8, '\t')) !=
 		    AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
-			i_error("service(%s): authentication server process %s "
-				"not compatible with master process "
-				"(mixed old and new binaries?)",
-				process->process.service->name,
-				dec2str(process->process.pid));
+			service_error(process->process.service,
+				      "authentication server process %s "
+				      "not compatible with master process "
+				      "(mixed old and new binaries?)",
+				      dec2str(process->process.pid));
 			service_process_auth_server_close(process);
 			return;
 		}

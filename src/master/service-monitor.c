@@ -29,17 +29,16 @@ static void service_status_input(struct service *service)
 	ret = read(service->status_fd[0], &status, sizeof(status));
 	switch (ret) {
 	case 0:
-		i_error("service(%s): read(status) failed: EOF", service->name);
+		service_error(service, "read(status) failed: EOF");
 		service_monitor_stop(service);
 		return;
 	case -1:
-		i_error("service(%s): read(status) failed: %m", service->name);
+		service_error(service, "read(status) failed: %m");
 		service_monitor_stop(service);
 		return;
 	default:
-		i_error("service(%s): child %s sent partial status update "
-			"(%d bytes)", service->name,
-			dec2str(status.pid), (int)ret);
+		service_error(service, "child %s sent partial status update "
+			      "(%d bytes)", dec2str(status.pid), (int)ret);
 		return;
 
 	case sizeof(status):
@@ -62,9 +61,8 @@ static void service_status_input(struct service *service)
 		   randomness here, but the worst they can do is DoS and there
 		   are already more serious problems if someone is able to do
 		   this.. */
-		i_error("service(%s): Ignoring invalid update from child %s "
-			"(UID=%u)", service->name, dec2str(status.pid),
-			status.uid);
+		service_error(service, "Ignoring invalid update from child %s "
+			      "(UID=%u)", dec2str(status.pid), status.uid);
 		return;
 	}
 
@@ -111,8 +109,7 @@ static void service_monitor_throttle(struct service *service)
 	if (service->to_throttle != NULL)
 		return;
 
-	i_error("service(%s): command startup failed, throttling",
-		service->name);
+	service_error(service, "command startup failed, throttling");
 	service_monitor_listen_stop(service);
 
 	service->to_throttle = timeout_add(THROTTLE_TIMEOUT,
@@ -180,8 +177,7 @@ void services_monitor_start(struct service_list *service_list)
 		if (services[i]->status_fd[0] == -1) {
 			/* we haven't yet created status pipe */
 			if (pipe(services[i]->status_fd) < 0) {
-				i_error("service(%s): pipe() failed: %m",
-					services[i]->name);
+				service_error(services[i], "pipe() failed: %m");
 				continue;
 			}
 
@@ -215,10 +211,10 @@ static void service_monitor_stop(struct service *service)
 	if (service->status_fd[0] != -1) {
 		for (i = 0; i < 2; i++) {
 			if (close(service->status_fd[i]) < 0) {
-				i_error("service(%s): close(%d) failed: %m",
-					service->name, i);
+				service_error(service,
+					      "close(status fd) failed: %m");
 			}
-                        service->status_fd[i] = -1;
+			service->status_fd[i] = -1;
 		}
 	}
 	service_monitor_listen_stop(service);

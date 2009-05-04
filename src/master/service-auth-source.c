@@ -128,22 +128,20 @@ auth_read_request(struct service_process_auth_source *process,
 			/* disconnected */
 		} else if (ret > 0) {
 			/* request wasn't fully read */
-			i_error("service(%s): fd_read() partial input (%d/%d)",
-				service->name, (int)ret, (int)sizeof(*req));
+			service_error(service, "fd_read() partial input (%d/%d)",
+				      (int)ret, (int)sizeof(*req));
 		} else {
 			if (errno == EAGAIN)
 				return 0;
 
-			i_error("service(%s): fd_read() failed: %m",
-				service->name);
+			service_error(service, "fd_read() failed: %m");
 		}
 		return -1;
 	}
 
 	if (req->data_size != 0) {
 		if (req->data_size > MASTER_AUTH_MAX_DATA_SIZE) {
-			i_error("service(%s): Too large auth data_size sent",
-				service->name);
+			service_error(service, "Too large auth data_size sent");
 			return -1;
 		}
 		/* @UNSAFE */
@@ -153,30 +151,28 @@ auth_read_request(struct service_process_auth_source *process,
 				/* disconnected */
 			} else if (ret > 0) {
 				/* request wasn't fully read */
-				i_error("service(%s): Data read partially %d/%u",
-					service->name, (int)ret, req->data_size);
+				service_error(service,
+					      "Data read partially %d/%u",
+					      (int)ret, req->data_size);
 			} else {
-				i_error("service(%s): read(data) failed: %m",
-					service->name);
+				service_error(service, "read(data) failed: %m");
 			}
 			return -1;
 		}
 	}
 
 	if (*client_fd_r == -1) {
-		i_error("service(%s): Auth request missing a file descriptor",
-			service->name);
+		service_error(service, "Auth request missing a file descriptor");
 		return -1;
 	}
 
 	if (fstat(*client_fd_r, &st) < 0) {
-		i_error("service(%s): fstat(auth dest fd) failed: %m",
-			service->name);
+		service_error(service, "fstat(auth dest fd) failed: %m");
 		return -1;
 	}
 	if (st.st_ino != req->ino) {
-		i_error("service(%s): Auth request inode mismatch: %s != %s",
-			service->name, dec2str(st.st_ino), dec2str(req->ino));
+		service_error(service, "Auth request inode mismatch: %s != %s",
+			      dec2str(st.st_ino), dec2str(req->ino));
 		return -1;
 	}
 	return 1;
@@ -210,9 +206,8 @@ service_process_auth_source_input(struct service_process_auth_source *process)
 	/* we have a request. check its validity. */
 	auth_process = hash_table_lookup(service->list->pids, &req.auth_pid);
 	if (auth_process == NULL) {
-		i_error("service(%s): authentication request for unknown "
-			"auth server PID %s", service->name,
-			dec2str(req.auth_pid));
+		service_error(service, "authentication request for unknown "
+			      "auth server PID %s", dec2str(req.auth_pid));
 		service_process_auth_source_send_reply(process, req.tag, FALSE);
 		(void)close(client_fd);
 		return;
@@ -224,7 +219,7 @@ service_process_auth_source_input(struct service_process_auth_source *process)
 		    ioloop_time - AUTH_BUSY_LOG_INTERVAL) {
 			i_warning("service(%s): authentication server PID "
 				  "%s too busy",
-				  auth_process->process.service->name,
+				  auth_process->process.service->set->name,
 				  dec2str(req.auth_pid));
                         auth_process->auth_busy_stamp = ioloop_time;
 		}

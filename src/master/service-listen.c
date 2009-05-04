@@ -31,8 +31,8 @@ static int service_unix_listener_listen(struct service_listener *l)
 		}
 
 		if (errno != EADDRINUSE) {
-			i_error("service(%s): net_listen_unix(%s) failed: %m",
-				service->name, set->path);
+			service_error(service, "net_listen_unix(%s) failed: %m",
+				      set->path);
 			return -1;
 		}
 
@@ -42,15 +42,15 @@ static int service_unix_listener_listen(struct service_listener *l)
 		if (fd != -1 || errno != ECONNREFUSED || i >= 3) {
 			if (fd != -1)
 				(void)close(fd);
-			i_error("service(%s): Socket already exists: %s",
-				service->name, set->path);
+			service_error(service, "Socket already exists: %s",
+				      set->path);
 			return 0;
 		}
 
 		/* delete and try again */
 		if (unlink(set->path) < 0 && errno != ENOENT) {
-			i_error("service(%s): unlink(%s) failed: %m",
-				service->name, set->path);
+			service_error(service, "unlink(%s) failed: %m",
+				      set->path);
 			return -1;
 		}
 	}
@@ -88,15 +88,13 @@ static int service_fifo_listener_listen(struct service_listener *l)
 	umask(old_umask);
 
 	if (ret < 0 && errno != EEXIST) {
-		i_error("service(%s): mkfifo(%s) failed: %m",
-			service->name, set->path);
+		service_error(service, "mkfifo(%s) failed: %m", set->path);
 		return -1;
 	}
 
 	fd = open(set->path, O_RDONLY);
 	if (fd == -1) {
-		i_error("service(%s): open(%s) failed: %m",
-			service->name, set->path);
+		service_error(service, "open(%s) failed: %m", set->path);
 		return -1;
 	}
 
@@ -127,8 +125,8 @@ static int service_inet_listener_listen(struct service_listener *l)
 
 	fd = net_listen(&l->set.inetset.ip, &port, service->process_limit);
 	if (fd < 0) {
-		i_error("service(%s): listen(%s, %u) failed: %m",
-			service->name, set->address, set->port);
+		service_error(service, "listen(%s, %u) failed: %m",
+			      set->address, set->port);
 		return errno == EADDRINUSE ? 0 : -1;
 	}
 	net_set_nonblock(fd, TRUE);
