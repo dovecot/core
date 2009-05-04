@@ -5,9 +5,7 @@
 
 #include <stdlib.h>
 
-#ifdef HAVE_DEV_URANDOM
-
-#define URANDOM_PATH "/dev/urandom"
+#ifdef DEV_URANDOM_PATH
 
 #include "fd-close-on-exec.h"
 #include <unistd.h>
@@ -28,9 +26,9 @@ void random_fill(void *buf, size_t size)
 		ret = read(urandom_fd, (char *) buf + pos, size - pos);
 		if (unlikely(ret <= 0)) {
 			if (ret == 0)
-				i_fatal("EOF when reading from "URANDOM_PATH);
+				i_fatal("EOF when reading from "DEV_URANDOM_PATH);
 			else if (errno != EINTR)
-				i_fatal("read("URANDOM_PATH") failed: %m");
+				i_fatal("read("DEV_URANDOM_PATH") failed: %m");
 		} else {
 			pos += ret;
 		}
@@ -44,13 +42,13 @@ void random_init(void)
 	if (init_refcount++ > 0)
 		return;
 
-	urandom_fd = open(URANDOM_PATH, O_RDONLY);
+	urandom_fd = open(DEV_URANDOM_PATH, O_RDONLY);
 	if (urandom_fd == -1) {
 		if (errno == ENOENT) {
-			i_fatal(URANDOM_PATH" doesn't exist, "
+			i_fatal(DEV_URANDOM_PATH" doesn't exist, "
 				"currently we require it");
 		} else {
-			i_fatal("Can't open "URANDOM_PATH": %m");
+			i_fatal("Can't open "DEV_URANDOM_PATH": %m");
 		}
 	}
 
