@@ -56,7 +56,7 @@ struct dict_settings *dict_settings_read(void)
 			settings_parser_get_error(parser));
 	}
 
-	if (settings_parser_check(parser, settings_pool, &error) < 0)
+	if (!settings_parser_check(parser, settings_pool, &error))
 		i_fatal("Invalid settings: %s", error);
 
 	set = settings_parser_get(parser);

@@ -187,7 +187,7 @@ int master_service_settings_read(struct master_service *service,
 						   keys);
 	}
 
-	if (settings_parser_check(parser, service->set_pool, &error) < 0) {
+	if (!settings_parser_check(parser, service->set_pool, &error)) {
 		*error_r = t_strdup_printf("Invalid settings: %s", error);
 		return -1;
 	}
