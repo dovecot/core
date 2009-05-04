@@ -425,7 +425,8 @@ int dbox_sync_index_rebuild_singles(struct dbox_sync_rebuild_context *ctx)
 	}
 
 	if (ctx->maildir_sync_ctx != NULL) {
-		if (maildir_uidlist_sync_deinit(&ctx->maildir_sync_ctx) < 0)
+		if (maildir_uidlist_sync_deinit(&ctx->maildir_sync_ctx,
+						ret == 0) < 0)
 			ret = -1;
 	}
 	if (ctx->maildir_sync_keywords != NULL)
