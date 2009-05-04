@@ -93,6 +93,7 @@ struct maildir_uidlist {
 	unsigned int initial_hdr_read:1;
 	unsigned int initial_sync:1;
 	unsigned int retry_rewind:1;
+	unsigned int locked_refresh:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -173,6 +174,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	}
 
 	uidlist->lock_count++;
+	uidlist->locked_refresh = FALSE;
 
 	if (refresh) {
 		/* make sure we have the latest changes before
@@ -214,6 +216,7 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 	if (--uidlist->lock_count > 0)
 		return;
 
+	uidlist->locked_refresh = FALSE;
 	(void)file_dotlock_delete(&uidlist->dotlock);
 }
 
@@ -815,6 +818,8 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 	if (ret >= 0) {
 		uidlist->initial_read = TRUE;
 		uidlist->initial_hdr_read = TRUE;
+		if (UIDLIST_IS_LOCKED(uidlist))
+			uidlist->locked_refresh = TRUE;
 	}
         return ret;
 }
@@ -1022,7 +1027,10 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 	rec->extensions = p_malloc(uidlist->record_pool, buf->used);
 	memcpy(rec->extensions, buf->data, buf->used);
 
-	uidlist->recreate = TRUE;
+	if (rec->uid != (uint32_t)-1) {
+		/* message already exists in uidlist, need to recreate it */
+		uidlist->recreate = TRUE;
+	}
 }
 
 void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
@@ -1213,8 +1221,10 @@ static bool maildir_uidlist_want_compress(struct maildir_uidlist_sync_ctx *ctx)
 {
 	unsigned int min_rewrite_count;
 
-	if (!ctx->uidlist->initial_read)
+	if (!ctx->uidlist->locked_refresh)
 		return FALSE;
+	if (ctx->uidlist->recreate)
+		return TRUE;
 
 	min_rewrite_count =
 		(ctx->uidlist->read_records_count + ctx->new_files_count) *
@@ -1226,12 +1236,10 @@ static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 
-	if (uidlist->recreate ||
-	    ctx->finish_change_counter != uidlist->change_counter)
-		return TRUE;
-
-	if (!uidlist->initial_read)
+	if (!uidlist->locked_refresh)
 		return FALSE;
+	if (ctx->finish_change_counter != uidlist->change_counter)
+		return TRUE;
 
 	if (uidlist->fd == -1 || uidlist->version != UIDLIST_VERSION)
 		return TRUE;
@@ -1291,7 +1299,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 	if ((uoff_t)st.st_size != file_size) {
 		i_warning("%s: file size changed unexpectedly after write",
 			  uidlist->path);
-	} else {
+	} else if (uidlist->locked_refresh) {
 		uidlist->fd_size = st.st_size;
 		uidlist->last_read_offset = st.st_size;
 		maildir_uidlist_update_hdr(uidlist, &st);
@@ -1530,6 +1538,7 @@ void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 	unsigned int idx;
 
 	i_assert(ctx->partial);
+	i_assert(ctx->uidlist->locked_refresh);
 
 	rec = hash_table_lookup(ctx->uidlist->files, filename);
 	i_assert(rec != NULL);
@@ -1673,8 +1682,7 @@ void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 	/* mbox=NULL means we're coming from dbox rebuilding code.
 	   the dbox is already locked, so allow uidlist recreation */
 	i_assert(ctx->locked || !ctx->changed || ctx->uidlist->mbox == NULL);
-	if ((ctx->changed || ctx->uidlist->recreate ||
-	     maildir_uidlist_want_compress(ctx)) &&
+	if ((ctx->changed || maildir_uidlist_want_compress(ctx)) &&
 	    !ctx->failed && (ctx->locked || ctx->uidlist->mbox == NULL)) {
 		T_BEGIN {
 			if (maildir_uidlist_sync_update(ctx) < 0)
