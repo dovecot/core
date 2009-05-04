@@ -46,7 +46,7 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 	const char *key, *value, *p, *p2;
 	string_t *str;
 	unsigned int i, j, count, next, next_idx;
-	bool ok, have_extended;
+	bool ok, have_extended, broken = FALSE;
 	int ret;
 
 	/* Get a list of all parameters. RFC 2231 uses key*<n>[*]=value pairs,
@@ -55,7 +55,15 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 	memset(&rfc2231_param, 0, sizeof(rfc2231_param));
 	t_array_init(&result, 8);
 	t_array_init(&rfc2231_params_arr, 8);
-	while ((ret = rfc822_parse_content_param(ctx, &key, &value)) > 0) {
+	while ((ret = rfc822_parse_content_param(ctx, &key, &value)) != 0) {
+		if (ret < 0) {
+			/* try to continue anyway.. */
+			broken = TRUE;
+			if (ctx->data == ctx->end)
+				break;
+			ctx->data++;
+			continue;
+		}
 		p = strchr(key, '*');
 		if (p != NULL) {
 			p2 = p++;
@@ -89,7 +97,7 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 		/* No RFC 2231 parameters */
 		(void)array_append_space(&result); /* NULL-terminate */
 		*result_r = array_idx(&result, 0);
-		return ret;
+		return broken ? -1 : 0;
 	}
 
 	/* Merge the RFC 2231 parameters. Since their order isn't guaranteed to
@@ -157,5 +165,5 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 	}
 	(void)array_append_space(&result); /* NULL-terminate */
 	*result_r = array_idx(&result, 0);
-	return ret;
+	return broken ? -1 : 0;
 }
