@@ -110,7 +110,8 @@ maildir_uidlist_sync_get_full_filename(struct maildir_uidlist_sync_ctx *ctx,
 				       const char *filename);
 void maildir_uidlist_sync_recreate(struct maildir_uidlist_sync_ctx *ctx);
 void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx);
-int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **ctx);
+int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **ctx,
+				bool success);
 
 bool maildir_uidlist_get_uid(struct maildir_uidlist *uidlist,
 			     const char *filename, uint32_t *uid_r);

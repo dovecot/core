@@ -690,7 +690,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		return -1;
 	}
 
-	ctx->locked = ret > 0;
+	ctx->locked = maildir_uidlist_is_locked(ctx->mbox->uidlist);
 	if (ctx->locked) {
 		if (maildir_transaction_save_commit_pre_sync(ctx) < 0) {
 			maildir_transaction_save_rollback(ctx);
@@ -760,7 +760,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 	if (ctx->uidlist_sync_ctx != NULL) {
 		/* update dovecot-uidlist file. */
-		if (maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx) < 0)
+		if (maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx,
+						ret >= 0) < 0)
 			ret = -1;
 	}
 
@@ -843,7 +844,7 @@ maildir_transaction_save_rollback_real(struct maildir_save_context *ctx)
 		maildir_transaction_unlink_copied_files(ctx, NULL);
 
 	if (ctx->uidlist_sync_ctx != NULL)
-		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
+		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx, FALSE);
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->mbox->uidlist);
 	if (ctx->sync_ctx != NULL)

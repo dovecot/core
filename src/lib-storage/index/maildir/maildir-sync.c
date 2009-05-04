@@ -266,7 +266,7 @@ maildir_sync_context_new(struct maildir_mailbox *mbox,
 static void maildir_sync_deinit(struct maildir_sync_context *ctx)
 {
 	if (ctx->uidlist_sync_ctx != NULL)
-		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
+		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx, FALSE);
 	if (ctx->index_sync_ctx != NULL) {
 		(void)maildir_sync_index_finish(&ctx->index_sync_ctx,
 						TRUE, FALSE);
@@ -868,7 +868,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		}
 	}
 
-	return maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
+	return maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx, TRUE);
 }
 
 int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)

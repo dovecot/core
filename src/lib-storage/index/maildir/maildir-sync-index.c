@@ -556,7 +556,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	mail_index_view_close(&view2);
 
 	if (ctx->uidlist_sync_ctx != NULL) {
-		if (maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx) < 0)
+		if (maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx,
+						TRUE) < 0)
 			ret = -1;
 	}
 
