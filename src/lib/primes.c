@@ -30,8 +30,8 @@ static const unsigned int primes[] = {
 	268435459,
 	536870923,
 	1073741827,
-	2147483659,
-	4294967291 /* previous from 2^32 */
+	2147483659U,
+	4294967291U /* previous from 2^32 */
 };
 
 static const unsigned int primes_count = N_ELEMENTS(primes);
