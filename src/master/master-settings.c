@@ -243,6 +243,19 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				p_strconcat(pool, set->libexec_dir, "/",
 					    services[i]->executable, NULL);
 		}
+		if (*services[i]->chroot != '/' &&
+		    *services[i]->chroot != '\0') {
+			services[i]->chroot =
+				p_strconcat(pool, set->base_dir, "/",
+					    services[i]->chroot, NULL);
+		}
+		if (services[i]->drop_priv_before_exec &&
+		    *services[i]->chroot != '\0') {
+			*error_r = t_strdup_printf("service(%s): "
+				"drop_priv_before_exec=yes can't be "
+				"used with chroot", services[i]->executable);
+			return FALSE;
+		}
 		fix_file_listener_paths(&services[i]->unix_listeners,
 					pool, set->base_dir);
 		fix_file_listener_paths(&services[i]->fifo_listeners,
