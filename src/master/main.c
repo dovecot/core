@@ -61,7 +61,7 @@ void process_exec(const char *cmd, const char *extra_args[])
 	argv[0] = t_strconcat(PACKAGE"/", argv[0], NULL);
 
 	execv(executable, (char **)argv);
-	i_fatal_status(FATAL_EXEC, "execvp(%s) failed: %m", executable);
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 }
 
 static void create_pid_file(const char *path)
