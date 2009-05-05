@@ -7,6 +7,7 @@
 struct master_service_listener {
 	struct master_service *service;
 	int fd;
+	bool ssl;
 	struct io *io;
 };
 
@@ -23,7 +24,7 @@ struct master_service {
 	const char *config_path;
 	int syslog_facility;
 
-	unsigned int socket_count;
+	unsigned int socket_count, ssl_socket_count;
         struct master_service_listener *listeners;
 
 	struct io *io_status_write, *io_status_error;

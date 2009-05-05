@@ -55,13 +55,15 @@ static struct setting_parser_info file_listener_setting_parser_info = {
 static struct setting_define inet_listener_setting_defines[] = {
 	DEF(SET_STR, address),
 	DEF(SET_UINT, port),
+	DEF(SET_BOOL, ssl),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static struct inet_listener_settings inet_listener_default_settings = {
 	MEMBER(address) "*",
-	MEMBER(port) 0
+	MEMBER(port) 0,
+	MEMBER(ssl) FALSE
 };
 
 static struct setting_parser_info inet_listener_setting_parser_info = {

@@ -109,6 +109,9 @@ master_service_init(const char *name, enum master_service_flags flags,
 	str = getenv("SOCKET_COUNT");
 	if (str != NULL)
 		service->socket_count = atoi(str);
+	str = getenv("SSL_SOCKET_COUNT");
+	if (str != NULL)
+		service->ssl_socket_count = atoi(str);
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
@@ -437,6 +440,7 @@ static void master_service_listen(struct master_service_listener *l)
 		io_remove(&l->io);
 		conn.fd = l->fd;
 	}
+	conn.ssl = l->ssl;
 
 	l->service->master_status.available_count--;
         master_status_update(l->service);
@@ -461,6 +465,9 @@ static void io_listeners_add(struct master_service *service)
 		l->fd = MASTER_LISTEN_FD_FIRST + i;
 		l->io = io_add(MASTER_LISTEN_FD_FIRST + i, IO_READ,
 			       master_service_listen, l);
+
+		if (i >= service->socket_count - service->ssl_socket_count)
+			l->ssl = TRUE;
 	}
 }
 

@@ -33,7 +33,7 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd)
 {
 	struct service_listener *const *listeners;
 	ARRAY_TYPE(dup2) dups;
-	unsigned int i, count, n = 0, socket_listener_count;
+	unsigned int i, count, n = 0, socket_listener_count, ssl_socket_count;
 
 	/* stdin/stdout is already redirected to /dev/null. Other master fds
 	   should have been opened with fd_close_on_exec() so we don't have to
@@ -53,13 +53,25 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd)
 		n += socket_listener_count;
 	}
 
+	/* first add non-ssl listeners */
 	for (i = 0; i < count; i++) {
-		if (listeners[i]->fd == -1)
-			continue;
-
-		dup2_append(&dups, listeners[i]->fd,
-			    MASTER_LISTEN_FD_FIRST + n);
-		n++; socket_listener_count++;
+		if (listeners[i]->fd != -1 &&
+		    !listeners[i]->set.inetset.set->ssl) {
+			dup2_append(&dups, listeners[i]->fd,
+				    MASTER_LISTEN_FD_FIRST + n);
+			n++; socket_listener_count++;
+		}
+	}
+	/* then ssl-listeners */
+	ssl_socket_count = 0;
+	for (i = 0; i < count; i++) {
+		if (listeners[i]->fd != -1 &&
+		    listeners[i]->set.inetset.set->ssl) {
+			dup2_append(&dups, listeners[i]->fd,
+				    MASTER_LISTEN_FD_FIRST + n);
+			n++; socket_listener_count++;
+			ssl_socket_count++;
+		}
 	}
 
 	dup2_append(&dups, null_fd, MASTER_RESERVED_FD);
@@ -106,6 +118,7 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd)
 		service_error(service, "dup2s failed");
 
 	env_put(t_strdup_printf("SOCKET_COUNT=%d", socket_listener_count));
+	env_put(t_strdup_printf("SSL_SOCKET_COUNT=%d", ssl_socket_count));
 }
 
 static int validate_uid_gid(struct master_settings *set, uid_t uid, gid_t gid,

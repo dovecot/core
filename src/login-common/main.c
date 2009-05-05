@@ -39,8 +39,7 @@ static void client_connected(const struct master_service_connection *conn)
 		local_port = 0;
 	}
 
-	// FIXME: a global ssl_connections isn't enough!
-	if (!ssl_connections) {
+	if (!ssl_connections && !conn->ssl) {
 		client = client_create(conn->fd, FALSE, &local_ip,
 				       &conn->remote_ip);
 	} else {

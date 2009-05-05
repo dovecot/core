@@ -12,6 +12,7 @@ ARRAY_DEFINE_TYPE(file_listener_settings, struct file_listener_settings *);
 struct inet_listener_settings {
 	const char *address;
 	unsigned int port;
+	bool ssl;
 };
 
 struct service_settings {
