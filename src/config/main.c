@@ -26,7 +26,6 @@ static void client_connected(const struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	enum config_dump_flags flags = 0;
 	const char *getopt_str, *service_name = "";
 	char **exec_args = NULL;
 	int c;
@@ -38,13 +37,6 @@ int main(int argc, char *argv[])
 		if (c == 'e')
 			break;
 		switch (c) {
-		case 'a':
-			flags |= CONFIG_DUMP_FLAG_HUMAN |
-				CONFIG_DUMP_FLAG_DEFAULTS;
-			break;
-		case 'n':
-			flags |= CONFIG_DUMP_FLAG_HUMAN;
-			break;
 		case 'p':
 			service_name = optarg;
 			break;
@@ -60,17 +52,7 @@ int main(int argc, char *argv[])
 	master_service_init_finish(service);
 	main_init(service_name);
 
-	if (master_service_get_socket_count(service) > 0)
-		master_service_run(service, client_connected);
-	else if (exec_args == NULL) {
-		config_connection_dump_request(STDOUT_FILENO,
-					       service_name, flags);
-	} else {
-		config_connection_putenv(service_name);
-		env_put("DOVECONF_ENV=1");
-		execvp(exec_args[0], exec_args);
-		i_fatal("execvp(%s) failed: %m", exec_args[0]);
-	}
+	master_service_run(service, client_connected);
 	config_connections_destroy_all();
 	master_service_deinit(&service);
         return 0;

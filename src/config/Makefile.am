@@ -1,6 +1,7 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
 bin_PROGRAMS = doveconf
+pkglibexec_PROGRAMS = config
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -12,18 +13,31 @@ AM_CPPFLAGS = \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
 
+config_LDADD = \
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS) \
+	$(RAND_LIBS)
+config_DEPENDENCIES = $(LIBDOVECOT)
+
 doveconf_LDADD = \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS) \
 	$(RAND_LIBS)
 doveconf_DEPENDENCIES = $(LIBDOVECOT)
 
-doveconf_SOURCES = \
+common = \
 	all-settings.c \
 	config-connection.c \
 	config-parser.c \
-	config-request.c \
-	main.c
+	config-request.c
+
+config_SOURCES = \
+	main.c \
+	$(common)
+
+doveconf_SOURCES = \
+	doveconf.c \
+	$(common)
 
 noinst_HEADERS = \
 	all-settings.h \

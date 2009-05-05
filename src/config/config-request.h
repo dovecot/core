@@ -2,8 +2,7 @@
 #define CONFIG_REQUEST_H
 
 enum config_dump_flags {
-	CONFIG_DUMP_FLAG_HUMAN		= 0x01,
-	CONFIG_DUMP_FLAG_DEFAULTS	= 0x02
+	CONFIG_DUMP_FLAG_DEFAULTS	= 0x01
 };
 
 typedef void config_request_callback_t(const char *key, const char *value,

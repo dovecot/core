@@ -8,7 +8,6 @@ void config_connection_destroy(struct config_connection *conn);
 
 void config_connection_dump_request(int fd, const char *service,
 				    enum config_dump_flags flags);
-void config_connection_putenv(const char *service);
 
 void config_connections_destroy_all(void);
 
