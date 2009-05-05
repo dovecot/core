@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "auth-common.h"
 
 #include "array.h"
 #include "str.h"

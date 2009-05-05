@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "str.h"
 
 bool cmd_enable(struct client_command_context *cmd)

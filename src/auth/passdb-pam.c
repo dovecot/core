@@ -7,7 +7,7 @@
    modified versions are marked as such.  There's absolutely no warranty.
 */
 
-#include "common.h"
+#include "auth-common.h"
 #include "passdb.h"
 
 #ifdef PASSDB_PAM

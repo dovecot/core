@@ -6,12 +6,12 @@
  * This software is released under the MIT license.
  */
 
-#include "common.h"
+#include "auth-common.h"
 #include "hash.h"
 #include "mech.h"
 
 #include "otp.h"
-#include "otp-skey-common.h"
+#include "mech-otp-skey-common.h"
 
 static struct hash_table *otp_lock_table;
 

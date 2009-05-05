@@ -1,6 +1,6 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "str.h"
 #include "ostream.h"
 #include "mail-storage.h"
@@ -8,7 +8,7 @@
 #include "imap-quote.h"
 #include "imap-util.h"
 #include "imap-sync.h"
-#include "commands.h"
+#include "imap-commands.h"
 
 struct client_sync_context {
 	/* if multiple commands are in progress, we may need to wait for them

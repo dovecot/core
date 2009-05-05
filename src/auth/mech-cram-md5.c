@@ -3,7 +3,7 @@
 /* CRAM-MD5 SASL authentication, see RFC-2195
    Joshua Goodall <joshua@roughtrade.net> */
 
-#include "common.h"
+#include "auth-common.h"
 #include "ioloop.h"
 #include "buffer.h"
 #include "hex-binary.h"

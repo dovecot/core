@@ -2,7 +2,7 @@
 
 /* Thanks to Courier-IMAP for showing how the vpopmail API should be used */
 
-#include "common.h"
+#include "auth-common.h"
 #include "userdb.h"
 
 #if defined(PASSDB_VPOPMAIL) || defined(USERDB_VPOPMAIL)

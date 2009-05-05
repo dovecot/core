@@ -2,7 +2,7 @@
 
 /* Currently supports only GLIBC-compatible NSS modules */
 
-#include "common.h"
+#include "auth-common.h"
 #include "userdb.h"
 
 #ifdef USERDB_NSS

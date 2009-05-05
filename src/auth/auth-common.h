@@ -1,5 +1,5 @@
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef AUTH_COMMON_H
+#define AUTH_COMMON_H
 
 #include "lib.h"
 #include "auth.h"

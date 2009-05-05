@@ -62,9 +62,9 @@ cmds = \
 
 imap_SOURCES = \
 	$(cmds) \
-	client.c \
-	commands.c \
-	commands-util.c \
+	imap-client.c \
+	imap-commands.c \
+	imap-commands-util.c \
 	imap-expunge.c \
 	imap-fetch.c \
 	imap-fetch-body.c \
@@ -78,10 +78,10 @@ imap_SOURCES = \
 
 
 headers = \
-	client.h \
-	commands.h \
-	commands-util.h \
-	common.h \
+	imap-client.h \
+	imap-commands.h \
+	imap-commands-util.h \
+	imap-common.h \
 	imap-expunge.h \
 	imap-fetch.h \
 	imap-search.h \

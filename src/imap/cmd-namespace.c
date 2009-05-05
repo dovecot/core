@@ -1,9 +1,9 @@
 /* Copyright (c) 2003-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "str.h"
 #include "imap-quote.h"
-#include "commands.h"
+#include "imap-commands.h"
 #include "mail-namespace.h"
 
 static void list_namespaces(struct mail_namespace *ns,

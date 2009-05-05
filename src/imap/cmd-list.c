@@ -1,13 +1,13 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
 #include "imap-quote.h"
 #include "imap-match.h"
 #include "imap-status.h"
-#include "commands.h"
+#include "imap-commands.h"
 #include "mail-namespace.h"
 
 struct cmd_list_context {

@@ -1,7 +1,7 @@
-#include "common.h"
+#include "auth-common.h"
 #include "mech.h"
 #include "passdb.h"
-#include "plain-common.h"
+#include "mech-plain-common.h"
 
 void plain_verify_callback(enum passdb_result result,
 			   struct auth_request *request)

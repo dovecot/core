@@ -1,7 +1,7 @@
-#ifndef CLIENT_H
-#define CLIENT_H
+#ifndef IMAP_CLIENT_H
+#define IMAP_CLIENT_H
 
-#include "commands.h"
+#include "imap-commands.h"
 
 #define CLIENT_COMMAND_QUEUE_MAX_SIZE 4
 /* Maximum number of CONTEXT=SEARCH UPDATEs. Clients probably won't need more

@@ -1,9 +1,9 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "ostream.h"
 #include "mail-storage.h"
-#include "commands-util.h"
+#include "imap-commands-util.h"
 
 static void notify_ok(struct mailbox *mailbox ATTR_UNUSED,
 		      const char *text, void *context)

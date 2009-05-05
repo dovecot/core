@@ -1,10 +1,10 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "auth-common.h"
 #include "safe-memset.h"
 #include "mech.h"
 #include "passdb.h"
-#include "plain-common.h"
+#include "mech-plain-common.h"
 
 static void
 mech_plain_auth_continue(struct auth_request *request,

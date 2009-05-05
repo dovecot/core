@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "auth-common.h"
 #include "passdb.h"
 
 #if defined(PASSDB_LDAP) && (defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD))

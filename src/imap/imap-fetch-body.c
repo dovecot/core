@@ -1,6 +1,6 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "buffer.h"
 #include "str.h"
 #include "strescape.h"

@@ -6,14 +6,14 @@
  * This software is released under the MIT license.
  */
 
-#include "common.h"
+#include "auth-common.h"
 #include "safe-memset.h"
 #include "hash.h"
 #include "mech.h"
 #include "passdb.h"
 #include "hex-binary.h"
 #include "otp.h"
-#include "otp-skey-common.h"
+#include "mech-otp-skey-common.h"
 
 static void 
 otp_send_challenge(struct auth_request *auth_request,

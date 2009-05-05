@@ -2,7 +2,7 @@
 
 /* Tru64 SIA support */
 
-#include "common.h"
+#include "auth-common.h"
 #include "passdb.h"
 
 #ifdef PASSDB_SIA

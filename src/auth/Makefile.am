@@ -56,6 +56,8 @@ dovecot_auth_SOURCES = \
 	auth-cache.c \
 	auth-client-connection.c \
 	auth-master-connection.c \
+	mech-otp-skey-common.c \
+	mech-plain-common.c \
 	auth-request.c \
 	auth-request-handler.c \
 	auth-settings.c \
@@ -79,8 +81,6 @@ dovecot_auth_SOURCES = \
 	mech-rpa.c \
 	mech-apop.c \
 	mech-winbind.c \
-	otp-skey-common.c \
-	plain-common.c \
 	passdb.c \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
@@ -109,8 +109,11 @@ headers = \
 	auth.h \
 	auth-cache.h \
 	auth-client-connection.h \
+	auth-common.h \
 	auth-master-interface.h \
 	auth-master-connection.h \
+	mech-otp-skey-common.h \
+	mech-plain-common.h \
 	auth-request.h \
 	auth-request-handler.h \
 	auth-settings.h \
@@ -120,12 +123,9 @@ headers = \
 	db-ldap.h \
 	db-sql.h \
 	db-passwd-file.h \
-	common.h \
 	db-checkpassword.h \
 	mech.h \
 	mycrypt.h \
-	otp-skey-common.h \
-	plain-common.h \
 	passdb.h \
 	passdb-blocking.h \
 	passdb-cache.h \

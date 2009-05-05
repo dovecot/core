@@ -1,6 +1,6 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "pop3-common.h"
 #include "array.h"
 #include "istream.h"
 #include "ostream.h"
@@ -10,8 +10,8 @@
 #include "mail-storage.h"
 #include "mail-storage-settings.h"
 #include "mail-search-build.h"
-#include "capability.h"
-#include "commands.h"
+#include "pop3-capability.h"
+#include "pop3-commands.h"
 
 static const char *get_msgnum(struct client *client, const char *args,
 			      unsigned int *msgnum)

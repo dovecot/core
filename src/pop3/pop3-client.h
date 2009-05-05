@@ -1,5 +1,5 @@
-#ifndef CLIENT_H
-#define CLIENT_H
+#ifndef POP3_CLIENT_H
+#define POP3_CLIENT_H
 
 struct client;
 struct mail_storage;

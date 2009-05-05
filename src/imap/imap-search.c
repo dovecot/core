@@ -1,6 +1,6 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "ostream.h"
 #include "str.h"
 #include "seq-range-array.h"
@@ -9,7 +9,7 @@
 #include "imap-seqset.h"
 #include "imap-util.h"
 #include "mail-search-build.h"
-#include "commands.h"
+#include "imap-commands.h"
 #include "imap-search-args.h"
 #include "imap-search.h"
 

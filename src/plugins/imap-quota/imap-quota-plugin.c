@@ -1,10 +1,10 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "str.h"
 #include "imap-quote.h"
 #include "mail-namespace.h"
-#include "commands.h"
+#include "imap-commands.h"
 #include "quota.h"
 #include "quota-plugin.h"
 #include "imap-quota-plugin.h"

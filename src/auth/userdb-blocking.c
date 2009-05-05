@@ -1,6 +1,6 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "auth-common.h"
 #include "str.h"
 #include "auth-worker-server.h"
 #include "userdb.h"

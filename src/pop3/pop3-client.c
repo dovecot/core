@@ -1,6 +1,6 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "pop3-common.h"
 #include "buffer.h"
 #include "ioloop.h"
 #include "network.h"
@@ -10,7 +10,7 @@
 #include "var-expand.h"
 #include "master-service.h"
 #include "mail-storage.h"
-#include "commands.h"
+#include "pop3-commands.h"
 #include "mail-search-build.h"
 #include "mail-namespace.h"
 

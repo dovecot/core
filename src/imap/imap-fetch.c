@@ -1,6 +1,6 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "array.h"
 #include "buffer.h"
 #include "istream.h"
@@ -10,7 +10,7 @@
 #include "message-size.h"
 #include "imap-date.h"
 #include "mail-search-build.h"
-#include "commands.h"
+#include "imap-commands.h"
 #include "imap-quote.h"
 #include "imap-fetch.h"
 #include "imap-util.h"

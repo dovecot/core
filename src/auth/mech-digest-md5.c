@@ -2,7 +2,7 @@
 
 /* Digest-MD5 SASL authentication, see RFC-2831 */
 
-#include "common.h"
+#include "auth-common.h"
 #include "base64.h"
 #include "buffer.h"
 #include "hex-binary.h"

@@ -1,10 +1,10 @@
 /* Copyright (c) 2008-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "str.h"
 #include "imap-quote.h"
 #include "imap-resp-code.h"
-#include "commands.h"
+#include "imap-commands.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "acl-api.h"

@@ -1,5 +1,5 @@
-#ifndef COMMANDS_UTIL_H
-#define COMMANDS_UTIL_H
+#ifndef IMAP_COMMANDS_UTIL_H
+#define IMAP_COMMANDS_UTIL_H
 
 struct msgset_generator_context {
 	string_t *str;

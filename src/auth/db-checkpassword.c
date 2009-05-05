@@ -1,6 +1,6 @@
 /* Copyright (c) 2004-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "auth-common.h"
 
 #if defined(PASSDB_CHECKPASSWORD) || defined(USERDB_CHECKPASSWORD)
 

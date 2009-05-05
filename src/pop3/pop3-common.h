@@ -1,5 +1,5 @@
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef POP3_COMMON_H
+#define POP3_COMMON_H
 
 enum client_workarounds {
 	WORKAROUND_OUTLOOK_NO_NULS		= 0x01,
@@ -14,7 +14,7 @@ enum uidl_keys {
 };
 
 #include "lib.h"
-#include "client.h"
+#include "pop3-client.h"
 #include "pop3-settings.h"
 
 extern struct master_service *service;

@@ -1,6 +1,6 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -12,7 +12,7 @@
 #include "master-service.h"
 #include "mail-user.h"
 #include "mail-storage-service.h"
-#include "commands.h"
+#include "imap-commands.h"
 
 #include <stdio.h>
 #include <stdlib.h>

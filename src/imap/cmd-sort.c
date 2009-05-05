@@ -1,8 +1,8 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "buffer.h"
-#include "commands.h"
+#include "imap-commands.h"
 #include "imap-search-args.h"
 #include "imap-search.h"
 

@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "mail-storage.h"
 #include "mail-search-build.h"
 #include "imap-expunge.h"

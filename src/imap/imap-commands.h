@@ -1,12 +1,12 @@
-#ifndef COMMANDS_H
-#define COMMANDS_H
+#ifndef IMAP_COMMANDS_H
+#define IMAP_COMMANDS_H
 
 struct client_command_context;
 
 #include "mail-storage.h"
 #include "imap-parser.h"
 #include "imap-sync.h"
-#include "commands-util.h"
+#include "imap-commands-util.h"
 
 typedef bool command_func_t(struct client_command_context *cmd);
 

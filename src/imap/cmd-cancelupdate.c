@@ -1,7 +1,7 @@
 /* Copyright (c) 2008-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
-#include "commands.h"
+#include "imap-common.h"
+#include "imap-commands.h"
 
 static bool client_search_update_cancel(struct client *client, const char *tag)
 {

@@ -1,5 +1,5 @@
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef IMAP_COMMON_H
+#define IMAP_COMMON_H
 
 /* Disconnect client after idling this many milliseconds */
 #define CLIENT_IDLE_TIMEOUT_MSECS (60*30*1000)
@@ -20,7 +20,7 @@ enum client_workarounds {
 };
 
 #include "lib.h"
-#include "client.h"
+#include "imap-client.h"
 #include "imap-settings.h"
 
 extern struct master_service *service;

@@ -1,8 +1,8 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "seq-range-array.h"
-#include "commands.h"
+#include "imap-commands.h"
 #include "mail-search-build.h"
 #include "imap-seqset.h"
 #include "imap-fetch.h"

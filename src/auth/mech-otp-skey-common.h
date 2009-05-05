@@ -1,5 +1,5 @@
-#ifndef OTP_SKEY_COMMON_H
-#define OTP_SKEY_COMMON_H
+#ifndef MECH_OTP_SKEY_COMMON_H
+#define MECH_OTP_SKEY_COMMON_H
 
 struct otp_auth_request {
 	struct auth_request auth_request;

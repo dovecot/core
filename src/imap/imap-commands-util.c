@@ -1,6 +1,6 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "array.h"
 #include "buffer.h"
 #include "str.h"
@@ -11,7 +11,7 @@
 #include "imap-util.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
-#include "commands-util.h"
+#include "imap-commands-util.h"
 
 /* Maximum length for mailbox name, including it's path. This isn't fully
    exact since the user can create folder hierarchy with small names, then

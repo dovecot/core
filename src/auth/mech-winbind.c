@@ -7,7 +7,7 @@
  * This software is released under the MIT license.
  */
 
-#include "common.h"
+#include "auth-common.h"
 #include "lib-signals.h"
 #include "mech.h"
 #include "str.h"

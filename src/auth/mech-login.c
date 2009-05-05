@@ -6,11 +6,11 @@
  * This software is released under the MIT license.
  */
 
-#include "common.h"
+#include "auth-common.h"
 #include "mech.h"
 #include "passdb.h"
 #include "safe-memset.h"
-#include "plain-common.h"
+#include "mech-plain-common.h"
 
 
 static void

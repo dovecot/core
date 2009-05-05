@@ -12,7 +12,7 @@
  * This software is released under the MIT license.
  */
 
-#include "common.h"
+#include "auth-common.h"
 #include "env-util.h"
 #include "str.h"
 #include "str-sanitize.h"

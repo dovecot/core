@@ -27,16 +27,16 @@ pop3_LDADD = $(libs) $(MODULE_LIBS)
 pop3_DEPENDENCIES = $(libs)
 
 pop3_SOURCES = \
-	client.c \
-	commands.c \
 	main.c \
+	pop3-client.c \
+	pop3-commands.c \
 	pop3-settings.c
 
 headers = \
-	capability.h \
-	client.h \
-	commands.h \
-	common.h \
+	pop3-capability.h \
+	pop3-client.h \
+	pop3-commands.h \
+	pop3-common.h \
 	pop3-settings.h
 
 if INSTALL_HEADERS

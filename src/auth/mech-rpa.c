@@ -6,7 +6,7 @@
  * This software is released under the MIT license.
  */
 
-#include "common.h"
+#include "auth-common.h"
 #include "mech.h"
 #include "passdb.h"
 #include "str.h"

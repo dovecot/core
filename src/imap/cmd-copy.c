@@ -1,10 +1,10 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "str.h"
 #include "ostream.h"
 #include "imap-resp-code.h"
-#include "commands.h"
+#include "imap-commands.h"
 #include "imap-search-args.h"
 
 #include <time.h>

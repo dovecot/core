@@ -1,6 +1,6 @@
 /* Copyright (c) 2008-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "imap-common.h"
 #include "imap-id.h"
 
 bool cmd_id(struct client_command_context *cmd)
