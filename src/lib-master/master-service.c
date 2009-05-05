@@ -64,8 +64,19 @@ master_service_init(const char *name, enum master_service_flags flags,
 		    int argc, char *argv[])
 {
 	struct master_service *service;
+	const char *str;
 
 	i_assert(name != NULL);
+
+#ifdef DEBUG
+	if (getenv("GDB") == NULL) {
+		int count;
+
+		str = getenv("SOCKET_COUNT");
+		count = str == NULL ? 0 : atoi(str);
+		fd_debug_verify_leaks(MASTER_LISTEN_FD_FIRST + count, 1024);
+	}
+#endif
 
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
@@ -95,6 +106,9 @@ master_service_init(const char *name, enum master_service_flags flags,
 	} else {
 		service->version_string = PACKAGE_VERSION;
 	}
+	str = getenv("SOCKET_COUNT");
+	if (str != NULL)
+		service->socket_count = atoi(str);
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */

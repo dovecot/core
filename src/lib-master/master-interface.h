@@ -28,6 +28,7 @@ struct log_service_handshake {
 	unsigned int max_lines_per_sec;
 
 	/* Add this previs to each logged line */
+#define MASTER_LOG_PREFIX_NAME "MASTER"
 	unsigned int prefix_len;
 	/* unsigned char prefix[]; */
 };

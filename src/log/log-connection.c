@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "array.h"
 #include "ioloop.h"
 #include "llist.h"
 #include "hash.h"
@@ -8,6 +9,8 @@
 #include "master-service.h"
 #include "log-connection.h"
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #define FATAL_QUEUE_TIMEOUT_MSECS 500
@@ -26,10 +29,12 @@ struct log_connection {
 	char *prefix;
 	struct hash_table *clients;
 
+	unsigned int master:1;
 	unsigned int handshaked:1;
 };
 
 static struct log_connection *log_connections = NULL;
+static ARRAY_DEFINE(logs_by_fd, struct log_connection *);
 
 static struct log_client *log_client_get(struct log_connection *log, pid_t pid)
 {
@@ -52,47 +57,60 @@ static void log_parse_ip(struct log_connection *log,
 	(void)net_addr2ip(failure->text + 3, &client->ip);
 }
 
-static void log_remove_pid(struct log_connection *log, pid_t pid)
-{
-	struct log_client *client;
-
-	client = hash_table_lookup(log->clients, POINTER_CAST(pid));
-	if (client != NULL) {
-		hash_table_remove(log->clients, POINTER_CAST(pid));
-		i_free(client);
-	}
-}
-
 static void log_parse_option(struct log_connection *log,
 			     const struct failure_line *failure)
 {
 	if (strncmp(failure->text, "ip=", 3) == 0)
 		log_parse_ip(log, failure);
-	else if (strcmp(failure->text, "bye") == 0)
-		log_remove_pid(log, failure->pid);
 }
 
-static bool
-log_handle_seen_fatal(struct log_connection *log, const char **_text)
+static void log_parse_master_line(const char *line)
 {
-	const char *text = *_text;
+	struct log_connection *const *logs, *log;
 	struct log_client *client;
-	pid_t pid = 0;
+	const char *p, *p2;
+	unsigned int count;
+	int service_fd;
+	long pid;
 
-	while (*text >= '0' && *text <= '9') {
-		pid = pid*10 + (*text - '0');
-		text++;
+	p = strchr(line, ' ');
+	if (p == NULL || (p2 = strchr(++p, ' ')) == NULL) {
+		i_error("Received invalid input from master: %s", line);
+		return;
 	}
-	if (*text != ' ' || pid == 0)
-		return FALSE;
-	*_text = text;
+	service_fd = atoi(t_strcut(line, ' '));
+	pid = strtol(t_strcut(p, ' '), NULL, 10);
 
+	logs = array_get(&logs_by_fd, &count);
+	if (service_fd >= (int)count || logs[service_fd] == NULL) {
+		i_error("Received master input for invalid service_fd %d: %s",
+			service_fd, line);
+		return;
+	}
+	log = logs[service_fd];
 	client = hash_table_lookup(log->clients, POINTER_CAST(pid));
-	if (client != NULL && client->fatal_logged) {
-		log_remove_pid(log, pid);
-		return TRUE;
+	line = p2 + 1;
+
+	if (strcmp(line, "BYE") == 0) {
+		if (client == NULL) {
+			/* we haven't seen anything important from this client.
+			   it's not an error. */
+			return;
+		}
+		hash_table_remove(log->clients, POINTER_CAST(pid));
+		i_free(client);
+	} else if (strncmp(line, "DEFAULT-FATAL ", 14) == 0) {
+		/* If the client has logged a fatal/panic, don't log this
+		   message. */
+		if (client == NULL || !client->fatal_logged)
+			i_error("%s", line + 14);
+		else {
+			hash_table_remove(log->clients, POINTER_CAST(pid));
+			i_free(client);
+		}
+	} else {
+		i_error("Received unknown command from master: %s", line);
 	}
-	return FALSE;
 }
 
 static void log_it(struct log_connection *log, const char *line)
@@ -100,26 +118,17 @@ static void log_it(struct log_connection *log, const char *line)
 	struct failure_line failure;
 	struct log_client *client;
 
+	if (log->master) {
+		log_parse_master_line(line);
+		return;
+	}
+
 	i_failure_parse_line(line, &failure);
 	switch (failure.log_type) {
 	case LOG_TYPE_FATAL:
 	case LOG_TYPE_PANIC:
 		client = log_client_get(log, failure.pid);
 		client->fatal_logged = TRUE;
-		break;
-	case LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL:
-		/* Special case for master connection. If the following PID
-		   has logged a fatal/panic, don't log this message. */
-		failure.log_type = LOG_TYPE_ERROR;
-		if (failure.pid != master_pid) {
-			i_error("Non-master process %s "
-				"sent LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL",
-				dec2str(failure.pid));
-			break;
-		}
-
-		if (log_handle_seen_fatal(log, &failure.text))
-			return;
 		break;
 	case LOG_TYPE_OPTION:
 		log_parse_option(log, &failure);
@@ -151,6 +160,14 @@ static bool log_connection_handshake(struct log_connection *log,
 					handshake.prefix_len);
 		*data += sizeof(handshake) + handshake.prefix_len;
 	}
+	if (strcmp(log->prefix, MASTER_LOG_PREFIX_NAME) == 0) {
+		if (log->fd != MASTER_LISTEN_FD_FIRST) {
+			i_error("Received master prefix in handshake "
+				"from non-master fd %d", log->fd);
+			return FALSE;
+		}
+		log->master = TRUE;
+	}
 	log->handshaked = TRUE;
 	return TRUE;
 }
@@ -171,7 +188,7 @@ static void log_connection_input(struct log_connection *log)
 
 	line = data;
 	if (!log->handshaked)
-		log_connection_handshake(log, &line, ret);
+		(void)log_connection_handshake(log, &line, ret);
 
 	p = line;
 	while ((p = strchr(line, '\n')) != NULL) {
@@ -194,6 +211,7 @@ struct log_connection *log_connection_create(int fd)
 	log->io = io_add(fd, IO_READ, log_connection_input, log);
 	log->clients = hash_table_create(default_pool, default_pool, 0,
 					 NULL, NULL);
+	array_idx_set(&logs_by_fd, fd, &log);
 
 	DLLIST_PREPEND(&log_connections, log);
 	log_connection_input(log);
@@ -205,6 +223,8 @@ void log_connection_destroy(struct log_connection *log)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
+	array_idx_clear(&logs_by_fd, log->fd);
+
 	DLLIST_REMOVE(&log_connections, log);
 
 	iter = hash_table_iterate_init(log->clients);
@@ -215,10 +235,17 @@ void log_connection_destroy(struct log_connection *log)
 
 	if (log->io != NULL)
 		io_remove(&log->io);
+	if (close(log->fd) < 0)
+		i_error("close(log connection fd) failed: %m");
 	i_free(log->prefix);
 	i_free(log);
 
         master_service_client_connection_destroyed(service);
+}
+
+void log_connections_init(void)
+{
+	i_array_init(&logs_by_fd, 64);
 }
 
 void log_connections_deinit(void)
@@ -227,4 +254,5 @@ void log_connections_deinit(void)
 	   but we could get here when we're being killed by a signal */
 	while (log_connections != NULL)
 		log_connection_destroy(log_connections);
+	array_free(&logs_by_fd);
 }

@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "array.h"
+#include "aqueue.h"
 #include "hash.h"
 #include "str.h"
 #include "service.h"
@@ -238,6 +239,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	service->log_fd[1] = -1;
 	service->status_fd[0] = -1;
 	service->status_fd[1] = -1;
+	service->log_process_internal_fd = -1;
 
 	if (array_is_created(&set->unix_listeners))
 		unix_listeners = array_get(&set->unix_listeners, &unix_count);
@@ -336,6 +338,8 @@ services_create(const struct master_settings *set,
 	service_list = p_new(pool, struct service_list, 1);
 	service_list->pool = pool;
 	service_list->child_process_env = child_process_env;
+	service_list->master_log_fd[0] = -1;
+	service_list->master_log_fd[1] = -1;
 
 	service_settings = array_get(&set->services, &count);
 	p_array_init(&service_list->services, pool, count);
@@ -400,6 +404,8 @@ services_create(const struct master_settings *set,
 
 	service_list->pids = hash_table_create(default_pool, pool, 0,
 					       pid_hash, pid_hash_cmp);
+	p_array_init(&service_list->bye_arr, pool, 64);
+	service_list->bye_queue = aqueue_init(&service_list->bye_arr.arr);
 	return service_list;
 }
 
@@ -440,5 +446,6 @@ void services_destroy(struct service_list *service_list)
 	hash_table_iterate_deinit(&iter);
 
 	hash_table_destroy(&service_list->pids);
+	aqueue_deinit(&service_list->bye_queue);
 	pool_unref(&service_list->pool);
 }

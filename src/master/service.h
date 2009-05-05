@@ -65,8 +65,11 @@ struct service {
 	/* max number of processes allowed */
 	unsigned int process_limit;
 
-	/* log process pipe file descriptors */
+	/* log process pipe file descriptors. */
 	int log_fd[2];
+	/* fd that log process sees log_fd[0] as. can be used to identify
+	   service name when sending commands via master_log_fd. */
+	int log_process_internal_fd;
 
 	/* status report pipe file descriptors */
 	int status_fd[2];
@@ -91,6 +94,14 @@ struct service_list {
 	struct service *log;
 	struct hash_table *pids;
 	const char *const *child_process_env;
+
+	/* nonblocking log fds usd by master */
+	int master_log_fd[2];
+	/* we're waiting to be able to send "bye" to log process */
+	struct io *io_log_write;
+	/* List of processes who are waiting for the "bye" */
+	struct aqueue *bye_queue;
+	ARRAY_DEFINE(bye_arr, struct service_process *);
 
 	ARRAY_DEFINE(services, struct service *);
 };

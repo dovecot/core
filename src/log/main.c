@@ -31,6 +31,7 @@ static void main_init(void)
 	lib_signals_set_handler(SIGUSR1, TRUE, sig_reopen_logs, NULL);
 
 	master_pid = getppid();
+	log_connections_init();
 }
 
 static void main_deinit(void)

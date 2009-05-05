@@ -2,61 +2,86 @@
 
 #include "common.h"
 #include "array.h"
+#include "aqueue.h"
 #include "hash.h"
 #include "ioloop.h"
 #include "fd-close-on-exec.h"
+#include "fd-set-nonblock.h"
 #include "service.h"
 #include "service-process.h"
 #include "service-log.h"
 
 #include <unistd.h>
 
-int services_log_init(struct service_list *service_list)
+static int service_log_fds_init(const char *log_prefix, int log_fd[2],
+				buffer_t *handshake_buf)
 {
 	struct log_service_handshake handshake;
-	struct service *const *services;
-	unsigned int i, count;
-	buffer_t *handshake_buf;
-	ssize_t ret = 0;
+	ssize_t ret;
+
+	i_assert(log_fd[0] == -1);
+
+	if (pipe(log_fd) < 0) {
+		i_error("pipe() failed: %m");
+		return -1;
+	}
+	fd_close_on_exec(log_fd[0], TRUE);
+	fd_close_on_exec(log_fd[1], TRUE);
 
 	memset(&handshake, 0, sizeof(handshake));
 	handshake.log_magic = MASTER_LOG_MAGIC;
+	handshake.prefix_len = strlen(log_prefix);
+
+	buffer_set_used_size(handshake_buf, 0);
+	buffer_append(handshake_buf, &handshake, sizeof(handshake));
+	buffer_append(handshake_buf, log_prefix, strlen(log_prefix));
+
+	ret = write(log_fd[1], handshake_buf->data, handshake_buf->used);
+	if (ret < 0) {
+		i_error("write(log handshake) failed: %m");
+		return -1;
+	}
+	if ((size_t)ret != handshake_buf->used) {
+		i_error("write(log handshake) didn't write everything");
+		return -1;
+	}
+	return 0;
+}
+
+int services_log_init(struct service_list *service_list)
+{
+	struct service *const *services;
+	unsigned int i, count, n;
+	const char *log_prefix;
+	buffer_t *handshake_buf;
+	ssize_t ret = 0;
 
 	handshake_buf = buffer_create_dynamic(default_pool, 256);
 	services = array_get(&service_list->services, &count);
+
+	if (service_log_fds_init(MASTER_LOG_PREFIX_NAME,
+				 service_list->master_log_fd,
+				 handshake_buf) < 0)
+		ret = -1;
+	else
+		fd_set_nonblock(service_list->master_log_fd[1], TRUE);
+
+	n = 1;
 	for (i = 0; i < count; i++) {
 		if (services[i]->type == SERVICE_TYPE_LOG)
 			continue;
 
-		i_assert(services[i]->log_fd[0] == -1);
-		if (pipe(services[i]->log_fd) < 0) {
-			i_error("pipe() failed: %m");
+		log_prefix = t_strconcat(services[i]->set->name, ": ", NULL);
+		if (service_log_fds_init(log_prefix,
+					 services[i]->log_fd,
+					 handshake_buf) < 0) {
 			ret = -1;
 			break;
 		}
-		fd_close_on_exec(services[i]->log_fd[0], TRUE);
-		fd_close_on_exec(services[i]->log_fd[1], TRUE);
-
-		handshake.prefix_len = strlen(services[i]->set->name) + 2;
-
-		buffer_set_used_size(handshake_buf, 0);
-		buffer_append(handshake_buf, &handshake, sizeof(handshake));
-		buffer_append(handshake_buf, services[i]->set->name,
-			      strlen(services[i]->set->name));
-		buffer_append(handshake_buf, ": ", 2);
-
-		ret = write(services[i]->log_fd[1],
-			    handshake_buf->data, handshake_buf->used);
-		if (ret < 0) {
-			i_error("write(log handshake) failed: %m");
-			break;
-		}
-		if ((size_t)ret != handshake_buf->used) {
-			i_error("write(log handshake) didn't write everything");
-			ret = -1;
-			break;
-		}
+		services[i]->log_process_internal_fd =
+			MASTER_LISTEN_FD_FIRST + n++;
 	}
+
 	buffer_free(&handshake_buf);
 	if (ret < 0) {
 		services_log_deinit(service_list);
@@ -65,19 +90,24 @@ int services_log_init(struct service_list *service_list)
 	return 0;
 }
 
-static void service_remove_log_io_writes(struct service *service)
+void services_log_clear_byes(struct service_list *service_list)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
+	struct service_process *const *processes, *process;
+	unsigned int i, count;
 
-	iter = hash_table_iterate_init(service->list->pids);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct service_process *process = value;
+	if (service_list->io_log_write == NULL)
+		return;
 
-		if (process->io_log_write != NULL)
-			io_remove(&process->io_log_write);
+	processes = array_idx_modifiable(&service_list->bye_arr, 0);
+	count = aqueue_count(service_list->bye_queue);
+	for (i = 0; i < count; i++) {
+		process = processes[aqueue_idx(service_list->bye_queue, i)];
+		service_process_unref(process);
 	}
-	hash_table_iterate_deinit(&iter);
+	aqueue_clear(service_list->bye_queue);
+	array_clear(&service_list->bye_arr);
+
+	io_remove(&service_list->io_log_write);
 }
 
 void services_log_deinit(struct service_list *service_list)
@@ -98,8 +128,17 @@ void services_log_deinit(struct service_list *service_list)
 			}
 			services[i]->log_fd[0] = -1;
 			services[i]->log_fd[1] = -1;
-			service_remove_log_io_writes(services[i]);
+			services[i]->log_process_internal_fd = -1;
 		}
+	}
+	services_log_clear_byes(service_list);
+	if (service_list->master_log_fd[0] != -1) {
+		if (close(service_list->master_log_fd[0]) < 0)
+			i_error("close(master log fd) failed: %m");
+		if (close(service_list->master_log_fd[1]) < 0)
+			i_error("close(master log fd) failed: %m");
+		service_list->master_log_fd[0] = -1;
+		service_list->master_log_fd[1] = -1;
 	}
 }
 
@@ -108,13 +147,19 @@ void services_log_dup2(ARRAY_TYPE(dup2) *dups,
 		       unsigned int first_fd, unsigned int *fd_count)
 {
 	struct service *const *services;
-	unsigned int i, n, count;
+	unsigned int i, n = 0, count;
+
+	/* master log fd is always the first one */
+	dup2_append(dups, service_list->master_log_fd[0], first_fd);
+	n++; *fd_count += 1;
 
 	services = array_get(&service_list->services, &count);
-	for (i = n = 0; i < count; i++) {
-		if (services[i]->log_fd[1] != -1) {
-			dup2_append(dups, services[i]->log_fd[0], first_fd + n);
-			n++; *fd_count += 1;
-		}
+	for (i = 0; i < count; i++) {
+		if (services[i]->log_fd[1] == -1)
+			continue;
+
+		i_assert((int)(first_fd + n) == services[i]->log_process_internal_fd);
+		dup2_append(dups, services[i]->log_fd[0], first_fd + n);
+		n++; *fd_count += 1;
 	}
 }
