@@ -27,6 +27,8 @@
 /* Check every 30 minutes if parameters file has been updated */
 #define SSL_PARAMFILE_CHECK_INTERVAL (60*30)
 
+#define SSL_PARAMETERS_FILENAME "ssl-parameters.dat"
+
 enum ssl_io_action {
 	SSL_ADD_INPUT,
 	SSL_REMOVE_INPUT,
@@ -901,6 +903,9 @@ void ssl_proxy_init(void)
 	   the first try, so this function may fail. It's still been
 	   initialized though. */
 	(void)RAND_bytes(&buf, 1);
+
+	memset(&ssl_params, 0, sizeof(ssl_params));
+	ssl_params.fname = SSL_PARAMETERS_FILENAME;
 
 	ssl_proxy_count = 0;
         ssl_proxies = NULL;
