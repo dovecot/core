@@ -138,6 +138,8 @@ service_create(pool_t pool, const struct service_settings *set,
 			service->type = SERVICE_TYPE_CONFIG;
 		else if (strcmp(set->type, "auth") == 0)
 			service->type = SERVICE_TYPE_AUTH_SERVER;
+		else if (strcmp(set->type, "auth-source") == 0)
+			service->type = SERVICE_TYPE_AUTH_SOURCE;
 	}
 
 	if (*set->auth_dest_service != '\0')
