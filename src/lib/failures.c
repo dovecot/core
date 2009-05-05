@@ -285,6 +285,15 @@ void i_set_info_handler(failure_callback_t *callback)
 	info_handler = callback;
 }
 
+void i_get_failure_handlers(fatal_failure_callback_t **fatal_callback_r,
+			    failure_callback_t **error_callback_r,
+			    failure_callback_t **info_callback_r)
+{
+	*fatal_callback_r = fatal_handler;
+	*error_callback_r = error_handler;
+	*info_callback_r = info_handler;
+}
+
 static int ATTR_FORMAT(3, 0)
 syslog_handler(int level, enum log_type type, const char *format, va_list args)
 {

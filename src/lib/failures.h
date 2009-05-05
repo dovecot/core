@@ -59,6 +59,9 @@ void i_set_fatal_handler(fatal_failure_callback_t *callback);
 #endif
 void i_set_error_handler(failure_callback_t *callback);
 void i_set_info_handler(failure_callback_t *callback);
+void i_get_failure_handlers(fatal_failure_callback_t **fatal_callback_r,
+			    failure_callback_t **error_callback_r,
+			    failure_callback_t **info_callback_r);
 
 /* Send failures to file. */
 void default_fatal_handler(enum log_type type, int status,
