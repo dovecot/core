@@ -280,6 +280,15 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				"Service #%d is missing name", i);
 			return FALSE;
 		}
+		if (*services[i]->type != '\0' &&
+		    strcmp(services[i]->type, "log") != 0 &&
+		    strcmp(services[i]->type, "config") != 0 &&
+		    strcmp(services[i]->type, "auth") != 0 &&
+		    strcmp(services[i]->type, "auth-source") != 0) {
+			*error_r = t_strconcat("Unknown service type: ",
+					       services[i]->type, NULL);
+			return FALSE;
+		}
 		for (j = 0; j < i; j++) {
 			if (strcmp(services[i]->name, services[j]->name) == 0) {
 				*error_r = t_strdup_printf(

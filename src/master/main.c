@@ -163,6 +163,20 @@ static void fatal_log_check(const struct master_settings *set)
 		i_error("unlink(%s) failed: %m", path);
 }
 
+static bool
+services_has_name(const struct master_settings *set, const char *name)
+{
+	struct service_settings *const *services;
+	unsigned int i, count;
+
+	services = array_get(&set->services, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(services[i]->name, name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static bool services_have_auth_destinations(const struct master_settings *set)
 {
 	struct service_settings *const *services;
@@ -170,8 +184,10 @@ static bool services_have_auth_destinations(const struct master_settings *set)
 
 	services = array_get(&set->services, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(services[i]->type, "auth-destination") == 0)
-			return TRUE;
+		if (strcmp(services[i]->type, "auth-source") == 0) {
+			if (services_has_name(set, services[i]->auth_dest_service))
+				return TRUE;
+		}
 	}
 	return FALSE;
 }
