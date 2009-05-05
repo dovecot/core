@@ -24,7 +24,8 @@ void service_error(struct service *service, const char *format, ...)
 	va_end(args);
 }
 
-static int get_uid(const char *user, uid_t *uid_r, const char **error_r)
+static int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
+		      const char **error_r)
 {
 	struct passwd *pw;
 
@@ -39,6 +40,7 @@ static int get_uid(const char *user, uid_t *uid_r, const char **error_r)
 	}
 
 	*uid_r = pw->pw_uid;
+	*gid_r = pw->pw_gid;
 	return 0;
 }
 
@@ -47,7 +49,7 @@ static int get_gid(const char *group, gid_t *gid_r, const char **error_r)
 	struct group *gr;
 
 	if (*group == '\0') {
-		*gid_r = (uid_t)-1;
+		*gid_r = (gid_t)-1;
 		return 0;
 	}
 
@@ -67,6 +69,7 @@ service_create_file_listener(struct service *service,
 			     const char **error_r)
 {
 	struct service_listener *l;
+	gid_t gid;
 
 	l = p_new(service->list->pool, struct service_listener, 1);
 	l->service = service;
@@ -74,7 +77,7 @@ service_create_file_listener(struct service *service,
 	l->fd = -1;
 	l->set.fileset.set = set;
 
-	if (get_uid(set->user, &l->set.fileset.uid, error_r) < 0)
+	if (get_uidgid(set->user, &l->set.fileset.uid, &gid, error_r) < 0)
 		return NULL;
 	if (get_gid(set->group, &l->set.fileset.gid, error_r) < 0)
 		return NULL;
@@ -196,10 +199,13 @@ service_create(pool_t pool, const struct service_settings *set,
 		return NULL;
 	}
 
-	if (get_uid(set->user, &service->uid, error_r) < 0)
+	/* default gid to user's primary group */
+	if (get_uidgid(set->user, &service->uid, &service->gid, error_r) < 0)
 		return NULL;
-	if (get_gid(set->group, &service->gid, error_r) < 0)
-		return NULL;
+	if (*set->group != '\0') {
+		if (get_gid(set->group, &service->gid, error_r) < 0)
+			return NULL;
+	}
 	if (get_gid(set->privileged_group, &service->privileged_gid,
 		    error_r) < 0)
 		return NULL;
