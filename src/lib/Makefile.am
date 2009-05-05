@@ -199,7 +199,7 @@ headers = \
 	write-full.h
 
 if INSTALL_HEADERS
-  pkginc_libdir=$(pkgincludedir)/src/lib
+  pkginc_libdir=$(pkgincludedir)
   pkginc_lib_HEADERS = $(headers)
 else
   noinst_HEADERS = $(headers)

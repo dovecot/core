@@ -40,7 +40,7 @@ headers = \
 	pop3-settings.h
 
 if INSTALL_HEADERS
-  pkginc_libdir=$(pkgincludedir)/src/pop3
+  pkginc_libdir=$(pkgincludedir)
   pkginc_lib_HEADERS = $(headers)
 else
   noinst_HEADERS = $(headers)
