@@ -21,11 +21,6 @@ enum log_type {
 	LOG_TYPE_FATAL,
 	LOG_TYPE_PANIC,
 
-	/* Special message from master to log process: Log message begins with
-	   "<pid> " and if <pid> has already logged a fatal/panic, this message
-	   shouldn't be written to the log. Otherwise log as an error. */
-	LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL,
-
 	LOG_TYPE_COUNT,
 	LOG_TYPE_OPTION
 };

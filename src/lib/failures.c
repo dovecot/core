@@ -21,8 +21,7 @@ const char *failure_log_type_prefixes[LOG_TYPE_COUNT] = {
 	"Warning: ",
 	"Error: ",
 	"Fatal: ",
-	"Panic: ",
-	"Error: "
+	"Panic: "
 };
 
 /* Initialize working defaults */
@@ -195,22 +194,6 @@ void i_log_type(enum log_type type, const char *format, ...)
 
 	va_start(args, format);
 
-	if (type == LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL &&
-	    error_handler != i_internal_error_handler) {
-		/* this is handled specially only by internal logging.
-		   skip over the pid. */
-		T_BEGIN {
-			const char *str;
-
-			str = t_strdup_vprintf(format, args);
-			while (*str >= '0' && *str <= '9') str++;
-			if (*str == ' ') str++;
-
-			i_error("%s", str);
-		} T_END;
-		return;
-	}
-
 	if (type == LOG_TYPE_INFO)
 		info_handler(type, format, args);
 	else
@@ -346,7 +329,6 @@ void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
 		level = LOG_WARNING;
 		break;
 	case LOG_TYPE_ERROR:
-	case LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL:
 		level = LOG_ERR;
 		break;
 	case LOG_TYPE_FATAL:

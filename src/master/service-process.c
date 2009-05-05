@@ -557,12 +557,12 @@ static void log_coredump(struct service *service, string_t *str, int status)
 
 static void
 service_process_get_status_error(string_t *str, struct service_process *process,
-				 int status, enum log_type *type_r)
+				 int status, bool *default_fatal_r)
 {
 	struct service *service = process->service;
 	const char *msg;
 
-	*type_r = LOG_TYPE_ERROR;
+	*default_fatal_r = FALSE;
 
 	str_printfa(str, "service(%s): child %s ", service->set->name,
 		    dec2str(process->pid));
@@ -588,17 +588,16 @@ service_process_get_status_error(string_t *str, struct service_process *process,
 		str_printfa(str, " (%s)", msg);
 
 	if (status == FATAL_DEFAULT)
-		*type_r = LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL;
+		*default_fatal_r = TRUE;
 }
 
 static void service_process_log(struct service_process *process,
-				enum log_type type, const char *str)
+				bool default_fatal, const char *str)
 {
 	const char *data;
 
-	if (type != LOG_TYPE_ERROR_IGNORE_IF_SEEN_FATAL ||
-	    process->service->log_fd[1] == -1) {
-		i_log_type(type, "%s", str);
+	if (!default_fatal || process->service->log_fd[1] == -1) {
+		i_error("%s", str);
 		return;
 	}
 
@@ -623,10 +622,11 @@ void service_process_log_status_error(struct service_process *process,
 	}
 	T_BEGIN {
 		string_t *str = t_str_new(256);
-		enum log_type type;
+		bool default_fatal;
 
-		service_process_get_status_error(str, process, status, &type);
+		service_process_get_status_error(str, process, status,
+						 &default_fatal);
 		if (str_len(str) > 0)
-			service_process_log(process, type, str_c(str));
+			service_process_log(process, default_fatal, str_c(str));
 	} T_END;
 }
