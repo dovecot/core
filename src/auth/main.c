@@ -123,11 +123,6 @@ static void client_connected(const struct master_service_connection *conn)
 {
 	enum auth_socket_type *type;
 
-	if (worker) {
-		worker_client = auth_worker_client_create(auth, conn->fd);
-		return;
-	}
-
 	type = array_idx_modifiable(&listen_fd_types, conn->listen_fd);
 	if (*type == AUTH_SOCKET_UNKNOWN) {
 		/* figure out if this is a server or network socket by
