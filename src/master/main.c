@@ -21,6 +21,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#define MASTER_PID_FILE_NAME "master.pid"
+
 struct master_service *master_service;
 uid_t master_uid;
 gid_t master_gid;
@@ -62,6 +64,42 @@ void process_exec(const char *cmd, const char *extra_args[])
 
 	execv(executable, (char **)argv);
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
+}
+
+static void pid_file_check_running(const char *path)
+{
+	char buf[32];
+	int fd;
+	ssize_t ret;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		if (errno == ENOENT)
+			return;
+		i_fatal("open(%s) failed: %m", path);
+	}
+
+	ret = read(fd, buf, sizeof(buf));
+	if (ret <= 0) {
+		if (ret == 0)
+			i_error("Empty PID file in %s, overriding", path);
+		else
+			i_fatal("read(%s) failed: %m", path);
+	} else {
+		pid_t pid;
+
+		if (buf[ret-1] == '\n')
+			ret--;
+		buf[ret] = '\0';
+		pid = atoi(buf);
+		if (pid == getpid() || (kill(pid, 0) < 0 && errno == ESRCH)) {
+			/* doesn't exist */
+		} else {
+			i_fatal("Dovecot is already running with PID %s "
+				"(read from %s)", buf, path);
+		}
+	}
+	(void)close(fd);
 }
 
 static void create_pid_file(const char *path)
@@ -171,7 +209,6 @@ static void main_init(const struct master_settings *set, bool log_error)
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
 
-        pidfile_path = i_strconcat(set->base_dir, "/master.pid", NULL);
 	create_pid_file(pidfile_path);
 
 	services_monitor_start(services);
@@ -401,9 +438,12 @@ int main(int argc, char *argv[])
 	sets = master_service_settings_get_others(master_service);
 	set = sets[0];
 
-	master_service_init_log(master_service, "dovecot: ", 0);
-	if (!log_error)
+	pidfile_path =
+		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
+	if (!log_error) {
+		pid_file_check_running(pidfile_path);
 		master_settings_do_fixes(set);
+	}
 
 #if 0 // FIXME
 	if (ask_key_pass) {
@@ -446,6 +486,7 @@ int main(int argc, char *argv[])
 	if (services_listen(services) <= 0)
 		return FATAL_DEFAULT;
 
+	master_service_init_log(master_service, "dovecot: ", 0);
 	if (!foreground)
 		daemonize();
 	if (chdir(set->base_dir) < 0)
