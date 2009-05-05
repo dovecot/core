@@ -180,7 +180,8 @@ int main(int argc, char *argv[])
 	char **exec_args = NULL;
 	int c;
 
-	service = master_service_init("config", 0, argc, argv);
+	service = master_service_init("config", MASTER_SERVICE_FLAG_STANDALONE,
+				      argc, argv);
 
 	getopt_str = t_strconcat("anp:e", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
@@ -202,12 +203,9 @@ int main(int argc, char *argv[])
 	}
 	if (argv[optind] != NULL)
 		exec_args = &argv[optind];
-
-	master_service_init_log(service, "doveconf: ", 0);
 	master_service_init_finish(service);
 
-	config_parse_file(master_service_get_config_path(service),
-			  service_name);
+	config_parse_file(master_service_get_config_path(service));
 
 	if (exec_args == NULL)
 		config_dump_human(service_name, flags);

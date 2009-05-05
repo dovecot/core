@@ -71,7 +71,7 @@ fix_relative_path(const char *path, struct input_stack *input)
 	return t_strconcat(t_strdup_until(input->path, p+1), path, NULL);
 }
 
-void config_parse_file(const char *path, const char *service)
+void config_parse_file(const char *path)
 {
 	enum settings_parser_flags parser_flags =
                 SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS;
@@ -84,7 +84,7 @@ void config_parse_file(const char *path, const char *service)
 	unsigned int counter = 0, auth_counter = 0, cur_counter;
 	const char *errormsg, *name, *type_name;
 	char *line, *key, *p;
-	int fd, ret, ignore;
+	int fd, ret;
 	string_t *str, *full_line;
 	size_t len;
 	pool_t pool;
@@ -112,7 +112,7 @@ void config_parse_file(const char *path, const char *service)
 
 	str = t_str_new(256);
 	full_line = t_str_new(512);
-	errormsg = NULL; ignore = 0;
+	errormsg = NULL;
 newfile:
 	input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(input->input, TRUE);
@@ -217,10 +217,8 @@ prevfile:
 			str_append(str, key);
 			str_append_c(str, '=');
 			str_append(str, line);
-			if (ignore > 0) {
-				/* ignore this setting */
-			} else if (pathlen == 0 &&
-				   strncmp(str_c(str), "auth_", 5) == 0) {
+			if (pathlen == 0 &&
+			    strncmp(str_c(str), "auth_", 5) == 0) {
 				/* verify that the setting is valid,
 				   but delay actually adding it */
 				const char *s = t_strdup(str_c(str) + 5);
@@ -252,11 +250,8 @@ prevfile:
 
 			if (*line != '{')
 				errormsg = "Expecting '='";
-			else if (ignore > 0) {
-				ignore++;
-			} else if (strcmp(key, "protocol") == 0) {
+			if (strcmp(key, "protocol") == 0) {
 				array_append(&pathlen_stack, &pathlen, 1);
-				ignore = strcmp(name, service) != 0;
 			} else {
 				array_append(&pathlen_stack, &pathlen, 1);
 
@@ -316,9 +311,6 @@ prevfile:
 			/* c) */
 			unsigned int pathlen_count;
 			const unsigned int *arr;
-
-			if (ignore > 0)
-				ignore--;
 
 			arr = array_get(&pathlen_stack, &pathlen_count);
 			if (pathlen_count == 0)
