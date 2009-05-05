@@ -6,7 +6,6 @@
 #include "buffer.h"
 #include "base64.h"
 #include "restrict-access.h"
-#include "fd-close-on-exec.h"
 #include "process-title.h"
 #include "master-service.h"
 #include "var-expand.h"
@@ -94,10 +93,6 @@ int main(int argc, char *argv[], char *envp[])
 	const char *value;
 	int c;
 
-#ifdef DEBUG
-	if (!IS_STANDALONE() && getenv("GDB") == NULL)
-		fd_debug_verify_leaks(3, 1024);
-#endif
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {
 		printf("-ERR pop3 binary must not be started from "
