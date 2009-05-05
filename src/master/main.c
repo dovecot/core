@@ -3,6 +3,7 @@
 #include "common.h"
 #include "lib-signals.h"
 #include "fd-close-on-exec.h"
+#include "array.h"
 #include "write-full.h"
 #include "env-util.h"
 #include "hostpid.h"
@@ -20,17 +21,22 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <pwd.h>
+#include <grp.h>
 
+#define FATAL_FILENAME "master-fatal.lastlog"
 #define MASTER_PID_FILE_NAME "master.pid"
 
 struct master_service *master_service;
 uid_t master_uid;
 gid_t master_gid;
+bool auth_success_written;
 bool core_dumps_disabled;
 int null_fd;
 
 static char *pidfile_path;
 static struct service_list *services;
+static fatal_failure_callback_t *orig_fatal_callback;
 
 static const char *child_process_env[3]; /* @UNSAFE */
 
@@ -64,6 +70,140 @@ void process_exec(const char *cmd, const char *extra_args[])
 
 	execv(executable, (char **)argv);
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
+}
+
+int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
+	       const char **error_r)
+{
+	struct passwd *pw;
+
+	if (*user == '\0') {
+		*uid_r = (uid_t)-1;
+		return 0;
+	}
+
+	if ((pw = getpwnam(user)) == NULL) {
+		*error_r = t_strdup_printf("User doesn't exist: %s", user);
+		return -1;
+	}
+
+	*uid_r = pw->pw_uid;
+	*gid_r = pw->pw_gid;
+	return 0;
+}
+
+int get_gid(const char *group, gid_t *gid_r, const char **error_r)
+{
+	struct group *gr;
+
+	if (*group == '\0') {
+		*gid_r = (gid_t)-1;
+		return 0;
+	}
+
+	if ((gr = getgrnam(group)) == NULL) {
+		*error_r = t_strdup_printf("Group doesn't exist: %s", group);
+		return -1;
+	}
+
+	*gid_r = gr->gr_gid;
+	return 0;
+}
+
+static void ATTR_NORETURN ATTR_FORMAT(3, 0)
+master_fatal_callback(enum log_type type, int status,
+		      const char *format, va_list args)
+{
+	const char *path, *str;
+	va_list args2;
+	int fd;
+
+	/* if we already forked a child process, this isn't fatal for the
+	   main process and there's no need to write the fatal file. */
+	if (getpid() == strtol(my_pid, NULL, 10)) {
+		/* write the error message to a file (we're chdired to
+		   base dir) */
+		path = t_strconcat(FATAL_FILENAME, NULL);
+		fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, 0600);
+		if (fd != -1) {
+			VA_COPY(args2, args);
+			str = t_strdup_vprintf(format, args2);
+			write_full(fd, str, strlen(str));
+			(void)close(fd);
+		}
+	}
+
+	orig_fatal_callback(type, status, format, args);
+	abort(); /* just to silence the noreturn attribute warnings */
+}
+
+static void fatal_log_check(const struct master_settings *set)
+{
+	const char *path;
+	char buf[1024];
+	ssize_t ret;
+	int fd;
+
+	path = t_strconcat(set->base_dir, "/"FATAL_FILENAME, NULL);
+	fd = open(path, O_RDONLY);
+	if (fd == -1)
+		return;
+
+	ret = read(fd, buf, sizeof(buf));
+	if (ret < 0)
+		i_error("read(%s) failed: %m", path);
+	else {
+		buf[ret] = '\0';
+		i_warning("Last died with error (see error log for more "
+			  "information): %s", buf);
+	}
+
+	close(fd);
+	if (unlink(path) < 0)
+		i_error("unlink(%s) failed: %m", path);
+}
+
+static bool services_have_auth_destinations(const struct master_settings *set)
+{
+	struct service_settings *const *services;
+	unsigned int i, count;
+
+	services = array_get(&set->services, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(services[i]->type, "auth-destination") == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static bool auths_have_debug(const struct master_settings *set)
+{
+	struct master_auth_settings *const *auths;
+	unsigned int i, count;
+
+	if (!array_is_created(&set->auths))
+		return FALSE;
+
+	auths = array_get(&set->auths, &count);
+	for (i = 0; i < count; i++) {
+		if (auths[i]->debug)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static void auth_warning_print(const struct master_settings *set)
+{
+	struct stat st;
+
+	auth_success_written = stat(AUTH_SUCCESS_PATH, &st) == 0;
+	if (!auth_success_written && !auths_have_debug(set) &&
+	    services_have_auth_destinations(set)) {
+		i_info("If you have trouble with authentication failures,\n"
+		       "enable auth_debug setting. "
+		       "See http://wiki.dovecot.org/WhyDoesItNotWork");
+
+	}
 }
 
 static void pid_file_check_running(const char *path)
@@ -184,7 +324,7 @@ static void main_log_startup(void)
 		i_info(STARTUP_STRING);
 }
 
-static void main_init(const struct master_settings *set, bool log_error)
+static void main_init(bool log_error)
 {
 	drop_capabilities();
 
@@ -370,6 +510,7 @@ int main(int argc, char *argv[])
 	struct master_settings *set;
 	unsigned int child_process_env_idx = 0;
 	const char *getopt_str, *error, *env_tz;
+	failure_callback_t *error_callback;
 	void **sets;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
 	int c;
@@ -443,6 +584,8 @@ int main(int argc, char *argv[])
 	if (!log_error) {
 		pid_file_check_running(pidfile_path);
 		master_settings_do_fixes(set);
+		fatal_log_check(set);
+		auth_warning_print(set);
 	}
 
 #if 0 // FIXME
@@ -487,12 +630,16 @@ int main(int argc, char *argv[])
 		return FATAL_DEFAULT;
 
 	master_service_init_log(master_service, "dovecot: ", 0);
+	i_get_failure_handlers(&orig_fatal_callback, &error_callback,
+			       &error_callback);
+	i_set_fatal_handler(master_fatal_callback);
+
 	if (!foreground)
 		daemonize();
 	if (chdir(set->base_dir) < 0)
 		i_fatal("chdir(%s) failed: %m", set->base_dir);
 
-	main_init(set, log_error);
+	main_init(log_error);
 	master_service_run(master_service, NULL);
 	main_deinit();
 	master_service_deinit(&master_service);

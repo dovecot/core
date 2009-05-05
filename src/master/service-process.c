@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <syslog.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -56,7 +57,8 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd)
 	/* first add non-ssl listeners */
 	for (i = 0; i < count; i++) {
 		if (listeners[i]->fd != -1 &&
-		    !listeners[i]->set.inetset.set->ssl) {
+		    (listeners[i]->type != SERVICE_LISTENER_INET ||
+		     !listeners[i]->set.inetset.set->ssl)) {
 			dup2_append(&dups, listeners[i]->fd,
 				    MASTER_LISTEN_FD_FIRST + n);
 			n++; socket_listener_count++;
@@ -66,6 +68,7 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd)
 	ssl_socket_count = 0;
 	for (i = 0; i < count; i++) {
 		if (listeners[i]->fd != -1 &&
+		    listeners[i]->type == SERVICE_LISTENER_INET &&
 		    listeners[i]->set.inetset.set->ssl) {
 			dup2_append(&dups, listeners[i]->fd,
 				    MASTER_LISTEN_FD_FIRST + n);
@@ -197,6 +200,21 @@ static void auth_args_apply(const char *const *args,
 	env_put(str_c(expanded_vars));
 }        
 
+static void auth_success_write(void)
+{
+	int fd;
+
+	if (auth_success_written)
+		return;
+
+	fd = creat(AUTH_SUCCESS_PATH, 0666);
+	if (fd == -1)
+		i_error("creat(%s) failed: %m", AUTH_SUCCESS_PATH);
+	else
+		(void)close(fd);
+	auth_success_written = TRUE;
+}
+
 static void drop_privileges(struct service *service,
 			    const char *const *auth_args)
 {
@@ -224,6 +242,7 @@ static void drop_privileges(struct service *service,
 		user = auth_args[0];
 		env_put(t_strconcat("USER=", user, NULL));
 
+		auth_success_write();
 		auth_args_apply(auth_args + 1, &rset, &home);
 
 		if (!validate_uid_gid(master_set, rset.uid, rset.gid, user))

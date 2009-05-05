@@ -4,7 +4,9 @@
 #include "array.h"
 #include "env-util.h"
 #include "istream.h"
+#include "str.h"
 #include "mkdir-parents.h"
+#include "safe-mkdir.h"
 #include "settings-parser.h"
 #include "master-settings.h"
 
@@ -45,6 +47,7 @@ static struct setting_parser_info file_listener_setting_parser_info = {
 
 	MEMBER(parent) &service_setting_parser_info,
 	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct file_listener_settings)
 };
 
@@ -72,6 +75,7 @@ static struct setting_parser_info inet_listener_setting_parser_info = {
 
 	MEMBER(parent) &service_setting_parser_info,
 	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct inet_listener_settings)
 };
 
@@ -147,6 +151,32 @@ struct setting_parser_info service_setting_parser_info = {
 };
 
 #undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct master_auth_settings, name), NULL }
+
+static struct setting_define master_auth_setting_defines[] = {
+	DEF(SET_BOOL, debug),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static struct master_auth_settings master_auth_default_settings = {
+	MEMBER(debug) FALSE
+};
+
+struct setting_parser_info master_auth_setting_parser_info = {
+	MEMBER(defines) master_auth_setting_defines,
+	MEMBER(defaults) &master_auth_default_settings,
+
+	MEMBER(parent) &master_setting_parser_info,
+	MEMBER(dynamic_parsers) NULL,
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(type_offset) (size_t)-1,
+	MEMBER(struct_size) sizeof(struct master_auth_settings)
+};
+
+#undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct master_settings, name), NULL }
@@ -167,6 +197,7 @@ static struct setting_define master_setting_defines[] = {
 	DEF(SET_UINT, last_valid_gid),
 
 	DEFLIST(services, "service", &service_setting_parser_info),
+	DEFLIST(auths, "auth", &master_auth_setting_parser_info),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -184,7 +215,8 @@ static struct master_settings master_default_settings = {
 	MEMBER(first_valid_gid) 1,
 	MEMBER(last_valid_gid) 0,
 
-	MEMBER(services) ARRAY_INIT
+	MEMBER(services) ARRAY_INIT,
+	MEMBER(auths) ARRAY_INIT
 };
 
 struct setting_parser_info master_setting_parser_info = {
@@ -193,6 +225,7 @@ struct setting_parser_info master_setting_parser_info = {
 
 	MEMBER(parent) NULL,
 	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct master_settings),
 	MEMBER(check_func) master_settings_verify
 };
@@ -284,10 +317,111 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 }
 /* </settings checks> */
 
+static bool
+login_want_core_dumps(const struct master_settings *set, gid_t *gid_r)
+{
+	struct service_settings *const *services;
+	unsigned int i, count;
+	const char *error;
+	bool cores = FALSE;
+	uid_t uid;
+
+	*gid_r = (gid_t)-1;
+
+	services = array_get(&set->services, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(services[i]->type, "auth-source") == 0 &&
+		    strstr(services[i]->name, "-login") != NULL) {
+			if (strstr(services[i]->executable, " -D") != NULL)
+				cores = TRUE;
+			(void)get_uidgid(services[i]->user, &uid, gid_r, &error);
+			if (*services[i]->group != '\0')
+				(void)get_gid(services[i]->group, gid_r, &error);
+		}
+	}
+	return cores;
+}
+
+static bool
+settings_have_auth_unix_listeners_in(const struct master_settings *set,
+				     const char *dir)
+{
+	struct service_settings *const *services;
+	struct file_listener_settings *const *u;
+	unsigned int i, j, count, count2;
+
+	services = array_get(&set->services, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(services[i]->type, "auth") == 0 &&
+		    array_is_created(&services[i]->unix_listeners)) {
+			u = array_get(&services[i]->unix_listeners, &count2);
+			for (j = 0; j < count2; j++) {
+				if (strncmp(u[j]->path, dir, strlen(dir)) == 0)
+					return TRUE;
+			}
+		}
+	}
+	return FALSE;
+}
+
+static void unlink_sockets(const char *path, const char *prefix)
+{
+	DIR *dirp;
+	struct dirent *dp;
+	struct stat st;
+	string_t *str;
+	unsigned int prefix_len;
+
+	dirp = opendir(path);
+	if (dirp == NULL) {
+		i_error("opendir(%s) failed: %m", path);
+		return;
+	}
+
+	prefix_len = strlen(prefix);
+	str = t_str_new(256);
+	while ((dp = readdir(dirp)) != NULL) {
+		if (dp->d_name[0] == '.')
+			continue;
+
+		if (strncmp(dp->d_name, prefix, prefix_len) != 0)
+			continue;
+
+		str_truncate(str, 0);
+		str_printfa(str, "%s/%s", path, dp->d_name);
+		if (lstat(str_c(str), &st) < 0) {
+			if (errno != ENOENT)
+				i_error("lstat(%s) failed: %m", str_c(str));
+			continue;
+		}
+		if (!S_ISSOCK(st.st_mode))
+			continue;
+
+		/* try to avoid unlinking sockets if someone's already
+		   listening in them. do this only at startup, because
+		   when SIGHUPing a child process might catch the new
+		   connection before it notices that it's supposed
+		   to die. null_fd == -1 check is a bit kludgy, but works.. */
+		if (null_fd == -1) {
+			int fd = net_connect_unix(str_c(str));
+			if (fd != -1 || errno != ECONNREFUSED) {
+				i_fatal("Dovecot is already running? "
+					"Socket already exists: %s",
+					str_c(str));
+			}
+		}
+
+		if (unlink(str_c(str)) < 0 && errno != ENOENT)
+			i_error("unlink(%s) failed: %m", str_c(str));
+	}
+	(void)closedir(dirp);
+}
+
 bool master_settings_do_fixes(const struct master_settings *set)
 {
 	const char *login_dir;
 	struct stat st;
+	gid_t gid;
 
 	/* since base dir is under /var/run by default, it may have been
 	   deleted. */
@@ -305,17 +439,36 @@ bool master_settings_do_fixes(const struct master_settings *set)
 		return FALSE;
 	}
 
-	/* create login directory under base dir */
-	login_dir = t_strconcat(set->base_dir, "/login", NULL);
-	if (mkdir(login_dir, 0755) < 0 && errno != EEXIST) {
-		i_error("mkdir(%s) failed: %m", login_dir);
-		return FALSE;
-	}
-
 	/* Make sure our permanent state directory exists */
 	if (mkdir_parents(PKG_STATEDIR, 0750) < 0 && errno != EEXIST) {
 		i_error("mkdir(%s) failed: %m", PKG_STATEDIR);
 		return FALSE;
+	}
+
+	/* remove auth worker sockets left by unclean exits */
+	unlink_sockets(set->base_dir, "auth-worker.");
+
+	login_dir = t_strconcat(set->base_dir, "/login", NULL);
+	if (settings_have_auth_unix_listeners_in(set, login_dir)) {
+		/* we are not using external authentication, so make sure the
+		   login directory exists with correct permissions and it's
+		   empty. with external auth we wouldn't want to delete
+		   existing sockets or break the permissions required by the
+		   auth server. */
+		mode_t mode = login_want_core_dumps(set, &gid) ? 0770 : 0750;
+		if (gid != (gid_t)-1 &&
+		    safe_mkdir(login_dir, mode, master_uid, gid) == 0) {
+			i_warning("Corrected permissions for login directory "
+				  "%s", login_dir);
+		}
+
+		unlink_sockets(login_dir, "");
+	} else {
+		/* still make sure that login directory exists */
+		if (mkdir(login_dir, 0755) < 0 && errno != EEXIST) {
+			i_error("mkdir(%s) failed: %m", login_dir);
+			return FALSE;
+		}
 	}
 	return TRUE;
 }

@@ -39,6 +39,10 @@ struct service_settings {
 	ARRAY_DEFINE(inet_listeners, struct inet_listener_settings *);
 };
 
+struct master_auth_settings {
+	bool debug;
+};
+
 struct master_settings {
 	const char *base_dir;
 	const char *libexec_dir;
@@ -51,6 +55,7 @@ struct master_settings {
 	unsigned int first_valid_gid, last_valid_gid;
 
 	ARRAY_DEFINE(services, struct service_settings *);
+	ARRAY_DEFINE(auths, struct master_auth_settings *);
 };
 
 extern struct setting_parser_info master_setting_parser_info;

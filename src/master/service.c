@@ -11,8 +11,6 @@
 
 #include <unistd.h>
 #include <signal.h>
-#include <pwd.h>
-#include <grp.h>
 
 void service_error(struct service *service, const char *format, ...)
 {
@@ -22,44 +20,6 @@ void service_error(struct service *service, const char *format, ...)
 	i_error("service(%s): %s", service->set->name,
 		t_strdup_vprintf(format, args));
 	va_end(args);
-}
-
-static int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
-		      const char **error_r)
-{
-	struct passwd *pw;
-
-	if (*user == '\0') {
-		*uid_r = (uid_t)-1;
-		return 0;
-	}
-
-	if ((pw = getpwnam(user)) == NULL) {
-		*error_r = t_strdup_printf("User doesn't exist: %s", user);
-		return -1;
-	}
-
-	*uid_r = pw->pw_uid;
-	*gid_r = pw->pw_gid;
-	return 0;
-}
-
-static int get_gid(const char *group, gid_t *gid_r, const char **error_r)
-{
-	struct group *gr;
-
-	if (*group == '\0') {
-		*gid_r = (gid_t)-1;
-		return 0;
-	}
-
-	if ((gr = getgrnam(group)) == NULL) {
-		*error_r = t_strdup_printf("Group doesn't exist: %s", group);
-		return -1;
-	}
-
-	*gid_r = gr->gr_gid;
-	return 0;
 }
 
 static struct service_listener *
