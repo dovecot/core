@@ -1,13 +1,9 @@
 /* Copyright (C) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
 #include "llist.h"
-#include "ioloop.h"
-#include "network.h"
 #include "istream.h"
 #include "ostream.h"
-#include "env-util.h"
 #include "config-request.h"
 #include "config-connection.h"
 
