@@ -544,8 +544,10 @@ int main(int argc, char *argv[])
 	master_uid = geteuid();
 	master_gid = getegid();
 
-	getopt_str = t_strconcat("Fanp", master_service_getopt_string(), NULL);
+	getopt_str = t_strconcat("Fanp-", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+		if (c == '-')
+			break;
 		switch (c) {
 		case 'F':
 			foreground = TRUE;
