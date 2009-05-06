@@ -23,6 +23,7 @@ struct master_service {
 	const char *version_string;
 	const char *config_path;
 	int syslog_facility;
+	ARRAY_TYPE(const_string) config_overrides;
 
 	unsigned int socket_count, ssl_socket_count;
         struct master_service_listener *listeners;

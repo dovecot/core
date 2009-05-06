@@ -765,25 +765,30 @@ settings_var_expand_info(const struct setting_parser_info *info,
 	}
 }
 
-void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
-					pool_t pool, const char *const *keys)
+void settings_parse_set_key_expandeded(struct setting_parser_context *ctx,
+				       pool_t pool, const char *key)
 {
 	const struct setting_define *def;
 	struct setting_link *link;
 	const char **val;
 
-	for (; *keys != NULL; keys++) {
-		if (!settings_find_key(ctx, *keys, &def, &link))
-			continue;
+	if (!settings_find_key(ctx, key, &def, &link))
+		return;
 
-		val = PTR_OFFSET(link->set_struct, def->offset);
-		if (def->type == SET_STR_VARS && *val != NULL) {
-			i_assert(**val == SETTING_STRVAR_UNEXPANDED[0] ||
-				 **val == SETTING_STRVAR_EXPANDED[0]);
-			*val = p_strconcat(pool, SETTING_STRVAR_EXPANDED,
-					   *val + 1, NULL);
-		}
+	val = PTR_OFFSET(link->set_struct, def->offset);
+	if (def->type == SET_STR_VARS && *val != NULL) {
+		i_assert(**val == SETTING_STRVAR_UNEXPANDED[0] ||
+			 **val == SETTING_STRVAR_EXPANDED[0]);
+		*val = p_strconcat(pool, SETTING_STRVAR_EXPANDED,
+				   *val + 1, NULL);
 	}
+}
+
+void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
+					pool_t pool, const char *const *keys)
+{
+	for (; *keys != NULL; keys++)
+		settings_parse_set_key_expandeded(ctx, pool, *keys);
 }
 
 void settings_var_expand(const struct setting_parser_info *info,

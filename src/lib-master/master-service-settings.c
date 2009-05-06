@@ -121,6 +121,28 @@ master_service_read_config(struct master_service *service, bool preserve_home,
 	return fd;
 }
 
+static int
+master_service_apply_config_overrides(struct master_service *service,
+				      struct setting_parser_context *parser,
+				      const char **error_r)
+{
+	const char *const *overrides;
+	unsigned int i, count;
+
+	overrides = array_get(&service->config_overrides, &count);
+	for (i = 0; i < count; i++) {
+		if (settings_parse_line(parser, overrides[i]) < 0) {
+			*error_r = t_strdup_printf(
+				"Invalid -o parameter %s: %s", overrides[i],
+				settings_parser_get_error(parser));
+			return -1;
+		}
+		settings_parse_set_key_expandeded(parser, service->set_pool,
+						  t_strcut(overrides[i], '='));
+	}
+	return 0;
+}
+
 int master_service_settings_read(struct master_service *service,
 				 const struct setting_parser_info *roots[],
 				 const struct dynamic_settings_parser *dyn_parsers,
@@ -185,6 +207,12 @@ int master_service_settings_read(struct master_service *service,
 		keys = t_strsplit(env, " ");
 		settings_parse_set_keys_expandeded(parser, service->set_pool,
 						   keys);
+	}
+
+	if (array_is_created(&service->config_overrides)) {
+		if (master_service_apply_config_overrides(service, parser,
+							  error_r) < 0)
+			return -1;
 	}
 
 	if (!settings_parser_check(parser, service->set_pool, &error)) {

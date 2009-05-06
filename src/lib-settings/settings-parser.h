@@ -129,6 +129,8 @@ bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 void settings_parse_set_expanded(struct setting_parser_context *ctx,
 				 bool is_expanded);
 /* Mark all the parsed settings with given keys as being already expanded. */
+void settings_parse_set_key_expandeded(struct setting_parser_context *ctx,
+				       pool_t pool, const char *key);
 void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
 					pool_t pool, const char *const *keys);
 /* Expand all unexpanded variables using the given table. Update the string

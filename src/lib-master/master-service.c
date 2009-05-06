@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "lib-signals.h"
 #include "ioloop.h"
+#include "array.h"
 #include "env-util.h"
 #include "home-expand.h"
 #include "restrict-access.h"
@@ -30,7 +31,7 @@ static void master_status_update(struct master_service *service);
 
 const char *master_service_getopt_string(void)
 {
-	return "c:ks:L";
+	return "c:ko:s:L";
 }
 
 static void sig_die(const siginfo_t *si, void *context)
@@ -182,6 +183,11 @@ bool master_service_parse_option(struct master_service *service,
 		break;
 	case 'k':
 		service->keep_environment = TRUE;
+		break;
+	case 'o':
+		if (!array_is_created(&service->config_overrides))
+			i_array_init(&service->config_overrides, 16);
+		array_append(&service->config_overrides, &arg, 1);
 		break;
 	case 's':
 		if ((i = atoi(arg)) < 0)
@@ -420,6 +426,8 @@ void master_service_deinit(struct master_service **_service)
 		io_remove(&service->io_status_error);
 	if (service->io_status_write != NULL)
 		io_remove(&service->io_status_write);
+	if (array_is_created(&service->config_overrides))
+		array_free(&service->config_overrides);
 
 	lib_signals_deinit();
 	io_loop_destroy(&service->ioloop);
