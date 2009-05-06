@@ -23,27 +23,6 @@ struct input_stack {
 	unsigned int linenum;
 };
 
-static const char *
-config_parse_line(const char *key, const char *line,
-		  const struct setting_parser_info **info_r)
-{
-	struct config_setting_parser_list *l;
-	bool found = FALSE;
-	int ret;
-
-	*info_r = NULL;
-	for (l = config_setting_parsers; l->module_name != NULL; l++) {
-		ret = settings_parse_line(l->parser, line);
-		if (ret > 0) {
-			found = TRUE;
-			*info_r = settings_parse_get_prev_info(l->parser);
-		} else if (ret < 0)
-			return settings_parser_get_error(l->parser);
-	}
-
-	return found ? NULL : t_strconcat("Unknown setting: ", key, NULL);
-}
-
 static const char *info_type_name_find(const struct setting_parser_info *info)
 {
 	unsigned int i;
@@ -54,6 +33,52 @@ static const char *info_type_name_find(const struct setting_parser_info *info)
 	}
 	i_panic("setting parser: Invalid type_offset value");
 	return NULL;
+}
+
+static void config_add_type(struct setting_parser_context *parser,
+			    const char *line, const char *section_name)
+{
+	const struct setting_parser_info *info;
+	const char *p;
+	string_t *str;
+	int ret;
+
+	info = settings_parse_get_prev_info(parser);
+	if (info->type_offset == (size_t)-1)
+		return;
+
+	str = t_str_new(256);
+	p = strchr(line, '=');
+	str_append_n(str, line, p-line);
+	str_append_c(str, SETTINGS_SEPARATOR);
+	str_append(str, p+1);
+	str_append_c(str, SETTINGS_SEPARATOR);
+	str_append(str, info_type_name_find(info));
+	str_append_c(str, '=');
+	str_append(str, section_name);
+
+	ret = settings_parse_line(parser, str_c(str));
+	i_assert(ret > 0);
+}
+
+static const char *
+config_parse_line(const char *key, const char *line, const char *section_name)
+{
+	struct config_setting_parser_list *l;
+	bool found = FALSE;
+	int ret;
+
+	for (l = config_setting_parsers; l->module_name != NULL; l++) {
+		ret = settings_parse_line(l->parser, line);
+		if (ret > 0) {
+			found = TRUE;
+			if (section_name != NULL)
+				config_add_type(l->parser, line, section_name);
+		} else if (ret < 0)
+			return settings_parser_get_error(l->parser);
+	}
+
+	return found ? NULL : t_strconcat("Unknown setting: ", key, NULL);
 }
 
 static const char *
@@ -78,11 +103,10 @@ void config_parse_file(const char *path)
 	struct input_stack root, *input, *new_input;
 	ARRAY_DEFINE(pathlen_stack, unsigned int);
 	ARRAY_TYPE(const_string) auth_defaults;
-	const struct setting_parser_info *info;
 	struct config_setting_parser_list *l;
 	unsigned int pathlen = 0;
 	unsigned int counter = 0, auth_counter = 0, cur_counter;
-	const char *errormsg, *name, *type_name;
+	const char *errormsg, *name;
 	char *line, *key, *p;
 	int fd, ret;
 	string_t *str, *full_line;
@@ -103,7 +127,7 @@ void config_parse_file(const char *path)
 		l->parser = settings_parser_init(pool, l->root, parser_flags);
 	}
 
-	errormsg = config_parse_line("0", "auth=0", &info);
+	errormsg = config_parse_line("0", "auth=0", NULL);
 	i_assert(errormsg == NULL);
 
 	memset(&root, 0, sizeof(root));
@@ -225,10 +249,10 @@ prevfile:
 
 				str_truncate(str, 0);
 				str_printfa(str, "auth/0/%s=%s", key + 5, line);
-				errormsg = config_parse_line(key + 5, str_c(str), &info);
+				errormsg = config_parse_line(key + 5, str_c(str), NULL);
 				array_append(&auth_defaults, &s, 1);
 			} else {
-				errormsg = config_parse_line(key, str_c(str), &info);
+				errormsg = config_parse_line(key, str_c(str), NULL);
 			}
 		} else if (strcmp(key, "}") != 0 || *line != '\0') {
 			/* b) + errors */
@@ -269,8 +293,7 @@ prevfile:
 				if (cur_counter == 0 && strcmp(key, "auth") == 0) {
 					/* already added this */
 				} else {
-					errormsg = config_parse_line(key,
-								     str_c(str), &info);
+					errormsg = config_parse_line(key, str_c(str), name);
 				}
 
 				str_truncate(str, pathlen);
@@ -278,17 +301,6 @@ prevfile:
 				str_printfa(str, "%u", cur_counter);
 				str_append_c(str, SETTINGS_SEPARATOR);
 				pathlen = str_len(str);
-
-				if (errormsg == NULL && info->type_offset != (size_t)-1) {
-					type_name = info_type_name_find(info);
-					str_append(str, type_name);
-					str_append_c(str, '=');
-					str_append(str, name);
-					errormsg = config_parse_line(type_name,
-								     str_c(str), &info);
-
-					str_truncate(str, pathlen);
-				}
 
 				if (strcmp(key, "auth") == 0 && errormsg == NULL) {
 					/* add auth default settings */
@@ -302,7 +314,7 @@ prevfile:
 						p = strchr(lines[i], '=');
 						str_append(str, lines[i]);
 
-						errormsg = config_parse_line(t_strdup_until(lines[i], p), str_c(str), &info);
+						errormsg = config_parse_line(t_strdup_until(lines[i], p), str_c(str), NULL);
 						i_assert(errormsg == NULL);
 					}
 				}
