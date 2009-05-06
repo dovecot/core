@@ -190,6 +190,7 @@ static struct setting_define master_setting_defines[] = {
 	DEF(SET_UINT, default_client_limit),
 
 	DEF(SET_BOOL, version_ignore),
+	DEF(SET_BOOL, mail_debug),
 
 	DEF(SET_UINT, first_valid_uid),
 	DEF(SET_UINT, last_valid_uid),
@@ -209,6 +210,7 @@ static struct master_settings master_default_settings = {
 	MEMBER(default_client_limit) 1000,
 
 	MEMBER(version_ignore) FALSE,
+	MEMBER(mail_debug) FALSE,
 
 	MEMBER(first_valid_uid) 500,
 	MEMBER(last_valid_uid) 0,

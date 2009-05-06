@@ -50,6 +50,7 @@ struct master_settings {
 	unsigned int default_client_limit;
 
 	bool version_ignore;
+	bool mail_debug;
 
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;

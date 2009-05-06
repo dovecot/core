@@ -243,6 +243,9 @@ static void drop_privileges(struct service *service,
 	const char *user, *home = NULL;
 	bool disallow_root;
 
+	if (auth_args != NULL && service->set->master_set->mail_debug)
+		env_put("DEBUG=1");
+
 	restrict_access_init(&rset);
 	rset.uid = service->uid;
 	rset.gid = service->gid;
