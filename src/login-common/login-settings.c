@@ -181,8 +181,8 @@ struct login_settings *login_settings_read(struct master_service *service)
 	const char *error;
 	void **sets;
 
-	if (master_service_settings_read(service, set_roots, NULL, FALSE,
-					 &error) < 0)
+	if (master_service_settings_read_simple(service, set_roots,
+						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
 	sets = master_service_settings_get_others(service);

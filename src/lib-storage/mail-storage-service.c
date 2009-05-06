@@ -303,11 +303,13 @@ service_drop_privileges(const struct mail_user_settings *set,
 
 static void
 mail_storage_service_init_settings(struct master_service *service,
+				   const struct mail_storage_service_input *input,
 				   const struct setting_parser_info *set_roots[],
 				   bool preserve_home)
 {
 	ARRAY_DEFINE(all_set_roots, const struct setting_parser_info *);
 	const struct setting_parser_info *info = &mail_user_setting_parser_info;
+	struct master_service_settings_input set_input;
 	const char *error;
 	unsigned int i;
 
@@ -327,10 +329,16 @@ mail_storage_service_init_settings(struct master_service *service,
 
 	/* read settings after registering storages so they can have their
 	   own setting definitions too */
-	set_roots = array_idx_modifiable(&all_set_roots, 0);
-	if (master_service_settings_read(service, set_roots,
-					 mail_storage_get_dynamic_parsers(),
-					 preserve_home, &error) < 0)
+	memset(&set_input, 0, sizeof(set_input));
+	set_input.roots = array_idx_modifiable(&all_set_roots, 0);
+	set_input.dyn_parsers = mail_storage_get_dynamic_parsers();
+	set_input.preserve_home = preserve_home;
+	if (input != NULL) {
+		set_input.username = input->username;
+		set_input.local_ip = input->local_ip;
+		set_input.remote_ip = input->remote_ip;
+	}
+	if (master_service_settings_read(service, &set_input, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 }
 
@@ -472,7 +480,8 @@ mail_storage_service_init_user(struct master_service *service,
 	master_service_init_finish(service);
 
 	userdb_lookup = (flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0;
-	mail_storage_service_init_settings(service, set_roots, !userdb_lookup);
+	mail_storage_service_init_settings(service, &input, set_roots,
+					   !userdb_lookup);
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		set_keyval(service->set_parser, "mail_debug", "yes");
@@ -564,7 +573,7 @@ mail_storage_service_multi_init(struct master_service *service,
 	ctx->service = service;
 	ctx->flags = flags;
 
-	mail_storage_service_init_settings(service, set_roots, FALSE);
+	mail_storage_service_init_settings(service, NULL, set_roots, FALSE);
 
 	set = master_service_settings_get(service);
 	sets = master_service_settings_get_others(service);

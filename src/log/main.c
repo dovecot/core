@@ -60,8 +60,7 @@ int main(int argc, char *argv[])
 			exit(FATAL_DEFAULT);
 	}
 
-	if (master_service_settings_read(service, NULL, NULL, FALSE,
-					 &error) < 0)
+	if (master_service_settings_read_simple(service, NULL, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
 	master_service_init_log(service, "log: ", 0);

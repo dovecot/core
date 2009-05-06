@@ -4,6 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "write-full.h"
+#include "str.h"
 #include "settings-parser.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
@@ -16,7 +17,6 @@
 #define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
 
 #define CONFIG_HANDSHAKE "VERSION\t1\t0\n"
-#define CONFIG_REQUEST_SERVICE "REQ\tservice=%s\n"
 
 #undef DEF
 #define DEF(type, name) \
@@ -97,31 +97,49 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 }
 
 static int
-master_service_read_config(struct master_service *service, bool preserve_home,
+master_service_read_config(struct master_service *service,
+			   const struct master_service_settings_input *input,
 			   const char **error_r)
 {
-	const char *path, *str;
-	int fd;
+	const char *path;
+	struct stat st;
+	int fd, ret;
 
 	path = master_service_get_config_path(service);
 	fd = net_connect_unix(path);
 	if (fd < 0) {
-		struct stat st;
-
 		*error_r = t_strdup_printf("net_connect_unix(%s) failed: %m",
 					   path);
 
 		if (stat(path, &st) == 0 && !S_ISFIFO(st.st_mode)) {
 			/* it's a file, not a socket */
-			master_service_exec_config(service, preserve_home);
+			master_service_exec_config(service,
+						   input->preserve_home);
 		}
 		return -1;
 	}
 	net_set_nonblock(fd, FALSE);
 
-	str = t_strdup_printf(CONFIG_HANDSHAKE CONFIG_REQUEST_SERVICE,
-			      service->name);
-	if (write_full(fd, str, strlen(str)) < 0) {
+	T_BEGIN {
+		string_t *str;
+
+		str = t_str_new(128);
+		str_append(str, CONFIG_HANDSHAKE);
+		str_printfa(str, "REQ\tservice=%s", service->name);
+		if (input->username != NULL)
+			str_printfa(str, "\tuser=%s", input->username);
+		if (input->local_ip.family != 0) {
+			str_printfa(str, "\tlip=%s",
+				    net_ip2addr(&input->local_ip));
+		}
+		if (input->remote_ip.family != 0) {
+			str_printfa(str, "\trip=%s",
+				    net_ip2addr(&input->remote_ip));
+		}
+		str_append_c(str, '\n');
+		ret = write_full(fd, str_data(str), str_len(str));
+	} T_END;
+	if (ret < 0) {
 		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
 		return -1;
 	}
@@ -151,22 +169,20 @@ master_service_apply_config_overrides(struct master_service *service,
 }
 
 int master_service_settings_read(struct master_service *service,
-				 const struct setting_parser_info *roots[],
-				 const struct dynamic_settings_parser *dyn_parsers,
-				 bool preserve_home, const char **error_r)
+				 const struct master_service_settings_input *input,
+				 const char **error_r)
 {
 	ARRAY_DEFINE(all_roots, const struct setting_parser_info *);
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
-	struct istream *input;
+	struct istream *istream;
 	const char *error, *env, *const *keys;
 	void **sets;
 	unsigned int i;
 	int ret, fd = -1;
 
 	if (getenv("DOVECONF_ENV") == NULL) {
-		fd = master_service_read_config(service, preserve_home,
-						error_r);
+		fd = master_service_read_config(service, input, error_r);
 		if (fd == -1)
 			return -1;
 	}
@@ -178,15 +194,17 @@ int master_service_settings_read(struct master_service *service,
 			pool_alloconly_create("master service settings", 4096);
 	}
 
-	if (dyn_parsers != NULL)
-		settings_parser_info_update(service->set_pool, dyn_parsers);
+	if (input->dyn_parsers != NULL) {
+		settings_parser_info_update(service->set_pool,
+					    input->dyn_parsers);
+	}
 
 	p_array_init(&all_roots, service->set_pool, 8);
 	tmp_root = &master_service_setting_parser_info;
 	array_append(&all_roots, &tmp_root, 1);
-	if (roots != NULL) {
-		for (i = 0; roots[i] != NULL; i++)
-			array_append(&all_roots, &roots[i], 1);
+	if (input->roots != NULL) {
+		for (i = 0; input->roots[i] != NULL; i++)
+			array_append(&all_roots, &input->roots[i], 1);
 	}
 
 	parser = settings_parser_init_list(service->set_pool,
@@ -194,9 +212,9 @@ int master_service_settings_read(struct master_service *service,
 			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
 	if (fd != -1) {
-		input = i_stream_create_fd(fd, (size_t)-1, FALSE);
-		ret = settings_parse_stream_read(parser, input);
-		i_stream_unref(&input);
+		istream = i_stream_create_fd(fd, (size_t)-1, FALSE);
+		ret = settings_parse_stream_read(parser, istream);
+		i_stream_unref(&istream);
 		i_assert(ret <= 0);
 		if (ret < 0) {
 			*error_r = settings_parser_get_error(parser);
@@ -210,11 +228,11 @@ int master_service_settings_read(struct master_service *service,
 		return -1;
 	}
 	env = getenv("VARS_EXPANDED");
-	if (env != NULL) {
+	if (env != NULL) T_BEGIN {
 		keys = t_strsplit(env, " ");
 		settings_parse_set_keys_expandeded(parser, service->set_pool,
 						   keys);
-	}
+	} T_END;
 
 	if (array_is_created(&service->config_overrides)) {
 		if (master_service_apply_config_overrides(service, parser,
@@ -241,6 +259,17 @@ int master_service_settings_read(struct master_service *service,
 	   especially all settings from userdb are already expanded. */
 	settings_parse_set_expanded(service->set_parser, TRUE);
 	return 0;
+}
+
+int master_service_settings_read_simple(struct master_service *service,
+					const struct setting_parser_info **roots,
+					const char **error_r)
+{
+	struct master_service_settings_input input;
+
+	memset(&input, 0, sizeof(input));
+	input.roots = roots;
+	return master_service_settings_read(service, &input, error_r);
 }
 
 const struct master_service_settings *

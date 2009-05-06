@@ -641,8 +641,8 @@ int main(int argc, char *argv[])
 	    dup2(null_fd, STDOUT_FILENO) < 0)
 		i_fatal("dup2(null_fd) failed: %m");
 
-	if (master_service_settings_read(master_service, set_roots, NULL, FALSE,
-					 &error) < 0)
+	if (master_service_settings_read_simple(master_service, set_roots,
+						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 	sets = master_service_settings_get_others(master_service);
 	set = sets[0];
