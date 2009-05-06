@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "ostream.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "all-settings.h"
 #include "config-request.h"
 
@@ -51,6 +52,10 @@ config_setting_parser_is_in_service(struct config_setting_parser_list *list,
 
 	if (strcmp(list->module_name, service) == 0)
 		return TRUE;
+	if (list->root == &master_service_setting_parser_info) {
+		/* everyone wants master service settings */
+		return TRUE;
+	}
 
 	for (l = config_setting_parsers; l->module_name != NULL; l++) {
 		if (strcmp(l->module_name, service) != 0)

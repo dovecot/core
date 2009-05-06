@@ -13,6 +13,8 @@ struct master_service_settings {
 	bool version_ignore;
 };
 
+extern struct setting_parser_info master_service_setting_parser_info;
+
 int master_service_settings_read(struct master_service *service,
 				 const struct setting_parser_info *roots[],
 				 const struct dynamic_settings_parser *dyn_parsers,
