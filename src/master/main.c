@@ -224,16 +224,17 @@ static void auth_warning_print(const struct master_settings *set)
 	}
 }
 
-static void pid_file_check_running(const char *path)
+static bool pid_file_read(const char *path, pid_t *pid_r)
 {
 	char buf[32];
 	int fd;
 	ssize_t ret;
+	bool found;
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT)
-			return;
+			return FALSE;
 		i_fatal("open(%s) failed: %m", path);
 	}
 
@@ -243,21 +244,43 @@ static void pid_file_check_running(const char *path)
 			i_error("Empty PID file in %s, overriding", path);
 		else
 			i_fatal("read(%s) failed: %m", path);
+		found = FALSE;
 	} else {
-		pid_t pid;
-
 		if (buf[ret-1] == '\n')
 			ret--;
 		buf[ret] = '\0';
-		pid = atoi(buf);
-		if (pid == getpid() || (kill(pid, 0) < 0 && errno == ESRCH)) {
-			/* doesn't exist */
-		} else {
-			i_fatal("Dovecot is already running with PID %s "
-				"(read from %s)", buf, path);
-		}
+		*pid_r = atoi(buf);
+
+		found = !(*pid_r == getpid() ||
+			  (kill(*pid_r, 0) < 0 && errno == ESRCH));
 	}
 	(void)close(fd);
+	return found;
+}
+
+static void pid_file_check_running(const char *path)
+{
+	pid_t pid;
+
+	if (!pid_file_read(path, &pid))
+		return;
+
+	i_fatal("Dovecot is already running with PID %s "
+		"(read from %s)", dec2str(pid), path);
+}
+
+static void send_master_signal(int signo)
+{
+	pid_t pid;
+
+	if (!pid_file_read(pidfile_path, &pid)) {
+		i_fatal("Dovecot is not running (read from %s)", pidfile_path);
+		return;
+	}
+
+	if (kill(pid, signo) < 0)
+		i_fatal("kill(%s, %d) failed: %m", dec2str(pid), signo);
+	exit(0);
 }
 
 static void create_pid_file(const char *path)
@@ -531,7 +554,7 @@ int main(int argc, char *argv[])
 	failure_callback_t *error_callback;
 	void **sets;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
-	int c;
+	int c, send_signal = 0;
 
 #ifdef DEBUG
 	if (getenv("GDB") == NULL)
@@ -540,6 +563,7 @@ int main(int argc, char *argv[])
 		child_process_env[child_process_env_idx++] = "GDB=1";
 #endif
 	master_service = master_service_init("master", 0, argc, argv);
+	i_set_failure_prefix("");
 
 	master_uid = geteuid();
 	master_gid = getegid();
@@ -585,7 +609,7 @@ int main(int argc, char *argv[])
 		i_fatal("execv(%s) failed: %m", args[0]);
 	}
 
-	if (optind < argc) {
+	while (optind < argc) {
 		if (strcmp(argv[optind], "--version") == 0) {
 			printf("%s\n", VERSION);
 			return 0;
@@ -595,10 +619,15 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[optind], "--log-error") == 0) {
 			log_error = TRUE;
 			foreground = TRUE;
+		} else if (strcmp(argv[optind], "reload") == 0) {
+			send_signal = SIGHUP;
+		} else if (strcmp(argv[optind], "stop") == 0) {
+			send_signal = SIGTERM;
 		} else {
 			print_help();
 			i_fatal("Unknown argument: %s", argv[optind]);
 		}
+		optind++;
 	}
 
 	do {
@@ -620,6 +649,8 @@ int main(int argc, char *argv[])
 
 	pidfile_path =
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
+	if (send_signal != 0)
+		send_master_signal(send_signal);
 	if (!log_error) {
 		pid_file_check_running(pidfile_path);
 		master_settings_do_fixes(set);
