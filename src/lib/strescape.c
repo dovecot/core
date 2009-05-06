@@ -71,3 +71,42 @@ char *str_unescape(char *str)
 	*dest = '\0';
 	return start;
 }
+
+void str_tabescape_write(string_t *dest, const char *src)
+{
+	for (; *src != '\0'; src++) {
+		switch (*src) {
+		case '\001':
+			str_append_c(dest, '\001');
+			str_append_c(dest, '1');
+			break;
+		case '\t':
+			str_append_c(dest, '\001');
+			str_append_c(dest, 't');
+			break;
+		case '\n':
+			str_append_c(dest, '\001');
+			str_append_c(dest, 'n');
+			break;
+		default:
+			str_append_c(dest, *src);
+			break;
+		}
+	}
+}
+
+const char *str_tabescape(const char *str)
+{
+	string_t *tmp;
+	const char *p;
+
+	for (p = str; *p != '\0'; p++) {
+		if (*p <= '\n') {
+			tmp = t_str_new(128);
+			str_append_n(tmp, str, p-str);
+			str_tabescape_write(tmp, p);
+			return str_c(tmp);
+		}
+	}
+	return str;
+}

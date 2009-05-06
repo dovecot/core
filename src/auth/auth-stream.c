@@ -2,6 +2,7 @@
 
 #include "auth-common.h"
 #include "str.h"
+#include "strescape.h"
 #include "ostream.h"
 #include "auth-request.h"
 #include "auth-stream.h"
@@ -35,25 +36,7 @@ void auth_stream_reply_add(struct auth_stream_reply *reply,
 	}
 	if (value != NULL) {
 		/* escape dangerous characters in the value */
-		for (; *value != '\0'; value++) {
-			switch (*value) {
-			case '\001':
-				str_append_c(reply->str, '\001');
-				str_append_c(reply->str, '1');
-				break;
-			case '\t':
-				str_append_c(reply->str, '\001');
-				str_append_c(reply->str, 't');
-				break;
-			case '\n':
-				str_append_c(reply->str, '\001');
-				str_append_c(reply->str, 'n');
-				break;
-			default:
-				str_append_c(reply->str, *value);
-				break;
-			}
-		}
+		str_tabescape_write(reply->str, value);
 	}
 }
 
