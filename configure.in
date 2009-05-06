@@ -237,6 +237,7 @@ elif test "$sql_drivers" = "no"; then
   # --without-sql-drivers given
   sql_drivers=
 fi
+not_sql_drivers=
 
 AC_ARG_WITH(moduledir,
 [  --with-moduledir=DIR    Base directory for dynamically loadable modules],
@@ -1605,15 +1606,21 @@ dnl **
 
 userdb=""
 passdb=""
+not_userdb=""
+not_passdb=""
 
 if test $want_static_userdb != no; then
         AC_DEFINE(USERDB_STATIC,, Build with static userdb support)
 	userdb="$userdb static"
+else
+	not_userdb="$not_userdb static"
 fi
 
 if test $want_prefetch_userdb != no; then
         AC_DEFINE(USERDB_PREFETCH,, Build with prefetch userdb support)
 	userdb="$userdb prefetch"
+else
+	not_userdb="$not_userdb prefetch"
 fi
 
 if test $want_passwd != no; then
@@ -1621,6 +1628,9 @@ if test $want_passwd != no; then
         AC_DEFINE(PASSDB_PASSWD,, Build with passwd support)
 	userdb="$userdb passwd"
 	passdb="$passdb passwd"
+else
+	not_passdb="$not_passdb passwd"
+	not_userdb="$not_userdb passwd"
 fi
 
 if test $want_passwd_file != no; then
@@ -1628,13 +1638,17 @@ if test $want_passwd_file != no; then
         AC_DEFINE(PASSDB_PASSWD_FILE,, Build with passwd-file support)
 	userdb="$userdb passwd-file"
 	passdb="$passdb passwd-file"
+else
+	not_passdb="$not_passdb passwd-file"
+	not_userdb="$not_userdb passwd-file"
 fi
 
+have_shadow=no
 if test $want_shadow != no; then
   AC_CHECK_FUNC(getspnam, [
     AC_CHECK_HEADER(shadow.h, [
       AC_DEFINE(PASSDB_SHADOW,, Build with shadow support)
-      passdb="$passdb shadow"
+      have_shadow=yes
     ], [
       if test $want_shadow = yes; then
         AC_ERROR([Can't build with shadow support: shadow.h not found])
@@ -1645,6 +1659,11 @@ if test $want_shadow != no; then
       AC_ERROR([Can't build with shadow support: getspnam() not found])
     fi
   ])
+fi
+if test $have_shadow = no; then
+  not_passdb="$not_passdb shadow"
+else
+  passdb="$passdb shadow"
 fi
 
 if test $want_pam != no; then
@@ -1661,19 +1680,6 @@ if test $want_pam != no; then
 				  Define if you have pam/pam_appl.h)
 			have_pam=yes
 		])
-
-		if test "$have_pam" = "yes"; then
-			AUTH_LIBS="$AUTH_LIBS -lpam"
-			AC_DEFINE(PASSDB_PAM,, Build with PAM support)
-			passdb="$passdb pam"
-
-			AC_CHECK_LIB(pam, pam_setcred, [
-				AC_DEFINE(HAVE_PAM_SETCRED,,
-					  Define if you have pam_setcred())
-			])
-		elif test $want_pam = yes; then
-		  AC_ERROR([Can't build with PAM support: pam_appl.h not found])
-		fi
 	], [
 	  if test $want_pam = yes; then
 	    AC_ERROR([Can't build with PAM support: libpam not found])
@@ -1681,22 +1687,45 @@ if test $want_pam != no; then
 	])
 fi
 
+if test "$have_pam" = "yes"; then
+  AUTH_LIBS="$AUTH_LIBS -lpam"
+  AC_DEFINE(PASSDB_PAM,, Build with PAM support)
+  passdb="$passdb pam"
+
+  AC_CHECK_LIB(pam, pam_setcred, [
+    AC_DEFINE(HAVE_PAM_SETCRED,, Define if you have pam_setcred())
+  ])
+elif test $want_pam = yes; then
+  AC_ERROR([Can't build with PAM support: pam_appl.h not found])
+else
+  not_passdb="$not_passdb pam"
+fi
+
 if test $want_checkpassword != no; then
         AC_DEFINE(PASSDB_CHECKPASSWORD,, Build with checkpassword passdb support)
         AC_DEFINE(USERDB_CHECKPASSWORD,, Build with checkpassword userdb support)
 	passdb="$passdb checkpassword"
 	userdb="$userdb checkpassword"
+else
+	not_passdb="$not_passdb checkpassword"
+	not_userdb="$not_userdb checkpassword"
 fi
 
+have_bsdauth=no
 if test $want_bsdauth != no; then
 	AC_CHECK_FUNC(auth_userokay, [
 		AC_DEFINE(PASSDB_BSDAUTH,, Build with BSD authentication support)
-		passdb="$passdb bsdauth"
+		have_bsdauth=yes
 	], [
 	  if test $want_bsdauth = yes; then
 	    AC_ERROR([Can't build with BSD authentication support: auth_userokay() not found])
 	  fi
 	])
+fi
+if test $have_bsdauth = no; then
+  not_passdb="$not_passdb bsdauth"
+else
+  passdb="$passdb bsdauth"
 fi
 
 have_gssapi=no
@@ -1810,11 +1839,12 @@ if test $want_gssapi != no; then
 fi
 AM_CONDITIONAL(GSSAPI_PLUGIN, test "$have_gssapi_plugin" = "yes")
 
+have_sia=no
 if test $want_sia != no; then
 	AC_CHECK_FUNC(sia_validate_user, [
 		AC_DEFINE(PASSDB_SIA,, Build with Tru64 SIA support)
-		passdb="$passdb sia"
 		AUTH_LIBS="$AUTH_LIBS -depth_ring_search"
+		have_sia=yes
 	], [
 	  if test $want_sia = yes; then
 	    AC_ERROR([Can't build with SIA support: sia_validate_user() not found])
@@ -1822,6 +1852,13 @@ if test $want_sia != no; then
 	])
 fi
 
+if test $have_sia = no; then
+  not_passdb="$not_passdb sia"
+else
+  passdb="$passdb sia"
+fi
+
+have_ldap=no
 if test $want_ldap != no; then
 	AC_CHECK_LIB(ldap, ldap_init, [
 		AC_CHECK_HEADER(ldap.h, [
@@ -1840,13 +1877,7 @@ if test $want_ldap != no; then
 
         		AC_DEFINE(USERDB_LDAP,, Build with LDAP support)
 		        AC_DEFINE(PASSDB_LDAP,, Build with LDAP support)
-			userdb="$userdb ldap"
-			passdb="$passdb ldap"
-			if test $want_ldap = plugin; then
-				have_ldap_plugin=yes
-				userdb="$userdb (plugin)"
-				passdb="$passdb (plugin)"
-			fi
+			have_ldap=yes
 		], [
 		  if test $want_ldap != auto; then
 		    AC_ERROR([Can't build with LDAP support: ldap.h not found])
@@ -1859,6 +1890,19 @@ if test $want_ldap != no; then
 	])
 fi
 AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
+
+if test $have_ldap = no; then
+  not_passdb="$not_passdb ldap"
+  not_userdb="$not_userdb ldap"
+else
+  userdb="$userdb ldap"
+  passdb="$passdb ldap"
+  if test $want_ldap = plugin; then
+    have_ldap_plugin=yes
+    userdb="$userdb (plugin)"
+    passdb="$passdb (plugin)"
+  fi
+fi
 
 dict_drivers=client
 
@@ -2052,8 +2096,12 @@ if test "$found_sql_drivers" != "" || test "$want_sql" != "no"; then
 	AUTH_LIBS="$AUTH_LIBS $SQL_LIBS"
 	passdb="$passdb sql"
 	userdb="$userdb sql"
+else
+	not_passdb="$not_passdb sql"
+	not_userdb="$not_userdb sql"
 fi
 
+have_vpopmail=no
 if test $want_vpopmail != no; then
 	vpop_etc="$vpopmail_home/etc"
 	AC_MSG_CHECKING([for vpopmail configuration at $vpop_etc/lib_deps])
@@ -2067,15 +2115,22 @@ if test $want_vpopmail != no; then
 		AUTH_LIBS="$AUTH_LIBS `cat $vpop_etc/lib_deps`"
 		AC_DEFINE(USERDB_VPOPMAIL,, Build with vpopmail support)
 		AC_DEFINE(PASSDB_VPOPMAIL,, Build with vpopmail support)
-		userdb="$userdb vpopmail"
-		passdb="$passdb vpopmail"
 		AC_MSG_RESULT(found)
+		have_vpopmail=yes
 	else
 		AC_MSG_RESULT(not found)
 		if test $want_vpopmail = yes; then
 		  AC_ERROR([Can't build with vpopmail support: $vpop_etc/lib_deps not found])
 		fi
 	fi
+fi
+
+if test $have_vpopmail = no; then
+  not_passdb="$not_passdb vpopmail"
+  not_userdb="$not_userdb vpopmail"
+else
+  userdb="$userdb vpopmail"
+  passdb="$passdb vpopmail"
 fi
 
 AC_CHECK_FUNC(crypt,, [
@@ -2113,7 +2168,6 @@ if test $want_nss != no; then
       enum nss_status status = NSS_STATUS_TRYAGAIN;
     ], [
       AC_DEFINE(USERDB_NSS,, Build with NSS module support)
-      userdb="$userdb nss"
       have_nss=yes
     ], [
       if test $want_nss = yes; then
@@ -2121,6 +2175,12 @@ if test $want_nss != no; then
       fi
     ])
   fi
+fi
+
+if test $have_nss = no; then
+  not_userdb="$not_userdb nss"
+else
+  userdb="$userdb nss"
 fi
 
 AC_SUBST(AUTH_CFLAGS)
@@ -2241,6 +2301,15 @@ for driver in $sql_drivers; do
     build_sqlite=yes
   fi
 done
+if test $build_pgsql = no; then
+  not_sql_drivers="$not_sql_drivers pgsql"
+fi
+if test $build_mysql = no; then
+  not_sql_drivers="$not_sql_drivers mysql"
+fi
+if test $build_sqlite = no; then
+  not_sql_drivers="$not_sql_drivers sqlite"
+fi
 
 AC_SUBST(sql_drivers)
 AM_CONDITIONAL(BUILD_PGSQL, test "$build_pgsql" = "yes")
@@ -2426,15 +2495,23 @@ if test "$want_sql" = "plugin"; then
   sql_drivers="$sql_drivers (plugins)"
 fi
 
-echo
-echo "Install prefix ...................... : $prefix"
-echo "File offsets ........................ : ${offt_bits}bit"
-echo "I/O loop method ..................... : $ioloop"
-echo "File change notification method ..... : $have_notify"
-echo "Building with SSL support ........... : $have_ssl"
-echo "Building with GSSAPI support ........ : $have_gssapi"
-echo "Building with user database modules . :$userdb"
-echo "Building with password lookup modules :$passdb"
-echo "Building with SQL drivers ............:$sql_drivers"
+not_passdb=`echo "$not_passdb"|sed 's/ / -/g'`
+not_userdb=`echo "$not_userdb"|sed 's/ / -/g'`
+not_sql_drivers=`echo "$not_sql_drivers"|sed 's/ / -/g'`
 
+echo
+echo "Install prefix . : $prefix"
+echo "File offsets ... : ${offt_bits}bit"
+echo "I/O polling .... : $ioloop"
+echo "I/O notifys .... : $have_notify"
+echo "SSL ............ : $have_ssl"
+echo "GSSAPI ......... : $have_gssapi"
+echo "passdbs ........ :$passdb"
+echo "                 :$not_passdb"
+echo "userdbs ........ :$userdb"
+echo "                 :$not_userdb"
+echo "SQL drivers .... :$sql_drivers"
+echo "                 :$not_sql_drivers"
+
+echo
 echo "NOTE: This is the UNSTABLE development branch of Dovecot v2.0."
