@@ -24,6 +24,8 @@
 #include <pwd.h>
 #include <grp.h>
 
+#define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
+
 #define FATAL_FILENAME "master-fatal.lastlog"
 #define MASTER_PID_FILE_NAME "master.pid"
 
@@ -525,7 +527,7 @@ int main(int argc, char *argv[])
 	};
 	struct master_settings *set;
 	unsigned int child_process_env_idx = 0;
-	const char *getopt_str, *error, *env_tz;
+	const char *getopt_str, *error, *env_tz, *doveconf_arg = NULL;
 	failure_callback_t *error_callback;
 	void **sets;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
@@ -542,11 +544,17 @@ int main(int argc, char *argv[])
 	master_uid = geteuid();
 	master_gid = getegid();
 
-	getopt_str = t_strconcat("Fp", master_service_getopt_string(), NULL);
+	getopt_str = t_strconcat("Fanp", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		switch (c) {
 		case 'F':
 			foreground = TRUE;
+			break;
+		case 'a':
+			doveconf_arg = "-a";
+			break;
+		case 'n':
+			doveconf_arg = "-n";
 			break;
 		case 'p':
 			/* Ask SSL private key password */
@@ -560,6 +568,19 @@ int main(int argc, char *argv[])
 			}
 			break;
 		}
+	}
+
+	if (doveconf_arg != NULL) {
+		const char **args;
+
+		args = t_new(const char *, 5);
+		args[0] = DOVECOT_CONFIG_BIN_PATH;
+		args[1] = doveconf_arg;
+		args[2] = "-c";
+		args[3] = master_service_get_config_path(master_service);
+		args[4] = NULL;
+		execv(args[0], (char **)args);
+		i_fatal("execv(%s) failed: %m", args[0]);
 	}
 
 	if (optind < argc) {
