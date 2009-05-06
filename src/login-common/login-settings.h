@@ -4,7 +4,6 @@
 struct master_service;
 
 struct login_settings {
-	const char *login_dir;
 	bool login_chroot;
 	const char *login_trusted_networks;
 	const char *login_greeting;
