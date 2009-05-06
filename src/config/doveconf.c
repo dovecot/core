@@ -3,12 +3,16 @@
 #include "lib.h"
 #include "array.h"
 #include "env-util.h"
-#include "master-service.h"
 #include "ostream.h"
+#include "settings-parser.h"
+#include "master-service.h"
+#include "all-settings.h"
+#include "sysinfo-get.h"
 #include "config-connection.h"
 #include "config-parser.h"
 #include "config-request.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -173,16 +177,38 @@ static void config_request_putenv(const char *key, const char *value,
 	} T_END;
 }
 
+static const char *get_mail_location(void)
+{
+	struct config_setting_parser_list *l;
+	const struct setting_define *def;
+	const char *const *value;
+	const void *set;
+
+	for (l = config_setting_parsers; l->module_name != NULL; l++) {
+		if (strcmp(l->module_name, "mail") != 0)
+			continue;
+
+		set = settings_parser_get(l->parser);
+		for (def = l->root->defines; def->key != NULL; def++) {
+			if (strcmp(def->key, "mail_location") == 0) {
+				value = CONST_PTR_OFFSET(set, def->offset);
+				return *value;
+			}
+		}
+	}
+	return "";
+}
+
 int main(int argc, char *argv[])
 {
 	enum config_dump_flags flags = CONFIG_DUMP_FLAG_DEFAULTS;
-	const char *getopt_str, *service_name = "";
+	const char *getopt_str, *config_path, *service_name = "";
 	char **exec_args = NULL;
 	int c;
 
 	service = master_service_init("config", MASTER_SERVICE_FLAG_STANDALONE,
 				      argc, argv);
-
+	i_set_failure_prefix("doveconf: ");
 	getopt_str = t_strconcat("anp:e", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		if (c == 'e')
@@ -201,15 +227,29 @@ int main(int argc, char *argv[])
 				exit(FATAL_DEFAULT);
 		}
 	}
+	config_path = master_service_get_config_path(service);
+
 	if (argv[optind] != NULL)
 		exec_args = &argv[optind];
+	else {
+		/* print the config file path before parsing it, so in case
+		   of errors it's still shown */
+		printf("# "VERSION": %s\n", config_path);
+		fflush(stdout);
+	}
 	master_service_init_finish(service);
 
-	config_parse_file(master_service_get_config_path(service));
+	config_parse_file(config_path);
 
-	if (exec_args == NULL)
+	if (exec_args == NULL) {
+		const char *info;
+
+		info = sysinfo_get(get_mail_location());
+		if (*info != '\0')
+			printf("# %s\n", info);
+		fflush(stdout);
 		config_dump_human(service_name, flags);
-	else {
+	} else {
 		env_put("DOVECONF_ENV=1");
 		config_request_handle(service_name, 0,
 				      config_request_putenv, NULL);
