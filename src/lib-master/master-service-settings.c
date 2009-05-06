@@ -56,10 +56,17 @@ static void ATTR_NORETURN
 master_service_exec_config(struct master_service *service, bool preserve_home)
 {
 	const char **conf_argv, *path, *const *paths, *binary_path;
+	char full_path[PATH_MAX];
 
 	binary_path = service->argv[0];
-	path = getenv("PATH");
-	if (*service->argv[0] != '/' && path != NULL) {
+	if (*service->argv[0] == '/') {
+		/* already have the path */
+	} else if (strchr(service->argv[0], '/') != NULL) {
+		/* relative to current directory */
+		if (realpath(service->argv[0], full_path) == NULL)
+			i_fatal("realpath(%s) failed: %m", service->argv[0]);
+		binary_path = full_path;
+	} else if ((path = getenv("PATH")) != NULL) {
 		/* we have to find our executable from path */
 		paths = t_strsplit(path, ":");
 		for (; *paths != NULL; paths++) {
