@@ -25,12 +25,14 @@ dovecot_SOURCES = \
 	dup2-array.c \
 	main.c \
 	master-settings.c \
+	service-anvil.c \
 	service-auth-server.c \
 	service-auth-source.c \
 	service-listen.c \
 	service-log.c \
 	service-monitor.c \
 	service-process.c \
+	service-process-notify.c \
 	service.c
 
 noinst_HEADERS = \
@@ -38,10 +40,12 @@ noinst_HEADERS = \
 	common.h \
 	dup2-array.h \
 	master-settings.h \
+	service-anvil.h \
 	service-auth-server.h \
 	service-auth-source.h \
 	service-listen.h \
 	service-log.h \
 	service-monitor.h \
 	service-process.h \
+	service-process-notify.h \
 	service.h

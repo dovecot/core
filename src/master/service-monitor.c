@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "service.h"
 #include "service-process.h"
+#include "service-process-notify.h"
 #include "service-log.h"
 #include "service-monitor.h"
 
@@ -129,7 +130,7 @@ static void service_accept(struct service *service)
 	}
 
 	/* create a child process and let it accept() this connection */
-	if (service_process_create(service, NULL, -1, NULL, 0) == NULL)
+	if (service_process_create(service, NULL, NULL) == NULL)
 		service_monitor_throttle(service);
 	else
 		service_monitor_listen_stop(service);
@@ -195,9 +196,9 @@ void services_monitor_start(struct service_list *service_list)
 			service_monitor_listen_start(services[i]);
 	}
 
-	if (service_process_create(service_list->log, NULL, -1, NULL, 0) != NULL)
+	if (service_process_create(service_list->log, NULL, NULL) != NULL)
 		service_monitor_listen_stop(service_list->log);
-	if (service_process_create(service_list->config, NULL, -1, NULL, 0) != NULL)
+	if (service_process_create(service_list->config, NULL, NULL) != NULL)
 		service_monitor_listen_stop(service_list->config);
 }
 
@@ -235,6 +236,18 @@ void services_monitor_stop(struct service_list *service_list)
 	services_log_deinit(service_list);
 }
 
+static void service_process_failure(struct service_process *process, int status)
+{
+	struct service *service = process->service;
+
+	service_process_log_status_error(process, status);
+	if (process->total_count == 0)
+		service_monitor_throttle(service);
+
+	if (service->list->anvil_kills != NULL)
+		service_process_notify_add(service->list->anvil_kills, process);
+}
+
 void services_monitor_reap_children(struct service_list *service_list)
 {
 	struct service_process *process;
@@ -256,12 +269,8 @@ void services_monitor_reap_children(struct service_list *service_list)
 			if (service->listen_pending)
 				service_monitor_listen_start(service);
 		} else {
-			/* failure */
-			service_process_log_status_error(process, status);
-			if (process->total_count == 0)
-				service_monitor_throttle(service);
+			service_process_failure(process, status);
 		}
-
 		service_process_destroy(process);
 
                 if (service->process_avail == 0 && service->to_throttle == NULL)

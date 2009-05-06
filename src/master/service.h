@@ -3,6 +3,8 @@
 
 #include "network.h"
 
+struct master_settings;
+
 /* If a service process doesn't send its first status notification in
    this many seconds, kill the process */
 #define SERVICE_FIRST_STATUS_TIMEOUT_SECS 30
@@ -10,6 +12,7 @@
 enum service_type {
 	SERVICE_TYPE_UNKNOWN,
 	SERVICE_TYPE_LOG,
+	SERVICE_TYPE_ANVIL,
 	SERVICE_TYPE_CONFIG,
 	SERVICE_TYPE_AUTH_SERVER,
 	SERVICE_TYPE_AUTH_SOURCE
@@ -97,11 +100,13 @@ struct service_list {
 
 	/* nonblocking log fds usd by master */
 	int master_log_fd[2];
-	/* we're waiting to be able to send "bye" to log process */
-	struct io *io_log_write;
-	/* List of processes who are waiting for the "bye" */
-	struct aqueue *bye_queue;
-	ARRAY_DEFINE(bye_arr, struct service_process *);
+	struct service_process_notify *log_byes;
+
+	/* passed to auth destination processes */
+	int blocking_anvil_fd[2];
+	/* used by master process to notify about dying processes */
+	int nonblocking_anvil_fd[2];
+	struct service_process_notify *anvil_kills;
 
 	ARRAY_DEFINE(services, struct service *);
 };

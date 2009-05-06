@@ -283,6 +283,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		if (*services[i]->type != '\0' &&
 		    strcmp(services[i]->type, "log") != 0 &&
 		    strcmp(services[i]->type, "config") != 0 &&
+		    strcmp(services[i]->type, "anvil") != 0 &&
 		    strcmp(services[i]->type, "auth") != 0 &&
 		    strcmp(services[i]->type, "auth-source") != 0) {
 			*error_r = t_strconcat("Unknown service type: ",
@@ -428,7 +429,7 @@ static void unlink_sockets(const char *path, const char *prefix)
 
 bool master_settings_do_fixes(const struct master_settings *set)
 {
-	const char *login_dir;
+	const char *login_dir, *empty_dir;
 	struct stat st;
 	gid_t gid;
 
@@ -478,6 +479,12 @@ bool master_settings_do_fixes(const struct master_settings *set)
 			i_error("mkdir(%s) failed: %m", login_dir);
 			return FALSE;
 		}
+	}
+
+	empty_dir = t_strconcat(set->base_dir, "/empty", NULL);
+	if (safe_mkdir(empty_dir, 0755, master_uid, getegid()) == 0) {
+		i_warning("Corrected permissions for empty directory "
+			  "%s", empty_dir);
 	}
 	return TRUE;
 }

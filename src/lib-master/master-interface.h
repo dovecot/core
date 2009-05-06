@@ -60,9 +60,7 @@ struct master_auth_request {
 
 enum master_auth_status {
 	MASTER_AUTH_STATUS_OK,
-	MASTER_AUTH_STATUS_INTERNAL_ERROR,
-	/* user reached max. simultaneous connections */
-	MASTER_AUTH_STATUS_MAX_CONNECTIONS
+	MASTER_AUTH_STATUS_INTERNAL_ERROR
 };
 
 struct master_auth_reply {
@@ -85,8 +83,9 @@ struct master_auth_reply {
 /* getenv(MASTER_DOVECOT_VERSION_ENV) provides master's version number */
 #define MASTER_DOVECOT_VERSION_ENV "DOVECOT_VERSION"
 
-/* points to /dev/null for now */
-#define MASTER_RESERVED_FD 3
+/* Write pipe to anvil. Currently available only for auth destination
+   services, for others it's /dev/null. */
+#define MASTER_ANVIL_FD 3
 
 /* Socket for sending master_auth_requests. Also used by auth server process
    as a master socket. */

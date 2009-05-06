@@ -31,6 +31,7 @@ struct login_settings {
 	bool verbose_proctitle;
 
 	unsigned int login_max_connections;
+	unsigned int mail_max_userip_connections;
 
 	/* generated: */
 	const char *const *log_format_elements_split;

@@ -49,7 +49,7 @@
 #define AUTH_MASTER_WAITING_MSG \
 	"* OK Waiting for authentication master process to respond.."
 
-const char *login_protocol = "IMAP";
+const char *login_protocol = "imap";
 const char *login_process_name = "imap-login";
 
 static void client_set_title(struct imap_client *client)

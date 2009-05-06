@@ -20,6 +20,7 @@
 #include "service-log.h"
 #include "service-auth-server.h"
 #include "service-auth-source.h"
+#include "service-process-notify.h"
 #include "service-process.h"
 
 #include <stdlib.h>
@@ -30,7 +31,8 @@
 #include <sys/wait.h>
 
 static void
-service_dup_fds(struct service *service, int auth_fd, int std_fd)
+service_dup_fds(struct service *service, int auth_fd, int std_fd,
+		bool give_anvil_fd)
 {
 	struct service_listener *const *listeners;
 	ARRAY_TYPE(dup2) dups;
@@ -47,11 +49,24 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd)
 	listeners = array_get(&service->listeners, &count);
 	t_array_init(&dups, count + 10);
 
-	if (service->type == SERVICE_TYPE_LOG) {
+	switch (service->type) {
+	case SERVICE_TYPE_LOG:
 		i_assert(n == 0);
 		services_log_dup2(&dups, service->list, MASTER_LISTEN_FD_FIRST,
 				  &socket_listener_count);
 		n += socket_listener_count;
+		break;
+	case SERVICE_TYPE_ANVIL:
+		/* nonblocking anvil fd must be the first one. anvil treats it
+		   as the master's fd */
+		dup2_append(&dups, service->list->nonblocking_anvil_fd[0],
+			    MASTER_LISTEN_FD_FIRST + n++);
+		dup2_append(&dups, service->list->blocking_anvil_fd[0],
+			    MASTER_LISTEN_FD_FIRST + n++);
+		socket_listener_count += 2;
+		break;
+	default:
+		break;
 	}
 
 	/* first add non-ssl listeners */
@@ -77,7 +92,12 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd)
 		}
 	}
 
-	dup2_append(&dups, null_fd, MASTER_RESERVED_FD);
+	if (!give_anvil_fd)
+		dup2_append(&dups, null_fd, MASTER_ANVIL_FD);
+	else {
+		dup2_append(&dups, service->list->blocking_anvil_fd[1],
+			    MASTER_ANVIL_FD);
+	}
 	dup2_append(&dups, service->status_fd[1], MASTER_STATUS_FD);
 
 	switch (service->type) {
@@ -326,14 +346,32 @@ static void service_process_status_timeout(struct service_process *process)
 	timeout_remove(&process->to_status);
 }
 
+static void
+handle_request(const struct service_process_auth_request *request)
+{
+	string_t *str;
+
+	if (request == NULL)
+		return;
+
+	if (request->data_size > 0) {
+		str = t_str_new(request->data_size*3);
+		str_append(str, "CLIENT_INPUT=");
+		base64_encode(request->data, request->data_size, str);
+		env_put(str_c(str));
+	}
+
+	env_put(t_strconcat("LOCAL_IP=", net_ip2addr(&request->local_ip), NULL));
+	env_put(t_strconcat("IP=", net_ip2addr(&request->remote_ip), NULL));
+}
+
 struct service_process *
 service_process_create(struct service *service, const char *const *auth_args,
-		       int std_fd, const unsigned char *data, size_t data_size)
+		       const struct service_process_auth_request *request)
 {
 	static unsigned int uid_counter = 0;
 	struct service_process *process;
 	unsigned int uid = ++uid_counter;
-	string_t *str;
 	int fd[2];
 	pid_t pid;
 
@@ -366,13 +404,9 @@ service_process_create(struct service *service, const char *const *auth_args,
 		if (fd[0] != -1)
 			(void)close(fd[0]);
 		service_process_setup_environment(service, uid);
-		if (data_size > 0) {
-			str = t_str_new(data_size*3);
-			str_append(str, "CLIENT_INPUT=");
-			base64_encode(data, data_size, str);
-			env_put(str_c(str));
-		}
-		service_dup_fds(service, fd[1], std_fd);
+		handle_request(request);
+		service_dup_fds(service, fd[1], request == NULL ? -1 :
+				request->fd, auth_args != NULL);
 		drop_privileges(service, auth_args);
 		process_exec(service->executable, NULL);
 	}
@@ -418,65 +452,6 @@ service_process_create(struct service *service, const char *const *auth_args,
 	return process;
 }
 
-static int service_process_write_bye(struct service_process *process)
-{
-	const char *data;
-
-	data = t_strdup_printf("%d %s BYE\n",
-			       process->service->log_process_internal_fd,
-			       dec2str(process->pid));
-	if (write(process->service->list->master_log_fd[1],
-		  data, strlen(data)) < 0) {
-		if (errno != EAGAIN)
-			i_error("write(log process) failed: %m");
-		return -1;
-	}
-	return 0;
-}
-
-static void service_list_log_flush_byes(struct service_list *service_list)
-{
-	struct service_process *const *processes, *process;
-
-	while (aqueue_count(service_list->bye_queue) > 0) {
-		processes = array_idx_modifiable(&service_list->bye_arr, 0);
-		process = processes[aqueue_idx(service_list->bye_queue, 0)];
-
-		if (service_process_write_bye(process) < 0) {
-			if (errno != EAGAIN)
-				services_log_clear_byes(service_list);
-			return;
-		}
-		service_process_unref(process);
-		aqueue_delete_tail(service_list->bye_queue);
-	}
-	io_remove(&service_list->io_log_write);
-}
-
-static void service_process_log_bye(struct service_process *process)
-{
-	struct service_list *service_list = process->service->list;
-
-	if (process->service->log_fd[1] == -1) {
-		/* stopping all services */
-		return;
-	}
-
-	if (service_process_write_bye(process) < 0) {
-		if (errno != EAGAIN)
-			return;
-
-		if (service_list->io_log_write == NULL) {
-			service_list->io_log_write =
-				io_add(service_list->master_log_fd[1], IO_WRITE,
-				       service_list_log_flush_byes,
-				       service_list);
-		}
-		aqueue_append(service_list->bye_queue, &process);
-		service_process_ref(process);
-	}
-}
-
 void service_process_destroy(struct service_process *process)
 {
 	struct service *service = process->service;
@@ -502,7 +477,8 @@ void service_process_destroy(struct service_process *process)
 		break;
 	}
 
-	service_process_log_bye(process);
+	if (service->list->log_byes != NULL)
+		service_process_notify_add(service->list->log_byes, process);
 
 	process->destroyed = TRUE;
 	service_process_unref(process);

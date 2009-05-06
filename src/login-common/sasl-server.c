@@ -4,12 +4,21 @@
 #include "base64.h"
 #include "buffer.h"
 #include "istream.h"
+#include "write-full.h"
+#include "strescape.h"
 #include "str-sanitize.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "master-interface.h"
 #include "master-auth.h"
 #include "client-common.h"
+
+#include <stdlib.h>
+#include <unistd.h>
+
+#define ERR_TOO_MANY_USERIP_CONNECTIONS \
+	"Maximum number of connections from user+IP exceeded " \
+	"(mail_max_userip_connections)"
 
 static enum auth_request_flags
 client_get_auth_flags(struct client *client)
@@ -54,10 +63,6 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 		break;
 	case MASTER_AUTH_STATUS_INTERNAL_ERROR:
 		break;
-	case MASTER_AUTH_STATUS_MAX_CONNECTIONS:
-		data = "Maximum number of connections from user+IP exceeded "
-			"(mail_max_userip_connections)";
-		break;
 	}
 	client->mail_pid = reply->mail_pid;
 	call_client_callback(client, sasl_reply, data, NULL);
@@ -90,6 +95,35 @@ master_send_request(struct client *client, struct auth_request *request)
 	client->master_tag =
 		master_auth_request(service, client->fd, &req, buf->data,
 				    master_auth_callback, client);
+}
+
+static bool anvil_has_too_many_connections(struct client *client)
+{
+	const char *ident;
+	char buf[64];
+	ssize_t ret;
+
+	if (client->virtual_user == NULL)
+		return FALSE;
+	if (login_settings->mail_max_userip_connections == 0)
+		return FALSE;
+
+	ident = t_strconcat("LOOKUP\t", net_ip2addr(&client->ip), "/",
+			    str_tabescape(client->virtual_user), "/",
+			    login_protocol, "\n", NULL);
+	if (write_full(anvil_fd, ident, strlen(ident)) < 0)
+		i_fatal("write(anvil) failed: %m");
+	ret = read(anvil_fd, buf, sizeof(buf)-1);
+	if (ret < 0)
+		i_fatal("read(anvil) failed: %m");
+	else if (ret == 0)
+		i_fatal("read(anvil) failed: EOF");
+	if (buf[ret-1] != '\n')
+		i_fatal("anvil lookup failed: Invalid input in reply");
+	buf[ret-1] = '\0';
+
+	return strtoul(buf, NULL, 10) >=
+		login_settings->mail_max_userip_connections;
 }
 
 static void authenticate_callback(struct auth_request *request, int status,
@@ -133,6 +167,11 @@ static void authenticate_callback(struct auth_request *request, int status,
 			client->authenticating = FALSE;
 			call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
 					     NULL, args);
+		} else if (anvil_has_too_many_connections(client)) {
+			client->authenticating = FALSE;
+			call_client_callback(client,
+					SASL_SERVER_REPLY_MASTER_FAILED,
+					ERR_TOO_MANY_USERIP_CONNECTIONS, NULL);
 		} else {
 			master_send_request(client, request);
 		}

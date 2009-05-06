@@ -5,6 +5,7 @@
 #include "hostpid.h"
 #include "network.h"
 #include "str.h"
+#include "strescape.h"
 #include "var-expand.h"
 #include "settings-parser.h"
 #include "auth-master.h"
@@ -315,6 +316,14 @@ const char *mail_user_get_temp_prefix(struct mail_user *user)
 	if (ns == NULL)
 		ns = user->namespaces;
 	return mail_storage_get_temp_prefix(ns->storage);
+}
+
+const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
+{
+	if (user->remote_ip == NULL)
+		return NULL;
+	return t_strconcat(net_ip2addr(user->remote_ip), "/",
+			   str_tabescape(user->username), NULL);
 }
 
 void mail_users_init(const char *auth_socket_path, bool debug)

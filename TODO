@@ -1,6 +1,6 @@
- - mail_max_userip_connections
+ - move ssl proxying code to lib-master
+ - rawlog is broken because it can't get $HOME etc.
  - dovecot stop, dovecot reload
- - make sure status/log messages which are important get through to the server
  - log prefixes work in a weird way now. failures.c prefixes are used only
    when not doing internal logging. that won't work in future..
  - library dependency tracking still broken. .la changes get noticed,

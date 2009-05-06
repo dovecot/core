@@ -43,6 +43,7 @@ static struct setting_define login_setting_defines[] = {
 	DEF(SET_BOOL, verbose_proctitle),
 
 	DEF(SET_UINT, login_max_connections),
+	DEF(SET_UINT, mail_max_userip_connections),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -75,7 +76,8 @@ static struct login_settings login_default_settings = {
 	MEMBER(auth_debug) FALSE,
 	MEMBER(verbose_proctitle) FALSE,
 
-	MEMBER(login_max_connections) 256
+	MEMBER(login_max_connections) 256,
+	MEMBER(mail_max_userip_connections) 10
 };
 
 struct setting_parser_info login_setting_parser_info = {

@@ -59,7 +59,7 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 
 	binary_path = service->argv[0];
 	path = getenv("PATH");
-	if (*service->argv[0] != '/') {
+	if (*service->argv[0] != '/' && path != NULL) {
 		/* we have to find our executable from path */
 		paths = t_strsplit(path, ":");
 		for (; *paths != NULL; paths++) {

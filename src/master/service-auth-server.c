@@ -107,11 +107,8 @@ auth_process_input_user(struct service_process_auth_server *process, const char 
 			request->process->process.service->auth_dest_service;
 		struct service_process *dest_process;
 
-		/* FIXME: handle MASTER_AUTH_STATUS_MAX_CONNECTIONS */
 		dest_process = service_process_create(dest_service, list + 1,
-						      request->fd,
-						      request->data,
-						      request->data_size);
+						      request);
 		status = dest_process != NULL ?
 			MASTER_AUTH_STATUS_OK :
 			MASTER_AUTH_STATUS_INTERNAL_ERROR;

@@ -9,6 +9,7 @@
 #include "fd-set-nonblock.h"
 #include "service.h"
 #include "service-process.h"
+#include "service-process-notify.h"
 #include "service-log.h"
 
 #include <unistd.h>
@@ -48,6 +49,22 @@ static int service_log_fds_init(const char *log_prefix, int log_fd[2],
 	return 0;
 }
 
+static int
+service_process_write_log_bye(int fd, struct service_process *process)
+{
+	const char *data;
+
+	data = t_strdup_printf("%d %s BYE\n",
+			       process->service->log_process_internal_fd,
+			       dec2str(process->pid));
+	if (write(fd, data, strlen(data)) < 0) {
+		if (errno != EAGAIN)
+			i_error("write(log process) failed: %m");
+		return -1;
+	}
+	return 0;
+}
+
 int services_log_init(struct service_list *service_list)
 {
 	struct service *const *services;
@@ -65,6 +82,11 @@ int services_log_init(struct service_list *service_list)
 		ret = -1;
 	else
 		fd_set_nonblock(service_list->master_log_fd[1], TRUE);
+
+	i_assert(service_list->log_byes == NULL);
+	service_list->log_byes =
+		service_process_notify_init(service_list->master_log_fd[1],
+					    service_process_write_log_bye);
 
 	n = 1;
 	for (i = 0; i < count; i++) {
@@ -90,26 +112,6 @@ int services_log_init(struct service_list *service_list)
 	return 0;
 }
 
-void services_log_clear_byes(struct service_list *service_list)
-{
-	struct service_process *const *processes, *process;
-	unsigned int i, count;
-
-	if (service_list->io_log_write == NULL)
-		return;
-
-	processes = array_idx_modifiable(&service_list->bye_arr, 0);
-	count = aqueue_count(service_list->bye_queue);
-	for (i = 0; i < count; i++) {
-		process = processes[aqueue_idx(service_list->bye_queue, i)];
-		service_process_unref(process);
-	}
-	aqueue_clear(service_list->bye_queue);
-	array_clear(&service_list->bye_arr);
-
-	io_remove(&service_list->io_log_write);
-}
-
 void services_log_deinit(struct service_list *service_list)
 {
 	struct service *const *services;
@@ -131,7 +133,7 @@ void services_log_deinit(struct service_list *service_list)
 			services[i]->log_process_internal_fd = -1;
 		}
 	}
-	services_log_clear_byes(service_list);
+	service_process_notify_deinit(&service_list->log_byes);
 	if (service_list->master_log_fd[0] != -1) {
 		if (close(service_list->master_log_fd[0]) < 0)
 			i_error("close(master log fd) failed: %m");

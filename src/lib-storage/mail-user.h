@@ -105,5 +105,7 @@ void mail_user_drop_useless_namespaces(struct mail_user *user);
 const char *mail_user_home_expand(struct mail_user *user, const char *path);
 /* Returns 0 if ok, -1 if home directory isn't set. */
 int mail_user_try_home_expand(struct mail_user *user, const char **path);
+/* Returns unique user+ip identifier for anvil. */
+const char *mail_user_get_anvil_userip_ident(struct mail_user *user);
 
 #endif

@@ -35,7 +35,7 @@
 #  error client idle timeout must be smaller than authentication timeout
 #endif
 
-const char *login_protocol = "POP3";
+const char *login_protocol = "pop3";
 const char *login_process_name = "pop3-login";
 
 static void client_set_title(struct pop3_client *client)

@@ -139,6 +139,7 @@ struct client {
 	unsigned int syncing:1;
 	unsigned int id_logged:1;
 	unsigned int mailbox_examined:1;
+	unsigned int anvil_sent:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
 	unsigned int modseqs_sent_since_sync:1;

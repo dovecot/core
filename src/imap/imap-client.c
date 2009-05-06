@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "llist.h"
 #include "str.h"
+#include "hostpid.h"
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
@@ -34,6 +35,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 {
 	struct client *client;
 	struct mail_namespace *ns;
+	const char *ident;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
@@ -67,6 +69,13 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
 	str_append(client->capability_string, *set->imap_capability != '\0' ?
 		   set->imap_capability : CAPABILITY_STRING);
+
+	ident = mail_user_get_anvil_userip_ident(client->user);
+	if (ident != NULL) {
+		master_service_anvil_send(service, t_strconcat("CONNECT\t",
+			my_pid, "\t", ident, "/imap\n", NULL));
+		client->anvil_sent = TRUE;
+	}
 
 	i_assert(my_client == NULL);
 	my_client = client;
@@ -173,6 +182,12 @@ void client_destroy(struct client *client, const char *reason)
 	if (client->mailbox != NULL) {
 		client_search_updates_free(client);
 		mailbox_close(&client->mailbox);
+	}
+	if (client->anvil_sent) {
+		master_service_anvil_send(service, t_strconcat("DISCONNECT\t",
+			my_pid, "\t",
+			mail_user_get_anvil_userip_ident(client->user), "/imap"
+			"\n", NULL));
 	}
 	mail_user_unref(&client->user);
 

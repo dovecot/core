@@ -20,6 +20,7 @@
 
 struct auth_client *auth_client;
 bool closing_down;
+int anvil_fd = -1;
 
 struct master_service *service;
 struct login_settings *login_settings;
@@ -65,6 +66,21 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
                 clients_notify_auth_connected();
 }
 
+static int anvil_connect(void)
+{
+#define ANVIL_HANDSHAKE "VERSION\t1\t0\n"
+	int fd;
+
+	fd = net_connect_unix("anvil");
+	if (fd < 0)
+		i_fatal("net_connect_unix(anvil) failed: %m");
+	net_set_nonblock(fd, FALSE);
+
+	if (write(fd, ANVIL_HANDSHAKE, strlen(ANVIL_HANDSHAKE)) < 0)
+		i_fatal("write(anvil) failed: %m");
+	return fd;
+}
+
 static void main_preinit(void)
 {
 	unsigned int max_fds;
@@ -84,6 +100,9 @@ static void main_preinit(void)
 	io_loop_set_max_fd_count(current_ioloop, max_fds);
 
 	i_assert(strcmp(login_settings->ssl, "no") == 0 || ssl_initialized);
+
+	if (login_settings->mail_max_userip_connections > 0)
+		anvil_fd = anvil_connect();
 
 	restrict_access_by_env(NULL, TRUE);
 }
@@ -113,6 +132,11 @@ static void main_deinit(void)
 	if (auth_client != NULL)
 		auth_client_free(&auth_client);
 	clients_deinit();
+
+	if (anvil_fd != -1) {
+		if (close(anvil_fd) < 0)
+			i_error("close(anvil) failed: %m");
+	}
 	master_auth_deinit(service);
 }
 

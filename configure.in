@@ -2383,6 +2383,7 @@ src/lib-storage/index/cydir/Makefile
 src/lib-storage/index/raw/Makefile
 src/lib-storage/index/shared/Makefile
 src/lib-storage/register/Makefile
+src/anvil/Makefile
 src/auth/Makefile
 src/config/Makefile
 src/lda/Makefile

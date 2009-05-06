@@ -51,9 +51,11 @@ Makefile.in
 
 doc/wiki/*.txt
 doc/wiki/Makefile.am
+src/anvil/anvil
 src/auth/checkpassword-reply
 src/auth/dovecot-auth
 src/config/all-settings.c
+src/config/config
 src/config/doveconf
 src/lda/dovecot-lda
 src/dict/dict

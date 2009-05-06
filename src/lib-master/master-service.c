@@ -356,6 +356,23 @@ void master_service_stop(struct master_service *service)
         io_loop_stop(service->ioloop);
 }
 
+void master_service_anvil_send(struct master_service *service, const char *cmd)
+{
+	ssize_t ret;
+
+	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0)
+		return;
+
+	ret = write(MASTER_ANVIL_FD, cmd, strlen(cmd));
+	if (ret < 0)
+		i_error("write(anvil) failed: %m");
+	else if (ret == 0)
+		i_error("write(anvil) failed: EOF");
+	else {
+		i_assert((size_t)ret == strlen(cmd));
+	}
+}
+
 void master_service_client_connection_destroyed(struct master_service *service)
 {
 	if (service->listeners == NULL) {

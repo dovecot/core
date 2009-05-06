@@ -56,6 +56,7 @@ struct client {
 	unsigned int disconnected:1;
 	unsigned int deleted:1;
 	unsigned int waiting_input:1;
+	unsigned int anvil_sent:1;
 };
 
 /* Create new client with specified input/output handles. socket specifies

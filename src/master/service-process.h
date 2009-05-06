@@ -64,7 +64,7 @@ struct service_process_auth_request {
 
 struct service_process *
 service_process_create(struct service *service, const char *const *auth_args,
-		       int std_fd, const unsigned char *data, size_t data_size);
+		       const struct service_process_auth_request *request);
 void service_process_destroy(struct service_process *process);
 
 void service_process_ref(struct service_process *process);

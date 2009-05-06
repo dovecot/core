@@ -75,6 +75,8 @@ void master_service_run(struct master_service *service,
 /* Stop a running service. */
 void master_service_stop(struct master_service *service);
 
+/* Send command to anvil process, if we have fd to it. */
+void master_service_anvil_send(struct master_service *service, const char *cmd);
 /* Call whenever a client connection is destroyed. */
 void master_service_client_connection_destroyed(struct master_service *service);
 

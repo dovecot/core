@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "hostpid.h"
 #include "var-expand.h"
 #include "master-service.h"
 #include "mail-storage.h"
@@ -215,7 +216,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 			     const struct pop3_settings *set)
 {
 	struct mail_storage *storage;
-	const char *inbox;
+	const char *inbox, *ident;
 	struct client *client;
         enum mailbox_open_flags flags;
 	const char *errmsg;
@@ -285,6 +286,13 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 
 	if (!set->pop3_no_flag_updates && client->messages_count > 0)
 		client->seen_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
+
+	ident = mail_user_get_anvil_userip_ident(client->user);
+	if (ident != NULL) {
+		master_service_anvil_send(service, t_strconcat("CONNECT\t",
+			my_pid, "\t", ident, "/pop3\n", NULL));
+		client->anvil_sent = TRUE;
+	}
 
 	i_assert(my_client == NULL);
 	my_client = client;
@@ -364,6 +372,12 @@ void client_destroy(struct client *client, const char *reason)
 	}
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);
+	if (client->anvil_sent) {
+		master_service_anvil_send(service, t_strconcat("DISCONNECT\t",
+			my_pid, "\t",
+			mail_user_get_anvil_userip_ident(client->user), "/pop3"
+			"\n", NULL));
+	}
 	mail_user_unref(&client->user);
 
 	i_free(client->message_sizes);

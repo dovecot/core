@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "str.h"
 #include "service.h"
+#include "service-anvil.h"
 #include "service-process.h"
 #include "service-monitor.h"
 
@@ -136,6 +137,8 @@ service_create(pool_t pool, const struct service_settings *set,
 			service->type = SERVICE_TYPE_LOG;
 		else if (strcmp(set->type, "config") == 0)
 			service->type = SERVICE_TYPE_CONFIG;
+		else if (strcmp(set->type, "anvil") == 0)
+			service->type = SERVICE_TYPE_ANVIL;
 		else if (strcmp(set->type, "auth") == 0)
 			service->type = SERVICE_TYPE_AUTH_SERVER;
 		else if (strcmp(set->type, "auth-source") == 0)
@@ -370,10 +373,11 @@ services_create(const struct master_settings *set,
 		return NULL;
 	}
 
+	if (service_list_init_anvil(service_list, error_r) < 0)
+		return NULL;
+
 	service_list->pids = hash_table_create(default_pool, pool, 0,
 					       pid_hash, pid_hash_cmp);
-	p_array_init(&service_list->bye_arr, pool, 64);
-	service_list->bye_queue = aqueue_init(&service_list->bye_arr.arr);
 	return service_list;
 }
 
@@ -413,7 +417,7 @@ void services_destroy(struct service_list *service_list)
 		service_process_destroy(value);
 	hash_table_iterate_deinit(&iter);
 
+	service_list_deinit_anvil(service_list);
 	hash_table_destroy(&service_list->pids);
-	aqueue_deinit(&service_list->bye_queue);
 	pool_unref(&service_list->pool);
 }
