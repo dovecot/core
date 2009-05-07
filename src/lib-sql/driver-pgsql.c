@@ -194,6 +194,8 @@ static int driver_pgsql_connect(struct sql_db *_db)
 		return -1;
 	} else {
 		/* nonblocking connecting begins. */
+		if (PQsetnonblocking(db->pg, 1) < 0)
+			i_error("pgsql: PQsetnonblocking() failed");
 		db->io = io_add(PQsocket(db->pg), IO_WRITE,
 				connect_callback, db);
 		db->io_dir = IO_WRITE;
