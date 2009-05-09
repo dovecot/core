@@ -44,6 +44,7 @@ noinst_HEADERS = \
 	all-settings.h \
 	config-connection.h \
 	config-parser.h \
+	config-request.h \
 	sysinfo-get.h
 
 all-settings.c: $(SETTING_FILES) $(top_srcdir)/src/config/settings-get.pl
