@@ -47,6 +47,7 @@ headers = \
 	mail-index-view-private.h \
         mail-transaction-log.h \
 	mail-transaction-log-private.h \
+	mail-transaction-log-view-private.h \
         mailbox-list-index.h \
         mailbox-list-index-private.h
 

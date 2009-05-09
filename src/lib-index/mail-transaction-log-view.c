@@ -3,34 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-index-private.h"
-#include "mail-transaction-log-private.h"
-
-struct mail_transaction_log_view {
-	struct mail_transaction_log *log;
-        struct mail_transaction_log_view *next;
-
-	uint32_t min_file_seq, max_file_seq;
-	uoff_t min_file_offset, max_file_offset;
-
-	struct mail_transaction_header tmp_hdr;
-
-	/* a list of log files we've referenced. we have to keep this list
-	   explicitly because more files may be added into the linked list
-	   at any time. */
-	ARRAY_DEFINE(file_refs, struct mail_transaction_log_file *);
-        struct mail_transaction_log_file *cur, *head, *tail;
-	uoff_t cur_offset;
-
-	uint64_t prev_modseq;
-	uint32_t prev_file_seq;
-	uoff_t prev_file_offset;
-
-	struct mail_transaction_log_file *mark_file;
-	uoff_t mark_offset, mark_next_offset;
-	uint64_t mark_modseq;
-
-	unsigned int broken:1;
-};
+#include "mail-transaction-log-view-private.h"
 
 struct mail_transaction_log_view *
 mail_transaction_log_view_open(struct mail_transaction_log *log)
@@ -98,7 +71,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				  uint32_t max_file_seq, uoff_t max_file_offset,
 				  bool *reset_r)
 {
-	struct mail_transaction_log_file *file, *const *files;
+	struct mail_transaction_log_file *file, *const *files, *tail;
 	uoff_t start_offset, end_offset;
 	unsigned int i;
 	uint32_t seq;
@@ -114,15 +87,16 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
+	tail = view->log->files;
 	if (min_file_seq == 0) {
 		/* index file doesn't exist yet. this transaction log should
 		   start from the beginning */
-		if (view->log->files->hdr.prev_file_seq != 0) {
+		if (tail->hdr.prev_file_seq != 0) {
 			/* but it doesn't */
 			return 0;
 		}
 
-		min_file_seq = view->log->files->hdr.file_seq;
+		min_file_seq = tail->hdr.file_seq;
 		min_file_offset = 0;
 
 		if (max_file_seq == 0) {
@@ -131,10 +105,10 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		}
 	} 
 
-	if (min_file_seq == view->log->files->hdr.prev_file_seq &&
-	    min_file_offset == view->log->files->hdr.prev_file_offset) {
+	if (min_file_seq == tail->hdr.prev_file_seq &&
+	    min_file_offset == tail->hdr.prev_file_offset) {
 		/* we can skip this */
-		min_file_seq = view->log->files->hdr.file_seq;
+		min_file_seq = tail->hdr.file_seq;
 		min_file_offset = 0;
 
 		if (min_file_seq > max_file_seq) {
@@ -153,14 +127,12 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	if (min_file_offset > 0 &&
-	    min_file_offset < view->log->files->hdr.hdr_size) {
+	if (min_file_offset > 0 && min_file_offset < tail->hdr.hdr_size) {
 		/* log file offset is probably corrupted in the index file. */
 		mail_transaction_log_view_set_corrupted(view,
 			"file_seq=%u, min_file_offset (%"PRIuUOFF_T
 			") < hdr_size (%u)",
-			min_file_seq, min_file_offset,
-			view->log->files->hdr.hdr_size);
+			min_file_seq, min_file_offset, tail->hdr.hdr_size);
 		return -1;
 	}
 
