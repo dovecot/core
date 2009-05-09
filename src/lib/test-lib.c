@@ -919,13 +919,5 @@ int main(void)
 
 		test_istreams
 	};
-	unsigned int i;
-
-	test_init();
-	for (i = 0; i < N_ELEMENTS(test_functions); i++) {
-		T_BEGIN {
-			test_functions[i]();
-		} T_END;
-	}
-	return test_deinit();
+	return test_run(test_functions);
 }

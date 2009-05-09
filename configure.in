@@ -2442,6 +2442,7 @@ src/lib-ntlm/Makefile
 src/lib-otp/Makefile
 src/lib-dovecot/Makefile
 src/lib-settings/Makefile
+src/lib-test/Makefile
 src/lib-storage/Makefile
 src/lib-storage/list/Makefile
 src/lib-storage/index/Makefile
@@ -2465,7 +2466,6 @@ src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
-src/tests/Makefile
 src/util/Makefile
 src/plugins/Makefile
 src/plugins/acl/Makefile

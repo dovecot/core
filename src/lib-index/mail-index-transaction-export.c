@@ -16,7 +16,8 @@ static void
 log_append_buffer(struct mail_index_export_context *ctx,
 		  const buffer_t *buf, enum mail_transaction_type type)
 {
-	mail_transaction_log_append_add(ctx->append_ctx, type, buf);
+	mail_transaction_log_append_add(ctx->append_ctx, type,
+					buf->data, buf->used);
 }
 
 static const buffer_t *

@@ -2,6 +2,7 @@ noinst_LTLIBRARIES = libimap.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-charset \
 	-I$(top_srcdir)/src/lib-mail
 
@@ -38,3 +39,23 @@ if INSTALL_HEADERS
 else
   noinst_HEADERS = $(headers)
 endif
+
+test_programs = test-imap
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	libimap.la \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_imap_SOURCES = \
+	test-imap.c
+
+test_imap_LDADD = $(test_libs)
+test_imap_DEPENDENCIES = $(test_libs)
+
+check: check-am check-test
+check-test: $(test_programs)
+	for bin in $(test_programs); do \
+	  if ! ./$$bin; then exit 1; fi \
+	done

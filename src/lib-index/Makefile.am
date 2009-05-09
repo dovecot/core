@@ -2,6 +2,7 @@ noinst_LTLIBRARIES = libindex.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-mail
 
 libindex_la_SOURCES = \
@@ -54,9 +55,34 @@ headers = \
         mailbox-list-index.h \
         mailbox-list-index-private.h
 
+test_programs = test-index
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	libindex.la \
+	../lib-test/libtest.la \
+	../lib-mail/libmail.la \
+	../lib/liblib.la
+
+test_index_SOURCES = \
+	test-index.c \
+	test-transaction-log-view.c
+
+test_headers = \
+	test-index.h
+
+test_index_LDADD = $(test_libs)
+test_index_DEPENDENCIES = $(test_libs)
+
+check: check-am check-test
+check-test: $(test_programs)
+	for bin in $(test_programs); do \
+	  if ! ./$$bin; then exit 1; fi \
+	done
+
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)
-  pkginc_lib_HEADERS = $(headers)
+  pkginc_lib_HEADERS = $(headers) $(test_headers)
 else
-  noinst_HEADERS = $(headers)
+  noinst_HEADERS = $(headers) $(test_headers)
 endif

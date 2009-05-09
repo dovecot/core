@@ -61,9 +61,13 @@ src/lda/dovecot-lda
 src/dict/dict
 src/imap-login/imap-login
 src/imap/imap
+src/lib/test-lib
 src/lib/unicodemap.c
 src/lib/UnicodeData.txt
 src/lib-dict/dict-drivers-register.c
+src/lib-index/test-index
+src/lib-imap/test-imap
+src/lib-mail/test-mail
 src/lib-sql/sql-drivers-register.c
 src/lib-storage/register/mail-storage-register.c
 src/lib-storage/register/mailbox-list-register.c
@@ -76,9 +80,6 @@ src/plugins/expire/expire-tool
 src/plugins/fts-squat/squat-test
 src/pop3-login/pop3-login
 src/pop3/pop3
-src/tests/test-lib
-src/tests/test-mail
-src/tests/test-imap
 src/util/doveadm
 src/util/dovecotpw
 src/util/gdbhelper

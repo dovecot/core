@@ -267,12 +267,13 @@ mail_transaction_log_file_refresh(struct mail_index_transaction *t,
 static int mail_index_transaction_commit_real(struct mail_index_transaction *t)
 {
 	struct mail_transaction_log *log = t->view->index->log;
+	bool external = (t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0;
 	struct mail_transaction_log_append_ctx *ctx;
 	uint32_t log_seq1, log_seq2;
 	uoff_t log_offset1, log_offset2;
 	int ret;
 
-	if (mail_transaction_log_append_begin(t, &ctx) < 0)
+	if (mail_transaction_log_append_begin(log->index, external, &ctx) < 0)
 		return -1;
 	ret = mail_transaction_log_file_refresh(t, ctx);
 	if (ret > 0) {

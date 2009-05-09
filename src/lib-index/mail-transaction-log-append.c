@@ -8,14 +8,14 @@
 
 void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx,
 				     enum mail_transaction_type type,
-				     const buffer_t *buf)
+				     const void *data, size_t size)
 {
 	struct mail_transaction_header hdr;
 
 	i_assert((type & MAIL_TRANSACTION_TYPE_MASK) != 0);
-	i_assert((buf->used % 4) == 0);
+	i_assert((size % 4) == 0);
 
-	if (buf->used == 0)
+	if (size == 0)
 		return;
 
 	memset(&hdr, 0, sizeof(hdr));
@@ -24,15 +24,15 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
 	if (ctx->external)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
-	hdr.size = sizeof(hdr) + buf->used;
+	hdr.size = sizeof(hdr) + size;
 	hdr.size = mail_index_uint32_to_offset(hdr.size);
 
 	buffer_append(ctx->output, &hdr, sizeof(hdr));
-	buffer_append(ctx->output, buf->data, buf->used);
+	buffer_append(ctx->output, data, size);
 
-	if (mail_transaction_header_has_modseq(buf->data,
-				CONST_PTR_OFFSET(buf->data, sizeof(hdr)),
-				ctx->new_highest_modseq))
+	if (mail_transaction_header_has_modseq(data,
+					CONST_PTR_OFFSET(data, sizeof(hdr)),
+					ctx->new_highest_modseq))
 		ctx->new_highest_modseq++;
 }
 
@@ -158,7 +158,7 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 	buffer_append(buf, &offset, sizeof(offset));
 
 	mail_transaction_log_append_add(ctx, MAIL_TRANSACTION_HEADER_UPDATE,
-					buf);
+					buf->data, buf->used);
 }
 
 static int
@@ -189,13 +189,11 @@ mail_transaction_log_append_locked(struct mail_transaction_log_append_ctx *ctx)
 	return 0;
 }
 
-int mail_transaction_log_append_begin(struct mail_index_transaction *t,
+int mail_transaction_log_append_begin(struct mail_index *index, bool external,
 				      struct mail_transaction_log_append_ctx **ctx_r)
 {
 	struct mail_transaction_log_append_ctx *ctx;
-	struct mail_index *index;
 
-	index = mail_index_view_get_index(t->view);
 	if (!index->log_locked) {
 		if (mail_transaction_log_lock_head(index->log) < 0)
 			return -1;
@@ -203,7 +201,7 @@ int mail_transaction_log_append_begin(struct mail_index_transaction *t,
 	ctx = i_new(struct mail_transaction_log_append_ctx, 1);
 	ctx->log = index->log;
 	ctx->output = buffer_create_dynamic(default_pool, 1024);
-	ctx->external = (t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0;
+	ctx->external = external;
 
 	*ctx_r = ctx;
 	return 0;

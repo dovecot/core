@@ -2,6 +2,7 @@ noinst_LTLIBRARIES = libmail.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-charset
 
 libmail_la_SOURCES = \
@@ -47,3 +48,23 @@ if INSTALL_HEADERS
 else
   noinst_HEADERS = $(headers)
 endif
+
+test_programs = test-mail
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	libmail.la \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_mail_SOURCES = \
+	test-mail.c
+
+test_mail_LDADD = $(test_libs)
+test_mail_DEPENDENCIES = $(test_libs)
+
+check: check-am check-test
+check-test: $(test_programs)
+	for bin in $(test_programs); do \
+	  if ! ./$$bin; then exit 1; fi \
+	done

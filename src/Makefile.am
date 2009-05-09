@@ -9,6 +9,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-settings
 
 SUBDIRS = \
+	lib-test \
 	$(LIBDOVECOT_SUBDIRS) \
 	lib-dovecot \
 	lib-index \
@@ -30,6 +31,10 @@ SUBDIRS = \
 	lmtp \
 	log \
 	config \
-	tests \
 	util \
 	plugins
+
+test:
+	for dir in $(SUBDIRS); do \
+	  cd $$dir && if ! $(MAKE) test; then exit 1; fi; cd ..; \
+	done

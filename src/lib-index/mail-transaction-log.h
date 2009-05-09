@@ -224,11 +224,11 @@ mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view);
 
 void mail_transaction_log_views_close(struct mail_transaction_log *log);
 
-int mail_transaction_log_append_begin(struct mail_index_transaction *t,
+int mail_transaction_log_append_begin(struct mail_index *index, bool external,
 				      struct mail_transaction_log_append_ctx **ctx_r);
 void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx,
 				     enum mail_transaction_type type,
-				     const buffer_t *buf);
+				     const void *data, size_t size);
 int mail_transaction_log_append_commit(struct mail_transaction_log_append_ctx **ctx);
 
 /* Lock transaction log for index synchronization. Log cannot be read or

@@ -168,9 +168,11 @@ end:
 
 int main(void)
 {
-	test_init();
+	static void (*test_functions[])(void) = {
+		test_imap_match,
+		test_imap_utf7,
 
-	test_imap_match();
-	test_imap_utf7();
-	return test_deinit();
+		NULL
+	};
+	return test_run(test_functions);
 }

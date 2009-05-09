@@ -356,12 +356,14 @@ static void test_istream_filter(void)
 
 int main(void)
 {
-	test_init();
+	static void (*test_functions[])(void) = {
+		test_message_address,
+		test_message_date_parse,
+		test_message_parser,
+		test_rfc2231_parser,
+		test_istream_filter,
 
-	test_message_address();
-	test_message_date_parse();
-	test_message_parser();
-	test_rfc2231_parser();
-	test_istream_filter();
-	return test_deinit();
+		NULL
+	};
+	return test_run(test_functions);
 }

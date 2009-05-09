@@ -198,9 +198,36 @@ headers = \
 	var-expand.h \
 	write-full.h
 
+test_programs = test-lib
+noinst_PROGRAMS = $(test_programs)
+
+test_lib_CPPFLAGS = \
+	-I$(top_srcdir)/src/lib-test
+
+test_libs = \
+	../lib-test/libtest.la \
+	liblib.la
+
+test_lib_SOURCES = \
+	test-lib.c \
+	test-istream.c
+
+test_headers = \
+	test-lib.h
+
+test_lib_LDADD = $(test_libs)
+test_lib_DEPENDENCIES = $(test_libs)
+
+check: check-am check-test
+check-test: $(test_programs)
+	for bin in $(test_programs); do \
+	  if ! ./$$bin; then exit 1; fi \
+	done
+
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)
   pkginc_lib_HEADERS = $(headers)
+  noinst_HEADERS = $(test_headers)
 else
-  noinst_HEADERS = $(headers)
+  noinst_HEADERS = $(headers) $(test_headers)
 endif
