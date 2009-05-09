@@ -17,6 +17,7 @@ SUBDIRS = \
 	lib-ntlm \
 	lib-otp \
 	lib-lda \
+	anvil \
 	auth \
 	dict \
 	master \
