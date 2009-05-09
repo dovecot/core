@@ -12,39 +12,11 @@ struct mail_index_export_context {
 	struct mail_transaction_log_append_ctx *append_ctx;
 };
 
-static void log_append_buffer(struct mail_index_export_context *ctx,
-			      const buffer_t *buf, const buffer_t *hdr_buf,
-			      enum mail_transaction_type type)
+static void
+log_append_buffer(struct mail_index_export_context *ctx,
+		  const buffer_t *buf, enum mail_transaction_type type)
 {
-	buffer_t *output = ctx->append_ctx->output;
-	struct mail_transaction_header hdr;
-
-	i_assert((type & MAIL_TRANSACTION_TYPE_MASK) != 0);
-	i_assert((buf->used % 4) == 0);
-	i_assert(hdr_buf == NULL || (hdr_buf->used % 4) == 0);
-
-	if (buf->used == 0)
-		return;
-
-	memset(&hdr, 0, sizeof(hdr));
-	hdr.type = type;
-	if (type == MAIL_TRANSACTION_EXPUNGE)
-		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
-	if ((ctx->trans->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
-		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
-	hdr.size = sizeof(hdr) + buf->used +
-		(hdr_buf == NULL ? 0 : hdr_buf->used);
-	hdr.size = mail_index_uint32_to_offset(hdr.size);
-
-	buffer_append(output, &hdr, sizeof(hdr));
-	if (hdr_buf != NULL)
-		buffer_append(output, hdr_buf->data, hdr_buf->used);
-	buffer_append(output, buf->data, buf->used);
-
-	if (mail_transaction_header_has_modseq(buf->data,
-				CONST_PTR_OFFSET(buf->data, sizeof(hdr)),
-				ctx->append_ctx->new_highest_modseq))
-		ctx->append_ctx->new_highest_modseq++;
+	mail_transaction_log_append_add(ctx->append_ctx, type, buf);
 }
 
 static const buffer_t *
@@ -147,7 +119,7 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 		ctx->append_ctx->new_highest_modseq = 1;
 	}
 
-	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_EXT_INTRO);
+	log_append_buffer(ctx, buf, MAIL_TRANSACTION_EXT_INTRO);
 }
 
 static void
@@ -183,7 +155,7 @@ log_append_ext_hdr_update(struct mail_index_export_context *ctx,
 	}
 	if (buf->used % 4 != 0)
 		buffer_append_zero(buf, 4 - buf->used % 4);
-	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_EXT_HDR_UPDATE);
+	log_append_buffer(ctx, buf, MAIL_TRANSACTION_EXT_HDR_UPDATE);
 }
 
 static void
@@ -260,7 +232,7 @@ mail_transaction_log_append_ext_intros(struct mail_index_export_context *ctx)
 		if (ext_reset.new_reset_id != 0) {
 			i_assert(ext_id < reset_id_count &&
 				 ext_reset.new_reset_id == reset_ids[ext_id]);
-			log_append_buffer(ctx, reset_buf, NULL,
+			log_append_buffer(ctx, reset_buf,
 					  MAIL_TRANSACTION_EXT_RESET);
 		}
 		if (ext_id < hdrs_count && hdrs[ext_id].alloc_size > 0) {
@@ -297,13 +269,13 @@ static void log_append_ext_recs(struct mail_index_export_context *ctx,
 		reset_id = ext_id < reset_id_count ? reset_ids[ext_id] : 0;
 		log_append_ext_intro(ctx, ext_id, reset_id);
 
-		log_append_buffer(ctx, updates[ext_id].arr.buffer, NULL, type);
+		log_append_buffer(ctx, updates[ext_id].arr.buffer, type);
 	}
 }
 
 static void
 log_append_keyword_update(struct mail_index_export_context *ctx,
-			  buffer_t *hdr_buf, enum modify_type modify_type,
+			  buffer_t *tmp_buf, enum modify_type modify_type,
 			  const char *keyword, const buffer_t *buffer)
 {
 	struct mail_transaction_keyword_update kt_hdr;
@@ -312,14 +284,14 @@ log_append_keyword_update(struct mail_index_export_context *ctx,
 	kt_hdr.modify_type = modify_type;
 	kt_hdr.name_size = strlen(keyword);
 
-	buffer_set_used_size(hdr_buf, 0);
-	buffer_append(hdr_buf, &kt_hdr, sizeof(kt_hdr));
-	buffer_append(hdr_buf, keyword, kt_hdr.name_size);
-	if ((hdr_buf->used % 4) != 0)
-		buffer_append_zero(hdr_buf, 4 - (hdr_buf->used % 4));
+	buffer_set_used_size(tmp_buf, 0);
+	buffer_append(tmp_buf, &kt_hdr, sizeof(kt_hdr));
+	buffer_append(tmp_buf, keyword, kt_hdr.name_size);
+	if ((tmp_buf->used % 4) != 0)
+		buffer_append_zero(tmp_buf, 4 - (tmp_buf->used % 4));
+	buffer_append(tmp_buf, buffer->data, buffer->used);
 
-	log_append_buffer(ctx, buffer, hdr_buf,
-			  MAIL_TRANSACTION_KEYWORD_UPDATE);
+	log_append_buffer(ctx, tmp_buf, MAIL_TRANSACTION_KEYWORD_UPDATE);
 }
 
 static enum mail_index_sync_type
@@ -327,11 +299,11 @@ log_append_keyword_updates(struct mail_index_export_context *ctx)
 {
         const struct mail_index_transaction_keyword_update *updates;
 	const char *const *keywords;
-	buffer_t *hdr_buf;
+	buffer_t *tmp_buf;
 	enum mail_index_sync_type change_mask = 0;
 	unsigned int i, count, keywords_count;
 
-	hdr_buf = buffer_create_dynamic(pool_datastack_create(), 64);
+	tmp_buf = buffer_create_dynamic(pool_datastack_create(), 64);
 
 	keywords = array_get_modifiable(&ctx->trans->view->index->keywords,
 					&keywords_count);
@@ -341,13 +313,13 @@ log_append_keyword_updates(struct mail_index_export_context *ctx)
 	for (i = 0; i < count; i++) {
 		if (array_is_created(&updates[i].add_seq)) {
 			change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD;
-			log_append_keyword_update(ctx, hdr_buf,
+			log_append_keyword_update(ctx, tmp_buf,
 					MODIFY_ADD, keywords[i],
 					updates[i].add_seq.arr.buffer);
 		}
 		if (array_is_created(&updates[i].remove_seq)) {
 			change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE;
-			log_append_keyword_update(ctx, hdr_buf,
+			log_append_keyword_update(ctx, tmp_buf,
 					MODIFY_REMOVE, keywords[i],
 					updates[i].remove_seq.arr.buffer);
 		}
@@ -370,18 +342,17 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
         mail_transaction_log_append_ext_intros(&ctx);
 
 	if (t->pre_hdr_changed) {
-		log_append_buffer(&ctx,
-				  log_get_hdr_update_buffer(t, TRUE),
-				  NULL, MAIL_TRANSACTION_HEADER_UPDATE);
+		log_append_buffer(&ctx, log_get_hdr_update_buffer(t, TRUE),
+				  MAIL_TRANSACTION_HEADER_UPDATE);
 	}
 	if (array_is_created(&t->appends)) {
 		change_mask |= MAIL_INDEX_SYNC_TYPE_APPEND;
-		log_append_buffer(&ctx, t->appends.arr.buffer, NULL,
+		log_append_buffer(&ctx, t->appends.arr.buffer, 
 				  MAIL_TRANSACTION_APPEND);
 	}
 	if (array_is_created(&t->updates)) {
 		change_mask |= MAIL_INDEX_SYNC_TYPE_FLAGS;
-		log_append_buffer(&ctx, t->updates.arr.buffer, NULL,
+		log_append_buffer(&ctx, t->updates.arr.buffer, 
 				  MAIL_TRANSACTION_FLAG_UPDATE);
 	}
 
@@ -398,7 +369,7 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 	if (array_is_created(&t->keyword_resets)) {
 		change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET;
 		log_append_buffer(&ctx, t->keyword_resets.arr.buffer,
-				  NULL, MAIL_TRANSACTION_KEYWORD_RESET);
+				  MAIL_TRANSACTION_KEYWORD_RESET);
 	}
 	if (array_is_created(&t->keyword_updates))
 		change_mask |= log_append_keyword_updates(&ctx);
@@ -408,13 +379,13 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 		   checking fsync_mask */
 		if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
 			change_mask |= MAIL_INDEX_SYNC_TYPE_EXPUNGE;
-		log_append_buffer(&ctx, t->expunges.arr.buffer, NULL,
+		log_append_buffer(&ctx, t->expunges.arr.buffer,
 				  MAIL_TRANSACTION_EXPUNGE);
 	}
 
 	if (t->post_hdr_changed) {
 		log_append_buffer(&ctx, log_get_hdr_update_buffer(t, FALSE),
-				  NULL, MAIL_TRANSACTION_HEADER_UPDATE);
+				  MAIL_TRANSACTION_HEADER_UPDATE);
 	}
 
 	/* Update the tail offsets only when committing the sync transaction.

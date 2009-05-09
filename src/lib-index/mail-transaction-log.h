@@ -136,6 +136,7 @@ struct mail_transaction_log_append_ctx {
 	buffer_t *output;
 
 	uint64_t new_highest_modseq;
+	unsigned int external:1;
 	unsigned int append_sync_offset:1;
 	unsigned int sync_includes_this:1;
 	unsigned int want_fsync:1;
@@ -225,6 +226,9 @@ void mail_transaction_log_views_close(struct mail_transaction_log *log);
 
 int mail_transaction_log_append_begin(struct mail_index_transaction *t,
 				      struct mail_transaction_log_append_ctx **ctx_r);
+void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx,
+				     enum mail_transaction_type type,
+				     const buffer_t *buf);
 int mail_transaction_log_append_commit(struct mail_transaction_log_append_ctx **ctx);
 
 /* Lock transaction log for index synchronization. Log cannot be read or
