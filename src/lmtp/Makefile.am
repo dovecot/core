@@ -32,5 +32,6 @@ lmtp_SOURCES = \
 	commands.c
 
 noinst_HEADERS = \
+	main.h \
 	client.h \
 	commands.h
