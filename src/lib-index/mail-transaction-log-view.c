@@ -104,7 +104,6 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	uint32_t seq;
 	int ret;
 
-	i_assert(view->log != NULL);
 	i_assert(min_file_seq <= max_file_seq);
 
 	*reset_r = FALSE;
