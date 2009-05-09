@@ -131,6 +131,16 @@ struct mail_transaction_ext_atomic_inc {
 	int32_t diff;
 };
 
+struct mail_transaction_log_append_ctx {
+	struct mail_transaction_log *log;
+	buffer_t *output;
+
+	uint64_t new_highest_modseq;
+	unsigned int append_sync_offset:1;
+	unsigned int sync_includes_this:1;
+	unsigned int want_fsync:1;
+};
+
 #define LOG_IS_BEFORE(seq1, offset1, seq2, offset2) \
 	(((offset1) < (offset2) && (seq1) == (seq2)) || (seq1) < (seq2))
 
@@ -213,13 +223,9 @@ mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view);
 
 void mail_transaction_log_views_close(struct mail_transaction_log *log);
 
-/* Write data to transaction log. This is atomic operation. Sequences in
-   updates[] and expunges[] are relative to given view, they're modified
-   to real ones. If nothing is written, log_file_seq_r and log_file_offset_r
-   will be set to 0. */
-int mail_transaction_log_append(struct mail_index_transaction *t,
-				uint32_t *log_file_seq_r,
-				uoff_t *log_file_offset_r);
+int mail_transaction_log_append_begin(struct mail_index_transaction *t,
+				      struct mail_transaction_log_append_ctx **ctx_r);
+int mail_transaction_log_append_commit(struct mail_transaction_log_append_ctx **ctx);
 
 /* Lock transaction log for index synchronization. Log cannot be read or
    written to while it's locked. Returns end offset. */

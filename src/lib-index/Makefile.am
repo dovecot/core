@@ -19,6 +19,9 @@ libindex_la_SOURCES = \
         mail-index-map.c \
         mail-index-modseq.c \
         mail-index-transaction.c \
+        mail-index-transaction-export.c \
+        mail-index-transaction-finish.c \
+        mail-index-transaction-sort-appends.c \
         mail-index-transaction-view.c \
         mail-index-strmap.c \
         mail-index-sync.c \

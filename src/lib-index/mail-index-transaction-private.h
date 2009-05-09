@@ -89,6 +89,10 @@ struct mail_index_transaction {
 	unsigned int log_ext_updates:1;
 };
 
+#define MAIL_INDEX_TRANSACTION_HAS_CHANGES(t) \
+	((t)->log_updates || (t)->log_ext_updates || \
+	 (array_is_created(&(t)->updates) && array_count(&(t)->updates) > 0))
+
 extern void (*hook_mail_index_transaction_created)
 		(struct mail_index_transaction *t);
 
@@ -100,8 +104,7 @@ void mail_index_transaction_unref(struct mail_index_transaction **t);
 
 void mail_index_transaction_sort_appends(struct mail_index_transaction *t);
 uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t);
-void mail_index_transaction_convert_to_uids(struct mail_index_transaction *t);
-void mail_index_transaction_check_conflicts(struct mail_index_transaction *t);
+void mail_index_transaction_set_log_updates(struct mail_index_transaction *t);
 
 unsigned int
 mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
@@ -111,5 +114,12 @@ mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 
 bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 				 uint32_t seq, unsigned int *idx_r);
+bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
+			      const void *record, size_t record_size,
+			      void *old_record);
+
+int mail_index_transaction_finish(struct mail_index_transaction *t);
+void mail_index_transaction_export(struct mail_index_transaction *t,
+				   struct mail_transaction_log_append_ctx *append_ctx);
 
 #endif
