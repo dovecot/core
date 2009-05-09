@@ -313,8 +313,10 @@ void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
 	mail_transaction_log_view_unref_all(view);
 	if (mail_transaction_log_find_file(view->log, oldest_file_seq, FALSE,
 					   &file) > 0) {
-		array_append(&view->file_refs, &file, 1);
-		file->refcount++;
+		for (; file != NULL; file = file->next) {
+			array_append(&view->file_refs, &file, 1);
+			file->refcount++;
+		}
 	}
 
 	view->cur = view->head = view->tail = NULL;
