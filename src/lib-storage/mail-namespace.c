@@ -176,12 +176,6 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 				return FALSE;
 			}
 		}
-		if (*ns->prefix == '\0' &&
-		    (ns->flags & NAMESPACE_FLAG_LIST_PREFIX) == 0) {
-			*error_r = "namespace configuration error: "
-				"Empty prefix requires list=yes";
-			return FALSE;
-		}
 		if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0)
 			subscriptions_count++;
 	}
