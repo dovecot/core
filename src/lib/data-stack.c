@@ -72,11 +72,11 @@ static union {
 	unsigned char data[128];
 } outofmem_area;
 
-static void data_stack_last_buffer_reset(void)
+static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 {
 	if (last_buffer_block != NULL) {
 #ifdef DEBUG
-		const unsigned char *p;
+		unsigned char *p;
 		unsigned int i;
 
 		p = STACK_BLOCK_DATA(current_block) +
@@ -94,6 +94,12 @@ static void data_stack_last_buffer_reset(void)
 		for (i = 0; i < SENTRY_COUNT; i++) {
 			if (p[i] != CLEAR_CHR)
 				i_panic("t_buffer_get(): buffer overflow");
+		}
+
+		if (!preserve_data) {
+			p = STACK_BLOCK_DATA(current_block) +
+				(current_block->size - current_block->left);
+			memset(p, CLEAR_CHR, SENTRY_COUNT);
 		}
 #endif
 	}
@@ -134,7 +140,7 @@ unsigned int t_push(void)
 		frame_block->prev = current_frame_block;
 		current_frame_block = frame_block;
 	}
-	data_stack_last_buffer_reset();
+	data_stack_last_buffer_reset(FALSE);
 
 	/* mark our current position */
 	current_frame_block->block[frame_pos] = current_block;
@@ -197,14 +203,9 @@ static void t_pop_verify(void)
 			}
 		}
 
-		/* we could verify here that the rest of the buffer contains
-		   CLEAR_CHRs, but it would slow us down a bit too much. */
-		max_pos = block->size - pos < SENTRY_COUNT ?
-			block->size - pos : SENTRY_COUNT;
-		for (; pos < max_pos; pos++) {
-			if (p[pos] != CLEAR_CHR)
-				i_panic("data stack: buffer overflow");
-		}
+		/* if we had used t_buffer_get(), the rest of the buffer
+		   may not contain CLEAR_CHRs. but we've already checked all
+		   the allocations, so there's no need to check them anyway. */
 		block = block->next;
 		pos = 0;
 	}
@@ -218,10 +219,10 @@ unsigned int t_pop(void)
 	if (unlikely(frame_pos < 0))
 		i_panic("t_pop() called with empty stack");
 
+	data_stack_last_buffer_reset(FALSE);
 #ifdef DEBUG
 	t_pop_verify();
 #endif
-	data_stack_last_buffer_reset();
 
 	/* update the current block */
 	current_block = current_frame_block->block[frame_pos];
@@ -317,8 +318,6 @@ static void *t_malloc_real(size_t size, bool permanent)
 		data_stack_init();
 	}
 
-	data_stack_last_buffer_reset();
-
 	/* allocate only aligned amount of memory so alignment comes
 	   always properly */
 #ifndef DEBUG
@@ -326,6 +325,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 #else
 	alloc_size = MEM_ALIGN(sizeof(size)) + MEM_ALIGN(size + SENTRY_COUNT);
 #endif
+	data_stack_last_buffer_reset(TRUE);
 
 	/* used for t_try_realloc() */
 	current_frame_block->last_alloc_size[frame_pos] = alloc_size;
