@@ -176,7 +176,8 @@ struct setting_parser_info auth_root_setting_parser_info = {
 };
 
 /* <settings checks> */
-static bool auth_settings_check(void *_set, pool_t pool, const char **error_r)
+static bool auth_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				const char **error_r)
 {
 	struct auth_settings *set = _set;
 
