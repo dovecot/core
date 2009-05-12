@@ -334,6 +334,8 @@ mail_storage_service_init_settings(struct master_service *service,
 	set_input.dyn_parsers = mail_storage_get_dynamic_parsers();
 	set_input.preserve_home = preserve_home;
 	if (input != NULL) {
+		set_input.module = input->module;
+		set_input.service = input->service;
 		set_input.username = input->username;
 		set_input.local_ip = input->local_ip;
 		set_input.remote_ip = input->remote_ip;

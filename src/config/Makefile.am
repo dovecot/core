@@ -28,6 +28,7 @@ doveconf_DEPENDENCIES = $(LIBDOVECOT)
 common = \
 	all-settings.c \
 	config-connection.c \
+	config-filter.c \
 	config-parser.c \
 	config-request.c \
 	sysinfo-get.c
@@ -43,6 +44,7 @@ doveconf_SOURCES = \
 noinst_HEADERS = \
 	all-settings.h \
 	config-connection.h \
+	config-filter.h \
 	config-parser.h \
 	config-request.h \
 	sysinfo-get.h

@@ -315,6 +315,8 @@ int main(int argc, char *argv[])
 	}
 
 	memset(&service_input, 0, sizeof(service_input));
+	service_input.module = "lda";
+	service_input.service = "lda";
 	service_input.username = user;
 
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;

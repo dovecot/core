@@ -1,6 +1,6 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "common.h"
 #include "settings-parser.h"
 #include "master-service-settings.h"
 #include "login-settings.h"
@@ -178,11 +178,16 @@ struct login_settings *login_settings_read(struct master_service *service)
 		&login_setting_parser_info,
 		NULL
 	};
+	struct master_service_settings_input input;
 	const char *error;
 	void **sets;
 
-	if (master_service_settings_read_simple(service, set_roots,
-						&error) < 0)
+	memset(&input, 0, sizeof(input));
+	input.roots = set_roots;
+	input.module = "login";
+	input.service = login_protocol;
+
+	if (master_service_settings_read(service, &input, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
 	sets = master_service_settings_get_others(service);

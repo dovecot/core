@@ -186,6 +186,8 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	memset(&input, 0, sizeof(input));
+	input.module = "imap";
+	input.service = "imap";
 	input.username = getenv("USER");
 	if (input.username == NULL) {
 		if (IS_STANDALONE())

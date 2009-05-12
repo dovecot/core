@@ -20,6 +20,8 @@ struct master_service_settings_input {
 	const struct dynamic_settings_parser *dyn_parsers;
 	bool preserve_home;
 
+	const char *module;
+	const char *service;
 	const char *username;
 	struct ip_addr local_ip, remote_ip;
 };

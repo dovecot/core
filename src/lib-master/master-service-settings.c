@@ -124,8 +124,11 @@ master_service_read_config(struct master_service *service,
 		string_t *str;
 
 		str = t_str_new(128);
-		str_append(str, CONFIG_HANDSHAKE);
-		str_printfa(str, "REQ\tservice=%s", service->name);
+		str_append(str, CONFIG_HANDSHAKE"REQ");
+		if (input->module != NULL)
+			str_printfa(str, "\tmodule=%s", input->module);
+		if (input->service != NULL)
+			str_printfa(str, "\tservice=%s", input->service);
 		if (input->username != NULL)
 			str_printfa(str, "\tuser=%s", input->username);
 		if (input->local_ip.family != 0) {
@@ -269,6 +272,7 @@ int master_service_settings_read_simple(struct master_service *service,
 
 	memset(&input, 0, sizeof(input));
 	input.roots = roots;
+	input.module = service->name;
 	return master_service_settings_read(service, &input, error_r);
 }
 

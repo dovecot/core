@@ -8,6 +8,7 @@
 #include "settings-parser.h"
 #include "master-service-settings.h"
 #include "all-settings.h"
+#include "config-parser.h"
 #include "config-request.h"
 
 struct settings_export_context {
@@ -45,12 +46,12 @@ static bool parsers_are_connected(struct setting_parser_info *root,
 }
 
 static bool
-config_setting_parser_is_in_service(struct config_setting_parser_list *list,
-				    const char *service)
+config_setting_parser_is_in_service(const struct config_setting_parser_list *list,
+				    const char *module)
 {
 	struct config_setting_parser_list *l;
 
-	if (strcmp(list->module_name, service) == 0)
+	if (strcmp(list->module_name, module) == 0)
 		return TRUE;
 	if (list->root == &master_service_setting_parser_info) {
 		/* everyone wants master service settings */
@@ -58,7 +59,7 @@ config_setting_parser_is_in_service(struct config_setting_parser_list *list,
 	}
 
 	for (l = config_setting_parsers; l->module_name != NULL; l++) {
-		if (strcmp(l->module_name, service) != 0)
+		if (strcmp(l->module_name, module) != 0)
 			continue;
 
 		/* see if we can find a way to get from the original parser
@@ -213,10 +214,11 @@ static void settings_export(struct settings_export_context *ctx,
 	}
 }
 
-void config_request_handle(const char *service, enum config_dump_flags flags,
+void config_request_handle(const struct config_filter *filter,
+			   const char *module, enum config_dump_flags flags,
 			   config_request_callback_t *callback, void *context)
 {
-	struct config_setting_parser_list *l;
+	const struct config_setting_parser_list *l;
 	struct settings_export_context ctx;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -229,9 +231,10 @@ void config_request_handle(const char *service, enum config_dump_flags flags,
 	ctx.keys = hash_table_create(default_pool, ctx.pool, 0,
 				     str_hash, (hash_cmp_callback_t *)strcmp);
 
-	for (l = config_setting_parsers; l->module_name != NULL; l++) {
-		if (*service == '\0' ||
-		    config_setting_parser_is_in_service(l, service)) {
+	l = config_filter_match_parsers(config_filter, filter);
+	for (; l->module_name != NULL; l++) {
+		if (*module == '\0' ||
+		    config_setting_parser_is_in_service(l, module)) {
 			settings_export(&ctx, l->root,
 					settings_parser_get(l->parser));
 		}

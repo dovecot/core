@@ -56,16 +56,34 @@ config_request_output(const char *key, const char *value,
 static void config_connection_request(struct config_connection *conn,
 				      const char *const *args)
 {
-	const char *service = "";
+	struct config_filter filter;
+	const char *module = "";
 
 	/* [<args>] */
+	memset(&filter, 0, sizeof(filter));
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "service=", 8) == 0)
-			service = *args + 8;
+			filter.service = *args + 8;
+		else if (strncmp(*args, "module=", 7) == 0)
+			module = *args + 7;
+		else if (strncmp(*args, "lip=", 4) == 0) {
+			if (net_addr2ip(*args + 4, &filter.local_net) == 0) {
+				filter.local_bits =
+					IPADDR_IS_V4(&filter.local_net) ?
+					32 : 128;
+			}
+		} else if (strncmp(*args, "rip=", 4) == 0) {
+			if (net_addr2ip(*args + 4, &filter.remote_net) == 0) {
+				filter.remote_bits =
+					IPADDR_IS_V4(&filter.remote_net) ?
+					32 : 128;
+			}
+		}
 	}
 
 	o_stream_cork(conn->output);
-	config_request_handle(service, 0, config_request_output, conn->output);
+	config_request_handle(&filter, module, 0, config_request_output,
+			      conn->output);
 	o_stream_send_str(conn->output, "\n");
 	o_stream_uncork(conn->output);
 }

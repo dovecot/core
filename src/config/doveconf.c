@@ -65,7 +65,8 @@ static unsigned int prefix_stack_pop(ARRAY_TYPE(uint) *stack)
 }
 
 static void config_connection_request_human(struct ostream *output,
-					    const char *service,
+					    const struct config_filter *filter,
+					    const char *module,
 					    enum config_dump_flags flags)
 {
 	static const char *ident_str = "               ";
@@ -79,7 +80,8 @@ static void config_connection_request_human(struct ostream *output,
 
 	ctx.pool = pool_alloconly_create("config human strings", 10240);
 	i_array_init(&ctx.strings, 256);
-	config_request_handle(service, flags, config_request_get_strings, &ctx);
+	config_request_handle(filter, module, flags,
+			      config_request_get_strings, &ctx);
 
 	strings = array_get_modifiable(&ctx.strings, &count);
 	qsort(strings, count, sizeof(*strings), config_string_cmp);
@@ -158,13 +160,15 @@ static void config_connection_request_human(struct ostream *output,
 	pool_unref(&ctx.pool);
 }
 
-static void config_dump_human(const char *service, enum config_dump_flags flags)
+static void config_dump_human(const struct config_filter *filter,
+			      const char *module,
+			      enum config_dump_flags flags)
 {
 	struct ostream *output;
 
 	output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
 	o_stream_cork(output);
-	config_connection_request_human(output, service, flags);
+	config_connection_request_human(output, filter, module, flags);
 	o_stream_uncork(output);
 }
 
@@ -202,25 +206,30 @@ static const char *get_mail_location(void)
 int main(int argc, char *argv[])
 {
 	enum config_dump_flags flags = CONFIG_DUMP_FLAG_DEFAULTS;
-	const char *getopt_str, *config_path, *service_name = "";
+	const char *getopt_str, *config_path, *module = "";
+	struct config_filter filter;
 	char **exec_args = NULL;
 	int c;
 
+	memset(&filter, 0, sizeof(filter));
 	service = master_service_init("config", MASTER_SERVICE_FLAG_STANDALONE,
 				      argc, argv);
 	i_set_failure_prefix("doveconf: ");
-	getopt_str = t_strconcat("anp:e", master_service_getopt_string(), NULL);
+	getopt_str = t_strconcat("am:np:e", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		if (c == 'e')
 			break;
 		switch (c) {
 		case 'a':
 			break;
+		case 'm':
+			module = optarg;
+			break;
 		case 'n':
 			flags &= ~CONFIG_DUMP_FLAG_DEFAULTS;
 			break;
 		case 'p':
-			service_name = optarg;
+			filter.service = optarg;
 			break;
 		default:
 			if (!master_service_parse_option(service, c, optarg))
@@ -248,10 +257,10 @@ int main(int argc, char *argv[])
 		if (*info != '\0')
 			printf("# %s\n", info);
 		fflush(stdout);
-		config_dump_human(service_name, flags);
+		config_dump_human(&filter, module, flags);
 	} else {
 		env_put("DOVECONF_ENV=1");
-		config_request_handle(service_name, 0,
+		config_request_handle(&filter, module, 0,
 				      config_request_putenv, NULL);
 		execvp(exec_args[0], exec_args);
 		i_fatal("execvp(%s) failed: %m", exec_args[0]);

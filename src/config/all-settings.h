@@ -7,6 +7,7 @@ struct config_setting_parser_list {
 	struct setting_parser_context *parser;
 	void *settings;
 };
+ARRAY_DEFINE_TYPE(config_setting_parsers, struct config_setting_parser_list *);
 
 extern struct config_setting_parser_list config_setting_parsers[];
 
