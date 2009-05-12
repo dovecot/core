@@ -950,6 +950,10 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 
 		if (*name != '\0' &&
 		    (skip_attr == NULL || strcmp(skip_attr, value) != 0)) {
+			if (hash_table_lookup(attr_map, name) != NULL) {
+				i_fatal("ldap: LDAP attribute '%s' used multiple times. This is currently unsupported.",
+					name);
+			}
 			hash_table_insert(attr_map, name, value);
 			(*attr_names_r)[j++] = name;
 		}
