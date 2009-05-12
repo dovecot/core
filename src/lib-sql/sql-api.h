@@ -94,8 +94,10 @@ void sql_result_setup_fetch(struct sql_result *result,
    occurred. This needs to be the first call for result. */
 int sql_result_next_row(struct sql_result *result);
 
-/* Needs to be called only with sql_query_s(). */
-void sql_result_free(struct sql_result *result);
+void sql_result_ref(struct sql_result *result);
+/* Needs to be called only with sql_query_s() or when result has been
+   explicitly referenced. */
+void sql_result_unref(struct sql_result *result);
 
 /* Return number of fields in result. */
 unsigned int sql_result_get_fields_count(struct sql_result *result);

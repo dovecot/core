@@ -419,7 +419,7 @@ static void driver_mysql_query(struct sql_db *db, const char *query,
 	result->callback = TRUE;
 	callback(result, context);
 	result->callback = FALSE;
-	sql_result_free(result);
+	sql_result_unref(result);
 }
 
 static struct sql_result *
@@ -450,6 +450,7 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 		break;
 	}
 
+	result->api.refcount = 1;
 	result->conn = conn;
 	return &result->api;
 }
@@ -458,7 +459,8 @@ static void driver_mysql_result_free(struct sql_result *_result)
 {
 	struct mysql_result *result = (struct mysql_result *)_result;
 
-	if (_result == &sql_not_connected_result || _result->callback)
+	i_assert(_result != &sql_not_connected_result);
+	if (_result->callback)
 		return;
 
 	if (result->result != NULL)
@@ -607,7 +609,7 @@ static int transaction_send_query(struct mysql_transaction_context *ctx,
 		ctx->failed = TRUE;
 		ret = -1;
 	}
-	sql_result_free(result);
+	sql_result_unref(result);
 	return ret;
 }
 

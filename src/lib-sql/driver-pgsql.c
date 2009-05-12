@@ -351,7 +351,7 @@ static void result_finish(struct pgsql_result *result)
 		}
 	}
 	if (free_result)
-		driver_pgsql_result_free(&result->api);
+		sql_result_unref(&result->api);
 }
 
 static void get_result(struct pgsql_result *result)
@@ -582,6 +582,7 @@ static void driver_pgsql_exec_full(struct sql_db *db, const char *query,
 	result = i_new(struct pgsql_result, 1);
 	result->api = driver_pgsql_result;
 	result->api.db = db;
+	result->api.refcount = 1;
 	result->callback = exec_callback;
 	if (retry_query) {
 		result->query = i_strdup(query);
@@ -605,6 +606,7 @@ driver_pgsql_query_full(struct sql_db *db, const char *query,
 	result = i_new(struct pgsql_result, 1);
 	result->api = driver_pgsql_result;
 	result->api.db = db;
+	result->api.refcount = 1;
 	result->callback = callback;
 	result->context = context;
 	if (retry_query) {
@@ -995,7 +997,7 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 			*error_r = sql_result_get_error(result);
 	}
 	if (result != NULL)
-		sql_result_free(result);
+		sql_result_unref(result);
 
 	i_assert(ctx->refcount == 1);
 	driver_pgsql_transaction_unref(ctx);

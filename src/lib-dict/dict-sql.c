@@ -290,7 +290,7 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 			p_strdup(pool, sql_result_get_field_value(result, 0));
 	}
 
-	sql_result_free(result);
+	sql_result_unref(result);
 	return ret;
 }
 
@@ -444,7 +444,7 @@ static void sql_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 		(struct sql_dict_iterate_context *)_ctx;
 
 	if (ctx->result != NULL)
-		sql_result_free(ctx->result);
+		sql_result_unref(ctx->result);
 	str_free(&ctx->key);
 	i_free(ctx->path);
 	i_free(ctx);

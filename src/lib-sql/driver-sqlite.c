@@ -143,7 +143,7 @@ static void driver_sqlite_query(struct sql_db *db, const char *query,
 	result->callback = TRUE;
 	callback(result, context);
 	result->callback = FALSE;
-	sql_result_free(result);
+	sql_result_unref(result);
 }
 
 static struct sql_result *
@@ -172,6 +172,7 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 		}
 	}
 	result->api.db = _db;
+	result->api.refcount = 1;
 
 	return &result->api;
 }

@@ -97,8 +97,17 @@ struct sql_result *sql_query_s(struct sql_db *db, const char *query)
 	return db->v.query_s(db, query);
 }
 
-void sql_result_free(struct sql_result *result)
+void sql_result_ref(struct sql_result *result)
 {
+	result->refcount++;
+}
+
+void sql_result_unref(struct sql_result *result)
+{
+	i_assert(result->refcount > 0);
+	if (--result->refcount > 0)
+		return;
+
 	i_free(result->map);
 	result->v.free(result);
 }

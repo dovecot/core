@@ -73,6 +73,7 @@ struct sql_field_map {
 
 struct sql_result {
 	struct sql_result_vfuncs v;
+	int refcount;
 
 	struct sql_db *db;
 	const struct sql_field_def *fields;
