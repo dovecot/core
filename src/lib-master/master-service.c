@@ -466,6 +466,7 @@ static void master_service_listen(struct master_service_listener *l)
 		conn.fd = l->fd;
 	}
 	conn.ssl = l->ssl;
+	net_set_nonblock(conn.fd, TRUE);
 
 	l->service->master_status.available_count--;
         master_status_update(l->service);
