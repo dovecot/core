@@ -277,6 +277,9 @@ void master_service_init_finish(struct master_service *service)
 void master_service_env_clean(bool preserve_home)
 {
 	const char *user, *tz, *home;
+#ifdef DEBUG
+	bool gdb = getenv("GDB") != NULL;
+#endif
 
 	user = getenv("USER");
 	if (user != NULL)
@@ -296,6 +299,9 @@ void master_service_env_clean(bool preserve_home)
 	if (user != NULL) env_put(user);
 	if (tz != NULL) env_put(tz);
 	if (home != NULL) env_put(home);
+#ifdef DEBUG
+	if (gdb) env_put("GDB=1");
+#endif
 }
 
 void master_service_set_client_limit(struct master_service *service,
