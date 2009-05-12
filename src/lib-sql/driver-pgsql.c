@@ -696,7 +696,16 @@ static int driver_pgsql_result_next_row(struct sql_result *_result)
 
 	if (result->rows != 0) {
 		/* second time we're here */
-		return ++result->rownum < result->rows;
+		if (++result->rownum < result->rows)
+			return 1;
+
+		/* end of this packet. see if there's more. FIXME: this may
+		   block, but the current API doesn't provide a non-blocking
+		   way to do this.. */
+		PQclear(result->pgres);
+		result->pgres = PQgetResult(db->pg);
+		if (result->pgres == NULL)
+			return 0;
 	}
 
 	if (result->pgres == NULL)
