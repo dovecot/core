@@ -48,7 +48,7 @@ static ARRAY_DEFINE(worker_request_array, struct auth_worker_request *);
 static struct aqueue *worker_request_queue;
 static time_t auth_worker_last_warn;
 
-static char *worker_socket_path;
+static const char *worker_socket_path;
 
 static void worker_input(struct auth_worker_connection *conn);
 static void auth_worker_destroy(struct auth_worker_connection **conn,
@@ -337,17 +337,12 @@ void auth_worker_call(struct auth_request *auth_request,
 
 void auth_worker_server_init(struct auth *auth)
 {
-	const char *env;
-
 	if (array_is_created(&connections)) {
 		/* already initialized */
 		return;
 	}
 
-	env = getenv("AUTH_WORKER_PATH");
-	if (env == NULL)
-		i_fatal("AUTH_WORKER_PATH environment not set");
-	worker_socket_path = i_strdup(env);
+	worker_socket_path = "auth-worker";
 
 	i_array_init(&worker_request_array, 128);
 	worker_request_queue = aqueue_init(&worker_request_array.arr);
@@ -372,5 +367,4 @@ void auth_worker_server_deinit(void)
 
 	aqueue_deinit(&worker_request_queue);
 	array_free(&worker_request_array);
-	i_free(worker_socket_path);
 }
