@@ -11,6 +11,8 @@
 extern struct setting_parser_info auth_setting_parser_info;
 extern struct setting_parser_info auth_root_setting_parser_info;
 
+static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
+
 #undef DEF
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct auth_passdb_settings, name), NULL }
@@ -141,7 +143,7 @@ struct setting_parser_info auth_setting_parser_info = {
 	MEMBER(parent_offset) offsetof(struct auth_settings, root),
 	MEMBER(type_offset) offsetof(struct auth_settings, name),
 	MEMBER(struct_size) sizeof(struct auth_settings),
-	MEMBER(check_func) NULL
+	MEMBER(check_func) auth_settings_check
 };
 
 #undef DEF
@@ -172,6 +174,19 @@ struct setting_parser_info auth_root_setting_parser_info = {
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct auth_root_settings)
 };
+
+/* <settings checks> */
+static bool auth_settings_check(void *_set, pool_t pool, const char **error_r)
+{
+	struct auth_settings *set = _set;
+
+	if (set->name == NULL) {
+		*error_r = "auth section is missing name";
+		return FALSE;
+	}
+	return TRUE;
+}
+/* </settings checks> */
 
 struct auth_settings *
 auth_settings_read(struct master_service *service, const char *name)
