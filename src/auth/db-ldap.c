@@ -206,7 +206,18 @@ static int ldap_get_errno(struct ldap_connection *conn)
 
 const char *ldap_get_error(struct ldap_connection *conn)
 {
-	return ldap_err2string(ldap_get_errno(conn));
+	const char *ret;
+	char *str = NULL;
+
+	ret = ldap_err2string(ldap_get_errno(conn));
+
+	ldap_get_option(conn->ld, LDAP_OPT_ERROR_STRING, (void *)&str);
+	if (str != NULL) {
+		ret = t_strconcat(ret, ", ", str, NULL);
+		ldap_memfree(str);
+	}
+	ldap_set_option(conn->ld, LDAP_OPT_ERROR_STRING, NULL);
+	return ret;
 }
 
 static void ldap_conn_reconnect(struct ldap_connection *conn)
