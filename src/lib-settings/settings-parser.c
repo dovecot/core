@@ -1035,7 +1035,7 @@ settings_link_get_new(struct setting_parser_context *new_ctx,
 {
 	struct setting_link *new_link;
 	void *const *old_sets, **new_sets;
-	unsigned int i, count;
+	unsigned int i, count, count2;
 	size_t diff;
 
 	new_link = hash_table_lookup(links, old_link);
@@ -1052,19 +1052,22 @@ settings_link_get_new(struct setting_parser_context *new_ctx,
 
 	/* find the array from parent struct */
 	diff = (char *)old_link->array - (char *)old_link->parent->set_struct;
-	i_assert(diff + sizeof(*old_link->array) <= old_link->info->struct_size);
+	i_assert(diff + sizeof(*old_link->array) <= old_link->parent->info->struct_size);
 	new_link->array = PTR_OFFSET(new_link->parent->set_struct, diff);
 
-	/* find our struct from array */
-	old_sets = array_get(old_link->array, &count);
-	new_sets = array_get_modifiable(new_link->array, &count);
-	for (i = 0; i < count; i++) {
-		if (old_sets[i] == old_link->set_struct) {
-			new_link->set_struct = new_sets[i];
-			break;
+	if (old_link->set_struct != NULL) {
+		/* find our struct from array */
+		old_sets = array_get(old_link->array, &count);
+		new_sets = array_get_modifiable(new_link->array, &count2);
+		i_assert(count == count2);
+		for (i = 0; i < count; i++) {
+			if (old_sets[i] == old_link->set_struct) {
+				new_link->set_struct = new_sets[i];
+				break;
+			}
 		}
+		i_assert(i < count);
 	}
-	i_assert(i < count);
 	hash_table_insert(links, old_link, new_link);
 	return new_link;
 }
@@ -1081,7 +1084,7 @@ settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
 
 	new_ctx = p_new(new_pool, struct setting_parser_context, 1);
 	new_ctx->set_pool = new_pool;
-	new_ctx->parser_pool = pool_alloconly_create("settings parser", 1024);
+	new_ctx->parser_pool = pool_alloconly_create("settings parser", 2048);
 	new_ctx->flags = old_ctx->flags;
 	new_ctx->str_vars_are_expanded = old_ctx->str_vars_are_expanded;
 	new_ctx->linenum = old_ctx->linenum;
@@ -1110,7 +1113,7 @@ settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
 		hash_table_create(default_pool, new_ctx->parser_pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
 
-	iter = hash_table_iterate_init(new_ctx->links);
+	iter = hash_table_iterate_init(old_ctx->links);
 	while (hash_table_iterate(iter, &key, &value)) {
 		new_link = settings_link_get_new(new_ctx, links, value);
 		hash_table_insert(new_ctx->links,
