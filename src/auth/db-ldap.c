@@ -105,6 +105,8 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(user_filter),
 	DEF_STR(pass_attrs),
 	DEF_STR(pass_filter),
+	DEF_STR(iterate_attrs),
+	DEF_STR(iterate_filter),
 	DEF_STR(default_pass_scheme),
 
 	{ 0, NULL, 0 }
@@ -138,6 +140,8 @@ static struct ldap_settings default_ldap_settings = {
 	MEMBER(user_filter) "(&(objectClass=posixAccount)(uid=%u))",
 	MEMBER(pass_attrs) "uid=user,userPassword=password",
 	MEMBER(pass_filter) "(&(objectClass=posixAccount)(uid=%u))",
+	MEMBER(iterate_attrs) "uid=user",
+	MEMBER(iterate_filter) "(objectClass=posixAccount)",
 	MEMBER(default_pass_scheme) "crypt"
 };
 
@@ -309,7 +313,7 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 			    srequest->filter, srequest->attributes, 0);
 	if (request->msgid == -1) {
 		auth_request_log_error(request->auth_request, "ldap",
-				       "ldap_search() failed (filter %s): %s",
+				       "ldap_search(%s) parsing failed: %s",
 				       srequest->filter, ldap_get_error(conn));
 		if (ldap_handle_error(conn) < 0) {
 			/* broken request, remove it */
@@ -511,11 +515,35 @@ static void db_ldap_abort_requests(struct ldap_connection *conn,
 	}
 }
 
-static void
-db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
+static struct ldap_request *
+db_ldap_find_request(struct ldap_connection *conn, int msgid,
+		     unsigned int *idx_r)
 {
 	struct ldap_request *const *requests, *request = NULL;
 	unsigned int i, count;
+
+	count = aqueue_count(conn->request_queue);
+	if (count == 0)
+		return NULL;
+
+	requests = array_idx(&conn->request_array, 0);
+	for (i = 0; i < count; i++) {
+		request = requests[aqueue_idx(conn->request_queue, i)];
+		if (request->msgid == msgid) {
+			*idx_r = i;
+			return request;
+		}
+		if (request->msgid == -1)
+			break;
+	}
+	return NULL;
+}
+
+static void
+db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
+{
+	struct ldap_request *request;
+	unsigned int idx;
 	int msgid, ret;
 
 	msgid = ldap_msgid(res);
@@ -524,32 +552,38 @@ db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
 		return;
 	}
 
-	count = aqueue_count(conn->request_queue);
-	requests = count == 0 ? NULL : array_idx(&conn->request_array, 0);
-	for (i = 0; i < count; i++) {
-		request = requests[aqueue_idx(conn->request_queue, i)];
-		if (request->msgid == msgid)
-			break;
-		if (request->msgid == -1) {
-			request = NULL;
-			break;
-		}
-	}
+	request = db_ldap_find_request(conn, msgid, &idx);
 	if (request == NULL) {
 		i_error("LDAP: Reply with unknown msgid %d", msgid);
 		return;
 	}
 
+	i_assert(conn->pending_count > 0);
 	if (request->type == LDAP_REQUEST_TYPE_BIND) {
 		i_assert(conn->conn_state == LDAP_CONN_STATE_BINDING);
 		i_assert(conn->pending_count == 1);
 		conn->conn_state = LDAP_CONN_STATE_BOUND_AUTH;
+	} else {
+		switch (ldap_msgtype(res)) {
+		case LDAP_RES_SEARCH_ENTRY:
+		case LDAP_RES_SEARCH_RESULT:
+			break;
+		case LDAP_RES_SEARCH_REFERENCE:
+			/* we're going to ignore this */
+			return;
+		default:
+			i_error("LDAP: Reply with unexpected type %d",
+				ldap_msgtype(res));
+			return;
+		}
 	}
-	i_assert(conn->pending_count > 0);
-	conn->pending_count--;
-	aqueue_delete(conn->request_queue, i);
-
-	ret = ldap_result2error(conn->ld, res, 0);
+	if (ldap_msgtype(res) == LDAP_RES_SEARCH_ENTRY)
+		ret = LDAP_SUCCESS;
+	else {
+		conn->pending_count--;
+		aqueue_delete(conn->request_queue, idx);
+		ret = ldap_result2error(conn->ld, res, 0);
+	}
 	if (ret != LDAP_SUCCESS && request->type == LDAP_REQUEST_TYPE_SEARCH) {
 		/* handle search failures here */
 		struct ldap_request_search *srequest =
@@ -565,9 +599,9 @@ db_ldap_handle_result(struct ldap_connection *conn, LDAPMessage *res)
 		request->callback(conn, request, res);
 	} T_END;
 
-	if (i > 0) {
+	if (idx > 0) {
 		/* see if there are timed out requests */
-		db_ldap_abort_requests(conn, i,
+		db_ldap_abort_requests(conn, idx,
 				       DB_LDAP_REQUEST_LOST_TIMEOUT_SECS,
 				       TRUE, "Request lost");
 	}
@@ -579,16 +613,16 @@ static void ldap_input(struct ldap_connection *conn)
 	LDAPMessage *res;
 	int ret;
 
-	for (;;) {
+	do {
 		if (conn->ld == NULL)
 			return;
 
 		memset(&timeout, 0, sizeof(timeout));
-		ret = ldap_result(conn->ld, LDAP_RES_ANY, 1, &timeout, &res);
+		ret = ldap_result(conn->ld, LDAP_RES_ANY, 0, &timeout, &res);
 #ifdef OPENLDAP_ASYNC_WORKAROUND
 		if (ret == 0) {
 			/* try again, there may be another in buffer */
-			ret = ldap_result(conn->ld, LDAP_RES_ANY, 1,
+			ret = ldap_result(conn->ld, LDAP_RES_ANY, 0,
 					  &timeout, &res);
 		}
 #endif
@@ -597,10 +631,13 @@ static void ldap_input(struct ldap_connection *conn)
 
 		db_ldap_handle_result(conn, res);
 		ldap_msgfree(res);
-	}
+	} while (conn->io != NULL);
 	conn->last_reply_stamp = ioloop_time;
 
-	if (ret == 0) {
+	if (ret > 0) {
+		/* input disabled, continue once it's enabled */
+		i_assert(conn->io == NULL);
+	} else if (ret == 0) {
 		/* send more requests */
 		while (db_ldap_request_queue_next(conn))
 			;
@@ -858,6 +895,19 @@ int db_ldap_connect(struct ldap_connection *conn)
 	return 0;
 }
 
+void db_ldap_enable_input(struct ldap_connection *conn, bool enable)
+{
+	if (!enable) {
+		if (conn->io != NULL)
+			io_remove(&conn->io);
+	} else {
+		if (conn->io == NULL && conn->fd != -1) {
+			conn->io = io_add(conn->fd, IO_READ, ldap_input, conn);
+			ldap_input(conn);
+		}
+	}
+}
+
 static void db_ldap_disconnect_timeout(struct ldap_connection *conn)
 {
 	db_ldap_abort_requests(conn, -1U,
@@ -967,7 +1017,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 struct var_expand_table *
 db_ldap_value_get_var_expand_table(struct auth_request *auth_request)
 {
-	const struct var_expand_table *auth_table;
+	const struct var_expand_table *auth_table = NULL;
 	struct var_expand_table *table;
 	unsigned int count;
 

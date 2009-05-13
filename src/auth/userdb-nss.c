@@ -147,7 +147,11 @@ struct userdb_module_interface userdb_nss = {
 	NULL,
 	userdb_nss_deinit,
 
-	userdb_nss_lookup
+	userdb_nss_lookup,
+
+	NULL,
+	NULL,
+	NULL
 };
 #else
 struct userdb_module_interface userdb_nss = {

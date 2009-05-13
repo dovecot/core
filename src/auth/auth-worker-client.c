@@ -25,6 +25,17 @@ struct auth_worker_client {
 	struct ostream *output;
 };
 
+struct auth_worker_list_context {
+	struct auth_worker_client *client;
+	struct userdb_module *userdb;
+	struct userdb_iterate_context *iter;
+	unsigned int id;
+	bool sending, sent, done;
+};
+
+static void auth_worker_input(struct auth_worker_client *client);
+static int auth_worker_output(struct auth_worker_client *client);
+
 static void
 auth_worker_client_check_throttle(struct auth_worker_client *client)
 {
@@ -395,6 +406,104 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		lookup(auth_request, lookup_user_callback);
 }
 
+static void list_iter_deinit(struct auth_worker_list_context *ctx)
+{
+	struct auth_worker_client *client = ctx->client;
+	string_t *str;
+
+	str = t_str_new(32);
+	if (ctx->userdb->iface->iterate_deinit(ctx->iter) < 0)
+		str_printfa(str, "%u\tFAIL\n", ctx->id);
+	else
+		str_printfa(str, "%u\tOK\n", ctx->id);
+	auth_worker_send_reply(client, str);
+
+	client->io = io_add(client->fd, IO_READ, auth_worker_input, client);
+	o_stream_set_flush_callback(client->output, auth_worker_output, client);
+	auth_worker_client_unref(&client);
+	i_free(ctx);
+}
+
+static void list_iter_callback(const char *user, void *context)
+{
+	struct auth_worker_list_context *ctx = context;
+	string_t *str;
+
+	if (user == NULL) {
+		if (ctx->sending)
+			ctx->done = TRUE;
+		else
+			list_iter_deinit(ctx);
+		return;
+	}
+
+	T_BEGIN {
+		str = t_str_new(128);
+		str_printfa(str, "%u\t*\t%s\n", ctx->id, user);
+		o_stream_send(ctx->client->output, str_data(str), str_len(str));
+	} T_END;
+
+	if (ctx->sending) {
+		/* avoid recursively looping to this same function */
+		ctx->sent = TRUE;
+		return;
+	}
+
+	do {
+		ctx->sending = TRUE;
+		ctx->sent = FALSE;
+		ctx->userdb->iface->iterate_next(ctx->iter);
+	} while (ctx->sent &&
+		 o_stream_get_buffer_used_size(ctx->client->output) == 0);
+	ctx->sending = FALSE;
+	if (ctx->done)
+		list_iter_deinit(ctx);
+}
+
+static int auth_worker_list_output(struct auth_worker_list_context *ctx)
+{
+	int ret;
+
+	if ((ret = o_stream_flush(ctx->client->output)) < 0) {
+		list_iter_deinit(ctx);
+		return 1;
+	}
+	if (ret > 0)
+		ctx->userdb->iface->iterate_next(ctx->iter);
+	return 1;
+}
+
+static void
+auth_worker_handle_list(struct auth_worker_client *client,
+			unsigned int id, const char *args)
+{
+	struct auth_worker_list_context *ctx;
+	struct auth_userdb *userdb;
+	unsigned int num;
+
+	userdb = client->auth->userdbs;
+	for (num = atoi(args); num > 0; num--) {
+		userdb = userdb->next;
+		if (userdb == NULL) {
+			i_error("BUG: LIST had invalid userdb num");
+			return;
+		}
+	}
+
+	ctx = i_new(struct auth_worker_list_context, 1);
+	ctx->client = client;
+	ctx->id = id;
+	ctx->userdb = userdb->userdb;
+
+	io_remove(&ctx->client->io);
+	o_stream_set_flush_callback(ctx->client->output,
+				    auth_worker_list_output, ctx);
+	client->refcount++;
+	ctx->iter = ctx->userdb->iface->
+		iterate_init(userdb, list_iter_callback, ctx);
+	ctx->userdb->iface->iterate_next(ctx->iter);
+}
+
 static bool
 auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 {
@@ -416,7 +525,10 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 		auth_worker_handle_setcred(client, id, line + 8);
 	else if (strncmp(line, "USER\t", 5) == 0)
 		auth_worker_handle_user(client, id, line + 5);
-
+	else if (strncmp(line, "LIST\t", 5) == 0)
+		auth_worker_handle_list(client, id, line + 5);
+	else
+		i_error("BUG: Auth-worker received unknown command: %s", line);
         return TRUE;
 }
 

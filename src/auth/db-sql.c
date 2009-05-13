@@ -21,6 +21,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(password_query),
 	DEF_STR(user_query),
  	DEF_STR(update_query),
+ 	DEF_STR(iterate_query),
 	DEF_STR(default_pass_scheme),
 
 	{ 0, NULL, 0 }
@@ -32,6 +33,7 @@ static struct sql_settings default_sql_settings = {
 	MEMBER(password_query) "SELECT username, domain, password FROM users WHERE username = '%n' AND domain = '%d'",
 	MEMBER(user_query) "SELECT home, uid, gid FROM users WHERE username = '%n' AND domain = '%d'",
 	MEMBER(update_query) "UPDATE users SET password = '%w' WHERE username = '%n' AND domain = '%d'",
+	MEMBER(iterate_query) "SELECT username, domain FROM users",
 	MEMBER(default_pass_scheme) "MD5"
 };
 

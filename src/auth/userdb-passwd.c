@@ -5,6 +5,7 @@
 
 #ifdef USERDB_PASSWD
 
+#include "ioloop.h"
 #include "userdb-static.h"
 
 #include <pwd.h>
@@ -15,6 +16,14 @@ struct passwd_userdb_module {
 	struct userdb_module module;
 	struct userdb_static_template *tmpl;
 };
+
+struct passwd_userdb_iterate_context {
+	struct userdb_iterate_context ctx;
+	struct passwd_userdb_iterate_context *next_waiting;
+};
+
+static struct passwd_userdb_iterate_context *cur_userdb_iter = NULL;
+static struct timeout *cur_userdb_iter_to = NULL;
 
 static void passwd_lookup(struct auth_request *auth_request,
 			  userdb_callback_t *callback)
@@ -59,6 +68,72 @@ static void passwd_lookup(struct auth_request *auth_request,
 	callback(USERDB_RESULT_OK, auth_request);
 }
 
+static struct userdb_iterate_context *
+passwd_iterate_init(struct auth_userdb *userdb,
+		    userdb_iter_callback_t *callback, void *context)
+{
+	struct passwd_userdb_iterate_context *ctx;
+
+	ctx = i_new(struct passwd_userdb_iterate_context, 1);
+	ctx->ctx.userdb = userdb->userdb;
+	ctx->ctx.callback = callback;
+	ctx->ctx.context = context;
+	setpwent();
+
+	if (cur_userdb_iter == NULL)
+		cur_userdb_iter = ctx;
+	return &ctx->ctx;
+}
+
+static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
+{
+	struct passwd_userdb_iterate_context *ctx =
+		(struct passwd_userdb_iterate_context *)_ctx;
+	struct passwd *pw;
+
+	if (cur_userdb_iter != NULL && cur_userdb_iter != ctx) {
+		/* we can't support concurrent userdb iteration.
+		   wait until the previous one is done */
+		ctx->next_waiting = cur_userdb_iter->next_waiting;
+		cur_userdb_iter->next_waiting = ctx;
+		return;
+	}
+
+	errno = 0;
+	pw = getpwent();
+	if (pw == NULL) {
+		if (errno != 0) {
+			i_error("getpwent() failed: %m");
+			_ctx->failed = TRUE;
+		}
+		_ctx->callback(NULL, _ctx->context);
+	} else {
+		_ctx->callback(pw->pw_name, _ctx->context);
+	}
+}
+
+static void passwd_iterate_next_timeout(void *context ATTR_UNUSED)
+{
+	timeout_remove(&cur_userdb_iter_to);
+	passwd_iterate_next(&cur_userdb_iter->ctx);
+}
+
+static int passwd_iterate_deinit(struct userdb_iterate_context *_ctx)
+{
+	struct passwd_userdb_iterate_context *ctx =
+		(struct passwd_userdb_iterate_context *)_ctx;
+	int ret = _ctx->failed ? -1 : 0;
+
+	cur_userdb_iter = ctx->next_waiting;
+	i_free(ctx);
+
+	if (cur_userdb_iter != NULL) {
+		cur_userdb_iter_to =
+			timeout_add(0, passwd_iterate_next_timeout, NULL);
+	}
+	return ret;
+}
+
 static struct userdb_module *
 passwd_passwd_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
@@ -85,7 +160,11 @@ struct userdb_module_interface userdb_passwd = {
 	NULL,
 	NULL,
 
-	passwd_lookup
+	passwd_lookup,
+
+	passwd_iterate_init,
+	passwd_iterate_next,
+	passwd_iterate_deinit
 };
 #else
 struct userdb_module_interface userdb_passwd = {

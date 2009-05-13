@@ -23,8 +23,8 @@ struct auth_worker_request {
 	unsigned int id;
 	time_t created;
 	const char *data_str;
-	struct auth_request *auth_request;
-        auth_worker_callback_t *callback;
+	auth_worker_callback_t *callback;
+	void *context;
 };
 
 struct auth_worker_connection {
@@ -189,15 +189,12 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 	if (conn->request == NULL)
 		idle_count--;
 
-	if (conn->request != NULL) T_BEGIN {
-		struct auth_request *auth_request = conn->request->auth_request;
-
-		auth_request_log_error(auth_request, "worker-server",
-				       "Aborted: %s", reason);
-		conn->request->callback(auth_request, t_strdup_printf(
-				"FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE));
-		auth_request_unref(&conn->request->auth_request);
-	} T_END;
+	if (conn->request != NULL) {
+		i_error("auth worker: Aborted request: %s", reason);
+		conn->request->callback(t_strdup_printf(
+				"FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE),
+				conn->request->context);
+	}
 
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
@@ -236,14 +233,18 @@ static void auth_worker_request_handle(struct auth_worker_connection *conn,
 				       struct auth_worker_request *request,
 				       const char *line)
 {
-	conn->request = NULL;
-	timeout_remove(&conn->to);
-	conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
-			       auth_worker_idle_timeout, conn);
-	idle_count++;
+	if (strncmp(line, "*\t", 2) == 0) {
+		/* multi-line reply, not finished yet */
+	} else {
+		conn->request = NULL;
+		timeout_remove(&conn->to);
+		conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
+				       auth_worker_idle_timeout, conn);
+		idle_count++;
+	}
 
-	request->callback(request->auth_request, line);
-	auth_request_unref(&request->auth_request);
+	if (!request->callback(line, request->context) && conn->io != NULL)
+		io_remove(&conn->io);
 }
 
 static void worker_input(struct auth_worker_connection *conn)
@@ -301,20 +302,19 @@ static void worker_input(struct auth_worker_connection *conn)
 		auth_worker_request_send_next(conn);
 }
 
-void auth_worker_call(struct auth_request *auth_request,
-		      struct auth_stream_reply *data,
-		      auth_worker_callback_t *callback)
+struct auth_worker_connection *
+auth_worker_call(struct auth *auth, pool_t pool,
+		 struct auth_stream_reply *data,
+		 auth_worker_callback_t *callback, void *context)
 {
 	struct auth_worker_connection *conn;
 	struct auth_worker_request *request;
 
-	request = p_new(auth_request->pool, struct auth_worker_request, 1);
+	request = p_new(pool, struct auth_worker_request, 1);
 	request->created = ioloop_time;
-	request->data_str = p_strdup(auth_request->pool,
-				     auth_stream_reply_export(data));
-	request->auth_request = auth_request;
+	request->data_str = p_strdup(pool, auth_stream_reply_export(data));
 	request->callback = callback;
-	auth_request_ref(auth_request);
+	request->context = context;
 
 	if (aqueue_count(worker_request_queue) > 0) {
 		/* requests are already being queued, no chance of
@@ -324,7 +324,7 @@ void auth_worker_call(struct auth_request *auth_request,
 		conn = auth_worker_find_free();
 		if (conn == NULL) {
 			/* no free connections, create a new one */
-			conn = auth_worker_create(auth_request->auth);
+			conn = auth_worker_create(auth);
 		}
 	}
 	if (conn != NULL)
@@ -333,30 +333,28 @@ void auth_worker_call(struct auth_request *auth_request,
 		/* reached the limit, queue the request */
 		aqueue_append(worker_request_queue, &request);
 	}
+	return conn;
 }
 
-void auth_worker_server_init(struct auth *auth)
+void auth_worker_server_resume_input(struct auth_worker_connection *conn)
 {
-	if (array_is_created(&connections)) {
-		/* already initialized */
-		return;
-	}
+	if (conn->io == NULL)
+		conn->io = io_add(conn->fd, IO_READ, worker_input, conn);
+}
 
+void auth_worker_server_init(void)
+{
 	worker_socket_path = "auth-worker";
 
 	i_array_init(&worker_request_array, 128);
 	worker_request_queue = aqueue_init(&worker_request_array.arr);
 
 	i_array_init(&connections, 16);
-	(void)auth_worker_create(auth);
 }
 
 void auth_worker_server_deinit(void)
 {
 	struct auth_worker_connection **connp, *conn;
-
-	if (!array_is_created(&connections))
-		return;
 
 	while (array_count(&connections) > 0) {
 		connp = array_idx_modifiable(&connections, 0);

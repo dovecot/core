@@ -236,7 +236,11 @@ struct userdb_module_interface userdb_static = {
 	NULL,
 	NULL,
 
-	static_lookup
+	static_lookup,
+
+	NULL,
+	NULL,
+	NULL
 };
 #else
 struct userdb_module_interface userdb_static = {

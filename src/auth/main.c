@@ -76,6 +76,7 @@ static void main_init(void)
 	child_wait_init();
 	mech_init(auth->set);
 	password_schemes_init();
+	auth_worker_server_init();
 	auth_init(auth);
 	auth_request_handler_init();
 	auth_master_connections_init();

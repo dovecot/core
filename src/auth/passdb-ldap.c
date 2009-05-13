@@ -33,45 +33,9 @@ struct passdb_ldap_request {
 		verify_plain_callback_t *verify_plain;
                 lookup_credentials_callback_t *lookup_credentials;
 	} callback;
+
+	unsigned int entries;
 };
-
-static LDAPMessage *
-handle_request_get_entry(struct ldap_connection *conn,
-			 struct auth_request *auth_request,
-			 struct passdb_ldap_request *request, LDAPMessage *res)
-{
-	enum passdb_result passdb_result;
-	LDAPMessage *entry;
-
-	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-
-	if (res != NULL) {
-		/* LDAP search was successful */
-		entry = ldap_first_entry(conn->ld, res);
-		if (entry == NULL) {
-			passdb_result = PASSDB_RESULT_USER_UNKNOWN;
-			auth_request_log_info(auth_request, "ldap",
-					      "unknown user");
-		} else {
-			if (ldap_next_entry(conn->ld, entry) == NULL) {
-				/* success */
-				return entry;
-			}
-
-			auth_request_log_error(auth_request, "ldap",
-				"Multiple replies found for user");
-		}
-	}
-
-	if (auth_request->credentials_scheme != NULL) {
-		request->callback.lookup_credentials(passdb_result, NULL, 0,
-						     auth_request);
-	} else {
-		request->callback.verify_plain(passdb_result, auth_request);
-	}
-	auth_request_unref(&auth_request);
-	return NULL;
-}
 
 static void
 ldap_query_save_result(struct ldap_connection *conn,
@@ -89,29 +53,24 @@ ldap_query_save_result(struct ldap_connection *conn,
 }
 
 static void
-ldap_lookup_pass_callback(struct ldap_connection *conn,
-			  struct ldap_request *request, LDAPMessage *res)
+ldap_lookup_finish(struct auth_request *auth_request,
+		   struct passdb_ldap_request *ldap_request,
+		   LDAPMessage *res)
 {
-	struct passdb_ldap_request *ldap_request =
-		(struct passdb_ldap_request *)request;
-        struct auth_request *auth_request = request->auth_request;
 	enum passdb_result passdb_result;
-	LDAPMessage *entry;
-	const char *password, *scheme;
+	const char *password = NULL, *scheme;
 	int ret;
 
-	entry = handle_request_get_entry(conn, auth_request, ldap_request, res);
-	if (entry == NULL)
-		return;
-
-	/* got first LDAP entry */
-	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-	password = NULL;
-
-	ldap_query_save_result(conn, entry, auth_request);
-	if (ldap_next_entry(conn->ld, entry) != NULL) {
+	if (res == NULL) {
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+	} else if (ldap_request->entries == 0) {
+		passdb_result = PASSDB_RESULT_USER_UNKNOWN;
+		auth_request_log_info(auth_request, "ldap",
+				      "unknown user");
+	} else if (ldap_request->entries > 1) {
 		auth_request_log_error(auth_request, "ldap",
 			"pass_filter matched multiple objects, aborting");
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (auth_request->passdb_password == NULL &&
 		   !auth_request->no_password) {
 		auth_request_log_info(auth_request, "ldap",
@@ -144,7 +103,26 @@ ldap_lookup_pass_callback(struct ldap_connection *conn,
 		ldap_request->callback.verify_plain(passdb_result,
 						    auth_request);
 	}
-	auth_request_unref(&auth_request);
+}
+
+static void
+ldap_lookup_pass_callback(struct ldap_connection *conn,
+			  struct ldap_request *request, LDAPMessage *res)
+{
+	struct passdb_ldap_request *ldap_request =
+		(struct passdb_ldap_request *)request;
+        struct auth_request *auth_request = request->auth_request;
+
+	if (res == NULL || ldap_msgtype(res) == LDAP_RES_SEARCH_RESULT) {
+		ldap_lookup_finish(auth_request, ldap_request, res);
+		auth_request_unref(&auth_request);
+		return;
+	}
+
+	if (ldap_request->entries++ == 0) {
+		/* first entry */
+		ldap_query_save_result(conn, res, auth_request);
+	}
 }
 
 static void
@@ -208,6 +186,35 @@ static void ldap_auth_bind(struct ldap_connection *conn,
 	db_ldap_request(conn, &brequest->request);
 }
 
+static void
+ldap_bind_lookup_dn_fail(struct auth_request *auth_request,
+			 struct passdb_ldap_request *request,
+			 LDAPMessage *res)
+{
+	enum passdb_result passdb_result;
+
+	if (res == NULL)
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+	else if (request->entries == 0) {
+		passdb_result = PASSDB_RESULT_USER_UNKNOWN;
+		auth_request_log_info(auth_request, "ldap",
+				      "unknown user");
+	} else {
+		i_assert(request->entries > 1);
+		auth_request_log_error(auth_request, "ldap",
+			"pass_filter matched multiple objects, aborting");
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+	}
+
+	if (auth_request->credentials_scheme != NULL) {
+		request->callback.lookup_credentials(passdb_result, NULL, 0,
+						     auth_request);
+	} else {
+		request->callback.verify_plain(passdb_result, auth_request);
+	}
+	auth_request_unref(&auth_request);
+}
+
 static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 					 struct ldap_request *ldap_request,
 					 LDAPMessage *res)
@@ -219,12 +226,18 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 	LDAPMessage *entry;
 	char *dn;
 
-	entry = handle_request_get_entry(conn, auth_request,
-					 passdb_ldap_request, res);
-	if (entry == NULL)
+	if (res != NULL && ldap_msgtype(res) != LDAP_RES_SEARCH_RESULT) {
+		if (passdb_ldap_request->entries++ == 0) {
+			/* first entry */
+			ldap_query_save_result(conn, res, auth_request);
+		}
 		return;
+	}
 
-	ldap_query_save_result(conn, entry, auth_request);
+	if (res == NULL || passdb_ldap_request->entries != 0) {
+		ldap_bind_lookup_dn_fail(auth_request, passdb_ldap_request, res);
+		return;
+	}
 
 	/* convert search request to bind request */
 	brequest = &passdb_ldap_request->request.bind;

@@ -59,13 +59,16 @@ auth_worker_reply_parse(struct auth_request *request, const char *reply)
 	return PASSDB_RESULT_INTERNAL_FAILURE;
 }
 
-static void
-verify_plain_callback(struct auth_request *request, const char *reply)
+static bool
+verify_plain_callback(const char *reply, void *context)
 {
+	struct auth_request *request = context;
 	enum passdb_result result;
 
 	result = auth_worker_reply_parse(request, reply);
 	auth_request_verify_plain_callback(result, request);
+	auth_request_unref(&request);
+	return TRUE;
 }
 
 void passdb_blocking_verify_plain(struct auth_request *request)
@@ -81,12 +84,14 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 	auth_stream_reply_add(reply, NULL, request->mech_password);
 	auth_request_export(request, reply);
 
-	auth_worker_call(request, reply, verify_plain_callback);
+	auth_request_ref(request);
+	auth_worker_call(request->auth, request->pool, reply,
+			 verify_plain_callback, request);
 }
 
-static void
-lookup_credentials_callback(struct auth_request *request, const char *reply)
+static bool lookup_credentials_callback(const char *reply, void *context)
 {
+	struct auth_request *request = context;
 	enum passdb_result result;
 	const char *password = NULL, *scheme = NULL;
 
@@ -105,6 +110,8 @@ lookup_credentials_callback(struct auth_request *request, const char *reply)
 	passdb_handle_credentials(result, password, scheme,
 				  auth_request_lookup_credentials_callback,
 				  request);
+	auth_request_unref(&request);
+	return TRUE;
 }
 
 void passdb_blocking_lookup_credentials(struct auth_request *request)
@@ -120,16 +127,21 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 	auth_stream_reply_add(reply, NULL, request->credentials_scheme);
 	auth_request_export(request, reply);
 
-	auth_worker_call(request, reply, lookup_credentials_callback);
+	auth_request_ref(request);
+	auth_worker_call(request->auth, request->pool, reply,
+			 lookup_credentials_callback, request);
 }
 
-static void
-set_credentials_callback(struct auth_request *request, const char *reply)
+static bool
+set_credentials_callback(const char *reply, void *context)
 {
+	struct auth_request *request = context;
 	bool success;
 
 	success = strcmp(reply, "OK") == 0 || strncmp(reply, "OK\t", 3) == 0;
 	request->private_callback.set_credentials(success, request);
+	auth_request_unref(&request);
+	return TRUE;
 }
 
 void passdb_blocking_set_credentials(struct auth_request *request,
@@ -143,5 +155,7 @@ void passdb_blocking_set_credentials(struct auth_request *request,
 	auth_stream_reply_add(reply, NULL, new_credentials);
 	auth_request_export(request, reply);
 
-	auth_worker_call(request, reply, set_credentials_callback);
+	auth_request_ref(request);
+	auth_worker_call(request->auth, request->pool, reply,
+			 set_credentials_callback, request);
 }

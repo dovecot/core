@@ -9,6 +9,7 @@ struct sql_settings {
 	const char *password_query;
 	const char *user_query;
 	const char *update_query;
+	const char *iterate_query;
 	const char *default_pass_scheme;
 };
 

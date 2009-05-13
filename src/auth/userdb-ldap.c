@@ -22,7 +22,22 @@ struct ldap_userdb_module {
 
 struct userdb_ldap_request {
 	struct ldap_request_search request;
-        userdb_callback_t *userdb_callback;
+	userdb_callback_t *userdb_callback;
+	unsigned int entries;
+};
+
+struct userdb_iter_ldap_request {
+	struct ldap_request_search request;
+	struct ldap_userdb_iterate_context *ctx;
+	userdb_callback_t *userdb_callback;
+};
+
+struct ldap_userdb_iterate_context {
+	struct userdb_iterate_context ctx;
+	struct userdb_iter_ldap_request request;
+	struct auth *auth;
+	struct ldap_connection *conn;
+	bool continued, in_callback;
 };
 
 static void
@@ -42,6 +57,30 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 	}
 }
 
+static void
+userdb_ldap_lookup_finish(struct auth_request *auth_request,
+			  struct userdb_ldap_request *urequest,
+			  LDAPMessage *res)
+{
+	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
+
+	if (res == NULL) {
+		result = USERDB_RESULT_INTERNAL_FAILURE;
+	} else if (urequest->entries == 0) {
+		result = USERDB_RESULT_USER_UNKNOWN;
+		auth_request_log_info(auth_request, "ldap",
+				      "unknown user");
+	} else if (urequest->entries > 1) {
+		auth_request_log_error(auth_request, "ldap",
+			"user_filter matched multiple objects, aborting");
+		result = USERDB_RESULT_INTERNAL_FAILURE;
+	} else {
+		result = USERDB_RESULT_OK;
+	}
+
+	urequest->userdb_callback(result, auth_request);
+}
+
 static void userdb_ldap_lookup_callback(struct ldap_connection *conn,
 					struct ldap_request *request,
 					LDAPMessage *res)
@@ -50,28 +89,17 @@ static void userdb_ldap_lookup_callback(struct ldap_connection *conn,
 		(struct userdb_ldap_request *) request;
 	struct auth_request *auth_request =
 		urequest->request.request.auth_request;
-	LDAPMessage *entry;
-	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
 
-	if (res != NULL) {
-		entry = ldap_first_entry(conn->ld, res);
-		if (entry == NULL) {
-			result = USERDB_RESULT_USER_UNKNOWN;
-			auth_request_log_info(auth_request, "ldap",
-					      "Unknown user");
-		} else {
-			ldap_query_get_result(conn, entry, auth_request);
-			if (ldap_next_entry(conn->ld, entry) == NULL)
-				result = USERDB_RESULT_OK;
-			else {
-				auth_request_log_error(auth_request, "ldap",
-					"Multiple replies found for user");
-			}
-		}
+	if (res == NULL || ldap_msgtype(res) == LDAP_RES_SEARCH_RESULT) {
+		userdb_ldap_lookup_finish(auth_request, urequest, res);
+		auth_request_unref(&auth_request);
+		return;
 	}
 
-	urequest->userdb_callback(result, auth_request);
-	auth_request_unref(&auth_request);
+	if (urequest->entries++ == 0) {
+		/* first entry */
+		ldap_query_get_result(conn, res, auth_request);
+	}
 }
 
 static void userdb_ldap_lookup(struct auth_request *auth_request,
@@ -114,6 +142,97 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	db_ldap_request(conn, &request->request.request);
 }
 
+static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
+					 struct ldap_request *request,
+					 LDAPMessage *res)
+{
+	struct userdb_iter_ldap_request *urequest =
+		(struct userdb_iter_ldap_request *)request;
+	struct ldap_userdb_iterate_context *ctx = urequest->ctx;
+	struct db_ldap_result_iterate_context *ldap_iter;
+	const char *name, *const *values;
+
+	if (res == NULL || ldap_msgtype(res) == LDAP_RES_SEARCH_RESULT) {
+		if (res == NULL)
+			ctx->ctx.failed = TRUE;
+		ctx->ctx.callback(NULL, ctx->ctx.context);
+		return;
+	}
+
+	ctx->in_callback = TRUE;
+	ldap_iter = db_ldap_result_iterate_init(conn, res,
+						request->auth_request,
+						conn->iterate_attr_map);
+	while (db_ldap_result_iterate_next_all(ldap_iter, &name, &values)) {
+		for (; *values != NULL; values++) {
+			ctx->continued = FALSE;
+			ctx->ctx.callback(*values, ctx->ctx.context);
+		}
+	}
+	if (!ctx->continued)
+		db_ldap_enable_input(conn, FALSE);
+	ctx->in_callback = FALSE;
+}
+
+static struct userdb_iterate_context *
+userdb_ldap_iterate_init(struct auth_userdb *userdb,
+			 userdb_iter_callback_t *callback, void *context)
+{
+	struct ldap_userdb_module *module =
+		(struct ldap_userdb_module *)userdb->userdb;
+	struct ldap_connection *conn = module->conn;
+	struct ldap_userdb_iterate_context *ctx;
+	struct userdb_iter_ldap_request *request;
+	const char **attr_names = (const char **)conn->iterate_attr_names;
+
+	ctx = i_new(struct ldap_userdb_iterate_context, 1);
+	ctx->ctx.userdb = userdb->userdb;
+	ctx->ctx.callback = callback;
+	ctx->ctx.context = context;
+	ctx->auth = userdb->auth;
+	ctx->conn = conn;
+	request = &ctx->request;
+	request->ctx = ctx;
+
+	request->request.request.auth_request =
+		auth_request_new_dummy(userdb->auth);
+	request->request.base = conn->set.base;
+	request->request.filter = conn->set.iterate_filter;
+	request->request.attributes = conn->iterate_attr_names;
+
+	if (userdb->auth->set->debug) {
+		i_info("ldap: iterate: base=%s scope=%s filter=%s fields=%s",
+		       conn->set.base, conn->set.scope, request->request.filter,
+		       attr_names == NULL ? "(all)" :
+		       t_strarray_join(attr_names, ","));
+	}
+	request->request.request.callback = userdb_ldap_iterate_callback;
+	db_ldap_request(conn, &request->request.request);
+	return &ctx->ctx;
+}
+
+static void userdb_ldap_iterate_next(struct userdb_iterate_context *_ctx)
+{
+	struct ldap_userdb_iterate_context *ctx =
+		(struct ldap_userdb_iterate_context *)_ctx;
+
+	ctx->continued = TRUE;
+	if (!ctx->in_callback)
+		db_ldap_enable_input(ctx->conn, TRUE);
+}
+
+static int userdb_ldap_iterate_deinit(struct userdb_iterate_context *_ctx)
+{
+	struct ldap_userdb_iterate_context *ctx =
+		(struct ldap_userdb_iterate_context *)_ctx;
+	int ret = _ctx->failed ? -1 : 0;
+
+	db_ldap_enable_input(ctx->conn, TRUE);
+	auth_request_unref(&ctx->request.request.request.auth_request);
+	i_free(ctx);
+	return ret;
+}
+
 static struct userdb_module *
 userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
@@ -125,9 +244,15 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 	conn->user_attr_map =
 		hash_table_create(default_pool, conn->pool, 0, str_hash,
 				  (hash_cmp_callback_t *)strcmp);
+	conn->iterate_attr_map =
+		hash_table_create(default_pool, conn->pool, 0, str_hash,
+				  (hash_cmp_callback_t *)strcmp);
 
 	db_ldap_set_attrs(conn, conn->set.user_attrs, &conn->user_attr_names,
 			  conn->user_attr_map, NULL);
+	db_ldap_set_attrs(conn, conn->set.iterate_attrs,
+			  &conn->iterate_attr_names,
+			  conn->iterate_attr_map, NULL);
 	module->module.cache_key =
 		auth_cache_parse_key(auth_userdb->auth->pool,
 				     t_strconcat(conn->set.base,
@@ -159,7 +284,11 @@ struct userdb_module_interface userdb_ldap = {
 	userdb_ldap_init,
 	userdb_ldap_deinit,
 
-	userdb_ldap_lookup
+	userdb_ldap_lookup,
+
+	userdb_ldap_iterate_init,
+	userdb_ldap_iterate_next,
+	userdb_ldap_iterate_deinit
 };
 #else
 struct userdb_module_interface userdb_ldap = {

@@ -14,6 +14,8 @@ enum userdb_result {
 
 typedef void userdb_callback_t(enum userdb_result result,
 			       struct auth_request *request);
+/* user=NULL when there are no more users */
+typedef void userdb_iter_callback_t(const char *user, void *context);
 
 struct userdb_module {
 	/* The caching key for this module, or NULL if caching isn't wanted. */
@@ -26,6 +28,13 @@ struct userdb_module {
 	const struct userdb_module_interface *iface;
 };
 
+struct userdb_iterate_context {
+	struct userdb_module *userdb;
+	userdb_iter_callback_t *callback;
+	void *context;
+	bool failed;
+};
+
 struct userdb_module_interface {
 	const char *name;
 
@@ -36,6 +45,13 @@ struct userdb_module_interface {
 
 	void (*lookup)(struct auth_request *auth_request,
 		       userdb_callback_t *callback);
+
+	struct userdb_iterate_context *
+		(*iterate_init)(struct auth_userdb *userdb,
+				userdb_iter_callback_t *callback,
+				void *context);
+	void (*iterate_next)(struct userdb_iterate_context *ctx);
+	int (*iterate_deinit)(struct userdb_iterate_context *ctx);
 };
 
 uid_t userdb_parse_uid(struct auth_request *request, const char *str);

@@ -170,7 +170,11 @@ struct userdb_module_interface userdb_vpopmail = {
 	NULL,
 	NULL,
 
-	vpopmail_lookup
+	vpopmail_lookup,
+
+	NULL,
+	NULL,
+	NULL
 };
 #else
 struct userdb_module_interface userdb_vpopmail = {

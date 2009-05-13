@@ -25,6 +25,16 @@ struct userdb_sql_request {
 	userdb_callback_t *callback;
 };
 
+struct sql_userdb_iterate_context {
+	struct userdb_iterate_context ctx;
+	struct sql_result *result;
+	unsigned int freed:1;
+	unsigned int call_iter:1;
+};
+
+static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx);
+static int userdb_sql_iterate_deinit(struct userdb_iterate_context *_ctx);
+
 static void
 sql_query_get_result(struct sql_result *result,
 		     struct auth_request *auth_request)
@@ -106,6 +116,115 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 		  sql_query_callback, sql_request);
 }
 
+static void sql_iter_query_callback(struct sql_result *sql_result,
+				    struct sql_userdb_iterate_context *ctx)
+{
+	ctx->result = sql_result;
+	sql_result_ref(sql_result);
+
+	if (ctx->freed)
+		userdb_sql_iterate_deinit(&ctx->ctx);
+	else if (ctx->call_iter)
+		userdb_sql_iterate_next(&ctx->ctx);
+}
+
+static struct userdb_iterate_context *
+userdb_sql_iterate_init(struct auth_userdb *userdb,
+			userdb_iter_callback_t *callback, void *context)
+{
+	struct sql_userdb_module *module =
+		(struct sql_userdb_module *)userdb;
+	struct sql_userdb_iterate_context *ctx;
+
+	ctx = i_new(struct sql_userdb_iterate_context, 1);
+	ctx->ctx.userdb = userdb->userdb;
+	ctx->ctx.callback = callback;
+	ctx->ctx.context = context;
+
+	sql_query(module->conn->db, module->conn->set.iterate_query,
+		  sql_iter_query_callback, ctx);
+	return &ctx->ctx;
+}
+
+static int userdb_sql_iterate_get_user(struct sql_userdb_iterate_context *ctx,
+				       const char **user_r)
+{
+	const char *domain;
+	int idx;
+
+	/* try user first */
+	idx = sql_result_find_field(ctx->result, "user");
+	if (idx == 0) {
+		*user_r = sql_result_get_field_value(ctx->result, idx);
+		return 0;
+	}
+
+	/* username [+ domain]? */
+	idx = sql_result_find_field(ctx->result, "username");
+	if (idx < 0) {
+		/* no user or username, fail */
+		return -1;
+	}
+
+	*user_r = sql_result_get_field_value(ctx->result, idx);
+	if (*user_r == NULL)
+		return 0;
+
+	domain = sql_result_find_field_value(ctx->result, "domain");
+	if (domain != NULL)
+		*user_r = t_strconcat(*user_r, "@", domain, NULL);
+	return 0;
+}
+
+static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx)
+{
+	struct sql_userdb_iterate_context *ctx =
+		(struct sql_userdb_iterate_context *)_ctx;
+	const char *user;
+	int ret;
+
+	if (ctx->result == NULL) {
+		/* query not finished yet */
+		ctx->call_iter = TRUE;
+		return;
+	}
+
+	ret = sql_result_next_row(ctx->result);
+	if (ret > 0) {
+		if (userdb_sql_iterate_get_user(ctx, &user) < 0)
+			i_error("sql: Iterate query didn't return 'user' field");
+		else if (user == NULL)
+			i_error("sql: Iterate query returned NULL user");
+		else {
+			_ctx->callback(user, _ctx->context);
+			return;
+		}
+		_ctx->failed = TRUE;
+	} else if (ret < 0) {
+		i_error("sql: Iterate query failed: %s",
+			sql_result_get_error(ctx->result));
+		_ctx->failed = TRUE;
+	}
+	_ctx->callback(NULL, _ctx->context);
+}
+
+static int userdb_sql_iterate_deinit(struct userdb_iterate_context *_ctx)
+{
+	struct sql_userdb_iterate_context *ctx =
+		(struct sql_userdb_iterate_context *)_ctx;
+	int ret = _ctx->failed ? -1 : 0;
+
+	if (ctx->result == NULL) {
+		/* sql query hasn't finished yet */
+		ctx->freed = TRUE;
+	} else {
+		if (ctx->result != NULL)
+			sql_result_unref(ctx->result);
+		i_free(ctx);
+	}
+	return ret;
+}
+
 static struct userdb_module *
 userdb_sql_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
@@ -149,7 +268,11 @@ struct userdb_module_interface userdb_sql = {
 	userdb_sql_init,
 	userdb_sql_deinit,
 
-	userdb_sql_lookup
+	userdb_sql_lookup,
+
+	userdb_sql_iterate_init,
+	userdb_sql_iterate_next,
+	userdb_sql_iterate_deinit
 };
 #else
 struct userdb_module_interface userdb_sql = {

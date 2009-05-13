@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "str.h"
+#include "strescape.h"
 #include "hostpid.h"
 #include "str-sanitize.h"
 #include "ioloop.h"
@@ -12,6 +13,7 @@
 #include "ostream.h"
 #include "master-service.h"
 #include "userdb.h"
+#include "userdb-blocking.h"
 #include "auth-request-handler.h"
 #include "auth-master-interface.h"
 #include "auth-client-connection.h"
@@ -28,6 +30,16 @@ struct master_userdb_request {
 	unsigned int id;
 	struct auth_request *auth_request;
 };
+
+struct master_list_iter_ctx {
+	struct auth_master_connection *conn;
+	struct auth_userdb *userdb;
+	struct userdb_iterate_context *iter;
+	unsigned int id;
+	bool failed;
+};
+
+static void master_input(struct auth_master_connection *conn);
 
 ARRAY_TYPE(auth_master_connections) auth_master_connections;
 
@@ -162,6 +174,112 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 	return TRUE;
 }
 
+static void master_input_list_finish(struct master_list_iter_ctx *ctx)
+{
+	ctx->conn->io = io_add(ctx->conn->fd, IO_READ, master_input, ctx->conn);
+
+	if (ctx->iter != NULL)
+		(void)userdb_blocking_iter_deinit(&ctx->iter);
+	o_stream_unset_flush_callback(ctx->conn->output);
+	i_free(ctx);
+}
+
+static int master_output_list(struct master_list_iter_ctx *ctx)
+{
+	int ret;
+
+	if ((ret = o_stream_flush(ctx->conn->output)) < 0) {
+		master_input_list_finish(ctx);
+		return 1;
+	}
+	if (ret > 0)
+		userdb_blocking_iter_next(ctx->iter);
+	return 1;
+}
+
+static void master_input_list_callback(const char *user, void *context)
+{
+	struct master_list_iter_ctx *ctx = context;
+	int ret;
+
+	if (user == NULL) {
+		if (userdb_blocking_iter_deinit(&ctx->iter) < 0)
+			ctx->failed = TRUE;
+
+		do {
+			ctx->userdb = ctx->userdb->next;
+		} while (ctx->userdb != NULL &&
+			 ctx->userdb->userdb->iface->iterate_init == NULL);
+		if (ctx->userdb == NULL) {
+			/* iteration is finished */
+			const char *str;
+
+			str = t_strdup_printf("DONE\t%u\t%s\n", ctx->id,
+					      ctx->failed ? "fail" : "");
+			(void)o_stream_send_str(ctx->conn->output, str);
+			master_input_list_finish(ctx);
+			return;
+		}
+
+		/* continue iterating next userdb */
+		userdb_blocking_iter_init(ctx->userdb,
+					  master_input_list_callback, ctx);
+		userdb_blocking_iter_next(ctx->iter);
+		return;
+	}
+
+	T_BEGIN {
+		const char *str;
+
+		str = t_strdup_printf("LIST\t%u\t%s\n", ctx->id,
+				      str_tabescape(user));
+		ret = o_stream_send_str(ctx->conn->output, str);
+	} T_END;
+	if (ret < 0) {
+		/* disconnected, don't bother finishing */
+		master_input_list_finish(ctx);
+		return;
+	}
+	if (o_stream_get_buffer_used_size(ctx->conn->output) == 0)
+		userdb_blocking_iter_next(ctx->iter);
+}
+
+static bool
+master_input_list(struct auth_master_connection *conn, const char *args)
+{
+	struct auth_userdb *userdb = conn->auth->userdbs;
+	struct master_list_iter_ctx *ctx;
+	const char *str;
+	unsigned int id;
+
+	/* <id> */
+	if (*args == '\0') {
+		i_error("BUG: Master sent broken LIST");
+		return FALSE;
+	}
+	id = strtoul(args, NULL, 10);
+
+	while (userdb != NULL && userdb->userdb->iface->iterate_init == NULL)
+		userdb = userdb->next;
+	if (userdb == NULL) {
+		i_error("Trying to iterate users, but userdbs don't suppor it");
+		str = t_strdup_printf("DONE\t%u\tfail", id);
+		(void)o_stream_send_str(conn->output, str);
+		return TRUE;
+	}
+
+	ctx = i_new(struct master_list_iter_ctx, 1);
+	ctx->conn = conn;
+	ctx->userdb = userdb;
+	ctx->id = id;
+
+	io_remove(&conn->io);
+	o_stream_set_flush_callback(conn->output, master_output_list, ctx);
+	ctx->iter = userdb_blocking_iter_init(ctx->userdb,
+					      master_input_list_callback, ctx);
+	return TRUE;
+}
+
 static bool
 auth_master_input_line(struct auth_master_connection *conn, const char *line)
 {
@@ -172,6 +290,8 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 		return master_input_request(conn, line + 8);
 	else if (strncmp(line, "USER\t", 5) == 0)
 		return master_input_user(conn, line + 5);
+	else if (strncmp(line, "LIST\t", 5) == 0)
+		return master_input_list(conn, line + 5);
 	else if (strncmp(line, "CPID\t", 5) == 0) {
 		i_error("Authentication client trying to connect to "
 			"master socket");

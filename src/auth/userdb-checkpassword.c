@@ -261,6 +261,10 @@ struct userdb_module_interface userdb_checkpassword = {
 	checkpassword_deinit,
 
 	checkpassword_lookup,
+
+	NULL,
+	NULL,
+	NULL
 };
 #else
 struct userdb_module_interface userdb_checkpassword = {

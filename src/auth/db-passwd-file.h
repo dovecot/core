@@ -16,6 +16,7 @@ struct passwd_user {
 struct passwd_file {
         struct db_passwd_file *db;
 	pool_t pool;
+	int refcount;
 
 	char *path;
 	time_t stamp;

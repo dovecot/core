@@ -202,11 +202,6 @@ void passdb_init(struct auth_passdb *passdb)
 
 	i_assert(passdb->passdb->default_pass_scheme != NULL ||
 		 passdb->passdb->cache_key == NULL);
-
-	if (passdb->passdb->blocking && !worker) {
-		/* blocking passdb - we need an auth server */
-		auth_worker_server_init(passdb->auth);
-	}
 }
 
 void passdb_deinit(struct auth_passdb *passdb)

@@ -148,11 +148,6 @@ void userdb_init(struct auth_userdb *userdb)
 {
 	if (userdb->userdb->iface->init != NULL)
 		userdb->userdb->iface->init(userdb->userdb, userdb->args);
-
-	if (userdb->userdb->blocking && !worker) {
-		/* blocking userdb - we need an auth server */
-		auth_worker_server_init(userdb->auth);
-	}
 }
 
 void userdb_deinit(struct auth_userdb *userdb)

@@ -47,7 +47,11 @@ struct userdb_module_interface userdb_prefetch = {
 	NULL,
 	NULL,
 
-	prefetch_lookup
+	prefetch_lookup,
+
+	NULL,
+	NULL,
+	NULL
 };
 #else
 struct userdb_module_interface userdb_prefetch = {
