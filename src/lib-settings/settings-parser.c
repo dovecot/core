@@ -449,59 +449,50 @@ settings_parse_get_prev_info(struct setting_parser_context *ctx)
 	return ctx->prev_info;
 }
 
+static const char *settings_translate_lf(const char *value)
+{
+	char *dest, *p;
+
+	if (strchr(value, SETTING_STREAM_LF_CHAR[0]) == NULL)
+		return value;
+
+	dest = t_strdup_noconst(value);
+	for (p = dest; *p != '\0'; p++) {
+		if (*p == SETTING_STREAM_LF_CHAR[0])
+			*p = '\n';
+	}
+	return dest;
+}
+
 int settings_parse_stream(struct setting_parser_context *ctx,
 			  struct istream *input)
 {
 	const char *line;
-	string_t *full_line;
-	size_t len;
 	int ret = 1;
 
-	full_line = str_new(default_pool, 512);
 	while ((line = i_stream_next_line(input)) != NULL) {
 		if (*line == '\0') {
 			/* empty line finishes it */
 			ret = 0;
 			break;
 		}
-
 		ctx->linenum++;
-		while (IS_WHITE(*line == ' '))
-			line++;
-		if (*line == '\0' || *line == '#')
-			continue;
 
-		len = strlen(line);
-		while (len > 0 && IS_WHITE(line[len-1]))
-			len--;
-		if (line[len] == '\\') {
-			/* line continues */
-			str_append_n(full_line, line, len - 1);
-		} else {
-			/* full line */
-			if (str_len(full_line) > 0) {
-				str_append_n(full_line, line, len);
-				line = str_c(full_line);
-			}
-
+		T_BEGIN {
+			line = settings_translate_lf(line);
 			ret = settings_parse_line(ctx, line);
-			if (ret == 0 &&
-			    (ctx->flags &
-			     SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS) == 0)
-				ret = -1;
+		} T_END;
+		if (ret == 0 && (ctx->flags &
+				 SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS) == 0)
+			ret = -1;
 
-			if (ret < 0) {
-				ctx->error = p_strdup_printf(ctx->parser_pool,
-							     "Line %u: %s",
-							     ctx->linenum,
-							     ctx->error);
-				ret = -1;
-				break;
-			}
-			str_truncate(full_line, 0);
+		if (ret < 0) {
+			ctx->error = p_strdup_printf(ctx->parser_pool,
+				"Line %u: %s", ctx->linenum, ctx->error);
+			ret = -1;
+			break;
 		}
 	}
-	str_free(&full_line);
 	return ret;
 }
 

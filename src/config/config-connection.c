@@ -4,6 +4,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "settings-parser.h"
 #include "config-request.h"
 #include "config-connection.h"
 
@@ -46,9 +47,15 @@ config_request_output(const char *key, const char *value,
 		      bool list ATTR_UNUSED, void *context)
 {
 	struct ostream *output = context;
+	const char *p;
 
 	o_stream_send_str(output, key);
 	o_stream_send_str(output, "=");
+	while ((p = strchr(value, '\n')) != NULL) {
+		o_stream_send(output, value, p-value);
+		o_stream_send(output, SETTING_STREAM_LF_CHAR, 1);
+		value = p+1;
+	}
 	o_stream_send_str(output, value);
 	o_stream_send_str(output, "\n");
 }

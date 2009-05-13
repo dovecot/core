@@ -242,7 +242,30 @@ config_all_parsers_check(struct parser_context *ctx)
 		config_filter_parser_list_check(ctx, parsers[i]);
 }
 
-void config_parse_file(const char *path)
+static void
+str_append_file(string_t *str, const char *key, const char *path,
+		const char **error_r)
+{
+	unsigned char buf[1024];
+	int fd;
+	ssize_t ret;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		*error_r = t_strdup_printf("%s: Can't open file %s: %m",
+					   key, path);
+		return;
+	}
+	while ((ret = read(fd, buf, sizeof(buf))) > 0)
+		str_append_n(str, buf, ret);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("%s: read(%s) failed: %m",
+					   key, path);
+	}
+	(void)close(fd);
+}
+
+void config_parse_file(const char *path, bool expand_files)
 {
 	enum settings_parser_flags parser_flags =
                 SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS;
@@ -394,15 +417,27 @@ prevfile:
 			str_truncate(str, pathlen);
 			str_append(str, key);
 			str_append_c(str, '=');
-			str_append(str, line);
-			if (pathlen == 0 &&
-			    strncmp(str_c(str), "auth_", 5) == 0) {
+
+			if (*line != '<' || !expand_files)
+				str_append(str, line);
+			else
+				str_append_file(str, key, line+1, &errormsg);
+
+			if (errormsg != NULL) {
+				/* file reading failed */
+			} else if (pathlen == 0 &&
+				   strncmp(str_c(str), "auth_", 5) == 0) {
 				/* verify that the setting is valid,
 				   but delay actually adding it */
 				const char *s = t_strdup(str_c(str) + 5);
 
 				str_truncate(str, 0);
-				str_printfa(str, "auth/0/%s=%s", key + 5, line);
+				str_printfa(str, "auth/0/%s=", key + 5);
+				if (*line != '<' || !expand_files)
+					str_append(str, line);
+				else
+					str_append_file(str, key, line+1, &errormsg);
+
 				errormsg = config_parse_line(parsers, key + 5, str_c(str), NULL);
 				array_append(&auth_defaults, &s, 1);
 			} else {

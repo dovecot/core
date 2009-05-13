@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 	}
 	master_service_init_finish(service);
 
-	config_parse_file(config_path);
+	config_parse_file(config_path, FALSE);
 
 	if (exec_args == NULL) {
 		const char *info;

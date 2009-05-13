@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 
 	master_service_init_log(service, "config: ", 0);
 	master_service_init_finish(service);
-	config_parse_file(master_service_get_config_path(service));
+	config_parse_file(master_service_get_config_path(service), TRUE);
 
 	master_service_run(service, client_connected);
 	config_connections_destroy_all();

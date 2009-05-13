@@ -3,6 +3,6 @@
 
 extern struct config_filter_context *config_filter;
 
-void config_parse_file(const char *path);
+void config_parse_file(const char *path, bool expand_files);
 
 #endif
