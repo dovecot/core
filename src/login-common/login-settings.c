@@ -26,8 +26,8 @@ static struct setting_define login_setting_defines[] = {
 
 	DEF(SET_ENUM, ssl),
 	DEF(SET_STR, ssl_ca_file),
-	DEF(SET_STR, ssl_cert_file),
-	DEF(SET_STR, ssl_key_file),
+	DEF(SET_STR, ssl_cert),
+	DEF(SET_STR, ssl_key),
 	DEF(SET_STR, ssl_key_password),
 	DEF(SET_STR, ssl_parameters_file),
 	DEF(SET_STR, ssl_cipher_list),
@@ -60,8 +60,8 @@ static struct login_settings login_default_settings = {
 
 	MEMBER(ssl) "yes:no:required",
 	MEMBER(ssl_ca_file) "",
-	MEMBER(ssl_cert_file) SSLDIR"/certs/dovecot.pem",
-	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
+	MEMBER(ssl_cert) "",
+	MEMBER(ssl_key) "",
 	MEMBER(ssl_key_password) "",
 	MEMBER(ssl_parameters_file) "ssl-parameters.dat",
 	MEMBER(ssl_cipher_list) "ALL:!LOW:!SSLv2",
@@ -103,12 +103,12 @@ static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 				   set->ssl);
 	return FALSE;
 #else
-	if (*set->ssl_cert_file == '\0') {
-		*error_r = "ssl_cert_file not set";
+	if (*set->ssl_cert == '\0') {
+		*error_r = "ssl enabled, but ssl_cert not set";
 		return FALSE;
 	}
-	if (*set->ssl_key_file == '\0') {
-		*error_r = "ssl_key_file not set";
+	if (*set->ssl_key == '\0') {
+		*error_r = "ssl enabled, but ssl_key not set";
 		return FALSE;
 	}
 	if (set->ssl_verify_client_cert && *set->ssl_ca_file == '\0') {
@@ -117,16 +117,6 @@ static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 	}
 
 #ifndef CONFIG_BINARY
-	if (access(set->ssl_cert_file, R_OK) < 0) {
-		*error_r = t_strdup_printf("ssl_cert_file: access(%s) failed: %m",
-					   set->ssl_cert_file);
-		return FALSE;
-	}
-	if (access(set->ssl_key_file, R_OK) < 0) {
-		*error_r = t_strdup_printf("ssl_key_file: access(%s) failed: %m",
-					   set->ssl_key_file);
-		return FALSE;
-	}
 	if (*set->ssl_ca_file != '\0' && access(set->ssl_ca_file, R_OK) < 0) {
 		*error_r = t_strdup_printf("ssl_ca_file: access(%s) failed: %m",
 					   set->ssl_ca_file);

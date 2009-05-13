@@ -765,22 +765,9 @@ unsigned int ssl_proxy_get_count(void)
 	return ssl_proxy_count;
 }
 
-static bool is_pem_key_file(const char *path)
+static bool is_pem_key(const char *cert)
 {
-	char buf[4096];
-	int fd, ret;
-
-	/* this code is used only for giving a better error message,
-	   so it needs to catch only the normal key files */
-	fd = open(path, O_RDONLY);
-	if (fd == -1)
-		return FALSE;
-	ret = read(fd, buf, sizeof(buf)-1);
-	close(fd);
-	if (ret <= 0)
-		return FALSE;
-	buf[ret] = '\0';
-	return strstr(buf, "PRIVATE KEY---") != NULL;
+	return strstr(cert, "PRIVATE KEY---") != NULL;
 }
 
 static void
@@ -818,8 +805,60 @@ ssl_proxy_ctx_verify_client(SSL_CTX *ssl_ctx, const struct login_settings *set)
 				   SSL_load_client_CA_file(set->ssl_ca_file));
 }
 
+static int
+ssl_proxy_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
+{
+	/* mostly just copy&pasted from SSL_CTX_use_certificate_chain_file() */
+	BIO *in;
+	int ret = 0;
+	X509 *x;
+
+	in = BIO_new_mem_buf(t_strdup_noconst(cert), strlen(cert));
+	if (in == NULL)
+		i_fatal("BIO_new_mem_buf() failed");
+
+	x = PEM_read_bio_X509(in, NULL, NULL, NULL);
+	if (x == NULL)
+		goto end;
+
+	ret = SSL_CTX_use_certificate(ctx, x);
+	if (ERR_peek_error() != 0)
+		ret = 0;
+
+	if (ret != 0) {
+		/* If we could set up our certificate, now proceed to
+		 * the CA certificates.
+		 */
+		X509 *ca;
+		int r;
+		unsigned long err;
+		
+		while ((ca = PEM_read_bio_X509(in,NULL,NULL,NULL)) != NULL) {
+			r = SSL_CTX_add_extra_chain_cert(ctx, ca);
+			if (!r) {
+				X509_free(ca);
+				ret = 0;
+				goto end;
+			}
+		}
+		/* When the while loop ends, it's usually just EOF. */
+		err = ERR_peek_last_error();
+		if (ERR_GET_LIB(err) == ERR_LIB_PEM && ERR_GET_REASON(err) == PEM_R_NO_START_LINE)
+			ERR_clear_error();
+		else 
+			ret = 0; /* some real error */
+		}
+
+end:
+	if (x != NULL) X509_free(x);
+	if (in != NULL) BIO_free(in);
+	return ret;
+}
+
 static void ssl_proxy_init_server(const struct login_settings *set)
 {
+	BIO *bio;
+	EVP_PKEY *pkey;
 	char *password;
 	unsigned long err;
 
@@ -832,33 +871,37 @@ static void ssl_proxy_init_server(const struct login_settings *set)
 			set->ssl_cipher_list, ssl_last_error());
 	}
 
-	if (SSL_CTX_use_certificate_chain_file(ssl_server_ctx,
-					       set->ssl_cert_file) != 1) {
+	if (ssl_proxy_ctx_use_certificate_chain(ssl_server_ctx,
+						set->ssl_cert) != 1) {
 		err = ERR_peek_error();
 		if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
 		    ERR_GET_REASON(err) != PEM_R_NO_START_LINE) {
-			i_fatal("Can't load certificate file %s: %s",
-			set->ssl_cert_file, ssl_last_error());
-		} else if (is_pem_key_file(set->ssl_cert_file)) {
-			i_fatal("Can't load certificate file %s: "
+			i_fatal("Can't load ssl_cert: %s", ssl_last_error());
+		} else if (is_pem_key(set->ssl_cert)) {
+			i_fatal("Can't load ssl_cert: "
 				"The file contains a private key "
-				"(you've mixed ssl_cert_file and ssl_key_file settings)",
-				set->ssl_cert_file);
+				"(you've mixed ssl_cert and ssl_key settings)");
 		} else {
-			i_fatal("Can't load certificate file %s: "
-				"The file doesn't contain a certificate.",
-				set->ssl_cert_file);
+			i_fatal("Can't load ssl_cert: There is no certificate.");
 		}
 	}
 
 	password = t_strdup_noconst(set->ssl_key_password);
         SSL_CTX_set_default_passwd_cb(ssl_server_ctx, pem_password_callback);
         SSL_CTX_set_default_passwd_cb_userdata(ssl_server_ctx, password);
-	if (SSL_CTX_use_PrivateKey_file(ssl_server_ctx, set->ssl_key_file,
-					SSL_FILETYPE_PEM) != 1) {
-		i_fatal("Can't load private key file %s: %s",
-			set->ssl_key_file, ssl_last_error());
-	}
+
+	bio = BIO_new_mem_buf(t_strdup_noconst(set->ssl_key),
+			      strlen(set->ssl_key));
+	if (bio == NULL)
+		i_fatal("BIO_new_mem_buf() failed");
+	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback,
+				       password);
+	if (pkey == NULL)
+		i_fatal("Couldn't parse private ssl_key");
+	if (SSL_CTX_use_PrivateKey(ssl_server_ctx, pkey) != 1)
+		i_fatal("Can't load private ssl_key: %s", ssl_last_error());
+	EVP_PKEY_free(pkey);
+
 	safe_memset(password, 0, strlen(password));
 
 	if (set->verbose_ssl)
