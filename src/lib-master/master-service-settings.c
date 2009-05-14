@@ -106,19 +106,24 @@ master_service_read_config(struct master_service *service,
 	int fd, ret;
 
 	path = master_service_get_config_path(service);
-	fd = net_connect_unix(path);
-	if (fd < 0) {
-		*error_r = t_strdup_printf("net_connect_unix(%s) failed: %m",
-					   path);
+	if (service->config_fd != -1) {
+		fd = service->config_fd;
+		service->config_fd = -1;
+	} else {
+		fd = net_connect_unix(path);
+		if (fd < 0) {
+			*error_r = t_strdup_printf(
+				"net_connect_unix(%s) failed: %m", path);
 
-		if (stat(path, &st) == 0 && !S_ISFIFO(st.st_mode)) {
-			/* it's a file, not a socket */
-			master_service_exec_config(service,
-						   input->preserve_home);
+			if (stat(path, &st) == 0 && !S_ISFIFO(st.st_mode)) {
+				/* it's a file, not a socket */
+				master_service_exec_config(service,
+							   input->preserve_home);
+			}
+			return -1;
 		}
-		return -1;
+		net_set_nonblock(fd, FALSE);
 	}
-	net_set_nonblock(fd, FALSE);
 
 	T_BEGIN {
 		string_t *str;
@@ -221,9 +226,16 @@ int master_service_settings_read(struct master_service *service,
 		i_assert(ret <= 0);
 		if (ret < 0) {
 			*error_r = settings_parser_get_error(parser);
+			(void)close(fd);
 			return -1;
 		}
 	}
+
+	if ((service->flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) == 0)
+		(void)close(fd);
+	else
+		service->config_fd = fd;
+
 	/* let environment override settings. especially useful for the
 	   settings from userdb. */
 	if (settings_parse_environ(parser) < 0) {

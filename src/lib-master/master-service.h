@@ -9,7 +9,10 @@ enum master_service_flags {
 	/* this process is currently running standalone without a master */
 	MASTER_SERVICE_FLAG_STANDALONE		= 0x02,
 	/* Log to stderr instead of the configured log file */
-	MASTER_SERVICE_FLAG_LOG_TO_STDERR	= 0x04
+	MASTER_SERVICE_FLAG_LOG_TO_STDERR	= 0x04,
+	/* Service is going to do multiple configuration lookups,
+	   keep the connection to config service open. */
+	MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN	= 0x08
 };
 
 struct master_service_connection {

@@ -96,6 +96,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->flags = flags;
 	service->ioloop = io_loop_create();
 	service->service_count_left = (unsigned int)-1;
+	service->config_fd = -1;
 
 	service->config_path = getenv(MASTER_CONFIG_FILE_ENV);
 	if (service->config_path == NULL)
