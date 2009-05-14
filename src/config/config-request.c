@@ -89,8 +89,6 @@ static void settings_export(struct settings_export_context *ctx,
 		count = 0;
 		str_truncate(ctx->value, 0);
 		switch (def->type) {
-		case SET_INTERNAL:
-			break;
 		case SET_BOOL: {
 			const bool *val = value, *dval = default_value;
 			if (ctx->export_defaults ||

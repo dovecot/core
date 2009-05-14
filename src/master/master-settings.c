@@ -87,7 +87,6 @@ static struct setting_parser_info inet_listener_setting_parser_info = {
 	{ SET_DEFLIST, name, offsetof(struct service_settings, field), defines }
 
 static struct setting_define service_setting_defines[] = {
-	DEF(SET_INTERNAL, master_set),
 	DEF(SET_STR, name),
 	DEF(SET_STR, type),
 	DEF(SET_STR, executable),

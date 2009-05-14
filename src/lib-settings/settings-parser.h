@@ -17,7 +17,6 @@ struct var_expand_table;
 #define SETTING_STREAM_LF_CHAR "\003"
 
 enum setting_type {
-	SET_INTERNAL, /* don't set this variable */
 	SET_BOOL,
 	SET_UINT,
 	SET_STR,

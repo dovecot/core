@@ -174,7 +174,7 @@ setting_define_find(const struct setting_parser_info *info, const char *key)
 	const struct setting_define *list;
 
 	for (list = info->defines; list->key != NULL; list++) {
-		if (strcmp(list->key, key) == 0 && list->type != SET_INTERNAL)
+		if (strcmp(list->key, key) == 0)
 			return list;
 	}
 	return NULL;
@@ -304,8 +304,6 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 
 	ptr = STRUCT_MEMBER_P(link->set_struct, def->offset);
 	switch (def->type) {
-	case SET_INTERNAL:
-		i_unreached();
 	case SET_BOOL:
 		return get_bool(ctx, value, (bool *)ptr);
 	case SET_UINT:
