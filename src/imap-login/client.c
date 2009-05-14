@@ -658,7 +658,7 @@ bool client_unref(struct imap_client *client)
 
 	i_free(client->common.virtual_user);
 	i_free(client->common.auth_mech_name);
-	i_free(client);
+	pool_unref(&client->common.pool);
 	return FALSE;
 }
 
