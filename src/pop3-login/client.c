@@ -42,8 +42,8 @@ static void client_set_title(struct pop3_client *client)
 {
 	const char *addr;
 
-	if (!login_settings->verbose_proctitle ||
-	    !login_settings->login_process_per_connection)
+	if (!client->common.set->verbose_proctitle ||
+	    !client->common.set->login_process_per_connection)
 		return;
 
 	addr = net_ip2addr(&client->common.ip);
@@ -70,7 +70,7 @@ static void client_start_tls(struct pop3_client *client)
 		return;
 
 	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip,
-			       &client->common.proxy);
+			       client->common.set, &client->common.proxy);
 	if (fd_ssl == -1) {
 		client_send_line(client, "-ERR TLS initialization failed.");
 		client_destroy(client,
@@ -229,7 +229,8 @@ void client_input(struct pop3_client *client)
 
 void client_destroy_oldest(void)
 {
-	unsigned int max_connections = login_settings->login_max_connections;
+	unsigned int max_connections =
+		global_login_settings->login_max_connections;
 	struct client *client;
 	struct pop3_client *destroy_buf[CLIENT_DESTROY_OLDEST_COUNT];
 	unsigned int i, destroy_count;
@@ -292,7 +293,7 @@ static void client_auth_ready(struct pop3_client *client)
 
 	client->apop_challenge = get_apop_challenge(client);
 	client_send_line(client, t_strconcat("+OK ",
-					     login_settings->login_greeting,
+					     client->common.set->login_greeting,
 					     client->apop_challenge != NULL ?
 					     " " : NULL,
 					     client->apop_challenge, NULL));
@@ -303,14 +304,16 @@ static void client_idle_disconnect_timeout(struct pop3_client *client)
 	client_destroy(client, "Disconnected: Inactivity");
 }
 
-struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
-			     const struct ip_addr *ip)
+struct client *client_create(int fd, bool ssl, pool_t pool,
+			     const struct login_settings *set,
+			     const struct ip_addr *local_ip,
+			     const struct ip_addr *remote_ip)
 {
 	struct pop3_client *client;
 
 	i_assert(fd != -1);
 
-	if (clients_get_count() >= login_settings->login_max_connections) {
+	if (clients_get_count() >= set->login_max_connections) {
 		/* reached max. users count, kill few of the
 		   oldest connections */
 		client_destroy_oldest();
@@ -319,17 +322,19 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd, TRUE);
 
-	client = i_new(struct pop3_client, 1);
+	client = p_new(pool, struct pop3_client, 1);
 	client->created = ioloop_time;
 	client->refcount = 1;
 
+	client->common.pool = pool;
+	client->common.set = set;
 	client->common.local_ip = *local_ip;
-	client->common.ip = *ip;
+	client->common.ip = *remote_ip;
 	client->common.fd = fd;
 	client->common.tls = ssl;
 	client->common.trusted = client_is_trusted(&client->common);
 	client->common.secured = ssl || client->common.trusted ||
-		net_ip_compare(ip, local_ip);
+		net_ip_compare(remote_ip, local_ip);
 
 	client_open_streams(client, fd);
 	client_link(&client->common);

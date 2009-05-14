@@ -22,7 +22,7 @@
 
 #define IMAP_SERVICE_NAME "imap"
 
-const char *client_authenticate_get_capabilities(bool secured)
+const char *client_authenticate_get_capabilities(struct imap_client *client)
 {
 	const struct auth_mech_desc *mech;
 	unsigned int i, count;
@@ -36,7 +36,8 @@ const char *client_authenticate_get_capabilities(bool secured)
 		   c) we allow insecure authentication
 		*/
 		if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
-		    (secured || !login_settings->disable_plaintext_auth ||
+		    (client->common.secured ||
+		     !client->common.set->disable_plaintext_auth ||
 		     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0)) {
 			str_append_c(str, ' ');
 			str_append(str, "AUTH=");
@@ -165,7 +166,7 @@ static bool client_handle_args(struct imap_client *client,
 			master_user = value;
 		else if (strcmp(key, "user") == 0) {
 			/* already handled in login-common */
-		} else if (login_settings->auth_debug)
+		} else if (client->common.set->auth_debug)
 			i_info("Ignoring unknown passdb extra field: %s", key);
 	}
 
@@ -353,8 +354,8 @@ int cmd_authenticate(struct imap_client *client, const struct imap_arg *args)
 	}
 
 	if (!client->common.secured &&
-	    strcmp(login_settings->ssl, "required") == 0) {
-		if (login_settings->verbose_auth) {
+	    strcmp(client->common.set->ssl, "required") == 0) {
+		if (client->common.set->verbose_auth) {
 			client_syslog(&client->common, "Login failed: "
 				      "SSL required for authentication");
 		}
@@ -387,8 +388,9 @@ int cmd_login(struct imap_client *client, const struct imap_arg *args)
 	user = IMAP_ARG_STR(&args[0]);
 	pass = IMAP_ARG_STR(&args[1]);
 
-	if (!client->common.secured && login_settings->disable_plaintext_auth) {
-		if (login_settings->verbose_auth) {
+	if (!client->common.secured &&
+	    client->common.set->disable_plaintext_auth) {
+		if (client->common.set->verbose_auth) {
 			client_syslog(&client->common, "Login failed: "
 				      "Plaintext authentication disabled");
 		}

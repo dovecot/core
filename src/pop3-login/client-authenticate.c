@@ -36,7 +36,8 @@ bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 
 	if (ssl_initialized && !client->common.tls)
 		str_append(str, "STLS\r\n");
-	if (!login_settings->disable_plaintext_auth || client->common.secured)
+	if (!client->common.set->disable_plaintext_auth ||
+	    client->common.secured)
 		str_append(str, "USER\r\n");
 
 	str_append(str, "SASL");
@@ -48,7 +49,7 @@ bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 		*/
 		if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
 		    (client->common.secured ||
-		     !login_settings->disable_plaintext_auth ||
+		     !client->common.set->disable_plaintext_auth ||
 		     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0)) {
 			str_append_c(str, ' ');
 			str_append(str, mech[i].name);
@@ -166,7 +167,7 @@ static bool client_handle_args(struct pop3_client *client,
 			master_user = value;
 		else if (strcmp(key, "user") == 0) {
 			/* already handled in login-common */
-		} else if (login_settings->auth_debug)
+		} else if (client->common.set->auth_debug)
 			i_info("Ignoring unknown passdb extra field: %s", key);
 	}
 
@@ -280,8 +281,8 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 	const char *mech_name, *p;
 
 	if (!client->common.secured &&
-	    strcmp(login_settings->ssl, "required") == 0) {
-		if (login_settings->verbose_auth) {
+	    strcmp(client->common.set->ssl, "required") == 0) {
+		if (client->common.set->verbose_auth) {
 			client_syslog(&client->common, "Login failed: "
 				      "SSL required for authentication");
 		}
@@ -300,7 +301,7 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 		for (i = 0; i < count; i++) {
 			if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
 			    (client->common.secured ||
-			     login_settings->disable_plaintext_auth ||
+			     client->common.set->disable_plaintext_auth ||
 			     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0))
 		 		client_send_line(client, mech[i].name);
 		}
@@ -333,10 +334,10 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 static bool check_plaintext_auth(struct pop3_client *client)
 {
 	if (client->common.secured ||
-	    !login_settings->disable_plaintext_auth)
+	    !client->common.set->disable_plaintext_auth)
 		return TRUE;
 
-	if (login_settings->verbose_auth) {
+	if (client->common.set->verbose_auth) {
 		client_syslog(&client->common, "Login failed: "
 			      "Plaintext authentication disabled");
 	}
@@ -406,7 +407,7 @@ bool cmd_apop(struct pop3_client *client, const char *args)
 	const char *p;
 
 	if (client->apop_challenge == NULL) {
-		if (login_settings->verbose_auth) {
+		if (client->common.set->verbose_auth) {
 			client_syslog(&client->common,
 				      "APOP failed: APOP not enabled");
 		}
@@ -417,7 +418,7 @@ bool cmd_apop(struct pop3_client *client, const char *args)
 	/* <username> <md5 sum in hex> */
 	p = strchr(args, ' ');
 	if (p == NULL || strlen(p+1) != 32) {
-		if (login_settings->verbose_auth) {
+		if (client->common.set->verbose_auth) {
 			client_syslog(&client->common,
 				      "APOP failed: Invalid parameters");
 		}
@@ -433,7 +434,7 @@ bool cmd_apop(struct pop3_client *client, const char *args)
 	buffer_append_c(apop_data, '\0');
 
 	if (hex_to_binary(p+1, apop_data) < 0) {
-		if (login_settings->verbose_auth) {
+		if (client->common.set->verbose_auth) {
 			client_syslog(&client->common, "APOP failed: "
 				      "Invalid characters in MD5 response");
 		}

@@ -14,11 +14,13 @@
 
 struct client {
 	struct client *prev, *next;
+	pool_t pool;
 
 	struct ip_addr local_ip;
 	struct ip_addr ip;
 	unsigned int local_port, remote_port;
 	struct ssl_proxy *proxy;
+	const struct login_settings *set;
 
 	int fd;
 	struct istream *input;
@@ -45,8 +47,10 @@ struct client {
 
 extern struct client *clients;
 
-struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
-			     const struct ip_addr *ip);
+struct client *client_create(int fd, bool ssl, pool_t pool,
+			     const struct login_settings *set,
+			     const struct ip_addr *local_ip,
+			     const struct ip_addr *remote_ip);
 
 void client_link(struct client *client);
 void client_unlink(struct client *client);

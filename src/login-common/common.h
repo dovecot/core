@@ -19,6 +19,6 @@ extern bool closing_down;
 extern int anvil_fd;
 
 extern struct master_service *service;
-extern struct login_settings *login_settings;
+extern const struct login_settings *global_login_settings;
 
 #endif

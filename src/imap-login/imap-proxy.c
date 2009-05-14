@@ -128,7 +128,7 @@ client_send_capability_if_needed(struct imap_client *client, string_t *str,
 	backend_capabilities =
 		capabilities_strip_prelogin(t_strsplit(capability, " "));
 	proxy_capabilities =
-		capabilities_strip_prelogin(t_strsplit(login_settings->capability_string, " "));
+		capabilities_strip_prelogin(t_strsplit(client->common.set->capability_string, " "));
 
 	if (str_array_icmp(backend_capabilities, proxy_capabilities))
 		return;
@@ -290,7 +290,7 @@ static int proxy_input_line(struct imap_client *client, const char *line)
 		return 1;
 	} else if (strncmp(line, "L ", 2) == 0) {
 		line += 2;
-		if (login_settings->verbose_auth) {
+		if (client->common.set->verbose_auth) {
 			str = t_str_new(128);
 			str_printfa(str, "proxy(%s): Login failed to %s:%u",
 				    client->common.virtual_user,

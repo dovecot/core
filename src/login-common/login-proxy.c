@@ -358,6 +358,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	io_remove(&proxy->server_io);
 
 	fd = ssl_proxy_client_new(proxy->server_fd, &proxy->ip,
+				  proxy->prelogin_client->set,
 				  login_proxy_ssl_handshaked, proxy,
 				  &proxy->ssl_proxy);
 	if (fd < 0) {

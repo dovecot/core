@@ -42,6 +42,7 @@ struct ssl_proxy {
 
 	SSL *ssl;
 	struct ip_addr ip;
+	const struct login_settings *set;
 
 	int fd_ssl, fd_plain;
 	struct io *io_ssl_read, *io_ssl_write, *io_plain_read, *io_plain_write;
@@ -496,6 +497,7 @@ static void ssl_step(struct ssl_proxy *proxy)
 
 static int
 ssl_proxy_new_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
+		     const struct login_settings *set,
 		     struct ssl_proxy **proxy_r)
 {
 	struct ssl_proxy *proxy;
@@ -538,6 +540,7 @@ ssl_proxy_new_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
 	proxy = i_new(struct ssl_proxy, 1);
 	proxy->refcount = 2;
 	proxy->ssl = ssl;
+	proxy->set = set;
 	proxy->fd_ssl = fd;
 	proxy->fd_plain = sfd[0];
 	proxy->ip = *ip;
@@ -550,11 +553,13 @@ ssl_proxy_new_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
 	return sfd[1];
 }
 
-int ssl_proxy_new(int fd, const struct ip_addr *ip, struct ssl_proxy **proxy_r)
+int ssl_proxy_new(int fd, const struct ip_addr *ip,
+		  const struct login_settings *set, struct ssl_proxy **proxy_r)
 {
 	int ret;
 
-	if ((ret = ssl_proxy_new_common(ssl_server_ctx, fd, ip, proxy_r)) < 0)
+	ret = ssl_proxy_new_common(ssl_server_ctx, fd, ip, set, proxy_r);
+	if (ret < 0)
 		return -1;
 
 	ssl_step(*proxy_r);
@@ -562,12 +567,14 @@ int ssl_proxy_new(int fd, const struct ip_addr *ip, struct ssl_proxy **proxy_r)
 }
 
 int ssl_proxy_client_new(int fd, struct ip_addr *ip,
+			 const struct login_settings *set,
 			 ssl_handshake_callback_t *callback, void *context,
 			 struct ssl_proxy **proxy_r)
 {
 	int ret;
 
-	if ((ret = ssl_proxy_new_common(ssl_client_ctx, fd, ip, proxy_r)) < 0)
+	ret = ssl_proxy_new_common(ssl_client_ctx, fd, ip, set, proxy_r);
+	if (ret < 0)
 		return -1;
 
 	(*proxy_r)->handshake_callback = callback;
@@ -724,8 +731,8 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	proxy = SSL_get_ex_data(ssl, extdata_index);
 	proxy->cert_received = TRUE;
 
-	if (login_settings->verbose_ssl ||
-	    (login_settings->verbose_auth && !preverify_ok)) {
+	if (proxy->set->verbose_ssl ||
+	    (proxy->set->verbose_auth && !preverify_ok)) {
 		char buf[1024];
 		X509_NAME *subject;
 
@@ -927,7 +934,7 @@ static void ssl_proxy_init_client(const struct login_settings *set)
 
 void ssl_proxy_init(void)
 {
-	const struct login_settings *set = login_settings;
+	const struct login_settings *set = global_login_settings;
 	static char dovecot[] = "dovecot";
 	unsigned char buf;
 

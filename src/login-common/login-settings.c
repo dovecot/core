@@ -51,7 +51,7 @@ static struct setting_define login_setting_defines[] = {
 static struct login_settings login_default_settings = {
 	MEMBER(login_chroot) TRUE,
 	MEMBER(login_trusted_networks) "",
-	MEMBER(login_greeting) PACKAGE" ready.",
+	MEMBER(login_greeting) PACKAGE_NAME" ready.",
 	MEMBER(login_log_format_elements) "user=<%u> method=%m rip=%r lip=%l %c",
 	MEMBER(login_log_format) "%$: %s",
 
@@ -127,13 +127,12 @@ static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 #endif
 }
 
-static bool login_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				 const char **error_r)
+static bool login_settings_check(void *_set, pool_t pool, const char **error_r)
 {
 	struct login_settings *set = _set;
 
 	set->log_format_elements_split =
-		t_strsplit(set->login_log_format_elements, " ");
+		p_strsplit(pool, set->login_log_format_elements, " ");
 
 	if (set->ssl_require_client_cert || set->ssl_username_from_cert) {
 		/* if we require valid cert, make sure we also ask for it */
@@ -162,7 +161,10 @@ static bool login_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 /* </settings checks> */
 
-struct login_settings *login_settings_read(struct master_service *service)
+struct login_settings *
+login_settings_read(struct master_service *service, pool_t pool,
+		    const struct ip_addr *local_ip,
+		    const struct ip_addr *remote_ip)
 {
 	static const struct setting_parser_info *set_roots[] = {
 		&login_setting_parser_info,
@@ -171,15 +173,27 @@ struct login_settings *login_settings_read(struct master_service *service)
 	struct master_service_settings_input input;
 	const char *error;
 	void **sets;
+	struct login_settings *set;
 
 	memset(&input, 0, sizeof(input));
 	input.roots = set_roots;
 	input.module = "login";
 	input.service = login_protocol;
 
+	if (local_ip != NULL)
+		input.local_ip = *local_ip;
+	if (remote_ip != NULL)
+		input.remote_ip = *remote_ip;
+
+	/* this function always clears the previous settings pool. since we're
+	   doing per-connection lookups, we always need to duplicate the
+	   settings using another pool. */
 	if (master_service_settings_read(service, &input, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
 	sets = master_service_settings_get_others(service);
-	return sets[0];
+	set = settings_dup(&login_setting_parser_info, sets[0], pool);
+	if (!login_settings_check(set, pool, &error))
+		i_fatal("login_settings_check() failed: %s", error);
+	return set;
 }

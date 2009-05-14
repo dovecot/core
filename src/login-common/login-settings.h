@@ -34,9 +34,12 @@ struct login_settings {
 	unsigned int mail_max_userip_connections;
 
 	/* generated: */
-	const char *const *log_format_elements_split;
+	char *const *log_format_elements_split;
 };
 
-struct login_settings *login_settings_read(struct master_service *service);
+struct login_settings *
+login_settings_read(struct master_service *service, pool_t pool,
+		    const struct ip_addr *local_ip,
+		    const struct ip_addr *remote_ip);
 
 #endif

@@ -23,7 +23,7 @@ bool closing_down;
 int anvil_fd = -1;
 
 struct master_service *service;
-struct login_settings *login_settings;
+const struct login_settings *global_login_settings;
 
 static bool ssl_connections = FALSE;
 
@@ -32,7 +32,9 @@ static void client_connected(const struct master_service_connection *conn)
 	struct client *client;
 	struct ssl_proxy *proxy;
 	struct ip_addr local_ip;
+	const struct login_settings *set;
 	unsigned int local_port;
+	pool_t pool;
 	int fd_ssl;
 
 	if (net_getsockname(conn->fd, &local_ip, &local_port) < 0) {
@@ -40,21 +42,26 @@ static void client_connected(const struct master_service_connection *conn)
 		local_port = 0;
 	}
 
+	pool = pool_alloconly_create("login client", 1024);
+	set = login_settings_read(service, pool, &local_ip, &conn->remote_ip);
+
 	if (!ssl_connections && !conn->ssl) {
-		client = client_create(conn->fd, FALSE, &local_ip,
+		client = client_create(conn->fd, FALSE, pool, set, &local_ip,
 				       &conn->remote_ip);
 	} else {
-		fd_ssl = ssl_proxy_new(conn->fd, &conn->remote_ip, &proxy);
+		fd_ssl = ssl_proxy_new(conn->fd, &conn->remote_ip, set, &proxy);
 		if (fd_ssl == -1) {
 			net_disconnect(conn->fd);
+			pool_unref(&pool);
 			return;
 		}
 
-		client = client_create(fd_ssl, TRUE,
+		client = client_create(fd_ssl, TRUE, pool, set,
 				       &local_ip, &conn->remote_ip);
 		client->proxying = TRUE;
 		client->proxy = proxy;
 	}
+
 	client->remote_port = conn->remote_port;
 	client->local_port = local_port;
 }
@@ -95,13 +102,14 @@ static void main_preinit(void)
 	   normal connections each use one fd, but SSL connections use two */
 	max_fds = MASTER_LISTEN_FD_FIRST + 16 +
 		master_service_get_socket_count(service) +
-		login_settings->login_max_connections*2;
+		global_login_settings->login_max_connections*2;
 	restrict_fd_limit(max_fds);
 	io_loop_set_max_fd_count(current_ioloop, max_fds);
 
-	i_assert(strcmp(login_settings->ssl, "no") == 0 || ssl_initialized);
+	i_assert(strcmp(global_login_settings->ssl, "no") == 0 ||
+		 ssl_initialized);
 
-	if (login_settings->mail_max_userip_connections > 0)
+	if (global_login_settings->mail_max_userip_connections > 0)
 		anvil_fd = anvil_connect();
 
 	restrict_access_by_env(NULL, TRUE);
@@ -143,11 +151,14 @@ static void main_deinit(void)
 int main(int argc, char *argv[], char *envp[])
 {
 	const char *getopt_str;
+	pool_t set_pool;
 	int c;
 
 	//FIXME:is_inetd = getenv("DOVECOT_MASTER") == NULL;
 
-	service = master_service_init(login_process_name, 0, argc, argv);
+	service = master_service_init(login_process_name,
+				      MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN,
+				      argc, argv);
 	master_service_init_log(service, t_strconcat(login_process_name, ": ",
 						     NULL), 0);
 
@@ -176,7 +187,9 @@ int main(int argc, char *argv[], char *envp[])
 #endif
 
 	process_title_init(argv, envp);
-        login_settings = login_settings_read(service);
+	set_pool = pool_alloconly_create("global login settings", 1024);
+	global_login_settings =
+		login_settings_read(service, set_pool, NULL, NULL);
 
 	main_preinit();
 	master_service_init_finish(service);
@@ -184,6 +197,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	master_service_run(service, client_connected);
 	main_deinit();
+	pool_unref(&set_pool);
 	master_service_deinit(&service);
         return 0;
 }

@@ -105,7 +105,7 @@ static bool anvil_has_too_many_connections(struct client *client)
 
 	if (client->virtual_user == NULL)
 		return FALSE;
-	if (login_settings->mail_max_userip_connections == 0)
+	if (client->set->mail_max_userip_connections == 0)
 		return FALSE;
 
 	ident = t_strconcat("LOOKUP\t", net_ip2addr(&client->ip), "/",
@@ -123,7 +123,7 @@ static bool anvil_has_too_many_connections(struct client *client)
 	buf[ret-1] = '\0';
 
 	return strtoul(buf, NULL, 10) >=
-		login_settings->mail_max_userip_connections;
+		client->set->mail_max_userip_connections;
 }
 
 static void authenticate_callback(struct auth_request *request, int status,
@@ -219,7 +219,7 @@ void sasl_server_auth_begin(struct client *client,
 		return;
 	}
 
-	if (!client->secured && login_settings->disable_plaintext_auth &&
+	if (!client->secured && client->set->disable_plaintext_auth &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
 		sasl_server_auth_failed(client,
 			"Plaintext authentication disabled.");
@@ -252,7 +252,7 @@ static void sasl_server_auth_cancel(struct client *client, const char *reason,
 {
 	i_assert(client->authenticating);
 
-	if (login_settings->verbose_auth && reason != NULL) {
+	if (client->set->verbose_auth && reason != NULL) {
 		const char *auth_name =
 			str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
 		client_syslog(client,
