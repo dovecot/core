@@ -847,6 +847,18 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 	return FALSE;
 }
 
+static void settings_set_parent(const struct setting_parser_info *info,
+				void *child, void *parent)
+{
+	void **ptr;
+
+	if (info->parent_offset == (size_t)-1)
+		return;
+
+	ptr = PTR_OFFSET(child, info->parent_offset);
+	*ptr = parent;
+}
+
 void *settings_dup(const struct setting_parser_info *info,
 		   const void *set, pool_t pool)
 {
@@ -855,17 +867,27 @@ void *settings_dup(const struct setting_parser_info *info,
 	void *dest_set, *dest, *const *children;
 	unsigned int i, count;
 
+	/* don't just copy everything from set to dest_set. it may contain
+	   some non-setting fields allocated from the original pool. */
 	dest_set = p_malloc(pool, info->struct_size);
-	memcpy(dest_set, set, info->struct_size);
 	for (def = info->defines; def->key != NULL; def++) {
 		src = CONST_PTR_OFFSET(set, def->offset);
 		dest = PTR_OFFSET(dest_set, def->offset);
 
 		switch (def->type) {
-		case SET_INTERNAL:
-		case SET_BOOL:
-		case SET_UINT:
+		case SET_BOOL: {
+			const bool *src_bool = src;
+			bool *dest_bool = dest;
+
+			*dest_bool = *src_bool;
+		}
+		case SET_UINT: {
+			const unsigned int *src_uint = src;
+			unsigned int *dest_uint = dest;
+
+			*dest_uint = *src_uint;
 			break;
+		}
 		case SET_STR_VARS:
 		case SET_STR:
 		case SET_ENUM: {
@@ -889,6 +911,8 @@ void *settings_dup(const struct setting_parser_info *info,
 				child_set = settings_dup(def->list_info,
 							 children[i], pool);
 				array_append(dest_arr, &child_set, 1);
+				settings_set_parent(def->list_info, child_set,
+						    dest_set);
 			}
 			break;
 		}
