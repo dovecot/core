@@ -14,6 +14,7 @@
 #include "env-util.h"
 #include "fd-close-on-exec.h"
 #include "restrict-access.h"
+#include "restrict-process-size.h"
 #include "master-service-settings.h"
 #include "dup2-array.h"
 #include "service.h"
@@ -245,6 +246,9 @@ static void drop_privileges(struct service *service,
 
 	if (auth_args != NULL && service->set->master_set->mail_debug)
 		env_put("DEBUG=1");
+
+	if (service->set->vsz_limit != 0)
+		restrict_process_size(service->set->vsz_limit, -1U);
 
 	restrict_access_init(&rset);
 	rset.uid = service->uid;
