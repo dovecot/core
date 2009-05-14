@@ -87,6 +87,9 @@ static void ssl_step(struct ssl_proxy *proxy);
 static void ssl_proxy_destroy(struct ssl_proxy *proxy);
 static void ssl_proxy_unref(struct ssl_proxy *proxy);
 
+static int ssl_proxy_use_certificate(SSL *ssl, const char *cert);
+static int ssl_proxy_use_key(SSL *ssl, const struct login_settings *set);
+
 static void ssl_params_corrupted(const char *path)
 {
 	i_fatal("Corrupted SSL parameters file: %s/%s "
@@ -521,6 +524,15 @@ ssl_proxy_new_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
 		return -1;
 	}
 
+	if (strcmp(global_login_settings->ssl_cert, set->ssl_cert) != 0 ||
+	    strcmp(global_login_settings->ssl_key, set->ssl_key) != 0) {
+		if (ssl_proxy_use_certificate(ssl, set->ssl_cert) < 0 ||
+		    ssl_proxy_use_key(ssl, set) < 0) {
+			SSL_free(ssl);
+			return -1;
+		}
+	}
+
 	if (SSL_set_fd(ssl, fd) != 1) {
 		i_error("SSL_set_fd() failed: %s", ssl_last_error());
 		SSL_free(ssl);
@@ -812,13 +824,100 @@ ssl_proxy_ctx_verify_client(SSL_CTX *ssl_ctx, const struct login_settings *set)
 				   SSL_load_client_CA_file(set->ssl_ca_file));
 }
 
+static const char *ssl_proxy_get_use_certificate_error(const char *cert)
+{
+	unsigned long err;
+
+	err = ERR_peek_error();
+	if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
+	    ERR_GET_REASON(err) != PEM_R_NO_START_LINE)
+		return ssl_last_error();
+	else if (is_pem_key(cert)) {
+		return "The file contains a private key "
+			"(you've mixed ssl_cert and ssl_key settings)";
+	} else {
+		return "There is no certificate.";
+	}
+}
+
+static int ssl_proxy_use_certificate(SSL *ssl, const char *cert)
+{
+	BIO *in;
+	X509 *x;
+	int ret = 0;
+
+	in = BIO_new_mem_buf(t_strdup_noconst(cert), strlen(cert));
+	if (in == NULL)
+		i_fatal("BIO_new_mem_buf() failed");
+
+	x = PEM_read_bio_X509(in, NULL, NULL, NULL);
+	if (x != NULL) {
+		ret = SSL_use_certificate(ssl, x);
+		if (ERR_peek_error() != 0)
+			ret = 0;
+	}
+
+	if (x != NULL) X509_free(x);
+	BIO_free(in);
+
+	if (ret == 0) {
+		i_error("Can't load ssl_cert: %s",
+			ssl_proxy_get_use_certificate_error(cert));
+		return -1;
+	}
+	return 0;
+}
+
+static EVP_PKEY *ssl_proxy_load_key(const struct login_settings *set)
+{
+	EVP_PKEY *pkey;
+	BIO *bio;
+	char *password;
+
+	bio = BIO_new_mem_buf(t_strdup_noconst(set->ssl_key),
+			      strlen(set->ssl_key));
+	if (bio == NULL)
+		i_fatal("BIO_new_mem_buf() failed");
+
+	password = t_strdup_noconst(set->ssl_key_password);
+	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback,
+				       password);
+	if (pkey == NULL)
+		i_fatal("Couldn't parse private ssl_key");
+	BIO_free(bio);
+	return pkey;
+}
+
+static void ssl_proxy_ctx_use_key(SSL_CTX *ctx, const struct login_settings *set)
+{
+	EVP_PKEY *pkey;
+
+	pkey = ssl_proxy_load_key(set);
+	if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1)
+		i_fatal("Can't load private ssl_key: %s", ssl_last_error());
+	EVP_PKEY_free(pkey);
+}
+
+static int ssl_proxy_use_key(SSL *ssl, const struct login_settings *set)
+{
+	EVP_PKEY *pkey;
+
+	pkey = ssl_proxy_load_key(set);
+	if (SSL_use_PrivateKey(ssl, pkey) != 1) {
+		i_error("Can't load private ssl_key: %s", ssl_last_error());
+		return -1;
+	}
+	EVP_PKEY_free(pkey);
+	return 0;
+}
+
 static int
 ssl_proxy_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 {
 	/* mostly just copy&pasted from SSL_CTX_use_certificate_chain_file() */
 	BIO *in;
-	int ret = 0;
 	X509 *x;
+	int ret = 0;
 
 	in = BIO_new_mem_buf(t_strdup_noconst(cert), strlen(cert));
 	if (in == NULL)
@@ -858,16 +957,13 @@ ssl_proxy_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 
 end:
 	if (x != NULL) X509_free(x);
-	if (in != NULL) BIO_free(in);
+	BIO_free(in);
 	return ret;
 }
 
 static void ssl_proxy_init_server(const struct login_settings *set)
 {
-	BIO *bio;
-	EVP_PKEY *pkey;
 	char *password;
-	unsigned long err;
 
 	if ((ssl_server_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL)
 		i_fatal("SSL_CTX_new() failed");
@@ -880,35 +976,15 @@ static void ssl_proxy_init_server(const struct login_settings *set)
 
 	if (ssl_proxy_ctx_use_certificate_chain(ssl_server_ctx,
 						set->ssl_cert) != 1) {
-		err = ERR_peek_error();
-		if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
-		    ERR_GET_REASON(err) != PEM_R_NO_START_LINE) {
-			i_fatal("Can't load ssl_cert: %s", ssl_last_error());
-		} else if (is_pem_key(set->ssl_cert)) {
-			i_fatal("Can't load ssl_cert: "
-				"The file contains a private key "
-				"(you've mixed ssl_cert and ssl_key settings)");
-		} else {
-			i_fatal("Can't load ssl_cert: There is no certificate.");
-		}
+		i_fatal("Can't load ssl_cert: %s",
+			ssl_proxy_get_use_certificate_error(set->ssl_cert));
 	}
 
 	password = t_strdup_noconst(set->ssl_key_password);
         SSL_CTX_set_default_passwd_cb(ssl_server_ctx, pem_password_callback);
         SSL_CTX_set_default_passwd_cb_userdata(ssl_server_ctx, password);
 
-	bio = BIO_new_mem_buf(t_strdup_noconst(set->ssl_key),
-			      strlen(set->ssl_key));
-	if (bio == NULL)
-		i_fatal("BIO_new_mem_buf() failed");
-	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback,
-				       password);
-	if (pkey == NULL)
-		i_fatal("Couldn't parse private ssl_key");
-	if (SSL_CTX_use_PrivateKey(ssl_server_ctx, pkey) != 1)
-		i_fatal("Can't load private ssl_key: %s", ssl_last_error());
-	EVP_PKEY_free(pkey);
-
+	ssl_proxy_ctx_use_key(ssl_server_ctx, set);
 	safe_memset(password, 0, strlen(password));
 
 	if (set->verbose_ssl)
