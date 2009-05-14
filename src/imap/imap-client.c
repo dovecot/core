@@ -402,7 +402,8 @@ client_command_find_with_flags(struct client_command_context *new_cmd,
 
 	cmd = new_cmd->client->command_queue;
 	for (; cmd != NULL; cmd = cmd->next) {
-		if (cmd != new_cmd && (cmd->cmd_flags & flags) != 0)
+		if (cmd->state < CLIENT_COMMAND_STATE_WAIT_SYNC &&
+		    cmd != new_cmd && (cmd->cmd_flags & flags) != 0)
 			return cmd;
 	}
 	return NULL;
@@ -745,7 +746,8 @@ bool client_handle_input(struct client *client)
 		if (!handled_commands)
 			return FALSE;
 
-		ret = cmd_sync_delayed(client);
+		ret = client->input_lock != NULL ? TRUE :
+			cmd_sync_delayed(client);
 		if (ret)
 			client_continue_pending_input(&client);
 		return TRUE;
