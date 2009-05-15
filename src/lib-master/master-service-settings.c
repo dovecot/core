@@ -195,9 +195,10 @@ int master_service_settings_read(struct master_service *service,
 			return -1;
 	}
 
-	if (service->set_pool != NULL)
+	if (service->set_pool != NULL) {
+		settings_parser_deinit(&service->set_parser);
 		p_clear(service->set_pool);
-	else {
+	} else {
 		service->set_pool =
 			pool_alloconly_create("master service settings", 4096);
 	}

@@ -683,13 +683,24 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 	return 0;
 }
 
+void mail_storage_service_multi_user_free(struct mail_storage_service_multi_user *user)
+{
+	settings_parser_deinit(&user->set_parser);
+}
+
+unsigned int
+mail_storage_service_multi_all_init(struct mail_storage_service_multi_ctx *ctx)
+{
+	if (ctx->auth_list != NULL)
+		(void)auth_master_user_list_deinit(&ctx->auth_list);
+	ctx->auth_list = auth_master_user_list_init(ctx->conn);
+	return auth_master_user_list_count(ctx->auth_list);
+}
+
 int mail_storage_service_multi_all_next(struct mail_storage_service_multi_ctx *ctx,
 					const char **username_r)
 {
 	i_assert((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0);
-
-	if (ctx->auth_list == NULL)
-		ctx->auth_list = auth_master_user_list_init(ctx->conn);
 
 	*username_r = auth_master_user_list_next(ctx->auth_list);
 	if (*username_r != NULL)
@@ -702,6 +713,8 @@ void mail_storage_service_multi_deinit(struct mail_storage_service_multi_ctx **_
 	struct mail_storage_service_multi_ctx *ctx = *_ctx;
 
 	*_ctx = NULL;
+	if (ctx->auth_list != NULL)
+		(void)auth_master_user_list_deinit(&ctx->auth_list);
 	if (ctx->conn != NULL)
 		auth_master_deinit(&ctx->conn);
 	i_free(ctx);

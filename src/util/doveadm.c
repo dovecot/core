@@ -140,8 +140,10 @@ handle_next_user(struct mail_storage_service_multi_ctx *multi,
 	if (mail_storage_service_multi_next(multi, multi_user,
 					    &mail_user, &error) < 0) {
 		i_error("User init failed: %s", error);
+		mail_storage_service_multi_user_free(multi_user);
 		return -1;
 	}
+	mail_storage_service_multi_user_free(multi_user);
 	handle_command(mail_user, argv[0], argv+1);
 	mail_user_unref(&mail_user);
 	return 0;
@@ -175,12 +177,6 @@ handle_all_users(struct master_service *service,
 	
 	user_idx = 0;
 	while ((ret = mail_storage_service_multi_all_next(multi, &user)) > 0) {
-		if (killed_signo != 0) {
-			/* killed by a signal */
-			i_warning("Killed with signal %d", killed_signo);
-			ret = -1;
-			break;
-		}
 		p_clear(pool);
 		input.username = user;
 		T_BEGIN {
@@ -194,6 +190,11 @@ handle_all_users(struct master_service *service,
 				fflush(stdout);
 			}
 		}
+		if (killed_signo != 0) {
+			i_warning("Killed with signal %d", killed_signo);
+			ret = -1;
+			break;
+		}
 	}
 	if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		printf("\n");
@@ -201,6 +202,7 @@ handle_all_users(struct master_service *service,
 	if (ret < 0)
 		i_error("Failed to iterate through some users");
 	mail_storage_service_multi_deinit(&multi);
+	pool_unref(&pool);
 }
 
 int main(int argc, char *argv[])

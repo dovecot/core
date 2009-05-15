@@ -113,6 +113,7 @@ settings_parser_init_list(pool_t set_pool,
 
 	i_assert(count > 0);
 
+	pool_ref(set_pool);
 	parser_pool = pool_alloconly_create("settings parser", 8192);
 	ctx = p_new(parser_pool, struct setting_parser_context, 1);
 	ctx->set_pool = set_pool;
@@ -1095,6 +1096,7 @@ settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
 	void *key, *value;
 	unsigned int i;
 
+	pool_ref(new_pool);
 	new_ctx = p_new(new_pool, struct setting_parser_context, 1);
 	new_ctx->set_pool = new_pool;
 	new_ctx->parser_pool = pool_alloconly_create("settings parser", 2048);
@@ -1134,5 +1136,6 @@ settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
 				  new_link);
 	}
 	hash_table_iterate_deinit(&iter);
+	hash_table_destroy(&links);
 	return new_ctx;
 }

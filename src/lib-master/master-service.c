@@ -8,6 +8,7 @@
 #include "home-expand.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
+#include "settings-parser.h"
 #include "syslog-util.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
@@ -436,6 +437,10 @@ void master_service_deinit(struct master_service **_service)
 	if (array_is_created(&service->config_overrides))
 		array_free(&service->config_overrides);
 
+	if (service->set_parser != NULL) {
+		settings_parser_deinit(&service->set_parser);
+		pool_unref(&service->set_pool);
+	}
 	lib_signals_deinit();
 	io_loop_destroy(&service->ioloop);
 
