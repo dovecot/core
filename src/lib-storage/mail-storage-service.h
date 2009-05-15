@@ -47,6 +47,10 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 				    struct mail_storage_service_multi_user *user,
 				    struct mail_user **mail_user_r,
 				    const char **error_r);
+/* Iterate through all usernames. Returns 1 if username was returned, 0 if
+   there are no more users, -1 if error. */
+int mail_storage_service_multi_all_next(struct mail_storage_service_multi_ctx *ctx,
+					const char **username_r);
 void mail_storage_service_multi_deinit(struct mail_storage_service_multi_ctx **ctx);
 
 /* Return the settings pointed to by set_root parameter in _init().

@@ -24,6 +24,8 @@
 
 struct mail_storage_service_multi_ctx {
 	struct master_service *service;
+	struct auth_master_connection *conn;
+	struct auth_master_user_list_ctx *auth_list;
 	enum mail_storage_service_flags flags;
 
 	unsigned int modules_initialized:1;
@@ -140,25 +142,20 @@ user_reply_handle(struct setting_parser_context *set_parser,
 }
 
 static int
-service_auth_userdb_lookup(struct setting_parser_context *set_parser,
+service_auth_userdb_lookup(struct auth_master_connection *conn,
+			   struct setting_parser_context *set_parser,
 			   const char *name,
 			   const struct mail_user_settings *user_set,
 			   const char **user, const char **system_groups_user_r,
 			   const char **error_r)
 {
-	const struct mail_storage_settings *mail_set;
-        struct auth_master_connection *conn;
 	struct auth_user_reply reply;
 	const char *system_groups_user, *orig_user = *user;
 	unsigned int len;
 	pool_t pool;
 	int ret;
 
-	mail_set = mail_user_set_get_storage_set(user_set);
-
 	pool = pool_alloconly_create("userdb lookup", 1024);
-	conn = auth_master_init(user_set->auth_socket_path,
-				mail_set->mail_debug);
 	ret = auth_master_user_lookup(conn, *user, name, pool, &reply);
 	if (ret > 0) {
 		len = reply.chroot == NULL ? 0 : strlen(reply.chroot);
@@ -181,7 +178,6 @@ service_auth_userdb_lookup(struct setting_parser_context *set_parser,
 			i_info("changed username to %s", *user);
 	}
 
-	auth_master_deinit(&conn);
 	pool_unref(&pool);
 	return ret;
 }
@@ -474,6 +470,7 @@ mail_storage_service_init_user(struct master_service *service,
 	const struct mail_user_settings *user_set;
 	const struct mail_storage_settings *mail_set;
 	struct mail_user *mail_user;
+	struct auth_master_connection *conn;
 	void **sets;
 	const char *user, *orig_user, *home, *system_groups_user, *error;
 	unsigned int len;
@@ -498,11 +495,14 @@ mail_storage_service_init_user(struct master_service *service,
 		/* userdb lookup may change settings, do it as soon as
 		   possible. */
 		orig_user = user = input.username;
-		if (service_auth_userdb_lookup(service->set_parser,
+		conn = auth_master_init(user_set->auth_socket_path,
+					mail_set->mail_debug);
+		if (service_auth_userdb_lookup(conn, service->set_parser,
 					       service->name, user_set, &user,
 					       &system_groups_user,
 					       &error) <= 0)
 			i_fatal("%s", error);
+		auth_master_deinit(&conn);
 		input.username = user;
 
 		/* set up logging again in case username changed */
@@ -592,6 +592,11 @@ mail_storage_service_multi_init(struct master_service *service,
 				user_set->mail_plugins, TRUE,
 				master_service_get_version_string(service));
 
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
+		ctx->conn = auth_master_init(user_set->auth_socket_path,
+					     mail_set->mail_debug);
+	}
+
 	dict_drivers_register_builtin();
 	mail_users_init(user_set->auth_socket_path, mail_set->mail_debug);
 	return ctx;
@@ -620,7 +625,7 @@ int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
 		orig_user = username = user->input.username;
-		ret = service_auth_userdb_lookup(user->set_parser,
+		ret = service_auth_userdb_lookup(ctx->conn, user->set_parser,
 						 ctx->service->name,
 						 user->user_set, &username,
 						 &user->system_groups_user,
@@ -678,11 +683,27 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 	return 0;
 }
 
+int mail_storage_service_multi_all_next(struct mail_storage_service_multi_ctx *ctx,
+					const char **username_r)
+{
+	i_assert((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0);
+
+	if (ctx->auth_list == NULL)
+		ctx->auth_list = auth_master_user_list_init(ctx->conn);
+
+	*username_r = auth_master_user_list_next(ctx->auth_list);
+	if (*username_r != NULL)
+		return 1;
+	return auth_master_user_list_deinit(&ctx->auth_list);
+}
+
 void mail_storage_service_multi_deinit(struct mail_storage_service_multi_ctx **_ctx)
 {
 	struct mail_storage_service_multi_ctx *ctx = *_ctx;
 
 	*_ctx = NULL;
+	if (ctx->conn != NULL)
+		auth_master_deinit(&ctx->conn);
 	i_free(ctx);
 	mail_storage_service_deinit_user();
 }
