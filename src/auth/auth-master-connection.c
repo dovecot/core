@@ -222,8 +222,8 @@ static void master_input_list_callback(const char *user, void *context)
 		}
 
 		/* continue iterating next userdb */
-		userdb_blocking_iter_init(ctx->userdb,
-					  master_input_list_callback, ctx);
+		ctx->iter = userdb_blocking_iter_init(ctx->userdb,
+					master_input_list_callback, ctx);
 		userdb_blocking_iter_next(ctx->iter);
 		return;
 	}
