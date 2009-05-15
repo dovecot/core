@@ -78,12 +78,89 @@ static void cmd_force_resync(struct mail_user *user, const char *mailbox)
 	mailbox_close(&box);
 }
 
+static void handle_command(struct mail_user *mail_user, const char *cmd,
+			   char *args[])
+{
+	if (strcmp(cmd, "purge") == 0)
+		cmd_purge(mail_user);
+	else if (strcmp(cmd, "force-resync") == 0)
+		cmd_force_resync(mail_user, args[0]);
+	else
+		usage();
+}
+
+static void
+handle_single_user(struct master_service *service, const char *username,
+		   enum mail_storage_service_flags service_flags, char *argv[])
+{
+	struct mail_storage_service_input input;
+
+	if (username == NULL)
+		i_fatal("USER environment is missing and -u option not used");
+
+	memset(&input, 0, sizeof(input));
+	input.username = username;
+	mail_user = mail_storage_service_init_user(service, &input, NULL,
+						   service_flags);
+	handle_command(mail_user, argv[0], argv+1);
+	mail_user_unref(&mail_user);
+	mail_storage_service_deinit_user();
+}
+
+static void
+handle_all_users(struct master_service *service,
+		 enum mail_storage_service_flags service_flags, char *argv[])
+{
+	struct mail_storage_service_input input;
+	struct mail_storage_service_multi_ctx *multi;
+	struct mail_storage_service_multi_user *multi_user;
+	const char *error, *user;
+	pool_t pool;
+	int ret;
+
+	service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+
+	memset(&input, 0, sizeof(input));
+
+	multi = mail_storage_service_multi_init(service, NULL, service_flags);
+	pool = pool_alloconly_create("multi user", 1024);
+
+	while ((ret = mail_storage_service_multi_all_next(multi, &user)) > 0) {
+		p_clear(pool);
+		input.username = user;
+		i_set_failure_prefix(t_strdup_printf("doveadm(%s): ",
+						     input.username));
+		ret = mail_storage_service_multi_lookup(multi, &input, pool,
+							&multi_user, &error);
+		if (ret <= 0) {
+			if (ret == 0)
+				i_info("User no longer exists, skipping");
+			else
+				i_error("User lookup failed: %s", error);
+			continue;
+		}
+		if (mail_storage_service_multi_next(multi, multi_user,
+						    &mail_user, &error) < 0) {
+			i_error("User init failed: %s", error);
+			continue;
+		}
+		T_BEGIN {
+			handle_command(mail_user, argv[0], argv+1);
+		} T_END;
+		mail_user_unref(&mail_user);
+	}
+	i_set_failure_prefix("doveadm: ");
+	if (ret < 0)
+		i_error("Failed to iterate through some users");
+	mail_storage_service_multi_deinit(&multi);
+}
+
 int main(int argc, char *argv[])
 {
 	enum mail_storage_service_flags service_flags = 0;
 	struct master_service *service;
-	struct mail_storage_service_input input;
-	const char *getopt_str;
+	const char *getopt_str, *username;
+	bool all_users = FALSE;
 	int c;
 
 	service = master_service_init("doveadm",
@@ -91,13 +168,15 @@ int main(int argc, char *argv[])
 				      MASTER_SERVICE_FLAG_LOG_TO_STDERR,
 				      argc, argv);
 
-	memset(&input, 0, sizeof(input));
-	input.username = getenv("USER");
-	getopt_str = t_strconcat("u:v", master_service_getopt_string(), NULL);
+	username = getenv("USER");
+	getopt_str = t_strconcat("au:v", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		switch (c) {
+		case 'a':
+			all_users = TRUE;
+			break;
 		case 'u':
-			input.username = optarg;
+			username = optarg;
 			service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			break;
 		case 'v':
@@ -111,21 +190,12 @@ int main(int argc, char *argv[])
 	if (optind == argc)
 		usage();
 
-	if (input.username == NULL)
-		i_fatal("USER environment is missing and -u option not used");
-
-	mail_user = mail_storage_service_init_user(service, &input, NULL,
-						   service_flags);
-
-	if (strcmp(argv[optind], "purge") == 0)
-		cmd_purge(mail_user);
-	else if (strcmp(argv[optind], "force-resync") == 0)
-		cmd_force_resync(mail_user, argv[optind+2]);
-	else
-		usage();
-
-	mail_user_unref(&mail_user);
-	mail_storage_service_deinit_user();
+	if (!all_users) {
+		handle_single_user(service, username, service_flags,
+				   argv + optind);
+	} else {
+		handle_all_users(service, service_flags, argv + optind);
+	}
 	master_service_deinit(&service);
 	return 0;
 }
