@@ -185,9 +185,39 @@ static bool auth_user_reply_callback(const char *cmd, const char *const *args,
 	return FALSE;
 }
 
+static bool
+auth_handle_line(struct auth_master_connection *conn, const char *line)
+{
+	const char *cmd, *const *args, *id, *wanted_id;
+
+	args = t_strsplit(line, "\t");
+	cmd = *args; args++;
+	if (*args == NULL)
+		id = "";
+	else {
+		id = *args;
+		args++;
+	}
+
+	wanted_id = dec2str(conn->request_counter);
+	if (strcmp(id, wanted_id) == 0)
+		return conn->reply_callback(cmd, args, conn->reply_context);
+
+	if (strcmp(cmd, "CUID") == 0) {
+		i_error("%s: %s is an auth client socket. "
+			"It should be a master socket.",
+			conn->prefix, conn->auth_socket_path);
+	} else {
+		i_error("%s: BUG: Unexpected input: %s", conn->prefix, line);
+	}
+	auth_request_lookup_abort(conn);
+	return FALSE;
+}
+
 static void auth_input(struct auth_master_connection *conn)
 {
-	const char *line, *cmd, *const *args, *id, *wanted_id;
+	const char *line;
+	bool ret;
 
 	switch (i_stream_read(conn->input)) {
 	case 0:
@@ -211,33 +241,13 @@ static void auth_input(struct auth_master_connection *conn)
 			return;
 	}
 
-	line = i_stream_next_line(conn->input);
-	if (line == NULL)
-		return;
-
-	args = t_strsplit(line, "\t");
-	cmd = *args; args++;
-	if (*args == NULL)
-		id = "";
-	else {
-		id = *args;
-		args++;
-	}
-
-	wanted_id = dec2str(conn->request_counter);
-	if (strcmp(id, wanted_id) == 0) {
-		if (conn->reply_callback(cmd, args, conn->reply_context))
+	while ((line = i_stream_next_line(conn->input)) != NULL) {
+		T_BEGIN {
+			ret = auth_handle_line(conn, line);
+		} T_END;
+		if (!ret)
 			return;
 	}
-	
-	if (strcmp(cmd, "CUID") == 0) {
-		i_error("%s: %s is an auth client socket. "
-			"It should be a master socket.",
-			conn->prefix, conn->auth_socket_path);
-	} else {
-		i_error("%s: BUG: Unexpected input: %s", conn->prefix, line);
-	}
-	auth_request_lookup_abort(conn);
 }
 
 static int auth_master_connect(struct auth_master_connection *conn)
