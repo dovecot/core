@@ -37,7 +37,7 @@ struct mail_user *mail_user_alloc(const char *username,
 	i_assert(username != NULL);
 	i_assert(*username != '\0');
 
-	pool = pool_alloconly_create("mail user", 4096);
+	pool = pool_alloconly_create("mail user", 8192);
 	user = p_new(pool, struct mail_user, 1);
 	user->pool = pool;
 	user->refcount = 1;
