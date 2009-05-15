@@ -254,6 +254,11 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 			cmd_append_finish(ctx);
 			return TRUE;
 		}
+		if (ctx->count == 0) {
+			client_send_tagline(cmd, "BAD Missing message size.");
+			cmd_append_finish(ctx);
+			return TRUE;
+		}
 
 		ret = mailbox_transaction_commit_get_uids(&ctx->t,
 							  &uid_validity,
