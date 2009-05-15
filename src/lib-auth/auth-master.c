@@ -473,6 +473,11 @@ const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 	return ctx->user_strings[ctx->idx++];
 }
 
+unsigned int auth_master_user_list_count(struct auth_master_user_list_ctx *ctx)
+{
+	return ctx->user_count;
+}
+
 int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 {
 	struct auth_master_user_list_ctx *ctx = *_ctx;
