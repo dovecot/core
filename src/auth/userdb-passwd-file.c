@@ -88,7 +88,7 @@ passwd_file_iterate_init(struct auth_userdb *userdb,
 			 userdb_iter_callback_t *callback, void *context)
 {
 	struct passwd_file_userdb_module *module =
-		(struct passwd_file_userdb_module *)userdb;
+		(struct passwd_file_userdb_module *)userdb->userdb;
 	struct passwd_file_userdb_iterate_context *ctx;
 	int fd;
 
@@ -96,6 +96,12 @@ passwd_file_iterate_init(struct auth_userdb *userdb,
 	ctx->ctx.userdb = userdb->userdb;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
+	if (module->pwf->default_file == NULL) {
+		i_error("passwd-file: User iteration isn't currently supported "
+			"with %%variable paths");
+		ctx->ctx.failed = TRUE;
+		return &ctx->ctx;
+	}
 	ctx->path = i_strdup(module->pwf->default_file->path);
 
 	/* for now we support only a single passwd-file */
@@ -137,7 +143,8 @@ static int passwd_file_iterate_deinit(struct userdb_iterate_context *_ctx)
 		(struct passwd_file_userdb_iterate_context *)_ctx;
 	int ret = _ctx->failed ? -1 : 0;
 
-	i_stream_destroy(&ctx->input);
+	if (ctx->input != NULL)
+		i_stream_destroy(&ctx->input);
 	i_free(ctx->path);
 	i_free(ctx);
 	return ret;
