@@ -11,6 +11,7 @@
 #include "mail-storage-settings.h"
 #include "mail-storage-service.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 static struct mail_user *mail_user;
@@ -152,6 +153,7 @@ handle_all_users(struct master_service *service,
 {
 	struct mail_storage_service_input input;
 	struct mail_storage_service_multi_ctx *multi;
+	unsigned int user_idx, user_count, interval, n;
 	const char *user;
 	pool_t pool;
 	int ret;
@@ -166,6 +168,12 @@ handle_all_users(struct master_service *service,
         lib_signals_set_handler(SIGINT, FALSE, sig_die, NULL);
 	lib_signals_set_handler(SIGTERM, FALSE, sig_die, NULL);
 
+	user_count = mail_storage_service_multi_all_init(multi);
+	n = user_count / 10000;
+	for (interval = 10; n > 0 && interval < 1000; interval *= 10)
+		n /= 10;
+	
+	user_idx = 0;
 	while ((ret = mail_storage_service_multi_all_next(multi, &user)) > 0) {
 		if (killed_signo != 0) {
 			/* killed by a signal */
@@ -180,7 +188,15 @@ handle_all_users(struct master_service *service,
 		} T_END;
 		if (ret < 0)
 			break;
+		if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0) {
+			if (++user_idx % interval == 0) {
+				printf("\r%d / %d", user_idx, user_count);
+				fflush(stdout);
+			}
+		}
 	}
+	if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
+		printf("\n");
 	i_set_failure_prefix("doveadm: ");
 	if (ret < 0)
 		i_error("Failed to iterate through some users");
