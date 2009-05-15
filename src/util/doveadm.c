@@ -1,6 +1,8 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "lib-signals.h"
+#include "ioloop.h"
 #include "env-util.h"
 #include "master-service.h"
 #include "mail-user.h"
@@ -12,6 +14,7 @@
 #include <stdlib.h>
 
 static struct mail_user *mail_user;
+static int killed_signo = 0;
 
 static void ATTR_NORETURN
 usage(void)
@@ -21,6 +24,11 @@ usage(void)
 "  purge <user>\n"
 "  force-resync <user> <mailbox>\n"
 );
+}
+
+static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
+{
+	killed_signo = si->si_signo;
 }
 
 static void cmd_purge(struct mail_user *user)
@@ -125,7 +133,16 @@ handle_all_users(struct master_service *service,
 	multi = mail_storage_service_multi_init(service, NULL, service_flags);
 	pool = pool_alloconly_create("multi user", 1024);
 
+        lib_signals_set_handler(SIGINT, FALSE, sig_die, NULL);
+	lib_signals_set_handler(SIGTERM, FALSE, sig_die, NULL);
+
 	while ((ret = mail_storage_service_multi_all_next(multi, &user)) > 0) {
+		if (killed_signo != 0) {
+			/* killed by a signal */
+			i_warning("Killed with signal %d", killed_signo);
+			ret = -1;
+			break;
+		}
 		p_clear(pool);
 		input.username = user;
 		i_set_failure_prefix(t_strdup_printf("doveadm(%s): ",
@@ -133,11 +150,13 @@ handle_all_users(struct master_service *service,
 		ret = mail_storage_service_multi_lookup(multi, &input, pool,
 							&multi_user, &error);
 		if (ret <= 0) {
-			if (ret == 0)
+			if (ret == 0) {
 				i_info("User no longer exists, skipping");
-			else
+				continue;
+			} else {
 				i_error("User lookup failed: %s", error);
-			continue;
+				break;
+			}
 		}
 		if (mail_storage_service_multi_next(multi, multi_user,
 						    &mail_user, &error) < 0) {
