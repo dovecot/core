@@ -181,7 +181,7 @@ static struct mail_user_settings mail_user_default_settings = {
 	MEMBER(mail_plugins) "",
 	MEMBER(mail_plugin_dir) MODULEDIR,
 
-	MEMBER(mail_log_prefix) "%Us(%u): ",
+	MEMBER(mail_log_prefix) "%s(%u): ",
 
 	MEMBER(namespaces) ARRAY_INIT,
 	MEMBER(plugin_envs) ARRAY_INIT
