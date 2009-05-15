@@ -115,14 +115,44 @@ handle_single_user(struct master_service *service, const char *username,
 	mail_storage_service_deinit_user();
 }
 
+static int
+handle_next_user(struct mail_storage_service_multi_ctx *multi,
+		 const struct mail_storage_service_input *input,
+		 pool_t pool, char *argv[])
+{
+	struct mail_storage_service_multi_user *multi_user;
+	const char *error;
+	int ret;
+
+	i_set_failure_prefix(t_strdup_printf("doveadm(%s): ", input->username));
+	ret = mail_storage_service_multi_lookup(multi, input, pool,
+						&multi_user, &error);
+	if (ret <= 0) {
+		if (ret == 0) {
+			i_info("User no longer exists, skipping");
+			return 0;
+		} else {
+			i_error("User lookup failed: %s", error);
+			return -1;
+		}
+	}
+	if (mail_storage_service_multi_next(multi, multi_user,
+					    &mail_user, &error) < 0) {
+		i_error("User init failed: %s", error);
+		return -1;
+	}
+	handle_command(mail_user, argv[0], argv+1);
+	mail_user_unref(&mail_user);
+	return 0;
+}
+
 static void
 handle_all_users(struct master_service *service,
 		 enum mail_storage_service_flags service_flags, char *argv[])
 {
 	struct mail_storage_service_input input;
 	struct mail_storage_service_multi_ctx *multi;
-	struct mail_storage_service_multi_user *multi_user;
-	const char *error, *user;
+	const char *user;
 	pool_t pool;
 	int ret;
 
@@ -131,7 +161,7 @@ handle_all_users(struct master_service *service,
 	memset(&input, 0, sizeof(input));
 
 	multi = mail_storage_service_multi_init(service, NULL, service_flags);
-	pool = pool_alloconly_create("multi user", 1024);
+	pool = pool_alloconly_create("multi user", 8192);
 
         lib_signals_set_handler(SIGINT, FALSE, sig_die, NULL);
 	lib_signals_set_handler(SIGTERM, FALSE, sig_die, NULL);
@@ -145,28 +175,11 @@ handle_all_users(struct master_service *service,
 		}
 		p_clear(pool);
 		input.username = user;
-		i_set_failure_prefix(t_strdup_printf("doveadm(%s): ",
-						     input.username));
-		ret = mail_storage_service_multi_lookup(multi, &input, pool,
-							&multi_user, &error);
-		if (ret <= 0) {
-			if (ret == 0) {
-				i_info("User no longer exists, skipping");
-				continue;
-			} else {
-				i_error("User lookup failed: %s", error);
-				break;
-			}
-		}
-		if (mail_storage_service_multi_next(multi, multi_user,
-						    &mail_user, &error) < 0) {
-			i_error("User init failed: %s", error);
-			continue;
-		}
 		T_BEGIN {
-			handle_command(mail_user, argv[0], argv+1);
+			ret = handle_next_user(multi, &input, pool, argv);
 		} T_END;
-		mail_user_unref(&mail_user);
+		if (ret < 0)
+			break;
 	}
 	i_set_failure_prefix("doveadm: ");
 	if (ret < 0)
