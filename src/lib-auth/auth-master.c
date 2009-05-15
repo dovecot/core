@@ -21,6 +21,8 @@
 #define MAX_INBUF_SIZE 8192
 #define MAX_OUTBUF_SIZE 1024
 
+#define DEFAULT_USERDB_LOOKUP_PREFIX "userdb lookup"
+
 struct auth_master_connection {
 	char *auth_socket_path;
 
@@ -30,17 +32,35 @@ struct auth_master_connection {
 	struct istream *input;
 	struct ostream *output;
 	struct timeout *to;
+	const char *prefix;
 
 	unsigned int request_counter;
-	pool_t pool;
-	const char *user;
-	struct auth_user_reply *user_reply;
-	int return_value;
+
+	bool (*reply_callback)(const char *cmd, const char *const *args,
+			       void *context);
+	void *reply_context;
 
 	unsigned int debug:1;
 	unsigned int sent_handshake:1;
 	unsigned int handshaked:1;
 	unsigned int aborted:1;
+};
+
+struct auth_master_user_lookup_ctx {
+	struct auth_master_connection *conn;
+	pool_t pool;
+	const char *user;
+	struct auth_user_reply *user_reply;
+	int return_value;
+};
+
+struct auth_master_user_list_ctx {
+	struct auth_master_connection *conn;
+	pool_t pool;
+	ARRAY_TYPE(const_string) users;
+	const char *const *user_strings;
+	unsigned int idx, user_count;
+	bool failed;
 };
 
 static void auth_input(struct auth_master_connection *conn);
@@ -54,6 +74,7 @@ auth_master_init(const char *auth_socket_path, bool debug)
 	conn->auth_socket_path = i_strdup(auth_socket_path);
 	conn->fd = -1;
 	conn->debug = debug;
+	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 	return conn;
 }
 
@@ -87,19 +108,19 @@ static void auth_request_lookup_abort(struct auth_master_connection *conn)
 	conn->aborted = TRUE;
 }
 
-static void auth_parse_input(struct auth_master_connection *conn,
+static void auth_parse_input(struct auth_master_user_lookup_ctx *ctx,
 			     const char *const *args)
 {
-	struct auth_user_reply *reply = conn->user_reply;
+	struct auth_user_reply *reply = ctx->user_reply;
 
 	memset(reply, 0, sizeof(*reply));
 	reply->uid = (uid_t)-1;
 	reply->gid = (gid_t)-1;
-	p_array_init(&reply->extra_fields, conn->pool, 64);
+	p_array_init(&reply->extra_fields, ctx->pool, 64);
 
-	reply->user = p_strdup(conn->pool, *args);
+	reply->user = p_strdup(ctx->pool, *args);
 	for (args++; *args != NULL; args++) {
-		if (conn->debug)
+		if (ctx->conn->debug)
 			i_info("auth input: %s", *args);
 
 		if (strncmp(*args, "uid=", 4) == 0)
@@ -107,11 +128,11 @@ static void auth_parse_input(struct auth_master_connection *conn,
 		else if (strncmp(*args, "gid=", 4) == 0)
 			reply->gid = strtoul(*args + 4, NULL, 10);
 		else if (strncmp(*args, "home=", 5) == 0)
-			reply->home = p_strdup(conn->pool, *args + 5);
+			reply->home = p_strdup(ctx->pool, *args + 5);
 		else if (strncmp(*args, "chroot=", 7) == 0)
-			reply->chroot = p_strdup(conn->pool, *args + 7);
+			reply->chroot = p_strdup(ctx->pool, *args + 7);
 		else {
-			const char *field = p_strdup(conn->pool, *args);
+			const char *field = p_strdup(ctx->pool, *args);
 			array_append(&reply->extra_fields, &field, 1);
 		}
 	}
@@ -126,9 +147,9 @@ static int auth_input_handshake(struct auth_master_connection *conn)
 		if (strcmp(tmp[0], "VERSION") == 0 &&
 		    tmp[1] != NULL && tmp[2] != NULL) {
 			if (strcmp(tmp[1], dec2str(AUTH_PROTOCOL_MAJOR)) != 0) {
-				i_error("userdb lookup(%s): "
+				i_error("userdb lookup: "
 					"Auth protocol version mismatch "
-					"(%s vs %d)", conn->user, tmp[1],
+					"(%s vs %d)", tmp[1],
 					AUTH_PROTOCOL_MAJOR);
 				auth_request_lookup_abort(conn);
 				return -1;
@@ -141,6 +162,29 @@ static int auth_input_handshake(struct auth_master_connection *conn)
 	return 0;
 }
 
+static bool auth_user_reply_callback(const char *cmd, const char *const *args,
+				     void *context)
+{
+	struct auth_master_user_lookup_ctx *ctx = context;
+
+	io_loop_stop(ctx->conn->ioloop);
+	if (strcmp(cmd, "USER") == 0) {
+		auth_parse_input(ctx, args);
+		ctx->return_value = 1;
+		return TRUE;
+	}
+	if (strcmp(cmd, "NOTFOUND") == 0) {
+		ctx->return_value = 0;
+		return TRUE;
+	}
+	if (strcmp(cmd, "FAIL") == 0) {
+		i_error("userdb lookup(%s) failed: %s", ctx->user,
+			*args != NULL ? *args : "Internal failure");
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static void auth_input(struct auth_master_connection *conn)
 {
 	const char *line, *cmd, *const *args, *id, *wanted_id;
@@ -150,14 +194,14 @@ static void auth_input(struct auth_master_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		i_error("userdb lookup(%s): Disconnected unexpectedly",
-			conn->user);
+		i_error("%s: Disconnected unexpectedly",
+			conn->prefix);
 		auth_request_lookup_abort(conn);
 		return;
 	case -2:
 		/* buffer full */
-		i_error("userdb lookup(%s): BUG: Received more than %d bytes",
-			conn->user, MAX_INBUF_SIZE);
+		i_error("%s: BUG: Received more than %d bytes",
+			conn->prefix, MAX_INBUF_SIZE);
 		auth_request_lookup_abort(conn);
 		return;
 	}
@@ -182,31 +226,16 @@ static void auth_input(struct auth_master_connection *conn)
 
 	wanted_id = dec2str(conn->request_counter);
 	if (strcmp(id, wanted_id) == 0) {
-		io_loop_stop(conn->ioloop);
-		if (strcmp(cmd, "USER") == 0) {
-			auth_parse_input(conn, args);
-			conn->return_value = 1;
+		if (conn->reply_callback(cmd, args, conn->reply_context))
 			return;
-		}
-		if (strcmp(cmd, "NOTFOUND") == 0) {
-			conn->return_value = 0;
-			return;
-		}
-		if (strcmp(cmd, "FAIL") == 0) {
-			i_error("userdb lookup(%s) failed: %s",
-				conn->user, *args != NULL ? *args :
-				"Internal failure");
-			return;
-		}
 	}
 	
 	if (strcmp(cmd, "CUID") == 0) {
-		i_error("userdb lookup(%s): %s is an auth client socket. "
+		i_error("%s: %s is an auth client socket. "
 			"It should be a master socket.",
-			conn->user, conn->auth_socket_path);
+			conn->prefix, conn->auth_socket_path);
 	} else {
-		i_error("userdb lookup(%s): BUG: Unexpected input: %s",
-			conn->user, line);
+		i_error("%s: BUG: Unexpected input: %s", conn->prefix, line);
 	}
 	auth_request_lookup_abort(conn);
 }
@@ -238,9 +267,9 @@ static int auth_master_connect(struct auth_master_connection *conn)
 static void auth_request_timeout(struct auth_master_connection *conn)
 {
 	if (!conn->handshaked)
-		i_error("userdb lookup(%s): Connecting timed out", conn->user);
+		i_error("%s: Connecting timed out", conn->prefix);
 	else
-		i_error("userdb lookup(%s): Request timed out", conn->user);
+		i_error("%s: Request timed out", conn->prefix);
 	auth_request_lookup_abort(conn);
 }
 
@@ -293,17 +322,12 @@ static bool is_valid_string(const char *str)
 	return TRUE;
 }
 
-int auth_master_user_lookup(struct auth_master_connection *conn,
-			    const char *user, const char *service,
-			    pool_t pool, struct auth_user_reply *reply_r)
+static int auth_master_run_cmd(struct auth_master_connection *conn,
+			       const char *cmd)
 {
 	struct ioloop *prev_ioloop;
 	const char *str;
 
-	if (!is_valid_string(user) || !is_valid_string(service)) {
-		/* non-allowed characters, the user can't exist */
-		return 0;
-	}
 	if (conn->fd == -1) {
 		if (auth_master_connect(conn) < 0)
 			return -1;
@@ -311,14 +335,6 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 
 	prev_ioloop = current_ioloop;
 	auth_master_set_io(conn);
-	conn->return_value = -1;
-	conn->pool = pool;
-	conn->user = user;
-	conn->user_reply = reply_r;
-	if (++conn->request_counter == 0) {
-		/* avoid zero */
-		conn->request_counter++;
-	}
 
 	o_stream_cork(conn->output);
 	if (!conn->sent_handshake) {
@@ -328,9 +344,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 		conn->sent_handshake = TRUE;
 	}
 
-	str = t_strdup_printf("USER\t%u\t%s\tservice=%s\n",
-			      conn->request_counter, user, service);
-	o_stream_send_str(conn->output, str);
+	o_stream_send_str(conn->output, cmd);
 	o_stream_uncork(conn->output);
 
 	if (conn->output->stream_errno != 0) {
@@ -344,9 +358,118 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 	if (conn->aborted) {
 		conn->aborted = FALSE;
 		auth_connection_close(conn);
+		return -1;
 	}
-	conn->user = NULL;
-	conn->pool = NULL;
-	conn->user_reply = NULL;
-	return conn->return_value;
+	return 0;
+}
+
+int auth_master_user_lookup(struct auth_master_connection *conn,
+			    const char *user, const char *service,
+			    pool_t pool, struct auth_user_reply *reply_r)
+{
+	struct auth_master_user_lookup_ctx ctx;
+	const char *str;
+
+	if (!is_valid_string(user) || !is_valid_string(service)) {
+		/* non-allowed characters, the user can't exist */
+		return 0;
+	}
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.conn = conn;
+	ctx.return_value = -1;
+	ctx.pool = pool;
+	ctx.user = user;
+	ctx.user_reply = reply_r;
+
+	if (++conn->request_counter == 0) {
+		/* avoid zero */
+		conn->request_counter++;
+	}
+
+	conn->reply_callback = auth_user_reply_callback;
+	conn->reply_context = &ctx;
+
+	conn->prefix = t_strdup_printf("userdb lookup(%s)", user);
+	str = t_strdup_printf("USER\t%u\t%s\tservice=%s\n",
+			      conn->request_counter, user, service);
+	(void)auth_master_run_cmd(conn, str);
+	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
+
+	return ctx.return_value;
+}
+
+static bool
+auth_user_list_reply_callback(const char *cmd, const char *const *args,
+			      void *context)
+{
+	struct auth_master_user_list_ctx *ctx = context;
+	const char *user;
+
+	if (strcmp(cmd, "DONE") == 0) {
+		io_loop_stop(ctx->conn->ioloop);
+		if (args[0] != NULL && strcmp(args[0], "fail") == 0) {
+			i_error("User listing returned failure");
+			ctx->failed = TRUE;
+		}
+		return TRUE;
+	}
+	if (strcmp(cmd, "LIST") == 0 && args[0] != NULL) {
+		/* we'll just read all the users into memory. otherwise we'd
+		   have to use a separate connection for listing and there's
+		   a higher chance of a failure since the connection could be
+		   open to dovecot-auth for a long time. */
+		user = p_strdup(ctx->pool, args[0]);
+		array_append(&ctx->users, &user, 1);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+struct auth_master_user_list_ctx *
+auth_master_user_list_init(struct auth_master_connection *conn)
+{
+	struct auth_master_user_list_ctx *ctx;
+	const char *str;
+	pool_t pool;
+
+	pool = pool_alloconly_create("auth master user list", 10240);
+	ctx = p_new(pool, struct auth_master_user_list_ctx, 1);
+	ctx->pool = pool;
+	ctx->conn = conn;
+	i_array_init(&ctx->users, 128);
+
+	if (++conn->request_counter == 0) {
+		/* avoid zero */
+		conn->request_counter++;
+	}
+
+	conn->reply_callback = auth_user_list_reply_callback;
+	conn->reply_context = ctx;
+
+	str = t_strdup_printf("LIST\t%u\n", conn->request_counter);
+	conn->prefix = "userdb list";
+	if (auth_master_run_cmd(conn, str) < 0)
+		ctx->failed = TRUE;
+	ctx->user_strings = array_get(&ctx->users, &ctx->user_count);
+	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
+	return ctx;
+}
+
+const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
+{
+	if (ctx->idx == ctx->user_count)
+		return NULL;
+	return ctx->user_strings[ctx->idx++];
+}
+
+int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
+{
+	struct auth_master_user_list_ctx *ctx = *_ctx;
+	int ret = ctx->failed ? -1 : 0;
+
+	*_ctx = NULL;
+	array_free(&ctx->users);
+	pool_unref(&ctx->pool);
+	return ret;
 }
