@@ -133,7 +133,7 @@ userdb_sql_iterate_init(struct auth_userdb *userdb,
 			userdb_iter_callback_t *callback, void *context)
 {
 	struct sql_userdb_module *module =
-		(struct sql_userdb_module *)userdb;
+		(struct sql_userdb_module *)userdb->userdb;
 	struct sql_userdb_iterate_context *ctx;
 
 	ctx = i_new(struct sql_userdb_iterate_context, 1);
