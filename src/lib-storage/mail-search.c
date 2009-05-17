@@ -5,8 +5,11 @@
 #include "buffer.h"
 #include "mail-index.h"
 #include "mail-storage.h"
+#include "mail-search-build.h"
 #include "mail-search.h"
 
+static struct mail_search_arg *
+mail_search_arg_dup(pool_t pool, const struct mail_search_arg *arg);
 static bool mail_search_arg_equals(const struct mail_search_arg *arg1,
 				   const struct mail_search_arg *arg2);
 
@@ -236,6 +239,95 @@ void mail_search_args_unref(struct mail_search_args **_args)
 	if (args->init_refcount == 1)
 		mail_search_args_deinit(args);
 	pool_unref(&args->pool);
+}
+
+static struct mail_search_arg *
+mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
+{
+	struct mail_search_arg *new_arg;
+
+	new_arg = p_new(pool, struct mail_search_arg, 1);
+	new_arg->type = arg->type;
+	new_arg->not = arg->not;
+	new_arg->match_always = arg->match_always;
+
+	switch (arg->type) {
+	case SEARCH_OR:
+	case SEARCH_SUB:
+	case SEARCH_INTHREAD:
+		new_arg->value.subargs =
+			mail_search_arg_dup(pool, arg->value.subargs);
+		break;
+	case SEARCH_ALL:
+		break;
+	case SEARCH_SEQSET:
+	case SEARCH_UIDSET:
+		p_array_init(&new_arg->value.seqset, pool,
+			     array_count(&arg->value.seqset));
+		array_append_array(&new_arg->value.seqset, &arg->value.seqset);
+		break;
+	case SEARCH_FLAGS:
+		new_arg->value.flags = arg->value.flags;
+		break;
+	case SEARCH_BEFORE:
+	case SEARCH_ON:
+	case SEARCH_SINCE:
+	case SEARCH_SENTBEFORE:
+	case SEARCH_SENTON:
+	case SEARCH_SENTSINCE:
+		new_arg->value.time = arg->value.time;
+		break;
+	case SEARCH_SMALLER:
+	case SEARCH_LARGER:
+		new_arg->value.size = arg->value.size;
+		break;
+	case SEARCH_HEADER:
+	case SEARCH_HEADER_ADDRESS:
+	case SEARCH_HEADER_COMPRESS_LWSP:
+		new_arg->hdr_field_name = p_strdup(pool, arg->hdr_field_name);
+		/* fall through */
+	case SEARCH_KEYWORDS:
+	case SEARCH_BODY:
+	case SEARCH_TEXT:
+	case SEARCH_BODY_FAST:
+	case SEARCH_TEXT_FAST:
+	case SEARCH_GUID:
+	case SEARCH_MAILBOX:
+		new_arg->value.str = p_strdup(pool, arg->value.str);
+		break;
+
+	case SEARCH_MODSEQ:
+		new_arg->value.modseq =
+			p_new(pool, struct mail_search_modseq, 1);
+		*new_arg->value.modseq = *arg->value.modseq;
+		break;
+	}
+	return new_arg;
+}
+
+static struct mail_search_arg *
+mail_search_arg_dup(pool_t pool, const struct mail_search_arg *arg)
+{
+	struct mail_search_arg *new_arg, **dest = &new_arg;
+
+	for (; arg != NULL; arg = arg->next) {
+		*dest = mail_search_arg_dup_one(pool, arg);
+		dest = &(*dest)->next;
+	}
+	return new_arg;
+}
+
+struct mail_search_args *
+mail_search_args_dup(const struct mail_search_args *args)
+{
+	struct mail_search_args *new_args;
+
+	new_args = mail_search_build_init();
+	new_args->charset = p_strdup(new_args->pool, args->charset);
+	new_args->simplified = args->simplified;
+	new_args->have_inthreads = args->have_inthreads;
+	new_args->args = mail_search_arg_dup(new_args->pool, args->args);
+	return new_args;
 }
 
 void mail_search_args_reset(struct mail_search_arg *args, bool full_reset)

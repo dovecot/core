@@ -132,6 +132,9 @@ bool mail_search_args_equal(const struct mail_search_args *args1,
 void mail_search_args_ref(struct mail_search_args *args);
 void mail_search_args_unref(struct mail_search_args **args);
 
+struct mail_search_args *
+mail_search_args_dup(const struct mail_search_args *args);
+
 /* Reset the results in search arguments. match_always is reset only if
    full_reset is TRUE. */
 void mail_search_args_reset(struct mail_search_arg *args, bool full_reset);
