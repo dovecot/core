@@ -45,13 +45,15 @@ noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	libimap.la \
+	../lib-mail/libmail.la \
+	../lib-charset/libcharset.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
 test_imap_SOURCES = \
 	test-imap.c
 
-test_imap_LDADD = $(test_libs)
+test_imap_LDADD = $(test_libs) $(LTLIBICONV)
 test_imap_DEPENDENCIES = $(test_libs)
 
 check: check-am check-test

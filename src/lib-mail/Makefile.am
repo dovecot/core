@@ -54,13 +54,14 @@ noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	libmail.la \
+	../lib-charset/libcharset.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
 test_mail_SOURCES = \
 	test-mail.c
 
-test_mail_LDADD = $(test_libs)
+test_mail_LDADD = $(test_libs) $(LTLIBICONV)
 test_mail_DEPENDENCIES = $(test_libs)
 
 check: check-am check-test

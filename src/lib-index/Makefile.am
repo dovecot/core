@@ -61,7 +61,9 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	libindex.la \
 	../lib-test/libtest.la \
+	../lib-imap/libimap.la \
 	../lib-mail/libmail.la \
+	../lib-charset/libcharset.la \
 	../lib/liblib.la
 
 test_index_SOURCES = \
@@ -71,7 +73,7 @@ test_index_SOURCES = \
 test_headers = \
 	test-index.h
 
-test_index_LDADD = $(test_libs)
+test_index_LDADD = $(test_libs) $(LTLIBICONV)
 test_index_DEPENDENCIES = $(test_libs)
 
 check: check-am check-test
