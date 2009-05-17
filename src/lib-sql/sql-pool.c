@@ -61,7 +61,7 @@ static void sql_pool_unlink(struct sql_pool_context *ctx)
 	if (ctx->next == NULL)
 		ctx->pool->unused_head = ctx->prev;
 	else {
-		next_ctx = SQL_POOL_CONTEXT(ctx->prev);
+		next_ctx = SQL_POOL_CONTEXT(ctx->next);
 		next_ctx->prev = ctx->prev;
 	}
 	ctx->pool->unused_count--;
