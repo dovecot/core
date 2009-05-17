@@ -205,6 +205,9 @@ bool mail_thread_remove(struct mail_thread_cache *cache,
 
 	if (msgid_map->uid > cache->last_uid) {
 		/* this message was never added to the cache, skip */
+		while (msgid_map[count].uid == msgid_map->uid)
+			count++;
+		*msgid_map_idx += count;
 		return TRUE;
 	}
 
