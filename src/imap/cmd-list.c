@@ -571,15 +571,16 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 	skip_namespace_prefix_pattern(ctx, &cur_ns_prefix,
 				      cur_ref, &cur_pattern);
 	if (*cur_ns_prefix == '\0') {
-		/* no namespace prefix: if list=no we don't want to show
-		   anything, except when the client does e.g. LIST "" mailbox.
-		   prefix="", list=no namespace is mainly useful for working
-		   around client bugs. */
-		if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) == 0 &&
-		    list_pattern_has_wildcards(cur_pattern))
-			return FALSE;
-		else
-			return TRUE;
+		if (*ns->prefix == '\0') {
+			/* no namespace prefix: if list=no we don't want to
+			   show anything, except when the client does e.g.
+			   LIST "" mailbox. prefix="", list=no namespace is
+			   mainly useful for working around client bugs. */
+			if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) == 0 &&
+			    list_pattern_has_wildcards(cur_pattern))
+				return FALSE;
+		}
+		return TRUE;
 	}
 
 	/* namespace prefix still wasn't completely skipped over.
