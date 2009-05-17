@@ -41,6 +41,7 @@ struct virtual_sync_context {
 	unsigned int ext_header_changed:1;
 	unsigned int ext_header_rewrite:1;
 	unsigned int expunge_removed:1;
+	unsigned int index_broken:1;
 };
 
 static void virtual_sync_set_uidvalidity(struct virtual_sync_context *ctx)
@@ -138,7 +139,7 @@ static bool virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 	size_t ext_size;
 	unsigned int i, count, ext_name_offset, ext_mailbox_count;
 	uint32_t prev_mailbox_id;
-	bool ret;
+	bool ret = TRUE;
 
 	hdr = mail_index_get_header(ctx->sync_view);
 	mail_index_get_header_ext(ctx->sync_view, ctx->mbox->virtual_ext_id,
@@ -166,9 +167,11 @@ static bool virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 			ext_hdr->mailbox_count * sizeof(*mailboxes);
 		if (ext_name_offset >= ext_size ||
 		    ext_hdr->mailbox_count > INT_MAX/sizeof(*mailboxes)) {
-			i_error("virtual %s: Broken mailbox_count header",
+			i_error("virtual index %s: Broken mailbox_count header",
 				ctx->mbox->path);
+			ctx->index_broken = TRUE;
 			ext_mailbox_count = 0;
+			ret = FALSE;
 		} else {
 			ext_mailbox_count = ext_hdr->mailbox_count;
 		}
@@ -179,18 +182,18 @@ static bool virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 	for (i = 0; i < ext_mailbox_count; i++) {
 		if (mailboxes[i].id > ext_hdr->highest_mailbox_id ||
 		    mailboxes[i].id <= prev_mailbox_id) {
-			i_error("virtual %s: Broken mailbox id",
+			i_error("virtual index %s: Broken mailbox id",
 				ctx->mbox->path);
 			break;
 		}
 		if (mailboxes[i].name_len == 0 ||
 		    mailboxes[i].name_len > ext_size) {
-			i_error("virtual %s: Broken mailbox name_len",
+			i_error("virtual index %s: Broken mailbox name_len",
 				ctx->mbox->path);
 			break;
 		}
 		if (ext_name_offset + mailboxes[i].name_len > ext_size) {
-			i_error("virtual %s: Broken mailbox list",
+			i_error("virtual index %s: Broken mailbox list",
 				ctx->mbox->path);
 			break;
 		}
@@ -215,13 +218,12 @@ static bool virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 		ext_name_offset += mailboxes[i].name_len;
 		prev_mailbox_id = mailboxes[i].id;
 	}
-	if (ext_hdr == NULL) {
-		ret = TRUE;
-		ctx->mbox->highest_mailbox_id = 0;
-	} else {
-		ret = i == ext_hdr->mailbox_count;
-		ctx->mbox->highest_mailbox_id = ext_hdr->highest_mailbox_id;
+	if (i < ext_mailbox_count) {
+		ctx->index_broken = TRUE;
+		ret = FALSE;
 	}
+	ctx->mbox->highest_mailbox_id = ext_hdr == NULL ? 0 :
+		ext_hdr->highest_mailbox_id;
 
 	/* assign new mailbox IDs if any are missing */
 	bboxes = array_get_modifiable(&ctx->mbox->backend_boxes, &count);
@@ -1190,6 +1192,15 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 			ret = -1;
 		}
 	} else {
+		if (ctx->index_broken) {
+			/* make sure we don't complain about the same errors
+			   over and over again. */
+			if (mail_index_unlink(ctx->index) < 0) {
+				i_error("virtual index %s: Failed to unlink() "
+					"broken indexes: %m",
+					ctx->mbox->path);
+			}
+		}
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
 	i_free(ctx);
