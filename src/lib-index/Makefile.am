@@ -73,7 +73,7 @@ test_index_SOURCES = \
 test_headers = \
 	test-index.h
 
-test_index_LDADD = $(test_libs) $(LTLIBICONV)
+test_index_LDADD = $(test_libs) $(LIBICONV)
 test_index_DEPENDENCIES = $(test_libs)
 
 check: check-am check-test

@@ -53,7 +53,7 @@ test_libs = \
 test_imap_SOURCES = \
 	test-imap.c
 
-test_imap_LDADD = $(test_libs) $(LTLIBICONV)
+test_imap_LDADD = $(test_libs) $(LIBICONV)
 test_imap_DEPENDENCIES = $(test_libs)
 
 check: check-am check-test
