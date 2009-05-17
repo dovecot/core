@@ -448,7 +448,6 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 	trans = mailbox_transaction_begin(bbox->box, 0);
 	mail = mail_alloc(trans, 0, NULL);
 
-	mail_search_args_init(bbox->search_args, bbox->box, FALSE, NULL);
 	search_ctx = mailbox_search_init(trans, bbox->search_args, NULL);
 
 	/* save the result and keep it updated */
@@ -891,6 +890,8 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 				 &status) < 0)
 			return -1;
 
+		mail_search_args_init(bbox->search_args, bbox->box,
+				      FALSE, NULL);
 		virtual_backend_box_sync_mail_set(bbox);
 		if (status.uidvalidity != bbox->sync_uid_validity) {
 			/* UID validity changed since last sync (or this is
