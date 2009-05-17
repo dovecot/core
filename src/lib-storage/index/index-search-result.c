@@ -10,63 +10,61 @@
 
 static void
 search_result_range_remove(struct mail_search_result *result,
-			   const ARRAY_TYPE(seq_range) *search_seqs_range,
-			   unsigned int *pos,
-			   uint32_t *next_seq, uint32_t last_seq)
+			   const ARRAY_TYPE(seq_range) *changed_uids_arr,
+			   unsigned int *idx,
+			   uint32_t *next_uid, uint32_t last_uid)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)result->box;
-	const struct seq_range *seqs;
+	const struct seq_range *uids;
 	unsigned int i, count;
-	uint32_t seq, uid;
+	uint32_t uid;
 
-	seq = *next_seq;
-	seqs = array_get(search_seqs_range, &count);
-	for (i = *pos; seqs[i].seq2 < last_seq;) {
-		i_assert(seqs[i].seq1 <= seq);
-		for (; seq <= seqs[i].seq2; seq++) {
-			mail_index_lookup_uid(ibox->view, seq, &uid);
+	/* remove full seq_ranges */
+	uid = *next_uid;
+	uids = array_get(changed_uids_arr, &count);
+	for (i = *idx; uids[i].seq2 < last_uid;) {
+		i_assert(uids[i].seq1 <= uid);
+		for (; uid <= uids[i].seq2; uid++)
 			mailbox_search_result_remove(result, uid);
-		}
 		i++;
 		i_assert(i < count);
-		seq = seqs[i].seq1;
+		uid = uids[i].seq1;
 	}
 
-	i_assert(seqs[i].seq1 <= seq && seqs[i].seq2 >= last_seq);
-	for (; seq <= last_seq; seq++) {
-		mail_index_lookup_uid(ibox->view, seq, &uid);
+	/* remove the last seq_range */
+	i_assert(uids[i].seq1 <= uid && uids[i].seq2 >= last_uid);
+	for (; uid <= last_uid; uid++)
 		mailbox_search_result_remove(result, uid);
-	}
-	if (seq > seqs[i].seq2) {
+
+	if (uid > uids[i].seq2) {
 		/* finished this range */
 		if (++i < count)
-			seq = seqs[i].seq1;
+			uid = uids[i].seq1;
 		else {
 			/* this was the last searched message */
-			seq = 0;
+			uid = 0;
 		}
 	}
 
-	*next_seq = seq;
-	*pos = i;
+	*next_uid = uid;
+	*idx = i;
 }
 
 static int
 search_result_update_search(struct mail_search_result *result,
-			    const ARRAY_TYPE(seq_range) *search_seqs_range)
+			    const ARRAY_TYPE(seq_range) *changed_uids_arr)
 {
 	struct mailbox_transaction_context *t;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
-	const struct seq_range *search_seqs;
-	unsigned int seqcount, seqpos;
-	uint32_t next_seq;
+	const struct seq_range *changed_uids;
+	unsigned int changed_count, changed_idx;
+	uint32_t next_uid;
 	int ret;
 
-	search_seqs = array_get(search_seqs_range, &seqcount);
-	i_assert(seqcount > 0);
-	next_seq = search_seqs[0].seq1;
-	seqpos = 0;
+	changed_uids = array_get(changed_uids_arr, &changed_count);
+	i_assert(changed_count > 0);
+	next_uid = changed_uids[0].seq1;
+	changed_idx = 0;
 
 	mail_search_args_init(result->search_args, result->box, FALSE, NULL);
 
@@ -78,23 +76,23 @@ search_result_update_search(struct mail_search_result *result,
 
 	mail = mail_alloc(t, 0, NULL);
 	while (mailbox_search_next(search_ctx, mail) > 0) {
-		i_assert(next_seq != 0);
+		i_assert(next_uid != 0);
 
-		if (next_seq != mail->seq) {
-			/* some messages in search_seqs didn't match.
+		if (next_uid != mail->uid) {
+			/* some messages in changed_uids didn't match.
 			   make sure they don't exist in the search result. */
-			search_result_range_remove(result, search_seqs_range,
-						   &seqpos, &next_seq,
-						   mail->seq-1);
-			i_assert(next_seq == mail->seq);
+			search_result_range_remove(result, changed_uids_arr,
+						   &changed_idx, &next_uid,
+						   mail->uid-1);
+			i_assert(next_uid == mail->uid);
 		}
-		if (search_seqs[seqpos].seq2 > next_seq) {
-			next_seq++;
-		} else if (++seqpos < seqcount) {
-			next_seq = search_seqs[seqpos].seq1;
+		if (changed_uids[changed_idx].seq2 > next_uid) {
+			next_uid++;
+		} else if (++changed_idx < changed_count) {
+			next_uid = changed_uids[changed_idx].seq1;
 		} else {
 			/* this was the last searched message */
-			next_seq = 0;
+			next_uid = 0;
 		}
 		/* match - make sure it exists in search result */
 		mailbox_search_result_add(result, mail->uid);
@@ -103,12 +101,12 @@ search_result_update_search(struct mail_search_result *result,
 	ret = mailbox_search_deinit(&search_ctx);
 	mail_search_args_deinit(result->search_args);
 
-	if (next_seq != 0 && ret == 0) {
+	if (next_uid != 0 && ret == 0) {
 		/* last message(s) didn't match. make sure they don't exist
 		   in the search result. */
-		search_result_range_remove(result, search_seqs_range, &seqpos,
-					   &next_seq,
-					   search_seqs[seqcount-1].seq2);
+		search_result_range_remove(result, changed_uids_arr,
+					   &changed_idx, &next_uid,
+					   changed_uids[changed_count-1].seq2);
 	}
 
 	if (mailbox_transaction_commit(&t) < 0)
@@ -117,22 +115,22 @@ search_result_update_search(struct mail_search_result *result,
 }
 
 int index_search_result_update_flags(struct mail_search_result *result,
-				     const ARRAY_TYPE(seq_range) *changes)
+				     const ARRAY_TYPE(seq_range) *uids)
 {
 	struct mail_search_arg search_arg;
 	int ret;
 
-	if (array_count(changes) == 0)
+	if (array_count(uids) == 0)
 		return 0;
 
 	/* add a temporary search parameter to limit the search only to
 	   the changed messages */
 	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_SEQSET;
-	search_arg.value.seqset = *changes;
+	search_arg.type = SEARCH_UIDSET;
+	search_arg.value.seqset = *uids;
 	search_arg.next = result->search_args->args;
 	result->search_args->args = &search_arg;
-	ret = search_result_update_search(result, changes);
+	ret = search_result_update_search(result, uids);
 	i_assert(result->search_args->args == &search_arg);
 	result->search_args->args = search_arg.next;
 	return ret;

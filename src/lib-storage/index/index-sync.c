@@ -314,6 +314,9 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	   recent flags */
 	while (index_mailbox_sync_next_expunge(ctx, &sync_rec) > 0) ;
 
+	/* convert sequences to uids before syncing view */
+	index_sync_search_results_uidify(ctx);
+
 	if (ctx->sync_ctx != NULL) {
 		if (mail_index_view_sync_commit(&ctx->sync_ctx,
 						&delayed_expunges) < 0) {
@@ -349,8 +352,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 		array_free(&ctx->flag_updates);
 	if (array_is_created(&ctx->hidden_updates))
 		array_free(&ctx->hidden_updates);
-	if (array_is_created(&ctx->all_flag_updates_merge))
-		array_free(&ctx->all_flag_updates_merge);
+	if (array_is_created(&ctx->all_flag_update_uids))
+		array_free(&ctx->all_flag_update_uids);
 	i_free(ctx);
 	return ret;
 }

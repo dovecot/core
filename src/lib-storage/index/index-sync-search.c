@@ -9,39 +9,59 @@
 #include "index-sync-private.h"
 
 static bool
-search_result_merge_changes(struct index_mailbox_sync_context *ctx,
-			    const struct mail_search_result *result)
+search_result_want_flag_updates(const struct mail_search_result *result)
 {
-	unsigned int count;
-
 	if (!result->args_have_flags && !result->args_have_keywords &&
 	    !result->args_have_modseq) {
 		/* search result doesn't care about flag changes */
 		return FALSE;
 	}
-	if (ctx->all_flag_updates != NULL) {
-		/* already merged */
-		return TRUE;
-	}
+	return TRUE;
+}
 
-	if (array_count(&ctx->hidden_updates) == 0) {
-		ctx->all_flag_updates = &ctx->flag_updates;
-		return TRUE;
-	}
-	if (array_count(&ctx->flag_updates) == 0) {
-		ctx->all_flag_updates = &ctx->hidden_updates;
-		return TRUE;
-	}
+static void index_sync_uidify_array(struct index_mailbox_sync_context *ctx,
+				    const ARRAY_TYPE(seq_range) *changes)
+{
+	const struct seq_range *seqs;
+	unsigned int i, count;
+	uint32_t seq, uid;
 
-	/* both hidden and non-hidden changes. merge them */
+	seqs = array_get(changes, &count);
+	for (i = 0; i < count; i++) {
+		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
+			mail_index_lookup_uid(ctx->ibox->view, seq, &uid);
+			seq_range_array_add(&ctx->all_flag_update_uids, 0, uid);
+		}
+	}
+}
+
+static void index_sync_uidify(struct index_mailbox_sync_context *ctx)
+{
+	unsigned int count;
+
 	count = array_count(&ctx->flag_updates) +
 		array_count(&ctx->hidden_updates);
+	i_array_init(&ctx->all_flag_update_uids, count*2);
 
-	ctx->all_flag_updates = &ctx->all_flag_updates_merge;
-	i_array_init(ctx->all_flag_updates, count);
-	seq_range_array_merge(ctx->all_flag_updates, &ctx->flag_updates);
-	seq_range_array_merge(ctx->all_flag_updates, &ctx->hidden_updates);
-	return TRUE;
+	index_sync_uidify_array(ctx, &ctx->flag_updates);
+	index_sync_uidify_array(ctx, &ctx->hidden_updates);
+}
+
+void index_sync_search_results_uidify(struct index_mailbox_sync_context *ctx)
+{
+	struct mail_search_result *const *results;
+	unsigned int i, count;
+
+	i_assert(!array_is_created(&ctx->all_flag_update_uids));
+
+	results = array_get(&ctx->ibox->box.search_results, &count);
+	for (i = 0; i < count; i++) {
+		if ((results[i]->flags & MAILBOX_SEARCH_RESULT_FLAG_UPDATE) != 0 &&
+		    search_result_want_flag_updates(results[i])) {
+			index_sync_uidify(ctx);
+			break;
+		}
+	}
 }
 
 static void
@@ -53,9 +73,9 @@ search_result_update(struct index_mailbox_sync_context *ctx,
 		return;
 	}
 
-	if (search_result_merge_changes(ctx, result)) {
+	if (search_result_want_flag_updates(result)) {
 		(void)index_search_result_update_flags(result,
-						       ctx->all_flag_updates);
+						&ctx->all_flag_update_uids);
 	}
 	(void)index_search_result_update_appends(result, ctx->messages_count);
 }

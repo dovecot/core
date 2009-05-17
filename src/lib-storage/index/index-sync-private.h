@@ -11,13 +11,14 @@ struct index_mailbox_sync_context {
 
 	ARRAY_TYPE(seq_range) flag_updates;
 	ARRAY_TYPE(seq_range) hidden_updates;
-	ARRAY_TYPE(seq_range) *all_flag_updates, all_flag_updates_merge;
+	ARRAY_TYPE(seq_range) all_flag_update_uids;
 	const ARRAY_TYPE(seq_range) *expunges;
 	unsigned int flag_update_idx, hidden_update_idx, expunge_pos;
 
 	bool failed;
 };
 
+void index_sync_search_results_uidify(struct index_mailbox_sync_context *ctx);
 void index_sync_search_results_update(struct index_mailbox_sync_context *ctx);
 void index_sync_search_results_expunge(struct index_mailbox_sync_context *ctx);
 
