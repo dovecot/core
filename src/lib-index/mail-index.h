@@ -205,6 +205,8 @@ int mail_index_open_or_create(struct mail_index *index,
 			      enum mail_index_open_flags flags,
 			      enum file_lock_method lock_method);
 void mail_index_close(struct mail_index *index);
+/* unlink() all the index files. */
+int mail_index_unlink(struct mail_index *index);
 
 /* Returns TRUE if index is currently in memory. */
 bool mail_index_is_in_memory(struct mail_index *index);

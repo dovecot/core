@@ -485,6 +485,41 @@ void mail_index_close(struct mail_index *index)
 	index->opened = FALSE;
 }
 
+int mail_index_unlink(struct mail_index *index)
+{
+	const char *path;
+	int last_errno = 0;
+
+	if (MAIL_INDEX_IS_IN_MEMORY(index))
+		return 0;
+
+	/* main index */
+	if (unlink(index->filepath) < 0 && errno != ENOENT)
+		last_errno = errno;
+
+	/* logs */
+	path = t_strconcat(index->filepath, MAIL_TRANSACTION_LOG_SUFFIX, NULL);
+	if (unlink(path) < 0 && errno != ENOENT)
+		last_errno = errno;
+
+	path = t_strconcat(index->filepath,
+			   MAIL_TRANSACTION_LOG_SUFFIX".2", NULL);
+	if (unlink(path) < 0 && errno != ENOENT)
+		last_errno = errno;
+
+	/* cache */
+	path = t_strconcat(index->filepath, MAIL_CACHE_FILE_SUFFIX, NULL);
+	if (unlink(path) < 0 && errno != ENOENT)
+		last_errno = errno;
+
+	if (last_errno == 0)
+		return 0;
+	else {
+		errno = last_errno;
+		return -1;
+	}
+}
+
 int mail_index_reopen_if_changed(struct mail_index *index)
 {
 	struct stat st1, st2;

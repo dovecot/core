@@ -4,6 +4,8 @@
 struct mail_index;
 struct mail_index_transaction;
 
+#define MAIL_TRANSACTION_LOG_SUFFIX ".log"
+
 #define MAIL_TRANSACTION_LOG_MAJOR_VERSION 1
 #define MAIL_TRANSACTION_LOG_MINOR_VERSION 2
 #define MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE 24
