@@ -315,8 +315,9 @@ static int do_rquota_user(struct fs_quota_root *root, bool bytes,
 	path++;
 
 	if (root->root.quota->set->debug) {
-		i_info("quota-fs: host=%s, path=%s, uid=%s",
-			host, path, dec2str(root->uid));
+		i_info("quota-fs: host=%s, path=%s, uid=%s, %s",
+		       host, path, dec2str(root->uid),
+		       bytes ? "bytes" : "files");
 	}
 
 	/* clnt_create() polls for a while to establish a connection */
@@ -414,8 +415,9 @@ static int do_rquota_group(struct fs_quota_root *root, bool bytes,
 	path++;
 
 	if (root->root.quota->set->debug) {
-		i_info("quota-fs: host=%s, path=%s, gid=%s",
-			host, path, dec2str(root->gid));
+		i_info("quota-fs: host=%s, path=%s, gid=%s, %s",
+		       host, path, dec2str(root->gid),
+		       bytes ? "bytes" : "files");
 	}
 
 	/* clnt_create() polls for a while to establish a connection */
