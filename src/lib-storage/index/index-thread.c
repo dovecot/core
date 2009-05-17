@@ -571,6 +571,7 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 	else {
 		args = mail_search_build_init();
 		mail_search_build_add_all(args);
+		args->simplified = TRUE;
 	}
 
 	ctx = i_new(struct mail_thread_context, 1);
