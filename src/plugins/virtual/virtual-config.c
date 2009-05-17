@@ -213,6 +213,7 @@ static void virtual_config_copy_expanded(struct virtual_parse_context *ctx,
 	*bbox = *wbox;
 	bbox->name = p_strdup(ctx->pool, name);
 	bbox->glob = NULL;
+	bbox->wildcard = TRUE;
 	mail_search_args_ref(bbox->search_args);
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 }

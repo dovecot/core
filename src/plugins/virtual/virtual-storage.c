@@ -210,7 +210,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	open_flags |= MAILBOX_OPEN_KEEP_RECENT;
 
 	bboxes = array_get(&mbox->backend_boxes, &count);
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count; ) {
 		mailbox = bboxes[i]->name;
 		ns = mail_namespace_find(user->namespaces, &mailbox);
 		storage = ns->storage;
@@ -218,10 +218,19 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 					      NULL, open_flags);
 
 		if (bboxes[i]->box == NULL) {
+			str = mail_storage_get_last_error(storage, &error);
+			if (bboxes[i]->wildcard &&
+			    (error == MAIL_ERROR_PERM ||
+			     error == MAIL_ERROR_NOTFOUND)) {
+				/* this mailbox wasn't explicitly specified.
+				   just skip it. */
+				mail_search_args_unref(&bboxes[i]->search_args);
+				array_delete(&mbox->backend_boxes, i, 1);
+				bboxes = array_get(&mbox->backend_boxes, &count);
+				continue;
+			}
 			if (storage != mbox->ibox.box.storage) {
 				/* copy the error */
-				str = mail_storage_get_last_error(storage,
-								  &error);
 				mail_storage_set_error(mbox->ibox.box.storage,
 						       error, str);
 			}
@@ -231,6 +240,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 		i_array_init(&bboxes[i]->sync_pending_removes, 64);
 		mail_search_args_init(bboxes[i]->search_args, bboxes[i]->box,
 				      FALSE, NULL);
+		i++;
 	}
 	if (i == count)
 		return 0;

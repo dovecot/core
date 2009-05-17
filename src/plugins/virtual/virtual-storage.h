@@ -90,6 +90,7 @@ struct virtual_backend_box {
 	struct mail_namespace *ns;
 
 	unsigned int sync_seen:1;
+	unsigned int wildcard:1;
 };
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 
