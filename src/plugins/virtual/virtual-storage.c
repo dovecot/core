@@ -229,6 +229,8 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 		}
 		i_array_init(&bboxes[i]->uids, 64);
 		i_array_init(&bboxes[i]->sync_pending_removes, 64);
+		mail_search_args_init(bboxes[i]->search_args, bboxes[i]->box,
+				      FALSE, NULL);
 	}
 	if (i == count)
 		return 0;

@@ -291,6 +291,20 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 	return mailbox_list_iter_deinit(&iter);
 }
 
+static void virtual_config_search_args_dup(struct virtual_mailbox *mbox)
+{
+	struct virtual_backend_box *const *bboxes;
+	struct mail_search_args *old_args;
+	unsigned int i, count;
+
+	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
+	for (i = 0; i < count; i++) {
+		old_args = bboxes[i]->search_args;
+		bboxes[i]->search_args = mail_search_args_dup(old_args);
+		mail_search_args_unref(&old_args);
+	}
+}
+
 int virtual_config_read(struct virtual_mailbox *mbox)
 {
 	struct mail_user *user = mbox->storage->storage.ns->user;
@@ -356,6 +370,8 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 					  "%s: No mailboxes defined", path);
 		ret = -1;
 	}
+	if (ret == 0)
+		virtual_config_search_args_dup(mbox);
 	i_stream_unref(&ctx.input);
 	(void)close(fd);
 	return ret;
