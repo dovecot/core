@@ -935,6 +935,9 @@ static int search_build_inthread_result(struct index_search_context *ctx,
 	ARRAY_TYPE(seq_range) thread_uids;
 	int ret = 0;
 
+	/* mail_search_args_init() must have been called by now */
+	i_assert(arg->value.search_args != NULL);
+
 	p_array_init(&arg->value.seqset, ctx->mail_ctx.args->pool, 64);
 	if (mailbox_search_result_build(ctx->mail_ctx.transaction,
 					arg->value.search_args,
