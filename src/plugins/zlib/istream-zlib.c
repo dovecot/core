@@ -246,6 +246,6 @@ struct istream *i_stream_create_zlib(int fd)
 		zstream->istream.istream.seekable = TRUE;
 	}
 
-	return i_stream_create(&zstream->istream, NULL, fd);
+	return i_stream_create(&zstream->istream, NULL, -1);
 }
 #endif
