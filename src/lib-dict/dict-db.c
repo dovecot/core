@@ -388,7 +388,7 @@ static void db_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	struct db_dict_transaction_context *ctx =
 		(struct db_dict_transaction_context *)_ctx;
 
-	ctx->tid->discard(ctx->tid, 0);
+	ctx->tid->abort(ctx->tid);
 	i_free(ctx);
 }
 
