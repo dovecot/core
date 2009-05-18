@@ -9,4 +9,11 @@ void env_remove(const char *name);
 /* Clear all environment variables. */
 void env_clean(void);
 
+/* Save a copy of the current environment. */
+struct env_backup *env_backup_save(void);
+/* Clear the current environment and restore the backup. */
+void env_backup_restore(struct env_backup *env);
+/* Free the memory used by environment backup. */
+void env_backup_free(struct env_backup **env);
+
 #endif

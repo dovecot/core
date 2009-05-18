@@ -5,6 +5,11 @@
 
 #include <stdlib.h>
 
+struct env_backup {
+	pool_t pool;
+	const char **strings;
+};
+
 static pool_t env_pool = NULL;
 
 void env_put(const char *env)
@@ -58,4 +63,39 @@ void env_clean(void)
 #endif
 	if (env_pool != NULL)
 		p_clear(env_pool);
+}
+
+struct env_backup *env_backup_save(void)
+{
+	struct env_backup *env;
+	extern char **environ;
+	unsigned int i, count;
+	pool_t pool;
+
+	for (count = 0; environ[count] != NULL; count++) ;
+
+	pool = pool_alloconly_create("saved environment", 4096);
+	env = p_new(pool, struct env_backup, 1);
+	env->pool = pool;
+	env->strings = p_new(pool, const char *, count + 1);
+	for (i = 0; i < count; i++)
+		env->strings[i] = p_strdup(pool, environ[i]);
+	return env;
+}
+
+void env_backup_restore(struct env_backup *env)
+{
+	unsigned int i;
+
+	env_clean();
+	for (i = 0; env->strings[i] != NULL; i++)
+		env_put(env->strings[i]);
+}
+
+void env_backup_free(struct env_backup **_env)
+{
+	struct env_backup *env = *_env;
+
+	*_env = NULL;
+	pool_unref(&env->pool);
 }
