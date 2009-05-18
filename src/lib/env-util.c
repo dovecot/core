@@ -56,6 +56,6 @@ void env_clean(void)
 	*/
 	environ = calloc(1, sizeof(*environ));
 #endif
-	/* don't clear the env_pool, otherwise the environment would get
-	   corrupted if we failed to clear it. */
+	if (env_pool != NULL)
+		p_clear(env_pool);
 }
