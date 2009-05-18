@@ -53,17 +53,6 @@ static MODULE_CONTEXT_DEFINE_INIT(mail_thread_storage_module,
 
 static void mail_thread_clear(struct mail_thread_context *ctx);
 
-bool mail_thread_type_parse(const char *str, enum mail_thread_type *type_r)
-{
-	if (strcasecmp(str, "REFERENCES") == 0)
-		*type_r = MAIL_THREAD_REFERENCES;
-	else if (strcasecmp(str, "REFS") == 0)
-		*type_r = MAIL_THREAD_REFS;
-	else
-		return FALSE;
-	return TRUE;
-}
-
 static int
 mail_strmap_rec_get_msgid(struct mail_thread_context *ctx,
 			  const struct mail_index_strmap_rec *rec,

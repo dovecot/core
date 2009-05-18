@@ -23,6 +23,7 @@ libstorage_la_SOURCES = \
 	mail-search-build.c \
 	mail-storage.c \
 	mail-storage-settings.c \
+	mail-thread.c \
 	mail-user.c \
 	mailbox-list.c \
 	mailbox-search-result.c \
