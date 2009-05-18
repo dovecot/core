@@ -5,15 +5,15 @@
 
 #include <stdlib.h>
 
-static pool_t pool = NULL;
+static pool_t env_pool = NULL;
 
 void env_put(const char *env)
 {
-	if (pool == NULL) {
-		pool = pool_alloconly_create(MEMPOOL_GROWING"Environment",
-					     2048);
+	if (env_pool == NULL) {
+		env_pool = pool_alloconly_create(MEMPOOL_GROWING"Environment",
+						 2048);
 	}
-	if (putenv(p_strdup(pool, env)) != 0)
+	if (putenv(p_strdup(env_pool, env)) != 0)
 		i_fatal("putenv(%s) failed: %m", env);
 }
 
