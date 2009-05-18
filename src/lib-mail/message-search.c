@@ -46,7 +46,7 @@ message_search_init_real(const char *key, const char *charset,
 		ctx->key_len = str_len(key_utf8);
 		ctx->key_charset = i_strdup(charset);
 		ctx->flags = flags;
-		ctx->decoder = message_decoder_init(TRUE);
+		ctx->decoder = message_decoder_init(MESSAGE_DECODER_FLAG_DTCASE);
 		ctx->str_find_ctx = str_find_init(default_pool, ctx->key);
 		ret = 1;
 	}
