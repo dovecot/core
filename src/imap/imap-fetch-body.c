@@ -212,7 +212,7 @@ static off_t imap_fetch_send(struct imap_fetch_context *ctx,
 			mailbox_get_name(ctx->mail->box), ctx->mail->uid,
 			(uoff_t)sent, virtual_size);
 		mail_set_cache_corrupted(ctx->mail, ctx->cur_size_field);
-		o_stream_close(output);
+		client_disconnect(ctx->client, "FETCH failed");
 		return -1;
 	}
 
@@ -274,7 +274,7 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
 				ctx->cur_name, mailbox_get_name(ctx->mail->box),
 				ctx->mail->uid, ctx->cur_offset, ctx->cur_size);
-			o_stream_close(ctx->client->output);
+			client_disconnect(ctx->client, "FETCH failed");
 			return -1;
 		}
 
