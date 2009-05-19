@@ -49,12 +49,8 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 
 	safe_offset = (off_t)*offset;
 	ret = sendfile(out_fd, in_fd, &safe_offset, count);
+	/* ret=0 : trying to read past EOF, errno = EPIPE : remote is gone */
 	*offset = (uoff_t)safe_offset;
-
-	if (ret == 0) {
-		errno = EPIPE;
-		ret = -1;
-	}
 	return ret;
 }
 
@@ -116,7 +112,11 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	ret = sendfile(out_fd, in_fd, &s_offset, count);
 
 	if (ret < 0) {
-		if (errno == EAFNOSUPPORT) {
+		/* if remote is gone, EPIPE is returned */
+		if (errno == EINVAL) {
+			/* most likely trying to read past EOF */
+			ret = 0;
+		} else if (errno == EAFNOSUPPORT) {
 			/* not supported, return Linux-like EINVAL so caller
 			   sees only consistent errnos. */
 			errno = EINVAL;
