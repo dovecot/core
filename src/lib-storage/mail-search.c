@@ -150,13 +150,13 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 			break;
 		case SEARCH_INTHREAD:
 			i_assert(arg->value.search_args->refcount > 0);
-			arg->value.search_args->refcount--;
-			arg->value.search_args->box = NULL;
 			if (args->refcount == 0 &&
 			    arg->value.search_result != NULL) {
 				mailbox_search_result_free(
 					&arg->value.search_result);
 			}
+			arg->value.search_args->refcount--;
+			arg->value.search_args->box = NULL;
 			/* fall through */
 		case SEARCH_SUB:
 		case SEARCH_OR:
@@ -250,11 +250,14 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 	new_arg->type = arg->type;
 	new_arg->not = arg->not;
 	new_arg->match_always = arg->match_always;
+	new_arg->value.search_flags = arg->value.search_flags;
 
 	switch (arg->type) {
+	case SEARCH_INTHREAD:
+		new_arg->value.thread_type = arg->value.thread_type;
+		/* fall through */
 	case SEARCH_OR:
 	case SEARCH_SUB:
-	case SEARCH_INTHREAD:
 		new_arg->value.subargs =
 			mail_search_arg_dup(pool, arg->value.subargs);
 		break;
