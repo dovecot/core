@@ -730,6 +730,10 @@ static off_t io_stream_sendfile(struct ostream_private *outstream,
 	} while ((uoff_t)ret != send_size);
 
 	i_stream_seek(instream, v_offset);
+	if (ret == 0) {
+		/* we should be at EOF, verify it by reading instream */
+		(void)i_stream_read(instream);
+	}
 	return ret < 0 ? -1 : (off_t)(instream->v_offset - start_offset);
 }
 
