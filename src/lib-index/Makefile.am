@@ -18,6 +18,7 @@ libindex_la_SOURCES = \
         mail-index-fsck.c \
         mail-index-lock.c \
         mail-index-map.c \
+        mail-index-map-hdr.c \
         mail-index-modseq.c \
         mail-index-transaction.c \
         mail-index-transaction-export.c \

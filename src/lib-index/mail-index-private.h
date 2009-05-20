@@ -314,8 +314,14 @@ const struct mail_index_ext *
 mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id);
 
 int mail_index_map_check_header(struct mail_index_map *map);
+bool mail_index_check_header_compat(struct mail_index *index,
+				    const struct mail_index_header *hdr,
+				    uoff_t file_size);
+int mail_index_map_parse_extensions(struct mail_index_map *map);
 int mail_index_map_parse_keywords(struct mail_index_map *map);
 
+void mail_index_map_init_extbufs(struct mail_index_map *map,
+				 unsigned int initial_count);
 int mail_index_map_ext_get_next(struct mail_index_map *map,
 				unsigned int *offset,
 				const struct mail_index_ext_header **ext_hdr_r,
