@@ -47,7 +47,7 @@ get_log_var_expand_table(struct mail_deliver_context *ctx, const char *message)
 
 	tab[0].value = message;
 	(void)mail_get_first_header(ctx->src_mail, "Message-ID", &tab[1].value);
-	(void)mail_get_first_header(ctx->src_mail, "Subject", &tab[2].value);
+	(void)mail_get_first_header_utf8(ctx->src_mail, "Subject", &tab[2].value);
 	tab[3].value = mail_deliver_get_address(ctx, "From");
 	for (i = 1; tab[i].key != '\0'; i++)
 		tab[i].value = str_sanitize(tab[i].value, 80);
