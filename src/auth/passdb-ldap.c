@@ -435,7 +435,12 @@ static void passdb_ldap_deinit(struct passdb_module *_module)
 	db_ldap_unref(&module->conn);
 }
 
-struct passdb_module_interface passdb_ldap = {
+#ifndef PLUGIN_BUILD
+struct passdb_module_interface passdb_ldap =
+#else
+struct passdb_module_interface passdb_ldap_plugin =
+#endif
+{
 	"ldap",
 
 	passdb_ldap_preinit,

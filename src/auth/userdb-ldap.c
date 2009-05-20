@@ -277,7 +277,12 @@ static void userdb_ldap_deinit(struct userdb_module *_module)
 	db_ldap_unref(&module->conn);
 }
 
-struct userdb_module_interface userdb_ldap = {
+#ifndef PLUGIN_BUILD
+struct userdb_module_interface userdb_ldap =
+#else
+struct userdb_module_interface userdb_ldap_plugin =
+#endif
+{
 	"ldap",
 
 	userdb_ldap_preinit,

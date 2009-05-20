@@ -1355,22 +1355,22 @@ void db_ldap_unref(struct ldap_connection **_conn)
 
 #ifndef BUILTIN_LDAP
 /* Building a plugin */
-extern struct passdb_module_interface passdb_ldap;
-extern struct userdb_module_interface userdb_ldap;
+extern struct passdb_module_interface passdb_ldap_plugin;
+extern struct userdb_module_interface userdb_ldap_plugin;
 
 void authdb_ldap_init(void);
 void authdb_ldap_deinit(void);
 
 void authdb_ldap_init(void)
 {
-	passdb_register_module(&passdb_ldap);
-	userdb_register_module(&userdb_ldap);
+	passdb_register_module(&passdb_ldap_plugin);
+	userdb_register_module(&userdb_ldap_plugin);
 
 }
 void authdb_ldap_deinit(void)
 {
-	passdb_unregister_module(&passdb_ldap);
-	userdb_unregister_module(&userdb_ldap);
+	passdb_unregister_module(&passdb_ldap_plugin);
+	userdb_unregister_module(&userdb_ldap_plugin);
 }
 #endif
 
