@@ -482,3 +482,88 @@ bool mail_index_map_get_ext_idx(struct mail_index_map *map,
 	*idx_r = *id;
 	return *idx_r != (uint32_t)-1;
 }
+
+static uint32_t mail_index_bsearch_uid(struct mail_index_map *map,
+				       uint32_t uid, uint32_t left_idx,
+				       int nearest_side)
+{
+	const struct mail_index_record *rec_base, *rec;
+	uint32_t idx, right_idx, record_size;
+
+	i_assert(map->hdr.messages_count <= map->rec_map->records_count);
+
+	rec_base = map->rec_map->records;
+	record_size = map->hdr.record_size;
+
+	idx = left_idx;
+	right_idx = I_MIN(map->hdr.messages_count, uid);
+
+	while (left_idx < right_idx) {
+		idx = (left_idx + right_idx) / 2;
+
+                rec = CONST_PTR_OFFSET(rec_base, idx * record_size);
+		if (rec->uid < uid)
+			left_idx = idx+1;
+		else if (rec->uid > uid)
+			right_idx = idx;
+		else
+			break;
+	}
+	i_assert(idx < map->hdr.messages_count);
+
+	rec = CONST_PTR_OFFSET(rec_base, idx * record_size);
+	if (rec->uid != uid) {
+		if (nearest_side > 0) {
+			/* we want uid or larger */
+			return rec->uid > uid ? idx+1 :
+				(idx == map->hdr.messages_count-1 ? 0 : idx+2);
+		} else {
+			/* we want uid or smaller */
+			return rec->uid < uid ? idx + 1 : idx;
+		}
+	}
+
+	return idx+1;
+}
+
+void mail_index_map_lookup_seq_range(struct mail_index_map *map,
+				     uint32_t first_uid, uint32_t last_uid,
+				     uint32_t *first_seq_r,
+				     uint32_t *last_seq_r)
+{
+	i_assert(first_uid > 0);
+	i_assert(first_uid <= last_uid);
+
+	if (map->hdr.messages_count == 0) {
+		*first_seq_r = *last_seq_r = 0;
+		return;
+	}
+
+	*first_seq_r = mail_index_bsearch_uid(map, first_uid, 0, 1);
+	if (*first_seq_r == 0 ||
+	    MAIL_INDEX_MAP_IDX(map, *first_seq_r-1)->uid > last_uid) {
+		*first_seq_r = *last_seq_r = 0;
+		return;
+	}
+
+	if (last_uid >= map->hdr.next_uid-1) {
+		/* we want the last message */
+		last_uid = map->hdr.next_uid-1;
+		if (first_uid > last_uid) {
+			*first_seq_r = *last_seq_r = 0;
+			return;
+		}
+
+		*last_seq_r = map->hdr.messages_count;
+		return;
+	}
+
+	if (first_uid == last_uid)
+		*last_seq_r = *first_seq_r;
+	else {
+		/* optimization - binary lookup only from right side: */
+		*last_seq_r = mail_index_bsearch_uid(map, last_uid,
+						     *first_seq_r - 1, -1);
+	}
+	i_assert(*last_seq_r >= *first_seq_r);
+}

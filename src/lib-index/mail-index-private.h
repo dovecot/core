@@ -313,6 +313,11 @@ bool mail_index_map_get_ext_idx(struct mail_index_map *map,
 const struct mail_index_ext *
 mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id);
 
+void mail_index_map_lookup_seq_range(struct mail_index_map *map,
+				     uint32_t first_uid, uint32_t last_uid,
+				     uint32_t *first_seq_r,
+				     uint32_t *last_seq_r);
+
 int mail_index_map_check_header(struct mail_index_map *map);
 bool mail_index_check_header_compat(struct mail_index *index,
 				    const struct mail_index_header *hdr,
