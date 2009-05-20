@@ -476,7 +476,11 @@ static void print_build_options(void)
 #ifdef HAVE_OPENSSL
 		" openssl"
 #endif
+#ifdef SQL_DRIVER_PLUGINS
+	"\nSQL driver plugins:"
+#else
 	"\nSQL drivers:"
+#endif
 #ifdef BUILD_MYSQL
 		" mysql"
 #endif
@@ -520,6 +524,9 @@ static void print_build_options(void)
 #endif
 #ifdef USERDB_LDAP
 		" ldap"
+#ifndef BUILTIN_LDAP
+		"(plugin)"
+#endif
 #endif
 #ifdef USERDB_PASSWD
 		" passwd"

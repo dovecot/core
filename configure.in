@@ -2084,6 +2084,8 @@ fi
 SQL_CFLAGS="$MYSQL_CFLAGS $PGSQL_CFLAGS $SQLITE_CFLAGS"
 if test "$want_sql" != "plugin"; then
 	SQL_LIBS="$MYSQL_LIBS $PGSQL_LIBS $SQLITE_LIBS"
+else
+	AC_DEFINE(SQL_DRIVER_PLUGINS,, Build SQL drivers as plugins)
 fi
 
 if test "$found_sql_drivers" != "" || test "$want_sql" != "no"; then
