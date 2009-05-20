@@ -645,12 +645,9 @@ static void maildir_sync_update_next_uid(struct maildir_mailbox *mbox)
 	}
 }
 
-static bool move_recent_messages(struct maildir_sync_context *ctx)
+static bool have_recent_messages(struct maildir_sync_context *ctx)
 {
 	const struct mail_index_header *hdr;
-
-	if (ctx->mbox->ibox.keep_recent)
-		return FALSE;
 
 	(void)maildir_uidlist_refresh(ctx->mbox->uidlist);
 
@@ -675,9 +672,18 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 	if (*new_changed_r || *cur_changed_r)
 		return 1;
 
-	if (move_recent_messages(ctx)) {
-		*new_changed_r = TRUE;
-		return 1;
+	if (have_recent_messages(ctx)) {
+		if (!ctx->mbox->ibox.keep_recent) {
+			*new_changed_r = TRUE;
+			return 1;
+		} else if (*new_changed_r) {
+			/* we have some recent messages and new/ has changed.
+			   if messages had been externally deleted from new/,
+			   we need to get them out of index. this requires that
+			   we make sure they weren't just moved to cur/. */
+			*cur_changed_r = TRUE;
+			return 1;
+		}
 	}
 
 	if (!ctx->mbox->ibox.keep_recent)
