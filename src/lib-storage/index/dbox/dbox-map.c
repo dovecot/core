@@ -1156,6 +1156,12 @@ uint32_t dbox_map_get_uid_validity(struct dbox_map *map)
 	i_assert(map->view != NULL);
 
 	hdr = mail_index_get_header(map->view);
+	if (hdr->uid_validity != 0)
+		return hdr->uid_validity;
+
+	/* refresh index in case it was just changed */
+	(void)dbox_map_refresh(map);
+	hdr = mail_index_get_header(map->view);
 	return hdr->uid_validity != 0 ? hdr->uid_validity :
 		map->created_uid_validity;
 }
