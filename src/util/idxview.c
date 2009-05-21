@@ -29,6 +29,10 @@ struct dbox_index_header {
 	uint32_t map_uid_validity;
 	uint32_t highest_maildir_uid;
 };
+struct dbox_mail_index_record {
+	uint32_t map_uid;
+	uint32_t save_date;
+};
 
 struct virtual_mail_index_record {
 	uint32_t mailbox_id;
@@ -433,6 +437,10 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			printf("                   : file_id = %u\n", mrec->file_id);
 			printf("                   : offset  = %u\n", mrec->offset);
 			printf("                   : size    = %u\n", mrec->size);
+		} else if (strcmp(ext[i].name, "dbox") == 0) {
+			const struct dbox_mail_index_record *drec = data;
+			printf("                   : map_uid   = %u\n", drec->map_uid);
+			printf("                   : save_date = %u (%s)\n", drec->save_date, unixdate2str(drec->save_date));
 		}
 	}
 }
