@@ -113,4 +113,7 @@ bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 bool fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
 		       const struct imap_arg **args);
 
+void imap_fetch_handlers_init(void);
+void imap_fetch_handlers_deinit(void);
+
 #endif

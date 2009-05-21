@@ -13,6 +13,7 @@
 #include "mail-user.h"
 #include "mail-storage-service.h"
 #include "imap-commands.h"
+#include "imap-fetch.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -202,6 +203,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* plugins may want to add commands, so this needs to be called early */
 	commands_init();
+	imap_fetch_handlers_init();
 
 	mail_user = mail_storage_service_init_user(service, &input, set_roots,
 						   storage_service_flags);
@@ -222,6 +224,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	main_deinit();
 	mail_storage_service_deinit_user();
+	imap_fetch_handlers_deinit();
 	commands_deinit();
 
 	master_service_deinit(&service);

@@ -22,10 +22,7 @@
 #define ENVELOPE_NIL_REPLY \
 	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
-#define IMAP_FETCH_HANDLER_COUNT 11
-extern const struct imap_fetch_handler
-	imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT];
-static buffer_t *fetch_handlers = NULL;
+static buffer_t *fetch_handlers;
 
 static int imap_fetch_handler_cmp(const void *p1, const void *p2)
 {
@@ -40,8 +37,6 @@ void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 	void *data;
 	size_t size;
 
-	if (fetch_handlers == NULL)
-		fetch_handlers = buffer_create_dynamic(default_pool, 128);
 	buffer_append(fetch_handlers, handlers, sizeof(*handlers) * count);
 
 	data = buffer_get_modifiable_data(fetch_handlers, &size);
@@ -90,11 +85,6 @@ imap_fetch_init(struct client_command_context *cmd, struct mailbox *box)
 {
 	struct client *client = cmd->client;
 	struct imap_fetch_context *ctx;
-
-	if (fetch_handlers == NULL) {
-		imap_fetch_handlers_register(imap_fetch_default_handlers,
-			N_ELEMENTS(imap_fetch_default_handlers));
-	}
 
 	ctx = p_new(cmd->pool, struct imap_fetch_context, 1);
 	ctx->client = client;
@@ -845,8 +835,8 @@ fetch_x_savedate_init(struct imap_fetch_context *ctx, const char *name,
 	return TRUE;
 }
 
-const struct imap_fetch_handler
-imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT] = {
+static const struct imap_fetch_handler
+imap_fetch_default_handlers[] = {
 	{ "BODY", fetch_body_init },
 	{ "BODYSTRUCTURE", fetch_bodystructure_init },
 	{ "ENVELOPE", fetch_envelope_init },
@@ -859,3 +849,15 @@ imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT] = {
 	{ "X-MAILBOX", fetch_x_mailbox_init },
 	{ "X-SAVEDATE", fetch_x_savedate_init }
 };
+
+void imap_fetch_handlers_init(void)
+{
+	fetch_handlers = buffer_create_dynamic(default_pool, 128);
+	imap_fetch_handlers_register(imap_fetch_default_handlers,
+				     N_ELEMENTS(imap_fetch_default_handlers));
+}
+
+void imap_fetch_handlers_deinit(void)
+{
+	buffer_free(&fetch_handlers);
+}
