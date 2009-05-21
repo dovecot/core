@@ -255,7 +255,7 @@ static bool
 crypt_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	     const unsigned char *raw_password, size_t size)
 {
-	const char *password;
+	const char *password, *crypted;
 
 	if (size == 0) {
 		/* the default mycrypt() handler would return match */
@@ -263,7 +263,14 @@ crypt_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	}
 
 	password = t_strndup(raw_password, size);
-	return strcmp(mycrypt(plaintext, password), password) == 0;
+	crypted = mycrypt(plaintext, password);
+	if (crypted == NULL) {
+		/* really shouldn't happen unless the system is broken */
+		i_error("crypt() failed: %m");
+		return FALSE;
+	}
+
+	return strcmp(crypted, password) == 0;
 }
 
 static void
