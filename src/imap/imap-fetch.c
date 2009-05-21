@@ -22,7 +22,7 @@
 #define ENVELOPE_NIL_REPLY \
 	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
-#define IMAP_FETCH_HANDLER_COUNT 10
+#define IMAP_FETCH_HANDLER_COUNT 11
 extern const struct imap_fetch_handler
 	imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT];
 static buffer_t *fetch_handlers = NULL;
@@ -821,6 +821,30 @@ fetch_x_mailbox_init(struct imap_fetch_context *ctx ATTR_UNUSED,
 	return TRUE;
 }
 
+static int fetch_x_savedate(struct imap_fetch_context *ctx, struct mail *mail,
+			    void *context ATTR_UNUSED)
+{
+	time_t date;
+
+	if (mail_get_save_date(mail, &date) < 0)
+		return -1;
+
+	str_printfa(ctx->cur_str, "X-SAVEDATE \"%s\" ",
+		    imap_to_datetime(date));
+	return 1;
+}
+
+static bool
+fetch_x_savedate_init(struct imap_fetch_context *ctx, const char *name,
+		      const struct imap_arg **args ATTR_UNUSED)
+{
+	ctx->fetch_data |= MAIL_FETCH_SAVE_DATE;
+	imap_fetch_add_handler(ctx, TRUE, FALSE, name,
+			       "\"01-Jan-1970 00:00:00 +0000\"",
+			       fetch_x_savedate, NULL);
+	return TRUE;
+}
+
 const struct imap_fetch_handler
 imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT] = {
 	{ "BODY", fetch_body_init },
@@ -832,5 +856,6 @@ imap_fetch_default_handlers[IMAP_FETCH_HANDLER_COUNT] = {
 	{ "RFC822", fetch_rfc822_init },
 	{ "UID", fetch_uid_init },
 	{ "X-GUID", fetch_guid_init },
-	{ "X-MAILBOX", fetch_x_mailbox_init }
+	{ "X-MAILBOX", fetch_x_mailbox_init },
+	{ "X-SAVEDATE", fetch_x_savedate_init }
 };
