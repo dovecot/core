@@ -22,7 +22,7 @@
 #define ENVELOPE_NIL_REPLY \
 	"(NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL)"
 
-static buffer_t *fetch_handlers;
+static ARRAY_DEFINE(fetch_handlers, struct imap_fetch_handler);
 
 static int imap_fetch_handler_cmp(const void *p1, const void *p2)
 {
@@ -34,13 +34,13 @@ static int imap_fetch_handler_cmp(const void *p1, const void *p2)
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 				  size_t count)
 {
-	void *data;
-	size_t size;
+	struct imap_fetch_handler *all_handlers;
+	unsigned int all_count;
 
-	buffer_append(fetch_handlers, handlers, sizeof(*handlers) * count);
+	array_append(&fetch_handlers, handlers, count);
 
-	data = buffer_get_modifiable_data(fetch_handlers, &size);
-	qsort(data, size / sizeof(*handlers), sizeof(*handlers),
+	all_handlers = array_get_modifiable(&fetch_handlers, &all_count);
+	qsort(all_handlers, all_count, sizeof(*all_handlers),
 	      imap_fetch_handler_cmp);
 }
 
@@ -64,12 +64,12 @@ static int imap_fetch_handler_bsearch(const void *name_p, const void *handler_p)
 bool imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
 			     const struct imap_arg **args)
 {
-	const struct imap_fetch_handler *handler;
+	const struct imap_fetch_handler *handler, *handlers;
+	unsigned int count;
 
-	handler = bsearch(name, fetch_handlers->data,
-			  fetch_handlers->used /
+	handlers = array_get_modifiable(&fetch_handlers, &count);
+	handler = bsearch(name, handlers, count,
 			  sizeof(struct imap_fetch_handler),
-                          sizeof(struct imap_fetch_handler),
 			  imap_fetch_handler_bsearch);
 	if (handler == NULL) {
 		client_send_command_error(ctx->cmd,
@@ -852,12 +852,12 @@ imap_fetch_default_handlers[] = {
 
 void imap_fetch_handlers_init(void)
 {
-	fetch_handlers = buffer_create_dynamic(default_pool, 128);
+	i_array_init(&fetch_handlers, 32);
 	imap_fetch_handlers_register(imap_fetch_default_handlers,
 				     N_ELEMENTS(imap_fetch_default_handlers));
 }
 
 void imap_fetch_handlers_deinit(void)
 {
-	buffer_free(&fetch_handlers);
+	array_free(&fetch_handlers);
 }
