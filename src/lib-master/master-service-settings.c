@@ -189,7 +189,7 @@ int master_service_settings_read(struct master_service *service,
 	unsigned int i;
 	int ret, fd = -1;
 
-	if (getenv("DOVECONF_ENV") == NULL) {
+	if (getenv("DOVECONF_ENV") == NULL && !service->default_settings) {
 		fd = master_service_read_config(service, input, error_r);
 		if (fd == -1)
 			return -1;

@@ -44,6 +44,7 @@ struct master_service {
 	unsigned int keep_environment:1;
 	unsigned int log_directly:1;
 	unsigned int initial_status_sent:1;
+	unsigned int default_settings:1;
 };
 
 #endif

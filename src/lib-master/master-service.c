@@ -32,7 +32,7 @@ static void master_status_update(struct master_service *service);
 
 const char *master_service_getopt_string(void)
 {
-	return "c:ko:s:L";
+	return "c:ko:Os:L";
 }
 
 static void sig_die(const siginfo_t *si, void *context)
@@ -190,6 +190,9 @@ bool master_service_parse_option(struct master_service *service,
 		if (!array_is_created(&service->config_overrides))
 			i_array_init(&service->config_overrides, 16);
 		array_append(&service->config_overrides, &arg, 1);
+		break;
+	case 'O':
+		service->default_settings = TRUE;
 		break;
 	case 's':
 		if ((i = atoi(arg)) < 0)
