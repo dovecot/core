@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "hash.h"
 #include "hex-binary.h"
@@ -561,6 +562,7 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 	/* add the new message */
 	memset(&dbox_rec, 0, sizeof(dbox_rec));
 	dbox_rec.map_uid = msg->map_uid;
+	dbox_rec.save_date = ioloop_time;
 	mail_index_append(ctx->prev_msg.trans, ctx->prev_msg.next_uid++, &seq);
 	mail_index_update_ext(ctx->prev_msg.trans, seq, mbox->dbox_ext_id,
 			      &dbox_rec, NULL);

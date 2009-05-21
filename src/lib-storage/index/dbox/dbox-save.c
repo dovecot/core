@@ -395,6 +395,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 		dbox_add_missing_map_uidvalidity(ctx);
 
 		memset(&rec, 0, sizeof(rec));
+		rec.save_date = ioloop_time;
 		mails = array_get(&ctx->mails, &count);
 		for (i = 0; i < count; i++) {
 			if (mails[i].file->single_mbox != NULL)
@@ -487,6 +488,7 @@ int dbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	src_mbox = (struct dbox_mailbox *)mail->box;
 
 	memset(&rec, 0, sizeof(rec));
+	rec.save_date = ioloop_time;
 	if (dbox_mail_lookup(src_mbox, src_mbox->ibox.view, mail->seq,
 			     &rec.map_uid) < 0)
 		return -1;

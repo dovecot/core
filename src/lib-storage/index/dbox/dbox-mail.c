@@ -217,6 +217,24 @@ static int dbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 	return 0;
 }
 
+static bool multi_dbox_get_save_date(struct mail *mail, time_t *date_r)
+{
+	struct dbox_mailbox *mbox =
+		(struct dbox_mailbox *)mail->transaction->box;
+	const struct dbox_mail_index_record *dbox_rec;
+	const void *data;
+	bool expunged;
+
+	mail_index_lookup_ext(mbox->ibox.view, mail->seq,
+			      mbox->dbox_ext_id, &data, &expunged);
+	dbox_rec = data;
+	if (dbox_rec == NULL || dbox_rec->map_uid == 0)
+		return FALSE;
+
+	*date_r = dbox_rec->save_date;
+	return TRUE;
+}
+
 static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
@@ -225,7 +243,10 @@ static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct stat st;
 	const char *value;
 
-	if (index_mail_get_save_date(_mail, date_r) == 0)
+	if (multi_dbox_get_save_date(_mail, date_r))
+		return 0;
+
+ 	if (index_mail_get_save_date(_mail, date_r) == 0)
 		return 0;
 
 	if (dbox_mail_metadata_read(mail, &file) < 0)

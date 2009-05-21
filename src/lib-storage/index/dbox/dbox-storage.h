@@ -58,6 +58,9 @@ struct dbox_storage {
 
 struct dbox_mail_index_record {
 	uint32_t map_uid;
+	/* UNIX timestamp of when the message was saved/copied to this
+	   mailbox */
+	uint32_t save_date;
 };
 
 struct dbox_mailbox {
