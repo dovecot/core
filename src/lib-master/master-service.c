@@ -108,7 +108,6 @@ master_service_init(const char *name, enum master_service_flags flags,
 		service->socket_count = 1;
 	} else {
 		service->version_string = PACKAGE_VERSION;
-		service->flags |= MASTER_SERVICE_FLAG_LOG_TO_STDERR;
 	}
 	str = getenv("SOCKET_COUNT");
 	if (str != NULL)
@@ -137,7 +136,8 @@ void master_service_init_log(struct master_service *service, const char *prefix,
 {
 	const char *path;
 
-	if ((service->flags & MASTER_SERVICE_FLAG_LOG_TO_STDERR) != 0) {
+	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0 &&
+	    (service->flags & MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR) == 0) {
 		i_set_failure_file("/dev/stderr", "");
 		return;
 	}

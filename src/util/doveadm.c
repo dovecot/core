@@ -213,9 +213,7 @@ int main(int argc, char *argv[])
 	bool all_users = FALSE;
 	int c;
 
-	service = master_service_init("doveadm",
-				      MASTER_SERVICE_FLAG_STANDALONE |
-				      MASTER_SERVICE_FLAG_LOG_TO_STDERR,
+	service = master_service_init("doveadm", MASTER_SERVICE_FLAG_STANDALONE,
 				      argc, argv);
 
 	username = getenv("USER");

@@ -8,8 +8,9 @@ enum master_service_flags {
 	MASTER_SERVICE_FLAG_STD_CLIENT		= 0x01,
 	/* this process is currently running standalone without a master */
 	MASTER_SERVICE_FLAG_STANDALONE		= 0x02,
-	/* Log to stderr instead of the configured log file */
-	MASTER_SERVICE_FLAG_LOG_TO_STDERR	= 0x04,
+	/* Log to configured log file instead of stderr. By default when
+	   _FLAG_STANDALONE is set, logging is done to stderr. */
+	MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR	= 0x04,
 	/* Service is going to do multiple configuration lookups,
 	   keep the connection to config service open. */
 	MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN	= 0x08

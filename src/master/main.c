@@ -569,7 +569,10 @@ int main(int argc, char *argv[])
 	else
 		child_process_env[child_process_env_idx++] = "GDB=1";
 #endif
-	master_service = master_service_init("master", 0, argc, argv);
+	master_service = master_service_init("master",
+				MASTER_SERVICE_FLAG_STANDALONE |
+				MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
+				argc, argv);
 	i_set_failure_prefix("");
 
 	master_uid = geteuid();
