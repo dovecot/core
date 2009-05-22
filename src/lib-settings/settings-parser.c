@@ -466,14 +466,15 @@ static const char *settings_translate_lf(const char *value)
 int settings_parse_stream(struct setting_parser_context *ctx,
 			  struct istream *input)
 {
+	bool ignore_unknown_keys =
+		(ctx->flags & SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS) != 0;
 	const char *line;
-	int ret = 1;
+	int ret;
 
 	while ((line = i_stream_next_line(input)) != NULL) {
 		if (*line == '\0') {
 			/* empty line finishes it */
-			ret = 0;
-			break;
+			return 0;
 		}
 		ctx->linenum++;
 
@@ -481,18 +482,14 @@ int settings_parse_stream(struct setting_parser_context *ctx,
 			line = settings_translate_lf(line);
 			ret = settings_parse_line(ctx, line);
 		} T_END;
-		if (ret == 0 && (ctx->flags &
-				 SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS) == 0)
-			ret = -1;
 
-		if (ret < 0) {
+		if (ret < 0 || (ret == 0 && !ignore_unknown_keys)) {
 			ctx->error = p_strdup_printf(ctx->parser_pool,
 				"Line %u: %s", ctx->linenum, ctx->error);
-			ret = -1;
-			break;
+			return -1;
 		}
 	}
-	return ret;
+	return 1;
 }
 
 int settings_parse_stream_read(struct setting_parser_context *ctx,
