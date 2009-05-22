@@ -279,10 +279,30 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return mailbox_list_delete_index_control(list, name);
 }
 
+static int rename_dir(struct mailbox_list *list,
+		      enum mailbox_list_path_type type,
+		      const char *oldname, const char *newname)
+{
+	const char *oldpath, *newpath;
+
+	oldpath = mailbox_list_get_path(list, oldname, type);
+	newpath = mailbox_list_get_path(list, newname, type);
+
+	if (strcmp(oldpath, newpath) == 0)
+		return 0;
+
+	if (rename(oldpath, newpath) < 0 && errno != ENOENT) {
+		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
+					  oldpath, newpath);
+		return -1;
+	}
+	return 0;
+}
+
 static int fs_list_rename_mailbox(struct mailbox_list *list,
 				  const char *oldname, const char *newname)
 {
-	const char *oldpath, *newpath, *old_indexdir, *new_indexdir, *p;
+	const char *oldpath, *newpath, *p;
 	struct stat st;
 	mode_t mode;
 	gid_t gid;
@@ -344,20 +364,9 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 		return -1;
 	}
 
-	/* we need to rename the index directory as well */
-	old_indexdir = mailbox_list_get_path(list, oldname,
-					     MAILBOX_LIST_PATH_TYPE_INDEX);
-	new_indexdir = mailbox_list_get_path(list, newname,
-					     MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*old_indexdir != '\0') {
-		if (rename(old_indexdir, new_indexdir) < 0 &&
-		    errno != ENOENT) {
-			mailbox_list_set_critical(list,
-						  "rename(%s, %s) failed: %m",
-						  old_indexdir, new_indexdir);
-		}
-	}
-
+	(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_CONTROL,
+			 oldname, newname);
+	(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_INDEX, oldname, newname);
 	return 0;
 }
 
