@@ -271,146 +271,42 @@ lazy_expunge_mailbox_open(struct mail_storage *storage, const char *name,
 	return box;
 }
 
-static int dir_move_or_merge(struct mailbox_list *list,
-			     const char *srcdir, const char *destdir)
-{
-	DIR *dir;
-	struct dirent *dp;
-	string_t *src_path, *dest_path;
-	unsigned int src_dirlen, dest_dirlen;
-	int ret = 0;
-
-	if (rename(srcdir, destdir) == 0 || errno == ENOENT)
-		return 0;
-
-	if (!EDESTDIREXISTS(errno)) {
-		mailbox_list_set_critical(list,
-			"rename(%s, %s) failed: %m", srcdir, destdir);
-	}
-
-	/* rename all the files separately */
-	dir = opendir(srcdir);
-	if (dir == NULL) {
-		mailbox_list_set_critical(list,
-			"opendir(%s) failed: %m", srcdir);
-		return -1;
-	}
-
-	src_path = t_str_new(512);
-	dest_path = t_str_new(512);
-
-	str_append(src_path, srcdir);
-	str_append(dest_path, destdir);
-	str_append_c(src_path, '/');
-	str_append_c(dest_path, '/');
-	src_dirlen = str_len(src_path);
-	dest_dirlen = str_len(dest_path);
-
-	while ((dp = readdir(dir)) != NULL) {
-		if (dp->d_name[0] == '.' &&
-		    (dp->d_name[1] == '\0' ||
-		     (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
-			continue;
-
-		str_truncate(src_path, src_dirlen);
-		str_append(src_path, dp->d_name);
-		str_truncate(dest_path, dest_dirlen);
-		str_append(dest_path, dp->d_name);
-
-		if (rename(str_c(src_path), str_c(dest_path)) < 0 &&
-		    errno != ENOENT) {
-			mailbox_list_set_critical(list,
-				"rename(%s, %s) failed: %m",
-				str_c(src_path), str_c(dest_path));
-			ret = -1;
-		}
-	}
-	if (closedir(dir) < 0) {
-		mailbox_list_set_critical(list,
-			"closedir(%s) failed: %m", srcdir);
-		ret = -1;
-	}
-	if (ret == 0) {
-		if (rmdir(srcdir) < 0) {
-			mailbox_list_set_critical(list,
-				"rmdir(%s) failed: %m", srcdir);
-			ret = -1;
-		}
-	}
-	return ret;
-}
-
 static int
 mailbox_move(struct mailbox_list *src_list, const char *src_name,
 	     struct mailbox_list *dest_list, const char **_dest_name)
 {
-	const char *dest_name = *_dest_name;
-	const char *srcdir, *src2dir, *src3dir, *destdir, *p, *destparent;
-	struct stat st;
+	const char *dir, *dest_name = *_dest_name;
+	enum mail_error error;
 	mode_t mode;
 	gid_t gid;
 
-	srcdir = mailbox_list_get_path(src_list, src_name,
-				       MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	destdir = mailbox_list_get_path(dest_list, dest_name,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	while (rename(srcdir, destdir) < 0) {
-		if (errno == ENOENT) {
-			/* if this is because the destination parent directory
-			   didn't exist, create it. */
-			p = strrchr(destdir, '/');
-			if (p == NULL)
-				return 0;
-			destparent = t_strdup_until(destdir, p);
-			if (stat(destparent, &st) == 0)
-				return 0;
+	/* make sure the destination root directory exists */
+	mailbox_list_get_dir_permissions(dest_list, NULL, &mode, &gid);
+	dir = mailbox_list_get_path(dest_list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (mkdir_parents_chown(dir, mode, (uid_t)-1, gid) < 0 &&
+	    errno != EEXIST) {
+		mailbox_list_set_critical(src_list,
+			"mkdir_parents_chown(%s) failed: %m", dir);
+		return -1;
+	}
 
-			mailbox_list_get_dir_permissions(dest_list, NULL,
-							 &mode, &gid);
-			if (mkdir_parents_chown(destparent, mode,
-						(uid_t)-1, gid) < 0) {
-				if (errno == EEXIST) {
-					/* race condition */
-					continue;
-				}
-				mailbox_list_set_critical(src_list,
-					"mkdir(%s) failed: %m", destparent);
-				return -1;
-			}
-			/* created, try again. */
-			continue;
-		}
-
-		if (!EDESTDIREXISTS(errno)) {
-			mailbox_list_set_critical(src_list,
-				"rename(%s, %s) failed: %m", srcdir, destdir);
+	while (mailbox_list_rename_mailbox(src_list, src_name,
+					   dest_list, dest_name, FALSE) < 0) {
+		mailbox_list_get_last_error(src_list, &error);
+		switch (error) {
+		case MAIL_ERROR_EXISTS:
 			return -1;
+		case MAIL_ERROR_NOTFOUND:
+			return 0;
+		default:
+			break;
 		}
 
 		/* mailbox is being deleted multiple times per second.
 		   update the filename. */
 		dest_name = t_strdup_printf("%s-%04u", *_dest_name,
 					    (uint32_t)random());
-		destdir = mailbox_list_get_path(dest_list, dest_name,
-						MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	}
-
-	src2dir = mailbox_list_get_path(src_list, src_name,
-					MAILBOX_LIST_PATH_TYPE_CONTROL);
-	if (strcmp(src2dir, srcdir) != 0) {
-		destdir = mailbox_list_get_path(dest_list, dest_name,
-						MAILBOX_LIST_PATH_TYPE_CONTROL);
-		(void)dir_move_or_merge(src_list, src2dir, destdir);
-	}
-	src3dir = mailbox_list_get_path(src_list, src_name,
-					MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (strcmp(src3dir, srcdir) != 0 && strcmp(src3dir, src2dir) != 0) {
-		destdir = mailbox_list_get_path(dest_list, dest_name,
-						MAILBOX_LIST_PATH_TYPE_INDEX);
-		(void)dir_move_or_merge(src_list, src3dir, destdir);
-	}
-
-	*_dest_name = dest_name;
 	return 1;
 }
 
@@ -517,7 +413,7 @@ static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
 		LAZY_EXPUNGE_USER_CONTEXT(list->ns->user);
 	struct lazy_expunge_mailbox_list *llist;
 
-	if (luser != NULL) {
+	if (luser != NULL && list->ns->type == NAMESPACE_PRIVATE) {
 		llist = p_new(list->pool, struct lazy_expunge_mailbox_list, 1);
 		llist->module_ctx.super = list->v;
 		list->v.delete_mailbox = lazy_expunge_mailbox_list_delete;
