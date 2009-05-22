@@ -42,8 +42,6 @@ static bool main_init(const struct pop3_settings *set, struct mail_user *user)
 				log_error_callback, NULL);
 	}
 
-	clients_init();
-
 	client = client_create(0, 1, user, set);
 	if (client == NULL)
 		return FALSE;
@@ -68,7 +66,7 @@ static void main_deinit(void)
 {
 	if (log_io != NULL)
 		io_remove(&log_io);
-	clients_deinit();
+	clients_destroy_all();
 }
 
 static void client_connected(const struct master_service_connection *conn)

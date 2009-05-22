@@ -21,7 +21,7 @@
 extern struct mail_storage_callbacks mail_storage_callbacks;
 struct imap_module_register imap_module_register = { 0 };
 
-static struct client *my_client; /* we don't need more than one currently */
+static struct client *imap_clients = NULL;
 
 static void client_idle_timeout(struct client *client)
 {
@@ -77,9 +77,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		client->anvil_sent = TRUE;
 	}
 
-	i_assert(my_client == NULL);
-	my_client = client;
-
+	DLLIST_PREPEND(&imap_clients, client);
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
 	return client;
@@ -162,6 +160,8 @@ void client_destroy(struct client *client, const char *reason)
 		i_info("%s %s", reason, client_stats(client));
 	}
 
+	DLLIST_REMOVE(&imap_clients, client);
+
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
@@ -217,8 +217,6 @@ void client_destroy(struct client *client, const char *reason)
 	pool_unref(&client->command_pool);
 	i_free(client);
 
-	/* quit the program */
-	my_client = NULL;
 	master_service_client_connection_destroyed(master_service);
 }
 
@@ -941,15 +939,10 @@ void client_search_updates_free(struct client *client)
 	array_clear(&client->search_updates);
 }
 
-void clients_init(void)
+void clients_destroy_all(void)
 {
-	my_client = NULL;
-}
-
-void clients_deinit(void)
-{
-	if (my_client != NULL) {
-		client_send_line(my_client, "* BYE Server shutting down.");
-		client_destroy(my_client, "Server shutting down");
+	while (imap_clients != NULL) {
+		client_send_line(imap_clients, "* BYE Server shutting down.");
+		client_destroy(imap_clients, "Server shutting down.");
 	}
 }

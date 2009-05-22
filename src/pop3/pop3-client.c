@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "llist.h"
 #include "hostpid.h"
 #include "var-expand.h"
 #include "master-service.h"
@@ -45,7 +46,7 @@ static struct client_workaround_list client_workaround_list[] = {
 	{ NULL, 0 }
 };
 
-static struct client *my_client; /* we don't need more than one currently */
+static struct client *pop3_clients;
 
 static void client_input(struct client *client);
 static int client_output(struct client *client);
@@ -294,9 +295,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		client->anvil_sent = TRUE;
 	}
 
-	i_assert(my_client == NULL);
-	my_client = client;
-
+	DLLIST_PREPEND(&pop3_clients, client);
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
 	return client;
@@ -364,6 +363,8 @@ void client_destroy(struct client *client, const char *reason)
 		client->cmd(client);
 		i_assert(client->cmd == NULL);
 	}
+	DLLIST_REMOVE(&pop3_clients, client);
+
 	if (client->trans != NULL) {
 		/* client didn't QUIT, but we still want to save any changes
 		   done in this transaction. especially the cached virtual
@@ -402,8 +403,6 @@ void client_destroy(struct client *client, const char *reason)
 
 	i_free(client);
 
-	/* quit the program */
-	my_client = NULL;
 	master_service_client_connection_destroyed(master_service);
 }
 
@@ -586,15 +585,13 @@ static int client_output(struct client *client)
 	return client->cmd == NULL;
 }
 
-void clients_init(void)
+void clients_destroy_all(void)
 {
-	my_client = NULL;
-}
-
-void clients_deinit(void)
-{
-	if (my_client != NULL) {
-		client_send_line(my_client, "-ERR Server shutting down.");
-		client_destroy(my_client, "Server shutting down");
+	while (pop3_clients != NULL) {
+		if (pop3_clients->cmd == NULL) {
+			client_send_line(pop3_clients,
+				"-ERR Server shutting down.");
+		}
+		client_destroy(pop3_clients, "Server shutting down.");
 	}
 }

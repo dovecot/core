@@ -10,6 +10,8 @@ typedef void command_func_t(struct client *client);
 	(((client)->messages_count + (CHAR_BIT-1)) / CHAR_BIT)
 
 struct client {
+	struct client *prev, *next;
+
 	int fd_in, fd_out;
 	struct io *io;
 	struct istream *input;
@@ -76,7 +78,6 @@ void client_send_storage_error(struct client *client);
 bool client_handle_input(struct client *client);
 bool client_update_mails(struct client *client);
 
-void clients_init(void);
-void clients_deinit(void);
+void clients_destroy_all(void);
 
 #endif

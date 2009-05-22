@@ -86,6 +86,8 @@ struct client_command_context {
 };
 
 struct client {
+	struct client *prev, *next;
+
 	int fd_in, fd_out;
 	struct io *io;
 	struct istream *input;
@@ -185,9 +187,6 @@ client_search_update_lookup(struct client *client, const char *tag,
 			    unsigned int *idx_r);
 void client_search_updates_free(struct client *client);
 
-void clients_init(void);
-void clients_deinit(void);
-
 void client_command_cancel(struct client_command_context **cmd);
 void client_command_free(struct client_command_context **cmd);
 
@@ -197,5 +196,7 @@ void client_continue_pending_input(struct client **_client);
 void client_input(struct client *client);
 bool client_handle_input(struct client *client);
 int client_output(struct client *client);
+
+void clients_destroy_all(void);
 
 #endif
