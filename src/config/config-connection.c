@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "settings-parser.h"
+#include "master-service.h"
 #include "config-request.h"
 #include "config-connection.h"
 
@@ -157,6 +158,8 @@ void config_connection_destroy(struct config_connection *conn)
 	if (close(conn->fd) < 0)
 		i_error("close(config conn) failed: %m");
 	i_free(conn);
+
+	master_service_client_connection_destroyed(master_service);
 }
 
 void config_connections_destroy_all(void)

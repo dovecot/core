@@ -219,7 +219,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	/* quit the program */
 	my_client = NULL;
-	master_service_stop(master_service);
+	master_service_client_connection_destroyed(master_service);
 }
 
 void client_disconnect(struct client *client, const char *reason)

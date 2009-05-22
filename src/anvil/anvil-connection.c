@@ -4,6 +4,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "master-service.h"
 #include "master-interface.h"
 #include "connect-limit.h"
 #include "anvil-connection.h"
@@ -156,6 +157,8 @@ void anvil_connection_destroy(struct anvil_connection *conn)
 	if (close(conn->fd) < 0)
 		i_error("close(anvil conn) failed: %m");
 	i_free(conn);
+
+	master_service_client_connection_destroyed(master_service);
 }
 
 void anvil_connections_destroy_all(void)
