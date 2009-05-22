@@ -7,6 +7,7 @@
 #include "fd-close-on-exec.h"
 #include "process-title.h"
 #include "master-service.h"
+#include "master-interface.h"
 #include "mail-storage-service.h"
 #include "lda-settings.h"
 #include "client.h"
@@ -18,28 +19,19 @@
 #define LMTP_MASTER_FIRST_LISTEN_FD 3
 
 #define IS_STANDALONE() \
-        (getenv("MASTER_SERVICE") == NULL)
+        (getenv(MASTER_UID_ENV) == NULL)
 
 struct mail_storage_service_multi_ctx *multi_service;
 
 static void client_connected(const struct master_service_connection *conn)
 {
 	struct client *client;
-	struct ip_addr remote_ip;
-	unsigned int remote_port;
-	int fd;
 
-	fd = net_accept(conn->fd, &remote_ip, &remote_port);
-	if (fd < 0) {
-		if (fd < -1)
-			i_error("accept() failed: %m");
-		return;
-	}
-	client = client_create(fd, fd);
-	client->remote_ip = remote_ip;
-	client->remote_port = remote_port;
+	client = client_create(conn->fd, conn->fd);
+	client->remote_ip = conn->remote_ip;
+	client->remote_port = conn->remote_port;
 
-	(void)net_getsockname(fd, &client->local_ip, &client->local_port);
+	(void)net_getsockname(conn->fd, &client->local_ip, &client->local_port);
 }
 
 static void main_init(void)
@@ -64,16 +56,6 @@ int main(int argc, char *argv[], char *envp[])
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 	int c;
-
-#ifdef DEBUG
-	if (!IS_STANDALONE() && getenv("GDB") == NULL) {
-		const char *env;
-
-		env = getenv("LISTEN_FDS");
-		fd_debug_verify_leaks(LMTP_MASTER_FIRST_LISTEN_FD +
-				      (env == NULL ? 0 : atoi(env)), 1024);
-	}
-#endif
 
 	if (IS_STANDALONE()) {
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE |
