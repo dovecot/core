@@ -132,11 +132,12 @@ fetch_parse_modifiers(struct imap_fetch_context *ctx,
 
 static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 {
-	struct client_command_context *cmd = ctx->cmd;
 	static const char *ok_message = "OK Fetch completed.";
+	struct client_command_context *cmd = ctx->cmd;
+	const char *tagged_reply = ok_message;
 
 	if (ctx->partial_fetch) {
-		ok_message = "OK ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
+		tagged_reply = "OK ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
 			"Some messages were already expunged.";
 	}
 
@@ -165,7 +166,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 	return cmd_sync(cmd,
 			(ctx->seen_flags_changed ? 0 : MAILBOX_SYNC_FLAG_FAST) |
 			(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES), 0,
-			ok_message);
+			tagged_reply);
 }
 
 static bool cmd_fetch_continue(struct client_command_context *cmd)
