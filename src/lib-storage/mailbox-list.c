@@ -9,6 +9,7 @@
 #include "imap-match.h"
 #include "imap-utf7.h"
 #include "mailbox-tree.h"
+#include "mail-storage-private.h"
 #include "mailbox-list-private.h"
 
 #include <time.h>
@@ -572,17 +573,43 @@ int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return list->v.delete_mailbox(list, name);
 }
 
-int mailbox_list_rename_mailbox(struct mailbox_list *list,
-				const char *oldname, const char *newname)
+static bool nullequals(const void *p1, const void *p2)
 {
-	if (!mailbox_list_is_valid_existing_name(list, oldname) ||
-	    !mailbox_list_is_valid_create_name(list, newname)) {
-		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
+	return (p1 == NULL && p2 == NULL) || (p1 != NULL && p2 != NULL);
+}
+
+int mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
+				const char *oldname,
+				struct mailbox_list *newlist,
+				const char *newname, bool rename_children)
+{
+	if (!mailbox_list_is_valid_existing_name(oldlist, oldname) ||
+	    !mailbox_list_is_valid_create_name(newlist, newname)) {
+		mailbox_list_set_error(oldlist, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return -1;
 	}
+	if (strcmp(oldlist->ns->storage->name,
+		   newlist->ns->storage->name) != 0) {
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+			"Can't rename mailbox to another storage type.");
+		return -1;
+	}
+	if (!nullequals(oldlist->set.index_dir, newlist->set.index_dir) ||
+	    !nullequals(oldlist->set.control_dir, newlist->set.control_dir)) {
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+			"Can't rename mailboxes across specified storages.");
+		return -1;
+	}
+	if (oldlist->ns->type != NAMESPACE_PRIVATE ||
+	    newlist->ns->type != NAMESPACE_PRIVATE) {
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+			"Renaming not supported across non-private namespaces.");
+		return -1;
+	}
 
-	return list->v.rename_mailbox(list, oldname, newname);
+	return oldlist->v.rename_mailbox(oldlist, oldname, newlist, newname,
+					 rename_children);
 }
 
 static int mailbox_list_try_delete(struct mailbox_list *list, const char *dir)

@@ -245,52 +245,62 @@ shared_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return ret;
 }
 
-static int shared_list_rename_get_ns(struct mailbox_list *list,
-				     const char **oldname, const char **newname,
+static int shared_list_rename_get_ns(struct mailbox_list *oldlist,
+				     const char **oldname,
+				     struct mailbox_list *newlist,
+				     const char **newname,
 				     struct mail_namespace **ns_r)
 {
 	struct mail_namespace *old_ns, *new_ns;
 
-	if (shared_storage_get_namespace(list->ns->storage,
+	if (shared_storage_get_namespace(oldlist->ns->storage,
 					 oldname, &old_ns) < 0 ||
-	    shared_storage_get_namespace(list->ns->storage,
+	    shared_storage_get_namespace(newlist->ns->storage,
 					 newname, &new_ns) < 0)
 		return -1;
 	if (old_ns != new_ns) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
-			"Can't rename mailboxes across storages");
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+			"Can't rename shared mailboxes across storages.");
 		return -1;
 	}
 	*ns_r = old_ns;
 	return 0;
 }
 
-static int shared_list_rename_mailbox(struct mailbox_list *list,
-				      const char *oldname, const char *newname)
+static int
+shared_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
+			   struct mailbox_list *newlist, const char *newname,
+			   bool rename_children)
 {
 	struct mail_namespace *ns;
 	int ret;
 
-	if (shared_list_rename_get_ns(list, &oldname, &newname, &ns) < 0)
+	if (shared_list_rename_get_ns(oldlist, &oldname,
+				      newlist, &newname, &ns) < 0)
 		return -1;
-	ret = mailbox_list_rename_mailbox(ns->list, oldname, newname);
+	ret = mailbox_list_rename_mailbox(ns->list, oldname, ns->list, newname,
+					  rename_children);
 	if (ret < 0)
-		shared_list_copy_error(list, ns);
+		shared_list_copy_error(oldlist, ns);
 	return ret;
 }
 
 static int
-shared_list_rename_mailbox_pre(struct mailbox_list *list,
-			       const char *oldname, const char *newname)
+shared_list_rename_mailbox_pre(struct mailbox_list *oldlist,
+			       const char *oldname,
+			       struct mailbox_list *newlist,
+			       const char *newname)
 {
 	struct mail_namespace *ns;
 	int ret;
 
-	if (shared_list_rename_get_ns(list, &oldname, &newname, &ns) < 0)
+	if (shared_list_rename_get_ns(oldlist, &oldname,
+				      newlist, &newname, &ns) < 0)
 		return -1;
-	ret = ns->list->v.rename_mailbox_pre(ns->list, oldname, newname);
+	ret = ns->list->v.rename_mailbox_pre(ns->list, oldname,
+					     ns->list, newname);
 	if (ret < 0)
-		shared_list_copy_error(list, ns);
+		shared_list_copy_error(oldlist, ns);
 	return ret;
 }
 

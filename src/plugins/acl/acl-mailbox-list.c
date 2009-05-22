@@ -455,24 +455,26 @@ acl_mailbox_list_delete(struct mailbox_list *list, const char *name)
 }
 
 static int
-acl_mailbox_list_rename(struct mailbox_list *list,
-			const char *oldname, const char *newname)
+acl_mailbox_list_rename(struct mailbox_list *oldlist, const char *oldname,
+			struct mailbox_list *newlist, const char *newname,
+			bool rename_children)
 {
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
+	struct acl_mailbox_list *old_alist = ACL_LIST_CONTEXT(oldlist);
+	struct acl_mailbox_list *new_alist = ACL_LIST_CONTEXT(newlist);
 	bool can_see;
 	int ret;
 
 	/* renaming requires rights to delete the old mailbox */
-	ret = acl_mailbox_list_have_right(list, oldname,
+	ret = acl_mailbox_list_have_right(oldlist, oldname,
 					  ACL_STORAGE_RIGHT_DELETE, &can_see);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
 		if (can_see) {
-			mailbox_list_set_error(list, MAIL_ERROR_PERM,
+			mailbox_list_set_error(oldlist, MAIL_ERROR_PERM,
 					       MAIL_ERRSTR_NO_PERMISSION);
 		} else {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));
 		}
 		return 0;
@@ -480,8 +482,8 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 
 	/* and create the new one under the parent mailbox */
 	T_BEGIN {
-		ret = acl_storage_rights_ctx_have_right(&alist->rights, newname,
-				TRUE, ACL_STORAGE_RIGHT_CREATE, NULL);
+		ret = acl_storage_rights_ctx_have_right(&new_alist->rights,
+				newname, TRUE, ACL_STORAGE_RIGHT_CREATE, NULL);
 	} T_END;
 
 	if (ret <= 0) {
@@ -489,15 +491,17 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 			/* Note that if the mailbox didn't have LOOKUP
 			   permission, this not reveals to user the mailbox's
 			   existence. Can't help it. */
-			mailbox_list_set_error(list, MAIL_ERROR_PERM,
+			mailbox_list_set_error(oldlist, MAIL_ERROR_PERM,
 					       MAIL_ERRSTR_NO_PERMISSION);
 		} else {
-			mailbox_list_set_internal_error(list);
+			mailbox_list_set_internal_error(oldlist);
 		}
 		return -1;
 	}
 
-	return alist->module_ctx.super.rename_mailbox(list, oldname, newname);
+	return old_alist->module_ctx.super.
+		rename_mailbox(oldlist, oldname, newlist, newname,
+			       rename_children);
 }
 
 static void acl_mailbox_list_init_shared(struct mailbox_list *list)

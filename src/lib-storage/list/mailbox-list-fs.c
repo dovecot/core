@@ -4,6 +4,7 @@
 #include "hostpid.h"
 #include "mkdir-parents.h"
 #include "subscription-file.h"
+#include "mail-storage.h"
 #include "mailbox-list-fs.h"
 
 #include <stdio.h>
@@ -279,50 +280,73 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return mailbox_list_delete_index_control(list, name);
 }
 
-static int rename_dir(struct mailbox_list *list,
-		      enum mailbox_list_path_type type,
-		      const char *oldname, const char *newname)
+static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
+		      struct mailbox_list *newlist, const char *newname,
+		      enum mailbox_list_path_type type, bool rmdir_parent)
 {
-	const char *oldpath, *newpath;
+	const char *oldpath, *newpath, *p;
 
-	oldpath = mailbox_list_get_path(list, oldname, type);
-	newpath = mailbox_list_get_path(list, newname, type);
+	oldpath = mailbox_list_get_path(oldlist, oldname, type);
+	newpath = mailbox_list_get_path(newlist, newname, type);
 
 	if (strcmp(oldpath, newpath) == 0)
 		return 0;
 
 	if (rename(oldpath, newpath) < 0 && errno != ENOENT) {
-		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
+		mailbox_list_set_critical(oldlist, "rename(%s, %s) failed: %m",
 					  oldpath, newpath);
 		return -1;
+	}
+	if (rmdir_parent && (p = strrchr(oldpath, '/')) != NULL) {
+		oldpath = t_strdup_until(oldpath, p);
+		if (rmdir(oldpath) < 0 &&
+		    errno != ENOENT && errno != ENOTEMPTY) {
+			mailbox_list_set_critical(oldlist,
+				"rmdir(%s) failed: %m", oldpath);
+		}
 	}
 	return 0;
 }
 
-static int fs_list_rename_mailbox(struct mailbox_list *list,
-				  const char *oldname, const char *newname)
+static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
+				  const char *oldname,
+				  struct mailbox_list *newlist,
+				  const char *newname, bool rename_children)
 {
 	const char *oldpath, *newpath, *p;
+	enum mailbox_list_path_type path_type;
 	struct stat st;
 	mode_t mode;
 	gid_t gid;
+	bool isfile, rmdir_parent = FALSE;
 
-	oldpath = mailbox_list_get_path(list, oldname,
-					MAILBOX_LIST_PATH_TYPE_DIR);
-	newpath = mailbox_list_get_path(list, newname,
-					MAILBOX_LIST_PATH_TYPE_DIR);
+	(void)mail_storage_get_mailbox_path(oldlist->ns->storage,
+					    oldname, &isfile);
+	if (rename_children)
+		path_type = MAILBOX_LIST_PATH_TYPE_DIR;
+	else if (isfile || *oldlist->set.maildir_name != '\0')
+		path_type = MAILBOX_LIST_PATH_TYPE_MAILBOX;
+	else {
+		/* we can't do this, our children would get renamed with us */
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+			"Can't rename mailbox without its children.");
+		return -1;
+	}
+
+	oldpath = mailbox_list_get_path(oldlist, oldname, path_type);
+	newpath = mailbox_list_get_path(newlist, newname, path_type);
 
 	/* create the hierarchy */
 	p = strrchr(newpath, '/');
 	if (p != NULL) {
-		mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
+		mailbox_list_get_dir_permissions(newlist, NULL, &mode, &gid);
 		p = t_strdup_until(newpath, p);
 		if (mkdir_parents_chown(p, mode, (uid_t)-1, gid) < 0 &&
 		    errno != EEXIST) {
-			if (mailbox_list_set_error_from_errno(list))
+			if (mailbox_list_set_error_from_errno(oldlist))
 				return -1;
 
-			mailbox_list_set_critical(list,
+			mailbox_list_set_critical(oldlist,
 				"mkdir_parents(%s) failed: %m", p);
 			return -1;
 		}
@@ -333,21 +357,22 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	   possibility that someone actually tries to rename two mailboxes
 	   to same new one */
 	if (lstat(newpath, &st) == 0) {
-		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
+		mailbox_list_set_error(oldlist, MAIL_ERROR_EXISTS,
 				       "Target mailbox already exists");
 		return -1;
 	} else if (errno == ENOTDIR) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
 			"Target mailbox doesn't allow inferior mailboxes");
 		return -1;
 	} else if (errno != ENOENT && errno != EACCES) {
-		mailbox_list_set_critical(list, "lstat(%s) failed: %m",
+		mailbox_list_set_critical(oldlist, "lstat(%s) failed: %m",
 					  newpath);
 		return -1;
 	}
 
-	if (list->v.rename_mailbox_pre != NULL) {
-		if (list->v.rename_mailbox_pre(list, oldname, newname) < 0)
+	if (oldlist->v.rename_mailbox_pre != NULL) {
+		if (oldlist->v.rename_mailbox_pre(oldlist, oldname,
+						  newlist, newname) < 0)
 			return -1;
 	}
 
@@ -355,18 +380,32 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	   the next time it's needed. */
 	if (rename(oldpath, newpath) < 0) {
 		if (ENOTFOUND(errno)) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));
-		} else if (!mailbox_list_set_error_from_errno(list)) {
-			mailbox_list_set_critical(list,
+		} else if (!mailbox_list_set_error_from_errno(oldlist)) {
+			mailbox_list_set_critical(oldlist,
 				"rename(%s, %s) failed: %m", oldpath, newpath);
 		}
 		return -1;
 	}
 
-	(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_CONTROL,
-			 oldname, newname);
-	(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_INDEX, oldname, newname);
+	if (!rename_children) {
+		/* if there are no child mailboxes, get rid of the mailbox
+		   directory entirely. */
+		oldpath = mailbox_list_get_path(oldlist, oldname,
+						MAILBOX_LIST_PATH_TYPE_DIR);
+		if (rmdir(oldpath) == 0)
+			rmdir_parent = TRUE;
+		else if (errno != ENOENT && errno != ENOTEMPTY) {
+			mailbox_list_set_critical(oldlist,
+				"rmdir(%s) failed: %m", oldpath);
+		}
+	}
+
+	(void)rename_dir(oldlist, oldname, newlist, newname,
+			 MAILBOX_LIST_PATH_TYPE_CONTROL, rmdir_parent);
+	(void)rename_dir(oldlist, oldname, newlist, newname,
+			 MAILBOX_LIST_PATH_TYPE_INDEX, rmdir_parent);
 	return 0;
 }
 

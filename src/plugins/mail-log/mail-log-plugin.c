@@ -597,13 +597,16 @@ mail_log_mailbox_list_delete(struct mailbox_list *list, const char *name)
 }
 
 static int
-mail_log_mailbox_list_rename(struct mailbox_list *list, const char *oldname,
-			     const char *newname)
+mail_log_mailbox_list_rename(struct mailbox_list *oldlist, const char *oldname,
+			     struct mailbox_list *newlist, const char *newname,
+			     bool rename_children)
 {
-	union mailbox_list_module_context *llist = MAIL_LOG_LIST_CONTEXT(list);
-	struct mail_log_user *muser = MAIL_LOG_USER_CONTEXT(list->ns->user);
+	union mailbox_list_module_context *llist =
+		MAIL_LOG_LIST_CONTEXT(oldlist);
+	struct mail_log_user *muser = MAIL_LOG_USER_CONTEXT(oldlist->ns->user);
 
-	if (llist->super.rename_mailbox(list, oldname, newname) < 0)
+	if (llist->super.rename_mailbox(oldlist, oldname, newlist, newname,
+					rename_children) < 0)
 		return -1;
 
 	if ((muser->events & MAIL_LOG_EVENT_MAILBOX_RENAME) == 0)

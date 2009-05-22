@@ -43,8 +43,9 @@ static const char *maildir_subdirs[] = { "cur", "new", "tmp" };
 static int
 maildir_list_delete_mailbox(struct mailbox_list *list, const char *name);
 static int
-maildir_list_rename_mailbox(struct mailbox_list *list,
-			    const char *oldname, const char *newname);
+maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
+			    struct mailbox_list *newlist, const char *newname,
+			    bool rename_children);
 static int
 maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 			     const char *dir, const char *fname,
@@ -829,28 +830,31 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return 0;
 }
 
-static int maildir_list_rename_mailbox(struct mailbox_list *list,
-				       const char *oldname, const char *newname)
+static int
+maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
+			    struct mailbox_list *newlist, const char *newname,
+			    bool rename_children)
 {
-	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(list);
+	struct maildir_storage *oldstorage = MAILDIR_LIST_CONTEXT(oldlist);
 	const char *path1, *path2;
 
 	if (strcmp(oldname, "INBOX") == 0) {
 		/* INBOX often exists as the root ~/Maildir.
 		   We can't rename it then. */
-		path1 = mailbox_list_get_path(list, oldname,
+		path1 = mailbox_list_get_path(oldlist, oldname,
 					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		path2 = mailbox_list_get_path(list, NULL,
+		path2 = mailbox_list_get_path(oldlist, NULL,
 					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (strcmp(path1, path2) == 0) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
 				"Renaming INBOX isn't supported.");
 			return -1;
 		}
 	}
 
-	return storage->list_module_ctx.super.
-		rename_mailbox(list, oldname, newname);
+	return oldstorage->list_module_ctx.super.
+		rename_mailbox(oldlist, oldname, newlist, newname,
+			       rename_children);
 }
 
 static int maildir_storage_mailbox_close(struct mailbox *box)

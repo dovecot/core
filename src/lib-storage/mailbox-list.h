@@ -212,15 +212,13 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 
 /* Delete the given mailbox. If it has children, they aren't deleted. */
 int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name);
-/* If the name has inferior hierarchical names, then the inferior
-   hierarchical names MUST also be renamed (ie. foo -> bar renames
-   also foo/bar -> bar/bar). newname may contain multiple new
-   hierarchies.
-
-   If oldname is case-insensitively "INBOX", the mails are moved
-   into new mailbox but the INBOX mailbox must not be deleted. */
-int mailbox_list_rename_mailbox(struct mailbox_list *list,
-				const char *oldname, const char *newname);
+/* Rename mailbox. Renaming across different mailbox lists is possible only
+   between private namespaces and storages of the same type. If the rename
+   fails, the error is set to oldlist. */
+int mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
+				const char *oldname,
+				struct mailbox_list *newlist,
+				const char *newname, bool rename_children);
 
 /* Returns the error message of last occurred error. */
 const char *mailbox_list_get_last_error(struct mailbox_list *list,

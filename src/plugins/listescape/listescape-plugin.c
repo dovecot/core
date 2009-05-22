@@ -204,14 +204,18 @@ listescape_delete_mailbox(struct mailbox_list *list, const char *name)
 }
 
 static int
-listescape_rename_mailbox(struct mailbox_list *list, const char *oldname,
-			  const char *newname)
+listescape_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
+			  struct mailbox_list *newlist, const char *newname,
+			  bool rename_children)
 {
-	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
+	struct listescape_mailbox_list *old_mlist =
+		LIST_ESCAPE_LIST_CONTEXT(oldlist);
 
-	oldname = list_escape(list->ns, oldname, TRUE);
-	newname = list_escape(list->ns, newname, TRUE);
-	return mlist->module_ctx.super.rename_mailbox(list, oldname, newname);
+	oldname = list_escape(oldlist->ns, oldname, TRUE);
+	newname = list_escape(newlist->ns, newname, TRUE);
+	return old_mlist->module_ctx.super.
+		rename_mailbox(oldlist, oldname, newlist, newname,
+			       rename_children);
 }
 
 static int listescape_set_subscribed(struct mailbox_list *list, 

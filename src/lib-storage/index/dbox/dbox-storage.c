@@ -39,11 +39,14 @@ static MODULE_CONTEXT_DEFINE_INIT(dbox_mailbox_list_module,
 static int
 dbox_list_delete_mailbox(struct mailbox_list *list, const char *name);
 static int
-dbox_list_rename_mailbox(struct mailbox_list *list,
-			 const char *oldname, const char *newname);
+dbox_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
+			 struct mailbox_list *newlist, const char *newname,
+			 bool rename_children);
 static int
-dbox_list_rename_mailbox_pre(struct mailbox_list *list,
-			     const char *oldname, const char *newname);
+dbox_list_rename_mailbox_pre(struct mailbox_list *oldlist,
+			     const char *oldname,
+			     struct mailbox_list *newlist,
+			     const char *newname);
 static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
 				     const char *mailbox_name,
@@ -605,47 +608,59 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return -1;
 }
 
-static bool
-dbox_list_rename_get_alt_paths(struct mailbox_list *list,
-			       const char *oldname, const char *newname,
+static int
+dbox_list_rename_get_alt_paths(struct mailbox_list *oldlist,
+			       const char *oldname,
+			       struct mailbox_list *newlist,
+			       const char *newname,
+			       enum mailbox_list_path_type path_type,
 			       const char **oldpath_r, const char **newpath_r)
 {
-	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
+	struct dbox_storage *oldstorage = DBOX_LIST_CONTEXT(oldlist);
+	struct dbox_storage *newstorage = DBOX_LIST_CONTEXT(newlist);
 	const char *path;
 
-	if (storage->alt_dir == NULL)
-		return FALSE;
-
-	path = mailbox_list_get_path(list, oldname, MAILBOX_LIST_PATH_TYPE_DIR);
-	*oldpath_r = dbox_get_alt_path(storage, path);
+	path = mailbox_list_get_path(oldlist, oldname, path_type);
+	*oldpath_r = dbox_get_alt_path(oldstorage, path);
 	if (*oldpath_r == NULL)
-		return FALSE;
+		return 0;
 
-	path = mailbox_list_get_path(list, newname, MAILBOX_LIST_PATH_TYPE_DIR);
-	*newpath_r = dbox_get_alt_path(storage, path);
-	i_assert(*newpath_r != NULL);
-	return TRUE;
+	path = mailbox_list_get_path(newlist, newname, path_type);
+	*newpath_r = dbox_get_alt_path(newstorage, path);
+	if (*newpath_r == NULL) {
+		/* destination dbox storage doesn't have alt-path defined.
+		   we can't do the rename easily. */
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+			"Can't rename mailboxes across specified storages.");
+		return -1;
+	}
+	return 1;
 }
 
 static int
-dbox_list_rename_mailbox_pre(struct mailbox_list *list,
-			     const char *oldname, const char *newname)
+dbox_list_rename_mailbox_pre(struct mailbox_list *oldlist,
+			     const char *oldname,
+			     struct mailbox_list *newlist,
+			     const char *newname)
 {
 	const char *alt_oldpath, *alt_newpath;
 	struct stat st;
+	int ret;
 
-	if (!dbox_list_rename_get_alt_paths(list, oldname, newname,
-					    &alt_oldpath, &alt_newpath))
-		return 0;
+	ret = dbox_list_rename_get_alt_paths(oldlist, oldname, newlist, newname,
+					     MAILBOX_LIST_PATH_TYPE_DIR,
+					     &alt_oldpath, &alt_newpath);
+	if (ret <= 0)
+		return ret;
 
 	if (stat(alt_newpath, &st) == 0) {
 		/* race condition or a directory left there lying around?
 		   safest to just report error. */
-		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
+		mailbox_list_set_error(oldlist, MAIL_ERROR_EXISTS,
 				       "Target mailbox already exists");
 		return -1;
 	} else if (errno != ENOENT) {
-		mailbox_list_set_critical(list, "stat(%s) failed: %m",
+		mailbox_list_set_critical(oldlist, "stat(%s) failed: %m",
 					  alt_newpath);
 		return -1;
 	}
@@ -653,25 +668,42 @@ dbox_list_rename_mailbox_pre(struct mailbox_list *list,
 }
 
 static int
-dbox_list_rename_mailbox(struct mailbox_list *list,
-			 const char *oldname, const char *newname)
+dbox_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
+			 struct mailbox_list *newlist, const char *newname,
+			 bool rename_children)
 {
-	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
-	const char *alt_oldpath, *alt_newpath;
+	struct dbox_storage *oldstorage = DBOX_LIST_CONTEXT(oldlist);
+	enum mailbox_list_path_type path_type;
+	const char *alt_oldpath, *alt_newpath, *path;
+	int ret;
 
-	if (storage->list_module_ctx.super.rename_mailbox(list, oldname,
-							  newname) < 0)
+	if (oldstorage->list_module_ctx.super.
+	    		rename_mailbox(oldlist, oldname, newlist, newname,
+				       rename_children) < 0)
 		return -1;
 
-	if (!dbox_list_rename_get_alt_paths(list, oldname, newname,
-					    &alt_oldpath, &alt_newpath))
-		return 0;
+	path_type = rename_children ? MAILBOX_LIST_PATH_TYPE_DIR :
+		MAILBOX_LIST_PATH_TYPE_MAILBOX;
+	ret = dbox_list_rename_get_alt_paths(oldlist, oldname, newlist, newname,
+					     path_type, &alt_oldpath,
+					     &alt_newpath);
+	if (ret <= 0)
+		return ret;
 
 	if (rename(alt_oldpath, alt_newpath) == 0) {
 		/* ok */
+		if (!rename_children) {
+			path = mailbox_list_get_path(oldlist, oldname,
+						     MAILBOX_LIST_PATH_TYPE_DIR);
+			if (rmdir(path) < 0 &&
+			    errno != ENOENT && errno != ENOTEMPTY) {
+				mailbox_list_set_critical(oldlist,
+					"rmdir(%s) failed: %m", path);
+			}
+		}
 	} else if (errno != ENOENT) {
 		/* renaming is done already, so just log the error */
-		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
+		mailbox_list_set_critical(oldlist, "rename(%s, %s) failed: %m",
 					  alt_oldpath, alt_newpath);
 	}
 	return 0;

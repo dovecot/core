@@ -277,29 +277,29 @@ static int maildir_list_set_subscribed(struct mailbox_list *_list,
 				       name, set);
 }
 
-static int rename_dir(struct mailbox_list *list,
-		      enum mailbox_list_path_type type,
-		      const char *oldname, const char *newname)
+static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
+		      struct mailbox_list *newlist, const char *newname,
+		      enum mailbox_list_path_type type)
 {
 	const char *oldpath, *newpath;
 
-	oldpath = mailbox_list_get_path(list, oldname, type);
-	newpath = mailbox_list_get_path(list, newname, type);
+	oldpath = mailbox_list_get_path(oldlist, oldname, type);
+	newpath = mailbox_list_get_path(newlist, newname, type);
 
 	if (strcmp(oldpath, newpath) == 0)
 		return 0;
 
 	if (rename(oldpath, newpath) < 0 && errno != ENOENT) {
-		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
+		mailbox_list_set_critical(oldlist, "rename(%s, %s) failed: %m",
 					  oldpath, newpath);
 		return -1;
 	}
-
 	return 0;
 }
 
-static int rename_children(struct mailbox_list *list,
-			   const char *oldname, const char *newname)
+static int
+maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
+			struct mailbox_list *newlist, const char *newname)
 {
 	struct mailbox_list_iterate_context *iter;
         const struct mailbox_info *info;
@@ -309,6 +309,7 @@ static int rename_children(struct mailbox_list *list,
 	unsigned int i, count;
 	size_t oldnamelen;
 	pool_t pool;
+	char old_sep;
 	int ret;
 
 	ret = 0;
@@ -321,9 +322,9 @@ static int rename_children(struct mailbox_list *list,
 	pool = pool_alloconly_create("Maildir++ children list", 1024);
 	i_array_init(&names_arr, 64);
 
-	pattern = t_strdup_printf("%s%c*", oldname,
-				  mailbox_list_get_hierarchy_sep(list));
-	iter = mailbox_list_iter_init(list, pattern,
+	old_sep = mailbox_list_get_hierarchy_sep(oldlist);
+	pattern = t_strdup_printf("%s%c*", oldname, old_sep);
+	iter = mailbox_list_iter_init(oldlist, pattern,
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		const char *name;
@@ -331,8 +332,7 @@ static int rename_children(struct mailbox_list *list,
 		/* verify that the prefix matches, otherwise we could have
 		   problems with mailbox names containing '%' and '*' chars */
 		if (strncmp(info->name, oldname, oldnamelen) == 0 &&
-		    info->name[oldnamelen] ==
-		    mailbox_list_get_hierarchy_sep(list)) {
+		    info->name[oldnamelen] == old_sep) {
 			name = p_strdup(pool, info->name + oldnamelen);
 			array_append(&names_arr, &name, 1);
 		}
@@ -353,9 +353,9 @@ static int rename_children(struct mailbox_list *list,
 		}
 
 		new_listname = t_strconcat(newname, names[i], NULL);
-		oldpath = mailbox_list_get_path(list, old_listname,
+		oldpath = mailbox_list_get_path(oldlist, old_listname,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		newpath = mailbox_list_get_path(list, new_listname,
+		newpath = mailbox_list_get_path(newlist, new_listname,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 		/* FIXME: it's possible to merge two mailboxes if either one of
@@ -369,16 +369,16 @@ static int rename_children(struct mailbox_list *list,
 		if (rename(oldpath, newpath) == 0 || EDESTDIREXISTS(errno))
 			ret = 1;
 		else {
-			mailbox_list_set_critical(list,
+			mailbox_list_set_critical(oldlist,
 				"rename(%s, %s) failed: %m", oldpath, newpath);
 			ret = -1;
 			break;
 		}
 
-		(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_CONTROL,
-				 old_listname, new_listname);
-		(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_INDEX,
-				 old_listname, new_listname);
+		(void)rename_dir(oldlist, old_listname, newlist, new_listname,
+				 MAILBOX_LIST_PATH_TYPE_CONTROL);
+		(void)rename_dir(oldlist, old_listname, newlist, new_listname,
+				 MAILBOX_LIST_PATH_TYPE_INDEX);
 	}
 	array_free(&names_arr);
 	pool_unref(&pool);
@@ -393,8 +393,10 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return mailbox_list_delete_index_control(list, name);
 }
 
-static int maildir_list_rename_mailbox(struct mailbox_list *list,
-				       const char *oldname, const char *newname)
+static int
+maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
+			    struct mailbox_list *newlist, const char *newname,
+			    bool rename_children)
 {
 	const char *oldpath, *newpath;
 	int ret;
@@ -402,26 +404,29 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 
 	/* NOTE: it's possible to rename a nonexisting mailbox which has
 	   children. In that case we should ignore the rename() error. */
-	oldpath = mailbox_list_get_path(list, oldname,
+	oldpath = mailbox_list_get_path(oldlist, oldname,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	newpath = mailbox_list_get_path(list, newname,
+	newpath = mailbox_list_get_path(newlist, newname,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 	ret = rename(oldpath, newpath);
 	if (ret == 0 || errno == ENOENT) {
-		(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_CONTROL,
-				 oldname, newname);
-		(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_INDEX,
-				 oldname, newname);
+		(void)rename_dir(oldlist, oldname, newlist, newname,
+				 MAILBOX_LIST_PATH_TYPE_CONTROL);
+		(void)rename_dir(oldlist, oldname, newlist, newname,
+				 MAILBOX_LIST_PATH_TYPE_INDEX);
 
 		found = ret == 0;
-		T_BEGIN {
-			ret = rename_children(list, oldname, newname);
+		if (!rename_children)
+			ret = 0;
+		else T_BEGIN {
+			ret = maildir_rename_children(oldlist, oldname,
+						      newlist, newname);
 		} T_END;
 		if (ret < 0)
 			return -1;
 		if (!found && ret == 0) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));
 			return -1;
 		}
@@ -430,10 +435,10 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 	}
 
 	if (EDESTDIREXISTS(errno)) {
-		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
+		mailbox_list_set_error(oldlist, MAIL_ERROR_EXISTS,
 				       "Target mailbox already exists");
 	} else {
-		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
+		mailbox_list_set_critical(oldlist, "rename(%s, %s) failed: %m",
 					  oldpath, newpath);
 	}
 	return -1;
