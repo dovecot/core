@@ -9,6 +9,7 @@
 #include "str-sanitize.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
+#include "master-service.h"
 #include "master-interface.h"
 #include "master-auth.h"
 #include "client-common.h"
@@ -93,7 +94,7 @@ master_send_request(struct client *client, struct auth_request *request)
 	req.data_size = buf->used;
 
 	client->master_tag =
-		master_auth_request(service, client->fd, &req, buf->data,
+		master_auth_request(master_service, client->fd, &req, buf->data,
 				    master_auth_callback, client);
 }
 

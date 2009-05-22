@@ -617,7 +617,7 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 	net_disconnect(client->fd);
 	client->fd = -1;
 
-        master_service_client_connection_destroyed(service);
+        master_service_client_connection_destroyed(master_service);
 }
 
 void auth_worker_client_unref(struct auth_worker_client **_client)

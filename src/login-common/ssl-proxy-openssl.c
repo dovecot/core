@@ -695,7 +695,7 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 
 	ssl_proxy_unref(proxy);
 
-        master_service_client_connection_destroyed(service);
+        master_service_client_connection_destroyed(master_service);
 }
 
 static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,

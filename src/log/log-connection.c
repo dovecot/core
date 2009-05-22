@@ -240,7 +240,7 @@ void log_connection_destroy(struct log_connection *log)
 	i_free(log->prefix);
 	i_free(log);
 
-        master_service_client_connection_destroyed(service);
+        master_service_client_connection_destroyed(master_service);
 }
 
 void log_connections_init(void)

@@ -26,6 +26,8 @@
 /* getenv(MASTER_DOVECOT_VERSION_ENV) provides master's version number */
 #define MASTER_DOVECOT_VERSION_ENV "DOVECOT_VERSION"
 
+struct master_service *master_service;
+
 static void io_listeners_add(struct master_service *service);
 static void io_listeners_remove(struct master_service *service);
 static void master_status_update(struct master_service *service);

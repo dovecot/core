@@ -7,7 +7,6 @@
 
 #define AUTH_SUCCESS_PATH PKG_STATEDIR"/auth-success"
 
-extern struct master_service *master_service;
 extern uid_t master_uid;
 extern gid_t master_gid;
 extern bool auth_success_written;

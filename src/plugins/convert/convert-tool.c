@@ -17,7 +17,6 @@
 
 int main(int argc, char *argv[])
 {
-	struct master_service *service;
 	struct mail_storage_service_input input;
 	struct mail_user *user;
 	struct convert_plugin_settings set;
@@ -26,12 +25,12 @@ int main(int argc, char *argv[])
 	const char *error;
 	int i, c, ret = 0;
 
-	service = master_service_init("convert-tool",
-				      MASTER_SERVICE_FLAG_STANDALONE,
-				      argc, argv);
+	master_service = master_service_init("convert-tool",
+					     MASTER_SERVICE_FLAG_STANDALONE,
+					     argc, argv);
 
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(service, c, optarg))
+		if (!master_service_parse_option(master_service, c, optarg))
 			i_fatal(USAGE_STRING);
 	}
 	if (argc - optind < 4)
@@ -54,9 +53,9 @@ int main(int argc, char *argv[])
 	memset(&input, 0, sizeof(input));
 	input.username = argv[optind];
 
-	master_service_init_log(service,
+	master_service_init_log(master_service,
 		t_strdup_printf("convert-tool(%s): ", input.username), 0);
-	user = mail_storage_service_init_user(service, &input, NULL, 0);
+	user = mail_storage_service_init_user(master_service, &input, NULL, 0);
 
 	memset(&ns_set, 0, sizeof(ns_set));
 	ns_set.location = argv[4];
@@ -79,6 +78,6 @@ int main(int argc, char *argv[])
 
 	mail_user_unref(&user);
 	mail_storage_service_deinit_user();
-	master_service_deinit(&service);
+	master_service_deinit(&master_service);
 	return ret <= 0 ? 1 : 0;
 }

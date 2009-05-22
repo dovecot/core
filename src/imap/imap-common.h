@@ -23,8 +23,6 @@ enum client_workarounds {
 #include "imap-client.h"
 #include "imap-settings.h"
 
-extern struct master_service *service;
-
 extern void (*hook_client_created)(struct client **client);
 
 #endif

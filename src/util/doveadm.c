@@ -208,13 +208,13 @@ handle_all_users(struct master_service *service,
 int main(int argc, char *argv[])
 {
 	enum mail_storage_service_flags service_flags = 0;
-	struct master_service *service;
 	const char *getopt_str, *username;
 	bool all_users = FALSE;
 	int c;
 
-	service = master_service_init("doveadm", MASTER_SERVICE_FLAG_STANDALONE,
-				      argc, argv);
+	master_service = master_service_init("doveadm",
+					     MASTER_SERVICE_FLAG_STANDALONE,
+					     argc, argv);
 
 	username = getenv("USER");
 	getopt_str = t_strconcat("au:v", master_service_getopt_string(), NULL);
@@ -231,7 +231,8 @@ int main(int argc, char *argv[])
 			service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 			break;
 		default:
-			if (!master_service_parse_option(service, c, optarg))
+			if (!master_service_parse_option(master_service,
+							 c, optarg))
 				usage();
 		}
 	}
@@ -239,11 +240,11 @@ int main(int argc, char *argv[])
 		usage();
 
 	if (!all_users) {
-		handle_single_user(service, username, service_flags,
+		handle_single_user(master_service, username, service_flags,
 				   argv + optind);
 	} else {
-		handle_all_users(service, service_flags, argv + optind);
+		handle_all_users(master_service, service_flags, argv + optind);
 	}
-	master_service_deinit(&service);
+	master_service_deinit(&master_service);
 	return 0;
 }

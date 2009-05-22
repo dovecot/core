@@ -244,7 +244,7 @@ void login_proxy_free(struct login_proxy **_proxy)
 	i_free(proxy->user);
 	i_free(proxy);
 
-	master_service_client_connection_destroyed(service);
+	master_service_client_connection_destroyed(master_service);
 }
 
 bool login_proxy_is_ourself(const struct client *client, const char *host,

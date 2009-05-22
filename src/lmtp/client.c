@@ -123,7 +123,7 @@ static void client_raw_user_create(struct client *client)
 	const char *error;
 	void **sets;
 
-	sets = master_service_settings_get_others(service);
+	sets = master_service_settings_get_others(master_service);
 
 	client->raw_mail_user = mail_user_alloc("raw user", sets[0]);
 	mail_user_set_home(client->raw_mail_user, "/");
@@ -196,7 +196,7 @@ void client_destroy(struct client *client, const char *prefix,
 	pool_unref(&client->state_pool);
 	i_free(client);
 
-	master_service_client_connection_destroyed(service);
+	master_service_client_connection_destroyed(master_service);
 }
 
 static const char *client_get_disconnect_reason(struct client *client)

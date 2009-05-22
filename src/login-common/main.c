@@ -22,7 +22,6 @@ struct auth_client *auth_client;
 bool closing_down;
 int anvil_fd = -1;
 
-struct master_service *service;
 const struct login_settings *global_login_settings;
 
 static bool ssl_connections = FALSE;
@@ -43,7 +42,8 @@ static void client_connected(const struct master_service_connection *conn)
 	}
 
 	pool = pool_alloconly_create("login client", 1024);
-	set = login_settings_read(service, pool, &local_ip, &conn->remote_ip);
+	set = login_settings_read(master_service, pool, &local_ip,
+				  &conn->remote_ip);
 
 	if (!ssl_connections && !conn->ssl) {
 		client = client_create(conn->fd, FALSE, pool, set, &local_ip,
@@ -101,7 +101,7 @@ static void main_preinit(void)
 	   decreased. leave a couple of extra fds for auth sockets and such.
 	   normal connections each use one fd, but SSL connections use two */
 	max_fds = MASTER_LISTEN_FD_FIRST + 16 +
-		master_service_get_socket_count(service) +
+		master_service_get_socket_count(master_service) +
 		global_login_settings->login_max_connections*2;
 	restrict_fd_limit(max_fds);
 	io_loop_set_max_fd_count(current_ioloop, max_fds);
@@ -129,7 +129,7 @@ static void main_init(void)
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 
 	clients_init();
-	master_auth_init(service);
+	master_auth_init(master_service);
 }
 
 static void main_deinit(void)
@@ -145,7 +145,7 @@ static void main_deinit(void)
 		if (close(anvil_fd) < 0)
 			i_error("close(anvil) failed: %m");
 	}
-	master_auth_deinit(service);
+	master_auth_deinit(master_service);
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -156,11 +156,11 @@ int main(int argc, char *argv[], char *envp[])
 
 	//FIXME:is_inetd = getenv("DOVECOT_MASTER") == NULL;
 
-	service = master_service_init(login_process_name,
-				      MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN,
-				      argc, argv);
-	master_service_init_log(service, t_strconcat(login_process_name, ": ",
-						     NULL), 0);
+	master_service = master_service_init(login_process_name,
+					MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN,
+					argc, argv);
+	master_service_init_log(master_service, t_strconcat(
+		login_process_name, ": ", NULL), 0);
 
         getopt_str = t_strconcat("DS", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
@@ -172,7 +172,8 @@ int main(int argc, char *argv[], char *envp[])
 			ssl_connections = TRUE;
 			break;
 		default:
-			if (!master_service_parse_option(service, c, optarg))
+			if (!master_service_parse_option(master_service,
+							 c, optarg))
 				exit(FATAL_DEFAULT);
 			break;
 		}
@@ -189,15 +190,15 @@ int main(int argc, char *argv[], char *envp[])
 	process_title_init(argv, envp);
 	set_pool = pool_alloconly_create("global login settings", 1024);
 	global_login_settings =
-		login_settings_read(service, set_pool, NULL, NULL);
+		login_settings_read(master_service, set_pool, NULL, NULL);
 
 	main_preinit();
-	master_service_init_finish(service);
+	master_service_init_finish(master_service);
 	main_init();
 
-	master_service_run(service, client_connected);
+	master_service_run(master_service, client_connected);
 	main_deinit();
 	pool_unref(&set_pool);
-	master_service_deinit(&service);
+	master_service_deinit(&master_service);
         return 0;
 }

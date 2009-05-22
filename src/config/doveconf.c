@@ -21,8 +21,6 @@ struct config_request_get_string_ctx {
 	ARRAY_TYPE(const_string) strings;
 };
 
-static struct master_service *service;
-
 static void
 config_request_get_strings(const char *key, const char *value,
 			   bool list, void *context)
@@ -212,8 +210,9 @@ int main(int argc, char *argv[])
 	int c;
 
 	memset(&filter, 0, sizeof(filter));
-	service = master_service_init("config", MASTER_SERVICE_FLAG_STANDALONE,
-				      argc, argv);
+	master_service = master_service_init("config",
+					     MASTER_SERVICE_FLAG_STANDALONE,
+					     argc, argv);
 	i_set_failure_prefix("doveconf: ");
 	getopt_str = t_strconcat("am:np:e", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
@@ -232,11 +231,12 @@ int main(int argc, char *argv[])
 			filter.service = optarg;
 			break;
 		default:
-			if (!master_service_parse_option(service, c, optarg))
+			if (!master_service_parse_option(master_service,
+							 c, optarg))
 				exit(FATAL_DEFAULT);
 		}
 	}
-	config_path = master_service_get_config_path(service);
+	config_path = master_service_get_config_path(master_service);
 
 	if (argv[optind] != NULL)
 		exec_args = &argv[optind];
@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
 		printf("# "VERSION": %s\n", config_path);
 		fflush(stdout);
 	}
-	master_service_init_finish(service);
+	master_service_init_finish(master_service);
 
 	config_parse_file(config_path, FALSE);
 
@@ -265,6 +265,6 @@ int main(int argc, char *argv[])
 		execvp(exec_args[0], exec_args);
 		i_fatal("execvp(%s) failed: %m", exec_args[0]);
 	}
-	master_service_deinit(&service);
+	master_service_deinit(&master_service);
         return 0;
 }

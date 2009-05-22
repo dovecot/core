@@ -44,8 +44,6 @@ static const char *wanted_headers[] = {
 	NULL
 };
 
-static struct master_service *service;
-
 static const char *escape_local_part(const char *local_part)
 {
 	const char *p;
@@ -222,8 +220,9 @@ int main(int argc, char *argv[])
 
 	i_set_failure_exit_callback(failure_exit_callback);
 
-	service = master_service_init("lda", MASTER_SERVICE_FLAG_STANDALONE,
-				      argc, argv);
+	master_service = master_service_init("lda",
+					     MASTER_SERVICE_FLAG_STANDALONE,
+					     argc, argv);
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("mail deliver context", 256);
@@ -277,7 +276,8 @@ int main(int argc, char *argv[])
 				p_strdup(ctx.pool, address_sanitize(optarg));
 			break;
 		default:
-			if (!master_service_parse_option(service, c, optarg)) {
+			if (!master_service_parse_option(master_service,
+							 c, optarg)) {
 				print_help();
 				exit(EX_USAGE);
 			}
@@ -320,19 +320,21 @@ int main(int argc, char *argv[])
 	service_input.username = user;
 
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
-	ctx.dest_user = mail_storage_service_init_user(service, &service_input,
+	ctx.dest_user = mail_storage_service_init_user(master_service,
+						       &service_input,
 						       set_roots,
 						       service_flags);
 #ifdef SIGXFSZ
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
-	ctx.set = mail_storage_service_get_settings(service);
+	ctx.set = mail_storage_service_get_settings(master_service);
         duplicate_init(mail_user_set_get_storage_set(ctx.dest_user->set));
 
 	/* create a separate mail user for the internal namespace */
-	if (master_service_set(service, "mail_full_filesystem_access=yes") < 0)
+	if (master_service_set(master_service,
+			       "mail_full_filesystem_access=yes") < 0)
 		i_unreached();
-	sets = master_service_settings_get_others(service);
+	sets = master_service_settings_get_others(master_service);
 	raw_mail_user = mail_user_alloc(user, sets[0]);
 	mail_user_set_home(raw_mail_user, "/");
 	if (mail_user_init(raw_mail_user, &errstr) < 0)
@@ -429,6 +431,6 @@ int main(int argc, char *argv[])
 	pool_unref(&ctx.pool);
 
 	mail_storage_service_deinit_user();
-	master_service_deinit(&service);
+	master_service_deinit(&master_service);
         return EX_OK;
 }

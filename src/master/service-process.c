@@ -15,6 +15,7 @@
 #include "fd-close-on-exec.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
+#include "master-service.h"
 #include "master-service-settings.h"
 #include "dup2-array.h"
 #include "service.h"

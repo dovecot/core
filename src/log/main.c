@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-struct master_service *service;
 pid_t master_pid;
 
 static void
@@ -49,25 +48,26 @@ int main(int argc, char *argv[])
 	const char *error;
 	int c;
 
-	service = master_service_init("log", 0, argc, argv);
+	master_service = master_service_init("log", 0, argc, argv);
 
 	/* use log prefix and log to stderr until we've configured the real
 	   logging */
 	i_set_failure_file("/dev/stderr", "log: ");
 
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(service, c, optarg))
+		if (!master_service_parse_option(master_service, c, optarg))
 			exit(FATAL_DEFAULT);
 	}
 
-	if (master_service_settings_read_simple(service, NULL, &error) < 0)
+	if (master_service_settings_read_simple(master_service,
+						NULL, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	master_service_init_log(service, "log: ", 0);
-	master_service_init_finish(service);
+	master_service_init_log(master_service, "log: ", 0);
+	master_service_init_finish(master_service);
 	main_init();
-	master_service_run(service, client_connected);
+	master_service_run(master_service, client_connected);
 	main_deinit();
-	master_service_deinit(&service);
+	master_service_deinit(&master_service);
         return 0;
 }

@@ -37,7 +37,6 @@ static struct client_workaround_list client_workaround_list[] = {
 
 static struct io *log_io = NULL;
 
-struct master_service *service;
 void (*hook_client_created)(struct client **client) = NULL;
 
 static void log_error_callback(void *context ATTR_UNUSED)
@@ -45,7 +44,7 @@ static void log_error_callback(void *context ATTR_UNUSED)
 	/* the log fd is closed, don't die when trying to log later */
 	i_set_failure_ignore_errors(TRUE);
 
-	master_service_stop(service);
+	master_service_stop(master_service);
 }
 
 static enum client_workarounds
@@ -180,9 +179,9 @@ int main(int argc, char *argv[], char *envp[])
 			MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS;
 	}
 
-	service = master_service_init("imap", service_flags, argc, argv);
+	master_service = master_service_init("imap", service_flags, argc, argv);
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(service, c, optarg))
+		if (!master_service_parse_option(master_service, c, optarg))
 			exit(FATAL_DEFAULT);
 	}
 
@@ -205,9 +204,10 @@ int main(int argc, char *argv[], char *envp[])
 	commands_init();
 	imap_fetch_handlers_init();
 
-	mail_user = mail_storage_service_init_user(service, &input, set_roots,
+	mail_user = mail_storage_service_init_user(master_service,
+						   &input, set_roots,
 						   storage_service_flags);
-	set = mail_storage_service_get_settings(service);
+	set = mail_storage_service_get_settings(master_service);
 	restrict_access_allow_coredumps(TRUE);
 
         process_title_init(argv, envp);
@@ -220,13 +220,13 @@ int main(int argc, char *argv[], char *envp[])
 		main_init(set, mail_user, dump_capability);
 	} T_END;
 	if (io_loop_is_running(current_ioloop))
-		master_service_run(service, client_connected);
+		master_service_run(master_service, client_connected);
 
 	main_deinit();
 	mail_storage_service_deinit_user();
 	imap_fetch_handlers_deinit();
 	commands_deinit();
 
-	master_service_deinit(&service);
+	master_service_deinit(&master_service);
 	return 0;
 }

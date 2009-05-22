@@ -20,7 +20,6 @@
 #define IS_STANDALONE() \
         (getenv("MASTER_SERVICE") == NULL)
 
-struct master_service *service;
 struct mail_storage_service_multi_ctx *multi_service;
 
 static void client_connected(const struct master_service_connection *conn)
@@ -81,23 +80,24 @@ int main(int argc, char *argv[], char *envp[])
 			MASTER_SERVICE_FLAG_STD_CLIENT;
 	}
 
-	service = master_service_init("lmtp", service_flags, argc, argv);
+	master_service = master_service_init("lmtp", service_flags, argc, argv);
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(service, c, optarg))
+		if (!master_service_parse_option(master_service, c, optarg))
 			exit(FATAL_DEFAULT);
 	}
 
-	multi_service = mail_storage_service_multi_init(service, set_roots,
+	multi_service = mail_storage_service_multi_init(master_service,
+							set_roots,
 							storage_service_flags);
 	restrict_access_allow_coredumps(TRUE);
 
         process_title_init(argv, envp);
 
 	main_init();
-	master_service_run(service, client_connected);
+	master_service_run(master_service, client_connected);
 
 	main_deinit();
 	mail_storage_service_multi_deinit(&multi_service);
-	master_service_deinit(&service);
+	master_service_deinit(&master_service);
 	return 0;
 }

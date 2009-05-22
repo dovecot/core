@@ -31,7 +31,6 @@ enum auth_socket_type {
 	AUTH_SOCKET_MASTER
 };
 
-struct master_service *service;
 bool worker = FALSE, shutdown_request = FALSE;
 time_t process_start_time;
 
@@ -54,7 +53,7 @@ static void main_preinit(struct auth_settings *set)
 	passdbs_init();
 	userdbs_init();
 	modules = module_dir_load(AUTH_MODULE_DIR, NULL, TRUE,
-				  master_service_get_version_string(service));
+			master_service_get_version_string(master_service));
 	module_dir_init(modules);
 	auth = auth_preinit(set);
 
@@ -85,7 +84,7 @@ static void main_init(void)
 	if (worker) {
 		/* workers have only a single connection from the master
 		   auth process */
-		master_service_set_client_limit(service, 1);
+		master_service_set_client_limit(master_service, 1);
 	} else if (getenv("MASTER_AUTH_FD") != NULL) {
 		(void)auth_master_connection_create(auth, MASTER_AUTH_FD);
 	}
@@ -163,8 +162,8 @@ int main(int argc, char *argv[])
 	const char *getopt_str, *auth_name = "default";
 	int c;
 
-	service = master_service_init("auth", 0, argc, argv);
-	master_service_init_log(service, "auth: ", 0);
+	master_service = master_service_init("auth", 0, argc, argv);
+	master_service_init_log(master_service, "auth: ", 0);
 
         getopt_str = t_strconcat("w", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
@@ -176,19 +175,20 @@ int main(int argc, char *argv[])
 			worker = TRUE;
 			break;
 		default:
-			if (!master_service_parse_option(service, c, optarg))
+			if (!master_service_parse_option(master_service,
+							 c, optarg))
 				exit(FATAL_DEFAULT);
 			break;
 		}
 	}
 
-	main_preinit(auth_settings_read(service, auth_name));
+	main_preinit(auth_settings_read(master_service, auth_name));
 
-	master_service_init_finish(service);
+	master_service_init_finish(master_service);
 	main_init();
-	master_service_run(service, worker ? worker_connected :
+	master_service_run(master_service, worker ? worker_connected :
 			   client_connected);
 	main_deinit();
-	master_service_deinit(&service);
+	master_service_deinit(&master_service);
         return 0;
 }

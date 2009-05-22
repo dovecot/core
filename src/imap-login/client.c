@@ -575,7 +575,8 @@ void client_destroy(struct imap_client *client, const char *reason)
 	if (client->common.master_tag != 0) {
 		i_assert(client->common.auth_request == NULL);
 		i_assert(client->common.authenticating);
-		master_auth_request_abort(service, client->common.master_tag);
+		master_auth_request_abort(master_service,
+					  client->common.master_tag);
 	} else if (client->common.auth_request != NULL) {
 		i_assert(client->common.authenticating);
 		sasl_server_auth_client_error(&client->common, NULL);
@@ -653,7 +654,7 @@ bool client_unref(struct imap_client *client)
 
 	if (!client->common.proxying) {
 		i_assert(client->common.proxy == NULL);
-		master_service_client_connection_destroyed(service);
+		master_service_client_connection_destroyed(master_service);
 	}
 
 	i_free(client->common.virtual_user);

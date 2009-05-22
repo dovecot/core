@@ -425,7 +425,7 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 		conn->fd = -1;
 	}
 
-        master_service_client_connection_destroyed(service);
+        master_service_client_connection_destroyed(master_service);
 	auth_master_connection_unref(&conn);
 }
 

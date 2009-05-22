@@ -18,7 +18,6 @@ extern struct auth_client *auth_client;
 extern bool closing_down;
 extern int anvil_fd;
 
-extern struct master_service *service;
 extern const struct login_settings *global_login_settings;
 
 #endif

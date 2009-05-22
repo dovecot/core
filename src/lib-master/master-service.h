@@ -29,7 +29,7 @@ struct master_service_connection {
 typedef void
 master_service_connection_callback_t(const struct master_service_connection *conn);
 
-struct master_service;
+extern struct master_service *master_service;
 
 const char *master_service_getopt_string(void);
 
