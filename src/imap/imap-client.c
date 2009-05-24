@@ -394,13 +394,14 @@ bool client_read_string_args(struct client_command_context *cmd,
 
 static struct client_command_context *
 client_command_find_with_flags(struct client_command_context *new_cmd,
-			       enum command_flags flags)
+			       enum command_flags flags,
+			       enum client_command_state max_state)
 {
 	struct client_command_context *cmd;
 
 	cmd = new_cmd->client->command_queue;
 	for (; cmd != NULL; cmd = cmd->next) {
-		if (cmd->state < CLIENT_COMMAND_STATE_WAIT_SYNC &&
+		if (cmd->state <= max_state &&
 		    cmd != new_cmd && (cmd->cmd_flags & flags) != 0)
 			return cmd;
 	}
@@ -410,6 +411,8 @@ client_command_find_with_flags(struct client_command_context *new_cmd,
 static bool client_command_check_ambiguity(struct client_command_context *cmd)
 {
 	enum command_flags flags;
+	enum client_command_state max_state =
+		CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY;
 	bool broken_client = FALSE;
 
 	if ((cmd->cmd_flags & COMMAND_FLAG_BREAKS_MAILBOX) ==
@@ -417,6 +420,7 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 		/* there must be no other command running that uses the
 		   selected mailbox */
 		flags = COMMAND_FLAG_USES_MAILBOX;
+		max_state = CLIENT_COMMAND_STATE_DONE;
 	} else if ((cmd->cmd_flags & COMMAND_FLAG_USES_SEQS) != 0) {
 		/* no existing command must be breaking sequences */
 		flags = COMMAND_FLAG_BREAKS_SEQS;
@@ -428,7 +432,7 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 		return FALSE;
 	}
 
-	if (client_command_find_with_flags(cmd, flags) == NULL) {
+	if (client_command_find_with_flags(cmd, flags, max_state) == NULL) {
 		if (cmd->client->syncing) {
 			/* don't do anything until syncing is finished */
 			return TRUE;
