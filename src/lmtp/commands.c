@@ -29,7 +29,7 @@ int cmd_lhlo(struct client *client, const char *args ATTR_UNUSED)
 
 int cmd_mail(struct client *client, const char *args)
 {
-	const char *addr;
+	const char *addr, *const *argv;
 	unsigned int len;
 
 	if (client->state.mail_from != NULL) {
@@ -37,13 +37,12 @@ int cmd_mail(struct client *client, const char *args)
 		return 0;
 	}
 
-	addr = args;
-	args = strchr(args, ' ');
-	if (args == NULL)
-		args = "";
+	argv = t_strsplit(args, " ");
+	if (argv == NULL)
+		addr = "";
 	else {
-		addr = t_strdup_until(addr, args);
-		args++;
+		addr = argv[0];
+		argv++;
 	}
 	len = strlen(addr);
 	if (strncasecmp(addr, "FROM:<", 6) != 0 || addr[len-1] != '>') {
@@ -51,9 +50,15 @@ int cmd_mail(struct client *client, const char *args)
 		return 0;
 	}
 
-	if (*args != '\0') {
-		client_send_line(client, "501 5.5.4 Unsupported options");
-		return 0;
+	for (; *argv != NULL; argv++) {
+		if (strcasecmp(*argv, "BODY=7BIT") == 0 ||
+		    strcasecmp(*argv, "BODY=8BITMIME") == 0) {
+			/* just skip these */
+		} else {
+			client_send_line(client,
+				"501 5.5.4 Unsupported options");
+			return 0;
+		}
 	}
 
 	client->state.mail_from =
@@ -80,7 +85,7 @@ int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient rcpt;
 	struct mail_storage_service_input input;
-	const char *name, *error;
+	const char *name, *error, *addr, *const *argv;
 	unsigned int len;
 	int ret;
 
@@ -89,17 +94,29 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 
-	len = strlen(args);
-	if (strncasecmp(args, "TO:<", 4) != 0 || args[len-1] != '>') {
+	argv = t_strsplit(args, " ");
+	if (argv == NULL)
+		addr = "";
+	else {
+		addr = argv[0];
+		argv++;
+	}
+	len = strlen(addr);
+	if (strncasecmp(addr, "TO:<", 4) != 0 || addr[len-1] != '>') {
 		client_send_line(client, "501 5.5.4 Invalid parameters");
 		return 0;
 	}
 
 	memset(&rcpt, 0, sizeof(rcpt));
-	name = t_strndup(args + 4, len - 5);
+	name = t_strndup(addr + 4, len - 5);
 
 	if (rcpt_is_duplicate(client, name)) {
 		client_send_line(client, "250 2.1.5 OK, ignoring duplicate");
+		return 0;
+	}
+
+	if (*argv != NULL) {
+		client_send_line(client, "501 5.5.4 Unsupported options");
 		return 0;
 	}
 
