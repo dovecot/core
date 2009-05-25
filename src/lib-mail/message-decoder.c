@@ -219,10 +219,15 @@ message_decode_body_init_charset(struct message_decoder_context *ctx,
 {
 	enum charset_flags flags;
 
-	if (ctx->charset_utf8)
+	ctx->binary_input = ctx->content_charset == NULL &&
+		(ctx->flags & MESSAGE_DECODER_FLAG_RETURN_BINARY) != 0 &&
+		(part->flags & (MESSAGE_PART_FLAG_TEXT |
+				MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0;
+
+	if (ctx->charset_utf8 || ctx->binary_input)
 		return;
 
-	if (ctx->charset_trans != NULL &&
+	if (ctx->charset_trans != NULL && ctx->content_charset != NULL &&
 	    strcasecmp(ctx->content_charset, ctx->charset_trans_charset) == 0) {
 		/* already have the correct translation selected */
 		return;
@@ -231,13 +236,6 @@ message_decode_body_init_charset(struct message_decoder_context *ctx,
 	if (ctx->charset_trans != NULL)
 		charset_to_utf8_end(&ctx->charset_trans);
 	i_free_and_null(ctx->charset_trans_charset);
-
-	ctx->binary_input = ctx->content_charset == NULL &&
-		(ctx->flags & MESSAGE_DECODER_FLAG_RETURN_BINARY) != 0 &&
-		(part->flags & (MESSAGE_PART_FLAG_TEXT |
-				MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0;
-	if (ctx->binary_input)
-		return;
 
 	flags = (ctx->flags & MESSAGE_DECODER_FLAG_DTCASE) != 0 ?
 		CHARSET_FLAG_DECOMP_TITLECASE : 0;
