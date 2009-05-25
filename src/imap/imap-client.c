@@ -557,8 +557,11 @@ void client_continue_pending_input(struct client **_client)
 
 		/* the command is waiting for existing ambiguity causing
 		   commands to finish. */
-		if (client_command_check_ambiguity(cmd))
+		if (client_command_check_ambiguity(cmd)) {
+			/* we could be waiting for existing sync to finish */
+			cmd_sync_delayed(client);
 			return;
+		}
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_INPUT;
 	}
 
