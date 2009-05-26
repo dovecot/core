@@ -16,6 +16,9 @@ struct virtual_mail {
 	struct mail *backend_mail;
 	/* all allocated mails */
 	ARRAY_DEFINE(backend_mails, struct mail *);
+
+	/* mail is lost if backend_mail doesn't point to correct mail */
+	unsigned int lost:1;
 };
 
 struct mail *
@@ -114,8 +117,7 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 	vmail->backend_mail = backend_mail_find(vmail, bbox->box);
 	if (vmail->backend_mail == NULL)
 		virtual_mail_set_backend_mail(mail, bbox);
-	if (!mail_set_uid(vmail->backend_mail, vrec->real_uid))
-		i_unreached();
+	vmail->lost = !mail_set_uid(vmail->backend_mail, vrec->real_uid);
 	memset(&vmail->imail.data, 0, sizeof(vmail->imail.data));
 	p_clear(vmail->imail.data_pool);
 
@@ -123,9 +125,15 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 	mail->seq = seq;
 	mail_index_lookup_uid(mbox->ibox.view, seq, &mail->uid);
 
-	mail->expunged = vmail->backend_mail->expunged;
-	mail->has_nuls = vmail->backend_mail->has_nuls;
-	mail->has_no_nuls = vmail->backend_mail->has_no_nuls;
+	if (!vmail->lost) {
+		mail->expunged = vmail->backend_mail->expunged;
+		mail->has_nuls = vmail->backend_mail->has_nuls;
+		mail->has_no_nuls = vmail->backend_mail->has_no_nuls;
+	} else {
+		mail->expunged = TRUE;
+		mail->has_nuls = FALSE;
+		mail->has_no_nuls = FALSE;
+	}
 }
 
 static bool virtual_mail_set_uid(struct mail *mail, uint32_t uid)
@@ -149,11 +157,22 @@ static void virtual_mail_set_uid_cache_updates(struct mail *mail, bool set)
 	p->v.set_uid_cache_updates(vmail->backend_mail, set);
 }
 
+static int virtual_mail_handle_lost(struct virtual_mail *vmail)
+{
+	if (!vmail->lost)
+		return 0;
+
+	mail_set_expunged(&vmail->imail.mail.mail);
+	return -1;
+}
+
 static int
 virtual_mail_get_parts(struct mail *mail, const struct message_part **parts_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (mail_get_parts(vmail->backend_mail, parts_r) < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
 		return -1;
@@ -170,6 +189,8 @@ virtual_mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r)
 	if (timezone_r == NULL)
 		timezone_r = &tz;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (mail_get_date(vmail->backend_mail, date_r, timezone_r) < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
 		return -1;
@@ -181,6 +202,8 @@ static int virtual_mail_get_received_date(struct mail *mail, time_t *date_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (mail_get_received_date(vmail->backend_mail, date_r) < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
 		return -1;
@@ -192,6 +215,8 @@ static int virtual_mail_get_save_date(struct mail *mail, time_t *date_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (mail_get_save_date(vmail->backend_mail, date_r) < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
 		return -1;
@@ -203,6 +228,8 @@ static int virtual_mail_get_virtual_mail_size(struct mail *mail, uoff_t *size_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (mail_get_virtual_size(vmail->backend_mail, size_r) < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
 		return -1;
@@ -214,6 +241,8 @@ static int virtual_mail_get_physical_size(struct mail *mail, uoff_t *size_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (mail_get_physical_size(vmail->backend_mail, size_r) < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
 		return -1;
@@ -228,6 +257,8 @@ virtual_mail_get_first_header(struct mail *mail, const char *field,
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail_private *p = (struct mail_private *)vmail->backend_mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (p->v.get_first_header(vmail->backend_mail, field,
 				  decode_to_utf8, value_r) < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
@@ -243,6 +274,8 @@ virtual_mail_get_headers(struct mail *mail, const char *field,
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail_private *p = (struct mail_private *)vmail->backend_mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (p->v.get_headers(vmail->backend_mail, field,
 			     decode_to_utf8, value_r) < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
@@ -259,6 +292,9 @@ virtual_mail_get_header_stream(struct mail *mail,
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mailbox_header_lookup_ctx *backend_headers;
 	int ret;
+
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 
 	backend_headers = mailbox_header_lookup_init(vmail->backend_mail->box,
 						     headers->headers);
@@ -279,6 +315,8 @@ virtual_mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (mail_get_stream(vmail->backend_mail, hdr_size, body_size,
 			    stream_r) < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
@@ -294,6 +332,8 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mailbox *box = vmail->backend_mail->box;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return -1;
 	if (field == MAIL_FETCH_MAILBOX_NAME) {
 		*value_r = p_strconcat(vmail->imail.data_pool,
 				       box->storage->ns->prefix,
@@ -311,6 +351,8 @@ static void virtual_mail_expunge(struct mail *mail)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return;
 	mail_expunge(vmail->backend_mail);
 }
 
@@ -319,6 +361,8 @@ virtual_mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 
+	if (virtual_mail_handle_lost(vmail) < 0)
+		return;
 	mail_set_cache_corrupted(vmail->backend_mail, field);
 }
 
