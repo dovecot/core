@@ -40,20 +40,28 @@ else
   noinst_HEADERS = $(headers)
 endif
 
-test_programs = test-imap-utf7 test-imap-match
+test_programs = \
+	test-imap-match \
+	test-imap-parser \
+	test-imap-utf7
+
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-test_imap_utf7_SOURCES = test-imap-utf7.c
-test_imap_utf7_LDADD = imap-utf7.o $(test_libs)
-test_imap_utf7_DEPENDENCIES = imap-utf7.o $(test_libs)
-
 test_imap_match_SOURCES = test-imap-match.c
 test_imap_match_LDADD = imap-match.o $(test_libs)
 test_imap_match_DEPENDENCIES = imap-match.o $(test_libs)
+
+test_imap_parser_SOURCES = test-imap-parser.c
+test_imap_parser_LDADD = imap-parser.o $(test_libs)
+test_imap_parser_DEPENDENCIES = imap-parser.o $(test_libs)
+
+test_imap_utf7_SOURCES = test-imap-utf7.c
+test_imap_utf7_LDADD = imap-utf7.o $(test_libs)
+test_imap_utf7_DEPENDENCIES = imap-utf7.o $(test_libs)
 
 check: check-am check-test
 check-test: $(test_programs)
