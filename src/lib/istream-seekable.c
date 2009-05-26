@@ -3,25 +3,21 @@
 #include "lib.h"
 #include "buffer.h"
 #include "close-keep-errno.h"
-#include "hex-binary.h"
-#include "randgen.h"
 #include "write-full.h"
 #include "istream-internal.h"
 #include "istream-concat.h"
 #include "istream-seekable.h"
-
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <time.h>
 
 #define BUF_INITIAL_SIZE (1024*32)
 
 struct seekable_istream {
 	struct istream_private istream;
 
-	char *temp_prefix;
+	char *temp_path;
 	uoff_t write_peak;
+
+	int (*fd_callback)(const char **path_r, void *context);
+	void *context;
 
 	buffer_t *buffer;
 	struct istream **input, *cur_input;
@@ -54,7 +50,7 @@ static void i_stream_seekable_destroy(struct iostream_private *stream)
 	for (i = 0; sstream->input[i] != NULL; i++)
 		i_stream_unref(&sstream->input[i]);
 
-	i_free(sstream->temp_prefix);
+	i_free(sstream->temp_path);
 }
 
 static void
@@ -73,44 +69,14 @@ i_stream_seekable_set_max_buffer_size(struct iostream_private *stream,
 
 static int copy_to_temp_file(struct seekable_istream *sstream)
 {
-	unsigned char randbuf[8];
 	const char *path;
-	struct stat st;
 	int fd;
 
-	/* create a temporary file */
-	for (;;) {
-		random_fill_weak(randbuf, sizeof(randbuf));
-		path = t_strconcat(sstream->temp_prefix,
-				   dec2str(time(NULL)), ".",
-				   dec2str(getpid()), ".",
-				   binary_to_hex(randbuf, sizeof(randbuf)),
-				   NULL);
-		if (stat(path, &st) == 0)
-			continue;
-
-		if (errno != ENOENT) {
-			i_error("stat(%s) failed: %m", path);
-			return -1;
-		}
-
-		fd = open(path, O_RDWR | O_EXCL | O_CREAT, 0600);
-		if (fd != -1)
-			break;
-
-		if (errno != EEXIST) {
-			i_error("creat(%s) failed: %m", path);
-			return -1;
-		}
-	}
-
-	/* we just want the fd, unlink it */
-	if (unlink(path) < 0) {
-		/* shouldn't happen.. */
-		i_error("unlink(%s) failed: %m", path);
-		close_keep_errno(fd);
+	fd = sstream->fd_callback(&path, sstream->context);
+	if (fd == -1)
 		return -1;
-	}
+
+	sstream->temp_path = i_strdup(path);
 
 	/* copy our currently read buffer to it */
 	if (write_full(fd, sstream->buffer->data, sstream->buffer->used) < 0) {
@@ -231,8 +197,8 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 		if (write_full(sstream->fd, data, size) < 0) {
 			i_assert(errno != 0);
 			stream->istream.stream_errno = errno;
-			i_error("write_full(%s...) failed: %m",
-				sstream->temp_prefix);
+			i_error("write_full(%s) failed: %m",
+				sstream->temp_path);
 			i_stream_close(&stream->istream);
 			return -1;
 		}
@@ -303,7 +269,9 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 
 struct istream *
 i_stream_create_seekable(struct istream *input[],
-			 size_t max_buffer_size, const char *temp_prefix)
+			 size_t max_buffer_size,
+			 int (*fd_callback)(const char **path_r, void *context),
+			 void *context)
 {
 	struct seekable_istream *sstream;
 	const unsigned char *data;
@@ -328,7 +296,8 @@ i_stream_create_seekable(struct istream *input[],
 	i_assert(count != 0);
 
 	sstream = i_new(struct seekable_istream, 1);
-	sstream->temp_prefix = i_strdup(temp_prefix);
+	sstream->fd_callback = fd_callback;
+	sstream->context = context;
 	sstream->buffer = buffer_create_dynamic(default_pool, BUF_INITIAL_SIZE);
         sstream->istream.max_buffer_size = max_buffer_size;
 

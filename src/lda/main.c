@@ -4,8 +4,10 @@
 #include "lib-signals.h"
 #include "env-util.h"
 #include "fd-set-nonblock.h"
+#include "close-keep-errno.h"
 #include "istream.h"
 #include "istream-seekable.h"
+#include "safe-mkstemp.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "strescape.h"
@@ -82,10 +84,35 @@ static const char *address_sanitize(const char *address)
 	return ret;
 }
 
+static int seekable_fd_callback(const char **path_r, void *context)
+{
+	struct mail_deliver_context *ctx = context;
+	string_t *path;
+	int fd;
+
+	path = t_str_new(128);
+	str_append(path, mail_user_get_temp_prefix(ctx->dest_user));
+	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
+	if (fd == -1) {
+		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+		return -1;
+	}
+
+	/* we just want the fd, unlink it */
+	if (unlink(str_c(path)) < 0) {
+		/* shouldn't happen.. */
+		i_error("unlink(%s) failed: %m", str_c(path));
+		close_keep_errno(fd);
+		return -1;
+	}
+
+	*path_r = str_c(path);
+	return fd;
+}
 
 static struct istream *
 create_raw_stream(struct mail_deliver_context *ctx,
-		  const char *temp_path_prefix, int fd, time_t *mtime_r)
+		  int fd, time_t *mtime_r)
 {
 	struct istream *input, *input2, *input_list[2];
 	const unsigned char *data;
@@ -135,7 +162,7 @@ create_raw_stream(struct mail_deliver_context *ctx,
 
 	input_list[0] = input2; input_list[1] = NULL;
 	input = i_stream_create_seekable(input_list, MAIL_MAX_MEMORY_BUFFER,
-					 temp_path_prefix);
+					 seekable_fd_callback, ctx);
 	i_stream_unref(&input2);
 	return input;
 }
@@ -349,8 +376,7 @@ int main(int argc, char *argv[])
 	if (mail_storage_create(raw_ns, "raw", 0, &errstr) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", errstr);
 	if (path == NULL) {
-		const char *prefix = mail_user_get_temp_prefix(ctx.dest_user);
-		input = create_raw_stream(&ctx, prefix, 0, &mtime);
+		input = create_raw_stream(&ctx, 0, &mtime);
 		box = mailbox_open(&raw_ns->storage, "Dovecot Delivery Mail",
 				   input, MAILBOX_OPEN_NO_INDEX_FILES);
 		i_stream_unref(&input);
