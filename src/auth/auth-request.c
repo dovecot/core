@@ -1297,7 +1297,7 @@ int auth_request_password_verify(struct auth_request *request,
 	if (ret <= 0) {
 		if (ret < 0) {
 			auth_request_log_error(request, subsystem,
-				"Invalid password format for scheme %s",
+				"Password in passdb is not in expected scheme %s",
 				scheme);
 		} else {
 			auth_request_log_error(request, subsystem,

@@ -72,7 +72,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 	if (ret <= 0) {
 		if (ret < 0) {
 			auth_request_log_error(auth_request, "password",
-				"Invalid password format for scheme %s",
+				"Password in passdb is not in expected scheme %s",
 				input_scheme);
 		} else {
 			auth_request_log_error(auth_request, "password",
