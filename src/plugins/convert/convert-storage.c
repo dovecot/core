@@ -119,7 +119,7 @@ mailbox_name_convert(struct mail_storage *dest_storage,
 	src_sep = mail_storage_get_hierarchy_sep(source_storage);
 	dest_sep = mail_storage_get_hierarchy_sep(dest_storage);
 
-	if (src_sep == dest_sep)
+	if (src_sep == dest_sep || set->alt_hierarchy_char == '\0')
 		return name;
 
 	dest_name = t_strdup_noconst(name);
