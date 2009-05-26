@@ -69,7 +69,7 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 	case -2:
 		client->input_skip_line = TRUE;
 		idle_finish(ctx, FALSE, TRUE);
-		client_continue_pending_input(&client);
+		client_continue_pending_input(client);
 		return;
 	}
 
@@ -85,10 +85,13 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 			client->input_skip_line = FALSE;
 		else {
 			idle_finish(ctx, strcasecmp(line, "DONE") == 0, TRUE);
-			client_continue_pending_input(&client);
 			break;
 		}
 	}
+	if (client->disconnected)
+		client_destroy(client, NULL);
+	else
+		client_continue_pending_input(client);
 }
 
 static void keepalive_timeout(struct cmd_idle_context *ctx)

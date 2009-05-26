@@ -534,19 +534,11 @@ static void client_add_missing_io(struct client *client)
 	}
 }
 
-void client_continue_pending_input(struct client **_client)
+void client_continue_pending_input(struct client *client)
 {
-	struct client *client = *_client;
 	size_t size;
 
 	i_assert(!client->handling_input);
-
-	if (client->disconnected) {
-		if (!client->destroyed)
-			client_destroy(client, NULL);
-		*_client = NULL;
-		return;
-	}
 
 	if (client->input_lock != NULL) {
 		/* there's a command that has locked the input */
@@ -559,8 +551,10 @@ void client_continue_pending_input(struct client **_client)
 		   commands to finish. */
 		if (client_command_check_ambiguity(cmd)) {
 			/* we could be waiting for existing sync to finish */
-			cmd_sync_delayed(client);
-			return;
+			if (!cmd_sync_delayed(client))
+				return;
+			if (client_command_check_ambiguity(cmd))
+				return;
 		}
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_INPUT;
 	}
@@ -569,8 +563,10 @@ void client_continue_pending_input(struct client **_client)
 
 	/* if there's unread data in buffer, handle it. */
 	(void)i_stream_get_data(client->input, &size);
-	if (size > 0)
-		(void)client_handle_input(client);
+	if (size > 0 && !client->disconnected) {
+		if (client_handle_input(client))
+			client_continue_pending_input(client);
+	}
 }
 
 /* Skip incoming data until newline is found,
@@ -730,6 +726,8 @@ bool client_handle_input(struct client *client)
 {
 	bool ret, remove_io, handled_commands = FALSE;
 
+	i_assert(!client->disconnected);
+
 	client->handling_input = TRUE;
 	do {
 		T_BEGIN {
@@ -740,23 +738,16 @@ bool client_handle_input(struct client *client)
 	} while (ret && !client->disconnected && client->io != NULL);
 	client->handling_input = FALSE;
 
-	if (client->output->closed) {
-		client_destroy(client, NULL);
-		return TRUE;
-	} else {
-		if (remove_io)
-			io_remove(&client->io);
-		else
-			client_add_missing_io(client);
-		if (!handled_commands)
-			return FALSE;
+	if (remove_io)
+		io_remove(&client->io);
+	else
+		client_add_missing_io(client);
+	if (!handled_commands)
+		return FALSE;
 
-		ret = client->input_lock != NULL ? TRUE :
-			cmd_sync_delayed(client);
-		if (ret)
-			client_continue_pending_input(&client);
-		return TRUE;
-	}
+	if (client->input_lock == NULL)
+		cmd_sync_delayed(client);
+	return TRUE;
 }
 
 void client_input(struct client *client)
@@ -793,6 +784,11 @@ void client_input(struct client *client)
 	}
 	o_stream_uncork(output);
 	o_stream_unref(&output);
+
+	if (client->disconnected)
+		client_destroy(client, NULL);
+	else
+		client_continue_pending_input(client);
 }
 
 static void client_output_cmd(struct client_command_context *cmd)
@@ -855,15 +851,13 @@ int client_output(struct client *client)
 		}
 	}
 
-	if (client->output->closed) {
+	(void)cmd_sync_delayed(client);
+	o_stream_uncork(client->output);
+	if (client->disconnected)
 		client_destroy(client, NULL);
-		return 1;
-	} else {
-		(void)cmd_sync_delayed(client);
-		o_stream_uncork(client->output);
-		client_continue_pending_input(&client);
-		return ret;
-	}
+	else
+		client_continue_pending_input(client);
+	return ret;
 }
 
 bool client_handle_search_save_ambiguity(struct client_command_context *cmd)

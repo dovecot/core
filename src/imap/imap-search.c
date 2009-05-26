@@ -439,7 +439,11 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 	else
 		client_command_free(&cmd);
 	(void)cmd_sync_delayed(client);
-	client_continue_pending_input(&client);
+
+	if (client->disconnected)
+		client_destroy(client, NULL);
+	else
+		client_continue_pending_input(client);
 }
 
 int cmd_search_parse_return_if_found(struct imap_search_context *ctx,

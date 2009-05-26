@@ -44,7 +44,6 @@ static void client_input_append(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
 	struct client *client = cmd->client;
-	struct ostream *output = client->output;
 	bool finished;
 
 	i_assert(!client->destroyed);
@@ -80,17 +79,19 @@ static void client_input_append(struct client_command_context *cmd)
 		return;
 	}
 
-	o_stream_ref(output);
-	o_stream_cork(output);
+	o_stream_cork(client->output);
 	finished = cmd->func(cmd);
 	if (!finished && cmd->state != CLIENT_COMMAND_STATE_DONE)
 		(void)client_handle_unfinished_cmd(cmd);
 	else
 		client_command_free(&cmd);
 	(void)cmd_sync_delayed(client);
-	client_continue_pending_input(&client);
-	o_stream_uncork(output);
-	o_stream_unref(&output);
+	o_stream_uncork(client->output);
+
+	if (client->disconnected)
+		client_destroy(client, NULL);
+	else
+		client_continue_pending_input(client);
 }
 
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
