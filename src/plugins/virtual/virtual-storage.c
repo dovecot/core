@@ -116,6 +116,8 @@ static int virtual_create(struct mail_storage *_storage, const char *data,
 	struct stat st;
 	const char *layout;
 
+	_storage->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
+
 	if (virtual_get_list_settings(&list_set, data, _storage,
 				      &layout, error_r) < 0)
 		return -1;
