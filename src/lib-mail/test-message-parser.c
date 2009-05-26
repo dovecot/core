@@ -98,7 +98,8 @@ static void test_message_parser_small_blocks(void)
 			test_istream_set_allow_eof(input, TRUE);
 		while ((ret = message_parser_parse_next_block(parser,
 							      &block)) > 0) ;
-		test_assert(ret == 0 || i > TEST_MSG_LEN*2);
+		test_assert((ret == 0 && i <= TEST_MSG_LEN*2) ||
+			    (ret < 0 && i > TEST_MSG_LEN*2));
 	}
 	test_assert(message_parser_deinit(&parser, &parts2) == 0);
 	test_assert(msg_parts_cmp(parts, parts2));
@@ -107,7 +108,7 @@ static void test_message_parser_small_blocks(void)
 	i_stream_seek(input, 0);
 	test_istream_set_allow_eof(input, FALSE);
 
-	end_of_headers_idx = strstr(test_msg, "\n-----") - test_msg;
+	end_of_headers_idx = (strstr(test_msg, "\n-----") - test_msg);
 	parser = message_parser_init_from_parts(parts, input, 0,
 					MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK);
 	for (i = 1; i <= TEST_MSG_LEN*2+1; i++) {
@@ -116,7 +117,8 @@ static void test_message_parser_small_blocks(void)
 			test_istream_set_allow_eof(input, TRUE);
 		while ((ret = message_parser_parse_next_block(parser,
 							      &block)) > 0) ;
-		test_assert(ret == 0 || i >= end_of_headers_idx);
+		test_assert((ret == 0 && i/2 <= end_of_headers_idx) ||
+			    (ret < 0 && i/2 > end_of_headers_idx));
 	}
 	test_assert(message_parser_deinit(&parser, &parts2) == 0);
 	test_assert(msg_parts_cmp(parts, parts2));
