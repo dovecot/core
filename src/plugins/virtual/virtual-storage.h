@@ -84,6 +84,9 @@ struct virtual_backend_box {
 	struct mail *sync_mail;
 	/* pending removed UIDs */
 	ARRAY_TYPE(seq_range) sync_pending_removes;
+	/* another process expunged these UIDs. they need to be removed on
+	   next sync. */
+	ARRAY_TYPE(seq_range) sync_outside_expunges;
 
 	/* name contains a wildcard, this is a glob for it */
 	struct imap_match_glob *glob;
@@ -91,6 +94,7 @@ struct virtual_backend_box {
 
 	unsigned int sync_seen:1;
 	unsigned int wildcard:1;
+	unsigned int uids_nonsorted:1;
 };
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 
@@ -108,6 +112,7 @@ struct virtual_mailbox {
 
 	char *vseq_lookup_prev_mailbox;
 	struct virtual_backend_box *vseq_lookup_prev_bbox;
+	uint32_t sync_virtual_next_uid;
 
 	/* Mailboxes this virtual mailbox consists of, sorted by mailbox_id */
 	ARRAY_TYPE(virtual_backend_box) backend_boxes;

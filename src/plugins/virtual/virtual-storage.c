@@ -362,6 +362,8 @@ static int virtual_storage_mailbox_close(struct mailbox *box)
 			virtual_copy_error(box->storage, storage);
 			ret = -1;
 		}
+		if (array_is_created(&bboxes[i]->sync_outside_expunges))
+			array_free(&bboxes[i]->sync_outside_expunges);
 		array_free(&bboxes[i]->sync_pending_removes);
 		array_free(&bboxes[i]->uids);
 	}
