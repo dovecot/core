@@ -760,6 +760,7 @@ static void virtual_sync_drop_nonexisting(struct virtual_backend_box *bbox,
 	struct seq_range_iter iter;
 	unsigned int i, n = 0, count;
 	uint32_t remove_uid;
+	bool iter_done = FALSE;
 
 	seq_range_array_iter_init(&iter, removed_uids);
 	if (!seq_range_array_iter_nth(&iter, n++, &remove_uid))
@@ -768,21 +769,26 @@ static void virtual_sync_drop_nonexisting(struct virtual_backend_box *bbox,
 	uidmap = array_get_modifiable(&bbox->uids, &count);
 	(void)bsearch_insert_pos(&remove_uid, uidmap, count, sizeof(*uidmap),
 				 virtual_backend_uidmap_bsearch_cmp, &i);
-	if (i == count)
-		return;
 
-	t_array_init(&drop_uids, array_count(removed_uids));
+	t_array_init(&drop_uids, array_count(removed_uids)); iter_done = FALSE;
 	for (; i < count; ) {
 		if (uidmap[i].real_uid < remove_uid) {
 			i++;
 			continue;
 		}
-		if (uidmap[i].real_uid != remove_uid) {
+		if (uidmap[i].real_uid != remove_uid)
 			seq_range_array_add(&drop_uids, 0, remove_uid);
+		else
 			i++;
-		}
-		if (!seq_range_array_iter_nth(&iter, n++, &remove_uid))
+		if (!seq_range_array_iter_nth(&iter, n++, &remove_uid)) {
+			iter_done = TRUE;
 			break;
+		}
+	}
+	if (!iter_done) {
+		do {
+			seq_range_array_add(&drop_uids, 0, remove_uid);
+		} while (!seq_range_array_iter_nth(&iter, n++, &remove_uid));
 	}
 	seq_range_array_remove_seq_range(removed_uids, &drop_uids);
 }
