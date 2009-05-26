@@ -12,7 +12,7 @@ enum message_header_parser_flags {
 	MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP	= 0x01,
 	/* Don't add CRs to full_value even if input had them */
 	MESSAGE_HEADER_PARSER_FLAG_DROP_CR		= 0x02,
-	/* Convert [CR+]LF+LWSP to a space character */
+	/* Convert [CR+]LF+LWSP to a space character in full_value */
 	MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE	= 0x04
 };
 
