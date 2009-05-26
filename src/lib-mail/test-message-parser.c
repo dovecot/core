@@ -67,28 +67,28 @@ static bool msg_parts_cmp(struct message_part *p1, struct message_part *p2)
 	return TRUE;
 }
 
-static void test_message_parser(void)
+static void test_message_parser_small_blocks(void)
 {
 	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts, *parts2;
 	struct message_block block;
-	unsigned int i;
-	bool success = TRUE;
+	unsigned int i, end_of_headers_idx;
 	pool_t pool;
 	int ret;
 
+	test_begin("message parser in small blocks");
 	pool = pool_alloconly_create("message parser", 10240);
-	input = i_stream_create_from_data(test_msg, TEST_MSG_LEN);
+	input = test_istream_create(test_msg);
 
+	/* full parsing */
 	parser = message_parser_init(pool, input, 0, 0);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	i_assert(ret < 0);
-	ret = message_parser_deinit(&parser, &parts);
-	i_assert(ret == 0);
-	i_stream_unref(&input);
+	test_assert(ret < 0);
+	test_assert(message_parser_deinit(&parser, &parts) == 0);
 
-	input = test_istream_create(test_msg);
+	/* parsing in small blocks */
+	i_stream_seek(input, 0);
 	test_istream_set_allow_eof(input, FALSE);
 
 	parser = message_parser_init(pool, input, 0, 0);
@@ -98,26 +98,38 @@ static void test_message_parser(void)
 			test_istream_set_allow_eof(input, TRUE);
 		while ((ret = message_parser_parse_next_block(parser,
 							      &block)) > 0) ;
-		if (ret < 0 && i < TEST_MSG_LEN*2) {
-			success = FALSE;
-			break;
-		}
+		test_assert(ret == 0 || i > TEST_MSG_LEN*2);
 	}
-	ret = message_parser_deinit(&parser, &parts2);
-	i_assert(ret == 0);
+	test_assert(message_parser_deinit(&parser, &parts2) == 0);
+	test_assert(msg_parts_cmp(parts, parts2));
+
+	/* parsing in small blocks from preparsed parts */
+	i_stream_seek(input, 0);
+	test_istream_set_allow_eof(input, FALSE);
+
+	end_of_headers_idx = strstr(test_msg, "\n-----") - test_msg;
+	parser = message_parser_init_from_parts(parts, input, 0,
+					MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK);
+	for (i = 1; i <= TEST_MSG_LEN*2+1; i++) {
+		test_istream_set_size(input, i/2);
+		if (i > TEST_MSG_LEN*2)
+			test_istream_set_allow_eof(input, TRUE);
+		while ((ret = message_parser_parse_next_block(parser,
+							      &block)) > 0) ;
+		test_assert(ret == 0 || i >= end_of_headers_idx);
+	}
+	test_assert(message_parser_deinit(&parser, &parts2) == 0);
+	test_assert(msg_parts_cmp(parts, parts2));
+
 	i_stream_unref(&input);
-
-	if (!msg_parts_cmp(parts, parts2))
-		success = FALSE;
-
 	pool_unref(&pool);
-	test_out("message_parser()", success);
+	test_end();
 }
 
 int main(void)
 {
 	static void (*test_functions[])(void) = {
-		test_message_parser,
+		test_message_parser_small_blocks,
 		NULL
 	};
 	return test_run(test_functions);
