@@ -372,6 +372,10 @@ int imap_sync_more(struct imap_sync_context *ctx)
 	string_t *str;
 	int ret = 1;
 
+	/* finish syncing even when client has disconnected. otherwise our
+	   internal state (ctx->messages_count) can get messed up and unless
+	   we immediately stop handling all commands and syncs we could end up
+	   assert-crashing. */
 	str = t_str_new(256);
 	for (;;) {
 		if (ctx->seq == 0) {
@@ -404,7 +408,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 
 			ret = 1;
 			for (; ctx->seq <= ctx->sync_rec.seq2; ctx->seq++) {
-				if (ret <= 0)
+				if (ret == 0)
 					break;
 
 				ret = imap_sync_send_flags(ctx, str);
@@ -426,7 +430,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 				ctx->seq = ctx->sync_rec.seq2;
 			ret = 1;
 			for (; ctx->seq >= ctx->sync_rec.seq1; ctx->seq--) {
-				if (ret <= 0)
+				if (ret == 0)
 					break;
 
 				str_truncate(str, 0);
@@ -452,15 +456,15 @@ int imap_sync_more(struct imap_sync_context *ctx)
 
 			ret = 1;
 			for (; ctx->seq <= ctx->sync_rec.seq2; ctx->seq++) {
-				if (ret <= 0)
+				if (ret == 0)
 					break;
 
 				ret = imap_sync_send_modseq(ctx, str);
 			}
 			break;
 		}
-		if (ret <= 0) {
-			/* failure / buffer full */
+		if (ret == 0) {
+			/* buffer full */
 			break;
 		}
 
