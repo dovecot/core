@@ -453,6 +453,15 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 
 		switch (data[0]) {
 		case '\r':
+			if (data_size == 1) {
+				/* wait for LF */
+				return FALSE;
+			}
+			if (data[1] != '\n') {
+				parser->error = "CR sent without LF";
+				return FALSE;
+			}
+			/* fall through */
 		case '\n':
 			/* unexpected end of line */
 			parser->eol = TRUE;
