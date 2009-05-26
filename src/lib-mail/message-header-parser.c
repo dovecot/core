@@ -106,14 +106,10 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				/* error / EOF with no bytes */
 				return -1;
 			}
-			if (ret == 0 && !ctx->input->eof) {
-				/* stream is nonblocking - need more data */
-				return 0;
-			}
-			i_assert(size > 0);
 
-			if (msg[0] == '\n' ||
-			    (msg[0] == '\r' && size > 1 && msg[1] == '\n')) {
+			if (size > 0 &&
+			    (msg[0] == '\n' ||
+			     (msg[0] == '\r' && size > 1 && msg[1] == '\n'))) {
 				/* end of headers - this mostly happens just
 				   with mbox where headers are read separately
 				   from body */
@@ -130,6 +126,11 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				}
 				break;
 			}
+			if (ret == 0 && !ctx->input->eof) {
+				/* stream is nonblocking - need more data */
+				return 0;
+			}
+			i_assert(size > 0);
 
 			/* a) line is larger than input buffer
 			   b) header ended unexpectedly */
@@ -256,6 +257,8 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		line->name_len = line->value_len = line->full_value_len = 0;
 		line->name = ""; line->value = line->full_value = NULL;
 		line->middle = NULL; line->middle_len = 0;
+		line->full_value_offset = line->name_offset;
+		line->continues = FALSE;
 	} else if (line->continued) {
 		line->value = msg;
 		line->value_len = size;
