@@ -71,6 +71,7 @@ static void client_auth_input(struct imap_client *client)
 		sasl_server_auth_client_error(&client->common,
 					      "Authentication aborted");
 	} else {
+		client_set_auth_waiting(client);
 		auth_client_request_continue(client->common.auth_request, line);
 		io_remove(&client->io);
 
@@ -307,6 +308,9 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		/* don't check return value here. it gets tricky if we try
 		   to call client_destroy() in here. */
 		(void)o_stream_sendv(client->output, iov, 3);
+
+		if (client->to_auth_waiting != NULL)
+			timeout_remove(&client->to_auth_waiting);
 
 		i_assert(client->io == NULL);
 		client->io = io_add(client->common.fd, IO_READ,
