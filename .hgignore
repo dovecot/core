@@ -61,13 +61,9 @@ src/lda/dovecot-lda
 src/dict/dict
 src/imap-login/imap-login
 src/imap/imap
-src/lib/test-lib
 src/lib/unicodemap.c
 src/lib/UnicodeData.txt
 src/lib-dict/dict-drivers-register.c
-src/lib-index/test-index
-src/lib-imap/test-imap
-src/lib-mail/test-mail
 src/lib-sql/sql-drivers-register.c
 src/lib-storage/register/mail-storage-register.c
 src/lib-storage/register/mailbox-list-register.c
@@ -92,3 +88,6 @@ src/util/rawlog
 src/util/threadview
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h
+
+syntax: regexp
+src/.*/test-[^\.]*$
