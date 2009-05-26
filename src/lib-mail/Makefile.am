@@ -49,20 +49,38 @@ else
   noinst_HEADERS = $(headers)
 endif
 
-test_programs = test-mail
+test_programs = \
+	test-istream-header-filter \
+	test-message-address \
+	test-message-date \
+	test-message-parser \
+	test-rfc2231-parser
+
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
-	libmail.la \
-	../lib-charset/libcharset.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-test_mail_SOURCES = \
-	test-mail.c
+test_istream_header_filter_SOURCES = test-istream-header-filter.c
+test_istream_header_filter_LDADD = istream-header-filter.lo message-header-parser.lo $(test_libs)
+test_istream_header_filter_DEPENDENCIES = istream-header-filter.lo message-header-parser.lo $(test_libs)
 
-test_mail_LDADD = $(test_libs) $(LIBICONV)
-test_mail_DEPENDENCIES = $(test_libs)
+test_message_address_SOURCES = test-message-address.c
+test_message_address_LDADD = message-address.lo rfc822-parser.lo $(test_libs)
+test_message_address_DEPENDENCIES = message-address.lo rfc822-parser.lo $(test_libs)
+
+test_message_date_SOURCES = test-message-date.c
+test_message_date_LDADD = message-date.lo rfc822-parser.lo $(test_libs)
+test_message_date_DEPENDENCIES = message-date.lo rfc822-parser.lo $(test_libs)
+
+test_message_parser_SOURCES = test-message-parser.c
+test_message_parser_LDADD = message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
+test_message_parser_DEPENDENCIES = message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
+
+test_rfc2231_parser_SOURCES = test-rfc2231-parser.c
+test_rfc2231_parser_LDADD = rfc2231-parser.lo rfc822-parser.lo $(test_libs)
+test_rfc2231_parser_DEPENDENCIES = rfc2231-parser.lo rfc822-parser.lo $(test_libs)
 
 check: check-am check-test
 check-test: $(test_programs)
