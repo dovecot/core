@@ -13,7 +13,7 @@
 
 #define USAGE_STRING \
 "Usage: <username> <home dir> <source mail env> <dest mail env>\n" \
-"       [skip_broken_mailboxes] [skip_dotfiles] [alt_hierarchy_char=<c>]"
+"       [skip_broken_mailboxes] [skip_dotdirs] [alt_hierarchy_char=<c>]"
 
 int main(int argc, char *argv[])
 {
@@ -40,11 +40,11 @@ int main(int argc, char *argv[])
 
 	memset(&set, 0, sizeof(set));
 	for (i = optind + 4; i < argc; i++) {
-		if (strcmp(argv[i], "skip_broken_mailboxes") != 0)
+		if (strcmp(argv[i], "skip_broken_mailboxes") == 0)
 			set.skip_broken_mailboxes = TRUE;
-		else if (strcmp(argv[i], "skip_dotdirs") != 0)
+		else if (strcmp(argv[i], "skip_dotdirs") == 0)
 			set.skip_dotdirs = TRUE;
-		else if (strncmp(argv[i], "alt_hierarchy_char=", 19) != 0)
+		else if (strncmp(argv[i], "alt_hierarchy_char=", 19) == 0)
 			set.alt_hierarchy_char = argv[i][19];
 		else
 			i_fatal(USAGE_STRING);
