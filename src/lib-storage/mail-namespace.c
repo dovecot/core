@@ -18,6 +18,8 @@ void mail_namespace_init_storage(struct mail_namespace *ns)
 	ns->prefix_len = strlen(ns->prefix);
 	ns->real_sep = mailbox_list_get_hierarchy_sep(ns->list);
 
+	if (ns->set->separator != NULL)
+		ns->sep = *ns->set->separator;
 	if (ns->sep == '\0')
                 ns->sep = ns->real_sep;
 
@@ -132,8 +134,6 @@ namespace_add(struct mail_user *user,
 		mail_namespace_free(ns);
 		return -1;
 	}
-	if (ns_set->separator != NULL)
-		ns->sep = *ns_set->separator;
 
 	*ns_p = ns;
 	return 0;
@@ -287,7 +287,6 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		return -1;
 	}
 	user->namespaces = ns;
-	mail_namespace_init_storage(ns);
 
 	if (hook_mail_namespaces_created != NULL) {
 		T_BEGIN {
