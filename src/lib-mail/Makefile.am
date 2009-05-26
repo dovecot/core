@@ -53,6 +53,7 @@ test_programs = \
 	test-istream-header-filter \
 	test-message-address \
 	test-message-date \
+	test-message-header-parser \
 	test-message-parser \
 	test-rfc2231-parser
 
@@ -73,6 +74,10 @@ test_message_address_DEPENDENCIES = message-address.lo rfc822-parser.lo $(test_l
 test_message_date_SOURCES = test-message-date.c
 test_message_date_LDADD = message-date.lo rfc822-parser.lo $(test_libs)
 test_message_date_DEPENDENCIES = message-date.lo rfc822-parser.lo $(test_libs)
+
+test_message_header_parser_SOURCES = test-message-header-parser.c
+test_message_header_parser_LDADD = message-header-parser.lo $(test_libs)
+test_message_header_parser_DEPENDENCIES = message-header-parser.lo $(test_libs)
 
 test_message_parser_SOURCES = test-message-parser.c
 test_message_parser_LDADD = message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
