@@ -248,8 +248,9 @@ int main(int argc, char *argv[])
 	i_set_failure_exit_callback(failure_exit_callback);
 
 	master_service = master_service_init("lda",
-					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv);
+		MASTER_SERVICE_FLAG_STANDALONE |
+		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
+		argc, argv);
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("mail deliver context", 256);
