@@ -81,7 +81,8 @@ int main(int argc, char *argv[], char *envp[])
 		&pop3_setting_parser_info,
 		NULL
 	};
-	enum master_service_flags service_flags = 0;
+	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_STD_CLIENT;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
 	struct mail_storage_service_input input;
