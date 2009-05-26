@@ -555,7 +555,7 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 	struct quota_root *root;
 	bool add;
 
-	if ((list->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0)
+	if ((list->ns->flags & NAMESPACE_FLAG_NOQUOTA) != 0)
 		add = FALSE;
 	else if (list->ns->owner == NULL) {
 		/* see if we have a quota explicitly defined for

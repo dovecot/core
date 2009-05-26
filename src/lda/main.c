@@ -410,7 +410,7 @@ int main(int argc, char *argv[])
 	raw_ns_set.location = "/tmp";
 
 	raw_ns = mail_namespaces_init_empty(raw_mail_user);
-	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
+	raw_ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	raw_ns->set = &raw_ns_set;
 	if (mail_storage_create(raw_ns, "raw", 0, &errstr) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", errstr);

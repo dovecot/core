@@ -100,7 +100,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 	string_t *id;
 	int ret, ret2 = 0;
 
-	if ((ns->flags & NAMESPACE_FLAG_INTERNAL) != 0 || ns->owner == NULL)
+	if ((ns->flags & NAMESPACE_FLAG_NOACL) != 0 || ns->owner == NULL)
 		return 0;
 
 	id = t_str_new(128);

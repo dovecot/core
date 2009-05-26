@@ -175,7 +175,7 @@ void acl_mail_storage_created(struct mail_storage *storage)
 
 	if (auser == NULL) {
 		/* ACLs disabled for this user */
-	} else if ((storage->ns->flags & NAMESPACE_FLAG_INTERNAL) != 0) {
+	} else if ((storage->ns->flags & NAMESPACE_FLAG_NOACL) != 0) {
 		/* no ACL checks for internal namespaces (lda) */
 	} else {
 		astorage = p_new(storage->pool, struct acl_mail_storage, 1);

@@ -134,7 +134,7 @@ static void client_raw_user_create(struct client *client)
 	raw_ns_set.location = "/tmp";
 
 	raw_ns = mail_namespaces_init_empty(client->raw_mail_user);
-	raw_ns->flags |= NAMESPACE_FLAG_INTERNAL;
+	raw_ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	raw_ns->set = &raw_ns_set;
 	if (mail_storage_create(raw_ns, "raw", 0, &error) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", error);

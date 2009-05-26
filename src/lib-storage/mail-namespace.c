@@ -120,7 +120,7 @@ namespace_add(struct mail_user *user,
 
 	if (ns->type == NAMESPACE_SHARED && strchr(ns->prefix, '%') != NULL) {
 		/* dynamic shared namespace */
-		ns->flags |= NAMESPACE_FLAG_INTERNAL;
+		ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 		driver = "shared";
 	} else {
 		driver = NULL;
