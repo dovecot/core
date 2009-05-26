@@ -74,6 +74,7 @@ dovecot_auth_SOURCES = \
 	mech-login.c \
 	mech-cram-md5.c \
 	mech-digest-md5.c \
+	mech-external.c \
 	mech-gssapi.c \
 	mech-ntlm.c \
 	mech-otp.c \

@@ -68,6 +68,7 @@ extern const struct mech_module mech_login;
 extern const struct mech_module mech_apop;
 extern const struct mech_module mech_cram_md5;
 extern const struct mech_module mech_digest_md5;
+extern const struct mech_module mech_external;
 extern const struct mech_module mech_ntlm;
 extern const struct mech_module mech_otp;
 extern const struct mech_module mech_skey;
@@ -89,6 +90,7 @@ void mech_init(const struct auth_settings *set)
 	mech_register_module(&mech_apop);
 	mech_register_module(&mech_cram_md5);
 	mech_register_module(&mech_digest_md5);
+	mech_register_module(&mech_external);
 	if (set->use_winbind) {
 		mech_register_module(&mech_winbind_ntlm);
 		mech_register_module(&mech_winbind_spnego);
@@ -114,6 +116,7 @@ void mech_deinit(const struct auth_settings *set)
 	mech_unregister_module(&mech_apop);
 	mech_unregister_module(&mech_cram_md5);
 	mech_unregister_module(&mech_digest_md5);
+	mech_unregister_module(&mech_external);
 	if (set->use_winbind) {
 		mech_unregister_module(&mech_winbind_ntlm);
 		mech_unregister_module(&mech_winbind_spnego);
