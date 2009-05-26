@@ -406,9 +406,11 @@ int convert_storage(const char *source_data,
 	memset(&ns_set, 0, sizeof(ns_set));
 	ns_set.location = source_data;
 
+	i_assert(user->namespaces == dest_namespaces);
 	source_ns = mail_namespaces_init_empty(user);
-	source_ns->set = &ns_set;
+	user->namespaces = dest_namespaces;
 
+	source_ns->set = &ns_set;
 	if (mail_storage_create(source_ns, NULL,
 				MAIL_STORAGE_FLAG_NO_AUTOCREATE, &error) < 0) {
 		/* No need for conversion. */
