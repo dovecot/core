@@ -58,7 +58,10 @@ headers = \
         mailbox-list-index.h \
         mailbox-list-index-private.h
 
-test_programs = test-index
+test_programs = \
+	test-index \
+	test-mail-transaction-log-append
+
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
@@ -78,6 +81,10 @@ test_headers = \
 
 test_index_LDADD = $(test_libs) $(LIBICONV)
 test_index_DEPENDENCIES = $(test_libs)
+
+test_mail_transaction_log_append_SOURCES = test-mail-transaction-log-append.c
+test_mail_transaction_log_append_LDADD = mail-transaction-log-append.lo mail-index-util.lo ../lib-test/libtest.la ../lib/liblib.la
+test_mail_transaction_log_append_DEPENDENCIES = mail-transaction-log-append.lo mail-index-util.lo ../lib-test/libtest.la ../lib/liblib.la
 
 check: check-am check-test
 check-test: $(test_programs)
