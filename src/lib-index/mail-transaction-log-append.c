@@ -30,9 +30,8 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 	buffer_append(ctx->output, &hdr, sizeof(hdr));
 	buffer_append(ctx->output, data, size);
 
-	if (mail_transaction_header_has_modseq(data,
-					CONST_PTR_OFFSET(data, sizeof(hdr)),
-					ctx->new_highest_modseq))
+	if (mail_transaction_header_has_modseq(&hdr, data,
+					       ctx->new_highest_modseq))
 		ctx->new_highest_modseq++;
 }
 
@@ -44,17 +43,16 @@ log_buffer_move_to_memory(struct mail_transaction_log_append_ctx *ctx)
 	/* first we need to truncate this latest write so that log syncing
 	   doesn't break */
 	if (ftruncate(file->fd, file->sync_offset) < 0) {
-		mail_index_file_set_syscall_error(file->log->index,
+		mail_index_file_set_syscall_error(ctx->log->index,
 						  file->filepath,
 						  "ftruncate()");
 	}
 
-	if (mail_index_move_to_memory(file->log->index) < 0)
+	if (mail_index_move_to_memory(ctx->log->index) < 0)
 		return -1;
 	i_assert(MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file));
 
-	i_assert(file->buffer_offset + file->buffer->used ==
-		 file->sync_offset);
+	i_assert(file->buffer_offset + file->buffer->used == file->sync_offset);
 	buffer_append_buf(file->buffer, ctx->output, 0, (size_t)-1);
 	file->sync_offset = file->buffer_offset + file->buffer->used;
 	return 0;
@@ -65,6 +63,9 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 	struct mail_transaction_log_file *file = ctx->log->head;
 	struct mail_transaction_header *hdr;
 	uint32_t first_size;
+
+	if (ctx->output->used == 0)
+		return 0;
 
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
 		if (file->buffer == NULL) {
@@ -86,7 +87,7 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 			file->sync_offset) < 0) {
 		/* write failure, fallback to in-memory indexes. */
 		hdr->size = first_size;
-		mail_index_file_set_syscall_error(file->log->index,
+		mail_index_file_set_syscall_error(ctx->log->index,
 						  file->filepath,
 						  "pwrite_full()");
 		return log_buffer_move_to_memory(ctx);
@@ -101,16 +102,16 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 	if (pwrite_full(file->fd, &first_size, sizeof(uint32_t),
 			file->sync_offset +
 			offsetof(struct mail_transaction_header, size)) < 0) {
-		mail_index_file_set_syscall_error(file->log->index,
+		mail_index_file_set_syscall_error(ctx->log->index,
 						  file->filepath,
 						  "pwrite_full()");
 		return log_buffer_move_to_memory(ctx);
 	}
 
-	if ((ctx->want_fsync && !file->log->index->fsync_disable) ||
-	    file->log->index->nfs_flush) {
+	if ((ctx->want_fsync && !ctx->log->index->fsync_disable) ||
+	    ctx->log->index->nfs_flush) {
 		if (fdatasync(file->fd) < 0) {
-			mail_index_file_set_syscall_error(file->log->index,
+			mail_index_file_set_syscall_error(ctx->log->index,
 							  file->filepath,
 							  "fdatasync()");
 			return log_buffer_move_to_memory(ctx);
@@ -215,9 +216,7 @@ int mail_transaction_log_append_commit(struct mail_transaction_log_append_ctx **
 
 	*_ctx = NULL;
 
-	if (ctx->output->used > 0)
-		ret = mail_transaction_log_append_locked(ctx);
-
+	ret = mail_transaction_log_append_locked(ctx);
 	if (!index->log_locked)
 		mail_transaction_log_file_unlock(index->log->head);
 
