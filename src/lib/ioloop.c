@@ -15,7 +15,6 @@
 
 time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
-struct timezone ioloop_timezone;
 
 struct ioloop *current_ioloop = NULL;
 
@@ -260,7 +259,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 	struct timeval tv, tv_call;
         unsigned int t_id;
 
-	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
+	if (gettimeofday(&ioloop_timeval, NULL) < 0)
 		i_fatal("gettimeofday(): %m");
 
 	/* Don't bother comparing usecs. */
@@ -363,7 +362,7 @@ struct ioloop *io_loop_create(void)
 	struct ioloop *ioloop;
 
 	/* initialize time */
-	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
+	if (gettimeofday(&ioloop_timeval, NULL) < 0)
 		i_fatal("gettimeofday(): %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 

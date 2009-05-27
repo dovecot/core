@@ -51,7 +51,7 @@ static bool inotify_input_more(struct ioloop *ioloop)
 		i_fatal("read(inotify) failed: %m");
 	}
 
-	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
+	if (gettimeofday(&ioloop_timeval, NULL) < 0)
 		i_fatal("gettimeofday(): %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 

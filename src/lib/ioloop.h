@@ -36,7 +36,6 @@ typedef void timeout_callback_t(void *context);
    Can be used instead of time(NULL). */
 extern time_t ioloop_time;
 extern struct timeval ioloop_timeval;
-extern struct timezone ioloop_timezone;
 
 extern struct ioloop *current_ioloop;
 

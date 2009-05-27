@@ -57,7 +57,7 @@ static void event_callback(struct ioloop_notify_handler_context *ctx)
 		i_fatal("kevent(notify) failed: %m");
 	}
 
-	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
+	if (gettimeofday(&ioloop_timeval, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 

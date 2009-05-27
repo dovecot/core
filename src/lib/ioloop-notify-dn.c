@@ -80,7 +80,7 @@ static void dnotify_input(struct ioloop *ioloop)
 		i_fatal("read(dnotify pipe) returned %d", ret);
 	ret /= sizeof(fd_buf[0]);
 
-	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
+	if (gettimeofday(&ioloop_timeval, NULL) < 0)
 		i_fatal("gettimeofday(): %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 
