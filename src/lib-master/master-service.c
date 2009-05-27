@@ -73,7 +73,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 	i_assert(name != NULL);
 
 #ifdef DEBUG
-	if (getenv("GDB") == NULL) {
+	if (getenv("GDB") == NULL &&
+	    (flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		int count;
 
 		str = getenv("SOCKET_COUNT");
