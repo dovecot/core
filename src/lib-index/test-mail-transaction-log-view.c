@@ -1,7 +1,8 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
-#include "test-index.h"
+#include "lib.h"
 #include "array.h"
+#include "test-common.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-view-private.h"
 
@@ -111,7 +112,7 @@ add_append_record(struct mail_transaction_log_file *file,
 	return size;
 }
 
-void test_transaction_log_view(void)
+static void test_mail_transaction_log_view(void)
 {
 	const struct mail_transaction_header *hdr;
 	const struct mail_index_record *rec;
@@ -207,7 +208,7 @@ void test_transaction_log_view(void)
 int main(void)
 {
 	static void (*test_functions[])(void) = {
-		test_transaction_log_view,
+		test_mail_transaction_log_view,
 		NULL
 	};
 	return test_run(test_functions);
