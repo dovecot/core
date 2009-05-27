@@ -31,6 +31,7 @@ libindex_la_SOURCES = \
         mail-index-sync-ext.c \
         mail-index-sync-keywords.c \
         mail-index-sync-update.c \
+        mail-index-util.c \
         mail-index-view.c \
         mail-index-view-sync.c \
         mail-index-write.c \
