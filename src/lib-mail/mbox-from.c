@@ -87,14 +87,15 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	sender_end = msg;
 	while (msg < msg_end && *msg == ' ') msg++;
 
-	/* next 24 chars should be in the date in asctime() format, eg.
+	/* next 29 chars should be in the date in asctime() format, eg.
 	   "Thu Nov  9 22:33:52 2001 +0300"
 
 	   - Some put the timezone before the year
 	   - Some use a named timezone before or after year, which we ignore
-	   - Some don't include seconds
+	   - Some don't include seconds (-3)
+	   - Some don't include timezone (-5)
 	*/
-	if (msg+24 > msg_end)
+	if (msg+29-3-5 > msg_end)
 		return -1;
 
 	memset(&tm, 0, sizeof(tm));
@@ -170,11 +171,13 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		tm.tm_sec = (msg[0]-'0') * 10 + (msg[1]-'0');
 		msg += 2;
 
-		if (msg[0] == ' ')
-			msg++;
-		else if (!alt_stamp)
-			return -1;
-	} else {
+		if (!alt_stamp) {
+			if (msg[0] == ' ')
+				msg++;
+			else
+				return -1;
+		}
+	} else if (!alt_stamp) {
 		if (msg[0] != ' ')
 			return -1;
 		msg++;
@@ -213,7 +216,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	}
 
 	tm.tm_isdst = -1;
-	if (!seen_timezone &&
+	if (!seen_timezone && msg != msg_end &&
 	    msg[0] == ' ' && (msg[1] == '-' || msg[1] == '+') &&
 	    i_isdigit(msg[2]) && i_isdigit(msg[3]) &&
 	    i_isdigit(msg[4]) && i_isdigit(msg[5])) {
@@ -234,7 +237,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	} else {
 		/* assume local timezone */
 		*time_r = mktime(&tm);
-		*tz_offset_r = -ioloop_timezone.tz_minuteswest;
+		*tz_offset_r = -timezone/60;
 	}
 
 	*sender_r = i_strdup_until(msg_start, sender_end);
