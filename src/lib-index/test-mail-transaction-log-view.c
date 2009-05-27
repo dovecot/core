@@ -8,6 +8,51 @@
 static struct mail_transaction_log *log;
 static struct mail_transaction_log_view *view;
 
+void mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file ATTR_UNUSED,
+					     const char *fmt ATTR_UNUSED, ...)
+{
+}
+
+void mail_transaction_logs_clean(struct mail_transaction_log *log ATTR_UNUSED)
+{
+}
+
+int mail_transaction_log_find_file(struct mail_transaction_log *log,
+				   uint32_t file_seq, bool nfs_flush ATTR_UNUSED,
+				   struct mail_transaction_log_file **file_r)
+{
+	struct mail_transaction_log_file *file;
+
+	for (file = log->files; file != NULL; file = file->next) {
+		if (file->hdr.file_seq == file_seq) {
+			*file_r = file;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int mail_transaction_log_file_map(struct mail_transaction_log_file *file ATTR_UNUSED,
+				  uoff_t start_offset ATTR_UNUSED, uoff_t end_offset ATTR_UNUSED)
+{
+	return 1;
+}
+
+int mail_transaction_log_file_get_highest_modseq_at(
+		struct mail_transaction_log_file *file ATTR_UNUSED,
+		uoff_t offset ATTR_UNUSED, uint64_t *highest_modseq_r)
+{
+	*highest_modseq_r = 0;
+	return 0;
+}
+
+bool mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr ATTR_UNUSED,
+					const void *data ATTR_UNUSED,
+					uint64_t cur_modseq ATTR_UNUSED)
+{
+	return TRUE;
+}
+
 static void
 test_transaction_log_file_add(uint32_t file_seq)
 {
@@ -17,15 +62,15 @@ test_transaction_log_file_add(uint32_t file_seq)
 	file->hdr.file_seq = file_seq;
 	file->hdr.hdr_size = file->sync_offset = sizeof(file->hdr);
 	file->hdr.prev_file_seq = file_seq - 1;
-	file->hdr.indexid = 1;
 	file->log = log;
 	file->fd = -1;
+	file->buffer = buffer_create_dynamic(default_pool, 256);
+	file->buffer_offset = file->hdr.hdr_size;
 
 	/* files must be sorted by file_seq */
 	for (p = &log->files; *p != NULL; p = &(*p)->next) {
 		if ((*p)->hdr.file_seq > file->hdr.file_seq)
 			break;
-		i_assert((*p)->hdr.file_seq < file->hdr.file_seq);
 	}
 	*p = file;
 	log->head = file;
@@ -47,12 +92,30 @@ static bool view_is_file_refed(uint32_t file_seq)
 	return ret;
 }
 
+static size_t
+add_append_record(struct mail_transaction_log_file *file,
+		  const struct mail_index_record *rec)
+{
+	struct mail_transaction_header hdr;
+	size_t size;
+
+	memset(&hdr, 0, sizeof(hdr));
+	hdr.type = MAIL_TRANSACTION_APPEND | MAIL_TRANSACTION_EXTERNAL;
+	hdr.size = mail_index_uint32_to_offset(sizeof(hdr) + sizeof(*rec));
+
+	buffer_append(file->buffer, &hdr, sizeof(hdr));
+	buffer_append(file->buffer, rec, sizeof(*rec));
+
+	size = sizeof(hdr) + sizeof(*rec);
+	file->sync_offset += size;
+	return size;
+}
+
 void test_transaction_log_view(void)
 {
 	const struct mail_transaction_header *hdr;
-	struct mail_transaction_log_append_ctx *append_ctx;
-	struct mail_index_record append_rec;
 	const struct mail_index_record *rec;
+	struct mail_index_record append_rec;
 	const void *data;
 	uint32_t seq;
 	uoff_t offset, last_log_size;
@@ -70,12 +133,9 @@ void test_transaction_log_view(void)
 	/* add an append record to the 3rd log file */
 	memset(&append_rec, 0, sizeof(append_rec));
 	append_rec.uid = 1;
-	test_assert(mail_transaction_log_append_begin(log->index, TRUE, &append_ctx) == 0);
-	mail_transaction_log_append_add(append_ctx, MAIL_TRANSACTION_APPEND,
-					&append_rec, sizeof(append_rec));
-	test_assert(mail_transaction_log_append_commit(&append_ctx) == 0);
+
 	last_log_size = sizeof(struct mail_transaction_log_header) +
-		sizeof(struct mail_transaction_header) + sizeof(append_rec);
+		add_append_record(log->head, &append_rec);
 
 	view = mail_transaction_log_view_open(log);
 	test_assert(view != NULL && log->views == view &&
@@ -123,14 +183,11 @@ void test_transaction_log_view(void)
 	mail_transaction_log_view_clear(view, 2);
 	test_assert(!view_is_file_refed(1) && view_is_file_refed(2) &&
 		    view_is_file_refed(3));
+	log->files = log->files->next;
+	test_assert(log->files->hdr.file_seq == 2);
 	test_end();
 
 	/* --- first file has been removed --- */
-
-	test_begin("removed first");
-	mail_transaction_logs_clean(log);
-	test_assert(log->files->hdr.file_seq == 2);
-	test_end();
 
 	test_begin("set 2-3");
 	test_assert(mail_transaction_log_view_set(view, 2, 0, (uint32_t)-1, (uoff_t)-1, &reset) == 1);
@@ -145,4 +202,13 @@ void test_transaction_log_view(void)
 	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, (uoff_t)-1, &reset) == -1);
 	view->log = log;
 	test_end();
+}
+
+int main(void)
+{
+	static void (*test_functions[])(void) = {
+		test_transaction_log_view,
+		NULL
+	};
+	return test_run(test_functions);
 }

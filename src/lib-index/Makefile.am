@@ -59,32 +59,23 @@ headers = \
         mailbox-list-index-private.h
 
 test_programs = \
-	test-index \
-	test-mail-transaction-log-append
+	test-mail-transaction-log-append \
+	test-mail-transaction-log-view
 
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
-	libindex.la \
+	mail-index-util.o \
 	../lib-test/libtest.la \
-	../lib-imap/libimap.la \
-	../lib-mail/libmail.la \
-	../lib-charset/libcharset.la \
 	../lib/liblib.la
 
-test_index_SOURCES = \
-	test-index.c \
-	test-transaction-log-view.c
-
-test_headers = \
-	test-index.h
-
-test_index_LDADD = $(test_libs) $(LIBICONV)
-test_index_DEPENDENCIES = $(test_libs)
-
 test_mail_transaction_log_append_SOURCES = test-mail-transaction-log-append.c
-test_mail_transaction_log_append_LDADD = mail-transaction-log-append.lo mail-index-util.lo ../lib-test/libtest.la ../lib/liblib.la
-test_mail_transaction_log_append_DEPENDENCIES = mail-transaction-log-append.lo mail-index-util.lo ../lib-test/libtest.la ../lib/liblib.la
+test_mail_transaction_log_append_LDADD = mail-transaction-log-append.o $(test_libs)
+test_mail_transaction_log_append_DEPENDENCIES = mail-transaction-log-append.o $(test_libs)
+
+test_mail_transaction_log_view_SOURCES = test-mail-transaction-log-view.c
+test_mail_transaction_log_view_LDADD = mail-transaction-log-view.o $(test_libs)
+test_mail_transaction_log_view_DEPENDENCIES = mail-transaction-log-view.o $(test_libs)
 
 check: check-am check-test
 check-test: $(test_programs)
@@ -94,7 +85,7 @@ check-test: $(test_programs)
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)
-  pkginc_lib_HEADERS = $(headers) $(test_headers)
+  pkginc_lib_HEADERS = $(headers)
 else
-  noinst_HEADERS = $(headers) $(test_headers)
+  noinst_HEADERS = $(headers)
 endif
