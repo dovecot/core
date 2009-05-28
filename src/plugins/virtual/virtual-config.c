@@ -36,6 +36,12 @@ virtual_search_args_parse(const string_t *rule, const char **error_r)
 	bool fatal;
 	int ret;
 
+	if (str_len(rule) == 0) {
+		sargs = mail_search_build_init();
+		mail_search_build_add_all(sargs);
+		return sargs;
+	}
+
 	input = i_stream_create_from_data(str_data(rule), str_len(rule));
 	(void)i_stream_read(input);
 
