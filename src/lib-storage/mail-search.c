@@ -311,7 +311,7 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 static struct mail_search_arg *
 mail_search_arg_dup(pool_t pool, const struct mail_search_arg *arg)
 {
-	struct mail_search_arg *new_arg, **dest = &new_arg;
+	struct mail_search_arg *new_arg = NULL, **dest = &new_arg;
 
 	for (; arg != NULL; arg = arg->next) {
 		*dest = mail_search_arg_dup_one(pool, arg);
