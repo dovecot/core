@@ -94,7 +94,7 @@ void client_auth_failed(struct imap_client *client, bool nodelay)
 {
 	unsigned int delay_msecs;
 
-	client->common.auth_command_tag = NULL;
+	i_free_and_null(client->common.master_data_prefix);
 
 	if (client->auth_initializing)
 		return;
@@ -325,7 +325,14 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 static int client_auth_begin(struct imap_client *client, const char *mech_name,
 			     const char *init_resp)
 {
-	client->common.auth_command_tag = client->cmd_tag;
+	char *prefix;
+
+	prefix = i_strdup_printf("%d%s", client->capability_command_used,
+				 client->cmd_tag);
+
+	i_free(client->common.master_data_prefix);
+	client->common.master_data_prefix = (void *)prefix;
+	client->common.master_data_prefix_len = strlen(prefix)+1;
 
 	client_ref(client);
 	client->auth_initializing = TRUE;

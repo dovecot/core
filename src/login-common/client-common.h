@@ -24,7 +24,8 @@ struct client {
 
 	int fd;
 	struct istream *input;
-	const char *auth_command_tag;
+	unsigned char *master_data_prefix;
+	unsigned int master_data_prefix_len;
 
 	char *auth_mech_name;
 	struct auth_request *auth_request;

@@ -20,32 +20,6 @@
 #define PROXY_FAILURE_MSG \
 	"NO ["IMAP_RESP_CODE_UNAVAILABLE"] "AUTH_TEMP_FAILED_MSG
 
-static const char *const *
-capabilities_strip_prelogin(const char *const *capabilities)
-{
-	ARRAY_TYPE(const_string) new_caps_arr;
-	const char **new_caps, *str;
-	unsigned int count;
-
-	t_array_init(&new_caps_arr, 64);
-	for (; *capabilities != NULL; capabilities++) {
-		if (strncasecmp(*capabilities, "AUTH=", 5) == 0 ||
-		    strcasecmp(*capabilities, "STARTTLS") == 0 ||
-		    strcasecmp(*capabilities, "SASL-IR") == 0 ||
-		    strcasecmp(*capabilities, "LOGINDISABLED") == 0 ||
-		    strcasecmp(*capabilities, "LOGIN-REFERRALS") == 0)
-			continue;
-
-		str = *capabilities;
-		array_append(&new_caps_arr, &str, 1);
-	}
-	new_caps = array_get_modifiable(&new_caps_arr, &count);
-	qsort(new_caps, count, sizeof(*new_caps), i_strcasecmp_p);
-
-	(void)array_append_space(&new_caps_arr);
-	return array_idx(&new_caps_arr, 0);
-}
-
 static void proxy_write_id(struct imap_client *client, string_t *str)
 {
 	str_printfa(str, "I ID ("
@@ -95,24 +69,10 @@ static void get_plain_auth(struct imap_client *client, string_t *dest)
 	base64_encode(str_data(str), str_len(str), dest);
 }
 
-static bool str_array_icmp(const char *const *arr1, const char *const *arr2)
-{
-	unsigned int i;
-
-	for (i = 0; arr1[i] != NULL; i++) {
-		if (arr2[i] == NULL || strcasecmp(arr1[i], arr2[i]) != 0)
-			return FALSE;
-	}
-	return TRUE;
-}
-
 static void
 client_send_capability_if_needed(struct imap_client *client, string_t *str,
 				 const char *capability)
 {
-	const char *const *backend_capabilities;
-	const char *const *proxy_capabilities;
-
 	if (!client->capability_command_used || capability == NULL)
 		return;
 
@@ -121,18 +81,8 @@ client_send_capability_if_needed(struct imap_client *client, string_t *str,
 	client->capability_command_used = FALSE;
 
 	/* client has used CAPABILITY command, so it didn't understand the
-	   capabilities in the banner. if backend server has different
-	   capabilities than we advertised already, there's a problem.
-	   to solve that we'll send the backend's untagged CAPABILITY reply
-	   and hope that the client understands it */
-	backend_capabilities =
-		capabilities_strip_prelogin(t_strsplit(capability, " "));
-	proxy_capabilities =
-		capabilities_strip_prelogin(t_strsplit(client->common.set->capability_string, " "));
-
-	if (str_array_icmp(backend_capabilities, proxy_capabilities))
-		return;
-
+	   capabilities in the banner. send the backend's untagged CAPABILITY
+	   reply and hope that the client understands it */
 	str_printfa(str, "* CAPABILITY %s\r\n", capability);
 }
 

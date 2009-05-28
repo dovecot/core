@@ -22,7 +22,6 @@ static struct setting_define login_setting_defines[] = {
 	DEF(SET_STR, login_log_format),
 
 	DEF(SET_BOOL, login_process_per_connection),
-	DEF(SET_STR, capability_string),
 
 	DEF(SET_ENUM, ssl),
 	DEF(SET_STR, ssl_ca_file),
@@ -56,7 +55,6 @@ static struct login_settings login_default_settings = {
 	MEMBER(login_log_format) "%$: %s",
 
 	MEMBER(login_process_per_connection) TRUE,
-	MEMBER(capability_string) NULL,
 
 	MEMBER(ssl) "yes:no:required",
 	MEMBER(ssl_ca_file) "",

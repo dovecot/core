@@ -84,10 +84,8 @@ master_send_request(struct client *client, struct auth_request *request)
 	req.remote_ip = client->ip;
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);
-	if (client->auth_command_tag != NULL) {
-		buffer_append(buf, client->auth_command_tag,
-			      strlen(client->auth_command_tag)+1);
-	}
+	buffer_append(buf, client->master_data_prefix,
+		      client->master_data_prefix_len);
 
 	data = i_stream_get_data(client->input, &size);
 	buffer_append(buf, data, size);

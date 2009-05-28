@@ -75,10 +75,20 @@ static void client_add_input(struct client *client, const char *input)
 	buffer_t *buf;
 	const char *tag;
 	unsigned int data_pos;
+	bool send_untagged_capability = FALSE;
 
 	buf = input == NULL ? NULL : t_base64_decode_str(input);
 	if (buf != NULL && buf->used > 0) {
 		tag = t_strndup(buf->data, buf->used);
+		switch (*tag) {
+		case '0':
+			tag++;
+			break;
+		case '1':
+			send_untagged_capability = TRUE;
+			tag++;
+			break;
+		}
 		data_pos = strlen(tag) + 1;
 		if (data_pos > buf->used &&
 		    !i_stream_add_data(client->input,
@@ -95,6 +105,12 @@ static void client_add_input(struct client *client, const char *input)
 			"* PREAUTH [CAPABILITY ",
 			str_c(client->capability_string), "] "
 			"Logged in as ", client->user->username, NULL));
+	} else if (send_untagged_capability) {
+		/* client doesn't seem to understand tagged capabilities. send
+		   untagged instead and hope that it works. */
+		client_send_line(client, t_strconcat("* CAPABILITY ",
+			str_c(client->capability_string), NULL));
+		client_send_line(client, t_strconcat(tag, " Logged in", NULL));
 	} else {
 		client_send_line(client, t_strconcat(
 			tag, " OK [CAPABILITY ",

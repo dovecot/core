@@ -96,13 +96,12 @@ bool client_skip_line(struct imap_client *client)
 	return FALSE;
 }
 
-static const char *get_capability(struct imap_client *client, bool full)
+static const char *get_capability(struct imap_client *client)
 {
 	const char *auths;
 
 	auths = client_authenticate_get_capabilities(client);
-	return t_strconcat(full ? client->common.set->capability_string :
-			   CAPABILITY_BANNER_STRING,
+	return t_strconcat(CAPABILITY_BANNER_STRING,
 			   (ssl_initialized && !client->common.tls) ?
 			   " STARTTLS" : "",
 			   client->common.set->disable_plaintext_auth &&
@@ -114,7 +113,7 @@ static int cmd_capability(struct imap_client *client)
 {
 	client->capability_command_used = TRUE;
 	client_send_line(client, t_strconcat(
-		"* CAPABILITY ", get_capability(client, TRUE), NULL));
+		"* CAPABILITY ", get_capability(client), NULL));
 	client_send_tagline(client, "OK Capability completed.");
 	return 1;
 }
@@ -474,7 +473,7 @@ static void client_send_greeting(struct imap_client *client)
 
 	greet = t_str_new(128);
 	str_append(greet, "* OK ");
-	str_printfa(greet, "[CAPABILITY %s] ", get_capability(client, FALSE));
+	str_printfa(greet, "[CAPABILITY %s] ", get_capability(client));
 	str_append(greet, client->common.set->login_greeting);
 
 	client_send_line(client, str_c(greet));

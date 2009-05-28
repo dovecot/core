@@ -10,7 +10,6 @@ struct login_settings {
 	const char *login_log_format_elements, *login_log_format;
 
 	bool login_process_per_connection;
-	const char *capability_string;
 
 	const char *ssl;
 	const char *ssl_ca_file;
