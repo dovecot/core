@@ -366,7 +366,7 @@ mail_storage_service_init_post(struct master_service *service,
 	} else if (*home != '\0') {
 		/* If possible chdir to home directory, so that core file
 		   could be written in case we crash. */
-		if (chdir(user_set->base_dir) < 0) {
+		if (chdir(home) < 0) {
 			if (errno != ENOENT)
 				i_error("chdir(%s) failed: %m", home);
 			else if (mail_set->mail_debug)
