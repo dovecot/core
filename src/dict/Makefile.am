@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = dict
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-sql \
@@ -25,10 +26,12 @@ dict_LDADD = \
 dict_DEPENDENCIES = $(libs)
 
 dict_SOURCES = \
-	dict-server.c \
+	dict-connection.c \
+	dict-commands.c \
 	dict-settings.c \
 	main.c
 
 noinst_HEADERS = \
-	dict-server.h \
+	dict-connection.h \
+	dict-commands.h \
 	dict-settings.h

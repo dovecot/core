@@ -33,33 +33,3 @@ struct setting_parser_info dict_setting_parser_info = {
 };
 
 struct dict_settings *dict_settings;
-
-static pool_t settings_pool = NULL;
-
-struct dict_settings *dict_settings_read(void)
-{
-	struct setting_parser_context *parser;
-	struct dict_settings *set;
-	const char *error;
-
-	if (settings_pool == NULL)
-		settings_pool = pool_alloconly_create("auth settings", 1024);
-	else
-		p_clear(settings_pool);
-
-	parser = settings_parser_init(settings_pool,
-				      &dict_setting_parser_info,
-				      SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
-
-	if (settings_parse_environ(parser) < 0) {
-		i_fatal("Error reading configuration: %s",
-			settings_parser_get_error(parser));
-	}
-
-	if (!settings_parser_check(parser, settings_pool, &error))
-		i_fatal("Invalid settings: %s", error);
-
-	set = settings_parser_get(parser);
-	settings_parser_deinit(&parser);
-	return set;
-}
