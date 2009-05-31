@@ -10,7 +10,8 @@ conf_DATA = \
 doc_DATA = \
 	auth-protocol.txt \
 	documentation.txt \
-	securecoding.txt
+	securecoding.txt \
+	thread-refs.txt
 
 EXTRA_DIST = \
 	dovecot-initd.sh \
