@@ -171,7 +171,7 @@ static void expire_run(struct master_service *service, bool testrun)
 	struct dict_transaction_context *trans;
 	struct dict_iterate_context *iter;
 	struct expire_env *env;
-	time_t oldest;
+	time_t oldest, expire_time;
 	unsigned int expunge_secs, altmove_secs;
 	const char *p, *key, *value, *expire, *expire_altmove, *expire_dict;
 	const char *userp = NULL, *mailbox;
@@ -229,12 +229,13 @@ static void expire_run(struct master_service *service, bool testrun)
 			}
 			continue;
 		}
-		if (time(NULL) < (time_t)strtoul(value, NULL, 10)) {
+		expire_time = strtoul(value, NULL, 10);
+		if (time(NULL) < expire_time) {
 			/* this and the rest of the timestamps are in future,
 			   so stop processing */
 			if (testrun) {
 				i_info("%s: stop, expire time in future: %s",
-				       userp, value);
+				       userp, ctime(&expire_time));
 			}
 			break;
 		}
@@ -268,8 +269,9 @@ static void expire_run(struct master_service *service, bool testrun)
 			} else if (!testrun)
 				dict_set(trans, key, new_value);
 			else {
-				i_info("%s: timestamp %s -> %s",
-				       userp, value, new_value);
+				i_info("%s: timestamp %s (%s) -> %s (%s)",
+				       userp, value, ctime(&expire_time),
+				       new_value, ctime(&oldest));
 			}
 		}
 	}
