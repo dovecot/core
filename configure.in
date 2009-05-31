@@ -2509,11 +2509,17 @@ echo "I/O notifys .... : $have_notify"
 echo "SSL ............ : $have_ssl"
 echo "GSSAPI ......... : $have_gssapi"
 echo "passdbs ........ :$passdb"
-echo "                 :$not_passdb"
+if test "$not_passdb" != ""; then
+  echo "                 :$not_passdb"
+fi
 echo "userdbs ........ :$userdb"
-echo "                 :$not_userdb"
+if test "$not_userdb" != ""; then
+  echo "                 :$not_userdb"
+fi
 echo "SQL drivers .... :$sql_drivers"
-echo "                 :$not_sql_drivers"
+if test "$not_sql_drivers" != ""; then
+  echo "                 :$not_sql_drivers"
+fi
 
 echo
 echo "NOTE: This is the UNSTABLE development branch of Dovecot v2.0."
