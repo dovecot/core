@@ -72,8 +72,9 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
 	struct index_mail *imail = (struct index_mail *)mail;
+	const struct stat *stp;
 	const char *path;
-	int fd, ret;
+	int ret;
 
 	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
 		return mail_set_aborted(mail);
@@ -86,15 +87,11 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 	}
 
 	if (imail->data.stream != NULL) {
-		fd = i_stream_get_fd(imail->data.stream);
-		i_assert(fd != -1);
-
 		imail->mail.stats_fstat_lookup_count++;
-		if (fstat(fd, st) < 0) {
-			mail_storage_set_critical(&mbox->storage->storage,
-						  "fstat(maildir) failed: %m");
+		stp = i_stream_stat(imail->data.stream, FALSE);
+		if (stp == NULL)
 			return -1;
-		}
+		*st = *stp;
 	} else if (mail->uid != 0) {
 		imail->mail.stats_stat_lookup_count++;
 		ret = maildir_file_do(mbox, mail->uid, do_stat, st);
