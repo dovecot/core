@@ -437,6 +437,7 @@ solr_connection_post_begin(struct solr_connection *conn)
 		curl_easy_setopt(conn->curl, CURLOPT_HTTPHEADER,
 				 conn->headers_post);
 		curl_easy_setopt(conn->curl, CURLOPT_POST, (long)1);
+		XML_ParserReset(conn->xml_parser, "UTF-8");
 	}
 	return post;
 }
