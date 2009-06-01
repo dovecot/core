@@ -7,7 +7,14 @@
 struct message_address {
 	struct message_address *next;
 
-	const char *name, *route, *mailbox, *domain;
+	/* display-name */
+	const char *name;
+	/* route string contains the @ prefix */
+	const char *route;
+	/* local-part */
+	const char *mailbox;
+	const char *domain;
+	/* there were errors when parsing this address */
 	bool invalid_syntax;
 };
 

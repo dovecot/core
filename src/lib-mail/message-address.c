@@ -386,7 +386,6 @@ void message_address_write(string_t *str, const struct message_address *addr)
 			}
 			str_append_c(str, '<');
 			if (addr->route != NULL) {
-				str_append_c(str, '@');
 				str_append(str, addr->route);
 				str_append_c(str, ':');
 			}
