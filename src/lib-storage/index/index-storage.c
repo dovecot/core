@@ -66,9 +66,10 @@ static void index_list_free(struct index_list *list)
 
 static int create_index_dir(struct mail_storage *storage, const char *name)
 {
-	const char *root_dir, *index_dir;
-	mode_t mode;
-	gid_t gid;
+	const char *root_dir, *index_dir, *p, *parent_dir;
+	mode_t mode, parent_mode;
+	gid_t gid, parent_gid;
+	int n = 0;
 
 	root_dir = mailbox_list_get_path(storage->list, name,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -78,13 +79,28 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 		return 0;
 
 	mailbox_list_get_dir_permissions(storage->list, name, &mode, &gid);
-	if (mkdir_parents_chown(index_dir, mode, (uid_t)-1, gid) < 0 &&
-	    errno != EEXIST) {
-		mail_storage_set_critical(storage, "mkdir(%s) failed: %m",
-					  index_dir);
-		return -1;
-	}
+	while (mkdir_chown(index_dir, mode, (uid_t)-1, gid) < 0) {
+		if (errno == EEXIST)
+			break;
 
+		p = strrchr(index_dir, '/');
+		if (errno != ENOENT || p == NULL || ++n == 2) {
+			mail_storage_set_critical(storage,
+				"mkdir(%s) failed: %m", index_dir);
+			return -1;
+		}
+		/* create the parent directory first */
+		mailbox_list_get_dir_permissions(storage->list, NULL,
+						 &parent_mode, &parent_gid);
+		parent_dir = t_strdup_until(index_dir, p);
+		if (mkdir_parents_chown(parent_dir, parent_mode,
+					(uid_t)-1, parent_gid) < 0 &&
+		    errno != EEXIST) {
+			mail_storage_set_critical(storage,
+				"mkdir(%s) failed: %m", parent_dir);
+			return -1;
+		}
+	}
 	return 0;
 }
 

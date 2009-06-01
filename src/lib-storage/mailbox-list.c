@@ -293,17 +293,13 @@ mailbox_list_get_user(const struct mailbox_list *list)
 	return list->ns->user;
 }
 
-void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
-				  mode_t *mode_r, gid_t *gid_r)
+static void
+mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
+				  mode_t *file_mode_r, mode_t *dir_mode_r,
+				  gid_t *gid_r)
 {
 	const char *path;
 	struct stat st;
-
-	if (list->file_create_mode != (mode_t)-1 && name == NULL) {
-		*mode_r = list->file_create_mode;
-		*gid_r = list->file_create_gid;
-		return;
-	}
 
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
 	if (stat(path, &st) < 0) {
@@ -315,35 +311,39 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 			       list->ns->prefix, path);
 		}
 		/* return safe defaults */
-		list->file_create_mode = 0600;
-		list->dir_create_mode = 0700;
-		list->file_create_gid = (gid_t)-1;
-
-		*mode_r = list->file_create_mode;
-		*gid_r = list->file_create_gid;
-		return;
-	}
-
-	list->file_create_mode = st.st_mode & 0666;
-	list->dir_create_mode = st.st_mode & 0777;
-	if (!S_ISDIR(st.st_mode)) {
-		/* we're getting permissions from a file.
-		   apply +x modes as necessary. */
-		list->dir_create_mode = get_dir_mode(list->dir_create_mode);
-	}
-
-	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
-		/* directory's GID is used automatically for new files */
-		list->file_create_gid = (gid_t)-1;
-	} else if ((st.st_mode & 0070) == 0) {
-		/* group doesn't have any permissions, so don't bother
-		   changing it */
-		list->file_create_gid = (gid_t)-1;
-	} else if (getegid() == st.st_gid) {
-		/* using our own gid, no need to change it */
-		list->file_create_gid = (gid_t)-1;
+		*file_mode_r = 0600;
+		*dir_mode_r = 0700;
+		*gid_r = (gid_t)-1;
 	} else {
-		list->file_create_gid = st.st_gid;
+		*file_mode_r = st.st_mode & 0666;
+		*dir_mode_r = st.st_mode & 0777;
+
+		if (!S_ISDIR(st.st_mode)) {
+			/* we're getting permissions from a file.
+			   apply +x modes as necessary. */
+			*dir_mode_r = get_dir_mode(*dir_mode_r);
+		}
+
+		if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
+			/* directory's GID is used automatically for new
+			   files */
+			*gid_r = (gid_t)-1;
+		} else if ((st.st_mode & 0070) == 0) {
+			/* group doesn't have any permissions, so don't bother
+			   changing it */
+			*gid_r = (gid_t)-1;
+		} else if (getegid() == st.st_gid) {
+			/* using our own gid, no need to change it */
+			*gid_r = (gid_t)-1;
+		} else {
+			*gid_r = st.st_gid;
+		}
+	}
+
+	if (name == NULL) {
+		list->file_create_mode = *file_mode_r;
+		list->dir_create_mode = *dir_mode_r;
+		list->file_create_gid = *gid_r;
 	}
 
 	if (list->mail_set->mail_debug && name == NULL) {
@@ -353,19 +353,36 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 		       list->file_create_gid == (gid_t)-1 ? -1L :
 		       (long)list->file_create_gid);
 	}
+}
 
-	*mode_r = list->file_create_mode;
-	*gid_r = list->file_create_gid;
+void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
+				  mode_t *mode_r, gid_t *gid_r)
+{
+	mode_t dir_mode;
+
+	if (list->file_create_mode != (mode_t)-1 && name == NULL) {
+		*mode_r = list->file_create_mode;
+		*gid_r = list->file_create_gid;
+		return;
+	}
+
+	mailbox_list_get_permissions_full(list, name, mode_r, &dir_mode, gid_r);
 }
 
 void mailbox_list_get_dir_permissions(struct mailbox_list *list,
 				      const char *name,
 				      mode_t *mode_r, gid_t *gid_r)
 {
-	mode_t mode;
+	mode_t file_mode;
 
-	mailbox_list_get_permissions(list, name, &mode, gid_r);
-	*mode_r = list->dir_create_mode;
+	if (list->dir_create_mode != (mode_t)-1 && name == NULL) {
+		*mode_r = list->dir_create_mode;
+		*gid_r = list->file_create_gid;
+		return;
+	}
+
+	mailbox_list_get_permissions_full(list, name, &file_mode,
+					  mode_r, gid_r);
 }
 
 bool mailbox_list_is_valid_pattern(struct mailbox_list *list,

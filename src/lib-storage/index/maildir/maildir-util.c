@@ -130,6 +130,45 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	return ret == -2 ? 0 : ret;
 }
 
+static int maildir_create_path(struct mailbox *box, const char *path,
+			       bool is_mail_dir)
+{
+	const char *p, *parent;
+	mode_t parent_mode;
+	gid_t parent_gid;
+
+	if (mkdir_chown(path, box->dir_create_mode,
+			(uid_t)-1, box->file_create_gid) == 0)
+		return 0;
+
+	switch (errno) {
+	case EEXIST:
+		return 0;
+	case ENOENT:
+		p = strrchr(path, '/');
+		if (is_mail_dir || p == NULL) {
+			/* mailbox was being deleted just now */
+			mailbox_set_deleted(box);
+			return -1;
+		}
+		/* create index/control root directory */
+		parent = t_strdup_until(path, p);
+		mailbox_list_get_dir_permissions(box->storage->list, NULL,
+						 &parent_mode, &parent_gid);
+		if (mkdir_parents_chown(parent, parent_mode, (uid_t)-1,
+					parent_gid) == 0 || errno == EEXIST) {
+			/* should work now, try again */
+			return maildir_create_path(box, path, TRUE);
+		}
+		/* fall through */
+		path = parent;
+	default:
+		mail_storage_set_critical(box->storage,
+					  "mkdir(%s) failed: %m", path);
+		return -1;
+	}
+}
+
 static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 {
 	static const char *subdirs[] = { "cur", "new", "tmp" };
@@ -138,6 +177,7 @@ static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 	struct stat st;
 	const char *path;
 	unsigned int i;
+	bool is_mail_dir;
 
 	/* @UNSAFE: get a list of directories we want to create */
 	for (i = 0; i < N_ELEMENTS(subdirs); i++)
@@ -157,18 +197,9 @@ static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 						  "stat(%s) failed: %m", path);
 			break;
 		}
-		if (mkdir_parents_chown(path, box->dir_create_mode,
-					(uid_t)-1, box->file_create_gid) < 0 &&
-		    errno != EEXIST) {
-			if (errno == ENOENT) {
-				/* mailbox was being deleted just now */
-				mailbox_set_deleted(box);
-				break;
-			}
-			mail_storage_set_critical(box->storage,
-						  "mkdir(%s) failed: %m", path);
+		is_mail_dir = i < N_ELEMENTS(subdirs);
+		if (maildir_create_path(box, path, is_mail_dir) < 0)
 			break;
-		}
 	}
 	return i == N_ELEMENTS(dirs) ? 0 : -1;
 }
