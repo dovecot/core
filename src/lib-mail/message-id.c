@@ -27,6 +27,7 @@ static bool get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 
 	if (*parser.data != '@')
 		return FALSE;
+	str_append_c(msgid, '@');
 	parser.data++;
 	(void)rfc822_skip_lwsp(&parser);
 
