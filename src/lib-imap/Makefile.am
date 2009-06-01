@@ -52,16 +52,16 @@ test_libs = \
 	../lib/liblib.la
 
 test_imap_match_SOURCES = test-imap-match.c
-test_imap_match_LDADD = imap-match.o $(test_libs)
-test_imap_match_DEPENDENCIES = imap-match.o $(test_libs)
+test_imap_match_LDADD = imap-match.lo $(test_libs)
+test_imap_match_DEPENDENCIES = imap-match.lo $(test_libs)
 
 test_imap_parser_SOURCES = test-imap-parser.c
-test_imap_parser_LDADD = imap-parser.o $(test_libs)
-test_imap_parser_DEPENDENCIES = imap-parser.o $(test_libs)
+test_imap_parser_LDADD = imap-parser.lo $(test_libs)
+test_imap_parser_DEPENDENCIES = imap-parser.lo $(test_libs)
 
 test_imap_utf7_SOURCES = test-imap-utf7.c
-test_imap_utf7_LDADD = imap-utf7.o $(test_libs)
-test_imap_utf7_DEPENDENCIES = imap-utf7.o $(test_libs)
+test_imap_utf7_LDADD = imap-utf7.lo $(test_libs)
+test_imap_utf7_DEPENDENCIES = imap-utf7.lo $(test_libs)
 
 check: check-am check-test
 check-test: $(test_programs)

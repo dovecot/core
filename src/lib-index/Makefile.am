@@ -65,17 +65,17 @@ test_programs = \
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
-	mail-index-util.o \
+	mail-index-util.lo \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
 test_mail_transaction_log_append_SOURCES = test-mail-transaction-log-append.c
-test_mail_transaction_log_append_LDADD = mail-transaction-log-append.o $(test_libs)
-test_mail_transaction_log_append_DEPENDENCIES = mail-transaction-log-append.o $(test_libs)
+test_mail_transaction_log_append_LDADD = mail-transaction-log-append.lo $(test_libs)
+test_mail_transaction_log_append_DEPENDENCIES = mail-transaction-log-append.lo $(test_libs)
 
 test_mail_transaction_log_view_SOURCES = test-mail-transaction-log-view.c
-test_mail_transaction_log_view_LDADD = mail-transaction-log-view.o $(test_libs)
-test_mail_transaction_log_view_DEPENDENCIES = mail-transaction-log-view.o $(test_libs)
+test_mail_transaction_log_view_LDADD = mail-transaction-log-view.lo $(test_libs)
+test_mail_transaction_log_view_DEPENDENCIES = mail-transaction-log-view.lo $(test_libs)
 
 check: check-am check-test
 check-test: $(test_programs)
