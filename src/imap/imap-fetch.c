@@ -16,6 +16,7 @@
 #include "imap-util.h"
 
 #include <stdlib.h>
+#include <ctype.h>
 
 #define BODY_NIL_REPLY \
 	"\"text\" \"plain\" NIL NIL NIL \"7bit\" 0 0"
@@ -59,7 +60,7 @@ bool imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
 	const char *lookup_name, *p;
 	unsigned int count;
 
-	for (p = name; *p >= 'A' && *p <= 'Z'; p++) ;
+	for (p = name; i_isalnum(*p); p++) ;
 	lookup_name = t_strdup_until(name, p);
 
 	handlers = array_get_modifiable(&fetch_handlers, &count);
