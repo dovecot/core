@@ -319,11 +319,7 @@ int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
 	if (fd == -1)
 		return mail_index_file_set_syscall_error(index, path, "open()");
 
-	if (index->gid != (gid_t)-1 && fchown(fd, (uid_t)-1, index->gid) < 0) {
-		mail_index_file_set_syscall_error(index, path, "fchown()");
-		return -1;
-	}
-
+	mail_index_fchown(index, fd, path);
 	return fd;
 }
 
@@ -648,6 +644,37 @@ void mail_index_mark_corrupted(struct mail_index *index)
 	index->map->hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
 	if (unlink(index->filepath) < 0 && errno != ENOENT && errno != ESTALE)
 		mail_index_set_syscall_error(index, "unlink()");
+}
+
+void mail_index_fchown(struct mail_index *index, int fd, const char *path)
+{
+	mode_t mode;
+
+	if (index->gid == (gid_t)-1) {
+		/* no gid changing */
+		return;
+	} else if (fchown(fd, (uid_t)-1, index->gid) == 0) {
+		/* success */
+		return;
+	} if ((index->mode & 0066) == 0) {
+		/* group doesn't really matter, ignore silently. */
+		return;
+	} if ((index->mode & 0060) == 0) {
+		/* file access was granted to everyone, except this group.
+		   to make sure we don't expose it to the group, drop the world
+		   permissions too. */
+		mail_index_file_set_syscall_error(index, path, "fchown()");
+		mode = index->mode & 0600;
+	} else {
+		mail_index_file_set_syscall_error(index, path, "fchown()");
+		/* continue, but change group permissions to same as
+		   world-permissions were. */
+		mode = (index->mode & 0606) | ((index->mode & 06) << 3);
+	}
+	if (fchmod(fd, mode) < 0) {
+		mail_index_file_set_syscall_error(index, path,
+						  "fchmod()");
+	}
 }
 
 int mail_index_set_syscall_error(struct mail_index *index,

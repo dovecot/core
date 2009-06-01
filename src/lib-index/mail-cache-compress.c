@@ -386,12 +386,8 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		return mail_cache_reopen(cache);
 	}
 
-	if (cache->index->gid != (gid_t)-1 &&
-	    fchown(fd, (uid_t)-1, cache->index->gid) < 0) {
-		mail_cache_set_syscall_error(cache, "fchown()");
-		file_dotlock_delete(&dotlock);
-		return -1;
-	}
+	mail_index_fchown(cache->index, fd,
+			  file_dotlock_get_lock_path(dotlock));
 
 	if (mail_cache_copy(cache, trans, fd, &file_seq, &ext_offsets) < 0) {
 		/* the fields may have been updated in memory already.

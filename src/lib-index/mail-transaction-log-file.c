@@ -677,14 +677,7 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 						  "file_dotlock_open()");
 		return -1;
 	}
-
-	if (index->gid != (gid_t)-1 &&
-	    fchown(fd, (uid_t)-1, index->gid) < 0) {
-		mail_index_file_set_syscall_error(index, file->filepath,
-						  "fchown()");
-		(void)file_dotlock_delete(&dotlock);
-		return -1;
-	}
+	mail_index_fchown(index, fd, file_dotlock_get_lock_path(dotlock));
 
         /* either fd gets used or the dotlock gets deleted and returned fd
            is for the existing file */

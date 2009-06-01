@@ -301,6 +301,7 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map);
 void mail_index_record_map_move_to_private(struct mail_index_map *map);
 /* Move a mmaped map to memory. */
 void mail_index_map_move_to_memory(struct mail_index_map *map);
+void mail_index_fchown(struct mail_index *index, int fd, const char *path);
 
 bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,
 			       uint32_t *idx_r);
