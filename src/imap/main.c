@@ -108,9 +108,11 @@ static void client_add_input(struct client *client, const char *input)
 	} else if (send_untagged_capability) {
 		/* client doesn't seem to understand tagged capabilities. send
 		   untagged instead and hope that it works. */
+		o_stream_cork(client->output);
 		client_send_line(client, t_strconcat("* CAPABILITY ",
 			str_c(client->capability_string), NULL));
 		client_send_line(client, t_strconcat(tag, " Logged in", NULL));
+		o_stream_uncork(client->output);
 	} else {
 		client_send_line(client, t_strconcat(
 			tag, " OK [CAPABILITY ",
