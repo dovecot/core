@@ -228,6 +228,8 @@ static void master_status_error(void *context)
 	if (service->master_status.available_count ==
 	    service->total_available_count)
 		master_service_stop(service);
+	else
+		io_listeners_remove(service);
 }
 
 void master_service_init_finish(struct master_service *service)
