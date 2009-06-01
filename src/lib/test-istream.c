@@ -99,7 +99,7 @@ static void test_istream_crlf(void)
 		test_istream_crlf_input(input[i], i);
 }
 
-void test_istreams(void)
+void test_istream(void)
 {
 	test_istream_crlf();
 }

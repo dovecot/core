@@ -210,7 +210,20 @@ test_libs = \
 
 test_lib_SOURCES = \
 	test-lib.c \
-	test-istream.c
+	test-array.c \
+	test-aqueue.c \
+	test-base64.c \
+	test-bsearch-insert-pos.c \
+	test-buffer.c \
+	test-istream.c \
+	test-mempool-alloconly.c \
+	test-network.c \
+	test-primes.c \
+	test-priorityq.c \
+	test-seq-range-array.c \
+	test-str-find.c \
+	test-str-sanitize.c \
+	test-utc-mktime.c
 
 test_headers = \
 	test-lib.h
