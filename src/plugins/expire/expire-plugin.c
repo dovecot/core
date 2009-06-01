@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "master-service.h"
 #include "dict.h"
 #include "mail-namespace.h"
 #include "index-mail.h"
@@ -309,12 +310,15 @@ static void expire_mail_user_deinit(struct mail_user *user)
 static void expire_mail_user_created(struct mail_user *user)
 {
 	struct expire_mail_user *euser;
-	const char *expunge_env, *altmove_env, *dict_uri;
+	const char *expunge_env, *altmove_env, *dict_uri, *service_name;
 
+	service_name = master_service_get_name(master_service);
 	expunge_env = mail_user_plugin_getenv(user, "expire");
 	altmove_env = mail_user_plugin_getenv(user, "expire_altmove");
 	dict_uri = mail_user_plugin_getenv(user, "expire_dict");
-	if (expunge_env == NULL && altmove_env == NULL) {
+	if (strcmp(service_name, "expire-tool") == 0) {
+		/* expire-tool handles all of this internally */
+	} else if (expunge_env == NULL && altmove_env == NULL) {
 		if (user->mail_debug) {
 			i_info("expire: No expire or expire_altmove settings - "
 			       "plugin disabled");
