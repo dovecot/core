@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static int mkdir_chown(const char *path, mode_t mode, uid_t uid, gid_t gid)
+int mkdir_chown(const char *path, mode_t mode, uid_t uid, gid_t gid)
 {
 	mode_t old_mask;
 	int ret;
