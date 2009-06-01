@@ -656,25 +656,20 @@ void mail_index_fchown(struct mail_index *index, int fd, const char *path)
 	} else if (fchown(fd, (uid_t)-1, index->gid) == 0) {
 		/* success */
 		return;
-	} if ((index->mode & 0066) == 0) {
-		/* group doesn't really matter, ignore silently. */
+	} if ((index->mode & 0060) >> 3 == (index->mode & 0006)) {
+		/* group and world permissions are the same, so group doesn't
+		   really matter. ignore silently. */
 		return;
-	} if ((index->mode & 0060) == 0) {
-		/* file access was granted to everyone, except this group.
-		   to make sure we don't expose it to the group, drop the world
-		   permissions too. */
-		mail_index_file_set_syscall_error(index, path, "fchown()");
-		mode = index->mode & 0600;
-	} else {
-		mail_index_file_set_syscall_error(index, path, "fchown()");
-		/* continue, but change group permissions to same as
-		   world-permissions were. */
-		mode = (index->mode & 0606) | ((index->mode & 06) << 3);
 	}
-	if (fchmod(fd, mode) < 0) {
-		mail_index_file_set_syscall_error(index, path,
-						  "fchmod()");
-	}
+	mail_index_file_set_syscall_error(index, path, "fchown()");
+
+	/* continue, but change permissions so that only the common
+	   subset of group and world is used. this makes sure no one
+	   gets any extra permissions. */
+	mode = ((index->mode & 0060) >> 3) & (index->mode & 0006);
+	mode |= (mode << 3) | (index->mode & 0600);
+	if (fchmod(fd, mode) < 0)
+		mail_index_file_set_syscall_error(index, path, "fchmod()");
 }
 
 int mail_index_set_syscall_error(struct mail_index *index,

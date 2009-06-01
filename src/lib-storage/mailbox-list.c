@@ -328,8 +328,8 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 			/* directory's GID is used automatically for new
 			   files */
 			*gid_r = (gid_t)-1;
-		} else if ((st.st_mode & 0070) == 0) {
-			/* group doesn't have any permissions, so don't bother
+		} else if ((st.st_mode & 0070) >> 3 == (st.st_mode & 0007)) {
+			/* group has same permissions as world, so don't bother
 			   changing it */
 			*gid_r = (gid_t)-1;
 		} else if (getegid() == st.st_gid) {
