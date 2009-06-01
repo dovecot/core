@@ -72,6 +72,8 @@ const char *master_service_get_config_path(struct master_service *service);
 /* Returns PACKAGE_VERSION or NULL if version_ignore=yes. This function is
    useful mostly as parameter to module_dir_load(). */
 const char *master_service_get_version_string(struct master_service *service);
+/* Returns name of the service, as given in name parameter to _init(). */
+const char *master_service_get_name(struct master_service *service);
 
 /* Start the service. Blocks until finished */
 void master_service_run(struct master_service *service,

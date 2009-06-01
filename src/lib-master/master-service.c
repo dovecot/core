@@ -364,6 +364,11 @@ const char *master_service_get_version_string(struct master_service *service)
 	return service->version_string;
 }
 
+const char *master_service_get_name(struct master_service *service)
+{
+	return service->name;
+}
+
 void master_service_run(struct master_service *service,
 			master_service_connection_callback_t *callback)
 {
