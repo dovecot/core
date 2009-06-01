@@ -10,6 +10,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "safe-memset.h"
+#include "master-service.h"
 #include "auth-stream.h"
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
@@ -331,6 +332,7 @@ void auth_client_connection_destroy(struct auth_client_connection **_conn)
 	if (conn->request_handler != NULL)
 		auth_request_handler_unref(&conn->request_handler);
 
+        master_service_client_connection_destroyed(master_service);
         auth_client_connection_unref(&conn);
 }
 
