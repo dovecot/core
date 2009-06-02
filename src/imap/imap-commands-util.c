@@ -93,7 +93,7 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 	list = mail_storage_get_list(ns->storage);
 	if (mailbox_list_get_mailbox_name_status(list, mailbox,
 						 &mailbox_status) < 0) {
-		client_send_storage_error(cmd, ns->storage);
+		client_send_list_error(cmd, list);
 		return FALSE;
 	}
 
