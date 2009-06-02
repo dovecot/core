@@ -45,7 +45,7 @@ void virtual_copy_error(struct mail_storage *dest, struct mail_storage *src)
 	enum mail_error error;
 
 	str = mail_storage_get_last_error(src, &error);
-	if ((src->ns->flags & NAMESPACE_FLAG_HIDDEN) != 0) {
+	if ((src->ns->flags & NAMESPACE_FLAG_HIDDEN) == 0) {
 		str = t_strdup_printf("%s (namespace %s)", str,
 				      src->ns->prefix);
 	}
