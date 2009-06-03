@@ -50,14 +50,14 @@ dict-drivers-register.c: Makefile
 	for i in $(dict_drivers) null; do \
 	  if [ "$${i}" != "null" ]; then \
 	        echo "extern struct dict dict_driver_$${i};" >>$@ ; \
-	  fi \
+	  fi; \
 	done
 	echo 'void dict_drivers_register_all(void) {' >>$@
 	echo 'dict_sql_register();' >>$@
 	for i in $(dict_drivers) null; do \
 	  if [ "$${i}" != "null" ]; then \
 	        echo "dict_driver_register(&dict_driver_$${i});" >>$@ ; \
-	  fi \
+	  fi; \
 	done
 	echo '}' >>$@
 	echo 'void dict_drivers_unregister_all(void) {' >>$@
@@ -65,7 +65,7 @@ dict-drivers-register.c: Makefile
 	for i in $(dict_drivers) null; do \
 	  if [ "$${i}" != "null" ]; then \
 	        echo "dict_driver_unregister(&dict_driver_$${i});" >>$@ ; \
-	  fi \
+	  fi; \
 	done
 	echo '}' >>$@
 

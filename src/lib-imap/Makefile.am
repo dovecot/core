@@ -66,5 +66,5 @@ test_imap_utf7_DEPENDENCIES = imap-utf7.lo $(test_libs)
 check: check-am check-test
 check-test: $(test_programs)
 	for bin in $(test_programs); do \
-	  if ! ./$$bin; then exit 1; fi \
+	  if ! ./$$bin; then exit 1; fi; \
 	done

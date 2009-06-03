@@ -80,7 +80,7 @@ test_mail_transaction_log_view_DEPENDENCIES = mail-transaction-log-view.lo $(tes
 check: check-am check-test
 check-test: $(test_programs)
 	for bin in $(test_programs); do \
-	  if ! ./$$bin; then exit 1; fi \
+	  if ! ./$$bin; then exit 1; fi; \
 	done
 
 if INSTALL_HEADERS

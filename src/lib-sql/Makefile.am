@@ -84,7 +84,7 @@ if ! SQL_PLUGINS
 	for i in $(sql_drivers) null; do \
 	  if [ "$${i}" != "null" ]; then \
 	        echo "extern struct sql_db driver_$${i}_db;" >>$@ ; \
-	  fi \
+	  fi; \
 	done
 endif
 	echo 'void sql_drivers_register_all(void) {' >>$@
@@ -92,7 +92,7 @@ if ! SQL_PLUGINS
 	for i in $(sql_drivers) null; do \
 	  if [ "$${i}" != "null" ]; then \
 	        echo "sql_driver_register(&driver_$${i}_db);" >>$@ ; \
-	  fi \
+	  fi; \
 	done
 endif
 	echo '}' >>$@
