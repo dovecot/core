@@ -79,8 +79,8 @@ dbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		     I_MIN(storage->set->dbox_max_open_files, 128));
 
 	storage->map = dbox_map_init(storage);
-	mailbox_list_get_permissions(ns->list, NULL, &storage->create_mode,
-				     &storage->create_gid);
+	mailbox_list_get_dir_permissions(ns->list, NULL, &storage->create_mode,
+					 &storage->create_gid);
 	return 0;
 }
 

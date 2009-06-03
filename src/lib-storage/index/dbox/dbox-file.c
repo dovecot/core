@@ -433,7 +433,7 @@ int dbox_create_fd(struct dbox_storage *storage, const char *path)
 	mode_t old_mask;
 	int fd;
 
-	old_mask = umask(0777 & ~storage->create_mode);
+	old_mask = umask(0666 & ~storage->create_mode);
 	fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0777);
 	umask(old_mask);
 	if (fd == -1) {
