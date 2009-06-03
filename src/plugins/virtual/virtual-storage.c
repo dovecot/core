@@ -34,8 +34,6 @@ struct virtual_storage_module virtual_storage_module =
 static MODULE_CONTEXT_DEFINE_INIT(virtual_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static void virtual_list_init(struct mailbox_list *list);
-
 void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src)
 {
 	const char *str;
@@ -62,16 +60,6 @@ static struct mail_storage *virtual_storage_alloc(void)
 	storage->storage.pool = pool;
 	p_array_init(&storage->open_stack, pool, 8);
 	return &storage->storage;
-}
-
-static int
-virtual_storage_create(struct mail_storage *_storage ATTR_UNUSED,
-		       struct mail_namespace *ns,
-		       const char **error_r ATTR_UNUSED)
-{
-	ns->flags |= NAMESPACE_FLAG_NOQUOTA;
-	virtual_list_init(ns->list);
-	return 0;
 }
 
 static void
@@ -560,12 +548,15 @@ static void virtual_class_deinit(void)
 	virtual_transaction_class_deinit();
 }
 
-static void virtual_list_init(struct mailbox_list *list)
+static void virtual_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
+				     struct mailbox_list *list)
 {
 	struct virtual_mailbox_list *mlist;
 
 	mlist = p_new(list->pool, struct virtual_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
+
+	list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
 
 	list->v.iter_is_mailbox = virtual_list_iter_is_mailbox;
 	list->v.delete_mailbox = virtual_list_delete_mailbox;
@@ -575,15 +566,16 @@ static void virtual_list_init(struct mailbox_list *list)
 
 struct mail_storage virtual_storage = {
 	MEMBER(name) VIRTUAL_STORAGE_NAME,
-	MEMBER(mailbox_is_file) FALSE,
+	MEMBER(class_flags) 0,
 
 	{
 		NULL,
 		virtual_class_init,
 		virtual_class_deinit,
 		virtual_storage_alloc,
-		virtual_storage_create,
+		NULL,
 		index_storage_destroy,
+		virtual_storage_add_list,
 		virtual_storage_get_list_settings,
 		NULL,
 		virtual_mailbox_open,

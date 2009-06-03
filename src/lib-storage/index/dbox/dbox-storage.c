@@ -39,9 +39,6 @@ extern struct mailbox dbox_mailbox;
 static MODULE_CONTEXT_DEFINE_INIT(dbox_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static void dbox_list_init(struct mailbox_list *list,
-			   const struct dbox_settings *set);
-
 static struct mail_storage *dbox_storage_alloc(void)
 {
 	struct dbox_storage *storage;
@@ -69,7 +66,8 @@ dbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		return -1;
 	}
 
-	dbox_list_init(ns->list, storage->set);
+	_storage->unique_root_dir =
+		p_strdup(_storage->pool, ns->list->set.root_dir);
 
 	dir = mailbox_list_get_path(ns->list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
 	storage->storage_dir = p_strconcat(_storage->pool, dir,
@@ -162,6 +160,7 @@ dbox_open(struct dbox_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box = dbox_mailbox;
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = _storage;
+	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
 	mbox->ibox.index = index;
 	mbox->ibox.keep_index_backups = TRUE;
@@ -720,14 +719,14 @@ static void dbox_class_deinit(void)
 	dbox_transaction_class_deinit();
 }
 
-static void dbox_list_init(struct mailbox_list *list,
-			   const struct dbox_settings *set)
+static void dbox_storage_add_list(struct mail_storage *storage,
+				  struct mailbox_list *list)
 {
 	struct dbox_mailbox_list *mlist;
 
 	mlist = p_new(list->pool, struct dbox_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
-	mlist->set = set;
+	mlist->set = mail_storage_get_driver_settings(storage);
 
 	list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
 	list->v.delete_mailbox = dbox_list_delete_mailbox;
@@ -739,7 +738,7 @@ static void dbox_list_init(struct mailbox_list *list,
 
 struct mail_storage dbox_storage = {
 	MEMBER(name) DBOX_STORAGE_NAME,
-	MEMBER(mailbox_is_file) FALSE,
+	MEMBER(class_flags) MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT, /* FIXME: for multi-dbox only.. */
 
 	{
                 dbox_get_setting_parser_info,
@@ -748,6 +747,7 @@ struct mail_storage dbox_storage = {
 		dbox_storage_alloc,
 		dbox_storage_create,
 		dbox_storage_destroy,
+		dbox_storage_add_list,
 		dbox_storage_get_list_settings,
 		NULL,
 		dbox_mailbox_open,

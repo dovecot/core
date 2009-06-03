@@ -44,9 +44,6 @@ static MODULE_CONTEXT_DEFINE_INIT(maildir_mailbox_list_module,
 				  &mailbox_list_module_register);
 static const char *maildir_subdirs[] = { "cur", "new", "tmp" };
 
-static void maildir_list_init(struct mailbox_list *list,
-			      const struct maildir_settings *set);
-
 static bool maildir_is_internal_name(const char *name)
 {
 	return strcmp(name, "cur") == 0 ||
@@ -114,7 +111,6 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	const char *dir;
 
 	storage->set = mail_storage_get_driver_settings(_storage);
-	maildir_list_init(list, storage->set);
 
 	storage->maildir_list_ext_id = (uint32_t)-1;
 	storage->temp_prefix = mailbox_list_get_temp_prefix(list);
@@ -1007,14 +1003,14 @@ static void maildir_class_deinit(void)
 	maildir_transaction_class_deinit();
 }
 
-static void maildir_list_init(struct mailbox_list *list,
-			      const struct maildir_settings *set)
+static void maildir_storage_add_list(struct mail_storage *storage,
+				     struct mailbox_list *list)
 {
 	struct maildir_mailbox_list *mlist;
 
 	mlist = p_new(list->pool, struct maildir_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
-	mlist->set = set;
+	mlist->set = mail_storage_get_driver_settings(storage);
 
 	if (strcmp(list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0) {
 		list->v.iter_is_mailbox = maildirplusplus_iter_is_mailbox;
@@ -1032,7 +1028,7 @@ static void maildir_list_init(struct mailbox_list *list,
 
 struct mail_storage maildir_storage = {
 	MEMBER(name) MAILDIR_STORAGE_NAME,
-	MEMBER(mailbox_is_file) FALSE,
+	MEMBER(class_flags) 0,
 
 	{
                 maildir_get_setting_parser_info,
@@ -1041,6 +1037,7 @@ struct mail_storage maildir_storage = {
 		maildir_storage_alloc,
 		maildir_storage_create,
 		index_storage_destroy,
+		maildir_storage_add_list,
 		maildir_storage_get_list_settings,
 		maildir_storage_autodetect,
 		maildir_mailbox_open,

@@ -28,6 +28,7 @@ struct mail_user {
 	const struct mail_user_settings *unexpanded_set;
 	struct mail_user_settings *set;
 	struct mail_namespace *namespaces;
+	struct mail_storage *storages;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mail_user_module_context *);

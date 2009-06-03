@@ -4,7 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "file-lock.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-storage-settings.h"
 #include "mail-namespace.h"
 
@@ -18,6 +18,9 @@ void mail_namespace_add_storage(struct mail_namespace *ns,
 	/* currently we support only a single storage */
 	i_assert(ns->storage == NULL);
 	ns->storage = storage;
+
+	if (storage->v.add_list != NULL)
+		storage->v.add_list(storage, ns->list);
 }
 
 void mail_namespace_finish_list_init(struct mail_namespace *ns,
@@ -42,7 +45,7 @@ void mail_namespace_finish_list_init(struct mail_namespace *ns,
 static void mail_namespace_free(struct mail_namespace *ns)
 {
 	if (ns->storage != NULL)
-		mail_storage_destroy(&ns->storage);
+		mail_storage_unref(&ns->storage);
 	if (ns->list != NULL)
 		mailbox_list_destroy(&ns->list);
 
@@ -359,8 +362,6 @@ void mail_namespace_destroy(struct mail_namespace *ns)
 		}
 	}
 
-	if (ns->storage != NULL)
-		mail_storage_destroy(&ns->storage);
 	mail_namespace_free(ns);
 }
 

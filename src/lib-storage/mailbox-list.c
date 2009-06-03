@@ -851,7 +851,8 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 const char *mailbox_list_get_last_error(struct mailbox_list *list,
 					enum mail_error *error_r)
 {
-	*error_r = list->error;
+	if (error_r != NULL)
+		*error_r = list->error;
 
 	return list->error_string != NULL ? list->error_string :
 		"Unknown internal list error";

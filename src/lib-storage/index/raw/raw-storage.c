@@ -16,8 +16,6 @@ struct raw_mailbox_list {
 extern struct mail_storage raw_storage;
 extern struct mailbox raw_mailbox;
 
-static void raw_list_init(struct mailbox_list *list);
-
 static struct mail_storage *raw_storage_alloc(void)
 {
 	struct raw_storage *storage;
@@ -28,14 +26,6 @@ static struct mail_storage *raw_storage_alloc(void)
 	storage->storage = raw_storage;
 	storage->storage.pool = pool;
 	return &storage->storage;
-}
-
-static int
-raw_storage_create(struct mail_storage *_storage ATTR_UNUSED,
-		   struct mail_namespace *ns, const char **error_r ATTR_UNUSED)
-{
-	raw_list_init(ns->list);
-	return 0;
 }
 
 static void
@@ -196,7 +186,8 @@ static void raw_class_deinit(void)
 	raw_transaction_class_deinit();
 }
 
-static void raw_list_init(struct mailbox_list *list)
+static void raw_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
+				 struct mailbox_list *list)
 {
 	list->v.iter_is_mailbox = raw_list_iter_is_mailbox;
 	list->v.delete_mailbox = raw_list_delete_mailbox;
@@ -204,15 +195,16 @@ static void raw_list_init(struct mailbox_list *list)
 
 struct mail_storage raw_storage = {
 	MEMBER(name) RAW_STORAGE_NAME,
-	MEMBER(mailbox_is_file) TRUE,
+	MEMBER(class_flags) MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE,
 
 	{
 		NULL,
 		raw_class_init,
 		raw_class_deinit,
 		raw_storage_alloc,
-		raw_storage_create,
+		NULL,
 		index_storage_destroy,
+		raw_storage_add_list,
 		raw_storage_get_list_settings,
 		NULL,
 		raw_mailbox_open,

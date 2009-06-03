@@ -26,8 +26,6 @@ extern struct mailbox cydir_mailbox;
 static MODULE_CONTEXT_DEFINE_INIT(cydir_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static void cydir_list_init(struct mailbox_list *list);
-
 static struct mail_storage *cydir_storage_alloc(void)
 {
 	struct cydir_storage *storage;
@@ -38,15 +36,6 @@ static struct mail_storage *cydir_storage_alloc(void)
 	storage->storage = cydir_storage;
 	storage->storage.pool = pool;
 	return &storage->storage;
-}
-
-static int
-cydir_storage_create(struct mail_storage *_storage ATTR_UNUSED,
-		     struct mail_namespace *ns,
-		     const char **error_r ATTR_UNUSED)
-{
-	cydir_list_init(ns->list);
-	return 0;
 }
 
 static void
@@ -336,7 +325,8 @@ static void cydir_class_deinit(void)
 	cydir_transaction_class_deinit();
 }
 
-static void cydir_list_init(struct mailbox_list *list)
+static void cydir_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
+				   struct mailbox_list *list)
 {
 	struct cydir_mailbox_list *mlist;
 
@@ -351,15 +341,16 @@ static void cydir_list_init(struct mailbox_list *list)
 
 struct mail_storage cydir_storage = {
 	MEMBER(name) CYDIR_STORAGE_NAME,
-	MEMBER(mailbox_is_file) FALSE,
+	MEMBER(class_flags) 0,
 
 	{
 		NULL,
 		cydir_class_init,
 		cydir_class_deinit,
 		cydir_storage_alloc,
-		cydir_storage_create,
+		NULL,
 		index_storage_destroy,
+		cydir_storage_add_list,
 		cydir_storage_get_list_settings,
 		NULL,
 		cydir_mailbox_open,

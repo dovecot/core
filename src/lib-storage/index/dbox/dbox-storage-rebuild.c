@@ -469,20 +469,13 @@ static int rebuild_mailboxes(struct dbox_storage_rebuild_context *ctx)
 {
 	struct mail_user *user = ctx->storage->storage.user;
 	struct mail_namespace *ns;
-	const char *rebuild_dir, *ns_dir;
 
-	rebuild_dir = ctx->storage->storage_dir;
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (strcmp(ns->storage->name, "dbox") != 0)
-			continue;
-
-		ns_dir = mailbox_list_get_path(ns->list, NULL,
-					       MAILBOX_LIST_PATH_TYPE_DIR);
-		if (strcmp(ns_dir, rebuild_dir) != 0)
-			continue;
-
-		if (rebuild_namespace_mailboxes(ctx, ns) < 0)
-			return -1;
+		if (ns->storage == &ctx->storage->storage &&
+		    ns->alias_for == NULL) {
+			if (rebuild_namespace_mailboxes(ctx, ns) < 0)
+				return -1;
+		}
 	}
 	return 0;
 }

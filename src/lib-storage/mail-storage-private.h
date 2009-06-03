@@ -35,6 +35,8 @@ struct mail_storage_vfuncs {
 	int (*create)(struct mail_storage *storage, struct mail_namespace *ns,
 		      const char **error_r);
 	void (*destroy)(struct mail_storage *storage);
+	void (*add_list)(struct mail_storage *storage,
+			 struct mailbox_list *list);
 
 	void (*get_list_settings)(const struct mail_namespace *ns,
 				  struct mailbox_list_settings *set);
@@ -58,14 +60,24 @@ union mail_storage_module_context {
 	struct mail_storage_module_register *reg;
 };
 
+enum mail_storage_class_flags {
+	/* mailboxes are files, not directories */
+	MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE	= 0x01,
+	/* root_dir points to a unique directory */
+	MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT	= 0x02
+};
+
 struct mail_storage {
 	const char *name;
-	bool mailbox_is_file;
+	enum mail_storage_class_flags class_flags;
 
         struct mail_storage_vfuncs v;
 
 /* private: */
 	pool_t pool;
+	struct mail_storage *prev, *next;
+	int refcount;
+	const char *unique_root_dir;
 
 	char *error_string;
 	enum mail_error error;

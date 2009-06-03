@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "llist.h"
 #include "mkdir-parents.h"
 #include "var-expand.h"
 #include "mail-index-private.h"
@@ -196,6 +197,23 @@ mail_storage_create_root(struct mailbox_list *list,
 	}
 }
 
+static struct mail_storage *
+mail_storage_find(struct mail_user *user,
+		  const struct mail_storage *storage_class,
+		  const struct mailbox_list_settings *set)
+{
+	struct mail_storage *storage = user->storages;
+
+	for (; storage != NULL; storage = storage->next) {
+		if (strcmp(storage->name, storage_class->name) == 0 &&
+		    ((storage->class_flags &
+		      MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) == 0 ||
+		     strcmp(storage->unique_root_dir, set->root_dir) == 0))
+			return storage;
+	}
+	return NULL;
+}
+
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			enum mail_storage_flags flags, const char **error_r)
 {
@@ -254,7 +272,16 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			return -1;
 	}
 
+	storage = mail_storage_find(ns->user, storage_class, &list_set);
+	if (storage != NULL) {
+		/* using an existing storage */
+		storage->refcount++;
+		mail_namespace_add_storage(ns, storage);
+		return 0;
+	}
+
 	storage = storage_class->v.alloc();
+	storage->refcount = 1;
 	storage->storage_class = storage_class;
 	storage->user = ns->user;
 	storage->set = ns->mail_set;
@@ -264,7 +291,8 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		p_new(storage->pool, struct mail_storage_callbacks, 1);
 	p_array_init(&storage->module_contexts, storage->pool, 5);
 
-	if (storage->v.create(storage, ns, error_r) < 0) {
+	if (storage->v.create != NULL &&
+	    storage->v.create(storage, ns, error_r) < 0) {
 		*error_r = t_strdup_printf("%s: %s", storage->name, *error_r);
 		pool_unref(&storage->pool);
 		return -1;
@@ -274,17 +302,28 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		hook_mail_storage_created(storage);
 	} T_END;
 
+	DLLIST_PREPEND(&ns->user->storages, storage);
         mail_namespace_add_storage(ns, storage);
 	return 0;
 }
 
-void mail_storage_destroy(struct mail_storage **_storage)
+void mail_storage_ref(struct mail_storage *storage)
+{
+	storage->refcount++;
+}
+
+void mail_storage_unref(struct mail_storage **_storage)
 {
 	struct mail_storage *storage = *_storage;
 
-	i_assert(storage != NULL);
+	i_assert(storage->refcount > 0);
 
 	*_storage = NULL;
+
+	if (--storage->refcount > 0)
+		return;
+
+	DLLIST_REMOVE(&storage->user->storages, storage);
 
 	storage->v.destroy(storage);
 	i_free(storage->error_string);
@@ -403,7 +442,8 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 
 bool mail_storage_is_mailbox_file(struct mail_storage *storage)
 {
-	return storage->mailbox_is_file;
+	return (storage->class_flags &
+		MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE) != 0;
 }
 
 bool mail_storage_set_error_from_errno(struct mail_storage *storage)

@@ -73,9 +73,6 @@ extern struct mailbox mbox_mailbox;
 static MODULE_CONTEXT_DEFINE_INIT(mbox_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static void mbox_list_init(struct mailbox_list *list,
-			   const struct mbox_settings *set);
-
 int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 {
 	i_assert(function != NULL);
@@ -134,7 +131,6 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	const char *dir;
 
 	storage->set = mail_storage_get_driver_settings(_storage);
-	mbox_list_init(ns->list, storage->set);
 
 	dir = mailbox_list_get_path(ns->list, NULL,
 				    MAILBOX_LIST_PATH_TYPE_INDEX);
@@ -841,14 +837,14 @@ static void mbox_class_deinit(void)
 	mbox_transaction_class_deinit();
 }
 
-static void mbox_list_init(struct mailbox_list *list,
-			   const struct mbox_settings *set)
+static void mbox_storage_add_list(struct mail_storage *storage,
+				  struct mailbox_list *list)
 {
 	struct mbox_mailbox_list *mlist;
 
 	mlist = p_new(list->pool, struct mbox_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
-	mlist->set = set;
+	mlist->set = mail_storage_get_driver_settings(storage);
 
 	if (strcmp(list->name, MAILBOX_LIST_NAME_FS) == 0 &&
 	    *list->set.maildir_name == '\0') {
@@ -865,7 +861,7 @@ static void mbox_list_init(struct mailbox_list *list,
 
 struct mail_storage mbox_storage = {
 	MEMBER(name) MBOX_STORAGE_NAME,
-	MEMBER(mailbox_is_file) TRUE,
+	MEMBER(class_flags) MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE,
 
 	{
                 mbox_get_setting_parser_info,
@@ -874,6 +870,7 @@ struct mail_storage mbox_storage = {
 		mbox_storage_alloc,
 		mbox_storage_create,
 		index_storage_destroy,
+		mbox_storage_add_list,
 		mbox_storage_get_list_settings,
 		mbox_storage_autodetect,
 		mbox_mailbox_open,

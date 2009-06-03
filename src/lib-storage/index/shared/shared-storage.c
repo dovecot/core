@@ -48,7 +48,7 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 				       driver, NULL);
 		return -1;
 	}
-	_storage->mailbox_is_file = storage->storage_class->mailbox_is_file;
+	_storage->class_flags = storage->storage_class->class_flags;
 
 	wildcardp = strchr(ns->prefix, '%');
 	if (wildcardp == NULL) {
@@ -313,7 +313,7 @@ shared_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
 
 struct mail_storage shared_storage = {
 	MEMBER(name) SHARED_STORAGE_NAME,
-	MEMBER(mailbox_is_file) FALSE, /* unknown at this point */
+	MEMBER(class_flags) 0, /* unknown at this point */
 
 	{
 		NULL,
@@ -322,6 +322,7 @@ struct mail_storage shared_storage = {
 		shared_storage_alloc,
 		shared_storage_create,
 		index_storage_destroy,
+		NULL,
 		shared_storage_get_list_settings,
 		NULL,
 		NULL,

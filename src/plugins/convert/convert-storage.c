@@ -441,7 +441,7 @@ int convert_storage(const char *source_data,
 
 	/* just in case if another process just had converted the mailbox,
 	   reopen the source storage */
-	mail_storage_destroy(&source_ns->storage);
+	mail_storage_unref(&source_ns->storage);
 	if (mail_storage_create(source_ns, NULL,
 				MAIL_STORAGE_FLAG_NO_AUTOCREATE, &error) < 0) {
 		/* No need for conversion anymore. */
