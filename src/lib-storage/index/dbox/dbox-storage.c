@@ -25,10 +25,13 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#define CREATE_MODE 0770 /* umask() should limit it more */
-
 #define DBOX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, dbox_mailbox_list_module)
+
+struct dbox_mailbox_list {
+	union mailbox_list_module_context module_ctx;
+	const struct dbox_settings *set;
+};
 
 extern struct mail_storage dbox_storage;
 extern struct mailbox dbox_mailbox;
@@ -36,58 +39,10 @@ extern struct mailbox dbox_mailbox;
 static MODULE_CONTEXT_DEFINE_INIT(dbox_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static int
-dbox_list_delete_mailbox(struct mailbox_list *list, const char *name);
-static int
-dbox_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
-			 struct mailbox_list *newlist, const char *newname,
-			 bool rename_children);
-static int
-dbox_list_rename_mailbox_pre(struct mailbox_list *oldlist,
-			     const char *oldname,
-			     struct mailbox_list *newlist,
-			     const char *newname);
-static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
-				     const char *dir, const char *fname,
-				     const char *mailbox_name,
-				     enum mailbox_list_file_type type,
-				     enum mailbox_info_flags *flags);
+static void dbox_list_init(struct mailbox_list *list,
+			   const struct dbox_settings *set);
 
-static int
-dbox_get_list_settings(struct mailbox_list_settings *list_set,
-		       const char *data, struct mail_storage *storage,
-		       const char **layout_r, const char **alt_dir_r,
-		       const char **error_r)
-{
-	*layout_r = "fs";
-
-	memset(list_set, 0, sizeof(*list_set));
-	list_set->subscription_fname = DBOX_SUBSCRIPTION_FILE_NAME;
-	list_set->maildir_name = DBOX_MAILDIR_NAME;
-	list_set->mailbox_dir_name = DBOX_MAILBOX_DIR_NAME;
-
-	if (data == NULL || *data == '\0' || *data == ':') {
-		/* we won't do any guessing for this format. */
-		if (storage->set->mail_debug)
-			i_info("dbox: mailbox location not given");
-		*error_r = "Root mail directory not given";
-		return -1;
-	}
-
-	if (storage->set->mail_debug)
-		i_info("dbox: data=%s", data);
-	if (mailbox_list_settings_parse(data, list_set, storage->ns,
-					layout_r, alt_dir_r, error_r) < 0)
-		return -1;
-
-	if (*list_set->mailbox_dir_name == '\0') {
-		*error_r = "dbox: MAILBOXDIR must not be empty";
-		return -1;
-	}
-	return 0;
-}
-
-static struct mail_storage *dbox_alloc(void)
+static struct mail_storage *dbox_storage_alloc(void)
 {
 	struct dbox_storage *storage;
 	pool_t pool;
@@ -96,96 +51,42 @@ static struct mail_storage *dbox_alloc(void)
 	storage = p_new(pool, struct dbox_storage, 1);
 	storage->storage = dbox_storage;
 	storage->storage.pool = pool;
-	storage->storage.storage_class = &dbox_storage;
-
 	return &storage->storage;
 }
 
-static int dbox_create(struct mail_storage *_storage, const char *data,
-		       const char **error_r)
+static int
+dbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
+		    const char **error_r)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
-	struct mailbox_list_settings list_set;
-	struct stat st;
-	const char *layout, *alt_dir, *dir;
-
-	if (dbox_get_list_settings(&list_set, data, _storage,
-				   &layout, &alt_dir, error_r) < 0)
-		return -1;
-	list_set.mail_storage_flags = &_storage->flags;
-	list_set.lock_method = &_storage->lock_method;
-
-	if ((_storage->flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
-		if (stat(list_set.root_dir, &st) < 0) {
-			if (errno == ENOENT) {
-				*error_r = t_strdup_printf(
-					"Root mail directory doesn't exist: %s",
-					list_set.root_dir);
-			} else if (errno == EACCES) {
-				*error_r = mail_error_eacces_msg("stat",
-							list_set.root_dir);
-			} else {
-				*error_r = t_strdup_printf(
-							"stat(%s) failed: %m",
-							list_set.root_dir);
-			}
-			return -1;
-		}
-	} else if (mkdir_parents(list_set.root_dir,
-				 CREATE_MODE) == 0 || errno == EEXIST) {
-	} else if (errno == EACCES) {
-		if (_storage->ns->type != NAMESPACE_SHARED) {
-			*error_r = mail_error_create_eacces_msg("mkdir",
-							list_set.root_dir);
-			return -1;
-		}
-		/* can't create a new user, but we don't want to fail
-		   the storage creation. */
-	} else {
-		*error_r = t_strdup_printf("mkdir(%s) failed: %m",
-					   list_set.root_dir);
-		return -1;
-	}
+	const char *dir;
 
 	storage->set = mail_storage_get_driver_settings(_storage);
-	if (storage->set->dbox_max_open_files <= 1) {
-		/* we store file offsets in a 32bit integer. */
-		*error_r = "dbox_max_open_files must be at least 2";
+	i_assert(storage->set->dbox_max_open_files >= 2);
+
+	if (*ns->list->set.mailbox_dir_name == '\0') {
+		*error_r = "dbox: MAILBOXDIR must not be empty";
 		return -1;
 	}
 
-	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
-		return -1;
-	storage->list_module_ctx.super = _storage->list->v;
-	storage->alt_dir = p_strdup(_storage->pool, alt_dir);
-	_storage->list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
-	_storage->list->v.delete_mailbox = dbox_list_delete_mailbox;
-	_storage->list->v.rename_mailbox = dbox_list_rename_mailbox;
-	_storage->list->v.rename_mailbox_pre = dbox_list_rename_mailbox_pre;
+	dbox_list_init(ns->list, storage->set);
 
-	MODULE_CONTEXT_SET_FULL(_storage->list, dbox_mailbox_list_module,
-				storage, &storage->list_module_ctx);
-
-	/* finish list init after we've overridden vfuncs */
-	mailbox_list_init(_storage->list, _storage->ns, &list_set, 0);
-
-	dir = mailbox_list_get_path(storage->storage.list, NULL,
-				    MAILBOX_LIST_PATH_TYPE_DIR);
+	dir = mailbox_list_get_path(ns->list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
 	storage->storage_dir = p_strconcat(_storage->pool, dir,
 					   "/"DBOX_GLOBAL_DIR_NAME, NULL);
-	storage->alt_storage_dir = p_strconcat(_storage->pool, alt_dir,
+	storage->alt_storage_dir = p_strconcat(_storage->pool,
+					       ns->list->set.alt_dir,
 					       "/"DBOX_GLOBAL_DIR_NAME, NULL);
 	i_array_init(&storage->open_files,
 		     I_MIN(storage->set->dbox_max_open_files, 128));
 
 	storage->map = dbox_map_init(storage);
-	mailbox_list_get_permissions(storage->storage.list, NULL,
-				     &storage->create_mode,
+	mailbox_list_get_permissions(ns->list, NULL, &storage->create_mode,
 				     &storage->create_gid);
 	return 0;
 }
 
-static void dbox_destroy(struct mail_storage *_storage)
+static void dbox_storage_destroy(struct mail_storage *_storage)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 
@@ -200,9 +101,24 @@ static void dbox_destroy(struct mail_storage *_storage)
 	index_storage_destroy(_storage);
 }
 
-static const char *
-dbox_get_alt_path(struct dbox_storage *storage, const char *path)
+static void
+dbox_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
+			       struct mailbox_list_settings *set)
 {
+	if (set->layout == NULL)
+		set->layout = MAILBOX_LIST_NAME_FS;
+	if (set->subscription_fname == NULL)
+		set->subscription_fname = DBOX_SUBSCRIPTION_FILE_NAME;
+	if (set->maildir_name == NULL)
+		set->maildir_name = DBOX_MAILDIR_NAME;
+	if (set->mailbox_dir_name == NULL)
+		set->mailbox_dir_name = DBOX_MAILBOX_DIR_NAME;
+}
+
+static const char *
+dbox_get_alt_path(struct mailbox_list *list, const char *path)
+{
+#if 0 // FIXME
 	const char *root;
 	unsigned int len;
 
@@ -218,11 +134,13 @@ dbox_get_alt_path(struct dbox_storage *storage, const char *path)
 		return NULL;
 	}
 	return t_strconcat(storage->alt_dir, path + len, NULL);
+#endif
+	return NULL;
 }
 
 static struct mailbox *
-dbox_open(struct dbox_storage *storage, const char *name,
-	  enum mailbox_open_flags flags)
+dbox_open(struct dbox_storage *storage, struct mailbox_list *list,
+	  const char *name, enum mailbox_open_flags flags)
 {
 	struct mail_storage *_storage = &storage->storage;
 	struct dbox_mailbox *mbox;
@@ -232,10 +150,10 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	pool_t pool;
 	int ret;
 
-	path = mailbox_list_get_path(_storage->list, name,
+	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
-	index = index_storage_alloc(_storage, name, flags, DBOX_INDEX_PREFIX);
+	index = index_storage_alloc(list, name, flags, DBOX_INDEX_PREFIX);
 	mail_index_set_fsync_types(index, MAIL_INDEX_SYNC_TYPE_APPEND |
 				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
@@ -243,13 +161,13 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox = p_new(pool, struct dbox_mailbox, 1);
 	mbox->ibox.box = dbox_mailbox;
 	mbox->ibox.box.pool = pool;
-	mbox->ibox.storage = &storage->storage;
+	mbox->ibox.box.storage = _storage;
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
 	mbox->ibox.index = index;
 	mbox->ibox.keep_index_backups = TRUE;
 	mbox->ibox.index_never_in_memory = TRUE;
 	mbox->path = p_strdup(pool, path);
-	mbox->alt_path = p_strdup(pool, dbox_get_alt_path(storage, path));
+	mbox->alt_path = p_strdup(pool, dbox_get_alt_path(list, path));
 	mbox->storage = storage;
 
 	mbox->dbox_ext_id =
@@ -271,11 +189,11 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	return box;
 }
 
-uint32_t dbox_get_uidvalidity_next(struct mail_storage *storage)
+uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
 {
 	const char *path;
 
-	path = mailbox_list_get_path(storage->list, NULL,
+	path = mailbox_list_get_path(list, NULL,
 				     MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(path, "/"DBOX_UIDVALIDITY_FILE_NAME, NULL);
 	return mailbox_uidvalidity_next(path);
@@ -296,7 +214,7 @@ static void dbox_write_index_header(struct mailbox *box)
 				     &hdr, sizeof(hdr));
 
 	/* set uidvalidity */
-	uid_validity = dbox_get_uidvalidity_next(&mbox->storage->storage);
+	uid_validity = dbox_get_uidvalidity_next(box->list);
 	mail_index_update_header(trans,
 		offsetof(struct mail_index_header, uid_validity),
 		&uid_validity, sizeof(uid_validity), TRUE);
@@ -304,19 +222,19 @@ static void dbox_write_index_header(struct mailbox *box)
 	(void)mail_index_transaction_commit(&trans);
 }
 
-static int create_dbox(struct mail_storage *_storage, const char *path,
-		       const char *name, bool directory)
+static int create_dbox(struct mail_storage *_storage, struct mailbox_list *list,
+		       const char *path, const char *name, bool directory)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	struct mailbox *box;
 	mode_t mode;
 	gid_t gid;
 
-	mailbox_list_get_dir_permissions(_storage->list, NULL, &mode, &gid);
+	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
 	if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) == 0) {
 		if (!directory) {
 			/* create indexes immediately with the dbox header */
-			box = dbox_open(storage, name,
+			box = dbox_open(storage, list, name,
 					MAILBOX_OPEN_KEEP_RECENT);
 			if (box == NULL)
 				return -1;
@@ -335,7 +253,7 @@ static int create_dbox(struct mail_storage *_storage, const char *path,
 }
 
 static bool
-dbox_cleanup_if_exists(struct mail_storage *storage, const char *path)
+dbox_cleanup_if_exists(struct mailbox_list *list, const char *path)
 {
 	struct stat st;
 
@@ -349,7 +267,7 @@ dbox_cleanup_if_exists(struct mail_storage *storage, const char *path)
 	} else if (st.st_atime < ioloop_time - DBOX_TMP_SCAN_SECS) {
 		/* time to scan */
 		const char *prefix =
-			mailbox_list_get_global_temp_prefix(storage->list);
+			mailbox_list_get_global_temp_prefix(list);
 
 		(void)unlink_old_files(path, prefix,
 				       ioloop_time - DBOX_TMP_DELETE_SECS);
@@ -358,39 +276,42 @@ dbox_cleanup_if_exists(struct mail_storage *storage, const char *path)
 }
 
 struct mailbox *
-dbox_mailbox_open(struct mail_storage *_storage, const char *name,
-		  struct istream *input, enum mailbox_open_flags flags)
+dbox_mailbox_open(struct mail_storage *_storage, struct mailbox_list *list,
+		  const char *name, struct istream *input,
+		  enum mailbox_open_flags flags)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	const char *path;
 
 	if (input != NULL) {
-		mail_storage_set_critical(_storage,
+		mailbox_list_set_critical(list,
 			"dbox doesn't support streamed mailboxes");
 		return NULL;
 	}
 
-	path = mailbox_list_get_path(_storage->list, name,
+	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (dbox_cleanup_if_exists(_storage, path)) {
-		return dbox_open(storage, name, flags);
+	if (dbox_cleanup_if_exists(list, path)) {
+		return dbox_open(storage, list, name, flags);
 	} else if (errno == ENOENT) {
 		if (strcmp(name, "INBOX") == 0 &&
-		    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		    (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			/* INBOX always exists, create it */
-			if (create_dbox(_storage, path, "INBOX", FALSE) < 0)
+			if (create_dbox(_storage, list, path, name, FALSE) < 0) {
+				mailbox_list_set_error_from_storage(list,
+								    _storage);
 				return NULL;
-			return dbox_open(storage, name, flags);
+			}
+			return dbox_open(storage, list, name, flags);
 		}
 
-		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 	} else if (errno == EACCES) {
-		mail_storage_set_critical(_storage, "%s",
+		mailbox_list_set_critical(list, "%s",
 			mail_error_eacces_msg("stat", path));
 	} else {
-		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
-					  path);
+		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
 	}
 	return NULL;
 }
@@ -403,18 +324,18 @@ static int dbox_storage_mailbox_close(struct mailbox *box)
 	return index_storage_mailbox_close(box);
 }
 
-static int dbox_mailbox_create(struct mail_storage *_storage,
-			       const char *name, bool directory)
+static int
+dbox_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
+		    const char *name, bool directory)
 {
-	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	const char *path, *alt_path;
 	struct stat st;
 
-	path = mailbox_list_get_path(_storage->list, name,
+	path = mailbox_list_get_path(list, name,
 				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
-		mail_storage_set_error(_storage, MAIL_ERROR_EXISTS,
+		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
@@ -423,20 +344,20 @@ static int dbox_mailbox_create(struct mail_storage *_storage,
 	   race conditions with RENAME/DELETE), but if something crashed and
 	   left it lying around we don't want to start overwriting files in
 	   it. */
-	alt_path = directory ? NULL : dbox_get_alt_path(storage, path);
+	alt_path = directory ? NULL : dbox_get_alt_path(list, path);
 	if (alt_path != NULL && stat(alt_path, &st) == 0) {
-		mail_storage_set_error(_storage, MAIL_ERROR_EXISTS,
+		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
 
-	return create_dbox(_storage, path, name, directory);
+	return create_dbox(storage, list, path, name, directory);
 }
 
 static int
-dbox_mailbox_unref_mails(struct dbox_storage *storage, const char *path)
+dbox_mailbox_unref_mails(struct mailbox_list *list, const char *path)
 {
-	struct mailbox_list *list = storage->storage.list;
+	struct dbox_storage *storage = (struct dbox_storage *)list->ns->storage;
 	const struct mail_storage_settings *old_set;
 	struct mail_storage_settings tmp_set;
 	struct mailbox *box;
@@ -454,7 +375,7 @@ dbox_mailbox_unref_mails(struct dbox_storage *storage, const char *path)
 	tmp_set = *list->mail_set;
 	tmp_set.mail_full_filesystem_access = TRUE;
 	list->mail_set = &tmp_set;
-	box = dbox_open(storage, path, MAILBOX_OPEN_IGNORE_ACLS |
+	box = dbox_open(storage, list, path, MAILBOX_OPEN_IGNORE_ACLS |
 			MAILBOX_OPEN_KEEP_RECENT);
 	list->mail_set = old_set;
 	if (box == NULL)
@@ -504,7 +425,7 @@ static const char *dbox_get_trash_dest(const char *trash_dir)
 static int
 dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
-	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
+	struct dbox_mailbox_list *mlist = DBOX_LIST_CONTEXT(list);
 	struct stat st;
 	const char *path, *alt_path, *trash_dir, *trash_dest;
 	bool deleted = FALSE;
@@ -517,7 +438,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	index_storage_destroy_unrefed();
 
 	/* delete the index and control directories */
-	if (storage->list_module_ctx.super.delete_mailbox(list, name) < 0)
+	if (mlist->module_ctx.super.delete_mailbox(list, name) < 0)
 		return -1;
 
 	path = mailbox_list_get_path(list, name,
@@ -545,7 +466,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		ret = rename(path, trash_dest);
 	}
 	if (ret == 0) {
-		if (dbox_mailbox_unref_mails(storage, trash_dest) < 0) {
+		if (dbox_mailbox_unref_mails(list, trash_dest) < 0) {
 			/* we've already renamed it. there's no going back. */
 			mailbox_list_set_internal_error(list);
 			ret = -1;
@@ -556,7 +477,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 			ret = -1;
 		}
 		/* if there's an alt path, delete it too */
-		alt_path = dbox_get_alt_path(storage, path);
+		alt_path = dbox_get_alt_path(list, path);
 		if (alt_path != NULL) {
 			if (unlink_directory(alt_path, TRUE) < 0) {
 				mailbox_list_set_critical(list,
@@ -589,7 +510,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		ret = 0;
 	}
 
-	alt_path = dbox_get_alt_path(storage, path);
+	alt_path = dbox_get_alt_path(list, path);
 	if (alt_path != NULL)
 		(void)rmdir(alt_path);
 
@@ -616,17 +537,15 @@ dbox_list_rename_get_alt_paths(struct mailbox_list *oldlist,
 			       enum mailbox_list_path_type path_type,
 			       const char **oldpath_r, const char **newpath_r)
 {
-	struct dbox_storage *oldstorage = DBOX_LIST_CONTEXT(oldlist);
-	struct dbox_storage *newstorage = DBOX_LIST_CONTEXT(newlist);
 	const char *path;
 
 	path = mailbox_list_get_path(oldlist, oldname, path_type);
-	*oldpath_r = dbox_get_alt_path(oldstorage, path);
+	*oldpath_r = dbox_get_alt_path(oldlist, path);
 	if (*oldpath_r == NULL)
 		return 0;
 
 	path = mailbox_list_get_path(newlist, newname, path_type);
-	*newpath_r = dbox_get_alt_path(newstorage, path);
+	*newpath_r = dbox_get_alt_path(newlist, path);
 	if (*newpath_r == NULL) {
 		/* destination dbox storage doesn't have alt-path defined.
 		   we can't do the rename easily. */
@@ -672,14 +591,15 @@ dbox_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			 struct mailbox_list *newlist, const char *newname,
 			 bool rename_children)
 {
-	struct dbox_storage *oldstorage = DBOX_LIST_CONTEXT(oldlist);
+	struct dbox_mailbox_list *oldmlist = DBOX_LIST_CONTEXT(oldlist);
 	enum mailbox_list_path_type path_type;
 	const char *alt_oldpath, *alt_newpath, *path;
 	int ret;
 
-	if (oldstorage->list_module_ctx.super.
-	    		rename_mailbox(oldlist, oldname, newlist, newname,
-				       rename_children) < 0)
+	ret = oldmlist->module_ctx.super.
+		rename_mailbox(oldlist, oldname, newlist, newname,
+			       rename_children);
+	if (ret < 0)
 		return -1;
 
 	path_type = rename_children ? MAILBOX_LIST_PATH_TYPE_DIR :
@@ -800,6 +720,23 @@ static void dbox_class_deinit(void)
 	dbox_transaction_class_deinit();
 }
 
+static void dbox_list_init(struct mailbox_list *list,
+			   const struct dbox_settings *set)
+{
+	struct dbox_mailbox_list *mlist;
+
+	mlist = p_new(list->pool, struct dbox_mailbox_list, 1);
+	mlist->module_ctx.super = list->v;
+	mlist->set = set;
+
+	list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
+	list->v.delete_mailbox = dbox_list_delete_mailbox;
+	list->v.rename_mailbox = dbox_list_rename_mailbox;
+	list->v.rename_mailbox_pre = dbox_list_rename_mailbox_pre;
+
+	MODULE_CONTEXT_SET(list, dbox_mailbox_list_module, mlist);
+}
+
 struct mail_storage dbox_storage = {
 	MEMBER(name) DBOX_STORAGE_NAME,
 	MEMBER(mailbox_is_file) FALSE,
@@ -808,9 +745,10 @@ struct mail_storage dbox_storage = {
                 dbox_get_setting_parser_info,
 		dbox_class_init,
 		dbox_class_deinit,
-		dbox_alloc,
-		dbox_create,
-		dbox_destroy,
+		dbox_storage_alloc,
+		dbox_storage_create,
+		dbox_storage_destroy,
+		dbox_storage_get_list_settings,
 		NULL,
 		dbox_mailbox_open,
 		dbox_mailbox_create,
@@ -821,6 +759,7 @@ struct mail_storage dbox_storage = {
 struct mailbox dbox_mailbox = {
 	MEMBER(name) NULL, 
 	MEMBER(storage) NULL, 
+	MEMBER(list) NULL,
 
 	{
 		index_storage_is_readonly,

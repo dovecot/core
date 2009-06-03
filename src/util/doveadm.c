@@ -51,7 +51,6 @@ static struct mailbox *
 mailbox_find_and_open(struct mail_user *user, const char *mailbox)
 {
 	struct mail_namespace *ns;
-	struct mail_storage *storage;
 	struct mailbox *box;
 	const char *orig_mailbox = mailbox;
 
@@ -59,12 +58,11 @@ mailbox_find_and_open(struct mail_user *user, const char *mailbox)
 	if (ns == NULL)
 		i_fatal("Can't find namespace for mailbox %s", mailbox);
 
-	storage = ns->storage;
-	box = mailbox_open(&storage, mailbox, NULL, MAILBOX_OPEN_KEEP_RECENT |
+	box = mailbox_open(ns->list, mailbox, NULL, MAILBOX_OPEN_KEEP_RECENT |
 			   MAILBOX_OPEN_IGNORE_ACLS);
 	if (box == NULL) {
 		i_fatal("Opening mailbox %s failed: %s", orig_mailbox,
-			mail_storage_get_last_error(storage, NULL));
+			mailbox_list_get_last_error(ns->list, NULL));
 	}
 	return box;
 }

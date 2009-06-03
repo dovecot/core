@@ -2,6 +2,7 @@
 #define QUOTA_PRIVATE_H
 
 #include "mail-storage-private.h"
+#include "mail-namespace.h"
 #include "quota.h"
 
 /* Modules should use do "my_id = quota_module_id++" and
@@ -13,7 +14,7 @@ struct quota {
 	struct quota_settings *set;
 
 	ARRAY_DEFINE(roots, struct quota_root *);
-	ARRAY_DEFINE(storages, struct mail_storage *);
+	ARRAY_DEFINE(namespaces, struct mail_namespace *);
 };
 
 struct quota_settings {
@@ -53,9 +54,9 @@ struct quota_backend_vfuncs {
 			   struct quota_rule *rule,
 			   const char *str, const char **error_r);
 
-	/* called once for each backend */
-	void (*storage_added)(struct quota *quota,
-			      struct mail_storage *storage);
+	/* called once for each namespace */
+	void (*namespace_added)(struct quota *quota,
+				struct mail_namespace *ns);
 
 	const char *const *(*get_resources)(struct quota_root *root);
 	int (*get_resource)(struct quota_root *root,
@@ -134,13 +135,13 @@ struct quota_transaction_context {
 };
 
 /* Register storage to all user's quota roots. */
-void quota_add_user_storage(struct quota *quota, struct mail_storage *storage);
-void quota_remove_user_storage(struct mail_storage *storage);
+void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns);
+void quota_remove_user_namespace(struct mail_namespace *ns);
 
 struct quota *quota_get_mail_user_quota(struct mail_user *user);
 
-bool quota_root_is_storage_visible(struct quota_root *root,
-				   struct mail_storage *storage);
+bool quota_root_is_namespace_visible(struct quota_root *root,
+				     struct mail_namespace *ns);
 struct quota_rule *
 quota_root_rule_find(struct quota_root_settings *root_set, const char *name);
 

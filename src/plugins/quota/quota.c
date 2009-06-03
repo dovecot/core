@@ -4,7 +4,6 @@
 #include "array.h"
 #include "hash.h"
 #include "mailbox-list-private.h"
-#include "maildir-storage.h"
 #include "quota-private.h"
 #include "quota-fs.h"
 
@@ -259,7 +258,7 @@ struct quota *quota_init(struct quota_settings *quota_set,
 	i_array_init(&quota->roots, 8);
 
 	root_sets = array_get(&quota_set->root_sets, &count);
-	i_array_init(&quota->storages, count);
+	i_array_init(&quota->namespaces, count);
 	for (i = 0; i < count; i++) {
 		root = quota_root_init(root_sets[i], quota);
 		array_append(&quota->roots, &root, 1);
@@ -279,7 +278,7 @@ void quota_deinit(struct quota **_quota)
 	for (i = 0; i < count; i++)
 		quota_root_deinit(roots[i]);
 	array_free(&quota->roots);
-	array_free(&quota->storages);
+	array_free(&quota->namespaces);
 	i_free(quota);
 }
 
@@ -531,45 +530,31 @@ static bool quota_root_get_rule_limits(struct quota_root *root,
 	return found;
 }
 
-static void quota_maildir_storage_set(struct mail_storage *storage)
-{
-	/* FIXME: a bit ugly location for this code. */
-	if (strcmp(storage->name, "maildir") == 0) {
-		/* For newly generated filenames add ,S=size. */
-		struct maildir_storage *mstorage =
-			(struct maildir_storage *)storage;
-
-		mstorage->save_size_in_filename = TRUE;
-	}
-}
-
-void quota_add_user_storage(struct quota *quota, struct mail_storage *storage)
+void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 {
 	struct quota_root *const *roots;
-	struct mail_storage *const *storages;
+	struct mail_namespace *const *namespaces;
 	struct quota_backend **backends;
 	const char *path, *path2;
 	unsigned int i, j, count;
-	bool is_file;
 
-	quota_maildir_storage_set(storage);
-
-	/* first check if there already exists a storage with the exact same
+	/* first check if there already exists a namespace with the exact same
 	   path. we don't want to count them twice. */
-	path = mail_storage_get_mailbox_path(storage, "", &is_file);
+	path = mailbox_list_get_path(ns->list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (path != NULL) {
-		storages = array_get(&quota->storages, &count);
+		namespaces = array_get(&quota->namespaces, &count);
 		for (i = 0; i < count; i++) {
-			path2 = mail_storage_get_mailbox_path(storages[i], "",
-							      &is_file);
-			if (path2 != NULL && strcmp(path, path2) == 0) {
+			path2 = mailbox_list_get_path(namespaces[i]->list, NULL,
+				     	MAILBOX_LIST_PATH_TYPE_MAILBOX);
+			if (strcmp(path, path2) == 0) {
 				/* duplicate */
 				return;
 			}
 		}
 	}
 
-	array_append(&quota->storages, &storage, 1);
+	array_append(&quota->namespaces, &ns, 1);
 
 	roots = array_get(&quota->roots, &count);
 	/* @UNSAFE: get different backends into one array */
@@ -584,29 +569,29 @@ void quota_add_user_storage(struct quota *quota, struct mail_storage *storage)
 	}
 
 	for (i = 0; backends[i] != NULL; i++) {
-		if (backends[i]->v.storage_added != NULL)
-			backends[i]->v.storage_added(quota, storage);
+		if (backends[i]->v.namespace_added != NULL)
+			backends[i]->v.namespace_added(quota, ns);
 	}
 }
 
-void quota_remove_user_storage(struct mail_storage *storage)
+void quota_remove_user_namespace(struct mail_namespace *ns)
 {
 	struct quota *quota;
-	struct mail_storage *const *storages;
+	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
 
-	quota = storage->ns->owner != NULL ?
-		quota_get_mail_user_quota(storage->ns->owner) :
-		quota_get_mail_user_quota(storage->ns->user);
+	quota = ns->owner != NULL ?
+		quota_get_mail_user_quota(ns->owner) :
+		quota_get_mail_user_quota(ns->user);
 	if (quota == NULL) {
-		/* no quota for this storage */
+		/* no quota for this namespace */
 		return;
 	}
 
-	storages = array_get(&quota->storages, &count);
+	namespaces = array_get(&quota->namespaces, &count);
 	for (i = 0; i < count; i++) {
-		if (storages[i] == storage) {
-			array_delete(&quota->storages, i, 1);
+		if (namespaces[i] == ns) {
+			array_delete(&quota->namespaces, i, 1);
 			break;
 		}
 	}
@@ -658,21 +643,21 @@ quota_root_iter_init(struct mailbox *box)
 	struct quota_root_iter *iter;
 
 	iter = i_new(struct quota_root_iter, 1);
-	iter->quota = box->storage->ns->owner != NULL ?
-		quota_get_mail_user_quota(box->storage->ns->owner) :
-		quota_get_mail_user_quota(box->storage->ns->user);
+	iter->quota = box->list->ns->owner != NULL ?
+		quota_get_mail_user_quota(box->list->ns->owner) :
+		quota_get_mail_user_quota(box->list->ns->user);
 	iter->box = box;
 	return iter;
 }
 
-bool quota_root_is_storage_visible(struct quota_root *root,
-				   struct mail_storage *storage)
+bool quota_root_is_namespace_visible(struct quota_root *root,
+				     struct mail_namespace *ns)
 {
 	if (root->ns != NULL) {
-		if (root->ns != storage->ns)
+		if (root->ns != ns)
 			return FALSE;
 	} else {
-		if (storage->ns->owner == NULL)
+		if (ns->owner == NULL)
 			return FALSE;
 	}
 	return TRUE;
@@ -686,7 +671,7 @@ quota_root_is_visible(struct quota_root *root, struct mailbox *box,
 		/* we don't want to include this root in quota enforcing */
 		return FALSE;
 	}
-	if (!quota_root_is_storage_visible(root, box->storage))
+	if (!quota_root_is_namespace_visible(root, box->list->ns))
 		return FALSE;
 	if (array_count(&root->quota->roots) == 1) {
 		/* a single quota root: don't bother checking further */
@@ -816,9 +801,9 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	struct quota_transaction_context *ctx;
 
 	ctx = i_new(struct quota_transaction_context, 1);
-	ctx->quota = box->storage->ns->owner != NULL ?
-		quota_get_mail_user_quota(box->storage->ns->owner) :
-		quota_get_mail_user_quota(box->storage->ns->user);
+	ctx->quota = box->list->ns->owner != NULL ?
+		quota_get_mail_user_quota(box->list->ns->owner) :
+		quota_get_mail_user_quota(box->list->ns->user);
 	ctx->box = box;
 	ctx->bytes_left = (uint64_t)-1;
 	ctx->count_left = (uint64_t)-1;

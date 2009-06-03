@@ -20,8 +20,6 @@ struct index_mailbox {
 	struct mailbox box;
 	union mail_index_view_module_context view_module_ctx;
 
-	struct mail_storage *storage;
-
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache *cache;
@@ -88,7 +86,7 @@ void index_storage_lock_notify(struct index_mailbox *ibox,
 void index_storage_lock_notify_reset(struct index_mailbox *ibox);
 
 struct mail_index *
-index_storage_alloc(struct mail_storage *storage, const char *name,
+index_storage_alloc(struct mailbox_list *list, const char *name,
 		    enum mailbox_open_flags flags, const char *prefix);
 void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);

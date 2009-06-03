@@ -352,7 +352,7 @@ mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 		mail_storage_set_critical(&mbox->storage->storage,
 			"%s (not INBOX -> no privileged locking)", errmsg);
 	} else if (!mbox->mbox_privileged_locking) {
-		dir = mailbox_list_get_path(mbox->storage->storage.list, NULL,
+		dir = mailbox_list_get_path(mbox->ibox.box.list, NULL,
 					    MAILBOX_LIST_PATH_TYPE_DIR);
 		mail_storage_set_critical(&mbox->storage->storage,
 			"%s (under root dir %s -> no privileged locking)",

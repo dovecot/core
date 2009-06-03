@@ -183,7 +183,7 @@ mail_log_action_add_group(struct mail_log_transaction_context *lt,
 			  const char *data)
 {
 	struct mail_log_user *muser =
-		MAIL_LOG_USER_CONTEXT(mail->box->storage->ns->user);
+		MAIL_LOG_USER_CONTEXT(mail->box->storage->user);
 	struct mail_log_group_changes *group;
 	uoff_t size;
 
@@ -225,7 +225,7 @@ static void
 mail_log_group(struct mailbox *box, const struct mail_log_group_changes *group)
 {
 	struct mail_log_user *muser =
-		MAIL_LOG_USER_CONTEXT(box->storage->ns->user);
+		MAIL_LOG_USER_CONTEXT(box->storage->user);
 	const struct seq_range *range;
 	unsigned int i, count;
 	string_t *str;
@@ -295,7 +295,7 @@ static void mail_log_action(struct mailbox_transaction_context *dest_trans,
 {
 	struct mail_log_transaction_context *lt = MAIL_LOG_CONTEXT(dest_trans);
 	struct mail_log_user *muser =
-		MAIL_LOG_USER_CONTEXT(mail->box->storage->ns->user);
+		MAIL_LOG_USER_CONTEXT(mail->box->storage->user);
 	uoff_t size;
 	string_t *str;
 
@@ -522,7 +522,7 @@ mail_log_transaction_commit(struct mailbox_transaction_context *t,
 	struct mail_log_transaction_context *lt = MAIL_LOG_CONTEXT(t);
 	union mailbox_module_context *lbox = MAIL_LOG_CONTEXT(t->box);
 	struct mail_log_user *muser =
-		MAIL_LOG_USER_CONTEXT(t->box->storage->ns->user);
+		MAIL_LOG_USER_CONTEXT(t->box->storage->user);
 
 	if (lt->changes > 0 && muser->group_events)
 		mail_log_group_changes(t->box, lt);
@@ -541,7 +541,7 @@ mail_log_transaction_rollback(struct mailbox_transaction_context *t)
 	struct mail_log_transaction_context *lt = MAIL_LOG_CONTEXT(t);
 	union mailbox_module_context *lbox = MAIL_LOG_CONTEXT(t->box);
 	struct mail_log_user *muser =
-		MAIL_LOG_USER_CONTEXT(t->box->storage->ns->user);
+		MAIL_LOG_USER_CONTEXT(t->box->storage->user);
 
 	if (lt->changes > 0 && !muser->group_events) {
 		i_info("Transaction rolled back: "
@@ -555,14 +555,15 @@ mail_log_transaction_rollback(struct mailbox_transaction_context *t)
 }
 
 static struct mailbox *
-mail_log_mailbox_open(struct mail_storage *storage, const char *name,
-		      struct istream *input, enum mailbox_open_flags flags)
+mail_log_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
+		      const char *name, struct istream *input,
+		      enum mailbox_open_flags flags)
 {
 	union mail_storage_module_context *lstorage = MAIL_LOG_CONTEXT(storage);
 	struct mailbox *box;
 	union mailbox_module_context *lbox;
 
-	box = lstorage->super.mailbox_open(storage, name, input, flags);
+	box = lstorage->super.mailbox_open(storage, list, name, input, flags);
 	if (box == NULL)
 		return NULL;
 

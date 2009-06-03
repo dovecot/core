@@ -29,7 +29,6 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
 	struct mail_namespace *ns, *real_ns;
-	struct mail_storage *storage;
 	const char *mailbox, *verify_name, *real_name;
 
 	/* <mailbox> */
@@ -38,8 +37,8 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 	verify_name = mailbox;
 
 	real_name = mailbox;
-	storage = client_find_storage(cmd, &real_name);
-	if (storage == NULL)
+	real_ns = client_find_namespace(cmd, &real_name);
+	if (real_ns == NULL)
 		return TRUE;
 
 	/* now find a namespace where the subscription can be added to */
@@ -50,7 +49,6 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		return TRUE;
 	}
 
-	real_ns = mail_storage_get_namespace(storage);
 	if (ns != real_ns) {
 		/* subscription is being written to a different namespace
 		   than where the mailbox exists. */
@@ -62,7 +60,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 
 	if ((cmd->client->workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
 	    *mailbox != '\0' && mailbox[strlen(mailbox)-1] ==
-	    mail_storage_get_hierarchy_sep(ns->storage)) {
+	    mailbox_list_get_hierarchy_sep(ns->list)) {
 		/* verify the validity without the trailing '/' */
 		verify_name = t_strndup(verify_name, strlen(verify_name)-1);
 	}

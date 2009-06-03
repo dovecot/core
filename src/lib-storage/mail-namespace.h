@@ -3,6 +3,8 @@
 
 #include "mail-user.h"
 
+struct mail_storage_callbacks;
+
 enum namespace_type {
 	NAMESPACE_PRIVATE,
 	NAMESPACE_SHARED,
@@ -73,6 +75,14 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
    for user's namespaces. */
 void mail_namespaces_deinit(struct mail_namespace **namespaces);
 
+/* Set storage callback functions to use in all namespaces. */
+void mail_namespaces_set_storage_callbacks(struct mail_namespace *namespaces,
+					   struct mail_storage_callbacks *callbacks,
+					   void *context);
+
+/* Add a new storage to namespace. */
+void mail_namespace_add_storage(struct mail_namespace *ns,
+				struct mail_storage *storage);
 /* Destroy a single namespace and remove it from user's namespaces list. */
 void mail_namespace_destroy(struct mail_namespace *ns);
 
@@ -82,9 +92,12 @@ const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name);
    virtual ones and namespace prefix is inserted except for INBOX. */
 const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
 				     const char *name);
+/* Returns the default storage to use for newly created mailboxes. */
+struct mail_storage *
+mail_namespace_get_default_storage(struct mail_namespace *ns);
 
 /* Returns the hierarchy separator for mailboxes that are listed at root. */
-char mail_namespace_get_root_sep(const struct mail_namespace *namespaces)
+char mail_namespaces_get_root_sep(const struct mail_namespace *namespaces)
 	ATTR_PURE;
 
 /* Returns namespace based on the mailbox name's prefix. Updates mailbox to
@@ -121,7 +134,8 @@ struct mail_namespace *
 mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
 				 const char *prefix);
 
-/* Called internally by mail_storage_create(). */
-void mail_namespace_init_storage(struct mail_namespace *ns);
+/* Called internally by mailbox_list_create(). */
+void mail_namespace_finish_list_init(struct mail_namespace *ns,
+				     struct mailbox_list *list);
 
 #endif

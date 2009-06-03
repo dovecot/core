@@ -224,7 +224,7 @@ mail_user_set_get_storage_set(const struct mail_user_settings *set)
 
 const void *mail_storage_get_driver_settings(struct mail_storage *storage)
 {
-	return mail_user_set_get_driver_settings(storage->ns->user->set,
+	return mail_user_set_get_driver_settings(storage->user->set,
 						 storage->name);
 }
 
@@ -279,7 +279,7 @@ fix_base_path(struct mail_user_settings *set, pool_t pool, const char **str)
 static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					const char **error_r)
 {
-	const struct mail_storage_settings *set = _set;
+	struct mail_storage_settings *set = _set;
 	const char *p;
 	bool uidl_format_ok;
 	char c;
@@ -290,6 +290,13 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 	if (set->mail_nfs_index && set->fsync_disable) {
 		*error_r = "mail_nfs_index=yes requires fsync_disable=no";
+		return FALSE;
+	}
+
+	if (!file_lock_method_parse(set->lock_method,
+				    &set->parsed_lock_method)) {
+		*error_r = t_strdup_printf("Unknown lock_method: %s",
+					   set->lock_method);
 		return FALSE;
 	}
 
@@ -332,8 +339,7 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 	name = ns->prefix != NULL ? ns->prefix : "";
 
-	if (ns->separator != NULL &&
-	    ns->separator[0] != '\0' && ns->separator[1] != '\0') {
+	if (ns->separator[0] != '\0' && ns->separator[1] != '\0') {
 		*error_r = t_strdup_printf("Namespace '%s': "
 			"Hierarchy separator must be only one character long",
 			name);

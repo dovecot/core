@@ -8,7 +8,6 @@
 #include "imap-commands.h"
 #include "imap-parser.h"
 #include "imap-date.h"
-#include "mail-storage.h"
 
 #include <sys/time.h>
 
@@ -452,24 +451,24 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 static struct mailbox *
 get_mailbox(struct client_command_context *cmd, const char *name)
 {
-	struct mail_storage *storage;
+	struct mail_namespace *ns;
 	struct mailbox *box;
 
 	if (!client_verify_mailbox_name(cmd, name, TRUE, FALSE))
 		return NULL;
 
-	storage = client_find_storage(cmd, &name);
-	if (storage == NULL)
+	ns = client_find_namespace(cmd, &name);
+	if (ns == NULL)
 		return NULL;
 
 	if (cmd->client->mailbox != NULL &&
-	    mailbox_equals(cmd->client->mailbox, storage, name))
+	    mailbox_equals(cmd->client->mailbox, ns, name))
 		return cmd->client->mailbox;
 
-	box = mailbox_open(&storage, name, NULL, MAILBOX_OPEN_SAVEONLY |
+	box = mailbox_open(ns->list, name, NULL, MAILBOX_OPEN_SAVEONLY |
 			   MAILBOX_OPEN_KEEP_RECENT);
 	if (box == NULL) {
-		client_send_storage_error(cmd, storage);
+		client_send_list_error(cmd, ns->list);
 		return NULL;
 	}
 	if (cmd->client->enabled_features != 0)

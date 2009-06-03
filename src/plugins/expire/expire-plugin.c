@@ -104,7 +104,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				  uint32_t *last_saved_uid_r)
 {
 	struct expire_mail_user *euser =
-		EXPIRE_USER_CONTEXT(t->box->storage->ns->user);
+		EXPIRE_USER_CONTEXT(t->box->storage->user);
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
 	struct mailbox *box = t->box;
@@ -133,8 +133,9 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 		const char *key, *value;
 
 		key = t_strconcat(DICT_EXPIRE_PREFIX,
-				  box->storage->ns->user->username, "/",
-				  box->storage->ns->prefix, box->name, NULL);
+				  box->storage->user->username, "/",
+				  mailbox_get_namespace(box)->prefix,
+				  box->name, NULL);
 		if (!xt->first_expunged && xt->saves) {
 			/* saved new mails. dict needs to be updated only if
 			   this is the first mail in the database */
@@ -254,10 +255,11 @@ mailbox_expire_hook(struct mailbox *box, time_t expire_secs, bool altmove)
 }
 
 static struct mailbox *
-expire_mailbox_open(struct mail_storage *storage, const char *name,
-		    struct istream *input, enum mailbox_open_flags flags)
+expire_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
+		    const char *name, struct istream *input,
+		    enum mailbox_open_flags flags)
 {
-	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(storage->ns->user);
+	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(storage->user);
 	union mail_storage_module_context *xpr_storage =
 		EXPIRE_CONTEXT(storage);
 	struct mailbox *box;
@@ -265,10 +267,11 @@ expire_mailbox_open(struct mail_storage *storage, const char *name,
 	unsigned int secs;
 	bool altmove;
 
-	box = xpr_storage->super.mailbox_open(storage, name, input, flags);
+	box = xpr_storage->super.mailbox_open(storage, list, name, input, flags);
 	if (box != NULL) {
 		vname = t_str_new(128);
-		(void)mail_namespace_get_vname(storage->ns, vname, name);
+		(void)mail_namespace_get_vname(mailbox_list_get_namespace(list),
+					       vname, name);
 
 		secs = expire_box_find_min_secs(euser->env, str_c(vname),
 						&altmove);
@@ -280,7 +283,7 @@ expire_mailbox_open(struct mail_storage *storage, const char *name,
 
 static void expire_mail_storage_created(struct mail_storage *storage)
 {
-	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(storage->ns->user);
+	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(storage->user);
 	union mail_storage_module_context *xpr_storage;
 
 	if (euser != NULL) {

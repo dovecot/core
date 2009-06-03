@@ -46,6 +46,7 @@ struct dbox_storage_rebuild_context {
 	uint32_t prev_file_id;
 	uint32_t highest_seen_map_uid;
 
+	struct mailbox_list *default_list;
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *trans;
@@ -385,7 +386,8 @@ rebuild_mailbox_multi(struct dbox_storage_rebuild_context *ctx,
 }
 
 static int
-rebuild_mailbox(struct dbox_storage_rebuild_context *ctx, const char *name)
+rebuild_mailbox(struct dbox_storage_rebuild_context *ctx,
+		struct mail_namespace *ns, const char *name)
 {
 	struct mailbox *box;
 	struct dbox_mailbox *mbox;
@@ -396,12 +398,12 @@ rebuild_mailbox(struct dbox_storage_rebuild_context *ctx, const char *name)
 	enum mail_error error;
 	int ret;
 
-	box = dbox_mailbox_open(&ctx->storage->storage, name, NULL,
+	box = dbox_mailbox_open(&ctx->storage->storage, ns->list, name, NULL,
 				MAILBOX_OPEN_READONLY |
 				MAILBOX_OPEN_KEEP_RECENT |
 				MAILBOX_OPEN_IGNORE_ACLS);
 	if (box == NULL) {
-		mail_storage_get_last_error(&ctx->storage->storage, &error);
+		mailbox_list_get_last_error(ns->list, &error);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
 		/* non-temporary error, ignore */
@@ -433,19 +435,24 @@ rebuild_mailbox(struct dbox_storage_rebuild_context *ctx, const char *name)
 	return ret < 0 ? -1 : 0;
 }
 
-static int rebuild_mailboxes(struct dbox_storage_rebuild_context *ctx)
+static int rebuild_namespace_mailboxes(struct dbox_storage_rebuild_context *ctx,
+				       struct mail_namespace *ns)
 {
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
 	int ret = 0;
 
-	iter = mailbox_list_iter_init(ctx->storage->storage.list, "*",
+	if (ctx->default_list == NULL ||
+	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0)
+		ctx->default_list = ns->list;
+
+	iter = mailbox_list_iter_init(ns->list, "*",
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if ((info->flags & (MAILBOX_NONEXISTENT |
 				    MAILBOX_NOSELECT)) == 0) {
 			T_BEGIN {
-				ret = rebuild_mailbox(ctx, info->name);
+				ret = rebuild_mailbox(ctx, ns, info->name);
 			} T_END;
 			if (ret < 0) {
 				ret = -1;
@@ -456,6 +463,28 @@ static int rebuild_mailboxes(struct dbox_storage_rebuild_context *ctx)
 	if (mailbox_list_iter_deinit(&iter) < 0)
 		ret = -1;
 	return ret;
+}
+
+static int rebuild_mailboxes(struct dbox_storage_rebuild_context *ctx)
+{
+	struct mail_user *user = ctx->storage->storage.user;
+	struct mail_namespace *ns;
+	const char *rebuild_dir, *ns_dir;
+
+	rebuild_dir = ctx->storage->storage_dir;
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if (strcmp(ns->storage->name, "dbox") != 0)
+			continue;
+
+		ns_dir = mailbox_list_get_path(ns->list, NULL,
+					       MAILBOX_LIST_PATH_TYPE_DIR);
+		if (strcmp(ns_dir, rebuild_dir) != 0)
+			continue;
+
+		if (rebuild_namespace_mailboxes(ctx, ns) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static int rebuild_msg_mailbox_commit(struct rebuild_msg_mailbox *msg)
@@ -511,7 +540,8 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 		strcmp(mailbox, ctx->prev_msg.box->name) == 0 ?
 		ctx->prev_msg.box : NULL;
 	while (box == NULL) {
-		box = dbox_mailbox_open(storage, mailbox, NULL,
+		box = dbox_mailbox_open(storage, ctx->default_list,
+					mailbox, NULL,
 					MAILBOX_OPEN_READONLY |
 					MAILBOX_OPEN_KEEP_RECENT |
 					MAILBOX_OPEN_IGNORE_ACLS);
@@ -526,8 +556,8 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 			/* mailbox doesn't exist currently? see if creating
 			   it helps. */
 			created = TRUE;
-			(void)mail_storage_mailbox_create(storage, mailbox,
-							  FALSE);
+			(void)mail_storage_mailbox_create(storage,
+				ctx->default_list->ns, mailbox, FALSE);
 		} else if (strcmp(mailbox, "INBOX") != 0) {
 			/* see if we can save to INBOX instead. */
 			mailbox = "INBOX";

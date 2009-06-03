@@ -29,6 +29,13 @@ static const char *storage_error(struct mail_storage *storage)
 	return mail_storage_get_last_error(storage, &error);
 }
 
+static const char *list_error(struct mailbox_list *list)
+{
+	enum mail_error error;
+
+	return mailbox_list_get_last_error(list, &error);
+}
+
 static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 			      struct dotlock *dotlock, const char **error_r)
 {
@@ -109,15 +116,15 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 }
 
 static const char *
-mailbox_name_convert(struct mail_storage *dest_storage,
-		     struct mail_storage *source_storage,
+mailbox_name_convert(struct mail_namespace *dest_ns,
+		     struct mail_namespace *source_ns,
 		     const struct convert_plugin_settings *set,
 		     const char *name)
 {
 	char *dest_name, *p, src_sep, dest_sep;
 
-	src_sep = mail_storage_get_hierarchy_sep(source_storage);
-	dest_sep = mail_storage_get_hierarchy_sep(dest_storage);
+	src_sep = mailbox_list_get_hierarchy_sep(source_ns->list);
+	dest_sep = mailbox_list_get_hierarchy_sep(dest_ns->list);
 
 	if (src_sep == dest_sep || set->alt_hierarchy_char == '\0')
 		return name;
@@ -132,10 +139,10 @@ mailbox_name_convert(struct mail_storage *dest_storage,
 	return dest_name;
 }
 
-static int mailbox_convert_maildir_to_dbox(struct mail_storage *src_storage,
-					   struct mail_storage *dest_storage,
-					   const char *src_name,
-					   const char *dest_name)
+static int
+mailbox_convert_maildir_to_dbox(struct mail_namespace *source_ns,
+				struct mail_namespace *dest_ns,
+				const char *src_name, const char *dest_name)
 {
 	static const char *maildir_files[] = {
 		"dovecot-uidlist",
@@ -144,25 +151,29 @@ static int mailbox_convert_maildir_to_dbox(struct mail_storage *src_storage,
 		"dovecot.index.log",
 		"dovecot.index.cache"
 	};
+	struct mail_storage *dest_storage;
 	string_t *src, *dest;
 	DIR *dir;
 	struct dirent *dp;
 	const char *src_path, *dest_path, *new_path, *cur_path;
 	unsigned int i, src_dir_len, dest_dir_len;
-	bool t;
 	int ret;
 
 	/* create as non-selectable mailbox so the dbox-Mails directory
 	   isn't created yet */
-	if (mail_storage_mailbox_create(dest_storage, dest_name, TRUE) < 0) {
+	dest_storage = mail_namespace_get_default_storage(dest_ns);
+	if (mail_storage_mailbox_create(dest_storage, dest_ns,
+					dest_name, TRUE) < 0) {
 		i_error("Mailbox conversion: "
 			"Couldn't create mailbox %s: %s",
 			dest_name, storage_error(dest_storage));
 		return -1;
 	}
 
-	src_path = mail_storage_get_mailbox_path(src_storage, src_name, &t);
-	dest_path = mail_storage_get_mailbox_path(dest_storage, dest_name, &t);
+	src_path = mailbox_list_get_path(source_ns->list, src_name,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	dest_path = mailbox_list_get_path(dest_ns->list, dest_name,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 	/* rename cur/ directory as the destination directory */
 	cur_path = t_strconcat(src_path, "/cur", NULL);
@@ -241,12 +252,13 @@ static int mailbox_convert_maildir_to_dbox(struct mail_storage *src_storage,
 	return ret;
 }
 
-static int mailbox_convert_list_item(struct mail_storage *source_storage,
-				     struct mail_storage *dest_storage,
+static int mailbox_convert_list_item(struct mail_namespace *source_ns,
+				     struct mail_namespace *dest_ns,
 				     const struct mailbox_info *info,
 				     struct dotlock *dotlock,
 				     const struct convert_plugin_settings *set)
 {
+	struct mail_storage *dest_storage;
 	const char *name, *dest_name, *error;
 	struct mailbox *srcbox, *destbox;
 	int ret = 0;
@@ -255,27 +267,27 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 		return 0;
 
 	name = strcasecmp(info->name, "INBOX") == 0 ? "INBOX" : info->name;
-	dest_name = mailbox_name_convert(dest_storage, source_storage,
-					 set, name);
+	dest_name = mailbox_name_convert(dest_ns, source_ns, set, name);
+	dest_storage = mail_namespace_get_default_storage(dest_ns);
 
 	if ((info->flags & MAILBOX_NOSELECT) != 0) {
 		/* \NoSelect mailbox, so it's probably a "directory" */
 		if (*info->name == '.' && set->skip_dotdirs)
 			return 0;
 
-		if (mail_storage_mailbox_create(dest_storage, dest_name,
-						TRUE) < 0) {
+		if (mail_storage_mailbox_create(dest_storage, dest_ns,
+						dest_name, TRUE) < 0) {
 			i_error("Mailbox conversion: Couldn't create mailbox "
-				"directory %s", dest_name);
+				"directory %s: %s", dest_name,
+				storage_error(dest_storage));
 			return -1;
 		}
 		return 0;
 	}
 
-	if (strcmp(source_storage->name, "maildir") == 0 &&
+	if (strcmp(source_ns->storage->name, "maildir") == 0 &&
 	    strcmp(dest_storage->name, "dbox") == 0) {
-		if (mailbox_convert_maildir_to_dbox(source_storage,
-						    dest_storage,
+		if (mailbox_convert_maildir_to_dbox(source_ns, dest_ns,
 						    name, dest_name) < 0) {
 			i_error("Mailbox conversion failed for mailbox %s",
 				name);
@@ -286,7 +298,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 
 	/* First open the source mailbox. If we can't open it, don't create
 	   the destination mailbox either. */
-	srcbox = mailbox_open(&source_storage, name, NULL,
+	srcbox = mailbox_open(source_ns->list, name, NULL,
 			      MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
 	if (srcbox == NULL) {
 		if (set->skip_broken_mailboxes)
@@ -294,14 +306,14 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 
 		i_error("Mailbox conversion: "
 			"Couldn't open source mailbox %s: %s",
-			name, storage_error(source_storage));
+			name, list_error(source_ns->list));
 		return -1;
 	}
 
 	/* Create and open the destination mailbox. */
 	if (strcmp(dest_name, "INBOX") != 0) {
-		if (mail_storage_mailbox_create(dest_storage, dest_name,
-						FALSE) < 0) {
+		if (mail_storage_mailbox_create(dest_storage, dest_ns,
+						dest_name, FALSE) < 0) {
 			i_error("Mailbox conversion: "
 				"Couldn't create mailbox %s: %s",
 				dest_name, storage_error(dest_storage));
@@ -310,11 +322,11 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 		}
 	}
 
-	destbox = mailbox_open(&dest_storage, dest_name, NULL,
+	destbox = mailbox_open(dest_ns->list, dest_name, NULL,
 			       MAILBOX_OPEN_KEEP_RECENT);
 	if (destbox == NULL) {
 		i_error("Mailbox conversion: Couldn't open dest mailbox %s: %s",
-			dest_name, storage_error(dest_storage));
+			dest_name, list_error(dest_ns->list));
 		mailbox_close(&srcbox);
 		return -1;
 	}
@@ -329,7 +341,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 	return ret;
 }
 
-static int mailbox_list_copy(struct mail_storage *source_storage,
+static int mailbox_list_copy(struct mail_namespace *source_ns,
 			     struct mail_namespace *dest_namespaces,
 			     struct dotlock *dotlock,
 			     const struct convert_plugin_settings *set)
@@ -340,12 +352,11 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 	int ret = 0;
 
 	dest_ns = mail_namespace_find_inbox(dest_namespaces);
-	iter = mailbox_list_iter_init(mail_storage_get_list(source_storage),
+	iter = mailbox_list_iter_init(source_ns->list,
 				      "*", MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		T_BEGIN {
-			ret = mailbox_convert_list_item(source_storage,
-							dest_ns->storage,
+			ret = mailbox_convert_list_item(source_ns, dest_ns,
 							info, dotlock, set);
 		} T_END;
 		if (ret < 0)
@@ -361,27 +372,24 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 }
 
 static int
-mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
+mailbox_list_copy_subscriptions(struct mail_namespace *source_ns,
 				struct mail_namespace *dest_namespaces,
 				const struct convert_plugin_settings *set)
 {
 	struct mailbox_list_iterate_context *iter;
 	struct mail_namespace *dest_ns;
 	const struct mailbox_info *info;
-	struct mailbox_list *dest_list;
 	const char *dest_name;
 	int ret = 0;
 
 	dest_ns = mail_namespace_find_inbox(dest_namespaces);
-	dest_list = mail_storage_get_list(dest_ns->storage);
-	iter = mailbox_list_iter_init(mail_storage_get_list(source_storage),
+	iter = mailbox_list_iter_init(source_ns->list,
 				      "*", MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		dest_name = mailbox_name_convert(dest_ns->storage,
-						 source_storage,
+		dest_name = mailbox_name_convert(dest_ns, source_ns,
 						 set, info->name);
-		if (mailbox_list_set_subscribed(dest_list, dest_name,
+		if (mailbox_list_set_subscribed(dest_ns->list, dest_name,
 						TRUE) < 0) {
 			ret = -1;
 			break;
@@ -420,10 +428,8 @@ int convert_storage(const char *source_data,
 	if (mail_user_get_home(user, &home) <= 0)
 		i_unreached();
         path = t_strconcat(home, "/"CONVERT_LOCK_FILENAME, NULL);
-	dotlock_settings.use_excl_lock =
-		source_ns->storage->set->dotlock_use_excl;
-	dotlock_settings.nfs_flush =
-		source_ns->storage->set->mail_nfs_storage;
+	dotlock_settings.use_excl_lock = source_ns->mail_set->dotlock_use_excl;
+	dotlock_settings.nfs_flush = source_ns->mail_set->mail_nfs_storage;
 	ret = file_dotlock_create(&dotlock_settings, path, 0, &dotlock);
 	if (ret <= 0) {
 		if (ret == 0)
@@ -443,10 +449,10 @@ int convert_storage(const char *source_data,
 		return 0;
 	}
 
-	ret = mailbox_list_copy(source_ns->storage, dest_namespaces,
+	ret = mailbox_list_copy(source_ns, dest_namespaces,
 				dotlock, set);
 	if (ret == 0) {
-		ret = mailbox_list_copy_subscriptions(source_ns->storage,
+		ret = mailbox_list_copy_subscriptions(source_ns,
 						      dest_namespaces, set);
 	}
 
@@ -454,10 +460,9 @@ int convert_storage(const char *source_data,
 		/* all finished. rename the source directory to mark the
 		   move as finished. */
 		const char *src, *dest;
-		bool is_file;
 
-		src = mail_storage_get_mailbox_path(source_ns->storage, "",
-						    &is_file);
+		src = mailbox_list_get_path(source_ns->list, NULL,
+					    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (src != NULL) {
 			dest = t_strconcat(src, "-converted", NULL);
 			if (rename(src, dest) < 0) {

@@ -36,13 +36,13 @@ struct dbox_sync_rebuild_context {
 
 static void dbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
 {
-	struct mail_storage *storage = &ctx->mbox->storage->storage;
+	struct mailbox *box = &ctx->mbox->ibox.box;
 	uint32_t uid_validity;
 
 	/* if uidvalidity is set in the old index, use it */
 	uid_validity = mail_index_get_header(ctx->view)->uid_validity;
 	if (uid_validity == 0)
-		uid_validity = dbox_get_uidvalidity_next(storage);
+		uid_validity = dbox_get_uidvalidity_next(box->list);
 
 	mail_index_update_header(ctx->trans,
 		offsetof(struct mail_index_header, uid_validity),
@@ -389,7 +389,7 @@ dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,
 	mail_index_ext_lookup(mbox->ibox.index, "cache", &ctx->cache_ext_id);
 
 	/* if backup index file exists, try to use it */
-	index_dir = mailbox_list_get_path(box->storage->list, box->name,
+	index_dir = mailbox_list_get_path(box->list, box->name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
 	ctx->backup_index =
 		mail_index_alloc(index_dir, DBOX_INDEX_PREFIX".backup");
@@ -399,7 +399,7 @@ dbox_sync_index_rebuild_init(struct dbox_mailbox *mbox,
 #endif
 		open_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 	if (mail_index_open(ctx->backup_index, open_flags,
-			    box->storage->lock_method) <= 0)
+			    box->storage->set->parsed_lock_method) <= 0)
 		mail_index_free(&ctx->backup_index);
 	else
 		ctx->backup_view = mail_index_view_open(ctx->backup_index);

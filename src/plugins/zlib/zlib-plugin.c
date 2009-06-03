@@ -179,21 +179,22 @@ static void zlib_maildir_open_init(struct mailbox *box)
 }
 
 static struct istream *
-zlib_mailbox_open_input(struct mail_storage *storage, const char *name)
+zlib_mailbox_open_input(struct mail_storage *storage, struct mailbox_list *list,
+			const char *name)
 {
 	struct zlib_handler *handler;
 	const char *path;
 	int fd;
-	bool is_file;
 
 	handler = zlib_get_zlib_handler_ext(name);
 	if (handler == NULL || handler->create_istream == NULL)
 		return NULL;
 
-	path = mail_storage_get_mailbox_path(storage, name, &is_file);
-	if (is_file && path != NULL) {
+	if (mail_storage_is_mailbox_file(storage)) {
 		/* looks like a compressed single file mailbox. we should be
 		   able to handle this. */
+		path = mailbox_list_get_path(list, name,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		fd = open(path, O_RDONLY);
 		if (fd != -1)
 			return handler->create_istream(fd);
@@ -202,17 +203,20 @@ zlib_mailbox_open_input(struct mail_storage *storage, const char *name)
 }
 
 static struct mailbox *
-zlib_mailbox_open(struct mail_storage *storage, const char *name,
-		  struct istream *input, enum mailbox_open_flags flags)
+zlib_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
+		  const char *name, struct istream *input,
+		  enum mailbox_open_flags flags)
 {
 	union mail_storage_module_context *qstorage = ZLIB_CONTEXT(storage);
 	struct mailbox *box;
 	struct istream *zlib_input = NULL;
 
-	if (input == NULL && strcmp(storage->name, "mbox") == 0)
-		input = zlib_input = zlib_mailbox_open_input(storage, name);
+	if (input == NULL && strcmp(storage->name, "mbox") == 0) {
+		input = zlib_input =
+			zlib_mailbox_open_input(storage, list, name);
+	}
 
-	box = qstorage->super.mailbox_open(storage, name, input, flags);
+	box = qstorage->super.mailbox_open(storage, list, name, input, flags);
 
 	if (zlib_input != NULL)
 		i_stream_unref(&zlib_input);

@@ -9,7 +9,6 @@ struct shared_storage {
 	struct mail_storage storage;
 	union mailbox_list_module_context list_module_ctx;
 
-	const char *base_dir;
 	const char *ns_prefix_pattern;
 	const char *location;
 
@@ -19,8 +18,7 @@ struct shared_storage {
 struct mailbox_list *shared_mailbox_list_alloc(void);
 
 /* Returns -1 = error, 0 = user doesn't exist, 1 = ok */
-int shared_storage_get_namespace(struct mail_storage *storage,
-				 const char **name,
-				 struct mail_namespace **ns_r);
+int shared_storage_get_namespace(struct mail_namespace **_ns,
+				 const char **_name);
 
 #endif

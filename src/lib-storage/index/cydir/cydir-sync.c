@@ -21,8 +21,7 @@ static string_t *cydir_get_path_prefix(struct cydir_mailbox *mbox)
 	string_t *path = str_new(default_pool, 256);
 	const char *dir;
 
-	dir = mailbox_list_get_path(mbox->storage->storage.list,
-				    mbox->ibox.box.name,
+	dir = mailbox_list_get_path(mbox->ibox.box.list, mbox->ibox.box.name,
 				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	str_append(path, dir);
 	str_append_c(path, '/');

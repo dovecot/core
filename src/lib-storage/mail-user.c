@@ -11,6 +11,7 @@
 #include "auth-master.h"
 #include "master-service.h"
 #include "mail-storage-settings.h"
+#include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-user.h"
@@ -306,6 +307,7 @@ int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
 const char *mail_user_get_temp_prefix(struct mail_user *user)
 {
 	struct mail_namespace *ns;
+	const char *dir;
 
 	if (user->_home != NULL) {
 		return t_strconcat(user->_home, "/.temp.", my_hostname, ".",
@@ -315,7 +317,14 @@ const char *mail_user_get_temp_prefix(struct mail_user *user)
 	ns = mail_namespace_find_inbox(user->namespaces);
 	if (ns == NULL)
 		ns = user->namespaces;
-	return mail_storage_get_temp_prefix(ns->storage);
+
+	if (ns->storage->temp_path_prefix != NULL)
+		return ns->storage->temp_path_prefix;
+
+	dir = mailbox_list_get_path(ns->list, NULL,
+				    MAILBOX_LIST_PATH_TYPE_DIR);
+	return t_strconcat(dir, "/",
+			   mailbox_list_get_temp_prefix(ns->list), NULL);
 }
 
 const char *mail_user_get_anvil_userip_ident(struct mail_user *user)

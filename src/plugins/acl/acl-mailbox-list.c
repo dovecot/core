@@ -12,16 +12,7 @@
 #include "acl-shared-storage.h"
 #include "acl-plugin.h"
 
-#define ACL_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, acl_mailbox_list_module)
-
 #define MAILBOX_FLAG_MATCHED 0x40000000
-
-struct acl_mailbox_list {
-	union mailbox_list_module_context module_ctx;
-
-	struct acl_storage_rights_context rights;
-};
 
 struct acl_mailbox_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
@@ -35,8 +26,22 @@ struct acl_mailbox_list_iterate_context {
 	unsigned int simple_star_glob:1;
 };
 
-static MODULE_CONTEXT_DEFINE_INIT(acl_mailbox_list_module,
-				  &mailbox_list_module_register);
+static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
+	MAIL_ACL_LOOKUP,
+	MAIL_ACL_READ,
+	MAIL_ACL_WRITE,
+	MAIL_ACL_WRITE_SEEN,
+	MAIL_ACL_WRITE_DELETED,
+	MAIL_ACL_INSERT,
+	MAIL_ACL_POST,
+	MAIL_ACL_EXPUNGE,
+	MAIL_ACL_CREATE,
+	MAIL_ACL_DELETE,
+	MAIL_ACL_ADMIN
+};
+
+struct acl_mailbox_list_module acl_mailbox_list_module =
+	MODULE_CONTEXT_INIT(&mailbox_list_module_register);
 
 struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list)
 {
@@ -45,16 +50,32 @@ struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list)
 	return alist->rights.backend;
 }
 
-static int
-acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
-			    unsigned int acl_storage_right_idx, bool *can_see_r)
+int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
+				bool parent, unsigned int acl_storage_right_idx,
+				bool *can_see_r)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
-	int ret;
+	struct acl_backend *backend = alist->rights.backend;
+	const unsigned int *idx_arr = alist->rights.acl_storage_right_idx;
+	struct mail_namespace *ns;
+	struct acl_object *aclobj;
+	int ret, ret2;
 
-	ret = acl_storage_rights_ctx_have_right(&alist->rights, name, FALSE,
-						acl_storage_right_idx,
-						can_see_r);
+	ns = mailbox_list_get_namespace(list);
+	aclobj = !parent ?
+		acl_object_init_from_name(backend, name) :
+		acl_object_init_from_parent(backend, name);
+	ret = acl_object_have_right(aclobj, idx_arr[acl_storage_right_idx]);
+
+	if (can_see_r != NULL) {
+		ret2 = acl_object_have_right(aclobj,
+					     idx_arr[ACL_STORAGE_RIGHT_LOOKUP]);
+		if (ret2 < 0)
+			ret = -1;
+		*can_see_r = ret2 > 0;
+	}
+	acl_object_deinit(&aclobj);
+
 	if (ret < 0)
 		mailbox_list_set_internal_error(list);
 	return ret;
@@ -297,7 +318,7 @@ acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx)
 	}
 
 	acl_name = acl_mailbox_list_iter_get_name(&ctx->ctx, info->name);
-	ret = acl_mailbox_list_have_right(ctx->ctx.list, acl_name,
+	ret = acl_mailbox_list_have_right(ctx->ctx.list, acl_name, FALSE,
 					  ACL_STORAGE_RIGHT_LOOKUP,
 					  NULL);
 	if (ret != 0) {
@@ -381,14 +402,14 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 	int ret;
 
-	ret = acl_mailbox_list_have_right(list, name, ACL_STORAGE_RIGHT_LOOKUP,
-					  NULL);
+	ret = acl_mailbox_list_have_right(list, name, FALSE,
+					  ACL_STORAGE_RIGHT_LOOKUP, NULL);
 	if (ret < 0)
 		return -1;
 	if (ret == 0) {
 		/* If we have INSERT right for the mailbox, we'll need to
 		   reveal its existence so that APPEND and COPY works. */
-		ret = acl_mailbox_list_have_right(list, name,
+		ret = acl_mailbox_list_have_right(list, name, FALSE,
 						  ACL_STORAGE_RIGHT_INSERT,
 						  NULL);
 		if (ret < 0)
@@ -412,7 +433,7 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 	case MAILBOX_NAME_NOINFERIORS:
 		/* have to check if we are allowed to see the parent */
 		T_BEGIN {
-			ret = acl_storage_rights_ctx_have_right(&alist->rights, name,
+			ret = acl_mailbox_list_have_right(list, name,
 					TRUE, ACL_STORAGE_RIGHT_LOOKUP, NULL);
 		} T_END;
 
@@ -436,8 +457,8 @@ acl_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	bool can_see;
 	int ret;
 
-	ret = acl_mailbox_list_have_right(list, name, ACL_STORAGE_RIGHT_DELETE,
-					  &can_see);
+	ret = acl_mailbox_list_have_right(list, name, FALSE,
+					  ACL_STORAGE_RIGHT_DELETE, &can_see);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
@@ -460,12 +481,11 @@ acl_mailbox_list_rename(struct mailbox_list *oldlist, const char *oldname,
 			bool rename_children)
 {
 	struct acl_mailbox_list *old_alist = ACL_LIST_CONTEXT(oldlist);
-	struct acl_mailbox_list *new_alist = ACL_LIST_CONTEXT(newlist);
 	bool can_see;
 	int ret;
 
 	/* renaming requires rights to delete the old mailbox */
-	ret = acl_mailbox_list_have_right(oldlist, oldname,
+	ret = acl_mailbox_list_have_right(oldlist, oldname, FALSE,
 					  ACL_STORAGE_RIGHT_DELETE, &can_see);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -482,8 +502,8 @@ acl_mailbox_list_rename(struct mailbox_list *oldlist, const char *oldname,
 
 	/* and create the new one under the parent mailbox */
 	T_BEGIN {
-		ret = acl_storage_rights_ctx_have_right(&new_alist->rights,
-				newname, TRUE, ACL_STORAGE_RIGHT_CREATE, NULL);
+		ret = acl_mailbox_list_have_right(newlist, newname, TRUE,
+						ACL_STORAGE_RIGHT_CREATE, NULL);
 	} T_END;
 
 	if (ret <= 0) {
@@ -513,6 +533,19 @@ static void acl_mailbox_list_init_shared(struct mailbox_list *list)
 	list->v.iter_init = acl_mailbox_list_iter_init_shared;
 
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
+}
+
+static void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
+					struct acl_backend *backend)
+{
+	unsigned int i;
+
+	ctx->backend = backend;
+	for (i = 0; i < ACL_STORAGE_RIGHT_COUNT; i++) {
+		ctx->acl_storage_right_idx[i] =
+			acl_backend_lookup_right(backend,
+						 acl_storage_right_names[i]);
+	}
 }
 
 static void acl_mailbox_list_init_default(struct mailbox_list *list)

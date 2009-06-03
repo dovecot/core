@@ -104,10 +104,10 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 		return 0;
 
 	id = t_str_new(128);
-	backend = acl_storage_get_backend(ns->storage);
+	backend = acl_mailbox_list_get_backend(ns->list);
 	ctx = acl_backend_nonowner_lookups_iter_init(backend);
 	while ((ret = acl_backend_nonowner_lookups_iter_next(ctx, &name)) > 0) {
-		aclobj = acl_object_init_from_name(backend, ns->storage, name);
+		aclobj = acl_object_init_from_name(backend, name);
 
 		iter = acl_object_list_init(aclobj);
 		while ((ret = acl_object_list_next(iter, &rights)) > 0) {

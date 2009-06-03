@@ -82,7 +82,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 		acl_cache_mask_init(backend->cache, backend->pool,
 				    backend->default_rights);
 
-	backend->default_aclobj = acl_object_init_from_name(backend, NULL, "");
+	backend->default_aclobj = acl_object_init_from_name(backend, "");
 	return backend;
 }
 

@@ -261,14 +261,6 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			enum mail_storage_flags flags, const char **error_r);
 void mail_storage_destroy(struct mail_storage **storage);
 
-/* Returns the storage's real hierarchy separator. */
-char mail_storage_get_hierarchy_sep(struct mail_storage *storage);
-/* Returns the storage's mailbox list backend. */
-struct mailbox_list *
-mail_storage_get_list(const struct mail_storage *storage) ATTR_PURE;
-/* Returns the storage's namespace. */
-struct mail_namespace *
-mail_storage_get_namespace(const struct mail_storage *storage) ATTR_PURE;
 /* Returns the mail storage settings. */
 const struct mail_storage_settings *
 mail_storage_get_settings(struct mail_storage *storage) ATTR_PURE;
@@ -282,7 +274,8 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
    If directory is TRUE, the mailbox should be created so that it
    can contain children. The mailbox itself doesn't have to be
    created as long as it shows in LIST. */
-int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
+int mail_storage_mailbox_create(struct mail_storage *storage,
+				struct mail_namespace *ns, const char *name,
 				bool directory);
 /* Purge storage's mailboxes (freeing disk space from expunged mails),
    if supported by the storage. Otherwise just a no-op. */
@@ -292,33 +285,16 @@ int mail_storage_purge(struct mail_storage *storage);
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					enum mail_error *error_r);
 
-/* Returns path to the given mailbox, or NULL if mailbox doesn't exist in
-   filesystem. is_file_r is set to TRUE if returned path points to a file,
-   and FALSE if it points to a directory. If name is "", the root storage
-   directory is returned. */
-const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
-					  const char *name, bool *is_file_r);
-/* Returns path to the control directory of the mailbox, or NULL if mailbox
-   doesn't exist in filesystem. */
-const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
-						 const char *name);
-/* Returns path to the index directory of the mailbox, or NULL if using
-   in-memory indexes or mailbox doesn't exist. */
-const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
-					       const char *name);
-/* Returns path + file prefix for creating a temporary file. */
-const char *mail_storage_get_temp_prefix(struct mail_storage *storage);
+/* Returns TRUE if mailboxes are files. */
+bool mail_storage_is_mailbox_file(struct mail_storage *storage) ATTR_PURE;
 
 /* Open a mailbox. If input stream is given, mailbox is opened read-only
    using it as a backend. If storage doesn't support stream backends and its
    tried to be used, NULL is returned.
 
    Note that append and copy may open the selected mailbox again
-   with possibly different readonly-state.
-
-   Given storage is a pointer-to-pointer because it may change as a result of
-   a new namespace being created for shared mailboxes. */
-struct mailbox *mailbox_open(struct mail_storage **storage, const char *name,
+   with possibly different readonly-state. */
+struct mailbox *mailbox_open(struct mailbox_list *list, const char *name,
 			     struct istream *input,
 			     enum mailbox_open_flags flags);
 /* Close the box. Returns -1 if some cleanup errors occurred, but
@@ -333,6 +309,9 @@ mailbox_get_enabled_features(struct mailbox *box) ATTR_PURE;
 
 /* Returns storage of given mailbox */
 struct mail_storage *mailbox_get_storage(const struct mailbox *box) ATTR_PURE;
+/* Return namespace of given mailbox. */
+struct mail_namespace *
+mailbox_get_namespace(const struct mailbox *box) ATTR_PURE;
 /* Returns the storage's settings. */
 const struct mail_storage_settings *
 mailbox_get_settings(struct mailbox *box) ATTR_PURE;

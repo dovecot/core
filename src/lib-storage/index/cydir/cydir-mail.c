@@ -13,7 +13,7 @@ static const char *cydir_mail_get_path(struct mail *mail)
 {
 	const char *dir;
 
-	dir = mailbox_list_get_path(mail->box->storage->list, mail->box->name,
+	dir = mailbox_list_get_path(mail->box->list, mail->box->name,
 				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	return t_strdup_printf("%s/%u.", dir, mail->uid);
 }

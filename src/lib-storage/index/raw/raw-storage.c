@@ -9,50 +9,16 @@
 #include "raw-sync.h"
 #include "raw-storage.h"
 
-#define RAW_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, raw_mailbox_list_module)
+struct raw_mailbox_list {
+	union mailbox_list_module_context module_ctx;
+};
 
 extern struct mail_storage raw_storage;
 extern struct mailbox raw_mailbox;
 
-static MODULE_CONTEXT_DEFINE_INIT(raw_mailbox_list_module,
-				  &mailbox_list_module_register);
+static void raw_list_init(struct mailbox_list *list);
 
-static int raw_list_delete_mailbox(struct mailbox_list *list, const char *name);
-static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
-				    const char *dir, const char *fname,
-				    const char *mailbox_name,
-				    enum mailbox_list_file_type type,
-				    enum mailbox_info_flags *flags);
-
-static int
-raw_get_list_settings(struct mailbox_list_settings *list_set,
-		      const char *data, struct mail_storage *storage,
-		      const char **layout_r, const char **error_r)
-{
-	bool debug = storage->set->mail_debug;
-
-	*layout_r = "fs";
-
-	memset(list_set, 0, sizeof(*list_set));
-	list_set->subscription_fname = RAW_SUBSCRIPTION_FILE_NAME;
-	list_set->maildir_name = "";
-
-	if (data == NULL || *data == '\0' || *data == ':') {
-		/* we won't do any guessing for this format. */
-		if (debug)
-			i_info("raw: mailbox location not given");
-		*error_r = "Root mail directory not given";
-		return -1;
-	}
-
-	if (debug)
-		i_info("raw: data=%s", data);
-	return mailbox_list_settings_parse(data, list_set, storage->ns,
-					   layout_r, NULL, error_r);
-}
-
-static struct mail_storage *raw_alloc(void)
+static struct mail_storage *raw_storage_alloc(void)
 {
 	struct raw_storage *storage;
 	pool_t pool;
@@ -61,53 +27,29 @@ static struct mail_storage *raw_alloc(void)
 	storage = p_new(pool, struct raw_storage, 1);
 	storage->storage = raw_storage;
 	storage->storage.pool = pool;
-
 	return &storage->storage;
 }
 
-static int raw_create(struct mail_storage *_storage, const char *data,
-		      const char **error_r)
+static int
+raw_storage_create(struct mail_storage *_storage ATTR_UNUSED,
+		   struct mail_namespace *ns, const char **error_r ATTR_UNUSED)
 {
-	struct raw_storage *storage = (struct raw_storage *)_storage;
-	struct mailbox_list_settings list_set;
-	struct stat st;
-	const char *layout;
-
-	if (raw_get_list_settings(&list_set, data, _storage,
-				  &layout, error_r) < 0)
-		return -1;
-	list_set.mail_storage_flags = &_storage->flags;
-	list_set.lock_method = &_storage->lock_method;
-
-	if (stat(list_set.root_dir, &st) < 0) {
-		if (errno != ENOENT) {
-			*error_r = t_strdup_printf("stat(%s) failed: %m",
-						   list_set.root_dir);
-		} else {
-			*error_r = t_strdup_printf(
-				"Root mail directory doesn't exist: %s",
-				list_set.root_dir);
-		}
-		return -1;
-	}
-
-	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
-		return -1;
-	storage->list_module_ctx.super = _storage->list->v;
-	_storage->list->v.iter_is_mailbox = raw_list_iter_is_mailbox;
-	_storage->list->v.delete_mailbox = raw_list_delete_mailbox;
-
-	MODULE_CONTEXT_SET_FULL(_storage->list, raw_mailbox_list_module,
-				storage, &storage->list_module_ctx);
-
-	/* finish list init after we've overridden vfuncs */
-	mailbox_list_init(_storage->list, _storage->ns, &list_set,
-			  MAILBOX_LIST_FLAG_MAILBOX_FILES);
+	raw_list_init(ns->list);
 	return 0;
 }
 
+static void
+raw_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
+			      struct mailbox_list_settings *set)
+{
+	if (set->layout == NULL)
+		set->layout = MAILBOX_LIST_NAME_FS;
+	if (set->subscription_fname == NULL)
+		set->subscription_fname = RAW_SUBSCRIPTION_FILE_NAME;
+}
+
 static int
-raw_mailbox_open_input(struct mail_storage *storage, const char *name,
+raw_mailbox_open_input(struct mailbox_list *list, const char *name,
 		       const char *path, struct istream **input_r)
 {
 	int fd;
@@ -115,11 +57,11 @@ raw_mailbox_open_input(struct mail_storage *storage, const char *name,
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (ENOTFOUND(errno)) {
-			mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		} else if (!mail_storage_set_error_from_errno(storage)) {
-			mail_storage_set_critical(storage,
-						  "open(%s) failed: %m", path);
+		} else if (!mailbox_list_set_error_from_errno(list)) {
+			mailbox_list_set_critical(list, "open(%s) failed: %m",
+						  path);
 		}
 		return -1;
 	}
@@ -128,10 +70,10 @@ raw_mailbox_open_input(struct mail_storage *storage, const char *name,
 }
 
 static struct mailbox *
-raw_mailbox_open(struct mail_storage *_storage, const char *name,
-		 struct istream *input, enum mailbox_open_flags flags)
+raw_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
+		 const char *name, struct istream *input,
+		 enum mailbox_open_flags flags)
 {
-	struct raw_storage *storage = (struct raw_storage *)_storage;
 	struct raw_mailbox *mbox;
 	const char *path;
 	pool_t pool;
@@ -139,12 +81,12 @@ raw_mailbox_open(struct mail_storage *_storage, const char *name,
 
 	flags |= MAILBOX_OPEN_READONLY | MAILBOX_OPEN_NO_INDEX_FILES;
 
-	path = mailbox_list_get_path(_storage->list, name,
+	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (input != NULL)
 		i_stream_ref(input);
 	else {
-		if (raw_mailbox_open_input(_storage, name, path, &input) < 0)
+		if (raw_mailbox_open_input(list, name, path, &input) < 0)
 			return NULL;
 	}
 
@@ -152,11 +94,11 @@ raw_mailbox_open(struct mail_storage *_storage, const char *name,
 	mbox = p_new(pool, struct raw_mailbox, 1);
 	mbox->ibox.box = raw_mailbox;
 	mbox->ibox.box.pool = pool;
-	mbox->ibox.storage = &storage->storage;
+	mbox->ibox.box.storage = storage;
 	mbox->ibox.mail_vfuncs = &raw_mail_vfuncs;
-	mbox->ibox.index = index_storage_alloc(_storage, name, flags, NULL);
+	mbox->ibox.index = index_storage_alloc(list, name, flags, NULL);
 
-	mbox->storage = storage;
+	mbox->storage = (struct raw_storage *)storage;
 	mbox->path = p_strdup(pool, path);
 	mbox->input = input;
 
@@ -180,9 +122,10 @@ static int raw_mailbox_close(struct mailbox *box)
 	return index_storage_mailbox_close(box);
 }
 
-static int raw_mailbox_create(struct mail_storage *storage,
-			      const char *name ATTR_UNUSED,
-			      bool directory ATTR_UNUSED)
+static int
+raw_mailbox_create(struct mail_storage *storage,
+		   struct mailbox_list *list ATTR_UNUSED,
+		   const char *name ATTR_UNUSED, bool directory ATTR_UNUSED)
 {
 	mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
 			       "Raw mailbox creation isn't supported");
@@ -207,7 +150,6 @@ static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				    enum mailbox_list_file_type type,
 				    enum mailbox_info_flags *flags_r)
 {
-	struct mail_storage *storage = RAW_LIST_CONTEXT(ctx->list);
 	const char *path;
 	struct stat st;
 
@@ -238,7 +180,8 @@ static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 		*flags_r = MAILBOX_NONEXISTENT;
 		return 0;
 	} else {
-		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
+		mailbox_list_set_critical(ctx->list, "stat(%s) failed: %m",
+					  path);
 		return -1;
 	}
 }
@@ -253,6 +196,12 @@ static void raw_class_deinit(void)
 	raw_transaction_class_deinit();
 }
 
+static void raw_list_init(struct mailbox_list *list)
+{
+	list->v.iter_is_mailbox = raw_list_iter_is_mailbox;
+	list->v.delete_mailbox = raw_list_delete_mailbox;
+}
+
 struct mail_storage raw_storage = {
 	MEMBER(name) RAW_STORAGE_NAME,
 	MEMBER(mailbox_is_file) TRUE,
@@ -261,9 +210,10 @@ struct mail_storage raw_storage = {
 		NULL,
 		raw_class_init,
 		raw_class_deinit,
-		raw_alloc,
-		raw_create,
+		raw_storage_alloc,
+		raw_storage_create,
 		index_storage_destroy,
+		raw_storage_get_list_settings,
 		NULL,
 		raw_mailbox_open,
 		raw_mailbox_create,
@@ -274,6 +224,7 @@ struct mail_storage raw_storage = {
 struct mailbox raw_mailbox = {
 	MEMBER(name) NULL, 
 	MEMBER(storage) NULL, 
+	MEMBER(list) NULL,
 
 	{
 		index_storage_is_readonly,

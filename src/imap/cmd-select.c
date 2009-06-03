@@ -12,7 +12,7 @@
 
 struct imap_select_context {
 	struct client_command_context *cmd;
-	struct mail_storage *storage;
+	struct mail_namespace *ns;
 	struct mailbox *box;
 
 	struct imap_fetch_context *fetch_ctx;
@@ -188,7 +188,6 @@ static void cmd_select_finish(struct imap_select_context *ctx, int ret)
 	if (ret < 0) {
 		if (ctx->box != NULL)
 			mailbox_close(&ctx->box);
-		client_send_storage_error(ctx->cmd, ctx->storage);
 		ctx->cmd->client->mailbox = NULL;
 	} else {
 		client_send_tagline(ctx->cmd, mailbox_is_readonly(ctx->box) ?
@@ -209,6 +208,10 @@ static bool cmd_select_continue(struct client_command_context *cmd)
 	}
 
 	ret = imap_fetch_deinit(ctx->fetch_ctx);
+	if (ret < 0) {
+		client_send_storage_error(ctx->cmd,
+					  mailbox_get_storage(ctx->box));
+	}
 	cmd_select_finish(ctx, ret);
 	return TRUE;
 }
@@ -264,9 +267,11 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 
 	if (readonly)
 		open_flags |= MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT;
-	ctx->box = mailbox_open(&ctx->storage, mailbox, NULL, open_flags);
-	if (ctx->box == NULL)
+	ctx->box = mailbox_open(ctx->ns->list, mailbox, NULL, open_flags);
+	if (ctx->box == NULL) {
+		client_send_list_error(ctx->cmd, ctx->ns->list);
 		return -1;
+	}
 
 	if (client->enabled_features != 0)
 		mailbox_enable(ctx->box, client->enabled_features);
@@ -274,8 +279,11 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 			 STATUS_MESSAGES | STATUS_RECENT |
 			 STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
 			 STATUS_UIDNEXT | STATUS_KEYWORDS |
-			 STATUS_HIGHESTMODSEQ, &status) < 0)
+			 STATUS_HIGHESTMODSEQ, &status) < 0) {
+		client_send_storage_error(ctx->cmd,
+					  mailbox_get_storage(ctx->box));
 		return -1;
+	}
 
 	client->mailbox = ctx->box;
 	client->select_counter++;
@@ -317,8 +325,11 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	}
 
 	if (ctx->qresync_uid_validity == status.uidvalidity) {
-		if (select_qresync(ctx) < 0)
+		if (select_qresync(ctx) < 0) {
+			client_send_storage_error(ctx->cmd,
+				mailbox_get_storage(ctx->box));
 			return -1;
+		}
 	}
 	return 0;
 }
@@ -344,8 +355,8 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
-	ctx->storage = client_find_storage(cmd, &mailbox);
-	if (ctx->storage == NULL)
+	ctx->ns = client_find_namespace(cmd, &mailbox);
+	if (ctx->ns == NULL)
 		return TRUE;
 
 	if (args[1].type == IMAP_ARG_LIST) {

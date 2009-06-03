@@ -23,7 +23,7 @@ struct trash_mailbox {
 	const char *name;
 	int priority; /* lower number = higher priority */
 
-	struct mail_storage *storage;
+	struct mail_namespace *ns;
 
 	/* temporarily set while cleaning: */
 	struct mailbox *box;
@@ -52,10 +52,9 @@ static int (*trash_next_quota_test_alloc)(struct quota_transaction_context *,
 
 static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
-	struct mail_storage *storage = trash->storage;
 	struct mail_search_args *search_args;
 
-	trash->box = mailbox_open(&storage, trash->name, NULL,
+	trash->box = mailbox_open(trash->ns->list, trash->name, NULL,
 				  MAILBOX_OPEN_KEEP_RECENT);
 	if (trash->box == NULL)
 		return 0;
@@ -233,7 +232,7 @@ static bool trash_find_storage(struct mail_user *user,
 		if (mail_namespace_update_name(ns, &name)) {
 			if (name != trash->name)
 				trash->name = p_strdup(user->pool, name);
-			trash->storage = ns->storage;
+			trash->ns = ns;
 			return TRUE;
 		}
 	}

@@ -16,6 +16,7 @@ static void
 autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 {
 	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	const char *str;
 	enum mail_error error;
 
@@ -26,8 +27,9 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 		return;
 	}
 
-	if (mail_storage_mailbox_create(ns->storage, name, FALSE) < 0) {
-		str = mail_storage_get_last_error(ns->storage, &error);
+	storage = mail_namespace_get_default_storage(ns);
+	if (mail_storage_mailbox_create(storage, ns, name, FALSE) < 0) {
+		str = mail_storage_get_last_error(storage, &error);
 		if (error != MAIL_ERROR_EXISTS && ns->mail_set->mail_debug) {
 			i_info("autocreate: Failed to create mailbox %s: %s",
 			       name, str);

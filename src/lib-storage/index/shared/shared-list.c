@@ -43,13 +43,14 @@ static void shared_list_copy_error(struct mailbox_list *shared_list,
 }
 
 static int
-shared_get_storage(struct mailbox_list *list, const char **name,
+shared_get_storage(struct mailbox_list **list, const char **name,
 		   struct mail_storage **storage_r)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = (*list)->ns;
 
-	if (shared_storage_get_namespace(list->ns->storage, name, &ns) < 0)
+	if (shared_storage_get_namespace(&ns, name) < 0)
 		return -1;
+	*list = ns->list;
 	*storage_r = ns->storage;
 	return 0;
 }
@@ -57,9 +58,9 @@ shared_get_storage(struct mailbox_list *list, const char **name,
 static bool
 shared_is_valid_pattern(struct mailbox_list *list, const char *pattern)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = list->ns;
 
-	if (shared_storage_get_namespace(list->ns->storage, &pattern, &ns) < 0)
+	if (shared_storage_get_namespace(&ns, &pattern) < 0)
 		return FALSE;
 	return mailbox_list_is_valid_pattern(ns->list, pattern);
 }
@@ -67,9 +68,9 @@ shared_is_valid_pattern(struct mailbox_list *list, const char *pattern)
 static bool
 shared_is_valid_existing_name(struct mailbox_list *list, const char *name)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = list->ns;
 
-	if (shared_storage_get_namespace(list->ns->storage, &name, &ns) < 0)
+	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return FALSE;
 	return mailbox_list_is_valid_existing_name(ns->list, name);
 }
@@ -77,9 +78,9 @@ shared_is_valid_existing_name(struct mailbox_list *list, const char *name)
 static bool
 shared_is_valid_create_name(struct mailbox_list *list, const char *name)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = list->ns;
 
-	if (shared_storage_get_namespace(list->ns->storage, &name, &ns) < 0)
+	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return FALSE;
 	return mailbox_list_is_valid_create_name(ns->list, name);
 }
@@ -88,10 +89,10 @@ static const char *
 shared_list_get_path(struct mailbox_list *list, const char *name,
 		     enum mailbox_list_path_type type)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = list->ns;
 
 	if (list->ns->storage == NULL || name == NULL ||
-	    shared_storage_get_namespace(list->ns->storage, &name, &ns) < 0) {
+	    shared_storage_get_namespace(&ns, &name) < 0) {
 		switch (type) {
 		case MAILBOX_LIST_PATH_TYPE_DIR:
 		case MAILBOX_LIST_PATH_TYPE_MAILBOX:
@@ -111,10 +112,10 @@ static int
 shared_list_get_mailbox_name_status(struct mailbox_list *list, const char *name,
 				    enum mailbox_name_status *status_r)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = list->ns;
 	int ret;
 
-	if (shared_storage_get_namespace(list->ns->storage, &name, &ns) < 0)
+	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return -1;
 	ret = mailbox_list_get_mailbox_name_status(ns->list, name, status_r);
 	if (ret < 0)
@@ -134,7 +135,7 @@ static const char *
 shared_list_join_refpattern(struct mailbox_list *list,
 			    const char *ref, const char *pattern)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = list->ns;
 	const char *ns_ref, *prefix = list->ns->prefix;
 	unsigned int prefix_len = strlen(prefix);
 
@@ -143,9 +144,7 @@ shared_list_join_refpattern(struct mailbox_list *list,
 	else
 		ns_ref = NULL;
 
-	if (ns_ref != NULL &&
-	    shared_storage_get_namespace(list->ns->storage,
-					 &ns_ref, &ns) == 0)
+	if (ns_ref != NULL && shared_storage_get_namespace(&ns, &ns_ref) == 0)
 		return mailbox_list_join_refpattern(ns->list, ns_ref, pattern);
 
 	/* fallback to default behavior */
@@ -220,10 +219,10 @@ static int shared_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 static int shared_list_set_subscribed(struct mailbox_list *list,
 				      const char *name, bool set)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = list->ns;
 	int ret;
 
-	if (shared_storage_get_namespace(list->ns->storage, &name, &ns) < 0)
+	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return -1;
 	ret = mailbox_list_set_subscribed(ns->list, name, set);
 	if (ret < 0)
@@ -234,10 +233,10 @@ static int shared_list_set_subscribed(struct mailbox_list *list,
 static int
 shared_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = list->ns;
 	int ret;
 
-	if (shared_storage_get_namespace(list->ns->storage, &name, &ns) < 0)
+	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return -1;
 	ret = mailbox_list_delete_mailbox(ns->list, name);
 	if (ret < 0)
@@ -251,12 +250,10 @@ static int shared_list_rename_get_ns(struct mailbox_list *oldlist,
 				     const char **newname,
 				     struct mail_namespace **ns_r)
 {
-	struct mail_namespace *old_ns, *new_ns;
+	struct mail_namespace *old_ns = oldlist->ns, *new_ns = newlist->ns;
 
-	if (shared_storage_get_namespace(oldlist->ns->storage,
-					 oldname, &old_ns) < 0 ||
-	    shared_storage_get_namespace(newlist->ns->storage,
-					 newname, &new_ns) < 0)
+	if (shared_storage_get_namespace(&old_ns, oldname) < 0 ||
+	    shared_storage_get_namespace(&new_ns, newname) < 0)
 		return -1;
 	if (old_ns != new_ns) {
 		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,

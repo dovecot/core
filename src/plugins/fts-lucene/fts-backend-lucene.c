@@ -48,8 +48,8 @@ static struct fts_backend *fts_backend_lucene_init(struct mailbox *box)
 
 	lstorage = LUCENE_CONTEXT(box->storage);
 	if (lstorage == NULL) {
-		path = mail_storage_get_mailbox_index_dir(box->storage,
-							  "INBOX");
+		path = mailbox_list_get_path(box->list, "INBOX",
+					     MAILBOX_LIST_PATH_TYPE_INDEX);
 		if (path == NULL) {
 			/* in-memory indexes */
 			if (box->storage->set->mail_debug)

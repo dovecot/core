@@ -8,6 +8,7 @@
 #include "mkdir-parents.h"
 #include "mail-index-private.h"
 #include "mail-index-modseq.h"
+#include "mailbox-list-private.h"
 #include "index-storage.h"
 #include "index-mail.h"
 #include "index-thread-private.h"
@@ -64,39 +65,39 @@ static void index_list_free(struct index_list *list)
 	i_free(list);
 }
 
-static int create_index_dir(struct mail_storage *storage, const char *name)
+static int create_index_dir(struct mailbox_list *list, const char *name)
 {
 	const char *root_dir, *index_dir, *p, *parent_dir;
 	mode_t mode, parent_mode;
 	gid_t gid, parent_gid;
 	int n = 0;
 
-	root_dir = mailbox_list_get_path(storage->list, name,
+	root_dir = mailbox_list_get_path(list, name,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(storage->list, name,
+	index_dir = mailbox_list_get_path(list, name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (strcmp(index_dir, root_dir) == 0 || *index_dir == '\0')
 		return 0;
 
-	mailbox_list_get_dir_permissions(storage->list, name, &mode, &gid);
+	mailbox_list_get_dir_permissions(list, name, &mode, &gid);
 	while (mkdir_chown(index_dir, mode, (uid_t)-1, gid) < 0) {
 		if (errno == EEXIST)
 			break;
 
 		p = strrchr(index_dir, '/');
 		if (errno != ENOENT || p == NULL || ++n == 2) {
-			mail_storage_set_critical(storage,
+			mailbox_list_set_critical(list,
 				"mkdir(%s) failed: %m", index_dir);
 			return -1;
 		}
 		/* create the parent directory first */
-		mailbox_list_get_dir_permissions(storage->list, NULL,
+		mailbox_list_get_dir_permissions(list, NULL,
 						 &parent_mode, &parent_gid);
 		parent_dir = t_strdup_until(index_dir, p);
 		if (mkdir_parents_chown(parent_dir, parent_mode,
 					(uid_t)-1, parent_gid) < 0 &&
 		    errno != EEXIST) {
-			mail_storage_set_critical(storage,
+			mailbox_list_set_critical(list,
 				"mkdir(%s) failed: %m", parent_dir);
 			return -1;
 		}
@@ -105,14 +106,13 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 }
 
 static const char *
-get_index_dir(struct mail_storage *storage, const char *name,
+get_index_dir(struct mailbox_list *list, const char *name,
 	      enum mailbox_open_flags flags, struct stat *st_r)
 {
 	const char *index_dir;
 
 	index_dir = (flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0 ? "" :
-		mailbox_list_get_path(storage->list, name,
-				      MAILBOX_LIST_PATH_TYPE_INDEX);
+		mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (*index_dir == '\0') {
 		/* disabled */
 		return NULL;
@@ -121,18 +121,18 @@ get_index_dir(struct mail_storage *storage, const char *name,
 	if (stat(index_dir, st_r) < 0) {
 		if (errno == ENOENT) {
 			/* try to create it */
-			if (create_index_dir(storage, name) < 0)
+			if (create_index_dir(list, name) < 0)
 				return NULL;
 			if (stat(index_dir, st_r) == 0)
 				return index_dir;
 		}
 		if (errno == EACCES) {
-			mail_storage_set_critical(storage, "%s",
+			mailbox_list_set_critical(list, "%s",
 				mail_error_eacces_msg("stat", index_dir));
 			return NULL;
 		}
 
-		mail_storage_set_critical(storage, "stat(%s) failed: %m",
+		mailbox_list_set_critical(list, "stat(%s) failed: %m",
 					  index_dir);
 		return NULL;
 	}
@@ -140,18 +140,18 @@ get_index_dir(struct mail_storage *storage, const char *name,
 }
 
 struct mail_index *
-index_storage_alloc(struct mail_storage *storage, const char *name,
+index_storage_alloc(struct mailbox_list *list, const char *name,
 		    enum mailbox_open_flags flags, const char *prefix)
 {
-	struct index_list **list, *rec;
+	struct index_list **indexp, *rec;
 	struct mail_index *index;
 	struct stat st, st2;
 	const char *index_dir, *mailbox_path;
 	int destroy_count;
 
-	mailbox_path = mailbox_list_get_path(storage->list, name,
+	mailbox_path = mailbox_list_get_path(list, name,
 					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = get_index_dir(storage, name, flags, &st);
+	index_dir = get_index_dir(list, name, flags, &st);
 
 	if (index_dir == NULL)
 		memset(&st, 0, sizeof(st));
@@ -159,8 +159,8 @@ index_storage_alloc(struct mail_storage *storage, const char *name,
 	/* compare index_dir inodes so we don't break even with symlinks.
 	   for in-memory indexes compare just mailbox paths */
 	destroy_count = 0; index = NULL;
-	for (list = &indexes; *list != NULL;) {
-		rec = *list;
+	for (indexp = &indexes; *indexp != NULL;) {
+		rec = *indexp;
 
 		if (index_dir != NULL) {
 			if (index == NULL && st.st_ino == rec->index_dir_ino &&
@@ -188,7 +188,7 @@ index_storage_alloc(struct mail_storage *storage, const char *name,
 		if (rec->refcount == 0) {
 			if (rec->destroy_time <= ioloop_time ||
 			    destroy_count >= INDEX_CACHE_MAX) {
-				*list = rec->next;
+				*indexp = rec->next;
 				index_list_free(rec);
 				continue;
 			} else {
@@ -196,7 +196,7 @@ index_storage_alloc(struct mail_storage *storage, const char *name,
 			}
 		}
 
-                list = &(*list)->next;
+                indexp = &(*indexp)->next;
 	}
 
 	if (index == NULL) {
@@ -367,7 +367,8 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 
 int index_storage_mailbox_open(struct index_mailbox *ibox)
 {
-	struct mail_storage *storage = ibox->storage;
+	struct mail_storage *storage = ibox->box.storage;
+	enum file_lock_method lock_method = storage->set->parsed_lock_method;
 	enum mail_index_open_flags index_flags;
 	int ret;
 
@@ -381,7 +382,7 @@ int index_storage_mailbox_open(struct index_mailbox *ibox)
 	if (ibox->index_never_in_memory)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 
-	ret = mail_index_open(ibox->index, index_flags, storage->lock_method);
+	ret = mail_index_open(ibox->index, index_flags, lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {
 		if (ibox->index_never_in_memory) {
 			mail_storage_set_index_error(ibox);
@@ -393,7 +394,7 @@ int index_storage_mailbox_open(struct index_mailbox *ibox)
 			   directly into memory now. */
 			if (mail_index_open_or_create(ibox->index,
 						      index_flags,
-						      storage->lock_method) < 0)
+						      lock_method) < 0)
 				i_panic("in-memory index creation failed");
 		}
 	}
@@ -418,7 +419,7 @@ int index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 			       enum mailbox_open_flags flags,
 			       bool move_to_memory)
 {
-	struct mail_storage *storage = ibox->storage;
+	struct mail_storage *storage = ibox->box.storage;
 	struct mailbox *box = &ibox->box;
 	gid_t dir_gid;
 
@@ -428,10 +429,10 @@ int index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 	box->name = p_strdup(box->pool, name);
 	box->open_flags = flags;
 	if (box->file_create_mode == 0) {
-		mailbox_list_get_permissions(box->storage->list, name,
+		mailbox_list_get_permissions(box->list, name,
 					     &box->file_create_mode,
 					     &box->file_create_gid);
-		mailbox_list_get_dir_permissions(box->storage->list, name,
+		mailbox_list_get_dir_permissions(box->list, name,
 						 &box->dir_create_mode,
 						 &dir_gid);
 		mail_index_set_permissions(ibox->index, box->file_create_mode,

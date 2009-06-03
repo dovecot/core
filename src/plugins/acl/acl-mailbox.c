@@ -30,20 +30,6 @@ struct acl_transaction_context {
 static MODULE_CONTEXT_DEFINE_INIT(acl_mail_module, &mail_module_register);
 static struct acl_transaction_context acl_transaction_failure;
 
-struct acl_backend *acl_storage_get_backend(struct mail_storage *storage)
-{
-	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
-
-	return astorage->rights.backend;
-}
-
-struct acl_object *acl_storage_get_default_aclobj(struct mail_storage *storage)
-{
-	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
-
-	return astorage->rights.backend->default_aclobj;
-}
-
 struct acl_object *acl_mailbox_get_aclobj(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
@@ -54,11 +40,11 @@ struct acl_object *acl_mailbox_get_aclobj(struct mailbox *box)
 int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
-	struct acl_mail_storage *astorage = ACL_CONTEXT(box->storage);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
 	int ret;
 
 	ret = acl_object_have_right(abox->aclobj,
-			astorage->rights.acl_storage_right_idx[right_idx]);
+			alist->rights.acl_storage_right_idx[right_idx]);
 	if (ret > 0)
 		return 1;
 	if (ret < 0) {
@@ -352,13 +338,12 @@ acl_keywords_create(struct mailbox *box, const char *const keywords[],
 
 struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 {
-	struct acl_mail_storage *astorage = ACL_CONTEXT(box->storage);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
 	struct acl_mailbox *abox;
 
 	abox = p_new(box->pool, struct acl_mailbox, 1);
 	abox->module_ctx.super = box->v;
-	abox->aclobj = acl_object_init_from_name(astorage->rights.backend,
-						 box->storage,
+	abox->aclobj = acl_object_init_from_name(alist->rights.backend,
 						 mailbox_get_name(box));
 
 	if ((box->open_flags & MAILBOX_OPEN_IGNORE_ACLS) == 0) {

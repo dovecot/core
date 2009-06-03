@@ -70,7 +70,6 @@ struct maildir_list_index_record {
 struct maildir_storage {
 	struct mail_storage storage;
 
-	union mailbox_list_module_context list_module_ctx;
 	const struct maildir_settings *set;
 	const char *temp_prefix;
 
@@ -124,7 +123,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 #endif
 
 bool maildir_set_deleted(struct maildir_mailbox *mbox);
-uint32_t maildir_get_uidvalidity_next(struct mail_storage *storage);
+uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list);
 
 void maildir_transaction_class_init(void);
 void maildir_transaction_class_deinit(void);

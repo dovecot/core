@@ -7,6 +7,7 @@
 bool cmd_create(struct client_command_context *cmd)
 {
 	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	const char *mailbox, *full_mailbox;
 	bool directory;
 	size_t len;
@@ -38,8 +39,9 @@ bool cmd_create(struct client_command_context *cmd)
 	if (!client_verify_mailbox_name(cmd, full_mailbox, FALSE, TRUE))
 		return TRUE;
 
-	if (mail_storage_mailbox_create(ns->storage, mailbox, directory) < 0)
-		client_send_storage_error(cmd, ns->storage);
+	storage = mail_namespace_get_default_storage(ns);
+	if (mail_storage_mailbox_create(storage, ns, mailbox, directory) < 0)
+		client_send_storage_error(cmd, storage);
 	else
 		client_send_tagline(cmd, "OK Create completed.");
 	return TRUE;

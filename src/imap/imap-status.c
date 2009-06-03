@@ -46,25 +46,29 @@ int imap_status_parse_items(struct client_command_context *cmd,
 	return 0;
 }
 
-bool imap_status_get(struct client *client, struct mail_storage *storage,
-		     const char *mailbox, enum mailbox_status_items items,
-		     struct mailbox_status *status_r)
+int imap_status_get(struct client *client, struct mail_namespace *ns,
+		    const char *mailbox, enum mailbox_status_items items,
+		    struct mailbox_status *status_r, const char **error_r)
 {
 	struct mailbox *box;
+	enum mail_error error;
 	int ret;
 
 	if (client->mailbox != NULL &&
-	    mailbox_equals(client->mailbox, storage, mailbox)) {
+	    mailbox_equals(client->mailbox, ns, mailbox)) {
 		/* this mailbox is selected */
 		mailbox_get_status(client->mailbox, items, status_r);
 		return TRUE;
 	}
 
 	/* open the mailbox */
-	box = mailbox_open(&storage, mailbox, NULL, MAILBOX_OPEN_FAST |
+	box = mailbox_open(ns->list, mailbox, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
-	if (box == NULL)
-		return FALSE;
+	if (box == NULL) {
+		*error_r = mailbox_list_get_last_error(ns->list, &error);
+		*error_r = imap_get_error_string(*error_r, error);
+		return -1;
+	}
 
 	if ((items & STATUS_HIGHESTMODSEQ) != 0)
 		client_enable(client, MAILBOX_FEATURE_CONDSTORE);
@@ -72,8 +76,13 @@ bool imap_status_get(struct client *client, struct mail_storage *storage,
 		mailbox_enable(box, client->enabled_features);
 
 	ret = mailbox_sync(box, 0, items, status_r);
+	if (ret < 0) {
+		struct mail_storage *storage = mailbox_get_storage(box);
+		*error_r = mail_storage_get_last_error(storage, &error);
+		*error_r = imap_get_error_string(*error_r, error);
+	}
 	mailbox_close(&box);
-	return ret == 0;
+	return ret;
 }
 
 void imap_status_send(struct client *client, const char *mailbox,

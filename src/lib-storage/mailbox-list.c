@@ -87,12 +87,19 @@ void mailbox_list_unregister(const struct mailbox_list *list)
 	array_delete(&mailbox_list_drivers, idx, 1);
 }
 
-int mailbox_list_alloc(const char *driver, struct mailbox_list **list_r,
-		       const char **error_r)
+int mailbox_list_create(const char *driver, struct mail_namespace *ns,
+			const struct mailbox_list_settings *set,
+			enum mailbox_list_flags flags, const char **error_r)
 {
 	const struct mailbox_list *const *class_p;
 	struct mailbox_list *list;
 	unsigned int idx;
+
+	i_assert(ns->list == NULL);
+
+	i_assert(set->root_dir == NULL || *set->root_dir != '\0');
+	i_assert(set->subscription_fname == NULL ||
+		 *set->subscription_fname != '\0');
 
 	if (!mailbox_list_driver_find(driver, &idx)) {
 		*error_r = t_strdup_printf("Unknown mailbox list driver: %s",
@@ -101,8 +108,59 @@ int mailbox_list_alloc(const char *driver, struct mailbox_list **list_r,
 	}
 
 	class_p = array_idx(&mailbox_list_drivers, idx);
-	list = *list_r = (*class_p)->v.alloc();
+	list = (*class_p)->v.alloc();
 	array_create(&list->module_contexts, list->pool, sizeof(void *), 5);
+
+	list->ns = ns;
+	list->mail_set = ns->mail_set;
+	list->flags = flags;
+	list->file_create_mode = (mode_t)-1;
+	list->dir_create_mode = (mode_t)-1;
+	list->file_create_gid = (gid_t)-1;
+
+	/* copy settings */
+	list->set.root_dir = p_strdup(list->pool, set->root_dir);
+	list->set.index_dir = set->index_dir == NULL ||
+		strcmp(set->index_dir, set->root_dir) == 0 ? NULL :
+		p_strdup(list->pool, set->index_dir);
+	list->set.control_dir = set->control_dir == NULL ||
+		strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
+		p_strdup(list->pool, set->control_dir);
+
+	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
+	list->set.subscription_fname =
+		p_strdup(list->pool, set->subscription_fname);
+	list->set.maildir_name = set->maildir_name == NULL ||
+		(list->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 ? "" :
+		p_strdup(list->pool, set->maildir_name);
+	list->set.mailbox_dir_name =
+		p_strdup(list->pool, set->mailbox_dir_name);
+
+	if (set->mailbox_dir_name == NULL || *set->mailbox_dir_name == '\0')
+		list->set.mailbox_dir_name = "";
+	else if (set->mailbox_dir_name[strlen(set->mailbox_dir_name)-1] == '/') {
+		list->set.mailbox_dir_name =
+			p_strdup(list->pool, set->mailbox_dir_name);
+	} else {
+		list->set.mailbox_dir_name =
+			p_strconcat(list->pool, set->mailbox_dir_name, "/", NULL);
+	}
+
+	if (ns->mail_set->mail_debug) {
+		i_info("%s: root=%s, index=%s, control=%s, inbox=%s",
+		       list->name,
+		       list->set.root_dir == NULL ? "" : list->set.root_dir,
+		       list->set.index_dir == NULL ? "" : list->set.index_dir,
+		       list->set.control_dir == NULL ?
+		       "" : list->set.control_dir,
+		       list->set.inbox_path == NULL ?
+		       "" : list->set.inbox_path);
+	}
+
+	mail_namespace_finish_list_init(ns, list);
+
+	if (hook_mailbox_list_created != NULL)
+		hook_mailbox_list_created(list);
 	return 0;
 }
 
@@ -121,17 +179,14 @@ static int fix_path(struct mail_namespace *ns, const char *path,
 
 int mailbox_list_settings_parse(const char *data,
 				struct mailbox_list_settings *set,
-				struct mail_namespace *ns,
-				const char **layout, const char **alt_dir_r,
-				const char **error_r)
+				struct mail_namespace *ns, const char **error_r)
 {
 	const char *const *tmp, *key, *value, **dest;
 
-	i_assert(*data != '\0');
-
 	*error_r = NULL;
-	if (alt_dir_r != NULL)
-		*alt_dir_r = NULL;
+
+	if (*data == '\0')
+		return 0;
 
 	/* <root dir> */
 	tmp = t_strsplit(data, ":");
@@ -159,10 +214,10 @@ int mailbox_list_settings_parse(const char *data,
 			dest = &set->index_dir;
 		else if (strcmp(key, "CONTROL") == 0)
 			dest = &set->control_dir;
-		else if (strcmp(key, "ALT") == 0 && alt_dir_r != NULL)
-			dest = alt_dir_r;
+		else if (strcmp(key, "ALT") == 0)
+			dest = &set->alt_dir;
 		else if (strcmp(key, "LAYOUT") == 0)
-			dest = layout;
+			dest = &set->layout;
 		else if (strcmp(key, "SUBSCRIPTIONS") == 0)
 			dest = &set->subscription_fname;
 		else if (strcmp(key, "DIRNAME") == 0)
@@ -186,72 +241,11 @@ int mailbox_list_settings_parse(const char *data,
 	return 0;
 }
 
-void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
-		       const struct mailbox_list_settings *set,
-		       enum mailbox_list_flags flags)
+void mailbox_list_destroy(struct mailbox_list **_list)
 {
-	i_assert(set->root_dir == NULL || *set->root_dir != '\0');
-	i_assert(set->subscription_fname == NULL ||
-		 *set->subscription_fname != '\0');
+	struct mailbox_list *list = *_list;
 
-	list->ns = ns;
-	list->mail_set = ns->mail_set;
-	list->flags = flags;
-	list->file_create_mode = (mode_t)-1;
-	list->dir_create_mode = (mode_t)-1;
-	list->file_create_gid = (gid_t)-1;
-
-	/* copy settings */
-	list->set.root_dir = p_strdup(list->pool, set->root_dir);
-	list->set.index_dir = set->index_dir == NULL ||
-		strcmp(set->index_dir, set->root_dir) == 0 ? NULL :
-		p_strdup(list->pool, set->index_dir);
-	list->set.control_dir = set->control_dir == NULL ||
-		strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
-		p_strdup(list->pool, set->control_dir);
-
-	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
-	list->set.subscription_fname =
-		p_strdup(list->pool, set->subscription_fname);
-	list->set.maildir_name =
-		(list->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 ? "" :
-		p_strdup(list->pool, set->maildir_name);
-	list->set.mailbox_dir_name =
-		p_strdup(list->pool, set->mailbox_dir_name);
-
-	if (set->mailbox_dir_name == NULL || *set->mailbox_dir_name == '\0')
-		list->set.mailbox_dir_name = "";
-	else if (set->mailbox_dir_name[strlen(set->mailbox_dir_name)-1] == '/') {
-		list->set.mailbox_dir_name =
-			p_strdup(list->pool, set->mailbox_dir_name);
-	} else {
-		list->set.mailbox_dir_name =
-			p_strconcat(list->pool, set->mailbox_dir_name, "/", NULL);
-	}
-
-	list->set.mail_storage_flags = set->mail_storage_flags;
-	list->set.lock_method = set->lock_method;
-
-	if (ns->mail_set->mail_debug) {
-		i_info("%s: root=%s, index=%s, control=%s, inbox=%s",
-		       list->name,
-		       list->set.root_dir == NULL ? "" : list->set.root_dir,
-		       list->set.index_dir == NULL ? "" : list->set.index_dir,
-		       list->set.control_dir == NULL ?
-		       "" : list->set.control_dir,
-		       list->set.inbox_path == NULL ?
-		       "" : list->set.inbox_path);
-	}
-
-	if (hook_mailbox_list_created != NULL)
-		hook_mailbox_list_created(list);
-
-	list->set.mail_storage_flags = NULL;
-	list->set.lock_method = NULL;
-}
-
-void mailbox_list_deinit(struct mailbox_list *list)
-{
+	*_list = NULL;
 	i_free_and_null(list->error_string);
 
 	list->v.deinit(list);
@@ -291,6 +285,23 @@ struct mail_user *
 mailbox_list_get_user(const struct mailbox_list *list)
 {
 	return list->ns->user;
+}
+
+int mailbox_list_get_storage(struct mailbox_list **list, const char **name,
+			     struct mail_storage **storage_r)
+{
+	if ((*list)->v.get_storage != NULL)
+		return (*list)->v.get_storage(list, name, storage_r);
+	else {
+		*storage_r = (*list)->ns->storage;
+		return 0;
+	}
+}
+
+void mailbox_list_get_closest_storage(struct mailbox_list *list,
+				      struct mail_storage **storage)
+{
+	*storage = list->ns->storage;
 }
 
 static void
@@ -600,14 +611,22 @@ int mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
 				struct mailbox_list *newlist,
 				const char *newname, bool rename_children)
 {
+	struct mail_storage *oldstorage;
+	struct mail_storage *newstorage;
+
+	if (mailbox_list_get_storage(&oldlist, &oldname, &oldstorage) < 0)
+		return -1;
+
+	newstorage = oldstorage;
+	mailbox_list_get_closest_storage(newlist, &newstorage);
+
 	if (!mailbox_list_is_valid_existing_name(oldlist, oldname) ||
 	    !mailbox_list_is_valid_create_name(newlist, newname)) {
 		mailbox_list_set_error(oldlist, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return -1;
 	}
-	if (strcmp(oldlist->ns->storage->name,
-		   newlist->ns->storage->name) != 0) {
+	if (strcmp(oldstorage->name, newstorage->name) != 0) {
 		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
 			"Can't rename mailbox to another storage type.");
 		return -1;
@@ -893,4 +912,14 @@ bool mailbox_list_set_error_from_errno(struct mailbox_list *list)
 
 	mailbox_list_set_error(list, error, error_string);
 	return TRUE;
+}
+
+void mailbox_list_set_error_from_storage(struct mailbox_list *list,
+					 struct mail_storage *storage)
+{
+	const char *str;
+	enum mail_error error;
+
+	str = mail_storage_get_last_error(storage, &error);
+	mailbox_list_set_error(list, error, str);
 }

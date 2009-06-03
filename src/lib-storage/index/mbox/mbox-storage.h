@@ -28,8 +28,6 @@ struct mbox_storage {
 	enum mbox_lock_type *read_locks;
 	enum mbox_lock_type *write_locks;
 	unsigned int lock_settings_initialized:1;
-
-	union mailbox_list_module_context list_module_ctx;
 };
 
 struct mbox_mailbox {

@@ -310,16 +310,16 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 static void list_send_status(struct cmd_list_context *ctx, const char *name)
 {
 	struct mailbox_status status;
-	const char *storage_name;
+	const char *storage_name, *error;
 	size_t prefix_len = strlen(ctx->ns->prefix);
 
 	storage_name = strncmp(name, ctx->ns->prefix, prefix_len) == 0 ?
 		name + prefix_len : name;
 
-	if (!imap_status_get(ctx->cmd->client, ctx->ns->storage, storage_name,
-			     ctx->status_items, &status)) {
-		client_send_untagged_storage_error(ctx->cmd->client,
-						   ctx->ns->storage);
+	if (imap_status_get(ctx->cmd->client, ctx->ns, storage_name,
+			    ctx->status_items, &status, &error) < 0) {
+		client_send_line(ctx->cmd->client,
+				 t_strconcat("* NO ", error, NULL));
 		return;
 	}
 
@@ -775,7 +775,7 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 		ns_sep = ns->sep;
 	} else {
 		ns_prefix = "";
-		ns_sep = mail_namespace_get_root_sep(client->user->namespaces);
+		ns_sep = mail_namespaces_get_root_sep(client->user->namespaces);
 	}
 
 	str = t_str_new(64);

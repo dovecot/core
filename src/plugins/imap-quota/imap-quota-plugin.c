@@ -68,7 +68,6 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct quota_user *quser = QUOTA_USER_CONTEXT(client->user);
-	struct mail_storage *storage;
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct quota_root_iter *iter;
@@ -81,19 +80,18 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 		return FALSE;
 
 	orig_mailbox = mailbox;
-	storage = client_find_storage(cmd, &mailbox);
-	if (storage == NULL)
+	ns = client_find_namespace(cmd, &mailbox);
+	if (ns == NULL)
 		return TRUE;
 
-	box = mailbox_open(&storage, mailbox, NULL, (MAILBOX_OPEN_READONLY |
+	box = mailbox_open(ns->list, mailbox, NULL, (MAILBOX_OPEN_READONLY |
 						     MAILBOX_OPEN_FAST |
 						     MAILBOX_OPEN_KEEP_RECENT));
 	if (box == NULL) {
-		client_send_storage_error(cmd, storage);
+		client_send_list_error(cmd, ns->list);
 		return TRUE;
 	}
 
-	ns = mail_storage_get_namespace(storage);
 	if (quser == NULL) {
 		mailbox_close(&box);
 		client_send_tagline(cmd, "OK No quota.");

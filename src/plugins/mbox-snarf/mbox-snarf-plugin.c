@@ -107,15 +107,13 @@ mbox_snarf_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct mbox_snarf_mail_storage *mstorage =
 		MBOX_SNARF_CONTEXT(box->storage);
-	struct mail_storage *storage;
 	struct mbox_snarf_mailbox *mbox = MBOX_SNARF_CONTEXT(box);
 
 	if (mbox->spool_mbox == NULL) {
 		/* try to open the spool mbox */
 		mstorage->open_spool_inbox = TRUE;
-		storage = box->storage;
 		mbox->spool_mbox =
-			mailbox_open(&storage, "INBOX", NULL,
+			mailbox_open(box->list, "INBOX", NULL,
 				     MAILBOX_OPEN_KEEP_RECENT |
 				     MAILBOX_OPEN_NO_INDEX_FILES);
 		mstorage->open_spool_inbox = FALSE;
@@ -137,12 +135,12 @@ static int mbox_snarf_close(struct mailbox *box)
 }
 
 static struct mailbox *
-mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
-			struct istream *input, enum mailbox_open_flags flags)
+mbox_snarf_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
+			const char *name, struct istream *input,
+			enum mailbox_open_flags flags)
 {
 	struct mbox_snarf_mail_storage *mstorage =
 		MBOX_SNARF_CONTEXT(storage);
-	struct mailbox_list *list;
 	struct mailbox *box;
 	struct mbox_snarf_mailbox *mbox;
 	struct stat st;
@@ -150,7 +148,6 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 	enum mailbox_list_flags old_list_flags;
 	bool use_snarfing = FALSE;
 
-	list = mail_storage_get_list(storage);
 	old_list_flags = list->flags;
 
 	if (strcasecmp(name, "INBOX") == 0 && !mstorage->open_spool_inbox) {
@@ -167,7 +164,7 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 	}
 
 	box = mstorage->module_ctx.super.
-		mailbox_open(storage, name, input, flags);
+		mailbox_open(storage, list, name, input, flags);
 	storage->flags = old_flags;
 	list->flags = old_list_flags;
 
@@ -188,7 +185,7 @@ mbox_snarf_mail_storage_create(struct mail_storage *storage, const char *path)
 {
 	struct mbox_snarf_mail_storage *mstorage;
 
-	path = mail_user_home_expand(storage->ns->user, path);
+	path = mail_user_home_expand(storage->user, path);
 	mstorage = p_new(storage->pool, struct mbox_snarf_mail_storage, 1);
 	mstorage->snarf_inbox_path = p_strdup(storage->pool, path);
 	mstorage->module_ctx.super = storage->v;
@@ -201,7 +198,7 @@ static void mbox_snarf_mail_storage_created(struct mail_storage *storage)
 {
 	const char *path;
 
-	path = mail_user_plugin_getenv(storage->ns->user, "mbox_snarf");
+	path = mail_user_plugin_getenv(storage->user, "mbox_snarf");
 	if (path != NULL)
 		mbox_snarf_mail_storage_create(storage, path);
 

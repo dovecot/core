@@ -148,7 +148,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 
         index_storage_lock_notify_reset(&uidlist->mbox->ibox);
 
-	control_dir = mailbox_list_get_path(box->storage->list, box->name,
+	control_dir = mailbox_list_get_path(box->list, box->name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
 
@@ -243,7 +243,7 @@ maildir_uidlist_init_readonly(struct index_mailbox *ibox)
 	struct maildir_uidlist *uidlist;
 	const char *control_dir;
 
-	control_dir = mailbox_list_get_path(box->storage->list, box->name,
+	control_dir = mailbox_list_get_path(box->list, box->name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 
 	uidlist = i_new(struct maildir_uidlist, 1);
@@ -1201,7 +1201,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 
 	i_assert(uidlist->initial_read);
 
-	control_dir = mailbox_list_get_path(box->storage->list, box->name,
+	control_dir = mailbox_list_get_path(box->list, box->name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 	temp_path = t_strconcat(control_dir,
 				"/" MAILDIR_UIDLIST_NAME ".tmp", NULL);
@@ -1330,7 +1330,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 		hdr = mail_index_get_header(uidlist->ibox->view);
 		uidlist->uid_validity = hdr->uid_validity != 0 ?
 			hdr->uid_validity :
-			maildir_get_uidvalidity_next(storage);
+			maildir_get_uidvalidity_next(uidlist->ibox->box.list);
 	}
 
 
@@ -1548,8 +1548,7 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 		if (*p == 13 || *p == 10) {
 			struct mailbox *box = &uidlist->ibox->box;
 
-			dir = mailbox_list_get_path(box->storage->list,
-						box->name,
+			dir = mailbox_list_get_path(box->list, box->name,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
 			i_warning("Maildir %s: Ignoring a file with #0x%x: %s",
 				  dir, *p, filename);

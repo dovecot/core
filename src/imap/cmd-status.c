@@ -12,8 +12,8 @@ bool cmd_status(struct client_command_context *cmd)
 	const struct imap_arg *args;
 	struct mailbox_status status;
 	enum mailbox_status_items items;
-	struct mail_storage *storage;
-	const char *mailbox, *real_mailbox;
+	struct mail_namespace *ns;
+	const char *mailbox, *real_mailbox, *error;
 	bool selected_mailbox;
 
 	/* <mailbox> <status items> */
@@ -31,14 +31,15 @@ bool cmd_status(struct client_command_context *cmd)
 				    &items) < 0)
 		return TRUE;
 
-	storage = client_find_storage(cmd, &real_mailbox);
-	if (storage == NULL)
+	ns = client_find_namespace(cmd, &real_mailbox);
+	if (ns == NULL)
 		return TRUE;
 
 	selected_mailbox = client->mailbox != NULL &&
-		mailbox_equals(client->mailbox, storage, real_mailbox);
-	if (!imap_status_get(client, storage, real_mailbox, items, &status)) {
-		client_send_storage_error(cmd, storage);
+		mailbox_equals(client->mailbox, ns, real_mailbox);
+	if (imap_status_get(client, ns, real_mailbox, items,
+			    &status, &error) < 0) {
+		client_send_tagline(cmd, error);
 		return TRUE;
 	}
 

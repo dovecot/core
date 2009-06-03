@@ -128,7 +128,7 @@ void acl_backend_vfile_acllist_refresh(struct acl_backend_vfile *backend)
 
 static int
 acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
-	       struct mail_storage *storage, const char *name)
+	       const char *name)
 {
 	struct acl_object *aclobj;
 	struct acl_object_list_iter *iter;
@@ -137,7 +137,7 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 	int ret;
 
 	acl_cache_flush(backend->backend.cache, name);
-	aclobj = acl_object_init_from_name(&backend->backend, storage, name);
+	aclobj = acl_object_init_from_name(&backend->backend, name);
 
 	iter = acl_object_list_init(aclobj);
 	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
@@ -217,8 +217,7 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	iter = mailbox_list_iter_init(list, "*", MAILBOX_LIST_ITER_RAW_LIST |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (acllist_append(backend, output, ns->storage,
-				   info->name) < 0) {
+		if (acllist_append(backend, output, info->name) < 0) {
 			ret = -1;
 			break;
 		}

@@ -72,15 +72,18 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 
 static struct mailbox *
 mailbox_open_or_create_synced(struct mail_deliver_context *ctx, 
-			      struct mail_storage **storage_r,
-			      const char *name)
+			      const char *name, struct mail_namespace **ns_r,
+			      const char **error_r)
 {
 	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	struct mailbox *box;
 	enum mail_error error;
 	enum mailbox_open_flags open_flags =
 		MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_SAVEONLY |
 		MAILBOX_OPEN_POST_SESSION;
+
+	*error_r = NULL;
 
 	if (strcasecmp(name, "INBOX") == 0) {
 		/* deliveries to INBOX must always succeed,
@@ -88,12 +91,9 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 		open_flags |= MAILBOX_OPEN_IGNORE_ACLS;
 	}
 
-	ns = mail_namespace_find(ctx->dest_user->namespaces, &name);
-	if (ns == NULL) {
-		*storage_r = NULL;
+	*ns_r = ns = mail_namespace_find(ctx->dest_user->namespaces, &name);
+	if (*ns_r == NULL)
 		return NULL;
-	}
-	*storage_r = ns->storage;
 
 	if (*name == '\0') {
 		/* delivering to a namespace prefix means we actually want to
@@ -101,29 +101,36 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 		return NULL;
 	}
 
-	box = mailbox_open(storage_r, name, NULL, open_flags);
-	if (box != NULL || !ctx->set->lda_mailbox_autocreate)
+	box = mailbox_open(ns->list, name, NULL, open_flags);
+	if (box != NULL)
 		return box;
 
-	(void)mail_storage_get_last_error(*storage_r, &error);
-	if (error != MAIL_ERROR_NOTFOUND)
+	*error_r = mailbox_list_get_last_error(ns->list, &error);
+	if (!ctx->set->lda_mailbox_autocreate || error != MAIL_ERROR_NOTFOUND)
 		return NULL;
 
 	/* try creating it. */
-	if (mail_storage_mailbox_create(*storage_r, name, FALSE) < 0)
+	storage = mail_namespace_get_default_storage(ns);
+	if (mail_storage_mailbox_create(storage, ns, name, FALSE) < 0) {
+		*error_r = mail_storage_get_last_error(storage, &error);
 		return NULL;
+	}
 	if (ctx->set->lda_mailbox_autosubscribe) {
 		/* (try to) subscribe to it */
 		(void)mailbox_list_set_subscribed(ns->list, name, TRUE);
 	}
 
 	/* and try opening again */
-	box = mailbox_open(storage_r, name, NULL, open_flags);
-	if (box == NULL)
+	box = mailbox_open(ns->list, name, NULL, open_flags);
+	if (box == NULL) {
+		*error_r = mailbox_list_get_last_error(ns->list, &error);
 		return NULL;
+	}
 
 	if (mailbox_sync(box, 0, 0, NULL) < 0) {
 		mailbox_close(&box);
+		*error_r = mail_storage_get_last_error(mailbox_get_storage(box),
+						       &error);
 		return NULL;
 	}
 	return box;
@@ -140,7 +147,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	struct mail_save_context *save_ctx;
 	struct mail_keywords *kw;
 	enum mail_error error;
-	const char *mailbox_name;
+	const char *mailbox_name, *errstr;
 	uint32_t uid_validity, uid1 = 0, uid2 = 0;
 	bool default_save;
 	int ret = 0;
@@ -150,23 +157,23 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		ctx->tried_default_save = TRUE;
 
 	mailbox_name = str_sanitize(mailbox, 80);
-	box = mailbox_open_or_create_synced(ctx, storage_r, mailbox);
+	box = mailbox_open_or_create_synced(ctx, mailbox, &ns, &errstr);
 	if (box == NULL) {
-		if (*storage_r == NULL) {
+		if (ns == NULL) {
 			mail_deliver_log(ctx,
 					 "save failed to %s: Unknown namespace",
 					 mailbox_name);
 			return -1;
 		}
-		ns = mail_storage_get_namespace(*storage_r);
 		if (default_save && strcmp(ns->prefix, mailbox) == 0) {
 			/* silently store to the INBOX instead */
 			return -1;
 		}
-		mail_deliver_log(ctx, "save failed to %s: %s", mailbox_name,
-				 mail_storage_get_last_error(*storage_r, &error));
+		mail_deliver_log(ctx, "save failed to %s: %s",
+				 mailbox_name, errstr);
 		return -1;
 	}
+	*storage_r = mailbox_get_storage(box);
 
 	trans_flags = MAILBOX_TRANSACTION_FLAG_EXTERNAL;
 	if (ctx->save_dest_mail)
@@ -205,7 +212,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		}
 	} else {
 		mail_deliver_log(ctx, "save failed to %s: %s", mailbox_name,
-				 mail_storage_get_last_error(*storage_r, &error));
+			mail_storage_get_last_error(*storage_r, &error));
 	}
 
 	if (ctx->dest_mail == NULL)

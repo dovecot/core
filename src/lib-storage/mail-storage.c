@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "mkdir-parents.h"
 #include "var-expand.h"
 #include "mail-index-private.h"
 #include "mailbox-list-private.h"
@@ -83,23 +84,24 @@ struct mail_storage *mail_storage_find_class(const char *name)
 }
 
 static struct mail_storage *
-mail_storage_autodetect(const struct mail_namespace *ns)
+mail_storage_autodetect(const struct mail_namespace *ns,
+			struct mailbox_list_settings *set)
 {
 	struct mail_storage *const *classes;
 	unsigned int i, count;
 
 	classes = array_get(&mail_storage_classes, &count);
 	for (i = 0; i < count; i++) {
-		if (classes[i]->v.autodetect != NULL &&
-		    classes[i]->v.autodetect(ns))
-			return classes[i];
+		if (classes[i]->v.autodetect != NULL) {
+			if (classes[i]->v.autodetect(ns, set))
+				return classes[i];
+		}
 	}
 	return NULL;
 }
 
 static void
-mail_storage_set_autodetection(const char **data, const char **driver,
-			       enum mail_storage_flags *flags)
+mail_storage_set_autodetection(const char **data, const char **driver)
 {
 	const char *p;
 
@@ -108,11 +110,89 @@ mail_storage_set_autodetection(const char **data, const char **driver,
 	while (i_isalnum(*p)) p++;
 
 	if (*p == ':' && p != *data) {
-		/* no autodetection if the storage format is given. */
-		*flags |= MAIL_STORAGE_FLAG_NO_AUTODETECTION;
-
+		/* no autodetection if the storage driver is given. */
 		*driver = t_strdup_until(*data, p);
 		*data = p + 1;
+	}
+}
+
+static struct mail_storage *
+mail_storage_get_class(struct mail_namespace *ns, const char *driver,
+		       struct mailbox_list_settings *list_set,
+		       const char **error_r)
+{
+	struct mail_storage *storage_class;
+	const char *home;
+
+	if (driver != NULL) {
+		storage_class = mail_storage_find_class(driver);
+		if (storage_class == NULL) {
+			*error_r = t_strdup_printf(
+				"Unknown mail storage driver %s", driver);
+		}
+		i_assert(list_set->root_dir != NULL);
+		storage_class->v.get_list_settings(ns, list_set);
+		return storage_class;
+	}
+
+	storage_class = mail_storage_autodetect(ns, list_set);
+	if (storage_class != NULL)
+		return storage_class;
+
+	if (ns->set->location == NULL || *ns->set->location == '\0') {
+		(void)mail_user_get_home(ns->user, &home);
+		if (home == NULL || *home == '\0') home = "(not set)";
+
+		*error_r = t_strdup_printf(
+			"Mail storage autodetection failed with home=%s", home);
+	} else {
+		*error_r = t_strdup_printf(
+			"Ambiguous mail location setting, "
+			"don't know what to do with it: %s "
+			"(try prefixing it with mbox: or maildir:)",
+			ns->set->location);
+	}
+	return NULL;
+}
+
+static int
+mail_storage_create_root(struct mailbox_list *list,
+			 enum mail_storage_flags flags, const char **error_r)
+{
+	const char *root_dir;
+	struct stat st;
+	mode_t mode;
+	gid_t gid;
+
+	root_dir = mailbox_list_get_path(list, NULL,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (stat(root_dir, &st) == 0) {
+		/* ok */
+		return 0;
+	} else if (errno == EACCES) {
+		*error_r = mail_error_eacces_msg("stat", root_dir);
+		return -1;
+	} else if (errno != ENOENT && errno != ENOTDIR) {
+		*error_r = t_strdup_printf("stat(%s) failed: %m", root_dir);
+		return -1;
+	} else if (list->ns->type == NAMESPACE_SHARED) {
+		/* can't create a new user, but we don't want to fail
+		   the storage creation. */
+	} else if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
+		*error_r = t_strdup_printf(
+			"Root mail directory doesn't exist: %s", root_dir);
+		return -1;
+	}
+
+	/* we need to create the root directory. */
+	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
+	if (mkdir_parents_chown(root_dir, mode, (uid_t)-1, gid) < 0 &&
+	    errno != EEXIST) {
+		*error_r = mail_error_create_eacces_msg("mkdir", root_dir);
+		return -1;
+	} else {
+		/* created */
+		return 0;
 	}
 }
 
@@ -120,10 +200,10 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			enum mail_storage_flags flags, const char **error_r)
 {
 	struct mail_storage *storage_class, *storage = NULL;
-	struct mail_storage *const *classes;
+	struct mailbox_list_settings list_set;
+	enum mailbox_list_flags list_flags = 0;
 	const char *data = ns->set->location;
-	const char *home, *p;
-	unsigned int i, count;
+	const char *p;
 
 	if ((flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) == 0 &&
 	    ns->mail_set->pop3_uidl_format != NULL) {
@@ -141,87 +221,60 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		}
 	}
 
+	memset(&list_set, 0, sizeof(list_set));
 	if (data == NULL)
 		data = "";
-	else if (driver == NULL)
-		mail_storage_set_autodetection(&data, &driver, &flags);
-
-	if (*data == '\0' && driver == NULL) {
-		/* use the first driver that works */
-		classes = array_get(&mail_storage_classes, &count);
-	} else if (driver == NULL) {
-		storage_class = mail_storage_autodetect(ns);
-		if (storage_class == NULL) {
-			*error_r = t_strdup_printf(
-				"Ambiguous mail location setting, "
-				"don't know what to do with it: %s "
-				"(try prefixing it with mbox: or maildir:)",
-				data);
+	else {
+		if (driver == NULL)
+			mail_storage_set_autodetection(&data, &driver);
+		if (mailbox_list_settings_parse(data, &list_set, ns,
+						error_r) < 0)
 			return -1;
-		}
-		classes = &storage_class;
-		count = 1;
-	} else {
-		storage_class = mail_storage_find_class(driver);
-		if (storage_class == NULL) {
-			*error_r = t_strdup_printf(
-				"Unknown mail storage driver %s", driver);
-			return -1;
-		}
-		classes = &storage_class;
-		count = 1;
 	}
 
-	for (i = 0; i < count; i++) {
-		storage = classes[i]->v.alloc();
-		storage->set = ns->mail_set;
-		storage->flags = flags;
-		if (!file_lock_method_parse(storage->set->lock_method,
-					    &storage->lock_method)) {
-			i_fatal("Unknown lock_method: %s",
-				storage->set->lock_method);
-		}
-		storage->ns = ns;
-
-		storage->callbacks =
-			p_new(storage->pool, struct mail_storage_callbacks, 1);
-		p_array_init(&storage->module_contexts, storage->pool, 5);
-
-		if (classes[i]->v.create(storage, data, error_r) == 0)
-			break;
-
-		if (ns->mail_set->mail_debug && count > 1) {
-			i_info("%s: Couldn't create mail storage %s: %s",
-			       classes[i]->name, data, *error_r);
-		}
-
-		/* try the next one */
-		pool_unref(&storage->pool);
-	}
-	if (i == count) {
-		if (count <= 1) {
-			*error_r = t_strdup_printf("%s: %s", classes[0]->name,
-						   *error_r);
-			return -1;
-		}
-
-		(void)mail_user_get_home(ns->user, &home);
-		if (home == NULL || *home == '\0') home = "(not set)";
-
-		*error_r = t_strdup_printf(
-			"Mail storage autodetection failed with home=%s", home);
+	if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0 &&
+	    list_set.root_dir == NULL) {
+		*error_r = "Root mail directory not given";
 		return -1;
 	}
 
+	storage_class = mail_storage_get_class(ns, driver, &list_set, error_r);
+	if (storage_class == NULL)
+		return -1;
+	i_assert(list_set.layout != NULL);
 
-	if (hook_mail_storage_created != NULL) {
-		T_BEGIN {
-			hook_mail_storage_created(storage);
-		} T_END;
+	if (ns->list == NULL) {
+		/* first storage for namespace */
+		if (mail_storage_is_mailbox_file(storage_class))
+			list_flags |= MAILBOX_LIST_FLAG_MAILBOX_FILES;
+		if (mailbox_list_create(list_set.layout, ns, &list_set,
+					list_flags, error_r) < 0)
+			return -1;
+		if (mail_storage_create_root(ns->list, flags, error_r) < 0)
+			return -1;
 	}
 
-	ns->storage = storage;
-        mail_namespace_init_storage(ns);
+	storage = storage_class->v.alloc();
+	storage->storage_class = storage_class;
+	storage->user = ns->user;
+	storage->set = ns->mail_set;
+	storage->flags = flags;
+
+	storage->callbacks =
+		p_new(storage->pool, struct mail_storage_callbacks, 1);
+	p_array_init(&storage->module_contexts, storage->pool, 5);
+
+	if (storage->v.create(storage, ns, error_r) < 0) {
+		*error_r = t_strdup_printf("%s: %s", storage->name, *error_r);
+		pool_unref(&storage->pool);
+		return -1;
+	}
+
+	if (hook_mail_storage_created != NULL) T_BEGIN {
+		hook_mail_storage_created(storage);
+	} T_END;
+
+        mail_namespace_add_storage(ns, storage);
 	return 0;
 }
 
@@ -234,7 +287,6 @@ void mail_storage_destroy(struct mail_storage **_storage)
 	*_storage = NULL;
 
 	storage->v.destroy(storage);
-	mailbox_list_deinit(storage->list);
 	i_free(storage->error_string);
 	pool_unref(&storage->pool);
 }
@@ -287,22 +339,6 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	}
 }
 
-char mail_storage_get_hierarchy_sep(struct mail_storage *storage)
-{
-	return mailbox_list_get_hierarchy_sep(storage->list);
-}
-
-struct mailbox_list *mail_storage_get_list(const struct mail_storage *storage)
-{
-	return storage->list;
-}
-
-struct mail_namespace *
-mail_storage_get_namespace(const struct mail_storage *storage)
-{
-	return storage->ns;
-}
-
 const struct mail_storage_settings *
 mail_storage_get_settings(struct mail_storage *storage)
 {
@@ -317,18 +353,19 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 	storage->callback_context = context;
 }
 
-int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
+int mail_storage_mailbox_create(struct mail_storage *storage,
+				struct mail_namespace *ns, const char *name,
 				bool directory)
 {
 	mail_storage_clear_error(storage);
 
-	if (!mailbox_list_is_valid_create_name(storage->list, name)) {
+	if (!mailbox_list_is_valid_create_name(ns->list, name)) {
 		mail_storage_set_error(storage, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return -1;
 	}
 
-	return storage->v.mailbox_create(storage, name, directory);
+	return storage->v.mailbox_create(storage, ns->list, name, directory);
 }
 
 int mail_storage_purge(struct mail_storage *storage)
@@ -364,50 +401,9 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 	return storage->error_string;
 }
 
-const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
-					  const char *name, bool *is_file_r)
+bool mail_storage_is_mailbox_file(struct mail_storage *storage)
 {
-	*is_file_r = storage->mailbox_is_file;
-
-	if (*name == '\0')
-		name = NULL;
-
-	return mailbox_list_get_path(storage->list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-}
-
-const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
-						 const char *name)
-{
-	if (*name == '\0')
-		name = NULL;
-
-	return mailbox_list_get_path(storage->list, name,
-				     MAILBOX_LIST_PATH_TYPE_CONTROL);
-}
-
-const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
-					       const char *name)
-{
-	if (*name == '\0')
-		name = NULL;
-
-	return mailbox_list_get_path(storage->list, name,
-				     MAILBOX_LIST_PATH_TYPE_INDEX);
-}
-
-const char *mail_storage_get_temp_prefix(struct mail_storage *storage)
-{
-	const char *dir;
-
-	if (storage->temp_path_prefix == NULL) {
-		dir = mailbox_list_get_path(storage->list, NULL,
-					    MAILBOX_LIST_PATH_TYPE_DIR);
-		storage->temp_path_prefix = p_strconcat(storage->pool, dir, "/",
-			mailbox_list_get_temp_prefix(storage->list), NULL);
-	}
-
-	return storage->temp_path_prefix;
+	return storage->mailbox_is_file;
 }
 
 bool mail_storage_set_error_from_errno(struct mail_storage *storage)
@@ -428,36 +424,41 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 	return TRUE;
 }
 
-struct mailbox *mailbox_open(struct mail_storage **_storage, const char *name,
+struct mailbox *mailbox_open(struct mailbox_list *list, const char *name,
 			     struct istream *input,
 			     enum mailbox_open_flags flags)
 {
-	struct mail_storage *storage = *_storage;
+	struct mailbox_list *new_list = list;
+	struct mail_storage *storage;
 	struct mailbox *box;
 
-	if (storage->list->v.get_storage != NULL) {
-		if (storage->list->v.get_storage(storage->list,
-						 &name, &storage) < 0)
-			return NULL;
-		*_storage = storage;
-	}
+	if (mailbox_list_get_storage(&new_list, &name, &storage) < 0)
+		return NULL;
 
-	mail_storage_clear_error(storage);
+	mailbox_list_clear_error(list);
 
-	if (!mailbox_list_is_valid_existing_name(storage->list, name)) {
-		mail_storage_set_error(storage, MAIL_ERROR_PARAMS,
+	if (!mailbox_list_is_valid_existing_name(new_list, name)) {
+		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return NULL;
 	}
 
 	T_BEGIN {
-		box = storage->v.mailbox_open(storage, name, input, flags);
+		box = storage->v.mailbox_open(storage, new_list,
+					      name, input, flags);
 		if (hook_mailbox_opened != NULL && box != NULL)
 			hook_mailbox_opened(box);
 	} T_END;
 
 	if (box != NULL)
-		box->storage->ns->flags |= NAMESPACE_FLAG_USABLE;
+		box->list->ns->flags |= NAMESPACE_FLAG_USABLE;
+	else if (new_list != list) {
+		const char *str;
+		enum mail_error error;
+
+		str = mailbox_list_get_last_error(new_list, &error);
+		mailbox_list_set_error(list, error, str);
+	}
 	return box;
 }
 
@@ -487,6 +488,12 @@ int mailbox_close(struct mailbox **_box)
 struct mail_storage *mailbox_get_storage(const struct mailbox *box)
 {
 	return box->storage;
+}
+
+struct mail_namespace *
+mailbox_get_namespace(const struct mailbox *box)
+{
+	return box->list->ns;
 }
 
 const struct mail_storage_settings *mailbox_get_settings(struct mailbox *box)
@@ -661,7 +668,7 @@ void mailbox_get_virtual_box_patterns(struct mailbox *box,
 		struct mailbox_virtual_pattern pat;
 
 		memset(&pat, 0, sizeof(pat));
-		pat.ns = box->storage->ns;
+		pat.ns = box->list->ns;
 		pat.pattern = box->name;
 		array_append(includes, &pat, 1);
 	} else {

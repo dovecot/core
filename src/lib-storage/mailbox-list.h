@@ -4,6 +4,7 @@
 #include "mail-error.h"
 
 struct mail_namespace;
+struct mail_storage;
 struct mailbox_list;
 struct mailbox_list_iterate_context;
 
@@ -80,9 +81,11 @@ enum mailbox_list_file_type {
 };
 
 struct mailbox_list_settings {
+	const char *layout; /* FIXME: shouldn't be here */
 	const char *root_dir;
 	const char *index_dir;
 	const char *control_dir;
+	const char *alt_dir; /* FIXME: dbox-specific.. */
 
 	const char *inbox_path;
 	const char *subscription_fname;
@@ -102,11 +105,6 @@ struct mailbox_list_settings {
 	/* if set, store mailboxes under root_dir/mailbox_dir_name/.
 	   this setting contains either "" or "dir/". */
 	const char *mailbox_dir_name;
-
-	/* If mailbox index is used, use these settings for it
-	   (pointers, so they're set to NULL after init is finished): */
-	const enum mail_storage_flags *mail_storage_flags;
-	const enum file_lock_method *lock_method;
 };
 
 struct mailbox_info {
@@ -122,12 +120,10 @@ void mailbox_list_register(const struct mailbox_list *list);
 void mailbox_list_unregister(const struct mailbox_list *list);
 
 /* Returns 0 if ok, -1 if driver was unknown. */
-int mailbox_list_alloc(const char *driver, struct mailbox_list **list_r,
-		       const char **error_r);
-void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
-		       const struct mailbox_list_settings *set,
-		       enum mailbox_list_flags flags);
-void mailbox_list_deinit(struct mailbox_list *list);
+int mailbox_list_create(const char *driver, struct mail_namespace *ns,
+			const struct mailbox_list_settings *set,
+			enum mailbox_list_flags flags, const char **error_r);
+void mailbox_list_destroy(struct mailbox_list **list);
 
 const char *
 mailbox_list_get_driver_name(const struct mailbox_list *list) ATTR_PURE;
@@ -138,6 +134,10 @@ struct mail_namespace *
 mailbox_list_get_namespace(const struct mailbox_list *list) ATTR_PURE;
 struct mail_user *
 mailbox_list_get_user(const struct mailbox_list *list) ATTR_PURE;
+int mailbox_list_get_storage(struct mailbox_list **list, const char **name,
+			     struct mail_storage **storage_r);
+void mailbox_list_get_closest_storage(struct mailbox_list *list,
+				      struct mail_storage **storage);
 
 /* Returns the mode and GID that should be used when creating new files to
    the specified mailbox, or to mailbox list root if name is NULL. (gid_t)-1 is

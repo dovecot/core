@@ -6,6 +6,7 @@
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
+#include "maildir-storage.h"
 #include "quota-private.h"
 #include "quota-plugin.h"
 
@@ -20,8 +21,6 @@
 
 struct quota_mailbox_list {
 	union mailbox_list_module_context module_ctx;
-
-	struct mail_storage *storage;
 };
 
 struct quota_mailbox {
@@ -357,16 +356,17 @@ static int quota_mailbox_close(struct mailbox *box)
 }
 
 static struct mailbox *
-quota_mailbox_open(struct mail_storage *storage, const char *name,
-		   struct istream *input, enum mailbox_open_flags flags)
+quota_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
+		   const char *name, struct istream *input,
+		   enum mailbox_open_flags flags)
 {
 	union mail_storage_module_context *qstorage = QUOTA_CONTEXT(storage);
 	struct mailbox *box;
 	struct quota_mailbox *qbox;
 
-	box = qstorage->super.mailbox_open(storage, name, input, flags);
-	if (box == NULL)
-		return NULL;
+	box = qstorage->super.mailbox_open(storage, list, name, input, flags);
+	if (box == NULL || QUOTA_LIST_CONTEXT(list) == NULL)
+		return box;
 
 	qbox = p_new(box->pool, struct quota_mailbox, 1);
 	qbox->module_ctx.super = box->v;
@@ -419,11 +419,18 @@ quota_mailbox_delete_shrink_quota(struct mailbox *box)
 	return ret;
 }
 
+static void quota_mailbox_list_deinit(struct mailbox_list *list)
+{
+	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(list);
+
+	quota_remove_user_namespace(list->ns);
+	qlist->module_ctx.super.deinit(list);
+}
+
 static int
 quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 {
 	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(list);
-	struct mail_storage *storage;
 	struct mailbox *box;
 	enum mail_error error;
 	const char *str;
@@ -433,11 +440,10 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	   and free the quota for all the messages existing in it. Open the
 	   mailbox locked so that other processes can't mess up the quota
 	   calculations by adding/removing mails while we're doing this. */
-	storage = qlist->storage;
-	box = mailbox_open(&storage, name, NULL, MAILBOX_OPEN_KEEP_RECENT |
+	box = mailbox_open(list, name, NULL, MAILBOX_OPEN_KEEP_RECENT |
 			   MAILBOX_OPEN_KEEP_LOCKED);
 	if (box == NULL) {
-		str = mail_storage_get_last_error(qlist->storage, &error);
+		str = mailbox_list_get_last_error(list, &error);
 		if (error != MAIL_ERROR_NOTPOSSIBLE) {
 			ret = -1;
 		} else {
@@ -445,11 +451,10 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 			ret = 0;
 		}
 	} else {
-		ret = quota_mailbox_delete_shrink_quota(box);
-	}
-	if (ret < 0) {
-		str = mail_storage_get_last_error(qlist->storage, &error);
-		mailbox_list_set_error(list, error, str);
+		if ((ret = quota_mailbox_delete_shrink_quota(box)) < 0) {
+			str = mail_storage_get_last_error(box->storage, &error);
+			mailbox_list_set_error(list, error, str);
+		}
 	}
 	if (box != NULL)
 		mailbox_close(&box);
@@ -457,16 +462,6 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	/* FIXME: here's an unfortunate race condition */
 	return ret < 0 ? -1 :
 		qlist->module_ctx.super.delete_mailbox(list, name);
-}
-
-static void quota_storage_destroy(struct mail_storage *storage)
-{
-	union mail_storage_module_context *qstorage = QUOTA_CONTEXT(storage);
-
-	quota_remove_user_storage(storage);
-
-	if (qstorage->super.destroy != NULL)
-		qstorage->super.destroy(storage);
 }
 
 struct quota *quota_get_mail_user_quota(struct mail_user *user)
@@ -505,29 +500,28 @@ void quota_mail_user_created(struct mail_user *user)
 		quota_next_hook_mail_user_created(user);
 }
 
+static void quota_maildir_storage_set(struct mail_storage *storage)
+{
+	/* FIXME: a bit ugly location for this code. */
+	if (strcmp(storage->name, "maildir") == 0) {
+		/* For newly generated filenames add ,S=size. */
+		struct maildir_storage *mstorage =
+			(struct maildir_storage *)storage;
+
+		mstorage->save_size_in_filename = TRUE;
+	}
+}
+
 void quota_mail_storage_created(struct mail_storage *storage)
 {
-	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(storage->list);
 	union mail_storage_module_context *qstorage;
-	struct quota *quota;
 
-	if (qlist != NULL) {
-		qlist->storage = storage;
-		qstorage = p_new(storage->pool,
-				 union mail_storage_module_context, 1);
-		qstorage->super = storage->v;
-		storage->v.destroy = quota_storage_destroy;
-		storage->v.mailbox_open = quota_mailbox_open;
+	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
+	qstorage->super = storage->v;
+	storage->v.mailbox_open = quota_mailbox_open;
 
-		MODULE_CONTEXT_SET_SELF(storage, quota_storage_module,
-					qstorage);
-
-		/* register to owner's quota roots */
-		quota = storage->ns->owner != NULL ?
-			quota_get_mail_user_quota(storage->ns->owner) :
-			quota_get_mail_user_quota(storage->ns->user);
-		quota_add_user_storage(quota, storage);
-	}
+	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
+	quota_maildir_storage_set(storage);
 
 	if (quota_next_hook_mail_storage_created != NULL)
 		quota_next_hook_mail_storage_created(storage);
@@ -551,7 +545,7 @@ quota_find_root_for_ns(struct quota *quota, struct mail_namespace *ns)
 void quota_mailbox_list_created(struct mailbox_list *list)
 {
 	struct quota_mailbox_list *qlist;
-	struct quota *quota;
+	struct quota *quota = NULL;
 	struct quota_root *root;
 	bool add;
 
@@ -572,9 +566,15 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 	if (add) {
 		qlist = p_new(list->pool, struct quota_mailbox_list, 1);
 		qlist->module_ctx.super = list->v;
+		list->v.deinit = quota_mailbox_list_deinit;
 		list->v.delete_mailbox = quota_mailbox_list_delete;
-
 		MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
+
+		/* register to owner's quota roots */
+		quota = list->ns->owner != NULL ?
+			quota_get_mail_user_quota(list->ns->owner) :
+			quota_get_mail_user_quota(list->ns->user);
+		quota_add_user_namespace(quota, list->ns);
 	}
 	if (quota_next_hook_mailbox_list_created != NULL)
 		quota_next_hook_mailbox_list_created(list);

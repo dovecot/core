@@ -69,13 +69,9 @@ void dbox_map_deinit(struct dbox_map **_map)
 
 static int dbox_map_mkdir_storage(struct dbox_storage *storage)
 {
-	mode_t mode;
-	gid_t gid;
-
-	mailbox_list_get_dir_permissions(storage->storage.list, NULL,
-					 &mode, &gid);
-	if (mkdir_parents_chown(storage->storage_dir, mode,
-				(uid_t)-1, gid) < 0 && errno != EEXIST) {
+	if (mkdir_parents_chown(storage->storage_dir, storage->create_mode,
+				(uid_t)-1, storage->create_gid) < 0 &&
+	    errno != EEXIST) {
 		mail_storage_set_critical(&storage->storage,
 			"mkdir(%s) failed: %m", storage->storage_dir);
 		return -1;
@@ -101,7 +97,8 @@ int dbox_map_open(struct dbox_map *map, bool create_missing)
 		if (dbox_map_mkdir_storage(map->storage) < 0)
 			return -1;
 	}
-	ret = mail_index_open(map->index, open_flags, storage->lock_method);
+	ret = mail_index_open(map->index, open_flags,
+			      storage->set->parsed_lock_method);
 	if (ret < 0) {
 		mail_storage_set_internal_error(storage);
 		mail_index_reset_error(map->index);

@@ -168,7 +168,6 @@ int virtual_save_finish(struct mail_save_context *ctx);
 void virtual_save_cancel(struct mail_save_context *ctx);
 void virtual_save_free(struct virtual_save_context *ctx);
 
-void virtual_copy_error(struct mail_storage *dest, struct mail_storage *src);
 void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src);
 
 void virtual_transaction_class_init(void);

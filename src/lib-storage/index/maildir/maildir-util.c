@@ -153,7 +153,7 @@ static int maildir_create_path(struct mailbox *box, const char *path,
 		}
 		/* create index/control root directory */
 		parent = t_strdup_until(path, p);
-		mailbox_list_get_dir_permissions(box->storage->list, NULL,
+		mailbox_list_get_dir_permissions(box->list, NULL,
 						 &parent_mode, &parent_gid);
 		if (mkdir_parents_chown(parent, parent_mode, (uid_t)-1,
 					parent_gid) == 0 || errno == EEXIST) {
@@ -182,10 +182,10 @@ static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 	/* @UNSAFE: get a list of directories we want to create */
 	for (i = 0; i < N_ELEMENTS(subdirs); i++)
 		dirs[i] = t_strconcat(mbox->path, "/", subdirs[i], NULL);
-	dirs[i++] = mail_storage_get_mailbox_control_dir(box->storage,
-							 box->name);
-	dirs[i++] = mail_storage_get_mailbox_index_dir(box->storage,
-						       box->name);
+	dirs[i++] = mailbox_list_get_path(box->list, box->name,
+					  MAILBOX_LIST_PATH_TYPE_CONTROL);
+	dirs[i++] = mailbox_list_get_path(box->list, box->name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX);
 	i_assert(i == N_ELEMENTS(dirs));
 
 	for (i = 0; i < N_ELEMENTS(dirs); i++) {

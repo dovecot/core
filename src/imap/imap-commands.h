@@ -4,6 +4,7 @@
 struct client_command_context;
 
 #include "mail-storage.h"
+#include "mail-namespace.h"
 #include "imap-parser.h"
 #include "imap-sync.h"
 #include "imap-commands-util.h"

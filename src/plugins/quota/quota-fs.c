@@ -249,19 +249,19 @@ static void fs_quota_add_missing_mounts(struct quota *quota)
 	}
 }
 
-static void fs_quota_storage_added(struct quota *quota,
-				   struct mail_storage *storage)
+static void fs_quota_namespace_added(struct quota *quota,
+				     struct mail_namespace *ns)
 {
 	struct fs_quota_mountpoint *mount;
 	struct fs_quota_root *root;
 	const char *dir;
-	bool is_file;
 
-	dir = mail_storage_get_mailbox_path(storage, "", &is_file);
+	dir = mailbox_list_get_path(ns->list, NULL,
+				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	mount = fs_quota_mountpoint_get(dir);
 	if (mount != NULL) {
 		if (quota->set->debug) {
-			i_info("fs quota add storage dir = %s", dir);
+			i_info("fs quota add mailbox dir = %s", dir);
 			i_info("fs quota block device = %s", mount->device_path);
 			i_info("fs quota mount point = %s", mount->mount_path);
 		}
@@ -709,10 +709,10 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 	struct fs_quota_root *root = (struct fs_quota_root *)_root;
 	struct stat mst, rst;
 	const char *mailbox_path;
-	bool is_file, match;
+	bool match;
 
-	mailbox_path = mail_storage_get_mailbox_path(box->storage, box->name,
-						     &is_file);
+	mailbox_path = mailbox_list_get_path(box->list, box->name,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(mailbox_path, &mst) < 0) {
 		if (errno != ENOENT)
 			i_error("stat(%s) failed: %m", mailbox_path);
@@ -795,7 +795,7 @@ struct quota_backend quota_backend_fs = {
 		fs_quota_deinit,
 		NULL,
 
-		fs_quota_storage_added,
+		fs_quota_namespace_added,
 
 		fs_quota_root_get_resources,
 		fs_quota_get_resource,

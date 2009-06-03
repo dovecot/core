@@ -1,6 +1,8 @@
 #ifndef MAIL_STORAGE_SETTINGS_H
 #define MAIL_STORAGE_SETTINGS_H
 
+#include "file-lock.h"
+
 struct mail_user;
 struct mail_storage;
 
@@ -22,6 +24,8 @@ struct mail_storage_settings {
 	bool mail_full_filesystem_access;
 	const char *lock_method;
 	const char *pop3_uidl_format;
+
+	enum file_lock_method parsed_lock_method;
 };
 
 struct mail_namespace_settings {

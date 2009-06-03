@@ -355,14 +355,14 @@ static int fts_build_init_virtual_next(struct fts_search_context *fctx)
 static const char *
 fts_box_get_root(struct mailbox *box, struct mail_namespace **ns_r)
 {
-	struct mail_namespace *ns = box->storage->ns;
+	struct mail_namespace *ns = mailbox_get_namespace(box);
 	const char *name = box->name;
 
 	while (ns->alias_for != NULL)
 		ns = ns->alias_for;
 	*ns_r = ns;
 
-	if (*name == '\0' && ns != box->storage->ns &&
+	if (*name == '\0' && ns != mailbox_get_namespace(box) &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		/* ugly workaround to allow selecting INBOX from a Maildir/
 		   when it's not in the inbox=yes namespace. */
@@ -1061,7 +1061,7 @@ void fts_mailbox_opened(struct mailbox *box)
 {
 	const char *env;
 
-	env = mail_user_plugin_getenv(box->storage->ns->user, "fts");
+	env = mail_user_plugin_getenv(box->storage->user, "fts");
 	if (env != NULL)
 		fts_mailbox_init(box, env);
 

@@ -34,7 +34,6 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 			     const struct imap_settings *set)
 {
 	struct client *client;
-	struct mail_namespace *ns;
 	const char *ident;
 
 	/* always use nonblocking I/O */
@@ -60,10 +59,8 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		pool_alloconly_create(MEMPOOL_GROWING"client command", 1024*12);
 	client->user = user;
 
-	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		mail_storage_set_callbacks(ns->storage,
-					   &mail_storage_callbacks, client);
-	}
+	mail_namespaces_set_storage_callbacks(user->namespaces,
+					      &mail_storage_callbacks, client);
 
 	client->capability_string =
 		str_new(default_pool, sizeof(CAPABILITY_STRING)+32);

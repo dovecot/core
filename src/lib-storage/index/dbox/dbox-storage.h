@@ -90,8 +90,9 @@ void dbox_transaction_class_init(void);
 void dbox_transaction_class_deinit(void);
 
 struct mailbox *
-dbox_mailbox_open(struct mail_storage *storage, const char *name,
-		  struct istream *input, enum mailbox_open_flags flags);
+dbox_mailbox_open(struct mail_storage *_storage, struct mailbox_list *list,
+		  const char *name, struct istream *input,
+		  enum mailbox_open_flags flags);
 
 struct mail *
 dbox_mail_alloc(struct mailbox_transaction_context *t,
@@ -101,7 +102,7 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 /* Get map_uid for wanted message. */
 int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		     uint32_t seq, uint32_t *map_uid_r);
-uint32_t dbox_get_uidvalidity_next(struct mail_storage *storage);
+uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list);
 
 struct mail_save_context *
 dbox_save_alloc(struct mailbox_transaction_context *_t);

@@ -49,7 +49,7 @@ cydir_get_save_path(struct cydir_save_context *ctx, unsigned int num)
 {
 	const char *dir;
 
-	dir = mailbox_list_get_path(ctx->mbox->storage->storage.list,
+	dir = mailbox_list_get_path(ctx->mbox->ibox.box.list,
 				    ctx->mbox->ibox.box.name,
 				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	return t_strdup_printf("%s/%s.%u", dir, ctx->tmp_basename, num);
@@ -253,7 +253,7 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 	*t->ictx.first_saved_uid = uid;
 	*t->ictx.last_saved_uid = next_uid - 1;
 
-	dir = mailbox_list_get_path(ctx->mbox->storage->storage.list,
+	dir = mailbox_list_get_path(ctx->mbox->ibox.box.list,
 				    ctx->mbox->ibox.box.name,
 				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 

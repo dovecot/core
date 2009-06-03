@@ -22,6 +22,10 @@
 #define VIRTUAL_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, virtual_mailbox_list_module)
 
+struct virtual_mailbox_list {
+	union mailbox_list_module_context module_ctx;
+};
+
 extern struct mail_storage virtual_storage;
 extern struct mailbox virtual_mailbox;
 
@@ -30,27 +34,7 @@ struct virtual_storage_module virtual_storage_module =
 static MODULE_CONTEXT_DEFINE_INIT(virtual_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static int
-virtual_list_delete_mailbox(struct mailbox_list *list, const char *name);
-static int
-virtual_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
-			     const char *dir, const char *fname,
-			     const char *mailbox_name,
-			     enum mailbox_list_file_type type,
-			     enum mailbox_info_flags *flags);
-
-void virtual_copy_error(struct mail_storage *dest, struct mail_storage *src)
-{
-	const char *str;
-	enum mail_error error;
-
-	str = mail_storage_get_last_error(src, &error);
-	if ((src->ns->flags & NAMESPACE_FLAG_HIDDEN) == 0) {
-		str = t_strdup_printf("%s (namespace %s)", str,
-				      src->ns->prefix);
-	}
-	mail_storage_set_error(dest, error, str);
-}
+static void virtual_list_init(struct mailbox_list *list);
 
 void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src)
 {
@@ -58,43 +42,16 @@ void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src)
 	enum mail_error error;
 
 	str = mail_storage_get_last_error(src->storage, &error);
-	if ((src->storage->ns->flags & NAMESPACE_FLAG_HIDDEN) != 0)
+	if ((src->list->ns->flags & NAMESPACE_FLAG_HIDDEN) != 0)
 		str = t_strdup_printf("%s (mailbox %s)", str, src->name);
 	else {
 		str = t_strdup_printf("%s (mailbox %s%s)", str,
-				      src->storage->ns->prefix, src->name);
+				      src->list->ns->prefix, src->name);
 	}
 	mail_storage_set_error(dest->storage, error, str);
 }
 
-static int
-virtual_get_list_settings(struct mailbox_list_settings *list_set,
-			  const char *data, struct mail_storage *storage,
-			  const char **layout_r, const char **error_r)
-{
-	bool debug = storage->set->mail_debug;
-
-	*layout_r = "fs";
-
-	memset(list_set, 0, sizeof(*list_set));
-	list_set->subscription_fname = VIRTUAL_SUBSCRIPTION_FILE_NAME;
-	list_set->maildir_name = "";
-
-	if (data == NULL || *data == '\0' || *data == ':') {
-		/* we won't do any guessing for this format. */
-		if (debug)
-			i_info("virtual: mailbox location not given");
-		*error_r = "Root mail directory not given";
-		return -1;
-	}
-
-	if (debug)
-		i_info("virtual: data=%s", data);
-	return mailbox_list_settings_parse(data, list_set, storage->ns,
-					   layout_r, NULL, error_r);
-}
-
-static struct mail_storage *virtual_alloc(void)
+static struct mail_storage *virtual_storage_alloc(void)
 {
 	struct virtual_storage *storage;
 	pool_t pool;
@@ -104,53 +61,27 @@ static struct mail_storage *virtual_alloc(void)
 	storage->storage = virtual_storage;
 	storage->storage.pool = pool;
 	p_array_init(&storage->open_stack, pool, 8);
-
 	return &storage->storage;
 }
 
-static int virtual_create(struct mail_storage *_storage, const char *data,
-			  const char **error_r)
+static int
+virtual_storage_create(struct mail_storage *_storage ATTR_UNUSED,
+		       struct mail_namespace *ns,
+		       const char **error_r ATTR_UNUSED)
 {
-	struct virtual_storage *storage = (struct virtual_storage *)_storage;
-	struct mailbox_list_settings list_set;
-	struct stat st;
-	const char *layout;
-
-	_storage->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
-
-	if (virtual_get_list_settings(&list_set, data, _storage,
-				      &layout, error_r) < 0)
-		return -1;
-	list_set.mail_storage_flags = &_storage->flags;
-	list_set.lock_method = &_storage->lock_method;
-
-	if (stat(list_set.root_dir, &st) < 0) {
-		if (errno == ENOENT) {
-			*error_r = t_strdup_printf(
-				"Root mail directory doesn't exist: %s",
-				list_set.root_dir);
-		} else if (errno == EACCES) {
-			*error_r = mail_error_eacces_msg("stat",
-							 list_set.root_dir);
-		} else {
-			*error_r = t_strdup_printf("stat(%s) failed: %m",
-						   list_set.root_dir);
-		}
-		return -1;
-	}
-
-	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
-		return -1;
-	storage->list_module_ctx.super = _storage->list->v;
-	_storage->list->v.iter_is_mailbox = virtual_list_iter_is_mailbox;
-	_storage->list->v.delete_mailbox = virtual_list_delete_mailbox;
-
-	MODULE_CONTEXT_SET_FULL(_storage->list, virtual_mailbox_list_module,
-				storage, &storage->list_module_ctx);
-
-	/* finish list init after we've overridden vfuncs */
-	mailbox_list_init(_storage->list, _storage->ns, &list_set, 0);
+	ns->flags |= NAMESPACE_FLAG_NOQUOTA;
+	virtual_list_init(ns->list);
 	return 0;
+}
+
+static void
+virtual_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
+				  struct mailbox_list_settings *set)
+{
+	if (set->layout == NULL)
+		set->layout = MAILBOX_LIST_NAME_FS;
+	if (set->subscription_fname == NULL)
+		set->subscription_fname = VIRTUAL_SUBSCRIPTION_FILE_NAME;
 }
 
 struct virtual_backend_box *
@@ -201,10 +132,9 @@ static bool virtual_mailbox_is_in_open_stack(struct virtual_storage *storage,
 static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 				  enum mailbox_open_flags open_flags)
 {
-	struct mail_user *user = mbox->storage->storage.ns->user;
+	struct mail_user *user = mbox->storage->storage.user;
 	struct virtual_backend_box *const *bboxes;
 	struct mail_namespace *ns;
-	struct mail_storage *storage;
 	unsigned int i, count;
 	enum mail_error error;
 	const char *str, *mailbox;
@@ -215,12 +145,11 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	for (i = 0; i < count; ) {
 		mailbox = bboxes[i]->name;
 		ns = mail_namespace_find(user->namespaces, &mailbox);
-		storage = ns->storage;
-		bboxes[i]->box = mailbox_open(&storage, mailbox,
+		bboxes[i]->box = mailbox_open(ns->list, mailbox,
 					      NULL, open_flags);
 
 		if (bboxes[i]->box == NULL) {
-			str = mail_storage_get_last_error(storage, &error);
+			str = mailbox_list_get_last_error(ns->list, &error);
 			if (bboxes[i]->wildcard &&
 			    (error == MAIL_ERROR_PERM ||
 			     error == MAIL_ERROR_NOTFOUND)) {
@@ -231,9 +160,9 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 				bboxes = array_get(&mbox->backend_boxes, &count);
 				continue;
 			}
-			if (storage != mbox->ibox.box.storage) {
+			if (ns->list != mbox->ibox.box.list) {
 				/* copy the error */
-				mail_storage_set_error(mbox->ibox.box.storage,
+				mailbox_list_set_error(mbox->ibox.box.list,
 						       error, str);
 			}
 			break;
@@ -257,8 +186,8 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 }
 
 static struct mailbox *
-virtual_open(struct virtual_storage *storage, const char *name,
-	     enum mailbox_open_flags flags)
+virtual_open(struct virtual_storage *storage, struct mailbox_list *list,
+	     const char *name, enum mailbox_open_flags flags)
 {
 	struct mail_storage *_storage = &storage->storage;
 	struct virtual_mailbox *mbox;
@@ -273,17 +202,15 @@ virtual_open(struct virtual_storage *storage, const char *name,
 		return NULL;
 	}
 
-	path = mailbox_list_get_path(_storage->list, name,
+	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index = index_storage_alloc(_storage, name, flags,
-				    VIRTUAL_INDEX_PREFIX);
+	index = index_storage_alloc(list, name, flags, VIRTUAL_INDEX_PREFIX);
 
 	pool = pool_alloconly_create("virtual mailbox", 1024+512);
 	mbox = p_new(pool, struct virtual_mailbox, 1);
 	mbox->ibox.box = virtual_mailbox;
 	mbox->ibox.box.pool = pool;
-	mbox->ibox.box.storage = &storage->storage;
-	mbox->ibox.storage = &storage->storage;
+	mbox->ibox.box.storage = _storage;
 	mbox->ibox.mail_vfuncs = &virtual_mail_vfuncs;
 	mbox->ibox.index = index;
 
@@ -312,32 +239,32 @@ virtual_open(struct virtual_storage *storage, const char *name,
 }
 
 static struct mailbox *
-virtual_mailbox_open(struct mail_storage *_storage, const char *name,
-		     struct istream *input, enum mailbox_open_flags flags)
+virtual_mailbox_open(struct mail_storage *_storage, struct mailbox_list *list,
+		     const char *name, struct istream *input,
+		     enum mailbox_open_flags flags)
 {
 	struct virtual_storage *storage = (struct virtual_storage *)_storage;
 	const char *path;
 	struct stat st;
 
 	if (input != NULL) {
-		mail_storage_set_critical(_storage,
+		mailbox_list_set_critical(list,
 			"virtual doesn't support streamed mailboxes");
 		return NULL;
 	}
 
-	path = mailbox_list_get_path(_storage->list, name,
+	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0)
-		return virtual_open(storage, name, flags);
+		return virtual_open(storage, list, name, flags);
 	else if (errno == ENOENT) {
-		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 	} else if (errno == EACCES) {
-		mail_storage_set_critical(_storage, "%s",
+		mailbox_list_set_critical(list, "%s",
 			mail_error_eacces_msg("stat", path));
 	} else {
-		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
-					  path);
+		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
 	}
 	return NULL;
 }
@@ -359,7 +286,11 @@ static int virtual_storage_mailbox_close(struct mailbox *box)
 
 		storage = bboxes[i]->box->storage;
 		if (mailbox_close(&bboxes[i]->box) < 0) {
-			virtual_copy_error(box->storage, storage);
+			const char *str;
+			enum mail_error error;
+
+			str = mail_storage_get_last_error(storage, &error);
+			mail_storage_set_error(box->storage, error, str);
 			ret = -1;
 		}
 		if (array_is_created(&bboxes[i]->sync_outside_expunges))
@@ -374,6 +305,7 @@ static int virtual_storage_mailbox_close(struct mailbox *box)
 }
 
 static int virtual_mailbox_create(struct mail_storage *_storage,
+				  struct mailbox_list *list ATTR_UNUSED,
 				  const char *name ATTR_UNUSED,
 				  bool directory ATTR_UNUSED)
 {
@@ -455,7 +387,7 @@ virtual_delete_nonrecursive(struct mailbox_list *list, const char *path,
 static int
 virtual_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
-	struct virtual_storage *storage = VIRTUAL_LIST_CONTEXT(list);
+	struct virtual_mailbox_list *mlist = VIRTUAL_LIST_CONTEXT(list);
 	struct stat st;
 	const char *src;
 
@@ -466,7 +398,7 @@ virtual_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	index_storage_destroy_unrefed();
 
 	/* delete the index and control directories */
-	if (storage->list_module_ctx.super.delete_mailbox(list, name) < 0)
+	if (mlist->module_ctx.super.delete_mailbox(list, name) < 0)
 		return -1;
 
 	/* check if the mailbox actually exists */
@@ -628,6 +560,19 @@ static void virtual_class_deinit(void)
 	virtual_transaction_class_deinit();
 }
 
+static void virtual_list_init(struct mailbox_list *list)
+{
+	struct virtual_mailbox_list *mlist;
+
+	mlist = p_new(list->pool, struct virtual_mailbox_list, 1);
+	mlist->module_ctx.super = list->v;
+
+	list->v.iter_is_mailbox = virtual_list_iter_is_mailbox;
+	list->v.delete_mailbox = virtual_list_delete_mailbox;
+
+	MODULE_CONTEXT_SET(list, virtual_mailbox_list_module, mlist);
+}
+
 struct mail_storage virtual_storage = {
 	MEMBER(name) VIRTUAL_STORAGE_NAME,
 	MEMBER(mailbox_is_file) FALSE,
@@ -636,9 +581,10 @@ struct mail_storage virtual_storage = {
 		NULL,
 		virtual_class_init,
 		virtual_class_deinit,
-		virtual_alloc,
-		virtual_create,
+		virtual_storage_alloc,
+		virtual_storage_create,
 		index_storage_destroy,
+		virtual_storage_get_list_settings,
 		NULL,
 		virtual_mailbox_open,
 		virtual_mailbox_create,
@@ -649,6 +595,7 @@ struct mail_storage virtual_storage = {
 struct mailbox virtual_mailbox = {
 	MEMBER(name) NULL, 
 	MEMBER(storage) NULL, 
+	MEMBER(list) NULL,
 
 	{
 		index_storage_is_readonly,

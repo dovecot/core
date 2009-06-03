@@ -313,18 +313,21 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 				  struct mailbox_list *newlist,
 				  const char *newname, bool rename_children)
 {
+	struct mail_storage *oldstorage;
 	const char *oldpath, *newpath, *p;
 	enum mailbox_list_path_type path_type;
 	struct stat st;
 	mode_t mode;
 	gid_t gid;
-	bool isfile, rmdir_parent = FALSE;
+	bool rmdir_parent = FALSE;
 
-	(void)mail_storage_get_mailbox_path(oldlist->ns->storage,
-					    oldname, &isfile);
+	if (mailbox_list_get_storage(&oldlist, &oldname, &oldstorage) < 0)
+		return -1;
+
 	if (rename_children)
 		path_type = MAILBOX_LIST_PATH_TYPE_DIR;
-	else if (isfile || *oldlist->set.maildir_name != '\0')
+	else if (mail_storage_is_mailbox_file(oldstorage) ||
+		 *oldlist->set.maildir_name != '\0')
 		path_type = MAILBOX_LIST_PATH_TYPE_MAILBOX;
 	else {
 		/* we can't do this, our children would get renamed with us */
@@ -410,7 +413,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 }
 
 struct mailbox_list fs_mailbox_list = {
-	MEMBER(name) "fs",
+	MEMBER(name) MAILBOX_LIST_NAME_FS,
 	MEMBER(hierarchy_sep) '/',
 	MEMBER(props) 0,
 	MEMBER(mailbox_name_max_length) PATH_MAX,

@@ -54,7 +54,7 @@ static void (*next_hook_client_created)(struct client **client);
 static struct mailbox *
 acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 {
-	struct mail_storage *storage;
+	struct mail_namespace *ns;
 	struct mailbox *box;
 	int ret;
 
@@ -63,16 +63,16 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 		return NULL;
 	}
 
-	storage = client_find_storage(cmd, &name);
-	if (storage == NULL)
+	ns = client_find_namespace(cmd, &name);
+	if (ns == NULL)
 		return NULL;
 
 	/* Force opening the mailbox so that we can give a nicer error message
 	   if mailbox isn't selectable but is listable. */
-	box = mailbox_open(&storage, name, NULL, ACL_MAILBOX_OPEN_FLAGS |
+	box = mailbox_open(ns->list, name, NULL, ACL_MAILBOX_OPEN_FLAGS |
 			   MAILBOX_OPEN_IGNORE_ACLS);
 	if (box == NULL) {
-		client_send_storage_error(cmd, storage);
+		client_send_list_error(cmd, ns->list);
 		return NULL;
 	}
 
@@ -248,7 +248,6 @@ static bool cmd_getacl(struct client_command_context *cmd)
 {
 	struct acl_backend *backend;
 	struct mail_namespace *ns;
-	struct mail_storage *storage;
 	struct mailbox *box;
 	const char *mailbox;
 	string_t *str;
@@ -267,9 +266,8 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	str_append(str, "* ACL ");
 	imap_quote_append_string(str, mailbox, FALSE);
 
-	storage = mailbox_get_storage(box);
-	backend = acl_storage_get_backend(storage);
-	ns = mail_storage_get_namespace(storage);
+	ns = mailbox_get_namespace(box);
+	backend = acl_mailbox_list_get_backend(ns->list);
 	ret = imap_acl_write_aclobj(str, backend,
 				    acl_mailbox_get_aclobj(box), TRUE,
 				    ns->type == NAMESPACE_PRIVATE);
@@ -285,7 +283,7 @@ static bool cmd_getacl(struct client_command_context *cmd)
 
 static bool cmd_myrights(struct client_command_context *cmd)
 {
-	struct mail_storage *storage;
+	struct mail_namespace *ns;
 	struct mailbox *box;
 	const char *mailbox, *real_mailbox;
 	const char *const *rights;
@@ -302,14 +300,14 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	}
 
 	real_mailbox = mailbox;
-	storage = client_find_storage(cmd, &real_mailbox);
-	if (storage == NULL)
+	ns = client_find_namespace(cmd, &real_mailbox);
+	if (ns == NULL)
 		return TRUE;
 
-	box = mailbox_open(&storage, real_mailbox, NULL,
+	box = mailbox_open(ns->list, real_mailbox, NULL,
 			   ACL_MAILBOX_OPEN_FLAGS | MAILBOX_OPEN_IGNORE_ACLS);
 	if (box == NULL) {
-		client_send_storage_error(cmd, storage);
+		client_send_list_error(cmd, ns->list);
 		return TRUE;
 	}
 
@@ -507,7 +505,6 @@ static void imap_acl_update_ensure_keep_admins(struct acl_rights_update *update)
 static bool cmd_setacl(struct client_command_context *cmd)
 {
 	struct mail_namespace *ns;
-	struct mail_storage *storage;
 	struct mailbox *box;
 	struct acl_backend *backend;
 	struct acl_rights_update update;
@@ -556,9 +553,8 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	if (box == NULL)
 		return TRUE;
 
-	storage = mailbox_get_storage(box);
-	backend = acl_storage_get_backend(storage);
-	ns = mail_storage_get_namespace(storage);
+	ns = mailbox_get_namespace(box);
+	backend = acl_mailbox_list_get_backend(ns->list);
 	if (ns->type == NAMESPACE_PUBLIC && r->id_type == ACL_ID_OWNER) {
 		client_send_tagline(cmd, "NO Public namespaces have no owner");
 		mailbox_close(&box);

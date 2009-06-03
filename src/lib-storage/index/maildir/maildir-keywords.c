@@ -65,7 +65,8 @@ maildir_keywords_init_readonly(struct mailbox *box)
 	struct maildir_keywords *mk;
 	const char *dir;
 
-	dir = mail_storage_get_mailbox_control_dir(box->storage, box->name);
+	dir = mailbox_list_get_path(box->list, box->name,
+				    MAILBOX_LIST_PATH_TYPE_CONTROL);
 
 	mk = i_new(struct maildir_keywords, 1);
 	mk->storage = box->storage;
@@ -82,7 +83,7 @@ maildir_keywords_init_readonly(struct mailbox *box)
 	mk->dotlock_settings.timeout = KEYWORDS_LOCK_STALE_TIMEOUT + 2;
 	mk->dotlock_settings.stale_timeout = KEYWORDS_LOCK_STALE_TIMEOUT;
 	mk->dotlock_settings.temp_prefix =
-		mailbox_list_get_temp_prefix(box->storage->list);
+		mailbox_list_get_temp_prefix(box->list);
 	return mk;
 }
 

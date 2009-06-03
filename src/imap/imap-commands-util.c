@@ -32,21 +32,11 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 	return NULL;
 }
 
-struct mail_storage *
-client_find_storage(struct client_command_context *cmd, const char **mailbox)
-{
-	struct mail_namespace *ns;
-
-	ns = client_find_namespace(cmd, mailbox);
-	return ns == NULL ? NULL : ns->storage;
-}
-
 bool client_verify_mailbox_name(struct client_command_context *cmd,
 				const char *mailbox,
 				bool should_exist, bool should_not_exist)
 {
 	struct mail_namespace *ns;
-	struct mailbox_list *list;
 	enum mailbox_name_status mailbox_status;
 	const char *orig_mailbox, *p;
 
@@ -90,10 +80,9 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 	}
 
 	/* check what our storage thinks of it */
-	list = mail_storage_get_list(ns->storage);
-	if (mailbox_list_get_mailbox_name_status(list, mailbox,
+	if (mailbox_list_get_mailbox_name_status(ns->list, mailbox,
 						 &mailbox_status) < 0) {
-		client_send_list_error(cmd, list);
+		client_send_list_error(cmd, ns->list);
 		return FALSE;
 	}
 
@@ -144,8 +133,8 @@ bool client_verify_open_mailbox(struct client_command_context *cmd)
 	}
 }
 
-static const char *
-get_error_string(const char *error_string, enum mail_error error)
+const char *
+imap_get_error_string(const char *error_string, enum mail_error error)
 {
 	const char *resp_code = NULL;
 
@@ -191,7 +180,7 @@ void client_send_list_error(struct client_command_context *cmd,
 	enum mail_error error;
 
 	error_string = mailbox_list_get_last_error(list, &error);
-	client_send_tagline(cmd, get_error_string(error_string, error));
+	client_send_tagline(cmd, imap_get_error_string(error_string, error));
 }
 
 void client_send_storage_error(struct client_command_context *cmd,
@@ -209,7 +198,7 @@ void client_send_storage_error(struct client_command_context *cmd,
 	}
 
 	error_string = mail_storage_get_last_error(storage, &error);
-	client_send_tagline(cmd, get_error_string(error_string, error));
+	client_send_tagline(cmd, imap_get_error_string(error_string, error));
 }
 
 void client_send_untagged_storage_error(struct client *client,
@@ -363,12 +352,12 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 }
 
 bool mailbox_equals(const struct mailbox *box1,
-		    const struct mail_storage *storage2, const char *name2)
+		    const struct mail_namespace *ns2, const char *name2)
 {
-	struct mail_storage *storage1 = mailbox_get_storage(box1);
+	struct mail_namespace *ns1 = mailbox_get_namespace(box1);
 	const char *name1;
 
-	if (storage1 != storage2)
+	if (ns1 != ns2)
 		return FALSE;
 
         name1 = mailbox_get_name(box1);

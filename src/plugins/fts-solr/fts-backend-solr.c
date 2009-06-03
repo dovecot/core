@@ -66,7 +66,7 @@ static void fts_box_name_get_root(struct mail_namespace **ns, const char **name)
 static const char *
 fts_box_get_root(struct mailbox *box, struct mail_namespace **ns_r)
 {
-	struct mail_namespace *ns = box->storage->ns;
+	struct mail_namespace *ns = mailbox_get_namespace(box);
 	const char *name = box->name;
 
 	fts_box_name_get_root(&ns, &name);
@@ -161,7 +161,7 @@ static struct fts_backend *
 fts_backend_solr_init(struct mailbox *box)
 {
 	struct fts_solr_user *fuser =
-		FTS_SOLR_USER_CONTEXT(box->storage->ns->user);
+		FTS_SOLR_USER_CONTEXT(box->storage->user);
 	const struct fts_solr_settings *set = &fuser->set;
 	struct solr_fts_backend *backend;
 	struct mail_namespace *ns;
@@ -339,7 +339,7 @@ solr_get_namespaces(struct fts_backend *_backend,
 		    struct mailbox *box, const char *ns_prefix)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
-	struct mail_namespace *namespaces = box->storage->ns->user->namespaces;
+	struct mail_namespace *namespaces = box->storage->user->namespaces;
 
 	if (ns_prefix == NULL)
 		return backend->default_ns;
@@ -485,7 +485,7 @@ fts_backend_solr_get_all_last_uids(struct fts_backend *backend, pool_t pool,
 	str = t_str_new(256);
 	str_printfa(str, "fl=uid,box,uidv,ns&rows=%u&q=last_uid:TRUE+user:",
 		    SOLR_MAX_ROWS);
-	solr_quote_http(str, backend->box->storage->ns->user->username);
+	solr_quote_http(str, backend->box->storage->user->username);
 	fts_backend_solr_filter_mailboxes(backend, str, backend->box);
 
 	return solr_connection_select(solr_conn, str_c(str),
@@ -765,7 +765,7 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 	/* use a separate filter query for selecting the mailbox. it shouldn't
 	   affect the score and there could be some caching benefits too. */
 	str_append(str, "&fq=%2Buser:");
-	solr_quote_http(str, box->storage->ns->user->username);
+	solr_quote_http(str, box->storage->user->username);
 	if (virtual)
 		fts_backend_solr_filter_mailboxes(ctx->backend, str, box);
 	else {

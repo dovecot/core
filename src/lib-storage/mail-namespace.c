@@ -12,17 +12,25 @@
 
 void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
 
-void mail_namespace_init_storage(struct mail_namespace *ns)
+void mail_namespace_add_storage(struct mail_namespace *ns,
+				struct mail_storage *storage)
 {
-	ns->list = mail_storage_get_list(ns->storage);
+	/* currently we support only a single storage */
+	i_assert(ns->storage == NULL);
+	ns->storage = storage;
+}
+
+void mail_namespace_finish_list_init(struct mail_namespace *ns,
+				     struct mailbox_list *list)
+{
+	ns->list = list;
+	ns->real_sep = mailbox_list_get_hierarchy_sep(list);
 	ns->prefix_len = strlen(ns->prefix);
-	ns->real_sep = mailbox_list_get_hierarchy_sep(ns->list);
 
 	if (ns->set->separator != NULL)
 		ns->sep = *ns->set->separator;
 	if (ns->sep == '\0')
                 ns->sep = ns->real_sep;
-
 	if (ns->sep == '"' || ns->sep == '\\') {
 		ns->sep_str[0] = '\\';
 		ns->sep_str[1] = ns->sep;
@@ -33,6 +41,11 @@ void mail_namespace_init_storage(struct mail_namespace *ns)
 
 static void mail_namespace_free(struct mail_namespace *ns)
 {
+	if (ns->storage != NULL)
+		mail_storage_destroy(&ns->storage);
+	if (ns->list != NULL)
+		mailbox_list_destroy(&ns->list);
+
 	if (ns->owner != ns->user && ns->owner != NULL)
 		mail_user_unref(&ns->owner);
 	i_free(ns->prefix);
@@ -320,10 +333,18 @@ void mail_namespaces_deinit(struct mail_namespace **_namespaces)
 		ns = namespaces;
 		namespaces = namespaces->next;
 
-		if (ns->storage != NULL)
-			mail_storage_destroy(&ns->storage);
 		mail_namespace_free(ns);
 	}
+}
+
+void mail_namespaces_set_storage_callbacks(struct mail_namespace *namespaces,
+					   struct mail_storage_callbacks *callbacks,
+					   void *context)
+{
+	struct mail_namespace *ns;
+
+	for (ns = namespaces; ns != NULL; ns = ns->next)
+		mail_storage_set_callbacks(ns->storage, callbacks, context);
 }
 
 void mail_namespace_destroy(struct mail_namespace *ns)
@@ -376,7 +397,14 @@ const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
 	return str_c(dest);
 }
 
-char mail_namespace_get_root_sep(const struct mail_namespace *namespaces)
+struct mail_storage *
+mail_namespace_get_default_storage(struct mail_namespace *ns)
+{
+	/* currently we don't support more than one storage per namespace */
+	return ns->storage;
+}
+
+char mail_namespaces_get_root_sep(const struct mail_namespace *namespaces)
 {
 	while ((namespaces->flags & NAMESPACE_FLAG_LIST_PREFIX) == 0)
 		namespaces = namespaces->next;

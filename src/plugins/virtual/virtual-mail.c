@@ -336,7 +336,7 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 		return -1;
 	if (field == MAIL_FETCH_MAILBOX_NAME) {
 		*value_r = p_strconcat(vmail->imail.data_pool,
-				       box->storage->ns->prefix,
+				       box->list->ns->prefix,
 				       box->name, NULL);
 		return 0;
 	}

@@ -4,10 +4,11 @@
 #include "array.h"
 #include "mail-search-build.h"
 #include "mail-storage.h"
+#include "mail-namespace.h"
 #include "quota-private.h"
 
 static int
-quota_count_mailbox(struct quota_root *root, struct mail_storage *storage,
+quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		    const char *name, uint64_t *bytes_r, uint64_t *count_r)
 {
 	struct quota_rule *rule;
@@ -26,10 +27,10 @@ quota_count_mailbox(struct quota_root *root, struct mail_storage *storage,
 		return 0;
 	}
 
-	box = mailbox_open(&storage, name, NULL,
+	box = mailbox_open(ns->list, name, NULL,
 			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
 	if (box == NULL) {
-		mail_storage_get_last_error(storage, &error);
+		mailbox_list_get_last_error(ns->list, &error);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
 		/* non-temporary error, e.g. ACLs denied access. */
@@ -68,19 +69,19 @@ quota_count_mailbox(struct quota_root *root, struct mail_storage *storage,
 }
 
 static int
-quota_count_storage(struct quota_root *root, struct mail_storage *storage,
-		    uint64_t *bytes, uint64_t *count)
+quota_count_namespace(struct quota_root *root, struct mail_namespace *ns,
+		      uint64_t *bytes, uint64_t *count)
 {
 	struct mailbox_list_iterate_context *ctx;
 	const struct mailbox_info *info;
 	int ret = 0;
 
-	ctx = mailbox_list_iter_init(storage->list, "*",
+	ctx = mailbox_list_iter_init(ns->list, "*",
 				     MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(ctx)) != NULL) {
 		if ((info->flags & (MAILBOX_NONEXISTENT |
 				    MAILBOX_NOSELECT)) == 0) {
-			ret = quota_count_mailbox(root, storage, info->name,
+			ret = quota_count_mailbox(root, ns, info->name,
 						  bytes, count);
 			if (ret < 0)
 				break;
@@ -94,18 +95,19 @@ quota_count_storage(struct quota_root *root, struct mail_storage *storage,
 
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 {
-	struct mail_storage *const *storages;
+	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
 	int ret = 0;
 
 	*bytes_r = *count_r = 0;
 
-	storages = array_get(&root->quota->storages, &count);
+	namespaces = array_get(&root->quota->namespaces, &count);
 	for (i = 0; i < count; i++) {
-		if (!quota_root_is_storage_visible(root, storages[i]))
+		if (!quota_root_is_namespace_visible(root, namespaces[i]))
 			continue;
 
-		ret = quota_count_storage(root, storages[i], bytes_r, count_r);
+		ret = quota_count_namespace(root, namespaces[i],
+					    bytes_r, count_r);
 		if (ret < 0)
 			break;
 	}

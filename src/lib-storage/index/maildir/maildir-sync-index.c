@@ -573,7 +573,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 	if (uid_validity == 0) {
 		uid_validity = hdr->uid_validity != 0 ? hdr->uid_validity :
-			maildir_get_uidvalidity_next(mbox->ibox.box.storage);
+			maildir_get_uidvalidity_next(mbox->ibox.box.list);
 		maildir_uidlist_set_uid_validity(mbox->uidlist, uid_validity);
 	}
 	maildir_uidlist_set_next_uid(mbox->uidlist, hdr_next_uid, FALSE);
@@ -635,8 +635,7 @@ int maildir_list_index_has_changed(struct mailbox *box,
 		return 1;
 	}
 
-	root_dir = mailbox_list_get_path(mail_storage_get_list(box->storage),
-					 box->name,
+	root_dir = mailbox_list_get_path(box->list, box->name,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 	/* check if new/ changed */

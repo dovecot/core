@@ -86,14 +86,12 @@ index_list_mailbox_open_unchanged_view(struct mailbox *box,
 				       struct mail_index_view **view_r,
 				       uint32_t *seq_r)
 {
-	struct mailbox_list *list;
 	struct index_mailbox_list *ilist;
 	struct mail_index_view *view;
 	uint32_t uid, seq;
 	int ret;
 
-	list = mail_storage_get_list(box->storage);
-	ilist = INDEX_LIST_CONTEXT(list);
+	ilist = INDEX_LIST_CONTEXT(box->list);
 
 	if (ilist == NULL) {
 		/* indexing disabled */
@@ -132,7 +130,6 @@ index_list_mailbox_open_unchanged_view(struct mailbox *box,
 static int
 index_list_get_cached_status(struct mailbox *box, struct mailbox_status *status)
 {
-	struct mailbox_list *list;
 	struct index_mailbox_list *ilist;
 	struct mail_index_view *view;
 	const void *data;
@@ -147,8 +144,7 @@ index_list_get_cached_status(struct mailbox *box, struct mailbox_status *status)
 	if (ret <= 0)
 		return ret;
 
-	list = mail_storage_get_list(box->storage);
-	ilist = INDEX_LIST_CONTEXT(list);
+	ilist = INDEX_LIST_CONTEXT(box->list);
 	for (i = 0; index_list_map[i].name != NULL; i++) {
 		ext_id_p = PTR_OFFSET(ilist, index_list_map[i].eid_offset);
 		mail_index_lookup_ext(view, seq, *ext_id_p, &data, &expunged);
@@ -312,7 +308,6 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 {
 	struct mailbox *box = ctx->box;
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
-	struct mailbox_list *list;
 	struct index_mailbox_list *ilist;
 	struct mail_index_view *view;
 	struct mailbox_status tmp_status, *status;
@@ -327,8 +322,7 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 		return 0;
 	}
 
-	list = mail_storage_get_list(box->storage);
-	ilist = INDEX_LIST_CONTEXT(list);
+	ilist = INDEX_LIST_CONTEXT(box->list);
 
 	if (ilist == NULL) {
 		/* indexing disabled */
@@ -361,7 +355,7 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 static void index_list_mail_mailbox_opened(struct mailbox *box)
 {
 	struct index_mailbox_list *ilist =
-		INDEX_LIST_CONTEXT(box->storage->list);
+		INDEX_LIST_CONTEXT(box->list);
 	struct index_list_mailbox *ibox;
 
 	if (index_list_next_hook_mailbox_created != NULL)

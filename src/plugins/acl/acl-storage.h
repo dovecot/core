@@ -17,10 +17,6 @@ enum acl_storage_rights {
 	ACL_STORAGE_RIGHT_COUNT
 };
 
-/* Returns acl_backend for the given mail storage. */
-struct acl_backend *acl_storage_get_backend(struct mail_storage *storage);
-/* Returns default acl_object for the given mail storage. */
-struct acl_object *acl_storage_get_default_aclobj(struct mail_storage *storage);
 /* Returns acl_object for the given mailbox. */
 struct acl_object *acl_mailbox_get_aclobj(struct mailbox *box);
 /* Returns 1 if we have the requested right. If not, returns 0 and sets storage

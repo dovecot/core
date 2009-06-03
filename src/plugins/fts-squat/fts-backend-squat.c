@@ -59,8 +59,8 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 	enum squat_index_flags flags = 0;
 
 	storage = mailbox_get_storage(box);
-	path = mail_storage_get_mailbox_index_dir(storage,
-						  mailbox_get_name(box));
+	path = mailbox_list_get_path(box->list, box->name,
+				     MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (*path == '\0') {
 		/* in-memory indexes */
 		if (storage->set->mail_debug)
@@ -80,11 +80,12 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 	backend->backend = fts_backend_squat;
 	backend->trie =
 		squat_trie_init(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL),
-				status.uidvalidity, storage->lock_method,
+				status.uidvalidity,
+				storage->set->parsed_lock_method,
 				flags, box->file_create_mode,
 				box->file_create_gid);
 
-	env = mail_user_plugin_getenv(box->storage->ns->user, "fts_squat");
+	env = mail_user_plugin_getenv(box->storage->user, "fts_squat");
 	if (env != NULL)
 		fts_backend_squat_set(backend, env);
 	return &backend->backend;

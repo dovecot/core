@@ -23,6 +23,7 @@
 struct maildir_quota_root {
 	struct quota_root root;
 
+	struct mail_namespace *maildirsize_ns;
 	const char *maildirsize_path;
 
 	uint64_t total_bytes;
@@ -36,7 +37,7 @@ struct maildir_quota_root {
 };
 
 struct maildir_list_context {
-	struct mail_storage *storage;
+	struct mailbox_list *list;
 	struct maildir_quota_root *root;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
@@ -123,16 +124,15 @@ static int maildir_sum_dir(const char *dir, uint64_t *total_bytes,
 }
 
 static struct maildir_list_context *
-maildir_list_init(struct maildir_quota_root *root,
-		  struct mail_storage *storage)
+maildir_list_init(struct maildir_quota_root *root, struct mailbox_list *list)
 {
 	struct maildir_list_context *ctx;
 
 	ctx = i_new(struct maildir_list_context, 1);
-	ctx->storage = storage;
 	ctx->root = root;
 	ctx->path = str_new(default_pool, 512);
-	ctx->iter = mailbox_list_iter_init(mail_storage_get_list(storage), "*",
+	ctx->list = list;
+	ctx->iter = mailbox_list_iter_init(list, "*",
 					   MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	return ctx;
 }
@@ -142,7 +142,6 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 {
 	struct quota_rule *rule;
 	struct stat st;
-	bool is_file;
 
 	for (;;) {
 		if (ctx->state == 0) {
@@ -161,9 +160,8 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 		T_BEGIN {
 			const char *path;
 
-			path = mail_storage_get_mailbox_path(ctx->storage,
-							     ctx->info->name,
-							     &is_file);
+			path = mailbox_list_get_path(ctx->list, ctx->info->name,
+					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 			str_truncate(ctx->path, 0);
 			str_append(ctx->path, path);
 			str_append(ctx->path, ctx->state == 0 ?
@@ -198,13 +196,13 @@ static int maildir_list_deinit(struct maildir_list_context *ctx)
 
 static int
 maildirs_check_have_changed(struct maildir_quota_root *root,
-			    struct mail_storage *storage, time_t latest_mtime)
+			    struct mail_namespace *ns, time_t latest_mtime)
 {
 	struct maildir_list_context *ctx;
 	time_t mtime;
 	int ret = 0;
 
-	ctx = maildir_list_init(root, storage);
+	ctx = maildir_list_init(root, ns->list);
 	while (maildir_list_next(ctx, &mtime) != NULL) {
 		if (mtime > latest_mtime) {
 			ret = 1;
@@ -218,8 +216,10 @@ maildirs_check_have_changed(struct maildir_quota_root *root,
 
 static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 {
+	const struct mail_storage_settings *set =
+		root->maildirsize_ns->mail_set;
 	struct quota_root *_root = &root->root;
-	struct mail_storage *const *storages;
+	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
 	struct dotlock *dotlock;
 	const char *p, *dir;
@@ -234,21 +234,21 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	   use the inbox namespace's permissions if possible. */
 	mode = 0600; dir_mode = 0700;
 	gid = dir_gid = (gid_t)-1;
-	storages = array_get(&root->root.quota->storages, &count);
+	namespaces = array_get(&root->root.quota->namespaces, &count);
 	i_assert(count > 0);
 	for (i = 0; i < count; i++) {
-		if ((storages[i]->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
-			mailbox_list_get_permissions(storages[i]->ns->list,
+		if ((namespaces[i]->flags & NAMESPACE_FLAG_INBOX) != 0) {
+			mailbox_list_get_permissions(namespaces[i]->list,
 						     NULL, &mode, &gid);
-			mailbox_list_get_dir_permissions(storages[i]->ns->list,
+			mailbox_list_get_dir_permissions(namespaces[i]->list,
 							 NULL,
 							 &dir_mode, &dir_gid);
 			break;
 		}
 	}
 
-	dotlock_settings.use_excl_lock = storages[0]->set->dotlock_use_excl;
-	dotlock_settings.nfs_flush = storages[0]->set->mail_nfs_storage;
+	dotlock_settings.use_excl_lock = set->dotlock_use_excl;
+	dotlock_settings.nfs_flush = set->mail_nfs_storage;
 	fd = file_dotlock_open_mode(&dotlock_settings, path,
 				    DOTLOCK_CREATE_FLAG_NONBLOCK,
 				    mode, (uid_t)-1, gid, &dotlock);
@@ -317,15 +317,15 @@ static void maildirsize_recalculate_init(struct maildir_quota_root *root)
 	root->recalc_last_stamp = 0;
 }
 
-static int maildirsize_recalculate_storage(struct maildir_quota_root *root,
-					   struct mail_storage *storage)
+static int maildirsize_recalculate_namespace(struct maildir_quota_root *root,
+					     struct mail_namespace *ns)
 {
 	struct maildir_list_context *ctx;
 	const char *dir;
 	time_t mtime;
 	int ret = 0;
 
-	ctx = maildir_list_init(root, storage);
+	ctx = maildir_list_init(root, ns->list);
 	while ((dir = maildir_list_next(ctx, &mtime)) != NULL) {
 		if (mtime > root->recalc_last_stamp)
 			root->recalc_last_stamp = mtime;
@@ -369,19 +369,19 @@ static int maildirsize_recalculate_finish(struct maildir_quota_root *root,
 
 static int maildirsize_recalculate(struct maildir_quota_root *root)
 {
-	struct mail_storage *const *storages;
+	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
 	int ret = 0;
 
 	maildirsize_recalculate_init(root);
 
-	/* count mails from all storages */
-	storages = array_get(&root->root.quota->storages, &count);
+	/* count mails from all namespaces */
+	namespaces = array_get(&root->root.quota->namespaces, &count);
 	for (i = 0; i < count; i++) {
-		if (!quota_root_is_storage_visible(&root->root, storages[i]))
+		if (!quota_root_is_namespace_visible(&root->root, namespaces[i]))
 			continue;
 
-		if (maildirsize_recalculate_storage(root, storages[i]) < 0) {
+		if (maildirsize_recalculate_namespace(root, namespaces[i]) < 0) {
 			ret = -1;
 			break;
 		}
@@ -390,11 +390,11 @@ static int maildirsize_recalculate(struct maildir_quota_root *root)
 	if (ret == 0) {
 		/* check if any of the directories have changed */
 		for (i = 0; i < count; i++) {
-			if (!quota_root_is_storage_visible(&root->root,
-							   storages[i]))
+			if (!quota_root_is_namespace_visible(&root->root,
+							   namespaces[i]))
 				continue;
 
-			ret = maildirs_check_have_changed(root, storages[i],
+			ret = maildirs_check_have_changed(root, namespaces[i],
 						root->recalc_last_stamp);
 			if (ret != 0)
 				break;
@@ -623,7 +623,7 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 		root->limits_initialized = TRUE;
 
 		if (root->maildirsize_path == NULL) {
-			i_warning("quota maildir: No maildir storages, "
+			i_warning("quota maildir: No maildir namespaces, "
 				  "ignoring quota.");
 		}
 	}
@@ -742,8 +742,8 @@ maildir_quota_parse_rule(struct quota_root_settings *root_set ATTR_UNUSED,
 }
 
 static void
-maildir_quota_root_storage_added(struct quota_root *_root,
-				 struct mail_storage *storage)
+maildir_quota_root_namespace_added(struct quota_root *_root,
+				   struct mail_namespace *ns)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 	const char *control_dir;
@@ -751,28 +751,29 @@ maildir_quota_root_storage_added(struct quota_root *_root,
 	if (root->maildirsize_path != NULL)
 		return;
 
-	control_dir = mail_storage_get_mailbox_control_dir(storage, "");
+	control_dir = mailbox_list_get_path(ns->list, NULL,
+					    MAILBOX_LIST_PATH_TYPE_CONTROL);
+	root->maildirsize_ns = ns;
 	root->maildirsize_path =
 		p_strconcat(_root->pool, control_dir,
 			    "/"MAILDIRSIZE_FILENAME, NULL);
 }
 
 static void
-maildir_quota_storage_added(struct quota *quota, struct mail_storage *storage)
+maildir_quota_namespace_added(struct quota *quota, struct mail_namespace *ns)
 {
 	struct quota_root **roots;
 	unsigned int i, count;
 
-	if (strcmp(storage->name, "maildir") != 0)
+	if (strcmp(ns->storage->name, "maildir") != 0)
 		return;
 
 	roots = array_get_modifiable(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		if (roots[i]->backend.name == quota_backend_maildir.name &&
 		    ((roots[i]->ns_prefix == NULL &&
-		      storage->ns->type == NAMESPACE_PRIVATE) ||
-		     roots[i]->ns == storage->ns))
-			maildir_quota_root_storage_added(roots[i], storage);
+		      ns->type == NAMESPACE_PRIVATE) || roots[i]->ns == ns))
+			maildir_quota_root_namespace_added(roots[i], ns);
 	}
 }
 
@@ -840,7 +841,7 @@ struct quota_backend quota_backend_maildir = {
 		maildir_quota_init,
 		maildir_quota_deinit,
 		maildir_quota_parse_rule,
-		maildir_quota_storage_added,
+		maildir_quota_namespace_added,
 		maildir_quota_root_get_resources,
 		maildir_quota_get_resource,
 		maildir_quota_update,

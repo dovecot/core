@@ -274,8 +274,7 @@ static int client_open_raw_mail(struct client *client)
 		"From", "To", "Message-ID", "Subject", "Return-Path",
 		NULL
 	};
-	struct mail_storage *raw_storage =
-		client->raw_mail_user->namespaces->storage;
+	struct mailbox_list *raw_list = client->raw_mail_user->namespaces->list;
 	struct mailbox *box;
 	struct raw_mailbox *raw_box;
 	struct mailbox_header_lookup_ctx *headers_ctx;
@@ -291,18 +290,18 @@ static int client_open_raw_mail(struct client *client)
 						  client->state.mail_data->used);
 	}
 	client->state.raw_box = box =
-		mailbox_open(&raw_storage, "Dovecot Delivery Mail", input,
+		mailbox_open(raw_list, "Dovecot Delivery Mail", input,
 			     MAILBOX_OPEN_NO_INDEX_FILES);
 	i_stream_unref(&input);
 	if (box == NULL) {
 		i_error("Can't open delivery mail as raw: %s",
-			mail_storage_get_last_error(raw_storage, &error));
+			mailbox_list_get_last_error(raw_list, &error));
 		client_rcpt_fail_all(client);
 		return -1;
 	}
 	if (mailbox_sync(box, 0, 0, NULL) < 0) {
 		i_error("Can't sync delivery mail: %s",
-			mail_storage_get_last_error(raw_storage, &error));
+			mailbox_list_get_last_error(raw_list, &error));
 		client_rcpt_fail_all(client);
 		return -1;
 	}
@@ -348,7 +347,7 @@ static void client_input_data_finish(struct client *client)
 		struct mail *mail = client->state.first_saved_mail;
 		struct mailbox_transaction_context *trans = mail->transaction;
 		struct mailbox *box = trans->box;
-		struct mail_user *user = box->storage->ns->user;
+		struct mail_user *user = box->storage->user;
 
 		mail_free(&mail);
 		mailbox_transaction_rollback(&trans);

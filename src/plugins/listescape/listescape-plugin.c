@@ -163,30 +163,31 @@ listescape_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 }
 
 static struct mailbox *
-listescape_mailbox_open(struct mail_storage *storage, const char *name,
-			struct istream *input, enum mailbox_open_flags flags)
+listescape_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
+			const char *name, struct istream *input,
+			enum mailbox_open_flags flags)
 {
-	struct listescape_mail_storage *mstorage =
-		LIST_ESCAPE_CONTEXT(storage);
-	struct listescape_mailbox_list *mlist =
-		LIST_ESCAPE_LIST_CONTEXT(storage->list);
+	struct listescape_mail_storage *mstorage = LIST_ESCAPE_CONTEXT(storage);
+	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
-	if (!mlist->name_escaped)
-		name = list_escape(storage->ns, name, TRUE);
+	if (!mlist->name_escaped && list->hierarchy_sep != list->ns->sep)
+		name = list_escape(list->ns, name, TRUE);
 	return mstorage->module_ctx.super.
-		mailbox_open(storage, name, input, flags);
+		mailbox_open(storage, list, name, input, flags);
 }
 
 static int
-listescape_mailbox_create(struct mail_storage *storage, const char *name,
-			  bool directory)
+listescape_mailbox_create(struct mail_storage *storage,
+			  struct mailbox_list *list,
+			  const char *name, bool directory)
 {
 	struct listescape_mail_storage *mstorage =
 		LIST_ESCAPE_CONTEXT(storage);
 
-	name = list_escape(storage->ns, name, TRUE);
+	if (list->hierarchy_sep != list->ns->sep)
+		name = list_escape(list->ns, name, TRUE);
 	return mstorage->module_ctx.super.
-		mailbox_create(storage, name, directory);
+		mailbox_create(storage, list, name, directory);
 }
 
 static int
@@ -262,9 +263,6 @@ static void listescape_mail_storage_created(struct mail_storage *storage)
 
 	if (listescape_next_hook_mail_storage_created != NULL)
 		listescape_next_hook_mail_storage_created(storage);
-
-	if (storage->list->hierarchy_sep == storage->ns->sep)
-		return;
 
 	mstorage = p_new(storage->pool, struct listescape_mail_storage, 1);
 	mstorage->module_ctx.super = storage->v;

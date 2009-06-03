@@ -93,7 +93,8 @@ static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 bool cmd_copy(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	struct mail_storage *storage;
+	struct mail_namespace *dest_ns;
+	struct mail_storage *dest_storage;
 	struct mailbox *destbox;
 	struct mailbox_transaction_context *t;
         struct mail_search_args *search_args;
@@ -119,18 +120,18 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (ret <= 0)
 		return ret < 0;
 
-	storage = client_find_storage(cmd, &mailbox);
-	if (storage == NULL)
+	dest_ns = client_find_namespace(cmd, &mailbox);
+	if (dest_ns == NULL)
 		return TRUE;
 
-	if (mailbox_equals(client->mailbox, storage, mailbox))
+	if (mailbox_equals(client->mailbox, dest_ns, mailbox))
 		destbox = client->mailbox;
 	else {
-		destbox = mailbox_open(&storage, mailbox, NULL,
+		destbox = mailbox_open(dest_ns->list, mailbox, NULL,
 				       MAILBOX_OPEN_SAVEONLY |
 				       MAILBOX_OPEN_KEEP_RECENT);
 		if (destbox == NULL) {
-			client_send_storage_error(cmd, storage);
+			client_send_list_error(cmd, dest_ns->list);
 			return TRUE;
 		}
 		if (client->enabled_features != 0)
@@ -168,6 +169,7 @@ bool cmd_copy(struct client_command_context *cmd)
 		}
 	}
 
+	dest_storage = mailbox_get_storage(destbox);
 	if (destbox != client->mailbox) {
 		sync_flags |= MAILBOX_SYNC_FLAG_FAST;
 		imap_flags |= IMAP_SYNC_FLAG_SAFE;
@@ -182,7 +184,7 @@ bool cmd_copy(struct client_command_context *cmd)
 			"NO ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
 			"Some of the requested messages no longer exist.");
 	} else {
-		client_send_storage_error(cmd, storage);
+		client_send_storage_error(cmd, dest_storage);
 		return TRUE;
 	}
 }

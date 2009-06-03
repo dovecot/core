@@ -157,9 +157,10 @@ static bool init_mailbox(struct client *client, const char **error_r)
 				 "-ERR [IN-USE] Couldn't sync mailbox.");
 		*error_r = "Can't sync mailbox: Messages keep getting expunged";
 	} else {
-		struct mail_storage *storage = client->inbox_ns->storage;
+		struct mail_storage *storage;
 		enum mail_error error;
 
+		storage = mailbox_get_storage(client->mailbox);
 		*error_r = mail_storage_get_last_error(storage, &error);
 	}
 	buffer_free(&message_sizes_buf);
@@ -216,6 +217,7 @@ static enum uidl_keys parse_uidl_keymask(const char *format)
 struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 			     const struct pop3_settings *set)
 {
+	struct mail_namespace *ns;
 	struct mail_storage *storage;
 	const char *inbox, *ident;
 	struct client *client;
@@ -247,31 +249,31 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	client->user = user;
 
 	inbox = "INBOX";
-	client->inbox_ns = mail_namespace_find(user->namespaces, &inbox);
-	if (client->inbox_ns == NULL) {
+	ns = mail_namespace_find(user->namespaces, &inbox);
+	if (ns == NULL) {
 		client_send_line(client, "-ERR No INBOX namespace for user.");
 		client_destroy(client, "No INBOX namespace for user.");
 		return NULL;
 	}
+	client->inbox_ns = ns;
 
-	storage = client->inbox_ns->storage;
-
-	client->mail_set = mail_storage_get_settings(storage);
 	flags = MAILBOX_OPEN_POP3_SESSION;
 	if (set->pop3_no_flag_updates)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
 	if (set->pop3_lock_session)
 		flags |= MAILBOX_OPEN_KEEP_LOCKED;
-	client->mailbox = mailbox_open(&storage, "INBOX", NULL, flags);
+	client->mailbox = mailbox_open(ns->list, "INBOX", NULL, flags);
 	if (client->mailbox == NULL) {
 		errmsg = t_strdup_printf("Couldn't open INBOX: %s",
-				mail_storage_get_last_error(storage,
-							    &error));
+					 mailbox_list_get_last_error(ns->list,
+								     &error));
 		i_error("%s", errmsg);
 		client_send_line(client, "-ERR [IN-USE] %s", errmsg);
 		client_destroy(client, "Couldn't open INBOX");
 		return NULL;
 	}
+	storage = mailbox_get_storage(client->mailbox);
+	client->mail_set = mail_storage_get_settings(storage);
 
 	if (!init_mailbox(client, &errmsg)) {
 		i_error("Couldn't init INBOX: %s", errmsg);
@@ -468,6 +470,7 @@ int client_send_line(struct client *client, const char *fmt, ...)
 
 void client_send_storage_error(struct client *client)
 {
+	struct mail_storage *storage;
 	enum mail_error error;
 
 	if (mailbox_is_inconsistent(client->mailbox)) {
@@ -477,9 +480,9 @@ void client_send_storage_error(struct client *client)
 		return;
 	}
 
+	storage = mailbox_get_storage(client->mailbox);
 	client_send_line(client, "-ERR %s",
-			 mail_storage_get_last_error(client->inbox_ns->storage,
-						     &error));
+			 mail_storage_get_last_error(storage, &error));
 }
 
 bool client_handle_input(struct client *client)

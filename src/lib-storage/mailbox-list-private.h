@@ -5,6 +5,10 @@
 #include "mailbox-list.h"
 #include "mail-storage-settings.h"
 
+#define MAILBOX_LIST_NAME_MAILDIRPLUSPLUS "maildir++"
+#define MAILBOX_LIST_NAME_IMAPDIR "imapdir"
+#define MAILBOX_LIST_NAME_FS "fs"
+
 struct dirent;
 struct imap_match_glob;
 struct mailbox_tree_context;
@@ -13,8 +17,8 @@ struct mailbox_list_vfuncs {
 	struct mailbox_list *(*alloc)(void);
 	void (*deinit)(struct mailbox_list *list);
 
-	int (*get_storage)(struct mailbox_list *list,
-			   const char **name, struct mail_storage **storage_r);
+	int (*get_storage)(struct mailbox_list **list, const char **name,
+			   struct mail_storage **storage_r);
 	bool (*is_valid_pattern)(struct mailbox_list *list,
 				 const char *pattern);
 	bool (*is_valid_existing_name)(struct mailbox_list *list,
@@ -125,7 +129,6 @@ void mailbox_lists_deinit(void);
 int mailbox_list_settings_parse(const char *data,
 				struct mailbox_list_settings *set,
 				struct mail_namespace *ns,
-				const char **layout, const char **alt_dir_r,
 				const char **error_r);
 
 int mailbox_list_delete_index_control(struct mailbox_list *list,
@@ -146,5 +149,7 @@ void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
 void mailbox_list_set_internal_error(struct mailbox_list *list);
 bool mailbox_list_set_error_from_errno(struct mailbox_list *list);
+void mailbox_list_set_error_from_storage(struct mailbox_list *list,
+					 struct mail_storage *storage);
 
 #endif

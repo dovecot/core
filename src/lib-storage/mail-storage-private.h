@@ -32,18 +32,23 @@ struct mail_storage_vfuncs {
 	void (*class_deinit)(void);
 
 	struct mail_storage *(*alloc)(void);
-	int (*create)(struct mail_storage *storage, const char *data,
+	int (*create)(struct mail_storage *storage, struct mail_namespace *ns,
 		      const char **error_r);
 	void (*destroy)(struct mail_storage *storage);
 
-	bool (*autodetect)(const struct mail_namespace *ns);
+	void (*get_list_settings)(const struct mail_namespace *ns,
+				  struct mailbox_list_settings *set);
+	bool (*autodetect)(const struct mail_namespace *ns,
+			   struct mailbox_list_settings *set);
 
 	struct mailbox *(*mailbox_open)(struct mail_storage *storage,
+					struct mailbox_list *list,
 					const char *name,
 					struct istream *input,
 					enum mailbox_open_flags flags);
 
-	int (*mailbox_create)(struct mail_storage *storage, const char *name,
+	int (*mailbox_create)(struct mail_storage *storage,
+			      struct mailbox_list *list, const char *name,
 			      bool directory);
 	int (*purge)(struct mail_storage *storage);
 };
@@ -66,13 +71,11 @@ struct mail_storage {
 	enum mail_error error;
 
         const struct mail_storage *storage_class;
-	struct mail_namespace *ns;
-	struct mailbox_list *list;
+	struct mail_user *user;
 	const char *temp_path_prefix;
 	const struct mail_storage_settings *set;
 
 	enum mail_storage_flags flags;
-	enum file_lock_method lock_method;
 
 	struct mail_storage_callbacks *callbacks;
 	void *callback_context;
@@ -197,6 +200,7 @@ union mailbox_module_context {
 struct mailbox {
 	char *name;
 	struct mail_storage *storage;
+	struct mailbox_list *list;
 
         struct mailbox_vfuncs v;
 /* private: */

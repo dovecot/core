@@ -148,7 +148,7 @@ static void quota_count_path_add(ARRAY_TYPE(quota_count_path) *paths,
 static int
 get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 {
-	struct mail_storage *const *storages;
+	struct mail_namespace *const *namespaces;
 	ARRAY_TYPE(quota_count_path) paths;
 	const struct quota_count_path *count_paths;
 	unsigned int i, count;
@@ -156,17 +156,19 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 	bool is_file;
 
 	t_array_init(&paths, 8);
-	storages = array_get(&root->quota->storages, &count);
+	namespaces = array_get(&root->quota->namespaces, &count);
 	for (i = 0; i < count; i++) {
-		if (!quota_root_is_storage_visible(root, storages[i]))
+		if (!quota_root_is_namespace_visible(root, namespaces[i]))
 			continue;
 
-		path = mail_storage_get_mailbox_path(storages[i], "", &is_file);
+		is_file = mail_storage_is_mailbox_file(namespaces[i]->storage);
+		path = mailbox_list_get_path(namespaces[i]->list, NULL,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		quota_count_path_add(&paths, path, FALSE);
 
 		/* INBOX may be in different path. */
-		path = mail_storage_get_mailbox_path(storages[i], "INBOX",
-						     &is_file);
+		path = mailbox_list_get_path(namespaces[i]->list, "INBOX",
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		quota_count_path_add(&paths, path, is_file);
 	}
 

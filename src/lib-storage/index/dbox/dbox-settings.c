@@ -11,6 +11,9 @@
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct dbox_settings, name), NULL }
 
+static bool dbox_settings_verify(void *_set, pool_t pool ATTR_UNUSED,
+				 const char **error_r);
+
 static struct setting_define dbox_setting_defines[] = {
 	DEF(SET_UINT, dbox_rotate_size),
 	DEF(SET_UINT, dbox_rotate_min_size),
@@ -38,8 +41,23 @@ static struct setting_parser_info dbox_setting_parser_info = {
 
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct dbox_settings)
+	MEMBER(struct_size) sizeof(struct dbox_settings),
+	MEMBER(check_func) dbox_settings_verify
 };
+
+/* <settings checks> */
+static bool dbox_settings_verify(void *_set, pool_t pool ATTR_UNUSED,
+				 const char **error_r)
+{
+	const struct dbox_settings *set = _set;
+
+	if (set->dbox_max_open_files < 2) {
+		*error_r = "dbox_max_open_files must be at least 2";
+		return FALSE;
+	}
+	return TRUE;
+}
+/* </settings checks> */
 
 const struct setting_parser_info *dbox_get_setting_parser_info(void)
 {

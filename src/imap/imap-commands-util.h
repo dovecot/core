@@ -13,10 +13,6 @@ struct mailbox_keywords;
    sends "Unknown namespace" error message to client. */
 struct mail_namespace *
 client_find_namespace(struct client_command_context *cmd, const char **mailbox);
-/* Finds mail storage for given mailbox from namespaces. If not found,
-   sends "Unknown namespace" error message to client. */
-struct mail_storage *
-client_find_storage(struct client_command_context *cmd, const char **mailbox);
 
 /* If should_exist is TRUE, this function returns TRUE if the mailbox
    exists. If it doesn't exist but would be a valid mailbox name, the
@@ -31,6 +27,9 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"
    error message to client. */
 bool client_verify_open_mailbox(struct client_command_context *cmd);
+
+const char *
+imap_get_error_string(const char *error_string, enum mail_error error);
 
 /* Send last mailbox list error message to client. */
 void client_send_list_error(struct client_command_context *cmd,
@@ -62,7 +61,7 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 			 const ARRAY_TYPE(keyword_indexes) *src);
 
 bool mailbox_equals(const struct mailbox *box1,
-		    const struct mail_storage *storage2,
+		    const struct mail_namespace *ns2,
 		    const char *name2) ATTR_PURE;
 
 void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str);
