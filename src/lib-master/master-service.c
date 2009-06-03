@@ -403,10 +403,8 @@ void master_service_anvil_send(struct master_service *service, const char *cmd)
 
 void master_service_client_connection_destroyed(struct master_service *service)
 {
-	if (service->listeners == NULL) {
-		/* we can listen again */
-		io_listeners_add(service);
-	}
+	/* we can listen again */
+	io_listeners_add(service);
 
 	i_assert(service->total_available_count > 0);
 
@@ -487,9 +485,14 @@ static void master_service_listen(struct master_service_listener *l)
 			return;
 		}
 		/* it's not a socket. probably a fifo. use the "listener"
-		   as the connection fd */
+		   as the connection fd and stop the listener. */
 		io_remove(&l->io);
-		conn.fd = l->fd;
+		conn.fd = dup(l->fd);
+		if (conn.fd == -1) {
+			i_error("dup() failed: %m");
+			return;
+		}
+		io_remove(&l->io);
 	}
 	conn.ssl = l->ssl;
 	net_set_nonblock(conn.fd, TRUE);
@@ -500,7 +503,7 @@ static void master_service_listen(struct master_service_listener *l)
         l->service->callback(&conn);
 }
 
-static void io_listeners_add(struct master_service *service)
+static void io_listeners_init(struct master_service *service)
 {
 	unsigned int i;
 
@@ -515,11 +518,26 @@ static void io_listeners_add(struct master_service *service)
 
 		l->service = service;
 		l->fd = MASTER_LISTEN_FD_FIRST + i;
-		l->io = io_add(MASTER_LISTEN_FD_FIRST + i, IO_READ,
-			       master_service_listen, l);
 
 		if (i >= service->socket_count - service->ssl_socket_count)
 			l->ssl = TRUE;
+	}
+}
+
+static void io_listeners_add(struct master_service *service)
+{
+	unsigned int i;
+
+	if (service->listeners == NULL)
+		io_listeners_init(service);
+
+	for (i = 0; i < service->socket_count; i++) {
+		struct master_service_listener *l = &service->listeners[i];
+
+		if (l->io == NULL) {
+			l->io = io_add(MASTER_LISTEN_FD_FIRST + i, IO_READ,
+				       master_service_listen, l);
+		}
 	}
 }
 
@@ -532,7 +550,6 @@ static void io_listeners_remove(struct master_service *service)
 			if (service->listeners[i].io != NULL)
 				io_remove(&service->listeners[i].io);
 		}
-		i_free_and_null(service->listeners);
 	}
 }
 
