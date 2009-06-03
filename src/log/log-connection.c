@@ -160,13 +160,10 @@ static bool log_connection_handshake(struct log_connection *log,
 					handshake.prefix_len);
 		*data += sizeof(handshake) + handshake.prefix_len;
 	}
-	if (strcmp(log->prefix, MASTER_LOG_PREFIX_NAME) == 0) {
-		if (log->fd != MASTER_LISTEN_FD_FIRST) {
-			i_error("Received master prefix in handshake "
-				"from non-master fd %d", log->fd);
-			return FALSE;
-		}
-		log->master = TRUE;
+	if (strcmp(log->prefix, MASTER_LOG_PREFIX_NAME) == 0 && !log->master) {
+		i_error("Received master prefix in handshake "
+			"from non-master fd %d", log->fd);
+		return FALSE;
 	}
 	log->handshaked = TRUE;
 	return TRUE;
@@ -202,7 +199,7 @@ static void log_connection_input(struct log_connection *log)
 	}
 }
 
-struct log_connection *log_connection_create(int fd)
+struct log_connection *log_connection_create(int fd, bool master)
 {
 	struct log_connection *log;
 
@@ -211,6 +208,7 @@ struct log_connection *log_connection_create(int fd)
 	log->io = io_add(fd, IO_READ, log_connection_input, log);
 	log->clients = hash_table_create(default_pool, default_pool, 0,
 					 NULL, NULL);
+	log->master = master;
 	array_idx_set(&logs_by_fd, fd, &log);
 
 	DLLIST_PREPEND(&log_connections, log);

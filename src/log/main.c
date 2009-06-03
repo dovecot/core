@@ -40,7 +40,9 @@ static void main_deinit(void)
 
 static void client_connected(const struct master_service_connection *conn)
 {
-	log_connection_create(conn->fd);
+	bool master = conn->listen_fd == MASTER_LISTEN_FD_FIRST;
+
+	log_connection_create(conn->fd, master);
 }
 
 int main(int argc, char *argv[])

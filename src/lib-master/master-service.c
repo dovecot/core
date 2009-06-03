@@ -488,11 +488,11 @@ static void master_service_listen(struct master_service_listener *l)
 		   as the connection fd and stop the listener. */
 		io_remove(&l->io);
 		conn.fd = dup(l->fd);
+		conn.listen_fd = l->fd;
 		if (conn.fd == -1) {
 			i_error("dup() failed: %m");
 			return;
 		}
-		io_remove(&l->io);
 	}
 	conn.ssl = l->ssl;
 	net_set_nonblock(conn.fd, TRUE);
