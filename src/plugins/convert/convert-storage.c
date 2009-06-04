@@ -408,7 +408,8 @@ int convert_storage(const char *source_data,
 	struct mail_namespace *source_ns;
 	struct dotlock *dotlock;
 	struct mail_namespace_settings ns_set;
-	const char *home, *path, *error;
+	const char *home, *path, *src_root, *error;
+	struct stat st;
 	int ret;
 
 	memset(&ns_set, 0, sizeof(ns_set));
@@ -440,10 +441,12 @@ int convert_storage(const char *source_data,
 	}
 
 	/* just in case if another process just had converted the mailbox,
-	   reopen the source storage */
-	mail_storage_unref(&source_ns->storage);
-	if (mail_storage_create(source_ns, NULL,
-				MAIL_STORAGE_FLAG_NO_AUTOCREATE, &error) < 0) {
+	   see if it still exists */
+	src_root = mailbox_list_get_path(source_ns->list, NULL,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (stat(src_root, &st) < 0) {
+		if (errno != ENOENT)
+			i_error("stat(%s) failed: %m", src_root);
 		/* No need for conversion anymore. */
 		file_dotlock_delete(&dotlock);
 		return 0;
@@ -459,17 +462,13 @@ int convert_storage(const char *source_data,
 	if (ret == 0) {
 		/* all finished. rename the source directory to mark the
 		   move as finished. */
-		const char *src, *dest;
+		const char *dest;
 
-		src = mailbox_list_get_path(source_ns->list, NULL,
-					    MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		if (src != NULL) {
-			dest = t_strconcat(src, "-converted", NULL);
-			if (rename(src, dest) < 0) {
-				i_error("Mailbox conversion: "
-					"rename(%s, %s) failed: %m", src, dest);
-				/* return success anyway */
-			}
+		dest = t_strconcat(src_root, "-converted", NULL);
+		if (rename(src_root, dest) < 0) {
+			i_error("Mailbox conversion: rename(%s, %s) failed: %m",
+				src_root, dest);
+			/* return success anyway */
 		}
 		ret = 1;
 	}
