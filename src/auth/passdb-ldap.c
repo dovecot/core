@@ -28,6 +28,7 @@ struct passdb_ldap_request {
 		struct ldap_request_search search;
 		struct ldap_request_bind bind;
 	} request;
+	const char *dn;
 
 	union {
 		verify_plain_callback_t *verify_plain;
@@ -221,36 +222,36 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 {
 	struct passdb_ldap_request *passdb_ldap_request =
 		(struct passdb_ldap_request *)ldap_request;
-	struct ldap_request_bind *brequest;
 	struct auth_request *auth_request = ldap_request->auth_request;
-	LDAPMessage *entry;
+	struct ldap_request_bind *brequest;
 	char *dn;
 
-	if (res != NULL && ldap_msgtype(res) != LDAP_RES_SEARCH_RESULT) {
-		if (passdb_ldap_request->entries++ == 0) {
-			/* first entry */
-			ldap_query_save_result(conn, res, auth_request);
+	if (res != NULL && ldap_msgtype(res) == LDAP_RES_SEARCH_ENTRY) {
+		if (passdb_ldap_request->entries++ > 0) {
+			/* too many replies */
+			return;
 		}
-		return;
-	}
 
-	if (res == NULL || passdb_ldap_request->entries != 0) {
+		/* first entry */
+		ldap_query_save_result(conn, res, auth_request);
+
+		/* save dn */
+		dn = ldap_get_dn(conn->ld, res);
+		passdb_ldap_request->dn = p_strdup(auth_request->pool, dn);
+		ldap_memfree(dn);
+	} else if (res == NULL || passdb_ldap_request->entries != 1) {
+		/* failure */
 		ldap_bind_lookup_dn_fail(auth_request, passdb_ldap_request, res);
-		return;
+	} else {
+		/* convert search request to bind request */
+		brequest = &passdb_ldap_request->request.bind;
+		memset(brequest, 0, sizeof(*brequest));
+		brequest->request.type = LDAP_REQUEST_TYPE_BIND;
+		brequest->request.auth_request = auth_request;
+		brequest->dn = passdb_ldap_request->dn;
+
+		ldap_auth_bind(conn, brequest);
 	}
-
-	/* convert search request to bind request */
-	brequest = &passdb_ldap_request->request.bind;
-	memset(brequest, 0, sizeof(*brequest));
-	brequest->request.type = LDAP_REQUEST_TYPE_BIND;
-	brequest->request.auth_request = auth_request;
-
-	/* switch the handler to the authenticated bind handler */
-	dn = ldap_get_dn(conn->ld, entry);
-	brequest->dn = p_strdup(auth_request->pool, dn);
-	ldap_memfree(dn);
-
-	ldap_auth_bind(conn, brequest);
 }
 
 static void ldap_lookup_pass(struct auth_request *auth_request,
