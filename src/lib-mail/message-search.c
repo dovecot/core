@@ -148,6 +148,11 @@ bool message_search_more(struct message_search_context *ctx,
 		   content type */
 		message_search_reset(ctx);
 		ctx->prev_part = raw_block->part;
+
+		if (hdr == NULL) {
+			/* we're returning to a multipart message. */
+			ctx->content_type_text = FALSE;
+		}
 	}
 
 	if (hdr != NULL) {
