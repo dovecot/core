@@ -1116,7 +1116,7 @@ static void index_storage_search_notify(struct mailbox *box,
 		/* set the search time in here, in case a plugin
 		   already spent some time indexing the mailbox */
 		ctx->search_start_time = ioloop_timeval;
-	} else if (box->storage->callbacks->notify_ok != NULL &&
+	} else if (box->storage->callbacks.notify_ok != NULL &&
 		   !ctx->mail_ctx.progress_hidden) {
 		percentage = ctx->mail_ctx.progress_cur * 100.0 /
 			ctx->mail_ctx.progress_max;
@@ -1132,7 +1132,7 @@ static void index_storage_search_notify(struct mailbox *box,
 			text = t_strdup_printf("Searched %d%% of the mailbox, "
 					       "ETA %d:%02d", (int)percentage,
 					       secs/60, secs%60);
-			box->storage->callbacks->
+			box->storage->callbacks.
 				notify_ok(box, text,
 					  box->storage->callback_context);
 		} T_END;

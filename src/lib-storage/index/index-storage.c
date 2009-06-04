@@ -339,22 +339,22 @@ void index_storage_lock_notify(struct index_mailbox *ibox,
 	case MAILBOX_LOCK_NOTIFY_NONE:
 		break;
 	case MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT:
-		if (storage->callbacks->notify_no == NULL)
+		if (storage->callbacks.notify_no == NULL)
 			break;
 
 		str = t_strdup_printf("Mailbox is locked, will abort in "
 				      "%u seconds", secs_left);
-		storage->callbacks->notify_no(&ibox->box, str,
-					      storage->callback_context);
+		storage->callbacks.notify_no(&ibox->box, str,
+					     storage->callback_context);
 		break;
 	case MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE:
-		if (storage->callbacks->notify_ok == NULL)
+		if (storage->callbacks.notify_ok == NULL)
 			break;
 
 		str = t_strdup_printf("Stale mailbox lock file detected, "
 				      "will override in %u seconds", secs_left);
-		storage->callbacks->notify_ok(&ibox->box, str,
-					      storage->callback_context);
+		storage->callbacks.notify_ok(&ibox->box, str,
+					     storage->callback_context);
 		break;
 	}
 }

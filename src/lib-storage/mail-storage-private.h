@@ -89,7 +89,7 @@ struct mail_storage {
 
 	enum mail_storage_flags flags;
 
-	struct mail_storage_callbacks *callbacks;
+	struct mail_storage_callbacks callbacks;
 	void *callback_context;
 
 	/* Module-specific contexts. See mail_storage_module_id. */

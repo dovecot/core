@@ -480,7 +480,7 @@ static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 	if (ioloop_time - ctx->search_start_time.tv_sec >=
 	    FTS_BUILD_NOTIFY_INTERVAL_SECS) {
 		/* we notified at least once */
-		box->storage->callbacks->
+		box->storage->callbacks.
 			notify_ok(box, "Mailbox indexing finished",
 				  box->storage->callback_context);
 	}
@@ -502,7 +502,7 @@ static void fts_build_notify(struct fts_storage_build_context *ctx)
 		/* set the search time in here, in case a plugin
 		   already spent some time indexing the mailbox */
 		ctx->search_start_time = ioloop_timeval;
-	} else if (box->storage->callbacks->notify_ok != NULL) {
+	} else if (box->storage->callbacks.notify_ok != NULL) {
 		range = array_idx(&ctx->search_args->args->value.seqset, 0);
 		percentage = (ctx->mail->seq - range->seq1) * 100.0 /
 			(range->seq2 - range->seq1);
@@ -518,7 +518,7 @@ static void fts_build_notify(struct fts_storage_build_context *ctx)
 			text = t_strdup_printf("Indexed %d%% of the mailbox, "
 					       "ETA %d:%02d", (int)percentage,
 					       secs/60, secs%60);
-			box->storage->callbacks->
+			box->storage->callbacks.
 				notify_ok(box, text,
 				box->storage->callback_context);
 		} T_END;

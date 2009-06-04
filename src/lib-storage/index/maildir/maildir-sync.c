@@ -238,8 +238,8 @@ void maildir_sync_notify(struct maildir_sync_context *ctx)
 	if (now - ctx->last_notify > MAIL_STORAGE_STAYALIVE_SECS) {
 		struct mailbox *box = &ctx->mbox->ibox.box;
 
-		if (box->storage->callbacks->notify_ok != NULL) {
-			box->storage->callbacks->
+		if (box->storage->callbacks.notify_ok != NULL) {
+			box->storage->callbacks.
 				notify_ok(box, "Hang in there..",
 					  box->storage->callback_context);
 		}
@@ -793,8 +793,8 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 			return -1;
 		}
 
-		if (storage->callbacks->notify_no != NULL) {
-			storage->callbacks->notify_no(&ctx->mbox->ibox.box,
+		if (storage->callbacks.notify_no != NULL) {
+			storage->callbacks.notify_no(&ctx->mbox->ibox.box,
 				"Internal mailbox synchronization failure, "
 				"showing only old mails.",
 				storage->callback_context);
