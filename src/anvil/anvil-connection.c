@@ -27,6 +27,7 @@ struct anvil_connection {
 
 	unsigned int version_received:1;
 	unsigned int handshaked:1;
+	unsigned int master:1;
 };
 
 struct anvil_connection *anvil_connections = NULL;
@@ -73,7 +74,7 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "KILL: Not enough parameters";
 			return -1;
 		}
-		if (conn->fd != MASTER_LISTEN_FD_FIRST) {
+		if (!conn->master) {
 			*error_r = "KILL sent by a non-master connection";
 			return -1;
 		}
@@ -134,7 +135,7 @@ static void anvil_connection_input(void *context)
 	}
 }
 
-struct anvil_connection *anvil_connection_create(int fd)
+struct anvil_connection *anvil_connection_create(int fd, bool master)
 {
 	struct anvil_connection *conn;
 
@@ -143,6 +144,7 @@ struct anvil_connection *anvil_connection_create(int fd)
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->io = io_add(fd, IO_READ, anvil_connection_input, conn);
+	conn->master = master;
 	DLLIST_PREPEND(&anvil_connections, conn);
 	return conn;
 }

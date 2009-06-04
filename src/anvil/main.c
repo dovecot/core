@@ -4,6 +4,7 @@
 #include "array.h"
 #include "env-util.h"
 #include "master-service.h"
+#include "master-interface.h"
 #include "connect-limit.h"
 #include "anvil-connection.h"
 
@@ -14,7 +15,9 @@ struct connect_limit *connect_limit;
 
 static void client_connected(const struct master_service_connection *conn)
 {
-	anvil_connection_create(conn->fd);
+	bool master = conn->listen_fd == MASTER_LISTEN_FD_FIRST;
+
+	anvil_connection_create(conn->fd, master);
 }
 
 int main(int argc, char *argv[])
