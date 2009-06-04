@@ -425,11 +425,12 @@ void master_service_client_connection_destroyed(struct master_service *service)
 	}
 	master_status_update(service);
 
-	if (service->io_status_error == NULL &&
+	if ((service->io_status_error == NULL || service->listeners == NULL) &&
 	    service->master_status.available_count ==
 	    service->total_available_count) {
-		/* master has closed the connection and we have nothing else
-		   to do anymore. */
+		/* we've finished handling all clients, and
+		   a) master has closed the connection
+		   b) there are no listeners (std-client?) */
 		master_service_stop(service);
 	}
 }
