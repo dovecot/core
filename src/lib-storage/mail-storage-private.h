@@ -180,8 +180,7 @@ struct mailbox_vfuncs {
 	struct mailbox_header_lookup_ctx *
 		(*header_lookup_init)(struct mailbox *box,
 				      const char *const headers[]);
-	void (*header_lookup_ref)(struct mailbox_header_lookup_ctx *ctx);
-	void (*header_lookup_unref)(struct mailbox_header_lookup_ctx *ctx);
+	void (*header_lookup_deinit)(struct mailbox_header_lookup_ctx *ctx);
 
 	struct mail_search_context *
 	(*search_init)(struct mailbox_transaction_context *t,
@@ -390,6 +389,7 @@ struct mailbox_sync_context {
 struct mailbox_header_lookup_ctx {
 	struct mailbox *box;
 	const char *const *headers;
+	int refcount;
 };
 
 /* Modules should use do "my_id = mail_storage_module_id++" and

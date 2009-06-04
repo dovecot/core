@@ -885,6 +885,7 @@ index_header_lookup_init_real(struct mailbox *box, const char *const headers[])
 	pool = pool_alloconly_create("index_header_lookup_ctx", 1024);
 	ctx = p_new(pool, struct index_header_lookup_ctx, 1);
 	ctx->ctx.box = box;
+	ctx->ctx.refcount = 1;
 	ctx->pool = pool;
 	ctx->count = count;
 
@@ -911,15 +912,7 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 	return ctx;
 }
 
-void index_header_lookup_ref(struct mailbox_header_lookup_ctx *_ctx)
-{
-	struct index_header_lookup_ctx *ctx =
-		(struct index_header_lookup_ctx *)_ctx;
-
-	pool_ref(ctx->pool);
-}
-
-void index_header_lookup_unref(struct mailbox_header_lookup_ctx *_ctx)
+void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *_ctx)
 {
 	struct index_header_lookup_ctx *ctx =
 		(struct index_header_lookup_ctx *)_ctx;

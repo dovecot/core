@@ -150,8 +150,7 @@ bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t modseq,
 
 struct mailbox_header_lookup_ctx *
 index_header_lookup_init(struct mailbox *box, const char *const headers[]);
-void index_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx);
-void index_header_lookup_unref(struct mailbox_header_lookup_ctx *ctx);
+void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx);
 
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *t,
