@@ -148,6 +148,9 @@ dbox_open(struct dbox_storage *storage, struct mailbox_list *list,
 	pool_t pool;
 	int ret;
 
+	/* dbox can't work without index files */
+	flags &= ~MAILBOX_OPEN_NO_INDEX_FILES;
+
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 

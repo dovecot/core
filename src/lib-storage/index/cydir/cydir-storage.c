@@ -110,6 +110,9 @@ cydir_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
 		return NULL;
 	}
 
+	/* cydir can't work without index files */
+	flags &= ~MAILBOX_OPEN_NO_INDEX_FILES;
+
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0)
