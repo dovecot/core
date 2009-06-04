@@ -249,6 +249,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 	if (rebuild) {
 		if (dbox_storage_rebuild(mbox->storage) < 0)
 			return -1;
+		index_mailbox_reset_uidvalidity(&mbox->ibox);
 		storage_rebuilt = TRUE;
 	}
 
