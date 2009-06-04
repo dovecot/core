@@ -205,10 +205,14 @@ static void dbox_write_index_header(struct mailbox *box)
 	struct dbox_index_header hdr;
 	uint32_t uid_validity;
 
+	if (dbox_map_open(mbox->storage->map, TRUE) < 0)
+		return;
+
 	trans = mail_index_transaction_begin(mbox->ibox.view, 0);
 
 	/* set dbox header */
 	memset(&hdr, 0, sizeof(hdr));
+	hdr.map_uid_validity = dbox_map_get_uid_validity(mbox->storage->map);
 	mail_index_update_header_ext(trans, mbox->dbox_hdr_ext_id, 0,
 				     &hdr, sizeof(hdr));
 
