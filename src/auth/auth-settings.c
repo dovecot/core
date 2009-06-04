@@ -181,6 +181,11 @@ static bool auth_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct auth_settings *set = _set;
 
+	if (set->debug_passwords)
+		set->debug = TRUE;
+	if (set->debug)
+		set->verbose = TRUE;
+
 	if (set->name == NULL) {
 		*error_r = "auth section is missing name";
 		return FALSE;
