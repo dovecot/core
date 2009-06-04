@@ -459,11 +459,11 @@ mail_storage_service_init_log(struct master_service *service,
 	} T_END;
 }
 
-struct mail_user *
-mail_storage_service_init_user(struct master_service *service,
-			       const struct mail_storage_service_input *_input,
-			       const struct setting_parser_info *set_roots[],
-			       enum mail_storage_service_flags flags)
+static struct mail_user *
+init_user_real(struct master_service *service,
+	       const struct mail_storage_service_input *_input,
+	       const struct setting_parser_info *set_roots[],
+	       enum mail_storage_service_flags flags)
 {
 	struct mail_storage_service_input input = *_input;
 	const struct master_service_settings *set;
@@ -548,6 +548,20 @@ mail_storage_service_init_user(struct master_service *service,
 					   FALSE, &mail_user, &error) < 0)
 		i_fatal("%s", error);
 	return mail_user;
+}
+
+struct mail_user *
+mail_storage_service_init_user(struct master_service *service,
+			       const struct mail_storage_service_input *_input,
+			       const struct setting_parser_info *set_roots[],
+			       enum mail_storage_service_flags flags)
+{
+	struct mail_user *user;
+
+	T_BEGIN {
+		user = init_user_real(service, _input, set_roots, flags);
+	} T_END;
+	return user;
 }
 
 void mail_storage_service_deinit_user(void)
@@ -728,8 +742,11 @@ void *mail_storage_service_multi_user_get_set(struct mail_storage_service_multi_
 
 void *mail_storage_service_get_settings(struct master_service *service)
 {
-	void **sets;
+	void **sets, *set;
 
-	sets = master_service_settings_get_others(service);
-	return sets[1];
+	T_BEGIN {
+		sets = master_service_settings_get_others(service);
+		set = sets[1];
+	} T_END;
+	return set;
 }
