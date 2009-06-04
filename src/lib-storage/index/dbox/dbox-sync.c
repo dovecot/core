@@ -199,29 +199,39 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	return ret;
 }
 
-static int dbox_refresh_header(struct dbox_mailbox *mbox)
+static int dbox_refresh_header(struct dbox_mailbox *mbox, bool retry)
 {
+	struct mail_index_view *view;
 	const struct dbox_index_header *hdr;
 	const void *data;
 	size_t data_size;
+	int ret;
 
-	mail_index_get_header_ext(mbox->ibox.view, mbox->dbox_hdr_ext_id,
+	view = mail_index_view_open(mbox->ibox.index);
+	mail_index_get_header_ext(view, mbox->dbox_hdr_ext_id,
 				  &data, &data_size);
 	if (data_size != sizeof(*hdr)) {
+		if (retry) {
+			mail_index_view_close(&view);
+			(void)mail_index_refresh(mbox->ibox.index);
+			return dbox_refresh_header(mbox, FALSE);
+		}
+
 		/* data_size=0 means it's never been synced as dbox.
 		   data_size=4 is for backwards compatibility */
 		if (data_size != 0 && data_size != 4) {
 			i_warning("dbox %s: Invalid dbox header size",
 				  mbox->path);
 		}
-		return -1;
-	}
-	hdr = data;
+		ret = -1;
+	} else {
+		hdr = data;
 
-	mbox->highest_maildir_uid = hdr->highest_maildir_uid;
-	if (mbox->storage->sync_rebuild)
-		return -1;
-	return 0;
+		mbox->highest_maildir_uid = hdr->highest_maildir_uid;
+		ret = mbox->storage->sync_rebuild ? -1 : 0;
+	}
+	mail_index_view_close(&view);
+	return ret;
 }
 
 int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
@@ -234,7 +244,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 	int ret;
 	bool rebuild, storage_rebuilt = FALSE;
 
-	rebuild = dbox_refresh_header(mbox) < 0 ||
+	rebuild = dbox_refresh_header(mbox, TRUE) < 0 ||
 		(flags & DBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
 	if (rebuild) {
 		if (dbox_storage_rebuild(mbox->storage) < 0)
@@ -269,7 +279,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 		}
 
 		/* now that we're locked, check again if we want to rebuild */
-		if (dbox_refresh_header(mbox) < 0)
+		if (dbox_refresh_header(mbox, FALSE) < 0)
 			ret = 0;
 		else {
 			if ((ret = dbox_sync_index(ctx)) > 0)
