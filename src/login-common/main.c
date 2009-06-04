@@ -41,7 +41,7 @@ static void client_connected(const struct master_service_connection *conn)
 		local_port = 0;
 	}
 
-	pool = pool_alloconly_create("login client", 1024);
+	pool = pool_alloconly_create("login client", 3*1024);
 	set = login_settings_read(master_service, pool, &local_ip,
 				  &conn->remote_ip);
 
@@ -188,7 +188,7 @@ int main(int argc, char *argv[], char *envp[])
 #endif
 
 	process_title_init(argv, envp);
-	set_pool = pool_alloconly_create("global login settings", 1024);
+	set_pool = pool_alloconly_create("global login settings", 4096);
 	global_login_settings =
 		login_settings_read(master_service, set_pool, NULL, NULL);
 

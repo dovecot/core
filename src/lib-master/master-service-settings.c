@@ -200,7 +200,7 @@ int master_service_settings_read(struct master_service *service,
 		p_clear(service->set_pool);
 	} else {
 		service->set_pool =
-			pool_alloconly_create("master service settings", 4096);
+			pool_alloconly_create("master service settings", 8192);
 	}
 
 	if (input->dyn_parsers != NULL) {

@@ -211,7 +211,7 @@ module_dir_load_real(const char *dir, const char *module_names,
 		return NULL;
 	}
 
-	pool = pool_alloconly_create("module loader", 1024);
+	pool = pool_alloconly_create("module loader", 4096);
 	p_array_init(&names, pool, 32);
 
 	modules = NULL;
