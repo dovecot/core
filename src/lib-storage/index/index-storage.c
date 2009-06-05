@@ -598,6 +598,15 @@ int index_keywords_create(struct mailbox *_box, const char *const keywords[],
 	return 0;
 }
 
+struct mail_keywords *
+index_keywords_create_from_indexes(struct mailbox *_box,
+				   const ARRAY_TYPE(keyword_indexes) *idx)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *)_box;
+
+	return mail_index_keywords_create_from_indexes(ibox->index, idx);
+}
+
 void index_keywords_free(struct mail_keywords *keywords)
 {
 	mail_index_keywords_free(&keywords);

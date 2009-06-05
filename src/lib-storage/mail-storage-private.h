@@ -149,6 +149,9 @@ struct mailbox_vfuncs {
 			       const char *const keywords[],
 			       struct mail_keywords **keywords_r,
 			       bool skip_invalid);
+	struct mail_keywords *
+		(*keywords_create_from_indexes)(struct mailbox *box,
+						const ARRAY_TYPE(keyword_indexes) *idx);
 	void (*keywords_free)(struct mail_keywords *keywords);
 	bool (*keyword_is_valid)(struct mailbox *box, const char *keyword,
 				 const char **error_r);

@@ -66,7 +66,8 @@ void mail_storage_class_unregister(struct mail_storage *storage_class)
 		}
 	}
 
-	storage_class->v.class_deinit();
+	if (storage_class->v.class_deinit != NULL)
+		storage_class->v.class_deinit();
 }
 
 struct mail_storage *mail_storage_find_class(const char *name)
@@ -322,7 +323,8 @@ void mail_storage_unref(struct mail_storage **_storage)
 
 	DLLIST_REMOVE(&storage->user->storages, storage);
 
-	storage->v.destroy(storage);
+	if (storage->v.destroy != NULL)
+		storage->v.destroy(storage);
 	i_free(storage->error_string);
 	pool_unref(&storage->pool);
 }
@@ -640,6 +642,13 @@ mailbox_keywords_create_valid(struct mailbox *box,
 	if (box->v.keywords_create(box, keywords, &kw, TRUE) < 0)
 		i_unreached();
 	return kw;
+}
+
+struct mail_keywords *
+mailbox_keywords_create_from_indexes(struct mailbox *box,
+				     const ARRAY_TYPE(keyword_indexes) *idx)
+{
+	return box->v.keywords_create_from_indexes(box, idx);
 }
 
 void mailbox_keywords_free(struct mailbox *box,

@@ -236,6 +236,7 @@ struct mailbox raw_mailbox = {
 		index_transaction_rollback,
 		index_transaction_set_max_modseq,
 		index_keywords_create,
+		index_keywords_create_from_indexes,
 		index_keywords_free,
 		index_keyword_is_valid,
 		index_storage_get_seq_range,

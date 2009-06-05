@@ -106,6 +106,9 @@ bool index_storage_is_inconsistent(struct mailbox *box);
 
 int index_keywords_create(struct mailbox *box, const char *const keywords[],
 			  struct mail_keywords **keywords_r, bool skip_invalid);
+struct mail_keywords *
+index_keywords_create_from_indexes(struct mailbox *box,
+				   const ARRAY_TYPE(keyword_indexes) *idx);
 void index_keywords_free(struct mail_keywords *keywords);
 bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
 			    const char **error_r);
