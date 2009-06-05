@@ -1,17 +1,21 @@
+ - search: use mail_get_parts() only when it's already cached. if it's not,
+   add it to cache afterwards.
+ - mail_storage_service_multi_*() doesn't support giving module/service to
+   config lookups
+ - check v.copy() failure handling. now they leak memory?
+ - COPY: Don't do time() for every 100 msgs, do it dynamically. dbox is fast!
+ - per-ip configuration reading code is crap.
+ - config protocol should tell after lookups if there's something more specific
+   also available so login process wouldn't have to do config lookup for
+   each connection if there's no per-IP config.
  - move ssl proxying code to lib-master
- - rawlog is broken because it can't get $HOME etc.
- - dovecot stop, dovecot reload
  - log prefixes work in a weird way now. failures.c prefixes are used only
    when not doing internal logging. that won't work in future..
+     - mail_log_prefix doesn't work
  - library dependency tracking still broken. .la changes get noticed,
    .libs/*.a changes not
  - o_stream_set_file_path()
  - dict pooling
- - config rewrite
-   - dovecot -o setting=something overriding
-   - fix dovecot -n, dovecot -a
-   - export only the stuff that's actually wanted by the service. requires
-     some kind of dependencies or something to get e.g. imap to load also mail.
 
 	/* currently non-external transactions can be applied multiple times,
 	   causing multiple increments. */
@@ -213,7 +217,6 @@
       namespace
 
  - lib-storage
-    - rename: allow moving between storages, as long as they're of same type
     - x search charset asdf all -> should fail
 
  - login
@@ -237,12 +240,11 @@
       failed.
 
  - auth
-    - v2.0: add auth_plugins setting, put all plugins into the same dir
     - with blocking passdb we're not caching lookups if the password was wrong
     - non-plaintext authentication doesn't support all features:
         - multiple passdbs don't work, only the first one is used
 	- auth cache's last_success password change check doesn't exist
-    - allow returning multiple gids
+	- auth_cache_negative_ttl doesn't check password mismatches
     - SIGHUP restarts auth processes .. but does it wait until they've finished
       with all requests? no.
     - does dovecot-auth really break when it runs out of fds?
