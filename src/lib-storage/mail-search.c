@@ -508,7 +508,8 @@ mail_search_args_analyze(struct mail_search_arg *args,
 }
 
 static struct mail_keywords *
-mail_search_keywords_merge(struct mail_keywords **_kw1,
+mail_search_keywords_merge(struct mailbox *box,
+			   struct mail_keywords **_kw1,
 			   struct mail_keywords **_kw2)
 {
 	struct mail_keywords *kw1 = *_kw1, *kw2 = *_kw2;
@@ -530,16 +531,17 @@ mail_search_keywords_merge(struct mail_keywords **_kw1,
 			if (j == kw1->count)
 				array_append(&new_indexes, kw2->idx+i, 1);
 		}
-		new_kw = mail_index_keywords_create_from_indexes(kw1->index,
-								 &new_indexes);
+		new_kw = mailbox_keywords_create_from_indexes(box,
+							      &new_indexes);
 	} T_END;
-	mail_index_keywords_free(_kw1);
-	mail_index_keywords_free(_kw2);
+	mailbox_keywords_free(box, _kw1);
+	mailbox_keywords_free(box, _kw2);
 	return new_kw;
 }
 
 static void
-mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
+mail_search_args_simplify_sub(struct mailbox *box,
+			      struct mail_search_arg *args, bool parent_and)
 {
 	struct mail_search_arg *sub, *prev = NULL;
 	struct mail_search_arg *prev_flags_arg, *prev_not_flags_arg;
@@ -577,7 +579,7 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 		if (args->type == SEARCH_SUB ||
 		    args->type == SEARCH_OR ||
 		    args->type == SEARCH_INTHREAD) {
-			mail_search_args_simplify_sub(args->value.subargs,
+			mail_search_args_simplify_sub(box, args->value.subargs,
 						      args->type != SEARCH_OR);
 		}
 
@@ -611,7 +613,7 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 				prev_kw_arg = args;
 			else {
 				prev_kw_arg->value.keywords =
-					mail_search_keywords_merge(
+					mail_search_keywords_merge(box,
 						&prev_kw_arg->value.keywords,
 						&args->value.keywords);
 				prev->next = args->next;
@@ -624,7 +626,7 @@ mail_search_args_simplify_sub(struct mail_search_arg *args, bool parent_and)
 				prev_not_kw_arg = args;
 			else {
 				prev_not_kw_arg->value.keywords =
-					mail_search_keywords_merge(
+					mail_search_keywords_merge(box,
 					       &prev_not_kw_arg->value.keywords,
 					       &args->value.keywords);
 				prev->next = args->next;
@@ -708,11 +710,11 @@ void mail_search_args_simplify(struct mail_search_args *args)
 {
 	args->simplified = TRUE;
 
-	mail_search_args_simplify_sub(args->args, TRUE);
+	mail_search_args_simplify_sub(args->box, args->args, TRUE);
 	if (mail_search_args_unnest_inthreads(args, &args->args,
 					      FALSE, TRUE)) {
 		/* we may have added some extra SUBs that could be dropped */
-		mail_search_args_simplify_sub(args->args, TRUE);
+		mail_search_args_simplify_sub(args->box, args->args, TRUE);
 	}
 }
 
