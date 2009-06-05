@@ -1,6 +1,7 @@
 SUBDIRS = list index register
 
 noinst_LTLIBRARIES = libstorage.la libstorage_service.la
+noinst_LIBRARIES = libstorage_test.a
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -64,6 +65,11 @@ libdovecot_storage_la_SOURCES =
 libdovecot_storage_la_LIBADD = $(shlibs)
 libdovecot_storage_la_DEPENDENCIES = $(shlibs)
 libdovecot_storage_la_LDFLAGS = -export-dynamic
+
+libstorage_test_a_SOURCES = \
+	test-mail-storage.c \
+	test-mailbox.c \
+	test-mail.c
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)
