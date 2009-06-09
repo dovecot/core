@@ -1,0 +1,16 @@
+#ifndef TEST_MAIL_STORAGE_H
+#define TEST_MAIL_STORAGE_H
+
+struct mail_storage *test_mail_storage_create(void);
+
+struct mailbox *
+test_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
+		  const char *name, struct istream *input,
+		  enum mailbox_open_flags flags);
+
+struct mail *
+test_mailbox_mail_alloc(struct mailbox_transaction_context *t,
+			enum mail_fetch_field wanted_fields,
+			struct mailbox_header_lookup_ctx *wanted_headers);
+
+#endif
