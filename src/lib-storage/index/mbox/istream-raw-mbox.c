@@ -336,7 +336,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 							   from_start_pos);
 					break;
 				}
-				from_start_pos = (size_t)-1;
+				from_after_pos = (size_t)-1;
 			}
 		} else {
 			fromp = mbox_from;
@@ -348,7 +348,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	/* we want to go at least one byte further next time */
 	rstream->input_peak_offset = stream->istream.v_offset + i;
 
-	if (from_start_pos != (size_t)-1) {
+	if (from_after_pos != (size_t)-1) {
 		/* we're waiting for the \n at the end of From-line */
 		new_pos = from_start_pos;
 	} else {
