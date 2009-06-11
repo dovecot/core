@@ -4,7 +4,7 @@ pkglibexec_PROGRAMS = \
 	rawlog \
 	gdbhelper \
 	idxview \
-	imap_utf7 \
+	imap-utf7 \
 	listview \
 	logview \
 	maildirlock \

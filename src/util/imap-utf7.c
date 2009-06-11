@@ -20,7 +20,7 @@ int main(int argc ATTR_UNUSED, const char *argv[])
 	}
 
 	if (argv[1] == NULL) {
-		fprintf(stderr, "Usage: %s [-r] <string>", argv[0]);
+		fprintf(stderr, "Usage: %s [-r] <string>\n", argv[0]);
 		return 1;
 	}
 
