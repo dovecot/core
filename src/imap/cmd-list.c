@@ -311,11 +311,8 @@ static void list_send_status(struct cmd_list_context *ctx, const char *name)
 {
 	struct mailbox_status status;
 	const char *storage_name, *error;
-	size_t prefix_len = strlen(ctx->ns->prefix);
 
-	storage_name = strncmp(name, ctx->ns->prefix, prefix_len) == 0 ?
-		name + prefix_len : name;
-
+	storage_name = mail_namespace_get_storage_name(ctx->ns, name);
 	if (imap_status_get(ctx->cmd->client, ctx->ns, storage_name,
 			    ctx->status_items, &status, &error) < 0) {
 		client_send_line(ctx->cmd->client,
