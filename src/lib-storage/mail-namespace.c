@@ -380,6 +380,21 @@ const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name)
 	return ret;
 }
 
+const char *mail_namespace_get_storage_name(struct mail_namespace *ns,
+					    const char *name)
+{
+	unsigned int len = strlen(ns->prefix);
+
+	if (len > 0) {
+		if (strncmp(ns->prefix, name, len) == 0)
+			name += len;
+		else {
+			i_assert(strcasecmp(name, "INBOX") == 0);
+		}
+	}
+	return mail_namespace_fix_sep(ns, name);
+}
+
 const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
 				     const char *name)
 {

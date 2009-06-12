@@ -88,6 +88,9 @@ void mail_namespace_destroy(struct mail_namespace *ns);
 
 /* Update hierarchy separators in given name to real_sep characters. */
 const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name);
+/* Skip namespace prefix and change hierarchy separators. */
+const char *mail_namespace_get_storage_name(struct mail_namespace *ns,
+					    const char *name);
 /* Write virtual mailbox name to dest and return it. Separators are changed to
    virtual ones and namespace prefix is inserted except for INBOX. */
 const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
