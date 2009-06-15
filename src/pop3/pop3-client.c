@@ -221,7 +221,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	struct mail_storage *storage;
 	const char *inbox, *ident;
 	struct client *client;
-        enum mailbox_open_flags flags;
+        enum mailbox_flags flags;
 	const char *errmsg;
 	enum mail_error error;
 
@@ -257,22 +257,22 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	}
 	client->inbox_ns = ns;
 
-	flags = MAILBOX_OPEN_POP3_SESSION;
+	flags = MAILBOX_FLAG_POP3_SESSION;
 	if (set->pop3_no_flag_updates)
-		flags |= MAILBOX_OPEN_KEEP_RECENT;
+		flags |= MAILBOX_FLAG_KEEP_RECENT;
 	if (set->pop3_lock_session)
-		flags |= MAILBOX_OPEN_KEEP_LOCKED;
-	client->mailbox = mailbox_open(ns->list, "INBOX", NULL, flags);
-	if (client->mailbox == NULL) {
+		flags |= MAILBOX_FLAG_KEEP_LOCKED;
+	client->mailbox = mailbox_alloc(ns->list, "INBOX", NULL, flags);
+	storage = mailbox_get_storage(client->mailbox);
+	if (mailbox_open(client->mailbox) < 0) {
 		errmsg = t_strdup_printf("Couldn't open INBOX: %s",
-					 mailbox_list_get_last_error(ns->list,
+					 mail_storage_get_last_error(storage,
 								     &error));
 		i_error("%s", errmsg);
 		client_send_line(client, "-ERR [IN-USE] %s", errmsg);
 		client_destroy(client, "Couldn't open INBOX");
 		return NULL;
 	}
-	storage = mailbox_get_storage(client->mailbox);
 	client->mail_set = mail_storage_get_settings(storage);
 
 	if (!init_mailbox(client, &errmsg)) {

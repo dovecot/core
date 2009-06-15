@@ -445,9 +445,9 @@ void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 	dbox_map_append_free(&ctx->append_ctx);
 
 	if (!ctx->mbox->storage->storage.set->fsync_disable) {
-		if (fdatasync_path(ctx->mbox->path) < 0) {
+		if (fdatasync_path(ctx->mbox->ibox.box.path) < 0) {
 			i_error("fdatasync_path(%s) failed: %m",
-				ctx->mbox->path);
+				ctx->mbox->ibox.box.path);
 		}
 	}
 	dbox_transaction_save_rollback(ctx);

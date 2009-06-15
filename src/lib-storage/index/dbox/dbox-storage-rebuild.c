@@ -398,12 +398,13 @@ rebuild_mailbox(struct dbox_storage_rebuild_context *ctx,
 	enum mail_error error;
 	int ret;
 
-	box = dbox_mailbox_open(&ctx->storage->storage, ns->list, name, NULL,
-				MAILBOX_OPEN_READONLY |
-				MAILBOX_OPEN_KEEP_RECENT |
-				MAILBOX_OPEN_IGNORE_ACLS);
-	if (box == NULL) {
-		mailbox_list_get_last_error(ns->list, &error);
+	box = dbox_mailbox_alloc(&ctx->storage->storage, ns->list, name, NULL,
+				 MAILBOX_FLAG_READONLY |
+				 MAILBOX_FLAG_KEEP_RECENT |
+				 MAILBOX_FLAG_IGNORE_ACLS);
+	if (dbox_mailbox_open(box) < 0) {
+		(void)mail_storage_get_last_error(box->storage, &error);
+		mailbox_close(&box);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
 		/* non-temporary error, ignore */
@@ -416,7 +417,7 @@ rebuild_mailbox(struct dbox_storage_rebuild_context *ctx,
 	if (ret <= 0) {
 		i_assert(ret != 0);
 		mail_storage_set_index_error(&mbox->ibox);
-		(void)mailbox_close(&box);
+		mailbox_close(&box);
 		return -1;
 	}
 
@@ -431,7 +432,7 @@ rebuild_mailbox(struct dbox_storage_rebuild_context *ctx,
 		ret = -1;
 	}
 
-	(void)mailbox_close(&box);
+	mailbox_close(&box);
 	return ret < 0 ? -1 : 0;
 }
 
@@ -484,7 +485,7 @@ static int rebuild_msg_mailbox_commit(struct rebuild_msg_mailbox *msg)
 {
 	if (mail_index_sync_commit(&msg->sync_ctx) < 0)
 		return -1;
-	(void)mailbox_close(&msg->box);
+	mailbox_close(&msg->box);
 	memset(msg, 0, sizeof(*msg));
 	return 0;
 }
@@ -533,15 +534,16 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 		strcmp(mailbox, ctx->prev_msg.box->name) == 0 ?
 		ctx->prev_msg.box : NULL;
 	while (box == NULL) {
-		box = dbox_mailbox_open(storage, ctx->default_list,
-					mailbox, NULL,
-					MAILBOX_OPEN_READONLY |
-					MAILBOX_OPEN_KEEP_RECENT |
-					MAILBOX_OPEN_IGNORE_ACLS);
-		if (box != NULL)
+		box = dbox_mailbox_alloc(storage, ctx->default_list,
+					 mailbox, NULL,
+					 MAILBOX_FLAG_READONLY |
+					 MAILBOX_FLAG_KEEP_RECENT |
+					 MAILBOX_FLAG_IGNORE_ACLS);
+		if (dbox_mailbox_open(box) == 0)
 			break;
 
-		mail_storage_get_last_error(storage, &error);
+		(void)mail_storage_get_last_error(box->storage, &error);
+		mailbox_close(&box);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
 
@@ -574,7 +576,7 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 		if (ret <= 0) {
 			i_assert(ret != 0);
 			mail_storage_set_index_error(&mbox->ibox);
-			(void)mailbox_close(&box);
+			mailbox_close(&box);
 			return -1;
 		}
 		ctx->prev_msg.box = box;

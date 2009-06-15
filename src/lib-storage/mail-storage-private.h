@@ -12,8 +12,8 @@
 
 /* Called after mail storage has been created */
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
-/* Called after mailbox has been opened */
-extern void (*hook_mailbox_opened)(struct mailbox *box);
+/* Called after mailbox has been allocated */
+extern void (*hook_mailbox_allocated)(struct mailbox *box);
 /* Called after mailbox index has been opened */
 extern void (*hook_mailbox_index_opened)(struct mailbox *box);
 
@@ -43,11 +43,11 @@ struct mail_storage_vfuncs {
 	bool (*autodetect)(const struct mail_namespace *ns,
 			   struct mailbox_list_settings *set);
 
-	struct mailbox *(*mailbox_open)(struct mail_storage *storage,
-					struct mailbox_list *list,
-					const char *name,
-					struct istream *input,
-					enum mailbox_open_flags flags);
+	struct mailbox *(*mailbox_alloc)(struct mail_storage *storage,
+					 struct mailbox_list *list,
+					 const char *name,
+					 struct istream *input,
+					 enum mailbox_flags flags);
 
 	int (*mailbox_create)(struct mail_storage *storage,
 			      struct mailbox_list *list, const char *name,
@@ -101,7 +101,8 @@ struct mailbox_vfuncs {
 	bool (*allow_new_keywords)(struct mailbox *box);
 
 	int (*enable)(struct mailbox *box, enum mailbox_feature features);
-	int (*close)(struct mailbox *box);
+	int (*open)(struct mailbox *box);
+	void (*close)(struct mailbox *box);
 
 	void (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			   struct mailbox_status *status_r);
@@ -212,7 +213,7 @@ union mailbox_module_context {
 };
 
 struct mailbox {
-	char *name;
+	const char *name;
 	struct mail_storage *storage;
 	struct mailbox_list *list;
 
@@ -220,7 +221,10 @@ struct mailbox {
 /* private: */
 	pool_t pool;
 
-	enum mailbox_open_flags open_flags;
+	/* mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX */
+	const char *path;
+	struct istream *input;
+	enum mailbox_flags flags;
 	unsigned int transaction_count;
 	enum mailbox_feature enabled_features;
 

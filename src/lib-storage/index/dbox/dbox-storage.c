@@ -136,59 +136,49 @@ dbox_get_alt_path(struct mailbox_list *list, const char *path)
 	return NULL;
 }
 
-static struct mailbox *
-dbox_open(struct dbox_storage *storage, struct mailbox_list *list,
-	  const char *name, enum mailbox_open_flags flags)
+struct mailbox *
+dbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		   const char *name, struct istream *input,
+		   enum mailbox_flags flags)
 {
-	struct mail_storage *_storage = &storage->storage;
 	struct dbox_mailbox *mbox;
-	struct mailbox *box;
-	struct mail_index *index;
-	const char *path;
 	pool_t pool;
-	int ret;
 
 	/* dbox can't work without index files */
-	flags &= ~MAILBOX_OPEN_NO_INDEX_FILES;
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-
-	index = index_storage_alloc(list, name, flags, DBOX_INDEX_PREFIX);
-	mail_index_set_fsync_types(index, MAIL_INDEX_SYNC_TYPE_APPEND |
-				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
+	flags &= ~MAILBOX_FLAG_NO_INDEX_FILES;
 
 	pool = pool_alloconly_create("dbox mailbox", 1024+512);
 	mbox = p_new(pool, struct dbox_mailbox, 1);
 	mbox->ibox.box = dbox_mailbox;
 	mbox->ibox.box.pool = pool;
-	mbox->ibox.box.storage = _storage;
+	mbox->ibox.box.storage = storage;
 	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
-	mbox->ibox.index = index;
 	mbox->ibox.keep_index_backups = TRUE;
 	mbox->ibox.index_never_in_memory = TRUE;
-	mbox->path = p_strdup(pool, path);
-	mbox->alt_path = p_strdup(pool, dbox_get_alt_path(list, path));
-	mbox->storage = storage;
 
+	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
+				    DBOX_INDEX_PREFIX);
+	mail_index_set_fsync_types(mbox->ibox.index,
+				   MAIL_INDEX_SYNC_TYPE_APPEND |
+				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
+
+	mbox->storage = (struct dbox_storage *)storage;
+	mbox->alt_path =
+		p_strdup(pool, dbox_get_alt_path(list, mbox->ibox.box.path));
 	mbox->dbox_ext_id =
-		mail_index_ext_register(index, "dbox", 0,
+		mail_index_ext_register(mbox->ibox.index, "dbox", 0,
 					sizeof(struct dbox_mail_index_record),
 					sizeof(uint32_t));
 	mbox->dbox_hdr_ext_id =
-		mail_index_ext_register(index, "dbox-hdr",
+		mail_index_ext_register(mbox->ibox.index, "dbox-hdr",
 					sizeof(struct dbox_index_header), 0, 0);
 	mbox->guid_ext_id =
-		mail_index_ext_register(index, "guid", 0, DBOX_GUID_BIN_LEN, 1);
+		mail_index_ext_register(mbox->ibox.index, "guid",
+					0, DBOX_GUID_BIN_LEN, 1);
 
-	ret = index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	mbox->maildir_uidlist = maildir_uidlist_init_readonly(&mbox->ibox);
-
-	box = &mbox->ibox.box;
-	if (ret < 0)
-		mailbox_close(&box);
-	return box;
+	return &mbox->ibox.box;
 }
 
 uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
@@ -201,7 +191,7 @@ uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
 	return mailbox_uidvalidity_next(path);
 }
 
-static void dbox_write_index_header(struct mailbox *box)
+static int dbox_write_index_header(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 	struct mail_index_transaction *trans;
@@ -209,7 +199,7 @@ static void dbox_write_index_header(struct mailbox *box)
 	uint32_t uid_validity;
 
 	if (dbox_map_open(mbox->storage->map, TRUE) < 0)
-		return;
+		return -1;
 
 	trans = mail_index_transaction_begin(mbox->ibox.view, 0);
 
@@ -225,33 +215,25 @@ static void dbox_write_index_header(struct mailbox *box)
 		offsetof(struct mail_index_header, uid_validity),
 		&uid_validity, sizeof(uid_validity), TRUE);
 
-	(void)mail_index_transaction_commit(&trans);
+	return mail_index_transaction_commit(&trans);
 }
 
-static int create_dbox(struct mail_storage *_storage, struct mailbox_list *list,
-		       const char *path, const char *name, bool directory)
+static int create_dbox(struct mailbox *box)
 {
-	struct dbox_storage *storage = (struct dbox_storage *)_storage;
-	struct mailbox *box;
 	mode_t mode;
 	gid_t gid;
 
-	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
-	if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) == 0) {
-		if (!directory) {
-			/* create indexes immediately with the dbox header */
-			box = dbox_open(storage, list, name,
-					MAILBOX_OPEN_KEEP_RECENT);
-			if (box == NULL)
-				return -1;
-			dbox_write_index_header(box);
-			mailbox_close(&box);
-			return 0;
-		}
+	mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid);
+	if (mkdir_parents_chown(box->path, mode, (uid_t)-1, gid) == 0) {
+		/* create indexes immediately with the dbox header */
+		if (index_storage_mailbox_open(box) < 0)
+			return -1;
+		if (dbox_write_index_header(box) < 0)
+			return -1;
 	} else if (errno != EEXIST) {
-		if (!mail_storage_set_error_from_errno(_storage)) {
-			mail_storage_set_critical(_storage,
-				"mkdir(%s) failed: %m", path);
+		if (!mail_storage_set_error_from_errno(box->storage)) {
+			mail_storage_set_critical(box->storage,
+				"mkdir(%s) failed: %m", box->path);
 		}
 		return -1;
 	}
@@ -281,53 +263,46 @@ dbox_cleanup_if_exists(struct mailbox_list *list, const char *path)
 	return TRUE;
 }
 
-struct mailbox *
-dbox_mailbox_open(struct mail_storage *_storage, struct mailbox_list *list,
-		  const char *name, struct istream *input,
-		  enum mailbox_open_flags flags)
+int dbox_mailbox_open(struct mailbox *box)
 {
-	struct dbox_storage *storage = (struct dbox_storage *)_storage;
-	const char *path;
-
-	if (input != NULL) {
-		mailbox_list_set_critical(list,
+	if (box->input != NULL) {
+		mail_storage_set_critical(box->storage,
 			"dbox doesn't support streamed mailboxes");
-		return NULL;
+		return -1;
 	}
 
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (dbox_cleanup_if_exists(list, path)) {
-		return dbox_open(storage, list, name, flags);
+	if (dbox_cleanup_if_exists(box->list, box->path)) {
+		return index_storage_mailbox_open(box);
 	} else if (errno == ENOENT) {
-		if (strcmp(name, "INBOX") == 0 &&
-		    (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		if (strcmp(box->name, "INBOX") == 0 &&
+		    (box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			/* INBOX always exists, create it */
-			if (create_dbox(_storage, list, path, name, FALSE) < 0) {
-				mailbox_list_set_error_from_storage(list,
-								    _storage);
-				return NULL;
-			}
-			return dbox_open(storage, list, name, flags);
+			if (create_dbox(box) < 0)
+				return -1;
+			return box->opened ? 0 :
+				index_storage_mailbox_open(box);
 		}
 
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+		return -1;
 	} else if (errno == EACCES) {
-		mailbox_list_set_critical(list, "%s",
-			mail_error_eacces_msg("stat", path));
+		mail_storage_set_critical(box->storage, "%s",
+			mail_error_eacces_msg("stat", box->path));
+		return -1;
 	} else {
-		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
+		mail_storage_set_critical(box->storage,
+					  "stat(%s) failed: %m", box->path);
+		return -1;
 	}
-	return NULL;
 }
 
-static int dbox_storage_mailbox_close(struct mailbox *box)
+static void dbox_mailbox_close(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 
 	maildir_uidlist_deinit(&mbox->maildir_uidlist);
-	return index_storage_mailbox_close(box);
+	index_storage_mailbox_close(box);
 }
 
 static int
@@ -335,7 +310,9 @@ dbox_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
 		    const char *name, bool directory)
 {
 	const char *path, *alt_path;
+	struct mailbox *box;
 	struct stat st;
+	int ret;
 
 	path = mailbox_list_get_path(list, name,
 				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
@@ -346,18 +323,39 @@ dbox_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
 		return -1;
 	}
 
+	if (directory) {
+		mode_t mode;
+		gid_t gid;
+
+		mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
+		if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) == 0)
+			return 0;
+		else if (errno == EEXIST) {
+			mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
+					       "Mailbox already exists");
+		} else if (!mail_storage_set_error_from_errno(storage)) {
+			mail_storage_set_critical(storage,
+						  "mkdir(%s) failed: %m", path);
+		}
+		return -1;
+	}
+
 	/* make sure the alt path doesn't exist yet. it shouldn't (except with
 	   race conditions with RENAME/DELETE), but if something crashed and
 	   left it lying around we don't want to start overwriting files in
 	   it. */
-	alt_path = directory ? NULL : dbox_get_alt_path(list, path);
+	alt_path = dbox_get_alt_path(list, path);
 	if (alt_path != NULL && stat(alt_path, &st) == 0) {
 		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
 
-	return create_dbox(storage, list, path, name, directory);
+	box = dbox_mailbox_alloc(storage, list, name, NULL,
+				 MAILBOX_FLAG_KEEP_RECENT);
+	ret = create_dbox(box);
+	mailbox_close(&box);
+	return ret;
 }
 
 static int
@@ -381,11 +379,15 @@ dbox_mailbox_unref_mails(struct mailbox_list *list, const char *path)
 	tmp_set = *list->mail_set;
 	tmp_set.mail_full_filesystem_access = TRUE;
 	list->mail_set = &tmp_set;
-	box = dbox_open(storage, list, path, MAILBOX_OPEN_IGNORE_ACLS |
-			MAILBOX_OPEN_KEEP_RECENT);
+	box = dbox_mailbox_alloc(&storage->storage, list, path, NULL,
+				 MAILBOX_FLAG_IGNORE_ACLS |
+				 MAILBOX_FLAG_KEEP_RECENT);
+	ret = mailbox_open(box);
 	list->mail_set = old_set;
-	if (box == NULL)
+	if (ret < 0) {
+		mailbox_close(&box);
 		return -1;
+	}
 	mbox = (struct dbox_mailbox *)box;
 
 	/* get a list of all map_uids in this mailbox */
@@ -644,7 +646,7 @@ static void dbox_notify_changes(struct mailbox *box)
 		index_mailbox_check_remove_all(&mbox->ibox);
 	else {
 		path = t_strdup_printf("%s/"DBOX_INDEX_PREFIX".log",
-				       mbox->path);
+				       mbox->ibox.box.path);
 		index_mailbox_check_add(&mbox->ibox, path);
 	}
 }
@@ -757,7 +759,7 @@ struct mail_storage dbox_storage = {
 		dbox_storage_add_list,
 		dbox_storage_get_list_settings,
 		NULL,
-		dbox_mailbox_open,
+		dbox_mailbox_alloc,
 		dbox_mailbox_create,
 		dbox_sync_purge
 	}
@@ -772,7 +774,8 @@ struct mailbox dbox_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
-		dbox_storage_mailbox_close,
+		dbox_mailbox_open,
+		dbox_mailbox_close,
 		index_storage_get_status,
 		NULL,
 		NULL,

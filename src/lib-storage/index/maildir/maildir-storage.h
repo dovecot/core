@@ -83,7 +83,6 @@ struct maildir_mailbox {
 	struct maildir_storage *storage;
 	struct mail_index_view *flags_view;
 
-	const char *path;
 	struct timeout *keep_lock_to;
 
 	/* maildir sync: */
@@ -122,7 +121,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	maildir_file_do(mbox, seq, (maildir_file_do_func *)callback, context)
 #endif
 
-bool maildir_set_deleted(struct maildir_mailbox *mbox);
+bool maildir_set_deleted(struct mailbox *box);
 uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list);
 
 void maildir_transaction_class_init(void);

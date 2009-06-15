@@ -290,18 +290,14 @@ static int client_open_raw_mail(struct client *client)
 						  client->state.mail_data->used);
 	}
 	client->state.raw_box = box =
-		mailbox_open(raw_list, "Dovecot Delivery Mail", input,
-			     MAILBOX_OPEN_NO_INDEX_FILES);
+		mailbox_alloc(raw_list, "Dovecot Delivery Mail", input,
+			      MAILBOX_FLAG_NO_INDEX_FILES);
 	i_stream_unref(&input);
-	if (box == NULL) {
+	if (mailbox_open(box) < 0 ||
+	    mailbox_sync(box, 0, 0, NULL) < 0) {
 		i_error("Can't open delivery mail as raw: %s",
-			mailbox_list_get_last_error(raw_list, &error));
-		client_rcpt_fail_all(client);
-		return -1;
-	}
-	if (mailbox_sync(box, 0, 0, NULL) < 0) {
-		i_error("Can't sync delivery mail: %s",
-			mailbox_list_get_last_error(raw_list, &error));
+			mail_storage_get_last_error(box->storage, &error));
+		mailbox_close(&box);
 		client_rcpt_fail_all(client);
 		return -1;
 	}

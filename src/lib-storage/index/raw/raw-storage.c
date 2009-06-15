@@ -9,10 +9,6 @@
 #include "raw-sync.h"
 #include "raw-storage.h"
 
-struct raw_mailbox_list {
-	union mailbox_list_module_context module_ctx;
-};
-
 extern struct mail_storage raw_storage;
 extern struct mailbox raw_mailbox;
 
@@ -38,78 +34,59 @@ raw_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 		set->subscription_fname = RAW_SUBSCRIPTION_FILE_NAME;
 }
 
-static int
-raw_mailbox_open_input(struct mailbox_list *list, const char *name,
-		       const char *path, struct istream **input_r)
-{
-	int fd;
-
-	fd = open(path, O_RDONLY);
-	if (fd == -1) {
-		if (ENOTFOUND(errno)) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		} else if (!mailbox_list_set_error_from_errno(list)) {
-			mailbox_list_set_critical(list, "open(%s) failed: %m",
-						  path);
-		}
-		return -1;
-	}
-	*input_r = i_stream_create_fd(fd, MAIL_READ_BLOCK_SIZE, TRUE);
-	return 0;
-}
-
 static struct mailbox *
-raw_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-		 const char *name, struct istream *input,
-		 enum mailbox_open_flags flags)
+raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		  const char *name, struct istream *input,
+		  enum mailbox_flags flags)
 {
 	struct raw_mailbox *mbox;
-	const char *path;
 	pool_t pool;
-	bool stream = input != NULL;
 
-	flags |= MAILBOX_OPEN_READONLY | MAILBOX_OPEN_NO_INDEX_FILES;
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (input != NULL)
-		i_stream_ref(input);
-	else {
-		if (raw_mailbox_open_input(list, name, path, &input) < 0)
-			return NULL;
-	}
+	flags |= MAILBOX_FLAG_READONLY | MAILBOX_FLAG_NO_INDEX_FILES;
 
 	pool = pool_alloconly_create("raw mailbox", 1024+512);
 	mbox = p_new(pool, struct raw_mailbox, 1);
 	mbox->ibox.box = raw_mailbox;
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = storage;
+	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &raw_mail_vfuncs;
-	mbox->ibox.index = index_storage_alloc(list, name, flags, NULL);
+
+	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags, NULL);
 
 	mbox->storage = (struct raw_storage *)storage;
-	mbox->path = p_strdup(pool, path);
-	mbox->input = input;
 
-	if (stream)
+	if (input != NULL)
 		mbox->mtime = mbox->ctime = ioloop_time;
 	else {
 		mbox->mtime = mbox->ctime = (time_t)-1;
 		mbox->have_filename = TRUE;
 	}
 	mbox->size = (uoff_t)-1;
-
-	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	return &mbox->ibox.box;
 }
 
-static int raw_mailbox_close(struct mailbox *box)
+static int raw_mailbox_open(struct mailbox *box)
 {
-	struct raw_mailbox *mbox = (struct raw_mailbox *)box;
+	int fd;
 
-	i_stream_unref(&mbox->input);
-	return index_storage_mailbox_close(box);
+	if (box->input != NULL)
+		return index_storage_mailbox_open(box);
+
+	fd = open(box->path, O_RDONLY);
+	if (fd == -1) {
+		if (ENOTFOUND(errno)) {
+			mail_storage_set_error(box->storage,
+				MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+		} else if (!mail_storage_set_error_from_errno(box->storage)) {
+			mail_storage_set_critical(box->storage,
+				"open(%s) failed: %m", box->path);
+		}
+		return -1;
+	}
+	box->input = i_stream_create_fd(fd, MAIL_READ_BLOCK_SIZE, TRUE);
+	return index_storage_mailbox_open(box);
 }
 
 static int
@@ -207,7 +184,7 @@ struct mail_storage raw_storage = {
 		raw_storage_add_list,
 		raw_storage_get_list_settings,
 		NULL,
-		raw_mailbox_open,
+		raw_mailbox_alloc,
 		raw_mailbox_create,
 		NULL
 	}
@@ -222,7 +199,8 @@ struct mailbox raw_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
-		raw_mailbox_close,
+		raw_mailbox_open,
+		index_storage_mailbox_close,
 		index_storage_get_status,
 		NULL,
 		NULL,

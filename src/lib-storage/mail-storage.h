@@ -23,28 +23,25 @@ enum mail_storage_flags {
 	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x04
 };
 
-enum mailbox_open_flags {
+enum mailbox_flags {
 	/* Mailbox must not be modified even if asked */
-	MAILBOX_OPEN_READONLY		= 0x01,
+	MAILBOX_FLAG_READONLY		= 0x01,
 	/* Only saving/copying mails to mailbox works. */
-	MAILBOX_OPEN_SAVEONLY		= 0x02,
-	/* Delay opening index files (and possibly other files) until mailbox
-	   is being synchronized. */
-	MAILBOX_OPEN_FAST		= 0x04,
+	MAILBOX_FLAG_SAVEONLY		= 0x02,
 	/* Don't reset MAIL_RECENT flags when syncing */
-	MAILBOX_OPEN_KEEP_RECENT	= 0x08,
+	MAILBOX_FLAG_KEEP_RECENT	= 0x08,
 	/* Don't create index files for the mailbox */
-	MAILBOX_OPEN_NO_INDEX_FILES	= 0x10,
+	MAILBOX_FLAG_NO_INDEX_FILES	= 0x10,
 	/* Keep mailbox exclusively locked all the time while it's open */
-	MAILBOX_OPEN_KEEP_LOCKED	= 0x20,
+	MAILBOX_FLAG_KEEP_LOCKED	= 0x20,
 	/* Enable if mailbox is used for serving POP3. This allows making
 	   better caching decisions. */
-	MAILBOX_OPEN_POP3_SESSION	= 0x40,
+	MAILBOX_FLAG_POP3_SESSION	= 0x40,
 	/* Enable if mailbox is used for saving a mail delivery using MDA.
 	   This causes ACL plugin to use POST right rather than INSERT. */
-	MAILBOX_OPEN_POST_SESSION	= 0x80,
+	MAILBOX_FLAG_POST_SESSION	= 0x80,
 	/* Force opening mailbox and ignoring any ACLs */
-	MAILBOX_OPEN_IGNORE_ACLS	= 0x100
+	MAILBOX_FLAG_IGNORE_ACLS	= 0x100
 };
 
 enum mailbox_feature {
@@ -289,18 +286,20 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 /* Returns TRUE if mailboxes are files. */
 bool mail_storage_is_mailbox_file(struct mail_storage *storage) ATTR_PURE;
 
-/* Open a mailbox. If input stream is given, mailbox is opened read-only
-   using it as a backend. If storage doesn't support stream backends and its
-   tried to be used, NULL is returned.
+/* Initialize mailbox without actually opening any files or verifying that
+   it exists. If input stream is given, mailbox is opened read-only
+   using it as a backend.
 
    Note that append and copy may open the selected mailbox again
    with possibly different readonly-state. */
-struct mailbox *mailbox_open(struct mailbox_list *list, const char *name,
-			     struct istream *input,
-			     enum mailbox_open_flags flags);
-/* Close the box. Returns -1 if some cleanup errors occurred, but
-   the mailbox was closed anyway. */
-int mailbox_close(struct mailbox **box);
+struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
+			      struct istream *input,
+			      enum mailbox_flags flags);
+/* Open the mailbox. If this function isn't called explicitly, it's also called
+   internally by lib-storage when necessary. */
+int mailbox_open(struct mailbox *box);
+/* Close the box. */
+void mailbox_close(struct mailbox **box);
 
 /* Enable the given feature for the mailbox. */
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features);

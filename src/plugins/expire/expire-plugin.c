@@ -43,7 +43,7 @@ struct expire_transaction_context {
 
 const char *expire_plugin_version = PACKAGE_VERSION;
 
-static void (*next_hook_mail_storage_created)(struct mail_storage *storage);
+static void (*next_hook_mailbox_allocated)(struct mailbox *box);
 static void (*next_hook_mail_user_created)(struct mail_user *user);
 
 static MODULE_CONTEXT_DEFINE_INIT(expire_storage_module,
@@ -254,50 +254,27 @@ mailbox_expire_hook(struct mailbox *box, time_t expire_secs, bool altmove)
 	MODULE_CONTEXT_SET(box, expire_storage_module, xpr_box);
 }
 
-static struct mailbox *
-expire_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, struct istream *input,
-		    enum mailbox_open_flags flags)
+static void expire_mailbox_allocated(struct mailbox *box)
 {
-	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(storage->user);
-	union mail_storage_module_context *xpr_storage =
-		EXPIRE_CONTEXT(storage);
-	struct mailbox *box;
+	struct expire_mail_user *euser =
+		EXPIRE_USER_CONTEXT(box->storage->user);
+	struct mail_namespace *ns = mailbox_list_get_namespace(box->list);
 	string_t *vname;
 	unsigned int secs;
 	bool altmove;
 
-	box = xpr_storage->super.mailbox_open(storage, list, name, input, flags);
-	if (box != NULL) {
+	if (euser != NULL) {
 		vname = t_str_new(128);
-		(void)mail_namespace_get_vname(mailbox_list_get_namespace(list),
-					       vname, name);
+		(void)mail_namespace_get_vname(ns, vname, box->name);
 
 		secs = expire_box_find_min_secs(euser->env, str_c(vname),
 						&altmove);
 		if (secs != 0)
 			mailbox_expire_hook(box, secs, altmove);
 	}
-	return box;
-}
 
-static void expire_mail_storage_created(struct mail_storage *storage)
-{
-	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(storage->user);
-	union mail_storage_module_context *xpr_storage;
-
-	if (euser != NULL) {
-		xpr_storage = p_new(storage->pool,
-				    union mail_storage_module_context, 1);
-		xpr_storage->super = storage->v;
-		storage->v.mailbox_open = expire_mailbox_open;
-
-		MODULE_CONTEXT_SET_SELF(storage, expire_storage_module,
-					xpr_storage);
-	}
-
-	if (next_hook_mail_storage_created != NULL)
-		next_hook_mail_storage_created(storage);
+	if (next_hook_mailbox_allocated != NULL)
+		next_hook_mailbox_allocated(box);
 }
 
 static void expire_mail_user_deinit(struct mail_user *user)
@@ -349,8 +326,8 @@ static void expire_mail_user_created(struct mail_user *user)
 
 void expire_plugin_init(void)
 {
-	next_hook_mail_storage_created = hook_mail_storage_created;
-	hook_mail_storage_created = expire_mail_storage_created;
+	next_hook_mailbox_allocated = hook_mailbox_allocated;
+	hook_mailbox_allocated = expire_mailbox_allocated;
 
 	next_hook_mail_user_created = hook_mail_user_created;
 	hook_mail_user_created = expire_mail_user_created;
@@ -358,6 +335,6 @@ void expire_plugin_init(void)
 
 void expire_plugin_deinit(void)
 {
-	hook_mail_storage_created = next_hook_mail_storage_created;
+	hook_mailbox_allocated = next_hook_mailbox_allocated;
 	hook_mail_user_created = next_hook_mail_user_created;
 }

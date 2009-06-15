@@ -321,6 +321,13 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 			i_info("Namespace %s: Permission lookup failed from %s",
 			       list->ns->prefix, path);
 		}
+		if (name != NULL) {
+			/* return defaults */
+			mailbox_list_get_permissions_full(list, NULL,
+							  file_mode_r,
+							  dir_mode_r, gid_r);
+			return;
+		}
 		/* return safe defaults */
 		*file_mode_r = 0600;
 		*dir_mode_r = 0700;
@@ -913,14 +920,4 @@ bool mailbox_list_set_error_from_errno(struct mailbox_list *list)
 
 	mailbox_list_set_error(list, error, error_string);
 	return TRUE;
-}
-
-void mailbox_list_set_error_from_storage(struct mailbox_list *list,
-					 struct mail_storage *storage)
-{
-	const char *str;
-	enum mail_error error;
-
-	str = mail_storage_get_last_error(storage, &error);
-	mailbox_list_set_error(list, error, str);
 }

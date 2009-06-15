@@ -113,31 +113,30 @@ mbox_snarf_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		/* try to open the spool mbox */
 		mstorage->open_spool_inbox = TRUE;
 		mbox->spool_mbox =
-			mailbox_open(box->list, "INBOX", NULL,
-				     MAILBOX_OPEN_KEEP_RECENT |
-				     MAILBOX_OPEN_NO_INDEX_FILES);
+			mailbox_alloc(box->list, "INBOX", NULL,
+				      MAILBOX_FLAG_KEEP_RECENT |
+				      MAILBOX_FLAG_NO_INDEX_FILES);
 		mstorage->open_spool_inbox = FALSE;
 	}
-
-	if (mbox->spool_mbox != NULL)
-		mbox_snarf(mbox->spool_mbox, box);
+	(void)mbox_snarf(mbox->spool_mbox, box);
 
 	return mbox->module_ctx.super.sync_init(box, flags);
 }
 
-static int mbox_snarf_close(struct mailbox *box)
+static void mbox_snarf_close(struct mailbox *box)
 {
 	struct mbox_snarf_mailbox *mbox = MBOX_SNARF_CONTEXT(box);
 
 	if (mbox->spool_mbox != NULL)
 		mailbox_close(&mbox->spool_mbox);
-	return mbox->module_ctx.super.close(box);
+	mbox->module_ctx.super.close(box);
 }
 
 static struct mailbox *
-mbox_snarf_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-			const char *name, struct istream *input,
-			enum mailbox_open_flags flags)
+mbox_snarf_mailbox_alloc(struct mail_storage *storage,
+			 struct mailbox_list *list,
+			 const char *name, struct istream *input,
+			 enum mailbox_flags flags)
 {
 	struct mbox_snarf_mail_storage *mstorage =
 		MBOX_SNARF_CONTEXT(storage);
@@ -164,7 +163,7 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
 	}
 
 	box = mstorage->module_ctx.super.
-		mailbox_open(storage, list, name, input, flags);
+		mailbox_alloc(storage, list, name, input, flags);
 	storage->flags = old_flags;
 	list->flags = old_list_flags;
 
@@ -189,7 +188,7 @@ mbox_snarf_mail_storage_create(struct mail_storage *storage, const char *path)
 	mstorage = p_new(storage->pool, struct mbox_snarf_mail_storage, 1);
 	mstorage->snarf_inbox_path = p_strdup(storage->pool, path);
 	mstorage->module_ctx.super = storage->v;
-	storage->v.mailbox_open = mbox_snarf_mailbox_open;
+	storage->v.mailbox_alloc = mbox_snarf_mailbox_alloc;
 
 	MODULE_CONTEXT_SET(storage, mbox_snarf_storage_module, mstorage);
 }

@@ -33,8 +33,7 @@ bool cmd_delete(struct client_command_context *cmd)
 		storage = mailbox_get_storage(mailbox);
 		client->mailbox = NULL;
 
-		if (mailbox_close(&mailbox) < 0)
-			client_send_untagged_storage_error(client, storage);
+		mailbox_close(&mailbox);
 	}
 
 	if ((client->workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&

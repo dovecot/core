@@ -341,7 +341,7 @@ static int quota_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 	return ret;
 }
 
-static int quota_mailbox_close(struct mailbox *box)
+static void quota_mailbox_close(struct mailbox *box)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
 
@@ -352,19 +352,19 @@ static int quota_mailbox_close(struct mailbox *box)
 	i_assert(qbox->expunge_qt == NULL ||
 		 qbox->expunge_qt->tmp_mail == NULL);
 
-	return qbox->module_ctx.super.close(box);
+	qbox->module_ctx.super.close(box);
 }
 
 static struct mailbox *
-quota_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-		   const char *name, struct istream *input,
-		   enum mailbox_open_flags flags)
+quota_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		    const char *name, struct istream *input,
+		    enum mailbox_flags flags)
 {
 	union mail_storage_module_context *qstorage = QUOTA_CONTEXT(storage);
 	struct mailbox *box;
 	struct quota_mailbox *qbox;
 
-	box = qstorage->super.mailbox_open(storage, list, name, input, flags);
+	box = qstorage->super.mailbox_alloc(storage, list, name, input, flags);
 	if (box == NULL || QUOTA_LIST_CONTEXT(list) == NULL)
 		return box;
 
@@ -440,10 +440,11 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	   and free the quota for all the messages existing in it. Open the
 	   mailbox locked so that other processes can't mess up the quota
 	   calculations by adding/removing mails while we're doing this. */
-	box = mailbox_open(list, name, NULL, MAILBOX_OPEN_KEEP_RECENT |
-			   MAILBOX_OPEN_KEEP_LOCKED);
-	if (box == NULL) {
-		str = mailbox_list_get_last_error(list, &error);
+	box = mailbox_alloc(list, name, NULL, MAILBOX_FLAG_KEEP_RECENT |
+			    MAILBOX_FLAG_KEEP_LOCKED);
+	if (mailbox_open(box) < 0) {
+		str = mail_storage_get_last_error(mailbox_get_storage(box),
+						  &error);
 		if (error != MAIL_ERROR_NOTPOSSIBLE) {
 			ret = -1;
 		} else {
@@ -518,7 +519,7 @@ void quota_mail_storage_created(struct mail_storage *storage)
 
 	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
 	qstorage->super = storage->v;
-	storage->v.mailbox_open = quota_mailbox_open;
+	storage->v.mailbox_alloc = quota_mailbox_alloc;
 
 	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
 	quota_maildir_storage_set(storage);

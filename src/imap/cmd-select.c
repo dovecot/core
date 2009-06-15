@@ -263,13 +263,15 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 {
 	struct client *client = ctx->cmd->client;
 	struct mailbox_status status;
-	enum mailbox_open_flags open_flags = 0;
+	enum mailbox_flags flags = 0;
 
 	if (readonly)
-		open_flags |= MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT;
-	ctx->box = mailbox_open(ctx->ns->list, mailbox, NULL, open_flags);
-	if (ctx->box == NULL) {
-		client_send_list_error(ctx->cmd, ctx->ns->list);
+		flags |= MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT;
+	ctx->box = mailbox_alloc(ctx->ns->list, mailbox, NULL, flags);
+	if (mailbox_open(ctx->box) < 0) {
+		client_send_storage_error(ctx->cmd,
+					  mailbox_get_storage(ctx->box));
+		mailbox_close(&ctx->box);
 		return -1;
 	}
 
@@ -370,15 +372,11 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	client->mailbox_change_lock = cmd;
 
 	if (client->mailbox != NULL) {
-		struct mail_storage *old_storage =
-			mailbox_get_storage(client->mailbox);
-
 		client_search_updates_free(client);
 		box = client->mailbox;
 		client->mailbox = NULL;
 
-		if (mailbox_close(&box) < 0)
-			client_send_untagged_storage_error(client, old_storage);
+		mailbox_close(&box);
 		/* CLOSED response is required by QRESYNC */
 		client_send_line(client, "* OK [CLOSED]");
 	}

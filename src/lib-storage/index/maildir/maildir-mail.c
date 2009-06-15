@@ -226,8 +226,7 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 		/* either nothing is cached, or only vsize is cached. */
 		mail->pop3_state = 1;
 	} else if (vsize_dec != MAIL_CACHE_DECISION_YES &&
-		   (mail->ibox->box.open_flags &
-		    MAILBOX_OPEN_POP3_SESSION) == 0) {
+		   (mail->ibox->box.flags & MAILBOX_FLAG_POP3_SESSION) == 0) {
 		/* if virtual size isn't cached permanently,
 		   POP3 isn't being used */
 		mail->pop3_state = -1;
@@ -502,7 +501,7 @@ static void maildir_mail_set_cache_corrupted(struct mail *_mail,
 				"new" : "cur";
 			mail_storage_set_critical(_mail->box->storage,
 				"Maildir filename has wrong W value: %s/%s/%s",
-				mbox->path, subdir, fname);
+				mbox->ibox.box.path, subdir, fname);
 		} else if (maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 				MAILDIR_UIDLIST_REC_EXT_VSIZE) != NULL) {
 			maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,

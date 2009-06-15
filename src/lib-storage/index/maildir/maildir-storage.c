@@ -295,19 +295,17 @@ create_maildir(struct mail_storage *storage, struct mail_namespace *ns,
 	unsigned int i;
 	int ret;
 
-	ret = maildir_check_tmp(storage, dir);
-	if (ret > 0) {
-		if (!verify) {
+	if (!verify) {
+		ret = maildir_check_tmp(storage, dir);
+		if (ret > 0) {
 			mail_storage_set_error(storage,
 				MAIL_ERROR_EXISTS, "Mailbox already exists");
 			return -1;
 		}
-		return 1;
+		if (ret < 0)
+			return -1;
 	}
-	if (ret < 0)
-		return -1;
 
-	/* doesn't exist, create */
 	for (i = 0; i < N_ELEMENTS(maildir_subdirs); i++) {
 		path = t_strconcat(dir, "/", maildir_subdirs[i], NULL);
 		if (mkdir_verify(storage, ns, path, mode, gid, verify) < 0)
@@ -331,140 +329,114 @@ static mode_t get_dir_mode(mode_t mode)
 }
 
 static struct mailbox *
-maildir_open(struct mail_storage *storage, struct mail_namespace *ns,
-	     const char *name, enum mailbox_open_flags flags)
+maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		      const char *name, struct istream *input,
+		      enum mailbox_flags flags)
 {
 	struct maildir_mailbox *mbox;
-	struct mail_index *index;
-	const char *path, *control_dir;
-	struct stat st;
 	pool_t pool;
-
-	path = mailbox_list_get_path(ns->list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	control_dir = mailbox_list_get_path(ns->list, name,
-					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 
 	pool = pool_alloconly_create("maildir mailbox", 1024+512);
 	mbox = p_new(pool, struct maildir_mailbox, 1);
 	mbox->ibox.box = maildir_mailbox;
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = storage;
-	mbox->ibox.box.list = ns->list;
+	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
 
-	mbox->storage = (struct maildir_storage *)storage;
-	mbox->path = p_strdup(pool, path);
-
-	index = index_storage_alloc(ns->list, name, flags,
+	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
 				    MAILDIR_INDEX_PREFIX);
-	mbox->ibox.index = index;
+
+	mbox->storage = (struct maildir_storage *)storage;
+	mbox->maildir_ext_id =
+		mail_index_ext_register(mbox->ibox.index, "maildir",
+					sizeof(mbox->maildir_hdr), 0, 0);
+	mbox->uidlist = maildir_uidlist_init(mbox);
+	mbox->keywords = maildir_keywords_init(mbox);
+	return &mbox->ibox.box;
+}
+
+static int maildir_mailbox_open_existing(struct mailbox *box)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct stat st;
 
 	/* for shared mailboxes get the create mode from the
 	   permissions of dovecot-shared file. */
-	if (stat(t_strconcat(path, "/dovecot-shared", NULL), &st) == 0) {
+	if (stat(t_strconcat(box->path, "/dovecot-shared", NULL), &st) == 0) {
 		if ((st.st_mode & S_ISGID) != 0 ||
 		    (st.st_mode & 0060) == 0) {
 			/* Ignore GID */
 			st.st_gid = (gid_t)-1;
 		}
-		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
+		mail_index_set_permissions(mbox->ibox.index,
+					   st.st_mode & 0666, st.st_gid);
 
-		mbox->ibox.box.file_create_mode = st.st_mode & 0666;
-		mbox->ibox.box.dir_create_mode =
-			get_dir_mode(st.st_mode & 0666);
-		mbox->ibox.box.file_create_gid = st.st_gid;
-		mbox->ibox.box.private_flags_mask = MAIL_SEEN;
+		box->file_create_mode = st.st_mode & 0666;
+		box->dir_create_mode = get_dir_mode(st.st_mode & 0666);
+		box->file_create_gid = st.st_gid;
+		box->private_flags_mask = MAIL_SEEN;
 	}
 
-	mbox->maildir_ext_id =
-		mail_index_ext_register(index, "maildir",
-					sizeof(mbox->maildir_hdr), 0, 0);
-
-	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
-	mbox->uidlist = maildir_uidlist_init(mbox);
-	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {
-		if (maildir_uidlist_lock(mbox->uidlist) <= 0) {
-			struct mailbox *box = &mbox->ibox.box;
-
-			mailbox_close(&box);
-			mailbox_list_set_error_from_storage(ns->list, storage);
-			return NULL;
-		}
+	if ((box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0) {
+		if (maildir_uidlist_lock(mbox->uidlist) <= 0)
+			return -1;
 		mbox->keep_lock_to = timeout_add(MAILDIR_LOCK_TOUCH_SECS * 1000,
 						 maildir_lock_touch_timeout,
 						 mbox);
 	}
 
-	if (access(t_strconcat(path, "/cur", NULL), W_OK) < 0 &&
+	if (access(t_strconcat(box->path, "/cur", NULL), W_OK) < 0 &&
 	    errno == EACCES)
 		mbox->ibox.backend_readonly = TRUE;
-
-	mbox->keywords = maildir_keywords_init(mbox);
-	return &mbox->ibox.box;
+	return index_storage_mailbox_open(box);
 }
 
-static struct mailbox *
-maildir_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-		     const char *name, struct istream *input,
-		     enum mailbox_open_flags flags)
+static int maildir_mailbox_open(struct mailbox *box)
 {
-	const char *path;
 	struct stat st;
 	mode_t mode;
 	gid_t gid;
 	int ret;
+	bool inbox;
 
-	if (input != NULL) {
-		mailbox_list_set_critical(list,
+	if (box->input != NULL) {
+		mail_storage_set_critical(box->storage,
 			"Maildir doesn't support streamed mailboxes");
-		return NULL;
+		return -1;
 	}
 
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (strcmp(name, "INBOX") == 0 &&
-	    (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
-		/* INBOX always exists */
-		mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
-		if (create_maildir(storage, list->ns, path,
-				   mode, gid, TRUE) < 0) {
-			mailbox_list_set_error_from_storage(list, storage);
-			return NULL;
-		}
-		return maildir_open(storage, list->ns, "INBOX", flags);
-	}
+	inbox = strcmp(box->name, "INBOX") == 0 &&
+		(box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0;
 
 	/* begin by checking if tmp/ directory exists and if it should be
 	   cleaned up. */
-	ret = maildir_check_tmp(storage, path);
+	ret = maildir_check_tmp(box->storage, box->path);
 	if (ret > 0) {
 		/* exists */
-		return maildir_open(storage, list->ns, name, flags);
+		return maildir_mailbox_open_existing(box);
 	}
-	if (ret < 0) {
-		mailbox_list_set_error_from_storage(list, storage);
-		return NULL;
-	}
+	if (ret < 0)
+		return -1;
 
 	/* tmp/ directory doesn't exist. does the maildir? */
-	if (stat(path, &st) == 0) {
+	if (inbox || stat(box->path, &st) == 0) {
 		/* yes, we'll need to create the missing dirs */
-		mailbox_list_get_dir_permissions(list, name, &mode, &gid);
-		if (create_maildir(storage, list->ns, path,
-				   mode, gid, TRUE) < 0) {
-			mailbox_list_set_error_from_storage(list, storage);
-			return NULL;
-		}
+		mailbox_list_get_dir_permissions(box->list, box->name,
+						 &mode, &gid);
+		if (create_maildir(box->storage, box->list->ns, box->path,
+				   mode, gid, TRUE) < 0)
+			return -1;
 
-		return maildir_open(storage, list->ns, name, flags);
+		return maildir_mailbox_open_existing(box);
 	} else if (errno == ENOENT) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		return NULL;
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+		return -1;
 	} else {
-		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
-		return NULL;
+		mail_storage_set_critical(box->storage,
+					  "stat(%s) failed: %m", box->path);
+		return -1;
 	}
 }
 
@@ -786,7 +758,7 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			       rename_children);
 }
 
-static int maildir_storage_mailbox_close(struct mailbox *box)
+static void maildir_mailbox_close(struct mailbox *box)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 
@@ -800,7 +772,7 @@ static int maildir_storage_mailbox_close(struct mailbox *box)
 	if (mbox->keywords != NULL)
 		maildir_keywords_deinit(&mbox->keywords);
 	maildir_uidlist_deinit(&mbox->uidlist);
-	return index_storage_mailbox_close(box);
+	index_storage_mailbox_close(box);
 }
 
 static void maildir_notify_changes(struct mailbox *box)
@@ -811,9 +783,9 @@ static void maildir_notify_changes(struct mailbox *box)
 		index_mailbox_check_remove_all(&mbox->ibox);
 	else {
 		index_mailbox_check_add(&mbox->ibox,
-					t_strconcat(mbox->path, "/new", NULL));
+			t_strconcat(mbox->ibox.box.path, "/new", NULL));
 		index_mailbox_check_add(&mbox->ibox,
-					t_strconcat(mbox->path, "/cur", NULL));
+			t_strconcat(mbox->ibox.box.path, "/cur", NULL));
 	}
 }
 
@@ -1040,7 +1012,7 @@ struct mail_storage maildir_storage = {
 		maildir_storage_add_list,
 		maildir_storage_get_list_settings,
 		maildir_storage_autodetect,
-		maildir_mailbox_open,
+		maildir_mailbox_alloc,
 		maildir_mailbox_create,
 		NULL
 	}
@@ -1055,7 +1027,8 @@ struct mailbox maildir_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
-		maildir_storage_mailbox_close,
+		maildir_mailbox_open,
+		maildir_mailbox_close,
 		index_storage_get_status,
 		maildir_list_index_has_changed,
 		maildir_list_index_update_sync,

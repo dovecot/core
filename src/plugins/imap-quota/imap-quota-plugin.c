@@ -84,25 +84,18 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	if (ns == NULL)
 		return TRUE;
 
-	box = mailbox_open(ns->list, mailbox, NULL, (MAILBOX_OPEN_READONLY |
-						     MAILBOX_OPEN_FAST |
-						     MAILBOX_OPEN_KEEP_RECENT));
-	if (box == NULL) {
-		client_send_list_error(cmd, ns->list);
-		return TRUE;
-	}
-
 	if (quser == NULL) {
-		mailbox_close(&box);
 		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
 	}
 	if (ns->owner != NULL && ns->owner != client->user &&
 	    !client->user->admin) {
-		mailbox_close(&box);
 		client_send_tagline(cmd, "NO Not showing other users' quota.");
 		return TRUE;
 	}
+
+	box = mailbox_alloc(ns->list, mailbox, NULL, MAILBOX_FLAG_READONLY |
+			    MAILBOX_FLAG_KEEP_RECENT);
 
 	/* send QUOTAROOT reply */
 	str = t_str_new(128);

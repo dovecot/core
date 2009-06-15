@@ -68,7 +68,8 @@ int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 					  &data, &data_size);
 		if (data_size != sizeof(*hdr)) {
 			mail_storage_set_critical(&mbox->storage->storage,
-				"dbox %s: Invalid dbox header size", mbox->path);
+				"dbox %s: Invalid dbox header size",
+				mbox->ibox.box.path);
 			mbox->storage->sync_rebuild = TRUE;
 			return -1;
 		}
@@ -82,7 +83,7 @@ int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 	if (cur_map_uid_validity != mbox->map_uid_validity) {
 		mail_storage_set_critical(&mbox->storage->storage,
 			"dbox %s: map uidvalidity mismatch (%u vs %u)",
-			mbox->path, mbox->map_uid_validity,
+			mbox->ibox.box.path, mbox->map_uid_validity,
 			cur_map_uid_validity);
 		mbox->storage->sync_rebuild = TRUE;
 		return -1;

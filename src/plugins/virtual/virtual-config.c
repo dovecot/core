@@ -323,7 +323,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	i_array_init(&mbox->backend_boxes, 8);
 	mbox->search_args_crc32 = (uint32_t)-1;
 
-	path = t_strconcat(mbox->path, "/"VIRTUAL_CONFIG_FNAME, NULL);
+	path = t_strconcat(mbox->ibox.box.path, "/"VIRTUAL_CONFIG_FNAME, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT) {

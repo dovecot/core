@@ -34,8 +34,6 @@ struct mbox_mailbox {
 	struct index_mailbox ibox;
 	struct mbox_storage *storage;
 
-	const char *path;
-
 	int mbox_fd;
 	struct istream *mbox_stream, *mbox_file_stream;
 	int mbox_lock_type;

@@ -62,13 +62,8 @@ int imap_status_get(struct client *client, struct mail_namespace *ns,
 	}
 
 	/* open the mailbox */
-	box = mailbox_open(ns->list, mailbox, NULL, MAILBOX_OPEN_FAST |
-			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
-	if (box == NULL) {
-		*error_r = mailbox_list_get_last_error(ns->list, &error);
-		*error_r = imap_get_error_string(*error_r, error);
-		return -1;
-	}
+	box = mailbox_alloc(ns->list, mailbox, NULL, MAILBOX_FLAG_READONLY |
+			    MAILBOX_FLAG_KEEP_RECENT);
 
 	if ((items & STATUS_HIGHESTMODSEQ) != 0)
 		client_enable(client, MAILBOX_FEATURE_CONDSTORE);

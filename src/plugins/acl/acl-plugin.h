@@ -46,7 +46,10 @@ void acl_mail_storage_created(struct mail_storage *storage);
 void acl_mailbox_list_created(struct mailbox_list *list);
 void acl_mail_user_created(struct mail_user *list);
 
-struct mailbox *acl_mailbox_open_box(struct mailbox *box);
+struct mailbox *
+acl_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		  const char *name, struct istream *input,
+		  enum mailbox_flags flags);
 
 struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list);
 int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,

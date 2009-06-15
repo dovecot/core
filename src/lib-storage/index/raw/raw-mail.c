@@ -19,10 +19,10 @@ static int raw_mail_stat(struct mail *mail)
 		return mail_set_aborted(mail);
 
 	p->stats_fstat_lookup_count++;
-	st = i_stream_stat(mbox->input, TRUE);
+	st = i_stream_stat(mail->box->input, TRUE);
 	if (st == NULL) {
 		mail_storage_set_critical(mail->box->storage,
-					  "stat(%s) failed: %m", mbox->path);
+			"stat(%s) failed: %m", mail->box->path);
 		return -1;
 	}
 
@@ -81,13 +81,12 @@ raw_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 		    struct message_size *body_size, struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct raw_mailbox *mbox = (struct raw_mailbox *)_mail->box;
 
 	if (mail->data.stream == NULL) {
 		/* we can't just reference mbox->input, because
 		   index_mail_close() expects to be able to free the stream */
 		mail->data.stream =
-			i_stream_create_limit(mbox->input, (uoff_t)-1);
+			i_stream_create_limit(_mail->box->input, (uoff_t)-1);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
@@ -104,7 +103,7 @@ raw_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		*value_r = mbox->envelope_sender;
 		return 0;
 	case MAIL_FETCH_UIDL_FILE_NAME:
-		*value_r = mbox->have_filename ? mbox->path : "";
+		*value_r = mbox->have_filename ? _mail->box->path : "";
 		return 0;
 	default:
 		return index_mail_get_special(_mail, field, value_r);

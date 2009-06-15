@@ -16,9 +16,6 @@ struct raw_mailbox {
 	struct index_mailbox ibox;
 	struct raw_storage *storage;
 
-	const char *path;
-	struct istream *input;
-
 	time_t mtime, ctime;
 	uoff_t size;
 	const char *envelope_sender;

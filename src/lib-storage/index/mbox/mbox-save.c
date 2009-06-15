@@ -734,7 +734,7 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 
 		buf.modtime = st.st_mtime;
 		buf.actime = ctx->orig_atime;
-		if (utime(mbox->path, &buf) < 0)
+		if (utime(mbox->ibox.box.path, &buf) < 0)
 			mbox_set_syscall_error(mbox, "utime()");
 	}
 

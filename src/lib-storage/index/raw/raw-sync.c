@@ -52,10 +52,12 @@ raw_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	struct raw_mailbox *mbox = (struct raw_mailbox *)box;
 	int ret = 0;
 
-	if (!box->opened)
-		index_storage_mailbox_open(&mbox->ibox);
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			ret = -1;
+	}
 
-	if (!mbox->synced)
+	if (!mbox->synced && ret == 0)
 		ret = raw_sync(mbox);
 
 	return index_mailbox_sync_init(box, flags, ret < 0);

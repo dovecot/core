@@ -55,7 +55,7 @@ struct mail_storage test_storage = {
 		NULL,
 		test_storage_get_list_settings,
 		NULL,
-		test_mailbox_open,
+		test_mailbox_alloc,
 		test_mailbox_create,
 		NULL
 	}

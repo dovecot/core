@@ -23,10 +23,11 @@ int mbox_file_open(struct mbox_mailbox *mbox)
 		return 0;
 	}
 
-	fd = open(mbox->path, mbox->ibox.backend_readonly ? O_RDONLY : O_RDWR);
+	fd = open(mbox->ibox.box.path,
+		  mbox->ibox.backend_readonly ? O_RDONLY : O_RDWR);
 	if (fd == -1 && errno == EACCES && !mbox->ibox.backend_readonly) {
                 mbox->ibox.backend_readonly = TRUE;
-		fd = open(mbox->path, O_RDONLY);
+		fd = open(mbox->ibox.box.path, O_RDONLY);
 	}
 
 	if (fd == -1) {
@@ -83,7 +84,7 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 	}
 
 	mbox->mbox_stream = i_stream_create_raw_mbox(mbox->mbox_file_stream,
-						     mbox->path);
+						     mbox->ibox.box.path);
 	if (mbox->mbox_lock_type != F_UNLCK)
 		istream_raw_mbox_set_locked(mbox->mbox_stream);
 	return 0;
@@ -106,7 +107,7 @@ static void mbox_file_fix_atime(struct mbox_mailbox *mbox)
 		if (st.st_atime >= st.st_mtime) {
 			buf.modtime = st.st_mtime;
 			buf.actime = buf.modtime - 1;
-			if (utime(mbox->path, &buf) < 0) {
+			if (utime(mbox->ibox.box.path, &buf) < 0) {
 				mbox_set_syscall_error(mbox, "utimes()");
 				return;
 			}
@@ -146,7 +147,7 @@ int mbox_file_lookup_offset(struct mbox_mailbox *mbox,
 	if (data == NULL) {
 		mail_storage_set_critical(&mbox->storage->storage,
 			"Cached message offset lost for seq %u in mbox file %s",
-			seq, mbox->path);
+			seq, mbox->ibox.box.path);
                 mbox->mbox_hdr.dirty_flag = TRUE;
                 mbox->mbox_broken_offsets = TRUE;
 		return 0;
@@ -183,7 +184,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 
 		mail_storage_set_critical(&mbox->storage->storage,
 			"Cached message offset %s is invalid for mbox file %s",
-			dec2str(offset), mbox->path);
+			dec2str(offset), mbox->ibox.box.path);
 		mbox->mbox_hdr.dirty_flag = TRUE;
 		mbox->mbox_broken_offsets = TRUE;
 		return 0;

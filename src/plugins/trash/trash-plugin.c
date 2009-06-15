@@ -54,10 +54,12 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
 	struct mail_search_args *search_args;
 
-	trash->box = mailbox_open(trash->ns->list, trash->name, NULL,
-				  MAILBOX_OPEN_KEEP_RECENT);
-	if (trash->box == NULL)
+	trash->box = mailbox_alloc(trash->ns->list, trash->name, NULL,
+				   MAILBOX_FLAG_KEEP_RECENT);
+	if (mailbox_open(trash->box) < 0) {
+		mailbox_close(&trash->box);
 		return 0;
+	}
 
 	if (mailbox_sync(trash->box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
 		return -1;

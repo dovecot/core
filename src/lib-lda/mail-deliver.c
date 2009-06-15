@@ -79,16 +79,16 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	struct mail_storage *storage;
 	struct mailbox *box;
 	enum mail_error error;
-	enum mailbox_open_flags open_flags =
-		MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_SAVEONLY |
-		MAILBOX_OPEN_POST_SESSION;
+	enum mailbox_flags flags =
+		MAILBOX_FLAG_KEEP_RECENT | MAILBOX_FLAG_SAVEONLY |
+		MAILBOX_FLAG_POST_SESSION;
 
 	*error_r = NULL;
 
 	if (strcasecmp(name, "INBOX") == 0) {
 		/* deliveries to INBOX must always succeed,
 		   regardless of ACLs */
-		open_flags |= MAILBOX_OPEN_IGNORE_ACLS;
+		flags |= MAILBOX_FLAG_IGNORE_ACLS;
 	}
 
 	*ns_r = ns = mail_namespace_find(ctx->dest_user->namespaces, &name);
@@ -101,16 +101,17 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 		return NULL;
 	}
 
-	box = mailbox_open(ns->list, name, NULL, open_flags);
-	if (box != NULL)
+	box = mailbox_alloc(ns->list, name, NULL, flags);
+	if (mailbox_open(box) == 0)
 		return box;
 
-	*error_r = mailbox_list_get_last_error(ns->list, &error);
+	storage = mailbox_get_storage(box);
+	*error_r = mail_storage_get_last_error(storage, &error);
+	mailbox_close(&box);
 	if (!ctx->set->lda_mailbox_autocreate || error != MAIL_ERROR_NOTFOUND)
 		return NULL;
 
 	/* try creating it. */
-	storage = mail_namespace_get_default_storage(ns);
 	if (mail_storage_mailbox_create(storage, ns, name, FALSE) < 0) {
 		*error_r = mail_storage_get_last_error(storage, &error);
 		return NULL;
@@ -121,16 +122,12 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	}
 
 	/* and try opening again */
-	box = mailbox_open(ns->list, name, NULL, open_flags);
-	if (box == NULL) {
-		*error_r = mailbox_list_get_last_error(ns->list, &error);
-		return NULL;
-	}
-
-	if (mailbox_sync(box, 0, 0, NULL) < 0) {
+	box = mailbox_alloc(ns->list, name, NULL, flags);
+	storage = mailbox_get_storage(box);
+	if (mailbox_open(box) < 0 ||
+	    mailbox_sync(box, 0, 0, NULL) < 0) {
+		*error_r = mail_storage_get_last_error(storage, &error);
 		mailbox_close(&box);
-		*error_r = mail_storage_get_last_error(mailbox_get_storage(box),
-						       &error);
 		return NULL;
 	}
 	return box;

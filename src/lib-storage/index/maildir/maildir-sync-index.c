@@ -160,7 +160,8 @@ static int maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 
 	i_warning("Maildir %s: Expunged message reappeared, giving a new UID "
-		  "(old uid=%u, file=%s)", ctx->mbox->path, uid, filename);
+		  "(old uid=%u, file=%s)", ctx->mbox->ibox.box.path,
+		  uid, filename);
 	return 0;
 }
 
@@ -402,7 +403,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		   first time, reset the index so we can add all messages as
 		   new */
 		i_warning("Maildir %s: UIDVALIDITY changed (%u -> %u)",
-			  mbox->path, hdr->uid_validity, uid_validity);
+			  mbox->ibox.box.path, hdr->uid_validity, uid_validity);
 		mail_index_reset(trans);
 		index_mailbox_reset_uidvalidity(&mbox->ibox);
 		maildir_uidlist_set_next_uid(mbox->uidlist, 1, TRUE);
@@ -564,7 +565,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	if (mbox->ibox.box.v.sync_notify != NULL)
 		mbox->ibox.box.v.sync_notify(&mbox->ibox.box, 0, 0);
 
-	if (stat(t_strconcat(mbox->path, "/cur", NULL), &st) == 0) {
+	if (stat(t_strconcat(mbox->ibox.box.path, "/cur", NULL), &st) == 0) {
 		mbox->maildir_hdr.new_check_time =
 			I_MAX(st.st_mtime, time_before_sync);
 		mbox->maildir_hdr.cur_mtime = st.st_mtime;

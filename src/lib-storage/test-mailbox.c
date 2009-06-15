@@ -24,9 +24,13 @@ static int test_mailbox_enable(struct mailbox *box,
 	return 0;
 }
 
-static int test_mailbox_close(struct mailbox *box ATTR_UNUSED)
+static int test_mailbox_open(struct mailbox *box ATTR_UNUSED)
 {
 	return 0;
+}
+
+static void test_mailbox_close(struct mailbox *box ATTR_UNUSED)
+{
 }
 
 static void test_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
@@ -277,6 +281,7 @@ struct mailbox test_mailbox = {
 		test_mailbox_is_readonly,
 		test_mailbox_allow_new_keywords,
 		test_mailbox_enable,
+		test_mailbox_open,
 		test_mailbox_close,
 		test_mailbox_get_status,
 		NULL,
@@ -318,9 +323,9 @@ struct mailbox test_mailbox = {
 };
 
 struct mailbox *
-test_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-		  const char *name, struct istream *input ATTR_UNUSED,
-		  enum mailbox_open_flags flags)
+test_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		   const char *name, struct istream *input ATTR_UNUSED,
+		   enum mailbox_flags flags)
 {
 	struct mailbox *box;
 	pool_t pool;
@@ -333,7 +338,7 @@ test_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
 	box->list = list;
 
 	box->pool = pool;
-	box->open_flags = flags;
+	box->flags = flags;
 
 	p_array_init(&box->search_results, pool, 16);
 	p_array_init(&box->module_contexts, pool, 5);

@@ -175,10 +175,12 @@ cydir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	struct cydir_mailbox *mbox = (struct cydir_mailbox *)box;
 	int ret = 0;
 
-	if (!box->opened)
-		index_storage_mailbox_open(&mbox->ibox);
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			ret = -1;
+	}
 
-	if (index_mailbox_want_full_sync(&mbox->ibox, flags))
+	if (index_mailbox_want_full_sync(&mbox->ibox, flags) && ret == 0)
 		ret = cydir_sync(mbox);
 
 	return index_mailbox_sync_init(box, flags, ret < 0);

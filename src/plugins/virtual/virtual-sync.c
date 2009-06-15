@@ -169,7 +169,7 @@ static bool virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 		if (ext_name_offset >= ext_size ||
 		    ext_hdr->mailbox_count > INT_MAX/sizeof(*mailboxes)) {
 			i_error("virtual index %s: Broken mailbox_count header",
-				ctx->mbox->path);
+				ctx->mbox->ibox.box.path);
 			ctx->index_broken = TRUE;
 			ext_mailbox_count = 0;
 			ret = FALSE;
@@ -184,18 +184,18 @@ static bool virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 		if (mailboxes[i].id > ext_hdr->highest_mailbox_id ||
 		    mailboxes[i].id <= prev_mailbox_id) {
 			i_error("virtual index %s: Broken mailbox id",
-				ctx->mbox->path);
+				ctx->mbox->ibox.box.path);
 			break;
 		}
 		if (mailboxes[i].name_len == 0 ||
 		    mailboxes[i].name_len > ext_size) {
 			i_error("virtual index %s: Broken mailbox name_len",
-				ctx->mbox->path);
+				ctx->mbox->ibox.box.path);
 			break;
 		}
 		if (ext_name_offset + mailboxes[i].name_len > ext_size) {
 			i_error("virtual index %s: Broken mailbox list",
-				ctx->mbox->path);
+				ctx->mbox->ibox.box.path);
 			break;
 		}
 		T_BEGIN {
@@ -999,8 +999,10 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 	struct mailbox_status status;
 	int ret;
 
-	if (!bbox->box->opened)
-		index_storage_mailbox_open(ibox);
+	if (!bbox->box->opened) {
+		if (mailbox_open(bbox->box) < 0)
+			return -1;
+	}
 
 	/* if we already did some changes to index, commit them before
 	   syncing starts. */
@@ -1391,7 +1393,7 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 			if (mail_index_unlink(ctx->index) < 0) {
 				i_error("virtual index %s: Failed to unlink() "
 					"broken indexes: %m",
-					ctx->mbox->path);
+					ctx->mbox->ibox.box.path);
 			}
 		}
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
@@ -1452,10 +1454,12 @@ virtual_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	struct mailbox_sync_context *sync_ctx;
 	int ret = 0;
 
-	if (!box->opened)
-		index_storage_mailbox_open(&mbox->ibox);
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			ret = -1;
+	}
 
-	if (index_mailbox_want_full_sync(&mbox->ibox, flags))
+	if (index_mailbox_want_full_sync(&mbox->ibox, flags) && ret == 0)
 		ret = virtual_sync(mbox, flags);
 
 	sync_ctx = index_mailbox_sync_init(box, flags, ret < 0);

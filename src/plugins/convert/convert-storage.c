@@ -29,13 +29,6 @@ static const char *storage_error(struct mail_storage *storage)
 	return mail_storage_get_last_error(storage, &error);
 }
 
-static const char *list_error(struct mailbox_list *list)
-{
-	enum mail_error error;
-
-	return mailbox_list_get_last_error(list, &error);
-}
-
 static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 			      struct dotlock *dotlock, const char **error_r)
 {
@@ -298,15 +291,17 @@ static int mailbox_convert_list_item(struct mail_namespace *source_ns,
 
 	/* First open the source mailbox. If we can't open it, don't create
 	   the destination mailbox either. */
-	srcbox = mailbox_open(source_ns->list, name, NULL,
-			      MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
-	if (srcbox == NULL) {
+	srcbox = mailbox_alloc(source_ns->list, name, NULL,
+			       MAILBOX_FLAG_READONLY |
+			       MAILBOX_FLAG_KEEP_RECENT);
+	if (mailbox_open(srcbox) < 0) {
 		if (set->skip_broken_mailboxes)
 			return 0;
 
 		i_error("Mailbox conversion: "
 			"Couldn't open source mailbox %s: %s",
-			name, list_error(source_ns->list));
+			name, storage_error(mailbox_get_storage(srcbox)));
+		mailbox_close(&srcbox);
 		return -1;
 	}
 
@@ -322,12 +317,13 @@ static int mailbox_convert_list_item(struct mail_namespace *source_ns,
 		}
 	}
 
-	destbox = mailbox_open(dest_ns->list, dest_name, NULL,
-			       MAILBOX_OPEN_KEEP_RECENT);
-	if (destbox == NULL) {
+	destbox = mailbox_alloc(dest_ns->list, dest_name, NULL,
+				MAILBOX_FLAG_KEEP_RECENT);
+	if (mailbox_open(destbox) < 0) {
 		i_error("Mailbox conversion: Couldn't open dest mailbox %s: %s",
-			dest_name, list_error(dest_ns->list));
+			dest_name, storage_error(mailbox_get_storage(destbox)));
 		mailbox_close(&srcbox);
+		mailbox_close(&destbox);
 		return -1;
 	}
 

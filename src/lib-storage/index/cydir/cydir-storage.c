@@ -48,13 +48,13 @@ cydir_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 		set->subscription_fname = CYDIR_SUBSCRIPTION_FILE_NAME;
 }
 
-static int create_cydir(struct mail_storage *storage, struct mail_namespace *ns,
+static int create_cydir(struct mail_storage *storage, struct mailbox_list *list,
 			const char *path)
 {
 	mode_t mode;
 	gid_t gid;
 
-	mailbox_list_get_dir_permissions(ns->list, NULL, &mode, &gid);
+	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
 	if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) < 0 &&
 	    errno != EEXIST) {
 		if (!mail_storage_set_error_from_errno(storage)) {
@@ -67,76 +67,64 @@ static int create_cydir(struct mail_storage *storage, struct mail_namespace *ns,
 }
 
 static struct mailbox *
-cydir_open(struct mail_storage *storage, struct mailbox_list *list,
-	   const char *name, enum mailbox_open_flags flags)
+cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		    const char *name, struct istream *input,
+		    enum mailbox_flags flags)
 {
 	struct cydir_mailbox *mbox;
-	struct mail_index *index;
-	const char *path;
 	pool_t pool;
 
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index = index_storage_alloc(list, name, flags, CYDIR_INDEX_PREFIX);
-	mail_index_set_fsync_types(index, MAIL_INDEX_SYNC_TYPE_APPEND |
-				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
+	/* cydir can't work without index files */
+	flags &= ~MAILBOX_FLAG_NO_INDEX_FILES;
 
 	pool = pool_alloconly_create("cydir mailbox", 1024+512);
 	mbox = p_new(pool, struct cydir_mailbox, 1);
 	mbox->ibox.box = cydir_mailbox;
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = storage;
+	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &cydir_mail_vfuncs;
-	mbox->ibox.index = index;
+
+	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
+				    CYDIR_INDEX_PREFIX);
+	mail_index_set_fsync_types(mbox->ibox.index,
+				   MAIL_INDEX_SYNC_TYPE_APPEND |
+				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
 	mbox->storage = (struct cydir_storage *)storage;
-	mbox->path = p_strdup(pool, path);
-
-	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	return &mbox->ibox.box;
 }
 
-static struct mailbox *
-cydir_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-		   const char *name, struct istream *input,
-		   enum mailbox_open_flags flags)
+static int cydir_mailbox_open(struct mailbox *box)
 {
-	const char *path;
 	struct stat st;
 
-	if (input != NULL) {
-		mailbox_list_set_critical(list,
+	if (box->input != NULL) {
+		mail_storage_set_critical(box->storage,
 			"cydir doesn't support streamed mailboxes");
-		return NULL;
+		return -1;
 	}
 
-	/* cydir can't work without index files */
-	flags &= ~MAILBOX_OPEN_NO_INDEX_FILES;
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0)
-		return cydir_open(storage, list, name, flags);
-	else if (errno == ENOENT) {
-		if (strcmp(name, "INBOX") == 0) {
-			/* INBOX always exists, create it */
-			if (create_cydir(storage, list->ns, path) < 0) {
-				mailbox_list_set_error_from_storage(list,
-								    storage);
-				return NULL;
-			}
-			return cydir_open(storage, list, "INBOX", flags);
-		}
-		mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+	if (stat(box->path, &st) == 0) {
+		/* exists, open it */
+	} else if (errno == ENOENT && strcmp(box->name, "INBOX") == 0) {
+		/* INBOX always exists, create it */
+		if (create_cydir(box->storage, box->list, box->path) < 0)
+			return -1;
+	} else if (errno == ENOENT) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+		return -1;
 	} else if (errno == EACCES) {
-		mail_storage_set_critical(storage, "%s",
-			mail_error_eacces_msg("stat", path));
+		mail_storage_set_critical(box->storage, "%s",
+			mail_error_eacces_msg("stat", box->path));
+		return -1;
 	} else {
-		mail_storage_set_critical(storage, "stat(%s) failed: %m",
-					  path);
+		mail_storage_set_critical(box->storage, "stat(%s) failed: %m",
+					  box->path);
+		return -1;
 	}
-	return NULL;
+	return index_storage_mailbox_open(box);
 }
 
 static int
@@ -154,7 +142,7 @@ cydir_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
 		return -1;
 	}
 
-	return create_cydir(storage, list->ns, path);
+	return create_cydir(storage, list, path);
 }
 
 static int
@@ -261,7 +249,7 @@ static void cydir_notify_changes(struct mailbox *box)
 	if (box->notify_callback == NULL)
 		index_mailbox_check_remove_all(&mbox->ibox);
 	else
-		index_mailbox_check_add(&mbox->ibox, mbox->path);
+		index_mailbox_check_add(&mbox->ibox, mbox->ibox.box.path);
 }
 
 static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
@@ -356,7 +344,7 @@ struct mail_storage cydir_storage = {
 		cydir_storage_add_list,
 		cydir_storage_get_list_settings,
 		NULL,
-		cydir_mailbox_open,
+		cydir_mailbox_alloc,
 		cydir_mailbox_create,
 		NULL
 	}
@@ -371,6 +359,7 @@ struct mailbox cydir_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
+		cydir_mailbox_open,
 		index_storage_mailbox_close,
 		index_storage_get_status,
 		NULL,

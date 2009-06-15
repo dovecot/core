@@ -163,9 +163,10 @@ listescape_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 }
 
 static struct mailbox *
-listescape_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-			const char *name, struct istream *input,
-			enum mailbox_open_flags flags)
+listescape_mailbox_alloc(struct mail_storage *storage,
+			 struct mailbox_list *list,
+			 const char *name, struct istream *input,
+			 enum mailbox_flags flags)
 {
 	struct listescape_mail_storage *mstorage = LIST_ESCAPE_CONTEXT(storage);
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
@@ -173,7 +174,7 @@ listescape_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
 	if (!mlist->name_escaped && list->hierarchy_sep != list->ns->sep)
 		name = list_escape(list->ns, name, TRUE);
 	return mstorage->module_ctx.super.
-		mailbox_open(storage, list, name, input, flags);
+		mailbox_alloc(storage, list, name, input, flags);
 }
 
 static int
@@ -266,7 +267,7 @@ static void listescape_mail_storage_created(struct mail_storage *storage)
 
 	mstorage = p_new(storage->pool, struct listescape_mail_storage, 1);
 	mstorage->module_ctx.super = storage->v;
-	storage->v.mailbox_open = listescape_mailbox_open;
+	storage->v.mailbox_alloc = listescape_mailbox_alloc;
 	storage->v.mailbox_create = listescape_mailbox_create;
 
 	MODULE_CONTEXT_SET(storage, listescape_storage_module, mstorage);

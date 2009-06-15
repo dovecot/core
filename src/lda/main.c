@@ -416,17 +416,17 @@ int main(int argc, char *argv[])
 		i_fatal("Couldn't create internal raw storage: %s", errstr);
 	if (path == NULL) {
 		input = create_raw_stream(&ctx, 0, &mtime);
-		box = mailbox_open(raw_ns->list, "Dovecot Delivery Mail",
-				   input, MAILBOX_OPEN_NO_INDEX_FILES);
+		box = mailbox_alloc(raw_ns->list, "Dovecot Delivery Mail",
+				    input, MAILBOX_FLAG_NO_INDEX_FILES);
 		i_stream_unref(&input);
 	} else {
 		mtime = (time_t)-1;
-		box = mailbox_open(raw_ns->list, path, NULL,
-				   MAILBOX_OPEN_NO_INDEX_FILES);
+		box = mailbox_alloc(raw_ns->list, path, NULL,
+				    MAILBOX_FLAG_NO_INDEX_FILES);
 	}
-	if (box == NULL) {
+	if (mailbox_open(box) < 0) {
 		i_fatal("Can't open delivery mail as raw: %s",
-			mailbox_list_get_last_error(raw_ns->list, &error));
+			mail_storage_get_last_error(box->storage, &error));
 	}
 	if (mailbox_sync(box, 0, 0, NULL) < 0) {
 		i_fatal("Can't sync delivery mail: %s",

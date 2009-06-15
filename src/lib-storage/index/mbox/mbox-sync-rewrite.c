@@ -44,8 +44,8 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	else if (ret >= 0) {
 		mbox_sync_set_critical(sync_ctx,
 			"mbox_move(%"PRIuUOFF_T", %"PRIuUOFF_T", %"PRIuUOFF_T
-			") moved only %"PRIuUOFF_T" bytes in mbox file %s",
-			dest, source, size, (uoff_t)ret, sync_ctx->mbox->path);
+			") moved only %"PRIuUOFF_T" bytes",
+			dest, source, size, (uoff_t)ret);
 		ret = -1;
 	} else if (ret < 0) {
 		errno = output->stream_errno;
@@ -416,11 +416,10 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 			mbox_sync_file_update_ext_modified(sync_ctx);
 
 			mbox_sync_set_critical(sync_ctx,
-				"mbox %s: seq=%u uid=%u uid_broken=%d "
+				"seq=%u uid=%u uid_broken=%d "
 				"originally needed %"PRIuUOFF_T
 				" bytes, now needs %"PRIuSIZE_T" bytes",
-				sync_ctx->mbox->path, seq, mails[idx].uid,
-				mails[idx].uid_broken,
+				seq, mails[idx].uid, mails[idx].uid_broken,
 				(uoff_t)-mails[idx].space, need_space);
 		}
 	}

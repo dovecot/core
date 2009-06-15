@@ -127,11 +127,13 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (mailbox_equals(client->mailbox, dest_ns, mailbox))
 		destbox = client->mailbox;
 	else {
-		destbox = mailbox_open(dest_ns->list, mailbox, NULL,
-				       MAILBOX_OPEN_SAVEONLY |
-				       MAILBOX_OPEN_KEEP_RECENT);
-		if (destbox == NULL) {
-			client_send_list_error(cmd, dest_ns->list);
+		destbox = mailbox_alloc(dest_ns->list, mailbox, NULL,
+					MAILBOX_FLAG_SAVEONLY |
+					MAILBOX_FLAG_KEEP_RECENT);
+		if (mailbox_open(destbox) < 0) {
+			client_send_storage_error(cmd,
+				mailbox_get_storage(destbox));
+			mailbox_close(&destbox);
 			return TRUE;
 		}
 		if (client->enabled_features != 0)

@@ -118,26 +118,27 @@ static bool virtual_mailbox_is_in_open_stack(struct virtual_storage *storage,
 }
 
 static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
-				  enum mailbox_open_flags open_flags)
+				  enum mailbox_flags flags)
 {
 	struct mail_user *user = mbox->storage->storage.user;
 	struct virtual_backend_box *const *bboxes;
+	struct mail_storage *storage;
 	struct mail_namespace *ns;
 	unsigned int i, count;
 	enum mail_error error;
 	const char *str, *mailbox;
 
-	open_flags |= MAILBOX_OPEN_KEEP_RECENT;
+	flags |= MAILBOX_FLAG_KEEP_RECENT;
 
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; ) {
 		mailbox = bboxes[i]->name;
 		ns = mail_namespace_find(user->namespaces, &mailbox);
-		bboxes[i]->box = mailbox_open(ns->list, mailbox,
-					      NULL, open_flags);
+		bboxes[i]->box = mailbox_alloc(ns->list, mailbox, NULL, flags);
 
-		if (bboxes[i]->box == NULL) {
-			str = mailbox_list_get_last_error(ns->list, &error);
+		if (mailbox_open(bboxes[i]->box) < 0) {
+			storage = mailbox_get_storage(bboxes[i]->box);
+			str = mail_storage_get_last_error(storage, &error);
 			if (bboxes[i]->wildcard &&
 			    (error == MAIL_ERROR_PERM ||
 			     error == MAIL_ERROR_NOTFOUND)) {
@@ -148,11 +149,9 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 				bboxes = array_get(&mbox->backend_boxes, &count);
 				continue;
 			}
-			if (ns->list != mbox->ibox.box.list) {
-				/* copy the error */
-				mailbox_list_set_error(mbox->ibox.box.list,
-						       error, str);
-			}
+			/* copy the error */
+			mail_storage_set_error(mbox->ibox.box.storage,
+					       error, str);
 			break;
 		}
 		i_array_init(&bboxes[i]->uids, 64);
@@ -166,7 +165,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	else {
 		/* failed */
 		for (; i > 0; i--) {
-			(void)mailbox_close(&bboxes[i-1]->box);
+			mailbox_close(&bboxes[i-1]->box);
 			array_free(&bboxes[i-1]->uids);
 		}
 		return -1;
@@ -174,96 +173,83 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 }
 
 static struct mailbox *
-virtual_open(struct virtual_storage *storage, struct mailbox_list *list,
-	     const char *name, enum mailbox_open_flags flags)
+virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
+		      const char *name, struct istream *input,
+		      enum mailbox_flags flags)
 {
-	struct mail_storage *_storage = &storage->storage;
+	struct virtual_storage *storage = (struct virtual_storage *)storage;
 	struct virtual_mailbox *mbox;
-	struct mail_index *index;
-	const char *path;
 	pool_t pool;
-	bool failed;
-
-	if (virtual_mailbox_is_in_open_stack(storage, name)) {
-		mail_storage_set_critical(_storage,
-					  "Virtual mailbox loops: %s", name);
-		return NULL;
-	}
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index = index_storage_alloc(list, name, flags, VIRTUAL_INDEX_PREFIX);
 
 	pool = pool_alloconly_create("virtual mailbox", 1024+512);
 	mbox = p_new(pool, struct virtual_mailbox, 1);
 	mbox->ibox.box = virtual_mailbox;
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = _storage;
+	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &virtual_mail_vfuncs;
-	mbox->ibox.index = index;
+
+	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
+				    VIRTUAL_INDEX_PREFIX);
 
 	mbox->storage = storage;
-	mbox->path = p_strdup(pool, path);
 	mbox->vseq_lookup_prev_mailbox = i_strdup("");
 
 	mbox->virtual_ext_id =
-		mail_index_ext_register(index, "virtual", 0,
+		mail_index_ext_register(mbox->ibox.index, "virtual", 0,
 			sizeof(struct virtual_mail_index_record),
 			sizeof(uint32_t));
-
-	array_append(&storage->open_stack, &name, 1);
-	failed = virtual_config_read(mbox) < 0 ||
-		virtual_mailboxes_open(mbox, flags) < 0;
-	array_delete(&storage->open_stack,
-		     array_count(&storage->open_stack)-1, 1);
-	if (failed) {
-		virtual_config_free(mbox);
-		index_storage_mailbox_close(&mbox->ibox.box);
-		return NULL;
-	}
-
-	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	return &mbox->ibox.box;
 }
 
-static struct mailbox *
-virtual_mailbox_open(struct mail_storage *_storage, struct mailbox_list *list,
-		     const char *name, struct istream *input,
-		     enum mailbox_open_flags flags)
+static int virtual_mailbox_open(struct mailbox *box)
 {
-	struct virtual_storage *storage = (struct virtual_storage *)_storage;
-	const char *path;
+	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
 	struct stat st;
+	bool failed;
 
-	if (input != NULL) {
-		mailbox_list_set_critical(list,
+	if (virtual_mailbox_is_in_open_stack(mbox->storage, box->name)) {
+		mail_storage_set_critical(box->storage,
+			"Virtual mailbox loops: %s", box->name);
+		return -1;
+	}
+
+	if (box->input != NULL) {
+		mail_storage_set_critical(box->storage,
 			"virtual doesn't support streamed mailboxes");
-		return NULL;
+		return -1;
 	}
 
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0)
-		return virtual_open(storage, list, name, flags);
-	else if (errno == ENOENT) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+	if (stat(box->path, &st) == 0) {
+		/* exists, open it */
+	} else if (errno == ENOENT) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+		return -1;
 	} else if (errno == EACCES) {
-		mailbox_list_set_critical(list, "%s",
-			mail_error_eacces_msg("stat", path));
+		mail_storage_set_critical(box->storage, "%s",
+			mail_error_eacces_msg("stat", box->path));
+		return -1;
 	} else {
-		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
+		mail_storage_set_critical(box->storage,
+					  "stat(%s) failed: %m", box->path);
+		return -1;
 	}
-	return NULL;
+
+	array_append(&mbox->storage->open_stack, &box->name, 1);
+	failed = virtual_config_read(mbox) < 0 ||
+		virtual_mailboxes_open(mbox, box->flags) < 0;
+	array_delete(&mbox->storage->open_stack,
+		     array_count(&mbox->storage->open_stack)-1, 1);
+	return failed ? -1 : 0;
 }
 
-static int virtual_storage_mailbox_close(struct mailbox *box)
+static void virtual_mailbox_close(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
 	struct mail_storage *storage;
 	struct virtual_backend_box **bboxes;
 	unsigned int i, count;
-	int ret = 0;
 
 	virtual_config_free(mbox);
 
@@ -273,14 +259,7 @@ static int virtual_storage_mailbox_close(struct mailbox *box)
 			mailbox_search_result_free(&bboxes[i]->search_result);
 
 		storage = bboxes[i]->box->storage;
-		if (mailbox_close(&bboxes[i]->box) < 0) {
-			const char *str;
-			enum mail_error error;
-
-			str = mail_storage_get_last_error(storage, &error);
-			mail_storage_set_error(box->storage, error, str);
-			ret = -1;
-		}
+		mailbox_close(&bboxes[i]->box);
 		if (array_is_created(&bboxes[i]->sync_outside_expunges))
 			array_free(&bboxes[i]->sync_outside_expunges);
 		array_free(&bboxes[i]->sync_pending_removes);
@@ -289,7 +268,7 @@ static int virtual_storage_mailbox_close(struct mailbox *box)
 	array_free(&mbox->backend_boxes);
 	i_free(mbox->vseq_lookup_prev_mailbox);
 
-	return index_storage_mailbox_close(box) < 0 ? -1 : ret;
+	index_storage_mailbox_close(box);
 }
 
 static int virtual_mailbox_create(struct mail_storage *_storage,
@@ -578,7 +557,7 @@ struct mail_storage virtual_storage = {
 		virtual_storage_add_list,
 		virtual_storage_get_list_settings,
 		NULL,
-		virtual_mailbox_open,
+		virtual_mailbox_alloc,
 		virtual_mailbox_create,
 		NULL
 	}
@@ -593,7 +572,8 @@ struct mailbox virtual_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
-		virtual_storage_mailbox_close,
+		virtual_mailbox_open,
+		virtual_mailbox_close,
 		index_storage_get_status,
 		NULL,
 		NULL,

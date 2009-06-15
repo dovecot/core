@@ -255,8 +255,8 @@ maildir_sync_context_new(struct maildir_mailbox *mbox,
 
 	ctx = t_new(struct maildir_sync_context, 1);
 	ctx->mbox = mbox;
-	ctx->new_dir = t_strconcat(mbox->path, "/new", NULL);
-	ctx->cur_dir = t_strconcat(mbox->path, "/cur", NULL);
+	ctx->new_dir = t_strconcat(mbox->ibox.box.path, "/new", NULL);
+	ctx->cur_dir = t_strconcat(mbox->ibox.box.path, "/cur", NULL);
 	ctx->last_touch = ioloop_time;
 	ctx->last_notify = ioloop_time;
 	ctx->flags = flags;
@@ -321,7 +321,8 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	}
 
 	new_fname = maildir_filename_generate();
-	new_path = t_strconcat(ctx->mbox->path, "/new/", new_fname, NULL);
+	new_path = t_strconcat(ctx->mbox->ibox.box.path, "/new/",
+			       new_fname, NULL);
 
 	if (rename(path2, new_path) == 0)
 		i_warning("Fixed a duplicate: %s -> %s", path2, new_fname);
@@ -337,6 +338,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 static int
 maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
 {
+	struct mailbox *box = &mbox->ibox.box;
 	int i;
 
 	for (i = 0;; i++) {
@@ -345,13 +347,12 @@ maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
 		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT)
 			break;
 
-		if (!maildir_set_deleted(mbox))
+		if (!maildir_set_deleted(box))
 			return -1;
 		/* try again */
 	}
 
-	mail_storage_set_critical(mbox->ibox.box.storage,
-				  "stat(%s) failed: %m", path);
+	mail_storage_set_critical(box->storage, "stat(%s) failed: %m", path);
 	return -1;
 }
 
@@ -386,7 +387,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 			return -1;
 		}
 
-		if (!maildir_set_deleted(ctx->mbox))
+		if (!maildir_set_deleted(&ctx->mbox->ibox.box))
 			return -1;
 		/* try again */
 	}
@@ -909,8 +910,10 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	bool lost_files, force_resync;
 	int ret = 0;
 
-	if (!box->opened)
-		index_storage_mailbox_open(&mbox->ibox);
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			return index_mailbox_sync_init(box, flags, TRUE);
+	}
 
 	force_resync = (flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0;
 	if (index_mailbox_want_full_sync(&mbox->ibox, flags)) {
@@ -967,8 +970,8 @@ int maildir_sync_is_synced(struct maildir_mailbox *mbox)
 	T_BEGIN {
 		const char *new_dir, *cur_dir;
 
-		new_dir = t_strconcat(mbox->path, "/new", NULL);
-		cur_dir = t_strconcat(mbox->path, "/cur", NULL);
+		new_dir = t_strconcat(mbox->ibox.box.path, "/new", NULL);
+		cur_dir = t_strconcat(mbox->ibox.box.path, "/cur", NULL);
 
 		ret = maildir_sync_quick_check(mbox, FALSE, new_dir, cur_dir,
 					       &new_changed, &cur_changed);

@@ -65,7 +65,7 @@ static bool acl_is_readonly(struct mailbox *box)
 	if (abox->module_ctx.super.is_readonly(box))
 		return TRUE;
 
-	save_right = (box->open_flags & MAILBOX_OPEN_POST_SESSION) != 0 ?
+	save_right = (box->flags & MAILBOX_FLAG_POST_SESSION) != 0 ?
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	if (acl_mailbox_right_lookup(box, save_right) > 0)
 		return FALSE;
@@ -95,12 +95,12 @@ static bool acl_allow_new_keywords(struct mailbox *box)
 	return acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0;
 }
 
-static int acl_mailbox_close(struct mailbox *box)
+static void acl_mailbox_close(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 
 	acl_object_deinit(&abox->aclobj);
-	return abox->module_ctx.super.close(box);
+	abox->module_ctx.super.close(box);
 }
 
 static int
@@ -262,7 +262,7 @@ acl_save_begin(struct mail_save_context *ctx, struct istream *input)
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 	enum acl_storage_rights save_right;
 
-	save_right = (box->open_flags & MAILBOX_OPEN_POST_SESSION) != 0 ?
+	save_right = (box->flags & MAILBOX_FLAG_POST_SESSION) != 0 ?
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	if (acl_mailbox_right_lookup(box, save_right) <= 0)
 		return -1;
@@ -279,7 +279,7 @@ acl_copy(struct mail_save_context *ctx, struct mail *mail)
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
 	enum acl_storage_rights save_right;
 
-	save_right = (t->box->open_flags & MAILBOX_OPEN_POST_SESSION) != 0 ?
+	save_right = (t->box->flags & MAILBOX_FLAG_POST_SESSION) != 0 ?
 		ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
 	if (acl_mailbox_right_lookup(t->box, save_right) <= 0)
 		return -1;
@@ -336,19 +336,78 @@ acl_keywords_create(struct mailbox *box, const char *const keywords[],
 						      keywords_r, skip_invalid);
 }
 
-struct mailbox *acl_mailbox_open_box(struct mailbox *box)
+static int acl_mailbox_open_check_acl(struct mailbox *box)
 {
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
+	const unsigned int *idx_arr = alist->rights.acl_storage_right_idx;
+	enum acl_storage_rights open_right;
+	int ret;
+
+	/* mailbox can be opened either for reading or appending new messages */
+	if ((box->flags & MAILBOX_FLAG_IGNORE_ACLS) != 0 ||
+	    (box->list->ns->flags & NAMESPACE_FLAG_NOACL) != 0)
+		return 0;
+
+	if ((box->flags & MAILBOX_FLAG_SAVEONLY) != 0) {
+		open_right = (box->flags & MAILBOX_FLAG_POST_SESSION) != 0 ?
+			ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
+	} else {
+		open_right = ACL_STORAGE_RIGHT_READ;
+	}
+
+	ret = acl_object_have_right(abox->aclobj, idx_arr[open_right]);
+	if (ret > 0)
+		return 0;
+	if (ret < 0)
+		return -1;
+
+	/* no access. */
+	ret = acl_object_have_right(abox->aclobj,
+				    idx_arr[ACL_STORAGE_RIGHT_LOOKUP]);
+	if (ret < 0)
+		return -1;
+	if (ret > 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
+				       MAIL_ERRSTR_NO_PERMISSION);
+	} else {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+	}
+	return -1;
+}
+
+static int acl_mailbox_open(struct mailbox *box)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+
+	if (acl_mailbox_open_check_acl(box) < 0)
+		return -1;
+
+	return abox->module_ctx.super.open(box);
+}
+
+struct mailbox *
+acl_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		  const char *name, struct istream *input,
+		  enum mailbox_flags flags)
+{
+	union mail_storage_module_context *astorage = ACL_CONTEXT(storage);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 	struct acl_mailbox *abox;
+	struct mailbox *box;
+
+	box = astorage->super.mailbox_alloc(storage, list, name, input, flags);
 
 	abox = p_new(box->pool, struct acl_mailbox, 1);
 	abox->module_ctx.super = box->v;
 	abox->aclobj = acl_object_init_from_name(alist->rights.backend,
 						 mailbox_get_name(box));
 
-	if ((box->open_flags & MAILBOX_OPEN_IGNORE_ACLS) == 0) {
+	if ((box->flags & MAILBOX_FLAG_IGNORE_ACLS) == 0) {
 		box->v.is_readonly = acl_is_readonly;
 		box->v.allow_new_keywords = acl_allow_new_keywords;
+		box->v.open = acl_mailbox_open;
 		box->v.close = acl_mailbox_close;
 		box->v.mail_alloc = acl_mail_alloc;
 		box->v.save_begin = acl_save_begin;

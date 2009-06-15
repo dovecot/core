@@ -27,10 +27,11 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		return 0;
 	}
 
-	box = mailbox_open(ns->list, name, NULL,
-			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
-	if (box == NULL) {
-		mailbox_list_get_last_error(ns->list, &error);
+	box = mailbox_alloc(ns->list, name, NULL,
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT);
+	if (mailbox_open(box) < 0) {
+		mail_storage_get_last_error(mailbox_get_storage(box), &error);
+		mailbox_close(&box);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
 		/* non-temporary error, e.g. ACLs denied access. */

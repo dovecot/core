@@ -58,19 +58,17 @@ static MODULE_CONTEXT_DEFINE_INIT(fts_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(fts_mail_module, &mail_module_register);
 
-static int fts_mailbox_close(struct mailbox *box)
+static void fts_mailbox_close(struct mailbox *box)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
-	int ret;
 
 	if (fbox->backend_substr != NULL)
 		fts_backend_deinit(&fbox->backend_substr);
 	if (fbox->backend_fast != NULL)
 		fts_backend_deinit(&fbox->backend_fast);
 
-	ret = fbox->module_ctx.super.close(box);
+	fbox->module_ctx.super.close(box);
 	i_free(fbox);
-	return ret;
 }
 
 static int fts_build_mail_flush_headers(struct fts_storage_build_context *ctx)
@@ -1057,7 +1055,7 @@ static void fts_mailbox_init(struct mailbox *box, const char *env)
 	MODULE_CONTEXT_SET(box, fts_storage_module, fbox);
 }
 
-void fts_mailbox_opened(struct mailbox *box)
+void fts_mailbox_allocated(struct mailbox *box)
 {
 	const char *env;
 
@@ -1065,6 +1063,6 @@ void fts_mailbox_opened(struct mailbox *box)
 	if (env != NULL)
 		fts_mailbox_init(box, env);
 
-	if (fts_next_hook_mailbox_opened != NULL)
-		fts_next_hook_mailbox_opened(box);
+	if (fts_next_hook_mailbox_allocated != NULL)
+		fts_next_hook_mailbox_allocated(box);
 }

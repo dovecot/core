@@ -24,7 +24,7 @@ struct mail_storage_mail_index_module mail_storage_mail_index_module =
 	MODULE_CONTEXT_INIT(&mail_index_module_register);
 
 void (*hook_mail_storage_created)(struct mail_storage *storage);
-void (*hook_mailbox_opened)(struct mailbox *box) = NULL;
+void (*hook_mailbox_allocated)(struct mailbox *box) = NULL;
 void (*hook_mailbox_index_opened)(struct mailbox *box) = NULL;
 
 ARRAY_TYPE(mail_storage) mail_storage_classes;
@@ -463,42 +463,49 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 	return TRUE;
 }
 
-struct mailbox *mailbox_open(struct mailbox_list *list, const char *name,
-			     struct istream *input,
-			     enum mailbox_open_flags flags)
+struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
+			      struct istream *input,
+			      enum mailbox_flags flags)
 {
 	struct mailbox_list *new_list = list;
 	struct mail_storage *storage;
 	struct mailbox *box;
 
-	if (mailbox_list_get_storage(&new_list, &name, &storage) < 0)
-		return NULL;
-
-	mailbox_list_clear_error(list);
-
-	if (!mailbox_list_is_valid_existing_name(new_list, name)) {
-		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
-		return NULL;
+	if (mailbox_list_get_storage(&new_list, &name, &storage) < 0) {
+		/* just use the first storage. FIXME: does this break? */
+		storage = list->ns->storage;
 	}
 
 	T_BEGIN {
-		box = storage->v.mailbox_open(storage, new_list,
-					      name, input, flags);
-		if (hook_mailbox_opened != NULL && box != NULL)
-			hook_mailbox_opened(box);
+		box = storage->v.mailbox_alloc(storage, new_list,
+					       name, input, flags);
+		if (hook_mailbox_allocated != NULL)
+			hook_mailbox_allocated(box);
+	} T_END;
+	return box;
+}
+
+int mailbox_open(struct mailbox *box)
+{
+	int ret;
+
+	mail_storage_clear_error(box->storage);
+
+	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
+		return -1;
+	}
+
+	T_BEGIN {
+		ret = box->v.open(box);
 	} T_END;
 
-	if (box != NULL)
-		box->list->ns->flags |= NAMESPACE_FLAG_USABLE;
-	else if (new_list != list) {
-		const char *str;
-		enum mail_error error;
+	if (ret < 0)
+		return -1;
 
-		str = mailbox_list_get_last_error(new_list, &error);
-		mailbox_list_set_error(list, error, str);
-	}
-	return box;
+	box->list->ns->flags |= NAMESPACE_FLAG_USABLE;
+	return 0;
 }
 
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features)
@@ -511,7 +518,7 @@ enum mailbox_feature mailbox_get_enabled_features(struct mailbox *box)
 	return box->enabled_features;
 }
 
-int mailbox_close(struct mailbox **_box)
+void mailbox_close(struct mailbox **_box)
 {
 	struct mailbox *box = *_box;
 
@@ -521,7 +528,7 @@ int mailbox_close(struct mailbox **_box)
 	}
 
 	*_box = NULL;
-	return box->v.close(box);
+	box->v.close(box);
 }
 
 struct mail_storage *mailbox_get_storage(const struct mailbox *box)

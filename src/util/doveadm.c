@@ -58,11 +58,12 @@ mailbox_find_and_open(struct mail_user *user, const char *mailbox)
 	if (ns == NULL)
 		i_fatal("Can't find namespace for mailbox %s", mailbox);
 
-	box = mailbox_open(ns->list, mailbox, NULL, MAILBOX_OPEN_KEEP_RECENT |
-			   MAILBOX_OPEN_IGNORE_ACLS);
-	if (box == NULL) {
+	box = mailbox_alloc(ns->list, mailbox, NULL, MAILBOX_FLAG_KEEP_RECENT |
+			    MAILBOX_FLAG_IGNORE_ACLS);
+	if (mailbox_open(box) < 0) {
 		i_fatal("Opening mailbox %s failed: %s", orig_mailbox,
-			mailbox_list_get_last_error(ns->list, NULL));
+			mail_storage_get_last_error(mailbox_get_storage(box),
+						    NULL));
 	}
 	return box;
 }

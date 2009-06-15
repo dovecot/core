@@ -16,51 +16,6 @@ struct acl_storage_module acl_storage_module =
 struct acl_user_module acl_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
 
-static struct mailbox *
-acl_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-		 const char *name, struct istream *input,
-		 enum mailbox_open_flags flags)
-{
-	union mail_storage_module_context *astorage = ACL_CONTEXT(storage);
-	struct mailbox *box;
-	enum acl_storage_rights save_right;
-	bool can_see;
-	int ret;
-
-	/* mailbox can be opened either for reading or appending new messages */
-	if ((flags & MAILBOX_OPEN_IGNORE_ACLS) != 0 ||
-	    (list->ns->flags & NAMESPACE_FLAG_NOACL) != 0) {
-		ret = 1;
-	} else if ((flags & MAILBOX_OPEN_SAVEONLY) == 0) {
-		ret = acl_mailbox_list_have_right(list, name, FALSE,
-						  ACL_STORAGE_RIGHT_READ,
-						  &can_see);
-	} else {
-		save_right = (flags & MAILBOX_OPEN_POST_SESSION) != 0 ?
-			ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
-		ret = acl_mailbox_list_have_right(list, name, FALSE,
-						  save_right, &can_see);
-	}
-	if (ret <= 0) {
-		if (ret < 0)
-			return NULL;
-		if (can_see) {
-			mailbox_list_set_error(list, MAIL_ERROR_PERM,
-					       MAIL_ERRSTR_NO_PERMISSION);
-		} else {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		}
-		return NULL;
-	}
-
-	box = astorage->super.mailbox_open(storage, list, name, input, flags);
-	if (box == NULL)
-		return NULL;
-
-	return acl_mailbox_open_box(box);
-}
-
 static int
 acl_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
 		   const char *name, bool directory)
@@ -103,7 +58,7 @@ void acl_mail_storage_created(struct mail_storage *storage)
 		astorage = p_new(storage->pool,
 				 union mail_storage_module_context, 1);
 		astorage->super = storage->v;
-		storage->v.mailbox_open = acl_mailbox_open;
+		storage->v.mailbox_alloc = acl_mailbox_alloc;
 		storage->v.mailbox_create = acl_mailbox_create;
 
 		MODULE_CONTEXT_SET_SELF(storage, acl_storage_module, astorage);

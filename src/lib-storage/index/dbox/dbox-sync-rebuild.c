@@ -191,7 +191,7 @@ dbox_sync_add_uid_file(struct dbox_sync_rebuild_context *ctx,
 	uid = strtoul(fname, &p, 10);
 	if (*p != '\0' || uid == 0 || uid >= (uint32_t)-1) {
 		i_warning("dbox %s: Ignoring invalid filename %s",
-			  ctx->mbox->path, fname);
+			  ctx->mbox->ibox.box.path, fname);
 		return 0;
 	}
 
@@ -234,7 +234,7 @@ dbox_sync_add_maildir_file(struct dbox_sync_rebuild_context *ctx,
 	ret = maildir_uidlist_sync_next(ctx->maildir_sync_ctx, fname, 0);
 	if (ret == 0) {
 		i_warning("%s: Ignoring duplicate maildir file: %s",
-			  ctx->mbox->path, fname);
+			  ctx->mbox->ibox.box.path, fname);
 	}
 	return ret;
 }
@@ -334,7 +334,8 @@ static int dbox_sync_maildir_finish(struct dbox_sync_rebuild_context *ctx)
 	while (maildir_uidlist_iter_next(iter, &uid, &flags, &fname)) {
 		file = dbox_file_init_single(mbox, uid);
 		file->current_path =
-			i_strdup_printf("%s/%s", ctx->mbox->path, fname);
+			i_strdup_printf("%s/%s", ctx->mbox->ibox.box.path,
+					fname);
 
 		ret = dbox_sync_add_file_index(ctx, file);
 		dbox_file_unref(&file);
@@ -411,7 +412,7 @@ int dbox_sync_index_rebuild_singles(struct dbox_sync_rebuild_context *ctx)
 	int ret = 0;
 
 	dbox_sync_set_uidvalidity(ctx);
-	if (dbox_sync_index_rebuild_dir(ctx, ctx->mbox->path, TRUE) < 0)
+	if (dbox_sync_index_rebuild_dir(ctx, ctx->mbox->ibox.box.path, TRUE) < 0)
 		ret = -1;
 	else if (ctx->mbox->alt_path != NULL) {
 		if (dbox_sync_index_rebuild_dir(ctx, ctx->mbox->alt_path,

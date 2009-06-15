@@ -372,7 +372,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 		}
 		/* the control dir doesn't exist. create it unless the whole
 		   mailbox was just deleted. */
-		if (!maildir_set_deleted(mk->mbox))
+		if (!maildir_set_deleted(&mk->mbox->ibox.box))
 			return -1;
 	}
 

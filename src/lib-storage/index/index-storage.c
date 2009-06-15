@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "buffer.h"
+#include "istream.h"
 #include "ioloop.h"
 #include "imap-parser.h"
 #include "mkdir-parents.h"
@@ -107,11 +107,11 @@ static int create_index_dir(struct mailbox_list *list, const char *name)
 
 static const char *
 get_index_dir(struct mailbox_list *list, const char *name,
-	      enum mailbox_open_flags flags, struct stat *st_r)
+	      enum mailbox_flags flags, struct stat *st_r)
 {
 	const char *index_dir;
 
-	index_dir = (flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0 ? "" :
+	index_dir = (flags & MAILBOX_FLAG_NO_INDEX_FILES) != 0 ? "" :
 		mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (*index_dir == '\0') {
 		/* disabled */
@@ -139,9 +139,9 @@ get_index_dir(struct mailbox_list *list, const char *name,
 	return index_dir;
 }
 
-struct mail_index *
+static struct mail_index *
 index_storage_alloc(struct mailbox_list *list, const char *name,
-		    enum mailbox_open_flags flags, const char *prefix)
+		    enum mailbox_flags flags, const char *prefix)
 {
 	struct index_list **indexp, *rec;
 	struct mail_index *index;
@@ -149,6 +149,7 @@ index_storage_alloc(struct mailbox_list *list, const char *name,
 	const char *index_dir, *mailbox_path;
 	int destroy_count;
 
+	// FIXME: failure handling when dirs don't exist yet?
 	mailbox_path = mailbox_list_get_path(list, name,
 					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	index_dir = get_index_dir(list, name, flags, &st);
@@ -365,16 +366,30 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
-int index_storage_mailbox_open(struct index_mailbox *ibox)
+int index_storage_mailbox_open(struct mailbox *box)
 {
-	struct mail_storage *storage = ibox->box.storage;
-	enum file_lock_method lock_method = storage->set->parsed_lock_method;
+	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	enum file_lock_method lock_method =
+		box->storage->set->parsed_lock_method;
 	enum mail_index_open_flags index_flags;
+	gid_t dir_gid;
 	int ret;
 
-	i_assert(!ibox->box.opened);
+	i_assert(!box->opened);
 
-	index_flags = mail_storage_settings_to_index_flags(storage->set);
+	if (box->file_create_mode == 0) {
+		mailbox_list_get_permissions(box->list, box->name,
+					     &box->file_create_mode,
+					     &box->file_create_gid);
+		mailbox_list_get_dir_permissions(box->list, box->name,
+						 &box->dir_create_mode,
+						 &dir_gid);
+		mail_index_set_permissions(ibox->index,
+					   box->file_create_mode,
+					   box->file_create_gid);
+	}
+
+	index_flags = mail_storage_settings_to_index_flags(box->storage->set);
 	if (!ibox->move_to_memory)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
 	if (ibox->keep_index_backups)
@@ -407,55 +422,52 @@ int index_storage_mailbox_open(struct index_mailbox *ibox)
 	MODULE_CONTEXT_SET_FULL(ibox->view, mail_storage_mail_index_module,
 				ibox, &ibox->view_module_ctx);
 
-	ibox->box.opened = TRUE;
+	box->opened = TRUE;
 
 	index_thread_mailbox_index_opened(ibox);
 	if (hook_mailbox_index_opened != NULL)
-		hook_mailbox_index_opened(&ibox->box);
+		hook_mailbox_index_opened(box);
 	return 0;
 }
 
-int index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
-			       enum mailbox_open_flags flags,
-			       bool move_to_memory)
+void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
+				 struct istream *input,
+				 enum mailbox_flags flags,
+				 const char *index_prefix)
 {
-	struct mail_storage *storage = ibox->box.storage;
 	struct mailbox *box = &ibox->box;
-	gid_t dir_gid;
+	const char *path;
 
-	i_assert(name != NULL);
-
-	box->storage = storage;
-	box->name = p_strdup(box->pool, name);
-	box->open_flags = flags;
-	if (box->file_create_mode == 0) {
-		mailbox_list_get_permissions(box->list, name,
-					     &box->file_create_mode,
-					     &box->file_create_gid);
-		mailbox_list_get_dir_permissions(box->list, name,
-						 &box->dir_create_mode,
-						 &dir_gid);
-		mail_index_set_permissions(ibox->index, box->file_create_mode,
-					   box->file_create_gid);
+	if (name != NULL)
+		box->name = p_strdup(box->pool, name);
+	else {
+		i_assert(input != NULL);
+		box->name = "(read-only input stream)";
 	}
+
+	if (input != NULL) {
+		flags |= MAILBOX_FLAG_READONLY;
+		box->input = input;
+		i_stream_ref(input);
+	}
+	box->flags = flags;
 
 	p_array_init(&box->search_results, box->pool, 16);
 	array_create(&box->module_contexts,
 		     box->pool, sizeof(void *), 5);
 
-	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
-	ibox->keep_locked = (flags & MAILBOX_OPEN_KEEP_LOCKED) != 0;
-	ibox->move_to_memory = move_to_memory;
+	path = mailbox_list_get_path(box->list, name,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	ibox->box.path = p_strdup(box->pool, path);
+
+	ibox->keep_recent = (flags & MAILBOX_FLAG_KEEP_RECENT) != 0;
+	ibox->keep_locked = (flags & MAILBOX_FLAG_KEEP_LOCKED) != 0;
 
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	ibox->commit_log_file_seq = 0;
-
+	ibox->index = index_storage_alloc(box->list, name, flags, index_prefix);
 	ibox->md5hdr_ext_idx =
 		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
-
-	if ((flags & MAILBOX_OPEN_FAST) == 0)
-		return index_storage_mailbox_open(ibox);
-	return 0;
 }
 
 int index_storage_mailbox_enable(struct mailbox *box,
@@ -466,7 +478,7 @@ int index_storage_mailbox_enable(struct mailbox *box,
 	if ((feature & MAILBOX_FEATURE_CONDSTORE) != 0) {
 		box->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
 		if (!box->opened) {
-			if (index_storage_mailbox_open(ibox) < 0)
+			if (mailbox_open(box) < 0)
 				return -1;
 		}
 		mail_index_modseq_enable(ibox->index);
@@ -474,7 +486,7 @@ int index_storage_mailbox_enable(struct mailbox *box,
 	return 0;
 }
 
-int index_storage_mailbox_close(struct mailbox *box)
+void index_storage_mailbox_close(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
@@ -482,6 +494,8 @@ int index_storage_mailbox_close(struct mailbox *box)
 		mail_index_view_close(&ibox->view);
 
 	index_mailbox_check_remove_all(ibox);
+	if (ibox->box.input != NULL)
+		i_stream_unref(&ibox->box.input);
 	if (ibox->index != NULL)
 		index_storage_unref(ibox->index);
 	if (array_is_created(&ibox->recent_flags))
@@ -489,14 +503,13 @@ int index_storage_mailbox_close(struct mailbox *box)
 	i_free(ibox->cache_fields);
 
 	pool_unref(&box->pool);
-	return 0;
 }
 
 bool index_storage_is_readonly(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
-	return (ibox->box.open_flags & MAILBOX_OPEN_READONLY) != 0 ||
+	return (box->flags & MAILBOX_FLAG_READONLY) != 0 ||
 		ibox->backend_readonly;
 }
 

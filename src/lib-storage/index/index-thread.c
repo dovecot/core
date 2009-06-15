@@ -609,10 +609,9 @@ mail_thread_iterate_init(struct mail_thread_context *ctx,
 					     thread_type, write_seqs);
 }
 
-static int mail_thread_mailbox_close(struct mailbox *box)
+static void mail_thread_mailbox_close(struct mailbox *box)
 {
 	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(box);
-	int ret;
 
 	i_assert(tbox->ctx == NULL);
 
@@ -624,9 +623,8 @@ static int mail_thread_mailbox_close(struct mailbox *box)
 	array_free(&tbox->cache->thread_nodes);
 	i_free(tbox->cache);
 
-	ret = tbox->module_ctx.super.close(box);
+	tbox->module_ctx.super.close(box);
 	i_free(tbox);
-	return ret;
 }
 
 void index_thread_mailbox_index_opened(struct index_mailbox *ibox)

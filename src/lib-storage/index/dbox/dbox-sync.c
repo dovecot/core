@@ -221,7 +221,7 @@ static int dbox_refresh_header(struct dbox_mailbox *mbox, bool retry)
 		   data_size=4 is for backwards compatibility */
 		if (data_size != 0 && data_size != 4) {
 			i_warning("dbox %s: Invalid dbox header size",
-				  mbox->path);
+				  mbox->ibox.box.path);
 		}
 		ret = -1;
 	} else {
@@ -301,17 +301,17 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 			if (mbox->storage->have_multi_msgs) {
 				mail_storage_set_critical(storage,
 					"dbox %s: Storage keeps breaking",
-					ctx->mbox->path);
+					ctx->mbox->ibox.box.path);
 				ret = -1;
 			} else if (i >= DBOX_REBUILD_COUNT) {
 				mail_storage_set_critical(storage,
 					"dbox %s: Index keeps breaking",
-					ctx->mbox->path);
+					ctx->mbox->ibox.box.path);
 				ret = -1;
 			} else {
 				/* do a full resync and try again. */
 				i_warning("dbox %s: Rebuilding index",
-					  ctx->mbox->path);
+					  ctx->mbox->ibox.box.path);
 				ret = dbox_sync_index_rebuild(mbox);
 			}
 		}
@@ -373,7 +373,7 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	int ret = 0;
 
 	if (!box->opened) {
-		if (index_storage_mailbox_open(&mbox->ibox) < 0)
+		if (mailbox_open(box) < 0)
 			ret = -1;
 	}
 

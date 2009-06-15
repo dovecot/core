@@ -83,7 +83,7 @@ int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 	} else {
 		mail_storage_set_critical(&mbox->storage->storage,
 					  "%s failed with mbox file %s: %m",
-					  function, mbox->path);
+					  function, mbox->ibox.box.path);
 	}
 	return -1;
 }
@@ -313,6 +313,57 @@ static bool mbox_storage_autodetect(const struct mail_namespace *ns,
 	return TRUE;
 }
 
+static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
+{
+	struct stat st;
+
+	if (storage->set->mbox_min_index_size == 0)
+		return FALSE;
+
+	if (stat(path, &st) < 0) {
+		if (errno == ENOENT)
+			st.st_size = 0;
+		else {
+			mail_storage_set_critical(&storage->storage,
+						  "stat(%s) failed: %m", path);
+			return FALSE;
+		}
+	}
+	return st.st_size / 1024 < storage->set->mbox_min_index_size;
+}
+
+static struct mailbox *
+mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		   const char *name, struct istream *input,
+		   enum mailbox_flags flags)
+{
+	struct mbox_mailbox *mbox;
+	pool_t pool;
+
+	pool = pool_alloconly_create("mbox mailbox", 1024+512);
+	mbox = p_new(pool, struct mbox_mailbox, 1);
+	mbox->ibox.box = mbox_mailbox;
+	mbox->ibox.box.pool = pool;
+	mbox->ibox.box.storage = storage;
+	mbox->ibox.box.list = list;
+	mbox->ibox.mail_vfuncs = &mbox_mail_vfuncs;
+
+	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
+				    MBOX_INDEX_PREFIX);
+
+	mbox->storage = (struct mbox_storage *)storage;
+	mbox->mbox_fd = -1;
+	mbox->mbox_lock_type = F_UNLCK;
+	mbox->mbox_ext_idx =
+		mail_index_ext_register(mbox->ibox.index, "mbox",
+					sizeof(mbox->mbox_hdr),
+					sizeof(uint64_t), sizeof(uint64_t));
+
+	if ((storage->flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
+		mbox->mbox_save_md5 = TRUE;
+	return &mbox->ibox.box;
+}
+
 static int verify_inbox(struct mailbox_list *list)
 {
 	const char *inbox_path, *rootdir;
@@ -353,101 +404,37 @@ static int verify_inbox(struct mailbox_list *list)
 	return 0;
 }
 
-static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
-{
-	struct stat st;
-
-	if (storage->set->mbox_min_index_size == 0)
-		return FALSE;
-
-	if (stat(path, &st) < 0) {
-		if (errno == ENOENT)
-			st.st_size = 0;
-		else {
-			mail_storage_set_critical(&storage->storage,
-						  "stat(%s) failed: %m", path);
-			return FALSE;
-		}
-	}
-	return st.st_size / 1024 < storage->set->mbox_min_index_size;
-}
-
 static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
 {
 	mbox_dotlock_touch(mbox);
 }
 
-static struct mbox_mailbox *
-mbox_alloc_mailbox(struct mbox_storage *storage, struct mail_index *index,
-		   const char *name, const char *path,
-		   enum mailbox_open_flags flags)
+static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 {
-	struct mbox_mailbox *mbox;
-	pool_t pool;
+	struct mailbox *box = &mbox->ibox.box;
+	const char *rootdir;
 
-	pool = pool_alloconly_create("mbox mailbox", 1024+512);
-	mbox = p_new(pool, struct mbox_mailbox, 1);
-	mbox->ibox.box = mbox_mailbox;
-	mbox->ibox.box.pool = pool;
-	mbox->ibox.box.storage = &storage->storage;
-	mbox->ibox.mail_vfuncs = &mbox_mail_vfuncs;
-	mbox->ibox.index = index;
-
-	mbox->storage = storage;
-	mbox->path = p_strdup(mbox->ibox.box.pool, path);
-	mbox->mbox_fd = -1;
-	mbox->mbox_lock_type = F_UNLCK;
-	mbox->mbox_ext_idx =
-		mail_index_ext_register(index, "mbox",
-					sizeof(mbox->mbox_hdr),
-					sizeof(uint64_t), sizeof(uint64_t));
-
-	if ((storage->storage.flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
-		mbox->mbox_save_md5 = TRUE;
-
-	index_storage_mailbox_init(&mbox->ibox, name, flags,
-				   want_memory_indexes(storage, path));
-	return mbox;
-}
-
-static struct mailbox *
-mbox_open(struct mbox_storage *storage, struct mailbox_list *list,
-	  const char *name, enum mailbox_open_flags flags)
-{
-	struct mbox_mailbox *mbox;
-	struct mail_index *index;
-	const char *path, *rootdir;
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-
-	index = index_storage_alloc(list, name, flags, MBOX_INDEX_PREFIX);
-	mbox = mbox_alloc_mailbox(storage, index, name, path, flags);
-
-	if (access(path, R_OK|W_OK) < 0) {
-		if (errno < EACCES)
+	if (access(box->path, R_OK|W_OK) < 0) {
+		if (errno != EACCES) {
 			mbox_set_syscall_error(mbox, "access()");
-		else
-			mbox->ibox.backend_readonly = TRUE;
+			return -1;
+		}
+		mbox->ibox.backend_readonly = TRUE;
 	}
+	mbox->ibox.move_to_memory =
+		want_memory_indexes(mbox->storage, box->path);
 
-	if (strcmp(name, "INBOX") == 0) {
+	if (strcmp(box->name, "INBOX") == 0) {
 		/* if INBOX isn't under the root directory, it's probably in
 		   /var/mail and we want to allow privileged dotlocking */
-		rootdir = mailbox_list_get_path(list, NULL,
+		rootdir = mailbox_list_get_path(box->list, NULL,
 						MAILBOX_LIST_PATH_TYPE_DIR);
-		if (strncmp(path, rootdir, strlen(rootdir)) != 0)
+		if (strncmp(box->path, rootdir, strlen(rootdir)) != 0)
 			mbox->mbox_privileged_locking = TRUE;
 	}
-	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {
-		if (mbox_lock(mbox, F_WRLCK, &mbox->mbox_global_lock_id) <= 0) {
-			struct mailbox *box = &mbox->ibox.box;
-
-			mailbox_close(&box);
-			mailbox_list_set_error_from_storage(list,
-							    &storage->storage);
-			return NULL;
-		}
+	if ((box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0) {
+		if (mbox_lock(mbox, F_WRLCK, &mbox->mbox_global_lock_id) <= 0)
+			return -1;
 
 		if (mbox->mbox_dotlock != NULL) {
 			mbox->keep_lock_to =
@@ -455,77 +442,48 @@ mbox_open(struct mbox_storage *storage, struct mailbox_list *list,
 					    mbox_lock_touch_timeout, mbox);
 		}
 	}
-	return &mbox->ibox.box;
+	return index_storage_mailbox_open(box);
 }
 
-static struct mailbox *
-mbox_mailbox_open_stream(struct mbox_storage *storage,
-			 struct mailbox_list *list, const char *name,
-			 struct istream *input, enum mailbox_open_flags flags)
+static int mbox_mailbox_open(struct mailbox *box)
 {
-	struct mail_index *index;
-	struct mbox_mailbox *mbox;
-	const char *path;
-
-	flags |= MAILBOX_OPEN_READONLY;
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index = index_storage_alloc(list, name, flags, MBOX_INDEX_PREFIX);
-	mbox = mbox_alloc_mailbox(storage, index, name, path, flags);
-
-	i_stream_ref(input);
-	mbox->mbox_file_stream = input;
-	mbox->ibox.backend_readonly = TRUE;
-	mbox->no_mbox_file = TRUE;
-
-	mbox->path = "(read-only mbox stream)";
-	return &mbox->ibox.box;
-}
-
-static struct mailbox *
-mbox_mailbox_open(struct mail_storage *_storage, struct mailbox_list *list,
-		  const char *name, struct istream *input,
-		  enum mailbox_open_flags flags)
-{
-	struct mbox_storage *storage = (struct mbox_storage *)_storage;
-	const char *path;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 	struct stat st;
+	int ret;
 
-	if (input != NULL) {
-		return mbox_mailbox_open_stream(storage, list, name,
-						input, flags);
+	if (box->input != NULL) {
+		mbox->mbox_file_stream = box->input;
+		mbox->ibox.backend_readonly = TRUE;
+		mbox->no_mbox_file = TRUE;
+		return 0;
 	}
 
-	if (strcmp(name, "INBOX") == 0 &&
-	    (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	if (strcmp(box->name, "INBOX") == 0 &&
+	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		/* make sure INBOX exists */
-		if (verify_inbox(list) < 0)
-			return NULL;
-		return mbox_open(storage, list, "INBOX", flags);
+		if (verify_inbox(box->list) < 0)
+			return -1;
+		return mbox_mailbox_open_existing(mbox);
 	}
 
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0) {
-		if (S_ISDIR(st.st_mode)) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
-				t_strdup_printf("Mailbox isn't selectable: %s",
-						name));
-			return NULL;
-		}
-
-		return mbox_open(storage, list, name, flags);
+	if ((ret = stat(box->path, &st)) == 0 && !S_ISDIR(st.st_mode))
+		return mbox_mailbox_open_existing(mbox);
+	else if (ret == 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			t_strdup_printf("Mailbox isn't selectable: %s",
+					box->name));
+		return -1;
+	} else if (ENOTFOUND(errno)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+		return -1;
+	} else if (mail_storage_set_error_from_errno(box->storage)) {
+		return -1;
+	} else {
+		mail_storage_set_critical(box->storage,
+					  "stat(%s) failed: %m", box->path);
+		return -1;
 	}
-
-	if (ENOTFOUND(errno)) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-	} else if (!mailbox_list_set_error_from_errno(list)) {
-		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
-	}
-
-	return NULL;
 }
 
 static int
@@ -596,12 +554,11 @@ mbox_mailbox_create(struct mail_storage *_storage, struct mailbox_list *list,
 	return -1;
 }
 
-static int mbox_storage_mailbox_close(struct mailbox *box)
+static void mbox_mailbox_close(struct mailbox *box)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 	const struct mail_index_header *hdr;
 	enum mbox_sync_flags sync_flags = 0;
-	int ret = 0;
 
 	if (mbox->mbox_stream != NULL &&
 	    istream_raw_mbox_is_corrupted(mbox->mbox_stream)) {
@@ -618,10 +575,8 @@ static int mbox_storage_mailbox_close(struct mailbox *box)
 			sync_flags |= MBOX_SYNC_REWRITE;
 		}
 	}
-	if (sync_flags != 0 && !mbox->invalid_mbox_file) {
-		if (mbox_sync(mbox, sync_flags) < 0)
-			ret = -1;
-	}
+	if (sync_flags != 0 && !mbox->invalid_mbox_file)
+		(void)mbox_sync(mbox, sync_flags);
 
 	if (mbox->mbox_global_lock_id != 0)
 		(void)mbox_unlock(mbox, mbox->mbox_global_lock_id);
@@ -632,7 +587,7 @@ static int mbox_storage_mailbox_close(struct mailbox *box)
 	if (mbox->mbox_file_stream != NULL)
 		i_stream_destroy(&mbox->mbox_file_stream);
 
-	return index_storage_mailbox_close(box) < 0 ? -1 : ret;
+	index_storage_mailbox_close(box);
 }
 
 static void mbox_notify_changes(struct mailbox *box)
@@ -642,7 +597,7 @@ static void mbox_notify_changes(struct mailbox *box)
 	if (box->notify_callback == NULL)
 		index_mailbox_check_remove_all(&mbox->ibox);
 	else if (!mbox->no_mbox_file)
-		index_mailbox_check_add(&mbox->ibox, mbox->path);
+		index_mailbox_check_add(&mbox->ibox, mbox->ibox.box.path);
 }
 
 static bool
@@ -873,7 +828,7 @@ struct mail_storage mbox_storage = {
 		mbox_storage_add_list,
 		mbox_storage_get_list_settings,
 		mbox_storage_autodetect,
-		mbox_mailbox_open,
+		mbox_mailbox_alloc,
 		mbox_mailbox_create,
 		NULL
 	}
@@ -888,7 +843,8 @@ struct mailbox mbox_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
-		mbox_storage_mailbox_close,
+		mbox_mailbox_open,
+		mbox_mailbox_close,
 		index_storage_get_status,
 		NULL,
 		NULL,

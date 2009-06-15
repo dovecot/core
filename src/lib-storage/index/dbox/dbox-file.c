@@ -151,7 +151,7 @@ const char *dbox_file_get_primary_path(struct dbox_file *file)
 {
 	const char *dir;
 
-	dir = file->single_mbox != NULL ? file->single_mbox->path :
+	dir = file->single_mbox != NULL ? file->single_mbox->ibox.box.path :
 		file->storage->storage_dir;
 	return t_strdup_printf("%s/%s", dir, file->fname);
 }
@@ -184,7 +184,8 @@ dbox_file_init_single(struct dbox_mailbox *mbox, uint32_t uid)
 	} else {
 		file->fname = dbox_generate_tmp_filename();
 	}
-	file->current_path = i_strdup_printf("%s/%s", mbox->path, file->fname);
+	file->current_path = i_strdup_printf("%s/%s", mbox->ibox.box.path,
+					     file->fname);
 	return file;
 }
 
@@ -237,7 +238,8 @@ int dbox_file_assign_id(struct dbox_file *file, uint32_t id)
 	if (file->single_mbox != NULL) {
 		new_fname = dbox_file_uid_get_fname(file->single_mbox,
 						    id, &maildir);
-		new_path = i_strdup_printf("%s/%s", file->single_mbox->path,
+		new_path = i_strdup_printf("%s/%s",
+					   file->single_mbox->ibox.box.path,
 					   new_fname);
 	} else {
 		new_fname = i_strdup_printf(DBOX_MAIL_FILE_MULTI_FORMAT, id);

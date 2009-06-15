@@ -203,9 +203,9 @@ zlib_mailbox_open_input(struct mail_storage *storage, struct mailbox_list *list,
 }
 
 static struct mailbox *
-zlib_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-		  const char *name, struct istream *input,
-		  enum mailbox_open_flags flags)
+zlib_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		   const char *name, struct istream *input,
+		   enum mailbox_flags flags)
 {
 	union mail_storage_module_context *qstorage = ZLIB_CONTEXT(storage);
 	struct mailbox *box;
@@ -216,12 +216,12 @@ zlib_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
 			zlib_mailbox_open_input(storage, list, name);
 	}
 
-	box = qstorage->super.mailbox_open(storage, list, name, input, flags);
+	box = qstorage->super.mailbox_alloc(storage, list, name, input, flags);
 
 	if (zlib_input != NULL)
 		i_stream_unref(&zlib_input);
 
-	if (box != NULL && strcmp(storage->name, "maildir") == 0)
+	if (strcmp(box->storage->name, "maildir") == 0)
 		zlib_maildir_open_init(box);
 	return box;
 }
@@ -232,7 +232,7 @@ static void zlib_mail_storage_created(struct mail_storage *storage)
 
 	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
 	qstorage->super = storage->v;
-	storage->v.mailbox_open = zlib_mailbox_open;
+	storage->v.mailbox_alloc = zlib_mailbox_alloc;
 
 	MODULE_CONTEXT_SET_SELF(storage, zlib_storage_module, qstorage);
 

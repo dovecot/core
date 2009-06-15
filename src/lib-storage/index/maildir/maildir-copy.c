@@ -211,7 +211,7 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		/* keywords, hardlink to tmp/ with basename and later when we
 		   have uidlist locked, move it to new/cur. */
 		str_printfa(do_ctx.dest_path, "%s/tmp/%s",
-			    dest_mbox->path, do_ctx.dest_fname);
+			    dest_mbox->ibox.box.path, do_ctx.dest_fname);
 		do_ctx.base_end_pos = str_len(do_ctx.dest_path);
 	}
 	if (src_mbox != NULL) {

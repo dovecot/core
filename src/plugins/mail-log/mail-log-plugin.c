@@ -555,17 +555,15 @@ mail_log_transaction_rollback(struct mailbox_transaction_context *t)
 }
 
 static struct mailbox *
-mail_log_mailbox_open(struct mail_storage *storage, struct mailbox_list *list,
-		      const char *name, struct istream *input,
-		      enum mailbox_open_flags flags)
+mail_log_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		       const char *name, struct istream *input,
+		       enum mailbox_flags flags)
 {
 	union mail_storage_module_context *lstorage = MAIL_LOG_CONTEXT(storage);
 	struct mailbox *box;
 	union mailbox_module_context *lbox;
 
-	box = lstorage->super.mailbox_open(storage, list, name, input, flags);
-	if (box == NULL)
-		return NULL;
+	box = lstorage->super.mailbox_alloc(storage, list, name, input, flags);
 
 	lbox = p_new(box->pool, union mailbox_module_context, 1);
 	lbox->super = box->v;
@@ -625,7 +623,7 @@ static void mail_log_mail_storage_created(struct mail_storage *storage)
 
 	lstorage = p_new(storage->pool, union mail_storage_module_context, 1);
 	lstorage->super = storage->v;
-	storage->v.mailbox_open = mail_log_mailbox_open;
+	storage->v.mailbox_alloc = mail_log_mailbox_alloc;
 
 	MODULE_CONTEXT_SET_SELF(storage, mail_log_storage_module, lstorage);
 

@@ -102,7 +102,6 @@ struct virtual_mailbox {
 	struct index_mailbox ibox;
 	struct virtual_storage *storage;
 
-	const char *path;
 	uint32_t virtual_ext_id;
 
 	uint32_t prev_uid_validity;

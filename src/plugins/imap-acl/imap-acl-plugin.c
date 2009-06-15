@@ -17,8 +17,8 @@
 #define ERROR_NOT_ADMIN "["IMAP_RESP_CODE_NOPERM"] " \
 	"You lack administrator privileges on this mailbox."
 
-#define ACL_MAILBOX_OPEN_FLAGS \
-	(MAILBOX_OPEN_READONLY | MAILBOX_OPEN_FAST | MAILBOX_OPEN_KEEP_RECENT)
+#define ACL_MAILBOX_FLAGS \
+	(MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT)
 
 #define IMAP_ACL_ANYONE "anyone"
 #define IMAP_ACL_AUTHENTICATED "authenticated"
@@ -69,13 +69,8 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 
 	/* Force opening the mailbox so that we can give a nicer error message
 	   if mailbox isn't selectable but is listable. */
-	box = mailbox_open(ns->list, name, NULL, ACL_MAILBOX_OPEN_FLAGS |
-			   MAILBOX_OPEN_IGNORE_ACLS);
-	if (box == NULL) {
-		client_send_list_error(cmd, ns->list);
-		return NULL;
-	}
-
+	box = mailbox_alloc(ns->list, name, NULL, ACL_MAILBOX_FLAGS |
+			    MAILBOX_FLAG_IGNORE_ACLS);
 	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_ADMIN);
 	if (ret > 0)
 		return box;
@@ -304,13 +299,8 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	if (ns == NULL)
 		return TRUE;
 
-	box = mailbox_open(ns->list, real_mailbox, NULL,
-			   ACL_MAILBOX_OPEN_FLAGS | MAILBOX_OPEN_IGNORE_ACLS);
-	if (box == NULL) {
-		client_send_list_error(cmd, ns->list);
-		return TRUE;
-	}
-
+	box = mailbox_alloc(ns->list, real_mailbox, NULL,
+			    ACL_MAILBOX_FLAGS | MAILBOX_FLAG_IGNORE_ACLS);
 	if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
 				     pool_datastack_create(), &rights) < 0) {
 		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);

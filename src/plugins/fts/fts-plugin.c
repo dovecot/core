@@ -12,11 +12,11 @@ void (*fts_next_hook_mailbox_opened)(struct mailbox *box);
 
 void fts_plugin_init(void)
 {
-	fts_next_hook_mailbox_opened = hook_mailbox_opened;
-	hook_mailbox_opened = fts_mailbox_opened;
+	fts_next_hook_mailbox_allocated = hook_mailbox_allocated;
+	hook_mailbox_allocated = fts_mailbox_allocated;
 }
 
 void fts_plugin_deinit(void)
 {
-	hook_mailbox_opened = fts_next_hook_mailbox_opened;
+	hook_mailbox_allocated = fts_next_hook_mailbox_allocated;
 }

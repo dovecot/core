@@ -74,13 +74,13 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
-		path = t_strconcat(mbox->path, "/new/", fname, NULL);
+		path = t_strconcat(mbox->ibox.box.path, "/new/", fname, NULL);
 		ret = callback(mbox, path, context);
 		if (ret != 0)
 			return ret;
 	}
 
-	path = t_strconcat(mbox->path, "/cur/", fname, NULL);
+	path = t_strconcat(mbox->ibox.box.path, "/cur/", fname, NULL);
 	ret = callback(mbox, path, context);
 	return ret;
 }
@@ -169,11 +169,10 @@ static int maildir_create_path(struct mailbox *box, const char *path,
 	}
 }
 
-static int maildir_create_subdirs(struct maildir_mailbox *mbox)
+static int maildir_create_subdirs(struct mailbox *box)
 {
 	static const char *subdirs[] = { "cur", "new", "tmp" };
 	const char *dirs[N_ELEMENTS(subdirs) + 2];
-	struct mailbox *box = &mbox->ibox.box;
 	struct stat st;
 	const char *path;
 	unsigned int i;
@@ -181,7 +180,7 @@ static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 
 	/* @UNSAFE: get a list of directories we want to create */
 	for (i = 0; i < N_ELEMENTS(subdirs); i++)
-		dirs[i] = t_strconcat(mbox->path, "/", subdirs[i], NULL);
+		dirs[i] = t_strconcat(box->path, "/", subdirs[i], NULL);
 	dirs[i++] = mailbox_list_get_path(box->list, box->name,
 					  MAILBOX_LIST_PATH_TYPE_CONTROL);
 	dirs[i++] = mailbox_list_get_path(box->list, box->name,
@@ -204,25 +203,24 @@ static int maildir_create_subdirs(struct maildir_mailbox *mbox)
 	return i == N_ELEMENTS(dirs) ? 0 : -1;
 }
 
-bool maildir_set_deleted(struct maildir_mailbox *mbox)
+bool maildir_set_deleted(struct mailbox *box)
 {
-	struct mailbox *box = &mbox->ibox.box;
 	struct stat st;
 	int ret;
 
-	if (stat(mbox->path, &st) < 0) {
+	if (stat(box->path, &st) < 0) {
 		if (errno == ENOENT)
 			mailbox_set_deleted(box);
 		else {
 			mail_storage_set_critical(box->storage,
-				"stat(%s) failed: %m", mbox->path);
+				"stat(%s) failed: %m", box->path);
 		}
 		return FALSE;
 	}
 	/* maildir itself exists. create all of its subdirectories in case
 	   they got lost. */
 	T_BEGIN {
-		ret = maildir_create_subdirs(mbox);
+		ret = maildir_create_subdirs(box);
 	} T_END;
 	return ret < 0 ? FALSE : TRUE;
 }

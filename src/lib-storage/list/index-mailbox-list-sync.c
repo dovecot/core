@@ -47,11 +47,11 @@ static void (*index_list_next_hook_mailbox_created)(struct mailbox *box);
 static MODULE_CONTEXT_DEFINE_INIT(index_list_storage_module,
 				  &mail_storage_module_register);
 
-static int index_list_box_close(struct mailbox *box)
+static void index_list_box_close(struct mailbox *box)
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 
-	return ibox->module_ctx.super.close(box);
+	ibox->module_ctx.super.close(box);
 }
 
 static int index_list_update_mail_index(struct index_mailbox_list *ilist,
@@ -352,7 +352,7 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 	return 0;
 }
 
-static void index_list_mail_mailbox_opened(struct mailbox *box)
+static void index_list_mail_mailbox_allocated(struct mailbox *box)
 {
 	struct index_mailbox_list *ilist =
 		INDEX_LIST_CONTEXT(box->list);
@@ -391,6 +391,6 @@ void index_mailbox_list_sync_init_list(struct mailbox_list *list)
 
 void index_mailbox_list_sync_init(void)
 {
-	index_list_next_hook_mailbox_created = hook_mailbox_opened;
-	hook_mailbox_opened = index_list_mail_mailbox_opened;
+	index_list_next_hook_mailbox_created = hook_mailbox_allocated;
+	hook_mailbox_allocated = index_list_mail_mailbox_allocated;
 }

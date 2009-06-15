@@ -73,7 +73,7 @@ struct dbox_mailbox {
 
 	uint32_t dbox_ext_id, dbox_hdr_ext_id, guid_ext_id;
 
-	const char *path, *alt_path;
+	const char *alt_path;
 };
 
 struct dbox_transaction_context {
@@ -90,9 +90,10 @@ void dbox_transaction_class_init(void);
 void dbox_transaction_class_deinit(void);
 
 struct mailbox *
-dbox_mailbox_open(struct mail_storage *_storage, struct mailbox_list *list,
-		  const char *name, struct istream *input,
-		  enum mailbox_open_flags flags);
+dbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+		   const char *name, struct istream *input,
+		   enum mailbox_flags flags);
+int dbox_mailbox_open(struct mailbox *box);
 
 struct mail *
 dbox_mail_alloc(struct mailbox_transaction_context *t,

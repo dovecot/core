@@ -122,9 +122,9 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx->files_tail = &ctx->files;
 	ctx->fd = -1;
 
-	ctx->tmpdir = p_strconcat(pool, mbox->path, "/tmp", NULL);
-	ctx->newdir = p_strconcat(pool, mbox->path, "/new", NULL);
-	ctx->curdir = p_strconcat(pool, mbox->path, "/cur", NULL);
+	ctx->tmpdir = p_strconcat(pool, mbox->ibox.box.path, "/tmp", NULL);
+	ctx->newdir = p_strconcat(pool, mbox->ibox.box.path, "/new", NULL);
+	ctx->curdir = p_strconcat(pool, mbox->ibox.box.path, "/cur", NULL);
 
 	ctx->keywords_buffer = buffer_create_const_data(pool, NULL, 0);
 	array_create_from_buffer(&ctx->keywords_array, ctx->keywords_buffer,
@@ -525,7 +525,8 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 		} else if (errno != 0) {
 			mail_storage_set_critical(storage,
-				"write(%s) failed: %m", ctx->mbox->path);
+				"write(%s) failed: %m",
+				ctx->mbox->ibox.box.path);
 		}
 
 		/* remove from the linked list */
