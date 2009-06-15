@@ -186,7 +186,7 @@ index_storage_alloc(struct mailbox_list *list, const char *name,
 				match = rec;
 		}
 
-		if (rec->refcount == 0) {
+		if (rec->refcount == 0 && rec != match) {
 			if (rec->destroy_time <= ioloop_time ||
 			    destroy_count >= INDEX_CACHE_MAX) {
 				*indexp = rec->next;
