@@ -26,6 +26,7 @@
 #define LOCK_NOTIFY_INTERVAL 30
 
 struct index_list {
+	union mail_index_module_context module_ctx;
 	struct index_list *next;
 
 	struct mail_index *index;
@@ -41,8 +42,9 @@ struct index_list {
 static struct index_list *indexes = NULL;
 static struct timeout *to_index = NULL;
 
-static void index_storage_add(struct mail_index *index,
-			      const char *mailbox_path, struct stat *st)
+static struct index_list *
+index_storage_add(struct mail_index *index,
+		  const char *mailbox_path, struct stat *st)
 {
 	struct index_list *list;
 
@@ -56,6 +58,9 @@ static void index_storage_add(struct mail_index *index,
 
 	list->next = indexes;
 	indexes = list;
+
+	MODULE_CONTEXT_SET(index, mail_storage_mail_index_module, list);
+	return list;
 }
 
 static void index_list_free(struct index_list *list)
@@ -65,39 +70,39 @@ static void index_list_free(struct index_list *list)
 	i_free(list);
 }
 
-static int create_index_dir(struct mailbox_list *list, const char *name)
+static int create_missing_index_dir(struct mailbox *box)
 {
 	const char *root_dir, *index_dir, *p, *parent_dir;
 	mode_t mode, parent_mode;
 	gid_t gid, parent_gid;
 	int n = 0;
 
-	root_dir = mailbox_list_get_path(list, name,
+	root_dir = mailbox_list_get_path(box->list, box->name,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(list, name,
+	index_dir = mailbox_list_get_path(box->list, box->name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (strcmp(index_dir, root_dir) == 0 || *index_dir == '\0')
 		return 0;
 
-	mailbox_list_get_dir_permissions(list, name, &mode, &gid);
+	mailbox_list_get_dir_permissions(box->list, box->name, &mode, &gid);
 	while (mkdir_chown(index_dir, mode, (uid_t)-1, gid) < 0) {
 		if (errno == EEXIST)
 			break;
 
 		p = strrchr(index_dir, '/');
 		if (errno != ENOENT || p == NULL || ++n == 2) {
-			mailbox_list_set_critical(list,
+			mail_storage_set_critical(box->storage,
 				"mkdir(%s) failed: %m", index_dir);
 			return -1;
 		}
 		/* create the parent directory first */
-		mailbox_list_get_dir_permissions(list, NULL,
+		mailbox_list_get_dir_permissions(box->list, NULL,
 						 &parent_mode, &parent_gid);
 		parent_dir = t_strdup_until(index_dir, p);
 		if (mkdir_parents_chown(parent_dir, parent_mode,
 					(uid_t)-1, parent_gid) < 0 &&
 		    errno != EEXIST) {
-			mailbox_list_set_critical(list,
+			mail_storage_set_critical(box->storage,
 				"mkdir(%s) failed: %m", parent_dir);
 			return -1;
 		}
@@ -120,11 +125,9 @@ get_index_dir(struct mailbox_list *list, const char *name,
 
 	if (stat(index_dir, st_r) < 0) {
 		if (errno == ENOENT) {
-			/* try to create it */
-			if (create_index_dir(list, name) < 0)
-				return NULL;
-			if (stat(index_dir, st_r) == 0)
-				return index_dir;
+			/* it'll be created later */
+			memset(st_r, 0, sizeof(*st_r));
+			return index_dir;
 		}
 		if (errno == EACCES) {
 			mailbox_list_set_critical(list, "%s",
@@ -143,13 +146,11 @@ static struct mail_index *
 index_storage_alloc(struct mailbox_list *list, const char *name,
 		    enum mailbox_flags flags, const char *prefix)
 {
-	struct index_list **indexp, *rec;
-	struct mail_index *index;
+	struct index_list **indexp, *rec, *match;
 	struct stat st, st2;
 	const char *index_dir, *mailbox_path;
 	int destroy_count;
 
-	// FIXME: failure handling when dirs don't exist yet?
 	mailbox_path = mailbox_list_get_path(list, name,
 					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	index_dir = get_index_dir(list, name, flags, &st);
@@ -158,13 +159,17 @@ index_storage_alloc(struct mailbox_list *list, const char *name,
 		memset(&st, 0, sizeof(st));
 
 	/* compare index_dir inodes so we don't break even with symlinks.
-	   for in-memory indexes compare just mailbox paths */
-	destroy_count = 0; index = NULL;
+	   if index_dir doesn't exist yet or if using in-memory indexes, just
+	   compare mailbox paths */
+	destroy_count = 0; match = NULL;
 	for (indexp = &indexes; *indexp != NULL;) {
 		rec = *indexp;
 
-		if (index_dir != NULL) {
-			if (index == NULL && st.st_ino == rec->index_dir_ino &&
+		if (match != NULL) {
+			/* already found the index. we're just going through
+			   the rest of them to drop 0 refcounts */
+		} else if (index_dir != NULL && rec->index_dir_ino != 0) {
+			if (st.st_ino == rec->index_dir_ino &&
 			    CMP_DEV_T(st.st_dev, rec->index_dir_dev)) {
 				/* make sure the directory still exists.
 				   it might have been renamed and we're trying
@@ -173,17 +178,12 @@ index_storage_alloc(struct mailbox_list *list, const char *name,
 				    st2.st_ino != st.st_ino ||
 				    !CMP_DEV_T(st2.st_dev, st.st_dev))
 					rec->destroy_time = 0;
-				else {
-					rec->refcount++;
-					index = rec->index;
-				}
+				else
+					match = rec;
 			}
 		} else {
-			if (index == NULL && st.st_ino == 0 &&
-			    strcmp(mailbox_path, rec->mailbox_path) == 0) {
-				rec->refcount++;
-				index = rec->index;
-			}
+			if (strcmp(mailbox_path, rec->mailbox_path) == 0)
+				match = rec;
 		}
 
 		if (rec->refcount == 0) {
@@ -200,12 +200,13 @@ index_storage_alloc(struct mailbox_list *list, const char *name,
                 indexp = &(*indexp)->next;
 	}
 
-	if (index == NULL) {
-		index = mail_index_alloc(index_dir, prefix);
-		index_storage_add(index, mailbox_path, &st);
+	if (match == NULL) {
+		match = index_storage_add(mail_index_alloc(index_dir, prefix),
+					  mailbox_path, &st);
+	} else {
+		match->refcount++;
 	}
-
-	return index;
+	return match->index;
 }
 
 static void destroy_unrefed(bool all)
@@ -369,9 +370,12 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 int index_storage_mailbox_open(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	struct index_list *list = MAIL_STORAGE_CONTEXT(ibox->index);
 	enum file_lock_method lock_method =
 		box->storage->set->parsed_lock_method;
 	enum mail_index_open_flags index_flags;
+	const char *index_dir;
+	struct stat st;
 	gid_t dir_gid;
 	int ret;
 
@@ -394,8 +398,27 @@ int index_storage_mailbox_open(struct mailbox *box)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
 	if (ibox->keep_index_backups)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS;
-	if (ibox->index_never_in_memory)
+	if (ibox->index_never_in_memory) {
 		index_flags |= MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
+		if (mail_index_is_in_memory(ibox->index)) {
+			mail_storage_set_critical(box->storage,
+				"Couldn't create index file");
+			return -1;
+		}
+	}
+
+	if (create_missing_index_dir(box) < 0)
+		return -1;
+
+	index_dir = mailbox_list_get_path(box->list, box->name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (list->index_dir_ino == 0 && *index_dir != '\0') {
+		/* newly created index directory. update its stat. */
+		if (stat(index_dir, &st) == 0) {
+			list->index_dir_ino = st.st_ino;
+			list->index_dir_dev = st.st_dev;
+		}
+	}
 
 	ret = mail_index_open(ibox->index, index_flags, lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {
