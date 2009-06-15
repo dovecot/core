@@ -901,7 +901,8 @@ static bool modify_right_list(pool_t pool,
 				array_append(&rights, &old_rights[i], 1);
 		}
 		new_rights = &null;
-		modify_rights = array_idx(&rights, 0);
+		modify_rights = array_count(&rights) == 0 ? NULL :
+			array_idx(&rights, 0);
 		acl_rights_merge(pool, &new_rights, modify_rights, TRUE);
 		break;
 	case ACL_MODIFY_MODE_ADD:
