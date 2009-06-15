@@ -292,8 +292,16 @@ static int proxy_input_line(struct imap_client *client, const char *line)
 		i_free(client->proxy_backend_capability);
 		client->proxy_backend_capability = i_strdup(line + 13);
 		return 0;
+	} else if (strncasecmp(line, "I ", 2) == 0 ||
+		   strncasecmp(line, "* ID ", 5) == 0) {
+		/* Reply to ID command we sent, ignore it */
+		return 0;
+	} else if (strncmp(line, "* ", 2) == 0) {
+		/* untagged reply. just foward it. */
+		client_send_line(client, line);
+		return 0;
 	} else {
-		/* probably some untagged reply */
+		/* tagged reply, shouldn't happen. */
 		return 0;
 	}
 }
