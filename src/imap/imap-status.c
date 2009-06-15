@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "imap-quote.h"
 #include "imap-status.h"
@@ -35,6 +36,8 @@ int imap_status_parse_items(struct client_command_context *cmd,
 			items |= STATUS_UNSEEN;
 		else if (strcmp(item, "HIGHESTMODSEQ") == 0)
 			items |= STATUS_HIGHESTMODSEQ;
+		else if (strcmp(item, "X-GUID") == 0)
+			items |= STATUS_GUID;
 		else {
 			client_send_tagline(cmd, t_strconcat(
 				"BAD Invalid status item ", item, NULL));
@@ -104,6 +107,11 @@ void imap_status_send(struct client *client, const char *mailbox,
 	if (items & STATUS_HIGHESTMODSEQ) {
 		str_printfa(str, "HIGHESTMODSEQ %llu ",
 			    (unsigned long long)status->highest_modseq);
+	}
+	if (items & STATUS_GUID) {
+		str_printfa(str, "X-GUID %s ",
+			    binary_to_hex(status->mailbox_guid,
+					  sizeof(status->mailbox_guid)));
 	}
 
 	if (items != 0)
