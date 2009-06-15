@@ -319,30 +319,6 @@ void dbox_save_cancel(struct mail_save_context *_ctx)
 	(void)dbox_save_finish(_ctx);
 }
 
-static void dbox_add_missing_map_uidvalidity(struct dbox_save_context *ctx)
-{
-	const struct dbox_index_header *hdr;
-	struct dbox_index_header new_hdr;
-	const void *data;
-	size_t data_size;
-
-	mail_index_get_header_ext(ctx->mbox->ibox.view,
-				  ctx->mbox->dbox_hdr_ext_id,
-				  &data, &data_size);
-	if (data_size == sizeof(*hdr)) {
-		hdr = data;
-		if (hdr->map_uid_validity != 0)
-			return;
-		new_hdr = *hdr;
-	} else {
-		memset(&new_hdr, 0, sizeof(new_hdr));
-	}
-	new_hdr.map_uid_validity =
-		dbox_map_get_uid_validity(ctx->mbox->storage->map);
-	mail_index_update_header_ext(ctx->trans, ctx->mbox->dbox_hdr_ext_id, 0,
-				     &new_hdr, sizeof(new_hdr));
-}
-
 int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 {
 	struct dbox_transaction_context *t =
@@ -392,7 +368,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 		unsigned int i, count;
 		uint32_t next_map_uid = first_map_uid;
 
-		dbox_add_missing_map_uidvalidity(ctx);
+		dbox_update_header(ctx->mbox, ctx->trans);
 
 		memset(&rec, 0, sizeof(rec));
 		rec.save_date = ioloop_time;

@@ -191,23 +191,72 @@ uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
 	return mailbox_uidvalidity_next(path);
 }
 
+static bool
+dbox_index_header_has_mailbox_guid(const struct dbox_index_header *hdr)
+{
+	unsigned int i;
+
+	for (i = 0; i < sizeof(hdr->mailbox_guid); i++) {
+		if (hdr->mailbox_guid[i] != 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+void dbox_set_mailbox_guid(struct dbox_index_header *hdr)
+{
+	if (!dbox_index_header_has_mailbox_guid(hdr))
+		mail_generate_guid_128(hdr->mailbox_guid);
+}
+
+int dbox_read_header(struct dbox_mailbox *mbox, struct dbox_index_header *hdr)
+{
+	const void *data;
+	size_t data_size;
+
+	mail_index_get_header_ext(mbox->ibox.view, mbox->dbox_hdr_ext_id,
+				  &data, &data_size);
+	if (data_size < DBOX_INDEX_HEADER_MIN_SIZE &&
+	    (!mbox->creating || data_size != 0)) {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"dbox %s: Invalid dbox header size",
+			mbox->ibox.box.path);
+		return -1;
+	}
+	memset(hdr, 0, sizeof(*hdr));
+	memcpy(hdr, data, I_MIN(data_size, sizeof(*hdr)));
+	return 0;
+}
+
+void dbox_update_header(struct dbox_mailbox *mbox,
+			struct mail_index_transaction *trans)
+{
+	struct dbox_index_header hdr, new_hdr;
+
+	if (dbox_read_header(mbox, &hdr) < 0)
+		memset(&hdr, 0, sizeof(hdr));
+
+	new_hdr = hdr;
+	dbox_set_mailbox_guid(&new_hdr);
+	new_hdr.map_uid_validity =
+		dbox_map_get_uid_validity(mbox->storage->map);
+	if (memcmp(&hdr, &new_hdr, sizeof(hdr)) != 0) {
+		mail_index_update_header_ext(trans, mbox->dbox_hdr_ext_id, 0,
+					     &new_hdr, sizeof(new_hdr));
+	}
+}
+
 static int dbox_write_index_header(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 	struct mail_index_transaction *trans;
-	struct dbox_index_header hdr;
 	uint32_t uid_validity;
 
 	if (dbox_map_open(mbox->storage->map, TRUE) < 0)
 		return -1;
 
 	trans = mail_index_transaction_begin(mbox->ibox.view, 0);
-
-	/* set dbox header */
-	memset(&hdr, 0, sizeof(hdr));
-	hdr.map_uid_validity = dbox_map_get_uid_validity(mbox->storage->map);
-	mail_index_update_header_ext(trans, mbox->dbox_hdr_ext_id, 0,
-				     &hdr, sizeof(hdr));
+	dbox_update_header(mbox, trans);
 
 	/* set uidvalidity */
 	uid_validity = dbox_get_uidvalidity_next(box->list);
@@ -215,20 +264,30 @@ static int dbox_write_index_header(struct mailbox *box)
 		offsetof(struct mail_index_header, uid_validity),
 		&uid_validity, sizeof(uid_validity), TRUE);
 
-	return mail_index_transaction_commit(&trans);
+	if (mail_index_transaction_commit(&trans) < 0) {
+		mail_storage_set_internal_error(box->storage);
+		mail_index_reset_error(mbox->ibox.index);
+		return -1;
+	}
+	return 0;
 }
 
 static int create_dbox(struct mailbox *box)
 {
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 	mode_t mode;
 	gid_t gid;
+	int ret;
 
 	mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid);
 	if (mkdir_parents_chown(box->path, mode, (uid_t)-1, gid) == 0) {
 		/* create indexes immediately with the dbox header */
 		if (index_storage_mailbox_open(box) < 0)
 			return -1;
-		if (dbox_write_index_header(box) < 0)
+		mbox->creating = TRUE;
+		ret = dbox_write_index_header(box);
+		mbox->creating = FALSE;
+		if (ret < 0)
 			return -1;
 	} else if (errno != EEXIST) {
 		if (!mail_storage_set_error_from_errno(box->storage)) {
@@ -303,6 +362,35 @@ static void dbox_mailbox_close(struct mailbox *box)
 
 	maildir_uidlist_deinit(&mbox->maildir_uidlist);
 	index_storage_mailbox_close(box);
+}
+
+static void dbox_storage_get_status_guid(struct mailbox *box,
+					 struct mailbox_status *status_r)
+{
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
+	struct dbox_index_header hdr;
+
+	if (dbox_read_header(mbox, &hdr) < 0)
+		memset(&hdr, 0, sizeof(hdr));
+
+	if (!dbox_index_header_has_mailbox_guid(&hdr)) {
+		/* regenerate it */
+		if (dbox_write_index_header(box) < 0 ||
+		    dbox_read_header(mbox, &hdr) < 0)
+			return;
+	}
+	memcpy(status_r->mailbox_guid, hdr.mailbox_guid,
+	       sizeof(status_r->mailbox_guid));
+}
+
+static void
+dbox_storage_get_status(struct mailbox *box, enum mailbox_status_items items,
+			struct mailbox_status *status_r)
+{
+	index_storage_get_status(box, items, status_r);
+
+	if ((items & STATUS_GUID) != 0)
+		dbox_storage_get_status_guid(box, status_r);
 }
 
 static int
@@ -776,7 +864,7 @@ struct mailbox dbox_mailbox = {
 		index_storage_mailbox_enable,
 		dbox_mailbox_open,
 		dbox_mailbox_close,
-		index_storage_get_status,
+		dbox_storage_get_status,
 		NULL,
 		NULL,
 		dbox_storage_sync_init,

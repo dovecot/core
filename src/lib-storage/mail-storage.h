@@ -59,7 +59,8 @@ enum mailbox_status_items {
 	STATUS_UNSEEN		= 0x10,
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
 	STATUS_KEYWORDS		= 0x40,
-	STATUS_HIGHESTMODSEQ	= 0x80
+	STATUS_HIGHESTMODSEQ	= 0x80,
+	STATUS_GUID		= 0x100
 };
 
 enum mailbox_search_result_flags {
@@ -169,6 +170,7 @@ struct mail_save_context;
 struct mailbox;
 struct mailbox_transaction_context;
 
+#define MAILBOX_GUID_SIZE 16
 struct mailbox_status {
 	uint32_t messages;
 	uint32_t recent;
@@ -179,6 +181,7 @@ struct mailbox_status {
 
 	uint32_t first_unseen_seq;
 	uint64_t highest_modseq;
+	uint8_t mailbox_guid[MAILBOX_GUID_SIZE];
 
 	const ARRAY_TYPE(keywords) *keywords;
 

@@ -202,35 +202,20 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 static int dbox_refresh_header(struct dbox_mailbox *mbox, bool retry)
 {
 	struct mail_index_view *view;
-	const struct dbox_index_header *hdr;
-	const void *data;
-	size_t data_size;
+	struct dbox_index_header hdr;
 	int ret;
 
 	view = mail_index_view_open(mbox->ibox.index);
-	mail_index_get_header_ext(view, mbox->dbox_hdr_ext_id,
-				  &data, &data_size);
-	if (data_size != sizeof(*hdr)) {
-		if (retry) {
-			mail_index_view_close(&view);
-			(void)mail_index_refresh(mbox->ibox.index);
-			return dbox_refresh_header(mbox, FALSE);
-		}
-
-		/* data_size=0 means it's never been synced as dbox.
-		   data_size=4 is for backwards compatibility */
-		if (data_size != 0 && data_size != 4) {
-			i_warning("dbox %s: Invalid dbox header size",
-				  mbox->ibox.box.path);
-		}
-		ret = -1;
-	} else {
-		hdr = data;
-
-		mbox->highest_maildir_uid = hdr->highest_maildir_uid;
-		ret = mbox->storage->sync_rebuild ? -1 : 0;
-	}
+	ret = dbox_read_header(mbox, &hdr);
 	mail_index_view_close(&view);
+
+	if (ret == 0) {
+		mbox->highest_maildir_uid = hdr.highest_maildir_uid;
+		ret = mbox->storage->sync_rebuild ? -1 : 0;
+	} else if (retry) {
+		(void)mail_index_refresh(mbox->ibox.index);
+		return dbox_refresh_header(mbox, FALSE);
+	}
 	return ret;
 }
 

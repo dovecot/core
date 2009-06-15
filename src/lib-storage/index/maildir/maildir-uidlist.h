@@ -1,6 +1,8 @@
 #ifndef MAILDIR_UIDLIST_H
 #define MAILDIR_UIDLIST_H
 
+#include "mail-storage.h"
+
 #define MAILDIR_UIDLIST_NAME "dovecot-uidlist"
 /* how many seconds to wait before overriding uidlist.lock */
 #define MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT (60*2)
@@ -30,6 +32,7 @@ enum maildir_uidlist_rec_flag {
 enum maildir_uidlist_hdr_ext_key {
 	MAILDIR_UIDLIST_HDR_EXT_UID_VALIDITY		= 'V',
 	MAILDIR_UIDLIST_HDR_EXT_NEXT_UID		= 'N',
+	MAILDIR_UIDLIST_HDR_EXT_GUID			= 'G',
 	/* POP3 UIDL format unless overridden by records */
 	MAILDIR_UIDLIST_HDR_EXT_POP3_UIDL_FORMAT	= 'P'
 };
@@ -79,6 +82,8 @@ maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 
 uint32_t maildir_uidlist_get_uid_validity(struct maildir_uidlist *uidlist);
 uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist);
+int maildir_uidlist_get_mailbox_guid(struct maildir_uidlist *uidlist,
+				     uint8_t mailbox_guid[MAILBOX_GUID_SIZE]);
 
 void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 				      uint32_t uid_validity);

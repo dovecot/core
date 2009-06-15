@@ -590,6 +590,19 @@ static void mbox_mailbox_close(struct mailbox *box)
 	index_storage_mailbox_close(box);
 }
 
+static void
+mbox_storage_get_status(struct mailbox *box, enum mailbox_status_items items,
+			struct mailbox_status *status_r)
+{
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+
+	index_storage_get_status(box, items, status_r);
+	if ((items & STATUS_GUID) != 0) {
+		memcpy(status_r->mailbox_guid, mbox->mbox_hdr.mailbox_guid,
+		       sizeof(status_r->mailbox_guid));
+	}
+}
+
 static void mbox_notify_changes(struct mailbox *box)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
@@ -845,7 +858,7 @@ struct mailbox mbox_mailbox = {
 		index_storage_mailbox_enable,
 		mbox_mailbox_open,
 		mbox_mailbox_close,
-		index_storage_get_status,
+		mbox_storage_get_status,
 		NULL,
 		NULL,
 		mbox_storage_sync_init,

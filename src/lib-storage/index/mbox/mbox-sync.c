@@ -1332,12 +1332,26 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
+static bool mbox_has_mailbox_guid(struct mbox_mailbox *mbox)
+{
+	unsigned int i;
+
+	for (i = 0; i < sizeof(mbox->mbox_hdr.mailbox_guid); i++) {
+		if (mbox->mbox_hdr.mailbox_guid[i] != 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void
 mbox_sync_index_update_ext_header(struct mbox_sync_context *sync_ctx)
 {
 	struct mbox_mailbox *mbox = sync_ctx->mbox;
 	const void *data;
 	size_t data_size;
+
+	if (!mbox_has_mailbox_guid(mbox))
+		mail_generate_guid_128(mbox->mbox_hdr.mailbox_guid);
 
 	mail_index_get_header_ext(mbox->ibox.view, mbox->mbox_ext_idx,
 				  &data, &data_size);
@@ -1640,6 +1654,11 @@ int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
 
 	if (mbox_sync_header_refresh(mbox) < 0)
 		return -1;
+
+	if (!mbox_has_mailbox_guid(mbox)) {
+		/* need to assign mailbox GUID */
+		return 1;
+	}
 
 	if ((uint32_t)st->st_mtime == mbox->mbox_hdr.sync_mtime &&
 	    (uint64_t)st->st_size == mbox->mbox_hdr.sync_size) {

@@ -24,10 +24,12 @@ struct mbox_index_header {
 	uint32_t sync_mtime;
 	uint8_t dirty_flag;
 	uint8_t unused[3];
+	uint8_t mailbox_guid[16];
 };
 struct dbox_index_header {
 	uint32_t map_uid_validity;
 	uint32_t highest_maildir_uid;
+	uint8_t mailbox_guid[16];
 };
 struct dbox_mail_index_record {
 	uint32_t map_uid;
@@ -116,16 +118,22 @@ static void dump_extension_header(struct mail_index *index,
 		const struct mbox_index_header *hdr = data;
 
 		printf("header\n");
-		printf(" - sync_mtime = %s\n", unixdate2str(hdr->sync_mtime));
-		printf(" - sync_size = %llu\n",
+		printf(" - sync_mtime . = %s\n", unixdate2str(hdr->sync_mtime));
+		printf(" - sync_size .. = %llu\n",
 		       (unsigned long long)hdr->sync_size);
-		printf(" - dirty_flag = %d\n", hdr->dirty_flag);
+		printf(" - dirty_flag . = %d\n", hdr->dirty_flag);
+		printf(" - mailbox_guid = %s\n",
+		       binary_to_hex(hdr->mailbox_guid,
+				     sizeof(hdr->mailbox_guid)));
 	} else if (strcmp(ext->name, "dbox-hdr") == 0) {
 		const struct dbox_index_header *hdr = data;
 
 		printf("header\n");
-		printf(" - map_uid_validity = %u\n", hdr->map_uid_validity);
+		printf(" - map_uid_validity .. = %u\n", hdr->map_uid_validity);
 		printf(" - highest_maildir_uid = %u\n", hdr->highest_maildir_uid);
+		printf(" - mailbox_guid ...... = %s\n",
+		       binary_to_hex(hdr->mailbox_guid,
+				     sizeof(hdr->mailbox_guid)));
 	} else if (strcmp(ext->name, "modseq") == 0) {
 		const struct mail_index_modseq_header *hdr = data;
 

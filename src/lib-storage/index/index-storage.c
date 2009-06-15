@@ -206,6 +206,7 @@ index_storage_alloc(struct mailbox_list *list, const char *name,
 	} else {
 		match->refcount++;
 	}
+	i_assert(match->index != NULL);
 	return match->index;
 }
 

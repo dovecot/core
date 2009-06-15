@@ -49,9 +49,8 @@ int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		     uint32_t seq, uint32_t *map_uid_r)
 {
 	const struct dbox_mail_index_record *dbox_rec;
-	const struct dbox_index_header *hdr;
+	struct dbox_index_header hdr;
 	const void *data;
-	size_t data_size;
 	uint32_t cur_map_uid_validity;
 	bool expunged;
 
@@ -63,18 +62,11 @@ int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 	}
 
 	if (mbox->map_uid_validity == 0) {
-		mail_index_get_header_ext(mbox->ibox.view,
-					  mbox->dbox_hdr_ext_id,
-					  &data, &data_size);
-		if (data_size != sizeof(*hdr)) {
-			mail_storage_set_critical(&mbox->storage->storage,
-				"dbox %s: Invalid dbox header size",
-				mbox->ibox.box.path);
+		if (dbox_read_header(mbox, &hdr) < 0) {
 			mbox->storage->sync_rebuild = TRUE;
 			return -1;
 		}
-		hdr = data;
-		mbox->map_uid_validity = hdr->map_uid_validity;
+		mbox->map_uid_validity = hdr.map_uid_validity;
 	}
 	if (dbox_map_open(mbox->storage->map, TRUE) < 0)
 		return -1;

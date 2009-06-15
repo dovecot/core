@@ -348,25 +348,17 @@ static int dbox_sync_maildir_finish(struct dbox_sync_rebuild_context *ctx)
 
 static void dbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 {
-	const struct dbox_index_header *hdr;
-	struct dbox_index_header new_hdr;
-	const void *data;
-	size_t data_size;
+	struct dbox_index_header hdr;
 
-	mail_index_get_header_ext(ctx->mbox->ibox.view,
-				  ctx->mbox->dbox_hdr_ext_id,
-				  &data, &data_size);
-	hdr = data;
-	if (data_size == sizeof(*hdr))
-		new_hdr = *hdr;
-	else
-		memset(&new_hdr, 0, sizeof(new_hdr));
-	if (new_hdr.highest_maildir_uid < ctx->mbox->highest_maildir_uid)
-		new_hdr.highest_maildir_uid = ctx->mbox->highest_maildir_uid;
-	new_hdr.map_uid_validity = !ctx->storage_rebuild ? 0 :
+	if (dbox_read_header(ctx->mbox, &hdr) < 0)
+		memset(&hdr, 0, sizeof(hdr));
+	dbox_set_mailbox_guid(&hdr);
+	if (hdr.highest_maildir_uid < ctx->mbox->highest_maildir_uid)
+		hdr.highest_maildir_uid = ctx->mbox->highest_maildir_uid;
+	hdr.map_uid_validity = !ctx->storage_rebuild ? 0 :
 		dbox_map_get_uid_validity(ctx->mbox->storage->map);
 	mail_index_update_header_ext(ctx->trans, ctx->mbox->dbox_hdr_ext_id, 0,
-				     &new_hdr, sizeof(new_hdr));
+				     &hdr, sizeof(hdr));
 }
 
 struct dbox_sync_rebuild_context *

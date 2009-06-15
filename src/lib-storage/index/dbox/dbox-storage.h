@@ -30,9 +30,11 @@
 /* Flag specifies if the message should be in primary or alternative storage */
 #define DBOX_INDEX_FLAG_ALT MAIL_INDEX_MAIL_FLAG_BACKEND
 
+#define DBOX_INDEX_HEADER_MIN_SIZE (sizeof(uint32_t))
 struct dbox_index_header {
 	uint32_t map_uid_validity;
 	uint32_t highest_maildir_uid;
+	uint8_t mailbox_guid[MAILBOX_GUID_SIZE];
 };
 
 struct dbox_storage {
@@ -74,6 +76,8 @@ struct dbox_mailbox {
 	uint32_t dbox_ext_id, dbox_hdr_ext_id, guid_ext_id;
 
 	const char *alt_path;
+
+	unsigned int creating:1;
 };
 
 struct dbox_transaction_context {
@@ -104,6 +108,10 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		     uint32_t seq, uint32_t *map_uid_r);
 uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list);
+void dbox_set_mailbox_guid(struct dbox_index_header *hdr);
+int dbox_read_header(struct dbox_mailbox *mbox, struct dbox_index_header *hdr);
+void dbox_update_header(struct dbox_mailbox *mbox,
+			struct mail_index_transaction *trans);
 
 struct mail_save_context *
 dbox_save_alloc(struct mailbox_transaction_context *_t);

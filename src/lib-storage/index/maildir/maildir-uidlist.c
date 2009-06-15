@@ -30,6 +30,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "hex-binary.h"
 #include "file-dotlock.h"
 #include "close-keep-errno.h"
 #include "nfs-workarounds.h"
@@ -88,12 +89,15 @@ struct maildir_uidlist {
 	uoff_t last_read_offset;
 	string_t *hdr_extensions;
 
+	uint8_t mailbox_guid[MAILBOX_GUID_SIZE];
+
 	unsigned int recreate:1;
 	unsigned int initial_read:1;
 	unsigned int initial_hdr_read:1;
 	unsigned int retry_rewind:1;
 	unsigned int locked_refresh:1;
 	unsigned int unsorted:1;
+	unsigned int have_mailbox_guid:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -549,13 +553,63 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	return TRUE;
 }
 
+static int
+maildir_uidlist_read_v3_header(struct maildir_uidlist *uidlist,
+			       const char *line,
+			       unsigned int *uid_validity_r,
+			       unsigned int *next_uid_r)
+{
+	buffer_t *buf;
+	char key;
+
+	str_truncate(uidlist->hdr_extensions, 0);
+	while (*line != '\0') {
+		const char *value;
+
+		key = *line;
+		value = ++line;
+		while (*line != '\0' && *line != ' ') line++;
+		value = t_strdup_until(value, line);
+
+		switch (key) {
+		case MAILDIR_UIDLIST_HDR_EXT_UID_VALIDITY:
+			*uid_validity_r = strtoul(value, NULL, 10);
+			break;
+		case MAILDIR_UIDLIST_HDR_EXT_NEXT_UID:
+			*next_uid_r = strtoul(value, NULL, 10);
+			break;
+		case MAILDIR_UIDLIST_HDR_EXT_GUID:
+			buf = buffer_create_dynamic(pool_datastack_create(),
+						    MAILBOX_GUID_SIZE);
+			if (hex_to_binary(value, buf) < 0 ||
+			    buf->used != MAILBOX_GUID_SIZE) {
+				maildir_uidlist_set_corrupted(uidlist,
+					"Invalid mailbox GUID: %s", value);
+				return -1;
+			}
+			memcpy(uidlist->mailbox_guid, buf->data,
+			       sizeof(uidlist->mailbox_guid));
+			uidlist->have_mailbox_guid = TRUE;
+			break;
+		default:
+			if (str_len(uidlist->hdr_extensions) > 0)
+				str_append_c(uidlist->hdr_extensions, ' ');
+			str_printfa(uidlist->hdr_extensions,
+				    "%c%s", key, value);
+			break;
+		}
+
+		while (*line == ' ') line++;
+	}
+	return 0;
+}
+
 static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 				       struct istream *input)
 {
 	unsigned int uid_validity, next_uid;
-	string_t *ext_hdr;
 	const char *line;
-	char key;
+	int ret;
 
 	line = i_stream_read_next_line(input);
         if (line == NULL) {
@@ -589,32 +643,13 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 		}
 		break;
 	case UIDLIST_VERSION:
-		ext_hdr = uidlist->hdr_extensions;
-		str_truncate(ext_hdr, 0);
-		while (*line != '\0') T_BEGIN {
-			const char *value;
-
-			key = *line;
-			value = ++line;
-			while (*line != '\0' && *line != ' ') line++;
-			value = t_strdup_until(value, line);
-
-			switch (key) {
-			case MAILDIR_UIDLIST_HDR_EXT_UID_VALIDITY:
-				uid_validity = strtoul(value, NULL, 10);
-				break;
-			case MAILDIR_UIDLIST_HDR_EXT_NEXT_UID:
-				next_uid = strtoul(value, NULL, 10);
-				break;
-			default:
-				if (str_len(ext_hdr) > 0)
-					str_append_c(ext_hdr, ' ');
-				str_printfa(ext_hdr, "%c%s", key, value);
-				break;
-			}
-
-			while (*line == ' ') line++;
+		T_BEGIN {
+			ret = maildir_uidlist_read_v3_header(uidlist, line,
+							     &uid_validity,
+							     &next_uid);
 		} T_END;
+		if (ret < 0)
+			return 0;
 		break;
 	default:
 		maildir_uidlist_set_corrupted(uidlist, "Unsupported version %u",
@@ -880,6 +915,10 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 		uidlist->initial_hdr_read = TRUE;
 		if (UIDLIST_IS_LOCKED(uidlist))
 			uidlist->locked_refresh = TRUE;
+		if (!uidlist->have_mailbox_guid) {
+			uidlist->recreate = TRUE;
+			(void)maildir_uidlist_update(uidlist);
+		}
 	}
         return ret;
 }
@@ -1034,6 +1073,18 @@ uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)
 	return !uidlist->initial_hdr_read ? 0 : uidlist->next_uid;
 }
 
+int maildir_uidlist_get_mailbox_guid(struct maildir_uidlist *uidlist,
+				     uint8_t mailbox_guid[MAILBOX_GUID_SIZE])
+{
+	if (!uidlist->have_mailbox_guid) {
+		uidlist->recreate = TRUE;
+		if (maildir_uidlist_update(uidlist) < 0)
+			return -1;
+	}
+	memcpy(mailbox_guid, uidlist->mailbox_guid, MAILBOX_GUID_SIZE);
+	return 0;
+}
+
 void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 				      uint32_t uid_validity)
 {
@@ -1135,10 +1186,15 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		i_assert(first_idx == 0);
 		uidlist->version = UIDLIST_VERSION;
 
+		if (!uidlist->have_mailbox_guid)
+			mail_generate_guid_128(uidlist->mailbox_guid);
+
 		i_assert(uidlist->uid_validity != 0);
 		i_assert(uidlist->next_uid > 0);
-		str_printfa(str, "%u V%u N%u", uidlist->version,
-			    uidlist->uid_validity, uidlist->next_uid);
+		str_printfa(str, "%u V%u N%u G%s", uidlist->version,
+			    uidlist->uid_validity, uidlist->next_uid,
+			    binary_to_hex(uidlist->mailbox_guid,
+					  sizeof(uidlist->mailbox_guid)));
 		if (str_len(uidlist->hdr_extensions) > 0) {
 			str_append_c(str, ' ');
 			str_append_str(str, uidlist->hdr_extensions);
@@ -1266,6 +1322,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		uidlist->fd_size = st.st_size;
 		uidlist->last_read_offset = st.st_size;
 		uidlist->recreate = FALSE;
+		uidlist->have_mailbox_guid = TRUE;
 		maildir_uidlist_update_hdr(uidlist, &st);
 	}
 	if (ret < 0)
@@ -1311,7 +1368,8 @@ static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
 
 	if (ctx->finish_change_counter != uidlist->change_counter)
 		return TRUE;
-	if (uidlist->fd == -1 || uidlist->version != UIDLIST_VERSION)
+	if (uidlist->fd == -1 || uidlist->version != UIDLIST_VERSION ||
+	    !uidlist->have_mailbox_guid)
 		return TRUE;
 	return maildir_uidlist_want_compress(ctx);
 }
