@@ -14,6 +14,8 @@ bool cmd_rename(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 2, &oldname, &newname))
 		return FALSE;
 
+	if (!client_verify_mailbox_name(cmd, oldname, TRUE, FALSE))
+		return TRUE;
 	if (!client_verify_mailbox_name(cmd, newname, FALSE, TRUE))
 		return TRUE;
 
