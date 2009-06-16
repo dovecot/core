@@ -319,6 +319,7 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 {
 	const char *temp_prefix = lock_info->set->temp_prefix;
 	const char *p;
+	mode_t old_mask;
 
 	if (lock_info->temp_path == NULL) {
 		/* we'll need our temp file first. */
@@ -346,8 +347,10 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 				    my_hostname, my_pid);
 		}
 
-		lock_info->fd = safe_mkstemp(tmp_path, 0666,
+		old_mask = umask(0666);
+		lock_info->fd = safe_mkstemp(tmp_path, 0666 ^ old_mask,
 					     (uid_t)-1, (gid_t)-1);
+		umask(old_mask);
 		if (lock_info->fd == -1)
 			return -1;
 
