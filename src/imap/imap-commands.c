@@ -44,7 +44,8 @@ static const struct command imap_ext_commands[] = {
 	{ "CANCELUPDATE",	cmd_cancelupdate,0 },
 	{ "ENABLE",		cmd_enable,      0 },
 	{ "ID",			cmd_id,          0 },
-	{ "IDLE",		cmd_idle,        COMMAND_FLAG_BREAKS_SEQS },
+	{ "IDLE",		cmd_idle,        COMMAND_FLAG_BREAKS_SEQS |
+						 COMMAND_FLAG_REQUIRES_SYNC },
 	{ "NAMESPACE",		cmd_namespace,   0 },
 	{ "SORT",		cmd_sort,        COMMAND_FLAG_USES_SEQS },
 	{ "THREAD",		cmd_thread,      COMMAND_FLAG_USES_SEQS },

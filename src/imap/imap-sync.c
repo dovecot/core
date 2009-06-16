@@ -475,6 +475,18 @@ int imap_sync_more(struct imap_sync_context *ctx)
 	return ret;
 }
 
+bool imap_sync_is_allowed(struct client *client)
+{
+	if (client->syncing)
+		return FALSE;
+
+	if (client->mailbox != NULL &&
+	    mailbox_transaction_get_count(client->mailbox) > 0)
+		return FALSE;
+
+	return TRUE;
+}
+
 static bool cmd_finish_sync(struct client_command_context *cmd)
 {
 	if (cmd->sync->callback != NULL)
@@ -676,9 +688,7 @@ bool cmd_sync_delayed(struct client *client)
 		return FALSE;
 	}
 
-	if (client->syncing ||
-	    (client->mailbox != NULL &&
-	     mailbox_transaction_get_count(client->mailbox) > 0)) {
+	if (!imap_sync_is_allowed(client)) {
 		/* wait until mailbox can be synced */
 		return cmd_sync_drop_fast(client);
 	}

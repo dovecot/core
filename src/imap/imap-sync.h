@@ -17,6 +17,9 @@ int imap_sync_deinit(struct imap_sync_context *ctx,
 		     struct client_command_context *sync_cmd);
 int imap_sync_more(struct imap_sync_context *ctx);
 
+/* Returns TRUE if syncing would be allowed currently. */
+bool imap_sync_is_allowed(struct client *client);
+
 bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	      enum imap_sync_flags imap_flags, const char *tagline);
 bool cmd_sync_callback(struct client_command_context *cmd,

@@ -21,7 +21,10 @@ enum command_flags {
 
 	/* Command uses selected mailbox */
 	COMMAND_FLAG_USES_MAILBOX	= COMMAND_FLAG_BREAKS_MAILBOX |
-					  COMMAND_FLAG_USES_SEQS
+					  COMMAND_FLAG_USES_SEQS,
+
+	/* Command requires mailbox syncing before it can do its job. */
+	COMMAND_FLAG_REQUIRES_SYNC	= 0x08
 };
 
 struct command {

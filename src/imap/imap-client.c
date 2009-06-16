@@ -412,6 +412,10 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 		CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY;
 	bool broken_client = FALSE;
 
+	if ((cmd->cmd_flags & COMMAND_FLAG_REQUIRES_SYNC) != 0 &&
+	    !imap_sync_is_allowed(cmd->client))
+		return TRUE;
+
 	if ((cmd->cmd_flags & COMMAND_FLAG_BREAKS_MAILBOX) ==
 	    COMMAND_FLAG_BREAKS_MAILBOX) {
 		/* there must be no other command running that uses the
