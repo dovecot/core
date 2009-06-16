@@ -822,6 +822,11 @@ bool auth_request_set_username(struct auth_request *request,
 			/* it does, set it. */
 			login_username = t_strdup_until(username, p);
 
+			if (*login_username == '\0') {
+				*error_r = "Empty login username";
+				return FALSE;
+			}
+
 			/* username is the master user */
 			username = p + 1;
 		}
