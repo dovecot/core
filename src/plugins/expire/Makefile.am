@@ -31,10 +31,16 @@ pkglibexec_PROGRAMS = expire-tool
 expire_tool_SOURCES = \
 	expire-tool.c
 
+if !BUILD_SHARED_LIBS
+unused_objects = \
+	$(top_builddir)/src/lib/mountpoint.o
+endif
+
 libs = \
 	expire-env.o \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT) \
+	$(unused_objects)
 
 expire_tool_LDADD = $(libs) $(MODULE_LIBS)
 expire_tool_DEPENDENCIES = $(libs)
