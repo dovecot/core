@@ -271,9 +271,9 @@ static void expire_run(struct master_service *service, bool testrun)
 			else T_BEGIN {
 				i_info("%s: timestamp %s (%s) -> %s (%s)",
 				       userp, value,
-				       t_strdup(ctime(&expire_time)),
+				       t_strcut(ctime(&expire_time), '\n'),
 				       new_value,
-				       t_strdup(ctime(&oldest)));
+				       t_strcut(ctime(&oldest), '\n'));
 			} T_END;
 		}
 	}
