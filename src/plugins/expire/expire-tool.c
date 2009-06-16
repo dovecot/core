@@ -268,11 +268,13 @@ static void expire_run(struct master_service *service, bool testrun)
 				/* no change */
 			} else if (!testrun)
 				dict_set(trans, key, new_value);
-			else {
+			else T_BEGIN {
 				i_info("%s: timestamp %s (%s) -> %s (%s)",
-				       userp, value, ctime(&expire_time),
-				       new_value, ctime(&oldest));
-			}
+				       userp, value,
+				       t_strdup(ctime(&expire_time)),
+				       new_value,
+				       t_strdup(ctime(&oldest)));
+			} T_END;
 		}
 	}
 	if (testrun && userp == NULL)
