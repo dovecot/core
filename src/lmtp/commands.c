@@ -425,15 +425,18 @@ static void client_input_data_handle(struct client *client)
 			}
 		} else if (client->state.data_end_idx == DATA_DOT_NEXT_POS) {
 			/* saw a dot at the beginning of line. drop it. */
-			if (client_input_add(client, data, i-1) < 0) {
+			if (client_input_add(client, data + start,
+					     i - start - 1) < 0) {
 				client_destroy(client, "451 4.3.0",
 					       "Temporary internal failure");
 				return;
 			}
 			start = i;
-			client->state.data_end_idx = 0;
+			client->state.data_end_idx =
+				data[i] == data_end[0] ? 1 : 0;
 		} else {
-			client->state.data_end_idx = 0;
+			client->state.data_end_idx =
+				data[i] == data_end[0] ? 1 : 0;
 		}
 	}
 	if (client->state.data_end_idx >= DATA_DOT_NEXT_POS) {
