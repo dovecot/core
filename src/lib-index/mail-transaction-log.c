@@ -37,15 +37,12 @@ mail_transaction_log_alloc(struct mail_index *index)
 	log = i_new(struct mail_transaction_log, 1);
 	log->index = index;
 
-	log->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
-	log->dotlock_settings.nfs_flush = index->nfs_flush;
 	log->dotlock_settings.timeout = MAIL_TRANSCATION_LOG_LOCK_TIMEOUT;
 	log->dotlock_settings.stale_timeout =
 		MAIL_TRANSCATION_LOG_LOCK_CHANGE_TIMEOUT;
 
 	log->new_dotlock_settings = log->dotlock_settings;
 	log->new_dotlock_settings.lock_suffix = LOG_NEW_DOTLOCK_SUFFIX;
-
 	return log;
 }
 
@@ -77,6 +74,11 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 	struct mail_transaction_log_file *file;
 	const char *path;
 	int ret;
+
+	log->dotlock_settings.use_excl_lock = log->index->use_excl_dotlocks;
+	log->dotlock_settings.nfs_flush = log->index->nfs_flush;
+	log->new_dotlock_settings.use_excl_lock = log->index->use_excl_dotlocks;
+	log->new_dotlock_settings.nfs_flush = log->index->nfs_flush;
 
 	if (log->open_file != NULL)
 		mail_transaction_log_file_free(&log->open_file);
