@@ -16,6 +16,7 @@ int main(void)
 		test_primes,
 		test_priorityq,
 		test_seq_range_array,
+		test_strescape,
 		test_str_find,
 		test_str_sanitize,
 		test_utc_mktime,

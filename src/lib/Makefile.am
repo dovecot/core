@@ -221,6 +221,7 @@ test_lib_SOURCES = \
 	test-primes.c \
 	test-priorityq.c \
 	test-seq-range-array.c \
+	test-strescape.c \
 	test-str-find.c \
 	test-str-sanitize.c \
 	test-utc-mktime.c

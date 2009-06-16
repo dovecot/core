@@ -12,9 +12,10 @@ void str_append_unescaped(string_t *dest, const void *src, size_t src_size);
 /* remove all '\' characters */
 char *str_unescape(char *str);
 
-/* For Dovecot's internal protocols: Escape \001, \t and \n characters
+/* For Dovecot's internal protocols: Escape \001, \t, \r and \n characters
    using \001. */
 const char *str_tabescape(const char *str);
 void str_tabescape_write(string_t *dest, const char *src);
+void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size);
 
 #endif
