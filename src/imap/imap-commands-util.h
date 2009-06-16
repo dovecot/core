@@ -1,6 +1,17 @@
 #ifndef IMAP_COMMANDS_UTIL_H
 #define IMAP_COMMANDS_UTIL_H
 
+enum client_verify_mailbox_mode {
+	/* Verify only that the mailbox name is valid */
+	CLIENT_VERIFY_MAILBOX_NAME,
+	/* If mailbox doesn't exist, fail with [NONEXISTENT] resp code */
+	CLIENT_VERIFY_MAILBOX_SHOULD_EXIST,
+	/* If mailbox doesn't exist, fail with [TRYCREATE] resp code */
+	CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE,
+	/* If mailbox exists, fail with [ALREADYEXISTS] resp code */
+	CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST
+};
+
 struct msgset_generator_context {
 	string_t *str;
 	uint32_t first_uid, last_uid;
@@ -14,15 +25,11 @@ struct mailbox_keywords;
 struct mail_namespace *
 client_find_namespace(struct client_command_context *cmd, const char **mailbox);
 
-/* If should_exist is TRUE, this function returns TRUE if the mailbox
-   exists. If it doesn't exist but would be a valid mailbox name, the
-   error message is prefixed with [TRYCREATE].
-
-   If should_exist is FALSE, the should_not_exist specifies if we should
-   return TRUE or FALSE if mailbox doesn't exist. */
+/* Returns TRUE if verifications succeeds. If it fails, a tagged NO is sent to
+   client. */
 bool client_verify_mailbox_name(struct client_command_context *cmd,
 				const char *mailbox,
-				bool should_exist, bool should_not_exist);
+				enum client_verify_mailbox_mode mode);
 
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"
    error message to client. */

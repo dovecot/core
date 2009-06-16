@@ -113,7 +113,8 @@ bool cmd_copy(struct client_command_context *cmd)
 		return TRUE;
 
 	/* open the destination mailbox */
-	if (!client_verify_mailbox_name(cmd, mailbox, TRUE, FALSE))
+	if (!client_verify_mailbox_name(cmd, mailbox,
+				CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE))
 		return TRUE;
 
 	ret = imap_search_get_seqset(cmd, messageset, cmd->uid, &search_args);

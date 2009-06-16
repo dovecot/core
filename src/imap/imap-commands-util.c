@@ -34,11 +34,11 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 
 bool client_verify_mailbox_name(struct client_command_context *cmd,
 				const char *mailbox,
-				bool should_exist, bool should_not_exist)
+				enum client_verify_mailbox_mode mode)
 {
 	struct mail_namespace *ns;
 	enum mailbox_name_status mailbox_status;
-	const char *orig_mailbox, *p;
+	const char *orig_mailbox, *p, *resp_code = NULL;
 
 	orig_mailbox = mailbox;
 	ns = client_find_namespace(cmd, &mailbox);
@@ -88,18 +88,39 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 
 	switch (mailbox_status) {
 	case MAILBOX_NAME_EXISTS:
-		if (should_exist || !should_not_exist)
+		switch (mode) {
+		case CLIENT_VERIFY_MAILBOX_NAME:
+		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
+		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
 			return TRUE;
+		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
+			break;
+		}
 
-		client_send_tagline(cmd, "NO Mailbox exists.");
-		break;
-
-	case MAILBOX_NAME_VALID:
-		if (!should_exist)
+		if (mode == CLIENT_VERIFY_MAILBOX_NAME ||
+		    mode == CLIENT_VERIFY_MAILBOX_SHOULD_EXIST)
 			return TRUE;
 
 		client_send_tagline(cmd, t_strconcat(
-			"NO [TRYCREATE] Mailbox doesn't exist: ",
+			"NO [", IMAP_RESP_CODE_ALREADYEXISTS,
+			"] Mailbox exists.", NULL));
+		break;
+
+	case MAILBOX_NAME_VALID:
+		switch (mode) {
+		case CLIENT_VERIFY_MAILBOX_NAME:
+		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
+			return TRUE;
+		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
+			resp_code = IMAP_RESP_CODE_NONEXISTENT;
+			break;
+		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
+			resp_code = "TRYCREATE";
+			break;
+		}
+
+		client_send_tagline(cmd, t_strconcat(
+			"NO [", resp_code, "] Mailbox doesn't exist: ",
 			str_sanitize(orig_mailbox, MAILBOX_MAX_NAME_LEN),
 			NULL));
 		break;

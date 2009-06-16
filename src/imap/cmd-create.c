@@ -36,7 +36,8 @@ bool cmd_create(struct client_command_context *cmd)
 		full_mailbox = t_strndup(full_mailbox, len-1);
 	}
 
-	if (!client_verify_mailbox_name(cmd, full_mailbox, FALSE, TRUE))
+	if (!client_verify_mailbox_name(cmd, full_mailbox,
+					CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST))
 		return TRUE;
 
 	storage = mail_namespace_get_default_storage(ns);

@@ -68,9 +68,13 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 	if (have_listable_namespace_prefix(cmd->client->user->namespaces,
 					   verify_name)) {
 		/* subscribing to a listable namespace prefix, allow it. */
+	} else if (subscribe) {
+		if (!client_verify_mailbox_name(cmd, verify_name,
+					CLIENT_VERIFY_MAILBOX_SHOULD_EXIST))
+			return TRUE;
 	} else {
 		if (!client_verify_mailbox_name(cmd, verify_name,
-						subscribe, FALSE))
+						CLIENT_VERIFY_MAILBOX_NAME))
 			return TRUE;
 	}
 

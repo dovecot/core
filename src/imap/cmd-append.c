@@ -454,7 +454,8 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 	struct mail_namespace *ns;
 	struct mailbox *box;
 
-	if (!client_verify_mailbox_name(cmd, name, TRUE, FALSE))
+	if (!client_verify_mailbox_name(cmd, name,
+				CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE))
 		return NULL;
 
 	ns = client_find_namespace(cmd, &name);
