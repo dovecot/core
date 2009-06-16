@@ -163,6 +163,8 @@ int main(int argc, const char *argv[])
 	max_likely_index = (st.st_size / 8) * 2;
 
 	map = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (map == MAP_FAILED)
+		i_fatal("mmap() failed: %m");
 	end = CONST_PTR_OFFSET(map, st.st_size);
 	pos = dump_hdr(map);
 	uid = 0;
