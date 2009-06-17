@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "array.h"
 
+#include <stdlib.h>
+
 void *array_idx_modifiable_i(struct array *array, unsigned int idx)
 {
 	size_t pos;
@@ -84,4 +86,13 @@ void array_reverse_i(struct array *array)
 		memcpy(PTR_OFFSET(data, (count-1) * element_size), tmp,
 		       element_size);
 	}
+}
+
+void array_sort_i(struct array *array, int (*cmp)(const void *, const void *))
+{
+	unsigned int count;
+
+	count = array->buffer->used / array->element_size;
+	qsort(buffer_get_modifiable_data(array->buffer, NULL),
+	      count, array->element_size, cmp);
 }

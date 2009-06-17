@@ -234,4 +234,16 @@ void array_reverse_i(struct array *array);
 #define array_reverse(array) \
 	array_reverse_i(&(array)->arr)
 
+void array_sort_i(struct array *array, int (*cmp)(const void *, const void *));
+#ifdef CONTEXT_TYPE_SAFETY
+#define array_sort(array, cmp) \
+	({(void)(1 ? 0 : cmp(ARRAY_TYPE_CAST_CONST(array)NULL, \
+			     ARRAY_TYPE_CAST_CONST(array)NULL)); \
+	array_sort_i(&(array)->arr, \
+		(int (*)(const void *, const void *))cmp); })
+#else
+#define array_sort(array, cmp) \
+	array_sort_i(&(array)->arr, (int (*)(const void *, const void *))cmp)
+#endif
+
 #endif
