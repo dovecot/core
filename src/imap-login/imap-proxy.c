@@ -73,12 +73,12 @@ static void
 client_send_capability_if_needed(struct imap_client *client, string_t *str,
 				 const char *capability)
 {
-	if (!client->capability_command_used || capability == NULL)
+	if (!client->client_ignores_capability_resp_code || capability == NULL)
 		return;
 
 	/* reset this so that we don't re-send the CAPABILITY in case server
 	   sends it multiple times */
-	client->capability_command_used = FALSE;
+	client->client_ignores_capability_resp_code = FALSE;
 
 	/* client has used CAPABILITY command, so it didn't understand the
 	   capabilities in the banner. send the backend's untagged CAPABILITY
@@ -88,7 +88,7 @@ client_send_capability_if_needed(struct imap_client *client, string_t *str,
 
 static void proxy_write_login(struct imap_client *client, string_t *str)
 {
-	if (client->capability_command_used)
+	if (client->client_ignores_capability_resp_code)
 		str_append(str, "C CAPABILITY\r\n");
 
 	if (client->proxy_master_user == NULL) {

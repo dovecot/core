@@ -327,7 +327,8 @@ static int client_auth_begin(struct imap_client *client, const char *mech_name,
 {
 	char *prefix;
 
-	prefix = i_strdup_printf("%d%s", client->capability_command_used,
+	prefix = i_strdup_printf("%d%s",
+				 client->client_ignores_capability_resp_code,
 				 client->cmd_tag);
 
 	i_free(client->common.master_data_prefix);

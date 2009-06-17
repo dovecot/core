@@ -27,6 +27,7 @@ struct imap_client {
 
 	const char *cmd_tag, *cmd_name;
 
+	unsigned int starttls:1;
 	unsigned int login_success:1;
 	unsigned int cmd_finished:1;
 	unsigned int proxy_sasl_ir:1;
@@ -37,7 +38,7 @@ struct imap_client {
 	unsigned int greeting_sent:1;
 	unsigned int id_logged:1;
 	unsigned int auth_initializing:1;
-	unsigned int capability_command_used:1;
+	unsigned int client_ignores_capability_resp_code:1;
 };
 
 void client_destroy(struct imap_client *client, const char *reason);

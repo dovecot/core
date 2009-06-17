@@ -111,7 +111,11 @@ static const char *get_capability(struct imap_client *client)
 
 static int cmd_capability(struct imap_client *client)
 {
-	client->capability_command_used = TRUE;
+	/* Client is required to send CAPABILITY after STARTTLS, so the
+	   capability resp-code workaround checks only pre-STARTTLS
+	   CAPABILITY commands. */
+	if (!client->starttls)
+		client->client_ignores_capability_resp_code = TRUE;
 	client_send_line(client, t_strconcat(
 		"* CAPABILITY ", get_capability(client), NULL));
 	client_send_tagline(client, "OK Capability completed.");
@@ -135,6 +139,7 @@ static void client_start_tls(struct imap_client *client)
 		return;
 	}
 
+	client->starttls = TRUE;
 	client->common.proxying = TRUE;
 	client->common.tls = TRUE;
 	client->common.secured = TRUE;
