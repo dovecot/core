@@ -133,9 +133,8 @@ module_load(const char *path, const char *name, bool require_init_funcs,
 	return module;
 }
 
-static int module_name_cmp(const void *p1, const void *p2)
+static int module_name_cmp(const char *const *n1, const char *const *n2)
 {
-	const char *const *n1 = p1, *const *n2 = p2;
 	const char *s1 = *n1, *s2 = *n2;
 
 	if (strncmp(s1, "lib", 3) == 0)
@@ -189,7 +188,7 @@ module_dir_load_real(const char *dir, const char *module_names,
 {
 	DIR *dirp;
 	struct dirent *d;
-	const char *name, *p, **names_p;
+	const char *name, *p, *const *names_p;
 	const char **module_names_arr;
 	struct module *modules, *module, **module_pos;
 	unsigned int i, count;
@@ -233,8 +232,8 @@ module_dir_load_real(const char *dir, const char *module_names,
 		array_append(&names, &name, 1);
 	}
 
-	names_p = array_get_modifiable(&names, &count);
-	qsort(names_p, count, sizeof(const char *), module_name_cmp);
+	array_sort(&names, module_name_cmp);
+	names_p = array_get(&names, &count);
 
 	if (module_names == NULL)
 		module_names_arr = NULL;

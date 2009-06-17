@@ -261,16 +261,16 @@ static int rebuild_apply_map(struct dbox_storage_rebuild_context *ctx)
 {
 	struct dbox_map *map = ctx->storage->map;
 	const struct mail_index_header *hdr;
-	struct dbox_rebuild_msg **msgs, **pos;
+	struct dbox_rebuild_msg *const *msgs, **pos;
 	struct dbox_rebuild_msg search_msg, *search_msgp = &search_msg;
 	struct dbox_mail_lookup_rec rec;
 	uint32_t seq;
 	unsigned int count;
 
-	msgs = array_get_modifiable(&ctx->msgs, &count);
 	if (ctx->msgs_unsorted)
-		qsort(msgs, count, sizeof(*msgs), dbox_rebuild_msg_offset_cmp);
+		array_sort(&ctx->msgs, dbox_rebuild_msg_offset_cmp);
 
+	msgs = array_get_modifiable(&ctx->msgs, &count);
 	hdr = mail_index_get_header(ctx->sync_view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		if (dbox_map_view_lookup_rec(map, ctx->sync_view,
@@ -295,7 +295,7 @@ static int rebuild_apply_map(struct dbox_storage_rebuild_context *ctx)
 
 	/* afterwards we're interested in looking up map_uids.
 	   re-sort the messages to make it easier. */
-	qsort(msgs, count, sizeof(*msgs), dbox_rebuild_msg_uid_cmp);
+	array_sort(&ctx->msgs, dbox_rebuild_msg_uid_cmp);
 	return 0;
 }
 

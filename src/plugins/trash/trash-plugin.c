@@ -241,10 +241,9 @@ static bool trash_find_storage(struct mail_user *user,
 	return FALSE;
 }
 
-static int trash_mailbox_priority_cmp(const void *p1, const void *p2)
+static int trash_mailbox_priority_cmp(const struct trash_mailbox *t1,
+				      const struct trash_mailbox *t2)
 {
-	const struct trash_mailbox *t1 = p1, *t2 = p2;
-
 	return t1->priority - t2->priority;
 }
 
@@ -254,7 +253,6 @@ static int read_configuration(struct mail_user *user, const char *path)
 	struct istream *input;
 	const char *line, *name;
 	struct trash_mailbox *trash;
-	unsigned int count;
 	int fd, ret = 0;
 
 	fd = open(path, O_RDONLY);
@@ -291,8 +289,7 @@ static int read_configuration(struct mail_user *user, const char *path)
 	i_stream_destroy(&input);
 	(void)close(fd);
 
-	trash = array_get_modifiable(&tuser->trash_boxes, &count);
-	qsort(trash, count, sizeof(*trash), trash_mailbox_priority_cmp);
+	array_sort(&tuser->trash_boxes, trash_mailbox_priority_cmp);
 	return ret;
 }
 

@@ -112,10 +112,9 @@ add_base_subject(struct subject_gather_context *ctx, const char *subject,
 	node->reply_or_forward = is_reply_or_forward;
 }
 
-static int mail_thread_child_node_cmp(const void *p1, const void *p2)
+static int mail_thread_child_node_cmp(const struct mail_thread_child_node *c1,
+				      const struct mail_thread_child_node *c2)
 {
-	const struct mail_thread_child_node *c1 = p1, *c2 = p2;
-
 	if (c1->sort_date < c2->sort_date)
 		return -1;
 	if (c1->sort_date > c2->sort_date)
@@ -126,6 +125,12 @@ static int mail_thread_child_node_cmp(const void *p1, const void *p2)
 	if (c1->uid > c2->uid)
 		return 1;
 	return 0;
+}
+
+static int mail_thread_root_node_cmp(const struct mail_thread_root_node *r1,
+				     const struct mail_thread_root_node *r2)
+{
+	return mail_thread_child_node_cmp(&r1->node, &r2->node);
 }
 
 static uint32_t
@@ -170,7 +175,7 @@ thread_sort_children(struct thread_finish_context *ctx, uint32_t parent_idx,
 		     ARRAY_TYPE(mail_thread_child_node) *sorted_children)
 {
 	const struct mail_thread_shadow_node *shadows;
-	struct mail_thread_child_node child, *children;
+	struct mail_thread_child_node child;
 	unsigned int count;
 
 	memset(&child, 0, sizeof(child));
@@ -195,8 +200,7 @@ thread_sort_children(struct thread_finish_context *ctx, uint32_t parent_idx,
 	}
 
 	/* sort the children */
-	children = array_get_modifiable(sorted_children, &count);
-	qsort(children, count, sizeof(*children), mail_thread_child_node_cmp);
+	array_sort(sorted_children, mail_thread_child_node_cmp);
 }
 
 static void gather_base_subjects(struct thread_finish_context *ctx)
@@ -402,7 +406,7 @@ static void sort_root_nodes(struct thread_finish_context *ctx)
 		}
 	}
 	array_free(&sorted_children);
-	qsort(roots, count, sizeof(*roots), mail_thread_child_node_cmp);
+	array_sort(&ctx->roots, mail_thread_root_node_cmp);
 }
 
 static int mail_thread_root_node_idx_cmp(const void *key, const void *value)
@@ -455,7 +459,7 @@ static void sort_root_nodes_ref2(struct thread_finish_context *ctx,
 		if (root->node.sort_date < child.sort_date)
 			root->node.sort_date = child.sort_date;
 	}
-	qsort(roots, root_count, sizeof(*roots), mail_thread_child_node_cmp);
+	array_sort(&ctx->roots, mail_thread_root_node_cmp);
 }
 
 static void mail_thread_create_shadows(struct thread_finish_context *ctx,

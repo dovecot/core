@@ -268,9 +268,9 @@ fts_build_init_box(struct fts_search_context *fctx, struct mailbox *box,
 				  seq1, seq2, last_uid);
 }
 
-static int mailbox_name_cmp(const void *p1, const void *p2)
+static int mailbox_name_cmp(const struct fts_orig_mailboxes *box1,
+			    const struct fts_orig_mailboxes *box2)
 {
-	const struct fts_orig_mailboxes *box1 = p1, *box2 = p2;
 	int ret;
 
 	T_BEGIN {
@@ -286,10 +286,10 @@ static int mailbox_name_cmp(const void *p1, const void *p2)
 	return ret;
 }
 
-static int fts_backend_uid_map_mailbox_cmp(const void *p1, const void *p2)
+static int
+fts_backend_uid_map_mailbox_cmp(const struct fts_backend_uid_map *map1,
+				const struct fts_backend_uid_map *map2)
 {
-	const struct fts_backend_uid_map *map1 = p1, *map2 = p2;
-
 	return strcmp(map1->mailbox, map2->mailbox);
 }
 
@@ -372,12 +372,11 @@ fts_box_get_root(struct mailbox *box, struct mail_namespace **ns_r)
 static int fts_build_init_virtual(struct fts_search_context *fctx)
 {
 	struct fts_search_virtual_context *vctx = &fctx->virtual_ctx;
-	struct fts_backend_uid_map *last_uids;
 	ARRAY_TYPE(mailboxes) mailboxes;
 	struct mailbox *const *boxes;
-	struct fts_orig_mailboxes *orig_boxes;
+	const struct fts_orig_mailboxes *orig_boxes;
 	struct fts_orig_mailboxes orig_box;
-	unsigned int i, box_count, last_uid_count;
+	unsigned int i, box_count;
 	int ret;
 
 	t_array_init(&mailboxes, 64);
@@ -393,8 +392,7 @@ static int fts_build_init_virtual(struct fts_search_context *fctx)
 		array_append(&vctx->orig_mailboxes, &orig_box, 1);
 	}
 
-	orig_boxes = array_get_modifiable(&vctx->orig_mailboxes, &box_count);
-
+	orig_boxes = array_get(&vctx->orig_mailboxes, &box_count);
 	if (box_count <= 0) {
 		if (box_count == 0) {
 			/* empty virtual mailbox */
@@ -416,11 +414,9 @@ static int fts_build_init_virtual(struct fts_search_context *fctx)
 		pool_unref(&vctx->pool);
 		return -1;
 	}
-	last_uids = array_get_modifiable(&vctx->last_uids, &last_uid_count);
 
-	qsort(orig_boxes, box_count, sizeof(*orig_boxes), mailbox_name_cmp);
-	qsort(last_uids, last_uid_count, sizeof(*last_uids),
-	      fts_backend_uid_map_mailbox_cmp);
+	array_sort(&vctx->orig_mailboxes, mailbox_name_cmp);
+	array_sort(&vctx->last_uids, fts_backend_uid_map_mailbox_cmp);
 
 	ret = fts_build_init_virtual_next(fctx);
 	return ret < 0 ? -1 : 0;

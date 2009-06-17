@@ -137,7 +137,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	const char *username = dict->user->username;
 	struct dict_iterate_context *iter;
 	struct dict_transaction_context *dt;
-	const char *prefix, *key, *value, **old_ids, *const *new_ids, *p;
+	const char *prefix, *key, *value, *const *old_ids, *const *new_ids, *p;
 	ARRAY_TYPE(const_string) old_ids_arr;
 	unsigned int newi, oldi, old_count, new_count;
 	string_t *path;
@@ -169,14 +169,14 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	}
 
 	/* sort the existing identifiers */
-	old_ids = array_get_modifiable(&old_ids_arr, &old_count);
-	qsort(old_ids, old_count, sizeof(*old_ids), i_strcmp_p);
+	array_sort(&old_ids_arr, i_strcmp_p);
 
 	/* sync the identifiers */
 	path = t_str_new(256);
 	str_append(path, prefix);
 
 	dt = dict_transaction_begin(dict->dict);
+	old_ids = array_get(&old_ids_arr, &old_count);
 	new_ids = array_get(new_ids_arr, &new_count);
 	for (newi = oldi = 0; newi < new_count || oldi < old_count; ) {
 		ret = newi == new_count ? 1 :
@@ -226,9 +226,9 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
 	}
 
 	/* sort identifiers and remove duplicates */
-	ids = array_get_modifiable(&ids_arr, &count);
-	qsort(ids, count, sizeof(*ids), i_strcmp_p);
+	array_sort(&ids_arr, i_strcmp_p);
 
+	ids = array_get_modifiable(&ids_arr, &count);
 	for (i = 1, dest = 0; i < count; i++) {
 		if (strcmp(ids[dest], ids[i]) != 0) {
 			if (++dest != i)

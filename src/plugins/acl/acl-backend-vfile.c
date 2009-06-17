@@ -283,14 +283,14 @@ static const char *const *
 acl_rights_alloc(pool_t pool, ARRAY_TYPE(const_string) *rights_arr,
 		 bool dup_strings)
 {
-	const char **ret, **rights;
+	const char **ret, *const *rights;
 	unsigned int i, dest, count;
 
 	/* sort the rights first so we can easily drop duplicates */
-	rights = array_get_modifiable(rights_arr, &count);
-	qsort(rights, count, sizeof(*rights), i_strcmp_p);
+	array_sort(rights_arr, i_strcmp_p);
 
 	/* @UNSAFE */
+	rights = array_get(rights_arr, &count);
 	ret = p_new(pool, const char *, count + 1);
 	if (count > 0) {
 		ret[0] = rights[0];
@@ -639,9 +639,9 @@ int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
 	return 0;
 }
 
-static int acl_rights_cmp(const void *p1, const void *p2)
+static int acl_rights_cmp(const struct acl_rights *r1,
+			  const struct acl_rights *r2)
 {
-	const struct acl_rights *r1 = p1, *r2 = p2;
 	int ret;
 
 	if (r1->global != r2->global) {
@@ -654,6 +654,11 @@ static int acl_rights_cmp(const void *p1, const void *p2)
 		return ret;
 
 	return null_strcmp(r1->identifier, r2->identifier);
+}
+
+static int acl_rights_bsearch_cmp(const void *p1, const void *p2)
+{
+	return acl_rights_cmp(p1, p2);
 }
 
 static void
@@ -685,10 +690,10 @@ static void acl_backend_vfile_rights_sort(struct acl_object_vfile *aclobj)
 	if (!array_is_created(&aclobj->rights))
 		return;
 
-	rights = array_get_modifiable(&aclobj->rights, &count);
-	qsort(rights, count, sizeof(*rights), acl_rights_cmp);
+	array_sort(&aclobj->rights, acl_rights_cmp);
 
 	/* merge identical identifiers */
+	rights = array_get_modifiable(&aclobj->rights, &count);
 	for (dest = 0, i = 1; i < count; i++) {
 		if (acl_rights_cmp(&rights[i], &rights[dest]) == 0) {
 			/* add i's rights to dest and delete i */
@@ -1095,7 +1100,7 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 
 	rights = array_get(&aclobj->rights, &count);
 	if (!bsearch_insert_pos(&update->rights, rights, count, sizeof(*rights),
-				acl_rights_cmp, &i))
+				acl_rights_bsearch_cmp, &i))
 		changed = vfile_object_add_right(aclobj, i, update);
 	else
 		changed = vfile_object_modify_right(aclobj, i, update);

@@ -671,12 +671,7 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 
 static void maildir_uidlist_records_sort_by_uid(struct maildir_uidlist *uidlist)
 {
-	struct maildir_uidlist_rec **recs;
-	unsigned int count;
-
-	recs = array_get_modifiable(&uidlist->records, &count);
-	qsort(recs, count, sizeof(*recs), maildir_uid_cmp);
-
+	array_sort(&uidlist->records, maildir_uid_cmp);
 	uidlist->unsorted = FALSE;
 }
 
@@ -1762,12 +1757,9 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
-	struct maildir_uidlist_rec **recs;
-	unsigned int count;
 
 	/* buffer is unsorted, sort it by UID */
-	recs = array_get_modifiable(&ctx->records, &count);
-	qsort(recs, count, sizeof(*recs), maildir_uid_cmp);
+	array_sort(&ctx->records, maildir_uid_cmp);
 
 	array_free(&uidlist->records);
 	uidlist->records = ctx->records;
@@ -1783,7 +1775,8 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	ctx->record_pool = NULL;
 
 	if (ctx->new_files_count != 0) {
-		ctx->first_nouid_pos = count - ctx->new_files_count;
+		ctx->first_nouid_pos = array_count(&uidlist->records) -
+			ctx->new_files_count;
 		maildir_uidlist_assign_uids(ctx);
 	} else {
 		ctx->uidlist->change_counter++;

@@ -32,9 +32,9 @@ static const enum message_header_parser_flags hdr_parser_flags =
 static const enum message_parser_flags msg_parser_flags =
 	MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK;
 
-static int header_line_cmp(const void *p1, const void *p2)
+static int header_line_cmp(const struct index_mail_line *l1,
+			   const struct index_mail_line *l2)
 {
-	const struct index_mail_line *l1 = p1, *l2 = p2;
 	int diff;
 
 	diff = (int)l1->field_idx - (int)l2->field_idx;
@@ -44,7 +44,7 @@ static int header_line_cmp(const void *p1, const void *p2)
 
 static void index_mail_parse_header_finish(struct index_mail *mail)
 {
-	struct index_mail_line *lines;
+	const struct index_mail_line *lines;
 	const unsigned char *header, *data;
 	const uint8_t *match;
 	buffer_t *buf;
@@ -52,12 +52,11 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	unsigned int i, j, count, match_idx, match_count;
 	bool noncontiguous;
 
-	lines = array_get_modifiable(&mail->header_lines, &count);
-
 	/* sort it first so fields are grouped together and ordered by
 	   line number */
-	qsort(lines, count, sizeof(*lines), header_line_cmp);
+	array_sort(&mail->header_lines, header_line_cmp);
 
+	lines = array_get(&mail->header_lines, &count);
 	match = array_get(&mail->header_match, &match_count);
 	header = buffer_get_data(mail->header_data, NULL);
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);

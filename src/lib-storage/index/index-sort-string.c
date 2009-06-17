@@ -93,18 +93,6 @@ static int sort_node_seq_cmp(const void *p1, const void *p2)
 	return 0;
 }
 
-static void index_sort_nodes_by_seq(struct sort_string_context *ctx)
-{
-	struct mail_sort_node *nodes;
-	unsigned int count;
-
-	nodes = array_get_modifiable(&ctx->zero_nodes, &count);
-	qsort(nodes, count, sizeof(struct mail_sort_node), sort_node_seq_cmp);
-
-	nodes = array_get_modifiable(&ctx->nonzero_nodes, &count);
-	qsort(nodes, count, sizeof(struct mail_sort_node), sort_node_seq_cmp);
-}
-
 static void index_sort_generate_seqs(struct sort_string_context *ctx)
 {
 	struct mail_sort_node *nodes, *nodes2;
@@ -241,10 +229,10 @@ void index_sort_list_add_string(struct mail_search_sort_program *program,
 	index_sort_node_add(ctx, &node);
 }
 
-static int sort_node_zero_string_cmp(const void *p1, const void *p2)
+static int sort_node_zero_string_cmp(const struct mail_sort_node *n1,
+				     const struct mail_sort_node *n2)
 {
 	struct sort_string_context *ctx = static_zero_cmp_context;
-	const struct mail_sort_node *n1 = p1, *n2 = p2;
 	int ret;
 
 	ret = strcmp(ctx->sort_strings[n1->seq], ctx->sort_strings[n2->seq]);
@@ -288,8 +276,7 @@ static void index_sort_zeroes(struct sort_string_context *ctx)
 
 	/* we have all strings, sort nodes based on them */
 	static_zero_cmp_context = ctx;
-	qsort(nodes, count, sizeof(struct mail_sort_node),
-	      sort_node_zero_string_cmp);
+	array_sort(&ctx->zero_nodes, sort_node_zero_string_cmp);
 }
 
 static const char *
@@ -713,10 +700,10 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 	}
 }
 
-static int sort_node_cmp(const void *p1, const void *p2)
+static int sort_node_cmp(const struct mail_sort_node *n1,
+			 const struct mail_sort_node *n2)
 {
 	struct sort_string_context *ctx = static_zero_cmp_context;
-	const struct mail_sort_node *n1 = p1, *n2 = p2;
 
 	if (n1->sort_id < n2->sort_id)
 		return !ctx->reverse ? -1 : 1;
@@ -782,22 +769,21 @@ static void index_sort_list_reset_broken(struct sort_string_context *ctx)
 void index_sort_list_finish_string(struct mail_search_sort_program *program)
 {
 	struct sort_string_context *ctx = program->context;
-	struct mail_sort_node *nodes;
+	const struct mail_sort_node *nodes;
 	unsigned int i, count;
 	uint32_t seq;
-
-	nodes = array_get_modifiable(&ctx->nonzero_nodes, &count);
 
 	static_zero_cmp_context = ctx;
 	if (array_count(&ctx->zero_nodes) == 0) {
 		/* fast path: we have all sort IDs */
-		qsort(nodes, count, sizeof(struct mail_sort_node),
-		      sort_node_cmp);
+		array_sort(&ctx->nonzero_nodes, sort_node_cmp);
 
 		if (!array_is_created(&program->seqs))
 			i_array_init(&program->seqs, count);
 		else
 			array_clear(&program->seqs);
+
+		nodes = array_get(&ctx->nonzero_nodes, &count);
 		for (i = 0; i < count; i++) {
 			seq = nodes[i].seq;
 			array_append(&program->seqs, &seq, 1);
@@ -806,7 +792,8 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 	} else {
 		if (ctx->seqs_nonsorted) {
 			/* the nodes need to be sorted by sequence initially */
-			index_sort_nodes_by_seq(ctx);
+			array_sort(&ctx->zero_nodes, sort_node_seq_cmp);
+			array_sort(&ctx->nonzero_nodes, sort_node_seq_cmp);
 		}
 
 		/* we have to add some sort IDs. we'll do this for all
@@ -816,9 +803,7 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 		/* add messages not in seqs list */
 		index_sort_add_missing(ctx);
 		/* sort all messages with sort IDs */
-		nodes = array_get_modifiable(&ctx->nonzero_nodes, &count);
-		qsort(nodes, count, sizeof(struct mail_sort_node),
-		      sort_node_cmp);
+		array_sort(&ctx->nonzero_nodes, sort_node_cmp);
 		for (;;) {
 			/* sort all messages without sort IDs */
 			index_sort_zeroes(ctx);
@@ -851,7 +836,7 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 			array_reverse(&ctx->sorted_nodes);
 		}
 
-		nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
+		nodes = array_get(&ctx->sorted_nodes, &count);
 		array_clear(&program->seqs);
 		for (i = 0; i < count; i++) {
 			if (nodes[i].wanted) {

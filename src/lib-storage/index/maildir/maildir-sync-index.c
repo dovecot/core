@@ -295,7 +295,8 @@ maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 {
 	struct maildir_mailbox *mbox = ctx->mbox;
 	struct mail_keywords *kw;
-	unsigned int i, j, old_count, new_count, *old_indexes, *new_indexes;
+	unsigned int i, j, old_count, new_count;
+	const unsigned int *old_indexes, *new_indexes;
 	bool have_indexonly_keywords;
 	int diff;
 
@@ -306,12 +307,11 @@ maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 	}
 
 	/* sort the keywords */
-	old_indexes = array_get_modifiable(&ctx->idx_keywords, &old_count);
-	qsort(old_indexes, old_count, sizeof(*old_indexes), uint_cmp);
-	new_indexes = array_get_modifiable(&ctx->keywords, &new_count);
-	qsort(new_indexes, new_count, sizeof(*new_indexes), uint_cmp);
+	array_sort(&ctx->idx_keywords, uint_cmp);
+	array_sort(&ctx->keywords, uint_cmp);
 
 	/* drop keywords that are in index-only. we don't want to touch them. */
+	old_indexes = array_get(&ctx->idx_keywords, &old_count);
 	have_indexonly_keywords = FALSE;
 	for (i = old_count; i > 0; i--) {
 		if (old_indexes[i-1] < MAILDIR_MAX_KEYWORDS)
@@ -338,16 +338,14 @@ maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 	   so first remove the unwanted keywords and then add back the wanted
 	   ones. we can get these lists easily by removing common elements
 	   from old and new keywords. */
-	new_indexes = array_get_modifiable(&ctx->keywords, &new_count);
+	new_indexes = array_get(&ctx->keywords, &new_count);
 	for (i = j = 0; i < old_count && j < new_count; ) {
 		diff = (int)old_indexes[i] - (int)new_indexes[j];
 		if (diff == 0) {
 			array_delete(&ctx->keywords, j, 1);
 			array_delete(&ctx->idx_keywords, i, 1);
-			old_indexes = array_get_modifiable(&ctx->idx_keywords,
-							   &old_count);
-			new_indexes = array_get_modifiable(&ctx->keywords,
-							   &new_count);
+			old_indexes = array_get(&ctx->idx_keywords, &old_count);
+			new_indexes = array_get(&ctx->keywords, &new_count);
 		} else if (diff < 0) {
 			i++;
 		} else {

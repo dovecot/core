@@ -32,10 +32,9 @@ config_request_get_strings(const char *key, const char *value,
 	array_append(&ctx->strings, &value, 1);
 }
 
-static int config_string_cmp(const void *p1, const void *p2)
+static int config_string_cmp(const char *const *p1, const char *const *p2)
 {
-	const char *s1 = *(const char *const *)p1;
-	const char *s2 = *(const char *const *)p2;
+	const char *s1 = *p1, *s2 = *p2;
 	unsigned int i = 0;
 
 	while (s1[i] == s2[i]) {
@@ -71,7 +70,7 @@ static void config_connection_request_human(struct ostream *output,
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(uint) prefix_idx_stack;
 	struct config_request_get_string_ctx ctx;
-	const char **strings, *const *args, *p, *str, *const *prefixes;
+	const char *const *strings, *const *args, *p, *str, *const *prefixes;
 	const char *key, *value;
 	unsigned int i, j, count, len, prefix_count, skip_len;
 	unsigned int indent = 0, prefix_idx = -1U;
@@ -81,8 +80,8 @@ static void config_connection_request_human(struct ostream *output,
 	config_request_handle(filter, module, flags,
 			      config_request_get_strings, &ctx);
 
-	strings = array_get_modifiable(&ctx.strings, &count);
-	qsort(strings, count, sizeof(*strings), config_string_cmp);
+	array_sort(&ctx.strings, config_string_cmp);
+	strings = array_get(&ctx.strings, &count);
 
 	p_array_init(&prefixes_arr, ctx.pool, 32);
 	for (i = 0; i < count && strings[i][0] == '-'; i++) T_BEGIN {

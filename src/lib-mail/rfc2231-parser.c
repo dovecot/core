@@ -14,9 +14,9 @@ struct rfc2231_parameter {
 	bool extended;
 };
 
-static int rfc2231_parameter_cmp(const void *p1, const void *p2)
+static int rfc2231_parameter_cmp(const struct rfc2231_parameter *r1,
+				 const struct rfc2231_parameter *r2)
 {
-	const struct rfc2231_parameter *r1 = p1, *r2 = p2;
 	int ret;
 
 	ret = strcmp(r1->key, r2->key);
@@ -42,7 +42,8 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 {
 	ARRAY_TYPE(const_string) result;
 	ARRAY_DEFINE(rfc2231_params_arr, struct rfc2231_parameter);
-	struct rfc2231_parameter rfc2231_param, *rfc2231_params;
+	struct rfc2231_parameter rfc2231_param;
+	const struct rfc2231_parameter *rfc2231_params;
 	const char *key, *value, *p, *p2;
 	string_t *str;
 	unsigned int i, j, count, next, next_idx;
@@ -102,9 +103,8 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 
 	/* Merge the RFC 2231 parameters. Since their order isn't guaranteed to
 	   be ascending, start by sorting them. */
-	rfc2231_params = array_get_modifiable(&rfc2231_params_arr, &count);
-	qsort(rfc2231_params, count, sizeof(*rfc2231_params),
-	      rfc2231_parameter_cmp);
+	array_sort(&rfc2231_params_arr, rfc2231_parameter_cmp);
+	rfc2231_params = array_get(&rfc2231_params_arr, &count);
 
 	/* keys are now sorted primarily by their name and secondarily by
 	   their index. If any indexes are missing, fallback to assuming

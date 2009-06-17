@@ -119,10 +119,9 @@ virtual_backend_box_sync_mail_unset(struct virtual_backend_box *bbox)
 	}
 }
 
-static int bbox_mailbox_id_cmp(const void *p1, const void *p2)
+static int bbox_mailbox_id_cmp(struct virtual_backend_box *const *b1,
+			       struct virtual_backend_box *const *b2)
 {
-	const struct virtual_backend_box *const *b1 = p1, *const *b2 = p2;
-
 	if ((*b1)->mailbox_id < (*b2)->mailbox_id)
 		return -1;
 	if ((*b1)->mailbox_id > (*b2)->mailbox_id)
@@ -235,7 +234,7 @@ static bool virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 		}
 	}
 	/* sort the backend mailboxes by mailbox_id. */
-	qsort(bboxes, count, sizeof(*bboxes), bbox_mailbox_id_cmp);
+	array_sort(&ctx->mbox->backend_boxes, bbox_mailbox_id_cmp);
 	return ret;
 }
 
@@ -589,10 +588,9 @@ virtual_sync_mailbox_box_add(struct virtual_sync_context *ctx,
 	}
 }
 
-static int virtual_backend_uidmap_cmp(const void *p1, const void *p2)
+static int virtual_backend_uidmap_cmp(const struct virtual_backend_uidmap *u1,
+				      const struct virtual_backend_uidmap *u2)
 {
-	const struct virtual_backend_uidmap *u1 = p1, *u2 = p2;
-
 	if (u1->real_uid < u2->real_uid)
 		return -1;
 	if (u1->real_uid > u2->real_uid)
@@ -602,12 +600,8 @@ static int virtual_backend_uidmap_cmp(const void *p1, const void *p2)
 
 static void virtual_sync_bbox_uids_sort(struct virtual_backend_box *bbox)
 {
-	struct virtual_backend_uidmap *uids;
-	unsigned int uid_count;
-
 	/* the uidmap must be sorted by real_uids */
-	uids = array_get_modifiable(&bbox->uids, &uid_count);
-	qsort(uids, uid_count, sizeof(*uids), virtual_backend_uidmap_cmp);
+	array_sort(&bbox->uids, virtual_backend_uidmap_cmp);
 	bbox->uids_nonsorted = FALSE;
 }
 
@@ -1145,10 +1139,9 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 	}
 }
 
-static int virtual_add_record_cmp(const void *p1, const void *p2)
+static int virtual_add_record_cmp(const struct virtual_add_record *add1,
+				  const struct virtual_add_record *add2)
 {
-	const struct virtual_add_record *add1 = p1, *add2 = p2;
-
 	if (add1->received_date < add2->received_date)
 		return -1;
 	if (add1->received_date > add2->received_date)
@@ -1192,7 +1185,7 @@ static void virtual_sync_backend_sort_new(struct virtual_sync_context *ctx)
 		}
 	}
 
-	qsort(adds, count, sizeof(*adds), virtual_add_record_cmp);
+	array_sort(&ctx->all_adds, virtual_add_record_cmp);
 }
 
 static void virtual_sync_backend_add_new(struct virtual_sync_context *ctx)

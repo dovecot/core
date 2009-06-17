@@ -34,10 +34,9 @@ struct virtual_search_context {
 	unsigned int next_record_idx;
 };
 
-static int virtual_search_record_cmp(const void *p1, const void *p2)
+static int virtual_search_record_cmp(const struct virtual_search_record *r1,
+				     const struct virtual_search_record *r2)
 {
-	const struct virtual_search_record *r1 = p1, *r2 = p2;
-
 	if (r1->mailbox_id < r2->mailbox_id)
 		return -1;
 	if (r1->mailbox_id > r2->mailbox_id)
@@ -70,8 +69,7 @@ static int virtual_search_get_records(struct mail_search_context *ctx,
 	struct virtual_mailbox *mbox =
 		(struct virtual_mailbox *)ctx->transaction->box;
 	const struct virtual_mail_index_record *vrec;
-	struct virtual_search_record srec, *srecs;
-	unsigned int count;
+	struct virtual_search_record srec;
 	const void *data;
 	bool expunged;
 	int ret, result;
@@ -97,10 +95,9 @@ static int virtual_search_get_records(struct mail_search_context *ctx,
 		}
 		mail_search_args_reset(ctx->args->args, FALSE);
 	}
-	srecs = array_get_modifiable(&vctx->records, &count);
-	qsort(srecs, count, sizeof(*srecs), virtual_search_record_cmp);
+	array_sort(&vctx->records, virtual_search_record_cmp);
 
-	ctx->progress_max = count;
+	ctx->progress_max = array_count(&vctx->records);
 	return ret;
 }
 

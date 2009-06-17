@@ -25,24 +25,17 @@
 
 static ARRAY_DEFINE(fetch_handlers, struct imap_fetch_handler);
 
-static int imap_fetch_handler_cmp(const void *p1, const void *p2)
+static int imap_fetch_handler_cmp(const struct imap_fetch_handler *h1,
+				  const struct imap_fetch_handler *h2)
 {
-        const struct imap_fetch_handler *h1 = p1, *h2 = p2;
-
 	return strcmp(h1->name, h2->name);
 }
 
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 				  size_t count)
 {
-	struct imap_fetch_handler *all_handlers;
-	unsigned int all_count;
-
 	array_append(&fetch_handlers, handlers, count);
-
-	all_handlers = array_get_modifiable(&fetch_handlers, &all_count);
-	qsort(all_handlers, all_count, sizeof(*all_handlers),
-	      imap_fetch_handler_cmp);
+	array_sort(&fetch_handlers, imap_fetch_handler_cmp);
 }
 
 static int imap_fetch_handler_bsearch(const void *name_p, const void *handler_p)

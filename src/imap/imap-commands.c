@@ -104,10 +104,8 @@ void command_unregister_array(const struct command *cmdarr, unsigned int count)
 	}
 }
 
-static int command_cmp(const void *p1, const void *p2)
+static int command_cmp(const struct command *c1, const struct command *c2)
 {
-        const struct command *c1 = p1, *c2 = p2;
-
 	return strcasecmp(c1->name, c2->name);
 }
 
@@ -120,15 +118,15 @@ static int command_bsearch(const void *name, const void *cmd_p)
 
 struct command *command_find(const char *name)
 {
-	void *base;
+	const void *base;
 	unsigned int count;
 
-	base = array_get_modifiable(&imap_commands, &count);
 	if (commands_unsorted) {
-		qsort(base, count, sizeof(struct command), command_cmp);
+		array_sort(&imap_commands, command_cmp);
                 commands_unsorted = FALSE;
 	}
 
+	base = array_get(&imap_commands, &count);
 	return bsearch(name, base, count, sizeof(struct command),
 		       command_bsearch);
 }

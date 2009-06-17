@@ -110,10 +110,10 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 	program->sort_list_add(program, mail);
 }
 
-static int sort_node_date_cmp(const void *p1, const void *p2)
+static int sort_node_date_cmp(const struct mail_sort_node_date *n1,
+			      const struct mail_sort_node_date *n2)
 {
 	struct sort_cmp_context *ctx = &static_node_cmp_context;
-	const struct mail_sort_node_date *n1 = p1, *n2 = p2;
 
 	if (n1->date < n2->date)
 		return !ctx->reverse ? -1 : 1;
@@ -129,21 +129,17 @@ static void
 index_sort_list_finish_date(struct mail_search_sort_program *program)
 {
 	ARRAY_TYPE(mail_sort_node_date) *nodes = program->context;
-	struct mail_sort_node_date *date_nodes;
-	unsigned int count;
 
-	date_nodes = array_get_modifiable(nodes, &count);
-	qsort(date_nodes, count, sizeof(struct mail_sort_node_date),
-	      sort_node_date_cmp);
+	array_sort(nodes, sort_node_date_cmp);
 	memcpy(&program->seqs, nodes, sizeof(program->seqs));
 	i_free(nodes);
 	program->context = NULL;
 }
 
-static int sort_node_size_cmp(const void *p1, const void *p2)
+static int sort_node_size_cmp(const struct mail_sort_node_size *n1,
+			      const struct mail_sort_node_size *n2)
 {
 	struct sort_cmp_context *ctx = &static_node_cmp_context;
-	const struct mail_sort_node_size *n1 = p1, *n2 = p2;
 
 	if (n1->size < n2->size)
 		return !ctx->reverse ? -1 : 1;
@@ -159,21 +155,17 @@ static void
 index_sort_list_finish_size(struct mail_search_sort_program *program)
 {
 	ARRAY_TYPE(mail_sort_node_size) *nodes = program->context;
-	struct mail_sort_node_size *size_nodes;
-	unsigned int count;
 
-	size_nodes = array_get_modifiable(nodes, &count);
-	qsort(size_nodes, count, sizeof(struct mail_sort_node_size),
-	      sort_node_size_cmp);
+	array_sort(nodes, sort_node_size_cmp);
 	memcpy(&program->seqs, nodes, sizeof(program->seqs));
 	i_free(nodes);
 	program->context = NULL;
 }
 
-static int sort_node_float_cmp(const void *p1, const void *p2)
+static int sort_node_float_cmp(const struct mail_sort_node_float *n1,
+			       const struct mail_sort_node_float *n2)
 {
 	struct sort_cmp_context *ctx = &static_node_cmp_context;
-	const struct mail_sort_node_float *n1 = p1, *n2 = p2;
 
 	if (n1->num < n2->num)
 		return !ctx->reverse ? -1 : 1;
@@ -189,12 +181,8 @@ static void
 index_sort_list_finish_float(struct mail_search_sort_program *program)
 {
 	ARRAY_TYPE(mail_sort_node_float) *nodes = program->context;
-	struct mail_sort_node_float *float_nodes;
-	unsigned int count;
 
-	float_nodes = array_get_modifiable(nodes, &count);
-	qsort(float_nodes, count, sizeof(struct mail_sort_node_float),
-	      sort_node_float_cmp);
+	array_sort(nodes, sort_node_float_cmp);
 	memcpy(&program->seqs, nodes, sizeof(program->seqs));
 	i_free(nodes);
 	program->context = NULL;

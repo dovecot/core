@@ -115,7 +115,7 @@ int dbox_sync_file_purge(struct dbox_file *file)
 	struct ostream *output = NULL;
 	struct dbox_map_append_context *append_ctx;
 	ARRAY_TYPE(dbox_map_file_msg) msgs_arr;
-	struct dbox_map_file_msg *msgs;
+	const struct dbox_map_file_msg *msgs;
 	ARRAY_TYPE(seq_range) expunged_map_uids;
 	ARRAY_TYPE(uint32_t) copied_map_uids;
 	unsigned int i, count;
@@ -145,10 +145,10 @@ int dbox_sync_file_purge(struct dbox_file *file)
 		dbox_file_unlock(file);
 		return -1;
 	}
-	msgs = array_get_modifiable(&msgs_arr, &count);
 	/* sort messages by their offset */
-	qsort(msgs, count, sizeof(*msgs), dbox_map_file_msg_offset_cmp);
+	array_sort(&msgs_arr, dbox_map_file_msg_offset_cmp);
 
+	msgs = array_get(&msgs_arr, &count);
 	append_ctx = dbox_map_append_begin_storage(file->storage);
 	i_array_init(&copied_map_uids, I_MIN(count, 1));
 	i_array_init(&expunged_map_uids, I_MIN(count, 1));
