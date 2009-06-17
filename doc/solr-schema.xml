@@ -50,9 +50,6 @@ want to modify the tokenizers and filters.
    <field name="any" type="text" indexed="true" stored="false" multiValued="true" />
  </fields>
 
- <copyField source="hdr" dest="any" />
- <copyField source="body" dest="any" />
-
  <uniqueKey>id</uniqueKey>
  <defaultSearchField>any</defaultSearchField>
  <solrQueryParser defaultOperator="AND" />

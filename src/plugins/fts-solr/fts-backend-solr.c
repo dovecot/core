@@ -752,14 +752,19 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 			/* body only */
 			i_assert((fields[i].flags & FTS_LOOKUP_FLAG_BODY) != 0);
 			str_append(str, "body:");
+			solr_quote_http(str, fields[i].key);
 		} else if ((fields[i].flags & FTS_LOOKUP_FLAG_BODY) == 0) {
 			/* header only */
 			str_append(str, "hdr:");
+			solr_quote_http(str, fields[i].key);
 		} else {
 			/* both */
-			str_append(str, "any:");
+			str_append(str, "(body:");
+			solr_quote_http(str, fields[i].key);
+			str_append(str, "+OR+hdr:");
+			solr_quote_http(str, fields[i].key);
+			str_append_c(str, ')');
 		}
-		solr_quote_http(str, fields[i].key);
 	}
 
 	/* use a separate filter query for selecting the mailbox. it shouldn't
