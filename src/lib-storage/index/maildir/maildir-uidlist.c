@@ -1158,6 +1158,16 @@ void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 	} T_END;
 }
 
+static void
+maildir_uidlist_generate_uid_validity(struct maildir_uidlist *uidlist)
+{
+	const struct mail_index_header *hdr;
+
+	hdr = mail_index_get_header(uidlist->ibox->view);
+	uidlist->uid_validity = hdr->uid_validity != 0 ? hdr->uid_validity :
+		maildir_get_uidvalidity_next(uidlist->ibox->box.list);
+}
+
 static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 				    const char *path, unsigned int first_idx,
 				    uoff_t *file_size_r)
@@ -1181,10 +1191,11 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		i_assert(first_idx == 0);
 		uidlist->version = UIDLIST_VERSION;
 
+		if (uidlist->uid_validity == 0)
+			maildir_uidlist_generate_uid_validity(uidlist);
 		if (!uidlist->have_mailbox_guid)
 			mail_generate_guid_128(uidlist->mailbox_guid);
 
-		i_assert(uidlist->uid_validity != 0);
 		i_assert(uidlist->next_uid > 0);
 		str_printfa(str, "%u V%u N%u G%s", uidlist->version,
 			    uidlist->uid_validity, uidlist->next_uid,
@@ -1375,17 +1386,6 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 	struct mail_storage *storage = uidlist->ibox->box.storage;
 	struct stat st;
 	uoff_t file_size;
-
-	if (uidlist->uid_validity == 0) {
-		/* saving a message to a newly created maildir. */
-		const struct mail_index_header *hdr;
-
-		hdr = mail_index_get_header(uidlist->ibox->view);
-		uidlist->uid_validity = hdr->uid_validity != 0 ?
-			hdr->uid_validity :
-			maildir_get_uidvalidity_next(uidlist->ibox->box.list);
-	}
-
 
 	if (maildir_uidlist_want_recreate(ctx))
 		return maildir_uidlist_recreate(uidlist);
