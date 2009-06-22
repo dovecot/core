@@ -164,7 +164,8 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 	return ret < 0 ? -1 : 0;
 }
 
-int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
+static int
+acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 {
 	struct mailbox_list *list = backend->backend.list;
 	struct mail_namespace *ns;
@@ -223,6 +224,10 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 		}
 	}
 
+	if (output->stream_errno != 0) {
+		i_error("write(%s) failed: %m", str_c(path));
+		ret = -1;
+	}
 	if (mailbox_list_iter_deinit(&iter) < 0)
 		ret = -1;
 	o_stream_destroy(&output);
@@ -260,6 +265,23 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	}
 	backend->rebuilding_acllist = FALSE;
 	return ret;
+}
+
+int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
+{
+	const char *rootdir, *acllist_path;
+
+	if (acl_backend_vfile_acllist_try_rebuild(backend) == 0)
+		return 0;
+	else {
+		/* delete it to make sure it gets rebuilt later */
+		rootdir = mailbox_list_get_path(backend->backend.list, NULL,
+						MAILBOX_LIST_PATH_TYPE_DIR);
+		acllist_path = t_strdup_printf("%s/"ACLLIST_FILENAME, rootdir);
+		if (unlink(acllist_path) < 0 && errno != ENOENT)
+			i_error("unlink(%s) failed: %m", acllist_path);
+		return -1;
+	}
 }
 
 static const struct acl_backend_vfile_acllist *
