@@ -103,7 +103,7 @@ static void
 imap_acl_write_rights_list(string_t *dest, const char *const *rights)
 {
 	const struct imap_acl_letter_map *map;
-	unsigned int i;
+	unsigned int i, orig_len = str_len(dest);
 	bool append_c = FALSE, append_d = FALSE;
 
 	for (i = 0; rights[i] != NULL; i++) {
@@ -121,6 +121,8 @@ imap_acl_write_rights_list(string_t *dest, const char *const *rights)
 		str_append_c(dest, 'c');
 	if (append_d)
 		str_append_c(dest, 'd');
+	if (orig_len == str_len(dest))
+		str_append(dest, "\"\"");
 }
 
 static void
@@ -547,19 +549,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (r->rights[0] == NULL) {
-		if (negative) {
-			update.modify_mode = 0;
-			update.rights.rights = NULL;
-			update.neg_modify_mode = ACL_MODIFY_MODE_CLEAR;
-			update.rights.neg_rights = NULL;
-		} else {
-			update.modify_mode = ACL_MODIFY_MODE_CLEAR;
-			update.rights.rights = NULL;
-			update.neg_modify_mode = 0;
-			update.rights.neg_rights = NULL;
-		}
-	} else if (negative) {
+	if (negative) {
 		update.neg_modify_mode = update.modify_mode;
 		update.modify_mode = ACL_MODIFY_MODE_REMOVE;
 		update.rights.neg_rights = update.rights.rights;
