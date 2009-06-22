@@ -177,11 +177,30 @@ static int fix_path(struct mail_namespace *ns, const char *path,
 	return 0;
 }
 
+static const char *split_next_arg(const char *const **_args)
+{
+	const char *const *args = *_args;
+	const char *str = args[0];
+
+	args++;
+	while (*args != NULL && **args == '\0') {
+		args++;
+		if (*args == NULL) {
+			str = t_strconcat(str, ":", NULL);
+			break;
+		}
+		str = t_strconcat(str, ":", *args, NULL);
+		args++;
+	}
+	*_args = args;
+	return str;
+}
+
 int mailbox_list_settings_parse(const char *data,
 				struct mailbox_list_settings *set,
 				struct mail_namespace *ns, const char **error_r)
 {
-	const char *const *tmp, *key, *value, **dest;
+	const char *const *tmp, *key, *value, **dest, *str;
 
 	*error_r = NULL;
 
@@ -190,21 +209,22 @@ int mailbox_list_settings_parse(const char *data,
 
 	/* <root dir> */
 	tmp = t_strsplit(data, ":");
-	if (fix_path(ns, *tmp, &set->root_dir) < 0) {
+	str = split_next_arg(&tmp);
+	if (fix_path(ns, str, &set->root_dir) < 0) {
 		*error_r = t_strdup_printf(
 			"Home directory not set, can't expand ~/ for "
 			"mail root dir in: %s", data);
 		return -1;
 	}
-	tmp++;
 
-	for (; *tmp != NULL; tmp++) {
-		value = strchr(*tmp, '=');
+	while (*tmp != NULL) {
+		str = split_next_arg(&tmp);
+		value = strchr(str, '=');
 		if (value == NULL) {
-			key = *tmp;
+			key = str;
 			value = "";
 		} else {
-			key = t_strdup_until(*tmp, value);
+			key = t_strdup_until(str, value);
 			value++;
 		}
 
