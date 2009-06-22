@@ -5,9 +5,6 @@
 
 #include <unistd.h>
 
-/* If time moves backwards more than this, kill ourself instead of sleeping. */
-#define IOLOOP_MAX_TIME_BACKWARDS_SLEEP 5
-
 #define timer_is_larger(tvp, uvp) \
 	((tvp)->tv_sec > (uvp)->tv_sec || \
 	 ((tvp)->tv_sec == (uvp)->tv_sec && \
@@ -193,13 +190,13 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 {
 	int ret;
 
-	if (tv_now == NULL) {
-		if (gettimeofday(tv_r, NULL) < 0)
+	if (tv_now->tv_sec == 0) {
+		if (gettimeofday(tv_now, NULL) < 0)
 			i_fatal("gettimeofday(): %m");
-	} else {
-		tv_r->tv_sec = tv_now->tv_sec;
-		tv_r->tv_usec = tv_now->tv_usec;
-	}
+	} 
+	tv_r->tv_sec = tv_now->tv_sec;
+	tv_r->tv_usec = tv_now->tv_usec;
+
 	i_assert(tv_r->tv_sec > 0);
 	i_assert(timeout->next_run.tv_sec > 0);
 
@@ -224,11 +221,12 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 	return ret;
 }
 
-int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r,
-			  struct timeval *tv_now)
+int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 {
+	struct timeval tv_now;
 	struct priorityq_item *item;
 	struct timeout *timeout;
+	int msecs;
 
 	item = priorityq_peek(ioloop->timeouts);
 	timeout = (struct timeout *)item;
@@ -236,10 +234,14 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r,
 		/* no timeouts. give it INT_MAX msecs. */
 		tv_r->tv_sec = INT_MAX / 1000;
 		tv_r->tv_usec = 0;
+		ioloop->next_max_time = (1ULL << (TIME_T_MAX_BITS-1)) - 1;
 		return INT_MAX;
 	}
 
-	return timeout_get_wait_time(timeout, tv_r, tv_now);
+	tv_now.tv_sec = 0;
+	msecs = timeout_get_wait_time(timeout, tv_r, &tv_now);
+	ioloop->next_max_time = (tv_now.tv_sec + msecs/1000) + 1;
+	return msecs;
 }
 
 static int timeout_cmp(const void *p1, const void *p2)
@@ -253,50 +255,64 @@ static int timeout_cmp(const void *p1, const void *p2)
 	return diff;
 }
 
+static void io_loop_default_time_moved(time_t old_time, time_t new_time)
+{
+	if (old_time > new_time) {
+		i_warning("Time moved backwards by %ld seconds.",
+			  (long)(old_time - new_time));
+	}
+}
+
+static void io_loop_timeouts_update(struct ioloop *ioloop, long diff_secs)
+{
+	struct priorityq_item *const *items;
+	unsigned int i, count;
+
+	count = priorityq_count(ioloop->timeouts);
+	items = priorityq_items(ioloop->timeouts);
+	for (i = 0; i < count; i++) {
+		struct timeout *to = (struct timeout *)items[i];
+
+		to->next_run.tv_sec += diff_secs;
+	}
+}
+
+static void io_loops_timeouts_update(long diff_secs)
+{
+	struct ioloop *ioloop;
+
+	for (ioloop = current_ioloop; ioloop != NULL; ioloop = ioloop->prev)
+		io_loop_timeouts_update(ioloop, diff_secs);
+}
+
 static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 {
 	struct priorityq_item *item;
 	struct timeval tv, tv_call;
-        unsigned int t_id;
+	unsigned int t_id;
 
 	if (gettimeofday(&ioloop_timeval, NULL) < 0)
 		i_fatal("gettimeofday(): %m");
 
 	/* Don't bother comparing usecs. */
-	if (ioloop_time > ioloop_timeval.tv_sec) {
-		time_t diff = ioloop_time - ioloop_timeval.tv_sec;
-
-		/* Note that this code is here only because this is the easiest
-		   place to check for this. The I/O loop code itself could be
-		   easily fixed to work with time moving backwards, but there's
-		   really no point because there are a lot of other places
-		   which may break in more or less bad ways, such as files'
-		   timestamps moving backwards. */
-		if (diff > IOLOOP_MAX_TIME_BACKWARDS_SLEEP) {
-			i_fatal("Time just moved backwards by %ld seconds. "
-				"This might cause a lot of problems, "
-				"so I'll just kill myself now. "
-				"http://wiki.dovecot.org/TimeMovedBackwards",
-				(long)diff);
-		} else {
-			i_error("Time just moved backwards by %ld seconds. "
-				"I'll sleep now until we're back in present. "
-				"http://wiki.dovecot.org/TimeMovedBackwards",
-				(long)diff);
-			/* Sleep extra second to make sure usecs also grows. */
-			diff++;
-
-			while (diff > 0 && sleep(diff) != 0) {
-				/* don't use sleep()'s return value, because
-				   it could get us to a long loop in case
-				   interrupts just keep coming */
-				diff = ioloop_time - time(NULL) + 1;
-			}
-
-			/* Try again. */
-			io_loop_handle_timeouts(ioloop);
-		}
+	if (unlikely(ioloop_time > ioloop_timeval.tv_sec)) {
+		/* time moved backwards */
+		io_loops_timeouts_update(-(long)(ioloop_time -
+						 ioloop_timeval.tv_sec));
+		ioloop->time_moved_callback(ioloop_time,
+					    ioloop_timeval.tv_sec);
+		/* the callback may have slept, so check the time again. */
+		if (gettimeofday(&ioloop_timeval, NULL) < 0)
+			i_fatal("gettimeofday(): %m");
+	} else if (unlikely(ioloop_timeval.tv_sec >
+			    ioloop->next_max_time)) {
+		io_loops_timeouts_update(ioloop_timeval.tv_sec -
+					ioloop->next_max_time);
+		/* time moved forwards */
+		ioloop->time_moved_callback(ioloop->next_max_time,
+					    ioloop_timeval.tv_sec);
 	}
+
 	ioloop_time = ioloop_timeval.tv_sec;
 	tv_call = ioloop_timeval;
 
@@ -369,6 +385,10 @@ struct ioloop *io_loop_create(void)
         ioloop = i_new(struct ioloop, 1);
 	ioloop->timeouts = priorityq_init(timeout_cmp, 32);
 
+	ioloop->time_moved_callback = current_ioloop != NULL ?
+		current_ioloop->time_moved_callback :
+		io_loop_default_time_moved;
+
 	ioloop->prev = current_ioloop;
         current_ioloop = ioloop;
 
@@ -409,6 +429,12 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	current_ioloop = current_ioloop->prev;
 
 	i_free(ioloop);
+}
+
+void io_loop_set_time_moved_callback(struct ioloop *ioloop,
+				     io_loop_time_moved_callback_t *callback)
+{
+	ioloop->time_moved_callback = callback;
 }
 
 void io_loop_set_current(struct ioloop *ioloop)

@@ -118,7 +118,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	int ret, i;
 
 	/* get the time left for next timeout task */
-	io_loop_get_wait_time(ioloop, &tv, NULL);
+	io_loop_get_wait_time(ioloop, &tv);
 	ts.tv_sec = tv.tv_sec;
 	ts.tv_nsec = tv.tv_usec * 1000;
 

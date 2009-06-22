@@ -169,7 +169,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	bool call;
 
         /* get the time left for next timeout task */
-	msecs = io_loop_get_wait_time(ioloop, &tv, NULL);
+	msecs = io_loop_get_wait_time(ioloop, &tv);
 
 	events = array_get_modifiable(&ctx->events, &events_count);
 	ret = epoll_wait(ctx->epfd, events, events_count, msecs);

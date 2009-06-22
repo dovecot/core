@@ -152,7 +152,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	bool call;
 
         /* get the time left for next timeout task */
-	msecs = io_loop_get_wait_time(ioloop, &tv, NULL);
+	msecs = io_loop_get_wait_time(ioloop, &tv);
 
 	ret = poll(ctx->fds, ctx->fds_pos, msecs);
 	if (ret < 0 && errno != EINTR)

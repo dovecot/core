@@ -31,6 +31,7 @@ enum io_notify_result {
 
 typedef void io_callback_t(void *context);
 typedef void timeout_callback_t(void *context);
+typedef void io_loop_time_moved_callback_t(time_t old_time, time_t new_time);
 
 /* Time when the I/O loop started calling handlers.
    Can be used instead of time(NULL). */
@@ -91,6 +92,10 @@ struct ioloop *io_loop_create(void);
 void io_loop_set_max_fd_count(struct ioloop *ioloop, unsigned int max_fds);
 /* Destroy I/O loop and set ioloop pointer to NULL. */
 void io_loop_destroy(struct ioloop **ioloop);
+
+/* If time moves backwards or jumps forwards call the callback. */
+void io_loop_set_time_moved_callback(struct ioloop *ioloop,
+				     io_loop_time_moved_callback_t *callback);
 
 /* Change the current_ioloop. */
 void io_loop_set_current(struct ioloop *ioloop);

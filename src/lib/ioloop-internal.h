@@ -19,6 +19,9 @@ struct ioloop {
         struct ioloop_notify_handler_context *notify_handler_context;
 	unsigned int max_fd_count;
 
+	io_loop_time_moved_callback_t *time_moved_callback;
+	time_t next_max_time;
+
 	unsigned int running:1;
 };
 
@@ -53,8 +56,7 @@ struct timeout {
 	struct ioloop *ioloop;
 };
 
-int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r,
-			  struct timeval *tv_now);
+int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);
 void io_loop_handle_timeouts(struct ioloop *ioloop);
 
 /* I/O handler calls */
