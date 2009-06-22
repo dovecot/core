@@ -40,8 +40,8 @@
    send a "waiting" message. */
 #define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
 
-#if CLIENT_LOGIN_IDLE_TIMEOUT_MSECS >= AUTH_REQUEST_TIMEOUT*1000
-#  error client idle timeout must be smaller than authentication timeout
+#if CLIENT_LOGIN_IDLE_TIMEOUT_MSECS < AUTH_REQUEST_TIMEOUT*1000
+#  error client idle timeout must be larger than authentication timeout
 #endif
 
 #define AUTH_SERVER_WAITING_MSG \

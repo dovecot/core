@@ -7,8 +7,8 @@
 #define AUTH_CLIENT_PROTOCOL_MINOR_VERSION 0
 
 #define AUTH_CLIENT_MAX_LINE_LENGTH 8192
-/* Use a bit larger than login process timeout */
-#define AUTH_REQUEST_TIMEOUT (3*60 + 30)
+/* Use a bit smaller than login process timeout */
+#define AUTH_REQUEST_TIMEOUT (3*60 - 30)
 
 enum mech_security_flags {
 	/* Don't advertise this as available SASL mechanism (eg. APOP) */

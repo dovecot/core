@@ -31,8 +31,8 @@
    clients, it's faster if we disconnect multiple clients. */
 #define CLIENT_DESTROY_OLDEST_COUNT 16
 
-#if CLIENT_LOGIN_IDLE_TIMEOUT_MSECS >= AUTH_REQUEST_TIMEOUT*1000
-#  error client idle timeout must be smaller than authentication timeout
+#if CLIENT_LOGIN_IDLE_TIMEOUT_MSECS < AUTH_REQUEST_TIMEOUT*1000
+#  error client idle timeout must be larger than authentication timeout
 #endif
 
 const char *login_protocol = "pop3";
