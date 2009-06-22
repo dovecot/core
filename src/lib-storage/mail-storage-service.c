@@ -1,6 +1,7 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "array.h"
 #include "hostpid.h"
 #include "module-dir.h"
@@ -21,6 +22,10 @@
 #include <sys/stat.h>
 #include <pwd.h>
 #include <grp.h>
+
+/* If time moves backwards more than this, kill ourself instead of sleeping. */
+#define MAX_TIME_BACKWARDS_SLEEP 5
+#define MAX_NOWARN_FORWARD_SECS 10
 
 struct mail_storage_service_multi_ctx {
 	struct master_service *service;
@@ -459,6 +464,37 @@ mail_storage_service_init_log(struct master_service *service,
 	} T_END;
 }
 
+static void mail_storage_service_time_moved(time_t old_time, time_t new_time)
+{
+	long diff = new_time - old_time;
+
+	if (diff > 0) {
+		if (diff > MAX_NOWARN_FORWARD_SECS)
+			i_warning("Time jumped forwards %ld seconds", diff);
+		return;
+	}
+	diff = -diff;
+
+	if (diff > MAX_TIME_BACKWARDS_SLEEP) {
+		i_fatal("Time just moved backwards by %ld seconds. "
+			"This might cause a lot of problems, "
+			"so I'll just kill myself now. "
+			"http://wiki.dovecot.org/TimeMovedBackwards", diff);
+	} else {
+		i_error("Time just moved backwards by %ld seconds. "
+			"I'll sleep now until we're back in present. "
+			"http://wiki.dovecot.org/TimeMovedBackwards", diff);
+		/* Sleep extra second to make sure usecs also grows. */
+		diff++;
+
+		while (diff > 0 && sleep(diff) != 0) {
+			/* don't use sleep()'s return value, because
+			   it could get us to a long loop in case
+			   interrupts just keep coming */
+			diff = old_time - time(NULL) + 1;
+		}
+	}
+}
 static struct mail_user *
 init_user_real(struct master_service *service,
 	       const struct mail_storage_service_input *_input,
@@ -476,6 +512,8 @@ init_user_real(struct master_service *service,
 	unsigned int len;
 	bool userdb_lookup;
 
+	io_loop_set_time_moved_callback(current_ioloop,
+					mail_storage_service_time_moved);
 	master_service_init_finish(service);
 
 	userdb_lookup = (flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0;
@@ -583,6 +621,8 @@ mail_storage_service_multi_init(struct master_service *service,
 	const struct mail_storage_settings *mail_set;
 	void **sets;
 
+	io_loop_set_time_moved_callback(current_ioloop,
+					mail_storage_service_time_moved);
 	master_service_init_finish(service);
 
 	ctx = i_new(struct mail_storage_service_multi_ctx, 1);
