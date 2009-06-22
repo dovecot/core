@@ -887,12 +887,9 @@ static bool modify_right_list(pool_t pool,
 		return FALSE;
 	}
 
-	if (old_rights == NULL)
-		old_rights = &null;
-
 	switch (modify_mode) {
 	case ACL_MODIFY_MODE_REMOVE:
-		if (*old_rights == NULL) {
+		if (old_rights == NULL || *old_rights == NULL) {
 			/* nothing to do */
 			return FALSE;
 		}
@@ -927,6 +924,9 @@ static bool modify_right_list(pool_t pool,
 		return TRUE;
 	}
 	*rightsp = new_rights;
+
+	if (old_rights == NULL)
+		return new_rights != NULL;
 
 	/* see if anything changed */
 	for (i = 0; old_rights[i] != NULL && new_rights[i] != NULL; i++) {
