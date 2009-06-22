@@ -658,13 +658,18 @@ mailbox_keywords_create_from_indexes(struct mailbox *box,
 	return box->v.keywords_create_from_indexes(box, idx);
 }
 
-void mailbox_keywords_free(struct mailbox *box,
-			   struct mail_keywords **_keywords)
+void mailbox_keywords_ref(struct mailbox *box, struct mail_keywords *keywords)
+{
+	box->v.keywords_ref(keywords);
+}
+
+void mailbox_keywords_unref(struct mailbox *box,
+			    struct mail_keywords **_keywords)
 {
 	struct mail_keywords *keywords = *_keywords;
 
 	*_keywords = NULL;
-	box->v.keywords_free(keywords);
+	box->v.keywords_unref(keywords);
 }
 
 bool mailbox_keyword_is_valid(struct mailbox *box, const char *keyword,

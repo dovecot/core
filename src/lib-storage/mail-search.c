@@ -146,7 +146,7 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 		case SEARCH_KEYWORDS:
 			if (arg->value.keywords == NULL)
 				break;
-			mailbox_keywords_free(args->box, &arg->value.keywords);
+			mailbox_keywords_unref(args->box, &arg->value.keywords);
 			break;
 		case SEARCH_INTHREAD:
 			i_assert(arg->value.search_args->refcount > 0);
@@ -534,8 +534,8 @@ mail_search_keywords_merge(struct mailbox *box,
 		new_kw = mailbox_keywords_create_from_indexes(box,
 							      &new_indexes);
 	} T_END;
-	mailbox_keywords_free(box, _kw1);
-	mailbox_keywords_free(box, _kw2);
+	mailbox_keywords_unref(box, _kw1);
+	mailbox_keywords_unref(box, _kw2);
 	return new_kw;
 }
 

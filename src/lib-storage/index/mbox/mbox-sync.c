@@ -298,7 +298,7 @@ mbox_sync_update_index_keywords(struct mbox_sync_mail_context *mail_ctx)
 			sync_ctx->mbox->ibox.index, &mail_ctx->mail.keywords);
 	mail_index_update_keywords(sync_ctx->t, sync_ctx->idx_seq,
 				   MODIFY_REPLACE, keywords);
-	mail_index_keywords_free(&keywords);
+	mail_index_keywords_unref(&keywords);
 }
 
 static void

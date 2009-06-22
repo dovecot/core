@@ -1164,6 +1164,7 @@ mail_index_keywords_create(struct mail_index *index,
 	if (count == 0) {
 		k = i_new(struct mail_keywords, 1);
 		k->index = index;
+		k->refcount = 1;
 		return k;
 	}
 
@@ -1171,6 +1172,7 @@ mail_index_keywords_create(struct mail_index *index,
 	k = i_malloc(sizeof(struct mail_keywords) +
 		     (sizeof(k->idx) * (count-1)));
 	k->index = index;
+	k->refcount = 1;
 
 	/* look up the keywords from index. they're never removed from there
 	   so we can permanently store indexes to them. */
@@ -1202,6 +1204,7 @@ mail_index_keywords_create_from_indexes(struct mail_index *index,
 	if (count == 0) {
 		k = i_new(struct mail_keywords, 1);
 		k->index = index;
+		k->refcount = 1;
 		return k;
 	}
 
@@ -1209,6 +1212,7 @@ mail_index_keywords_create_from_indexes(struct mail_index *index,
 	k = i_malloc(sizeof(struct mail_keywords) +
 		     (sizeof(k->idx) * (count-1)));
 	k->index = index;
+	k->refcount = 1;
 
 	/* copy but skip duplicates */
 	for (src = dest = 0; src < count; src++) {
@@ -1223,10 +1227,20 @@ mail_index_keywords_create_from_indexes(struct mail_index *index,
 	return k;
 }
 
-void mail_index_keywords_free(struct mail_keywords **keywords)
+void mail_index_keywords_ref(struct mail_keywords *keywords)
 {
-	i_free(*keywords);
-	*keywords = NULL;
+	keywords->refcount++;
+}
+
+void mail_index_keywords_unref(struct mail_keywords **_keywords)
+{
+	struct mail_keywords *keywords = *_keywords;
+
+	i_assert(keywords->refcount > 0);
+
+	*_keywords = NULL;
+	if (--keywords->refcount == 0)
+		i_free(keywords);
 }
 
 static bool

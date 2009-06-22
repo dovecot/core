@@ -76,7 +76,7 @@ static void virtual_sync_external_flags(struct virtual_sync_context *ctx,
 	kw_names = mail_get_keywords(bbox->sync_mail);
 	keywords = mail_index_keywords_create(ctx->index, kw_names);
 	mail_index_update_keywords(ctx->trans, vseq, MODIFY_REPLACE, keywords);
-	mail_index_keywords_free(&keywords);
+	mail_index_keywords_unref(&keywords);
 }
 
 static int virtual_sync_mail_cmp(const void *p1, const void *p2)
@@ -380,7 +380,7 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 				MODIFY_ADD : MODIFY_REMOVE;
 			mail_update_keywords(bbox->sync_mail,
 					     modify_type, keywords);
-			mailbox_keywords_free(bbox->box, &keywords);
+			mailbox_keywords_unref(bbox->box, &keywords);
 			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			kw_names[0] = NULL;
@@ -388,7 +388,7 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 								 kw_names);
 			mail_update_keywords(bbox->sync_mail, MODIFY_REPLACE,
 					     keywords);
-			mailbox_keywords_free(bbox->box, &keywords);
+			mailbox_keywords_unref(bbox->box, &keywords);
 			break;
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 			i_unreached();

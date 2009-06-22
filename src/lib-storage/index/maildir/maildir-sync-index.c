@@ -326,7 +326,7 @@ maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 		kw = mail_index_keywords_create_from_indexes(mbox->ibox.index,
 							     &ctx->keywords);
 		mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE, kw);
-		mail_index_keywords_free(&kw);
+		mail_index_keywords_unref(&kw);
 		return;
 	}
 
@@ -357,14 +357,14 @@ maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 		kw = mail_index_keywords_create_from_indexes(mbox->ibox.index,
 							     &ctx->idx_keywords);
 		mail_index_update_keywords(ctx->trans, seq, MODIFY_REMOVE, kw);
-		mail_index_keywords_free(&kw);
+		mail_index_keywords_unref(&kw);
 	}
 
 	if (array_count(&ctx->keywords) > 0) {
 		kw = mail_index_keywords_create_from_indexes(mbox->ibox.index,
 							     &ctx->keywords);
 		mail_index_update_keywords(ctx->trans, seq, MODIFY_ADD, kw);
-		mail_index_keywords_free(&kw);
+		mail_index_keywords_unref(&kw);
 	}
 }
 
@@ -464,7 +464,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 					mbox->ibox.index, &ctx->keywords);
 				mail_index_update_keywords(trans, seq,
 							   MODIFY_REPLACE, kw);
-				mail_index_keywords_free(&kw);
+				mail_index_keywords_unref(&kw);
 			}
 			continue;
 		}

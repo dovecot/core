@@ -89,7 +89,7 @@ static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
 		}
 	}
 
-	mail_index_keywords_free(&keywords);
+	mail_index_keywords_unref(&keywords);
 }
 
 static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
@@ -106,7 +106,7 @@ static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
 						   MODIFY_REPLACE, keywords);
 		}
 	}
-	mail_index_keywords_free(&keywords);
+	mail_index_keywords_unref(&keywords);
 }
 
 static void mail_index_sync_add_append(struct mail_index_sync_ctx *ctx)

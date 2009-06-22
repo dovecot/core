@@ -104,7 +104,7 @@ dbox_sync_index_copy_from_old(struct dbox_sync_rebuild_context *ctx,
 	mail_index_lookup_keywords(view, old_seq, &old_keywords);
 	kw = mail_index_keywords_create_from_indexes(index, &old_keywords);
 	mail_index_update_keywords(ctx->trans, new_seq, MODIFY_REPLACE, kw);
-	mail_index_keywords_free(&kw);
+	mail_index_keywords_unref(&kw);
 
 	dbox_sync_index_copy_cache(ctx, view, old_seq, new_seq);
 }
@@ -125,7 +125,7 @@ dbox_sync_index_copy_from_maildir(struct dbox_sync_rebuild_context *ctx,
 	keywords = mail_index_keywords_create_from_indexes(ctx->mbox->ibox.index,
 							   &keyword_indexes);
 	mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE, keywords);
-	mail_index_keywords_free(&keywords);
+	mail_index_keywords_unref(&keywords);
 }
 
 void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,

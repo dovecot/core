@@ -644,9 +644,14 @@ index_keywords_create_from_indexes(struct mailbox *_box,
 	return mail_index_keywords_create_from_indexes(ibox->index, idx);
 }
 
-void index_keywords_free(struct mail_keywords *keywords)
+void index_keywords_ref(struct mail_keywords *keywords)
 {
-	mail_index_keywords_free(&keywords);
+	mail_index_keywords_ref(keywords);
+}
+
+void index_keywords_unref(struct mail_keywords *keywords)
+{
+	mail_index_keywords_unref(&keywords);
 }
 
 void index_save_context_free(struct mail_save_context *ctx)

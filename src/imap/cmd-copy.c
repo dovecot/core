@@ -72,7 +72,8 @@ static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 
 		if (mailbox_copy(&save_ctx, mail) < 0)
 			ret = mail->expunged ? 0 : -1;
-		mailbox_keywords_free(destbox, &keywords);
+		if (keywords != NULL)
+			mailbox_keywords_unref(destbox, &keywords);
 
 		msgset_generator_next(&srcset_ctx, mail->uid);
 	}

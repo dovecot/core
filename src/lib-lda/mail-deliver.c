@@ -183,7 +183,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	mailbox_save_set_flags(save_ctx, flags, kw);
 	if (mailbox_copy(&save_ctx, ctx->src_mail) < 0)
 		ret = -1;
-	mailbox_keywords_free(box, &kw);
+	if (kw != NULL)
+		mailbox_keywords_unref(box, &kw);
 
 	if (ret < 0)
 		mailbox_transaction_rollback(&t);

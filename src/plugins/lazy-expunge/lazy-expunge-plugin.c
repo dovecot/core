@@ -166,7 +166,8 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 
 	if (mailbox_copy(&save_ctx, _mail) < 0 && !_mail->expunged)
 		lt->failed = TRUE;
-	mailbox_keywords_free(lt->dest_box, &keywords);
+	if (keywords != NULL)
+		mailbox_keywords_unref(lt->dest_box, &keywords);
 
 	mmail->super.expunge(_mail);
 }

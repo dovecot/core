@@ -102,6 +102,7 @@ struct mail_index_record {
 struct mail_keywords {
 	struct mail_index *index;
 	unsigned int count;
+	int refcount;
 
         /* variable sized list of keyword indexes */
 	unsigned int idx[1];
@@ -430,8 +431,8 @@ struct mail_keywords *
 mail_index_keywords_create_from_indexes(struct mail_index *index,
 					const ARRAY_TYPE(keyword_indexes)
 						*keyword_indexes);
-/* Free the keywords. */
-void mail_index_keywords_free(struct mail_keywords **keywords);
+void mail_index_keywords_ref(struct mail_keywords *keywords);
+void mail_index_keywords_unref(struct mail_keywords **keywords);
 
 /* Update keywords for given message. */
 void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,

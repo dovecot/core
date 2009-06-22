@@ -153,7 +153,8 @@ struct mailbox_vfuncs {
 	struct mail_keywords *
 		(*keywords_create_from_indexes)(struct mailbox *box,
 						const ARRAY_TYPE(keyword_indexes) *idx);
-	void (*keywords_free)(struct mail_keywords *keywords);
+	void (*keywords_ref)(struct mail_keywords *keywords);
+	void (*keywords_unref)(struct mail_keywords *keywords);
 	bool (*keyword_is_valid)(struct mailbox *box, const char *keyword,
 				 const char **error_r);
 

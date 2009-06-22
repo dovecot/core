@@ -77,7 +77,8 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 		mailbox_save_set_flags(save_ctx, mail_get_flags(mail),
 				       keywords);
 		ret = mailbox_copy(&save_ctx, mail);
-		mailbox_keywords_free(destbox, &keywords);
+		if (keywords != NULL)
+			mailbox_keywords_unref(destbox, &keywords);
 		if (ret < 0) {
 			*error_r = storage_error(destbox->storage);
 			break;

@@ -107,7 +107,8 @@ int index_keywords_create(struct mailbox *box, const char *const keywords[],
 struct mail_keywords *
 index_keywords_create_from_indexes(struct mailbox *box,
 				   const ARRAY_TYPE(keyword_indexes) *idx);
-void index_keywords_free(struct mail_keywords *keywords);
+void index_keywords_ref(struct mail_keywords *keywords);
+void index_keywords_unref(struct mail_keywords *keywords);
 bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
 			    const char **error_r);
 
