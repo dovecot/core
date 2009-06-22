@@ -248,10 +248,8 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	string_t *str;
 	int ret;
 
-	if (!client_read_string_args(cmd, 1, &mailbox)) {
-		client_send_command_error(cmd, "Invalid arguments.");
-		return TRUE;
-	}
+	if (!client_read_string_args(cmd, 1, &mailbox))
+		return FALSE;
 
 	box = acl_mailbox_open_as_admin(cmd, mailbox);
 	if (box == NULL)
@@ -284,10 +282,8 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	const char *const *rights;
 	string_t *str;
 
-	if (!client_read_string_args(cmd, 1, &mailbox)) {
-		client_send_command_error(cmd, "Invalid arguments.");
-		return TRUE;
-	}
+	if (!client_read_string_args(cmd, 1, &mailbox))
+		return FALSE;
 
 	if (ACL_USER_CONTEXT(cmd->client->user) == NULL) {
 		client_send_command_error(cmd, "ACLs disabled.");
@@ -336,10 +332,8 @@ static bool cmd_listrights(struct client_command_context *cmd)
 	const char *mailbox, *identifier;
 	string_t *str;
 
-	if (!client_read_string_args(cmd, 2, &mailbox, &identifier)) {
-		client_send_command_error(cmd, "Invalid arguments.");
-		return TRUE;
-	}
+	if (!client_read_string_args(cmd, 2, &mailbox, &identifier))
+		return FALSE;
 
 	box = acl_mailbox_open_as_admin(cmd, mailbox);
 	if (box == NULL)
@@ -502,8 +496,10 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	const char *mailbox, *identifier, *rights, *error;
 	bool negative = FALSE;
 
-	if (!client_read_string_args(cmd, 3, &mailbox, &identifier, &rights) ||
-	    *identifier == '\0') {
+	if (!client_read_string_args(cmd, 3, &mailbox, &identifier, &rights))
+		return FALSE;
+
+	if (*identifier == '\0') {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
@@ -593,8 +589,9 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	struct acl_rights_update update;
 	const char *mailbox, *identifier, *error;
 
-	if (!client_read_string_args(cmd, 2, &mailbox, &identifier) ||
-	    *identifier == '\0') {
+	if (!client_read_string_args(cmd, 2, &mailbox, &identifier))
+		return FALSE;
+	if (*identifier == '\0') {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
