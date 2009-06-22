@@ -8,8 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-sql \
-	-DDICT_MODULE_DIR=\""$(moduledir)/dict"\" \
-	-DPKG_RUNDIR=\""$(rundir)"\"
+	-DDICT_MODULE_DIR=\""$(moduledir)/dict"\"
 
 dict_LDFLAGS = -export-dynamic
 

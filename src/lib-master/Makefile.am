@@ -4,8 +4,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DBINDIR=\""$(bindir)"\" \
-	-DPKG_RUNDIR=\""$(rundir)"\"
+	-DBINDIR=\""$(bindir)"\"
 
 libmaster_la_SOURCES = \
 	master-auth.c \

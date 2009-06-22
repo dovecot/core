@@ -27,7 +27,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-DAUTH_MODULE_DIR=\""$(auth_moduledir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
-	-DPKG_RUNDIR=\""$(rundir)"\" \
 	$(AUTH_CFLAGS)
 
 dovecot_auth_LDFLAGS = -export-dynamic

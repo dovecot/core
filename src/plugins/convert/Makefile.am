@@ -5,8 +5,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
-	-I$(top_srcdir)/src/lib-storage \
-	-DPKG_RUNDIR=\""$(rundir)"\"
+	-I$(top_srcdir)/src/lib-storage
 
 lib20_convert_plugin_la_LDFLAGS = -module -avoid-version
 
