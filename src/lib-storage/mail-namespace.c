@@ -371,6 +371,12 @@ const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name)
 
 	if (ns->sep == ns->real_sep)
 		return name;
+	if (ns->type == NAMESPACE_SHARED &&
+	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+		/* shared namespace root. the backend storage's hierarchy
+		   separator isn't known yet, so do nothing. */
+		return name;
+	}
 
 	ret = p_strdup(unsafe_data_stack_pool, name);
 	for (p = ret; *p != '\0'; p++) {
