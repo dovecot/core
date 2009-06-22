@@ -31,5 +31,9 @@ void priorityq_remove(struct priorityq *pq, struct priorityq_item *item);
 struct priorityq_item *priorityq_peek(struct priorityq *pq);
 /* Like priorityq_peek(), but also remove the returned item from the queue. */
 struct priorityq_item *priorityq_pop(struct priorityq *pq);
+/* Returns array containing all the priorityq_items. Only the first item is
+   guaranteed to be the highest priority item, the rest can't be assumed to
+   be in any order. */
+struct priorityq_item *const *priorityq_items(struct priorityq *pq);
 
 #endif

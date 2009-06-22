@@ -158,3 +158,11 @@ struct priorityq_item *priorityq_pop(struct priorityq *pq)
 		priorityq_remove_idx(pq, 0);
 	return item;
 }
+
+struct priorityq_item *const *priorityq_items(struct priorityq *pq)
+{
+	if (array_count(&pq->items) == 0)
+		return NULL;
+
+	return array_idx(&pq->items, 0);
+}

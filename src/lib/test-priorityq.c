@@ -30,46 +30,51 @@ void test_priorityq(void)
 		1, 2, 3, 4, 5, 6, 7, 8
 	};
 	struct pq_test_item *item, items[PQ_MAX_ITEMS];
+	struct priorityq_item *const *all_items;
 	unsigned int i, j;
 	struct priorityq *pq;
 	pool_t pool;
 	int prev;
-	bool success = TRUE;
 
 	pool = pool_alloconly_create("priorityq items", 1024);
 
 	/* simple tests with popping only */
+	test_begin("priorityq");
 	for (i = 0; input[i] != -1; i++) {
 		p_clear(pool);
 		pq = priorityq_init(cmp_int, 1);
 		for (j = 0; input[i] != -1; i++, j++) {
-			if (priorityq_count(pq) != j)
-				success = FALSE;
+			test_assert(priorityq_count(pq) == j);
 			item = p_new(pool, struct pq_test_item, 1);
 			item->num = input[i];
 			priorityq_add(pq, &item->item);
 		}
+		all_items = priorityq_items(pq);
+		test_assert(priorityq_count(pq) == N_ELEMENTS(output));
+		item = (struct pq_test_item *)all_items[0];
+		test_assert(item->num == output[0]);
+		for (j = 1; j < N_ELEMENTS(output); j++) {
+			item = (struct pq_test_item *)all_items[j];
+			test_assert(item->num > output[0]);
+			test_assert(item->num <= output[N_ELEMENTS(output)-1]);
+		}
 		for (j = 0; j < N_ELEMENTS(output); j++) {
-			if (priorityq_count(pq) != N_ELEMENTS(output) - j)
-				success = FALSE;
+			test_assert(priorityq_count(pq) == N_ELEMENTS(output) - j);
 
 			item = (struct pq_test_item *)priorityq_peek(pq);
-			if (output[j] != item->num)
-				success = FALSE;
+			test_assert(output[j] == item->num);
 			item = (struct pq_test_item *)priorityq_pop(pq);
-			if (output[j] != item->num)
-				success = FALSE;
+			test_assert(output[j] == item->num);
 		}
-		if (priorityq_count(pq) != 0)
-			success = FALSE;
-		if (priorityq_peek(pq) != NULL || priorityq_pop(pq) != NULL)
-			success = FALSE;
+		test_assert(priorityq_count(pq) == 0);
+		test_assert(priorityq_peek(pq) == NULL);
+		test_assert(priorityq_pop(pq) == NULL);
 		priorityq_deinit(&pq);
 	}
-	test_out("priorityq(1)", success);
+	test_end();
 
 	/* randomized tests, remove elements */
-	success = TRUE;
+	test_begin("priorityq randomized");
 	for (i = 0; i < 100; i++) {
 		pq = priorityq_init(cmp_int, 1);
 		for (j = 0; j < PQ_MAX_ITEMS; j++) {
@@ -85,17 +90,15 @@ void test_priorityq(void)
 		prev = 0;
 		while (priorityq_count(pq) > 0) {
 			item = (struct pq_test_item *)priorityq_pop(pq);
-			if (item->num < 0 || prev > item->num)
-				success = FALSE;
+			test_assert(item->num >= 0 && prev <= item->num);
 			prev = item->num;
 			item->num = -1;
 		}
 		for (j = 0; j < PQ_MAX_ITEMS; j++) {
-			if (items[j].num != -1)
-				success = FALSE;
+			test_assert(items[j].num == -1);
 		}
 		priorityq_deinit(&pq);
 	}
-	test_out("priorityq(2)", success);
+	test_end();
 	pool_unref(&pool);
 }
