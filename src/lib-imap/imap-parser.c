@@ -540,6 +540,7 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 		       const struct imap_arg **args_r)
 {
 	struct imap_arg *arg;
+	int ret = array_count(&parser->root_list);
 
 	parser->line_size += parser->cur_pos;
 	i_stream_skip(parser->input, parser->cur_pos);
@@ -560,7 +561,7 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 	arg->type = IMAP_ARG_EOL;
 
 	*args_r = array_get(&parser->root_list, &count);
-	return count;
+	return ret;
 }
 
 int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
