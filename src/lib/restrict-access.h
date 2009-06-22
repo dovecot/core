@@ -52,4 +52,6 @@ void restrict_access_drop_priv_gid(void);
 /* Returns TRUE if privileged GID exists for this process. */
 bool restrict_access_have_priv_gid(void);
 
+gid_t *restrict_get_groups_list(unsigned int *gid_count_r);
+
 #endif

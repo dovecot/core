@@ -109,7 +109,7 @@ static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid)
 #endif
 }
 
-static gid_t *get_groups_list(unsigned int *gid_count_r)
+gid_t *restrict_get_groups_list(unsigned int *gid_count_r)
 {
 	gid_t *gid_list;
 	int ret, gid_count;
@@ -175,7 +175,7 @@ static void fix_groups_list(const struct restrict_access_settings *set,
 		t_strsplit_spaces(set->extra_groups, ", ");
 
 	if (preserve_existing) {
-		gid_list = get_groups_list(&gid_count);
+		gid_list = restrict_get_groups_list(&gid_count);
 		drop_restricted_groups(set, gid_list, &gid_count,
 				       have_root_group);
 		/* see if the list already contains the primary GID */
