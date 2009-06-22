@@ -15,11 +15,9 @@
 #include <sys/wait.h>
 #include <syslog.h>
 
-#define THROTTLE_TIMEOUT (1000*60)
+#define SERVICE_STARTUP_FAILURE_THROTTLE_SECS 60
 
-static void service_monitor_stop(struct service *service);
-static void service_monitor_listen_start(struct service *service);
-static void service_monitor_listen_stop(struct service *service);
+void service_monitor_stop(struct service *service);
 
 static void service_status_input(struct service *service)
 {
@@ -99,22 +97,13 @@ static void service_status_input(struct service *service)
 	process->available_count = status.available_count;
 }
 
-static void service_throttle_timeout(struct service *service)
-{
-	timeout_remove(&service->to_throttle);
-	service_monitor_listen_start(service);
-}
-
 static void service_monitor_throttle(struct service *service)
 {
 	if (service->to_throttle != NULL)
 		return;
 
 	service_error(service, "command startup failed, throttling");
-	service_monitor_listen_stop(service);
-
-	service->to_throttle = timeout_add(THROTTLE_TIMEOUT,
-					   service_throttle_timeout, service);
+	service_throttle(service, SERVICE_STARTUP_FAILURE_THROTTLE_SECS);
 }
 
 static void service_accept(struct service *service)
@@ -136,11 +125,12 @@ static void service_accept(struct service *service)
 		service_monitor_listen_stop(service);
 }
 
-static void service_monitor_listen_start(struct service *service)
+void service_monitor_listen_start(struct service *service)
 {
 	struct service_listener *const *listeners;
 	unsigned int i, count;
 
+	service->listening = TRUE;
 	service->listen_pending = FALSE;
 
 	listeners = array_get(&service->listeners, &count);
@@ -152,7 +142,7 @@ static void service_monitor_listen_start(struct service *service)
 	}
 }
 
-static void service_monitor_listen_stop(struct service *service)
+void service_monitor_listen_stop(struct service *service)
 {
 	struct service_listener *const *listeners;
 	unsigned int i, count;
@@ -164,6 +154,7 @@ static void service_monitor_listen_stop(struct service *service)
 		if (l->io != NULL)
 			io_remove(&l->io);
 	}
+	service->listening = FALSE;
 }
 
 void services_monitor_start(struct service_list *service_list)
@@ -202,7 +193,7 @@ void services_monitor_start(struct service_list *service_list)
 		service_monitor_listen_stop(service_list->config);
 }
 
-static void service_monitor_stop(struct service *service)
+void service_monitor_stop(struct service *service)
 {
 	int i;
 

@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "ioloop.h"
 #include "lib-signals.h"
 #include "fd-close-on-exec.h"
 #include "array.h"
@@ -28,6 +29,7 @@
 
 #define FATAL_FILENAME "master-fatal.lastlog"
 #define MASTER_PID_FILE_NAME "master.pid"
+#define SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS (60*3)
 
 struct master_service *master_service;
 uid_t master_uid;
@@ -418,6 +420,24 @@ static const char *get_full_config_path(struct service_list *list)
 	return p_strconcat(list->pool, cwd, "/", path, NULL);
 }
 
+static void master_time_moved(time_t old_time, time_t new_time)
+{
+	unsigned long secs;
+
+	if (new_time >= old_time)
+		return;
+
+	/* time moved backwards. disable launching new service processes
+	   until  */
+	secs = old_time - new_time + 1;
+	if (secs > SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS)
+		secs = SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS;
+	services_throttle_time_sensitives(services, secs);
+	i_warning("Time moved backwards by %lu seconds, "
+		  "waiting for %lu secs until new services are launched again.",
+		  (unsigned long)(old_time - new_time), secs);
+}
+
 static void daemonize(void)
 {
 	pid_t pid;
@@ -574,6 +594,8 @@ int main(int argc, char *argv[])
 				MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
 				argc, argv);
 	i_set_failure_prefix("");
+
+	io_loop_set_time_moved_callback(current_ioloop, master_time_moved);
 
 	master_uid = geteuid();
 	master_gid = getegid();

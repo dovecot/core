@@ -88,6 +88,8 @@ struct service {
 
 	/* all processes are in use and new connections are coming */
 	unsigned int listen_pending:1;
+	/* service is currently listening for new connections */
+	unsigned int listening:1;
 };
 
 struct service_list {
@@ -121,6 +123,12 @@ void services_destroy(struct service_list *service_list);
 
 /* Send a signal to all processes in a given service */
 void service_signal(struct service *service, int signo);
+
+/* Prevent service from launching new processes for a while. */
+void service_throttle(struct service *service, unsigned int secs);
+/* Time moved backwards. Throttle services that care about time. */
+void services_throttle_time_sensitives(struct service_list *list,
+				       unsigned int secs);
 
 void service_error(struct service *service, const char *format, ...)
 	ATTR_FORMAT(2, 3);

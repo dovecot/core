@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "ioloop.h"
 #include "array.h"
 #include "aqueue.h"
 #include "hash.h"
@@ -420,4 +421,33 @@ void services_destroy(struct service_list *service_list)
 	service_list_deinit_anvil(service_list);
 	hash_table_destroy(&service_list->pids);
 	pool_unref(&service_list->pool);
+}
+
+static void service_throttle_timeout(struct service *service)
+{
+	timeout_remove(&service->to_throttle);
+	service_monitor_listen_start(service);
+}
+
+void service_throttle(struct service *service, unsigned int secs)
+{
+	if (service->to_throttle != NULL)
+		return;
+
+	service_monitor_listen_stop(service);
+	service->to_throttle = timeout_add(secs * 1000,
+					   service_throttle_timeout, service);
+}
+
+void services_throttle_time_sensitives(struct service_list *list,
+				       unsigned int secs)
+{
+	struct service *const *services;
+	unsigned int i, count;
+
+	services = array_get(&list->services, &count);
+	for (i = 0; i < count; i++) {
+		if (services[i]->type == SERVICE_TYPE_UNKNOWN)
+			service_throttle(services[i], secs);
+	}
 }
