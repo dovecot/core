@@ -60,25 +60,15 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 			  MAIL_FETCH_STREAM_HEADER | MAIL_FETCH_STREAM_BODY |
 			  MAIL_FETCH_FROM_ENVELOPE, NULL);
 	while (mailbox_search_next(ctx, mail) > 0) {
-		struct mail_keywords *keywords;
-		const char *const *keywords_list;
-
 		if ((mail->seq % 100) == 0) {
 			/* touch the lock file so that if there are tons of
 			   mails another process won't override our lock. */
 			(void)file_dotlock_touch(dotlock);
 		}
 
-		keywords_list = mail_get_keywords(mail);
-		keywords = str_array_length(keywords_list) == 0 ? NULL :
-			mailbox_keywords_create_valid(destbox, keywords_list);
-
 		save_ctx = mailbox_save_alloc(dest_trans);
-		mailbox_save_set_flags(save_ctx, mail_get_flags(mail),
-				       keywords);
+		mailbox_save_copy_flags(save_ctx, mail);
 		ret = mailbox_copy(&save_ctx, mail);
-		if (keywords != NULL)
-			mailbox_keywords_unref(destbox, &keywords);
 		if (ret < 0) {
 			*error_r = storage_error(destbox->storage);
 			break;

@@ -27,7 +27,7 @@ static void client_send_sendalive_if_needed(struct client *client)
 	}
 }
 
-static int fetch_and_copy(struct client *client, struct mailbox *destbox,
+static int fetch_and_copy(struct client *client,
 			  struct mailbox_transaction_context *t,
 			  struct mail_search_args *search_args,
 			  const char **src_uidset_r,
@@ -36,8 +36,6 @@ static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 	struct mail_search_context *search_ctx;
         struct mailbox_transaction_context *src_trans;
 	struct mail_save_context *save_ctx;
-	struct mail_keywords *keywords;
-	const char *const *keywords_list;
 	struct mail *mail;
 	unsigned int copy_count = 0;
 	struct msgset_generator_context srcset_ctx;
@@ -62,18 +60,11 @@ static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 		if ((++copy_count % COPY_CHECK_INTERVAL) == 0)
 			client_send_sendalive_if_needed(client);
 
-		keywords_list = mail_get_keywords(mail);
-		keywords = str_array_length(keywords_list) == 0 ? NULL :
-			mailbox_keywords_create_valid(destbox, keywords_list);
-
 		save_ctx = mailbox_save_alloc(t);
-		mailbox_save_set_flags(save_ctx, mail_get_flags(mail),
-				       keywords);
+		mailbox_save_copy_flags(save_ctx, mail);
 
 		if (mailbox_copy(&save_ctx, mail) < 0)
 			ret = mail->expunged ? 0 : -1;
-		if (keywords != NULL)
-			mailbox_keywords_unref(destbox, &keywords);
 
 		msgset_generator_next(&srcset_ctx, mail->uid);
 	}
@@ -145,8 +136,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	t = mailbox_transaction_begin(destbox,
 				      MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 				      MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
-	ret = fetch_and_copy(client, destbox, t, search_args,
-			     &src_uidset, &copy_count);
+	ret = fetch_and_copy(client, t, search_args, &src_uidset, &copy_count);
 	mail_search_args_unref(&search_args);
 
 	if (ret <= 0)

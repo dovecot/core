@@ -916,6 +916,19 @@ void mailbox_save_set_flags(struct mail_save_context *ctx,
 {
 	ctx->flags = flags;
 	ctx->keywords = keywords;
+	if (keywords != NULL)
+		mailbox_keywords_ref(ctx->transaction->box, keywords);
+}
+
+void mailbox_save_copy_flags(struct mail_save_context *ctx, struct mail *mail)
+{
+	const char *const *keywords_list;
+
+	keywords_list = mail_get_keywords(mail);
+	ctx->keywords = str_array_length(keywords_list) == 0 ? NULL :
+		mailbox_keywords_create_valid(ctx->transaction->box,
+					      keywords_list);
+	ctx->flags = mail_get_flags(mail);
 }
 
 void mailbox_save_set_received_date(struct mail_save_context *ctx,
@@ -974,25 +987,41 @@ int mailbox_save_continue(struct mail_save_context *ctx)
 int mailbox_save_finish(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
+	struct mailbox *box = ctx->transaction->box;
+	struct mail_keywords *keywords = ctx->keywords;
+	int ret;
 
 	*_ctx = NULL;
-	return ctx->transaction->box->v.save_finish(ctx);
+	ret = box->v.save_finish(ctx);
+	if (keywords != NULL)
+		mailbox_keywords_unref(box, &keywords);
+	return ret;
 }
 
 void mailbox_save_cancel(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
+	struct mailbox *box = ctx->transaction->box;
+	struct mail_keywords *keywords = ctx->keywords;
 
 	*_ctx = NULL;
 	ctx->transaction->box->v.save_cancel(ctx);
+	if (keywords != NULL)
+		mailbox_keywords_unref(box, &keywords);
 }
 
 int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 {
 	struct mail_save_context *ctx = *_ctx;
+	struct mailbox *box = ctx->transaction->box;
+	struct mail_keywords *keywords = ctx->keywords;
+	int ret;
 
 	*_ctx = NULL;
-	return ctx->transaction->box->v.copy(ctx, mail);
+	ret = ctx->transaction->box->v.copy(ctx, mail);
+	if (keywords != NULL)
+		mailbox_keywords_unref(box, &keywords);
+	return ret;
 }
 
 bool mailbox_is_inconsistent(struct mailbox *box)

@@ -131,8 +131,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
 	struct mail_namespace *dest_ns;
 	struct mail_save_context *save_ctx;
-	struct mail_keywords *keywords;
-	const char *const *keywords_list, *error;
+	const char *error;
 
 	dest_ns = get_lazy_ns(ns->user, LAZY_NAMESPACE_EXPUNGE);
 	if (lt->dest_box == NULL) {
@@ -158,17 +157,9 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	}
 
 	save_ctx = mailbox_save_alloc(lt->dest_trans);
-	keywords_list = mail_get_keywords(_mail);
-	keywords = str_array_length(keywords_list) == 0 ? NULL :
-		mailbox_keywords_create_valid(lt->dest_box, keywords_list);
-	mailbox_save_set_flags(save_ctx, mail_get_flags(_mail),
-			       keywords);
-
+	mailbox_save_copy_flags(save_ctx, _mail);
 	if (mailbox_copy(&save_ctx, _mail) < 0 && !_mail->expunged)
 		lt->failed = TRUE;
-	if (keywords != NULL)
-		mailbox_keywords_unref(lt->dest_box, &keywords);
-
 	mmail->super.expunge(_mail);
 }
 

@@ -490,6 +490,8 @@ mailbox_save_alloc(struct mailbox_transaction_context *t);
 void mailbox_save_set_flags(struct mail_save_context *ctx,
 			    enum mail_flags flags,
 			    struct mail_keywords *keywords);
+/* Copy flags and keywords from given mail. */
+void mailbox_save_copy_flags(struct mail_save_context *ctx, struct mail *mail);
 /* If received date isn't specified the current time is used. timezone_offset
    specifies the preferred timezone in minutes, but it may be ignored if
    backend doesn't support storing it. */
