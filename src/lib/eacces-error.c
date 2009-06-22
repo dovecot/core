@@ -2,12 +2,83 @@
 
 #include "lib.h"
 #include "str.h"
+#include "restrict-access.h"
 #include "eacces-error.h"
 
 #include <sys/stat.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <grp.h>
+
+static bool is_in_group(gid_t gid)
+{
+	const gid_t *gids;
+	unsigned int i, count;
+
+	if (getegid() == gid)
+		return TRUE;
+
+	gids = restrict_get_groups_list(&count);
+	for (i = 0; i < count; i++) {
+		if (gids[i] == gid)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static int test_access(const char *path, int mode, string_t *errmsg)
+{
+	struct stat st;
+
+	if (getuid() == geteuid()) {
+		if (access(path, mode) == 0)
+			return 0;
+
+		if (errno != EACCES) {
+			str_printfa(errmsg, " access(%s, %d) failed: %m",
+				    path, mode);
+		}
+		return -1;
+	} 
+
+	/* access() uses real uid, not effective uid.
+	   we'll have to do these checks manually. */
+	switch (mode) {
+	case X_OK:
+		if (stat(t_strconcat(path, "/test", NULL), &st) == 0)
+			return 0;
+		if (errno == ENOENT || errno == ENOTDIR)
+			return 0;
+		if (errno != EACCES)
+			str_printfa(errmsg, " stat(%s/test) failed: %m", path);
+		return -1;
+	case R_OK:
+		mode = 04;
+		break;
+	case W_OK:
+		mode = 02;
+		break;
+	default:
+		i_unreached();
+	}
+
+	if (stat(path, &st) < 0) {
+		str_printfa(errmsg, " stat(%s) failed: %m", path);
+		return -1;
+	}
+
+	if (st.st_uid == geteuid())
+		st.st_mode = (st.st_mode & 0700) >> 6;
+	else if (is_in_group(st.st_gid))
+		st.st_mode = (st.st_mode & 0070) >> 3;
+	else
+		st.st_mode = (st.st_mode & 0007);
+
+	if ((st.st_mode & mode) != 0)
+		return 0;
+	errno = EACCES;
+	return -1;
+}
 
 static const char *
 eacces_error_get_full(const char *func, const char *path, bool creating)
@@ -16,7 +87,7 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	const struct passwd *pw;
 	const struct group *group;
 	string_t *errmsg;
-	struct stat st;
+	struct stat st, dir_st;
 	int ret = -1;
 
 	errmsg = t_str_new(256);
@@ -49,25 +120,21 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 		}
 		prev_path = dir;
 		dir = "/";
+		dir_st = st;
 	}
 
 	if (ret == 0) {
 		/* dir is the first parent directory we can stat() */
-		if (access(dir, X_OK) < 0) {
+		if (test_access(dir, X_OK, errmsg) < 0) {
 			if (errno == EACCES)
 				str_printfa(errmsg, " missing +x perm: %s", dir);
-			else
-				str_printfa(errmsg, " access(%s, x) failed: %m", dir);
-		} else if (creating && access(dir, W_OK) < 0) {
+		} else if (creating && test_access(dir, W_OK, errmsg) < 0) {
 			if (errno == EACCES)
 				str_printfa(errmsg, " missing +w perm: %s", dir);
-			else
-				str_printfa(errmsg, " access(%s, w) failed: %m", dir);
-		} else if (prev_path == path && access(path, R_OK) < 0) {
+		} else if (prev_path == path &&
+			   test_access(path, R_OK, errmsg) < 0) {
 			if (errno == EACCES)
 				str_printfa(errmsg, " missing +r perm: %s", path);
-			else
-				str_printfa(errmsg, " access(%s, r) failed: %m", path);
 		} else
 			str_printfa(errmsg, " UNIX perms seem ok, ACL problem?");
 	}
