@@ -161,3 +161,45 @@ void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size)
 		start = i;
 	}
 }
+
+char *str_tabunescape(char *str)
+{
+	/* @UNSAFE */
+	char *dest, *start = str;
+
+	while (*str != '\001') {
+		if (*str == '\0')
+			return start;
+		str++;
+	}
+
+	for (dest = str; *str != '\0'; str++) {
+		if (*str != '\001')
+			*dest++ = *str;
+		else {
+			str++;
+			if (*str == '\0')
+				break;
+			switch (*str) {
+			case '1':
+				*dest++ = '\001';
+				break;
+			case 't':
+				*dest++ = '\t';
+				break;
+			case 'r':
+				*dest++ = '\r';
+				break;
+			case 'n':
+				*dest++ = '\n';
+				break;
+			default:
+				*dest++ = *str;
+				break;
+			}
+		}
+	}
+
+	*dest = '\0';
+	return start;
+}

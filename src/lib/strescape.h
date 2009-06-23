@@ -17,5 +17,6 @@ char *str_unescape(char *str);
 const char *str_tabescape(const char *str);
 void str_tabescape_write(string_t *dest, const char *src);
 void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size);
+char *str_tabunescape(char *str);
 
 #endif

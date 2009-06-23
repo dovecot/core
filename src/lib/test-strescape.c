@@ -25,7 +25,7 @@ void test_strescape(void)
 		{ "\001\001\t\t\r\r\n\n", "\0011\0011\001t\001t\001r\001r\001n\001n" }
 	};
 	unsigned char buf[1 << CHAR_BIT];
-	const char *escaped;
+	const char *escaped, *tabstr;
 	string_t *str;
 	unsigned int i;
 
@@ -59,6 +59,8 @@ void test_strescape(void)
 
 	test_begin("str_tabescape");
 	for (i = 0; i < N_ELEMENTS(tabesc); i++) {
+		test_assert(strcmp(str_tabunescape(t_strdup_noconst(tabesc[i].output)),
+				   tabesc[i].input) == 0);
 		test_assert(strcmp(str_tabescape(tabesc[i].input),
 				   tabesc[i].output) == 0);
 		str_truncate(str, 0);
@@ -66,7 +68,9 @@ void test_strescape(void)
 		test_assert(strcmp(str_c(str), tabesc[i].input) == 0);
 	}
 	str_truncate(str, 0);
-	str_append_tabunescaped(str, "\0012\001l\001", strlen("\0012\001l\001"));
+	tabstr = "\0012\001l\001";
+	str_append_tabunescaped(str, tabstr, strlen(tabstr));
 	test_assert(strcmp(str_c(str), "2l") == 0);
+	test_assert(strcmp(str_c(str), str_tabunescape(t_strdup_noconst(tabstr))) == 0);
 	test_end();
 }
