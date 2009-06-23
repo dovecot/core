@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-charset
 
 libmail_la_SOURCES = \
+	istream-dot.c \
 	istream-header-filter.c \
 	mbox-from.c \
 	message-address.c \
@@ -24,6 +25,7 @@ libmail_la_SOURCES = \
 	rfc822-parser.c
 
 headers = \
+	istream-dot.h \
 	istream-header-filter.h \
 	mbox-from.h \
 	mail-types.h \
@@ -50,6 +52,7 @@ else
 endif
 
 test_programs = \
+	test-istream-dot \
 	test-istream-header-filter \
 	test-mbox-from \
 	test-message-address \
@@ -64,6 +67,10 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
+
+test_istream_dot_SOURCES = test-istream-dot.c
+test_istream_dot_LDADD = istream-dot.lo $(test_libs)
+test_istream_dot_DEPENDENCIES = istream-dot.lo $(test_libs)
 
 test_istream_header_filter_SOURCES = test-istream-header-filter.c
 test_istream_header_filter_LDADD = istream-header-filter.lo message-header-parser.lo $(test_libs)
