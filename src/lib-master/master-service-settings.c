@@ -232,10 +232,10 @@ int master_service_settings_read(struct master_service *service,
 		}
 	}
 
-	if ((service->flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) == 0)
-		(void)close(fd);
-	else
+	if ((service->flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) != 0)
 		service->config_fd = fd;
+	else if (fd != -1)
+		(void)close(fd);
 
 	/* let environment override settings. especially useful for the
 	   settings from userdb. */
