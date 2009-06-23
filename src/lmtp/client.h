@@ -50,6 +50,7 @@ struct client {
 
 	pool_t state_pool;
 	struct client_state state;
+	struct istream *dot_input;
 
 	unsigned int disconnected:1;
 };

@@ -6,6 +6,7 @@
 #include "str.h"
 #include "istream.h"
 #include "ostream.h"
+#include "istream-dot.h"
 #include "safe-mkstemp.h"
 #include "mail-storage-service.h"
 #include "index/raw/raw-storage.h"
@@ -318,6 +319,7 @@ static void client_input_data_finish(struct client *client)
 {
 	struct mail *src_mail;
 
+	i_stream_destroy(&client->dot_input);
 	io_remove(&client->io);
 	client->io = io_add(client->fd_in, IO_READ, client_input, client);
 
@@ -405,59 +407,26 @@ client_input_add(struct client *client, const unsigned char *data, size_t size)
 
 static void client_input_data_handle(struct client *client)
 {
-#define DATA_DOT_NEXT_POS 3
-#define DATA_END_SIZE 5
-	static const char *data_end = "\r\n.\r\n";
 	const unsigned char *data;
-	size_t i, size, start, skip;
-	unsigned int rewind;
+	size_t size;
+	ssize_t ret;
 
-	data = i_stream_get_data(client->input, &size);
-	skip = 0;
-	for (i = start = 0; i < size; i++) {
-		if (data[i] == data_end[client->state.data_end_idx]) {
-			if (++client->state.data_end_idx == DATA_END_SIZE) {
-				/* found the ending. drop the "." line out. */
-				skip = i + 1;
-				i -= DATA_END_SIZE - DATA_DOT_NEXT_POS;
-				client->state.data_end_idx = 0;
-				break;
-			}
-		} else if (client->state.data_end_idx == DATA_DOT_NEXT_POS) {
-			/* saw a dot at the beginning of line. drop it. */
-			if (client_input_add(client, data + start,
-					     i - start - 1) < 0) {
-				client_destroy(client, "451 4.3.0",
-					       "Temporary internal failure");
-				return;
-			}
-			start = i;
-			client->state.data_end_idx =
-				data[i] == data_end[0] ? 1 : 0;
-		} else {
-			client->state.data_end_idx =
-				data[i] == data_end[0] ? 1 : 0;
+	while ((ret = i_stream_read(client->dot_input)) > 0 || ret == -2) {
+		data = i_stream_get_data(client->dot_input, &size);
+		if (client_input_add(client, data, size) < 0) {
+			client_destroy(client, "451 4.3.0",
+				       "Temporary internal failure");
+			return;
 		}
+		i_stream_skip(client->dot_input, size);
 	}
-	if (client->state.data_end_idx >= DATA_DOT_NEXT_POS) {
-		/* we might not want to write the dot, so keep it in buffer
-		   until we're sure what to do about it. */
-		rewind = client->state.data_end_idx - DATA_DOT_NEXT_POS + 1;
-		i -= rewind; size -= rewind;
-	}
-	if (client_input_add(client, data + start, i-start) < 0) {
-		client_destroy(client, "451 4.3.0",
-			       "Temporary internal failure");
+	if (ret == 0)
 		return;
-	}
-	i_stream_skip(client->input, skip == 0 ? i : skip);
 
-	if (i < size) {
-		client_input_data_finish(client);
-		client_state_reset(client);
-		if (i_stream_have_bytes_left(client->input))
-			client_input_handle(client);
-	}
+	client_input_data_finish(client);
+	client_state_reset(client);
+	if (i_stream_have_bytes_left(client->input))
+		client_input_handle(client);
 }
 
 static void client_input_data(struct client *client)
@@ -482,6 +451,8 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 	i_assert(client->state.mail_data == NULL);
 	client->state.mail_data = buffer_create_dynamic(default_pool, 1024*64);
 
+	i_assert(client->dot_input == NULL);
+	client->dot_input = i_stream_create_dot(client->input, TRUE);
 	io_remove(&client->io);
 	client->io = io_add(client->fd_in, IO_READ, client_input_data, client);
 	client_send_line(client, "354 OK");
