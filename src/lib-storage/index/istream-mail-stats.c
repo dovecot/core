@@ -20,17 +20,6 @@ static void i_stream_mail_stats_destroy(struct iostream_private *stream)
 	i_stream_unref(&mstream->istream.parent);
 }
 
-static void
-i_stream_mail_stats_set_max_buffer_size(struct iostream_private *stream,
-					size_t max_size)
-{
-	struct mail_stats_istream *mstream =
-		(struct mail_stats_istream *)stream;
-
-	mstream->istream.max_buffer_size = max_size;
-	i_stream_set_max_buffer_size(mstream->istream.parent, max_size);
-}
-
 static ssize_t
 i_stream_mail_stats_read_mail_stats(struct istream_private *stream)
 {
@@ -81,9 +70,6 @@ struct istream *i_stream_create_mail_stats_counter(struct mail_private *mail,
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	mstream->istream.iostream.destroy = i_stream_mail_stats_destroy;
-	mstream->istream.iostream.set_max_buffer_size =
-		i_stream_mail_stats_set_max_buffer_size;
-
 	mstream->istream.parent = input;
 	mstream->istream.read = i_stream_mail_stats_read_mail_stats;
 	mstream->istream.seek = i_stream_mail_stats_seek;

@@ -11,24 +11,6 @@ struct crlf_istream {
 	unsigned int last_cr:1;
 };
 
-static void i_stream_crlf_destroy(struct iostream_private *stream)
-{
-	struct crlf_istream *cstream = (struct crlf_istream *)stream;
-
-	i_free(cstream->istream.w_buffer);
-	i_stream_unref(&cstream->istream.parent);
-}
-
-static void
-i_stream_crlf_set_max_buffer_size(struct iostream_private *stream,
-				   size_t max_size)
-{
-	struct crlf_istream *cstream = (struct crlf_istream *)stream;
-
-	cstream->istream.max_buffer_size = max_size;
-	i_stream_set_max_buffer_size(cstream->istream.parent, max_size);
-}
-
 static int i_stream_crlf_read_common(struct crlf_istream *cstream)
 {
 	struct istream_private *stream = &cstream->istream;
@@ -188,14 +170,8 @@ i_stream_create_crlf_full(struct istream *input, bool crlf)
 {
 	struct crlf_istream *cstream;
 
-	i_stream_ref(input);
-
 	cstream = i_new(struct crlf_istream, 1);
 	cstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
-
-	cstream->istream.iostream.destroy = i_stream_crlf_destroy;
-	cstream->istream.iostream.set_max_buffer_size =
-		i_stream_crlf_set_max_buffer_size;
 
 	cstream->istream.read = crlf ? i_stream_crlf_read_crlf :
 		i_stream_crlf_read_lf;

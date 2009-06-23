@@ -33,13 +33,6 @@ static void i_stream_file_close(struct iostream_private *stream)
 	_stream->fd = -1;
 }
 
-static void i_stream_file_destroy(struct iostream_private *stream)
-{
-	struct istream_private *_stream = (struct istream_private *)stream;
-
-	i_free(_stream->w_buffer);
-}
-
 static ssize_t i_stream_file_read(struct istream_private *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
@@ -157,8 +150,6 @@ struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 	fstream->autoclose_fd = autoclose_fd;
 
 	fstream->istream.iostream.close = i_stream_file_close;
-	fstream->istream.iostream.destroy = i_stream_file_destroy;
-
 	fstream->istream.max_buffer_size = max_buffer_size;
 	fstream->istream.read = i_stream_file_read;
 	fstream->istream.seek = i_stream_file_seek;

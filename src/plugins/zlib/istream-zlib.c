@@ -47,13 +47,6 @@ static void i_stream_zlib_close(struct iostream_private *stream)
 	}
 }
 
-static void i_stream_zlib_destroy(struct iostream_private *stream ATTR_UNUSED)
-{
-	struct istream_private *_stream = (struct istream_private *)stream;
-
-	i_free(_stream->w_buffer);
-}
-
 static ssize_t i_stream_zlib_read(struct istream_private *stream)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *)stream;
@@ -232,8 +225,6 @@ struct istream *i_stream_create_zlib(int fd)
 	zstream->cached_size = (uoff_t)-1;
 
 	zstream->istream.iostream.close = i_stream_zlib_close;
-	zstream->istream.iostream.destroy = i_stream_zlib_destroy;
-
 	zstream->istream.max_buffer_size = DEFAULT_MAX_BUFFER_SIZE;
 	zstream->istream.read = i_stream_zlib_read;
 	zstream->istream.seek = i_stream_zlib_seek;

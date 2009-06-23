@@ -37,16 +37,6 @@ static void i_stream_raw_mbox_destroy(struct iostream_private *stream)
 	i_stream_unref(&rstream->istream.parent);
 }
 
-static void
-i_stream_raw_mbox_set_max_buffer_size(struct iostream_private *stream,
-				      size_t max_size)
-{
-	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
-
-	rstream->istream.max_buffer_size = max_size;
-	i_stream_set_max_buffer_size(rstream->istream.parent, max_size);
-}
-
 static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 {
 	const unsigned char *buf, *p;
@@ -442,9 +432,6 @@ i_stream_create_raw_mbox(struct istream *input, const char *path)
 	rstream->next_received_time = (time_t)-1;
 
 	rstream->istream.iostream.destroy = i_stream_raw_mbox_destroy;
-	rstream->istream.iostream.set_max_buffer_size =
-		i_stream_raw_mbox_set_max_buffer_size;
-
 	rstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	rstream->istream.read = i_stream_raw_mbox_read;
 	rstream->istream.seek = i_stream_raw_mbox_seek;
@@ -454,7 +441,6 @@ i_stream_create_raw_mbox(struct istream *input, const char *path)
 	rstream->istream.istream.blocking = input->blocking;
 	rstream->istream.istream.seekable = input->seekable;
 
-	i_stream_ref(input);
 	return i_stream_create(&rstream->istream, input, -1);
 }
 

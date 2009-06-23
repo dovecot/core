@@ -474,6 +474,26 @@ i_stream_default_set_max_buffer_size(struct iostream_private *stream,
 	struct istream_private *_stream = (struct istream_private *)stream;
 
 	_stream->max_buffer_size = max_size;
+	if (_stream->parent != NULL)
+		i_stream_set_max_buffer_size(_stream->parent, max_size);
+}
+
+static void i_stream_default_destroy(struct iostream_private *stream)
+{
+	struct istream_private *_stream = (struct istream_private *)stream;
+		uoff_t v_offset;
+
+	i_free(_stream->w_buffer);
+	if (_stream->parent != NULL) {
+		v_offset = _stream->parent_start_offset +
+			_stream->istream.v_offset;
+		if (_stream->parent->seekable ||
+		    v_offset > _stream->parent->v_offset) {
+			/* get to same position in parent stream */
+			i_stream_seek(_stream->parent, v_offset);
+		}
+		i_stream_unref(&_stream->parent);
+	}
 }
 
 static const struct stat *
@@ -507,9 +527,12 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 		_stream->parent_start_offset = parent->v_offset;
 		_stream->abs_start_offset = parent->v_offset +
 			parent->real_stream->abs_start_offset;
+		i_stream_ref(parent);
 	}
 	_stream->istream.real_stream = _stream;
 
+	if (_stream->iostream.destroy == NULL)
+		_stream->iostream.destroy = i_stream_default_destroy;
 	if (_stream->stat == NULL)
 		_stream->stat = i_stream_default_stat;
 	if (_stream->get_size == NULL)

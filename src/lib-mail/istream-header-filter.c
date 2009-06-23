@@ -51,17 +51,6 @@ static void i_stream_header_filter_destroy(struct iostream_private *stream)
 	pool_unref(&mstream->pool);
 }
 
-static void
-i_stream_header_filter_set_max_buffer_size(struct iostream_private *stream,
-					   size_t max_size)
-{
-	struct header_filter_istream *mstream =
-		(struct header_filter_istream *)stream;
-
-	mstream->istream.max_buffer_size = max_size;
-	i_stream_set_max_buffer_size(mstream->istream.parent, max_size);
-}
-
 static ssize_t
 read_mixed(struct header_filter_istream *mstream, size_t body_highwater_size)
 {
@@ -421,9 +410,6 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->add_missing_eoh = (flags & HEADER_FILTER_ADD_MISSING_EOH) != 0;
 
 	mstream->istream.iostream.destroy = i_stream_header_filter_destroy;
-	mstream->istream.iostream.set_max_buffer_size =
-		i_stream_header_filter_set_max_buffer_size;
-
 	mstream->istream.read = i_stream_header_filter_read;
 	mstream->istream.seek = i_stream_header_filter_seek;
 	mstream->istream.sync = i_stream_header_filter_sync;
@@ -432,6 +418,5 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
 
-	i_stream_ref(input);
 	return i_stream_create(&mstream->istream, input, -1);
 }

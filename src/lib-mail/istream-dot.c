@@ -21,24 +21,6 @@ struct dot_istream {
 	unsigned int send_last_lf:1;
 };
 
-static void i_stream_dot_destroy(struct iostream_private *stream)
-{
-	struct dot_istream *dstream = (struct dot_istream *)stream;
-
-	i_free(dstream->istream.w_buffer);
-	i_stream_unref(&dstream->istream.parent);
-}
-
-static void
-i_stream_dot_set_max_buffer_size(struct iostream_private *stream,
-				 size_t max_size)
-{
-	struct dot_istream *dstream = (struct dot_istream *)stream;
-
-	dstream->istream.max_buffer_size = max_size;
-	i_stream_set_max_buffer_size(dstream->istream.parent, max_size);
-}
-
 static int i_stream_dot_read_some(struct dot_istream *dstream)
 {
 	struct istream_private *stream = &dstream->istream;
@@ -234,14 +216,8 @@ struct istream *i_stream_create_dot(struct istream *input, bool send_last_lf)
 {
 	struct dot_istream *dstream;
 
-	i_stream_ref(input);
-
 	dstream = i_new(struct dot_istream, 1);
 	dstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
-
-	dstream->istream.iostream.destroy = i_stream_dot_destroy;
-	dstream->istream.iostream.set_max_buffer_size =
-		i_stream_dot_set_max_buffer_size;
 
 	dstream->istream.read = i_stream_dot_read;
 	dstream->istream.seek = i_stream_dot_seek;
