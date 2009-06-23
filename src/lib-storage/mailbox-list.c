@@ -516,6 +516,16 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 	return list->v.iter_init(list, patterns, flags);
 }
 
+static struct mail_namespace *
+ns_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
+{
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SKIP_ALIASES) != 0) {
+		while (ns != NULL && ns->alias_for != NULL)
+			ns = ns->next;
+	}
+	return ns;
+}
+
 static const struct mailbox_info *
 mailbox_list_ns_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
@@ -533,7 +543,7 @@ mailbox_list_ns_iter_next(struct mailbox_list_iterate_context *_ctx)
 			mailbox_list_iter_init_multiple(ctx->namespaces->list,
 							ctx->patterns,
 							_ctx->flags);
-		ctx->namespaces = ctx->namespaces->next;
+		ctx->namespaces = ns_next(ctx, ctx->namespaces->next);
 		return mailbox_list_ns_iter_next(_ctx);
 	}
 	return info;
@@ -577,10 +587,11 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 	for (i = 0; i < count; i++)
 		ctx->patterns[i] = p_strdup(pool, patterns[i]);
 
+	namespaces = ns_next(ctx, namespaces);
 	ctx->ctx.list->ns = namespaces;
 	ctx->backend_ctx = mailbox_list_iter_init_multiple(namespaces->list,
 							   patterns, flags);
-	ctx->namespaces = namespaces->next;
+	ctx->namespaces = ns_next(ctx, namespaces->next);
 	return &ctx->ctx;
 }
 

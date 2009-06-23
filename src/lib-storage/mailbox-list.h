@@ -46,6 +46,9 @@ enum mailbox_list_iter_flags {
 	/* Use virtual mailbox names (virtual separators and namespace
 	   prefixes) for patterns and for returned mailbox names. */
 	MAILBOX_LIST_ITER_VIRTUAL_NAMES		= 0x000002,
+	/* For mailbox_list_iter_init_namespaces(): Skip namespaces that
+	   have alias_for set. */
+	MAILBOX_LIST_ITER_SKIP_ALIASES		= 0x000004,
 
 	/* List only subscribed mailboxes */
 	MAILBOX_LIST_ITER_SELECT_SUBSCRIBED	= 0x000010,
