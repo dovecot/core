@@ -246,6 +246,7 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 			     const char *const **keywords_r)
 {
 	const char *atom;
+	enum mail_flags flag;
 	ARRAY_DEFINE(keywords, const char *);
 
 	*flags_r = 0;
@@ -263,16 +264,9 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 		if (*atom == '\\') {
 			/* system flag */
 			atom = t_str_ucase(atom);
-			if (strcmp(atom, "\\ANSWERED") == 0)
-				*flags_r |= MAIL_ANSWERED;
-			else if (strcmp(atom, "\\FLAGGED") == 0)
-				*flags_r |= MAIL_FLAGGED;
-			else if (strcmp(atom, "\\DELETED") == 0)
-				*flags_r |= MAIL_DELETED;
-			else if (strcmp(atom, "\\SEEN") == 0)
-				*flags_r |= MAIL_SEEN;
-			else if (strcmp(atom, "\\DRAFT") == 0)
-				*flags_r |= MAIL_DRAFT;
+			flag = imap_parse_system_flag(atom);
+			if (flag != 0 && flag != MAIL_RECENT)
+				*flags_r |= flag;
 			else {
 				client_send_tagline(cmd, t_strconcat(
 					"BAD Invalid system flag ",
