@@ -9,6 +9,8 @@ struct imap_arg;
 /* Write flags as a space separated string. */
 void imap_write_flags(string_t *dest, enum mail_flags flags,
 		      const char *const *keywords);
+/* Parse system flag from a string, or return 0 if it's invalid. */
+enum mail_flags imap_parse_system_flag(const char *str);
 
 /* Write sequence range as IMAP sequence-set */
 void imap_write_seq_range(string_t *dest, const ARRAY_TYPE(seq_range) *array);

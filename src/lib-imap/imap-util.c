@@ -40,6 +40,24 @@ void imap_write_flags(string_t *dest, enum mail_flags flags,
 		str_truncate(dest, str_len(dest)-1);
 }
 
+enum mail_flags imap_parse_system_flag(const char *str)
+{
+	if (strcasecmp(str, "\\Answered") == 0)
+		return MAIL_ANSWERED;
+	else if (strcasecmp(str, "\\Flagged") == 0)
+		return MAIL_FLAGGED;
+	else if (strcasecmp(str, "\\Deleted") == 0)
+		return MAIL_DELETED;
+	else if (strcasecmp(str, "\\Seen") == 0)
+		return MAIL_SEEN;
+	else if (strcasecmp(str, "\\Draft") == 0)
+		return MAIL_DRAFT;
+	else if (strcasecmp(str, "\\Recent") == 0)
+		return MAIL_RECENT;
+	else
+		return 0;
+}
+
 void imap_write_seq_range(string_t *dest, const ARRAY_TYPE(seq_range) *array)
 {
 	const struct seq_range *range;

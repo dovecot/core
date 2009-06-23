@@ -43,7 +43,8 @@ endif
 test_programs = \
 	test-imap-match \
 	test-imap-parser \
-	test-imap-utf7
+	test-imap-utf7 \
+	test-imap-util
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -62,6 +63,10 @@ test_imap_parser_DEPENDENCIES = imap-parser.lo $(test_libs)
 test_imap_utf7_SOURCES = test-imap-utf7.c
 test_imap_utf7_LDADD = imap-utf7.lo $(test_libs)
 test_imap_utf7_DEPENDENCIES = imap-utf7.lo $(test_libs)
+
+test_imap_util_SOURCES = test-imap-util.c
+test_imap_util_LDADD = imap-util.lo $(test_libs)
+test_imap_util_DEPENDENCIES = imap-util.lo $(test_libs)
 
 check: check-am check-test
 check-test: $(test_programs)
