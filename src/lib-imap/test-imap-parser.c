@@ -24,7 +24,7 @@ static void test_imap_parser_crlf(void)
 		test_assert(imap_parser_read_args(parser, 0, 0, &args) == -2);
 	}
 	test_istream_set_size(input, i+1);
-	test_assert(imap_parser_read_args(parser, 0, 0, &args) == 2);
+	test_assert(imap_parser_read_args(parser, 0, 0, &args) == 1);
 	test_assert(args[0].type == IMAP_ARG_ATOM);
 	test_assert(args[1].type == IMAP_ARG_EOL);
 
