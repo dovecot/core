@@ -9,6 +9,21 @@ struct limit_istream {
 	uoff_t v_size;
 };
 
+static void i_stream_limit_destroy(struct iostream_private *stream)
+{
+       struct limit_istream *lstream = (struct limit_istream *) stream;
+       uoff_t v_offset;
+
+       v_offset = lstream->istream.parent_start_offset +
+               lstream->istream.istream.v_offset;
+       if (lstream->istream.parent->seekable ||
+           v_offset > lstream->istream.parent->v_offset) {
+               /* get to same position in parent stream */
+               i_stream_seek(lstream->istream.parent, v_offset);
+       }
+       i_stream_unref(&lstream->istream.parent);
+}
+
 static ssize_t i_stream_limit_read(struct istream_private *stream)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
@@ -116,6 +131,7 @@ struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 	lstream->v_size = v_size;
 	lstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
+	lstream->istream.iostream.destroy = i_stream_limit_destroy;
 	lstream->istream.parent = input;
 	lstream->istream.read = i_stream_limit_read;
 	lstream->istream.seek = i_stream_limit_seek;
