@@ -66,6 +66,7 @@ namespace_add(struct mail_user *user,
 	const char *driver, *error;
 
 	ns = i_new(struct mail_namespace, 1);
+	ns->user = user;
 	if (strncmp(ns_set->type, "private", 7) == 0) {
 		ns->owner = user;
 		ns->type = NAMESPACE_PRIVATE;
@@ -134,7 +135,6 @@ namespace_add(struct mail_user *user,
 	ns->set = ns_set;
 	ns->mail_set = mail_set;
 	ns->prefix = i_strdup(ns_set->prefix);
-	ns->user = user;
 
 	if (ns->type == NAMESPACE_SHARED && strchr(ns->prefix, '%') != NULL) {
 		/* dynamic shared namespace */
