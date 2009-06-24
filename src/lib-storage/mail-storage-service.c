@@ -350,7 +350,9 @@ mail_storage_service_init_post(struct master_service *service,
 			       const struct mail_storage_service_input *input,
 			       const char *home,
 			       const struct mail_user_settings *user_set,
-			       bool setuid_root, struct mail_user **mail_user_r,
+			       bool setuid_root,
+			       enum mail_storage_service_flags flags,
+			       struct mail_user **mail_user_r,
 			       const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
@@ -368,7 +370,8 @@ mail_storage_service_init_post(struct master_service *service,
 		/* we don't want to write core files to any users' home
 		   directories since they could contain information about other
 		   users' mails as well. so do no chdiring to home. */
-	} else if (*home != '\0') {
+	} else if (*home != '\0' &&
+		   (flags & MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR) == 0) {
 		/* If possible chdir to home directory, so that core file
 		   could be written in case we crash. */
 		if (chdir(home) < 0) {
@@ -583,7 +586,8 @@ init_user_real(struct master_service *service,
 	module_dir_init(modules);
 	mail_users_init(user_set->auth_socket_path, mail_set->mail_debug);
 	if (mail_storage_service_init_post(service, &input, home, user_set,
-					   FALSE, &mail_user, &error) < 0)
+					   FALSE, flags,
+					   &mail_user, &error) < 0)
 		i_fatal("%s", error);
 	return mail_user;
 }
@@ -731,7 +735,7 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 			t_strconcat(user_set->mail_chroot, "/", home, NULL));
 	}
 	if (mail_storage_service_init_post(ctx->service, &user->input,
-					   home, user_set, TRUE,
+					   home, user_set, TRUE, ctx->flags,
 					   mail_user_r, error_r) < 0)
 		return -1;
 	return 0;
