@@ -155,13 +155,6 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 	return ret;
 }
 
-static void ATTR_NORETURN
-i_stream_tee_seek(struct istream_private *stream ATTR_UNUSED,
-		  uoff_t v_offset ATTR_UNUSED, bool mark ATTR_UNUSED)
-{
-	i_panic("tee-istream: seeking unsupported currently");
-}
-
 static const struct stat *
 i_stream_tee_stat(struct istream_private *stream, bool exact)
 {
@@ -210,7 +203,6 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 		i_stream_tee_set_max_buffer_size;
 
 	tstream->istream.read = i_stream_tee_read;
-	tstream->istream.seek = i_stream_tee_seek;
 	tstream->istream.stat = i_stream_tee_stat;
 	tstream->istream.sync = i_stream_tee_sync;
 

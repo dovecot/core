@@ -496,6 +496,31 @@ static void i_stream_default_destroy(struct iostream_private *stream)
 	}
 }
 
+static void
+i_stream_default_seek(struct istream_private *stream,
+		      uoff_t v_offset, bool mark ATTR_UNUSED)
+{
+	size_t available;
+
+	if (stream->istream.v_offset > v_offset)
+		i_panic("stream doesn't support seeking backwards");
+
+	while (stream->istream.v_offset < v_offset) {
+		(void)i_stream_read(&stream->istream);
+
+		available = stream->pos - stream->skip;
+		if (available == 0) {
+			stream->istream.stream_errno = ESPIPE;
+			return;
+		}
+		if (available <= v_offset - stream->istream.v_offset)
+			i_stream_skip(&stream->istream, available);
+		else {
+			i_stream_skip(&stream->istream,
+				      v_offset - stream->istream.v_offset);
+		}
+	}
+}
 static const struct stat *
 i_stream_default_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
@@ -533,6 +558,10 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 
 	if (_stream->iostream.destroy == NULL)
 		_stream->iostream.destroy = i_stream_default_destroy;
+	if (_stream->seek == NULL) {
+		i_assert(!_stream->istream.seekable);
+		_stream->seek = i_stream_default_seek;
+	}
 	if (_stream->stat == NULL)
 		_stream->stat = i_stream_default_stat;
 	if (_stream->get_size == NULL)

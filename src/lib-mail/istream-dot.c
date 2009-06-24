@@ -199,13 +199,6 @@ end:
 	return ret;
 }
 
-static void
-i_stream_dot_seek(struct istream_private *stream ATTR_UNUSED,
-		   uoff_t v_offset ATTR_UNUSED, bool mark ATTR_UNUSED)
-{
-	i_panic("dot-istream: seeking unsupported currently");
-}
-
 static const struct stat *
 i_stream_dot_stat(struct istream_private *stream, bool exact)
 {
@@ -220,7 +213,6 @@ struct istream *i_stream_create_dot(struct istream *input, bool send_last_lf)
 	dstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	dstream->istream.read = i_stream_dot_read;
-	dstream->istream.seek = i_stream_dot_seek;
 	dstream->istream.stat = i_stream_dot_stat;
 
 	dstream->istream.istream.blocking = input->blocking;

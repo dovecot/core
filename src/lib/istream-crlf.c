@@ -133,32 +133,6 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 	return ret;
 }
 
-static void
-i_stream_crlf_seek(struct istream_private *stream,
-		   uoff_t v_offset, bool mark ATTR_UNUSED)
-{
-	size_t available;
-
-	if (stream->istream.v_offset > v_offset)
-		i_panic("crlf-istream: seeking unsupported currently");
-
-	while (stream->istream.v_offset < v_offset) {
-		(void)i_stream_crlf_read_crlf(stream);
-
-		available = stream->pos - stream->skip;
-		if (available == 0) {
-			stream->istream.stream_errno = ESPIPE;
-			return;
-		}
-		if (available <= v_offset - stream->istream.v_offset)
-			i_stream_skip(&stream->istream, available);
-		else {
-			i_stream_skip(&stream->istream,
-				      v_offset - stream->istream.v_offset);
-		}
-	}
-}
-
 static const struct stat *
 i_stream_crlf_stat(struct istream_private *stream, bool exact)
 {
@@ -175,7 +149,6 @@ i_stream_create_crlf_full(struct istream *input, bool crlf)
 
 	cstream->istream.read = crlf ? i_stream_crlf_read_crlf :
 		i_stream_crlf_read_lf;
-	cstream->istream.seek = i_stream_crlf_seek;
 	cstream->istream.stat = i_stream_crlf_stat;
 
 	cstream->istream.istream.blocking = input->blocking;
