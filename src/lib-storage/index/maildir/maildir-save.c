@@ -285,12 +285,12 @@ const char *maildir_save_file_get_path(struct mailbox_transaction_context *_t,
 }
 
 static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
-			      const char **fname_r)
+			      const char **fname)
 {
 	struct mailbox *box = &mbox->ibox.box;
 	struct stat st;
 	unsigned int prefix_len;
-	const char *tmp_fname = NULL;
+	const char *tmp_fname = *fname;
 	string_t *path;
 	int fd;
 
@@ -300,7 +300,8 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	prefix_len = str_len(path);
 
 	for (;;) {
-		tmp_fname = maildir_filename_generate();
+		if (tmp_fname == NULL)
+			tmp_fname = maildir_filename_generate();
 		str_truncate(path, prefix_len);
 		str_append(path, tmp_fname);
 
@@ -325,9 +326,10 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 			/* race condition between stat() and open().
 			   highly unlikely. */
 		}
+		tmp_fname = NULL;
 	}
 
-	*fname_r = tmp_fname;
+	*fname = tmp_fname;
 	if (fd == -1) {
 		if (ENOSPACE(errno)) {
 			mail_storage_set_error(box->storage,
@@ -371,7 +373,7 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 	T_BEGIN {
 		/* create a new file in tmp/ directory */
-		const char *fname = NULL;
+		const char *fname = _ctx->guid;
 
 		ctx->fd = maildir_create_tmp(ctx->mbox, ctx->tmpdir, &fname);
 		if (ctx->fd == -1)
