@@ -59,7 +59,6 @@ static int
 namespace_add(struct mail_user *user,
 	      struct mail_namespace_settings *ns_set,
 	      const struct mail_storage_settings *mail_set,
-	      struct mail_namespace *prev_namespaces,
 	      struct mail_namespace **ns_p, const char **error_r)
 {
         struct mail_namespace *ns;
@@ -99,25 +98,6 @@ namespace_add(struct mail_user *user,
 	if (ns_set->subscriptions)
 		ns->flags |= NAMESPACE_FLAG_SUBSCRIPTIONS;
 
-	if (ns_set->alias_for != NULL) {
-		ns->alias_for = mail_namespace_find_prefix(prev_namespaces,
-							   ns_set->alias_for);
-		if (ns->alias_for == NULL) {
-			*error_r = t_strdup_printf("Invalid namespace alias_for: %s",
-						   ns_set->alias_for);
-			mail_namespace_free(ns);
-			return -1;
-		}
-		if (ns->alias_for->alias_for != NULL) {
-			*error_r = t_strdup_printf("Chained namespace alias_for: %s",
-						   ns_set->alias_for);
-			mail_namespace_free(ns);
-			return -1;
-		}
-		ns->alias_chain_next = ns->alias_for->alias_chain_next;
-		ns->alias_for->alias_chain_next = ns;
-	}
-
 	if (mail_set->mail_debug) {
 		i_info("Namespace: type=%s, prefix=%s, sep=%s, "
 		       "inbox=%s, hidden=%s, list=%s, subscriptions=%s",
@@ -155,6 +135,30 @@ namespace_add(struct mail_user *user,
 	return 0;
 }
 
+static int
+namespace_set_alias_for(struct mail_namespace *ns,
+			struct mail_namespace *all_namespaces,
+			const char **error_r)
+{
+	if (ns->set->alias_for != NULL) {
+		ns->alias_for = mail_namespace_find_prefix(all_namespaces,
+							   ns->set->alias_for);
+		if (ns->alias_for == NULL) {
+			*error_r = t_strdup_printf("Invalid namespace alias_for: %s",
+						   ns->set->alias_for);
+			return -1;
+		}
+		if (ns->alias_for->alias_for != NULL) {
+			*error_r = t_strdup_printf("Chained namespace alias_for: %s",
+						   ns->set->alias_for);
+			return -1;
+		}
+		ns->alias_chain_next = ns->alias_for->alias_chain_next;
+		ns->alias_for->alias_chain_next = ns;
+	}
+	return 0;
+}
+
 static bool
 namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 {
@@ -163,6 +167,8 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 	char list_sep = '\0';
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		if (namespace_set_alias_for(ns, namespaces, error_r) < 0)
+			return FALSE;
 		if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			if (inbox_ns != NULL) {
 				*error_r = "namespace configuration error: "
@@ -235,8 +241,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		count = 0;
 	}
 	for (i = 0; i < count; i++) {
-		if (namespace_add(user, ns_set[i], mail_set, namespaces,
-				  ns_p, error_r) < 0)
+		if (namespace_add(user, ns_set[i], mail_set, ns_p, error_r) < 0)
 			return -1;
 		ns_p = &(*ns_p)->next;
 	}
