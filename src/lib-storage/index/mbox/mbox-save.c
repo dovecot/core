@@ -139,6 +139,8 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 	const char *str;
 	size_t len;
 
+	i_assert(ctx->eoh_offset != (uoff_t)-1);
+
 	if (ctx->mbox->mbox_writeonly) {
 		/* we can't seek, don't set Content-Length */
 		return 0;
@@ -549,6 +551,19 @@ static int mbox_save_body(struct mbox_save_context *ctx)
 	return 0;
 }
 
+static int mbox_save_finish_headers(struct mbox_save_context *ctx)
+{
+	i_assert(ctx->eoh_offset == (uoff_t)-1);
+
+	/* append our own headers and ending empty line */
+	ctx->extra_hdr_offset = ctx->output->offset;
+	if (o_stream_send(ctx->output, str_data(ctx->headers),
+			  str_len(ctx->headers)) < 0)
+		return write_error(ctx);
+	ctx->eoh_offset = ctx->output->offset;
+	return 0;
+}
+
 int mbox_save_continue(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
@@ -624,12 +639,8 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 				      hdr_md5_sum, NULL);
 	}
 
-	/* append our own headers and ending empty line */
-	ctx->extra_hdr_offset = ctx->output->offset;
-	if (o_stream_send(ctx->output, str_data(ctx->headers),
-			  str_len(ctx->headers)) < 0)
-		return write_error(ctx);
-	ctx->eoh_offset = ctx->output->offset;
+	if (mbox_save_finish_headers(ctx) < 0)
+		return -1;
 
 	/* write body */
 	if (mbox_save_body_input(ctx) < 0)
@@ -640,6 +651,9 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 int mbox_save_finish(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+
+	if (!ctx->failed && ctx->eoh_offset == (uoff_t)-1)
+		(void)mbox_save_finish_headers(ctx);
 
 	if (ctx->output != NULL) {
 		/* make sure everything is written */
