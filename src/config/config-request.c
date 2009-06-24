@@ -80,12 +80,14 @@ static void settings_export(struct settings_export_context *ctx,
 	unsigned int i, count, prefix_len;
 	const char *str;
 	char *key;
+	bool dump;
 
 	for (def = info->defines; def->key != NULL; def++) {
 		value = CONST_PTR_OFFSET(set, def->offset);
 		default_value = info->defaults == NULL ? NULL :
 			CONST_PTR_OFFSET(info->defaults, def->offset);
 
+		dump = FALSE;
 		count = 0;
 		str_truncate(ctx->value, 0);
 		switch (def->type) {
@@ -115,8 +117,10 @@ static void settings_export(struct settings_export_context *ctx,
 
 			sval = *val == NULL ? NULL : (*val + 1);
 			if ((ctx->export_defaults ||
-			     null_strcmp(sval, dval) != 0) && sval != NULL)
+			     null_strcmp(sval, dval) != 0) && sval != NULL) {
 				str_append(ctx->value, sval);
+				dump = TRUE;
+			}
 			break;
 		}
 		case SET_STR: {
@@ -125,8 +129,10 @@ static void settings_export(struct settings_export_context *ctx,
 			const char *dval = _dval == NULL ? NULL : *_dval;
 
 			if ((ctx->export_defaults ||
-			     null_strcmp(*val, dval) != 0) && *val != NULL)
+			     null_strcmp(*val, dval) != 0) && *val != NULL) {
 				str_append(ctx->value, *val);
+				dump = TRUE;
+			}
 			break;
 		}
 		case SET_ENUM: {
@@ -188,7 +194,7 @@ static void settings_export(struct settings_export_context *ctx,
 			break;
 		}
 		}
-		if (str_len(ctx->value) > 0) {
+		if (str_len(ctx->value) > 0 || dump) {
 			key = p_strconcat(ctx->pool, str_c(ctx->prefix),
 					  def->key, NULL);
 			if (hash_table_lookup(ctx->keys, key) == NULL) {
