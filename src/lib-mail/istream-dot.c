@@ -7,6 +7,8 @@
 struct dot_istream {
 	struct istream_private istream;
 
+	uoff_t prev_parent_offset;
+
 	char pending[3]; /* max. \r\n */
 
 	/* how far in string "\r\n.\r" are we */
@@ -31,9 +33,13 @@ static int i_stream_dot_read_some(struct dot_istream *dstream)
 	if (size == 0) {
 		ret = i_stream_read(stream->parent);
 		if (ret <= 0 && (ret != -2 || stream->skip == 0)) {
-			stream->istream.stream_errno =
-				stream->parent->stream_errno;
-			stream->istream.eof = stream->parent->eof;
+			if (stream->parent->stream_errno != 0) {
+				stream->istream.stream_errno =
+					stream->parent->stream_errno;
+			} else if (ret < 0 && stream->parent->eof) {
+				/* we didn't see "." line */
+				stream->istream.stream_errno = EPIPE;
+			}
 			return ret;
 		}
 		(void)i_stream_get_data(stream->parent, &size);
@@ -106,13 +112,15 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 	struct dot_istream *dstream = (struct dot_istream *)stream;
 	const unsigned char *data;
 	size_t i, dest, size;
-	ssize_t ret;
+	ssize_t ret, ret1;
 
-	dest = stream->pos;
 	if (dstream->pending[0] != '\0') {
 		if (!i_stream_get_buffer_space(stream, 1, NULL))
 			return -2;
+		dest = stream->pos;
 		(void)flush_pending(dstream, &dest);
+	} else {
+		dest = stream->pos;
 	}
 
 	if (dstream->dot_eof) {
@@ -120,11 +128,19 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 		return i_stream_dot_return(stream, dest, -1);
 	}
 
+	/* we have to update stream->pos before reading more data */
+	ret1 = i_stream_dot_return(stream, dest, 0);
+
+	i_assert(dstream->prev_parent_offset == stream->parent->v_offset);
 	if ((ret = i_stream_dot_read_some(dstream)) <= 0) {
+		if (ret1 != 0)
+			return ret1;
+		dest = stream->pos;
 		if (ret == -1 && dstream->state != 0)
 			(void)flush_dot_state(dstream, &dest);
 		return i_stream_dot_return(stream, dest, ret);
 	}
+	dest = stream->pos;
 
 	data = i_stream_get_data(stream->parent, &size);
 	for (i = 0; i < size && dest < stream->buffer_size; i++) {
@@ -191,8 +207,9 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 	}
 end:
 	i_stream_skip(stream->parent, i);
+	dstream->prev_parent_offset = stream->parent->v_offset;
 
-	ret = i_stream_dot_return(stream, dest, 0);
+	ret = i_stream_dot_return(stream, dest, 0) + ret1;
 	if (ret == 0)
 		return i_stream_dot_read(stream);
 	i_assert(ret > 0);
@@ -221,6 +238,7 @@ struct istream *i_stream_create_dot(struct istream *input, bool send_last_lf)
 	dstream->state = 2;
 	dstream->state_no_cr = TRUE;
 	dstream->state_no_lf = TRUE;
+	dstream->prev_parent_offset = input->v_offset;
 	return i_stream_create(&dstream->istream, input,
 			       i_stream_get_fd(input));
 }
