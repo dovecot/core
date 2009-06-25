@@ -21,9 +21,11 @@ static void test_imap_parser_crlf(void)
 	/* must return -2 until LF is read */
 	for (i = 0; test_input[i] != '\n'; i++) {
 		test_istream_set_size(input, i+1);
+		(void)i_stream_read(input);
 		test_assert(imap_parser_read_args(parser, 0, 0, &args) == -2);
 	}
 	test_istream_set_size(input, i+1);
+	(void)i_stream_read(input);
 	test_assert(imap_parser_read_args(parser, 0, 0, &args) == 1);
 	test_assert(args[0].type == IMAP_ARG_ATOM);
 	test_assert(args[1].type == IMAP_ARG_EOL);
@@ -32,10 +34,13 @@ static void test_imap_parser_crlf(void)
 	imap_parser_reset(parser);
 	i_stream_seek(input, ++i);
 	test_istream_set_size(input, ++i);
+	(void)i_stream_read(input);
 	test_assert(imap_parser_read_args(parser, 0, 0, &args) == -2);
 	test_istream_set_size(input, ++i);
+	(void)i_stream_read(input);
 	test_assert(imap_parser_read_args(parser, 0, 0, &args) == -2);
 	test_istream_set_size(input, ++i);
+	(void)i_stream_read(input);
 	test_assert(imap_parser_read_args(parser, 0, 0, &args) == -1);
 	test_assert(strcmp(imap_parser_get_error(parser, &fatal), "CR sent without LF") == 0 && !fatal);
 

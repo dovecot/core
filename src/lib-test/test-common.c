@@ -5,6 +5,7 @@
 #include "test-common.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #define OUT_NAME_ALIGN 70
 
@@ -13,40 +14,96 @@ static bool test_success;
 static unsigned int failure_count;
 static unsigned int total_count;
 
+struct test_istream {
+	struct istream_private istream;
+	unsigned int skip_diff;
+	size_t max_pos;
+	bool allow_eof;
+};
+
 static ssize_t test_read(struct istream_private *stream)
 {
-	if (stream->pos < (uoff_t)stream->statbuf.st_size)
-		return 0;
+	struct test_istream *tstream = (struct test_istream *)stream;
+	unsigned int new_skip_diff;
+	ssize_t ret;
 
-	stream->istream.eof = TRUE;
-	return -1;
+	i_assert(stream->skip <= stream->pos);
+
+	if (tstream->max_pos < stream->pos) {
+		/* we seeked past the end of file. */
+		ret = 0;
+	} else {
+		/* move around the buffer */
+		new_skip_diff = rand() % 128;
+		stream->buffer = (stream->buffer + tstream->skip_diff) -
+			new_skip_diff;
+		stream->skip = (stream->skip - tstream->skip_diff) +
+			new_skip_diff;
+		stream->pos = (stream->pos - tstream->skip_diff) +
+			new_skip_diff;
+		tstream->max_pos = (tstream->max_pos - tstream->skip_diff) +
+			new_skip_diff;
+		tstream->skip_diff = new_skip_diff;
+
+		ret = tstream->max_pos - stream->pos;
+		stream->pos = tstream->max_pos;
+	}
+
+	if (ret > 0)
+		return ret;
+	else if (!tstream->allow_eof ||
+		 stream->pos - tstream->skip_diff < (uoff_t)stream->statbuf.st_size)
+		return 0;
+	else {
+		stream->istream.eof = TRUE;
+		return -1;
+	}
 }
 
-static ssize_t test_noread(struct istream_private *stream ATTR_UNUSED)
+static void test_seek(struct istream_private *stream, uoff_t v_offset,
+		      bool mark ATTR_UNUSED)
 {
-	return 0;
+	struct test_istream *tstream = (struct test_istream *)stream;
+
+	stream->istream.v_offset = v_offset;
+	stream->skip = v_offset + tstream->skip_diff;
+	stream->pos = stream->skip;
 }
 
 struct istream *test_istream_create(const char *data)
 {
-	struct istream *input;
-	unsigned int len = strlen(data);
+	struct test_istream *tstream;
 
-	input = i_stream_create_from_data(data, len);
-	input->blocking = FALSE;
-	input->real_stream->statbuf.st_size = len;
-	input->real_stream->read = test_read;
-	return input;
-}
+	tstream = i_new(struct test_istream, 1);
+	tstream->istream.buffer = (const void *)data;
 
-void test_istream_set_size(struct istream *input, uoff_t size)
-{
-	input->real_stream->pos = size;
+	tstream->istream.read = test_read;
+	tstream->istream.seek = test_seek;
+
+	tstream->istream.istream.blocking = FALSE;
+	tstream->istream.istream.seekable = TRUE;
+	(void)i_stream_create(&tstream->istream, NULL, -1);
+	tstream->istream.statbuf.st_size = tstream->max_pos = strlen(data);
+	tstream->allow_eof = TRUE;
+	return &tstream->istream.istream;
 }
 
 void test_istream_set_allow_eof(struct istream *input, bool allow)
 {
-	input->real_stream->read = allow ? test_read : test_noread;
+	struct test_istream *tstream =
+		(struct test_istream *)input->real_stream;
+
+	tstream->allow_eof = allow;
+}
+
+void test_istream_set_size(struct istream *input, uoff_t size)
+{
+	struct test_istream *tstream =
+		(struct test_istream *)input->real_stream;
+
+	if (size > (uoff_t)tstream->istream.statbuf.st_size)
+		size = (uoff_t)tstream->istream.statbuf.st_size;
+	tstream->max_pos = size + tstream->skip_diff;
 }
 
 void test_begin(const char *name)

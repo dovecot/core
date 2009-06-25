@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "istream.h"
 #include "istream-dot.h"
 #include "test-common.h"
@@ -17,7 +18,10 @@ static void test_istream_dot_one(const struct dot_test *test,
 	struct istream *test_input, *input;
 	const unsigned char *data;
 	size_t size;
-	unsigned int i, input_len, output_len;
+	unsigned int i, outsize, input_len, output_len;
+	string_t *str;
+	uoff_t offset;
+	int ret;
 
 	test_input = test_istream_create(test->input);
 	input = i_stream_create_dot(test_input, send_last_lf);
@@ -34,12 +38,39 @@ static void test_istream_dot_one(const struct dot_test *test,
 		}
 	}
 
+	str = t_str_new(256);
 	input_len = strlen(test->input);
 	if (!test_bufsize) {
-		for (i = 1; i <= input_len; i++) {
-			test_istream_set_size(test_input, i);
-			(void)i_stream_read(input);
+		outsize = 1; i = 0;
+		i_stream_set_max_buffer_size(input, outsize);
+		test_istream_set_size(test_input, 1);
+		while ((ret = i_stream_read(input)) != -1) {
+			switch (ret) {
+			case -2:
+				i_stream_set_max_buffer_size(input, ++outsize);
+				offset = test_input->v_offset;
+				/* seek one byte backwards so stream gets
+				   reset */
+				i_stream_seek(test_input, offset - 1);
+				/* go back to original position */
+				test_istream_set_size(test_input, offset);
+				i_stream_skip(test_input, 1);
+				/* and finally allow reading one more byte */
+				test_istream_set_size(test_input, offset + 1);
+				break;
+			case 0:
+				test_istream_set_size(test_input, ++i);
+				break;
+			default:
+				test_assert(ret > 0);
+
+				data = i_stream_get_data(input, &size);
+				str_append_n(str, data, size);
+				i_stream_skip(input, size);
+			}
 		}
+		test_istream_set_size(test_input, input_len);
+		i_stream_read(test_input);
 	} else {
 		test_istream_set_size(test_input, input_len);
 		size = 0;
@@ -54,10 +85,12 @@ static void test_istream_dot_one(const struct dot_test *test,
 		if (size < output_len)
 			test_assert(i_stream_read(input) == 1);
 		test_assert(i_stream_read(input) == -1);
+
+		data = i_stream_get_data(input, &size);
+		str_append_n(str, data, size);
 	}
-	data = i_stream_get_data(input, &size);
-	test_assert(size == output_len);
-	test_assert(memcmp(data, test->output, size) == 0);
+	test_assert(str_len(str) == output_len);
+	test_assert(memcmp(str_data(str), test->output, size) == 0);
 
 	data = i_stream_get_data(test_input, &size);
 	test_assert(size == strlen(test->parent_input));
