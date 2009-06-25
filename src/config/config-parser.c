@@ -282,7 +282,7 @@ void config_parse_file(const char *path, bool expand_files)
 	size_t len;
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.pool = pool_alloconly_create("config file parser", 10240);
+	ctx.pool = pool_alloconly_create("config file parser", 1024*64);
 	ctx.path = path;
 
 	fd = open(path, O_RDONLY);

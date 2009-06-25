@@ -114,7 +114,7 @@ settings_parser_init_list(pool_t set_pool,
 	i_assert(count > 0);
 
 	pool_ref(set_pool);
-	parser_pool = pool_alloconly_create("settings parser", 8192);
+	parser_pool = pool_alloconly_create("settings parser", 16384);
 	ctx = p_new(parser_pool, struct setting_parser_context, 1);
 	ctx->set_pool = set_pool;
 	ctx->parser_pool = parser_pool;
@@ -1094,7 +1094,8 @@ settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
 	pool_ref(new_pool);
 	new_ctx = p_new(new_pool, struct setting_parser_context, 1);
 	new_ctx->set_pool = new_pool;
-	new_ctx->parser_pool = pool_alloconly_create("settings parser", 2048);
+	new_ctx->parser_pool =
+		pool_alloconly_create("dup settings parser", 8192);
 	new_ctx->flags = old_ctx->flags;
 	new_ctx->str_vars_are_expanded = old_ctx->str_vars_are_expanded;
 	new_ctx->linenum = old_ctx->linenum;

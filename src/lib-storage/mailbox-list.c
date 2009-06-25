@@ -574,7 +574,7 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 
 	i_assert(namespaces != NULL);
 
-	pool = pool_alloconly_create("mailbox list namespaces", 256);
+	pool = pool_alloconly_create("mailbox list namespaces", 512);
 	ctx = p_new(pool, struct ns_list_iterate_context, 1);
 	ctx->pool = pool;
 	ctx->ctx.flags = flags;
