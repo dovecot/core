@@ -125,6 +125,7 @@ user_callback(enum userdb_result result,
 	str_append_c(str, '\n');
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
 	auth_request_unref(&auth_request);
+	auth_master_connection_unref(&conn);
 }
 
 static bool
@@ -143,6 +144,7 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 	auth_request = auth_request_new_dummy(conn->auth);
 	auth_request->id = (unsigned int)strtoul(list[0], NULL, 10);
 	auth_request->context = conn;
+	auth_master_connection_ref(conn);
 
 	if (!auth_request_set_username(auth_request, list[1], &error)) {
                 auth_request_log_info(auth_request, "userdb", "%s", error);
