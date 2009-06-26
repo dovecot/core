@@ -191,24 +191,6 @@ uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
 	return mailbox_uidvalidity_next(path);
 }
 
-static bool
-dbox_index_header_has_mailbox_guid(const struct dbox_index_header *hdr)
-{
-	unsigned int i;
-
-	for (i = 0; i < sizeof(hdr->mailbox_guid); i++) {
-		if (hdr->mailbox_guid[i] != 0)
-			return TRUE;
-	}
-	return FALSE;
-}
-
-void dbox_set_mailbox_guid(struct dbox_index_header *hdr)
-{
-	if (!dbox_index_header_has_mailbox_guid(hdr))
-		mail_generate_guid_128(hdr->mailbox_guid);
-}
-
 int dbox_read_header(struct dbox_mailbox *mbox, struct dbox_index_header *hdr)
 {
 	const void *data;
@@ -229,7 +211,8 @@ int dbox_read_header(struct dbox_mailbox *mbox, struct dbox_index_header *hdr)
 }
 
 void dbox_update_header(struct dbox_mailbox *mbox,
-			struct mail_index_transaction *trans)
+			struct mail_index_transaction *trans,
+			const struct mailbox_update *update)
 {
 	struct dbox_index_header hdr, new_hdr;
 
@@ -237,7 +220,14 @@ void dbox_update_header(struct dbox_mailbox *mbox,
 		memset(&hdr, 0, sizeof(hdr));
 
 	new_hdr = hdr;
-	dbox_set_mailbox_guid(&new_hdr);
+
+	if (update != NULL && !mailbox_guid_is_empty(update->mailbox_guid)) {
+		memcpy(new_hdr.mailbox_guid, update->mailbox_guid,
+		       sizeof(new_hdr.mailbox_guid));
+	} else if (!mailbox_guid_is_empty(new_hdr.mailbox_guid)) {
+		mail_generate_guid_128(new_hdr.mailbox_guid);
+	}
+
 	new_hdr.map_uid_validity =
 		dbox_map_get_uid_validity(mbox->storage->map);
 	if (memcmp(&hdr, &new_hdr, sizeof(hdr)) != 0) {
@@ -246,23 +236,39 @@ void dbox_update_header(struct dbox_mailbox *mbox,
 	}
 }
 
-static int dbox_write_index_header(struct mailbox *box)
+static int dbox_write_index_header(struct mailbox *box,
+				   const struct mailbox_update *update)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 	struct mail_index_transaction *trans;
-	uint32_t uid_validity;
+	const struct mail_index_header *hdr;
+	uint32_t uid_validity, uid_next;
 
 	if (dbox_map_open(mbox->storage->map, TRUE) < 0)
 		return -1;
 
+	hdr = mail_index_get_header(mbox->ibox.view);
 	trans = mail_index_transaction_begin(mbox->ibox.view, 0);
-	dbox_update_header(mbox, trans);
+	dbox_update_header(mbox, trans, update);
 
-	/* set uidvalidity */
-	uid_validity = dbox_get_uidvalidity_next(box->list);
-	mail_index_update_header(trans,
-		offsetof(struct mail_index_header, uid_validity),
-		&uid_validity, sizeof(uid_validity), TRUE);
+	if (update != NULL && update->uid_validity != 0)
+		uid_validity = update->uid_validity;
+	else if (hdr->uid_validity == 0) {
+		/* set uidvalidity */
+		uid_validity = dbox_get_uidvalidity_next(box->list);
+	}
+
+	if (hdr->uid_validity != uid_validity) {
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, uid_validity),
+			&uid_validity, sizeof(uid_validity), TRUE);
+	}
+	if (update != NULL && hdr->next_uid < update->min_next_uid) {
+		uid_next = update->min_next_uid;
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, next_uid),
+			&uid_next, sizeof(uid_next), TRUE);
+	}
 
 	if (mail_index_transaction_commit(&trans) < 0) {
 		mail_storage_set_internal_error(box->storage);
@@ -272,7 +278,8 @@ static int dbox_write_index_header(struct mailbox *box)
 	return 0;
 }
 
-static int create_dbox(struct mailbox *box)
+static int dbox_mailbox_create_indexes(struct mailbox *box,
+				       const struct mailbox_update *update)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 	mode_t mode;
@@ -285,7 +292,7 @@ static int create_dbox(struct mailbox *box)
 		if (index_storage_mailbox_open(box) < 0)
 			return -1;
 		mbox->creating = TRUE;
-		ret = dbox_write_index_header(box);
+		ret = dbox_write_index_header(box, update);
 		mbox->creating = FALSE;
 		if (ret < 0)
 			return -1;
@@ -336,7 +343,7 @@ int dbox_mailbox_open(struct mailbox *box)
 		if (strcmp(box->name, "INBOX") == 0 &&
 		    (box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			/* INBOX always exists, create it */
-			if (create_dbox(box) < 0)
+			if (dbox_mailbox_create_indexes(box, NULL) < 0)
 				return -1;
 			return box->opened ? 0 :
 				index_storage_mailbox_open(box);
@@ -373,9 +380,9 @@ static void dbox_storage_get_status_guid(struct mailbox *box,
 	if (dbox_read_header(mbox, &hdr) < 0)
 		memset(&hdr, 0, sizeof(hdr));
 
-	if (!dbox_index_header_has_mailbox_guid(&hdr)) {
+	if (!mailbox_guid_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */
-		if (dbox_write_index_header(box) < 0 ||
+		if (dbox_write_index_header(box, NULL) < 0 ||
 		    dbox_read_header(mbox, &hdr) < 0)
 			return;
 	}
@@ -394,19 +401,17 @@ dbox_storage_get_status(struct mailbox *box, enum mailbox_status_items items,
 }
 
 static int
-dbox_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, bool directory)
+dbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
+		    bool directory)
 {
 	const char *path, *alt_path;
-	struct mailbox *box;
 	struct stat st;
-	int ret;
 
-	path = mailbox_list_get_path(list, name,
+	path = mailbox_list_get_path(box->list, box->name,
 				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
-		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
+		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
@@ -415,14 +420,14 @@ dbox_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
 		mode_t mode;
 		gid_t gid;
 
-		mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
+		mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid);
 		if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) == 0)
 			return 0;
 		else if (errno == EEXIST) {
-			mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
+			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
 					       "Mailbox already exists");
-		} else if (!mail_storage_set_error_from_errno(storage)) {
-			mail_storage_set_critical(storage,
+		} else if (!mail_storage_set_error_from_errno(box->storage)) {
+			mail_storage_set_critical(box->storage,
 						  "mkdir(%s) failed: %m", path);
 		}
 		return -1;
@@ -432,18 +437,24 @@ dbox_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
 	   race conditions with RENAME/DELETE), but if something crashed and
 	   left it lying around we don't want to start overwriting files in
 	   it. */
-	alt_path = dbox_get_alt_path(list, path);
+	alt_path = dbox_get_alt_path(box->list, path);
 	if (alt_path != NULL && stat(alt_path, &st) == 0) {
-		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
+		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
 
-	box = dbox_mailbox_alloc(storage, list, name, NULL,
-				 MAILBOX_FLAG_KEEP_RECENT);
-	ret = create_dbox(box);
-	mailbox_close(&box);
-	return ret;
+	return dbox_mailbox_create_indexes(box, update);
+}
+
+static int
+dbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
+{
+	if (!box->opened) {
+		if (index_storage_mailbox_open(box) < 0)
+			return -1;
+	}
+	return dbox_write_index_header(box, update);
 }
 
 static int
@@ -848,7 +859,6 @@ struct mail_storage dbox_storage = {
 		dbox_storage_get_list_settings,
 		NULL,
 		dbox_mailbox_alloc,
-		dbox_mailbox_create,
 		dbox_sync_purge
 	}
 };
@@ -864,6 +874,8 @@ struct mailbox dbox_mailbox = {
 		index_storage_mailbox_enable,
 		dbox_mailbox_open,
 		dbox_mailbox_close,
+		dbox_mailbox_create,
+		dbox_mailbox_update,
 		dbox_storage_get_status,
 		NULL,
 		NULL,

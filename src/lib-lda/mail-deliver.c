@@ -107,13 +107,15 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 
 	storage = mailbox_get_storage(box);
 	*error_r = mail_storage_get_last_error(storage, &error);
-	mailbox_close(&box);
-	if (!ctx->set->lda_mailbox_autocreate || error != MAIL_ERROR_NOTFOUND)
+	if (!ctx->set->lda_mailbox_autocreate || error != MAIL_ERROR_NOTFOUND) {
+		mailbox_close(&box);
 		return NULL;
+	}
 
 	/* try creating it. */
-	if (mail_storage_mailbox_create(storage, ns, name, FALSE) < 0) {
+	if (mailbox_create(box, NULL, FALSE) < 0) {
 		*error_r = mail_storage_get_last_error(storage, &error);
+		mailbox_close(&box);
 		return NULL;
 	}
 	if (ctx->set->lda_mailbox_autosubscribe) {
@@ -122,8 +124,6 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	}
 
 	/* and try opening again */
-	box = mailbox_alloc(ns->list, name, NULL, flags);
-	storage = mailbox_get_storage(box);
 	if (mailbox_open(box) < 0 ||
 	    mailbox_sync(box, 0, 0, NULL) < 0) {
 		*error_r = mail_storage_get_last_error(storage, &error);

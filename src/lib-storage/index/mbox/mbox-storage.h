@@ -48,6 +48,7 @@ struct mbox_mailbox {
 
 	uint32_t mbox_ext_idx;
 	struct mbox_index_header mbox_hdr;
+	const struct mailbox_update *sync_hdr_update;
 
 	unsigned int no_mbox_file:1;
 	unsigned int invalid_mbox_file:1;

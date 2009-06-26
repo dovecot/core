@@ -391,21 +391,6 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 	storage->callback_context = context;
 }
 
-int mail_storage_mailbox_create(struct mail_storage *storage,
-				struct mail_namespace *ns, const char *name,
-				bool directory)
-{
-	mail_storage_clear_error(storage);
-
-	if (!mailbox_list_is_valid_create_name(ns->list, name)) {
-		mail_storage_set_error(storage, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
-		return -1;
-	}
-
-	return storage->v.mailbox_create(storage, ns->list, name, directory);
-}
-
 int mail_storage_purge(struct mail_storage *storage)
 {
 	mail_storage_clear_error(storage);
@@ -529,6 +514,27 @@ void mailbox_close(struct mailbox **_box)
 
 	*_box = NULL;
 	box->v.close(box);
+}
+
+int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
+		   bool directory)
+{
+	mail_storage_clear_error(box->storage);
+
+	if (!mailbox_list_is_valid_create_name(box->list, box->name)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
+		return -1;
+	}
+
+	return box->v.create(box, update, directory);
+}
+
+int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
+{
+	mail_storage_clear_error(box->storage);
+
+	return box->v.update(box, update);
 }
 
 struct mail_storage *mailbox_get_storage(const struct mailbox *box)
@@ -1034,4 +1040,15 @@ void mailbox_set_deleted(struct mailbox *box)
 	mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			       "Mailbox was deleted under us");
 	box->mailbox_deleted = TRUE;
+}
+
+bool mailbox_guid_is_empty(const uint8_t guid[MAILBOX_GUID_SIZE])
+{
+	unsigned int i;
+
+	for (i = 0; i < MAILBOX_GUID_SIZE; i++) {
+		if (guid[i] != 0)
+			return FALSE;
+	}
+	return TRUE;
 }

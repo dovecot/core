@@ -30,17 +30,6 @@ test_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 		set->subscription_fname = "subscriptions";
 }
 
-static int
-test_mailbox_create(struct mail_storage *storage,
-		    struct mailbox_list *list ATTR_UNUSED,
-		    const char *name ATTR_UNUSED,
-		    bool directory ATTR_UNUSED)
-{
-	mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "Test mailbox creation isn't supported");
-	return -1;
-}
-
 struct mail_storage test_storage = {
 	MEMBER(name) "test",
 	MEMBER(class_flags) 0,
@@ -56,7 +45,6 @@ struct mail_storage test_storage = {
 		test_storage_get_list_settings,
 		NULL,
 		test_mailbox_alloc,
-		test_mailbox_create,
 		NULL
 	}
 };

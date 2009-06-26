@@ -1080,19 +1080,35 @@ int maildir_uidlist_get_mailbox_guid(struct maildir_uidlist *uidlist,
 	return 0;
 }
 
+void maildir_uidlist_set_mailbox_guid(struct maildir_uidlist *uidlist,
+				      const uint8_t mailbox_guid[MAILBOX_GUID_SIZE])
+{
+	if (memcmp(uidlist->mailbox_guid, mailbox_guid,
+		   sizeof(uidlist->mailbox_guid)) != 0) {
+		memcpy(uidlist->mailbox_guid, mailbox_guid,
+		       sizeof(uidlist->mailbox_guid));
+		uidlist->recreate = TRUE;
+	}
+}
+
 void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 				      uint32_t uid_validity)
 {
 	i_assert(uid_validity != 0);
 
-	uidlist->uid_validity = uid_validity;
+	if (uid_validity != uidlist->uid_validity) {
+		uidlist->uid_validity = uid_validity;
+		uidlist->recreate = TRUE;
+	}
 }
 
 void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
 				  uint32_t next_uid, bool force)
 {
-	if (uidlist->next_uid < next_uid || force)
+	if (uidlist->next_uid < next_uid || force) {
 		uidlist->next_uid = next_uid;
+		uidlist->recreate = TRUE;
+	}
 }
 
 static void
@@ -1163,8 +1179,14 @@ maildir_uidlist_generate_uid_validity(struct maildir_uidlist *uidlist)
 {
 	const struct mail_index_header *hdr;
 
-	hdr = mail_index_get_header(uidlist->ibox->view);
-	uidlist->uid_validity = hdr->uid_validity != 0 ? hdr->uid_validity :
+	if (uidlist->ibox->box.opened) {
+		hdr = mail_index_get_header(uidlist->ibox->view);
+		if (hdr->uid_validity != 0) {
+			uidlist->uid_validity = hdr->uid_validity;
+			return;
+		}
+	}
+	uidlist->uid_validity =
 		maildir_get_uidvalidity_next(uidlist->ibox->box.list);
 }
 

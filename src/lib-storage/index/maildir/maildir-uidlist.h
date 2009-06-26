@@ -84,6 +84,8 @@ uint32_t maildir_uidlist_get_uid_validity(struct maildir_uidlist *uidlist);
 uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist);
 int maildir_uidlist_get_mailbox_guid(struct maildir_uidlist *uidlist,
 				     uint8_t mailbox_guid[MAILBOX_GUID_SIZE]);
+void maildir_uidlist_set_mailbox_guid(struct maildir_uidlist *uidlist,
+				      const uint8_t mailbox_guid[MAILBOX_GUID_SIZE]);
 
 void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 				      uint32_t uid_validity);

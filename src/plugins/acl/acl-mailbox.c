@@ -104,6 +104,41 @@ static void acl_mailbox_close(struct mailbox *box)
 }
 
 static int
+acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
+		   bool directory)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	int ret;
+
+	/* we're looking up CREATE permission from our parent's rights */
+	ret = acl_mailbox_list_have_right(box->list, box->name, TRUE,
+					  ACL_STORAGE_RIGHT_CREATE, NULL);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		/* Note that if user didn't have LOOKUP permission to parent
+		   mailbox, this may reveal the mailbox's existence to user.
+		   Can't help it. */
+		mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
+				       MAIL_ERRSTR_NO_PERMISSION);
+		return -1;
+	}
+	return abox->module_ctx.super.create(box, update, directory);
+}
+
+static int
+acl_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	int ret;
+
+	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_ADMIN);
+	if (ret <= 0)
+		return -1;
+	return abox->module_ctx.super.update(box, update);
+}
+
+static int
 acl_get_write_rights(struct mailbox *box,
 		     bool *flags_r, bool *flag_seen_r, bool *flag_del_r)
 {
@@ -409,6 +444,8 @@ acl_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		box->v.allow_new_keywords = acl_allow_new_keywords;
 		box->v.open = acl_mailbox_open;
 		box->v.close = acl_mailbox_close;
+		box->v.create = acl_mailbox_create;
+		box->v.update = acl_mailbox_update;
 		box->v.mail_alloc = acl_mail_alloc;
 		box->v.save_begin = acl_save_begin;
 		box->v.keywords_create = acl_keywords_create;

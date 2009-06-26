@@ -487,9 +487,28 @@ static int mbox_mailbox_open(struct mailbox *box)
 }
 
 static int
-mbox_mailbox_create(struct mail_storage *_storage, struct mailbox_list *list,
-		    const char *name, bool directory)
+mbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	int ret;
+
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			return -1;
+	}
+
+	mbox->sync_hdr_update = update;
+	ret = mbox_sync(mbox, MBOX_SYNC_HEADER | MBOX_SYNC_FORCE_SYNC |
+			MBOX_SYNC_REWRITE);
+	mbox->sync_hdr_update = NULL;
+	return ret;
+}
+
+static int
+mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
+		    bool directory)
+{
+	struct mail_storage *storage = box->storage;
 	const char *path, *p;
 	struct stat st;
 	mode_t mode;
@@ -497,20 +516,20 @@ mbox_mailbox_create(struct mail_storage *_storage, struct mailbox_list *list,
 	int fd;
 
 	/* make sure it doesn't exist already */
-	path = mailbox_list_get_path(list, name,
+	path = mailbox_list_get_path(box->list, box->name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
-		mail_storage_set_error(_storage, MAIL_ERROR_EXISTS,
+		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
 
 	if (errno != ENOENT) {
 		if (errno == ENOTDIR) {
-			mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+			mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
 				"Mailbox doesn't allow inferior mailboxes");
-		} else if (!mail_storage_set_error_from_errno(_storage)) {
-			mail_storage_set_critical(_storage,
+		} else if (!mail_storage_set_error_from_errno(storage)) {
+			mail_storage_set_critical(storage,
 				"stat() failed for mbox file %s: %m", path);
 		}
 		return -1;
@@ -520,11 +539,11 @@ mbox_mailbox_create(struct mail_storage *_storage, struct mailbox_list *list,
 	p = directory ? path + strlen(path) : strrchr(path, '/');
 	if (p != NULL) {
 		p = t_strdup_until(path, p);
-		mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
+		mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid);
 		if (mkdir_parents_chown(p, mode, (uid_t)-1, gid) < 0 &&
 		    errno != EEXIST) {
-			if (!mail_storage_set_error_from_errno(_storage)) {
-				mail_storage_set_critical(_storage,
+			if (!mail_storage_set_error_from_errno(storage)) {
+				mail_storage_set_critical(storage,
 					"mkdir_parents(%s) failed: %m", p);
 			}
 			return -1;
@@ -540,16 +559,16 @@ mbox_mailbox_create(struct mail_storage *_storage, struct mailbox_list *list,
 	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd != -1) {
 		(void)close(fd);
-		return 0;
+		return update == NULL ? 0 : mbox_mailbox_update(box, update);
 	}
 
 	if (errno == EEXIST) {
 		/* mailbox was just created between stat() and open() call.. */
-		mail_storage_set_error(_storage, MAIL_ERROR_EXISTS,
+		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
-	} else if (!mail_storage_set_error_from_errno(_storage)) {
-		mail_storage_set_critical(_storage,
-			"Can't create mailbox %s: %m", name);
+	} else if (!mail_storage_set_error_from_errno(storage)) {
+		mail_storage_set_critical(storage,
+			"Can't create mailbox %s: %m", box->name);
 	}
 	return -1;
 }
@@ -842,7 +861,6 @@ struct mail_storage mbox_storage = {
 		mbox_storage_get_list_settings,
 		mbox_storage_autodetect,
 		mbox_mailbox_alloc,
-		mbox_mailbox_create,
 		NULL
 	}
 };
@@ -858,6 +876,8 @@ struct mailbox mbox_mailbox = {
 		index_storage_mailbox_enable,
 		mbox_mailbox_open,
 		mbox_mailbox_close,
+		mbox_mailbox_create,
+		mbox_mailbox_update,
 		mbox_storage_get_status,
 		NULL,
 		NULL,

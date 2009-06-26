@@ -16,37 +16,6 @@ struct acl_storage_module acl_storage_module =
 struct acl_user_module acl_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
 
-static int
-acl_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
-		   const char *name, bool directory)
-{
-	union mail_storage_module_context *astorage = ACL_CONTEXT(storage);
-	int ret;
-
-	if ((list->ns->flags & NAMESPACE_FLAG_NOACL) != 0)
-		ret = 1;
-	else T_BEGIN {
-		ret = acl_mailbox_list_have_right(list, name, TRUE,
-						  ACL_STORAGE_RIGHT_CREATE,
-						  NULL);
-	} T_END;
-
-	if (ret <= 0) {
-		if (ret == 0) {
-			/* Note that if the mailbox didn't have LOOKUP
-			   permission, this not reveals to user the mailbox's
-			   existence. Can't help it. */
-			mail_storage_set_error(storage, MAIL_ERROR_PERM,
-					       MAIL_ERRSTR_NO_PERMISSION);
-		} else {
-			mail_storage_set_internal_error(storage);
-		}
-		return -1;
-	}
-
-	return astorage->super.mailbox_create(storage, list, name, directory);
-}
-
 void acl_mail_storage_created(struct mail_storage *storage)
 {
 	struct acl_user *auser = ACL_USER_CONTEXT(storage->user);
@@ -59,7 +28,6 @@ void acl_mail_storage_created(struct mail_storage *storage)
 				 union mail_storage_module_context, 1);
 		astorage->super = storage->v;
 		storage->v.mailbox_alloc = acl_mailbox_alloc;
-		storage->v.mailbox_create = acl_mailbox_create;
 
 		MODULE_CONTEXT_SET_SELF(storage, acl_storage_module, astorage);
 	}
@@ -112,4 +80,3 @@ void acl_mail_user_created(struct mail_user *user)
 	if (acl_next_hook_mail_user_created != NULL)
 		acl_next_hook_mail_user_created(user);
 }
-

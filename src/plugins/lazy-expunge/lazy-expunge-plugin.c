@@ -92,22 +92,17 @@ mailbox_open_or_create(struct mailbox_list *list, const char *name,
 
 	*error_r = mail_storage_get_last_error(mailbox_get_storage(box),
 					       &error);
-	mailbox_close(&box);
-	if (error != MAIL_ERROR_NOTFOUND)
-		return NULL;
-
-	/* try creating it. */
-	storage = mail_namespace_get_default_storage(list->ns);
-	if (mail_storage_mailbox_create(storage, list->ns, name, FALSE) < 0) {
-		*error_r = mail_storage_get_last_error(storage, &error);
+	if (error != MAIL_ERROR_NOTFOUND) {
+		mailbox_close(&box);
 		return NULL;
 	}
 
-	/* and try opening again */
-	box = mailbox_alloc(list, name, NULL, MAILBOX_FLAG_KEEP_RECENT);
-	if (mailbox_open(box) < 0) {
+	/* try creating and re-opening it. */
+	storage = mail_namespace_get_default_storage(list->ns);
+	if (mailbox_create(box, NULL, FALSE) < 0 ||
+	    mailbox_open(box) < 0) {
 		*error_r = mail_storage_get_last_error(mailbox_get_storage(box),
-						       &error);
+						       NULL);
 		mailbox_close(&box);
 		return NULL;
 	}

@@ -178,20 +178,6 @@ listescape_mailbox_alloc(struct mail_storage *storage,
 }
 
 static int
-listescape_mailbox_create(struct mail_storage *storage,
-			  struct mailbox_list *list,
-			  const char *name, bool directory)
-{
-	struct listescape_mail_storage *mstorage =
-		LIST_ESCAPE_CONTEXT(storage);
-
-	if (list->hierarchy_sep != list->ns->sep)
-		name = list_escape(list->ns, name, TRUE);
-	return mstorage->module_ctx.super.
-		mailbox_create(storage, list, name, directory);
-}
-
-static int
 listescape_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
@@ -268,7 +254,6 @@ static void listescape_mail_storage_created(struct mail_storage *storage)
 	mstorage = p_new(storage->pool, struct listescape_mail_storage, 1);
 	mstorage->module_ctx.super = storage->v;
 	storage->v.mailbox_alloc = listescape_mailbox_alloc;
-	storage->v.mailbox_create = listescape_mailbox_create;
 
 	MODULE_CONTEXT_SET(storage, listescape_storage_module, mstorage);
 }

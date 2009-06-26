@@ -475,30 +475,55 @@ maildir_create_shared(struct mail_storage *storage, struct mail_namespace *ns,
 }
 
 static int
-maildir_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
-		       const char *name, bool directory ATTR_UNUSED)
+maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_uidlist *uidlist = mbox->uidlist;
+	int ret;
+
+	if (maildir_uidlist_lock(uidlist) <= 0)
+		return -1;
+
+	if (!mailbox_guid_is_empty(update->mailbox_guid))
+		maildir_uidlist_set_mailbox_guid(uidlist, update->mailbox_guid);
+	if (update->uid_validity != 0)
+		maildir_uidlist_set_uid_validity(uidlist, update->uid_validity);
+	if (update->min_next_uid != 0) {
+		maildir_uidlist_set_next_uid(uidlist, update->min_next_uid,
+					     FALSE);
+	}
+	/* FIXME: update highestmodseq */
+
+	ret = maildir_uidlist_update(uidlist);
+	maildir_uidlist_unlock(uidlist);
+	return ret;
+}
+
+static int
+maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
+		       bool directory)
 {
 	struct stat st;
 	const char *path, *root_dir, *shared_path;
 	mode_t old_mask;
 	int fd;
 
-	path = mailbox_list_get_path(list, name,
+	path = mailbox_list_get_path(box->list, box->name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	root_dir = mailbox_list_get_path(list, NULL,
+	root_dir = mailbox_list_get_path(box->list, NULL,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 	/* if dovecot-shared exists in the root dir, create the mailbox using
 	   its permissions and gid, and copy the dovecot-shared inside it. */
 	shared_path = t_strconcat(root_dir, "/dovecot-shared", NULL);
 	if (stat(shared_path, &st) == 0) {
-		if (maildir_create_shared(storage, list->ns, path,
+		if (maildir_create_shared(box->storage, box->list->ns, path,
 					  st.st_mode & 0666, st.st_gid) < 0)
 			return -1;
 	} else {
-		mailbox_list_get_dir_permissions(list, NULL,
+		mailbox_list_get_dir_permissions(box->list, NULL,
 						 &st.st_mode, &st.st_gid);
-		if (create_maildir(storage, list->ns, path,
+		if (create_maildir(box->storage, box->list->ns, path,
 				   st.st_mode, st.st_gid, FALSE) < 0)
 			return -1;
 	}
@@ -513,19 +538,20 @@ maildir_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
 		/* if dovecot-shared exists, use the same group */
 		if (st.st_gid != (gid_t)-1 &&
 		    fchown(fd, (uid_t)-1, st.st_gid) < 0) {
-			mail_storage_set_critical(storage,
+			mail_storage_set_critical(box->storage,
 				"fchown(%s) failed: %m", path);
 		}
 		(void)close(fd);
 	} else if (errno == ENOENT) {
-		mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			"Mailbox was deleted while it was being created");
 		return -1;
 	} else {
-		mail_storage_set_critical(storage,
+		mail_storage_set_critical(box->storage,
 			"open(%s, O_CREAT) failed: %m", path);
 	}
-	return 0;
+	return directory || update == NULL ? 0 :
+		maildir_mailbox_update(box, update);
 }
 
 static void
@@ -1026,7 +1052,6 @@ struct mail_storage maildir_storage = {
 		maildir_storage_get_list_settings,
 		maildir_storage_autodetect,
 		maildir_mailbox_alloc,
-		maildir_mailbox_create,
 		NULL
 	}
 };
@@ -1042,6 +1067,8 @@ struct mailbox maildir_mailbox = {
 		index_storage_mailbox_enable,
 		maildir_mailbox_open,
 		maildir_mailbox_close,
+		maildir_mailbox_create,
+		maildir_mailbox_update,
 		maildir_storage_get_status,
 		maildir_list_index_has_changed,
 		maildir_list_index_update_sync,

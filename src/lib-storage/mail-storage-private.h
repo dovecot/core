@@ -48,10 +48,6 @@ struct mail_storage_vfuncs {
 					 const char *name,
 					 struct istream *input,
 					 enum mailbox_flags flags);
-
-	int (*mailbox_create)(struct mail_storage *storage,
-			      struct mailbox_list *list, const char *name,
-			      bool directory);
 	int (*purge)(struct mail_storage *storage);
 };
 
@@ -103,6 +99,10 @@ struct mailbox_vfuncs {
 	int (*enable)(struct mailbox *box, enum mailbox_feature features);
 	int (*open)(struct mailbox *box);
 	void (*close)(struct mailbox *box);
+
+	int (*create)(struct mailbox *box, const struct mailbox_update *update,
+		      bool directory);
+	int (*update)(struct mailbox *box, const struct mailbox_update *update);
 
 	void (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			   struct mailbox_status *status_r);
@@ -427,6 +427,6 @@ void mail_generate_guid_128(uint8_t guid[16]);
 int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
-
+bool mailbox_guid_is_empty(const uint8_t guid[MAILBOX_GUID_SIZE]);
 
 #endif

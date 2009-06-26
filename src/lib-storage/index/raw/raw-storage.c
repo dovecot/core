@@ -90,12 +90,21 @@ static int raw_mailbox_open(struct mailbox *box)
 }
 
 static int
-raw_mailbox_create(struct mail_storage *storage,
-		   struct mailbox_list *list ATTR_UNUSED,
-		   const char *name ATTR_UNUSED, bool directory ATTR_UNUSED)
+raw_mailbox_create(struct mailbox *box,
+		   const struct mailbox_update *update ATTR_UNUSED,
+		   bool directory ATTR_UNUSED)
 {
-	mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 			       "Raw mailbox creation isn't supported");
+	return -1;
+}
+
+static int
+raw_mailbox_update(struct mailbox *box,
+		   const struct mailbox_update *update ATTR_UNUSED)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			       "Raw mailbox update isn't supported");
 	return -1;
 }
 
@@ -185,7 +194,6 @@ struct mail_storage raw_storage = {
 		raw_storage_get_list_settings,
 		NULL,
 		raw_mailbox_alloc,
-		raw_mailbox_create,
 		NULL
 	}
 };
@@ -201,6 +209,8 @@ struct mailbox raw_mailbox = {
 		index_storage_mailbox_enable,
 		raw_mailbox_open,
 		index_storage_mailbox_close,
+		raw_mailbox_create,
+		raw_mailbox_update,
 		index_storage_get_status,
 		NULL,
 		NULL,

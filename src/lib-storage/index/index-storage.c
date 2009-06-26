@@ -377,22 +377,9 @@ int index_storage_mailbox_open(struct mailbox *box)
 	enum mail_index_open_flags index_flags;
 	const char *index_dir;
 	struct stat st;
-	gid_t dir_gid;
 	int ret;
 
 	i_assert(!box->opened);
-
-	if (box->file_create_mode == 0) {
-		mailbox_list_get_permissions(box->list, box->name,
-					     &box->file_create_mode,
-					     &box->file_create_gid);
-		mailbox_list_get_dir_permissions(box->list, box->name,
-						 &box->dir_create_mode,
-						 &dir_gid);
-		mail_index_set_permissions(ibox->index,
-					   box->file_create_mode,
-					   box->file_create_gid);
-	}
 
 	index_flags = mail_storage_settings_to_index_flags(box->storage->set);
 	if (!ibox->move_to_memory)
@@ -461,6 +448,7 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 {
 	struct mailbox *box = &ibox->box;
 	const char *path;
+	gid_t dir_gid;
 
 	if (name != NULL)
 		box->name = p_strdup(box->pool, name);
@@ -492,6 +480,18 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 	ibox->index = index_storage_alloc(box->list, name, flags, index_prefix);
 	ibox->md5hdr_ext_idx =
 		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
+
+	if (box->file_create_mode == 0) {
+		mailbox_list_get_permissions(box->list, name,
+					     &box->file_create_mode,
+					     &box->file_create_gid);
+		mailbox_list_get_dir_permissions(box->list, name,
+						 &box->dir_create_mode,
+						 &dir_gid);
+		mail_index_set_permissions(ibox->index,
+					   box->file_create_mode,
+					   box->file_create_gid);
+	}
 }
 
 int index_storage_mailbox_enable(struct mailbox *box,

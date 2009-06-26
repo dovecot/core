@@ -271,13 +271,22 @@ static void virtual_mailbox_close(struct mailbox *box)
 	index_storage_mailbox_close(box);
 }
 
-static int virtual_mailbox_create(struct mail_storage *_storage,
-				  struct mailbox_list *list ATTR_UNUSED,
-				  const char *name ATTR_UNUSED,
-				  bool directory ATTR_UNUSED)
+static int
+virtual_mailbox_create(struct mailbox *box,
+		       const struct mailbox_update *update ATTR_UNUSED,
+		       bool directory ATTR_UNUSED)
 {
-	mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 			       "Can't create virtual mailboxes");
+	return -1;
+}
+
+static int
+virtual_mailbox_update(struct mailbox *box,
+		       const struct mailbox_update *update ATTR_UNUSED)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			       "Can't update virtual mailboxes");
 	return -1;
 }
 
@@ -558,7 +567,6 @@ struct mail_storage virtual_storage = {
 		virtual_storage_get_list_settings,
 		NULL,
 		virtual_mailbox_alloc,
-		virtual_mailbox_create,
 		NULL
 	}
 };
@@ -574,6 +582,8 @@ struct mailbox virtual_mailbox = {
 		index_storage_mailbox_enable,
 		virtual_mailbox_open,
 		virtual_mailbox_close,
+		virtual_mailbox_create,
+		virtual_mailbox_update,
 		index_storage_get_status,
 		NULL,
 		NULL,

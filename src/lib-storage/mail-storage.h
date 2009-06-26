@@ -191,6 +191,14 @@ struct mailbox_status {
 	unsigned int nonpermanent_modseqs:1;
 };
 
+struct mailbox_update {
+	/* All non-zero fields are changed. */
+	uint8_t mailbox_guid[MAILBOX_GUID_SIZE];
+	uint32_t uid_validity;
+	uint32_t min_next_uid;
+	uint64_t min_highest_modseq;
+};
+
 struct mailbox_sync_rec {
 	uint32_t seq1, seq2;
 	enum mailbox_sync_type type;
@@ -271,13 +279,6 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 				struct mail_storage_callbacks *callbacks,
 				void *context);
 
-/* name is allowed to contain multiple new hierarchy levels.
-   If directory is TRUE, the mailbox should be created so that it
-   can contain children. The mailbox itself doesn't have to be
-   created as long as it shows in LIST. */
-int mail_storage_mailbox_create(struct mail_storage *storage,
-				struct mail_namespace *ns, const char *name,
-				bool directory);
 /* Purge storage's mailboxes (freeing disk space from expunged mails),
    if supported by the storage. Otherwise just a no-op. */
 int mail_storage_purge(struct mail_storage *storage);
@@ -296,13 +297,23 @@ bool mail_storage_is_mailbox_file(struct mail_storage *storage) ATTR_PURE;
    Note that append and copy may open the selected mailbox again
    with possibly different readonly-state. */
 struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
-			      struct istream *input,
-			      enum mailbox_flags flags);
+			      struct istream *input, enum mailbox_flags flags);
 /* Open the mailbox. If this function isn't called explicitly, it's also called
    internally by lib-storage when necessary. */
 int mailbox_open(struct mailbox *box);
 /* Close the box. */
 void mailbox_close(struct mailbox **box);
+
+/* Create a mailbox. Returns failure if it already exists. Mailbox name is
+   allowed to contain multiple new non-existing hierarchy levels. If directory
+   is TRUE, the mailbox should be created so that it can contain children. The
+   mailbox itself doesn't have to be created as long as it shows up in LIST.
+   If update is non-NULL, its contents are used to set initial mailbox
+   metadata. */
+int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
+		   bool directory);
+/* Update existing mailbox's metadata. */
+int mailbox_update(struct mailbox *box, const struct mailbox_update *update);
 
 /* Enable the given feature for the mailbox. */
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features);

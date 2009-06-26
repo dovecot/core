@@ -135,9 +135,9 @@ mailbox_convert_maildir_to_dbox(struct mail_namespace *source_ns,
 		"dovecot.index.log",
 		"dovecot.index.cache"
 	};
-	struct mail_storage *dest_storage;
 	string_t *src, *dest;
 	DIR *dir;
+	struct mailbox *destbox;
 	struct dirent *dp;
 	const char *src_path, *dest_path, *new_path, *cur_path;
 	unsigned int i, src_dir_len, dest_dir_len;
@@ -145,14 +145,15 @@ mailbox_convert_maildir_to_dbox(struct mail_namespace *source_ns,
 
 	/* create as non-selectable mailbox so the dbox-Mails directory
 	   isn't created yet */
-	dest_storage = mail_namespace_get_default_storage(dest_ns);
-	if (mail_storage_mailbox_create(dest_storage, dest_ns,
-					dest_name, TRUE) < 0) {
+	destbox = mailbox_alloc(dest_ns->list, dest_name, NULL, 0);
+	if (mailbox_create(destbox, NULL, TRUE) < 0) {
 		i_error("Mailbox conversion: "
 			"Couldn't create mailbox %s: %s",
-			dest_name, storage_error(dest_storage));
+			dest_name, storage_error(mailbox_get_storage(destbox)));
+		mailbox_close(&destbox);
 		return -1;
 	}
+	mailbox_close(&destbox);
 
 	src_path = mailbox_list_get_path(source_ns->list, src_name,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -237,19 +238,21 @@ mailbox_convert_maildir_to_dbox(struct mail_namespace *source_ns,
 }
 
 static int mailbox_convert_list_item(struct mail_namespace *source_ns,
-				     struct mail_namespace *dest_ns,
+				     struct mailbox *destbox,
 				     const struct mailbox_info *info,
 				     struct dotlock *dotlock,
 				     const struct convert_plugin_settings *set)
 {
+	struct mail_namespace *dest_ns;
 	struct mail_storage *dest_storage;
 	const char *name, *dest_name, *error;
-	struct mailbox *srcbox, *destbox;
+	struct mailbox *srcbox;
 	int ret = 0;
 
 	if ((info->flags & MAILBOX_NONEXISTENT) != 0)
 		return 0;
 
+	dest_ns = mailbox_get_namespace(destbox);
 	name = strcasecmp(info->name, "INBOX") == 0 ? "INBOX" : info->name;
 	dest_name = mailbox_name_convert(dest_ns, source_ns, set, name);
 	dest_storage = mail_namespace_get_default_storage(dest_ns);
@@ -259,8 +262,7 @@ static int mailbox_convert_list_item(struct mail_namespace *source_ns,
 		if (*info->name == '.' && set->skip_dotdirs)
 			return 0;
 
-		if (mail_storage_mailbox_create(dest_storage, dest_ns,
-						dest_name, TRUE) < 0) {
+		if (mailbox_create(destbox, NULL, TRUE) < 0) {
 			i_error("Mailbox conversion: Couldn't create mailbox "
 				"directory %s: %s", dest_name,
 				storage_error(dest_storage));
@@ -298,8 +300,7 @@ static int mailbox_convert_list_item(struct mail_namespace *source_ns,
 
 	/* Create and open the destination mailbox. */
 	if (strcmp(dest_name, "INBOX") != 0) {
-		if (mail_storage_mailbox_create(dest_storage, dest_ns,
-						dest_name, FALSE) < 0) {
+		if (mailbox_create(destbox, NULL, FALSE) < 0) {
 			i_error("Mailbox conversion: "
 				"Couldn't create mailbox %s: %s",
 				dest_name, storage_error(dest_storage));
@@ -308,13 +309,10 @@ static int mailbox_convert_list_item(struct mail_namespace *source_ns,
 		}
 	}
 
-	destbox = mailbox_alloc(dest_ns->list, dest_name, NULL,
-				MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(destbox) < 0) {
 		i_error("Mailbox conversion: Couldn't open dest mailbox %s: %s",
 			dest_name, storage_error(mailbox_get_storage(destbox)));
 		mailbox_close(&srcbox);
-		mailbox_close(&destbox);
 		return -1;
 	}
 
@@ -324,7 +322,6 @@ static int mailbox_convert_list_item(struct mail_namespace *source_ns,
 	}
 
 	mailbox_close(&srcbox);
-	mailbox_close(&destbox);
 	return ret;
 }
 
@@ -335,6 +332,7 @@ static int mailbox_list_copy(struct mail_namespace *source_ns,
 {
 	struct mailbox_list_iterate_context *iter;
 	struct mail_namespace *dest_ns;
+	struct mailbox *destbox;
 	const struct mailbox_info *info;
 	int ret = 0;
 
@@ -343,8 +341,11 @@ static int mailbox_list_copy(struct mail_namespace *source_ns,
 				      "*", MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		T_BEGIN {
-			ret = mailbox_convert_list_item(source_ns, dest_ns,
+			destbox = mailbox_alloc(dest_ns->list, info->name, NULL,
+						MAILBOX_FLAG_KEEP_RECENT);
+			ret = mailbox_convert_list_item(source_ns, destbox,
 							info, dotlock, set);
+			mailbox_close(&destbox);
 		} T_END;
 		if (ret < 0)
 			break;

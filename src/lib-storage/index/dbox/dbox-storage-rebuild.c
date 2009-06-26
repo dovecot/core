@@ -543,17 +543,20 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 			break;
 
 		(void)mail_storage_get_last_error(box->storage, &error);
-		mailbox_close(&box);
-		if (error == MAIL_ERROR_TEMP)
-			return -1;
-
 		if (error == MAIL_ERROR_NOTFOUND && !created) {
 			/* mailbox doesn't exist currently? see if creating
 			   it helps. */
 			created = TRUE;
-			(void)mail_storage_mailbox_create(storage,
-				ctx->default_list->ns, mailbox, FALSE);
-		} else if (strcmp(mailbox, "INBOX") != 0) {
+			(void)mailbox_create(box, NULL, FALSE);
+			mailbox_close(&box);
+			continue;
+		}
+
+		mailbox_close(&box);
+		if (error == MAIL_ERROR_TEMP)
+			return -1;
+
+		if (strcmp(mailbox, "INBOX") != 0) {
 			/* see if we can save to INBOX instead. */
 			mailbox = "INBOX";
 		} else {

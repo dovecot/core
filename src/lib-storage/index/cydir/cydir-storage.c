@@ -128,21 +128,46 @@ static int cydir_mailbox_open(struct mailbox *box)
 }
 
 static int
-cydir_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
-		     const char *name, bool directory ATTR_UNUSED)
+cydir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
+{
+	struct cydir_mailbox *mbox = (struct cydir_mailbox *)box;
+	struct mail_index_transaction *trans;
+
+	trans = mail_index_transaction_begin(mbox->ibox.view, 0);
+	if (update->uid_validity != 0) {
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, uid_validity),
+			&update->uid_validity, sizeof(update->uid_validity),
+			TRUE);
+	}
+	/* FIXME: update next_uid, highestmodseq. guid is also missing.. */
+	if (mail_index_transaction_commit(&trans) < 0) {
+		mail_storage_set_internal_error(box->storage);
+		return -1;
+	}
+	return 0;
+}
+
+static int
+cydir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
+		     bool directory)
 {
 	const char *path;
 	struct stat st;
 
-	path = mailbox_list_get_path(list, name,
+	path = mailbox_list_get_path(box->list, box->name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
-		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
+		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;
 	}
 
-	return create_cydir(storage, list, path);
+	if (create_cydir(box->storage, box->list, path) < 0)
+		return -1;
+
+	return directory || update == NULL ? 0 :
+		cydir_mailbox_update(box, update);
 }
 
 static int
@@ -345,7 +370,6 @@ struct mail_storage cydir_storage = {
 		cydir_storage_get_list_settings,
 		NULL,
 		cydir_mailbox_alloc,
-		cydir_mailbox_create,
 		NULL
 	}
 };
@@ -361,6 +385,8 @@ struct mailbox cydir_mailbox = {
 		index_storage_mailbox_enable,
 		cydir_mailbox_open,
 		index_storage_mailbox_close,
+		cydir_mailbox_create,
+		cydir_mailbox_update,
 		index_storage_get_status,
 		NULL,
 		NULL,

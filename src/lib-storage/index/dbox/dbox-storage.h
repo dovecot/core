@@ -108,10 +108,10 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 int dbox_mail_lookup(struct dbox_mailbox *mbox, struct mail_index_view *view,
 		     uint32_t seq, uint32_t *map_uid_r);
 uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list);
-void dbox_set_mailbox_guid(struct dbox_index_header *hdr);
 int dbox_read_header(struct dbox_mailbox *mbox, struct dbox_index_header *hdr);
 void dbox_update_header(struct dbox_mailbox *mbox,
-			struct mail_index_transaction *trans);
+			struct mail_index_transaction *trans,
+			const struct mailbox_update *update);
 
 struct mail_save_context *
 dbox_save_alloc(struct mailbox_transaction_context *_t);

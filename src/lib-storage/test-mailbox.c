@@ -33,6 +33,25 @@ static void test_mailbox_close(struct mailbox *box ATTR_UNUSED)
 {
 }
 
+static int
+test_mailbox_create(struct mailbox *box,
+		    const struct mailbox_update *update ATTR_UNUSED,
+		    bool directory ATTR_UNUSED)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			       "Test mailbox creation isn't supported");
+	return -1;
+}
+
+static int
+test_mailbox_update(struct mailbox *box,
+		    const struct mailbox_update *update ATTR_UNUSED)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			       "Test mailbox update isn't supported");
+	return -1;
+}
+
 static void test_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
 				    enum mailbox_status_items items ATTR_UNUSED,
 				    struct mailbox_status *status_r)
@@ -294,6 +313,8 @@ struct mailbox test_mailbox = {
 		test_mailbox_enable,
 		test_mailbox_open,
 		test_mailbox_close,
+		test_mailbox_create,
+		test_mailbox_update,
 		test_mailbox_get_status,
 		NULL,
 		NULL,

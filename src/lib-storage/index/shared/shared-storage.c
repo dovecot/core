@@ -282,35 +282,6 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	return 0;
 }
 
-static int
-shared_mailbox_create(struct mail_storage *storage, struct mailbox_list *list,
-		      const char *name, bool directory)
-{
-	struct mail_namespace *ns = list->ns;
-	struct mailbox_list *new_list;
-	struct mail_storage *new_storage;
-	const char *str;
-	enum mail_error error;
-	int ret;
-
-	if (shared_storage_get_namespace(&ns, &name) < 0) {
-		str = mailbox_list_get_last_error(list, &error);
-		mail_storage_set_error(storage, error, str);
-		return -1;
-	}
-
-	new_list = ns->list;
-	if (mailbox_list_get_storage(&new_list, &name, &new_storage) < 0)
-		return -1;
-
-	ret = mail_storage_mailbox_create(new_storage, ns, name, directory);
-	if (ret < 0) {
-		str = mail_storage_get_last_error(new_storage, &error);
-		mail_storage_set_error(storage, error, str);
-	}
-	return ret;
-}
-
 struct mail_storage shared_storage = {
 	MEMBER(name) SHARED_STORAGE_NAME,
 	MEMBER(class_flags) 0, /* unknown at this point */
@@ -326,7 +297,6 @@ struct mail_storage shared_storage = {
 		shared_storage_get_list_settings,
 		NULL,
 		NULL,
-		shared_mailbox_create,
 		NULL
 	}
 };

@@ -368,7 +368,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 		unsigned int i, count;
 		uint32_t next_map_uid = first_map_uid;
 
-		dbox_update_header(ctx->mbox, ctx->trans);
+		dbox_update_header(ctx->mbox, ctx->trans, NULL);
 
 		memset(&rec, 0, sizeof(rec));
 		rec.save_date = ioloop_time;
