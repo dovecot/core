@@ -168,6 +168,11 @@ AC_ARG_WITH(bzlib,
   TEST_WITH(bzlib, $withval),
   want_bzlib=auto)
 
+AC_ARG_WITH(libcap,
+[  --with-libcap           Build with libcap support (Dropping capabilities).],
+  TEST_WITH(libcap, $withval),
+  want_libcap=auto)
+
 AC_ARG_WITH(ssl,
 [  --with-ssl=gnutls|openssl Build with GNUTLS or OpenSSL (default)],
 	if test x$withval = xno; then
@@ -326,11 +331,17 @@ AC_SEARCH_LIBS(fdatasync, rt, [
   AC_DEFINE(HAVE_FDATASYNC,, Define if you have fdatasync())
 ])
 
-AC_CHECK_LIB(cap, cap_init, [
-  AC_DEFINE(HAVE_LIBCAP,, libcap is installed for cap_init())
-  LIBCAP="-lcap"
-])
-AC_SUBST(LIBCAP)
+if test $want_libcap != no; then
+  AC_CHECK_LIB(cap, cap_init, [
+    AC_DEFINE(HAVE_LIBCAP,, libcap is installed for cap_init())
+    LIBCAP="-lcap"
+    AC_SUBST(LIBCAP)
+  ], [
+    if test "$want_libcap" = "yes"; then
+      AC_ERROR([Can't build with libcap support: libcap not found])
+    fi
+  ])
+fi
 
 AC_DEFINE(PACKAGE_WEBPAGE, "http://www.dovecot.org/", Support URL)
 
