@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "buffer.h"
+#include "eacces-error.h"
 #include "hash.h"
 #include "str-sanitize.h"
 #include "mmap-util.h"
@@ -700,8 +701,13 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 			return -1;
 	}
 
-	return mail_index_set_error(index, "%s failed with file %s: %m",
-				    function, filepath);
+	if (errno == EACCES) {
+		return mail_index_set_error(index, "%s",
+			eacces_error_get(t_strcut(function, '('), filepath));
+	} else {
+		return mail_index_set_error(index, "%s failed with file %s: %m",
+					    function, filepath);
+	}
 }
 
 const char *mail_index_get_error_message(struct mail_index *index)

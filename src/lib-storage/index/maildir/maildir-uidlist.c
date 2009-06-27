@@ -34,6 +34,7 @@
 #include "file-dotlock.h"
 #include "close-keep-errno.h"
 #include "nfs-workarounds.h"
+#include "eacces-error.h"
 #include "maildir-storage.h"
 #include "maildir-sync.h"
 #include "maildir-filename.h"
@@ -172,8 +173,14 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 		}
 		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT ||
 		    uidlist->mbox == NULL) {
-			mail_storage_set_critical(box->storage,
-				"file_dotlock_create(%s) failed: %m", path);
+			if (errno == EACCES) {
+				mail_storage_set_critical(box->storage, "%s",
+					eacces_error_get_creating("file_dotlock_create", path));
+			} else {
+				mail_storage_set_critical(box->storage,
+					"file_dotlock_create(%s) failed: %m",
+					path);
+			}
 			return -1;
 		}
 		/* the control dir doesn't exist. create it unless the whole
