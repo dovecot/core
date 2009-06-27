@@ -135,6 +135,12 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 			   test_access(path, R_OK, errmsg) < 0) {
 			if (errno == EACCES)
 				str_printfa(errmsg, " missing +r perm: %s", path);
+		} else if (!creating && test_access(path, W_OK, errmsg) < 0) {
+			/* this produces a wrong error if the operation didn't
+			   actually need write permissions, but we don't know
+			   it here.. */
+			if (errno == EACCES)
+				str_printfa(errmsg, " missing +w perm: %s", path);
 		} else
 			str_printfa(errmsg, " UNIX perms seem ok, ACL problem?");
 	}
