@@ -117,6 +117,9 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
 			resp_code = "TRYCREATE";
 			break;
+		default:
+			resp_code = NULL;
+			i_unreached();
 		}
 
 		client_send_tagline(cmd, t_strconcat(
