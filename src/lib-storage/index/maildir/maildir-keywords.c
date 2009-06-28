@@ -10,6 +10,7 @@
 #include "hash.h"
 #include "str.h"
 #include "istream.h"
+#include "eacces-error.h"
 #include "file-dotlock.h"
 #include "write-full.h"
 #include "nfs-workarounds.h"
@@ -285,6 +286,7 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 				     const char *path, int fd)
 {
 	struct maildir_mailbox *mbox = mk->mbox;
+	struct mailbox *box = &mbox->ibox.box;
 	const char *const *keywords;
 	unsigned int i, count;
 	string_t *str;
@@ -308,11 +310,18 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 		return -1;
 	}
 
-	if (st.st_gid != mbox->ibox.box.file_create_gid &&
-	    mbox->ibox.box.file_create_gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, mbox->ibox.box.file_create_gid) < 0) {
-			mail_storage_set_critical(mk->storage,
-				"fchown(%s) failed: %m", path);
+	if (st.st_gid != box->file_create_gid &&
+	    box->file_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
+			if (errno == EPERM) {
+				mail_storage_set_critical(mk->storage, "%s",
+					eperm_error_get_chgrp("fchown", path,
+						box->file_create_gid,
+						box->file_create_gid_origin));
+			} else {
+				mail_storage_set_critical(mk->storage,
+					"fchown(%s) failed: %m", path);
+			}
 		}
 	}
 

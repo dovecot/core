@@ -51,6 +51,7 @@ struct dbox_storage {
 	/* mode/gid to use for new dbox storage files */
 	mode_t create_mode;
 	gid_t create_gid;
+	const char *create_gid_origin;
 
 	ARRAY_DEFINE(open_files, struct dbox_file *);
 

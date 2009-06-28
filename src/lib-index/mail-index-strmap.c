@@ -998,8 +998,9 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 
 	str = t_str_new(256);
 	str_append(str, strmap->path);
-	fd = safe_mkstemp_hostpid(str, view->view->index->mode,
-				  (uid_t)-1, view->view->index->gid);
+	fd = safe_mkstemp_hostpid_group(str, view->view->index->mode,
+					view->view->index->gid,
+					view->view->index->gid_origin);
 	temp_path = str_c(str);
 
 	if (fd == -1) {

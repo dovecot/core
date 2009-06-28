@@ -56,7 +56,7 @@ dbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		    const char **error_r)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
-	const char *dir;
+	const char *dir, *origin;
 
 	storage->set = mail_storage_get_driver_settings(_storage);
 	i_assert(storage->set->dbox_max_open_files >= 2);
@@ -80,7 +80,8 @@ dbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 
 	storage->map = dbox_map_init(storage);
 	mailbox_list_get_dir_permissions(ns->list, NULL, &storage->create_mode,
-					 &storage->create_gid);
+					 &storage->create_gid, &origin);
+	storage->create_gid_origin = p_strdup(_storage->pool, origin);
 	return 0;
 }
 
@@ -282,12 +283,13 @@ static int dbox_mailbox_create_indexes(struct mailbox *box,
 				       const struct mailbox_update *update)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
+	const char *origin;
 	mode_t mode;
 	gid_t gid;
 	int ret;
 
-	mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid);
-	if (mkdir_parents_chown(box->path, mode, (uid_t)-1, gid) == 0) {
+	mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid, &origin);
+	if (mkdir_parents_chgrp(box->path, mode, gid, origin) == 0) {
 		/* create indexes immediately with the dbox header */
 		if (index_storage_mailbox_open(box) < 0)
 			return -1;
@@ -404,7 +406,7 @@ static int
 dbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		    bool directory)
 {
-	const char *path, *alt_path;
+	const char *path, *alt_path, *origin;
 	struct stat st;
 
 	path = mailbox_list_get_path(box->list, box->name,
@@ -420,8 +422,9 @@ dbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		mode_t mode;
 		gid_t gid;
 
-		mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid);
-		if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) == 0)
+		mailbox_list_get_dir_permissions(box->list, NULL, &mode,
+						 &gid, &origin);
+		if (mkdir_parents_chgrp(path, mode, gid, origin) == 0)
 			return 0;
 		else if (errno == EEXIST) {
 			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
@@ -560,11 +563,13 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	if (ret < 0 && errno == ENOENT) {
 		/* either source mailbox doesn't exist or trash directory
 		   doesn't exist. try creating the trash and retrying. */
+		const char *origin;
 		mode_t mode;
 		gid_t gid;
 
-		mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
-		if (mkdir_parents_chown(trash_dir, mode, (uid_t)-1, gid) < 0 &&
+		mailbox_list_get_dir_permissions(list, NULL, &mode,
+						 &gid, &origin);
+		if (mkdir_parents_chgrp(trash_dir, mode, gid, origin) < 0 &&
 		    errno != EEXIST) {
 			mailbox_list_set_critical(list,
 				"mkdir(%s) failed: %m", trash_dir);

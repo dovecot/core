@@ -327,7 +327,7 @@ void mailbox_list_get_closest_storage(struct mailbox_list *list,
 static void
 mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 				  mode_t *file_mode_r, mode_t *dir_mode_r,
-				  gid_t *gid_r)
+				  gid_t *gid_r, const char **gid_origin_r)
 {
 	const char *path;
 	struct stat st;
@@ -345,16 +345,19 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 			/* return defaults */
 			mailbox_list_get_permissions_full(list, NULL,
 							  file_mode_r,
-							  dir_mode_r, gid_r);
+							  dir_mode_r, gid_r,
+							  gid_origin_r);
 			return;
 		}
 		/* return safe defaults */
 		*file_mode_r = 0600;
 		*dir_mode_r = 0700;
 		*gid_r = (gid_t)-1;
+		*gid_origin_r = "defaults";
 	} else {
 		*file_mode_r = st.st_mode & 0666;
 		*dir_mode_r = st.st_mode & 0777;
+		*gid_origin_r = path;
 
 		if (!S_ISDIR(st.st_mode)) {
 			/* we're getting permissions from a file.
@@ -382,6 +385,8 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 		list->file_create_mode = *file_mode_r;
 		list->dir_create_mode = *dir_mode_r;
 		list->file_create_gid = *gid_r;
+		list->file_create_gid_origin =
+			p_strdup(list->pool, *gid_origin_r);
 	}
 
 	if (list->mail_set->mail_debug && name == NULL) {
@@ -393,34 +398,40 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 	}
 }
 
-void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
-				  mode_t *mode_r, gid_t *gid_r)
+void mailbox_list_get_permissions(struct mailbox_list *list,
+				  const char *name,
+				  mode_t *mode_r, gid_t *gid_r,
+				  const char **gid_origin_r)
 {
 	mode_t dir_mode;
 
 	if (list->file_create_mode != (mode_t)-1 && name == NULL) {
 		*mode_r = list->file_create_mode;
 		*gid_r = list->file_create_gid;
+		*gid_origin_r = list->file_create_gid_origin;
 		return;
 	}
 
-	mailbox_list_get_permissions_full(list, name, mode_r, &dir_mode, gid_r);
+	mailbox_list_get_permissions_full(list, name, mode_r, &dir_mode, gid_r,
+					  gid_origin_r);
 }
 
 void mailbox_list_get_dir_permissions(struct mailbox_list *list,
 				      const char *name,
-				      mode_t *mode_r, gid_t *gid_r)
+				      mode_t *mode_r, gid_t *gid_r,
+				      const char **gid_origin_r)
 {
 	mode_t file_mode;
 
 	if (list->dir_create_mode != (mode_t)-1 && name == NULL) {
 		*mode_r = list->dir_create_mode;
 		*gid_r = list->file_create_gid;
+		*gid_origin_r = list->file_create_gid_origin;
 		return;
 	}
 
 	mailbox_list_get_permissions_full(list, name, &file_mode,
-					  mode_r, gid_r);
+					  mode_r, gid_r, gid_origin_r);
 }
 
 bool mailbox_list_is_valid_pattern(struct mailbox_list *list,

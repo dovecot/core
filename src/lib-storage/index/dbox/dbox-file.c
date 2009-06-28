@@ -10,6 +10,7 @@
 #include "file-lock.h"
 #include "mkdir-parents.h"
 #include "fdatasync-path.h"
+#include "eacces-error.h"
 #include "str.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
@@ -441,13 +442,20 @@ int dbox_create_fd(struct dbox_storage *storage, const char *path)
 	if (fd == -1) {
 		mail_storage_set_critical(&storage->storage,
 			"open(%s, O_CREAT) failed: %m", path);
-	} else if (storage->create_gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, storage->create_gid) < 0) {
+	} else if (storage->create_gid == (gid_t)-1) {
+		/* no group change */
+	} else if (fchown(fd, (uid_t)-1, storage->create_gid) < 0) {
+		if (errno == EPERM) {
+			mail_storage_set_critical(&storage->storage, "%s",
+				eperm_error_get_chgrp("fchown", path,
+					storage->create_gid,
+					storage->create_gid_origin));
+		} else {
 			mail_storage_set_critical(&storage->storage,
 				"fchown(%s, -1, %ld) failed: %m",
 				path, (long)storage->create_gid);
-			/* continue anyway */
 		}
+		/* continue anyway */
 	}
 	return fd;
 }

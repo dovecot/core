@@ -8,6 +8,7 @@
 #include "istream-crlf.h"
 #include "ostream.h"
 #include "fdatasync-path.h"
+#include "eacces-error.h"
 #include "str.h"
 #include "index-mail.h"
 #include "maildir-storage.h"
@@ -340,8 +341,16 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		}
 	} else if (box->file_create_gid != (gid_t)-1) {
 		if (fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
-			mail_storage_set_critical(box->storage,
-				"fchown(%s) failed: %m", str_c(path));
+			if (errno == EPERM) {
+				mail_storage_set_critical(box->storage, "%s",
+					eperm_error_get_chgrp("fchown",
+						str_c(path),
+						box->file_create_gid,
+						box->file_create_gid_origin));
+			} else {
+				mail_storage_set_critical(box->storage,
+					"fchown(%s) failed: %m", str_c(path));
+			}
 		}
 	}
 

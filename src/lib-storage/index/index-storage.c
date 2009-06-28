@@ -73,6 +73,7 @@ static void index_list_free(struct index_list *list)
 static int create_missing_index_dir(struct mailbox *box)
 {
 	const char *root_dir, *index_dir, *p, *parent_dir;
+	const char *origin, *parent_origin;
 	mode_t mode, parent_mode;
 	gid_t gid, parent_gid;
 	int n = 0;
@@ -84,8 +85,9 @@ static int create_missing_index_dir(struct mailbox *box)
 	if (strcmp(index_dir, root_dir) == 0 || *index_dir == '\0')
 		return 0;
 
-	mailbox_list_get_dir_permissions(box->list, box->name, &mode, &gid);
-	while (mkdir_chown(index_dir, mode, (uid_t)-1, gid) < 0) {
+	mailbox_list_get_dir_permissions(box->list, box->name, &mode,
+					 &gid, &origin);
+	while (mkdir_chgrp(index_dir, mode, gid, origin) < 0) {
 		if (errno == EEXIST)
 			break;
 
@@ -97,10 +99,11 @@ static int create_missing_index_dir(struct mailbox *box)
 		}
 		/* create the parent directory first */
 		mailbox_list_get_dir_permissions(box->list, NULL,
-						 &parent_mode, &parent_gid);
+						 &parent_mode, &parent_gid,
+						 &parent_origin);
 		parent_dir = t_strdup_until(index_dir, p);
-		if (mkdir_parents_chown(parent_dir, parent_mode,
-					(uid_t)-1, parent_gid) < 0 &&
+		if (mkdir_parents_chgrp(parent_dir, parent_mode,
+					parent_gid, parent_origin) < 0 &&
 		    errno != EEXIST) {
 			mail_storage_set_critical(box->storage,
 				"mkdir(%s) failed: %m", parent_dir);
@@ -449,6 +452,7 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 	struct mailbox *box = &ibox->box;
 	const char *path;
 	gid_t dir_gid;
+	const char *origin, *dir_origin;
 
 	if (name != NULL)
 		box->name = p_strdup(box->pool, name);
@@ -484,13 +488,14 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 	if (box->file_create_mode == 0) {
 		mailbox_list_get_permissions(box->list, name,
 					     &box->file_create_mode,
-					     &box->file_create_gid);
+					     &box->file_create_gid, &origin);
+		box->file_create_gid_origin = p_strdup(box->pool, origin);
 		mailbox_list_get_dir_permissions(box->list, name,
 						 &box->dir_create_mode,
-						 &dir_gid);
+						 &dir_gid, &dir_origin);
 		mail_index_set_permissions(ibox->index,
 					   box->file_create_mode,
-					   box->file_create_gid);
+					   box->file_create_gid, origin);
 	}
 }
 

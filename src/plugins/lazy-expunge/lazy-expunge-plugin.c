@@ -266,18 +266,18 @@ static int
 mailbox_move(struct mailbox_list *src_list, const char *src_name,
 	     struct mailbox_list *dest_list, const char **_dest_name)
 {
-	const char *dir, *dest_name = *_dest_name;
+	const char *dir, *origin, *dest_name = *_dest_name;
 	enum mail_error error;
 	mode_t mode;
 	gid_t gid;
 
 	/* make sure the destination root directory exists */
-	mailbox_list_get_dir_permissions(dest_list, NULL, &mode, &gid);
+	mailbox_list_get_dir_permissions(dest_list, NULL, &mode, &gid, &origin);
 	dir = mailbox_list_get_path(dest_list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
-	if (mkdir_parents_chown(dir, mode, (uid_t)-1, gid) < 0 &&
+	if (mkdir_parents_chgrp(dir, mode, gid, origin) < 0 &&
 	    errno != EEXIST) {
 		mailbox_list_set_critical(src_list,
-			"mkdir_parents_chown(%s) failed: %m", dir);
+			"mkdir_parents(%s) failed: %m", dir);
 		return -1;
 	}
 

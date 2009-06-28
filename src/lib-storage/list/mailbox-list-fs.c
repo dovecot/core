@@ -314,7 +314,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 				  const char *newname, bool rename_children)
 {
 	struct mail_storage *oldstorage;
-	const char *oldpath, *newpath, *p;
+	const char *oldpath, *newpath, *p, *origin;
 	enum mailbox_list_path_type path_type;
 	struct stat st;
 	mode_t mode;
@@ -342,9 +342,10 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	/* create the hierarchy */
 	p = strrchr(newpath, '/');
 	if (p != NULL) {
-		mailbox_list_get_dir_permissions(newlist, NULL, &mode, &gid);
+		mailbox_list_get_dir_permissions(newlist, NULL, &mode,
+						 &gid, &origin);
 		p = t_strdup_until(newpath, p);
-		if (mkdir_parents_chown(p, mode, (uid_t)-1, gid) < 0 &&
+		if (mkdir_parents_chgrp(p, mode, gid, origin) < 0 &&
 		    errno != EEXIST) {
 			if (mailbox_list_set_error_from_errno(oldlist))
 				return -1;

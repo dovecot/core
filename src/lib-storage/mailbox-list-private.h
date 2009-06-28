@@ -92,6 +92,8 @@ struct mailbox_list {
 	/* -1 if not set yet. use mailbox_list_get_permissions() to set them */
 	mode_t file_create_mode, dir_create_mode;
 	gid_t file_create_gid;
+	/* origin (e.g. path) where the file_create_gid was got from */
+	const char *file_create_gid_origin;
 
 	char *error_string;
 	enum mail_error error;

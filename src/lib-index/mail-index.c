@@ -73,6 +73,7 @@ void mail_index_free(struct mail_index **_index)
 	array_free(&index->keywords);
 	array_free(&index->module_contexts);
 
+	i_free(index->gid_origin);
 	i_free(index->error);
 	i_free(index->dir);
 	i_free(index->prefix);
@@ -86,10 +87,13 @@ void mail_index_set_fsync_types(struct mail_index *index,
 }
 
 void mail_index_set_permissions(struct mail_index *index,
-				mode_t mode, gid_t gid)
+				mode_t mode, gid_t gid, const char *gid_origin)
 {
 	index->mode = mode & 0666;
 	index->gid = gid;
+
+	i_free(index->gid_origin);
+	index->gid_origin = i_strdup(gid_origin);
 }
 
 uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
@@ -662,7 +666,13 @@ void mail_index_fchown(struct mail_index *index, int fd, const char *path)
 		   really matter. ignore silently. */
 		return;
 	}
-	mail_index_file_set_syscall_error(index, path, "fchown()");
+	if (errno != EACCES)
+		mail_index_file_set_syscall_error(index, path, "fchown()");
+	else {
+		mail_index_set_error(index, "%s",
+			eperm_error_get_chgrp("fchown", path, index->gid,
+					      index->gid_origin));
+	}
 
 	/* continue, but change permissions so that only the common
 	   subset of group and world is used. this makes sure no one

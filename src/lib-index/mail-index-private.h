@@ -174,6 +174,7 @@ struct mail_index {
 	enum mail_index_sync_type fsync_mask;
 	mode_t mode;
 	gid_t gid;
+	char *gid_origin;
 
 	pool_t extension_pool;
 	ARRAY_DEFINE(extensions, struct mail_index_registered_ext);

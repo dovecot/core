@@ -195,7 +195,7 @@ void mail_index_free(struct mail_index **index);
 void mail_index_set_fsync_types(struct mail_index *index,
 				enum mail_index_sync_type fsync_mask);
 void mail_index_set_permissions(struct mail_index *index,
-				mode_t mode, gid_t gid);
+				mode_t mode, gid_t gid, const char *gid_origin);
 
 /* Open index. Returns 1 if ok, 0 if index doesn't exist and CREATE flags
    wasn't given, -1 if error. */

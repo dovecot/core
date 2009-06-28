@@ -51,11 +51,12 @@ cydir_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 static int create_cydir(struct mail_storage *storage, struct mailbox_list *list,
 			const char *path)
 {
+	const char *origin;
 	mode_t mode;
 	gid_t gid;
 
-	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid);
-	if (mkdir_parents_chown(path, mode, (uid_t)-1, gid) < 0 &&
+	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid, &origin);
+	if (mkdir_parents_chgrp(path, mode, gid, origin) < 0 &&
 	    errno != EEXIST) {
 		if (!mail_storage_set_error_from_errno(storage)) {
 			mail_storage_set_critical(storage,

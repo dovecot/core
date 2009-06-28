@@ -222,7 +222,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
 	struct dotlock *dotlock;
-	const char *p, *dir;
+	const char *p, *dir, *gid_origin, *dir_gid_origin;
 	string_t *str;
 	mode_t mode, dir_mode;
 	gid_t gid, dir_gid;
@@ -232,43 +232,41 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 
 	/* figure out what permissions we should use for maildirsize.
 	   use the inbox namespace's permissions if possible. */
-	mode = 0600; dir_mode = 0700;
+	mode = 0600; dir_mode = 0700; gid_origin = "default";
 	gid = dir_gid = (gid_t)-1;
 	namespaces = array_get(&root->root.quota->namespaces, &count);
 	i_assert(count > 0);
 	for (i = 0; i < count; i++) {
 		if ((namespaces[i]->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			mailbox_list_get_permissions(namespaces[i]->list,
-						     NULL, &mode, &gid);
+						     NULL, &mode, &gid,
+						     &gid_origin);
 			mailbox_list_get_dir_permissions(namespaces[i]->list,
 							 NULL,
-							 &dir_mode, &dir_gid);
+							 &dir_mode, &dir_gid,
+							 &dir_gid_origin);
 			break;
 		}
 	}
 
 	dotlock_settings.use_excl_lock = set->dotlock_use_excl;
 	dotlock_settings.nfs_flush = set->mail_nfs_storage;
-	fd = file_dotlock_open_mode(&dotlock_settings, path,
-				    DOTLOCK_CREATE_FLAG_NONBLOCK,
-				    mode, (uid_t)-1, gid, &dotlock);
+	fd = file_dotlock_open_group(&dotlock_settings, path,
+				     DOTLOCK_CREATE_FLAG_NONBLOCK,
+				     mode, gid, gid_origin, &dotlock);
 	if (fd == -1 && errno == ENOENT) {
 		/* the control directory doesn't exist yet? create it */
 		p = strrchr(path, '/');
 		dir = t_strdup_until(path, p);
-		if (mkdir_parents(dir, dir_mode) < 0 && errno != EEXIST) {
+		if (mkdir_parents_chgrp(dir, dir_mode, dir_gid,
+					dir_gid_origin) < 0 &&
+		    errno != EEXIST) {
 			i_error("mkdir_parents(%s) failed: %m", dir);
 			return -1;
 		}
-		if (dir_gid != (gid_t)-1) {
-			if (chown(dir, (uid_t)-1, dir_gid) < 0) {
-				i_error("chown(%s,-1,%ld) failed: %m",
-					dir, (long)dir_gid);
-			}
-		}
-		fd = file_dotlock_open_mode(&dotlock_settings, path,
-					    DOTLOCK_CREATE_FLAG_NONBLOCK,
-					    mode, (uid_t)-1, gid, &dotlock);
+		fd = file_dotlock_open_group(&dotlock_settings, path,
+					     DOTLOCK_CREATE_FLAG_NONBLOCK,
+					     mode, gid, gid_origin, &dotlock);
 	}
 	if (fd == -1) {
 		if (errno == EAGAIN) {

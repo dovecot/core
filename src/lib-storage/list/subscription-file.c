@@ -89,7 +89,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 {
 	struct dotlock_settings dotlock_set;
 	struct dotlock *dotlock;
-	const char *line, *p, *dir;
+	const char *line, *p, *dir, *origin;
 	struct istream *input;
 	struct ostream *output;
 	int fd_in, fd_out;
@@ -107,22 +107,22 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	dotlock_set.timeout = SUBSCRIPTION_FILE_LOCK_TIMEOUT;
 	dotlock_set.stale_timeout = SUBSCRIPTION_FILE_CHANGE_TIMEOUT;
 
-	mailbox_list_get_permissions(list, NULL, &mode, &gid);
-	mailbox_list_get_dir_permissions(list, NULL, &dir_mode, &gid);
-	fd_out = file_dotlock_open_mode(&dotlock_set, path, 0,
-					mode, (uid_t)-1, gid, &dotlock);
+	mailbox_list_get_permissions(list, NULL, &mode, &gid, &origin);
+	mailbox_list_get_dir_permissions(list, NULL, &dir_mode, &gid, &origin);
+	fd_out = file_dotlock_open_group(&dotlock_set, path, 0,
+					 mode, gid, origin, &dotlock);
 	if (fd_out == -1 && errno == ENOENT) {
 		/* directory hasn't been created yet. */
 		p = strrchr(path, '/');
 		dir = p == NULL ? NULL : t_strdup_until(path, p);
 		if (dir != NULL &&
-		    mkdir_parents_chown(dir, dir_mode, (uid_t)-1, gid) < 0 &&
+		    mkdir_parents_chgrp(dir, dir_mode, gid, origin) < 0 &&
 		    errno != EEXIST) {
 			subswrite_set_syscall_error(list, "mkdir()", dir);
 			return -1;
 		}
-		fd_out = file_dotlock_open_mode(&dotlock_set, path, 0,
-						mode, (uid_t)-1, gid, &dotlock);
+		fd_out = file_dotlock_open_group(&dotlock_set, path, 0,
+						 mode, gid, origin, &dotlock);
 	}
 	if (fd_out == -1) {
 		if (errno == EAGAIN) {

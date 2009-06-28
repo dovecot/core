@@ -235,6 +235,8 @@ struct mailbox {
 	/* mode and GID to use for newly created files/dirs */
 	mode_t file_create_mode, dir_create_mode;
 	gid_t file_create_gid;
+	/* origin (e.g. path) where the file_create_gid was got from */
+	const char *file_create_gid_origin;
 
 	/* Mailbox notification settings: */
 	unsigned int notify_min_interval;

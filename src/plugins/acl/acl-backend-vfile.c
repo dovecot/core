@@ -846,18 +846,18 @@ static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
 					  struct dotlock **dotlock_r)
 {
 	struct acl_object *_aclobj = &aclobj->aclobj;
+	const char *gid_origin;
 	mode_t mode;
 	gid_t gid;
 	int fd;
 
 	/* first lock the ACL file */
 	mailbox_list_get_permissions(_aclobj->backend->list, _aclobj->name,
-				     &mode, &gid);
-	fd = file_dotlock_open_mode(&dotlock_set, aclobj->local_path, 0,
-				    mode, (uid_t)-1, gid, dotlock_r);
+				     &mode, &gid, &gid_origin);
+	fd = file_dotlock_open_group(&dotlock_set, aclobj->local_path, 0,
+				     mode, gid, gid_origin, dotlock_r);
 	if (fd == -1) {
-		i_error("file_dotlock_open_mode(%s) failed: %m",
-			aclobj->local_path);
+		i_error("file_dotlock_open(%s) failed: %m", aclobj->local_path);
 		return -1;
 	}
 

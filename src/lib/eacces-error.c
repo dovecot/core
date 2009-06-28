@@ -88,8 +88,9 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	const struct group *group;
 	string_t *errmsg;
 	struct stat st, dir_st;
-	int ret = -1;
+	int orig_errno, ret = -1;
 
+	orig_errno = errno;
 	errmsg = t_str_new(256);
 	str_printfa(errmsg, "%s(%s) failed: Permission denied (euid=%s",
 		    func, path, dec2str(geteuid()));
@@ -145,6 +146,7 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 			str_printfa(errmsg, " UNIX perms seem ok, ACL problem?");
 	}
 	str_append_c(errmsg, ')');
+	errno = orig_errno;
 	return str_c(errmsg);
 }
 
@@ -156,4 +158,30 @@ const char *eacces_error_get(const char *func, const char *path)
 const char *eacces_error_get_creating(const char *func, const char *path)
 {
 	return eacces_error_get_full(func, path, TRUE);
+}
+
+const char *eperm_error_get_chgrp(const char *func, const char *path,
+				  gid_t gid, const char *gid_origin)
+{
+	string_t *errmsg;
+	const struct group *group;
+	int orig_errno = errno;
+
+	errmsg = t_str_new(256);
+	
+	str_printfa(errmsg, "%s(%s, -1, %s", func, path, dec2str(gid));
+	group = getgrgid(gid);
+	if (group != NULL)
+		str_printfa(errmsg, "(%s)", group->gr_name);
+
+	str_printfa(errmsg, ") failed: Operation not permitted (egid=%s",
+		    dec2str(getegid()));
+	group = getgrgid(getegid());
+	if (group != NULL)
+		str_printfa(errmsg, "(%s)", group->gr_name);
+	if (gid_origin != NULL)
+		str_printfa(errmsg, ", group based on %s", gid_origin);
+	str_append_c(errmsg, ')');
+	errno = orig_errno;
+	return str_c(errmsg);
 }

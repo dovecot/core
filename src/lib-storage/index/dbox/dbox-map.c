@@ -69,8 +69,9 @@ void dbox_map_deinit(struct dbox_map **_map)
 
 static int dbox_map_mkdir_storage(struct dbox_storage *storage)
 {
-	if (mkdir_parents_chown(storage->storage_dir, storage->create_mode,
-				(uid_t)-1, storage->create_gid) < 0 &&
+	if (mkdir_parents_chgrp(storage->storage_dir, storage->create_mode,
+				storage->create_gid,
+				storage->create_gid_origin) < 0 &&
 	    errno != EEXIST) {
 		mail_storage_set_critical(&storage->storage,
 			"mkdir(%s) failed: %m", storage->storage_dir);

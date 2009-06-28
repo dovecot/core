@@ -1316,8 +1316,14 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 			return -1;
 	}
 
-	if (box->file_create_gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
+	if (box->file_create_gid != (gid_t)-1 &&
+	    fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
+		if (errno == EPERM) {
+			mail_storage_set_critical(box->storage, "%s",
+				eperm_error_get_chgrp("fchown", temp_path,
+						box->file_create_gid,
+						box->file_create_gid_origin));
+		} else {
 			mail_storage_set_critical(box->storage,
 				"fchown(%s) failed: %m", temp_path);
 		}

@@ -509,7 +509,7 @@ mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		    bool directory)
 {
 	struct mail_storage *storage = box->storage;
-	const char *path, *p;
+	const char *path, *p, *origin;
 	struct stat st;
 	mode_t mode;
 	gid_t gid;
@@ -539,8 +539,9 @@ mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	p = directory ? path + strlen(path) : strrchr(path, '/');
 	if (p != NULL) {
 		p = t_strdup_until(path, p);
-		mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid);
-		if (mkdir_parents_chown(p, mode, (uid_t)-1, gid) < 0 &&
+		mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid,
+						 &origin);
+		if (mkdir_parents_chgrp(p, mode, gid, origin) < 0 &&
 		    errno != EEXIST) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,

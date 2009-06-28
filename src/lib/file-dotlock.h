@@ -73,6 +73,10 @@ int file_dotlock_open_mode(const struct dotlock_settings *set, const char *path,
 			   enum dotlock_create_flags flags,
 			   mode_t mode, uid_t uid, gid_t gid,
 			   struct dotlock **dotlock_r);
+int file_dotlock_open_group(const struct dotlock_settings *set, const char *path,
+			    enum dotlock_create_flags flags,
+			    mode_t mode, gid_t gid, const char *gid_origin,
+			    struct dotlock **dotlock_r);
 /* Replaces the file dotlock protects with the dotlock file itself. */
 int file_dotlock_replace(struct dotlock **dotlock,
 			 enum dotlock_replace_flags flags);

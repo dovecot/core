@@ -90,6 +90,7 @@ static const char *address_sanitize(const char *address)
 static int deliver_create_dir(struct mail_user *user, const char *dir)
 {
 	struct mail_namespace *ns;
+	const char *origin;
 	mode_t mode;
 	gid_t gid;
 
@@ -97,8 +98,8 @@ static int deliver_create_dir(struct mail_user *user, const char *dir)
 	if (ns == NULL)
 		ns = user->namespaces;
 
-	mailbox_list_get_dir_permissions(ns->list, NULL, &mode, &gid);
-	if (mkdir_parents_chown(dir, mode, (uid_t)-1, gid) == 0) {
+	mailbox_list_get_dir_permissions(ns->list, NULL, &mode, &gid, &origin);
+	if (mkdir_parents_chgrp(dir, mode, gid, origin) == 0) {
 		return 0;
 	} else if (errno == EACCES) {
 		i_error("%s", eacces_error_get_creating("mkdir_parents_chown",

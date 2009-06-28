@@ -133,12 +133,12 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 static int maildir_create_path(struct mailbox *box, const char *path,
 			       bool is_mail_dir)
 {
-	const char *p, *parent;
+	const char *p, *parent, *origin;
 	mode_t parent_mode;
 	gid_t parent_gid;
 
-	if (mkdir_chown(path, box->dir_create_mode,
-			(uid_t)-1, box->file_create_gid) == 0)
+	if (mkdir_chgrp(path, box->dir_create_mode, box->file_create_gid,
+			box->file_create_gid_origin) == 0)
 		return 0;
 
 	switch (errno) {
@@ -153,10 +153,11 @@ static int maildir_create_path(struct mailbox *box, const char *path,
 		}
 		/* create index/control root directory */
 		parent = t_strdup_until(path, p);
-		mailbox_list_get_dir_permissions(box->list, NULL,
-						 &parent_mode, &parent_gid);
-		if (mkdir_parents_chown(parent, parent_mode, (uid_t)-1,
-					parent_gid) == 0 || errno == EEXIST) {
+		mailbox_list_get_dir_permissions(box->list, NULL, &parent_mode,
+						 &parent_gid, &origin);
+		if (mkdir_parents_chgrp(parent, parent_mode, parent_gid,
+					origin) == 0 ||
+		    errno == EEXIST) {
 			/* should work now, try again */
 			return maildir_create_path(box, path, TRUE);
 		}
