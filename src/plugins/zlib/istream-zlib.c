@@ -51,7 +51,8 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *)stream;
 	size_t size;
-	int ret;
+	const char *errstr;
+	int ret, errnum;
 
 	if (stream->pos == stream->buffer_size) {
 		if (!zstream->marked && stream->skip > 0) {
@@ -93,6 +94,12 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	}
 
 	if (ret < 0) {
+		errstr = gzerror(zstream->file, &errnum);
+		if (errnum != Z_ERRNO) {
+			i_error("gzread() failed: %s", errstr);
+			stream->istream.stream_errno = EINVAL;
+			return -1;
+		}
 		if (errno == EAGAIN) {
 			i_assert(!stream->istream.blocking);
 			ret = 0;

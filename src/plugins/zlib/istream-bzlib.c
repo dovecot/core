@@ -15,6 +15,8 @@
 #define gzclose BZ2_bzclose
 #define gzread BZ2_bzread
 #define gzseek BZ2_bzseek
+#define gzerror BZ2_bzerror
+#define Z_ERRNO BZ_IO_ERROR
 
 #define i_stream_create_zlib i_stream_create_bzlib
 #include "istream-zlib.c"
