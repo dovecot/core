@@ -778,12 +778,12 @@ void index_sort_list_finish_string(struct mail_search_sort_program *program)
 		/* fast path: we have all sort IDs */
 		array_sort(&ctx->nonzero_nodes, sort_node_cmp);
 
+		nodes = array_get(&ctx->nonzero_nodes, &count);
 		if (!array_is_created(&program->seqs))
 			i_array_init(&program->seqs, count);
 		else
 			array_clear(&program->seqs);
 
-		nodes = array_get(&ctx->nonzero_nodes, &count);
 		for (i = 0; i < count; i++) {
 			seq = nodes[i].seq;
 			array_append(&program->seqs, &seq, 1);
