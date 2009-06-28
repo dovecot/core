@@ -103,6 +103,26 @@ static void acl_mailbox_close(struct mailbox *box)
 	abox->module_ctx.super.close(box);
 }
 
+static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
+	struct acl_object *parent_aclobj;
+	struct acl_object_list_iter *iter;
+	struct acl_rights_update update;
+
+	memset(&update, 0, sizeof(update));
+	update.modify_mode = ACL_MODIFY_MODE_REPLACE;
+	update.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
+
+	parent_aclobj = acl_object_init_from_parent(alist->rights.backend,
+						    box->name);
+	iter = acl_object_list_init(parent_aclobj);
+	while (acl_object_list_next(iter, &update.rights) > 0)
+		(void)acl_object_update(abox->aclobj, &update);
+	acl_object_list_deinit(&iter);
+	acl_object_deinit(&parent_aclobj);
+}
 static int
 acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
@@ -123,7 +143,11 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 				       MAIL_ERRSTR_NO_PERMISSION);
 		return -1;
 	}
-	return abox->module_ctx.super.create(box, update, directory);
+	if (abox->module_ctx.super.create(box, update, directory) < 0)
+		return -1;
+
+	acl_mailbox_copy_acls_from_parent(box);
+	return 0;
 }
 
 static int
