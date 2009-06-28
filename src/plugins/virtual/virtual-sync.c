@@ -782,7 +782,7 @@ static void virtual_sync_drop_nonexisting(struct virtual_backend_box *bbox,
 	if (!iter_done) {
 		do {
 			seq_range_array_add(&drop_uids, 0, remove_uid);
-		} while (!seq_range_array_iter_nth(&iter, n++, &remove_uid));
+		} while (seq_range_array_iter_nth(&iter, n++, &remove_uid));
 	}
 	seq_range_array_remove_seq_range(removed_uids, &drop_uids);
 }
