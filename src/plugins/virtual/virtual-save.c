@@ -1,12 +1,15 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "virtual-transaction.h"
 #include "virtual-storage.h"
 
 struct virtual_save_context {
 	struct mail_save_context ctx;
 	struct mail_save_context *backend_save_ctx;
+	struct mailbox *backend_box;
+	struct mail_keywords *backend_keywords;
 };
 
 struct mail_save_context *
@@ -32,6 +35,31 @@ virtual_save_alloc(struct mailbox_transaction_context *_t)
 	return &ctx->ctx;
 }
 
+static struct mail_keywords *
+virtual_copy_keywords(struct mailbox *src_box,
+		      const struct mail_keywords *src_keywords,
+		      struct mailbox *dest_box)
+{
+	struct mailbox_status status;
+	ARRAY_TYPE(keywords) kw_strings;
+	const char *const *kwp;
+	unsigned int i;
+
+	if (src_keywords == NULL || src_keywords->count == 0)
+		return NULL;
+
+	t_array_init(&kw_strings, src_keywords->count + 1);
+	mailbox_get_status(src_box, STATUS_KEYWORDS, &status);
+
+	for (i = 0; i < src_keywords->count; i++) {
+		kwp = array_idx(status.keywords, src_keywords->idx[i]);
+		array_append(&kw_strings, kwp, 1);
+	}
+	(void)array_append_space(&kw_strings);
+	return mailbox_keywords_create_valid(dest_box,
+					     array_idx(&kw_strings, 0));
+}
+
 int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct virtual_save_context *ctx = (struct virtual_save_context *)_ctx;
@@ -46,8 +74,13 @@ int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		return -1;
 	}
 
+	ctx->backend_box = ctx->backend_save_ctx->transaction->box;
+	ctx->backend_keywords =
+		virtual_copy_keywords(_ctx->transaction->box, _ctx->keywords,
+				      ctx->backend_box);
+
 	mailbox_save_set_flags(ctx->backend_save_ctx, _ctx->flags,
-			       _ctx->keywords);
+			       ctx->backend_keywords);
 	mailbox_save_set_received_date(ctx->backend_save_ctx,
 				       _ctx->received_date,
 				       _ctx->received_tz_offset);
@@ -87,6 +120,8 @@ void virtual_save_cancel(struct mail_save_context *_ctx)
 
 void virtual_save_free(struct virtual_save_context *ctx)
 {
+	if (ctx->backend_keywords != NULL)
+		mailbox_keywords_free(ctx->backend_box, &ctx->backend_keywords);
 	if (ctx->backend_save_ctx != NULL)
 		mailbox_save_cancel(&ctx->backend_save_ctx);
 	i_free(ctx);
