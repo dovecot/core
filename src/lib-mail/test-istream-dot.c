@@ -26,6 +26,7 @@ static void test_istream_dot_one(const struct dot_test *test,
 	test_input = test_istream_create(test->input);
 	input = i_stream_create_dot(test_input, send_last_lf);
 
+	input_len = strlen(test->input);
 	output_len = strlen(test->output);
 	if (!send_last_lf &&
 	    (test->input[input_len-1] == '\n' ||
@@ -33,13 +34,13 @@ static void test_istream_dot_one(const struct dot_test *test,
 	     strstr(test->input, "\n.\r\n") != NULL)) {
 		if (test->output[output_len-1] == '\n') {
 			output_len--;
-			if (test->output[output_len-1] == '\r')
+			if (output_len > 0 &&
+			    test->output[output_len-1] == '\r')
 				output_len--;
 		}
 	}
 
 	str = t_str_new(256);
-	input_len = strlen(test->input);
 	if (!test_bufsize) {
 		outsize = 1; i = 0;
 		i_stream_set_max_buffer_size(input, outsize);
@@ -90,7 +91,7 @@ static void test_istream_dot_one(const struct dot_test *test,
 		str_append_n(str, data, size);
 	}
 	test_assert(str_len(str) == output_len);
-	test_assert(memcmp(str_data(str), test->output, size) == 0);
+	test_assert(memcmp(str_data(str), test->output, output_len) == 0);
 
 	data = i_stream_get_data(test_input, &size);
 	test_assert(size == strlen(test->parent_input));
