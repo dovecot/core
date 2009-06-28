@@ -162,6 +162,7 @@ struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 		fstream->istream.istream.blocking = TRUE;
 		fstream->istream.istream.seekable = TRUE;
 	}
+	fstream->istream.istream.readable_fd = TRUE;
 
 	return i_stream_create(&fstream->istream, NULL, fd);
 }

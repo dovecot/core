@@ -269,6 +269,7 @@ struct istream *i_stream_create_concat(struct istream *input[])
 	cstream->istream.seek = i_stream_concat_seek;
 	cstream->istream.stat = i_stream_concat_stat;
 
+	cstream->istream.istream.readable_fd = FALSE;
 	cstream->istream.istream.blocking = blocking;
 	cstream->istream.istream.seekable = seekable;
 	return i_stream_create(&cstream->istream, NULL, -1);

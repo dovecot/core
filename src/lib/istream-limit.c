@@ -138,6 +138,7 @@ struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 	lstream->istream.stat = i_stream_limit_stat;
 	lstream->istream.get_size = i_stream_limit_get_size;
 
+	lstream->istream.istream.readable_fd = input->readable_fd;
 	lstream->istream.istream.blocking = input->blocking;
 	lstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&lstream->istream, input,

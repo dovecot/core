@@ -232,6 +232,7 @@ struct istream *i_stream_create_dot(struct istream *input, bool send_last_lf)
 	dstream->istream.read = i_stream_dot_read;
 	dstream->istream.stat = i_stream_dot_stat;
 
+	dstream->istream.istream.readable_fd = FALSE;
 	dstream->istream.istream.blocking = input->blocking;
 	dstream->istream.istream.seekable = FALSE;
 	dstream->send_last_lf = send_last_lf;

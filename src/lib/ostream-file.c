@@ -856,7 +856,7 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 	off_t in_abs_offset, ret;
 	int in_fd;
 
-	in_fd = i_stream_get_fd(instream);
+	in_fd = !instream->readable_fd ? -1 : i_stream_get_fd(instream);
 
 	if (in_fd == foutstream->fd) {
 		/* copying data within same fd. we'll have to be careful with

@@ -438,6 +438,7 @@ i_stream_create_raw_mbox(struct istream *input, const char *path)
 	rstream->istream.sync = i_stream_raw_mbox_sync;
 	rstream->istream.stat = i_stream_raw_mbox_stat;
 
+	rstream->istream.istream.readable_fd = input->readable_fd;
 	rstream->istream.istream.blocking = input->blocking;
 	rstream->istream.istream.seekable = input->seekable;
 

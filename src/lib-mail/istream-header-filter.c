@@ -415,6 +415,7 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->istream.sync = i_stream_header_filter_sync;
 	mstream->istream.stat = i_stream_header_filter_stat;
 
+	mstream->istream.istream.readable_fd = FALSE;
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
 

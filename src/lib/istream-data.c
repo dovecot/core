@@ -27,6 +27,7 @@ struct istream *i_stream_create_from_data(const void *data, size_t size)
 	stream->read = i_stream_data_read;
 	stream->seek = i_stream_data_seek;
 
+	stream->istream.readable_fd = FALSE;
 	stream->istream.blocking = TRUE;
 	stream->istream.seekable = TRUE;
 	(void)i_stream_create(stream, NULL, -1);
