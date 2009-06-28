@@ -196,7 +196,8 @@ static void expire_run(struct master_service *service, bool testrun)
 
 	ctx.testrun = testrun;
 	env = expire_env_init(expire, expire_altmove);
-	dict = dict_init(expire_dict, DICT_DATA_TYPE_UINT32, "");
+	dict = dict_init(expire_dict, DICT_DATA_TYPE_UINT32, "",
+			 user_set->base_dir);
 	if (dict == NULL)
 		i_fatal("dict_init() failed");
 

@@ -6,7 +6,7 @@
 struct dict_vfuncs {
 	struct dict *(*init)(struct dict *dict_driver, const char *uri,
 			     enum dict_data_type value_type,
-			     const char *username);
+			     const char *username, const char *base_dir);
 	void (*deinit)(struct dict *dict);
 
 	int (*lookup)(struct dict *dict, pool_t pool,

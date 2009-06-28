@@ -29,7 +29,7 @@ void dict_drivers_unregister_all(void);
 /* Open dictionary with given URI (type:data).
    If URI is invalid, returns NULL. */
 struct dict *dict_init(const char *uri, enum dict_data_type value_type,
-		       const char *username);
+		       const char *username, const char *base_dir);
 /* Close dictionary. */
 void dict_deinit(struct dict **dict);
 

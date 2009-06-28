@@ -44,7 +44,8 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 
 	uri = mail_user_plugin_getenv(user, "acl_shared_dict");
 	if (uri != NULL) {
-		dict->dict = dict_init(uri, DICT_DATA_TYPE_STRING, "");
+		dict->dict = dict_init(uri, DICT_DATA_TYPE_STRING, "",
+				       user->set->base_dir);
 		if (dict->dict == NULL)
 			i_error("acl: dict_init(%s) failed", uri);
 	} else if (user->mail_debug) {

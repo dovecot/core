@@ -64,7 +64,7 @@ static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx);
 static struct dict *
 sql_dict_init(struct dict *driver, const char *uri,
 	      enum dict_data_type value_type ATTR_UNUSED,
-	      const char *username)
+	      const char *username, const char *base_dir ATTR_UNUSED)
 {
 	struct sql_dict *dict;
 	pool_t pool;

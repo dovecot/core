@@ -313,7 +313,8 @@ static void expire_mail_user_created(struct mail_user *user)
 		euser->env = expire_env_init(expunge_env, altmove_env);
 		/* we're using only shared dictionary, the username
 		   doesn't matter. */
-		euser->db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "");
+		euser->db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
+				      user->set->base_dir);
 		if (euser->db == NULL)
 			i_error("expire plugin: dict_init(%s) failed", dict_uri);
 		else

@@ -66,7 +66,8 @@ static struct dotlock_settings file_dict_dotlock_settings = {
 
 static struct dict *file_dict_init(struct dict *driver, const char *uri,
 				   enum dict_data_type value_type ATTR_UNUSED,
-				   const char *username ATTR_UNUSED)
+				   const char *username ATTR_UNUSED,
+				   const char *base_dir ATTR_UNUSED)
 {
 	struct file_dict *dict;
 	

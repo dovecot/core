@@ -2,6 +2,7 @@
 #define DICT_SETTINGS_H
 
 struct dict_settings {
+	const char *base_dir;
 	const char *dict_db_config;
 	ARRAY_DEFINE(dicts, const char *);
 };

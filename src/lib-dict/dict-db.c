@@ -137,9 +137,10 @@ static int db_dict_open(struct db_dict *dict, const char *uri,
 	return 0;
 }
 
-static struct dict *db_dict_init(struct dict *driver, const char *uri,
-				 enum dict_data_type value_type,
-				 const char *username)
+static struct dict *
+db_dict_init(struct dict *driver, const char *uri,
+	     enum dict_data_type value_type,
+	     const char *username, const char *base_dir ATTR_UNUSED)
 {
 	struct db_dict *dict;
 	pool_t pool;

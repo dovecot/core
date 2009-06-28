@@ -9,6 +9,7 @@
 	{ type, #name, offsetof(struct dict_settings, name), NULL }
 
 static struct setting_define dict_setting_defines[] = {
+	DEF(SET_STR, base_dir),
 	DEF(SET_STR, dict_db_config),
 	{ SET_STRLIST, "dict", offsetof(struct dict_settings, dicts), NULL },
 
@@ -16,6 +17,7 @@ static struct setting_define dict_setting_defines[] = {
 };
 
 struct dict_settings dict_default_settings = {
+	MEMBER(base_dir) PKG_RUNDIR,
 	MEMBER(dict_db_config) "",
 	MEMBER(dicts) ARRAY_INIT
 };

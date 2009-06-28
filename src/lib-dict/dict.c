@@ -64,7 +64,7 @@ void dict_drivers_unregister_builtin(void)
 }
 
 struct dict *dict_init(const char *uri, enum dict_data_type value_type,
-		       const char *username)
+		       const char *username, const char *base_dir)
 {
 	struct dict *dict;
 	const char *p, *name;
@@ -85,7 +85,7 @@ struct dict *dict_init(const char *uri, enum dict_data_type value_type,
 	} T_END;
 
 	return dict == NULL ? NULL :
-		dict->v.init(dict, p+1, value_type, username);
+		dict->v.init(dict, p+1, value_type, username, base_dir);
 }
 
 void dict_deinit(struct dict **_dict)

@@ -72,7 +72,8 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 
 	/* FIXME: we should use 64bit integer as datatype instead but before
 	   it can actually be used don't bother */
-	root->dict = dict_init(args, DICT_DATA_TYPE_STRING, username);
+	root->dict = dict_init(args, DICT_DATA_TYPE_STRING, username,
+			       _root->quota->user->set->base_dir);
 	return root->dict != NULL ? 0 : -1;
 }
 
