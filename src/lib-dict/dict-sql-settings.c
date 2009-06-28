@@ -120,6 +120,18 @@ static const char *dict_sql_fields_map(struct setting_parser_ctx *ctx)
 
 static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 {
+	if (ctx->cur_map.pattern == NULL)
+		return "Missing setting: pattern";
+	if (ctx->cur_map.table == NULL)
+		return "Missing setting: table";
+	if (ctx->cur_map.value_field == NULL)
+		return "Missing setting: value_field";
+
+	if (ctx->cur_map.username_field == NULL) {
+		/* not all queries require this */
+		ctx->cur_map.username_field = "'username_field not set'";
+	}
+
 	if (!array_is_created(&ctx->cur_map.sql_fields)) {
 		/* no fields besides value. allocate the array anyway. */
 		p_array_init(&ctx->cur_map.sql_fields, ctx->pool, 1);
