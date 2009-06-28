@@ -2268,6 +2268,8 @@ STORAGE_LIB='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
 
 LINKED_STORAGE_LIBS=
 mail_storages="$mail_storages raw"
+# drop duplicates
+mail_storages=`(for i in $mail_storages; do echo $i; done)|sort|uniq|xargs echo`
 for storage in $mail_storages; do
   LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS `eval echo \\$${storage}_libs`"
 done
