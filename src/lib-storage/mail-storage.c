@@ -168,6 +168,10 @@ mail_storage_create_root(struct mailbox_list *list,
 
 	root_dir = mailbox_list_get_path(list, NULL,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (root_dir == NULL) {
+		/* storage doesn't use directories (e.g. shared root) */
+		return 0;
+	}
 	if (stat(root_dir, &st) == 0) {
 		/* ok */
 		return 0;
@@ -241,9 +245,12 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 	}
 
 	memset(&list_set, 0, sizeof(list_set));
-	if (data == NULL)
-		data = "";
-	else {
+	if (data == NULL) {
+		/* autodetect */
+	} else if (driver != NULL && strcmp(driver, "shared") == 0) {
+		/* internal shared namespace */
+		list_set.root_dir = ns->user->set->base_dir;
+	} else {
 		if (driver == NULL)
 			mail_storage_set_autodetection(&data, &driver);
 		if (mailbox_list_settings_parse(data, &list_set, ns,
