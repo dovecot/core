@@ -1900,7 +1900,6 @@ if test $want_ldap != no; then
 	  fi
 	])
 fi
-AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
 
 if test $have_ldap = no; then
   not_passdb="$not_passdb ldap"
@@ -1914,6 +1913,7 @@ else
     passdb="$passdb (plugin)"
   fi
 fi
+AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
 
 dict_drivers=client
 
