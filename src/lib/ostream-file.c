@@ -737,40 +737,6 @@ static off_t io_stream_sendfile(struct ostream_private *outstream,
 	return ret < 0 ? -1 : (off_t)(instream->v_offset - start_offset);
 }
 
-static off_t io_stream_copy(struct ostream_private *outstream,
-			    struct istream *instream)
-{
-	struct file_ostream *foutstream = (struct file_ostream *)outstream;
-	uoff_t start_offset;
-	struct const_iovec iov;
-	const unsigned char *data;
-	ssize_t ret;
-
-	start_offset = instream->v_offset;
-	for (;;) {
-		(void)i_stream_read_data(instream, &data, &iov.iov_len,
-					 foutstream->optimal_block_size-1);
-		if (iov.iov_len == 0) {
-			/* all sent */
-			break;
-		}
-
-		iov.iov_base = data;
-		ret = o_stream_file_sendv(outstream, &iov, 1);
-		if (ret <= 0) {
-			if (ret == 0)
-				break;
-			return -1;
-		}
-		i_stream_skip(instream, ret);
-
-		if ((size_t)ret != iov.iov_len)
-			break;
-	}
-
-	return (off_t) (instream->v_offset - start_offset);
-}
-
 static off_t io_stream_copy_backwards(struct ostream_private *outstream,
 				      struct istream *instream, uoff_t in_size)
 {
@@ -848,17 +814,14 @@ static off_t io_stream_copy_backwards(struct ostream_private *outstream,
 	return (off_t) (in_size - in_start_offset);
 }
 
-static off_t o_stream_file_send_istream(struct ostream_private *outstream,
-					struct istream *instream)
+static off_t io_stream_copy_stream(struct ostream_private *outstream,
+				   struct istream *instream, bool same_stream)
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	const struct stat *st;
 	off_t in_abs_offset, ret;
-	int in_fd;
 
-	in_fd = !instream->readable_fd ? -1 : i_stream_get_fd(instream);
-
-	if (in_fd == foutstream->fd) {
+	if (same_stream) {
 		/* copying data within same fd. we'll have to be careful with
 		   seeks and overlapping writes. */
 		st = i_stream_stat(instream, TRUE);
@@ -884,7 +847,21 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 		}
 	}
 
-	if (!foutstream->no_sendfile && in_fd != -1 && instream->seekable) {
+	return io_stream_copy(&outstream->ostream, instream,
+			      foutstream->optimal_block_size);
+}
+
+static off_t o_stream_file_send_istream(struct ostream_private *outstream,
+					struct istream *instream)
+{
+	struct file_ostream *foutstream = (struct file_ostream *)outstream;
+	bool same_stream;
+	int in_fd;
+	off_t ret;
+
+	in_fd = !instream->readable_fd ? -1 : i_stream_get_fd(instream);
+	if (!foutstream->no_sendfile && in_fd != -1 &&
+	    in_fd != foutstream->fd && instream->seekable) {
 		ret = io_stream_sendfile(outstream, instream, in_fd);
 		if (ret >= 0 || outstream->ostream.stream_errno != EINVAL)
 			return ret;
@@ -895,7 +872,8 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 		foutstream->no_sendfile = TRUE;
 	}
 
-	return io_stream_copy(outstream, instream);
+	same_stream = i_stream_get_fd(instream) == foutstream->fd;
+	return io_stream_copy_stream(outstream, instream, same_stream);
 }
 
 static struct file_ostream *

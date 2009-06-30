@@ -203,3 +203,36 @@ struct ostream *o_stream_create(struct ostream_private *_stream)
 	io_stream_init(&_stream->iostream);
 	return &_stream->ostream;
 }
+
+off_t io_stream_copy(struct ostream *outstream, struct istream *instream,
+		     size_t block_size)
+{
+	uoff_t start_offset;
+	struct const_iovec iov;
+	const unsigned char *data;
+	ssize_t ret;
+
+	start_offset = instream->v_offset;
+	for (;;) {
+		(void)i_stream_read_data(instream, &data, &iov.iov_len,
+					 block_size-1);
+		if (iov.iov_len == 0) {
+			/* all sent */
+			break;
+		}
+
+		iov.iov_base = data;
+		ret = o_stream_sendv(outstream, &iov, 1);
+		if (ret <= 0) {
+			if (ret == 0)
+				break;
+			return -1;
+		}
+		i_stream_skip(instream, ret);
+
+		if ((size_t)ret != iov.iov_len)
+			break;
+	}
+
+	return (off_t)(instream->v_offset - start_offset);
+}
