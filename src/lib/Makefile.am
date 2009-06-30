@@ -80,6 +80,7 @@ liblib_la_SOURCES = \
 	nfs-workarounds.c \
 	ostream.c \
 	ostream-file.c \
+	ostream-buffer.c \
 	primes.c \
 	printf-format-fix.c \
 	process-title.c \

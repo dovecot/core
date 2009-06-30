@@ -34,6 +34,8 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd);
    If offset==(uoff_t)-1, the current offset isn't known. */
 struct ostream *
 o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd);
+/* Create an output stream to a buffer. */
+struct ostream *o_stream_create_buffer(buffer_t *buf);
 
 /* o_stream_close() + o_stream_unref() */
 void o_stream_destroy(struct ostream **stream);
