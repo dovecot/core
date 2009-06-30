@@ -32,6 +32,7 @@ SUBDIRS = \
 	log \
 	config \
 	util \
+	dsync \
 	plugins
 
 test:

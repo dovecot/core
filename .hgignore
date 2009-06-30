@@ -59,6 +59,7 @@ src/config/config
 src/config/doveconf
 src/lda/dovecot-lda
 src/dict/dict
+src/dsync/dsync
 src/imap-login/imap-login
 src/imap/imap
 src/lib/unicodemap.c
@@ -80,7 +81,7 @@ src/util/doveadm
 src/util/dovecotpw
 src/util/gdbhelper
 src/util/idxview
-src/util/imap_utf7
+src/util/imap-utf7
 src/util/listview
 src/util/logview
 src/util/maildirlock

@@ -2471,6 +2471,7 @@ src/lib-storage/register/Makefile
 src/anvil/Makefile
 src/auth/Makefile
 src/config/Makefile
+src/dsync/Makefile
 src/lda/Makefile
 src/log/Makefile
 src/lmtp/Makefile

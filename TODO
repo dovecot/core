@@ -1,3 +1,10 @@
+ - dsync:
+   - do copying before expunges
+   - subscriptions
+   - cache
+ - Add mailbox_list_create_dir() and remove bool directory from mailbox_create()
+doveconf: Fatal: Error in configuration file /usr/local/etc/dovecot2.conf: Namespace '0RealMails/': alias_for points to unknown namespace: 0lol
+ - protocol lda { recipient_delimiter=+ }
  - search: use mail_get_parts() only when it's already cached. if it's not,
    add it to cache afterwards.
  - mail_storage_service_multi_*() doesn't support giving module/service to
@@ -16,6 +23,7 @@
    .libs/*.a changes not
  - o_stream_set_file_path()
  - dict pooling
+ - master: if many service processes (login) are idling, kill some of them
 
 	/* currently non-external transactions can be applied multiple times,
 	   causing multiple increments. */
