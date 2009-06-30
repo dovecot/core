@@ -168,6 +168,20 @@ void test_out_reason(const char *name, bool success, const char *reason)
 	total_count++;
 }
 
+static void
+test_error_handler(enum log_type type, const char *format, va_list args)
+{
+	default_error_handler(type, format, args);
+#ifdef DEBUG
+	if (type == LOG_TYPE_WARNING && strstr(format, "Growing") != NULL) {
+		/* ignore "Growing memory pool" and "Growing data stack"
+		   warnings */
+		return;
+	}
+#endif
+	test_success = FALSE;
+}
+
 void test_init(void)
 {
 	test_prefix = NULL;
@@ -175,6 +189,7 @@ void test_init(void)
 	total_count = 0;
 
 	lib_init();
+	i_set_error_handler(test_error_handler);
 }
 
 int test_deinit(void)
