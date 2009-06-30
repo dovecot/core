@@ -17,4 +17,8 @@ void test_out_reason(const char *name, bool success, const char *reason);
 
 int test_run(void (*test_functions[])(void));
 
+void test_init(void);
+int test_deinit(void);
+void test_run_funcs(void (*test_functions[])(void));
+
 #endif

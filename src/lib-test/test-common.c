@@ -168,7 +168,7 @@ void test_out_reason(const char *name, bool success, const char *reason)
 	total_count++;
 }
 
-static void test_init(void)
+void test_init(void)
 {
 	test_prefix = NULL;
 	failure_count = 0;
@@ -177,22 +177,27 @@ static void test_init(void)
 	lib_init();
 }
 
-static int test_deinit(void)
+int test_deinit(void)
 {
 	i_assert(test_prefix == NULL);
 	printf("%u / %u tests failed\n", failure_count, total_count);
 	return failure_count == 0 ? 0 : 1;
 }
 
-int test_run(void (*test_functions[])(void))
+void test_run_funcs(void (*test_functions[])(void))
 {
 	unsigned int i;
 
-	test_init();
 	for (i = 0; test_functions[i] != NULL; i++) {
 		T_BEGIN {
 			test_functions[i]();
 		} T_END;
 	}
+}
+
+int test_run(void (*test_functions[])(void))
+{
+	test_init();
+	test_run_funcs(test_functions);
 	return test_deinit();
 }
