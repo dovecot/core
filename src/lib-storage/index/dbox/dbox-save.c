@@ -83,7 +83,7 @@ static void dbox_save_add_to_index(struct dbox_save_context *ctx)
 	enum mail_flags save_flags;
 
 	save_flags = ctx->ctx.flags & ~MAIL_RECENT;
-	mail_index_append(ctx->trans, 0, &ctx->seq);
+	mail_index_append(ctx->trans, ctx->ctx.uid, &ctx->seq);
 	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 				save_flags);
 	if (ctx->ctx.keywords != NULL) {

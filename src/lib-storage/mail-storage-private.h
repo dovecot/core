@@ -385,10 +385,11 @@ struct mail_save_context {
 	enum mail_flags flags;
 	struct mail_keywords *keywords;
 
-	time_t received_date;
+	time_t received_date, save_date;
 	int received_tz_offset;
 
-	char *guid, *from_envelope;
+	uint32_t uid;
+	char *guid, *pop3_uidl, *from_envelope;
 	struct ostream *output;
 };
 

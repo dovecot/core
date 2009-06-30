@@ -920,6 +920,7 @@ mailbox_save_alloc(struct mailbox_transaction_context *t)
 
 	ctx = t->box->v.save_alloc(t);
 	ctx->received_date = (time_t)-1;
+	ctx->save_date = (time_t)-1;
 	return ctx;
 }
 
@@ -951,11 +952,22 @@ void mailbox_save_set_received_date(struct mail_save_context *ctx,
 	ctx->received_tz_offset = timezone_offset;
 }
 
+void mailbox_save_set_save_date(struct mail_save_context *ctx,
+				time_t save_date)
+{
+	ctx->save_date = save_date;
+}
+
 void mailbox_save_set_from_envelope(struct mail_save_context *ctx,
 				    const char *envelope)
 {
 	i_free(ctx->from_envelope);
 	ctx->from_envelope = i_strdup(envelope);
+}
+
+void mailbox_save_set_uid(struct mail_save_context *ctx, uint32_t uid)
+{
+	ctx->uid = uid;
 }
 
 void mailbox_save_set_guid(struct mail_save_context *ctx, const char *guid)
@@ -964,6 +976,12 @@ void mailbox_save_set_guid(struct mail_save_context *ctx, const char *guid)
 
 	i_free(ctx->guid);
 	ctx->guid = i_strdup(guid);
+}
+
+void mailbox_save_set_pop3_uidl(struct mail_save_context *ctx, const char *uidl)
+{
+	i_free(ctx->pop3_uidl);
+	ctx->pop3_uidl = i_strdup(uidl);
 }
 
 void mailbox_save_set_dest_mail(struct mail_save_context *ctx,

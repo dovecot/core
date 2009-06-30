@@ -663,4 +663,5 @@ void index_save_context_free(struct mail_save_context *ctx)
 {
 	i_free_and_null(ctx->from_envelope);
 	i_free_and_null(ctx->guid);
+	i_free_and_null(ctx->pop3_uidl);
 }

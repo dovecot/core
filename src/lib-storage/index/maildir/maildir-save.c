@@ -457,6 +457,14 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 		ctx->failed = TRUE;
 	}
 
+	if (_ctx->save_date != (time_t)-1) {
+		/* we can't change ctime, but we can add the date to cache */
+		struct index_mail *mail = (struct index_mail *)_ctx->dest_mail;
+		uint32_t t = _ctx->save_date;
+
+		index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE, &t, sizeof(t));
+	}
+
 	if (ctx->ctx.received_date != (time_t)-1) {
 		/* set the received_date by modifying mtime */
 		buf.actime = ioloop_time;
