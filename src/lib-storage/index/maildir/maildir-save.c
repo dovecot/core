@@ -616,7 +616,7 @@ static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 }
 
 static int
-maildir_transaction_save_commit_pre_sync(struct maildir_save_context *ctx)
+maildir_save_sync_index(struct maildir_save_context *ctx)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)ctx->ctx.transaction;
@@ -671,56 +671,31 @@ maildir_transaction_save_commit_pre_sync(struct maildir_save_context *ctx)
 	return 0;
 }
 
-int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
+static void
+maildir_save_rollback_index_changes(struct maildir_save_context *ctx)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)ctx->ctx.transaction;
-	struct maildir_filename *mf;
 	uint32_t seq;
-	enum maildir_uidlist_rec_flag flags;
-	enum maildir_uidlist_sync_flags sync_flags;
+
+	for (seq = ctx->seq; seq >= ctx->first_seq; seq--)
+		mail_index_expunge(ctx->trans, seq);
+
+	mail_cache_transaction_rollback(&t->ictx.cache_trans);
+	t->ictx.cache_trans = mail_cache_get_transaction(t->ictx.cache_view,
+							 t->ictx.trans);
+}
+
+static int
+maildir_save_move_files_to_newcur(struct maildir_save_context *ctx,
+				  struct maildir_filename **last_mf_r)
+{
+	struct maildir_filename *mf;
 	bool newdir, new_changed, cur_changed;
-	int ret;
+	int ret = 0;
 
-	i_assert(ctx->ctx.output == NULL);
-	i_assert(ctx->finished);
+	*last_mf_r = NULL;
 
-	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL |
-		MAILDIR_UIDLIST_SYNC_NOREFRESH;
-
-	/* if we want to assign UIDs or keywords, we require uidlist lock */
-	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) == 0 &&
-	    !ctx->have_keywords) {
-		/* assign the UIDs if we happen to get a lock */
-		sync_flags |= MAILDIR_UIDLIST_SYNC_TRYLOCK;
-	}
-	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags,
-					&ctx->uidlist_sync_ctx);
-	if (ret <= 0 &&
-	    (ret < 0 || (sync_flags & MAILDIR_UIDLIST_SYNC_TRYLOCK) == 0)) {
-		maildir_transaction_save_rollback(ctx);
-		return -1;
-	}
-
-	ctx->locked = maildir_uidlist_is_locked(ctx->mbox->uidlist);
-	if (ctx->locked) {
-		if (maildir_transaction_save_commit_pre_sync(ctx) < 0) {
-			maildir_transaction_save_rollback(ctx);
-			return -1;
-		}
-	} else {
-		/* since we couldn't lock uidlist, we'll have to drop the
-		   appends to index. */
-		for (seq = ctx->seq; seq >= ctx->first_seq; seq--)
-			mail_index_expunge(ctx->trans, seq);
-
-		mail_cache_transaction_rollback(&t->ictx.cache_trans);
-		t->ictx.cache_trans =
-			mail_cache_get_transaction(t->ictx.cache_view,
-						   t->ictx.trans);
-	}
-
-	/* move them into new/ and/or cur/ */
 	ret = 0;
 	ctx->moving = TRUE;
 	new_changed = cur_changed = FALSE;
@@ -747,33 +722,81 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			}
 		} T_END;
 		if (ret < 0)
-			break;
+			return -1;
+		*last_mf_r = mf;
 	}
 
-	if (ret == 0) {
-		ret = maildir_transaction_fsync_dirs(ctx, new_changed,
-						     cur_changed);
-	}
-	if (ret == 0 && ctx->uidlist_sync_ctx != NULL) {
-		/* everything was moved successfully. update our internal
-		   state. */
-		for (mf = ctx->files; mf != NULL; mf = mf->next) T_BEGIN {
-			const char *dest;
-			newdir = maildir_get_updated_filename(ctx, mf, &dest);
+	return maildir_transaction_fsync_dirs(ctx, new_changed, cur_changed);
+}
 
-			flags = MAILDIR_UIDLIST_REC_FLAG_RECENT;
-			if (newdir)
-				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
-			ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
-							dest, flags);
-			i_assert(ret > 0);
-		} T_END;
+static void maildir_save_sync_uidlist(struct maildir_save_context *ctx)
+{
+	struct maildir_filename *mf;
+	enum maildir_uidlist_rec_flag flags;
+	bool newdir;
+	int ret;
+
+	for (mf = ctx->files; mf != NULL; mf = mf->next) T_BEGIN {
+		const char *dest;
+
+		newdir = maildir_get_updated_filename(ctx, mf, &dest);
+		flags = MAILDIR_UIDLIST_REC_FLAG_RECENT;
+		if (newdir)
+			flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
+		ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
+						dest, flags);
+		i_assert(ret > 0);
+	} T_END;
+}
+
+int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
+{
+	struct maildir_transaction_context *t =
+		(struct maildir_transaction_context *)ctx->ctx.transaction;
+	struct maildir_filename *last_mf;
+	enum maildir_uidlist_sync_flags sync_flags;
+	int ret;
+
+	i_assert(ctx->ctx.output == NULL);
+	i_assert(ctx->finished);
+
+	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL |
+		MAILDIR_UIDLIST_SYNC_NOREFRESH;
+
+	/* if we want to assign UIDs or keywords, we require uidlist lock */
+	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) == 0 &&
+	    !ctx->have_keywords) {
+		/* assign the UIDs if we happen to get a lock */
+		sync_flags |= MAILDIR_UIDLIST_SYNC_TRYLOCK;
+	}
+	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags,
+					&ctx->uidlist_sync_ctx);
+	if (ret > 0) {
+		ctx->locked = TRUE;
+		if (maildir_save_sync_index(ctx) < 0) {
+			maildir_transaction_save_rollback(ctx);
+			return -1;
+		}
+	} else if (ret == 0 &&
+		   (sync_flags & MAILDIR_UIDLIST_SYNC_TRYLOCK) != 0) {
+		ctx->locked = FALSE;
+		i_assert(ctx->uidlist_sync_ctx == NULL);
+		/* since we couldn't lock uidlist, we'll have to drop the
+		   appends to index. */
+		maildir_save_rollback_index_changes(ctx);
+	} else {
+		maildir_transaction_save_rollback(ctx);
+		return -1;
 	}
 
-	if (ctx->uidlist_sync_ctx != NULL) {
+	ret = maildir_save_move_files_to_newcur(ctx, &last_mf);
+	if (ctx->locked) {
 		/* update dovecot-uidlist file. */
+		if (ret == 0)
+			maildir_save_sync_uidlist(ctx);
+
 		if (maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx,
-						ret >= 0) < 0)
+						ret == 0) < 0)
 			ret = -1;
 	}
 
@@ -790,8 +813,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	if (ctx->locked) {
 		/* It doesn't matter if index syncing fails */
 		ctx->keywords_sync_ctx = NULL;
-		(void)maildir_sync_index_finish(&ctx->sync_ctx,
-						ret < 0, FALSE);
+		(void)maildir_sync_index_finish(&ctx->sync_ctx, ret < 0, FALSE);
 	}
 
 	if (ret < 0) {
@@ -802,7 +824,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		/* unlink the files we just moved in an attempt to rollback
 		   the transaction. uidlist is still locked, so at least other
 		   Dovecot instances haven't yet seen the files. */
-		maildir_transaction_unlink_copied_files(ctx, mf);
+		maildir_transaction_unlink_copied_files(ctx, last_mf);
 
 		if (ctx->keywords_sync_ctx != NULL)
 			maildir_keywords_sync_deinit(&ctx->keywords_sync_ctx);
@@ -810,7 +832,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		maildir_transaction_save_rollback(ctx);
 		return -1;
 	}
-	return ret;
+	return 0;
 }
 
 void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
