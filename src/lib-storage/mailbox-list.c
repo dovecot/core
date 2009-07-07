@@ -165,14 +165,28 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 }
 
 static int fix_path(struct mail_namespace *ns, const char *path,
-		    const char **path_r)
+		    const char **path_r, const char **error_r)
 {
 	size_t len = strlen(path);
 
 	if (len > 1 && path[len-1] == '/')
 		path = t_strndup(path, len-1);
-	if (mail_user_try_home_expand(ns->user, &path) < 0)
-		return -1;
+	if (path[0] == '~' && path[1] != '/') {
+		/* ~otheruser/dir */
+		if (home_try_expand(&path) < 0) {
+			*error_r = t_strconcat(
+				"No home directory for system user. "
+				"Can't expand ", t_strcut(path, '/'),
+				" for ", NULL);
+			return -1;
+		}
+	} else {
+		if (mail_user_try_home_expand(ns->user, &path) < 0) {
+			*error_r = "Home directory not set for user. "
+				"Can't expand ~/ for ";
+			return -1;
+		}
+	}
 	*path_r = path;
 	return 0;
 }
@@ -200,7 +214,7 @@ int mailbox_list_settings_parse(const char *data,
 				struct mailbox_list_settings *set,
 				struct mail_namespace *ns, const char **error_r)
 {
-	const char *const *tmp, *key, *value, **dest, *str;
+	const char *const *tmp, *key, *value, **dest, *str, *error;
 
 	*error_r = NULL;
 
@@ -210,10 +224,8 @@ int mailbox_list_settings_parse(const char *data,
 	/* <root dir> */
 	tmp = t_strsplit(data, ":");
 	str = split_next_arg(&tmp);
-	if (fix_path(ns, str, &set->root_dir) < 0) {
-		*error_r = t_strdup_printf(
-			"Home directory not set, can't expand ~/ for "
-			"mail root dir in: %s", data);
+	if (fix_path(ns, str, &set->root_dir, &error) < 0) {
+		*error_r = t_strconcat(error, "mail root dir in: ", data, NULL);
 		return -1;
 	}
 
@@ -248,10 +260,8 @@ int mailbox_list_settings_parse(const char *data,
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
 		}
-		if (fix_path(ns, value, dest) < 0) {
-			*error_r = t_strdup_printf(
-				"Home directory not set, can't expand ~/ for "
-				"%s in: %s", key, data);
+		if (fix_path(ns, value, dest, &error) < 0) {
+			*error_r = t_strconcat(error, key, " in: ", data, NULL);
 			return -1;
 		}
 	}
