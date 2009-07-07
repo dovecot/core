@@ -313,7 +313,7 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 	p = strchr(args, ' ');
 	if (p == NULL) {
 		mech_name = args;
-		args = "";
+		args = NULL;
 	} else {
 		mech_name = t_strdup_until(args, p);
 		args = p+1;
