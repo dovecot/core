@@ -36,7 +36,7 @@ RQUOTA_XDR = rquota_xdr.c
 #RQUOTA_X = /usr/include/rpcsvc/rquota.x
 RQUOTA_X = $(srcdir)/rquota.x
 rquota_xdr.c: Makefile $(RQUOTA_X)
-	if "$(srcdir)" != "$(builddir)" ; then cp $(RQUOTA_X) $(builddir) ; fi
+	if [ "$(srcdir)" != "$(builddir)" ]; then cp $(RQUOTA_X) $(builddir); fi
 	(echo '#include "lib.h"'; \
 	 echo '#include <rpc/rpc.h>'; \
 	 $(RPCGEN) -c $(builddir)/rquota.x | \
