@@ -581,6 +581,30 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 		quota_next_hook_mailbox_list_created(list);
 }
 
+static void quota_root_set_namespace(struct quota_root *root,
+				     struct mail_namespace *namespaces)
+{
+	const struct quota_rule *rules;
+	unsigned int i, count;
+	const char *name;
+
+	if (root->ns_prefix != NULL && root->ns == NULL) {
+		root->ns = mail_namespace_find_prefix(namespaces,
+						      root->ns_prefix);
+		if (root->ns == NULL) {
+			i_error("quota: Unknown namespace: %s",
+				root->ns_prefix);
+		}
+	}
+
+	rules = array_get(&root->set->rules, &count);
+	for (i = 0; i < count; i++) {
+		name = rules[i].mailbox_name;
+		if (mail_namespace_find(namespaces, &name) == NULL)
+			i_error("quota: Unknown namespace: %s", name);
+	}
+}
+
 void quota_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	struct quota *quota;
@@ -589,15 +613,6 @@ void quota_mail_namespaces_created(struct mail_namespace *namespaces)
 
 	quota = quota_get_mail_user_quota(namespaces->user);
 	roots = array_get(&quota->roots, &count);
-	for (i = 0; i < count; i++) {
-		if (roots[i]->ns_prefix == NULL || roots[i]->ns != NULL)
-			continue;
-
-		roots[i]->ns = mail_namespace_find_prefix(namespaces,
-							  roots[i]->ns_prefix);
-		if (roots[i]->ns == NULL) {
-			i_error("maildir quota: Unknown namespace: %s",
-				roots[i]->ns_prefix);
-		}
-	}
+	for (i = 0; i < count; i++)
+		quota_root_set_namespace(roots[i], namespaces);
 }

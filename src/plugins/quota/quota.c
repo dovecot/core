@@ -819,7 +819,7 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	int ret;
 
 	ctx->limits_set = TRUE;
-	mailbox_name = mailbox_get_name(ctx->box);
+	mailbox_name = mailbox_get_vname(ctx->box);
 
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&ctx->quota->roots, &count);
@@ -928,7 +928,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		ret = -1;
 	else if (ctx->bytes_used != 0 || ctx->count_used != 0 ||
 		 ctx->recalculate) {
-		mailbox_name = mailbox_get_name(ctx->box);
+		mailbox_name = mailbox_get_vname(ctx->box);
 		roots = array_get(&ctx->quota->roots, &count);
 		for (i = 0; i < count; i++) {
 			if (!quota_root_is_visible(roots[i], ctx->box, FALSE))
@@ -1012,7 +1012,7 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 			continue;
 
 		if (!quota_root_get_rule_limits(roots[i],
-						mailbox_get_name(ctx->box),
+						mailbox_get_vname(ctx->box),
 						&bytes_limit, &count_limit))
 			continue;
 
