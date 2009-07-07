@@ -1433,7 +1433,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	if (sync_ctx->base_uid_validity == 0) {
 		sync_ctx->base_uid_validity = sync_ctx->hdr->uid_validity != 0 ?
 			sync_ctx->hdr->uid_validity :
-			I_MIN((unsigned int)ioloop_time, 1);
+			I_MAX((unsigned int)ioloop_time, 1);
 	}
 	if (sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) {
 		mail_index_update_header(sync_ctx->t,
