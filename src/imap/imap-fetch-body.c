@@ -48,7 +48,7 @@ static void fetch_read_error(struct imap_fetch_context *ctx)
 	errno = ctx->cur_input->stream_errno;
 	i_error("FETCH for mailbox %s UID %u "
 		"failed to read message input: %m",
-		mailbox_get_name(ctx->mail->box), ctx->mail->uid);
+		mailbox_get_vname(ctx->mail->box), ctx->mail->uid);
 }
 
 static int seek_partial(unsigned int select_counter, unsigned int uid,
@@ -209,7 +209,7 @@ static off_t imap_fetch_send(struct imap_fetch_context *ctx,
 		   disconnect the client and hope that next try works. */
 		i_error("FETCH %s for mailbox %s UID %u got too little data: "
 			"%"PRIuUOFF_T" vs %"PRIuUOFF_T, ctx->cur_name,
-			mailbox_get_name(ctx->mail->box), ctx->mail->uid,
+			mailbox_get_vname(ctx->mail->box), ctx->mail->uid,
 			(uoff_t)sent, virtual_size);
 		mail_set_cache_corrupted(ctx->mail, ctx->cur_size_field);
 		client_disconnect(ctx->client, "FETCH failed");
@@ -272,7 +272,7 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 			i_error("FETCH %s for mailbox %s UID %u "
 				"got too little data (copying): "
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
-				ctx->cur_name, mailbox_get_name(ctx->mail->box),
+				ctx->cur_name, mailbox_get_vname(ctx->mail->box),
 				ctx->mail->uid, ctx->cur_offset, ctx->cur_size);
 			client_disconnect(ctx->client, "FETCH failed");
 			return -1;

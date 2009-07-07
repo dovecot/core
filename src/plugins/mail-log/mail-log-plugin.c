@@ -214,7 +214,7 @@ static void mail_log_append_mailbox_name(string_t *str, struct mailbox *box)
 
 	/* most operations are for INBOX, and POP3 has only INBOX,
 	   so don't add it. */
-	mailbox_str = mailbox_get_name(box);
+	mailbox_str = mailbox_get_vname(box);
 	if (strcmp(mailbox_str, "INBOX") != 0) {
 		str_printfa(str, "box=%s, ",
 			    str_sanitize(mailbox_str, MAILBOX_NAME_LOG_LEN));
@@ -455,7 +455,7 @@ mail_log_copy(struct mail_save_context *ctx, struct mail *mail)
 		return -1;
 
 	T_BEGIN {
-		name = str_sanitize(mailbox_get_name(ctx->transaction->box),
+		name = str_sanitize(mailbox_get_vname(ctx->transaction->box),
 				    MAILBOX_NAME_LOG_LEN);
 		mail_log_action(ctx->transaction, mail,
 				MAIL_LOG_EVENT_COPY, name);

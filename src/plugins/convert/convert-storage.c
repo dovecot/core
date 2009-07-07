@@ -318,7 +318,7 @@ static int mailbox_convert_list_item(struct mail_namespace *source_ns,
 
 	if (mailbox_copy_mails(srcbox, destbox, dotlock, &error) < 0) {
 		i_error("Mailbox conversion: Couldn't copy mailbox %s: %s",
-			mailbox_get_name(srcbox), error);
+			mailbox_get_vname(srcbox), error);
 	}
 
 	mailbox_close(&srcbox);
