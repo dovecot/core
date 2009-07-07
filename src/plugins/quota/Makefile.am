@@ -36,9 +36,10 @@ RQUOTA_XDR = rquota_xdr.c
 #RQUOTA_X = /usr/include/rpcsvc/rquota.x
 RQUOTA_X = $(srcdir)/rquota.x
 rquota_xdr.c: Makefile $(RQUOTA_X)
+	if "$(srcdir)" != "$(builddir)" ; then cp $(RQUOTA_X) $(builddir) ; fi
 	(echo '#include "lib.h"'; \
 	 echo '#include <rpc/rpc.h>'; \
-	 $(RPCGEN) -c $(RQUOTA_X) | \
+	 $(RPCGEN) -c $(builddir)/rquota.x | \
 	  sed -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
 	    -e 's,/usr/include/rpcsvc/rquota.h,rquota.h,' \
 	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' \
