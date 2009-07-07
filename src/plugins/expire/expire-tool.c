@@ -20,17 +20,59 @@ struct expire_context {
 	pool_t multi_user_pool;
 	struct mail_storage_service_multi_ctx *multi;
 	struct mail_user *mail_user;
+	struct expire_env *env;
 	bool testrun;
 };
 
-static int
-mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
-			 const char *mailbox,
-			 unsigned int expunge_secs, unsigned int altmove_secs,
-			 time_t *oldest_r)
+static int expire_init_user(struct expire_context *ctx, const char *user)
 {
 	struct mail_storage_service_input input;
 	struct mail_storage_service_multi_user *multi_user;
+	const char *expire, *expire_altmove, *errstr;
+	int ret;
+
+	i_set_failure_prefix(t_strdup_printf("expire-tool(%s): ", user));
+
+	memset(&input, 0, sizeof(input));
+	input.username = user;
+
+	p_clear(ctx->multi_user_pool);
+	ret = mail_storage_service_multi_lookup(ctx->multi, &input,
+						ctx->multi_user_pool,
+						&multi_user, &errstr);
+	if (ret <= 0) {
+		if (ret < 0 || ctx->testrun)
+			i_error("User lookup failed: %s", errstr);
+		return ret;
+	}
+	ret = mail_storage_service_multi_next(ctx->multi, multi_user,
+					      &ctx->mail_user, &errstr);
+	if (ret < 0) {
+		i_error("User init failed: %s", errstr);
+		return ret;
+	}
+
+	expire = mail_user_set_plugin_getenv(ctx->mail_user->set, "expire");
+	expire_altmove = mail_user_set_plugin_getenv(ctx->mail_user->set, 
+						     "expire_altmove");
+	if (expire == NULL && expire_altmove == NULL)
+		i_fatal("expire and expire_altmove settings not set");
+
+	ctx->env = expire_env_init(ctx->mail_user->namespaces,
+				   expire, expire_altmove);
+	return 1;
+}
+
+static void expire_deinit_user(struct expire_context *ctx)
+{
+	mail_user_unref(&ctx->mail_user);
+	expire_env_deinit(&ctx->env);
+}
+
+static int
+mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
+			 const char *mailbox, time_t *next_expire_r)
+{
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mail_search_context *search_ctx;
@@ -38,37 +80,29 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	struct mail_search_args *search_args;
 	struct mail *mail;
 	const char *ns_mailbox, *errstr;
+	unsigned int expunge_secs, altmove_secs;
 	time_t now, save_time;
 	enum mail_error error;
 	enum mail_flags flags;
 	int ret;
 
-	memset(&input, 0, sizeof(input));
-	input.username = user;
-
-	*oldest_r = 0;
+	*next_expire_r = 0;
 
 	if (ctx->mail_user != NULL &&
 	    strcmp(user, ctx->mail_user->username) != 0)
-		mail_user_unref(&ctx->mail_user);
+		expire_deinit_user(ctx);
 	if (ctx->mail_user == NULL) {
-		i_set_failure_prefix(t_strdup_printf("expire-tool(%s): ",
-						     user));
-		p_clear(ctx->multi_user_pool);
-		ret = mail_storage_service_multi_lookup(ctx->multi, &input,
-							ctx->multi_user_pool,
-							&multi_user, &errstr);
-		if (ret <= 0) {
-			if (ret < 0 || ctx->testrun)
-				i_error("User lookup failed: %s", errstr);
+		if ((ret = expire_init_user(ctx, user)) <= 0)
 			return ret;
+	}
+
+	if (!expire_box_find(ctx->env, mailbox, &expunge_secs, &altmove_secs)) {
+		/* we're no longer expunging old messages from here */
+		if (ctx->testrun) {
+			i_info("%s: mailbox '%s' removed from config",
+			       user, mailbox);
 		}
-		ret = mail_storage_service_multi_next(ctx->multi, multi_user,
-						      &ctx->mail_user, &errstr);
-		if (ret < 0) {
-			i_error("User init failed: %s", errstr);
-			return ret;
-		}
+		return 0;
 	}
 
 	ns_mailbox = mailbox;
@@ -140,7 +174,9 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 			}
 		} else {
 			/* first non-expired one. */
-			*oldest_r = save_time;
+			*next_expire_r = save_time +
+				(altmove_secs != 0 ?
+				 altmove_secs : expunge_secs);
 			break;
 		}
 	}
@@ -170,10 +206,8 @@ static void expire_run(struct master_service *service, bool testrun)
 	void **sets;
 	struct dict_transaction_context *trans;
 	struct dict_iterate_context *iter;
-	struct expire_env *env;
-	time_t oldest, expire_time;
-	unsigned int expunge_secs, altmove_secs;
-	const char *p, *key, *value, *expire, *expire_altmove, *expire_dict;
+	time_t next_expire, expire_time;
+	const char *p, *key, *value, *expire_dict;
 	const char *userp = NULL, *mailbox;
 	int ret;
 
@@ -185,17 +219,11 @@ static void expire_run(struct master_service *service, bool testrun)
 	sets = master_service_settings_get_others(service);
 	user_set = sets[0];
 
-	expire = mail_user_set_plugin_getenv(user_set, "expire");
-	expire_altmove = mail_user_set_plugin_getenv(user_set, "expire_altmove");
 	expire_dict = mail_user_set_plugin_getenv(user_set, "expire_dict");
-
-	if (expire == NULL && expire_altmove == NULL)
-		i_fatal("expire and expire_altmove settings not set");
 	if (expire_dict == NULL)
 		i_fatal("expire_dict setting not set");
 
 	ctx.testrun = testrun;
-	env = expire_env_init(expire, expire_altmove);
 	dict = dict_init(expire_dict, DICT_DATA_TYPE_UINT32, "",
 			 user_set->base_dir);
 	if (dict == NULL)
@@ -219,17 +247,6 @@ static void expire_run(struct master_service *service, bool testrun)
 		}
 
 		mailbox = p + 1;
-		if (!expire_box_find(env, mailbox,
-				     &expunge_secs, &altmove_secs)) {
-			/* we're no longer expunging old messages from here */
-			if (!testrun)
-				dict_unset(trans, key);
-			else {
-				i_info("%s: mailbox '%s' removed from config",
-				       userp, mailbox);
-			}
-			continue;
-		}
 		expire_time = strtoul(value, NULL, 10);
 		if (time(NULL) < expire_time) {
 			/* this and the rest of the timestamps are in future,
@@ -246,13 +263,12 @@ static void expire_run(struct master_service *service, bool testrun)
 
 			username = t_strdup_until(userp, p);
 			ret = mailbox_delete_old_mails(&ctx, username,
-						       mailbox, expunge_secs,
-						       altmove_secs, &oldest);
+						       mailbox, &next_expire);
 		} T_END;
 
 		if (ret < 0) {
 			/* failed to update */
-		} else if (oldest == 0) {
+		} else if (next_expire == 0) {
 			/* no more messages or mailbox deleted */
 			if (!testrun)
 				dict_unset(trans, key);
@@ -261,10 +277,8 @@ static void expire_run(struct master_service *service, bool testrun)
 		} else {
 			char new_value[MAX_INT_STRLEN];
 
-			oldest += altmove_secs != 0 ?
-				altmove_secs : expunge_secs;
 			i_snprintf(new_value, sizeof(new_value), "%lu",
-				   (unsigned long)oldest);
+				   (unsigned long)next_expire);
 			if (strcmp(value, new_value) == 0) {
 				/* no change */
 			} else if (!testrun)
@@ -274,7 +288,7 @@ static void expire_run(struct master_service *service, bool testrun)
 				       userp, value,
 				       t_strcut(ctime(&expire_time), '\n'),
 				       new_value,
-				       t_strcut(ctime(&oldest), '\n'));
+				       t_strcut(ctime(&next_expire), '\n'));
 			} T_END;
 		}
 	}
@@ -289,7 +303,7 @@ static void expire_run(struct master_service *service, bool testrun)
 	dict_deinit(&dict);
 
 	if (ctx.mail_user != NULL)
-		mail_user_unref(&ctx.mail_user);
+		expire_deinit_user(&ctx);
 	mail_storage_service_multi_deinit(&ctx.multi);
 	pool_unref(&ctx.multi_user_pool);
 }

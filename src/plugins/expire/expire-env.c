@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "imap-match.h"
+#include "mail-namespace.h"
 #include "expire-env.h"
 
 #include <stdlib.h>
@@ -25,11 +26,14 @@ struct expire_env {
 	ARRAY_DEFINE(expire_boxes, struct expire_box);
 };
 
-static void expire_env_parse(struct expire_env *env, const char *str,
-			     enum expire_type type)
+static void
+expire_env_parse(struct expire_env *env, struct mail_namespace *namespaces,
+		 const char *str, enum expire_type type)
 {
 	struct expire_box box;
+	struct mail_namespace *ns;
 	char *const *names;
+	const char *ns_name;
 	unsigned int len;
 
 	if (str == NULL)
@@ -46,8 +50,15 @@ static void expire_env_parse(struct expire_env *env, const char *str,
 		}
 
 		box.pattern = *names;
-		/* FIXME: hardcoded separator isn't very good */
-		box.glob = imap_match_init(env->pool, box.pattern, TRUE, '/');
+		ns_name = *names;
+		ns = mail_namespace_find(namespaces, &ns_name);
+		if (ns == NULL && *box.pattern != '*') {
+			i_warning("expire: No namespace found for mailbox: %s",
+				  box.pattern);
+		}
+
+		box.glob = imap_match_init(env->pool, box.pattern, TRUE,
+					   ns == NULL ? '/' : ns->sep);
 		box.type = type;
 		box.expire_secs = strtoul(names[1], NULL, 10) * 3600 * 24;
 
@@ -55,7 +66,8 @@ static void expire_env_parse(struct expire_env *env, const char *str,
 	}
 }
 
-struct expire_env *expire_env_init(const char *expunges, const char *altmoves)
+struct expire_env *expire_env_init(struct mail_namespace *namespaces,
+				   const char *expunges, const char *altmoves)
 {
 	struct expire_env *env;
 	pool_t pool;
@@ -64,13 +76,16 @@ struct expire_env *expire_env_init(const char *expunges, const char *altmoves)
 	env = p_new(pool, struct expire_env, 1);
 	env->pool = pool;
 
-	expire_env_parse(env, expunges, EXPIRE_TYPE_EXPUNGE);
-	expire_env_parse(env, altmoves, EXPIRE_TYPE_ALTMOVE);
+	expire_env_parse(env, namespaces, expunges, EXPIRE_TYPE_EXPUNGE);
+	expire_env_parse(env, namespaces, altmoves, EXPIRE_TYPE_ALTMOVE);
 	return env;
 }
 
-void expire_env_deinit(struct expire_env *env)
+void expire_env_deinit(struct expire_env **_env)
 {
+	struct expire_env *env = *_env;
+
+	*_env = NULL;
 	pool_unref(&env->pool);
 }
 

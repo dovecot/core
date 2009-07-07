@@ -4,9 +4,11 @@
 #define DICT_EXPIRE_PREFIX DICT_PATH_SHARED"expire/"
 
 struct expire_env;
+struct mail_namespace;
 
-struct expire_env *expire_env_init(const char *expunges, const char *altmoves);
-void expire_env_deinit(struct expire_env *env);
+struct expire_env *expire_env_init(struct mail_namespace *namespaces,
+				   const char *expunges, const char *altmoves);
+void expire_env_deinit(struct expire_env **env);
 
 bool expire_box_find(struct expire_env *env, const char *name,
 		     unsigned int *expunge_secs_r,

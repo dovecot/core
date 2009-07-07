@@ -44,7 +44,7 @@ struct expire_transaction_context {
 const char *expire_plugin_version = PACKAGE_VERSION;
 
 static void (*next_hook_mailbox_allocated)(struct mailbox *box);
-static void (*next_hook_mail_user_created)(struct mail_user *user);
+static void (*next_hook_mail_namespaces_created)(struct mail_namespace *ns);
 
 static MODULE_CONTEXT_DEFINE_INIT(expire_storage_module,
 				  &mail_storage_module_register);
@@ -282,13 +282,14 @@ static void expire_mail_user_deinit(struct mail_user *user)
 	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(user);
 
 	dict_deinit(&euser->db);
-	expire_env_deinit(euser->env);
+	expire_env_deinit(&euser->env);
 
 	euser->module_ctx.super.deinit(user);
 }
 
-static void expire_mail_user_created(struct mail_user *user)
+static void expire_mail_namespaces_created(struct mail_namespace *ns)
 {
+	struct mail_user *user = ns->user;
 	struct expire_mail_user *euser;
 	const char *expunge_env, *altmove_env, *dict_uri, *service_name;
 
@@ -310,7 +311,7 @@ static void expire_mail_user_created(struct mail_user *user)
 		euser->module_ctx.super = user->v;
 		user->v.deinit = expire_mail_user_deinit;
 
-		euser->env = expire_env_init(expunge_env, altmove_env);
+		euser->env = expire_env_init(ns, expunge_env, altmove_env);
 		/* we're using only shared dictionary, the username
 		   doesn't matter. */
 		euser->db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
@@ -321,8 +322,8 @@ static void expire_mail_user_created(struct mail_user *user)
 			MODULE_CONTEXT_SET(user, expire_mail_user_module, euser);
 	}
 
-	if (next_hook_mail_user_created != NULL)
-		next_hook_mail_user_created(user);
+	if (next_hook_mail_namespaces_created != NULL)
+		next_hook_mail_namespaces_created(ns);
 }
 
 void expire_plugin_init(void)
@@ -330,12 +331,12 @@ void expire_plugin_init(void)
 	next_hook_mailbox_allocated = hook_mailbox_allocated;
 	hook_mailbox_allocated = expire_mailbox_allocated;
 
-	next_hook_mail_user_created = hook_mail_user_created;
-	hook_mail_user_created = expire_mail_user_created;
+	next_hook_mail_namespaces_created = hook_mail_namespaces_created;
+	hook_mail_namespaces_created = expire_mail_namespaces_created;
 }
 
 void expire_plugin_deinit(void)
 {
 	hook_mailbox_allocated = next_hook_mailbox_allocated;
-	hook_mail_user_created = next_hook_mail_user_created;
+	hook_mail_namespaces_created = next_hook_mail_namespaces_created;
 }
