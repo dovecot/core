@@ -332,6 +332,9 @@ mailbox_get_settings(struct mailbox *box) ATTR_PURE;
 
 /* Returns name of given mailbox */
 const char *mailbox_get_name(const struct mailbox *box) ATTR_PURE;
+/* Returns the virtual name of the given mailbox. This is the same as using
+   mail_namespace_get_vname(). */
+const char *mailbox_get_vname(const struct mailbox *box) ATTR_PURE;
 
 /* Returns TRUE if mailbox is read-only. */
 bool mailbox_is_readonly(struct mailbox *box);

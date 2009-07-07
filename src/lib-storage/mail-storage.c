@@ -565,6 +565,11 @@ const char *mailbox_get_name(const struct mailbox *box)
 	return box->name;
 }
 
+const char *mailbox_get_vname(const struct mailbox *box)
+{
+	return box->vname;
+}
+
 bool mailbox_is_readonly(struct mailbox *box)
 {
 	return box->v.is_readonly(box);

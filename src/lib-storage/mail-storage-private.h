@@ -224,6 +224,8 @@ struct mailbox {
 
 	/* mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX */
 	const char *path;
+	/* mailbox's virtual name (from mail_namespace_get_vname()) */
+	const char *vname;
 	struct istream *input;
 	enum mailbox_flags flags;
 	unsigned int transaction_count;
