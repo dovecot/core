@@ -362,7 +362,10 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return TRUE;
 	}
 
-	if (initial_resp == NULL) {
+	/* Empty initial response is a "=" base64 string. Completely empty
+	   string shouldn't really be sent, but at least Exim does it,
+	   so just allow it for backwards compatibility.. */
+	if (initial_resp == NULL || *initial_resp == '\0') {
 		initial_resp_data = NULL;
 		initial_resp_len = 0;
 	} else {
