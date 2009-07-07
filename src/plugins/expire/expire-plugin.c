@@ -259,15 +259,11 @@ static void expire_mailbox_allocated(struct mailbox *box)
 	struct expire_mail_user *euser =
 		EXPIRE_USER_CONTEXT(box->storage->user);
 	struct mail_namespace *ns = mailbox_list_get_namespace(box->list);
-	string_t *vname;
 	unsigned int secs;
 	bool altmove;
 
 	if (euser != NULL) {
-		vname = t_str_new(128);
-		(void)mail_namespace_get_vname(ns, vname, box->name);
-
-		secs = expire_box_find_min_secs(euser->env, str_c(vname),
+		secs = expire_box_find_min_secs(euser->env, box->vname,
 						&altmove);
 		if (secs != 0)
 			mailbox_expire_hook(box, secs, altmove);
