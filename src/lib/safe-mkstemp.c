@@ -33,6 +33,7 @@ safe_mkstemp_full(string_t *prefix, mode_t mode, uid_t uid, gid_t gid,
 
 		if (errno != ENOENT) {
 			i_error("stat(%s) failed: %m", str_c(prefix));
+			str_truncate(prefix, prefix_len);
 			return -1;
 		}
 
@@ -45,6 +46,7 @@ safe_mkstemp_full(string_t *prefix, mode_t mode, uid_t uid, gid_t gid,
 		if (errno != EEXIST) {
 			if (errno != ENOENT && errno != EACCES)
 				i_error("open(%s) failed: %m", str_c(prefix));
+			str_truncate(prefix, prefix_len);
 			return -1;
 		}
 	}
