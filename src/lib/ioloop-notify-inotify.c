@@ -106,7 +106,13 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 		if (errno == ENOENT || errno == ESTALE)
 			return IO_NOTIFY_NOTFOUND;
 
-		i_error("inotify_add_watch(%s) failed: %m", path);
+		if (errno != ENOSPC)
+			i_error("inotify_add_watch(%s) failed: %m", path);
+		else {
+			i_warning("Inotify watch limit for user exceeded, "
+				  "disabling. Increase "
+				  "/proc/sys/fs/inotify/max_user_watches");
+		}
 		ctx->disabled = TRUE;
 		return IO_NOTIFY_NOSUPPORT;
 	}
