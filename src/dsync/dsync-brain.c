@@ -220,6 +220,7 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 {
 	struct dsync_message *src_msg = &sync->src_msg_iter->msg;
 	struct dsync_message *dest_msg = &sync->dest_msg_iter->msg;
+	struct dsync_mailbox *const *boxp;
 	struct dsync_brain_uid_conflict *conflict;
 
 	if (src_msg->uid < dest_msg->uid) {
@@ -242,11 +243,17 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 		src_msg->guid = NULL;
 		dest_msg->guid = NULL;
 	} else {
-		/* UID conflict */
+		/* UID conflict. change UID in destination */
 		sync->uid_conflict = TRUE;
 		conflict = array_append_space(&sync->uid_conflicts);
 		conflict->mailbox_idx = sync->src_msg_iter->mailbox_idx;
 		conflict->uid = dest_msg->uid;
+
+		/* give new UID for the source message message too. */
+		boxp = array_idx(&sync->brain->src_mailbox_list->mailboxes,
+				 conflict->mailbox_idx);
+		src_msg->uid = (*boxp)->uid_next++;
+
 		dsync_brain_msg_sync_save_source(sync);
 		src_msg->guid = NULL;
 		dest_msg->guid = NULL;
