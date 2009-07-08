@@ -584,6 +584,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)aclobj->backend;
 	struct stat st;
+	int ret;
 
 	if (validity == NULL)
 		return 1;
@@ -592,7 +593,14 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 		return 0;
 
 	validity->last_check = ioloop_time;
-	if (stat(path, &st) < 0) {
+	ret = stat(path, &st);
+	if (ret == 0 && S_ISDIR(st.st_mode)) {
+		/* it's a directory. use dir/.DEFAULT instead */
+		path = t_strconcat(path, "/.DEFAULT", NULL);
+		ret = stat(path, &st);
+	}
+
+	if (ret < 0) {
 		if (errno == ENOENT || errno == ENOTDIR) {
 			/* if the file used to exist, we have to re-read it */
 			return validity->last_mtime != VALIDITY_MTIME_NOTFOUND;
