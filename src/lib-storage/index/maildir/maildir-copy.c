@@ -184,36 +184,11 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		do_ctx.preserve_filename = TRUE;
 	}
 
-	/* FIXME: We could hardlink the files directly to destination, but
-	   that would require checking if someone else had already assigned
-	   UIDs for them after we have the uidlist locked. Index would also
-	   need to be properly not-updated somehow.. */
-#if 0
-	if (keywords == NULL || keywords->count == 0) {
-		/* no keywords, hardlink directly to destination */
-		if (flags == MAIL_RECENT) {
-			str_printfa(do_ctx.dest_path, "%s/new/%s",
-				    dest_mbox->path, do_ctx.dest_fname);
-			do_ctx.base_end_pos = str_len(do_ctx.dest_path);
-		} else {
-			str_printfa(do_ctx.dest_path, "%s/cur/",
-				    dest_mbox->path);
-			do_ctx.base_end_pos = str_len(do_ctx.dest_path) +
-				strlen(do_ctx.dest_fname);
-			str_append(do_ctx.dest_path,
-				   maildir_filename_set_flags(NULL,
-							      do_ctx.dest_fname,
-							      flags, NULL));
-		}
-	} else
-#endif
-	{
-		/* keywords, hardlink to tmp/ with basename and later when we
-		   have uidlist locked, move it to new/cur. */
-		str_printfa(do_ctx.dest_path, "%s/tmp/%s",
-			    dest_mbox->ibox.box.path, do_ctx.dest_fname);
-		do_ctx.base_end_pos = str_len(do_ctx.dest_path);
-	}
+	/* hard link to tmp/ with basename and later when we
+	   have uidlist locked, move it to new/cur. */
+	str_printfa(do_ctx.dest_path, "%s/tmp/%s",
+		    dest_mbox->ibox.box.path, do_ctx.dest_fname);
+	do_ctx.base_end_pos = str_len(do_ctx.dest_path);
 	if (src_mbox != NULL) {
 		/* maildir */
 		if (maildir_file_do(src_mbox, mail->uid,
@@ -233,19 +208,9 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		return 0;
 	}
 
-#if 0
-	if (keywords == NULL || keywords->count == 0) {
-		/* hardlinked to destination, set hardlinked-flag */
-		maildir_save_add(t, do_ctx.dest_fname,
-				 flags | MAILDIR_SAVE_FLAG_HARDLINK, NULL,
-				 dest_mail);
-	} else
-#endif
-{
-		/* hardlinked to tmp/, treat as normal copied mail */
-		maildir_save_add(t, do_ctx.dest_fname, flags, keywords,
-				 dest_mail);
-	}
+	/* hardlinked to tmp/, treat as normal copied mail */
+	maildir_save_add(t->save_ctx, do_ctx.dest_fname, flags, keywords,
+			 dest_mail);
 	return 1;
 }
 

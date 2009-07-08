@@ -136,7 +136,7 @@ void maildir_save_cancel(struct mail_save_context *ctx);
 
 struct maildir_save_context *
 maildir_save_transaction_init(struct maildir_transaction_context *t);
-uint32_t maildir_save_add(struct maildir_transaction_context *t,
+uint32_t maildir_save_add(struct maildir_save_context *ctx,
 			  const char *base_fname, enum mail_flags flags,
 			  struct mail_keywords *keywords,
 			  struct mail *dest_mail);

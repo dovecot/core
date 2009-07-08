@@ -134,12 +134,11 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	return ctx;
 }
 
-uint32_t maildir_save_add(struct maildir_transaction_context *t,
+uint32_t maildir_save_add(struct maildir_save_context *ctx,
 			  const char *base_fname, enum mail_flags flags,
 			  struct mail_keywords *keywords,
 			  struct mail *dest_mail)
 {
-	struct maildir_save_context *ctx = t->save_ctx;
 	struct maildir_filename *mf;
 	struct istream *input;
 
@@ -185,12 +184,8 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 	}
 
 	if (dest_mail == NULL) {
-		if (ctx->mail == NULL) {
-			struct mailbox_transaction_context *_t =
-				&t->ictx.mailbox_ctx;
-
-			ctx->mail = mail_alloc(_t, 0, NULL);
-		}
+		if (ctx->mail == NULL)
+			ctx->mail = mail_alloc(ctx->ctx.transaction, 0, NULL);
 		dest_mail = ctx->mail;
 	}
 	mail_set_seq(dest_mail, ctx->seq);
@@ -392,8 +387,8 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 				ctx->input = i_stream_create_crlf(input);
 			else
 				ctx->input = i_stream_create_lf(input);
-			maildir_save_add(t, fname, _ctx->flags, _ctx->keywords,
-					 _ctx->dest_mail);
+			maildir_save_add(t->save_ctx, fname, _ctx->flags,
+					 _ctx->keywords, _ctx->dest_mail);
 		}
 	} T_END;
 
