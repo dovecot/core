@@ -202,15 +202,9 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 	if (ctx->ctx.guid != NULL && ctx->cur_file->single_mbox == NULL) {
 		guid_buf = buffer_create_dynamic(pool_datastack_create(),
 						 sizeof(guid_128));
-		if (strlen(guid) != sizeof(guid_128)*2 ||
-		    hex_to_binary(guid, guid_buf) < 0 ||
-		    guid_buf->used != sizeof(guid_128))
-			guid = NULL;
-		else
-			memcpy(guid_128, guid_buf->data, sizeof(guid_128));
-	}
-
-	if (guid == NULL) {
+		dbox_get_guid_128(guid, guid_buf);
+		memcpy(guid_128, guid_buf->data, sizeof(guid_128));
+	} else {
 		mail_generate_guid_128(guid_128);
 		guid = binary_to_hex(guid_128, sizeof(guid_128));
 	}

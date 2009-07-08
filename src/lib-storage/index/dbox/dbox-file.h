@@ -206,5 +206,6 @@ int dbox_create_fd(struct dbox_storage *storage, const char *path);
 int dbox_file_header_write(struct dbox_file *file, struct ostream *output);
 int dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r);
 int dbox_file_metadata_skip_header(struct dbox_file *file);
+void dbox_get_guid_128(const char *input, buffer_t *output);
 
 #endif

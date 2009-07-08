@@ -5,7 +5,6 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "hash.h"
-#include "hex-binary.h"
 #include "str.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
@@ -200,14 +199,7 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 			ret = 0;
 			break;
 		}
-		buffer_set_used_size(guid_buf, 0);
-		if (hex_to_binary(guid, guid_buf) < 0 ||
-		    guid_buf->used != sizeof(rec->guid_128)) {
-			dbox_file_set_corrupted(file,
-				"Message GUID is not 128 bit hex: %s", guid);
-			ret = 0;
-			break;
-		}
+		dbox_get_guid_128(guid, guid_buf);
 
 		rec = p_new(ctx->pool, struct dbox_rebuild_msg, 1);
 		rec->file_id = file_id;
