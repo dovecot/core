@@ -356,7 +356,8 @@ maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
 	return -1;
 }
 
-static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
+static int
+maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 {
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *path;
@@ -488,6 +489,14 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 		}
 	}
 
+#ifdef __APPLE__
+	if (errno == EINVAL && move_count > 0 && !final) {
+		/* OS X HFS+: readdir() fails sometimes when rename()
+		   have been done. */
+		move_count = MAILDIR_RENAME_RESCAN_COUNT + 1;
+	}
+#endif
+
 	if (errno != 0) {
 		mail_storage_set_critical(storage,
 					  "readdir(%s) failed: %m", path);
@@ -521,7 +530,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	}
 
 	return ret < 0 ? -1 :
-		(move_count <= MAILDIR_RENAME_RESCAN_COUNT ? 0 : 1);
+		(move_count <= MAILDIR_RENAME_RESCAN_COUNT || final ? 0 : 1);
 }
 
 int maildir_sync_header_refresh(struct maildir_mailbox *mbox)
@@ -815,19 +824,20 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		/* if we're going to check cur/ dir our current logic requires
 		   that new/ dir is checked as well. it's a good idea anyway. */
 		unsigned int count = 0;
+		bool final = FALSE;
 
-		while ((ret = maildir_scan_dir(ctx, TRUE)) > 0) {
+		while ((ret = maildir_scan_dir(ctx, TRUE, final)) > 0) {
 			/* rename()d at least some files, which might have
 			   caused some other files to be missed. check again
 			   (see MAILDIR_RENAME_RESCAN_COUNT). */
-			if (++count > MAILDIR_SCAN_DIR_MAX_COUNT)
-				break;
+			if (++count >= MAILDIR_SCAN_DIR_MAX_COUNT)
+				final = TRUE;
 		}
 		if (ret < 0)
 			return -1;
 
 		if (cur_changed) {
-			if (maildir_scan_dir(ctx, FALSE) < 0)
+			if (maildir_scan_dir(ctx, FALSE, TRUE) < 0)
 				return -1;
 		}
 
