@@ -83,17 +83,24 @@ static int test_access(const char *path, int mode, string_t *errmsg)
 static const char *
 eacces_error_get_full(const char *func, const char *path, bool creating)
 {
-	const char *prev_path = path, *dir = "/", *p;
+	const char *prev_path = path, *dir, *p;
 	const struct passwd *pw;
 	const struct group *group;
 	string_t *errmsg;
 	struct stat st, dir_st;
+	char cwd[PATH_MAX];
 	int orig_errno, ret = -1;
 
 	orig_errno = errno;
 	errmsg = t_str_new(256);
-	str_printfa(errmsg, "%s(%s) failed: Permission denied (euid=%s",
-		    func, path, dec2str(geteuid()));
+	str_printfa(errmsg, "%s(%s)", func, path);
+	if (*path != '/') {
+		dir = getcwd(cwd, sizeof(cwd));
+		if (dir != NULL)
+			str_printfa(errmsg, " in directory %s", dir);
+	}
+	str_printfa(errmsg, " failed: Permission denied (euid=%s",
+		    dec2str(geteuid()));
 
 	pw = getpwuid(geteuid());
 	if (pw != NULL)
@@ -104,6 +111,7 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	if (group != NULL)
 		str_printfa(errmsg, "(%s)", group->gr_name);
 
+	dir = "/";
 	while ((p = strrchr(prev_path, '/')) != NULL) {
 		dir = t_strdup_until(prev_path, p);
 		ret = stat(dir, &st);
