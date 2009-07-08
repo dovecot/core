@@ -75,9 +75,9 @@ struct gssapi_auth_request {
 
 static bool gssapi_initialized = FALSE;
 
-static void auth_request_log_gss_error(struct auth_request *request,
-				       OM_uint32 status_value, int status_type,
-				       const char *description)
+static void mech_gssapi_log_error(struct auth_request *request,
+				  OM_uint32 status_value, int status_type,
+				  const char *description)
 {
 	OM_uint32 message_context = 0;
 	OM_uint32 minor_status;
@@ -172,9 +172,8 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 	str_free(&principal_name);
 
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(request, major_status,
-					   GSS_C_GSS_CODE,
-					   "importing principal name");
+		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
+				      "importing principal name");
 		return major_status;
 	}
 
@@ -182,12 +181,10 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 					GSS_C_NULL_OID_SET, GSS_C_ACCEPT,
 					ret_r, NULL, NULL);
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(request, major_status,
-					   GSS_C_GSS_CODE,
-					   "acquiring service credentials");
-		auth_request_log_gss_error(request, minor_status,
-					   GSS_C_MECH_CODE,
-					   "acquiring service credentials");
+		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
+				      "acquiring service credentials");
+		mech_gssapi_log_error(request, minor_status, GSS_C_MECH_CODE,
+				      "acquiring service credentials");
 		return major_status;
 	}
 
@@ -207,8 +204,8 @@ import_name(struct auth_request *request, void *str, size_t len)
 	major_status = gss_import_name(&minor_status, &name_buf,
 				       GSS_C_NO_OID, &name);
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(request, major_status,
-					   GSS_C_GSS_CODE, "gss_import_name");
+		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
+				      "gss_import_name");
 		return GSS_C_NO_NAME;
 	}
 	return name;
@@ -223,9 +220,8 @@ static int get_display_name(struct auth_request *auth_request, gss_name_t name,
 	major_status = gss_display_name(&minor_status, name,
 					&buf, name_type_r);
 	if (major_status != GSS_S_COMPLETE) {
-		auth_request_log_gss_error(auth_request, major_status,
-					   GSS_C_GSS_CODE,
-					   "gss_display_name");
+		mech_gssapi_log_error(auth_request, major_status,
+				      GSS_C_GSS_CODE, "gss_display_name");
 		return -1;
 	}
 	*display_name_r = t_strndup(buf.value, buf.length);
@@ -258,12 +254,12 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	);
 	
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(auth_request, major_status,
-					   GSS_C_GSS_CODE,
-					   "processing incoming data");
-		auth_request_log_gss_error(auth_request, minor_status,
-					   GSS_C_MECH_CODE,
-					   "processing incoming data");
+		mech_gssapi_log_error(auth_request, major_status,
+				      GSS_C_GSS_CODE,
+				      "processing incoming data");
+		mech_gssapi_log_error(auth_request, minor_status,
+				      GSS_C_MECH_CODE,
+				      "processing incoming data");
 		return -1;
 	} 
 
@@ -323,9 +319,9 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 				GSS_C_QOP_DEFAULT, &inbuf, NULL, &outbuf);
 
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(&request->auth_request, major_status,
+		mech_gssapi_log_error(&request->auth_request, major_status,
 			GSS_C_GSS_CODE, "sending security layer negotiation");
-		auth_request_log_gss_error(&request->auth_request, minor_status,
+		mech_gssapi_log_error(&request->auth_request, minor_status,
 			GSS_C_MECH_CODE, "sending security layer negotiation");
 		return -1;
 	} 
@@ -408,9 +404,9 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 					request->authz_name,
 					&equal_authn_authz);
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(auth_request, major_status,
-					   GSS_C_GSS_CODE,
-					   "gss_compare_name failed");
+		mech_gssapi_log_error(auth_request, major_status,
+				      GSS_C_GSS_CODE,
+				      "gss_compare_name failed");
 		return -1;
 	}
 
@@ -423,9 +419,8 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 	major_status = __gss_userok(&minor_status, request->authn_name,
 				    login_user, &login_ok);
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(auth_request, major_status,
-					   GSS_C_GSS_CODE,
-					   "__gss_userok failed");
+		mech_gssapi_log_error(auth_request, major_status,
+				      GSS_C_GSS_CODE, "__gss_userok failed");
 		return -1;
 	} 
 
@@ -472,9 +467,9 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 				  &inbuf, &outbuf, NULL, NULL);
 
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(auth_request, major_status,
-					   GSS_C_GSS_CODE,
-					   "final negotiation: gss_unwrap");
+		mech_gssapi_log_error(auth_request, major_status,
+				      GSS_C_GSS_CODE,
+				      "final negotiation: gss_unwrap");
 		return -1;
 	} 
 
