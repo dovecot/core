@@ -9,7 +9,7 @@ if test "$ACLOCAL_DIR" != ""; then
   export ACLOCAL
 fi
 
-for dir in $GETTEXT_DIR /usr/share/gettext; do
+for dir in $GETTEXT_DIR /usr/share/gettext /usr/local/share/gettext; do
   if test -f $dir/config.rpath; then
     /bin/cp -f $dir/config.rpath .
     break
