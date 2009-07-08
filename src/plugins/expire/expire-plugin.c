@@ -136,7 +136,11 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				  box->storage->user->username, "/",
 				  mailbox_get_namespace(box)->prefix,
 				  box->name, NULL);
-		if (!xt->first_expunged && xt->saves) {
+		if (xt->first_expunged) {
+			if (new_stamp == 0 && xt->saves)
+				new_stamp = ioloop_time;
+		} else {
+			i_assert(xt->saves);
 			/* saved new mails. dict needs to be updated only if
 			   this is the first mail in the database */
 			ret = dict_lookup(euser->db, pool_datastack_create(),
