@@ -4,6 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "ioloop.h"
+#include "str.h"
 #include "imap-parser.h"
 #include "mkdir-parents.h"
 #include "mail-index-private.h"
