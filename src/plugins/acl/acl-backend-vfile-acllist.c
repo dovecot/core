@@ -38,7 +38,7 @@ acllist_clear(struct acl_backend_vfile *backend, uoff_t file_size)
 	}
 }
 
-static const char *acl_list_get_path(struct acl_backend_vfile *backend)
+static const char *acl_list_get_root_dir(struct acl_backend_vfile *backend)
 {
 	struct mail_storage *storage;
 	const char *rootdir, *maildir;
@@ -61,7 +61,13 @@ static const char *acl_list_get_path(struct acl_backend_vfile *backend)
 					NULL, MAILBOX_LIST_PATH_TYPE_CONTROL);
 		}
 	}
-	return t_strconcat(rootdir, "/"ACLLIST_FILENAME, NULL);
+	return rootdir;
+}
+
+static const char *acl_list_get_path(struct acl_backend_vfile *backend)
+{
+	return t_strconcat(acl_list_get_root_dir(backend),
+			   "/"ACLLIST_FILENAME, NULL);
 }
 
 static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
@@ -189,34 +195,13 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 }
 
 static int
-acllist_rename(struct acl_backend_vfile *backend, const char *temp_path)
-{
-	const char *acllist_path;
-
-	acllist_path = acl_list_get_path(backend);
-	if (rename(temp_path, acllist_path) == 0)
-		return 0;
-
-	if (errno == ENOENT) {
-		if (mailbox_list_create_parent_dir(backend->backend.list, NULL,
-						   acllist_path) < 0)
-			return -1;
-		if (rename(temp_path, acllist_path) == 0)
-			return 0;
-	}
-
-	i_error("rename(%s, %s) failed: %m", temp_path, acllist_path);
-	return -1;
-}
-
-static int
 acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 {
 	struct mailbox_list *list = backend->backend.list;
 	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	const char *rootdir, *origin;
+	const char *rootdir, *origin, *acllist_path;
 	struct ostream *output;
 	struct stat st;
 	string_t *path;
@@ -226,8 +211,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 
 	i_assert(!backend->rebuilding_acllist);
 
-	rootdir = mailbox_list_get_path(list, NULL,
-					MAILBOX_LIST_PATH_TYPE_DIR);
+	rootdir = acl_list_get_root_dir(backend);
 	if (rootdir == NULL)
 		return 0;
 
@@ -245,6 +229,12 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	   the file at the same time the result should be the same. */
 	mailbox_list_get_permissions(list, NULL, &mode, &gid, &origin);
 	fd = safe_mkstemp_group(path, mode, gid, origin);
+	if (fd == -1 && errno == ENOENT) {
+		if (mailbox_list_create_parent_dir(backend->backend.list, NULL,
+						   str_c(path)) < 0)
+			return -1;
+		fd = safe_mkstemp_group(path, mode, gid, origin);
+	}
 	if (fd == -1) {
 		if (errno == EACCES) {
 			/* Ignore silently if we can't create it */
@@ -288,8 +278,14 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 		ret = -1;
 	}
 
-	if (ret == 0)
-		ret = acllist_rename(backend, str_c(path));
+	if (ret == 0) {
+		acllist_path = acl_list_get_path(backend);
+		if (rename(str_c(path), acllist_path) < 0) {
+			i_error("rename(%s, %s) failed: %m",
+				str_c(path), acllist_path);
+			ret = -1;
+		}
+	}
 	if (ret == 0) {
 		struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
 
