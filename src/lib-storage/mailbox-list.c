@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "mkdir-parents.h"
 #include "str.h"
 #include "home-expand.h"
 #include "unlink-directory.h"
@@ -905,6 +906,28 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 	}
 	/* fallback to using ~dir */
 	return FALSE;
+}
+
+int mailbox_list_create_parent_dir(struct mailbox_list *list,
+				   const char *mailbox, const char *path)
+{
+	const char *p, *dir, *origin;
+	gid_t gid;
+	mode_t mode;
+
+	p = strrchr(path, '/');
+	if (p == NULL)
+		return 0;
+
+	dir = t_strdup_until(path, p);
+	mailbox_list_get_dir_permissions(list, mailbox, &mode, &gid, &origin);
+	if (mkdir_parents_chgrp(dir, mode, gid, origin) < 0 &&
+	    errno != EEXIST) {
+		mailbox_list_set_critical(list, "mkdir_parents(%s) failed: %m",
+					  dir);
+		return -1;
+	}
+	return 0;
 }
 
 const char *mailbox_list_get_last_error(struct mailbox_list *list,
