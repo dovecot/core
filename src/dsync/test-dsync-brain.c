@@ -399,7 +399,7 @@ static struct dsync_message conflict_dest_msgs[] = {
 static struct test_dsync_mailbox conflict_mailboxes[] = {
 	{ { "box1", { { 0x12, 0x34, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
 		        0x21, 0x43, 0x54, 0x76, 0x98, 0xba, 0xdc, 0xfe } },
-	    1234567890, 4321, 605040302010ULL },
+	    1234567890, 4321, 888 },
 	  conflict_src_msgs, conflict_dest_msgs, FLAG_EXISTS },
 	{ { NULL, { { 0, } }, 0, 0, 0 }, NULL, NULL, 0 }
 };
@@ -408,6 +408,7 @@ static void
 test_dsync_brain_verify_uid_conflict(struct test_dsync_worker *dest_test_worker)
 {
 	struct test_dsync_msg_event event;
+	struct test_dsync_box_event box_event;
 
 	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
 	test_assert(event.type == LAST_MSG_TYPE_EXPUNGE);
@@ -427,7 +428,13 @@ test_dsync_brain_verify_uid_conflict(struct test_dsync_worker *dest_test_worker)
 	test_assert(event.type == LAST_MSG_TYPE_UPDATE_UID);
 	test_assert(event.msg.uid == 3);
 
-	test_assert(!test_dsync_worker_next_msg_event(dest_test_worker, &event));
+	while (test_dsync_worker_next_box_event(dest_test_worker, &box_event) &&
+	       box_event.type == LAST_BOX_TYPE_SELECT) ;
+
+	test_assert(box_event.type == LAST_BOX_TYPE_UPDATE);
+	test_assert(box_event.box.uid_next == 4322);
+	test_assert(box_event.box.uid_validity == 1234567890);
+	test_assert(box_event.box.highest_modseq == 888);
 }
 
 static void test_dsync_brain_uid_conflict(void)
