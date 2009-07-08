@@ -544,8 +544,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 		} else if (errno != 0) {
 			mail_storage_set_critical(storage,
-				"write(%s) failed: %m",
-				ctx->mbox->ibox.box.path);
+				"write(%s) failed: %m", path);
 		}
 
 		/* remove from the linked list */
