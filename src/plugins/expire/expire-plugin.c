@@ -258,20 +258,33 @@ mailbox_expire_hook(struct mailbox *box, time_t expire_secs, bool altmove)
 	MODULE_CONTEXT_SET(box, expire_storage_module, xpr_box);
 }
 
+static void expire_mailbox_allocate_init(struct mailbox *box,
+					 struct expire_mail_user *euser)
+{
+	unsigned int secs;
+	bool altmove;
+
+	secs = expire_box_find_min_secs(euser->env, box->vname, &altmove);
+	if (box->storage->user->mail_debug) {
+		if (secs == 0) {
+			i_info("expire: No expiring in mailbox: %s",
+			       box->vname);
+		} else {
+			i_info("expire: Mails expire in %u secs in mailbox: %s",
+			       secs, box->vname);
+		}
+	}
+	if (secs != 0)
+		mailbox_expire_hook(box, secs, altmove);
+}
+
 static void expire_mailbox_allocated(struct mailbox *box)
 {
 	struct expire_mail_user *euser =
 		EXPIRE_USER_CONTEXT(box->storage->user);
-	struct mail_namespace *ns = mailbox_list_get_namespace(box->list);
-	unsigned int secs;
-	bool altmove;
 
-	if (euser != NULL) {
-		secs = expire_box_find_min_secs(euser->env, box->vname,
-						&altmove);
-		if (secs != 0)
-			mailbox_expire_hook(box, secs, altmove);
-	}
+	if (euser != NULL)
+		expire_mailbox_allocate_init(box, euser);
 
 	if (next_hook_mailbox_allocated != NULL)
 		next_hook_mailbox_allocated(box);
