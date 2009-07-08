@@ -494,7 +494,7 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 		/* OS X HFS+: readdir() fails sometimes when rename()
 		   have been done. */
 		move_count = MAILDIR_RENAME_RESCAN_COUNT + 1;
-	}
+	} else
 #endif
 
 	if (errno != 0) {
