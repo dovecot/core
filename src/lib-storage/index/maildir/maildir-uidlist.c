@@ -470,6 +470,11 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 					      uid, uidlist->prev_read_uid);
 		return FALSE;
 	}
+	if (uid >= (uint32_t)-1) {
+		maildir_uidlist_set_corrupted(uidlist,
+					      "UID too high (%u)", uid);
+		return FALSE;
+	}
 	uidlist->prev_read_uid = uid;
 
 	if (uid <= uidlist->last_seen_uid) {
@@ -1113,6 +1118,7 @@ void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
 				  uint32_t next_uid, bool force)
 {
 	if (uidlist->next_uid < next_uid || force) {
+		i_assert(next_uid != 0);
 		uidlist->next_uid = next_uid;
 		uidlist->recreate = TRUE;
 	}
@@ -1776,6 +1782,7 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 
 	for (dest = ctx->first_nouid_pos; dest < count; dest++) {
 		i_assert(recs[dest]->uid == (uint32_t)-1);
+		i_assert(ctx->uidlist->next_uid < (uint32_t)-1);
 		recs[dest]->uid = ctx->uidlist->next_uid++;
 		recs[dest]->flags &= ~MAILDIR_UIDLIST_REC_FLAG_MOVED;
 	}
