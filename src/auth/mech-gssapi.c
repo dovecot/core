@@ -214,11 +214,33 @@ import_name(struct auth_request *request, void *str, size_t len)
 	return name;
 }
 
+static int get_display_name(struct auth_request *auth_request, gss_name_t name,
+			    gss_OID *name_type_r, const char **display_name_r)
+{
+	OM_uint32 major_status, minor_status;
+	gss_buffer_desc buf;
+
+	major_status = gss_display_name(&minor_status, name,
+					&buf, name_type_r);
+	if (major_status != GSS_S_COMPLETE) {
+		auth_request_log_gss_error(auth_request, major_status,
+					   GSS_C_GSS_CODE,
+					   "gss_display_name");
+		return -1;
+	}
+	*display_name_r = t_strndup(buf.value, buf.length);
+	(void)gss_release_buffer(&minor_status, &buf);
+	return 0;
+}
+
 static int gssapi_sec_context(struct gssapi_auth_request *request,
 			      gss_buffer_desc inbuf)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc outbuf;
+	gss_OID name_type;
+	const char *username, *error;
 
 	major_status = gss_accept_sec_context (
 		&minor_status,
@@ -235,10 +257,10 @@ static int gssapi_sec_context(struct gssapi_auth_request *request,
 	);
 	
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(&request->auth_request, major_status,
+		auth_request_log_gss_error(auth_request, major_status,
 					   GSS_C_GSS_CODE,
 					   "processing incoming data");
-		auth_request_log_gss_error(&request->auth_request, minor_status,
+		auth_request_log_gss_error(auth_request, minor_status,
 					   GSS_C_MECH_CODE,
 					   "processing incoming data");
 		return -1;
@@ -246,24 +268,32 @@ static int gssapi_sec_context(struct gssapi_auth_request *request,
 
 	switch (major_status) {
 	case GSS_S_COMPLETE:
+		if (!get_display_name(auth_request, request->authn_name,
+				      &name_type, &username) < 0)
+			return -1;
+		if (!auth_request_set_username(auth_request, username,
+					       &error)) {
+			auth_request_log_info(auth_request, "gssapi",
+					      "authn_name: %s", error);
+			return -1;
+		}
 		request->sasl_gssapi_state = GSS_STATE_WRAP;
-		auth_request_log_debug(&request->auth_request, "gssapi",
+		auth_request_log_debug(auth_request, "gssapi",
 				       "security context state completed.");
 		break;
 	case GSS_S_CONTINUE_NEEDED:
-		auth_request_log_debug(&request->auth_request, "gssapi",
+		auth_request_log_debug(auth_request, "gssapi",
 				       "Processed incoming packet correctly, "
 				       "waiting for another.");
 		break;
 	default:
-		auth_request_log_error(&request->auth_request, "gssapi",
+		auth_request_log_error(auth_request, "gssapi",
 			"Received unexpected major status %d", major_status);
 		break;
 	}
 
-	request->auth_request.callback(&request->auth_request,
-				       AUTH_CLIENT_RESULT_CONTINUE,
-				       outbuf.value, outbuf.length);
+	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
+			       outbuf.value, outbuf.length);
 	(void)gss_release_buffer(&minor_status, &outbuf);
 	return 0;
 }
@@ -313,34 +343,27 @@ gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 
 #ifdef USE_KRB5_USEROK
 static bool
-gssapi_krb5_userok(struct gssapi_auth_request *request, gss_name_t name,
+gssapi_krb5_userok(struct gssapi_auth_request *request,
+		   gss_name_t name, const char *login_user,
 		   bool check_name_type)
 {
 	krb5_context ctx;
 	krb5_principal princ;
 	krb5_error_code krb5_err;
-	OM_uint32 major_status, minor_status;
-	gss_buffer_desc princ_name;
 	gss_OID name_type;
 	const char *princ_display_name;
 	bool ret = FALSE;
 
 	/* Parse out the principal's username */
-	major_status = gss_display_name(&minor_status, name,
-					&princ_name, &name_type);
-	if (major_status != GSS_S_COMPLETE) {
-		auth_request_log_gss_error(&request->auth_request, major_status,
-					   GSS_C_GSS_CODE,
-					   "gss_display_name");
+	if (!get_display_name(&request->auth_request, name, &name_type,
+			      &princ_display_name) < 0)
 		return FALSE;
-	}
+
 	if (name_type != GSS_KRB5_NT_PRINCIPAL_NAME && check_name_type) {
 		auth_request_log_info(&request->auth_request, "gssapi",
 				      "OID not kerberos principal name");
 		return FALSE;
 	}
-	princ_display_name = t_strndup(princ_name.value, princ_name.length);
-	(void)gss_release_buffer(&minor_status, &princ_name);
 
 	/* Init a krb5 context and parse the principal username */
 	krb5_err = krb5_init_context(&ctx);
@@ -360,7 +383,7 @@ gssapi_krb5_userok(struct gssapi_auth_request *request, gss_name_t name,
 	} else {
 		/* See if the principal is authorized to act as the
 		   specified user */
-		ret = krb5_kuserok(ctx, princ, request->auth_request.user);
+		ret = krb5_kuserok(ctx, princ, login_user);
 		krb5_free_principal(ctx, princ);
 	}
 	krb5_free_context(ctx);
@@ -371,8 +394,10 @@ gssapi_krb5_userok(struct gssapi_auth_request *request, gss_name_t name,
 static int
 gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc outbuf;
+	const char *login_user, *error;
 	unsigned char *name;
 	unsigned int name_len;
 #if defined(HAVE___GSS_USEROK)
@@ -385,7 +410,7 @@ gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 				  &inbuf, &outbuf, NULL, NULL);
 
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(&request->auth_request, major_status,
+		auth_request_log_gss_error(auth_request, major_status,
 					   GSS_C_GSS_CODE,
 					   "final negotiation: gss_unwrap");
 		return -1;
@@ -394,21 +419,17 @@ gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	/* outbuf[0] contains bitmask for selected security layer,
 	   outbuf[1..3] contains maximum output_message size */
 	if (outbuf.length <= 4) {
-		auth_request_log_error(&request->auth_request, "gssapi",
+		auth_request_log_error(auth_request, "gssapi",
 				       "Invalid response length");
 		return -1;
 	}
 	name = (unsigned char *)outbuf.value + 4;
 	name_len = outbuf.length - 4;
 
-	request->auth_request.user =
-		p_strndup(request->auth_request.pool, name, name_len);
-
-	request->authz_name = import_name(&request->auth_request,
-					  name, name_len);
+	login_user = p_strndup(auth_request->pool, name, name_len);
+	request->authz_name = import_name(auth_request, name, name_len);
 	if (request->authz_name == GSS_C_NO_NAME) {
-		auth_request_log_info(&request->auth_request, "gssapi",
-				      "no authz_name");
+		auth_request_log_info(auth_request, "gssapi", "no authz_name");
 		return -1;
 	}
 
@@ -416,30 +437,32 @@ gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	/* Solaris __gss_userok() correctly handles cross-realm
 	   authentication. */
 	major_status = __gss_userok(&minor_status, request->authn_name,
-				    request->auth_request.user,
-				    &login_ok);
+				    auth_request->user, &login_ok);
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(&request->auth_request, major_status,
+		auth_request_log_gss_error(auth_request, major_status,
 					   GSS_C_GSS_CODE,
 					   "__gss_userok failed");
 		return -1;
 	} 
 
 	if (login_ok == 0) {
-		auth_request_log_info(&request->auth_request, "gssapi",
+		auth_request_log_info(auth_request, "gssapi",
 				      "credentials not valid");
 		return -1;
 	}
 #elif defined(USE_KRB5_USEROK)
-	if (!gssapi_krb5_userok(request, request->authn_name, TRUE)) {
-		auth_request_log_info(&request->auth_request, "gssapi",
-			"authn_name not authorized");
+	if (!gssapi_krb5_userok(request, request->authn_name,
+				login_user, TRUE)) {
+		auth_request_log_info(auth_request, "gssapi",
+			"authn_name (%s) not authorized to log in as %s",
+			auth_request->user, login_user);
 		return -1;
 	}
 
-	if (!gssapi_krb5_userok(request, request->authz_name, FALSE)) {
-		auth_request_log_info(&request->auth_request, "gssapi",
-			"authz_name not authorized");
+	if (!gssapi_krb5_userok(request, request->authz_name,
+				login_user, FALSE)) {
+		auth_request_log_info(auth_request, "gssapi",
+			"authz_name (%s) not authorized", login_user);
 		return -1;
 	}
 #else
@@ -448,18 +471,24 @@ gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 					request->authz_name,
 					&equal_authn_authz);
 	if (GSS_ERROR(major_status)) {
-		auth_request_log_gss_error(&request->auth_request, major_status,
+		auth_request_log_gss_error(auth_request, major_status,
 					   GSS_C_GSS_CODE,
 					   "gss_compare_name failed");
 		return -1;
 	}
 	if (equal_authn_authz == 0) {
-		auth_request_log_info(&request->auth_request, "gssapi",
+		auth_request_log_info(auth_request, "gssapi",
 			"authn_name and authz_name differ: not supported");
 		return -1;
 	}
 #endif
-	auth_request_success(&request->auth_request, NULL, 0);
+	if (!auth_request_set_username(auth_request, login_user, &error)) {
+		auth_request_log_info(auth_request, "gssapi",
+				      "authz_name: %s", error);
+		return -1;
+	}
+
+	auth_request_success(auth_request, NULL, 0);
 	return 0;
 }
 
