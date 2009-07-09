@@ -125,9 +125,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 }
 
 static int
-maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
-		      enum mail_flags flags, struct mail_keywords *keywords,
-		      struct mail *dest_mail)
+maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail)
 {
 	struct maildir_mailbox *dest_mbox =
 		(struct maildir_mailbox *)t->ictx.ibox;
@@ -149,11 +147,6 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 
 	if (t->save_ctx == NULL)
 		t->save_ctx = maildir_save_transaction_init(t);
-
-	/* don't allow caller to specify recent flag */
-	flags &= ~MAIL_RECENT;
-	if (dest_mbox->ibox.keep_recent)
-		flags |= MAIL_RECENT;
 
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path = str_new(default_pool, 512);
@@ -209,8 +202,7 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 	}
 
 	/* hardlinked to tmp/, treat as normal copied mail */
-	maildir_save_add(t->save_ctx, do_ctx.dest_fname, flags, keywords,
-			 dest_mail);
+	maildir_save_add(t->save_ctx, do_ctx.dest_fname);
 	return 1;
 }
 
@@ -231,9 +223,7 @@ int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 	if (mbox->storage->set->maildir_copy_with_hardlinks &&
 	    maildir_compatible_file_modes(&mbox->ibox.box, mail->box)) {
 		T_BEGIN {
-			ret = maildir_copy_hardlink(t, mail, ctx->flags,
-						    ctx->keywords,
-						    ctx->dest_mail);
+			ret = maildir_copy_hardlink(t, mail);
 		} T_END;
 
 		if (ret != 0) {

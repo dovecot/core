@@ -176,8 +176,8 @@ static int validate_uid_gid(struct master_settings *set, uid_t uid, gid_t gid,
 		struct group *gr;
 
 		gr = getgrgid(gid);
-		i_error("User %s not allowed to log in using too %s "
-			"UNIX GID %s%s (see first_valid_gid in config file)",
+		i_error("User %s not allowed to log in using too %s primary "
+			"UNIX group ID %s%s (see first_valid_gid in config file)",
 			user,
 			gid < (gid_t)set->first_valid_gid ? "low" : "high",
 			dec2str(gid), gr == NULL ? "" :
