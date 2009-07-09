@@ -148,13 +148,12 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd,
 	env_put(t_strdup_printf("SSL_SOCKET_COUNT=%d", ssl_socket_count));
 }
 
-static int validate_uid_gid(struct master_settings *set, uid_t uid, gid_t gid,
-			    const char *user)
+static void validate_uid_gid(struct master_settings *set, uid_t uid, gid_t gid,
+			     const char *user)
 {
 	if (uid == 0) {
-		i_error("User %s not allowed to log in using UNIX UID 0 "
+		i_fatal("User %s not allowed to log in using UNIX UID 0 "
 			"(root logins are never allowed)", user);
-		return FALSE;
 	}
 
 	if (uid < (uid_t)set->first_valid_uid ||
@@ -162,13 +161,12 @@ static int validate_uid_gid(struct master_settings *set, uid_t uid, gid_t gid,
 		struct passwd *pw;
 
 		pw = getpwuid(uid);
-		i_error("User %s not allowed to log in using too %s "
+		i_fatal("User %s not allowed to log in using too %s "
 			"UNIX UID %s%s (see first_valid_uid in config file)",
 			user,
 			uid < (uid_t)set->first_valid_uid ? "low" : "high",
 			dec2str(uid), pw == NULL ? "" :
 			t_strdup_printf("(%s)", pw->pw_name));
-		return FALSE;
 	}
 
 	if (gid < (gid_t)set->first_valid_gid ||
@@ -176,16 +174,13 @@ static int validate_uid_gid(struct master_settings *set, uid_t uid, gid_t gid,
 		struct group *gr;
 
 		gr = getgrgid(gid);
-		i_error("User %s not allowed to log in using too %s primary "
+		i_fatal("User %s not allowed to log in using too %s primary "
 			"UNIX group ID %s%s (see first_valid_gid in config file)",
 			user,
 			gid < (gid_t)set->first_valid_gid ? "low" : "high",
 			dec2str(gid), gr == NULL ? "" :
 			t_strdup_printf("(%s)", gr->gr_name));
-		return FALSE;
 	}
-
-	return TRUE;
 }
 
 static void auth_args_apply(const char *const *args,
@@ -288,11 +283,14 @@ static void drop_privileges(struct service *service,
 		auth_success_write();
 		auth_args_apply(auth_args + 1, &rset, &home);
 
-		if (!validate_uid_gid(master_set, rset.uid, rset.gid, user))
-			exit(FATAL_DEFAULT);
+		validate_uid_gid(master_set, rset.uid, rset.gid, user);
 	}
 
 	if (home != NULL) {
+		if (*home != '/') {
+			i_fatal("Relative home directory paths not supported "
+				"(user %s): %s", user, home);
+		}
 		if (chdir(home) < 0 && errno != ENOENT)
 			i_error("chdir(%s) failed: %m", home);
 	}
