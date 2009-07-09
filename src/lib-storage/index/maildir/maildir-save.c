@@ -135,25 +135,22 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 }
 
 uint32_t maildir_save_add(struct maildir_save_context *ctx,
-			  const char *base_fname)
+			  const char *base_fname, enum mail_flags flags,
+			  struct mail_keywords *keywords,
+			  struct mail *dest_mail)
 {
 	struct maildir_filename *mf;
 	struct istream *input;
-
-	/* don't allow caller to specify recent flag */
-	ctx->ctx.flags &= ~MAIL_RECENT;
-	if (dest_mbox->ibox.keep_recent)
-		ctx->ctx.flags |= MAIL_RECENT;
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
 	   into new/ or cur/. */
 	/* @UNSAFE */
 	mf = p_malloc(ctx->pool, sizeof(*mf) +
-		      sizeof(unsigned int) * (ctx->ctx.keywords == NULL ? 0 :
-					      ctx->ctx.keywords->count));
+		      sizeof(unsigned int) * (keywords == NULL ? 0 :
+					      keywords->count));
 	mf->basename = p_strdup(ctx->pool, base_fname);
-	mf->flags = ctx->ctx.flags;
+	mf->flags = flags;
 	mf->size = (uoff_t)-1;
 	mf->vsize = (uoff_t)-1;
 
@@ -163,24 +160,22 @@ uint32_t maildir_save_add(struct maildir_save_context *ctx,
 	ctx->files_tail = &mf->next;
 	ctx->files_count++;
 
-	if (ctx->ctx.keywords != NULL) {
-		i_assert(sizeof(ctx->ctx.keywords->idx[0]) ==
-			 sizeof(unsigned int));
+	if (keywords != NULL) {
+		i_assert(sizeof(keywords->idx[0]) == sizeof(unsigned int));
 
 		/* @UNSAFE */
-		mf->keywords_count = ctx->ctx.keywords->count;
-		memcpy(mf + 1, ctx->ctx.keywords->idx,
-		       sizeof(unsigned int) * ctx->ctx.keywords->count);
+		mf->keywords_count = keywords->count;
+		memcpy(mf + 1, keywords->idx,
+		       sizeof(unsigned int) * keywords->count);
 		ctx->have_keywords = TRUE;
 	}
 
 	/* insert into index */
 	mail_index_append(ctx->trans, 0, &ctx->seq);
-	mail_index_update_flags(ctx->trans, ctx->seq,
-				MODIFY_REPLACE, ctx->ctx.flags);
-	if (ctx->ctx.keywords != NULL) {
+	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE, flags);
+	if (keywords != NULL) {
 		mail_index_update_keywords(ctx->trans, ctx->seq,
-					   MODIFY_REPLACE, ctx->ctx.keywords);
+					   MODIFY_REPLACE, keywords);
 	}
 
 	if (ctx->first_seq == 0) {
@@ -188,10 +183,10 @@ uint32_t maildir_save_add(struct maildir_save_context *ctx,
 		i_assert(ctx->files->next == NULL);
 	}
 
-	if (ctx->ctx.dest_mail == NULL) {
+	if (dest_mail == NULL) {
 		if (ctx->mail == NULL)
 			ctx->mail = mail_alloc(ctx->ctx.transaction, 0, NULL);
-		ctx->ctx.dest_mail = ctx->mail;
+		dest_mail = ctx->mail;
 	}
 	mail_set_seq(dest_mail, ctx->seq);
 
@@ -376,6 +371,10 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		(struct maildir_transaction_context *)_ctx->transaction;
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 
+	_ctx->flags &= ~MAIL_RECENT;
+	if (ctx->mbox->ibox.keep_recent)
+		_ctx->flags |= MAIL_RECENT;
+
 	T_BEGIN {
 		/* create a new file in tmp/ directory */
 		const char *fname = _ctx->guid;
@@ -388,7 +387,8 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 				ctx->input = i_stream_create_crlf(input);
 			else
 				ctx->input = i_stream_create_lf(input);
-			maildir_save_add(ctx, fname);
+			maildir_save_add(t->save_ctx, fname, _ctx->flags,
+					 _ctx->keywords, _ctx->dest_mail);
 		}
 	} T_END;
 
