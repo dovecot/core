@@ -73,10 +73,9 @@ static void client_auth_input(struct pop3_client *client)
 	if (line == NULL)
 		return;
 
-	if (strcmp(line, "*") == 0) {
-		sasl_server_auth_client_error(&client->common,
-					      "Authentication aborted");
-	} else {
+	if (strcmp(line, "*") == 0)
+		sasl_server_auth_abort(&client->common);
+	else {
 		auth_client_request_continue(client->common.auth_request, line);
 		io_remove(&client->io);
 
@@ -217,7 +216,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	bool nodelay;
 
 	i_assert(!client->destroyed ||
-		 reply == SASL_SERVER_REPLY_CLIENT_ERROR ||
+		 reply == SASL_SERVER_REPLY_AUTH_ABORTED ||
 		 reply == SASL_SERVER_REPLY_MASTER_FAILED);
 
 	switch (reply) {
@@ -230,14 +229,18 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		client_destroy_success(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
-	case SASL_SERVER_REPLY_CLIENT_ERROR:
+	case SASL_SERVER_REPLY_AUTH_ABORTED:
 		if (args != NULL) {
 			if (client_handle_args(client, args, FALSE, &nodelay))
 				break;
 		}
 
-		msg = t_strconcat("-ERR ", data != NULL ?
-				  data : AUTH_FAILED_MSG, NULL);
+		if (reply == SASL_SERVER_REPLY_AUTH_ABORTED)
+			msg = "-ERR Authentication aborted by client.";
+		else if (data == NULL)
+			msg = "-ERR "AUTH_FAILED_MSG;
+		else
+			msg = t_strconcat("-ERR ", data, NULL);
 		client_send_line(client, msg);
 
 		if (!client->destroyed)

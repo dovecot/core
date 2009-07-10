@@ -583,7 +583,7 @@ void client_destroy(struct imap_client *client, const char *reason)
 					  client->common.master_tag);
 	} else if (client->common.auth_request != NULL) {
 		i_assert(client->common.authenticating);
-		sasl_server_auth_client_error(&client->common, NULL);
+		sasl_server_auth_abort(&client->common);
 	} else {
 		i_assert(!client->common.authenticating);
 	}

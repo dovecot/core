@@ -273,7 +273,7 @@ void sasl_server_auth_failed(struct client *client, const char *reason)
 	sasl_server_auth_cancel(client, reason, SASL_SERVER_REPLY_AUTH_FAILED);
 }
 
-void sasl_server_auth_client_error(struct client *client, const char *reason)
+void sasl_server_auth_abort(struct client *client)
 {
-	sasl_server_auth_cancel(client, reason, SASL_SERVER_REPLY_CLIENT_ERROR);
+	sasl_server_auth_cancel(client, NULL, SASL_SERVER_REPLY_AUTH_ABORTED);
 }
