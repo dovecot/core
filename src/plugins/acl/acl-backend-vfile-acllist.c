@@ -42,14 +42,12 @@ static const char *acl_list_get_root_dir(struct acl_backend_vfile *backend)
 {
 	struct mail_storage *storage;
 	const char *rootdir, *maildir;
-	bool is_file;
 
 	rootdir = mailbox_list_get_path(backend->backend.list, NULL,
 					MAILBOX_LIST_PATH_TYPE_DIR);
 
 	storage = mailbox_list_get_namespace(backend->backend.list)->storage;
-	(void)mail_storage_get_mailbox_path(storage, "", &is_file);
-	if (is_file) {
+	if (mail_storage_is_mailbox_file(storage)) {
 		maildir = mailbox_list_get_path(backend->backend.list, NULL,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (strcmp(maildir, rootdir) == 0) {
