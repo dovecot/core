@@ -243,16 +243,13 @@ maildir_sync_index_update_ext_header(struct maildir_index_sync_context *ctx)
 	}
 }
 
-int maildir_sync_index_finish(struct maildir_index_sync_context **_ctx,
-			      bool failed, bool cancel)
+static int maildir_sync_index_finish(struct maildir_index_sync_context *ctx,
+				     bool success)
 {
-	struct maildir_index_sync_context *ctx = *_ctx;
 	struct maildir_mailbox *mbox = ctx->mbox;
-	int ret = failed ? -1 : 0;
+	int ret = success ? 0 : -1;
 
-	*_ctx = NULL;
-
-	if (ret < 0 || cancel)
+	if (ret < 0)
 		mail_index_sync_rollback(&ctx->sync_ctx);
 	else {
 		maildir_sync_index_update_ext_header(ctx);
@@ -276,6 +273,22 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_ctx,
 	index_sync_changes_deinit(&ctx->sync_changes);
 	i_free(ctx);
 	return ret;
+}
+
+int maildir_sync_index_commit(struct maildir_index_sync_context **_ctx)
+{
+	struct maildir_index_sync_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+	return maildir_sync_index_finish(ctx, TRUE);
+}
+
+void maildir_sync_index_rollback(struct maildir_index_sync_context **_ctx)
+{
+	struct maildir_index_sync_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+	(void)maildir_sync_index_finish(ctx, FALSE);
 }
 
 static int uint_cmp(const void *p1, const void *p2)

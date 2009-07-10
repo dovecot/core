@@ -24,6 +24,8 @@
 #include <utime.h>
 #include <sys/stat.h>
 
+#define MAILDIR_FILENAME_FLAG_MOVED 0x10000000
+
 struct maildir_filename {
 	struct maildir_filename *next;
 	const char *basename;
@@ -56,27 +58,24 @@ struct maildir_save_context {
 	int fd;
 	uint32_t first_seq, seq;
 
-	unsigned int want_mails:1;
 	unsigned int have_keywords:1;
 	unsigned int locked:1;
 	unsigned int failed:1;
-	unsigned int moving:1;
-	unsigned int finished:1;
+	unsigned int last_save_finished:1;
 };
 
 static int maildir_file_move(struct maildir_save_context *ctx,
-			     const char *tmpname, const char *destname,
+			     struct maildir_filename *mf, const char *destname,
 			     bool newdir)
 {
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *tmp_path, *new_path;
-	int ret;
 
 	/* if we have flags, we'll move it to cur/ directly, because files in
 	   new/ directory can't have flags. alternative would be to write it
 	   in new/ and set the flags dirty in index file, but in that case
 	   external MUAs would see wrong flags. */
-	tmp_path = t_strconcat(ctx->tmpdir, "/", tmpname, NULL);
+	tmp_path = t_strconcat(ctx->tmpdir, "/", mf->basename, NULL);
 	new_path = newdir ?
 		t_strconcat(ctx->newdir, "/", destname, NULL) :
 		t_strconcat(ctx->curdir, "/", destname, NULL);
@@ -91,20 +90,18 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 	   almost required with OSX's HFS+ filesystem, since it implements
 	   hard links in a pretty ugly way, which makes the performance crawl
 	   when a lot of hard links are used. */
-	if (rename(tmp_path, new_path) == 0)
-		ret = 0;
-	else {
-		ret = -1;
-		if (ENOSPACE(errno)) {
-			mail_storage_set_error(storage,
-				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
-		} else {
-			mail_storage_set_critical(storage,
-				"rename(%s, %s) failed: %m",
-				tmp_path, new_path);
-		}
+	if (rename(tmp_path, new_path) == 0) {
+		mf->flags |= MAILDIR_FILENAME_FLAG_MOVED;
+		return 0;
+	} else if (ENOSPACE(errno)) {
+		mail_storage_set_error(storage, MAIL_ERROR_NOSPACE,
+				       MAIL_ERRSTR_NO_SPACE);
+		return -1;
+	} else {
+		mail_storage_set_critical(storage, "rename(%s, %s) failed: %m",
+					  tmp_path, new_path);
+		return -1;
 	}
-	return ret;
 }
 
 struct maildir_save_context *
@@ -130,27 +127,32 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx->keywords_buffer = buffer_create_const_data(pool, NULL, 0);
 	array_create_from_buffer(&ctx->keywords_array, ctx->keywords_buffer,
 				 sizeof(unsigned int));
-	ctx->finished = TRUE;
+	ctx->last_save_finished = TRUE;
 	return ctx;
 }
 
-uint32_t maildir_save_add(struct maildir_save_context *ctx,
-			  const char *base_fname, enum mail_flags flags,
-			  struct mail_keywords *keywords,
-			  struct mail *dest_mail)
+uint32_t maildir_save_add(struct mail_save_context *_ctx,
+			  const char *base_fname)
 {
+	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct maildir_filename *mf;
 	struct istream *input;
+	unsigned int keyword_count;
+
+	/* don't allow caller to specify recent flag */
+	_ctx->flags &= ~MAIL_RECENT;
+	if (ctx->mbox->ibox.keep_recent)
+		_ctx->flags |= MAIL_RECENT;
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
 	   into new/ or cur/. */
 	/* @UNSAFE */
+	keyword_count = _ctx->keywords == NULL ? 0 : _ctx->keywords->count;
 	mf = p_malloc(ctx->pool, sizeof(*mf) +
-		      sizeof(unsigned int) * (keywords == NULL ? 0 :
-					      keywords->count));
+		      sizeof(unsigned int) * keyword_count);
 	mf->basename = p_strdup(ctx->pool, base_fname);
-	mf->flags = flags;
+	mf->flags = _ctx->flags;
 	mf->size = (uoff_t)-1;
 	mf->vsize = (uoff_t)-1;
 
@@ -160,22 +162,21 @@ uint32_t maildir_save_add(struct maildir_save_context *ctx,
 	ctx->files_tail = &mf->next;
 	ctx->files_count++;
 
-	if (keywords != NULL) {
-		i_assert(sizeof(keywords->idx[0]) == sizeof(unsigned int));
-
+	if (_ctx->keywords != NULL) {
 		/* @UNSAFE */
-		mf->keywords_count = keywords->count;
-		memcpy(mf + 1, keywords->idx,
-		       sizeof(unsigned int) * keywords->count);
+		mf->keywords_count = keyword_count;
+		memcpy(mf + 1, _ctx->keywords->idx,
+		       sizeof(unsigned int) * keyword_count);
 		ctx->have_keywords = TRUE;
 	}
 
 	/* insert into index */
 	mail_index_append(ctx->trans, 0, &ctx->seq);
-	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE, flags);
-	if (keywords != NULL) {
+	mail_index_update_flags(ctx->trans, ctx->seq,
+				MODIFY_REPLACE, _ctx->flags);
+	if (_ctx->keywords != NULL) {
 		mail_index_update_keywords(ctx->trans, ctx->seq,
-					   MODIFY_REPLACE, keywords);
+					   MODIFY_REPLACE, _ctx->keywords);
 	}
 
 	if (ctx->first_seq == 0) {
@@ -183,22 +184,23 @@ uint32_t maildir_save_add(struct maildir_save_context *ctx,
 		i_assert(ctx->files->next == NULL);
 	}
 
-	if (dest_mail == NULL) {
+	if (_ctx->dest_mail == NULL) {
 		if (ctx->mail == NULL)
-			ctx->mail = mail_alloc(ctx->ctx.transaction, 0, NULL);
-		dest_mail = ctx->mail;
+			ctx->mail = mail_alloc(_ctx->transaction, 0, NULL);
+		_ctx->dest_mail = ctx->mail;
 	}
-	mail_set_seq(dest_mail, ctx->seq);
+	mail_set_seq(_ctx->dest_mail, ctx->seq);
 
 	if (ctx->input == NULL) {
 		/* FIXME: copying with hardlinking. we could copy the
 		   cached data directly */
 		ctx->cur_dest_mail = NULL;
 	} else {
-		input = index_mail_cache_parse_init(dest_mail, ctx->input);
+		input = index_mail_cache_parse_init(_ctx->dest_mail,
+						    ctx->input);
 		i_stream_unref(&ctx->input);
 		ctx->input = input;
-		ctx->cur_dest_mail = dest_mail;
+		ctx->cur_dest_mail = _ctx->dest_mail;
 	}
 	return ctx->seq;
 }
@@ -247,7 +249,7 @@ static const char *maildir_mf_get_path(struct maildir_save_context *ctx,
 {
 	const char *fname;
 
-	if (!ctx->moving && (mf->flags & MAILDIR_SAVE_FLAG_HARDLINK) == 0) {
+	if ((mf->flags & MAILDIR_FILENAME_FLAG_MOVED) == 0) {
 		/* file is still in tmp/ */
 		return t_strdup_printf("%s/%s", ctx->tmpdir, mf->basename);
 	}
@@ -367,13 +369,7 @@ maildir_save_alloc(struct mailbox_transaction_context *_t)
 
 int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
-	struct maildir_transaction_context *t =
-		(struct maildir_transaction_context *)_ctx->transaction;
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
-
-	_ctx->flags &= ~MAIL_RECENT;
-	if (ctx->mbox->ibox.keep_recent)
-		_ctx->flags |= MAIL_RECENT;
 
 	T_BEGIN {
 		/* create a new file in tmp/ directory */
@@ -387,14 +383,14 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 				ctx->input = i_stream_create_crlf(input);
 			else
 				ctx->input = i_stream_create_lf(input);
-			maildir_save_add(t->save_ctx, fname, _ctx->flags,
-					 _ctx->keywords, _ctx->dest_mail);
+			maildir_save_add(_ctx, fname);
 		}
 	} T_END;
 
 	if (!ctx->failed) {
 		_ctx->output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
 		o_stream_cork(_ctx->output);
+		ctx->last_save_finished = FALSE;
 	}
 	return ctx->failed ? -1 : 0;
 }
@@ -428,16 +424,65 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 	return 0;
 }
 
+static int maildir_save_finish_received_date(struct maildir_save_context *ctx,
+					     const char *path)
+{
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
+	struct utimbuf buf;
+	struct stat st;
+
+	if (ctx->ctx.received_date != (time_t)-1) {
+		/* set the received_date by modifying mtime */
+		buf.actime = ioloop_time;
+		buf.modtime = ctx->ctx.received_date;
+
+		if (utime(path, &buf) < 0) {
+			mail_storage_set_critical(storage,
+						  "utime(%s) failed: %m", path);
+			return -1;
+		}
+	} else if (ctx->fd != -1) {
+		if (fstat(ctx->fd, &st) == 0)
+			ctx->ctx.received_date = st.st_mtime;
+		else {
+			mail_storage_set_critical(storage,
+						  "fstat(%s) failed: %m", path);
+			return -1;
+		}
+	} else {
+		/* hardlinked */
+		if (stat(path, &st) == 0)
+			ctx->ctx.received_date = st.st_mtime;
+		else {
+			mail_storage_set_critical(storage,
+						  "stat(%s) failed: %m", path);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static void maildir_save_remove_last_filename(struct maildir_save_context *ctx)
+{
+	struct maildir_filename **fm;
+
+	for (fm = &ctx->files; (*fm)->next != NULL; fm = &(*fm)->next) ;
+	i_assert(*fm == ctx->file_last);
+	*fm = NULL;
+
+	ctx->files_tail = fm;
+	ctx->file_last = NULL;
+	ctx->files_count--;
+}
+
 static int maildir_save_finish_real(struct mail_save_context *_ctx)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
-	struct utimbuf buf;
-	struct stat st;
 	const char *path;
 	int output_errno;
 
-	ctx->finished = TRUE;
+	ctx->last_save_finished = TRUE;
 	if (ctx->failed && ctx->fd == -1) {
 		/* tmp file creation failed */
 		return -1;
@@ -460,34 +505,8 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 		index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE, &t, sizeof(t));
 	}
 
-	if (ctx->ctx.received_date != (time_t)-1) {
-		/* set the received_date by modifying mtime */
-		buf.actime = ioloop_time;
-		buf.modtime = ctx->ctx.received_date;
-
-		if (utime(path, &buf) < 0) {
-			ctx->failed = TRUE;
-			mail_storage_set_critical(storage,
-						  "utime(%s) failed: %m", path);
-		}
-	} else if (ctx->fd != -1) {
-		if (fstat(ctx->fd, &st) == 0)
-			ctx->ctx.received_date = st.st_mtime;
-		else {
-			ctx->failed = TRUE;
-			mail_storage_set_critical(storage,
-						  "fstat(%s) failed: %m", path);
-		}
-	} else {
-		/* hardlinked */
-		if (stat(path, &st) == 0)
-			ctx->ctx.received_date = st.st_mtime;
-		else {
-			ctx->failed = TRUE;
-			mail_storage_set_critical(storage,
-						  "stat(%s) failed: %m", path);
-		}
-	}
+ 	if (maildir_save_finish_received_date(ctx, path) < 0)
+		ctx->failed = TRUE;
 
 	if (ctx->cur_dest_mail != NULL) {
 		index_mail_cache_parse_deinit(ctx->cur_dest_mail,
@@ -525,8 +544,6 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	ctx->fd = -1;
 
 	if (ctx->failed) {
-		struct maildir_filename **fm;
-
 		/* delete the tmp file */
 		if (unlink(path) < 0 && errno != ENOENT) {
 			mail_storage_set_critical(storage,
@@ -542,13 +559,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 				"write(%s) failed: %m", path);
 		}
 
-		/* remove from the linked list */
-		for (fm = &ctx->files; (*fm)->next != NULL; fm = &(*fm)->next) ;
-		i_assert(*fm == ctx->file_last);
-		*fm = NULL;
-		ctx->files_tail = fm;
-		ctx->file_last = NULL;
-		ctx->files_count--;
+		maildir_save_remove_last_filename(ctx);
 		return -1;
 	}
 
@@ -576,20 +587,14 @@ void maildir_save_cancel(struct mail_save_context *_ctx)
 }
 
 static void
-maildir_transaction_unlink_copied_files(struct maildir_save_context *ctx,
-					struct maildir_filename *pos)
+maildir_save_unlink_files(struct maildir_save_context *ctx)
 {
 	struct maildir_filename *mf;
 
-	/* try to unlink the mails already moved */
-	for (mf = ctx->files; mf != pos; mf = mf->next) {
-		if ((mf->flags & MAILDIR_SAVE_FLAG_DELETED) == 0) {
-			T_BEGIN {
-				(void)unlink(maildir_mf_get_path(ctx, mf));
-			} T_END;
-		}
-	}
-	ctx->files = pos;
+	for (mf = ctx->files; mf != NULL; mf = mf->next) T_BEGIN {
+		(void)unlink(maildir_mf_get_path(ctx, mf));
+	} T_END;
+	ctx->files = NULL;
 }
 
 static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
@@ -699,29 +704,17 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx,
 	*last_mf_r = NULL;
 
 	ret = 0;
-	ctx->moving = TRUE;
 	new_changed = cur_changed = FALSE;
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
 		T_BEGIN {
 			const char *dest;
 
 			newdir = maildir_get_updated_filename(ctx, mf, &dest);
-
-			/* if hardlink-flag is set, the file is already in
-			   destination. if the hardlinked mail contained
-			   keywords, it was linked into tmp/ and it doesn't
-			   have the hardlink-flag set, so it's treated as any
-			   other saved mail. */
-			if ((mf->flags & MAILDIR_SAVE_FLAG_HARDLINK) != 0)
-				ret = 0;
-			else {
-				if (newdir)
-					new_changed = TRUE;
-				else
-					cur_changed = TRUE;
-				ret = maildir_file_move(ctx, mf->basename,
-							dest, newdir);
-			}
+			if (newdir)
+				new_changed = TRUE;
+			else
+				cur_changed = TRUE;
+			ret = maildir_file_move(ctx, mf, dest, newdir);
 		} T_END;
 		if (ret < 0)
 			return -1;
@@ -760,15 +753,18 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	int ret;
 
 	i_assert(ctx->ctx.output == NULL);
-	i_assert(ctx->finished);
+	i_assert(ctx->last_save_finished);
 
 	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL |
 		MAILDIR_UIDLIST_SYNC_NOREFRESH;
 
-	/* if we want to assign UIDs or keywords, we require uidlist lock */
-	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) == 0 &&
-	    !ctx->have_keywords) {
-		/* assign the UIDs if we happen to get a lock */
+	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0) {
+		/* we want to assign UIDs, we must lock uidlist */
+	} else if (ctx->have_keywords) {
+		/* keywords file updating relies on uidlist lock. */
+	} else {
+		/* no requirement to lock uidlist. if we happen to get a lock,
+		   assign uids. */
 		sync_flags |= MAILDIR_UIDLIST_SYNC_TRYLOCK;
 	}
 	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, sync_flags,
@@ -793,9 +789,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 	ret = maildir_save_move_files_to_newcur(ctx, &last_mf);
 	if (ctx->locked) {
-		/* update dovecot-uidlist file. */
-		if (ret == 0)
+		if (ret == 0) {
+			/* update dovecot-uidlist file. */
 			maildir_save_sync_uidlist(ctx);
+		}
 
 		if (maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx,
 						ret == 0) < 0)
@@ -815,7 +812,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	if (ctx->locked) {
 		/* It doesn't matter if index syncing fails */
 		ctx->keywords_sync_ctx = NULL;
-		(void)maildir_sync_index_finish(&ctx->sync_ctx, ret < 0, FALSE);
+		if (ret < 0)
+			maildir_sync_index_rollback(&ctx->sync_ctx);
+		else
+			(void)maildir_sync_index_commit(&ctx->sync_ctx);
 	}
 
 	if (ret < 0) {
@@ -825,8 +825,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 		/* unlink the files we just moved in an attempt to rollback
 		   the transaction. uidlist is still locked, so at least other
-		   Dovecot instances haven't yet seen the files. */
-		maildir_transaction_unlink_copied_files(ctx, last_mf);
+		   Dovecot instances haven't yet seen the files. we need
+		   to have the keywords sync context to be able to generate
+		   the destination filenames if keywords were used. */
+		maildir_save_unlink_files(ctx);
 
 		if (ctx->keywords_sync_ctx != NULL)
 			maildir_keywords_sync_deinit(&ctx->keywords_sync_ctx);
@@ -849,42 +851,20 @@ void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 static void
 maildir_transaction_save_rollback_real(struct maildir_save_context *ctx)
 {
-	struct maildir_filename *mf;
-	string_t *str;
-	size_t dir_len;
-	bool hardlinks = FALSE;
-
 	i_assert(ctx->ctx.output == NULL);
 
-	if (!ctx->finished)
+	if (!ctx->last_save_finished)
 		maildir_save_cancel(&ctx->ctx);
 
-	str = t_str_new(1024);
-	str_append(str, ctx->tmpdir);
-	str_append_c(str, '/');
-        dir_len = str_len(str);
-
-	/* clean up the temp files */
-	for (mf = ctx->files; mf != NULL; mf = mf->next) {
-		if ((mf->flags & MAILDIR_SAVE_FLAG_HARDLINK) == 0) {
-			mf->flags |= MAILDIR_SAVE_FLAG_DELETED;
-			str_truncate(str, dir_len);
-			str_append(str, mf->basename);
-			(void)unlink(str_c(str));
-		} else {
-			hardlinks = TRUE;
-		}
-	}
-
-	if (hardlinks)
-		maildir_transaction_unlink_copied_files(ctx, NULL);
+	/* delete files in tmp/ */
+	maildir_save_unlink_files(ctx);
 
 	if (ctx->uidlist_sync_ctx != NULL)
 		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx, FALSE);
+	if (ctx->sync_ctx != NULL)
+		maildir_sync_index_rollback(&ctx->sync_ctx);
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->mbox->uidlist);
-	if (ctx->sync_ctx != NULL)
-		(void)maildir_sync_index_finish(&ctx->sync_ctx, TRUE, FALSE);
 
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);

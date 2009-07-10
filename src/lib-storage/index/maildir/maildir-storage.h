@@ -42,9 +42,6 @@
    maildir. */
 #define MAILDIR_LOCK_TOUCH_SECS 10
 
-#define MAILDIR_SAVE_FLAG_HARDLINK 0x10000000
-#define MAILDIR_SAVE_FLAG_DELETED  0x20000000
-
 /* If an operation fails with ENOENT, we'll check if the mailbox is deleted
    or if some directory is just missing. If it's missing, we'll create the
    directories and try again this many times before failing. */
@@ -136,10 +133,8 @@ void maildir_save_cancel(struct mail_save_context *ctx);
 
 struct maildir_save_context *
 maildir_save_transaction_init(struct maildir_transaction_context *t);
-uint32_t maildir_save_add(struct maildir_save_context *ctx,
-			  const char *base_fname, enum mail_flags flags,
-			  struct mail_keywords *keywords,
-			  struct mail *dest_mail);
+uint32_t maildir_save_add(struct mail_save_context *ctx,
+			  const char *base_fname);
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 				       uint32_t seq);
 

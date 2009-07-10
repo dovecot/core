@@ -267,10 +267,8 @@ static void maildir_sync_deinit(struct maildir_sync_context *ctx)
 {
 	if (ctx->uidlist_sync_ctx != NULL)
 		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx, FALSE);
-	if (ctx->index_sync_ctx != NULL) {
-		(void)maildir_sync_index_finish(&ctx->index_sync_ctx,
-						TRUE, FALSE);
-	}
+	if (ctx->index_sync_ctx != NULL)
+		maildir_sync_index_rollback(&ctx->index_sync_ctx);
 }
 
 static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
@@ -858,8 +856,9 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		   files getting lost, so this function might be called
 		   re-entrantly. */
 		ret = maildir_sync_index(ctx->index_sync_ctx, ctx->partial);
-		if (maildir_sync_index_finish(&ctx->index_sync_ctx,
-					      ret < 0, FALSE) < 0)
+		if (ret < 0)
+			maildir_sync_index_rollback(&ctx->index_sync_ctx);
+		else if (maildir_sync_index_commit(&ctx->index_sync_ctx) < 0)
 			return -1;
 
 		if (ret < 0)
