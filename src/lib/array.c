@@ -96,3 +96,13 @@ void array_sort_i(struct array *array, int (*cmp)(const void *, const void *))
 	qsort(buffer_get_modifiable_data(array->buffer, NULL),
 	      count, array->element_size, cmp);
 }
+
+void *array_bsearch_i(struct array *array, const void *key,
+		     int (*cmp)(const void *, const void *))
+{
+	unsigned int count;
+
+	count = array->buffer->used / array->element_size;
+	return bsearch(key, array->buffer->data,
+		       count, array->element_size, cmp);
+}

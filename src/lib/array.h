@@ -246,4 +246,17 @@ void array_sort_i(struct array *array, int (*cmp)(const void *, const void *));
 	array_sort_i(&(array)->arr, (int (*)(const void *, const void *))cmp)
 #endif
 
+void *array_bsearch_i(struct array *array, const void *key,
+		      int (*cmp)(const void *, const void *));
+#ifdef CONTEXT_TYPE_SAFETY
+#define array_bsearch(array, key, cmp) \
+	({(void)(1 ? 0 : cmp(key, ARRAY_TYPE_CAST_CONST(array)NULL)); \
+	array_bsearch_i(&(array)->arr, (const void *)key, \
+		(int (*)(const void *, const void *))cmp); })
+#else
+#define array_bsearch(array, key, cmp) \
+	array_bsearch_i(&(array)->arr, (const void *)key, \
+		(int (*)(const void *, const void *))cmp)
+#endif
+
 #endif
