@@ -110,12 +110,12 @@ mailbox_name_convert(struct mail_namespace *dest_ns,
 	src_sep = mailbox_list_get_hierarchy_sep(source_ns->list);
 	dest_sep = mailbox_list_get_hierarchy_sep(dest_ns->list);
 
-	if (src_sep == dest_sep || set->alt_hierarchy_char == '\0')
+	if (src_sep == dest_sep)
 		return name;
 
 	dest_name = t_strdup_noconst(name);
 	for (p = dest_name; *p != '\0'; p++) {
-		if (*p == dest_sep)
+		if (*p == dest_sep && set->alt_hierarchy_char != '\0')
 			*p = set->alt_hierarchy_char;
 		else if (*p == src_sep)
 			*p = dest_sep;
