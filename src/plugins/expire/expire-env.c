@@ -62,6 +62,12 @@ expire_env_parse(struct expire_env *env, struct mail_namespace *namespaces,
 		box.type = type;
 		box.expire_secs = strtoul(names[1], NULL, 10) * 3600 * 24;
 
+		if (getenv("DEBUG") != NULL) {
+			i_info("expire: pattern=%s type=%s secs=%u",
+			       box.pattern, type == EXPIRE_TYPE_EXPUNGE ?
+			       "expunge" : "altmove", box.expire_secs);
+		}
+
 		array_append(&env->expire_boxes, &box, 1);
 	}
 }
