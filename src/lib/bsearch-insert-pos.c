@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "bsearch-insert-pos.h"
 
 bool bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
@@ -34,3 +35,11 @@ bool bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
 	return FALSE;
 }
 
+bool array_bsearch_insert_pos_i(const struct array *array, const void *key,
+				int (*cmp)(const void *, const void *),
+				unsigned int *idx_r)
+{
+	return bsearch_insert_pos(key, array->buffer->data,
+				  array_count_i(array),
+				  array->element_size, cmp, idx_r);
+}
