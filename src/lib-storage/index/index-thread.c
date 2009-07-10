@@ -436,9 +436,9 @@ static void mail_thread_cache_update_adds(struct mail_thread_mailbox *tbox,
 	if (uid_count == 0)
 		return;
 
+	(void)array_bsearch_insert_pos(tbox->msgid_map, &uids[0].seq1,
+				       msgid_map_cmp, &j);
 	msgid_map = array_get(tbox->msgid_map, &map_count);
-	(void)bsearch_insert_pos(&uids[0].seq1, msgid_map, map_count,
-				 sizeof(*msgid_map), msgid_map_cmp, &j);
 	i_assert(j < map_count);
 	while (j > 0 && msgid_map[j-1].uid == msgid_map[j].uid)
 		j--;

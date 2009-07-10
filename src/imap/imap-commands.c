@@ -109,26 +109,19 @@ static int command_cmp(const struct command *c1, const struct command *c2)
 	return strcasecmp(c1->name, c2->name);
 }
 
-static int command_bsearch(const void *name, const void *cmd_p)
+static int command_bsearch(const char *name, const struct command *cmd)
 {
-        const struct command *cmd = cmd_p;
-
 	return strcasecmp(name, cmd->name);
 }
 
 struct command *command_find(const char *name)
 {
-	const void *base;
-	unsigned int count;
-
 	if (commands_unsorted) {
 		array_sort(&imap_commands, command_cmp);
                 commands_unsorted = FALSE;
 	}
 
-	base = array_get(&imap_commands, &count);
-	return bsearch(name, base, count, sizeof(struct command),
-		       command_bsearch);
+	return array_bsearch(&imap_commands, name, command_bsearch);
 }
 
 void commands_init(void)

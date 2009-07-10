@@ -38,28 +38,23 @@ void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 	array_sort(&fetch_handlers, imap_fetch_handler_cmp);
 }
 
-static int imap_fetch_handler_bsearch(const void *name_p, const void *handler_p)
+static int
+imap_fetch_handler_bsearch(const char *name, const struct imap_fetch_handler *h)
 {
-	const char *name = name_p;
-        const struct imap_fetch_handler *h = handler_p;
-
 	return strcmp(name, h->name);
 }
 
 bool imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
 			     const struct imap_arg **args)
 {
-	const struct imap_fetch_handler *handler, *handlers;
+	const struct imap_fetch_handler *handler;
 	const char *lookup_name, *p;
-	unsigned int count;
 
 	for (p = name; i_isalnum(*p); p++) ;
 	lookup_name = t_strdup_until(name, p);
 
-	handlers = array_get_modifiable(&fetch_handlers, &count);
-	handler = bsearch(lookup_name, handlers, count,
-			  sizeof(struct imap_fetch_handler),
-			  imap_fetch_handler_bsearch);
+	handler = array_bsearch(&fetch_handlers, lookup_name,
+				imap_fetch_handler_bsearch);
 	if (handler == NULL) {
 		client_send_command_error(ctx->cmd,
 			t_strconcat("Unknown parameter ", name, NULL));

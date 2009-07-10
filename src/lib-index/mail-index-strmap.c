@@ -1072,11 +1072,9 @@ static void mail_index_strmap_unlock(struct mail_index_strmap *strmap)
 		file_dotlock_delete(&strmap->dotlock);
 }
 
-static int strmap_rec_cmp(const void *key, const void *value)
+static int
+strmap_rec_cmp(const uint32_t *uid, const struct mail_index_strmap_rec *rec)
 {
-	const uint32_t *uid = key;
-	const struct mail_index_strmap_rec *rec = value;
-
 	return *uid < rec->uid ? -1 :
 		(*uid > rec->uid ? 1 : 0);
 }
@@ -1112,10 +1110,11 @@ mail_index_strmap_write_append(struct mail_index_strmap_view *view)
 	   already have internally given it another index). So the only
 	   sensible choice is to write nothing and hope that the message goes
 	   away soon. */
-	old_recs = array_get(&view->recs, &old_count);
 	next_uid = view->last_read_uid + 1;
-	(void)bsearch_insert_pos(&next_uid, old_recs, old_count,
-				 sizeof(*old_recs), strmap_rec_cmp, &i);
+	(void)array_bsearch_insert_pos(&view->recs, &next_uid,
+				       strmap_rec_cmp, &i);
+
+	old_recs = array_get(&view->recs, &old_count);
 	if (i < old_count) {
 		while (i > 0 && old_recs[i-1].uid == old_recs[i].uid)
 			i--;

@@ -453,11 +453,9 @@ virtual_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	return ret;
 }
 
-static int virtual_backend_uidmap_cmp(const void *key, const void *data)
+static int virtual_backend_uidmap_cmp(const uint32_t *uid,
+				      const struct virtual_backend_uidmap *map)
 {
-	const uint32_t *uid = key;
-	const struct virtual_backend_uidmap *map = data;
-
 	return *uid < map->real_uid ? -1 :
 		*uid > map->real_uid ? 1 : 0;
 }
@@ -471,7 +469,6 @@ virtual_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
 	struct virtual_backend_box *bbox;
 	struct mailbox_status status;
 	const struct virtual_backend_uidmap *uids;
-	unsigned int count;
 
 	if (strcmp(mbox->vseq_lookup_prev_mailbox, backend_mailbox) == 0)
 		bbox = mbox->vseq_lookup_prev_bbox;
@@ -489,9 +486,8 @@ virtual_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
 	if (status.uidvalidity != backend_uidvalidity)
 		return FALSE;
 
-	uids = array_get(&bbox->uids, &count);
-	uids = bsearch(&backend_uid, uids, count, sizeof(*uids),
-		       virtual_backend_uidmap_cmp);
+	uids = array_bsearch(&bbox->uids, &backend_uid,
+			     virtual_backend_uidmap_cmp);
 	if (uids == NULL)
 		return FALSE;
 

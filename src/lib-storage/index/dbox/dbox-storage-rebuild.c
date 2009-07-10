@@ -116,10 +116,9 @@ static int dbox_rebuild_msg_offset_cmp(const void *p1, const void *p2)
 	return 0;
 }
 
-static int dbox_rebuild_msg_uid_cmp(const void *p1, const void *p2)
+static int dbox_rebuild_msg_uid_cmp(struct dbox_rebuild_msg *const *m1,
+				    struct dbox_rebuild_msg *const *m2)
 {
-	const struct dbox_rebuild_msg *const *m1 = p1, *const *m2 = p2;
-
 	if ((*m1)->map_uid < (*m2)->map_uid)
 		return -1;
 	if ((*m1)->map_uid > (*m2)->map_uid)
@@ -296,13 +295,10 @@ rebuild_lookup_map_uid(struct dbox_storage_rebuild_context *ctx,
 		       uint32_t map_uid)
 {
 	struct dbox_rebuild_msg search_msg, *search_msgp = &search_msg;
-	struct dbox_rebuild_msg *const *msgs, **pos;
-	unsigned int count;
+	struct dbox_rebuild_msg **pos;
 
 	search_msg.map_uid = map_uid;
-	msgs = array_get(&ctx->msgs, &count);
-	pos = bsearch(&search_msgp, msgs, count, sizeof(*msgs),
-		      dbox_rebuild_msg_uid_cmp);
+	pos = array_bsearch(&ctx->msgs, &search_msgp, dbox_rebuild_msg_uid_cmp);
 	return pos == NULL ? NULL : *pos;
 }
 

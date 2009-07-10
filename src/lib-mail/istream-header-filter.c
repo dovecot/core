@@ -86,25 +86,19 @@ read_mixed(struct header_filter_istream *mstream, size_t body_highwater_size)
 	return ret;
 }
 
-static int cmp_uint(const void *p1, const void *p2)
+static int cmp_uint(const unsigned int *i1, const unsigned int *i2)
 {
-	const unsigned int *i1 = p1, *i2 = p2;
-
 	return *i1 < *i2 ? -1 :
 		(*i1 > *i2 ? 1 : 0);
 }
 
 static bool match_line_changed(struct header_filter_istream *mstream)
 {
-	const unsigned int *lines;
-	unsigned int count;
-
 	if (!array_is_created(&mstream->match_change_lines))
 		return FALSE;
 
-	lines = array_get(&mstream->match_change_lines, &count);
-	return bsearch(&mstream->cur_line, lines, count, sizeof(*lines),
-		       cmp_uint) != NULL;
+	return array_bsearch(&mstream->match_change_lines, &mstream->cur_line,
+			     cmp_uint) != NULL;
 }
 
 static void add_eol(struct header_filter_istream *mstream)

@@ -664,11 +664,6 @@ static int acl_rights_cmp(const struct acl_rights *r1,
 	return null_strcmp(r1->identifier, r2->identifier);
 }
 
-static int acl_rights_bsearch_cmp(const void *p1, const void *p2)
-{
-	return acl_rights_cmp(p1, p2);
-}
-
 static void
 acl_rights_merge(pool_t pool, const char *const **destp, const char *const *src,
 		 bool dup_strings)
@@ -1092,10 +1087,9 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_aclobj->backend;
-	const struct acl_rights *rights;
 	struct dotlock *dotlock;
 	const char *path;
-	unsigned int i, count;
+	unsigned int i;
 	int fd;
 	bool changed;
 
@@ -1106,9 +1100,8 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 	if (fd == -1)
 		return -1;
 
-	rights = array_get(&aclobj->rights, &count);
-	if (!bsearch_insert_pos(&update->rights, rights, count, sizeof(*rights),
-				acl_rights_bsearch_cmp, &i))
+	if (!array_bsearch_insert_pos(&aclobj->rights, &update->rights,
+				      acl_rights_cmp, &i))
 		changed = vfile_object_add_right(aclobj, i, update);
 	else
 		changed = vfile_object_modify_right(aclobj, i, update);

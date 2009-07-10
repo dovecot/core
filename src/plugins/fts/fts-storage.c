@@ -848,11 +848,8 @@ static void fts_mail_expunge(struct mail *_mail)
 	fmail->module_ctx.super.expunge(_mail);
 }
 
-static int fts_score_cmp(const void *key, const void *data)
+static int fts_score_cmp(const uint32_t *uid, const struct fts_score_map *score)
 {
-	const uint32_t *uid = key;
-	const struct fts_score_map *score = data;
-
 	return *uid < score->uid ? -1 :
 		(*uid > score->uid ? 1 : 0);
 }
@@ -864,15 +861,13 @@ static int fts_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	struct fts_mail *fmail = FTS_MAIL_CONTEXT(mail);
 	struct fts_transaction_context *ft = FTS_CONTEXT(_mail->transaction);
 	const struct fts_score_map *scores;
-	unsigned int count;
 
 	if (field != MAIL_FETCH_SEARCH_SCORE || ft->score_map == NULL ||
 	    !array_is_created(ft->score_map))
 		scores = NULL;
 	else {
-		scores = array_get(ft->score_map, &count);
-		scores = bsearch(&_mail->uid, scores, count, sizeof(*scores),
-				 fts_score_cmp);
+		scores = array_bsearch(ft->score_map, &_mail->uid,
+				       fts_score_cmp);
 	}
 	if (scores != NULL) {
 		i_assert(scores->uid == _mail->uid);

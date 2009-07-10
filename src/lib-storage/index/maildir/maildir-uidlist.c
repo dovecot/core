@@ -339,10 +339,9 @@ void maildir_uidlist_deinit(struct maildir_uidlist **_uidlist)
 	i_free(uidlist);
 }
 
-static int maildir_uid_cmp(const void *p1, const void *p2)
+static int maildir_uid_cmp(struct maildir_uidlist_rec *const *rec1,
+			   struct maildir_uidlist_rec *const *rec2)
 {
-	const struct maildir_uidlist_rec *const *rec1 = p1, *const *rec2 = p2;
-
 	return (*rec1)->uid < (*rec2)->uid ? -1 :
 		(*rec1)->uid > (*rec2)->uid ? 1 : 0;
 }
@@ -400,12 +399,12 @@ maildir_uidlist_records_array_delete(struct maildir_uidlist *uidlist,
 				     struct maildir_uidlist_rec *rec)
 {
 	struct maildir_uidlist_rec *const *recs, *const *pos;
-	unsigned int idx, count;
+	unsigned int idx;
 
-	recs = array_get(&uidlist->records, &count);
-	pos = bsearch(&rec, recs, count, sizeof(*recs), maildir_uid_cmp);
+	pos = array_bsearch(&uidlist->records, &rec, maildir_uid_cmp);
 	i_assert(pos != NULL);
 
+	recs = array_idx(&uidlist->records, 0);
 	idx = pos - recs;
 	array_delete(&uidlist->records, idx, 1);
 	return idx;
