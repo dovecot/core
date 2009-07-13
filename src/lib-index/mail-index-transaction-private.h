@@ -111,12 +111,6 @@ mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 					   unsigned int right_idx,
 					   uint32_t seq);
 
-bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
-				 uint32_t seq, unsigned int *idx_r);
-bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
-			      const void *record, size_t record_size,
-			      void *old_record);
-
 int mail_index_transaction_finish(struct mail_index_transaction *t);
 void mail_index_transaction_export(struct mail_index_transaction *t,
 				   struct mail_transaction_log_append_ctx *append_ctx);

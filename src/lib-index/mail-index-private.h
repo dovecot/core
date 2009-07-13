@@ -3,6 +3,7 @@
 
 #include "file-lock.h"
 #include "mail-index.h"
+#include "mail-index-util.h"
 #include "mail-index-view-private.h"
 #include "mail-index-transaction-private.h"
 
@@ -50,8 +51,6 @@ typedef int mail_index_sync_handler_t(struct mail_index_sync_map_ctx *ctx,
 				      uint32_t seq, void *old_data,
 				      const void *new_data, void **context);
 typedef void mail_index_sync_lost_handler_t(struct mail_index *index);
-
-ARRAY_DEFINE_TYPE(seq_array, uint32_t);
 
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
 	(((size) + 7) & ~7)
@@ -352,13 +351,5 @@ int mail_index_set_syscall_error(struct mail_index *index,
 int mail_index_file_set_syscall_error(struct mail_index *index,
 				      const char *filepath,
 				      const char *function);
-
-uint32_t mail_index_uint32_to_offset(uint32_t offset);
-uint32_t mail_index_offset_to_uint32(uint32_t offset);
-
-#define MAIL_INDEX_PACK_MAX_SIZE ((sizeof(uint32_t) * 8 + 7) / 7)
-void mail_index_pack_num(uint8_t **p, uint32_t num);
-int mail_index_unpack_num(const uint8_t **p, const uint8_t *end,
-			  uint32_t *num_r);
 
 #endif

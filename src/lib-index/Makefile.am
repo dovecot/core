@@ -51,6 +51,7 @@ headers = \
         mail-index-strmap.h \
 	mail-index-sync-private.h \
 	mail-index-transaction-private.h \
+	mail-index-util.h \
 	mail-index-view-private.h \
         mail-transaction-log.h \
 	mail-transaction-log-private.h \

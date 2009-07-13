@@ -143,61 +143,6 @@ void mail_index_transaction_unref(struct mail_index_transaction **_t)
 		mail_index_transaction_free(t);
 }
 
-static int mail_index_seq_record_cmp(const void *key, const void *data)
-{
-	const uint32_t *seq_p = key;
-	const uint32_t *data_seq = data;
-
-	return *seq_p - *data_seq;
-}
-
-bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
-				 uint32_t seq, unsigned int *idx_r)
-{
-	const void *base;
-	unsigned int count;
-
-	base = array_get(array, &count);
-	return bsearch_insert_pos(&seq, base, count, array->arr.element_size,
-				  mail_index_seq_record_cmp, idx_r);
-}
-
-bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
-			      const void *record, size_t record_size,
-			      void *old_record)
-{
-	void *p;
-	unsigned int idx, aligned_record_size;
-
-	/* records need to be 32bit aligned */
-	aligned_record_size = (record_size + 3) & ~3;
-
-	if (!array_is_created(array)) {
-		array_create(array, default_pool,
-			     sizeof(seq) + aligned_record_size,
-			     1024 / (sizeof(seq) + aligned_record_size));
-	}
-	i_assert(array->arr.element_size == sizeof(seq) + aligned_record_size);
-
-	if (mail_index_seq_array_lookup(array, seq, &idx)) {
-		/* already there, update */
-		p = array_idx_modifiable(array, idx);
-		if (old_record != NULL) {
-			/* save the old record before overwriting it */
-			memcpy(old_record, PTR_OFFSET(p, sizeof(seq)),
-			       record_size);
-		}
-		memcpy(PTR_OFFSET(p, sizeof(seq)), record, record_size);
-		return TRUE;
-	} else {
-		/* insert */
-                p = array_insert_space(array, idx);
-		memcpy(p, &seq, sizeof(seq));
-		memcpy(PTR_OFFSET(p, sizeof(seq)), record, record_size);
-		return FALSE;
-	}
-}
-
 uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
 {
 	const struct mail_index_header *head_hdr, *hdr;
