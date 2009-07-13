@@ -8,7 +8,6 @@
 void index_transaction_init(struct index_transaction_context *t,
 			    struct index_mailbox *ibox)
 {
-	t->super = t->trans->v;
 	t->mailbox_ctx.box = &ibox->box;
 	t->ibox = ibox;
 
@@ -18,6 +17,9 @@ void index_transaction_init(struct index_transaction_context *t,
 	t->trans_view = mail_index_transaction_open_updated_view(t->trans);
 	t->cache_view = mail_cache_view_open(ibox->cache, t->trans_view);
 	t->cache_trans = mail_cache_get_transaction(t->cache_view, t->trans);
+
+	/* mail_cache_get_transaction() changes trans->v */
+	t->super = t->trans->v;
 }
 
 static void index_transaction_free(struct index_transaction_context *t)

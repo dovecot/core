@@ -71,6 +71,7 @@ struct mail_cache_transaction_ctx *
 mail_cache_get_transaction(struct mail_cache_view *view,
 			   struct mail_index_transaction *t);
 
+void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx);
 int mail_cache_transaction_commit(struct mail_cache_transaction_ctx **ctx);
 void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **ctx);
 

@@ -688,9 +688,7 @@ maildir_save_rollback_index_changes(struct maildir_save_context *ctx)
 	for (seq = ctx->seq; seq >= ctx->first_seq; seq--)
 		mail_index_expunge(ctx->trans, seq);
 
-	mail_cache_transaction_rollback(&t->ictx.cache_trans);
-	t->ictx.cache_trans = mail_cache_get_transaction(t->ictx.cache_view,
-							 t->ictx.trans);
+	mail_cache_transaction_reset(t->ictx.cache_trans);
 }
 
 static int
