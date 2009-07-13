@@ -42,71 +42,6 @@ struct mail_index_view_sync_ctx {
 };
 
 static int
-mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
-				   const struct seq_range *src, size_t src_size)
-{
-	/* Note that all the sequences are actually still UIDs at this point */
-	const struct seq_range *src_end;
-	struct seq_range *dest, new_exp;
-	unsigned int first, i, dest_count;
-
-	i_assert(src_size % sizeof(*src) == 0);
-
-	/* @UNSAFE */
-	dest = array_get_modifiable(expunges, &dest_count);
-	if (dest_count == 0) {
-		array_append(expunges, src, src_size / sizeof(*src));
-		return 0;
-	}
-
-	src_end = CONST_PTR_OFFSET(src, src_size);
-	for (i = 0; src != src_end; src++) {
-		/* src[] must be sorted. */
-		if (src->seq1 > src->seq2 ||
-		    (src+1 != src_end && src->seq2 >= src[1].seq1))
-			return -1;
-
-		for (; i < dest_count; i++) {
-			if (src->seq1 < dest[i].seq1)
-				break;
-		}
-
-		new_exp = *src;
-
-		first = i;
-		while (i < dest_count && src->seq2 >= dest[i].seq1-1) {
-			/* we can/must merge with next record */
-			if (new_exp.seq2 < dest[i].seq2)
-				new_exp.seq2 = dest[i].seq2;
-			i++;
-		}
-
-		if (first > 0 && new_exp.seq1 <= dest[first-1].seq2+1) {
-			/* continue previous record */
-			if (dest[first-1].seq2 < new_exp.seq2)
-				dest[first-1].seq2 = new_exp.seq2;
-		} else if (i == first) {
-			array_insert(expunges, i, &new_exp, 1);
-			i++; first++;
-
-			dest = array_get_modifiable(expunges, &dest_count);
-		} else {
-			/* use next record */
-			dest[first] = new_exp;
-			first++;
-		}
-
-		if (i > first) {
-			array_delete(expunges, first, i - first);
-
-			dest = array_get_modifiable(expunges, &dest_count);
-			i = first;
-		}
-	}
-	return 0;
-}
-
-static int
 view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 			     bool *reset_r)
 {
@@ -175,6 +110,19 @@ view_sync_expunges2seqs(struct mail_index_view_sync_ctx *ctx)
 	return expunge_count;
 }
 
+static void
+view_sync_add_expunge_range(ARRAY_TYPE(seq_range) *dest,
+			    const struct seq_range *src, size_t src_size)
+{
+	unsigned int i, src_count;
+
+	i_assert(src_size % sizeof(*src) == 0);
+
+	src_count = src_size / sizeof(*src);
+	for (i = 0; i < src_count; i++)
+		seq_range_array_add_range(dest, src[i].seq1, src[i].seq2);
+}
+
 static int
 view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 		       unsigned int *expunge_count_r)
@@ -186,7 +134,8 @@ view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 
 	/* get a list of expunge transactions. there may be some that we have
 	   already synced, but it doesn't matter because they'll get dropped
-	   out when converting to sequences */
+	   out when converting to sequences. the uid ranges' validity has
+	   already been verified, so we can use them directly. */
 	mail_transaction_log_view_mark(view->log_view);
 	while ((ret = mail_transaction_log_view_next(view->log_view,
 						     &hdr, &data)) > 0) {
@@ -197,12 +146,7 @@ view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 			continue;
 		}
 
-		if (mail_transaction_log_sort_expunges(&ctx->expunges, data,
-						       hdr->size) < 0) {
-			mail_transaction_log_view_set_corrupted(view->log_view,
-				"Corrupted expunge record");
-			return -1;
-		}
+		view_sync_add_expunge_range(&ctx->expunges, data, hdr->size);
 	}
 	mail_transaction_log_view_rewind(view->log_view);
 
