@@ -66,13 +66,11 @@ static void dbox_transaction_created(struct mail_index_transaction *t)
 
 		mt = i_new(struct dbox_transaction_context, 1);
 		mt->ictx.trans = t;
-		mt->ictx.super = t->v;
+		index_transaction_init(&mt->ictx, &dbox->ibox);
 
 		t->v.commit = dbox_transaction_commit;
 		t->v.rollback = dbox_transaction_rollback;
 		MODULE_CONTEXT_SET(t, mail_storage_mail_index_module, mt);
-
-		index_transaction_init(&mt->ictx, &dbox->ibox);
 	}
 
 	if (next_hook_mail_index_transaction_created != NULL)

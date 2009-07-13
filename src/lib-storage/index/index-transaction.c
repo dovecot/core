@@ -8,6 +8,7 @@
 void index_transaction_init(struct index_transaction_context *t,
 			    struct index_mailbox *ibox)
 {
+	t->super = t->trans->v;
 	t->mailbox_ctx.box = &ibox->box;
 	t->ibox = ibox;
 

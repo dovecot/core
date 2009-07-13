@@ -41,12 +41,11 @@ static void raw_transaction_created(struct mail_index_transaction *t)
 
 		mt = i_new(struct raw_transaction_context, 1);
 		mt->ictx.trans = t;
-		mt->ictx.super = t->v;
+		index_transaction_init(&mt->ictx, &raw->ibox);
 
 		t->v.commit = raw_transaction_commit;
 		t->v.rollback = raw_transaction_rollback;
 		MODULE_CONTEXT_SET(t, mail_storage_mail_index_module, mt);
-		index_transaction_init(&mt->ictx, &raw->ibox);
 	}
 
 	if (next_hook_mail_index_transaction_created != NULL)
