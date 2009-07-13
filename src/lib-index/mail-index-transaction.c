@@ -10,7 +10,6 @@
 #include "bsearch-insert-pos.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
-#include "mail-cache.h"
 #include "mail-index-transaction-private.h"
 
 void (*hook_mail_index_transaction_created)
@@ -19,7 +18,7 @@ void (*hook_mail_index_transaction_created)
 static bool
 mail_index_transaction_has_ext_changes(struct mail_index_transaction *t);
 
-void mail_index_transaction_reset(struct mail_index_transaction *t)
+static void mail_index_transaction_reset_v(struct mail_index_transaction *t)
 {
 	ARRAY_TYPE(seq_array) *recs;
 	struct mail_index_transaction_ext_hdr_update *ext_hdrs;
@@ -88,9 +87,6 @@ void mail_index_transaction_reset(struct mail_index_transaction *t)
 
 	memset(t->pre_hdr_mask, 0, sizeof(t->pre_hdr_mask));
 	memset(t->post_hdr_mask, 0, sizeof(t->post_hdr_mask));
-
-	if (t->cache_trans_ctx != NULL)
-		mail_cache_transaction_rollback(&t->cache_trans_ctx);
 
 	t->appends_nonsorted = FALSE;
 	t->pre_hdr_changed = FALSE;
@@ -233,6 +229,11 @@ uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
 	return next_uid;
 }
 
+void mail_index_transaction_reset(struct mail_index_transaction *t)
+{
+	t->v.reset(t);
+}
+
 static int
 mail_transaction_log_file_refresh(struct mail_index_transaction *t,
 				  struct mail_transaction_log_append_ctx *ctx)
@@ -353,9 +354,6 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 	i_assert(t->first_new_seq >
 		 mail_index_view_get_messages_count(t->view));
 
-	if (t->cache_trans_ctx != NULL)
-		mail_cache_transaction_commit(&t->cache_trans_ctx);
-
 	if (array_is_created(&t->appends))
 		mail_index_update_day_headers(t);
 
@@ -387,8 +385,6 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 
 static void mail_index_transaction_rollback_v(struct mail_index_transaction *t)
 {
-	if (t->cache_trans_ctx != NULL)
-		mail_cache_transaction_rollback(&t->cache_trans_ctx);
         mail_index_transaction_unref(&t);
 }
 
@@ -1388,6 +1384,7 @@ void mail_index_transaction_set_max_modseq(struct mail_index_transaction *t,
 }
 
 static struct mail_index_transaction_vfuncs trans_vfuncs = {
+	mail_index_transaction_reset_v,
 	mail_index_transaction_commit_v,
 	mail_index_transaction_rollback_v
 };

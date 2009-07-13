@@ -19,6 +19,7 @@ struct mail_index_transaction_ext_hdr_update {
 };
 
 struct mail_index_transaction_vfuncs {
+	void (*reset)(struct mail_index_transaction *t);
 	int (*commit)(struct mail_index_transaction *t,
 		      uint32_t *log_file_seq_r, uoff_t *log_file_offset_r);
 	void (*rollback)(struct mail_index_transaction *t);
@@ -67,8 +68,6 @@ struct mail_index_transaction {
 
 	uint64_t max_modseq;
 	ARRAY_TYPE(seq_range) *conflict_seqs;
-
-        struct mail_cache_transaction_ctx *cache_trans_ctx;
 
 	/* Module-specific contexts. */
 	ARRAY_DEFINE(module_contexts,

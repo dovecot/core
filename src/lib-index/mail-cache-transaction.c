@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "buffer.h"
+#include "module-context.h"
 #include "file-cache.h"
 #include "file-set-size.h"
 #include "read-full.h"
@@ -16,12 +17,18 @@
 
 #define MAIL_CACHE_WRITE_BUFFER 32768
 
+#define CACHE_TRANS_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, cache_mail_index_transaction_module)
+
 struct mail_cache_reservation {
 	uint32_t offset;
 	uint32_t size;
 };
 
 struct mail_cache_transaction_ctx {
+	union mail_index_transaction_module_context module_ctx;
+	struct mail_index_transaction_vfuncs super;
+
 	struct mail_cache *cache;
 	struct mail_cache_view *view;
 	struct mail_index_transaction *trans;
@@ -42,17 +49,51 @@ struct mail_cache_transaction_ctx {
 	unsigned int changes:1;
 };
 
+static MODULE_CONTEXT_DEFINE_INIT(cache_mail_index_transaction_module,
+				  &mail_index_module_register);
+
 static int mail_cache_link_unlocked(struct mail_cache *cache,
 				    uint32_t old_offset, uint32_t new_offset);
+
+static void mail_index_transaction_cache_reset(struct mail_index_transaction *t)
+{
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
+	struct mail_index_transaction_vfuncs super = ctx->super;
+
+	mail_cache_transaction_rollback(&ctx);
+	super.reset(t);
+}
+
+static int
+mail_index_transaction_cache_commit(struct mail_index_transaction *t,
+				    uint32_t *log_file_seq_r,
+				    uoff_t *log_file_offset_r)
+{
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
+	struct mail_index_transaction_vfuncs super = ctx->super;
+
+	mail_cache_transaction_commit(&ctx);
+	return super.commit(t, log_file_seq_r, log_file_offset_r);
+}
+
+static void
+mail_index_transaction_cache_rollback(struct mail_index_transaction *t)
+{
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
+	struct mail_index_transaction_vfuncs super = ctx->super;
+
+	mail_cache_transaction_rollback(&ctx);
+	super.rollback(t);
+}
 
 struct mail_cache_transaction_ctx *
 mail_cache_get_transaction(struct mail_cache_view *view,
 			   struct mail_index_transaction *t)
 {
-	struct mail_cache_transaction_ctx *ctx;
+	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
 
-	if (t->cache_trans_ctx != NULL)
-		return t->cache_trans_ctx;
+	if (ctx != NULL)
+		return ctx;
 
 	ctx = i_new(struct mail_cache_transaction_ctx, 1);
 	ctx->cache = view->cache;
@@ -64,7 +105,12 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	view->transaction = ctx;
 	view->trans_view = mail_index_transaction_open_updated_view(t);
 
-	t->cache_trans_ctx = ctx;
+	ctx->super = t->v;
+	t->v.reset = mail_index_transaction_cache_reset;
+	t->v.commit = mail_index_transaction_cache_commit;
+	t->v.rollback = mail_index_transaction_cache_rollback;
+
+	MODULE_CONTEXT_SET(t, cache_mail_index_transaction_module, ctx);
 	return ctx;
 }
 
@@ -97,7 +143,9 @@ mail_cache_transaction_free(struct mail_cache_transaction_ctx **_ctx)
 
 	*_ctx = NULL;
 
-	ctx->trans->cache_trans_ctx = NULL;
+	MODULE_CONTEXT_UNSET(ctx->trans, cache_mail_index_transaction_module);
+	ctx->trans->v = ctx->super;
+
 	ctx->view->transaction = NULL;
 	ctx->view->trans_seq1 = ctx->view->trans_seq2 = 0;
 
