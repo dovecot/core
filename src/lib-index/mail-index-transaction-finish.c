@@ -113,6 +113,7 @@ mail_index_transaction_finish_flag_updates(struct mail_index_transaction *t)
 			}
 		}
 		i = mail_transaction_drop_range(t, updates[i], i, &keeps);
+		updates = array_get(&t->updates, &count);
 	}
 
 	if (array_count(&t->updates) == 0)
