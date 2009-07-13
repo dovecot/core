@@ -437,17 +437,16 @@ void mail_index_append_assign_uids(struct mail_index_transaction *t,
 }
 
 static void
-mail_index_expunge_last_append_ext(struct mail_index_transaction *t,
-				   ARRAY_TYPE(seq_array_array) *updates,
+mail_index_expunge_last_append_ext(ARRAY_TYPE(seq_array_array) *ext_updates,
 				   uint32_t seq)
 {
 	ARRAY_TYPE(seq_array) *seqs;
 	unsigned int i, count, idx;
 
-	if (!array_is_created(updates))
+	if (!array_is_created(ext_updates))
 		return;
 
-	seqs = array_get_modifiable(&t->ext_rec_updates, &count);
+	seqs = array_get_modifiable(ext_updates, &count);
 	for (i = 0; i < count; i++) {
 		if (array_is_created(&seqs[i]) &&
 		    mail_index_seq_array_lookup(&seqs[i], seq, &idx))
@@ -464,8 +463,8 @@ mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
 	i_assert(seq == t->last_new_seq);
 
 	/* remove extension updates */
-	mail_index_expunge_last_append_ext(t, &t->ext_rec_updates, seq);
-	mail_index_expunge_last_append_ext(t, &t->ext_rec_atomics, seq);
+	mail_index_expunge_last_append_ext(&t->ext_rec_updates, seq);
+	mail_index_expunge_last_append_ext(&t->ext_rec_atomics, seq);
 	t->log_ext_updates = mail_index_transaction_has_ext_changes(t);
 
 	/* remove keywords */
