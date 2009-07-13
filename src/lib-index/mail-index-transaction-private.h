@@ -77,6 +77,7 @@ struct mail_index_transaction {
 
 	unsigned int sync_transaction:1;
 	unsigned int appends_nonsorted:1;
+	unsigned int drop_unnecessary_flag_updates:1;
 	unsigned int pre_hdr_changed:1;
 	unsigned int post_hdr_changed:1;
 	unsigned int reset:1;

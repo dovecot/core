@@ -526,26 +526,6 @@ static void update_minmax_flagupdate_seq(struct mail_index_transaction *t,
 	}
 }
 
-static bool
-mail_transaction_update_want_add(struct mail_index_transaction *t,
-				 const struct mail_transaction_flag_update *u)
-{
-	const struct mail_index_record *rec;
-	uint32_t seq;
-	
-	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES) == 0)
-		return TRUE;
-
-	for (seq = u->uid1; seq <= u->uid2; seq++) {
-		rec = mail_index_lookup(t->view, seq);
-		if ((rec->flags & u->add_flags) != u->add_flags ||
-		    (rec->flags & u->remove_flags) != 0)
-			return TRUE;
-	}
-
-	return FALSE;
-}
-
 unsigned int
 mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 					   unsigned int left_idx,
@@ -571,7 +551,7 @@ mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 		else
 			break;
 	}
-	if (idx < count && updates[idx].uid2 < seq)
+	if (left_idx > idx)
 		idx++;
 	return idx;
 }
@@ -582,8 +562,7 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 			      unsigned int idx)
 {
 	struct mail_transaction_flag_update *updates, tmp_update;
-	unsigned int count;
-	uint32_t move;
+	unsigned int count, first_idx, max;
 
 	updates = array_get_modifiable(&t->updates, &count);
 
@@ -591,7 +570,10 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 	i_assert(idx == 0 || updates[idx-1].uid2 < u.uid1);
 	i_assert(idx == count || updates[idx].uid2 >= u.uid1);
 
+	/* first we'll just add the changes without trying to merge anything */
+	first_idx = idx;
 	for (; idx < count && u.uid2 >= updates[idx].uid1; idx++) {
+		i_assert(u.uid1 <= updates[idx].uid2);
 		if (u.uid1 != updates[idx].uid1 &&
 		    (updates[idx].add_flags != u.add_flags ||
 		     updates[idx].remove_flags != u.remove_flags)) {
@@ -599,24 +581,19 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 				/* insert new update */
 				tmp_update = u;
 				tmp_update.uid2 = updates[idx].uid1 - 1;
-				move = 0;
 			} else {
 				/* split existing update from beginning */
 				tmp_update = updates[idx];
 				tmp_update.uid2 = u.uid1 - 1;
 				updates[idx].uid1 = u.uid1;
-				move = 1;
 			}
 
 			i_assert(tmp_update.uid1 <= tmp_update.uid2);
 			i_assert(updates[idx].uid1 <= updates[idx].uid2);
 
-			if (mail_transaction_update_want_add(t, &tmp_update)) {
-				array_insert(&t->updates, idx, &tmp_update, 1);
-				updates = array_get_modifiable(&t->updates,
-							       &count);
-				idx += move;
-			}
+			array_insert(&t->updates, idx, &tmp_update, 1);
+			updates = array_get_modifiable(&t->updates, &count);
+			idx++;
 		} else if (u.uid1 < updates[idx].uid1) {
 			updates[idx].uid1 = u.uid1;
 		}
@@ -632,8 +609,7 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 			i_assert(tmp_update.uid1 <= tmp_update.uid2);
 			i_assert(updates[idx].uid1 <= updates[idx].uid2);
 
-			if (mail_transaction_update_want_add(t, &tmp_update))
-				array_insert(&t->updates, idx, &tmp_update, 1);
+			array_insert(&t->updates, idx, &tmp_update, 1);
 			updates = array_get_modifiable(&t->updates, &count);
 		}
 
@@ -650,7 +626,6 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 			/* we can remove this update completely */
 			array_delete(&t->updates, idx, 1);
 			updates = array_get_modifiable(&t->updates, &count);
-			idx--;
 		}
 
 		if (u.uid1 > u.uid2) {
@@ -664,12 +639,29 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 	if (u.uid1 <= u.uid2) {
 		i_assert(idx == 0 || updates[idx-1].uid2 < u.uid1);
 		i_assert(idx == count || updates[idx].uid1 > u.uid2);
-		if (mail_transaction_update_want_add(t, &u)) {
-			array_insert(&t->updates, idx, &u, 1);
-			count++;
+		array_insert(&t->updates, idx, &u, 1);
+	}
+	updates = array_get_modifiable(&t->updates, &count);
+	t->last_update_idx = idx == count ? count-1 : idx;
+
+	/* merge everything */
+	idx = first_idx == 0 ? 0 : first_idx - 1;
+	max = I_MIN(t->last_update_idx + 1, count);
+	for (; idx < max; ) {
+		if (updates[idx].uid2 + 1 == updates[idx+1].uid1 &&
+		    updates[idx].add_flags == updates[idx+1].add_flags &&
+		    updates[idx].remove_flags == updates[idx+1].remove_flags) {
+			/* merge */
+			updates[idx].uid2 = updates[idx+1].uid2;
+			array_delete(&t->updates, idx + 1, 1);
+			max--;
+			if (t->last_update_idx > idx)
+				t->last_update_idx--;
+			updates = array_get_modifiable(&t->updates, &count);
+		} else {
+			idx++;
 		}
 	}
-	t->last_update_idx = idx == count ? count-1 : idx;
 }
 
 static void mail_index_record_modify_flags(struct mail_index_record *rec,
@@ -717,6 +709,9 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 	i_assert(seq1 <= seq2 && seq1 > 0);
 	i_assert(seq2 <= mail_index_view_get_messages_count(t->view));
 
+	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES) != 0)
+		t->drop_unnecessary_flag_updates = TRUE;
+
 	memset(&u, 0, sizeof(u));
 	u.uid1 = seq1;
 	u.uid2 = seq2;
@@ -727,17 +722,20 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 		u.remove_flags = ~flags & MAIL_INDEX_FLAGS_MASK;
 		break;
 	case MODIFY_ADD:
+		if (flags == 0)
+			return;
 		u.add_flags = flags;
 		break;
 	case MODIFY_REMOVE:
+		if (flags == 0)
+			return;
 		u.remove_flags = flags;
 		break;
 	}
 
 	if (!array_is_created(&t->updates)) {
 		i_array_init(&t->updates, 256);
-		if (mail_transaction_update_want_add(t, &u))
-			array_append(&t->updates, &u, 1);
+		array_append(&t->updates, &u, 1);
 		return;
 	}
 
@@ -752,8 +750,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 			    (t->last_update_idx + 1 == count ||
 			     last_update[1].uid1 > seq2)) {
 				/* we can just update the UID range */
-				if (mail_transaction_update_want_add(t, &u))
-					last_update->uid2 = seq2;
+				last_update->uid2 = seq2;
 				return;
 			}
 		} else if (seq1 > last_update->uid2) {
@@ -763,12 +760,9 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 		}
 	}
 
-	if (t->last_update_idx == count) {
-		if (mail_transaction_update_want_add(t, &u))
-			array_append(&t->updates, &u, 1);
-		else if (t->last_update_idx > 0)
-			t->last_update_idx--;
-	} else {
+	if (t->last_update_idx == count)
+		array_append(&t->updates, &u, 1);
+	else {
 		i_assert(t->last_update_idx < count);
 
 		/* slow path */

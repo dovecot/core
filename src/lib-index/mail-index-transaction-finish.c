@@ -58,6 +58,64 @@ transaction_update_atomic_reset_ids(struct mail_index_transaction *t)
 	}
 }
 
+static unsigned int
+mail_transaction_drop_range(struct mail_index_transaction *t,
+			    struct mail_transaction_flag_update update,
+			    unsigned int update_idx,
+			    ARRAY_TYPE(seq_range) *keeps)
+{
+	const struct seq_range *keep_range;
+	unsigned int i, keep_count;
+
+	keep_range = array_get(keeps, &keep_count);
+	if (keep_count == 1 &&
+	    update.uid1 == keep_range[0].seq1 &&
+	    update.uid2 == keep_range[0].seq2) {
+		/* evereything is kept */
+		return update_idx + 1;
+	}
+
+	array_delete(&t->updates, update_idx, 1);
+
+	/* add back all the updates we want to keep */
+	for (i = 0; i < keep_count; i++, update_idx++) {
+		update.uid1 = keep_range[i].seq1;
+		update.uid2 = keep_range[i].seq2;
+		array_insert(&t->updates, update_idx, &update, 1);
+	}
+	return update_idx;
+}
+
+static void
+mail_index_transaction_finish_flag_updates(struct mail_index_transaction *t)
+{
+	const struct mail_transaction_flag_update *updates, *u;
+	const struct mail_index_record *rec;
+	unsigned int i, count;
+	ARRAY_TYPE(seq_range) keeps;
+	uint32_t seq;
+
+	if (!t->drop_unnecessary_flag_updates)
+		return;
+
+	t_array_init(&keeps, 64);
+	updates = array_get(&t->updates, &count);
+	for (i = 0; i < count; ) {
+		/* first get the list of changes to drop */
+		u = &updates[i];
+		array_clear(&keeps);
+		for (seq = u->uid1; seq <= u->uid2; seq++) {
+			rec = mail_index_lookup(t->view, seq);
+			if ((rec->flags & u->add_flags) != u->add_flags ||
+			    (rec->flags & u->remove_flags) != 0) {
+				/* keep this change */
+				seq_range_array_add(&keeps, 0, seq);
+			}
+		}
+		i = mail_transaction_drop_range(t, updates[i], i, &keeps);
+	}
+}
+
 static bool
 mail_index_update_cancel_array(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
@@ -277,6 +335,7 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 int mail_index_transaction_finish(struct mail_index_transaction *t)
 {
 	mail_index_transaction_sort_appends(t);
+	mail_index_transaction_finish_flag_updates(t);
 
 	if (array_is_created(&t->ext_reset_atomic) || t->max_modseq != 0) {
 		if (mail_index_map(t->view->index,
