@@ -259,6 +259,44 @@ const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index)
 }
 
 struct mail_keywords *
+mail_index_keywords_create(struct mail_index *index,
+			   const char *const keywords[])
+{
+	struct mail_keywords *k;
+	unsigned int src, dest, i, count;
+
+	count = str_array_length(keywords);
+	if (count == 0) {
+		k = i_new(struct mail_keywords, 1);
+		k->index = index;
+		k->refcount = 1;
+		return k;
+	}
+
+	/* @UNSAFE */
+	k = i_malloc(sizeof(struct mail_keywords) +
+		     (sizeof(k->idx) * (count-1)));
+	k->index = index;
+	k->refcount = 1;
+
+	/* look up the keywords from index. they're never removed from there
+	   so we can permanently store indexes to them. */
+	for (src = dest = 0; src < count; src++) {
+		mail_index_keyword_lookup_or_create(index, keywords[src],
+						    &k->idx[dest]);
+		/* ignore if this is a duplicate */
+		for (i = 0; i < src; i++) {
+			if (k->idx[i] == k->idx[dest])
+				break;
+		}
+		if (i == src)
+			dest++;
+	}
+	k->count = dest;
+	return k;
+}
+
+struct mail_keywords *
 mail_index_keywords_create_from_indexes(struct mail_index *index,
 					const ARRAY_TYPE(keyword_indexes)
 						*keyword_indexes)
