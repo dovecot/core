@@ -101,10 +101,12 @@ mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq);
 
 void mail_index_transaction_ref(struct mail_index_transaction *t);
 void mail_index_transaction_unref(struct mail_index_transaction **t);
+void mail_index_transaction_reset_v(struct mail_index_transaction *t);
 
 void mail_index_transaction_sort_appends(struct mail_index_transaction *t);
 uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t);
 void mail_index_transaction_set_log_updates(struct mail_index_transaction *t);
+void mail_index_update_day_headers(struct mail_index_transaction *t);
 
 unsigned int
 mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
@@ -115,5 +117,10 @@ mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 int mail_index_transaction_finish(struct mail_index_transaction *t);
 void mail_index_transaction_export(struct mail_index_transaction *t,
 				   struct mail_transaction_log_append_ctx *append_ctx);
+unsigned int
+mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
+					   unsigned int left_idx,
+					   unsigned int right_idx,
+					   uint32_t seq);
 
 #endif

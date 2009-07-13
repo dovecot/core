@@ -25,6 +25,7 @@ libindex_la_SOURCES = \
         mail-index-transaction-export.c \
         mail-index-transaction-finish.c \
         mail-index-transaction-sort-appends.c \
+        mail-index-transaction-update.c \
         mail-index-transaction-view.c \
         mail-index-strmap.c \
         mail-index-sync.c \
@@ -60,6 +61,7 @@ headers = \
         mailbox-list-index-private.h
 
 test_programs = \
+	test-mail-index-transaction-update \
 	test-mail-transaction-log-append \
 	test-mail-transaction-log-view
 
@@ -69,6 +71,10 @@ test_libs = \
 	mail-index-util.lo \
 	../lib-test/libtest.la \
 	../lib/liblib.la
+
+test_mail_index_transaction_update_SOURCES = test-mail-index-transaction-update.c
+test_mail_index_transaction_update_LDADD = mail-index-transaction-update.lo $(test_libs)
+test_mail_index_transaction_update_DEPENDENCIES = mail-index-transaction-update.lo $(test_libs)
 
 test_mail_transaction_log_append_SOURCES = test-mail-transaction-log-append.c
 test_mail_transaction_log_append_LDADD = mail-transaction-log-append.lo $(test_libs)
