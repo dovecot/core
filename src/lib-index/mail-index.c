@@ -258,6 +258,58 @@ const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index)
 	return &index->keywords;
 }
 
+struct mail_keywords *
+mail_index_keywords_create_from_indexes(struct mail_index *index,
+					const ARRAY_TYPE(keyword_indexes)
+						*keyword_indexes)
+{
+	struct mail_keywords *k;
+	const unsigned int *indexes;
+	unsigned int src, dest, i, count;
+
+	indexes = array_get(keyword_indexes, &count);
+	if (count == 0) {
+		k = i_new(struct mail_keywords, 1);
+		k->index = index;
+		k->refcount = 1;
+		return k;
+	}
+
+	/* @UNSAFE */
+	k = i_malloc(sizeof(struct mail_keywords) +
+		     (sizeof(k->idx) * (count-1)));
+	k->index = index;
+	k->refcount = 1;
+
+	/* copy but skip duplicates */
+	for (src = dest = 0; src < count; src++) {
+		for (i = 0; i < src; i++) {
+			if (k->idx[i] == indexes[src])
+				break;
+		}
+		if (i == src)
+			k->idx[dest++] = indexes[src];
+	}
+	k->count = dest;
+	return k;
+}
+
+void mail_index_keywords_ref(struct mail_keywords *keywords)
+{
+	keywords->refcount++;
+}
+
+void mail_index_keywords_unref(struct mail_keywords **_keywords)
+{
+	struct mail_keywords *keywords = *_keywords;
+
+	i_assert(keywords->refcount > 0);
+
+	*_keywords = NULL;
+	if (--keywords->refcount == 0)
+		i_free(keywords);
+}
+
 int mail_index_try_open_only(struct mail_index *index)
 {
 	i_assert(index->fd == -1);
