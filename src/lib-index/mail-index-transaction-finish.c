@@ -114,6 +114,9 @@ mail_index_transaction_finish_flag_updates(struct mail_index_transaction *t)
 		}
 		i = mail_transaction_drop_range(t, updates[i], i, &keeps);
 	}
+
+	if (array_count(&t->updates) == 0)
+		array_free(&t->updates);
 }
 
 static bool
