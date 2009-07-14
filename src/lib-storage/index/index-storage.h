@@ -146,9 +146,9 @@ void index_storage_get_seq_range(struct mailbox *box,
 void index_storage_get_uid_range(struct mailbox *box,
 				 const ARRAY_TYPE(seq_range) *seqs,
 				 ARRAY_TYPE(seq_range) *uids);
-bool index_storage_get_expunged_uids(struct mailbox *box, uint64_t prev_modseq,
-				     const ARRAY_TYPE(seq_range) *uids_filter,
-				     ARRAY_TYPE(mailbox_expunge_rec) *expunges);
+bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
+				const ARRAY_TYPE(seq_range) *uids_filter,
+				ARRAY_TYPE(mailbox_expunge_rec) *expunges);
 
 struct mailbox_header_lookup_ctx *
 index_header_lookup_init(struct mailbox *box, const char *const headers[]);

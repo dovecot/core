@@ -898,7 +898,7 @@ struct mailbox mbox_mailbox = {
 		index_keyword_is_valid,
 		index_storage_get_seq_range,
 		index_storage_get_uid_range,
-		index_storage_get_expunged_uids,
+		index_storage_get_expunges,
 		NULL,
 		NULL,
 		NULL,
