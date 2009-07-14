@@ -140,76 +140,11 @@ mail_index_transaction_finish_flag_updates(struct mail_index_transaction *t)
 		array_free(&t->updates);
 }
 
-static bool
-mail_index_update_cancel_array(ARRAY_TYPE(seq_range) *array, uint32_t seq)
-{
-	if (array_is_created(array)) {
-		if (seq_range_array_remove(array, seq)) {
-			if (array_count(array) == 0)
-				array_free(array);
-			return TRUE;
-		}
-	}
-	return FALSE;
-}
-
-static bool
-mail_index_update_cancel(struct mail_index_transaction *t, uint32_t seq)
-{
-	struct mail_index_transaction_keyword_update *kw;
-	struct mail_transaction_flag_update *updates, tmp_update;
-	unsigned int i, count;
-	bool ret, have_kw_changes = FALSE;
-
-	ret = mail_index_update_cancel_array(&t->keyword_resets, seq);
-	if (array_is_created(&t->keyword_updates)) {
-		kw = array_get_modifiable(&t->keyword_updates, &count);
-		for (i = 0; i < count; i++) {
-			if (mail_index_update_cancel_array(&kw[i].add_seq, seq))
-				ret = TRUE;
-			if (mail_index_update_cancel_array(&kw[i].remove_seq,
-							   seq))
-				ret = TRUE;
-			if (array_is_created(&kw[i].add_seq) ||
-			    array_is_created(&kw[i].remove_seq))
-				have_kw_changes = TRUE;
-		}
-		if (!have_kw_changes)
-			array_free(&t->keyword_updates);
-	}
-
-	if (!array_is_created(&t->updates))
-		return ret;
-
-	updates = array_get_modifiable(&t->updates, &count);
-	i = mail_index_transaction_get_flag_update_pos(t, 0, count, seq);
-	if (i < count && updates[i].uid1 <= seq && updates[i].uid2 >= seq) {
-		/* exists */
-		ret = TRUE;
-		if (updates[i].uid1 == seq && updates[i].uid2 == seq) {
-			if (count > 1)
-				array_delete(&t->updates, i, 1);
-			else
-				array_free(&t->updates);
-		} else if (updates[i].uid1 == seq)
-			updates[i].uid1++;
-		else if (updates[i].uid2 == seq)
-			updates[i].uid2--;
-		else {
-			/* need to split it in two */
-			tmp_update = updates[i];
-			tmp_update.uid1 = seq+1;
-			updates[i].uid2 = seq-1;
-			array_insert(&t->updates, i + 1, &tmp_update, 1);
-		}
-	}
-	return ret;
-}
-
 static void
 mail_index_transaction_check_conflicts(struct mail_index_transaction *t)
 {
 	uint32_t seq;
+	bool ret1, ret2;
 
 	i_assert(t->max_modseq != 0);
 	i_assert(t->conflict_seqs != NULL);
@@ -225,7 +160,9 @@ mail_index_transaction_check_conflicts(struct mail_index_transaction *t)
 
 	for (seq = t->min_flagupdate_seq; seq <= t->max_flagupdate_seq; seq++) {
 		if (mail_index_modseq_lookup(t->view, seq) > t->max_modseq) {
-			if (mail_index_update_cancel(t, seq))
+			ret1 = mail_index_cancel_flag_updates(t, seq);
+			ret2 = mail_index_cancel_keyword_updates(t, seq);
+			if (ret1 || ret2)
 				seq_range_array_add(t->conflict_seqs, 0, seq);
 		}
 	}

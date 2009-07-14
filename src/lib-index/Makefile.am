@@ -61,6 +61,7 @@ headers = \
         mailbox-list-index-private.h
 
 test_programs = \
+	test-mail-index-transaction-finish \
 	test-mail-index-transaction-update \
 	test-mail-transaction-log-append \
 	test-mail-transaction-log-view
@@ -71,6 +72,10 @@ test_libs = \
 	mail-index-util.lo \
 	../lib-test/libtest.la \
 	../lib/liblib.la
+
+test_mail_index_transaction_finish_SOURCES = test-mail-index-transaction-finish.c
+test_mail_index_transaction_finish_LDADD = mail-index-transaction-finish.lo $(test_libs)
+test_mail_index_transaction_finish_DEPENDENCIES = mail-index-transaction-finish.lo $(test_libs)
 
 test_mail_index_transaction_update_SOURCES = test-mail-index-transaction-update.c
 test_mail_index_transaction_update_LDADD = mail-index-transaction-update.lo $(test_libs)

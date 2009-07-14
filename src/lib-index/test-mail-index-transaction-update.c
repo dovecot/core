@@ -329,6 +329,38 @@ static void test_mail_index_flag_update_random(void)
 	test_end();
 }
 
+static void test_mail_index_cancel_flag_updates(void)
+{
+	struct mail_index_transaction *t;
+	const struct mail_transaction_flag_update *updates;
+	unsigned int count;
+
+	hdr.messages_count = 20;
+	t = mail_index_transaction_new();
+
+	test_begin("mail index cancel flag updates");
+
+	mail_index_update_flags_range(t, 5, 7, MODIFY_REPLACE, 0);
+	updates = array_get(&t->updates, &count);
+	test_assert(count == 1);
+	test_assert(updates[0].uid1 == 5 && updates[0].uid2 == 7);
+	mail_index_cancel_flag_updates(t, 5);
+	test_assert(updates[0].uid1 == 6 && updates[0].uid2 == 7);
+	mail_index_cancel_flag_updates(t, 7);
+	test_assert(updates[0].uid1 == 6 && updates[0].uid2 == 6);
+	mail_index_cancel_flag_updates(t, 6);
+	test_assert(!array_is_created(&t->updates));
+
+	mail_index_update_flags_range(t, 5, 7, MODIFY_REPLACE, 0);
+	mail_index_cancel_flag_updates(t, 6);
+	updates = array_get(&t->updates, &count);
+	test_assert(count == 2);
+	test_assert(updates[0].uid1 == 5 && updates[0].uid2 == 5);
+	test_assert(updates[1].uid1 == 7 && updates[1].uid2 == 7);
+
+	test_end();
+}
+
 static void test_mail_index_flag_update_appends(void)
 {
 	struct mail_index_transaction *t;
@@ -419,6 +451,50 @@ static void test_mail_index_transaction_get_flag_update_pos(void)
 	test_end();
 }
 
+static void test_mail_index_expunge(void)
+{
+	static uint8_t empty_guid[MAIL_GUID_128_SIZE] = { 0, };
+	struct mail_index_transaction *t;
+	const struct mail_transaction_expunge_guid *expunges;
+	uint8_t guid2[MAIL_GUID_128_SIZE];
+	uint8_t guid3[MAIL_GUID_128_SIZE];
+	uint8_t guid4[MAIL_GUID_128_SIZE];
+	unsigned int i, count;
+
+	test_begin("mail index expunge");
+
+	hdr.messages_count = 10;
+	t = mail_index_transaction_new();
+	for (i = 0; i < sizeof(guid2); i++) {
+		guid2[i] = i + 1;
+		guid3[i] = i ^ 0xff;
+		guid4[i] = i + 0x80;
+	}
+
+	mail_index_expunge_guid(t, 4, guid4);
+	test_assert(!t->expunges_nonsorted);
+	mail_index_expunge_guid(t, 2, guid2);
+	test_assert(t->expunges_nonsorted);
+	mail_index_expunge_guid(t, 3, guid3);
+	mail_index_expunge(t, 1);
+	mail_index_expunge(t, 5);
+
+	expunges = array_get(&t->expunges, &count);
+	test_assert(count == 5);
+	test_assert(expunges[0].uid == 4);
+	test_assert(memcmp(expunges[0].guid_128, guid4, sizeof(guid4)) == 0);
+	test_assert(expunges[1].uid == 2);
+	test_assert(memcmp(expunges[1].guid_128, guid2, sizeof(guid2)) == 0);
+	test_assert(expunges[2].uid == 3);
+	test_assert(memcmp(expunges[2].guid_128, guid3, sizeof(guid3)) == 0);
+	test_assert(expunges[3].uid == 1);
+	test_assert(memcmp(expunges[3].guid_128, empty_guid, sizeof(empty_guid)) == 0);
+	test_assert(expunges[4].uid == 5);
+	test_assert(memcmp(expunges[4].guid_128, empty_guid, sizeof(empty_guid)) == 0);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -428,7 +504,9 @@ int main(void)
 		test_mail_index_flag_update_complex_merges,
 		test_mail_index_flag_update_random,
 		test_mail_index_flag_update_appends,
+		test_mail_index_cancel_flag_updates,
 		test_mail_index_transaction_get_flag_update_pos,
+		test_mail_index_expunge,
 		NULL
 	};
 	return test_run(test_functions);
