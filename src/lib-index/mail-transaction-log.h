@@ -1,8 +1,7 @@
 #ifndef MAIL_TRANSACTION_LOG_H
 #define MAIL_TRANSACTION_LOG_H
 
-struct mail_index;
-struct mail_index_transaction;
+#include "mail-index.h"
 
 #define MAIL_TRANSACTION_LOG_SUFFIX ".log"
 
@@ -39,6 +38,7 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_KEYWORD_UPDATE		= 0x00000400,
 	MAIL_TRANSACTION_KEYWORD_RESET		= 0x00000800,
 	MAIL_TRANSACTION_EXT_ATOMIC_INC		= 0x00001000,
+	MAIL_TRANSACTION_EXPUNGE_GUID		= 0x00002000,
 
 	MAIL_TRANSACTION_TYPE_MASK		= 0x0000ffff,
 
@@ -49,7 +49,7 @@ enum mail_transaction_type {
 
 	/* since we'll expunge mails based on data read from transaction log,
 	   try to avoid the possibility of corrupted transaction log expunging
-	   messages. this value is ORed to the actual MAIL_TRANSACTION_EXPUNGE
+	   messages. this value is ORed to the actual MAIL_TRANSACTION_EXPUNGE*
 	   flag. if it's not present, assume corrupted log. */
 	MAIL_TRANSACTION_EXPUNGE_PROT		= 0x0000cd90,
 
@@ -64,6 +64,10 @@ struct mail_transaction_header {
 
 struct mail_transaction_expunge {
 	uint32_t uid1, uid2;
+};
+struct mail_transaction_expunge_guid {
+	uint32_t uid;
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
 };
 
 struct mail_transaction_flag_update {

@@ -73,21 +73,26 @@ void index_sync_changes_delete_to(struct index_sync_changes_context *ctx,
 
 static bool
 index_sync_changes_have_expunges(struct index_sync_changes_context *ctx,
-				 unsigned int count)
+				 unsigned int count,
+				 uint8_t expunged_guid_128[MAIL_GUID_128_SIZE])
 {
 	const struct mail_index_sync_rec *syncs;
 	unsigned int i;
 
 	syncs = array_idx(&ctx->syncs, 0);
 	for (i = 0; i < count; i++) {
-		if (syncs[i].type == MAIL_INDEX_SYNC_TYPE_EXPUNGE)
+		if (syncs[i].type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
+			memcpy(expunged_guid_128, syncs[i].guid_128,
+			       MAIL_GUID_128_SIZE);
 			return TRUE;
+		}
 	}
 	return FALSE;
 }
 
 void index_sync_changes_read(struct index_sync_changes_context *ctx,
-			     uint32_t uid, bool *sync_expunge_r)
+			     uint32_t uid, bool *sync_expunge_r,
+			     uint8_t expunged_guid_128[MAIL_GUID_128_SIZE])
 {
 	struct mail_index_sync_rec *sync_rec = &ctx->sync_rec;
 	uint32_t seq1, seq2;
@@ -103,8 +108,11 @@ void index_sync_changes_read(struct index_sync_changes_context *ctx,
 		    sync_rec->type != MAIL_INDEX_SYNC_TYPE_APPEND) {
 			array_append(&ctx->syncs, sync_rec, 1);
 
-			if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE)
+			if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
 				*sync_expunge_r = TRUE;
+				memcpy(expunged_guid_128, sync_rec->guid_128,
+				       MAIL_GUID_128_SIZE);
+			}
 		}
 
 		if (!mail_index_sync_next(ctx->index_sync_ctx, sync_rec)) {
@@ -145,7 +153,8 @@ void index_sync_changes_read(struct index_sync_changes_context *ctx,
 
 	if (!*sync_expunge_r && orig_count > 0) {
 		*sync_expunge_r =
-			index_sync_changes_have_expunges(ctx, orig_count);
+			index_sync_changes_have_expunges(ctx, orig_count,
+							 expunged_guid_128);
 	}
 }
 

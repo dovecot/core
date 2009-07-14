@@ -20,7 +20,8 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.type = type;
-	if (type == MAIL_TRANSACTION_EXPUNGE)
+	if (type == MAIL_TRANSACTION_EXPUNGE ||
+	    type == MAIL_TRANSACTION_EXPUNGE_GUID)
 		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
 	if (ctx->external)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;

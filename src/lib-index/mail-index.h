@@ -165,6 +165,9 @@ struct mail_index_sync_rec {
 
 	/* MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD, .._REMOVE: */
 	unsigned int keyword_idx;
+
+	/* MAIL_INDEX_SYNC_TYPE_EXPUNGE: */
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
 };
 
 enum mail_index_view_sync_type {
@@ -400,6 +403,9 @@ void mail_index_append_assign_uids(struct mail_index_transaction *t,
 /* Expunge record from index. Note that this doesn't affect sequence numbers
    until transaction is committed and mailbox is synced. */
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);
+/* Like mail_index_expunge(), but also write message GUID to transaction log. */
+void mail_index_expunge_guid(struct mail_index_transaction *t, uint32_t seq,
+			     const uint8_t guid_128[MAIL_GUID_128_SIZE]);
 /* Update flags in index. */
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,

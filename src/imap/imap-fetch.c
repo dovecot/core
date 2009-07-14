@@ -255,6 +255,18 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 	return ret;
 }
 
+static void
+mailbox_expunge_to_range(const ARRAY_TYPE(mailbox_expunge_rec) *input,
+			 ARRAY_TYPE(seq_range) *output)
+{
+	const struct mailbox_expunge_rec *expunges;
+	unsigned int i, count;
+
+	expunges = array_get(input, &count);
+	for (i = 0; i < count; i++)
+		seq_range_array_add(output, 0, expunges[i].uid);
+}
+
 static int
 imap_fetch_send_vanished(struct imap_fetch_context *ctx)
 {
@@ -262,27 +274,32 @@ imap_fetch_send_vanished(struct imap_fetch_context *ctx)
 	const struct mail_search_arg *modseqarg = uidarg->next;
 	const ARRAY_TYPE(seq_range) *uids = &uidarg->value.seqset;
 	uint64_t modseq = modseqarg->value.modseq->modseq;
-	ARRAY_TYPE(seq_range) expunges;
+	ARRAY_TYPE(mailbox_expunge_rec) expunges;
+	ARRAY_TYPE(seq_range) expunges_range;
 	string_t *str;
 	int ret = 0;
 
 	i_array_init(&expunges, array_count(uids));
-	if (!mailbox_get_expunged_uids(ctx->box, modseq, uids, &expunges)) {
+	i_array_init(&expunges_range, array_count(uids));
+	if (mailbox_get_expunges(ctx->box, modseq, uids, &expunges))
+		mailbox_expunge_to_range(&expunges, &expunges_range);
+	else {
 		/* return all expunged UIDs */
-		if (get_expunges_fallback(ctx, uids, &expunges) < 0) {
-			array_clear(&expunges);
+		if (get_expunges_fallback(ctx, uids, &expunges_range) < 0) {
+			array_clear(&expunges_range);
 			ret = -1;
 		}
 	}
-	if (array_count(&expunges) > 0) {
+	if (array_count(&expunges_range) > 0) {
 		str = str_new(default_pool, 128);
 		str_append(str, "* VANISHED (EARLIER) ");
-		imap_write_seq_range(str, &expunges);
+		imap_write_seq_range(str, &expunges_range);
 		str_append(str, "\r\n");
 		o_stream_send(ctx->client->output, str_data(str), str_len(str));
 		str_free(&str);
 	}
 	array_free(&expunges);
+	array_free(&expunges_range);
 	return ret;
 }
 

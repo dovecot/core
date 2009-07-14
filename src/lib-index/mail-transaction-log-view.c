@@ -417,6 +417,15 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		}
 		rec_type &= ~MAIL_TRANSACTION_EXPUNGE_PROT;
 	}
+	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE_GUID) != 0) {
+		if (rec_type != (MAIL_TRANSACTION_EXPUNGE_GUID |
+				 MAIL_TRANSACTION_EXPUNGE_PROT)) {
+			mail_transaction_log_file_set_corrupted(file,
+				"expunge guid record missing protection mask");
+			return FALSE;
+		}
+		rec_type &= ~MAIL_TRANSACTION_EXPUNGE_PROT;
+	}
 
 	if (rec_size == 0) {
 		mail_transaction_log_file_set_corrupted(file,
@@ -440,6 +449,13 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		buffer_create_const_data(&uid_buf, data, rec_size);
 		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_expunge));
+		break;
+	case MAIL_TRANSACTION_EXPUNGE_GUID:
+		if ((rec_size % sizeof(struct mail_transaction_expunge_guid)) != 0) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Invalid expunge guid record size");
+			ret = FALSE;
+		}
 		break;
 	case MAIL_TRANSACTION_FLAG_UPDATE:
 		buffer_create_const_data(&uid_buf, data, rec_size);
@@ -615,7 +631,9 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 
 	/* drop expunge protection */
 	if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
-	    (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT))
+	    (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT) ||
+	    (hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
+	    (MAIL_TRANSACTION_EXPUNGE_GUID | MAIL_TRANSACTION_EXPUNGE_PROT))
 		view->tmp_hdr.type = hdr->type & ~MAIL_TRANSACTION_EXPUNGE_PROT;
 	else
 		view->tmp_hdr.type = hdr->type;

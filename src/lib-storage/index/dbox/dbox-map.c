@@ -504,7 +504,7 @@ int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 			      const ARRAY_TYPE(uint32_t) *map_uids, int diff)
 {
 	struct dbox_map *map = ctx->map;
-	const uint32_t *uids;
+	const uint32_t *uidp;
 	unsigned int i, count;
 	const void *data;
 	uint32_t seq;
@@ -514,13 +514,14 @@ int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 	if (ctx->trans == NULL)
 		return -1;
 
-	uids = array_get(map_uids, &count);
+	count = array_count(map_uids);
 	for (i = 0; i < count; i++) {
-		if (!mail_index_lookup_seq(map->view, uids[i], &seq)) {
+		uidp = array_idx(map_uids, i);
+		if (!mail_index_lookup_seq(map->view, *uidp, &seq)) {
 			/* we can't refresh map here since view has a
 			   transaction open. */
 			dbox_map_set_corrupted(map,
-				"refcount update lost map_uid=%u", uids[i]);
+				"refcount update lost map_uid=%u", *uidp);
 			return -1;
 		}
 		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,

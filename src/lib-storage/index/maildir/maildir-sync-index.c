@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "hex-binary.h"
 #include "maildir-storage.h"
 #include "index-sync-changes.h"
 #include "maildir-uidlist.h"
@@ -39,6 +40,54 @@ maildir_sync_get_keywords_sync_ctx(struct maildir_index_sync_context *ctx)
 	return ctx->keywords_sync_ctx;
 }
 
+static void
+maildir_index_expunge(struct maildir_index_sync_context *ctx, uint32_t seq)
+{
+	enum maildir_uidlist_rec_flag flags;
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	const char *fname;
+	uint32_t uid;
+
+	mail_index_lookup_uid(ctx->view, seq, &uid);
+	if (maildir_uidlist_lookup(ctx->mbox->uidlist, uid,
+				   &flags, &fname) <= 0)
+		memset(guid_128, 0, sizeof(guid_128));
+	else T_BEGIN {
+		mail_generate_guid_128_hash(t_strcut(fname, ':'),
+					    guid_128);
+	} T_END;
+
+	mail_index_expunge_guid(ctx->trans, ctx->seq, guid_128);
+}
+
+static bool
+maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
+			      const char *filename,
+			      uint8_t expunged_guid_128[MAIL_GUID_128_SIZE])
+{
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
+
+	if (mail_guid_128_is_empty(expunged_guid_128)) {
+		/* no GUID associated with expunge */
+		return TRUE;
+	}
+
+	T_BEGIN {
+		mail_generate_guid_128_hash(t_strcut(filename, ':'),
+					    guid_128);
+	} T_END;
+
+	if (memcmp(guid_128, expunged_guid_128, sizeof(guid_128)) == 0)
+		return TRUE;
+
+	mail_storage_set_critical(&ctx->mbox->storage->storage,
+		"Mailbox %s: Expunged GUID mismatch for UID %u: %s vs %s",
+		ctx->mbox->ibox.box.vname, ctx->uid,
+		binary_to_hex(guid_128, sizeof(guid_128)),
+		binary_to_hex(expunged_guid_128, MAIL_GUID_128_SIZE));
+	return FALSE;
+}
+
 static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 			   struct maildir_index_sync_context *ctx)
 {
@@ -49,7 +98,6 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 			box->v.sync_notify(box, ctx->uid,
 					   MAILBOX_SYNC_TYPE_EXPUNGE);
 		}
-		mail_index_expunge(ctx->trans, ctx->seq);
 		ctx->changed = TRUE;
 		return 1;
 	}
@@ -401,6 +449,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	int ret = 0;
 	time_t time_before_sync;
 	struct stat st;
+	uint8_t expunged_guid_128[MAIL_GUID_128_SIZE];
 	bool expunged, full_rescan = FALSE;
 
 	i_assert(!mbox->syncing_commit);
@@ -485,7 +534,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		rec = mail_index_lookup(view, seq);
 		if (uid > rec->uid) {
 			/* expunged */
-			mail_index_expunge(trans, seq);
+			maildir_index_expunge(ctx, seq);
 			goto again;
 		}
 
@@ -497,12 +546,16 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			continue;
 		}
 
-		index_sync_changes_read(ctx->sync_changes, rec->uid, &expunged);
+		index_sync_changes_read(ctx->sync_changes, rec->uid, &expunged,
+					expunged_guid_128);
 		if (expunged) {
+			if (!maildir_expunge_is_valid_guid(ctx, filename,
+							   expunged_guid_128))
+				continue;
 			if (maildir_file_do(mbox, ctx->uid,
 					    maildir_expunge, ctx) >= 0) {
 				/* successful expunge */
-				mail_index_expunge(trans, seq);
+				maildir_index_expunge(ctx, seq);
 			}
 			if ((++changes % MAILDIR_SLOW_MOVE_COUNT) == 0)
 				maildir_sync_notify(ctx->maildir_sync_ctx);
@@ -551,7 +604,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	if (!partial) {
 		/* expunge the rest */
 		for (seq++; seq <= hdr->messages_count; seq++)
-			mail_index_expunge(trans, seq);
+			maildir_index_expunge(ctx, seq);
 	}
 
 	/* add \Recent flags. use updated view so it contains newly

@@ -41,6 +41,17 @@ static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
 	}
 }
 
+static void mail_index_sync_add_expunge_guid(struct mail_index_sync_ctx *ctx)
+{
+	const struct mail_transaction_expunge_guid *e = ctx->data;
+	size_t i, size = ctx->hdr->size / sizeof(*e);
+
+	for (i = 0; i < size; i++) {
+		mail_index_expunge_guid(ctx->sync_trans, e[i].uid,
+					e[i].guid_128);
+	}
+}
+
 static void mail_index_sync_add_flag_update(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_transaction_flag_update *u = ctx->data;
@@ -128,6 +139,9 @@ static bool mail_index_sync_add_transaction(struct mail_index_sync_ctx *ctx)
 	switch (ctx->hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_EXPUNGE:
 		mail_index_sync_add_expunge(ctx);
+		break;
+	case MAIL_TRANSACTION_EXPUNGE_GUID:
+		mail_index_sync_add_expunge_guid(ctx);
 		break;
 	case MAIL_TRANSACTION_FLAG_UPDATE:
                 mail_index_sync_add_flag_update(ctx);
@@ -512,6 +526,7 @@ static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 			   to be synced, but cache syncing relies on tail
 			   offsets being updated. */
 		case MAIL_TRANSACTION_EXPUNGE:
+		case MAIL_TRANSACTION_EXPUNGE_GUID:
 		case MAIL_TRANSACTION_FLAG_UPDATE:
 		case MAIL_TRANSACTION_KEYWORD_UPDATE:
 		case MAIL_TRANSACTION_KEYWORD_RESET:
@@ -550,11 +565,12 @@ void mail_index_sync_get_offsets(struct mail_index_sync_ctx *ctx,
 
 static void
 mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
-			    const struct mail_transaction_expunge *exp)
+			    const struct mail_transaction_expunge_guid *exp)
 {
 	rec->type = MAIL_INDEX_SYNC_TYPE_EXPUNGE;
-	rec->uid1 = exp->uid1;
-	rec->uid2 = exp->uid2;
+	rec->uid1 = exp->uid;
+	rec->uid2 = exp->uid;
+	memcpy(rec->guid_128, exp->guid_128, sizeof(rec->guid_128));
 }
 
 static void
@@ -605,6 +621,8 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	/* FIXME: replace with a priority queue so we don't have to go
 	   through the whole list constantly. and remember to make sure that
 	   keyword resets are sent before adds! */
+	/* FIXME: pretty ugly to do this for expunges, which isn't even a
+	   seq_range. */
 	sync_list = array_get_modifiable(&ctx->sync_list, &count);
 	for (i = 0; i < count; i++) {
 		if (!array_is_created(sync_list[i].array) ||
@@ -641,7 +659,7 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 
 	if (sync_list[i].array == (void *)&sync_trans->expunges) {
 		mail_index_sync_get_expunge(sync_rec,
-			(const struct mail_transaction_expunge *)uid_range);
+			(const struct mail_transaction_expunge_guid *)uid_range);
 	} else if (sync_list[i].array == (void *)&sync_trans->updates) {
 		mail_index_sync_get_update(sync_rec,
 			(const struct mail_transaction_flag_update *)uid_range);

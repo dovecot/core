@@ -1446,8 +1446,16 @@ void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 void index_mail_expunge(struct mail *mail)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
+	const char *value;
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
 
-	mail_index_expunge(imail->trans->trans, mail->seq);
+	if (mail_get_special(mail, MAIL_FETCH_GUID, &value) < 0)
+		mail_index_expunge(imail->trans->trans, mail->seq);
+	else {
+		mail_generate_guid_128_hash(value, guid_128);
+		mail_index_expunge_guid(imail->trans->trans,
+					mail->seq, guid_128);
+	}
 }
 
 void index_mail_set_cache_corrupted(struct mail *mail,

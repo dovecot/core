@@ -11,13 +11,20 @@ enum dbox_sync_flags {
 	DBOX_SYNC_FLAG_NO_PURGE		= 0x08
 };
 
+struct dbox_sync_expunge {
+	/* keep map_uid first, so we can just cast it to
+	   dbox_map_update_refcounts() */
+	uint32_t map_uid;
+	uint32_t seq;
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
+};
+
 struct dbox_sync_file_entry {
 	uint32_t uid, file_id;
 
 	unsigned int move_from_alt:1;
 	unsigned int move_to_alt:1;
-	ARRAY_TYPE(seq_range) expunge_seqs;
-	ARRAY_TYPE(uint32_t) expunge_map_uids;
+	ARRAY_DEFINE(expunges, struct dbox_sync_expunge);
 };
 
 struct dbox_sync_context {

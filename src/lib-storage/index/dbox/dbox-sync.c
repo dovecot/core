@@ -40,6 +40,7 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 			     uint32_t seq)
 {
 	struct dbox_sync_file_entry *entry, lookup_entry;
+	struct dbox_sync_expunge *expunge;
 	uint32_t map_uid;
 	uoff_t offset;
 	int ret;
@@ -75,14 +76,16 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
 	}
 
 	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
-		if (!array_is_created(&entry->expunge_map_uids)) {
-			p_array_init(&entry->expunge_map_uids, ctx->pool,
-				     lookup_entry.uid != 0 ? 1 : 3);
-			p_array_init(&entry->expunge_seqs, ctx->pool,
+		if (!array_is_created(&entry->expunges)) {
+			p_array_init(&entry->expunges, ctx->pool,
 				     lookup_entry.uid != 0 ? 1 : 3);
 		}
-		seq_range_array_add(&entry->expunge_seqs, 0, seq);
-		array_append(&entry->expunge_map_uids, &map_uid, 1);
+
+		expunge = array_append_space(&entry->expunges);
+		expunge->map_uid = map_uid;
+		expunge->seq = seq;
+		memcpy(expunge->guid_128, sync_rec->guid_128,
+		       sizeof(expunge->guid_128));
 		if (entry->file_id != 0)
 			ctx->have_storage_expunges = TRUE;
 	} else {

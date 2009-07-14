@@ -176,7 +176,7 @@ dbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 					sizeof(struct dbox_index_header), 0, 0);
 	mbox->guid_ext_id =
 		mail_index_ext_register(mbox->ibox.index, "guid",
-					0, DBOX_GUID_BIN_LEN, 1);
+					0, MAIL_GUID_128_SIZE, 1);
 
 	mbox->maildir_uidlist = maildir_uidlist_init_readonly(&mbox->ibox);
 	return &mbox->ibox.box;

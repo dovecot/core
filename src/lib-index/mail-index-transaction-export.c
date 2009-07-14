@@ -380,7 +380,7 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 		if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
 			change_mask |= MAIL_INDEX_SYNC_TYPE_EXPUNGE;
 		log_append_buffer(&ctx, t->expunges.arr.buffer,
-				  MAIL_TRANSACTION_EXPUNGE);
+				  MAIL_TRANSACTION_EXPUNGE_GUID);
 	}
 
 	if (t->post_hdr_changed) {

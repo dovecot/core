@@ -192,9 +192,9 @@ test_mailbox_get_uid_range(struct mailbox *box ATTR_UNUSED,
 
 static bool
 test_mailbox_get_expunged_uids(struct mailbox *box ATTR_UNUSED,
-			       uint64_t modseq ATTR_UNUSED,
-			       const ARRAY_TYPE(seq_range) *uids ATTR_UNUSED,
-			       ARRAY_TYPE(seq_range) *expunged_uids ATTR_UNUSED)
+			       uint64_t prev_modseq ATTR_UNUSED,
+			       const ARRAY_TYPE(seq_range) *uids_filter ATTR_UNUSED,
+			       ARRAY_TYPE(mailbox_expunge_rec) *expunges ATTR_UNUSED)
 {
 	return FALSE;
 }

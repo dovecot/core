@@ -14,7 +14,8 @@ void index_sync_changes_delete_to(struct index_sync_changes_context *ctx,
 				  uint32_t last_uid);
 
 void index_sync_changes_read(struct index_sync_changes_context *ctx,
-			     uint32_t uid, bool *sync_expunge_r);
+			     uint32_t uid, bool *sync_expunge_r,
+			     uint8_t expunged_guid_128[MAIL_GUID_128_SIZE]);
 bool index_sync_changes_have(struct index_sync_changes_context *ctx);
 uint32_t
 index_sync_changes_get_next_uid(struct index_sync_changes_context *ctx);

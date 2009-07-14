@@ -124,8 +124,7 @@ tview_lookup_full(struct mail_index_view *view, uint32_t seq,
 	rec = tview->super->lookup_full(view, seq, map_r, expunged_r);
 	rec = tview_apply_flag_updates(tview, rec, seq);
 
-	if (array_is_created(&tview->t->expunges) &&
-	    seq_range_exists(&tview->t->expunges, seq))
+	if (mail_index_transaction_is_expunged(tview->t, seq))
 		*expunged_r = TRUE;
 	return rec;
 }

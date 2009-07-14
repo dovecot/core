@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "hex-binary.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
 #include "dbox-map.h"
@@ -268,22 +269,62 @@ dbox_sync_file_move_if_needed(struct dbox_file *file,
 	}
 }
 
+static int
+dbox_sync_verify_expunge_guid(struct dbox_sync_context *ctx,
+			      const struct dbox_sync_expunge *expunge)
+{
+	const void *data;
+	uint32_t uid;
+
+	mail_index_lookup_uid(ctx->sync_view, expunge->seq, &uid);
+	mail_index_lookup_ext(ctx->sync_view, expunge->seq,
+			      ctx->mbox->guid_ext_id, &data, NULL);
+	if (mail_guid_128_is_empty(expunge->guid_128) ||
+	    memcmp(data, expunge->guid_128, MAIL_GUID_128_SIZE) == 0)
+		return 0;
+
+	mail_storage_set_critical(&ctx->mbox->storage->storage,
+		"Mailbox %s: Expunged GUID mismatch for UID %u: %s vs %s",
+		ctx->mbox->ibox.box.vname, uid,
+		binary_to_hex(data, MAIL_GUID_128_SIZE),
+		binary_to_hex(expunge->guid_128, MAIL_GUID_128_SIZE));
+	return -1;
+}
+
+static int
+dbox_sync_verify_expunge_guids(struct dbox_sync_context *ctx,
+			       const struct dbox_sync_file_entry *entry)
+{
+	const struct dbox_sync_expunge *expunges;
+	unsigned int i, count;
+
+	expunges = array_get(&entry->expunges, &count);
+	for (i = 0; i < count; i++) {
+		if (dbox_sync_verify_expunge_guid(ctx, &expunges[i]) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 static void
 dbox_sync_mark_expunges(struct dbox_sync_context *ctx,
-			const ARRAY_TYPE(seq_range) *seqs)
+			const struct dbox_sync_file_entry *entry)
 {
 	struct mailbox *box = &ctx->mbox->ibox.box;
-	struct seq_range_iter iter;
-	unsigned int i;
-	uint32_t seq, uid;
+	const struct dbox_sync_expunge *expunges;
+	unsigned int i, count;
+	const void *data;
+	uint32_t uid;
 
-	seq_range_array_iter_init(&iter, seqs); i = 0;
-	while (seq_range_array_iter_nth(&iter, i++, &seq)) {
-		mail_index_expunge(ctx->trans, seq);
-		if (box->v.sync_notify != NULL) {
-			mail_index_lookup_uid(ctx->sync_view, seq, &uid);
+	expunges = array_get(&entry->expunges, &count);
+	for (i = 0; i < count; i++) {
+		mail_index_lookup_uid(ctx->sync_view, expunges[i].seq, &uid);
+		mail_index_lookup_ext(ctx->sync_view, expunges[i].seq,
+				      ctx->mbox->guid_ext_id, &data, NULL);
+		mail_index_expunge_guid(ctx->trans, expunges[i].seq, data);
+
+		if (box->v.sync_notify != NULL)
 			box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
-		}
 	}
 }
 
@@ -297,14 +338,17 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 	file = entry->file_id != 0 ?
 		dbox_file_init_multi(mbox->storage, entry->file_id) :
 		dbox_file_init_single(mbox, entry->uid);
-	if (!array_is_created(&entry->expunge_map_uids)) {
+	if (!array_is_created(&entry->expunges)) {
 		/* no expunges - we want to move it */
 		dbox_sync_file_move_if_needed(file, entry);
+	} else if (dbox_sync_verify_expunge_guids(ctx, entry) < 0) {
+		/* guid mismatches, see if index rebuilding helps */
+		ret = 0;
 	} else if (entry->uid != 0) {
 		/* single-message file, we can unlink it */
 		if ((ret = dbox_sync_file_unlink(file)) == 0) {
 			/* file was lost, delete it */
-			dbox_sync_mark_expunges(ctx, &entry->expunge_seqs);
+			dbox_sync_mark_expunges(ctx, entry);
 			ret = 1;
 		}
 	} else {
@@ -314,10 +358,10 @@ int dbox_sync_file(struct dbox_sync_context *ctx,
 							   FALSE);
 		}
 		if (dbox_map_update_refcounts(ctx->map_trans,
-					      &entry->expunge_map_uids, -1) < 0)
+					(void *)&entry->expunges, -1) < 0)
 			ret = -1;
 		else
-			dbox_sync_mark_expunges(ctx, &entry->expunge_seqs);
+			dbox_sync_mark_expunges(ctx, entry);
 	}
 	dbox_file_unref(&file);
 	return ret;

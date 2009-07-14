@@ -174,10 +174,9 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 {
 	struct dbox_metadata_header metadata_hdr;
-	uint8_t guid_128[16];
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
 	const char *guid;
 	string_t *str;
-	buffer_t *guid_buf;
 	uoff_t vsize;
 
 	memset(&metadata_hdr, 0, sizeof(metadata_hdr));
@@ -195,16 +194,10 @@ static void dbox_save_write_metadata(struct dbox_save_context *ctx)
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
 		    (unsigned long long)vsize);
 
-	/* we can use user-given GUID if
-	   a) we're not saving to a multi-file,
-	   b) it's 128 bit hex-encoded */
 	guid = ctx->ctx.guid;
-	if (ctx->ctx.guid != NULL && ctx->cur_file->single_mbox == NULL) {
-		guid_buf = buffer_create_dynamic(pool_datastack_create(),
-						 sizeof(guid_128));
-		dbox_get_guid_128(guid, guid_buf);
-		memcpy(guid_128, guid_buf->data, sizeof(guid_128));
-	} else {
+	if (ctx->ctx.guid != NULL)
+		mail_generate_guid_128_hash(guid, guid_128);
+	else {
 		mail_generate_guid_128(guid_128);
 		guid = binary_to_hex(guid_128, sizeof(guid_128));
 	}

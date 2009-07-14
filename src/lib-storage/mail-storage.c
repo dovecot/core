@@ -709,11 +709,12 @@ void mailbox_get_uid_range(struct mailbox *box,
 	box->v.get_uid_range(box, seqs, uids);
 }
 
-bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t modseq,
-			       const ARRAY_TYPE(seq_range) *uids,
-			       ARRAY_TYPE(seq_range) *expunged_uids)
+bool mailbox_get_expunges(struct mailbox *box, uint64_t prev_modseq,
+			  const ARRAY_TYPE(seq_range) *uids_filter,
+			  ARRAY_TYPE(mailbox_expunge_rec) *expunges)
 {
-	return box->v.get_expunged_uids(box, modseq, uids, expunged_uids);
+	return box->v.get_expunges(box, prev_modseq,
+				   uids_filter, expunges);
 }
 
 bool mailbox_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
@@ -1072,13 +1073,18 @@ void mailbox_set_deleted(struct mailbox *box)
 	box->mailbox_deleted = TRUE;
 }
 
-bool mailbox_guid_is_empty(const uint8_t guid[MAILBOX_GUID_SIZE])
+bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE])
 {
 	unsigned int i;
 
 	for (i = 0; i < MAILBOX_GUID_SIZE; i++) {
-		if (guid[i] != 0)
+		if (guid_128[i] != 0)
 			return FALSE;
 	}
 	return TRUE;
+}
+
+bool mailbox_guid_is_empty(const uint8_t guid[MAILBOX_GUID_SIZE])
+{
+	return mail_guid_128_is_empty(guid);
 }

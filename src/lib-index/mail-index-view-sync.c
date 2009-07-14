@@ -123,6 +123,20 @@ view_sync_add_expunge_range(ARRAY_TYPE(seq_range) *dest,
 		seq_range_array_add_range(dest, src[i].seq1, src[i].seq2);
 }
 
+static void
+view_sync_add_expunge_guids(ARRAY_TYPE(seq_range) *dest,
+			    const struct mail_transaction_expunge_guid *src,
+			    size_t src_size)
+{
+	unsigned int i, src_count;
+
+	i_assert(src_size % sizeof(*src) == 0);
+
+	src_count = src_size / sizeof(*src);
+	for (i = 0; i < src_count; i++)
+		seq_range_array_add(dest, 0, src[i].uid);
+}
+
 static int
 view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 		       unsigned int *expunge_count_r)
@@ -139,14 +153,17 @@ view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 	mail_transaction_log_view_mark(view->log_view);
 	while ((ret = mail_transaction_log_view_next(view->log_view,
 						     &hdr, &data)) > 0) {
-		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0)
-			continue;
 		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
-			/* this is simply a request for expunge */
+			/* skip expunge requests */
 			continue;
 		}
-
-		view_sync_add_expunge_range(&ctx->expunges, data, hdr->size);
+		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE_GUID) != 0) {
+			view_sync_add_expunge_guids(&ctx->expunges,
+						    data, hdr->size);
+		} else if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
+			view_sync_add_expunge_range(&ctx->expunges,
+						    data, hdr->size);
+		}
 	}
 	mail_transaction_log_view_rewind(view->log_view);
 
@@ -161,9 +178,25 @@ static bool have_existing_expunges(struct mail_index_view *view,
 	uint32_t seq1, seq2;
 
 	range_end = CONST_PTR_OFFSET(range, size);
-	for (; range < range_end; range++) {
+	for (; range != range_end; range++) {
 		if (mail_index_lookup_seq_range(view, range->seq1, range->seq2,
 						&seq1, &seq2))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
+have_existing_guid_expunge(struct mail_index_view *view,
+			   const struct mail_transaction_expunge_guid *expunges,
+			   size_t size)
+{
+	const struct mail_transaction_expunge_guid *expunges_end;
+	uint32_t seq;
+
+	expunges_end = CONST_PTR_OFFSET(expunges, size);
+	for (; expunges != expunges_end; expunges++) {
+		if (mail_index_lookup_seq(view, expunges->uid, &seq))
 			return TRUE;
 	}
 	return FALSE;
@@ -180,17 +213,22 @@ static bool view_sync_have_expunges(struct mail_index_view *view)
 
 	while ((ret = mail_transaction_log_view_next(view->log_view,
 						     &hdr, &data)) > 0) {
-		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0)
-			continue;
 		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
-			/* this is simply a request for expunge */
+			/* skip expunge requests */
 			continue;
 		}
-
-		/* we have an expunge. see if it still exists. */
-		if (have_existing_expunges(view, data, hdr->size)) {
-			have_expunges = TRUE;
-			break;
+		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE_GUID) != 0) {
+			/* we have an expunge. see if it still exists. */
+			if (have_existing_expunges(view, data, hdr->size)) {
+				have_expunges = TRUE;
+				break;
+			}
+		} else if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
+			/* we have an expunge. see if it still exists. */
+			if (have_existing_guid_expunge(view, data, hdr->size)) {
+				have_expunges = TRUE;
+				break;
+			}
 		}
 	}
 
@@ -616,7 +654,8 @@ mail_index_view_sync_want(struct mail_index_view_sync_ctx *ctx,
 	mail_transaction_log_view_get_prev_pos(view->log_view, &seq, &offset);
 	next_offset = offset + sizeof(*hdr) + hdr->size;
 
-	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0 &&
+	if ((hdr->type & (MAIL_TRANSACTION_EXPUNGE |
+			  MAIL_TRANSACTION_EXPUNGE_GUID)) != 0 &&
 	    (hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0) {
 		if ((ctx->flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) != 0) {
 			i_assert(!LOG_IS_BEFORE(seq, offset,
@@ -688,10 +727,13 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 	/* Apply transaction to view's mapping if needed (meaning we
 	   didn't just re-map the view to head mapping). */
 	if (ctx->sync_map_update && !synced_to_map) {
-		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0) T_BEGIN {
-			ret = mail_index_sync_record(&ctx->sync_map_ctx,
-						     hdr, ctx->data);
-		} T_END;
+		if ((hdr->type & (MAIL_TRANSACTION_EXPUNGE |
+				  MAIL_TRANSACTION_EXPUNGE_GUID)) == 0) {
+			T_BEGIN {
+				ret = mail_index_sync_record(&ctx->sync_map_ctx,
+							     hdr, ctx->data);
+			} T_END;
+		}
 		if (ret < 0)
 			return -1;
 	}

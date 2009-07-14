@@ -822,6 +822,7 @@ mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr,
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT:
+	case MAIL_TRANSACTION_EXPUNGE_GUID | MAIL_TRANSACTION_EXPUNGE_PROT:
 		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
 			/* ignore expunge requests */
 			break;

@@ -170,7 +170,7 @@ struct mail_save_context;
 struct mailbox;
 struct mailbox_transaction_context;
 
-#define MAILBOX_GUID_SIZE 16
+#define MAILBOX_GUID_SIZE MAIL_GUID_128_SIZE
 struct mailbox_status {
 	uint32_t messages;
 	uint32_t recent;
@@ -203,6 +203,15 @@ struct mailbox_sync_rec {
 	uint32_t seq1, seq2;
 	enum mailbox_sync_type type;
 };
+
+struct mailbox_expunge_rec {
+	/* IMAP UID */
+	uint32_t uid;
+	/* 128 bit GUID. If the actual GUID has a different size, this
+	   contains last bits of its SHA1 sum. */
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
+};
+ARRAY_DEFINE_TYPE(mailbox_expunge_rec, struct mailbox_expunge_rec);
 
 enum mail_lookup_abort {
 	/* Perform everything no matter what it takes */
@@ -424,12 +433,13 @@ void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 void mailbox_get_uid_range(struct mailbox *box,
 			   const ARRAY_TYPE(seq_range) *seqs,
 			   ARRAY_TYPE(seq_range) *uids);
-/* Get list of UIDs expunged after modseq and within the given range.
-   UIDs that have been expunged after the last mailbox sync aren't returned.
-   Returns TRUE if ok, FALSE if modseq is lower than we can check for. */
-bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t modseq,
-			       const ARRAY_TYPE(seq_range) *uids,
-			       ARRAY_TYPE(seq_range) *expunged_uids);
+/* Get list of messages' that have been expunged after prev_modseq and that
+   exist in uids_filter range. UIDs that have been expunged after the last
+   mailbox sync aren't returned. Returns TRUE if ok, FALSE if modseq is lower
+   than we can check for (but expunged_uids is still set as best as it can). */
+bool mailbox_get_expunges(struct mailbox *box, uint64_t prev_modseq,
+			  const ARRAY_TYPE(seq_range) *uids_filter,
+			  ARRAY_TYPE(mailbox_expunge_rec) *expunges);
 /* If box is a virtual mailbox, look up UID for the given backend message.
    Returns TRUE if found, FALSE if not. */
 bool mailbox_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,

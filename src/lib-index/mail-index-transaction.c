@@ -22,8 +22,17 @@ mail_index_transaction_get_view(struct mail_index_transaction *t)
 bool mail_index_transaction_is_expunged(struct mail_index_transaction *t,
 					uint32_t seq)
 {
-	return array_is_created(&t->expunges) &&
-		seq_range_exists(&t->expunges, seq);
+	struct mail_transaction_expunge_guid key;
+
+	if (!array_is_created(&t->expunges))
+		return FALSE;
+
+	if (t->expunges_nonsorted)
+		mail_index_transaction_sort_expunges(t);
+
+	key.uid = seq;
+	return array_bsearch(&t->expunges, &key,
+			     mail_transaction_expunge_guid_cmp) != NULL;
 }
 
 void mail_index_transaction_ref(struct mail_index_transaction *t)

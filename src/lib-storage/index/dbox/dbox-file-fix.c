@@ -165,7 +165,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 	bool pre, write_header, have_guid;
 	struct message_size body;
 	struct istream *body_input;
-	uint8_t guid_128[16];
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
 	int ret;
 
 	i_stream_seek(file->input, 0);

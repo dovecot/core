@@ -12,7 +12,6 @@
 #include "mkdir-parents.h"
 #include "fdatasync-path.h"
 #include "eacces-error.h"
-#include "sha1.h"
 #include "str.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
@@ -1028,24 +1027,4 @@ void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
 	dec2hex(dbox_msg_hdr->message_size_hex, message_size,
 		sizeof(dbox_msg_hdr->message_size_hex));
 	dbox_msg_hdr->save_lf = '\n';
-}
-
-void dbox_get_guid_128(const char *input, buffer_t *output)
-{
-	unsigned char sha1_sum[SHA1_RESULTLEN];
-
-	buffer_set_used_size(output, 0);
-	if (strlen(input) != DBOX_GUID_BIN_LEN*2 ||
-	    hex_to_binary(input, output) < 0 ||
-	    output->used != DBOX_GUID_BIN_LEN) {
-		/* not 128bit hex. use a hash of it instead. */
-		buffer_set_used_size(output, 0);
-		sha1_get_digest(input, strlen(input), sha1_sum);
-#if SHA1_RESULTLEN < DBOX_GUID_BIN_LEN
-#  error not possible
-#endif
-		buffer_append(output,
-			      sha1_sum + SHA1_RESULTLEN - DBOX_GUID_BIN_LEN,
-			      DBOX_GUID_BIN_LEN);
-	}
 }

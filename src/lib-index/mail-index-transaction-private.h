@@ -37,14 +37,14 @@ struct mail_index_transaction {
 	struct mail_index_view *view;
 
 	/* NOTE: If you add anything new, remember to update
-	   mail_index_transaction_reset() to reset it. */
+	   mail_index_transaction_reset_v() to reset it. */
         ARRAY_DEFINE(appends, struct mail_index_record);
 	uint32_t first_new_seq, last_new_seq;
 	uint32_t highest_append_uid;
 	/* lowest/highest sequence that updates flags/keywords */
 	uint32_t min_flagupdate_seq, max_flagupdate_seq;
 
-	ARRAY_TYPE(seq_range) expunges;
+	ARRAY_DEFINE(expunges, struct mail_transaction_expunge_guid);
 	ARRAY_DEFINE(updates, struct mail_transaction_flag_update);
 	size_t last_update_idx;
 
@@ -77,6 +77,7 @@ struct mail_index_transaction {
 
 	unsigned int sync_transaction:1;
 	unsigned int appends_nonsorted:1;
+	unsigned int expunges_nonsorted:1;
 	unsigned int drop_unnecessary_flag_updates:1;
 	unsigned int pre_hdr_changed:1;
 	unsigned int post_hdr_changed:1;
@@ -104,6 +105,7 @@ void mail_index_transaction_unref(struct mail_index_transaction **t);
 void mail_index_transaction_reset_v(struct mail_index_transaction *t);
 
 void mail_index_transaction_sort_appends(struct mail_index_transaction *t);
+void mail_index_transaction_sort_expunges(struct mail_index_transaction *t);
 uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t);
 void mail_index_transaction_set_log_updates(struct mail_index_transaction *t);
 void mail_index_update_day_headers(struct mail_index_transaction *t);
@@ -117,6 +119,8 @@ mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 int mail_index_transaction_finish(struct mail_index_transaction *t);
 void mail_index_transaction_export(struct mail_index_transaction *t,
 				   struct mail_transaction_log_append_ctx *append_ctx);
+int mail_transaction_expunge_guid_cmp(const struct mail_transaction_expunge_guid *e1,
+				      const struct mail_transaction_expunge_guid *e2);
 unsigned int
 mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,
 					   unsigned int left_idx,

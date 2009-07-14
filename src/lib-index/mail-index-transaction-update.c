@@ -92,6 +92,7 @@ void mail_index_transaction_reset_v(struct mail_index_transaction *t)
 	memset(t->post_hdr_mask, 0, sizeof(t->post_hdr_mask));
 
 	t->appends_nonsorted = FALSE;
+	t->expunges_nonsorted = FALSE;
 	t->drop_unnecessary_flag_updates = FALSE;
 	t->pre_hdr_changed = FALSE;
 	t->post_hdr_changed = FALSE;
@@ -273,6 +274,18 @@ mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
 
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 {
+	static uint8_t null_guid[MAIL_GUID_128_SIZE] =
+		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	mail_index_expunge_guid(t, seq, null_guid);
+}
+
+void mail_index_expunge_guid(struct mail_index_transaction *t, uint32_t seq,
+			     const uint8_t guid_128[MAIL_GUID_128_SIZE])
+{
+	const struct mail_transaction_expunge_guid *expunges;
+	struct mail_transaction_expunge_guid *expunge;
+	unsigned int count;
+
 	i_assert(seq > 0);
 	if (seq >= t->first_new_seq) {
 		/* we can handle only the last append. otherwise we'd have to
@@ -283,8 +296,18 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	} else {
 		t->log_updates = TRUE;
 
-		/* expunges is a sorted array of {seq1, seq2, ..}, .. */
-		seq_range_array_add(&t->expunges, 128, seq);
+		/* ignore duplicates here. drop them when commiting. */
+		if (!array_is_created(&t->expunges))
+			i_array_init(&t->expunges, 64);
+		else if (!t->expunges_nonsorted) {
+			/* usually expunges are added in increasing order. */
+			expunges = array_get(&t->expunges, &count);
+			if (count > 0 && seq < expunges[count-1].uid)
+				t->expunges_nonsorted = TRUE;
+		}
+		expunge = array_append_space(&t->expunges);
+		expunge->uid = seq;
+		memcpy(expunge->guid_128, guid_128, sizeof(expunge->guid_128));
 	}
 }
 

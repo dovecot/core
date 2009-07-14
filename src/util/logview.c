@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "hex-binary.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log.h"
 
@@ -54,6 +55,7 @@ mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr)
 {
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT:
+	case MAIL_TRANSACTION_EXPUNGE_GUID | MAIL_TRANSACTION_EXPUNGE_PROT:
 		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
 			/* ignore expunge requests */
 			break;
@@ -74,6 +76,9 @@ static const char *log_record_type(unsigned int type)
 	switch (type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_EXPUNGE|MAIL_TRANSACTION_EXPUNGE_PROT:
 		name = "expunge";
+		break;
+	case MAIL_TRANSACTION_EXPUNGE_GUID|MAIL_TRANSACTION_EXPUNGE_PROT:
+		name = "expunge-guid";
 		break;
 	case MAIL_TRANSACTION_APPEND:
 		name = "append";
@@ -246,6 +251,16 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 			printf(" %u-%u", exp->uid1, exp->uid2);
 		}
 		printf("\n");
+		break;
+	}
+	case MAIL_TRANSACTION_EXPUNGE_GUID|MAIL_TRANSACTION_EXPUNGE_PROT: {
+		const struct mail_transaction_expunge_guid *exp = data;
+
+		for (; size > 0; size -= sizeof(*exp), exp++) {
+			printf(" - %u (guid ", exp->uid);
+			print_data(exp->guid_128, sizeof(exp->guid_128));
+			printf(")\n");
+		}
 		break;
 	}
 	case MAIL_TRANSACTION_APPEND: {

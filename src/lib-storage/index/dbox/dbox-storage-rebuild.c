@@ -17,7 +17,7 @@
 #include <unistd.h>
 
 struct dbox_rebuild_msg {
-	uint8_t guid_128[DBOX_GUID_BIN_LEN];
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
 	uint32_t file_id;
 	uint32_t offset;
 	uint32_t size;
@@ -60,7 +60,7 @@ static unsigned int guid_hash(const void *p)
         const uint8_t *s = p;
 	unsigned int i, g, h = 0;
 
-	for (i = 0; i < DBOX_GUID_BIN_LEN; i++) {
+	for (i = 0; i < MAIL_GUID_128_SIZE; i++) {
 		h = (h << 4) + s[i];
 		if ((g = h & 0xf0000000UL)) {
 			h = h ^ (g >> 24);
@@ -72,7 +72,7 @@ static unsigned int guid_hash(const void *p)
 
 static int guid_cmp(const void *p1, const void *p2)
 {
-	return memcmp(p1, p2, DBOX_GUID_BIN_LEN);
+	return memcmp(p1, p2, MAIL_GUID_128_SIZE);
 }
 
 static struct dbox_storage_rebuild_context *
@@ -133,7 +133,6 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 	const char *fname, *guid;
 	struct dbox_rebuild_msg *rec;
 	uint32_t file_id;
-	buffer_t *guid_buf;
 	uoff_t offset, prev_offset, size;
 	bool last, expunged, first, fixed = FALSE;
 	int ret = 0;
@@ -153,9 +152,6 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 	if (file_id < ctx->prev_file_id)
 		ctx->msgs_unsorted = TRUE;
 	ctx->prev_file_id = file_id;
-
-	guid_buf = buffer_create_dynamic(pool_datastack_create(),
-					 DBOX_GUID_BIN_LEN);
 
 	file = dbox_file_init_multi(ctx->storage, file_id);
 	prev_offset = 0;
@@ -198,16 +194,15 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 			ret = 0;
 			break;
 		}
-		dbox_get_guid_128(guid, guid_buf);
 
 		rec = p_new(ctx->pool, struct dbox_rebuild_msg, 1);
 		rec->file_id = file_id;
 		rec->offset = offset;
 		rec->size = file->input->v_offset - offset;
-		memcpy(rec->guid_128, guid_buf->data, sizeof(rec->guid_128));
+		mail_generate_guid_128_hash(guid, rec->guid_128);
 		array_append(&ctx->msgs, &rec, 1);
 
-		if (hash_table_lookup(ctx->guid_hash, guid_buf->data) != NULL) {
+		if (hash_table_lookup(ctx->guid_hash, rec->guid_128) != NULL) {
 			/* duplicate. save this as a refcount=0 to map,
 			   so it will eventually be deleted. */
 			rec->seen_zero_ref_in_map = TRUE;

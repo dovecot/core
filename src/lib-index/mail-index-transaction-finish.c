@@ -6,6 +6,26 @@
 #include "mail-index-modseq.h"
 #include "mail-index-transaction-private.h"
 
+int mail_transaction_expunge_guid_cmp(const struct mail_transaction_expunge_guid *e1,
+				      const struct mail_transaction_expunge_guid *e2)
+{
+	if (e1->uid < e2->uid)
+		return -1;
+	else if (e1->uid > e2->uid)
+		return 1;
+	else
+		return 0;
+}
+
+void mail_index_transaction_sort_expunges(struct mail_index_transaction *t)
+{
+	if (!t->expunges_nonsorted)
+		return;
+
+	array_sort(&t->expunges, mail_transaction_expunge_guid_cmp);
+	t->expunges_nonsorted = FALSE;
+}
+
 static void
 ext_reset_update_atomic(struct mail_index_transaction *t,
 			uint32_t ext_id, uint32_t expected_reset_id)
@@ -312,6 +332,31 @@ static void keyword_updates_convert_to_uids(struct mail_index_transaction *t)
 	}
 }
 
+static void expunges_convert_to_uids(struct mail_index_transaction *t)
+{
+	struct mail_transaction_expunge_guid *expunges;
+	unsigned int src, dest, count;
+
+	if (!array_is_created(&t->expunges))
+		return;
+
+	mail_index_transaction_sort_expunges(t);
+
+	expunges = array_get_modifiable(&t->expunges, &count);
+	if (count == 0)
+		return;
+
+	/* convert uids and drop duplicates */
+	expunges[0].uid = mail_index_transaction_get_uid(t, expunges[0].uid);
+	for (src = dest = 1; src < count; src++) {
+		expunges[dest].uid =
+			mail_index_transaction_get_uid(t, expunges[src].uid);
+		if (expunges[dest-1].uid != expunges[dest].uid)
+			dest++;
+	}
+	array_delete(&t->expunges, dest, count-dest);
+}
+
 static void
 mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 {
@@ -330,8 +375,7 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 	}
 
         keyword_updates_convert_to_uids(t);
-
-	mail_index_convert_to_uid_ranges(t, &t->expunges);
+	expunges_convert_to_uids(t);
 	mail_index_convert_to_uid_ranges(t, (void *)&t->updates);
 	mail_index_convert_to_uid_ranges(t, &t->keyword_resets);
 }

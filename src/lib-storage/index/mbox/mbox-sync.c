@@ -169,12 +169,15 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 static void mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 				       uint32_t uid, bool *sync_expunge_r)
 {
+	uint8_t expunged_guid_128[MAIL_GUID_128_SIZE];
+
 	if (uid == 0 || sync_ctx->index_reset) {
 		/* nothing for this or the future ones */
 		uid = (uint32_t)-1;
 	}
 
-	index_sync_changes_read(sync_ctx->sync_changes, uid, sync_expunge_r);
+	index_sync_changes_read(sync_ctx->sync_changes, uid, sync_expunge_r,
+				expunged_guid_128);
 	if (sync_ctx->mbox->ibox.backend_readonly) {
 		/* we can't expunge anything from read-only mboxes */
 		*sync_expunge_r = FALSE;

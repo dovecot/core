@@ -163,9 +163,9 @@ struct mailbox_vfuncs {
 	void (*get_uid_range)(struct mailbox *box,
 			      const ARRAY_TYPE(seq_range) *seqs,
 			      ARRAY_TYPE(seq_range) *uids);
-	bool (*get_expunged_uids)(struct mailbox *box, uint64_t modseq,
-				  const ARRAY_TYPE(seq_range) *uids,
-				  ARRAY_TYPE(seq_range) *expunged_uids);
+	bool (*get_expunges)(struct mailbox *box, uint64_t prev_modseq,
+			     const ARRAY_TYPE(seq_range) *uids_filter,
+			     ARRAY_TYPE(mailbox_expunge_rec) *expunges);
 	bool (*get_virtual_uid)(struct mailbox *box,
 				const char *backend_mailbox,
 				uint32_t backend_uidvalidity,
@@ -428,10 +428,13 @@ void mail_storage_set_internal_error(struct mail_storage *storage);
 bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 
 const char *mail_generate_guid_string(void);
-void mail_generate_guid_128(uint8_t guid[16]);
+void mail_generate_guid_128(uint8_t guid[MAIL_GUID_128_SIZE]);
+void mail_generate_guid_128_hash(const char *input,
+				 uint8_t guid[MAIL_GUID_128_SIZE]);
 int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
+bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE]);
 bool mailbox_guid_is_empty(const uint8_t guid[MAILBOX_GUID_SIZE]);
 
 #endif

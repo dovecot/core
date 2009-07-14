@@ -2,7 +2,10 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "buffer.h"
+#include "hex-binary.h"
 #include "crc32.h"
+#include "sha1.h"
 #include "hostpid.h"
 #include "mail-storage-private.h"
 
@@ -237,7 +240,7 @@ const char *mail_generate_guid_string(void)
 			       pid, my_hostname);
 }
 
-void mail_generate_guid_128(uint8_t guid[16])
+void mail_generate_guid_128(uint8_t guid[MAIL_GUID_128_SIZE])
 {
 	static struct timespec ts = { 0, 0 };
 	static uint8_t guid_static[8];
@@ -275,4 +278,26 @@ void mail_generate_guid_128(uint8_t guid[16])
 	guid[6] = (ts.tv_sec & 0x00ff0000) >> 16;
 	guid[7] = (ts.tv_sec & 0xff000000) >> 24;
 	memcpy(guid + 8, guid_static, 8);
+}
+
+void mail_generate_guid_128_hash(const char *input,
+				 uint8_t guid[MAIL_GUID_128_SIZE])
+{
+	unsigned char sha1_sum[SHA1_RESULTLEN];
+	buffer_t buf;
+
+	buffer_create_data(&buf, guid, MAIL_GUID_128_SIZE);
+	if (strlen(input) != MAIL_GUID_128_SIZE*2 ||
+	    hex_to_binary(input, &buf) < 0 ||
+	    buf.used != MAIL_GUID_128_SIZE) {
+		/* not 128bit hex. use a hash of it instead. */
+		buffer_set_used_size(&buf, 0);
+		sha1_get_digest(input, strlen(input), sha1_sum);
+#if SHA1_RESULTLEN < DBOX_GUID_BIN_LEN
+#  error not possible
+#endif
+		buffer_append(&buf,
+			      sha1_sum + SHA1_RESULTLEN - MAIL_GUID_128_SIZE,
+			      MAIL_GUID_128_SIZE);
+	}
 }
