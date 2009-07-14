@@ -351,8 +351,11 @@ static void expunges_convert_to_uids(struct mail_index_transaction *t)
 	for (src = dest = 1; src < count; src++) {
 		expunges[dest].uid =
 			mail_index_transaction_get_uid(t, expunges[src].uid);
-		if (expunges[dest-1].uid != expunges[dest].uid)
+		if (expunges[dest-1].uid != expunges[dest].uid) {
+			memcpy(expunges[dest].guid_128, expunges[src].guid_128,
+			       sizeof(expunges[dest].guid_128));
 			dest++;
+		}
 	}
 	array_delete(&t->expunges, dest, count-dest);
 }
