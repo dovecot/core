@@ -104,21 +104,16 @@ static bool index_mail_get_fixed_field(struct index_mail *mail,
 				       void *data, size_t data_size)
 {
 	unsigned int field_idx = mail->ibox->cache_fields[field].idx;
+	buffer_t buf;
 	int ret;
 
-	T_BEGIN {
-		buffer_t *buf;
-
-		buf = buffer_create_data(pool_datastack_create(),
-					 data, data_size);
-
-		if (index_mail_cache_lookup_field(mail, buf, field_idx) <= 0)
-			ret = FALSE;
-		else {
-			i_assert(buf->used == data_size);
-			ret = TRUE;
-		}
-	} T_END;
+	buffer_create_data(&buf, data, data_size);
+	if (index_mail_cache_lookup_field(mail, &buf, field_idx) <= 0)
+		ret = FALSE;
+	else {
+		i_assert(buf.used == data_size);
+		ret = TRUE;
+	}
 	return ret;
 }
 

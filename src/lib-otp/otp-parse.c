@@ -36,14 +36,14 @@ static inline int otp_check_tail(const char *data)
 int otp_read_hex(const char *data, const char **endptr, unsigned char *hash)
 {
 	string_t *str;
-	buffer_t *buf;
+	buffer_t buf;
 	unsigned int i = 0;
 
 	if (data == NULL)
 		return -1;
 
 	str = t_str_new(18);
-	buf = buffer_create_data(unsafe_data_stack_pool, hash, OTP_HASH_SIZE);
+	buffer_create_data(&buf, hash, OTP_HASH_SIZE);
 
 	while (*data) {
 		char c = *data;
@@ -68,12 +68,12 @@ int otp_read_hex(const char *data, const char **endptr, unsigned char *hash)
 	if (i < OTP_HASH_SIZE * 2)
 		return -1;
 
-	return hex_to_binary(str_c(str), buf);
+	return hex_to_binary(str_c(str), &buf);
 }
 
 #define add_word() do { \
 	tmp = otp_lookup_word(str_c(word)); \
-	buffer_append(buf, &tmp, sizeof(tmp)); \
+	buffer_append(&buf, &tmp, sizeof(tmp)); \
 	count++; \
 } while (0)
 
@@ -83,7 +83,7 @@ int otp_read_words(const char *data, const char **endptr, unsigned char *hash)
 	unsigned int len = 0, count = 0;
 	unsigned int parity = 0, bits[OTP_WORDS_NUMBER], tmp;
 	string_t *word;
-	buffer_t *buf;
+	buffer_t buf;
 
 	if (data == NULL)
 		return -1;
@@ -92,7 +92,7 @@ int otp_read_words(const char *data, const char **endptr, unsigned char *hash)
 
 	data = otp_skip_lws(data);
 
-	buf = buffer_create_data(pool_datastack_create(), bits, sizeof(bits));
+	buffer_create_data(&buf, bits, sizeof(bits));
 
 	for (; *data && (count < OTP_WORDS_NUMBER); data++) {
 		char c = *data;

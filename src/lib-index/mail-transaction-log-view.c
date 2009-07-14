@@ -400,7 +400,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 {
 	enum mail_transaction_type rec_type;
 	ARRAY_TYPE(seq_range) uids = ARRAY_INIT;
-	buffer_t *uid_buf = NULL;
+	buffer_t uid_buf;
 	uint32_t rec_size;
 	bool ret = TRUE;
 
@@ -437,15 +437,13 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		}
 		break;
 	case MAIL_TRANSACTION_EXPUNGE:
-		uid_buf = buffer_create_const_data(pool_datastack_create(),
-						   data, rec_size);
-		array_create_from_buffer(&uids, uid_buf,
+		buffer_create_const_data(&uid_buf, data, rec_size);
+		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_expunge));
 		break;
 	case MAIL_TRANSACTION_FLAG_UPDATE:
-		uid_buf = buffer_create_const_data(pool_datastack_create(),
-						   data, rec_size);
-		array_create_from_buffer(&uids, uid_buf,
+		buffer_create_const_data(&uid_buf, data, rec_size);
+		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_flag_update));
 		break;
 	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
@@ -463,16 +461,16 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 			break;
 		}
 
-		uid_buf = buffer_create_const_data(pool_datastack_create(),
-					CONST_PTR_OFFSET(data, seqset_offset),
-					rec_size - seqset_offset);
-		array_create_from_buffer(&uids, uid_buf, sizeof(uint32_t)*2);
+		buffer_create_const_data(&uid_buf,
+					 CONST_PTR_OFFSET(data, seqset_offset),
+					 rec_size - seqset_offset);
+		array_create_from_buffer(&uids, &uid_buf,
+					 sizeof(uint32_t)*2);
 		break;
 	}
 	case MAIL_TRANSACTION_KEYWORD_RESET:
-		uid_buf = buffer_create_const_data(pool_datastack_create(),
-						   data, rec_size);
-		array_create_from_buffer(&uids, uid_buf,
+		buffer_create_const_data(&uid_buf, data, rec_size);
+		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_keyword_reset));
 		break;
 	default:
@@ -483,7 +481,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		const struct seq_range *rec, *prev = NULL;
 		unsigned int i, count = array_count(&uids);
 
-		if ((uid_buf->used % uids.arr.element_size) != 0) {
+		if ((uid_buf.used % uids.arr.element_size) != 0) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid record size (type=0x%x)", rec_type);
 			ret = FALSE;

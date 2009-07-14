@@ -300,7 +300,7 @@ mail_index_modseq_update_old_rec(struct mail_index_modseq_sync *ctx,
 {
 	ARRAY_TYPE(seq_range) uids = ARRAY_INIT;
 	const struct seq_range *rec;
-	buffer_t *uid_buf;
+	buffer_t uid_buf;
 	unsigned int i, count;
 	uint32_t seq1, seq2;
 
@@ -319,9 +319,8 @@ mail_index_modseq_update_old_rec(struct mail_index_modseq_sync *ctx,
 		return;
 	}
 	case MAIL_TRANSACTION_FLAG_UPDATE: {
-		uid_buf = buffer_create_const_data(pool_datastack_create(),
-						   tdata, thdr->size);
-		array_create_from_buffer(&uids, uid_buf,
+		buffer_create_const_data(&uid_buf, tdata, thdr->size);
+		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_flag_update));
 		break;
 	}
@@ -333,16 +332,15 @@ mail_index_modseq_update_old_rec(struct mail_index_modseq_sync *ctx,
 		if ((seqset_offset % 4) != 0)
 			seqset_offset += 4 - (seqset_offset % 4);
 
-		uid_buf = buffer_create_const_data(pool_datastack_create(),
-					CONST_PTR_OFFSET(tdata, seqset_offset),
-					thdr->size - seqset_offset);
-		array_create_from_buffer(&uids, uid_buf, sizeof(uint32_t)*2);
+		buffer_create_const_data(&uid_buf,
+					 CONST_PTR_OFFSET(tdata, seqset_offset),
+					 thdr->size - seqset_offset);
+		array_create_from_buffer(&uids, &uid_buf, sizeof(uint32_t)*2);
 		break;
 	}
 	case MAIL_TRANSACTION_KEYWORD_RESET:
-		uid_buf = buffer_create_const_data(pool_datastack_create(),
-						   tdata, thdr->size);
-		array_create_from_buffer(&uids, uid_buf,
+		buffer_create_const_data(&uid_buf, tdata, thdr->size);
+		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_keyword_reset));
 		break;
 	default:

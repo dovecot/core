@@ -171,7 +171,7 @@ mail_transaction_log_append_ext_intros(struct mail_index_export_context *ctx)
 	uint32_t ext_id, reset_id;
 	const struct mail_transaction_ext_reset *reset;
 	const uint32_t *reset_ids;
-	buffer_t *reset_buf;
+	buffer_t reset_buf;
 
 	if (!array_is_created(&t->ext_resizes)) {
 		resize = NULL;
@@ -208,9 +208,8 @@ mail_transaction_log_append_ext_intros(struct mail_index_export_context *ctx)
 	}
 
 	memset(&ext_reset, 0, sizeof(ext_reset));
-	reset_buf = buffer_create_data(pool_datastack_create(),
-				       &ext_reset, sizeof(ext_reset));
-	buffer_set_used_size(reset_buf, sizeof(ext_reset));
+	buffer_create_data(&reset_buf, &ext_reset, sizeof(ext_reset));
+	buffer_set_used_size(&reset_buf, sizeof(ext_reset));
 
 	for (ext_id = 0; ext_id < ext_count; ext_id++) {
 		if (ext_id < reset_count)
@@ -233,7 +232,7 @@ mail_transaction_log_append_ext_intros(struct mail_index_export_context *ctx)
 		if (ext_reset.new_reset_id != 0) {
 			i_assert(ext_id < reset_id_count &&
 				 ext_reset.new_reset_id == reset_ids[ext_id]);
-			log_append_buffer(ctx, reset_buf,
+			log_append_buffer(ctx, &reset_buf,
 					  MAIL_TRANSACTION_EXT_RESET);
 		}
 		if (ext_id < hdrs_count && hdrs[ext_id].alloc_size > 0) {

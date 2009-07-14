@@ -1,6 +1,7 @@
 #ifndef MAIL_TRANSACTION_LOG_VIEW_H
 #define MAIL_TRANSACTION_LOG_VIEW_H
 
+#include "buffer.h"
 #include "file-dotlock.h"
 #include "mail-transaction-log.h"
 
@@ -44,6 +45,7 @@ struct mail_transaction_log_file {
 	uoff_t last_size;
 
 	struct mail_transaction_log_header hdr;
+	buffer_t mmap_buffer;
 	buffer_t *buffer;
 	uoff_t buffer_offset;
 	void *mmap_base;

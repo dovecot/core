@@ -79,30 +79,26 @@ buffer_t *buffer_create_static_hard(pool_t pool, size_t size)
 	return (buffer_t *)buf;
 }
 
-buffer_t *buffer_create_data(pool_t pool, void *data, size_t size)
+void buffer_create_data(buffer_t *buffer, void *data, size_t size)
 {
 	struct real_buffer *buf;
 
-	buf = p_new(pool, struct real_buffer, 1);
-	buf->pool = pool;
+	i_assert(sizeof(*buffer) >= sizeof(struct real_buffer));
+
+	buf = (struct real_buffer *)buffer;
+	memset(buf, 0, sizeof(*buf));
 	buf->alloc = size;
 	buf->r_buffer = buf->w_buffer = data;
-	return (buffer_t *)buf;
 }
 
-buffer_t *buffer_create_const_data(pool_t pool, const void *data, size_t size)
+void buffer_create_const_data(buffer_t *buffer, const void *data, size_t size)
 {
 	struct real_buffer *buf;
 
-	buf = p_new(pool, struct real_buffer, 1);
-	buf->pool = pool;
-	buffer_update_const_data((buffer_t *)buf, data, size);
-	return (buffer_t *)buf;
-}
+	i_assert(sizeof(*buffer) >= sizeof(struct real_buffer));
 
-void buffer_update_const_data(buffer_t *_buf, const void *data, size_t size)
-{
-	struct real_buffer *buf = (struct real_buffer *)_buf;
+	buf = (struct real_buffer *)buffer;
+	memset(buf, 0, sizeof(*buf));
 
 	buf->used = buf->alloc = size;
 	buf->r_buffer = data;
@@ -127,7 +123,8 @@ void buffer_free(buffer_t **_buf)
 	*_buf = NULL;
 	if (buf->alloced)
 		p_free(buf->pool, buf->w_buffer);
-	p_free(buf->pool, buf);
+	if (buf->pool != NULL)
+		p_free(buf->pool, buf);
 }
 
 void *buffer_free_without_data(buffer_t **_buf)

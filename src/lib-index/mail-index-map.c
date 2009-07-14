@@ -12,7 +12,7 @@ void mail_index_map_init_extbufs(struct mail_index_map *map,
 {
 #define EXTENSION_NAME_APPROX_LEN 20
 #define EXT_GLOBAL_ALLOC_SIZE \
-	((sizeof(map->extensions) + BUFFER_APPROX_SIZE) * 2)
+	((sizeof(map->extensions) + sizeof(buffer_t)) * 2)
 #define EXT_PER_ALLOC_SIZE \
 	(EXTENSION_NAME_APPROX_LEN + \
 	 sizeof(struct mail_index_ext) + sizeof(uint32_t))

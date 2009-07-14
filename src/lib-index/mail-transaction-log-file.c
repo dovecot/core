@@ -1390,9 +1390,9 @@ mail_transaction_log_file_mmap(struct mail_transaction_log_file *file)
 		}
 	}
 
-	file->buffer = buffer_create_const_data(default_pool,
-						file->mmap_base,
-						file->mmap_size);
+	buffer_create_const_data(&file->mmap_buffer,
+				 file->mmap_base, file->mmap_size);
+	file->buffer = &file->mmap_buffer;
 	file->buffer_offset = 0;
 	return 0;
 }

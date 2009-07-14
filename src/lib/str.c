@@ -17,7 +17,9 @@ string_t *str_new_const(pool_t pool, const char *str, size_t len)
 	string_t *ret;
 
 	i_assert(str[len] == '\0');
-	ret = buffer_create_const_data(pool, str, len + 1);
+
+	ret = p_new(pool, buffer_t, 1);
+	buffer_create_const_data(ret, str, len + 1);
 	str_truncate(ret, len);
 	return ret;
 }

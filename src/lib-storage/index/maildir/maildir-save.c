@@ -51,7 +51,7 @@ struct maildir_save_context {
 	struct maildir_filename *files, **files_tail, *file_last;
 	unsigned int files_count;
 
-	buffer_t *keywords_buffer;
+	buffer_t keywords_buffer;
 	ARRAY_TYPE(keyword_indexes) keywords_array;
 
 	struct istream *input;
@@ -124,8 +124,8 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx->newdir = p_strconcat(pool, mbox->ibox.box.path, "/new", NULL);
 	ctx->curdir = p_strconcat(pool, mbox->ibox.box.path, "/cur", NULL);
 
-	ctx->keywords_buffer = buffer_create_const_data(pool, NULL, 0);
-	array_create_from_buffer(&ctx->keywords_array, ctx->keywords_buffer,
+	buffer_create_const_data(&ctx->keywords_buffer, NULL, 0);
+	array_create_from_buffer(&ctx->keywords_array, &ctx->keywords_buffer,
 				 sizeof(unsigned int));
 	ctx->last_save_finished = TRUE;
 	return ctx;
@@ -236,7 +236,7 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 	}
 
 	i_assert(ctx->keywords_sync_ctx != NULL || mf->keywords_count == 0);
-	buffer_update_const_data(ctx->keywords_buffer, mf + 1,
+	buffer_create_const_data(&ctx->keywords_buffer, mf + 1,
 				 mf->keywords_count * sizeof(unsigned int));
 	*fname_r = maildir_filename_set_flags(ctx->keywords_sync_ctx, basename,
 					      mf->flags & MAIL_FLAGS_MASK,

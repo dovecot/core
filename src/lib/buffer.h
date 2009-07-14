@@ -1,13 +1,10 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-/* May be used in calculations of how much memory buffer_t will allocate
-   for itself, but this isn't necessary precise. */
-#define BUFFER_APPROX_SIZE (7 * sizeof(void *))
-
 struct buffer {
 	const void *data;
 	const size_t used;
+	void *priv[5];
 };
 
 /* WARNING: Be careful with functions that return pointers to data.
@@ -18,10 +15,9 @@ struct buffer {
 /* Create a static sized buffer. Writes past this size will kill the program. */
 buffer_t *buffer_create_static_hard(pool_t pool, size_t size);
 /* Create a modifiable buffer from given data. */
-buffer_t *buffer_create_data(pool_t pool, void *data, size_t size);
+void buffer_create_data(buffer_t *buffer, void *data, size_t size);
 /* Create a non-modifiable buffer from given data. */
-buffer_t *buffer_create_const_data(pool_t pool, const void *data, size_t size);
-void buffer_update_const_data(buffer_t *buffer, const void *data, size_t size);
+void buffer_create_const_data(buffer_t *buffer, const void *data, size_t size);
 /* Creates a dynamically growing buffer. Whenever write would exceed the
    current size it's grown. */
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);
