@@ -50,7 +50,7 @@ add_expunges(ARRAY_TYPE(mailbox_expunge_rec) *expunges,
 
 	end = src + src_size / sizeof(*src);
 	for (; src != end; src++) {
-		for (uid = src->uid1; uid < src->uid2; uid++) {
+		for (uid = src->uid1; uid <= src->uid2; uid++) {
 			if (seq_range_exists(uids_filter, uid)) {
 				expunge = array_append_space(expunges);
 				expunge->uid = uid;
@@ -87,9 +87,10 @@ bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 	struct mail_transaction_log_view *log_view;
 	const struct mail_transaction_header *thdr;
 	const void *tdata;
-	uint32_t log_seq;
+	uint32_t log_seq, tail_seq = 0;
 	uoff_t log_offset;
 	bool reset;
+	int ret;
 
 	if (!mail_index_modseq_get_next_log_offset(ibox->view, prev_modseq,
 						   &log_seq, &log_offset))
@@ -102,20 +103,31 @@ bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 	}
 
 	log_view = mail_transaction_log_view_open(ibox->index->log);
-	if (mail_transaction_log_view_set(log_view, log_seq, log_offset,
-					  ibox->view->log_file_head_seq,
-					  ibox->view->log_file_head_offset, 
-					  &reset) <= 0) {
+	ret = mail_transaction_log_view_set(log_view, log_seq, log_offset,
+					    ibox->view->log_file_head_seq,
+					    ibox->view->log_file_head_offset,
+					    &reset);
+	if (ret == 0) {
+		mail_transaction_log_get_tail(ibox->index->log, &tail_seq);
+		i_assert(tail_seq > log_seq);
+		ret = mail_transaction_log_view_set(log_view, tail_seq, 0,
+					ibox->view->log_file_head_seq,
+					ibox->view->log_file_head_offset,
+					&reset);
+		i_assert(ret != 0);
+	}
+	if (ret <= 0) {
 		mail_transaction_log_view_close(&log_view);
 		return FALSE;
 	}
 
-	while (mail_transaction_log_view_next(log_view, &thdr, &tdata) > 0) {
+	while ((ret = mail_transaction_log_view_next(log_view,
+						     &thdr, &tdata)) > 0) {
 		if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
 			/* skip expunge requests */
 			continue;
 		}
-		switch (thdr->type) {
+		switch (thdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 		case MAIL_TRANSACTION_EXPUNGE:
 			add_expunges(expunges, tdata, thdr->size, uids_filter);
 			break;
@@ -127,5 +139,5 @@ bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 	}
 
 	mail_transaction_log_view_close(&log_view);
-	return TRUE;
+	return ret < 0 || tail_seq != 0 ? FALSE : TRUE;
 }
