@@ -36,13 +36,12 @@ RQUOTA_XDR = rquota_xdr.c
 #RQUOTA_X = /usr/include/rpcsvc/rquota.x
 RQUOTA_X = $(srcdir)/rquota.x
 rquota_xdr.c: Makefile $(RQUOTA_X)
-	if [ "$(builddir)" = "" ]; then dir="."; else dir="$(builddir)"; fi; \
-	if [ "$(srcdir)" != "$$dir" ]; then \
-	  cp $(RQUOTA_X) $$dir; \
+	if [ "$(top_srcdir)" != "$(top_builddir)" ]; then \
+	  cp $(RQUOTA_X) $(top_builddir)/src/plugins/quota/; \
 	fi; \
 	(echo '#include "lib.h"'; \
 	 echo '#include <rpc/rpc.h>'; \
-	 $(RPCGEN) -c $$dir/rquota.x | \
+	 $(RPCGEN) -c $(top_builddir)/src/plugins/quota/rquota.x | \
 	  sed -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
 	    -e 's,/usr/include/rpcsvc/rquota.h,rquota.h,' \
 	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' \
@@ -66,4 +65,7 @@ EXTRA_DIST = rquota.x
 DISTFILES = $(DIST_COMMON) $(quota_dist_sources) $(TEXINFOS) $(EXTRA_DIST)
 
 clean-generic:
+	if [ "$(top_srcdir)" != "$(top_builddir)" ]; then \
+	  rm -f $(top_builddir)/src/plugins/quota/rquota.x; \
+	fi; \
 	rm -f rquota_xdr.c rquota.h
