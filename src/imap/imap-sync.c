@@ -180,7 +180,7 @@ imap_sync_send_highestmodseq(struct imap_sync_context *ctx,
 	} else if (!status->sync_delayed_expunges &&
 		   status->highest_modseq > client->sync_last_full_modseq &&
 		   status->highest_modseq > client->highest_fetch_modseq) {
-		/* we've probably send some VANISHED or EXISTS replies which
+		/* we've probably sent some VANISHED or EXISTS replies which
 		   increased the highest-modseq. notify the client about
 		   this. */
 		send_modseq = status->highest_modseq;
@@ -188,7 +188,8 @@ imap_sync_send_highestmodseq(struct imap_sync_context *ctx,
 
 	if (send_modseq == 0) {
 		/* no sending */
-	} else if (strncmp(sync_cmd->sync->tagline, "OK ", 3) == 0 &&
+	} else if (sync_cmd->sync != NULL && /* IDLE doesn't have ->sync */
+		   strncmp(sync_cmd->sync->tagline, "OK ", 3) == 0 &&
 		   sync_cmd->sync->tagline[3] != '[') {
 		/* modify the tagged reply directly */
 		sync_cmd->sync->tagline = p_strdup_printf(sync_cmd->pool,
