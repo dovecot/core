@@ -245,6 +245,9 @@ void mail_transaction_log_sync_unlock(struct mail_transaction_log *log);
 /* Returns the current head. Works only when log is locked. */
 void mail_transaction_log_get_head(struct mail_transaction_log *log,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r);
+/* Returns the current tail from which all files are open to head. */
+void mail_transaction_log_get_tail(struct mail_transaction_log *log,
+				   uint32_t *file_seq_r);
 /* Returns TRUE if given seq/offset is current head log's rotate point. */
 bool mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
 				       uint32_t file_seq, uoff_t file_offset);

@@ -487,6 +487,18 @@ void mail_transaction_log_get_head(struct mail_transaction_log *log,
 	*file_offset_r = log->head->sync_offset;
 }
 
+void mail_transaction_log_get_tail(struct mail_transaction_log *log,
+				   uint32_t *file_seq_r)
+{
+	struct mail_transaction_log_file *tail, *file = log->files;
+
+	for (tail = file; file->next != NULL; file = file->next) {
+		if (file->hdr.file_seq + 1 != file->next->hdr.file_seq)
+			tail = file->next;
+	}
+	*file_seq_r = tail->hdr.file_seq;
+}
+
 bool mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
 				       uint32_t file_seq, uoff_t file_offset)
 {
