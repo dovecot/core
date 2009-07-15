@@ -388,11 +388,9 @@ virtual_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return virtual_delete_nonrecursive(list, src, name);
 }
 
-static void virtual_notify_changes(struct mailbox *box)
+static void virtual_notify_changes(struct mailbox *box ATTR_UNUSED)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
-
-	// FIXME
+	/* FIXME: maybe some day */
 }
 
 static int
