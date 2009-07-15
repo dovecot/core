@@ -280,19 +280,19 @@ void mail_generate_guid_128(uint8_t guid[MAIL_GUID_128_SIZE])
 	memcpy(guid + 8, guid_static, 8);
 }
 
-void mail_generate_guid_128_hash(const char *input,
-				 uint8_t guid[MAIL_GUID_128_SIZE])
+void mail_generate_guid_128_hash(const char *guid,
+				 uint8_t guid_128[MAIL_GUID_128_SIZE])
 {
 	unsigned char sha1_sum[SHA1_RESULTLEN];
 	buffer_t buf;
 
-	buffer_create_data(&buf, guid, MAIL_GUID_128_SIZE);
-	if (strlen(input) != MAIL_GUID_128_SIZE*2 ||
-	    hex_to_binary(input, &buf) < 0 ||
+	buffer_create_data(&buf, guid_128, MAIL_GUID_128_SIZE);
+	if (strlen(guid) != MAIL_GUID_128_SIZE*2 ||
+	    hex_to_binary(guid, &buf) < 0 ||
 	    buf.used != MAIL_GUID_128_SIZE) {
 		/* not 128bit hex. use a hash of it instead. */
 		buffer_set_used_size(&buf, 0);
-		sha1_get_digest(input, strlen(input), sha1_sum);
+		sha1_get_digest(guid, strlen(guid), sha1_sum);
 #if SHA1_RESULTLEN < DBOX_GUID_BIN_LEN
 #  error not possible
 #endif
@@ -300,4 +300,15 @@ void mail_generate_guid_128_hash(const char *input,
 			      sha1_sum + SHA1_RESULTLEN - MAIL_GUID_128_SIZE,
 			      MAIL_GUID_128_SIZE);
 	}
+}
+
+bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE])
+{
+	unsigned int i;
+
+	for (i = 0; i < MAILBOX_GUID_SIZE; i++) {
+		if (guid_128[i] != 0)
+			return FALSE;
+	}
+	return TRUE;
 }

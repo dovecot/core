@@ -1073,17 +1073,6 @@ void mailbox_set_deleted(struct mailbox *box)
 	box->mailbox_deleted = TRUE;
 }
 
-bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE])
-{
-	unsigned int i;
-
-	for (i = 0; i < MAILBOX_GUID_SIZE; i++) {
-		if (guid_128[i] != 0)
-			return FALSE;
-	}
-	return TRUE;
-}
-
 bool mailbox_guid_is_empty(const uint8_t guid[MAILBOX_GUID_SIZE])
 {
 	return mail_guid_128_is_empty(guid);

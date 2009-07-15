@@ -429,8 +429,6 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 
 const char *mail_generate_guid_string(void);
 void mail_generate_guid_128(uint8_t guid[MAIL_GUID_128_SIZE]);
-void mail_generate_guid_128_hash(const char *input,
-				 uint8_t guid[MAIL_GUID_128_SIZE]);
 int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
