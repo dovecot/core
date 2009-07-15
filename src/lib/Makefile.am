@@ -216,6 +216,7 @@ test_lib_SOURCES = \
 	test-base64.c \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
+	test-hex-binary.c \
 	test-istream.c \
 	test-mempool-alloconly.c \
 	test-network.c \

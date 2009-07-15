@@ -9,6 +9,7 @@ void test_array(void);
 void test_base64(void);
 void test_bsearch_insert_pos(void);
 void test_buffer(void);
+void test_hex_binary(void);
 void test_istream(void);
 void test_mempool_alloconly(void);
 void test_network(void);

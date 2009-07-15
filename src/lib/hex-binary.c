@@ -4,17 +4,19 @@
 #include "buffer.h"
 #include "hex-binary.h"
 
-static const char *
-binary_to_hex_case(const unsigned char *data, size_t size, bool ucase)
+static void
+binary_to_hex_case(unsigned char *dest, const unsigned char *data,
+		   size_t size, bool ucase)
 {
-	char *buf, *p, base_char;
+	unsigned char *p;
+	char base_char;
 	size_t i;
 	int value;
 
 	/* @UNSAFE */
 	base_char = ucase ? 'A' : 'a';
 
-	buf = p = t_malloc(size * 2 + 1);
+	p = dest;
 	for (i = 0; i < size; i++) {
 		value = data[i] >> 4;
 		*p++ = value < 10 ? value + '0' : value - 10 + base_char;
@@ -22,19 +24,33 @@ binary_to_hex_case(const unsigned char *data, size_t size, bool ucase)
 		value = data[i] & 0x0f;
 		*p++ = value < 10 ? value + '0' : value - 10 + base_char;
 	}
-
-	*p = '\0';
-	return buf;
 }
 
 const char *binary_to_hex(const unsigned char *data, size_t size)
 {
-	return binary_to_hex_case(data, size, FALSE);
+	unsigned char *dest = t_malloc(size * 2 + 1);
+
+	binary_to_hex_case(dest, data, size, FALSE);
+	dest[size*2] = '\0';
+	return (char *)dest;
 }
 
 const char *binary_to_hex_ucase(const unsigned char *data, size_t size)
 {
-	return binary_to_hex_case(data, size, TRUE);
+	unsigned char *dest = t_malloc(size * 2 + 1);
+
+	binary_to_hex_case(dest, data, size, TRUE);
+	dest[size*2] = '\0';
+	return (char *)dest;
+}
+
+void binary_to_hex_append(string_t *dest, const unsigned char *data,
+			  size_t size)
+{
+	unsigned char *buf;
+
+	buf = buffer_append_space_unsafe(dest, size * 2);
+	binary_to_hex_case(buf, data, size, FALSE);
 }
 
 int hex_to_binary(const char *data, buffer_t *dest)

@@ -10,6 +10,7 @@ int main(void)
 		test_base64,
 		test_bsearch_insert_pos,
 		test_buffer,
+		test_hex_binary,
 		test_istream,
 		test_mempool_alloconly,
 		test_network,
