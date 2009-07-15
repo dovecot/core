@@ -4,6 +4,7 @@ noinst_LTLIBRARIES = libstorage_index.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
@@ -42,6 +43,25 @@ headers = \
 	index-sync-changes.h \
 	index-sync-private.h \
 	index-thread-private.h
+
+test_programs = \
+	test-index-fetch
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	$(top_builddir)/src/lib-test/libtest.la \
+	$(top_builddir)/src/lib/liblib.la
+
+test_index_fetch_SOURCES = test-index-fetch.c
+test_index_fetch_LDADD = index-fetch.lo $(test_libs)
+test_index_fetch_DEPENDENCIES = index-fetch.lo $(test_libs)
+
+check: check-am check-test
+check-test: $(test_programs)
+	for bin in $(test_programs); do \
+	  if ! ./$$bin; then exit 1; fi; \
+	done
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)
