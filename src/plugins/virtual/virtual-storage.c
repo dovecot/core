@@ -599,7 +599,7 @@ struct mailbox virtual_mailbox = {
 		index_keyword_is_valid,
 		index_storage_get_seq_range,
 		index_storage_get_uid_range,
-		index_storage_get_expunged_uids,
+		index_storage_get_expunges,
 		virtual_get_virtual_uid,
 		virtual_get_virtual_backend_boxes,
 		virtual_get_virtual_box_patterns,
