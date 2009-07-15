@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "sha1.h"
 #include "master-service.h"
 #include "dsync-brain-private.h"
 #include "test-common.h"
@@ -44,12 +45,14 @@ static struct dsync_message box2_src_msgs[] = {
 static struct dsync_message box3_src_msgs[] = {
 	{ "guid1", 1, MAIL_FLAGGED, NULL, 5454, 273850 },
 	{ "guid5", 5, 0, NULL, 331, 38701233 },
+	{ "b75c81f2b3a4c9f84f24851c37acedee", 6, DSYNC_MAIL_FLAG_EXPUNGED, NULL, 331, 38701233 },
 	{ NULL, 0, 0, NULL, 0, 0 }
 };
 static struct dsync_message box3_dest_msgs[] = {
 	{ "guid1", 1, MAIL_FLAGGED, NULL, 5454, 273850 },
 	{ "guid8", 3, 0, NULL, 330, 2424 },
 	{ "guid5", 5, 0, NULL, 1, 38701233 },
+	{ "guid6", 6, 0, NULL, 333, 6482 },
 	{ "guid7", 7, 0, NULL, 333, 6482 },
 	{ NULL, 0, 0, NULL, 0, 0 }
 };
@@ -77,6 +80,15 @@ struct master_service *master_service;
 
 void master_service_stop(struct master_service *master_service ATTR_UNUSED)
 {
+}
+
+void mail_generate_guid_128_hash(const char *guid,
+				 uint8_t guid_128[MAIL_GUID_128_SIZE])
+{
+	unsigned char sha1_sum[SHA1_RESULTLEN];
+
+	sha1_get_digest(guid, strlen(guid), sha1_sum);
+	memcpy(guid_128, sha1_sum, MAIL_GUID_128_SIZE);
 }
 
 static bool mailbox_find(const char *name, unsigned int *idx_r)
@@ -198,6 +210,11 @@ test_dsync_brain_verify_existing(const struct test_dsync_mailbox *box,
 					   MAILBOX_GUID_SIZE) == 0);
 			test_assert(event->msg.uid == box->dest_msgs[j].uid);
 			j++; event++;
+		} else if (box->src_msgs[i].flags == DSYNC_MAIL_FLAG_EXPUNGED) {
+			/* message expunged from end of mailbox */
+			test_assert(event->type == LAST_MSG_TYPE_EXPUNGE);
+			test_assert(event->msg.uid == box->dest_msgs[j].uid);
+			i++; j++; event++;
 		} else if (box->src_msgs[i].modseq > box->dest_msgs[j].modseq ||
 			   box->src_msgs[i].flags != box->dest_msgs[j].flags ||
 			   !dsync_keyword_list_equals(box->src_msgs[i].keywords,
@@ -385,6 +402,8 @@ static struct dsync_message conflict_src_msgs[] = {
 	{ "guid3", 3, 0, NULL, 1, 1 },
 	{ "guid5", 5, 0, NULL, 1, 1 },
 	{ "guidy", 6, 0, NULL, 1, 1 },
+	{ "67ddfe2125de633c56e033b57c897018", 7, DSYNC_MAIL_FLAG_EXPUNGED, NULL, 1, 1 },
+	{ "guidz", 8, DSYNC_MAIL_FLAG_EXPUNGED, NULL, 1, 1 },
 	{ NULL, 0, 0, NULL, 0, 0 }
 };
 static struct dsync_message conflict_dest_msgs[] = {
@@ -393,6 +412,8 @@ static struct dsync_message conflict_dest_msgs[] = {
 	{ "guidx", 3, 0, NULL, 1, 1 },
 	{ "guid4", 4, 0, NULL, 1, 1 },
 	{ "guid5", 5, 0, NULL, 1, 1 },
+	{ "guid7", 7, 0, NULL, 1, 1 },
+	{ "guid8", 8, 0, NULL, 1, 1 },
 	{ NULL, 0, 0, NULL, 0, 0 }
 };
 
@@ -415,6 +436,10 @@ test_dsync_brain_verify_uid_conflict(struct test_dsync_worker *dest_test_worker)
 	test_assert(event.msg.uid == 2);
 
 	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
+	test_assert(event.type == LAST_MSG_TYPE_EXPUNGE);
+	test_assert(event.msg.uid == 7);
+
+	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
 	test_assert(event.type == LAST_MSG_TYPE_SAVE);
 	test_assert(event.msg.uid == 4321);
 	test_assert(strcmp(event.msg.guid, "guid3") == 0);
@@ -428,6 +453,12 @@ test_dsync_brain_verify_uid_conflict(struct test_dsync_worker *dest_test_worker)
 	test_assert(event.type == LAST_MSG_TYPE_UPDATE_UID);
 	test_assert(event.msg.uid == 3);
 
+	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
+	test_assert(event.type == LAST_MSG_TYPE_UPDATE_UID);
+	test_assert(event.msg.uid == 8);
+
+	test_assert(!test_dsync_worker_next_msg_event(dest_test_worker, &event));
+
 	while (test_dsync_worker_next_box_event(dest_test_worker, &box_event) &&
 	       box_event.type == LAST_BOX_TYPE_SELECT) ;
 
@@ -435,6 +466,9 @@ test_dsync_brain_verify_uid_conflict(struct test_dsync_worker *dest_test_worker)
 	test_assert(box_event.box.uid_next == 4322);
 	test_assert(box_event.box.uid_validity == 1234567890);
 	test_assert(box_event.box.highest_modseq == 888);
+
+	while (test_dsync_worker_next_box_event(dest_test_worker, &box_event))
+		test_assert(box_event.type == LAST_BOX_TYPE_SELECT);
 }
 
 static void test_dsync_brain_uid_conflict(void)

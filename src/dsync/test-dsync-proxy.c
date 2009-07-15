@@ -34,6 +34,22 @@ static void test_dsync_proxy_msg(void)
 					   &msg_out, &error) == 0);
 	test_assert(dsync_messages_equal(&msg_in, &msg_out));
 
+	/* expunged flag */
+	msg_in.flags = DSYNC_MAIL_FLAG_EXPUNGED;
+	str_truncate(str, 0);
+	dsync_proxy_msg_export(str, &msg_in);
+	test_assert(dsync_proxy_msg_import(pool, str_c(str),
+					   &msg_out, &error) == 0);
+	test_assert(dsync_messages_equal(&msg_in, &msg_out));
+
+	/* expunged flag and another flag */
+	msg_in.flags = DSYNC_MAIL_FLAG_EXPUNGED | MAIL_DRAFT;
+	str_truncate(str, 0);
+	dsync_proxy_msg_export(str, &msg_in);
+	test_assert(dsync_proxy_msg_import(pool, str_c(str),
+					   &msg_out, &error) == 0);
+	test_assert(dsync_messages_equal(&msg_in, &msg_out));
+
 	/* all flags, some keywords */
 	msg_in.flags = MAIL_FLAGS_MASK;
 	msg_in.keywords = test_keywords;

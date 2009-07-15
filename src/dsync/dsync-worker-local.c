@@ -4,6 +4,7 @@
 #include "array.h"
 #include "aqueue.h"
 #include "hash.h"
+#include "str.h"
 #include "hex-binary.h"
 #include "istream.h"
 #include "mail-user.h"
@@ -24,6 +25,11 @@ struct local_dsync_worker_msg_iter {
 
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
+
+	string_t *tmp_guid_str;
+	ARRAY_TYPE(mailbox_expunge_rec) expunges;
+	unsigned int expunge_idx;
+	unsigned int expunges_set:1;
 };
 
 struct local_dsync_mailbox {
@@ -327,6 +333,7 @@ iter_local_mailbox_close(struct local_dsync_worker_msg_iter *iter)
 	struct mailbox *box = iter->mail->box;
 	struct mailbox_transaction_context *trans = iter->mail->transaction;
 
+	iter->expunges_set = FALSE;
 	mail_free(&iter->mail);
 	if (mailbox_search_deinit(&iter->search_ctx) < 0) {
 		struct mail_storage *storage =
@@ -356,8 +363,57 @@ local_worker_msg_iter_init(struct dsync_worker *worker,
 		memcpy(iter->mailboxes[i].guid, &mailboxes[i],
 		       sizeof(iter->mailboxes[i].guid));
 	}
+	i_array_init(&iter->expunges, 32);
+	iter->tmp_guid_str = str_new(default_pool, MAIL_GUID_128_SIZE * 2 + 1);
 	(void)iter_local_mailbox_open(iter);
 	return &iter->iter;
+}
+
+static bool
+iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
+				uint32_t prev_uid, struct dsync_message *msg_r)
+{
+	struct mailbox *box = iter->mail->box;
+	struct mailbox_status status;
+	const struct mailbox_expunge_rec *expunges;
+	unsigned int count;
+
+	if (iter->expunges_set) {
+		expunges = array_get(&iter->expunges, &count);
+		if (iter->expunge_idx == count)
+			return FALSE;
+
+		memset(msg_r, 0, sizeof(*msg_r));
+		str_truncate(iter->tmp_guid_str, 0);
+		binary_to_hex_append(iter->tmp_guid_str,
+				     expunges[iter->expunge_idx].guid_128,
+				     MAIL_GUID_128_SIZE);
+		msg_r->guid = str_c(iter->tmp_guid_str);
+		msg_r->uid = expunges[iter->expunge_idx].uid;
+		iter->expunge_idx++;
+		return TRUE;
+	}
+
+	iter->expunge_idx = 0;
+	array_clear(&iter->expunges);
+	iter->expunges_set = TRUE;
+
+	mailbox_get_status(box, STATUS_UIDNEXT, &status);
+	if (prev_uid + 1 >= status.uidnext) {
+		/* no expunged messages at the end of mailbox */
+		return FALSE;
+	}
+
+	T_BEGIN {
+		ARRAY_TYPE(seq_range) uids_filter;
+
+		t_array_init(&uids_filter, 1);
+		seq_range_array_add_range(&uids_filter, prev_uid + 1,
+					  status.uidnext - 1);
+		(void)mailbox_get_expunges(box, 0, &uids_filter,
+					   &iter->expunges);
+	} T_END;
+	return iter_local_mailbox_next_expunge(iter, prev_uid, msg_r);
 }
 
 static int
@@ -368,12 +424,18 @@ local_worker_msg_iter_next(struct dsync_worker_msg_iter *_iter,
 	struct local_dsync_worker_msg_iter *iter =
 		(struct local_dsync_worker_msg_iter *)_iter;
 	const char *guid;
+	uint32_t prev_uid;
 
 	if (_iter->failed || iter->search_ctx == NULL)
 		return -1;
 
+	prev_uid = iter->mail->uid;
 	switch (mailbox_search_next(iter->search_ctx, iter->mail)) {
 	case 0:
+		if (iter_local_mailbox_next_expunge(iter, prev_uid, msg_r)) {
+			*mailbox_idx_r = iter->mailbox_idx;
+			return 1;
+		}
 		iter_local_mailbox_close(iter);
 		iter->mailbox_idx++;
 		if (iter_local_mailbox_open(iter) < 0)
@@ -417,6 +479,8 @@ local_worker_msg_iter_deinit(struct dsync_worker_msg_iter *_iter)
 
 	if (iter->mail != NULL)
 		iter_local_mailbox_close(iter);
+	array_free(&iter->expunges);
+	str_free(&iter->tmp_guid_str);
 	i_free(iter->mailboxes);
 	i_free(iter);
 	return ret;

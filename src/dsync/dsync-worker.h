@@ -52,9 +52,11 @@ struct dsync_worker_msg_iter *
 dsync_worker_msg_iter_init(struct dsync_worker *worker,
 			   const mailbox_guid_t mailboxes[],
 			   unsigned int mailbox_count);
-/* Get the next available message. mailbox_idx_r contains the mailbox's index
-   in mailbox_guids[] array given to _iter_init(). Returns 1 if ok, 0 if
-   waiting for more data, -1 if there are no more messages. */
+/* Get the next available message. Also returns all expunged messages from
+   the end of mailbox (if next_uid-1 message exists, nothing is returned).
+   mailbox_idx_r contains the mailbox's index in mailbox_guids[] array given
+   to _iter_init(). Returns 1 if ok, 0 if waiting for more data, -1 if there
+   are no more messages. */
 int dsync_worker_msg_iter_next(struct dsync_worker_msg_iter *iter,
 			       unsigned int *mailbox_idx_r,
 			       struct dsync_message *msg_r);

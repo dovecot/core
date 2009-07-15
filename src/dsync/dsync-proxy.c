@@ -18,7 +18,9 @@ void dsync_proxy_msg_export(string_t *str,
 	str_tabescape_write(str, msg->guid);
 	str_printfa(str, "\t%u\t%llu\t", msg->uid,
 		    (unsigned long long)msg->modseq);
-	imap_write_flags(str, msg->flags & ~MAIL_RECENT, msg->keywords);
+	if ((msg->flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0)
+		str_append(str, "\\dsync-expunged ");
+	imap_write_flags(str, msg->flags & MAIL_FLAGS_NONRECENT, msg->keywords);
 	str_printfa(str, "\t%ld", (long)msg->save_date);
 }
 
@@ -31,15 +33,17 @@ int dsync_proxy_msg_parse_flags(pool_t pool, const char *str,
 
 	msg_r->flags = 0;
 	p_array_init(&keywords, pool, 16);
-	for (args = t_strsplit(str, " "); *args != NULL; args++) {
-		if (**args == '\\') {
+	for (args = t_strsplit_spaces(str, " "); *args != NULL; args++) {
+		if (**args != '\\') {
+			kw = p_strdup(pool, *args);
+			array_append(&keywords, &kw, 1);
+		} else if (strcasecmp(*args, "\\dsync-expunged") == 0) {
+			msg_r->flags |= DSYNC_MAIL_FLAG_EXPUNGED;
+		} else {
 			flag = imap_parse_system_flag(*args);
 			if (flag == 0)
 				return -1;
 			msg_r->flags |= flag;
-		} else {
-			kw = p_strdup(pool, *args);
-			array_append(&keywords, &kw, 1);
 		}
 	}
 	(void)array_append_space(&keywords);

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
+#include "hex-binary.h"
 #include "master-service.h"
 #include "dsync-worker.h"
 #include "dsync-brain-private.h"
@@ -216,48 +217,91 @@ static void dsync_brain_msg_sync_existing(struct dsync_brain *brain,
 		dsync_worker_msg_update_metadata(brain->dest_worker, src_msg);
 }
 
+static const char *
+get_guid_128_str(const char *guid, unsigned char *dest, unsigned int dest_len)
+{
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	buffer_t guid_128_buf;
+
+	buffer_create_data(&guid_128_buf, dest, dest_len);
+	mail_generate_guid_128_hash(guid, guid_128);
+	binary_to_hex_append(&guid_128_buf, guid_128, sizeof(guid_128));
+	buffer_append_c(&guid_128_buf, '\0');
+	return guid_128_buf.data;
+}
+
 static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 {
 	struct dsync_message *src_msg = &sync->src_msg_iter->msg;
 	struct dsync_message *dest_msg = &sync->dest_msg_iter->msg;
 	struct dsync_mailbox *const *boxp;
 	struct dsync_brain_uid_conflict *conflict;
+	const char *src_guid, *dest_guid;
+	unsigned char guid_128_data[MAIL_GUID_128_SIZE * 2 + 1];
+	bool src_expunged, dest_expunged;
+
+	src_expunged = (src_msg->flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0;
+	dest_expunged = (dest_msg->flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0;
+
+	if (src_expunged) {
+		src_guid = src_msg->guid;
+		dest_guid = get_guid_128_str(dest_msg->guid, guid_128_data,
+					     sizeof(guid_128_data));
+	} else if (dest_expunged) {
+		src_guid = get_guid_128_str(src_msg->guid, guid_128_data,
+					    sizeof(guid_128_data));
+		dest_guid = dest_msg->guid;
+	} else {
+		src_guid = src_msg->guid;
+		dest_guid = dest_msg->guid;
+	}
 
 	if (src_msg->uid < dest_msg->uid) {
 		/* message has been expunged from dest. ignore it, unless
 		   we're in uid-conflict mode. */
-		if (sync->uid_conflict)
+		if (sync->uid_conflict && !src_expunged)
 			dsync_brain_msg_sync_save_source(sync);
 		src_msg->guid = NULL;
+		return 0;
 	} else if (src_msg->uid > dest_msg->uid) {
 		/* message has been expunged from src. expunge it from dest
 		   too, unless we're in uid-conflict mode. */
-		if (!sync->uid_conflict) {
+		if (!sync->uid_conflict && !dest_expunged) {
 			dsync_worker_msg_expunge(sync->brain->dest_worker,
 						 dest_msg->uid);
 		}
 		dest_msg->guid = NULL;
-	} else if (strcmp(src_msg->guid, dest_msg->guid) == 0) {
-		/* message exists, sync metadata */
-		dsync_brain_msg_sync_existing(sync->brain, src_msg, dest_msg);
-		src_msg->guid = NULL;
-		dest_msg->guid = NULL;
-	} else {
-		/* UID conflict. change UID in destination */
-		sync->uid_conflict = TRUE;
-		conflict = array_append_space(&sync->uid_conflicts);
-		conflict->mailbox_idx = sync->src_msg_iter->mailbox_idx;
-		conflict->uid = dest_msg->uid;
-
-		/* give new UID for the source message message too. */
-		boxp = array_idx(&sync->brain->src_mailbox_list->mailboxes,
-				 conflict->mailbox_idx);
-		src_msg->uid = (*boxp)->uid_next++;
-
-		dsync_brain_msg_sync_save_source(sync);
-		src_msg->guid = NULL;
-		dest_msg->guid = NULL;
+		return 0;
 	}
+
+	/* UIDs match, but do GUIDs? */
+	if (strcmp(src_guid, dest_guid) != 0) {
+		/* UID conflict. give new UIDs to messages in both src and
+		   dest (if they're not expunged already) */
+		sync->uid_conflict = TRUE;
+		if (!dest_expunged) {
+			conflict = array_append_space(&sync->uid_conflicts);
+			conflict->mailbox_idx = sync->src_msg_iter->mailbox_idx;
+			conflict->uid = dest_msg->uid;
+		}
+		if (!src_expunged) {
+			boxp = array_idx(&sync->brain->src_mailbox_list->mailboxes,
+					 conflict->mailbox_idx);
+			src_msg->uid = (*boxp)->uid_next++;
+			dsync_brain_msg_sync_save_source(sync);
+		}
+	} else if (dest_expunged) {
+		/* message expunged from destination, we can skip this. */
+	} else if (src_expunged) {
+		/* message expunged from source, expunge from destination too */
+		dsync_worker_msg_expunge(sync->brain->dest_worker,
+					 dest_msg->uid);
+	} else {
+		/* message exists in both source and dest, sync metadata */
+		dsync_brain_msg_sync_existing(sync->brain, src_msg, dest_msg);
+	}
+	src_msg->guid = NULL;
+	dest_msg->guid = NULL;
 	return 0;
 }
 

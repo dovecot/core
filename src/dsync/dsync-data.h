@@ -15,6 +15,11 @@ struct dsync_mailbox {
 	uint64_t highest_modseq;
 };
 
+/* dsync_worker_msg_iter_next() returns also all expunged messages from
+   the end of mailbox with this flag set. The GUIDs are 128 bit GUIDs saved
+   to transaction log (mail_generate_guid_128_hash()). */
+#define DSYNC_MAIL_FLAG_EXPUNGED 0x10000000
+
 struct dsync_message {
 	const char *guid;
 	uint32_t uid;
