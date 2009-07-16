@@ -6,6 +6,7 @@
 typedef struct {
 	uint8_t guid[MAILBOX_GUID_SIZE];
 } mailbox_guid_t;
+ARRAY_DEFINE_TYPE(mailbox_guid, mailbox_guid_t);
 
 struct dsync_mailbox {
 	const char *name;

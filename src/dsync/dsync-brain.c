@@ -409,20 +409,55 @@ dsync_brain_msg_iter_init(struct dsync_brain_mailbox_sync *sync,
 	return iter;
 }
 
+static bool dsync_mailbox_has_changed_msgs(const struct dsync_mailbox *box1,
+					   const struct dsync_mailbox *box2)
+{
+	return box1->uid_validity != box2->uid_validity ||
+		box1->uid_next != box2->uid_next ||
+		box1->highest_modseq != box2->highest_modseq;
+}
+
+static void
+dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
+				  ARRAY_TYPE(mailbox_guid) *guids)
+{
+	struct dsync_mailbox *const *src_boxes, *const *dest_boxes;
+	unsigned int src, dest, src_count, dest_count;
+	int ret;
+
+	src_boxes = array_get(&brain->src_mailbox_list->mailboxes, &src_count);
+	dest_boxes = array_get(&brain->dest_mailbox_list->mailboxes, &dest_count);
+
+	for (src = dest = 0; src < src_count && dest < dest_count; ) {
+		ret = dsync_mailbox_guid_cmp(src_boxes[src], dest_boxes[dest]);
+		if (ret == 0) {
+			if (dsync_mailbox_has_changed_msgs(src_boxes[src],
+							   dest_boxes[dest]))
+				array_append(guids, &src_boxes[src]->guid, 1);
+			src++; dest++;
+		} else if (ret < 0) {
+			/* exists only in source */
+			array_append(guids, &src_boxes[src]->guid, 1);
+			src++;
+		} else {
+			/* exists only in dest */
+			dest++;
+		}
+	}
+	for (; src < src_count; src++)
+		array_append(guids, &src_boxes[src]->guid, 1);
+}
+
 static struct dsync_brain_mailbox_sync *
 dsync_brain_msg_sync_init(struct dsync_brain *brain)
 {
 	struct dsync_brain_mailbox_sync *sync;
-	ARRAY_DEFINE(guids, mailbox_guid_t);
-	struct dsync_mailbox *const *mailboxes;
-	unsigned int i, count;
+	ARRAY_TYPE(mailbox_guid) guids;
+	unsigned int count;
 	pool_t pool;
 
-	/* initialize message iteration on both workers */
-	mailboxes = array_get(&brain->src_mailbox_list->mailboxes, &count);
-	t_array_init(&guids, count);
-	for (i = 0; i < count; i++)
-		array_append(&guids, &mailboxes[i]->guid, 1);
+	t_array_init(&guids, array_count(&brain->src_mailbox_list->mailboxes));
+	dsync_brain_get_changed_mailboxes(brain, &guids);
 
 	pool = pool_alloconly_create("dsync brain mailbox sync", 1024*256);
 	sync = p_new(pool, struct dsync_brain_mailbox_sync, 1);
@@ -432,6 +467,9 @@ dsync_brain_msg_sync_init(struct dsync_brain *brain)
 	i_array_init(&sync->uid_conflicts, 128);
 	i_array_init(&sync->new_msgs, 128);
 	i_array_init(&sync->copy_retry_indexes, 32);
+
+	/* initialize message iteration on both workers */
+	count = array_count(&guids);
 	sync->src_msg_iter =
 		dsync_brain_msg_iter_init(sync, brain->src_worker,
 					  array_idx(&guids, 0), count);
