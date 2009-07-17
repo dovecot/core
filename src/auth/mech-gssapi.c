@@ -235,9 +235,10 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 {
 	struct auth_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
-	gss_buffer_desc outbuf;
+	gss_buffer_desc output_token;
 	gss_OID name_type;
 	const char *username, *error;
+	int ret = 0;
 
 	major_status = gss_accept_sec_context (
 		&minor_status,
@@ -247,7 +248,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 		GSS_C_NO_CHANNEL_BINDINGS,
 		&request->authn_name, 
 		NULL, /* mech_type */
-		&outbuf,
+		&output_token,
 		NULL, /* ret_flags */
 		NULL, /* time_rec */
 		NULL  /* delegated_cred_handle */
@@ -267,16 +268,17 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	case GSS_S_COMPLETE:
 		if (!get_display_name(auth_request, request->authn_name,
 				      &name_type, &username) < 0)
-			return -1;
-		if (!auth_request_set_username(auth_request, username,
-					       &error)) {
+			ret = -1;
+		else if (!auth_request_set_username(auth_request, username,
+						    &error)) {
 			auth_request_log_info(auth_request, "gssapi",
 					      "authn_name: %s", error);
-			return -1;
+			ret = -1;
+		} else {
+			request->sasl_gssapi_state = GSS_STATE_WRAP;
+			auth_request_log_debug(auth_request, "gssapi",
+				"security context state completed.");
 		}
-		request->sasl_gssapi_state = GSS_STATE_WRAP;
-		auth_request_log_debug(auth_request, "gssapi",
-				       "security context state completed.");
 		break;
 	case GSS_S_CONTINUE_NEEDED:
 		auth_request_log_debug(auth_request, "gssapi",
@@ -289,10 +291,13 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 		break;
 	}
 
-	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-			       outbuf.value, outbuf.length);
-	(void)gss_release_buffer(&minor_status, &outbuf);
-	return 0;
+	if (ret == 0) {
+		auth_request->callback(auth_request,
+				       AUTH_CLIENT_RESULT_CONTINUE,
+				       output_token.value, output_token.length);
+	}
+	(void)gss_release_buffer(&minor_status, &output_token);
+	return ret;
 }
 
 static int
