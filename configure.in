@@ -1946,25 +1946,19 @@ if test $want_db != no; then
 fi
 
 if test $want_pgsql != no; then
-	# based on code from PHP
-	for i in /usr /usr/local /usr/local/pgsql; do
-		for j in include include/pgsql include/postgres include/postgresql ""; do
-			if test -r "$i/$j/libpq-fe.h"; then
-				PGSQL_INCLUDE=$i/$j
-			fi
-		done
-		for lib in lib lib64; do
-		  for j in $lib $lib/pgsql $lib/postgres $lib/postgresql ""; do
-			if test -f "$i/$j/libpq.so" || test -f "$i/$j/libpq.a"; then
-				PGSQL_LIBDIR=$i/$j
-			fi
-		  done
-		done
-	done
+  # pg_config exists since 7.1, don't bother with older versions
+  AC_CHECK_PROG(PG_CONFIG, pg_config, YES, NO)
+  if test $PG_CONFIG = NO; then
+	  if test $want_pgsql = yes; then
+	    AC_ERROR([Can't build with PostgreSQL support: pg_config not found])
+	  fi
+  else
+	PGSQL_INCLUDE="`pg_config --includedir`"
+	PGSQL_LIBDIR="`pg_config --libdir`"
 
 	old_LIBS=$LIBS
 	if test "$PGSQL_LIBDIR" != ""; then
-		LIBS="$LIBS -L$PGSQL_LIBDIR"
+	  LIBS="$LIBS -L$PGSQL_LIBDIR"
 	fi
 
 	AC_CHECK_LIB(pq, PQconnectdb, [
@@ -2001,6 +1995,7 @@ if test $want_pgsql != no; then
 	  fi
 	])
 	LIBS=$old_LIBS
+  fi
 fi
 
 if test $want_mysql != no; then
