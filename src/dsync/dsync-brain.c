@@ -321,19 +321,15 @@ dsync_brain_msg_sync_mailbox_more(struct dsync_brain_mailbox_sync *sync)
 		return FALSE;
 
 	/* finished syncing messages in this mailbox that exist in both source
-	   and destination. if there are any messages left in destination,
-	   expunge them if possible and add their GUIDs to hash in any case. */
+	   and destination. if there are messages left in destination,
+	   we can't reliably know if they should be expunged, so don't.
+	   Add their GUIDs to hash in any case. */
 
 	boxp = array_idx(&sync->brain->src_mailbox_list->mailboxes,
 			 sync->src_msg_iter->wanted_mailbox_idx);
 	while ((ret = dsync_brain_msg_iter_next(sync->dest_msg_iter)) > 0) {
 		if (sync->dest_msg_iter->msg.uid >= (*boxp)->uid_next)
 			sync->uid_conflict = TRUE;
-		if (!sync->uid_conflict) {
-			dsync_worker_msg_expunge(sync->brain->dest_worker,
-						 sync->dest_msg_iter->msg.uid);
-		}
-
 		sync->dest_msg_iter->msg.guid = NULL;
 	}
 	if (ret == 0)
@@ -371,6 +367,7 @@ static void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync)
 			      &count);
 	while (dsync_brain_msg_sync_mailbox_more(sync)) {
 		/* sync the next mailbox */
+		sync->uid_conflict = FALSE;
 		mailbox_idx = ++sync->src_msg_iter->wanted_mailbox_idx;
 		sync->dest_msg_iter->wanted_mailbox_idx++;
 		if (mailbox_idx == count) {
