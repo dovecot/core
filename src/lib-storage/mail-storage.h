@@ -647,5 +647,7 @@ void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field);
    128 bits are returned. */
 void mail_generate_guid_128_hash(const char *guid,
 				 uint8_t guid_128[MAIL_GUID_128_SIZE]);
+/* Returns TRUE if GUID is empty (not set / unknown). */
+bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE]);
 
 #endif

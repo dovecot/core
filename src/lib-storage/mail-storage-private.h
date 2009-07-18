@@ -432,7 +432,6 @@ void mail_generate_guid_128(uint8_t guid[MAIL_GUID_128_SIZE]);
 int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
-bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE]);
 bool mailbox_guid_is_empty(const uint8_t guid[MAILBOX_GUID_SIZE]);
 
 #endif
