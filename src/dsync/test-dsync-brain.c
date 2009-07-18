@@ -96,6 +96,11 @@ void mail_generate_guid_128_hash(const char *guid,
 	memcpy(guid_128, sha1_sum, MAIL_GUID_128_SIZE);
 }
 
+bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE] ATTR_UNUSED)
+{
+	return FALSE;
+}
+
 static bool mailbox_find(const char *name, unsigned int *idx_r)
 {
 	unsigned int i;

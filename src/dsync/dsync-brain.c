@@ -225,6 +225,8 @@ get_guid_128_str(const char *guid, unsigned char *dest, unsigned int dest_len)
 
 	buffer_create_data(&guid_128_buf, dest, dest_len);
 	mail_generate_guid_128_hash(guid, guid_128);
+	if (mail_guid_128_is_empty(guid_128))
+		return "";
 	binary_to_hex_append(&guid_128_buf, guid_128, sizeof(guid_128));
 	buffer_append_c(&guid_128_buf, '\0');
 	return guid_128_buf.data;
@@ -274,8 +276,12 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 		return 0;
 	}
 
-	/* UIDs match, but do GUIDs? */
-	if (strcmp(src_guid, dest_guid) != 0) {
+	/* UIDs match, but do GUIDs? If either of the GUIDs aren't set, it
+	   means that either the storage doesn't support GUIDs or we're
+	   handling an old-style expunge record. In that case just assume
+	   they match. */
+	if (strcmp(src_guid, dest_guid) != 0 &&
+	    *src_guid != '\0' && *dest_guid != '\0') {
 		/* UID conflict. give new UIDs to messages in both src and
 		   dest (if they're not expunged already) */
 		sync->uid_conflict = TRUE;
