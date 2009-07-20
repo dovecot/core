@@ -175,17 +175,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	}
 
 	/* successfully matched the name. */
-	if (userdomain == NULL) {
-		if (username == NULL) {
-			/* trying to open namespace "shared/domain"
-			   namespace prefix. */
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(*_name));
-			return -1;
-		}
-		userdomain = domain == NULL ? username :
-			t_strconcat(username, "@", domain, NULL);
-	} else {
+	if (userdomain != NULL) {
+		/* user@domain given */
 		domain = strchr(userdomain, '@');
 		if (domain == NULL)
 			username = userdomain;
@@ -193,6 +184,20 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 			username = t_strdup_until(userdomain, domain);
 			domain++;
 		}
+	} else if (username == NULL) {
+		/* trying to open namespace "shared/domain"
+		   namespace prefix. */
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				       T_MAIL_ERR_MAILBOX_NOT_FOUND(*_name));
+		return -1;
+	} else {
+		if (domain == NULL) {
+			/* no domain given, use ours (if we have one) */
+			domain = strchr(user->username, '@');
+			if (domain != NULL) domain++;
+		}
+		userdomain = domain == NULL ? username :
+			t_strconcat(username, "@", domain, NULL);
 	}
 	if (*userdomain == '\0') {
 		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
