@@ -27,6 +27,9 @@ static int sig_pipe_fd[2] = { -1, -1 };
 static bool signals_initialized = FALSE;
 static struct io *io_sig = NULL;
 
+static siginfo_t pending_signals[MAX_SIGNAL_VALUE+1];
+static bool have_pending_signals = FALSE;
+
 const char *lib_signal_code_to_str(int signo, int sicode)
 {
 	/* common */
@@ -70,7 +73,7 @@ const char *lib_signal_code_to_str(int signo, int sicode)
 static void sig_handler(int signo, siginfo_t *si, void *context ATTR_UNUSED)
 {
 	struct signal_handler *h;
-	bool delayed_sent = FALSE;
+	char c = 0;
 
 	if (signo < 0 || signo > MAX_SIGNAL_VALUE)
 		return;
@@ -80,14 +83,16 @@ static void sig_handler(int signo, siginfo_t *si, void *context ATTR_UNUSED)
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
 		if (!h->delayed)
 			h->handler(si, h->context);
-		else if (!delayed_sent) {
-			int saved_errno = errno;
+		else if (pending_signals[signo].si_signo == 0) {
+			pending_signals[signo] = *si;
+			if (!have_pending_signals) {
+				int saved_errno = errno;
 
-			if (write(sig_pipe_fd[1], si,
-				  sizeof(*si)) != sizeof(*si))
-				i_error("write(sigpipe) failed: %m");
-			delayed_sent = TRUE;
-			errno = saved_errno;
+				if (write(sig_pipe_fd[1], &c, 1) != 1)
+					i_error("write(sigpipe) failed: %m");
+				have_pending_signals = TRUE;
+				errno = saved_errno;
+			}
 		}
 	}
 }
@@ -101,47 +106,45 @@ static void sig_ignore(int signo ATTR_UNUSED, siginfo_t *si ATTR_UNUSED,
 
 static void signal_read(void *context ATTR_UNUSED)
 {
-	siginfo_t signal_buf[10];
 	siginfo_t signals[MAX_SIGNAL_VALUE+1];
-	ssize_t i, ret;
+	sigset_t fullset, oldset;
+	struct signal_handler *h;
+	char buf[2];
 	int signo;
+	ssize_t ret;
 
-	ret = read(sig_pipe_fd[0], signal_buf, sizeof(signal_buf));
+	if (sigfillset(&fullset) < 0)
+		i_fatal("sigfillset() failed: %m");
+	if (sigprocmask(SIG_BLOCK, &fullset, &oldset) < 0)
+		i_fatal("sigprocmask() failed: %m");
+
+	ret = read(sig_pipe_fd[0], buf, sizeof(buf));
+	i_assert(ret <= 1);
 	if (ret > 0) {
-		if (ret % sizeof(siginfo_t) != 0)
-			i_fatal("read(sigpipe) returned partial data");
-		ret /= sizeof(siginfo_t);
-
-		/* get rid of duplicate signals */
-		memset(signals, 0, sizeof(signals));
-		for (i = 0; i < ret; i++) {
-			signo = signal_buf[i].si_signo;
-			if (signo > MAX_SIGNAL_VALUE) {
-				i_panic("sigpipe contains signal %d > %d",
-					signo, MAX_SIGNAL_VALUE);
-			}
-			signals[signo] = signal_buf[i];
-		}
-
-		/* call the delayed handlers */
-		for (signo = 0; signo < MAX_SIGNAL_VALUE; signo++) {
-			if (signals[signo].si_signo > 0) {
-				struct signal_handler *h =
-					signal_handlers[signo];
-
-				for (; h != NULL; h = h->next) {
-					if (h->delayed) {
-						h->handler(&signals[signo],
-							   h->context);
-					}
-				}
-			}
-		}
+		memcpy(signals, pending_signals, sizeof(signals));
+		memset(pending_signals, 0, sizeof(pending_signals));
+		have_pending_signals = FALSE;
 	} else if (ret < 0) {
 		if (errno != EAGAIN)
 			i_fatal("read(sigpipe) failed: %m");
 	} else {
 		i_fatal("read(sigpipe) failed: EOF");
+	}
+	if (sigprocmask(SIG_SETMASK, &oldset, NULL) < 0)
+		i_fatal("sigprocmask() failed: %m");
+
+	if (ret < 0)
+		return;
+
+	/* call the delayed handlers after signals are copied and unblocked */
+	for (signo = 0; signo < MAX_SIGNAL_VALUE; signo++) {
+		if (signals[signo].si_signo == 0)
+			continue;
+
+		for (h = signal_handlers[signo]; h != NULL; h = h->next) {
+			if (h->delayed)
+				h->handler(&signals[signo], h->context);
+		}
 	}
 }
 
