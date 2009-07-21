@@ -19,9 +19,11 @@ int utc_offset(struct tm *tm, time_t t ATTR_UNUSED)
 	gtm = *tm;
 
 	/* max offset of 24 hours */
-	if (ltm.tm_yday < gtm.tm_yday)
+	if ((ltm.tm_yday < gtm.tm_yday && ltm.tm_year == gtm.tm_year) ||
+	    ltm.tm_year < gtm.tm_year)
 		offset = -24 * 60;
-	else if (ltm.tm_yday > gtm.tm_yday)
+	else if ((ltm.tm_yday > gtm.tm_yday && ltm.tm_year == gtm.tm_year) ||
+		 ltm.tm_year > gtm.tm_year)
 		offset = 24 * 60;
 	else
 		offset = 0;
