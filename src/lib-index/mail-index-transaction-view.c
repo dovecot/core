@@ -19,8 +19,9 @@ struct mail_index_view_transaction {
 	buffer_t *lookup_return_data;
 	uint32_t lookup_prev_seq;
 
+	unsigned int record_size;
 	unsigned int recs_count;
-	struct mail_index_record *recs;
+	void *recs;
 };
 
 static void tview_close(struct mail_index_view *view)
@@ -71,10 +72,12 @@ tview_get_header(struct mail_index_view *view)
 
 static const struct mail_index_record *
 tview_apply_flag_updates(struct mail_index_view_transaction *tview,
+			 struct mail_index_map *map,
 			 const struct mail_index_record *rec, uint32_t seq)
 {
 	struct mail_index_transaction *t = tview->t;
 	const struct mail_transaction_flag_update *updates;
+	struct mail_index_record *trec;
 	unsigned int idx, count;
 
 	/* see if there are any flag updates */
@@ -93,16 +96,20 @@ tview_apply_flag_updates(struct mail_index_view_transaction *tview,
 	   create a records array and return data from there */
 	if (tview->recs == NULL) {
 		tview->recs_count = t->first_new_seq;
-		tview->recs = i_new(struct mail_index_record,
-				    tview->recs_count);
+		tview->record_size = I_MAX(map->hdr.record_size,
+					   tview->view.map->hdr.record_size);
+		tview->recs = i_malloc(tview->record_size *
+				       tview->recs_count);
 	}
 	i_assert(tview->recs_count == t->first_new_seq);
 	i_assert(seq > 0 && seq <= tview->recs_count);
+	i_assert(map->hdr.record_size <= tview->record_size);
 
-	tview->recs[seq-1] = *rec;
-	tview->recs[seq-1].flags |= updates[idx].add_flags;
-	tview->recs[seq-1].flags &= ~updates[idx].remove_flags;
-	return &tview->recs[seq-1];
+	trec = PTR_OFFSET(tview->recs, (seq-1) * tview->record_size);
+	memcpy(trec, rec, map->hdr.record_size);
+	trec->flags |= updates[idx].add_flags;
+	trec->flags &= ~updates[idx].remove_flags;
+	return trec;
 }
 
 static const struct mail_index_record *
@@ -122,7 +129,7 @@ tview_lookup_full(struct mail_index_view *view, uint32_t seq,
 	}
 
 	rec = tview->super->lookup_full(view, seq, map_r, expunged_r);
-	rec = tview_apply_flag_updates(tview, rec, seq);
+	rec = tview_apply_flag_updates(tview, *map_r, rec, seq);
 
 	if (mail_index_transaction_is_expunged(tview->t, seq))
 		*expunged_r = TRUE;
