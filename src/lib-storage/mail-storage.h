@@ -357,9 +357,11 @@ const char *mailbox_get_vname(const struct mailbox *box) ATTR_PURE;
 
 /* Returns TRUE if mailbox is read-only. */
 bool mailbox_is_readonly(struct mailbox *box);
-
 /* Returns TRUE if mailbox currently supports adding keywords. */
 bool mailbox_allow_new_keywords(struct mailbox *box);
+/* Returns TRUE if two mailboxes point to the same physical mailbox. */
+bool mailbox_backends_equal(const struct mailbox *box1,
+			    const struct mailbox *box2);
 
 /* Gets the mailbox status information. */
 void mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,

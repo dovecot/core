@@ -580,6 +580,21 @@ bool mailbox_allow_new_keywords(struct mailbox *box)
 	return box->v.allow_new_keywords(box);
 }
 
+bool mailbox_backends_equal(const struct mailbox *box1,
+			    const struct mailbox *box2)
+{
+	struct mail_namespace *ns1 = box1->list->ns, *ns2 = box2->list->ns;
+
+	if (strcmp(box1->name, box2->name) != 0)
+		return FALSE;
+
+	while (ns1->alias_for != NULL)
+		ns1 = ns1->alias_for;
+	while (ns2->alias_for != NULL)
+		ns2 = ns2->alias_for;
+	return ns1 == ns2;
+}
+
 void mailbox_get_status(struct mailbox *box,
 			enum mailbox_status_items items,
 			struct mailbox_status *status_r)
