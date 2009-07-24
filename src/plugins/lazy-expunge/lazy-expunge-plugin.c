@@ -184,9 +184,7 @@ static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
 
 static int
 lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
-				uint32_t *uid_validity_r,
-				uint32_t *first_saved_uid_r,
-				uint32_t *last_saved_uid_r)
+				struct mail_transaction_commit_changes *changes_r)
 {
 	union mailbox_module_context *mbox = LAZY_EXPUNGE_CONTEXT(ctx->box);
 	struct lazy_expunge_transaction *lt = LAZY_EXPUNGE_CONTEXT(ctx);
@@ -201,9 +199,7 @@ lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
 		mbox->super.transaction_rollback(ctx);
 		ret = -1;
 	} else {
-		ret = mbox->super.transaction_commit(ctx, uid_validity_r,
-						     first_saved_uid_r,
-						     last_saved_uid_r);
+		ret = mbox->super.transaction_commit(ctx, changes_r);
 	}
 	lazy_expunge_transaction_free(lt);
 	return ret;

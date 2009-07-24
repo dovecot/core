@@ -308,9 +308,9 @@ void dbox_save_cancel(struct mail_save_context *_ctx)
 
 int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 {
-	struct dbox_transaction_context *t =
-		(struct dbox_transaction_context *)ctx->ctx.transaction;
+	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
 	const struct mail_index_header *hdr;
+	struct seq_range *range;
 	uint32_t uid, first_map_uid, last_map_uid, next_uid;
 
 	i_assert(ctx->finished);
@@ -387,9 +387,10 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
 
-	*t->ictx.saved_uid_validity = hdr->uid_validity;
-	*t->ictx.first_saved_uid = uid;
-	*t->ictx.last_saved_uid = next_uid - 1;
+	_t->changes->uid_validity = hdr->uid_validity;
+	range = array_append_space(&_t->changes->saved_uids);
+	range->seq1 = uid;
+	range->seq2 = next_uid - 1;
 	return 0;
 }
 

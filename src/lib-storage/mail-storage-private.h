@@ -138,9 +138,7 @@ struct mailbox_vfuncs {
 		(*transaction_begin)(struct mailbox *box,
 				     enum mailbox_transaction_flags flags);
 	int (*transaction_commit)(struct mailbox_transaction_context *t,
-				  uint32_t *uid_validity_r,
-				  uint32_t *first_saved_uid_r,
-				  uint32_t *last_saved_uid_r);
+				  struct mail_transaction_commit_changes *changes_r);
 	void (*transaction_rollback)(struct mailbox_transaction_context *t);
 	void (*transaction_set_max_modseq)(struct mailbox_transaction_context *t,
 					   uint64_t max_modseq,
@@ -349,6 +347,7 @@ struct mailbox_transaction_context {
 	struct mailbox *box;
 	enum mailbox_transaction_flags flags;
 
+	struct mail_transaction_commit_changes *changes;
 	ARRAY_DEFINE(module_contexts,
 		     union mailbox_transaction_module_context *);
 };

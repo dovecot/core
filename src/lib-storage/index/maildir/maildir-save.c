@@ -628,6 +628,7 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)ctx->ctx.transaction;
 	struct maildir_mailbox *mbox = ctx->mbox;
+	struct seq_range *range;
 	uint32_t uid, first_uid, next_uid;
 	int ret;
 
@@ -673,8 +674,9 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 	}
 
 	/* this will work even if index isn't updated */
-	*t->ictx.first_saved_uid = first_uid;
-	*t->ictx.last_saved_uid = next_uid - 1;
+	range = array_append_space(&t->ictx.mailbox_ctx.changes->saved_uids);
+	range->seq1 = first_uid;
+	range->seq2 = next_uid - 1;
 	return 0;
 }
 
@@ -797,7 +799,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			ret = -1;
 	}
 
-	*t->ictx.saved_uid_validity =
+	t->ictx.mailbox_ctx.changes->uid_validity =
 		maildir_uidlist_get_uid_validity(ctx->mbox->uidlist);
 
 	if (ctx->mail != NULL) {

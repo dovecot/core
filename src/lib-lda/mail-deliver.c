@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "array.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "var-expand.h"
@@ -145,7 +146,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	struct mail_keywords *kw;
 	enum mail_error error;
 	const char *mailbox_name, *errstr;
-	uint32_t uid_validity, uid1 = 0, uid2 = 0;
+	struct mail_transaction_commit_changes changes;
+	const struct seq_range *range;
 	bool default_save;
 	int ret = 0;
 
@@ -188,26 +190,26 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 
 	if (ret < 0)
 		mailbox_transaction_rollback(&t);
-	else {
-		ret = mailbox_transaction_commit_get_uids(&t, &uid_validity,
-							  &uid1, &uid2);
-	}
+	else
+		ret = mailbox_transaction_commit_get_changes(&t, &changes);
 
 	if (ret == 0) {
 		ctx->saved_mail = TRUE;
 		mail_deliver_log(ctx, "saved mail to %s", mailbox_name);
 
 		if (ctx->save_dest_mail && mailbox_sync(box, 0, 0, NULL) == 0) {
-			i_assert(uid1 == uid2);
+			range = array_idx(&changes.saved_uids, 0);
+			i_assert(range[0].seq1 == range[0].seq2);
 
 			t = mailbox_transaction_begin(box, 0);
 			ctx->dest_mail = mail_alloc(t, MAIL_FETCH_STREAM_BODY,
 						    NULL);
-			if (mail_set_uid(ctx->dest_mail, uid1) < 0) {
+			if (mail_set_uid(ctx->dest_mail, range[0].seq1) < 0) {
 				mail_free(&ctx->dest_mail);
 				mailbox_transaction_rollback(&t);
 			}
 		}
+		pool_unref(&changes.pool);
 	} else {
 		mail_deliver_log(ctx, "save failed to %s: %s", mailbox_name,
 			mail_storage_get_last_error(*storage_r, &error));

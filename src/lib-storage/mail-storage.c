@@ -868,27 +868,26 @@ mailbox_transaction_begin(struct mailbox *box,
 
 int mailbox_transaction_commit(struct mailbox_transaction_context **t)
 {
-	uint32_t uidvalidity, uid1, uid2;
+	struct mail_transaction_commit_changes changes;
+	int ret;
 
-	/* Store the return values to separate temporary variables so that
-	   plugins overriding transaction_commit() can look at them. */
-	return mailbox_transaction_commit_get_uids(t, &uidvalidity,
-						   &uid1, &uid2);
+	/* Store changes temporarily so that plugins overriding
+	   transaction_commit() can look at them. */
+	ret = mailbox_transaction_commit_get_changes(t, &changes);
+	pool_unref(&changes.pool);
+	return ret;
 }
 
-int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **_t,
-					uint32_t *uid_validity_r,
-					uint32_t *first_saved_uid_r,
-					uint32_t *last_saved_uid_r)
+int mailbox_transaction_commit_get_changes(
+	struct mailbox_transaction_context **_t,
+	struct mail_transaction_commit_changes *changes_r)
 {
 	struct mailbox_transaction_context *t = *_t;
 
 	t->box->transaction_count--;
 
 	*_t = NULL;
-	return t->box->v.transaction_commit(t, uid_validity_r,
-					    first_saved_uid_r,
-					    last_saved_uid_r);
+	return t->box->v.transaction_commit(t, changes_r);
 }
 
 void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)

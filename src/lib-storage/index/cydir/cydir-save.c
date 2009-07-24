@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "hostpid.h"
 #include "istream.h"
 #include "istream-crlf.h"
@@ -229,9 +230,9 @@ void cydir_save_cancel(struct mail_save_context *_ctx)
 
 int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 {
-	struct cydir_transaction_context *t =
-		(struct cydir_transaction_context *)ctx->ctx.transaction;
+	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
 	const struct mail_index_header *hdr;
+	struct seq_range *range;
 	uint32_t i, uid, next_uid;
 	const char *dir;
 	string_t *src_path, *dest_path;
@@ -249,9 +250,10 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 	uid = hdr->next_uid;
 	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
 
-	*t->ictx.saved_uid_validity = ctx->sync_ctx->uid_validity;
-	*t->ictx.first_saved_uid = uid;
-	*t->ictx.last_saved_uid = next_uid - 1;
+	_t->changes->uid_validity = ctx->sync_ctx->uid_validity;
+	range = array_append_space(&_t->changes->saved_uids);
+	range->seq1 = uid;
+	range->seq2 = next_uid - 1;
 
 	dir = mailbox_list_get_path(ctx->mbox->ibox.box.list,
 				    ctx->mbox->ibox.box.name,

@@ -998,10 +998,9 @@ static void fts_transaction_rollback(struct mailbox_transaction_context *t)
 	fts_transaction_finish(box, ft, FALSE);
 }
 
-static int fts_transaction_commit(struct mailbox_transaction_context *t,
-				  uint32_t *uid_validity_r,
-				  uint32_t *first_saved_uid_r,
-				  uint32_t *last_saved_uid_r)
+static int
+fts_transaction_commit(struct mailbox_transaction_context *t,
+		       struct mail_transaction_commit_changes *changes_r)
 {
 	struct mailbox *box = t->box;
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
@@ -1015,10 +1014,7 @@ static int fts_transaction_commit(struct mailbox_transaction_context *t,
 	if (ft->free_mail)
 		mail_free(&ft->mail);
 
-	ret = fbox->module_ctx.super.transaction_commit(t,
-							uid_validity_r,
-							first_saved_uid_r,
-							last_saved_uid_r);
+	ret = fbox->module_ctx.super.transaction_commit(t, changes_r);
 	fts_transaction_finish(box, ft, ret == 0);
 	return ret;
 }

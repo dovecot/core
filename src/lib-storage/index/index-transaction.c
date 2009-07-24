@@ -90,20 +90,16 @@ index_transaction_begin(struct mailbox *box,
 }
 
 int index_transaction_commit(struct mailbox_transaction_context *_t,
-			     uint32_t *uid_validity_r,
-			     uint32_t *first_saved_uid_r,
-			     uint32_t *last_saved_uid_r)
+			     struct mail_transaction_commit_changes *changes_r)
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 	struct mail_index_transaction *itrans = t->trans;
 
-	*uid_validity_r = 0;
-	*first_saved_uid_r = *last_saved_uid_r = 0;
-
-	t->saved_uid_validity = uid_validity_r;
-	t->first_saved_uid = first_saved_uid_r;
-	t->last_saved_uid = last_saved_uid_r;
+	memset(changes_r, 0, sizeof(*changes_r));
+	changes_r->pool = pool_alloconly_create("transaction changes", 1024);
+	p_array_init(&changes_r->saved_uids, changes_r->pool, 32);
+	_t->changes = changes_r;
 
 	return mail_index_transaction_commit(&itrans);
 }

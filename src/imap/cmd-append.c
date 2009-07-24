@@ -5,9 +5,10 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
-#include "imap-commands.h"
 #include "imap-parser.h"
 #include "imap-date.h"
+#include "imap-util.h"
+#include "imap-commands.h"
 
 #include <sys/time.h>
 
@@ -243,8 +244,8 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		/* last message */
 		enum mailbox_sync_flags sync_flags;
 		enum imap_sync_flags imap_flags;
-		uint32_t uid_validity, uid1, uid2;
-		const char *msg;
+		struct mail_transaction_commit_changes changes;
+		string_t *msg;
 
 		/* eat away the trailing CRLF */
 		client->input_skip_line = TRUE;
@@ -260,27 +261,19 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 			return TRUE;
 		}
 
-		ret = mailbox_transaction_commit_get_uids(&ctx->t,
-							  &uid_validity,
-							  &uid1, &uid2);
+		ret = mailbox_transaction_commit_get_changes(&ctx->t, &changes);
 		if (ret < 0) {
 			client_send_storage_error(cmd, ctx->storage);
 			cmd_append_finish(ctx);
 			return TRUE;
 		}
-		i_assert(ctx->count == uid2 - uid1 + 1);
+		i_assert(ctx->count == seq_range_count(&changes.saved_uids));
 
-		if (uid1 == 0)
-			msg = "OK Append completed.";
-		else if (uid1 == uid2) {
-			msg = t_strdup_printf("OK [APPENDUID %u %u] "
-					      "Append completed.",
-					      uid_validity, uid1);
-		} else {
-			msg = t_strdup_printf("OK [APPENDUID %u %u:%u] "
-					      "Append completed.",
-					      uid_validity, uid1, uid2);
-		}
+		msg = t_str_new(256);
+		str_printfa(msg, "OK [APPENDUID %u ", changes.uid_validity);
+		imap_write_seq_range(msg, &changes.saved_uids);
+		str_append(msg, "] Append completed.");
+		pool_unref(&changes.pool);
 
 		if (ctx->box == cmd->client->mailbox) {
 			sync_flags = 0;
@@ -291,7 +284,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		}
 
 		cmd_append_finish(ctx);
-		return cmd_sync(cmd, sync_flags, imap_flags, msg);
+		return cmd_sync(cmd, sync_flags, imap_flags, str_c(msg));
 	}
 
 	if (!validate_args(args, &flags_list, &internal_date_str,

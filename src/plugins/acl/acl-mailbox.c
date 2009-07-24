@@ -350,8 +350,7 @@ acl_copy(struct mail_save_context *ctx, struct mail *mail)
 
 static int
 acl_transaction_commit(struct mailbox_transaction_context *ctx,
-		       uint32_t *uid_validity_r,
-		       uint32_t *first_saved_uid_r, uint32_t *last_saved_uid_r)
+		       struct mail_transaction_commit_changes *changes_r)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(ctx->box);
 	void *at = ACL_CONTEXT(ctx);
@@ -361,9 +360,7 @@ acl_transaction_commit(struct mailbox_transaction_context *ctx,
 		return -1;
 	}
 
-	return abox->module_ctx.super.
-		transaction_commit(ctx, uid_validity_r,
-				   first_saved_uid_r, last_saved_uid_r);
+	return abox->module_ctx.super.transaction_commit(ctx, changes_r);
 }
 
 static int

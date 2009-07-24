@@ -710,9 +710,9 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 
 int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 {
-	struct mbox_transaction_context *t =
-		(struct mbox_transaction_context *)ctx->ctx.transaction;
+	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
 	struct mbox_mailbox *mbox = ctx->mbox;
+	struct seq_range *range;
 	struct stat st;
 	int ret = 0;
 
@@ -724,9 +724,10 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 	}
 
 	if (ctx->synced) {
-		*t->ictx.saved_uid_validity = ctx->uid_validity;
-		*t->ictx.first_saved_uid = ctx->first_saved_uid;
-		*t->ictx.last_saved_uid = ctx->next_uid - 1;
+		_t->changes->uid_validity = ctx->uid_validity;
+		range = array_append_space(&_t->changes->saved_uids);
+		range->seq1 = ctx->first_saved_uid;
+		range->seq2 = ctx->next_uid - 1;
 
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),

@@ -72,9 +72,6 @@ struct index_transaction_context {
 	struct mail_cache_view *cache_view;
 	struct mail_cache_transaction_ctx *cache_trans;
 
-	uint32_t *saved_uid_validity;
-	uint32_t *first_saved_uid, *last_saved_uid;
-
 	unsigned int cache_trans_failed:1;
 };
 
@@ -179,9 +176,7 @@ struct mailbox_transaction_context *
 index_transaction_begin(struct mailbox *box,
 			enum mailbox_transaction_flags flags);
 int index_transaction_commit(struct mailbox_transaction_context *t,
-			     uint32_t *uid_validity_r,
-			     uint32_t *first_saved_uid_r,
-			     uint32_t *last_saved_uid_r);
+			     struct mail_transaction_commit_changes *changes_r);
 void index_transaction_rollback(struct mailbox_transaction_context *t);
 void index_save_context_free(struct mail_save_context *ctx);
 

@@ -4,6 +4,7 @@
 #include "str.h"
 #include "ostream.h"
 #include "imap-resp-code.h"
+#include "imap-util.h"
 #include "imap-commands.h"
 #include "imap-search-args.h"
 
@@ -90,11 +91,12 @@ bool cmd_copy(struct client_command_context *cmd)
 	struct mailbox *destbox;
 	struct mailbox_transaction_context *t;
         struct mail_search_args *search_args;
-	const char *messageset, *mailbox, *src_uidset, *msg = NULL;
+	const char *messageset, *mailbox, *src_uidset;
 	enum mailbox_sync_flags sync_flags = 0;
 	enum imap_sync_flags imap_flags = 0;
+	struct mail_transaction_commit_changes changes;
 	unsigned int copy_count;
-	uint32_t uid_validity, uid1, uid2;
+	string_t *msg;
 	int ret;
 
 	/* <message set> <mailbox> */
@@ -139,28 +141,21 @@ bool cmd_copy(struct client_command_context *cmd)
 	ret = fetch_and_copy(client, t, search_args, &src_uidset, &copy_count);
 	mail_search_args_unref(&search_args);
 
+	msg = t_str_new(256);
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
-	else if (mailbox_transaction_commit_get_uids(&t, &uid_validity,
-						     &uid1, &uid2) < 0)
+	else if (mailbox_transaction_commit_get_changes(&t, &changes) < 0)
 		ret = -1;
 	else if (copy_count == 0)
-		msg = "OK No messages copied.";
+		str_append(msg, "OK No messages copied.");
 	else {
-		i_assert(copy_count == uid2 - uid1 + 1);
+		i_assert(copy_count == seq_range_count(&changes.saved_uids));
 
-		if (uid1 == 0)
-			msg = "OK Copy completed.";
-		if (uid1 == uid2) {
-			msg = t_strdup_printf("OK [COPYUID %u %s %u] "
-					      "Copy completed.",
-					      uid_validity, src_uidset, uid1);
-		} else {
-			msg = t_strdup_printf("OK [COPYUID %u %s %u:%u] "
-					      "Copy completed.",
-					      uid_validity, src_uidset,
-					      uid1, uid2);
-		}
+		str_printfa(msg, "OK [COPYUID %u %s ", changes.uid_validity,
+			    src_uidset);
+		imap_write_seq_range(msg, &changes.saved_uids);
+		str_append(msg, "] Copy completed.");
+		pool_unref(&changes.pool);
 	}
 
 	dest_storage = mailbox_get_storage(destbox);
@@ -171,7 +166,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	}
 
 	if (ret > 0)
-		return cmd_sync(cmd, sync_flags, imap_flags, msg);
+		return cmd_sync(cmd, sync_flags, imap_flags, str_c(msg));
 	else if (ret == 0) {
 		/* some messages were expunged, sync them */
 		return cmd_sync(cmd, 0, 0,

@@ -115,12 +115,9 @@ test_mailbox_transaction_rollback(struct mailbox_transaction_context *t)
 
 static int
 test_mailbox_transaction_commit(struct mailbox_transaction_context *t,
-				uint32_t *uid_validity_r,
-				uint32_t *first_saved_uid_r,
-				uint32_t *last_saved_uid_r)
+				struct mail_transaction_commit_changes *changes_r)
 {
-	*uid_validity_r = TEST_UID_VALIDITY;
-	*first_saved_uid_r = *last_saved_uid_r = 0;
+	changes_r->uid_validity = TEST_UID_VALIDITY;
 	test_mailbox_transaction_rollback(t);
 	return 0;
 }

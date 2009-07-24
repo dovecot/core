@@ -199,6 +199,16 @@ struct mailbox_update {
 	uint64_t min_highest_modseq;
 };
 
+struct mail_transaction_commit_changes {
+	/* Unreference the pool to free memory used by these changes. */
+	pool_t pool;
+
+	/* UIDVALIDITY for assigned UIDs. */
+	uint32_t uid_validity;
+	/* UIDs assigned to saved messages. Not necessarily ascending. */
+	ARRAY_TYPE(seq_range) saved_uids;
+};
+
 struct mailbox_sync_rec {
 	uint32_t seq1, seq2;
 	enum mailbox_sync_type type;
@@ -388,11 +398,9 @@ struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags);
 int mailbox_transaction_commit(struct mailbox_transaction_context **t);
-/* If no messages were saved/copied, first/last_saved_uid_r are 0. */
-int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **t,
-					uint32_t *uid_validity_r,
-					uint32_t *first_saved_uid_r,
-					uint32_t *last_saved_uid_r);
+int mailbox_transaction_commit_get_changes(
+	struct mailbox_transaction_context **t,
+	struct mail_transaction_commit_changes *changes_r);
 void mailbox_transaction_rollback(struct mailbox_transaction_context **t);
 /* Return the number of active transactions for the mailbox. */
 unsigned int mailbox_transaction_get_count(const struct mailbox *box) ATTR_PURE;

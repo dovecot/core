@@ -84,9 +84,7 @@ quota_mailbox_transaction_begin(struct mailbox *box,
 
 static int
 quota_mailbox_transaction_commit(struct mailbox_transaction_context *ctx,
-				 uint32_t *uid_validity_r,
-				 uint32_t *first_saved_uid_r,
-				 uint32_t *last_saved_uid_r)
+				 struct mail_transaction_commit_changes *changes_r)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx);
@@ -94,10 +92,7 @@ quota_mailbox_transaction_commit(struct mailbox_transaction_context *ctx,
 	if (qt->tmp_mail != NULL)
 		mail_free(&qt->tmp_mail);
 
-	if (qbox->module_ctx.super.transaction_commit(ctx,
-						      uid_validity_r,
-						      first_saved_uid_r,
-						      last_saved_uid_r) < 0) {
+	if (qbox->module_ctx.super.transaction_commit(ctx, changes_r) < 0) {
 		quota_transaction_rollback(&qt);
 		return -1;
 	} else {
