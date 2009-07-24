@@ -226,7 +226,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	struct mail_namespace_settings *const *ns_set;
 	struct mail_namespace *namespaces, *ns, **ns_p;
 	struct mail_namespace_settings *inbox_set;
-	const char *error, *driver, *env;
+	const char *error, *driver, *location_source;
 	unsigned int i, count;
 
 	i_assert(user->initialized);
@@ -265,7 +265,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		return 0;
 	}
 
-	/* fallback to using environment variables */
+	/* no namespaces defined, create a default one */
 	ns = i_new(struct mail_namespace, 1);
 	ns->type = NAMESPACE_PRIVATE;
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST_PREFIX |
@@ -277,8 +277,13 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	inbox_set->inbox = TRUE;
 
 	driver = NULL;
-	env = "MAIL";
-	inbox_set->location = getenv("MAIL");
+	if (*mail_set->mail_location != '\0') {
+		inbox_set->location = mail_set->mail_location;
+		location_source = "mail_location setting";
+	} else {
+		location_source = "environment MAIL";
+		inbox_set->location = getenv("MAIL");
+	}
 	if (inbox_set->location == NULL) {
 		/* support also maildir-specific environment */
 		inbox_set->location = getenv("MAILDIR");
@@ -286,7 +291,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 			inbox_set->location = "";
 		else {
 			driver = "maildir";
-			env = "MAILDIR";
+			location_source = "environment MAILDIR";
 		}
 	}
 
@@ -298,8 +303,8 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	if (mail_storage_create(ns, driver, 0, &error) < 0) {
 		if (*inbox_set->location != '\0') {
 			*error_r = t_strdup_printf(
-				"Initializing mail storage from environment %s "
-				"failed: %s", env, error);
+				"Initializing mail storage from %s "
+				"failed: %s", location_source, error);
 		} else {
 			*error_r = t_strdup_printf("mail_location not set and "
 					"autodetection failed: %s", error);
