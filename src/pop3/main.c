@@ -113,11 +113,15 @@ int main(int argc, char *argv[], char *envp[])
 	input.module = "pop3";
 	input.service = "pop3";
 	input.username = getenv("USER");
+	if (input.username == NULL && IS_STANDALONE())
+		input.username = getlogin();
 	if (input.username == NULL) {
-		if (IS_STANDALONE())
-			input.username = getlogin();
-		if (input.username == NULL)
+		if (getenv(MASTER_UID_ENV) == NULL)
 			i_fatal("USER environment missing");
+		else {
+			i_fatal("login_executable setting must be pop3-login, "
+				"not pop3");
+		}
 	}
 	if ((value = getenv("IP")) != NULL)
 		net_addr2ip(value, &input.remote_ip);
