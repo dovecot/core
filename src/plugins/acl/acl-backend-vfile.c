@@ -5,6 +5,7 @@
 #include "array.h"
 #include "bsearch-insert-pos.h"
 #include "str.h"
+#include "strescape.h"
 #include "istream.h"
 #include "ostream.h"
 #include "file-dotlock.h"
@@ -364,12 +365,29 @@ acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, bool global,
 		return 0;
 
 	/* <id> [<imap acls>] [:<named acls>] */
-	p = strchr(line, ' ');
-	if (p == NULL)
-		p = "";
-	else {
-		line = t_strdup_until(line, p);
+	if (*line == '"') {
+		for (p = line + 1; *p != '\0'; p++) {
+			if (*p == '\\' && p[1] != '\0')
+				p++;
+			else if (*p == '"')
+				break;
+		}
+		if (p[0] != '"' || (p[1] != ' ' && p[1] != '\0')) {
+			i_error("ACL file %s line %u: Invalid quoted ID",
+				path, linenum);
+			return -1;
+		}
+		line = t_strdup_until(line + 1, p);
+		line = str_unescape(t_strdup_noconst(line));
 		p++;
+	} else {
+		p = strchr(line, ' ');
+		if (p == NULL)
+			p = "";
+		else {
+			line = t_strdup_until(line, p);
+			p++;
+		}
 	}
 
 	memset(&rights, 0, sizeof(rights));
@@ -1018,6 +1036,14 @@ vfile_write_right(string_t *dest, const struct acl_rights *right,
 
 	if (neg) str_append_c(dest,'-');
 	acl_rights_write_id(dest, right);
+
+	if (strchr(str_c(dest), ' ') != NULL) T_BEGIN {
+		/* need to escape it */
+		const char *escaped = t_strdup(str_escape(str_c(dest)));
+		str_truncate(dest, 0);
+		str_printfa(dest, "\"%s\"", escaped);
+	} T_END;
+
 	str_append_c(dest, ' ');
 	vfile_write_rights_list(dest, rights);
 	str_append_c(dest, '\n');
@@ -1036,7 +1062,7 @@ acl_backend_vfile_update_write(struct acl_object_vfile *aclobj,
 	output = o_stream_create_fd_file(fd, 0, FALSE);
 	o_stream_cork(output);
 
-	str = t_str_new(256);
+	str = str_new(default_pool, 256);
 	/* rights are sorted with globals at the end, so we can stop at the
 	   first global */
 	rights = array_get(&aclobj->rights, &count);
@@ -1048,6 +1074,7 @@ acl_backend_vfile_update_write(struct acl_object_vfile *aclobj,
 		o_stream_send(output, str_data(str), str_len(str));
 		str_truncate(str, 0);
 	}
+	str_free(&str);
 	if (o_stream_flush(output) < 0) {
 		i_error("write(%s) failed: %m", path);
 		ret = -1;
