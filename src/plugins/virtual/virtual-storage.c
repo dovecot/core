@@ -532,6 +532,16 @@ virtual_get_virtual_box_patterns(struct mailbox *box,
 	array_append_array(excludes, &mbox->list_exclude_patterns);
 }
 
+static bool virtual_is_inconsistent(struct mailbox *box)
+{
+	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+
+	if (mbox->inconsistent)
+		return TRUE;
+
+	return index_storage_is_inconsistent(box);
+}
+
 static void virtual_class_init(void)
 {
 	virtual_transaction_class_init();
@@ -626,6 +636,6 @@ struct mailbox virtual_mailbox = {
 		virtual_save_finish,
 		virtual_save_cancel,
 		mail_storage_copy,
-		index_storage_is_inconsistent
+		virtual_is_inconsistent
 	}
 };
