@@ -4,6 +4,8 @@
 #include "mbox-from.h"
 #include "test-common.h"
 
+#include <time.h>
+
 struct test_mbox_from_parse_output {
 	time_t time;
 	int tz_offset;
