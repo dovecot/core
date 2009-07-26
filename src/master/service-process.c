@@ -15,6 +15,7 @@
 #include "fd-close-on-exec.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
+#include "eacces-error.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "dup2-array.h"
@@ -33,6 +34,12 @@
 #include <syslog.h>
 #include <signal.h>
 #include <sys/wait.h>
+
+/* Timeout chdir() completely after this many seconds */
+#define CHDIR_TIMEOUT 30
+/* Give a warning about chdir() taking a while if it took longer than this
+   many seconds to finish. */
+#define CHDIR_WARN_SECS 10
 
 static void
 service_dup_fds(struct service *service, int auth_fd, int std_fd,
@@ -247,6 +254,65 @@ static void auth_success_write(void)
 	auth_success_written = TRUE;
 }
 
+static void chdir_to_home(const struct restrict_access_settings *rset,
+			  const char *user, const char *home)
+{
+	unsigned int left;
+	int ret, chdir_errno;
+
+	if (*home != '/') {
+		i_fatal("user %s: Relative home directory paths not supported: "
+			"%s", user, home);
+	}
+
+	/* if home directory is NFS-mounted, we might not have access to it as
+	   root. Change the effective UID and GID temporarily to make it
+	   work. */
+	if (rset->uid != master_uid) {
+		if (setegid(rset->gid) < 0)
+			i_fatal("setegid(%s) failed: %m", dec2str(rset->gid));
+		if (seteuid(rset->uid) < 0)
+			i_fatal("seteuid(%s) failed: %m", dec2str(rset->uid));
+	}
+
+	alarm(CHDIR_TIMEOUT);
+	ret = chdir(home);
+	chdir_errno = errno;
+	if ((left = alarm(0)) < CHDIR_TIMEOUT - CHDIR_WARN_SECS) {
+		i_warning("user %s: chdir(%s) blocked for %u secs",
+			  user, home, CHDIR_TIMEOUT - left);
+	}
+
+	errno = chdir_errno;
+	if (ret == 0) {
+		/* chdir succeeded */
+	} else if ((errno == ENOENT || errno == ENOTDIR || errno == EINTR) &&
+		   rset->chroot_dir == NULL) {
+		/* Not chrooted, fallback to using /tmp.
+
+		   ENOENT: No home directory yet, but it might be automatically
+		     created by the service process, so don't complain.
+		   ENOTDIR: This check is mainly for /dev/null home directory.
+		   EINTR: chdir() timed out. */
+	} else if (errno == EACCES) {
+		i_fatal("user %s: %s", user, eacces_error_get("chdir", home));
+	} else {
+		i_fatal("user %s: chdir(%s) failed with uid %s: %m",
+			user, home, dec2str(rset->uid));
+	}
+	/* Change UID back. No need to change GID back, it doesn't
+	   really matter. */
+	if (rset->uid != master_uid && seteuid(master_uid) < 0)
+		i_fatal("seteuid(%s) failed: %m", dec2str(master_uid));
+
+	if (ret < 0) {
+		/* We still have to change to some directory where we have
+		   rx-access. /tmp should exist everywhere. */
+		if (chdir("/tmp") < 0)
+			i_fatal("chdir(/tmp) failed: %m");
+	}
+}
+
 static void drop_privileges(struct service *service,
 			    const char *const *auth_args)
 {
@@ -286,14 +352,8 @@ static void drop_privileges(struct service *service,
 		validate_uid_gid(master_set, rset.uid, rset.gid, user);
 	}
 
-	if (home != NULL) {
-		if (*home != '/') {
-			i_fatal("Relative home directory paths not supported "
-				"(user %s): %s", user, home);
-		}
-		if (chdir(home) < 0 && errno != ENOENT)
-			i_error("chdir(%s) failed: %m", home);
-	}
+	if (home != NULL)
+		chdir_to_home(&rset, user, home);
 
 	if (service->set->drop_priv_before_exec) {
 		disallow_root = service->type == SERVICE_TYPE_AUTH_SERVER ||
