@@ -291,8 +291,8 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
   sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h sys/fs/quota_common.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
-  xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h malloc_np.h sys/utsname.h \
-  sys/vmount.h sys/utsname.h)
+  xfs/xqm.h execinfo.h ucontext.h malloc_np.h sys/utsname.h sys/vmount.h \
+  sys/utsname.h)
 
 dnl * gcc specific options
 if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
@@ -1896,6 +1896,7 @@ if test $want_ldap != no; then
 
         		AC_DEFINE(USERDB_LDAP,, Build with LDAP support)
 		        AC_DEFINE(PASSDB_LDAP,, Build with LDAP support)
+			AC_CHECK_HEADERS(sasl.h sasl/sasl.h)
 			have_ldap=yes
 		], [
 		  if test $want_ldap != auto; then
