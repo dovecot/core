@@ -8,6 +8,7 @@
 #include "restrict-access.h"
 #include "process-title.h"
 #include "master-service.h"
+#include "master-interface.h"
 #include "var-expand.h"
 #include "mail-storage-service.h"
 

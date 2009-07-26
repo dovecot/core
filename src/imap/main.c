@@ -10,6 +10,7 @@
 #include "fd-close-on-exec.h"
 #include "process-title.h"
 #include "master-service.h"
+#include "master-interface.h"
 #include "mail-user.h"
 #include "mail-storage-service.h"
 #include "imap-commands.h"
