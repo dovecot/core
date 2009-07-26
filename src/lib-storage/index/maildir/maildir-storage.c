@@ -142,7 +142,8 @@ static void maildir_storage_get_list_settings(const struct mail_namespace *ns,
 		set->subscription_fname = MAILDIR_SUBSCRIPTION_FILE_NAME;
 
 	if (set->inbox_path == NULL &&
-	    strcmp(set->layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 &&
+	    (strcmp(set->layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||
+	     strcmp(set->layout, MAILBOX_LIST_NAME_FS) == 0) &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		/* Maildir++ INBOX is the Maildir base itself */
 		set->inbox_path = set->root_dir;
