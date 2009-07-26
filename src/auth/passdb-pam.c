@@ -28,19 +28,13 @@
 #  include <pam/pam_appl.h>
 #endif
 
-#if !defined(_SECURITY_PAM_APPL_H) && !defined(LINUX_PAM) && !defined(_OPENPAM)
-/* Sun's PAM doesn't use const. we use a bit dirty hack to check it.
-   Originally it was just __sun__ check, but HP/UX also uses Sun's PAM
-   so I thought this might work better. */
-#  define SUNPAM
+#if defined(sun) || defined(__sun__) || defined(_HPUX_SOURCE)
+#  define pam_const
+#else
+#  define pam_const const
 #endif
 
-#ifdef SUNPAM
-#  define linux_const
-#else
-#  define linux_const			const
-#endif
-typedef linux_const void *pam_item_t;
+typedef pam_const void *pam_item_t;
 
 #define PASSDB_PAM_DEFAULT_MAX_REQUESTS 100
 
@@ -62,7 +56,7 @@ struct pam_conv_context {
 };
 
 static int
-pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
+pam_userpass_conv(int num_msg, pam_const struct pam_message **msg,
 		  struct pam_response **resp_r, void *appdata_ptr)
 {
 	/* @UNSAFE */
