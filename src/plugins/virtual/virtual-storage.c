@@ -117,48 +117,60 @@ static bool virtual_mailbox_is_in_open_stack(struct virtual_storage *storage,
 	return FALSE;
 }
 
-static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
-				  enum mailbox_flags flags)
+static int virtual_backend_box_open(struct virtual_mailbox *mbox,
+				    struct virtual_backend_box *bbox,
+				    enum mailbox_flags flags)
 {
 	struct mail_user *user = mbox->storage->storage.user;
-	struct virtual_backend_box *const *bboxes;
 	struct mail_storage *storage;
 	struct mail_namespace *ns;
-	unsigned int i, count;
 	enum mail_error error;
 	const char *str, *mailbox;
 
 	flags |= MAILBOX_FLAG_KEEP_RECENT;
 
+	mailbox = bbox->name;
+	ns = mail_namespace_find(user->namespaces, &mailbox);
+	bbox->box = mailbox_alloc(ns->list, mailbox, NULL, flags);
+
+	if (mailbox_open(bbox->box) < 0) {
+		storage = mailbox_get_storage(bbox->box);
+		str = mail_storage_get_last_error(storage, &error);
+		if (bbox->wildcard && (error == MAIL_ERROR_PERM ||
+				       error == MAIL_ERROR_NOTFOUND)) {
+			/* this mailbox wasn't explicitly specified.
+			   just skip it. */
+			return 0;
+		}
+		/* copy the error */
+		mail_storage_set_error(mbox->ibox.box.storage, error, str);
+		return -1;
+	}
+	i_array_init(&bbox->uids, 64);
+	i_array_init(&bbox->sync_pending_removes, 64);
+	mail_search_args_init(bbox->search_args, bbox->box, FALSE, NULL);
+	return 1;
+}
+
+static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
+				  enum mailbox_flags flags)
+{
+	struct virtual_backend_box *const *bboxes;
+	unsigned int i, count;
+	int ret;
+
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; ) {
-		mailbox = bboxes[i]->name;
-		ns = mail_namespace_find(user->namespaces, &mailbox);
-		bboxes[i]->box = mailbox_alloc(ns->list, mailbox, NULL, flags);
-
-		if (mailbox_open(bboxes[i]->box) < 0) {
-			storage = mailbox_get_storage(bboxes[i]->box);
-			str = mail_storage_get_last_error(storage, &error);
-			if (bboxes[i]->wildcard &&
-			    (error == MAIL_ERROR_PERM ||
-			     error == MAIL_ERROR_NOTFOUND)) {
-				/* this mailbox wasn't explicitly specified.
-				   just skip it. */
-				mail_search_args_unref(&bboxes[i]->search_args);
-				array_delete(&mbox->backend_boxes, i, 1);
-				bboxes = array_get(&mbox->backend_boxes, &count);
-				continue;
-			}
-			/* copy the error */
-			mail_storage_set_error(mbox->ibox.box.storage,
-					       error, str);
-			break;
+		ret = virtual_backend_box_open(mbox, bboxes[i], flags);
+		if (ret <= 0) {
+			if (ret < 0)
+				break;
+			mail_search_args_unref(&bboxes[i]->search_args);
+			array_delete(&mbox->backend_boxes, i, 1);
+			bboxes = array_get(&mbox->backend_boxes, &count);
+		} else {
+			i++;
 		}
-		i_array_init(&bboxes[i]->uids, 64);
-		i_array_init(&bboxes[i]->sync_pending_removes, 64);
-		mail_search_args_init(bboxes[i]->search_args, bboxes[i]->box,
-				      FALSE, NULL);
-		i++;
 	}
 	if (i == count)
 		return 0;
