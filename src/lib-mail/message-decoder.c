@@ -39,8 +39,7 @@ struct message_decoder_context {
 	char translation_buf[MAX_TRANSLATION_BUF_SIZE];
 	unsigned int translation_size;
 
-	char encoding_buf[MAX_ENCODING_BUF_SIZE];
-	unsigned int encoding_size;
+	buffer_t *encoding_buf;
 
 	char *content_charset;
 	enum content_type content_type;
@@ -58,6 +57,7 @@ message_decoder_init(enum message_decoder_flags flags)
 	ctx->flags = flags;
 	ctx->buf = buffer_create_dynamic(default_pool, 8192);
 	ctx->buf2 = buffer_create_dynamic(default_pool, 8192);
+	ctx->encoding_buf = buffer_create_dynamic(default_pool, 128);
 	return ctx;
 }
 
@@ -70,6 +70,7 @@ void message_decoder_deinit(struct message_decoder_context **_ctx)
 	if (ctx->charset_trans != NULL)
 		charset_to_utf8_end(&ctx->charset_trans);
 
+	buffer_free(&ctx->encoding_buf);
 	buffer_free(&ctx->buf);
 	buffer_free(&ctx->buf2);
 	i_free(ctx->charset_trans_charset);
@@ -250,18 +251,13 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 				struct message_block *input,
 				struct message_block *output)
 {
-	unsigned char new_buf[MAX_ENCODING_BUF_SIZE+1];
 	const unsigned char *data = NULL;
-	size_t pos, size = 0, skip = 0;
+	size_t pos, size = 0;
 	int ret;
 
-	if (ctx->encoding_size != 0) {
+	if (ctx->encoding_buf->used != 0) {
 		/* @UNSAFE */
-		memcpy(new_buf, ctx->encoding_buf, ctx->encoding_size);
-		skip = sizeof(new_buf) - ctx->encoding_size;
-		if (skip > input->size)
-			skip = input->size;
-		memcpy(new_buf + ctx->encoding_size, input->data, skip);
+		buffer_append(ctx->encoding_buf, input->data, input->size);
 	}
 
 	switch (ctx->content_type) {
@@ -275,34 +271,27 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		break;
 	case CONTENT_TYPE_QP:
 		buffer_set_used_size(ctx->buf, 0);
-		if (ctx->encoding_size != 0) {
-			quoted_printable_decode(new_buf,
-						ctx->encoding_size + skip,
+		if (ctx->encoding_buf->used != 0) {
+			quoted_printable_decode(ctx->encoding_buf->data,
+						ctx->encoding_buf->used,
 						&pos, ctx->buf);
-			i_assert(pos >= ctx->encoding_size);
-			skip = pos - ctx->encoding_size;
+		} else {
+			quoted_printable_decode(input->data, input->size,
+						&pos, ctx->buf);
 		}
-
-		quoted_printable_decode(input->data + skip, input->size - skip,
-					&pos, ctx->buf);
-		pos += skip;
 		data = ctx->buf->data;
 		size = ctx->buf->used;
 		break;
 	case CONTENT_TYPE_BASE64:
 		buffer_set_used_size(ctx->buf, 0);
-		if (ctx->encoding_size != 0) {
-			if (base64_decode(new_buf, ctx->encoding_size + skip,
-					  &pos, ctx->buf) < 0) {
-				/* corrupted base64 data, don't bother with
-				   the rest of it */
-				return FALSE;
-			}
-			i_assert(pos >= ctx->encoding_size);
-			skip = pos - ctx->encoding_size;
+		if (ctx->encoding_buf->used != 0) {
+			ret = base64_decode(ctx->encoding_buf->data,
+					    ctx->encoding_buf->used,
+					    &pos, ctx->buf);
+		} else {
+			ret = base64_decode(input->data, input->size,
+					    &pos, ctx->buf);
 		}
-		ret = base64_decode(input->data + skip, input->size - skip,
-				    &pos, ctx->buf);
 		if (ret < 0) {
 			/* corrupted base64 data, don't bother with
 			   the rest of it */
@@ -310,23 +299,19 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		}
 		if (ret == 0) {
 			/* end of base64 input */
-			pos = input->size - skip;
+			pos = input->size;
+			buffer_set_used_size(ctx->encoding_buf, 0);
 		}
-		pos += skip;
 		data = ctx->buf->data;
 		size = ctx->buf->used;
 		break;
 	}
 
-	if (pos != input->size) {
-		/* @UNSAFE */
-		i_assert(pos < input->size);
-		ctx->encoding_size = input->size - pos;
-		i_assert(ctx->encoding_size <= sizeof(ctx->encoding_buf));
-		memcpy(ctx->encoding_buf, input->data + pos,
-		       ctx->encoding_size);
-	} else {
-		ctx->encoding_size = 0;
+	if (ctx->encoding_buf->used != 0)
+		buffer_delete(ctx->encoding_buf, 0, pos);
+	else if (pos != input->size) {
+		buffer_append(ctx->encoding_buf,
+			      input->data + pos, input->size - pos);
 	}
 
 	if (ctx->binary_input) {
@@ -408,5 +393,5 @@ void message_decoder_decode_reset(struct message_decoder_context *ctx)
 	i_free_and_null(ctx->content_charset);
 	ctx->content_type = CONTENT_TYPE_BINARY;
 	ctx->charset_utf8 = TRUE;
-	ctx->encoding_size = 0;
+	buffer_set_used_size(ctx->encoding_buf, 0);
 }
