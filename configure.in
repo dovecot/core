@@ -1946,56 +1946,67 @@ if test $want_db != no; then
 fi
 
 if test $want_pgsql != no; then
-  # pg_config exists since 7.1, don't bother with older versions
   AC_CHECK_PROG(PG_CONFIG, pg_config, YES, NO)
   if test $PG_CONFIG = NO; then
-	  if test $want_pgsql = yes; then
-	    AC_ERROR([Can't build with PostgreSQL support: pg_config not found])
-	  fi
-  else
-	PGSQL_INCLUDE="`pg_config --includedir`"
-	PGSQL_LIBDIR="`pg_config --libdir`"
-
-	old_LIBS=$LIBS
-	if test "$PGSQL_LIBDIR" != ""; then
-	  LIBS="$LIBS -L$PGSQL_LIBDIR"
+    # based on code from PHP
+    for i in /usr /usr/local /usr/local/pgsql; do
+      for j in include include/pgsql include/postgres include/postgresql ""; do
+	if test -r "$i/$j/libpq-fe.h"; then
+	  PGSQL_INCLUDE=$i/$j
 	fi
-
-	AC_CHECK_LIB(pq, PQconnectdb, [
-		AC_CHECK_LIB(pq, PQescapeStringConn, [
-			AC_DEFINE(HAVE_PQESCAPE_STRING_CONN,, Define if libpq has PQescapeStringConn function)
-		])
-		old_CPPFLAGS=$CPPFLAGS
-		if test "$PGSQL_INCLUDE" != ""; then
-			CPPFLAGS="$CPPFLAGS -I $PGSQL_INCLUDE"
-		fi
-		AC_CHECK_HEADER(libpq-fe.h, [
-			if test "$PGSQL_INCLUDE" != ""; then
-				PGSQL_CFLAGS="$PGSQL_CFLAGS -I$PGSQL_INCLUDE"
-			fi
-			if test "$PGSQL_LIBDIR" != ""; then
-				PGSQL_LIBS="$PGSQL_LIBS -L$PGSQL_LIBDIR"
-			fi
-			PGSQL_LIBS="$PGSQL_LIBS -lpq"
-			AC_DEFINE(HAVE_PGSQL,, Build with PostgreSQL support)
-			found_sql_drivers="$found_sql_drivers pgsql"
-
-                        if test "$all_sql_drivers" = "yes"; then
-			  sql_drivers="$sql_drivers pgsql"
-			fi
-		], [
-		  if test $want_pgsql = yes; then
-		    AC_ERROR([Can't build with PostgreSQL support: libpq-fe.h not found])
-		  fi
-		])
-		CPPFLAGS=$old_CPPFLAGS
-	], [
-	  if test $want_pgsql = yes; then
-	    AC_ERROR([Can't build with PostgreSQL support: libpq not found])
+      done
+      for lib in lib lib64; do
+	for j in $lib $lib/pgsql $lib/postgres $lib/postgresql ""; do
+	  if test -f "$i/$j/libpq.so" || test -f "$i/$j/libpq.a"; then
+	    PGSQL_LIBDIR=$i/$j
 	  fi
-	])
-	LIBS=$old_LIBS
+	done
+      done
+    done
+  else
+    PGSQL_INCLUDE="`pg_config --includedir`"
+    PGSQL_LIBDIR="`pg_config --libdir`"  
   fi
+
+  old_LIBS=$LIBS
+  if test "$PGSQL_LIBDIR" != ""; then
+    LIBS="$LIBS -L$PGSQL_LIBDIR"
+  fi
+
+  AC_CHECK_LIB(pq, PQconnectdb, [
+	  AC_CHECK_LIB(pq, PQescapeStringConn, [
+		  AC_DEFINE(HAVE_PQESCAPE_STRING_CONN,, Define if libpq has PQescapeStringConn function)
+	  ])
+	  old_CPPFLAGS=$CPPFLAGS
+	  if test "$PGSQL_INCLUDE" != ""; then
+		  CPPFLAGS="$CPPFLAGS -I $PGSQL_INCLUDE"
+	  fi
+	  AC_CHECK_HEADER(libpq-fe.h, [
+		  if test "$PGSQL_INCLUDE" != ""; then
+			  PGSQL_CFLAGS="$PGSQL_CFLAGS -I$PGSQL_INCLUDE"
+		  fi
+		  if test "$PGSQL_LIBDIR" != ""; then
+			  PGSQL_LIBS="$PGSQL_LIBS -L$PGSQL_LIBDIR"
+		  fi
+		  PGSQL_LIBS="$PGSQL_LIBS -lpq"
+		  AC_DEFINE(HAVE_PGSQL,, Build with PostgreSQL support)
+		  found_sql_drivers="$found_sql_drivers pgsql"
+
+		  if test "$all_sql_drivers" = "yes"; then
+		    sql_drivers="$sql_drivers pgsql"
+		  fi
+	  ], [
+	    if test $want_pgsql = yes; then
+	      AC_ERROR([Can't build with PostgreSQL support: libpq-fe.h not found])
+	    fi
+	  ])
+	  CPPFLAGS=$old_CPPFLAGS
+  ], [
+    if test $want_pgsql = yes; then
+      AC_ERROR([Can't build with PostgreSQL support: libpq not found])
+    fi
+  ])
+  LIBS=$old_LIBS
 fi
 
 if test $want_mysql != no; then
