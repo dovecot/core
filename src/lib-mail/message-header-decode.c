@@ -36,9 +36,9 @@ message_header_decode_encoded(const unsigned char *data, size_t size,
 	switch (data[start_pos[0]+1]) {
 	case 'q':
 	case 'Q':
-		quoted_printable_decode(data + start_pos[1] + 1,
-					start_pos[2] - start_pos[1] - 1,
-					NULL, decodebuf);
+		quoted_printable_q_decode(data + start_pos[1] + 1,
+					  start_pos[2] - start_pos[1] - 1,
+					  decodebuf);
 		break;
 	case 'b':
 	case 'B':

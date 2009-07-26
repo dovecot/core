@@ -60,6 +60,7 @@ test_programs = \
 	test-message-header-parser \
 	test-message-id \
 	test-message-parser \
+	test-quoted-printable \
 	test-rfc2231-parser
 
 noinst_PROGRAMS = $(test_programs)
@@ -99,6 +100,10 @@ test_message_id_DEPENDENCIES = message-id.lo rfc822-parser.lo $(test_libs)
 test_message_parser_SOURCES = test-message-parser.c
 test_message_parser_LDADD = message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
 test_message_parser_DEPENDENCIES = message-parser.lo message-header-parser.lo message-size.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
+
+test_quoted_printable_SOURCES = test-quoted-printable.c
+test_quoted_printable_LDADD = quoted-printable.lo $(test_libs)
+test_quoted_printable_DEPENDENCIES = quoted-printable.lo $(test_libs)
 
 test_rfc2231_parser_SOURCES = test-rfc2231-parser.c
 test_rfc2231_parser_LDADD = rfc2231-parser.lo rfc822-parser.lo $(test_libs)
