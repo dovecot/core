@@ -116,6 +116,53 @@ static void maildir_set_children(struct maildir_list_iterate_context *ctx,
 }
 
 static int
+maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
+		   const char *mailbox_name, struct imap_match_glob *glob,
+		   bool update_only)
+{
+	const struct mailbox_list_settings *set = &ctx->ctx.list->set;
+	struct mailbox_node *node;
+	enum mailbox_info_flags flags;
+	enum imap_match_result match;
+	bool created;
+	int ret;
+
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_INBOX) == 0) {
+		/* always show INBOX */
+	} else if (set->inbox_path != NULL &&
+		   strcmp(set->inbox_path, set->root_dir) != 0) {
+		/* INBOX doesn't exist, since it wasn't listed */
+		update_only = TRUE;
+	} else {
+		/* INBOX is in Maildir root. show it only if it has already
+		   been created */
+		ret = ctx->ctx.list->v.
+			iter_is_mailbox(&ctx->ctx, ctx->dir, "", mailbox_name,
+					MAILBOX_LIST_FILE_TYPE_UNKNOWN, &flags);
+		if (ret < 0)
+			return -1;
+		if (ret == 0)
+			update_only = TRUE;
+	}
+
+	created = FALSE;
+	node = update_only ?
+		mailbox_tree_lookup(ctx->tree_ctx, mailbox_name) :
+		mailbox_tree_get(ctx->tree_ctx, mailbox_name, &created);
+	if (created)
+		node->flags = MAILBOX_NOCHILDREN;
+	else if (node != NULL)
+		node->flags &= ~MAILBOX_NONEXISTENT;
+
+	match = imap_match(glob, mailbox_name);
+	if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0) {
+		if (!update_only)
+			node->flags |= MAILBOX_MATCHED;
+	}
+	return 0;
+}
+
+static int
 maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		     struct imap_match_glob *glob, bool update_only)
 {
@@ -234,31 +281,14 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		return -1;
 	}
 
-	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	if ((ns->flags & NAMESPACE_FLAG_INBOX) == 0)
+		return 0;
+	else {
 		/* make sure INBOX is listed */
-		if (!virtual_names)
-			mailbox_name = "INBOX";
-		else {
-			mailbox_name = mail_namespace_get_vname(ns, mailbox,
-								"INBOX");
-		}
-
-		created = FALSE;
-		node = update_only ?
-			mailbox_tree_lookup(ctx->tree_ctx, mailbox_name) :
-			mailbox_tree_get(ctx->tree_ctx, mailbox_name, &created);
-		if (created)
-			node->flags = MAILBOX_NOCHILDREN;
-		else if (node != NULL)
-			node->flags &= ~MAILBOX_NONEXISTENT;
-
-		match = imap_match(glob, mailbox_name);
-		if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0) {
-			if (!update_only)
-				node->flags |= MAILBOX_MATCHED;
-		}
+		mailbox_name = !virtual_names ? "INBOX" :
+			mail_namespace_get_vname(ns, mailbox, "INBOX");
+		return maildir_fill_inbox(ctx, mailbox_name, glob, update_only);
 	}
-	return 0;
 }
 
 struct mailbox_list_iterate_context *

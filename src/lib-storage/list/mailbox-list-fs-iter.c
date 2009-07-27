@@ -752,6 +752,7 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 	}
 
 	if (!ctx->inbox_found &&
+	    (ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_INBOX) == 0 &&
 	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
 	    ((ctx->glob != NULL &&
 	      imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES) ||

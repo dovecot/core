@@ -49,6 +49,8 @@ enum mailbox_list_iter_flags {
 	/* For mailbox_list_iter_init_namespaces(): Skip namespaces that
 	   have alias_for set. */
 	MAILBOX_LIST_ITER_SKIP_ALIASES		= 0x000004,
+	/* Don't list INBOX unless it actually exists */
+	MAILBOX_LIST_ITER_NO_AUTO_INBOX		= 0x000008,
 
 	/* List only subscribed mailboxes */
 	MAILBOX_LIST_ITER_SELECT_SUBSCRIBED	= 0x000010,
