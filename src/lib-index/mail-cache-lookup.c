@@ -17,6 +17,12 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 
 	i_assert(offset != 0);
 
+	if (offset % sizeof(uint32_t) != 0) {
+		/* records are always 32-bit aligned */
+		mail_cache_set_corrupted(cache, "invalid record offset");
+		return -1;
+	}
+
 	/* we don't know yet how large the record is, so just guess */
 	if (mail_cache_map(cache, offset, sizeof(*rec) + CACHE_PREFETCH) < 0)
 		return -1;
