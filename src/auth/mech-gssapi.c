@@ -443,12 +443,6 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 		return -1;
 	}
 
-	if (!mech_gssapi_krb5_userok(request, request->authz_name,
-				     login_user, FALSE)) {
-		auth_request_log_info(auth_request, "gssapi",
-			"authz_name (%s) not authorized", login_user);
-		return -1;
-	}
 	return 0;
 #else
 	auth_request_log_info(auth_request, "gssapi",
