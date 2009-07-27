@@ -229,6 +229,13 @@ static int get_display_name(struct auth_request *auth_request, gss_name_t name,
 	return 0;
 }
 
+static bool mech_gssapi_oid_cmp(const gss_OID_desc *oid1,
+				const gss_OID_desc *oid2)
+{
+	return oid1->length == oid2->length &&
+		memcmp(oid1->elements, oid2->elements, oid1->length) == 0;
+}
+
 static int
 mech_gssapi_sec_context(struct gssapi_auth_request *request,
 			gss_buffer_desc inbuf)
@@ -237,6 +244,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc output_token;
 	gss_OID name_type;
+	gss_OID mech_type;
 	const char *username, *error;
 	int ret = 0;
 
@@ -247,13 +255,13 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 		&inbuf,
 		GSS_C_NO_CHANNEL_BINDINGS,
 		&request->authn_name, 
-		NULL, /* mech_type */
+		&mech_type,
 		&output_token,
 		NULL, /* ret_flags */
 		NULL, /* time_rec */
 		NULL  /* delegated_cred_handle */
 	);
-	
+
 	if (GSS_ERROR(major_status)) {
 		mech_gssapi_log_error(auth_request, major_status,
 				      GSS_C_GSS_CODE,
@@ -266,8 +274,12 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 
 	switch (major_status) {
 	case GSS_S_COMPLETE:
-		if (!get_display_name(auth_request, request->authn_name,
-				      &name_type, &username) < 0)
+		if (!mech_gssapi_oid_cmp(mech_type, gss_mech_krb5)) {
+			auth_request_log_info(auth_request, "gssapi",
+					      "GSSAPI mechanism not Kerberos5");
+			ret = -1;
+		} else if (!get_display_name(auth_request, request->authn_name,
+					     &name_type, &username) < 0)
 			ret = -1;
 		else if (!auth_request_set_username(auth_request, username,
 						    &error)) {
@@ -361,7 +373,8 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 			      &princ_display_name) < 0)
 		return FALSE;
 
-	if (name_type != GSS_KRB5_NT_PRINCIPAL_NAME && check_name_type) {
+	if (!mech_gssapi_oid_cmp(name_type, GSS_KRB5_NT_PRINCIPAL_NAME) &&
+	    check_name_type) {
 		auth_request_log_info(&request->auth_request, "gssapi",
 				      "OID not kerberos principal name");
 		return FALSE;
