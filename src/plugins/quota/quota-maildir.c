@@ -629,10 +629,12 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 	return root->maildirsize_path != NULL;
 }
 
-static int maildirquota_refresh(struct maildir_quota_root *root)
+static int
+maildirquota_refresh(struct maildir_quota_root *root, bool *recalculated_r)
 {
 	int ret;
 
+	*recalculated_r = FALSE;
 	if (!maildirquota_limits_init(root))
 		return 0;
 
@@ -652,6 +654,8 @@ static int maildirquota_refresh(struct maildir_quota_root *root)
 		}
 
 		ret = maildirsize_recalculate(root);
+		if (ret == 0)
+			*recalculated_r = TRUE;
 	}
 	return ret < 0 ? -1 : 0;
 }
@@ -792,8 +796,9 @@ maildir_quota_get_resource(struct quota_root *_root, const char *name,
 			   uint64_t *value_r)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
+	bool recalculated;
 
-	if (maildirquota_refresh(root) < 0)
+	if (maildirquota_refresh(root, &recalculated) < 0)
 		return -1;
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0) {
@@ -809,8 +814,8 @@ static int
 maildir_quota_update(struct quota_root *_root,
 		     struct quota_transaction_context *ctx)
 {
-	struct maildir_quota_root *root =
-		(struct maildir_quota_root *) _root;
+	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
+	bool recalculated;
 
 	if (!maildirquota_limits_init(root)) {
 		/* no limits */
@@ -821,11 +826,15 @@ maildir_quota_update(struct quota_root *_root,
 	   we do want to make sure the header gets updated if the limits have
 	   changed. also this makes sure the maildirsize file is created if
 	   it doesn't exist. */
-	if (maildirquota_refresh(root) < 0)
+	if (maildirquota_refresh(root, &recalculated) < 0)
 		return -1;
 
-	if (root->fd == -1 || ctx->recalculate ||
-	    maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0)
+	if (recalculated) {
+		/* quota was just recalculated and it already contains the changes
+		   we wanted to do. */
+	} else if (root->fd == -1 || ctx->recalculate)
+		maildirsize_rebuild_later(root);
+	else if (maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0)
 		maildirsize_rebuild_later(root);
 
 	return 0;
