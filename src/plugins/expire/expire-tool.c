@@ -15,6 +15,7 @@
 #include "expire-env.h"
 
 #include <stdlib.h>
+#include <time.h>
 
 struct expire_context {
 	pool_t multi_user_pool;
