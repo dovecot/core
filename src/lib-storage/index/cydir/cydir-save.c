@@ -232,11 +232,11 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 {
 	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
 	const struct mail_index_header *hdr;
-	struct seq_range *range;
-	uint32_t i, uid, next_uid;
+	struct seq_range_iter iter;
+	uint32_t uid;
 	const char *dir;
 	string_t *src_path, *dest_path;
-	unsigned int src_prefixlen, dest_prefixlen;
+	unsigned int n, src_prefixlen, dest_prefixlen;
 
 	i_assert(ctx->finished);
 
@@ -247,13 +247,9 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 	}
 
 	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
-	uid = hdr->next_uid;
-	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
-
+	mail_index_append_finish_uids(ctx->trans, hdr->next_uid,
+				      &_t->changes->saved_uids);
 	_t->changes->uid_validity = ctx->sync_ctx->uid_validity;
-	range = array_append_space(&_t->changes->saved_uids);
-	range->seq1 = uid;
-	range->seq2 = next_uid - 1;
 
 	dir = mailbox_list_get_path(ctx->mbox->ibox.box.list,
 				    ctx->mbox->ibox.box.name,
@@ -268,10 +264,11 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 	str_append_c(dest_path, '/');
 	dest_prefixlen = str_len(dest_path);
 
-	for (i = 0; i < ctx->mail_count; i++, uid++) {
+	seq_range_array_iter_init(&iter, &_t->changes->saved_uids); n = 0;
+	while (seq_range_array_iter_nth(&iter, n++, &uid) > 0) {
 		str_truncate(src_path, src_prefixlen);
 		str_truncate(dest_path, dest_prefixlen);
-		str_printfa(src_path, "%u", i);
+		str_printfa(src_path, "%u", n-1);
 		str_printfa(dest_path, "%u.", uid);
 
 		if (rename(str_c(src_path), str_c(dest_path)) < 0) {

@@ -77,7 +77,7 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 				    uint32_t *last_map_uid_r);
 /* Assign UIDs to all created single-files. */
 int dbox_map_append_assign_uids(struct dbox_map_append_context *ctx,
-				uint32_t first_uid, uint32_t last_uid);
+				const ARRAY_TYPE(seq_range) *uids);
 /* The appends are existing messages that were simply moved to a new file.
    map_uids contains the moved messages' map UIDs. */
 int dbox_map_append_move(struct dbox_map_append_context *ctx,

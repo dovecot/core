@@ -396,10 +396,13 @@ void mail_index_lookup_first(struct mail_index_view *view,
 /* Append a new record to index. */
 void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 		       uint32_t *seq_r);
-/* Assigns UIDs for appended mails all at once. UID must have been given as 0
-   for mail_index_append(). Returns the next unused UID. */
-void mail_index_append_assign_uids(struct mail_index_transaction *t,
-				   uint32_t first_uid, uint32_t *next_uid_r);
+/* Assign UIDs for mails with uid=0 or uid<first_uid. Assumes that mailbox is
+   locked in a way that UIDs can be safely assigned. Returns UIDs for all
+   asigned messages, in their sequence order (so UIDs are not necessary
+   ascending). */
+void mail_index_append_finish_uids(struct mail_index_transaction *t,
+				   uint32_t first_uid,
+				   ARRAY_TYPE(seq_range) *uids_r);
 /* Update message's UID. The new UID must not be lower than next_uid at the
    commit time, otherwise the UID update fails and is just ignored.
    If there are appends in the same transaction, the updated UIDs must be

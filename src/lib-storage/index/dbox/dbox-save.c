@@ -310,8 +310,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 {
 	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
 	const struct mail_index_header *hdr;
-	struct seq_range *range;
-	uint32_t uid, first_map_uid, last_map_uid, next_uid;
+	uint32_t first_map_uid, last_map_uid;
 
 	i_assert(ctx->finished);
 
@@ -334,15 +333,13 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 
 	/* assign UIDs for new messages */
 	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
-	uid = hdr->next_uid;
-	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
+	mail_index_append_finish_uids(ctx->trans, hdr->next_uid,
+				      &_t->changes->saved_uids);
 
 	/* if we saved any single-files, rename the files to contain UIDs */
 	if (ctx->single_count > 0) {
-		uint32_t last_uid = uid + ctx->single_count - 1;
-
-		if (dbox_map_append_assign_uids(ctx->append_ctx, uid,
-						last_uid) < 0) {
+		if (dbox_map_append_assign_uids(ctx->append_ctx,
+						&_t->changes->saved_uids) < 0) {
 			dbox_transaction_save_rollback(ctx);
 			return -1;
 		}
@@ -388,9 +385,6 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 		mail_free(&ctx->mail);
 
 	_t->changes->uid_validity = hdr->uid_validity;
-	range = array_append_space(&_t->changes->saved_uids);
-	range->seq1 = uid;
-	range->seq2 = next_uid - 1;
 	return 0;
 }
 

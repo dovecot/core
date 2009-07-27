@@ -196,24 +196,46 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 	}
 }
 
-void mail_index_append_assign_uids(struct mail_index_transaction *t,
-				   uint32_t first_uid, uint32_t *next_uid_r)
+void mail_index_append_finish_uids(struct mail_index_transaction *t,
+				   uint32_t first_uid,
+				   ARRAY_TYPE(seq_range) *uids_r)
 {
 	struct mail_index_record *recs;
 	unsigned int i, count;
-
+	struct seq_range *range;
+	uint32_t next_uid;
+	
 	if (!array_is_created(&t->appends))
 		return;
 
-	i_assert(first_uid > t->highest_append_uid);
-
+	/* first find the highest assigned uid */
 	recs = array_get_modifiable(&t->appends, &count);
+	i_assert(count > 0);
+
+	next_uid = first_uid;
 	for (i = 0; i < count; i++) {
-		if (recs[i].uid == 0)
-			recs[i].uid = first_uid++;
+		if (next_uid <= recs[i].uid)
+			next_uid = recs[i].uid + 1;
 	}
 
-	*next_uid_r = first_uid;
+	/* assign missing uids */
+	for (i = 0; i < count; i++) {
+		if (recs[i].uid == 0 || recs[i].uid < first_uid)
+			recs[i].uid = next_uid++;
+	}
+
+	/* write the saved uids range */
+	array_clear(uids_r);
+	range = array_append_space(uids_r);
+	range->seq1 = range->seq2 = recs[0].uid;
+	for (i = 1; i < count; i++) {
+		if (range->seq2 + 1 == recs[i].uid)
+			range->seq2++;
+		else {
+			range = array_append_space(uids_r);
+			range->seq1 = range->seq2 = recs[i].uid;
+		}
+	}
 }
 
 void mail_index_update_uid(struct mail_index_transaction *t, uint32_t seq,

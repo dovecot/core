@@ -964,7 +964,9 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 	const struct mail_index_header *hdr;
 	struct dbox_mail_index_map_record rec;
 	unsigned int i, count;
-	uint32_t seq, first_uid, next_uid;
+	ARRAY_TYPE(seq_range) uids;
+	const struct seq_range *range;
+	uint32_t seq;
 	uint16_t ref16;
 	int ret = 0;
 
@@ -998,9 +1000,10 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 
 	/* assign map UIDs for appended records */
 	hdr = mail_index_get_header(ctx->sync_view);
-	first_uid = hdr->next_uid;
-	mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
-	i_assert(next_uid - first_uid == count);
+	t_array_init(&uids, 1);
+	mail_index_append_finish_uids(ctx->trans, hdr->next_uid, &uids);
+	range = array_idx(&uids, 0);
+	i_assert(range[0].seq2 - range[0].seq1 + 1 == count);
 
 	if (hdr->uid_validity == 0) {
 		/* we don't really care about uidvalidity, but it can't be 0 */
@@ -1016,8 +1019,8 @@ int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 		return -1;
 	}
 
-	*first_map_uid_r = first_uid;
-	*last_map_uid_r = next_uid - 1;
+	*first_map_uid_r = range[0].seq1;
+	*last_map_uid_r = range[0].seq2;
 	return ret;
 }
 
@@ -1062,21 +1065,26 @@ int dbox_map_append_move(struct dbox_map_append_context *ctx,
 }
 
 int dbox_map_append_assign_uids(struct dbox_map_append_context *ctx,
-				uint32_t first_uid, uint32_t last_uid)
+				const ARRAY_TYPE(seq_range) *uids)
 {
 	struct dbox_file *const *files;
-	unsigned int i, count;
-	uint32_t next_uid = first_uid;
+	struct seq_range_iter iter;
+	unsigned int i, count, n = 0;
+	uint32_t uid;
+	bool ret;
 
+	seq_range_array_iter_init(&iter, uids);
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
 		if (files[i]->single_mbox == NULL)
 			continue;
 
-		if (dbox_file_assign_id(files[i], next_uid++) < 0)
+		ret = seq_range_array_iter_nth(&iter, n++, &uid);
+		i_assert(ret);
+		if (dbox_file_assign_id(files[i], uid) < 0)
 			return -1;
 	}
-	i_assert(next_uid == last_uid + 1);
+	i_assert(!seq_range_array_iter_nth(&iter, n, &uid));
 	return 0;
 }
 

@@ -625,11 +625,11 @@ static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 static int
 maildir_save_sync_index(struct maildir_save_context *ctx)
 {
-	struct maildir_transaction_context *t =
-		(struct maildir_transaction_context *)ctx->ctx.transaction;
+	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
 	struct maildir_mailbox *mbox = ctx->mbox;
-	struct seq_range *range;
+	const struct seq_range *uids;
 	uint32_t uid, first_uid, next_uid;
+	unsigned int i, count;
 	int ret;
 
 	/* we'll need to keep the lock past the sync deinit */
@@ -656,12 +656,19 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 	/* if messages were added to index, assign them UIDs */
 	first_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
 	i_assert(first_uid != 0);
-	mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
-	i_assert(next_uid = first_uid + ctx->files_count);
+	mail_index_append_finish_uids(ctx->trans, first_uid,
+				      &_t->changes->saved_uids);
+	i_assert(ctx->files_count == seq_range_count(&_t->changes->saved_uids));
 
 	/* these mails are all recent in our session */
-	for (uid = first_uid; uid < next_uid; uid++)
-		index_mailbox_set_recent_uid(&mbox->ibox, uid);
+	next_uid = first_uid;
+	uids = array_get(&_t->changes->saved_uids, &count);
+	for (i = 0; i < count; i++) {
+		if (next_uid < uids[i].seq2)
+			next_uid = uids[i].seq2;
+		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++)
+			index_mailbox_set_recent_uid(&mbox->ibox, uid);
+	}
 
 	if (!mbox->ibox.keep_recent) {
 		/* maildir_sync_index() dropped recent flags from
@@ -672,11 +679,6 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 						  first_recent_uid),
 					 &next_uid, sizeof(next_uid), FALSE);
 	}
-
-	/* this will work even if index isn't updated */
-	range = array_append_space(&t->ictx.mailbox_ctx.changes->saved_uids);
-	range->seq1 = first_uid;
-	range->seq2 = next_uid - 1;
 	return 0;
 }
 

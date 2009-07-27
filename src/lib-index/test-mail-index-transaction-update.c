@@ -57,8 +57,10 @@ static void test_mail_index_append(void)
 {
 	struct mail_index_transaction *t;
 	const struct mail_index_record *appends;
+	ARRAY_TYPE(seq_range) saved_uids_arr;
+	const struct seq_range *saved_uids;
 	unsigned int count;
-	uint32_t seq, next_uid;
+	uint32_t seq;
 
 	hdr.messages_count = 4;
 	t = mail_index_transaction_new();
@@ -71,8 +73,11 @@ static void test_mail_index_append(void)
 	test_assert(seq == 6);
 	test_assert(!t->appends_nonsorted);
 
-	mail_index_append_assign_uids(t, 123, &next_uid);
-	test_assert(next_uid == 125);
+	t_array_init(&saved_uids_arr, 128);
+	mail_index_append_finish_uids(t, 123, &saved_uids_arr);
+	saved_uids = array_get(&saved_uids_arr, &count);
+	test_assert(count == 1);
+	test_assert(saved_uids[0].seq1 == 123 && saved_uids[0].seq2 == 124);
 
 	appends = array_get(&t->appends, &count);
 	test_assert(appends[0].uid == 123);
@@ -99,15 +104,20 @@ static void test_mail_index_append(void)
 	test_assert(seq == 9);
 	test_assert(t->highest_append_uid == 128);
 
-	mail_index_append_assign_uids(t, 129, &next_uid);
-	test_assert(next_uid == 131);
+	mail_index_append_finish_uids(t, 125, &saved_uids_arr);
+	saved_uids = array_get(&saved_uids_arr, &count);
+	test_assert(count == 4);
+	test_assert(saved_uids[0].seq1 == 129 && saved_uids[0].seq2 == 129);
+	test_assert(saved_uids[1].seq1 == 126 && saved_uids[1].seq2 == 126);
+	test_assert(saved_uids[2].seq1 == 130 && saved_uids[2].seq2 == 131);
+	test_assert(saved_uids[3].seq1 == 128 && saved_uids[3].seq2 == 128);
 
 	appends = array_get(&t->appends, &count);
 	test_assert(count == 5);
 	test_assert(appends[0].uid == 129);
 	test_assert(appends[1].uid == 126);
-	test_assert(appends[2].uid == 124);
-	test_assert(appends[3].uid == 130);
+	test_assert(appends[2].uid == 130);
+	test_assert(appends[3].uid == 131);
 	test_assert(appends[4].uid == 128);
 	test_end();
 }
