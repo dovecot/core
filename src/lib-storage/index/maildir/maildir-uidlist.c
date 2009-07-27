@@ -86,6 +86,7 @@ struct maildir_uidlist {
 
 	unsigned int version;
 	unsigned int uid_validity, next_uid, prev_read_uid, last_seen_uid;
+	unsigned int hdr_next_uid;
 	unsigned int read_records_count, read_line_count;
 	uoff_t last_read_offset;
 	string_t *hdr_extensions;
@@ -618,7 +619,7 @@ maildir_uidlist_read_v3_header(struct maildir_uidlist *uidlist,
 static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 				       struct istream *input)
 {
-	unsigned int uid_validity, next_uid;
+	unsigned int uid_validity = 0, next_uid = 0;
 	const char *line;
 	int ret;
 
@@ -645,13 +646,6 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 				"Corrupted header (version 1)");
 			return 0;
 		}
-		if (uid_validity == uidlist->uid_validity &&
-		    next_uid < uidlist->next_uid) {
-			maildir_uidlist_set_corrupted(uidlist,
-				"next_uid was lowered (v1, %u -> %u)",
-				uidlist->next_uid, next_uid);
-			return 0;
-		}
 		break;
 	case UIDLIST_VERSION:
 		T_BEGIN {
@@ -675,8 +669,17 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 		return 0;
 	}
 
+	if (uid_validity == uidlist->uid_validity &&
+	    next_uid < uidlist->hdr_next_uid) {
+		maildir_uidlist_set_corrupted(uidlist,
+			"next_uid header was lowered (%u -> %u)",
+			uidlist->hdr_next_uid, next_uid);
+		return 0;
+	}
+
 	uidlist->uid_validity = uid_validity;
 	uidlist->next_uid = next_uid;
+	uidlist->hdr_next_uid = next_uid;
 	return 1;
 }
 
@@ -692,7 +695,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 {
 	struct mail_storage *storage = uidlist->ibox->box.storage;
 	const char *line;
-	unsigned int orig_next_uid;
+	uint32_t orig_next_uid, orig_uid_validity;
 	struct istream *input;
 	struct stat st;
 	uoff_t last_read_offset;
@@ -751,6 +754,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 	input = i_stream_create_fd(fd, 4096, FALSE);
 	i_stream_seek(input, last_read_offset);
 
+	orig_uid_validity = uidlist->uid_validity;
 	orig_next_uid = uidlist->next_uid;
 	ret = input->v_offset != 0 ? 1 :
 		maildir_uidlist_read_header(uidlist, input);
@@ -784,11 +788,13 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 		}
 		if (uidlist->next_uid <= uidlist->prev_read_uid)
 			uidlist->next_uid = uidlist->prev_read_uid + 1;
-		if (ret > 0 && uidlist->next_uid < orig_next_uid) {
+		if (ret > 0 && uidlist->uid_validity != orig_uid_validity) {
+			uidlist->recreate = TRUE;
+		} else if (ret > 0 && uidlist->next_uid < orig_next_uid) {
 			mail_storage_set_critical(storage,
-				"%s: next_uid was lowered (%u -> %u)",
+				"%s: next_uid was lowered (%u -> %u, hdr=%u)",
 				uidlist->path, orig_next_uid,
-				uidlist->next_uid);
+				uidlist->next_uid, uidlist->hdr_next_uid);
 			uidlist->recreate = TRUE;
 			uidlist->next_uid = orig_next_uid;
 		}
