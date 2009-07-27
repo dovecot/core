@@ -1219,7 +1219,8 @@ static void virtual_sync_backend_add_new(struct virtual_sync_context *ctx)
 	const struct mail_index_header *hdr;
 	const struct virtual_mail_index_record *vrec;
 	unsigned int i, count, idx;
-	uint32_t vseq, first_uid, next_uid;
+	ARRAY_TYPE(seq_range) saved_uids;
+	uint32_t vseq, first_uid;
 
 	hdr = mail_index_get_header(ctx->sync_view);
 	adds = array_get_modifiable(&ctx->all_adds, &count);
@@ -1251,7 +1252,9 @@ static void virtual_sync_backend_add_new(struct virtual_sync_context *ctx)
 
 	/* assign UIDs to new messages */
 	first_uid = hdr->next_uid;
-	mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
+	t_array_init(&saved_uids, 1);
+	mail_index_append_finish_uids(ctx->trans, first_uid, &saved_uids);
+	i_assert(seq_range_count(&saved_uids) == count);
 
 	/* update virtual UIDs in uidmap */
 	for (bbox = NULL, i = 0; i < count; i++) {
