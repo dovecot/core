@@ -6,11 +6,12 @@
 #include "mempool.h"
 
 #include <stdlib.h>
-#ifdef HAVE_MALLOC_H
-#  include <malloc.h>
-#endif
-#ifdef HAVE_MALLOC_NP_H
-#  include <malloc_np.h> /* for malloc_usable_size() with FreeBSD */
+#ifndef HAVE_MALLOC_USABLE_SIZE
+/* no extra includes needed */
+#elif defined (HAVE_MALLOC_NP_H)
+#  include <malloc_np.h> /* FreeBSD */
+#elif defined (HAVE_MALLOC_H)
+#  include <malloc.h> /* Linux */
 #endif
 
 #ifdef HAVE_GC_GC_H
