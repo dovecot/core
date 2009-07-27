@@ -50,7 +50,7 @@ bool imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
 	const struct imap_fetch_handler *handler;
 	const char *lookup_name, *p;
 
-	for (p = name; i_isalnum(*p); p++) ;
+	for (p = name; i_isalnum(*p) || *p == '-'; p++) ;
 	lookup_name = t_strdup_until(name, p);
 
 	handler = array_bsearch(&fetch_handlers, lookup_name,
