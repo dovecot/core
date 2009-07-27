@@ -5,8 +5,7 @@
 
 enum test_dsync_last_box_type {
 	LAST_BOX_TYPE_CREATE,
-	LAST_BOX_TYPE_UPDATE,
-	LAST_BOX_TYPE_SELECT
+	LAST_BOX_TYPE_UPDATE
 };
 
 enum test_dsync_last_msg_type {

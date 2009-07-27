@@ -16,6 +16,8 @@ dsync_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
 dsync_SOURCES = \
 	dsync.c \
 	dsync-brain.c \
+	dsync-brain-msgs.c \
+	dsync-brain-msgs-new.c \
 	dsync-data.c \
 	dsync-proxy.c \
 	dsync-proxy-client.c \
@@ -37,6 +39,7 @@ noinst_HEADERS = \
 
 test_programs = \
 	test-dsync-brain \
+	test-dsync-brain-msgs \
 	test-dsync-proxy \
 	test-dsync-proxy-server-cmd
 
@@ -52,6 +55,10 @@ test_libs = \
 test_dsync_brain_SOURCES = test-dsync-brain.c
 test_dsync_brain_LDADD = test-dsync-worker.o dsync-data.o dsync-brain.o dsync-worker.o $(test_libs)
 test_dsync_brain_DEPENDENCIES = test-dsync-worker.o dsync-data.o dsync-brain.o dsync-worker.o $(test_libs)
+
+test_dsync_brain_msgs_SOURCES = test-dsync-brain-msgs.c
+test_dsync_brain_msgs_LDADD = test-dsync-worker.o dsync-data.o dsync-brain-msgs.o dsync-worker.o $(test_libs)
+test_dsync_brain_msgs_DEPENDENCIES = test-dsync-worker.o dsync-data.o dsync-brain-msgs.o dsync-worker.o $(test_libs)
 
 test_dsync_proxy_SOURCES = test-dsync-proxy.c
 test_dsync_proxy_LDADD = dsync-proxy.o $(test_libs)

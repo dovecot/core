@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
+#include "ostream.h"
 #include "hex-binary.h"
 #include "mail-types.h"
 #include "imap-util.h"
@@ -53,8 +54,8 @@ int dsync_proxy_msg_parse_flags(pool_t pool, const char *str,
 	return 0;
 }
 
-int dsync_proxy_msg_import_unescaped(pool_t pool, struct dsync_message *msg_r,
-				     const char *const *args,
+int dsync_proxy_msg_import_unescaped(pool_t pool, const char *const *args,
+				     struct dsync_message *msg_r,
 				     const char **error_r)
 {
 	/* guid uid modseq flags save_date */
@@ -86,8 +87,52 @@ int dsync_proxy_msg_import(pool_t pool, const char *str,
 		args = p_strsplit(pool_datastack_create(), str, "\t");
 		for (i = 0; args[i] != NULL; i++)
 			args[i] = str_tabunescape(args[i]);
-		ret = dsync_proxy_msg_import_unescaped(pool, msg_r,
-					(const char *const *)args, error_r);
+		ret = dsync_proxy_msg_import_unescaped(pool,
+						(const char *const *)args,
+						msg_r, error_r);
+	} T_END;
+	return ret;
+}
+
+void dsync_proxy_msg_static_export(string_t *str,
+				   const struct dsync_msg_static_data *msg)
+{
+	str_printfa(str, "%ld\t", (long)msg->received_date);
+	str_tabescape_write(str, msg->pop3_uidl);
+}
+
+int dsync_proxy_msg_static_import_unescaped(pool_t pool,
+					    const char *const *args,
+					    struct dsync_msg_static_data *msg_r,
+					    const char **error_r)
+{
+	/* received_date pop3_uidl */
+	if (str_array_length(args) < 2) {
+		*error_r = "Missing parameters";
+		return -1;
+	}
+
+	memset(msg_r, 0, sizeof(*msg_r));
+	msg_r->received_date = strtoul(args[0], NULL, 10);
+	msg_r->pop3_uidl = p_strdup(pool, args[1]);
+	return 0;
+}
+
+int dsync_proxy_msg_static_import(pool_t pool, const char *str,
+				  struct dsync_msg_static_data *msg_r,
+				  const char **error_r)
+{
+	char **args;
+	unsigned int i;
+	int ret;
+
+	T_BEGIN {
+		args = p_strsplit(pool_datastack_create(), str, "\t");
+		for (i = 0; args[i] != NULL; i++)
+			args[i] = str_tabunescape(args[i]);
+		ret = dsync_proxy_msg_static_import_unescaped(pool, 
+						(const char *const *)args,
+						msg_r, error_r);
 	} T_END;
 	return ret;
 }
@@ -192,4 +237,26 @@ int dsync_proxy_mailbox_guid_import(const char *str, mailbox_guid_t *guid_r)
 		return -1;
 	memcpy(guid_r->guid, buf->data, sizeof(guid_r->guid));
 	return 0;
+}
+
+void dsync_proxy_send_dot_output(struct ostream *output, bool *last_lf,
+				 const unsigned char *data, size_t size)
+{
+	size_t i, start;
+
+	i_assert(size > 0);
+
+	if (*last_lf && data[0] == '.')
+		o_stream_send(output, ".", 1);
+
+	for (i = 1, start = 0; i < size; i++) {
+		if (data[i-1] == '\n' && data[i] == '.') {
+			o_stream_send(output, data + start, i - start);
+			o_stream_send(output, ".", 1);
+			start = i;
+		}
+	}
+	o_stream_send(output, data + start, i - start);
+	*last_lf = data[i-1] == '\n';
+	i_assert(i == size);
 }

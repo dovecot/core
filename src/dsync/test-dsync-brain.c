@@ -5,496 +5,236 @@
 #include "sha1.h"
 #include "master-service.h"
 #include "dsync-brain-private.h"
-#include "test-common.h"
 #include "test-dsync-worker.h"
 #include "test-dsync-common.h"
 
-#include <stdlib.h>
-
-enum {
-	FLAG_EXISTS	= 0x01,
-	FLAG_CREATED	= 0x02,
-	FLAG_UNCHANGED	= 0x04
-};
-
-struct test_dsync_mailbox {
-	struct dsync_mailbox box;
-	struct dsync_message *src_msgs, *dest_msgs;
-	unsigned int dest_flags;
-};
-
-static const char *kw12[] = { "kw1", "kw2", NULL };
-
-static struct dsync_message box1_src_msgs[] = {
-	{ "guid1", 3, MAIL_SEEN, kw12, 123, 987 },
-	{ "guid2", 5, MAIL_DRAFT, NULL, 125, 989 },
-	{ "guid3", 8, 0, NULL, 128, 990 },
-	{ NULL, 0, 0, NULL, 0, 0 }
-};
-static struct dsync_message box1_dest_msgs[] = {
-	{ "guid1", 3, MAIL_FLAGGED, NULL, 123, 987 },
-	{ "guid2", 5, MAIL_DRAFT, kw12, 125, 989 },
-	{ NULL, 0, 0, NULL, 0, 0 }
-};
-
-static struct dsync_message box2_src_msgs[] = {
-	{ "guid2", 6, MAIL_ANSWERED | MAIL_FLAGGED, NULL, 3434, 6552354 },
-	{ "guid4", 10, 0, NULL, 3426, 43643 },
-	{ NULL, 0, 0, NULL, 0, 0 }
-};
-
-static struct dsync_message box3_src_msgs[] = {
-	{ "guid1", 1, MAIL_FLAGGED, NULL, 5454, 273850 },
-	{ "guid5", 5, 0, NULL, 331, 38701233 },
-	{ "b75c81f2b3a4c9f84f24851c37acedee", 6, DSYNC_MAIL_FLAG_EXPUNGED, NULL, 331, 38701233 },
-	{ NULL, 0, 0, NULL, 0, 0 }
-};
-static struct dsync_message box3_dest_msgs[] = {
-	{ "guid1", 1, MAIL_FLAGGED, NULL, 5454, 273850 },
-	{ "guid8", 3, 0, NULL, 330, 2424 },
-	{ "guid5", 5, 0, NULL, 1, 38701233 },
-	{ "guid6", 6, 0, NULL, 333, 6482 },
-	{ "guid7", 7, 0, NULL, 333, 6482 },
-	{ NULL, 0, 0, NULL, 0, 0 }
-};
-
-static struct test_dsync_mailbox basic_mailboxes[] = {
-	{ { "box1", { { 0x12, 0x34, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
-		        0x21, 0x43, 0x54, 0x76, 0x98, 0xba, 0xdc, 0xfe } },
-	    1234567890, 4321, 605040302010ULL },
-	  box1_src_msgs, box1_dest_msgs, FLAG_EXISTS },
-	{ { "box2", { { 0xa3, 0xbd, 0x78, 0x24, 0xde, 0xfe, 0x08, 0xf7,
-		        0xac, 0xc7, 0xca, 0x8c, 0xe7, 0x39, 0xdb, 0xca } },
-	    554321023, 6767, 79 },
-	  box2_src_msgs, NULL, 0 },
-	{ { "box3", { { 0x46, 0x25, 0xb3, 0x24, 0xde, 0xfe, 0x08, 0xf7,
-		        0xac, 0xc7, 0xca, 0x1a, 0xe7, 0x39, 0xdb, 0x54 } },
-	    4545454, 656, 2366 }, box3_src_msgs,
-	  box3_dest_msgs, FLAG_EXISTS },
-	{ { "dir1", { { 0, } }, 0, 0, 0 }, NULL, NULL, FLAG_EXISTS },
-	{ { "dir2", { { 0, } }, 0, 0, 0 }, NULL, NULL, 0 },
-	{ { "box4", { { 0x46, 0x2d, 0xa3, 0x24, 0x2e, 0x5e, 0x28, 0x67,
-		        0xa6, 0xc7, 0xca, 0x8a, 0xe7, 0x36, 0xd4, 0xa4 } },
-	    2142, 445, 53535 }, box3_src_msgs,
-	  box3_dest_msgs, FLAG_EXISTS | FLAG_UNCHANGED },
-	{ { NULL, { { 0, } }, 0, 0, 0 }, NULL, NULL, 0 }
-};
-
-static struct test_dsync_mailbox *mailboxes;
 struct master_service *master_service;
+static struct test_dsync_worker *src_test_worker, *dest_test_worker;
 
 void master_service_stop(struct master_service *master_service ATTR_UNUSED)
 {
 }
 
-void mail_generate_guid_128_hash(const char *guid,
-				 uint8_t guid_128[MAIL_GUID_128_SIZE])
+struct dsync_brain_mailbox_sync *
+dsync_brain_msg_sync_init(struct dsync_brain *brain,
+			  const ARRAY_TYPE(dsync_brain_mailbox) *mailboxes)
 {
-	unsigned char sha1_sum[SHA1_RESULTLEN];
+	struct dsync_brain_mailbox_sync *sync;
 
-	sha1_get_digest(guid, strlen(guid), sha1_sum);
-	memcpy(guid_128, sha1_sum, MAIL_GUID_128_SIZE);
+	sync = i_new(struct dsync_brain_mailbox_sync, 1);
+	sync->brain = brain;
+	i_array_init(&sync->mailboxes, array_count(mailboxes));
+	array_append_array(&sync->mailboxes, mailboxes);
+	return sync;
 }
 
-bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE] ATTR_UNUSED)
+void dsync_brain_msg_sync_deinit(struct dsync_brain_mailbox_sync **_sync)
 {
-	return FALSE;
+	array_free(&(*_sync)->mailboxes);
+	i_free(*_sync);
 }
 
-static bool mailbox_find(const char *name, unsigned int *idx_r)
+void dsync_brain_msg_sync_resolve_uid_conflicts(struct dsync_brain_mailbox_sync *sync ATTR_UNUSED) {}
+
+static void mailboxes_set_guids(struct dsync_mailbox *boxes)
+{
+	unsigned char sha[SHA1_RESULTLEN];
+
+	for (; boxes->name != NULL; boxes++) {
+		sha1_get_digest(boxes->name, strlen(boxes->name), sha);
+		memcpy(boxes->guid.guid, sha, sizeof(boxes->guid.guid));
+	}
+}
+
+static void mailboxes_send_to_worker(struct test_dsync_worker *test_worker,
+				     struct dsync_mailbox *boxes)
 {
 	unsigned int i;
 
-	for (i = 0; mailboxes[i].box.name != NULL; i++) {
-		if (strcmp(mailboxes[i].box.name, name) == 0) {
-			*idx_r = i;
-			return TRUE;
-		}
+	for (i = 0; boxes[i].name != NULL; i++) {
+		test_worker->box_iter.next_box = &boxes[i];
+		test_worker->worker.input_callback(test_worker->worker.input_context);
 	}
-	return FALSE;
+	test_worker->box_iter.last = TRUE;
+	test_worker->worker.input_callback(test_worker->worker.input_context);
 }
 
-static int test_dsync_mailbox_cmp(const void *p1, const void *p2)
+static bool
+test_dsync_mailbox_create_equals(const struct dsync_mailbox *cbox,
+				 const struct dsync_mailbox *obox)
 {
-	const struct test_dsync_mailbox *t1 = p1, *t2 = p2;
-
-	return dsync_mailbox_guid_cmp(&t1->box, &t2->box);
-}
-
-static void test_dsync_sync_msgs(struct test_dsync_worker *worker, bool dest)
-{
-	struct test_dsync_worker_msg test_msg;
-	struct dsync_message *msgs;
-	unsigned int i, j;
-
-	for (i = 0; mailboxes[i].box.name != NULL; i++) {
-		msgs = dest ? mailboxes[i].dest_msgs : mailboxes[i].src_msgs;
-		if (msgs == NULL)
-			continue;
-		if ((mailboxes[i].dest_flags & FLAG_UNCHANGED) != 0)
-			continue;
-
-		for (j = 0; msgs[j].guid != NULL; j++) {
-			test_msg.msg = msgs[j];
-			test_msg.mailbox_idx = i;
-			array_append(&worker->msg_iter.msgs, &test_msg, 1);
-			worker->worker.input_callback(worker->worker.input_context);
-		}
-	}
-
-	worker->msg_iter.last = TRUE;
-	worker->worker.input_callback(worker->worker.input_context);
-}
-
-static int test_dsync_msg_event_cmp(const struct test_dsync_msg_event *e1,
-				    const struct test_dsync_msg_event *e2)
-{
-	int ret;
-
-	ret = memcmp(e1->mailbox.guid, e2->mailbox.guid,
-		     sizeof(e1->mailbox.guid));
-	if (ret != 0)
-		return ret;
-
-	return (int)e1->msg.uid - (int)e2->msg.uid;
-}
-
-static bool test_dsync_msg_find_guid(const struct test_dsync_mailbox *box,
-				     const struct dsync_message *msg,
-				     const struct test_dsync_mailbox **box2_r,
-				     const struct dsync_message **msg2_r)
-{
-	unsigned int i, j;
-
-	for (i = 0; mailboxes[i].box.name != NULL; i++) {
-		if (mailboxes[i].src_msgs == NULL)
-			continue;
-
-		for (j = 0; mailboxes[i].src_msgs[j].guid != NULL; j++) {
-			if (strcmp(mailboxes[i].src_msgs[j].guid, msg->guid) != 0)
-				continue;
-
-			if (memcmp(mailboxes[i].box.guid.guid, box->box.guid.guid,
-				   MAILBOX_GUID_SIZE) != 0 ||
-			    mailboxes[i].src_msgs[j].uid != msg->uid) {
-				*box2_r = &mailboxes[i];
-				*msg2_r = &mailboxes[i].src_msgs[j];
-				return TRUE;
-			}
-		}
-	}
-	return FALSE;
+	return strcmp(cbox->name, obox->name) == 0 &&
+		memcmp(cbox->guid.guid, obox->guid.guid,
+		       sizeof(cbox->guid.guid)) == 0 &&
+		cbox->uid_validity == obox->uid_validity &&
+		cbox->uid_next == 0 && cbox->highest_modseq == 0;
 }
 
 static void
-test_dsync_brain_verify_existing_one(const struct test_dsync_mailbox *box,
-				     const struct test_dsync_msg_event *event,
-				     const struct dsync_message *src)
+test_dsync_mailbox_update(const struct dsync_mailbox *bbox,
+			  const struct dsync_mailbox *box)
 {
-	test_assert(event->msg.guid != NULL);
-	test_assert(event->type == LAST_MSG_TYPE_UPDATE);
-	test_assert(memcmp(event->mailbox.guid, box->box.guid.guid,
-			   MAILBOX_GUID_SIZE) == 0);
-	test_assert(event->msg.flags == src->flags);
-	test_assert(dsync_keyword_list_equals(event->msg.keywords,
-					      src->keywords));
-	test_assert(event->msg.modseq == src->modseq);
+	struct test_dsync_box_event src_event, dest_event;
+
+	test_assert(test_dsync_worker_next_box_event(src_test_worker, &src_event));
+	test_assert(test_dsync_worker_next_box_event(dest_test_worker, &dest_event));
+	test_assert(src_event.type == dest_event.type &&
+		    dsync_mailboxes_equal(&src_event.box, &dest_event.box));
+
+	test_assert(src_event.type == LAST_BOX_TYPE_UPDATE);
+	test_assert(dsync_mailboxes_equal(&src_event.box, box));
+	test_assert(dsync_mailboxes_equal(bbox, box));
 }
 
-static void
-test_dsync_brain_verify_existing(const struct test_dsync_mailbox *box,
-				 const struct test_dsync_msg_event **eventsp,
-				 unsigned int *idx_r)
+static int
+dsync_brain_mailbox_name_cmp(const struct dsync_brain_mailbox *box1,
+			     const struct dsync_brain_mailbox *box2)
 {
-	const struct test_dsync_msg_event *event = *eventsp;
-	unsigned int i, j;
-
-	/* we don't try to handle uid conflicts here */
-	i = j = 0;
-	while (box->src_msgs[i].guid != NULL && box->dest_msgs[j].guid != NULL) {
-		if (box->src_msgs[i].uid < box->dest_msgs[j].uid) {
-			/* need to add message to dest */
-			i++;
-		} else if (box->src_msgs[i].uid > box->dest_msgs[j].uid) {
-			/* message expunged from src */
-			test_assert(event->type == LAST_MSG_TYPE_EXPUNGE);
-			test_assert(memcmp(event->mailbox.guid, box->box.guid.guid,
-					   MAILBOX_GUID_SIZE) == 0);
-			test_assert(event->msg.uid == box->dest_msgs[j].uid);
-			j++; event++;
-		} else if (box->src_msgs[i].flags == DSYNC_MAIL_FLAG_EXPUNGED) {
-			/* message expunged from end of mailbox */
-			test_assert(event->type == LAST_MSG_TYPE_EXPUNGE);
-			test_assert(event->msg.uid == box->dest_msgs[j].uid);
-			i++; j++; event++;
-		} else if (box->src_msgs[i].modseq > box->dest_msgs[j].modseq ||
-			   box->src_msgs[i].flags != box->dest_msgs[j].flags ||
-			   !dsync_keyword_list_equals(box->src_msgs[i].keywords,
-						      box->dest_msgs[j].keywords)) {
-			/* message changed */
-			i_assert(strcmp(box->src_msgs[i].guid,
-					box->dest_msgs[j].guid) == 0);
-
-			test_dsync_brain_verify_existing_one(box, event,
-							     &box->src_msgs[i]);
-			i++; j++; event++;
-		} else {
-			/* message unchanged */
-			i_assert(strcmp(box->src_msgs[i].guid,
-					box->dest_msgs[j].guid) == 0);
-			i++; j++;
-		}
-	}
-	while (box->dest_msgs[j].guid != NULL) {
-		/* message expunged from src */
-		test_assert(event->type == LAST_MSG_TYPE_EXPUNGE);
-		test_assert(memcmp(event->mailbox.guid, box->box.guid.guid,
-				   MAILBOX_GUID_SIZE) == 0);
-		test_assert(event->msg.uid == box->dest_msgs[j].uid);
-		j++; event++;
-	}
-	*idx_r = i;
-	*eventsp = event;
+	return strcmp(box1->box.name, box2->box.name);
 }
 
-static void
-test_dsync_brain_verify_mailbox(const struct test_dsync_mailbox *box,
-				const struct test_dsync_msg_event **eventsp)
+static void test_dsync_brain(void)
 {
-	const struct test_dsync_msg_event *event = *eventsp;
-	const struct test_dsync_mailbox *box2;
-	const struct dsync_message *msgs, *msg2;
-	unsigned int i = 0;
-
-	if (box->src_msgs == NULL)
-		return;
-
-	msgs = box->src_msgs;
-	if (box->dest_msgs != NULL) {
-		/* sync existing messages */
-		test_dsync_brain_verify_existing(box, &event, &i);
-	}
-
-	/* sync new messages */
-	for (; msgs[i].guid != NULL; i++) {
-		test_assert(event->msg.guid != NULL);
-		test_assert(memcmp(event->mailbox.guid, box->box.guid.guid,
-				   MAILBOX_GUID_SIZE) == 0);
-		if (test_dsync_msg_find_guid(box, &msgs[i], &box2, &msg2)) {
-			test_assert(event->type == LAST_MSG_TYPE_COPY);
-			test_assert(memcmp(event->copy_src_mailbox.guid,
-					   box2->box.guid.guid,
-					   MAILBOX_GUID_SIZE) == 0);
-			test_assert(event->copy_src_uid == msg2->uid);
-		} else {
-			test_assert(event->type == LAST_MSG_TYPE_SAVE);
-			test_assert(strcmp(event->save_body,
-					   "hdr\n\nbody") == 0);
-		}
-		test_assert(strcmp(event->msg.guid, msgs[i].guid) == 0);
-		test_assert(event->msg.uid == msgs[i].uid);
-		test_assert(event->msg.flags == msgs[i].flags);
-		test_assert(dsync_keyword_list_equals(event->msg.keywords,
-						      msgs[i].keywords));
-		test_assert(event->msg.modseq == msgs[i].modseq);
-		test_assert(event->msg.save_date == msgs[i].save_date);
-
-		event++;
-	}
-
-	*eventsp = event;
-}
-
-static void
-test_dsync_brain_verify_msg_events(struct test_dsync_worker *dest_test_worker)
-{
-	ARRAY_DEFINE(msg_events, struct test_dsync_msg_event);
-	const struct test_dsync_msg_event *events, *events_end;
-	struct test_dsync_msg_event msg_event;
-	unsigned int i, event_count;
-
-	/* get events and sort them so we can easily check if they're correct */
-	t_array_init(&msg_events, 64);
-	while (test_dsync_worker_next_msg_event(dest_test_worker, &msg_event))
-		array_append(&msg_events, &msg_event, 1);
-	array_sort(&msg_events, test_dsync_msg_event_cmp);
-
-	events = array_get(&msg_events, &event_count);
-	events_end = events + event_count;
-	for (i = 0; mailboxes[i].box.name != NULL; i++) {
-		if ((mailboxes[i].dest_flags & FLAG_UNCHANGED) == 0)
-			test_dsync_brain_verify_mailbox(&mailboxes[i], &events);
-	}
-	test_assert(events == events_end);
-}
-
-static void
-test_dsync_brain_run(const struct test_dsync_mailbox *test_mailboxes,
-		     void (*verify_func)(struct test_dsync_worker *))
-{
+	static struct dsync_mailbox src_boxes[] = {
+		{ "box1", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ "box2", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ "box3", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ "box4", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ "box5", { { 0, } }, 1234567890, 5433, 123123123123ULL },
+		{ "box6", { { 0, } }, 1234567890, 5432, 123123123124ULL },
+		{ "boxx", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ NULL, { { 0, } }, 0, 0, 0 }
+	};
+	static struct dsync_mailbox dest_boxes[] = {
+		{ "box1", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ "box2", { { 0, } }, 1234567891, 5432, 123123123123ULL },
+		{ "box3", { { 0, } }, 1234567890, 5433, 123123123123ULL },
+		{ "box4", { { 0, } }, 1234567890, 5432, 123123123124ULL },
+		{ "box5", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ "box6", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ "boxy", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ NULL, { { 0, } }, 0, 0, 0 }
+	};
 	struct dsync_brain *brain;
 	struct dsync_worker *src_worker, *dest_worker;
-	struct test_dsync_worker *src_test_worker, *dest_test_worker;
-	struct dsync_mailbox new_box;
 	struct test_dsync_box_event box_event;
-	unsigned int i, j, box_count;
+	const struct dsync_brain_mailbox *brain_boxes;
+	unsigned int i, count;
 
-	box_count = 0;
-	while (test_mailboxes[box_count].box.name != NULL)
-		box_count++;
+	test_begin("dsync brain");
 
-	mailboxes = t_new(struct test_dsync_mailbox, box_count + 1);
-	memcpy(mailboxes, test_mailboxes, sizeof(*mailboxes) * box_count);
+	mailboxes_set_guids(src_boxes);
+	mailboxes_set_guids(dest_boxes);
 
 	src_worker = dsync_worker_init_test();
 	dest_worker = dsync_worker_init_test();
 	src_test_worker = (struct test_dsync_worker *)src_worker;
 	dest_test_worker = (struct test_dsync_worker *)dest_worker;
 
-	brain = dsync_brain_init(src_worker, dest_worker);
+	brain = dsync_brain_init(src_worker, dest_worker, 0);
 	dsync_brain_sync(brain);
 
 	/* have brain read the mailboxes */
-	for (i = 0; mailboxes[i].box.name != NULL; i++) {
-		src_test_worker->box_iter.next_box = &mailboxes[i].box;
-		src_worker->input_callback(src_worker->input_context);
-
-		if ((mailboxes[i].dest_flags & FLAG_EXISTS) != 0) {
-			if ((mailboxes[i].dest_flags & FLAG_UNCHANGED) == 0)
-				mailboxes[i].box.highest_modseq++;
-			dest_test_worker->box_iter.next_box = &mailboxes[i].box;
-			dest_worker->input_callback(dest_worker->input_context);
-		}
-	}
-	src_test_worker->box_iter.last = TRUE;
-	src_worker->input_callback(src_worker->input_context);
-	dest_test_worker->box_iter.last = TRUE;
-	dest_worker->input_callback(dest_worker->input_context);
+	mailboxes_send_to_worker(src_test_worker, src_boxes);
+	mailboxes_send_to_worker(dest_test_worker, dest_boxes);
 
 	/* check that it created missing mailboxes */
-	while (test_dsync_worker_next_box_event(dest_test_worker, &box_event)) {
-		test_assert(box_event.type == LAST_BOX_TYPE_CREATE);
-		test_assert(mailbox_find(box_event.box.name, &i));
-		test_assert(mailboxes[i].dest_flags == 0);
-		mailboxes[i].dest_flags |= FLAG_CREATED;
+	test_assert(test_dsync_worker_next_box_event(dest_test_worker, &box_event));
+	test_assert(box_event.type == LAST_BOX_TYPE_CREATE);
+	test_assert(test_dsync_mailbox_create_equals(&box_event.box, &src_boxes[6]));
 
-		new_box = mailboxes[i].box;
-		new_box.uid_next = 0;
-		new_box.highest_modseq = 0;
-		test_assert(dsync_mailboxes_equal(&box_event.box, &new_box));
+	test_assert(test_dsync_worker_next_box_event(src_test_worker, &box_event));
+	test_assert(box_event.type == LAST_BOX_TYPE_CREATE);
+	test_assert(test_dsync_mailbox_create_equals(&box_event.box, &dest_boxes[6]));
+
+	test_assert(!test_dsync_worker_next_box_event(src_test_worker, &box_event));
+	test_assert(!test_dsync_worker_next_box_event(dest_test_worker, &box_event));
+
+	array_sort(&brain->mailbox_sync->mailboxes,
+		   dsync_brain_mailbox_name_cmp);
+
+	/* check mailbox updates */
+	brain->state++;
+	dsync_brain_sync(brain);
+
+	brain_boxes = array_get(&brain->mailbox_sync->mailboxes, &count);
+	test_assert(count == 7);
+	for (i = 0; i < 5; i++) {
+		test_assert(dsync_mailboxes_equal(brain_boxes[i].src, &src_boxes[i+1]));
+		test_assert(dsync_mailboxes_equal(brain_boxes[i].dest, &dest_boxes[i+1]));
 	}
+	test_assert(dsync_mailboxes_equal(brain_boxes[5].src, &src_boxes[6]));
+	test_assert(brain_boxes[5].dest == NULL);
+	test_assert(brain_boxes[6].src == NULL);
+	test_assert(dsync_mailboxes_equal(brain_boxes[6].dest, &dest_boxes[6]));
 
-	/* brain wants mailboxes in guid order. make things easier for us
-	   by sorting them now. */
-	qsort(mailboxes, box_count, sizeof(*mailboxes),
-	      test_dsync_mailbox_cmp);
+	test_dsync_mailbox_update(&brain_boxes[0].box, &src_boxes[1]);
+	test_dsync_mailbox_update(&brain_boxes[1].box, &dest_boxes[2]);
+	test_dsync_mailbox_update(&brain_boxes[2].box, &dest_boxes[3]);
+	test_dsync_mailbox_update(&brain_boxes[3].box, &src_boxes[4]);
+	test_dsync_mailbox_update(&brain_boxes[4].box, &src_boxes[5]);
+	test_dsync_mailbox_update(&brain_boxes[5].box, &src_boxes[6]);
+	test_dsync_mailbox_update(&brain_boxes[6].box, &dest_boxes[6]);
 
-	/* start syncing messages */
-	for (i = j = 0; mailboxes[i].box.name != NULL; i++) {
-		if ((mailboxes[i].dest_flags & FLAG_UNCHANGED) != 0)
-			continue;
-		test_assert(memcmp(&dest_test_worker->msg_iter_mailboxes[j],
-				   mailboxes[i].box.guid.guid, MAILBOX_GUID_SIZE) == 0);
-		j++;
-	}
-	test_assert(dest_test_worker->msg_iter_mailbox_count == j);
-	test_dsync_sync_msgs(src_test_worker, FALSE);
-	test_dsync_sync_msgs(dest_test_worker, TRUE);
-
-	verify_func(dest_test_worker);
+	test_assert(!test_dsync_worker_next_box_event(src_test_worker, &box_event));
+	test_assert(!test_dsync_worker_next_box_event(dest_test_worker, &box_event));
 
 	dsync_worker_deinit(&src_worker);
 	dsync_worker_deinit(&dest_worker);
 	dsync_brain_deinit(&brain);
-}
 
-static void test_dsync_brain(void)
-{
-	test_begin("dsync brain basics");
-	test_dsync_brain_run(basic_mailboxes,
-			     test_dsync_brain_verify_msg_events);
 	test_end();
 }
 
-static struct dsync_message conflict_src_msgs[] = {
-	{ "guid1", 1, 0, NULL, 1, 1 },
-	{ "guid3", 3, 0, NULL, 1, 1 },
-	{ "guid5", 5, 0, NULL, 1, 1 },
-	{ "guidy", 6, 0, NULL, 1, 1 },
-	{ "67ddfe2125de633c56e033b57c897018", 7, DSYNC_MAIL_FLAG_EXPUNGED, NULL, 1, 1 },
-	{ "guidz", 8, DSYNC_MAIL_FLAG_EXPUNGED, NULL, 1, 1 },
-	{ NULL, 0, 0, NULL, 0, 0 }
-};
-static struct dsync_message conflict_dest_msgs[] = {
-	{ "guid1", 1, 0, NULL, 1, 1 },
-	{ "guid2", 2, 0, NULL, 1, 1 },
-	{ "guidx", 3, 0, NULL, 1, 1 },
-	{ "guid4", 4, 0, NULL, 1, 1 },
-	{ "guid5", 5, 0, NULL, 1, 1 },
-	{ "guid7", 7, 0, NULL, 1, 1 },
-	{ "guid8", 8, 0, NULL, 1, 1 },
-	{ NULL, 0, 0, NULL, 0, 0 }
-};
-
-static struct test_dsync_mailbox conflict_mailboxes[] = {
-	{ { "box1", { { 0x12, 0x34, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
-		        0x21, 0x43, 0x54, 0x76, 0x98, 0xba, 0xdc, 0xfe } },
-	    1234567890, 4321, 888 },
-	  conflict_src_msgs, conflict_dest_msgs, FLAG_EXISTS },
-	{ { NULL, { { 0, } }, 0, 0, 0 }, NULL, NULL, 0 }
-};
-
-static void
-test_dsync_brain_verify_uid_conflict(struct test_dsync_worker *dest_test_worker)
+static void test_dsync_brain_full(void)
 {
-	struct test_dsync_msg_event event;
+	static struct dsync_mailbox boxes[] = {
+		{ "box1", { { 0, } }, 1234567890, 5432, 123123123123ULL },
+		{ NULL, { { 0, } }, 0, 0, 0 }
+	};
+	struct dsync_brain *brain;
+	struct dsync_worker *src_worker, *dest_worker;
 	struct test_dsync_box_event box_event;
+	const struct dsync_brain_mailbox *brain_boxes;
+	unsigned int count;
 
-	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
-	test_assert(event.type == LAST_MSG_TYPE_EXPUNGE);
-	test_assert(event.msg.uid == 2);
+	test_begin("dsync brain full");
 
-	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
-	test_assert(event.type == LAST_MSG_TYPE_EXPUNGE);
-	test_assert(event.msg.uid == 7);
+	mailboxes_set_guids(boxes);
 
-	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
-	test_assert(event.type == LAST_MSG_TYPE_SAVE);
-	test_assert(event.msg.uid == 4321);
-	test_assert(strcmp(event.msg.guid, "guid3") == 0);
+	src_worker = dsync_worker_init_test();
+	dest_worker = dsync_worker_init_test();
+	src_test_worker = (struct test_dsync_worker *)src_worker;
+	dest_test_worker = (struct test_dsync_worker *)dest_worker;
 
-	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
-	test_assert(event.type == LAST_MSG_TYPE_SAVE);
-	test_assert(event.msg.uid == 6);
-	test_assert(strcmp(event.msg.guid, "guidy") == 0);
+	brain = dsync_brain_init(src_worker, dest_worker,
+				 DSYNC_BRAIN_FLAG_FULL_SYNC);
+	dsync_brain_sync(brain);
 
-	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
-	test_assert(event.type == LAST_MSG_TYPE_UPDATE_UID);
-	test_assert(event.msg.uid == 3);
+	/* have brain read the mailboxes */
+	mailboxes_send_to_worker(src_test_worker, boxes);
+	mailboxes_send_to_worker(dest_test_worker, boxes);
 
-	test_assert(test_dsync_worker_next_msg_event(dest_test_worker, &event));
-	test_assert(event.type == LAST_MSG_TYPE_UPDATE_UID);
-	test_assert(event.msg.uid == 8);
+	test_assert(!test_dsync_worker_next_box_event(src_test_worker, &box_event));
+	test_assert(!test_dsync_worker_next_box_event(dest_test_worker, &box_event));
 
-	test_assert(!test_dsync_worker_next_msg_event(dest_test_worker, &event));
+	/* check mailbox updates */
+	brain->state++;
+	dsync_brain_sync(brain);
 
-	while (test_dsync_worker_next_box_event(dest_test_worker, &box_event) &&
-	       box_event.type == LAST_BOX_TYPE_SELECT) ;
+	brain_boxes = array_get(&brain->mailbox_sync->mailboxes, &count);
+	test_assert(count == 1);
+	test_assert(dsync_mailboxes_equal(brain_boxes[0].src, &boxes[0]));
+	test_assert(dsync_mailboxes_equal(brain_boxes[0].dest, &boxes[0]));
+	test_dsync_mailbox_update(&brain_boxes[0].box, &boxes[0]);
 
-	test_assert(box_event.type == LAST_BOX_TYPE_UPDATE);
-	test_assert(box_event.box.uid_next == 4322);
-	test_assert(box_event.box.uid_validity == 1234567890);
-	test_assert(box_event.box.highest_modseq == 888);
+	test_assert(!test_dsync_worker_next_box_event(src_test_worker, &box_event));
+	test_assert(!test_dsync_worker_next_box_event(dest_test_worker, &box_event));
 
-	while (test_dsync_worker_next_box_event(dest_test_worker, &box_event))
-		test_assert(box_event.type == LAST_BOX_TYPE_SELECT);
-}
+	dsync_worker_deinit(&src_worker);
+	dsync_worker_deinit(&dest_worker);
+	dsync_brain_deinit(&brain);
 
-static void test_dsync_brain_uid_conflict(void)
-{
-	test_begin("dsync brain uid conflict");
-	test_dsync_brain_run(conflict_mailboxes,
-			     test_dsync_brain_verify_uid_conflict);
 	test_end();
 }
 
@@ -502,7 +242,7 @@ int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_dsync_brain,
-		test_dsync_brain_uid_conflict,
+		test_dsync_brain_full,
 		NULL
 	};
 	return test_run(test_functions);

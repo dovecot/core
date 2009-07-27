@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
 		i_set_failure_prefix(t_strdup_printf("dsync-src(%s): ",
 						     username));
 		worker2 = dsync_worker_init_proxy_client(fd_in, fd_out);
-		brain = dsync_brain_init(worker1, worker2);
+		brain = dsync_brain_init(worker1, worker2, TRUE);
 		dsync_brain_sync(brain);
 	}
 

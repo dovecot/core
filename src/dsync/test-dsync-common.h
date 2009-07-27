@@ -1,6 +1,7 @@
 #ifndef TEST_DSYNC_COMMON_H
 #define TEST_DSYNC_COMMON_H
 
+#include "test-common.h"
 #include "dsync-data.h"
 
 #define TEST_MAILBOX_GUID1 "1234456789abcdef2143547698badcfe"

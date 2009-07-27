@@ -4,11 +4,16 @@
 #include "ioloop.h"
 #include "dsync-data.h"
 
-struct dsync_msg_static_data {
-	const char *pop3_uidl;
-	time_t received_date;
-	struct istream *input;
+enum dsync_msg_get_result {
+	DSYNC_MSG_GET_RESULT_SUCCESS,
+	DSYNC_MSG_GET_RESULT_EXPUNGED,
+	DSYNC_MSG_GET_RESULT_FAILED
 };
+
+typedef void dsync_worker_copy_callback_t(bool success, void *context);
+typedef void dsync_worker_msg_callback_t(enum dsync_msg_get_result result,
+					 struct dsync_msg_static_data *data,
+					 void *context);
 
 struct dsync_worker *dsync_worker_init_local(struct mail_user *user);
 struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out);
@@ -19,13 +24,6 @@ void dsync_worker_deinit(struct dsync_worker **worker);
 void dsync_worker_set_input_callback(struct dsync_worker *worker,
 				     io_callback_t *callback, void *context);
 
-/* Request next command to return its result when it's finished. */
-void dsync_worker_set_next_result_tag(struct dsync_worker *worker,
-				      uint32_t tag);
-void dsync_worker_verify_result_is_clear(struct dsync_worker *worker);
-/* Returns TRUE if result was returned, FALSE if waiting for more data */
-bool dsync_worker_get_next_result(struct dsync_worker *worker,
-				 uint32_t *tag_r, int *result_r);
 /* Returns TRUE if command queue is full and caller should stop sending
    more commands. */
 bool dsync_worker_is_output_full(struct dsync_worker *worker);
@@ -54,7 +52,7 @@ dsync_worker_msg_iter_init(struct dsync_worker *worker,
 			   unsigned int mailbox_count);
 /* Get the next available message. Also returns all expunged messages from
    the end of mailbox (if next_uid-1 message exists, nothing is returned).
-   mailbox_idx_r contains the mailbox's index in mailbox_guids[] array given
+   mailbox_idx_r contains the mailbox's index in mailboxes[] array given
    to _iter_init(). Returns 1 if ok, 0 if waiting for more data, -1 if there
    are no more messages. */
 int dsync_worker_msg_iter_next(struct dsync_worker_msg_iter *iter,
@@ -78,22 +76,26 @@ void dsync_worker_select_mailbox(struct dsync_worker *worker,
 void dsync_worker_msg_update_metadata(struct dsync_worker *worker,
 				      const struct dsync_message *msg);
 /* Change message's UID. */
-void dsync_worker_msg_update_uid(struct dsync_worker *worker, uint32_t uid);
+void dsync_worker_msg_update_uid(struct dsync_worker *worker,
+				 uint32_t old_uid, uint32_t new_uid);
 /* Expunge given message. */
 void dsync_worker_msg_expunge(struct dsync_worker *worker, uint32_t uid);
 /* Copy given message. */
 void dsync_worker_msg_copy(struct dsync_worker *worker,
 			   const mailbox_guid_t *src_mailbox, uint32_t src_uid,
-			   const struct dsync_message *dest_msg);
+			   const struct dsync_message *dest_msg,
+			   dsync_worker_copy_callback_t *callback,
+			   void *context);
 /* Save given message from the given input stream. The stream is destroyed once
    saving is finished. */
 void dsync_worker_msg_save(struct dsync_worker *worker,
 			   const struct dsync_message *msg,
-			   struct dsync_msg_static_data *data);
-/* Get message data for saving. Returns 1 if success, 0 if message is already
-   expunged or -1 if error. Caller must unreference the returned input
-   stream. */
-int dsync_worker_msg_get(struct dsync_worker *worker, uint32_t uid,
-			 struct dsync_msg_static_data *data_r);
+			   const struct dsync_msg_static_data *data);
+/* Get message data for saving. The callback is called once when the static
+   data has been received. The whole message may not have been downloaded yet,
+   so the caller must read the input stream until it returns EOF and then
+   unreference it. */
+void dsync_worker_msg_get(struct dsync_worker *worker, uint32_t uid,
+			  dsync_worker_msg_callback_t *callback, void *context);
 
 #endif

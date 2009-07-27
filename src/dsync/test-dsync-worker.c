@@ -34,40 +34,6 @@ static void test_worker_deinit(struct dsync_worker *_worker)
 	i_free(worker);
 }
 
-static void
-test_worker_set_result(struct test_dsync_worker *worker, int result)
-{
-	struct test_dsync_worker_result r;
-
-	if (worker->worker.next_tag == 0)
-		return;
-
-	memset(&r, 0, sizeof(r));
-	r.tag = worker->worker.next_tag;
-	r.result = result;
-	array_append(&worker->results, &r, 1);
-
-	worker->worker.next_tag = 0;
-}
-
-static bool
-test_worker_get_next_result(struct dsync_worker *_worker,
-			    uint32_t *tag_r, int *result_r)
-{
-	struct test_dsync_worker *worker =
-		(struct test_dsync_worker *)_worker;
-	const struct test_dsync_worker_result *result;
-
-	if (array_count(&worker->results) == 0)
-		return FALSE;
-
-	result = array_idx(&worker->results, 0);
-	*tag_r = result->tag;
-	*result_r = result->result;
-	array_delete(&worker->results, 0, 1);
-	return TRUE;
-}
-
 static bool test_worker_is_output_full(struct dsync_worker *worker ATTR_UNUSED)
 {
 	return FALSE;
@@ -197,20 +163,14 @@ static void
 test_worker_create_mailbox(struct dsync_worker *_worker,
 			   const struct dsync_mailbox *dsync_box)
 {
-	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
-
 	test_worker_set_last_box(_worker, dsync_box, LAST_BOX_TYPE_CREATE);
-	test_worker_set_result(worker, 0);
 }
 
 static void
 test_worker_update_mailbox(struct dsync_worker *_worker,
 			   const struct dsync_mailbox *dsync_box)
 {
-	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
-
 	test_worker_set_last_box(_worker, dsync_box, LAST_BOX_TYPE_UPDATE);
-	test_worker_set_result(worker, 0);
 }
 
 static void
@@ -224,8 +184,6 @@ test_worker_select_mailbox(struct dsync_worker *_worker,
 
 	memset(&box, 0, sizeof(box));
 	memcpy(box.guid.guid, mailbox, sizeof(box.guid.guid));
-	test_worker_set_last_box(_worker, &box, LAST_BOX_TYPE_SELECT);
-	test_worker_set_result(worker, 0);
 }
 
 static struct test_dsync_msg_event *
@@ -276,19 +234,19 @@ test_worker_msg_update_metadata(struct dsync_worker *_worker,
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
 
 	test_worker_set_last_msg(worker, msg, LAST_MSG_TYPE_UPDATE);
-	test_worker_set_result(worker, 0);
 }
 
 static void
-test_worker_msg_update_uid(struct dsync_worker *_worker, uint32_t uid)
+test_worker_msg_update_uid(struct dsync_worker *_worker,
+			   uint32_t old_uid, uint32_t new_uid)
 {
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
 	struct dsync_message msg;
 
 	memset(&msg, 0, sizeof(msg));
-	msg.uid = uid;
+	msg.uid = old_uid;
+	msg.modseq = new_uid;
 	test_worker_set_last_msg(worker, &msg, LAST_MSG_TYPE_UPDATE_UID);
-	test_worker_set_result(worker, 0);
 }
 
 static void test_worker_msg_expunge(struct dsync_worker *_worker, uint32_t uid)
@@ -299,13 +257,13 @@ static void test_worker_msg_expunge(struct dsync_worker *_worker, uint32_t uid)
 	memset(&msg, 0, sizeof(msg));
 	msg.uid = uid;
 	test_worker_set_last_msg(worker, &msg, LAST_MSG_TYPE_EXPUNGE);
-	test_worker_set_result(worker, 0);
 }
 
 static void
 test_worker_msg_copy(struct dsync_worker *_worker,
 		     const mailbox_guid_t *src_mailbox,
-		     uint32_t src_uid, const struct dsync_message *dest_msg)
+		     uint32_t src_uid, const struct dsync_message *dest_msg,
+		     dsync_worker_copy_callback_t *callback, void *context)
 {
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
 	struct test_dsync_msg_event *event;
@@ -313,13 +271,13 @@ test_worker_msg_copy(struct dsync_worker *_worker,
 	event = test_worker_set_last_msg(worker, dest_msg, LAST_MSG_TYPE_COPY);
 	event->copy_src_mailbox = *src_mailbox;
 	event->copy_src_uid = src_uid;
-	test_worker_set_result(worker, 0);
+	callback(TRUE, context);
 }
 
 static void
 test_worker_msg_save(struct dsync_worker *_worker,
 		     const struct dsync_message *msg,
-		     struct dsync_msg_static_data *data)
+		     const struct dsync_msg_static_data *data)
 {
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
 	struct test_dsync_msg_event *event;
@@ -339,28 +297,26 @@ test_worker_msg_save(struct dsync_worker *_worker,
 	}
 	i_assert(ret == -1);
 	event->save_body = p_strdup(worker->tmp_pool, str_c(body));
-
-	test_worker_set_result(worker, 0);
 }
 
-static int
-test_worker_msg_get(struct dsync_worker *_worker,
-		    uint32_t uid ATTR_UNUSED,
-		    struct dsync_msg_static_data *data_r)
+static void
+test_worker_msg_get(struct dsync_worker *_worker, uint32_t uid ATTR_UNUSED,
+		    dsync_worker_msg_callback_t *callback, void *context)
 {
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
+	struct dsync_msg_static_data data;
 
-	data_r->pop3_uidl = "uidl";
-	data_r->received_date = 123456;
-	data_r->input = worker->body_stream;
-	i_stream_seek(data_r->input, 0);
-	return 1;
+	memset(&data, 0, sizeof(data));
+	data.pop3_uidl = "uidl";
+	data.received_date = 123456;
+	data.input = worker->body_stream;
+	i_stream_seek(data.input, 0);
+	callback(DSYNC_MSG_GET_RESULT_SUCCESS, &data, context);
 }
 
 struct dsync_worker_vfuncs test_dsync_worker = {
 	test_worker_deinit,
 
-	test_worker_get_next_result,
 	test_worker_is_output_full,
 	test_worker_output_flush,
 

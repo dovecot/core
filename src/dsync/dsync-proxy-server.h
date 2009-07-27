@@ -23,6 +23,9 @@ struct dsync_proxy_server {
 
 	struct dsync_worker_mailbox_iter *mailbox_iter;
 	struct dsync_worker_msg_iter *msg_iter;
+
+	struct istream *get_input;
+	bool get_input_last_lf;
 };
 
 struct dsync_proxy_server *

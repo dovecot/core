@@ -1,6 +1,8 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
+#include "hex-binary.h"
 #include "dsync-data.h"
 
 struct dsync_mailbox *
@@ -76,4 +78,31 @@ bool dsync_keyword_list_equals(const char *const *k1, const char *const *k2)
 		if (strcasecmp(k1[i], k2[i]) != 0)
 			return FALSE;
 	}
+}
+
+bool dsync_guid_equals(const mailbox_guid_t *guid1,
+		       const mailbox_guid_t *guid2)
+{
+	return memcmp(guid1->guid, guid2->guid, sizeof(guid1->guid)) == 0;
+}
+
+const char *dsync_guid_to_str(const mailbox_guid_t *guid)
+{
+	return binary_to_hex(guid->guid, sizeof(guid->guid));
+}
+
+const char *dsync_get_guid_128_str(const char *guid, unsigned char *dest,
+				   unsigned int dest_len)
+{
+	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	buffer_t guid_128_buf;
+
+	i_assert(dest_len >= MAIL_GUID_128_SIZE * 2 + 1);
+	buffer_create_data(&guid_128_buf, dest, dest_len);
+	mail_generate_guid_128_hash(guid, guid_128);
+	if (mail_guid_128_is_empty(guid_128))
+		return "";
+	binary_to_hex_append(&guid_128_buf, guid_128, sizeof(guid_128));
+	buffer_append_c(&guid_128_buf, '\0');
+	return guid_128_buf.data;
 }

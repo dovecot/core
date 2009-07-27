@@ -8,8 +8,6 @@ struct mail_user;
 struct dsync_worker_vfuncs {
 	void (*deinit)(struct dsync_worker *);
 
-	bool (*get_next_result)(struct dsync_worker *worker,
-				uint32_t *tag_r, int *result_r);
 	bool (*is_output_full)(struct dsync_worker *worker);
 	int (*output_flush)(struct dsync_worker *worker);
 
@@ -37,16 +35,18 @@ struct dsync_worker_vfuncs {
 			       const mailbox_guid_t *mailbox);
 	void (*msg_update_metadata)(struct dsync_worker *worker,
 				    const struct dsync_message *msg);
-	void (*msg_update_uid)(struct dsync_worker *worker, uint32_t uid);
+	void (*msg_update_uid)(struct dsync_worker *worker,
+			       uint32_t old_uid, uint32_t new_uid);
 	void (*msg_expunge)(struct dsync_worker *worker, uint32_t uid);
 	void (*msg_copy)(struct dsync_worker *worker,
 			 const mailbox_guid_t *src_mailbox, uint32_t src_uid,
-			 const struct dsync_message *dest_msg);
+			 const struct dsync_message *dest_msg,
+			 dsync_worker_copy_callback_t *callback, void *context);
 	void (*msg_save)(struct dsync_worker *worker,
 			 const struct dsync_message *msg,
-			 struct dsync_msg_static_data *data);
-	int (*msg_get)(struct dsync_worker *worker, uint32_t uid,
-		       struct dsync_msg_static_data *data_r);
+			 const struct dsync_msg_static_data *data);
+	void (*msg_get)(struct dsync_worker *worker, uint32_t uid,
+			dsync_worker_msg_callback_t *callback, void *context);
 };
 
 struct dsync_worker {
@@ -55,7 +55,7 @@ struct dsync_worker {
 	io_callback_t *input_callback, *output_callback;
 	void *input_context, *output_context;
 
-	uint32_t next_tag;
+	unsigned int failed:1;
 };
 
 struct dsync_worker_mailbox_iter {
@@ -67,5 +67,7 @@ struct dsync_worker_msg_iter {
 	struct dsync_worker *worker;
 	bool failed;
 };
+
+void dsync_worker_set_failure(struct dsync_worker *worker);
 
 #endif

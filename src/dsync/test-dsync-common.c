@@ -1,6 +1,7 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "sha1.h"
 #include "dsync-data.h"
 #include "test-dsync-common.h"
 
@@ -48,4 +49,18 @@ bool dsync_mailboxes_equal(const struct dsync_mailbox *box1,
 	    box1->highest_modseq != box2->highest_modseq)
 		return FALSE;
 	return TRUE;
+}
+
+void mail_generate_guid_128_hash(const char *guid,
+				 uint8_t guid_128[MAIL_GUID_128_SIZE])
+{
+	unsigned char sha1_sum[SHA1_RESULTLEN];
+
+	sha1_get_digest(guid, strlen(guid), sha1_sum);
+	memcpy(guid_128, sha1_sum, MAIL_GUID_128_SIZE);
+}
+
+bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE] ATTR_UNUSED)
+{
+	return FALSE;
 }

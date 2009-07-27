@@ -34,19 +34,12 @@ proxy_server_read_line(struct dsync_proxy_server *server,
 
 static int proxy_server_run_cmd(struct dsync_proxy_server *server)
 {
-	uint32_t tag;
-	int ret, result;
+	int ret;
 
 	if ((ret = server->cur_cmd->func(server, server->cur_args)) == 0)
 		return 0;
 	if (ret < 0)
 		i_error("command %s failed", server->cur_cmd->name);
-	dsync_worker_verify_result_is_clear(server->worker);
-
-	while (dsync_worker_get_next_result(server->worker, &tag, &result)) {
-		o_stream_send_str(server->output,
-				  t_strdup_printf("%u\t%d", tag, result));
-	}
 
 	server->cur_cmd = NULL;
 	server->cur_args = NULL;
@@ -59,23 +52,21 @@ proxy_server_input_line(struct dsync_proxy_server *server, const char *line)
 	const char *const *args;
 	const char **cmd_args;
 	unsigned int i, count;
-	uint32_t tag;
 
 	i_assert(server->cur_cmd == NULL);
 
 	args = t_strsplit(line, "\t");
-	if (args[0] == NULL || args[1] == NULL) {
+	if (args[0] == NULL) {
 		i_error("proxy client sent invalid input: %s", line);
 		return -1;
 	}
 
-	tag = strtoul(args[0], NULL, 10);
-	server->cur_cmd = dsync_proxy_server_command_find(args[1]);
+	server->cur_cmd = dsync_proxy_server_command_find(args[0]);
 	if (server->cur_cmd == NULL) {
-		i_error("proxy client sent unknown command: %s", args[1]);
+		i_error("proxy client sent unknown command: %s", args[0]);
 		return -1;
 	} else {
-		args += 2;
+		args++;
 		count = str_array_length(args);
 
 		p_clear(server->cmd_pool);
@@ -86,8 +77,6 @@ proxy_server_input_line(struct dsync_proxy_server *server, const char *line)
 		}
 
 		server->cur_args = cmd_args;
-		if (tag != 0)
-			dsync_worker_set_next_result_tag(server->worker, tag);
 		return proxy_server_run_cmd(server);
 	}
 }

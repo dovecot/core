@@ -199,19 +199,13 @@ static void test_dsync_proxy_box_update(void)
 
 static void test_dsync_proxy_box_select(void)
 {
-	struct test_dsync_box_event event;
-
 	test_begin("proxy server box select");
 
 	test_assert(run_cmd("BOX-SELECT", TEST_MAILBOX_GUID1, NULL) == 1);
-	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
-	test_assert(event.type == LAST_BOX_TYPE_SELECT);
-	test_assert(memcmp(event.box.guid.guid, test_mailbox_guid1, MAILBOX_GUID_SIZE) == 0);
+	test_assert(memcmp(test_worker->selected_mailbox.guid, test_mailbox_guid1, MAILBOX_GUID_SIZE) == 0);
 
 	test_assert(run_cmd("BOX-SELECT", TEST_MAILBOX_GUID2, NULL) == 1);
-	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
-	test_assert(event.type == LAST_BOX_TYPE_SELECT);
-	test_assert(memcmp(event.box.guid.guid, test_mailbox_guid2, MAILBOX_GUID_SIZE) == 0);
+	test_assert(memcmp(test_worker->selected_mailbox.guid, test_mailbox_guid2, MAILBOX_GUID_SIZE) == 0);
 
 	test_end();
 }
@@ -242,10 +236,11 @@ static void test_dsync_proxy_msg_uid_change(void)
 
 	test_begin("proxy server msg uid change");
 
-	test_assert(run_cmd("MSG-UID-CHANGE", "454", NULL) == 1);
+	test_assert(run_cmd("MSG-UID-CHANGE", "454", "995", NULL) == 1);
 	test_assert(test_dsync_worker_next_msg_event(test_worker, &event));
 	test_assert(event.type == LAST_MSG_TYPE_UPDATE_UID);
 	test_assert(event.msg.uid == 454);
+	test_assert(event.msg.modseq == 995);
 
 	test_end();
 }

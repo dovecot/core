@@ -210,10 +210,12 @@ cmd_msg_update(struct dsync_proxy_server *server, const char *const *args)
 static int
 cmd_msg_uid_change(struct dsync_proxy_server *server, const char *const *args)
 {
-	if (args[0] == NULL)
+	if (args[0] == NULL || args[1] == NULL)
 		return -1;
 
-	dsync_worker_msg_update_uid(server->worker, strtoul(args[0], NULL, 10));
+	dsync_worker_msg_update_uid(server->worker,
+				    strtoul(args[0], NULL, 10),
+				    strtoul(args[1], NULL, 10));
 	return 1;
 }
 
@@ -225,6 +227,13 @@ cmd_msg_expunge(struct dsync_proxy_server *server, const char *const *args)
 
 	dsync_worker_msg_expunge(server->worker, strtoul(args[0], NULL, 10));
 	return 1;
+}
+
+static void copy_callback(bool success, void *context)
+{
+	struct dsync_proxy_server *server = context;
+
+	o_stream_send(server->output, success ? "1\n" : "0\n", 2);
 }
 
 static int
@@ -246,10 +255,11 @@ cmd_msg_copy(struct dsync_proxy_server *server, const char *const *args)
 	src_uid = strtoul(args[1], NULL, 10);
 
 	if (dsync_proxy_msg_import_unescaped(pool_datastack_create(),
-					     &msg, args+2, &error) < 0)
+					     args + 2, &msg, &error) < 0)
 		i_error("Invalid message input: %s", error);
 
-	dsync_worker_msg_copy(server->worker, &src_mailbox_guid, src_uid, &msg);
+	dsync_worker_msg_copy(server->worker, &src_mailbox_guid, src_uid, &msg,
+			      copy_callback, server);
 	return 1;
 }
 
@@ -260,18 +270,18 @@ cmd_msg_save(struct dsync_proxy_server *server, const char *const *args)
 	struct dsync_msg_static_data data;
 	const char *error;
 
-	/* received_date pop3_uidl <message> */
-	if (str_array_length(args) < 3)
+	if (dsync_proxy_msg_static_import_unescaped(pool_datastack_create(),
+						    args, &data, &error) < 0) {
+		i_error("Invalid message input: %s", error);
 		return -1;
-
-	memset(&data, 0, sizeof(data));
-	data.received_date = strtoul(args[0], NULL, 10);
-	data.pop3_uidl = args[1];
+	}
 	data.input = i_stream_create_dot(server->input, FALSE);
 
 	if (dsync_proxy_msg_import_unescaped(pool_datastack_create(),
-					     &msg, args+2, &error) < 0)
+					     args + 2, &msg, &error) < 0) {
 		i_error("Invalid message input: %s", error);
+		return -1;
+	}
 
 	/* we rely on save reading the entire input */
 	net_set_nonblock(server->fd_in, FALSE);
@@ -280,6 +290,74 @@ cmd_msg_save(struct dsync_proxy_server *server, const char *const *args)
 	i_assert(data.input->eof);
 	i_stream_destroy(&data.input);
 	return 1;
+}
+
+static void cmd_msg_get_send_more(struct dsync_proxy_server *server)
+{
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	while (!proxy_server_is_output_full(server)) {
+		ret = i_stream_read_data(server->get_input, &data, &size, 0);
+		if (ret == -1) {
+			/* done */
+			i_stream_unref(&server->get_input);
+			break;
+		} else {
+			/* for now we assume input is blocking */
+			i_assert(ret != 0);
+		}
+
+		dsync_proxy_send_dot_output(server->output,
+					    &server->get_input_last_lf,
+					    data, size);
+		i_stream_skip(server->get_input, size);
+	}
+}
+
+static void
+cmd_msg_get_callback(enum dsync_msg_get_result result,
+		     struct dsync_msg_static_data *data, void *context)
+{
+	struct dsync_proxy_server *server = context;
+	string_t *str;
+
+	switch (result) {
+	case DSYNC_MSG_GET_RESULT_SUCCESS:
+		break;
+	case DSYNC_MSG_GET_RESULT_EXPUNGED:
+		o_stream_send(server->output, "*0\n", 3);
+		return;
+	case DSYNC_MSG_GET_RESULT_FAILED:
+		o_stream_send(server->output, "*-\n", 3);
+		return;
+	}
+
+	str = t_str_new(128);
+	str_append(str, "*1\t");
+	dsync_proxy_msg_static_export(str, data);
+	str_append_c(str, '\n');
+	o_stream_send(server->output, str_data(str), str_len(str));
+
+	/* then we'll still have to send the message body. */
+	server->get_input = data->input;
+	cmd_msg_get_send_more(server);
+}
+
+static int
+cmd_msg_get(struct dsync_proxy_server *server, const char *const *args)
+{
+	if (args[0] == NULL)
+		return -1;
+
+	if (server->get_input != NULL)
+		cmd_msg_get_send_more(server);
+	else {
+		dsync_worker_msg_get(server->worker, strtoul(args[0], NULL, 10),
+				     cmd_msg_get_callback, server);
+	}
+	return server->get_input == NULL ? 1 : 0;
 }
 
 static struct dsync_proxy_server_command commands[] = {
@@ -293,6 +371,7 @@ static struct dsync_proxy_server_command commands[] = {
 	{ "MSG-EXPUNGE", cmd_msg_expunge },
 	{ "MSG-COPY", cmd_msg_copy },
 	{ "MSG-SAVE", cmd_msg_save },
+	{ "MSG-GET", cmd_msg_get },
 	{ NULL, NULL }
 };
 

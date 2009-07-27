@@ -9,11 +9,21 @@ struct dsync_mailbox;
 void dsync_proxy_msg_export(string_t *str, const struct dsync_message *msg);
 int dsync_proxy_msg_parse_flags(pool_t pool, const char *str,
 				struct dsync_message *msg_r);
-int dsync_proxy_msg_import_unescaped(pool_t pool, struct dsync_message *msg_r,
-				     const char *const *args,
+int dsync_proxy_msg_import_unescaped(pool_t pool, const char *const *args,
+				     struct dsync_message *msg_r,
 				     const char **error_r);
 int dsync_proxy_msg_import(pool_t pool, const char *str,
 			   struct dsync_message *msg_r, const char **error_r);
+
+void dsync_proxy_msg_static_export(string_t *str,
+				   const struct dsync_msg_static_data *msg);
+int dsync_proxy_msg_static_import(pool_t pool, const char *str,
+				  struct dsync_msg_static_data *msg_r,
+				  const char **error_r);
+int dsync_proxy_msg_static_import_unescaped(pool_t pool,
+					    const char *const *args,
+					    struct dsync_msg_static_data *msg_r,
+					    const char **error_r);
 
 void dsync_proxy_mailbox_export(string_t *str, const struct dsync_mailbox *box);
 int dsync_proxy_mailbox_import(pool_t pool, const char *str,
@@ -23,5 +33,8 @@ int dsync_proxy_mailbox_import(pool_t pool, const char *str,
 void dsync_proxy_mailbox_guid_export(string_t *str,
 				     const mailbox_guid_t *mailbox);
 int dsync_proxy_mailbox_guid_import(const char *str, mailbox_guid_t *guid_r);
+
+void dsync_proxy_send_dot_output(struct ostream *output, bool *last_lf,
+				 const unsigned char *data, size_t size);
 
 #endif
