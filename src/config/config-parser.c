@@ -12,6 +12,9 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#ifdef HAVE_GLOB_H
+#  include <glob.h>
+#endif
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
@@ -265,11 +268,84 @@ str_append_file(string_t *str, const char *key, const char *path,
 	(void)close(fd);
 }
 
+static int settings_add_include(struct parser_context *ctx, const char *path,
+				bool ignore_errors, const char **error_r)
+{
+	struct input_stack *tmp, *new_input;
+	int fd;
+
+	for (tmp = ctx->cur_input; tmp != NULL; tmp = tmp->prev) {
+		if (strcmp(tmp->path, path) == 0)
+			break;
+	}
+	if (tmp != NULL) {
+		*error_r = t_strdup_printf("Recursive include file: %s", path);
+		return -1;
+	}
+
+	if ((fd = open(path, O_RDONLY)) == -1) {
+		if (ignore_errors)
+			return 0;
+
+		*error_r = t_strdup_printf("Couldn't open include file %s: %m",
+					   path);
+		return -1;
+	}
+
+	new_input = t_new(struct input_stack, 1);
+	new_input->prev = ctx->cur_input;
+	new_input->path = t_strdup(path);
+	new_input->input = i_stream_create_fd(fd, 2048, TRUE);
+	i_stream_set_return_partial_line(new_input->input, TRUE);
+	ctx->cur_input = new_input;
+	return 0;
+}
+
+static int
+settings_include(struct parser_context *ctx, const char *pattern,
+		 bool ignore_errors, const char **error_r)
+{
+#ifdef HAVE_GLOB
+	glob_t globbers;
+	unsigned int i;
+
+	switch (glob(pattern, GLOB_BRACE, NULL, &globbers)) {
+	case 0:
+		break;
+	case GLOB_NOSPACE:
+		*error_r = "glob() failed: Not enough memory";
+		return -1;
+	case GLOB_ABORTED:
+		*error_r = "glob() failed: Read error";
+		return -1;
+	case GLOB_NOMATCH:
+		if (ignore_errors)
+			return 0;
+		*error_r = "No matches";
+		return -1;
+	default:
+		*error_r = "glob() failed: Unknown error";
+		return -1;
+	}
+
+	/* iterate throuth the different files matching the globbing */
+	for (i = 0; i < globbers.gl_pathc; i++) {
+		if (settings_add_include(ctx, globbers.gl_pathv[i],
+					 ignore_errors, error_r) < 0)
+			return -1;
+	}
+	globfree(&globbers);
+	return 0;
+#else
+	return settings_add_include(ctx, pattern, ignore_errors, error_r);
+#endif
+}
+
 void config_parse_file(const char *path, bool expand_files)
 {
 	enum settings_parser_flags parser_flags =
                 SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS;
-	struct input_stack root, *new_input;
+	struct input_stack root;
 	ARRAY_TYPE(const_string) auth_defaults;
 	struct config_setting_parser_list *l, *const *parsers;
 	struct parser_context ctx;
@@ -314,7 +390,6 @@ void config_parse_file(const char *path, bool expand_files)
 	str = t_str_new(256);
 	full_line = t_str_new(512);
 	errormsg = NULL;
-newfile:
 	ctx.cur_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 prevfile:
@@ -378,29 +453,10 @@ prevfile:
 		ret = 1;
 		if (strcmp(key, "!include_try") == 0 ||
 		    strcmp(key, "!include") == 0) {
-			struct input_stack *tmp;
-			const char *path;
-
-			path = fix_relative_path(line, ctx.cur_input);
-			for (tmp = ctx.cur_input; tmp != NULL; tmp = tmp->prev) {
-				if (strcmp(tmp->path, path) == 0)
-					break;
-			}
-			if (tmp != NULL) {
-				errormsg = "Recursive include";
-			} else if ((fd = open(path, O_RDONLY)) != -1) {
-				new_input = t_new(struct input_stack, 1);
-				new_input->prev = ctx.cur_input;
-				new_input->path = t_strdup(path);
-				ctx.cur_input = new_input;
-				goto newfile;
-			} else {
-				/* failed, but ignore failures with include_try. */
-				if (strcmp(key, "!include") == 0) {
-					errormsg = t_strdup_printf(
-						"Couldn't open include file %s: %m", line);
-				}
-			}
+			if (settings_include(&ctx, fix_relative_path(line, ctx.cur_input),
+					     strcmp(key, "!include_try") == 0,
+					     &errormsg) == 0)
+				goto prevfile;
 		} else if (*line == '=') {
 			/* a) */
 			*line++ = '\0';
