@@ -12,6 +12,10 @@
 #  include <glob.h>
 #endif
 
+#ifndef GLOB_BRACE
+#  define GLOB_BRACE 0
+#endif
+
 #define SECTION_ERRORMSG "%s (section changed in %s at line %d)"
 
 struct input_stack {

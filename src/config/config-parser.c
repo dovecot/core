@@ -16,6 +16,10 @@
 #  include <glob.h>
 #endif
 
+#ifndef GLOB_BRACE
+#  define GLOB_BRACE 0
+#endif
+
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
 struct config_filter_stack {
