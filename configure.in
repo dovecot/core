@@ -355,7 +355,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 
 AC_CHECK_LIB(rt, clock_gettime, [
   AC_DEFINE(HAVE_CLOCK_GETTIME,, Define if you have the clock_gettime function)
-  LIBS="-lrt"
+  LIBS="$LIBS -lrt"
 ], [
   # OpenBSD
   AC_CHECK_FUNCS(clock_gettime)
