@@ -466,7 +466,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			  mbox->ibox.box.path, hdr->uid_validity, uid_validity);
 		mail_index_reset(trans);
 		index_mailbox_reset_uidvalidity(&mbox->ibox);
-		maildir_uidlist_set_next_uid(mbox->uidlist, 1, TRUE);
 
 		first_uid = hdr->messages_count + 1;
 		memset(&empty_hdr, 0, sizeof(empty_hdr));
