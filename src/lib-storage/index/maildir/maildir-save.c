@@ -32,6 +32,7 @@ struct maildir_filename {
 
 	uoff_t size, vsize;
 	enum mail_flags flags;
+	unsigned int preserve_filename:1;
 	unsigned int keywords_count;
 	/* unsigned int keywords[]; */
 };
@@ -131,8 +132,8 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	return ctx;
 }
 
-uint32_t maildir_save_add(struct mail_save_context *_ctx,
-			  const char *base_fname)
+struct maildir_filename *
+maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct maildir_filename *mf;
@@ -171,7 +172,7 @@ uint32_t maildir_save_add(struct mail_save_context *_ctx,
 	}
 
 	/* insert into index */
-	mail_index_append(ctx->trans, 0, &ctx->seq);
+	mail_index_append(ctx->trans, _ctx->uid, &ctx->seq);
 	mail_index_update_flags(ctx->trans, ctx->seq,
 				MODIFY_REPLACE, _ctx->flags);
 	if (_ctx->keywords != NULL) {
@@ -202,7 +203,7 @@ uint32_t maildir_save_add(struct mail_save_context *_ctx,
 		ctx->input = input;
 		ctx->cur_dest_mail = _ctx->dest_mail;
 	}
-	return ctx->seq;
+	return mf;
 }
 
 static bool
@@ -213,12 +214,12 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 	const char *basename = mf->basename;
 
 	if (ctx->mbox->storage->save_size_in_filename &&
-	    mf->size != (uoff_t)-1) {
+	    mf->size != (uoff_t)-1 && !mf->preserve_filename) {
 		basename = t_strdup_printf("%s,%c=%"PRIuUOFF_T, basename,
 					   MAILDIR_EXTRA_FILE_SIZE, mf->size);
 	}
 
-	if (mf->vsize != (uoff_t)-1) {
+	if (mf->vsize != (uoff_t)-1 && !mf->preserve_filename) {
 		basename = t_strdup_printf("%s,%c=%"PRIuUOFF_T, basename,
 					   MAILDIR_EXTRA_VIRTUAL_SIZE,
 					   mf->vsize);
@@ -370,6 +371,7 @@ maildir_save_alloc(struct mailbox_transaction_context *_t)
 int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_filename *mf;
 
 	T_BEGIN {
 		/* create a new file in tmp/ directory */
@@ -383,7 +385,9 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 				ctx->input = i_stream_create_crlf(input);
 			else
 				ctx->input = i_stream_create_lf(input);
-			maildir_save_add(_ctx, fname);
+			mf = maildir_save_add(_ctx, fname);
+			if (fname == _ctx->guid)
+				mf->preserve_filename = TRUE;
 		}
 	} T_END;
 
@@ -728,22 +732,31 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx,
 
 static void maildir_save_sync_uidlist(struct maildir_save_context *ctx)
 {
+	struct mailbox_transaction_context *t = ctx->ctx.transaction;
 	struct maildir_filename *mf;
+	struct seq_range_iter iter;
 	enum maildir_uidlist_rec_flag flags;
-	bool newdir;
+	unsigned int n = 0;
+	uint32_t uid;
+	bool newdir, bret;
 	int ret;
 
+	seq_range_array_iter_init(&iter, &t->changes->saved_uids);
 	for (mf = ctx->files; mf != NULL; mf = mf->next) T_BEGIN {
 		const char *dest;
+
+		bret = seq_range_array_iter_nth(&iter, n++, &uid);
+		i_assert(bret);
 
 		newdir = maildir_get_updated_filename(ctx, mf, &dest);
 		flags = MAILDIR_UIDLIST_REC_FLAG_RECENT;
 		if (newdir)
 			flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
-		ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
-						dest, flags);
+		ret = maildir_uidlist_sync_next_uid(ctx->uidlist_sync_ctx,
+						    dest, uid, flags);
 		i_assert(ret > 0);
 	} T_END;
+	i_assert(!seq_range_array_iter_nth(&iter, n, &uid));
 }
 
 int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)

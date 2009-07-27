@@ -110,6 +110,9 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags);
+int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
+				  const char *filename, uint32_t uid,
+				  enum maildir_uidlist_rec_flag flags);
 void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 				 const char *filename);
 const char *

@@ -133,8 +133,8 @@ void maildir_save_cancel(struct mail_save_context *ctx);
 
 struct maildir_save_context *
 maildir_save_transaction_init(struct maildir_transaction_context *t);
-uint32_t maildir_save_add(struct mail_save_context *ctx,
-			  const char *base_fname);
+struct maildir_filename *
+maildir_save_add(struct mail_save_context *_ctx, const char *base_fname);
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 				       uint32_t seq);
 
