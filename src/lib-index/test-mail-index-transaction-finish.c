@@ -79,11 +79,18 @@ static void test_mail_index_transaction_finish_flag_updates(void)
 	mail_index_transaction_finish(t);
 
 	updates = array_get(&t->updates, &count);
-	test_assert(count == 2);
-	test_assert(updates[0].uid1 == 1 && updates[0].uid2 == 2);
-	test_assert(updates[1].uid1 == 4 && updates[1].uid2 == 5);
+	test_assert(count == 4);
+	test_assert(updates[0].uid1 == 1*2 && updates[0].uid2 == 1*2);
+	test_assert(updates[1].uid1 == 2*2 && updates[1].uid2 == 2*2);
+	test_assert(updates[2].uid1 == 4*2 && updates[2].uid2 == 4*2);
+	test_assert(updates[3].uid1 == 5*2 && updates[3].uid2 == 5*2);
 
 	/* nothing changed */
+	t_array_init(&t->updates, 10);
+	u.uid1 = 1; u.uid2 = 2;
+	array_append(&t->updates, &u, 1);
+	u.uid1 = 4; u.uid2 = 5;
+	array_append(&t->updates, &u, 1);
 	recs[1].flags = MAIL_SEEN;
 	recs[2].flags = MAIL_SEEN;
 	recs[4].flags = MAIL_SEEN;
@@ -101,8 +108,8 @@ static void test_mail_index_transaction_finish_flag_updates(void)
 
 	updates = array_get(&t->updates, &count);
 	test_assert(count == 2);
-	test_assert(updates[0].uid1 == 3 && updates[0].uid2 == 3);
-	test_assert(updates[1].uid1 == 6 && updates[1].uid2 == 6);
+	test_assert(updates[0].uid1 == 3*2 && updates[0].uid2 == 3*2);
+	test_assert(updates[1].uid1 == 6*2 && updates[1].uid2 == 6*2);
 
 	test_end();
 }
@@ -142,6 +149,38 @@ static void test_mail_index_transaction_finish_check_conflicts(void)
 	test_assert(conflicts[0].seq1 == 6 && conflicts[0].seq2 == 6);
 	test_assert(conflicts[1].seq1 == 8 && conflicts[1].seq2 == 8);
 
+	test_end();
+}
+
+static void test_mail_index_transaction_finish_uid_updates(void)
+{
+	struct mail_index_transaction *t;
+	const struct mail_transaction_uid_update *uid_updates;
+	struct mail_transaction_uid_update *u;
+	unsigned int count;
+
+	t = t_new(struct mail_index_transaction, 1);
+
+	test_begin("mail index transaction finish uid updates");
+
+	t_array_init(&t->uid_updates, 10);
+	u = array_append_space(&t->uid_updates);
+	u->old_uid = 1; u->new_uid = 15;
+	u = array_append_space(&t->uid_updates);
+	u->old_uid = 2; u->new_uid = 16;
+	u = array_append_space(&t->uid_updates);
+	u->old_uid = 5; u->new_uid = 17;
+	u = array_append_space(&t->uid_updates);
+	u->old_uid = 2; u->new_uid = 18;
+
+	mail_index_transaction_finish(t);
+
+	uid_updates = array_get(&t->uid_updates, &count);
+	test_assert(count == 4);
+	test_assert(uid_updates[0].old_uid == 1*2 && uid_updates[0].new_uid == 15);
+	test_assert(uid_updates[1].old_uid == 2*2 && uid_updates[1].new_uid == 16);
+	test_assert(uid_updates[2].old_uid == 5*2 && uid_updates[2].new_uid == 17);
+	test_assert(uid_updates[3].old_uid == 2*2 && uid_updates[3].new_uid == 18);
 	test_end();
 }
 
@@ -202,12 +241,13 @@ int main(void)
 	static void (*test_functions[])(void) = {
 		test_mail_index_transaction_finish_flag_updates,
 		test_mail_index_transaction_finish_check_conflicts,
+		test_mail_index_transaction_finish_uid_updates,
 		test_mail_index_transaction_finish_expunges,
 		NULL
 	};
 	unsigned int i;
 
 	for (i = 1; i < N_ELEMENTS(recs); i++)
-		recs[i].uid = i;
+		recs[i].uid = i*2;
 	return test_run(test_functions);
 }

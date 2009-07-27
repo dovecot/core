@@ -207,6 +207,9 @@ struct mail_transaction_commit_changes {
 	uint32_t uid_validity;
 	/* UIDs assigned to saved messages. Not necessarily ascending. */
 	ARRAY_TYPE(seq_range) saved_uids;
+	/* UIDs assigned to updated UIDs. Not necessarily the same as the
+	   requested new UIDs. */
+	ARRAY_TYPE(seq_range) updated_uids;
 };
 
 struct mailbox_sync_rec {
@@ -647,6 +650,9 @@ void mail_update_flags(struct mail *mail, enum modify_type modify_type,
 void mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 			  struct mail_keywords *keywords);
 
+/* Update message's UID. The new UID must not be lower than next_uid at the
+   commit time, otherwise the UID update fails and is just ignored. */
+void mail_update_uid(struct mail *mail, uint32_t new_uid);
 /* Expunge this message. Sequence numbers don't change until commit. */
 void mail_expunge(struct mail *mail);
 /* Mark a cached field corrupted and have it recalculated. */

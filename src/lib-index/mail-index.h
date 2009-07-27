@@ -400,6 +400,12 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
    for mail_index_append(). Returns the next unused UID. */
 void mail_index_append_assign_uids(struct mail_index_transaction *t,
 				   uint32_t first_uid, uint32_t *next_uid_r);
+/* Update message's UID. The new UID must not be lower than next_uid at the
+   commit time, otherwise the UID update fails and is just ignored.
+   If there are appends in the same transaction, the updated UIDs must be
+   higher than the append UIDs. */
+void mail_index_update_uid(struct mail_index_transaction *t, uint32_t seq,
+			   uint32_t new_uid);
 /* Expunge record from index. Note that this doesn't affect sequence numbers
    until transaction is committed and mailbox is synced. */
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);

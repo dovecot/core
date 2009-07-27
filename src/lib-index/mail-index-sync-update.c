@@ -268,6 +268,51 @@ sync_expunge(struct mail_index_sync_map_ctx *ctx, uint32_t uid1, uint32_t uid2)
 	mail_index_modseq_expunge(ctx->modseq_ctx, seq1, seq2);
 }
 
+static void *sync_append_record(struct mail_index_map *map)
+{
+	size_t append_pos;
+	void *ret;
+
+	append_pos = map->rec_map->records_count * map->hdr.record_size;
+	ret = buffer_get_space_unsafe(map->rec_map->buffer, append_pos,
+				      map->hdr.record_size);
+	map->rec_map->records =
+		buffer_get_modifiable_data(map->rec_map->buffer, NULL);
+	return ret;
+}
+
+static void sync_uid_update(struct mail_index_sync_map_ctx *ctx,
+			    uint32_t old_uid, uint32_t new_uid)
+{
+	struct mail_index_map *map;
+	struct mail_index_record *rec;
+	uint32_t old_seq;
+	void *dest;
+
+	if (new_uid < ctx->view->map->hdr.next_uid) {
+		/* uid update is no longer possible */
+		return;
+	}
+
+	if (!mail_index_lookup_seq(ctx->view, old_uid, &old_seq))
+		return;
+
+	map = mail_index_sync_get_atomic_map(ctx);
+	map->hdr.next_uid = new_uid+1;
+	map->rec_map->last_appended_uid = new_uid;
+
+	rec = MAIL_INDEX_MAP_IDX(map, old_seq-1);
+
+	/* add the new record */
+	dest = sync_append_record(map);
+	memcpy(dest, rec, map->hdr.record_size);
+
+	/* @UNSAFE: remove the old record */
+	memmove(rec, PTR_OFFSET(rec, map->hdr.record_size),
+		(map->rec_map->records_count + 1 - old_seq) *
+		map->hdr.record_size);
+}
+
 void mail_index_sync_write_seq_update(struct mail_index_sync_map_ctx *ctx,
 				      uint32_t seq1, uint32_t seq2)
 {
@@ -288,7 +333,6 @@ static int sync_append(const struct mail_index_record *rec,
 	const struct mail_index_record *old_rec;
 	enum mail_flags new_flags;
 	void *dest;
-	size_t append_pos;
 
 	if (rec->uid < map->hdr.next_uid) {
 		mail_index_sync_set_corrupted(ctx,
@@ -314,12 +358,7 @@ static int sync_append(const struct mail_index_record *rec,
 	} else {
 		/* don't rely on buffer->used being at the correct position.
 		   at least expunges can move it */
-		append_pos = map->rec_map->records_count * map->hdr.record_size;
-		dest = buffer_get_space_unsafe(map->rec_map->buffer, append_pos,
-					       map->hdr.record_size);
-		map->rec_map->records =
-			buffer_get_modifiable_data(map->rec_map->buffer, NULL);
-
+		dest = sync_append_record(map);
 		memcpy(dest, rec, sizeof(*rec));
 		memset(PTR_OFFSET(dest, sizeof(*rec)), 0,
 		       map->hdr.record_size - sizeof(*rec));
@@ -671,6 +710,14 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		const struct mail_transaction_keyword_reset *rec = data;
 
 		ret = mail_index_sync_keywords_reset(ctx, hdr, rec);
+		break;
+	}
+	case MAIL_TRANSACTION_UID_UPDATE: {
+		const struct mail_transaction_uid_update *rec = data, *end;
+
+		end = CONST_PTR_OFFSET(data, hdr->size);
+		for (rec = data; rec < end; rec++)
+			sync_uid_update(ctx, rec->old_uid, rec->new_uid);
 		break;
 	}
 	default:

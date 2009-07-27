@@ -382,6 +382,12 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 		log_append_buffer(&ctx, t->expunges.arr.buffer,
 				  MAIL_TRANSACTION_EXPUNGE_GUID);
 	}
+	/* keep uid updates last. if there are other updates to the message,
+	   they're referring to the old uid. */
+	if (array_is_created(&t->uid_updates)) {
+		log_append_buffer(&ctx, t->uid_updates.arr.buffer,
+				  MAIL_TRANSACTION_UID_UPDATE);
+	}
 
 	if (t->post_hdr_changed) {
 		log_append_buffer(&ctx, log_get_hdr_update_buffer(t, FALSE),

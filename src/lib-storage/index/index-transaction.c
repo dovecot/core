@@ -99,6 +99,7 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 	memset(changes_r, 0, sizeof(*changes_r));
 	changes_r->pool = pool_alloconly_create("transaction changes", 1024);
 	p_array_init(&changes_r->saved_uids, changes_r->pool, 32);
+	p_array_init(&changes_r->updated_uids, changes_r->pool, 32);
 	_t->changes = changes_r;
 
 	return mail_index_transaction_commit(&itrans);
