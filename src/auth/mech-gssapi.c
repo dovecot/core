@@ -281,8 +281,8 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 			auth_request_log_info(auth_request, "gssapi",
 					      "GSSAPI mechanism not Kerberos5");
 			ret = -1;
-		} else if (!get_display_name(auth_request, request->authn_name,
-					     &name_type, &username) < 0)
+		} else if (get_display_name(auth_request, request->authn_name,
+					    &name_type, &username) < 0)
 			ret = -1;
 		else if (!auth_request_set_username(auth_request, username,
 						    &error)) {
