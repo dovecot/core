@@ -451,7 +451,9 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		return -1;
 	}
 
-	save_flags = (_ctx->flags & ~MAIL_RECENT) | MAIL_RECENT;
+	save_flags = _ctx->flags;
+	if (_ctx->uid == 0)
+		save_flags |= MAIL_RECENT;
 	str_truncate(ctx->headers, 0);
 	if (ctx->synced) {
 		if (ctx->mbox->mbox_save_md5)
