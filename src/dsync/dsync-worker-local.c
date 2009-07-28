@@ -239,6 +239,8 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 		mailbox_close(&box);
 		return -1;
 	}
+	(void)mailbox_enable(box, MAILBOX_FEATURE_CONDSTORE);
+
 	mailbox_get_status(box, STATUS_GUID, &status);
 	if (memcmp(status.mailbox_guid, guid->guid, sizeof(guid->guid)) != 0) {
 		i_error("Mailbox %s changed its GUID (%s -> %s)",
@@ -592,7 +594,7 @@ local_worker_msg_update_metadata(struct dsync_worker *_worker,
 							 msg->keywords);
 		mail_update_keywords(worker->mail, MODIFY_REPLACE, keywords);
 		mailbox_keywords_unref(worker->mail->box, &keywords);
-		// FIXME: update modseq if flags didn't change
+		mail_update_modseq(worker->mail, msg->modseq);
 	}
 }
 
@@ -632,7 +634,7 @@ local_worker_msg_save_set_metadata(struct mailbox *box,
 		mailbox_keywords_unref(box, &keywords);
 	mailbox_save_set_uid(save_ctx, msg->uid);
 	mailbox_save_set_save_date(save_ctx, msg->save_date);
-	// FIXME: set modseq
+	mailbox_save_set_min_modseq(save_ctx, msg->modseq);
 }
 
 static void
