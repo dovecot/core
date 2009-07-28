@@ -40,6 +40,7 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_EXT_ATOMIC_INC		= 0x00001000,
 	MAIL_TRANSACTION_EXPUNGE_GUID		= 0x00002000,
 	MAIL_TRANSACTION_UID_UPDATE		= 0x00004000,
+	MAIL_TRANSACTION_MODSEQ_UPDATE		= 0x00008000,
 
 	MAIL_TRANSACTION_TYPE_MASK		= 0x0000ffff,
 
@@ -65,6 +66,14 @@ struct mail_transaction_header {
 
 struct mail_transaction_uid_update {
 	uint32_t old_uid, new_uid;
+};
+
+struct mail_transaction_modseq_update {
+	uint32_t uid;
+	/* don't use uint64_t here. it adds extra 32 bits of paddiong and also
+	   causes problems with CPUs that require alignment */
+	uint32_t modseq_low32;
+	uint32_t modseq_high32;
 };
 
 struct mail_transaction_expunge {

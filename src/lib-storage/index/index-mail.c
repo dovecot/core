@@ -1443,6 +1443,13 @@ void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 				   keywords);
 }
 
+void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq)
+{
+	struct index_mail *imail = (struct index_mail *)mail;
+
+	mail_index_update_modseq(imail->trans->trans, mail->seq, min_modseq);
+}
+
 void index_mail_update_uid(struct mail *mail, uint32_t new_uid)
 {
 	struct index_mail *imail = (struct index_mail *)mail;

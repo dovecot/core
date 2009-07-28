@@ -184,6 +184,51 @@ static void test_mail_index_transaction_finish_uid_updates(void)
 	test_end();
 }
 
+static void test_mail_index_transaction_finish_modseq_updates(void)
+{
+	struct mail_index_transaction *t;
+	const struct mail_transaction_modseq_update *ups;
+	struct mail_transaction_modseq_update u;
+	unsigned int count;
+
+	t = t_new(struct mail_index_transaction, 1);
+
+	test_begin("mail index transaction finish modseq updates");
+
+	t_array_init(&t->modseq_updates, 10);
+	u.modseq_low32 = 1234567890;
+	u.modseq_high32 = 987654321;
+	u.uid = 1; array_append(&t->modseq_updates, &u, 1);
+	u.modseq_low32++;
+	u.modseq_high32++;
+	u.uid = 2; array_append(&t->modseq_updates, &u, 1);
+	u.modseq_low32++;
+	u.modseq_high32++;
+	u.uid = 5; array_append(&t->modseq_updates, &u, 1);
+	u.modseq_low32 = 1234;
+	u.modseq_high32 = 0;
+	u.uid = 2; array_append(&t->modseq_updates, &u, 1);
+
+	mail_index_transaction_finish(t);
+
+	ups = array_get(&t->modseq_updates, &count);
+	test_assert(count == 4);
+
+	test_assert(ups[0].uid == 1*2);
+	test_assert(ups[0].modseq_low32 == 1234567890 &&
+		    ups[0].modseq_high32 == 987654321);
+	test_assert(ups[1].uid == 2*2);
+	test_assert(ups[1].modseq_low32 == 1234567891 &&
+		    ups[1].modseq_high32 == 987654322);
+	test_assert(ups[2].uid == 5*2);
+	test_assert(ups[2].modseq_low32 == 1234567892 &&
+		    ups[2].modseq_high32 == 987654323);
+	test_assert(ups[3].uid == 2*2);
+	test_assert(ups[3].modseq_low32 == 1234 &&
+		    ups[3].modseq_high32 == 0);
+	test_end();
+}
+
 static void test_mail_index_transaction_finish_expunges(void)
 {
 	struct mail_index_transaction *t;
@@ -242,6 +287,7 @@ int main(void)
 		test_mail_index_transaction_finish_flag_updates,
 		test_mail_index_transaction_finish_check_conflicts,
 		test_mail_index_transaction_finish_uid_updates,
+		test_mail_index_transaction_finish_modseq_updates,
 		test_mail_index_transaction_finish_expunges,
 		NULL
 	};

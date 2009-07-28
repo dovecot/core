@@ -601,9 +601,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		ret = log_view_is_record_valid(file, hdr, data) ? 1 : -1;
 	} T_END;
 	if (ret > 0) {
-		if (mail_transaction_header_has_modseq(hdr, data,
-						       view->prev_modseq))
-			view->prev_modseq++;
+		mail_transaction_update_modseq(hdr, data, &view->prev_modseq);
 		*hdr_r = hdr;
 		*data_r = data;
 		view->cur_offset += full_size;

@@ -486,6 +486,39 @@ static void test_mail_index_uid_update(void)
 	test_end();
 }
 
+static void test_mail_index_modseq_update(void)
+{
+	struct mail_index_transaction *t;
+	const struct mail_transaction_modseq_update *ups;
+	unsigned int count;
+
+	test_begin("mail index modseq update");
+
+	hdr.messages_count = 10;
+	t = mail_index_transaction_new();
+
+	mail_index_update_modseq(t, 4, 0x8234fefa02747429ULL);
+	mail_index_update_modseq(t, 6, 0x1234567890abcdefULL);
+	mail_index_update_modseq(t, 2, 0xfeed);
+	mail_index_update_modseq(t, 4, 1);
+
+	ups = array_get(&t->modseq_updates, &count);
+	test_assert(count == 4);
+	test_assert(ups[0].uid == 4 &&
+		    ups[0].modseq_high32 == 0x8234fefa &&
+		    ups[0].modseq_low32 == 0x02747429);
+	test_assert(ups[1].uid == 6 &&
+		    ups[1].modseq_high32 == 0x12345678 &&
+		    ups[1].modseq_low32 == 0x90abcdef);
+	test_assert(ups[2].uid == 2 &&
+		    ups[2].modseq_high32 == 0 &&
+		    ups[2].modseq_low32 == 0xfeed);
+	test_assert(ups[3].uid == 4 &&
+		    ups[3].modseq_high32 == 0 &&
+		    ups[3].modseq_low32 == 1);
+	test_end();
+}
+
 static void test_mail_index_expunge(void)
 {
 	static uint8_t empty_guid[MAIL_GUID_128_SIZE] = { 0, };
@@ -542,6 +575,7 @@ int main(void)
 		test_mail_index_cancel_flag_updates,
 		test_mail_index_transaction_get_flag_update_pos,
 		test_mail_index_uid_update,
+		test_mail_index_modseq_update,
 		test_mail_index_expunge,
 		NULL
 	};

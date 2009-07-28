@@ -35,6 +35,8 @@ uint64_t mail_index_modseq_lookup_flags(struct mail_index_view *view,
 uint64_t mail_index_modseq_lookup_keywords(struct mail_index_view *view,
 					   const struct mail_keywords *keywords,
 					   uint32_t seq);
+int mail_index_modseq_set(struct mail_index_view *view,
+			  uint32_t seq, uint64_t min_modseq);
 
 struct mail_index_modseq_sync *
 mail_index_modseq_sync_begin(struct mail_index_sync_map_ctx *sync_map_ctx);
@@ -53,6 +55,8 @@ void mail_index_modseq_update_keyword(struct mail_index_modseq_sync *ctx,
 				      uint32_t seq1, uint32_t seq2);
 void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
 				      uint32_t seq1, uint32_t seq2);
+void mail_index_modseq_update_highest(struct mail_index_modseq_sync *ctx,
+				      uint64_t highest_modseq);
 
 struct mail_index_map_modseq *
 mail_index_map_modseq_clone(const struct mail_index_map_modseq *mmap);

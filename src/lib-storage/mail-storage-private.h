@@ -295,6 +295,7 @@ struct mail_vfuncs {
 			     enum mail_flags flags);
 	void (*update_keywords)(struct mail *mail, enum modify_type modify_type,
 				struct mail_keywords *keywords);
+	void (*update_modseq)(struct mail *mail, uint64_t min_modseq);
 	void (*update_uid)(struct mail *mail, uint32_t new_uid);
 	void (*expunge)(struct mail *mail);
 	void (*set_cache_corrupted)(struct mail *mail,
@@ -386,6 +387,7 @@ struct mail_save_context {
 
 	enum mail_flags flags;
 	struct mail_keywords *keywords;
+	uint64_t min_modseq;
 
 	time_t received_date, save_date;
 	int received_tz_offset;

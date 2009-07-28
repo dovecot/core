@@ -87,6 +87,7 @@ int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	mailbox_save_set_from_envelope(ctx->backend_save_ctx,
 				       _ctx->from_envelope);
 	mailbox_save_set_guid(ctx->backend_save_ctx, _ctx->guid);
+	mailbox_save_set_min_modseq(ctx->backend_save_ctx, _ctx->min_modseq);
 
 	if (_ctx->dest_mail != NULL) {
 		mail = virtual_mail_set_backend_mail(_ctx->dest_mail,

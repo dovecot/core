@@ -794,12 +794,15 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 	return 0;
 }
 
-bool
-mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr,
-				   const void *data,
-				   uint64_t cur_modseq)
+void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
+				    const void *data, uint64_t *cur_modseq)
 {
-	if (cur_modseq != 0) {
+	uint32_t trans_size;
+
+	trans_size = mail_index_offset_to_uint32(hdr->size);
+	i_assert(trans_size != 0);
+
+	if (*cur_modseq != 0) {
 		/* tracking modseqs */
 	} else if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
 		   MAIL_TRANSACTION_EXT_INTRO) {
@@ -813,11 +816,12 @@ mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr,
 		    memcmp(intro + 1, MAIL_INDEX_MODSEQ_EXT_NAME,
 			   modseq_ext_len) == 0) {
 			/* modseq tracking started */
-			return TRUE;
+			*cur_modseq += 1;
+			return;
 		}
 	} else {
 		/* not tracking modseqs */
-		return FALSE;
+		return;
 	}
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
@@ -832,9 +836,20 @@ mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_KEYWORD_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_RESET:
 		/* these changes increase modseq */
-		return TRUE;
+		*cur_modseq += 1;
+		break;
+	case MAIL_TRANSACTION_MODSEQ_UPDATE: {
+		const struct mail_transaction_modseq_update *rec = data, *end;
+
+		end = CONST_PTR_OFFSET(data, trans_size - sizeof(*hdr));
+		for (rec = data; rec < end; rec++) {
+			uint64_t modseq = ((uint64_t)rec->modseq_high32 >> 32) |
+				rec->modseq_low32;
+			if (*cur_modseq < modseq)
+				*cur_modseq = modseq;
+		}
 	}
-	return FALSE;
+	}
 }
 
 static struct modseq_cache *
@@ -979,9 +994,7 @@ int mail_transaction_log_file_get_highest_modseq_at(
 	while (cur_offset < offset) {
 		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
 			return- 1;
-		if (mail_transaction_header_has_modseq(hdr, hdr + 1,
-						       cur_modseq))
-			cur_modseq++;
+		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq);
 	}
 
 	/* @UNSAFE: cache the value */
@@ -1041,13 +1054,11 @@ int mail_transaction_log_file_get_modseq_next_offset(
 		prev_offset = cur_offset;
 		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
 			return -1;
-		if (mail_transaction_header_has_modseq(hdr, hdr + 1,
-						       cur_modseq)) {
-			if (++cur_modseq == modseq)
-				break;
-		}
+		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq);
+		if (cur_modseq >= modseq)
+			break;
 	}
-	if (modseq != cur_modseq) {
+	if (cur_offset == file->sync_offset) {
 		/* if we got to sync_offset, cur_modseq should be
 		   sync_highest_modseq */
 		mail_index_set_error(file->log->index,
@@ -1075,9 +1086,8 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 	const void *data = hdr + 1;
 	int ret;
 
-	if (mail_transaction_header_has_modseq(hdr, hdr + 1,
-					       file->sync_highest_modseq))
-		file->sync_highest_modseq++;
+	mail_transaction_update_modseq(hdr, hdr + 1,
+				       &file->sync_highest_modseq);
 	if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
 		return 0;
 

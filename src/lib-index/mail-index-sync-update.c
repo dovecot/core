@@ -313,6 +313,36 @@ static void sync_uid_update(struct mail_index_sync_map_ctx *ctx,
 		map->hdr.record_size);
 }
 
+static int
+sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
+		   const struct mail_transaction_modseq_update *u,
+		   unsigned int size)
+{
+	struct mail_index_view *view = ctx->view;
+	const struct mail_transaction_modseq_update *end;
+	uint32_t seq;
+	uint64_t min_modseq, highest_modseq = 0;
+
+	end = CONST_PTR_OFFSET(u, size);
+	for (; u < end; u++) {
+		if (!mail_index_lookup_seq(view, u->uid, &seq))
+			continue;
+
+		min_modseq = ((uint64_t)u->modseq_high32 >> 32) |
+			u->modseq_low32;
+		if (highest_modseq < min_modseq)
+			highest_modseq = min_modseq;
+		if (mail_index_modseq_set(view, seq, min_modseq) < 0) {
+			mail_index_sync_set_corrupted(ctx,
+				"modseqs updated before they were enabled");
+			return -1;
+		}
+	}
+
+	mail_index_modseq_update_highest(ctx->modseq_ctx, highest_modseq);
+	return 1;
+}
+
 void mail_index_sync_write_seq_update(struct mail_index_sync_map_ctx *ctx,
 				      uint32_t seq1, uint32_t seq2)
 {
@@ -718,6 +748,12 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		end = CONST_PTR_OFFSET(data, hdr->size);
 		for (rec = data; rec < end; rec++)
 			sync_uid_update(ctx, rec->old_uid, rec->new_uid);
+		break;
+	}
+	case MAIL_TRANSACTION_MODSEQ_UPDATE: {
+		const struct mail_transaction_modseq_update *rec = data;
+
+		ret = sync_modseq_update(ctx, rec, hdr->size);
 		break;
 	}
 	default:

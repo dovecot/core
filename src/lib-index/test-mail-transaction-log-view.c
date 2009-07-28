@@ -47,11 +47,11 @@ int mail_transaction_log_file_get_highest_modseq_at(
 	return 0;
 }
 
-bool mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr ATTR_UNUSED,
-					const void *data ATTR_UNUSED,
-					uint64_t cur_modseq ATTR_UNUSED)
+void mail_transaction_update_modseq(const struct mail_transaction_header *hdr ATTR_UNUSED,
+				    const void *data ATTR_UNUSED,
+				    uint64_t *cur_modseq)
 {
-	return TRUE;
+	*cur_modseq += 1;
 }
 
 static void

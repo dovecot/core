@@ -111,6 +111,10 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		mail_index_update_keywords(ctx->trans, ctx->seq,
 					   MODIFY_REPLACE, _ctx->keywords);
 	}
+	if (_ctx->min_modseq != 0) {
+		mail_index_update_modseq(ctx->trans, ctx->seq,
+					 _ctx->min_modseq);
+	}
 
 	if (_ctx->dest_mail == NULL) {
 		if (ctx->mail == NULL)

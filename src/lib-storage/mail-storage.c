@@ -965,6 +965,12 @@ void mailbox_save_copy_flags(struct mail_save_context *ctx, struct mail *mail)
 	ctx->flags = mail_get_flags(mail);
 }
 
+void mailbox_save_set_min_modseq(struct mail_save_context *ctx,
+				 uint64_t min_modseq)
+{
+	ctx->min_modseq = min_modseq;
+}
+
 void mailbox_save_set_received_date(struct mail_save_context *ctx,
 				    time_t received_date, int timezone_offset)
 {

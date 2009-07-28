@@ -143,6 +143,7 @@ struct mail_vfuncs cydir_mail_vfuncs = {
 	index_mail_get_special,
 	index_mail_update_flags,
 	index_mail_update_keywords,
+	index_mail_update_modseq,
 	index_mail_update_uid,
 	index_mail_expunge,
 	index_mail_set_cache_corrupted,

@@ -373,6 +373,11 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 	}
 	if (array_is_created(&t->keyword_updates))
 		change_mask |= log_append_keyword_updates(&ctx);
+	/* keep modseq updates almost last */
+	if (array_is_created(&t->modseq_updates)) {
+		log_append_buffer(&ctx, t->modseq_updates.arr.buffer,
+				  MAIL_TRANSACTION_MODSEQ_UPDATE);
+	}
 
 	if (array_is_created(&t->expunges)) {
 		/* non-external expunges are only requests, ignore them when

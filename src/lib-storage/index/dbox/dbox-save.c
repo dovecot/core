@@ -90,6 +90,10 @@ static void dbox_save_add_to_index(struct dbox_save_context *ctx)
 		mail_index_update_keywords(ctx->trans, ctx->seq,
 					   MODIFY_REPLACE, ctx->ctx.keywords);
 	}
+	if (ctx->ctx.min_modseq != 0) {
+		mail_index_update_modseq(ctx->trans, ctx->seq,
+					 ctx->ctx.min_modseq);
+	}
 }
 
 int dbox_save_begin(struct mail_save_context *_ctx, struct istream *input)

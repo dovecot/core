@@ -110,6 +110,12 @@ static const char *log_record_type(unsigned int type)
 	case MAIL_TRANSACTION_EXT_ATOMIC_INC:
 		name = "ext-atomic-inc";
 		break;
+	case MAIL_TRANSACTION_UID_UPDATE:
+		name = "uid-update";
+		break;
+	case MAIL_TRANSACTION_MODSEQ_UPDATE:
+		name = "modseq-update";
+		break;
 	default:
 		name = t_strdup_printf("unknown: %x", type);
 		break;
@@ -381,6 +387,27 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 			printf("%u-%u, ", u->uid1, u->uid2);
 		}
 		printf("\n");
+		break;
+	}
+	case MAIL_TRANSACTION_UID_UPDATE: {
+		const struct mail_transaction_uid_update *rec = data, *end;
+
+		end = CONST_PTR_OFFSET(data, size);
+		for (rec = data; rec < end; rec++) {
+			printf(" - old uid=%u new uid=%u\n",
+			       rec->old_uid, rec->new_uid);
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_MODSEQ_UPDATE: {
+		const struct mail_transaction_modseq_update *rec = data, *end;
+
+		end = CONST_PTR_OFFSET(data, size);
+		for (rec = data; rec < end; rec++) {
+			printf(" - uid=%u modseq=%llu\n", rec->uid,
+			       ((unsigned long long)rec->modseq_high32 << 32) |
+			       rec->modseq_low32);
+		}
 		break;
 	}
 	default:

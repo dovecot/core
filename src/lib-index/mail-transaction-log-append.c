@@ -31,9 +31,7 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 	buffer_append(ctx->output, &hdr, sizeof(hdr));
 	buffer_append(ctx->output, data, size);
 
-	if (mail_transaction_header_has_modseq(&hdr, data,
-					       ctx->new_highest_modseq))
-		ctx->new_highest_modseq++;
+	mail_transaction_update_modseq(&hdr, data, &ctx->new_highest_modseq);
 }
 
 static int

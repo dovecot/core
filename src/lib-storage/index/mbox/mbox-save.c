@@ -473,6 +473,10 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 						   MODIFY_REPLACE,
 						   _ctx->keywords);
 		}
+		if (_ctx->min_modseq != 0) {
+			mail_index_update_modseq(ctx->trans, ctx->seq,
+						 _ctx->min_modseq);
+		}
 
 		offset = ctx->output->offset == 0 ? 0 :
 			ctx->output->offset - 1;

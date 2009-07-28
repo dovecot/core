@@ -179,6 +179,10 @@ maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
 		mail_index_update_keywords(ctx->trans, ctx->seq,
 					   MODIFY_REPLACE, _ctx->keywords);
 	}
+	if (_ctx->min_modseq != 0) {
+		mail_index_update_modseq(ctx->trans, ctx->seq,
+					 _ctx->min_modseq);
+	}
 
 	if (ctx->first_seq == 0) {
 		ctx->first_seq = ctx->seq;

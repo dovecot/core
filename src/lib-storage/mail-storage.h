@@ -529,6 +529,9 @@ void mailbox_save_set_flags(struct mail_save_context *ctx,
 			    struct mail_keywords *keywords);
 /* Copy flags and keywords from given mail. */
 void mailbox_save_copy_flags(struct mail_save_context *ctx, struct mail *mail);
+/* Set message's modseq to be at least min_modseq. */
+void mailbox_save_set_min_modseq(struct mail_save_context *ctx,
+				 uint64_t min_modseq);
 /* If received date isn't specified the current time is used. timezone_offset
    specifies the preferred timezone in minutes, but it may be ignored if
    backend doesn't support storing it. */
@@ -649,6 +652,8 @@ void mail_update_flags(struct mail *mail, enum modify_type modify_type,
 /* Update message keywords. */
 void mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 			  struct mail_keywords *keywords);
+/* Update message's modseq to be at least min_modseq. */
+void mail_update_modseq(struct mail *mail, uint64_t min_modseq);
 
 /* Update message's UID. The new UID must not be lower than next_uid at the
    commit time, otherwise the UID update fails and is just ignored. */

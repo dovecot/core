@@ -196,6 +196,13 @@ void mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 	p->v.update_keywords(mail, modify_type, keywords);
 }
 
+void mail_update_modseq(struct mail *mail, uint64_t min_modseq)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	p->v.update_modseq(mail, min_modseq);
+}
+
 void mail_update_uid(struct mail *mail, uint32_t new_uid)
 {
 	struct mail_private *p = (struct mail_private *)mail;

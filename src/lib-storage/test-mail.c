@@ -181,6 +181,11 @@ test_mail_update_keywords(struct mail *mail ATTR_UNUSED,
 {
 }
 
+static void test_mail_update_modseq(struct mail *mail ATTR_UNUSED,
+				    uint64_t min_modseq ATTR_UNUSED)
+{
+}
+
 static void test_mail_update_uid(struct mail *mail ATTR_UNUSED,
 				 uint32_t new_uid ATTR_UNUSED)
 {
@@ -226,6 +231,7 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_get_special,
 	test_mail_update_flags,
 	test_mail_update_keywords,
+	test_mail_update_modseq,
 	test_mail_update_uid,
 	test_mail_expunge,
 	test_mail_set_cache_corrupted,
