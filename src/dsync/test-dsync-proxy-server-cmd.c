@@ -11,7 +11,7 @@
 #include "test-dsync-worker.h"
 #include "test-dsync-common.h"
 
-#define ALL_MAIL_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"
+#define ALL_MAIL_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft \\Recent"
 
 static string_t *out;
 static struct dsync_proxy_server *server;
@@ -222,7 +222,7 @@ static void test_dsync_proxy_msg_update(void)
 	test_assert(event.type == LAST_MSG_TYPE_UPDATE);
 	test_assert(event.msg.uid == 123);
 	test_assert(event.msg.modseq == 4782782842924);
-	test_assert(event.msg.flags == MAIL_FLAGS_NONRECENT);
+	test_assert(event.msg.flags == MAIL_FLAGS_MASK);
 	test_assert(strcmp(event.msg.keywords[0], "kw1") == 0);
 	test_assert(strcmp(event.msg.keywords[1], "kw2") == 0);
 	test_assert(event.msg.keywords[2] == NULL);

@@ -57,7 +57,6 @@ static void test_dsync_proxy_msg(void)
 	dsync_proxy_msg_export(str, &msg_in);
 	test_assert(dsync_proxy_msg_import(pool, str_c(str),
 					   &msg_out, &error) == 0);
-	msg_in.flags &= ~MAIL_RECENT;
 	test_assert(dsync_messages_equal(&msg_in, &msg_out));
 
 	/* errors */
@@ -74,7 +73,7 @@ static void test_dsync_proxy_msg(void)
 	test_assert(dsync_proxy_msg_parse_flags(pool, "\\answered \\flagged", &msg_out) == 0);
 	test_assert(msg_out.flags == (MAIL_ANSWERED | MAIL_FLAGGED));
 	test_assert(dsync_proxy_msg_parse_flags(pool, "\\deleted \\recent", &msg_out) == 0);
-	test_assert(msg_out.flags == MAIL_DELETED);
+	test_assert(msg_out.flags == (MAIL_DELETED | MAIL_RECENT));
 	test_assert(dsync_proxy_msg_parse_flags(pool, "\\draft draft \\seen", &msg_out) == 0);
 	test_assert(msg_out.flags == (MAIL_DRAFT | MAIL_SEEN));
 	test_assert(strcasecmp(msg_out.keywords[0], "draft") == 0 && msg_out.keywords[1] == NULL);

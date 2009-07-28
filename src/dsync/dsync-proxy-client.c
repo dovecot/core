@@ -501,7 +501,7 @@ proxy_client_worker_msg_update_metadata(struct dsync_worker *_worker,
 
 		str_printfa(str, "MSG-UPDATE\t%u\t%llu\t", msg->uid,
 			    (unsigned long long)msg->modseq);
-		imap_write_flags(str, msg->flags & ~MAIL_RECENT, msg->keywords);
+		imap_write_flags(str, msg->flags, msg->keywords);
 		str_append_c(str, '\n');
 		o_stream_send(worker->output, str_data(str), str_len(str));
 	} T_END;

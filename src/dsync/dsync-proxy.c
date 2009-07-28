@@ -21,7 +21,7 @@ void dsync_proxy_msg_export(string_t *str,
 		    (unsigned long long)msg->modseq);
 	if ((msg->flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0)
 		str_append(str, "\\dsync-expunged ");
-	imap_write_flags(str, msg->flags & MAIL_FLAGS_NONRECENT, msg->keywords);
+	imap_write_flags(str, msg->flags & MAIL_FLAGS_MASK, msg->keywords);
 	str_printfa(str, "\t%ld", (long)msg->save_date);
 }
 
@@ -49,7 +49,6 @@ int dsync_proxy_msg_parse_flags(pool_t pool, const char *str,
 	}
 	(void)array_append_space(&keywords);
 
-	msg_r->flags &= ~MAIL_RECENT;
 	msg_r->keywords = array_idx(&keywords, 0);
 	return 0;
 }
