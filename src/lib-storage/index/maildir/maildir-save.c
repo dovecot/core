@@ -140,9 +140,9 @@ maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
 	struct istream *input;
 	unsigned int keyword_count;
 
-	/* don't allow caller to specify recent flag */
-	_ctx->flags &= ~MAIL_RECENT;
-	if (ctx->mbox->ibox.keep_recent)
+	/* allow caller to specify recent flag only when we're syncing
+	   messages (uid specified). */
+	if (_ctx->uid == 0)
 		_ctx->flags |= MAIL_RECENT;
 
 	/* now, we want to be able to rollback the whole append session,
