@@ -170,7 +170,7 @@ static void test_dsync_proxy_box_create(void)
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_CREATE);
 	test_assert(strcmp(event.box.name, "selectable") == 0);
-	test_assert(memcmp(event.box.guid.guid, test_mailbox_guid1, MAILBOX_GUID_SIZE) == 0);
+	test_assert(memcmp(event.box.guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE) == 0);
 	test_assert(event.box.uid_validity == 1234567890);
 	test_assert(event.box.uid_next == 9876);
 	test_assert(event.box.highest_modseq == 28427847284728);
@@ -189,7 +189,7 @@ static void test_dsync_proxy_box_update(void)
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_UPDATE);
 	test_assert(strcmp(event.box.name, "updated") == 0);
-	test_assert(memcmp(event.box.guid.guid, test_mailbox_guid2, MAILBOX_GUID_SIZE) == 0);
+	test_assert(memcmp(event.box.guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE) == 0);
 	test_assert(event.box.uid_validity == 34343);
 	test_assert(event.box.uid_next == 22);
 	test_assert(event.box.highest_modseq == 2238427847284728);
@@ -202,10 +202,10 @@ static void test_dsync_proxy_box_select(void)
 	test_begin("proxy server box select");
 
 	test_assert(run_cmd("BOX-SELECT", TEST_MAILBOX_GUID1, NULL) == 1);
-	test_assert(memcmp(test_worker->selected_mailbox.guid, test_mailbox_guid1, MAILBOX_GUID_SIZE) == 0);
+	test_assert(memcmp(test_worker->selected_mailbox.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE) == 0);
 
 	test_assert(run_cmd("BOX-SELECT", TEST_MAILBOX_GUID2, NULL) == 1);
-	test_assert(memcmp(test_worker->selected_mailbox.guid, test_mailbox_guid2, MAILBOX_GUID_SIZE) == 0);
+	test_assert(memcmp(test_worker->selected_mailbox.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE) == 0);
 
 	test_end();
 }
@@ -270,7 +270,7 @@ static void test_dsync_proxy_msg_copy(void)
 			    "8294284", NULL) == 1);
 	test_assert(test_dsync_worker_next_msg_event(test_worker, &msg_event));
 	test_assert(msg_event.type == LAST_MSG_TYPE_COPY);
-	test_assert(memcmp(msg_event.copy_src_mailbox.guid, test_mailbox_guid1, MAILBOX_GUID_SIZE) == 0);
+	test_assert(memcmp(msg_event.copy_src_mailbox.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE) == 0);
 	test_assert(msg_event.copy_src_uid == 5454);
 	test_assert(strcmp(msg_event.msg.guid, "copyguid") == 0);
 	test_assert(msg_event.msg.uid == 5678);

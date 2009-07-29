@@ -20,7 +20,7 @@ struct mbox_index_header {
 	uint32_t sync_mtime;
 	uint8_t dirty_flag;
 	uint8_t unused[3];
-	uint8_t mailbox_guid[MAILBOX_GUID_SIZE];
+	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 };
 struct mbox_storage {
 	struct mail_storage storage;

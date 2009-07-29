@@ -91,7 +91,7 @@ struct maildir_uidlist {
 	uoff_t last_read_offset;
 	string_t *hdr_extensions;
 
-	uint8_t mailbox_guid[MAILBOX_GUID_SIZE];
+	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 
 	unsigned int recreate:1;
 	unsigned int initial_read:1;
@@ -592,9 +592,9 @@ maildir_uidlist_read_v3_header(struct maildir_uidlist *uidlist,
 			break;
 		case MAILDIR_UIDLIST_HDR_EXT_GUID:
 			buf = buffer_create_dynamic(pool_datastack_create(),
-						    MAILBOX_GUID_SIZE);
+						    MAIL_GUID_128_SIZE);
 			if (hex_to_binary(value, buf) < 0 ||
-			    buf->used != MAILBOX_GUID_SIZE) {
+			    buf->used != MAIL_GUID_128_SIZE) {
 				maildir_uidlist_set_corrupted(uidlist,
 					"Invalid mailbox GUID: %s", value);
 				return -1;
@@ -1086,19 +1086,19 @@ uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)
 }
 
 int maildir_uidlist_get_mailbox_guid(struct maildir_uidlist *uidlist,
-				     uint8_t mailbox_guid[MAILBOX_GUID_SIZE])
+				     uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
 {
 	if (!uidlist->have_mailbox_guid) {
 		uidlist->recreate = TRUE;
 		if (maildir_uidlist_update(uidlist) < 0)
 			return -1;
 	}
-	memcpy(mailbox_guid, uidlist->mailbox_guid, MAILBOX_GUID_SIZE);
+	memcpy(mailbox_guid, uidlist->mailbox_guid, MAIL_GUID_128_SIZE);
 	return 0;
 }
 
 void maildir_uidlist_set_mailbox_guid(struct maildir_uidlist *uidlist,
-				      const uint8_t mailbox_guid[MAILBOX_GUID_SIZE])
+				      const uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
 {
 	if (memcmp(uidlist->mailbox_guid, mailbox_guid,
 		   sizeof(uidlist->mailbox_guid)) != 0) {

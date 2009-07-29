@@ -170,7 +170,6 @@ struct mail_save_context;
 struct mailbox;
 struct mailbox_transaction_context;
 
-#define MAILBOX_GUID_SIZE MAIL_GUID_128_SIZE
 struct mailbox_status {
 	uint32_t messages;
 	uint32_t recent;
@@ -181,7 +180,7 @@ struct mailbox_status {
 
 	uint32_t first_unseen_seq;
 	uint64_t highest_modseq;
-	uint8_t mailbox_guid[MAILBOX_GUID_SIZE];
+	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 
 	const ARRAY_TYPE(keywords) *keywords;
 
@@ -193,7 +192,7 @@ struct mailbox_status {
 
 struct mailbox_update {
 	/* All non-zero fields are changed. */
-	uint8_t mailbox_guid[MAILBOX_GUID_SIZE];
+	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 	uint32_t uid_validity;
 	uint32_t min_next_uid;
 	uint64_t min_highest_modseq;

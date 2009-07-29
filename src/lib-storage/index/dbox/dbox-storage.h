@@ -33,7 +33,7 @@
 struct dbox_index_header {
 	uint32_t map_uid_validity;
 	uint32_t highest_maildir_uid;
-	uint8_t mailbox_guid[MAILBOX_GUID_SIZE];
+	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 };
 
 struct dbox_storage {

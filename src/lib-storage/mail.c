@@ -320,7 +320,7 @@ bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE])
 {
 	unsigned int i;
 
-	for (i = 0; i < MAILBOX_GUID_SIZE; i++) {
+	for (i = 0; i < MAIL_GUID_128_SIZE; i++) {
 		if (guid_128[i] != 0)
 			return FALSE;
 	}
