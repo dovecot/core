@@ -780,7 +780,7 @@ file_dotlock_open_mode_full(const struct dotlock_settings *set, const char *path
 	fd = file_dotlock_open(set, path, flags, &dotlock);
 	umask(old_mask);
 
-	if (fd != -1 && (uid != (uid)-1 || gid != (gid_t)-1)) {
+	if (fd != -1 && (uid != (uid_t)-1 || gid != (gid_t)-1)) {
 		if (fchown(fd, uid, gid) < 0) {
 			if (errno == EPERM && uid == (uid_t)-1) {
 				i_error("%s", eperm_error_get_chgrp("fchown",
