@@ -45,8 +45,6 @@ struct index_mailbox {
 
 	/* we've discovered there aren't enough permissions to modify mailbox */
 	unsigned int backend_readonly:1;
-	unsigned int sent_diskspace_warning:1;
-	unsigned int sent_readonly_flags_warning:1;
 	unsigned int notify_pending:1;
 	unsigned int move_to_memory:1;
 };
@@ -54,16 +52,12 @@ struct index_mailbox {
 struct index_transaction_context {
 	struct mailbox_transaction_context mailbox_ctx;
 	struct mail_index_transaction_vfuncs super;
-
-	struct index_mailbox *ibox;
 	int mail_ref_count;
 
 	struct mail_index_transaction *trans;
 	struct mail_index_view *trans_view;
 	struct mail_cache_view *cache_view;
 	struct mail_cache_transaction_ctx *cache_trans;
-
-	unsigned int cache_trans_failed:1;
 };
 
 void mail_storage_set_index_error(struct index_mailbox *ibox);

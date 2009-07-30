@@ -172,7 +172,8 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 
 static void mbox_save_init_sync(struct mbox_transaction_context *t)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->ictx.ibox;
+	struct mbox_mailbox *mbox =
+		(struct mbox_mailbox *)t->ictx.mailbox_ctx.box;
 	struct mbox_save_context *ctx = t->save_ctx;
 	const struct mail_index_header *hdr;
 	struct mail_index_view *view;
@@ -414,7 +415,7 @@ mbox_save_alloc(struct mailbox_transaction_context *_t)
 {
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)_t;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->ictx.ibox;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_t->box;
 	struct mbox_save_context *ctx;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);

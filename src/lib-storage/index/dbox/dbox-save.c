@@ -58,7 +58,7 @@ dbox_save_alloc(struct mailbox_transaction_context *_t)
 {
 	struct dbox_transaction_context *t =
 		(struct dbox_transaction_context *)_t;
-	struct dbox_mailbox *mbox = (struct dbox_mailbox *)t->ictx.ibox;
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)_t->box;
 	struct dbox_save_context *ctx;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);

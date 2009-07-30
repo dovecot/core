@@ -1069,6 +1069,7 @@ void index_mail_init(struct index_mail *mail,
 		     enum mail_fetch_field wanted_fields,
 		     struct mailbox_header_lookup_ctx *_wanted_headers)
 {
+	struct index_mailbox *ibox = (struct index_mailbox *)_t->box;
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 	struct index_header_lookup_ctx *wanted_headers =
@@ -1078,18 +1079,18 @@ void index_mail_init(struct index_mail *mail,
 	array_create(&mail->mail.module_contexts, mail->mail.pool,
 		     sizeof(void *), 5);
 
-	mail->mail.v = *t->ibox->mail_vfuncs;
-	mail->mail.mail.box = &t->ibox->box;
+	mail->mail.v = *ibox->mail_vfuncs;
+	mail->mail.mail.box = &ibox->box;
 	mail->mail.mail.transaction = &t->mailbox_ctx;
 	mail->mail.wanted_fields = wanted_fields;
 	mail->mail.wanted_headers = _wanted_headers;
 
-	hdr = mail_index_get_header(t->ibox->view);
+	hdr = mail_index_get_header(ibox->view);
 	mail->uid_validity = hdr->uid_validity;
 
 	t->mail_ref_count++;
 	mail->data_pool = pool_alloconly_create("index_mail", 16384);
-	mail->ibox = t->ibox;
+	mail->ibox = ibox;
 	mail->trans = t;
 	mail->wanted_fields = wanted_fields;
 	if (wanted_headers != NULL) {

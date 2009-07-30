@@ -61,7 +61,7 @@ cydir_save_alloc(struct mailbox_transaction_context *_t)
 {
 	struct cydir_transaction_context *t =
 		(struct cydir_transaction_context *)_t;
-	struct cydir_mailbox *mbox = (struct cydir_mailbox *)t->ictx.ibox;
+	struct cydir_mailbox *mbox = (struct cydir_mailbox *)_t->box;
 	struct cydir_save_context *ctx = t->save_ctx;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);

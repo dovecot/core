@@ -1012,7 +1012,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 
 	ctx = i_new(struct index_search_context, 1);
 	ctx->mail_ctx.transaction = _t;
-	ctx->ibox = t->ibox;
+	ctx->ibox = (struct index_mailbox *)_t->box;
 	ctx->view = t->trans_view;
 	ctx->mail_ctx.args = args;
 	ctx->mail_ctx.sort_program = index_sort_program_init(_t, sort_program);
@@ -1020,7 +1020,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	if (gettimeofday(&ctx->last_nonblock_timeval, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
 
-	hdr = mail_index_get_header(t->ibox->view);
+	hdr = mail_index_get_header(ctx->ibox->view);
 	ctx->mail_ctx.progress_max = hdr->messages_count;
 
 	i_array_init(&ctx->mail_ctx.results, 5);

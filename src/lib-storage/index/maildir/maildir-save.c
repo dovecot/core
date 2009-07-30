@@ -108,7 +108,8 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 struct maildir_save_context *
 maildir_save_transaction_init(struct maildir_transaction_context *t)
 {
-        struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
+	struct maildir_mailbox *mbox =
+		(struct maildir_mailbox *)t->ictx.mailbox_ctx.box;
 	struct maildir_save_context *ctx;
 	pool_t pool;
 

@@ -9,7 +9,6 @@ void index_transaction_init(struct index_transaction_context *t,
 			    struct index_mailbox *ibox)
 {
 	t->mailbox_ctx.box = &ibox->box;
-	t->ibox = ibox;
 
 	array_create(&t->mailbox_ctx.module_contexts, default_pool,
 		     sizeof(void *), 5);
@@ -34,13 +33,14 @@ int index_transaction_finish_commit(struct index_transaction_context *t,
 				    uint32_t *log_file_seq_r,
 				    uoff_t *log_file_offset_r)
 {
+	struct index_mailbox *ibox = (struct index_mailbox *)t->mailbox_ctx.box;
 	int ret;
 
 	i_assert(t->mail_ref_count == 0);
 
 	ret = t->super.commit(t->trans, log_file_seq_r, log_file_offset_r);
 	if (ret < 0)
-		mail_storage_set_index_error(t->ibox);
+		mail_storage_set_index_error(ibox);
 
 	index_transaction_free(t);
 	return ret;

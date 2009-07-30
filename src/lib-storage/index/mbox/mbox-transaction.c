@@ -14,7 +14,8 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 				   uoff_t *log_file_offset_r)
 {
 	struct mbox_transaction_context *mt = MAIL_STORAGE_CONTEXT(t);
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mt->ictx.ibox;
+	struct mbox_mailbox *mbox =
+		(struct mbox_mailbox *)mt->ictx.mailbox_ctx.box;
 	unsigned int lock_id = mt->mbox_lock_id;
 	bool mails_saved;
 	int ret = 0;
@@ -62,7 +63,8 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 static void mbox_transaction_rollback(struct mail_index_transaction *t)
 {
 	struct mbox_transaction_context *mt = MAIL_STORAGE_CONTEXT(t);
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mt->ictx.ibox;
+	struct mbox_mailbox *mbox =
+		(struct mbox_mailbox *)mt->ictx.mailbox_ctx.box;
 
 	if (mt->save_ctx != NULL)
 		mbox_transaction_save_rollback(mt->save_ctx);
