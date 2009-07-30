@@ -642,7 +642,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 		}
 		mbox_md5_finish(ctx->mbox_md5_ctx, hdr_md5_sum);
 		mail_index_update_ext(ctx->trans, ctx->seq,
-				      ctx->mbox->ibox.md5hdr_ext_idx,
+				      ctx->mbox->md5hdr_ext_idx,
 				      hdr_md5_sum, NULL);
 	}
 

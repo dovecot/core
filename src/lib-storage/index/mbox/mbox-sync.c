@@ -252,7 +252,7 @@ static void mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
 		rec = mail_index_lookup(sync_ctx->sync_view, sync_ctx->idx_seq);
 		mail_index_lookup_ext(sync_ctx->sync_view,
 				      sync_ctx->idx_seq,
-				      sync_ctx->mbox->ibox.md5hdr_ext_idx,
+				      sync_ctx->mbox->md5hdr_ext_idx,
 				      &data, NULL);
 		if (data != NULL && memcmp(data, hdr_md5_sum, 16) == 0)
 			break;
@@ -311,12 +311,11 @@ mbox_sync_update_md5_if_changed(struct mbox_sync_mail_context *mail_ctx)
 	const void *ext_data;
 
 	mail_index_lookup_ext(sync_ctx->sync_view, sync_ctx->idx_seq,
-			      sync_ctx->mbox->ibox.md5hdr_ext_idx,
-			      &ext_data, NULL);
+			      sync_ctx->mbox->md5hdr_ext_idx, &ext_data, NULL);
 	if (ext_data == NULL ||
 	    memcmp(mail_ctx->hdr_md5_sum, ext_data, 16) != 0) {
 		mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
-				      sync_ctx->mbox->ibox.md5hdr_ext_idx,
+				      sync_ctx->mbox->md5hdr_ext_idx,
 				      mail_ctx->hdr_md5_sum, NULL);
 	}
 }
@@ -425,7 +424,7 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 
 		if (sync_ctx->mbox->mbox_save_md5 != 0) {
 			mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
-				sync_ctx->mbox->ibox.md5hdr_ext_idx,
+				sync_ctx->mbox->md5hdr_ext_idx,
 				mail_ctx->hdr_md5_sum, NULL);
 		}
 	} else {

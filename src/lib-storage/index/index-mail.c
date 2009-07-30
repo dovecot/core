@@ -5,7 +5,6 @@
 #include "buffer.h"
 #include "ioloop.h"
 #include "istream.h"
-#include "hex-binary.h"
 #include "str.h"
 #include "message-date.h"
 #include "message-part-serialize.h"
@@ -943,7 +942,6 @@ int index_mail_get_special(struct mail *_mail,
 	struct index_mail_data *data = &mail->data;
 	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	string_t *str;
-	const void *ext_data;
 
 	switch (field) {
 	case MAIL_FETCH_IMAP_BODY: {
@@ -1038,17 +1036,8 @@ int index_mail_get_special(struct mail *_mail,
 	case MAIL_FETCH_UIDL_BACKEND:
 	case MAIL_FETCH_SEARCH_SCORE:
 	case MAIL_FETCH_GUID:
-		*value_r = "";
-		return 0;
 	case MAIL_FETCH_HEADER_MD5:
-		mail_index_lookup_ext(mail->trans->trans_view, data->seq,
-				      mail->ibox->md5hdr_ext_idx,
-				      &ext_data, NULL);
-		if (ext_data == NULL) {
-			*value_r = "";
-			return 0;
-		}
-		*value_r = binary_to_hex(ext_data, 16);
+		*value_r = "";
 		return 0;
 	case MAIL_FETCH_MAILBOX_NAME:
 		*value_r = _mail->box->name;

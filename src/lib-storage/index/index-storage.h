@@ -26,8 +26,6 @@ struct index_mailbox {
 	struct mail_cache *cache;
 	struct mail_vfuncs *mail_vfuncs;
 
-	uint32_t md5hdr_ext_idx;
-
 	struct timeout *notify_to;
 	struct index_notify_file *notify_files;
         struct index_notify_io *notify_ios;

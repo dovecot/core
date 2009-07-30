@@ -358,6 +358,9 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		mail_index_ext_register(mbox->ibox.index, "mbox",
 					sizeof(mbox->mbox_hdr),
 					sizeof(uint64_t), sizeof(uint64_t));
+	mbox->md5hdr_ext_idx =
+		mail_index_ext_register(mbox->ibox.index, "header-md5",
+					0, 16, 1);
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
 		mbox->mbox_save_md5 = TRUE;

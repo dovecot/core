@@ -487,8 +487,6 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	ibox->commit_log_file_seq = 0;
 	ibox->index = index_storage_alloc(box->list, name, flags, index_prefix);
-	ibox->md5hdr_ext_idx =
-		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
 
 	if (box->file_create_mode == 0) {
 		mailbox_list_get_permissions(box->list, name,

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "hex-binary.h"
 #include "index-mail.h"
 #include "mbox-storage.h"
 #include "mbox-file.h"
@@ -148,9 +149,11 @@ static int
 mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		      const char **value_r)
 {
-#define EMPTY_MD5_SUM "00000000000000000000000000000000"
+	static uint8_t empty_md5[16] =
+		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
+	const void *ext_data;
 
 	switch (field) {
 	case MAIL_FETCH_FROM_ENVELOPE:
@@ -160,12 +163,18 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		*value_r = istream_raw_mbox_get_sender(mbox->mbox_stream);
 		return 0;
 	case MAIL_FETCH_HEADER_MD5:
-		if (index_mail_get_special(_mail, field, value_r) < 0)
-			return -1;
-		if (**value_r != '\0' && strcmp(*value_r, EMPTY_MD5_SUM) != 0)
+		mail_index_lookup_ext(mail->trans->trans_view, _mail->seq,
+				      mbox->md5hdr_ext_idx, &ext_data, NULL);
+		if (ext_data == NULL) {
+			*value_r = "";
 			return 0;
+		}
+		if (memcmp(ext_data, empty_md5, 16) != 0) {
+			*value_r = binary_to_hex(ext_data, 16);
+			return 0;
+		}
 
-		/* i guess in theory the EMPTY_MD5_SUM is valid and can happen,
+		/* i guess in theory the empty_md5 is valid and can happen,
 		   but it's almost guaranteed that it means the MD5 sum is
 		   missing. recalculate it. */
 		mbox->mbox_save_md5 = TRUE;

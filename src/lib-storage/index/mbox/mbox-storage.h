@@ -46,7 +46,7 @@ struct mbox_mailbox {
 	struct timeout *keep_lock_to;
 	bool mbox_writeonly;
 
-	uint32_t mbox_ext_idx;
+	uint32_t mbox_ext_idx, md5hdr_ext_idx;
 	struct mbox_index_header mbox_hdr;
 	const struct mailbox_update *sync_hdr_update;
 

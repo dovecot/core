@@ -592,8 +592,7 @@ bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 	/* match by MD5 sum */
 	mbox->mbox_save_md5 = TRUE;
 
-	mail_index_lookup_ext(view, seq, mbox->ibox.md5hdr_ext_idx,
-			      &data, NULL);
+	mail_index_lookup_ext(view, seq, mbox->md5hdr_ext_idx, &data, NULL);
 	return data == NULL ? 0 :
 		memcmp(data, ctx.hdr_md5_sum, 16) == 0;
 }
