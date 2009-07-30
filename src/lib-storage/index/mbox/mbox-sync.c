@@ -1775,16 +1775,8 @@ again:
 	if ((flags & MBOX_SYNC_REWRITE) != 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
 
-	if ((flags & MBOX_SYNC_LAST_COMMIT) != 0) {
-		ret = mail_index_sync_begin_to(mbox->ibox.index,
-				&index_sync_ctx, &sync_view, &trans,
-				mbox->ibox.commit_log_file_seq,
-				mbox->ibox.commit_log_file_offset, sync_flags);
-	} else {
-		ret = mail_index_sync_begin(mbox->ibox.index, &index_sync_ctx,
-					    &sync_view, &trans, sync_flags);
-	}
-
+	ret = mail_index_sync_begin(mbox->ibox.index, &index_sync_ctx,
+				    &sync_view, &trans, sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
 			mail_storage_set_index_error(&mbox->ibox);
@@ -1882,9 +1874,6 @@ again:
 	else if (mail_index_sync_commit(&index_sync_ctx) < 0) {
 		mail_storage_set_index_error(&mbox->ibox);
 		ret = -1;
-	} else {
-		mbox->ibox.commit_log_file_seq = 0;
-		mbox->ibox.commit_log_file_offset = 0;
 	}
 	sync_ctx.t = NULL;
 	sync_ctx.index_sync_ctx = NULL;

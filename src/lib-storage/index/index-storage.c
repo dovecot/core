@@ -485,7 +485,6 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 		mail_storage_settings_to_index_flags(box->storage->set);
 
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
-	ibox->commit_log_file_seq = 0;
 	ibox->index = index_storage_alloc(box->list, name, flags, index_prefix);
 
 	if (box->file_create_mode == 0) {

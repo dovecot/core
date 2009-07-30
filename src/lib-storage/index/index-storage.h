@@ -34,9 +34,6 @@ struct index_mailbox {
 	time_t next_lock_notify; /* temporary */
 	enum mailbox_lock_notify_type last_notify_type;
 
-	uint32_t commit_log_file_seq;
-	uoff_t commit_log_file_offset;
-
 	const ARRAY_TYPE(keywords) *keyword_names;
 	struct mail_cache_field *cache_fields;
 

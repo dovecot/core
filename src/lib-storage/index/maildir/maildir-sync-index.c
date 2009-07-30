@@ -311,9 +311,6 @@ static int maildir_sync_index_finish(struct maildir_index_sync_context *ctx,
 		if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
 			mail_storage_set_index_error(&mbox->ibox);
 			ret = -1;
-		} else {
-			mbox->ibox.commit_log_file_seq = 0;
-			mbox->ibox.commit_log_file_offset = 0;
 		}
 		mbox->syncing_commit = FALSE;
 	}

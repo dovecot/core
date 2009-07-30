@@ -41,12 +41,6 @@ int index_transaction_finish_commit(struct index_transaction_context *t,
 	ret = t->super.commit(t->trans, log_file_seq_r, log_file_offset_r);
 	if (ret < 0)
 		mail_storage_set_index_error(t->ibox);
-	else {
-		if (*log_file_seq_r != 0) {
-			t->ibox->commit_log_file_seq = *log_file_seq_r;
-			t->ibox->commit_log_file_offset = *log_file_offset_r;
-		}
-	}
 
 	index_transaction_free(t);
 	return ret;
