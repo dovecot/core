@@ -61,7 +61,7 @@ dbox_save_alloc(struct mailbox_transaction_context *_t)
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)t->ictx.ibox;
 	struct dbox_save_context *ctx;
 
-	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	if (t->save_ctx != NULL) {
 		/* use the existing allocated structure */

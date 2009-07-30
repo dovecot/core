@@ -64,7 +64,6 @@ struct index_transaction_context {
 	struct mail_index_transaction_vfuncs super;
 
 	struct index_mailbox *ibox;
-	enum mailbox_transaction_flags flags;
 	int mail_ref_count;
 
 	struct mail_index_transaction *trans;

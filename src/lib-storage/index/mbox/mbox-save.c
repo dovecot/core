@@ -251,6 +251,7 @@ static int
 mbox_save_init_file(struct mbox_save_context *ctx,
 		    struct mbox_transaction_context *t, bool want_mail)
 {
+	struct mailbox_transaction_context *_t = &t->ictx.mailbox_ctx;
 	struct mbox_mailbox *mbox = ctx->mbox;
 	struct mail_storage *storage = &mbox->storage->storage;
 	bool empty = FALSE;
@@ -262,7 +263,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		return -1;
 	}
 
-	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0)
+	if ((_t->flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0)
 		want_mail = TRUE;
 
 	if (ctx->append_offset == (uoff_t)-1) {
@@ -416,7 +417,7 @@ mbox_save_alloc(struct mailbox_transaction_context *_t)
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->ictx.ibox;
 	struct mbox_save_context *ctx;
 
-	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	if (t->save_ctx != NULL)
 		return &t->save_ctx->ctx;

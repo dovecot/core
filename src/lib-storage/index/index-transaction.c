@@ -85,7 +85,6 @@ index_transaction_begin(struct mailbox *box,
 		i_panic("mail storage transaction context mising for type %s",
 			box->storage->name);
 	}
-	it->flags = flags;
 	return &it->mailbox_ctx;
 }
 

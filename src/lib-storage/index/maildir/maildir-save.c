@@ -365,7 +365,7 @@ maildir_save_alloc(struct mailbox_transaction_context *_t)
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;
 
-	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	if (t->save_ctx == NULL)
 		t->save_ctx = maildir_save_transaction_init(t);
@@ -765,8 +765,7 @@ static void maildir_save_sync_uidlist(struct maildir_save_context *ctx)
 
 int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 {
-	struct maildir_transaction_context *t =
-		(struct maildir_transaction_context *)ctx->ctx.transaction;
+	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
 	struct maildir_filename *last_mf;
 	enum maildir_uidlist_sync_flags sync_flags;
 	int ret;
@@ -777,7 +776,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL |
 		MAILDIR_UIDLIST_SYNC_NOREFRESH;
 
-	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0) {
+	if ((_t->flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0) {
 		/* we want to assign UIDs, we must lock uidlist */
 	} else if (ctx->have_keywords) {
 		/* keywords file updating relies on uidlist lock. */
@@ -818,7 +817,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			ret = -1;
 	}
 
-	t->ictx.mailbox_ctx.changes->uid_validity =
+	_t->changes->uid_validity =
 		maildir_uidlist_get_uid_validity(ctx->mbox->uidlist);
 
 	if (ctx->mail != NULL) {

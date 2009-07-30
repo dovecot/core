@@ -210,12 +210,13 @@ maildir_compatible_file_modes(struct mailbox *box1, struct mailbox *box2)
 
 int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 {
+	struct mailbox_transaction_context *_t = ctx->transaction;
 	struct maildir_transaction_context *t =
-		(struct maildir_transaction_context *)ctx->transaction;
+		(struct maildir_transaction_context *)_t;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 	int ret;
 
-	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	if (mbox->storage->set->maildir_copy_with_hardlinks &&
 	    maildir_compatible_file_modes(&mbox->ibox.box, mail->box)) {
