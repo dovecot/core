@@ -43,11 +43,15 @@ int file_set_size(int fd, off_t size)
 
 #ifdef HAVE_POSIX_FALLOCATE
 	if (posix_fallocate_supported) {
-		if (posix_fallocate(fd, st.st_size, size - st.st_size) == 0)
+		int err;
+
+		err = posix_fallocate(fd, st.st_size, size - st.st_size);
+		if (err == 0)
 			return 0;
 
-		if (errno != EINVAL /* Solaris */) {
-			if (!ENOSPACE(errno))
+		if (err != EINVAL /* Solaris */ &&
+		    err != EOPNOTSUPP /* AOX */) {
+			if (!ENOSPACE(err))
 				i_error("posix_fallocate() failed: %m");
 			return -1;
 		}
