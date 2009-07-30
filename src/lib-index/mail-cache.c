@@ -19,7 +19,8 @@ void mail_cache_set_syscall_error(struct mail_cache *cache,
 
 	if (ENOSPACE(errno)) {
 		cache->index->nodiskspace = TRUE;
-		if (!cache->index->never_in_memory)
+		if ((cache->index->flags &
+		     MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
 			return;
 	}
 
@@ -111,7 +112,7 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 		return TRUE;
 
 	/* see if the file has changed */
-	if (cache->index->nfs_flush) {
+	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 		i_assert(!cache->locked);
 		nfs_flush_file_handle_cache(cache->filepath);
 	}
@@ -126,7 +127,7 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 		return TRUE;
 	}
 
-	if (cache->index->nfs_flush) {
+	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 		/* if the old file has been deleted, the new file may have
 		   the same inode as the old one. we'll catch this here by
 		   checking if fstat() fails with ESTALE */
@@ -413,15 +414,16 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 		hash_table_create(default_pool, cache->field_pool, 0,
 				  strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 
-	cache->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
-	cache->dotlock_settings.nfs_flush = index->nfs_flush;
+	cache->dotlock_settings.use_excl_lock =
+		(index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
+	cache->dotlock_settings.nfs_flush =
+		(index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	cache->dotlock_settings.timeout = MAIL_CACHE_LOCK_TIMEOUT;
 	cache->dotlock_settings.stale_timeout = MAIL_CACHE_LOCK_CHANGE_TIMEOUT;
 
-	if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
-		if (index->mmap_disable)
-			cache->file_cache = file_cache_new(-1);
-	}
+	if (!MAIL_INDEX_IS_IN_MEMORY(index) &&
+	    (index->flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) != 0)
+		cache->file_cache = file_cache_new(-1);
 
 	cache->ext_id =
 		mail_index_ext_register(index, "cache", 0,
@@ -653,7 +655,7 @@ int mail_cache_unlock(struct mail_cache *cache)
 		mail_cache_update_need_compress(cache);
 	}
 
-	if (cache->index->nfs_flush) {
+	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 		if (fdatasync(cache->fd) < 0)
 			mail_cache_set_syscall_error(cache, "fdatasync()");
 	}

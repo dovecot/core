@@ -317,7 +317,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	if (mail_index_lock_shared(index, &lock_id) < 0)
 		return -1;
 
-	if (index->nfs_flush)
+	if ((index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0)
 		nfs_flush_attr_cache_fd_locked(index->filepath, index->fd);
 
 	if (fstat(index->fd, &st) == 0)
@@ -333,8 +333,8 @@ static int mail_index_map_latest_file(struct mail_index *index)
 
 	/* mmaping seems to be slower than just reading the file, so even if
 	   mmap isn't disabled don't use it unless the file is large enough */
-	use_mmap = !index->mmap_disable && file_size != (uoff_t)-1 &&
-		file_size > MAIL_INDEX_MMAP_MIN_SIZE;
+	use_mmap = (index->flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0 &&
+		file_size != (uoff_t)-1 && file_size > MAIL_INDEX_MMAP_MIN_SIZE;
 
 	new_map = mail_index_map_alloc(index);
 	if (use_mmap) {

@@ -170,6 +170,7 @@ struct mail_index {
 	struct mail_cache *cache;
 	struct mail_transaction_log *log;
 
+	enum mail_index_open_flags flags;
 	enum mail_index_sync_type fsync_mask;
 	mode_t mode;
 	gid_t gid;
@@ -223,12 +224,7 @@ struct mail_index {
 
 	unsigned int opened:1;
 	unsigned int log_locked:1;
-	unsigned int mmap_disable:1;
-	unsigned int fsync_disable:1;
-	unsigned int use_excl_dotlocks:1;
-	unsigned int nfs_flush:1;
 	unsigned int readonly:1;
-	unsigned int keep_backups:1;
 	unsigned int mapping:1;
 	unsigned int syncing:1;
 	unsigned int need_recreate:1;
@@ -236,7 +232,6 @@ struct mail_index {
 	unsigned int modseqs_enabled:1;
 	unsigned int initial_create:1;
 	unsigned int initial_mapped:1;
-	unsigned int never_in_memory:1;
 };
 
 extern struct mail_index_module_register mail_index_module_register;

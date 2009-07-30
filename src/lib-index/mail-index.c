@@ -503,21 +503,15 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 	index->nodiskspace = FALSE;
 	index->index_lock_timeout = FALSE;
 	index->log_locked = FALSE;
-	index->mmap_disable = (flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) != 0;
-	index->use_excl_dotlocks =
-		(flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
-	index->fsync_disable =
-		(flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0;
-	index->nfs_flush = (flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
+	index->flags = flags;
 	index->readonly = (flags & MAIL_INDEX_OPEN_FLAG_READONLY) != 0;
-	index->keep_backups = (flags & MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS) != 0;
-	index->never_in_memory =
-		(flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0;
 	index->lock_method = lock_method;
 
-	if (index->nfs_flush && index->fsync_disable)
+	if ((flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
+	    (flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0)
 		i_fatal("nfs flush requires fsync_disable=no");
-	if (index->nfs_flush && !index->mmap_disable)
+	if ((flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
+	    (flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0)
 		i_fatal("nfs flush requires mmap_disable=yes");
 
 	if ((ret = mail_index_open_files(index, flags)) <= 0) {
@@ -615,7 +609,8 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 {
 	struct stat st1, st2;
 
-	i_assert(index->shared_lock_count == 0 || !index->nfs_flush);
+	i_assert(index->shared_lock_count == 0 ||
+		 (index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) == 0);
 	i_assert(index->excl_lock_count == 0);
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
@@ -624,7 +619,7 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 	if (index->fd == -1)
 		return mail_index_try_open_only(index);
 
-	if (index->nfs_flush)
+	if ((index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0)
 		nfs_flush_file_handle_cache(index->filepath);
 	if (nfs_safe_stat(index->filepath, &st2) < 0) {
 		if (errno == ENOENT)
@@ -693,7 +688,7 @@ int mail_index_move_to_memory(struct mail_index *index)
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return index->map == NULL ? -1 : 0;
 
-	if (index->never_in_memory)
+	if ((index->flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0)
 		return -1;
 
 	/* set the index as being into memory */
@@ -780,7 +775,7 @@ int mail_index_set_syscall_error(struct mail_index *index,
 
 	if (ENOSPACE(errno)) {
 		index->nodiskspace = TRUE;
-		if (!index->never_in_memory)
+		if ((index->flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
 			return -1;
 	}
 
@@ -797,7 +792,7 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 
 	if (ENOSPACE(errno)) {
 		index->nodiskspace = TRUE;
-		if (!index->never_in_memory)
+		if ((index->flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
 			return -1;
 	}
 

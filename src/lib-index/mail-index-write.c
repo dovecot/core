@@ -78,9 +78,13 @@ static int mail_index_recreate(struct mail_index *index)
 	}
 	o_stream_destroy(&output);
 
-	if (ret == 0 && !index->fsync_disable && fdatasync(fd) < 0) {
-		mail_index_file_set_syscall_error(index, path, "fdatasync()");
-		ret = -1;
+	if (ret == 0 &&
+	    (index->flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) == 0) {
+		if (fdatasync(fd) < 0) {
+			mail_index_file_set_syscall_error(index, path,
+							  "fdatasync()");
+			ret = -1;
+		}
 	}
 
 	if (close(fd) < 0) {
@@ -88,7 +92,7 @@ static int mail_index_recreate(struct mail_index *index)
 		ret = -1;
 	}
 
-	if (index->keep_backups)
+	if ((index->flags & MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS) != 0)
 		mail_index_create_backup(index);
 
 	if (ret == 0 && rename(path, index->filepath) < 0) {
@@ -241,7 +245,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 		ret = mail_index_write_map_over(index);
 		if (ret < 0)
 			mail_index_set_syscall_error(index, "pwrite_full()");
-		else if (index->nfs_flush) {
+		else if ((index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 			ret = fdatasync(index->fd);
 			if (ret < 0) {
 				mail_index_set_syscall_error(index,

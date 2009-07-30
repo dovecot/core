@@ -524,7 +524,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	int fd, ret;
 	bool rename_existing;
 
-	if (index->nfs_flush) {
+	if ((file->log->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 		/* although we check also mtime and file size below, it's done
 		   only to fix broken log files. we don't bother flushing
 		   attribute cache just for that. */
@@ -599,7 +599,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 		return -1;
 	}
 
-	if (index->nfs_flush) {
+	if ((file->log->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 		/* the header isn't important, so don't bother calling
 		   fdatasync() unless NFS is used */
 		if (fdatasync(new_fd) < 0) {
@@ -1301,6 +1301,8 @@ static int
 mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 			       uoff_t start_offset, bool nfs_flush)
 {
+	bool index_nfs_flush =
+		(file->log->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	int ret;
 
 	i_assert(file->mmap_base == NULL);
@@ -1310,7 +1312,7 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 	   that we really should have read more, flush the cache and try again.
 	   if file is locked, the attribute cache was already flushed when
 	   refreshing the log. */
-	if (file->log->index->nfs_flush && nfs_flush) {
+	if (index_nfs_flush && nfs_flush) {
 		if (!file->locked)
 			nfs_flush_attr_cache_unlocked(file->filepath);
 		else {
@@ -1335,7 +1337,7 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 	if ((ret = mail_transaction_log_file_read_more(file)) <= 0)
 		return ret;
 
-	if (file->log->index->nfs_flush && !nfs_flush &&
+	if (index_nfs_flush && !nfs_flush &&
 	    mail_transaction_log_file_need_nfs_flush(file)) {
 		/* we didn't read enough data. flush and try again. */
 		return mail_transaction_log_file_read(file, start_offset, TRUE);
@@ -1531,7 +1533,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		start_offset = file->sync_offset;
 	}
 
-	if (!index->mmap_disable)
+	if ((file->log->flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0)
 		ret = mail_transaction_log_file_map_mmap(file, start_offset);
 	else {
 		mail_transaction_log_file_munmap(file);

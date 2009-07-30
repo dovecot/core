@@ -123,7 +123,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 void mail_index_flush_read_cache(struct mail_index *index, const char *path,
 				 int fd, bool locked)
 {
-	if (!index->nfs_flush)
+	if ((index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) == 0)
 		return;
 
 	/* Assume flock() is emulated with fcntl(), because that's how most

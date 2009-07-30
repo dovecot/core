@@ -111,7 +111,8 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			    void **context)
 {
 	struct mail_index_view *view = sync_ctx->view;
-	struct mail_cache *cache = view->index->cache;
+	struct mail_index *index = view->index;
+	struct mail_cache *cache = index->cache;
 	struct mail_cache_sync_context *ctx = *context;
 	const uint32_t *old_cache_offset = old_data;
 	const uint32_t *new_cache_offset = new_data;
@@ -128,9 +129,10 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	ctx = mail_cache_handler_init(context);
 	if (cache->file_cache != NULL && !MAIL_CACHE_IS_UNUSABLE(cache)) {
 		/* flush read cache only once per sync */
-		if (!ctx->nfs_read_cache_flushed && cache->index->nfs_flush) {
+		if (!ctx->nfs_read_cache_flushed &&
+		    (index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 			ctx->nfs_read_cache_flushed = TRUE;
-			mail_index_flush_read_cache(cache->index,
+			mail_index_flush_read_cache(index,
 						    cache->filepath, cache->fd,
 						    cache->locked);
 		}
@@ -151,7 +153,7 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 
 	mail_transaction_log_view_get_prev_pos(view->log_view,
 					       &cur_seq, &cur_offset);
-	mail_transaction_log_get_mailbox_sync_pos(view->index->log,
+	mail_transaction_log_get_mailbox_sync_pos(index->log,
 						  &tail_seq, &tail_offset);
 	if (LOG_IS_BEFORE(cur_seq, cur_offset, tail_seq, tail_offset)) {
 		/* already been linked */

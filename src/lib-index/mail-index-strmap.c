@@ -108,8 +108,10 @@ mail_index_strmap_init(struct mail_index *index, const char *suffix)
 	strmap->fd = -1;
 
 	strmap->dotlock_settings = default_dotlock_settings;
-	strmap->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
-	strmap->dotlock_settings.nfs_flush = index->nfs_flush;
+	strmap->dotlock_settings.use_excl_lock =
+		(index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
+	strmap->dotlock_settings.nfs_flush =
+		(index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	return strmap;
 }
 
@@ -125,7 +127,8 @@ mail_index_strmap_set_syscall_error(struct mail_index_strmap *strmap,
 
 	if (ENOSPACE(errno)) {
 		strmap->index->nodiskspace = TRUE;
-		if (!strmap->index->never_in_memory)
+		if ((strmap->index->flags &
+		     MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
 			return;
 	}
 

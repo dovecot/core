@@ -860,7 +860,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	start_offset = type == MAIL_INDEX_SYNC_HANDLER_FILE ?
 		map->hdr.log_file_tail_offset : map->hdr.log_file_head_offset;
-	if (!force && !index->mmap_disable) {
+	if (!force && (index->flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0) {
 		/* see if we'd prefer to reopen the index file instead of
 		   syncing the current map from the transaction log.
 		   don't check this if mmap is disabled, because reopening

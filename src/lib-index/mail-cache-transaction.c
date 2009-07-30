@@ -839,7 +839,7 @@ mail_cache_header_fields_write(struct mail_cache_transaction_ctx *ctx,
 	if (mail_cache_write(cache, buffer->data, size, offset) < 0)
 		return -1;
 
-	if (cache->index->nfs_flush) {
+	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 		if (fdatasync(cache->fd) < 0) {
 			mail_cache_set_syscall_error(cache, "fdatasync()");
 			return -1;
