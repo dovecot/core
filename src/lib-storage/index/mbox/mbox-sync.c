@@ -157,7 +157,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 
 	if ((mail_ctx->mail.flags & MAIL_RECENT) != 0 &&
 	    !mail_ctx->mail.pseudo) {
-		if (!sync_ctx->mbox->ibox.keep_recent) {
+		if (!sync_ctx->keep_recent) {
 			/* need to add 'O' flag to Status-header */
 			mail_ctx->need_rewrite = TRUE;
 		}
@@ -913,7 +913,7 @@ static int mbox_sync_partial_seek_next(struct mbox_sync_context *sync_ctx,
 		return 1;
 
 	if (sync_ctx->hdr->first_recent_uid <= next_uid &&
-	    !sync_ctx->mbox->ibox.keep_recent) {
+	    !sync_ctx->keep_recent) {
 		/* we'll need to rewrite Status: O headers */
 		return 1;
 	}
@@ -922,7 +922,7 @@ static int mbox_sync_partial_seek_next(struct mbox_sync_context *sync_ctx,
 
 	if (sync_ctx->hdr->first_recent_uid < sync_ctx->hdr->next_uid &&
 	    (uid > sync_ctx->hdr->first_recent_uid || uid == 0) &&
-	    !sync_ctx->mbox->ibox.keep_recent) {
+	    !sync_ctx->keep_recent) {
 		/* we'll need to rewrite Status: O headers */
 		uid = sync_ctx->hdr->first_recent_uid;
 	}
@@ -1469,7 +1469,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	}
 	mail_index_view_close(&view);
 
-	first_recent_uid = !sync_ctx->mbox->ibox.keep_recent ?
+	first_recent_uid = !sync_ctx->keep_recent ?
 		sync_ctx->next_uid : sync_ctx->last_nonrecent_uid + 1;
 	if (sync_ctx->hdr->first_recent_uid < first_recent_uid) {
 		mail_index_update_header(sync_ctx->t,
@@ -1771,7 +1771,7 @@ again:
 	}
 
 	sync_flags = 0;
-	if (!mbox->ibox.keep_recent)
+	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 	if ((flags & MBOX_SYNC_REWRITE) != 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
@@ -1792,7 +1792,7 @@ again:
 		return ret;
 	}
 
-	if (!mbox->ibox.keep_recent) {
+	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0) {
 		/* see if we need to drop recent flags */
 		sync_ctx.hdr = mail_index_get_header(sync_view);
 		if (sync_ctx.hdr->first_recent_uid < sync_ctx.hdr->next_uid)
@@ -1813,6 +1813,8 @@ again:
 
 	memset(&sync_ctx, 0, sizeof(sync_ctx));
 	sync_ctx.mbox = mbox;
+	sync_ctx.keep_recent =
+		(mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) != 0;
 
 	sync_ctx.hdr = mail_index_get_header(sync_view);
 	sync_ctx.from_line = str_new(default_pool, 256);
@@ -1888,7 +1890,7 @@ again:
 	sync_ctx.t = NULL;
 	sync_ctx.index_sync_ctx = NULL;
 
-	if (ret == 0 && mbox->mbox_fd != -1 && mbox->ibox.keep_recent &&
+	if (ret == 0 && mbox->mbox_fd != -1 && sync_ctx.keep_recent &&
 	    !sync_ctx.mbox->ibox.backend_readonly) {
 		/* try to set atime back to its original value */
 		struct utimbuf buf;

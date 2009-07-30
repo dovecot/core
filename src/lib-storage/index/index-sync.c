@@ -326,7 +326,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	}
 	index_mailbox_expunge_unseen_recent(ctx);
 
-	if (ibox->keep_recent && ibox->box.opened) {
+	if ((ibox->box.flags & MAILBOX_FLAG_KEEP_RECENT) != 0 &&
+	    ibox->box.opened) {
 		/* mailbox syncing didn't necessarily update our recent state */
 		hdr = mail_index_get_header(ibox->view);
 		if (hdr->first_recent_uid > ibox->recent_flags_prev_uid) {

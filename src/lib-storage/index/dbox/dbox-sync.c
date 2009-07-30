@@ -245,7 +245,7 @@ int dbox_sync_begin(struct dbox_mailbox *mbox, enum dbox_sync_flags flags,
 	ctx->mbox = mbox;
 	ctx->flags = flags;
 
-	if (!mbox->ibox.keep_recent)
+	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 	if (!rebuild && (flags & DBOX_SYNC_FLAG_FORCE) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;

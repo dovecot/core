@@ -117,7 +117,7 @@ int cydir_sync_begin(struct cydir_mailbox *mbox,
 	ctx->mbox = mbox;
 
 	sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
-	if (!mbox->ibox.keep_recent)
+	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 	if (!force)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;

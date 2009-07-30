@@ -483,8 +483,6 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 
 	ibox->index_flags = MAIL_INDEX_OPEN_FLAG_CREATE |
 		mail_storage_settings_to_index_flags(box->storage->set);
-	ibox->keep_recent = (flags & MAILBOX_FLAG_KEEP_RECENT) != 0;
-	ibox->keep_locked = (flags & MAILBOX_FLAG_KEEP_LOCKED) != 0;
 
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	ibox->commit_log_file_seq = 0;

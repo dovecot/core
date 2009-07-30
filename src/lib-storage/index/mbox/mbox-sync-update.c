@@ -382,7 +382,7 @@ static void mbox_sync_update_header_real(struct mbox_sync_mail_context *ctx)
 {
 	i_assert(ctx->mail.uid != 0 || ctx->mail.pseudo);
 
-	if (!ctx->sync_ctx->mbox->ibox.keep_recent)
+	if (!ctx->sync_ctx->keep_recent)
 		ctx->mail.flags &= ~MAIL_RECENT;
 
 	mbox_sync_update_status(ctx);
@@ -412,7 +412,7 @@ mbox_sync_update_header_from_real(struct mbox_sync_mail_context *ctx,
 	    (ctx->mail.flags & MAIL_RECENT) != 0) {
 		ctx->mail.flags = (ctx->mail.flags & ~STATUS_FLAGS_MASK) |
 			(mail->flags & STATUS_FLAGS_MASK);
-		if (!ctx->sync_ctx->mbox->ibox.keep_recent)
+		if (!ctx->sync_ctx->keep_recent)
                         ctx->mail.flags &= ~MAIL_RECENT;
 		mbox_sync_update_status(ctx);
 	}

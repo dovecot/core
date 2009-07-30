@@ -138,6 +138,7 @@ struct mbox_sync_context {
 	unsigned int first_mail_crlf_expunged:1;
 
 	/* global flags: */
+	unsigned int keep_recent:1;
 	unsigned int delay_writes:1;
 	unsigned int renumber_uids:1;
 	unsigned int moved_offsets:1;

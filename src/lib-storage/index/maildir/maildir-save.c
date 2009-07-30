@@ -678,7 +678,7 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 			index_mailbox_set_recent_uid(&mbox->ibox, uid);
 	}
 
-	if (!mbox->ibox.keep_recent) {
+	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0) {
 		/* maildir_sync_index() dropped recent flags from
 		   existing messages. we'll still need to drop recent
 		   flags from these newly added messages. */

@@ -420,7 +420,8 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 	dest = t_str_new(1024);
 
 	move_new = new_dir && !mailbox_is_readonly(&ctx->mbox->ibox.box) &&
-		!ctx->mbox->ibox.keep_recent && ctx->locked;
+		(ctx->mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0 &&
+		ctx->locked;
 
 	errno = 0;
 	for (; (dp = readdir(dirp)) != NULL; errno = 0) {
@@ -669,11 +670,11 @@ static bool have_recent_messages(struct maildir_sync_context *ctx)
 static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 				    bool *new_changed_r, bool *cur_changed_r)
 {
+	struct maildir_mailbox *mbox = ctx->mbox;
 	enum mail_index_sync_flags flags = 0;
 	bool undirty = (ctx->flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0;
 
-	if (maildir_sync_quick_check(ctx->mbox, undirty,
-				     ctx->new_dir, ctx->cur_dir,
+	if (maildir_sync_quick_check(mbox, undirty, ctx->new_dir, ctx->cur_dir,
 				     new_changed_r, cur_changed_r) < 0)
 		return -1;
 
@@ -681,7 +682,7 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 		return 1;
 
 	if (have_recent_messages(ctx)) {
-		if (!ctx->mbox->ibox.keep_recent) {
+		if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0) {
 			*new_changed_r = TRUE;
 			return 1;
 		} else if (*new_changed_r) {
@@ -694,10 +695,10 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 		}
 	}
 
-	if (!ctx->mbox->ibox.keep_recent)
+	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
-	return mail_index_sync_have_any(ctx->mbox->ibox.index, flags) ? 1 : 0;
+	return mail_index_sync_have_any(mbox->ibox.index, flags) ? 1 : 0;
 }
 
 static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
@@ -934,7 +935,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		} T_END;
 
 		i_assert(!maildir_uidlist_is_locked(mbox->uidlist) ||
-			 mbox->ibox.keep_locked);
+			 (box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0);
 
 		if (lost_files) {
 			/* lost some files from new/, see if thery're in cur/ */

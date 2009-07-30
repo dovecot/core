@@ -225,7 +225,8 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 
 	sync_flags = 0;
 	/* don't drop recent messages if we're saving messages */
-	if (!mbox->ibox.keep_recent && maildir_sync_ctx != NULL)
+	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0 &&
+	    maildir_sync_ctx != NULL)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
 	if (mail_index_sync_begin(mbox->ibox.index, &sync_ctx, &view, &trans,

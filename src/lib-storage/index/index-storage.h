@@ -50,8 +50,6 @@ struct index_mailbox {
 
 	/* we've discovered there aren't enough permissions to modify mailbox */
 	unsigned int backend_readonly:1;
-	unsigned int keep_recent:1;
-	unsigned int keep_locked:1;
 	unsigned int sent_diskspace_warning:1;
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int notify_pending:1;
