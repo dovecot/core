@@ -77,6 +77,7 @@ struct mail_transaction_log {
 	struct mail_index *index;
         struct mail_transaction_log_view *views;
 	enum mail_index_open_flags flags;
+	char *filepath, *filepath2;
 
 	/* files is a linked list of all the opened log files. the list is
 	   sorted by the log file sequence, so that transaction views can use

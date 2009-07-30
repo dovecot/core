@@ -36,6 +36,9 @@ mail_transaction_log_alloc(struct mail_index *index)
 
 	log = i_new(struct mail_transaction_log, 1);
 	log->index = index;
+	log->filepath = i_strconcat(index->filepath,
+				    MAIL_TRANSACTION_LOG_SUFFIX, NULL);
+	log->filepath2 = i_strconcat(log->filepath, ".2", NULL);
 
 	log->dotlock_settings.timeout = MAIL_TRANSCATION_LOG_LOCK_TIMEOUT;
 	log->dotlock_settings.stale_timeout =
@@ -49,22 +52,19 @@ mail_transaction_log_alloc(struct mail_index *index)
 static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 {
 	struct stat st;
-	const char *path;
 
-	path = t_strconcat(log->index->filepath,
-			   MAIL_TRANSACTION_LOG_SUFFIX".2", NULL);
-	if (stat(path, &st) < 0) {
+	if (stat(log->filepath2, &st) < 0) {
 		if (errno != ENOENT && errno != ESTALE) {
 			mail_index_set_error(log->index,
-				"stat(%s) failed: %m", path);
+				"stat(%s) failed: %m", log->filepath2);
 		}
 		return;
 	}
 
 	if (st.st_mtime + MAIL_TRANSACTION_LOG2_STALE_SECS <= ioloop_time) {
-		if (unlink(path) < 0 && errno != ENOENT) {
+		if (unlink(log->filepath2) < 0 && errno != ENOENT) {
 			mail_index_set_error(log->index,
-				"unlink(%s) failed: %m", path);
+				"unlink(%s) failed: %m", log->filepath2);
 		}
 	}
 }
@@ -72,7 +72,6 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 int mail_transaction_log_open(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file;
-	const char *path;
 	int ret;
 
 	log->flags = log->index->flags;
@@ -91,10 +90,7 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 	if (MAIL_INDEX_IS_IN_MEMORY(log->index))
 		return 0;
 
-	path = t_strconcat(log->index->filepath,
-			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
-
-	file = mail_transaction_log_file_alloc(log, path);
+	file = mail_transaction_log_file_alloc(log, log->filepath);
 	if ((ret = mail_transaction_log_file_open(file, FALSE)) <= 0) {
 		/* leave the file for _create() */
 		log->open_file = file;
@@ -108,7 +104,6 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 int mail_transaction_log_create(struct mail_transaction_log *log, bool reset)
 {
 	struct mail_transaction_log_file *file;
-	const char *path;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(log->index)) {
 		file = mail_transaction_log_file_alloc_in_memory(log);
@@ -116,11 +111,7 @@ int mail_transaction_log_create(struct mail_transaction_log *log, bool reset)
 		return 0;
 	}
 
-	path = t_strconcat(log->index->filepath,
-			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
-
-	file = mail_transaction_log_file_alloc(log, path);
-
+	file = mail_transaction_log_file_alloc(log, log->filepath);
 	if (log->open_file != NULL) {
 		/* remember what file we tried to open. if someone else created
 		   a new file, use it instead of recreating it */
@@ -160,6 +151,8 @@ void mail_transaction_log_free(struct mail_transaction_log **_log)
 
 	mail_transaction_log_close(log);
 	log->index->log = NULL;
+	i_free(log->filepath);
+	i_free(log->filepath2);
 	i_free(log);
 }
 
@@ -173,6 +166,12 @@ void mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
 		   .log file, so just start from scratch */
 		mail_transaction_log_close(log);
 	}
+
+	i_free(log->filepath);
+	i_free(log->filepath2);
+	log->filepath = i_strconcat(log->index->filepath,
+				    MAIL_TRANSACTION_LOG_SUFFIX, NULL);
+	log->filepath2 = i_strconcat(log->filepath, ".2", NULL);
 
 	if (log->head != NULL)
 		mail_transaction_log_file_move_to_memory(log->head);
@@ -288,20 +287,18 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 {
         struct mail_transaction_log_file *file;
 	struct stat st;
-	const char *path;
 
 	i_assert(log->head != NULL);
 
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(log->head))
 		return 0;
 
-	path = t_strconcat(log->index->filepath,
-			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
 	if (nfs_flush && (log->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0)
-		nfs_flush_file_handle_cache(path);
-	if (nfs_safe_stat(path, &st) < 0) {
+		nfs_flush_file_handle_cache(log->filepath);
+	if (nfs_safe_stat(log->filepath, &st) < 0) {
 		if (errno != ENOENT) {
-			mail_index_file_set_syscall_error(log->index, path,
+			mail_index_file_set_syscall_error(log->index,
+							  log->filepath,
 							  "stat()");
 			return -1;
 		}
@@ -325,7 +322,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 		return 0;
 	}
 
-	file = mail_transaction_log_file_alloc(log, path);
+	file = mail_transaction_log_file_alloc(log, log->filepath);
 	if (mail_transaction_log_file_open(file, FALSE) <= 0) {
 		mail_transaction_log_file_free(&file);
 		return -1;
@@ -363,7 +360,6 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 				   struct mail_transaction_log_file **file_r)
 {
 	struct mail_transaction_log_file *file;
-	const char *path;
 	int ret;
 
 	if (file_seq > log->head->hdr.file_seq) {
@@ -399,9 +395,7 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 		return 0;
 
 	/* see if we have it in log.2 file */
-	path = t_strconcat(log->index->filepath,
-			   MAIL_TRANSACTION_LOG_SUFFIX".2", NULL);
-	file = mail_transaction_log_file_alloc(log, path);
+	file = mail_transaction_log_file_alloc(log, log->filepath2);
 	if ((ret = mail_transaction_log_file_open(file, TRUE)) <= 0) {
 		mail_transaction_log_file_free(&file);
 		return ret;
