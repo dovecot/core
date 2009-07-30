@@ -155,14 +155,15 @@ dbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box.storage = storage;
 	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
-	mbox->ibox.keep_index_backups = TRUE;
-	mbox->ibox.index_never_in_memory = TRUE;
 
 	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
 				    DBOX_INDEX_PREFIX);
 	mail_index_set_fsync_types(mbox->ibox.index,
 				   MAIL_INDEX_SYNC_TYPE_APPEND |
 				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
+
+	mbox->ibox.index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS |
+		MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 
 	mbox->storage = (struct dbox_storage *)storage;
 	mbox->alt_path =

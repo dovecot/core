@@ -19,6 +19,7 @@ enum mailbox_lock_notify_type {
 struct index_mailbox {
 	struct mailbox box;
 	union mail_index_view_module_context view_module_ctx;
+	enum mail_index_open_flags index_flags;
 
 	struct mail_index *index;
 	struct mail_index_view *view;
@@ -55,8 +56,6 @@ struct index_mailbox {
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int notify_pending:1;
 	unsigned int move_to_memory:1;
-	unsigned int keep_index_backups:1;
-	unsigned int index_never_in_memory:1;
 };
 
 struct index_transaction_context {

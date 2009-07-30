@@ -385,13 +385,11 @@ int index_storage_mailbox_open(struct mailbox *box)
 
 	i_assert(!box->opened);
 
-	index_flags = mail_storage_settings_to_index_flags(box->storage->set);
-	if (!ibox->move_to_memory)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
-	if (ibox->keep_index_backups)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS;
-	if (ibox->index_never_in_memory) {
-		index_flags |= MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
+	index_flags = ibox->index_flags;
+	if (ibox->move_to_memory)
+		ibox->index_flags &= ~MAIL_INDEX_OPEN_FLAG_CREATE;
+
+	if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
 		if (mail_index_is_in_memory(ibox->index)) {
 			mail_storage_set_critical(box->storage,
 				"Couldn't create index file");
@@ -414,7 +412,7 @@ int index_storage_mailbox_open(struct mailbox *box)
 
 	ret = mail_index_open(ibox->index, index_flags, lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {
-		if (ibox->index_never_in_memory) {
+		if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
 			mail_storage_set_index_error(ibox);
 			return -1;
 		}
@@ -483,6 +481,8 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	ibox->box.path = p_strdup(box->pool, path);
 
+	ibox->index_flags = MAIL_INDEX_OPEN_FLAG_CREATE |
+		mail_storage_settings_to_index_flags(box->storage->set);
 	ibox->keep_recent = (flags & MAILBOX_FLAG_KEEP_RECENT) != 0;
 	ibox->keep_locked = (flags & MAILBOX_FLAG_KEEP_LOCKED) != 0;
 
