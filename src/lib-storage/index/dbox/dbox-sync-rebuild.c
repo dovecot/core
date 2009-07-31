@@ -352,7 +352,7 @@ static void dbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 
 	if (dbox_read_header(ctx->mbox, &hdr) < 0)
 		memset(&hdr, 0, sizeof(hdr));
-	if (!mailbox_guid_is_empty(hdr.mailbox_guid))
+	if (!mail_guid_128_is_empty(hdr.mailbox_guid))
 		mail_generate_guid_128(hdr.mailbox_guid);
 	if (hdr.highest_maildir_uid < ctx->mbox->highest_maildir_uid)
 		hdr.highest_maildir_uid = ctx->mbox->highest_maildir_uid;

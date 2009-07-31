@@ -227,10 +227,10 @@ void dbox_update_header(struct dbox_mailbox *mbox,
 
 	new_hdr = hdr;
 
-	if (update != NULL && !mailbox_guid_is_empty(update->mailbox_guid)) {
+	if (update != NULL && !mail_guid_128_is_empty(update->mailbox_guid)) {
 		memcpy(new_hdr.mailbox_guid, update->mailbox_guid,
 		       sizeof(new_hdr.mailbox_guid));
-	} else if (mailbox_guid_is_empty(new_hdr.mailbox_guid)) {
+	} else if (mail_guid_128_is_empty(new_hdr.mailbox_guid)) {
 		mail_generate_guid_128(new_hdr.mailbox_guid);
 	}
 
@@ -387,7 +387,7 @@ static void dbox_storage_get_status_guid(struct mailbox *box,
 	if (dbox_read_header(mbox, &hdr) < 0)
 		memset(&hdr, 0, sizeof(hdr));
 
-	if (mailbox_guid_is_empty(hdr.mailbox_guid)) {
+	if (mail_guid_128_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */
 		if (dbox_write_index_header(box, NULL) < 0 ||
 		    dbox_read_header(mbox, &hdr) < 0)

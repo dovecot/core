@@ -1086,8 +1086,3 @@ void mailbox_set_deleted(struct mailbox *box)
 			       "Mailbox was deleted under us");
 	box->mailbox_deleted = TRUE;
 }
-
-bool mailbox_guid_is_empty(const uint8_t guid[MAIL_GUID_128_SIZE])
-{
-	return mail_guid_128_is_empty(guid);
-}
