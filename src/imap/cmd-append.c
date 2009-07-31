@@ -216,6 +216,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	const char *internal_date_str;
 	time_t internal_date;
 	int ret, timezone_offset;
+	unsigned int save_count;
 	bool nonsync;
 
 	if (cmd->cancel) {
@@ -267,12 +268,19 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 			cmd_append_finish(ctx);
 			return TRUE;
 		}
-		i_assert(ctx->count == seq_range_count(&changes.saved_uids));
 
 		msg = t_str_new(256);
-		str_printfa(msg, "OK [APPENDUID %u ", changes.uid_validity);
-		imap_write_seq_range(msg, &changes.saved_uids);
-		str_append(msg, "] Append completed.");
+		save_count = seq_range_count(&changes.saved_uids);
+		if (save_count == 0) {
+			/* not supported by backend (virtual) */
+			str_append(msg, "OK Append completed.");
+		} else {
+			i_assert(ctx->count == save_count);
+			str_printfa(msg, "OK [APPENDUID %u ",
+				    changes.uid_validity);
+			imap_write_seq_range(msg, &changes.saved_uids);
+			str_append(msg, "] Append completed.");
+		}
 		pool_unref(&changes.pool);
 
 		if (ctx->box == cmd->client->mailbox) {

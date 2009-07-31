@@ -146,9 +146,14 @@ bool cmd_copy(struct client_command_context *cmd)
 		mailbox_transaction_rollback(&t);
 	else if (mailbox_transaction_commit_get_changes(&t, &changes) < 0)
 		ret = -1;
-	else if (copy_count == 0)
+	else if (copy_count == 0) {
 		str_append(msg, "OK No messages copied.");
-	else {
+		pool_unref(&changes.pool);
+	} else if (seq_range_count(&changes.saved_uids) == 0) {
+		/* not supported by backend (virtual) */
+		str_append(msg, "OK Copy completed.");
+		pool_unref(&changes.pool);
+	} else {
 		i_assert(copy_count == seq_range_count(&changes.saved_uids));
 
 		str_printfa(msg, "OK [COPYUID %u %s ", changes.uid_validity,
