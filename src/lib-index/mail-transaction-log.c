@@ -36,9 +36,6 @@ mail_transaction_log_alloc(struct mail_index *index)
 
 	log = i_new(struct mail_transaction_log, 1);
 	log->index = index;
-	log->filepath = i_strconcat(index->filepath,
-				    MAIL_TRANSACTION_LOG_SUFFIX, NULL);
-	log->filepath2 = i_strconcat(log->filepath, ".2", NULL);
 
 	log->dotlock_settings.timeout = MAIL_TRANSCATION_LOG_LOCK_TIMEOUT;
 	log->dotlock_settings.stale_timeout =
@@ -73,6 +70,12 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file;
 	int ret;
+
+	i_free(log->filepath);
+	i_free(log->filepath2);
+	log->filepath = i_strconcat(log->index->filepath,
+				    MAIL_TRANSACTION_LOG_SUFFIX, NULL);
+	log->filepath2 = i_strconcat(log->filepath, ".2", NULL);
 
 	log->flags = log->index->flags;
 	log->dotlock_settings.use_excl_lock =
