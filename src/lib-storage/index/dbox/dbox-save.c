@@ -54,28 +54,29 @@ struct dbox_save_context {
 };
 
 struct mail_save_context *
-dbox_save_alloc(struct mailbox_transaction_context *_t)
+dbox_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct dbox_transaction_context *t =
-		(struct dbox_transaction_context *)_t;
-	struct dbox_mailbox *mbox = (struct dbox_mailbox *)_t->box;
-	struct dbox_save_context *ctx;
+	struct index_transaction_context *it =
+		(struct index_transaction_context *)t;
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)t->box;
+	struct dbox_save_context *ctx = (struct dbox_save_context *)t->save_ctx;
 
-	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+	i_assert((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
-	if (t->save_ctx != NULL) {
+	if (ctx != NULL) {
 		/* use the existing allocated structure */
-		t->save_ctx->finished = FALSE;
-		return &t->save_ctx->ctx;
+		ctx->finished = FALSE;
+		return &ctx->ctx;
 	}
 
-	ctx = t->save_ctx = i_new(struct dbox_save_context, 1);
-	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
+	ctx = i_new(struct dbox_save_context, 1);
+	ctx->ctx.transaction = t;
 	ctx->mbox = mbox;
-	ctx->trans = t->ictx.trans;
+	ctx->trans = it->trans;
 	ctx->append_ctx = dbox_map_append_begin(mbox);
 	i_array_init(&ctx->mails, 32);
-	return &ctx->ctx;
+	t->save_ctx = &ctx->ctx;
+	return t->save_ctx;
 }
 
 static void dbox_save_add_to_index(struct dbox_save_context *ctx)
@@ -310,9 +311,10 @@ void dbox_save_cancel(struct mail_save_context *_ctx)
 	(void)dbox_save_finish(_ctx);
 }
 
-int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
+int dbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
-	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
+	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
+	struct mailbox_transaction_context *_t = _ctx->transaction;
 	const struct mail_index_header *hdr;
 	uint32_t first_map_uid, last_map_uid;
 
@@ -322,7 +324,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	if (dbox_sync_begin(ctx->mbox, DBOX_SYNC_FLAG_NO_PURGE |
 			    DBOX_SYNC_FLAG_FORCE |
 			    DBOX_SYNC_FLAG_FSYNC, &ctx->sync_ctx) < 0) {
-		dbox_transaction_save_rollback(ctx);
+		dbox_transaction_save_rollback(_ctx);
 		return -1;
 	}
 
@@ -331,7 +333,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	   is left locked. */
 	if (dbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
 					    &last_map_uid) < 0) {
-		dbox_transaction_save_rollback(ctx);
+		dbox_transaction_save_rollback(_ctx);
 		return -1;
 	}
 
@@ -344,7 +346,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	if (ctx->single_count > 0) {
 		if (dbox_map_append_assign_uids(ctx->append_ctx,
 						&_t->changes->saved_uids) < 0) {
-			dbox_transaction_save_rollback(ctx);
+			dbox_transaction_save_rollback(_ctx);
 			return -1;
 		}
 	}
@@ -380,7 +382,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 						   FALSE);
 		if (dbox_map_update_refcounts(ctx->map_trans,
 					      &ctx->copy_map_uids, 1) < 0) {
-			dbox_transaction_save_rollback(ctx);
+			dbox_transaction_save_rollback(_ctx);
 			return -1;
 		}
 	}
@@ -392,9 +394,11 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	return 0;
 }
 
-void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
+void dbox_transaction_save_commit_post(struct mail_save_context *_ctx)
 {
-	ctx->ctx.transaction = NULL; /* transaction is already freed */
+	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
+
+	_ctx->transaction = NULL; /* transaction is already freed */
 
 	/* finish writing the mailbox APPENDs */
 	if (dbox_sync_finish(&ctx->sync_ctx, TRUE) == 0) {
@@ -412,11 +416,13 @@ void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 				ctx->mbox->ibox.box.path);
 		}
 	}
-	dbox_transaction_save_rollback(ctx);
+	dbox_transaction_save_rollback(_ctx);
 }
 
-void dbox_transaction_save_rollback(struct dbox_save_context *ctx)
+void dbox_transaction_save_rollback(struct mail_save_context *_ctx)
 {
+	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
+
 	if (!ctx->finished)
 		dbox_save_cancel(&ctx->ctx);
 	if (ctx->append_ctx != NULL)

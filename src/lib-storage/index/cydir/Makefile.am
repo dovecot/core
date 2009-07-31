@@ -12,8 +12,7 @@ libstorage_cydir_la_SOURCES = \
 	cydir-mail.c \
 	cydir-save.c \
 	cydir-sync.c \
-	cydir-storage.c \
-	cydir-transaction.c
+	cydir-storage.c
 
 headers = \
 	cydir-storage.h \

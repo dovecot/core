@@ -28,9 +28,6 @@ struct mail_module_register {
 struct mail_storage_vfuncs {
 	const struct setting_parser_info *(*get_setting_parser_info)(void);
 
-	void (*class_init)(void);
-	void (*class_deinit)(void);
-
 	struct mail_storage *(*alloc)(void);
 	int (*create)(struct mail_storage *storage, struct mail_namespace *ns,
 		      const char **error_r);
@@ -352,6 +349,8 @@ struct mailbox_transaction_context {
 	struct mail_transaction_commit_changes *changes;
 	ARRAY_DEFINE(module_contexts,
 		     union mailbox_transaction_module_context *);
+
+	struct mail_save_context *save_ctx;
 };
 
 union mail_search_module_context {

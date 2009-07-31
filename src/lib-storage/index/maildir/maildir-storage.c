@@ -350,6 +350,10 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
 
+	mbox->ibox.save_commit_pre = maildir_transaction_save_commit_pre;
+	mbox->ibox.save_commit_post = maildir_transaction_save_commit_post;
+	mbox->ibox.save_rollback = maildir_transaction_save_rollback;
+
 	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
 				    MAILDIR_INDEX_PREFIX);
 
@@ -1037,16 +1041,6 @@ uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list)
 	return mailbox_uidvalidity_next(path);
 }
 
-static void maildir_class_init(void)
-{
-	maildir_transaction_class_init();
-}
-
-static void maildir_class_deinit(void)
-{
-	maildir_transaction_class_deinit();
-}
-
 static void maildir_storage_add_list(struct mail_storage *storage,
 				     struct mailbox_list *list)
 {
@@ -1076,8 +1070,6 @@ struct mail_storage maildir_storage = {
 
 	{
                 maildir_get_setting_parser_info,
-		maildir_class_init,
-		maildir_class_deinit,
 		maildir_storage_alloc,
 		maildir_storage_create,
 		index_storage_destroy,

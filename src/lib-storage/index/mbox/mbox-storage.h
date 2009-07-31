@@ -62,11 +62,7 @@ struct mbox_mailbox {
 
 struct mbox_transaction_context {
 	struct index_transaction_context ictx;
-	union mail_index_transaction_module_context module_ctx;
-
-	struct mbox_save_context *save_ctx;
 	unsigned int mbox_lock_id;
-	unsigned int mails_saved:1;
 };
 
 extern struct mail_vfuncs mbox_mail_vfuncs;
@@ -74,9 +70,6 @@ extern const char *mbox_hide_headers[], *mbox_save_drop_headers[];
 extern unsigned int mbox_hide_headers_count, mbox_save_drop_headers_count;
 
 int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function);
-
-void mbox_transaction_class_init(void);
-void mbox_transaction_class_deinit(void);
 
 struct mailbox_sync_context *
 mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
@@ -88,7 +81,8 @@ int mbox_save_continue(struct mail_save_context *ctx);
 int mbox_save_finish(struct mail_save_context *ctx);
 void mbox_save_cancel(struct mail_save_context *ctx);
 
-int mbox_transaction_save_commit(struct mbox_save_context *ctx);
-void mbox_transaction_save_rollback(struct mbox_save_context *ctx);
+int mbox_transaction_save_commit_pre(struct mail_save_context *ctx);
+void mbox_transaction_save_commit_post(struct mail_save_context *ctx);
+void mbox_transaction_save_rollback(struct mail_save_context *ctx);
 
 #endif

@@ -86,6 +86,10 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &cydir_mail_vfuncs;
 
+	mbox->ibox.save_commit_pre = cydir_transaction_save_commit_pre;
+	mbox->ibox.save_commit_post = cydir_transaction_save_commit_post;
+	mbox->ibox.save_rollback = cydir_transaction_save_rollback;
+
 	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
 				    CYDIR_INDEX_PREFIX);
 	mail_index_set_fsync_types(mbox->ibox.index,
@@ -332,16 +336,6 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	return ret;
 }
 
-static void cydir_class_init(void)
-{
-	cydir_transaction_class_init();
-}
-
-static void cydir_class_deinit(void)
-{
-	cydir_transaction_class_deinit();
-}
-
 static void cydir_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 				   struct mailbox_list *list)
 {
@@ -362,8 +356,6 @@ struct mail_storage cydir_storage = {
 
 	{
 		NULL,
-		cydir_class_init,
-		cydir_class_deinit,
 		cydir_storage_alloc,
 		NULL,
 		index_storage_destroy,

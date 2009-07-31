@@ -170,11 +170,10 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 	return 0;
 }
 
-static void mbox_save_init_sync(struct mbox_transaction_context *t)
+static void mbox_save_init_sync(struct mailbox_transaction_context *t)
 {
-	struct mbox_mailbox *mbox =
-		(struct mbox_mailbox *)t->ictx.mailbox_ctx.box;
-	struct mbox_save_context *ctx = t->save_ctx;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->box;
+	struct mbox_save_context *ctx = (struct mbox_save_context *)t->save_ctx;
 	const struct mail_index_header *hdr;
 	struct mail_index_view *view;
 
@@ -188,7 +187,6 @@ static void mbox_save_init_sync(struct mbox_transaction_context *t)
 	ctx->first_saved_uid = ctx->next_uid;
 	ctx->uid_validity = hdr->uid_validity;
 	ctx->synced = TRUE;
-	t->mails_saved = TRUE;
 
 	mail_index_view_close(&view);
 }
@@ -296,7 +294,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 			/* we're not required to assign UIDs for the appended
 			   mails immediately. do it only if it doesn't require
 			   syncing. */
-			mbox_save_init_sync(t);
+			mbox_save_init_sync(_t);
 		}
 	}
 
@@ -304,7 +302,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		/* we'll need to assign UID for the mail immediately. */
 		if (mbox_sync(mbox, 0) < 0)
 			return -1;
-		mbox_save_init_sync(t);
+		mbox_save_init_sync(_t);
 	}
 
 	/* the syncing above could have changed the append offset */
@@ -411,26 +409,26 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 }
 
 struct mail_save_context *
-mbox_save_alloc(struct mailbox_transaction_context *_t)
+mbox_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct mbox_transaction_context *t =
-		(struct mbox_transaction_context *)_t;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_t->box;
+	struct mbox_transaction_context *mt =
+		(struct mbox_transaction_context *)t;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->box;
 	struct mbox_save_context *ctx;
 
-	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+	i_assert((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
-	if (t->save_ctx != NULL)
-		return &t->save_ctx->ctx;
-
-	ctx = t->save_ctx = i_new(struct mbox_save_context, 1);
-	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
-	ctx->mbox = mbox;
-	ctx->trans = t->ictx.trans;
-	ctx->append_offset = (uoff_t)-1;
-	ctx->headers = str_new(default_pool, 512);
-	ctx->mail_offset = (uoff_t)-1;
-	return &ctx->ctx;
+	if (t->save_ctx == NULL) {
+		ctx = i_new(struct mbox_save_context, 1);
+		ctx->ctx.transaction = t;
+		ctx->mbox = mbox;
+		ctx->trans = mt->ictx.trans;
+		ctx->append_offset = (uoff_t)-1;
+		ctx->headers = str_new(default_pool, 512);
+		ctx->mail_offset = (uoff_t)-1;
+		t->save_ctx = &ctx->ctx;
+	}
+	return t->save_ctx;
 }
 
 int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
@@ -713,12 +711,12 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
 	str_free(&ctx->headers);
-	i_free(ctx);
 }
 
-int mbox_transaction_save_commit(struct mbox_save_context *ctx)
+int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
-	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
+	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mailbox_transaction_context *_t = _ctx->transaction;
 	struct mbox_mailbox *mbox = ctx->mbox;
 	struct seq_range *range;
 	struct stat st;
@@ -771,11 +769,29 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 	}
 
 	mbox_transaction_save_deinit(ctx);
+	if (ret < 0)
+		i_free(ctx);
 	return ret;
 }
 
-void mbox_transaction_save_rollback(struct mbox_save_context *ctx)
+void mbox_transaction_save_commit_post(struct mail_save_context *_ctx)
 {
+	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+
+	i_assert(ctx->mbox->mbox_lock_type == F_WRLCK);
+
+	if (ctx->synced) {
+		/* after saving mails with UIDs we need to update
+		   the last-uid */
+		(void)mbox_sync(ctx->mbox, MBOX_SYNC_HEADER |
+				MBOX_SYNC_REWRITE);
+	}
+	i_free(ctx);
+}
+
+void mbox_transaction_save_rollback(struct mail_save_context *_ctx)
+{
+	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 	struct mbox_mailbox *mbox = ctx->mbox;
 
 	if (!ctx->finished)
@@ -795,4 +811,5 @@ void mbox_transaction_save_rollback(struct mbox_save_context *ctx)
 	}
 
 	mbox_transaction_save_deinit(ctx);
+	i_free(ctx);
 }

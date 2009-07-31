@@ -21,8 +21,7 @@ libstorage_dbox_la_SOURCES = \
 	dbox-sync-file.c \
 	dbox-sync-rebuild.c \
 	dbox-storage.c \
-	dbox-storage-rebuild.c \
-	dbox-transaction.c
+	dbox-storage-rebuild.c
 
 headers = \
 	dbox-file.h \

@@ -92,13 +92,6 @@ struct maildir_mailbox {
 	unsigned int syncing_commit:1;
 };
 
-struct maildir_transaction_context {
-	struct index_transaction_context ictx;
-	union mail_index_transaction_module_context module_ctx;
-
-	struct maildir_save_context *save_ctx;
-};
-
 extern struct mail_vfuncs maildir_mail_vfuncs;
 
 /* Return -1 = error, 0 = file not found, 1 = ok */
@@ -121,9 +114,6 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 bool maildir_set_deleted(struct mailbox *box);
 uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list);
 
-void maildir_transaction_class_init(void);
-void maildir_transaction_class_deinit(void);
-
 struct mail_save_context *
 maildir_save_alloc(struct mailbox_transaction_context *_t);
 int maildir_save_begin(struct mail_save_context *ctx, struct istream *input);
@@ -131,16 +121,14 @@ int maildir_save_continue(struct mail_save_context *ctx);
 int maildir_save_finish(struct mail_save_context *ctx);
 void maildir_save_cancel(struct mail_save_context *ctx);
 
-struct maildir_save_context *
-maildir_save_transaction_init(struct maildir_transaction_context *t);
 struct maildir_filename *
 maildir_save_add(struct mail_save_context *_ctx, const char *base_fname);
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 				       uint32_t seq);
 
-int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx);
-void maildir_transaction_save_commit_post(struct maildir_save_context *ctx);
-void maildir_transaction_save_rollback(struct maildir_save_context *ctx);
+int maildir_transaction_save_commit_pre(struct mail_save_context *ctx);
+void maildir_transaction_save_commit_post(struct mail_save_context *ctx);
+void maildir_transaction_save_rollback(struct mail_save_context *ctx);
 
 int maildir_copy(struct mail_save_context *ctx, struct mail *mail);
 int maildir_transaction_copy_commit(struct maildir_copy_context *ctx);

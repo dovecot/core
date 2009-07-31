@@ -57,24 +57,25 @@ cydir_get_save_path(struct cydir_save_context *ctx, unsigned int num)
 }
 
 struct mail_save_context *
-cydir_save_alloc(struct mailbox_transaction_context *_t)
+cydir_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct cydir_transaction_context *t =
-		(struct cydir_transaction_context *)_t;
-	struct cydir_mailbox *mbox = (struct cydir_mailbox *)_t->box;
-	struct cydir_save_context *ctx = t->save_ctx;
+	struct index_transaction_context *it =
+		(struct index_transaction_context *)t;
+	struct cydir_mailbox *mbox = (struct cydir_mailbox *)t->box;
+	struct cydir_save_context *ctx =
+		(struct cydir_save_context *)t->save_ctx;
 
-	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+	i_assert((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
-	if (t->save_ctx != NULL)
-		return &t->save_ctx->ctx;
-
-	ctx = t->save_ctx = i_new(struct cydir_save_context, 1);
-	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
-	ctx->mbox = mbox;
-	ctx->trans = t->ictx.trans;
-	ctx->tmp_basename = cydir_generate_tmp_filename();
-	return &ctx->ctx;
+	if (t->save_ctx == NULL) {
+		ctx = i_new(struct cydir_save_context, 1);
+		ctx->ctx.transaction = t;
+		ctx->mbox = mbox;
+		ctx->trans = it->trans;
+		ctx->tmp_basename = cydir_generate_tmp_filename();
+		t->save_ctx = &ctx->ctx;
+	}
+	return t->save_ctx;
 }
 
 int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
@@ -232,9 +233,10 @@ void cydir_save_cancel(struct mail_save_context *_ctx)
 	(void)cydir_save_finish(_ctx);
 }
 
-int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
+int cydir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
-	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
+	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct mailbox_transaction_context *_t = _ctx->transaction;
 	const struct mail_index_header *hdr;
 	struct seq_range_iter iter;
 	uint32_t uid;
@@ -246,7 +248,7 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 
 	if (cydir_sync_begin(ctx->mbox, &ctx->sync_ctx, TRUE) < 0) {
 		ctx->failed = TRUE;
-		cydir_transaction_save_rollback(ctx);
+		cydir_transaction_save_rollback(_ctx);
 		return -1;
 	}
 
@@ -280,7 +282,7 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 				"rename(%s, %s) failed: %m",
 				str_c(src_path), str_c(dest_path));
 			ctx->failed = TRUE;
-			cydir_transaction_save_rollback(ctx);
+			cydir_transaction_save_rollback(_ctx);
 			return -1;
 		}
 	}
@@ -290,16 +292,20 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 	return 0;
 }
 
-void cydir_transaction_save_commit_post(struct cydir_save_context *ctx)
+void cydir_transaction_save_commit_post(struct mail_save_context *_ctx)
 {
-	ctx->ctx.transaction = NULL; /* transaction is already freed */
+	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+
+	_ctx->transaction = NULL; /* transaction is already freed */
 
 	(void)cydir_sync_finish(&ctx->sync_ctx, TRUE);
-	cydir_transaction_save_rollback(ctx);
+	cydir_transaction_save_rollback(_ctx);
 }
 
-void cydir_transaction_save_rollback(struct cydir_save_context *ctx)
+void cydir_transaction_save_rollback(struct mail_save_context *_ctx)
 {
+	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+
 	if (!ctx->finished)
 		cydir_save_cancel(&ctx->ctx);
 

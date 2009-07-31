@@ -16,10 +16,27 @@ enum mailbox_lock_notify_type {
 	MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE
 };
 
+struct index_transaction_context {
+	struct mailbox_transaction_context mailbox_ctx;
+	union mail_index_transaction_module_context module_ctx;
+
+	struct mail_index_transaction_vfuncs super;
+	int mail_ref_count;
+
+	struct mail_index_transaction *trans;
+	struct mail_index_view *trans_view;
+	struct mail_cache_view *cache_view;
+	struct mail_cache_transaction_ctx *cache_trans;
+};
+
 struct index_mailbox {
 	struct mailbox box;
 	union mail_index_view_module_context view_module_ctx;
 	enum mail_index_open_flags index_flags;
+
+	int (*save_commit_pre)(struct mail_save_context *save_ctx);
+	void (*save_commit_post)(struct mail_save_context *save_ctx);
+	void (*save_rollback)(struct mail_save_context *save_ctx);
 
 	struct mail_index *index;
 	struct mail_index_view *view;
@@ -47,17 +64,6 @@ struct index_mailbox {
 	unsigned int backend_readonly:1;
 	unsigned int notify_pending:1;
 	unsigned int move_to_memory:1;
-};
-
-struct index_transaction_context {
-	struct mailbox_transaction_context mailbox_ctx;
-	struct mail_index_transaction_vfuncs super;
-	int mail_ref_count;
-
-	struct mail_index_transaction *trans;
-	struct mail_index_view *trans_view;
-	struct mail_cache_view *cache_view;
-	struct mail_cache_transaction_ctx *cache_trans;
 };
 
 void mail_storage_set_index_error(struct index_mailbox *ibox);
@@ -147,12 +153,6 @@ int index_storage_search_next_nonblock(struct mail_search_context *ctx,
 				       struct mail *mail, bool *tryagain_r);
 bool index_storage_search_next_update_seq(struct mail_search_context *ctx);
 
-void index_transaction_init(struct index_transaction_context *t,
-			    struct index_mailbox *ibox);
-int index_transaction_finish_commit(struct index_transaction_context *t,
-				    uint32_t *log_file_seq_r,
-				    uoff_t *log_file_offset_r);
-void index_transaction_finish_rollback(struct index_transaction_context *t);
 void index_transaction_set_max_modseq(struct mailbox_transaction_context *_t,
 				      uint64_t max_modseq,
 				      ARRAY_TYPE(seq_range) *seqs);
@@ -160,6 +160,9 @@ void index_transaction_set_max_modseq(struct mailbox_transaction_context *_t,
 struct mailbox_transaction_context *
 index_transaction_begin(struct mailbox *box,
 			enum mailbox_transaction_flags flags);
+void index_transaction_init(struct index_transaction_context *it,
+			    struct mailbox *box,
+			    enum mailbox_transaction_flags flags);
 int index_transaction_commit(struct mailbox_transaction_context *t,
 			     struct mail_transaction_commit_changes *changes_r);
 void index_transaction_rollback(struct mailbox_transaction_context *t);

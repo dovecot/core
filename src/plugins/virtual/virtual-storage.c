@@ -544,16 +544,6 @@ static bool virtual_is_inconsistent(struct mailbox *box)
 	return index_storage_is_inconsistent(box);
 }
 
-static void virtual_class_init(void)
-{
-	virtual_transaction_class_init();
-}
-
-static void virtual_class_deinit(void)
-{
-	virtual_transaction_class_deinit();
-}
-
 static void virtual_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 				     struct mailbox_list *list)
 {
@@ -576,8 +566,6 @@ struct mail_storage virtual_storage = {
 
 	{
 		NULL,
-		virtual_class_init,
-		virtual_class_deinit,
 		virtual_storage_alloc,
 		NULL,
 		index_storage_destroy,
@@ -610,9 +598,9 @@ struct mailbox virtual_mailbox = {
 		index_mailbox_sync_deinit,
 		NULL,
 		virtual_notify_changes,
-		index_transaction_begin,
-		index_transaction_commit,
-		index_transaction_rollback,
+		virtual_transaction_begin,
+		virtual_transaction_commit,
+		virtual_transaction_rollback,
 		index_transaction_set_max_modseq,
 		index_keywords_create,
 		index_keywords_create_from_indexes,

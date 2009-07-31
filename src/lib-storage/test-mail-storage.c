@@ -36,8 +36,6 @@ struct mail_storage test_storage = {
 
 	{
 		NULL,
-		NULL,
-		NULL,
 		test_storage_alloc,
 		NULL,
 		NULL,

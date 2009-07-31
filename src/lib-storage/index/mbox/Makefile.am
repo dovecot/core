@@ -21,8 +21,7 @@ libstorage_mbox_la_SOURCES = \
 	mbox-sync-rewrite.c \
 	mbox-sync-update.c \
 	mbox-sync.c \
-	mbox-storage.c \
-	mbox-transaction.c
+	mbox-storage.c
 
 headers = \
 	istream-raw-mbox.h \

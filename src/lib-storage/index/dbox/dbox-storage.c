@@ -156,6 +156,10 @@ dbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
 
+	mbox->ibox.save_commit_pre = dbox_transaction_save_commit_pre;
+	mbox->ibox.save_commit_post = dbox_transaction_save_commit_post;
+	mbox->ibox.save_rollback = dbox_transaction_save_rollback;
+
 	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
 				    DBOX_INDEX_PREFIX);
 	mail_index_set_fsync_types(mbox->ibox.index,
@@ -823,16 +827,6 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 	return ret;
 }
 
-static void dbox_class_init(void)
-{
-	dbox_transaction_class_init();
-}
-
-static void dbox_class_deinit(void)
-{
-	dbox_transaction_class_deinit();
-}
-
 static void dbox_storage_add_list(struct mail_storage *storage,
 				  struct mailbox_list *list)
 {
@@ -856,8 +850,6 @@ struct mail_storage dbox_storage = {
 
 	{
                 dbox_get_setting_parser_info,
-		dbox_class_init,
-		dbox_class_deinit,
 		dbox_storage_alloc,
 		dbox_storage_create,
 		dbox_storage_destroy,

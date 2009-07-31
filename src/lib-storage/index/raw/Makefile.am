@@ -11,8 +11,7 @@ AM_CPPFLAGS = \
 libstorage_raw_la_SOURCES = \
 	raw-mail.c \
 	raw-sync.c \
-	raw-storage.c \
-	raw-transaction.c
+	raw-storage.c
 
 headers = \
 	raw-storage.h \

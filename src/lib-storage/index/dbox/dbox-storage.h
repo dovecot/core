@@ -80,18 +80,7 @@ struct dbox_mailbox {
 	unsigned int creating:1;
 };
 
-struct dbox_transaction_context {
-	struct index_transaction_context ictx;
-	union mail_index_transaction_module_context module_ctx;
-
-	uint32_t first_saved_mail_seq;
-	struct dbox_save_context *save_ctx;
-};
-
 extern struct mail_vfuncs dbox_mail_vfuncs;
-
-void dbox_transaction_class_init(void);
-void dbox_transaction_class_deinit(void);
 
 struct mailbox *
 dbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
@@ -120,9 +109,9 @@ int dbox_save_continue(struct mail_save_context *ctx);
 int dbox_save_finish(struct mail_save_context *ctx);
 void dbox_save_cancel(struct mail_save_context *ctx);
 
-int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx);
-void dbox_transaction_save_commit_post(struct dbox_save_context *ctx);
-void dbox_transaction_save_rollback(struct dbox_save_context *ctx);
+int dbox_transaction_save_commit_pre(struct mail_save_context *ctx);
+void dbox_transaction_save_commit_post(struct mail_save_context *ctx);
+void dbox_transaction_save_rollback(struct mail_save_context *ctx);
 
 int dbox_copy(struct mail_save_context *ctx, struct mail *mail);
 

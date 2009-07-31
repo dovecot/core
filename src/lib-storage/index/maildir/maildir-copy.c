@@ -211,10 +211,7 @@ maildir_compatible_file_modes(struct mailbox *box1, struct mailbox *box2)
 int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct mailbox_transaction_context *_t = ctx->transaction;
-	struct maildir_transaction_context *t =
-		(struct maildir_transaction_context *)_t;
-	struct maildir_mailbox *mbox =
-		(struct maildir_mailbox *)t->ictx.mailbox_ctx.box;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_t->box;
 	int ret;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);

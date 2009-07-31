@@ -293,8 +293,6 @@ struct mail_storage shared_storage = {
 
 	{
 		NULL,
-		NULL,
-		NULL,
 		shared_storage_alloc,
 		shared_storage_create,
 		index_storage_destroy,

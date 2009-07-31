@@ -46,9 +46,6 @@ void mail_storage_class_register(struct mail_storage *storage_class)
 {
 	i_assert(mail_storage_find_class(storage_class->name) == NULL);
 
-	if (storage_class->v.class_init != NULL)
-		storage_class->v.class_init();
-
 	/* append it after the list, so the autodetection order is correct */
 	array_append(&mail_storage_classes, &storage_class, 1);
 }
@@ -65,9 +62,6 @@ void mail_storage_class_unregister(struct mail_storage *storage_class)
 			break;
 		}
 	}
-
-	if (storage_class->v.class_deinit != NULL)
-		storage_class->v.class_deinit();
 }
 
 struct mail_storage *mail_storage_find_class(const char *name)

@@ -26,7 +26,4 @@ struct raw_mailbox {
 
 extern struct mail_vfuncs raw_mail_vfuncs;
 
-void raw_transaction_class_init(void);
-void raw_transaction_class_deinit(void);
-
 #endif

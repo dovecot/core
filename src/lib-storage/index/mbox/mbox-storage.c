@@ -348,6 +348,10 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box.list = list;
 	mbox->ibox.mail_vfuncs = &mbox_mail_vfuncs;
 
+	mbox->ibox.save_commit_pre = mbox_transaction_save_commit_pre;
+	mbox->ibox.save_commit_post = mbox_transaction_save_commit_post;
+	mbox->ibox.save_rollback = mbox_transaction_save_rollback;
+
 	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
 				    MBOX_INDEX_PREFIX);
 
@@ -818,16 +822,6 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 	return 0;
 }
 
-static void mbox_class_init(void)
-{
-	mbox_transaction_class_init();
-}
-
-static void mbox_class_deinit(void)
-{
-	mbox_transaction_class_deinit();
-}
-
 static void mbox_storage_add_list(struct mail_storage *storage,
 				  struct mailbox_list *list)
 {
@@ -850,14 +844,65 @@ static void mbox_storage_add_list(struct mail_storage *storage,
 	MODULE_CONTEXT_SET(list, mbox_mailbox_list_module, mlist);
 }
 
+static struct mailbox_transaction_context *
+mbox_transaction_begin(struct mailbox *box,
+		       enum mailbox_transaction_flags flags)
+{
+	struct mbox_transaction_context *mt;
+
+	mt = i_new(struct mbox_transaction_context, 1);
+	index_transaction_init(&mt->ictx, box, flags);
+	return &mt->ictx.mailbox_ctx;
+}
+
+static void mbox_transaction_unlock(struct mailbox *box, unsigned int lock_id)
+{
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+
+	if (lock_id != 0)
+		(void)mbox_unlock(mbox, lock_id);
+	if (mbox->mbox_global_lock_id == 0) {
+		i_assert(mbox->ibox.box.transaction_count > 0 ||
+			 mbox->mbox_lock_type == F_UNLCK);
+	} else {
+		/* mailbox opened with MAILBOX_FLAG_KEEP_LOCKED */
+		i_assert(mbox->mbox_lock_type == F_WRLCK);
+	}
+}
+
+static int
+mbox_transaction_commit(struct mailbox_transaction_context *t,
+			struct mail_transaction_commit_changes *changes_r)
+{
+	struct mbox_transaction_context *mt =
+		(struct mbox_transaction_context *)t;
+	struct mailbox *box = t->box;
+	unsigned int lock_id = mt->mbox_lock_id;
+	int ret;
+
+	ret = index_transaction_commit(t, changes_r);
+	mbox_transaction_unlock(box, lock_id);
+	return ret;
+}
+
+static void
+mbox_transaction_rollback(struct mailbox_transaction_context *t)
+{
+	struct mbox_transaction_context *mt =
+		(struct mbox_transaction_context *)t;
+	struct mailbox *box = t->box;
+	unsigned int lock_id = mt->mbox_lock_id;
+
+	index_transaction_rollback(t);
+	mbox_transaction_unlock(box, lock_id);
+}
+
 struct mail_storage mbox_storage = {
 	MEMBER(name) MBOX_STORAGE_NAME,
 	MEMBER(class_flags) MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE,
 
 	{
                 mbox_get_setting_parser_info,
-		mbox_class_init,
-		mbox_class_deinit,
 		mbox_storage_alloc,
 		mbox_storage_create,
 		index_storage_destroy,
@@ -890,9 +935,9 @@ struct mailbox mbox_mailbox = {
 		index_mailbox_sync_deinit,
 		NULL,
 		mbox_notify_changes,
-		index_transaction_begin,
-		index_transaction_commit,
-		index_transaction_rollback,
+		mbox_transaction_begin,
+		mbox_transaction_commit,
+		mbox_transaction_rollback,
 		index_transaction_set_max_modseq,
 		index_keywords_create,
 		index_keywords_create_from_indexes,

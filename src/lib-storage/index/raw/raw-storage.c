@@ -162,16 +162,6 @@ static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	}
 }
 
-static void raw_class_init(void)
-{
-	raw_transaction_class_init();
-}
-
-static void raw_class_deinit(void)
-{
-	raw_transaction_class_deinit();
-}
-
 static void raw_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 				 struct mailbox_list *list)
 {
@@ -185,8 +175,6 @@ struct mail_storage raw_storage = {
 
 	{
 		NULL,
-		raw_class_init,
-		raw_class_deinit,
 		raw_storage_alloc,
 		NULL,
 		index_storage_destroy,

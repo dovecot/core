@@ -21,10 +21,10 @@ virtual_save_alloc(struct mailbox_transaction_context *_t)
 	struct mailbox_transaction_context *backend_trans;
 	struct virtual_save_context *ctx;
 
-	if (t->save_ctx != NULL)
-		return &t->save_ctx->ctx;
+	if (_t->save_ctx != NULL)
+		return _t->save_ctx;
 
-	ctx = t->save_ctx = i_new(struct virtual_save_context, 1);
+	ctx = i_new(struct virtual_save_context, 1);
 	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
 
 	if (mbox->save_bbox != NULL) {
@@ -32,7 +32,8 @@ virtual_save_alloc(struct mailbox_transaction_context *_t)
 			virtual_transaction_get(_t, mbox->save_bbox->box);
 		ctx->backend_save_ctx = mailbox_save_alloc(backend_trans);
 	}
-	return &ctx->ctx;
+	_t->save_ctx = &ctx->ctx;
+	return _t->save_ctx;
 }
 
 static struct mail_keywords *
@@ -119,8 +120,10 @@ void virtual_save_cancel(struct mail_save_context *_ctx)
 		mailbox_save_cancel(&ctx->backend_save_ctx);
 }
 
-void virtual_save_free(struct virtual_save_context *ctx)
+void virtual_save_free(struct mail_save_context *_ctx)
 {
+	struct virtual_save_context *ctx = (struct virtual_save_context *)_ctx;
+
 	if (ctx->backend_keywords != NULL)
 		mailbox_keywords_unref(ctx->backend_box, &ctx->backend_keywords);
 	if (ctx->backend_save_ctx != NULL)

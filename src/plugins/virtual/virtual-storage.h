@@ -166,11 +166,8 @@ int virtual_save_begin(struct mail_save_context *ctx, struct istream *input);
 int virtual_save_continue(struct mail_save_context *ctx);
 int virtual_save_finish(struct mail_save_context *ctx);
 void virtual_save_cancel(struct mail_save_context *ctx);
-void virtual_save_free(struct virtual_save_context *ctx);
+void virtual_save_free(struct mail_save_context *ctx);
 
 void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src);
-
-void virtual_transaction_class_init(void);
-void virtual_transaction_class_deinit(void);
 
 #endif
