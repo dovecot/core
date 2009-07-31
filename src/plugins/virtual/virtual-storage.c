@@ -136,6 +136,7 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 	if (mailbox_open(bbox->box) < 0) {
 		storage = mailbox_get_storage(bbox->box);
 		str = mail_storage_get_last_error(storage, &error);
+		mailbox_close(&bbox->box);
 		if (bbox->wildcard && (error == MAIL_ERROR_PERM ||
 				       error == MAIL_ERROR_NOTFOUND)) {
 			/* this mailbox wasn't explicitly specified.
@@ -189,7 +190,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 		      const char *name, struct istream *input,
 		      enum mailbox_flags flags)
 {
-	struct virtual_storage *storage = (struct virtual_storage *)storage;
+	struct virtual_storage *storage = (struct virtual_storage *)_storage;
 	struct virtual_mailbox *mbox;
 	pool_t pool;
 
@@ -253,13 +254,12 @@ static int virtual_mailbox_open(struct mailbox *box)
 		virtual_mailboxes_open(mbox, box->flags) < 0;
 	array_delete(&mbox->storage->open_stack,
 		     array_count(&mbox->storage->open_stack)-1, 1);
-	return failed ? -1 : 0;
+	return failed ? -1 : index_storage_mailbox_open(box);
 }
 
 static void virtual_mailbox_close(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
-	struct mail_storage *storage;
 	struct virtual_backend_box **bboxes;
 	unsigned int i, count;
 
@@ -270,7 +270,9 @@ static void virtual_mailbox_close(struct mailbox *box)
 		if (bboxes[i]->search_result != NULL)
 			mailbox_search_result_free(&bboxes[i]->search_result);
 
-		storage = bboxes[i]->box->storage;
+		if (bboxes[i]->box == NULL)
+			continue;
+
 		mailbox_close(&bboxes[i]->box);
 		if (array_is_created(&bboxes[i]->sync_outside_expunges))
 			array_free(&bboxes[i]->sync_outside_expunges);
