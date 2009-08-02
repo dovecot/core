@@ -99,3 +99,9 @@ void env_backup_free(struct env_backup **_env)
 	*_env = NULL;
 	pool_unref(&env->pool);
 }
+
+void env_deinit(void)
+{
+	if (env_pool != NULL)
+		pool_unref(&env_pool);
+}

@@ -1,6 +1,7 @@
 /* Copyright (c) 2001-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "env-util.h"
 #include "hostpid.h"
 
 #include <stdlib.h>
@@ -28,5 +29,6 @@ void lib_init(void)
 void lib_deinit(void)
 {
 	data_stack_deinit();
-        failures_deinit();
+	env_deinit();
+	failures_deinit();
 }
