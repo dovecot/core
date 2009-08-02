@@ -952,7 +952,7 @@ int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 	if ((ret = maildir_uidlist_stat(uidlist, &st)) < 0)
 		return ret;
 
-	if (st.st_size == mhdr->uidlist_size &&
+	if (ret > 0 && st.st_size == mhdr->uidlist_size &&
 	    st.st_mtime == (time_t)mhdr->uidlist_mtime &&
 	    ST_NTIMES_EQUAL(ST_MTIME_NSEC(st), mhdr->uidlist_mtime_nsecs) &&
 	    (!mail_index_is_in_memory(index) || st.st_mtime < ioloop_time-1)) {
