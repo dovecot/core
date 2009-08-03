@@ -69,7 +69,7 @@ test_dsync_proxy_server_cmd_LDADD = test-dsync-worker.o dsync-worker.o dsync-pro
 test_dsync_proxy_server_cmd_DEPENDENCIES = test-dsync-worker.o dsync-worker.o dsync-proxy.o dsync-proxy-server-cmd.o $(test_libs)
 
 check: check-am check-test
-check-test: $(test_programs)
+check-test: all-am
 	for bin in $(test_programs); do \
 	  if ! ./$$bin; then exit 1; fi; \
 	done

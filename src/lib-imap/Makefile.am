@@ -69,7 +69,7 @@ test_imap_util_LDADD = imap-util.lo $(test_libs)
 test_imap_util_DEPENDENCIES = imap-util.lo $(test_libs)
 
 check: check-am check-test
-check-test: $(test_programs)
+check-test: all-am
 	for bin in $(test_programs); do \
 	  if ! ./$$bin; then exit 1; fi; \
 	done

@@ -115,7 +115,7 @@ test_rfc2231_parser_LDADD = rfc2231-parser.lo rfc822-parser.lo $(test_libs)
 test_rfc2231_parser_DEPENDENCIES = rfc2231-parser.lo rfc822-parser.lo $(test_libs)
 
 check: check-am check-test
-check-test: $(test_programs)
+check-test: all-am
 	for bin in $(test_programs); do \
 	  if ! ./$$bin; then exit 1; fi; \
 	done
