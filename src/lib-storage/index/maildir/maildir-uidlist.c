@@ -788,7 +788,8 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 		}
 		if (uidlist->next_uid <= uidlist->prev_read_uid)
 			uidlist->next_uid = uidlist->prev_read_uid + 1;
-		if (ret > 0 && uidlist->uid_validity != orig_uid_validity) {
+		if (ret > 0 && uidlist->uid_validity != orig_uid_validity &&
+		    orig_uid_validity != 0) {
 			uidlist->recreate = TRUE;
 		} else if (ret > 0 && uidlist->next_uid < orig_next_uid) {
 			mail_storage_set_critical(storage,
