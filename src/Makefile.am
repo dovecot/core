@@ -34,8 +34,3 @@ SUBDIRS = \
 	util \
 	dsync \
 	plugins
-
-test:
-	for dir in $(SUBDIRS); do \
-	  cd $$dir && if ! $(MAKE) test; then exit 1; fi; cd ..; \
-	done
