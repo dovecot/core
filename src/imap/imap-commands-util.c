@@ -20,35 +20,28 @@
 #define MAILBOX_MAX_NAME_LEN 512
 
 struct mail_namespace *
-client_find_namespace(struct client_command_context *cmd, const char **mailbox)
-{
-	struct mail_namespace *ns;
-
-	ns = mail_namespace_find(cmd->client->user->namespaces, mailbox);
-	if (ns != NULL)
-		return ns;
-
-	client_send_tagline(cmd, "NO Unknown namespace.");
-	return NULL;
-}
-
-bool client_verify_mailbox_name(struct client_command_context *cmd,
-				const char *mailbox,
-				enum client_verify_mailbox_mode mode)
+client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
+		      enum client_verify_mailbox_mode mode)
 {
 	struct mail_namespace *ns;
 	enum mailbox_name_status mailbox_status;
-	const char *orig_mailbox, *p, *resp_code = NULL;
+	const char *orig_mailbox, *mailbox, *p, *resp_code = NULL;
 
-	orig_mailbox = mailbox;
-	ns = client_find_namespace(cmd, &mailbox);
-	if (ns == NULL)
-		return FALSE;
+	orig_mailbox = *mailboxp;
+	ns = mail_namespace_find(cmd->client->user->namespaces, mailboxp);
+	if (ns == NULL) {
+		client_send_tagline(cmd, "NO Unknown namespace.");
+		return NULL;
+	}
+	mailbox = *mailboxp;
+
+	if (mode == CLIENT_VERIFY_MAILBOX_NONE)
+		return ns;
 
 	/* make sure it even looks valid */
-	if (*mailbox == '\0') {
+	if (*mailbox == '\0' && !(*orig_mailbox != '\0' && ns->list)) {
 		client_send_tagline(cmd, "NO Empty mailbox name.");
-		return FALSE;
+		return NULL;
 	}
 
 	if (ns->real_sep != ns->sep && ns->prefix_len < strlen(orig_mailbox)) {
@@ -61,7 +54,7 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 					"NO Character not allowed "
 					"in mailbox name: '%c'",
 					ns->real_sep));
-				return FALSE;
+				return NULL;
 			}
 		}
 	}
@@ -70,36 +63,37 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 	for (p = mailbox+1; *p != '\0'; p++) {
 		if (p[0] == ns->real_sep && p[-1] == ns->real_sep) {
 			client_send_tagline(cmd, "NO Invalid mailbox name.");
-			return FALSE;
+			return NULL;
 		}
 	}
 
 	if (strlen(mailbox) > MAILBOX_MAX_NAME_LEN) {
 		client_send_tagline(cmd, "NO Mailbox name too long.");
-		return FALSE;
+		return NULL;
 	}
 
 	/* check what our storage thinks of it */
 	if (mailbox_list_get_mailbox_name_status(ns->list, mailbox,
 						 &mailbox_status) < 0) {
 		client_send_list_error(cmd, ns->list);
-		return FALSE;
+		return NULL;
 	}
 
 	switch (mailbox_status) {
 	case MAILBOX_NAME_EXISTS:
 		switch (mode) {
+		case CLIENT_VERIFY_MAILBOX_NONE:
 		case CLIENT_VERIFY_MAILBOX_NAME:
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
-			return TRUE;
+			return ns;
 		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
 			break;
 		}
 
 		if (mode == CLIENT_VERIFY_MAILBOX_NAME ||
 		    mode == CLIENT_VERIFY_MAILBOX_SHOULD_EXIST)
-			return TRUE;
+			return ns;
 
 		client_send_tagline(cmd, t_strconcat(
 			"NO [", IMAP_RESP_CODE_ALREADYEXISTS,
@@ -110,7 +104,7 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 		switch (mode) {
 		case CLIENT_VERIFY_MAILBOX_NAME:
 		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
-			return TRUE;
+			return ns;
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
 			resp_code = IMAP_RESP_CODE_NONEXISTENT;
 			break;
@@ -143,8 +137,7 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 	default:
                 i_unreached();
 	}
-
-	return FALSE;
+	return NULL;
 }
 
 bool client_verify_open_mailbox(struct client_command_context *cmd)

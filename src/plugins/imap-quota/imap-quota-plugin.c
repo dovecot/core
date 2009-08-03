@@ -80,7 +80,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 		return FALSE;
 
 	orig_mailbox = mailbox;
-	ns = client_find_namespace(cmd, &mailbox);
+	ns = client_find_namespace(cmd, &mailbox, CLIENT_VERIFY_MAILBOX_NONE);
 	if (ns == NULL)
 		return TRUE;
 

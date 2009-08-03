@@ -59,7 +59,7 @@ static const char *
 maildir_list_get_dirname_path(struct mailbox_list *list, const char *dir,
 			      const char *name)
 {
-	if (strcmp(list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0)
+	if (strcmp(list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0 || *name == '\0')
 		return t_strdup_printf("%s/%s", dir, name);
 	
 	return t_strdup_printf("%s/%c%s", dir, list->hierarchy_sep, name);
@@ -133,13 +133,6 @@ static bool
 maildir_is_valid_existing_name(struct mailbox_list *list, const char *name)
 {
 	size_t len;
-
-	if (*name == '\0' && *list->ns->prefix != '\0' &&
-	    (list->ns->flags & NAMESPACE_FLAG_INBOX) == 0) {
-		/* an ugly way to get to Maildir/ root when it's not the
-		   INBOX. */
-		return TRUE;
-	}
 
 	if (!maildir_list_is_valid_common(list, name, &len))
 		return FALSE;

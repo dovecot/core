@@ -454,6 +454,13 @@ bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
 bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 					 const char *name)
 {
+	if (*name == '\0' && *list->ns->prefix != '\0' &&
+	    (list->ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0) {
+		/* an ugly way to get to mailbox root (e.g. Maildir/ when
+		   it's not the INBOX) */
+		return TRUE;
+	}
+
 	return list->v.is_valid_existing_name(list, name);
 }
 
@@ -512,7 +519,6 @@ int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 		*status = MAILBOX_NAME_INVALID;
 		return 0;
 	}
-
 	return list->v.get_mailbox_name_status(list, name, status);
 }
 
@@ -637,6 +643,22 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 	return ctx->list->v.iter_deinit(ctx);
 }
 
+int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
+			 enum mailbox_info_flags *flags_r)
+{
+	struct mailbox_list_iterate_context ctx;
+	const char *path;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.list = list;
+
+	*flags_r = 0;
+	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	return list->v.iter_is_mailbox(&ctx, path, "", "",
+				       MAILBOX_LIST_FILE_TYPE_UNKNOWN,
+				       flags_r);
+}
+
 int mailbox_list_set_subscribed(struct mailbox_list *list,
 				const char *name, bool set)
 {
@@ -647,7 +669,7 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 
 int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
-	if (!mailbox_list_is_valid_existing_name(list, name)) {
+	if (!mailbox_list_is_valid_existing_name(list, name) || *name == '\0') {
 		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return -1;
@@ -681,6 +703,7 @@ int mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
 	mailbox_list_get_closest_storage(newlist, &newstorage);
 
 	if (!mailbox_list_is_valid_existing_name(oldlist, oldname) ||
+	    *oldname == '\0' ||
 	    !mailbox_list_is_valid_create_name(newlist, newname)) {
 		mailbox_list_set_error(oldlist, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");

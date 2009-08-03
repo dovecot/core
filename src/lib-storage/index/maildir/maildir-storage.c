@@ -436,7 +436,7 @@ static int maildir_mailbox_open(struct mailbox *box)
 		return -1;
 
 	/* tmp/ directory doesn't exist. does the maildir? */
-	if (inbox || stat(box->path, &st) == 0) {
+	if (inbox || (*box->name != '\0' && stat(box->path, &st) == 0)) {
 		/* yes, we'll need to create the missing dirs */
 		mailbox_list_get_dir_permissions(box->list, box->name,
 						 &mode, &gid, &gid_origin);
@@ -445,7 +445,7 @@ static int maildir_mailbox_open(struct mailbox *box)
 			return -1;
 
 		return maildir_mailbox_open_existing(box);
-	} else if (errno == ENOENT) {
+	} else if (*box->name == '\0' || errno == ENOENT) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;

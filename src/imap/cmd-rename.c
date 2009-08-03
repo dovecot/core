@@ -14,18 +14,13 @@ bool cmd_rename(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 2, &oldname, &newname))
 		return FALSE;
 
-	if (!client_verify_mailbox_name(cmd, oldname,
-					CLIENT_VERIFY_MAILBOX_SHOULD_EXIST))
-		return TRUE;
-	if (!client_verify_mailbox_name(cmd, newname,
-					CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST))
-		return TRUE;
-
-	old_ns = client_find_namespace(cmd, &oldname);
+	old_ns = client_find_namespace(cmd, &oldname,
+				       CLIENT_VERIFY_MAILBOX_SHOULD_EXIST);
 	if (old_ns == NULL)
 		return TRUE;
 
-	new_ns = client_find_namespace(cmd, &newname);
+	new_ns = client_find_namespace(cmd, &newname,
+				       CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST);
 	if (new_ns == NULL)
 		return TRUE;
 

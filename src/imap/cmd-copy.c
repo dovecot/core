@@ -106,16 +106,13 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
-	/* open the destination mailbox */
-	if (!client_verify_mailbox_name(cmd, mailbox,
-				CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE))
-		return TRUE;
-
 	ret = imap_search_get_seqset(cmd, messageset, cmd->uid, &search_args);
 	if (ret <= 0)
 		return ret < 0;
 
-	dest_ns = client_find_namespace(cmd, &mailbox);
+	/* open the destination mailbox */
+	dest_ns = client_find_namespace(cmd, &mailbox,
+				CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE);
 	if (dest_ns == NULL)
 		return TRUE;
 

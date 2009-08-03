@@ -2,6 +2,8 @@
 #define IMAP_COMMANDS_UTIL_H
 
 enum client_verify_mailbox_mode {
+	/* Don't verify mailbox name validity */
+	CLIENT_VERIFY_MAILBOX_NONE,
 	/* Verify only that the mailbox name is valid */
 	CLIENT_VERIFY_MAILBOX_NAME,
 	/* If mailbox doesn't exist, fail with [NONEXISTENT] resp code */
@@ -20,16 +22,11 @@ struct msgset_generator_context {
 struct mail_full_flags;
 struct mailbox_keywords;
 
-/* Finds namespace for given mailbox from namespaces. If not found,
-   sends "Unknown namespace" error message to client. */
+/* Finds namespace for given mailbox from namespaces. If namespace isn't found
+   or mailbox name is invalid, sends a tagged NO reply to client. */
 struct mail_namespace *
-client_find_namespace(struct client_command_context *cmd, const char **mailbox);
-
-/* Returns TRUE if verifications succeeds. If it fails, a tagged NO is sent to
-   client. */
-bool client_verify_mailbox_name(struct client_command_context *cmd,
-				const char *mailbox,
-				enum client_verify_mailbox_mode mode);
+client_find_namespace(struct client_command_context *cmd, const char **mailbox,
+		      enum client_verify_mailbox_mode mode);
 
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"
    error message to client. */

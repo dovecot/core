@@ -20,7 +20,8 @@ bool cmd_delete(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	ns = client_find_namespace(cmd, &name);
+	ns = client_find_namespace(cmd, &name,
+				   CLIENT_VERIFY_MAILBOX_SHOULD_EXIST);
 	if (ns == NULL)
 		return TRUE;
 

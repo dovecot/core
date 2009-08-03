@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
+#include "imap-resp-code.h"
 #include "mail-namespace.h"
 #include "imap-commands.h"
 
@@ -17,7 +18,7 @@ bool cmd_create(struct client_command_context *cmd)
 		return FALSE;
 	full_mailbox = mailbox;
 
-	ns = client_find_namespace(cmd, &mailbox);
+	ns = client_find_namespace(cmd, &mailbox, CLIENT_VERIFY_MAILBOX_NONE);
 	if (ns == NULL)
 		return TRUE;
 
@@ -25,7 +26,8 @@ bool cmd_create(struct client_command_context *cmd)
 	if (len == 0 || full_mailbox[len-1] != ns->sep)
 		directory = FALSE;
 	else if (*mailbox == '\0') {
-		client_send_tagline(cmd, "NO Namespace already exists.");
+		client_send_tagline(cmd, "NO ["IMAP_RESP_CODE_ALREADYEXISTS
+				    "] Namespace already exists.");
 		return TRUE;
 	} else {
 		/* name ends with hierarchy separator - client is just
@@ -36,8 +38,10 @@ bool cmd_create(struct client_command_context *cmd)
 		full_mailbox = t_strndup(full_mailbox, len-1);
 	}
 
-	if (!client_verify_mailbox_name(cmd, full_mailbox,
-					CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST))
+	mailbox = full_mailbox;
+	ns = client_find_namespace(cmd, &mailbox,
+				   CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST);
+	if (ns == NULL)
 		return TRUE;
 
 	box = mailbox_alloc(ns->list, mailbox, NULL, 0);

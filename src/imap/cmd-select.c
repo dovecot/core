@@ -357,7 +357,8 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
-	ctx->ns = client_find_namespace(cmd, &mailbox);
+	ctx->ns = client_find_namespace(cmd, &mailbox,
+					CLIENT_VERIFY_MAILBOX_SHOULD_EXIST);
 	if (ctx->ns == NULL)
 		return TRUE;
 

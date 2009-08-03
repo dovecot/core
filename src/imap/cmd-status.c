@@ -31,7 +31,8 @@ bool cmd_status(struct client_command_context *cmd)
 				    &items) < 0)
 		return TRUE;
 
-	ns = client_find_namespace(cmd, &real_mailbox);
+	ns = client_find_namespace(cmd, &real_mailbox,
+				   CLIENT_VERIFY_MAILBOX_SHOULD_EXIST);
 	if (ns == NULL)
 		return TRUE;
 

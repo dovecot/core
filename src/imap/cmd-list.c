@@ -269,6 +269,8 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 
 		ctx->inbox_found = TRUE;
 		flags = list_get_inbox_flags(ctx);
+	} else if (mailbox_list_mailbox(ctx->ns->list, "", &flags) > 0) {
+		/* mailbox with namespace prefix exists */
 	} else {
 		flags = MAILBOX_NONEXISTENT;
 	}

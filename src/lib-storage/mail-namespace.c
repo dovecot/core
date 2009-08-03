@@ -443,6 +443,31 @@ char mail_namespaces_get_root_sep(const struct mail_namespace *namespaces)
 	return namespaces->sep;
 }
 
+static bool mail_namespace_is_usable_prefix(struct mail_namespace *ns,
+					    const char *mailbox, bool inbox)
+{
+	if (strncmp(ns->prefix, mailbox, ns->prefix_len) == 0) {
+		/* true exact prefix match */
+		return TRUE;
+	}
+
+	if (inbox && strncmp(ns->prefix, "INBOX", 5) == 0 &&
+	    strncmp(ns->prefix+5, mailbox+5, ns->prefix_len-5) == 0) {
+		/* we already checked that mailbox begins with case-insensitive
+		   INBOX. this namespace also begins with INBOX and the rest
+		   of the prefix matches too. */
+		return TRUE;
+	}
+
+	if (strncmp(ns->prefix, mailbox, ns->prefix_len-1) == 0 &&
+	    mailbox[ns->prefix_len-1] == '\0' &&
+	    ns->prefix[ns->prefix_len-1] == ns->sep) {
+		/* we're trying to access the namespace prefix itself */
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static struct mail_namespace *
 mail_namespace_find_mask(struct mail_namespace *namespaces,
 			 const char **mailbox,
@@ -452,7 +477,7 @@ mail_namespace_find_mask(struct mail_namespace *namespaces,
         struct mail_namespace *ns = namespaces;
 	const char *box = *mailbox;
 	struct mail_namespace *best = NULL;
-	size_t best_len = 0;
+	unsigned int len, best_len = 0;
 	bool inbox;
 
 	inbox = strncasecmp(box, "INBOX", 5) == 0;
@@ -471,25 +496,22 @@ mail_namespace_find_mask(struct mail_namespace *namespaces,
 	}
 
 	for (; ns != NULL; ns = ns->next) {
-		if (ns->prefix_len >= best_len &&
-		    (strncmp(ns->prefix, box, ns->prefix_len) == 0 ||
-		     (inbox && strncmp(ns->prefix, "INBOX", 5) == 0 &&
-		      strncmp(ns->prefix+5, box+5, ns->prefix_len-5) == 0)) &&
-		    (ns->flags & mask) == flags) {
+		if (ns->prefix_len >= best_len && (ns->flags & mask) == flags &&
+		    mail_namespace_is_usable_prefix(ns, box, inbox)) {
 			best = ns;
 			best_len = ns->prefix_len;
 		}
 	}
 
 	if (best != NULL) {
-		if (best_len > 0)
-			*mailbox += best_len;
-		else if (inbox && (box[5] == best->sep || box[5] == '\0'))
+		if (best_len > 0) {
+			len = strlen(*mailbox);
+			*mailbox += I_MIN(len, best_len);
+		} else if (inbox && (box[5] == best->sep || box[5] == '\0'))
 			*mailbox = t_strconcat("INBOX", box+5, NULL);
 
 		*mailbox = mail_namespace_fix_sep(best, *mailbox);
 	}
-
 	return best;
 }
 

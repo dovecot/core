@@ -37,7 +37,8 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 	verify_name = mailbox;
 
 	real_name = mailbox;
-	real_ns = client_find_namespace(cmd, &real_name);
+	real_ns = client_find_namespace(cmd, &real_name,
+					CLIENT_VERIFY_MAILBOX_NONE);
 	if (real_ns == NULL)
 		return TRUE;
 
@@ -69,12 +70,12 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 					   verify_name)) {
 		/* subscribing to a listable namespace prefix, allow it. */
 	} else if (subscribe) {
-		if (!client_verify_mailbox_name(cmd, verify_name,
-					CLIENT_VERIFY_MAILBOX_SHOULD_EXIST))
+		if (client_find_namespace(cmd, &verify_name,
+				CLIENT_VERIFY_MAILBOX_SHOULD_EXIST) == NULL)
 			return TRUE;
 	} else {
-		if (!client_verify_mailbox_name(cmd, verify_name,
-						CLIENT_VERIFY_MAILBOX_NAME))
+		if (client_find_namespace(cmd, &verify_name,
+				CLIENT_VERIFY_MAILBOX_NAME) == NULL)
 			return TRUE;
 	}
 

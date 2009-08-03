@@ -63,7 +63,7 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 		return NULL;
 	}
 
-	ns = client_find_namespace(cmd, &name);
+	ns = client_find_namespace(cmd, &name, CLIENT_VERIFY_MAILBOX_NONE);
 	if (ns == NULL)
 		return NULL;
 
@@ -293,7 +293,8 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	}
 
 	real_mailbox = mailbox;
-	ns = client_find_namespace(cmd, &real_mailbox);
+	ns = client_find_namespace(cmd, &real_mailbox,
+				   CLIENT_VERIFY_MAILBOX_NONE);
 	if (ns == NULL)
 		return TRUE;
 

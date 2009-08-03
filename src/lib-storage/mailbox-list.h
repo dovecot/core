@@ -216,6 +216,10 @@ mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx);
 /* Deinitialize mailbox list request. Returns -1 if some error
    occurred while listing. */
 int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **ctx);
+/* List one mailbox. Returns 1 if info returned, 0 if mailbox doesn't exist,
+   -1 if error. */
+int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
+			 enum mailbox_info_flags *flags_r);
 
 /* Subscribe/unsubscribe mailbox. There should be no error when
    subscribing to already subscribed mailbox. Subscribing to
