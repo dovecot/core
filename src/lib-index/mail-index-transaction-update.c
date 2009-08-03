@@ -315,6 +315,10 @@ mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
 			}
 		}
 	}
+	/* remove modseqs */
+	if (array_is_created(&t->modseq_updates) &&
+	    mail_index_seq_array_lookup((void *)&t->modseq_updates, seq, &i))
+		array_delete(&t->modseq_updates, i, 1);
 
 	/* and finally remove the append itself */
 	array_delete(&t->appends, seq - t->first_new_seq, 1);
