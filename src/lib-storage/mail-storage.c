@@ -599,11 +599,16 @@ void mailbox_get_status(struct mailbox *box,
 struct mailbox_sync_context *
 mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
+	struct mailbox_sync_context *ctx;
+
 	if (box->transaction_count != 0) {
 		i_panic("Trying to sync mailbox %s with open transactions",
 			box->name);
 	}
-	return box->v.sync_init(box, flags);
+	T_BEGIN {
+		ctx = box->v.sync_init(box, flags);
+	} T_END;
+	return ctx;
 }
 
 bool mailbox_sync_next(struct mailbox_sync_context *ctx,

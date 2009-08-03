@@ -77,7 +77,7 @@ struct index_mail_data {
 	uint32_t parse_line_num;
 
 	struct message_part *parts;
-	const char *envelope, *body, *bodystructure, *uid_string;
+	const char *envelope, *body, *bodystructure, *uid_string, *guid;
 	struct message_part_envelope_data *envelope_data;
 
 	uint32_t seq;

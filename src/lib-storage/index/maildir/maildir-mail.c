@@ -424,6 +424,10 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	switch (field) {
 	case MAIL_FETCH_UIDL_FILE_NAME:
 	case MAIL_FETCH_GUID:
+		if (mail->data.guid != NULL) {
+			*value_r = mail->data.guid;
+			return 0;
+		}
 		if (_mail->uid != 0) {
 			if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
 				return -1;
@@ -434,7 +438,10 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			fname = fname != NULL ? fname + 1 : path;
 		}
 		end = strchr(fname, MAILDIR_INFO_SEP);
-		*value_r = end == NULL ? fname : t_strdup_until(fname, end);
+		mail->data.guid = end == NULL ?
+			p_strdup(mail->data_pool, fname) :
+			p_strdup_until(mail->data_pool, fname, end);
+		*value_r = mail->data.guid;
 		return 0;
 	case MAIL_FETCH_UIDL_BACKEND:
 		uidl = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
