@@ -56,10 +56,13 @@ static const char *list_escape(struct mail_namespace *ns,
 		str++;
 	}
 	for (; *str != '\0'; str++) {
-		if (*str == ns->sep && change_sep)
-			str_append_c(esc, ns->list->hierarchy_sep);
-		else if (*str == ns->list->hierarchy_sep ||
-			 *str == mlist->escape_char || *str == '/')
+		if (*str == ns->sep) {
+			if (change_sep)
+				str_append_c(esc, ns->list->hierarchy_sep);
+			else
+				str_append_c(esc, *str);
+		} else if (*str == ns->list->hierarchy_sep ||
+			   *str == mlist->escape_char || *str == '/')
 			str_printfa(esc, "%c%02x", mlist->escape_char, *str);
 		else
 			str_append_c(esc, *str);
@@ -105,14 +108,18 @@ listescape_mailbox_list_iter_init(struct mailbox_list *list,
 	struct mailbox_list_iterate_context *ctx;
 	const char **escaped_patterns;
 	unsigned int i;
+	bool change_sep;
 
-	t_push();
-	if ((flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
+	/* this is kind of kludgy. In ACL code we want to convert patterns,
+	   in maildir renaming code we don't. so for now just use the _RAW_LIST
+	   flag.. */
+	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) == 0) {
+		change_sep = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) == 0;
 		escaped_patterns = t_new(const char *,
 					 str_array_length(patterns) + 1);
 		for (i = 0; patterns[i] != NULL; i++) {
 			escaped_patterns[i] =
-				list_escape(list->ns, patterns[i], FALSE);
+				list_escape(list->ns, patterns[i], change_sep);
 		}
 		patterns = escaped_patterns;
 	}
@@ -124,7 +131,6 @@ listescape_mailbox_list_iter_init(struct mailbox_list *list,
 	list->ns->real_sep = list->hierarchy_sep;
 	ctx = mlist->module_ctx.super.iter_init(list, patterns, flags);
 	list->ns->real_sep = list->ns->sep;
-	t_pop();
 	return ctx;
 }
 
