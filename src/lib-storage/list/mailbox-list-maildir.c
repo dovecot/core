@@ -318,7 +318,8 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 	old_sep = mailbox_list_get_hierarchy_sep(oldlist);
 	pattern = t_strdup_printf("%s%c*", oldname, old_sep);
 	iter = mailbox_list_iter_init(oldlist, pattern,
-				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
+				      MAILBOX_LIST_ITER_RAW_LIST);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		const char *name;
 
