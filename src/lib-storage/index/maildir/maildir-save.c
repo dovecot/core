@@ -468,7 +468,15 @@ static int maildir_save_finish_received_date(struct maildir_save_context *ctx,
 
 static void maildir_save_remove_last_filename(struct maildir_save_context *ctx)
 {
+	struct index_transaction_context *t =
+		(struct index_transaction_context *)ctx->ctx.transaction;
 	struct maildir_filename **fm;
+
+	mail_index_expunge(ctx->trans, ctx->seq);
+	/* currently we can't just drop pending cache updates for this one
+	   specific record, so we'll reset the whole cache transaction. */
+	mail_cache_transaction_reset(t->cache_trans);
+	ctx->seq--;
 
 	for (fm = &ctx->files; (*fm)->next != NULL; fm = &(*fm)->next) ;
 	i_assert(*fm == ctx->file_last);
