@@ -34,13 +34,6 @@ bool cmd_delete(struct client_command_context *cmd)
 	}
 	mailbox_close(&mailbox);
 
-	if ((client->workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
-	    *name != '\0' &&
-	    name[strlen(name)-1] == mailbox_list_get_hierarchy_sep(ns->list)) {
-		/* drop the extra trailing hierarchy separator */
-		name = t_strndup(name, strlen(name)-1);
-	}
-
 	if (mailbox_list_delete_mailbox(ns->list, name) < 0)
 		client_send_list_error(cmd, ns->list);
 	else {

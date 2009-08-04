@@ -26,6 +26,7 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 	struct mail_namespace *ns;
 	enum mailbox_name_status mailbox_status;
 	const char *orig_mailbox, *mailbox, *p, *resp_code = NULL;
+	unsigned int mailbox_len;
 
 	orig_mailbox = *mailboxp;
 	ns = mail_namespace_find(cmd->client->user->namespaces, mailboxp);
@@ -42,6 +43,14 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 	if (*mailbox == '\0' && !(*orig_mailbox != '\0' && ns->list)) {
 		client_send_tagline(cmd, "NO Empty mailbox name.");
 		return NULL;
+	}
+
+	mailbox_len = strlen(mailbox);
+	if ((cmd->client->workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
+	    mailbox[mailbox_len-1] == mailbox_list_get_hierarchy_sep(ns->list)) {
+		/* drop the extra trailing hierarchy separator */
+		mailbox = t_strndup(mailbox, mailbox_len-1);
+		*mailboxp = mailbox;
 	}
 
 	if (ns->real_sep != ns->sep && ns->prefix_len < strlen(orig_mailbox)) {
@@ -67,7 +76,7 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 		}
 	}
 
-	if (strlen(mailbox) > MAILBOX_MAX_NAME_LEN) {
+	if (mailbox_len > MAILBOX_MAX_NAME_LEN) {
 		client_send_tagline(cmd, "NO Mailbox name too long.");
 		return NULL;
 	}
