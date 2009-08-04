@@ -609,8 +609,8 @@ bool ssl_proxy_has_broken_client_cert(struct ssl_proxy *proxy)
 const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
 {
 	X509 *x509;
-	char buf[1024];
-	const char *name;
+	char *name;
+	int len;
 
 	if (!ssl_proxy_has_valid_client_cert(proxy))
 		return NULL;
@@ -619,11 +619,21 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
 	if (x509 == NULL)
 		return NULL; /* we should have had it.. */
 
-	if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
-				      ssl_username_nid, buf, sizeof(buf)) < 0)
+	len = X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
+					ssl_username_nid, NULL, 0);
+	if (len < 0)
 		name = "";
-	else
-		name = t_strndup(buf, sizeof(buf));
+	else {
+		name = t_malloc(len + 1);
+		if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
+					ssl_username_nid, name, len + 1) < 0)
+			name = "";
+		else if (strlen(name) != (size_t)len) {
+			/* NUL characters in name. Someone's trying to fake
+			   being another user? Don't allow it. */
+			name = "";
+		}
+	}
 	X509_free(x509);
 	
 	return *name == '\0' ? NULL : name;
