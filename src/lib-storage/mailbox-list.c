@@ -131,6 +131,8 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.subscription_fname =
 		p_strdup(list->pool, set->subscription_fname);
+	list->set.dir_guid_fname =
+		p_strdup(list->pool, set->dir_guid_fname);
 	list->set.maildir_name = set->maildir_name == NULL ||
 		(list->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 ? "" :
 		p_strdup(list->pool, set->maildir_name);
@@ -729,6 +731,109 @@ int mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
 
 	return oldlist->v.rename_mailbox(oldlist, oldname, newlist, newname,
 					 rename_children);
+}
+
+static int mailbox_list_read_guid(struct mailbox_list *list, const char *path,
+				  uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
+{
+	int fd, ret;
+
+	fd = open(path, O_RDONLY);
+	if (fd != -1) {
+		ret = read_full(fd, mailbox_guid, MAIL_GUID_128_SIZE);
+		close_keep_errno(fd);
+		if (ret > 0)
+			return 1;
+		if (ret < 0) {
+			mailbox_list_set_critical(list, "read(%s) failed: %m",
+						  path);
+			return -1;
+		}
+		/* recreate it */
+		mailbox_list_set_critical(list, "Corrupted mailbox GUID in %s",
+					  path);
+		(void)unlink(path);
+		return 0;
+	} else if (errno == ENOENT) {
+		return 0;
+	} else if (errno == EACCES) {
+		mailbox_list_set_critical(list, "%s",
+					  eacces_error_get("open", path));
+		return -1;
+	} else {
+		mailbox_list_set_critical(list, "open(%s) failed: %m", path);
+		return -1;
+	}
+}
+
+static int
+mailbox_list_get_guid_real(struct mailbox_list *list, const char *name,
+			   uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
+{
+	string_t *temp_path;
+	const char *dir, *path;
+	int fd, ret;
+
+	memset(mailbox_guid, 0, MAIL_GUID_128_SIZE);
+	if (list->set.dir_guid_fname == NULL) {
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			"Storage doesn't support mailbox GUIDs");
+		return -1;
+	}
+
+	dir = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	path = t_strconcat(dir, "/", list->set.dir_guid_fname, NULL);
+
+	/* try reading the GUID from the file */
+	if ((ret = mailbox_list_read_guid(list, path, mailbox_guid)) < 0)
+		return -1;
+
+	/* create temp file containing a new GUID. the file must never be
+	   modified and it doesn't contain anything sensitive, so just make
+	   it world-readable. */
+	temp_path = t_str_new(256);
+	str_append(temp_path, path);
+	fd = safe_mkstemp_hostpid_group(temp_path, 0644, (gid_t)-1, NULL);
+	if (fd == -1) {
+		mailbox_list_set_critical(list,
+			"safe_mkstemp(%s) failed: %m", str_c(temp_path));
+		return -1;
+	}
+
+	mail_generate_guid_128(mailbox_guid);
+	ret = write_full(fd, mailbox_guid, MAIL_GUID_128_SIZE);
+	close_keep_errno(fd);
+	if (ret < 0) {
+		mailbox_list_set_critical(list,
+			"write(%s) failed: %m", str_c(temp_path));
+	} else if (link(str_c(temp_path), path) == 0) {
+		/* success */
+	} else if (errno == EEXIST) {
+		/* someone else just created the GUID, read it. */
+		ret = mailbox_list_read_guid(list, path, mailbox_guid);
+		if (ret == 0) {
+			/* broken? shouldn't really happen. we anyway deleted
+			   it already, so try again. */
+			return mailbox_list_get_guid(list, name, mailbox_guid);
+		}
+	} else {
+		mailbox_list_set_critical(list, "link(%s, %s) failed: %m",
+					  str_c(temp_path), path);
+		ret = -1;
+	}
+	(void)unlink(str_c(temp_path));
+	return ret < 0 ? -1 : 0;
+}
+
+int mailbox_list_get_guid(struct mailbox_list *list, const char *name,
+			  uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
+{
+	int ret;
+
+	T_BEGIN {
+		ret = mailbox_list_get_guid_real(list, name, mailbox_guid);
+	} T_END;
+	return ret;
 }
 
 static int mailbox_list_try_delete(struct mailbox_list *list, const char *dir)

@@ -140,6 +140,8 @@ static void maildir_storage_get_list_settings(const struct mail_namespace *ns,
 		set->layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
 	if (set->subscription_fname == NULL)
 		set->subscription_fname = MAILDIR_SUBSCRIPTION_FILE_NAME;
+	if (set->dir_guid_fname == NULL)
+		set->dir_guid_fname = MAILDIR_DIR_GUID_FILE_NAME;
 
 	if (set->inbox_path == NULL &&
 	    (strcmp(set->layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||

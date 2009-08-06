@@ -1,6 +1,7 @@
 #ifndef MAILBOX_LIST_H
 #define MAILBOX_LIST_H
 
+#include "mail-types.h"
 #include "mail-error.h"
 
 struct mail_namespace;
@@ -94,6 +95,7 @@ struct mailbox_list_settings {
 
 	const char *inbox_path;
 	const char *subscription_fname;
+	const char *dir_guid_fname;
 	/* If non-empty, it means that mails exist in a maildir_name
 	   subdirectory. eg. if you have a directory containing directories:
 
@@ -181,6 +183,9 @@ const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 					 const char *name,
 					 enum mailbox_name_status *status);
+/* Get 128bit mailbox directory GUID, creating it if necessary. */
+int mailbox_list_get_guid(struct mailbox_list *list, const char *name,
+			  uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
 
 /* Returns a prefix that temporary files should use without conflicting
    with the namespace. */
