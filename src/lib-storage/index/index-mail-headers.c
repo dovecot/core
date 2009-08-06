@@ -370,9 +370,9 @@ struct istream *
 index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct tee_istream *tee;
 	struct istream *input2;
 
+	i_assert(mail->data.tee_stream == NULL);
 	i_assert(mail->data.parser_ctx == NULL);
 
 	/* we're doing everything for now, figure out later if we want to
@@ -381,9 +381,9 @@ index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 	mail->data.save_bodystructure_header = TRUE;
 	mail->data.save_bodystructure_body = TRUE;
 
-	tee = tee_i_stream_create(input);
-	input = tee_i_stream_create_child(tee);
-	input2 = tee_i_stream_create_child(tee);
+	mail->data.tee_stream = tee_i_stream_create(input);
+	input = tee_i_stream_create_child(mail->data.tee_stream);
+	input2 = tee_i_stream_create_child(mail->data.tee_stream);
 
 	index_mail_parse_header_init(mail, NULL);
 	mail->data.parser_ctx =

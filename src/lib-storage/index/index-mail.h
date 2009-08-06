@@ -89,6 +89,7 @@ struct index_mail_data {
 	unsigned int dont_cache_field_idx;
 
 	struct istream *stream, *filter_stream;
+	struct tee_istream *tee_stream;
 	struct message_size hdr_size, body_size;
 	struct message_parser_ctx *parser_ctx;
 	int parsing_count;
