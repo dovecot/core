@@ -5,10 +5,17 @@
 #include "ioloop.h"
 #include "mkdir-parents.h"
 #include "str.h"
+#include "sha1.h"
 #include "home-expand.h"
+#include "close-keep-errno.h"
+#include "eacces-error.h"
+#include "read-full.h"
+#include "write-full.h"
+#include "safe-mkstemp.h"
 #include "unlink-directory.h"
 #include "imap-match.h"
 #include "imap-utf7.h"
+#include "mailbox-log.h"
 #include "mailbox-tree.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
@@ -94,6 +101,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 {
 	const struct mailbox_list *const *class_p;
 	struct mailbox_list *list;
+	const char *path;
 	unsigned int idx;
 
 	i_assert(ns->list == NULL);
@@ -161,6 +169,12 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	}
 
 	mail_namespace_finish_list_init(ns, list);
+
+	path = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (path != NULL) {
+		path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
+		list->changelog = mailbox_log_alloc(path);
+	}
 
 	if (hook_mailbox_list_created != NULL)
 		hook_mailbox_list_created(list);
@@ -281,6 +295,8 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 	*_list = NULL;
 	i_free_and_null(list->error_string);
 
+	if (list->changelog != NULL)
+		mailbox_log_free(&list->changelog);
 	list->v.deinit(list);
 }
 
@@ -661,12 +677,42 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 				       flags_r);
 }
 
+void mailbox_list_add_change(struct mailbox_list *list,
+			     enum mailbox_log_record_type type,
+			     const uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
+{
+	struct mailbox_log_record rec;
+
+	if (list->changelog == NULL || mail_guid_128_is_empty(mailbox_guid))
+		return;
+
+	memset(&rec, 0, sizeof(rec));
+	rec.type = type;
+	memcpy(rec.mailbox_guid, mailbox_guid, sizeof(rec.mailbox_guid));
+	mailbox_log_record_set_timestamp(&rec, ioloop_time);
+	(void)mailbox_log_append(list->changelog, &rec);
+}
+
 int mailbox_list_set_subscribed(struct mailbox_list *list,
 				const char *name, bool set)
 {
+	uint8_t guid[MAIL_GUID_128_SIZE];
+	unsigned char sha[SHA1_RESULTLEN];
+
 	mailbox_list_clear_error(list);
 
-	return list->v.set_subscribed(list, name, set);
+	if (list->v.set_subscribed(list, name, set) < 0)
+		return -1;
+
+	/* subscriptions are about names, not about mailboxes. it's possible
+	   to have a subscription to non-existing mailbox. renames also don't
+	   change subscriptions. so instead of using actual GUIDs, we'll use
+	   hash of the name. */
+	sha1_get_digest(name, strlen(name), sha);
+	memcpy(guid, sha, I_MIN(sizeof(guid), sizeof(sha)));
+	mailbox_list_add_change(list, set ? MAILBOX_LOG_RECORD_SUBSCRIBE :
+				MAILBOX_LOG_RECORD_UNSUBSCRIBE, guid);
+	return 0;
 }
 
 int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
@@ -697,6 +743,7 @@ int mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
 {
 	struct mail_storage *oldstorage;
 	struct mail_storage *newstorage;
+	uint8_t guid[MAIL_GUID_128_SIZE];
 
 	if (mailbox_list_get_storage(&oldlist, &oldname, &oldstorage) < 0)
 		return -1;
@@ -729,8 +776,12 @@ int mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
 		return -1;
 	}
 
-	return oldlist->v.rename_mailbox(oldlist, oldname, newlist, newname,
-					 rename_children);
+	(void)mailbox_list_get_guid(oldlist, oldname, guid);
+	if (oldlist->v.rename_mailbox(oldlist, oldname, newlist, newname,
+				      rename_children) < 0)
+		return -1;
+	mailbox_list_add_change(oldlist, MAILBOX_LOG_RECORD_RENAME, guid);
+	return 0;
 }
 
 static int mailbox_list_read_guid(struct mailbox_list *list, const char *path,
@@ -834,6 +885,11 @@ int mailbox_list_get_guid(struct mailbox_list *list, const char *name,
 		ret = mailbox_list_get_guid_real(list, name, mailbox_guid);
 	} T_END;
 	return ret;
+}
+
+struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list)
+{
+	return list->changelog;
 }
 
 static int mailbox_list_try_delete(struct mailbox_list *list, const char *dir)

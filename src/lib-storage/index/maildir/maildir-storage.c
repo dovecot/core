@@ -9,6 +9,7 @@
 #include "eacces-error.h"
 #include "unlink-directory.h"
 #include "unlink-old-files.h"
+#include "mailbox-log.h"
 #include "mailbox-uidvalidity.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
@@ -710,12 +711,79 @@ maildir_delete_nonrecursive(struct mailbox_list *list, const char *path,
 }
 
 static int
+maildir_delete_with_trash(struct mailbox_list *list, const char *src,
+			  const char *dest, const char *name)
+{
+	unsigned int count;
+
+	/* rename the .maildir into ..DOVECOT-TRASH which atomically
+	   marks it as being deleted. If we die before deleting the
+	   ..DOVECOT-TRASH directory, it gets deleted the next time
+	   mailbox listing sees it. */
+	count = 0;
+	while (rename(src, dest) < 0) {
+		if (errno == ENOENT) {
+			/* it was just deleted under us by
+			   another process */
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+			return -1;
+		}
+		if (!EDESTDIREXISTS(errno)) {
+			mailbox_list_set_critical(list,
+				"rename(%s, %s) failed: %m", src, dest);
+			return -1;
+		}
+
+		/* already existed, delete it and try again */
+		if (unlink_directory(dest, TRUE) < 0 &&
+		    (errno != ENOTEMPTY || count >= 5)) {
+			mailbox_list_set_critical(list,
+				"unlink_directory(%s) failed: %m", dest);
+			return -1;
+		}
+		count++;
+	}
+
+	if (unlink_directory(dest, TRUE) < 0 && errno != ENOTEMPTY) {
+		mailbox_list_set_critical(list,
+			"unlink_directory(%s) failed: %m", dest);
+
+		/* it's already renamed to ..dir, which means it's
+		   deleted as far as the client is concerned. Report
+		   success. */
+	}
+	return 0;
+}
+
+static void mailbox_get_guid(struct mailbox_list *list, const char *name,
+			     uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
+{
+	struct mailbox *box;
+	struct mailbox_status status;
+
+	box = mailbox_alloc(list, name, NULL, MAILBOX_FLAG_KEEP_RECENT);
+	if (mailbox_open(box) < 0)
+		memset(mailbox_guid, 0, MAIL_GUID_128_SIZE);
+	else {
+		mailbox_get_status(box, STATUS_GUID, &status);
+		memcpy(mailbox_guid, status.mailbox_guid, MAIL_GUID_128_SIZE);
+	}
+	mailbox_close(&box);
+}
+
+static int
 maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	union mailbox_list_module_context *mlist = MAILDIR_LIST_CONTEXT(list);
+	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	uint8_t dir_guid[MAIL_GUID_128_SIZE];
 	struct stat st;
 	const char *src, *dest, *base;
-	int count;
+	int ret;
+
+	mailbox_get_guid(list, name, mailbox_guid);
+	(void)mailbox_list_get_guid(list, name, dir_guid);
 
 	/* Make sure the indexes are closed before trying to delete the
 	   directory that contains them. It can still fail with some NFS
@@ -762,45 +830,16 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	dest = maildir_get_unlink_dest(list, name);
 	if (dest == NULL) {
 		/* delete the directory directly without any renaming */
-		return maildir_delete_nonrecursive(list, src, name);
+		ret = maildir_delete_nonrecursive(list, src, name);
+	} else {
+		ret = maildir_delete_with_trash(list, src, dest, name);
 	}
 
-	/* rename the .maildir into ..DOVECOT-TRASH which atomically
-	   marks it as being deleted. If we die before deleting the
-	   ..DOVECOT-TRASH directory, it gets deleted the next time
-	   mailbox listing sees it. */
-	count = 0;
-	while (rename(src, dest) < 0) {
-		if (errno == ENOENT) {
-			/* it was just deleted under us by
-			   another process */
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-			return -1;
-		}
-		if (!EDESTDIREXISTS(errno)) {
-			mailbox_list_set_critical(list,
-				"rename(%s, %s) failed: %m", src, dest);
-			return -1;
-		}
-
-		/* already existed, delete it and try again */
-		if (unlink_directory(dest, TRUE) < 0 &&
-		    (errno != ENOTEMPTY || count >= 5)) {
-			mailbox_list_set_critical(list,
-				"unlink_directory(%s) failed: %m", dest);
-			return -1;
-		}
-		count++;
-	}
-
-	if (unlink_directory(dest, TRUE) < 0 && errno != ENOTEMPTY) {
-		mailbox_list_set_critical(list,
-			"unlink_directory(%s) failed: %m", dest);
-
-		/* it's already renamed to ..dir, which means it's
-		   deleted as far as the client is concerned. Report
-		   success. */
+	if (ret == 0) {
+		mailbox_list_add_change(list, MAILBOX_LOG_RECORD_DELETE_MAILBOX,
+					mailbox_guid);
+		mailbox_list_add_change(list, MAILBOX_LOG_RECORD_DELETE_DIR,
+					dir_guid);
 	}
 	return 0;
 }

@@ -9,6 +9,9 @@
 #define MAILBOX_LIST_NAME_IMAPDIR "imapdir"
 #define MAILBOX_LIST_NAME_FS "fs"
 
+#define MAILBOX_LOG_FILE_NAME "dovecot.mailbox.log"
+
+enum mailbox_log_record_type;
 struct dirent;
 struct imap_match_glob;
 struct mailbox_tree_context;
@@ -95,6 +98,8 @@ struct mailbox_list {
 	/* origin (e.g. path) where the file_create_gid was got from */
 	const char *file_create_gid_origin;
 
+	struct mailbox_log *changelog;
+
 	char *error_string;
 	enum mail_error error;
 	bool temporary_error;
@@ -143,6 +148,10 @@ bool mailbox_list_name_is_too_large(const char *name, char sep);
 enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);
 bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 					const char **name);
+
+void mailbox_list_add_change(struct mailbox_list *list,
+			     enum mailbox_log_record_type type,
+			     const uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
 
 void mailbox_list_clear_error(struct mailbox_list *list);
 void mailbox_list_set_error(struct mailbox_list *list,

@@ -186,6 +186,9 @@ int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 /* Get 128bit mailbox directory GUID, creating it if necessary. */
 int mailbox_list_get_guid(struct mailbox_list *list, const char *name,
 			  uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
+/* Returns mailbox's change log, or NULL if it doesn't have one. */
+struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list);
+
 
 /* Returns a prefix that temporary files should use without conflicting
    with the namespace. */
