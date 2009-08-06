@@ -7,6 +7,7 @@ pkglibexec_PROGRAMS = \
 	imap-utf7 \
 	listview \
 	logview \
+	mailboxlogview \
 	maildirlock \
 	threadview
 
@@ -52,6 +53,11 @@ logview_LDADD = $(LIBDOVECOT)
 logview_DEPENDENCIES = $(LIBDOVECOT)
 logview_SOURCES = \
 	logview.c
+
+mailboxlogview_LDADD = $(LIBDOVECOT)
+mailboxlogview_DEPENDENCIES = $(LIBDOVECOT)
+mailboxlogview_SOURCES = \
+	mailboxlogview.c
 
 maildirlock_LDADD = $(LIBDOVECOT)
 maildirlock_DEPENDENCIES = $(LIBDOVECOT)
