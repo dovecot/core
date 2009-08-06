@@ -12,8 +12,9 @@ enum dsync_msg_get_result {
 
 typedef void dsync_worker_copy_callback_t(bool success, void *context);
 typedef void dsync_worker_msg_callback_t(enum dsync_msg_get_result result,
-					 struct dsync_msg_static_data *data,
+					 const struct dsync_msg_static_data *data,
 					 void *context);
+typedef void dsync_worker_finish_callback_t(bool success, void *context);
 
 struct dsync_worker *dsync_worker_init_local(struct mail_user *user);
 struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out);
@@ -64,7 +65,14 @@ int dsync_worker_msg_iter_deinit(struct dsync_worker_msg_iter **iter);
 /* Create mailbox with given name, GUID and UIDVALIDITY. */
 void dsync_worker_create_mailbox(struct dsync_worker *worker,
 				 const struct dsync_mailbox *dsync_box);
-/* Find mailbox with given GUID and make sure its name, uid_next and
+/* Delete mailbox/dir with given GUID. */
+void dsync_worker_delete_mailbox(struct dsync_worker *worker,
+				 const mailbox_guid_t *mailbox);
+/* Change a mailbox and its childrens' name */
+void dsync_worker_rename_mailbox(struct dsync_worker *worker,
+				 const mailbox_guid_t *mailbox,
+				 const char *name);
+/* Find mailbox with given GUID and make sure its uid_next and
    highest_modseq are up to date (but don't shrink them). */
 void dsync_worker_update_mailbox(struct dsync_worker *worker,
 				 const struct dsync_mailbox *dsync_box);
@@ -91,11 +99,18 @@ void dsync_worker_msg_copy(struct dsync_worker *worker,
 void dsync_worker_msg_save(struct dsync_worker *worker,
 			   const struct dsync_message *msg,
 			   const struct dsync_msg_static_data *data);
+/* Cancel any pending saves */
+void dsync_worker_msg_save_cancel(struct dsync_worker *worker);
 /* Get message data for saving. The callback is called once when the static
    data has been received. The whole message may not have been downloaded yet,
    so the caller must read the input stream until it returns EOF and then
    unreference it. */
-void dsync_worker_msg_get(struct dsync_worker *worker, uint32_t uid,
+void dsync_worker_msg_get(struct dsync_worker *worker,
+			  const mailbox_guid_t *mailbox, uint32_t uid,
 			  dsync_worker_msg_callback_t *callback, void *context);
+/* Call the callback once all the pending commands are finished. */
+void dsync_worker_finish(struct dsync_worker *worker,
+			 dsync_worker_finish_callback_t *callback,
+			 void *context);
 
 #endif

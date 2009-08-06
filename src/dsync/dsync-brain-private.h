@@ -6,11 +6,11 @@
 
 enum dsync_state {
 	DSYNC_STATE_GET_MAILBOXES = 0,
-	DSYNC_STATE_CREATE_MAILBOXES,
+	DSYNC_STATE_SYNC_MAILBOXES,
 	DSYNC_STATE_SYNC_MSGS,
 	DSYNC_STATE_SYNC_UPDATE_MAILBOX,
-	DSYNC_STATE_SYNC_RESOLVE_UID_CONFLICTS,
 	DSYNC_STATE_SYNC_FLUSH,
+	DSYNC_STATE_SYNC_FLUSH2,
 	DSYNC_STATE_SYNC_END
 };
 
@@ -20,6 +20,7 @@ struct dsync_brain_mailbox_list {
 	struct dsync_worker *worker;
 	struct dsync_worker_mailbox_iter *iter;
 	ARRAY_TYPE(dsync_mailbox) mailboxes;
+	ARRAY_TYPE(dsync_mailbox) dirs;
 };
 
 struct dsync_brain_guid_instance {
@@ -42,9 +43,9 @@ struct dsync_brain_msg_iter {
 	/* char *guid -> struct dsync_brain_guid_instance* */
 	struct hash_table *guid_hash;
 
-	ARRAY_DEFINE(uid_conflicts, struct dsync_brain_uid_conflict);
 	ARRAY_DEFINE(new_msgs, struct dsync_brain_new_msg);
-	unsigned int next_new_msg;
+	ARRAY_DEFINE(uid_conflicts, struct dsync_brain_uid_conflict);
+	unsigned int next_new_msg, next_conflict;
 
 	/* copy operations that failed. indexes point to new_msgs array */
 	ARRAY_TYPE(uint32_t) copy_retry_indexes;
@@ -52,6 +53,7 @@ struct dsync_brain_msg_iter {
 	unsigned int save_results_left;
 
 	unsigned int msgs_sent:1;
+	unsigned int adding_msgs:1;
 };
 
 struct dsync_brain_uid_conflict {
@@ -61,6 +63,7 @@ struct dsync_brain_uid_conflict {
 
 struct dsync_brain_new_msg {
 	uint32_t mailbox_idx;
+	uint32_t orig_uid;
 	struct dsync_message *msg;
 };
 
@@ -90,6 +93,7 @@ struct dsync_brain_mailbox_sync {
 struct dsync_brain {
 	struct dsync_worker *src_worker;
 	struct dsync_worker *dest_worker;
+	char *mailbox;
 	enum dsync_brain_flags flags;
 
 	enum dsync_state state;
@@ -100,6 +104,7 @@ struct dsync_brain {
 	struct dsync_brain_mailbox_sync *mailbox_sync;
 
 	unsigned int failed:1;
+	unsigned int verbose:1;
 };
 
 void dsync_brain_fail(struct dsync_brain *brain);
@@ -107,6 +112,7 @@ void dsync_brain_fail(struct dsync_brain *brain);
 struct dsync_brain_mailbox_sync *
 dsync_brain_msg_sync_init(struct dsync_brain *brain,
 			  const ARRAY_TYPE(dsync_brain_mailbox) *mailboxes);
+void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync);
 void dsync_brain_msg_sync_deinit(struct dsync_brain_mailbox_sync **_sync);
 
 void dsync_brain_msg_sync_new_msgs(struct dsync_brain_mailbox_sync *sync);

@@ -20,7 +20,8 @@
 
 enum proxy_client_request_type {
 	PROXY_CLIENT_REQUEST_TYPE_COPY,
-	PROXY_CLIENT_REQUEST_TYPE_GET
+	PROXY_CLIENT_REQUEST_TYPE_GET,
+	PROXY_CLIENT_REQUEST_TYPE_FINISH
 };
 
 struct proxy_client_request {
@@ -28,6 +29,7 @@ struct proxy_client_request {
 	union {
 		dsync_worker_msg_callback_t *get;
 		dsync_worker_copy_callback_t *copy;
+		dsync_worker_finish_callback_t *finish;
 	} callback;
 	void *context;
 };
@@ -54,6 +56,8 @@ struct proxy_client_dsync_worker {
 	struct dsync_msg_static_data msg_get_data;
 	ARRAY_DEFINE(request_array, struct proxy_client_request);
 	struct aqueue *request_queue;
+
+	unsigned int finished:1;
 };
 
 extern struct dsync_worker_vfuncs proxy_client_dsync_worker;
@@ -77,7 +81,8 @@ proxy_client_worker_read_line(struct proxy_client_dsync_worker *worker,
 			return -1;
 		}
 		if (worker->input->eof) {
-			i_error("worker server disconnected unexpectedly");
+			if (!worker->finished)
+				i_error("read() from worker server failed: EOF");
 			dsync_worker_set_failure(&worker->worker);
 			return -1;
 		}
@@ -88,6 +93,8 @@ proxy_client_worker_read_line(struct proxy_client_dsync_worker *worker,
 static void
 proxy_client_worker_msg_get_done(struct proxy_client_dsync_worker *worker)
 {
+	i_assert(worker->io == NULL);
+
 	worker->msg_get_data.input = NULL;
 	worker->io = io_add(worker->fd_in, IO_READ,
 			    proxy_client_worker_input, worker);
@@ -126,6 +133,7 @@ proxy_client_worker_next_msg_get(struct proxy_client_dsync_worker *worker,
 		i_stream_set_destroy_callback(worker->msg_get_data.input,
 					      proxy_client_worker_msg_get_done,
 					      worker);
+		io_remove(&worker->io);
 		result = DSYNC_MSG_GET_RESULT_SUCCESS;
 		break;
 	case '0':
@@ -138,9 +146,15 @@ proxy_client_worker_next_msg_get(struct proxy_client_dsync_worker *worker,
 		break;
 	}
 
-	io_remove(&worker->io);
 	request->callback.get(result, &worker->msg_get_data, request->context);
 	return worker->io != NULL;
+}
+
+static void
+proxy_client_worker_next_finish(const struct proxy_client_request *request,
+				const char *line)
+{
+	request->callback.finish(line[0] == '1', request->context);
 }
 
 static bool
@@ -162,6 +176,10 @@ proxy_client_worker_next_reply(struct proxy_client_dsync_worker *worker,
 	case PROXY_CLIENT_REQUEST_TYPE_GET:
 		ret = proxy_client_worker_next_msg_get(worker, &request, line);
 		break;
+	case PROXY_CLIENT_REQUEST_TYPE_FINISH:
+		worker->finished = TRUE;
+		proxy_client_worker_next_finish(&request, line);
+		break;
 	}
 	return ret;
 }
@@ -169,15 +187,20 @@ proxy_client_worker_next_reply(struct proxy_client_dsync_worker *worker,
 static void proxy_client_worker_input(struct proxy_client_dsync_worker *worker)
 {
 	const char *line;
+	int ret;
 
 	if (worker->worker.input_callback != NULL) {
 		worker->worker.input_callback(worker->worker.input_context);
 		return;
 	}
 
-	while (proxy_client_worker_read_line(worker, &line) > 0) {
+	while ((ret = proxy_client_worker_read_line(worker, &line)) > 0) {
 		if (!proxy_client_worker_next_reply(worker, line))
 			break;
+	}
+	if (ret < 0) {
+		/* try to continue */
+		proxy_client_worker_next_reply(worker, "");
 	}
 }
 
@@ -231,7 +254,8 @@ static void proxy_client_worker_deinit(struct dsync_worker *_worker)
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 
-	io_remove(&worker->io);
+	if (worker->io != NULL)
+		io_remove(&worker->io);
 	i_stream_destroy(&worker->input);
 	o_stream_destroy(&worker->output);
 	if (close(worker->fd_in) < 0)
@@ -250,6 +274,11 @@ static bool proxy_client_worker_is_output_full(struct dsync_worker *_worker)
 {
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
+
+	if (worker->save_io != NULL) {
+		/* we haven't finished sending a message save, so we're full. */
+		return TRUE;
+	}
 
 	return o_stream_get_buffer_used_size(worker->output) >=
 		OUTBUF_THROTTLE_SIZE;
@@ -433,16 +462,55 @@ proxy_client_worker_create_mailbox(struct dsync_worker *_worker,
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 
+	i_assert(worker->save_input == NULL);
+
 	T_BEGIN {
 		string_t *str = t_str_new(128);
 
 		str_append(str, "BOX-CREATE\t");
-		str_tabescape_write(str, dsync_box->name);
-		if (dsync_box->uid_validity != 0) {
-			str_append_c(str, '\t');
-			dsync_proxy_mailbox_guid_export(str, &dsync_box->guid);
-			str_printfa(str, "\t%u\n", dsync_box->uid_validity);
-		}
+		dsync_proxy_mailbox_export(str, dsync_box);
+		str_append_c(str, '\n');
+		o_stream_send(worker->output, str_data(str), str_len(str));
+	} T_END;
+}
+
+static void
+proxy_client_worker_delete_mailbox(struct dsync_worker *_worker,
+				   const mailbox_guid_t *mailbox)
+{
+	struct proxy_client_dsync_worker *worker =
+		(struct proxy_client_dsync_worker *)_worker;
+
+	i_assert(worker->save_input == NULL);
+
+	T_BEGIN {
+		string_t *str = t_str_new(128);
+
+		str_append(str, "BOX-DELETE\t");
+		dsync_proxy_mailbox_guid_export(str, mailbox);
+		str_append_c(str, '\n');
+		o_stream_send(worker->output, str_data(str), str_len(str));
+	} T_END;
+}
+
+static void
+proxy_client_worker_rename_mailbox(struct dsync_worker *_worker,
+				   const mailbox_guid_t *mailbox,
+				   const char *name)
+{
+	struct proxy_client_dsync_worker *worker =
+		(struct proxy_client_dsync_worker *)_worker;
+
+	i_assert(worker->save_input == NULL);
+
+	T_BEGIN {
+		string_t *str = t_str_new(128);
+
+		str_append(str, "BOX-RENAME\t");
+		dsync_proxy_mailbox_guid_export(str, mailbox);
+		str_append_c(str, '\t');
+		str_tabescape_write(str, name);
+		str_append_c(str, '\n');
 		o_stream_send(worker->output, str_data(str), str_len(str));
 	} T_END;
 }
@@ -454,16 +522,14 @@ proxy_client_worker_update_mailbox(struct dsync_worker *_worker,
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 
+	i_assert(worker->save_input == NULL);
+
 	T_BEGIN {
 		string_t *str = t_str_new(128);
 
 		str_append(str, "BOX-UPDATE\t");
-		str_tabescape_write(str, dsync_box->name);
-		str_append_c(str, '\t');
-		dsync_proxy_mailbox_guid_export(str, &dsync_box->guid);
-		str_printfa(str, "\t%u\t%u\t%llu\n",
-			    dsync_box->uid_validity, dsync_box->uid_next,
-			    (unsigned long long)dsync_box->highest_modseq);
+		dsync_proxy_mailbox_export(str, dsync_box);
+		str_append_c(str, '\n');
 		o_stream_send(worker->output, str_data(str), str_len(str));
 	} T_END;
 }
@@ -474,6 +540,8 @@ proxy_client_worker_select_mailbox(struct dsync_worker *_worker,
 {
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
+
+	i_assert(worker->save_input == NULL);
 
 	if (dsync_guid_equals(&worker->selected_box_guid, mailbox))
 		return;
@@ -496,6 +564,8 @@ proxy_client_worker_msg_update_metadata(struct dsync_worker *_worker,
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 
+	i_assert(worker->save_input == NULL);
+
 	T_BEGIN {
 		string_t *str = t_str_new(128);
 
@@ -514,6 +584,8 @@ proxy_client_worker_msg_update_uid(struct dsync_worker *_worker,
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 
+	i_assert(worker->save_input == NULL);
+
 	T_BEGIN {
 		o_stream_send_str(worker->output,
 			t_strdup_printf("MSG-UID-CHANGE\t%u\t%u\n",
@@ -526,6 +598,8 @@ proxy_client_worker_msg_expunge(struct dsync_worker *_worker, uint32_t uid)
 {
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
+
+	i_assert(worker->save_input == NULL);
 
 	T_BEGIN {
 		o_stream_send_str(worker->output,
@@ -544,6 +618,8 @@ proxy_client_worker_msg_copy(struct dsync_worker *_worker,
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 	struct proxy_client_request request;
+
+	i_assert(worker->save_input == NULL);
 
 	T_BEGIN {
 		string_t *str = t_str_new(128);
@@ -616,6 +692,8 @@ proxy_client_worker_msg_save(struct dsync_worker *_worker,
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 
+	i_assert(worker->save_input == NULL);
+
 	T_BEGIN {
 		string_t *str = t_str_new(128);
 
@@ -628,7 +706,6 @@ proxy_client_worker_msg_save(struct dsync_worker *_worker,
 	} T_END;
 
 	i_assert(worker->save_io == NULL);
-	i_assert(worker->save_input == NULL);
 	worker->save_input = data->input;
 	worker->save_input_last_lf = TRUE;
 	i_stream_ref(worker->save_input);
@@ -636,7 +713,20 @@ proxy_client_worker_msg_save(struct dsync_worker *_worker,
 }
 
 static void
-proxy_client_worker_msg_get(struct dsync_worker *_worker, uint32_t uid,
+proxy_client_worker_msg_save_cancel(struct dsync_worker *_worker)
+{
+	struct proxy_client_dsync_worker *worker =
+		(struct proxy_client_dsync_worker *)_worker;
+
+	if (worker->save_io != NULL)
+		io_remove(&worker->save_io);
+	if (worker->save_input != NULL)
+		i_stream_unref(&worker->save_input);
+}
+
+static void
+proxy_client_worker_msg_get(struct dsync_worker *_worker,
+			    const mailbox_guid_t *mailbox, uint32_t uid,
 			    dsync_worker_msg_callback_t *callback,
 			    void *context)
 {
@@ -644,16 +734,41 @@ proxy_client_worker_msg_get(struct dsync_worker *_worker, uint32_t uid,
 		(struct proxy_client_dsync_worker *)_worker;
 	struct proxy_client_request request;
 
+	i_assert(worker->save_input == NULL);
+
 	T_BEGIN {
 		string_t *str = t_str_new(128);
 
-		str_printfa(str, "MSG-GET\t%u\n", uid);
+		str_append(str, "MSG-GET\t");
+		dsync_proxy_mailbox_guid_export(str, mailbox);
+		str_printfa(str, "\t%u\n", uid);
 		o_stream_send(worker->output, str_data(str), str_len(str));
 	} T_END;
 
 	memset(&request, 0, sizeof(request));
 	request.type = PROXY_CLIENT_REQUEST_TYPE_GET;
 	request.callback.get = callback;
+	request.context = context;
+	aqueue_append(worker->request_queue, &request);
+}
+
+static void
+proxy_client_worker_finish(struct dsync_worker *_worker,
+			   dsync_worker_finish_callback_t *callback,
+			   void *context)
+{
+	struct proxy_client_dsync_worker *worker =
+		(struct proxy_client_dsync_worker *)_worker;
+	struct proxy_client_request request;
+
+	i_assert(worker->save_input == NULL);
+
+	o_stream_send_str(worker->output, "FINISH\n");
+	o_stream_uncork(worker->output);
+
+	memset(&request, 0, sizeof(request));
+	request.type = PROXY_CLIENT_REQUEST_TYPE_FINISH;
+	request.callback.finish = callback;
 	request.context = context;
 	aqueue_append(worker->request_queue, &request);
 }
@@ -673,6 +788,8 @@ struct dsync_worker_vfuncs proxy_client_dsync_worker = {
 	proxy_client_worker_msg_iter_deinit,
 
 	proxy_client_worker_create_mailbox,
+	proxy_client_worker_delete_mailbox,
+	proxy_client_worker_rename_mailbox,
 	proxy_client_worker_update_mailbox,
 
 	proxy_client_worker_select_mailbox,
@@ -681,5 +798,7 @@ struct dsync_worker_vfuncs proxy_client_dsync_worker = {
 	proxy_client_worker_msg_expunge,
 	proxy_client_worker_msg_copy,
 	proxy_client_worker_msg_save,
-	proxy_client_worker_msg_get
+	proxy_client_worker_msg_save_cancel,
+	proxy_client_worker_msg_get,
+	proxy_client_worker_finish
 };

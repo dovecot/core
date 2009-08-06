@@ -67,7 +67,7 @@ cmd_msg_list_init(struct dsync_proxy_server *server, const char *const *args)
 	unsigned int i, count;
 
 	count = str_array_length(args);
-	mailboxes = t_new(mailbox_guid_t, count);
+	mailboxes = count == 0 ? NULL : t_new(mailbox_guid_t, count);
 	for (i = 0; i < count; i++) {
 		if (dsync_proxy_mailbox_guid_import(args[i],
 						    &mailboxes[i]) < 0) {
@@ -118,46 +118,49 @@ cmd_msg_list(struct dsync_proxy_server *server, const char *const *args)
 }
 
 static int
-parse_box_args(const char *const *args, struct dsync_mailbox *dsync_box_r)
-{
-	if (args[0] == NULL)
-		return -1;
-
-	memset(dsync_box_r, 0, sizeof(*dsync_box_r));
-	dsync_box_r->name = args[0];
-	if (args[1] == NULL) {
-		/* \noselect box */
-		return 0;
-	}
-
-	/* guid uid_validity [uid_next highest_modseq] */
-	if (dsync_proxy_mailbox_guid_import(args[1], &dsync_box_r->guid) < 0) {
-		i_error("Invalid mailbox GUID '%s' (name: %s)",
-			args[1], dsync_box_r->name);
-		return -1;
-	}
-
-	if (args[2] == NULL)
-		return -1;
-	dsync_box_r->uid_validity = strtoul(args[2], NULL, 10);
-
-	if (args[3] == NULL)
-		return 0;
-	dsync_box_r->uid_next = strtoul(args[3], NULL, 10);
-	if (args[4] == NULL)
-		return -1;
-	dsync_box_r->highest_modseq = strtoull(args[4], NULL, 10);
-	return 0;
-}
-
-static int
 cmd_box_create(struct dsync_proxy_server *server, const char *const *args)
 {
 	struct dsync_mailbox dsync_box;
+	const char *error;
 
-	if (parse_box_args(args, &dsync_box) < 0)
+	if (dsync_proxy_mailbox_import_unescaped(pool_datastack_create(),
+						 args, &dsync_box,
+						 &error) < 0) {
+		i_error("Invalid mailbox input: %s", error);
 		return -1;
+	}
 	dsync_worker_create_mailbox(server->worker, &dsync_box);
+	return 1;
+}
+
+static int
+cmd_box_delete(struct dsync_proxy_server *server, const char *const *args)
+{
+	mailbox_guid_t guid;
+
+	if (args[0] == NULL ||
+	    dsync_proxy_mailbox_guid_import(args[0], &guid) < 0) {
+		i_error("box-delete: Invalid mailbox GUID '%s'", args[0]);
+		return -1;
+	}
+
+	dsync_worker_delete_mailbox(server->worker, &guid);
+	return 1;
+}
+
+static int
+cmd_box_rename(struct dsync_proxy_server *server, const char *const *args)
+{
+	mailbox_guid_t guid;
+
+	if (str_array_length(args) < 2)
+		return -1;
+	if (dsync_proxy_mailbox_guid_import(args[0], &guid) < 0) {
+		i_error("box-delete: Invalid mailbox GUID '%s'", args[0]);
+		return -1;
+	}
+
+	dsync_worker_rename_mailbox(server->worker, &guid, args[1]);
 	return 1;
 }
 
@@ -165,9 +168,14 @@ static int
 cmd_box_update(struct dsync_proxy_server *server, const char *const *args)
 {
 	struct dsync_mailbox dsync_box;
+	const char *error;
 
-	if (parse_box_args(args, &dsync_box) < 0)
+	if (dsync_proxy_mailbox_import_unescaped(pool_datastack_create(),
+						 args, &dsync_box,
+						 &error) < 0) {
+		i_error("Invalid mailbox input: %s", error);
 		return -1;
+	}
 	dsync_worker_update_mailbox(server->worker, &dsync_box);
 	return 1;
 }
@@ -302,6 +310,7 @@ static void cmd_msg_get_send_more(struct dsync_proxy_server *server)
 		ret = i_stream_read_data(server->get_input, &data, &size, 0);
 		if (ret == -1) {
 			/* done */
+			o_stream_send(server->output, "\n.\n", 3);
 			i_stream_unref(&server->get_input);
 			break;
 		} else {
@@ -318,7 +327,7 @@ static void cmd_msg_get_send_more(struct dsync_proxy_server *server)
 
 static void
 cmd_msg_get_callback(enum dsync_msg_get_result result,
-		     struct dsync_msg_static_data *data, void *context)
+		     const struct dsync_msg_static_data *data, void *context)
 {
 	struct dsync_proxy_server *server = context;
 	string_t *str;
@@ -327,15 +336,15 @@ cmd_msg_get_callback(enum dsync_msg_get_result result,
 	case DSYNC_MSG_GET_RESULT_SUCCESS:
 		break;
 	case DSYNC_MSG_GET_RESULT_EXPUNGED:
-		o_stream_send(server->output, "*0\n", 3);
+		o_stream_send(server->output, "0\n", 3);
 		return;
 	case DSYNC_MSG_GET_RESULT_FAILED:
-		o_stream_send(server->output, "*-\n", 3);
+		o_stream_send(server->output, "-\n", 3);
 		return;
 	}
 
 	str = t_str_new(128);
-	str_append(str, "*1\t");
+	str_append(str, "1\t");
 	dsync_proxy_msg_static_export(str, data);
 	str_append_c(str, '\n');
 	o_stream_send(server->output, str_data(str), str_len(str));
@@ -348,22 +357,54 @@ cmd_msg_get_callback(enum dsync_msg_get_result result,
 static int
 cmd_msg_get(struct dsync_proxy_server *server, const char *const *args)
 {
-	if (args[0] == NULL)
+	mailbox_guid_t mailbox_guid;
+	uint32_t uid;
+
+	if (str_array_length(args) < 2)
+		return -1;
+
+	if (dsync_proxy_mailbox_guid_import(args[0], &mailbox_guid) < 0) {
+		i_error("msg-get: Invalid mailbox GUID '%s'", args[0]);
+		return -1;
+	}
+
+	uid = strtoul(args[1], NULL, 10);
+	if (uid == 0)
 		return -1;
 
 	if (server->get_input != NULL)
 		cmd_msg_get_send_more(server);
 	else {
-		dsync_worker_msg_get(server->worker, strtoul(args[0], NULL, 10),
+		dsync_worker_msg_get(server->worker, &mailbox_guid, uid,
 				     cmd_msg_get_callback, server);
+		/* FIXME: why? this shouldn't be needed.. */
+		o_stream_uncork(server->output);
 	}
 	return server->get_input == NULL ? 1 : 0;
+}
+
+static void cmd_finish_callback(bool success, void *context)
+{
+	struct dsync_proxy_server *server = context;
+
+	server->finished = TRUE;
+	o_stream_send_str(server->output, success ? "1\n" : "0\n");
+}
+
+static int
+cmd_finish(struct dsync_proxy_server *server,
+	   const char *const *args ATTR_UNUSED)
+{
+	dsync_worker_finish(server->worker, cmd_finish_callback, server);
+	return 1;
 }
 
 static struct dsync_proxy_server_command commands[] = {
 	{ "BOX-LIST", cmd_box_list },
 	{ "MSG-LIST", cmd_msg_list },
 	{ "BOX-CREATE", cmd_box_create },
+	{ "BOX-DELETE", cmd_box_delete },
+	{ "BOX-RENAME", cmd_box_rename },
 	{ "BOX-UPDATE", cmd_box_update },
 	{ "BOX-SELECT", cmd_box_select },
 	{ "MSG-UPDATE", cmd_msg_update },
@@ -372,6 +413,7 @@ static struct dsync_proxy_server_command commands[] = {
 	{ "MSG-COPY", cmd_msg_copy },
 	{ "MSG-SAVE", cmd_msg_save },
 	{ "MSG-GET", cmd_msg_get },
+	{ "FINISH", cmd_finish },
 	{ NULL, NULL }
 };
 

@@ -10,16 +10,19 @@
 static void
 dsync_brain_mailbox_list_deinit(struct dsync_brain_mailbox_list **list);
 
-struct dsync_brain *dsync_brain_init(struct dsync_worker *src_worker,
-				     struct dsync_worker *dest_worker,
-				     enum dsync_brain_flags flags)
+struct dsync_brain *
+dsync_brain_init(struct dsync_worker *src_worker,
+		 struct dsync_worker *dest_worker,
+		 const char *mailbox, enum dsync_brain_flags flags)
 {
 	struct dsync_brain *brain;
 
 	brain = i_new(struct dsync_brain, 1);
 	brain->src_worker = src_worker;
 	brain->dest_worker = dest_worker;
+	brain->mailbox = i_strdup(mailbox);
 	brain->flags = flags;
+	brain->verbose = (flags & DSYNC_BRAIN_FLAG_VERBOSE) != 0;
 	return brain;
 }
 
@@ -34,6 +37,16 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 	struct dsync_brain *brain = *_brain;
 	int ret = brain->failed ? -1 : 0;
 
+	if (brain->state != DSYNC_STATE_SYNC_END)
+		ret = -1;
+
+	if (ret < 0) {
+		/* make sure we unreference save input streams before workers
+		   are deinitialized, so they can destroy the streams */
+		dsync_worker_msg_save_cancel(brain->src_worker);
+		dsync_worker_msg_save_cancel(brain->dest_worker);
+	}
+
 	if (brain->mailbox_sync != NULL)
 		dsync_brain_msg_sync_deinit(&brain->mailbox_sync);
 	if (brain->src_mailbox_list != NULL)
@@ -42,6 +55,7 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 		dsync_brain_mailbox_list_deinit(&brain->dest_mailbox_list);
 
 	*_brain = NULL;
+	i_free(brain->mailbox);
 	i_free(brain);
 	return ret;
 }
@@ -65,14 +79,22 @@ static void dsync_worker_mailbox_input(void *context)
 
 	while ((ret = dsync_worker_mailbox_iter_next(list->iter,
 						     &dsync_box)) > 0) {
+		if (list->brain->mailbox != NULL &&
+		    strcmp(list->brain->mailbox, dsync_box.name) != 0)
+			continue;
+
 		dup_box = dsync_mailbox_dup(list->pool, &dsync_box);
-		array_append(&list->mailboxes, &dup_box, 1);
+		if (!mail_guid_128_is_empty(dup_box->mailbox_guid.guid))
+			array_append(&list->mailboxes, &dup_box, 1);
+		else
+			array_append(&list->dirs, &dup_box, 1);
 	}
 	if (ret < 0) {
 		/* finished listing mailboxes */
 		if (dsync_worker_mailbox_iter_deinit(&list->iter) < 0)
 			dsync_brain_fail(list->brain);
 		array_sort(&list->mailboxes, dsync_mailbox_p_guid_cmp);
+		array_sort(&list->dirs, dsync_mailbox_p_dir_guid_cmp);
 		dsync_brain_mailbox_list_finished(list->brain);
 	}
 }
@@ -91,6 +113,7 @@ dsync_brain_mailbox_list_init(struct dsync_brain *brain,
 	list->worker = worker;
 	list->iter = dsync_worker_mailbox_iter_init(worker);
 	p_array_init(&list->mailboxes, pool, 128);
+	p_array_init(&list->dirs, pool, 32);
 	dsync_worker_set_input_callback(worker, dsync_worker_mailbox_input,
 					list);
 	return list;
@@ -108,49 +131,77 @@ dsync_brain_mailbox_list_deinit(struct dsync_brain_mailbox_list **_list)
 	pool_unref(&list->pool);
 }
 
-static void dsync_brain_create_missing_mailboxes(struct dsync_brain *brain)
+static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 {
 	struct dsync_mailbox *const *src_boxes, *const *dest_boxes, new_box;
 	unsigned int src, dest, src_count, dest_count;
+	bool src_deleted, dest_deleted;
 	int ret;
-
-	/* FIXME: handle different hierarchy separators? */
 
 	memset(&new_box, 0, sizeof(new_box));
 
-	/* find mailboxes from whose GUIDs don't exist.
-	   the mailboxes are sorted by GUID, so we can do this quickly. */
+	/* create/delete missing mailboxes. the mailboxes are sorted by
+	   GUID, so we can do this quickly. */
 	src_boxes = array_get(&brain->src_mailbox_list->mailboxes, &src_count);
 	dest_boxes = array_get(&brain->dest_mailbox_list->mailboxes, &dest_count);
 	for (src = dest = 0; src < src_count && dest < dest_count; ) {
-		ret = dsync_mailbox_guid_cmp(src_boxes[src], dest_boxes[dest]);
-		if (ret == 0) {
-			src++; dest++;
-		} else if (ret < 0) {
+		src_deleted = (src_boxes[src]->flags &
+			       DSYNC_MAILBOX_FLAG_DELETED_MAILBOX) != 0;
+		dest_deleted = (dest_boxes[dest]->flags &
+				DSYNC_MAILBOX_FLAG_DELETED_MAILBOX) != 0;
+		ret = dsync_mailbox_guid_cmp(src_boxes[src],
+					     dest_boxes[dest]);
+		if (ret < 0) {
 			/* exists only in source */
-			new_box = *src_boxes[src];
-			new_box.uid_next = 0;
-			new_box.highest_modseq = 0;
-			dsync_worker_create_mailbox(brain->dest_worker,
-						    &new_box);
+			if (!src_deleted) {
+				new_box = *src_boxes[src];
+				new_box.uid_next = 0;
+				new_box.highest_modseq = 0;
+				dsync_worker_create_mailbox(brain->dest_worker,
+							    &new_box);
+			}
 			src++;
-		} else {
+		} else if (ret > 0) {
 			/* exists only in dest */
-			new_box = *dest_boxes[dest];
-			new_box.uid_next = 0;
-			new_box.highest_modseq = 0;
-			dsync_worker_create_mailbox(brain->src_worker,
-						    &new_box);
+			if (!dest_deleted) {
+				new_box = *dest_boxes[dest];
+				new_box.uid_next = 0;
+				new_box.highest_modseq = 0;
+				dsync_worker_create_mailbox(brain->src_worker,
+							    &new_box);
+			}
 			dest++;
+		} else if (src_deleted) {
+			/* delete from dest too */
+			if (!dest_deleted) {
+				dsync_worker_delete_mailbox(brain->dest_worker,
+					&dest_boxes[dest]->mailbox_guid);
+			}
+			src++; dest++;
+		} else if (dest_deleted) {
+			/* delete from src too */
+			dsync_worker_delete_mailbox(brain->src_worker,
+				&src_boxes[src]->mailbox_guid);
+			src++; dest++;
+		} else {
+			src++; dest++;
 		}
 	}
 	for (; src < src_count; src++) {
+		if ((src_boxes[src]->flags &
+		     DSYNC_MAILBOX_FLAG_DELETED_MAILBOX) != 0)
+			continue;
+
 		new_box = *src_boxes[src];
 		new_box.uid_next = 0;
 		new_box.highest_modseq = 0;
 		dsync_worker_create_mailbox(brain->dest_worker, &new_box);
 	}
 	for (; dest < dest_count; dest++) {
+		if ((dest_boxes[dest]->flags &
+		     DSYNC_MAILBOX_FLAG_DELETED_MAILBOX) != 0)
+			continue;
+
 		new_box = *dest_boxes[dest];
 		new_box.uid_next = 0;
 		new_box.highest_modseq = 0;
@@ -158,12 +209,34 @@ static void dsync_brain_create_missing_mailboxes(struct dsync_brain *brain)
 	}
 }
 
-static bool dsync_mailbox_has_changed_msgs(const struct dsync_mailbox *box1,
+static bool dsync_mailbox_has_changed_msgs(struct dsync_brain *brain,
+					   const struct dsync_mailbox *box1,
 					   const struct dsync_mailbox *box2)
 {
-	return box1->uid_validity != box2->uid_validity ||
-		box1->uid_next != box2->uid_next ||
-		box1->highest_modseq != box2->highest_modseq;
+	if (box1->uid_validity != box2->uid_validity) {
+		if (brain->verbose) {
+			i_info("%s: uidvalidity changed %u -> %u", box1->name,
+			       box1->uid_validity, box2->uid_validity);
+		}
+		return TRUE;
+	}
+	if (box1->uid_next != box2->uid_next) {
+		if (brain->verbose) {
+			i_info("%s: uidnext changed %u -> %u", box1->name,
+			       box1->uid_next, box2->uid_next);
+		}
+		return TRUE;
+	}
+	if (box1->highest_modseq != box2->highest_modseq) {
+		if (brain->verbose) {
+			i_info("%s: highest_modseq changed %llu -> %llu",
+			       box1->name,
+			       (unsigned long long)box1->highest_modseq,
+			       (unsigned long long)box2->highest_modseq);
+		}
+		return TRUE;
+	}
+	return FALSE;
 }
 
 static void
@@ -174,17 +247,25 @@ dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 	struct dsync_mailbox *const *src_boxes, *const *dest_boxes;
 	struct dsync_brain_mailbox *brain_box;
 	unsigned int src, dest, src_count, dest_count;
+	bool src_deleted, dest_deleted;
 	int ret;
 
 	src_boxes = array_get(&brain->src_mailbox_list->mailboxes, &src_count);
 	dest_boxes = array_get(&brain->dest_mailbox_list->mailboxes, &dest_count);
 
 	for (src = dest = 0; src < src_count && dest < dest_count; ) {
+		src_deleted = (src_boxes[src]->flags &
+			       DSYNC_MAILBOX_FLAG_DELETED_MAILBOX) != 0;
+		dest_deleted = (dest_boxes[dest]->flags &
+				DSYNC_MAILBOX_FLAG_DELETED_MAILBOX) != 0;
+
 		ret = dsync_mailbox_guid_cmp(src_boxes[src], dest_boxes[dest]);
 		if (ret == 0) {
-			if (full_sync ||
-			    dsync_mailbox_has_changed_msgs(src_boxes[src],
-							   dest_boxes[dest])) {
+			if ((full_sync ||
+			     dsync_mailbox_has_changed_msgs(brain,
+							    src_boxes[src],
+							    dest_boxes[dest])) &&
+			    !src_deleted && !dest_deleted) {
 				brain_box = array_append_space(brain_boxes);
 				brain_box->box = *src_boxes[src];
 
@@ -200,27 +281,51 @@ dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 			src++; dest++;
 		} else if (ret < 0) {
 			/* exists only in source */
-			brain_box = array_append_space(brain_boxes);
-			brain_box->box = *src_boxes[src];
-			brain_box->src = src_boxes[src];
-			src++;
+			if (!src_deleted) {
+				brain_box = array_append_space(brain_boxes);
+				brain_box->box = *src_boxes[src];
+				brain_box->src = src_boxes[src];
+				if (brain->verbose) {
+					i_info("%s: only in source",
+					       brain_box->box.name);
+				}
+			}
+ 			src++;
 		} else {
 			/* exists only in dest */
-			brain_box = array_append_space(brain_boxes);
-			brain_box->box = *dest_boxes[dest];
-			brain_box->dest = dest_boxes[dest];
+			if (!dest_deleted) {
+				brain_box = array_append_space(brain_boxes);
+				brain_box->box = *dest_boxes[dest];
+				brain_box->dest = dest_boxes[dest];
+				if (brain->verbose) {
+					i_info("%s: only in dest",
+					       brain_box->box.name);
+				}
+			}
 			dest++;
 		}
 	}
 	for (; src < src_count; src++) {
+		if ((src_boxes[src]->flags &
+		     DSYNC_MAILBOX_FLAG_DELETED_MAILBOX) != 0)
+			continue;
+
 		brain_box = array_append_space(brain_boxes);
 		brain_box->box = *src_boxes[src];
 		brain_box->src = src_boxes[src];
+		if (brain->verbose)
+			i_info("%s: only in source", brain_box->box.name);
 	}
 	for (; dest < dest_count; dest++) {
+		if ((dest_boxes[dest]->flags &
+		     DSYNC_MAILBOX_FLAG_DELETED_MAILBOX) != 0)
+			continue;
+
 		brain_box = array_append_space(brain_boxes);
 		brain_box->box = *dest_boxes[dest];
 		brain_box->dest = dest_boxes[dest];
+		if (brain->verbose)
+			i_info("%s: only in dest", brain_box->box.name);
 	}
 }
 
@@ -232,6 +337,7 @@ static void dsync_brain_sync_msgs(struct dsync_brain *brain)
 	dsync_brain_get_changed_mailboxes(brain, &mailboxes,
 		(brain->flags & DSYNC_BRAIN_FLAG_FULL_SYNC) != 0);
 	brain->mailbox_sync = dsync_brain_msg_sync_init(brain, &mailboxes);
+	dsync_brain_msg_sync_more(brain->mailbox_sync);
 }
 
 static void
@@ -239,6 +345,8 @@ dsync_brain_msg_sync_update_mailbox(struct dsync_brain *brain)
 {
 	const struct dsync_brain_mailbox *mailboxes;
 	unsigned int i, count;
+
+	/* FIXME: handle different hierarchy separators? */
 
 	mailboxes = array_get(&brain->mailbox_sync->mailboxes, &count);
 	for (i = 0; i < count; i++) {
@@ -249,16 +357,13 @@ dsync_brain_msg_sync_update_mailbox(struct dsync_brain *brain)
 	}
 }
 
-static void dsync_worker_flush_callback(void *context)
+static void dsync_brain_worker_finished(bool success, void *context)
 {
 	struct dsync_brain *brain = context;
-	int ret;
 
-	if ((ret = dsync_worker_output_flush(brain->dest_worker)) <= 0) {
-		if (ret < 0)
-			dsync_brain_fail(brain);
-		return;
-	}
+	if (!success)
+		dsync_brain_fail(brain);
+
 	brain->state++;
 	dsync_brain_sync(brain);
 }
@@ -275,17 +380,8 @@ void dsync_brain_sync(struct dsync_brain *brain)
 		dsync_worker_mailbox_input(brain->src_mailbox_list);
 		dsync_worker_mailbox_input(brain->dest_mailbox_list);
 		break;
-	case DSYNC_STATE_CREATE_MAILBOXES:
-		if (array_count(&brain->src_mailbox_list->mailboxes) == 0 &&
-		    array_count(&brain->dest_mailbox_list->mailboxes) == 0) {
-			/* no mailboxes */
-			i_error("No mailboxes");
-			dsync_brain_fail(brain);
-		}
-
-		/* FIXME: maybe wait and verify that all mailboxes are
-		   created successfully? */
-		dsync_brain_create_missing_mailboxes(brain);
+	case DSYNC_STATE_SYNC_MAILBOXES:
+		dsync_brain_sync_mailboxes(brain);
 		brain->state++;
 		/* fall through */
 	case DSYNC_STATE_SYNC_MSGS:
@@ -295,21 +391,18 @@ void dsync_brain_sync(struct dsync_brain *brain)
 		dsync_brain_msg_sync_update_mailbox(brain);
 		brain->state++;
 		/* fall through */
-	case DSYNC_STATE_SYNC_RESOLVE_UID_CONFLICTS:
-		/* resolve uid conflicts after uid_nexts have been updated,
-		   so that it won't again collide uids */
-		dsync_brain_msg_sync_resolve_uid_conflicts(brain->mailbox_sync);
-		brain->state++;
-		/* fall through */
 	case DSYNC_STATE_SYNC_FLUSH:
-		/* FIXME: retrieve worker failures and set brain failure */
-		dsync_worker_set_output_callback(brain->dest_worker,
-						 dsync_worker_flush_callback,
-						 brain);
-		dsync_worker_flush_callback(brain);
+		dsync_worker_finish(brain->src_worker,
+				    dsync_brain_worker_finished, brain);
+		dsync_worker_finish(brain->dest_worker,
+				    dsync_brain_worker_finished, brain);
+		break;
+	case DSYNC_STATE_SYNC_FLUSH2:
 		break;
 	case DSYNC_STATE_SYNC_END:
 		master_service_stop(master_service);
 		break;
+	default:
+		i_unreached();
 	}
 }

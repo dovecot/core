@@ -29,6 +29,9 @@ void dsync_proxy_mailbox_export(string_t *str, const struct dsync_mailbox *box);
 int dsync_proxy_mailbox_import(pool_t pool, const char *str,
 			       struct dsync_mailbox *box_r,
 			       const char **error_r);
+int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
+					 struct dsync_mailbox *box_r,
+					 const char **error_r);
 
 void dsync_proxy_mailbox_guid_export(string_t *str,
 				     const mailbox_guid_t *mailbox);

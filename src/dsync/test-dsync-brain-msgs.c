@@ -47,8 +47,8 @@ test_box_has_guid(const char *name, const mailbox_guid_t *guid)
 
 	box = test_box_find(name);
 	return box != NULL &&
-		memcmp(box->box.box.guid.guid, guid->guid,
-		       sizeof(box->box.box.guid.guid)) == 0;
+		memcmp(box->box.box.mailbox_guid.guid, guid->guid,
+		       sizeof(box->box.box.mailbox_guid.guid)) == 0;
 }
 
 static struct test_dsync_mailbox *
@@ -57,6 +57,7 @@ test_box_add(enum test_box_add_type type, const char *name)
 	unsigned char sha[SHA1_RESULTLEN];
 	struct test_dsync_mailbox *tbox;
 	struct dsync_mailbox *box;
+	const char *dir_name;
 
 	tbox = test_box_find(name);
 	if (tbox == NULL) {
@@ -65,11 +66,16 @@ test_box_add(enum test_box_add_type type, const char *name)
 		i_array_init(&tbox->dest_msgs, 16);
 	}
 
-	sha1_get_digest(name, strlen(name), sha);
-
 	box = i_new(struct dsync_mailbox, 1);
 	box->name = i_strdup(name);
-	memcpy(box->guid.guid, sha, sizeof(box->guid.guid));
+
+	sha1_get_digest(name, strlen(name), sha);
+	memcpy(box->mailbox_guid.guid, sha, sizeof(box->mailbox_guid.guid));
+
+	dir_name = t_strconcat("dir-", name, NULL);
+	sha1_get_digest(dir_name, strlen(dir_name), sha);
+	memcpy(box->dir_guid.guid, sha, sizeof(box->dir_guid.guid));
+
 	box->uid_validity = crc32_str(name);
 	box->highest_modseq = 1;
 
@@ -86,7 +92,8 @@ test_box_add(enum test_box_add_type type, const char *name)
 		break;
 	}
 	tbox->box.box.name = box->name;
-	tbox->box.box.guid = box->guid;
+	tbox->box.box.mailbox_guid = box->mailbox_guid;
+	tbox->box.box.dir_guid = box->dir_guid;
 	tbox->box.box.uid_validity = box->uid_validity;
 	return tbox;
 }
@@ -297,6 +304,7 @@ test_dsync_brain_sync_init(void)
 		array_append(&brain_boxes, &tboxes[i].box, 1);
 
 	sync = dsync_brain_msg_sync_init(test_dsync_brain_init(), &brain_boxes);
+	dsync_brain_msg_sync_more(sync);
 	test_dsync_sync_msgs(test_dest_worker, TRUE);
 	test_dsync_sync_msgs(test_src_worker, FALSE);
 	return sync;

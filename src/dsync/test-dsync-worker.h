@@ -5,6 +5,8 @@
 
 enum test_dsync_last_box_type {
 	LAST_BOX_TYPE_CREATE,
+	LAST_BOX_TYPE_DELETE,
+	LAST_BOX_TYPE_RENAME,
 	LAST_BOX_TYPE_UPDATE
 };
 

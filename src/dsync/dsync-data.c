@@ -39,25 +39,27 @@ dsync_message_dup(pool_t pool, const struct dsync_message *msg)
 int dsync_mailbox_guid_cmp(const struct dsync_mailbox *box1,
 			   const struct dsync_mailbox *box2)
 {
-	int ret;
-
-	ret = memcmp(box1->guid.guid, box2->guid.guid,
-		     sizeof(box1->guid.guid));
-	if (ret != 0)
-		return ret;
-
-	if (box1->uid_validity != 0)
-		return ret;
-
-	/* \noselect mailboxes */
-	i_assert(box2->uid_validity == 0);
-	return strcmp(box1->name, box2->name);
+	return memcmp(box1->mailbox_guid.guid, box2->mailbox_guid.guid,
+		      sizeof(box1->mailbox_guid.guid));
 }
 
 int dsync_mailbox_p_guid_cmp(struct dsync_mailbox *const *box1,
 			     struct dsync_mailbox *const *box2)
 {
 	return dsync_mailbox_guid_cmp(*box1, *box2);
+}
+
+int dsync_mailbox_dir_guid_cmp(const struct dsync_mailbox *box1,
+			       const struct dsync_mailbox *box2)
+{
+	return memcmp(box1->dir_guid.guid, box2->dir_guid.guid,
+		      sizeof(box1->dir_guid.guid));
+}
+
+int dsync_mailbox_p_dir_guid_cmp(struct dsync_mailbox *const *box1,
+				 struct dsync_mailbox *const *box2)
+{
+	return dsync_mailbox_dir_guid_cmp(*box1, *box2);
 }
 
 bool dsync_keyword_list_equals(const char *const *k1, const char *const *k2)

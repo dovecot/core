@@ -28,6 +28,10 @@ struct dsync_worker_vfuncs {
 
 	void (*create_mailbox)(struct dsync_worker *worker,
 			       const struct dsync_mailbox *dsync_box);
+	void (*delete_mailbox)(struct dsync_worker *worker,
+			       const mailbox_guid_t *mailbox);
+	void (*rename_mailbox)(struct dsync_worker *worker,
+			       const mailbox_guid_t *mailbox, const char *name);
 	void (*update_mailbox)(struct dsync_worker *worker,
 			       const struct dsync_mailbox *dsync_box);
 
@@ -45,8 +49,12 @@ struct dsync_worker_vfuncs {
 	void (*msg_save)(struct dsync_worker *worker,
 			 const struct dsync_message *msg,
 			 const struct dsync_msg_static_data *data);
-	void (*msg_get)(struct dsync_worker *worker, uint32_t uid,
+	void (*msg_save_cancel)(struct dsync_worker *worker);
+	void (*msg_get)(struct dsync_worker *worker,
+			const mailbox_guid_t *mailbox, uint32_t uid,
 			dsync_worker_msg_callback_t *callback, void *context);
+	void (*finish)(struct dsync_worker *worker,
+		       dsync_worker_finish_callback_t *callback, void *context);
 };
 
 struct dsync_worker {

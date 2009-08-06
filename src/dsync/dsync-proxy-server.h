@@ -26,6 +26,8 @@ struct dsync_proxy_server {
 
 	struct istream *get_input;
 	bool get_input_last_lf;
+
+	unsigned int finished:1;
 };
 
 struct dsync_proxy_server *

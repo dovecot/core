@@ -27,6 +27,7 @@ dsync_brain_msg_sync_init(struct dsync_brain *brain,
 	array_append_array(&sync->mailboxes, mailboxes);
 	return sync;
 }
+void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync ATTR_UNUSED) {}
 
 void dsync_brain_msg_sync_deinit(struct dsync_brain_mailbox_sync **_sync)
 {
@@ -39,10 +40,17 @@ void dsync_brain_msg_sync_resolve_uid_conflicts(struct dsync_brain_mailbox_sync 
 static void mailboxes_set_guids(struct dsync_mailbox *boxes)
 {
 	unsigned char sha[SHA1_RESULTLEN];
+	const char *dir_name;
 
 	for (; boxes->name != NULL; boxes++) {
 		sha1_get_digest(boxes->name, strlen(boxes->name), sha);
-		memcpy(boxes->guid.guid, sha, sizeof(boxes->guid.guid));
+		memcpy(boxes->mailbox_guid.guid, sha,
+		       sizeof(boxes->mailbox_guid.guid));
+
+		dir_name = t_strconcat("dir-", boxes->name, NULL);
+		sha1_get_digest(dir_name, strlen(dir_name), sha);
+		memcpy(boxes->dir_guid.guid, sha,
+		       sizeof(boxes->dir_guid.guid));
 	}
 }
 
@@ -64,10 +72,20 @@ test_dsync_mailbox_create_equals(const struct dsync_mailbox *cbox,
 				 const struct dsync_mailbox *obox)
 {
 	return strcmp(cbox->name, obox->name) == 0 &&
-		memcmp(cbox->guid.guid, obox->guid.guid,
-		       sizeof(cbox->guid.guid)) == 0 &&
+		memcmp(cbox->mailbox_guid.guid, obox->mailbox_guid.guid,
+		       sizeof(cbox->mailbox_guid.guid)) == 0 &&
+		memcmp(cbox->dir_guid.guid, obox->dir_guid.guid,
+		       sizeof(cbox->dir_guid.guid)) == 0 &&
 		cbox->uid_validity == obox->uid_validity &&
 		cbox->uid_next == 0 && cbox->highest_modseq == 0;
+}
+
+static bool
+test_dsync_mailbox_delete_equals(const struct dsync_mailbox *dbox,
+				 const struct dsync_mailbox *obox)
+{
+	return memcmp(dbox->mailbox_guid.guid, obox->mailbox_guid.guid,
+		      sizeof(dbox->mailbox_guid.guid)) == 0;
 }
 
 static void
@@ -96,24 +114,28 @@ dsync_brain_mailbox_name_cmp(const struct dsync_brain_mailbox *box1,
 static void test_dsync_brain(void)
 {
 	static struct dsync_mailbox src_boxes[] = {
-		{ "box1", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ "box2", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ "box3", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ "box4", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ "box5", { { 0, } }, 1234567890, 5433, 123123123123ULL },
-		{ "box6", { { 0, } }, 1234567890, 5432, 123123123124ULL },
-		{ "boxx", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ NULL, { { 0, } }, 0, 0, 0 }
+		{ "box1", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "box2", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "box3", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "box4", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "box5", { { 0, } }, { { 0, } }, 1234567890, 5433, 123123123123ULL, 3636, 0 },
+		{ "box6", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123124ULL, 3636, 0 },
+		{ "boxx", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "boxd1", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "boxd2", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, DSYNC_MAILBOX_FLAG_DELETED_MAILBOX },
+		{ NULL, { { 0, } }, { { 0, } }, 0, 0, 0, 0, 0 }
 	};
 	static struct dsync_mailbox dest_boxes[] = {
-		{ "box1", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ "box2", { { 0, } }, 1234567891, 5432, 123123123123ULL },
-		{ "box3", { { 0, } }, 1234567890, 5433, 123123123123ULL },
-		{ "box4", { { 0, } }, 1234567890, 5432, 123123123124ULL },
-		{ "box5", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ "box6", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ "boxy", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ NULL, { { 0, } }, 0, 0, 0 }
+		{ "box1", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "box2", { { 0, } }, { { 0, } }, 1234567891, 5432, 123123123123ULL, 3636, 0 },
+		{ "box3", { { 0, } }, { { 0, } }, 1234567890, 5433, 123123123123ULL, 3636, 0 },
+		{ "box4", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123124ULL, 3636, 0 },
+		{ "box5", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "box6", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "boxy", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ "boxd1", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, DSYNC_MAILBOX_FLAG_DELETED_MAILBOX },
+		{ "boxd2", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 3636, 0 },
+		{ NULL, { { 0, } }, { { 0, } }, 0, 0, 0, 0, 0 }
 	};
 	struct dsync_brain *brain;
 	struct dsync_worker *src_worker, *dest_worker;
@@ -131,17 +153,25 @@ static void test_dsync_brain(void)
 	src_test_worker = (struct test_dsync_worker *)src_worker;
 	dest_test_worker = (struct test_dsync_worker *)dest_worker;
 
-	brain = dsync_brain_init(src_worker, dest_worker, 0);
+	brain = dsync_brain_init(src_worker, dest_worker, NULL, 0);
 	dsync_brain_sync(brain);
 
 	/* have brain read the mailboxes */
 	mailboxes_send_to_worker(src_test_worker, src_boxes);
 	mailboxes_send_to_worker(dest_test_worker, dest_boxes);
 
-	/* check that it created missing mailboxes */
+	/* check that it created/deleted missing mailboxes */
 	test_assert(test_dsync_worker_next_box_event(dest_test_worker, &box_event));
 	test_assert(box_event.type == LAST_BOX_TYPE_CREATE);
 	test_assert(test_dsync_mailbox_create_equals(&box_event.box, &src_boxes[6]));
+
+	test_assert(test_dsync_worker_next_box_event(dest_test_worker, &box_event));
+	test_assert(box_event.type == LAST_BOX_TYPE_DELETE);
+	test_assert(test_dsync_mailbox_delete_equals(&box_event.box, &dest_boxes[8]));
+
+	test_assert(test_dsync_worker_next_box_event(src_test_worker, &box_event));
+	test_assert(box_event.type == LAST_BOX_TYPE_DELETE);
+	test_assert(test_dsync_mailbox_delete_equals(&box_event.box, &src_boxes[7]));
 
 	test_assert(test_dsync_worker_next_box_event(src_test_worker, &box_event));
 	test_assert(box_event.type == LAST_BOX_TYPE_CREATE);
@@ -189,8 +219,8 @@ static void test_dsync_brain(void)
 static void test_dsync_brain_full(void)
 {
 	static struct dsync_mailbox boxes[] = {
-		{ "box1", { { 0, } }, 1234567890, 5432, 123123123123ULL },
-		{ NULL, { { 0, } }, 0, 0, 0 }
+		{ "box1", { { 0, } }, { { 0, } }, 1234567890, 5432, 123123123123ULL, 2352, 0 },
+		{ NULL, { { 0, } }, { { 0, } }, 0, 0, 0, 0, 0 }
 	};
 	struct dsync_brain *brain;
 	struct dsync_worker *src_worker, *dest_worker;
@@ -207,7 +237,7 @@ static void test_dsync_brain_full(void)
 	src_test_worker = (struct test_dsync_worker *)src_worker;
 	dest_test_worker = (struct test_dsync_worker *)dest_worker;
 
-	brain = dsync_brain_init(src_worker, dest_worker,
+	brain = dsync_brain_init(src_worker, dest_worker, NULL,
 				 DSYNC_BRAIN_FLAG_FULL_SYNC);
 	dsync_brain_sync(brain);
 

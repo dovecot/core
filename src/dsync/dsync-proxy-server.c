@@ -25,6 +25,8 @@ proxy_server_read_line(struct dsync_proxy_server *server,
 			return -1;
 		}
 		if (server->input->eof) {
+			if (!server->finished)
+				i_error("read() from proxy client failed: EOF");
 			master_service_stop(master_service);
 			return -1;
 		}
@@ -154,6 +156,8 @@ void dsync_proxy_server_deinit(struct dsync_proxy_server **_server)
 
 	*_server = NULL;
 
+	if (server->get_input != NULL)
+		i_stream_unref(&server->get_input);
 	pool_unref(&server->cmd_pool);
 	io_remove(&server->io);
 	i_stream_destroy(&server->input);

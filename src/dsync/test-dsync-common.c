@@ -43,7 +43,10 @@ bool dsync_mailboxes_equal(const struct dsync_mailbox *box1,
 			   const struct dsync_mailbox *box2)
 {
 	if (strcmp(box1->name, box2->name) != 0 ||
-	    memcmp(box1->guid.guid, box2->guid.guid, sizeof(box1->guid.guid)) != 0 ||
+	    memcmp(box1->dir_guid.guid, box2->dir_guid.guid,
+		   sizeof(box1->dir_guid.guid)) != 0 ||
+	    memcmp(box1->mailbox_guid.guid, box2->mailbox_guid.guid,
+		   sizeof(box1->mailbox_guid.guid)) != 0 ||
 	    box1->uid_validity != box2->uid_validity ||
 	    box1->uid_next != box2->uid_next ||
 	    box1->highest_modseq != box2->highest_modseq)
@@ -60,7 +63,9 @@ void mail_generate_guid_128_hash(const char *guid,
 	memcpy(guid_128, sha1_sum, MAIL_GUID_128_SIZE);
 }
 
-bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE] ATTR_UNUSED)
+bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE])
 {
-	return FALSE;
+	static uint8_t empty_guid[MAIL_GUID_128_SIZE] = { 0, };
+
+	return memcmp(empty_guid, guid_128, sizeof(empty_guid)) == 0;
 }

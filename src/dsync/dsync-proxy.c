@@ -140,65 +140,79 @@ void dsync_proxy_mailbox_export(string_t *str,
 				const struct dsync_mailbox *box)
 {
 	str_tabescape_write(str, box->name);
-	if (box->uid_validity == 0) {
+	str_append_c(str, '\t');
+	dsync_proxy_mailbox_guid_export(str, &box->dir_guid);
+	str_printfa(str, "\t%lu\t%u", (unsigned long)box->last_renamed,
+		    box->flags);
+
+	if (mail_guid_128_is_empty(box->mailbox_guid.guid)) {
 		/* \noselect mailbox */
 		return;
 	}
 
-	str_printfa(str, "\t%s\t%u\t%u\t%llu",
-		    binary_to_hex(box->guid.guid, sizeof(box->guid.guid)),
+	str_append_c(str, '\t');
+	dsync_proxy_mailbox_guid_export(str, &box->mailbox_guid);
+	str_printfa(str, "\t%u\t%u\t%llu",
 		    box->uid_validity, box->uid_next,
 		    (unsigned long long)box->highest_modseq);
 }
 
-static int
-mailbox_parse_args(pool_t pool, struct dsync_mailbox *box,
-		   const char *const *args, const char **error_r)
+int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
+					 struct dsync_mailbox *box_r,
+					 const char **error_r)
 {
-	string_t *str;
 	unsigned int count;
 	char *p;
 
+	memset(box_r, 0, sizeof(*box_r));
+
 	count = str_array_length(args);
-	if (count != 1 && count != 5) {
+	if (count != 4 && count != 8) {
 		*error_r = "Mailbox missing parameters";
 		return -1;
 	}
 
-	/* name guid uid_validity uid_next highest_modseq */
-	str = t_str_new(128);
-	str_append_tabunescaped(str, args[0], strlen(args[0]));
-	box->name = p_strdup(pool, str_c(str));
+	/* name dir_guid mailbox_guid uid_validity uid_next highest_modseq */
+	box_r->name = p_strdup(pool, args[0]);
 
-	if (args[1] == NULL) {
+	if (dsync_proxy_mailbox_guid_import(args[1], &box_r->dir_guid) < 0) {
+		*error_r = "Invalid dir GUID";
+		return -1;
+	}
+	box_r->last_renamed = strtoul(args[2], &p, 10);
+	if (*p != '\0') {
+		*error_r = "Invalid mailbox last_renamed";
+		return -1;
+	}
+	box_r->flags = strtoul(args[3], &p, 10);
+	if (*p != '\0') {
+		*error_r = "Invalid mailbox flags";
+		return -1;
+	}
+
+	if (args[4] == NULL) {
 		/* \noselect mailbox */
 		return 0;
 	}
 
-	str_truncate(str, 0);
-	if (hex_to_binary(args[1], str) < 0) {
-		*error_r = "Invalid hex in mailbox GUID";
+	if (dsync_proxy_mailbox_guid_import(args[4], &box_r->mailbox_guid) < 0) {
+		*error_r = "Invalid mailbox GUID";
 		return -1;
-	} else if (str_len(str) != sizeof(box->guid)) {
-		*error_r = "Invalid mailbox GUID size";
-		return -1;
-	} else {
-		memcpy(box->guid.guid, str_data(str), sizeof(box->guid.guid));
 	}
 
-	box->uid_validity = strtoul(args[2], &p, 10);
-	if (box->uid_validity == 0 || *p != '\0') {
+	box_r->uid_validity = strtoul(args[5], &p, 10);
+	if (box_r->uid_validity == 0 || *p != '\0') {
 		*error_r = "Invalid mailbox uid_validity";
 		return -1;
 	}
 
-	box->uid_next = strtoul(args[3], &p, 10);
-	if (box->uid_validity == 0 || *p != '\0') {
+	box_r->uid_next = strtoul(args[6], &p, 10);
+	if (box_r->uid_validity == 0 || *p != '\0') {
 		*error_r = "Invalid mailbox uid_next";
 		return -1;
 	}
 
-	box->highest_modseq = strtoull(args[4], &p, 10);
+	box_r->highest_modseq = strtoull(args[7], &p, 10);
 	if (*p != '\0') {
 		*error_r = "Invalid mailbox highest_modseq";
 		return -1;
@@ -210,12 +224,16 @@ int dsync_proxy_mailbox_import(pool_t pool, const char *str,
 			       struct dsync_mailbox *box_r,
 			       const char **error_r)
 {
+	char **args;
 	int ret;
 
-	memset(box_r, 0, sizeof(*box_r));
 	T_BEGIN {
-		ret = mailbox_parse_args(pool, box_r,
-					 t_strsplit(str, "\t"), error_r);
+		args = p_strsplit(pool_datastack_create(), str, "\t");
+		if (args[0] != NULL)
+			args[0] = str_tabunescape(args[0]);
+		ret = dsync_proxy_mailbox_import_unescaped(pool,
+						(const char *const *)args,
+						box_r, error_r);
 	} T_END;
 	return ret;
 }

@@ -63,6 +63,7 @@ dsync_brain_msg_sync_save(struct dsync_brain_msg_iter *iter,
 
 	new_msg = array_append_space(&iter->new_msgs);
 	new_msg->mailbox_idx = mailbox_idx;
+	new_msg->orig_uid = msg->uid;
 	new_msg->msg = dsync_message_dup(iter->sync->pool, msg);
 }
 
@@ -87,6 +88,7 @@ dsync_brain_msg_sync_conflict(struct dsync_brain_msg_iter *conflict_iter,
 
 	new_msg = array_append_space(&save_iter->new_msgs);
 	new_msg->mailbox_idx = save_iter->mailbox_idx;
+	new_msg->orig_uid = msg->uid;
 	new_msg->msg = dsync_message_dup(save_iter->sync->pool, msg);
 	new_msg->msg->uid = new_uid;
 }
@@ -210,11 +212,8 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 static bool dsync_brain_msg_sync_mailbox_end(struct dsync_brain_msg_iter *iter1,
 					     struct dsync_brain_msg_iter *iter2)
 {
-	const struct dsync_brain_mailbox *brain_box;
 	int ret;
 
-	brain_box = array_idx(&iter1->sync->mailboxes,
-			      iter1->sync->wanted_mailbox_idx);
 	while ((ret = dsync_brain_msg_iter_next(iter1)) > 0) {
 		dsync_brain_msg_sync_save(iter2, iter1->mailbox_idx,
 					  &iter1->msg);
@@ -262,7 +261,7 @@ static void dsync_brain_msg_sync_finish(struct dsync_brain_mailbox_sync *sync)
 	dsync_brain_msg_sync_new_msgs(sync);
 }
 
-static void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync)
+void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync)
 {
 	const struct dsync_brain_mailbox *mailboxes;
 	unsigned int count, mailbox_idx;
@@ -272,14 +271,14 @@ static void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync)
 		/* sync the next mailbox */
 		sync->uid_conflict = FALSE;
 		mailbox_idx = ++sync->wanted_mailbox_idx;
-		if (mailbox_idx == count) {
+		if (mailbox_idx >= count) {
 			dsync_brain_msg_sync_finish(sync);
 			return;
 		}
 		dsync_worker_select_mailbox(sync->src_worker,
-					    &mailboxes[mailbox_idx].box.guid);
+			&mailboxes[mailbox_idx].box.mailbox_guid);
 		dsync_worker_select_mailbox(sync->dest_worker,
-					    &mailboxes[mailbox_idx].box.guid);
+			&mailboxes[mailbox_idx].box.mailbox_guid);
 	}
 }
 
@@ -314,7 +313,8 @@ dsync_brain_msg_iter_init(struct dsync_brain_mailbox_sync *sync,
 					dsync_worker_msg_callback, sync);
 	dsync_worker_set_output_callback(worker,
 					 dsync_worker_msg_callback, sync);
-	dsync_worker_select_mailbox(worker, &mailboxes[0]);
+	if (mailbox_count > 0)
+		dsync_worker_select_mailbox(worker, &mailboxes[0]);
 	return iter;
 }
 
@@ -339,7 +339,7 @@ get_mailbox_guids(const ARRAY_TYPE(dsync_brain_mailbox) *mailboxes,
 	t_array_init(guids, array_count(mailboxes));
 	brain_boxes = array_get(mailboxes, &count);
 	for (i = 0; i < count; i++)
-		array_append(guids, &brain_boxes[i].box.guid, 1);
+		array_append(guids, &brain_boxes[i].box.mailbox_guid, 1);
 }
 
 struct dsync_brain_mailbox_sync *
@@ -347,8 +347,6 @@ dsync_brain_msg_sync_init(struct dsync_brain *brain,
 			  const ARRAY_TYPE(dsync_brain_mailbox) *mailboxes)
 {
 	struct dsync_brain_mailbox_sync *sync;
-	ARRAY_TYPE(mailbox_guid) guids;
-	unsigned int count;
 	pool_t pool;
 
 	pool = pool_alloconly_create("dsync brain mailbox sync", 1024*256);
@@ -360,17 +358,22 @@ dsync_brain_msg_sync_init(struct dsync_brain *brain,
 
 	p_array_init(&sync->mailboxes, pool, array_count(mailboxes));
 	array_append_array(&sync->mailboxes, mailboxes);
-	get_mailbox_guids(mailboxes, &guids);
+	T_BEGIN {
+		ARRAY_TYPE(mailbox_guid) guids_arr;
+		const mailbox_guid_t *guids;
+		unsigned int count;
 
-	/* initialize message iteration on both workers */
-	count = array_count(&guids);
-	sync->src_msg_iter =
-		dsync_brain_msg_iter_init(sync, brain->src_worker,
-					  array_idx(&guids, 0), count);
-	sync->dest_msg_iter =
-		dsync_brain_msg_iter_init(sync, brain->dest_worker,
-					  array_idx(&guids, 0), count);
-	dsync_brain_msg_sync_more(sync);
+		get_mailbox_guids(mailboxes, &guids_arr);
+
+		/* initialize message iteration on both workers */
+		guids = array_get(&guids_arr, &count);
+		sync->src_msg_iter =
+			dsync_brain_msg_iter_init(sync, brain->src_worker,
+						  guids, count);
+		sync->dest_msg_iter =
+			dsync_brain_msg_iter_init(sync, brain->dest_worker,
+						  guids, count);
+	} T_END;
 	return sync;
 }
 

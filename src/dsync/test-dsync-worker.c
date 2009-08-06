@@ -167,6 +167,36 @@ test_worker_create_mailbox(struct dsync_worker *_worker,
 }
 
 static void
+test_worker_delete_mailbox(struct dsync_worker *_worker,
+			   const mailbox_guid_t *mailbox)
+{
+	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
+	struct test_dsync_box_event event;
+
+	memset(&event, 0, sizeof(event));
+	event.type = LAST_BOX_TYPE_DELETE;
+
+	event.box.mailbox_guid = *mailbox;
+	event.box.name = "";
+	array_append(&worker->box_events, &event, 1);
+}
+
+static void
+test_worker_rename_mailbox(struct dsync_worker *_worker,
+			   const mailbox_guid_t *mailbox, const char *name)
+{
+	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
+	struct test_dsync_box_event event;
+
+	memset(&event, 0, sizeof(event));
+	event.type = LAST_BOX_TYPE_RENAME;
+
+	event.box.mailbox_guid = *mailbox;
+	event.box.name = name;
+	array_append(&worker->box_events, &event, 1);
+}
+
+static void
 test_worker_update_mailbox(struct dsync_worker *_worker,
 			   const struct dsync_mailbox *dsync_box)
 {
@@ -183,7 +213,7 @@ test_worker_select_mailbox(struct dsync_worker *_worker,
 	worker->selected_mailbox = *mailbox;
 
 	memset(&box, 0, sizeof(box));
-	memcpy(box.guid.guid, mailbox, sizeof(box.guid.guid));
+	memcpy(box.mailbox_guid.guid, mailbox, sizeof(box.mailbox_guid.guid));
 }
 
 static struct test_dsync_msg_event *
@@ -300,7 +330,14 @@ test_worker_msg_save(struct dsync_worker *_worker,
 }
 
 static void
-test_worker_msg_get(struct dsync_worker *_worker, uint32_t uid ATTR_UNUSED,
+test_worker_msg_save_cancel(struct dsync_worker *_worker ATTR_UNUSED)
+{
+}
+
+static void
+test_worker_msg_get(struct dsync_worker *_worker,
+		    const mailbox_guid_t *mailbox ATTR_UNUSED,
+		    uint32_t uid ATTR_UNUSED,
 		    dsync_worker_msg_callback_t *callback, void *context)
 {
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
@@ -312,6 +349,13 @@ test_worker_msg_get(struct dsync_worker *_worker, uint32_t uid ATTR_UNUSED,
 	data.input = worker->body_stream;
 	i_stream_seek(data.input, 0);
 	callback(DSYNC_MSG_GET_RESULT_SUCCESS, &data, context);
+}
+
+static void
+test_worker_finish(struct dsync_worker *_worker ATTR_UNUSED,
+		   dsync_worker_finish_callback_t *callback, void *context)
+{
+	callback(TRUE, context);
 }
 
 struct dsync_worker_vfuncs test_dsync_worker = {
@@ -329,6 +373,8 @@ struct dsync_worker_vfuncs test_dsync_worker = {
 	test_worker_msg_iter_deinit,
 
 	test_worker_create_mailbox,
+	test_worker_delete_mailbox,
+	test_worker_rename_mailbox,
 	test_worker_update_mailbox,
 
 	test_worker_select_mailbox,
@@ -337,5 +383,7 @@ struct dsync_worker_vfuncs test_dsync_worker = {
 	test_worker_msg_expunge,
 	test_worker_msg_copy,
 	test_worker_msg_save,
-	test_worker_msg_get
+	test_worker_msg_save_cancel,
+	test_worker_msg_get,
+	test_worker_finish
 };

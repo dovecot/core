@@ -94,19 +94,23 @@ static void test_dsync_proxy_mailbox(void)
 
 	pool = pool_alloconly_create("mailbox pool", 1024);
 	str = t_str_new(256);
-	box_in.name = "\t\001\r\nname\t\001\n\r";
 
 	test_begin("dsync proxy mailbox");
 
 	/* test \noselect mailbox */
+	box_in.name = "\t\001\r\nname\t\001\n\r";
+	box_in.flags = 1234567890;
+	memcpy(box_in.dir_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE);
 	dsync_proxy_mailbox_export(str, &box_in);
 	test_assert(dsync_proxy_mailbox_import(pool, str_c(str),
 					       &box_out, &error) == 0);
 	test_assert(dsync_mailboxes_equal(&box_in, &box_out));
 
 	/* real mailbox */
-	i_assert(sizeof(box_in.guid.guid) == sizeof(test_mailbox_guid1));
-	memcpy(box_in.guid.guid, test_mailbox_guid1, sizeof(box_in.guid.guid));
+	i_assert(sizeof(box_in.mailbox_guid.guid) == sizeof(test_mailbox_guid1));
+	memcpy(box_in.mailbox_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE);
+	memcpy(box_in.dir_guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE);
+	box_in.flags = 24242;
 	box_in.uid_validity = 0xf74d921b;
 	box_in.uid_next = 73529472;
 	box_in.highest_modseq = 0x123456789abcdef0ULL;

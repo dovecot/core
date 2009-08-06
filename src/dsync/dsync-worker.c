@@ -67,7 +67,12 @@ int dsync_worker_msg_iter_next(struct dsync_worker_msg_iter *iter,
 			       unsigned int *mailbox_idx_r,
 			       struct dsync_message *msg_r)
 {
-	return iter->worker->v.msg_iter_next(iter, mailbox_idx_r, msg_r);
+	int ret;
+
+	T_BEGIN {
+		ret = iter->worker->v.msg_iter_next(iter, mailbox_idx_r, msg_r);
+	} T_END;
+	return ret;
 }
 
 int dsync_worker_msg_iter_deinit(struct dsync_worker_msg_iter **_iter)
@@ -81,7 +86,22 @@ int dsync_worker_msg_iter_deinit(struct dsync_worker_msg_iter **_iter)
 void dsync_worker_create_mailbox(struct dsync_worker *worker,
 				 const struct dsync_mailbox *dsync_box)
 {
+	i_assert(dsync_box->uid_validity != 0 ||
+		 mail_guid_128_is_empty(dsync_box->mailbox_guid.guid));
 	worker->v.create_mailbox(worker, dsync_box);
+}
+
+void dsync_worker_delete_mailbox(struct dsync_worker *worker,
+				 const mailbox_guid_t *mailbox)
+{
+	worker->v.delete_mailbox(worker, mailbox);
+}
+
+void dsync_worker_rename_mailbox(struct dsync_worker *worker,
+				 const mailbox_guid_t *mailbox,
+				 const char *name)
+{
+	worker->v.rename_mailbox(worker, mailbox, name);
 }
 
 void dsync_worker_update_mailbox(struct dsync_worker *worker,
@@ -136,11 +156,26 @@ void dsync_worker_msg_save(struct dsync_worker *worker,
 		worker->v.msg_save(worker, msg, data);
 }
 
-void dsync_worker_msg_get(struct dsync_worker *worker, uint32_t uid,
+void dsync_worker_msg_save_cancel(struct dsync_worker *worker)
+{
+	worker->v.msg_save_cancel(worker);
+}
+
+void dsync_worker_msg_get(struct dsync_worker *worker,
+			  const mailbox_guid_t *mailbox, uint32_t uid,
 			  dsync_worker_msg_callback_t *callback, void *context)
 {
+	i_assert(uid != 0);
+
 	if (!worker->failed)
-		worker->v.msg_get(worker, uid, callback, context);
+		worker->v.msg_get(worker, mailbox, uid, callback, context);
+}
+
+void dsync_worker_finish(struct dsync_worker *worker,
+			 dsync_worker_finish_callback_t *callback,
+			 void *context)
+{
+	worker->v.finish(worker, callback, context);
 }
 
 void dsync_worker_set_failure(struct dsync_worker *worker)
