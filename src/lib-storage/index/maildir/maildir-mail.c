@@ -484,6 +484,12 @@ static int maildir_mail_get_stream(struct mail *_mail,
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
+static void maildir_mail_update_uid(struct mail *_mail, uint32_t new_uid)
+{
+	maildir_save_add_conflict(_mail->transaction, _mail->uid, new_uid);
+	index_mail_update_uid(_mail, new_uid);
+}
+
 static void maildir_mail_set_cache_corrupted(struct mail *_mail,
 					     enum mail_fetch_field field)
 {
@@ -544,7 +550,7 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_update_modseq,
-	index_mail_update_uid,
+	maildir_mail_update_uid,
 	index_mail_expunge,
 	maildir_mail_set_cache_corrupted,
 	index_mail_get_index_mail
