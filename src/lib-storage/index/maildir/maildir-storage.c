@@ -515,9 +515,9 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		maildir_uidlist_set_next_uid(uidlist, update->min_next_uid,
 					     FALSE);
 	}
-	/* FIXME: update highestmodseq */
-
 	ret = maildir_uidlist_update(uidlist);
+	if (ret == 0)
+		ret = index_storage_mailbox_update(box, update);
 	maildir_uidlist_unlock(uidlist);
 	return ret;
 }

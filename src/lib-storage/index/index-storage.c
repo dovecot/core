@@ -536,6 +536,55 @@ void index_storage_mailbox_close(struct mailbox *box)
 	pool_unref(&box->pool);
 }
 
+int index_storage_mailbox_update(struct mailbox *box,
+				 const struct mailbox_update *update)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	const struct mail_index_header *hdr;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	int ret;
+
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			return -1;
+	}
+
+	/* make sure we get the latest index info */
+	(void)mail_index_refresh(ibox->index);
+	view = mail_index_view_open(ibox->index);
+	hdr = mail_index_get_header(view);
+
+	trans = mail_index_transaction_begin(view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	if (update->uid_validity != 0 &&
+	    hdr->uid_validity != update->uid_validity) {
+		uint32_t uid_validity = update->uid_validity;
+
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, uid_validity),
+			&uid_validity, sizeof(uid_validity), TRUE);
+	}
+	if (update->min_next_uid != 0 &&
+	    hdr->next_uid < update->min_next_uid) {
+		uint32_t next_uid = update->min_next_uid;
+
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, next_uid),
+			&next_uid, sizeof(next_uid), FALSE);
+	}
+	if (update->min_highest_modseq != 0 &&
+	    mail_index_modseq_get_highest(view) < update->min_highest_modseq) {
+		mail_index_update_highest_modseq(trans,
+						 update->min_highest_modseq);
+	}
+
+	if ((ret = mail_index_transaction_commit(&trans)) < 0)
+		mail_storage_set_internal_error(box->storage);
+	mail_index_view_close(&view);
+	return ret;
+}
+
 bool index_storage_is_readonly(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;

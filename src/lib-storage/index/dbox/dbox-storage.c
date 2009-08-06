@@ -11,6 +11,7 @@
 #include "unlink-old-files.h"
 #include "index-mail.h"
 #include "mail-copy.h"
+#include "mail-index-modseq.h"
 #include "mailbox-uidvalidity.h"
 #include "maildir/maildir-uidlist.h"
 #include "dbox-map.h"
@@ -274,6 +275,12 @@ static int dbox_write_index_header(struct mailbox *box,
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, next_uid),
 			&uid_next, sizeof(uid_next), TRUE);
+	}
+	if (update != NULL && update->min_highest_modseq != 0 &&
+	    mail_index_modseq_get_highest(mbox->ibox.view) <
+	    					update->min_highest_modseq) {
+		mail_index_update_highest_modseq(trans,
+						 update->min_highest_modseq);
 	}
 
 	if (mail_index_transaction_commit(&trans) < 0) {

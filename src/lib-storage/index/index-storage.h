@@ -85,6 +85,8 @@ int index_storage_mailbox_open(struct mailbox *box);
 int index_storage_mailbox_enable(struct mailbox *box,
 				 enum mailbox_feature feature);
 void index_storage_mailbox_close(struct mailbox *box);
+int index_storage_mailbox_update(struct mailbox *box,
+				 const struct mailbox_update *update);
 
 bool index_storage_is_readonly(struct mailbox *box);
 bool index_storage_allow_new_keywords(struct mailbox *box);

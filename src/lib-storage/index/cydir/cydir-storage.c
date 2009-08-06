@@ -133,27 +133,6 @@ static int cydir_mailbox_open(struct mailbox *box)
 }
 
 static int
-cydir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
-{
-	struct cydir_mailbox *mbox = (struct cydir_mailbox *)box;
-	struct mail_index_transaction *trans;
-
-	trans = mail_index_transaction_begin(mbox->ibox.view, 0);
-	if (update->uid_validity != 0) {
-		mail_index_update_header(trans,
-			offsetof(struct mail_index_header, uid_validity),
-			&update->uid_validity, sizeof(update->uid_validity),
-			TRUE);
-	}
-	/* FIXME: update next_uid, highestmodseq. guid is also missing.. */
-	if (mail_index_transaction_commit(&trans) < 0) {
-		mail_storage_set_internal_error(box->storage);
-		return -1;
-	}
-	return 0;
-}
-
-static int
 cydir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		     bool directory)
 {
@@ -172,7 +151,7 @@ cydir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		return -1;
 
 	return directory || update == NULL ? 0 :
-		cydir_mailbox_update(box, update);
+		index_storage_mailbox_update(box, update);
 }
 
 static int
@@ -379,7 +358,7 @@ struct mailbox cydir_mailbox = {
 		cydir_mailbox_open,
 		index_storage_mailbox_close,
 		cydir_mailbox_create,
-		cydir_mailbox_update,
+		index_storage_mailbox_update,
 		index_storage_get_status,
 		NULL,
 		NULL,
