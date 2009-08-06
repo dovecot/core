@@ -1402,10 +1402,27 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 	(void)index_mail_parse_body_finish(mail, 0);
 }
 
+static void index_mail_drop_recent_flag(struct index_mail *imail)
+{
+	const struct mail_index_header *hdr;
+	uint32_t first_recent_uid = imail->mail.mail.uid + 1;
+
+	hdr = mail_index_get_header(imail->trans->trans_view);
+	if (hdr->first_recent_uid < first_recent_uid) {
+		mail_index_update_header(imail->trans->trans,
+			offsetof(struct mail_index_header, first_recent_uid),
+			&first_recent_uid, sizeof(first_recent_uid), FALSE);
+	}
+}
+
 void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 			     enum mail_flags flags)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
+
+	if ((flags & MAIL_RECENT) == 0 &&
+	    index_mailbox_is_recent(imail->ibox, mail->uid))
+		index_mail_drop_recent_flag(imail);
 
 	flags &= MAIL_FLAGS_NONRECENT | MAIL_INDEX_MAIL_FLAG_BACKEND;
 	mail_index_update_flags(imail->trans->trans, mail->seq, modify_type,
