@@ -57,7 +57,7 @@ struct maildir_save_context {
 
 	struct istream *input;
 	int fd;
-	uint32_t first_seq, seq;
+	uint32_t first_seq, seq, last_nonrecent_uid;
 
 	unsigned int have_keywords:1;
 	unsigned int locked:1;
@@ -140,10 +140,14 @@ maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
 	struct istream *input;
 	unsigned int keyword_count;
 
-	/* allow caller to specify recent flag only when we're syncing
-	   messages (uid specified). */
+	/* allow caller to specify recent flag only when uid is specified
+	   (we're replicating, converting, etc.). */
 	if (_ctx->uid == 0)
 		_ctx->flags |= MAIL_RECENT;
+	else if ((_ctx->flags & MAIL_RECENT) == 0 &&
+		 ctx->last_nonrecent_uid < _ctx->uid)
+		ctx->last_nonrecent_uid = _ctx->uid;
+
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
@@ -174,7 +178,7 @@ maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
 	/* insert into index */
 	mail_index_append(ctx->trans, _ctx->uid, &ctx->seq);
 	mail_index_update_flags(ctx->trans, ctx->seq,
-				MODIFY_REPLACE, _ctx->flags);
+				MODIFY_REPLACE, _ctx->flags & ~MAIL_RECENT);
 	if (_ctx->keywords != NULL) {
 		mail_index_update_keywords(ctx->trans, ctx->seq,
 					   MODIFY_REPLACE, _ctx->keywords);
@@ -634,14 +638,46 @@ static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 	return 0;
 }
 
+static int seq_range_cmp(const struct seq_range *r1, const struct seq_range *r2)
+{
+	if (r1->seq1 < r2->seq2)
+		return -1;
+	else if (r1->seq1 > r2->seq2)
+		return 1;
+	else
+		return 0;
+}
+
+static uint32_t
+maildir_save_set_recent_flags(struct maildir_save_context *ctx)
+{
+	struct maildir_mailbox *mbox = ctx->mbox;
+	ARRAY_TYPE(seq_range) saved_sorted_uids;
+	const struct seq_range *uids;
+	unsigned int i, count;
+	uint32_t uid;
+
+	t_array_init(&saved_sorted_uids,
+		     array_count(&ctx->ctx.transaction->changes->saved_uids));
+	array_append_array(&saved_sorted_uids,
+			   &ctx->ctx.transaction->changes->saved_uids);
+	array_sort(&saved_sorted_uids, seq_range_cmp);
+
+	uids = array_get(&saved_sorted_uids, &count);
+	i_assert(count > 0);
+	for (i = 0; i < count; i++) {
+		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++)
+			index_mailbox_set_recent_uid(&mbox->ibox, uid);
+	}
+	return uids[count-1].seq2;
+}
+
 static int
 maildir_save_sync_index(struct maildir_save_context *ctx)
 {
 	struct mailbox_transaction_context *_t = ctx->ctx.transaction;
 	struct maildir_mailbox *mbox = ctx->mbox;
-	const struct seq_range *uids;
-	uint32_t uid, first_uid, next_uid;
-	unsigned int i, count;
+	uint32_t first_uid, next_uid, first_recent_uid;
 	int ret;
 
 	/* we'll need to keep the lock past the sync deinit */
@@ -673,23 +709,26 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 	i_assert(ctx->files_count == seq_range_count(&_t->changes->saved_uids));
 
 	/* these mails are all recent in our session */
-	next_uid = first_uid;
-	uids = array_get(&_t->changes->saved_uids, &count);
-	for (i = 0; i < count; i++) {
-		if (next_uid < uids[i].seq2)
-			next_uid = uids[i].seq2;
-		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++)
-			index_mailbox_set_recent_uid(&mbox->ibox, uid);
-	}
+	T_BEGIN {
+		next_uid = maildir_save_set_recent_flags(ctx);
+	} T_END;
 
-	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0) {
+	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+		first_recent_uid = next_uid;
+	else if (ctx->last_nonrecent_uid != 0)
+		first_recent_uid = ctx->last_nonrecent_uid + 1;
+	else
+		first_recent_uid = 0;
+
+	if (first_recent_uid != 0) {
 		/* maildir_sync_index() dropped recent flags from
 		   existing messages. we'll still need to drop recent
 		   flags from these newly added messages. */
 		mail_index_update_header(ctx->trans,
 					 offsetof(struct mail_index_header,
 						  first_recent_uid),
-					 &next_uid, sizeof(next_uid), FALSE);
+					 &first_recent_uid,
+					 sizeof(first_recent_uid), FALSE);
 	}
 	return 0;
 }
