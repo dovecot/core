@@ -47,7 +47,7 @@ void io_loop_handle_add(struct io_file *io)
 	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;
 	enum io_condition condition = io->io.condition;
 	unsigned int old_count;
-	int index, fd = io->fd;
+	int index, old_events, fd = io->fd;
 
 	if ((unsigned int)fd >= ctx->idx_count) {
                 /* grow the fd -> index array */
@@ -86,12 +86,14 @@ void io_loop_handle_add(struct io_file *io)
 		ctx->fds[index].revents = 0;
 	}
 
-        if (condition & IO_READ)
+	old_events = ctx->fds[index].events;
+	if (condition & IO_READ)
 		ctx->fds[index].events |= IO_POLL_INPUT;
         if (condition & IO_WRITE)
 		ctx->fds[index].events |= IO_POLL_OUTPUT;
 	if (condition & IO_ERROR)
 		ctx->fds[index].events |= IO_POLL_ERROR;
+	i_assert(ctx->fds[index].events != old_events);
 }
 
 void io_loop_handle_remove(struct io_file *io, bool closed ATTR_UNUSED)
