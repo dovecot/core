@@ -342,5 +342,9 @@ int mail_index_transaction_finish(struct mail_index_transaction *t)
 	/* finally convert all sequences to UIDs before we write them,
 	   but after we've checked and removed conflicts */
 	mail_index_transaction_convert_to_uids(t);
+
+	/* and kind of ugly way to update highest modseq */
+	if (t->min_highest_modseq != 0)
+		mail_index_update_modseq(t, 0, t->min_highest_modseq);
 	return 0;
 }

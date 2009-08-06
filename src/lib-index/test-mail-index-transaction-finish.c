@@ -27,6 +27,8 @@ bool mail_index_cancel_keyword_updates(struct mail_index_transaction *t ATTR_UNU
 void mail_index_transaction_sort_appends(struct mail_index_transaction *t ATTR_UNUSED) {}
 int mail_index_map(struct mail_index *index ATTR_UNUSED,
 		   enum mail_index_sync_handler_type type ATTR_UNUSED) { return 1; }
+void mail_index_update_modseq(struct mail_index_transaction *t ATTR_UNUSED, uint32_t seq ATTR_UNUSED,
+			      uint64_t min_modseq ATTR_UNUSED) {}
 
 const struct mail_index_record *
 mail_index_lookup(struct mail_index_view *view ATTR_UNUSED, uint32_t seq)

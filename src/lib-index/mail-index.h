@@ -426,6 +426,9 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 /* Update message's modseq to be at least min_modseq. */
 void mail_index_update_modseq(struct mail_index_transaction *t, uint32_t seq,
 			      uint64_t min_modseq);
+/* Update highest modseq to be at least min_modseq. */
+void mail_index_update_highest_modseq(struct mail_index_transaction *t,
+				      uint64_t min_modseq);
 /* Reset the index before committing this transaction. This is usually done
    only when UIDVALIDITY changes. */
 void mail_index_reset(struct mail_index_transaction *t);

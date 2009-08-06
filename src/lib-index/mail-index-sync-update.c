@@ -325,14 +325,17 @@ sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
 
 	end = CONST_PTR_OFFSET(u, size);
 	for (; u < end; u++) {
-		if (!mail_index_lookup_seq(view, u->uid, &seq))
+		if (u->uid == 0)
+			seq = 0;
+		else if (!mail_index_lookup_seq(view, u->uid, &seq))
 			continue;
 
 		min_modseq = ((uint64_t)u->modseq_high32 >> 32) |
 			u->modseq_low32;
 		if (highest_modseq < min_modseq)
 			highest_modseq = min_modseq;
-		if (mail_index_modseq_set(view, seq, min_modseq) < 0) {
+		if (seq != 0 &&
+		    mail_index_modseq_set(view, seq, min_modseq) < 0) {
 			mail_index_sync_set_corrupted(ctx,
 				"modseqs updated before they were enabled");
 			return -1;

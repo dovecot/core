@@ -91,6 +91,7 @@ void mail_index_transaction_reset_v(struct mail_index_transaction *t)
 	t->last_update_idx = 0;
 	t->min_flagupdate_seq = 0;
 	t->max_flagupdate_seq = 0;
+	t->min_highest_modseq = 0;
 
 	memset(t->pre_hdr_mask, 0, sizeof(t->pre_hdr_mask));
 	memset(t->post_hdr_mask, 0, sizeof(t->post_hdr_mask));
@@ -114,7 +115,8 @@ void mail_index_transaction_set_log_updates(struct mail_index_transaction *t)
 		array_is_created(&t->expunges) ||
 		array_is_created(&t->keyword_resets) ||
 		array_is_created(&t->keyword_updates) ||
-		t->pre_hdr_changed || t->post_hdr_changed;
+		t->pre_hdr_changed || t->post_hdr_changed ||
+		t->min_highest_modseq != 0;
 }
 
 void mail_index_update_day_headers(struct mail_index_transaction *t)
@@ -268,6 +270,17 @@ void mail_index_update_modseq(struct mail_index_transaction *t, uint32_t seq,
 	u->uid = seq;
 	u->modseq_low32 = min_modseq & 0xffffffff;
 	u->modseq_high32 = min_modseq >> 32;
+
+	t->log_updates = TRUE;
+}
+
+void mail_index_update_highest_modseq(struct mail_index_transaction *t,
+				      uint64_t min_modseq)
+{
+	if (t->min_highest_modseq < min_modseq)
+		t->min_highest_modseq = min_modseq;
+
+	t->log_updates = TRUE;
 }
 
 static void

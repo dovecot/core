@@ -68,6 +68,7 @@ struct mail_index_transaction {
 		     struct mail_index_transaction_keyword_update);
 	ARRAY_TYPE(seq_range) keyword_resets;
 
+	uint64_t min_highest_modseq;
 	uint64_t max_modseq;
 	ARRAY_TYPE(seq_range) *conflict_seqs;
 
