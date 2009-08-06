@@ -64,6 +64,7 @@ mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr)
 	case MAIL_TRANSACTION_FLAG_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_RESET:
+	case MAIL_TRANSACTION_UID_UPDATE:
 		/* these changes increase modseq */
 		return TRUE;
 	}
