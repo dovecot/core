@@ -301,10 +301,10 @@ static void sync_uid_update(struct mail_index_sync_map_ctx *ctx,
 	map->hdr.next_uid = new_uid+1;
 	map->rec_map->last_appended_uid = new_uid;
 
-	rec = MAIL_INDEX_MAP_IDX(map, old_seq-1);
-
 	/* add the new record */
 	dest = sync_append_record(map);
+	rec = MAIL_INDEX_MAP_IDX(map, old_seq-1);
+	rec->uid = new_uid;
 	memcpy(dest, rec, map->hdr.record_size);
 
 	/* @UNSAFE: remove the old record */

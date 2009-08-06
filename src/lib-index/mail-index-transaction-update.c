@@ -252,6 +252,8 @@ void mail_index_update_uid(struct mail_index_transaction *t, uint32_t seq,
 	u = array_append_space(&t->uid_updates);
 	u->old_uid = seq;
 	u->new_uid = new_uid;
+
+	t->log_updates = TRUE;
 }
 
 void mail_index_update_modseq(struct mail_index_transaction *t, uint32_t seq,

@@ -67,9 +67,11 @@ uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
 	next_uid = t->reset || head_hdr->uid_validity != hdr->uid_validity ?
 		1 : hdr->next_uid;
 	if (array_is_created(&t->appends) && t->highest_append_uid != 0) {
-		/* get next_uid from appends if they have UIDs */
-		i_assert(next_uid <= t->highest_append_uid);
-		next_uid = t->highest_append_uid + 1;
+		/* get next_uid from appends if they have UIDs. it's possible
+		   that some appends have too low UIDs, they'll be caught
+		   later. */
+		if (next_uid <= t->highest_append_uid)
+			next_uid = t->highest_append_uid + 1;
 	}
 
 	/* see if it's been updated in pre/post header changes */
