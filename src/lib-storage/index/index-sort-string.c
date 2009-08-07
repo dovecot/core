@@ -27,6 +27,7 @@ ARRAY_DEFINE_TYPE(mail_sort_node, struct mail_sort_node);
 
 struct sort_string_context {
 	struct mail_search_sort_program *program;
+	const char *primary_sort_name;
 
 	ARRAY_TYPE(mail_sort_node) zero_nodes, nonzero_nodes, sorted_nodes;
 	const char **sort_strings;
@@ -41,11 +42,13 @@ struct sort_string_context {
 	unsigned int no_writing:1;
 	unsigned int reverse:1;
 	unsigned int seqs_nonsorted:1;
+	unsigned int broken:1;
 };
 
 static char expunged_msg;
 static struct sort_string_context *static_zero_cmp_context;
 
+static void index_sort_list_reset_broken(struct sort_string_context *ctx);
 static void index_sort_node_add(struct sort_string_context *ctx,
 				struct mail_sort_node *node);
 
@@ -75,6 +78,7 @@ void index_sort_list_init_string(struct mail_search_sort_program *program)
 	program->context = ctx = i_new(struct sort_string_context, 1);
 	ctx->reverse = (program->sort_program[0] & MAIL_SORT_FLAG_REVERSE) != 0;
 	ctx->program = program;
+	ctx->primary_sort_name = name;
 	ctx->ext_id = mail_index_ext_register(ibox->index, name, 0,
 					      sizeof(uint32_t),
 					      sizeof(uint32_t));
@@ -170,14 +174,17 @@ static void index_sort_node_add(struct sort_string_context *ctx,
 		   highest_reset_id, but this isn't currently possible. */
 		node->sort_id = 0;
 	} else {
-		node->sort_id = data == NULL ? 0 : *(const uint32_t *)data;
+		node->sort_id = ctx->broken || data == NULL ? 0 :
+			*(const uint32_t *)data;
 		if (node->sort_id == 0) {
 			if (ctx->lowest_nonexpunged_zero > node->seq ||
 			    ctx->lowest_nonexpunged_zero == 0)
 				ctx->lowest_nonexpunged_zero = node->seq;
-		} else {
-			i_assert(ctx->lowest_nonexpunged_zero == 0 ||
-				 ctx->lowest_nonexpunged_zero > node->seq);
+		} else if (ctx->lowest_nonexpunged_zero != 0 &&
+			   ctx->lowest_nonexpunged_zero <= node->seq) {
+			index_sort_list_reset_broken(ctx);
+			ctx->broken = TRUE;
+			node->sort_id = 0;
 		}
 	}
 
@@ -753,8 +760,8 @@ static void index_sort_list_reset_broken(struct sort_string_context *ctx)
 	unsigned int i, count;
 
 	mail_storage_set_critical(box->storage,
-				  "Sort IDs %u broken in mailbox %s, resetting",
-				  ctx->ext_id, box->name);
+				  "%s: Broken %s indexes, resetting",
+				  box->name, ctx->primary_sort_name);
 
 	array_clear(&ctx->zero_nodes);
 	array_append_array(&ctx->zero_nodes,
