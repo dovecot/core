@@ -388,6 +388,10 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
 		ssl_proxy_destroy(proxy);
 		break;
 	case SSL_ERROR_SSL:
+		if (ERR_GET_REASON(err) == ERR_R_MALLOC_FAILURE) {
+			i_error("OpenSSL malloc() failed. "
+				"You may need to increase login_process_size");
+		}
 		errstr = t_strdup_printf("%s failed: %s",
 					 func_name, ssl_last_error());
 		break;
