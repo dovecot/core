@@ -144,7 +144,8 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 			return 0;
 		}
 		/* copy the error */
-		mail_storage_set_error(mbox->ibox.box.storage, error, str);
+		mail_storage_set_error(mbox->ibox.box.storage, error,
+			t_strdup_printf("%s (%s)", str, mailbox));
 		return -1;
 	}
 	i_array_init(&bbox->uids, 64);
