@@ -43,7 +43,9 @@ enum fts_backend_flags {
 	/* If set, the backend is used for TEXT and BODY search
 	   optimizations. Otherwise only TEXT_FAST and BODY_FAST are
 	   optimized. */
-	FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS	= 0x01
+	FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS	= 0x01,
+	/* Backend supports virtual mailbox lookups. */
+	FTS_BACKEND_FLAG_VIRTUAL_LOOKUPS	= 0x02
 };
 
 struct fts_backend {

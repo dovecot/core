@@ -435,7 +435,8 @@ static int fts_build_init(struct fts_search_context *fctx)
 		return 0;
 	}
 
-	if (fctx->fbox->virtual)
+	if (fctx->fbox->virtual &&
+	    (fctx->build_backend->flags & FTS_BACKEND_FLAG_VIRTUAL_LOOKUPS) != 0)
 		ret = fts_build_init_virtual(fctx);
 	else
 		ret = fts_build_init_trans(fctx, fctx->t);
