@@ -739,15 +739,21 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 	ret = maildir_uidlist_lock(mbox->uidlist);
 	i_assert(ret > 0);
 
+	if (maildir_sync_header_refresh(mbox) < 0)
+		return -1;
+	if ((ret = maildir_uidlist_refresh_fast_init(mbox->uidlist)) < 0)
+		return -1;
+
+	if (ret == 0) {
+		/* uidlist doesn't exist. make sure all existing message
+		   are added to uidlist first. */
+		(void)maildir_storage_sync_force(mbox, 0);
+	}
+
 	if (maildir_sync_index_begin(mbox, NULL, &ctx->sync_ctx) < 0)
 		return -1;
 	ctx->keywords_sync_ctx =
 		maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx);
-
-	if (maildir_sync_header_refresh(mbox) < 0)
-		return -1;
-	if (maildir_uidlist_refresh_fast_init(mbox->uidlist) < 0)
-		return -1;
 
 	/* now that uidlist is locked, make sure all the existing mails
 	   have been added to index. we don't really look into the
