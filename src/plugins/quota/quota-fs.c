@@ -562,8 +562,9 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group, bool bytes,
 			if (errno == EINVAL) {
 				i_error("Dovecot was compiled with Linux quota "
 					"v%d support, try changing it "
-					"(--with-linux-quota configure option)",
-					_LINUX_QUOTA_VERSION);
+					"(CPPFLAGS=-D_LINUX_QUOTA_VERSION=%d configure)",
+					_LINUX_QUOTA_VERSION,
+					_LINUX_QUOTA_VERSION == 1 ? 2 : 1);
 			}
 			return -1;
 		}
