@@ -327,14 +327,13 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 {
 	struct ldap_request *const *requestp, *request;
-	unsigned int queue_size = aqueue_count(conn->request_queue);
 	int ret = -1;
 
-	if (conn->pending_count == queue_size) {
+	if (conn->pending_count == aqueue_count(conn->request_queue)) {
 		/* no non-pending requests */
 		return FALSE;
 	}
-	if (queue_size > DB_LDAP_MAX_PENDING_REQUESTS) {
+	if (conn->pending_count > DB_LDAP_MAX_PENDING_REQUESTS) {
 		/* wait until server has replied to some requests */
 		return FALSE;
 	}
