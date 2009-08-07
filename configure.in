@@ -64,6 +64,9 @@ AC_ARG_WITH(notify,
 
 AC_ARG_WITH(linux-quota,
 [  --with-linux-quota=n    Linux quota version to use (default: system's)],
+	if test "$withval" != "1" && test "$withval" != "2"; then
+		AC_ERROR([--with-linux-quota can be only 1 or 2])
+	fi
 	AC_DEFINE_UNQUOTED(_LINUX_QUOTA_VERSION, $withval,
 		[Linux quota version to use])
 )
