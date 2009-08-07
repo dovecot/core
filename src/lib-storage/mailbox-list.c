@@ -485,7 +485,14 @@ bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
 				       const char *name)
 {
+	const char *p;
 	int ret;
+
+	/* safer to just disallow all control characters */
+	for (p = name; *p != '\0'; p++) {
+		if (*p < ' ')
+			return FALSE;
+	}
 
 	T_BEGIN {
 		string_t *str = t_str_new(256);
