@@ -41,19 +41,10 @@ bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 		str_append(str, "USER\r\n");
 
 	str_append(str, "SASL");
-	mech = auth_client_get_available_mechs(auth_client, &count);
+	mech = sasl_server_get_advertised_mechs(&client->common, &count);
 	for (i = 0; i < count; i++) {
-		/* a) transport is secured
-		   b) auth mechanism isn't plaintext
-		   c) we allow insecure authentication
-		*/
-		if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
-		    (client->common.secured ||
-		     !client->common.set->disable_plaintext_auth ||
-		     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0)) {
-			str_append_c(str, ' ');
-			str_append(str, mech[i].name);
-		}
+		str_append_c(str, ' ');
+		str_append(str, mech[i].name);
 	}
 	str_append(str, "\r\n.");
 

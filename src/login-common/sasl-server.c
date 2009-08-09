@@ -21,6 +21,34 @@
 	"Maximum number of connections from user+IP exceeded " \
 	"(mail_max_userip_connections)"
 
+const struct auth_mech_desc *
+sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
+{
+	const struct auth_mech_desc *mech;
+	struct auth_mech_desc *ret_mech;
+	unsigned int i, j, count;
+
+	mech = auth_client_get_available_mechs(auth_client, &count);
+	if (count == 0) {
+		*count_r = 0;
+		return NULL;
+	}
+
+	ret_mech = t_new(struct auth_mech_desc, count);
+	for (i = j = 0; i < count; i++) {
+		/* a) transport is secured
+		   b) auth mechanism isn't plaintext
+		   c) we allow insecure authentication
+		*/
+		if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
+		    (client->secured || !client->set->disable_plaintext_auth ||
+		     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0))
+			ret_mech[j++] = mech[i];
+	}
+	*count_r = j;
+	return ret_mech;
+}
+
 static enum auth_request_flags
 client_get_auth_flags(struct client *client)
 {

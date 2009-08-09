@@ -15,6 +15,9 @@ typedef void sasl_server_callback_t(struct client *client,
 				    enum sasl_server_reply reply,
 				    const char *data, const char *const *args);
 
+const struct auth_mech_desc *
+sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r);
+
 void sasl_server_auth_begin(struct client *client,
 			    const char *service, const char *mech_name,
 			    const char *initial_resp_base64,
