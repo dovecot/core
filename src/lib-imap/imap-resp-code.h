@@ -1,7 +1,7 @@
 #ifndef IMAP_RESP_CODE_H
 #define IMAP_RESP_CODE_H
 
-/* IMAP response codes (from draft-gulbrandsen-imap-response-codes-07) */
+/* IMAP response codes (RFC 5530) */
 #define IMAP_RESP_CODE_UNAVAILABLE "UNAVAILABLE"
 #define IMAP_RESP_CODE_AUTHFAILED "AUTHENTICATIONFAILED"
 #define IMAP_RESP_CODE_AUTHZFAILED "AUTHORIZATIONFAILED"
