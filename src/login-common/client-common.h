@@ -12,6 +12,18 @@
 */
 #define LOGIN_MAX_INBUF_SIZE 4096
 
+enum client_cmd_reply {
+	CLIENT_CMD_REPLY_OK,
+	CLIENT_CMD_REPLY_AUTH_FAILED,
+	CLIENT_CMD_REPLY_AUTHZ_FAILED,
+	CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+	CLIENT_CMD_REPLY_AUTH_FAIL_REASON,
+	CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
+	CLIENT_CMD_REPLY_BAD,
+	CLIENT_CMD_REPLY_BYE,
+	CLIENT_CMD_REPLY_STATUS
+};
+
 struct client {
 	struct client *prev, *next;
 	pool_t pool;
@@ -56,6 +68,9 @@ struct client *client_create(int fd, bool ssl, pool_t pool,
 void client_link(struct client *client);
 void client_unlink(struct client *client);
 unsigned int clients_get_count(void) ATTR_PURE;
+
+void client_send_line(struct client *client, enum client_cmd_reply reply,
+		      const char *text);
 
 void client_syslog(struct client *client, const char *msg);
 void client_syslog_err(struct client *client, const char *msg);

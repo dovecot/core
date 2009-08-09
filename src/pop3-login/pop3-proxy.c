@@ -11,8 +11,6 @@
 #include "client.h"
 #include "pop3-proxy.h"
 
-#define PROXY_FAILURE_MSG "-ERR [IN-USE] "AUTH_TEMP_FAILED_MSG
-
 static void proxy_free_password(struct pop3_client *client)
 {
 	if (client->proxy_password == NULL)
@@ -24,8 +22,11 @@ static void proxy_free_password(struct pop3_client *client)
 
 static void proxy_failed(struct pop3_client *client, bool send_line)
 {
-	if (send_line)
-		client_send_line(client, PROXY_FAILURE_MSG);
+	if (send_line) {
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 AUTH_TEMP_FAILED_MSG);
+	}
 
 	login_proxy_free(&client->proxy);
 	proxy_free_password(client);
@@ -184,9 +185,11 @@ static int proxy_input_line(struct pop3_client *client, const char *line)
 	   shouldn't be a real problem since of course everyone will
 	   be using only Dovecot as their backend :) */
 	if (strncmp(line, "-ERR ", 5) != 0)
-		client_send_line(client, "-ERR "AUTH_FAILED_MSG);
-	else
-		client_send_line(client, line);
+		client_send_line(&client->common, CLIENT_CMD_REPLY_AUTH_FAILED,
+				 AUTH_FAILED_MSG);
+	else {
+		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
+	}
 
 	if (client->common.set->verbose_auth) {
 		str = t_str_new(128);
@@ -267,7 +270,9 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 
 	if (password == NULL) {
 		client_syslog_err(&client->common, "proxy: password not given");
-		client_send_line(client, PROXY_FAILURE_MSG);
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 AUTH_TEMP_FAILED_MSG);
 		return -1;
 	}
 
@@ -280,14 +285,18 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 	}
 	if (login_proxy_is_ourself(&client->common, host, port, user)) {
 		client_syslog_err(&client->common, "Proxying loops to itself");
-		client_send_line(client, PROXY_FAILURE_MSG);
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 AUTH_TEMP_FAILED_MSG);
 		return -1;
 	}
 
 	client->proxy = login_proxy_new(&client->common, host, port, ssl_flags,
 					proxy_input, client);
 	if (client->proxy == NULL) {
-		client_send_line(client, PROXY_FAILURE_MSG);
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 AUTH_TEMP_FAILED_MSG);
 		return -1;
 	}
 

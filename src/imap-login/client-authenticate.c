@@ -189,6 +189,8 @@ static bool client_handle_args(struct imap_client *client,
 		   .. [REFERRAL ..] (Reason from auth server)
 		*/
 		reply = t_str_new(128);
+		str_append(reply, client->cmd_tag);
+		str_append_c(reply, ' ');
 		str_append(reply, nologin ? "NO " : "OK ");
 		str_printfa(reply, "[REFERRAL imap://%s;AUTH=%s@%s",
 			    destuser, client->common.auth_mech_name, host);
@@ -203,7 +205,8 @@ static bool client_handle_args(struct imap_client *client,
 			str_append(reply, "Logged in, but you should use "
 				   "this server instead.");
 		}
-		client_send_tagline(client, str_c(reply));
+		str_append(reply, "\r\n");
+		client_send_raw(client, str_c(reply));
 		if (!nologin) {
 			client_destroy_success(client, "Login with referral");
 			return TRUE;
@@ -211,18 +214,23 @@ static bool client_handle_args(struct imap_client *client,
 	} else if (nologin) {
 		/* Authentication went ok, but for some reason user isn't
 		   allowed to log in. Shouldn't probably happen. */
-		reply = t_str_new(128);
-		if (reason != NULL)
-			str_printfa(reply, "NO [ALERT] %s", reason);
-		else if (temp) {
-			str_append(reply, "NO ["IMAP_RESP_CODE_UNAVAILABLE"] "
-				   AUTH_TEMP_FAILED_MSG);
+		if (reason != NULL) {
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAIL_REASON,
+					 reason);
+		} else if (temp) {
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+					 AUTH_TEMP_FAILED_MSG);
 		} else if (authz_failure) {
-			str_append(reply, "NO "IMAP_AUTHZ_FAILED_MSG);
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTHZ_FAILED,
+					 "Authorization failed");
 		} else {
-			str_append(reply, "NO "IMAP_AUTH_FAILED_MSG);
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAILED,
+					 AUTH_FAILED_MSG);
 		}
-		client_send_tagline(client, str_c(reply));
 	} else {
 		/* normal login/failure */
 		return FALSE;
@@ -240,7 +248,6 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 {
 	struct imap_client *client = (struct imap_client *)_client;
 	struct const_iovec iov[3];
-	const char *msg;
 	size_t data_len;
 	bool nodelay;
 
@@ -267,13 +274,18 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				break;
 		}
 
-		if (reply == SASL_SERVER_REPLY_AUTH_ABORTED)
-			msg = "BAD Authentication aborted by client.";
-		else if (data == NULL)
-			msg = "NO "IMAP_AUTH_FAILED_MSG;
-		else
-			msg = t_strconcat("NO [ALERT] ", data, NULL);
-		client_send_tagline(client, msg);
+		if (reply == SASL_SERVER_REPLY_AUTH_ABORTED) {
+			client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+					 "Authentication aborted by client.");
+		} else if (data == NULL) {
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAILED,
+					 AUTH_FAILED_MSG);
+		} else {
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAIL_REASON,
+					 data);
+		}
 
 		if (!client->destroyed)
 			client_auth_failed(client, nodelay);
@@ -282,8 +294,8 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		if (data == NULL)
 			client_destroy_internal_failure(client);
 		else {
-			client_send_tagline(client,
-					    t_strconcat("NO ", data, NULL));
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP, data);
 			/* authentication itself succeeded, we just hit some
 			   internal failure. */
 			client_destroy_success(client, data);
@@ -365,8 +377,8 @@ int cmd_authenticate(struct imap_client *client, const struct imap_arg *args)
 				      "SSL required for authentication");
 		}
 		client->common.auth_attempts++;
-		client_send_tagline(client,
-			"NO ["IMAP_RESP_CODE_PRIVACYREQUIRED"] "
+		client_send_line(&client->common,
+			CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
 			"Authentication not allowed until SSL/TLS is enabled.");
 		return 1;
 	}
@@ -401,12 +413,13 @@ int cmd_login(struct imap_client *client, const struct imap_arg *args)
 		}
 		client->common.auth_tried_disabled_plaintext = TRUE;
 		client->common.auth_attempts++;
-		client_send_line(client,
+		client_send_raw(client,
 			"* BAD [ALERT] Plaintext authentication not allowed "
 			"without SSL/TLS, but your client did it anyway. "
-			"If anyone was listening, the password was exposed.");
-		client_send_tagline(client, "NO ["IMAP_RESP_CODE_CLIENTBUG"] "
-				    AUTH_PLAINTEXT_DISABLED_MSG);
+			"If anyone was listening, the password was exposed.\r\n");
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
+				 AUTH_PLAINTEXT_DISABLED_MSG);
 		return 1;
 	}
 

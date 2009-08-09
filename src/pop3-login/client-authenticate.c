@@ -46,9 +46,9 @@ bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 		str_append_c(str, ' ');
 		str_append(str, mech[i].name);
 	}
-	str_append(str, "\r\n.");
+	str_append(str, "\r\n.\r\n");
 
-	client_send_line(client, str_c(str));
+	client_send_raw(client, str_c(str));
 	return TRUE;
 }
 
@@ -121,7 +121,6 @@ static bool client_handle_args(struct pop3_client *client,
 	const char *master_user = NULL;
 	const char *key, *value, *p;
 	enum login_proxy_ssl_flags ssl_flags = 0;
-	string_t *reply;
 	unsigned int port = 110;
 	bool proxy = FALSE, temp = FALSE, nologin = !success;
 
@@ -181,16 +180,17 @@ static bool client_handle_args(struct pop3_client *client,
 	if (!nologin)
 		return FALSE;
 
-	reply = t_str_new(128);
-	str_append(reply, "-ERR ");
-	if (reason != NULL)
-		str_append(reply, reason);
-	else if (temp)
-		str_append(reply, "[IN-USE] "AUTH_TEMP_FAILED_MSG);
-	else
-		str_append(reply, AUTH_FAILED_MSG);
-
-	client_send_line(client, str_c(reply));
+	if (reason != NULL) {
+		client_send_line(&client->common, CLIENT_CMD_REPLY_AUTH_FAILED,
+				 reason);
+	} else if (temp) {
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 AUTH_TEMP_FAILED_MSG);
+	} else {
+		client_send_line(&client->common, CLIENT_CMD_REPLY_AUTH_FAILED,
+				 AUTH_FAILED_MSG);
+	}
 
 	if (!client->destroyed)
 		client_auth_failed(client, *nodelay_r);
@@ -202,7 +202,6 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 {
 	struct pop3_client *client = (struct pop3_client *)_client;
 	struct const_iovec iov[3];
-	const char *msg;
 	size_t data_len;
 	bool nodelay;
 
@@ -226,13 +225,18 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 				break;
 		}
 
-		if (reply == SASL_SERVER_REPLY_AUTH_ABORTED)
-			msg = "-ERR Authentication aborted by client.";
-		else if (data == NULL)
-			msg = "-ERR "AUTH_FAILED_MSG;
-		else
-			msg = t_strconcat("-ERR ", data, NULL);
-		client_send_line(client, msg);
+		if (reply == SASL_SERVER_REPLY_AUTH_ABORTED) {
+			client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+					 "Authentication aborted by client.");
+		} else if (data == NULL) {
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAILED,
+					 AUTH_FAILED_MSG);
+		} else {
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAIL_REASON,
+					 data);
+		}
 
 		if (!client->destroyed)
 			client_auth_failed(client, nodelay);
@@ -241,8 +245,10 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		if (data == NULL)
 			client_destroy_internal_failure(client);
 		else {
-			client_send_line(client,
-				t_strconcat("-ERR [IN-USE] ", data, NULL));
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP, data);
+			/* authentication itself succeeded, we just hit some
+			   internal failure. */
 			client_destroy_success(client, data);
 		}
 		break;
@@ -281,8 +287,9 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 				      "SSL required for authentication");
 		}
 		client->common.auth_attempts++;
-		client_send_line(client, "-ERR Authentication not allowed "
-				 "until SSL/TLS is enabled.");
+		client_send_line(&client->common,
+			CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
+			"Authentication not allowed until SSL/TLS is enabled.");
 		return TRUE;
 	}
 
@@ -290,16 +297,18 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 		/* Old-style SASL discovery, used by MS Outlook */
 		unsigned int i, count;
 
-		client_send_line(client, "+OK");
+		client_send_raw(client, "+OK\r\n");
 		mech = auth_client_get_available_mechs(auth_client, &count);
 		for (i = 0; i < count; i++) {
 			if ((mech[i].flags & MECH_SEC_PRIVATE) == 0 &&
 			    (client->common.secured ||
 			     client->common.set->disable_plaintext_auth ||
-			     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0))
-		 		client_send_line(client, mech[i].name);
+			     (mech[i].flags & MECH_SEC_PLAINTEXT) == 0)) {
+				client_send_raw(client, mech[i].name);
+				client_send_raw(client, "\r\n");
+			}
 		}
- 		client_send_line(client, ".");
+ 		client_send_raw(client, ".\r\n");
  		return TRUE;
 	}
 
@@ -335,7 +344,8 @@ static bool check_plaintext_auth(struct pop3_client *client)
 		client_syslog(&client->common, "Login failed: "
 			      "Plaintext authentication disabled");
 	}
-	client_send_line(client, "-ERR "AUTH_PLAINTEXT_DISABLED_MSG);
+	client_send_line(&client->common, CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
+			 AUTH_PLAINTEXT_DISABLED_MSG);
 	client->common.auth_tried_disabled_plaintext = TRUE;
 	client->common.auth_attempts++;
 	return FALSE;
@@ -349,7 +359,7 @@ bool cmd_user(struct pop3_client *client, const char *args)
 	i_free(client->last_user);
 	client->last_user = i_strdup(args);
 
-	client_send_line(client, "+OK");
+	client_send_raw(client, "+OK\r\n");
 	return TRUE;
 }
 
@@ -363,7 +373,8 @@ bool cmd_pass(struct pop3_client *client, const char *args)
 		if (!check_plaintext_auth(client))
 			return TRUE;
 
-		client_send_line(client, "-ERR No username given.");
+		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+				 "No username given.");
 		return TRUE;
 	}
 
@@ -405,7 +416,8 @@ bool cmd_apop(struct pop3_client *client, const char *args)
 			client_syslog(&client->common,
 				      "APOP failed: APOP not enabled");
 		}
-	        client_send_line(client, "-ERR APOP not enabled.");
+		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+				 "APOP not enabled.");
 		return TRUE;
 	}
 
@@ -416,7 +428,8 @@ bool cmd_apop(struct pop3_client *client, const char *args)
 			client_syslog(&client->common,
 				      "APOP failed: Invalid parameters");
 		}
-	        client_send_line(client, "-ERR Invalid parameters.");
+		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+				 "Invalid parameters.");
 		return TRUE;
 	}
 
@@ -432,8 +445,8 @@ bool cmd_apop(struct pop3_client *client, const char *args)
 			client_syslog(&client->common, "APOP failed: "
 				      "Invalid characters in MD5 response");
 		}
-		client_send_line(client,
-				 "-ERR Invalid characters in MD5 response.");
+		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+				 "Invalid characters in MD5 response.");
 		return TRUE;
 	}
 

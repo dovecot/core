@@ -46,10 +46,10 @@ void client_destroy(struct pop3_client *client, const char *reason);
 void client_destroy_success(struct pop3_client *client, const char *reason);
 void client_destroy_internal_failure(struct pop3_client *client);
 
-void client_send_line(struct pop3_client *client, const char *line);
-
 bool client_read(struct pop3_client *client);
 void client_input(struct pop3_client *client);
+
+void client_send_raw(struct pop3_client *client, const char *data);
 
 void client_ref(struct pop3_client *client);
 bool client_unref(struct pop3_client *client);

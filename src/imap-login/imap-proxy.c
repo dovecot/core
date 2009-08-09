@@ -17,9 +17,6 @@
 
 #include <stdlib.h>
 
-#define PROXY_FAILURE_MSG \
-	"NO ["IMAP_RESP_CODE_UNAVAILABLE"] "AUTH_TEMP_FAILED_MSG
-
 static void proxy_write_id(struct imap_client *client, string_t *str)
 {
 	str_printfa(str, "I ID ("
@@ -44,8 +41,11 @@ static void proxy_free_password(struct imap_client *client)
 
 static void proxy_failed(struct imap_client *client, bool send_tagline)
 {
-	if (send_tagline)
-		client_send_tagline(client, PROXY_FAILURE_MSG);
+	if (send_tagline) {
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 AUTH_TEMP_FAILED_MSG);
+	}
 
 	login_proxy_free(&client->proxy);
 	proxy_free_password(client);
@@ -271,9 +271,13 @@ static int proxy_input_line(struct imap_client *client, const char *line)
 			   the remote is sending a different error message
 			   an attacker can't find out what users exist in
 			   the system. */
-			line = "NO "IMAP_AUTH_FAILED_MSG;
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAILED,
+					 AUTH_FAILED_MSG);
 		} else if (strncmp(line, "NO [", 4) == 0) {
 			/* remote sent some other resp-code. forward it. */
+			client_send_raw(client, t_strconcat(
+				client->cmd_tag, " ", line, "\r\n", NULL));
 		} else {
 			/* there was no [resp-code], so remote isn't Dovecot
 			   v1.2+. we could either forward the line as-is and
@@ -282,9 +286,10 @@ static int proxy_input_line(struct imap_client *client, const char *line)
 			   failures. since other errors are pretty rare,
 			   it's safer to just hide them. they're still
 			   available in logs though. */
-			line = "NO "IMAP_AUTH_FAILED_MSG;
+			client_send_line(&client->common,
+					 CLIENT_CMD_REPLY_AUTH_FAILED,
+					 AUTH_FAILED_MSG);
 		}
-		client_send_tagline(client, line);
 
 		proxy_failed(client, FALSE);
 		return -1;
@@ -298,7 +303,7 @@ static int proxy_input_line(struct imap_client *client, const char *line)
 		return 0;
 	} else if (strncmp(line, "* ", 2) == 0) {
 		/* untagged reply. just foward it. */
-		client_send_line(client, line);
+		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
 		return 0;
 	} else {
 		/* tagged reply, shouldn't happen. */
@@ -358,7 +363,9 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 
 	if (password == NULL) {
 		client_syslog_err(&client->common, "proxy: password not given");
-		client_send_tagline(client, PROXY_FAILURE_MSG);
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 AUTH_TEMP_FAILED_MSG);
 		return -1;
 	}
 
@@ -371,14 +378,18 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 	}
 	if (login_proxy_is_ourself(&client->common, host, port, user)) {
 		client_syslog_err(&client->common, "Proxying loops to itself");
-		client_send_tagline(client, PROXY_FAILURE_MSG);
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 AUTH_TEMP_FAILED_MSG);
 		return -1;
 	}
 
 	client->proxy = login_proxy_new(&client->common, host, port, ssl_flags,
 					proxy_input, client);
 	if (client->proxy == NULL) {
-		client_send_tagline(client, PROXY_FAILURE_MSG);
+		client_send_line(&client->common,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 AUTH_TEMP_FAILED_MSG);
 		return -1;
 	}
 

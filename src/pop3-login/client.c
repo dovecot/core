@@ -9,6 +9,7 @@
 #include "randgen.h"
 #include "process-title.h"
 #include "safe-memset.h"
+#include "str.h"
 #include "strescape.h"
 #include "master-service.h"
 #include "master-auth.h"
@@ -72,7 +73,8 @@ static void client_start_tls(struct pop3_client *client)
 	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip,
 			       client->common.set, &client->common.proxy);
 	if (fd_ssl == -1) {
-		client_send_line(client, "-ERR TLS initialization failed.");
+		client_send_line(&client->common, CLIENT_CMD_REPLY_BYE,
+				 "TLS initialization failed.");
 		client_destroy(client,
 			       "Disconnected: TLS initialization failed.");
 		return;
@@ -111,12 +113,14 @@ static int client_output_starttls(struct pop3_client *client)
 static bool cmd_stls(struct pop3_client *client)
 {
 	if (client->common.tls) {
-		client_send_line(client, "-ERR TLS is already active.");
+		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+				 "TLS is already active.");
 		return TRUE;
 	}
 
 	if (!ssl_initialized) {
-		client_send_line(client, "-ERR TLS support isn't enabled.");
+		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+				 "TLS support isn't enabled.");
 		return TRUE;
 	}
 
@@ -125,7 +129,8 @@ static bool cmd_stls(struct pop3_client *client)
 	if (client->io != NULL)
 		io_remove(&client->io);
 
-	client_send_line(client, "+OK Begin TLS negotiation now.");
+	client_send_line(&client->common, CLIENT_CMD_REPLY_OK,
+			 "Begin TLS negotiation now.");
 
 	/* uncork the old fd */
 	o_stream_uncork(client->output);
@@ -143,7 +148,7 @@ static bool cmd_stls(struct pop3_client *client)
 
 static bool cmd_quit(struct pop3_client *client)
 {
-	client_send_line(client, "+OK Logging out");
+	client_send_line(&client->common, CLIENT_CMD_REPLY_OK, "Logging out");
 	client_destroy(client, "Aborted login");
 	return TRUE;
 }
@@ -167,7 +172,8 @@ static bool client_command_execute(struct pop3_client *client, const char *cmd,
 	if (strcmp(cmd, "QUIT") == 0)
 		return cmd_quit(client);
 
-	client_send_line(client, "-ERR Unknown command.");
+	client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+			 "Unknown command.");
 	return FALSE;
 }
 
@@ -176,7 +182,8 @@ bool client_read(struct pop3_client *client)
 	switch (i_stream_read(client->common.input)) {
 	case -2:
 		/* buffer full */
-		client_send_line(client, "-ERR Input line too long, aborting");
+		client_send_line(&client->common, CLIENT_CMD_REPLY_BYE,
+				 "Input buffer full, aborting");
 		client_destroy(client, "Disconnected: Input buffer full");
 		return FALSE;
 	case -1:
@@ -217,7 +224,8 @@ void client_input(struct pop3_client *client)
 					   args != NULL ? args : ""))
 			client->bad_counter = 0;
 		else if (++client->bad_counter > CLIENT_MAX_BAD_COMMANDS) {
-			client_send_line(client, "-ERR Too many bad commands.");
+			client_send_line(&client->common, CLIENT_CMD_REPLY_BYE,
+				"Too many invalid IMAP commands.");
 			client_destroy(client,
 				       "Disconnected: Too many bad commands");
 		}
@@ -292,11 +300,14 @@ static void client_auth_ready(struct pop3_client *client)
 	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 
 	client->apop_challenge = get_apop_challenge(client);
-	client_send_line(client, t_strconcat("+OK ",
-					     client->common.set->login_greeting,
-					     client->apop_challenge != NULL ?
-					     " " : NULL,
-					     client->apop_challenge, NULL));
+	if (client->apop_challenge == NULL) {
+		client_send_line(&client->common, CLIENT_CMD_REPLY_OK,
+				 client->common.set->login_greeting);
+	} else {
+		client_send_line(&client->common, CLIENT_CMD_REPLY_OK,
+			t_strconcat(client->common.set->login_greeting, " ",
+				    client->apop_challenge, NULL));
+	}
 }
 
 static void client_idle_disconnect_timeout(struct pop3_client *client)
@@ -423,7 +434,8 @@ void client_destroy(struct pop3_client *client, const char *reason)
 
 void client_destroy_internal_failure(struct pop3_client *client)
 {
-	client_send_line(client, "-ERR [IN-USE] Internal login failure. "
+	client_send_line(&client->common, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+			 "Internal login failure. "
 			 "Refer to server log for more information.");
 	client_destroy(client, "Internal login failure");
 }
@@ -459,25 +471,64 @@ bool client_unref(struct pop3_client *client)
 	return FALSE;
 }
 
-void client_send_line(struct pop3_client *client, const char *line)
+static void
+client_send_raw_data(struct pop3_client *client, const void *data, size_t size)
 {
-	struct const_iovec iov[2];
 	ssize_t ret;
 
-	iov[0].iov_base = line;
-	iov[0].iov_len = strlen(line);
-	iov[1].iov_base = "\r\n";
-	iov[1].iov_len = 2;
-
-	ret = o_stream_sendv(client->output, iov, 2);
-	if (ret < 0 || (size_t)ret != iov[0].iov_len + iov[1].iov_len) {
-		/* either disconnection or buffer full. in either case we
-		   want this connection destroyed. however destroying it here
-		   might break things if client is still tried to be accessed
-		   without being referenced.. */
+	ret = o_stream_send(client->output, data, size);
+	if (ret < 0 || (size_t)ret != size) {
+		/* either disconnection or buffer full. in either case we want
+		   this connection destroyed. however destroying it here might
+		   break things if client is still tried to be accessed without
+		   being referenced.. */
 		i_stream_close(client->common.input);
 	}
 }
+
+void client_send_raw(struct pop3_client *client, const char *data)
+{
+	client_send_raw_data(client, data, strlen(data));
+}
+
+void client_send_line(struct client *client, enum client_cmd_reply reply,
+		      const char *text)
+{
+	struct pop3_client *pop3_client = (struct pop3_client *)client;
+	const char *prefix = "-ERR";
+
+	switch (reply) {
+	case CLIENT_CMD_REPLY_OK:
+		prefix = "+OK";
+		break;
+	case CLIENT_CMD_REPLY_AUTH_FAIL_TEMP:
+		prefix = "-ERR [IN-USE]";
+		break;
+	case CLIENT_CMD_REPLY_AUTH_FAILED:
+	case CLIENT_CMD_REPLY_AUTHZ_FAILED:
+	case CLIENT_CMD_REPLY_AUTH_FAIL_REASON:
+	case CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL:
+	case CLIENT_CMD_REPLY_BAD:
+	case CLIENT_CMD_REPLY_BYE:
+		break;
+	case CLIENT_CMD_REPLY_STATUS:
+		/* can't send status notifications */
+		return;
+	}
+
+	T_BEGIN {
+		string_t *line = t_str_new(256);
+
+		str_append(line, prefix);
+		str_append_c(line, ' ');
+		str_append(line, text);
+		str_append(line, "\r\n");
+
+		client_send_raw_data(pop3_client, str_data(line),
+				     str_len(line));
+	} T_END;
+}
+
 
 void clients_notify_auth_connected(void)
 {
