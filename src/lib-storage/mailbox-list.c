@@ -679,9 +679,10 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 
 	*flags_r = 0;
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
-	return list->v.iter_is_mailbox(&ctx, path, "", "",
-				       MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-				       flags_r);
+	return list->v.iter_is_mailbox == NULL ? 0 :
+		list->v.iter_is_mailbox(&ctx, path, "", "",
+					MAILBOX_LIST_FILE_TYPE_UNKNOWN,
+					flags_r);
 }
 
 void mailbox_list_add_change(struct mailbox_list *list,
