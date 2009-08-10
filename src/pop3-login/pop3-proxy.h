@@ -1,10 +1,7 @@
 #ifndef POP3_PROXY_H
 #define POP3_PROXY_H
 
-#include "login-proxy.h"
-
-int pop3_proxy_new(struct pop3_client *client, const char *host,
-		   unsigned int port, const char *user, const char *master_user,
-		   const char *password, enum login_proxy_ssl_flags ssl_flags);
+void pop3_proxy_reset(struct client *client);
+int pop3_proxy_parse_line(struct client *client, const char *line);
 
 #endif

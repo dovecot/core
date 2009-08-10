@@ -669,8 +669,11 @@ const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy)
 			       bits, alg_bits);
 }
 
-void ssl_proxy_free(struct ssl_proxy *proxy)
+void ssl_proxy_free(struct ssl_proxy **_proxy)
 {
+	struct ssl_proxy *proxy = *_proxy;
+
+	*_proxy = NULL;
 	ssl_proxy_unref(proxy);
 }
 

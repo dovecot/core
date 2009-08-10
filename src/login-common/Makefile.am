@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 
 liblogin_la_SOURCES = \
 	client-common.c \
+	client-common-auth.c \
 	login-proxy.c \
 	login-settings.c \
 	main.c \

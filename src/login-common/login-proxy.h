@@ -1,6 +1,7 @@
 #ifndef LOGIN_PROXY_H
 #define LOGIN_PROXY_H
 
+struct client;
 struct login_proxy;
 
 enum login_proxy_ssl_flags {

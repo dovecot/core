@@ -237,7 +237,7 @@ void login_proxy_free(struct login_proxy **_proxy)
 	}
 
 	if (proxy->ssl_proxy != NULL)
-		ssl_proxy_free(proxy->ssl_proxy);
+		ssl_proxy_free(&proxy->ssl_proxy);
 	net_disconnect(proxy->server_fd);
 
 	i_free(proxy->host);
@@ -335,11 +335,11 @@ static int login_proxy_ssl_handshaked(void *context)
 		return 0;
 
 	if (!ssl_proxy_has_broken_client_cert(proxy->ssl_proxy)) {
-		client_syslog_err(proxy->prelogin_client, t_strdup_printf(
+		client_log_err(proxy->prelogin_client, t_strdup_printf(
 			"proxy: SSL certificate not received from %s:%u",
 			proxy->host, proxy->port));
 	} else {
-		client_syslog_err(proxy->prelogin_client, t_strdup_printf(
+		client_log_err(proxy->prelogin_client, t_strdup_printf(
 			"proxy: Received invalid SSL certificate from %s:%u",
 			proxy->host, proxy->port));
 	}
@@ -362,7 +362,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 				  login_proxy_ssl_handshaked, proxy,
 				  &proxy->ssl_proxy);
 	if (fd < 0) {
-		client_syslog_err(proxy->prelogin_client, t_strdup_printf(
+		client_log_err(proxy->prelogin_client, t_strdup_printf(
 			"proxy: SSL handshake failed to %s:%u",
 			proxy->host, proxy->port));
 		return -1;

@@ -54,8 +54,8 @@ client_get_auth_flags(struct client *client)
 {
         enum auth_request_flags auth_flags = 0;
 
-	if (client->proxy != NULL &&
-	    ssl_proxy_has_valid_client_cert(client->proxy))
+	if (client->ssl_proxy != NULL &&
+	    ssl_proxy_has_valid_client_cert(client->ssl_proxy))
 		auth_flags |= AUTH_REQUEST_FLAG_VALID_CLIENT_CERT;
 	if (client->secured)
 		auth_flags |= AUTH_REQUEST_FLAG_SECURED;
@@ -256,8 +256,8 @@ void sasl_server_auth_begin(struct client *client,
 	memset(&info, 0, sizeof(info));
 	info.mech = mech->name;
 	info.service = service;
-	info.cert_username = client->proxy == NULL ? NULL :
-		ssl_proxy_get_peer_name(client->proxy);
+	info.cert_username = client->ssl_proxy == NULL ? NULL :
+		ssl_proxy_get_peer_name(client->ssl_proxy);
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;
@@ -282,9 +282,8 @@ static void sasl_server_auth_cancel(struct client *client, const char *reason,
 	if (client->set->verbose_auth && reason != NULL) {
 		const char *auth_name =
 			str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
-		client_syslog(client,
-			t_strdup_printf("Authenticate %s failed: %s",
-					auth_name, reason));
+		client_log(client, t_strdup_printf(
+			"Authenticate %s failed: %s", auth_name, reason));
 	}
 
 	client->authenticating = FALSE;
