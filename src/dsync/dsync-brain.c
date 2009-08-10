@@ -213,24 +213,25 @@ static bool dsync_mailbox_has_changed_msgs(struct dsync_brain *brain,
 					   const struct dsync_mailbox *box1,
 					   const struct dsync_mailbox *box2)
 {
+	const char *name = *box1->name != '\0' ? box1->name : box2->name;
+
 	if (box1->uid_validity != box2->uid_validity) {
 		if (brain->verbose) {
-			i_info("%s: uidvalidity changed %u -> %u", box1->name,
+			i_info("%s: uidvalidity changed %u -> %u", name,
 			       box1->uid_validity, box2->uid_validity);
 		}
 		return TRUE;
 	}
 	if (box1->uid_next != box2->uid_next) {
 		if (brain->verbose) {
-			i_info("%s: uidnext changed %u -> %u", box1->name,
+			i_info("%s: uidnext changed %u -> %u", name,
 			       box1->uid_next, box2->uid_next);
 		}
 		return TRUE;
 	}
 	if (box1->highest_modseq != box2->highest_modseq) {
 		if (brain->verbose) {
-			i_info("%s: highest_modseq changed %llu -> %llu",
-			       box1->name,
+			i_info("%s: highest_modseq changed %llu -> %llu", name,
 			       (unsigned long long)box1->highest_modseq,
 			       (unsigned long long)box2->highest_modseq);
 		}
