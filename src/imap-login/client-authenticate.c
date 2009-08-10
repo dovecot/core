@@ -125,7 +125,6 @@ imap_client_auth_begin(struct imap_client *imap_client, const char *mech_name,
 int cmd_authenticate(struct imap_client *imap_client,
 		     const struct imap_arg *args)
 {
-	struct client *client = &imap_client->common;
 	const char *mech_name, *init_resp = NULL;
 
 	/* we want only one argument: authentication mechanism name */
@@ -137,17 +136,6 @@ int cmd_authenticate(struct imap_client *imap_client,
 		    args[2].type != IMAP_ARG_EOL)
 			return -1;
 		init_resp = IMAP_ARG_STR(&args[1]);
-	}
-
-	if (!client->secured && strcmp(client->set->ssl, "required") == 0) {
-		if (client->set->verbose_auth) {
-			client_log(client, "Login failed: "
-				   "SSL required for authentication");
-		}
-		client->auth_attempts++;
-		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
-			"Authentication not allowed until SSL/TLS is enabled.");
-		return 1;
 	}
 
 	mech_name = IMAP_ARG_STR(&args[0]);

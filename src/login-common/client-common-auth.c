@@ -426,6 +426,18 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp)
 {
+	if (!client->secured && strcmp(client->set->ssl, "required") == 0) {
+		if (client->set->verbose_auth) {
+			client_log(client, "Login failed: "
+				   "SSL required for authentication");
+		}
+		client->auth_attempts++;
+		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
+			"Authentication not allowed until SSL/TLS is enabled.");
+		return 1;
+	}
+
+
 	client_ref(client);
 	client->auth_initializing = TRUE;
 	sasl_server_auth_begin(client, login_protocol, mech_name,
