@@ -712,16 +712,16 @@ maildir_save_set_recent_flags(struct maildir_save_context *ctx)
 	unsigned int i, count;
 	uint32_t uid;
 
-	uids = array_get(&saved_sorted_uids, &count);
+	count = array_count(&ctx->ctx.transaction->changes->saved_uids);
 	if (count == 0)
 		return 0;
 
-	t_array_init(&saved_sorted_uids,
-		     array_count(&ctx->ctx.transaction->changes->saved_uids));
+	t_array_init(&saved_sorted_uids, count);
 	array_append_array(&saved_sorted_uids,
 			   &ctx->ctx.transaction->changes->saved_uids);
 	array_sort(&saved_sorted_uids, seq_range_cmp);
 
+	uids = array_get(&saved_sorted_uids, &count);
 	for (i = 0; i < count; i++) {
 		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++)
 			index_mailbox_set_recent_uid(&mbox->ibox, uid);
