@@ -12,14 +12,6 @@ struct mail_stats_istream {
 	unsigned int files_read_increased:1;
 };
 
-static void i_stream_mail_stats_destroy(struct iostream_private *stream)
-{
-	struct mail_stats_istream *mstream =
-		(struct mail_stats_istream *)stream;
-
-	i_stream_unref(&mstream->istream.parent);
-}
-
 static ssize_t
 i_stream_mail_stats_read_mail_stats(struct istream_private *stream)
 {
@@ -63,13 +55,10 @@ struct istream *i_stream_create_mail_stats_counter(struct mail_private *mail,
 {
 	struct mail_stats_istream *mstream;
 
-	i_stream_ref(input);
-
 	mstream = i_new(struct mail_stats_istream, 1);
 	mstream->mail = mail;
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
-	mstream->istream.iostream.destroy = i_stream_mail_stats_destroy;
 	mstream->istream.parent = input;
 	mstream->istream.read = i_stream_mail_stats_read_mail_stats;
 	mstream->istream.seek = i_stream_mail_stats_seek;
