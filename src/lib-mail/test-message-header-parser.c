@@ -81,8 +81,6 @@ test_message_header_parser_one(struct message_header_parser_ctx *parser,
 	test_assert(hdr->name_offset == 17 && hdr->full_value_offset == 21);
 	test_assert(hdr->name_len == 2 && strcmp(hdr->name, "h3") == 0);
 	test_assert(hdr->middle_len == 2 && memcmp(hdr->middle, ": ", 2) == 0);
-	if (!(hdr->value_len == 3 && memcmp(hdr->value, "\tv3", 3) == 0))
-		i_warning("%d '%.*s'", hdr->value_len, 3, hdr->value);
 	test_assert(hdr->value_len == 3 && memcmp(hdr->value, "\tv3", 3) == 0);
 	test_assert(hdr->continues && hdr->continued && !hdr->eoh &&
 		    !hdr->no_newline && !hdr->crlf_newline);
