@@ -113,8 +113,8 @@ static void pop3_client_destroy(struct client *client)
 {
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
 
-	i_free(pop3_client->last_user);
-	i_free(pop3_client->apop_challenge);
+	i_free_and_null(pop3_client->last_user);
+	i_free_and_null(pop3_client->apop_challenge);
 }
 
 static char *get_apop_challenge(struct pop3_client *client)

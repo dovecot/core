@@ -264,7 +264,7 @@ static bool client_handle_input(struct imap_client *client)
 			"Error in IMAP command received by server.");
 	}
 
-	return ret != 0;
+	return ret != 0 && !client->common.destroyed;
 }
 
 static void imap_client_input(struct client *client)
