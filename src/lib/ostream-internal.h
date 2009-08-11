@@ -17,8 +17,8 @@ struct ostream_private {
 	ssize_t (*sendv)(struct ostream_private *stream,
 			 const struct const_iovec *iov,
 			 unsigned int iov_count);
-	ssize_t (*write_at)(struct ostream_private *stream,
-			    const void *data, size_t size, uoff_t offset);
+	int (*write_at)(struct ostream_private *stream,
+			const void *data, size_t size, uoff_t offset);
 	off_t (*send_istream)(struct ostream_private *outstream,
 			      struct istream *instream);
 

@@ -877,7 +877,8 @@ dbox_map_get_next_file_id(struct dbox_map *map, struct mail_index_view *view,
 	mail_index_get_header_ext(view, map->map_ext_id, &data, &data_size);
 	if (data_size != sizeof(*hdr)) {
 		if (data_size != 0) {
-			dbox_map_set_corrupted(map, "hdr size=%u", data_size);
+			dbox_map_set_corrupted(map, "hdr size=%"PRIuSIZE_T,
+					       data_size);
 			return -1;
 		}
 		/* first file */
