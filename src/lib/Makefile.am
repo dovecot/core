@@ -101,6 +101,7 @@ liblib_la_SOURCES = \
 	str-sanitize.c \
 	strescape.c \
 	strfuncs.c \
+	time-util.c \
 	unix-socket-create.c \
 	unlink-directory.c \
 	unlink-old-files.c \
@@ -190,6 +191,7 @@ headers = \
 	str-sanitize.h \
 	strescape.h \
 	strfuncs.h \
+	time-util.h \
 	unix-socket-create.h \
 	unlink-directory.h \
 	unlink-old-files.h \

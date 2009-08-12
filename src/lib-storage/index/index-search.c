@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "utc-offset.h"
 #include "str.h"
+#include "time-util.h"
 #include "message-address.h"
 #include "message-date.h"
 #include "message-search.h"
@@ -1120,10 +1121,8 @@ static void index_storage_search_notify(struct mailbox *box,
 		   !ctx->mail_ctx.progress_hidden) {
 		percentage = ctx->mail_ctx.progress_cur * 100.0 /
 			ctx->mail_ctx.progress_max;
-		msecs = (ioloop_timeval.tv_sec -
-			 ctx->search_start_time.tv_sec) * 1000 +
-			(ioloop_timeval.tv_usec -
-			 ctx->search_start_time.tv_usec) / 1000;
+		msecs = timeval_diff_msecs(&ioloop_timeval,
+					   &ctx->search_start_time);
 		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
 
 		T_BEGIN {
@@ -1217,7 +1216,7 @@ static bool search_would_block(struct index_search_context *ctx)
 {
 	struct timeval now;
 	unsigned long long guess_cost;
-	long usecs;
+	long long usecs;
 	bool ret;
 
 	if (ctx->cost < ctx->next_time_check_cost)
@@ -1225,9 +1224,9 @@ static bool search_would_block(struct index_search_context *ctx)
 
 	if (gettimeofday(&now, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
-	usecs = (now.tv_sec - ctx->last_nonblock_timeval.tv_sec) * 1000000 +
-		(now.tv_usec - ctx->last_nonblock_timeval.tv_usec);
-	if (usecs < 0 || now.tv_sec < 0) {
+
+	usecs = timeval_diff_usecs(&now, &ctx->last_nonblock_timeval);
+	if (usecs < 0) {
 		/* clock moved backwards. */
 		ctx->last_nonblock_timeval = now;
 		ctx->next_time_check_cost = SEARCH_INITIAL_MAX_COST;

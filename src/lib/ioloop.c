@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "time-util.h"
 #include "ioloop-internal.h"
 
 #include <unistd.h>
@@ -247,12 +248,8 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 static int timeout_cmp(const void *p1, const void *p2)
 {
 	const struct timeout *to1 = p1, *to2 = p2;
-	int diff;
 
-	diff = to1->next_run.tv_sec - to2->next_run.tv_sec;
-	if (diff == 0)
-		diff = to1->next_run.tv_usec - to2->next_run.tv_usec;
-	return diff;
+	return timeval_cmp(&to1->next_run, &to2->next_run);
 }
 
 static void io_loop_default_time_moved(time_t old_time, time_t new_time)

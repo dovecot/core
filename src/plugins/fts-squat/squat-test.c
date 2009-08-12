@@ -4,6 +4,7 @@
 #include "array.h"
 #include "file-lock.h"
 #include "istream.h"
+#include "time-util.h"
 #include "unichar.h"
 #include "squat-trie.h"
 #include "squat-uidlist.h"
@@ -142,8 +143,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	cputime = (double)(clock_end - clock_start) / CLOCKS_PER_SEC;
 	fprintf(stderr, "\n - Index time: %.2f CPU seconds, "
 		"%.2f real seconds (%.02fMB/CPUs)\n", cputime,
-		(tv_end.tv_sec - tv_start.tv_sec) +
-		(tv_end.tv_usec - tv_start.tv_usec)/1000000.0,
+		timeval_diff_msecs(&tv_end, &tv_start)/1000.0,
 		input->v_offset / cputime / (1024*1024));
 
 	if (stat(trie_path, &trie_st) < 0)

@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "time-util.h"
 #include "hostpid.h"
 #include "maildir-storage.h"
 #include "maildir-keywords.h"
@@ -17,9 +18,7 @@ const char *maildir_filename_generate(void)
 	struct timeval tv;
 
 	/* use secs + usecs to guarantee uniqueness within this process. */
-	if (ioloop_timeval.tv_sec > last_tv.tv_sec ||
-	    (ioloop_timeval.tv_sec == last_tv.tv_sec &&
-	     ioloop_timeval.tv_usec > last_tv.tv_usec))
+	if (timeval_cmp(&ioloop_timeval, &last_tv) > 0)
 		tv = ioloop_timeval;
 	else {
 		tv = last_tv;

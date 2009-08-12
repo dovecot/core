@@ -4,6 +4,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "seq-range-array.h"
+#include "time-util.h"
 #include "imap-resp-code.h"
 #include "imap-quote.h"
 #include "imap-seqset.h"
@@ -325,6 +326,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	unsigned int count;
 	uint32_t id, id_min, id_max;
 	const char *ok_reply;
+	int time_msecs;
 	bool tryagain, minmax, lost_data;
 
 	if (cmd->cancel) {
@@ -408,12 +410,8 @@ static bool cmd_search_more(struct client_command_context *cmd)
 
 	if (gettimeofday(&end_time, NULL) < 0)
 		memset(&end_time, 0, sizeof(end_time));
-	end_time.tv_sec -= ctx->start_time.tv_sec;
-	end_time.tv_usec -= ctx->start_time.tv_usec;
-	if (end_time.tv_usec < 0) {
-		end_time.tv_sec--;
-		end_time.tv_usec += 1000000;
-	}
+
+	time_msecs = timeval_diff_msecs(&end_time, &ctx->start_time);
 
 	sync_flags = MAILBOX_SYNC_FLAG_FAST;
 	if (!cmd->uid || ctx->have_seqsets)
@@ -421,7 +419,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	ok_reply = t_strdup_printf("OK %s%s completed (%d.%03d secs).",
 		lost_data ? "["IMAP_RESP_CODE_EXPUNGEISSUED"] " : "",
 		!ctx->sorting ? "Search"  : "Sort",
-		(int)end_time.tv_sec, (int)(end_time.tv_usec/1000));
+		time_msecs/1000, time_msecs%1000);
 	return cmd_sync(cmd, sync_flags, 0, ok_reply);
 }
 
