@@ -129,6 +129,7 @@ static void main_init(void)
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 
 	clients_init();
+	login_proxy_init();
 	master_auth_init(master_service);
 }
 

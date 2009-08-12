@@ -11,6 +11,7 @@ liblogin_la_SOURCES = \
 	client-common.c \
 	client-common-auth.c \
 	login-proxy.c \
+	login-proxy-state.c \
 	login-settings.c \
 	main.c \
 	sasl-server.c \
@@ -24,6 +25,7 @@ liblogin_la_LIBADD = \
 noinst_HEADERS = \
 	client-common.h \
 	login-proxy.h \
+	login-proxy-state.h \
 	login-settings.h \
 	common.h \
 	sasl-server.h \

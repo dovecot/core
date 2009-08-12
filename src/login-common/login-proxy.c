@@ -6,9 +6,11 @@
 #include "ostream.h"
 #include "llist.h"
 #include "str-sanitize.h"
+#include "time-util.h"
 #include "master-service.h"
 #include "client-common.h"
 #include "ssl-proxy.h"
+#include "login-proxy-state.h"
 #include "login-proxy.h"
 
 #define MAX_PROXY_INPUT_SIZE 4096
@@ -25,7 +27,9 @@ struct login_proxy {
 	struct ip_addr ip;
 	struct ssl_proxy *ssl_proxy;
 
+	struct timeval created;
 	struct timeout *to;
+	struct login_proxy_record *state_rec;
 
 	char *host, *user;
 	unsigned int port;
@@ -38,6 +42,7 @@ struct login_proxy {
 	unsigned int disconnecting:1;
 };
 
+static struct login_proxy_state *proxy_state;
 static struct login_proxy *login_proxies = NULL;
 
 static void server_input(struct login_proxy *proxy)
@@ -129,6 +134,19 @@ static void proxy_plain_connected(struct login_proxy *proxy)
 		io_add(proxy->server_fd, IO_READ, proxy_prelogin_input, proxy);
 }
 
+static void proxy_fail_connect(struct login_proxy *proxy)
+{
+	if (timeval_cmp(&proxy->created, &proxy->state_rec->last_success) < 0) {
+		/* there was a successful connection done since we started
+		   connecting. perhaps this is just a temporary one-off
+		   failure. */
+	} else {
+		proxy->state_rec->last_failure = ioloop_timeval;
+	}
+	proxy->state_rec->num_waiting_connections--;
+	proxy->state_rec = NULL;
+}
+
 static void proxy_wait_connect(struct login_proxy *proxy)
 {
 	int err;
@@ -137,9 +155,13 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 	if (err != 0) {
 		i_error("proxy: connect(%s, %u) failed: %s",
 			proxy->host, proxy->port, strerror(err));
+		proxy_fail_connect(proxy);
                 login_proxy_free(&proxy);
 		return;
 	}
+	proxy->state_rec->last_success = ioloop_timeval;
+	proxy->state_rec->num_waiting_connections--;
+	proxy->state_rec = NULL;
 
 	if (proxy->to != NULL)
 		timeout_remove(&proxy->to);
@@ -159,6 +181,7 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 static void proxy_connect_timeout(struct login_proxy *proxy)
 {
 	i_error("proxy: connect(%s, %u) timed out", proxy->host, proxy->port);
+	proxy_fail_connect(proxy);
 	login_proxy_free(&proxy);
 }
 
@@ -168,6 +191,7 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 		proxy_callback_t *callback, void *context)
 {
 	struct login_proxy *proxy;
+	struct login_proxy_record *rec;
 	struct ip_addr ip;
 	int fd;
 
@@ -182,6 +206,13 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 		return NULL;
 	}
 
+	rec = login_proxy_state_get(proxy_state, &ip);
+	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
+	    rec->num_waiting_connections != 0) {
+		/* the server is down. fail immediately */
+	       return NULL;
+	}
+
 	fd = net_connect_ip(&ip, set->port, NULL);
 	if (fd < 0) {
 		i_error("proxy(%s): connect(%s, %u) failed: %m",
@@ -190,6 +221,7 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 	}
 
 	proxy = i_new(struct login_proxy, 1);
+	proxy->created = ioloop_timeval;
 	proxy->host = i_strdup(set->host);
 	proxy->user = i_strdup(client->virtual_user);
 	proxy->port = set->port;
@@ -208,6 +240,9 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 
 	proxy->ip = client->ip;
 	proxy->client_fd = -1;
+
+	proxy->state_rec = rec;
+	rec->num_waiting_connections++;
 	return proxy;
 }
 
@@ -222,6 +257,11 @@ void login_proxy_free(struct login_proxy **_proxy)
 		return;
 	proxy->destroying = TRUE;
 
+	if (proxy->to != NULL)
+		timeout_remove(&proxy->to);
+
+	if (proxy->state_rec != NULL)
+		proxy->state_rec->num_waiting_connections--;
 	if (proxy->to != NULL)
 		timeout_remove(&proxy->to);
 
@@ -390,6 +430,11 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	return 0;
 }
 
+void login_proxy_init(void)
+{
+	proxy_state = login_proxy_state_init();
+}
+
 void login_proxy_deinit(void)
 {
 	struct login_proxy *proxy;
@@ -398,4 +443,5 @@ void login_proxy_deinit(void)
 		proxy = login_proxies;
 		login_proxy_free(&proxy);
 	}
+	login_proxy_state_deinit(&proxy_state);
 }
