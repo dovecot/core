@@ -228,6 +228,7 @@ test_lib_SOURCES = \
 	test-strescape.c \
 	test-str-find.c \
 	test-str-sanitize.c \
+	test-time-util.c \
 	test-utc-mktime.c
 
 test_headers = \

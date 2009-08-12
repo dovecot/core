@@ -20,6 +20,7 @@ int main(void)
 		test_strescape,
 		test_str_find,
 		test_str_sanitize,
+		test_time_util,
 		test_utc_mktime,
 		NULL
 	};
