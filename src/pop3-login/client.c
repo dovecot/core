@@ -219,6 +219,7 @@ struct client_vfuncs client_vfuncs = {
 	pop3_client_input,
 	pop3_client_send_line,
 	pop3_client_auth_handle_reply,
+	NULL,
 	pop3_proxy_reset,
 	pop3_proxy_parse_line
 };

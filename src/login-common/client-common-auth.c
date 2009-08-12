@@ -337,13 +337,25 @@ static void client_auth_input(struct client *client)
 	}
 }
 
+void client_auth_send_continue(struct client *client, const char *data)
+{
+	struct const_iovec iov[3];
+
+	iov[0].iov_base = "+ ";
+	iov[0].iov_len = 2;
+	iov[1].iov_base = data;
+	iov[1].iov_len = strlen(data);
+	iov[2].iov_base = "\r\n";
+	iov[2].iov_len = 2;
+
+	(void)o_stream_sendv(client->output, iov, 3);
+}
+
 static void
 sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 	      const char *data, const char *const *args)
 {
-	struct const_iovec iov[3];
 	struct client_auth_reply reply;
-	size_t data_len;
 
 	i_assert(!client->destroyed ||
 		 sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED ||
@@ -398,17 +410,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		}
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
-		data_len = strlen(data);
-		iov[0].iov_base = "+ ";
-		iov[0].iov_len = 2;
-		iov[1].iov_base = data;
-		iov[1].iov_len = data_len;
-		iov[2].iov_base = "\r\n";
-		iov[2].iov_len = 2;
-
-		/* don't check return value here. it gets tricky if we try
-		   to call client_destroy() in here. */
-		(void)o_stream_sendv(client->output, iov, 3);
+		client->v.auth_send_continue(client, data);
 
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);

@@ -62,6 +62,9 @@ struct client *client_create(int fd, bool ssl, pool_t pool,
 
 	client = client_vfuncs.alloc(pool);
 	client->v = client_vfuncs;
+	if (client->v.auth_send_continue == NULL)
+		client->v.auth_send_continue = client_auth_send_continue;
+
 	client->created = ioloop_time;
 	client->refcount = 1;
 
