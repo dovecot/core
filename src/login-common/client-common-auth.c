@@ -112,6 +112,8 @@ static void client_auth_parse_args(struct client *client,
 			reply_r->destuser = value;
 		else if (strcmp(key, "pass") == 0)
 			reply_r->password = value;
+		else if (strcmp(key, "proxy_timeout") == 0)
+			reply_r->proxy_timeout_msecs = 1000*atoi(value);
 		else if (strcmp(key, "master") == 0)
 			reply_r->master_user = value;
 		else if (strcmp(key, "ssl") == 0) {
@@ -248,6 +250,8 @@ static void proxy_input(struct client *client)
 static int proxy_start(struct client *client,
 		       const struct client_auth_reply *reply)
 {
+	struct login_proxy_settings proxy_set;
+
 	i_assert(reply->destuser != NULL);
 	i_assert(!client->destroyed);
 
@@ -275,9 +279,14 @@ static int proxy_start(struct client *client,
 		return -1;
 	}
 
+	memset(&proxy_set, 0, sizeof(proxy_set));
+	proxy_set.host = reply->host;
+	proxy_set.port = reply->port;
+	proxy_set.connect_timeout_msecs = reply->proxy_timeout_msecs;
+	proxy_set.ssl_flags = reply->ssl_flags;
+
 	client->login_proxy =
-		login_proxy_new(client, reply->host, reply->port,
-				reply->ssl_flags, proxy_input, client);
+		login_proxy_new(client, &proxy_set, proxy_input, client);
 	if (client->login_proxy == NULL) {
 		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
 				 AUTH_TEMP_FAILED_MSG);

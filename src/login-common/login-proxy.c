@@ -25,6 +25,8 @@ struct login_proxy {
 	struct ip_addr ip;
 	struct ssl_proxy *ssl_proxy;
 
+	struct timeout *to;
+
 	char *host, *user;
 	unsigned int port;
 	enum login_proxy_ssl_flags ssl_flags;
@@ -139,6 +141,9 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 		return;
 	}
 
+	if (proxy->to != NULL)
+		timeout_remove(&proxy->to);
+
 	if ((proxy->ssl_flags & PROXY_SSL_FLAG_YES) != 0 &&
 	    (proxy->ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
 		if (login_proxy_starttls(proxy) < 0) {
@@ -151,43 +156,52 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 	}
 }
 
+static void proxy_connect_timeout(struct login_proxy *proxy)
+{
+	i_error("proxy: connect(%s, %u) timed out", proxy->host, proxy->port);
+	login_proxy_free(&proxy);
+}
+
 #undef login_proxy_new
 struct login_proxy *
-login_proxy_new(struct client *client, const char *host, unsigned int port,
-		enum login_proxy_ssl_flags ssl_flags,
+login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 		proxy_callback_t *callback, void *context)
 {
 	struct login_proxy *proxy;
 	struct ip_addr ip;
 	int fd;
 
-	if (host == NULL) {
+	if (set->host == NULL) {
 		i_error("proxy(%s): host not given", client->virtual_user);
 		return NULL;
 	}
 
-	if (net_addr2ip(host, &ip) < 0) {
+	if (net_addr2ip(set->host, &ip) < 0) {
 		i_error("proxy(%s): %s is not a valid IP",
-			client->virtual_user, host);
+			client->virtual_user, set->host);
 		return NULL;
 	}
 
-	fd = net_connect_ip(&ip, port, NULL);
+	fd = net_connect_ip(&ip, set->port, NULL);
 	if (fd < 0) {
 		i_error("proxy(%s): connect(%s, %u) failed: %m",
-			client->virtual_user, host, port);
+			client->virtual_user, set->host, set->port);
 		return NULL;
 	}
 
 	proxy = i_new(struct login_proxy, 1);
-	proxy->host = i_strdup(host);
+	proxy->host = i_strdup(set->host);
 	proxy->user = i_strdup(client->virtual_user);
-	proxy->port = port;
-	proxy->ssl_flags = ssl_flags;
+	proxy->port = set->port;
+	proxy->ssl_flags = set->ssl_flags;
 	proxy->prelogin_client = client;
 
 	proxy->server_fd = fd;
 	proxy->server_io = io_add(fd, IO_WRITE, proxy_wait_connect, proxy);
+	if (set->connect_timeout_msecs != 0) {
+		proxy->to = timeout_add(set->connect_timeout_msecs,
+					proxy_connect_timeout, proxy);
+	}
 
 	proxy->callback = callback;
 	proxy->context = context;
@@ -207,6 +221,9 @@ void login_proxy_free(struct login_proxy **_proxy)
 	if (proxy->destroying)
 		return;
 	proxy->destroying = TRUE;
+
+	if (proxy->to != NULL)
+		timeout_remove(&proxy->to);
 
 	if (proxy->server_io != NULL)
 		io_remove(&proxy->server_io);

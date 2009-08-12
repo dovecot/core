@@ -13,24 +13,29 @@ enum login_proxy_ssl_flags {
 	PROXY_SSL_FLAG_ANY_CERT	= 0x04
 };
 
+struct login_proxy_settings {
+	const char *host;
+	unsigned int port;
+	unsigned int connect_timeout_msecs;
+	enum login_proxy_ssl_flags ssl_flags;
+};
+
 /* Called when new input comes from proxy. */
 typedef void proxy_callback_t(void *context);
 
 /* Create a proxy to given host. Returns NULL if failed. Given callback is
    called when new input is available from proxy. */
 struct login_proxy *
-login_proxy_new(struct client *client, const char *host, unsigned int port,
-		enum login_proxy_ssl_flags ssl_flags,
+login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 		proxy_callback_t *callback, void *context);
 #ifdef CONTEXT_TYPE_SAFETY
-#  define login_proxy_new(client, host, port, ssl_flags, callback, context) \
+#  define login_proxy_new(client, set, callback, context) \
 	({(void)(1 ? 0 : callback(context)); \
-	  login_proxy_new(client, host, port, ssl_flags, \
+	  login_proxy_new(client, set, \
 		(proxy_callback_t *)callback, context); })
 #else
-#  define login_proxy_new(client, host, port, ssl_flags, callback, context) \
-	  login_proxy_new(client, host, port, ssl_flags, \
-		(proxy_callback_t *)callback, context)
+#  define login_proxy_new(client, set, callback, context) \
+	  login_proxy_new(client, set, (proxy_callback_t *)callback, context)
 #endif
 /* Free the proxy. This should be called if authentication fails. */
 void login_proxy_free(struct login_proxy **proxy);
