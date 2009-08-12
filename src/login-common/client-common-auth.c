@@ -11,6 +11,8 @@
 
 #include <stdlib.h>
 
+#define PROXY_FAILURE_MSG "Account is temporarily unavailable."
+
 /* If we've been waiting auth server to respond for over this many milliseconds,
    send a "waiting" message. */
 #define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
@@ -194,7 +196,7 @@ void client_proxy_failed(struct client *client, bool send_line)
 {
 	if (send_line) {
 		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 AUTH_TEMP_FAILED_MSG);
+				 PROXY_FAILURE_MSG);
 	}
 
 	login_proxy_free(&client->login_proxy);
@@ -260,7 +262,7 @@ static int proxy_start(struct client *client,
 	if (reply->password == NULL) {
 		client_log_err(client, "proxy: password not given");
 		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 AUTH_TEMP_FAILED_MSG);
+				 PROXY_FAILURE_MSG);
 		return -1;
 	}
 
@@ -275,7 +277,7 @@ static int proxy_start(struct client *client,
 				   reply->destuser)) {
 		client_log_err(client, "Proxying loops to itself");
 		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 AUTH_TEMP_FAILED_MSG);
+				 PROXY_FAILURE_MSG);
 		return -1;
 	}
 
@@ -289,7 +291,7 @@ static int proxy_start(struct client *client,
 		login_proxy_new(client, &proxy_set, proxy_input, client);
 	if (client->login_proxy == NULL) {
 		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 AUTH_TEMP_FAILED_MSG);
+				 PROXY_FAILURE_MSG);
 		return -1;
 	}
 
