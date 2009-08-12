@@ -186,8 +186,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		else {
 			gettimeofday(&tv_end, NULL);
 			printf(" - Search took %.05f CPU seconds\n",
-			       (tv_end.tv_sec - tv_start.tv_sec) +
-			       (tv_end.tv_usec - tv_start.tv_usec)/1000000.0);
+			       timeval_diff_usecs(&tv_end, &tv_start)/1000000.0);
 			printf(" - definite uids: ");
 			result_print(&definite_uids);
 			printf(" - maybe uids: ");

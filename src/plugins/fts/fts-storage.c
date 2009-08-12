@@ -5,6 +5,7 @@
 #include "array.h"
 #include "str.h"
 #include "istream.h"
+#include "time-util.h"
 #include "message-parser.h"
 #include "message-decoder.h"
 #include "mail-namespace.h"
@@ -501,10 +502,8 @@ static void fts_build_notify(struct fts_storage_build_context *ctx)
 		range = array_idx(&ctx->search_args->args->value.seqset, 0);
 		percentage = (ctx->mail->seq - range->seq1) * 100.0 /
 			(range->seq2 - range->seq1);
-		msecs = (ioloop_timeval.tv_sec -
-			 ctx->search_start_time.tv_sec) * 1000 +
-			(ioloop_timeval.tv_usec -
-			 ctx->search_start_time.tv_usec) / 1000;
+		msecs = timeval_diff_msecs(&ioloop_timeval,
+					   &ctx->search_start_time);
 		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
 
 		T_BEGIN {
