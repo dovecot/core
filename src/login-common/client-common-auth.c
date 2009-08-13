@@ -22,6 +22,8 @@
 #  error client idle timeout must be larger than authentication timeout
 #endif
 
+#define CLIENT_AUTH_BUF_MAX_SIZE 8192
+
 static void client_authfail_delay_timeout(struct client *client)
 {
 	timeout_remove(&client->to_authfail_delay);
@@ -324,17 +326,45 @@ client_auth_handle_reply(struct client *client,
 	return client->v.auth_handle_reply(client, reply);
 }
 
-int client_auth_parse_response(struct client *client, char **data_r)
+static int client_auth_read_line(struct client *client)
 {
-	if (!client_read(client))
-		return 0;
+	const unsigned char *data;
+	size_t i, size;
+	unsigned int len;
 
-	/* @UNSAFE */
-	*data_r = i_stream_next_line(client->input);
-	if (*data_r == NULL)
-		return 0;
+	if (i_stream_read_data(client->input, &data, &size, 0) == -1) {
+		client_destroy(client, "Disconnected");
+		return -1;
+	}
 
-	if (strcmp(*data_r, "*") == 0) {
+	/* see if we have a full line */
+	for (i = 0; i < size; i++) {
+		if (data[i] == '\n')
+			break;
+	}
+	if (str_len(client->auth_response) + i > CLIENT_AUTH_BUF_MAX_SIZE) {
+		client_destroy(client, "Authentication response too large");
+		return -1;
+	}
+	str_append_n(client->auth_response, data, i);
+	i_stream_skip(client->input, i == size ? size : i+1);
+
+	/* drop trailing \r */
+	len = str_len(client->auth_response);
+	if (len > 0 && str_c(client->auth_response)[len-1] == '\r')
+		str_truncate(client->auth_response, len-1);
+
+	return i < size;
+}
+
+int client_auth_parse_response(struct client *client)
+{
+	int ret;
+
+	if ((ret = client_auth_read_line(client)) <= 0)
+		return ret;
+
+	if (strcmp(str_c(client->auth_response), "*") == 0) {
 		sasl_server_auth_abort(client);
 		return -1;
 	}
@@ -343,18 +373,18 @@ int client_auth_parse_response(struct client *client, char **data_r)
 
 static void client_auth_input(struct client *client)
 {
-	char *line;
 	int ret;
 
-	if ((ret = client->v.auth_parse_response(client, &line)) <= 0)
+	if ((ret = client->v.auth_parse_response(client)) <= 0)
 		return;
 
 	client_set_auth_waiting(client);
-	auth_client_request_continue(client->auth_request, line);
+	auth_client_request_continue(client->auth_request,
+				     str_c(client->auth_response));
 	io_remove(&client->io);
 
-	/* clear sensitive data */
-	safe_memset(line, 0, strlen(line));
+	memset(str_c_modifiable(client->auth_response), 0,
+	       str_len(client->auth_response));
 }
 
 void client_auth_send_challenge(struct client *client, const char *data)
@@ -435,6 +465,8 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);
 
+		str_truncate(client->auth_response, 0);
+
 		i_assert(client->io == NULL);
 		client->io = io_add(client->fd, IO_READ,
 				    client_auth_input, client);
@@ -459,6 +491,9 @@ int client_auth_begin(struct client *client, const char *mech_name,
 		return 1;
 	}
 
+
+	if (client->auth_response == NULL)
+		client->auth_response = str_new(default_pool, 256);
 
 	client_ref(client);
 	client->auth_initializing = TRUE;

@@ -35,7 +35,7 @@ struct log_service_handshake {
 
 /* This should be kept in sync with LOGIN_MAX_INBUF_SIZE. Multiply it by two
    to make sure there's space to transfer the command tag  */
-#define MASTER_AUTH_MAX_DATA_SIZE (4096*2)
+#define MASTER_AUTH_MAX_DATA_SIZE (1024*2)
 
 /* Authentication request. File descriptor may be sent along with the
    request. */

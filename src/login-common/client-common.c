@@ -140,6 +140,8 @@ void client_destroy(struct client *client, const char *reason)
 		timeout_remove(&client->to_auth_waiting);
 	if (client->to_authfail_delay != NULL)
 		timeout_remove(&client->to_authfail_delay);
+	if (client->auth_response != NULL)
+		str_free(&client->auth_response);
 
 	if (client->fd != -1) {
 		net_disconnect(client->fd);

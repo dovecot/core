@@ -7,11 +7,10 @@
 
 /* max. size of input buffer. this means:
 
-   SASL: Max SASL request length from client
    IMAP: Max. length of a single parameter
    POP3: Max. length of a command line (spec says 512 would be enough)
 */
-#define LOGIN_MAX_INBUF_SIZE 4096
+#define LOGIN_MAX_INBUF_SIZE 1024
 /* max. size of output buffer. if it gets full, the client is disconnected.
    SASL authentication gives the largest output. */
 #define LOGIN_MAX_OUTBUF_SIZE 4096
@@ -64,7 +63,7 @@ struct client_vfuncs {
 	bool (*auth_handle_reply)(struct client *client,
 				  const struct client_auth_reply *reply);
 	void (*auth_send_challenge)(struct client *client, const char *data);
-	int (*auth_parse_response)(struct client *client, char **data_r);
+	int (*auth_parse_response)(struct client *client);
 	void (*proxy_reset)(struct client *client);
 	int (*proxy_parse_line)(struct client *client, const char *line);
 };
@@ -98,6 +97,7 @@ struct client {
 
 	char *auth_mech_name;
 	struct auth_request *auth_request;
+	string_t *auth_response;
 
 	unsigned int master_tag;
 	sasl_server_callback_t *sasl_callback;
@@ -157,7 +157,7 @@ void client_send_raw(struct client *client, const char *data);
 
 void client_set_auth_waiting(struct client *client);
 void client_auth_send_challenge(struct client *client, const char *data);
-int client_auth_parse_response(struct client *client, char **data_r);
+int client_auth_parse_response(struct client *client);
 int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp);
 bool client_check_plaintext_auth(struct client *client, bool pass_sent);
