@@ -22,6 +22,7 @@ struct mail_index_view_transaction {
 	unsigned int record_size;
 	unsigned int recs_count;
 	void *recs;
+	ARRAY_DEFINE(all_recs, void *);
 };
 
 static void tview_close(struct mail_index_view *view)
@@ -29,12 +30,20 @@ static void tview_close(struct mail_index_view *view)
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
 	struct mail_index_transaction *t = tview->t;
+	void **recs;
+	unsigned int i, count;
 
 	if (tview->lookup_map != NULL)
 		mail_index_unmap(&tview->lookup_map);
 	if (tview->lookup_return_data != NULL)
 		buffer_free(&tview->lookup_return_data);
-	i_free(tview->recs);
+
+	if (array_is_created(&tview->all_recs)) {
+		recs = array_get_modifiable(&tview->all_recs, &count);
+		for (i = 0; i < count; i++)
+			i_free(recs[i]);
+		array_free(&tview->all_recs);
+	}
 
 	tview->super->close(view);
 	mail_index_transaction_unref(&t);
@@ -93,17 +102,23 @@ tview_apply_flag_updates(struct mail_index_view_transaction *tview,
 	/* yes, we have flag updates. since we can't modify rec directly and
 	   we want to be able to handle multiple mail_index_lookup() calls
 	   without the second one overriding the first one's data, we'll
-	   create a records array and return data from there */
-	if (tview->recs == NULL) {
+	   create a records array and return data from there.
+
+	   it's also possible that the record size increases, so we potentially
+	   have to create multiple arrays. they all get eventually freed when
+	   the view gets freed. */
+	if (map->hdr.record_size > tview->record_size) {
+		if (!array_is_created(&tview->all_recs))
+			i_array_init(&tview->all_recs, 4);
 		tview->recs_count = t->first_new_seq;
 		tview->record_size = I_MAX(map->hdr.record_size,
 					   tview->view.map->hdr.record_size);
 		tview->recs = i_malloc(tview->record_size *
 				       tview->recs_count);
+		array_append(&tview->all_recs, &tview->recs, 1);
 	}
 	i_assert(tview->recs_count == t->first_new_seq);
 	i_assert(seq > 0 && seq <= tview->recs_count);
-	i_assert(map->hdr.record_size <= tview->record_size);
 
 	trec = PTR_OFFSET(tview->recs, (seq-1) * tview->record_size);
 	memcpy(trec, rec, map->hdr.record_size);
