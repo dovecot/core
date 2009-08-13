@@ -88,9 +88,9 @@ resolve_ip(const char *address, struct ip_addr *ip_r, const char **error_r)
 }
 
 static struct service_listener *
-service_create_inet_listener(struct service *service,
-			     const struct inet_listener_settings *set,
-			     const char **error_r)
+service_create_one_inet_listener(struct service *service,
+				 const struct inet_listener_settings *set,
+				 const char *address, const char **error_r)
 {
 	struct service_listener *l;
 
@@ -100,7 +100,7 @@ service_create_inet_listener(struct service *service,
 	l->fd = -1;
 	l->set.inetset.set = set;
 
-	if (resolve_ip(set->address, &l->set.inetset.ip, error_r) < 0)
+	if (resolve_ip(address, &l->set.inetset.ip, error_r) < 0)
 		return NULL;
 
 	if (set->port == 0) {
@@ -113,6 +113,25 @@ service_create_inet_listener(struct service *service,
 	}
 
 	return l;
+}
+
+static int
+service_create_inet_listeners(struct service *service,
+			      const struct inet_listener_settings *set,
+			      const char **error_r)
+{
+	static struct service_listener *l;
+	const char *const *tmp;
+
+	tmp = t_strsplit_spaces(set->address, ", ");
+	for (; *tmp != NULL; tmp++) {
+		l = service_create_one_inet_listener(service, set, *tmp,
+						     error_r);
+		if (l == NULL)
+			return -1;
+		array_append(&service->listeners, &l, 1);
+	}
+	return 0;
 }
 
 static struct service *
@@ -255,11 +274,9 @@ service_create(pool_t pool, const struct service_settings *set,
 		array_append(&service->listeners, &l, 1);
 	}
 	for (i = 0; i < inet_count; i++) {
-		l = service_create_inet_listener(service, inet_listeners[i],
-						 error_r);
-		if (l == NULL)
+		if (service_create_inet_listeners(service, inet_listeners[i],
+						  error_r) < 0)
 			return NULL;
-		array_append(&service->listeners, &l, 1);
 	}
 
 	return service;
