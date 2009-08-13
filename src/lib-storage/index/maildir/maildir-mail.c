@@ -45,6 +45,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 		  bool *deleted_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	struct istream *input;
 	const char *path;
 	int fd = -1;
 
@@ -65,7 +66,9 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 		return NULL;
 	}
 
-	return i_stream_create_fd(fd, MAIL_READ_BLOCK_SIZE, TRUE);
+	input = i_stream_create_fd(fd, MAIL_READ_BLOCK_SIZE, TRUE);
+	i_stream_set_init_buffer_size(input, MAIL_READ_BLOCK_SIZE);
+	return input;
 }
 
 static int maildir_mail_stat(struct mail *mail, struct stat *st)

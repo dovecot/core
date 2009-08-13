@@ -428,6 +428,7 @@ int dbox_file_open(struct dbox_file *file, bool *deleted_r)
 	}
 
 	file->input = i_stream_create_fd(file->fd, MAIL_READ_BLOCK_SIZE, FALSE);
+	i_stream_set_init_buffer_size(file->input, MAIL_READ_BLOCK_SIZE);
 	return file->maildir_file ? 1 :
 		dbox_file_read_header(file);
 }

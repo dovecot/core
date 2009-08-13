@@ -114,6 +114,8 @@ cydir_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 		}
 		mail->data.stream =
 			i_stream_create_fd(fd, MAIL_READ_BLOCK_SIZE, TRUE);
+		i_stream_set_init_buffer_size(mail->data.stream,
+					      MAIL_READ_BLOCK_SIZE);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
