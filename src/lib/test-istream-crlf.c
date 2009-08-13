@@ -84,7 +84,7 @@ static void test_istream_crlf_input(const char *input, unsigned int num)
 	}
 }
 
-static void test_istream_crlf(void)
+void test_istream_crlf(void)
 {
 	const char *input[] = {
 		"\rfoo",
@@ -97,9 +97,4 @@ static void test_istream_crlf(void)
 
 	for (i = 0; i < N_ELEMENTS(input); i++)
 		test_istream_crlf_input(input[i], i);
-}
-
-void test_istream(void)
-{
-	test_istream_crlf();
 }
