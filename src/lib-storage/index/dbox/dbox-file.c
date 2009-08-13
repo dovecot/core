@@ -23,6 +23,8 @@
 #include <ctype.h>
 #include <fcntl.h>
 
+#define DBOX_READ_BLOCK_SIZE 4096
+
 char *dbox_generate_tmp_filename(void)
 {
 	static unsigned int create_count = 0;
@@ -427,8 +429,8 @@ int dbox_file_open(struct dbox_file *file, bool *deleted_r)
 		}
 	}
 
-	file->input = i_stream_create_fd(file->fd, MAIL_READ_BLOCK_SIZE, FALSE);
-	i_stream_set_init_buffer_size(file->input, MAIL_READ_BLOCK_SIZE);
+	file->input = i_stream_create_fd(file->fd, 0, FALSE);
+	i_stream_set_init_buffer_size(file->input, DBOX_READ_BLOCK_SIZE);
 	return file->maildir_file ? 1 :
 		dbox_file_read_header(file);
 }

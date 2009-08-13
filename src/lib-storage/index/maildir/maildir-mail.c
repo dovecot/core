@@ -66,8 +66,8 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 		return NULL;
 	}
 
-	input = i_stream_create_fd(fd, MAIL_READ_BLOCK_SIZE, TRUE);
-	i_stream_set_init_buffer_size(input, MAIL_READ_BLOCK_SIZE);
+	input = i_stream_create_fd(fd, 0, TRUE);
+	index_mail_set_read_buffer_size(mail, input);
 	return input;
 }
 

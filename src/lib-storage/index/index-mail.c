@@ -802,6 +802,17 @@ static void index_mail_stream_destroy_callback(struct index_mail *mail)
 	mail->data.destroying_stream = FALSE;
 }
 
+void index_mail_set_read_buffer_size(struct mail *_mail, struct istream *input)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	unsigned int block_size;
+
+	i_stream_set_max_buffer_size(input, MAIL_READ_FULL_BLOCK_SIZE);
+	block_size = (mail->data.access_part & READ_BODY) != 0 ?
+		MAIL_READ_FULL_BLOCK_SIZE : MAIL_READ_HDR_BLOCK_SIZE;
+	i_stream_set_init_buffer_size(input, block_size);
+}
+
 int index_mail_init_stream(struct index_mail *mail,
 			   struct message_size *hdr_size,
 			   struct message_size *body_size,

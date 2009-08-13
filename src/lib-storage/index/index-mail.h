@@ -174,6 +174,7 @@ int index_mail_get_headers(struct mail *_mail, const char *field,
 int index_mail_get_header_stream(struct mail *_mail,
 				 struct mailbox_header_lookup_ctx *headers,
 				 struct istream **stream_r);
+void index_mail_set_read_buffer_size(struct mail *mail, struct istream *input);
 
 enum mail_flags index_mail_get_flags(struct mail *_mail);
 uint64_t index_mail_get_modseq(struct mail *_mail);
