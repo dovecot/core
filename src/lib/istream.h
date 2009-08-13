@@ -55,6 +55,10 @@ void i_stream_close(struct istream *stream);
    modified, flush any cached data. */
 void i_stream_sync(struct istream *stream);
 
+/* Change the initial size for stream's input buffer. This basically just
+   grows the read buffer size from the default. This function has no effect
+   unless it's called before reading anything. */
+void i_stream_set_init_buffer_size(struct istream *stream, size_t size);
 /* Change the maximum size for stream's input buffer to grow. Useful only
    for buffered streams (currently only file). */
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size);

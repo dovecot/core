@@ -28,7 +28,7 @@ struct istream_private {
 	const unsigned char *buffer;
 	unsigned char *w_buffer; /* may be NULL */
 
-	size_t buffer_size, max_buffer_size;
+	size_t buffer_size, max_buffer_size, init_buffer_size;
 	size_t skip, pos;
 
 	struct istream *parent; /* for filter streams */

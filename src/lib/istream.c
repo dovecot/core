@@ -54,6 +54,11 @@ void i_stream_close(struct istream *stream)
 		stream->stream_errno = ENOENT;
 }
 
+void i_stream_set_init_buffer_size(struct istream *stream, size_t size)
+{
+	stream->real_stream->init_buffer_size = size;
+}
+
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
 {
 	io_stream_set_max_buffer_size(&stream->real_stream->iostream, max_size);
@@ -418,8 +423,8 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 	old_size = stream->buffer_size;
 
 	stream->buffer_size = stream->pos + bytes;
-	if (stream->buffer_size <= I_STREAM_MIN_SIZE)
-		stream->buffer_size = I_STREAM_MIN_SIZE;
+	if (stream->buffer_size <= stream->init_buffer_size)
+		stream->buffer_size = stream->init_buffer_size;
 	else
 		stream->buffer_size = nearest_power(stream->buffer_size);
 
@@ -561,6 +566,8 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 		_stream->iostream.set_max_buffer_size =
 			i_stream_default_set_max_buffer_size;
 	}
+	if (_stream->init_buffer_size == 0)
+		_stream->init_buffer_size = I_STREAM_MIN_SIZE;
 
 	memset(&_stream->statbuf, 0, sizeof(_stream->statbuf));
 	_stream->statbuf.st_size = -1;
