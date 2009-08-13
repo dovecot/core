@@ -324,31 +324,40 @@ client_auth_handle_reply(struct client *client,
 	return client->v.auth_handle_reply(client, reply);
 }
 
+int client_auth_parse_response(struct client *client, char **data_r)
+{
+	if (!client_read(client))
+		return 0;
+
+	/* @UNSAFE */
+	*data_r = i_stream_next_line(client->input);
+	if (*data_r == NULL)
+		return 0;
+
+	if (strcmp(*data_r, "*") == 0) {
+		sasl_server_auth_abort(client);
+		return -1;
+	}
+	return 1;
+}
+
 static void client_auth_input(struct client *client)
 {
 	char *line;
+	int ret;
 
-	if (!client_read(client))
+	if ((ret = client->v.auth_parse_response(client, &line)) <= 0)
 		return;
 
-	/* @UNSAFE */
-	line = i_stream_next_line(client->input);
-	if (line == NULL)
-		return;
+	client_set_auth_waiting(client);
+	auth_client_request_continue(client->auth_request, line);
+	io_remove(&client->io);
 
-	if (strcmp(line, "*") == 0)
-		sasl_server_auth_abort(client);
-	else {
-		client_set_auth_waiting(client);
-		auth_client_request_continue(client->auth_request, line);
-		io_remove(&client->io);
-
-		/* clear sensitive data */
-		safe_memset(line, 0, strlen(line));
-	}
+	/* clear sensitive data */
+	safe_memset(line, 0, strlen(line));
 }
 
-void client_auth_send_continue(struct client *client, const char *data)
+void client_auth_send_challenge(struct client *client, const char *data)
 {
 	struct const_iovec iov[3];
 
@@ -421,7 +430,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		}
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
-		client->v.auth_send_continue(client, data);
+		client->v.auth_send_challenge(client, data);
 
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);

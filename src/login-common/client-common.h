@@ -63,7 +63,8 @@ struct client_vfuncs {
 			  const char *text);
 	bool (*auth_handle_reply)(struct client *client,
 				  const struct client_auth_reply *reply);
-	void (*auth_send_continue)(struct client *client, const char *data);
+	void (*auth_send_challenge)(struct client *client, const char *data);
+	int (*auth_parse_response)(struct client *client, char **data_r);
 	void (*proxy_reset)(struct client *client);
 	int (*proxy_parse_line)(struct client *client, const char *line);
 };
@@ -155,7 +156,8 @@ void client_send_raw_data(struct client *client, const void *data, size_t size);
 void client_send_raw(struct client *client, const char *data);
 
 void client_set_auth_waiting(struct client *client);
-void client_auth_send_continue(struct client *client, const char *data);
+void client_auth_send_challenge(struct client *client, const char *data);
+int client_auth_parse_response(struct client *client, char **data_r);
 int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp);
 bool client_check_plaintext_auth(struct client *client, bool pass_sent);

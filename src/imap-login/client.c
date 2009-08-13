@@ -433,6 +433,7 @@ struct client_vfuncs client_vfuncs = {
 	imap_client_send_line,
 	imap_client_auth_handle_reply,
 	NULL,
+	NULL,
 	imap_proxy_reset,
 	imap_proxy_parse_line
 };
