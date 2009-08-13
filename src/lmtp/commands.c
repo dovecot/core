@@ -285,7 +285,8 @@ static int client_open_raw_mail(struct client *client)
 	if (client->state.mail_data_output != NULL) {
 		o_stream_unref(&client->state.mail_data_output);
 		input = i_stream_create_fd(client->state.mail_data_fd,
-					   MAIL_READ_BLOCK_SIZE, FALSE);
+					   MAIL_READ_FULL_BLOCK_SIZE, FALSE);
+		i_stream_set_init_buffer_size(input, MAIL_READ_FULL_BLOCK_SIZE);
 	} else {
 		input = i_stream_create_from_data(client->state.mail_data->data,
 						  client->state.mail_data->used);
