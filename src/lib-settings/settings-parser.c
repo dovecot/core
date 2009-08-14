@@ -477,6 +477,10 @@ int settings_parse_stream(struct setting_parser_context *ctx,
 			return 0;
 		}
 		ctx->linenum++;
+		if (ctx->linenum == 1 && strncmp(line, "ERROR ", 6) == 0) {
+			ctx->error = p_strdup(ctx->parser_pool, line + 6);
+			return -1;
+		}
 
 		T_BEGIN {
 			line = settings_translate_lf(line);
