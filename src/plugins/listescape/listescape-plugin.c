@@ -44,12 +44,25 @@ static MODULE_CONTEXT_DEFINE_INIT(listescape_storage_module,
 static MODULE_CONTEXT_DEFINE_INIT(listescape_list_module,
 				  &mailbox_list_module_register);
 
-static const char *list_escape(struct mail_namespace *ns,
-			       const char *str, bool change_sep)
+static const char *
+list_escape(struct mail_namespace *ns, const char *str, bool vname)
 {
 	struct listescape_mailbox_list *mlist =
 		LIST_ESCAPE_LIST_CONTEXT(ns->list);
 	string_t *esc = t_str_new(64);
+	unsigned int i;
+
+	for (i = 0; str[i] != '\0'; i++) {
+		if (str[i] == '*' || str[i] == '%')
+			break;
+	}
+	if (i > ns->prefix_len)
+		i = ns->prefix_len;
+
+	if (vname && i > 0 && strncmp(ns->prefix, str, i) == 0) {
+		str_append_n(esc, str, i);
+		str += i;
+	}
 
 	if (*str == '~') {
 		str_printfa(esc, "%c%02x", mlist->escape_char, *str);
@@ -57,7 +70,7 @@ static const char *list_escape(struct mail_namespace *ns,
 	}
 	for (; *str != '\0'; str++) {
 		if (*str == ns->sep) {
-			if (change_sep)
+			if (!vname)
 				str_append_c(esc, ns->list->hierarchy_sep);
 			else
 				str_append_c(esc, *str);
@@ -108,18 +121,18 @@ listescape_mailbox_list_iter_init(struct mailbox_list *list,
 	struct mailbox_list_iterate_context *ctx;
 	const char **escaped_patterns;
 	unsigned int i;
-	bool change_sep;
+	bool vname;
 
 	/* this is kind of kludgy. In ACL code we want to convert patterns,
 	   in maildir renaming code we don't. so for now just use the _RAW_LIST
 	   flag.. */
 	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) == 0) {
-		change_sep = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) == 0;
+		vname = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0;
 		escaped_patterns = t_new(const char *,
 					 str_array_length(patterns) + 1);
 		for (i = 0; patterns[i] != NULL; i++) {
 			escaped_patterns[i] =
-				list_escape(list->ns, patterns[i], change_sep);
+				list_escape(list->ns, patterns[i], vname);
 		}
 		patterns = escaped_patterns;
 	}
@@ -148,7 +161,9 @@ listescape_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 		return info;
 
 	str_truncate(mlist->list_name, 0);
-	list_unescape_str(ctx->list->ns, info->name, mlist->list_name);
+	str_append(mlist->list_name, ctx->list->ns->prefix);
+	list_unescape_str(ctx->list->ns, info->name + ctx->list->ns->prefix_len,
+			  mlist->list_name);
 	mlist->info = *info;
 	mlist->info.name = str_c(mlist->list_name);
 	return &mlist->info;
@@ -178,7 +193,7 @@ listescape_mailbox_alloc(struct mail_storage *storage,
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
 	if (!mlist->name_escaped && list->hierarchy_sep != list->ns->sep)
-		name = list_escape(list->ns, name, TRUE);
+		name = list_escape(list->ns, name, FALSE);
 	return mstorage->module_ctx.super.
 		mailbox_alloc(storage, list, name, input, flags);
 }
@@ -190,7 +205,7 @@ listescape_delete_mailbox(struct mailbox_list *list, const char *name)
 	int ret;
 
 	/* at least quota plugin opens the mailbox when deleting it */
-	name = list_escape(list->ns, name, TRUE);
+	name = list_escape(list->ns, name, FALSE);
 	mlist->name_escaped = TRUE;
 	ret = mlist->module_ctx.super.delete_mailbox(list, name);
 	mlist->name_escaped = FALSE;
@@ -205,8 +220,8 @@ listescape_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 	struct listescape_mailbox_list *old_mlist =
 		LIST_ESCAPE_LIST_CONTEXT(oldlist);
 
-	oldname = list_escape(oldlist->ns, oldname, TRUE);
-	newname = list_escape(newlist->ns, newname, TRUE);
+	oldname = list_escape(oldlist->ns, oldname, FALSE);
+	newname = list_escape(newlist->ns, newname, FALSE);
 	return old_mlist->module_ctx.super.
 		rename_mailbox(oldlist, oldname, newlist, newname,
 			       rename_children);
@@ -217,7 +232,7 @@ static int listescape_set_subscribed(struct mailbox_list *list,
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
-	name = list_escape(list->ns, name, TRUE);
+	name = list_escape(list->ns, name, FALSE);
 	return mlist->module_ctx.super.set_subscribed(list, name, set);
 }
 
@@ -227,7 +242,7 @@ static int listescape_get_mailbox_name_status(struct mailbox_list *list,
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
-	name = list_escape(list->ns, name, TRUE);
+	name = list_escape(list->ns, name, FALSE);
 	return mlist->module_ctx.super.
 		get_mailbox_name_status(list, name, status);
 }
@@ -237,7 +252,7 @@ static bool listescape_is_valid_existing_name(struct mailbox_list *list,
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
-	name = list_escape(list->ns, name, TRUE);
+	name = list_escape(list->ns, name, FALSE);
 	return mlist->module_ctx.super.is_valid_existing_name(list, name);
 }
 
@@ -246,7 +261,7 @@ static bool listescape_is_valid_create_name(struct mailbox_list *list,
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
-	name = list_escape(list->ns, name, TRUE);
+	name = list_escape(list->ns, name, FALSE);
 	return mlist->module_ctx.super.is_valid_create_name(list, name);
 }
 
