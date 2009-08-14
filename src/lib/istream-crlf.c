@@ -97,6 +97,7 @@ static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 			/* CR without LF */
 			stream->w_buffer[dest++] = '\r';
 			if (dest == stream->buffer_size) {
+				stream->pos++;
 				cstream->pending_cr = FALSE;
 				return 1;
 			}

@@ -5,21 +5,19 @@
 #include "istream-internal.h"
 #include "istream-crlf.h"
 
-static void test_istream_crlf_input(const char *input, unsigned int num)
+static void test_istream_crlf_input(const char *input)
 {
 	string_t *output;
 	const unsigned char *data;
 	size_t size;
-	ssize_t ret;
+	ssize_t ret1, ret2;
 	unsigned int i, j, pos, input_len = strlen(input);
 	struct istream *istream, *crlf_istream;
-	bool success;
 
 	output = t_str_new(256);
 
 	for (j = 0; j < 4; j++) {
 		istream = i_stream_create_from_data(input, input_len);
-		success = TRUE;
 		str_truncate(output, 0);
 		if (j%2 == 0) {
 			/* drop CRs */
@@ -55,32 +53,24 @@ static void test_istream_crlf_input(const char *input, unsigned int num)
 				pos = 0;
 			}
 			istream->real_stream->pos = i;
+			ret1 = i_stream_read(crlf_istream);
 			if (crlf_istream->real_stream->buffer_size != 0) {
 				/* this is pretty evil */
 				crlf_istream->real_stream->buffer_size =
 					I_MAX(crlf_istream->real_stream->pos, i);
 			}
-			ret = i_stream_read(crlf_istream);
+			ret2 = i_stream_read(crlf_istream);
 			data = i_stream_get_data(crlf_istream, &size);
-			if (ret > 0) {
-				if (pos + (unsigned int)ret != size) {
-					success = FALSE;
-					break;
-				}
-				pos += ret;
+			if (ret1 > 0 || ret2 > 0) {
+				ret1 = I_MAX(ret1, 0) + I_MAX(ret2, 0);
+				test_assert(pos + (unsigned int)ret1 == size);
+				pos += ret1;
 			}
-			if (memcmp(data, str_data(output), size) != 0) {
-				success = FALSE;
-				break;
-			}
+			test_assert(memcmp(data, str_data(output), size) == 0);
 		}
-		if (size != str_len(output))
-			success = FALSE;
+		test_assert(size == str_len(output));
 		i_stream_unref(&crlf_istream);
 		i_stream_unref(&istream);
-
-		test_out(t_strdup_printf("test_istream_crlf(%d)", num*4+j),
-			 success);
 	}
 }
 
@@ -95,6 +85,8 @@ void test_istream_crlf(void)
 	};
 	unsigned int i;
 
+	test_begin("istream crlf");
 	for (i = 0; i < N_ELEMENTS(input); i++)
-		test_istream_crlf_input(input[i], i);
+		test_istream_crlf_input(input[i]);
+	test_end();
 }
