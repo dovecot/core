@@ -205,6 +205,7 @@ int main(int argc, char *argv[])
 	enum config_dump_flags flags = CONFIG_DUMP_FLAG_DEFAULTS;
 	const char *getopt_str, *config_path, *module = "";
 	struct config_filter filter;
+	const char *error;
 	char **exec_args = NULL;
 	int c;
 
@@ -247,7 +248,8 @@ int main(int argc, char *argv[])
 	}
 	master_service_init_finish(master_service);
 
-	config_parse_file(config_path, FALSE);
+	if (config_parse_file(config_path, FALSE, &error) < 0)
+		i_fatal("%s", error);
 
 	if (exec_args == NULL) {
 		const char *info;

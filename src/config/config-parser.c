@@ -7,6 +7,7 @@
 #include "strescape.h"
 #include "istream.h"
 #include "settings-parser.h"
+#include "all-settings.h"
 #include "config-filter.h"
 #include "config-parser.h"
 
@@ -43,12 +44,14 @@ struct parser_context {
 	ARRAY_DEFINE(all_parsers, struct config_filter_parser_list *);
 	/* parsers matching cur_filter */
 	ARRAY_TYPE(config_setting_parsers) cur_parsers;
+	struct config_setting_parser_list *root_parsers;
 	struct config_filter_stack *cur_filter;
 	struct input_stack *cur_input;
 
 	struct config_filter_context *filter;
 };
 
+struct config_setting_parser_list *config_setting_parsers;
 struct config_filter_context *config_filter;
 
 static const char *info_type_name_find(const struct setting_parser_info *info)
@@ -171,7 +174,7 @@ config_add_new_parser(struct parser_context *ctx)
 	cur_parsers = array_get(&ctx->cur_parsers, &count);
 	if (count == 0) {
 		/* first one */
-		parser->parser_list = config_setting_parsers;
+		parser->parser_list = ctx->root_parsers;
 	} else {
 		/* duplicate the first settings list */
 		parser->parser_list =
@@ -223,30 +226,38 @@ config_update_cur_parsers(struct parser_context *ctx)
 	return array_idx(&ctx->cur_parsers, 0);
 }
 
-static void
+static int
 config_filter_parser_list_check(struct parser_context *ctx,
-				struct config_filter_parser_list *parser)
+				struct config_filter_parser_list *parser,
+				const char **error_r)
 {
 	struct config_setting_parser_list *l = parser->parser_list;
 	const char *errormsg;
 
 	for (; l->module_name != NULL; l++) {
 		if (!settings_parser_check(l->parser, ctx->pool, &errormsg)) {
-			i_fatal("Error in configuration file %s: %s",
+			*error_r = t_strdup_printf(
+				"Error in configuration file %s: %s",
 				ctx->path, errormsg);
+			return -1;
 		}
 	}
+	return 0;
 }
 
-static void
-config_all_parsers_check(struct parser_context *ctx)
+static int
+config_all_parsers_check(struct parser_context *ctx, const char **error_r)
 {
 	struct config_filter_parser_list *const *parsers;
 	unsigned int i, count;
 
 	parsers = array_get(&ctx->all_parsers, &count);
-	for (i = 0; i < count; i++)
-		config_filter_parser_list_check(ctx, parsers[i]);
+	for (i = 0; i < count; i++) {
+		if (config_filter_parser_list_check(ctx, parsers[i],
+						    error_r) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static void
@@ -345,37 +356,45 @@ settings_include(struct parser_context *ctx, const char *pattern,
 #endif
 }
 
-void config_parse_file(const char *path, bool expand_files)
+int config_parse_file(const char *path, bool expand_files,
+		      const char **error_r)
 {
 	enum settings_parser_flags parser_flags =
                 SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS;
 	struct input_stack root;
 	ARRAY_TYPE(const_string) auth_defaults;
-	struct config_setting_parser_list *l, *const *parsers;
+	struct config_setting_parser_list *const *parsers;
 	struct parser_context ctx;
 	unsigned int pathlen = 0;
-	unsigned int counter = 0, auth_counter = 0, cur_counter;
+	unsigned int i, count, counter = 0, auth_counter = 0, cur_counter;
 	const char *errormsg, *name;
 	char *line, *key, *p;
-	int fd, ret;
+	int fd, ret = 0;
 	string_t *str, *full_line;
 	size_t len;
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		*error_r = t_strdup_printf("open(%s) failed: %m", path);
+		return -1;
+	}
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("config file parser", 1024*64);
 	ctx.path = path;
 
-	fd = open(path, O_RDONLY);
-	if (fd < 0)
-		i_fatal("open(%s) failed: %m", path);
-
-	t_array_init(&auth_defaults, 32);
-
-	for (l = config_setting_parsers; l->module_name != NULL; l++) {
-		i_assert(l->parser == NULL);
-		l->parser = settings_parser_init(ctx.pool, l->root, parser_flags);
+	for (count = 0; all_roots[count].module_name != NULL; count++) ;
+	ctx.root_parsers =
+		p_new(ctx.pool, struct config_setting_parser_list, count+1);
+	for (i = 0; i < count; i++) {
+		ctx.root_parsers[i].module_name = all_roots[i].module_name;
+		ctx.root_parsers[i].root = all_roots[i].root;
+		ctx.root_parsers[i].parser =
+			settings_parser_init(ctx.pool, all_roots[i].root,
+					     parser_flags);
 	}
 
+	t_array_init(&auth_defaults, 32);
 	t_array_init(&ctx.cur_parsers, 128);
 	p_array_init(&ctx.all_parsers, ctx.pool, 128);
 	ctx.cur_filter = p_new(ctx.pool, struct config_filter_stack, 1);
@@ -454,7 +473,6 @@ prevfile:
 			while (IS_WHITE(*line)) line++;
 		}
 
-		ret = 1;
 		if (strcmp(key, "!include_try") == 0 ||
 		    strcmp(key, "!include") == 0) {
 			if (settings_include(&ctx, fix_relative_path(line, ctx.cur_input),
@@ -600,9 +618,11 @@ prevfile:
 		}
 
 		if (errormsg != NULL) {
-			i_fatal("Error in configuration file %s line %d: %s",
+			*error_r = t_strdup_printf(
+				"Error in configuration file %s line %d: %s",
 				ctx.cur_input->path, ctx.cur_input->linenum,
 				errormsg);
+			ret = -1;
 			break;
 		}
 		str_truncate(full_line, 0);
@@ -613,9 +633,21 @@ prevfile:
 	if (line == NULL && ctx.cur_input != NULL)
 		goto prevfile;
 
-	config_all_parsers_check(&ctx);
+	if (ret == 0) {
+		if (config_all_parsers_check(&ctx, error_r) < 0)
+			ret = -1;
+	}
+	if (ret < 0) {
+		pool_unref(&ctx.pool);
+		return -1;
+	}
+
+	if (config_filter != NULL)
+		config_filter_deinit(&config_filter);
+	config_setting_parsers = ctx.root_parsers;
 
 	(void)array_append_space(&ctx.all_parsers);
 	config_filter = config_filter_init(ctx.pool);
 	config_filter_add_all(config_filter, array_idx(&ctx.all_parsers, 0));
+	return 0;
 }

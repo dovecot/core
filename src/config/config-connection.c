@@ -7,6 +7,7 @@
 #include "settings-parser.h"
 #include "master-service.h"
 #include "config-request.h"
+#include "config-parser.h"
 #include "config-connection.h"
 
 #include <stdlib.h>
@@ -61,11 +62,11 @@ config_request_output(const char *key, const char *value,
 	o_stream_send_str(output, "\n");
 }
 
-static void config_connection_request(struct config_connection *conn,
-				      const char *const *args)
+static int config_connection_request(struct config_connection *conn,
+				     const char *const *args)
 {
 	struct config_filter filter;
-	const char *module = "";
+	const char *path, *error, *module = "";
 
 	/* [<args>] */
 	memset(&filter, 0, sizeof(filter));
@@ -89,11 +90,23 @@ static void config_connection_request(struct config_connection *conn,
 		}
 	}
 
+	if (strcmp(module, "master") == 0) {
+		/* master reads configuration only when reloading settings */
+		path = master_service_get_config_path(master_service);
+		if (config_parse_file(path, TRUE, &error) < 0) {
+			o_stream_send_str(conn->output,
+				t_strconcat("ERROR ", error, "\n", NULL));
+			config_connection_destroy(conn);
+			return -1;
+		}
+	}
+
 	o_stream_cork(conn->output);
 	config_request_handle(&filter, module, 0, config_request_output,
 			      conn->output);
 	o_stream_send_str(conn->output, "\n");
 	o_stream_uncork(conn->output);
+	return 0;
 }
 
 static void config_connection_input(void *context)
@@ -130,8 +143,10 @@ static void config_connection_input(void *context)
 	while ((args = config_connection_next_line(conn)) != NULL) {
 		if (args[0] == NULL)
 			continue;
-		if (strcmp(args[0], "REQ") == 0)
-			config_connection_request(conn, args + 1);
+		if (strcmp(args[0], "REQ") == 0) {
+			if (config_connection_request(conn, args + 1) < 0)
+				break;
+		}
 	}
 }
 

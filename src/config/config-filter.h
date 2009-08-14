@@ -2,7 +2,6 @@
 #define CONFIG_FILTER_H
 
 #include "network.h"
-#include "all-settings.h"
 
 struct config_filter {
 	const char *service;

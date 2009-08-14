@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "config-parser.h"
 #include "config-filter.h"
 
 struct config_filter_context {

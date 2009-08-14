@@ -18,6 +18,7 @@ static void client_connected(const struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
+	const char *path, *error;
 	int c;
 
 	master_service = master_service_init("config", 0, argc, argv);
@@ -28,7 +29,10 @@ int main(int argc, char *argv[])
 
 	master_service_init_log(master_service, "config: ", 0);
 	master_service_init_finish(master_service);
-	config_parse_file(master_service_get_config_path(master_service), TRUE);
+
+	path = master_service_get_config_path(master_service);
+	if (config_parse_file(path, TRUE, &error) < 0)
+		i_fatal("%s", error);
 
 	master_service_run(master_service, client_connected);
 	config_connections_destroy_all();

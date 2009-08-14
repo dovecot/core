@@ -87,7 +87,7 @@ foreach my $file (@ARGV) {
   close $f;
 }
 
-print "struct config_setting_parser_list config_setting_parsers[] = {\n";
+print "const struct all_settings_root all_roots[] = {\n";
 foreach my $name (keys %parsers) {
   next if (!$parsers{$name});
 
@@ -95,7 +95,7 @@ foreach my $name (keys %parsers) {
   if ($name =~ /^([^_]*)/) {
     $module = $1;
   }
-  print "  { \"$module\", &".$name.", NULL, NULL }, \n";
+  print "  { \"$module\", &".$name." }, \n";
 }
-print "  { NULL, NULL, NULL, NULL }\n";
+print "  { NULL, NULL }\n";
 print "};\n";
