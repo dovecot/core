@@ -569,6 +569,9 @@ int settings_parse_environ(struct setting_parser_context *ctx)
 	unsigned int i, count;
 	int ret = 0;
 
+	if (environ == NULL)
+		return 0;
+
 	/* sort the settings first. this is necessary for putenv()
 	   implementations (e.g. valgrind) which change the order of strings
 	   in environ[] */
