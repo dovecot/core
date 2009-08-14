@@ -6,6 +6,8 @@
 #include "aqueue.h"
 #include "hash.h"
 #include "str.h"
+#include "master-service.h"
+#include "master-service-settings.h"
 #include "service.h"
 #include "service-anvil.h"
 #include "service-process.h"
@@ -13,6 +15,10 @@
 
 #include <unistd.h>
 #include <signal.h>
+
+#define SERVICE_DIE_TIMEOUT_MSECS (1000*10)
+
+struct hash_table *service_pids;
 
 void service_error(struct service *service, const char *format, ...)
 {
@@ -311,9 +317,9 @@ service_lookup(struct service_list *service_list, const char *name)
 	return NULL;
 }
 
-struct service_list *
-services_create(const struct master_settings *set,
-		const char *const *child_process_env, const char **error_r)
+int services_create(const struct master_settings *set,
+		    const char *const *child_process_env,
+		    struct service_list **services_r, const char **error_r)
 {
 	struct service_list *service_list;
 	struct service *service, *const *services;
@@ -325,7 +331,10 @@ services_create(const struct master_settings *set,
 	pool = pool_alloconly_create("services pool", 4096);
 
 	service_list = p_new(pool, struct service_list, 1);
+	service_list->refcount = 1;
 	service_list->pool = pool;
+	service_list->service_set = master_service_settings_get(master_service);
+	service_list->set_pool = master_service_settings_detach(master_service);
 	service_list->child_process_env = child_process_env;
 	service_list->master_log_fd[0] = -1;
 	service_list->master_log_fd[1] = -1;
@@ -339,21 +348,21 @@ services_create(const struct master_settings *set,
 		if (service == NULL) {
 			*error_r = t_strdup_printf("service(%s) %s",
 				service_settings[i]->name, error);
-			return NULL;
+			return -1;
 		}
 
 		switch (service->type) {
 		case SERVICE_TYPE_LOG:
 			if (service_list->log != NULL) {
 				*error_r = "Multiple log services specified";
-				return NULL;
+				return -1;
 			}
 			service_list->log = service;
 			break;
 		case SERVICE_TYPE_CONFIG:
 			if (service_list->config != NULL) {
 				*error_r = "Multiple config services specified";
-				return NULL;
+				return -1;
 			}
 			service_list->config = service;
 			break;
@@ -376,27 +385,26 @@ services_create(const struct master_settings *set,
 				*error_r = t_strdup_printf(
 					"auth_dest_service doesn't exist: %s",
 					dest_service);
-				return NULL;
+				return -1;
 			}
 		}
 	}
 
 	if (service_list->log == NULL) {
 		*error_r = "log service not specified";
-		return NULL;
+		return -1;
 	}
 
 	if (service_list->config == NULL) {
 		*error_r = "config process not specified";
-		return NULL;
+		return -1;
 	}
 
 	if (service_list_init_anvil(service_list, error_r) < 0)
-		return NULL;
+		return -1;
 
-	service_list->pids = hash_table_create(default_pool, pool, 0,
-					       pid_hash, pid_hash_cmp);
-	return service_list;
+	*services_r = service_list;
+	return 0;
 }
 
 void service_signal(struct service *service, int signo)
@@ -404,7 +412,7 @@ void service_signal(struct service *service, int signo)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	iter = hash_table_iterate_init(service->list->pids);
+	iter = hash_table_iterate_init(service_pids);
 	while (hash_table_iterate(iter, &key, &value)) {
 		struct service_process *process = value;
 
@@ -419,25 +427,69 @@ void service_signal(struct service *service, int signo)
 	hash_table_iterate_deinit(&iter);
 }
 
+static void services_kill_timeout(struct service_list *service_list)
+{
+	struct service *const *services;
+	unsigned int i, count;
+	int sig;
+
+	if (!service_list->sigterm_sent)
+		sig = SIGTERM;
+	else
+		sig = SIGKILL;
+	service_list->sigterm_sent = TRUE;
+
+	i_warning("Processes aren't dying after reload, sending %s.",
+		  sig == SIGTERM ? "SIGTERM" : "SIGKILL");
+
+	services = array_get(&service_list->services, &count);
+	for (i = 0; i < count; i++)
+		service_signal(services[i], sig);
+}
+
 void services_destroy(struct service_list *service_list)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
-
 	/* make sure we log if child processes died unexpectedly */
-        services_monitor_reap_children(service_list);
+        services_monitor_reap_children();
 
 	services_monitor_stop(service_list);
-
-	/* free all child process information */
-	iter = hash_table_iterate_init(service_list->pids);
-	while (hash_table_iterate(iter, &key, &value))
-		service_process_destroy(value);
-	hash_table_iterate_deinit(&iter);
-
 	service_list_deinit_anvil(service_list);
-	hash_table_destroy(&service_list->pids);
+
+	if (service_list->refcount > 1) {
+		service_list->to_kill =
+			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
+				    services_kill_timeout, service_list);
+	}
+
+	service_list_unref(service_list);
+}
+
+void service_list_ref(struct service_list *service_list)
+{
+	i_assert(service_list->refcount > 0);
+	service_list->refcount++;
+}
+
+void service_list_unref(struct service_list *service_list)
+{
+	i_assert(service_list->refcount > 0);
+	if (--service_list->refcount > 0)
+		return;
+
+	if (service_list->to_kill != NULL)
+		timeout_remove(&service_list->to_kill);
+	pool_unref(&service_list->set_pool);
 	pool_unref(&service_list->pool);
+}
+
+const char *services_get_config_socket_path(struct service_list *service_list)
+{
+        struct service_listener *const *listeners;
+	unsigned int count;
+
+	listeners = array_get(&service_list->config->listeners, &count);
+	i_assert(count > 0);
+	return listeners[0]->set.fileset.set->path;
 }
 
 static void service_throttle_timeout(struct service *service)
@@ -467,4 +519,23 @@ void services_throttle_time_sensitives(struct service_list *list,
 		if (services[i]->type == SERVICE_TYPE_UNKNOWN)
 			service_throttle(services[i], secs);
 	}
+}
+
+void service_pids_init(void)
+{
+	service_pids = hash_table_create(default_pool, default_pool, 0,
+					 pid_hash, pid_hash_cmp);
+}
+
+void service_pids_deinit(void)
+{
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
+	/* free all child process information */
+	iter = hash_table_iterate_init(service_pids);
+	while (hash_table_iterate(iter, &key, &value))
+		service_process_destroy(value);
+	hash_table_iterate_deinit(&iter);
+	hash_table_destroy(&service_pids);
 }

@@ -44,7 +44,7 @@ static void service_status_input(struct service *service)
 		break;
 	}
 
-	process = hash_table_lookup(service->list->pids, &status.pid);
+	process = hash_table_lookup(service_pids, &status.pid);
 	if (process == NULL) {
 		/* we've probably wait()ed it away already. ignore */
 		return;
@@ -239,7 +239,7 @@ static void service_process_failure(struct service_process *process, int status)
 		service_process_notify_add(service->list->anvil_kills, process);
 }
 
-void services_monitor_reap_children(struct service_list *service_list)
+void services_monitor_reap_children(void)
 {
 	struct service_process *process;
 	struct service *service;
@@ -247,7 +247,7 @@ void services_monitor_reap_children(struct service_list *service_list)
 	int status;
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		process = hash_table_lookup(service_list->pids, &pid);
+		process = hash_table_lookup(service_pids, &pid);
 		if (process == NULL) {
 			i_error("waitpid() returned unknown PID %s",
 				dec2str(pid));

@@ -204,7 +204,7 @@ service_process_auth_source_input(struct service_process_auth_source *process)
 	fd_close_on_exec(client_fd, TRUE);
 
 	/* we have a request. check its validity. */
-	auth_process = hash_table_lookup(service->list->pids, &req.auth_pid);
+	auth_process = hash_table_lookup(service_pids, &req.auth_pid);
 	if (auth_process == NULL) {
 		service_error(service, "authentication request for unknown "
 			      "auth server PID %s", dec2str(req.auth_pid));

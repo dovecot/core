@@ -27,6 +27,7 @@
 
 #define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
 
+#define MASTER_SERVICE_NAME "master"
 #define FATAL_FILENAME "master-fatal.lastlog"
 #define MASTER_PID_FILE_NAME "master.pid"
 #define SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS (60*3)
@@ -41,8 +42,12 @@ int null_fd;
 static char *pidfile_path;
 static struct service_list *services;
 static fatal_failure_callback_t *orig_fatal_callback;
-
 static const char *child_process_env[3]; /* @UNSAFE */
+
+static const struct setting_parser_info *set_roots[] = {
+	&master_setting_parser_info,
+	NULL
+};
 
 void process_exec(const char *cmd, const char *extra_args[])
 {
@@ -304,32 +309,41 @@ static void
 sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		    void *context ATTR_UNUSED)
 {
-	struct master_settings *new_set;
+	struct master_service_settings_input input;
+	const struct master_settings *set;
+	void **sets;
 	struct service_list *new_services;
 	const char *error;
-	pool_t pool;
 
 	/* see if hostname changed */
 	hostpid_init();
 
-#if 0 // FIXME
-	/* FIXME: this loses process structures for existing processes.
-	   figure out something. */
-	new_set = master_settings_read(pool, config_binary, config_path);
-	new_services = new_set == NULL ? NULL :
-		services_create(new_set, child_process_env, &error);
-#endif
-	if (new_services == NULL) {
+	memset(&input, 0, sizeof(input));
+	input.roots = set_roots;
+	input.module = MASTER_SERVICE_NAME;
+	input.config_path = services_get_config_socket_path(services);
+	if (master_service_settings_read(master_service, &input, &error) < 0) {
+		i_error("Error reading configuration: %s", error);
+		return;
+	}
+	sets = master_service_settings_get_others(master_service);
+	set = sets[0];
+
+	if (services_create(set, child_process_env,
+			    &new_services, &error) < 0) {
 		/* new configuration is invalid, keep the old */
 		i_error("Config reload failed: %s", error);
 		return;
 	}
+	new_services->config->config_file_path =
+		p_strdup(new_services->pool,
+			 services->config->config_file_path);
 
 	/* switch to new configuration. */
 	(void)services_listen_using(new_services, services);
 	services_destroy(services);
-	services = new_services;
 
+	services = new_services;
         services_monitor_start(services);
 }
 
@@ -342,7 +356,7 @@ sig_log_reopen(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 static void
 sig_reap_children(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
-	services_monitor_reap_children(services);
+	services_monitor_reap_children();
 }
 
 static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
@@ -404,6 +418,7 @@ static void main_deinit(void)
 	i_free(pidfile_path);
 
 	services_destroy(services);
+	service_pids_deinit();
 }
 
 static const char *get_full_config_path(struct service_list *list)
@@ -571,10 +586,6 @@ static void print_build_options(void)
 
 int main(int argc, char *argv[])
 {
-	static const struct setting_parser_info *set_roots[] = {
-		&master_setting_parser_info,
-		NULL
-	};
 	struct master_settings *set;
 	unsigned int child_process_env_idx = 0;
 	const char *getopt_str, *error, *env_tz, *doveconf_arg = NULL;
@@ -589,7 +600,7 @@ int main(int argc, char *argv[])
 	else
 		child_process_env[child_process_env_idx++] = "GDB=1";
 #endif
-	master_service = master_service_init("master",
+	master_service = master_service_init(MASTER_SERVICE_NAME,
 				MASTER_SERVICE_FLAG_STANDALONE |
 				MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
 				argc, argv);
@@ -721,8 +732,8 @@ int main(int argc, char *argv[])
 
 	/* create service structures from settings. if there are any errors in
 	   service configuration we'll catch it here. */
-	services = services_create(set, child_process_env, &error);
-	if (services == NULL)
+	service_pids_init();
+	if (services_create(set, child_process_env, &services, &error) < 0)
 		i_fatal("%s", error);
 
 	services->config->config_file_path = get_full_config_path(services);

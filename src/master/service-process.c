@@ -367,10 +367,9 @@ static void drop_privileges(struct service *service,
 static void
 service_process_setup_environment(struct service *service, unsigned int uid)
 {
-	const struct master_service_settings *set;
-        struct service_listener *const *listeners;
+	const struct master_service_settings *set = service->list->service_set;
 	const char *const *p;
-	unsigned int limit, count;
+	unsigned int limit;
 
 	/* remove all environment, and put back what we need */
 	env_clean();
@@ -385,7 +384,6 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 	case SERVICE_TYPE_LOG:
 		/* give the log's configuration directly, so it won't depend
 		   on config process */
-		set = master_service_settings_get(master_service);
 		env_put("DOVECONF_ENV=1");
 		env_put(t_strconcat("LOG_PATH=", set->log_path, NULL));
 		env_put(t_strconcat("INFO_LOG_PATH=", set->info_log_path, NULL));
@@ -393,11 +391,8 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 		env_put(t_strconcat("SYSLOG_FACILITY=", set->syslog_facility, NULL));
 		break;
 	default:
-		listeners = array_get(&service->list->config->listeners,
-				      &count);
-		i_assert(count > 0);
 		env_put(t_strconcat(MASTER_CONFIG_FILE_ENV"=",
-				    listeners[0]->set.fileset.set->path, NULL));
+			services_get_config_socket_path(service->list), NULL));
 		break;
 	}
 
@@ -534,15 +529,17 @@ service_process_create(struct service *service, const char *const *auth_args,
 	service->process_count++;
 	service->process_avail++;
 
-	hash_table_insert(service->list->pids, &process->pid, process);
+	service_list_ref(service->list);
+	hash_table_insert(service_pids, &process->pid, process);
 	return process;
 }
 
 void service_process_destroy(struct service_process *process)
 {
 	struct service *service = process->service;
+	struct service_list *service_list = service->list;
 
-	hash_table_remove(service->list->pids, &process->pid);
+	hash_table_remove(service_pids, &process->pid);
 
 	if (process->available_count > 0)
 		service->process_avail--;
@@ -568,6 +565,7 @@ void service_process_destroy(struct service_process *process)
 
 	process->destroyed = TRUE;
 	service_process_unref(process);
+	service_list_unref(service_list);
 }
 
 void service_process_ref(struct service_process *process)

@@ -61,9 +61,6 @@ struct master_settings {
 
 extern struct setting_parser_info master_setting_parser_info;
 
-struct master_settings *
-master_settings_read(pool_t pool, const char *config_binary,
-		     const char *config_path);
 bool master_settings_do_fixes(const struct master_settings *set);
 
 #endif

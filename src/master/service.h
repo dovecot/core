@@ -94,10 +94,14 @@ struct service {
 
 struct service_list {
 	pool_t pool;
+	pool_t set_pool;
+	int refcount;
+	struct timeout *to_kill;
+
+	const struct master_service_settings *service_set;
 
 	struct service *config;
 	struct service *log;
-	struct hash_table *pids;
 	const char *const *child_process_env;
 
 	/* nonblocking log fds usd by master */
@@ -111,15 +115,25 @@ struct service_list {
 	struct service_process_notify *anvil_kills;
 
 	ARRAY_DEFINE(services, struct service *);
+
+	unsigned int sigterm_sent:1;
 };
 
+extern struct hash_table *service_pids;
+
 /* Create all services from settings */
-struct service_list *
-services_create(const struct master_settings *set,
-		const char *const *child_process_env, const char **error_r);
+int services_create(const struct master_settings *set,
+		    const char *const *child_process_env,
+		    struct service_list **services_r, const char **error_r);
 
 /* Destroy services */
 void services_destroy(struct service_list *service_list);
+
+void service_list_ref(struct service_list *service_list);
+void service_list_unref(struct service_list *service_list);
+
+/* Return path to configuration process socket. */
+const char *services_get_config_socket_path(struct service_list *service_list);
 
 /* Send a signal to all processes in a given service */
 void service_signal(struct service *service, int signo);
@@ -132,5 +146,8 @@ void services_throttle_time_sensitives(struct service_list *list,
 
 void service_error(struct service *service, const char *format, ...)
 	ATTR_FORMAT(2, 3);
+
+void service_pids_init(void);
+void service_pids_deinit(void);
 
 #endif

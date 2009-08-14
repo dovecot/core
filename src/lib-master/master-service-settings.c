@@ -97,15 +97,13 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 }
 
 static int
-master_service_read_config(struct master_service *service,
+master_service_read_config(struct master_service *service, const char *path,
 			   const struct master_service_settings_input *input,
 			   const char **error_r)
 {
-	const char *path;
 	struct stat st;
 	int fd, ret;
 
-	path = master_service_get_config_path(service);
 	if (service->config_fd != -1) {
 		fd = service->config_fd;
 		service->config_fd = -1;
@@ -184,19 +182,22 @@ int master_service_settings_read(struct master_service *service,
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
 	struct istream *istream;
-	const char *error, *env, *const *keys;
+	const char *path, *error, *env, *const *keys;
 	void **sets;
 	unsigned int i;
 	int ret, fd = -1;
 
 	if (getenv("DOVECONF_ENV") == NULL && !service->default_settings) {
-		fd = master_service_read_config(service, input, error_r);
+		path = input->config_path != NULL ? input->config_path :
+			master_service_get_config_path(service);
+		fd = master_service_read_config(service, path, input, error_r);
 		if (fd == -1)
 			return -1;
 	}
 
 	if (service->set_pool != NULL) {
-		settings_parser_deinit(&service->set_parser);
+		if (service->set_parser != NULL)
+			settings_parser_deinit(&service->set_parser);
 		p_clear(service->set_pool);
 	} else {
 		service->set_pool =
@@ -287,6 +288,15 @@ int master_service_settings_read_simple(struct master_service *service,
 	input.roots = roots;
 	input.module = service->name;
 	return master_service_settings_read(service, &input, error_r);
+}
+
+pool_t master_service_settings_detach(struct master_service *service)
+{
+	pool_t pool = service->set_pool;
+
+	settings_parser_deinit(&service->set_parser);
+	service->set_pool = NULL;
+	return pool;
 }
 
 const struct master_service_settings *
