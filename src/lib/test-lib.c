@@ -12,6 +12,7 @@ int main(void)
 		test_buffer,
 		test_hex_binary,
 		test_istream_crlf,
+		test_istream_tee,
 		test_mempool_alloconly,
 		test_network,
 		test_primes,

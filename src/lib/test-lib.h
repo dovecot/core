@@ -11,6 +11,7 @@ void test_bsearch_insert_pos(void);
 void test_buffer(void);
 void test_hex_binary(void);
 void test_istream_crlf(void);
+void test_istream_tee(void);
 void test_mempool_alloconly(void);
 void test_network(void);
 void test_primes(void);

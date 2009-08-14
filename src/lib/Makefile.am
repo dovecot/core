@@ -220,6 +220,7 @@ test_lib_SOURCES = \
 	test-buffer.c \
 	test-hex-binary.c \
 	test-istream-crlf.c \
+	test-istream-tee.c \
 	test-mempool-alloconly.c \
 	test-network.c \
 	test-primes.c \
