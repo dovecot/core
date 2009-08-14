@@ -29,7 +29,8 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
 	struct mail_namespace *ns, *real_ns;
-	const char *mailbox, *verify_name, *real_name;
+	const char *mailbox, *mailbox2 = NULL, *verify_name, *real_name;
+	bool unsubscribed_mailbox2;
 
 	/* <mailbox> */
 	if (!client_read_string_args(cmd, 1, &mailbox))
@@ -64,6 +65,8 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 	    mailbox_list_get_hierarchy_sep(ns->list)) {
 		/* verify the validity without the trailing '/' */
 		verify_name = t_strndup(verify_name, strlen(verify_name)-1);
+		mailbox2 = mailbox;
+		mailbox = t_strndup(mailbox, strlen(mailbox)-1);
 	}
 
 	if (have_listable_namespace_prefix(cmd->client->user->namespaces,
@@ -79,9 +82,17 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 			return TRUE;
 	}
 
-	if (mailbox_list_set_subscribed(ns->list, mailbox, subscribe) < 0)
+	unsubscribed_mailbox2 = FALSE;
+	if (!subscribe && mailbox2 != NULL) {
+		/* try to unsubscribe both "box" and "box/" */
+		if (mailbox_list_set_subscribed(ns->list, mailbox2, FALSE) == 0)
+			unsubscribed_mailbox2 = TRUE;
+	}
+
+	if (mailbox_list_set_subscribed(ns->list, mailbox, subscribe) < 0 &&
+	    !unsubscribed_mailbox2) {
 		client_send_list_error(cmd, ns->list);
-	else {
+	} else {
 		client_send_tagline(cmd, subscribe ?
 				    "OK Subscribe completed." :
 				    "OK Unsubscribe completed.");
