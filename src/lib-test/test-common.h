@@ -4,6 +4,7 @@
 struct istream *test_istream_create(const char *data);
 void test_istream_set_size(struct istream *input, uoff_t size);
 void test_istream_set_allow_eof(struct istream *input, bool allow);
+void test_istream_set_max_buffer_size(struct istream *input, size_t size);
 
 void test_begin(const char *name);
 #define test_assert(code) STMT_START { \
