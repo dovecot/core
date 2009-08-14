@@ -36,8 +36,6 @@ static void (*listescape_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
 static void (*listescape_next_hook_mailbox_list_created)
 	(struct mailbox_list *list);
-static void (*listescape_next_hook_mail_namespaces_created)
-	(struct mail_namespace *namespaces);
 
 static MODULE_CONTEXT_DEFINE_INIT(listescape_storage_module,
 				  &mail_storage_module_register);
@@ -322,6 +320,8 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 	if (list->hierarchy_sep == list->ns->sep)
 		return;
 
+	list->ns->real_sep = list->ns->sep;
+
 	mlist = p_new(list->pool, struct listescape_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
 	mlist->list_name = str_new(list->pool, 256);
@@ -342,20 +342,6 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 	MODULE_CONTEXT_SET(list, listescape_list_module, mlist);
 }
 
-static void
-listescape_mail_namespaces_created(struct mail_namespace *namespaces)
-{
-	struct mail_namespace *ns = namespaces;
-
-	for (ns = namespaces; ns != NULL; ns = ns->next) {
-		if (ns->real_sep != ns->sep)
-			ns->real_sep = ns->sep;
-	}
-
-	if (listescape_next_hook_mail_namespaces_created != NULL)
-		listescape_next_hook_mail_namespaces_created(namespaces);
-}
-
 void listescape_plugin_init(void)
 {
 	listescape_next_hook_mail_storage_created = hook_mail_storage_created;
@@ -363,16 +349,10 @@ void listescape_plugin_init(void)
 
 	listescape_next_hook_mailbox_list_created = hook_mailbox_list_created;
 	hook_mailbox_list_created = listescape_mailbox_list_created;
-
-	listescape_next_hook_mail_namespaces_created =
-		hook_mail_namespaces_created;
-	hook_mail_namespaces_created = listescape_mail_namespaces_created;
 }
 
 void listescape_plugin_deinit(void)
 {
 	hook_mail_storage_created = listescape_next_hook_mail_storage_created;
 	hook_mailbox_list_created = listescape_next_hook_mailbox_list_created;
-	hook_mail_namespaces_created =
-		listescape_next_hook_mail_namespaces_created;
 }
