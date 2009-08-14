@@ -214,6 +214,18 @@ import_name(struct auth_request *request, void *str, size_t len)
 	return name;
 }
 
+static bool data_has_nuls(const void *data, unsigned int len)
+{
+	const unsigned char *c = data;
+	unsigned int i;
+
+	for (i = 0; i < len; i++) {
+		if (c[i] == '\0')
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int get_display_name(struct auth_request *auth_request, gss_name_t name,
 			    gss_OID *name_type_r, const char **display_name_r)
 {
@@ -225,6 +237,11 @@ static int get_display_name(struct auth_request *auth_request, gss_name_t name,
 	if (major_status != GSS_S_COMPLETE) {
 		mech_gssapi_log_error(auth_request, major_status,
 				      GSS_C_GSS_CODE, "gss_display_name");
+		return -1;
+	}
+	if (data_has_nuls(buf.value, buf.length)) {
+		auth_request_log_info(auth_request, "gssapi",
+				      "authn_name has NULs");
 		return -1;
 	}
 	*display_name_r = t_strndup(buf.value, buf.length);
@@ -497,6 +514,12 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	}
 	name = (unsigned char *)outbuf.value + 4;
 	name_len = outbuf.length - 4;
+
+	if (data_has_nuls(name, name_len)) {
+		auth_request_log_info(auth_request, "gssapi",
+				      "authz_name has NULs");
+		return -1;
+	}
 
 	login_user = p_strndup(auth_request->pool, name, name_len);
 	request->authz_name = import_name(auth_request, name, name_len);

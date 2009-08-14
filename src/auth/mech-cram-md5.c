@@ -85,6 +85,10 @@ static bool parse_cram_response(struct cram_auth_request *request,
 	/* <username> SPACE <response>. Username may contain spaces, so assume
 	   the rightmost space is the response separator. */
 	for (i = space = 0; i < size; i++) {
+		if (data[i] == '\0') {
+			*error_r = "NULs in response";
+			return FALSE;
+		}
 		if (data[i] == ' ')
 			space = i;
 	}

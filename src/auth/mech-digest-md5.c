@@ -477,6 +477,8 @@ static bool parse_digest_response(struct digest_auth_request *request,
 		return FALSE;
 	}
 
+	/* treating response as NUL-terminated string also gets rid of all
+	   potential problems with NUL characters in strings. */
 	copy = t_strdup_noconst(t_strndup(data, size));
 	while (*copy != '\0') {
 		if (parse_next(&copy, &key, &value)) {
