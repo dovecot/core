@@ -27,7 +27,10 @@ void mail_namespace_finish_list_init(struct mail_namespace *ns,
 				     struct mailbox_list *list)
 {
 	ns->list = list;
-	ns->real_sep = mailbox_list_get_hierarchy_sep(list);
+
+	/* allow plugins to override real_sep */
+	if (ns->real_sep == '\0')
+		ns->real_sep = mailbox_list_get_hierarchy_sep(list);
 	ns->prefix_len = strlen(ns->prefix);
 
 	if (ns->set->separator != NULL)
