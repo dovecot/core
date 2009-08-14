@@ -147,11 +147,32 @@ listescape_mailbox_list_iter_init(struct mailbox_list *list,
 	return ctx;
 }
 
+static struct mail_namespace *
+listescape_find_orig_ns(struct mail_namespace *parent_ns, const char *name)
+{
+	struct mail_namespace *ns, *best = NULL;
+
+	for (ns = parent_ns->user->namespaces; ns != NULL; ns = ns->next) {
+		if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0)
+			continue;
+
+		if (strncmp(ns->prefix, parent_ns->prefix,
+			    parent_ns->prefix_len) == 0 &&
+		    strncmp(ns->prefix + parent_ns->prefix_len, name,
+			    ns->prefix_len) == 0) {
+			if (best == NULL || ns->prefix_len > best->prefix_len)
+				best = ns;
+		}
+	}
+	return best != NULL ? best : parent_ns;
+}
+
 static const struct mailbox_info *
 listescape_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 {
 	struct listescape_mailbox_list *mlist =
 		LIST_ESCAPE_LIST_CONTEXT(ctx->list);
+	struct mail_namespace *ns;
 	const struct mailbox_info *info;
 
 	ctx->list->ns->real_sep = ctx->list->hierarchy_sep;
@@ -160,10 +181,13 @@ listescape_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 	if (info == NULL || (ctx->flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) == 0)
 		return info;
 
+	ns = (ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ?
+		ctx->list->ns :
+		listescape_find_orig_ns(ctx->list->ns, info->name);
+
 	str_truncate(mlist->list_name, 0);
-	str_append(mlist->list_name, ctx->list->ns->prefix);
-	list_unescape_str(ctx->list->ns, info->name + ctx->list->ns->prefix_len,
-			  mlist->list_name);
+	str_append(mlist->list_name, ns->prefix);
+	list_unescape_str(ns, info->name + ns->prefix_len, mlist->list_name);
 	mlist->info = *info;
 	mlist->info.name = str_c(mlist->list_name);
 	return &mlist->info;
@@ -231,8 +255,16 @@ static int listescape_set_subscribed(struct mailbox_list *list,
 				     const char *name, bool set)
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
+	struct mail_namespace *ns;
+	const char *esc_name;
 
-	name = list_escape(list->ns, name, FALSE);
+	ns = listescape_find_orig_ns(list->ns, name);
+	if (ns == list->ns || strncmp(ns->prefix, name, ns->prefix_len) != 0)
+		name = list_escape(ns, name, FALSE);
+	else {
+		esc_name = list_escape(ns, name + ns->prefix_len, FALSE);
+		name = t_strconcat(ns->prefix, esc_name, NULL);
+	}
 	return mlist->module_ctx.super.set_subscribed(list, name, set);
 }
 
