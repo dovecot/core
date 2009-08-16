@@ -31,21 +31,13 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 	struct acl_backend *backend = aclobj->backend;
 	const struct acl_mask *have_mask;
 
-	if (*aclobj->name == '\0') {
-		/* we want to look up default rights */
+	if (backend->v.object_refresh_cache(aclobj) < 0)
+		return -1;
+
+	have_mask = acl_cache_get_my_rights(backend->cache, aclobj->name);
+	if (have_mask == NULL) {
 		if (acl_backend_get_default_rights(backend, &have_mask) < 0)
 			return -1;
-	} else {
-		if (backend->v.object_refresh_cache(aclobj) < 0)
-			return -1;
-
-		have_mask = acl_cache_get_my_rights(backend->cache,
-						    aclobj->name);
-		if (have_mask == NULL) {
-			if (acl_backend_get_default_rights(backend,
-							   &have_mask) < 0)
-				return -1;
-		}
 	}
 
 	return acl_cache_mask_isset(have_mask, right_idx);
@@ -89,20 +81,13 @@ static int acl_object_get_my_rights_real(struct acl_object *aclobj, pool_t pool,
 	struct acl_backend *backend = aclobj->backend;
 	const struct acl_mask *mask;
 
-	if (*aclobj->name == '\0') {
-		/* we want to look up default rights */
+	if (backend->v.object_refresh_cache(aclobj) < 0)
+		return -1;
+
+	mask = acl_cache_get_my_rights(backend->cache, aclobj->name);
+	if (mask == NULL) {
 		if (acl_backend_get_default_rights(backend, &mask) < 0)
 			return -1;
-	} else {
-		if (backend->v.object_refresh_cache(aclobj) < 0)
-			return -1;
-
-		mask = acl_cache_get_my_rights(backend->cache,
-					       aclobj->name);
-		if (mask == NULL) {
-			if (acl_backend_get_default_rights(backend, &mask) < 0)
-				return -1;
-		}
 	}
 
 	*rights_r = acl_backend_mask_get_names(backend, mask, pool);
