@@ -28,7 +28,7 @@ static struct smtp_client *smtp_client_devnull(FILE **file_r)
 }
 
 static void ATTR_NORETURN
-smtp_client_run_sendmail(struct mail_deliver_context *ctx,
+smtp_client_run_sendmail(const struct lda_settings *set,
 			 const char *destination,
 			 const char *return_path, int fd)
 {
@@ -36,7 +36,7 @@ smtp_client_run_sendmail(struct mail_deliver_context *ctx,
 
 	/* deliver_set's contents may point to environment variables.
 	   deliver_env_clean() cleans them up, so they have to be copied. */
-	sendmail_path = t_strdup(ctx->set->sendmail_path);
+	sendmail_path = t_strdup(set->sendmail_path);
 
 	argv[0] = sendmail_path;
 	argv[1] = "-i"; /* ignore dots */
@@ -56,9 +56,9 @@ smtp_client_run_sendmail(struct mail_deliver_context *ctx,
 	i_fatal("execv(%s) failed: %m", sendmail_path);
 }
 
-struct smtp_client *smtp_client_open(struct mail_deliver_context *ctx,
-				     const char *destination,
-				     const char *return_path, FILE **file_r)
+struct smtp_client *
+smtp_client_open(const struct lda_settings *set, const char *destination,
+		 const char *return_path, FILE **file_r)
 {
 	struct smtp_client *client;
 	int fd[2];
@@ -77,7 +77,7 @@ struct smtp_client *smtp_client_open(struct mail_deliver_context *ctx,
 	if (pid == 0) {
 		/* child */
 		(void)close(fd[1]);
-		smtp_client_run_sendmail(ctx, destination, return_path, fd[0]);
+		smtp_client_run_sendmail(set, destination, return_path, fd[0]);
 	}
 	(void)close(fd[0]);
 

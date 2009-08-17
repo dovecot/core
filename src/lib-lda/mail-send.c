@@ -79,7 +79,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 		   str_sanitize(reason, 512));
     }
 
-    smtp_client = smtp_client_open(ctx, return_addr, NULL, &f);
+    smtp_client = smtp_client_open(ctx->set, return_addr, NULL, &f);
 
     msgid = mail_deliver_get_new_message_id(ctx);
     boundary = t_strdup_printf("%s/%s", my_pid, ctx->set->hostname);
@@ -184,7 +184,7 @@ int mail_send_forward(struct mail_deliver_context *ctx, const char *forwardto)
 		   forwardto, return_path);
     }
 
-    smtp_client = smtp_client_open(ctx, forwardto, return_path, &f);
+    smtp_client = smtp_client_open(ctx->set, forwardto, return_path, &f);
 
     input = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
                                           HEADER_FILTER_NO_CR, hide_headers,
