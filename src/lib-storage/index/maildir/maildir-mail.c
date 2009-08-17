@@ -22,8 +22,13 @@ do_open(struct maildir_mailbox *mbox, const char *path, int *fd)
 	if (errno == ENOENT)
 		return 0;
 
-	mail_storage_set_critical(&mbox->storage->storage,
-				  "open(%s) failed: %m", path);
+	if (errno == EACCES) {
+		mail_storage_set_critical(&mbox->storage->storage, "%s",
+			mail_error_eacces_msg("open", path));
+	} else {
+		mail_storage_set_critical(&mbox->storage->storage,
+					  "open(%s) failed: %m", path);
+	}
 	return -1;
 }
 
@@ -35,8 +40,13 @@ do_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st)
 	if (errno == ENOENT)
 		return 0;
 
-	mail_storage_set_critical(&mbox->storage->storage,
-				  "stat(%s) failed: %m", path);
+	if (errno == EACCES) {
+		mail_storage_set_critical(&mbox->storage->storage, "%s",
+			mail_error_eacces_msg("stat", path));
+	} else {
+		mail_storage_set_critical(&mbox->storage->storage,
+					  "stat(%s) failed: %m", path);
+	}
 	return -1;
 }
 
