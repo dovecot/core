@@ -24,8 +24,6 @@ struct mbox_snarf_mail_storage {
 
 struct mbox_snarf_mailbox {
 	union mailbox_module_context module_ctx;
-
-	struct mailbox *spool_mbox;
 };
 
 const char *mbox_snarf_plugin_version = PACKAGE_VERSION;
@@ -108,28 +106,20 @@ mbox_snarf_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	struct mbox_snarf_mail_storage *mstorage =
 		MBOX_SNARF_CONTEXT(box->storage);
 	struct mbox_snarf_mailbox *mbox = MBOX_SNARF_CONTEXT(box);
+	struct mailbox *spool_mbox;
+	struct mailbox_sync_context *ctx;
 
-	if (mbox->spool_mbox == NULL) {
-		/* try to open the spool mbox */
-		mstorage->open_spool_inbox = TRUE;
-		mbox->spool_mbox =
-			mailbox_alloc(box->list, "INBOX", NULL,
-				      MAILBOX_FLAG_KEEP_RECENT |
-				      MAILBOX_FLAG_NO_INDEX_FILES);
-		mstorage->open_spool_inbox = FALSE;
-	}
-	(void)mbox_snarf(mbox->spool_mbox, box);
+	/* try to open the spool mbox */
+	mstorage->open_spool_inbox = TRUE;
+	spool_mbox = mailbox_alloc(box->list, "INBOX", NULL,
+				   MAILBOX_FLAG_KEEP_RECENT |
+				   MAILBOX_FLAG_NO_INDEX_FILES);
+	mstorage->open_spool_inbox = FALSE;
+	(void)mbox_snarf(spool_mbox, box);
 
-	return mbox->module_ctx.super.sync_init(box, flags);
-}
-
-static void mbox_snarf_close(struct mailbox *box)
-{
-	struct mbox_snarf_mailbox *mbox = MBOX_SNARF_CONTEXT(box);
-
-	if (mbox->spool_mbox != NULL)
-		mailbox_close(&mbox->spool_mbox);
-	mbox->module_ctx.super.close(box);
+	ctx = mbox->module_ctx.super.sync_init(box, flags);
+	mailbox_close(&spool_mbox);
+	return ctx;
 }
 
 static struct mailbox *
@@ -174,7 +164,6 @@ mbox_snarf_mailbox_alloc(struct mail_storage *storage,
 	mbox->module_ctx.super = box->v;
 
 	box->v.sync_init = mbox_snarf_sync_init;
-	box->v.close = mbox_snarf_close;
 	MODULE_CONTEXT_SET(box, mbox_snarf_storage_module, mbox);
 	return box;
 }
