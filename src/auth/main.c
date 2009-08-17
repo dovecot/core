@@ -129,7 +129,7 @@ static void client_connected(const struct master_service_connection *conn)
 		   checking the socket path name. */
 		struct sockaddr_un sa;
 		socklen_t addrlen = sizeof(sa);
-		size_t len;
+		const char *suffix;
 
 		if (getsockname(conn->listen_fd, (void *)&sa, &addrlen) < 0)
 			i_fatal("getsockname(%d) failed: %m", conn->listen_fd);
@@ -138,8 +138,8 @@ static void client_connected(const struct master_service_connection *conn)
 				conn->listen_fd);
 		}
 
-		len = strlen(sa.sun_path);
-		if (len > 7 && strcmp(sa.sun_path + len - 7, "-master") == 0)
+		suffix = strrchr(sa.sun_path, '-');
+		if (strcmp(suffix, "master") == 0)
 			*type = AUTH_SOCKET_MASTER;
 		else
 			*type = AUTH_SOCKET_CLIENT;

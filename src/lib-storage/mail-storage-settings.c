@@ -161,7 +161,7 @@ static struct setting_define mail_user_setting_defines[] = {
 
 static struct mail_user_settings mail_user_default_settings = {
 	MEMBER(base_dir) PKG_RUNDIR,
-	MEMBER(auth_socket_path) "auth-master",
+	MEMBER(auth_socket_path) "auth-userdb",
 
 	MEMBER(mail_uid) "",
 	MEMBER(mail_gid) "",
