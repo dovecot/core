@@ -94,6 +94,54 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	return TRUE;
 }
 
+static int
+master_input_auth_request(struct auth_master_connection *conn, const char *args,
+			  const char *cmd, struct auth_request **request_r,
+			  const char **error_r)
+{
+	struct auth_request *auth_request;
+	const char *const *list, *name, *arg;
+
+	/* <id> <userid> [<parameters>] */
+	list = t_strsplit(args, "\t");
+	if (list[0] == NULL || list[1] == NULL) {
+		i_error("BUG: Master sent broken %s", cmd);
+		return -1;
+	}
+
+	auth_request = auth_request_new_dummy(conn->auth);
+	auth_request->id = (unsigned int)strtoul(list[0], NULL, 10);
+	auth_request->context = conn;
+	auth_master_connection_ref(conn);
+
+	if (!auth_request_set_username(auth_request, list[1], error_r)) {
+		*request_r = auth_request;
+		return 0;
+	}
+
+	for (list += 2; *list != NULL; list++) {
+		arg = strchr(*list, '=');
+		if (arg == NULL) {
+			name = *list;
+			arg = "";
+		} else {
+			name = t_strdup_until(*list, arg);
+			arg++;
+		}
+
+		(void)auth_request_import(auth_request, name, arg);
+	}
+
+	if (auth_request->service == NULL) {
+		i_error("BUG: Master sent %s request without service", cmd);
+		auth_master_connection_unref(&conn);
+		auth_request_unref(&auth_request);
+		return -1;
+	}
+	*request_r = auth_request;
+	return 1;
+}
+
 static void
 user_callback(enum userdb_result result,
 	      struct auth_request *auth_request)
@@ -132,47 +180,81 @@ static bool
 master_input_user(struct auth_master_connection *conn, const char *args)
 {
 	struct auth_request *auth_request;
-	const char *const *list, *name, *arg, *error;
+	const char *error;
+	int ret;
 
-	/* <id> <userid> [<parameters>] */
-	list = t_strsplit(args, "\t");
-	if (list[0] == NULL || list[1] == NULL) {
-		i_error("BUG: Master sent broken USER");
-		return FALSE;
-	}
-
-	auth_request = auth_request_new_dummy(conn->auth);
-	auth_request->id = (unsigned int)strtoul(list[0], NULL, 10);
-	auth_request->context = conn;
-	auth_master_connection_ref(conn);
-
-	if (!auth_request_set_username(auth_request, list[1], &error)) {
-                auth_request_log_info(auth_request, "userdb", "%s", error);
+	ret = master_input_auth_request(conn, args, "USER",
+					&auth_request, &error);
+	if (ret <= 0) {
+		if (ret < 0)
+			return FALSE;
+		auth_request_log_info(auth_request, "userdb", "%s", error);
 		user_callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
-		return TRUE;
+	} else {
+		auth_request->state = AUTH_REQUEST_STATE_USERDB;
+		auth_request_lookup_user(auth_request, user_callback);
+	}
+	return TRUE;
+}
+
+static void
+pass_callback(enum passdb_result result,
+	      const unsigned char *credentials ATTR_UNUSED,
+	      size_t size ATTR_UNUSED,
+	      struct auth_request *auth_request)
+{
+	struct auth_master_connection *conn = auth_request->context;
+	struct auth_stream_reply *reply = auth_request->extra_fields;
+	string_t *str;
+
+	str = t_str_new(128);
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		str_printfa(str, "PASS\t%u\t", auth_request->id);
+		if (reply != NULL)
+			str_append(str, auth_stream_reply_export(reply));
+		break;
+	case PASSDB_RESULT_USER_UNKNOWN:
+	case PASSDB_RESULT_USER_DISABLED:
+	case PASSDB_RESULT_PASS_EXPIRED:
+		str_printfa(str, "NOTFOUND\t%u", auth_request->id);
+		break;
+	case PASSDB_RESULT_PASSWORD_MISMATCH:
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+		str_printfa(str, "FAIL\t%u", auth_request->id);
+		break;
 	}
 
-	for (list += 2; *list != NULL; list++) {
-		arg = strchr(*list, '=');
-		if (arg == NULL) {
-			name = *list;
-			arg = "";
-		} else {
-			name = t_strdup_until(*list, arg);
-			arg++;
-		}
+	if (conn->auth->set->debug)
+		i_info("master out: %s", str_c(str));
 
-		(void)auth_request_import(auth_request, name, arg);
+	str_append_c(str, '\n');
+	(void)o_stream_send(conn->output, str_data(str), str_len(str));
+	auth_request_unref(&auth_request);
+	auth_master_connection_unref(&conn);
+}
+
+static bool
+master_input_pass(struct auth_master_connection *conn, const char *args)
+{
+	struct auth_request *auth_request;
+	const char *error;
+	int ret;
+
+	ret = master_input_auth_request(conn, args, "PASS",
+					&auth_request, &error);
+	if (ret <= 0) {
+		if (ret < 0)
+			return FALSE;
+		auth_request_log_info(auth_request, "passdb", "%s", error);
+		pass_callback(PASSDB_RESULT_USER_UNKNOWN,
+			      NULL, 0, auth_request);
+	} else {
+		auth_request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+		auth_request_lookup_credentials(auth_request, "",
+						pass_callback);
 	}
-
-	if (auth_request->service == NULL) {
-		i_error("BUG: Master sent USER request without service");
-		auth_request_unref(&auth_request);
-		return FALSE;
-	}
-
-	auth_request->state = AUTH_REQUEST_STATE_USERDB;
-	auth_request_lookup_user(auth_request, user_callback);
 	return TRUE;
 }
 
@@ -296,6 +378,8 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 	if (!conn->userdb_only) {
 		if (strncmp(line, "REQUEST\t", 8) == 0)
 			return master_input_request(conn, line + 8);
+		if (strncmp(line, "PASS\t", 5) == 0)
+			return master_input_pass(conn, line + 5);
 		if (strncmp(line, "CPID\t", 5) == 0) {
 			i_error("Authentication client trying to connect to "
 				"master socket");
