@@ -264,7 +264,7 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	while (userdb != NULL && userdb->userdb->iface->iterate_init == NULL)
 		userdb = userdb->next;
 	if (userdb == NULL) {
-		i_error("Trying to iterate users, but userdbs don't suppor it");
+		i_error("Trying to iterate users, but userdbs don't support it");
 		str = t_strdup_printf("DONE\t%u\tfail", id);
 		(void)o_stream_send_str(conn->output, str);
 		return TRUE;
@@ -288,22 +288,24 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 	if (conn->auth->set->debug)
 		i_info("master in: %s", line);
 
-	if (strncmp(line, "REQUEST\t", 8) == 0)
-		return master_input_request(conn, line + 8);
-	else if (strncmp(line, "USER\t", 5) == 0)
+	if (strncmp(line, "USER\t", 5) == 0)
 		return master_input_user(conn, line + 5);
-	else if (strncmp(line, "LIST\t", 5) == 0)
+	if (strncmp(line, "LIST\t", 5) == 0)
 		return master_input_list(conn, line + 5);
-	else if (strncmp(line, "CPID\t", 5) == 0) {
-		i_error("Authentication client trying to connect to "
-			"master socket");
-		return FALSE;
-	} else {
-		/* ignore unknown command */
-		i_error("BUG: Unknown command in master socket: %s",
-			str_sanitize(line, 80));
-		return FALSE;
+
+	if (!conn->userdb_only) {
+		if (strncmp(line, "REQUEST\t", 8) == 0)
+			return master_input_request(conn, line + 8);
+		if (strncmp(line, "CPID\t", 5) == 0) {
+			i_error("Authentication client trying to connect to "
+				"master socket");
+			return FALSE;
+		}
 	}
+
+	i_error("BUG: Unknown command in master socket: %s",
+		str_sanitize(line, 80));
+	return FALSE;
 }
 
 static void master_input(struct auth_master_connection *conn)
@@ -372,7 +374,7 @@ static int master_output(struct auth_master_connection *conn)
 }
 
 struct auth_master_connection *
-auth_master_connection_create(struct auth *auth, int fd)
+auth_master_connection_create(struct auth *auth, int fd, bool userdb_only)
 {
 	struct auth_master_connection *conn;
 	const char *line;
@@ -385,6 +387,7 @@ auth_master_connection_create(struct auth *auth, int fd)
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	o_stream_set_flush_callback(conn->output, master_output, conn);
 	conn->io = io_add(fd, IO_READ, master_input, conn);
+	conn->userdb_only = userdb_only;
 
 	line = t_strdup_printf("VERSION\t%u\t%u\nSPID\t%s\n",
 			       AUTH_MASTER_PROTOCOL_MAJOR_VERSION,

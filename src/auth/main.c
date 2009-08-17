@@ -28,7 +28,8 @@
 enum auth_socket_type {
 	AUTH_SOCKET_UNKNOWN = 0,
 	AUTH_SOCKET_CLIENT,
-	AUTH_SOCKET_MASTER
+	AUTH_SOCKET_MASTER,
+	AUTH_SOCKET_USERDB
 };
 
 bool worker = FALSE, shutdown_request = FALSE;
@@ -86,7 +87,8 @@ static void main_init(void)
 		   auth process */
 		master_service_set_client_limit(master_service, 1);
 	} else if (getenv("MASTER_AUTH_FD") != NULL) {
-		(void)auth_master_connection_create(auth, MASTER_AUTH_FD);
+		(void)auth_master_connection_create(auth, MASTER_AUTH_FD,
+						    FALSE);
 	}
 }
 
@@ -141,13 +143,18 @@ static void client_connected(const struct master_service_connection *conn)
 		suffix = strrchr(sa.sun_path, '-');
 		if (strcmp(suffix, "master") == 0)
 			*type = AUTH_SOCKET_MASTER;
+		else if (strcmp(suffix, "userdb") == 0)
+			*type = AUTH_SOCKET_USERDB;
 		else
 			*type = AUTH_SOCKET_CLIENT;
 	}
 
 	switch (*type) {
 	case AUTH_SOCKET_MASTER:
-		(void)auth_master_connection_create(auth, conn->fd);
+		(void)auth_master_connection_create(auth, conn->fd, FALSE);
+		break;
+	case AUTH_SOCKET_USERDB:
+		(void)auth_master_connection_create(auth, conn->fd, TRUE);
 		break;
 	case AUTH_SOCKET_CLIENT:
 		(void)auth_client_connection_create(auth, conn->fd);

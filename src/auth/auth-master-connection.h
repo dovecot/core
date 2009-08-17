@@ -14,13 +14,14 @@ struct auth_master_connection {
 
 	unsigned int version_received:1;
 	unsigned int destroyed:1;
+	unsigned int userdb_only:1;
 };
 ARRAY_DEFINE_TYPE(auth_master_connections, struct auth_master_connection *);
 
 extern ARRAY_TYPE(auth_master_connections) auth_master_connections;
 
 struct auth_master_connection *
-auth_master_connection_create(struct auth *auth, int fd);
+auth_master_connection_create(struct auth *auth, int fd, bool userdb_only);
 void auth_master_connection_destroy(struct auth_master_connection **conn);
 
 void auth_master_connection_ref(struct auth_master_connection *conn);
