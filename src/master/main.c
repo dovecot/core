@@ -77,8 +77,9 @@ void process_exec(const char *cmd, const char *extra_args[])
 	/* prefix with dovecot/ */
 	argv[0] = t_strconcat(PACKAGE"/", argv[0], NULL);
 
-	execv(executable, (char **)argv);
-	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
+	(void)execv(executable, (char **)argv);
+	i_fatal_status(errno == ENOMEM ? FATAL_OUTOFMEM : FATAL_EXEC,
+		       "execv(%s) failed: %m", executable);
 }
 
 int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
