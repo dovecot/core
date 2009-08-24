@@ -22,6 +22,7 @@ SUBDIRS = \
 	listescape \
 	mail-log \
 	mbox-snarf \
+	notify \
 	quota \
 	imap-quota \
 	trash \
