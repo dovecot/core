@@ -97,6 +97,7 @@ static void auth_worker_request_send(struct auth_worker_connection *conn,
 
 	o_stream_sendv(conn->output, iov, 3);
 
+	i_assert(conn->request == NULL);
 	conn->request = request;
 
 	timeout_remove(&conn->to);
@@ -296,7 +297,9 @@ static void worker_input(struct auth_worker_connection *conn)
 		}
 	}
 
-	if (conn->shutdown && conn->request == NULL)
+	if (conn->request != NULL) {
+		/* there's still a pending request */
+	} else if (conn->shutdown)
 		auth_worker_destroy(&conn, "Max requests limit", TRUE);
 	else
 		auth_worker_request_send_next(conn);
