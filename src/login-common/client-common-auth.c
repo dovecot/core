@@ -267,6 +267,12 @@ static int proxy_start(struct client *client,
 				 PROXY_FAILURE_MSG);
 		return -1;
 	}
+	if (reply->host == NULL || *reply->host == '\0') {
+		client_log_err(client, "proxy: host not given");
+		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
+				 PROXY_FAILURE_MSG);
+		return -1;
+	}
 
 	i_assert(client->refcount > 1);
 
