@@ -212,6 +212,15 @@ bool master_service_parse_option(struct master_service *service,
 	return TRUE;
 }
 
+static void master_service_error(struct master_service *service)
+{
+	if (service->master_status.available_count ==
+	    service->total_available_count)
+		master_service_stop(service);
+	else
+		io_listeners_remove(service);
+}
+
 static void master_status_error(void *context)
 {
 	struct master_service *service = context;
@@ -225,11 +234,7 @@ static void master_status_error(void *context)
 	   log later */
 	i_set_failure_ignore_errors(TRUE);
 
-	if (service->master_status.available_count ==
-	    service->total_available_count)
-		master_service_stop(service);
-	else
-		io_listeners_remove(service);
+	master_service_error(service);
 }
 
 void master_service_init_finish(struct master_service *service)
@@ -482,7 +487,7 @@ static void master_service_listen(struct master_service_listener *l)
 
 		if (errno != ENOTSOCK) {
 			i_error("net_accept() failed: %m");
-			io_listeners_remove(l->service);
+			master_service_error(l->service);
 			return;
 		}
 		/* it's not a socket. probably a fifo. use the "listener"
