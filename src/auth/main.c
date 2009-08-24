@@ -141,7 +141,9 @@ static void client_connected(const struct master_service_connection *conn)
 		}
 
 		suffix = strrchr(sa.sun_path, '-');
-		if (strcmp(suffix, "master") == 0)
+		if (suffix == NULL)
+			*type = AUTH_SOCKET_CLIENT;
+		else if (strcmp(suffix, "master") == 0)
 			*type = AUTH_SOCKET_MASTER;
 		else if (strcmp(suffix, "userdb") == 0)
 			*type = AUTH_SOCKET_USERDB;
