@@ -610,6 +610,7 @@ static void ldap_input(struct ldap_connection *conn)
 {
 	struct timeval timeout;
 	LDAPMessage *res;
+	time_t prev_reply_diff;
 	int ret;
 
 	do {
@@ -631,6 +632,8 @@ static void ldap_input(struct ldap_connection *conn)
 		db_ldap_handle_result(conn, res);
 		ldap_msgfree(res);
 	} while (conn->io != NULL);
+
+	prev_reply_diff = ioloop_time - conn->last_reply_stamp;
 	conn->last_reply_stamp = ioloop_time;
 
 	if (ret > 0) {
@@ -644,8 +647,7 @@ static void ldap_input(struct ldap_connection *conn)
 		i_error("LDAP: ldap_result() failed: %s", ldap_get_error(conn));
 		ldap_conn_reconnect(conn);
 	} else if (aqueue_count(conn->request_queue) > 0 ||
-		   ioloop_time - conn->last_reply_stamp <
-		   				DB_LDAP_IDLE_RECONNECT_SECS) {
+		   prev_reply_diff < DB_LDAP_IDLE_RECONNECT_SECS) {
 		i_error("LDAP: Connection lost to LDAP server, reconnecting");
 		ldap_conn_reconnect(conn);
 	} else {
