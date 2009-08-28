@@ -273,7 +273,7 @@ imap_fetch_send_vanished(struct imap_fetch_context *ctx)
 	const struct mail_search_arg *uidarg = ctx->search_args->args;
 	const struct mail_search_arg *modseqarg = uidarg->next;
 	const ARRAY_TYPE(seq_range) *uids = &uidarg->value.seqset;
-	uint64_t modseq = modseqarg->value.modseq->modseq;
+	uint64_t modseq = modseqarg->value.modseq->modseq - 1;
 	ARRAY_TYPE(mailbox_expunge_rec) expunges;
 	ARRAY_TYPE(seq_range) expunges_range;
 	string_t *str;
