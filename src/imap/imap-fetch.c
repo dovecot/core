@@ -247,7 +247,7 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
 
-	if (ret == 0 && array_is_created(ctx->qresync_sample_seqset))
+	if (ret == 0 && ctx->qresync_sample_seqset != NULL)
 		expunges_drop_known(ctx, mail, expunges);
 
 	mail_free(&mail);
