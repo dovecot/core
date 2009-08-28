@@ -38,6 +38,8 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 			break;
 		case 13:
 		case 10:
+			if (!fix_text)
+				literal = TRUE;
 			extra++;
 			modify = TRUE;
 			break;
