@@ -219,6 +219,10 @@ static bool data_has_nuls(const void *data, unsigned int len)
 	const unsigned char *c = data;
 	unsigned int i;
 
+	/* apparently all names end with NUL? */
+	if (len > 0 && c[len-1] == '\0')
+		len--;
+
 	for (i = 0; i < len; i++) {
 		if (c[i] == '\0')
 			return TRUE;
