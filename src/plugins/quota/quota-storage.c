@@ -31,7 +31,6 @@ struct quota_mailbox {
 	ARRAY_DEFINE(expunge_uids, uint32_t);
 	ARRAY_DEFINE(expunge_sizes, uoff_t);
 
-	unsigned int save_hack:1;
 	unsigned int recalculate:1;
 };
 
@@ -172,13 +171,11 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 		ctx->dest_mail = qt->tmp_mail;
 	}
 
-	qbox->save_hack = FALSE;
 	if (qbox->module_ctx.super.copy(ctx, mail) < 0)
 		return -1;
 
-	/* if copying used saving internally, we already checked the quota
-	   and set qbox->save_hack = TRUE. */
-	return qbox->save_hack ? 0 : quota_check(t, ctx->dest_mail);
+	/* if copying used saving internally, we already checked the quota */
+	return ctx->copying ? 0 : quota_check(t, ctx->dest_mail);
 }
 
 static int
@@ -234,7 +231,6 @@ static int quota_save_finish(struct mail_save_context *ctx)
 	if (qbox->module_ctx.super.save_finish(ctx) < 0)
 		return -1;
 
-	qbox->save_hack = TRUE;
 	return quota_check(ctx->transaction, ctx->dest_mail);
 }
 

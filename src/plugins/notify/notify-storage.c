@@ -14,7 +14,6 @@
 struct notify_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
 	struct mail *tmp_mail;
-	bool save_hack;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(notify_storage_module,
@@ -119,11 +118,7 @@ notify_copy(struct mail_save_context *ctx, struct mail *mail)
 		ctx->dest_mail = lt->tmp_mail;
 	}
 
-	lt->save_hack = TRUE;
-	ret = lbox->super.copy(ctx, mail);
-	lt->save_hack = FALSE;
-
-	if (ret == 0)
+	if ((ret = lbox->super.copy(ctx, mail)) == 0)
 		notify_contexts_mail_copy(mail, ctx->dest_mail);
 	return ret;
 }
@@ -151,11 +146,12 @@ notify_save_finish(struct mail_save_context *ctx)
 		NOTIFY_CONTEXT(ctx->transaction);
 	union mailbox_module_context *lbox =
 		NOTIFY_CONTEXT(ctx->transaction->box);
+	struct mail *dest_mail = ctx->copying ? NULL : ctx->dest_mail;
 
 	if (lbox->super.save_finish(ctx) < 0)
 		return -1;
-	if (!lt->save_hack)
-		notify_contexts_mail_save(ctx->dest_mail);
+	if (dest_mail != NULL)
+		notify_contexts_mail_save(dest_mail);
 	return 0;
 }
 

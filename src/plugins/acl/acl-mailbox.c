@@ -19,8 +19,6 @@
 struct acl_mailbox {
 	union mailbox_module_context module_ctx;
 	struct acl_object *aclobj;
-
-	unsigned int save_hack:1;
 };
 
 struct acl_transaction_context {
