@@ -34,6 +34,10 @@ const char *lib_signal_code_to_str(int signo, int sicode)
 {
 	/* common */
 	switch (sicode) {
+#ifdef SI_NOINFO
+	case SI_NOINFO:
+		return "";
+#endif
 	case SI_USER:
 		return "kill";
 #ifdef SI_KERNEL
@@ -74,6 +78,18 @@ static void sig_handler(int signo, siginfo_t *si, void *context ATTR_UNUSED)
 {
 	struct signal_handler *h;
 	char c = 0;
+
+#ifdef SI_NOINFO
+	siginfo_t tmp_si;
+
+	if (si == NULL) {
+		/* Solaris can leave this to NULL */
+		memset(&tmp_si, 0, sizeof(tmp_si));
+		tmp_si.si_signo = signo;
+		tmp_si.si_code = SI_NOINFO;
+		si = &tmp_si;
+	}
+#endif
 
 	if (signo < 0 || signo > MAX_SIGNAL_VALUE)
 		return;
