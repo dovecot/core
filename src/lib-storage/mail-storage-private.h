@@ -396,6 +396,9 @@ struct mail_save_context {
 	uint32_t uid;
 	char *guid, *pop3_uidl, *from_envelope;
 	struct ostream *output;
+
+	/* we came here from mailbox_copy() */
+	unsigned int copying:1;
 };
 
 struct mailbox_sync_context {

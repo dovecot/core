@@ -12,6 +12,8 @@ int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
 	const char *from_envelope, *guid;
 	time_t received_date;
 
+	ctx->copying = TRUE;
+
 	/* we need to open the file in any case. caching metadata is unlikely
 	   to help anything. */
 	pmail->v.set_uid_cache_updates(mail, TRUE);
