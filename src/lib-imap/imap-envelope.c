@@ -149,8 +149,10 @@ void imap_envelope_parse_header(pool_t pool,
 						(unsigned int)-1, TRUE);
 	}
 
-	if (str_p != NULL)
-		*str_p = imap_quote(pool, hdr->full_value, hdr->full_value_len);
+	if (str_p != NULL) {
+		*str_p = imap_quote(pool, hdr->full_value,
+				    hdr->full_value_len, TRUE);
+	}
 }
 
 static void imap_write_address(string_t *str, struct message_address *addr)

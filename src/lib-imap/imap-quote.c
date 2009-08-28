@@ -5,7 +5,7 @@
 #include "imap-quote.h"
 
 void imap_quote_append(string_t *str, const unsigned char *value,
-		       size_t value_len, bool compress_lwsp)
+		       size_t value_len, bool fix_text)
 {
 	size_t i, extra = 0;
 	bool last_lwsp = TRUE, literal = FALSE, modify = FALSE;
@@ -23,14 +23,14 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 		case 0:
 			/* it's converted to 8bit char */
 			literal = TRUE;
-			modify = TRUE;
 			last_lwsp = FALSE;
+			modify = TRUE;
 			break;
 		case '\t':
 			modify = TRUE;
 			/* fall through */
 		case ' ':
-			if (last_lwsp && compress_lwsp) {
+			if (last_lwsp && fix_text) {
 				modify = TRUE;
 				extra++;
 			}
@@ -47,6 +47,11 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 				literal = TRUE;
 			last_lwsp = FALSE;
 		}
+	}
+
+	if (!fix_text) {
+		extra = 0;
+		modify = FALSE;
 	}
 
 	if (!literal) {
@@ -69,7 +74,7 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 				break;
 			case ' ':
 			case '\t':
-				if (!last_lwsp || !compress_lwsp)
+				if (!last_lwsp)
 					str_append_c(str, ' ');
 				last_lwsp = TRUE;
 				break;
@@ -89,7 +94,7 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 }
 
 const char *imap_quote(pool_t pool, const unsigned char *value,
-		       size_t value_len)
+		       size_t value_len, bool fix_text)
 {
 	string_t *str;
 	char *ret;
@@ -101,7 +106,7 @@ const char *imap_quote(pool_t pool, const unsigned char *value,
 		t_push();
 
 	str = t_str_new(value_len + MAX_INT_STRLEN + 5);
-	imap_quote_append(str, value, value_len, TRUE);
+	imap_quote_append(str, value, value_len, fix_text);
 	ret = p_strndup(pool, str_data(str), str_len(str));
 
 	if (!pool->datastack_pool)
