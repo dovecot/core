@@ -503,23 +503,24 @@ prevfile:
 
 			if (errormsg != NULL) {
 				/* file reading failed */
-			} else if (pathlen == 0 &&
-				   strncmp(str_c(str), "auth_", 5) == 0) {
-				/* verify that the setting is valid,
-				   but delay actually adding it */
-				const char *s = t_strdup(str_c(str) + 5);
-
-				str_truncate(str, 0);
-				str_printfa(str, "auth/0/%s=", key + 5);
-				if (*line != '<' || !expand_files)
-					str_append(str, line);
-				else
-					str_append_file(str, key, line+1, &errormsg);
-
-				errormsg = config_parse_line(parsers, key + 5, str_c(str), NULL);
-				array_append(&auth_defaults, &s, 1);
 			} else {
 				errormsg = config_parse_line(parsers, key, str_c(str), NULL);
+				if (errormsg != NULL && pathlen == 0 &&
+				    strncmp(str_c(str), "auth_", 5) == 0) {
+					/* verify that the setting is valid,
+					   but delay actually adding it */
+					const char *s = t_strdup(str_c(str) + 5);
+
+					str_truncate(str, 0);
+					str_printfa(str, "auth/0/%s=", key + 5);
+					if (*line != '<' || !expand_files)
+						str_append(str, line);
+					else
+						str_append_file(str, key, line+1, &errormsg);
+
+					errormsg = config_parse_line(parsers, key + 5, str_c(str), NULL);
+					array_append(&auth_defaults, &s, 1);
+				}
 			}
 		} else if (strcmp(key, "}") != 0 || *line != '\0') {
 			/* b) + errors */
