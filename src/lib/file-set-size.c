@@ -72,7 +72,7 @@ int file_set_size(int fd, off_t size)
 				i_error("pwrite() failed: %m");
 			return -1;
 		}
-		offset += size;
+		offset += ret;
 	}
 	return 0;
 }
