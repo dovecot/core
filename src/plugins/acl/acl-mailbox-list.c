@@ -99,6 +99,12 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 			       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0)
 		return;
 
+	if (ns->type == NAMESPACE_PUBLIC) {
+		/* mailboxes in public namespace should all be listable to
+		   someone. we don't benefit from fast listing. */
+		return;
+	}
+
 	/* if this namespace's default rights contain LOOKUP, we'll need to
 	   go through all mailboxes in any case. */
 	idxp = alist->rights.acl_storage_right_idx + ACL_STORAGE_RIGHT_LOOKUP;
