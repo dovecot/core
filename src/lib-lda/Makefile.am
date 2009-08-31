@@ -8,15 +8,17 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage
 
 liblda_a_SOURCES = \
-	lda-settings.c \
 	duplicate.c \
+	lda-settings.c \
+	lmtp-client.c \
 	mail-deliver.c \
 	mail-send.c \
 	smtp-client.c
 
 headers = \
-	lda-settings.h \
 	duplicate.h \
+	lda-settings.h \
+	lmtp-client.h \
 	mail-deliver.h \
 	mail-send.h \
 	smtp-client.h
