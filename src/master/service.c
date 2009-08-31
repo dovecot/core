@@ -317,6 +317,20 @@ service_lookup(struct service_list *service_list, const char *name)
 	return NULL;
 }
 
+static bool service_want(struct service_settings *set)
+{
+	char *const *proto;
+
+	if (*set->protocol == '\0')
+		return TRUE;
+
+	for (proto = set->master_set->protocols_split; *proto != NULL; proto++) {
+		if (strcmp(*proto, set->protocol) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 int services_create(const struct master_settings *set,
 		    const char *const *child_process_env,
 		    struct service_list **services_r, const char **error_r)
@@ -343,6 +357,8 @@ int services_create(const struct master_settings *set,
 	p_array_init(&service_list->services, pool, count);
 
 	for (i = 0; i < count; i++) {
+		if (!service_want(service_settings[i]))
+			continue;
 		service = service_create(pool, service_settings[i],
 					 service_list, &error);
 		if (service == NULL) {

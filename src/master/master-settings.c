@@ -88,6 +88,7 @@ static struct setting_parser_info inet_listener_setting_parser_info = {
 
 static struct setting_define service_setting_defines[] = {
 	DEF(SET_STR, name),
+	DEF(SET_STR, protocol),
 	DEF(SET_STR, type),
 	DEF(SET_STR, executable),
 	DEF(SET_STR, user),
@@ -117,6 +118,7 @@ static struct service_settings service_default_settings = {
 	MEMBER(master_set) NULL,
 
 	MEMBER(name) "",
+	MEMBER(protocol) "",
 	MEMBER(type) "",
 	MEMBER(executable) "",
 	MEMBER(user) "",
@@ -185,6 +187,7 @@ struct setting_parser_info master_auth_setting_parser_info = {
 static struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, base_dir),
 	DEF(SET_STR, libexec_dir),
+	DEF(SET_STR, protocols),
 	DEF(SET_UINT, default_process_limit),
 	DEF(SET_UINT, default_client_limit),
 
@@ -205,6 +208,7 @@ static struct setting_define master_setting_defines[] = {
 static struct master_settings master_default_settings = {
 	MEMBER(base_dir) PKG_RUNDIR,
 	MEMBER(libexec_dir) PKG_LIBEXECDIR,
+	MEMBER(protocols) "imap pop3 lmtp",
 	MEMBER(default_process_limit) 100,
 	MEMBER(default_client_limit) 1000,
 
@@ -253,7 +257,7 @@ static void fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
-	const struct master_settings *set = _set;
+	struct master_settings *set = _set;
 	struct service_settings *const *services;
 	unsigned int i, j, count;
 
@@ -324,6 +328,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		fix_file_listener_paths(&services[i]->fifo_listeners,
 					pool, set->base_dir);
 	}
+	set->protocols_split = p_strsplit(pool, set->protocols, " ");
 	return TRUE;
 }
 /* </settings checks> */

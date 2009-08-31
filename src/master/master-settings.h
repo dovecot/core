@@ -19,6 +19,7 @@ struct service_settings {
 	struct master_settings *master_set;
 
 	const char *name;
+	const char *protocol;
 	const char *type;
 	const char *executable;
 	const char *user;
@@ -46,6 +47,7 @@ struct master_auth_settings {
 struct master_settings {
 	const char *base_dir;
 	const char *libexec_dir;
+	const char *protocols;
 	unsigned int default_process_limit;
 	unsigned int default_client_limit;
 
@@ -57,6 +59,7 @@ struct master_settings {
 
 	ARRAY_DEFINE(services, struct service_settings *);
 	ARRAY_DEFINE(auths, struct master_auth_settings *);
+	char **protocols_split;
 };
 
 extern struct setting_parser_info master_setting_parser_info;
