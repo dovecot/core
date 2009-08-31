@@ -8,6 +8,8 @@
 #include "ostream.h"
 #include "istream-dot.h"
 #include "safe-mkstemp.h"
+#include "master-service.h"
+#include "auth-master.h"
 #include "mail-storage-service.h"
 #include "index/raw/raw-storage.h"
 #include "lda-settings.h"
@@ -15,8 +17,12 @@
 #include "main.h"
 #include "client.h"
 #include "commands.h"
+#include "lmtp-proxy.h"
 
-#define ERRSTR_MAILBOX_TEMP_FAIL "451 4.2.0 <%s> Temporary internal error"
+#include <stdlib.h>
+
+#define ERRSTR_TEMP_MAILBOX_FAIL "451 4.3.0 <%s> Temporary internal error"
+#define ERRSTR_TEMP_USERDB_FAIL "451 4.3.0 <%s> Temporary user lookup failure"
 
 int cmd_lhlo(struct client *client, const char *args ATTR_UNUSED)
 {
@@ -52,10 +58,11 @@ int cmd_mail(struct client *client, const char *args)
 	}
 
 	for (; *argv != NULL; argv++) {
-		if (strcasecmp(*argv, "BODY=7BIT") == 0 ||
-		    strcasecmp(*argv, "BODY=8BITMIME") == 0) {
-			/* just skip these */
-		} else {
+		if (strcasecmp(*argv, "BODY=7BIT") == 0)
+			client->mail_body_7bit = TRUE;
+		else if (strcasecmp(*argv, "BODY=8BITMIME") == 0)
+			client->mail_body_8bitmime = TRUE;
+		else {
 			client_send_line(client,
 				"501 5.5.4 Unsupported options");
 			return 0;
@@ -82,13 +89,133 @@ static bool rcpt_is_duplicate(struct client *client, const char *name)
 	return FALSE;
 }
 
+static bool
+client_proxy_rcpt_parse_fields(struct lmtp_proxy_settings *set,
+			       const char *const *args, const char **address)
+{
+	const char *p, *key, *value;
+	bool proxying = FALSE;
+
+	for (; *args != NULL; args++) {
+		p = strchr(*args, '=');
+		if (p == NULL) {
+			key = *args;
+			value = "";
+		} else {
+			key = t_strdup_until(*args, p);
+			value = p + 1;
+		}
+
+		if (strcmp(key, "proxy") == 0)
+			proxying = TRUE;
+		else if (strcmp(key, "host") == 0)
+			set->host = value;
+		else if (strcmp(key, "port") == 0)
+			set->port = atoi(value);
+		else if (strcmp(key, "user") == 0) {
+			/* changing the username */
+			*address = value;
+		} else {
+			/* just ignore it */
+		}
+	}
+	if (proxying && set->host == NULL) {
+		i_error("proxy: host not given");
+		return FALSE;
+	}
+	return proxying;
+}
+
+static bool
+client_proxy_is_ourself(const struct client *client,
+			const struct lmtp_proxy_settings *set)
+{
+	struct ip_addr ip;
+
+	if (set->port != client->local_port)
+		return FALSE;
+
+	if (net_addr2ip(set->host, &ip) < 0)
+		return FALSE;
+	if (!net_ip_compare(&ip, &client->local_ip))
+		return FALSE;
+	return TRUE;
+}
+
+static bool client_proxy_rcpt(struct client *client, const char *address)
+{
+	struct auth_master_connection *auth_conn;
+	struct lmtp_proxy_settings set;
+	struct auth_user_info info;
+	const char *args, *const *fields, *orig_address = address;
+	pool_t pool;
+	int ret;
+
+	memset(&info, 0, sizeof(info));
+	info.service = master_service_get_name(master_service);
+	info.local_ip = client->local_ip;
+	info.remote_ip = client->remote_ip;
+	info.local_port = client->local_port;
+	info.remote_port = client->remote_port;
+
+	pool = pool_alloconly_create("auth lookup", 1024);
+	auth_conn = mail_storage_service_multi_get_auth_conn(multi_service);
+	ret = auth_master_pass_lookup(auth_conn, address, &info,
+				      pool, &fields);
+	if (ret <= 0) {
+		pool_unref(&pool);
+		if (ret < 0) {
+			client_send_line(client, ERRSTR_TEMP_USERDB_FAIL,
+					 address);
+			return TRUE;
+		} else {
+			/* user not found from passdb. try userdb also. */
+			return FALSE;
+		}
+	}
+
+	memset(&set, 0, sizeof(set));
+	set.port = client->local_port;
+	if (!client_proxy_rcpt_parse_fields(&set, fields, &address)) {
+		/* not proxying this user */
+		pool_unref(&pool);
+		return FALSE;
+	}
+	if (strcmp(address, orig_address) == 0 &&
+	    client_proxy_is_ourself(client, &set)) {
+		i_error("Proxying to <%s> loops to itself", address);
+		client_send_line(client, "554 5.4.6 Proxying loops to itself");
+		pool_unref(&pool);
+		return FALSE;
+	}
+
+	if (client->proxy == NULL) {
+		client->proxy = lmtp_proxy_init(client->set->hostname,
+						client->output);
+		if (client->mail_body_8bitmime)
+			args = " BODY=8BITMIME";
+		else if (client->mail_body_7bit)
+			args = " BODY=7BIT";
+		else
+			args = "";
+		lmtp_proxy_mail_from(client->proxy, t_strdup_printf(
+			"<%s>%s", client->state.mail_from, args));
+	}
+	if (lmtp_proxy_add_rcpt(client->proxy, address, &set) < 0)
+		client_send_line(client, ERRSTR_TEMP_REMOTE_FAILURE);
+	else
+		client_send_line(client, "250 2.1.5 OK");
+	pool_unref(&pool);
+	return TRUE;
+}
+
 int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient rcpt;
 	struct mail_storage_service_input input;
-	const char *name, *error, *addr, *const *argv;
+	const char *name, *error = NULL, *addr, *const *argv;
 	unsigned int len;
-	int ret;
+	int ret = 0;
 
 	if (client->state.mail_from == NULL) {
 		client_send_line(client, "503 5.5.1 MAIL needed first");
@@ -121,6 +248,11 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 
+	if (client->try_proxying) {
+		if (client_proxy_rcpt(client, name))
+			return 0;
+	}
+
 	memset(&input, 0, sizeof(input));
 	input.username = name;
 	input.local_ip = client->local_ip;
@@ -129,10 +261,10 @@ int cmd_rcpt(struct client *client, const char *args)
 	ret = mail_storage_service_multi_lookup(multi_service, &input,
 						client->state_pool,
 						&rcpt.multi_user, &error);
+
 	if (ret < 0) {
 		i_error("User lookup failed: %s", error);
-		client_send_line(client,
-				 "451 4.3.0 Temporary user lookup failure");
+		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL, name);
 		return 0;
 	}
 	if (ret == 0) {
@@ -189,7 +321,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 					    &client->state.dest_user,
 					    &error) < 0) {
 		i_error("%s", error);
-		client_send_line(client, ERRSTR_MAILBOX_TEMP_FAIL, rcpt->name);
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL, rcpt->name);
 		return -1;
 	}
 	sets = mail_storage_service_multi_user_get_set(rcpt->multi_user);
@@ -215,7 +347,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	} else if (storage == NULL) {
 		/* This shouldn't happen */
 		i_error("BUG: Saving failed to unknown storage");
-		client_send_line(client, ERRSTR_MAILBOX_TEMP_FAIL,
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpt->name);
 		ret = -1;
 	} else {
@@ -264,23 +396,14 @@ static void client_rcpt_fail_all(struct client *client)
 
 	rcpts = array_get(&client->state.rcpt_to, &count);
 	for (i = 0; i < count; i++) {
-		client_send_line(client, ERRSTR_MAILBOX_TEMP_FAIL,
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpts[i].name);
 	}
 }
 
-static int client_open_raw_mail(struct client *client)
+static struct istream *client_get_input(struct client *client)
 {
-	static const char *wanted_headers[] = {
-		"From", "To", "Message-ID", "Subject", "Return-Path",
-		NULL
-	};
-	struct mailbox_list *raw_list = client->raw_mail_user->namespaces->list;
-	struct mailbox *box;
-	struct raw_mailbox *raw_box;
-	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct istream *input;
-	enum mail_error error;
 
 	if (client->state.mail_data_output != NULL) {
 		o_stream_unref(&client->state.mail_data_output);
@@ -291,10 +414,24 @@ static int client_open_raw_mail(struct client *client)
 		input = i_stream_create_from_data(client->state.mail_data->data,
 						  client->state.mail_data->used);
 	}
+	return input;
+}
+
+static int client_open_raw_mail(struct client *client, struct istream *input)
+{
+	static const char *wanted_headers[] = {
+		"From", "To", "Message-ID", "Subject", "Return-Path",
+		NULL
+	};
+	struct mailbox_list *raw_list = client->raw_mail_user->namespaces->list;
+	struct mailbox *box;
+	struct raw_mailbox *raw_box;
+	struct mailbox_header_lookup_ctx *headers_ctx;
+	enum mail_error error;
+
 	client->state.raw_box = box =
 		mailbox_alloc(raw_list, "Dovecot Delivery Mail", input,
 			      MAILBOX_FLAG_NO_INDEX_FILES);
-	i_stream_unref(&input);
 	if (mailbox_open(box) < 0 ||
 	    mailbox_sync(box, 0, 0, NULL) < 0) {
 		i_error("Can't open delivery mail as raw: %s",
@@ -316,15 +453,12 @@ static int client_open_raw_mail(struct client *client)
 	return 0;
 }
 
-static void client_input_data_finish(struct client *client)
+static void
+client_input_data_write_local(struct client *client, struct istream *input)
 {
 	struct mail *src_mail;
 
-	i_stream_destroy(&client->dot_input);
-	io_remove(&client->io);
-	client->io = io_add(client->fd_in, IO_READ, client_input, client);
-
-	if (client_open_raw_mail(client) < 0)
+	if (client_open_raw_mail(client, input) < 0)
 		return;
 
 	/* save the message to the first recipient's mailbox */
@@ -353,6 +487,43 @@ static void client_input_data_finish(struct client *client)
 		mailbox_close(&box);
 		mail_user_unref(&user);
 	}
+}
+
+static void client_input_data_finish(struct client *client)
+{
+	if (client->io != NULL)
+		io_remove(&client->io);
+	client->io = io_add(client->fd_in, IO_READ, client_input, client);
+
+	client_state_reset(client);
+	if (i_stream_have_bytes_left(client->input))
+		client_input_handle(client);
+}
+
+static void client_proxy_finish(void *context)
+{
+	struct client *client = context;
+
+	lmtp_proxy_deinit(&client->proxy);
+	client_input_data_finish(client);
+}
+
+static bool client_input_data_write(struct client *client)
+{
+	struct istream *input;
+	bool ret = TRUE;
+
+	i_stream_destroy(&client->dot_input);
+
+	input = client_get_input(client);
+	client_input_data_write_local(client, input);
+	if (client->proxy != NULL) {
+		lmtp_proxy_start(client->proxy, input,
+				 client_proxy_finish, client);
+		ret = FALSE;
+	}
+	i_stream_unref(&input);
+	return ret;
 }
 
 static int client_input_add_file(struct client *client,
@@ -424,10 +595,8 @@ static void client_input_data_handle(struct client *client)
 	if (ret == 0)
 		return;
 
-	client_input_data_finish(client);
-	client_state_reset(client);
-	if (i_stream_have_bytes_left(client->input))
-		client_input_handle(client);
+	if (client_input_data_write(client))
+		client_input_data_finish(client);
 }
 
 static void client_input_data(struct client *client)
@@ -444,7 +613,7 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 		client_send_line(client, "503 5.5.1 MAIL needed first");
 		return 0;
 	}
-	if (array_count(&client->state.rcpt_to) == 0) {
+	if (array_count(&client->state.rcpt_to) == 0 && client->proxy == NULL) {
 		client_send_line(client, "554 5.5.1 No valid recipients");
 		return 0;
 	}
@@ -454,10 +623,17 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 
 	i_assert(client->dot_input == NULL);
 	client->dot_input = i_stream_create_dot(client->input, TRUE);
-	io_remove(&client->io);
-	client->io = io_add(client->fd_in, IO_READ, client_input_data, client);
 	client_send_line(client, "354 OK");
 
-	client_input_data_handle(client);
+	io_remove(&client->io);
+	if (array_count(&client->state.rcpt_to) == 0) {
+		lmtp_proxy_start(client->proxy, client->dot_input,
+				 client_proxy_finish, client);
+		i_stream_unref(&client->dot_input);
+	} else {
+		client->io = io_add(client->fd_in, IO_READ,
+				    client_input_data, client);
+		client_input_data_handle(client);
+	}
 	return -1;
 }

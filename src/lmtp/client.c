@@ -12,6 +12,7 @@
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "main.h"
+#include "lmtp-proxy.h"
 #include "commands.h"
 #include "client.h"
 
@@ -161,6 +162,7 @@ struct client *client_create(int fd_in, int fd_out)
 	client->my_domain = my_hostname;
 	client->state_pool = pool_alloconly_create("client state", 4096);
 	client->state.mail_data_fd = -1;
+	client->try_proxying = TRUE; // FIXME: setting!
 
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
@@ -180,6 +182,8 @@ void client_destroy(struct client *client, const char *prefix,
 	DLLIST_REMOVE(&clients, client);
 
 	mail_user_unref(&client->raw_mail_user);
+	if (client->proxy != NULL)
+		lmtp_proxy_deinit(&client->proxy);
 	if (client->io != NULL)
 		io_remove(&client->io);
 	timeout_remove(&client->to_idle);

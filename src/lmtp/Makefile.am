@@ -5,6 +5,7 @@ pkglibexec_PROGRAMS = lmtp
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
@@ -28,9 +29,11 @@ lmtp_DEPENDENCIES = $(libs)
 lmtp_SOURCES = \
 	main.c \
 	client.c \
-	commands.c
+	commands.c \
+	lmtp-proxy.c
 
 noinst_HEADERS = \
 	main.h \
 	client.h \
-	commands.h
+	commands.h \
+	lmtp-proxy.h

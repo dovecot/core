@@ -30,6 +30,7 @@ static void client_connected(const struct master_service_connection *conn)
 	client = client_create(conn->fd, conn->fd);
 	client->remote_ip = conn->remote_ip;
 	client->remote_port = conn->remote_port;
+	client->set = mail_storage_service_get_settings(master_service);
 
 	(void)net_getsockname(conn->fd, &client->local_ip, &client->local_port);
 }

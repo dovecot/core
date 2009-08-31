@@ -34,6 +34,7 @@ struct client_state {
 struct client {
 	struct client *prev, *next;
 
+	const struct lda_settings *set;
 	int fd_in, fd_out;
 	struct io *io;
 	struct istream *input;
@@ -51,8 +52,12 @@ struct client {
 	pool_t state_pool;
 	struct client_state state;
 	struct istream *dot_input;
+	struct lmtp_proxy *proxy;
 
 	unsigned int disconnected:1;
+	unsigned int try_proxying:1;
+	unsigned int mail_body_7bit:1;
+	unsigned int mail_body_8bitmime:1;
 };
 
 extern unsigned int clients_count;
