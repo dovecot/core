@@ -273,6 +273,13 @@ void master_service_init_finish(struct master_service *service)
 			i_fatal(MASTER_CLIENT_LIMIT_ENV" not set");
 		master_service_set_client_limit(service, count);
 
+		/* set the default service count */
+		value = getenv(MASTER_SERVICE_COUNT_ENV);
+		count = value == NULL ? 0 :
+			(unsigned int)strtoul(value, NULL, 10);
+		if (count > 0)
+			master_service_set_service_count(service, count);
+
 		/* start listening errors for status fd, it means master died */
 		service->io_status_error = io_add(MASTER_STATUS_FD, IO_ERROR,
 						  master_status_error, service);

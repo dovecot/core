@@ -77,6 +77,10 @@ struct master_auth_reply {
    master_status.available_count as specified in configuration file */
 #define MASTER_CLIENT_LIMIT_ENV "CLIENT_LIMIT"
 
+/* getenv(MASTER_SERVICE_COUNT_ENV) specifies how many client connections the
+   process can finish handling before it should kill itself. */
+#define MASTER_SERVICE_COUNT_ENV "SERVICE_COUNT"
+
 /* getenv(MASTER_CONFIG_FILE_ENV) provides path to configuration file/socket */
 #define MASTER_CONFIG_FILE_ENV "CONFIG_FILE"
 

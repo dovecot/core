@@ -102,6 +102,7 @@ static struct setting_define service_setting_defines[] = {
 
 	DEF(SET_UINT, process_limit),
 	DEF(SET_UINT, client_limit),
+	DEF(SET_UINT, service_count),
 	DEF(SET_UINT, vsz_limit),
 
 	DEFLIST(unix_listeners, "unix_listener",
@@ -132,6 +133,7 @@ static struct service_settings service_default_settings = {
 
 	MEMBER(process_limit) (unsigned int)-1,
 	MEMBER(client_limit) 0,
+	MEMBER(service_count) 0,
 	MEMBER(vsz_limit) 256,
 
 	MEMBER(unix_listeners) ARRAY_INIT,

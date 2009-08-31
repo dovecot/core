@@ -33,6 +33,7 @@ struct service_settings {
 
 	unsigned int process_limit;
 	unsigned int client_limit;
+	unsigned int service_count;
 	unsigned int vsz_limit;
 
 	ARRAY_TYPE(file_listener_settings) unix_listeners;

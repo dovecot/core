@@ -401,8 +401,11 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 		/* fallback to default limit */
 		limit = service->set->master_set->default_client_limit;
 	}
-
 	env_put(t_strdup_printf(MASTER_CLIENT_LIMIT_ENV"=%u", limit));
+	if (service->set->service_count != 0) {
+		env_put(t_strdup_printf(MASTER_SERVICE_COUNT_ENV"=%u",
+					service->set->service_count));
+	}
 	env_put(t_strdup_printf(MASTER_UID_ENV"=%u", uid));
 
 	if (!service->set->master_set->version_ignore)
