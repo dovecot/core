@@ -92,10 +92,10 @@ static void config_add_type(struct setting_parser_context *parser,
 	i_assert(ret > 0);
 }
 
-static const char *
+static int
 config_parsers_parse_line(struct config_setting_parser_list *parsers,
 			  const char *key, const char *line,
-			  const char *section_name)
+			  const char *section_name, const char **error_r)
 {
 	struct config_setting_parser_list *l;
 	bool found = FALSE;
@@ -107,26 +107,30 @@ config_parsers_parse_line(struct config_setting_parser_list *parsers,
 			found = TRUE;
 			if (section_name != NULL)
 				config_add_type(l->parser, line, section_name);
-		} else if (ret < 0)
-			return settings_parser_get_error(l->parser);
+		} else if (ret < 0) {
+			*error_r = settings_parser_get_error(l->parser);
+			return -1;
+		}
 	}
-
-	return found ? NULL : t_strconcat("Unknown setting: ", key, NULL);
+	if (!found) {
+		*error_r = t_strconcat("Unknown setting: ", key, NULL);
+		return -1;
+	}
+	return 0;
 }
 
-static const char *
-config_parse_line(struct config_setting_parser_list *const *all_parsers,
-		  const char *key, const char *line, const char *section_name)
+static int
+config_apply_line(struct config_setting_parser_list *const *all_parsers,
+		  const char *key, const char *line, const char *section_name,
+		  const char **error_r)
 {
-	const char *ret;
-
 	for (; *all_parsers != NULL; all_parsers++) {
-		ret = config_parsers_parse_line(*all_parsers, key, line,
-						section_name);
-		if (ret != NULL)
-			return ret;
+		if (config_parsers_parse_line(*all_parsers, key, line,
+					      section_name, error_r) < 0)
+			return -1;
 	}
-	return NULL;
+	*error_r = NULL;
+	return 0;
 }
 
 static const char *
@@ -260,7 +264,7 @@ config_all_parsers_check(struct parser_context *ctx, const char **error_r)
 	return 0;
 }
 
-static void
+static int
 str_append_file(string_t *str, const char *key, const char *path,
 		const char **error_r)
 {
@@ -272,7 +276,7 @@ str_append_file(string_t *str, const char *key, const char *path,
 	if (fd == -1) {
 		*error_r = t_strdup_printf("%s: Can't open file %s: %m",
 					   key, path);
-		return;
+		return -1;
 	}
 	while ((ret = read(fd, buf, sizeof(buf))) > 0)
 		str_append_n(str, buf, ret);
@@ -281,6 +285,7 @@ str_append_file(string_t *str, const char *key, const char *path,
 					   key, path);
 	}
 	(void)close(fd);
+	return ret < 0 ? -1 : 0;
 }
 
 static int settings_add_include(struct parser_context *ctx, const char *path,
@@ -356,6 +361,133 @@ settings_include(struct parser_context *ctx, const char *pattern,
 #endif
 }
 
+enum config_line_type {
+	CONFIG_LINE_TYPE_SKIP,
+	CONFIG_LINE_TYPE_ERROR,
+	CONFIG_LINE_TYPE_KEYVALUE,
+	CONFIG_LINE_TYPE_SECTION_BEGIN,
+	CONFIG_LINE_TYPE_SECTION_END,
+	CONFIG_LINE_TYPE_INCLUDE,
+	CONFIG_LINE_TYPE_INCLUDE_TRY
+};
+
+static enum config_line_type
+config_parse_line(char *line, string_t *full_line, const char **key_r,
+		  const char **section_r, const char **value_r)
+{
+	const char *key;
+	unsigned int len;
+	char *p;
+
+	*key_r = NULL;
+	*value_r = NULL;
+	*section_r = NULL;
+
+	/* @UNSAFE: line is modified */
+
+	/* skip whitespace */
+	while (IS_WHITE(*line))
+		line++;
+
+	/* ignore comments or empty lines */
+	if (*line == '#' || *line == '\0')
+		return CONFIG_LINE_TYPE_SKIP;
+
+	/* strip away comments. pretty kludgy way really.. */
+	for (p = line; *p != '\0'; p++) {
+		if (*p == '\'' || *p == '"') {
+			char quote = *p;
+			for (p++; *p != quote && *p != '\0'; p++) {
+				if (*p == '\\' && p[1] != '\0')
+					p++;
+			}
+			if (*p == '\0')
+				break;
+		} else if (*p == '#') {
+			*p = '\0';
+			break;
+		}
+	}
+
+	/* remove whitespace from end of line */
+	len = strlen(line);
+	while (IS_WHITE(line[len-1]))
+		len--;
+	line[len] = '\0';
+
+	if (len > 0 && line[len-1] == '\\') {
+		/* continues in next line */
+		line[len-1] = '\0';
+		str_append(full_line, line);
+		return CONFIG_LINE_TYPE_SKIP;
+	}
+	if (str_len(full_line) > 0) {
+		str_append(full_line, line);
+		line = str_c_modifiable(full_line);
+	}
+
+	/* a) key = value
+	   b) section_type [section_name] {
+	   c) } */
+	key = line;
+	while (!IS_WHITE(*line) && *line != '\0' && *line != '=')
+		line++;
+	if (IS_WHITE(*line)) {
+		*line++ = '\0';
+		while (IS_WHITE(*line)) line++;
+	}
+	*key_r = key;
+	*value_r = line;
+
+	if (strcmp(key, "!include") == 0)
+		return CONFIG_LINE_TYPE_INCLUDE;
+	if (strcmp(key, "!include_try") == 0)
+		return CONFIG_LINE_TYPE_INCLUDE_TRY;
+
+	if (*line == '=') {
+		/* a) */
+		*line++ = '\0';
+		while (IS_WHITE(*line)) line++;
+
+		len = strlen(line);
+		if (len > 0 &&
+		    ((*line == '"' && line[len-1] == '"') ||
+		     (*line == '\'' && line[len-1] == '\''))) {
+			line[len-1] = '\0';
+			line = str_unescape(line+1);
+		}
+		*value_r = line;
+		return CONFIG_LINE_TYPE_KEYVALUE;
+	}
+
+	if (strcmp(key, "}") == 0 && *line == '\0')
+		return CONFIG_LINE_TYPE_SECTION_END;
+
+	/* b) + errors */
+	line[-1] = '\0';
+
+	if (*line == '{')
+		*section_r = "";
+	else {
+		/* get section name */
+		*section_r = line;
+		while (!IS_WHITE(*line) && *line != '\0')
+			line++;
+
+		if (*line != '\0') {
+			*line++ = '\0';
+			while (IS_WHITE(*line))
+				line++;
+		}
+		if (*line != '{') {
+			*value_r = "Expecting '='";
+			return CONFIG_LINE_TYPE_ERROR;
+		}
+		*value_r = line;
+	}
+	return CONFIG_LINE_TYPE_SECTION_BEGIN;
+}
+
 int config_parse_file(const char *path, bool expand_files,
 		      const char **error_r)
 {
@@ -367,11 +499,11 @@ int config_parse_file(const char *path, bool expand_files,
 	struct parser_context ctx;
 	unsigned int pathlen = 0;
 	unsigned int i, count, counter = 0, auth_counter = 0, cur_counter;
-	const char *errormsg, *name;
-	char *line, *key, *p;
-	int fd, ret = 0;
+	const char *errormsg, *key, *value, *section, *p;
 	string_t *str, *full_line;
-	size_t len;
+	enum config_line_type type;
+	char *line;
+	int fd, ret = 0;
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
@@ -401,9 +533,9 @@ int config_parse_file(const char *path, bool expand_files,
 	config_add_new_parser(&ctx);
 	parsers = config_update_cur_parsers(&ctx);
 
-	errormsg = config_parse_line(parsers, "0", "auth=0", NULL);
+	(void)config_apply_line(parsers, "0", "auth=0", NULL, &errormsg);
 	i_assert(errormsg == NULL);
-	errormsg = config_parse_line(parsers, "name", "auth/0/name=default", NULL);
+	(void)config_apply_line(parsers, "name", "auth/0/name=default", NULL, &errormsg);
 	i_assert(errormsg == NULL);
 
 	memset(&root, 0, sizeof(root));
@@ -418,146 +550,61 @@ int config_parse_file(const char *path, bool expand_files,
 prevfile:
 	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
 		ctx.cur_input->linenum++;
-
-		/* @UNSAFE: line is modified */
-
-		/* skip whitespace */
-		while (IS_WHITE(*line))
-			line++;
-
-		/* ignore comments or empty lines */
-		if (*line == '#' || *line == '\0')
-			continue;
-
-		/* strip away comments. pretty kludgy way really.. */
-		for (p = line; *p != '\0'; p++) {
-			if (*p == '\'' || *p == '"') {
-				char quote = *p;
-				for (p++; *p != quote && *p != '\0'; p++) {
-					if (*p == '\\' && p[1] != '\0')
-						p++;
-				}
-				if (*p == '\0')
-					break;
-			} else if (*p == '#') {
-				*p = '\0';
-				break;
-			}
-		}
-
-		/* remove whitespace from end of line */
-		len = strlen(line);
-		while (IS_WHITE(line[len-1]))
-			len--;
-		line[len] = '\0';
-
-		if (len > 0 && line[len-1] == '\\') {
-			/* continues in next line */
-			line[len-1] = '\0';
-			str_append(full_line, line);
-			continue;
-		}
-		if (str_len(full_line) > 0) {
-			str_append(full_line, line);
-			line = str_c_modifiable(full_line);
-		}
-
-		/* a) key = value
-		   b) section_type [section_name] {
-		   c) } */
-		key = line;
-		while (!IS_WHITE(*line) && *line != '\0' && *line != '=')
-			line++;
-		if (IS_WHITE(*line)) {
-			*line++ = '\0';
-			while (IS_WHITE(*line)) line++;
-		}
-
-		if (strcmp(key, "!include_try") == 0 ||
-		    strcmp(key, "!include") == 0) {
-			if (settings_include(&ctx, fix_relative_path(line, ctx.cur_input),
-					     strcmp(key, "!include_try") == 0,
-					     &errormsg) == 0)
-				goto prevfile;
-		} else if (*line == '=') {
-			/* a) */
-			*line++ = '\0';
-			while (IS_WHITE(*line)) line++;
-
-			len = strlen(line);
-			if (len > 0 &&
-			    ((*line == '"' && line[len-1] == '"') ||
-			     (*line == '\'' && line[len-1] == '\''))) {
-				line[len-1] = '\0';
-				line = str_unescape(line+1);
-			}
-
+		type = config_parse_line(line, full_line,
+					 &key, &section, &value);
+		switch (type) {
+		case CONFIG_LINE_TYPE_SKIP:
+			break;
+		case CONFIG_LINE_TYPE_ERROR:
+			errormsg = value;
+			break;
+		case CONFIG_LINE_TYPE_KEYVALUE:
 			str_truncate(str, pathlen);
 			str_append(str, key);
 			str_append_c(str, '=');
 
-			if (*line != '<' || !expand_files)
-				str_append(str, line);
-			else
-				str_append_file(str, key, line+1, &errormsg);
-
-			if (errormsg != NULL) {
+			if (*value != '<' || !expand_files)
+				str_append(str, value);
+			else if (str_append_file(str, key, value+1, &errormsg) < 0) {
 				/* file reading failed */
-			} else {
-				errormsg = config_parse_line(parsers, key, str_c(str), NULL);
-				if (errormsg != NULL && pathlen == 0 &&
-				    strncmp(str_c(str), "auth_", 5) == 0) {
-					/* verify that the setting is valid,
-					   but delay actually adding it */
-					const char *s = t_strdup(str_c(str) + 5);
-
-					str_truncate(str, 0);
-					str_printfa(str, "auth/0/%s=", key + 5);
-					if (*line != '<' || !expand_files)
-						str_append(str, line);
-					else
-						str_append_file(str, key, line+1, &errormsg);
-
-					errormsg = config_parse_line(parsers, key + 5, str_c(str), NULL);
-					array_append(&auth_defaults, &s, 1);
-				}
-			}
-		} else if (strcmp(key, "}") != 0 || *line != '\0') {
-			/* b) + errors */
-			line[-1] = '\0';
-
-			if (*line == '{')
-				name = "";
-			else {
-				name = line;
-				while (!IS_WHITE(*line) && *line != '\0')
-					line++;
-
-				if (*line != '\0') {
-					*line++ = '\0';
-					while (IS_WHITE(*line))
-						line++;
-				}
+				break;
 			}
 
-			if (*line != '{')
-				errormsg = "Expecting '='";
+			if (config_apply_line(parsers, key, str_c(str), NULL, &errormsg) < 0 &&
+			    pathlen == 0 && strncmp(str_c(str), "auth_", 5) == 0) {
+				/* get auth_* settings working outside auth
+				   sections. we'll verify that the setting is
+				   valid, but delay actually adding it */
+				const char *s = t_strdup(str_c(str) + 5);
 
+				str_truncate(str, 0);
+				str_printfa(str, "auth/0/%s=", key + 5);
+				if (*value != '<' || !expand_files)
+					str_append(str, value);
+				else
+					str_append_file(str, key, value+1, &errormsg);
+
+				if (config_apply_line(parsers, key + 5, str_c(str), NULL, &errormsg) < 0)
+					break;
+				array_append(&auth_defaults, &s, 1);
+			}
+			break;
+		case CONFIG_LINE_TYPE_SECTION_BEGIN:
 			config_add_new_filter(&ctx);
 			ctx.cur_filter->pathlen = pathlen;
 			if (strcmp(key, "protocol") == 0) {
 				ctx.cur_filter->filter.service =
-					p_strdup(ctx.pool, name);
+					p_strdup(ctx.pool, section);
 				config_add_new_parser(&ctx);
 				parsers = config_update_cur_parsers(&ctx);
 			} else if (strcmp(key, "local_ip") == 0) {
-				if (net_parse_range(name, &ctx.cur_filter->filter.local_net,
+				if (net_parse_range(section, &ctx.cur_filter->filter.local_net,
 						    &ctx.cur_filter->filter.local_bits) < 0)
 					errormsg = "Invalid network mask";
 				config_add_new_parser(&ctx);
 				parsers = config_update_cur_parsers(&ctx);
 			} else if (strcmp(key, "remote_ip") == 0) {
-				if (net_parse_range(name, &ctx.cur_filter->filter.remote_net,
+				if (net_parse_range(section, &ctx.cur_filter->filter.remote_net,
 						    &ctx.cur_filter->filter.remote_bits) < 0)
 					errormsg = "Invalid network mask";
 				config_add_new_parser(&ctx);
@@ -569,7 +616,7 @@ prevfile:
 
 				if (strcmp(key, "auth") == 0) {
 					cur_counter = auth_counter++;
-					if (cur_counter == 0 && strcmp(name, "default") != 0)
+					if (cur_counter == 0 && strcmp(section, "default") != 0)
 						cur_counter = auth_counter++;
 				} else {
 					cur_counter = counter++;
@@ -581,7 +628,8 @@ prevfile:
 				if (cur_counter == 0 && strcmp(key, "auth") == 0) {
 					/* already added this */
 				} else {
-					errormsg = config_parse_line(parsers, key, str_c(str), name);
+					if (config_apply_line(parsers, key, str_c(str), section, &errormsg) < 0)
+						break;
 				}
 
 				str_truncate(str, pathlen);
@@ -590,7 +638,7 @@ prevfile:
 				str_append_c(str, SETTINGS_SEPARATOR);
 				pathlen = str_len(str);
 
-				if (strcmp(key, "auth") == 0 && errormsg == NULL) {
+				if (strcmp(key, "auth") == 0) {
 					/* add auth default settings */
 					const char *const *lines;
 					unsigned int i, count;
@@ -602,13 +650,13 @@ prevfile:
 						p = strchr(lines[i], '=');
 						str_append(str, lines[i]);
 
-						errormsg = config_parse_line(parsers, t_strdup_until(lines[i], p), str_c(str), NULL);
-						i_assert(errormsg == NULL);
+						if (config_apply_line(parsers, t_strdup_until(lines[i], p), str_c(str), NULL, &errormsg) < 0)
+							i_unreached();
 					}
 				}
 			}
-		} else {
-			/* c) */
+			break;
+		case CONFIG_LINE_TYPE_SECTION_END:
 			if (ctx.cur_filter->prev == NULL)
 				errormsg = "Unexpected '}'";
 			else {
@@ -616,6 +664,13 @@ prevfile:
 				ctx.cur_filter = ctx.cur_filter->prev;
 				parsers = config_update_cur_parsers(&ctx);
 			}
+			break;
+		case CONFIG_LINE_TYPE_INCLUDE:
+		case CONFIG_LINE_TYPE_INCLUDE_TRY:
+			(void)settings_include(&ctx, fix_relative_path(value, ctx.cur_input),
+					       type == CONFIG_LINE_TYPE_INCLUDE_TRY,
+					       &errormsg);
+			break;
 		}
 
 		if (errormsg != NULL) {
