@@ -124,23 +124,16 @@ static void worker_connected(const struct master_service_connection *conn)
 static void client_connected(const struct master_service_connection *conn)
 {
 	enum auth_socket_type *type;
+	const char *name, *suffix;
 
 	type = array_idx_modifiable(&listen_fd_types, conn->listen_fd);
 	if (*type == AUTH_SOCKET_UNKNOWN) {
 		/* figure out if this is a server or network socket by
 		   checking the socket path name. */
-		struct sockaddr_un sa;
-		socklen_t addrlen = sizeof(sa);
-		const char *suffix;
-
-		if (getsockname(conn->listen_fd, (void *)&sa, &addrlen) < 0)
+		if (net_getunixname(conn->listen_fd, &name) < 0)
 			i_fatal("getsockname(%d) failed: %m", conn->listen_fd);
-		if (sa.sun_family != AF_UNIX) {
-			i_fatal("getsockname(%d) isn't UNIX socket",
-				conn->listen_fd);
-		}
 
-		suffix = strrchr(sa.sun_path, '-');
+		suffix = strrchr(name, '-');
 		if (suffix == NULL)
 			*type = AUTH_SOCKET_CLIENT;
 		else {
