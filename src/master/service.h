@@ -68,6 +68,9 @@ struct service {
 	/* max number of processes allowed */
 	unsigned int process_limit;
 
+	/* Maximum number of client connections the service can handle. */
+	unsigned int client_limit;
+
 	/* log process pipe file descriptors. */
 	int log_fd[2];
 	/* fd that log process sees log_fd[0] as. can be used to identify

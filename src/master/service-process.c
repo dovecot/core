@@ -369,7 +369,6 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 {
 	const struct master_service_settings *set = service->list->service_set;
 	const char *const *p;
-	unsigned int limit;
 
 	/* remove all environment, and put back what we need */
 	env_clean();
@@ -396,12 +395,8 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 		break;
 	}
 
-	limit = service->set->client_limit;
-	if (limit == 0) {
-		/* fallback to default limit */
-		limit = service->set->master_set->default_client_limit;
-	}
-	env_put(t_strdup_printf(MASTER_CLIENT_LIMIT_ENV"=%u", limit));
+	env_put(t_strdup_printf(MASTER_CLIENT_LIMIT_ENV"=%u",
+				service->client_limit));
 	if (service->set->service_count != 0) {
 		env_put(t_strdup_printf(MASTER_SERVICE_COUNT_ENV"=%u",
 					service->set->service_count));
@@ -522,13 +517,7 @@ service_process_create(struct service *service, const char *const *auth_args,
 		timeout_add(SERVICE_FIRST_STATUS_TIMEOUT_SECS * 1000,
 			    service_process_status_timeout, process);
 
-	process->available_count = service->set->client_limit;
-	if (process->available_count == 0) {
-		/* fallback to default limit */
-		process->available_count =
-			service->set->master_set->default_client_limit;
-	}
-
+	process->available_count = service->client_limit;
 	service->process_count++;
 	service->process_avail++;
 

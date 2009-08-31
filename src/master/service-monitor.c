@@ -91,7 +91,7 @@ static void service_status_input(struct service *service)
 			i_assert(service->process_avail <=
 				 service->process_count);
 		}
-		if (status.available_count == service->set->client_limit)
+		if (status.available_count == service->client_limit)
 			process->idle_start = ioloop_time;
 	}
 	process->available_count = status.available_count;
