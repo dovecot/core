@@ -472,8 +472,7 @@ bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
 bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 					 const char *name)
 {
-	if (*name == '\0' && *list->ns->prefix != '\0' &&
-	    (list->ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0) {
+	if (*name == '\0' && *list->ns->prefix != '\0') {
 		/* an ugly way to get to mailbox root (e.g. Maildir/ when
 		   it's not the INBOX) */
 		return TRUE;
