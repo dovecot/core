@@ -575,16 +575,16 @@ prevfile:
 				/* get auth_* settings working outside auth
 				   sections. we'll verify that the setting is
 				   valid, but delay actually adding it */
-				const char *s = t_strdup(str_c(str) + 5);
+				const char *s = t_strdup(str_c(str));
 
 				str_truncate(str, 0);
-				str_printfa(str, "auth/0/%s=", key + 5);
+				str_printfa(str, "auth/0/%s=", key);
 				if (*value != '<' || !expand_files)
 					str_append(str, value);
 				else
 					str_append_file(str, key, value+1, &errormsg);
 
-				if (config_apply_line(parsers, key + 5, str_c(str), NULL, &errormsg) < 0)
+				if (config_apply_line(parsers, key, str_c(str), NULL, &errormsg) < 0)
 					break;
 				array_append(&auth_defaults, &s, 1);
 			}

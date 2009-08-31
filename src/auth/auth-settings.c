@@ -60,15 +60,16 @@ struct setting_parser_info auth_userdb_setting_parser_info = {
 	MEMBER(struct_size) sizeof(struct auth_userdb_settings)
 };
 
+/* we're kind of kludging here to avoid "auth_" prefix in the struct fields */
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct auth_settings, name), NULL }
+	{ type, "auth_"#name, offsetof(struct auth_settings, name), NULL }
 #define DEFLIST(field, name, defines) \
 	{ SET_DEFLIST, name, offsetof(struct auth_settings, field), defines }
 
 static struct setting_define auth_setting_defines[] = {
-	DEF(SET_STR, name),
+	{ SET_STR, "name", offsetof(struct auth_settings, name), NULL },
 	DEF(SET_STR, mechanisms),
 	DEF(SET_STR, realms),
 	DEF(SET_STR, default_realm),
