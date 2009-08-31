@@ -82,7 +82,6 @@ bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 				const ARRAY_TYPE(seq_range) *uids_filter,
 				ARRAY_TYPE(mailbox_expunge_rec) *expunges)
 {
-#define EXPUNGE_MASK (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXTERNAL)
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct mail_transaction_log_view *log_view;
 	const struct mail_transaction_header *thdr;
