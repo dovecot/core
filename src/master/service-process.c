@@ -166,27 +166,29 @@ static void validate_uid_gid(struct master_settings *set, uid_t uid, gid_t gid,
 	if (uid < (uid_t)set->first_valid_uid ||
 	    (set->last_valid_uid != 0 && uid > (uid_t)set->last_valid_uid)) {
 		struct passwd *pw;
+		bool low = uid < (uid_t)set->first_valid_uid;
 
 		pw = getpwuid(uid);
 		i_fatal("User %s not allowed to log in using too %s "
-			"UNIX UID %s%s (see first_valid_uid in config file)",
-			user,
-			uid < (uid_t)set->first_valid_uid ? "low" : "high",
+			"UNIX UID %s%s (see %s in config file)",
+			user, low ? "low" : "high",
 			dec2str(uid), pw == NULL ? "" :
-			t_strdup_printf("(%s)", pw->pw_name));
+			t_strdup_printf("(%s)", pw->pw_name),
+			low ? "first_valid_uid" : "last_valid_uid");
 	}
 
 	if (gid < (gid_t)set->first_valid_gid ||
 	    (set->last_valid_gid != 0 && gid > (gid_t)set->last_valid_gid)) {
 		struct group *gr;
+		bool low = gid < (gid_t)set->first_valid_gid;
 
 		gr = getgrgid(gid);
 		i_fatal("User %s not allowed to log in using too %s primary "
-			"UNIX group ID %s%s (see first_valid_gid in config file)",
-			user,
-			gid < (gid_t)set->first_valid_gid ? "low" : "high",
+			"UNIX group ID %s%s (see %s in config file)",
+			user, low ? "low" : "high",
 			dec2str(gid), gr == NULL ? "" :
-			t_strdup_printf("(%s)", gr->gr_name));
+			t_strdup_printf("(%s)", gr->gr_name),
+			low ? "first_valid_gid" : "last_valid_gid");
 	}
 }
 
