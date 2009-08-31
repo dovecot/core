@@ -164,7 +164,7 @@ static void client_connected(const struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	const char *getopt_str, *auth_name = "default";
+	const char *getopt_str;
 	int c;
 
 	master_service = master_service_init("auth", 0, argc, argv);
@@ -173,9 +173,6 @@ int main(int argc, char *argv[])
         getopt_str = t_strconcat("w", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		switch (c) {
-		case 'a':
-			auth_name = optarg;
-			break;
 		case 'w':
 			worker = TRUE;
 			break;
@@ -187,7 +184,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	main_preinit(auth_settings_read(master_service, auth_name));
+	main_preinit(auth_settings_read(master_service));
 
 	master_service_init_finish(master_service);
 	main_init();

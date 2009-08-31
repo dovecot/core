@@ -69,7 +69,6 @@ struct setting_parser_info auth_userdb_setting_parser_info = {
 	{ SET_DEFLIST, name, offsetof(struct auth_settings, field), defines }
 
 static struct setting_define auth_setting_defines[] = {
-	{ SET_STR, "name", offsetof(struct auth_settings, name), NULL },
 	DEF(SET_STR, mechanisms),
 	DEF(SET_STR, realms),
 	DEF(SET_STR, default_realm),
@@ -102,9 +101,6 @@ static struct setting_define auth_setting_defines[] = {
 };
 
 static struct auth_settings auth_default_settings = {
-	MEMBER(name) NULL,
-	MEMBER(root) NULL,
-
 	MEMBER(mechanisms) "plain",
 	MEMBER(realms) "",
 	MEMBER(default_realm) "",
@@ -138,47 +134,18 @@ struct setting_parser_info auth_setting_parser_info = {
 	MEMBER(defines) auth_setting_defines,
 	MEMBER(defaults) &auth_default_settings,
 
-	MEMBER(parent) &auth_root_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) offsetof(struct auth_settings, root),
-	MEMBER(type_offset) offsetof(struct auth_settings, name),
-	MEMBER(struct_size) sizeof(struct auth_settings),
-	MEMBER(check_func) auth_settings_check
-};
-
-#undef DEF
-#undef DEFLIST
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct auth_root_settings, name), NULL }
-#define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct auth_root_settings, field), defines }
-
-static struct setting_define auth_root_setting_defines[] = {
-	DEFLIST(auths, "auth", &auth_setting_parser_info),
-
-	SETTING_DEFINE_LIST_END
-};
-
-static struct auth_root_settings auth_root_default_settings = {
-	MEMBER(auths) ARRAY_INIT
-};
-
-struct setting_parser_info auth_root_setting_parser_info = {
-	MEMBER(defines) auth_root_setting_defines,
-	MEMBER(defaults) &auth_root_default_settings,
-
 	MEMBER(parent) NULL,
 	MEMBER(dynamic_parsers) NULL,
 
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct auth_root_settings)
+	MEMBER(struct_size) sizeof(struct auth_settings),
+	MEMBER(check_func) auth_settings_check
 };
 
 /* <settings checks> */
 static bool auth_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				const char **error_r)
+				const char **error_r ATTR_UNUSED)
 {
 	struct auth_settings *set = _set;
 
@@ -186,40 +153,23 @@ static bool auth_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		set->debug = TRUE;
 	if (set->debug)
 		set->verbose = TRUE;
-
-	if (set->name == NULL) {
-		*error_r = "auth section is missing name";
-		return FALSE;
-	}
 	return TRUE;
 }
 /* </settings checks> */
 
 struct auth_settings *
-auth_settings_read(struct master_service *service, const char *name)
+auth_settings_read(struct master_service *service)
 {
 	static const struct setting_parser_info *set_roots[] = {
-		&auth_root_setting_parser_info,
+		&auth_setting_parser_info,
 		NULL
 	};
 	const char *error;
 	void **sets;
-	struct auth_settings *const *auths;
-	struct auth_root_settings *set;
-	unsigned int i, count;
 
 	if (master_service_settings_read_simple(service, set_roots, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
 	sets = master_service_settings_get_others(service);
-	set = sets[0];
-
-	if (array_is_created(&set->auths)) {
-		auths = array_get(&set->auths, &count);
-		for (i = 0; i < count; i++) {
-			if (strcmp(auths[i]->name, name) == 0)
-				return auths[i];
-		}
-	}
-	i_fatal("Error reading configuration: No auth section: %s", name);
+	return sets[0];
 }

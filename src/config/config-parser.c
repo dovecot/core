@@ -494,12 +494,11 @@ int config_parse_file(const char *path, bool expand_files,
 	enum settings_parser_flags parser_flags =
                 SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS;
 	struct input_stack root;
-	ARRAY_TYPE(const_string) auth_defaults;
 	struct config_setting_parser_list *const *parsers;
 	struct parser_context ctx;
 	unsigned int pathlen = 0;
-	unsigned int i, count, counter = 0, auth_counter = 0, cur_counter;
-	const char *errormsg, *key, *value, *section, *p;
+	unsigned int i, count, counter = 0, cur_counter;
+	const char *errormsg, *key, *value, *section;
 	string_t *str, *full_line;
 	enum config_line_type type;
 	char *line;
@@ -526,17 +525,11 @@ int config_parse_file(const char *path, bool expand_files,
 					     parser_flags);
 	}
 
-	t_array_init(&auth_defaults, 32);
 	t_array_init(&ctx.cur_parsers, 128);
 	p_array_init(&ctx.all_parsers, ctx.pool, 128);
 	ctx.cur_filter = p_new(ctx.pool, struct config_filter_stack, 1);
 	config_add_new_parser(&ctx);
 	parsers = config_update_cur_parsers(&ctx);
-
-	(void)config_apply_line(parsers, "0", "auth=0", NULL, &errormsg);
-	i_assert(errormsg == NULL);
-	(void)config_apply_line(parsers, "name", "auth/0/name=default", NULL, &errormsg);
-	i_assert(errormsg == NULL);
 
 	memset(&root, 0, sizeof(root));
 	root.path = path;
@@ -569,25 +562,7 @@ prevfile:
 				/* file reading failed */
 				break;
 			}
-
-			if (config_apply_line(parsers, key, str_c(str), NULL, &errormsg) < 0 &&
-			    pathlen == 0 && strncmp(str_c(str), "auth_", 5) == 0) {
-				/* get auth_* settings working outside auth
-				   sections. we'll verify that the setting is
-				   valid, but delay actually adding it */
-				const char *s = t_strdup(str_c(str));
-
-				str_truncate(str, 0);
-				str_printfa(str, "auth/0/%s=", key);
-				if (*value != '<' || !expand_files)
-					str_append(str, value);
-				else
-					str_append_file(str, key, value+1, &errormsg);
-
-				if (config_apply_line(parsers, key, str_c(str), NULL, &errormsg) < 0)
-					break;
-				array_append(&auth_defaults, &s, 1);
-			}
+			(void)config_apply_line(parsers, key, str_c(str), NULL, &errormsg);
 			break;
 		case CONFIG_LINE_TYPE_SECTION_BEGIN:
 			config_add_new_filter(&ctx);
@@ -613,47 +588,19 @@ prevfile:
 				str_truncate(str, pathlen);
 				str_append(str, key);
 				pathlen = str_len(str);
-
-				if (strcmp(key, "auth") == 0) {
-					cur_counter = auth_counter++;
-					if (cur_counter == 0 && strcmp(section, "default") != 0)
-						cur_counter = auth_counter++;
-				} else {
-					cur_counter = counter++;
-				}
+				cur_counter = counter++;
 
 				str_append_c(str, '=');
 				str_printfa(str, "%u", cur_counter);
 
-				if (cur_counter == 0 && strcmp(key, "auth") == 0) {
-					/* already added this */
-				} else {
-					if (config_apply_line(parsers, key, str_c(str), section, &errormsg) < 0)
-						break;
-				}
+				if (config_apply_line(parsers, key, str_c(str), section, &errormsg) < 0)
+					break;
 
 				str_truncate(str, pathlen);
 				str_append_c(str, SETTINGS_SEPARATOR);
 				str_printfa(str, "%u", cur_counter);
 				str_append_c(str, SETTINGS_SEPARATOR);
 				pathlen = str_len(str);
-
-				if (strcmp(key, "auth") == 0) {
-					/* add auth default settings */
-					const char *const *lines;
-					unsigned int i, count;
-
-					lines = array_get(&auth_defaults, &count);
-					for (i = 0; i < count; i++) {
-						str_truncate(str, pathlen);
-
-						p = strchr(lines[i], '=');
-						str_append(str, lines[i]);
-
-						if (config_apply_line(parsers, t_strdup_until(lines[i], p), str_c(str), NULL, &errormsg) < 0)
-							i_unreached();
-					}
-				}
 			}
 			break;
 		case CONFIG_LINE_TYPE_SECTION_END:

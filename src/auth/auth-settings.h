@@ -17,9 +17,6 @@ struct auth_userdb_settings {
 };
 
 struct auth_settings {
-	const char *name;
-	struct auth_root_settings *root;
-
 	const char *mechanisms;
 	const char *realms;
 	const char *default_realm;
@@ -47,11 +44,6 @@ struct auth_settings {
 	ARRAY_DEFINE(userdbs, struct auth_userdb_settings *);
 };
 
-struct auth_root_settings {
-	ARRAY_DEFINE(auths, struct auth_settings *);
-};
-
-struct auth_settings *
-auth_settings_read(struct master_service *service, const char *name);
+struct auth_settings *auth_settings_read(struct master_service *service);
 
 #endif
