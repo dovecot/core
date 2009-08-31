@@ -1,11 +1,4 @@
-SUBDIRS = wiki
-
-confdir = $(sysconfdir)
-conf_DATA = \
-	dovecot-db-example.conf \
-	dovecot-dict-sql-example.conf \
-	dovecot-ldap-example.conf \
-	dovecot-sql-example.conf
+SUBDIRS = wiki example-config
 
 doc_DATA = \
 	auth-protocol.txt \
@@ -18,5 +11,4 @@ EXTRA_DIST = \
 	mkcert.sh \
 	dovecot-openssl.cnf \
 	solr-schema.xml \
-	$(doc_DATA) \
-	$(conf_DATA)
+	$(doc_DATA)

@@ -2451,6 +2451,8 @@ AC_CONFIG_FILES([
 Makefile
 doc/Makefile
 doc/wiki/Makefile
+doc/example-config/Makefile
+doc/example-config/conf.d/Makefile
 src/Makefile
 src/lib/Makefile
 src/lib-sql/Makefile

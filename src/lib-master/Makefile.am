@@ -1,9 +1,11 @@
+pkgsysconfdir = $(sysconfdir)/dovecot
+
 noinst_LTLIBRARIES = libmaster.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
+	-DSYSCONFDIR=\""$(pkgsysconfdir)"\" \
 	-DBINDIR=\""$(bindir)"\"
 
 libmaster_la_SOURCES = \

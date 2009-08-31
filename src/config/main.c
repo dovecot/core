@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 
 	path = master_service_get_config_path(master_service);
-	if (config_parse_file(path, TRUE, &error) < 0)
+	if (config_parse_file(path, TRUE, &error) <= 0)
 		i_fatal("%s", error);
 
 	master_service_run(master_service, client_connected);

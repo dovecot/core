@@ -1,4 +1,5 @@
 pkglibexecdir = $(libexecdir)/dovecot
+exampledir = $(docdir)/example-config
 
 bin_PROGRAMS = doveconf
 pkglibexec_PROGRAMS = config
@@ -7,9 +8,9 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
+	-DEXAMPLE_CONFIG_DIR=\""$(exampledir)"\" \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
 

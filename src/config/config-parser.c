@@ -508,7 +508,7 @@ int config_parse_file(const char *path, bool expand_files,
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
 		*error_r = t_strdup_printf("open(%s) failed: %m", path);
-		return -1;
+		return 0;
 	}
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -705,5 +705,5 @@ prevfile:
 	(void)array_append_space(&ctx.all_parsers);
 	config_filter = config_filter_init(ctx.pool);
 	config_filter_add_all(config_filter, array_idx(&ctx.all_parsers, 0));
-	return 0;
+	return 1;
 }

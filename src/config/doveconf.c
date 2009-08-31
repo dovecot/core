@@ -207,7 +207,7 @@ int main(int argc, char *argv[])
 	struct config_filter filter;
 	const char *error;
 	char **exec_args = NULL;
-	int c;
+	int c, ret;
 
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
@@ -248,7 +248,10 @@ int main(int argc, char *argv[])
 	}
 	master_service_init_finish(master_service);
 
-	if (config_parse_file(config_path, FALSE, &error) < 0)
+	if ((ret = config_parse_file(config_path, FALSE, &error)) == 0 &&
+	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0)
+		i_fatal("%s (example config in "EXAMPLE_CONFIG_DIR"/)", error);
+	if (ret <= 0)
 		i_fatal("%s", error);
 
 	if (exec_args == NULL) {
