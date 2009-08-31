@@ -95,6 +95,8 @@ int net_hosterror_notfound(int error) ATTR_CONST;
 int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port);
 /* Get socket remote address/port */
 int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port);
+/* Get UNIX socket name. */
+int net_getunixname(int fd, const char **name_r);
 
 /* Returns ip_addr as string, or NULL if ip is invalid. */
 const char *net_ip2addr(const struct ip_addr *ip);

@@ -589,6 +589,21 @@ int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port)
 	return 0;
 }
 
+int net_getunixname(int fd, const char **name_r)
+{
+	struct sockaddr_un sa;
+	socklen_t addrlen = sizeof(sa);
+
+	if (getsockname(fd, (void *)&sa, &addrlen) < 0)
+		return -1;
+	if (sa.sun_family != AF_UNIX) {
+		errno = ENOTSOCK;
+		return -1;
+	}
+	*name_r = t_strdup(sa.sun_path);
+	return 0;
+}
+
 const char *net_ip2addr(const struct ip_addr *ip)
 {
 #ifdef HAVE_IPV6
