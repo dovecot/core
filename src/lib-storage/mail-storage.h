@@ -657,6 +657,8 @@ void mail_update_modseq(struct mail *mail, uint64_t min_modseq);
 /* Update message's UID. The new UID must not be lower than next_uid at the
    commit time, otherwise the UID update fails and is just ignored. */
 void mail_update_uid(struct mail *mail, uint32_t new_uid);
+/* Update message's POP3 UIDL (if possible). */
+void mail_update_pop3_uidl(struct mail *mail, const char *uidl);
 /* Expunge this message. Sequence numbers don't change until commit. */
 void mail_expunge(struct mail *mail);
 /* Mark a cached field corrupted and have it recalculated. */

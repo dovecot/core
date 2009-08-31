@@ -233,6 +233,7 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_update_keywords,
 	test_mail_update_modseq,
 	test_mail_update_uid,
+	NULL,
 	test_mail_expunge,
 	test_mail_set_cache_corrupted,
 	test_mail_get_index_mail

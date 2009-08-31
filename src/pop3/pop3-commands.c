@@ -521,7 +521,7 @@ struct cmd_uidl_context {
 	unsigned int message;
 };
 
-static void pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
+static bool pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
 			 struct var_expand_table *tab, string_t *str)
 {
 	char uid_str[MAX_INT_STRLEN];
@@ -530,13 +530,13 @@ static void pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
 	if (mail_get_special(ctx->mail, MAIL_FETCH_UIDL_BACKEND, &uidl) == 0 &&
 	    *uidl != '\0') {
 		str_append(str, uidl);
-		return;
+		return TRUE;
 	}
 
 	if (client->set->pop3_reuse_xuidl &&
 	    mail_get_first_header(ctx->mail, "X-UIDL", &uidl) > 0) {
 		str_append(str, uidl);
-		return;
+		return FALSE;
 	}
 
 	if ((client->uidl_keymask & UIDL_UID) != 0) {
@@ -562,6 +562,7 @@ static void pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
 		}
 	}
 	var_expand(str, client->mail_set->pop3_uidl_format, tab);
+	return FALSE;
 }
 
 static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
@@ -576,6 +577,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	struct var_expand_table *tab;
 	string_t *str;
 	int ret;
+	unsigned int uidl_pos;
 	bool found = FALSE;
 
 	tab = t_malloc(sizeof(static_tab));
@@ -595,7 +597,10 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		str_truncate(str, 0);
 		str_printfa(str, ctx->message == 0 ? "%u " : "+OK %u ",
 			    ctx->mail->seq);
-		pop3_get_uid(client, ctx, tab, str);
+		uidl_pos = str_len(str);
+		if (!pop3_get_uid(client, ctx, tab, str) &&
+		    client->set->pop3_save_uidl)
+			mail_update_pop3_uidl(ctx->mail, str_c(str) + uidl_pos);
 
 		ret = client_send_line(client, "%s", str_c(str));
 		if (ret < 0)

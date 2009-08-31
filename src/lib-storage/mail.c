@@ -210,6 +210,14 @@ void mail_update_uid(struct mail *mail, uint32_t new_uid)
 	p->v.update_uid(mail, new_uid);
 }
 
+void mail_update_pop3_uidl(struct mail *mail, const char *uidl)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	if (p->v.update_pop3_uidl != NULL)
+		p->v.update_pop3_uidl(mail, uidl);
+}
+
 void mail_expunge(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;

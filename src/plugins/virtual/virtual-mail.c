@@ -347,6 +347,13 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 	return 0;
 }
 
+static void virtual_mail_update_pop3_uidl(struct mail *mail, const char *uidl)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+
+	mail_update_pop3_uidl(vmail->backend_mail, uidl);
+}
+
 static void virtual_mail_expunge(struct mail *mail)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
@@ -399,6 +406,7 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	index_mail_update_keywords,
 	index_mail_update_modseq,
 	index_mail_update_uid,
+	virtual_mail_update_pop3_uidl,
 	virtual_mail_expunge,
 	virtual_mail_set_cache_corrupted,
 	virtual_mail_get_index_mail

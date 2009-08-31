@@ -503,6 +503,23 @@ static void maildir_mail_update_uid(struct mail *_mail, uint32_t new_uid)
 	index_mail_update_uid(_mail, new_uid);
 }
 
+static void maildir_update_pop3_uidl(struct mail *_mail, const char *uidl)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
+	const char *fname;
+
+	if (maildir_mail_get_special(_mail, MAIL_FETCH_UIDL_FILE_NAME,
+				     &fname) == 0 &&
+	    strcmp(uidl, fname) == 0) {
+		/* special case optimization: empty UIDL means the same
+		   as base filename */
+		uidl = "";
+	}
+
+	maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
+				MAILDIR_UIDLIST_REC_EXT_POP3_UIDL, uidl);
+}
+
 static void maildir_mail_set_cache_corrupted(struct mail *_mail,
 					     enum mail_fetch_field field)
 {
@@ -564,6 +581,7 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_update_keywords,
 	index_mail_update_modseq,
 	maildir_mail_update_uid,
+	maildir_update_pop3_uidl,
 	index_mail_expunge,
 	maildir_mail_set_cache_corrupted,
 	index_mail_get_index_mail

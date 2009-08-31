@@ -24,6 +24,7 @@ static struct setting_define pop3_setting_defines[] = {
 	DEF(SET_BOOL, pop3_no_flag_updates),
 	DEF(SET_BOOL, pop3_enable_last),
 	DEF(SET_BOOL, pop3_reuse_xuidl),
+	DEF(SET_BOOL, pop3_save_uidl),
 	DEF(SET_BOOL, pop3_lock_session),
 	DEF(SET_STR, pop3_client_workarounds),
 	DEF(SET_STR, pop3_logout_format),
@@ -39,6 +40,7 @@ static struct pop3_settings pop3_default_settings = {
 	MEMBER(pop3_no_flag_updates) FALSE,
 	MEMBER(pop3_enable_last) FALSE,
 	MEMBER(pop3_reuse_xuidl) FALSE,
+	MEMBER(pop3_save_uidl) FALSE,
 	MEMBER(pop3_lock_session) FALSE,
 	MEMBER(pop3_client_workarounds) "",
 	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s"
