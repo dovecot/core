@@ -7,6 +7,7 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "str.h"
 #include "auth-master.h"
 
 #include <stdlib.h>
@@ -49,9 +50,16 @@ struct auth_master_connection {
 struct auth_master_user_lookup_ctx {
 	struct auth_master_connection *conn;
 	pool_t pool;
-	const char *user;
 	struct auth_user_reply *user_reply;
 	int return_value;
+};
+
+struct auth_master_pass_lookup_ctx {
+	struct auth_master_connection *conn;
+	int return_value;
+
+	pool_t pool;
+	const char **fields;
 };
 
 struct auth_master_user_list_ctx {
@@ -162,27 +170,34 @@ static int auth_input_handshake(struct auth_master_connection *conn)
 	return 0;
 }
 
+static int parse_reply(struct auth_master_connection *conn,
+		       const char *cmd, const char *const *args,
+		       const char *expected_reply)
+{
+	io_loop_stop(conn->ioloop);
+
+	if (strcmp(cmd, expected_reply) == 0)
+		return 1;
+	if (strcmp(cmd, "NOTFOUND") == 0)
+		return 0;
+	if (strcmp(cmd, "FAIL") == 0) {
+		i_error("Lookup failed: %s",
+			*args != NULL ? *args : "Internal failure");
+		return -1;
+	}
+	i_error("Unknown reply: %s", cmd);
+	return -1;
+}
+
 static bool auth_user_reply_callback(const char *cmd, const char *const *args,
 				     void *context)
 {
 	struct auth_master_user_lookup_ctx *ctx = context;
 
-	io_loop_stop(ctx->conn->ioloop);
-	if (strcmp(cmd, "USER") == 0) {
+	ctx->return_value = parse_reply(ctx->conn, cmd, args, "USER");
+	if (ctx->return_value > 0)
 		auth_parse_input(ctx, args);
-		ctx->return_value = 1;
-		return TRUE;
-	}
-	if (strcmp(cmd, "NOTFOUND") == 0) {
-		ctx->return_value = 0;
-		return TRUE;
-	}
-	if (strcmp(cmd, "FAIL") == 0) {
-		i_error("userdb lookup(%s) failed: %s", ctx->user,
-			*args != NULL ? *args : "Internal failure");
-		return TRUE;
-	}
-	return FALSE;
+	return TRUE;
 }
 
 static bool
@@ -373,14 +388,40 @@ static int auth_master_run_cmd(struct auth_master_connection *conn,
 	return 0;
 }
 
+static unsigned int
+auth_master_next_request_id(struct auth_master_connection *conn)
+{
+	if (++conn->request_counter == 0) {
+		/* avoid zero */
+		conn->request_counter++;
+	}
+	return conn->request_counter;
+}
+
+static void
+auth_user_info_export(string_t *str, const struct auth_user_info *info)
+{
+	str_append(str, "service=");
+	str_append(str, info->service);
+
+	if (info->local_ip.family != 0)
+		str_printfa(str, "\tlip=%s", net_ip2addr(&info->local_ip));
+	if (info->local_port != 0)
+		str_printfa(str, "\tlport=%d", info->local_port);
+	if (info->remote_ip.family != 0)
+		str_printfa(str, "\trip=%s", net_ip2addr(&info->remote_ip));
+	if (info->remote_port != 0)
+		str_printfa(str, "\trport=%d", info->remote_port);
+}
+
 int auth_master_user_lookup(struct auth_master_connection *conn,
-			    const char *user, const char *service,
+			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, struct auth_user_reply *reply_r)
 {
 	struct auth_master_user_lookup_ctx ctx;
-	const char *str;
+	string_t *str;
 
-	if (!is_valid_string(user) || !is_valid_string(service)) {
+	if (!is_valid_string(user) || !is_valid_string(info->service)) {
 		/* non-allowed characters, the user can't exist */
 		return 0;
 	}
@@ -389,23 +430,71 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 	ctx.conn = conn;
 	ctx.return_value = -1;
 	ctx.pool = pool;
-	ctx.user = user;
 	ctx.user_reply = reply_r;
-
-	if (++conn->request_counter == 0) {
-		/* avoid zero */
-		conn->request_counter++;
-	}
 
 	conn->reply_callback = auth_user_reply_callback;
 	conn->reply_context = &ctx;
 
+	str = t_str_new(128);
+	str_printfa(str, "USER\t%u\t%s\t",
+		    auth_master_next_request_id(conn), user);
+	auth_user_info_export(str, info);
+	str_append_c(str, '\n');
+
 	conn->prefix = t_strdup_printf("userdb lookup(%s)", user);
-	str = t_strdup_printf("USER\t%u\t%s\tservice=%s\n",
-			      conn->request_counter, user, service);
-	(void)auth_master_run_cmd(conn, str);
+	(void)auth_master_run_cmd(conn, str_c(str));
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 
+	return ctx.return_value;
+}
+
+static bool auth_pass_reply_callback(const char *cmd, const char *const *args,
+				     void *context)
+{
+	struct auth_master_pass_lookup_ctx *ctx = context;
+	unsigned int i, len;
+
+	ctx->return_value = parse_reply(ctx->conn, cmd, args, "PASS");
+	if (ctx->return_value > 0) {
+		len = str_array_length(args);
+		ctx->fields = p_new(ctx->pool, const char *, len + 1);
+		for (i = 0; i < len; i++)
+			ctx->fields[i] = p_strdup(ctx->pool, args[i]);
+	}
+	return TRUE;
+}
+
+int auth_master_pass_lookup(struct auth_master_connection *conn,
+			    const char *user, const struct auth_user_info *info,
+			    pool_t pool, const char *const **fields_r)
+{
+	struct auth_master_pass_lookup_ctx ctx;
+	string_t *str;
+
+	if (!is_valid_string(user) || !is_valid_string(info->service)) {
+		/* non-allowed characters, the user can't exist */
+		return 0;
+	}
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.conn = conn;
+	ctx.return_value = -1;
+	ctx.pool = pool;
+
+	conn->reply_callback = auth_pass_reply_callback;
+	conn->reply_context = &ctx;
+
+	str = t_str_new(128);
+	str_printfa(str, "PASS\t%u\t%s\t",
+		    auth_master_next_request_id(conn), user);
+	auth_user_info_export(str, info);
+	str_append_c(str, '\n');
+
+	conn->prefix = t_strdup_printf("passdb lookup(%s)", user);
+	(void)auth_master_run_cmd(conn, str_c(str));
+	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
+
+	*fields_r = ctx.fields;
 	return ctx.return_value;
 }
 
@@ -449,15 +538,10 @@ auth_master_user_list_init(struct auth_master_connection *conn)
 	ctx->conn = conn;
 	i_array_init(&ctx->users, 128);
 
-	if (++conn->request_counter == 0) {
-		/* avoid zero */
-		conn->request_counter++;
-	}
-
 	conn->reply_callback = auth_user_list_reply_callback;
 	conn->reply_context = ctx;
 
-	str = t_strdup_printf("LIST\t%u\n", conn->request_counter);
+	str = t_strdup_printf("LIST\t%u\n", auth_master_next_request_id(conn));
 	conn->prefix = "userdb list";
 	if (auth_master_run_cmd(conn, str) < 0)
 		ctx->failed = TRUE;

@@ -241,9 +241,17 @@ const char *mail_user_home_expand(struct mail_user *user, const char *path)
 
 int mail_user_get_home(struct mail_user *user, const char **home_r)
 {
+	struct auth_user_info info;
 	struct auth_user_reply reply;
 	pool_t userdb_pool;
 	int ret;
+
+	memset(&info, 0, sizeof(info));
+	info.service = "lib-storage";
+	if (user->local_ip != NULL)
+		info.local_ip = *user->local_ip;
+	if (user->remote_ip != NULL)
+		info.remote_ip = *user->remote_ip;
 
 	if (user->home_looked_up) {
 		*home_r = user->_home;
@@ -252,7 +260,7 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 
 	userdb_pool = pool_alloconly_create("userdb lookup", 512);
 	ret = auth_master_user_lookup(auth_master_conn, user->username,
-				      "lib-storage", userdb_pool, &reply);
+				      &info, userdb_pool, &reply);
 	if (ret < 0)
 		*home_r = NULL;
 	else {

@@ -39,6 +39,8 @@ struct mail_storage_service_multi_ctx *
 mail_storage_service_multi_init(struct master_service *service,
 				const struct setting_parser_info *set_roots[],
 				enum mail_storage_service_flags flags);
+struct auth_master_connection *
+mail_storage_service_multi_get_auth_conn(struct mail_storage_service_multi_ctx *ctx);
 /* Returns 1 if ok, 0 if user wasn't found, -1 if error. */
 int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx,
 				      const struct mail_storage_service_input *input,

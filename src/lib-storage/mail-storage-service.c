@@ -149,19 +149,26 @@ user_reply_handle(struct setting_parser_context *set_parser,
 static int
 service_auth_userdb_lookup(struct auth_master_connection *conn,
 			   struct setting_parser_context *set_parser,
-			   const char *name,
+			   const char *service_name,
+			   const struct mail_storage_service_input *input,
 			   const struct mail_user_settings *user_set,
 			   const char **user, const char **system_groups_user_r,
 			   const char **error_r)
 {
+	struct auth_user_info info;
 	struct auth_user_reply reply;
 	const char *system_groups_user, *orig_user = *user;
 	unsigned int len;
 	pool_t pool;
 	int ret;
 
+	memset(&info, 0, sizeof(info));
+	info.service = service_name;
+	info.local_ip = input->local_ip;
+	info.remote_ip = input->remote_ip;
+
 	pool = pool_alloconly_create("userdb lookup", 1024);
-	ret = auth_master_user_lookup(conn, *user, name, pool, &reply);
+	ret = auth_master_user_lookup(conn, *user, &info, pool, &reply);
 	if (ret > 0) {
 		len = reply.chroot == NULL ? 0 : strlen(reply.chroot);
 
@@ -539,7 +546,8 @@ init_user_real(struct master_service *service,
 		conn = auth_master_init(user_set->auth_socket_path,
 					mail_set->mail_debug);
 		if (service_auth_userdb_lookup(conn, service->set_parser,
-					       service->name, user_set, &user,
+					       service->name, &input,
+					       user_set, &user,
 					       &system_groups_user,
 					       &error) <= 0)
 			i_fatal("%s", error);
@@ -660,6 +668,12 @@ mail_storage_service_multi_init(struct master_service *service,
 	return ctx;
 }
 
+struct auth_master_connection *
+mail_storage_service_multi_get_auth_conn(struct mail_storage_service_multi_ctx *ctx)
+{
+	return ctx->conn;
+}
+
 int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx,
 				      const struct mail_storage_service_input *input,
 				      pool_t pool,
@@ -684,7 +698,7 @@ int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
 		orig_user = username = user->input.username;
 		ret = service_auth_userdb_lookup(ctx->conn, user->set_parser,
-						 ctx->service->name,
+						 ctx->service->name, input,
 						 user->user_set, &username,
 						 &user->system_groups_user,
 						 error_r);
