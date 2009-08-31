@@ -370,8 +370,10 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 			continue;
 
 		virtual_backend_box_sync_mail_set(bbox);
-		if (!mail_set_uid(bbox->sync_mail, vrec->real_uid))
-			i_panic("UID lost unexpectedly");
+		if (!mail_set_uid(bbox->sync_mail, vrec->real_uid)) {
+			/* message is already expunged from backend mailbox. */
+			continue;
+		}
 
 		switch (sync_rec->type) {
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
