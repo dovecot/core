@@ -128,9 +128,13 @@ service_create_inet_listeners(struct service *service,
 {
 	static struct service_listener *l;
 	const char *const *tmp;
+	bool ssl_disabled = strcmp(service->set->master_set->ssl, "no") == 0;
 
 	tmp = t_strsplit_spaces(set->address, ", ");
 	for (; *tmp != NULL; tmp++) {
+		if (set->ssl && ssl_disabled)
+			continue;
+
 		l = service_create_one_inet_listener(service, set, *tmp,
 						     error_r);
 		if (l == NULL)
