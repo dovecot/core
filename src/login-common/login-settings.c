@@ -21,8 +21,6 @@ static struct setting_define login_setting_defines[] = {
 	DEF(SET_STR, login_log_format_elements),
 	DEF(SET_STR, login_log_format),
 
-	DEF(SET_BOOL, login_process_per_connection),
-
 	DEF(SET_ENUM, ssl),
 	DEF(SET_STR, ssl_ca_file),
 	DEF(SET_STR, ssl_cert),
@@ -53,8 +51,6 @@ static struct login_settings login_default_settings = {
 	MEMBER(login_greeting) PACKAGE_NAME" ready.",
 	MEMBER(login_log_format_elements) "user=<%u> method=%m rip=%r lip=%l %c",
 	MEMBER(login_log_format) "%$: %s",
-
-	MEMBER(login_process_per_connection) TRUE,
 
 	MEMBER(ssl) "yes:no:required",
 	MEMBER(ssl_ca_file) "",

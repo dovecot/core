@@ -349,7 +349,7 @@ void client_set_title(struct client *client)
 	const char *addr;
 
 	if (!client->set->verbose_proctitle ||
-	    !client->set->login_process_per_connection)
+	    master_service_get_client_limit(master_service) > 1)
 		return;
 
 	addr = net_ip2addr(&client->ip);
