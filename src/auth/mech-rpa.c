@@ -236,24 +236,6 @@ rpa_read_buffer(pool_t pool, const unsigned char **data,
 }
 
 static bool
-rpa_verify_realm(struct rpa_auth_request *request, const char *realm)
-{
-	const struct auth *auth = request->auth_request.auth;
-	const char *default_realm;
-	const char *const *tmp;
-
-	for (tmp = auth->auth_realms; *tmp != NULL; tmp++) {
-		if (strcasecmp(realm, *tmp) == 0)
-			return TRUE;
-	}
-
-	default_realm = *auth->set->default_realm != '\0' ?
-		auth->set->default_realm : my_hostname;
-
-	return strcasecmp(realm, default_realm) == 0;
-}
-
-static bool
 rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 		 size_t data_size, const char **error)
 {
@@ -282,8 +264,8 @@ rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 
 	user = t_strndup(p, len);
 	realm = strrchr(user, '@');
-	if ((realm == NULL) || !rpa_verify_realm(request, realm + 1)) {
-		*error = "invalid realm";
+	if (realm == NULL) {
+		*error = "missing realm";
 		return FALSE;
 	}
 	user = t_strdup_until(user, realm++);

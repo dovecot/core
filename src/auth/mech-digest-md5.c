@@ -217,22 +217,6 @@ static bool verify_credentials(struct digest_auth_request *request,
 	return TRUE;
 }
 
-static bool verify_realm(struct digest_auth_request *request, const char *realm)
-{
-	const char *const *tmp;
-
-	if (*realm == '\0')
-		return TRUE;
-
-        tmp = request->auth_request.auth->auth_realms;
-	for (; *tmp != NULL; tmp++) {
-		if (strcmp(realm, *tmp) == 0)
-			return TRUE;
-	}
-
-	return FALSE;
-}
-
 static bool parse_next(char **data, char **key, char **value)
 {
 	/* @UNSAFE */
@@ -294,11 +278,6 @@ static bool auth_handle_response(struct digest_auth_request *request,
 	str_lcase(key);
 
 	if (strcmp(key, "realm") == 0) {
-		if (!verify_realm(request, value)) {
-			*error = t_strdup_printf("Invalid realm: %s",
-					str_sanitize(value, MAX_REALM_LEN));
-			return FALSE;
-		}
 		if (request->auth_request.realm == NULL && *value != '\0')
 			request->auth_request.realm =
 				p_strdup(request->pool, value);
