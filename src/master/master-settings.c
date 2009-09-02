@@ -278,11 +278,12 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 
 	/* check that we have at least one service. the actual service
 	   structure validity is checked later while creating them. */
-	services = array_get(&set->services, &count);
-	if (count == 0) {
+	if (!array_is_created(&set->services) ||
+	    array_count(&set->services) == 0) {
 		*error_r = "No services defined";
 		return FALSE;
 	}
+	services = array_get(&set->services, &count);
 	for (i = 0; i < count; i++) {
 		if (*services[i]->name == '\0') {
 			*error_r = t_strdup_printf(

@@ -347,7 +347,13 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 
 	if (ns->alias_for != NULL) {
-		namespaces = array_get(&ns->user_set->namespaces, &count);
+		if (array_is_created(&ns->user_set->namespaces)) {
+			namespaces = array_get(&ns->user_set->namespaces,
+					       &count);
+		} else {
+			namespaces = NULL;
+			count = 0;
+		}
 		for (i = 0; i < count; i++) {
 			if (strcmp(namespaces[i]->prefix, ns->alias_for) == 0)
 				break;
