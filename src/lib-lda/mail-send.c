@@ -59,10 +59,18 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     struct message_size hdr_size;
     const char *return_addr, *hdr;
     const unsigned char *data;
-    const char *msgid, *orig_msgid, *boundary;
+    const char *value, *msgid, *orig_msgid, *boundary;
     string_t *str;
     size_t size;
     int ret;
+
+    if (mail_get_first_header(mail, "Auto-Submitted", &value) > 0 &&
+	strcasecmp(value, "no") != 0) {
+	    i_info("msgid=%s: Auto-submitted message discarded: %s",
+		   orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
+		   str_sanitize(reason, 512));
+	    return 0;
+    }
 
     if (mail_get_first_header(mail, "Message-ID", &orig_msgid) < 0)
 	    orig_msgid = NULL;
