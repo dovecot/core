@@ -43,15 +43,15 @@ struct parser_context {
 
 	ARRAY_DEFINE(all_parsers, struct config_filter_parser_list *);
 	/* parsers matching cur_filter */
-	ARRAY_TYPE(config_setting_parsers) cur_parsers;
-	struct config_setting_parser_list *root_parsers;
+	ARRAY_TYPE(config_module_parsers) cur_parsers;
+	struct config_module_parser *root_parsers;
 	struct config_filter_stack *cur_filter;
 	struct input_stack *cur_input;
 
 	struct config_filter_context *filter;
 };
 
-struct config_setting_parser_list *config_setting_parsers;
+struct config_module_parser *config_module_parsers;
 struct config_filter_context *config_filter;
 
 static const char *info_type_name_find(const struct setting_parser_info *info)
@@ -93,11 +93,11 @@ static void config_add_type(struct setting_parser_context *parser,
 }
 
 static int
-config_parsers_parse_line(struct config_setting_parser_list *parsers,
+config_parsers_parse_line(struct config_module_parser *parsers,
 			  const char *key, const char *line,
 			  const char *section_name, const char **error_r)
 {
-	struct config_setting_parser_list *l;
+	struct config_module_parser *l;
 	bool found = FALSE;
 	int ret;
 
@@ -120,12 +120,16 @@ config_parsers_parse_line(struct config_setting_parser_list *parsers,
 }
 
 static int
-config_apply_line(struct config_setting_parser_list *const *all_parsers,
-		  const char *key, const char *line, const char *section_name,
+config_apply_line(struct parser_context *ctx, const char *key,
+		  const char *line, const char *section_name,
 		  const char **error_r)
 {
-	for (; *all_parsers != NULL; all_parsers++) {
-		if (config_parsers_parse_line(*all_parsers, key, line,
+	struct config_module_parser *const *parsers;
+	unsigned int i, count;
+
+	parsers = array_get(&ctx->cur_parsers, &count);
+	for (i = 0; i < count; i++) {
+		if (config_parsers_parse_line(parsers[i], key, line,
 					      section_name, error_r) < 0)
 			return -1;
 	}
@@ -148,16 +152,15 @@ fix_relative_path(const char *path, struct input_stack *input)
 	return t_strconcat(t_strdup_until(input->path, p+1), path, NULL);
 }
 
-static struct config_setting_parser_list *
-config_setting_parser_list_dup(pool_t pool,
-			       const struct config_setting_parser_list *src)
+static struct config_module_parser *
+config_module_parsers_dup(pool_t pool, const struct config_module_parser *src)
 {
-	struct config_setting_parser_list *dest;
+	struct config_module_parser *dest;
 	unsigned int i, count;
 
 	for (count = 0; src[count].module_name != NULL; count++) ;
 
-	dest = p_new(pool, struct config_setting_parser_list, count + 1);
+	dest = p_new(pool, struct config_module_parser, count + 1);
 	for (i = 0; i < count; i++) {
 		dest[i] = src[i];
 		dest[i].parser = settings_parser_dup(src[i].parser, pool);
@@ -169,7 +172,7 @@ static struct config_filter_parser_list *
 config_add_new_parser(struct parser_context *ctx)
 {
 	struct config_filter_parser_list *parser;
-	struct config_setting_parser_list *const *cur_parsers;
+	struct config_module_parser *const *cur_parsers;
 	unsigned int count;
 
 	parser = p_new(ctx->pool, struct config_filter_parser_list, 1);
@@ -178,12 +181,11 @@ config_add_new_parser(struct parser_context *ctx)
 	cur_parsers = array_get(&ctx->cur_parsers, &count);
 	if (count == 0) {
 		/* first one */
-		parser->parser_list = ctx->root_parsers;
+		parser->parsers = ctx->root_parsers;
 	} else {
 		/* duplicate the first settings list */
-		parser->parser_list =
-			config_setting_parser_list_dup(ctx->pool,
-						       cur_parsers[0]);
+		parser->parsers =
+			config_module_parsers_dup(ctx->pool, cur_parsers[0]);
 	}
 
 	array_append(&ctx->all_parsers, &parser, 1);
@@ -200,8 +202,32 @@ static void config_add_new_filter(struct parser_context *ctx)
 	ctx->cur_filter = filter;
 }
 
-static struct config_setting_parser_list *const *
-config_update_cur_parsers(struct parser_context *ctx)
+static bool
+config_filter_add_new_parser(struct parser_context *ctx,
+			     const char *key, const char *value,
+			     const char **error_r)
+{
+	struct config_filter *filter = &ctx->cur_filter->filter;
+
+	if (strcmp(key, "protocol") == 0) {
+		filter->service = p_strdup(ctx->pool, value);
+	} else if (strcmp(key, "local_ip") == 0) {
+		if (net_parse_range(value, &filter->local_net,
+				    &filter->local_bits) < 0)
+			*error_r = "Invalid network mask";
+	} else if (strcmp(key, "remote_ip") == 0) {
+		if (net_parse_range(value, &filter->remote_net,
+				    &filter->remote_bits) < 0)
+			*error_r = "Invalid network mask";
+	} else {
+		return FALSE;
+	}
+
+	config_add_new_parser(ctx);
+	return TRUE;
+}
+
+static void config_update_cur_parsers(struct parser_context *ctx)
 {
 	struct config_filter_parser_list *const *all_parsers;
 	unsigned int i, count;
@@ -218,16 +244,14 @@ config_update_cur_parsers(struct parser_context *ctx)
 		if (config_filters_equal(&all_parsers[i]->filter,
 					 &ctx->cur_filter->filter)) {
 			array_insert(&ctx->cur_parsers, 0,
-				     &all_parsers[i]->parser_list, 1);
+				     &all_parsers[i]->parsers, 1);
 			full_found = TRUE;
 		} else {
 			array_append(&ctx->cur_parsers,
-				     &all_parsers[i]->parser_list, 1);
+				     &all_parsers[i]->parsers, 1);
 		}
 	}
 	i_assert(full_found);
-	(void)array_append_space(&ctx->cur_parsers);
-	return array_idx(&ctx->cur_parsers, 0);
 }
 
 static int
@@ -235,7 +259,7 @@ config_filter_parser_list_check(struct parser_context *ctx,
 				struct config_filter_parser_list *parser,
 				const char **error_r)
 {
-	struct config_setting_parser_list *l = parser->parser_list;
+	struct config_module_parser *l = parser->parsers;
 	const char *errormsg;
 
 	for (; l->module_name != NULL; l++) {
@@ -373,7 +397,7 @@ enum config_line_type {
 
 static enum config_line_type
 config_parse_line(char *line, string_t *full_line, const char **key_r,
-		  const char **section_r, const char **value_r)
+		  const char **value_r)
 {
 	const char *key;
 	unsigned int len;
@@ -381,7 +405,6 @@ config_parse_line(char *line, string_t *full_line, const char **key_r,
 
 	*key_r = NULL;
 	*value_r = NULL;
-	*section_r = NULL;
 
 	/* @UNSAFE: line is modified */
 
@@ -467,10 +490,10 @@ config_parse_line(char *line, string_t *full_line, const char **key_r,
 	line[-1] = '\0';
 
 	if (*line == '{')
-		*section_r = "";
+		*value_r = "";
 	else {
 		/* get section name */
-		*section_r = line;
+		*value_r = line;
 		while (!IS_WHITE(*line) && *line != '\0')
 			line++;
 
@@ -483,7 +506,10 @@ config_parse_line(char *line, string_t *full_line, const char **key_r,
 			*value_r = "Expecting '='";
 			return CONFIG_LINE_TYPE_ERROR;
 		}
-		*value_r = line;
+		if (line[1] != '\0') {
+			*value_r = "Garbage after '{'";
+			return CONFIG_LINE_TYPE_ERROR;
+		}
 	}
 	return CONFIG_LINE_TYPE_SECTION_BEGIN;
 }
@@ -492,13 +518,13 @@ int config_parse_file(const char *path, bool expand_files,
 		      const char **error_r)
 {
 	enum settings_parser_flags parser_flags =
-                SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS;
+		SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS |
+		SETTINGS_PARSER_FLAG_TRACK_CHANGES;
 	struct input_stack root;
-	struct config_setting_parser_list *const *parsers;
 	struct parser_context ctx;
 	unsigned int pathlen = 0;
 	unsigned int i, count, counter = 0, cur_counter;
-	const char *errormsg, *key, *value, *section;
+	const char *errormsg, *key, *value;
 	string_t *str, *full_line;
 	enum config_line_type type;
 	char *line;
@@ -516,7 +542,7 @@ int config_parse_file(const char *path, bool expand_files,
 
 	for (count = 0; all_roots[count].module_name != NULL; count++) ;
 	ctx.root_parsers =
-		p_new(ctx.pool, struct config_setting_parser_list, count+1);
+		p_new(ctx.pool, struct config_module_parser, count+1);
 	for (i = 0; i < count; i++) {
 		ctx.root_parsers[i].module_name = all_roots[i].module_name;
 		ctx.root_parsers[i].root = all_roots[i].root;
@@ -529,7 +555,7 @@ int config_parse_file(const char *path, bool expand_files,
 	p_array_init(&ctx.all_parsers, ctx.pool, 128);
 	ctx.cur_filter = p_new(ctx.pool, struct config_filter_stack, 1);
 	config_add_new_parser(&ctx);
-	parsers = config_update_cur_parsers(&ctx);
+	config_update_cur_parsers(&ctx);
 
 	memset(&root, 0, sizeof(root));
 	root.path = path;
@@ -544,7 +570,7 @@ prevfile:
 	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
 		ctx.cur_input->linenum++;
 		type = config_parse_line(line, full_line,
-					 &key, &section, &value);
+					 &key, &value);
 		switch (type) {
 		case CONFIG_LINE_TYPE_SKIP:
 			break;
@@ -562,46 +588,36 @@ prevfile:
 				/* file reading failed */
 				break;
 			}
-			(void)config_apply_line(parsers, key, str_c(str), NULL, &errormsg);
+			(void)config_apply_line(&ctx, key, str_c(str), NULL, &errormsg);
 			break;
 		case CONFIG_LINE_TYPE_SECTION_BEGIN:
 			config_add_new_filter(&ctx);
 			ctx.cur_filter->pathlen = pathlen;
-			if (strcmp(key, "protocol") == 0) {
-				ctx.cur_filter->filter.service =
-					p_strdup(ctx.pool, section);
-				config_add_new_parser(&ctx);
-				parsers = config_update_cur_parsers(&ctx);
-			} else if (strcmp(key, "local_ip") == 0) {
-				if (net_parse_range(section, &ctx.cur_filter->filter.local_net,
-						    &ctx.cur_filter->filter.local_bits) < 0)
-					errormsg = "Invalid network mask";
-				config_add_new_parser(&ctx);
-				parsers = config_update_cur_parsers(&ctx);
-			} else if (strcmp(key, "remote_ip") == 0) {
-				if (net_parse_range(section, &ctx.cur_filter->filter.remote_net,
-						    &ctx.cur_filter->filter.remote_bits) < 0)
-					errormsg = "Invalid network mask";
-				config_add_new_parser(&ctx);
-				parsers = config_update_cur_parsers(&ctx);
-			} else {
-				str_truncate(str, pathlen);
-				str_append(str, key);
-				pathlen = str_len(str);
-				cur_counter = counter++;
 
-				str_append_c(str, '=');
-				str_printfa(str, "%u", cur_counter);
-
-				if (config_apply_line(parsers, key, str_c(str), section, &errormsg) < 0)
-					break;
-
-				str_truncate(str, pathlen);
-				str_append_c(str, SETTINGS_SEPARATOR);
-				str_printfa(str, "%u", cur_counter);
-				str_append_c(str, SETTINGS_SEPARATOR);
-				pathlen = str_len(str);
+			if (config_filter_add_new_parser(&ctx, key, value,
+							 &errormsg)) {
+				/* new real filter */
+				config_update_cur_parsers(&ctx);
+				break;
 			}
+
+			/* new config section */
+			str_truncate(str, pathlen);
+			str_append(str, key);
+			pathlen = str_len(str);
+			cur_counter = counter++;
+
+			str_append_c(str, '=');
+			str_printfa(str, "%u", cur_counter);
+
+			if (config_apply_line(&ctx, key, str_c(str), value, &errormsg) < 0)
+				break;
+
+			str_truncate(str, pathlen);
+			str_append_c(str, SETTINGS_SEPARATOR);
+			str_printfa(str, "%u", cur_counter);
+			str_append_c(str, SETTINGS_SEPARATOR);
+			pathlen = str_len(str);
 			break;
 		case CONFIG_LINE_TYPE_SECTION_END:
 			if (ctx.cur_filter->prev == NULL)
@@ -609,7 +625,7 @@ prevfile:
 			else {
 				pathlen = ctx.cur_filter->pathlen;
 				ctx.cur_filter = ctx.cur_filter->prev;
-				parsers = config_update_cur_parsers(&ctx);
+				config_update_cur_parsers(&ctx);
 			}
 			break;
 		case CONFIG_LINE_TYPE_INCLUDE:
@@ -647,7 +663,7 @@ prevfile:
 
 	if (config_filter != NULL)
 		config_filter_deinit(&config_filter);
-	config_setting_parsers = ctx.root_parsers;
+	config_module_parsers = ctx.root_parsers;
 
 	(void)array_append_space(&ctx.all_parsers);
 	config_filter = config_filter_init(ctx.pool);

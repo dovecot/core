@@ -180,12 +180,12 @@ static void config_request_putenv(const char *key, const char *value,
 
 static const char *get_mail_location(void)
 {
-	struct config_setting_parser_list *l;
+	struct config_module_parser *l;
 	const struct setting_define *def;
 	const char *const *value;
 	const void *set;
 
-	for (l = config_setting_parsers; l->module_name != NULL; l++) {
+	for (l = config_module_parsers; l->module_name != NULL; l++) {
 		if (strcmp(l->module_name, "mail") != 0)
 			continue;
 

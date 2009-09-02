@@ -11,18 +11,21 @@ struct config_filter {
 
 struct config_filter_parser_list {
 	struct config_filter filter;
-	struct config_setting_parser_list *parser_list;
+	/* NULL-terminated array of parsers */
+	struct config_module_parser *parsers;
 };
 
 struct config_filter_context *config_filter_init(pool_t pool);
 void config_filter_deinit(struct config_filter_context **ctx);
 
+/* Replace filter's parsers with given parser list. */
 void config_filter_add_all(struct config_filter_context *ctx,
 			   struct config_filter_parser_list *const *parsers);
 
-const struct config_setting_parser_list *
-config_filter_match_parsers(struct config_filter_context *ctx,
-			    const struct config_filter *filter);
+/* Find the filter that best matches what we have. */
+const struct config_filter_parser_list *
+config_filter_find(struct config_filter_context *ctx,
+		   const struct config_filter *filter);
 
 /* Returns TRUE if filter matches mask. */
 bool config_filter_match(const struct config_filter *mask,

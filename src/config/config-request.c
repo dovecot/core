@@ -46,10 +46,10 @@ static bool parsers_are_connected(struct setting_parser_info *root,
 }
 
 static bool
-config_setting_parser_is_in_service(const struct config_setting_parser_list *list,
-				    const char *module)
+config_module_parser_is_in_service(const struct config_module_parser *list,
+				   const char *module)
 {
-	struct config_setting_parser_list *l;
+	struct config_module_parser *l;
 
 	if (strcmp(list->module_name, module) == 0)
 		return TRUE;
@@ -58,7 +58,7 @@ config_setting_parser_is_in_service(const struct config_setting_parser_list *lis
 		return TRUE;
 	}
 
-	for (l = config_setting_parsers; l->module_name != NULL; l++) {
+	for (l = config_module_parsers; l->module_name != NULL; l++) {
 		if (strcmp(l->module_name, module) != 0)
 			continue;
 
@@ -235,7 +235,8 @@ void config_request_handle(const struct config_filter *filter,
 			   const char *module, enum config_dump_scope scope,
 			   config_request_callback_t *callback, void *context)
 {
-	const struct config_setting_parser_list *l;
+	const struct config_module_parser *l;
+	const struct config_filter_parser_list *list;
 	struct settings_export_context ctx;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -248,10 +249,10 @@ void config_request_handle(const struct config_filter *filter,
 	ctx.keys = hash_table_create(default_pool, ctx.pool, 0,
 				     str_hash, (hash_cmp_callback_t *)strcmp);
 
-	l = config_filter_match_parsers(config_filter, filter);
-	for (; l->module_name != NULL; l++) {
+	list = config_filter_find(config_filter, filter);
+	for (l = list->parsers; l->module_name != NULL; l++) {
 		if (*module == '\0' ||
-		    config_setting_parser_is_in_service(l, module)) {
+		    config_module_parser_is_in_service(l, module)) {
 			settings_export(&ctx, l->root,
 					settings_parser_get(l->parser),
 					settings_parser_get_changes(l->parser));

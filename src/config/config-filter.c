@@ -99,9 +99,9 @@ static int filter_cmp(const struct config_filter *f1,
 		return 1;
 }
 
-const struct config_setting_parser_list *
-config_filter_match_parsers(struct config_filter_context *ctx,
-			    const struct config_filter *filter)
+const struct config_filter_parser_list *
+config_filter_find(struct config_filter_context *ctx,
+		   const struct config_filter *filter)
 {
 	struct config_filter_parser_list *best = NULL;
 	unsigned int i;
@@ -117,5 +117,5 @@ config_filter_match_parsers(struct config_filter_context *ctx,
 		    filter_cmp(&best->filter, &ctx->parsers[i]->filter) > 0)
 			best = ctx->parsers[i];
 	}
-	return best == NULL ? NULL : best->parser_list;
+	return best;
 }
