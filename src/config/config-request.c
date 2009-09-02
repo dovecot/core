@@ -16,7 +16,7 @@ struct settings_export_context {
 	string_t *value;
 	string_t *prefix;
 	struct hash_table *keys;
-	bool export_defaults;
+	enum config_dump_scope scope;
 
 	config_request_callback_t *callback;
 	void *context;
@@ -72,20 +72,32 @@ config_setting_parser_is_in_service(const struct config_setting_parser_list *lis
 
 static void settings_export(struct settings_export_context *ctx,
 			    const struct setting_parser_info *info,
-			    const void *set)
+			    const void *set, const void *change_set)
 {
 	const struct setting_define *def;
-	const void *value, *default_value;
-	void *const *children = NULL;
-	unsigned int i, count, prefix_len;
+	const void *value, *default_value, *change_value;
+	void *const *children = NULL, *const *change_children = NULL;
+	unsigned int i, count, count2, prefix_len;
 	const char *str;
 	char *key;
-	bool dump;
+	bool dump, dump_default = FALSE;
 
 	for (def = info->defines; def->key != NULL; def++) {
 		value = CONST_PTR_OFFSET(set, def->offset);
 		default_value = info->defaults == NULL ? NULL :
 			CONST_PTR_OFFSET(info->defaults, def->offset);
+		change_value = CONST_PTR_OFFSET(change_set, def->offset);
+		switch (ctx->scope) {
+		case CONFIG_DUMP_SCOPE_ALL:
+			dump_default = TRUE;
+			break;
+		case CONFIG_DUMP_SCOPE_SET:
+			dump_default = *((const char *)change_value) != 0;
+			break;
+		case CONFIG_DUMP_SCOPE_CHANGED:
+			dump_default = FALSE;
+			break;
+		}
 
 		dump = FALSE;
 		count = 0;
@@ -93,8 +105,7 @@ static void settings_export(struct settings_export_context *ctx,
 		switch (def->type) {
 		case SET_BOOL: {
 			const bool *val = value, *dval = default_value;
-			if (ctx->export_defaults ||
-			    dval == NULL || *val != *dval) {
+			if (dump_default || dval == NULL || *val != *dval) {
 				str_append(ctx->value,
 					   *val ? "yes" : "no");
 			}
@@ -102,8 +113,7 @@ static void settings_export(struct settings_export_context *ctx,
 		}
 		case SET_UINT: {
 			const unsigned int *val = value, *dval = default_value;
-			if (ctx->export_defaults ||
-			    dval == NULL || *val != *dval)
+			if (dump_default || dval == NULL || *val != *dval)
 				str_printfa(ctx->value, "%u", *val);
 			break;
 		}
@@ -116,8 +126,8 @@ static void settings_export(struct settings_export_context *ctx,
 				 **val == SETTING_STRVAR_UNEXPANDED[0]);
 
 			sval = *val == NULL ? NULL : (*val + 1);
-			if ((ctx->export_defaults ||
-			     null_strcmp(sval, dval) != 0) && sval != NULL) {
+			if ((dump_default || null_strcmp(sval, dval) != 0) &&
+			    sval != NULL) {
 				str_append(ctx->value, sval);
 				dump = TRUE;
 			}
@@ -128,8 +138,8 @@ static void settings_export(struct settings_export_context *ctx,
 			const char *const *_dval = default_value;
 			const char *dval = _dval == NULL ? NULL : *_dval;
 
-			if ((ctx->export_defaults ||
-			     null_strcmp(*val, dval) != 0) && *val != NULL) {
+			if ((dump_default || null_strcmp(*val, dval) != 0) &&
+			    *val != NULL) {
 				str_append(ctx->value, *val);
 				dump = TRUE;
 			}
@@ -141,14 +151,14 @@ static void settings_export(struct settings_export_context *ctx,
 			const char *dval = _dval == NULL ? NULL : *_dval;
 			unsigned int len = strlen(*val);
 
-			if (ctx->export_defaults ||
-			    strncmp(*val, dval, len) != 0 ||
+			if (dump_default || strncmp(*val, dval, len) != 0 ||
 			    ((*val)[len] != ':' && (*val)[len] != '\0'))
 				str_append(ctx->value, *val);
 			break;
 		}
 		case SET_DEFLIST: {
 			const ARRAY_TYPE(void_array) *val = value;
+			const ARRAY_TYPE(void_array) *change_val = change_value;
 
 			if (!array_is_created(val))
 				break;
@@ -159,6 +169,8 @@ static void settings_export(struct settings_export_context *ctx,
 					str_append_c(ctx->value, ' ');
 				str_printfa(ctx->value, "%u", i);
 			}
+			change_children = array_get(change_val, &count2);
+			i_assert(count == count2);
 			break;
 		}
 		case SET_STRLIST: {
@@ -211,7 +223,8 @@ static void settings_export(struct settings_export_context *ctx,
 			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
 			str_printfa(ctx->prefix, "%u", i);
 			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
-			settings_export(ctx, def->list_info, children[i]);
+			settings_export(ctx, def->list_info, children[i],
+					change_children[i]);
 
 			str_truncate(ctx->prefix, prefix_len);
 		}
@@ -219,7 +232,7 @@ static void settings_export(struct settings_export_context *ctx,
 }
 
 void config_request_handle(const struct config_filter *filter,
-			   const char *module, enum config_dump_flags flags,
+			   const char *module, enum config_dump_scope scope,
 			   config_request_callback_t *callback, void *context)
 {
 	const struct config_setting_parser_list *l;
@@ -229,7 +242,7 @@ void config_request_handle(const struct config_filter *filter,
 	ctx.pool = pool_alloconly_create("config request", 10240);
 	ctx.callback = callback;
 	ctx.context = context;
-	ctx.export_defaults = (flags & CONFIG_DUMP_FLAG_DEFAULTS) != 0;
+	ctx.scope = scope;
 	ctx.value = t_str_new(256);
 	ctx.prefix = t_str_new(64);
 	ctx.keys = hash_table_create(default_pool, ctx.pool, 0,
@@ -240,7 +253,8 @@ void config_request_handle(const struct config_filter *filter,
 		if (*module == '\0' ||
 		    config_setting_parser_is_in_service(l, module)) {
 			settings_export(&ctx, l->root,
-					settings_parser_get(l->parser));
+					settings_parser_get(l->parser),
+					settings_parser_get_changes(l->parser));
 		}
 	}
 	hash_table_destroy(&ctx.keys);

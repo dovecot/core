@@ -64,7 +64,7 @@ static unsigned int prefix_stack_pop(ARRAY_TYPE(uint) *stack)
 static void config_connection_request_human(struct ostream *output,
 					    const struct config_filter *filter,
 					    const char *module,
-					    enum config_dump_flags flags)
+					    enum config_dump_scope scope)
 {
 	static const char *ident_str = "               ";
 	ARRAY_TYPE(const_string) prefixes_arr;
@@ -77,7 +77,7 @@ static void config_connection_request_human(struct ostream *output,
 
 	ctx.pool = pool_alloconly_create("config human strings", 10240);
 	i_array_init(&ctx.strings, 256);
-	config_request_handle(filter, module, flags,
+	config_request_handle(filter, module, scope,
 			      config_request_get_strings, &ctx);
 
 	array_sort(&ctx.strings, config_string_cmp);
@@ -159,13 +159,13 @@ static void config_connection_request_human(struct ostream *output,
 
 static void config_dump_human(const struct config_filter *filter,
 			      const char *module,
-			      enum config_dump_flags flags)
+			      enum config_dump_scope scope)
 {
 	struct ostream *output;
 
 	output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
 	o_stream_cork(output);
-	config_connection_request_human(output, filter, module, flags);
+	config_connection_request_human(output, filter, module, scope);
 	o_stream_uncork(output);
 }
 
@@ -202,7 +202,7 @@ static const char *get_mail_location(void)
 
 int main(int argc, char *argv[])
 {
-	enum config_dump_flags flags = CONFIG_DUMP_FLAG_DEFAULTS;
+	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
 	const char *getopt_str, *config_path, *module = "";
 	struct config_filter filter;
 	const char *error;
@@ -214,7 +214,8 @@ int main(int argc, char *argv[])
 					     MASTER_SERVICE_FLAG_STANDALONE,
 					     argc, argv);
 	i_set_failure_prefix("doveconf: ");
-	getopt_str = t_strconcat("am:np:e", master_service_getopt_string(), NULL);
+	getopt_str = t_strconcat("am:nNp:e",
+				 master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		if (c == 'e')
 			break;
@@ -225,7 +226,10 @@ int main(int argc, char *argv[])
 			module = optarg;
 			break;
 		case 'n':
-			flags &= ~CONFIG_DUMP_FLAG_DEFAULTS;
+			scope = CONFIG_DUMP_SCOPE_CHANGED;
+			break;
+		case 'N':
+			scope = CONFIG_DUMP_SCOPE_SET;
 			break;
 		case 'p':
 			filter.service = optarg;
@@ -261,7 +265,7 @@ int main(int argc, char *argv[])
 		if (*info != '\0')
 			printf("# %s\n", info);
 		fflush(stdout);
-		config_dump_human(&filter, module, flags);
+		config_dump_human(&filter, module, scope);
 	} else {
 		env_put("DOVECONF_ENV=1");
 		config_request_handle(&filter, module, 0,
