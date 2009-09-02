@@ -99,9 +99,6 @@ const char *settings_parser_get_error(struct setting_parser_context *ctx);
 /* Return the parser info used for the previously parsed line. */
 const struct setting_parser_info *
 settings_parse_get_prev_info(struct setting_parser_context *ctx);
-/* Save all parsed input to given string. */
-void settings_parse_save_input(struct setting_parser_context *ctx,
-			       string_t *dest);
 
 /* Returns TRUE if the given key is a valid setting. */
 bool settings_parse_is_valid_key(struct setting_parser_context *ctx,

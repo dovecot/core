@@ -38,7 +38,6 @@ struct setting_parser_context {
 	struct setting_link *roots;
 	unsigned int root_count;
 	struct hash_table *links;
-	string_t *save_input_str;
 
 	unsigned int linenum;
 	const char *error;
@@ -499,15 +498,9 @@ int settings_parse_stream(struct setting_parser_context *ctx,
 int settings_parse_stream_read(struct setting_parser_context *ctx,
 			       struct istream *input)
 {
-	const unsigned char *data;
-	size_t size;
 	int ret;
 
 	while ((ret = i_stream_read(input)) > 0) {
-		if (ctx->save_input_str != NULL) {
-			data = i_stream_get_data(input, &size);
-			str_append_n(ctx->save_input_str, data, size);
-		}
 		if ((ret = settings_parse_stream(ctx, input)) < 0)
 			return -1;
 		if (ret == 0) {
@@ -936,12 +929,6 @@ void *settings_dup(const struct setting_parser_info *info,
 		}
 	}
 	return dest_set;
-}
-
-void settings_parse_save_input(struct setting_parser_context *ctx,
-			       string_t *dest)
-{
-	ctx->save_input_str = dest;
 }
 
 static void
