@@ -75,7 +75,8 @@ struct dynamic_settings_parser {
 ARRAY_DEFINE_TYPE(dynamic_settings_parser, struct dynamic_settings_parser);
 
 enum settings_parser_flags {
-	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS	= 0x01
+	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS	= 0x01,
+	SETTINGS_PARSER_FLAG_TRACK_CHANGES		= 0x02
 };
 
 struct setting_parser_context;
@@ -93,6 +94,8 @@ void settings_parser_deinit(struct setting_parser_context **ctx);
 void *settings_parser_get(struct setting_parser_context *ctx);
 /* If there are multiple roots, return list to all of their settings. */
 void **settings_parser_get_list(struct setting_parser_context *ctx);
+/* Like settings_parser_get(), but return change struct. */
+void *settings_parser_get_changes(struct setting_parser_context *ctx);
 
 /* Return the last error. */
 const char *settings_parser_get_error(struct setting_parser_context *ctx);

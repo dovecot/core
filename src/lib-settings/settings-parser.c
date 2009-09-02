@@ -27,7 +27,13 @@ struct setting_link {
 	   SET_DEFLIST : array of set_structs
 	   SET_STRLIST : array of const_strings */
 	ARRAY_TYPE(void_array) *array;
+	/* Pointer to structure containing the values */
 	void *set_struct;
+	/* Pointer to structure containing non-zero values for settings that
+	   have been changed. */
+	void *change_struct;
+	/* SET_DEFLIST: array of change_structs */
+	ARRAY_TYPE(void_array) *change_array;
 };
 
 struct setting_parser_context {
@@ -125,6 +131,10 @@ settings_parser_init_list(pool_t set_pool,
 		ctx->roots[i].info = roots[i];
 		ctx->roots[i].set_struct =
 			p_malloc(ctx->set_pool, roots[i]->struct_size);
+		if ((flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
+			ctx->roots[i].change_struct =
+				p_malloc(ctx->set_pool, roots[i]->struct_size);
+		}
 		setting_parser_copy_defaults(roots[i], ctx->set_pool,
 					     ctx->roots[i].set_struct);
 	}
@@ -161,6 +171,13 @@ void **settings_parser_get_list(struct setting_parser_context *ctx)
 	for (i = 0; i < ctx->root_count; i++)
 		sets[i] = ctx->roots[i].set_struct;
 	return sets;
+}
+
+void *settings_parser_get_changes(struct setting_parser_context *ctx)
+{
+	i_assert(ctx->root_count == 1);
+
+	return ctx->roots[0].change_struct;
 }
 
 const char *settings_parser_get_error(struct setting_parser_context *ctx)
@@ -245,7 +262,8 @@ static int get_enum(struct setting_parser_context *ctx, const char *value,
 static int
 get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 	    const struct setting_parser_info *info,
-	    const char *key, const char *value, ARRAY_TYPE(void_array) *result)
+	    const char *key, const char *value, ARRAY_TYPE(void_array) *result,
+	    ARRAY_TYPE(void_array) *change_result)
 {
 	struct setting_link *link;
 	const char *const *list;
@@ -255,6 +273,8 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 
 	if (!array_is_created(result))
 		p_array_init(result, ctx->set_pool, 5);
+	if (change_result != NULL && !array_is_created(change_result))
+		p_array_init(change_result, ctx->set_pool, 5);
 
 	list = t_strsplit(value, "\t ");
 	for (; *list != NULL; list++) {
@@ -273,6 +293,7 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 		link->parent = parent;
 		link->info = info;
 		link->array = result;
+		link->change_array = change_result;
 		hash_table_insert(ctx->links, full_key, link);
 	}
 	return 0;
@@ -283,7 +304,7 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	       const struct setting_define *def,
 	       const char *key, const char *value)
 {
-        void *ptr, *ptr2;
+        void *ptr, *ptr2, *change_ptr;
 
 	ctx->prev_info = link->info;
 
@@ -294,6 +315,13 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 					     link->set_struct);
 		array_append(link->array, &link->set_struct, 1);
 
+		if ((ctx->flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
+			link->change_struct = p_malloc(ctx->set_pool,
+						       link->info->struct_size);
+			array_append(link->change_array,
+				     &link->change_struct, 1);
+		}
+
 		if (link->info->parent_offset != (size_t)-1 &&
 		    link->parent != NULL) {
 			ptr = STRUCT_MEMBER_P(link->set_struct,
@@ -302,40 +330,54 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 		}
 	}
 
+	change_ptr = link->change_struct == NULL ? NULL :
+		STRUCT_MEMBER_P(link->change_struct, def->offset);
+
 	ptr = STRUCT_MEMBER_P(link->set_struct, def->offset);
 	switch (def->type) {
 	case SET_BOOL:
-		return get_bool(ctx, value, (bool *)ptr);
+		if (get_bool(ctx, value, (bool *)ptr) < 0)
+			return -1;
+		break;
 	case SET_UINT:
-		return get_uint(ctx, value, (unsigned int *)ptr);
+		if (get_uint(ctx, value, (unsigned int *)ptr) < 0)
+			return -1;
+		break;
 	case SET_STR:
 		*((char **)ptr) = p_strdup(ctx->set_pool, value);
-		return 0;
+		break;
 	case SET_STR_VARS:
 		*((char **)ptr) = p_strconcat(ctx->set_pool,
 					      ctx->str_vars_are_expanded ?
 					      SETTING_STRVAR_EXPANDED :
 					      SETTING_STRVAR_UNEXPANDED,
 					      value, NULL);
-		return 0;
+		break;
 	case SET_ENUM:
 		/* get the available values from default string */
 		i_assert(link->info->defaults != NULL);
 		ptr2 = STRUCT_MEMBER_P(link->info->defaults, def->offset);
-		return get_enum(ctx, value, (char **)ptr, *(const char **)ptr2);
+		if (get_enum(ctx, value, (char **)ptr,
+			     *(const char **)ptr2) < 0)
+			return -1;
+		break;
 	case SET_DEFLIST:
 		ctx->prev_info = def->list_info;
 		return get_deflist(ctx, link, def->list_info,
-				   key, value, (ARRAY_TYPE(void_array) *)ptr);
+				   key, value, (ARRAY_TYPE(void_array) *)ptr,
+				   (ARRAY_TYPE(void_array) *)change_ptr);
 	case SET_STRLIST: {
 		ctx->prev_info = &strlist_info;
-		return get_deflist(ctx, link, &strlist_info,
-				   key, value, (ARRAY_TYPE(void_array) *)ptr);
+		if (get_deflist(ctx, link, &strlist_info, key, value,
+				(ARRAY_TYPE(void_array) *)ptr, NULL) < 0)
+			return -1;
+		break;
 	}
 	}
 
-	i_unreached();
-	return -1;
+	if (change_ptr != NULL)
+		*((char *)change_ptr) = 1;
+	return 0;
 }
 
 static bool
@@ -931,6 +973,55 @@ void *settings_dup(const struct setting_parser_info *info,
 	return dest_set;
 }
 
+static void *
+settings_changes_dup(const struct setting_parser_info *info,
+		     const void *change_set, pool_t pool)
+{
+	const struct setting_define *def;
+	const void *src;
+	void *dest_set, *dest, *const *children;
+	unsigned int i, count;
+
+	if (change_set == NULL)
+		return NULL;
+
+	dest_set = p_malloc(pool, info->struct_size);
+	for (def = info->defines; def->key != NULL; def++) {
+		src = CONST_PTR_OFFSET(change_set, def->offset);
+		dest = PTR_OFFSET(dest_set, def->offset);
+
+		switch (def->type) {
+		case SET_BOOL:
+		case SET_UINT:
+		case SET_STR_VARS:
+		case SET_STR:
+		case SET_ENUM:
+		case SET_STRLIST:
+			*((char *)dest) = *((char *)src);
+			break;
+		case SET_DEFLIST: {
+			const ARRAY_TYPE(void_array) *src_arr = src;
+			ARRAY_TYPE(void_array) *dest_arr = dest;
+			void *child_set;
+
+			if (!array_is_created(src_arr))
+				break;
+
+			children = array_get(src_arr, &count);
+			p_array_init(dest_arr, pool, count);
+			for (i = 0; i < count; i++) {
+				child_set = settings_changes_dup(def->list_info,
+								 children[i],
+								 pool);
+				array_append(dest_arr, &child_set, 1);
+			}
+			break;
+		}
+		}
+	}
+	return dest_set;
+}
+
 static void
 info_update_real(pool_t pool, const struct dynamic_settings_parser *parsers)
 {
@@ -1110,6 +1201,10 @@ settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
 			settings_dup(old_ctx->roots[i].info,
 				     old_ctx->roots[i].set_struct,
 				     new_ctx->set_pool);
+		new_ctx->roots[i].change_struct =
+			settings_changes_dup(old_ctx->roots[i].info,
+					     old_ctx->roots[i].change_struct,
+					     new_ctx->set_pool);
 		hash_table_insert(links, &old_ctx->roots[i],
 				  &new_ctx->roots[i]);
 	}
