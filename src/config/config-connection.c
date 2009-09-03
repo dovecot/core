@@ -102,8 +102,11 @@ static int config_connection_request(struct config_connection *conn,
 	}
 
 	o_stream_cork(conn->output);
-	config_request_handle(&filter, module, 0, config_request_output,
-			      conn->output);
+	if (config_request_handle(&filter, module, CONFIG_DUMP_SCOPE_SET, FALSE,
+				  config_request_output, conn->output) < 0) {
+		config_connection_destroy(conn);
+		return -1;
+	}
 	o_stream_send_str(conn->output, "\n");
 	o_stream_uncork(conn->output);
 	return 0;

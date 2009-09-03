@@ -77,8 +77,9 @@ static void config_connection_request_human(struct ostream *output,
 
 	ctx.pool = pool_alloconly_create("config human strings", 10240);
 	i_array_init(&ctx.strings, 256);
-	config_request_handle(filter, module, scope,
-			      config_request_get_strings, &ctx);
+	if (config_request_handle(filter, module, scope, TRUE,
+				  config_request_get_strings, &ctx) < 0)
+		return;
 
 	array_sort(&ctx.strings, config_string_cmp);
 	strings = array_get(&ctx.strings, &count);
@@ -200,6 +201,23 @@ static const char *get_mail_location(void)
 	return "";
 }
 
+static void filter_parse_arg(struct config_filter *filter, const char *arg)
+{
+	if (strncmp(arg, "service=", 8) == 0)
+		filter->service = arg + 8;
+	else if (strncmp(arg, "lip=", 4) == 0) {
+		if (net_parse_range(arg + 4, &filter->local_net,
+				    &filter->local_bits) < 0)
+			i_fatal("lip: Invalid network mask");
+	} else if (strncmp(arg, "rip=", 4) == 0) {
+		if (net_parse_range(arg + 4, &filter->remote_net,
+				    &filter->remote_bits) < 0)
+			i_fatal("rip: Invalid network mask");
+	} else {
+		i_fatal("Unknown filter argument: %s", arg);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
@@ -214,13 +232,16 @@ int main(int argc, char *argv[])
 					     MASTER_SERVICE_FLAG_STANDALONE,
 					     argc, argv);
 	i_set_failure_prefix("doveconf: ");
-	getopt_str = t_strconcat("am:nNp:e",
+	getopt_str = t_strconcat("af:m:nN:e",
 				 master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		if (c == 'e')
 			break;
 		switch (c) {
 		case 'a':
+			break;
+		case 'f':
+			filter_parse_arg(&filter, optarg);
 			break;
 		case 'm':
 			module = optarg;
@@ -231,9 +252,6 @@ int main(int argc, char *argv[])
 		case 'N':
 			scope = CONFIG_DUMP_SCOPE_SET;
 			break;
-		case 'p':
-			filter.service = optarg;
-			break;
 		default:
 			if (!master_service_parse_option(master_service,
 							 c, optarg))
@@ -242,9 +260,11 @@ int main(int argc, char *argv[])
 	}
 	config_path = master_service_get_config_path(master_service);
 
-	if (argv[optind] != NULL)
+	if (argv[optind] != NULL) {
+		if (c != 'e')
+			i_fatal("Unknown argument: %s", argv[optind]);
 		exec_args = &argv[optind];
-	else {
+	} else {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
 		printf("# "VERSION": %s\n", config_path);
@@ -268,8 +288,10 @@ int main(int argc, char *argv[])
 		config_dump_human(&filter, module, scope);
 	} else {
 		env_put("DOVECONF_ENV=1");
-		config_request_handle(&filter, module, 0,
-				      config_request_putenv, NULL);
+		if (config_request_handle(&filter, module,
+					  CONFIG_DUMP_SCOPE_SET, TRUE,
+					  config_request_putenv, NULL) < 0)
+			i_fatal("Invalid configuration");
 		execvp(exec_args[0], exec_args);
 		i_fatal("execvp(%s) failed: %m", exec_args[0]);
 	}

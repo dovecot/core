@@ -15,8 +15,9 @@ enum config_dump_scope {
 typedef void config_request_callback_t(const char *key, const char *value,
 				       bool list, void *context);
 
-void config_request_handle(const struct config_filter *filter,
-			   const char *module, enum config_dump_scope scope,
-			   config_request_callback_t *callback, void *context);
+int config_request_handle(const struct config_filter *filter,
+			  const char *module, enum config_dump_scope scope,
+			  bool check_settings,
+			  config_request_callback_t *callback, void *context);
 
 #endif

@@ -2,12 +2,13 @@
 
 #include "lib.h"
 #include "array.h"
+#include "settings-parser.h"
 #include "config-parser.h"
 #include "config-filter.h"
 
 struct config_filter_context {
 	pool_t pool;
-	struct config_filter_parser_list *const *parsers;
+	struct config_filter_parser *const *parsers;
 };
 
 bool config_filter_match(const struct config_filter *mask,
@@ -75,47 +76,123 @@ void config_filter_deinit(struct config_filter_context **_ctx)
 }
 
 void config_filter_add_all(struct config_filter_context *ctx,
-			   struct config_filter_parser_list *const *parsers)
+			   struct config_filter_parser *const *parsers)
 {
 	ctx->parsers = parsers;
 }
 
-static int filter_cmp(const struct config_filter *f1,
-		      const struct config_filter *f2)
+static int
+config_filter_parser_cmp(struct config_filter_parser *const *p1,
+			 struct config_filter_parser *const *p2)
 {
-	int ret;
+	const struct config_filter *f1 = &(*p1)->filter, *f2 = &(*p2)->filter;
 
-	ret = f2->remote_bits - f1->remote_bits;
-	if (ret != 0)
-		return ret;
-
-	ret = f2->local_bits - f1->local_bits;
-	if (ret != 0)
-		return ret;
-
-	if (f1->service != NULL)
+	/* remote_ip and local_ips are first, although it doesn't really
+	   matter which one comes first */
+	if (f1->local_bits > f2->local_bits)
 		return -1;
-	else
+	if (f1->local_bits < f2->local_bits)
 		return 1;
+
+	if (f1->remote_bits > f2->remote_bits)
+		return -1;
+	if (f1->remote_bits < f2->remote_bits)
+		return 1;
+
+	if (f1->service != NULL && f2->service == NULL)
+		return -1;
+	if (f1->service == NULL && f2->service != NULL)
+		return 1;
+	return 0;
 }
 
-const struct config_filter_parser_list *
-config_filter_find(struct config_filter_context *ctx,
-		   const struct config_filter *filter)
+static struct config_filter_parser *const *
+config_filter_find_all(struct config_filter_context *ctx,
+		       const struct config_filter *filter)
 {
-	struct config_filter_parser_list *best = NULL;
+	ARRAY_TYPE(config_filter_parsers) matches;
 	unsigned int i;
 
-	/* find the filter that best matches what we have.
-	   FIXME: this can't really work. we'd want to merge changes from
-	   different matches.. requires something larger after all. */
+	t_array_init(&matches, 8);
 	for (i = 0; ctx->parsers[i] != NULL; i++) {
-		if (!config_filter_match(&ctx->parsers[i]->filter, filter))
-			continue;
-
-		if (best == NULL ||
-		    filter_cmp(&best->filter, &ctx->parsers[i]->filter) > 0)
-			best = ctx->parsers[i];
+		if (config_filter_match(&ctx->parsers[i]->filter, filter))
+			array_append(&matches, &ctx->parsers[i], 1);
 	}
-	return best;
+	array_sort(&matches, config_filter_parser_cmp);
+	(void)array_append_space(&matches);
+	return array_idx(&matches, 0);
+}
+
+static bool
+config_filter_is_superset(const struct config_filter *sup,
+			  const struct config_filter *filter)
+{
+	/* assume that both of the filters match the same subset, so we don't
+	   need to compare IPs and service name. */
+	if (sup->local_bits < filter->local_bits)
+		return FALSE;
+	if (sup->remote_bits < filter->remote_bits)
+		return FALSE;
+	if (sup->service != NULL && filter->service == NULL)
+		return FALSE;
+	return TRUE;
+}
+
+static int
+config_module_parser_apply_changes(struct config_module_parser *dest,
+				   const struct config_filter_parser *src,
+				   pool_t pool, const char **error_r)
+{
+	unsigned int i;
+
+	for (i = 0; dest[i].module_name != NULL; i++) {
+		if (settings_parser_apply_changes(dest[i].parser,
+						  src->parsers[i].parser, pool,
+						  error_r) < 0) {
+			*error_r = t_strdup_printf("Conflict in setting %s",
+						   *error_r);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+int config_filter_get_parsers(struct config_filter_context *ctx, pool_t pool,
+			      const struct config_filter *filter,
+			      const struct config_module_parser **parsers_r,
+			      const char **error_r)
+{
+	struct config_filter_parser *const *src;
+	struct config_module_parser *dest;
+	const char *error, **error_p;
+	unsigned int i, count;
+
+	src = config_filter_find_all(ctx, filter);
+
+	/* all of them should have the same number of parsers.
+	   duplicate our initial parsers from the first match */
+	for (count = 0; src[0]->parsers[count].module_name != NULL; count++) ;
+	dest = p_new(pool, struct config_module_parser, count + 1);
+	for (i = 0; i < count; i++) {
+		dest[i] = src[0]->parsers[i];
+		dest[i].parser =
+			settings_parser_dup(src[0]->parsers[i].parser, pool);
+	}
+
+	/* apply the changes from rest of the matches */
+	for (i = 1; src[i] != NULL; i++) {
+		if (config_filter_is_superset(&src[i-1]->filter,
+					      &src[i]->filter))
+			error_p = NULL;
+		else
+			error_p = &error;
+
+		if (config_module_parser_apply_changes(dest, src[i], pool,
+						       error_p) < 0) {
+			*error_r = error;
+			return -1;
+		}
+	}
+	*parsers_r = dest;
+	return 0;
 }

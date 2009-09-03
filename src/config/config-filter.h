@@ -9,23 +9,25 @@ struct config_filter {
 	unsigned int local_bits, remote_bits;
 };
 
-struct config_filter_parser_list {
+struct config_filter_parser {
 	struct config_filter filter;
 	/* NULL-terminated array of parsers */
 	struct config_module_parser *parsers;
 };
+ARRAY_DEFINE_TYPE(config_filter_parsers, struct config_filter_parser *);
 
 struct config_filter_context *config_filter_init(pool_t pool);
 void config_filter_deinit(struct config_filter_context **ctx);
 
 /* Replace filter's parsers with given parser list. */
 void config_filter_add_all(struct config_filter_context *ctx,
-			   struct config_filter_parser_list *const *parsers);
+			   struct config_filter_parser *const *parsers);
 
-/* Find the filter that best matches what we have. */
-const struct config_filter_parser_list *
-config_filter_find(struct config_filter_context *ctx,
-		   const struct config_filter *filter);
+/* Build new parsers from all existing ones matching the given filter. */
+int config_filter_get_parsers(struct config_filter_context *ctx, pool_t pool,
+			      const struct config_filter *filter,
+			      const struct config_module_parser **parsers_r,
+			      const char **error_r);
 
 /* Returns TRUE if filter matches mask. */
 bool config_filter_match(const struct config_filter *mask,
