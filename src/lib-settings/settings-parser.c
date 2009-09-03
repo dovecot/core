@@ -895,6 +895,56 @@ static void settings_set_parent(const struct setting_parser_info *info,
 	*ptr = parent;
 }
 
+static bool
+setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
+{
+	switch (type) {
+	case SET_BOOL: {
+		const bool *src_bool = src;
+		bool *dest_bool = dest;
+
+		*dest_bool = *src_bool;
+	}
+	case SET_UINT: {
+		const unsigned int *src_uint = src;
+		unsigned int *dest_uint = dest;
+
+		*dest_uint = *src_uint;
+		break;
+	}
+	case SET_STR_VARS:
+	case SET_STR:
+	case SET_ENUM: {
+		const char *const *src_str = src;
+		const char **dest_str = dest;
+
+		*dest_str = p_strdup(pool, *src_str);
+		break;
+	}
+	case SET_DEFLIST:
+		return FALSE;
+	case SET_STRLIST: {
+		const ARRAY_TYPE(const_string) *src_arr = src;
+		ARRAY_TYPE(const_string) *dest_arr = dest;
+		const char *const *strings, *dup;
+		unsigned int i, count;
+
+		if (!array_is_created(src_arr))
+			break;
+
+		strings = array_get(src_arr, &count);
+		if (!array_is_created(dest_arr))
+			p_array_init(dest_arr, pool, count);
+		for (i = 0; i < count; i++) {
+			dup = p_strdup(pool, strings[i]);
+			array_append(dest_arr, &dup, 1);
+		}
+		break;
+	}
+	}
+	return TRUE;
+}
+
 void *settings_dup(const struct setting_parser_info *info,
 		   const void *set, pool_t pool)
 {
@@ -910,36 +960,13 @@ void *settings_dup(const struct setting_parser_info *info,
 		src = CONST_PTR_OFFSET(set, def->offset);
 		dest = PTR_OFFSET(dest_set, def->offset);
 
-		switch (def->type) {
-		case SET_BOOL: {
-			const bool *src_bool = src;
-			bool *dest_bool = dest;
-
-			*dest_bool = *src_bool;
-		}
-		case SET_UINT: {
-			const unsigned int *src_uint = src;
-			unsigned int *dest_uint = dest;
-
-			*dest_uint = *src_uint;
-			break;
-		}
-		case SET_STR_VARS:
-		case SET_STR:
-		case SET_ENUM: {
-			const char *const *src_str = src;
-			const char **dest_str = dest;
-
-			*dest_str = p_strdup(pool, *src_str);
-			break;
-		}
-		case SET_DEFLIST: {
+		if (!setting_copy(def->type, src, dest, pool)) {
 			const ARRAY_TYPE(void_array) *src_arr = src;
 			ARRAY_TYPE(void_array) *dest_arr = dest;
 			void *child_set;
 
 			if (!array_is_created(src_arr))
-				break;
+				continue;
 
 			children = array_get(src_arr, &count);
 			p_array_init(dest_arr, pool, count);
@@ -950,24 +977,6 @@ void *settings_dup(const struct setting_parser_info *info,
 				settings_set_parent(def->list_info, child_set,
 						    dest_set);
 			}
-			break;
-		}
-		case SET_STRLIST: {
-			const ARRAY_TYPE(const_string) *src_arr = src;
-			ARRAY_TYPE(const_string) *dest_arr = dest;
-			const char *const *strings, *dup;
-
-			if (!array_is_created(src_arr))
-				break;
-
-			strings = array_get(src_arr, &count);
-			p_array_init(dest_arr, pool, count);
-			for (i = 0; i < count; i++) {
-				dup = p_strdup(pool, strings[i]);
-				array_append(dest_arr, &dup, 1);
-			}
-			break;
-		}
 		}
 	}
 	return dest_set;
@@ -1223,4 +1232,121 @@ settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&links);
 	return new_ctx;
+}
+
+static void *
+settings_changes_init(const struct setting_parser_info *info,
+		      const void *change_set, pool_t pool)
+{
+	const struct setting_define *def;
+	const ARRAY_TYPE(void_array) *src_arr;
+	ARRAY_TYPE(void_array) *dest_arr;
+	void *dest_set, *set, *const *children;
+	unsigned int i, count;
+
+	dest_set = p_malloc(pool, info->struct_size);
+	for (def = info->defines; def->key != NULL; def++) {
+		if (def->type != SET_DEFLIST)
+			continue;
+
+		src_arr = CONST_PTR_OFFSET(change_set, def->offset);
+		dest_arr = PTR_OFFSET(dest_set, def->offset);
+
+		if (array_is_created(src_arr)) {
+			children = array_get(src_arr, &count);
+			i_assert(!array_is_created(dest_arr));
+			p_array_init(dest_arr, pool, count);
+			for (i = 0; i < count; i++) {
+				set = settings_changes_init(def->list_info,
+							    children[i], pool);
+				array_append(dest_arr, &set, 1);
+			}
+		}
+	}
+	return dest_set;
+}
+
+static int
+settings_apply(struct setting_link *dest_link,
+	       const struct setting_link *src_link,
+	       pool_t pool, const char **conflict_key_r)
+{
+	const struct setting_define *def;
+	const void *src, *csrc;
+	void *dest, *cdest, *const *children;
+	unsigned int i, count;
+
+	for (def = dest_link->info->defines; def->key != NULL; def++) {
+		csrc = CONST_PTR_OFFSET(src_link->change_struct, def->offset);
+		cdest = PTR_OFFSET(dest_link->change_struct, def->offset);
+
+		if (def->type == SET_DEFLIST || def->type == SET_STRLIST) {
+			/* just add the new values */
+		} else if (*((const char *)csrc) == 0) {
+			/* unchanged */
+			continue;
+		} else if (*((const char *)cdest) != 0) {
+			/* conflict */
+			if (conflict_key_r != NULL) {
+				*conflict_key_r = def->key;
+				return -1;
+			}
+			continue;
+		} else {
+			*((char *)cdest) = 1;
+		}
+
+		/* found a changed setting */
+		src = CONST_PTR_OFFSET(src_link->set_struct, def->offset);
+		dest = PTR_OFFSET(dest_link->set_struct, def->offset);
+
+		if (!setting_copy(def->type, src, dest, pool)) {
+			const ARRAY_TYPE(void_array) *src_arr = src;
+			ARRAY_TYPE(void_array) *dest_arr = dest;
+			void *child_set;
+
+			if (!array_is_created(src_arr))
+				continue;
+
+			children = array_get(src_arr, &count);
+			if (!array_is_created(dest_arr))
+				p_array_init(dest_arr, pool, count);
+			for (i = 0; i < count; i++) {
+				child_set = settings_dup(def->list_info,
+							 children[i], pool);
+				array_append(dest_arr, &child_set, 1);
+				settings_set_parent(def->list_info, child_set,
+						    dest_link->set_struct);
+			}
+
+			/* copy changes */
+			dest_arr = cdest;
+			if (!array_is_created(dest_arr))
+				p_array_init(dest_arr, pool, count);
+			for (i = 0; i < count; i++) {
+				child_set =
+					settings_changes_init(def->list_info,
+							      children[i],
+							      pool);
+				array_append(dest_arr, &child_set, 1);
+			}
+		}
+	}
+	return 0;
+}
+
+int settings_parser_apply_changes(struct setting_parser_context *dest,
+				  const struct setting_parser_context *src,
+				  pool_t pool, const char **conflict_key_r)
+{
+	unsigned int i;
+
+	i_assert(src->root_count == dest->root_count);
+	for (i = 0; i < dest->root_count; i++) {
+		i_assert(src->roots[i].info == dest->roots[i].info);
+		if (settings_apply(&dest->roots[i], &src->roots[i], pool,
+				   conflict_key_r) < 0)
+			return -1;
+	}
+	return 0;
 }
