@@ -149,8 +149,9 @@ config_module_parser_apply_changes(struct config_module_parser *dest,
 		if (settings_parser_apply_changes(dest[i].parser,
 						  src->parsers[i].parser, pool,
 						  error_r) < 0) {
-			*error_r = t_strdup_printf("Conflict in setting %s",
-						   *error_r);
+			*error_r = t_strdup_printf("Conflict in setting %s "
+				"found from filter at %s", *error_r,
+				src->file_and_line);
 			return -1;
 		}
 	}

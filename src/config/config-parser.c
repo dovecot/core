@@ -166,6 +166,9 @@ config_add_new_parser(struct parser_context *ctx)
 
 	parser = p_new(ctx->pool, struct config_filter_parser, 1);
 	parser->filter = cur_section->filter;
+	parser->file_and_line =
+		p_strdup_printf(ctx->pool, "%s:%d",
+				ctx->cur_input->path, ctx->cur_input->linenum);
 	parser->parsers = cur_section->prev == NULL ? ctx->root_parsers :
 		config_module_parsers_init(ctx->pool);
 	array_append(&ctx->all_parsers, &parser, 1);
@@ -573,13 +576,13 @@ int config_parse_file(const char *path, bool expand_files,
 					     settings_parser_flags);
 	}
 
-	p_array_init(&ctx.all_parsers, ctx.pool, 128);
-	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
-	config_add_new_parser(&ctx);
-
 	memset(&root, 0, sizeof(root));
 	root.path = path;
 	ctx.cur_input = &root;
+
+	p_array_init(&ctx.all_parsers, ctx.pool, 128);
+	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
+	config_add_new_parser(&ctx);
 
 	str = t_str_new(256);
 	full_line = t_str_new(512);
