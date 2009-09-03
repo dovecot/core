@@ -205,6 +205,8 @@ static void filter_parse_arg(struct config_filter *filter, const char *arg)
 {
 	if (strncmp(arg, "service=", 8) == 0)
 		filter->service = arg + 8;
+	else if (strncmp(arg, "protocol=", 9) == 0)
+		filter->service = arg + 9;
 	else if (strncmp(arg, "lip=", 4) == 0) {
 		if (net_parse_range(arg + 4, &filter->local_net,
 				    &filter->local_bits) < 0)
