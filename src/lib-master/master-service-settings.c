@@ -223,6 +223,7 @@ int master_service_settings_read(struct master_service *service,
 
 	if (fd != -1) {
 		istream = i_stream_create_fd(fd, (size_t)-1, FALSE);
+		istream->blocking = TRUE; /* fd is blocking */
 		ret = settings_parse_stream_read(parser, istream);
 		i_stream_unref(&istream);
 		i_assert(ret <= 0);
