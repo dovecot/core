@@ -451,8 +451,8 @@ service_process_create(struct service *service, const char *const *auth_args,
 	int fd[2];
 	pid_t pid;
 
-	if (!service->listening) {
-		/* probably throttling service, don't create new processes */
+	if (service->to_throttle != NULL) {
+		/* throttling service, don't create new processes */
 		return NULL;
 	}
 	if (service->process_count >= service->process_limit) {

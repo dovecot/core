@@ -31,6 +31,7 @@ struct service_settings {
 
 	bool drop_priv_before_exec;
 
+	unsigned int process_min_avail;
 	unsigned int process_limit;
 	unsigned int client_limit;
 	unsigned int service_count;

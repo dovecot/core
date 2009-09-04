@@ -100,6 +100,7 @@ static struct setting_define service_setting_defines[] = {
 
 	DEF(SET_BOOL, drop_priv_before_exec),
 
+	DEF(SET_UINT, process_min_avail),
 	DEF(SET_UINT, process_limit),
 	DEF(SET_UINT, client_limit),
 	DEF(SET_UINT, service_count),
@@ -131,6 +132,7 @@ static struct service_settings service_default_settings = {
 
 	MEMBER(drop_priv_before_exec) FALSE,
 
+	MEMBER(process_min_avail) 0,
 	MEMBER(process_limit) (unsigned int)-1,
 	MEMBER(client_limit) 0,
 	MEMBER(service_count) 0,
@@ -285,52 +287,61 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	}
 	services = array_get(&set->services, &count);
 	for (i = 0; i < count; i++) {
-		if (*services[i]->name == '\0') {
+		struct service_settings *service = services[i];
+
+		if (*service->name == '\0') {
 			*error_r = t_strdup_printf(
 				"Service #%d is missing name", i);
 			return FALSE;
 		}
-		if (*services[i]->type != '\0' &&
-		    strcmp(services[i]->type, "log") != 0 &&
-		    strcmp(services[i]->type, "config") != 0 &&
-		    strcmp(services[i]->type, "anvil") != 0 &&
-		    strcmp(services[i]->type, "auth") != 0 &&
-		    strcmp(services[i]->type, "auth-source") != 0) {
+		if (*service->type != '\0' &&
+		    strcmp(service->type, "log") != 0 &&
+		    strcmp(service->type, "config") != 0 &&
+		    strcmp(service->type, "anvil") != 0 &&
+		    strcmp(service->type, "auth") != 0 &&
+		    strcmp(service->type, "auth-source") != 0) {
 			*error_r = t_strconcat("Unknown service type: ",
-					       services[i]->type, NULL);
+					       service->type, NULL);
 			return FALSE;
 		}
 		for (j = 0; j < i; j++) {
-			if (strcmp(services[i]->name, services[j]->name) == 0) {
+			if (strcmp(service->name, services[j]->name) == 0) {
 				*error_r = t_strdup_printf(
 					"Duplicate service name: %s",
-					services[i]->name);
+					service->name);
 				return FALSE;
 			}
 		}
 	}
 	for (i = 0; i < count; i++) {
-		if (*services[i]->executable != '/') {
-			services[i]->executable =
+		struct service_settings *service = services[i];
+
+		if (*service->executable != '/') {
+			service->executable =
 				p_strconcat(pool, set->libexec_dir, "/",
-					    services[i]->executable, NULL);
+					    service->executable, NULL);
 		}
-		if (*services[i]->chroot != '/' &&
-		    *services[i]->chroot != '\0') {
-			services[i]->chroot =
+		if (*service->chroot != '/' && *service->chroot != '\0') {
+			service->chroot =
 				p_strconcat(pool, set->base_dir, "/",
-					    services[i]->chroot, NULL);
+					    service->chroot, NULL);
 		}
-		if (services[i]->drop_priv_before_exec &&
-		    *services[i]->chroot != '\0') {
+		if (service->drop_priv_before_exec &&
+		    *service->chroot != '\0') {
 			*error_r = t_strdup_printf("service(%s): "
 				"drop_priv_before_exec=yes can't be "
-				"used with chroot", services[i]->name);
+				"used with chroot", service->name);
 			return FALSE;
 		}
-		fix_file_listener_paths(&services[i]->unix_listeners,
+		if (service->process_min_avail > service->process_limit) {
+			*error_r = t_strdup_printf("service(%s): "
+				"process_min_avail is higher than process_limit",
+				service->name);
+			return FALSE;
+		}
+		fix_file_listener_paths(&service->unix_listeners,
 					pool, set->base_dir);
-		fix_file_listener_paths(&services[i]->fifo_listeners,
+		fix_file_listener_paths(&service->fifo_listeners,
 					pool, set->base_dir);
 	}
 	set->protocols_split = p_strsplit(pool, set->protocols, " ");

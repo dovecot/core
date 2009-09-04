@@ -17,7 +17,7 @@
 
 #define SERVICE_STARTUP_FAILURE_THROTTLE_SECS 60
 
-void service_monitor_stop(struct service *service);
+static void service_monitor_start_extra_avail(struct service *service);
 
 static void service_status_input(struct service *service)
 {
@@ -79,8 +79,10 @@ static void service_status_input(struct service *service)
 			process->available_count - status.available_count;
 		if (status.available_count == 0) {
 			i_assert(service->process_avail > 0);
-			if (--service->process_avail == 0)
-                                service_monitor_listen_start(service);
+			service->process_avail--;
+
+			service_monitor_start_extra_avail(service);
+			service_monitor_listen_start(service);
 		}
 		process->idle_start = 0;
 	} else {
@@ -127,10 +129,36 @@ static void service_accept(struct service *service)
 		service_monitor_listen_stop(service);
 }
 
+static void service_monitor_start_extra_avail(struct service *service)
+{
+	unsigned int i, count;
+
+	if (service->process_avail >= service->set->process_min_avail)
+		return;
+
+	count = service->set->process_min_avail - service->process_avail;
+	if (service->process_count + count > service->process_limit)
+		count = service->process_limit - service->process_count;
+
+	for (i = 0; i < count; i++) {
+		if (service_process_create(service, NULL, NULL) == NULL) {
+			service_monitor_throttle(service);
+			break;
+		}
+	}
+	if (i > 0 && service->listening) {
+		/* we created some processes, they'll do the listening now */
+		service_monitor_listen_stop(service);
+	}
+}
+
 void service_monitor_listen_start(struct service *service)
 {
 	struct service_listener *const *listeners;
 	unsigned int i, count;
+
+	if (service->process_avail > 0)
+		return;
 
 	service->listening = TRUE;
 	service->listen_pending = FALSE;
@@ -185,8 +213,10 @@ void services_monitor_start(struct service_list *service_list)
 				       service_status_input, services[i]);
 		}
 
-		if (services[i]->status_fd[0] != -1)
+		if (services[i]->status_fd[0] != -1) {
+			service_monitor_start_extra_avail(services[i]);
 			service_monitor_listen_start(services[i]);
+		}
 	}
 
 	if (service_process_create(service_list->log, NULL, NULL) != NULL)
@@ -265,8 +295,9 @@ void services_monitor_reap_children(void)
 			service_process_failure(process, status);
 		}
 		service_process_destroy(process);
+		service_monitor_start_extra_avail(service);
 
-                if (service->process_avail == 0 && service->to_throttle == NULL)
+                if (service->to_throttle == NULL)
 			service_monitor_listen_start(service);
 	}
 }
