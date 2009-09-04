@@ -36,17 +36,7 @@ static struct client_workaround_list client_workaround_list[] = {
 	{ NULL, 0 }
 };
 
-static struct io *log_io = NULL;
-
 void (*hook_client_created)(struct client **client) = NULL;
-
-static void log_error_callback(void *context ATTR_UNUSED)
-{
-	/* the log fd is closed, don't die when trying to log later */
-	i_set_failure_ignore_errors(TRUE);
-
-	master_service_stop(master_service);
-}
 
 static enum client_workarounds
 parse_workarounds(const struct imap_settings *set)
@@ -128,11 +118,8 @@ static void main_init(const struct imap_settings *set, struct mail_user *user,
 	struct client *client;
 	struct ostream *output;
 
-	if (set->shutdown_clients && !dump_capability) {
-		/* If master dies, the log fd gets closed and we'll quit */
-		log_io = io_add(STDERR_FILENO, IO_ERROR,
-				log_error_callback, NULL);
-	}
+	if (set->shutdown_clients && !dump_capability)
+		master_service_set_die_with_master(master_service, TRUE);
 
 	client = client_create(0, 1, user, set);
         client->workarounds = parse_workarounds(set);
@@ -152,8 +139,6 @@ static void main_init(const struct imap_settings *set, struct mail_user *user,
 
 static void main_deinit(void)
 {
-	if (log_io != NULL)
-		io_remove(&log_io);
 	clients_destroy_all();
 }
 

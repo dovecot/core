@@ -21,27 +21,14 @@
 
 void (*hook_client_created)(struct client **client) = NULL;
 
-static struct io *log_io = NULL;
-
-static void log_error_callback(void *context ATTR_UNUSED)
-{
-	/* the log fd is closed, don't die when trying to log later */
-	i_set_failure_ignore_errors(TRUE);
-
-	master_service_stop(master_service);
-}
-
 static bool main_init(const struct pop3_settings *set, struct mail_user *user)
 {
 	struct client *client;
 	const char *str;
 	bool ret = TRUE;
 
-	if (set->shutdown_clients) {
-		/* If master dies, the log fd gets closed and we'll quit */
-		log_io = io_add(STDERR_FILENO, IO_ERROR,
-				log_error_callback, NULL);
-	}
+	if (set->shutdown_clients)
+		master_service_set_die_with_master(master_service, TRUE);
 
 	client = client_create(0, 1, user, set);
 	if (client == NULL)
@@ -65,8 +52,6 @@ static bool main_init(const struct pop3_settings *set, struct mail_user *user)
 
 static void main_deinit(void)
 {
-	if (log_io != NULL)
-		io_remove(&log_io);
 	clients_destroy_all();
 }
 
