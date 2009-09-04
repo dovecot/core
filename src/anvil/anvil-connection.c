@@ -149,9 +149,10 @@ static void anvil_connection_input(void *context)
 		if ((args = anvil_connection_next_line(conn)) == NULL)
 			return;
 
-		if (str_array_length(args) < 3 ||
+		if (str_array_length(args) < 4 ||
 		    strcmp(args[0], "VERSION") != 0 ||
-		    atoi(args[1]) != ANVIL_CLIENT_PROTOCOL_MAJOR_VERSION) {
+		    strcmp(args[1], "anvil") != 0 ||
+		    atoi(args[2]) != ANVIL_CLIENT_PROTOCOL_MAJOR_VERSION) {
 			i_error("Anvil client not compatible with this server "
 				"(mixed old and new binaries?)");
 			anvil_connection_destroy(conn);

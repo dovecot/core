@@ -10,7 +10,7 @@
 
 #include <unistd.h>
 
-#define ANVIL_HANDSHAKE "VERSION\t1\t0\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
 
 static int anvil_send_handshake(int fd, const char **error_r)
 {

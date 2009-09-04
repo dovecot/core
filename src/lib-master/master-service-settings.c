@@ -16,7 +16,7 @@
 
 #define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
 
-#define CONFIG_HANDSHAKE "VERSION\t1\t0\n"
+#define CONFIG_HANDSHAKE "VERSION\tconfig\t1\t0\n"
 
 #undef DEF
 #define DEF(type, name) \

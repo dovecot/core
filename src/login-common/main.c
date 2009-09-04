@@ -75,7 +75,7 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
 
 static int anvil_connect(void)
 {
-#define ANVIL_HANDSHAKE "VERSION\t1\t0\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
 	int fd;
 
 	fd = net_connect_unix("anvil");

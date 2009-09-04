@@ -132,8 +132,8 @@ static void config_connection_input(void *context)
 		if (line == NULL)
 			return;
 
-		if (strncmp(line, "VERSION\t", 8) != 0 ||
-		    atoi(t_strcut(line + 8, '\t')) !=
+		if (strncmp(line, "VERSION\tconfig\t", 15) != 0 ||
+		    atoi(t_strcut(line + 15, '\t')) !=
 		    CONFIG_CLIENT_PROTOCOL_MAJOR_VERSION) {
 			i_error("Config client not compatible with this server "
 				"(mixed old and new binaries?)");
