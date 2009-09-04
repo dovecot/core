@@ -118,7 +118,6 @@ settings_parser_init_list(pool_t set_pool,
 
 	i_assert(count > 0);
 
-	pool_ref(set_pool);
 	parser_pool = pool_alloconly_create("settings parser", 16384);
 	ctx = p_new(parser_pool, struct setting_parser_context, 1);
 	ctx->set_pool = set_pool;
@@ -1184,19 +1183,21 @@ settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
 	struct hash_table *links;
 	void *key, *value;
 	unsigned int i;
+	pool_t parser_pool;
 
 	pool_ref(new_pool);
-	new_ctx = p_new(new_pool, struct setting_parser_context, 1);
+	parser_pool = pool_alloconly_create("dup settings parser", 8192);
+	new_ctx = p_new(parser_pool, struct setting_parser_context, 1);
 	new_ctx->set_pool = new_pool;
-	new_ctx->parser_pool =
-		pool_alloconly_create("dup settings parser", 8192);
+	new_ctx->parser_pool = parser_pool;
 	new_ctx->flags = old_ctx->flags;
 	new_ctx->str_vars_are_expanded = old_ctx->str_vars_are_expanded;
 	new_ctx->linenum = old_ctx->linenum;
 	new_ctx->error = p_strdup(new_ctx->parser_pool, old_ctx->error);
 	new_ctx->prev_info = old_ctx->prev_info;
 
-	links = hash_table_create(default_pool, default_pool, 0, NULL, NULL);
+	links = hash_table_create(default_pool, new_ctx->parser_pool,
+				  0, NULL, NULL);
 
 	new_ctx->root_count = old_ctx->root_count;
 	new_ctx->roots = p_new(new_ctx->parser_pool, struct setting_link,

@@ -25,10 +25,11 @@ void config_filter_add_all(struct config_filter_context *ctx,
 			   struct config_filter_parser *const *parsers);
 
 /* Build new parsers from all existing ones matching the given filter. */
-int config_filter_get_parsers(struct config_filter_context *ctx, pool_t pool,
+int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 			      const struct config_filter *filter,
-			      const struct config_module_parser **parsers_r,
+			      struct config_module_parser **parsers_r,
 			      const char **error_r);
+void config_filter_parsers_free(struct config_module_parser *parsers);
 
 /* Returns TRUE if filter matches mask. */
 bool config_filter_match(const struct config_filter *mask,

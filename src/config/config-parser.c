@@ -273,25 +273,29 @@ config_all_parsers_check(struct parser_context *ctx,
 			 const char **error_r)
 {
 	struct config_filter_parser *const *parsers;
-	const struct config_module_parser *tmp_parsers;
+	struct config_module_parser *tmp_parsers;
 	unsigned int i, count;
 	pool_t tmp_pool;
+	int ret = 0;
 
 	tmp_pool = pool_alloconly_create("config parsers check", 1024*32);
 	parsers = array_get(&ctx->all_parsers, &count);
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;
-	for (i = 0; i < count; i++) {
-		p_clear(tmp_pool);
-		if (config_filter_get_parsers(new_filter, tmp_pool,
+	for (i = 0; i < count && ret == 0; i++) {
+		if (config_filter_parsers_get(new_filter, tmp_pool,
 					      &parsers[i]->filter,
-					      &tmp_parsers, error_r) < 0)
+					      &tmp_parsers, error_r) < 0) {
+			ret = -1;
 			break;
+		}
 
-		if (config_filter_parser_check(ctx, tmp_parsers, error_r) < 0)
-			break;
+		ret = config_filter_parser_check(ctx, tmp_parsers, error_r);
+		config_filter_parsers_free(tmp_parsers);
+		p_clear(tmp_pool);
 	}
-	return i == count ? 0 : -1;
+	pool_unref(&tmp_pool);
+	return ret;
 }
 
 static int

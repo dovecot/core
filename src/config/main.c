@@ -36,6 +36,8 @@ int main(int argc, char *argv[])
 
 	master_service_run(master_service, client_connected);
 	config_connections_destroy_all();
+
+	config_filter_deinit(&config_filter);
 	master_service_deinit(&master_service);
         return 0;
 }

@@ -236,16 +236,17 @@ int config_request_handle(const struct config_filter *filter,
 			  bool check_settings,
 			  config_request_callback_t *callback, void *context)
 {
-	const struct config_module_parser *l;
+	struct config_module_parser *parsers, *parser;
 	struct settings_export_context ctx;
 	const char *error;
+	unsigned int i;
 	int ret = 0;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("config request", 1024*16);
 
-	if (config_filter_get_parsers(config_filter, ctx.pool, filter,
-				      &l, &error) < 0) {
+	if (config_filter_parsers_get(config_filter, ctx.pool, filter,
+				      &parsers, &error) < 0) {
 		i_error("%s", error);
 		pool_unref(&ctx.pool);
 		return -1;
@@ -259,16 +260,18 @@ int config_request_handle(const struct config_filter *filter,
 	ctx.keys = hash_table_create(default_pool, ctx.pool, 0,
 				     str_hash, (hash_cmp_callback_t *)strcmp);
 
-	for (; l->module_name != NULL; l++) {
+	for (i = 0; parsers[i].module_name != NULL; i++) {
+		parser = &parsers[i];
 		if (*module != '\0' &&
-		    !config_module_parser_is_in_service(l, module))
+		    !config_module_parser_is_in_service(parser, module))
 			continue;
 
-		settings_export(&ctx, l->root, settings_parser_get(l->parser),
-				settings_parser_get_changes(l->parser));
+		settings_export(&ctx, parser->root,
+				settings_parser_get(parser->parser),
+				settings_parser_get_changes(parser->parser));
 
 		if (check_settings) {
-			if (!settings_parser_check(l->parser, ctx.pool,
+			if (!settings_parser_check(parser->parser, ctx.pool,
 						   &error)) {
 				i_error("%s", error);
 				ret = -1;
@@ -276,6 +279,7 @@ int config_request_handle(const struct config_filter *filter,
 			}
 		}
 	}
+	config_filter_parsers_free(parsers);
 	hash_table_destroy(&ctx.keys);
 	pool_unref(&ctx.pool);
 	return ret;

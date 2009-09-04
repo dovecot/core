@@ -69,9 +69,12 @@ struct config_filter_context *config_filter_init(pool_t pool)
 void config_filter_deinit(struct config_filter_context **_ctx)
 {
 	struct config_filter_context *ctx = *_ctx;
+	unsigned int i;
 
 	*_ctx = NULL;
 
+	for (i = 0; ctx->parsers[i] != NULL; i++)
+		config_filter_parsers_free(ctx->parsers[i]->parsers);
 	pool_unref(&ctx->pool);
 }
 
@@ -158,9 +161,9 @@ config_module_parser_apply_changes(struct config_module_parser *dest,
 	return 0;
 }
 
-int config_filter_get_parsers(struct config_filter_context *ctx, pool_t pool,
+int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 			      const struct config_filter *filter,
-			      const struct config_module_parser **parsers_r,
+			      struct config_module_parser **parsers_r,
 			      const char **error_r)
 {
 	struct config_filter_parser *const *src;
@@ -190,10 +193,19 @@ int config_filter_get_parsers(struct config_filter_context *ctx, pool_t pool,
 
 		if (config_module_parser_apply_changes(dest, src[i], pool,
 						       error_p) < 0) {
+			config_filter_parsers_free(dest);
 			*error_r = error;
 			return -1;
 		}
 	}
 	*parsers_r = dest;
 	return 0;
+}
+
+void config_filter_parsers_free(struct config_module_parser *parsers)
+{
+	unsigned int i;
+
+	for (i = 0; parsers[i].module_name != NULL; i++)
+		settings_parser_deinit(&parsers[i].parser);
 }

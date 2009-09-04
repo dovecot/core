@@ -168,6 +168,7 @@ static void config_dump_human(const struct config_filter *filter,
 	o_stream_cork(output);
 	config_connection_request_human(output, filter, module, scope);
 	o_stream_uncork(output);
+	o_stream_unref(&output);
 }
 
 static void config_request_putenv(const char *key, const char *value,
@@ -297,6 +298,7 @@ int main(int argc, char *argv[])
 		execvp(exec_args[0], exec_args);
 		i_fatal("execvp(%s) failed: %m", exec_args[0]);
 	}
+	config_filter_deinit(&config_filter);
 	master_service_deinit(&master_service);
         return 0;
 }

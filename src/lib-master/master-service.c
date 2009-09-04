@@ -488,6 +488,7 @@ void master_service_deinit(struct master_service **_service)
 	lib_signals_deinit();
 	io_loop_destroy(&service->ioloop);
 
+	i_free(service->listeners);
 	i_free(service->name);
 	i_free(service);
 
