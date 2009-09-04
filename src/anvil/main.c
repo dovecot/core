@@ -17,7 +17,7 @@ static void client_connected(const struct master_service_connection *conn)
 {
 	bool master = conn->listen_fd == MASTER_LISTEN_FD_FIRST;
 
-	anvil_connection_create(conn->fd, master);
+	anvil_connection_create(conn->fd, master, conn->fifo);
 }
 
 int main(int argc, char *argv[])
