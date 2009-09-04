@@ -208,7 +208,8 @@ service_process_auth_source_input(struct service_process_auth_source *process)
 	if (auth_process == NULL) {
 		service_error(service, "authentication request for unknown "
 			      "auth server PID %s", dec2str(req.auth_pid));
-		service_process_auth_source_send_reply(process, req.tag, FALSE);
+		service_process_auth_source_send_reply(process, req.tag,
+			MASTER_AUTH_STATUS_INTERNAL_ERROR);
 		(void)close(client_fd);
 		return;
 	}
@@ -223,7 +224,8 @@ service_process_auth_source_input(struct service_process_auth_source *process)
 				  dec2str(req.auth_pid));
                         auth_process->auth_busy_stamp = ioloop_time;
 		}
-		service_process_auth_source_send_reply(process, req.tag, FALSE);
+		service_process_auth_source_send_reply(process, req.tag,
+			MASTER_AUTH_STATUS_INTERNAL_ERROR);
 		(void)close(client_fd);
 		return;
 	}

@@ -132,8 +132,8 @@ auth_process_input_notfound(struct service_process_auth_server *process,
         request = auth_process_lookup_request(process, id);
 	if (request != NULL) {
 		service_process_auth_source_send_reply(request->process,
-						       request->process_tag,
-						       FALSE);
+					request->process_tag,
+					MASTER_AUTH_STATUS_INTERNAL_ERROR);
 		service_process_auth_request_free(request);
 	}
 	return TRUE;
@@ -156,8 +156,8 @@ auth_process_input_fail(struct service_process_auth_server *process,
         request = auth_process_lookup_request(process, id);
 	if (request != NULL) {
 		service_process_auth_source_send_reply(request->process,
-						       request->process_tag,
-						       FALSE);
+					request->process_tag,
+					MASTER_AUTH_STATUS_INTERNAL_ERROR);
 		service_process_auth_request_free(request);
 	}
 	return TRUE;
