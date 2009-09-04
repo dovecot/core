@@ -23,7 +23,8 @@ struct master_service_connection {
 	struct ip_addr remote_ip;
 	unsigned int remote_port;
 
-	bool ssl;
+	unsigned int fifo:1;
+	unsigned int ssl:1;
 };
 
 typedef void

@@ -499,13 +499,12 @@ static void master_service_listen(struct master_service_listener *l)
 		}
 		/* it's not a socket. probably a fifo. use the "listener"
 		   as the connection fd and stop the listener. */
-		io_remove(&l->io);
-		conn.fd = dup(l->fd);
+		conn.fd = l->fd;
 		conn.listen_fd = l->fd;
-		if (conn.fd == -1) {
-			i_error("dup() failed: %m");
-			return;
-		}
+		conn.fifo = TRUE;
+
+		io_remove(&l->io);
+		l->fd = -1;
 	}
 	conn.ssl = l->ssl;
 	net_set_nonblock(conn.fd, TRUE);
@@ -547,7 +546,7 @@ static void io_listeners_add(struct master_service *service)
 	for (i = 0; i < service->socket_count; i++) {
 		struct master_service_listener *l = &service->listeners[i];
 
-		if (l->io == NULL) {
+		if (l->io == NULL && l->fd != -1) {
 			l->io = io_add(MASTER_LISTEN_FD_FIRST + i, IO_READ,
 				       master_service_listen, l);
 		}
