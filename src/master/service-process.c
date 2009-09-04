@@ -455,6 +455,11 @@ service_process_create(struct service *service, const char *const *auth_args,
 		/* probably throttling service, don't create new processes */
 		return NULL;
 	}
+	if (service->process_count >= service->process_limit) {
+		i_warning("service(%s): process_limit reached, "
+			  "connections are being dropped", service->set->name);
+		return NULL;
+	}
 
 	switch (service->type) {
 	case SERVICE_TYPE_AUTH_SOURCE:

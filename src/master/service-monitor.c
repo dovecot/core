@@ -113,6 +113,8 @@ static void service_accept(struct service *service)
 	if (service->process_count == service->process_limit) {
 		/* we've reached our limits, new connections will have to
 		   wait until there are more processes available */
+		i_warning("service(%s): process_limit reached, "
+			  "connections are being dropped", service->set->name);
 		service->listen_pending = TRUE;
                 service_monitor_listen_stop(service);
 		return;
