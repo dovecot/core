@@ -277,7 +277,7 @@ config_all_parsers_check(struct parser_context *ctx,
 	unsigned int i, count;
 	pool_t tmp_pool;
 
-	tmp_pool = pool_alloconly_create("config parsers check", 10240);
+	tmp_pool = pool_alloconly_create("config parsers check", 1024*32);
 	parsers = array_get(&ctx->all_parsers, &count);
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;

@@ -242,7 +242,7 @@ int config_request_handle(const struct config_filter *filter,
 	int ret = 0;
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.pool = pool_alloconly_create("config request", 10240);
+	ctx.pool = pool_alloconly_create("config request", 1024*16);
 
 	if (config_filter_get_parsers(config_filter, ctx.pool, filter,
 				      &l, &error) < 0) {
