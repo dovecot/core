@@ -225,10 +225,10 @@ static void auth_warning_print(const struct master_settings *set)
 	auth_success_written = stat(AUTH_SUCCESS_PATH, &st) == 0;
 	if (!auth_success_written && !auths_have_debug(set) &&
 	    services_have_auth_destinations(set)) {
-		i_info("If you have trouble with authentication failures,\n"
-		       "enable auth_debug setting. "
-		       "See http://wiki.dovecot.org/WhyDoesItNotWork");
-
+		i_info(
+"If you have trouble with authentication failures,\n"
+"enable auth_debug setting. See http://wiki.dovecot.org/WhyDoesItNotWork\n"
+"This message goes away after the first successful login.");
 	}
 }
 
