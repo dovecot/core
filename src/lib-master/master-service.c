@@ -330,11 +330,17 @@ void master_service_env_clean(bool preserve_home)
 void master_service_set_client_limit(struct master_service *service,
 				     unsigned int client_limit)
 {
+	unsigned int used;
+
 	i_assert(service->master_status.available_count ==
 		 service->total_available_count);
 
+	used = service->total_available_count -
+		service->master_status.available_count;
+	i_assert(client_limit >= used);
+
 	service->total_available_count = client_limit;
-	service->master_status.available_count = client_limit;
+	service->master_status.available_count = client_limit - used;
 }
 
 unsigned int master_service_get_client_limit(struct master_service *service)
@@ -422,6 +428,8 @@ void master_service_client_connection_destroyed(struct master_service *service)
 
 	if (service->service_count_left != service->total_available_count) {
 		i_assert(service->service_count_left == (unsigned int)-1);
+		i_assert(service->master_status.available_count <
+			 service->total_available_count);
 		service->master_status.available_count++;
 	} else {
 		/* we have only limited amount of service requests left */
