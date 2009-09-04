@@ -84,8 +84,8 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 	/* @UNSAFE */
 	conf_argv = t_new(const char *, 6 + (service->argc + 1) + 1);
 	conf_argv[0] = DOVECOT_CONFIG_BIN_PATH;
-	conf_argv[1] = "-p";
-	conf_argv[2] = service->name;
+	conf_argv[1] = "-f";
+	conf_argv[2] = t_strconcat("service=", service->name, NULL);
 	conf_argv[3] = "-c";
 	conf_argv[4] = service->config_path;
 	conf_argv[5] = "-e";
