@@ -35,6 +35,7 @@ static int expire_init_user(struct expire_context *ctx, const char *user)
 	i_set_failure_prefix(t_strdup_printf("expire-tool(%s): ", user));
 
 	memset(&input, 0, sizeof(input));
+	input.service = "expire-tool";
 	input.username = user;
 
 	p_clear(ctx->multi_user_pool);

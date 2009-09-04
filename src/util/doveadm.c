@@ -162,6 +162,7 @@ handle_all_users(struct master_service *service,
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 
 	memset(&input, 0, sizeof(input));
+	input.service = "doveadm";
 
 	multi = mail_storage_service_multi_init(service, NULL, service_flags);
 	pool = pool_alloconly_create("multi user", 8192);
