@@ -119,7 +119,9 @@ struct service_list {
 
 	ARRAY_DEFINE(services, struct service *);
 
+	unsigned int destroyed:1;
 	unsigned int sigterm_sent:1;
+	unsigned int sigterm_sent_to_log:1;
 };
 
 extern struct hash_table *service_pids;
@@ -146,6 +148,10 @@ void service_throttle(struct service *service, unsigned int secs);
 /* Time moved backwards. Throttle services that care about time. */
 void services_throttle_time_sensitives(struct service_list *list,
 				       unsigned int secs);
+
+/* Find a service by name. */
+struct service *
+service_lookup(struct service_list *service_list, const char *name);
 
 void service_error(struct service *service, const char *format, ...)
 	ATTR_FORMAT(2, 3);

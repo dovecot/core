@@ -190,16 +190,11 @@ static int listener_equals(const struct service_listener *l1,
 	switch (l1->type) {
 	case SERVICE_LISTENER_UNIX:
 	case SERVICE_LISTENER_FIFO:
-		if (strcmp(l1->set.fileset.set->path,
-			   l2->set.fileset.set->path) != 0)
-			return FALSE;
-		if (l1->set.fileset.set->mode != l2->set.fileset.set->mode)
-			return FALSE;
-		if (l1->set.fileset.uid != l2->set.fileset.uid)
-			return FALSE;
-		if (l1->set.fileset.gid != l2->set.fileset.gid)
-			return FALSE;
-		return TRUE;
+		/* We could just keep using the same listener, but it's more
+		   likely to cause problems if old process accepts a connection
+		   before it knows that it should die. So just always unlink
+		   and recreate unix/fifo listeners. */
+		return FALSE;
 	case SERVICE_LISTENER_INET:
 		if (memcmp(&l1->set.inetset.ip, &l2->set.inetset.ip,
 			   sizeof(l1->set.inetset.ip)) != 0)
@@ -252,6 +247,18 @@ int services_listen_using(struct service_list *new_service_list,
 		if (old_listeners[j]->fd != -1) {
 			if (close(old_listeners[j]->fd) < 0)
 				i_error("close(listener) failed: %m");
+		}
+		switch (old_listeners[j]->type) {
+		case SERVICE_LISTENER_UNIX:
+		case SERVICE_LISTENER_FIFO: {
+			const char *path =
+				old_listeners[j]->set.fileset.set->path;
+			if (unlink(path) < 0)
+				i_error("unlink(%s) failed: %m", path);
+			break;
+		}
+		case SERVICE_LISTENER_INET:
+			break;
 		}
 	}
 

@@ -38,9 +38,9 @@ gid_t master_gid;
 bool auth_success_written;
 bool core_dumps_disabled;
 int null_fd;
+struct service_list *services;
 
 static char *pidfile_path;
-static struct service_list *services;
 static fatal_failure_callback_t *orig_fatal_callback;
 static const char *child_process_env[3]; /* @UNSAFE */
 

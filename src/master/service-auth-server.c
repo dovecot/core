@@ -83,6 +83,22 @@ auth_process_lookup_request(struct service_process_auth_server *process,
 	return request;
 }
 
+static struct service *
+auth_process_get_dest_service(struct service_process_auth_source *process)
+{
+	struct service *service = process->process.service;
+
+	if (!service->list->destroyed)
+		return service->auth_dest_service;
+
+	service = service_lookup(services, service->set->auth_dest_service);
+	if (service == NULL) {
+		i_warning("service(%s): Lost destination service %s",
+			  service->set->name, service->set->auth_dest_service);
+	}
+	return service;
+}
+
 static int
 auth_process_input_user(struct service_process_auth_server *process, const char *args)
 {
@@ -103,12 +119,12 @@ auth_process_input_user(struct service_process_auth_server *process, const char 
 
         request = auth_process_lookup_request(process, id);
 	if (request != NULL) {
-		struct service *dest_service =
-			request->process->process.service->auth_dest_service;
+		struct service *dest_service;
 		struct service_process *dest_process;
 
-		dest_process = service_process_create(dest_service, list + 1,
-						      request);
+		dest_service = auth_process_get_dest_service(request->process);
+		dest_process = dest_service == NULL ? NULL :
+			service_process_create(dest_service, list + 1, request);
 		status = dest_process != NULL ?
 			MASTER_AUTH_STATUS_OK :
 			MASTER_AUTH_STATUS_INTERNAL_ERROR;

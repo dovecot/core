@@ -277,6 +277,7 @@ void services_monitor_reap_children(void)
 	struct service *service;
 	pid_t pid;
 	int status;
+	bool service_destroyed;
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		process = hash_table_lookup(service_pids, &pid);
@@ -294,10 +295,13 @@ void services_monitor_reap_children(void)
 		} else {
 			service_process_failure(process, status);
 		}
+		service_destroyed = service->list->destroyed;
 		service_process_destroy(process);
-		service_monitor_start_extra_avail(service);
 
-                if (service->to_throttle == NULL)
-			service_monitor_listen_start(service);
+		if (!service_destroyed) {
+			service_monitor_start_extra_avail(service);
+			if (service->to_throttle == NULL)
+				service_monitor_listen_start(service);
+		}
 	}
 }

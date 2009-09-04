@@ -313,7 +313,7 @@ static int pid_hash_cmp(const void *p1, const void *p2)
 		*pid1 > *pid2 ? 1 : 0;
 }
 
-static struct service *
+struct service *
 service_lookup(struct service_list *service_list, const char *name)
 {
 	struct service *const *services;
@@ -455,22 +455,35 @@ void service_signal(struct service *service, int signo)
 
 static void services_kill_timeout(struct service_list *service_list)
 {
-	struct service *const *services;
+	struct service *const *services, *log_service;
 	unsigned int i, count;
+	bool sigterm_log;
 	int sig;
 
-	if (!service_list->sigterm_sent)
+	if (!service_list->sigterm_sent || !service_list->sigterm_sent_to_log)
 		sig = SIGTERM;
 	else
 		sig = SIGKILL;
+	sigterm_log = service_list->sigterm_sent;
 	service_list->sigterm_sent = TRUE;
 
 	i_warning("Processes aren't dying after reload, sending %s.",
 		  sig == SIGTERM ? "SIGTERM" : "SIGKILL");
 
+	log_service = NULL;
 	services = array_get(&service_list->services, &count);
-	for (i = 0; i < count; i++)
-		service_signal(services[i], sig);
+	for (i = 0; i < count; i++) {
+		if (services[i]->type == SERVICE_TYPE_LOG)
+			log_service = services[i];
+		else
+			service_signal(services[i], sig);
+	}
+	/* kill log service later so it could still have a chance of logging
+	   something */
+	if (log_service != NULL && sigterm_log) {
+		service_signal(log_service, sig);
+		service_list->sigterm_sent_to_log = TRUE;
+	}
 }
 
 void services_destroy(struct service_list *service_list)
@@ -487,6 +500,7 @@ void services_destroy(struct service_list *service_list)
 				    services_kill_timeout, service_list);
 	}
 
+	service_list->destroyed = TRUE;
 	service_list_unref(service_list);
 }
 

@@ -12,6 +12,7 @@ extern gid_t master_gid;
 extern bool auth_success_written;
 extern bool core_dumps_disabled;
 extern int null_fd;
+extern struct service_list *services;
 
 void process_exec(const char *cmd, const char *extra_args[]) ATTR_NORETURN;
 
