@@ -52,6 +52,11 @@ void master_service_env_clean(bool preserve_home);
 void master_service_init_log(struct master_service *service, const char *prefix,
 			     unsigned int max_lines_per_sec);
 
+/* If set, die immediately when connection to master is lost.
+   Normally all existing clients are handled first. */
+void master_service_set_die_with_master(struct master_service *service,
+					bool set);
+
 /* Set maximum number of clients we can handle. Default is given by master. */
 void master_service_set_client_limit(struct master_service *service,
 				     unsigned int client_limit);

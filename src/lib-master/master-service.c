@@ -178,6 +178,12 @@ void master_service_init_log(struct master_service *service, const char *prefix,
 	i_set_failure_timestamp_format(service->set->log_timestamp);
 }
 
+void master_service_set_die_with_master(struct master_service *service,
+					bool set)
+{
+	service->die_with_master = set;
+}
+
 bool master_service_parse_option(struct master_service *service,
 				 int opt, const char *arg)
 {
@@ -215,7 +221,7 @@ bool master_service_parse_option(struct master_service *service,
 static void master_service_error(struct master_service *service)
 {
 	if (service->master_status.available_count ==
-	    service->total_available_count)
+	    service->total_available_count || service->die_with_master)
 		master_service_stop(service);
 	else
 		io_listeners_remove(service);
