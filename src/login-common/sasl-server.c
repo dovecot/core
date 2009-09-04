@@ -138,8 +138,14 @@ static bool anvil_has_too_many_connections(struct client *client)
 	ident = t_strconcat("LOOKUP\t", net_ip2addr(&client->ip), "/",
 			    str_tabescape(client->virtual_user), "/",
 			    login_protocol, "\n", NULL);
-	if (write_full(anvil_fd, ident, strlen(ident)) < 0)
+	if (write_full(anvil_fd, ident, strlen(ident)) < 0) {
+		if (errno == EPIPE) {
+			/* anvil process was probably recreated, don't bother
+			   logging an error about losing connection to it */
+			return FALSE;
+		}
 		i_fatal("write(anvil) failed: %m");
+	}
 	ret = read(anvil_fd, buf, sizeof(buf)-1);
 	if (ret < 0)
 		i_fatal("read(anvil) failed: %m");

@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
 			exit(FATAL_DEFAULT);
 	}
 
+	master_service_set_die_with_master(master_service, TRUE);
 	master_service_init_log(master_service, "anvil: ", 0);
 	master_service_init_finish(master_service);
 	connect_limit = connect_limit_init();

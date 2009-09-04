@@ -416,9 +416,14 @@ void master_service_anvil_send(struct master_service *service, const char *cmd)
 		return;
 
 	ret = write(MASTER_ANVIL_FD, cmd, strlen(cmd));
-	if (ret < 0)
+	if (ret < 0) {
+		if (errno == EPIPE) {
+			/* anvil process was probably recreated, don't bother
+			   logging an error about losing connection to it */
+			return;
+		}
 		i_error("write(anvil) failed: %m");
-	else if (ret == 0)
+	} else if (ret == 0)
 		i_error("write(anvil) failed: EOF");
 	else {
 		i_assert((size_t)ret == strlen(cmd));
