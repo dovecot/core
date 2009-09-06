@@ -143,12 +143,22 @@ static int dbox_mail_open(struct dbox_mail *mail,
 		return mail_set_aborted(_mail);
 
 	do {
-		if (mail->open_file == NULL) {
+		if (mail->open_file != NULL) {
+			/* already open */
+		} else if (_mail->uid != 0) {
 			if (dbox_mail_lookup(mbox, mbox->ibox.view, _mail->seq,
 					     &mail->map_uid) < 0)
 				return -1;
 			if (dbox_mail_open_init(mail) < 0)
 				return -1;
+		} else {
+			/* mail is being saved in this transaction */
+			mail->open_file =
+				dbox_save_file_get_file(_mail->transaction,
+							_mail->seq,
+							&mail->offset);
+			mail->open_file->refcount++;
+			break;
 		}
 
 		if (!dbox_file_is_open(mail->open_file))

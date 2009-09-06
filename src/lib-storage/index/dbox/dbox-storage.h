@@ -110,6 +110,10 @@ int dbox_save_continue(struct mail_save_context *ctx);
 int dbox_save_finish(struct mail_save_context *ctx);
 void dbox_save_cancel(struct mail_save_context *ctx);
 
+struct dbox_file *
+dbox_save_file_get_file(struct mailbox_transaction_context *t,
+			uint32_t seq, uoff_t *offset_r);
+
 int dbox_transaction_save_commit_pre(struct mail_save_context *ctx);
 void dbox_transaction_save_commit_post(struct mail_save_context *ctx);
 void dbox_transaction_save_rollback(struct mail_save_context *ctx);

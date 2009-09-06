@@ -53,6 +53,30 @@ struct dbox_save_context {
 	unsigned int finished:1;
 };
 
+struct dbox_file *
+dbox_save_file_get_file(struct mailbox_transaction_context *t,
+			uint32_t seq, uoff_t *offset_r)
+{
+	struct dbox_save_context *ctx = (struct dbox_save_context *)t->save_ctx;
+	const struct dbox_save_mail *mails, *mail;
+	unsigned int count;
+
+	mails = array_get(&ctx->mails, &count);
+	i_assert(count > 0);
+	i_assert(seq >= mails[0].seq);
+
+	mail = &mails[mails[0].seq - seq];
+	i_assert(mail->seq == seq);
+
+	if (o_stream_flush(mail->file->output) < 0) {
+		dbox_file_set_syscall_error(mail->file, "write()");
+		ctx->failed = TRUE;
+	}
+
+	*offset_r = mail->append_offset;
+	return mail->file;
+}
+
 struct mail_save_context *
 dbox_save_alloc(struct mailbox_transaction_context *t)
 {
@@ -274,6 +298,11 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 		if (dbox_save_mail_write_metadata(ctx, save_mail) < 0)
 			ctx->failed = TRUE;
 	} T_END;
+
+	if (o_stream_flush(ctx->cur_output) < 0) {
+		dbox_file_set_syscall_error(save_mail->file, "write()");
+		ctx->failed = TRUE;
+	}
 
 	o_stream_unref(&ctx->cur_output);
 	i_stream_unref(&ctx->input);
