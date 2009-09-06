@@ -988,7 +988,7 @@ int mail_transaction_log_file_get_modseq_next_offset(
 {
 	const struct mail_transaction_header *hdr;
 	struct modseq_cache *cache;
-	uoff_t cur_offset, prev_offset;
+	uoff_t cur_offset;
 	uint64_t cur_modseq;
 	int ret;
 
@@ -1025,7 +1025,6 @@ int mail_transaction_log_file_get_modseq_next_offset(
 
 	i_assert(cur_offset >= file->buffer_offset);
 	while (cur_offset < file->sync_offset) {
-		prev_offset = cur_offset;
 		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
 			return -1;
 		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq);
