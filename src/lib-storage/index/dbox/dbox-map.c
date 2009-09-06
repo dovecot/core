@@ -69,7 +69,7 @@ void dbox_map_deinit(struct dbox_map **_map)
 
 static int dbox_map_mkdir_storage(struct dbox_storage *storage)
 {
-	if (mkdir_parents_chgrp(storage->storage_dir, storage->create_mode,
+	if (mkdir_parents_chgrp(storage->storage_dir, storage->dir_create_mode,
 				storage->create_gid,
 				storage->create_gid_origin) < 0 &&
 	    errno != EEXIST) {

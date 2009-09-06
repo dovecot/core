@@ -80,7 +80,8 @@ dbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		     I_MIN(storage->set->dbox_max_open_files, 128));
 
 	storage->map = dbox_map_init(storage);
-	mailbox_list_get_dir_permissions(ns->list, NULL, &storage->create_mode,
+	mailbox_list_get_dir_permissions(ns->list, NULL,
+					 &storage->dir_create_mode,
 					 &storage->create_gid, &origin);
 	storage->create_gid_origin = p_strdup(_storage->pool, origin);
 	return 0;

@@ -440,8 +440,8 @@ int dbox_create_fd(struct dbox_storage *storage, const char *path)
 	mode_t old_mask;
 	int fd;
 
-	old_mask = umask(0666 & ~storage->create_mode);
-	fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0777);
+	old_mask = umask(0666 & ~storage->dir_create_mode);
+	fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0666);
 	umask(old_mask);
 	if (fd == -1) {
 		mail_storage_set_critical(&storage->storage,

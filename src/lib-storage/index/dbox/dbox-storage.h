@@ -49,7 +49,7 @@ struct dbox_storage {
 	struct dbox_map *map;
 
 	/* mode/gid to use for new dbox storage files */
-	mode_t create_mode;
+	mode_t dir_create_mode;
 	gid_t create_gid;
 	const char *create_gid_origin;
 
