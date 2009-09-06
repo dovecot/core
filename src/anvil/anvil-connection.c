@@ -24,8 +24,6 @@ struct anvil_connection {
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
-	unsigned char *fifo_inbuf;
-	size_t fifo_inbuf_size, fifo_inbuf_next;
 
 	unsigned int version_received:1;
 	unsigned int handshaked:1;
@@ -34,61 +32,12 @@ struct anvil_connection {
 
 struct anvil_connection *anvil_connections = NULL;
 
-static const char *
-anvil_connection_get_next_line(struct anvil_connection *conn)
-{
-	char *line, *p;
-
-	line = (char *)conn->fifo_inbuf + conn->fifo_inbuf_next;
-
-	p = strchr(line, '\n');
-	if (p == NULL)
-		conn->fifo_inbuf_next = 0;
-	else {
-		*p = '\0';
-		conn->fifo_inbuf_next = p - line + 1;
-	}
-	return line;
-}
-
-static const char *
-anvil_connection_fifo_read_line(struct anvil_connection *conn)
-{
-	ssize_t ret;
-
-	if (conn->fifo_inbuf_next > 0)
-		return anvil_connection_get_next_line(conn);
-
-	ret = read(conn->fd, conn->fifo_inbuf, conn->fifo_inbuf_size);
-	if (ret > 0) {
-		if (conn->fifo_inbuf[ret-1] != '\n') {
-			i_error("BUG: Client packet didn't end with LF");
-			return NULL;
-		}
-		conn->fifo_inbuf[ret-1] = '\0';
-		return anvil_connection_get_next_line(conn);
-	}
-
-	if (ret == 0) {
-		/* disconnected */
-	} else {
-		if (errno == EAGAIN)
-			return NULL;
-		i_error("read() failed: %m");
-	}
-	anvil_connection_destroy(conn);
-	return NULL;
-}
-
 static const char *const *
 anvil_connection_next_line(struct anvil_connection *conn)
 {
 	const char *line;
 
-	if (conn->input != NULL)
-		line = i_stream_next_line(conn->input);
-	else
-		line = anvil_connection_fifo_read_line(conn);
+	line = i_stream_next_line(conn->input);
 	return line == NULL ? NULL : t_strsplit(line, "\t");
 }
 
@@ -153,17 +102,14 @@ static void anvil_connection_input(void *context)
 	struct anvil_connection *conn = context;
 	const char *const *args, *error;
 
-	if (conn->input != NULL) {
-		switch (i_stream_read(conn->input)) {
-		case -2:
-			i_error("BUG: Anvil client connection sent too "
-				"much data");
-			anvil_connection_destroy(conn);
-			return;
-		case -1:
-			anvil_connection_destroy(conn);
-			return;
-		}
+	switch (i_stream_read(conn->input)) {
+	case -2:
+		i_error("BUG: Anvil client connection sent too much data");
+		anvil_connection_destroy(conn);
+		return;
+	case -1:
+		anvil_connection_destroy(conn);
+		return;
 	}
 
 	if (!conn->version_received) {
@@ -197,13 +143,9 @@ anvil_connection_create(int fd, bool master, bool fifo)
 
 	conn = i_new(struct anvil_connection, 1);
 	conn->fd = fd;
-	if (!fifo) {
-		conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+	if (!fifo)
 		conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
-	} else {
-		conn->fifo_inbuf_size = MAX_INBUF_SIZE;
-		conn->fifo_inbuf = i_malloc(conn->fifo_inbuf_size);
-	}
 	conn->io = io_add(fd, IO_READ, anvil_connection_input, conn);
 	conn->master = master;
 	DLLIST_PREPEND(&anvil_connections, conn);
@@ -215,13 +157,11 @@ void anvil_connection_destroy(struct anvil_connection *conn)
 	DLLIST_REMOVE(&anvil_connections, conn);
 
 	io_remove(&conn->io);
-	if (conn->input != NULL)
-		i_stream_destroy(&conn->input);
+	i_stream_destroy(&conn->input);
 	if (conn->output != NULL)
 		o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(anvil conn) failed: %m");
-	i_free(conn->fifo_inbuf);
 	i_free(conn);
 
 	master_service_client_connection_destroyed(master_service);
