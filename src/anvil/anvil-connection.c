@@ -25,7 +25,7 @@ struct anvil_connection {
 	struct ostream *output;
 	struct io *io;
 	unsigned char *fifo_inbuf;
-	size_t fifo_inbuf_size;
+	size_t fifo_inbuf_size, fifo_inbuf_next;
 
 	unsigned int version_received:1;
 	unsigned int handshaked:1;
@@ -35,9 +35,29 @@ struct anvil_connection {
 struct anvil_connection *anvil_connections = NULL;
 
 static const char *
+anvil_connection_get_next_line(struct anvil_connection *conn)
+{
+	char *line, *p;
+
+	line = (char *)conn->fifo_inbuf + conn->fifo_inbuf_next;
+
+	p = strchr(line, '\n');
+	if (p == NULL)
+		conn->fifo_inbuf_next = 0;
+	else {
+		*p = '\0';
+		conn->fifo_inbuf_next = p - line + 1;
+	}
+	return line;
+}
+
+static const char *
 anvil_connection_fifo_read_line(struct anvil_connection *conn)
 {
 	ssize_t ret;
+
+	if (conn->fifo_inbuf_next > 0)
+		return anvil_connection_get_next_line(conn);
 
 	ret = read(conn->fd, conn->fifo_inbuf, conn->fifo_inbuf_size);
 	if (ret > 0) {
@@ -46,8 +66,9 @@ anvil_connection_fifo_read_line(struct anvil_connection *conn)
 			return NULL;
 		}
 		conn->fifo_inbuf[ret-1] = '\0';
-		return (const char *)conn->fifo_inbuf;
+		return anvil_connection_get_next_line(conn);
 	}
+
 	if (ret == 0) {
 		/* disconnected */
 	} else {
