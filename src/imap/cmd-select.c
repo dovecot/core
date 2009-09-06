@@ -321,7 +321,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 				 "* OK [NOMODSEQ] No permanent modsequences");
 	} else {
 		client_send_line(client,
-			t_strdup_printf("* OK [HIGHESTMODSEQ %llu]",
+			t_strdup_printf("* OK [HIGHESTMODSEQ %llu] Highest",
 				(unsigned long long)status.highest_modseq));
 		client->sync_last_full_modseq = status.highest_modseq;
 	}
@@ -379,7 +379,8 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 		mailbox_close(&box);
 		/* CLOSED response is required by QRESYNC */
-		client_send_line(client, "* OK [CLOSED]");
+		client_send_line(client,
+				 "* OK [CLOSED] Previous mailbox closed.");
 	}
 
 	if (ctx->condstore) {

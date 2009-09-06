@@ -199,7 +199,7 @@ imap_sync_send_highestmodseq(struct imap_sync_context *ctx,
 	} else {
 		/* send an untagged OK reply */
 		client_send_line(client, t_strdup_printf(
-			"* OK [HIGHESTMODSEQ %llu]",
+			"* OK [HIGHESTMODSEQ %llu] Highest",
 			(unsigned long long)send_modseq));
 	}
 

@@ -900,7 +900,7 @@ void client_enable(struct client *client, enum mailbox_feature features)
 		mailbox_get_status(client->mailbox,
 				   STATUS_HIGHESTMODSEQ, &status);
 		client_send_line(client, t_strdup_printf(
-			"* OK [HIGHESTMODSEQ %llu]",
+			"* OK [HIGHESTMODSEQ %llu] Highest",
 			(unsigned long long)status.highest_modseq));
 	}
 }
