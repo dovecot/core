@@ -142,8 +142,6 @@ notify_save_begin(struct mail_save_context *ctx, struct istream *input)
 static int
 notify_save_finish(struct mail_save_context *ctx)
 {
-	struct notify_transaction_context *lt =
-		NOTIFY_CONTEXT(ctx->transaction);
 	union mailbox_module_context *lbox =
 		NOTIFY_CONTEXT(ctx->transaction->box);
 	struct mail *dest_mail = ctx->copying ? NULL : ctx->dest_mail;
