@@ -44,6 +44,11 @@ struct sql_dict_iterate_context {
 	unsigned int key_prefix_len, pattern_prefix_len, next_map_idx;
 };
 
+struct sql_dict_inc_row {
+	struct sql_dict_inc_row *prev;
+	unsigned int rows;
+};
+
 struct sql_dict_transaction_context {
 	struct dict_transaction_context ctx;
 
@@ -52,6 +57,8 @@ struct sql_dict_transaction_context {
 	const struct dict_sql_map *prev_inc_map;
 	char *prev_inc_key;
 	long long prev_inc_diff;
+	pool_t inc_row_pool;
+	struct sql_dict_inc_row *inc_row;
 
 	unsigned int failed:1;
 	unsigned int changed:1;
@@ -463,13 +470,16 @@ sql_dict_transaction_init(struct dict *_dict)
 	return &ctx->ctx;
 }
 
-static int sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
-				       bool async ATTR_UNUSED)
+static int
+sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
+			    bool async ATTR_UNUSED,
+			    dict_transaction_commit_callback_t *callback,
+			    void *context)
 {
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;
 	const char *error;
-	int ret;
+	int ret = 1;
 
 	if (ctx->prev_inc_map != NULL)
 		sql_dict_prev_inc_flush(ctx);
@@ -478,14 +488,27 @@ static int sql_dict_transaction_commit(struct dict_transaction_context *_ctx,
 		sql_transaction_rollback(&ctx->sql_ctx);
 		ret = -1;
 	} else if (_ctx->changed) {
-		ret = sql_transaction_commit_s(&ctx->sql_ctx, &error);
-		if (ret < 0)
+		if (sql_transaction_commit_s(&ctx->sql_ctx, &error) < 0) {
 			i_error("sql dict: commit failed: %s", error);
-	} else {
-		/* nothing to be done */
-		ret = 0;
+			ret = -1;
+		} else {
+			while (ctx->inc_row != NULL) {
+				i_assert(ctx->inc_row->rows != -1UL);
+				if (ctx->inc_row->rows == 0) {
+					ret = 0;
+					break;
+				}
+				ctx->inc_row = ctx->inc_row->prev;
+			}
+		}
 	}
+	if (ctx->inc_row_pool != NULL)
+		pool_unref(&ctx->inc_row_pool);
+	i_free(ctx->prev_inc_key);
 	i_free(ctx);
+
+	if (callback != NULL)
+		callback(ret, context);
 	return ret;
 }
 
@@ -496,6 +519,9 @@ static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 
 	if (_ctx->changed)
 		sql_transaction_rollback(&ctx->sql_ctx);
+
+	if (ctx->inc_row_pool != NULL)
+		pool_unref(&ctx->inc_row_pool);
 	i_free(ctx->prev_inc_key);
 	i_free(ctx);
 }
@@ -603,8 +629,7 @@ sql_dict_update_query(const struct dict_sql_build_query *build)
 			    fields[i].map->value_field);
 		if (fields[i].value[0] != '-')
 			str_append_c(query, '+');
-		else
-			str_append(query, fields[i].value);
+		str_append(query, fields[i].value);
 	}
 
 	sql_dict_where_build(dict, fields[0].map, build->extra_values,
@@ -680,6 +705,22 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	} T_END;
 }
 
+static unsigned int *
+sql_dict_next_inc_row(struct sql_dict_transaction_context *ctx)
+{
+	struct sql_dict_inc_row *row;
+
+	if (ctx->inc_row_pool == NULL) {
+		ctx->inc_row_pool =
+			pool_alloconly_create("sql dict inc rows", 128);
+	}
+	row = p_new(ctx->inc_row_pool, struct sql_dict_inc_row, 1);
+	row->prev = ctx->inc_row;
+	row->rows = -1UL;
+	ctx->inc_row = row;
+	return &row->rows;
+}
+
 static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 				     const char *key, long long diff)
 {
@@ -693,7 +734,6 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	T_BEGIN {
 		struct dict_sql_build_query build;
 		struct dict_sql_build_query_field field;
-		const char *query;
 
 		field.map = map;
 		field.value = t_strdup_printf("%lld", diff);
@@ -706,14 +746,8 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 		build.key1 = key[0];
 		build.inc = TRUE;
 
-		if (diff >= 0)
-			query = sql_dict_set_query(&build);
-		else {
-			/* negative changes can't never be initial values,
-			   use UPDATE directly. */
-			query = sql_dict_update_query(&build);
-		}
-		sql_update(ctx->sql_ctx, query);
+		sql_update_get_rows(ctx->sql_ctx, sql_dict_update_query(&build),
+				    sql_dict_next_inc_row(ctx));
 	} T_END;
 }
 
@@ -784,6 +818,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		ctx->prev_inc_diff = diff;
 		return;
 	}
+
 	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_inc_map, map,
 					 ctx->prev_inc_key, key, &values)) {
 		sql_dict_prev_inc_flush(ctx);
@@ -791,7 +826,6 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	} else T_BEGIN {
 		struct dict_sql_build_query build;
 		struct dict_sql_build_query_field *field;
-		const char *query;
 
 		memset(&build, 0, sizeof(build));
 		build.dict = dict;
@@ -807,14 +841,8 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		field->map = map;
 		field->value = t_strdup_printf("%lld", diff);
 
-		if (diff >= 0)
-			query = sql_dict_set_query(&build);
-		else {
-			/* negative changes can't never be initial values,
-			   use UPDATE directly. */
-			query = sql_dict_update_query(&build);
-		}
-		sql_update(ctx->sql_ctx, query);
+		sql_update_get_rows(ctx->sql_ctx, sql_dict_update_query(&build),
+				    sql_dict_next_inc_row(ctx));
 
 		i_free_and_null(ctx->prev_inc_key);
 		ctx->prev_inc_map = NULL;
@@ -827,6 +855,7 @@ static struct dict sql_dict = {
 	{
 		sql_dict_init,
 		sql_dict_deinit,
+		NULL,
 		sql_dict_lookup,
 		sql_dict_iterate_init,
 		sql_dict_iterate,

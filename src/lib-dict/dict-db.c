@@ -372,16 +372,22 @@ db_dict_transaction_init(struct dict *_dict)
 	return &ctx->ctx;
 }
 
-static int db_dict_transaction_commit(struct dict_transaction_context *_ctx,
-				      bool async ATTR_UNUSED)
+static int
+db_dict_transaction_commit(struct dict_transaction_context *_ctx,
+			   bool async ATTR_UNUSED,
+			   dict_transaction_commit_callback_t *callback,
+			   void *context)
 {
 	struct db_dict_transaction_context *ctx =
 		(struct db_dict_transaction_context *)_ctx;
 	int ret;
 
-	ret = ctx->tid->commit(ctx->tid, 0);
+	ret = ctx->tid->commit(ctx->tid, 0) < 0 ? -1 : 1;
 	i_free(ctx);
-	return ret == 0 ? 0 : -1;
+
+	if (callback != NULL)
+		callback(ret, context);
+	return ret;
 }
 
 static void db_dict_transaction_rollback(struct dict_transaction_context *_ctx)
@@ -447,6 +453,7 @@ struct dict dict_driver_db = {
 	{
 		db_dict_init,
 		db_dict_deinit,
+		NULL,
 		db_dict_lookup,
 		db_dict_iterate_init,
 		db_dict_iterate,

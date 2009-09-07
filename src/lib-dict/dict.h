@@ -17,6 +17,8 @@ enum dict_data_type {
 	DICT_DATA_TYPE_UINT32
 };
 
+typedef void dict_transaction_commit_callback_t(int ret, void *context);
+
 void dict_driver_register(struct dict *driver);
 void dict_driver_unregister(struct dict *driver);
 
@@ -32,6 +34,9 @@ struct dict *dict_init(const char *uri, enum dict_data_type value_type,
 		       const char *username, const char *base_dir);
 /* Close dictionary. */
 void dict_deinit(struct dict **dict);
+/* Wait for all pending asynchronous transaction commits to finish.
+   Returns 0 if ok, -1 if error. */
+int dict_wait(struct dict *dict);
 
 /* Lookup value for key. Set it to NULL if it's not found.
    Returns 1 if found, 0 if not found and -1 if lookup failed. */
@@ -50,10 +55,16 @@ void dict_iterate_deinit(struct dict_iterate_context **ctx);
 
 /* Start a new dictionary transaction. */
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict);
-/* Commit the transaction. Returns 0 if ok, -1 if failed. */
+/* Commit the transaction. Returns 1 if ok, 0 if dict_atomic_inc() was used
+   on a non-existing key, -1 if failed. */
 int dict_transaction_commit(struct dict_transaction_context **ctx);
-/* Commit the transaction, but don't wait to see if it finishes successfully. */
-void dict_transaction_commit_async(struct dict_transaction_context **ctx);
+/* Commit the transaction, but don't wait to see if it finishes successfully.
+   If callback isn't NULL, it's called eventually. If it's not called by the
+   time you want to deinitialize dict, call dict_flush() to wait for the
+   result. */
+void dict_transaction_commit_async(struct dict_transaction_context **ctx,
+				   dict_transaction_commit_callback_t *callback,
+				   void *context);
 /* Rollback all changes made in transaction. */
 void dict_transaction_rollback(struct dict_transaction_context **ctx);
 
@@ -65,7 +76,8 @@ void dict_unset(struct dict_transaction_context *ctx,
 		const char *key);
 /* Increase/decrease a numeric value in dictionary. Note that the value is
    changed when transaction is being committed, so you can't know beforehand
-   what the value will become. */
+   what the value will become. The value is updated only if it already exists,
+   otherwise commit() will return 0. */
 void dict_atomic_inc(struct dict_transaction_context *ctx,
 		     const char *key, long long diff);
 

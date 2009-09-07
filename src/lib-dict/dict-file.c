@@ -54,6 +54,8 @@ struct file_dict_transaction_context {
 
 	pool_t pool;
 	ARRAY_DEFINE(changes, struct file_dict_change);
+
+	unsigned int atomic_inc_not_found:1;
 };
 
 static struct dotlock_settings file_dict_dotlock_settings = {
@@ -252,9 +254,12 @@ static void file_dict_apply_changes(struct file_dict_transaction_context *ctx)
 
 		switch (changes[i].type) {
 		case FILE_DICT_CHANGE_TYPE_INC:
-			diff = old_value == NULL ? 0 :
-				strtoll(old_value, NULL, 10);
-			diff += changes[i].value.diff;
+			if (old_value == NULL) {
+				ctx->atomic_inc_not_found = TRUE;
+				break;
+			}
+			diff = strtoll(old_value, NULL, 10) +
+				changes[i].value.diff;
 			tmp = t_strdup_printf("%lld", diff);
 			new_len = strlen(tmp);
 			if (old_value == NULL || new_len > strlen(old_value))
@@ -365,15 +370,26 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 	return 0;
 }
 
-static int file_dict_transaction_commit(struct dict_transaction_context *_ctx,
-					bool async ATTR_UNUSED)
+static int
+file_dict_transaction_commit(struct dict_transaction_context *_ctx,
+			     bool async ATTR_UNUSED,
+			     dict_transaction_commit_callback_t *callback,
+			     void *context)
 {
 	struct file_dict_transaction_context *ctx =
 		(struct file_dict_transaction_context *)_ctx;
 	int ret;
 
-	ret = file_dict_write_changes(ctx);
+	if (file_dict_write_changes(ctx) < 0)
+		ret = -1;
+	else if (ctx->atomic_inc_not_found)
+		ret = 0;
+	else
+		ret = 1;
 	pool_unref(&ctx->pool);
+
+	if (callback != NULL)
+		callback(ret, context);
 	return ret;
 }
 
@@ -429,6 +445,7 @@ struct dict dict_driver_file = {
 	{
 		file_dict_init,
 		file_dict_deinit,
+		NULL,
 		file_dict_lookup,
 		file_dict_iterate_init,
 		file_dict_iterate,

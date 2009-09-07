@@ -96,6 +96,11 @@ void dict_deinit(struct dict **_dict)
 	dict->v.deinit(dict);
 }
 
+int dict_wait(struct dict *dict)
+{
+	return dict->v.wait == NULL ? 1 : dict->v.wait(dict);
+}
+
 static bool dict_key_prefix_is_valid(const char *key)
 {
 	return strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0 ||
@@ -141,15 +146,17 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx)
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	return ctx->dict->v.transaction_commit(ctx, FALSE);
+	return ctx->dict->v.transaction_commit(ctx, FALSE, NULL, NULL);
 }
 
-void dict_transaction_commit_async(struct dict_transaction_context **_ctx)
+void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
+				   dict_transaction_commit_callback_t *callback,
+				   void *context)
 {
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	ctx->dict->v.transaction_commit(ctx, TRUE);
+	ctx->dict->v.transaction_commit(ctx, TRUE, callback, context);
 }
 
 void dict_transaction_rollback(struct dict_transaction_context **_ctx)

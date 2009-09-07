@@ -8,6 +8,7 @@ struct dict_vfuncs {
 			     enum dict_data_type value_type,
 			     const char *username, const char *base_dir);
 	void (*deinit)(struct dict *dict);
+	int (*wait)(struct dict *dict);
 
 	int (*lookup)(struct dict *dict, pool_t pool,
 		      const char *key, const char **value_r);
@@ -21,7 +22,9 @@ struct dict_vfuncs {
 
 	struct dict_transaction_context *(*transaction_init)(struct dict *dict);
 	int (*transaction_commit)(struct dict_transaction_context *ctx,
-				  bool async);
+				  bool async,
+				  dict_transaction_commit_callback_t *callback,
+				  void *context);
 	void (*transaction_rollback)(struct dict_transaction_context *ctx);
 
 	void (*set)(struct dict_transaction_context *ctx,

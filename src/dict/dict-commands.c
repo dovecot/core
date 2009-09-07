@@ -54,7 +54,8 @@ static int cmd_iterate_flush(struct dict_connection *conn)
 	o_stream_cork(conn->output);
 	while ((ret = dict_iterate(conn->iter_ctx, &key, &value)) > 0) {
 		str_truncate(str, 0);
-		str_printfa(str, "%s\t%s\n", key, value);
+		str_printfa(str, "%c%s\t%s\n", DICT_PROTOCOL_REPLY_OK,
+			    key, value);
 		o_stream_send(conn->output, str_data(str), str_len(str));
 
 		if (o_stream_get_buffer_used_size(conn->output) >
@@ -154,6 +155,7 @@ static int cmd_begin(struct dict_connection *conn, const char *line)
 	/* <id> */
 	trans = array_append_space(&conn->transactions);
 	trans->id = id;
+	trans->conn = conn;
 	trans->ctx = dict_transaction_begin(conn->dict);
 	return 0;
 }
@@ -182,7 +184,7 @@ dict_connection_transaction_lookup_parse(struct dict_connection *conn,
 static int cmd_commit(struct dict_connection *conn, const char *line)
 {
 	struct dict_connection_transaction *trans;
-	const char *reply;
+	char chr;
 	int ret;
 
 	if (conn->iter_ctx != NULL) {
@@ -194,11 +196,44 @@ static int cmd_commit(struct dict_connection *conn, const char *line)
 		return -1;
 
 	ret = dict_transaction_commit(&trans->ctx);
-	reply = t_strdup_printf("%c\n", ret == 0 ? DICT_PROTOCOL_REPLY_OK :
-				DICT_PROTOCOL_REPLY_FAIL);
-	o_stream_send_str(conn->output, reply);
+	switch (ret) {
+	case 1:
+		chr = DICT_PROTOCOL_REPLY_OK;
+		break;
+	case 0:
+		chr = DICT_PROTOCOL_REPLY_NOTFOUND;
+		break;
+	default:
+		chr = DICT_PROTOCOL_REPLY_FAIL;
+		break;
+	}
+	o_stream_send_str(conn->output, t_strdup_printf("%c\n", chr));
 	dict_connection_transaction_array_remove(conn, trans);
 	return 0;
+}
+
+static void cmd_commit_async_callback(int ret, void *context)
+{
+	struct dict_connection_transaction *trans = context;
+	const char *reply;
+	char chr;
+
+	switch (ret) {
+	case 1:
+		chr = DICT_PROTOCOL_REPLY_OK;
+		break;
+	case 0:
+		chr = DICT_PROTOCOL_REPLY_NOTFOUND;
+		break;
+	default:
+		chr = DICT_PROTOCOL_REPLY_FAIL;
+		break;
+	}
+	reply = t_strdup_printf("%c%c%u\n", DICT_PROTOCOL_REPLY_ASYNC_COMMIT,
+				chr, trans->id);
+	o_stream_send_str(trans->conn->output, reply);
+
+	dict_connection_transaction_array_remove(trans->conn, trans);
 }
 
 static int
@@ -214,8 +249,8 @@ cmd_commit_async(struct dict_connection *conn, const char *line)
 	if (dict_connection_transaction_lookup_parse(conn, line, &trans) < 0)
 		return -1;
 
-	dict_transaction_commit_async(&trans->ctx);
-	dict_connection_transaction_array_remove(conn, trans);
+	dict_transaction_commit_async(&trans->ctx, cmd_commit_async_callback,
+				      trans);
 	return 0;
 }
 

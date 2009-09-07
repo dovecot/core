@@ -5,6 +5,7 @@
 
 struct dict_connection_transaction {
 	unsigned int id;
+	struct dict_connection *conn;
 	struct dict_transaction_context *ctx;
 };
 

@@ -28,10 +28,10 @@ enum {
 };
 
 enum {
-	/* For LOOKUP command */
 	DICT_PROTOCOL_REPLY_OK = 'O', /* <value> */
 	DICT_PROTOCOL_REPLY_NOTFOUND = 'N',
-	DICT_PROTOCOL_REPLY_FAIL = 'F'
+	DICT_PROTOCOL_REPLY_FAIL = 'F',
+	DICT_PROTOCOL_REPLY_ASYNC_COMMIT = 'A'
 };
 
 const char *dict_client_escape(const char *src);
