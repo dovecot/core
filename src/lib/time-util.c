@@ -3,8 +3,6 @@
 #include "lib.h"
 #include "time-util.h"
 
-#include <sys/time.h>
-
 int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2)
 {
 	if (tv1->tv_sec < tv2->tv_sec)
