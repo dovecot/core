@@ -152,10 +152,10 @@ static void ATTR_NORETURN
 startup_fatal_handler(enum log_type type, int status,
 		      const char *fmt, va_list args)
 {
-	fputs("Fatal: ", stderr);
-	vfprintf(stderr, fmt, args);
-	fputc('\n', stderr);
+	va_list args2;
 
+	VA_COPY(args2, args);
+	fprintf(stderr, "Fatal: %s\n", t_strdup_vprintf(fmt, args2));
 	orig_fatal_callback(type, status, fmt, args);
 	abort();
 }
@@ -163,10 +163,10 @@ startup_fatal_handler(enum log_type type, int status,
 static void
 startup_error_handler(enum log_type type, const char *fmt, va_list args)
 {
-	fputs("Error: ", stderr);
-	vfprintf(stderr, fmt, args);
-	fputc('\n', stderr);
+	va_list args2;
 
+	VA_COPY(args2, args);
+	fprintf(stderr, "Error: %s\n", t_strdup_vprintf(fmt, args2));
 	orig_error_callback(type, fmt, args);
 }
 
