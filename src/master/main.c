@@ -42,6 +42,7 @@ struct service_list *services;
 
 static char *pidfile_path;
 static fatal_failure_callback_t *orig_fatal_callback;
+static failure_callback_t *orig_error_callback;
 static const char *child_process_env[3]; /* @UNSAFE */
 
 static const struct setting_parser_info *set_roots[] = {
@@ -145,6 +146,28 @@ master_fatal_callback(enum log_type type, int status,
 
 	orig_fatal_callback(type, status, format, args);
 	abort(); /* just to silence the noreturn attribute warnings */
+}
+
+static void ATTR_NORETURN
+startup_fatal_handler(enum log_type type, int status,
+		      const char *fmt, va_list args)
+{
+	fputs("Fatal: ", stderr);
+	vfprintf(stderr, fmt, args);
+	fputc('\n', stderr);
+
+	orig_fatal_callback(type, status, fmt, args);
+	abort();
+}
+
+static void
+startup_error_handler(enum log_type type, const char *fmt, va_list args)
+{
+	fputs("Error: ", stderr);
+	vfprintf(stderr, fmt, args);
+	fputc('\n', stderr);
+
+	orig_error_callback(type, fmt, args);
 }
 
 static void fatal_log_check(const struct master_settings *set)
@@ -590,7 +613,7 @@ int main(int argc, char *argv[])
 	struct master_settings *set;
 	unsigned int child_process_env_idx = 0;
 	const char *getopt_str, *error, *env_tz, *doveconf_arg = NULL;
-	failure_callback_t *error_callback;
+	failure_callback_t *orig_info_callback;
 	void **sets;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
 	int c, send_signal = 0;
@@ -695,6 +718,13 @@ int main(int argc, char *argv[])
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
 	if (send_signal != 0)
 		send_master_signal(send_signal);
+
+	master_service_init_log(master_service, "dovecot: ", 0);
+	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,
+			       &orig_info_callback);
+	i_set_fatal_handler(startup_fatal_handler);
+	i_set_error_handler(startup_error_handler);
+
 	if (!log_error) {
 		pid_file_check_running(pidfile_path);
 		master_settings_do_fixes(set);
@@ -739,19 +769,19 @@ int main(int argc, char *argv[])
 
 	services->config->config_file_path = get_full_config_path(services);
 
-	/* if any listening fails, fail completely */
-	if (services_listen(services) <= 0)
-		return FATAL_DEFAULT;
+	if (!log_error) {
+		/* if any listening fails, fail completely */
+		if (services_listen(services) <= 0)
+			i_fatal("Failed to start listeners");
 
-	master_service_init_log(master_service, "dovecot: ", 0);
-	i_get_failure_handlers(&orig_fatal_callback, &error_callback,
-			       &error_callback);
+		if (!foreground)
+			daemonize();
+		if (chdir(set->base_dir) < 0)
+			i_fatal("chdir(%s) failed: %m", set->base_dir);
+	}
+
 	i_set_fatal_handler(master_fatal_callback);
-
-	if (!foreground)
-		daemonize();
-	if (chdir(set->base_dir) < 0)
-		i_fatal("chdir(%s) failed: %m", set->base_dir);
+	i_set_error_handler(orig_error_callback);
 
 	main_init(log_error);
 	master_service_run(master_service, NULL);
