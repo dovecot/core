@@ -81,8 +81,10 @@ static void dict_quota_deinit(struct quota_root *_root)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 
-	if (root->dict != NULL)
+	if (root->dict != NULL) {
+		(void)dict_wait(root->dict);
 		dict_deinit(&root->dict);
+	}
 	i_free(root);
 }
 
@@ -112,7 +114,7 @@ dict_quota_count(struct dict_quota_root *root,
 		dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
 	} T_END;
 
-	dict_transaction_commit_async(&dt);
+	dict_transaction_commit_async(&dt, NULL, NULL);
 	*value_r = want_bytes ? bytes : count;
 	return 1;
 }
@@ -157,19 +159,30 @@ dict_quota_get_resource(struct quota_root *_root,
 	return ret;
 }
 
+static void dict_quota_update_callback(int ret, void *context)
+{
+	struct dict_quota_root *root = context;
+	uint64_t value;
+
+	if (ret == 0) {
+		/* row doesn't exist, need to recalculate it */
+		(void)dict_quota_count(root, TRUE, &value);
+	}
+}
+
 static int
 dict_quota_update(struct quota_root *_root, 
 		  struct quota_transaction_context *ctx)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *) _root;
 	struct dict_transaction_context *dt;
-
-	dt = dict_transaction_begin(root->dict);
+	uint64_t value;
 
 	if (ctx->recalculate) {
-		dict_unset(dt, DICT_QUOTA_CURRENT_BYTES_PATH);
-		dict_unset(dt, DICT_QUOTA_CURRENT_COUNT_PATH);
+		if (dict_quota_count(root, TRUE, &value) < 0)
+			return -1;
 	} else {
+		dt = dict_transaction_begin(root->dict);
 		if (ctx->bytes_used != 0) {
 			dict_atomic_inc(dt, DICT_QUOTA_CURRENT_BYTES_PATH,
 					ctx->bytes_used);
@@ -178,9 +191,9 @@ dict_quota_update(struct quota_root *_root,
 			dict_atomic_inc(dt, DICT_QUOTA_CURRENT_COUNT_PATH,
 					ctx->count_used);
 		}
+		dict_transaction_commit_async(&dt, dict_quota_update_callback,
+					      root);
 	}
-	
-	dict_transaction_commit_async(&dt);
 	return 0;
 }
 
