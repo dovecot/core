@@ -1,6 +1,8 @@
 #ifndef LOGIN_PROXY_STATE_H
 #define LOGIN_PROXY_STATE_H
 
+#include <sys/time.h>
+
 struct login_proxy_record {
 	struct timeval last_failure;
 	struct timeval last_success;
