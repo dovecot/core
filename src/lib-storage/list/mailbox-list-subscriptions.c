@@ -20,7 +20,7 @@ mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
 	const char *path, *name, *name2, *full_name;
 	string_t *vname;
 
-	vname = t_str_new(256);
+	vname = str_new(default_pool, 256);
 	path = t_strconcat(ctx->list->set.control_dir != NULL ?
 			   ctx->list->set.control_dir :
 			   ctx->list->set.root_dir,
@@ -57,6 +57,7 @@ mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
 		name = mail_namespace_get_vname(ns, vname, name);
 		mailbox_list_iter_update(&update_ctx, name);
 	} T_END;
+	str_free(&vname);
 	return subsfile_list_deinit(subsfile_ctx);
 }
 
