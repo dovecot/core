@@ -325,7 +325,13 @@ void sql_transaction_rollback(struct sql_transaction_context **_ctx)
 
 void sql_update(struct sql_transaction_context *ctx, const char *query)
 {
-	ctx->db->v.update(ctx, query);
+	sql_update_get_rows(ctx, query, NULL);
+}
+
+void sql_update_get_rows(struct sql_transaction_context *ctx, const char *query,
+			 unsigned int *affected_rows)
+{
+	ctx->db->v.update(ctx, query, affected_rows);
 }
 
 struct sql_result sql_not_connected_result = {

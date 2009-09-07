@@ -369,7 +369,8 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 }
 
 static void
-driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query)
+driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query,
+		     unsigned int *affected_rows)
 {
 	struct sqlite_transaction_context *ctx =
 		(struct sqlite_transaction_context *)_ctx;
@@ -381,6 +382,8 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query)
 	sql_exec(_ctx->db, query);
 	if (db->rc != SQLITE_OK)
 		ctx->failed = TRUE;
+	else if (affected_rows != NULL)
+		*affected_rows = sqlite3_changes(db->sqlite);
 }
 
 struct sql_db driver_sqlite_db = {

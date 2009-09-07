@@ -144,5 +144,9 @@ void sql_transaction_rollback(struct sql_transaction_context **ctx);
 
 /* Execute query in given transaction. */
 void sql_update(struct sql_transaction_context *ctx, const char *query);
+/* Save the number of rows updated by this query. The value is set before
+   commit callback is called. */
+void sql_update_get_rows(struct sql_transaction_context *ctx, const char *query,
+			 unsigned int *affected_rows);
 
 #endif

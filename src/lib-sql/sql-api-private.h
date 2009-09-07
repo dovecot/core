@@ -35,7 +35,8 @@ struct sql_db_vfuncs {
 				    const char **error_r);
 	void (*transaction_rollback)(struct sql_transaction_context *ctx);
 
-	void (*update)(struct sql_transaction_context *ctx, const char *query);
+	void (*update)(struct sql_transaction_context *ctx, const char *query,
+		       unsigned int *affected_rows);
 };
 
 struct sql_db {

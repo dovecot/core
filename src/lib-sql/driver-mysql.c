@@ -77,6 +77,7 @@ struct mysql_transaction_context {
 struct mysql_query_list {
 	struct mysql_query_list *next;
 	const char *query;
+	unsigned int *affected_rows;
 };
 
 extern struct sql_db driver_mysql_db;
@@ -598,6 +599,7 @@ static int transaction_send_query(struct mysql_transaction_context *ctx,
 				  const char *query)
 {
 	struct sql_result *result;
+	my_ulonglong rows;
 	int ret = 0;
 
 	if (ctx->failed)
@@ -608,6 +610,12 @@ static int transaction_send_query(struct mysql_transaction_context *ctx,
 		ctx->error = sql_result_get_error(result);
 		ctx->failed = TRUE;
 		ret = -1;
+	} else if (ctx->head != NULL && ctx->head->affected_rows != NULL) {
+		struct mysql_result *my_result = (struct mysql_result *)result;
+
+		rows = mysql_affected_rows(my_result->conn->mysql);
+		i_assert(rows != (my_ulonglong)-1);
+		*ctx->head->affected_rows = rows;
 	}
 	sql_result_unref(result);
 	return ret;
@@ -650,7 +658,8 @@ driver_mysql_transaction_rollback(struct sql_transaction_context *_ctx)
 }
 
 static void
-driver_mysql_update(struct sql_transaction_context *_ctx, const char *query)
+driver_mysql_update(struct sql_transaction_context *_ctx, const char *query,
+		    unsigned int *affected_rows)
 {
 	struct mysql_transaction_context *ctx =
 		(struct mysql_transaction_context *)_ctx;
@@ -658,6 +667,7 @@ driver_mysql_update(struct sql_transaction_context *_ctx, const char *query)
 
 	list = p_new(ctx->query_pool, struct mysql_query_list, 1);
 	list->query = p_strdup(ctx->query_pool, query);
+	list->affected_rows = affected_rows;
 
 	if (ctx->head == NULL)
 		ctx->head = list;

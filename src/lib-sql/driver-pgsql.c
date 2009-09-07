@@ -86,13 +86,14 @@ struct pgsql_transaction_context {
 
 struct pgsql_query_list {
 	struct pgsql_query_list *next;
+	struct pgsql_transaction_context *ctx;
+
 	const char *query;
+	unsigned int *affected_rows;
 };
 extern struct sql_db driver_pgsql_db;
 extern struct sql_result driver_pgsql_result;
 
-static void
-transaction_update_callback(struct sql_result *result, void *context);
 static void
 driver_pgsql_query_full(struct sql_db *db, const char *query,
 			sql_query_callback_t *callback, void *context,
@@ -900,11 +901,23 @@ driver_pgsql_transaction_unref(struct pgsql_transaction_context *ctx)
 }
 
 static void
-transaction_commit_callback(struct sql_result *result, void *context)
+transaction_begin_callback(struct sql_result *result,
+			    struct pgsql_transaction_context *ctx)
 {
-	struct pgsql_transaction_context *ctx =
-		(struct pgsql_transaction_context *)context;
+	if (sql_result_next_row(result) < 0) {
+		ctx->begin_failed = TRUE;
+		ctx->failed = TRUE;
+		ctx->error = sql_result_get_error(result);
+	} else {
+		ctx->begin_succeeded = TRUE;
+	}
+	driver_pgsql_transaction_unref(ctx);
+}
 
+static void
+transaction_commit_callback(struct sql_result *result,
+			    struct pgsql_transaction_context *ctx)
+{
 	if (sql_result_next_row(result) < 0)
 		ctx->callback(sql_result_get_error(result), ctx->context);
 	else
@@ -913,17 +926,18 @@ transaction_commit_callback(struct sql_result *result, void *context)
 }
 
 static void
-transaction_update_callback(struct sql_result *result, void *context)
+transaction_update_callback(struct sql_result *result,
+			    struct pgsql_query_list *list)
 {
-	struct pgsql_transaction_context *ctx = context;
+	struct pgsql_transaction_context *ctx = list->ctx;
 
 	if (sql_result_next_row(result) < 0) {
-		if (!ctx->begin_succeeded)
-			ctx->begin_failed = TRUE;
 		ctx->failed = TRUE;
 		ctx->error = sql_result_get_error(result);
-	} else {
-		ctx->begin_succeeded = TRUE;
+	} else if (list->affected_rows != NULL) {
+		struct pgsql_result *pg_result = (struct pgsql_result *)result;
+
+		*list->affected_rows = atoi(PQcmdTuples(pg_result->pgres));
 	}
 	driver_pgsql_transaction_unref(ctx);
 }
@@ -948,11 +962,11 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 	} else {
 		/* multiple queries, use a transaction */
 		ctx->refcount++;
-		sql_query(_ctx->db, "BEGIN", transaction_update_callback, ctx);
+		sql_query(_ctx->db, "BEGIN", transaction_begin_callback, ctx);
 		while (ctx->head != NULL) {
 			ctx->refcount++;
 			sql_query(_ctx->db, ctx->head->query,
-				  transaction_update_callback, ctx);
+				  transaction_update_callback, ctx->head);
 			ctx->head = ctx->head->next;
 		}
 		sql_query(_ctx->db, "COMMIT", transaction_commit_callback, ctx);
@@ -978,11 +992,11 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 	} else {
 		/* multiple queries, use a transaction */
 		ctx->refcount++;
-		sql_query(_ctx->db, "BEGIN", transaction_update_callback, ctx);
+		sql_query(_ctx->db, "BEGIN", transaction_begin_callback, ctx);
 		while (ctx->head != NULL) {
 			ctx->refcount++;
 			sql_query(_ctx->db, ctx->head->query,
-				  transaction_update_callback, ctx);
+				  transaction_update_callback, ctx->head);
 			ctx->head = ctx->head->next;
 		}
 		if (ctx->refcount > 1) {
@@ -1004,6 +1018,14 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 	else if (result != NULL) {
 		if (sql_result_next_row(result) < 0)
 			*error_r = sql_result_get_error(result);
+		else if (ctx->head != NULL &&
+			 ctx->head->affected_rows != NULL) {
+			struct pgsql_result *pg_result =
+				(struct pgsql_result *)result;
+
+			*ctx->head->affected_rows =
+				atoi(PQcmdTuples(pg_result->pgres));
+		}
 	}
 	if (result != NULL)
 		sql_result_unref(result);
@@ -1024,14 +1046,17 @@ driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
 }
 
 static void
-driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query)
+driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query,
+		    unsigned int *affected_rows)
 {
 	struct pgsql_transaction_context *ctx =
 		(struct pgsql_transaction_context *)_ctx;
 	struct pgsql_query_list *list;
 
 	list = p_new(ctx->query_pool, struct pgsql_query_list, 1);
+	list->ctx = ctx;
 	list->query = p_strdup(ctx->query_pool, query);
+	list->affected_rows = affected_rows;
 
 	if (ctx->head == NULL)
 		ctx->head = list;
