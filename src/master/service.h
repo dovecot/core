@@ -63,12 +63,12 @@ struct service {
 
 	/* number of processes currently created for this service */
 	unsigned int process_count;
-	/* number of processes currently accepting new connections */
+	/* number of processes currently accepting new clients */
 	unsigned int process_avail;
 	/* max number of processes allowed */
 	unsigned int process_limit;
 
-	/* Maximum number of client connections the service can handle. */
+	/* Maximum number of client connections a process can handle. */
 	unsigned int client_limit;
 
 	/* log process pipe file descriptors. */

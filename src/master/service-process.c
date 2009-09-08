@@ -456,8 +456,10 @@ service_process_create(struct service *service, const char *const *auth_args,
 		return NULL;
 	}
 	if (service->process_count >= service->process_limit) {
+		/* we should get here only with auth dest services */
 		i_warning("service(%s): process_limit reached, "
-			  "connections are being dropped", service->set->name);
+			  "client connections are being dropped",
+			  service->set->name);
 		return NULL;
 	}
 
