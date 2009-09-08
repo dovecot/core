@@ -13,20 +13,13 @@
 pid_t master_pid;
 
 static void
-sig_reread_config(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
-{
-	// FIXME
-}
-
-static void
 sig_reopen_logs(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
-	// FIXME
+	master_service_init_log(master_service, "log: ", 0);
 }
 
 static void main_init(void)
 {
-        lib_signals_set_handler(SIGHUP, TRUE, sig_reread_config, NULL);
 	lib_signals_set_handler(SIGUSR1, TRUE, sig_reopen_logs, NULL);
 
 	master_pid = getppid();

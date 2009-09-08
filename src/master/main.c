@@ -375,6 +375,9 @@ static void
 sig_log_reopen(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
         service_signal(services->log, SIGUSR1);
+
+	master_service_init_log(master_service, "dovecot: ", 0);
+	i_set_fatal_handler(master_fatal_callback);
 }
 
 static void
