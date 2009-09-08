@@ -271,6 +271,7 @@ int config_request_handle(const struct config_filter *filter,
 				settings_parser_get_changes(parser->parser));
 
 		if (check_settings) {
+			settings_parse_var_skip(parser->parser);
 			if (!settings_parser_check(parser->parser, ctx.pool,
 						   &error)) {
 				i_error("%s", error);

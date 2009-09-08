@@ -135,6 +135,10 @@ void settings_parse_set_key_expandeded(struct setting_parser_context *ctx,
 				       pool_t pool, const char *key);
 void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
 					pool_t pool, const char *const *keys);
+/* Update variable string pointers to skip over the '1' or '0'.
+   This is mainly useful when you want to run settings_parser_check() without
+   actually knowing what the variables are. */
+void settings_parse_var_skip(struct setting_parser_context *ctx);
 /* Expand all unexpanded variables using the given table. Update the string
    pointers so that they can be used without skipping over the '1'. */
 void settings_var_expand(const struct setting_parser_info *info,

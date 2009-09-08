@@ -261,6 +261,7 @@ config_filter_parser_check(struct parser_context *ctx,
 			   const char **error_r)
 {
 	for (; p->module_name != NULL; p++) {
+		settings_parse_var_skip(p->parser);
 		if (!settings_parser_check(p->parser, ctx->pool, error_r))
 			return -1;
 	}
