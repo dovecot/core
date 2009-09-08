@@ -187,8 +187,8 @@ static void fatal_log_check(const struct master_settings *set)
 		i_error("read(%s) failed: %m", path);
 	else {
 		buf[ret] = '\0';
-		i_warning("Last died with error (see error log for more "
-			  "information): %s", buf);
+		fprintf(stderr, "Last died with error (see error log for more "
+			"information): %s", buf);
 	}
 
 	close(fd);
