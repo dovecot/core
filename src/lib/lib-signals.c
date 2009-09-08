@@ -95,7 +95,8 @@ static void sig_handler(int signo, siginfo_t *si, void *context ATTR_UNUSED)
 		return;
 
 	/* remember that we're inside a signal handler which might have been
-	   called at any time. don't do anything that's unsafe. */
+	   called at any time. don't do anything that's unsafe. we might also
+	   get interrupted by another signal while inside this handler. */
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
 		if (!h->delayed)
 			h->handler(si, h->context);
@@ -125,7 +126,7 @@ static void signal_read(void *context ATTR_UNUSED)
 	siginfo_t signals[MAX_SIGNAL_VALUE+1];
 	sigset_t fullset, oldset;
 	struct signal_handler *h;
-	char buf[2];
+	char buf[64];
 	int signo;
 	ssize_t ret;
 
@@ -134,8 +135,9 @@ static void signal_read(void *context ATTR_UNUSED)
 	if (sigprocmask(SIG_BLOCK, &fullset, &oldset) < 0)
 		i_fatal("sigprocmask() failed: %m");
 
+	/* typically we should read only a single byte, but if a signal
+	   is sent while signal handler is running we might get more. */
 	ret = read(sig_pipe_fd[0], buf, sizeof(buf));
-	i_assert(ret <= 1);
 	if (ret > 0) {
 		memcpy(signals, pending_signals, sizeof(signals));
 		memset(pending_signals, 0, sizeof(pending_signals));
