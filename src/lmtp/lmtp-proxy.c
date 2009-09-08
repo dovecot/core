@@ -10,7 +10,6 @@
 #include "lmtp-proxy.h"
 
 #define LMTP_MAX_LINE_LEN 1024
-#define LMTP_PROXY_OUTPUT_TIMEOUT_MSECS 1000
 
 struct lmtp_proxy_recipient {
 	struct lmtp_proxy_connection *conn;
@@ -47,13 +46,16 @@ struct lmtp_proxy {
 	struct ostream *client_output;
 	struct tee_istream *tee_data_input;
 
+	unsigned int max_timeout_msecs;
+
 	void (*finish_callback)(void *);
 	void *finish_context;
 
 	unsigned int finished:1;
 };
 
-static void lmtp_proxy_conn_deinit(struct lmtp_proxy_connection *conn);
+static void lmtp_proxy_conn_deinit(struct lmtp_proxy_connection *conn,
+				   const char *reason);
 static void lmtp_proxy_data_input(struct lmtp_proxy *proxy);
 
 struct lmtp_proxy *
@@ -81,7 +83,7 @@ static void lmtp_proxy_connections_deinit(struct lmtp_proxy *proxy)
 
 	conns = array_get(&proxy->connections, &count);
 	for (i = 0; i < count; i++)
-		lmtp_proxy_conn_deinit(conns[i]);
+		lmtp_proxy_conn_deinit(conns[i], "451 4.3.0 Aborting");
 }
 
 void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
@@ -116,6 +118,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	struct lmtp_proxy_connection *const *conns, *conn;
 	unsigned int i, count;
 
+	i_assert(set->timeout_msecs > 0);
+
 	conns = array_get(&proxy->connections, &count);
 	for (i = 0; i < count; i++) {
 		if (conns[i]->set.port == set->port &&
@@ -130,13 +134,17 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->set.timeout_msecs = set->timeout_msecs;
 	array_append(&proxy->connections, &conn, 1);
 	conn->client = lmtp_client_init(proxy->mail_from, proxy->my_hostname);
-	if (lmtp_client_connect_tcp(conn->client, LMTP_CLIENT_PROTOCOL_LMTP,
+	if (lmtp_client_connect_tcp(conn->client, set->protocol,
 				    conn->set.host, conn->set.port) < 0)
 		conn->failed = TRUE;
+
+	if (proxy->max_timeout_msecs < set->timeout_msecs)
+		proxy->max_timeout_msecs = set->timeout_msecs;
 	return conn;
 }
 
-static void lmtp_proxy_conn_deinit(struct lmtp_proxy_connection *conn)
+static void lmtp_proxy_conn_deinit(struct lmtp_proxy_connection *conn,
+				   const char *reason)
 {
 	struct lmtp_proxy_recipient *rcpt;
 	unsigned int i, count;
@@ -145,7 +153,7 @@ static void lmtp_proxy_conn_deinit(struct lmtp_proxy_connection *conn)
 	rcpt = array_get_modifiable(&conn->proxy->rcpt_to, &count);
 	for (i = 0; i < count; i++) {
 		if (rcpt[i].conn == conn && !rcpt[i].rcpt_to_failed)
-			rcpt[i].reply = ERRSTR_TEMP_REMOTE_FAILURE;
+			rcpt[i].reply = reason;
 	}
 
 	if (conn->client != NULL)
@@ -176,24 +184,7 @@ static bool lmtp_proxy_send_replies(struct lmtp_proxy *proxy)
 
 static void lmtp_proxy_finish(struct lmtp_proxy *proxy)
 {
-	struct lmtp_proxy_recipient *rcpt;
-	unsigned int i, count;
-	bool ret;
-
 	i_assert(!proxy->finished);
-
-	/* if we haven't sent something yet, they're failures */
-	rcpt = array_get_modifiable(&proxy->rcpt_to, &count);
-	for (i = proxy->rcpt_next_reply_idx; i < count; i++) {
-		if (!rcpt[i].rcpt_to_failed) {
-			i_assert(!rcpt[i].data_reply_received);
-			rcpt[i].reply = ERRSTR_TEMP_REMOTE_FAILURE;
-			rcpt[i].data_reply_received = TRUE;
-		}
-	}
-
-	ret = lmtp_proxy_send_replies(proxy);
-	i_assert(ret);
 
 	proxy->finished = TRUE;
 	proxy->finish_callback(proxy->finish_context);
@@ -203,6 +194,26 @@ static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy)
 {
 	if (lmtp_proxy_send_replies(proxy))
 		lmtp_proxy_finish(proxy);
+}
+
+static void lmtp_proxy_data_disconnected(struct lmtp_proxy *proxy)
+{
+	struct lmtp_proxy_recipient *rcpt;
+	unsigned int i, count;
+	bool ret;
+
+	rcpt = array_get_modifiable(&proxy->rcpt_to, &count);
+	for (i = proxy->rcpt_next_reply_idx; i < count; i++) {
+		if (!rcpt[i].rcpt_to_failed) {
+			i_assert(!rcpt[i].data_reply_received);
+			rcpt[i].reply = "451 4.4.0 Client disconnected in DATA";
+			rcpt[i].data_reply_received = TRUE;
+		}
+	}
+	ret = lmtp_proxy_send_replies(proxy);
+	i_assert(ret);
+
+	lmtp_proxy_finish(proxy);
 }
 
 static void
@@ -237,9 +248,6 @@ lmtp_proxy_conn_data(bool success ATTR_UNUSED, const char *reply, void *context)
 	unsigned int i, count;
 
 	i_assert(conn->proxy->data_input != NULL);
-
-	if (reply == NULL)
-		reply = ERRSTR_TEMP_REMOTE_FAILURE;
 
 	rcpt = array_get_modifiable(&conn->proxy->rcpt_to, &count);
 	for (i = conn->data_next_reply_low_idx; i < count; i++) {
@@ -293,7 +301,8 @@ static void lmtp_proxy_output_timeout(struct lmtp_proxy *proxy)
 	}
 	i_assert(max_conn != NULL);
 
-	lmtp_proxy_conn_deinit(max_conn);
+	lmtp_proxy_conn_deinit(max_conn, ERRSTR_TEMP_REMOTE_FAILURE
+			       " (timeout)");
 }
 
 static void lmtp_proxy_wait_for_output(struct lmtp_proxy *proxy)
@@ -303,12 +312,12 @@ static void lmtp_proxy_wait_for_output(struct lmtp_proxy *proxy)
 	if (proxy->io != NULL)
 		io_remove(&proxy->io);
 	if (array_count(&proxy->connections) > 1) {
-		proxy->to = timeout_add(LMTP_PROXY_OUTPUT_TIMEOUT_MSECS,
+		proxy->to = timeout_add(proxy->max_timeout_msecs,
 					lmtp_proxy_output_timeout, proxy);
 	}
 }
 
-static bool lmtp_proxy_read_data(struct lmtp_proxy *proxy)
+static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 {
 	size_t size;
 
@@ -318,8 +327,12 @@ static bool lmtp_proxy_read_data(struct lmtp_proxy *proxy)
 		lmtp_proxy_wait_for_output(proxy);
 		return FALSE;
 	case -1:
-		/* disconnected */
-		lmtp_proxy_finish(proxy);
+		if (proxy->data_input->stream_errno != 0)
+			lmtp_proxy_data_disconnected(proxy);
+		else {
+			/* finished reading data input. now we'll just have to
+			   wait for replies. */
+		}
 		return FALSE;
 	case 0:
 		/* nothing new read */
@@ -346,7 +359,7 @@ static void lmtp_proxy_data_input(struct lmtp_proxy *proxy)
 		conns = array_get(&proxy->connections, &count);
 		for (i = 0; i < count; i++)
 			lmtp_client_send_more(conns[i]->client);
-	} while (lmtp_proxy_read_data(proxy));
+	} while (lmtp_proxy_data_read(proxy));
 }
 
 void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
@@ -364,6 +377,7 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 	for (i = 0; i < count; i++) {
 		conns[i]->data_input =
 			tee_i_stream_create_child(proxy->tee_data_input);
+		lmtp_client_send(conns[i]->client, conns[i]->data_input);
 	}
 
 	lmtp_proxy_data_input(proxy);

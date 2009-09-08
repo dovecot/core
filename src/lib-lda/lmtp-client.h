@@ -1,6 +1,8 @@
 #ifndef LMTP_CLIENT_H
 #define LMTP_CLIENT_H
 
+#define ERRSTR_TEMP_REMOTE_FAILURE "451 4.4.0 Remote server not answering"
+
 /* LMTP/SMTP client code. */
 
 enum lmtp_client_protocol {

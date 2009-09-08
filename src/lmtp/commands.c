@@ -24,6 +24,8 @@
 #define ERRSTR_TEMP_MAILBOX_FAIL "451 4.3.0 <%s> Temporary internal error"
 #define ERRSTR_TEMP_USERDB_FAIL "451 4.3.0 <%s> Temporary user lookup failure"
 
+#define LMTP_PROXY_DEFAULT_TIMEOUT_MSECS (1000*30)
+
 int cmd_lhlo(struct client *client, const char *args ATTR_UNUSED)
 {
 	client_state_reset(client);
@@ -94,7 +96,7 @@ client_proxy_rcpt_parse_fields(struct lmtp_proxy_settings *set,
 			       const char *const *args, const char **address)
 {
 	const char *p, *key, *value;
-	bool proxying = FALSE;
+	bool proxying = FALSE, port_set = FALSE;
 
 	for (; *args != NULL; args++) {
 		p = strchr(*args, '=');
@@ -110,9 +112,23 @@ client_proxy_rcpt_parse_fields(struct lmtp_proxy_settings *set,
 			proxying = TRUE;
 		else if (strcmp(key, "host") == 0)
 			set->host = value;
-		else if (strcmp(key, "port") == 0)
+		else if (strcmp(key, "port") == 0) {
 			set->port = atoi(value);
-		else if (strcmp(key, "user") == 0) {
+			port_set = TRUE;
+		} else if (strcmp(key, "proxy_timeout") == 0)
+			set->timeout_msecs = atoi(value)*1000;
+		else if (strcmp(key, "protocol") == 0) {
+			if (strcmp(value, "lmtp") == 0)
+				set->protocol = LMTP_CLIENT_PROTOCOL_LMTP;
+			else if (strcmp(value, "smtp") == 0) {
+				set->protocol = LMTP_CLIENT_PROTOCOL_SMTP;
+				if (!port_set)
+					set->port = 25;
+			} else {
+				i_error("proxy: Unknown protocol %s", value);
+				return FALSE;
+			}
+		} else if (strcmp(key, "user") == 0) {
 			/* changing the username */
 			*address = value;
 		} else {
@@ -176,6 +192,9 @@ static bool client_proxy_rcpt(struct client *client, const char *address)
 
 	memset(&set, 0, sizeof(set));
 	set.port = client->local_port;
+	set.protocol = LMTP_CLIENT_PROTOCOL_LMTP;
+	set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
+
 	if (!client_proxy_rcpt_parse_fields(&set, fields, &address)) {
 		/* not proxying this user */
 		pool_unref(&pool);

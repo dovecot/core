@@ -2,13 +2,13 @@
 #define LMTP_PROXY_H
 
 #include "network.h"
-
-#define ERRSTR_TEMP_REMOTE_FAILURE "451 4.4.0 Remote server not answering"
+#include "lmtp-client.h"
 
 struct lmtp_proxy_settings {
 	const char *host;
 	unsigned int port;
 	unsigned int timeout_msecs;
+	enum lmtp_client_protocol protocol;
 };
 
 struct lmtp_proxy *
