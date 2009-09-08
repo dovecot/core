@@ -25,8 +25,10 @@ static void service_process_kill_idle(struct service_process *process)
 {
 	struct service *service = process->service;
 
-	if (service->process_avail <= service->set->process_min_avail) {
-		/* we don't have any extra idling processes */
+	if (service->process_avail <= service->set->process_min_avail ||
+	    service->process_avail == 1) {
+		/* we don't have any extra idling processes. and if there's
+		   no minimum limit, never kill the last process anyway */
 		timeout_remove(&process->to_idle);
 	} else {
 		if (kill(process->pid, SIGINT) < 0 && errno != ESRCH) {
