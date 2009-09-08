@@ -16,6 +16,8 @@ struct service_process {
 
 	/* time when process started idling, or 0 if we're not idling */
 	time_t idle_start;
+	/* kill process if it hits idle timeout */
+	struct timeout *to_idle;
 
 	/* kill the process if it doesn't send initial status notification */
 	struct timeout *to_status;

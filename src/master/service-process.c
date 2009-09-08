@@ -547,6 +547,8 @@ void service_process_destroy(struct service_process *process)
 
 	if (process->to_status != NULL)
 		timeout_remove(&process->to_status);
+	if (process->to_idle != NULL)
+		timeout_remove(&process->to_idle);
 
 	switch (process->service->type) {
 	case SERVICE_TYPE_AUTH_SERVER:

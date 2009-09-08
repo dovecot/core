@@ -11,13 +11,81 @@
 #include "service-log.h"
 #include "service-monitor.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <syslog.h>
 
+#define SERVICE_PROCESS_KILL_IDLE_MSECS (1000*60)
 #define SERVICE_STARTUP_FAILURE_THROTTLE_SECS 60
 
 static void service_monitor_start_extra_avail(struct service *service);
+
+static void service_process_kill_idle(struct service_process *process)
+{
+	struct service *service = process->service;
+
+	if (service->process_avail <= service->set->process_min_avail) {
+		/* we don't have any extra idling processes */
+		timeout_remove(&process->to_idle);
+	} else {
+		if (kill(process->pid, SIGINT) < 0 && errno != ESRCH) {
+			service_error(service, "kill(%s, SIGINT) failed: %m",
+				      dec2str(process->pid));
+		}
+	}
+}
+
+static void service_status_more(struct service_process *process,
+				const struct master_status *status)
+{
+	struct service *service = process->service;
+
+	process->total_count +=
+		process->available_count - status->available_count;
+	process->idle_start = 0;
+
+	if (process->to_idle != NULL)
+		timeout_remove(&process->to_idle);
+
+	if (status->available_count != 0)
+		return;
+
+	/* process used up all of its clients */
+	i_assert(service->process_avail > 0);
+	service->process_avail--;
+
+	/* we may need to start more  */
+	service_monitor_start_extra_avail(service);
+	service_monitor_listen_start(service);
+}
+
+static void service_status_less(struct service_process *process,
+				const struct master_status *status)
+{
+	struct service *service = process->service;
+
+	if (process->available_count == 0) {
+		/* process can accept more clients again */
+		if (service->process_avail++ == 0)
+			service_monitor_listen_stop(service);
+		i_assert(service->process_avail <= service->process_count);
+	}
+	if (status->available_count == service->client_limit) {
+		process->idle_start = ioloop_time;
+		if (service->process_avail > service->set->process_min_avail &&
+		    process->to_idle == NULL) {
+			/* we have more processes than we really need.
+			   add a bit of randomness so that we don't send the
+			   signal to all of them at once */
+			process->to_idle =
+				timeout_add(SERVICE_PROCESS_KILL_IDLE_MSECS +
+					    (rand() % 100)*10,
+					    service_process_kill_idle,
+					    process);
+		}
+	}
+}
 
 static void service_status_input(struct service *service)
 {
@@ -74,27 +142,11 @@ static void service_status_input(struct service *service)
 		return;
 
 	if (process->available_count > status.available_count) {
-		/* process started servicing requests */
-		process->total_count +=
-			process->available_count - status.available_count;
-		if (status.available_count == 0) {
-			i_assert(service->process_avail > 0);
-			service->process_avail--;
-
-			service_monitor_start_extra_avail(service);
-			service_monitor_listen_start(service);
-		}
-		process->idle_start = 0;
+		/* process started servicing some more clients */
+		service_status_more(process, &status);
 	} else {
-		/* process finished servicing requests */
-		if (process->available_count == 0) {
-			if (service->process_avail++ == 0)
-                                service_monitor_listen_stop(service);
-			i_assert(service->process_avail <=
-				 service->process_count);
-		}
-		if (status.available_count == service->client_limit)
-			process->idle_start = ioloop_time;
+		/* process finished servicing some clients */
+		service_status_less(process, &status);
 	}
 	process->available_count = status.available_count;
 }
@@ -113,10 +165,11 @@ static void service_accept(struct service *service)
 	i_assert(service->process_avail == 0);
 
 	if (service->process_count == service->process_limit) {
-		/* we've reached our limits, new connections will have to
+		/* we've reached our limits, new clients will have to
 		   wait until there are more processes available */
 		i_warning("service(%s): process_limit reached, "
-			  "connections are being dropped", service->set->name);
+			  "client connections are being dropped",
+			  service->set->name);
 		service->listen_pending = TRUE;
                 service_monitor_listen_stop(service);
 		return;
