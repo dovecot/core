@@ -17,6 +17,7 @@
 
 struct log_client {
 	struct ip_addr ip;
+	char *prefix;
 	unsigned int fatal_logged:1;
 };
 
@@ -27,7 +28,8 @@ struct log_connection {
 	int listen_fd;
 	struct io *io;
 
-	char *prefix;
+	char *default_prefix;
+	/* pid -> struct log_client* */
 	struct hash_table *clients;
 
 	unsigned int master:1;
@@ -49,20 +51,27 @@ static struct log_client *log_client_get(struct log_connection *log, pid_t pid)
 	return client;
 }
 
-static void log_parse_ip(struct log_connection *log,
-			 const struct failure_line *failure)
+static void log_client_free(struct log_connection *log,
+			    struct log_client *client, pid_t pid)
 {
-	struct log_client *client;
+	hash_table_remove(log->clients, POINTER_CAST(pid));
 
-	client = log_client_get(log, failure->pid);
-	(void)net_addr2ip(failure->text + 3, &client->ip);
+	i_free(client->prefix);
+	i_free(client);
 }
 
 static void log_parse_option(struct log_connection *log,
 			     const struct failure_line *failure)
 {
+	struct log_client *client;
+
+	client = log_client_get(log, failure->pid);
 	if (strncmp(failure->text, "ip=", 3) == 0)
-		log_parse_ip(log, failure);
+		(void)net_addr2ip(failure->text + 3, &client->ip);
+	else if (strncmp(failure->text, "prefix=", 7) == 0) {
+		i_free(client->prefix);
+		client->prefix = i_strdup(failure->text + 7);
+	}
 }
 
 static void log_parse_master_line(const char *line)
@@ -98,17 +107,14 @@ static void log_parse_master_line(const char *line)
 			   it's not an error. */
 			return;
 		}
-		hash_table_remove(log->clients, POINTER_CAST(pid));
-		i_free(client);
+		log_client_free(log, client, pid);
 	} else if (strncmp(line, "DEFAULT-FATAL ", 14) == 0) {
 		/* If the client has logged a fatal/panic, don't log this
 		   message. */
 		if (client == NULL || !client->fatal_logged)
 			i_error("%s", line + 14);
-		else {
-			hash_table_remove(log->clients, POINTER_CAST(pid));
-			i_free(client);
-		}
+		else
+			log_client_free(log, client, pid);
 	} else {
 		i_error("Received unknown command from master: %s", line);
 	}
@@ -117,7 +123,8 @@ static void log_parse_master_line(const char *line)
 static void log_it(struct log_connection *log, const char *line)
 {
 	struct failure_line failure;
-	struct log_client *client;
+	struct log_client *client = NULL;
+	const char *prefix;
 
 	if (log->master) {
 		log_parse_master_line(line);
@@ -135,11 +142,15 @@ static void log_it(struct log_connection *log, const char *line)
 		log_parse_option(log, &failure);
 		return;
 	default:
+		client = hash_table_lookup(log->clients,
+					   POINTER_CAST(failure.pid));
 		break;
 	}
 	i_assert(failure.log_type < LOG_TYPE_COUNT);
 
-	i_set_failure_prefix(log->prefix);
+	prefix = client != NULL && client->prefix != NULL ?
+		client->prefix : log->default_prefix;
+	i_set_failure_prefix(prefix);
 	i_log_type(failure.log_type, "%s", failure.text);
 	i_set_failure_prefix("log: ");
 }
@@ -157,11 +168,11 @@ static bool log_connection_handshake(struct log_connection *log,
 		return FALSE;
 
 	if (handshake.prefix_len <= size - sizeof(handshake)) {
-		log->prefix = i_strndup(*data + sizeof(handshake),
-					handshake.prefix_len);
+		log->default_prefix = i_strndup(*data + sizeof(handshake),
+						handshake.prefix_len);
 		*data += sizeof(handshake) + handshake.prefix_len;
 	}
-	if (strcmp(log->prefix, MASTER_LOG_PREFIX_NAME) == 0) {
+	if (strcmp(log->default_prefix, MASTER_LOG_PREFIX_NAME) == 0) {
 		if (log->listen_fd != MASTER_LISTEN_FD_FIRST) {
 			i_error("Received master prefix in handshake "
 				"from non-master fd %d", log->fd);
@@ -239,7 +250,7 @@ void log_connection_destroy(struct log_connection *log)
 		io_remove(&log->io);
 	if (close(log->fd) < 0)
 		i_error("close(log connection fd) failed: %m");
-	i_free(log->prefix);
+	i_free(log->default_prefix);
 	i_free(log);
 
         master_service_client_connection_destroyed(master_service);

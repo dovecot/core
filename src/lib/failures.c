@@ -406,10 +406,24 @@ void i_set_failure_file(const char *path, const char *prefix)
 	i_set_info_handler(NULL);
 }
 
+static void i_failure_send_option(const char *key, const char *value)
+{
+	const char *str;
+
+	if (error_handler != i_internal_error_handler)
+		return;
+
+	str = t_strdup_printf("\001%c%s %s=%s\n", LOG_TYPE_OPTION+1,
+			      my_pid, key, value);
+	(void)write_full(2, str, strlen(str));
+}
+
 void i_set_failure_prefix(const char *prefix)
 {
 	i_free(log_prefix);
 	log_prefix = i_strdup(prefix);
+
+	i_failure_send_option("prefix", prefix);
 }
 
 static int internal_send_split(string_t *full_str, unsigned int prefix_len)
@@ -556,13 +570,7 @@ void i_set_failure_timestamp_format(const char *fmt)
 
 void i_set_failure_ip(const struct ip_addr *ip)
 {
-	const char *str;
-
-	if (error_handler == i_internal_error_handler) {
-		str = t_strdup_printf("\001%c%s ip=%s\n",
-				      LOG_TYPE_OPTION, my_pid, net_ip2addr(ip));
-		(void)write_full(2, str, strlen(str));
-	}
+	i_failure_send_option("ip", net_ip2addr(ip));
 }
 
 void i_set_failure_exit_callback(void (*callback)(int *status))
