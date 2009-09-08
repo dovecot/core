@@ -374,12 +374,12 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 		return master_input_user(conn, line + 5);
 	if (strncmp(line, "LIST\t", 5) == 0)
 		return master_input_list(conn, line + 5);
+	if (strncmp(line, "PASS\t", 5) == 0)
+		return master_input_pass(conn, line + 5);
 
 	if (!conn->userdb_only) {
 		if (strncmp(line, "REQUEST\t", 8) == 0)
 			return master_input_request(conn, line + 8);
-		if (strncmp(line, "PASS\t", 5) == 0)
-			return master_input_pass(conn, line + 5);
 		if (strncmp(line, "CPID\t", 5) == 0) {
 			i_error("Authentication client trying to connect to "
 				"master socket");
@@ -387,7 +387,8 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 		}
 	}
 
-	i_error("BUG: Unknown command in master socket: %s",
+	i_error("BUG: Unknown command in %s socket: %s",
+		conn->userdb_only ? "userdb" : "master",
 		str_sanitize(line, 80));
 	return FALSE;
 }
