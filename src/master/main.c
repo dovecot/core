@@ -339,6 +339,8 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	struct service_list *new_services;
 	const char *error;
 
+	i_warning("SIGHUP received - reloading configuration");
+
 	/* see if hostname changed */
 	hostpid_init();
 
