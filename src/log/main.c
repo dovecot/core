@@ -15,7 +15,7 @@ pid_t master_pid;
 static void
 sig_reopen_logs(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
-	master_service_init_log(master_service, "log: ", 0);
+	master_service_init_log(master_service, "log: ");
 }
 
 static void main_init(void)
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 						NULL, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	master_service_init_log(master_service, "log: ", 0);
+	master_service_init_log(master_service, "log: ");
 	master_service_init_finish(master_service);
 	main_init();
 	master_service_run(master_service, client_connected);

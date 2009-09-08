@@ -146,7 +146,6 @@ static struct setting_define mail_user_setting_defines[] = {
 	DEF(SET_UINT, last_valid_uid),
 	DEF(SET_UINT, first_valid_gid),
 	DEF(SET_UINT, last_valid_gid),
-	DEF(SET_UINT, mail_log_max_lines_per_sec),
 
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
@@ -175,8 +174,6 @@ static struct mail_user_settings mail_user_default_settings = {
 	MEMBER(last_valid_uid) 0,
 	MEMBER(first_valid_gid) 1,
 	MEMBER(last_valid_gid) 0,
-
-	MEMBER(mail_log_max_lines_per_sec) 10,
 
 	MEMBER(mail_plugins) "",
 	MEMBER(mail_plugin_dir) MODULEDIR,

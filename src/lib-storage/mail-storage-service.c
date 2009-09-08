@@ -469,8 +469,7 @@ mail_storage_service_init_log(struct master_service *service,
 		str = t_str_new(256);
 		var_expand(str, user_set->mail_log_prefix,
 			   get_var_expand_table(service, input));
-		master_service_init_log(service, str_c(str),
-					user_set->mail_log_max_lines_per_sec);
+		master_service_init_log(service, str_c(str));
 	} T_END;
 }
 
@@ -650,8 +649,7 @@ mail_storage_service_multi_init(struct master_service *service,
 
 	/* do all the global initialization. delay initializing plugins until
 	   we drop privileges the first time. */
-	master_service_init_log(service, t_strconcat(service->name, ": ", NULL),
-				user_set->mail_log_max_lines_per_sec);
+	master_service_init_log(service, t_strconcat(service->name, ": ", NULL));
 
 	modules = *user_set->mail_plugins == '\0' ? NULL :
 		module_dir_load(user_set->mail_plugin_dir,

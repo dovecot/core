@@ -378,7 +378,7 @@ sig_log_reopen(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
         service_signal(services->log, SIGUSR1);
 
-	master_service_init_log(master_service, "dovecot: ", 0);
+	master_service_init_log(master_service, "dovecot: ");
 	i_set_fatal_handler(master_fatal_callback);
 }
 
@@ -724,7 +724,7 @@ int main(int argc, char *argv[])
 	if (send_signal != 0)
 		send_master_signal(send_signal);
 
-	master_service_init_log(master_service, "dovecot: ", 0);
+	master_service_init_log(master_service, "dovecot: ");
 	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,
 			       &orig_info_callback);
 	i_set_fatal_handler(startup_fatal_handler);

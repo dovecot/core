@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 	int c;
 
 	master_service = master_service_init("auth", 0, argc, argv);
-	master_service_init_log(master_service, "auth: ", 0);
+	master_service_init_log(master_service, "auth: ");
 
         getopt_str = t_strconcat("w", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {

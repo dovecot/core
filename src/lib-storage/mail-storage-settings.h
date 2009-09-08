@@ -58,8 +58,6 @@ struct mail_user_settings {
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
 
-	unsigned int mail_log_max_lines_per_sec;
-
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
 

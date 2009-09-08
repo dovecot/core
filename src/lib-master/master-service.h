@@ -49,8 +49,8 @@ void master_service_init_finish(struct master_service *service);
 void master_service_env_clean(bool preserve_home);
 
 /* Initialize logging. */
-void master_service_init_log(struct master_service *service, const char *prefix,
-			     unsigned int max_lines_per_sec);
+void master_service_init_log(struct master_service *service,
+			     const char *prefix);
 
 /* If set, die immediately when connection to master is lost.
    Normally all existing clients are handled first. */

@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	master_service_init_log(master_service, "dict: ", 0);
+	master_service_init_log(master_service, "dict: ");
 	main_preinit();
 	master_service_init_finish(master_service);
 

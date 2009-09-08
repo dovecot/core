@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 			exit(FATAL_DEFAULT);
 	}
 
-	master_service_init_log(master_service, "config: ", 0);
+	master_service_init_log(master_service, "config: ");
 	master_service_init_finish(master_service);
 
 	path = master_service_get_config_path(master_service);

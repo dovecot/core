@@ -134,8 +134,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 	return service;
 }
 
-void master_service_init_log(struct master_service *service, const char *prefix,
-			     unsigned int max_lines_per_sec)
+void master_service_init_log(struct master_service *service,
+			     const char *prefix)
 {
 	const char *path;
 

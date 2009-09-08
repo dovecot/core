@@ -163,7 +163,7 @@ int main(int argc, char *argv[], char *envp[])
 					MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN,
 					argc, argv);
 	master_service_init_log(master_service, t_strconcat(
-		login_process_name, ": ", NULL), 0);
+		login_process_name, ": ", NULL));
 
         getopt_str = t_strconcat("DS", master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
