@@ -155,12 +155,29 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd,
 	env_put(t_strdup_printf("SSL_SOCKET_COUNT=%d", ssl_socket_count));
 }
 
-static void validate_uid_gid(struct master_settings *set, uid_t uid, gid_t gid,
-			     const char *user)
+static void
+validate_uid_gid(struct master_settings *set,
+		 uid_t uid, gid_t gid, const char *user,
+		 const struct service_process_auth_request *request)
 {
+	struct service_process *request_process =
+		request == NULL ? NULL : &request->process->process;
+
 	if (uid == 0) {
 		i_fatal("User %s not allowed to log in using UNIX UID 0 "
 			"(root logins are never allowed)", user);
+	}
+
+	if (request != NULL && request_process->service->uid == uid &&
+	    master_uid != uid) {
+		struct passwd *pw;
+
+		pw = getpwuid(uid);
+		i_fatal("User %s not allowed to log in using %s's "
+			"UNIX UID %s%s (see http://wiki.dovecot.org/UserIds)",
+			user, request_process->service->set->name,
+			dec2str(uid), pw == NULL ? "" :
+			t_strdup_printf("(%s)", pw->pw_name));
 	}
 
 	if (uid < (uid_t)set->first_valid_uid ||
@@ -315,8 +332,9 @@ static void chdir_to_home(const struct restrict_access_settings *rset,
 	}
 }
 
-static void drop_privileges(struct service *service,
-			    const char *const *auth_args)
+static void
+drop_privileges(struct service *service, const char *const *auth_args,
+		const struct service_process_auth_request *request)
 {
 	struct master_settings *master_set = service->set->master_set;
 	struct restrict_access_settings rset;
@@ -351,7 +369,8 @@ static void drop_privileges(struct service *service,
 		auth_success_write();
 		auth_args_apply(auth_args + 1, &rset, &home);
 
-		validate_uid_gid(master_set, rset.uid, rset.gid, user);
+		validate_uid_gid(master_set, rset.uid, rset.gid, user,
+				 request);
 	}
 
 	if (home != NULL)
@@ -495,7 +514,7 @@ service_process_create(struct service *service, const char *const *auth_args,
 		handle_request(request);
 		service_dup_fds(service, fd[1], request == NULL ? -1 :
 				request->fd, auth_args != NULL);
-		drop_privileges(service, auth_args);
+		drop_privileges(service, auth_args, request);
 		process_exec(service->executable, NULL);
 	}
 
