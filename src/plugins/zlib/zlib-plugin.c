@@ -29,6 +29,12 @@ struct zlib_handler {
 	struct istream *(*create_istream)(int fd);
 };
 
+struct zlib_transaction_context {
+	union mailbox_transaction_module_context module_ctx;
+
+	struct mail *tmp_mail;
+};
+
 const char *zlib_plugin_version = PACKAGE_VERSION;
 
 static void (*zlib_next_hook_mail_storage_created)
@@ -167,6 +173,93 @@ zlib_maildir_mail_alloc(struct mailbox_transaction_context *t,
 	return _mail;
 }
 
+static struct mailbox_transaction_context *
+zlib_mailbox_transaction_begin(struct mailbox *box,
+			       enum mailbox_transaction_flags flags)
+{
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
+	struct mailbox_transaction_context *t;
+	struct zlib_transaction_context *zt;
+
+	t = zbox->super.transaction_begin(box, flags);
+
+	zt = i_new(struct zlib_transaction_context, 1);
+
+	MODULE_CONTEXT_SET(t, zlib_storage_module, zt);
+	return t;
+}
+
+static void
+zlib_mailbox_transaction_rollback(struct mailbox_transaction_context *t)
+{
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(t->box);
+	struct zlib_transaction_context *zt = ZLIB_CONTEXT(t);
+
+	if (zt->tmp_mail != NULL)
+		mail_free(&zt->tmp_mail);
+
+	zbox->super.transaction_rollback(t);
+	i_free(zt);
+}
+
+static int
+zlib_mailbox_transaction_commit(struct mailbox_transaction_context *t,
+				struct mail_transaction_commit_changes *changes_r)
+{
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(t->box);
+	struct zlib_transaction_context *zt = ZLIB_CONTEXT(t);
+	int ret;
+
+	if (zt->tmp_mail != NULL)
+		mail_free(&zt->tmp_mail);
+
+	ret = zbox->super.transaction_commit(t, changes_r);
+	i_free(zt);
+	return ret;
+}
+
+static int
+zlib_mail_save_begin(struct mail_save_context *ctx, struct istream *input)
+{
+	struct mailbox_transaction_context *t = ctx->transaction;
+	struct zlib_transaction_context *zt = ZLIB_CONTEXT(t);
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(t->box);
+
+	if (ctx->dest_mail == NULL) {
+		if (zt->tmp_mail == NULL) {
+			zt->tmp_mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
+						  NULL);
+		}
+		ctx->dest_mail = zt->tmp_mail;
+	}
+
+	return zbox->super.save_begin(ctx, input);
+}
+
+static int zlib_mail_save_finish(struct mail_save_context *ctx)
+{
+	struct mailbox *box = ctx->transaction->box;
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
+	struct istream *input;
+	unsigned int i;
+
+	if (zbox->super.save_finish(ctx) < 0)
+		return -1;
+
+	if (mail_get_stream(ctx->dest_mail, NULL, NULL, &input) < 0)
+		return -1;
+
+	for (i = 0; i < N_ELEMENTS(zlib_handlers); i++) {
+		if (zlib_handlers[i].is_compressed(input)) {
+			mail_storage_set_error(box->storage,
+				MAIL_ERROR_NOTPOSSIBLE,
+				"Saving mails compressed by client isn't supported");
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static void zlib_maildir_open_init(struct mailbox *box)
 {
 	union mailbox_module_context *zbox;
@@ -174,6 +267,11 @@ static void zlib_maildir_open_init(struct mailbox *box)
 	zbox = p_new(box->pool, union mailbox_module_context, 1);
 	zbox->super = box->v;
 	box->v.mail_alloc = zlib_maildir_mail_alloc;
+	box->v.transaction_begin = zlib_mailbox_transaction_begin;
+	box->v.transaction_rollback = zlib_mailbox_transaction_rollback;
+	box->v.transaction_commit = zlib_mailbox_transaction_commit;
+	box->v.save_begin = zlib_mail_save_begin;
+	box->v.save_finish = zlib_mail_save_finish;
 
 	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 }
@@ -242,13 +340,11 @@ static void zlib_mail_storage_created(struct mail_storage *storage)
 
 void zlib_plugin_init(void)
 {
-	zlib_next_hook_mail_storage_created =
-		hook_mail_storage_created;
+	zlib_next_hook_mail_storage_created = hook_mail_storage_created;
 	hook_mail_storage_created = zlib_mail_storage_created;
 }
 
 void zlib_plugin_deinit(void)
 {
-	hook_mail_storage_created =
-		zlib_next_hook_mail_storage_created;
+	hook_mail_storage_created = zlib_next_hook_mail_storage_created;
 }
