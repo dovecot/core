@@ -93,6 +93,8 @@ struct service {
 	unsigned int listen_pending:1;
 	/* service is currently listening for new connections */
 	unsigned int listening:1;
+	/* TRUE if service has at least one inet_listener */
+	unsigned int have_inet_listeners:1;
 };
 
 struct service_list {

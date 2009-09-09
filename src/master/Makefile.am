@@ -20,6 +20,7 @@ dovecot_LDADD = $(libs)
 dovecot_DEPENDENCIES = $(libs)
 
 dovecot_SOURCES = \
+	askpass.c \
 	capabilities-posix.c \
 	dup2-array.c \
 	main.c \
@@ -35,6 +36,7 @@ dovecot_SOURCES = \
 	service.c
 
 noinst_HEADERS = \
+	askpass.h \
 	capabilities.h \
 	common.h \
 	dup2-array.h \

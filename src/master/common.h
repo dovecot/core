@@ -11,6 +11,7 @@ extern uid_t master_uid;
 extern gid_t master_gid;
 extern bool auth_success_written;
 extern bool core_dumps_disabled;
+extern char ssl_manual_key_password[];
 extern int null_fd;
 extern struct service_list *services;
 

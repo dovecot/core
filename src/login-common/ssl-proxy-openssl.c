@@ -889,16 +889,19 @@ static EVP_PKEY *ssl_proxy_load_key(const struct login_settings *set)
 {
 	EVP_PKEY *pkey;
 	BIO *bio;
-	char *password;
+	const char *password;
+	char *dup_password;
 
 	bio = BIO_new_mem_buf(t_strdup_noconst(set->ssl_key),
 			      strlen(set->ssl_key));
 	if (bio == NULL)
 		i_fatal("BIO_new_mem_buf() failed");
 
-	password = t_strdup_noconst(set->ssl_key_password);
+	password = *set->ssl_key_password != '\0' ? set->ssl_key_password :
+		getenv("SSL_KEY_PASSWORD");
+	dup_password = t_strdup_noconst(password);
 	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback,
-				       password);
+				       dup_password);
 	if (pkey == NULL)
 		i_fatal("Couldn't parse private ssl_key");
 	BIO_free(bio);
@@ -980,8 +983,6 @@ end:
 
 static void ssl_proxy_init_server(const struct login_settings *set)
 {
-	char *password;
-
 	if ((ssl_server_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL)
 		i_fatal("SSL_CTX_new() failed");
 	ssl_proxy_ctx_init(ssl_server_ctx, set);
@@ -997,13 +998,7 @@ static void ssl_proxy_init_server(const struct login_settings *set)
 			ssl_proxy_get_use_certificate_error(set->ssl_cert));
 	}
 
-	password = t_strdup_noconst(set->ssl_key_password);
-        SSL_CTX_set_default_passwd_cb(ssl_server_ctx, pem_password_callback);
-        SSL_CTX_set_default_passwd_cb_userdata(ssl_server_ctx, password);
-
 	ssl_proxy_ctx_use_key(ssl_server_ctx, set);
-	safe_memset(password, 0, strlen(password));
-
 	if (set->verbose_ssl)
 		SSL_CTX_set_info_callback(ssl_server_ctx, ssl_info_callback);
 

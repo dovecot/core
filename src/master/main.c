@@ -11,6 +11,7 @@
 #include "restrict-process-size.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "askpass.h"
 #include "capabilities.h"
 #include "service.h"
 #include "service-listen.h"
@@ -37,6 +38,7 @@ uid_t master_uid;
 gid_t master_gid;
 bool auth_success_written;
 bool core_dumps_disabled;
+char ssl_manual_key_password[100];
 int null_fd;
 struct service_list *services;
 
@@ -737,16 +739,11 @@ int main(int argc, char *argv[])
 		auth_warning_print(set);
 	}
 
-#if 0 // FIXME
 	if (ask_key_pass) {
-		const char *prompt;
-
-		prompt = t_strdup_printf("Give the password for SSL key file "
-					 "%s: ", set->ssl_key_file);
-		askpass(prompt, ssl_manual_key_password,
+		askpass("Give the password for SSL keys",
+			ssl_manual_key_password,
 			sizeof(ssl_manual_key_password));
 	}
-#endif
 
 	/* save TZ environment. AIX depends on it to get the timezone
 	   correctly. */
