@@ -711,15 +711,21 @@ int main(int argc, char *argv[])
 		fd_close_on_exec(null_fd, TRUE);
 	} while (null_fd <= STDERR_FILENO);
 
-	if (dup2(null_fd, STDIN_FILENO) < 0 ||
-	    dup2(null_fd, STDOUT_FILENO) < 0)
-		i_fatal("dup2(null_fd) failed: %m");
-
 	if (master_service_settings_read_simple(master_service, set_roots,
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 	sets = master_service_settings_get_others(master_service);
 	set = sets[0];
+
+	if (ask_key_pass) {
+		askpass("Give the password for SSL keys: ",
+			ssl_manual_key_password,
+			sizeof(ssl_manual_key_password));
+	}
+
+	if (dup2(null_fd, STDIN_FILENO) < 0 ||
+	    dup2(null_fd, STDOUT_FILENO) < 0)
+		i_fatal("dup2(null_fd) failed: %m");
 
 	pidfile_path =
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
@@ -737,12 +743,6 @@ int main(int argc, char *argv[])
 		master_settings_do_fixes(set);
 		fatal_log_check(set);
 		auth_warning_print(set);
-	}
-
-	if (ask_key_pass) {
-		askpass("Give the password for SSL keys",
-			ssl_manual_key_password,
-			sizeof(ssl_manual_key_password));
 	}
 
 	/* save TZ environment. AIX depends on it to get the timezone

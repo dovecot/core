@@ -426,6 +426,13 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 
 	if (!service->set->master_set->version_ignore)
 		env_put(MASTER_DOVECOT_VERSION_ENV"="PACKAGE_VERSION);
+
+	if (*ssl_manual_key_password != '\0' && service->have_inet_listeners) {
+		/* manually given SSL password. give it only to services
+		   that have inet listeners. */
+		env_put(t_strconcat(MASTER_SSL_KEY_PASSWORD_ENV"=",
+				    ssl_manual_key_password, NULL));
+	}
 }
 
 static void service_process_status_timeout(struct service_process *process)
@@ -458,13 +465,6 @@ handle_request(const struct service_process_auth_request *request)
 
 	env_put(t_strconcat("LOCAL_IP=", net_ip2addr(&request->local_ip), NULL));
 	env_put(t_strconcat("IP=", net_ip2addr(&request->remote_ip), NULL));
-	if (*ssl_manual_key_password != '\0' &&
-	    request->process->process.service->have_inet_listeners) {
-		/* manually given SSL password. give it only to services
-		   that have inet listeners. */
-		env_put(t_strconcat("SSL_KEY_PASSWORD=",
-				    ssl_manual_key_password, NULL));
-	}
 }
 
 struct service_process *

@@ -87,6 +87,10 @@ struct master_auth_reply {
 /* getenv(MASTER_DOVECOT_VERSION_ENV) provides master's version number */
 #define MASTER_DOVECOT_VERSION_ENV "DOVECOT_VERSION"
 
+/* getenv(MASTER_SSL_KEY_PASSWORD_ENV) returns manually typed SSL key password,
+   if dovecot was started with -p parameter. */
+#define MASTER_SSL_KEY_PASSWORD_ENV "SSL_KEY_PASSWORD"
+
 /* Write pipe to anvil. Currently available only for auth destination
    services, for others it's /dev/null. */
 #define MASTER_ANVIL_FD 3

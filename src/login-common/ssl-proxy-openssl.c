@@ -9,6 +9,7 @@
 #include "safe-memset.h"
 #include "llist.h"
 #include "master-service.h"
+#include "master-interface.h"
 #include "ssl-proxy.h"
 
 #include <fcntl.h>
@@ -898,7 +899,7 @@ static EVP_PKEY *ssl_proxy_load_key(const struct login_settings *set)
 		i_fatal("BIO_new_mem_buf() failed");
 
 	password = *set->ssl_key_password != '\0' ? set->ssl_key_password :
-		getenv("SSL_KEY_PASSWORD");
+		getenv(MASTER_SSL_KEY_PASSWORD_ENV);
 	dup_password = t_strdup_noconst(password);
 	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback,
 				       dup_password);
