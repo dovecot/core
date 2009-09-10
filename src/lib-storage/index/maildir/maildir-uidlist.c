@@ -864,7 +864,7 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 	*recreated_r = FALSE;
 
 	if ((ret = maildir_uidlist_stat(uidlist, &st)) <= 0)
-		return ret;
+		return ret < 0 ? -1 : 1;
 
 	if (st.st_ino != uidlist->fd_ino ||
 	    !CMP_DEV_T(st.st_dev, uidlist->fd_dev)) {
@@ -908,7 +908,7 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 		if (ret <= 0) {
 			if (UIDLIST_IS_LOCKED(uidlist))
 				uidlist->locked_refresh = TRUE;
-			return ret;
+			return ret < 0 ? -1 : 1;
 		}
 
 		if (recreated)
