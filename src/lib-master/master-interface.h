@@ -64,6 +64,7 @@ enum master_auth_status {
 };
 
 struct master_auth_reply {
+	/* tag=0 are notifications from master */
 	unsigned int tag;
 	enum master_auth_status status;
 	/* PID of the post-login mail process handling this connection */

@@ -101,10 +101,17 @@ static void main_preinit(void)
 
 	/* set the number of fds we want to use. it may get increased or
 	   decreased. leave a couple of extra fds for auth sockets and such.
-	   normal connections each use one fd, but SSL connections use two */
+
+	   worst case each connection can use:
+
+	    - 1 for client
+	    - 1 for login proxy
+	    - 2 for client-side ssl proxy
+	    - 2 for server-side ssl proxy (with login proxy)
+	*/
 	max_fds = MASTER_LISTEN_FD_FIRST + 16 +
 		master_service_get_socket_count(master_service) +
-		global_login_settings->login_max_connections*2;
+		master_service_get_client_limit(master_service)*6;
 	restrict_fd_limit(max_fds);
 	io_loop_set_max_fd_count(current_ioloop, max_fds);
 
@@ -126,6 +133,9 @@ static void main_init(void)
 		if (chdir("login") < 0)
 			i_fatal("chdir(login) failed: %m");
 	}
+
+	master_service_set_avail_overflow_callback(master_service,
+						   client_destroy_oldest);
 
 	auth_client = auth_client_new((unsigned int)getpid());
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);

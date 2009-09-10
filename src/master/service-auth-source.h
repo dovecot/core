@@ -11,4 +11,7 @@ void service_process_auth_source_send_reply(struct service_process_auth_source *
 					    unsigned int tag,
 					    enum master_auth_status status);
 
+void service_processes_auth_source_notify(struct service *service,
+					  bool all_processes_created);
+
 #endif

@@ -103,10 +103,28 @@ void master_auth_request_abort(struct master_service *service, unsigned int tag)
 	auth->free_nodes = node;
 }
 
+static void
+master_notify_have_more_avail_processes(struct master_service *service,
+					bool have_more)
+{
+	if (!have_more) {
+		/* make sure we're listening for more connections */
+		master_service_io_listeners_add(service);
+	}
+	service->call_avail_overflow = !have_more;
+}
+
 static void request_handle(struct master_auth *auth,
 			   struct master_auth_reply *reply)
 {
         struct master_auth_request_node *node;
+
+	if (reply->tag == 0) {
+		/* notification from master */
+		master_notify_have_more_avail_processes(auth->service,
+							reply->status == 0);
+		return;
+	}
 
 	node = hash_table_lookup(auth->requests, POINTER_CAST(reply->tag));
 	if (node == NULL)

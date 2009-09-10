@@ -484,7 +484,7 @@ service_process_create(struct service *service, const char *const *auth_args,
 	if (service->process_count >= service->process_limit) {
 		/* we should get here only with auth dest services */
 		i_warning("service(%s): process_limit reached, "
-			  "client connections are being dropped",
+			  "dropping this client connection",
 			  service->set->name);
 		return NULL;
 	}
@@ -594,6 +594,11 @@ void service_process_destroy(struct service_process *process)
 
 	process->destroyed = TRUE;
 	service_process_unref(process);
+
+	if (service->process_count < service->process_limit &&
+	    service->type == SERVICE_TYPE_AUTH_SOURCE)
+		service_processes_auth_source_notify(service, FALSE);
+
 	service_list_unref(service_list);
 }
 

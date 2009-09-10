@@ -6,6 +6,7 @@
 #include "fd-close-on-exec.h"
 #include "hash.h"
 #include "service.h"
+#include "service-auth-source.h"
 #include "service-process.h"
 #include "service-process-notify.h"
 #include "service-log.h"
@@ -18,6 +19,7 @@
 
 #define SERVICE_PROCESS_KILL_IDLE_MSECS (1000*60)
 #define SERVICE_STARTUP_FAILURE_THROTTLE_SECS 60
+#define SERVICE_DROP_WARN_INTERVAL_SECS 60
 
 static void service_monitor_start_extra_avail(struct service *service);
 
@@ -162,6 +164,26 @@ static void service_monitor_throttle(struct service *service)
 	service_throttle(service, SERVICE_STARTUP_FAILURE_THROTTLE_SECS);
 }
 
+static void service_drop_connections(struct service *service)
+{
+	if (service->last_drop_warning +
+	    SERVICE_DROP_WARN_INTERVAL_SECS < ioloop_time) {
+		service->last_drop_warning = ioloop_time;
+		i_warning("service(%s): process_limit reached, "
+			  "client connections are being dropped",
+			  service->set->name);
+	}
+	service->listen_pending = TRUE;
+	service_monitor_listen_stop(service);
+
+	if (service->type == SERVICE_TYPE_AUTH_SOURCE) {
+		/* reached process limit, notify processes that they
+		   need to start killing existing connections if they
+		   reach connection limit */
+		service_processes_auth_source_notify(service, TRUE);
+	}
+}
+
 static void service_accept(struct service *service)
 {
 	i_assert(service->process_avail == 0);
@@ -169,11 +191,7 @@ static void service_accept(struct service *service)
 	if (service->process_count == service->process_limit) {
 		/* we've reached our limits, new clients will have to
 		   wait until there are more processes available */
-		i_warning("service(%s): process_limit reached, "
-			  "client connections are being dropped",
-			  service->set->name);
-		service->listen_pending = TRUE;
-                service_monitor_listen_stop(service);
+		service_drop_connections(service);
 		return;
 	}
 
@@ -212,7 +230,9 @@ void service_monitor_listen_start(struct service *service)
 	struct service_listener *const *listeners;
 	unsigned int i, count;
 
-	if (service->process_avail > 0)
+	if (service->process_avail > 0 ||
+	    (service->process_count == service->process_limit &&
+	     service->listen_pending))
 		return;
 
 	service->listening = TRUE;

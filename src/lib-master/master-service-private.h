@@ -34,6 +34,8 @@ struct master_service {
 	unsigned int total_available_count;
 	struct master_status master_status;
 
+	void (*avail_overflow_callback)(void);
+
         struct master_auth *auth;
 	master_service_connection_callback_t *callback;
 
@@ -46,6 +48,9 @@ struct master_service {
 	unsigned int initial_status_sent:1;
 	unsigned int default_settings:1;
 	unsigned int die_with_master:1;
+	unsigned int call_avail_overflow:1;
 };
+
+void master_service_io_listeners_add(struct master_service *service);
 
 #endif

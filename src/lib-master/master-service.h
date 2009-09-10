@@ -56,6 +56,11 @@ void master_service_init_log(struct master_service *service,
    Normally all existing clients are handled first. */
 void master_service_set_die_with_master(struct master_service *service,
 					bool set);
+/* Call the given callback when there are no available connections and master
+   has indicated that it can't create any more processes to handle requests.
+   The callback could decide to kill one of the existing connections. */
+void master_service_set_avail_overflow_callback(struct master_service *service,
+						void (*callback)(void));
 
 /* Set maximum number of clients we can handle. Default is given by master. */
 void master_service_set_client_limit(struct master_service *service,

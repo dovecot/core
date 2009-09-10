@@ -28,7 +28,6 @@
 
 struct master_service *master_service;
 
-static void io_listeners_add(struct master_service *service);
 static void io_listeners_remove(struct master_service *service);
 static void master_status_update(struct master_service *service);
 
@@ -294,7 +293,7 @@ void master_service_init_finish(struct master_service *service)
 		master_service_set_service_count(service, 1);
 	}
 
-	io_listeners_add(service);
+	master_service_io_listeners_add(service);
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STD_CLIENT) != 0) {
 		/* we already have a connection to be served */
@@ -380,6 +379,12 @@ unsigned int master_service_get_socket_count(struct master_service *service)
 	return service->socket_count;
 }
 
+void master_service_set_avail_overflow_callback(struct master_service *service,
+						void (*callback)(void))
+{
+	service->avail_overflow_callback = callback;
+}
+
 const char *master_service_get_config_path(struct master_service *service)
 {
 	return service->config_path;
@@ -433,7 +438,7 @@ void master_service_anvil_send(struct master_service *service, const char *cmd)
 void master_service_client_connection_destroyed(struct master_service *service)
 {
 	/* we can listen again */
-	io_listeners_add(service);
+	master_service_io_listeners_add(service);
 
 	i_assert(service->total_available_count > 0);
 
@@ -497,12 +502,20 @@ void master_service_deinit(struct master_service **_service)
 
 static void master_service_listen(struct master_service_listener *l)
 {
+	struct master_service *service = l->service;
 	struct master_service_connection conn;
 
-	if (l->service->master_status.available_count == 0) {
-		/* we are full. stop listening for now. */
-		io_listeners_remove(l->service);
-		return;
+	if (service->master_status.available_count == 0) {
+		/* we are full. stop listening for now, unless overflow
+		   callback destroys one of the existing connections */
+		if (service->call_avail_overflow &&
+		    service->avail_overflow_callback != NULL)
+			service->avail_overflow_callback();
+
+		if (service->master_status.available_count == 0) {
+			io_listeners_remove(service);
+			return;
+		}
 	}
 
 	memset(&conn, 0, sizeof(conn));
@@ -514,7 +527,7 @@ static void master_service_listen(struct master_service_listener *l)
 
 		if (errno != ENOTSOCK) {
 			i_error("net_accept() failed: %m");
-			master_service_error(l->service);
+			master_service_error(service);
 			return;
 		}
 		/* it's not a socket. probably a fifo. use the "listener"
@@ -529,10 +542,10 @@ static void master_service_listen(struct master_service_listener *l)
 	conn.ssl = l->ssl;
 	net_set_nonblock(conn.fd, TRUE);
 
-	l->service->master_status.available_count--;
-        master_status_update(l->service);
+	service->master_status.available_count--;
+        master_status_update(service);
 
-        l->service->callback(&conn);
+        service->callback(&conn);
 }
 
 static void io_listeners_init(struct master_service *service)
@@ -556,7 +569,7 @@ static void io_listeners_init(struct master_service *service)
 	}
 }
 
-static void io_listeners_add(struct master_service *service)
+void master_service_io_listeners_add(struct master_service *service)
 {
 	unsigned int i;
 

@@ -19,12 +19,7 @@
 
 #include <stdlib.h>
 
-/* When max. number of simultaneous connections is reached, few of the
-   oldest connections are disconnected. Since we have to go through all of the
-   clients, it's faster if we disconnect multiple clients. */
-#define CLIENT_DESTROY_OLDEST_COUNT 16
-
-struct client *clients = NULL;
+struct client *clients = NULL, *last_client = NULL;
 static unsigned int clients_count = 0;
 
 static void client_idle_disconnect_timeout(struct client *client)
@@ -51,12 +46,6 @@ struct client *client_create(int fd, bool ssl, pool_t pool,
 
 	i_assert(fd != -1);
 
-	if (clients_get_count() >= set->login_max_connections) {
-		/* reached max. users count, kill few of the
-		   oldest connections */
-		client_destroy_oldest();
-	}
-
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd, TRUE);
 
@@ -80,6 +69,8 @@ struct client *client_create(int fd, bool ssl, pool_t pool,
 	client->secured = ssl || client->trusted ||
 		net_ip_compare(remote_ip, local_ip);
 
+	if (last_client == NULL)
+		last_client = client;
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
@@ -114,6 +105,10 @@ void client_destroy(struct client *client, const char *reason)
 
 	i_assert(clients_count > 0);
 	clients_count--;
+	if (last_client == client) {
+		i_assert(client->prev != NULL || clients_count == 0);
+		last_client = client->prev;
+	}
 	DLLIST_REMOVE(&clients, client);
 
 	if (client->input != NULL)
@@ -213,39 +208,24 @@ bool client_unref(struct client *client)
 
 void client_destroy_oldest(void)
 {
-	unsigned int max_connections =
-		global_login_settings->login_max_connections;
 	struct client *client;
-	struct client *destroy_buf[CLIENT_DESTROY_OLDEST_COUNT];
-	unsigned int i, destroy_count;
 
-	/* find the oldest clients and put them to destroy-buffer */
-	memset(destroy_buf, 0, sizeof(destroy_buf));
-
-	destroy_count = max_connections > CLIENT_DESTROY_OLDEST_COUNT*2 ?
-		CLIENT_DESTROY_OLDEST_COUNT : I_MIN(max_connections/2, 1);
-	for (client = clients; client != NULL; client = client->next) {
-		for (i = 0; i < destroy_count; i++) {
-			if (destroy_buf[i] == NULL ||
-			    destroy_buf[i]->created > client->created) {
-				/* @UNSAFE */
-				memmove(destroy_buf+i+1, destroy_buf+i,
-					sizeof(destroy_buf) -
-					(i+1) * sizeof(destroy_buf[0]));
-				destroy_buf[i] = client;
-				break;
-			}
-		}
+	if (last_client == NULL) {
+		/* we have no clients */
+		return;
 	}
 
-	/* then kill them */
-	for (i = 0; i < destroy_count; i++) {
-		if (destroy_buf[i] == NULL)
+	/* destroy the last client that hasn't successfully authenticated yet.
+	   this is usually the last client, but don't kill it if it's just
+	   waiting for master to finish its job. */
+	for (client = last_client; client != NULL; client = client->prev) {
+		if (client->master_tag == 0)
 			break;
-
-		client_destroy(destroy_buf[i],
-			       "Disconnected: Connection queue full");
 	}
+	if (client == NULL)
+		client = last_client;
+
+	client_destroy(client, "Disconnected: Connection queue full");
 }
 
 void clients_destroy_all(void)

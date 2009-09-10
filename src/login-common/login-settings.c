@@ -39,7 +39,6 @@ static struct setting_define login_setting_defines[] = {
 	DEF(SET_BOOL, auth_debug),
 	DEF(SET_BOOL, verbose_proctitle),
 
-	DEF(SET_UINT, login_max_connections),
 	DEF(SET_UINT, mail_max_userip_connections),
 
 	SETTING_DEFINE_LIST_END
@@ -70,7 +69,6 @@ static struct login_settings login_default_settings = {
 	MEMBER(auth_debug) FALSE,
 	MEMBER(verbose_proctitle) FALSE,
 
-	MEMBER(login_max_connections) 256,
 	MEMBER(mail_max_userip_connections) 10
 };
 
@@ -131,10 +129,6 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r)
 	if (set->ssl_require_client_cert || set->ssl_username_from_cert) {
 		/* if we require valid cert, make sure we also ask for it */
 		set->ssl_verify_client_cert = TRUE;
-	}
-	if (set->login_max_connections < 1) {
-		*error_r = "login_max_connections must be at least 1";
-		return FALSE;
 	}
 
 	if (strcmp(set->ssl, "no") == 0) {

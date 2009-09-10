@@ -271,3 +271,32 @@ void service_process_auth_source_deinit(struct service_process *_process)
 
 	service_process_auth_source_close(process);
 }
+
+void service_processes_auth_source_notify(struct service *service,
+					  bool all_processes_created)
+{
+	struct hash_iterate_context *iter;
+	void *key, *value;
+	enum master_auth_status status;
+
+	i_assert(service->type == SERVICE_TYPE_AUTH_SOURCE);
+
+	status = all_processes_created ? 1 : 0;
+
+	iter = hash_table_iterate_init(service_pids);
+	while (hash_table_iterate(iter, &key, &value)) {
+		struct service_process *process = value;
+		struct service_process_auth_source *auth_process;
+
+		if (process->service != service)
+			continue;
+
+		auth_process = (struct service_process_auth_source *)process;
+		if (auth_process->last_notify_status != (int)status) {
+			auth_process->last_notify_status = (int)status;
+			service_process_auth_source_send_reply(auth_process,
+							       0, status);
+		}
+	}
+	hash_table_iterate_deinit(&iter);
+}

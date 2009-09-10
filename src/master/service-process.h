@@ -48,6 +48,8 @@ struct service_process_auth_server {
 struct service_process_auth_source {
 	struct service_process process;
 
+	int last_notify_status;
+
 	int auth_fd;
 	struct io *io_auth;
 	struct ostream *auth_output;

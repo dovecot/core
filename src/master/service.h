@@ -89,6 +89,9 @@ struct service {
 	   successful authentication. */
 	struct service *auth_dest_service;
 
+	/* Last time a "dropping client connections" warning was logged */
+	time_t last_drop_warning;
+
 	/* all processes are in use and new connections are coming */
 	unsigned int listen_pending:1;
 	/* service is currently listening for new connections */
