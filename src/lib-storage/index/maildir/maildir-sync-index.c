@@ -30,6 +30,7 @@ struct maildir_index_sync_context {
 	ARRAY_TYPE(keyword_indexes) keywords, idx_keywords;
 
 	uint32_t seq, uid;
+	bool update_maildir_hdr_cur;
 };
 
 struct maildir_keywords_sync_ctx *
@@ -277,6 +278,15 @@ maildir_sync_index_update_ext_header(struct maildir_index_sync_context *ctx)
 	struct maildir_mailbox *mbox = ctx->mbox;
 	const void *data;
 	size_t data_size;
+	struct stat st;
+
+	if (ctx->update_maildir_hdr_cur &&
+	    stat(t_strconcat(mbox->ibox.box.path, "/cur", NULL), &st) == 0) {
+		if ((time_t)mbox->maildir_hdr.cur_check_time < st.st_mtime)
+			mbox->maildir_hdr.cur_check_time = st.st_mtime;
+		mbox->maildir_hdr.cur_mtime = st.st_mtime;
+		mbox->maildir_hdr.cur_mtime_nsecs = ST_MTIME_NSEC(st);
+	}
 
 	mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
 				  &data, &data_size);
@@ -442,7 +452,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	unsigned int changes = 0;
 	int ret = 0;
 	time_t time_before_sync;
-	struct stat st;
 	uint8_t expunged_guid_128[MAIL_GUID_128_SIZE];
 	bool expunged, full_rescan = FALSE;
 
@@ -622,12 +631,10 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	if (mbox->ibox.box.v.sync_notify != NULL)
 		mbox->ibox.box.v.sync_notify(&mbox->ibox.box, 0, 0);
 
-	if (stat(t_strconcat(mbox->ibox.box.path, "/cur", NULL), &st) == 0) {
-		mbox->maildir_hdr.new_check_time =
-			I_MAX(st.st_mtime, time_before_sync);
-		mbox->maildir_hdr.cur_mtime = st.st_mtime;
-		mbox->maildir_hdr.cur_mtime_nsecs = ST_MTIME_NSEC(st);
-	}
+	/* check cur/ mtime later. if we came here from saving messages they
+	   could still be moved to cur/ directory. */
+	ctx->update_maildir_hdr_cur = TRUE;
+	mbox->maildir_hdr.cur_check_time = time_before_sync;
 
 	if (uid_validity == 0) {
 		uid_validity = hdr->uid_validity != 0 ? hdr->uid_validity :
