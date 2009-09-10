@@ -30,8 +30,6 @@ struct maildir_index_sync_context {
 	ARRAY_TYPE(keyword_indexes) keywords, idx_keywords;
 
 	uint32_t seq, uid;
-
-	bool changed;
 };
 
 struct maildir_keywords_sync_ctx *
@@ -98,7 +96,6 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 			box->v.sync_notify(box, ctx->uid,
 					   MAILBOX_SYNC_TYPE_EXPUNGE);
 		}
-		ctx->changed = TRUE;
 		return 1;
 	}
 	if (errno == ENOENT)
@@ -163,7 +160,6 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 		box->v.sync_notify(box, ctx->uid,
 				   index_sync_type_convert(sync_type));
 	}
-	ctx->changed = TRUE;
 	return 1;
 }
 
