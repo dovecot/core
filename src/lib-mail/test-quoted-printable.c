@@ -6,19 +6,27 @@
 #include "quoted-printable.h"
 #include "test-common.h"
 
+struct test_quoted_printable_decode_data {
+	const char *input;
+	const char *output;
+	int end_skip;
+};
+
 static void test_quoted_printable_decode(void)
 {
-	const char *data[] = {
-		"foo  \r\nbar=", "foo\r\nbar",
-		"foo =\nbar", "foo bar",
-		"foo =\r\nbar", "foo bar",
-		"foo  \nbar=", "foo\r\nbar",
-		"=0A=0D  ", "\n\r",
-		"foo_bar", "foo_bar",
-		"foo=", "foo",
-		"foo=A", "foo",
-		"foo=Ax", "foo=Ax",
-		"foo=Ax=xy", "foo=Ax=xy"
+	static struct test_quoted_printable_decode_data data[] = {
+		{ "foo  \r\nbar=", "foo\r\nbar", 1 },
+		{ "foo =\nbar", "foo bar", 0 },
+		{ "foo =\n=01", "foo \001", 0 },
+		{ "foo =\r\nbar", "foo bar", 0 },
+		{ "foo =\r\n=01", "foo \001", 0 },
+		{ "foo  \nbar=", "foo\r\nbar", 1 },
+		{ "=0A=0D  ", "\n\r", 2 },
+		{ "foo_bar", "foo_bar", 0 },
+		{ "foo=", "foo", 1 },
+		{ "foo=A", "foo", 2 },
+		{ "foo=Ax", "foo=Ax", 0 },
+		{ "foo=Ax=xy", "foo=Ax=xy", 0 }
 	};
 	buffer_t *buf;
 	unsigned int i, start, end, len;
@@ -26,10 +34,16 @@ static void test_quoted_printable_decode(void)
 
 	test_begin("quoted printable decode");
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
-	for (i = 0; i < N_ELEMENTS(data); i += 2) {
-		len = strlen(data[i]);
+	for (i = 0; i < N_ELEMENTS(data); i++) {
+		len = strlen(data[i].input);
+		quoted_printable_decode((const void *)data[i].input, len,
+					&src_pos, buf);
+		test_assert(src_pos + data[i].end_skip == len);
+		test_assert(strcmp(data[i].output, str_c(buf)) == 0);
+
+		buffer_set_used_size(buf, 0);
 		for (start = 0, end = 1; end <= len; ) {
-			quoted_printable_decode(CONST_PTR_OFFSET(data[i], start),
+			quoted_printable_decode(CONST_PTR_OFFSET(data[i].input, start),
 						end - start, &src_pos, buf);
 			src_pos += start;
 			start = src_pos;
@@ -38,7 +52,8 @@ static void test_quoted_printable_decode(void)
 			else
 				end = src_pos + 1;
 		}
-		test_assert(strcmp(data[i+1], str_c(buf)) == 0);
+		test_assert(src_pos + data[i].end_skip == len);
+		test_assert(strcmp(data[i].output, str_c(buf)) == 0);
 		buffer_set_used_size(buf, 0);
 	}
 	test_end();

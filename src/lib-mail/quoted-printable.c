@@ -43,7 +43,7 @@ void quoted_printable_decode(const unsigned char *src, size_t src_size,
 
 		if (src[src_pos+1] == '\n') {
 			/* =\n -> skip both */
-			src_pos += 2;
+			src_pos++;
 			next += 2;
 			continue;
 		}
@@ -53,7 +53,7 @@ void quoted_printable_decode(const unsigned char *src, size_t src_size,
 
 		if (src[src_pos+1] == '\r' && src[src_pos+2] == '\n') {
 			/* =\r\n -> skip both */
-			src_pos += 3;
+			src_pos += 2;
 			next += 3;
 			continue;
 		}
