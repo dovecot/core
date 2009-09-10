@@ -124,6 +124,8 @@ static int unlink_directory_r(const char *dir)
 			} else {
                                 /* so it wasn't a directory */
 				errno = old_errno;
+				i_error("unlink(%s/%s) failed: %m",
+					dir, d->d_name);
 				break;
 			}
 		}
