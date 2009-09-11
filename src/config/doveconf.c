@@ -137,7 +137,8 @@ static void config_connection_request_human(struct ostream *output,
 			}
 		}
 		skip_len = prefix_idx == -1U ? 0 : strlen(prefixes[prefix_idx]);
-		i_assert(strncmp(prefixes[prefix_idx], strings[i], skip_len) == 0);
+		i_assert(skip_len == 0 ||
+			 strncmp(prefixes[prefix_idx], strings[i], skip_len) == 0);
 		o_stream_send(output, ident_str, indent*2);
 		key = strings[i] + skip_len;
 		value = strchr(key, '=');
