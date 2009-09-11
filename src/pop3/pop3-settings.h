@@ -6,7 +6,6 @@ struct mail_user_settings;
 struct pop3_settings {
 	bool mail_debug;
 	bool shutdown_clients;
-	bool verbose_proctitle;
 
 	/* pop3: */
 	bool pop3_no_flag_updates;

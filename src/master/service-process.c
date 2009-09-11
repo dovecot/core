@@ -467,6 +467,22 @@ handle_request(const struct service_process_auth_request *request)
 	env_put(t_strconcat("IP=", net_ip2addr(&request->remote_ip), NULL));
 }
 
+static const char **
+get_extra_args(struct service *service,
+	       const struct service_process_auth_request *request,
+	       const char *const *auth_args)
+{
+	const char **extra;
+
+	if (!service->set->master_set->verbose_proctitle || request == NULL)
+		return NULL;
+
+	extra = t_new(const char *, 2);
+	extra[0] = t_strdup_printf("[%s %s]", auth_args[0],
+				   net_ip2addr(&request->remote_ip));
+	return extra;
+}
+
 struct service_process *
 service_process_create(struct service *service, const char *const *auth_args,
 		       const struct service_process_auth_request *request)
@@ -522,7 +538,8 @@ service_process_create(struct service *service, const char *const *auth_args,
 		service_dup_fds(service, fd[1], request == NULL ? -1 :
 				request->fd, auth_args != NULL);
 		drop_privileges(service, auth_args, request);
-		process_exec(service->executable, NULL);
+		process_exec(service->executable,
+			     get_extra_args(service, request, auth_args));
 	}
 
 	switch (service->type) {

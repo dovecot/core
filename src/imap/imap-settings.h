@@ -6,7 +6,6 @@ struct mail_user_settings;
 struct imap_settings {
 	bool mail_debug;
 	bool shutdown_clients;
-	bool verbose_proctitle;
 
 	/* imap: */
 	unsigned int imap_max_line_length;
