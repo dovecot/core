@@ -42,10 +42,6 @@ struct service_settings {
 	ARRAY_DEFINE(inet_listeners, struct inet_listener_settings *);
 };
 
-struct master_auth_settings {
-	bool debug;
-};
-
 struct master_settings {
 	const char *base_dir;
 	const char *libexec_dir;
@@ -56,12 +52,12 @@ struct master_settings {
 
 	bool version_ignore;
 	bool mail_debug;
+	bool auth_debug;
 
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
 
 	ARRAY_DEFINE(services, struct service_settings *);
-	ARRAY_DEFINE(auths, struct master_auth_settings *);
 	char **protocols_split;
 };
 

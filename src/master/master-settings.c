@@ -156,32 +156,6 @@ struct setting_parser_info service_setting_parser_info = {
 };
 
 #undef DEF
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct master_auth_settings, name), NULL }
-
-static struct setting_define master_auth_setting_defines[] = {
-	DEF(SET_BOOL, debug),
-
-	SETTING_DEFINE_LIST_END
-};
-
-static struct master_auth_settings master_auth_default_settings = {
-	MEMBER(debug) FALSE
-};
-
-struct setting_parser_info master_auth_setting_parser_info = {
-	MEMBER(defines) master_auth_setting_defines,
-	MEMBER(defaults) &master_auth_default_settings,
-
-	MEMBER(parent) &master_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct master_auth_settings)
-};
-
-#undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct master_settings, name), NULL }
@@ -198,6 +172,7 @@ static struct setting_define master_setting_defines[] = {
 
 	DEF(SET_BOOL, version_ignore),
 	DEF(SET_BOOL, mail_debug),
+	DEF(SET_BOOL, auth_debug),
 
 	DEF(SET_UINT, first_valid_uid),
 	DEF(SET_UINT, last_valid_uid),
@@ -205,7 +180,6 @@ static struct setting_define master_setting_defines[] = {
 	DEF(SET_UINT, last_valid_gid),
 
 	DEFLIST(services, "service", &service_setting_parser_info),
-	DEFLIST(auths, "auth", &master_auth_setting_parser_info),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -220,14 +194,14 @@ static struct master_settings master_default_settings = {
 
 	MEMBER(version_ignore) FALSE,
 	MEMBER(mail_debug) FALSE,
+	MEMBER(auth_debug) FALSE,
 
 	MEMBER(first_valid_uid) 500,
 	MEMBER(last_valid_uid) 0,
 	MEMBER(first_valid_gid) 1,
 	MEMBER(last_valid_gid) 0,
 
-	MEMBER(services) ARRAY_INIT,
-	MEMBER(auths) ARRAY_INIT
+	MEMBER(services) ARRAY_INIT
 };
 
 struct setting_parser_info master_setting_parser_info = {

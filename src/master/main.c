@@ -227,28 +227,12 @@ static bool services_have_auth_destinations(const struct master_settings *set)
 	return FALSE;
 }
 
-static bool auths_have_debug(const struct master_settings *set)
-{
-	struct master_auth_settings *const *auths;
-	unsigned int i, count;
-
-	if (!array_is_created(&set->auths))
-		return FALSE;
-
-	auths = array_get(&set->auths, &count);
-	for (i = 0; i < count; i++) {
-		if (auths[i]->debug)
-			return TRUE;
-	}
-	return FALSE;
-}
-
 static void auth_warning_print(const struct master_settings *set)
 {
 	struct stat st;
 
 	auth_success_written = stat(AUTH_SUCCESS_PATH, &st) == 0;
-	if (!auth_success_written && !auths_have_debug(set) &&
+	if (!auth_success_written && !set->auth_debug &&
 	    services_have_auth_destinations(set)) {
 		fprintf(stderr,
 "If you have trouble with authentication failures,\n"
