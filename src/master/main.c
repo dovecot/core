@@ -190,7 +190,7 @@ static void fatal_log_check(const struct master_settings *set)
 	else {
 		buf[ret] = '\0';
 		fprintf(stderr, "Last died with error (see error log for more "
-			"information): %s", buf);
+			"information): %s\n", buf);
 	}
 
 	close(fd);
@@ -253,7 +253,7 @@ static void auth_warning_print(const struct master_settings *set)
 		fprintf(stderr,
 "If you have trouble with authentication failures,\n"
 "enable auth_debug setting. See http://wiki.dovecot.org/WhyDoesItNotWork\n"
-"This message goes away after the first successful login.");
+"This message goes away after the first successful login.\n");
 	}
 }
 
