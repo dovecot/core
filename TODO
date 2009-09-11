@@ -1,29 +1,34 @@
- - dsync:
-   - do copying before expunges
-   - subscriptions
-   - cache
- - Add mailbox_list_create_dir() and remove bool directory from mailbox_create()
-doveconf: Fatal: Error in configuration file /usr/local/etc/dovecot2.conf: Namespace '0RealMails/': alias_for points to unknown namespace: 0lol
- - protocol lda { recipient_delimiter=+ }
- - search: use mail_get_parts() only when it's already cached. if it's not,
-   add it to cache afterwards.
- - mail_storage_service_multi_*() doesn't support giving module/service to
-   config lookups
- - check v.copy() failure handling. now they leak memory?
- - COPY: Don't do time() for every 100 msgs, do it dynamically. dbox is fast!
- - per-ip configuration reading code is crap.
+ - running from inetd
+ - settings: ssl_parameters_regenerate
+    - lib-auth: connect only to "auth" socket
+    - create ssl-params service listening on login/ssl-params socket
+
  - config protocol should tell after lookups if there's something more specific
    also available so login process wouldn't have to do config lookup for
    each connection if there's no per-IP config.
+ - dsync:
+   - handle INBOX GUID conflicts.
+   - mailbox GUID conflicts: if one mailbox is empty, drop it.
+   - subscriptions
+   - cache
+   - use transaction_commit_get_changes(), retry sync if uids are not what we
+     wanted.
+   - resync if uid changes or modseq changes don't go exactly as we wanted
+   - other side crashes -> worker server disconnected unexpectedly -> hang
+   - add some timeout
+   - sieve scripts
+ - lib-lda/duplicate.c uses home_expand()
+ - dbox: we get back to dbox_sync_file() over and over again when expunging..
+   especially with a broken guid expunge, it doesn't go away.
+ - Add mailbox_list_create_dir() and remove bool directory from mailbox_create()
+ - protocol lda { recipient_delimiter=+ }
+ - search: use mail_get_parts() only when it's already cached. if it's not,
+   add it to cache afterwards.
+ - check v.copy() failure handling. now they leak memory?
+ - COPY: Don't do time() for every 100 msgs, do it dynamically. dbox is fast!
  - move ssl proxying code to lib-master
- - log prefixes work in a weird way now. failures.c prefixes are used only
-   when not doing internal logging. that won't work in future..
-     - mail_log_prefix doesn't work
- - library dependency tracking still broken. .la changes get noticed,
-   .libs/*.a changes not
  - o_stream_set_file_path()
  - dict pooling
- - master: if many service processes (login) are idling, kill some of them
 
 	/* currently non-external transactions can be applied multiple times,
 	   causing multiple increments. */
@@ -303,7 +308,6 @@ doveconf: Fatal: Error in configuration file /usr/local/etc/dovecot2.conf: Names
     - stop using atol(), atoi(), strtoul() etc. in places where we actually
       care about what they return, and rather create our own function which
       checks if the input overflows the integer, and if so call i_fatal()
-    - LMTP server
     - ability to build plugins statically into the binaries
     - ~/.dovecotrc to override system wide settings. namespace settings should
       override all the previous namespace settings instead of adding new.
