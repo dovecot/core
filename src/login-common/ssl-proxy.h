@@ -1,11 +1,10 @@
 #ifndef SSL_PROXY_H
 #define SSL_PROXY_H
 
-#include "ioloop.h"
-
 struct ip_addr;
 struct ssl_proxy;
 struct login_settings;
+struct client;
 
 extern bool ssl_initialized;
 
@@ -20,6 +19,7 @@ int ssl_proxy_client_new(int fd, struct ip_addr *ip,
 			 const struct login_settings *set,
 			 ssl_handshake_callback_t *callback, void *context,
 			 struct ssl_proxy **proxy_r);
+void ssl_proxy_set_client(struct ssl_proxy *proxy, struct client *client);
 bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy) ATTR_PURE;
 bool ssl_proxy_has_broken_client_cert(struct ssl_proxy *proxy);
 const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy);

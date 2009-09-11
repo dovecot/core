@@ -10,6 +10,7 @@
 #include "llist.h"
 #include "master-service.h"
 #include "master-interface.h"
+#include "client-common.h"
 #include "ssl-proxy.h"
 
 #include <fcntl.h>
@@ -42,6 +43,7 @@ struct ssl_proxy {
 	struct ssl_proxy *prev, *next;
 
 	SSL *ssl;
+	struct client *client;
 	struct ip_addr ip;
 	const struct login_settings *set;
 
@@ -62,7 +64,7 @@ struct ssl_proxy {
 	unsigned int destroyed:1;
 	unsigned int cert_received:1;
 	unsigned int cert_broken:1;
-	unsigned int client:1;
+	unsigned int client_proxy:1;
 };
 
 struct ssl_parameters {
@@ -413,7 +415,7 @@ static void ssl_handshake(struct ssl_proxy *proxy)
 {
 	int ret;
 
-	if (proxy->client) {
+	if (proxy->client_proxy) {
 		ret = SSL_connect(proxy->ssl);
 		if (ret != 1) {
 			ssl_handle_error(proxy, ret, "SSL_connect()");
@@ -596,9 +598,17 @@ int ssl_proxy_client_new(int fd, struct ip_addr *ip,
 
 	(*proxy_r)->handshake_callback = callback;
 	(*proxy_r)->handshake_context = context;
-	(*proxy_r)->client = TRUE;
+	(*proxy_r)->client_proxy = TRUE;
 	ssl_step(*proxy_r);
 	return ret;
+}
+
+void ssl_proxy_set_client(struct ssl_proxy *proxy, struct client *client)
+{
+	i_assert(proxy->client == NULL);
+
+	client_ref(client);
+	proxy->client = client;
 }
 
 bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy)
@@ -685,6 +695,9 @@ static void ssl_proxy_unref(struct ssl_proxy *proxy)
 	i_assert(proxy->refcount == 0);
 
 	SSL_free(proxy->ssl);
+
+	if (proxy->client != NULL)
+		client_unref(&proxy->client);
 	i_free(proxy);
 }
 
@@ -712,8 +725,6 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 	(void)net_disconnect(proxy->fd_plain);
 
 	ssl_proxy_unref(proxy);
-
-        master_service_client_connection_destroyed(master_service);
 }
 
 static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,

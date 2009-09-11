@@ -160,7 +160,7 @@ void client_destroy(struct client *client, const char *reason)
 	if (client->ssl_proxy != NULL)
 		ssl_proxy_free(&client->ssl_proxy);
 	client->v.destroy(client);
-	client_unref(client);
+	client_unref(&client);
 }
 
 void client_destroy_success(struct client *client, const char *reason)
@@ -182,27 +182,30 @@ void client_ref(struct client *client)
 	client->refcount++;
 }
 
-bool client_unref(struct client *client)
+bool client_unref(struct client **_client)
 {
+	struct client *client = *_client;
+
 	i_assert(client->refcount > 0);
 	if (--client->refcount > 0)
 		return TRUE;
 
+	*_client = NULL;
+
 	i_assert(client->destroyed);
+	i_assert(client->ssl_proxy == NULL);
+	i_assert(client->login_proxy == NULL);
 
 	if (client->input != NULL)
 		i_stream_unref(&client->input);
 	if (client->output != NULL)
 		o_stream_unref(&client->output);
 
-	if (!client->proxying) {
-		i_assert(client->ssl_proxy == NULL);
-		master_service_client_connection_destroyed(master_service);
-	}
-
 	i_free(client->virtual_user);
 	i_free(client->auth_mech_name);
 	pool_unref(&client->pool);
+
+	master_service_client_connection_destroyed(master_service);
 	return FALSE;
 }
 
@@ -243,7 +246,7 @@ static void client_start_tls(struct client *client)
 	int fd_ssl;
 
 	client_ref(client);
-	if (!client_unref(client) || client->destroyed)
+	if (!client_unref(&client) || client->destroyed)
 		return;
 
 	fd_ssl = ssl_proxy_new(client->fd, &client->ip,
@@ -255,9 +258,9 @@ static void client_start_tls(struct client *client)
 			       "Disconnected: TLS initialization failed.");
 		return;
 	}
+	ssl_proxy_set_client(client->ssl_proxy, client);
 
 	client->starttls = TRUE;
-	client->proxying = TRUE;
 	client->tls = TRUE;
 	client->secured = TRUE;
 	client_set_title(client);

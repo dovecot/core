@@ -47,8 +47,7 @@ bool login_proxy_is_ourself(const struct client *client, const char *host,
 
 /* Detach proxy from client. This is done after the authentication is
    successful and all that is left is the dummy proxying. */
-void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
-			struct ostream *client_output);
+void login_proxy_detach(struct login_proxy *proxy);
 
 /* STARTTLS command was issued. */
 int login_proxy_starttls(struct login_proxy *proxy);

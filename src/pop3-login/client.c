@@ -93,7 +93,7 @@ static void pop3_client_input(struct client *client)
 		}
 	}
 
-	if (client_unref(client))
+	if (client_unref(&client))
 		o_stream_uncork(client->output);
 }
 

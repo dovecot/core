@@ -164,13 +164,7 @@ void client_proxy_finish_destroy_client(struct client *client)
 	if (client->proxy_master_user != NULL)
 		str_printfa(str, " (master %s)", client->proxy_master_user);
 
-	login_proxy_detach(client->login_proxy, client->input, client->output);
-
-	client->login_proxy = NULL;
-	client->input = NULL;
-	client->output = NULL;
-	client->fd = -1;
-	client->proxying = TRUE;
+	login_proxy_detach(client->login_proxy);
 	client_destroy_success(client, str_c(str));
 }
 
@@ -480,7 +474,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		return;
 	}
 
-	client_unref(client);
+	client_unref(&client);
 }
 
 int client_auth_begin(struct client *client, const char *mech_name,

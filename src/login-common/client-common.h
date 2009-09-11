@@ -115,7 +115,6 @@ struct client {
 	unsigned int tls:1;
 	unsigned int secured:1;
 	unsigned int trusted:1;
-	unsigned int proxying:1;
 	unsigned int authenticating:1;
 	unsigned int auth_tried_disabled_plaintext:1;
 	unsigned int auth_initializing:1;
@@ -134,7 +133,7 @@ void client_destroy_success(struct client *client, const char *reason);
 void client_destroy_internal_failure(struct client *client);
 
 void client_ref(struct client *client);
-bool client_unref(struct client *client);
+bool client_unref(struct client **client);
 
 void client_cmd_starttls(struct client *client);
 

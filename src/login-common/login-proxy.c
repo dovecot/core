@@ -19,13 +19,12 @@
 struct login_proxy {
 	struct login_proxy *prev, *next;
 
-	struct client *prelogin_client;
+	struct client *client;
 	int client_fd, server_fd;
 	struct io *client_io, *server_io;
 	struct istream *server_input;
 	struct ostream *client_output, *server_output;
-	struct ip_addr ip;
-	struct ssl_proxy *ssl_proxy;
+	struct ssl_proxy *ssl_server_proxy;
 
 	struct timeval created;
 	struct timeout *to;
@@ -226,7 +225,8 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 	proxy->user = i_strdup(client->virtual_user);
 	proxy->port = set->port;
 	proxy->ssl_flags = set->ssl_flags;
-	proxy->prelogin_client = client;
+	proxy->client = client;
+	client_ref(client);
 
 	proxy->server_fd = fd;
 	proxy->server_io = io_add(fd, IO_WRITE, proxy_wait_connect, proxy);
@@ -238,7 +238,6 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 	proxy->callback = callback;
 	proxy->context = context;
 
-	proxy->ip = client->ip;
 	proxy->client_fd = -1;
 
 	proxy->state_rec = rec;
@@ -249,6 +248,7 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 void login_proxy_free(struct login_proxy **_proxy)
 {
 	struct login_proxy *proxy = *_proxy;
+	struct client *client = proxy->client;
 	const char *ipstr;
 
 	*_proxy = NULL;
@@ -276,7 +276,7 @@ void login_proxy_free(struct login_proxy **_proxy)
 		/* detached proxy */
 		DLLIST_REMOVE(&login_proxies, proxy);
 
-		ipstr = net_ip2addr(&proxy->ip);
+		ipstr = net_ip2addr(&proxy->client->ip);
 		i_info("proxy(%s): disconnecting %s",
 		       str_sanitize(proxy->user, 80),
 		       ipstr != NULL ? ipstr : "");
@@ -293,15 +293,16 @@ void login_proxy_free(struct login_proxy **_proxy)
 		proxy->callback(proxy->context);
 	}
 
-	if (proxy->ssl_proxy != NULL)
-		ssl_proxy_free(&proxy->ssl_proxy);
 	net_disconnect(proxy->server_fd);
 
+	if (proxy->ssl_server_proxy != NULL)
+		ssl_proxy_free(&proxy->ssl_server_proxy);
 	i_free(proxy->host);
 	i_free(proxy->user);
 	i_free(proxy);
 
-	master_service_client_connection_destroyed(master_service);
+	client->login_proxy = NULL;
+	client_unref(&client);
 }
 
 bool login_proxy_is_ourself(const struct client *client, const char *host,
@@ -346,27 +347,26 @@ login_proxy_get_ssl_flags(const struct login_proxy *proxy)
 	return proxy->ssl_flags;
 }
 
-void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
-			struct ostream *client_output)
+void login_proxy_detach(struct login_proxy *proxy)
 {
+	struct client *client = proxy->client;
 	const unsigned char *data;
 	size_t size;
 
 	i_assert(proxy->client_fd == -1);
 	i_assert(proxy->server_output != NULL);
 
-	proxy->prelogin_client = NULL;
-	proxy->client_fd = i_stream_get_fd(client_input);
-	proxy->client_output = client_output;
+	proxy->client_fd = i_stream_get_fd(client->input);
+	proxy->client_output = client->output;
 
-	o_stream_set_max_buffer_size(client_output, (size_t)-1);
-	o_stream_set_flush_callback(client_output, proxy_client_output, proxy);
+	o_stream_set_max_buffer_size(client->output, (size_t)-1);
+	o_stream_set_flush_callback(client->output, proxy_client_output, proxy);
+	client->output = NULL;
 
 	/* send all pending client input to proxy and get rid of the stream */
-	data = i_stream_get_data(client_input, &size);
+	data = i_stream_get_data(client->input, &size);
 	if (size != 0)
 		(void)o_stream_send(proxy->server_output, data, size);
-	i_stream_unref(&client_input);
 
 	/* from now on, just do dummy proxying */
 	io_remove(&proxy->server_io);
@@ -381,6 +381,9 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 	proxy->context = NULL;
 
 	DLLIST_PREPEND(&login_proxies, proxy);
+
+	client->fd = -1;
+	client->login_proxy = NULL;
 }
 
 static int login_proxy_ssl_handshaked(void *context)
@@ -388,15 +391,15 @@ static int login_proxy_ssl_handshaked(void *context)
 	struct login_proxy *proxy = context;
 
 	if ((proxy->ssl_flags & PROXY_SSL_FLAG_ANY_CERT) != 0 ||
-	    ssl_proxy_has_valid_client_cert(proxy->ssl_proxy))
+	    ssl_proxy_has_valid_client_cert(proxy->ssl_server_proxy))
 		return 0;
 
-	if (!ssl_proxy_has_broken_client_cert(proxy->ssl_proxy)) {
-		client_log_err(proxy->prelogin_client, t_strdup_printf(
+	if (!ssl_proxy_has_broken_client_cert(proxy->ssl_server_proxy)) {
+		client_log_err(proxy->client, t_strdup_printf(
 			"proxy: SSL certificate not received from %s:%u",
 			proxy->host, proxy->port));
 	} else {
-		client_log_err(proxy->prelogin_client, t_strdup_printf(
+		client_log_err(proxy->client, t_strdup_printf(
 			"proxy: Received invalid SSL certificate from %s:%u",
 			proxy->host, proxy->port));
 	}
@@ -414,16 +417,17 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		o_stream_destroy(&proxy->server_output);
 	io_remove(&proxy->server_io);
 
-	fd = ssl_proxy_client_new(proxy->server_fd, &proxy->ip,
-				  proxy->prelogin_client->set,
+	fd = ssl_proxy_client_new(proxy->server_fd, &proxy->client->ip,
+				  proxy->client->set,
 				  login_proxy_ssl_handshaked, proxy,
-				  &proxy->ssl_proxy);
+				  &proxy->ssl_server_proxy);
 	if (fd < 0) {
-		client_log_err(proxy->prelogin_client, t_strdup_printf(
+		client_log_err(proxy->client, t_strdup_printf(
 			"proxy: SSL handshake failed to %s:%u",
 			proxy->host, proxy->port));
 		return -1;
 	}
+	ssl_proxy_set_client(proxy->ssl_server_proxy, proxy->client);
 
 	proxy->server_fd = fd;
 	proxy_plain_connected(proxy);

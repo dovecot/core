@@ -58,8 +58,8 @@ static void client_connected(const struct master_service_connection *conn)
 
 		client = client_create(fd_ssl, TRUE, pool, set,
 				       &local_ip, &conn->remote_ip);
-		client->proxying = TRUE;
 		client->ssl_proxy = proxy;
+		ssl_proxy_set_client(proxy, client);
 	}
 
 	client->remote_port = conn->remote_port;

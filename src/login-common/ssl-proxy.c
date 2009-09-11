@@ -27,6 +27,11 @@ int ssl_proxy_client_new(int fd ATTR_UNUSED, struct ip_addr *ip ATTR_UNUSED,
 	return -1;
 }
 
+void ssl_proxy_set_client(struct ssl_proxy *proxy ATTR_UNUSED,
+			  struct client *client ATTR_UNUSED)
+{
+}
+
 bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy ATTR_UNUSED)
 {
 	return FALSE;
