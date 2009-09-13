@@ -58,6 +58,7 @@ test_programs = \
 	test-message-address \
 	test-message-date \
 	test-message-decoder \
+	test-message-header-decode \
 	test-message-header-parser \
 	test-message-id \
 	test-message-parser \
@@ -93,6 +94,10 @@ test_message_date_DEPENDENCIES = message-date.lo rfc822-parser.lo $(test_libs)
 test_message_decoder_SOURCES = test-message-decoder.c
 test_message_decoder_LDADD = message-decoder.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
 test_message_decoder_DEPENDENCIES = message-decoder.lo rfc822-parser.lo rfc2231-parser.lo $(test_libs)
+
+test_message_header_decode_SOURCES = test-message-header-decode.c
+test_message_header_decode_LDADD = message-header-decode.lo quoted-printable.lo $(test_libs)
+test_message_header_decode_DEPENDENCIES = message-header-decode.lo quoted-printable.lo $(test_libs)
 
 test_message_header_parser_SOURCES = test-message-header-parser.c
 test_message_header_parser_LDADD = message-header-parser.lo $(test_libs)

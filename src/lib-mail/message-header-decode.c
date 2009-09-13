@@ -56,6 +56,18 @@ message_header_decode_encoded(const unsigned char *data, size_t size,
 	return start_pos[2] + 2;
 }
 
+static bool is_only_lwsp(const unsigned char *data, unsigned int size)
+{
+	unsigned int i;
+
+	for (i = 0; i < size; i++) {
+		if (!(data[i] == ' ' || data[i] == '\t' ||
+		      data[i] == '\r' || data[i] == '\n'))
+			return FALSE;
+	}
+	return TRUE;
+}
+
 void message_header_decode(const unsigned char *data, size_t size,
 			   message_header_decode_callback_t *callback,
 			   void *context)
@@ -73,7 +85,8 @@ void message_header_decode(const unsigned char *data, size_t size,
 		}
 
 		/* encoded string beginning */
-		if (pos != start_pos) {
+		if (pos != start_pos &&
+		    !is_only_lwsp(data+start_pos, pos-start_pos)) {
 			/* send the unencoded data so far */
 			if (!callback(data + start_pos, pos - start_pos,
 				      NULL, context)) {
