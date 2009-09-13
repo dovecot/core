@@ -53,6 +53,7 @@ struct quota_backend_vfuncs {
 	bool (*parse_rule)(struct quota_root_settings *root_set,
 			   struct quota_rule *rule,
 			   const char *str, const char **error_r);
+	int (*init_limits)(struct quota_root *root);
 
 	/* called once for each namespace */
 	void (*namespace_added)(struct quota *quota,

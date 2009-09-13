@@ -795,6 +795,7 @@ struct quota_backend quota_backend_fs = {
 		fs_quota_init,
 		fs_quota_deinit,
 		NULL,
+		NULL,
 
 		fs_quota_namespace_added,
 

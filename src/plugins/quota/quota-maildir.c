@@ -629,18 +629,27 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 	return root->maildirsize_path != NULL;
 }
 
+static int maildirquota_read_limits(struct maildir_quota_root *root)
+{
+	int ret;
+
+	if (!maildirquota_limits_init(root))
+		return 1;
+
+	T_BEGIN {
+		ret = maildirsize_read(root);
+	} T_END;
+	return ret;
+}
+
 static int
 maildirquota_refresh(struct maildir_quota_root *root, bool *recalculated_r)
 {
 	int ret;
 
 	*recalculated_r = FALSE;
-	if (!maildirquota_limits_init(root))
-		return 0;
 
-	T_BEGIN {
-		ret = maildirsize_read(root);
-	} T_END;
+	ret = maildirquota_read_limits(root);
 	if (ret == 0) {
 		if (root->root.bytes_limit == 0 &&
 		    root->root.count_limit == 0 &&
@@ -741,6 +750,13 @@ maildir_quota_parse_rule(struct quota_root_settings *root_set ATTR_UNUSED,
 	rule->bytes_limit = bytes;
 	rule->count_limit = count;
 	return TRUE;
+}
+
+static int maildir_quota_init_limits(struct quota_root *_root)
+{
+	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
+
+	return maildirquota_read_limits(root) < 0 ? -1 : 0;
 }
 
 static void
@@ -848,6 +864,7 @@ struct quota_backend quota_backend_maildir = {
 		maildir_quota_init,
 		maildir_quota_deinit,
 		maildir_quota_parse_rule,
+		maildir_quota_init_limits,
 		maildir_quota_namespace_added,
 		maildir_quota_root_get_resources,
 		maildir_quota_get_resource,

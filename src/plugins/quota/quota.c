@@ -497,14 +497,19 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 	return ret;
 }
 
-static bool quota_root_get_rule_limits(struct quota_root *root,
-				       const char *mailbox_name,
-				       uint64_t *bytes_limit_r,
-				       uint64_t *count_limit_r)
+static int quota_root_get_rule_limits(struct quota_root *root,
+				      const char *mailbox_name,
+				      uint64_t *bytes_limit_r,
+				      uint64_t *count_limit_r)
 {
 	struct quota_rule *rule;
 	int64_t bytes_limit, count_limit;
 	bool found;
+
+	if (!root->set->force_default_rule) {
+		if (root->backend.v.init_limits(root) < 0)
+			return -1;
+	}
 
 	bytes_limit = root->bytes_limit;
 	count_limit = root->count_limit;
@@ -527,7 +532,7 @@ static bool quota_root_get_rule_limits(struct quota_root *root,
 
 	*bytes_limit_r = bytes_limit <= 0 ? 0 : bytes_limit;
 	*count_limit_r = count_limit <= 0 ? 0 : count_limit;
-	return found;
+	return found ? 1 : 0;
 }
 
 void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
@@ -769,8 +774,10 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	if (ret <= 0)
 		return ret;
 
-	(void)quota_root_get_rule_limits(root, mailbox_name,
-					 &bytes_limit, &count_limit);
+	if (quota_root_get_rule_limits(root, mailbox_name,
+				       &bytes_limit, &count_limit) < 0)
+		return -1;
+
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*limit_r = bytes_limit;
 	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
@@ -827,8 +834,12 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
 			continue;
 
-		(void)quota_root_get_rule_limits(roots[i], mailbox_name,
-						 &bytes_limit, &count_limit);
+		if (quota_root_get_rule_limits(roots[i], mailbox_name,
+					       &bytes_limit,
+					       &count_limit) < 0) {
+			ctx->failed = TRUE;
+			return -1;
+		}
 
 		if (bytes_limit > 0) {
 			ret = quota_get_resource(roots[i], mailbox_name,
@@ -998,6 +1009,7 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;
+	int ret;
 
 	*too_large_r = FALSE;
 
@@ -1011,10 +1023,13 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
 			continue;
 
-		if (!quota_root_get_rule_limits(roots[i],
-						mailbox_get_vname(ctx->box),
-						&bytes_limit, &count_limit))
+		ret = quota_root_get_rule_limits(roots[i],
+						 mailbox_get_vname(ctx->box),
+						 &bytes_limit, &count_limit);
+		if (ret == 0)
 			continue;
+		if (ret < 0)
+			return -1;
 
 		/* if size is bigger than any limit, then
 		   it is bigger than the lowest limit */
@@ -1023,7 +1038,6 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 			break;
 		}
 	}
-
 	return 0;
 }
 
