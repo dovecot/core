@@ -151,8 +151,17 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 	aclobj = i_new(struct acl_object_vfile, 1);
 	aclobj->aclobj.backend = _backend;
 	aclobj->aclobj.name = i_strdup(name);
-	aclobj->global_path = backend->global_dir == NULL ? NULL :
-		i_strconcat(backend->global_dir, "/", name, NULL);
+
+	if (backend->global_dir != NULL) T_BEGIN {
+		struct mail_namespace *ns =
+			mailbox_list_get_namespace(_backend->list);
+		string_t *vname;
+
+		vname = t_str_new(128);
+		mail_namespace_get_vname(ns, vname, name);
+		aclobj->global_path = i_strconcat(backend->global_dir, "/",
+						  str_c(vname), NULL);
+	} T_END;
 
 	if (*name == '\0') {
 		/* the default ACL for mailbox list */
