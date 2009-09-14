@@ -6,7 +6,8 @@
 #define AUTH_CLIENT_PROTOCOL_MAJOR_VERSION 1
 #define AUTH_CLIENT_PROTOCOL_MINOR_VERSION 0
 
-#define AUTH_CLIENT_MAX_LINE_LENGTH 8192
+/* GSSAPI can use quite large packets */
+#define AUTH_CLIENT_MAX_LINE_LENGTH 16384
 /* Use a bit smaller than login process timeout */
 #define AUTH_REQUEST_TIMEOUT (3*60 - 30)
 
