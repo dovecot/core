@@ -116,8 +116,11 @@ static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 	parent_aclobj = acl_object_init_from_parent(alist->rights.backend,
 						    box->name);
 	iter = acl_object_list_init(parent_aclobj);
-	while (acl_object_list_next(iter, &update.rights) > 0)
-		(void)acl_object_update(abox->aclobj, &update);
+	while (acl_object_list_next(iter, &update.rights) > 0) {
+		/* don't copy global ACL rights. */
+		if (!update.rights.global)
+			(void)acl_object_update(abox->aclobj, &update);
+	}
 	acl_object_list_deinit(&iter);
 	acl_object_deinit(&parent_aclobj);
 }
