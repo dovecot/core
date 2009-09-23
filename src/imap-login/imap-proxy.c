@@ -91,6 +91,7 @@ static void proxy_write_login(struct imap_client *client, string_t *str)
 	} else {
 		/* master user login without SASL initial response */
 		str_append(str, "L AUTHENTICATE PLAIN");
+		client->proxy_wait_auth_continue = TRUE;
 	}
 	str_append(str, "\r\n");
 }
@@ -155,6 +156,15 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	} else if (*line == '+') {
 		/* AUTHENTICATE started. finish it. */
+		if (!imap_client->proxy_wait_auth_continue) {
+			client_log_err(client, t_strdup_printf(
+				"proxy: Unexpected input: %s",
+				str_sanitize(line, 160)));
+			client_proxy_failed(client, TRUE);
+			return -1;
+		}
+		imap_client->proxy_wait_auth_continue = FALSE;
+
 		str = t_str_new(128);
 		get_plain_auth(client, str);
 		str_append(str, "\r\n");
@@ -250,6 +260,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	} else {
 		/* tagged reply, shouldn't happen. */
+		client_log_err(client, t_strdup_printf(
+			"proxy: Unexpected input, ignoring: %s",
+			str_sanitize(line, 160)));
 		return 0;
 	}
 }
@@ -260,4 +273,5 @@ void imap_proxy_reset(struct client *client)
 
 	imap_client->proxy_sasl_ir = FALSE;
 	imap_client->proxy_seen_banner = FALSE;
+	imap_client->proxy_wait_auth_continue = FALSE;
 }
