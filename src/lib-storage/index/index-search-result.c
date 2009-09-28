@@ -98,8 +98,8 @@ search_result_update_search(struct mail_search_result *result,
 		mailbox_search_result_add(result, mail->uid);
 	}
 	mail_free(&mail);
-	ret = mailbox_search_deinit(&search_ctx);
 	mail_search_args_deinit(result->search_args);
+	ret = mailbox_search_deinit(&search_ctx);
 
 	if (next_uid != 0 && ret == 0) {
 		/* last message(s) didn't match. make sure they don't exist
