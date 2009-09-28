@@ -217,7 +217,7 @@ static const char *split_next_arg(const char *const **_args)
 	while (*args != NULL && **args == '\0') {
 		args++;
 		if (*args == NULL) {
-			str = t_strconcat(str, ":", NULL);
+			/* string ends with ":", just ignore it. */
 			break;
 		}
 		str = t_strconcat(str, ":", *args, NULL);
