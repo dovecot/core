@@ -125,6 +125,8 @@ void mail_search_args_init(struct mail_search_args *args,
 			   struct mailbox *box, bool change_uidsets,
 			   const ARRAY_TYPE(seq_range) *search_saved_uidset)
 {
+	i_assert(args->init_refcount <= args->refcount);
+
 	if (args->init_refcount++ > 0) {
 		i_assert(args->box == box);
 		return;
