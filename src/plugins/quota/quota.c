@@ -507,8 +507,10 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 	bool found;
 
 	if (!root->set->force_default_rule) {
-		if (root->backend.v.init_limits(root) < 0)
-			return -1;
+		if (root->backend.v.init_limits != NULL) {
+			if (root->backend.v.init_limits(root) < 0)
+				return -1;
+		}
 	}
 
 	bytes_limit = root->bytes_limit;
