@@ -2013,40 +2013,42 @@ if test $want_pgsql != no; then
 fi
 
 if test $want_mysql != no; then
+  AC_CHECK_PROG(MYSQL_CONFIG, mysql_config, YES, NO)
+  if test $MYSQL_CONFIG = NO; then
 	# based on code from PHP
 	for i in /usr /usr/local /usr/local/mysql; do
 		for j in include include/mysql ""; do
 			if test -r "$i/$j/mysql.h"; then
-				MYSQL_INCLUDE=$i/$j
+				MYSQL_INCLUDE="-I $i/$j"
 			fi
 		done
 		for j in lib lib/mysql lib64 lib64/mysql ""; do
 			if test -f "$i/$j/libmysqlclient.so" || test -f "$i/$j/libmysqlclient.a"; then
-				MYSQL_LIBDIR=$i/$j
+				MYSQL_LIBS="-L $i/$j -lmysqlclient -lz -lm"
 			fi
 		done
 	done
+  else
+    MYSQL_INCLUDE="`mysql_config --include`"
+    MYSQL_LIBS="`mysql_config --libs`"
+  fi
 
-	old_LIBS=$LIBS
-	if test "$MYSQL_LIBDIR" != ""; then
-		LIBS="$LIBS -L$MYSQL_LIBDIR"
-	fi
+  old_LIBS=$LIBS
+  if test "$MYSQL_LIBS" != ""; then
+    LIBS="$LIBS $MYSQL_LIBS"
+  fi
 
-	mysql_lib=""
-	LIBS="$LIBS -lz -lm"
-	AC_CHECK_LIB(mysqlclient, mysql_init, [
+  mysql_lib=""
+  LIBS="$LIBS -lz -lm"
+  AC_CHECK_LIB(mysqlclient, mysql_init, [
 		old_CPPFLAGS=$CPPFLAGS
 		if test "$MYSQL_INCLUDE" != ""; then
-			CPPFLAGS="$CPPFLAGS -I $MYSQL_INCLUDE"
+			CPPFLAGS="$CPPFLAGS $MYSQL_INCLUDE"
 		fi
 		AC_CHECK_HEADER(mysql.h, [
 			if test "$MYSQL_INCLUDE" != ""; then
-				MYSQL_CFLAGS="$MYSQL_CFLAGS -I$MYSQL_INCLUDE"
+				MYSQL_CFLAGS="$MYSQL_CFLAGS $MYSQL_INCLUDE"
 			fi
-			if test "$MYSQL_LIBDIR" != ""; then
-				MYSQL_LIBS="$MYSQL_LIBS -L$MYSQL_LIBDIR"
-			fi
-			MYSQL_LIBS="$MYSQL_LIBS -lmysqlclient -lz -lm"
 
 			AC_CHECK_LIB(mysqlclient, mysql_ssl_set, [
 				AC_DEFINE(HAVE_MYSQL_SSL,, Define if your MySQL library has SSL functions)
@@ -2073,13 +2075,13 @@ if test $want_mysql != no; then
 		  fi
 		])
 		CPPFLAGS=$old_CPPFLAGS
-	], [
-	  if test $want_mysql = yes; then
-	    AC_ERROR([Can't build with MySQL support: libmysqlclient not found])
-	  fi
-	])
+  ], [
+    if test $want_mysql = yes; then
+      AC_ERROR([Can't build with MySQL support: libmysqlclient not found])
+    fi
+  ])
 
-	LIBS=$old_LIBS
+  LIBS=$old_LIBS
 fi
 
 if test $want_sqlite != no; then
