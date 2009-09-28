@@ -667,17 +667,22 @@ const char *ssl_proxy_get_last_error(const struct ssl_proxy *proxy)
 const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy)
 {
 	SSL_CIPHER *cipher;
+	const COMP_METHOD *comp;
 	int bits, alg_bits;
+	const char *comp_str;
 
 	if (!proxy->handshaked)
 		return "";
 
 	cipher = SSL_get_current_cipher(proxy->ssl);
 	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
-	return t_strdup_printf("%s with cipher %s (%d/%d bits)",
+	comp = SSL_get_current_compression(proxy->ssl);
+	comp_str = comp == NULL ? "" :
+		t_strconcat(" ", SSL_COMP_get_name(comp), NULL);
+	return t_strdup_printf("%s with cipher %s (%d/%d bits)%s",
 			       SSL_get_version(proxy->ssl),
 			       SSL_CIPHER_get_name(cipher),
-			       bits, alg_bits);
+			       bits, alg_bits, comp_str);
 }
 
 void ssl_proxy_free(struct ssl_proxy **_proxy)
