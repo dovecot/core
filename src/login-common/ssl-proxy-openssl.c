@@ -925,13 +925,24 @@ static EVP_PKEY *ssl_proxy_load_key(const struct login_settings *set)
 	return pkey;
 }
 
+static const char *ssl_key_load_error(void)
+{
+	unsigned long err = ERR_peek_error();
+
+	if (ERR_GET_LIB(err) == ERR_LIB_X509 &&
+	    ERR_GET_REASON(err) == X509_R_KEY_VALUES_MISMATCH)
+		return "Key is for a different cert than ssl_cert";
+	else
+		return ssl_last_error();
+}
+
 static void ssl_proxy_ctx_use_key(SSL_CTX *ctx, const struct login_settings *set)
 {
 	EVP_PKEY *pkey;
 
 	pkey = ssl_proxy_load_key(set);
 	if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1)
-		i_fatal("Can't load private ssl_key: %s", ssl_last_error());
+		i_fatal("Can't load private ssl_key: %s", ssl_key_load_error());
 	EVP_PKEY_free(pkey);
 }
 
@@ -941,7 +952,7 @@ static int ssl_proxy_use_key(SSL *ssl, const struct login_settings *set)
 
 	pkey = ssl_proxy_load_key(set);
 	if (SSL_use_PrivateKey(ssl, pkey) != 1) {
-		i_error("Can't load private ssl_key: %s", ssl_last_error());
+		i_error("Can't load private ssl_key: %s", ssl_key_load_error());
 		return -1;
 	}
 	EVP_PKEY_free(pkey);
