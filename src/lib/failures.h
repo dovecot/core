@@ -41,14 +41,14 @@ extern const char *failure_log_type_prefixes[];
 
 void i_log_type(enum log_type type, const char *format, ...) ATTR_FORMAT(2, 3);
 
-void i_panic(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN;
-void i_fatal(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN;
-void i_error(const char *format, ...) ATTR_FORMAT(1, 2);
+void i_panic(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
+void i_fatal(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
+void i_error(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_COLD;
 void i_warning(const char *format, ...) ATTR_FORMAT(1, 2);
 void i_info(const char *format, ...) ATTR_FORMAT(1, 2);
 
 void i_fatal_status(int status, const char *format, ...)
-	ATTR_FORMAT(2, 3) ATTR_NORETURN;
+	ATTR_FORMAT(2, 3) ATTR_NORETURN ATTR_COLD;
 
 /* Change failure handlers. */
 #ifndef __cplusplus
@@ -105,7 +105,7 @@ void i_set_failure_ip(const struct ip_addr *ip);
 /* Call the callback before exit()ing. The callback may update the status. */
 void i_set_failure_exit_callback(void (*callback)(int *status));
 /* Call the exit callback and exit() */
-void failure_exit(int status) ATTR_NORETURN;
+void failure_exit(int status) ATTR_NORETURN ATTR_COLD;
 
 /* Parse a line logged using internal failure handler */
 void i_failure_parse_line(const char *line, struct failure_line *failure);

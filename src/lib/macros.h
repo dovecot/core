@@ -129,6 +129,14 @@
 #  define ATTR_WARN_UNUSED_RESULT
 #  define ATTR_SENTINEL
 #endif
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+/* GCC 4.3 and later */
+#  define ATTR_HOT __attribute__((hot))
+#  define ATTR_COLD __attribute__((cold))
+#else
+#  define ATTR_HOT
+#  define ATTR_COLD
+#endif
 
 /* C99-style struct member definitions */
 #if (defined(__STDC__) && __STDC_VERSION__ >= 199901L && \

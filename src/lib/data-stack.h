@@ -39,11 +39,11 @@ extern unsigned int data_stack_frame;
 
    x = t_push(); .. if (t_pop() != x) abort();
 */
-unsigned int t_push(void);
-unsigned int t_pop(void);
+unsigned int t_push(void) ATTR_HOT;
+unsigned int t_pop(void) ATTR_HOT;
 /* Simplifies the if (t_pop() != x) check by comparing it internally and
    panicking if it doesn't match. */
-void t_pop_check(unsigned int *id);
+void t_pop_check(unsigned int *id) ATTR_HOT;
 
 /* Usage: T_BEGIN { code } T_END */
 #define T_BEGIN \
