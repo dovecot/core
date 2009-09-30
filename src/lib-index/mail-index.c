@@ -443,6 +443,11 @@ static int mail_index_open_files(struct mail_index *index,
 		}
 
 		ret = mail_transaction_log_create(index->log, FALSE);
+		if (index->map != NULL) {
+			/* log creation could have changed it if someone else
+			   just created it. */
+			index->map->hdr.indexid = index->indexid;
+		}
 		index->initial_create = FALSE;
 		created = TRUE;
 	}
