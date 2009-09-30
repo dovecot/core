@@ -10,6 +10,7 @@ struct master_service;
 struct master_service_settings {
 	const char *log_path;
 	const char *info_log_path;
+	const char *debug_log_path;
 	const char *log_timestamp;
 	const char *syslog_facility;
 	bool version_ignore;

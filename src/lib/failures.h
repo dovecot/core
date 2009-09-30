@@ -15,6 +15,7 @@ enum fatal_exit_status {
 };
 
 enum log_type {
+	LOG_TYPE_DEBUG,
 	LOG_TYPE_INFO,
 	LOG_TYPE_WARNING,
 	LOG_TYPE_ERROR,
@@ -46,6 +47,7 @@ void i_fatal(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
 void i_error(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_COLD;
 void i_warning(const char *format, ...) ATTR_FORMAT(1, 2);
 void i_info(const char *format, ...) ATTR_FORMAT(1, 2);
+void i_debug(const char *format, ...) ATTR_FORMAT(1, 2);
 
 void i_fatal_status(int status, const char *format, ...)
 	ATTR_FORMAT(2, 3) ATTR_NORETURN ATTR_COLD;
@@ -59,9 +61,11 @@ void i_set_fatal_handler(fatal_failure_callback_t *callback);
 #endif
 void i_set_error_handler(failure_callback_t *callback);
 void i_set_info_handler(failure_callback_t *callback);
+void i_set_debug_handler(failure_callback_t *callback);
 void i_get_failure_handlers(fatal_failure_callback_t **fatal_callback_r,
 			    failure_callback_t **error_callback_r,
-			    failure_callback_t **info_callback_r);
+			    failure_callback_t **info_callback_r,
+			    failure_callback_t **debug_callback_r);
 
 /* Send failures to file. */
 void default_fatal_handler(enum log_type type, int status,
@@ -77,7 +81,7 @@ void i_syslog_fatal_handler(enum log_type type, int status,
 void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
 	ATTR_FORMAT(2, 0);
 
-/* Open syslog and set failure/info handlers to use it. */
+/* Open syslog and set failure/info/debug handlers to use it. */
 void i_set_failure_syslog(const char *ident, int options, int facility);
 
 /* Send failures to specified log file instead of stderr. */
@@ -92,6 +96,10 @@ void i_set_failure_ignore_errors(bool ignore);
 /* Send informational messages to specified log file. i_set_failure_*()
    functions modify the info file too, so call this function after them. */
 void i_set_info_file(const char *path);
+
+/* Send debug-level message to the given log file. The i_set_info_file() 
+   function modifies also the debug log file, so call this function after it. */
+void i_set_debug_file(const char *path);
 
 /* Set the failure prefix. */
 void i_set_failure_prefix(const char *prefix);

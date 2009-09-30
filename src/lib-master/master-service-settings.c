@@ -25,6 +25,7 @@
 static struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, log_path),
 	DEF(SET_STR, info_log_path),
+	DEF(SET_STR, debug_log_path),
 	DEF(SET_STR, log_timestamp),
 	DEF(SET_STR, syslog_facility),
 	DEF(SET_BOOL, version_ignore),
@@ -35,6 +36,7 @@ static struct setting_define master_service_setting_defines[] = {
 static struct master_service_settings master_service_default_settings = {
 	MEMBER(log_path) "",
 	MEMBER(info_log_path) "",
+	MEMBER(debug_log_path) "",
 	MEMBER(log_timestamp) DEFAULT_FAILURE_STAMP_FORMAT,
 	MEMBER(syslog_facility) "mail",
 	MEMBER(version_ignore) FALSE

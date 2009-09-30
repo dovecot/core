@@ -17,6 +17,7 @@
 #include <time.h>
 
 const char *failure_log_type_prefixes[LOG_TYPE_COUNT] = {
+	"Debug: ",
 	"Info: ",
 	"Warning: ",
 	"Error: ",
@@ -29,9 +30,11 @@ static fatal_failure_callback_t *fatal_handler ATTR_NORETURN =
 	default_fatal_handler;
 static failure_callback_t *error_handler = default_error_handler;
 static failure_callback_t *info_handler = default_error_handler;
+static failure_callback_t *debug_handler = default_error_handler;
 static void (*failure_exit_callback)(int *) = NULL;
 
-static int log_fd = STDERR_FILENO, log_info_fd = STDERR_FILENO;
+static int log_fd = STDERR_FILENO, log_info_fd = STDERR_FILENO,
+	   log_debug_fd = STDERR_FILENO;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
 static bool failure_ignore_errors = FALSE;
 
@@ -175,16 +178,27 @@ void default_fatal_handler(enum log_type type, int status,
 
 void default_error_handler(enum log_type type, const char *format, va_list args)
 {
-	int fd = type == LOG_TYPE_INFO ? log_info_fd : log_fd;
+	int fd;
+
+	switch (type) {
+	case LOG_TYPE_DEBUG:
+		fd = log_debug_fd;
+		break;
+	case LOG_TYPE_INFO:
+		fd = log_info_fd;
+		break;
+	default:
+		fd = log_fd;
+	}
 
 	if (default_handler(failure_log_type_prefixes[type],
 			    fd, format, args) < 0) {
 		if (fd == log_fd)
 			failure_exit(FATAL_LOGWRITE);
-		/* we failed to log to info log, try to log the write error
-		   to error log - maybe that'll work. */
-		i_fatal_status(FATAL_LOGWRITE,
-			       "write() failed to info log: %m");
+		/* we failed to log to info/debug log, try to log the
+		   write error to error log - maybe that'll work. */
+		i_fatal_status(FATAL_LOGWRITE, "write() failed to %s log: %m",
+			       fd == log_info_fd ? "info" : "debug");
 	}
 }
 
@@ -194,10 +208,17 @@ void i_log_type(enum log_type type, const char *format, ...)
 
 	va_start(args, format);
 
-	if (type == LOG_TYPE_INFO)
+	switch (type) {
+	case LOG_TYPE_DEBUG:
+		debug_handler(type, format, args);
+		break;
+	case LOG_TYPE_INFO:
 		info_handler(type, format, args);
-	else
+		break;
+	default:
 		error_handler(type, format, args);
+	}
+
 	va_end(args);
 }
 
@@ -264,6 +285,18 @@ void i_info(const char *format, ...)
 	errno = old_errno;
 }
 
+void i_debug(const char *format, ...)
+{
+	int old_errno = errno;
+	va_list args;
+
+	va_start(args, format);
+	debug_handler(LOG_TYPE_DEBUG, format, args);
+	va_end(args);
+
+	errno = old_errno;
+}
+
 void i_set_fatal_handler(fatal_failure_callback_t *callback ATTR_NORETURN)
 {
 	if (callback == NULL)
@@ -285,13 +318,22 @@ void i_set_info_handler(failure_callback_t *callback)
 	info_handler = callback;
 }
 
+void i_set_debug_handler(failure_callback_t *callback)
+{
+	if (callback == NULL)
+		callback = default_error_handler;
+	debug_handler = callback;
+}
+
 void i_get_failure_handlers(fatal_failure_callback_t **fatal_callback_r,
 			    failure_callback_t **error_callback_r,
-			    failure_callback_t **info_callback_r)
+			    failure_callback_t **info_callback_r,
+			    failure_callback_t **debug_callback_r)
 {
 	*fatal_callback_r = fatal_handler;
 	*error_callback_r = error_handler;
 	*info_callback_r = info_handler;
+	*debug_callback_r = debug_handler;
 }
 
 static int ATTR_FORMAT(3, 0)
@@ -331,6 +373,9 @@ void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
 	int level = LOG_ERR;
 
 	switch (type) {
+	case LOG_TYPE_DEBUG:
+		level = LOG_DEBUG;
+		break;
 	case LOG_TYPE_INFO:
 		level = LOG_INFO;
 		break;
@@ -360,6 +405,7 @@ void i_set_failure_syslog(const char *ident, int options, int facility)
 	i_set_fatal_handler(i_syslog_fatal_handler);
 	i_set_error_handler(i_syslog_error_handler);
 	i_set_info_handler(i_syslog_error_handler);
+	i_set_debug_handler(i_syslog_error_handler);
 }
 
 static void open_log_file(int *fd, const char *path)
@@ -398,12 +444,22 @@ void i_set_failure_file(const char *path, const char *prefix)
 			i_error("close(%d) failed: %m", log_info_fd);
 	}
 
+	if (log_debug_fd != STDERR_FILENO && log_debug_fd != log_info_fd &&
+	    log_debug_fd != log_fd) {
+		if (close(log_debug_fd) < 0)
+			i_error("close(%d) failed: %m", log_debug_fd);
+	}
+
 	open_log_file(&log_fd, path);
+	/* if info/debug logs are elsewhere, i_set_info/debug_file()
+	   overrides these later. */
 	log_info_fd = log_fd;
+	log_debug_fd = log_fd;
 
 	i_set_fatal_handler(NULL);
 	i_set_error_handler(NULL);
 	i_set_info_handler(NULL);
+	i_set_debug_handler(NULL);
 }
 
 static void i_failure_send_option(const char *key, const char *value)
@@ -546,6 +602,7 @@ void i_set_failure_internal(void)
 	i_set_fatal_handler(i_internal_fatal_handler);
 	i_set_error_handler(i_internal_error_handler);
 	i_set_info_handler(i_internal_error_handler);
+	i_set_debug_handler(i_internal_error_handler);
 }
 
 void i_set_failure_ignore_errors(bool ignore)
@@ -560,6 +617,19 @@ void i_set_info_file(const char *path)
 
 	open_log_file(&log_info_fd, path);
         info_handler = default_error_handler;
+	/* write debug-level messages to the info_log_path,
+	  until i_set_debug_file() was called */
+	log_debug_fd = log_info_fd;
+	i_set_debug_handler(NULL);
+}
+
+void i_set_debug_file(const char *path)
+{
+	if (log_debug_fd == log_fd || log_debug_fd == log_info_fd)
+		log_debug_fd = STDERR_FILENO;
+
+	open_log_file(&log_debug_fd, path);
+	debug_handler = default_error_handler;
 }
 
 void i_set_failure_timestamp_format(const char *fmt)
@@ -580,6 +650,9 @@ void i_set_failure_exit_callback(void (*callback)(int *status))
 
 void failures_deinit(void)
 {
+	if (log_debug_fd == log_info_fd || log_debug_fd == log_fd)
+		log_debug_fd = STDERR_FILENO;
+
 	if (log_info_fd == log_fd)
 		log_info_fd = STDERR_FILENO;
 
@@ -591,6 +664,11 @@ void failures_deinit(void)
 	if (log_info_fd != STDERR_FILENO) {
 		(void)close(log_info_fd);
 		log_info_fd = STDERR_FILENO;
+	}
+
+	if (log_debug_fd != STDERR_FILENO) {
+		(void)close(log_debug_fd);
+		log_debug_fd = STDERR_FILENO;
 	}
 
 	i_free_and_null(log_prefix);

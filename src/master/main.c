@@ -405,6 +405,7 @@ static void main_init(bool log_error)
 
 	if (log_error) {
 		fprintf(stderr, "Writing to error logs and killing myself..\n");
+		i_debug("This is Dovecot's debug log");
 		i_info("This is Dovecot's info log");
 		i_warning("This is Dovecot's warning log");
 		i_error("This is Dovecot's error log");
@@ -604,7 +605,7 @@ int main(int argc, char *argv[])
 	struct master_settings *set;
 	unsigned int child_process_env_idx = 0;
 	const char *getopt_str, *error, *env_tz, *doveconf_arg = NULL;
-	failure_callback_t *orig_info_callback;
+	failure_callback_t *orig_info_callback, *orig_debug_callback;
 	void **sets;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
 	int c, send_signal = 0;
@@ -718,7 +719,7 @@ int main(int argc, char *argv[])
 
 	master_service_init_log(master_service, "master: ");
 	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,
-			       &orig_info_callback);
+			       &orig_info_callback, &orig_debug_callback);
 	i_set_fatal_handler(startup_fatal_handler);
 	i_set_error_handler(startup_error_handler);
 

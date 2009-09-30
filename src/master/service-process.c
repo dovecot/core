@@ -408,6 +408,7 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 		env_put("DOVECONF_ENV=1");
 		env_put(t_strconcat("LOG_PATH=", set->log_path, NULL));
 		env_put(t_strconcat("INFO_LOG_PATH=", set->info_log_path, NULL));
+		env_put(t_strconcat("DEBUG_LOG_PATH=", set->debug_log_path, NULL));
 		env_put(t_strconcat("LOG_TIMESTAMP=", set->log_timestamp, NULL));
 		env_put(t_strconcat("SYSLOG_FACILITY=", set->syslog_facility, NULL));
 		break;

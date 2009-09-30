@@ -174,6 +174,10 @@ void master_service_init_log(struct master_service *service,
 	path = home_expand(service->set->info_log_path);
 	if (*path != '\0')
 		i_set_info_file(path);
+
+	path = home_expand(service->set->debug_log_path);
+	if (*path != '\0')
+		i_set_debug_file(path);
 	i_set_failure_timestamp_format(service->set->log_timestamp);
 }
 
