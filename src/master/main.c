@@ -404,7 +404,7 @@ static void main_init(bool log_error)
         (void)umask(0077);
 
 	if (log_error) {
-		printf("Writing to error logs and killing myself..\n");
+		fprintf(stderr, "Writing to error logs and killing myself..\n");
 		i_info("This is Dovecot's info log");
 		i_warning("This is Dovecot's warning log");
 		i_error("This is Dovecot's error log");
@@ -488,7 +488,7 @@ static void daemonize(void)
 
 static void print_help(void)
 {
-	printf(
+	fprintf(stderr,
 "Usage: dovecot [-F] [-c <config file>] [-p] [-n] [-a]\n"
 "       [-cb <config binary path>] [--version] [--build-options]\n");
 }
