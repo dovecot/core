@@ -55,8 +55,7 @@ static void linux_proctitle_set(const char *title)
 
 #endif
 
-void process_title_init(char *argv[] ATTR_UNUSED,
-			char *envp[] ATTR_UNUSED)
+void process_title_init(char *argv[], char *envp[] ATTR_UNUSED)
 {
 #ifdef LINUX_PROCTITLE_HACK
 	linux_proctitle_init(argv, envp);
@@ -70,9 +69,9 @@ void process_title_set(const char *title ATTR_UNUSED)
 
 #ifdef HAVE_SETPROCTITLE
 	if (title == NULL)
-		setproctitle("%s", process_name);
+		setproctitle(NULL);
 	else
-		setproctitle("%s %s", process_name, title);
+		setproctitle("%s", title);
 #elif defined(LINUX_PROCTITLE_HACK)
 	linux_proctitle_set(t_strconcat(process_name, " ", title, NULL));
 #endif
