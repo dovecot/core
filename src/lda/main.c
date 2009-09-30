@@ -33,10 +33,6 @@
 #include <pwd.h>
 #include <sysexits.h>
 
-#ifndef EX_CONFIG
-#  define EX_CONFIG 78 /* for HP-UX */
-#endif
-
 #define DEFAULT_ENVELOPE_SENDER "MAILER-DAEMON"
 
 /* After buffer grows larger than this, create a temporary file to /tmp
@@ -274,13 +270,13 @@ int main(int argc, char *argv[])
 		if (stat(argv[0], &st) < 0) {
 			fprintf(stderr, "stat(%s) failed: %s\n",
 				argv[0], strerror(errno));
-			return EX_CONFIG;
+			return EX_TEMPFAIL;
 		} else if ((st.st_mode & 1) != 0) {
 			fprintf(stderr, "%s must not be both world-executable "
 				"and setuid-root. This allows root exploits. "
 				"See http://wiki.dovecot.org/LDA#multipleuids\n",
 				argv[0]);
-			return EX_CONFIG;
+			return EX_TEMPFAIL;
 		}
 	}
 
