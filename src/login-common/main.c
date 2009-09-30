@@ -205,8 +205,10 @@ int main(int argc, char *argv[], char *envp[])
 	global_login_settings =
 		login_settings_read(master_service, set_pool, NULL, NULL);
 
-	main_preinit();
+	/* main_preinit() needs to know the client limit, which is set by
+	   this. so call it first. */
 	master_service_init_finish(master_service);
+	main_preinit();
 	main_init();
 
 	master_service_run(master_service, client_connected);
