@@ -157,11 +157,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 	} else if (*line == '+') {
 		/* AUTHENTICATE started. finish it. */
 		if (!imap_client->proxy_wait_auth_continue) {
-			client_log_err(client, t_strdup_printf(
-				"proxy: Unexpected input: %s",
-				str_sanitize(line, 160)));
-			client_proxy_failed(client, TRUE);
-			return -1;
+			/* used literals with LOGIN command, just ignore. */
+			return 0;
 		}
 		imap_client->proxy_wait_auth_continue = FALSE;
 
