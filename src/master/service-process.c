@@ -20,6 +20,7 @@
 #include "master-service-settings.h"
 #include "dup2-array.h"
 #include "service.h"
+#include "service-anvil.h"
 #include "service-log.h"
 #include "service-auth-server.h"
 #include "service-auth-source.h"
@@ -555,6 +556,9 @@ service_process_create(struct service *service, const char *const *auth_args,
 		service_process_auth_source_init(process, fd[0]);
 		(void)close(fd[1]);
 		break;
+	case SERVICE_TYPE_ANVIL:
+		service_anvil_process_created(service);
+		/* fall through */
 	default:
 		process = i_new(struct service_process, 1);
 		process->service = service;
@@ -601,6 +605,9 @@ void service_process_destroy(struct service_process *process)
 		break;
 	case SERVICE_TYPE_AUTH_SOURCE:
 		service_process_auth_source_deinit(process);
+		break;
+	case SERVICE_TYPE_ANVIL:
+		service_anvil_process_destroyed(service);
 		break;
 	default:
 		break;

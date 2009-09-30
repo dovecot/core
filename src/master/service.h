@@ -121,6 +121,7 @@ struct service_list {
 	/* used by master process to notify about dying processes */
 	int nonblocking_anvil_fd[2];
 	struct service_process_notify *anvil_kills;
+	struct io *anvil_io_blocking, *anvil_io_nonblocking;
 
 	ARRAY_DEFINE(services, struct service *);
 
