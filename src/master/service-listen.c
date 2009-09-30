@@ -123,7 +123,7 @@ static int service_inet_listener_listen(struct service_listener *l)
 	unsigned int port = set->port;
 	int fd;
 
-	fd = net_listen(&l->set.inetset.ip, &port, service->process_limit);
+	fd = net_listen(&l->set.inetset.ip, &port, 128);
 	if (fd < 0) {
 		service_error(service, "listen(%s, %u) failed: %m",
 			      set->address, set->port);
