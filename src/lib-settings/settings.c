@@ -119,7 +119,7 @@ static int settings_add_include(const char *path, struct input_stack **inputp,
 	new_input = t_new(struct input_stack, 1);
 	new_input->prev = *inputp;
 	new_input->path = t_strdup(path);
-	new_input->input = i_stream_create_fd(fd, 2048, TRUE);
+	new_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(new_input->input, TRUE);
 	*inputp = new_input;
 	return 0;
@@ -200,7 +200,7 @@ settings_read_real(const char *path, const char *section,
 
 	full_line = t_str_new(512);
 	sections = 0; root_section = 0; errormsg = NULL;
-	input->input = i_stream_create_fd(fd, 2048, TRUE);
+	input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(input->input, TRUE);
 prevfile:
 	while ((line = i_stream_read_next_line(input->input)) != NULL) {

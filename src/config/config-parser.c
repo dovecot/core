@@ -350,7 +350,7 @@ static int settings_add_include(struct parser_context *ctx, const char *path,
 	new_input = t_new(struct input_stack, 1);
 	new_input->prev = ctx->cur_input;
 	new_input->path = t_strdup(path);
-	new_input->input = i_stream_create_fd(fd, 2048, TRUE);
+	new_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(new_input->input, TRUE);
 	ctx->cur_input = new_input;
 	return 0;
