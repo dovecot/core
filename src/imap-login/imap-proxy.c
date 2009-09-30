@@ -250,6 +250,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		i_free(imap_client->proxy_backend_capability);
 		imap_client->proxy_backend_capability = i_strdup(line + 13);
 		return 0;
+	} else if (strncmp(line, "C ", 2) == 0) {
+		/* Reply to CAPABILITY command we sent, ignore it */
+		return 0;
 	} else if (strncasecmp(line, "I ", 2) == 0 ||
 		   strncasecmp(line, "* ID ", 5) == 0) {
 		/* Reply to ID command we sent, ignore it */
