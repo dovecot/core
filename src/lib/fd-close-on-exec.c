@@ -29,7 +29,7 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 	struct stat st;
 	int old_errno;
 
-	for (; first_fd < last_fd; first_fd++) {
+	for (; first_fd <= last_fd; first_fd++) {
 		if (fcntl(first_fd, F_GETFD, 0) == -1 && errno == EBADF)
 			continue;
 
