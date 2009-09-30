@@ -56,7 +56,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 				      client_idle_timeout, client);
 
 	client->command_pool =
-		pool_alloconly_create(MEMPOOL_GROWING"client command", 1024*12);
+		pool_alloconly_create(MEMPOOL_GROWING"client command", 1024*2);
 	client->user = user;
 
 	mail_namespaces_set_storage_callbacks(user->namespaces,
