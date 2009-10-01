@@ -32,7 +32,7 @@ while (<>) {
       # unicharacter decomposition. use separate lists for this
       my $value = eval("0x$1");
       if ($value > 0xffff) {
-	print STDERR "We've assumed decomposition codes are max. 16bit\n";
+	print STDERR "Error: We've assumed decomposition codes are max. 16bit\n";
 	exit;
       }
       if ($code <= 0xffff) {
@@ -44,8 +44,8 @@ while (<>) {
       }
     } else {
       # multicharacter decomposition.
-      if ($code > 0xffff) {
-	print STDERR "We've assumed multi-decomposition key codes are max. 16bit\n";
+      if ($code > 0xffffffff) {
+	print STDERR "Error: We've assumed multi-decomposition key codes are max. 32bit\n";
 	exit;
       }
       
@@ -55,7 +55,7 @@ while (<>) {
       foreach my $dcode (split(" ", $decomp_codes)) {
 	my $value = eval("0x$dcode");
 	if ($value > 0xffff) {
-	  print STDERR "We've assumed decomposition codes are max. 16bit\n";
+	  print STDERR "Error: We've assumed decomposition codes are max. 16bit\n";
 	  exit;
 	}
 	push @multidecomp_values, $value;
@@ -121,7 +121,7 @@ print "static const uint16_t uni32_decomp_values[] = {\n\t";
 print_list(\@uni32_decomp_values);
 print "\n};\n";
 
-print "static const uint16_t multidecomp_keys[] = {\n\t";
+print "static const uint32_t multidecomp_keys[] = {\n\t";
 print_list(\@multidecomp_keys);
 print "\n};\n";
 

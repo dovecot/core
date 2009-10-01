@@ -250,7 +250,7 @@ static bool uni_ucs4_decompose_multi_utf8(unichar_t chr, buffer_t *output)
 	if (chr > 0xffff)
 		return FALSE;
 
-	if (!uint16_find(multidecomp_keys, N_ELEMENTS(multidecomp_keys),
+	if (!uint32_find(multidecomp_keys, N_ELEMENTS(multidecomp_keys),
 			 chr, &idx))
 		return FALSE;
 
