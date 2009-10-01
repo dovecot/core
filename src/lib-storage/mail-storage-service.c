@@ -117,27 +117,28 @@ user_reply_handle(struct setting_parser_context *set_parser,
 	}
 
 	str = array_get(&reply->extra_fields, &count);
-	for (i = 0; i < count && ret == 0; i++) T_BEGIN {
+	for (i = 0; i < count && ret == 0; i++) {
 		line = str[i];
-		if (strncmp(line, "system_groups_user=", 19) == 0) {
+		if (strncmp(line, "system_groups_user=", 19) == 0)
 			*system_groups_user_r = line + 19;
-			continue;
-		}
-		if (strncmp(line, "mail=", 5) == 0)
-			line = t_strconcat("mail_location=", line + 5, NULL);
-		else if ((p = strchr(str[i], '=')) == NULL)
-			line = t_strconcat(str[i], "=yes", NULL);
-		else
-			line = str[i];
+		else T_BEGIN {
+			if (strncmp(line, "mail=", 5) == 0) {
+				line = t_strconcat("mail_location=",
+						   line + 5, NULL);
+			} else if ((p = strchr(str[i], '=')) == NULL)
+				line = t_strconcat(str[i], "=yes", NULL);
+			else
+				line = str[i];
 
-		key = t_strcut(line, '=');
-		if (!settings_parse_is_valid_key(set_parser, key)) {
-			/* assume it's a plugin setting */
-			line = t_strconcat("plugin/", line, NULL);
-		}
+			key = t_strcut(line, '=');
+			if (!settings_parse_is_valid_key(set_parser, key)) {
+				/* assume it's a plugin setting */
+				line = t_strconcat("plugin/", line, NULL);
+			}
 
-		ret = settings_parse_line(set_parser, line);
-	} T_END;
+			ret = settings_parse_line(set_parser, line);
+		} T_END;
+	}
 
 	if (ret < 0) {
 		*error_r = t_strdup_printf("Invalid userdb input '%s': %s",
