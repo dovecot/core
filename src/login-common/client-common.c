@@ -24,7 +24,7 @@ static unsigned int clients_count = 0;
 
 static void client_idle_disconnect_timeout(struct client *client)
 {
-	client_send_line(client, CLIENT_CMD_REPLY_BAD,
+	client_send_line(client, CLIENT_CMD_REPLY_BYE,
 			 "Disconnected for inactivity.");
 	client_destroy(client, "Disconnected: Inactivity");
 }
