@@ -198,12 +198,16 @@ list_get_inbox_flags(struct cmd_list_context *ctx)
 
 static bool list_namespace_has_children(struct cmd_list_context *ctx)
 {
+	enum mailbox_list_iter_flags list_flags =
+		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	struct mailbox_list_iterate_context *list_iter;
 	const struct mailbox_info *info;
 	bool ret = FALSE;
 
-	list_iter = mailbox_list_iter_init(ctx->ns->list, "%",
-					   MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	if ((ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
+		list_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED;
+
+	list_iter = mailbox_list_iter_init(ctx->ns->list, "%", list_flags);
 	info = mailbox_list_iter_next(list_iter);
 	if (info != NULL)
 		ret = TRUE;
@@ -286,7 +290,8 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 		}
 	}
 
-	if ((ctx->ns->flags & NAMESPACE_FLAG_LIST_CHILDREN) != 0) {
+	if ((ctx->ns->flags & NAMESPACE_FLAG_LIST_CHILDREN) != 0 ||
+	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		if (have_children) {
 			/* children are going to be listed. */
 			return;
@@ -537,8 +542,16 @@ static bool
 list_want_send_prefix(struct cmd_list_context *ctx, const char *pattern)
 {
 	/* don't send the prefix if we're listing subscribed mailboxes */
-	if ((ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
-		return FALSE;
+	if ((ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+		if ((ctx->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0) {
+			/* using parent's subscriptions file. it'll handle
+			   this internally */
+			return FALSE;
+		}
+		/* send prefix if namespace has at least some subscriptions,
+		   but pattern doesn't match any children (e.g. "%") */
+		return TRUE;
+	}
 
 	/* send the prefix if namespace is listable. if children are listable
 	   we may or may not need to send it. */
