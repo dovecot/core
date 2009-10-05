@@ -14,8 +14,10 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_DEBUG			= 0x04,
 	/* Keep the current process permissions */
 	MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS	= 0x08,
+	/* Get the process permissions from environment */
+	MAIL_STORAGE_SERVICE_FLAG_RESTRICT_BY_ENV	= 0x10,
 	/* Don't chdir() to user's home */
-	MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR		= 0x10
+	MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR		= 0x20
 };
 
 struct mail_storage_service_input {

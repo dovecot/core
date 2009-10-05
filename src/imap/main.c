@@ -173,8 +173,11 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (IS_STANDALONE())
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE;
-	else
-		storage_service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+	else {
+		storage_service_flags |=
+			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
+			MAIL_STORAGE_SERVICE_FLAG_RESTRICT_BY_ENV;
+	}
 
 	dump_capability = getenv("DUMP_CAPABILITY") != NULL;
 	if (dump_capability) {

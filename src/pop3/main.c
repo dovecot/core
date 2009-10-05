@@ -85,8 +85,11 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (IS_STANDALONE())
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE;
-	else
-		storage_service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+	else {
+		storage_service_flags |=
+			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
+			MAIL_STORAGE_SERVICE_FLAG_RESTRICT_BY_ENV;
+	}
 
 	master_service = master_service_init("pop3", service_flags, argc, argv);
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {

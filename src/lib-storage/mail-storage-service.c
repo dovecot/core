@@ -302,12 +302,6 @@ service_drop_privileges(const struct mail_user_settings *set,
 		if (seteuid(setuid_uid) < 0)
 			i_fatal("seteuid(%s) failed: %m", dec2str(setuid_uid));
 	}
-	if (rset.chroot_dir == NULL) {
-		/* enable core dumps only when we can be sure that the core
-		   file is written to a safe directory. with chrooting we're
-		   chrooting to user's home dir. */
-		restrict_access_allow_coredumps(TRUE);
-	}
 }
 
 static void
@@ -583,12 +577,18 @@ init_user_real(struct master_service *service,
 				user_set->mail_plugins, TRUE,
 				master_service_get_version_string(service));
 
-	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) != 0) {
+		/* no changes */
+	} else if ((flags & MAIL_STORAGE_SERVICE_FLAG_RESTRICT_BY_ENV) != 0) {
+		restrict_access_by_env(home,
+			(flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0);
+	} else {
 		service_drop_privileges(user_set, system_groups_user, home,
 			(flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0,
 			FALSE);
 	}
 	/* privileges are now dropped */
+	restrict_access_allow_coredumps(TRUE);
 
 	dict_drivers_register_builtin();
 	module_dir_init(modules);
