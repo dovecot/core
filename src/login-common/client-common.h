@@ -117,6 +117,8 @@ struct client {
 	unsigned int trusted:1;
 	unsigned int authenticating:1;
 	unsigned int auth_tried_disabled_plaintext:1;
+	unsigned int auth_tried_unsupported_mech:1;
+	unsigned int auth_try_aborted:1;
 	unsigned int auth_initializing:1;
 	/* ... */
 };

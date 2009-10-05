@@ -247,6 +247,7 @@ void sasl_server_auth_begin(struct client *client,
 
 	mech = auth_client_find_mech(auth_client, mech_name);
 	if (mech == NULL) {
+		client->auth_tried_unsupported_mech = TRUE;
 		sasl_server_auth_failed(client,
 			"Unsupported authentication mechanism.");
 		return;
@@ -254,6 +255,7 @@ void sasl_server_auth_begin(struct client *client,
 
 	if (!client->secured && client->set->disable_plaintext_auth &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
+		client->auth_tried_disabled_plaintext = TRUE;
 		sasl_server_auth_failed(client,
 			"Plaintext authentication disabled.");
 		return;
@@ -308,5 +310,6 @@ void sasl_server_auth_failed(struct client *client, const char *reason)
 
 void sasl_server_auth_abort(struct client *client)
 {
+	client->auth_try_aborted = TRUE;
 	sasl_server_auth_cancel(client, NULL, SASL_SERVER_REPLY_AUTH_ABORTED);
 }

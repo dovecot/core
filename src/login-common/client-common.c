@@ -521,6 +521,12 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return "(tried to use disabled plaintext auth)";
 	if (client->set->ssl_require_client_cert)
 		return "(cert required, client didn't start TLS)";
+	if (client->auth_tried_unsupported_mech)
+		return "(tried to use unsupported auth mechanism)";
+	if (client->auth_request != NULL && client->auth_attempts == 1)
+		return "(disconnected while authenticating)";
+	if (client->auth_try_aborted && client->auth_attempts == 1)
+		return "(aborted authentication)";
 
 	return t_strdup_printf("(auth failed, %u attempts)",
 			       client->auth_attempts);
