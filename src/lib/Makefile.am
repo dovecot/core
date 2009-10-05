@@ -4,7 +4,7 @@ BUILT_SOURCES = unicodemap.c
 
 EXTRA_DIST = unicodemap.c unicodemap.pl
 
-$(srcdir)/unicodemap.c:
+$(srcdir)/unicodemap.c: unicodemap.pl
 	test -f UnicodeData.txt || wget http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
 	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
 
