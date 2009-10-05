@@ -4,6 +4,7 @@
 #include "lib-signals.h"
 #include "array.h"
 #include "ioloop.h"
+#include "eacces-error.h"
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
@@ -281,8 +282,14 @@ static int auth_master_connect(struct auth_master_connection *conn)
 		usleep(((rand() % 10) + 1) * 10000);
 	}
 	if (fd == -1) {
-		i_error("userdb lookup: connect(%s) failed: %m",
-			conn->auth_socket_path);
+		if (errno == EACCES) {
+			i_error("userdb lookup: %s",
+				eacces_error_get("connect",
+						 conn->auth_socket_path));
+		} else {
+			i_error("userdb lookup: connect(%s) failed: %m",
+				conn->auth_socket_path);
+		}
 		return -1;
 	}
 	conn->fd = fd;
