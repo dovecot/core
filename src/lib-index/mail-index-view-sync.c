@@ -219,13 +219,13 @@ static bool view_sync_have_expunges(struct mail_index_view *view)
 		}
 		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE_GUID) != 0) {
 			/* we have an expunge. see if it still exists. */
-			if (have_existing_expunges(view, data, hdr->size)) {
+			if (have_existing_guid_expunge(view, data, hdr->size)) {
 				have_expunges = TRUE;
 				break;
 			}
 		} else if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
 			/* we have an expunge. see if it still exists. */
-			if (have_existing_guid_expunge(view, data, hdr->size)) {
+			if (have_existing_expunges(view, data, hdr->size)) {
 				have_expunges = TRUE;
 				break;
 			}
