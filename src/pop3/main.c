@@ -69,8 +69,7 @@ int main(int argc, char *argv[], char *envp[])
 	};
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_STD_CLIENT;
-	enum mail_storage_service_flags storage_service_flags =
-		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+	enum mail_storage_service_flags storage_service_flags = 0;
 	struct mail_storage_service_input input;
 	struct mail_user *mail_user;
 	const struct pop3_settings *set;
@@ -87,7 +86,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (IS_STANDALONE())
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE;
 	else
-		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+		storage_service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
 
 	master_service = master_service_init("pop3", service_flags, argc, argv);
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
