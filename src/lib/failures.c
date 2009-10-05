@@ -429,7 +429,10 @@ static void open_log_file(int *fd, const char *path)
 			i_snprintf(buf, sizeof(buf),
 				   "Can't open log file %s: %m\n", path);
 			(void)write_full(STDERR_FILENO, buf, strlen(buf));
-			failure_exit(FATAL_LOGOPEN);
+			if (fd == &log_fd)
+				failure_exit(FATAL_LOGOPEN);
+			else
+				i_fatal_status(FATAL_LOGOPEN, "%s", buf);
 		}
 		fd_close_on_exec(*fd, TRUE);
 	}
