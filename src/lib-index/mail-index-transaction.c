@@ -48,7 +48,7 @@ void mail_index_transaction_unref(struct mail_index_transaction **_t)
 	if (--t->refcount > 0)
 		return;
 
-	mail_index_transaction_reset(t);
+	mail_index_transaction_reset_v(t);
 
 	array_free(&t->module_contexts);
 	mail_index_view_transaction_unref(t->view);

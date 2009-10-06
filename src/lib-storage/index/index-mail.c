@@ -1525,11 +1525,7 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	}
 
 	/* make sure we don't cache invalid values */
-	mail_cache_transaction_rollback(&imail->trans->cache_trans);
-	imail->trans->cache_trans =
-		mail_cache_get_transaction(imail->trans->cache_view,
-					   imail->trans->trans);
-
+	mail_cache_transaction_reset(imail->trans->cache_trans);
 	imail->data.no_caching = TRUE;
 	imail->data.forced_no_caching = TRUE;
 	mail_cache_set_corrupted(imail->ibox->cache,

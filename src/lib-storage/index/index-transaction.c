@@ -114,6 +114,8 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 	struct mail_index_transaction *itrans = t->trans;
+	struct index_mailbox *ibox = (struct index_mailbox *)_t->box;
+	int ret;
 
 	memset(changes_r, 0, sizeof(*changes_r));
 	changes_r->pool = pool_alloconly_create("transaction changes", 1024);
@@ -121,7 +123,10 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 	p_array_init(&changes_r->updated_uids, changes_r->pool, 32);
 	_t->changes = changes_r;
 
-	return mail_index_transaction_commit(&itrans);
+	ret = mail_index_transaction_commit(&itrans);
+	i_assert(ibox->box.transaction_count > 0 ||
+		 ibox->view->transactions == 0);
+	return ret;
 }
 
 void index_transaction_rollback(struct mailbox_transaction_context *_t)
@@ -129,8 +134,12 @@ void index_transaction_rollback(struct mailbox_transaction_context *_t)
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 	struct mail_index_transaction *itrans = t->trans;
+	struct index_mailbox *ibox = (struct index_mailbox *)_t->box;
 
 	mail_index_transaction_rollback(&itrans);
+
+	i_assert(ibox->box.transaction_count > 0 ||
+		 ibox->view->transactions == 0);
 }
 
 void index_transaction_set_max_modseq(struct mailbox_transaction_context *_t,

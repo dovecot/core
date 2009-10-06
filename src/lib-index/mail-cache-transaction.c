@@ -151,7 +151,6 @@ mail_cache_transaction_free(struct mail_cache_transaction_ctx **_ctx)
 	*_ctx = NULL;
 
 	MODULE_CONTEXT_UNSET(ctx->trans, cache_mail_index_transaction_module);
-	ctx->trans->v = ctx->super;
 
 	ctx->view->transaction = NULL;
 	ctx->view->trans_seq1 = ctx->view->trans_seq2 = 0;
