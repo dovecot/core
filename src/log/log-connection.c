@@ -3,6 +3,7 @@
 #include "common.h"
 #include "array.h"
 #include "ioloop.h"
+#include "istream.h"
 #include "llist.h"
 #include "hash.h"
 #include "master-interface.h"
@@ -27,6 +28,7 @@ struct log_connection {
 	int fd;
 	int listen_fd;
 	struct io *io;
+	struct istream *input;
 
 	char *default_prefix;
 	/* pid -> struct log_client* */
@@ -155,62 +157,69 @@ static void log_it(struct log_connection *log, const char *line)
 	i_set_failure_prefix("log: ");
 }
 
-static bool log_connection_handshake(struct log_connection *log,
-				     char **data, size_t size)
+static int log_connection_handshake(struct log_connection *log)
 {
 	struct log_service_handshake handshake;
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
 
-	if (size < sizeof(handshake))
-		return FALSE;
-
-	memcpy(&handshake, *data, sizeof(handshake));
-	if (handshake.log_magic != MASTER_LOG_MAGIC)
-		return FALSE;
-
-	if (handshake.prefix_len <= size - sizeof(handshake)) {
-		log->default_prefix = i_strndup(*data + sizeof(handshake),
-						handshake.prefix_len);
-		*data += sizeof(handshake) + handshake.prefix_len;
+	ret = i_stream_read(log->input);
+	if (ret < 0) {
+		i_error("read(log pipe) failed: %m");
+		return -1;
 	}
+	if ((size_t)ret < sizeof(handshake)) {
+		/* this isn't a handshake */
+		return 0;
+	}
+
+	data = i_stream_get_data(log->input, &size);
+	i_assert(size >= sizeof(handshake));
+	memcpy(&handshake, data, sizeof(handshake));
+
+	if (handshake.log_magic != MASTER_LOG_MAGIC) {
+		/* this isn't a handshake */
+		return 0;
+	}
+
+	if (handshake.prefix_len > size - sizeof(handshake)) {
+		i_error("Missing prefix data in handshake");
+		return -1;
+	}
+	log->default_prefix = i_strndup(data + sizeof(handshake),
+					handshake.prefix_len);
+	i_stream_skip(log->input, sizeof(handshake) + handshake.prefix_len);
+
 	if (strcmp(log->default_prefix, MASTER_LOG_PREFIX_NAME) == 0) {
 		if (log->listen_fd != MASTER_LISTEN_FD_FIRST) {
 			i_error("Received master prefix in handshake "
 				"from non-master fd %d", log->fd);
-			return FALSE;
+			return -1;
 		}
 		log->master = TRUE;
 	}
 	log->handshaked = TRUE;
-	return TRUE;
+	return 0;
 }
 
 static void log_connection_input(struct log_connection *log)
 {
-	char data[PIPE_BUF+1], *p, *line;
-	ssize_t ret;
+	const char *line;
 
-	ret = read(log->fd, data, sizeof(data)-1);
-	if (ret <= 0) {
-		if (ret < 0)
-			i_error("read(log pipe) failed: %m");
+	if (!log->handshaked) {
+		if (log_connection_handshake(log) < 0) {
+			log_connection_destroy(log);
+			return;
+		}
+	}
+
+	while ((line = i_stream_read_next_line(log->input)) != NULL)
+		log_it(log, line);
+
+	if (log->input->stream_errno != 0) {
+		i_error("read(log pipe) failed: %m");
 		log_connection_destroy(log);
-		return;
-	}
-	data[ret] = '\0';
-
-	line = data;
-	if (!log->handshaked)
-		(void)log_connection_handshake(log, &line, ret);
-
-	p = line;
-	while ((p = strchr(line, '\n')) != NULL) {
-		*p = '\0';
-		log_it(log, line);
-		line = p + 1;
-	}
-	if (line - data != ret) {
-		i_error("Invalid log line follows: Missing LF");
-		log_it(log, line);
 	}
 }
 
@@ -222,6 +231,7 @@ struct log_connection *log_connection_create(int fd, int listen_fd)
 	log->fd = fd;
 	log->listen_fd = listen_fd;
 	log->io = io_add(fd, IO_READ, log_connection_input, log);
+	log->input = i_stream_create_fd(fd, PIPE_BUF, FALSE);
 	log->clients = hash_table_create(default_pool, default_pool, 0,
 					 NULL, NULL);
 	array_idx_set(&logs_by_fd, listen_fd, &log);
@@ -246,6 +256,7 @@ void log_connection_destroy(struct log_connection *log)
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&log->clients);
 
+	i_stream_unref(&log->input);
 	if (log->io != NULL)
 		io_remove(&log->io);
 	if (close(log->fd) < 0)
