@@ -667,7 +667,9 @@ const char *ssl_proxy_get_last_error(const struct ssl_proxy *proxy)
 const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy)
 {
 	SSL_CIPHER *cipher;
+#ifdef HAVE_SSL_COMPRESSION
 	const COMP_METHOD *comp;
+#endif
 	int bits, alg_bits;
 	const char *comp_str;
 
@@ -676,9 +678,13 @@ const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy)
 
 	cipher = SSL_get_current_cipher(proxy->ssl);
 	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
+#ifdef HAVE_SSL_COMPRESSION
 	comp = SSL_get_current_compression(proxy->ssl);
 	comp_str = comp == NULL ? "" :
 		t_strconcat(" ", SSL_COMP_get_name(comp), NULL);
+#else
+	comp_str = NULL;
+#endif
 	return t_strdup_printf("%s with cipher %s (%d/%d bits)%s",
 			       SSL_get_version(proxy->ssl),
 			       SSL_CIPHER_get_name(cipher),

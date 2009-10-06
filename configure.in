@@ -1570,6 +1570,10 @@ if test $want_openssl != no && test $have_ssl = no; then
   if test "$have_openssl" = "yes"; then
     AC_DEFINE(HAVE_OPENSSL,, Build with OpenSSL support)
     have_ssl="yes (OpenSSL)"
+
+    AC_CHECK_LIB(ssl, SSL_get_current_compression, [
+      AC_DEFINE(HAVE_SSL_COMPRESSION,, Build with OpenSSL compression)
+    ],, $SSL_LIBS)
   fi
 fi
 
