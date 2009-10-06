@@ -24,10 +24,7 @@ struct log_service_handshake {
 #define MASTER_LOG_MAGIC 0x02ff03fe
 	unsigned int log_magic;
 
-	/* If we're writing log lines more often than this, start throttling */
-	unsigned int max_lines_per_sec;
-
-	/* Add this previs to each logged line */
+	/* Add this prefix to each logged line */
 #define MASTER_LOG_PREFIX_NAME "MASTER"
 	unsigned int prefix_len;
 	/* unsigned char prefix[]; */
