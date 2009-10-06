@@ -11,6 +11,8 @@
 
 #include <stdio.h>
 
+#define DBOX_MAIL_FILE_BROKEN_COPY_SUFFIX ".broken"
+
 static int
 dbox_file_find_next_magic(struct dbox_file *file, uoff_t *offset_r, bool *pre_r)
 {
@@ -91,7 +93,7 @@ stream_copy(struct dbox_file *file, struct ostream *output,
 	if (bytes < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 			"o_stream_send_istream(%s, %s) failed: %m",
-			file->current_path, path);
+			file->cur_path, path);
 		return -1;
 	}
 	if ((uoff_t)bytes != count) {
@@ -253,7 +255,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 		if (ret < 0) {
 			errno = output->stream_errno;
 			mail_storage_set_critical(&file->storage->storage,
-				"read(%s) failed: %m", file->current_path);
+				"read(%s) failed: %m", file->cur_path);
 			return -1;
 		}
 
@@ -290,19 +292,19 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 {
 	struct ostream *output;
-	const char *temp_path, *broken_path;
-	char *temp_fname;
+	const char *dir, *fname, *temp_path, *broken_path;
 	bool deleted;
 	int fd, ret;
 
-	i_assert(file->input != NULL);
+	i_assert(dbox_file_is_open(file));
 
-	temp_fname = dbox_generate_tmp_filename();
-	temp_path = t_strdup_printf("%s/%s", file->storage->storage_dir,
-				    temp_fname);
-	i_free(temp_fname);
+	fname = strrchr(file->cur_path, '/');
+	i_assert(fname != NULL);
+	dir = t_strdup_until(file->cur_path, fname);
+	fname++;
 
-	fd = dbox_create_fd(file->storage, temp_path);
+	temp_path = t_strdup_printf("%s/%s", dir, dbox_generate_tmp_filename());
+	fd = file->storage->v.file_create_fd(file, temp_path, FALSE);
 	if (fd == -1)
 		return -1;
 
@@ -323,20 +325,20 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 	}
 	/* keep a copy of the original file in case someone wants to look
 	   at it */
-	broken_path = t_strconcat(file->current_path,
+	broken_path = t_strconcat(file->cur_path,
 				  DBOX_MAIL_FILE_BROKEN_COPY_SUFFIX, NULL);
-	if (link(file->current_path, broken_path) < 0) {
+	if (link(file->cur_path, broken_path) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 					  "link(%s, %s) failed: %m",
-					  file->current_path, broken_path);
+					  file->cur_path, broken_path);
 	} else {
 		i_warning("dbox: Copy of the broken file saved to %s",
 			  broken_path);
 	}
-	if (rename(temp_path, file->current_path) < 0) {
+	if (rename(temp_path, file->cur_path) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 					  "rename(%s, %s) failed: %m",
-					  temp_path, file->current_path);
+					  temp_path, file->cur_path);
 		return -1;
 	}
 
@@ -345,7 +347,7 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 	if (dbox_file_open(file, &deleted) <= 0) {
 		mail_storage_set_critical(&file->storage->storage,
 			"dbox_file_fix(%s): reopening file failed",
-			file->current_path);
+			file->cur_path);
 		return -1;
 	}
 	return 0;

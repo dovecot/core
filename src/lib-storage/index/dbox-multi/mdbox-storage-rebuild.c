@@ -6,17 +6,18 @@
 #include "istream.h"
 #include "hash.h"
 #include "str.h"
-#include "dbox-storage.h"
-#include "dbox-file.h"
-#include "dbox-map-private.h"
-#include "dbox-sync.h"
-#include "dbox-storage-rebuild.h"
+#include "dbox-sync-rebuild.h"
+#include "mdbox-storage.h"
+#include "mdbox-file.h"
+#include "mdbox-map-private.h"
+#include "mdbox-sync.h"
+#include "mdbox-storage-rebuild.h"
 
 #include <stdlib.h>
 #include <dirent.h>
 #include <unistd.h>
 
-struct dbox_rebuild_msg {
+struct mdbox_rebuild_msg {
 	uint8_t guid_128[MAIL_GUID_128_SIZE];
 	uint32_t file_id;
 	uint32_t offset;
@@ -35,12 +36,12 @@ struct rebuild_msg_mailbox {
 	uint32_t next_uid;
 };
 
-struct dbox_storage_rebuild_context {
-	struct dbox_storage *storage;
+struct mdbox_storage_rebuild_context {
+	struct mdbox_storage *storage;
 	pool_t pool;
 
 	struct hash_table *guid_hash;
-	ARRAY_DEFINE(msgs, struct dbox_rebuild_msg *);
+	ARRAY_DEFINE(msgs, struct mdbox_rebuild_msg *);
 
 	uint32_t prev_file_id;
 	uint32_t highest_seen_map_uid;
@@ -75,12 +76,12 @@ static int guid_cmp(const void *p1, const void *p2)
 	return memcmp(p1, p2, MAIL_GUID_128_SIZE);
 }
 
-static struct dbox_storage_rebuild_context *
-dbox_storage_rebuild_init(struct dbox_storage *storage)
+static struct mdbox_storage_rebuild_context *
+mdbox_storage_rebuild_init(struct mdbox_storage *storage)
 {
-	struct dbox_storage_rebuild_context *ctx;
+	struct mdbox_storage_rebuild_context *ctx;
 
-	ctx = i_new(struct dbox_storage_rebuild_context, 1);
+	ctx = i_new(struct mdbox_storage_rebuild_context, 1);
 	ctx->storage = storage;
 	ctx->pool = pool_alloconly_create("dbox map rebuild", 1024*256);
 	ctx->guid_hash = hash_table_create(default_pool, ctx->pool, 0,
@@ -89,7 +90,8 @@ dbox_storage_rebuild_init(struct dbox_storage *storage)
 	return ctx;
 }
 
-static void dbox_storage_rebuild_deinit(struct dbox_storage_rebuild_context *ctx)
+static void
+mdbox_storage_rebuild_deinit(struct mdbox_storage_rebuild_context *ctx)
 {
 	if (ctx->sync_ctx != NULL)
 		mail_index_sync_rollback(&ctx->sync_ctx);
@@ -100,9 +102,9 @@ static void dbox_storage_rebuild_deinit(struct dbox_storage_rebuild_context *ctx
 	i_free(ctx);
 }
 
-static int dbox_rebuild_msg_offset_cmp(const void *p1, const void *p2)
+static int mdbox_rebuild_msg_offset_cmp(const void *p1, const void *p2)
 {
-	const struct dbox_rebuild_msg *const *m1 = p1, *const *m2 = p2;
+	const struct mdbox_rebuild_msg *const *m1 = p1, *const *m2 = p2;
 
 	if ((*m1)->file_id < (*m2)->file_id)
 		return -1;
@@ -116,8 +118,8 @@ static int dbox_rebuild_msg_offset_cmp(const void *p1, const void *p2)
 	return 0;
 }
 
-static int dbox_rebuild_msg_uid_cmp(struct dbox_rebuild_msg *const *m1,
-				    struct dbox_rebuild_msg *const *m2)
+static int mdbox_rebuild_msg_uid_cmp(struct mdbox_rebuild_msg *const *m1,
+				     struct mdbox_rebuild_msg *const *m2)
 {
 	if ((*m1)->map_uid < (*m2)->map_uid)
 		return -1;
@@ -126,24 +128,29 @@ static int dbox_rebuild_msg_uid_cmp(struct dbox_rebuild_msg *const *m1,
 	return 0;
 }
 
-static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
+static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 			    const char *path)
 {
 	struct dbox_file *file;
 	const char *fname, *guid;
-	struct dbox_rebuild_msg *rec;
+	struct mdbox_rebuild_msg *rec;
 	uint32_t file_id;
 	uoff_t offset, prev_offset, size;
-	bool last, expunged, first, fixed = FALSE;
+	bool last, first, fixed = FALSE;
+	unsigned int len;
 	int ret = 0;
 
 	fname = strrchr(path, '/');
 	i_assert(fname != NULL);
-	fname += strlen(DBOX_MAIL_FILE_MULTI_PREFIX) + 1;
+	fname += strlen(MDBOX_MAIL_FILE_PREFIX) + 1;
 
 	file_id = strtoul(fname, NULL, 10);
 	if (!is_numeric(fname, '\0') || file_id == 0) {
-		i_warning("dbox rebuild: File name is missing ID: %s", path);
+		len = strlen(fname);
+		if (len > 7 && strcmp(fname + len - 7, ".broken") != 0) {
+			i_warning("dbox rebuild: File name is missing ID: %s",
+				  path);
+		}
 		return 0;
 	}
 
@@ -153,7 +160,7 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 		ctx->msgs_unsorted = TRUE;
 	ctx->prev_file_id = file_id;
 
-	file = dbox_file_init_multi(ctx->storage, file_id);
+	file = mdbox_file_init(ctx->storage, file_id);
 	prev_offset = 0;
 	dbox_file_seek_rewind(file);
 	while ((ret = dbox_file_seek_next(file, &offset, &last)) >= 0) {
@@ -179,7 +186,7 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 			if (!first) {
 				/* seek to the offset where we last left off */
 				ret = dbox_file_get_mail_stream(file,
-					prev_offset, &size, NULL, &expunged);
+					prev_offset, &size, NULL);
 				if (ret <= 0)
 					break;
 			}
@@ -195,7 +202,7 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 			break;
 		}
 
-		rec = p_new(ctx->pool, struct dbox_rebuild_msg, 1);
+		rec = p_new(ctx->pool, struct mdbox_rebuild_msg, 1);
 		rec->file_id = file_id;
 		rec->offset = offset;
 		rec->size = file->input->v_offset - offset;
@@ -217,11 +224,11 @@ static int rebuild_add_file(struct dbox_storage_rebuild_context *ctx,
 }
 
 static void
-rebuild_add_missing_map_uids(struct dbox_storage_rebuild_context *ctx,
+rebuild_add_missing_map_uids(struct mdbox_storage_rebuild_context *ctx,
 			     uint32_t next_uid)
 {
-	struct dbox_rebuild_msg **msgs;
-	struct dbox_mail_index_map_record rec;
+	struct mdbox_rebuild_msg **msgs;
+	struct dbox_map_mail_index_record rec;
 	unsigned int i, count;
 	uint32_t seq;
 
@@ -243,18 +250,18 @@ rebuild_add_missing_map_uids(struct dbox_storage_rebuild_context *ctx,
 	}
 }
 
-static int rebuild_apply_map(struct dbox_storage_rebuild_context *ctx)
+static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 {
 	struct dbox_map *map = ctx->storage->map;
 	const struct mail_index_header *hdr;
-	struct dbox_rebuild_msg *const *msgs, **pos;
-	struct dbox_rebuild_msg search_msg, *search_msgp = &search_msg;
+	struct mdbox_rebuild_msg *const *msgs, **pos;
+	struct mdbox_rebuild_msg search_msg, *search_msgp = &search_msg;
 	struct dbox_mail_lookup_rec rec;
 	uint32_t seq;
 	unsigned int count;
 
 	if (ctx->msgs_unsorted)
-		array_sort(&ctx->msgs, dbox_rebuild_msg_offset_cmp);
+		array_sort(&ctx->msgs, mdbox_rebuild_msg_offset_cmp);
 
 	msgs = array_get_modifiable(&ctx->msgs, &count);
 	hdr = mail_index_get_header(ctx->sync_view);
@@ -267,7 +274,7 @@ static int rebuild_apply_map(struct dbox_storage_rebuild_context *ctx)
 		search_msg.file_id = rec.rec.file_id;
 		search_msg.offset = rec.rec.offset;
 		pos = bsearch(&search_msgp, msgs, count, sizeof(*msgs),
-			      dbox_rebuild_msg_offset_cmp);
+			      mdbox_rebuild_msg_offset_cmp);
 		if (pos == NULL) {
 			/* map record points to non-existing message. */
 			mail_index_expunge(ctx->trans, seq);
@@ -281,33 +288,34 @@ static int rebuild_apply_map(struct dbox_storage_rebuild_context *ctx)
 
 	/* afterwards we're interested in looking up map_uids.
 	   re-sort the messages to make it easier. */
-	array_sort(&ctx->msgs, dbox_rebuild_msg_uid_cmp);
+	array_sort(&ctx->msgs, mdbox_rebuild_msg_uid_cmp);
 	return 0;
 }
 
-static struct dbox_rebuild_msg *
-rebuild_lookup_map_uid(struct dbox_storage_rebuild_context *ctx,
+static struct mdbox_rebuild_msg *
+rebuild_lookup_map_uid(struct mdbox_storage_rebuild_context *ctx,
 		       uint32_t map_uid)
 {
-	struct dbox_rebuild_msg search_msg, *search_msgp = &search_msg;
-	struct dbox_rebuild_msg **pos;
+	struct mdbox_rebuild_msg search_msg, *search_msgp = &search_msg;
+	struct mdbox_rebuild_msg **pos;
 
 	search_msg.map_uid = map_uid;
-	pos = array_bsearch(&ctx->msgs, &search_msgp, dbox_rebuild_msg_uid_cmp);
+	pos = array_bsearch(&ctx->msgs, &search_msgp,
+			    mdbox_rebuild_msg_uid_cmp);
 	return pos == NULL ? NULL : *pos;
 }
 
 static void
-rebuild_mailbox_multi(struct dbox_storage_rebuild_context *ctx,
+rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 		      struct dbox_sync_rebuild_context *rebuild_ctx,
-		      struct dbox_mailbox *mbox,
+		      struct mdbox_mailbox *mbox,
 		      struct mail_index_view *view,
 		      struct mail_index_transaction *trans)
 {
-	const struct dbox_mail_index_record *dbox_rec;
-	struct dbox_mail_index_record new_dbox_rec;
+	const struct mdbox_mail_index_record *dbox_rec;
+	struct mdbox_mail_index_record new_dbox_rec;
 	const struct mail_index_header *hdr;
-	struct dbox_rebuild_msg *rec;
+	struct mdbox_rebuild_msg *rec;
 	const void *data;
 	bool expunged;
 	uint32_t seq, uid, new_seq, map_uid;
@@ -315,7 +323,7 @@ rebuild_mailbox_multi(struct dbox_storage_rebuild_context *ctx,
 	memset(&new_dbox_rec, 0, sizeof(new_dbox_rec));
 	hdr = mail_index_get_header(view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		mail_index_lookup_ext(view, seq, mbox->dbox_ext_id,
+		mail_index_lookup_ext(view, seq, mbox->ext_id,
 				      &data, &expunged);
 		dbox_rec = data;
 		map_uid = dbox_rec == NULL ? 0 : dbox_rec->map_uid;
@@ -345,7 +353,7 @@ rebuild_mailbox_multi(struct dbox_storage_rebuild_context *ctx,
 			/* map_uid is wrong, update it */
 			i_assert(rec->map_uid != 0);
 			new_dbox_rec.map_uid = rec->map_uid;
-			mail_index_update_ext(trans, seq, mbox->dbox_ext_id,
+			mail_index_update_ext(trans, seq, mbox->ext_id,
 					      &new_dbox_rec, NULL);
 		} else {
 			/* everything was ok */
@@ -358,22 +366,21 @@ rebuild_mailbox_multi(struct dbox_storage_rebuild_context *ctx,
 			mail_index_lookup_uid(view, seq, &uid);
 			mail_index_append(trans, uid, &new_seq);
 			dbox_sync_rebuild_index_metadata(rebuild_ctx,
-							 NULL, new_seq, uid);
+							 new_seq, uid);
 
 			new_dbox_rec.map_uid = rec->map_uid;
-			mail_index_update_ext(trans, new_seq,
-					      mbox->dbox_ext_id,
+			mail_index_update_ext(trans, new_seq, mbox->ext_id,
 					      &new_dbox_rec, NULL);
 		} T_END;
 	}
 }
 
 static int
-rebuild_mailbox(struct dbox_storage_rebuild_context *ctx,
+rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 		struct mail_namespace *ns, const char *name)
 {
 	struct mailbox *box;
-	struct dbox_mailbox *mbox;
+	struct mdbox_mailbox *mbox;
         struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
@@ -381,10 +388,11 @@ rebuild_mailbox(struct dbox_storage_rebuild_context *ctx,
 	enum mail_error error;
 	int ret;
 
-	box = dbox_mailbox_alloc(&ctx->storage->storage, ns->list, name, NULL,
-				 MAILBOX_FLAG_READONLY |
-				 MAILBOX_FLAG_KEEP_RECENT |
-				 MAILBOX_FLAG_IGNORE_ACLS);
+	box = mdbox_mailbox_alloc(&ctx->storage->storage.storage,
+				  ns->list, name, NULL,
+				  MAILBOX_FLAG_READONLY |
+				  MAILBOX_FLAG_KEEP_RECENT |
+				  MAILBOX_FLAG_IGNORE_ACLS);
 	if (dbox_mailbox_open(box) < 0) {
 		(void)mail_storage_get_last_error(box->storage, &error);
 		mailbox_close(&box);
@@ -393,7 +401,7 @@ rebuild_mailbox(struct dbox_storage_rebuild_context *ctx,
 		/* non-temporary error, ignore */
 		return 0;
 	}
-	mbox = (struct dbox_mailbox *)box;
+	mbox = (struct mdbox_mailbox *)box;
 
 	ret = mail_index_sync_begin(mbox->ibox.index, &sync_ctx, &view, &trans,
 				    MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES);
@@ -404,10 +412,8 @@ rebuild_mailbox(struct dbox_storage_rebuild_context *ctx,
 		return -1;
 	}
 
-	rebuild_ctx = dbox_sync_index_rebuild_init(mbox, view, trans, TRUE);
-	ret = dbox_sync_index_rebuild_singles(rebuild_ctx);
-	if (ret == 0)
-		rebuild_mailbox_multi(ctx, rebuild_ctx, mbox, view, trans);
+	rebuild_ctx = dbox_sync_index_rebuild_init(&mbox->ibox, view, trans);
+	rebuild_mailbox_multi(ctx, rebuild_ctx, mbox, view, trans);
 	dbox_sync_index_rebuild_deinit(&rebuild_ctx);
 
 	if (mail_index_sync_commit(&sync_ctx) < 0) {
@@ -419,8 +425,9 @@ rebuild_mailbox(struct dbox_storage_rebuild_context *ctx,
 	return ret < 0 ? -1 : 0;
 }
 
-static int rebuild_namespace_mailboxes(struct dbox_storage_rebuild_context *ctx,
-				       struct mail_namespace *ns)
+static int
+rebuild_namespace_mailboxes(struct mdbox_storage_rebuild_context *ctx,
+			    struct mail_namespace *ns)
 {
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
@@ -449,13 +456,13 @@ static int rebuild_namespace_mailboxes(struct dbox_storage_rebuild_context *ctx,
 	return ret;
 }
 
-static int rebuild_mailboxes(struct dbox_storage_rebuild_context *ctx)
+static int rebuild_mailboxes(struct mdbox_storage_rebuild_context *ctx)
 {
-	struct mail_user *user = ctx->storage->storage.user;
+	struct mail_user *user = ctx->storage->storage.storage.user;
 	struct mail_namespace *ns;
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->storage == &ctx->storage->storage &&
+		if (ns->storage == &ctx->storage->storage.storage &&
 		    ns->alias_for == NULL) {
 			if (rebuild_namespace_mailboxes(ctx, ns) < 0)
 				return -1;
@@ -473,33 +480,34 @@ static int rebuild_msg_mailbox_commit(struct rebuild_msg_mailbox *msg)
 	return 0;
 }
 
-static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
-			       struct dbox_rebuild_msg *msg)
+static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
+			       struct mdbox_rebuild_msg *msg)
 {
-	struct mail_storage *storage = &ctx->storage->storage;
+	struct mail_storage *storage = &ctx->storage->storage.storage;
 	struct dbox_file *file;
 	const struct mail_index_header *hdr;
-	struct dbox_mail_index_record dbox_rec;
+	struct mdbox_mail_index_record dbox_rec;
 	const char *mailbox = NULL;
 	struct mailbox *box;
-	struct dbox_mailbox *mbox;
+	struct mdbox_mailbox *mbox;
 	enum mail_error error;
-	bool expunged, created;
+	bool deleted, created;
 	uoff_t size;
 	int ret;
 	uint32_t seq;
 
 	/* first see if message contains the mailbox it was originally
 	   saved to */
-	file = dbox_file_init_multi(ctx->storage, msg->file_id);
-	ret = dbox_file_get_mail_stream(file, msg->offset, &size, NULL,
-					&expunged);
-	if (ret > 0 && !expunged && dbox_file_metadata_read(file) > 0) {
+	file = mdbox_file_init(ctx->storage, msg->file_id);
+	ret = dbox_file_open(file, &deleted);
+	if (ret > 0)
+		ret = dbox_file_get_mail_stream(file, msg->offset, &size, NULL);
+	if (ret > 0 && !deleted && dbox_file_metadata_read(file) > 0) {
 		mailbox = dbox_file_metadata_get(file,
 						 DBOX_METADATA_ORIG_MAILBOX);
 	}
 	dbox_file_unref(&file);
-	if (ret <= 0 || expunged) {
+	if (ret <= 0 || deleted) {
 		if (ret < 0)
 			return -1;
 		/* we shouldn't get here, so apparently we couldn't fix
@@ -517,11 +525,11 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 		strcmp(mailbox, ctx->prev_msg.box->name) == 0 ?
 		ctx->prev_msg.box : NULL;
 	while (box == NULL) {
-		box = dbox_mailbox_alloc(storage, ctx->default_list,
-					 mailbox, NULL,
-					 MAILBOX_FLAG_READONLY |
-					 MAILBOX_FLAG_KEEP_RECENT |
-					 MAILBOX_FLAG_IGNORE_ACLS);
+		box = mdbox_mailbox_alloc(storage, ctx->default_list,
+					  mailbox, NULL,
+					  MAILBOX_FLAG_READONLY |
+					  MAILBOX_FLAG_KEEP_RECENT |
+					  MAILBOX_FLAG_IGNORE_ACLS);
 		if (dbox_mailbox_open(box) == 0)
 			break;
 
@@ -547,7 +555,7 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 			return -1;
 		}
 	}
-	mbox = (struct dbox_mailbox *)box;
+	mbox = (struct mdbox_mailbox *)box;
 
 	/* switch the mailbox cache if necessary */
 	if (box != ctx->prev_msg.box && ctx->prev_msg.box != NULL) {
@@ -575,7 +583,7 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 	dbox_rec.map_uid = msg->map_uid;
 	dbox_rec.save_date = ioloop_time;
 	mail_index_append(ctx->prev_msg.trans, ctx->prev_msg.next_uid++, &seq);
-	mail_index_update_ext(ctx->prev_msg.trans, seq, mbox->dbox_ext_id,
+	mail_index_update_ext(ctx->prev_msg.trans, seq, mbox->ext_id,
 			      &dbox_rec, NULL);
 	mail_index_update_ext(ctx->prev_msg.trans, seq, mbox->guid_ext_id,
 			      msg->guid_128, NULL);
@@ -584,9 +592,9 @@ static int rebuild_restore_msg(struct dbox_storage_rebuild_context *ctx,
 	return 0;
 }
 
-static int rebuild_handle_zero_refs(struct dbox_storage_rebuild_context *ctx)
+static int rebuild_handle_zero_refs(struct mdbox_storage_rebuild_context *ctx)
 {
-	struct dbox_rebuild_msg **msgs;
+	struct mdbox_rebuild_msg **msgs;
 	unsigned int i, count;
 
 	/* if we have messages at this point which have refcount=0, they're
@@ -614,11 +622,11 @@ static int rebuild_handle_zero_refs(struct dbox_storage_rebuild_context *ctx)
 	return 0;
 }
 
-static void rebuild_update_refcounts(struct dbox_storage_rebuild_context *ctx)
+static void rebuild_update_refcounts(struct mdbox_storage_rebuild_context *ctx)
 {
 	const struct mail_index_header *hdr;
 	const void *data;
-	struct dbox_rebuild_msg **msgs;
+	struct mdbox_rebuild_msg **msgs;
 	const uint16_t *ref16_p;
 	bool expunged;
 	uint32_t seq, map_uid;
@@ -655,7 +663,7 @@ static void rebuild_update_refcounts(struct dbox_storage_rebuild_context *ctx)
 	}
 }
 
-static int rebuild_finish(struct dbox_storage_rebuild_context *ctx)
+static int rebuild_finish(struct mdbox_storage_rebuild_context *ctx)
 {
 	if (rebuild_handle_zero_refs(ctx) < 0)
 		return -1;
@@ -663,7 +671,7 @@ static int rebuild_finish(struct dbox_storage_rebuild_context *ctx)
 	return 0;
 }
 
-static int dbox_storage_rebuild_scan(struct dbox_storage_rebuild_context *ctx)
+static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 {
 	const struct mail_index_header *hdr;
 	DIR *dir;
@@ -682,7 +690,7 @@ static int dbox_storage_rebuild_scan(struct dbox_storage_rebuild_context *ctx)
 				    &ctx->sync_view, &ctx->trans, 0);
 	if (ret <= 0) {
 		i_assert(ret != 0);
-		mail_storage_set_internal_error(&ctx->storage->storage);
+		mail_storage_set_internal_error(&ctx->storage->storage.storage);
 		mail_index_reset_error(ctx->storage->map->index);
 		return -1;
 	}
@@ -697,7 +705,7 @@ static int dbox_storage_rebuild_scan(struct dbox_storage_rebuild_context *ctx)
 
 	dir = opendir(ctx->storage->storage_dir);
 	if (dir == NULL) {
-		mail_storage_set_critical(&ctx->storage->storage,
+		mail_storage_set_critical(&ctx->storage->storage.storage,
 			"opendir(%s) failed: %m", ctx->storage->storage_dir);
 		return -1;
 	}
@@ -707,8 +715,8 @@ static int dbox_storage_rebuild_scan(struct dbox_storage_rebuild_context *ctx)
 	dir_len = str_len(path);
 
 	for (errno = 0; (d = readdir(dir)) != NULL; errno = 0) {
-		if (strncmp(d->d_name, DBOX_MAIL_FILE_MULTI_PREFIX,
-			    strlen(DBOX_MAIL_FILE_MULTI_PREFIX)) == 0) {
+		if (strncmp(d->d_name, MDBOX_MAIL_FILE_PREFIX,
+			    strlen(MDBOX_MAIL_FILE_PREFIX)) == 0) {
 			str_truncate(path, dir_len);
 			str_append(path, d->d_name);
 			T_BEGIN {
@@ -721,12 +729,12 @@ static int dbox_storage_rebuild_scan(struct dbox_storage_rebuild_context *ctx)
 		}
 	}
 	if (ret == 0 && errno != 0) {
-		mail_storage_set_critical(&ctx->storage->storage,
+		mail_storage_set_critical(&ctx->storage->storage.storage,
 			"readdir(%s) failed: %m", ctx->storage->storage_dir);
 		ret = -1;
 	}
 	if (closedir(dir) < 0) {
-		mail_storage_set_critical(&ctx->storage->storage,
+		mail_storage_set_critical(&ctx->storage->storage.storage,
 			"closedir(%s) failed: %m", ctx->storage->storage_dir);
 		ret = -1;
 	}
@@ -740,9 +748,9 @@ static int dbox_storage_rebuild_scan(struct dbox_storage_rebuild_context *ctx)
 	return 0;
 }
 
-int dbox_storage_rebuild(struct dbox_storage *storage)
+int mdbox_storage_rebuild(struct mdbox_storage *storage)
 {
-	struct dbox_storage_rebuild_context *ctx;
+	struct mdbox_storage_rebuild_context *ctx;
 	struct stat st;
 	int ret;
 
@@ -752,19 +760,18 @@ int dbox_storage_rebuild(struct dbox_storage *storage)
 			return 0;
 		}
 
-		mail_storage_set_critical(&storage->storage,
+		mail_storage_set_critical(&storage->storage.storage,
 			"stat(%s) failed: %m", storage->storage_dir);
 		return -1;
 	}
-	storage->have_multi_msgs = TRUE;
 
 	i_warning("dbox %s: rebuilding indexes", storage->storage_dir);
 
-	ctx = dbox_storage_rebuild_init(storage);
-	ret = dbox_storage_rebuild_scan(ctx);
-	dbox_storage_rebuild_deinit(ctx);
+	ctx = mdbox_storage_rebuild_init(storage);
+	ret = mdbox_storage_rebuild_scan(ctx);
+	mdbox_storage_rebuild_deinit(ctx);
 
 	if (ret == 0)
-		storage->sync_rebuild = FALSE;
+		storage->storage.files_corrupted = FALSE;
 	return ret;
 }

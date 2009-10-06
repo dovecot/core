@@ -1,19 +1,17 @@
-#ifndef DBOX_MAP_H
-#define DBOX_MAP_H
+#ifndef MDBOX_MAP_H
+#define MDBOX_MAP_H
 
 #include "seq-range-array.h"
 
-struct dbox_storage;
-struct dbox_mailbox;
-struct dbox_file;
 struct dbox_map_append_context;
-struct dbox_mail_lookup_rec;
+struct dbox_file_append_context;
+struct mdbox_storage;
 
-struct dbox_mail_index_map_header {
+struct dbox_map_mail_index_header {
 	uint32_t highest_file_id;
 };
 
-struct dbox_mail_index_map_record {
+struct dbox_map_mail_index_record {
 	uint32_t file_id;
 	uint32_t offset;
 	uint32_t size; /* including pre/post metadata */
@@ -26,7 +24,9 @@ struct dbox_map_file_msg {
 };
 ARRAY_DEFINE_TYPE(dbox_map_file_msg, struct dbox_map_file_msg);
 
-struct dbox_map *dbox_map_init(struct dbox_storage *storage);
+struct dbox_map *
+dbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list,
+	      const char *path);
 void dbox_map_deinit(struct dbox_map **map);
 
 /* Open the map. This is done automatically for most operations.
@@ -61,23 +61,19 @@ bool dbox_map_want_purge(struct dbox_map *map);
 const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map);
 
 struct dbox_map_append_context *
-dbox_map_append_begin(struct dbox_mailbox *mbox);
-struct dbox_map_append_context *
-dbox_map_append_begin_storage(struct dbox_storage *storage);
+dbox_map_append_begin(struct dbox_map *map);
 /* Request file for saving a new message with given size (if available). If an
    existing file can be used, the record is locked and updated in index.
    Returns 0 if ok, -1 if error. */
 int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
-			 struct dbox_file **file_r, struct ostream **output_r);
+			 struct dbox_file_append_context **file_append_ctx_r,
+			 struct ostream **output_r);
 /* Finished saving the last mail. Saves the message size. */
-void dbox_map_append_finish_multi_mail(struct dbox_map_append_context *ctx);
+void dbox_map_append_finish(struct dbox_map_append_context *ctx);
 /* Assign map UIDs to all appended msgs to multi-files. */
 int dbox_map_append_assign_map_uids(struct dbox_map_append_context *ctx,
 				    uint32_t *first_map_uid_r,
 				    uint32_t *last_map_uid_r);
-/* Assign UIDs to all created single-files. */
-int dbox_map_append_assign_uids(struct dbox_map_append_context *ctx,
-				const ARRAY_TYPE(seq_range) *uids);
 /* The appends are existing messages that were simply moved to a new file.
    map_uids contains the moved messages' map UIDs. */
 int dbox_map_append_move(struct dbox_map_append_context *ctx,

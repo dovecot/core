@@ -216,12 +216,12 @@ AC_ARG_WITH(gc,
 
 AC_ARG_WITH(storages,
 [  --with-storages         Build with specified mail storage formats
-                          (maildir mbox dbox cydir)], [
+                          (maildir mbox dbox mdbox cydir)], [
 	if test "$withval" = "yes" || test "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
 	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
-	mail_storages="shared maildir mbox dbox cydir")
+	mail_storages="shared maildir mbox dbox mdbox cydir")
 AC_SUBST(mail_storages)
 
 AC_ARG_WITH(sql-drivers,
@@ -2273,7 +2273,9 @@ dnl **
 
 maildir_libs='$(top_builddir)/src/lib-storage/index/maildir/libstorage_maildir.la'
 mbox_libs='$(top_builddir)/src/lib-storage/index/mbox/libstorage_mbox.la'
-dbox_libs='$(top_builddir)/src/lib-storage/index/dbox/libstorage_dbox.la'
+dbox_common_libs='$(top_builddir)/src/lib-storage/index/dbox-common/libstorage_dbox_common.la'
+dbox_libs='$(top_builddir)/src/lib-storage/index/dbox-single/libstorage_dbox_single.la'
+mdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-multi/libstorage_dbox_multi.la'
 cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.la'
 raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.la'
 shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.la'
@@ -2287,6 +2289,10 @@ mail_storages="$mail_storages raw"
 mail_storages=`(for i in $mail_storages; do echo $i; done)|sort|uniq|xargs echo`
 for storage in $mail_storages; do
   LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS `eval echo \\$${storage}_libs`"
+  if test $storage = dbox || test $storage = mdbox; then
+    LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS $dbox_common_libs"
+    dbox_common_libs=""
+  fi
 done
 AC_SUBST(LINKED_STORAGE_LIBS)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
@@ -2480,7 +2486,9 @@ src/lib-storage/list/Makefile
 src/lib-storage/index/Makefile
 src/lib-storage/index/maildir/Makefile
 src/lib-storage/index/mbox/Makefile
-src/lib-storage/index/dbox/Makefile
+src/lib-storage/index/dbox-common/Makefile
+src/lib-storage/index/dbox-multi/Makefile
+src/lib-storage/index/dbox-single/Makefile
 src/lib-storage/index/cydir/Makefile
 src/lib-storage/index/raw/Makefile
 src/lib-storage/index/shared/Makefile

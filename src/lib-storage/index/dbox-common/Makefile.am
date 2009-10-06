@@ -1,4 +1,4 @@
-noinst_LTLIBRARIES = libstorage_dbox.la
+noinst_LTLIBRARIES = libstorage_dbox_common.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,29 +9,20 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index
 
-libstorage_dbox_la_SOURCES = \
+libstorage_dbox_common_la_SOURCES = \
 	dbox-file.c \
 	dbox-file-fix.c \
-	dbox-file-maildir.c \
 	dbox-mail.c \
-	dbox-map.c \
 	dbox-save.c \
-	dbox-settings.c \
-	dbox-sync.c \
-	dbox-sync-file.c \
-	dbox-sync-rebuild.c \
 	dbox-storage.c \
-	dbox-storage-rebuild.c
+	dbox-sync-rebuild.c
 
 headers = \
 	dbox-file.h \
-	dbox-file-maildir.h \
-	dbox-map.h \
-	dbox-map-private.h \
-	dbox-settings.h \
+	dbox-mail.h \
+	dbox-save.h \
 	dbox-storage.h \
-	dbox-storage-rebuild.h \
-	dbox-sync.h
+	dbox-sync-rebuild.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)
