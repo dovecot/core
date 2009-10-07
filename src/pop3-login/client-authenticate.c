@@ -155,6 +155,7 @@ bool cmd_apop(struct pop3_client *pop3_client, const char *args)
 	struct client *client = &pop3_client->common;
 	buffer_t *apop_data, *base64;
 	const char *p;
+	unsigned int server_pid, connect_uid;
 
 	if (pop3_client->apop_challenge == NULL) {
 		if (client->set->verbose_auth)
@@ -194,6 +195,17 @@ bool cmd_apop(struct pop3_client *pop3_client, const char *args)
 	base64 = buffer_create_dynamic(pool_datastack_create(),
         			MAX_BASE64_ENCODED_SIZE(apop_data->used));
 	base64_encode(apop_data->data, apop_data->used, base64);
+
+	auth_client_get_connect_id(auth_client, &server_pid, &connect_uid);
+	if (pop3_client->apop_server_pid != server_pid ||
+	    pop3_client->apop_connect_uid != connect_uid) {
+		/* we reconnected to auth server and can't authenticate
+		   with APOP in this session anymore. disconnecting the user
+		   is probably the best solution now. */
+		client_destroy(client,
+			"Reconnected to auth server, can't do APOP");
+		return TRUE;
+	}
 
 	(void)client_auth_begin(client, "APOP", str_c(base64));
 	return TRUE;

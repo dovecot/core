@@ -19,7 +19,7 @@ struct pop3_client {
 
 	char *last_user;
 	char *apop_challenge;
-	struct auth_connect_id auth_id;
+	unsigned int apop_server_pid, apop_connect_uid;
 };
 
 #endif

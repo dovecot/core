@@ -98,7 +98,7 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 }
 
 static void
-master_send_request(struct client *client, struct auth_request *request)
+master_send_request(struct client *client, struct auth_client_request *request)
 {
 	struct master_auth_request req;
 	const unsigned char *data;
@@ -159,9 +159,10 @@ static bool anvil_has_too_many_connections(struct client *client)
 		client->set->mail_max_userip_connections;
 }
 
-static void authenticate_callback(struct auth_request *request, int status,
-				  const char *data_base64,
-				  const char *const *args, void *context)
+static void
+authenticate_callback(struct auth_client_request *request,
+		      enum auth_request_status status, const char *data_base64,
+		      const char *const *args, void *context)
 {
 	struct client *client = context;
 	unsigned int i;
@@ -175,12 +176,12 @@ static void authenticate_callback(struct auth_request *request, int status,
 
 	i_assert(client->auth_request == request);
 	switch (status) {
-	case 0:
+	case AUTH_REQUEST_STATUS_CONTINUE:
 		/* continue */
 		client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
 				      data_base64, NULL);
 		break;
-	case 1:
+	case AUTH_REQUEST_STATUS_OK:
 		client->auth_request = NULL;
 
 		nologin = FALSE;
@@ -209,7 +210,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 			master_send_request(client, request);
 		}
 		break;
-	case -1:
+	case AUTH_REQUEST_STATUS_FAIL:
 		client->auth_request = NULL;
 
 		if (args != NULL) {
@@ -237,7 +238,6 @@ void sasl_server_auth_begin(struct client *client,
 {
 	struct auth_request_info info;
 	const struct auth_mech_desc *mech;
-	const char *error;
 
 	client->auth_attempts++;
 	client->authenticating = TRUE;
@@ -274,12 +274,8 @@ void sasl_server_auth_begin(struct client *client,
 	info.initial_resp_base64 = initial_resp_base64;
 
 	client->auth_request =
-		auth_client_request_new(auth_client, NULL, &info,
-					authenticate_callback, client, &error);
-	if (client->auth_request == NULL) {
-		sasl_server_auth_failed(client,
-			 t_strconcat("Authentication failed: ", error, NULL));
-	}
+		auth_client_request_new(auth_client, &info,
+					authenticate_callback, client);
 }
 
 static void sasl_server_auth_cancel(struct client *client, const char *reason,
@@ -295,10 +291,8 @@ static void sasl_server_auth_cancel(struct client *client, const char *reason,
 	}
 
 	client->authenticating = FALSE;
-	if (client->auth_request != NULL) {
-		auth_client_request_abort(client->auth_request);
-		client->auth_request = NULL;
-	}
+	if (client->auth_request != NULL)
+		auth_client_request_abort(&client->auth_request);
 
 	call_client_callback(client, reply, reason, NULL);
 }

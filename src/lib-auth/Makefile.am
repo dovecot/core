@@ -5,16 +5,17 @@ AM_CPPFLAGS = \
 
 libauth_la_SOURCES = \
 	auth-client.c \
+	auth-client-request.c \
 	auth-master.c \
-	auth-server-connection.c \
-	auth-server-request.c
+	auth-server-connection.c
 
 headers = \
 	auth-client.h \
 	auth-client-interface.h \
+	auth-client-private.h \
+	auth-client-request.h \
 	auth-master.h \
-	auth-server-connection.h \
-	auth-server-request.h
+	auth-server-connection.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)

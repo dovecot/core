@@ -1,118 +1,39 @@
-/* Copyright (c) 2003-2009 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
-#include "ioloop.h"
-#include "hash.h"
-#include "auth-client.h"
+#include "array.h"
+#include "auth-client-private.h"
 #include "auth-server-connection.h"
 
-#include <dirent.h>
-#include <sys/stat.h>
-
-#define AUTH_CLIENT_SOCKET_MAX_WAIT_TIME 10
-
-struct auth_client *auth_client_new(unsigned int client_pid)
+struct auth_client *
+auth_client_init(const char *auth_socket_path, unsigned int client_pid,
+		 bool debug)
 {
 	struct auth_client *client;
 
 	client = i_new(struct auth_client, 1);
-	client->pid = client_pid;
-	client->available_auth_mechs = buffer_create_dynamic(default_pool, 128);
-
-	auth_client_connect_missing_servers(client);
+	client->client_pid = client_pid;
+	client->auth_socket_path = i_strdup(auth_socket_path);
+	client->debug = debug;
+	client->conn = auth_server_connection_init(client);
+	(void)auth_server_connection_connect(client->conn);
 	return client;
 }
 
-void auth_client_free(struct auth_client **_client)
+void auth_client_deinit(struct auth_client **_client)
 {
 	struct auth_client *client = *_client;
-	struct auth_server_connection *next;
-	struct auth_mech_desc *mech;
-	size_t i, size;
 
 	*_client = NULL;
 
-	mech = buffer_get_modifiable_data(client->available_auth_mechs, &size);
-	size /= sizeof(*mech);
-	for (i = 0; i < size; i++)
-		i_free(mech[i].name);
-	buffer_free(&client->available_auth_mechs);
-
-	while (client->connections != NULL) {
-		next = client->connections->next;
-		auth_server_connection_destroy(&client->connections, FALSE);
-		client->connections = next;
-	}
-
-	if (client->to_reconnect != NULL)
-		timeout_remove(&client->to_reconnect);
+	auth_server_connection_deinit(&client->conn);
+	i_free(client->auth_socket_path);
 	i_free(client);
-}
-
-void auth_client_reconnect(struct auth_client *client)
-{
-	struct auth_server_connection *next;
-
-	while (client->connections != NULL) {
-		next = client->connections->next;
-		auth_server_connection_destroy(&client->connections, FALSE);
-		client->connections = next;
-	}
-
-	auth_client_connect_missing_servers(client);
-}
-
-const struct auth_mech_desc *
-auth_client_get_available_mechs(struct auth_client *client,
-				unsigned int *mech_count)
-{
-	const struct auth_mech_desc *mechs;
-	size_t size;
-
-	mechs = buffer_get_data(client->available_auth_mechs, &size);
-	*mech_count = size / sizeof(*mechs);
-	return mechs;
-}
-
-const struct auth_mech_desc *
-auth_client_find_mech(struct auth_client *client, const char *name)
-{
-	const struct auth_mech_desc *mech;
-	size_t i, size;
-
-	mech = buffer_get_data(client->available_auth_mechs, &size);
-	size /= sizeof(*mech);
-	for (i = 0; i < size; i++) {
-		if (strcasecmp(mech[i].name, name) == 0)
-			return &mech[i];
-	}
-
-	return NULL;
-}
-
-bool auth_client_reserve_connection(struct auth_client *client,
-				    const char *mech,
-				    struct auth_connect_id *id_r)
-{
-	struct auth_server_connection *conn;
-	const char *error;
-
-	conn = auth_server_connection_find_mech(client, mech, &error);
-	if (conn == NULL)
-		return FALSE;
-
-	id_r->server_pid = conn->server_pid;
-	id_r->connect_uid = conn->connect_uid;
-
-	return TRUE;
 }
 
 bool auth_client_is_connected(struct auth_client *client)
 {
-	return !client->reconnect &&
-		client->conn_waiting_handshake_count == 0 &&
-		client->connections != NULL;
+	return client->conn->handshake_received;
 }
 
 void auth_client_set_connect_notify(struct auth_client *client,
@@ -123,67 +44,31 @@ void auth_client_set_connect_notify(struct auth_client *client,
 	client->connect_notify_context = context;
 }
 
-static void reconnect_timeout(struct auth_client *client)
+const struct auth_mech_desc *
+auth_client_get_available_mechs(struct auth_client *client,
+				unsigned int *mech_count)
 {
-	auth_client_connect_missing_servers(client);
+	return array_get(&client->conn->available_auth_mechs, mech_count);
 }
 
-void auth_client_connect_missing_servers(struct auth_client *client)
+const struct auth_mech_desc *
+auth_client_find_mech(struct auth_client *client, const char *name)
 {
-	DIR *dirp;
-	struct dirent *dp;
-	struct stat st;
+	const struct auth_mech_desc *mechs;
+	unsigned int i, count;
 
-	/* we're chrooted */
-	dirp = opendir(".");
-	if (dirp == NULL) {
-		i_fatal("opendir(.) failed when trying to get list of "
-			"authentication servers: %m");
+	mechs = array_get(&client->conn->available_auth_mechs, &count);
+	for (i = 0; i < count; i++) {
+		if (strcasecmp(mechs[i].name, name) == 0)
+			return &mechs[i];
 	}
+	return NULL;
+}
 
-	client->reconnect = FALSE;
-	while ((dp = readdir(dirp)) != NULL) {
-		const char *name = dp->d_name;
-
-		if (name[0] == '.')
-			continue;
-
-		if (auth_server_connection_find_path(client, name) != NULL) {
-			/* already connected */
-			continue;
-		}
-
-		/* Normally they're sockets, but in UnixWare they're
-		   created as fifos. */
-		if (stat(name, &st) == 0 &&
-		    (S_ISSOCK(st.st_mode) || S_ISFIFO(st.st_mode))) {
-			if (auth_server_connection_new(client, name) == NULL)
-				client->reconnect = TRUE;
-		}
-	}
-
-	if (client->connections == NULL && !client->reconnect) {
-		if (client->missing_sockets_start_time == 0)
-			client->missing_sockets_start_time = ioloop_time;
-		else if (ioloop_time - client->missing_sockets_start_time >
-			 AUTH_CLIENT_SOCKET_MAX_WAIT_TIME)
-			i_fatal("No authentication sockets found");
-	}
-
-	if (closedir(dirp) < 0)
-		i_error("closedir() failed: %m");
-
-	if (client->reconnect || client->connections == NULL) {
-		if (client->to_reconnect == NULL) {
-			client->to_reconnect =
-				timeout_add(1000, reconnect_timeout, client);
-		}
-	} else if (client->to_reconnect != NULL)
-		timeout_remove(&client->to_reconnect);
-
-	if (client->connect_notify_callback != NULL) {
-		client->connect_notify_callback(client,
-				auth_client_is_connected(client),
-				client->connect_notify_context);
-	}
+void auth_client_get_connect_id(struct auth_client *client,
+				unsigned int *server_pid_r,
+				unsigned int *connect_uid_r)
+{
+	*server_pid_r = client->conn->server_pid;
+	*connect_uid_r = client->conn->connect_uid;
 }

@@ -68,9 +68,11 @@ static int authtest_userdb(const struct authtest_input *input)
 	return ret == 0 ? 1 : 0;
 }
 
-static void auth_callback(struct auth_request *request ATTR_UNUSED, int status,
-			  const char *data_base64 ATTR_UNUSED,
-			  const char *const *args, void *context)
+static void
+auth_callback(struct auth_client_request *request ATTR_UNUSED,
+	      enum auth_request_status status,
+	      const char *data_base64 ATTR_UNUSED,
+	      const char *const *args, void *context)
 {
 	const struct authtest_input *input = context;
 
@@ -97,10 +99,8 @@ static void auth_connected(struct auth_client *client,
 			   bool connected, void *context)
 {
 	struct authtest_input *input = context;
-	struct auth_request *request;
 	struct auth_request_info info;
 	string_t *init_resp, *base64_resp;
-	const char *error;
 
 	if (!connected)
 		i_fatal("Couldn't connect to auth socket");
@@ -123,30 +123,25 @@ static void auth_connected(struct auth_client *client,
 	info.remote_port = input->info.remote_port;
 	info.initial_resp_base64 = str_c(base64_resp);
 
-	request = auth_client_request_new(client, NULL, &info,
-					  auth_callback, input, &error);
-	if (request == NULL)
-		i_fatal("passdb lookup failed: %s", error);
+	(void)auth_client_request_new(client, &info,
+				      auth_callback, input);
 }
 
 static int
 authtest_passdb(struct authtest_input *input)
 {
 	struct auth_client *client;
-	struct auth_server_connection *conn;
 
 	if (auth_socket_path == NULL)
 		auth_socket_path = PKG_RUNDIR"/auth-client";
 
-	client = auth_client_new(getpid());
+	client = auth_client_init(auth_socket_path, getpid(), FALSE);
 	auth_client_set_connect_notify(client, auth_connected, input);
-	conn = auth_server_connection_new(client, auth_socket_path);
 
 	io_loop_run(current_ioloop);
 
 	auth_client_set_connect_notify(client, NULL, NULL);
-	auth_server_connection_destroy(&conn, FALSE);
-	auth_client_free(&client);
+	auth_client_deinit(&client);
 	return 0;
 }
 

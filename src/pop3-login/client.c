@@ -119,12 +119,11 @@ static void pop3_client_destroy(struct client *client)
 
 static char *get_apop_challenge(struct pop3_client *client)
 {
-	struct auth_connect_id *id = &client->auth_id;
 	unsigned char buffer[16];
-        buffer_t *buf;
+	buffer_t *buf;
 
-	if (!auth_client_reserve_connection(auth_client, "APOP", id))
-		return NULL;
+	auth_client_get_connect_id(auth_client, &client->apop_server_pid,
+				   &client->apop_connect_uid);
 
 	random_fill(buffer, sizeof(buffer));
 	buf = buffer_create_static_hard(pool_datastack_create(),
@@ -133,7 +132,8 @@ static char *get_apop_challenge(struct pop3_client *client)
 	buffer_append_c(buf, '\0');
 
 	return i_strdup_printf("<%x.%x.%lx.%s@%s>",
-			       id->server_pid, id->connect_uid,
+			       client->apop_server_pid,
+			       client->apop_connect_uid,
 			       (unsigned long)ioloop_time,
 			       (const char *)buf->data, my_hostname);
 }

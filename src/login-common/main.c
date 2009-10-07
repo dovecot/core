@@ -137,7 +137,7 @@ static void main_init(void)
 	master_service_set_avail_overflow_callback(master_service,
 						   client_destroy_oldest);
 
-	auth_client = auth_client_new((unsigned int)getpid());
+	auth_client = auth_client_init("auth", (unsigned int)getpid(), FALSE);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 
 	clients_init();
@@ -151,7 +151,7 @@ static void main_deinit(void)
 	login_proxy_deinit();
 
 	if (auth_client != NULL)
-		auth_client_free(&auth_client);
+		auth_client_deinit(&auth_client);
 	clients_deinit();
 
 	if (anvil_fd != -1) {

@@ -96,7 +96,7 @@ struct client {
 	char *proxy_user, *proxy_master_user, *proxy_password;
 
 	char *auth_mech_name;
-	struct auth_request *auth_request;
+	struct auth_client_request *auth_request;
 	string_t *auth_response;
 
 	unsigned int master_tag;
