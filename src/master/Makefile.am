@@ -1,7 +1,6 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
 sbin_PROGRAMS = dovecot
-#pkglibexec_PROGRAMS = ssl-build-param
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
