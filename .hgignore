@@ -71,7 +71,7 @@ src/lib-storage/register/mailbox-list-register.c
 src/log/log
 src/lmtp/lmtp
 src/master/dovecot
-src/master/ssl-build-param
+src/ssl-params/ssl-params
 src/plugins/convert/convert-tool
 src/plugins/expire/expire-tool
 src/plugins/fts-squat/squat-test
