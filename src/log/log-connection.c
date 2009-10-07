@@ -217,9 +217,13 @@ static void log_connection_input(struct log_connection *log)
 	while ((line = i_stream_read_next_line(log->input)) != NULL)
 		log_it(log, line);
 
-	if (log->input->stream_errno != 0) {
+	if (log->input->eof)
+		log_connection_destroy(log);
+	else if (log->input->stream_errno != 0) {
 		i_error("read(log pipe) failed: %m");
 		log_connection_destroy(log);
+	} else {
+		i_assert(!log->input->closed);
 	}
 }
 
