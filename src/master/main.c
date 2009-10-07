@@ -491,8 +491,8 @@ static void print_help(void)
 {
 	fprintf(stderr,
 "Usage: dovecot [-F] [-c <config file>] [-p] [-n] [-a]\n"
-"       [-cb <config binary path>] [--version] [--build-options] [--log-error]\n"
-"       [reload] [stop]\n");
+"       [-cb <config binary path>] [--help] [--version]\n"
+"       [--build-options] [--log-error] [reload] [stop]\n");
 }
 
 static void print_build_options(void)
@@ -679,6 +679,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[optind], "--log-error") == 0) {
 			log_error = TRUE;
 			foreground = TRUE;
+		} else if (strcmp(argv[optind], "--help") == 0) {
+			print_help();
+			return 0;
 		} else if (strcmp(argv[optind], "reload") == 0) {
 			send_signal = SIGHUP;
 		} else if (strcmp(argv[optind], "stop") == 0) {
