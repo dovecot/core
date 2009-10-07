@@ -491,7 +491,8 @@ static void print_help(void)
 {
 	fprintf(stderr,
 "Usage: dovecot [-F] [-c <config file>] [-p] [-n] [-a]\n"
-"       [-cb <config binary path>] [--version] [--build-options]\n");
+"       [-cb <config binary path>] [--version] [--build-options] [--log-error]\n"
+"       [reload] [stop]\n");
 }
 
 static void print_build_options(void)
