@@ -268,7 +268,6 @@ auth_client_connection_create(struct auth *auth, int fd)
 {
 	static unsigned int connect_uid_counter = 0;
 	struct auth_client_connection *conn;
-	struct const_iovec iov[2];
 	string_t *str;
 
 	conn = i_new(struct auth_client_connection, 1);
@@ -286,17 +285,13 @@ auth_client_connection_create(struct auth *auth, int fd)
 	array_append(&auth_client_connections, &conn, 1);
 
 	str = t_str_new(128);
-	str_printfa(str, "VERSION\t%u\t%u\nSPID\t%s\nCUID\t%u\nDONE\n",
+	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nDONE\n",
                     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
                     AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
+		    str_c(conn->auth->mech_handshake),
 		    my_pid, conn->connect_uid);
 
-	iov[0].iov_base = str_data(conn->auth->mech_handshake);
-	iov[0].iov_len = str_len(conn->auth->mech_handshake);
-	iov[1].iov_base = str_data(str);
-	iov[1].iov_len = str_len(str);
-
-	if (o_stream_sendv(conn->output, iov, 2) < 0)
+	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0)
 		auth_client_connection_destroy(&conn);
 
 	return conn;
