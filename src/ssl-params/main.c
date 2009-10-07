@@ -112,8 +112,8 @@ int main(int argc, char *argv[])
 	const struct ssl_params_settings *set;
 	int c;
 
-	master_service = master_service_init("ssl-build-param", 0, argc, argv);
-	master_service_init_log(master_service, "ssl-build-param: ");
+	master_service = master_service_init("ssl-params", 0, argc, argv);
+	master_service_init_log(master_service, "ssl-params: ");
 
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
 		if (!master_service_parse_option(master_service, c, optarg))
