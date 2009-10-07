@@ -55,14 +55,16 @@ static void ssl_params_if_unchanged(const char *path, time_t mtime)
 		/* someone else is writing this */
 		i_fatal("Timeout while waiting for %s generation to complete",
 			path);
-		return;
 	}
 
 	/* make sure the .tmp file is still the one we created */
 	if (fstat(fd, &st) < 0)
 		i_fatal("fstat(%s) failed: %m", temp_path);
-	if (stat(temp_path, &st2) < 0)
-		i_fatal("stat(%s) failed: %m", temp_path);
+	if (stat(temp_path, &st2) < 0) {
+		if (errno != ENOENT)
+			i_fatal("stat(%s) failed: %m", temp_path);
+		st2.st_ino = st.st_ino+1;
+	}
 	if (st.st_ino != st2.st_ino) {
 		/* nope. so someone else just generated the file. */
 		(void)close(fd);
@@ -70,12 +72,13 @@ static void ssl_params_if_unchanged(const char *path, time_t mtime)
 	}
 
 	/* check that the parameters file is still the same */
-	if (stat(path, &st) < 0)
-		i_fatal("stat(%s) failed: %m", temp_path);
-	if (st.st_mtime != mtime) {
-		(void)close(fd);
-		return;
-	}
+	if (stat(path, &st) == 0) {
+		if (st.st_mtime != mtime) {
+			(void)close(fd);
+			return;
+		}
+	} else if (errno != ENOENT)
+		i_fatal("stat(%s) failed: %m", path);
 
 	/* ok, we really want to generate it. */
 	if (ftruncate(fd, 0) < 0)
@@ -148,7 +151,7 @@ static int ssl_params_read(struct ssl_params *param)
 	}
 
 	if (fstat(fd, &st) < 0) {
-		i_error("stat(%s) failed: %m", param->path);
+		i_error("fstat(%s) failed: %m", param->path);
 		(void)close(fd);
 		return -1;
 	}

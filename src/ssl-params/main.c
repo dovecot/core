@@ -56,8 +56,9 @@ static void client_connected(const struct master_service_connection *conn)
 		if (!array_is_created(&delayed_fds))
 			i_array_init(&delayed_fds, 32);
 		array_append(&delayed_fds, &conn->fd, 1);
+	} else {
+		client_handle(conn->fd);
 	}
-	client_handle(conn->fd);
 }
 
 static void ssl_params_callback(const unsigned char *data, size_t size)
