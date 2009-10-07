@@ -54,7 +54,7 @@ mdbox_save_file_get_file(struct mailbox_transaction_context *t,
 	i_assert(count > 0);
 	i_assert(seq >= mails[0].seq);
 
-	mail = &mails[mails[0].seq - seq];
+	mail = &mails[seq - mails[0].seq];
 	i_assert(mail->seq == seq);
 
 	if (dbox_file_append_flush(mail->file_append) < 0)

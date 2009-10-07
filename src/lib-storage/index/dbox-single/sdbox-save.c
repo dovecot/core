@@ -43,7 +43,7 @@ sdbox_save_file_get_file(struct mailbox_transaction_context *t, uint32_t seq)
 	files = array_get(&ctx->files, &count);
 	i_assert(count > 0);
 
-	return files[ctx->first_saved_seq - seq];
+	return files[seq - ctx->first_saved_seq];
 }
 
 struct mail_save_context *
