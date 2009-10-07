@@ -46,9 +46,6 @@ struct client *client_create(int fd, bool ssl, pool_t pool,
 
 	i_assert(fd != -1);
 
-	/* always use nonblocking I/O */
-	net_set_nonblock(fd, TRUE);
-
 	client = client_vfuncs.alloc(pool);
 	client->v = client_vfuncs;
 	if (client->v.auth_send_challenge == NULL)
