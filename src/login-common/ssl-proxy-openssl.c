@@ -29,7 +29,7 @@
 /* Check every 30 minutes if parameters file has been updated */
 #define SSL_PARAMFILE_CHECK_INTERVAL (60*30)
 
-#define SSL_PARAMETERS_FILENAME "ssl-parameters.dat"
+#define SSL_PARAMETERS_PATH "ssl-params"
 
 enum ssl_io_action {
 	SSL_ADD_INPUT,
@@ -68,8 +68,8 @@ struct ssl_proxy {
 };
 
 struct ssl_parameters {
-	const char *fname;
-	time_t last_mtime, last_check;
+	const char *path;
+	time_t last_refresh;
 	int fd;
 
 	DH *dh_512, *dh_1024;
@@ -93,11 +93,10 @@ static void ssl_proxy_unref(struct ssl_proxy *proxy);
 static int ssl_proxy_use_certificate(SSL *ssl, const char *cert);
 static int ssl_proxy_use_key(SSL *ssl, const struct login_settings *set);
 
-static void ssl_params_corrupted(const char *path)
+static void ssl_params_corrupted(void)
 {
-	i_fatal("Corrupted SSL parameters file: %s/%s "
-		"(delete it and also the one in %s)",
-		getenv("LOGIN_DIR"), path, PKG_STATEDIR);
+	i_fatal("Corrupted SSL parameters file: "
+		PKG_STATEDIR"/ssl-parameters.dat");
 }
 
 static void read_next(struct ssl_parameters *params, void *data, size_t size)
@@ -105,9 +104,9 @@ static void read_next(struct ssl_parameters *params, void *data, size_t size)
 	int ret;
 
 	if ((ret = read_full(params->fd, data, size)) < 0)
-		i_fatal("read(%s) failed: %m", params->fname);
+		i_fatal("read(%s) failed: %m", params->path);
 	if (ret == 0)
-		ssl_params_corrupted(params->fname);
+		ssl_params_corrupted();
 }
 
 static bool read_dh_parameters_next(struct ssl_parameters *params)
@@ -126,7 +125,7 @@ static bool read_dh_parameters_next(struct ssl_parameters *params)
 	/* read data size. */
 	read_next(params, &len, sizeof(len));
 	if (len > 1024*100) /* should be enough? */
-		ssl_params_corrupted(params->fname);
+		ssl_params_corrupted();
 
 	buf = i_malloc(len);
 	read_next(params, buf, len);
@@ -140,7 +139,7 @@ static bool read_dh_parameters_next(struct ssl_parameters *params)
 		params->dh_1024 = d2i_DHparams(NULL, &cbuf, len);
 		break;
 	default:
-		ssl_params_corrupted(params->fname);
+		ssl_params_corrupted();
 	}
 
 	i_free(buf);
@@ -159,68 +158,35 @@ static void ssl_free_parameters(struct ssl_parameters *params)
 	}
 }
 
-static void ssl_read_parameters(struct ssl_parameters *params)
+static void ssl_refresh_parameters(struct ssl_parameters *params)
 {
-	struct stat st;
-	ssize_t ret;
 	char c;
-	bool warned = FALSE;
+	int ret;
 
-	/* we'll wait until parameter file exists */
-	for (;;) {
-		params->fd = open(params->fname, O_RDONLY);
-		if (params->fd != -1)
-			break;
+	if (params->last_refresh > ioloop_time - SSL_PARAMFILE_CHECK_INTERVAL)
+		return;
+	params->last_refresh = ioloop_time;
 
-		if (errno != ENOENT) {
-			i_fatal("Can't open SSL parameter file %s: %m",
-				params->fname);
-		}
-
-		if (!warned) {
-			i_warning("Waiting for SSL parameter file %s",
-				  params->fname);
-			warned = TRUE;
-		}
-		sleep(1);
+	params->fd = net_connect_unix(params->path);
+	if (params->fd == -1) {
+		i_error("connect(%s) failed: %m", params->path);
+		return;
 	}
-
-	if (fstat(params->fd, &st) < 0)
-		i_error("fstat(%s) failed: %m", params->fname);
-	else
-		params->last_mtime = st.st_mtime;
+	net_set_nonblock(params->fd, FALSE);
 
 	ssl_free_parameters(params);
 	while (read_dh_parameters_next(params)) ;
 
 	if ((ret = read_full(params->fd, &c, 1)) < 0)
-		i_fatal("read(%s) failed: %m", params->fname);
+		i_fatal("read(%s) failed: %m", params->path);
 	else if (ret != 0) {
 		/* more data than expected */
-		ssl_params_corrupted(params->fname);
+		ssl_params_corrupted();
 	}
 
 	if (close(params->fd) < 0)
-		i_error("close() failed: %m");
+		i_error("close(%s) failed: %m", params->path);
 	params->fd = -1;
-}
-
-static void ssl_refresh_parameters(struct ssl_parameters *params)
-{
-	struct stat st;
-
-	if (params->last_check > ioloop_time - SSL_PARAMFILE_CHECK_INTERVAL)
-		return;
-	params->last_check = ioloop_time;
-
-	if (params->last_mtime == 0)
-		ssl_read_parameters(params);
-	else {
-		if (stat(params->fname, &st) < 0)
-			i_error("stat(%s) failed: %m", params->fname);
-		else if (st.st_mtime != params->last_mtime)
-			ssl_read_parameters(params);
-	}
 }
 
 static void ssl_set_io(struct ssl_proxy *proxy, enum ssl_io_action action)
@@ -1077,7 +1043,7 @@ void ssl_proxy_init(void)
 	(void)RAND_bytes(&buf, 1);
 
 	memset(&ssl_params, 0, sizeof(ssl_params));
-	ssl_params.fname = SSL_PARAMETERS_FILENAME;
+	ssl_params.path = SSL_PARAMETERS_PATH;
 
 	ssl_proxy_count = 0;
         ssl_proxies = NULL;
