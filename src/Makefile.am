@@ -33,4 +33,5 @@ SUBDIRS = \
 	config \
 	util \
 	dsync \
+	ssl-params \
 	plugins
