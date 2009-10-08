@@ -556,8 +556,8 @@ void mail_index_modseq_expunge(struct mail_index_modseq_sync *ctx,
 	seq1--;
 	metadata = array_get_modifiable(&ctx->mmap->metadata_modseqs, &count);
 	for (i = 0; i < count; i++) {
-		if (array_is_created(&metadata->modseqs))
-			array_delete(&metadata->modseqs, seq1, seq2-seq1);
+		if (array_is_created(&metadata[i].modseqs))
+			array_delete(&metadata[i].modseqs, seq1, seq2-seq1);
 	}
 
 	modseq = mail_transaction_log_view_get_prev_modseq(ctx->log_view);
