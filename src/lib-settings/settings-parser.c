@@ -917,6 +917,7 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 		bool *dest_bool = dest;
 
 		*dest_bool = *src_bool;
+		break;
 	}
 	case SET_UINT: {
 		const unsigned int *src_uint = src;
