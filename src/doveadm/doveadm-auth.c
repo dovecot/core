@@ -3,12 +3,13 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "askpass.h"
 #include "base64.h"
 #include "str.h"
-#include "master-service.h"
 #include "auth-client.h"
-#include "auth-server-connection.h"
 #include "auth-master.h"
+#include "auth-server-connection.h"
+#include "doveadm.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,9 +21,8 @@ struct authtest_input {
 	struct auth_user_info info;
 };
 
-static const char *auth_socket_path = NULL;
-
-static int authtest_userdb(const struct authtest_input *input)
+static int
+cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 {
 	struct auth_master_connection *conn;
 	pool_t pool;
@@ -67,7 +67,6 @@ static int authtest_userdb(const struct authtest_input *input)
 	auth_master_deinit(&conn);
 	return ret == 0 ? 1 : 0;
 }
-
 static void
 auth_callback(struct auth_client_request *request ATTR_UNUSED,
 	      enum auth_request_status status,
@@ -128,7 +127,7 @@ static void auth_connected(struct auth_client *client,
 }
 
 static int
-authtest_passdb(struct authtest_input *input)
+cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 {
 	struct auth_client *client;
 
@@ -164,26 +163,17 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 	}
 }
 
-static void usage(void)
+static void
+auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 {
-	i_fatal(
-"usage: authtest [-a <auth socket path>] [-x <auth info>] <user> [<password]");
-}
-
-int main(int argc, char *argv[])
-{
-	const char *getopt_str;
+	const char *auth_socket_path = NULL;
 	struct authtest_input input;
-	int c, ret;
+	int c;
 
 	memset(&input, 0, sizeof(input));
-	input.info.service = "authtest";
+	input.info.service = "doveadm";
 
-	master_service = master_service_init("authtest",
-					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv);
-	getopt_str = t_strconcat("a:x:", master_service_getopt_string(), NULL);
-	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+	while ((c = getopt(argc, argv, "a:x:")) > 0) {
 		switch (c) {
 		case 'a':
 			auth_socket_path = optarg;
@@ -192,21 +182,48 @@ int main(int argc, char *argv[])
 			auth_user_info_parse(&input.info, optarg);
 			break;
 		default:
-			if (!master_service_parse_option(master_service,
-							 c, optarg))
-				usage();
+			help(cmd);
 		}
 	}
 	if (optind == argc)
-		usage();
+		help(cmd);
 
-	input.username = argv[optind++];
-	if (argv[optind] == NULL)
-		ret = authtest_userdb(&input);
-	else {
-		input.password = argv[optind];
-		ret = authtest_passdb(&input);
+	if (cmd == &doveadm_cmd_auth) {
+		input.username = argv[optind++];
+		input.password = argv[optind] != NULL ? argv[optind] :
+			t_askpass("Password: ");
+		if (cmd_auth_input(auth_socket_path, &input) < 0)
+			exit(1);
+	} else {
+		bool first = TRUE;
+
+		while ((input.username = argv[optind++]) != NULL) {
+			if (first)
+				first = FALSE;
+			else
+				putchar('\n');
+			if (cmd_user_input(auth_socket_path, &input) < 0)
+				exit(1);
+		}
 	}
-	master_service_deinit(&master_service);
-	return ret;
 }
+
+static void cmd_auth(int argc, char *argv[])
+{
+	auth_cmd_common(&doveadm_cmd_auth, argc, argv);
+}
+
+static void cmd_user(int argc, char *argv[])
+{
+	auth_cmd_common(&doveadm_cmd_user, argc, argv);
+}
+
+struct doveadm_cmd doveadm_cmd_auth = {
+	cmd_auth, "auth",
+	"[-a <auth socket path>] [-x <auth info>] <user> [<password>]", NULL
+};
+
+struct doveadm_cmd doveadm_cmd_user = {
+	cmd_user, "user",
+	"[-a <auth socket path>] [-x <auth info>] <user> [<user> ...]", NULL
+};

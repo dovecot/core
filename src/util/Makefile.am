@@ -1,7 +1,6 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = \
-	authtest \
 	rawlog \
 	gdbhelper \
 	idxview \
@@ -23,11 +22,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/auth \
 	-DPKG_RUNDIR=\""$(rundir)"\"
-
-authtest_LDADD = $(LIBDOVECOT)
-authtest_DEPENDENCIES = $(LIBDOVECOT)
-authtest_SOURCES = \
-	authtest.c
 
 rawlog_LDADD = $(LIBDOVECOT)
 rawlog_DEPENDENCIES = $(LIBDOVECOT)

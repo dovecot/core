@@ -29,8 +29,9 @@ doveadm_DEPENDENCIES = \
 
 doveadm_SOURCES = \
 	doveadm.c \
-	doveadm-pw.c \
-	doveadm-mail.c
+	doveadm-auth.c \
+	doveadm-mail.c \
+	doveadm-pw.c
 
 noinst_HEADERS = \
 	doveadm-mail.h
