@@ -12,13 +12,24 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/auth \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
+cmd_pw_libs = \
+	../auth/libpassword.a \
+	../lib-ntlm/libntlm.a \
+	../lib-otp/libotp.a
+
 doveadm_LDADD = \
+	$(cmd_pw_libs) $(AUTH_LIBS) \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)
-doveadm_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
+doveadm_DEPENDENCIES = \
+	$(cmd_pw_libs) \
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
+
 doveadm_SOURCES = \
 	doveadm.c \
+	doveadm-pw.c \
 	doveadm-mail.c
 
 noinst_HEADERS = \

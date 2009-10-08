@@ -211,9 +211,7 @@ doveadm_mail_cmd(doveadm_mail_command_t *cmd, int argc, char *argv[])
 			service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 			break;
 		default:
-			if (!master_service_parse_option(master_service,
-							 c, optarg))
-				usage();
+			usage();
 		}
 	}
 	if (!all_users) {
@@ -253,7 +251,7 @@ void doveadm_mail_usage(void)
 	const struct doveadm_mail_cmd *cmd;
 
 	array_foreach(&doveadm_mail_cmds, cmd) {
-		fprintf(stderr, "  %s <user>|-a", cmd->name);
+		fprintf(stderr, USAGE_CMDNAME_FMT" <user>|-a", cmd->name);
 		if (cmd->usage_args != NULL)
 			fprintf(stderr, " %s", cmd->usage_args);
 		fputc('\n', stderr);

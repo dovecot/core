@@ -79,7 +79,6 @@ src/plugins/fts-squat/squat-test
 src/pop3-login/pop3-login
 src/pop3/pop3
 src/util/authtest
-src/util/dovecotpw
 src/util/gdbhelper
 src/util/idxview
 src/util/imap-utf7

@@ -4,7 +4,7 @@
 #include "array.h"
 #include "password-scheme.h"
 #include "randgen.h"
-#include "safe-memset.h"
+#include "doveadm.h"
 
 #include <ctype.h>
 #include <fcntl.h>
@@ -12,36 +12,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#ifdef HAVE_LIBGEN_H
-#  include <libgen.h>
-#endif
-
 #define DEFAULT_SCHEME "CRAM-MD5"
 
-static void ATTR_NORETURN
-usage(const char *s)
-{
-	fprintf(stderr,
-	    "usage: %s [-l] [-p plaintext] [-s scheme] [-u user] [-V]\n", s);
-	fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n",
-	    "    -l            List known password schemes",
-	    "    -p plaintext  New password",
-	    "    -s scheme     Password scheme",
-	    "    -u user       Username (if scheme uses it)",
-	    "    -V            Internally verify the hash");
-
-	exit(1);
-}
-
-int main(int argc, char *argv[])
+static void cmd_pw(int argc, char *argv[])
 {
 	const char *hash = NULL;
 	const char *user = NULL;
-	char *scheme = NULL;
-	char *plaintext = NULL;
+	const char *scheme = NULL;
+	const char *plaintext = NULL;
 	int ch, lflag = 0, Vflag = 0;
 
-	lib_init();
 	random_init();
 	password_schemes_init();
 	
@@ -51,21 +31,20 @@ int main(int argc, char *argv[])
 			lflag = 1;
 			break;
 		case 'p':
-			plaintext = i_strdup(optarg);
-			safe_memset(optarg, 0, strlen(optarg));
+			plaintext = optarg;
 			break;
 		case 's':
-			scheme = i_strdup(optarg);
+			scheme = optarg;
 			break;
 		case 'u':
-			user = i_strdup(optarg);
+			user = optarg;
 			break;
 		case 'V':
 			Vflag = 1;
 			break;
 		case '?':
 		default:
-			usage(basename(*argv));
+			help(&doveadm_cmd_pw);
 		}
 	}
 
@@ -81,31 +60,19 @@ int main(int argc, char *argv[])
 	}
 
 	if (argc != optind)
-		usage(basename(*argv));
+		help(&doveadm_cmd_pw);
 
-	if (scheme == NULL)
-		scheme = i_strdup(DEFAULT_SCHEME);
-	else {
-		char *c;
-		for (c = scheme; *c != '\0'; c++)
-			*c = i_toupper(*c);
-	}
-
-
+	scheme = scheme == NULL ? DEFAULT_SCHEME : t_str_ucase(scheme);
 	while (plaintext == NULL) {
-		char *check;
+		const char *check;
 		static int lives = 3;
 
-		plaintext = i_strdup(getpass("Enter new password: "));
-		check = i_strdup(getpass("Retype new password: "));
+		plaintext = t_strdup(getpass("Enter new password: "));
+		check = t_strdup(getpass("Retype new password: "));
 		if (strcmp(plaintext, check) != 0) {
 			fprintf(stderr, "Passwords don't match!\n");
 			if (--lives == 0)
 				exit(1);
-			safe_memset(plaintext, 0, strlen(plaintext));
-			safe_memset(check, 0, strlen(check));
-			i_free(plaintext);
-			i_free(check);
 			plaintext = NULL;
 		}
 	}
@@ -133,6 +100,13 @@ int main(int argc, char *argv[])
 		printf("{%s}%s (verified)\n", scheme, hash);
 	} else
 		printf("{%s}%s\n", scheme, hash);
-
-        return 0;
 }
+
+struct doveadm_cmd doveadm_cmd_pw = {
+	cmd_pw, "pw", "[-l] [-p plaintext] [-s scheme] [-u user] [-V]",
+"  -l            List known password schemes\n"
+"  -p plaintext  New password\n"
+"  -s scheme     Password scheme\n"
+"  -u user       Username (if scheme uses it)\n"
+"  -V            Internally verify the hash\n"
+};

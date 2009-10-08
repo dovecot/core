@@ -12,8 +12,6 @@ pkglibexec_PROGRAMS = \
 	maildirlock \
 	threadview
 
-sbin_PROGRAMS = dovecotpw
-
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
@@ -75,17 +73,3 @@ threadview_LDADD = $(LIBDOVECOT)
 threadview_DEPENDENCIES = $(LIBDOVECOT)
 threadview_SOURCES = \
 	threadview.c
-
-dovecotpw_libs = \
-	../auth/libpassword.a \
-	../lib-ntlm/libntlm.a \
-	../lib-otp/libotp.a \
-	$(LIBDOVECOT)
-
-dovecotpw_LDADD = \
-	$(dovecotpw_libs) \
-	$(AUTH_LIBS)
-dovecotpw_DEPENDENCIES = $(dovecotpw_libs)
-
-dovecotpw_SOURCES = \
-	dovecotpw.c
