@@ -53,6 +53,31 @@
 #  define ARRAY_TYPE_CHECK(array, data) 0
 #endif
 
+/* usage: struct foo *foo; array_foreach(foo_arr, foo) { .. } */
+#if (defined(__STDC__) && __STDC_VERSION__ >= 199901L)
+#  define array_foreach(array, elem) \
+	for (const void *elem ## __foreach_end = \
+		(const char *)(elem = *(array)->v) + (array)->arr.buffer->used; \
+	     elem != elem ## __foreach_end; (elem)++)
+#  define array_foreach_modifiable(array, elem) \
+	for (const void *elem ## _end = \
+		(const char *)(elem = ARRAY_TYPE_CAST_MODIFIABLE(array) \
+			buffer_get_modifiable_data((array)->arr.buffer, NULL)) + \
+			(array)->arr.buffer->used; \
+	 elem != elem ## _end; elem++)
+#else
+#  define array_foreach(array, elem) \
+	for (elem = *(array)->v; \
+	     elem != CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used); \
+	     (elem)++)
+#  define array_foreach_modifiable(array, elem) \
+	for (elem = ARRAY_TYPE_CAST_MODIFIABLE(array) \
+			buffer_get_modifiable_data((array)->arr.buffer, NULL)) + \
+			(array)->arr.buffer->used; \
+	     elem != CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used); \
+	     (elem)++)
+#endif
+
 static inline void
 array_create_from_buffer_i(struct array *array, buffer_t *buffer,
 			   size_t element_size)
