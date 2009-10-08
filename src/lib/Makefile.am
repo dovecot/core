@@ -11,6 +11,7 @@ $(srcdir)/unicodemap.c: unicodemap.pl
 liblib_la_SOURCES = \
 	array.c \
 	aqueue.c \
+	askpass.c \
 	backtrace-string.c \
 	base64.c \
 	bsearch-insert-pos.c \
@@ -115,6 +116,7 @@ headers = \
 	aqueue.h \
 	array.h \
 	array-decl.h \
+	askpass.h \
 	backtrace-string.h \
 	base64.h \
 	bsearch-insert-pos.h \

@@ -52,3 +52,11 @@ void askpass(const char *prompt, char *buf, size_t buf_size)
 	fputs("\n", stderr); fflush(stderr);
 	(void)close(fd);
 }
+
+const char *t_askpass(const char *prompt)
+{
+	char buf[1024];
+
+	askpass(prompt, buf, sizeof(buf));
+	return t_strdup(buf);
+}
