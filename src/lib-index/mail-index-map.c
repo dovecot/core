@@ -356,8 +356,8 @@ mail_index_record_map_alloc(struct mail_index_map *map)
 struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 {
 	struct mail_index_map *mem_map;
-	struct mail_index_ext *extensions;
-	unsigned int i, count;
+	struct mail_index_ext *ext;
+	unsigned int count;
 
 	mem_map = i_new(struct mail_index_map, 1);
 	mem_map->index = map->index;
@@ -386,13 +386,11 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 		array_append_array(&mem_map->ext_id_map, &map->ext_id_map);
 
 		/* fix the name pointers to use our own pool */
-		extensions = array_get_modifiable(&mem_map->extensions, &count);
-		for (i = 0; i < count; i++) {
-			i_assert(extensions[i].record_offset +
-				 extensions[i].record_size <=
+		array_foreach_modifiable(&mem_map->extensions, ext) {
+			i_assert(ext->record_offset + ext->record_size <=
 				 mem_map->hdr.record_size);
-			extensions[i].name = p_strdup(mem_map->extension_pool,
-						      extensions[i].name);
+			ext->name = p_strdup(mem_map->extension_pool,
+					     ext->name);
 		}
 	}
 

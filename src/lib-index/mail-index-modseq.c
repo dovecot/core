@@ -547,17 +547,15 @@ void mail_index_modseq_expunge(struct mail_index_modseq_sync *ctx,
 			       uint32_t seq1, uint32_t seq2)
 {
 	struct metadata_modseqs *metadata;
-	unsigned int i, count;
 	uint64_t modseq;
 
 	if (ctx->mmap == NULL)
 		return;
 
 	seq1--;
-	metadata = array_get_modifiable(&ctx->mmap->metadata_modseqs, &count);
-	for (i = 0; i < count; i++) {
-		if (array_is_created(&metadata[i].modseqs))
-			array_delete(&metadata[i].modseqs, seq1, seq2-seq1);
+	array_foreach_modifiable(&ctx->mmap->metadata_modseqs, metadata) {
+		if (array_is_created(&metadata->modseqs))
+			array_delete(&metadata->modseqs, seq1, seq2-seq1);
 	}
 
 	modseq = mail_transaction_log_view_get_prev_modseq(ctx->log_view);
@@ -666,14 +664,12 @@ void mail_index_map_modseq_free(struct mail_index_map_modseq **_mmap)
 {
 	struct mail_index_map_modseq *mmap = *_mmap;
 	struct metadata_modseqs *metadata;
-	unsigned int i, count;
 
 	*_mmap = NULL;
 
-	metadata = array_get_modifiable(&mmap->metadata_modseqs, &count);
-	for (i = 0; i < count; i++) {
-		if (array_is_created(&metadata[i].modseqs))
-			array_free(&metadata[i].modseqs);
+	array_foreach_modifiable(&mmap->metadata_modseqs, metadata) {
+		if (array_is_created(&metadata->modseqs))
+			array_free(&metadata->modseqs);
 	}
 	array_free(&mmap->metadata_modseqs);
 	i_free(mmap);

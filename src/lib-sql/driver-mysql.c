@@ -167,12 +167,10 @@ static int driver_mysql_connect_all(struct sql_db *_db)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_connection *conn;
-	unsigned int i, count;
 	int ret = -1;
 
-	conn = array_get_modifiable(&db->connections, &count);
-	for (i = 0; i < count; i++) {
-		if (driver_mysql_connect(&conn[i]))
+	array_foreach_modifiable(&db->connections, conn) {
+		if (driver_mysql_connect(conn))
 			ret = 1;
 	}
 	return ret;
@@ -275,11 +273,9 @@ static void driver_mysql_deinit_v(struct sql_db *_db)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_connection *conn;
-	unsigned int i, count;
 
-	conn = array_get_modifiable(&db->connections, &count);
-	for (i = 0; i < count; i++)
-		(void)driver_mysql_connection_free(&conn[i]);
+	array_foreach_modifiable(&db->connections, conn)
+		(void)driver_mysql_connection_free(conn);
 
 	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);

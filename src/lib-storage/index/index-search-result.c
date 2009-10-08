@@ -186,15 +186,13 @@ void index_search_results_update_expunges(struct mailbox *box,
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	const struct seq_range *seqs;
-	unsigned int i, count;
 	uint32_t seq, uid;
 
 	if (array_count(&box->search_results) == 0)
 		return;
 
-	seqs = array_get(expunges, &count);
-	for (i = 0; i < count; i++) {
-		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
+	array_foreach(expunges, seqs) {
+		for (seq = seqs->seq1; seq <= seqs->seq2; seq++) {
 			mail_index_lookup_uid(ibox->view, seq, &uid);
 			mailbox_search_results_remove(box, uid);
 		}

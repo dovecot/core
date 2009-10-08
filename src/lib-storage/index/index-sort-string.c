@@ -756,8 +756,7 @@ static void index_sort_add_missing(struct sort_string_context *ctx)
 static void index_sort_list_reset_broken(struct sort_string_context *ctx)
 {
 	struct mailbox *box = ctx->program->t->box;
-	struct mail_sort_node *nodes;
-	unsigned int i, count;
+	struct mail_sort_node *node;
 
 	mail_storage_set_critical(box->storage,
 				  "%s: Broken %s indexes, resetting",
@@ -768,9 +767,8 @@ static void index_sort_list_reset_broken(struct sort_string_context *ctx)
 			   &ctx->nonzero_nodes);
 	array_clear(&ctx->nonzero_nodes);
 
-	nodes = array_get_modifiable(&ctx->zero_nodes, &count);
-	for (i = 0; i < count; i++)
-		nodes[i].sort_id = 0;
+	array_foreach_modifiable(&ctx->zero_nodes, node)
+		node->sort_id = 0;
 }
 
 void index_sort_list_finish_string(struct mail_search_sort_program *program)

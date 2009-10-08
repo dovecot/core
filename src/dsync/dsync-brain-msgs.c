@@ -333,13 +333,11 @@ static void
 get_mailbox_guids(const ARRAY_TYPE(dsync_brain_mailbox) *mailboxes,
 		  ARRAY_TYPE(mailbox_guid) *guids)
 {
-	const struct dsync_brain_mailbox *brain_boxes;
-	unsigned int i, count;
+	const struct dsync_brain_mailbox *brain_box;
 
 	t_array_init(guids, array_count(mailboxes));
-	brain_boxes = array_get(mailboxes, &count);
-	for (i = 0; i < count; i++)
-		array_append(guids, &brain_boxes[i].box.mailbox_guid, 1);
+	array_foreach(mailboxes, brain_box)
+		array_append(guids, &brain_box->box.mailbox_guid, 1);
 }
 
 struct dsync_brain_mailbox_sync *

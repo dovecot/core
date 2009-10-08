@@ -239,16 +239,15 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size,
 			       unsigned int *lock_id)
 {
 	struct mail_index *index = map->index;
-	mail_index_sync_lost_handler_t *const *handlers;
+	mail_index_sync_lost_handler_t *const *handlerp;
 	struct stat st;
-	unsigned int i, count;
+	unsigned int i;
 	int ret;
 	bool try_retry, retry;
 
 	/* notify all "sync lost" handlers */
-	handlers = array_get(&index->sync_lost_handlers, &count);
-	for (i = 0; i < count; i++)
-		(*handlers[i])(index);
+	array_foreach(&index->sync_lost_handlers, handlerp)
+		(**handlerp)(index);
 
 	for (i = 0;; i++) {
 		try_retry = i < MAIL_INDEX_ESTALE_RETRY_COUNT;

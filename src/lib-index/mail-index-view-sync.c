@@ -626,17 +626,15 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 static bool
 view_sync_is_hidden(struct mail_index_view *view, uint32_t seq, uoff_t offset)
 {
-	const struct mail_index_view_log_sync_area *syncs;
-	unsigned int i, count;
+	const struct mail_index_view_log_sync_area *sync;
 
 	if (!array_is_created(&view->syncs_hidden))
 		return FALSE;
 
-	syncs = array_get(&view->syncs_hidden, &count);
-	for (i = 0; i < count; i++) {
-		if (syncs[i].log_file_offset <= offset &&
-		    offset - syncs[i].log_file_offset < syncs[i].length &&
-		    syncs[i].log_file_seq == seq)
+	array_foreach(&view->syncs_hidden, sync) {
+		if (sync->log_file_offset <= offset &&
+		    offset - sync->log_file_offset < sync->length &&
+		    sync->log_file_seq == seq)
 			return TRUE;
 	}
 

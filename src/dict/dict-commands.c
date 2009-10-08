@@ -103,16 +103,14 @@ static struct dict_connection_transaction *
 dict_connection_transaction_lookup(struct dict_connection *conn,
 				   unsigned int id)
 {
-	struct dict_connection_transaction *transactions;
-	unsigned int i, count;
+	struct dict_connection_transaction *transaction;
 
 	if (!array_is_created(&conn->transactions))
 		return NULL;
 
-	transactions = array_get_modifiable(&conn->transactions, &count);
-	for (i = 0; i < count; i++) {
-		if (transactions[i].id == id)
-			return &transactions[i];
+	array_foreach_modifiable(&conn->transactions, transaction) {
+		if (transaction->id == id)
+			return transaction;
 	}
 	return NULL;
 }

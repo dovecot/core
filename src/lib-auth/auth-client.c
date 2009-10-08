@@ -54,13 +54,11 @@ auth_client_get_available_mechs(struct auth_client *client,
 const struct auth_mech_desc *
 auth_client_find_mech(struct auth_client *client, const char *name)
 {
-	const struct auth_mech_desc *mechs;
-	unsigned int i, count;
+	const struct auth_mech_desc *mech;
 
-	mechs = array_get(&client->conn->available_auth_mechs, &count);
-	for (i = 0; i < count; i++) {
-		if (strcasecmp(mechs[i].name, name) == 0)
-			return &mechs[i];
+	array_foreach(&client->conn->available_auth_mechs, mech) {
+		if (strcasecmp(mech->name, name) == 0)
+			return mech;
 	}
 	return NULL;
 }

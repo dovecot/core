@@ -676,15 +676,13 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_index_sync_list *sync_list;
-	unsigned int i, count;
 
 	if (ctx->sync_appends)
 		return TRUE;
 
-	sync_list = array_get(&ctx->sync_list, &count);
-	for (i = 0; i < count; i++) {
-		if (array_is_created(sync_list[i].array) &&
-		    sync_list[i].idx != array_count(sync_list[i].array))
+	array_foreach(&ctx->sync_list, sync_list) {
+		if (array_is_created(sync_list->array) &&
+		    sync_list->idx != array_count(sync_list->array))
 			return TRUE;
 	}
 	return FALSE;
@@ -693,13 +691,10 @@ bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 void mail_index_sync_reset(struct mail_index_sync_ctx *ctx)
 {
 	struct mail_index_sync_list *sync_list;
-	unsigned int i, count;
 
 	ctx->next_uid = 0;
-
-	sync_list = array_get_modifiable(&ctx->sync_list, &count);
-	for (i = 0; i < count; i++)
-		sync_list[i].idx = 0;
+	array_foreach_modifiable(&ctx->sync_list, sync_list)
+		sync_list->idx = 0;
 }
 
 static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)

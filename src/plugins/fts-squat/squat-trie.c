@@ -1081,14 +1081,12 @@ squat_trie_iterate_init(struct squat_trie *trie)
 static int
 squat_trie_iterate_deinit(struct squat_trie_iterate_context *ctx)
 {
-	struct squat_trie_iterate_node *nodes;
-	unsigned int i, count;
+	struct squat_trie_iterate_node *node;
 	int ret = ctx->failed ? -1 : 0;
 
 	if (array_is_created(&ctx->cur.shifts)) {
-		nodes = array_get_modifiable(&ctx->parents, &count);
-		for (i = 0; i < count; i++)
-			array_free(&nodes[i].shifts);
+		array_foreach_modifiable(&ctx->parents, node)
+			array_free(&node->shifts);
 		array_free(&ctx->cur.shifts);
 	}
 	array_free(&ctx->parents);

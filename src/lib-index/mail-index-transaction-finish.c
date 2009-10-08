@@ -256,16 +256,14 @@ mail_index_convert_to_uid_ranges(struct mail_index_transaction *t,
 
 static void keyword_updates_convert_to_uids(struct mail_index_transaction *t)
 {
-        struct mail_index_transaction_keyword_update *updates;
-	unsigned int i, count;
+        struct mail_index_transaction_keyword_update *update;
 
 	if (!array_is_created(&t->keyword_updates))
 		return;
 
-	updates = array_get_modifiable(&t->keyword_updates, &count);
-	for (i = 0; i < count; i++) {
-		mail_index_convert_to_uid_ranges(t, &updates[i].add_seq);
-		mail_index_convert_to_uid_ranges(t, &updates[i].remove_seq);
+	array_foreach_modifiable(&t->keyword_updates, update) {
+		mail_index_convert_to_uid_ranges(t, &update->add_seq);
+		mail_index_convert_to_uid_ranges(t, &update->remove_seq);
 	}
 }
 
@@ -300,18 +298,15 @@ static void expunges_convert_to_uids(struct mail_index_transaction *t)
 static void
 mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 {
-	ARRAY_TYPE(seq_array) *updates;
-	unsigned int i, count;
+	ARRAY_TYPE(seq_array) *update;
 
 	if (array_is_created(&t->ext_rec_updates)) {
-		updates = array_get_modifiable(&t->ext_rec_updates, &count);
-		for (i = 0; i < count; i++)
-			mail_index_convert_to_uids(t, (void *)&updates[i]);
+		array_foreach_modifiable(&t->ext_rec_updates, update)
+			mail_index_convert_to_uids(t, update);
 	}
 	if (array_is_created(&t->ext_rec_atomics)) {
-		updates = array_get_modifiable(&t->ext_rec_atomics, &count);
-		for (i = 0; i < count; i++)
-			mail_index_convert_to_uids(t, (void *)&updates[i]);
+		array_foreach_modifiable(&t->ext_rec_atomics, update)
+			mail_index_convert_to_uids(t, update);
 	}
 
         keyword_updates_convert_to_uids(t);

@@ -927,16 +927,14 @@ client_search_update_lookup(struct client *client, const char *tag,
 
 void client_search_updates_free(struct client *client)
 {
-	struct imap_search_update *updates;
-	unsigned int i, count;
+	struct imap_search_update *update;
 
 	if (!array_is_created(&client->search_updates))
 		return;
 
-	updates = array_get_modifiable(&client->search_updates, &count);
-	for (i = 0; i < count; i++) {
-		i_free(updates[i].tag);
-		mailbox_search_result_free(&updates[i].result);
+	array_foreach_modifiable(&client->search_updates, update) {
+		i_free(update->tag);
+		mailbox_search_result_free(&update->result);
 	}
 	array_clear(&client->search_updates);
 }

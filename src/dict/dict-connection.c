@@ -155,15 +155,13 @@ struct dict_connection *dict_connection_create(int fd)
 
 void dict_connection_destroy(struct dict_connection *conn)
 {
-	struct dict_connection_transaction *transactions;
-	unsigned int i, count;
+	struct dict_connection_transaction *transaction;
 
 	DLLIST_REMOVE(&dict_connections, conn);
 
 	if (array_is_created(&conn->transactions)) {
-		transactions = array_get_modifiable(&conn->transactions, &count);
-		for (i = 0; i < count; i++)
-			dict_transaction_rollback(&transactions[i].ctx);
+		array_foreach_modifiable(&conn->transactions, transaction)
+			dict_transaction_rollback(&transaction->ctx);
 		array_free(&conn->transactions);
 	}
 

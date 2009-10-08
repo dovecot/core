@@ -80,12 +80,10 @@ int cmd_mail(struct client *client, const char *args)
 
 static bool rcpt_is_duplicate(struct client *client, const char *name)
 {
-	const struct mail_recipient *rcpts;
-	unsigned int i, count;
+	const struct mail_recipient *rcpt;
 
-	rcpts = array_get(&client->state.rcpt_to, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(rcpts[i].name, name) == 0)
+	array_foreach(&client->state.rcpt_to, rcpt) {
+		if (strcmp(rcpt->name, name) == 0)
 			return TRUE;
 	}
 	return FALSE;
@@ -412,14 +410,10 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail)
 
 static void client_rcpt_fail_all(struct client *client)
 {
-	const struct mail_recipient *rcpts;
-	unsigned int i, count;
+	const struct mail_recipient *rcpt;
 
-	rcpts = array_get(&client->state.rcpt_to, &count);
-	for (i = 0; i < count; i++) {
-		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 rcpts[i].name);
-	}
+	array_foreach(&client->state.rcpt_to, rcpt)
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL, rcpt->name);
 }
 
 static struct istream *client_get_input(struct client *client)

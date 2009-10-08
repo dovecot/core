@@ -22,13 +22,11 @@ search_result_want_flag_updates(const struct mail_search_result *result)
 static void index_sync_uidify_array(struct index_mailbox_sync_context *ctx,
 				    const ARRAY_TYPE(seq_range) *changes)
 {
-	const struct seq_range *seqs;
-	unsigned int i, count;
+	const struct seq_range *range;
 	uint32_t seq, uid;
 
-	seqs = array_get(changes, &count);
-	for (i = 0; i < count; i++) {
-		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
+	array_foreach(changes, range) {
+		for (seq = range->seq1; seq <= range->seq2; seq++) {
 			mail_index_lookup_uid(ctx->ibox->view, seq, &uid);
 			seq_range_array_add(&ctx->all_flag_update_uids, 0, uid);
 		}

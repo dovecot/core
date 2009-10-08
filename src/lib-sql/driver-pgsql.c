@@ -292,12 +292,10 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 	}
 
 	if (array_is_created(&result->binary_values)) {
-		struct pgsql_binary_value *values;
-		unsigned int i, count;
+		struct pgsql_binary_value *value;
 
-		values = array_get_modifiable(&result->binary_values, &count);
-		for (i = 0; i < count; i++)
-			PQfreemem(values[i].value);
+		array_foreach_modifiable(&result->binary_values, value)
+			PQfreemem(value->value);
 		array_free(&result->binary_values);
 	}
 

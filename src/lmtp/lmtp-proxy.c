@@ -147,13 +147,11 @@ static void lmtp_proxy_conn_deinit(struct lmtp_proxy_connection *conn,
 				   const char *reason)
 {
 	struct lmtp_proxy_recipient *rcpt;
-	unsigned int i, count;
 
 	/* set failure replies to all recipients in this connection */
-	rcpt = array_get_modifiable(&conn->proxy->rcpt_to, &count);
-	for (i = 0; i < count; i++) {
-		if (rcpt[i].conn == conn && !rcpt[i].rcpt_to_failed)
-			rcpt[i].reply = reason;
+	array_foreach_modifiable(&conn->proxy->rcpt_to, rcpt) {
+		if (rcpt->conn == conn && !rcpt->rcpt_to_failed)
+			rcpt->reply = reason;
 	}
 
 	if (conn->client != NULL)

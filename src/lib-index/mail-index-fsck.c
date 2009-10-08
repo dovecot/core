@@ -68,12 +68,10 @@ mail_index_fsck_header(struct mail_index *index, struct mail_index_map *map,
 static bool
 array_has_name(const ARRAY_TYPE(const_string) *names, const char *name)
 {
-	const char *const *str;
-	unsigned int i, count;
+	const char *const *namep;
 
-	str = array_get(names, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(str[i], name) == 0)
+	array_foreach(names, namep) {
+		if (strcmp(*namep, name) == 0)
 			return TRUE;
 	}
 	return FALSE;

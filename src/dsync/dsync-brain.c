@@ -344,17 +344,13 @@ static void dsync_brain_sync_msgs(struct dsync_brain *brain)
 static void
 dsync_brain_msg_sync_update_mailbox(struct dsync_brain *brain)
 {
-	const struct dsync_brain_mailbox *mailboxes;
-	unsigned int i, count;
+	const struct dsync_brain_mailbox *mailbox;
 
 	/* FIXME: handle different hierarchy separators? */
 
-	mailboxes = array_get(&brain->mailbox_sync->mailboxes, &count);
-	for (i = 0; i < count; i++) {
-		dsync_worker_update_mailbox(brain->src_worker,
-					    &mailboxes[i].box);
-		dsync_worker_update_mailbox(brain->dest_worker,
-					    &mailboxes[i].box);
+	array_foreach(&brain->mailbox_sync->mailboxes, mailbox) {
+		dsync_worker_update_mailbox(brain->src_worker, &mailbox->box);
+		dsync_worker_update_mailbox(brain->dest_worker, &mailbox->box);
 	}
 }
 

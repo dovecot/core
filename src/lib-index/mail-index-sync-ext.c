@@ -59,19 +59,16 @@ void
 mail_index_sync_deinit_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 {
 	const struct mail_index_expunge_handler *eh;
-	unsigned int i, count;
 
 	if (!array_is_created(&ctx->expunge_handlers))
 		return;
 
-	eh = array_get(&ctx->expunge_handlers, &count);
-	for (i = 0; i < count; i++) {
-		if (eh[i].sync_context != NULL) {
-			eh[i].handler(ctx, 0, NULL, eh[i].sync_context,
-				      eh[i].context);
+	array_foreach(&ctx->expunge_handlers, eh) {
+		if (eh->sync_context != NULL) {
+			eh->handler(ctx, 0, NULL, eh->sync_context,
+				    eh->context);
 		}
 	}
-
 	array_free(&ctx->expunge_handlers);
 }
 

@@ -23,31 +23,27 @@ mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq)
 
 void mail_index_transaction_reset_v(struct mail_index_transaction *t)
 {
-	ARRAY_TYPE(seq_array) *recs;
-	struct mail_index_transaction_ext_hdr_update *ext_hdrs;
-	unsigned i, count;
+	ARRAY_TYPE(seq_array) *rec;
+	struct mail_index_transaction_ext_hdr_update *ext_hdr;
 
 	if (array_is_created(&t->ext_rec_updates)) {
-		recs = array_get_modifiable(&t->ext_rec_updates, &count);
-		for (i = 0; i < count; i++) {
-			if (array_is_created(&recs[i]))
-				array_free(&recs[i]);
+		array_foreach_modifiable(&t->ext_rec_updates, rec) {
+			if (array_is_created(rec))
+				array_free(rec);
 		}
 		array_free(&t->ext_rec_updates);
 	}
 	if (array_is_created(&t->ext_rec_atomics)) {
-		recs = array_get_modifiable(&t->ext_rec_atomics, &count);
-		for (i = 0; i < count; i++) {
-			if (array_is_created(&recs[i]))
-				array_free(&recs[i]);
+		array_foreach_modifiable(&t->ext_rec_atomics, rec) {
+			if (array_is_created(rec))
+				array_free(rec);
 		}
 		array_free(&t->ext_rec_atomics);
 	}
 	if (array_is_created(&t->ext_hdr_updates)) {
-		ext_hdrs = array_get_modifiable(&t->ext_hdr_updates, &count);
-		for (i = 0; i < count; i++) {
-			i_free(ext_hdrs[i].data);
-			i_free(ext_hdrs[i].mask);
+		array_foreach_modifiable(&t->ext_hdr_updates, ext_hdr) {
+			i_free(ext_hdr->data);
+			i_free(ext_hdr->mask);
 		}
 		array_free(&t->ext_hdr_updates);
 	}
@@ -55,12 +51,11 @@ void mail_index_transaction_reset_v(struct mail_index_transaction *t)
 	if (array_is_created(&t->keyword_updates)) {
 		struct mail_index_transaction_keyword_update *u;
 
-		u = array_get_modifiable(&t->keyword_updates, &count);
-		for (i = 0; i < count; i++) {
-			if (array_is_created(&u[i].add_seq))
-				array_free(&u[i].add_seq);
-			if (array_is_created(&u[i].remove_seq))
-				array_free(&u[i].remove_seq);
+		array_foreach_modifiable(&t->keyword_updates, u) {
+			if (array_is_created(&u->add_seq))
+				array_free(&u->add_seq);
+			if (array_is_created(&u->remove_seq))
+				array_free(&u->remove_seq);
 		}
 		array_free(&t->keyword_updates);
 	}
@@ -288,24 +283,23 @@ mail_index_expunge_last_append_ext(ARRAY_TYPE(seq_array_array) *ext_updates,
 				   uint32_t seq)
 {
 	ARRAY_TYPE(seq_array) *seqs;
-	unsigned int i, count, idx;
+	unsigned int idx;
 
 	if (!array_is_created(ext_updates))
 		return;
 
-	seqs = array_get_modifiable(ext_updates, &count);
-	for (i = 0; i < count; i++) {
-		if (array_is_created(&seqs[i]) &&
-		    mail_index_seq_array_lookup(&seqs[i], seq, &idx))
-			array_delete(&seqs[i], idx, 1);
+	array_foreach_modifiable(ext_updates, seqs) {
+		if (array_is_created(seqs) &&
+		    mail_index_seq_array_lookup(seqs, seq, &idx))
+			array_delete(seqs, idx, 1);
 	}
 }
 
 static void
 mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
 {
-	struct mail_index_transaction_keyword_update *kw_updates;
-	unsigned int i, count;
+	struct mail_index_transaction_keyword_update *kw_update;
+	unsigned int i;
 
 	i_assert(seq == t->last_new_seq);
 
@@ -318,15 +312,14 @@ mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
 	if (array_is_created(&t->keyword_resets))
 		seq_range_array_remove(&t->keyword_resets, seq);
 	if (array_is_created(&t->keyword_updates)) {
-		kw_updates = array_get_modifiable(&t->keyword_updates, &count);
-		for (i = 0; i < count; i++) {
-			if (array_is_created(&kw_updates[i].add_seq)) {
-				seq_range_array_remove(&kw_updates[i].add_seq,
+		array_foreach_modifiable(&t->keyword_updates, kw_update) {
+			if (array_is_created(&kw_update->add_seq)) {
+				seq_range_array_remove(&kw_update->add_seq,
 						       seq);
 			}
-			if (array_is_created(&kw_updates[i].remove_seq)) {
-				seq_range_array_remove(
-					&kw_updates[i].remove_seq, seq);
+			if (array_is_created(&kw_update->remove_seq)) {
+				seq_range_array_remove(&kw_update->remove_seq,
+						       seq);
 			}
 		}
 	}
@@ -761,12 +754,10 @@ static bool
 mail_index_transaction_has_ext_updates(const ARRAY_TYPE(seq_array_array) *arr)
 {
 	const ARRAY_TYPE(seq_array) *array;
-	unsigned int i, count;
 
 	if (array_is_created(arr)) {
-		array = array_get(arr, &count);
-		for (i = 0; i < count; i++) {
-			if (array_is_created(&array[i]))
+		array_foreach(arr, array) {
+			if (array_is_created(array))
 				return TRUE;
 		}
 	}
@@ -776,8 +767,6 @@ mail_index_transaction_has_ext_updates(const ARRAY_TYPE(seq_array_array) *arr)
 static bool
 mail_index_transaction_has_ext_changes(struct mail_index_transaction *t)
 {
-	unsigned int i, count;
-
 	if (mail_index_transaction_has_ext_updates(&t->ext_rec_updates))
 		return TRUE;
 	if (mail_index_transaction_has_ext_updates(&t->ext_rec_atomics))
@@ -786,27 +775,24 @@ mail_index_transaction_has_ext_changes(struct mail_index_transaction *t)
 	if (array_is_created(&t->ext_hdr_updates)) {
 		const struct mail_index_transaction_ext_hdr_update *hdr;
 
-		hdr = array_get(&t->ext_hdr_updates, &count);
-		for (i = 0; i < count; i++) {
-			if (hdr[i].alloc_size > 0)
+		array_foreach(&t->ext_hdr_updates, hdr) {
+			if (hdr->alloc_size > 0)
 				return TRUE;
 		}
 	}
 	if (array_is_created(&t->ext_resets)) {
-		const struct mail_transaction_ext_reset *resets;
+		const struct mail_transaction_ext_reset *reset;
 
-		resets = array_get(&t->ext_resets, &count);
-		for (i = 0; i < count; i++) {
-			if (resets[i].new_reset_id != 0)
+		array_foreach(&t->ext_resets, reset) {
+			if (reset->new_reset_id != 0)
 				return TRUE;
 		}
 	}
 	if (array_is_created(&t->ext_resizes)) {
-		const struct mail_transaction_ext_intro *resizes;
+		const struct mail_transaction_ext_intro *resize;
 
-		resizes = array_get(&t->ext_resizes, &count);
-		for (i = 0; i < count; i++) {
-			if (resizes[i].name_size > 0)
+		array_foreach(&t->ext_resizes, resize) {
+			if (resize->name_size > 0)
 				return TRUE;
 		}
 	}
@@ -1013,7 +999,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 				struct mail_keywords *keywords)
 {
 	struct mail_index_transaction_keyword_update *u;
-	unsigned int i, ku_count;
+	unsigned int i;
 	bool changed;
 
 	i_assert(seq > 0 &&
@@ -1065,11 +1051,9 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	case MODIFY_REPLACE:
 		/* Remove sequence from all add/remove arrays */
 		if (array_is_created(&t->keyword_updates)) {
-			u = array_get_modifiable(&t->keyword_updates,
-						 &ku_count);
-			for (i = 0; i < ku_count; i++) {
-				seq_range_array_remove(&u[i].add_seq, seq);
-				seq_range_array_remove(&u[i].remove_seq, seq);
+			array_foreach_modifiable(&t->keyword_updates, u) {
+				seq_range_array_remove(&u->add_seq, seq);
+				seq_range_array_remove(&u->remove_seq, seq);
 			}
 		}
 		/* Add the wanted keyword back */
@@ -1142,21 +1126,19 @@ bool mail_index_cancel_keyword_updates(struct mail_index_transaction *t,
 				       uint32_t seq)
 {
 	struct mail_index_transaction_keyword_update *kw;
-	unsigned int i, count;
 	bool ret, have_kw_changes = FALSE;
 
 	ret = mail_index_cancel_array(&t->keyword_resets, seq);
 	if (!array_is_created(&t->keyword_updates))
 		return ret;
 
-	kw = array_get_modifiable(&t->keyword_updates, &count);
-	for (i = 0; i < count; i++) {
-		if (mail_index_cancel_array(&kw[i].add_seq, seq))
+	array_foreach_modifiable(&t->keyword_updates, kw) {
+		if (mail_index_cancel_array(&kw->add_seq, seq))
 			ret = TRUE;
-		if (mail_index_cancel_array(&kw[i].remove_seq, seq))
+		if (mail_index_cancel_array(&kw->remove_seq, seq))
 			ret = TRUE;
-		if (array_is_created(&kw[i].add_seq) ||
-		    array_is_created(&kw[i].remove_seq))
+		if (array_is_created(&kw->add_seq) ||
+		    array_is_created(&kw->remove_seq))
 			have_kw_changes = TRUE;
 	}
 	if (!have_kw_changes)

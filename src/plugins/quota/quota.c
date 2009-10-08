@@ -285,13 +285,11 @@ void quota_deinit(struct quota **_quota)
 struct quota_rule *
 quota_root_rule_find(struct quota_root_settings *root_set, const char *name)
 {
-	struct quota_rule *rules;
-	unsigned int i, count;
+	struct quota_rule *rule;
 
-	rules = array_get_modifiable(&root_set->rules, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(rules[i].mailbox_name, name) == 0)
-			return &rules[i];
+	array_foreach_modifiable(&root_set->rules, rule) {
+		if (strcmp(rule->mailbox_name, name) == 0)
+			return rule;
 	}
 	return NULL;
 }
@@ -339,19 +337,16 @@ quota_rule_recalculate_relative_rules(struct quota_rule *rule,
 
 void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set)
 {
-	struct quota_rule *rules;
-	struct quota_warning_rule *warning_rules;
-	unsigned int i, count;
+	struct quota_rule *rule;
+	struct quota_warning_rule *warning_rule;
 
-	rules = array_get_modifiable(&root_set->rules, &count);
-	for (i = 0; i < count; i++) {
-		quota_rule_recalculate_relative_rules(&rules[i],
+	array_foreach_modifiable(&root_set->rules, rule) {
+		quota_rule_recalculate_relative_rules(rule,
 						      &root_set->default_rule);
 	}
 
-	warning_rules = array_get_modifiable(&root_set->warning_rules, &count);
-	for (i = 0; i < count; i++) {
-		quota_rule_recalculate_relative_rules(&warning_rules[i].rule,
+	array_foreach_modifiable(&root_set->warning_rules, warning_rule) {
+		quota_rule_recalculate_relative_rules(&warning_rule->rule,
 						      &root_set->default_rule);
 	}
 }

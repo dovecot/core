@@ -320,12 +320,10 @@ acl_backend_vfile_acllist_find(struct acl_backend_vfile *backend,
 			       const char *name)
 {
 	const struct acl_backend_vfile_acllist *acllist;
-	unsigned int i, count;
 
-	acllist = array_get(&backend->acllist, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(acllist[i].name, name) == 0)
-			return &acllist[i];
+	array_foreach(&backend->acllist, acllist) {
+		if (strcmp(acllist->name, name) == 0)
+			return acllist;
 	}
 	return NULL;
 }

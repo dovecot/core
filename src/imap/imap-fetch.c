@@ -117,17 +117,14 @@ void imap_fetch_add_handler(struct imap_fetch_context *ctx,
 	   client requested them. This is especially useful to get UID
 	   returned first, which some clients rely on..
 	*/
-	const struct imap_fetch_context_handler *handlers;
+	const struct imap_fetch_context_handler *ctx_handler;
 	struct imap_fetch_context_handler h;
-	unsigned int i, size;
 
 	if (context == NULL) {
 		/* don't allow duplicate handlers */
-		handlers = array_get(&ctx->handlers, &size);
-
-		for (i = 0; i < size; i++) {
-			if (handlers[i].handler == handler &&
-			    handlers[i].context == NULL)
+		array_foreach(&ctx->handlers, ctx_handler) {
+			if (ctx_handler->handler == handler &&
+			    ctx_handler->context == NULL)
 				return;
 		}
 	}
@@ -259,12 +256,10 @@ static void
 mailbox_expunge_to_range(const ARRAY_TYPE(mailbox_expunge_rec) *input,
 			 ARRAY_TYPE(seq_range) *output)
 {
-	const struct mailbox_expunge_rec *expunges;
-	unsigned int i, count;
+	const struct mailbox_expunge_rec *expunge;
 
-	expunges = array_get(input, &count);
-	for (i = 0; i < count; i++)
-		seq_range_array_add(output, 0, expunges[i].uid);
+	array_foreach(input, expunge)
+		seq_range_array_add(output, 0, expunge->uid);
 }
 
 static int
@@ -530,13 +525,11 @@ int imap_fetch_more(struct imap_fetch_context *ctx)
 
 int imap_fetch_deinit(struct imap_fetch_context *ctx)
 {
-	const struct imap_fetch_context_handler *handlers;
-	unsigned int i, count;
+	const struct imap_fetch_context_handler *handler;
 
-	handlers = array_get(&ctx->handlers, &count);
-	for (i = 0; i < count; i++) {
-		if (handlers[i].want_deinit)
-			handlers[i].handler(ctx, NULL, handlers[i].context);
+	array_foreach(&ctx->handlers, handler) {
+		if (handler->want_deinit)
+			handler->handler(ctx, NULL, handler->context);
 	}
 
 	if (!ctx->line_finished) {
