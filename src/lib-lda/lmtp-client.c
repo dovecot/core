@@ -155,7 +155,7 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 		rcpt = array_get_modifiable(&client->recipients, &count);
 		for (i = 0; i < count; i++) {
 			rcpt[i].failed = line[0] != '2';
-			rcpt[i].data_callback(!rcpt->failed, line,
+			rcpt[i].data_callback(!rcpt[i].failed, line,
 					      rcpt[i].context);
 		}
 		client->rcpt_next_data_idx = count;
