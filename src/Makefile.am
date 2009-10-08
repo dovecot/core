@@ -32,6 +32,7 @@ SUBDIRS = \
 	log \
 	config \
 	util \
+	doveadm \
 	dsync \
 	ssl-params \
 	plugins

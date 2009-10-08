@@ -59,6 +59,7 @@ src/config/config
 src/config/doveconf
 src/lda/dovecot-lda
 src/dict/dict
+src/doveadm/doveadm
 src/dsync/dsync
 src/imap-login/imap-login
 src/imap/imap
@@ -78,7 +79,6 @@ src/plugins/fts-squat/squat-test
 src/pop3-login/pop3-login
 src/pop3/pop3
 src/util/authtest
-src/util/doveadm
 src/util/dovecotpw
 src/util/gdbhelper
 src/util/idxview

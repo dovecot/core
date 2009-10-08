@@ -12,7 +12,7 @@ pkglibexec_PROGRAMS = \
 	maildirlock \
 	threadview
 
-sbin_PROGRAMS = dovecotpw doveadm
+sbin_PROGRAMS = dovecotpw
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -89,11 +89,3 @@ dovecotpw_DEPENDENCIES = $(dovecotpw_libs)
 
 dovecotpw_SOURCES = \
 	dovecotpw.c
-
-doveadm_LDADD = \
-	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
-	$(MODULE_LIBS)
-doveadm_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
-doveadm_SOURCES = \
-	doveadm.c
