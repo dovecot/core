@@ -23,6 +23,12 @@ static ARRAY_DEFINE(delayed_fds, int);
 struct ssl_params *param;
 static buffer_t *ssl_params;
 
+static void client_deinit(struct ostream *output)
+{
+	o_stream_destroy(&output);
+	master_service_client_connection_destroyed(master_service);
+}
+
 static int client_output_flush(struct ostream *output)
 {
 	if (o_stream_flush(output) == 0) {
@@ -30,7 +36,7 @@ static int client_output_flush(struct ostream *output)
 		return 0;
 	}
 	/* finished / disconnected */
-	o_stream_destroy(&output);
+	client_deinit(output);
 	return -1;
 }
 
@@ -42,7 +48,7 @@ static void client_handle(int fd)
 	o_stream_send(output, ssl_params->data, ssl_params->used);
 
 	if (o_stream_get_buffer_used_size(output) == 0)
-		o_stream_destroy(&output);
+		client_deinit(output);
 	else {
 		o_stream_set_flush_callback(output, client_output_flush,
 					    output);
