@@ -169,7 +169,7 @@ const void *settings_find_dynamic(struct setting_parser_info *info,
 
 /* Copy changed settings from src to dest. If conflict_key_r is not NULL and
    both src and dest have changed the same setting, return -1 and set the
-   key name. */
+   key name. If it's NULL, the old setting is kept. */
 int settings_parser_apply_changes(struct setting_parser_context *dest,
 				  const struct setting_parser_context *src,
 				  pool_t pool, const char **conflict_key_r);
