@@ -81,6 +81,7 @@ int main(int argc, char *argv[])
 	doveadm_register_cmd(&doveadm_cmd_help);
 	doveadm_register_cmd(&doveadm_cmd_auth);
 	doveadm_register_cmd(&doveadm_cmd_user);
+	doveadm_register_cmd(&doveadm_cmd_dump);
 	doveadm_register_cmd(&doveadm_cmd_pw);
 
 	/* "+" is GNU extension to stop at the first non-option.

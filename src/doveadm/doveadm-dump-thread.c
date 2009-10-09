@@ -4,6 +4,7 @@
 #include "mmap-util.h"
 #include "mail-index-private.h"
 #include "mail-index-strmap.h"
+#include "doveadm-dump.h"
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -11,53 +12,6 @@
 #include <sys/stat.h>
 
 static uint32_t max_likely_index;
-
-uint32_t mail_index_offset_to_uint32(uint32_t offset)
-{
-	const unsigned char *buf = (const unsigned char *) &offset;
-
-	if ((offset & 0x80808080) != 0x80808080)
-		return 0;
-
-	return (((uint32_t)buf[3] & 0x7f) << 2) |
-		(((uint32_t)buf[2] & 0x7f) << 9) |
-		(((uint32_t)buf[1] & 0x7f) << 16) |
-		(((uint32_t)buf[0] & 0x7f) << 23);
-}
-
-int mail_index_unpack_num(const uint8_t **p, const uint8_t *end,
-			  uint32_t *num_r)
-{
-	const uint8_t *c = *p;
-	uint32_t value = 0;
-	unsigned int bits = 0;
-
-	for (;;) {
-		if (unlikely(c == end)) {
-			/* we should never see EOF */
-			*num_r = 0;
-			return -1;
-		}
-
-		value |= (*c & 0x7f) << bits;
-		if (*c < 0x80)
-			break;
-
-		bits += 7;
-		c++;
-	}
-
-	if (unlikely(bits >= 32)) {
-		/* broken input */
-		*p = end;
-		*num_r = 0;
-		return -1;
-	}
-
-	*p = c + 1;
-	*num_r = value;
-	return 0;
-}
 
 static size_t dump_hdr(const struct mail_index_strmap_header *hdr)
 {
@@ -137,7 +91,7 @@ static int dump_block(const uint8_t *data, const uint8_t *end, uint32_t *uid)
 	return p - data;
 }
 
-int main(int argc, const char *argv[])
+static void cmd_dump_thread(int argc ATTR_UNUSED, char *argv[])
 {
 	unsigned int pos;
 	const void *map, *end;
@@ -145,21 +99,12 @@ int main(int argc, const char *argv[])
 	uint32_t uid;
 	int fd, ret;
 
-	lib_init();
-
-	if (argc < 2)
-		i_fatal("Usage: threadview dovecot.index.thread");
-
 	fd = open(argv[1], O_RDONLY);
-	if (fd < 0) {
-		i_error("open(%s) failed: %m", argv[1]);
-		return 1;
-	}
+	if (fd < 0)
+		i_fatal("open(%s) failed: %m", argv[1]);
 
-	if (fstat(fd, &st) < 0) {
-		i_error("fstat(%s) failed: %m", argv[1]);
-		return 1;
-	}
+	if (fstat(fd, &st) < 0)
+		i_fatal("fstat(%s) failed: %m", argv[1]);
 	max_likely_index = (st.st_size / 8) * 2;
 
 	map = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -175,5 +120,18 @@ int main(int argc, const char *argv[])
 			pos += ret;
 		} T_END;
 	} while (ret > 0);
-	return 0;
 }
+
+static bool test_dump_thread(const char *path)
+{
+	const char *p;
+
+	p = strrchr(path, '.');
+	return p != NULL && strcmp(p, ".thread") == 0;
+}
+
+struct doveadm_cmd_dump doveadm_cmd_dump_thread = {
+	"thread",
+	test_dump_thread,
+	cmd_dump_thread
+};

@@ -9,6 +9,7 @@
 #include "mail-cache-private.h"
 #include "mail-cache-private.h"
 #include "mail-index-modseq.h"
+#include "doveadm-dump.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -453,7 +454,7 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 	}
 }
 
-int main(int argc, const char *argv[])
+static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])
 {
 	struct mail_index *index;
 	struct mail_index_view *view;
@@ -461,11 +462,6 @@ int main(int argc, const char *argv[])
 	struct stat st;
 	const char *p;
 	unsigned int seq, uid = 0;
-
-	lib_init();
-
-	if (argc < 2)
-		i_fatal("Usage: idxview <index dir> [<uid>]");
 
 	if (stat(argv[1], &st) == 0 && S_ISDIR(st.st_mode))
 		index = mail_index_alloc(argv[1], "dovecot.index");
@@ -506,5 +502,30 @@ int main(int argc, const char *argv[])
 	mail_index_view_close(&view);
 	mail_index_close(index);
 	mail_index_free(&index);
-	return 0;
 }
+
+static bool test_dump_index(const char *path)
+{
+	struct mail_index *index;
+	struct stat st;
+	const char *p;
+	bool ret;
+
+	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+		index = mail_index_alloc(path, "dovecot.index");
+	else if ((p = strrchr(path, '/')) != NULL)
+		index = mail_index_alloc(t_strdup_until(path, p), p + 1);
+	else
+		index = mail_index_alloc(".", path);
+
+	ret = mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
+			      FILE_LOCK_METHOD_FCNTL) > 0;
+	mail_index_free(&index);
+	return ret;
+}
+
+struct doveadm_cmd_dump doveadm_cmd_dump_index = {
+	"index",
+	test_dump_index,
+	cmd_dump_index
+};

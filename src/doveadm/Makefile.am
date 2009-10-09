@@ -30,8 +30,14 @@ doveadm_DEPENDENCIES = \
 doveadm_SOURCES = \
 	doveadm.c \
 	doveadm-auth.c \
+	doveadm-dump.c \
+	doveadm-dump-index.c \
+	doveadm-dump-log.c \
+	doveadm-dump-mailboxlog.c \
+	doveadm-dump-thread.c \
 	doveadm-mail.c \
 	doveadm-pw.c
 
 noinst_HEADERS = \
+	doveadm-dump.h \
 	doveadm-mail.h

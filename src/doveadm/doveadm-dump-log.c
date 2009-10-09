@@ -4,23 +4,11 @@
 #include "hex-binary.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log.h"
+#include "doveadm-dump.h"
 
 #include <stdio.h>
 
 static struct mail_transaction_ext_intro prev_intro;
-
-uint32_t mail_index_offset_to_uint32(uint32_t offset)
-{
-	const unsigned char *buf = (const unsigned char *) &offset;
-
-	if ((offset & 0x80808080) != 0x80808080)
-		return 0;
-
-	return (((uint32_t)buf[3] & 0x7f) << 2) |
-		(((uint32_t)buf[2] & 0x7f) << 9) |
-		(((uint32_t)buf[1] & 0x7f) << 16) |
-		(((uint32_t)buf[0] & 0x7f) << 23);
-}
 
 static void dump_hdr(int fd, uint64_t *modseq_r)
 {
@@ -70,6 +58,7 @@ mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr)
 	}
 	return FALSE;
 }
+
 static const char *log_record_type(unsigned int type)
 {
 	const char *name;
@@ -466,21 +455,14 @@ static int dump_record(int fd, uint64_t *modseq)
 	return 1;
 }
 
-int main(int argc, const char *argv[])
+static void cmd_dump_log(int argc ATTR_UNUSED, char *argv[])
 {
 	uint64_t modseq;
 	int fd, ret;
 
-	lib_init();
-
-	if (argc < 2)
-		i_fatal("Usage: logview dovecot.index.log");
-
 	fd = open(argv[1], O_RDONLY);
-	if (fd < 0) {
-		i_error("open(): %m");
-		return 1;
-	}
+	if (fd < 0)
+		i_fatal("open(%s) failed: %m", argv[1]);
 
 	dump_hdr(fd, &modseq);
 	do {
@@ -488,5 +470,36 @@ int main(int argc, const char *argv[])
 			ret = dump_record(fd, &modseq);
 		} T_END;
 	} while (ret > 0);
-	return 0;
 }
+
+static bool test_dump_log(const char *path)
+{
+	struct mail_transaction_log_header hdr;
+	const char *p;
+	bool ret = FALSE;
+	int fd;
+
+	p = strrchr(path, '/');
+	if (p == NULL)
+		return FALSE;
+	p = strstr(p, ".log");
+	if (p == NULL || !(p[4] == '\0' || p[4] == '.'))
+		return FALSE;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1)
+		return FALSE;
+
+	if (read(fd, &hdr, sizeof(hdr)) >= MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE &&
+	    hdr.major_version == MAIL_TRANSACTION_LOG_MAJOR_VERSION &&
+	    hdr.hdr_size >= MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE)
+		ret = TRUE;
+	(void)close(fd);
+	return ret;
+}
+
+struct doveadm_cmd_dump doveadm_cmd_dump_log = {
+	"log",
+	test_dump_log,
+	cmd_dump_log
+};

@@ -3,13 +3,9 @@ pkglibexecdir = $(libexecdir)/dovecot
 pkglibexec_PROGRAMS = \
 	rawlog \
 	gdbhelper \
-	idxview \
 	imap-utf7 \
 	listview \
-	logview \
-	mailboxlogview \
-	maildirlock \
-	threadview
+	maildirlock
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -33,11 +29,6 @@ gdbhelper_DEPENDENCIES = $(LIBDOVECOT)
 gdbhelper_SOURCES = \
 	gdbhelper.c
 
-idxview_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
-idxview_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
-idxview_SOURCES = \
-	idxview.c
-
 imap_utf7_LDADD = $(LIBDOVECOT)
 imap_utf7_DEPENDENCIES = $(LIBDOVECOT)
 imap_utf7_SOURCES = \
@@ -48,22 +39,7 @@ listview_DEPENDENCIES = $(LIBDOVECOT)
 listview_SOURCES = \
 	listview.c
 
-logview_LDADD = $(LIBDOVECOT)
-logview_DEPENDENCIES = $(LIBDOVECOT)
-logview_SOURCES = \
-	logview.c
-
-mailboxlogview_LDADD = $(LIBDOVECOT)
-mailboxlogview_DEPENDENCIES = $(LIBDOVECOT)
-mailboxlogview_SOURCES = \
-	mailboxlogview.c
-
 maildirlock_LDADD = $(LIBDOVECOT)
 maildirlock_DEPENDENCIES = $(LIBDOVECOT)
 maildirlock_SOURCES = \
 	maildirlock.c
-
-threadview_LDADD = $(LIBDOVECOT)
-threadview_DEPENDENCIES = $(LIBDOVECOT)
-threadview_SOURCES = \
-	threadview.c

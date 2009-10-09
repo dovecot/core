@@ -79,14 +79,10 @@ src/plugins/fts-squat/squat-test
 src/pop3-login/pop3-login
 src/pop3/pop3
 src/util/gdbhelper
-src/util/idxview
 src/util/imap-utf7
 src/util/listview
-src/util/logview
-src/util/mailboxlogview
 src/util/maildirlock
 src/util/rawlog
-src/util/threadview
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h
 
