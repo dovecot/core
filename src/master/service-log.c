@@ -133,7 +133,8 @@ void services_log_deinit(struct service_list *service_list)
 			services[i]->log_process_internal_fd = -1;
 		}
 	}
-	service_process_notify_deinit(&service_list->log_byes);
+	if (service_list->log_byes != NULL)
+		service_process_notify_deinit(&service_list->log_byes);
 	if (service_list->master_log_fd[0] != -1) {
 		if (close(service_list->master_log_fd[0]) < 0)
 			i_error("close(master log fd) failed: %m");

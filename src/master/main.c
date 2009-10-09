@@ -353,6 +353,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 			 services->config->config_file_path);
 
 	/* switch to new configuration. */
+	services_monitor_stop(services);
 	(void)services_listen_using(new_services, services);
 	services_destroy(services);
 
