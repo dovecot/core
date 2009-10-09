@@ -223,3 +223,5 @@ void imap_quota_plugin_deinit(void)
 
 	hook_client_created = next_hook_client_created;
 }
+
+const char *imap_quota_plugin_dependencies[] = { "quota", NULL };

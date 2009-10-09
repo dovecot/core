@@ -13,6 +13,9 @@ lib11_imap_quota_plugin_la_LDFLAGS = -module -avoid-version
 imap_module_LTLIBRARIES = \
 	lib11_imap_quota_plugin.la
 
+lib11_imap_quota_plugin_la_LIBADD = \
+	../quota/lib10_quota_plugin.la
+
 lib11_imap_quota_plugin_la_SOURCES = \
 	imap-quota-plugin.c
 

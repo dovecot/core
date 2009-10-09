@@ -83,3 +83,5 @@ void fts_solr_plugin_deinit(void)
 	fts_backend_unregister(fts_backend_solr.name);
 	hook_mail_user_created = fts_solr_next_hook_mail_user_created;
 }
+
+const char *fts_solr_plugin_dependencies[] = { "fts", NULL };

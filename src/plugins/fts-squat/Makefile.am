@@ -10,6 +10,9 @@ lib21_fts_squat_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib21_fts_squat_plugin.la
 
+lib21_fts_squat_plugin_la_LIBADD = \
+	../fts/lib20_fts_plugin.la
+
 lib21_fts_squat_plugin_la_SOURCES = \
 	fts-squat-plugin.c \
 	fts-backend-squat.c \

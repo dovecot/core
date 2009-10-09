@@ -430,3 +430,5 @@ void mail_log_plugin_deinit(void)
 {
 	notify_unregister(mail_log_ctx);
 }
+
+const char *mail_log_plugin_dependencies[] = { "notify", NULL };

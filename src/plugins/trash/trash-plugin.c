@@ -333,3 +333,5 @@ void trash_plugin_deinit(void)
 {
 	hook_mail_namespaces_created = trash_hook_mail_namespaces_created;
 }
+
+const char *trash_plugin_dependencies[] = { "quota", NULL };

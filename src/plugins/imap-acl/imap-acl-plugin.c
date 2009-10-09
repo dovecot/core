@@ -643,3 +643,5 @@ void imap_acl_plugin_deinit(void)
 
 	hook_client_created = next_hook_client_created;
 }
+
+const char *imap_acl_plugin_dependencies[] = { "acl", NULL };

@@ -12,6 +12,7 @@ module_LTLIBRARIES = \
 	lib21_fts_solr_plugin.la
 
 lib21_fts_solr_plugin_la_LIBADD = \
+	../fts/lib20_fts_plugin.la \
 	$(CURL_LIBS) -lexpat
 
 lib21_fts_solr_plugin_la_SOURCES = \
