@@ -132,9 +132,9 @@ config_filter_is_superset(const struct config_filter *sup,
 {
 	/* assume that both of the filters match the same subset, so we don't
 	   need to compare IPs and service name. */
-	if (sup->local_bits < filter->local_bits)
+	if (sup->local_bits > filter->local_bits)
 		return FALSE;
-	if (sup->remote_bits < filter->remote_bits)
+	if (sup->remote_bits > filter->remote_bits)
 		return FALSE;
 	if (sup->service != NULL && filter->service == NULL)
 		return FALSE;
@@ -185,8 +185,8 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 
 	/* apply the changes from rest of the matches */
 	for (i = 1; src[i] != NULL; i++) {
-		if (config_filter_is_superset(&src[i-1]->filter,
-					      &src[i]->filter))
+		if (config_filter_is_superset(&src[i]->filter,
+					      &src[i-1]->filter))
 			error_p = NULL;
 		else
 			error_p = &error;

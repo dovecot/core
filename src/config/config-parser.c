@@ -166,9 +166,15 @@ config_add_new_parser(struct parser_context *ctx)
 
 	parser = p_new(ctx->pool, struct config_filter_parser, 1);
 	parser->filter = cur_section->filter;
-	parser->file_and_line =
-		p_strdup_printf(ctx->pool, "%s:%d",
-				ctx->cur_input->path, ctx->cur_input->linenum);
+	if (ctx->cur_input->linenum == 0) {
+		parser->file_and_line =
+			p_strdup(ctx->pool, ctx->cur_input->path);
+	} else {
+		parser->file_and_line =
+			p_strdup_printf(ctx->pool, "%s:%d",
+					ctx->cur_input->path,
+					ctx->cur_input->linenum);
+	}
 	parser->parsers = cur_section->prev == NULL ? ctx->root_parsers :
 		config_module_parsers_init(ctx->pool);
 	array_append(&ctx->all_parsers, &parser, 1);
