@@ -666,7 +666,7 @@ void mech_gssapi_init(void)
 	mech_register_module(&mech_gssapi);
 #ifdef HAVE_GSSAPI_SPNEGO
 	/* load if we already didn't load it using winbind */
-	if (mech_module_find(mech_gssapi_spnego.name) == NULL)
+	if (mech_module_find(mech_gssapi_spnego.mech_name) == NULL)
 		mech_register_module(&mech_gssapi_spnego);
 #endif
 }
@@ -674,10 +674,10 @@ void mech_gssapi_init(void)
 void mech_gssapi_deinit(void)
 {
 #ifdef HAVE_GSSAPI_SPNEGO
-	struct mech_module *mech;
+	const struct mech_module *mech;
 
-	mech = mech_module_find(mech_gssapi_spnego.name);
-	if (mech != NULL && mech.auth_new == mech_gssapi_auth_new)
+	mech = mech_module_find(mech_gssapi_spnego.mech_name);
+	if (mech != NULL && mech->auth_new == mech_gssapi_auth_new)
 		mech_unregister_module(&mech_gssapi_spnego);
 #endif
 	mech_unregister_module(&mech_gssapi);
