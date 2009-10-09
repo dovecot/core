@@ -32,8 +32,6 @@ anvil_input_fd_discard(struct service_list *service_list, int fd)
 	if (ret <= 0) {
 		i_error("read(anvil fd) failed: %m");
 		service_list_anvil_discard_input_stop(service_list);
-	} else {
-		i_warning("discarded %.*s", (int)ret, buf);
 	}
 }
 
