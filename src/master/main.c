@@ -528,10 +528,11 @@ static void print_build_options(void)
 #ifdef HAVE_OPENSSL
 		" openssl"
 #endif
+	"\nMail storages: "MAIL_STORAGES"\n"
 #ifdef SQL_DRIVER_PLUGINS
-	"\nSQL driver plugins:"
+	"SQL driver plugins:"
 #else
-	"\nSQL drivers:"
+	"SQL drivers:"
 #endif
 #ifdef BUILD_MYSQL
 		" mysql"
