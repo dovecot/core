@@ -580,6 +580,9 @@ static void print_build_options(void)
 		"(plugin)"
 #endif
 #endif
+#ifdef USERDB_NSS
+		" nss"
+#endif
 #ifdef USERDB_PASSWD
 		" passwd"
 #endif
