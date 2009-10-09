@@ -20,9 +20,9 @@ SUBDIRS = \
 	fts-squat \
 	lazy-expunge \
 	listescape \
-	mail-log \
 	mbox-snarf \
 	notify \
+	mail-log \
 	quota \
 	imap-quota \
 	trash \
