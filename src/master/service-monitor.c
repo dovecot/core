@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <syslog.h>
+#include <signal.h>
 
 #define SERVICE_PROCESS_KILL_IDLE_MSECS (1000*60)
 #define SERVICE_STARTUP_FAILURE_THROTTLE_SECS 60
