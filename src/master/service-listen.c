@@ -62,8 +62,9 @@ static int service_unix_listener_listen(struct service_listener *l)
 	if ((service->uid != (uid_t)-1 && service->uid != master_uid) ||
 	    (service->gid != (gid_t)-1 && service->gid != master_gid)) {
 		if (chown(set->path, service->uid, service->gid) < 0) {
-			i_error("chown(%s, %s, %s) failed: %m", set->path,
-				dec2str(service->uid), dec2str(service->gid));
+			i_error("chown(%s, %lld, %lld) failed: %m", set->path,
+				(long long)service->uid,
+				(long long)service->gid);
 			(void)close(fd);
 			return -1;
 		}
@@ -102,8 +103,9 @@ static int service_fifo_listener_listen(struct service_listener *l)
 	if ((service->uid != (uid_t)-1 && service->uid != master_uid) ||
 	    (service->gid != (gid_t)-1 && service->gid != master_gid)) {
 		if (chown(set->path, service->uid, service->gid) < 0) {
-			i_error("chown(%s, %s, %s) failed: %m", set->path,
-				dec2str(service->uid), dec2str(service->gid));
+			i_error("chown(%s, %lld, %lld) failed: %m", set->path,
+				(long long)service->uid,
+				(long long)service->gid);
 			(void)close(fd);
 			return -1;
 		}
