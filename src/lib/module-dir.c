@@ -82,9 +82,40 @@ static void module_free(struct module *module)
 	i_free(module);
 }
 
+static bool
+module_check_missing_dependencies(struct module *module,
+				  struct module *all_modules)
+{
+	const char **deps;
+	struct module *m;
+	unsigned int len;
+
+	deps = dlsym(module->handle,
+		     t_strconcat(module->name, "_dependencies", NULL));
+	if (deps == NULL)
+		return TRUE;
+
+	for (; *deps != NULL; deps++) {
+		len = strlen(*deps);
+		for (m = all_modules; m != NULL; m = m->next) {
+			if (strncmp(m->name, *deps, len) == 0 &&
+			    (m->name[len] == '\0' ||
+			     strcmp(m->name+len, "_plugin") == 0))
+				break;
+		}
+		if (m == NULL) {
+			i_error("Can't load plugin %s: "
+				"Plugin %s must be loaded also",
+				module->name, *deps);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 static struct module *
 module_load(const char *path, const char *name, bool require_init_funcs,
-	    const char *version)
+	    const char *version, struct module *all_modules)
 {
 	void *handle;
 	struct module *module;
@@ -123,6 +154,12 @@ module_load(const char *path, const char *name, bool require_init_funcs,
 	    require_init_funcs) {
 		i_error("Module doesn't have %s function: %s",
 			module->init == NULL ? "init" : "deinit", path);
+		module->deinit = NULL;
+		module_free(module);
+		return NULL;
+	}
+
+	if (!module_check_missing_dependencies(module, all_modules)) {
 		module->deinit = NULL;
 		module_free(module);
 		return NULL;
@@ -258,7 +295,8 @@ module_dir_load_real(const char *dir, const char *module_names,
 		else {
 			path = t_strconcat(dir, "/", name, NULL);
 			module = module_load(path, stripped_name,
-					     require_init_funcs, version);
+					     require_init_funcs, version,
+					     modules);
 			if (module == NULL && module_names_arr != NULL)
 				i_fatal("Couldn't load required plugins");
 		}
