@@ -357,29 +357,35 @@ AC_CHECK_LIB(rt, clock_gettime, [
 
 dnl strtoimax and strtoumax are macros in HP-UX, so inttypes.h must be included
 dnl Link instead of just compiling since there's something wrong with Tru64
-AC_MSG_CHECKING([for strtoimax])
-AC_TRY_LINK([
-  #include <inttypes.h>
-], [
-  strtoimax(0, 0, 0);
-], [
+AC_CACHE_CHECK([for strtoimax],i_cv_have_strtoimax,[
+  AC_TRY_LINK([
+    #include <inttypes.h>
+  ], [
+    strtoimax(0, 0, 0);
+  ], [
+    i_cv_have_strtoimax=yes
+  ], [
+    i_cv_have_strtoimax=no
+  ])
+])
+if test $i_cv_have_strtoimax = yes; then
   AC_DEFINE(HAVE_STRTOIMAX,, Define if you have strtoimax function)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
-])
+fi
 
-AC_MSG_CHECKING([for strtoumax])
-AC_TRY_LINK([
-  #include <inttypes.h>
-], [
-  strtoumax(0, 0, 0);
-], [
-  AC_DEFINE(HAVE_STRTOUMAX,, Define if you have strtoumax function)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+AC_CACHE_CHECK([for strtoumax],i_cv_have_strtoumax,[
+  AC_TRY_LINK([
+    #include <inttypes.h>
+  ], [
+    strtoumax(0, 0, 0);
+  ], [
+    i_cv_have_strtoumax=yes
+  ], [
+    i_cv_have_strtoumax=no
+  ])
 ])
+if test $i_cv_have_strtoumax = yes; then
+  AC_DEFINE(HAVE_STRTOUMAX,, Define if you have strtoumax function)
+fi
 
 dnl * I/O loop function
 have_ioloop=no
@@ -489,8 +495,8 @@ if test "$notify" = "" || test "$notify" = "inotify" ; then
 fi
 
 if (test "$notify" = "" && test "$ioloop" = kqueue) || test "$notify" = "kqueue"; then
-  AC_MSG_CHECKING([if we can use BSD kqueue() notify])
   dnl * BSD kqueue() notify
+  AC_MSG_CHECKING([whether we can use BSD kqueue() notify])
   if test "$ac_cv_func_kqueue" = yes && test "$ac_cv_func_kevent" = yes ; then
     have_notify=kqueue
     notify=kqueue
@@ -499,7 +505,7 @@ if (test "$notify" = "" && test "$ioloop" = kqueue) || test "$notify" = "kqueue"
       Use BSD kqueue directory changes notificaton)
   else 
     AC_MSG_RESULT("no")
-    if test "$notfify" = "kqueue" ; then
+    if test "$notify" = "kqueue" ; then
       AC_MSG_ERROR([kqueue notify requested but kqueue() is not available])
       notify=""
     fi
@@ -507,42 +513,52 @@ if (test "$notify" = "" && test "$ioloop" = kqueue) || test "$notify" = "kqueue"
 fi
 
 if test "$notify" = "" || test "$notify" = "dnotify"; then
-  AC_MSG_CHECKING([whether we can use dnotify])
   dnl * dnotify?
-  AC_TRY_COMPILE([
-    #define _GNU_SOURCE
-    #include <fcntl.h>
-    #include <signal.h>
-    #include <unistd.h>
-  ], [
-    fcntl(0, F_SETSIG, SIGRTMIN);
-    fcntl(0, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME | DN_MULTISHOT);
-  ], [
-    AC_MSG_RESULT(yes)
+  AC_CACHE_CHECK([whether we can use dnotify],i_cv_have_dnotify,[
+    AC_TRY_COMPILE([
+      #define _GNU_SOURCE
+      #include <fcntl.h>
+      #include <signal.h>
+      #include <unistd.h>
+    ], [
+      fcntl(0, F_SETSIG, SIGRTMIN);
+      fcntl(0, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME | DN_MULTISHOT);
+    ], [
+      i_cv_have_dnotify=yes
+    ], [
+      i_cv_have_dnotify=no
+    ])
+  ])
+  if test $i_cv_have_dnotify = yes; then
     AC_DEFINE(IOLOOP_NOTIFY_DNOTIFY,, Use Linux dnotify)
     have_notify=dnotify
     notify=dnotify
-  ], [
-    AC_MSG_RESULT(no)
+  else
     if test "$notify" = "dnotify"; then
       AC_MSG_ERROR([dnotify requested but not available])
     fi
-  ])
+  fi
 fi
 
 if test "$have_notify" = "none"; then
   AC_DEFINE(IOLOOP_NOTIFY_NONE,, No special notify support)
 fi
 
-dnl * GLIBC?
-AC_TRY_COMPILE([
-  #include <stdlib.h>
-  #ifdef __GLIBC__
-    we have glibc
-  #endif
-],,, [
-  AC_DEFINE(PREAD_WRAPPERS,, Define if pread/pwrite needs _XOPEN_SOURCE 500)
+AC_CACHE_CHECK([whether we have glibc],i_cv_have_glibc,[
+  AC_TRY_COMPILE([
+    #include <stdlib.h>
+    #ifdef __GLIBC__
+      we have glibc
+    #endif
+  ],, [
+    i_cv_have_glibc=no
+  ], [
+    i_cv_have_glibc=yes
+  ])
 ])
+if test "$i_cv_have_glibc" = "yes"; then
+  AC_DEFINE(PREAD_WRAPPERS,, Define if pread/pwrite needs _XOPEN_SOURCE 500)
+fi
 
 dnl * Old glibcs have broken posix_fallocate(). Make sure not to use it.
 dnl * It may also be broken in AIX.
@@ -606,7 +622,7 @@ AC_DEFUN([AC_TYPEOF], [
   result=""
   visible="unknown"
   AC_MSG_CHECKING([type of $1])
-
+  AC_CACHE_VAL(i_cv_typeof_$1,[
   if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
     dnl * try with printf() + -Werror
     old_CFLAGS="$CFLAGS"
@@ -708,8 +724,11 @@ AC_DEFUN([AC_TYPEOF], [
       fi
     ],[],[])
   fi
+  i_cv_typeof_$1=$result/$visible
+  ])
 
-  typeof_$1=$result
+  typeof_$1=`echo $i_cv_typeof_$1 | sed s,/.*$,,`
+  visible=`echo $i_cv_typeof_$1 | sed s,^.*/,,`
   AC_MSG_RESULT($visible)
 ])
 
@@ -964,21 +983,26 @@ fi
 
 dnl Our implementation of AC_C_FLEXIBLE_ARRAY_MEMBER.
 dnl Use it until autoconf 2.61+ becomes more widely used
-AC_MSG_CHECKING([if we can use C99-like flexible array members])
-AC_TRY_COMPILE([
-  struct foo {
-    int x;
-    char y[];
-  };
-], [
-  struct foo foo;
-], [
-  flexible_value=""
-  AC_MSG_RESULT(yes)
-], [
-  flexible_value=1
-  AC_MSG_RESULT(no)
+AC_CACHE_CHECK([if we can use C99-like flexible array members],i_cv_c99_flex_arrays,[
+  AC_TRY_COMPILE([
+    struct foo {
+      int x;
+      char y[];
+    };
+  ], [
+    struct foo foo;
+  ], [
+    i_cv_c99_flex_arrays=yes
+  ], [
+    i_cv_c99_flex_arrays=no
+  ])
 ])
+
+if test $i_cv_c99_flex_arrays = yes; then
+  flexible_value=1
+else
+  flexible_value=
+fi
 AC_DEFINE_UNQUOTED(FLEXIBLE_ARRAY_MEMBER, $flexible_value, How to define flexible array members in structs)
 
 dnl * do we have struct iovec
@@ -998,81 +1022,114 @@ fi
 AC_MSG_RESULT($i_cv_struct_iovec)
 
 dnl * is dev_t an integer or something else?
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-  #include <sys/types.h>
-  struct test { dev_t a; };
-  static struct test t = { 0 };
-]], [[]])],[],[
-  AC_DEFINE(DEV_T_STRUCT,, Define if your dev_t is a structure instead of integer type)
-
-  dnl we can't initialize structures, so don't warn about them either
-  if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
-    CFLAGS=`echo $CFLAGS|sed 's/ -W\b//'`
-  fi
+AC_CACHE_CHECK([whether dev_t is struct],i_cv_dev_t_struct,[
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+    #include <sys/types.h>
+    struct test { dev_t a; };
+    static struct test t = { 0 };
+  ]],
+  [[ ]])], [
+    i_cv_dev_t_struct=no
+  ],[
+    i_cv_dev_t_struct=yes
+  ])
 ])
+if test $i_cv_dev_t_struct = yes; then
+  AC_DEFINE(DEV_T_STRUCT,, Define if your dev_t is a structure instead of integer type)
+fi
 
 dnl * Do we have RLIMIT_AS?
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-  #include <sys/types.h>
-  #include <sys/time.h>
-  #include <sys/resource.h>
-]], [[
-  struct rlimit r;
-  getrlimit(RLIMIT_AS, &r);
-]])],[
+AC_CACHE_CHECK([whether RLIMIT_AS exists],i_cv_have_rlimit_as,[
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+    #include <sys/types.h>
+    #include <sys/time.h>
+    #include <sys/resource.h>
+  ]], [[
+    struct rlimit r;
+    getrlimit(RLIMIT_AS, &r);
+  ]])],[
+    i_cv_have_rlimit_as=yes
+  ], [
+    i_cv_have_rlimit_as=no
+  ])
+])
+
+if test $i_cv_have_rlimit_as = yes; then
   AC_DEFINE(HAVE_RLIMIT_AS,, Define if you have RLIMIT_AS for setrlimit())
-],[])
+fi
 
 dnl * Do we have RLIMIT_NPROC?
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-  #include <sys/types.h>
-  #include <sys/time.h>
-  #include <sys/resource.h>
-]], [[
-  struct rlimit r;
-  getrlimit(RLIMIT_NPROC, &r);
-]])],[
+AC_CACHE_CHECK([whether RLIMIT_NPROC exists],i_cv_have_rlimit_nproc,[
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+    #include <sys/types.h>
+    #include <sys/time.h>
+    #include <sys/resource.h>
+  ]], [[
+    struct rlimit r;
+    getrlimit(RLIMIT_NPROC, &r);
+  ]])],[
+    i_cv_have_rlimit_nproc=yes
+  ],[
+    i_cv_have_rlimit_nproc=no
+  ])
+])
+
+if test $i_cv_have_rlimit_nproc = yes; then
   AC_DEFINE(HAVE_RLIMIT_NPROC,, Define if you have RLIMIT_NPROC for setrlimit())
-],[])
+fi
 
 dnl * Do we have RLIMIT_CORE?
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-  #include <sys/types.h>
-  #include <sys/time.h>
-  #include <sys/resource.h>
-]], [[
-  struct rlimit r;
-  getrlimit(RLIMIT_CORE, &r);
-]])],[
-  AC_DEFINE(HAVE_RLIMIT_CORE,, Define if you have RLIMIT_CORE for getrlimit())
-],[])
-
-AC_MSG_CHECKING([PR_SET_DUMPABLE])
-AC_TRY_LINK([
-  #include <sys/prctl.h>
-], [
-  prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
-], [
-  AC_DEFINE(HAVE_PR_SET_DUMPABLE,, Define if you have prctl(PR_SET_DUMPABLE))
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+AC_CACHE_CHECK([whether RLIMIT_CORE exists],i_cv_have_rlimit_core,[
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+    #include <sys/types.h>
+    #include <sys/time.h>
+    #include <sys/resource.h>
+  ]], [[
+    struct rlimit r;
+    getrlimit(RLIMIT_CORE, &r);
+  ]])],[
+    i_cv_have_rlimit_core=yes
+  ],[
+    i_cv_have_rlimit_core=no
+  ])
 ])
+
+if test $i_cv_have_rlimit_core = yes; then
+  AC_DEFINE(HAVE_RLIMIT_CORE,, Define if you have RLIMIT_CORE for getrlimit())
+fi
+
+AC_CACHE_CHECK([whether PR_SET_DUMPABLE exists],i_cv_have_pr_set_dumpable,[
+  AC_TRY_LINK([
+    #include <sys/prctl.h>
+  ], [
+    prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
+  ], [
+    i_cv_have_pr_set_dumpable=yes
+  ], [
+    i_cv_have_pr_set_dumpable=no
+  ])
+])
+if test $i_cv_have_pr_set_dumpable = yes; then
+  AC_DEFINE(HAVE_PR_SET_DUMPABLE,, Define if you have prctl(PR_SET_DUMPABLE))
+fi
 
 dnl * Linux compatible mremap()
-AC_MSG_CHECKING([Linux compatible mremap()])
-AC_TRY_LINK([
-  #include <unistd.h>
-  #define __USE_GNU
-  #include <sys/mman.h>
-], [
-  mremap(0, 0, 0, MREMAP_MAYMOVE);
-], [
-  AC_DEFINE(HAVE_LINUX_MREMAP,, Define if you have Linux-compatible mremap())
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+AC_CACHE_CHECK([Linux compatible mremap()],i_cv_have_linux_mremap,[
+  AC_TRY_LINK([
+    #include <unistd.h>
+    #define __USE_GNU
+    #include <sys/mman.h>
+  ], [
+    mremap(0, 0, 0, MREMAP_MAYMOVE);
+  ], [
+    i_cv_have_linux_mremap=yes
+  ], [
+    i_cv_have_linux_mremap=no
+  ])
 ])
+if test $i_cv_have_linux_mremap = yes; then
+  AC_DEFINE(HAVE_LINUX_MREMAP,, Define if you have Linux-compatible mremap())
+fi
 
 dnl * If mmap() plays nicely with write()
 AC_CACHE_CHECK([whether shared mmaps get updated by write()s],i_cv_mmap_plays_with_write,[
@@ -1211,186 +1268,200 @@ AC_CHECK_LIB(sendfile, sendfile, [
 ], [
   dnl * Linux compatible sendfile() - don't check if Solaris one was found.
   dnl * This seems to pass with Solaris for some reason..
-  AC_MSG_CHECKING([Linux compatible sendfile()])
-  AC_TRY_LINK([
-    #undef _FILE_OFFSET_BITS
-    #include <sys/types.h>
-    #include <sys/socket.h>
-    #include <sys/sendfile.h>
-  ], [
-    sendfile(0, 0, (void *) 0, 0);
-  ], [
-    AC_DEFINE(HAVE_LINUX_SENDFILE,, Define if you have Linux-compatible sendfile())
-    AC_MSG_RESULT(yes)
-  ], [
-    AC_MSG_RESULT(no)
+  AC_CACHE_CHECK([Linux compatible sendfile()],i_cv_have_linux_sendfile,[
+    AC_TRY_LINK([
+      #undef _FILE_OFFSET_BITS
+      #include <sys/types.h>
+      #include <sys/socket.h>
+      #include <sys/sendfile.h>
+    ], [
+      sendfile(0, 0, (void *) 0, 0);
+    ], [
+      i_cv_have_linux_sendfile=yes
+    ], [
+      i_cv_have_linux_sendfile=no
+    ])
   ])
+  if test $i_cv_have_linux_sendfile = yes; then
+    AC_DEFINE(HAVE_LINUX_SENDFILE,, Define if you have Linux-compatible sendfile())
+  fi
 
   dnl * FreeBSD compatible sendfile()
-  AC_MSG_CHECKING([FreeBSD compatible sendfile()])
-  AC_TRY_LINK([
-    #include <sys/types.h>
-    #include <sys/socket.h>
-    #include <sys/uio.h>
-  ], [
-    struct sf_hdtr hdtr;
-    sendfile(0, 0, 0, 0, &hdtr, (void *) 0, 0);
-  ], [
-    AC_DEFINE(HAVE_FREEBSD_SENDFILE,, Define if you have FreeBSD-compatible sendfile())
-    AC_MSG_RESULT(yes)
-  ], [
-    AC_MSG_RESULT(no)
+  AC_CACHE_CHECK([FreeBSD compatible sendfile()],i_cv_have_freebsd_sendfile,[
+    AC_TRY_LINK([
+      #include <sys/types.h>
+      #include <sys/socket.h>
+      #include <sys/uio.h>
+    ], [
+      struct sf_hdtr hdtr;
+      sendfile(0, 0, 0, 0, &hdtr, (void *) 0, 0);
+    ], [
+      i_cv_have_freebsd_sendfile=yes
+    ], [
+      i_cv_have_freebsd_sendfile=no
+    ])
   ])
+  if test $i_cv_have_freebsd_sendfile = yes; then
+    AC_DEFINE(HAVE_FREEBSD_SENDFILE,, Define if you have FreeBSD-compatible sendfile())
+  fi
 ])
 
 dnl * Check for crypt() if unistd.h compiles with _XOPEN_SOURCE + _XPG6
 dnl * Add other macros there too "just in case".
-AC_MSG_CHECKING([if we should use _XPG6 macro for crypt()])
-AC_TRY_COMPILE([
-  #define _XOPEN_SOURCE 4
-  #define _XOPEN_SOURCE_EXTENDED 1
-  #define _XOPEN_VERSION 4
-  #define _XPG4_2
-  #define _XPG6
-  #include <unistd.h>
-], [
-  crypt("a", "b");
-], [
+AC_CACHE_CHECK([if we should use _XPG6 macro for crypt()],i_cv_use_xpg6_crypt,[
+  AC_TRY_COMPILE([
+    #define _XOPEN_SOURCE 4
+    #define _XOPEN_SOURCE_EXTENDED 1
+    #define _XOPEN_VERSION 4
+    #define _XPG4_2
+    #define _XPG6
+    #include <unistd.h>
+  ], [
+    crypt("a", "b");
+  ], [
+    i_cv_use_xpg6_crypt=yes
+  ], [
+    i_cv_use_xpg6_crypt=no
+  ])
+])
+if test $i_cv_use_xpg6_crypt = yes; then
   AC_DEFINE(CRYPT_USE_XPG6,, Define if _XPG6 macro is needed for crypt())
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+fi
+
+AC_CACHE_CHECK([if struct stat has st_?tim timespec fields],i_cv_have_st_tim_timespec,[
+  AC_TRY_COMPILE([
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    #include <unistd.h>
+  ], [
+    struct stat st;
+    unsigned long x = st.st_mtim.tv_nsec;
+  
+    return 0;
+  ], [
+    i_cv_have_st_tim_timespec=yes
+  ], [
+    i_cv_have_st_tim_timespec=no
+  ])
 ])
-
-AC_MSG_CHECKING([if struct stat has st_?tim timespec fields])
-AC_TRY_COMPILE([
-  #include <sys/types.h>
-  #include <sys/stat.h>
-  #include <unistd.h>
-], [
-  struct stat st;
-  unsigned long x = st.st_mtim.tv_nsec;
-
-  return 0;
-], [
+if test $i_cv_have_st_tim_timespec = yes; then
   AC_DEFINE(HAVE_STAT_XTIM,, Define if you have st_?tim timespec fields in struct stat)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+fi
+
+AC_CACHE_CHECK([if struct stat has st_?timespec fields],i_cv_have_st_timespec,[
+  AC_TRY_COMPILE([
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    #include <unistd.h>
+  ], [
+    struct stat st;
+    unsigned long x = st.st_mtimespec.tv_nsec;
+  
+    return 0;
+  ], [
+    i_cv_have_st_timespec=yes
+  ], [
+    i_cv_have_st_timespec=no
+  ])
 ])
-
-AC_MSG_CHECKING([if struct stat has st_?timespec fields])
-AC_TRY_COMPILE([
-  #include <sys/types.h>
-  #include <sys/stat.h>
-  #include <unistd.h>
-], [
-  struct stat st;
-  unsigned long x = st.st_mtimespec.tv_nsec;
-
-  return 0;
-], [
+if test $i_cv_have_st_timespec = yes; then
   AC_DEFINE(HAVE_STAT_XTIMESPEC,, Define if you have st_?timespec fields in struct stat)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
-])
+fi
 
 dnl * Check if statvfs() can be used to find out block device for files
-AC_MSG_CHECKING([if statvfs.f_mntfromname exists])
-AC_TRY_COMPILE([
-  #include <sys/types.h>
-  #include <sys/statvfs.h>
-], [
-  struct statvfs buf;
-  char *p = buf.f_mntfromname;
-
-  statvfs(".", &buf);
-], [
-  AC_DEFINE(HAVE_STATVFS_MNTFROMNAME,, Define if you have statvfs.f_mntfromname)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+AC_CACHE_CHECK([if statvfs.f_mntfromname exists],i_cv_have_statvfs_f_mntfromname,[
+  AC_TRY_COMPILE([
+    #include <sys/types.h>
+    #include <sys/statvfs.h>
+  ], [
+    struct statvfs buf;
+    char *p = buf.f_mntfromname;
+  
+    statvfs(".", &buf);
+  ], [
+    i_cv_have_statvfs_f_mntfromname=yes
+  ], [
+    i_cv_have_statvfs_f_mntfromname=no
+  ])
 ])
-
-dnl * Check if statvfs() can be used to find out block device for files
-AC_MSG_CHECKING([if statvfs.f_mntfromname exists])
-AC_TRY_COMPILE([
-  #include <sys/types.h>
-  #include <sys/statvfs.h>
-], [
-  struct statvfs buf;
-  char *p = buf.f_mntfromname;
-
-  statvfs(".", &buf);
-], [
+if test $i_cv_have_statvfs_f_mntfromname = yes; then
   AC_DEFINE(HAVE_STATVFS_MNTFROMNAME,, Define if you have statvfs.f_mntfromname)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
-])
+fi
 
 dnl * Check if statfs() can be used to find out block device for files
-AC_MSG_CHECKING([if statfs.f_mntfromname exists])
-AC_TRY_COMPILE([
-  #include <sys/param.h>
-  #include <sys/mount.h>
-], [
-  struct statfs buf;
-  char *p = buf.f_mntfromname;
-
-  statfs(".", &buf);
-], [
-  AC_DEFINE(HAVE_STATFS_MNTFROMNAME,, Define if you have statfs.f_mntfromname)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+AC_CACHE_CHECK([if statfs.f_mntfromname exists],i_cv_have_statfs_f_mntfromname,[
+  AC_TRY_COMPILE([
+    #include <sys/param.h>
+    #include <sys/mount.h>
+  ], [
+    struct statfs buf;
+    char *p = buf.f_mntfromname;
+  
+    statfs(".", &buf);
+  ], [
+    i_cv_have_statfs_f_mntfromname=yes
+  ], [
+    i_cv_have_statfs_f_mntfromname=no
+  ])
 ])
+if test $i_cv_have_statfs_f_mntfromname = yes; then
+  AC_DEFINE(HAVE_STATFS_MNTFROMNAME,, Define if you have statfs.f_mntfromname)
+fi
 
 dnl * Check if we have struct dqblk.dqb_curblocks
-AC_MSG_CHECKING([if struct dqblk.dqb_curblocks exists])
-AC_TRY_COMPILE([
-  #include <sys/types.h>
-  #include "$srcdir/src/plugins/quota/quota-fs.h"
-], [
-  struct dqblk dqblk;
-  unsigned int x = dqblk.dqb_curblocks;
-], [
-  AC_DEFINE(HAVE_STRUCT_DQBLK_CURBLOCKS,, Define if struct sqblk.dqb_curblocks exists)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+AC_CACHE_CHECK([if struct dqblk.dqb_curblocks exists],i_cv_have_dqblk_dqb_curblocks,[
+  AC_TRY_COMPILE([
+    #include <sys/types.h>
+    #include "$srcdir/src/plugins/quota/quota-fs.h"
+  ], [
+    struct dqblk dqblk;
+    unsigned int x = dqblk.dqb_curblocks;
+  ], [
+    i_cv_have_dqblk_dqb_curblocks=yes
+  ], [
+    i_cv_have_dqblk_dqb_curblocks=no
+  ])
 ])
+if test $i_cv_have_dqblk_dqb_curblocks = yes; then
+  AC_DEFINE(HAVE_STRUCT_DQBLK_CURBLOCKS,, Define if struct sqblk.dqb_curblocks exists)
+fi
 
 dnl * Check if we have struct dqblk.dqb_curspace
-AC_MSG_CHECKING([if struct dqblk.dqb_curspace exists])
-AC_TRY_COMPILE([
-  #include <sys/types.h>
-  #include "$srcdir/src/plugins/quota/quota-fs.h"
-], [
-  struct dqblk dqblk;
-  unsigned int x = dqblk.dqb_curspace;
-], [
-  AC_DEFINE(HAVE_STRUCT_DQBLK_CURSPACE,, Define if struct sqblk.dqb_curspace exists)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+AC_CACHE_CHECK([if struct dqblk.dqb_curspace exists],i_cv_have_dqblk_dqb_curspace,[
+  AC_TRY_COMPILE([
+    #include <sys/types.h>
+    #include "$srcdir/src/plugins/quota/quota-fs.h"
+  ], [
+    struct dqblk dqblk;
+    unsigned int x = dqblk.dqb_curspace;
+  ], [
+    i_cv_have_dqblk_dqb_curspace=yes
+  ], [
+    i_cv_have_dqblk_dqb_curspace=no
+  ])
 ])
+if test $i_cv_have_dqblk_dqb_curspace = yes; then
+  AC_DEFINE(HAVE_STRUCT_DQBLK_CURSPACE,, Define if struct sqblk.dqb_curspace exists)
+fi
 
 dnl * Check if we have Q_QUOTACTL ioctl (Solaris)
-AC_MSG_CHECKING([if struct Q_QUOTACTL ioctl exists])
-AC_TRY_COMPILE([
-  #include <sys/types.h>
-  #include <sys/fs/ufs_quota.h>
-], [
-  struct quotctl ctl;
-  ioctl(0, Q_QUOTACTL, &ctl);
-], [
-  AC_DEFINE(HAVE_Q_QUOTACTL,, Define if Q_QUOTACTL exists)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
+AC_CACHE_CHECK([if Q_QUOTACTL ioctl exists],i_cv_have_ioctl_q_quotactl,[
+  AC_TRY_COMPILE([
+    #include <sys/types.h>
+    #include <sys/fs/ufs_quota.h>
+  ], [
+    struct quotctl ctl;
+    ioctl(0, Q_QUOTACTL, &ctl);
+  ], [
+    i_cv_have_ioctl_q_quotactl=yes
+  ], [
+    i_cv_have_ioctl_q_quotactl=no
+  ])
 ])
+
+if test $i_cv_have_ioctl_q_quotactl = yes; then
+  AC_DEFINE(HAVE_Q_QUOTACTL,, Define if Q_QUOTACTL exists)
+fi
 
 dnl ***
 dnl *** C99 vsnprintf()?
@@ -1925,31 +1996,35 @@ AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
 dict_drivers=client
 
 if test $want_db != no; then
-	AC_MSG_CHECKING([db_env_create in -ldb])
-	old_LIBS=$LIBS
-	LIBS="$LIBS -ldb"
-	AC_TRY_LINK([
-		#include <db.h>
-	], [
-		db_env_create(0, 0);
-	], [
-		AC_MSG_RESULT(yes)
-		AC_CHECK_HEADER(db.h, [
-        		DICT_LIBS="$DICT_LIBS -ldb"
-			dict_drivers="$dict_drivers db"
-			AC_DEFINE(BUILD_DB,, Build with Berkeley DB support)
-		], [
-		  if test $want_db = yes; then
-		    AC_ERROR([Can't build with db support: db.h not found])
-		  fi
-		])
-	], [
-		AC_MSG_RESULT(no)
-		if test $want_db = yes; then
-		  AC_ERROR([Can't build with db support: libdb not found])
-		fi
-	])
-	LIBS=$old_LIBS
+  AC_CACHE_CHECK([db_env_create in -ldb],i_cv_have_db_env_create,[
+    old_LIBS=$LIBS
+    LIBS="$LIBS -ldb"
+    AC_TRY_LINK([
+      #include <db.h>
+    ], [
+      db_env_create(0, 0);
+    ], [
+      i_cv_have_db_env_create=yes
+    ], [
+      i_cv_have_db_env_create=no
+    ])
+    LIBS=$old_LIBS
+  ])
+  if test $i_cv_have_db_env_create = yes; then
+    AC_CHECK_HEADER(db.h, [
+      DICT_LIBS="$DICT_LIBS -ldb"
+      dict_drivers="$dict_drivers db"
+      AC_DEFINE(BUILD_DB,, Build with Berkeley DB support)
+    ], [
+      if test $want_db = yes; then
+        AC_ERROR([Can't build with db support: db.h not found])
+      fi
+    ])
+  else
+    if test $want_db = yes; then
+      AC_ERROR([Can't build with db support: libdb not found])
+    fi
+  fi
 fi
 
 if test $want_pgsql != no; then
@@ -2190,18 +2265,25 @@ if test $want_nss != no; then
       AC_ERROR([Can't build with NSS support: Dynamic modules not supported])
     fi
   else
-    AC_TRY_COMPILE([
-      #include <nss.h>
-    ], [
-      enum nss_status status = NSS_STATUS_TRYAGAIN;
-    ], [
+    AC_CACHE_CHECK([for NSS support],i_cv_have_nss,[
+      AC_TRY_COMPILE([
+	#include <nss.h>
+      ], [
+	enum nss_status status = NSS_STATUS_TRYAGAIN;
+      ], [
+	i_cv_have_nss=yes
+      ], [
+	i_cv_have_nss=no
+      ])
+    ])
+    if test $i_cv_have_nss = yes; then
       AC_DEFINE(USERDB_NSS,, Build with NSS module support)
       have_nss=yes
-    ], [
+    else
       if test $want_nss = yes; then
-        AC_ERROR([Can't build with NSS support: nss.h not found or not usable])
+	AC_ERROR([Can't build with NSS support: nss.h not found or not usable])
       fi
-    ])
+    fi
   fi
 fi
 
@@ -2231,19 +2313,23 @@ dnl **
 
 dnl At least Apple's gcc supports __BIG_ENDIAN__ and __LITTLE_ENDIAN__
 dnl defines. Use them if possible to allow cross-compiling.
-AC_MSG_CHECKING([if __BIG_ENDIAN__ or __LITTLE_ENDIAN__ is defined])
-AC_TRY_COMPILE([
-  #if !(__BIG_ENDIAN__ || __LITTLE_ENDIAN__)
-  #error nope
-  #endif
-], [
-], [
-  AC_DEFINE(WORDS_BIGENDIAN, __BIG_ENDIAN__, Define if your CPU is big endian)
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
-  AC_C_BIGENDIAN
+AC_CACHE_CHECK([if __BIG_ENDIAN__ or __LITTLE_ENDIAN__ is defined],i_cv_have___big_endian__,[
+  AC_TRY_COMPILE([
+    #if !(__BIG_ENDIAN__ || __LITTLE_ENDIAN__)
+    #error nope
+    #endif
+  ], [
+  ], [
+    i_cv_have___big_endian__=yes
+  ], [
+    i_cv_have___big_endian__=no
+  ])
 ])
+if test $i_cv_have___big_endian__ = yes; then
+  AC_DEFINE(WORDS_BIGENDIAN, __BIG_ENDIAN__, Define if your CPU is big endian)
+else
+  AC_C_BIGENDIAN
+fi
 
 dnl **
 dnl ** IPv6 support
@@ -2457,6 +2543,8 @@ if test "$docdir" = ""; then
   docdir='${datadir}/doc/${PACKAGE_TARNAME}'
 fi
 AC_SUBST(docdir)
+
+AC_SUBST(abs_top_builddir)
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
