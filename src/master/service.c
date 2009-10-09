@@ -105,6 +105,7 @@ service_create_one_inet_listener(struct service *service,
 	l->type = SERVICE_LISTENER_INET;
 	l->fd = -1;
 	l->set.inetset.set = set;
+	l->inet_address = p_strdup(service->list->pool, address);
 
 	if (resolve_ip(address, &l->set.inetset.ip, error_r) < 0)
 		return NULL;
@@ -127,10 +128,17 @@ service_create_inet_listeners(struct service *service,
 			      const char **error_r)
 {
 	static struct service_listener *l;
-	const char *const *tmp;
+	const char *const *tmp, *addresses;
 	bool ssl_disabled = strcmp(service->set->master_set->ssl, "no") == 0;
 
-	tmp = t_strsplit_spaces(set->address, ", ");
+	if (*set->address != '\0')
+		addresses = set->address;
+	else {
+		/* use the default listen address */
+		addresses = service->set->master_set->listen;
+	}
+
+	tmp = t_strsplit_spaces(addresses, ", ");
 	for (; *tmp != NULL; tmp++) {
 		if (set->ssl && ssl_disabled)
 			continue;

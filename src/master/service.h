@@ -31,6 +31,8 @@ struct service_listener {
 	int fd; /* may be -1 */
 	struct io *io;
 
+	const char *inet_address;
+
 	union {
 		struct {
 			const struct file_listener_settings *set;

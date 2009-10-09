@@ -46,6 +46,7 @@ struct master_settings {
 	const char *base_dir;
 	const char *libexec_dir;
 	const char *protocols;
+	const char *listen;
 	const char *ssl;
 	unsigned int default_process_limit;
 	unsigned int default_client_limit;

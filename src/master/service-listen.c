@@ -128,7 +128,7 @@ static int service_inet_listener_listen(struct service_listener *l)
 	fd = net_listen(&l->set.inetset.ip, &port, 128);
 	if (fd < 0) {
 		service_error(service, "listen(%s, %u) failed: %m",
-			      set->address, set->port);
+			      l->inet_address, set->port);
 		return errno == EADDRINUSE ? 0 : -1;
 	}
 	net_set_nonblock(fd, TRUE);
