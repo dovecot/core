@@ -92,6 +92,7 @@ int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
 
 	if (*user == '\0') {
 		*uid_r = (uid_t)-1;
+		*gid_r = (gid_t)-1;
 		return 0;
 	}
 
