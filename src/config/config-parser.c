@@ -406,6 +406,7 @@ enum config_line_type {
 	CONFIG_LINE_TYPE_SKIP,
 	CONFIG_LINE_TYPE_ERROR,
 	CONFIG_LINE_TYPE_KEYVALUE,
+	CONFIG_LINE_TYPE_KEYFILE,
 	CONFIG_LINE_TYPE_SECTION_BEGIN,
 	CONFIG_LINE_TYPE_SECTION_END,
 	CONFIG_LINE_TYPE_INCLUDE,
@@ -488,6 +489,11 @@ config_parse_line(char *line, string_t *full_line, const char **key_r,
 		/* a) */
 		*line++ = '\0';
 		while (IS_WHITE(*line)) line++;
+
+		if (*line == '<') {
+			*value_r = line + 1;
+			return CONFIG_LINE_TYPE_KEYFILE;
+		}
 
 		len = strlen(line);
 		if (len > 0 &&
@@ -612,13 +618,14 @@ prevfile:
 			errormsg = value;
 			break;
 		case CONFIG_LINE_TYPE_KEYVALUE:
+		case CONFIG_LINE_TYPE_KEYFILE:
 			str_truncate(str, pathlen);
 			str_append(str, key);
 			str_append_c(str, '=');
 
-			if (*value != '<' || !expand_files)
+			if (type != CONFIG_LINE_TYPE_KEYFILE || !expand_files)
 				str_append(str, value);
-			else if (str_append_file(str, key, value+1, &errormsg) < 0) {
+			else if (str_append_file(str, key, value, &errormsg) < 0) {
 				/* file reading failed */
 				break;
 			}
