@@ -28,10 +28,8 @@ static void service_process_kill_idle(struct service_process *process)
 {
 	struct service *service = process->service;
 
-	if (service->process_avail <= service->set->process_min_avail ||
-	    service->process_avail == 1) {
-		/* we don't have any extra idling processes. and if there's
-		   no minimum limit, never kill the last process anyway */
+	if (service->process_avail <= service->set->process_min_avail) {
+		/* we don't have any extra idling processes anymore. */
 		timeout_remove(&process->to_idle);
 	} else {
 		if (kill(process->pid, SIGINT) < 0 && errno != ESRCH) {
@@ -79,7 +77,8 @@ static void service_status_less(struct service_process *process,
 	if (status->available_count == service->client_limit) {
 		process->idle_start = ioloop_time;
 		if (service->process_avail > service->set->process_min_avail &&
-		    process->to_idle == NULL) {
+		    process->to_idle == NULL &&
+		    service->type != SERVICE_TYPE_ANVIL) {
 			/* we have more processes than we really need.
 			   add a bit of randomness so that we don't send the
 			   signal to all of them at once */
