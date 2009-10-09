@@ -101,10 +101,10 @@ typedef int socklen_t;
 #    define strcasecmp stricmp
 #    define strncasecmp strnicmp
 #  else
-#    define strcasecmp my_strcasecmp
-#    define strncasecmp my_strncasecmp
-int my_strcasecmp(const char *s1, const char *s2);
-int my_strncasecmp(const char *s1, const char *s2, size_t max_chars);
+#    define strcasecmp i_my_strcasecmp
+#    define strncasecmp i_my_strncasecmp
+int i_my_strcasecmp(const char *s1, const char *s2);
+int i_my_strncasecmp(const char *s1, const char *s2, size_t max_chars);
 #  endif
 #endif
 
@@ -112,18 +112,18 @@ int my_strncasecmp(const char *s1, const char *s2, size_t max_chars);
 #  include <sys/socket.h>
 #  include <netinet/in.h>
 #  include <arpa/inet.h>
-#  define inet_aton my_inet_aton
-int my_inet_aton(const char *cp, struct in_addr *inp);
+#  define inet_aton i_my_inet_aton
+int i_my_inet_aton(const char *cp, struct in_addr *inp);
 #endif
 
 #ifndef HAVE_VSYSLOG
-#  define vsyslog my_vsyslog
-void my_vsyslog(int priority, const char *format, va_list args);
+#  define vsyslog i_my_vsyslog
+void i_my_vsyslog(int priority, const char *format, va_list args);
 #endif
 
 #ifndef HAVE_GETPAGESIZE
-#  define getpagesize my_getpagesize
-int my_getpagesize(void);
+#  define getpagesize i_my_getpagesize
+int i_my_getpagesize(void);
 #endif
 
 #ifndef HAVE_FDATASYNC
@@ -155,56 +155,56 @@ struct iovec {
 #endif
 
 #ifndef HAVE_WRITEV
-#  define writev my_writev
+#  define writev i_my_writev
 struct iovec;
-ssize_t my_writev(int fd, const struct iovec *iov, int iov_len);
+ssize_t i_my_writev(int fd, const struct iovec *iov, int iov_len);
 #endif
 
 #if !defined(HAVE_PREAD) || defined(PREAD_WRAPPERS) || defined(PREAD_BROKEN)
 #  ifndef IN_COMPAT_C
-#    define pread my_pread
-#    define pwrite my_pwrite
+#    define pread i_my_pread
+#    define pwrite i_my_pwrite
 #  endif
-ssize_t my_pread(int fd, void *buf, size_t count, off_t offset);
-ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset);
+ssize_t i_my_pread(int fd, void *buf, size_t count, off_t offset);
+ssize_t i_my_pwrite(int fd, const void *buf, size_t count, off_t offset);
 #endif
 
 #ifndef HAVE_SETEUID
-#  define seteuid my_seteuid
-int my_seteuid(uid_t euid);
+#  define seteuid i_my_seteuid
+int i_my_seteuid(uid_t euid);
 #endif
 
 #ifndef HAVE_SETEGID
-#  define setegid my_setegid
-int my_setegid(gid_t egid);
+#  define setegid i_my_setegid
+int i_my_setegid(gid_t egid);
 #endif
 
 #ifndef HAVE_LIBGEN_H
-#  define basename my_basename
-char *my_basename(char *path);
+#  define basename i_my_basename
+char *i_my_basename(char *path);
 #endif
 
 #ifndef HAVE_STRTOULL
-#  define strtoull my_strtoull
-unsigned long long int my_strtoull(const char *nptr, char **endptr, int base);
+#  define strtoull i_my_strtoull
+unsigned long long int i_my_strtoull(const char *nptr, char **endptr, int base);
 #endif
 #ifndef HAVE_STRTOLL
-#  define strtoll my_strtoll
-unsigned long long int my_strtoll(const char *nptr, char **endptr, int base);
+#  define strtoll i_my_strtoll
+unsigned long long int i_my_strtoll(const char *nptr, char **endptr, int base);
 #endif
 
 #ifdef HAVE_OLD_VSNPRINTF
 #  include <stdio.h>
-#  define vsnprintf my_vsnprintf
-int my_vsnprintf(char *str, size_t size, const char *format, va_list ap);
+#  define vsnprintf i_my_vsnprintf
+int i_my_vsnprintf(char *str, size_t size, const char *format, va_list ap);
 #endif
 
 #ifndef HAVE_CLOCK_GETTIME
 #  include <time.h>
 #  undef CLOCK_REALTIME
 #  define CLOCK_REALTIME 1
-#  define clock_gettime my_clock_gettime
-int my_clock_gettime(int clk_id, struct timespec *tp);
+#  define clock_gettime i_my_clock_gettime
+int i_my_clock_gettime(int clk_id, struct timespec *tp);
 #endif
 
 /* ctype.h isn't safe with signed chars,

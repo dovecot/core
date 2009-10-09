@@ -27,7 +27,7 @@
 #endif
 
 #if !defined (HAVE_STRCASECMP) && !defined (HAVE_STRICMP)
-int my_strcasecmp(const char *s1, const char *s2)
+int i_my_strcasecmp(const char *s1, const char *s2)
 {
 	while (*s1 != '\0' && i_toupper(*s1) == i_toupper(*s2)) {
 		s1++; s2++;
@@ -36,7 +36,7 @@ int my_strcasecmp(const char *s1, const char *s2)
         return i_toupper(*s1) - i_toupper(*s2);
 }
 
-int my_strncasecmp(const char *s1, const char *s2, size_t max_chars)
+int i_my_strncasecmp(const char *s1, const char *s2, size_t max_chars)
 {
 	while (max_chars > 1 && *s1 != '\0' &&
 	       i_toupper(*s1) == i_toupper(*s2)) {
@@ -48,7 +48,7 @@ int my_strncasecmp(const char *s1, const char *s2, size_t max_chars)
 #endif
 
 #ifndef HAVE_INET_ATON
-int my_inet_aton(const char *cp, struct in_addr *inp)
+int i_my_inet_aton(const char *cp, struct in_addr *inp)
 {
 	in_addr_t addr;
 
@@ -62,7 +62,7 @@ int my_inet_aton(const char *cp, struct in_addr *inp)
 #endif
 
 #ifndef HAVE_VSYSLOG
-void my_vsyslog(int priority, const char *format, va_list args)
+void i_my_vsyslog(int priority, const char *format, va_list args)
 {
 	T_BEGIN {
 		syslog(priority, "%s", t_strdup_vprintf(format, args));
@@ -71,7 +71,7 @@ void my_vsyslog(int priority, const char *format, va_list args)
 #endif
 
 #ifndef HAVE_GETPAGESIZE
-int my_getpagesize(void)
+int i_my_getpagesize(void)
 {
 #ifdef _SC_PAGESIZE
 	return sysconf(_SC_PAGESIZE);
@@ -85,7 +85,7 @@ int my_getpagesize(void)
 #endif
 
 #ifndef HAVE_WRITEV
-ssize_t my_writev(int fd, const struct iovec *iov, int iov_len)
+ssize_t i_my_writev(int fd, const struct iovec *iov, int iov_len)
 {
 	size_t written;
 	ssize_t ret;
@@ -112,7 +112,7 @@ ssize_t my_writev(int fd, const struct iovec *iov, int iov_len)
 #endif
 
 #if !defined(HAVE_PREAD) || defined(PREAD_BROKEN)
-ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
+ssize_t i_my_pread(int fd, void *buf, size_t count, off_t offset)
 {
 	ssize_t ret;
 	off_t old_offset;
@@ -133,7 +133,7 @@ ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
 	return ret;
 }
 
-ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
+ssize_t i_my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 {
 	ssize_t ret;
 	off_t old_offset;
@@ -155,19 +155,22 @@ ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 }
 #elif defined(PREAD_WRAPPERS)
 
-ssize_t my_pread(int fd, void *buf, size_t count, off_t offset)
+ssize_t i_my_pread(int fd, void *buf, size_t count, off_t offset)
 {
-	return pread(fd, buf, count, offset);
+	ssize_t ret;
+
+	ret = pread(fd, buf, count, offset);
+	return ret;
 }
 
-ssize_t my_pwrite(int fd, const void *buf, size_t count, off_t offset)
+ssize_t i_my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 {
 	return pwrite(fd, buf, count, offset);
 }
 #endif
 
 #ifndef HAVE_SETEUID
-int my_seteuid(uid_t euid)
+int i_my_seteuid(uid_t euid)
 {
 #ifdef HAVE_SETREUID
 	/* HP-UX at least doesn't have seteuid() but has setreuid() */
@@ -179,7 +182,7 @@ int my_seteuid(uid_t euid)
 #endif
 
 #ifndef HAVE_SETEGID
-int my_setegid(gid_t egid)
+int i_my_setegid(gid_t egid)
 {
 #ifdef HAVE_SETRESGID
 	/* HP-UX at least doesn't have setegid() but has setresgid() */
@@ -191,7 +194,7 @@ int my_setegid(gid_t egid)
 #endif
 
 #ifndef HAVE_LIBGEN_H
-char *my_basename(char *path)
+char *i_my_basename(char *path)
 {
 	char *p;
 
@@ -203,7 +206,7 @@ char *my_basename(char *path)
 #endif
 
 #ifndef HAVE_STRTOULL
-unsigned long long int my_strtoull(const char *nptr, char **endptr, int base)
+unsigned long long int i_my_strtoull(const char *nptr, char **endptr, int base)
 {
 #ifdef HAVE_STRTOUMAX
 	return strtoumax(nptr, endptr, base);
@@ -228,7 +231,7 @@ unsigned long long int my_strtoull(const char *nptr, char **endptr, int base)
 #endif
 
 #ifndef HAVE_STRTOLL
-unsigned long long int my_strtoll(const char *nptr, char **endptr, int base)
+unsigned long long int i_my_strtoll(const char *nptr, char **endptr, int base)
 {
 #ifdef HAVE_STRTOIMAX 
 	return strtoimax(nptr, endptr, base);
@@ -242,7 +245,7 @@ unsigned long long int my_strtoll(const char *nptr, char **endptr, int base)
 
 #ifdef HAVE_OLD_VSNPRINTF
 #undef vsnprintf
-int my_vsnprintf(char *str, size_t size, const char *format, va_list ap)
+int i_my_vsnprintf(char *str, size_t size, const char *format, va_list ap)
 {
 	size_t tmp_size;
 	char *tmp;
@@ -290,7 +293,7 @@ int my_vsnprintf(char *str, size_t size, const char *format, va_list ap)
 #endif
 
 #ifndef HAVE_CLOCK_GETTIME
-int my_clock_gettime(int clk_id, struct timespec *tp)
+int i_my_clock_gettime(int clk_id, struct timespec *tp)
 {
 	struct timeval tv;
 
