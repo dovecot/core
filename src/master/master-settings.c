@@ -169,6 +169,7 @@ static struct setting_define master_setting_defines[] = {
 	DEF(SET_ENUM, ssl),
 	DEF(SET_UINT, default_process_limit),
 	DEF(SET_UINT, default_client_limit),
+	DEF(SET_UINT, default_vsz_limit),
 
 	DEF(SET_BOOL, version_ignore),
 	DEF(SET_BOOL, mail_debug),
@@ -192,6 +193,7 @@ static struct master_settings master_default_settings = {
 	MEMBER(ssl) "yes:no:required",
 	MEMBER(default_process_limit) 100,
 	MEMBER(default_client_limit) 1000,
+	MEMBER(default_vsz_limit) 256,
 
 	MEMBER(version_ignore) FALSE,
 	MEMBER(mail_debug) FALSE,

@@ -49,6 +49,7 @@ struct master_settings {
 	const char *ssl;
 	unsigned int default_process_limit;
 	unsigned int default_client_limit;
+	unsigned int default_vsz_limit;
 
 	bool version_ignore;
 	bool mail_debug;

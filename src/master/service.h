@@ -70,6 +70,8 @@ struct service {
 
 	/* Maximum number of client connections a process can handle. */
 	unsigned int client_limit;
+	/* set->vsz_limit or set->master_set->default_client_limit */
+	unsigned int vsz_limit;
 
 	/* log process pipe file descriptors. */
 	int log_fd[2];

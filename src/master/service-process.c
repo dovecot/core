@@ -345,8 +345,8 @@ drop_privileges(struct service *service, const char *const *auth_args,
 	if (auth_args != NULL && service->set->master_set->mail_debug)
 		env_put("DEBUG=1");
 
-	if (service->set->vsz_limit != 0)
-		restrict_process_size(service->set->vsz_limit, -1U);
+	if (service->vsz_limit != 0)
+		restrict_process_size(service->vsz_limit, -1U);
 
 	restrict_access_init(&rset);
 	rset.uid = service->uid;
@@ -658,11 +658,11 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 	case FATAL_LOGERROR:
 		return "Internal logging error";
 	case FATAL_OUTOFMEM:
-		if (service->set->vsz_limit == 0)
+		if (service->vsz_limit == 0)
 			return "Out of memory";
 		return t_strdup_printf("Out of memory (vsz_limit=%u MB, "
 				       "you may need to increase it)",
-				       service->set->vsz_limit);
+				       service->vsz_limit);
 	case FATAL_EXEC:
 		return "exec() failed";
 

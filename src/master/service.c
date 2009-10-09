@@ -167,6 +167,9 @@ service_create(pool_t pool, const struct service_settings *set,
 	    service->client_limit < set->service_count)
 		service->client_limit = set->service_count;
 
+	service->vsz_limit = set->vsz_limit != 0 ? set->vsz_limit :
+		set->master_set->default_vsz_limit;
+
 	service->type = SERVICE_TYPE_UNKNOWN;
 	if (*set->type != '\0') {
 		if (strcmp(set->type, "log") == 0)
