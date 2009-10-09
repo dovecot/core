@@ -29,11 +29,17 @@ void mail_cache_set_syscall_error(struct mail_cache *cache,
 			     function, cache->filepath);
 }
 
+static void mail_cache_unlink(struct mail_cache *cache)
+{
+	if (!cache->index->readonly)
+		(void)unlink(cache->filepath);
+}
+
 void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 {
 	va_list va;
 
-	(void)unlink(cache->filepath);
+	mail_cache_unlink(cache);
 
 	/* mark the cache as unusable */
 	cache->hdr = NULL;
@@ -225,18 +231,18 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 
 	if (hdr->version != MAIL_CACHE_VERSION) {
 		/* version changed - upgrade silently */
-		(void)unlink(cache->filepath);
+		mail_cache_unlink(cache);
 		return FALSE;
 	}
 	if (hdr->compat_sizeof_uoff_t != sizeof(uoff_t)) {
 		/* architecture change - handle silently(?) */
-		(void)unlink(cache->filepath);
+		mail_cache_unlink(cache);
 		return FALSE;
 	}
 
 	if (hdr->indexid != cache->index->indexid) {
 		/* index id changed - handle silently */
-		(void)unlink(cache->filepath);
+		mail_cache_unlink(cache);
 		return FALSE;
 	}
 	if (hdr->file_seq == 0) {

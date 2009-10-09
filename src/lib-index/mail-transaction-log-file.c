@@ -31,7 +31,8 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 
 	file->corrupted = TRUE;
 	file->hdr.indexid = 0;
-	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
+	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) &&
+	    !file->log->index->readonly) {
 		/* indexid=0 marks the log file as corrupted */
 		unsigned int offset =
 			offsetof(struct mail_transaction_log_header, indexid);
@@ -354,8 +355,7 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 static ssize_t
 mail_transaction_log_file_read_header(struct mail_transaction_log_file *file)
 {
-	ssize_t pos;
-	int ret;
+	ssize_t pos, ret;
 
 	memset(&file->hdr, 0, sizeof(file->hdr));
 
@@ -643,6 +643,13 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 
+	if (file->log->index->readonly) {
+		mail_index_set_error(index,
+			"Can't create log file %s: Index is read-only",
+			file->filepath);
+		return -1;
+	}
+
 	/* With dotlocking we might already have path.lock created, so this
 	   filename has to be different. */
 	old_mask = umask(index->mode ^ 0666);
@@ -697,7 +704,10 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
 
 		if (ret == 0) {
 			/* corrupted */
-			if (unlink(file->filepath) < 0 && errno != ENOENT) {
+			if (file->log->index->readonly) {
+				/* don't delete */
+			} else if (unlink(file->filepath) < 0 &&
+				   errno != ENOENT) {
 				mail_index_set_error(file->log->index,
 						     "unlink(%s) failed: %m",
 						     file->filepath);

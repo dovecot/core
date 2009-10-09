@@ -580,7 +580,7 @@ int mail_index_unlink(struct mail_index *index)
 	const char *path;
 	int last_errno = 0;
 
-	if (MAIL_INDEX_IS_IN_MEMORY(index))
+	if (MAIL_INDEX_IS_IN_MEMORY(index) || index->readonly)
 		return 0;
 
 	/* main index */
@@ -737,8 +737,11 @@ void mail_index_mark_corrupted(struct mail_index *index)
 	index->indexid = 0;
 
 	index->map->hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
-	if (unlink(index->filepath) < 0 && errno != ENOENT && errno != ESTALE)
-		mail_index_set_syscall_error(index, "unlink()");
+	if (!index->readonly) {
+		if (unlink(index->filepath) < 0 &&
+		    errno != ENOENT && errno != ESTALE)
+			mail_index_set_syscall_error(index, "unlink()");
+	}
 }
 
 void mail_index_fchown(struct mail_index *index, int fd, const char *path)

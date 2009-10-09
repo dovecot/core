@@ -433,7 +433,7 @@ int mail_index_map(struct mail_index *index,
 				ret = mail_index_sync_map(&index->map, type,
 							  TRUE);
 			}
-		} else if (ret == 0) {
+		} else if (ret == 0 && index->readonly) {
 			/* make sure we don't try to open the file again */
 			if (unlink(index->filepath) < 0 && errno != ENOENT)
 				mail_index_set_syscall_error(index, "unlink()");

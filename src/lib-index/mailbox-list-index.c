@@ -88,7 +88,8 @@ void mailbox_list_index_file_close(struct mailbox_list_index *index)
 int mailbox_list_index_set_corrupted(struct mailbox_list_index *index,
 				     const char *str)
 {
-	(void)unlink(index->filepath);
+	if (!index->mail_index->readonly)
+		(void)unlink(index->filepath);
 	mailbox_list_index_file_close(index);
 
 	i_error("Corrupted mailbox list index file %s: %s",

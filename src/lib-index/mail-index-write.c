@@ -188,7 +188,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 
 	i_assert(index->log_locked);
 
-	if (!mail_index_map_has_changed(map))
+	if (!mail_index_map_has_changed(map) || index->readonly)
 		return;
 
 	if (hdr->base_header_size < sizeof(*hdr)) {
