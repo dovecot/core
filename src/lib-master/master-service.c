@@ -475,6 +475,15 @@ void master_service_client_connection_destroyed(struct master_service *service)
 	}
 }
 
+static void master_service_close_config_fd(struct master_service *service)
+{
+	if (service->config_fd != -1) {
+		if (close(service->config_fd) < 0)
+			i_error("close(master config fd) failed: %m");
+		service->config_fd = -1;
+	}
+}
+
 void master_service_deinit(struct master_service **_service)
 {
 	struct master_service *service = *_service;
@@ -483,6 +492,7 @@ void master_service_deinit(struct master_service **_service)
 
 	io_listeners_remove(service);
 
+	master_service_close_config_fd(service);
 	if (service->io_status_error != NULL)
 		io_remove(&service->io_status_error);
 	if (service->io_status_write != NULL)
@@ -549,7 +559,13 @@ static void master_service_listen(struct master_service_listener *l)
 	service->master_status.available_count--;
         master_status_update(service);
 
-        service->callback(&conn);
+	service->callback(&conn);
+
+	if (service->master_status.available_count == 0 &&
+	    service->service_count_left == 1) {
+		/* we're dying as soon as this connection closes. */
+		master_service_close_config_fd(service);
+	}
 }
 
 static void io_listeners_init(struct master_service *service)
