@@ -16,6 +16,7 @@
 #include "service.h"
 #include "service-listen.h"
 #include "service-monitor.h"
+#include "service-process.h"
 #include "service-log.h"
 
 #include <stdio.h>
@@ -330,6 +331,16 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	/* see if hostname changed */
 	hostpid_init();
+
+	if (services->config->process_avail == 0) {
+		/* we can't reload config if there's no config process. */
+		if (service_process_create(services->config,
+					   NULL, NULL) == NULL) {
+			i_error("Can't reload configuration because "
+				"we couldn't create a config process");
+			return;
+		}
+	}
 
 	memset(&input, 0, sizeof(input));
 	input.roots = set_roots;
