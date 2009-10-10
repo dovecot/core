@@ -12,10 +12,12 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #include <sys/stat.h>
 
 #define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
 
+#define CONFIG_READ_TIMEOUT_SECS 10
 #define CONFIG_HANDSHAKE "VERSION\tconfig\t1\t0\n"
 
 #undef DEF
@@ -184,10 +186,11 @@ int master_service_settings_read(struct master_service *service,
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
 	struct istream *istream;
-	const char *path, *error, *env, *const *keys;
+	const char *path = NULL, *error, *env, *const *keys;
 	void **sets;
 	unsigned int i;
 	int ret, fd = -1;
+	time_t now, timeout;
 
 	if (getenv("DOVECONF_ENV") == NULL && !service->default_settings) {
 		path = input->config_path != NULL ? input->config_path :
@@ -225,12 +228,26 @@ int master_service_settings_read(struct master_service *service,
 
 	if (fd != -1) {
 		istream = i_stream_create_fd(fd, (size_t)-1, FALSE);
-		istream->blocking = TRUE; /* fd is blocking */
-		ret = settings_parse_stream_read(parser, istream);
+		now = time(NULL);
+		timeout = now + CONFIG_READ_TIMEOUT_SECS;
+		do {
+			alarm(timeout - now);
+			ret = settings_parse_stream_read(parser, istream);
+			alarm(0);
+			if (ret <= 0)
+				break;
+
+			/* most likely timed out, but just in case some other
+			   signal was delivered early check if we need to
+			   continue */
+			now = time(NULL);
+		} while (now < timeout);
 		i_stream_unref(&istream);
-		i_assert(ret <= 0);
-		if (ret < 0) {
-			*error_r = settings_parser_get_error(parser);
+
+		if (ret != 0) {
+			*error_r = ret > 0 ? t_strdup_printf(
+				"Timeout reading config from %s", path) :
+				settings_parser_get_error(parser);
 			(void)close(fd);
 			return -1;
 		}
