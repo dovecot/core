@@ -148,7 +148,7 @@ void imap_fetch_add_handler(struct imap_fetch_context *ctx,
 
 static void
 expunges_drop_known(struct imap_fetch_context *ctx, struct mail *mail,
-		    ARRAY_TYPE(seq_range) *expunges)
+		    ARRAY_TYPE(seq_range) *expunged_uids)
 {
 	const uint32_t *seqs, *uids;
 	unsigned int i, count;
@@ -165,34 +165,34 @@ expunges_drop_known(struct imap_fetch_context *ctx, struct mail *mail,
 			break;
 	}
 	if (i > 0)
-		seq_range_array_remove_range(expunges, 1, uids[i-1]);
+		seq_range_array_remove_range(expunged_uids, 1, uids[i-1]);
 }
 
 static int get_expunges_fallback(struct imap_fetch_context *ctx,
-				 const ARRAY_TYPE(seq_range) *uids,
-				 ARRAY_TYPE(seq_range) *expunges)
+				 const ARRAY_TYPE(seq_range) *uid_filter_arr,
+				 ARRAY_TYPE(seq_range) *expunged_uids)
 {
 	struct mailbox_transaction_context *trans;
 	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
-	const struct seq_range *uid_range;
+	const struct seq_range *uid_filter;
 	struct mailbox_status status;
 	unsigned int i, count;
 	uint32_t next_uid;
 	int ret = 0;
 
-	uid_range = array_get(uids, &count);
+	uid_filter = array_get(uid_filter_arr, &count);
 	i_assert(count > 0);
 	i = 0;
-	next_uid = uid_range[0].seq1;
+	next_uid = uid_filter[0].seq1;
 
-	/* search UIDs in given range */
+	/* search UIDs only in given range */
 	search_args = mail_search_build_init();
 	search_args->args = p_new(search_args->pool, struct mail_search_arg, 1);
 	search_args->args->type = SEARCH_UIDSET;
-	i_array_init(&search_args->args->value.seqset, array_count(uids));
-	array_append_array(&search_args->args->value.seqset, uids);
+	i_array_init(&search_args->args->value.seqset, count);
+	array_append_array(&search_args->args->value.seqset, uid_filter_arr);
 
 	trans = mailbox_transaction_begin(ctx->box, 0);
 	mail = mail_alloc(trans, 0, NULL);
@@ -201,52 +201,55 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 
 	while (mailbox_search_next(search_ctx, mail) > 0) {
 		if (mail->uid == next_uid) {
-			if (next_uid < uid_range[i].seq2)
+			if (next_uid < uid_filter[i].seq2)
 				next_uid++;
 			else if (++i < count)
-				next_uid = uid_range[++i].seq1;
+				next_uid = uid_filter[++i].seq1;
 			else
 				break;
 		} else {
 			/* next_uid .. mail->uid-1 are expunged */
 			i_assert(mail->uid > next_uid);
-			while (mail->uid > uid_range[i].seq2) {
-				seq_range_array_add_range(expunges, next_uid,
-							  uid_range[i].seq2);
+			while (mail->uid > uid_filter[i].seq2) {
+				seq_range_array_add_range(expunged_uids,
+							  next_uid,
+							  uid_filter[i].seq2);
 				i++;
 				i_assert(i < count);
-				next_uid = uid_range[i].seq1;
+				next_uid = uid_filter[i].seq1;
 			}
 			if (next_uid != mail->uid) {
-				seq_range_array_add_range(expunges, next_uid,
+				seq_range_array_add_range(expunged_uids,
+							  next_uid,
 							  mail->uid - 1);
 			}
-			if (uid_range[i].seq2 == mail->uid)
-				next_uid = uid_range[++i].seq1;
+			if (uid_filter[i].seq2 == mail->uid)
+				next_uid = uid_filter[++i].seq1;
 			else
 				next_uid = mail->uid + 1;
 		}
 	}
 	if (i < count) {
-		i_assert(next_uid <= uid_range[i].seq2);
-		seq_range_array_add_range(expunges, next_uid,
-					  uid_range[i].seq2);
+		i_assert(next_uid <= uid_filter[i].seq2);
+		seq_range_array_add_range(expunged_uids, next_uid,
+					  uid_filter[i].seq2);
 		i++;
 	}
 	for (; i < count; i++) {
-		seq_range_array_add_range(expunges, uid_range[i].seq1,
-					  uid_range[i].seq2);
+		seq_range_array_add_range(expunged_uids, uid_filter[i].seq1,
+					  uid_filter[i].seq2);
 	}
 
 	mailbox_get_status(ctx->box, STATUS_UIDNEXT, &status);
-	seq_range_array_remove_range(expunges, status.uidnext, (uint32_t)-1);
+	seq_range_array_remove_range(expunged_uids, status.uidnext,
+				     (uint32_t)-1);
 
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
 
 	if (ret == 0 && ctx->qresync_sample_seqset != NULL &&
 	    array_is_created(ctx->qresync_sample_seqset))
-		expunges_drop_known(ctx, mail, expunges);
+		expunges_drop_known(ctx, mail, expunged_uids);
 
 	mail_free(&mail);
 	(void)mailbox_transaction_commit(&trans);
@@ -268,34 +271,35 @@ imap_fetch_send_vanished(struct imap_fetch_context *ctx)
 {
 	const struct mail_search_arg *uidarg = ctx->search_args->args;
 	const struct mail_search_arg *modseqarg = uidarg->next;
-	const ARRAY_TYPE(seq_range) *uids = &uidarg->value.seqset;
+	const ARRAY_TYPE(seq_range) *uid_filter = &uidarg->value.seqset;
 	uint64_t modseq = modseqarg->value.modseq->modseq - 1;
-	ARRAY_TYPE(mailbox_expunge_rec) expunges;
-	ARRAY_TYPE(seq_range) expunges_range;
+	ARRAY_TYPE(mailbox_expunge_rec) expunged_uids;
+	ARRAY_TYPE(seq_range) expunged_uids_range;
 	string_t *str;
 	int ret = 0;
 
-	i_array_init(&expunges, array_count(uids));
-	i_array_init(&expunges_range, array_count(uids));
-	if (mailbox_get_expunges(ctx->box, modseq, uids, &expunges))
-		mailbox_expunge_to_range(&expunges, &expunges_range);
+	i_array_init(&expunged_uids, array_count(uid_filter));
+	i_array_init(&expunged_uids_range, array_count(uid_filter));
+	if (mailbox_get_expunges(ctx->box, modseq, uid_filter, &expunged_uids))
+		mailbox_expunge_to_range(&expunged_uids, &expunged_uids_range);
 	else {
 		/* return all expunged UIDs */
-		if (get_expunges_fallback(ctx, uids, &expunges_range) < 0) {
-			array_clear(&expunges_range);
+		if (get_expunges_fallback(ctx, uid_filter,
+					  &expunged_uids_range) < 0) {
+			array_clear(&expunged_uids_range);
 			ret = -1;
 		}
 	}
-	if (array_count(&expunges_range) > 0) {
+	if (array_count(&expunged_uids_range) > 0) {
 		str = str_new(default_pool, 128);
 		str_append(str, "* VANISHED (EARLIER) ");
-		imap_write_seq_range(str, &expunges_range);
+		imap_write_seq_range(str, &expunged_uids_range);
 		str_append(str, "\r\n");
 		o_stream_send(ctx->client->output, str_data(str), str_len(str));
 		str_free(&str);
 	}
-	array_free(&expunges);
-	array_free(&expunges_range);
+	array_free(&expunged_uids);
+	array_free(&expunged_uids_range);
 	return ret;
 }
 
