@@ -204,7 +204,7 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 			if (next_uid < uid_filter[i].seq2)
 				next_uid++;
 			else if (++i < count)
-				next_uid = uid_filter[++i].seq1;
+				next_uid = uid_filter[i].seq1;
 			else
 				break;
 		} else {
