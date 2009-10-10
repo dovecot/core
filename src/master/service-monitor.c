@@ -296,8 +296,6 @@ void services_monitor_start(struct service_list *service_list)
 
 	if (service_process_create(service_list->log, NULL, NULL) != NULL)
 		service_monitor_listen_stop(service_list->log);
-	if (service_process_create(service_list->config, NULL, NULL) != NULL)
-		service_monitor_listen_stop(service_list->config);
 }
 
 void service_monitor_stop(struct service *service)
